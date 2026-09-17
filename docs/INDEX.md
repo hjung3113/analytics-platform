@@ -9,8 +9,9 @@
 | 전체 / 기획(PM) | `00_overview.md` | `02_domain_menus.md`, `05_roadmap_and_open_questions.md` |
 | 기획(PM) — 메뉴/로드맵 확정 | `02_domain_menus.md` | `05_roadmap_and_open_questions.md` |
 | 백엔드/인프라 | `01_architecture_and_data_contract.md` | `03_backend_stack.md` |
-| 프론트엔드 | `04_frontend_ui_ux.md` | `02_domain_menus.md` (딥링크·필터가 걸리는 메뉴 구조) |
-| 신규 합류자 | `00_overview.md` → 자기 역할 문서 순서로 | — |
+| 플랫폼/프론트엔드 | `06_saas_design.md` | `04_frontend_ui_ux.md`, `02_domain_menus.md` |
+| 개별 프론트엔드 메뉴 구현 | `04_frontend_ui_ux.md` | `06_saas_design.md` (플랫폼 Shell/Context/확장 계약), `02_domain_menus.md` |
+| 신규 합류자 | `00_overview.md` → `06_saas_design.md` → 자기 역할 문서 순서로 | — |
 
 ## 문서 목록
 
@@ -20,7 +21,10 @@
 - `03_backend_stack.md` — 백엔드/DB/인증/마이그레이션 기술 스택, 재현성·시간 계약
 - `04_frontend_ui_ux.md` — 프론트 기술 스택, UI/UX 리서치(상용 SaaS 참고), 정보구조, 딥링크, 페이지별 UI 패턴, 차트/주석 설계
 - `05_roadmap_and_open_questions.md` — Phase 0~4 로드맵, Open Questions
+- `06_saas_design.md` — 플랫폼 우선 SaaS 디자인 계약: Platform Kernel, Menu Registry, Context Capability, Shell Slot, Page Archetype, Shared Component 승격 기준, Data Trust/권한/상태 UX, canonical wireframe
 
 ## 원본
 
-이 문서들은 Claude Docs에서 진행된 설계 세션(1차 리뷰: grok-4.6/gpt-6-astra/glm-5.3-flash, UI/UX 리서치: codex gpt-5.6-luna, 2차 리뷰: grok-4.6/gpt-6-astra/glm-5.3-flash)의 최종 산출물을 역할별로 분리해 옮긴 것이다. 원본 통합 문서: https://claude.ai/code/artifact/005e792f-7bda-4f27-b9fd-e89b4474fead
+`00`~`05` 문서는 Claude Docs에서 진행된 설계 세션(1차 리뷰: grok-4.6/gpt-6-astra/glm-5.3-flash, UI/UX 리서치: codex gpt-5.6-luna, 2차 리뷰: grok-4.6/gpt-6-astra/glm-5.3-flash)의 최종 산출물을 역할별로 분리해 옮긴 것이다. 원본 통합 문서: https://claude.ai/code/artifact/005e792f-7bda-4f27-b9fd-e89b4474fead
+
+`06_saas_design.md`는 위 설계들을 플랫폼 개발 관점으로 통합해, 개별 메뉴가 공통 Shell/Context/확장 계약 위에 올라가도록 정의한 구현 전 Design Contract다.
