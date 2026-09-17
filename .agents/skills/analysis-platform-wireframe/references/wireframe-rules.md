@@ -2,7 +2,7 @@
 
 Loaded by `analysis-platform-wireframe` before Step 2 of the pipeline. This file holds the templates and the platform's opinions on density/tables/charts — it does not do visual design (that's `interface-design` + `frontend-design`'s job).
 
-**Scope reminder (see root `CLAUDE.md`):** this project's goal is the platform core — global filter context, deep-link protocol, menu registry, metric governance, permissions, audit — not an exhaustive set of domain screens. When designing any individual screen, check first whether it correctly reuses the platform-common contracts before polishing the screen itself.
+**Scope reminder (see root `AGENTS.md`):** this project's goal is the platform core — global filter context, deep-link protocol, menu registry, metric governance, permissions, audit — not an exhaustive set of domain screens. When designing any individual screen, check first whether it correctly reuses the platform-common contracts before polishing the screen itself.
 
 ## Step 1 — Product Context (answer before anything else)
 
@@ -18,23 +18,7 @@ Loaded by `analysis-platform-wireframe` before Step 2 of the pipeline. This file
 
 Global navigation → workspace hierarchy → pages → sub-pages → entity/detail relationships → cross-page navigation. No JSX/HTML yet — produce a short tree.
 
-Example shape:
-
-```
-Analysis Platform
-├── Overview
-├── Explorer
-│   ├── Query
-│   ├── Result
-│   └── Saved Views
-├── Systems
-│   └── System Detail
-├── Issues
-│   └── Issue Detail
-└── Settings
-```
-
-For this project, the top level is the 7-group navigation confirmed in `docs/06_saas_design.md` §31 and `docs/07_app_shell_wireframe.md` §2 — Overview(운영 개요) / Equipment(설비관리) / Master Data(기준정보관리) / Analytics(생산성 분석) / Metrics(지표관리) / Notice & VOC(공지·VOC) / Admin(관리·감사). The six domain menus from `docs/02_domain_menus.md` map into these groups (Notice and VOC share one nav group but stay separate domain models) plus two platform-level groups (Overview, Admin). A new screen almost always nests under one of these seven rather than introducing a new top-level entry.
+Use `docs/06_platform_ui_contract.md` §9 as the sole navigation IA source. `docs/02_domain_menus.md` is a domain capability catalog, not a competing navigation tree. `docs/07_app_shell_wireframe.md` illustrates the contract; this skill must not redefine or approve IA.
 
 ## Step 3 — Screen Specification
 
@@ -101,9 +85,9 @@ These principles override `ui-ux-pro-max`'s general pattern suggestions and `fro
 
 ## Design System stage — `DESIGN.md` sourcing
 
-When Step 5 runs:
+Only after a separate implementation request opens Step 5:
 
-1. Optionally pull 1–3 references from `.claude/references/design-md/` (74 brand folders from awesome-design-md). For this project, prefer developer-tool / observability / data-platform / enterprise-SaaS entries over consumer ones. Reasonable candidates already in the folder: `linear.app`, `sentry`, `clickhouse`, `posthog`, `mongodb`, `hashicorp`, `ibm`, `supabase`, `cursor`.
+1. Optionally pull 1–3 references from `.agents/references/design-md/` (74 brand folders from awesome-design-md). For this project, prefer developer-tool / observability / data-platform / enterprise-SaaS entries over consumer ones. Reasonable candidates already in the folder: `linear.app`, `sentry`, `clickhouse`, `posthog`, `mongodb`, `hashicorp`, `ibm`, `supabase`, `cursor`.
 2. Extract only specific principles (density, navigation pattern, typography, spacing, table treatment, surface hierarchy) — never copy a brand's `DESIGN.md` wholesale into this project.
 3. Combine with `ui-ux-pro-max` (pattern/chart/color/type intelligence) and `interface-design` (enterprise density/hierarchy/spacing/consistency rules) to write this project's own `DESIGN.md` at the repo root.
 4. Once `DESIGN.md` exists, treat it as the source of truth — later screens conform to it instead of re-deriving tokens.
@@ -112,4 +96,4 @@ When Step 5 runs:
 
 Before implementation: USER TASK, IA, SCREEN INVENTORY, WIREFRAME, COMPONENT MAP, DATA REQUIREMENTS, INTERACTION RULES, DESIGN DECISIONS.
 
-After implementation: UX REVIEW, OPEN QUESTIONS / RISKS.
+At the design stopping point: document-level UX REVIEW, OPEN QUESTIONS / RISKS, with Decided / Candidate / Open / Deferred status. Runtime UX review follows only if implementation is requested.
