@@ -1,8 +1,19 @@
-# 06. SaaS Design System & Platform UI Contract
+# 06. Platform UI Contract
 
 > Status: Draft  
 > Scope: Analytics Platform UI / Platform Shell / Extension Contract  
 > Related: `00_overview.md`, `02_domain_menus.md`, `04_frontend_ui_ux.md`, `05_roadmap_and_open_questions.md`
+
+## 문서 소유권과 결정 상태
+
+이 문서는 플랫폼 전역 UX / Scope / Context / URL / Menu Extension / Shell Slot / navigation IA의 단일 authoritative source다. `02_domain_menus.md`는 도메인 capability catalog, `04_frontend_ui_ux.md`는 구현 후보·리서치·화면 패턴, `05_roadmap_and_open_questions.md`는 결정 상태·미결 질문 및 Deferred 구현 가설, `07_app_shell_wireframe.md`는 이 계약을 소비하는 셸 설계다. 외부 디자인 참고자료와 에이전트 스킬은 제품 계약의 근거가 아니다.
+
+- **Decided**: 플랫폼 책임 경계와 명시적인 계약 규칙. 구현 완료를 뜻하지 않는다.
+- **Candidate**: 배치·치수·토큰·페이지 예시. 독립 초안끼리 일치해도 승인으로 간주하지 않는다.
+- **Open**: 아래에 미결로 기록한 URL 세부 정책·Scope 계층·시간 의미 등.
+- **Deferred**: 저장된 뷰 등 후속 구현 범위. 이 설계가 기능 제공 시점을 확정하지 않는다.
+
+§5~6, §8~9, §11, §17, §19의 책임·행동 규칙은 Decided다. 화면 배치와 시각 토큰(§7, §23, §25, §31)은 Candidate다. 구현 일정은 아직 확정하지 않았으며 `05_roadmap_and_open_questions.md`의 Phase 표는 non-authoritative 가설이다.
 
 ## 1. 문서 목적
 
@@ -20,7 +31,7 @@
 
 개별 메뉴는 플랫폼을 검증하는 대표 Consumer다. 첫 분석 화면이나 설비관리 화면을 잘 만드는 것 자체가 성공 기준이 아니라, 그 과정에서 만든 계약을 두 번째·세 번째 메뉴가 재사용할 수 있어야 한다.
 
-단, 플랫폼을 목표로 한다는 이유만으로 처음부터 범용 위젯 엔진·외부 플러그인 SDK·저코드 빌더를 만들지는 않는다. `05_roadmap_and_open_questions.md`의 Phase 4 원칙대로 **실제 메뉴 2~3개에서 반복이 확인된 책임만 플랫폼 기능으로 승격**한다.
+단, 플랫폼을 목표로 한다는 이유만으로 처음부터 범용 위젯 엔진·외부 플러그인 SDK·저코드 빌더를 만들지는 않는다. **실제 메뉴 2~3개에서 반복이 확인된 책임만 플랫폼 기능으로 승격**한다.
 
 ---
 
@@ -127,39 +138,17 @@ Domain logic이 Kernel로 역류하지 않도록 한다.
 
 초기에는 외부 설치형 플러그인이 아니라 **코드 내부 선언형 Menu Registry**로 시작한다.
 
-개념적 manifest:
+메뉴가 선언하는 개념적 정보(Decided):
 
-```ts
-interface MenuManifest {
-  id: string
-  group: string
-  title: string
-  route: string
-  icon?: string
+| 정보 | 책임 |
+| --- | --- |
+| 식별자·그룹·이름·경로·아이콘 | 메뉴 탐색과 현재 위치 표시 |
+| 필요한 권한·Scope | 플랫폼의 노출 판단과 서버의 접근 검증 |
+| 지원 Context | 기간·설비·Lot·공정·지표 버전의 지원 여부 명시 |
+| 페이지 유형 | overview / analysis / management / catalog / workflow |
+| 선택 기능 | 내보내기·저장된 뷰·주석·비교 지원 여부 |
 
-  requiredPermissions: string[]
-  requiredScopes?: string[]
-
-  supportedContext: {
-    timeRange?: boolean
-    equipment?: boolean
-    lot?: boolean
-    process?: boolean
-    metricVersion?: boolean
-  }
-
-  pageType: 'overview' | 'analysis' | 'management' | 'catalog' | 'workflow'
-
-  capabilities?: {
-    export?: boolean
-    savedView?: boolean
-    annotation?: boolean
-    compare?: boolean
-  }
-}
-```
-
-정확한 TypeScript API는 구현 시 변경할 수 있지만 **메뉴가 자신의 기능을 선언하고 Shell이 이를 소비하는 방향**은 유지한다.
+메뉴가 선언하고 Shell이 소비한다. 필드명·TypeScript 타입·등록 방식은 구현 설계에서 구체화한다.
 
 ### 금지
 
@@ -212,7 +201,35 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 3. **Visualization State** — Zoom / Brush / Series visibility
 4. **Persistent Annotation** — 저장되는 도메인 객체
 
-`04_frontend_ui_ux.md`의 URL/deep-link 계약이 상세 규칙의 authoritative source다.
+### 6.1 식별자와 URL 소유 상태 (Decided)
+
+- 목적지 객체 식별자와 전달하는 분석 Context를 분리한다. `(equipmentId, entityType, anchor)`는 **occurrence 전용 식별키**다. `lotId` 같은 업무 ID는 occurrence 검색 보조이며 anchor 없는 occurrence 조인에 쓰지 않는다.
+- 설비 마스터는 `equipment_id`만으로 열 수 있다. VOC는 `vocId`, 지표는 `metricId`와 `metricVersion`으로 식별한다. 도메인 객체에 occurrence 키를 강제하지 않는다. DB 이름과 URL 직렬화 이름의 매핑은 Open이다.
+- URL은 요청한 `scopeId`, `from`/`to`, `equipmentIds`, `lotIds`, `metricVersion`, 해당 화면의 탭/저장된 조회조건 식별자 및 해당하는 경우 occurrence anchor를 소유한다. 객체 ID는 목적지 경로/계약에 따라 별도로 전달한다.
+- 딥링크 왕복은 조회조건과 지표 버전을 재현한다. 지연 완료·마스터 정정으로 숫자는 달라질 수 있으므로 결과에는 계산 기준시각을 표시한다.
+- 단순 차트 줌은 로컬 상태다. Brush 후 명시적인 분석 구간 적용만 전역 Context/URL로 전달한다.
+- 미지원 Context는 조용히 버리지 않고 적용되지 않음을 표시한다. 보존·재적용 방식은 §6.4의 Open 결정으로 남긴다.
+- `savedViewToken`은 긴 URL을 대체할 후보 계약으로 예약한다(Deferred). 저장된 뷰 구현 전에는 토큰 생성이나 비활성 버튼을 셸 필수 요소로 두지 않는다.
+
+### 6.2 Scope와 권한 (Decided / Open)
+
+- Scope는 사용자가 요청하는 조직·데이터 접근 범위다. `scopeId`는 URL에 담지만 권한 증명이 아니다. 서버는 **매 요청마다** 사용자 권한과 요청 Scope를 재검증한다.
+- 접근할 수 없는 Scope는 명시적 오류/선택 상태로 처리하며 다른 Scope로 조용히 대체하지 않는다. 같은 URL이 다른 사용자에게 같은 접근 권한을 부여하지 않는다.
+- 세션·최근방문 값은 미검증 후보이며, 재적용 전에 현재 Scope에서 설비·Lot 선택과 권한의 유효성을 다시 검증한다.
+- 구체 계층(사이트 → 공장 → 라인), 부모·자식 상속, 복수 Scope 선택, 설비 소속 규칙은 **Open domain decision**이다. 셸은 고정 3단 선택기를 계약으로 요구하지 않는다.
+
+### 6.3 시간 계약 (Decided / Open)
+
+기간은 파서 원본과 같은 시간대 없는 설비 wall-clock으로 전달하며 임의로 UTC로 변환하지 않는다. 시간의 원천 의미는 `03_backend_stack.md`를 따른다. 구간 포함/제외 경계, 원천 시간대 미확인 시 처리, 다중 사업장의 같은 날짜 의미, 날짜만 선택한 경우 시각 해석은 Open이다. 확정 전에는 서로 다른 사업장 시각을 동일 축으로 합친 조회를 보장하지 않는다.
+
+### 6.4 아직 열려 있는 URL 결정
+
+- URL과 세션/최근방문 값의 충돌 시 우선순위와 누락값 처리
+- URL 계약 버전, 폐기된 필드, 잘못된 값 처리 및 객체 ID 직렬화
+- 뒤로가기 복원 범위와 미지원 Context 보존·재적용 방식
+- 복수 Scope와 시간 계약이 해결되기 전 허용할 조회 범위
+
+이 결정들을 확정하기 전에는 완성된 URL API나 프로토타입 검증을 주장하지 않는다.
 
 ---
 
@@ -222,13 +239,13 @@ Desktop-first를 기본으로 한다.
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────┐
-│ Product / Workspace     Site ▼    Search ⌘K        Help   User      │
+│ Product / Workspace     Scope ▼    Search ⌘K        Help   User      │
 ├──────────────┬──────────────────────────────────────────────────────┤
 │              │ Breadcrumb                                           │
 │ Overview     │ Page Title                             Page Actions    │
 │              ├──────────────────────────────────────────────────────┤
 │ Equipment    │ Global Context Bar                                  │
-│ Master Data  │ [Date] [Equipment] [Lot] [Scope]      Save View     │
+│ Master Data  │ [Date] [Equipment] [Lot]                            │
 │ Analytics    ├──────────────────────────────────────────────────────┤
 │ Metrics      │                                                      │
 │ Notice/VOC   │                   Page Content                       │
@@ -238,6 +255,8 @@ Desktop-first를 기본으로 한다.
 │ Data status / calculation basis / coverage                         │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+Scope는 개념적으로 Global Context에 포함되지만 이 Candidate 배치에서는 헤더에만 선택기를 둔다. Context Bar에 두 번째 Scope 선택기를 만들지 않는다. 구체 셸 설계는 `07_app_shell_wireframe.md`를 따른다.
 
 ### 권장 Baseline
 
@@ -302,7 +321,7 @@ Notice & VOC
 Administration
 ```
 
-정확한 그룹 명칭은 `02_domain_menus.md`와 최종 통일해야 한다.
+이 7그룹을 navigation IA의 단일 기준으로 둔다(Decided). 표시명은 운영 개요 / 설비관리 / 기준정보관리 / 생산성 분석 / 지표관리 / 공지·VOC / 관리·감사다. `02_domain_menus.md`의 6개 도메인 중 공지와 VOC가 한 그룹을 공유하고, 운영 개요·관리·감사는 플랫폼 기능이다. 도메인 개수와 내비게이션 그룹 개수를 같게 맞출 필요는 없다. 하위 화면 배치와 표시명 변경은 별도 설계 결정이다.
 
 Sidebar 기능:
 
@@ -334,7 +353,7 @@ Open saved view
 Create VOC from current context
 ```
 
-Phase 1에서는 메뉴 이동 중심으로 시작하고, Entity Search나 Action Command는 실제 수요가 확인될 때 확장한다.
+메뉴 이동을 기본 책임으로 둔다. Entity Search와 Action Command는 수요 검증 후 채택할 Deferred 후보이며 구현 시점은 정하지 않는다.
 
 ---
 
@@ -345,7 +364,7 @@ Phase 1에서는 메뉴 이동 중심으로 시작하고, Entity Search나 Actio
 ```text
 ┌────────────────────────────────────────────────────────────────────┐
 │ Sep 01–17 × │ EQP-001 +3 × │ Lot: All │ + Filter │                │
-│                                             Reset    Save View      │
+│                                             Reset                   │
 └────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -364,7 +383,7 @@ Phase 1에서는 메뉴 이동 중심으로 시작하고, Entity Search나 Actio
 - 사용자가 명시적으로 바꾼 값만 전역 상태를 변경한다.
 - 단순 Chart Zoom은 Global Context를 변경하지 않는다.
 - Brush 후 `Analyze selected range` 같은 명시적 Action이 있어야 Global Context로 승격한다.
-- Scope 변경 시 이전 Scope의 데이터는 stale-while-revalidate로 유지하지 않는다.
+- Scope·설비·기간 등 Context가 바뀌면 이전 결과를 새 조건의 결과처럼 표시하지 않는다. 이전 요청이 늦게 완료돼도 새 Context 결과로 채택하지 않는다. 동일 Context 재조회에서만 이전 결과와 갱신 중 표시를 함께 유지할 수 있다. 권한 변경/Scope 전환에서는 이전 결과를 숨기고 현재 권한을 재검증한다.
 - 지원하지 않는 Context는 명시적으로 표시한다.
 
 ---
@@ -520,7 +539,7 @@ Domain Component를 억지로 Platform Component로 승격하지 않는다.
 
 아래 규칙을 기본값으로 한다.
 
-### 바로 Platform Component로 만든다
+### 플랫폼이 소유하는 책임 (구현 시점과 별개)
 
 플랫폼 계약에 해당하는 것:
 
@@ -529,7 +548,7 @@ Domain Component를 억지로 Platform Component로 승격하지 않는다.
 - Global Context
 - Permission Guard
 - Data Trust
-- Saved View Entry
+- Saved View Entry (기능 채택 시; 현재 Deferred)
 - Error / Empty / Loading
 
 ### 2개 이상 메뉴에서 확인 후 공통화
@@ -539,7 +558,7 @@ Domain Component를 억지로 Platform Component로 승격하지 않는다.
 - Analysis Drill-down 패턴
 - Detail Summary Layout
 
-### 3개 이상 반복 또는 Phase 4까지 기다린다
+### 반복 수요 검증 전까지 Deferred로 둔다
 
 - 자유 배치 Widget Framework
 - Dashboard Builder
@@ -732,6 +751,9 @@ Unknown
 
 ### 규칙
 
+- `Not collected`, `Processing delayed`, `Insufficient coverage` 등 원인을 주장하는 상태는 Backend/status source가 현재 요청 Context에 대해 그 원인을 확인한 경우에만 표시한다. 상태 원천과 관측 기준시각을 연결할 수 있어야 하며, UI가 행 수만으로 원인을 추론하지 않는다.
+- 성공한 조회가 0건이라는 사실만 확인되면 `No matching result`를 표시한다. 원인/가용성 상태를 확인할 수 없으면 `Unknown`으로 표시한다. **0건 ≠ 수집 중단·미수집·파서 지연**이다. 권한 제한 역시 서버가 확인한 경우에만 그 사유를 표시한다.
+- 상태 원천이 아직 없거나 원천 조회에 실패했다면 원인을 단정하지 않는다. 개별 원천 서비스·응답 스키마는 Open이며 taxonomy의 존재가 해당 상태 판정 기능의 구현을 뜻하지 않는다.
 - 동일 Context 재조회라면 기존 데이터를 유지하며 `Refreshing` 표시 가능
 - Equipment/기간/Scope가 바뀌었다면 이전 값을 새 Context 결과처럼 보여주지 않음
 - Dashboard 한 영역 실패 시 나머지 영역 유지
@@ -789,7 +811,7 @@ Saved View는 단순 Filter 저장 기능이 아니라 플랫폼 공통 자산�
 - 단순 chart zoom
 - modal open state
 
-`04_frontend_ui_ux.md`의 `savedViewToken` 계약과 맞춘다.
+이 문서 §6.1의 `savedViewToken` 계약을 따른다. 기능 제공 순서는 Deferred이며 `05_roadmap_and_open_questions.md`의 가설은 구현 승인이 아니다.
 
 Saved View가 권한을 우회하지 않도록 복원 시 서버 Scope를 다시 검증한다.
 
@@ -1027,85 +1049,15 @@ UI 계약:
 
 ---
 
-## 30. Phase Alignment
+## 30. 구현 계획과의 경계
 
-이 문서는 기존 로드맵을 대체하지 않고 UI 관점으로 정렬한다.
-
-### Phase 1 — Platform Kernel
-
-우선 구현:
-
-- App Shell
-- Menu Registry
-- Route/Search Param Contract
-- Global Context
-- Permission-aware navigation
-- Page Layout / Slot
-- 기본 Table / Feedback primitives
-
-이 단계에서 Dashboard Builder는 만들지 않는다.
-
-### Phase 2 — Platform Validation through One Vertical Slice
-
-첫 분석 화면을 이용해 검증:
-
-- Context propagation
-- Chart Frame
-- Table
-- Data Trust
-- Drill-through
-- Export
-- Partial error
-- minimal annotation
-
-첫 화면은 제품 목적이 아니라 플랫폼 계약의 실전 테스트다.
-
-### Phase 3 — Reuse Validation
-
-두 번째 분석 메뉴와 Saved View를 추가하며:
-
-- 첫 화면에서 만든 abstraction이 실제 재사용 가능한지 검증
-- 필요하면 abstraction을 깨고 다시 단순화
-
-### Phase 4 — Confirmed Platform Expansion
-
-반복이 확인된 이후에만:
-
-- Common Widget Framework
-- Dashboard Layout Builder
-- External-install Plugin Registry
-- Advanced Annotation Editor
-
-을 추진한다.
+구현 순서·배치 시점은 Deferred다. `05_roadmap_and_open_questions.md`는 설계 결정과 Open Questions를 추적하고 과거 Phase roadmap을 non-authoritative 가설로 보존한다. 이 문서의 계약은 각 기능이 구현될 때 따라야 할 조건이며, 와이어프레임에 표현됐다는 이유만으로 해당 기능의 구현이 승인되지는 않는다.
 
 ---
 
-## 31. Canonical Wireframe — Platform Shell
+## 31. App Shell 설계 산출물
 
-```text
-┌──────────────────────────────────────────────────────────────────────────┐
-│ Analytics Platform     Site A ▼     Search ⌘K          Help      User    │
-├────────────────┬─────────────────────────────────────────────────────────┤
-│ Overview       │ Equipment / Analytics                                  │
-│                │                                                        │
-│ Equipment      │ Physical Occupancy                      [Export] [⋯]    │
-│ Master Data    │ Equipment occupancy based on occurrence data           │
-│                ├────────────────────────────────────────────────────────┤
-│ Analytics      │ Sep 01–17 × │ EQP-01 +3 × │ Process: All │ + Filter   │
-│  ├ Occupancy   ├────────────────────────────────────────────────────────┤
-│  ├ Journey     │                                                        │
-│  └ Cycle Time  │ KPI / Main Analysis                                   │
-│                │                                                        │
-│ Metrics        │                                                        │
-│ Notice & VOC   ├────────────────────────────────────────────────────────┤
-│ Admin          │ Breakdown / Detail                                     │
-│                │                                                        │
-│                ├────────────────────────────────────────────────────────┤
-│                │ Healthy · Coverage 98.7% · Data through 10:00 · v3     │
-└────────────────┴─────────────────────────────────────────────────────────┘
-```
-
-중요한 것은 이 배치 자체보다 **모든 메뉴가 같은 Shell과 상태 Vocabulary를 사용한다는 것**이다.
+구체 셸 배치·사용자 작업·상태 시나리오는 `07_app_shell_wireframe.md`에서 관리한다. §7의 레이아웃은 Shell Slot 관계를 설명하는 Candidate 예시이며 독립적인 화면 명세가 아니다.
 
 ---
 
