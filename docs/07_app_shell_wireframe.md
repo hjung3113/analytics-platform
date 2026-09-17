@@ -2,7 +2,7 @@
 
 상태: 설계 산출물. `.agents/skills/analysis-platform-wireframe/SKILL.md`의 설계 단계에서 종료한다. 프로토타입이나 시각 스타일 검증 결과가 아니다.
 
-전역 계약의 원본은 `06_platform_ui_contract.md`다. 이 문서는 그 계약을 소비하는 셸의 배치와 상태 시나리오만 소유한다. navigation IA는 §9, 식별자·URL·Scope·시간은 §6, Context 전환은 §11, 권한 UX는 §17을 따른다. 구현 일정과 기술 선택은 각각 `05_roadmap_and_open_questions.md`, `04_frontend_ui_ux.md`에서 관리한다.
+전역 계약의 원본은 `06_platform_ui_contract.md`다. 이 문서는 그 계약을 소비하는 셸의 배치와 상태 시나리오만 소유한다. navigation IA는 §9, 식별자·URL·Scope·시간은 §6, Context 전환은 §11, 권한 UX는 §17을 따른다. 결정 상태와 Deferred 구현 가설은 `05_roadmap_and_open_questions.md`, 기술 후보는 `04_frontend_ui_ux.md`를 참조한다. 구현 일정과 스택은 확정하지 않았다.
 
 ## 1. USER TASK
 
@@ -44,7 +44,7 @@ Analysis Platform
     └── 변경 감사 Audit Trail (전역 뷰 — 각 상세 화면에도 탭으로 노출)
 ```
 
-"메뉴 레지스트리 관리" UI와 수집 상태 판정 화면은 Deferred다. 분석 결과가 0건이라는 사실만으로 수집 중단이나 파서 지연을 표시하지 않는다.
+"메뉴 레지스트리 관리" UI와 수집 상태 판정 화면은 Deferred다. 데이터 상태 표시는 전역 계약 §19의 근거 규칙을 따른다. 성공한 조회가 0건이면 `No matching result`, 원인을 확인할 수 없으면 `Unknown`을 사용한다.
 
 ## 3. SCREEN SPECIFICATION
 
@@ -112,6 +112,7 @@ Scope 선택은 추상적인 접근 범위 선택이다. 사이트/공장/라인
 
 | 시나리오 | 셸에서 확인할 결과 | 원본 계약 |
 | --- | --- | --- |
+| 결과 0건, 수집/파서 상태 근거 없음 | No matching result; 원인 상태는 Unknown이며 지연/중단으로 추론하지 않음 | §19 |
 | 같은 링크로 재진입 | 요청 조건·지표 버전 복원, 계산 기준시각 표시 | §6.1 |
 | occurrence 상세 → 설비/VOC 이동 | 목적지 객체 ID와 분석 Context를 분리해 전달 | §6.1 |
 | 링크의 Scope 접근 불가 | 오류/선택 상태, 조용한 대체 없음 | §6.2 |
@@ -135,5 +136,5 @@ Scope 선택은 추상적인 접근 범위 선택이다. 사이트/공장/라인
 | Open | 시간 경계·시간대 미확인·다중 사업장 같은 날짜 | 전역 계약 §6.3 및 백엔드 시간 계약 |
 | Open | 공지 배너 위치·게시기간/대상 메뉴/권한에 따른 노출 | 셸과 공지 도메인 설계 |
 | Open | 알림 벨·통합 배지의 읽음 상태·집계·권한 의미 | 별도 제안, 필수 요소 아님 |
-| Deferred | 저장된 뷰, 메뉴 등록 UI, 수집 상태 대시보드 | 별도 요구 및 로드맵 |
+| Deferred | 저장된 뷰, 메뉴 등록 UI, 수집 상태 대시보드 | 별도 요구 및 향후 구현 계획 |
 | Deferred | 시각 토큰 확정·Prototype·Visual Polish | 별도 구현 요청 |

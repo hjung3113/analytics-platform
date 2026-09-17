@@ -6,14 +6,14 @@
 
 ## 문서 소유권과 결정 상태
 
-이 문서는 플랫폼 전역 UX / Scope / Context / URL / Menu Extension / Shell Slot / navigation IA의 단일 authoritative source다. `02_domain_menus.md`는 도메인 capability catalog, `04_frontend_ui_ux.md`는 기술 선택·리서치·화면 패턴, `05_roadmap_and_open_questions.md`는 구현 순서, `07_app_shell_wireframe.md`는 이 계약을 소비하는 셸 설계다. 외부 디자인 참고자료와 에이전트 스킬은 제품 계약의 근거가 아니다.
+이 문서는 플랫폼 전역 UX / Scope / Context / URL / Menu Extension / Shell Slot / navigation IA의 단일 authoritative source다. `02_domain_menus.md`는 도메인 capability catalog, `04_frontend_ui_ux.md`는 구현 후보·리서치·화면 패턴, `05_roadmap_and_open_questions.md`는 결정 상태·미결 질문 및 Deferred 구현 가설, `07_app_shell_wireframe.md`는 이 계약을 소비하는 셸 설계다. 외부 디자인 참고자료와 에이전트 스킬은 제품 계약의 근거가 아니다.
 
 - **Decided**: 플랫폼 책임 경계와 명시적인 계약 규칙. 구현 완료를 뜻하지 않는다.
 - **Candidate**: 배치·치수·토큰·페이지 예시. 독립 초안끼리 일치해도 승인으로 간주하지 않는다.
 - **Open**: 아래에 미결로 기록한 URL 세부 정책·Scope 계층·시간 의미 등.
 - **Deferred**: 저장된 뷰 등 후속 구현 범위. 이 설계가 기능 제공 시점을 확정하지 않는다.
 
-§5~6, §8~9, §11, §17의 책임·행동 규칙은 Decided다. 화면 배치와 시각 토큰(§7, §23, §25, §31)은 Candidate다. 구현 일정은 `05_roadmap_and_open_questions.md`가 소유한다.
+§5~6, §8~9, §11, §17, §19의 책임·행동 규칙은 Decided다. 화면 배치와 시각 토큰(§7, §23, §25, §31)은 Candidate다. 구현 일정은 아직 확정하지 않았으며 `05_roadmap_and_open_questions.md`의 Phase 표는 non-authoritative 가설이다.
 
 ## 1. 문서 목적
 
@@ -31,7 +31,7 @@
 
 개별 메뉴는 플랫폼을 검증하는 대표 Consumer다. 첫 분석 화면이나 설비관리 화면을 잘 만드는 것 자체가 성공 기준이 아니라, 그 과정에서 만든 계약을 두 번째·세 번째 메뉴가 재사용할 수 있어야 한다.
 
-단, 플랫폼을 목표로 한다는 이유만으로 처음부터 범용 위젯 엔진·외부 플러그인 SDK·저코드 빌더를 만들지는 않는다. `05_roadmap_and_open_questions.md`의 Phase 4 원칙대로 **실제 메뉴 2~3개에서 반복이 확인된 책임만 플랫폼 기능으로 승격**한다.
+단, 플랫폼을 목표로 한다는 이유만으로 처음부터 범용 위젯 엔진·외부 플러그인 SDK·저코드 빌더를 만들지는 않는다. **실제 메뉴 2~3개에서 반복이 확인된 책임만 플랫폼 기능으로 승격**한다.
 
 ---
 
@@ -245,7 +245,7 @@ Desktop-first를 기본으로 한다.
 │ Overview     │ Page Title                             Page Actions    │
 │              ├──────────────────────────────────────────────────────┤
 │ Equipment    │ Global Context Bar                                  │
-│ Master Data  │ [Date] [Equipment] [Lot] [Scope]                    │
+│ Master Data  │ [Date] [Equipment] [Lot]                            │
 │ Analytics    ├──────────────────────────────────────────────────────┤
 │ Metrics      │                                                      │
 │ Notice/VOC   │                   Page Content                       │
@@ -255,6 +255,8 @@ Desktop-first를 기본으로 한다.
 │ Data status / calculation basis / coverage                         │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+Scope는 개념적으로 Global Context에 포함되지만 이 Candidate 배치에서는 헤더에만 선택기를 둔다. Context Bar에 두 번째 Scope 선택기를 만들지 않는다. 구체 셸 설계는 `07_app_shell_wireframe.md`를 따른다.
 
 ### 권장 Baseline
 
@@ -351,7 +353,7 @@ Open saved view
 Create VOC from current context
 ```
 
-Phase 1에서는 메뉴 이동 중심으로 시작하고, Entity Search나 Action Command는 실제 수요가 확인될 때 확장한다.
+메뉴 이동을 기본 책임으로 둔다. Entity Search와 Action Command는 수요 검증 후 채택할 Deferred 후보이며 구현 시점은 정하지 않는다.
 
 ---
 
@@ -537,7 +539,7 @@ Domain Component를 억지로 Platform Component로 승격하지 않는다.
 
 아래 규칙을 기본값으로 한다.
 
-### 바로 Platform Component로 만든다
+### 플랫폼이 소유하는 책임 (구현 시점과 별개)
 
 플랫폼 계약에 해당하는 것:
 
@@ -546,7 +548,7 @@ Domain Component를 억지로 Platform Component로 승격하지 않는다.
 - Global Context
 - Permission Guard
 - Data Trust
-- Saved View Entry
+- Saved View Entry (기능 채택 시; 현재 Deferred)
 - Error / Empty / Loading
 
 ### 2개 이상 메뉴에서 확인 후 공통화
@@ -556,7 +558,7 @@ Domain Component를 억지로 Platform Component로 승격하지 않는다.
 - Analysis Drill-down 패턴
 - Detail Summary Layout
 
-### 3개 이상 반복 또는 Phase 4까지 기다린다
+### 반복 수요 검증 전까지 Deferred로 둔다
 
 - 자유 배치 Widget Framework
 - Dashboard Builder
@@ -749,6 +751,9 @@ Unknown
 
 ### 규칙
 
+- `Not collected`, `Processing delayed`, `Insufficient coverage` 등 원인을 주장하는 상태는 Backend/status source가 현재 요청 Context에 대해 그 원인을 확인한 경우에만 표시한다. 상태 원천과 관측 기준시각을 연결할 수 있어야 하며, UI가 행 수만으로 원인을 추론하지 않는다.
+- 성공한 조회가 0건이라는 사실만 확인되면 `No matching result`를 표시한다. 원인/가용성 상태를 확인할 수 없으면 `Unknown`으로 표시한다. **0건 ≠ 수집 중단·미수집·파서 지연**이다. 권한 제한 역시 서버가 확인한 경우에만 그 사유를 표시한다.
+- 상태 원천이 아직 없거나 원천 조회에 실패했다면 원인을 단정하지 않는다. 개별 원천 서비스·응답 스키마는 Open이며 taxonomy의 존재가 해당 상태 판정 기능의 구현을 뜻하지 않는다.
 - 동일 Context 재조회라면 기존 데이터를 유지하며 `Refreshing` 표시 가능
 - Equipment/기간/Scope가 바뀌었다면 이전 값을 새 Context 결과처럼 보여주지 않음
 - Dashboard 한 영역 실패 시 나머지 영역 유지
@@ -806,7 +811,7 @@ Saved View는 단순 Filter 저장 기능이 아니라 플랫폼 공통 자산�
 - 단순 chart zoom
 - modal open state
 
-이 문서 §6.1의 `savedViewToken` 계약을 따른다. 기능 제공 순서는 `05_roadmap_and_open_questions.md`에서 관리한다.
+이 문서 §6.1의 `savedViewToken` 계약을 따른다. 기능 제공 순서는 Deferred이며 `05_roadmap_and_open_questions.md`의 가설은 구현 승인이 아니다.
 
 Saved View가 권한을 우회하지 않도록 복원 시 서버 Scope를 다시 검증한다.
 
@@ -1046,7 +1051,7 @@ UI 계약:
 
 ## 30. 구현 계획과의 경계
 
-구현 순서·배치 시점은 `05_roadmap_and_open_questions.md`가 소유한다. 이 문서의 계약은 각 기능이 구현될 때 따라야 할 조건이며, 와이어프레임에 표현됐다는 이유만으로 해당 기능의 구현이 승인되지는 않는다.
+구현 순서·배치 시점은 Deferred다. `05_roadmap_and_open_questions.md`는 설계 결정과 Open Questions를 추적하고 과거 Phase roadmap을 non-authoritative 가설로 보존한다. 이 문서의 계약은 각 기능이 구현될 때 따라야 할 조건이며, 와이어프레임에 표현됐다는 이유만으로 해당 기능의 구현이 승인되지는 않는다.
 
 ---
 
