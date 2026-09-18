@@ -34,3 +34,7 @@
 ## 문서 소유권과 tooling 경계
 
 `06_platform_ui_contract.md`가 전역 계약과 navigation IA를 소유하고 `07_app_shell_wireframe.md`는 이를 소비한다. `02`는 도메인 catalog, `04`는 구현 후보/리서치, `05`는 결정 상태와 미결 질문이다. Phase 0~4는 Deferred/non-authoritative 가설이며 구현 일정·기술 도입·POC 착수를 확정하지 않는다. `.agents/`의 스킬·명령·외부 레퍼런스는 별도 tooling 자산이며 제품 설계를 확정하는 권한을 갖지 않는다. 에이전트 공통 사용법은 [`../.agents/README.md`](../.agents/README.md)를 참조한다.
+
+## 외부 프로젝트 설계 레퍼런스
+
+- [Standard Log Lifecycle](references/standard-log-lifecycle/README.md) — 모델 표준 로그 개발·검증·결함·재검증 관리의 설계 참고. 원본 커밋에 고정한 Markdown 7개, 출처·해시 manifest와 4개 화면 시안 적용 범위를 포함한다. 기존 플랫폼 계약을 대체하지 않는다.

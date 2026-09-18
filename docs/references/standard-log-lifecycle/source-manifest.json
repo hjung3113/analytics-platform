@@ -1,0 +1,20 @@
+{
+  "purpose": "reference-only documentation snapshot",
+  "source_repository": "hjung3113/standard-log-lifecycle",
+  "source_branch": "main",
+  "source_commit": "2d2dce25087a6a7b469e60fde448a76b29055041",
+  "import_date": "2026-09-18",
+  "verification": "All 7 imported Markdown blobs match the source Git blob SHA exactly.",
+  "files": [
+    {"path": "README.md", "git_blob_sha": "48e699cde61eb0436b75b113727f78ba561a1016"},
+    {"path": "docs/DOMAIN_FACTS.md", "git_blob_sha": "4fd4955af9156fa6d4e568661c7211eb61281831"},
+    {"path": "docs/INFORMATION_ARCHITECTURE.md", "git_blob_sha": "96e1a65ab9ab7b93b44c97ff38bad1938a14464a"},
+    {"path": "docs/PROJECT_OVERVIEW.md", "git_blob_sha": "fa0b28ee2011da4fe041e7e1f93bc81d7daf349e"},
+    {"path": "docs/UI_RESEARCH.md", "git_blob_sha": "8066d3a0418040fd6cde63e8433d55ea4e6f4735"},
+    {"path": "docs/UI_WIREFRAMES.md", "git_blob_sha": "346c39ad1a92f61052e08cdef734ebdf42efcfd6"},
+    {"path": "wireframes/DASHBOARD_DESIGN_SPEC.md", "git_blob_sha": "99d9c450969ae030319175ffe9464d6de364d1b2"}
+  ],
+  "not_copied": ["wireframes/*.dc.html", "wireframes/canvas.json"],
+  "html_reference": "https://github.com/hjung3113/standard-log-lifecycle/tree/2d2dce25087a6a7b469e60fde448a76b29055041/wireframes",
+  "automatic_sync": false
+}
