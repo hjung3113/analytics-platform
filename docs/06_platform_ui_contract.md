@@ -204,32 +204,72 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 ### 6.1 식별자와 URL 소유 상태 (Decided)
 
 - 목적지 객체 식별자와 전달하는 분석 Context를 분리한다. `(equipmentId, entityType, anchor)`는 **occurrence 전용 식별키**다. `lotId` 같은 업무 ID는 occurrence 검색 보조이며 anchor 없는 occurrence 조인에 쓰지 않는다.
-- 설비 마스터는 `equipment_id`만으로 열 수 있다. VOC는 `vocId`, 지표는 `metricId`와 `metricVersion`으로 식별한다. 도메인 객체에 occurrence 키를 강제하지 않는다. DB 이름과 URL 직렬화 이름의 매핑은 Open이다.
-- URL은 요청한 `scopeId`, `from`/`to`, `equipmentIds`, `lotIds`, `metricVersion`, 해당 화면의 탭/저장된 조회조건 식별자 및 해당하는 경우 occurrence anchor를 소유한다. 객체 ID는 목적지 경로/계약에 따라 별도로 전달한다.
+- 설비 마스터는 `equipment_id`만으로 열 수 있다. VOC는 `vocId`, 지표는 `metricId`와 `metricVersion`으로 식별한다. 도메인 객체에 occurrence 키를 강제하지 않는다.
+- URL은 요청한 `scopeId`, `from`/`to`, `equipmentIds`, `lotIds`, `metricId`/`metricVersion`, 해당 화면의 탭/저장된 조회조건 식별자 및 해당하는 경우 occurrence anchor를 소유한다. 객체 ID는 목적지 경로/계약에 따라 별도로 전달한다.
 - 딥링크 왕복은 조회조건과 지표 버전을 재현한다. 지연 완료·마스터 정정으로 숫자는 달라질 수 있으므로 결과에는 계산 기준시각을 표시한다.
 - 단순 차트 줌은 로컬 상태다. Brush 후 명시적인 분석 구간 적용만 전역 Context/URL로 전달한다.
-- 미지원 Context는 조용히 버리지 않고 적용되지 않음을 표시한다. 보존·재적용 방식은 §6.4의 Open 결정으로 남긴다.
+- 미지원 Context는 조용히 버리지 않고 적용되지 않음을 표시한다. 보존·재적용 방식은 §6.4를 따른다.
 - `savedViewToken`은 긴 URL을 대체할 후보 계약으로 예약한다(Deferred). 저장된 뷰 구현 전에는 토큰 생성이나 비활성 버튼을 셸 필수 요소로 두지 않는다.
+
+**URL/JSON 케이싱과 매핑 소유 (Decided):** URL·JSON 공개 필드명은 camelCase, DB는 해당 스키마 관례(snake_case)를 유지한다. 컬렉션은 URL 반복 키(`equipmentIds=A&equipmentIds=B`), JSON은 배열로 직렬화한다(콤마 결합은 ID의 예약문자와 충돌할 수 있어 채택하지 않는다). 공개 계약(이름·타입·카디널리티·버전·지원 Context·page-owned 키 등록)은 플랫폼 Kernel이 소유하며 클라이언트 라우터와 서버 요청 검증은 같은 산출물을 소비한다. SQL 컬럼/조인/계산식 매핑은 서버 소비 계층이 소유하고 공개 필드가 DB 컬럼과 1:1이라고 가정하지 않는다. 구현 형식(OpenAPI/JSON Schema/codegen)은 Candidate.
+
+**집합 키 정규화와 공집합 표식 (Decided):** 집합 키(`equipmentIds`, `lotIds`)가 URL에 부재하면 그 차원은 무제약이다(Scope·권한·조회량 제한은 유지). 유효 ID 1개 이상이면 선택 집합이며 중복은 제거하고 순서는 무의미하다(정규 URL은 Unicode 코드 포인트 사전식 정렬, trim/대소문자 변환/유니코드 정규화로 서로 다른 ID를 합치지 않는다). 빈 문자열/공백만 있는 ID는 형식 오류다(반복 키는 항목이 0개면 키 자체가 사라지므로 `equipmentIds=`는 "빈 ID 1개"이지 "선택 0개"가 아니다). **명시적 공집합**은 집합 키마다 등록되는 단일값 표식으로 표현한다(필드명 Candidate, 예: `equipmentSelection=none`). 표식만 있으면 명시적 공집합, ID 키와 표식이 동시에 있으면 오류다. 공집합을 지원하는 메뉴는 나머지 요청이 유효할 때 `outcome=empty`로 처리하고, 공집합 때문에 잘못된 Scope/기간을 성공으로 바꾸지 않는다. **미지원 메뉴는 공집합을 미적용으로 보존할 뿐 자기 결과를 강제로 empty로 만들지 않는다.** 표식과 ID 집합은 한 논리 Context로 함께 전달·제거한다.
+
+**단일값 키 중복 (Decided):** `scopeId`/`from`/`to`/`v`/`metricId`/`metricVersion`/목적지 ID 등 카디널리티 1인 키가 반복되면 같은 값이어도 형식 오류다. 클라이언트와 서버가 첫 값/마지막 값을 다르게 해석하는 것을 금지한다.
+
+**전역 지표 Context: `metricId` + `metricVersion` 쌍 (Decided):** v1의 전역 지표 Context는 단일 `metricId`와 단일 `metricVersion`의 쌍이다. 두 필드는 공개 스키마에 함께 등록하고 함께 보존·적용·제거한다(전역 반복 키나 지표별 맵은 v1에 없음). 완성/초기화 불변식:
+  - query에 둘 다 있음 → 완성된 전역 Context. 서버가 그 `metricId`에 그 `metricVersion`이 속하고 유효한지 검증하고, 실패하면 오류로 처리하며 최신 버전으로 대체하지 않는다.
+  - query에 ID만 있음 → 초기화를 선언한 진입점에서만 미완성 입력으로 허용하고, 서버가 확인한 게시 버전을 URL에 기록한 뒤 조회한다. 확인 불가면 선택 상태, 초기화 미지원 경로는 계약 오류다.
+  - query에 버전만 있음 → 목적지 경로 계약이 소유 `metricId`를 유일하게 정의할 때만 경로 ID를 query로 복사해 쌍을 완성한다. 세션·이전 화면·화면 이름으로 ID를 추정하지 않는다.
+  - query에 둘 다 없음 → 전역 지표 Context 없음. 경로가 지표 하나를 유일하게 식별하고 초기화를 선언했다면 물질화 가능하고, 아니면 선택 상태다.
+  - 목적지 객체의 지표 ID와 전역 `metricId`는 역할이 다를 수 있다(지표 A 문맥을 들고 지표 B 상세로 이동). 목적지 ID로 전역 쌍을 몰래 덮어쓰지 않는다. 같은 지표를 요구하는 경로인데 ID가 다르면 오류다.
+  - Context Link helper는 대상이 **동일한 `metricId`의 해당 버전**을 조회에 쓸 때만 쌍을 적용한다. 다른 지표·미지원 메뉴는 쌍을 보존하되 미적용으로 표시한다. 사용자가 명시적으로 바꾸거나 제거할 때만 쌍 전체를 변경한다.
+  - 여러 지표 버전이 필요한 화면은 page-owned 계약으로 선언·등록·검증한다. 전역 단일값을 모든 위젯의 버전으로 확대 해석하지 않으며, 같은 지표에 전역 값과 page-owned 값이 상충하면 오류로 처리한다(묵시적 우선순위 없음).
+- **근거:** 기존 문서가 지표를 `metricId`+`metricVersion`으로 식별하면서 URL 소유 목록에는 `metricVersion`만 두어, 메뉴를 넘어가면 버전 숫자만 남아 다른 지표로 재해석될 수 있었다(전역 URL 표현의 공백). 자세한 판정 근거는 `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §1.
+
+**줌 vs 명시적 구간 적용, v1 소수초 처리 (Decided):** v1에서 URL/전역 Context로 적용되는 구간은 초 정렬 `[from, to)`뿐이다. 판정 기준은 구간 길이가 아니라 **선택한 양 경계가 초에 정렬돼 있는가**다. 미정렬이면 외향 정렬(시작은 이전 초로 내림, 끝은 다음 초로 올림) 미리보기를 보여주고 사용자가 확인해야 URL/전역 Context가 바뀐다. 확인 전에는 조회·URL을 바꾸지 않고, 취소하면 로컬 브러시만 유지한다. v1은 소수초 정확 구간 공유를 지원하지 않는다.
+
+세부 판정 근거, 반례, Candidate 필드명 전체 목록은 `docs/reviews/2026-09-18-url-time-status-contract-grilling.md`를 따른다.
 
 ### 6.2 Scope와 권한 (Decided / Open)
 
 - Scope는 사용자가 요청하는 조직·데이터 접근 범위다. `scopeId`는 URL에 담지만 권한 증명이 아니다. 서버는 **매 요청마다** 사용자 권한과 요청 Scope를 재검증한다.
 - 접근할 수 없는 Scope는 명시적 오류/선택 상태로 처리하며 다른 Scope로 조용히 대체하지 않는다. 같은 URL이 다른 사용자에게 같은 접근 권한을 부여하지 않는다.
 - 세션·최근방문 값은 미검증 후보이며, 재적용 전에 현재 Scope에서 설비·Lot 선택과 권한의 유효성을 다시 검증한다.
-- 구체 계층(사이트 → 공장 → 라인), 부모·자식 상속, 복수 Scope 선택, 설비 소속 규칙은 **Open domain decision**이다. 셸은 고정 3단 선택기를 계약으로 요구하지 않는다.
+- **요청 `scopeId`는 하나다(Decided).** 부재는 명시적 선택 상태이며 임의 Scope로 대체하지 않는다. Scope 선택지 조회와 분석 데이터 조회는 구분한다. 사용자가 명시한 무단 ID는 조용히 제거하지 않으며, 전체 권한 실패는 `outcome=forbidden`이다(§19).
+- 구체 계층(사이트 → 공장 → 라인), 부모·자식 상속, **복수 Scope 선택**, 설비 소속 규칙은 **Open domain decision**이다. 셸은 고정 3단 선택기를 계약으로 요구하지 않는다.
 
-### 6.3 시간 계약 (Decided / Open)
+### 6.3 시간 계약 (Decided; TZ 값·다중 사업장 같은 날짜는 Open domain decision)
 
-기간은 파서 원본과 같은 시간대 없는 설비 wall-clock으로 전달하며 임의로 UTC로 변환하지 않는다. 시간의 원천 의미는 `03_backend_stack.md`를 따른다. 구간 포함/제외 경계, 원천 시간대 미확인 시 처리, 다중 사업장의 같은 날짜 의미, 날짜만 선택한 경우 시각 해석은 Open이다. 확정 전에는 서로 다른 사업장 시각을 동일 축으로 합친 조회를 보장하지 않는다.
+기간은 파서 원본과 같은 시간대 없는 설비 wall-clock으로 전달하며 임의로 UTC로 변환하지 않는다. 시간의 원천 의미는 `03_backend_stack.md`를 따른다. 아래는 이 wall-clock 계약 위에서 **메커니즘 수준으로 확정한** 항목이다. 사업장별 실제 시간대 값과 다중 사업장의 "같은 날짜" 의미는 여전히 Open domain decision이다.
 
-### 6.4 아직 열려 있는 URL 결정
+**구간 경계와 datetime 문자열 (Decided):** 공통 조회 경계는 half-open `[from, to)`이며 `from < to`를 요구하고 잘못된 날짜는 보정하지 않고 거부한다. v1 URL의 `from`/`to`는 정확히 `YYYY-MM-DDTHH:mm:ss`(naive, `Z`/offset·소수초·날짜-only는 형식 오류)다. 원천값·조인 키·occurrence anchor의 정밀도는 축소하지 않으며, 경계 비교는 원천 전체 정밀도로 한다(`to=10:00:00`이면 `10:00:00.000`과 `10:00:00.500` 모두 제외). v1의 초 단위 입력 제한은 원천 정밀도 축소가 아니라 **신규 제품 제한**이다.
 
-- URL과 세션/최근방문 값의 충돌 시 우선순위와 누락값 처리
-- URL 계약 버전, 폐기된 필드, 잘못된 값 처리 및 객체 ID 직렬화
-- 뒤로가기 복원 범위와 미지원 Context 보존·재적용 방식
-- 복수 Scope와 시간 계약이 해결되기 전 허용할 조회 범위
+**날짜만 선택한 경우 (Decided):** URL에는 datetime만 허용한다. 달력에서 고른 양끝 포함 구간 `[D1, D2]`는 UI에서 `[D1T00:00:00, (D2+1일)T00:00:00)`으로 변환해 URL에 쓴다("다음 날"은 naive 달력 연산이지 UTC instant+24시간이 아니다). 교대일·영업일·다중 사업장 같은 날짜 의미는 이 결정 밖(Open domain decision)이다.
 
-이 결정들을 확정하기 전에는 완성된 URL API나 프로토타입 검증을 주장하지 않는다.
+**원천 시간대 미확인 시 처리 (Decided):** 단일 설비, 또는 동일 wall-clock 기준이 확인된 설비 집합은 절대 TZ를 몰라도 naive 범위로 조회할 수 있다. 임의의 기본 TZ를 가정하거나 URL `from`/`to`를 UTC 필터로 바꾸거나 확인 안 된 다른 시간역과 축을 병합하지 않는다. TZ 미확인은 Data Trust에 표시한다. 확인된 TZ 이름이 있어도 DST 등으로 변환이 항상 가능한 것은 아니므로, 확인된 이름 ≠ 변환 가능이다. 이 결정이 향후 별도 UTC 분석 API 자체를 영구 금지하는 것은 아니다.
+
+**복수 설비 시간축 병합 가드 (Decided):** 서로 다른 설비를 같은 시간축/버킷으로 병합하는 조회는 **서버 소유 assertion**이 있을 때만 허용한다(비보장을 "경고 후 허용"으로 약화하지 않는다). `scopeId`나 클라이언트가 보낸 시간역 id는 증명이 아니다. 최소 assertion 계약: `(equipmentId, timeDomainId, validFrom, validTo)`, 범위 `[validFrom, validTo)`(해당 설비의 naive wall-clock, 내부 정밀도 유지 — 지금 특정 테이블·마이그레이션을 요구하지 않는다). 실제 조회 대상 설비 전체에 대해 요청 `[from, to)` 전체가 빈틈없이 덮이고, 그 구간들의 `timeDomainId`가 모두 같을 때만 병합을 허용한다(한 설비가 요청 중간에 도메인을 바꿔도 v1 병합은 거절). 덮이지 않은 구간이 있으면 `time_domain_unverified`, 확인된 도메인 불일치가 있으면 `time_domain_mismatch`이며, 둘 다 `outcome=error`(요청 검증 오류, correlation id)로 처리하고 `empty`/`unknown`/경고 후 병합으로 위장하지 않는다. 이력 없는 현재 스냅샷으로 과거 구간을 소급 증명하지 않는다. 서로 다른 시간역의 **분리** 조회는 계속 허용한다.
+
+**기본 구간 물질화 시계 `defaultRangeTo` (Decided):** 브라우저 로컬 now, 서버 UTC 문자열 절단, "watermark = now = Data through" 등식은 모두 쓰지 않는다. 서버가 해당 시간역·데이터셋의 기본 조회 상한 `defaultRangeTo`(배타적 초 경계, wall-clock)를 제공한다. `defaultRangeTo`는 half-open 구간의 상한이므로 그 값 자체는 §6.3의 경계 규칙에 따라 항상 제외된다. 서버가 이 값을 정할 때 "포함"이 뜻하는 것은 **포함하려는 마지막 실제 데이터 시각이 `defaultRangeTo`보다 항상 이전이 되도록**(그 시각이 필터로 잘리지 않도록) 상한을 잡는다는 것이지, 상한 이전 데이터가 모두 도착했거나 집계가 완전하다는 뜻이 아니다 — 예를 들어 포함하려는 마지막 시각이 `10:00:00.000` 또는 `10:00:00.500`이면 `defaultRangeTo`는 최소 `10:00:01`이어야 한다. 기본 구간은 `[defaultRangeTo − Δ, defaultRangeTo)`(naive 길이 산술, 자정 비정렬, Δ 숫자는 Open)로 물질화하며, 산출 불가 시 자동 물질화하지 않고 기간 선택을 요구한다. 한 번 물질화한 URL 기간을 데이터 갱신만으로 자동 이동시키지 않는다.
+
+`defaultRangeTo`와 자동 재집계 창의 원천 진행 경계 `R`(정의는 `05_roadmap_and_open_questions.md`의 "지연 완료 허용 시간" 참조)은 서로 다른 계약 필드이며 항상 같은 값은 아니다. **`R`이 존재할 때만** 같은 시간역·대상 조건에서 `defaultRangeTo ≤ R`인 경우에만 그 기본 구간을 자동 물질화하고, 만족하는 값이 없으면 마지막 점을 버리거나 `R`을 올리지 않고 기간 선택을 요구한다(L2). `R`이 아직 없는 경우(첫 mart 세대 생성 전, 워커 일시 중단 등)에는 이 비교를 적용하지 않는다 — `defaultRangeTo`가 독립적으로 유효하면 그대로 자동 물질화하고, 자동 재집계만 보류한다(`05_roadmap_and_open_questions.md` 참조).
+
+세부 판정 근거, 반례, Candidate 필드명 전체 목록은 `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §3을 따른다.
+
+### 6.4 URL 계약 (Decided; 필드명·enum 문자열은 Candidate)
+
+**URL vs 세션/최근방문 우선순위, 누락값 (Decided):** URL에 있는 키는 항상 이긴다. URL에 없는 키를 세션/최근방문으로 채우지 않는다(세션은 제안값일 뿐이며, 적용하는 순간 URL에 기록한다). 키 부재는 공개 스키마가 정의한 "선택 없음 / 기본 의미 / 필수 누락" 중 하나로만 해석하고, 필수값을 임의 Scope나 떠다니는 최신 지표 버전으로 대체하지 않는다. 시간을 요구하는 메뉴에서 기간 양쪽이 모두 없으면 기본 구간이 정의·검증 가능할 때만 절대 `from`/`to`를 URL에 물질화하고(불가하면 기간 선택 요구), **한쪽만 있으면 형식 오류로 거부한다**(보정하지 않음). 상대적인 "최근 기간"이 물질화되기 전의 URL은 시점 의존 진입점이며 재현 가능한 분석 링크가 아니다.
+
+**URL 계약 버전 `v` (Decided):** 양의 정수 query `v`, 생략은 `v=1`로 해석한다. 인바운드 URL은 그 버전 디코더로만 해석하며 북마크의 `v`를 자동으로 최신으로 rewrite하지 않는다(조회 신원을 바꾸지 않기 위함). helper가 **새로** 만드는 정규 URL은 동등 요청을 새 버전으로 표현할 수 있는지 검증한 뒤에만 현재 `v`를 명시하고, 불가능하면 지원 중인 원래 버전을 보존하거나 전환 불가를 알린다. 미지원 `v`(미래 또는 sunset 이후)는 부분 추측 없이 전체 거부한다. `v`는 `metricVersion`·DB 마이그레이션·메뉴 구현 버전과 별개다. 같은 `v` 안에서 등록된 의미-동등 별칭만 허용하고, 별칭으로 기존 값의 의미를 바꾸지 않는다. sunset 날짜/기간은 별도 공지·정책으로 정하며 이 결정에 포함하지 않는다.
+
+**잘못된 값 / 미등록 키 / 미지원 Context (Decided):** 등록된 키의 형식 오류(잘못된 날짜, `Z` 접미사, 빈 필수 ID, 잘못된 `v`, 한쪽만 있는 `from`/`to` 등)는 조회를 거부하고 명시적 오류를 표시하며 clamp/보정하지 않는다. 유효한 형식이지만 없거나 권한 없는 객체는 자동 대체하지 않는다. **등록된** 전역 Context가 대상 메뉴에서 미지원이면 URL에 남기고 미적용으로 표시하며, 지원 메뉴로 복귀하면 재검증 후 적용한다. **미등록** 키도 현재 URL에는 남기되 검증된 조회조건으로 넘기지 않고 전역 Context로 승격하지 않는다. 새 키가 조회 의미를 필수로 바꾸면 `v` breaking change로 처리한다.
+
+**뒤로가기 복원 범위와 셸 내비게이션 (Decided):** 플랫폼이 보장하는 복원 범위는 **URL이 소유한 상태**(전역 Context + 그 페이지가 URL에 쓰기로 한 탭/뷰 id + 선언됐지만 미적용인 등록 Context + §6.1 공집합 표식)로 한정한다. 줌/브러시/시리즈 가시성은 보장 밖이다(로컬 저장 자체가 금지되는 것은 아니나 제품 복원 계약에는 넣지 않는다). **셸의 사이드바/메뉴 레지스트리를 통한 메뉴 전환도 Context Link helper와 같은 규칙을 따른다**: 전달 집합은 등록된 전역 Context뿐이며 대상의 지원 여부와 무관하게 보존한다. 적용은 대상이 지원하고 검증한 값에만 한다. page-owned 상태와 미등록 키는 자동 복사하지 않는다. helper는 **보존할 Context**와 **적용할 Context**를 구분해야 하며, "지원 키만 골라 쓴다"는 동작이 URL에서 나머지를 지운다는 뜻이면 안 된다(보존 약속과 충돌).
+
+**복수 Scope와 시간 계약이 해결되기 전 허용할 조회 범위 (Decided):** §6.2의 `scopeId` 단일 원칙과 §6.3의 시간역 병합 가드로 닫힌다. TZ 매핑이 끝날 때까지 분석을 전면 금지하지는 않는다(단일 설비 naive 조회는 계속 허용). 프로토타입에서 무제한 조회를 허용하는 것은 거부한다.
+
+세부 판정 근거는 `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §4를 따른다. 완성된 URL API나 프로토타입 검증을 이 결정만으로 주장하지 않는다 — 구현·필드명 확정은 별도다.
 
 ---
 
@@ -753,7 +793,22 @@ Unknown
 
 - `Not collected`, `Processing delayed`, `Insufficient coverage` 등 원인을 주장하는 상태는 Backend/status source가 현재 요청 Context에 대해 그 원인을 확인한 경우에만 표시한다. 상태 원천과 관측 기준시각을 연결할 수 있어야 하며, UI가 행 수만으로 원인을 추론하지 않는다.
 - 성공한 조회가 0건이라는 사실만 확인되면 `No matching result`를 표시한다. 원인/가용성 상태를 확인할 수 없으면 `Unknown`으로 표시한다. **0건 ≠ 수집 중단·미수집·파서 지연**이다. 권한 제한 역시 서버가 확인한 경우에만 그 사유를 표시한다.
-- 상태 원천이 아직 없거나 원천 조회에 실패했다면 원인을 단정하지 않는다. 개별 원천 서비스·응답 스키마는 Open이며 taxonomy의 존재가 해당 상태 판정 기능의 구현을 뜻하지 않는다.
+- 상태 원천이 아직 없거나 원천 조회에 실패했다면 원인을 단정하지 않는다. taxonomy의 존재가 해당 상태 판정 기능의 구현을 뜻하지 않는다.
+
+### 응답 스키마 형태 (Decided; 필드명·enum 문자열은 Candidate)
+
+위젯/조회 단위 응답은 두 층으로 구성한다.
+
+1. **`outcome`(배타값):** `ok | empty | error | forbidden | too_large | timeout`. `empty`는 성공한 조회의 0건을 뜻하며, 본 조회 자체가 실패했다면 빈 배열 유무와 무관하게 `empty`가 아니라 `error`다. `error`는 나머지 구체 값에 해당하지 않는 잔여 실패다.
+2. **`assessments[]`(이름 Candidate):** 그 조회 계약이 선언한 **적용 kind**를 빠짐없이 1회씩 담는다. 각 항목은 `state = confirmed | clear | unknown`이다. 플랫폼이 kind **어휘**를 소유하고, 각 조회 계약(공개 스키마/메뉴 선언)이 그 조회에 **적용되는 kind 목록**을 선언한다. 원천이 아직 미구현이라는 이유로 적용 kind를 목록에서 빼지 않는다 — 그 경우 `unknown`으로 응답한다(의미상 해당하지 않는 kind만 목록에서 제외). 적용 목록의 누락·중복·잘못된 상태 조합은 응답 계약 위반이며, 클라이언트는 생략을 `clear`로 보정하지 않는다.
+
+`clear`는 "그 kind가 표현하는 문제가 해당 Context에 없음을 원천이 실제로 확인했다"는 제한적 주장이며 전반적 데이터 건강/완전성 선언이 아니다(가짜 `clear` 금지). `confirmed`/`clear`는 논리적 `statusSource`(원천 서비스 id)와 `observedAt`이 필수다. `unknown`은 생략하지 않으며 `source_unavailable`/`check_failed` 같은 평가 불가 이유를 명시한다.
+
+`Loading`/`Refreshing same context`는 이 응답 페이로드에 없다(클라이언트 요청 생명주기). `Partial widget failure`는 위젯 결과가 섞일 때 페이지가 종합해 도출한다.
+
+`explainsEmpty`(이름 Candidate)는 `outcome=empty`이고 해당 평가가 `confirmed`이며 원천이 **그 요청 결과의 0건 원인**을 확인한 경우에만 true다(기본 false). UI는 배열 순서·행 수로 인과를 추론하지 않는다. 복수 원인이 확인되면 모두 유지한다. `No matching result`만 보이는 조건은 `outcome=empty`이고 표시할 `explainsEmpty=true` finding이 없을 때다 — 원인 원천이 없다는 것이 `empty`의 필수조건은 아니다.
+
+세부 판정 근거는 `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §5를 따른다. 개별 원천 서비스의 실제 구현·응답 스키마 세부는 Open이며, 이 계약이 그 구현을 뜻하지 않는다.
 - 동일 Context 재조회라면 기존 데이터를 유지하며 `Refreshing` 표시 가능
 - Equipment/기간/Scope가 바뀌었다면 이전 값을 새 Context 결과처럼 보여주지 않음
 - Dashboard 한 영역 실패 시 나머지 영역 유지

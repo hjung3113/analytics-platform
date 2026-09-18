@@ -9,9 +9,11 @@
 | Decided | Platform Kernel을 우선하고 메뉴가 공통 계약을 소비한다 | `06_platform_ui_contract.md` §1/§4/§5 |
 | Decided | occurrence와 도메인 객체 식별자를 분리하고 URL을 권한 증명으로 쓰지 않는다 | 전역 계약 §6 |
 | Decided | Context 변경 시 이전 결과를 새 조건의 결과로 표시하지 않는다 | 전역 계약 §11 |
+| Decided | URL 직렬화·집합 키/공집합·지표 버전 쌍·초 단위 구간, 시간 경계 메커니즘(half-open, 날짜-only, TZ 미확인 fallback, 복수 설비 병합 가드, `defaultRangeTo`), URL 계약(세션 우선순위, 버전 `v`, 잘못된 값, 뒤로가기/셸 전환 복원), §19 응답 스키마(2층: `outcome`+`assessments[]`) | `06_platform_ui_contract.md` §6.1/§6.3/§6.4/§19, `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` |
+| Decided | 실시간성 기본 정책(폴링+세대 기반 캐시 재검증), 파서 DB 접근 기본 정책(같은 인스턴스·read-only·플랫폼 스키마), 지연 완료 허용 시간의 정책 메커니즘(`lateArrivalAutoHorizon`, 진행 경계 `R`/창 길이 `H`, 창 밖은 정정 후보로 보존) — **구체 숫자·필드명은 Open/Candidate로 유지** | 아래 §실시간성/파서 DB 접근/지연 완료, `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §6 |
 | Candidate | 대표 분석 흐름으로 차트·표·드릴다운·딥링크 계약을 검증한다 | 아래 설계 검증 기준; 구현 착수는 별도 결정 |
 | Candidate | 프론트엔드 라이브러리 및 백엔드 기술 선택 | `04_frontend_ui_ux.md`, `03_backend_stack.md`; 제품 제약과 검증 결과에 따라 결정 |
-| Open | Scope hierarchy, URL 복원/버전, 시간 경계, 상태 원천, 사용자·운영 요구 | 전역 계약 §6/§19 및 아래 질문 |
+| Open | Scope hierarchy(사이트→공장→라인), 복수 Scope, TZ 실제 값, 다중 사업장 같은 날짜 의미, 사용자·운영 요구(백엔드 언어/인증/멀티테넌시/배포 환경/동시 사용자/데이터 볼륨), 지연 완료 허용 시간의 구체 숫자 | 전역 계약 §6.2/§6.3 및 아래 질문 |
 | Deferred | 구현 순서·일정·POC·저장된 뷰·범용 위젯/플러그인 확장 | 별도 implementation-planning에서 재평가 |
 
 Decided는 설계 계약의 상태이며 구현 완료를 뜻하지 않는다. Candidate/Open/Deferred를 구현 지시로 해석하지 않는다.
@@ -39,11 +41,23 @@ Decided는 설계 계약의 상태이며 구현 완료를 뜻하지 않는다. C
 - [ ] 멀티테넌시/다중 사업장 지원 여부 (초기엔 행 스코핑으로 충분한지)
 - [ ] 배포 환경 (사내 서버 vs 클라우드)
 - [ ] 동시 사용자 규모
-- [ ] 실시간성 요구 (기본 폴링/watermark로 닫아도 되는지, 웹소켓이 필요한 요구가 실제로 있는지)
-- [ ] 파서 DB 접근 방식 (직접 연결 vs read replica — mart 소스가 어느 인스턴스에 사는가의 문제로 재정의)
 - [ ] 데이터 볼륨/보존 기간
-- [ ] 지연 완료 허용 시간 — 과거 구간을 언제까지 재집계 대상으로 열어둘지 "확정" 정책
-- [ ] 사업장별 원천 시간대 매핑 — 파서 wall-clock을 소비 계층에서 어떻게 UTC/표시 시간대로 변환할지
+- [ ] 지연 완료 허용 시간의 **구체 숫자** (`lateArrivalAutoHorizon`/`H`의 값 — 메커니즘은 아래 §지연 완료에서 Decided)
+- [ ] 사업장별 원천 시간대 매핑의 **실제 값** — 파서 wall-clock을 소비 계층에서 어떻게 UTC/표시 시간대로 변환할지 (미확인 시 fallback 메커니즘은 `06_platform_ui_contract.md` §6.3에서 Decided)
+
+### 실시간성 (Decided — 메커니즘)
+
+기본은 **폴링 + 서버가 제공하는 완료된 계산 세대/갱신 정보 기반 캐시 재검증**이다. 원천 watermark 이동을 mart 재집계 완료와 같다고 보지 않는다(감지→재계산→정합 결과 제공을 구분). 웹소켓/SSE는 열린 대시보드의 초 단위 갱신, 또는 동시 편집 presence가 **문서화된 제품 요구**로 확인될 때 재평가한다(이 두 조건만이 영구 유일하다고 못박지 않는다). 폴링 주기·중단 조건·워커 감지 주기의 숫자는 Open이다. 근거: `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §6.1.
+
+### 파서 DB 접근 방식 (Decided — 메커니즘)
+
+"직접 연결 vs read replica"를 **mart 소스 인스턴스가 어디에 사는가**의 문제로 재정의한다. **기본 정책은 같은 Postgres 인스턴스, 파서 read-only 역할, 플랫폼 전용 스키마다**(`03_backend_stack.md`가 이미 추천했던 토폴로지를 이 세션에서 기본값으로 확정). API는 파서 원본 테이블을 직접 조회하지 않는다(`01_architecture_and_data_contract.md`). replica/분리 인스턴스는 쓰기 경합 또는 보안 격리 요구가 **실제로 확인될 때만** 평가 대상으로 승격한다(경합 존재만으로 자동 승격하지 않는다). 근거: `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §6.2.
+
+### 지연 완료 허용 시간 (Decided — 정책 메커니즘; 구체 숫자는 Open Questions 유지)
+
+필수 운영 설정 `lateArrivalAutoHorizon`(Candidate 이름) 없이는 자동 재집계를 시작하지 않는다(0이나 무한을 암묵값으로 넣지 않고, 숫자 미정이면 "설정 미충족"으로 보고한다). 창 **안**의 지연완료는 자동 재집계하고, 창 **밖**은 자동 재개방하지도 조용히 버리지도 않으며 식별·조회 가능한 정정/backfill 후보로 남겨 운영자가 명시적으로 실행한다(새 승인 워크플로 UI는 이번에 만들지 않음; 기존 플랫폼 권한·감사를 적용). `autoRefreshClosed`는 자동 창이 닫혔다는 뜻일 뿐 데이터가 완전/불변이라는 뜻이 아니다. 마스터 소급·재분류·지표 정의 변경은 이 창과 다른 트리거다.
+
+창의 기준은 시간역별 **원천 진행 경계 `R`**(데이터 계층 소유, naive 배타 경계, 첫 mart 세대 생성 전에도 공급 가능하며 mart 계산 완료 시각·클라이언트 now·UTC 절단과는 다른 값)과 **명시적 wall-clock 길이 설정 `H`**다. 자동 창은 `[R-H, R)`이고, 원천 진행이 멈추면 창도 멈춘다(현실 경과일로 반드시 닫히는 것이 아니라 데이터 진행 기준의 창이다). `R`이 없으면 자동 재집계만 보류하며 지연완료 식별·후보 보존은 계속한다. 사업장 override·지표별 horizon은 수요·모델이 확인되기 전에는 구현하지 않는다(영구 금지와는 다르다). 근거: `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §6.3.
 
 ## Deferred — 과거 Phase roadmap 가설 (non-authoritative)
 
