@@ -31,6 +31,8 @@
 
 `06_platform_ui_contract.md`는 위 설계들을 플랫폼 개발 관점으로 통합해, 개별 메뉴가 공통 Shell/Context/확장 계약 위에 올라가도록 정의한 구현 전 Design Contract다. `07_app_shell_wireframe.md`는 그 계약 중 App Shell 화면 하나를 `analysis-platform-wireframe` 스킬 절차(Requirements→IA→Screen Spec→Wireframe)로 구체화하고 codex 리뷰를 거친 산출물이다.
 
+`docs/reviews/`는 이후 설계 세션의 인터뷰/리뷰 합의록을 보존하는 디렉토리다. `docs/reviews/2026-09-18-url-time-status-contract-grilling.md`는 grok-4.6(griller)과 codex gpt-6-astra(answerer)의 grill-duel로 `06`/`05`의 URL·시간·상태·실시간성·DB 접근·지연완료 메커니즘 Open 항목을 검토한 기록이며, 그 결과는 `06`/`05` 본문에 Decided로 반영돼 있다. 리뷰 문서 자체는 authoritative source가 아니다.
+
 ## 문서 소유권과 tooling 경계
 
 `06_platform_ui_contract.md`가 전역 계약과 navigation IA를 소유하고 `07_app_shell_wireframe.md`는 이를 소비한다. `02`는 도메인 catalog, `04`는 구현 후보/리서치, `05`는 결정 상태와 미결 질문이다. Phase 0~4는 Deferred/non-authoritative 가설이며 구현 일정·기술 도입·POC 착수를 확정하지 않는다. `.agents/`의 스킬·명령·외부 레퍼런스는 별도 tooling 자산이며 제품 설계를 확정하는 권한을 갖지 않는다. 에이전트 공통 사용법은 [`../.agents/README.md`](../.agents/README.md)를 참조한다.
