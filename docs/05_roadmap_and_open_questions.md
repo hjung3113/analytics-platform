@@ -11,6 +11,7 @@
 | Decided | Context 변경 시 이전 결과를 새 조건의 결과로 표시하지 않는다 | 전역 계약 §11 |
 | Decided | URL 직렬화·집합 키/공집합·지표 버전 쌍·초 단위 구간, 시간 경계 메커니즘(half-open, 날짜-only, TZ 미확인 fallback, 복수 설비 병합 가드, `defaultRangeTo`), URL 계약(세션 우선순위, 버전 `v`, 잘못된 값, 뒤로가기/셸 전환 복원), §19 응답 스키마(2층: `outcome`+`assessments[]`) | `06_platform_ui_contract.md` §6.1/§6.3/§6.4/§19, `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` |
 | Decided | 실시간성 기본 정책(폴링+세대 기반 캐시 재검증), 파서 DB 접근 기본 정책(같은 인스턴스·read-only·플랫폼 스키마), 지연 완료 허용 시간의 정책 메커니즘(`lateArrivalAutoHorizon`, 진행 경계 `R`/창 길이 `H`, 창 밖은 정정 후보로 보존) — **구체 숫자·필드명은 Open/Candidate로 유지** | 아래 §실시간성/파서 DB 접근/지연 완료, `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §6 |
+| Decided | 셸 치수(사이드바 270px·헤더 54px)와 테이블 행 밀도(최소 32px, 25px는 compact 시각 목표)는 `DESIGN.md` canonical 값으로 통일. `docs/06` §7/§15를 `DESIGN.md`에 맞춰 갱신 완료(2026-09-21) | `06_platform_ui_contract.md` §7/§15, `DESIGN.md` `sidebar-shell`/`top-bar`/`table-density`, `PLATFORM_REQUIREMENTS.md` §0 |
 | Candidate | 대표 분석 흐름으로 차트·표·드릴다운·딥링크 계약을 검증한다 | 아래 설계 검증 기준; 구현 착수는 별도 결정 |
 | Candidate | 프론트엔드 라이브러리 및 백엔드 기술 선택 | `04_frontend_ui_ux.md`, `03_backend_stack.md`; 제품 제약과 검증 결과에 따라 결정 |
 | Open | Scope hierarchy(사이트→공장→라인), 복수 Scope, TZ 실제 값, 다중 사업장 같은 날짜 의미, 사용자·운영 요구(백엔드 언어/인증/멀티테넌시/배포 환경/동시 사용자/데이터 볼륨), 지연 완료 허용 시간의 구체 숫자 | 전역 계약 §6.2/§6.3 및 아래 질문 |

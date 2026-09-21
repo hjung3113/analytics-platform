@@ -298,18 +298,20 @@ Desktop-first를 기본으로 한다.
 
 Scope는 개념적으로 Global Context에 포함되지만 이 Candidate 배치에서는 헤더에만 선택기를 둔다. Context Bar에 두 번째 Scope 선택기를 만들지 않는다. 구체 셸 설계는 `07_app_shell_wireframe.md`를 따른다.
 
-### 권장 Baseline
+### Baseline (Decided — `DESIGN.md` canonical과 일치)
 
 ```text
-Sidebar expanded   240px
+Sidebar expanded   270px
 Sidebar collapsed   64px
-Top header           56px
+Top header           54px
 Page header          56~64px
 Global context bar   48px
 Content padding      24px
 Section gap          24px
 Component gap        12~16px
 ```
+
+`DESIGN.md`의 `sidebar-shell`/`top-bar` 컴포넌트 토큰(270px/54px)이 canonical이며, 이 값이 셸 치수의 단일 기준이다.
 
 분석 페이지에는 임의의 좁은 `max-width`를 적용하지 않는다.
 
@@ -625,13 +627,15 @@ Table은 플랫폼 핵심 UI다.
 - Row action
 - Export entry
 
-Baseline:
+Baseline (Decided — `DESIGN.md` `table-density` 토큰과 일치):
 
 ```text
-Row height       40px
-Header height    40px
-Cell padding     12px
+Row height       32px (최소, 데스크톱 기본)
+Header height    32px (최소)
+Cell padding     4px 12px
 ```
+
+`DESIGN.md`의 25px 레퍼런스 행은 compact 시각 목표일 뿐, 구현 기본값이 아니다. 줄바꿈·포커스·24px 최소 타겟에 따라 32px보다 늘어날 수 있으며, coarse-pointer(터치) 행은 44px 타겟까지 커진다.
 
 숫자는 오른쪽 정렬하고 `tabular-nums`를 사용한다.
 
