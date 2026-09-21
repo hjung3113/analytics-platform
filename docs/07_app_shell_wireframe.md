@@ -132,8 +132,8 @@ Scope 선택은 추상적인 접근 범위 선택이다. 사이트/공장/라인
 | Decided | 7그룹 navigation과 전역 Context·권한 계약 재사용 | 전역 계약 §6/§9/§11/§17 |
 | Candidate | 헤더 Scope, 고정 Context 영역, 하단 즐겨찾기/최근방문 배치 | 이 문서 |
 | Open | Scope hierarchy·상속·복수 선택 | 전역 계약 §6.2 |
-| Open | URL 버전·우선순위·잘못된 값·뒤로가기·미지원 Context 복원 | 전역 계약 §6.4 |
-| Open | 시간 경계·시간대 미확인·다중 사업장 같은 날짜 | 전역 계약 §6.3 및 백엔드 시간 계약 |
+| Decided(메커니즘) | URL 버전 `v` 수명주기·우선순위·잘못된 값·뒤로가기/미지원 Context 복원 — 필드명 자체는 Candidate | 전역 계약 §6.4, `docs/05` 결정 상태 |
+| Decided(메커니즘)/Open(실제 값) | 시간 경계(half-open, TZ 미확인 fallback)는 Decided. 사업장별 실제 TZ 값·다중 사업장 같은 날짜 의미는 Open | 전역 계약 §6.3, `docs/05` Open Questions |
 | Open | 공지 배너 위치·게시기간/대상 메뉴/권한에 따른 노출 | 셸과 공지 도메인 설계 |
 | Open | 알림 벨·통합 배지의 읽음 상태·집계·권한 의미 | 별도 제안, 필수 요소 아님 |
 | Deferred | 저장된 뷰, 메뉴 등록 UI, 수집 상태 대시보드 | 별도 요구 및 향후 구현 계획 |

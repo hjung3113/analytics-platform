@@ -73,5 +73,5 @@ Finish with OPEN QUESTIONS / RISKS and a document-level UX REVIEW. Only after th
 
 - This platform consumes data from `context_recognized_parser` (see `docs/01_architecture_and_data_contract.md`) — screens are read-mostly analysis/CRUD over that data, not a marketing surface. Enterprise principles apply by default.
 - Global filter context, deep-link query params, and confirmed/unconfirmed data-state indicators (see `docs/06_platform_ui_contract.md`) are recurring cross-cutting concerns — call them out explicitly in INTERACTION RULES and DATA REQUIREMENTS whenever a screen touches them, don't reinvent them per screen.
-- No product prototype or root DESIGN.md is checked in. Do not infer a palette/type baseline from an unavailable artifact.
+- Root `DESIGN.md` exists and is the visual source of truth (tokens, component visual specs, shell/table dimensions). Read it before inferring a palette/type baseline. No interactive prototype is checked in yet — don't assume one exists.
 - `docs/06_platform_ui_contract.md` owns navigation IA and cross-menu contracts; `docs/07_app_shell_wireframe.md` consumes them. Use conceptual responsibilities, not framework component APIs or roadmap phases, in design-stage output.

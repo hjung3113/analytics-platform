@@ -20,7 +20,7 @@
 
 ### 2차 리뷰 (공지·VOC 추가 + UI/UX 리서치 이후 재검토)
 
-공통으로 잡은 가장 심각한 문제: 딥링크 설계의 "UTC 저장값" 전제가 파서의 실제 시각 계약(타임존 없는 설비 wall-clock)과 충돌 — UI/UX 리서치 작성 시 시간대 전환 규칙 없이 UTC를 전제해 생긴 오류였다(→ `04_frontend_ui_ux.md` 딥링크 절에서 정정).
+공통으로 잡은 가장 심각한 문제: 딥링크 설계의 "UTC 저장값" 전제가 파서의 실제 시각 계약(타임존 없는 설비 wall-clock)과 충돌 — UI/UX 리서치 작성 시 시간대 전환 규칙 없이 UTC를 전제해 생긴 오류였다(정정된 wall-clock 시간 계약은 `06_platform_ui_contract.md` §6.3에서 Decided).
 
 또한 VOC를 "변경 감사 재사용"만으로 떼워낸 것은 과했다 — 접수/담당자/상태전이/댓글은 VOC 자체 모델이고, Audit Trail은 그 위에 겹치는 변경 이력일 뿐이다(→ `02_domain_menus.md`). 공지·VOC·주석이 로드맵 어느 Phase에도 명시되지 않은 점도 세 리뷰 공통 지적 — 로드맵에 반영(→ `05_roadmap_and_open_questions.md`).
 

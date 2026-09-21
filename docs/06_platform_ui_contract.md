@@ -13,7 +13,7 @@
 - **Open**: 아래에 미결로 기록한 URL 세부 정책·Scope 계층·시간 의미 등.
 - **Deferred**: 저장된 뷰 등 후속 구현 범위. 이 설계가 기능 제공 시점을 확정하지 않는다.
 
-§5~6, §8~9, §11, §17, §19의 책임·행동 규칙은 Decided다. 화면 배치와 시각 토큰(§7, §23, §25, §31)은 Candidate다. 구현 일정은 아직 확정하지 않았으며 `05_roadmap_and_open_questions.md`의 Phase 표는 non-authoritative 가설이다.
+§5~6, §8~9, §11, §17, §19의 책임·행동 규칙은 Decided다. §7 셸 치수(사이드바 270px·헤더 54px)와 §15 테이블 밀도(최소 32px)는 2026-09-21에 `DESIGN.md` canonical 값으로 Decided됐다 — 이 문서는 그 값을 인용만 하고, 실제 값의 단일 원본은 `DESIGN.md`다. §23 토큰 스케일·§25 반응형 정책·§31은 아직 Candidate다. 구현 일정은 아직 확정하지 않았으며 `05_roadmap_and_open_questions.md`의 Phase 표는 non-authoritative 가설이다.
 
 ## 1. 문서 목적
 
