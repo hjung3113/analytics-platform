@@ -15,12 +15,12 @@
 | Frontend 기반 | React + TypeScript + Tailwind | 구현 후보; 팀 역량·제품 제약·검증 결과로 선택 |
 | 프론트 상태 | TanStack Query(서버 상태) + Zustand(UI 상태) + URL query param 동기화 | 서버 조회 결과의 캐싱/재검증/무효화를 지연 재집계(확정/미확정) 정책과 맞물려 관리 — 전역 필터 컨텍스트는 URL을 기준으로 딥링크 가능하게 유지 |
 | UI 컴포넌트 | shadcn/ui + Base UI 또는 Radix 비교 | 접근성·합성 API·기존 자산 호환성을 비교할 후보. primitive 간 API 차이를 검증하고 실제 채택 시 조합을 명시한다 |
-| 라우팅 | TanStack Router | 타입 있는 검색 파라미터·검증·기본값 지원으로 필터 딥링크 계약을 타입 안전하게 관리. 단 URL 계약의 버전·폐기 필드·미지원 필터 처리까지 자동으로 설계해주지는 않음 — 직접 설계 필요 |
+| 라우팅 | TanStack Router | 타입 있는 검색 파라미터·검증·기본값 지원으로 필터 딥링크 계약을 타입 안전하게 관리. 단 URL 계약의 버전·폐기 필드·미지원 필터 처리까지 자동으로 설계해주지는 않음 — 06 §6.4의 확정 메커니즘을 구현해야 함 |
 | 테이블/그리드 | TanStack Table(컬럼고정·그룹화 로직 API 내장, 서버사이드 연동은 직접 배선) + TanStack Virtual, 대규모 로그 탐색기만 AG Grid 검토 | headless로 Tailwind/shadcn와 잘 맞음. **AG Grid는 Community(MIT)가 Infinite Row Model만 제공 — 피벗·행그룹화·서버사이드 Row Model은 전부 Enterprise 유료**. 피벗 요구가 생기면 SQL-first로 mart에서 미리 피벗된 결과를 내리는 방안과 비용 대비 |
 | 대시보드 편집 | react-grid-layout | Deferred인 사용자 편집 요구가 채택될 경우 검토할 후보. 드래그·리사이즈·breakpoint·저장복원 지원하지만 영속 저장 서비스는 애플리케이션 책임 — 위치 계산기로만 쓰고 `layoutVersion`/`dashboardId`/`owner`/`scope`/`status`/`publishedAt`은 애플리케이션 모델에 별도 보관. 2.2.0은 critical layout bug로 제외, 채택 시 버전 하한 재검증 필요 |
 | 조회 레이아웃 | CSS Grid | 고정 화면은 react-grid-layout보다 단순·안정적 |
 
-Node/NestJS는 프론트와 언어를 통일하는 게 더 중요해지거나, 백엔드 지표 계산이 SQL-first로 굳어질수록 대안으로 고려할 수 있다.
+Node/NestJS는 프론트와의 언어 통일·SQL-first 관점에서 비교했던 대안이다. 현재 백엔드는 FastAPI 방향이 Decided이며 세부 버전·구성은 Candidate다([05 결정 상태](05_roadmap_and_open_questions.md), [03 백엔드 스택](03_backend_stack.md)).
 
 ## UI/UX 리서치 (codex gpt-5.6-luna, 실제 웹 검색 기반, 2026-09-17 확인)
 
@@ -45,7 +45,7 @@ Node/NestJS는 프론트와 언어를 통일하는 게 더 중요해지거나, �
 
 플랫폼 전역 계약은 `06_platform_ui_contract.md`가 소유한다: §6은 occurrence 식별자와 목적지 객체 ID 분리, URL 상태, Scope/서버 권한 검증, 시간 의미와 Open 결정; §9는 navigation IA; §11은 Context 변경과 이전 데이터 차단 규칙이다. 이 문서에서 별도 규칙을 재정의하지 않는다.
 
-TanStack Router는 계약의 구현 후보다. 구체 URL API·버전·잘못된 값 처리 정책은 계약 문서의 Open 결정을 해결한 뒤 구현한다. 구체 셸 배치는 `07_app_shell_wireframe.md`를 참조한다.
+TanStack Router는 계약의 구현 후보다. URL 직렬화·집합/단일값 키의 중복 규칙은 [06 전역 계약](06_platform_ui_contract.md) §6.1, 세션 우선순위·버전 `v` 수명주기·잘못된 값·뒤로가기/미지원 Context 복원 메커니즘은 §6.4에서 Decided다. 공개 필드명·enum 문자열 및 공유 산출물 형식(OpenAPI/JSON Schema/codegen)은 Candidate이며, 구현·라이브러리 채택·완성된 URL API를 이 결정만으로 주장하지 않는다. 구체 셸 배치는 [07 App Shell](07_app_shell_wireframe.md)을 참조한다.
 
 ## 페이지별 UI 패턴
 

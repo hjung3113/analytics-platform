@@ -1,3 +1,39 @@
+# Handoff — 2026-09-22 M1 문서 이행 완료
+
+## 현재 작업 상태와 범위
+
+사용자가 **M1만 실행**하도록 선택했다. Orca 수정 담당·독립 검토 에이전트와 토론하고 `docs/INDEX.md`, `docs/03_backend_stack.md`, `docs/04_frontend_ui_ux.md`, `docs/07_app_shell_wireframe.md` 네 문서에 반영했다. 폴더 이동, M2 이후 이행, IA/화면 설계, 제품 구현, 새로운 제품·기술 결정은 진행하지 않았다. 이번 작업은 아직 커밋하지 않았고 push도 하지 않았다.
+
+시작 HEAD는 `cd57a6f`, 당시 작업 트리는 깨끗했다. 현재 변경은 위 네 문서와 이 HANDOFF, 새 [M1 실행·토론·검증 기록](.agents/reports/m1-doc-entry-alignment-2026-09-22.md)이다. 다음 세션은 이 변경을 사용자 작업으로 보존하고 먼저 실제 Git 상태를 확인한다.
+
+## 반영한 내용과 검증
+
+- INDEX: 새 메뉴는 06 Kernel/Extension부터 읽도록 변경. DESIGN/REQUIREMENTS/HANDOFF 및 CONTEXT/ADR 실제 링크와 역할 추가, 05가 폴링·DB 접근·R/H 상세도 소유한다는 안내 보강.
+- 03/04: 확정된 시간·URL 메커니즘을 Open으로 안내하던 문구 정정. 기존 인터뷰의 FastAPI 방향 Decided와 인증 프로토콜 Open/pluggable을 반영하고 종전 비교 이유 보존. 프론트 라이브러리·공개 필드명·공유 산출물 형식은 Candidate 유지.
+- 07: §4/6/8의 Scope·TZ·URL 상태를 현행 06에 정렬. Site→Line/v1 단일/한국 우선 TZ는 Decided, 상속·다중 사업장 날짜/교대일·영업일은 Open. 기존 DESIGN과 추가 시각 작업 Deferred를 구분. §7 시나리오 표는 그대로 보존.
+- 검증: 기존 제목 보존, 로컬 inline 링크 37개 오류 없음, `git diff --check`, V1 새 메뉴 탐색 및 V2 URL/시간 영향 문서 워크스루. 독립 최종 diff 검토 차단 지적 없음. 제품 런타임 검증은 하지 않았다.
+
+과거 M1 계획/샘플의 TZ·Scope·H Open 가정은 후속 인터뷰로 달라졌다. 기존 역사 보고서·샘플·source-snapshot·validation.json을 고치거나 과거 validator로 덮어쓰지 않았다. 현재 결과는 위 새 실행 기록을 본다.
+
+## 다음 세션 시작과 후속 후보
+
+1. 현재 `AGENTS.md`, `git status --short`, `git log -5 --oneline`, `git submodule status`, [INDEX](docs/INDEX.md)를 확인한다.
+2. [M1 실행 기록](.agents/reports/m1-doc-entry-alignment-2026-09-22.md)의 변경·보존·미실행 범위와 실제 diff를 읽는다. M1을 다시 미착수로 취급하지 않는다.
+3. 다음 문서 이행 후보는 [계획](.agents/reports/doc-operations-2026-09-22/migration-plan.md)의 **M2 한 계약 연결 시범**이다. 이번 사용자가 승인한 실행 범위는 M1까지이므로 M2나 IA를 자동으로 이어서 실행하지 않는다.
+4. M2를 요청받으면 06 §6.3과 05 지연완료 정책의 현재 본문부터 확인한다. H=1시간·한국 우선 TZ·명시적 기간 프리셋은 이미 결정됐고, 최초 자동 기본 Δ·timeDomain assertion 공급자·다중 사업장 날짜 의미는 미결이다. 문서 포인터와 작업 증거 연결만 시범 적용하며 제품 결정을 새로 채우지 않는다.
+
+01/02 Phase 표현, DESIGN의 오래된 설명, REQUIREMENTS의 상태/구현 증거 분리, 05 정책 상세의 원본 이관은 남아 있다. 아래 이전 세션의 “남은 Open 1건”은 당시 인터뷰 목록에 대한 요약일 뿐 모든 문단의 Open을 닫았다는 뜻이 아니다.
+
+## 보존할 경계
+
+06은 전역 UX·Context·URL·Scope·Menu Extension 원본, DESIGN은 시각 token/render 원본이다. 05의 정책 상세 소유권은 아직 이관하지 않았다. 단일 설비 naive 조회 허용, 서버 assertion 병합 가드, R 부재 시 유효한 defaultRangeTo 물질화 예외를 보존한다. 결정 완료와 구현·검증 완료를 구분한다. FeedbackOps gitlink `b5dd614ac8da3792cb1627e7daeffb8fc9c4944e` 및 내부 파일, 독립 parser는 변경하지 않았다.
+
+---
+
+## 이전 세션 기록 — 당시 상태이며 현재 실행 지시 아님
+
+아래 기록은 원문 그대로 보존한다. M1 미착수·M1 또는 IA 선택 안내는 이 상단의 M1 완료 상태로 대체된다.
+
 # Handoff — 2026-09-22 06 Scope/딥링크 계약 정렬 완료 / 다음은 M1 또는 IA
 
 ## 다음 세션의 목표와 권한
