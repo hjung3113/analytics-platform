@@ -10,11 +10,14 @@
 | Decided | occurrence와 도메인 객체 식별자를 분리하고 URL을 권한 증명으로 쓰지 않는다 | 전역 계약 §6 |
 | Decided | Context 변경 시 이전 결과를 새 조건의 결과로 표시하지 않는다 | 전역 계약 §11 |
 | Decided | URL 직렬화·집합 키/공집합·지표 버전 쌍·초 단위 구간, 시간 경계 메커니즘(half-open, 날짜-only, TZ 미확인 fallback, 복수 설비 병합 가드, `defaultRangeTo`), URL 계약(세션 우선순위, 버전 `v`, 잘못된 값, 뒤로가기/셸 전환 복원), §19 응답 스키마(2층: `outcome`+`assessments[]`) | `06_platform_ui_contract.md` §6.1/§6.3/§6.4/§19, `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` |
-| Decided | 실시간성 기본 정책(폴링+세대 기반 캐시 재검증), 파서 DB 접근 기본 정책(같은 인스턴스·read-only·플랫폼 스키마), 지연 완료 허용 시간의 정책 메커니즘(`lateArrivalAutoHorizon`, 진행 경계 `R`/창 길이 `H`, 창 밖은 정정 후보로 보존) — **구체 숫자·필드명은 Open/Candidate로 유지** | 아래 §실시간성/파서 DB 접근/지연 완료, `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §6 |
+| Decided | 실시간성 기본 정책(폴링+세대 기반 캐시 재검증), 파서 DB 접근 기본 정책(같은 인스턴스·read-only·플랫폼 스키마), 지연 완료 허용 시간의 정책 메커니즘(`lateArrivalAutoHorizon`, 진행 경계 `R`/창 길이 `H`, 창 밖은 정정 후보로 보존) — **`H`=1시간 확정, 그 외 구체 숫자·필드명은 Open/Candidate로 유지** | 아래 §실시간성/파서 DB 접근/지연 완료, `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §6 |
 | Decided | 셸 치수(사이드바 270px·헤더 54px)와 테이블 행 밀도(최소 32px, 25px는 compact 시각 목표)는 `DESIGN.md` canonical 값으로 통일. `docs/06` §7/§15를 `DESIGN.md`에 맞춰 갱신 완료(2026-09-21) | `06_platform_ui_contract.md` §7/§15, `DESIGN.md` `sidebar-shell`/`top-bar`/`table-density`, `PLATFORM_REQUIREMENTS.md` §0 |
+| Decided | Scope/설비 도메인 모델: Site→Line 2단계(Factory는 모델링하지 않음), Maker→Model→EquipmentID 식별 계층, Process(`room_name`)·StGroup(`stgroup`)은 계층이 아닌 교차 분류 축, Recipe(`prc_name`)는 설비가 아니라 Lot/Job에 붙는 속성(2026-09-22 도메인 인터뷰) | `CONTEXT.md`, `docs/adr/0001-scope-hierarchy-site-line-only.md` |
+| Decided | 조직/운영 요구값(2026-09-22 확정): 백엔드 FastAPI, 배포 on-prem, 동시 사용자 ~100명, 데이터 보존 기간 제한 없음(삭제 안 함), 초기 1개 Site/Line으로 시작하되 구조는 확장 가능하게, Scope는 v1에서 단일 선택만(복수 선택은 이후), TZ는 한국(Asia/Seoul) 단일값으로 우선 시작(해외 사업장인 중국 시안·미국 오스틴 실존 확인, 확장 여지는 설계에서 배제하지 않음) | `03_backend_stack.md`; 아래 Open Questions |
+| Decided | Evidence/Lineage drill-through(후보 1)와 원문 로그/설정파일 drill-through(후보 2, FileGateway류)는 현재 defer — parser의 view/mart 조회로 충분하며, 원본 접근은 내부 개발자 전용 메뉴가 실제로 필요해질 때 재검토(2026-09-22) | `docs/integration/component-contract-candidates.md` §다음 결정 순서 |
 | Candidate | 대표 분석 흐름으로 차트·표·드릴다운·딥링크 계약을 검증한다 | 아래 설계 검증 기준; 구현 착수는 별도 결정 |
-| Candidate | 프론트엔드 라이브러리 및 백엔드 기술 선택 | `04_frontend_ui_ux.md`, `03_backend_stack.md`; 제품 제약과 검증 결과에 따라 결정 |
-| Open | Scope hierarchy(사이트→공장→라인), 복수 Scope, TZ 실제 값, 다중 사업장 같은 날짜 의미, 사용자·운영 요구(백엔드 언어/인증/멀티테넌시/배포 환경/동시 사용자/데이터 볼륨), 지연 완료 허용 시간의 구체 숫자 | 전역 계약 §6.2/§6.3 및 아래 질문 |
+| Candidate | 프론트엔드 라이브러리 및 백엔드 기술 선택(백엔드는 FastAPI로 방향 확정, 세부 프레임워크 버전·구성은 Candidate) | `04_frontend_ui_ux.md`, `03_backend_stack.md`; 제품 제약과 검증 결과에 따라 결정 |
+| Open | 인증 프로토콜의 정확한 사양 — 사내 SSO 존재는 확인됐으나 프로토콜 미확인(사내 확인 중). 확인 전까지 인증 계층은 나중에 붙일 수 있도록 pluggable하게 구현한다 | 아래 Open Questions |
 | Deferred | 구현 순서·일정·POC·저장된 뷰·범용 위젯/플러그인 확장 | 별도 implementation-planning에서 재평가 |
 
 Decided는 설계 계약의 상태이며 구현 완료를 뜻하지 않는다. Candidate/Open/Deferred를 구현 지시로 해석하지 않는다.
@@ -37,14 +40,9 @@ Decided는 설계 계약의 상태이며 구현 완료를 뜻하지 않는다. C
 
 ## Open Questions
 
-- [ ] 백엔드 언어 (FastAPI 기본 추천이나, 팀이 C#/TypeScript 중심이면 ASP.NET Core/NestJS로 확정될 수 있음 — `03_backend_stack.md`의 기술스택 표는 잠정)
-- [ ] 인증 방식 (사내 SSO 연동 여부 — 있다면 처음부터 OIDC로 시작)
-- [ ] 멀티테넌시/다중 사업장 지원 여부 (초기엔 행 스코핑으로 충분한지)
-- [ ] 배포 환경 (사내 서버 vs 클라우드)
-- [ ] 동시 사용자 규모
-- [ ] 데이터 볼륨/보존 기간
-- [ ] 지연 완료 허용 시간의 **구체 숫자** (`lateArrivalAutoHorizon`/`H`의 값 — 메커니즘은 아래 §지연 완료에서 Decided)
-- [ ] 사업장별 원천 시간대 매핑의 **실제 값** — 파서 wall-clock을 소비 계층에서 어떻게 UTC/표시 시간대로 변환할지 (미확인 시 fallback 메커니즘은 `06_platform_ui_contract.md` §6.3에서 Decided)
+- [ ] 인증 프로토콜의 정확한 값 (사내 SSO 존재는 확인됐으나 프로토콜은 사내 확인 중 — 확인 전까지 인증 계층은 pluggable하게 구현)
+
+2026-09-22 도메인 인터뷰로 이 절의 나머지 항목(백엔드 언어, 멀티테넌시, 배포 환경, 동시 사용자, 데이터 보존, 지연 완료 허용 시간 구체 숫자, 사업장 TZ 실제 값, Scope hierarchy)은 모두 Decided로 이동했다. 값과 근거는 위 결정 상태 표와 `CONTEXT.md`, `docs/adr/0001-scope-hierarchy-site-line-only.md`를 본다.
 
 ### 실시간성 (Decided — 메커니즘)
 
@@ -54,11 +52,13 @@ Decided는 설계 계약의 상태이며 구현 완료를 뜻하지 않는다. C
 
 "직접 연결 vs read replica"를 **mart 소스 인스턴스가 어디에 사는가**의 문제로 재정의한다. **기본 정책은 같은 Postgres 인스턴스, 파서 read-only 역할, 플랫폼 전용 스키마다**(`03_backend_stack.md`가 이미 추천했던 토폴로지를 이 세션에서 기본값으로 확정). API는 파서 원본 테이블을 직접 조회하지 않는다(`01_architecture_and_data_contract.md`). replica/분리 인스턴스는 쓰기 경합 또는 보안 격리 요구가 **실제로 확인될 때만** 평가 대상으로 승격한다(경합 존재만으로 자동 승격하지 않는다). 근거: `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §6.2.
 
-### 지연 완료 허용 시간 (Decided — 정책 메커니즘; 구체 숫자는 Open Questions 유지)
+### 지연 완료 허용 시간 (Decided — 정책 메커니즘 + 구체 숫자)
 
 필수 운영 설정 `lateArrivalAutoHorizon`(Candidate 이름) 없이는 자동 재집계를 시작하지 않는다(0이나 무한을 암묵값으로 넣지 않고, 숫자 미정이면 "설정 미충족"으로 보고한다). 창 **안**의 지연완료는 자동 재집계하고, 창 **밖**은 자동 재개방하지도 조용히 버리지도 않으며 식별·조회 가능한 정정/backfill 후보로 남겨 운영자가 명시적으로 실행한다(새 승인 워크플로 UI는 이번에 만들지 않음; 기존 플랫폼 권한·감사를 적용). `autoRefreshClosed`는 자동 창이 닫혔다는 뜻일 뿐 데이터가 완전/불변이라는 뜻이 아니다. 마스터 소급·재분류·지표 정의 변경은 이 창과 다른 트리거다.
 
 창의 기준은 시간역별 **원천 진행 경계 `R`**(데이터 계층 소유, naive 배타 경계, 첫 mart 세대 생성 전에도 공급 가능하며 mart 계산 완료 시각·클라이언트 now·UTC 절단과는 다른 값)과 **명시적 wall-clock 길이 설정 `H`**다. 자동 창은 `[R-H, R)`이고, 원천 진행이 멈추면 창도 멈춘다(현실 경과일로 반드시 닫히는 것이 아니라 데이터 진행 기준의 창이다). `R`이 없으면 자동 재집계만 보류하며 지연완료 식별·후보 보존은 계속한다. 사업장 override·지표별 horizon은 수요·모델이 확인되기 전에는 구현하지 않는다(영구 금지와는 다르다). 근거: `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §6.3.
+
+`H`=**1시간**으로 확정(2026-09-22 도메인 인터뷰).
 
 ## Deferred — 과거 Phase roadmap 가설 (non-authoritative)
 

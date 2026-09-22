@@ -1,16 +1,66 @@
+# Handoff — 2026-09-22 Scope/설비 도메인 인터뷰 완료 / 다음은 사용자 선택
+
+## 다음 세션의 목표와 권한
+
+최신 사용자 요청: **이번 세션 산출물을 커밋하고, 다음에 뭘 하면 좋을지 추천해서 HANDOFF를 갱신한다.** 아래 "다음 세션 추천 작업"은 추천이지 사용자가 확정한 지시가 아니다 — 다음 세션은 시작할 때 사용자에게 어느 항목부터 할지 확인한다. 제품 구현, 새로운 기술 선택, 서브모듈 변경은 이번 세션에 포함되지 않았다.
+
+이번 세션에서 한 일: `/grill-with-docs`(grilling + domain-modeling)로 `docs/05_roadmap_and_open_questions.md`의 Open Questions 12개 항목과 `docs/integration/component-contract-candidates.md`의 게이트 질문 2개를 전부 인터뷰해 확정했다. 문서만 갱신했고 코드/구현은 다루지 않았다.
+
+## 시작할 때 읽을 자료
+
+1. `git status --short`, `git log -3 --oneline`, `git submodule status`, [docs/INDEX.md](docs/INDEX.md).
+2. [CONTEXT.md](CONTEXT.md) — 이번 세션에 처음 생긴 도메인 용어집(Site/Line, Maker→Model→EquipmentID, Process, StGroup, Lot, Recipe).
+3. [docs/adr/0001-scope-hierarchy-site-line-only.md](docs/adr/0001-scope-hierarchy-site-line-only.md) — Site→Line 2단계, Factory 미모델링 결정과 그 결과(StGroup이 여러 Line에 걸칠 수 있는 이유).
+4. [docs/05_roadmap_and_open_questions.md](docs/05_roadmap_and_open_questions.md) 결정 상태 표 — 이번 세션에 Decided로 옮긴 항목 전체.
+5. [PLATFORM_REQUIREMENTS.md](PLATFORM_REQUIREMENTS.md) Open Questions 목록 — 05와 함께 갱신했다.
+
+## 이번 세션에서 확정된 것 (전부 2026-09-22)
+
+- **Scope/설비 도메인 모델**: Site→Line 2단계(Factory는 모델링하지 않음), Maker→Model→EquipmentID 식별 계층, Process(`room_name`)·StGroup(`stgroup`)은 계층이 아닌 교차 분류 축, Recipe(`prc_name`)는 설비가 아니라 Lot에 붙는 속성. Process는 불변(바뀌면 재등록), StGroup은 가변(v1은 현재 소속만 사용, 시점 소급은 추후 확장 가능하나 미구현).
+- **조직/운영값**: 백엔드 FastAPI, 배포 on-prem, 동시 사용자 ~100명, 데이터 보존 기간 제한 없음, 멀티테넌시는 1개 Site/Line으로 시작하되 구조는 확장 가능, Scope는 v1 단일 선택만, TZ는 한국(Asia/Seoul) 단일값 우선(중국 시안·미국 오스틴 실사이트 존재는 확인, 확장은 배제 안 함), `lateArrivalAutoHorizon`=1시간.
+- **제품 범위 게이트 2건 defer**: Evidence/Lineage drill-through, FileGateway류 원문 로그 drill-through — 둘 다 parser의 view/mart 조회로 충분하다고 판단, 실제 요구가 생기면 재검토.
+- **남은 Open 1건**: 인증 프로토콜의 정확한 사양 — 사내 SSO 존재는 확인됐으나 스펙은 사내 확인 중. 결과가 오기 전까지 인증 계층은 pluggable하게 구현하는 방향만 확정.
+
+## 다음 세션 추천 작업 (권장 순서, 확정 아님)
+
+1. **이전 세션이 남긴 M1 문서 이행을 마저 실행한다** — 아래 "이전 세션 기록"의 M1(쓰기 범위: `docs/INDEX.md`/`03_backend_stack.md`/`04_frontend_ui_ux.md`/`07_app_shell_wireframe.md` 네 문서 한정)은 이번 세션에서 손대지 않아 아직 미완료다. 특히 `03_backend_stack.md`는 "실제 TZ 값 Open"을 전제로 쓰라는 지시였는데, 이번 세션에 TZ 실제값(한국 우선)이 Decided로 바뀌었으니 M1 작업 시 이 새 상태를 반영해서 쓴다 — 낡은 지시서를 그대로 옮기지 않는다.
+2. **`06_platform_ui_contract.md`의 Scope 관련 절을 이번 결정에 맞게 갱신한다** — 06은 여전히 "Site→공장→라인" 3단계 가설을 전제로 §6.2/§18 등을 서술하고 있을 가능성이 높다(이번 세션에서 06 본문은 확인만 하고 고치지 않았다). ADR-0001·CONTEXT.md와 대조해 06의 Scope 계층 서술을 실제 구조(Site→Line 2단계 + Maker/Model/EquipmentID + Process/StGroup/Recipe 교차 축)로 고치는 게 가장 시급하다 — 06이 전역 계약 원본이라, 여기가 안 고쳐지면 이후 메뉴 설계가 계속 낡은 가설을 참조하게 된다.
+3. **Recipe/StGroup을 1급 딥링크 키로 승격할지 결정한다** — 이번 인터뷰에서 두 축 모두 "실제로 가장 많이 조회하는 단위"로 확인됐다. 06 §6.2가 정의하는 1급 딥링크 키 목록에 넣을지, 아니면 부가 필터로만 둘지는 아직 미결이다 — 2번 작업과 같이 다루는 게 자연스럽다.
+4. **인증 프로토콜 확인 결과가 오면 반영한다** — 사내 확인 결과를 받으면 05의 마지막 Open 항목을 닫고, pluggable 인증 계층의 구체 경계(로컬/스텁 auth로 먼저 개발할지, 인터페이스를 어디에 둘지)를 정한다.
+5. **도메인 모델을 실제 화면에 적용해본다** — `.agents/skills/analysis-platform-wireframe/SKILL.md`로 설비관리 또는 생산성 분석 중 하나를 골라 Requirements→IA 단계를 시작하면, 이번에 확정한 Scope 모델이 실제 화면 설계에서 버티는지 가장 빨리 검증된다. 2번(06 갱신)보다 먼저 할지 나중에 할지는 사용자 판단이 필요 — IA를 먼저 돌리면 06 갱신 시 반영할 실제 사례가 생기고, 06을 먼저 고치면 IA가 낡은 계약을 안 보고 시작할 수 있다는 트레이드오프가 있다.
+
+## 반드시 보존할 경계
+
+- 06은 전역 UX·Context·URL·Scope·Menu Extension 원본이다. DESIGN은 시각 token/render 원본이며 06의 최소 기준·상태·접근성 의무를 임의 변경할 수 없다.
+- 05는 상태 목록뿐 아니라 폴링·DB 접근·R/H 상세 원본도 소유한다. 이번 세션에 Decided 행을 추가했을 뿐 구조를 바꾸지 않았다.
+- Decided/Candidate/Open은 문단별로 구분한다. 이번 세션에서 새로 Decided로 옮긴 항목 외의 나머지(폴링 주기, 최대 조회량/timeout, `defaultRangeTo` 기본 길이, timeDomain assertion 공급자, 교대일/영업일, 다중 사업장 "같은 날짜" 등)는 여전히 Open이다 — 이번 세션이 전부 닫았다고 오해하지 않는다.
+- 셸 270/54, 기본 표 최소 32, compact 시각 목표 25, coarse-pointer target 44를 재결정하지 않는다.
+- FeedbackOps는 독립 제품이며 현재 gitlink로 고정돼 있다. 내부 수정·pin 갱신 금지. parser도 독립 upstream이다.
+- 이번 세션에서 CONTEXT.md/ADR-0001을 신설했지만 06 §6.2/§18 등 기존 계약 본문은 아직 손대지 않았다 — 다음 세션이 06을 고칠 때까지 06과 CONTEXT.md/ADR-0001 사이에 서술 불일치가 존재한다는 걸 알고 시작한다.
+
+## 검증과 완료 보고
+
+문서 갱신만 했으므로 런타임 검증은 없다. 확인한 것: `docs/05`/`PLATFORM_REQUIREMENTS.md`/`docs/integration/component-contract-candidates.md`가 서로 모순 없이 같은 결정을 가리키는지, `CONTEXT.md`/ADR-0001의 상호 링크가 맞는지. 06 본문은 아직 대조·수정하지 않았다(위 추천 2번).
+
+---
+
+## 이전 세션 기록 — 당시 안내이며 현재 실행 지시 아님
+
+아래 원문은 조사 맥락과 중요한 근거를 보존하기 위한 이력이다. 현재 목표와 충돌하는 부분은 위 최신 안내를 따른다. **이번 세션은 아래 M1을 실행하지 않았다 — 위 추천 1번 참고.**
+
 # Handoff — 2026-09-22 문서 운영 설계 완료 / 다음은 M1
 
 ## 다음 세션의 목표와 권한
 
 최신 사용자 요청: **문서 운영 설계 산출물을 커밋하고, 다음 세션부터 실행할 수 있도록 HANDOFF를 갱신한다.** 다음 작업은 아래 M0 확인 후 **M1 문서 이행**이다. 이번 세션은 준비·기록·커밋까지만 수행했으며 M1 자체는 아직 실행하지 않았다. 제품 구현, 새로운 제품/기술 선택, 문서 대규모 이동, 서브모듈 변경은 다음 작업에 포함되지 않는다. 이번 커밋 요청은 push 요청이 아니다.
 
-아래 ‘이전 세션 기록’의 추가 리서치 우선 안내는 당시 이력이다. 현재 작업 순서는 이 상단 안내를 따른다. 과거의 체크박스 동시 갱신 지시도 설계 결정과 구현 완료를 같은 상태로 취급하는 근거가 아니다.
+아래 '이전 세션 기록'의 추가 리서치 우선 안내는 당시 이력이다. 현재 작업 순서는 이 상단 안내를 따른다. 과거의 체크박스 동시 갱신 지시도 설계 결정과 구현 완료를 같은 상태로 취급하는 근거가 아니다.
 
 ## 시작할 때 읽을 자료
 
 1. 현재 `AGENTS.md`, `git status --short`, `git log -3 --oneline`, `git submodule status`, [docs/INDEX.md](docs/INDEX.md).
 2. [문서 운영 종합 안내](.agents/reports/doc-operations-2026-09-22/README.md).
-3. [첫 이행 지시서](.agents/reports/doc-operations-2026-09-22/migration-plan.md)의 M0/M1과 ‘첫 번째 작업’ 전체.
+3. [첫 이행 지시서](.agents/reports/doc-operations-2026-09-22/migration-plan.md)의 M0/M1과 '첫 번째 작업' 전체.
 4. [현황 문제 목록](.agents/reports/doc-operations-2026-09-22/current-map.md), [운영 모델](.agents/reports/doc-operations-2026-09-22/operating-model.md), [대표 작업 검증](.agents/reports/doc-operations-2026-09-22/representative-validation.md)의 V1/V2.
 5. 판단하는 문구의 실제 원문: 특히 [06 전역 계약](docs/06_platform_ui_contract.md) §6.1–6.4 및 03/04/07 해당 절. 보고서 요약으로 원문을 대신하지 않는다.
 

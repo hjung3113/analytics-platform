@@ -164,10 +164,10 @@
 세 모델의 Open Questions(13+18+20=51개)를 주제별로 병합했다.
 
 1. ~~**셸 치수·테이블 밀도**~~ — 2026-09-21 결정 완료(§0, `docs/05` 참조). DESIGN.md canonical(270px/54px/32px) 채택.
-2. **Scope 도메인** — 계층(사이트→공장→라인)·상속·복수 Scope·설비 소속 변경 규칙. 현재는 단일 `scopeId`가 결정.
-3. **시간 의미** — 사업장별 실제 TZ 값, timeDomain assertion 공급자, 교대일/영업일, 다중 사업장의 "같은 날짜".
-4. **운영 수치** — `defaultRangeTo` 기본 길이, 지연완료 창 `H`, 폴링/감지 주기, 최대 조회량·timeout.
-5. **인증·조직·배포** — 사내 SSO 여부, 백엔드 언어(FastAPI 권장이나 팀 스택에 따라 변경 가능), 온프렘/클라우드, 브라우저 지원 범위, 동시 사용자·데이터 볼륨/보존 기간, 멀티테넌시 여부.
+2. ~~**Scope 도메인**~~ — 2026-09-21 결정 완료(`CONTEXT.md`, `docs/adr/0001-scope-hierarchy-site-line-only.md`). 계층은 Site→Line 2단계(Factory는 모델링 안 함), Maker→Model→EquipmentID 식별 계층, Process/StGroup은 교차 분류 축, Recipe는 Lot 속성. 설비 소속 변경: Process는 불변(재등록), StGroup은 가변(현재 소속만 사용, 소급은 추후). 복수 Scope 선택은 v1에서 단일 선택만.
+3. **시간 의미** — 사업장별 실제 TZ 값은 2026-09-22 결정(한국/Asia-Seoul 단일값 우선, 해외 사업장 확장은 배제 안 함 — `docs/05` 참조). timeDomain assertion 공급자, 교대일/영업일, 다중 사업장의 "같은 날짜"는 여전히 Open(해외 사업장 편입 전까지는 실무 영향 낮음).
+4. **운영 수치** — `defaultRangeTo` 기본 길이, 폴링/감지 주기, 최대 조회량·timeout은 Open. 지연완료 창 `H`=1시간은 2026-09-22 결정(`docs/05` 참조).
+5. ~~**인증·조직·배포**~~ — 2026-09-22 대부분 결정 완료(`docs/05` 참조): 백엔드 FastAPI, 온프렘, 동시 사용자 ~100명, 데이터 보존 기간 제한 없음, 멀티테넌시는 단일 사업장으로 시작(확장 가능). 남은 Open: 사내 SSO 프로토콜의 정확한 사양(존재는 확인, 스펙은 사내 확인 중).
 6. **상태 근거 서비스** — 수집/파서 지연/coverage 판정의 statusSource·observedAt 공급자가 없으면 모니터링 메뉴를 열 수 없다.
 7. **공개 계약 산출물 형식** — 필드명·공집합 표식·assessment enum, OpenAPI/JSON Schema/codegen 중 무엇으로 확정할지, URL `v` sunset 정책.
 8. **디자인 바인딩** — 다크모드 실제 수요, 아이콘 라이브러리, UI 프리미티브 조합, ECharts vs Plotly 최종 확정(POC 필요), CJK 폰트 선택, 기간 프리셋(7D/30D/90D) 의미.
