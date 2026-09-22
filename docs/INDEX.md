@@ -15,6 +15,7 @@
 | 개별 프론트엔드 메뉴 구현 | [06 플랫폼 Kernel·메뉴 확장 계약](06_platform_ui_contract.md) §4–6/§8/§17–19/§26/§28–29 | [02 도메인 catalog](02_domain_menus.md) → [07 셸](07_app_shell_wireframe.md)/해당 화면 설계 → [04 구현 후보](04_frontend_ui_ux.md) |
 | UI/UX — App Shell 화면 설계 | `07_app_shell_wireframe.md` | `06_platform_ui_contract.md`, `04_frontend_ui_ux.md`, `.agents/skills/analysis-platform-wireframe/references/wireframe-rules.md` |
 | 신규 합류자 | `00_overview.md` → `06_platform_ui_contract.md` → 자기 역할 문서 순서로 | — |
+| 시간·기간·지연완료 계약 변경 | [06 시간 계약·변경 영향 경로](06_platform_ui_contract.md#ctx-time) | [05 R/H 정책 원본](05_roadmap_and_open_questions.md#late-arrival-policy) → 원본 옆의 소비자 포인터와 실제 변경 작업 기록 |
 
 새 메뉴는 위 06 계약부터 읽고 Platform Done을 먼저 확인한다. 필드 원천은 [01 데이터 계약](01_architecture_and_data_contract.md), 화면 설계 절차는 [설계 스킬](../.agents/skills/analysis-platform-wireframe/SKILL.md), 시각 token/render는 [DESIGN](../DESIGN.md)을 함께 본다.
 

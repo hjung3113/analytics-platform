@@ -245,7 +245,17 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 - **요청 `scopeId`는 v1에서 단일 선택만 허용한다(Decided, 2026-09-22).** 복수 Scope 선택은 이후 확장 후보로 남기되 v1 범위 밖이다.
 - **부모·자식 상속 규칙은 여전히 Open domain decision이다.** Site→Line 2단계뿐이라 상속 깊이 자체는 얕지만, Line 선택이 하위 EquipmentID/Process/StGroup 필터를 자동으로 포함(inherit)할지는 아직 결정하지 않았다. 셸은 고정 다단 선택기를 계약으로 요구하지 않는다.
 
+<a id="ctx-time"></a>
+<a id="63-시간-계약-decided-tz-값다중-사업장-같은-날짜는-open-domain-decision"></a>
 ### 6.3 시간 계약 (Decided; 다중 사업장 같은 날짜·교대일/영업일은 Open domain decision)
+
+> **참조 `CTX-TIME` — 이 절이 전역 Context·URL 시간 계약의 원본이다.** 문서 탐색용 식별자이며 공개 API 버전이 아니다. 결정 상태·예외·미결은 아래 해당 문단을 읽는다. 위 두 anchor는 안정 참조와 과거 제목 링크 호환용이며 제목 변경 때도 유지한다.
+>
+> **의존:** [03 시간 계약](03_backend_stack.md#시간-계약-중요--2차-리뷰에서-발견된-실수)의 원천 wall-clock, §6.1의 초 정렬·원천 정밀도 및 §6.2의 Scope, [05 R/H 정책 원본](05_roadmap_and_open_questions.md#late-arrival-policy). `defaultRangeTo`의 의미는 이 절, `R`/`H`의 의미는 05가 소유한다.
+>
+> **변경 시 직접 검토:** 이 문서 §6.4(기간 누락·URL 복원), §11(Context 전환), §18–19(시간역 오류·Data Trust), [03 시간 요약](03_backend_stack.md), [04 URL 구현 후보](04_frontend_ui_ux.md), [07 §6–8 기간 입력·시나리오](07_app_shell_wireframe.md#6-data-requirements), [DESIGN 기간 control/Date preset](../DESIGN.md#reference-component-bindings), [05 기간 프리셋](05_roadmap_and_open_questions.md#기간-프리셋과-집계-단위-decided-2026-09-22-grilling-round-2). R/H 변경을 동반하면 05의 관련 문서 경로도 따른다.
+>
+> **파생·후보 확인:** [REQUIREMENTS](../PLATFORM_REQUIREMENTS.md) §1/§3/§6/Open Questions, [연동 후보 2](integration/component-contract-candidates.md)의 시간 매핑. 이 목록은 탐색 출발점이지 전수 의존성 그래프가 아니다. `defaultRangeTo`, `timeDomain`, `wall-clock`, `from`/`to`와 절 참조를 추가 검색하고, 작업 기록에 각 대상의 수정/대조/보류 이유와 실제 코드·검증 유무를 남긴다. 문서 대조를 런타임 검증으로 표시하지 않는다.
 
 기간은 파서 원본과 같은 시간대 없는 설비 wall-clock으로 전달하며 임의로 UTC로 변환하지 않는다. 시간의 원천 의미는 `03_backend_stack.md`를 따른다. 아래는 이 wall-clock 계약 위에서 **메커니즘 수준으로 확정한** 항목이다. TZ 실제 값은 한국(Asia/Seoul) 단일값으로 우선 확정했다(2026-09-22, 해외 사업장인 중국 시안·미국 오스틴 실존은 확인됐으나 확장은 아직 미착수). 다중 사업장이 실제로 편입될 때의 "같은 날짜" 의미와 교대일/영업일 의미는 여전히 Open domain decision이다.
 

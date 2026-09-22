@@ -53,7 +53,12 @@ Decided는 설계 계약의 상태이며 구현 완료를 뜻하지 않는다. C
 
 "직접 연결 vs read replica"를 **mart 소스 인스턴스가 어디에 사는가**의 문제로 재정의한다. **기본 정책은 같은 Postgres 인스턴스, 파서 read-only 역할, 플랫폼 전용 스키마다**(`03_backend_stack.md`가 이미 추천했던 토폴로지를 이 세션에서 기본값으로 확정). API는 파서 원본 테이블을 직접 조회하지 않는다(`01_architecture_and_data_contract.md`). replica/분리 인스턴스는 쓰기 경합 또는 보안 격리 요구가 **실제로 확인될 때만** 평가 대상으로 승격한다(경합 존재만으로 자동 승격하지 않는다). 근거: `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §6.2.
 
+<a id="late-arrival-policy"></a>
 ### 지연 완료 허용 시간 (Decided — 정책 메커니즘 + 구체 숫자)
+
+> **이 절이 현재 R/H·지연완료 자동 재집계 정책의 원본이다.** 01로 이관하지 않았다. 결정 상태와 예외는 아래 문단을 따르며 필드명 후보와 구현 완료를 구분한다. `late-arrival-policy` anchor는 제목 변경 때도 유지한다.
+>
+> **직접 연결:** [06 시간 계약 `CTX-TIME`](06_platform_ui_contract.md#ctx-time)이 `R`을 기본 조회 상한과 대조한다. 함께 검토할 대상은 [01 mart 재계산 트리거](01_architecture_and_data_contract.md#mart-재계산-트리거-2차-리뷰-보강), 이 문서의 실시간성 정책, [03 시간 요약](03_backend_stack.md), [REQUIREMENTS §6](../PLATFORM_REQUIREMENTS.md#6-기타-제안-위-5개-범위-밖-플랫폼이-메뉴-없이도-실패하는-지점)이다. 조회 기간·표시에 영향이 있으면 CTX-TIME의 소비자 경로까지 확인한다. `lateArrivalAutoHorizon`, `autoRefreshClosed`, 원천 진행 경계/자동 창을 검색해 추가 영향을 찾고 작업 기록에 결과를 남긴다.
 
 필수 운영 설정 `lateArrivalAutoHorizon`(Candidate 이름) 없이는 자동 재집계를 시작하지 않는다(0이나 무한을 암묵값으로 넣지 않고, 숫자 미정이면 "설정 미충족"으로 보고한다). 창 **안**의 지연완료는 자동 재집계하고, 창 **밖**은 자동 재개방하지도 조용히 버리지도 않으며 식별·조회 가능한 정정/backfill 후보로 남겨 운영자가 명시적으로 실행한다(새 승인 워크플로 UI는 이번에 만들지 않음; 기존 플랫폼 권한·감사를 적용). `autoRefreshClosed`는 자동 창이 닫혔다는 뜻일 뿐 데이터가 완전/불변이라는 뜻이 아니다. 마스터 소급·재분류·지표 정의 변경은 이 창과 다른 트리거다.
 

@@ -1,3 +1,43 @@
+# Handoff — 2026-09-22 M1 커밋 / M2 시간 계약 연결 시범 완료
+
+## 현재 상태와 권한
+
+사용자 요청: **M1을 커밋하고 M2 진행, 전체 개요·진행 순서 설명**. M1은 `ce4687f` (`docs: align M1 entry routes and current decision states`)로 커밋했다. 그 후 M2를 완료했으며 **M2 변경은 미커밋**, push는 하지 않았다. 아래 과거 M1의 미커밋·M2 미착수 안내는 이 상단으로 대체한다.
+
+M2 원본 수정은 `docs/INDEX.md`, `docs/05_roadmap_and_open_questions.md`, `docs/06_platform_ui_contract.md` 세 파일에 추가한 탐색 안내 16줄이다. 운영 기록은 이 HANDOFF와 [M2 실행 기록](.agents/reports/m2-time-contract-linkage-2026-09-22.md)이다. 다음 세션은 이 변경을 보존하고 실제 Git 상태부터 확인한다. M3 이후·제품 구현·폴더 이동·서브모듈 변경은 수행하지 않았다.
+
+## 전체 흐름
+
+- M1 완료/커밋: 어디부터 읽고 어떤 문서가 원본인지 안내, 낡은 결정 상태 정정.
+- M2 완료/미커밋: 시간 계약 하나에 고정 링크·의존/소비 경로를 붙이고 실제 변경 영향 검토를 시범 수행.
+- M3 후속 후보: REQUIREMENTS의 확정 계약·후보·미결과 구현/검증 증거 구분.
+- M4 후속 후보: 필요가 확인된 상세 원본만 작은 단위로 이관·분할. 대규모 폴더 재배치는 필수가 아니다.
+- M5 실제 구현 시: 소비한 계약 revision과 코드·테스트 증거 연결.
+- M6 실제 변경이 쌓인 뒤: 탐색 누락·관리 비용 평가 후 확장 여부 판단.
+
+이것은 문서 운영 이행 순서다. 모든 제품 결정 완료나 구현 승인이 아니며, M6까지 끝나야 어떤 제품 작업도 할 수 있다는 뜻도 아니다.
+
+## M2에서 적용한 것
+
+[06 시간 계약 CTX-TIME](docs/06_platform_ui_contract.md#ctx-time)과 [05 R/H 정책 원본](docs/05_roadmap_and_open_questions.md#late-arrival-policy)에 원본·직접 의존·소비자 포인터를 붙였다. 06에는 과거 샘플의 제목 anchor alias도 남겼다. 계약 상태를 새 대장에 복사하지 않고 원문 문단을 읽도록 안내한다. 05 상세 원본을 01로 이관하지 않았다.
+
+검증: 추가 링크 15개 경로/fragment, 명시 anchor 중복, 기존 제목 보존, `git diff --check` 통과. 추가 안내를 제거한 05/06 전체 문자열이 M1 커밋과 정확히 동일하다. 역사 샘플과의 차이는 M2 이전의 TZ·프리셋 결정 반영임을 확인했다. 12개 경계 반례를 문서 대조했으며 런타임/브라우저/성능 시험은 하지 않았다. M2는 주 에이전트가 직접 수행했고 별도 다중 모델 검토는 실행하지 않았다.
+
+## 후속 작업의 구체적인 출발점
+
+1. 현재 AGENTS/Git/submodule 상태 → [INDEX](docs/INDEX.md) → [M2 실행 기록](.agents/reports/m2-time-contract-linkage-2026-09-22.md)의 영향 표와 검증 한계를 읽는다.
+2. M3 요청 시 첫 작은 단위는 `PLATFORM_REQUIREMENTS.md` §6 지연완료 항목의 “숫자는 Open” 정정이다. 05 R/H의 H=1시간과 REQUIREMENTS Open Questions 4를 대조하고, 결정 완료와 아직 없는 구현·테스트 증거를 분리한다. 체크박스를 구현 완료로 올리지 않는다.
+3. 별도 좁은 정정 후보: DESIGN Reference component bindings의 Page header/period에 남은 “Preset anchoring is Open below”는 같은 파일 Date preset meaning 및 06/05와 어긋난다. 현재 확정된 rolling 메커니즘 포인터로 정정할 수 있으며 새 제품 결정은 필요하지 않다. 이번 M2에서는 발견·기록까지만 했다.
+4. 연동 후보2의 OIDC 표현도 최신 인증 프로토콜 Open과 후속 대조 필요. 후보2는 현재 defer이며 이번 작업으로 채택하지 않았다.
+
+최초 자동 기본 Δ, assertion/defaultRangeTo 공급 근거, 다중 사업장 같은 날짜·교대일/영업일은 여전히 미결이다. 한국 우선 TZ·H=1시간·명시적 1일/7일 프리셋은 이미 결정된 값이다. 이전 계획의 Δ/H/TZ Open 가정을 그대로 복사하지 않는다.
+
+과거 보고서/sample/source-snapshot/validation.json은 역사 자료로 유지한다. 옛 validator를 실행해 이번 증거로 덮어쓰지 않는다. FeedbackOps gitlink `b5dd614ac8da3792cb1627e7daeffb8fc9c4944e` 및 독립 parser 경계를 유지한다.
+
+---
+
+## 이전 세션 기록 — 당시 상태이며 현재 실행 지시 아님
+
 # Handoff — 2026-09-22 M1 문서 이행 완료
 
 ## 현재 작업 상태와 범위
