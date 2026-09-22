@@ -31,21 +31,22 @@
 
 - [ ] **디자인 토큰 3층(primitive→semantic→component)을 실제 CSS/Tailwind 변수로 물질화** — `docs/06` §23은 Candidate, `DESIGN.md`는 그와 정렬됐지만 코드 산출물은 없다. 화면마다 임의 색·간격이 생기지 않게 하는 기반. **[3/3] Must** — Decided/Candidate.
 - [ ] **차트 라이브러리(ECharts 후보) 테마를 토큰에 바인딩** — 팔레트 계약은 있지만 실제 theme config·POC 검증(대용량 시계열, 다중 차트 브러시 동기화)이 없다. **[3/3] Must** — `DESIGN.md` Open Decisions, `docs/04`.
-- [ ] **아이콘 세트 단일화(Lucide 등 rounded-outline 한 패밀리)** — 후보만 있고 확정 없음. **[3/3] Should** — Candidate.
+- [ ] **아이콘 세트 단일화(Lucide, rounded-outline)** — 2026-09-22 grilling으로 Lucide 확정(Candidate→Decided). 실제 바인딩/구현은 아직. **[3/3] Should** — Decided.
 - [ ] **UI 프리미티브 조합 확정(shadcn/ui + Base UI/Radix 비교 후 채택)** — 모든 Platform Component의 기반. **[3/3] Must** — Candidate, `docs/04`.
 - [ ] **인터랙션 상태 전체 구현(hover/pressed/selected/focus/disabled/busy)과 중복 제출 차단** — 토큰만 있고 동작 미구현. **[3/3] Must** — Decided/디자인 요구.
 - [ ] **접근성 구현·렌더 검증(§26): 키보드 탐색, focus trap, 색 외 구분, 대비 4.5:1/3:1** — 토큰만으로 통과 주장 불가. **[3/3] Must** — Decided.
-- [ ] **한글/CJK 타이포 검증** — Inter는 한글 미지원, 폴백 폰트가 행높이·밀도를 바꾼다. 이 플랫폼 사용자 언어가 한국어라는 점에서 세 모델 모두 공백으로 지적했다. **[3/3] Should** — 신규 제안(Noto Sans KR 등 폰트 스택 결정 필요).
+- [ ] **한글/CJK 타이포 검증** — 2026-09-22 grilling으로 폰트 스택 확정: Noto Sans KR + Inter 페어링. 사내망이 망분리(인터넷 차단)돼 있어 **CDN이 아니라 자체 호스팅**(폰트 파일 번들)으로 간다. 실제 CSS/토큰 반영은 아직. **[3/3] Should** — Decided(스택/호스팅 방식), 실제 물질화는 구현 시.
 - [ ] **Data Trust 시각 표준화(Updated/Data through/Coverage/Metric version/Provisional을 공통 vocabulary로)** — 숫자만큼 숫자의 상태를 보여줘야 함. **[3/3] Must** — Decided, `docs/06` §18.
 - [ ] **상태 배지 4종(success/warning/danger/neutral) + §19 매핑표를 임의색으로 확장 금지** — 매핑표 자체는 문서에 없어 공백. **[2/3 · Codex, Grok] Must** — Candidate + 신규 제안(공백 메움).
 - [ ] **다크모드는 지금 설계하지 않되 토큰 구조가 이후 확장을 막지 않게** — 사이드바가 이미 다크라 단순 invert 불가. **[3/3] Nice(지금은 Open)** — `DESIGN.md` Open Decisions.
-- [ ] **장식적 시각화 금지(Gauge/3D/장식 게이지) — donut은 분모 있는 비율에만** — §24 Decorative Visualization vs 레퍼런스 스크린샷의 donut/gauge 어휘 사이 허용 범위를 한 문장으로 확정할 것. **[2/3 · Grok, omp] Must** — Decided + Open(허용 경계).
+- [ ] **장식적 시각화 금지(Gauge/3D/장식 게이지) — donut은 분모 있는 비율에만** — 2026-09-22 grilling으로 경계 확정: 기본값은 분모 있는 비율에 한해 donut만 허용, gauge/3D/그라디언트는 기본 비허용이나 업무 근거 확인 시 케이스별 예외 가능(전면·영구 금지 아님). `docs/05` §시각화 경계 참고. **[2/3 · Grok, omp] Must** — Decided.
 - [ ] **모션 토큰(120ms 전환, reduced-motion 0ms, live pulse는 freshness 근거 있을 때만)** — **[2/3 · Codex, Grok] Should**.
 - [ ] **KPI 타일 상한 5–6개** — KPI 행이 지표 화면을 대체하지 않게. **[2/3 · Grok, omp] Should**.
 - [ ] **숫자 표시 규칙(우측 정렬·tabular-nums·ID mono)** — **[2/3 · Codex, omp] Must**.
 - [ ] **반응형(Desktop-first, ≥1440 full / 1024–1439 collapse / <1024 조회 중심)** — **[3/3] Must(정책)**, 실제 모바일 구현은 Nice.
 - [ ] **z-index/오버레이 스택 계약(Dropdown/Popover/Drawer/Modal/Palette/Toast)** — 전역 스택 정의가 없음. **[1/3 · Grok] Should** — 신규 제안.
-- [ ] **기간 프리셋(7D/30D/90D) 의미 확정(rolling vs 달력일, 앵커)** — §6.3 half-open URL 물질화의 전제. **[3/3] Must(제공 시)**.
+- [ ] **기간 프리셋 값·의미 확정** — 2026-09-22 grilling으로 확정: 프리셋 버튼은 `7D/30D/90D`가 아니라 **`1일/7일/사용자 지정`**(실사용 패턴: 보통 1일, 길면 7일, 드물게 그 이상). Δ는 §6.3이 이미 정한 `defaultRangeTo` 기준 rolling wall-clock(자정 비정렬) 그대로 재사용(1일=Δ24h, 7일=Δ168h). 달력일 정렬·교대일/영업일 의미는 별도 Open. `docs/05` §기간 프리셋과 집계 단위 참고. **[3/3] Must** — Decided.
+- [ ] **집계 단위(`granularity`) URL 계약 신설** — 2026-09-22 grilling에서 새로 확인: 조회 기간과 별개로 "시간별/일별/주별로 뭉쳐 보기" 축이 필요. 06 §6.1의 page-owned 계약 패턴(화면별 선언·등록)으로 추가, 전역 Context Bar에는 넣지 않는다. 값 후보 `hour`/`day`/`week`. **[신규, 이번 세션 확인] Must** — Decided(메커니즘/소유 방식), 필드명은 Candidate.
 - [ ] **디자인 상태 갤러리/Storybook(정상·빈값·권한없음·긴 한글·부분실패 비교)** — **[2/3 · Codex, omp] Should** — 신규 제안.
 
 ## 2. 메뉴 카탈로그
@@ -70,7 +71,7 @@
 ### 2.2 세 모델이 자유롭게 제안한 신규 메뉴 (7그룹 안에 수용, 새 최상위 그룹 아님)
 
 - [ ] **사용자·조직 디렉터리(관리·감사)** — VOC 담당 배정·권한 부여·감사 주체의 전제. 인증만으로는 조직 모델이 안 생긴다. **[3/3] Must** — 신규 화면 제안(도메인 전제는 Decided).
-- [ ] **메뉴 활용률 대시보드(관리·감사)** — 누가 어떤 메뉴를 얼마나 쓰는지. 공통 컴포넌트 승격·화면 개선 우선순위의 근거 데이터가 현재 설계에 없다는 걸 세 모델 다 지적했다. **[3/3] Should/Nice** — 신규 제안(§4 계측 파이프라인 전제, 보존기간·개인정보 범위는 Open).
+- [ ] **메뉴 활용률 대시보드(관리·감사)** — 누가 어떤 메뉴를 얼마나 쓰는지. 2026-09-22 grilling으로 범위 판단 정정: 메뉴 개수 게이트(Premature Platformization) 대상이 아니라 Platform Kernel 자체의 관측 범위라 v1에 포함한다. **[3/3] Must** — Decided(범위 포함), 세부는 §4 참고.
 - [ ] **시간역(timeDomain) 매핑 관리 화면** — 복수 설비 시간축 병합 가드가 요구하는 assertion 데이터를 등록/수정할 화면이 없다. **[3/3] Should(복수 설비 병합 제공 시 Must)** — 신규 제안(assertion 계약은 Decided).
 - [ ] **지연완료·정정/backfill 후보 목록** — 창 밖 후보를 보존한다는 정책의 UI 소비자. **[2/3 · Codex, Grok] Should** — 신규 제안(메커니즘은 Decided).
 - [ ] **운영 이벤트 뷰어(적재 중단·mart 실패)** — 범용 알람 엔진이 아니라 원천이 확인한 사건만 표시. **[2/3 · Grok, omp] Should/Nice** — 신규 제안. 공정 이상탐지/알람 워크스페이스 자체는 지표·임계값 검증 전까지 **비범위(YAGNI)**.
@@ -85,6 +86,7 @@
 
 - [ ] **Context Link helper 공통 라이브러리** — destination·transferable·unsupported·permission을 처리. 메뉴가 서로 URL 문자열을 직접 조립하지 않는다. **[3/3] Must** — Decided, `docs/06` §22.
 - [ ] **목적지 객체 ID와 분석 Context 분리** — occurrence `(equipmentId, entityType, anchor)` vs 설비 `equipment_id` vs `vocId` vs `metricId+metricVersion`. **[3/3] Must** — Decided, §6.1.
+- [ ] **Recipe/StGroup 딥링크 키 정책** — 2026-09-22 grilling: `recipeIds`는 §6.1 URL 소유 키 목록에 추가(Candidate 필드명, Recipe는 Lot 고정 속성이라 재현성 문제 없음). StGroup은 소속 가변성 때문에 URL 키로 승격하지 않고, 선택 시점에 `equipmentIds`로 물질화한다. `docs/05` §딥링크 키 확장, `docs/adr/0002-stgroup-materializes-to-equipment-ids.md` 참고. **[신규, 이번 세션 확인] Must** — Decided.
 - [ ] **미지원 Context는 폐기하지 않고 칩으로 표시("Lot: A1023 · Not used")** — 지원 메뉴 복귀 시 재검증 후 적용. **[3/3] Must** — Decided.
 - [ ] **전역 Context / Page Filter / Visualization / 영속 주석 4층 분리** — 차트 줌은 로컬, Brush 후 명시적 적용만 URL 승격. **[3/3] Must** — Decided.
 - [ ] **URL이 세션/최근방문보다 우선, 누락값을 과거 세션으로 채우지 않음** — **[3/3] Must** — Decided.
@@ -115,7 +117,7 @@
 - [ ] **폴링 + 완료된 계산 세대 기반 캐시 재검증(watermark 이동 ≠ mart 완료)** — SSE/WebSocket은 요구 확인 후. **[3/3] Must** — Decided.
 - [ ] **Toast/Confirm/Modal/전역 Error Boundary + Correlation ID** — **[3/3] Must** — Decided.
 - [ ] **공지 배너 인프라(게시기간·대상 메뉴·Scope)** — 통합 알림 벨/미확인 배지는 읽음 모델이 미정이라 **비필수**. **[3/3] Should(배너)/Nice(벨)**.
-- [ ] **메뉴 활용률 계측 파이프라인(menuId·이벤트·시각·권한 범위, PII 최소화)** — 세 모델 모두 "현재 설계에 관측 체계가 없다"고 독립적으로 지적한 항목. **[3/3] Should** — 신규 제안(보존기간·개인정보 범위는 Open Question으로 남김).
+- [ ] **메뉴 활용률 계측 파이프라인** — 2026-09-22 grilling으로 정책 확정: 수집 필드는 menuId·이벤트·시각뿐 아니라 **조회조건·필터값까지 포함**. 보존기간은 **무제한**(자동 삭제 없음, 개발자가 필요시 수동 삭제). 열람권한은 **개발자·운영자 기본, 그 외는 운영자가 개별 승인한 계정만**(기존 권한/Scope 재검증 원칙 위에 얹음, 새 권한 모델 아님). 이벤트 스키마 등 실제 구현 세부는 착수 직전 별도로 다룬다. `docs/05` §메뉴 활용률 계측 참고. **[3/3] Should** — Decided(정책), Open(이벤트 스키마 구현 세부).
 - [ ] **즐겨찾기/최근 메뉴(재진입 시 권한 재검증)** — **[3/3] Should**.
 - [ ] **저장된 뷰(Saved View)** — route+Context+필터+컬럼 상태. 복원 시 서버 Scope 재검증 필수. **[3/3] Nice(지금은 Deferred)**.
 - [ ] **내보내기(CSV) 공통 경로(권한·적용 필터·선택 범위 명시, 대량 작업은 별도 프로세스)** — **[3/3] Should/Must**.
@@ -166,17 +168,17 @@
 1. ~~**셸 치수·테이블 밀도**~~ — 2026-09-21 결정 완료(§0, `docs/05` 참조). DESIGN.md canonical(270px/54px/32px) 채택.
 2. ~~**Scope 도메인**~~ — 2026-09-21 결정 완료(`CONTEXT.md`, `docs/adr/0001-scope-hierarchy-site-line-only.md`). 계층은 Site→Line 2단계(Factory는 모델링 안 함), Maker→Model→EquipmentID 식별 계층, Process/StGroup은 교차 분류 축, Recipe는 Lot 속성. 설비 소속 변경: Process는 불변(재등록), StGroup은 가변(현재 소속만 사용, 소급은 추후). 복수 Scope 선택은 v1에서 단일 선택만.
 3. **시간 의미** — 사업장별 실제 TZ 값은 2026-09-22 결정(한국/Asia-Seoul 단일값 우선, 해외 사업장 확장은 배제 안 함 — `docs/05` 참조). timeDomain assertion 공급자, 교대일/영업일, 다중 사업장의 "같은 날짜"는 여전히 Open(해외 사업장 편입 전까지는 실무 영향 낮음).
-4. **운영 수치** — `defaultRangeTo` 기본 길이, 폴링/감지 주기, 최대 조회량·timeout은 Open. 지연완료 창 `H`=1시간은 2026-09-22 결정(`docs/05` 참조).
+4. **운영 수치** — `defaultRangeTo` 기본 길이, 최대 조회량·timeout은 Open. 지연완료 창 `H`=1시간, 클라이언트 폴링 주기=5분(300s)은 2026-09-22 결정(`docs/05` 참조). 폴링 중단 조건·워커 감지 주기는 여전히 Open(구현 시 운영 설정으로 정함).
 5. ~~**인증·조직·배포**~~ — 2026-09-22 대부분 결정 완료(`docs/05` 참조): 백엔드 FastAPI, 온프렘, 동시 사용자 ~100명, 데이터 보존 기간 제한 없음, 멀티테넌시는 단일 사업장으로 시작(확장 가능). 남은 Open: 사내 SSO 프로토콜의 정확한 사양(존재는 확인, 스펙은 사내 확인 중).
 6. **상태 근거 서비스** — 수집/파서 지연/coverage 판정의 statusSource·observedAt 공급자가 없으면 모니터링 메뉴를 열 수 없다.
 7. **공개 계약 산출물 형식** — 필드명·공집합 표식·assessment enum, OpenAPI/JSON Schema/codegen 중 무엇으로 확정할지, URL `v` sunset 정책.
-8. **디자인 바인딩** — 다크모드 실제 수요, 아이콘 라이브러리, UI 프리미티브 조합, ECharts vs Plotly 최종 확정(POC 필요), CJK 폰트 선택, 기간 프리셋(7D/30D/90D) 의미.
+8. **디자인 바인딩** — 아이콘(Lucide)·CJK 폰트(Noto Sans KR, 망분리라 자체 호스팅)·기간 프리셋(1일/7일/사용자 지정)은 2026-09-22 결정(`docs/05` 참조, 실제 물질화는 구현 시). 남은 Open: 다크모드 실제 수요(계속 Deferred로 확정), UI 프리미티브 조합, ECharts vs Plotly 최종 확정(POC 필요).
 9. **공지·알림** — 배너 위치·노출 조건, 알림 벨의 읽음/집계/권한 의미(벨 자체는 비필수).
-10. **메뉴 활용률의 목적과 노출 범위** — 개인별 이용 기록 필요 여부, 보존 기간, 열람 권한, 익명화 수준.
+10. ~~**메뉴 활용률의 목적과 노출 범위**~~ — 2026-09-22 결정 완료(`docs/05` §메뉴 활용률 계측 참조): v1 범위 포함(커널 범위 기능), 수집은 조회조건·필터값까지, 보존기간 무제한(수동 삭제 가능), 열람권한은 개발자·운영자 + 운영자 개별 승인 계정.
 11. **업무 모델 세부** — 필드별 외부/플랫폼 소유권, VOC 담당 조직·상태 전이 예외, 마스터 필드 원천 소유권.
 12. **운영 완료 기준** — 가용성·복구 목표(RTO/RPO), 감사 보존기간, 대량 작업 실패 재개 책임.
 13. **추가 메뉴 착수 조건** — 알람/이상탐지·리포트 빌더·저장된 뷰를 정당화할 사용자 수요·반복 사례가 실제로 있는가.
-14. **Donut/Gauge 허용 경계** — §24 장식적 시각화 금지와 레퍼런스 디자인의 donut 어휘 사이 명확한 선.
+14. ~~**Donut/Gauge 허용 경계**~~ — 2026-09-22 결정 완료(`docs/05` §시각화 경계 참조): 기본은 분모 있는 비율에 한해 donut만 허용, gauge/3D/그라디언트는 기본 비허용이나 업무 근거 확인 시 케이스별 예외 가능(전면 금지 아님).
 15. **보조기술 사용자 실존 여부** — §26 접근성 기준 자체는 Decided이나 투입 우선순위 조정 여지.
 
 ---

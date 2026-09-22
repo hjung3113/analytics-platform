@@ -32,7 +32,7 @@ _Avoid_: 벤더, Vendor
 설비가 설치된 공정 구역. Maker/Model 계층과는 독립된(직교하는) 분류 축이다 — 한 Maker의 Model이 여러 Process에 존재할 수 있고, 한 Process에 여러 Maker의 설비가 있을 수 있다. 설비 등록 시점에 고정되며 이후 바뀌지 않는다. 실제 공정이 바뀌면 기존 설비를 수정하는 게 아니라 새 EquipmentID로 재등록한다.
 
 **StGroup** (`stgroup`, 분임조):
-설비를 담당자 단위로 묶는 그룹. Process/Maker와도 독립된 축이다. 대부분 하나의 Line 안에 속하지만, 여러 Line에 걸칠 수도 있다(Factory 개념이 없어서 생기는 경우 — [ADR-0001](docs/adr/0001-scope-hierarchy-site-line-only.md) 참고). 소속은 가변적이며, v1의 분석/조회는 **현재 소속 기준**만 사용한다. 과거 시점 소속 재구성(소급)은 EquipmentID가 파서 적재의 최소 키이므로 구조적으로는 가능하지만, 수요 빈도가 낮아 아직 구현하지 않는다.
+설비를 담당자 단위로 묶는 그룹. Process/Maker와도 독립된 축이다. 대부분 하나의 Line 안에 속하지만, 여러 Line에 걸칠 수도 있다(Factory 개념이 없어서 생기는 경우 — [ADR-0001](docs/adr/0001-scope-hierarchy-site-line-only.md) 참고). 소속은 가변적이며, v1의 분석/조회는 **현재 소속 기준**만 사용한다. 과거 시점 소속 재구성(소급)은 EquipmentID가 파서 적재의 최소 키이므로 구조적으로는 가능하지만, 수요 빈도가 낮아 아직 구현하지 않는다. 이 가변성 때문에 딥링크 URL은 `stGroupId`를 직접 소유하지 않고 선택 시점의 EquipmentID 목록으로 물질화한다 — [ADR-0002](docs/adr/0002-stgroup-materializes-to-equipment-ids.md) 참고.
 _Avoid_: 팀, 그룹 — StGroup으로 통일.
 
 ### 생산 실행

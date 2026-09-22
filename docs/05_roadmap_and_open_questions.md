@@ -15,6 +15,7 @@
 | Decided | Scope/설비 도메인 모델: Site→Line 2단계(Factory는 모델링하지 않음), Maker→Model→EquipmentID 식별 계층, Process(`room_name`)·StGroup(`stgroup`)은 계층이 아닌 교차 분류 축, Recipe(`prc_name`)는 설비가 아니라 Lot/Job에 붙는 속성(2026-09-22 도메인 인터뷰) | `CONTEXT.md`, `docs/adr/0001-scope-hierarchy-site-line-only.md` |
 | Decided | 조직/운영 요구값(2026-09-22 확정): 백엔드 FastAPI, 배포 on-prem, 동시 사용자 ~100명, 데이터 보존 기간 제한 없음(삭제 안 함), 초기 1개 Site/Line으로 시작하되 구조는 확장 가능하게, Scope는 v1에서 단일 선택만(복수 선택은 이후), TZ는 한국(Asia/Seoul) 단일값으로 우선 시작(해외 사업장인 중국 시안·미국 오스틴 실존 확인, 확장 여지는 설계에서 배제하지 않음) | `03_backend_stack.md`; 아래 Open Questions |
 | Decided | Evidence/Lineage drill-through(후보 1)와 원문 로그/설정파일 drill-through(후보 2, FileGateway류)는 현재 defer — parser의 view/mart 조회로 충분하며, 원본 접근은 내부 개발자 전용 메뉴가 실제로 필요해질 때 재검토(2026-09-22) | `docs/integration/component-contract-candidates.md` §다음 결정 순서 |
+| Decided | 딥링크 키 확장(Recipe는 `recipeIds`로 승격, StGroup은 URL 키로 승격하지 않고 선택 시점 `equipmentIds`로 물질화), 기간 프리셋(`1일/7일/사용자 지정`)과 집계 단위(`granularity`, page-owned), 시각화 경계(donut은 분모 있는 비율만 기본 허용, gauge/3D/그라디언트는 기본 비허용이나 업무 근거 확인 시 케이스별 예외 가능), 폴링 주기 5분(300s), CJK 폰트(망분리 확인 — Noto Sans KR 자체 호스팅), 아이콘 세트(Lucide), 메뉴 활용률 계측(v1 범위 포함, 수집 필드·보존·열람권한 확정) — 전부 2026-09-22 grilling Round 2 | 아래 §딥링크 키 확장, §기간 프리셋과 집계 단위, §시각화 경계, §메뉴 활용률 계측; `docs/adr/0002-stgroup-materializes-to-equipment-ids.md`; `PLATFORM_REQUIREMENTS.md` |
 | Candidate | 대표 분석 흐름으로 차트·표·드릴다운·딥링크 계약을 검증한다 | 아래 설계 검증 기준; 구현 착수는 별도 결정 |
 | Candidate | 프론트엔드 라이브러리 및 백엔드 기술 선택(백엔드는 FastAPI로 방향 확정, 세부 프레임워크 버전·구성은 Candidate) | `04_frontend_ui_ux.md`, `03_backend_stack.md`; 제품 제약과 검증 결과에 따라 결정 |
 | Open | 인증 프로토콜의 정확한 사양 — 사내 SSO 존재는 확인됐으나 프로토콜 미확인(사내 확인 중). 확인 전까지 인증 계층은 나중에 붙일 수 있도록 pluggable하게 구현한다 | 아래 Open Questions |
@@ -46,7 +47,7 @@ Decided는 설계 계약의 상태이며 구현 완료를 뜻하지 않는다. C
 
 ### 실시간성 (Decided — 메커니즘)
 
-기본은 **폴링 + 서버가 제공하는 완료된 계산 세대/갱신 정보 기반 캐시 재검증**이다. 원천 watermark 이동을 mart 재집계 완료와 같다고 보지 않는다(감지→재계산→정합 결과 제공을 구분). 웹소켓/SSE는 열린 대시보드의 초 단위 갱신, 또는 동시 편집 presence가 **문서화된 제품 요구**로 확인될 때 재평가한다(이 두 조건만이 영구 유일하다고 못박지 않는다). 폴링 주기·중단 조건·워커 감지 주기의 숫자는 Open이다. 근거: `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §6.1.
+기본은 **폴링 + 서버가 제공하는 완료된 계산 세대/갱신 정보 기반 캐시 재검증**이다. 원천 watermark 이동을 mart 재집계 완료와 같다고 보지 않는다(감지→재계산→정합 결과 제공을 구분). 웹소켓/SSE는 열린 대시보드의 초 단위 갱신, 또는 동시 편집 presence가 **문서화된 제품 요구**로 확인될 때 재평가한다(이 두 조건만이 영구 유일하다고 못박지 않는다). 클라이언트 폴링 주기는 **5분(300s)으로 확정**(2026-09-22, 필요시 조정 가능한 값으로 취급). 폴링 중단 조건·워커 감지 주기의 숫자는 여전히 Open이다(운영 설정으로 구현 시점에 정함, 이번 세션에서 grilling하지 않음). 근거: `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §6.1.
 
 ### 파서 DB 접근 방식 (Decided — 메커니즘)
 
@@ -59,6 +60,31 @@ Decided는 설계 계약의 상태이며 구현 완료를 뜻하지 않는다. C
 창의 기준은 시간역별 **원천 진행 경계 `R`**(데이터 계층 소유, naive 배타 경계, 첫 mart 세대 생성 전에도 공급 가능하며 mart 계산 완료 시각·클라이언트 now·UTC 절단과는 다른 값)과 **명시적 wall-clock 길이 설정 `H`**다. 자동 창은 `[R-H, R)`이고, 원천 진행이 멈추면 창도 멈춘다(현실 경과일로 반드시 닫히는 것이 아니라 데이터 진행 기준의 창이다). `R`이 없으면 자동 재집계만 보류하며 지연완료 식별·후보 보존은 계속한다. 사업장 override·지표별 horizon은 수요·모델이 확인되기 전에는 구현하지 않는다(영구 금지와는 다르다). 근거: `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §6.3.
 
 `H`=**1시간**으로 확정(2026-09-22 도메인 인터뷰).
+
+### 딥링크 키 확장 — Recipe/StGroup (Decided, 2026-09-22 grilling Round 2)
+
+`CONTEXT.md`가 Recipe(`prc_name`)를 "지표 산출과 분석 모두에서 가장 많이 쓰이는 1급 분류 축"으로 정의한 것에 대응해, **`recipeIds`를 06 §6.1의 URL 소유 키 목록에 추가한다**(Candidate 필드명, `equipmentIds`/`lotIds`와 같은 집합 키 정규화 규칙을 따름). Recipe는 Lot 실행 시점에 고정되는 속성이라 재방문 시 같은 결과를 재현하며 §6.1 재현성 원칙과 충돌하지 않는다.
+
+**StGroup은 URL 소유 키로 승격하지 않는다.** 이유: StGroup 소속은 가변적이고 v1은 "현재 소속 기준만" 쓴다(`CONTEXT.md`). `stGroupId`를 URL 키로 두면 저장된 링크를 나중에 다시 열 때 그사이 소속이 바뀐 설비만큼 조회 대상 설비 집합이 **조용히** 달라져, 지연완료·마스터 정정과는 다른 새로운 종류의 비재현성이 06 §6.1 원칙과 정면으로 충돌한다. 대신 **UI에서 "StGroup X" 프리셋을 선택하는 순간 그 시점의 멤버 EquipmentID 목록을 `equipmentIds`로 물질화**해 URL에 박는다 — 재방문 시 그 설비 목록 그대로 재현되고, "지금 다시 StGroup X를 고르면 다른 설비가 나올 수 있다"는 것은 선택 시점에 사용자가 명시적으로 인지하는 행동이 된다. 근거·대안 비교는 `docs/adr/0002-stgroup-materializes-to-equipment-ids.md`.
+
+### 기간 프리셋과 집계 단위 (Decided, 2026-09-22 grilling Round 2)
+
+실제 사용 패턴은 "보통 1일 단위, 길면 7일, 드물게 그 이상"이다(로그 자체는 1시간 단위지만 조회 단위는 아니다). `DESIGN.md`가 참고 스크린샷에서 그대로 가져왔던 `7D/30D/90D` 프리셋을 **`1일/7일/사용자 지정`** 3버튼으로 교체한다(30일/90일은 프리셋 버튼에서 빠지지만 "사용자 지정"으로는 여전히 조회 가능 — YAGNI, 실사용에서 자주 확인되면 버튼을 다시 늘린다). Δ는 §6.3이 이미 확정한 `defaultRangeTo` 기준 rolling wall-clock 메커니즘(naive 길이 산술, 자정 비정렬)을 그대로 쓴다: 1일=Δ24h, 7일=Δ168h. 달력일 정렬(자정 스냅)이나 교대일/영업일 의미는 여전히 별도 Open이다(§실시간성 위 항목과 무관, `05` 상단 결정 상태 표의 다중 사업장 "같은 날짜" 참조).
+
+**집계 단위(`granularity`, Candidate 필드명)**는 조회 기간과는 다른 축이다 — 같은 7일 기간이어도 시간별로 볼지 하루로 뭉쳐 볼지는 별개 선택이다. 06 §6.1이 이미 허용하는 **page-owned 계약**(화면마다 선언·등록, `metricId`+`metricVersion` 쌍과 같은 패턴)으로 새 URL 소유 키를 추가한다 — 전역 Context Bar에는 넣지 않는다(모든 메뉴가 granularity 선택을 갖는 게 아니라서, 안 쓰는 화면까지 계약을 소비하게 만들 이유가 없다). 값 후보: `hour`/`day`/`week`.
+
+### 시각화 경계 — Donut/Gauge (Decided, 2026-09-22 grilling Round 2)
+
+06 §24 Decorative Visualization의 경계를 한 문장으로 확정: **기본값은 분모가 있는 비율(예: 가동률, 완료율)에 한해 donut만 허용하고, 게이지·스피드미터류(3D/그라디언트 포함)는 기본적으로 쓰지 않는다.** 단, 이건 전면·영구 금지가 아니다 — 특정 업무 판단에 실제로 기여한다는 근거가 확인되면 케이스별로 예외를 추가할 수 있다. `PLATFORM_REQUIREMENTS.md` 42행의 후보 문구를 채택.
+
+### 메뉴 활용률 계측 (Decided — v1 범위 포함, 2026-09-22 grilling Round 2)
+
+**범위 판단 정정:** 이 계측은 "메뉴가 몇 개 쌓이면 그때 붙이는" 메뉴 부가기능이 아니라 **Platform Kernel 자체의 관측 범위**(Menu Registry가 실제로 어떻게 쓰이는지)다. 메뉴별 반복 패턴 확인 후 공통 컴포넌트로 승격하는 Premature Platformization 게이트(§24)는 여기 적용 대상이 아니다 — 플랫폼 우선순위(`AGENTS.md`, 06 §1)에 따라 v1 범위에 포함한다.
+
+- **수집 필드**: menuId·이벤트·시각뿐 아니라 **조회조건·필터값까지 포함**한다.
+- **보존기간**: 무제한(자동 삭제 없음). 개발자가 필요시 수동으로 삭제할 수 있는 경로는 둔다(자동 purge 잡은 아님).
+- **열람 권한**: 개발자 및 운영자 기본 열람. 그 외 계정은 운영자가 개별로 권한을 부여한 경우에만 열람 가능(기존 06 §17 권한/Scope 집행 정책과 같은 서버 재검증 원칙을 따름 — 별도 새 권한 모델을 만들지 않고 기존 역할 체계 위에 얹는다).
+- 계측 파이프라인의 이벤트 스키마·PII 최소화 세부 구현은 구현 착수 직전 별도로 다룬다(위 세 항목은 정책 수준 Decided).
 
 ## Deferred — 과거 Phase roadmap 가설 (non-authoritative)
 
