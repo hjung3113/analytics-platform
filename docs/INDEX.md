@@ -41,4 +41,6 @@
 
 ## 외부 프로젝트 설계 레퍼런스
 
+- [기존 프로젝트 활용 아이디어 모음](integration/repository-ideas.md) — FeedbackOps 및 소유 저장소 조사 기반 브레인스토밍. 후보·질문을 모으는 문서이며 채택 결정이나 구현 계획이 아니다. 상세 근거는 연결된 Luna Max 조사 보고서에 보존한다.
+
 - [Standard Log Lifecycle](references/standard-log-lifecycle/README.md) — 모델 표준 로그 개발·검증·결함·재검증 관리의 설계 참고. 원본 커밋에 고정한 Markdown 7개, 출처·해시 manifest와 4개 화면 시안 적용 범위를 포함한다. 기존 플랫폼 계약을 대체하지 않는다.
