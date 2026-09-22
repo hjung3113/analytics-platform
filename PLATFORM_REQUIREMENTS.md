@@ -8,19 +8,22 @@
 | Grok `4.6` (high) | YAGNI 경계·메뉴 카탈로그 폭·긴장 관계 발견 | 153개(신규 제안 38 포함) + Open 18 | [requirements-grok.md](.agents/reports/requirements-grok.md) |
 | omp `zai/glm-5.3` (thinking max) | 문서 간 수치 충돌 탐지·개발 편의 항목 | 114개(신규 제안 17 포함) + Open 20 | [requirements-omp-glm.md](.agents/reports/requirements-omp-glm.md) |
 
-**이 문서는 구현 승인이 아니다.** 세 모델 모두 명시했듯, 체크된 항목이 없다는 것은 "결정됐다"는 뜻이 아니라 "구축 시 필요한 작업/결정"이라는 뜻이다. `docs/06_platform_ui_contract.md` §29의 Platform-first Definition of Done을 만족하지 않는 메뉴 구현은 이 목록의 완료로 치지 않는다.
+**이 문서는 계약 원본이 아니라 파생 작업·제안 목록이다.** 항목을 고칠 때 원본의 해당 문단부터 확인한다. 모델 표수나 Must/Should/Nice는 최초 조사에서의 지적 빈도·우선순위 제안이며 채택·일정·구현 승인이 아니다.
 
 읽는 법:
-- **[3/3]** = 세 모델 모두 독립적으로 지적 — 신뢰도가 가장 높다.
-- **[2/3]** = 두 모델이 지적.
-- **[1/3 · 모델명]** = 한 모델만 지적 — 그 모델의 고유 시각.
-- **출처**가 "Decided"면 이미 `docs/`에 확정된 계약을 구현 요구로 재진술한 것이고, "신규 제안"이면 세 모델이 문서에 없는 걸 자유 판단으로 추가한 것이다(사용자가 요청한 대로 범위를 넓게 잡아 자유롭게 제안하도록 지시했다).
+
+- **[3/3] / [2/3] / [1/3 · 모델명]**은 조사 출처 이력이다. 다수 의견이어도 제품 결정이나 검증 증거가 되지 않는다.
+- **Decided**는 원본에 확정된 계약, **Candidate/신규 제안**은 미채택 후보, **Open**은 필요한 입력·결정이 남은 범위, **Deferred**는 보류 범위다. 한 항목 안에서도 계약·필드명·구현 형식의 상태를 따로 읽는다. 상태·원본이 불명확한 추천은 승인된 요구로 간주하지 않는다.
+- **§0의 [x]는 문서의 결정 반영 완료**다. §1–6의 [ ]는 미완료 작업/검토 후보이며 채택 여부를 뜻하지 않는다. 구현 항목을 [x]로 바꾸려면 해당 줄에 작업 기록 또는 PR 링크를 붙이고 `원본 revision·구현 파일/commit·검증 명령/환경/결과·미검증 범위`를 남긴다. 후보 검토 완료는 채택/기각 근거를 남기며 제품 구현 완료와 구별한다.
+- 플랫폼 자체의 구현·런타임 검증 증거는 현재 없다. FeedbackOps 구현을 이 목록의 완료 증거로 쓰지 않는다. 메뉴 구현 완료는 [06 §29](docs/06_platform_ui_contract.md#29-platform-first-definition-of-done)의 Platform Done과 Domain Done을 함께 확인한다.
+- 전역 행동·URL·Scope·상태의 원본은 [06](docs/06_platform_ui_contract.md), 시각 token/render는 [DESIGN](DESIGN.md), 데이터 계약은 [01](docs/01_architecture_and_data_contract.md), 도메인 의미는 [02](docs/02_domain_menus.md)와 [CONTEXT](CONTEXT.md)다. 기술 선택은 [03](docs/03_backend_stack.md)/[04](docs/04_frontend_ui_ux.md), 결정 경로와 폴링·DB 접근·R/H 상세는 [05](docs/05_roadmap_and_open_questions.md)를 본다. 아래 `§6.1` 같은 전역 계약 절 표기는 06을 가리킨다.
 
 ---
 
-## 0. 지금 바로 결정해야 하는 문서 충돌 (3개 모델 모두 발견)
+<a id="0-지금-바로-결정해야-하는-문서-충돌-3개-모델-모두-발견"></a>
+## 0. 해결된 문서 충돌 — 결정 반영 이력
 
-이건 요구사항이라기보다 **막힌 지점**이다. 셋 다 독립적으로 같은 두 수치 불일치를 찾았다 — 구현 착수 전에 하나로 정해야 뒤 작업이 안 갈라진다.
+두 수치 충돌은 아래 날짜에 해결됐다. 체크는 문서 정렬 완료를 뜻하며 CSS·컴포넌트 구현이나 렌더 검증 완료가 아니다. 원본은 [DESIGN](DESIGN.md), 적용 의무는 [06 §7/§15](docs/06_platform_ui_contract.md)다.
 
 - [x] **셸 치수(사이드바/탑바) 확정** — 2026-09-21 결정: `DESIGN.md` canonical(사이드바 270px · 헤더 54px) 채택. `docs/06` §7을 Decided로 갱신 완료. **[3/3]**
 - [x] **테이블 행 밀도 확정** — 2026-09-21 결정: `DESIGN.md` table-density(최소 32px, 25px는 compact 시각 목표) 채택. `docs/06` §15를 Decided로 갱신 완료. **[3/3]**
@@ -32,18 +35,18 @@
 - [ ] **디자인 토큰 3층(primitive→semantic→component)을 실제 CSS/Tailwind 변수로 물질화** — `docs/06` §23은 Candidate, `DESIGN.md`는 그와 정렬됐지만 코드 산출물은 없다. 화면마다 임의 색·간격이 생기지 않게 하는 기반. **[3/3] Must** — Decided/Candidate.
 - [ ] **차트 라이브러리(ECharts 후보) 테마를 토큰에 바인딩** — 팔레트 계약은 있지만 실제 theme config·POC 검증(대용량 시계열, 다중 차트 브러시 동기화)이 없다. **[3/3] Must** — `DESIGN.md` Open Decisions, `docs/04`.
 - [ ] **아이콘 세트 단일화(Lucide, rounded-outline)** — 2026-09-22 grilling으로 Lucide 확정(Candidate→Decided). 실제 바인딩/구현은 아직. **[3/3] Should** — Decided.
-- [ ] **UI 프리미티브 조합 확정(shadcn/ui + Base UI/Radix 비교 후 채택)** — 모든 Platform Component의 기반. **[3/3] Must** — Candidate, `docs/04`.
+- [ ] **UI 프리미티브 조합 검토(shadcn/ui + Base UI/Radix 비교 후 채택)** — **[3/3] Must** — Candidate. 원본: [04 구현 후보](docs/04_frontend_ui_ux.md#프론트엔드-기술-스택-candidate). 비교·접근성/호환성 검증과 채택 근거가 필요하며 라이브러리 채택·구현·POC 증거는 없다.
 - [ ] **인터랙션 상태 전체 구현(hover/pressed/selected/focus/disabled/busy)과 중복 제출 차단** — 토큰만 있고 동작 미구현. **[3/3] Must** — Decided/디자인 요구.
 - [ ] **접근성 구현·렌더 검증(§26): 키보드 탐색, focus trap, 색 외 구분, 대비 4.5:1/3:1** — 토큰만으로 통과 주장 불가. **[3/3] Must** — Decided.
 - [ ] **한글/CJK 타이포 검증** — 2026-09-22 grilling으로 폰트 스택 확정: Noto Sans KR + Inter 페어링. 사내망이 망분리(인터넷 차단)돼 있어 **CDN이 아니라 자체 호스팅**(폰트 파일 번들)으로 간다. 실제 CSS/토큰 반영은 아직. **[3/3] Should** — Decided(스택/호스팅 방식), 실제 물질화는 구현 시.
 - [ ] **Data Trust 시각 표준화(Updated/Data through/Coverage/Metric version/Provisional을 공통 vocabulary로)** — 숫자만큼 숫자의 상태를 보여줘야 함. **[3/3] Must** — Decided, `docs/06` §18.
 - [ ] **상태 배지 4종(success/warning/danger/neutral) + §19 매핑표를 임의색으로 확장 금지** — 매핑표 자체는 문서에 없어 공백. **[2/3 · Codex, Grok] Must** — Candidate + 신규 제안(공백 메움).
-- [ ] **다크모드는 지금 설계하지 않되 토큰 구조가 이후 확장을 막지 않게** — 사이드바가 이미 다크라 단순 invert 불가. **[3/3] Nice(지금은 Open)** — `DESIGN.md` Open Decisions.
+- [ ] **다크모드는 지금 설계하지 않되 토큰 구조가 이후 확장을 막지 않게** — 사이드바가 이미 다크라 단순 invert 불가. **[3/3] Nice** — Deferred. [DESIGN Open Decisions](DESIGN.md#open-decisions-per-wireframe-skill-convention)와 아래 질문 8 참조.
 - [ ] **장식적 시각화 금지(Gauge/3D/장식 게이지) — donut은 분모 있는 비율에만** — 2026-09-22 grilling으로 경계 확정: 기본값은 분모 있는 비율에 한해 donut만 허용, gauge/3D/그라디언트는 기본 비허용이나 업무 근거 확인 시 케이스별 예외 가능(전면·영구 금지 아님). `docs/05` §시각화 경계 참고. **[2/3 · Grok, omp] Must** — Decided.
 - [ ] **모션 토큰(120ms 전환, reduced-motion 0ms, live pulse는 freshness 근거 있을 때만)** — **[2/3 · Codex, Grok] Should**.
 - [ ] **KPI 타일 상한 5–6개** — KPI 행이 지표 화면을 대체하지 않게. **[2/3 · Grok, omp] Should**.
 - [ ] **숫자 표시 규칙(우측 정렬·tabular-nums·ID mono)** — **[2/3 · Codex, omp] Must**.
-- [ ] **반응형(Desktop-first, ≥1440 full / 1024–1439 collapse / <1024 조회 중심)** — **[3/3] Must(정책)**, 실제 모바일 구현은 Nice.
+- [ ] **반응형(Desktop-first, ≥1440 full / 1024–1439 collapse / <1024 조회 중심)** — **[3/3] Must(정책)**, 실제 모바일 구현은 Nice — Desktop-first 제약과 [06 §25](docs/06_platform_ui_contract.md#25-responsive-strategy)의 Candidate breakpoint 정책을 구별한다.
 - [ ] **z-index/오버레이 스택 계약(Dropdown/Popover/Drawer/Modal/Palette/Toast)** — 전역 스택 정의가 없음. **[1/3 · Grok] Should** — 신규 제안.
 - [ ] **기간 프리셋 값·의미 확정** — 2026-09-22 grilling으로 확정: 프리셋 버튼은 `7D/30D/90D`가 아니라 **`1일/7일/사용자 지정`**(실사용 패턴: 보통 1일, 길면 7일, 드물게 그 이상). Δ는 §6.3이 이미 정한 `defaultRangeTo` 기준 rolling wall-clock(자정 비정렬) 그대로 재사용(1일=Δ24h, 7일=Δ168h). 달력일 정렬·교대일/영업일 의미는 별도 Open. `docs/05` §기간 프리셋과 집계 단위 참고. **[3/3] Must** — Decided.
 - [ ] **집계 단위(`granularity`) URL 계약 신설** — 2026-09-22 grilling에서 새로 확인: 조회 기간과 별개로 "시간별/일별/주별로 뭉쳐 보기" 축이 필요. 06 §6.1의 page-owned 계약 패턴(화면별 선언·등록)으로 추가, 전역 Context Bar에는 넣지 않는다. 값 후보 `hour`/`day`/`week`. **[신규, 이번 세션 확인] Must** — Decided(메커니즘/소유 방식), 필드명은 Candidate.
@@ -91,7 +94,7 @@
 - [ ] **전역 Context / Page Filter / Visualization / 영속 주석 4층 분리** — 차트 줌은 로컬, Brush 후 명시적 적용만 URL 승격. **[3/3] Must** — Decided.
 - [ ] **URL이 세션/최근방문보다 우선, 누락값을 과거 세션으로 채우지 않음** — **[3/3] Must** — Decided.
 - [ ] **URL 스키마: 집합 키 정규화, 명시적 공집합 표식, 카디널리티 검증** — **[3/3] Must** — Decided.
-- [ ] **`metricId`+`metricVersion` 쌍 보존(한쪽만 있는 입력으로 최신 버전 대체 금지)** — **[3/3] Must** — Decided.
+- [ ] **`metricId`+`metricVersion` 쌍 보존** — 임의 최신 버전 대체 금지. 단, 초기화를 선언한 진입점의 ID-only 입력과 소유 ID가 유일한 경로의 version-only 입력은 [06 §6.1](docs/06_platform_ui_contract.md#61-식별자와-url-소유-상태-decided)의 완성/초기화 규칙을 따른다. **[3/3] Must** — Decided.
 - [ ] **URL 버전 `v` 수명주기(미지원 버전 전체 거부, 과거 링크 자동 재해석 금지)** — **[3/3] Must** — Decided.
 - [ ] **wall-clock 구간 유지(naive datetime, half-open `[from,to)`), offset/한쪽 경계만 있는 입력 거부** — **[3/3] Must** — Decided.
 - [ ] **다중 설비 시간역(timeDomain) 병합 가드** — 서버 assertion으로 증명될 때만 축 병합. **[3/3] Must** — Decided.
@@ -109,7 +112,7 @@
 - [ ] **선언형 Menu Registry(이름·그룹·경로·권한·지원 Context·페이지 유형)** — 신규 메뉴마다 Sidebar/Breadcrumb 코드 수정 금지. **[3/3] Must** — Decided, `docs/06` §5.
 - [ ] **App Shell + Shell Slot 계약(title/actions/contextExtension/content/dataTrustSummary)** — **[3/3] Must** — Decided, §4/§8.
 - [ ] **전역 Context Bar(Time/Equipment/Group/Lot/Process/Metric Version/Scope), 헤더 Scope 선택기와 중복 배치 금지** — **[3/3] Must** — Decided.
-- [ ] **인증/세션(day-1 OIDC 권장)** — 사내 SSO 여부는 Open이나 라이브러리 조기 도입 방향은 확정적. **[3/3] Must(방향)**.
+- [ ] **인증/세션** — 사내 SSO 존재는 확인됐고 정확한 프로토콜은 Open. 확인 전 pluggable 경계만 확정했으며 OIDC·라이브러리·도입 시점을 확정하지 않는다. **[3/3] Must(방향)**. 원본: [05 인증 질문](docs/05_roadmap_and_open_questions.md#open-questions), [03 인증 행](docs/03_backend_stack.md). 실제 연동은 질문 5의 사내 입력에 의존한다.
 - [ ] **전 경로 권한/Scope 집행(메뉴·URL·필터·조회·캐시·내보내기·딥링크·저장된 뷰 전부 동일 정책, 서버 매 요청 재검증)** — **[3/3] Must** — Decided, §6.2/§17.
 - [ ] **권한없음 vs 데이터없음 Empty State 분리** — **[3/3] Must** — Decided.
 - [ ] **감사(Audit Trail) 공통 기반(who/when/before-after, 유효기간 이력과 분리)** — **[3/3] Must**.
@@ -147,10 +150,10 @@
 - [ ] **버전 5종 혼동 방지** — 분석 계약 버전 ≠ 파서 SnapshotSchema ≠ DB 마이그레이션 ≠ 지표 정의 버전 ≠ URL `v`. 하나의 숫자로 묶지 않는다. **[3/3] Must** — Decided.
 - [ ] **mart 재계산 트리거 4종 + 계산 세대 관리** — 지연 완료 watermark, 마스터 소급 정정, 설비 재분류, 지표 정의 변경. 한 화면의 차트·표·CSV가 다른 세대를 섞지 않는다. **[3/3] Must** — Decided, `docs/01`.
 - [ ] **집계 가능성 규칙 강제(비율은 분자·분모 각각 합산, P95의 평균 금지)** — **[3/3] Must** — Decided.
-- [ ] **지연완료 정책(`lateArrivalAutoHorizon`, 진행 경계 `R`·창 `H`, 창 밖은 정정 후보로 보존)** — 메커니즘 Decided, 숫자는 Open. **[3/3] Must**.
+- [ ] **지연완료 정책(`lateArrivalAutoHorizon`, 진행 경계 `R`·창 `H`, 창 밖은 정정 후보로 보존)** — 메커니즘과 **H=1시간은 Decided**, 필드명은 Candidate. 원본: [05 R/H 정책](docs/05_roadmap_and_open_questions.md#late-arrival-policy), 조회 기간과의 연결은 [06 CTX-TIME](docs/06_platform_ui_contract.md#ctx-time). 운영 설정·워커 구현·검증 증거는 아직 없다. **[3/3] Must**.
 - [ ] **재현성 계약(딥링크는 조회조건·지표 버전만 재현, 숫자는 계산 기준시각과 함께 표시)** — **[3/3] Must** — Decided.
 - [ ] **파서 DB 접근 토폴로지(같은 인스턴스, read-only, 플랫폼 전용 스키마, API는 원본 테이블 직접 조회 금지)** — **[3/3] Must** — Decided.
-- [ ] **단일 테넌트 + site/plant 행 스코핑(초기), 풀 멀티테넌시는 요구 확인 시** — **[3/3] Should**.
+- [ ] **초기 1개 Site/Line 범위, 확장 가능한 구조** — Scope는 Site→Line 2단계이며 Factory/plant 레벨은 두지 않는다. v1 단일 선택은 Decided, 상속은 Open. 구체 행 스코핑 구현 방식은 이 항목이 확정하지 않는다. 원본: [06 §6.2](docs/06_platform_ui_contract.md#62-scope와-권한-decided--open), [05 결정 상태](docs/05_roadmap_and_open_questions.md#결정-상태). **[3/3] Should**.
 - [ ] **접근성 릴리스 게이트(색만으로 상태 구분 금지)** — **[2/3 · Grok, omp] Must**.
 - [ ] **보안: URL 필터는 보안 경계가 아님을 위협모델에 명시(권한은 서버에)** — **[2/3 · Grok, omp] Must**.
 - [ ] **브라우저 지원 매트릭스 정의** — Desktop-first/Canvas 차트/가상화가 브라우저에 의존. **[3/3] Should** — 신규 제안.
@@ -161,18 +164,21 @@
 
 ---
 
-## Open Questions (통합, 결정 전 구현 금지 — 체크박스 아님)
+<a id="open-questions-통합-결정-전-구현-금지--체크박스-아님"></a>
+## Open Questions — 미결 범위와 결정 이력
 
-세 모델의 Open Questions(13+18+20=51개)를 주제별로 병합했다.
+초기 조사 질문을 주제별로 병합한 목록이며 완료 이력도 함께 남긴다. **미결 입력에 의존하는 동작만 보류한다.** 독립적인 문서 검토·계약 설계까지 모두 막지 않는다. 취소선은 해당 결정 이력에만 적용하며 일부가 남았으면 아래에 명시한다.
+
+질문 처리 경로: 인증·운영 입력은 [05](docs/05_roadmap_and_open_questions.md#open-questions), 시간은 [06 CTX-TIME](docs/06_platform_ui_contract.md#ctx-time), Scope·공개 계약·상태는 [06](docs/06_platform_ui_contract.md), 기술 후보는 [04](docs/04_frontend_ui_ux.md)를 먼저 확인한다. 후속 작업 담당은 필요한 입력·결정 주체·차단되는 동작·답변 전 가능한 일을 작업 기록에 적는다. 담당자가 미지정이면 지정 필요로 남기고 답을 만들어 넣지 않는다.
 
 1. ~~**셸 치수·테이블 밀도**~~ — 2026-09-21 결정 완료(§0, `docs/05` 참조). DESIGN.md canonical(270px/54px/32px) 채택.
-2. ~~**Scope 도메인**~~ — 2026-09-21 결정 완료(`CONTEXT.md`, `docs/adr/0001-scope-hierarchy-site-line-only.md`). 계층은 Site→Line 2단계(Factory는 모델링 안 함), Maker→Model→EquipmentID 식별 계층, Process/StGroup은 교차 분류 축, Recipe는 Lot 속성. 설비 소속 변경: Process는 불변(재등록), StGroup은 가변(현재 소속만 사용, 소급은 추후). 복수 Scope 선택은 v1에서 단일 선택만.
-3. **시간 의미** — 사업장별 실제 TZ 값은 2026-09-22 결정(한국/Asia-Seoul 단일값 우선, 해외 사업장 확장은 배제 안 함 — `docs/05` 참조). timeDomain assertion 공급자, 교대일/영업일, 다중 사업장의 "같은 날짜"는 여전히 Open(해외 사업장 편입 전까지는 실무 영향 낮음).
+2. **Scope 도메인 — 일부 Decided / 상속 Open** — 2026-09-22 결정 반영(`CONTEXT.md`, `docs/adr/0001-scope-hierarchy-site-line-only.md`). 계층은 Site→Line 2단계(Factory는 모델링 안 함), Maker→Model→EquipmentID 식별 계층, Process/StGroup은 교차 분류 축, Recipe는 Lot 속성. 설비 소속 변경: Process는 불변(재등록), StGroup은 가변(현재 소속만 사용, 소급은 추후). v1은 단일 Scope 선택만. 부모·자식 상속은 [06 §6.2](docs/06_platform_ui_contract.md#62-scope와-권한-decided--open)의 Open이며 상속 동작 구현 전에 결정한다.
+3. **시간 의미** — 사업장별 실제 TZ 값은 2026-09-22 결정(한국/Asia-Seoul 단일값 우선, 해외 사업장 확장은 배제 안 함 — `docs/05` 참조). timeDomain assertion 공급자, 교대일/영업일, 다중 사업장의 "같은 날짜"는 여전히 Open. assertion 공급 근거는 국내 설비끼리라도 복수 시간축 병합을 제공하기 전에 필요하다([06 시간 계약](docs/06_platform_ui_contract.md#ctx-time)).
 4. **운영 수치** — `defaultRangeTo` 기본 길이, 최대 조회량·timeout은 Open. 지연완료 창 `H`=1시간, 클라이언트 폴링 주기=5분(300s)은 2026-09-22 결정(`docs/05` 참조). 폴링 중단 조건·워커 감지 주기는 여전히 Open(구현 시 운영 설정으로 정함).
-5. ~~**인증·조직·배포**~~ — 2026-09-22 대부분 결정 완료(`docs/05` 참조): 백엔드 FastAPI, 온프렘, 동시 사용자 ~100명, 데이터 보존 기간 제한 없음, 멀티테넌시는 단일 사업장으로 시작(확장 가능). 남은 Open: 사내 SSO 프로토콜의 정확한 사양(존재는 확인, 스펙은 사내 확인 중).
+5. **인증·조직·배포 — 일부 Decided / 프로토콜 Open** — 2026-09-22 대부분 결정 완료(`docs/05` 참조): 백엔드 FastAPI, 온프렘, 동시 사용자 ~100명, 데이터 보존 기간 제한 없음, 멀티테넌시는 단일 사업장으로 시작(확장 가능). 남은 Open: 사내 SSO 프로토콜의 정확한 사양(존재는 확인, 스펙은 사내 확인 중).
 6. **상태 근거 서비스** — 수집/파서 지연/coverage 판정의 statusSource·observedAt 공급자가 없으면 모니터링 메뉴를 열 수 없다.
 7. **공개 계약 산출물 형식** — 필드명·공집합 표식·assessment enum, OpenAPI/JSON Schema/codegen 중 무엇으로 확정할지, URL `v` sunset 정책.
-8. **디자인 바인딩** — 아이콘(Lucide)·CJK 폰트(Noto Sans KR, 망분리라 자체 호스팅)·기간 프리셋(1일/7일/사용자 지정)은 2026-09-22 결정(`docs/05` 참조, 실제 물질화는 구현 시). 남은 Open: 다크모드 실제 수요(계속 Deferred로 확정), UI 프리미티브 조합, ECharts vs Plotly 최종 확정(POC 필요).
+8. **디자인 바인딩** — 아이콘(Lucide)·CJK 폰트(Noto Sans KR, 망분리라 자체 호스팅)·기간 프리셋(1일/7일/사용자 지정)은 2026-09-22 결정(`docs/05` 참조, 실제 물질화는 구현 시). 다크모드는 Deferred. UI 프리미티브 조합과 ECharts/Plotly 선택은 Candidate이며 채택 전 비교 검증이 필요하다. 이 검증을 수행한 증거는 아직 없다.
 9. **공지·알림** — 배너 위치·노출 조건, 알림 벨의 읽음/집계/권한 의미(벨 자체는 비필수).
 10. ~~**메뉴 활용률의 목적과 노출 범위**~~ — 2026-09-22 결정 완료(`docs/05` §메뉴 활용률 계측 참조): v1 범위 포함(커널 범위 기능), 수집은 조회조건·필터값까지, 보존기간 무제한(수동 삭제 가능), 열람권한은 개발자·운영자 + 운영자 개별 승인 계정.
 11. **업무 모델 세부** — 필드별 외부/플랫폼 소유권, VOC 담당 조직·상태 전이 예외, 마스터 필드 원천 소유권.
@@ -185,7 +191,7 @@
 
 ## 부록 — 이 문서를 만든 방법과 한계
 
-- 세 모델 모두 기존 문서를 **읽기만** 했고 수정하지 않았다. 이 저장소의 `docs/*.md`, `DESIGN.md`는 변경되지 않았다.
-- 세 원본 리포트(`.agents/reports/requirements-*.md`)에는 이 요약에 없는 세부 근거 인용·문장이 더 있다. 특정 항목을 실제로 착수하기 전에는 해당 항목이 어느 모델 리포트의 어느 줄에서 왔는지 원본을 대조하는 걸 권한다.
+- 최초 요구사항 수집 당시 세 모델은 기존 문서를 **읽기만** 했다. 이후 인터뷰와 문서 이행 변경은 Git 이력과 [HANDOFF](HANDOFF.md)를 따른다. 이 단락은 현재 문서가 최초 상태 그대로라는 뜻이 아니다.
+- 세 원본 리포트(`.agents/reports/requirements-*.md`)에는 이 요약에 없는 세부 근거 인용·문장이 더 있다. 특정 항목을 착수하기 전에는 현행 계약 원문을 먼저 대조하고, 제안 배경이 필요할 때 해당 모델 리포트를 추가로 읽는다.
 - **[N/3]** 표기는 "몇 개 모델이 유사한 취지를 지적했는가"를 사람이 판단해 합친 것이지, 자동 집계가 아니다. 문장 표현은 모델마다 달라서 완전히 기계적으로 매칭할 수 없었다.
 - 세 모델 모두 사용자가 지정한 범위(디자인 요소, 설비관리/기준정보관리/생산성분석/지표관리/공지/VOC/모니터링 메뉴, 메뉴 간 포워딩, 메뉴 활용률 분석, 개발 편의 컴포넌트·차트·도식·레이아웃) 외에도 자유 판단으로 항목을 추가했다 — 특히 **사용자·조직 모델**, **메뉴 활용률 계측 파이프라인**, **시간역 관리 화면**, **버전 5종 혼동 방지**, **백업/복구 전략**은 문서에 없었는데 세 모델이 독립적으로 필요하다고 판단해 신규 제안한 항목이다.
