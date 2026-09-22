@@ -1,3 +1,59 @@
+# Handoff — 2026-09-22 문서 운영 설계 완료 / 다음은 M1
+
+## 다음 세션의 목표와 권한
+
+최신 사용자 요청: **문서 운영 설계 산출물을 커밋하고, 다음 세션부터 실행할 수 있도록 HANDOFF를 갱신한다.** 다음 작업은 아래 M0 확인 후 **M1 문서 이행**이다. 이번 세션은 준비·기록·커밋까지만 수행했으며 M1 자체는 아직 실행하지 않았다. 제품 구현, 새로운 제품/기술 선택, 문서 대규모 이동, 서브모듈 변경은 다음 작업에 포함되지 않는다. 이번 커밋 요청은 push 요청이 아니다.
+
+아래 ‘이전 세션 기록’의 추가 리서치 우선 안내는 당시 이력이다. 현재 작업 순서는 이 상단 안내를 따른다. 과거의 체크박스 동시 갱신 지시도 설계 결정과 구현 완료를 같은 상태로 취급하는 근거가 아니다.
+
+## 시작할 때 읽을 자료
+
+1. 현재 `AGENTS.md`, `git status --short`, `git log -3 --oneline`, `git submodule status`, [docs/INDEX.md](docs/INDEX.md).
+2. [문서 운영 종합 안내](.agents/reports/doc-operations-2026-09-22/README.md).
+3. [첫 이행 지시서](.agents/reports/doc-operations-2026-09-22/migration-plan.md)의 M0/M1과 ‘첫 번째 작업’ 전체.
+4. [현황 문제 목록](.agents/reports/doc-operations-2026-09-22/current-map.md), [운영 모델](.agents/reports/doc-operations-2026-09-22/operating-model.md), [대표 작업 검증](.agents/reports/doc-operations-2026-09-22/representative-validation.md)의 V1/V2.
+5. 판단하는 문구의 실제 원문: 특히 [06 전역 계약](docs/06_platform_ui_contract.md) §6.1–6.4 및 03/04/07 해당 절. 보고서 요약으로 원문을 대신하지 않는다.
+
+## 바로 실행할 첫 단위: M1
+
+쓰기 범위는 다음 네 문서로 제한한다.
+
+- `docs/INDEX.md`: DESIGN/PLATFORM_REQUIREMENTS/HANDOFF의 역할과 실제 상대 링크를 추가하고 메뉴 구현 읽기 경로를 06 Kernel 계약부터 안내한다.
+- `docs/03_backend_stack.md`: 원천 wall-clock 의미를 보존하고, 이미 결정된 시간 메커니즘과 실제 TZ/날짜 의미 Open을 분리하여 06 §6.3으로 연결한다.
+- `docs/04_frontend_ui_ux.md`: URL 버전·오류 등 확정 메커니즘을 Open으로 읽게 하는 안내를 정정한다. 공개 이름·artifact 후보 상태는 유지한다.
+- `docs/07_app_shell_wireframe.md`: §6의 오래된 Open 안내를 원본 상태에 맞추고, §7 시나리오 참조와 §8 혼합 상태가 유지되는지 확인한다.
+
+상세 문안·수용 기준·되돌림은 이행 지시서에 있다. 새 파일 구조나 전면 metadata부터 설치하지 않는다. M1 완료를 전체 문서 정합성 해결이나 제품 구현 승인으로 보고하지 않는다. DESIGN 내부 stale 표현, REQUIREMENTS 정리, 05 상세 원본 이관 등은 후속 단계다.
+
+## 반드시 보존할 경계
+
+- 06은 전역 UX·Context·URL·Scope·Menu Extension 원본이다. DESIGN은 시각 token/render 원본이며 06의 최소 기준·상태·접근성 의무를 임의 변경할 수 없다.
+- **현재 05는 상태 목록뿐 아니라 폴링·DB 접근·R/H 상세 원본도 소유한다.** 색인으로 축소하며 본문을 삭제하지 않는다. M1에서 05/06/DESIGN 본문을 이관하지 않는다.
+- Decided/Candidate/Open은 문단별로 구분한다. 단일 요청 scopeId·서버 재검증은 Decided, hierarchy·상속·복수 선택·소속 규칙은 Open이다. 기술 후보·필드명·숫자를 이번 정정으로 승격하지 않는다.
+- R 부재 시 유효한 독립 defaultRangeTo 물질화는 허용하고 자동 재집계만 보류하는 예외, 단일 설비 naive 조회, 집합/단일 query key의 다른 중복 규칙을 유지한다.
+- 셸 270/54, 기본 표 최소 32, compact 시각 목표 25, coarse-pointer target 44를 재결정하지 않는다.
+- FeedbackOps는 독립 제품이며 현재 gitlink `b5dd614ac8da3792cb1627e7daeffb8fc9c4944e`다. 내부 수정·pin 갱신 금지. parser도 독립 upstream이다.
+
+## 검증과 완료 보고
+
+M0에서 사용자 dirty/untracked 변경을 보존하고 달라진 관련 원문만 재검토한다. M1 후에는 링크 대상·기존 heading·§참조, before/after 의미·예외, `git diff --check`, V1/V2 문서 워크스루를 확인한다. 네 파일 밖 변경이 없는지 점검하고 미결·미실행을 보고한다. runtime 검증을 수행했다고 쓰지 않는다. 후속 commit/push는 해당 세션 지시 범위를 따른다.
+
+조사 snapshot 기준 HEAD는 `2d6fe5ad9f9d610e45ba028930f7c2effdad9d4a`다. 조사 종료 시 471개 원본 무변경, §6.3 사본 일치, 제한된 링크 검사·음성 점검 4개·외부 사본 7개 로컬 manifest 일치를 확인했다. **이 HANDOFF는 이후 사용자 요청으로 갱신했다.** 따라서 조사 snapshot과 비교하면 HANDOFF 차이와 기록 커밋에 따른 HEAD 차이는 예상된다. docs 계약의 추가 차이까지 자동 허용하지 않는다.
+
+`source-snapshot.json`/`validation.json`은 조사 종료 증거로 보존한다. `validate.py`는 실행 시 validation.json을 덮어쓰고 이후 HANDOFF drift를 보고하므로, 다음 세션에서 통과시키려고 snapshot을 갱신하지 않는다. 새로운 작업의 검증 결과는 별도 작업 기록에 남긴다.
+
+## 완료 산출물과 남은 입력
+
+주 에이전트·Grok 4.6 High·GLM 5.3 Max의 독립 분석/반박/재응답과 Luna Max 조사·최종 검토를 마쳤다. [토론 판단 기록](.agents/reports/doc-operations-2026-09-22/discussion/DECISIONS.md)에 철회·채택·보류 이유가 있다. 원본 인접 소비자 포인터는 한 계약 시범 권고이며 영구 위치는 실제 운영으로 평가한다.
+
+[사용자 인터뷰 항목](.agents/reports/doc-operations-2026-09-22/interview.md)에 첫 업무·결정 주체, Scope/시간/운영 입력, 팀 검증 기록 위치 등을 정리했다. 답변 없이 M1은 진행할 수 있다. 답변 의존 제품 범위는 Open으로 유지한다. [검증 기록](.agents/reports/doc-operations-2026-09-22/verification.md)에 원문 재확인 범위와 미검증 사항이 있다.
+
+---
+
+## 이전 세션 기록 — 당시 안내이며 현재 실행 지시 아님
+
+아래 원문은 조사 맥락과 중요한 근거를 보존하기 위한 이력이다. 현재 목표와 충돌하는 부분은 위 최신 안내를 따른다.
+
 # Handoff — 2026-09-22
 
 ## 다음 세션의 목표

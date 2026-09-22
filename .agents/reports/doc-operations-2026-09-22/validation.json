@@ -1,0 +1,47 @@
+{
+  "scope": "Report package structural checks only; no runtime or semantic guarantee",
+  "head": "2d6fe5ad9f9d610e45ba028930f7c2effdad9d4a",
+  "baseline_head": "2d6fe5ad9f9d610e45ba028930f7c2effdad9d4a",
+  "baseline_files_checked": 471,
+  "source_drift": [],
+  "sample_exact_match": true,
+  "sample_section_sha256": "bc1a24c6c09a8cc1cfd75fe94e5c2c9f65512a20ff8dbc196af508b42a9c2cfc",
+  "local_report_link_errors": [],
+  "negative_checks": {
+    "removed_R_absent_exception_detected": true,
+    "changed_source_hash_detected": true,
+    "missing_source_detected": true,
+    "missing_anchor_detected": true
+  },
+  "external_snapshot_local_blob_checks": [
+    {
+      "path": "README.md",
+      "matches_local_manifest": true
+    },
+    {
+      "path": "docs/DOMAIN_FACTS.md",
+      "matches_local_manifest": true
+    },
+    {
+      "path": "docs/INFORMATION_ARCHITECTURE.md",
+      "matches_local_manifest": true
+    },
+    {
+      "path": "docs/PROJECT_OVERVIEW.md",
+      "matches_local_manifest": true
+    },
+    {
+      "path": "docs/UI_RESEARCH.md",
+      "matches_local_manifest": true
+    },
+    {
+      "path": "docs/UI_WIREFRAMES.md",
+      "matches_local_manifest": true
+    },
+    {
+      "path": "wireframes/DASHBOARD_DESIGN_SPEC.md",
+      "matches_local_manifest": true
+    }
+  ],
+  "feedbackops_gitlink": "160000 b5dd614ac8da3792cb1627e7daeffb8fc9c4944e 0\tproducts/feedbackops"
+}
