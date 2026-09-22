@@ -19,6 +19,13 @@
 
 `docs/INDEX.md`부터 시작. 역할별 진입점이 표로 정리돼 있다. 플랫폼/프론트엔드 작업은 `docs/06_platform_ui_contract.md`를 먼저 본다.
 
+## FeedbackOps 서브모듈 경계
+
+- `products/feedbackops/`는 원본 저장소의 특정 커밋을 참조하는 독립 제품이다. 현재는 참고·통합 설계 단계이며 플랫폼 계약 준수를 기존 FeedbackOps에 소급 강제하지 않는다.
+- FeedbackOps 내부 작업은 해당 디렉터리의 `AGENTS.md`와 하위 지침·제품 계약을 따른다. 위 플랫폼 목적·UI 설계 절차와 루트 `.agents/` 자산은 플랫폼 작업에 적용하며 FeedbackOps 자체 규칙을 대체하지 않는다.
+- 원본 기능 개발은 기존 FeedbackOps 저장소에서 계속한다. 서브모듈 내부 수정이나 참조 커밋 갱신은 요청된 범위에서만 수행한다. 통합 계약 충돌은 한쪽을 임의 수정하지 말고 명시적으로 결정한다.
+- 원본 갱신·초기화 절차와 폴더별 소유권은 `docs/integration/repository-layout.md`를 참조한다.
+
 ## 화면/UI 설계
 
 새 화면이나 UI 작업은 `.agents/skills/analysis-platform-wireframe/SKILL.md`부터 읽는다. 현재 설계 단계는 Requirements → IA → Conceptual Contract / Screen Spec → Wireframe → Open Decisions에서 완료할 수 있다. Design System / Prototype / Visual Polish는 별도 구현 요청이 있을 때만 진행한다.

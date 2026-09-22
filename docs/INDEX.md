@@ -1,6 +1,8 @@
 # 문서 인덱스
 
-이 레포는 `context_recognized_parser`(별도 레포)가 적재한 데이터를 소비하는 분석 플랫폼의 개념 설계 문서다. 제품 런타임 코드는 없다. 문서는 구현 전 설계이며 Decided / Candidate / Open / Deferred를 구분한다. 에이전트용 보조 스크립트는 `.agents/`에 있다.
+이 레포는 `context_recognized_parser`(별도 레포)가 적재한 데이터를 소비하는 분석 플랫폼의 개념 설계를 담는다. 분석 플랫폼 자체의 런타임 코드는 없으며, 기존 FeedbackOps 구현은 `products/feedbackops/` 서브모듈로 연결돼 있다. 문서는 구현 전 설계이며 Decided / Candidate / Open / Deferred를 구분한다. 에이전트용 보조 스크립트는 `.agents/`에 있다.
+
+저장소 전체를 살펴보려면 [폴더 구조와 FeedbackOps 연결 방식](integration/repository-layout.md)을 먼저 본다.
 
 ## 역할별 진입점
 

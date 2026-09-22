@@ -1,0 +1,4 @@
+[submodule "products/feedbackops"]
+	path = products/feedbackops
+	url = https://github.com/hjung3113/FeedbackOps
+	branch = develop
