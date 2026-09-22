@@ -1,3 +1,57 @@
+# Handoff — 2026-09-22 06 Scope/딥링크 계약 정렬 완료 / 다음은 M1 또는 IA
+
+## 다음 세션의 목표와 권한
+
+최신 사용자 요청: **grilling round 2 산출물과 06 갱신을 커밋했다. 다음 세션은 시작할 때 사용자에게 M1 문서 이행과 도메인 모델의 실제 화면 적용(IA) 중 어느 걸 먼저 할지 확인한다.** 제품 구현(코드), 새로운 기술 선택, 서브모듈 변경은 이번 세션에 포함되지 않았다.
+
+이번 세션에서 한 일: `/grill-with-docs`로 이전 세션이 남긴 "사용자가 결정할 것들"(Recipe/StGroup 딥링크 키, 기간 프리셋, 집계 단위, Donut/Gauge 경계, 폴링 주기, CJK 폰트, 아이콘, 다크모드, 메뉴 활용률 계측)을 2라운드에 걸쳐 인터뷰해 전부 확정했고, 그 결정에 맞춰 `docs/06_platform_ui_contract.md`의 Scope/딥링크 절(§6.1–6.3, §24)을 갱신했다. 문서만 갱신했고 코드/구현은 다루지 않았다.
+
+## 시작할 때 읽을 자료
+
+1. `git status --short`, `git log -5 --oneline`, `git submodule status`, [docs/INDEX.md](docs/INDEX.md).
+2. [docs/05_roadmap_and_open_questions.md](docs/05_roadmap_and_open_questions.md) — §딥링크 키 확장/§기간 프리셋과 집계 단위/§시각화 경계/§메뉴 활용률 계측이 이번 세션에 새로 생겼다.
+3. [docs/06_platform_ui_contract.md](docs/06_platform_ui_contract.md) §6.1–6.3, §24 — Scope 계층이 Site→Line 2단계로 정정됐고, `recipeIds`/`granularity` 키와 StGroup 물질화 규칙이 추가됐다.
+4. [docs/adr/0002-stgroup-materializes-to-equipment-ids.md](docs/adr/0002-stgroup-materializes-to-equipment-ids.md) — StGroup을 URL 키로 승격하지 않은 이유(딥링크 재현성 충돌).
+5. [PLATFORM_REQUIREMENTS.md](PLATFORM_REQUIREMENTS.md) — 아이콘/CJK 폰트/기간 프리셋/Donut·Gauge/메뉴 활용률/Open Questions 10·14번이 이번 세션에 갱신됐다.
+6. [CONTEXT.md](CONTEXT.md) StGroup 항목 — ADR-0002 포인터가 추가됐다.
+
+## 이번 세션에서 확정된 것 (전부 2026-09-22, grilling round 2)
+
+- **딥링크 키**: `recipeIds`는 URL 소유 키로 승격(Recipe는 Lot 고정 속성이라 재현성 문제 없음). StGroup은 승격하지 않고 선택 시점에 `equipmentIds`로 물질화(ADR-0002 — 소속 가변성이 딥링크 재현성과 충돌하기 때문).
+- **기간 프리셋/집계 단위**: 프리셋을 `7D/30D/90D`에서 `1일/7일/사용자 지정`으로 교체(실사용 패턴 반영, 기존 `defaultRangeTo` rolling 메커니즘 재사용, Δ=24h/168h). 조회 기간과 별개로 `granularity`(hour/day/week) 키를 page-owned 계약으로 신설.
+- **시각화 경계**: donut은 분모 있는 비율에만 기본 허용, gauge/3D/그라디언트는 기본 비허용이나 전면 금지 아님 — 업무 근거 확인되면 케이스별 예외 가능.
+- **운영/디자인 값**: 폴링 주기 5분(300s), CJK 폰트는 Noto Sans KR(사내망 망분리 확인 — 자체 호스팅, CDN 미사용), 아이콘은 Lucide 확정, 다크모드는 계속 Deferred.
+- **메뉴 활용률 계측 — 범위 판단 정정**: 메뉴 개수가 쌓이면 붙이는 부가기능이 아니라 Platform Kernel 자체의 관측 범위로 재분류, v1 포함. 수집은 조회조건·필터값까지, 보존기간 무제한(개발자 수동 삭제 가능), 열람권한은 개발자·운영자 + 운영자가 개별 승인한 계정.
+- **06 정렬**: §6.2 Scope 계층을 실제 구조(Site→Line 2단계, Maker/Model/EquipmentID 별도, Process/StGroup 교차 축)로 정정, v1 단일 Scope 선택 Decided 명시, 부모·자식 상속은 여전히 Open. §6.3 TZ Decided 반영. §24 donut/gauge 경계 문장 추가.
+- **남은 Open 1건 불변**: 인증 프로토콜의 정확한 사양 — 사내 확인 중.
+
+## 다음 세션 추천 작업 (권장 순서, 확정 아님)
+
+1. **M1 문서 이행을 실행한다** — `docs/INDEX.md`/`03_backend_stack.md`/`04_frontend_ui_ux.md`/`07_app_shell_wireframe.md` 네 문서 한정(아래 "이전 세션 기록"의 M1 지시서 참고). 여전히 미착수다. `03_backend_stack.md`는 TZ가 이제 Decided(한국 우선)라는 걸 반영해서 쓴다.
+2. **도메인 모델을 실제 화면에 적용한다** — `.agents/skills/analysis-platform-wireframe/SKILL.md`로 설비관리 또는 생산성 분석 중 하나를 골라 Requirements→IA 단계를 시작한다. 06이 이제 실제 구조를 반영하고 있으니, 낡은 계약을 안 보고 시작할 수 있다 — 지난 세션에 있던 "06 먼저 vs IA 먼저" 트레이드오프는 06이 끝나서 해소됐다.
+3. **인증 프로토콜 확인 결과가 오면 반영한다** — 사내 확인 결과를 받으면 05의 마지막 Open 항목을 닫고, pluggable 인증 계층의 구체 경계를 정한다.
+
+1번과 2번은 서로 독립적이라 순서를 바꿔도 충돌 없다 — 사용자 선호로 정하면 된다.
+
+## 반드시 보존할 경계
+
+- 06은 전역 UX·Context·URL·Scope·Menu Extension 원본이다. DESIGN은 시각 token/render 원본이며 06의 최소 기준·상태·접근성 의무를 임의 변경할 수 없다.
+- 05는 상태 목록뿐 아니라 폴링·DB 접근·R/H 상세 원본도 소유한다. 이번 세션에 Decided 절을 추가했을 뿐 구조를 바꾸지 않았다.
+- Decided/Candidate/Open은 문단별로 구분한다. 이번 세션에서 새로 Decided로 옮긴 항목 외의 나머지(폴링 중단조건·워커 감지 주기, 최대 조회량/timeout, `defaultRangeTo` 기본 Δ 숫자, timeDomain assertion 공급자, 교대일/영업일, 다중 사업장 "같은 날짜", Scope 부모·자식 상속, 메뉴 활용률 이벤트 스키마 세부)는 여전히 Open이다 — 이번 세션이 전부 닫았다고 오해하지 않는다.
+- 셸 270/54, 기본 표 최소 32, compact 시각 목표 25, coarse-pointer target 44를 재결정하지 않는다.
+- FeedbackOps는 독립 제품이며 현재 gitlink로 고정돼 있다. 내부 수정·pin 갱신 금지. parser도 독립 upstream이다.
+- 메뉴 활용률 계측을 "메뉴 몇 개 쌓이면 그때 붙이는 기능"으로 다시 뒤로 미루지 않는다 — 이번 세션에 그 프레이밍 자체가 틀렸다고 정정됐다(플랫폼 커널 범위 기능이라 메뉴 개수 게이트 대상이 아님).
+
+## 검증과 완료 보고
+
+문서 갱신만 했으므로 런타임 검증은 없다. 확인한 것: `docs/05`/`PLATFORM_REQUIREMENTS.md`/`docs/06`/`CONTEXT.md`/ADR-0002가 서로 모순 없이 같은 결정을 가리키는지, 06 본문에 "사이트 → 공장 → 라인" 3단계 가설의 잔존 언급이 없는지(grep으로 확인, 없음). 실제 화면 구현·코드 레벨 검증은 하지 않았다.
+
+---
+
+## 이전 세션 기록 — 당시 안내이며 현재 실행 지시 아님
+
+아래 원문은 조사 맥락과 중요한 근거를 보존하기 위한 이력이다. 현재 목표와 충돌하는 부분은 위 최신 안내를 따른다. **이번 세션도 아래 M1을 실행하지 않았다 — 위 추천 1번 참고.**
+
 # Handoff — 2026-09-22 Scope/설비 도메인 인터뷰 완료 / 다음은 사용자 선택
 
 ## 다음 세션의 목표와 권한
