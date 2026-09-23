@@ -2,6 +2,9 @@
 
 작성일: 2026-09-22. 상태: **Research / Candidate**. 기술 채택·구현 착수·기존 Decided 변경을 승인하는 문서가 아니다. 전역 계약은 [Platform UI Contract](../../06_platform_ui_contract.md), 결정 상태는 [05](../../05_roadmap_and_open_questions.md)가 소유한다.
 
+
+> 현재 상태 안내(2026-09-23): 아래 권고는 당시 Research/Candidate 기록이다. 이후 백엔드 방향은 [03의 FastAPI](../../03_backend_stack.md)로 결정됐다. 현재 채택·보류 상태는 [05](../../05_roadmap_and_open_questions.md)를 우선하며, 아래 조사 본문은 소급 수정하지 않는다.
+
 ## 먼저 읽을 문서
 
 [종합 보고서](SYNTHESIS.md)에 최종 권고, 원본 정정, 재사용/OSS 대체 판단, 최소 검증 흐름과 기존 문서별 반영안을 정리했다. 기술 후보의 채택 상태는 바꾸지 않았다.

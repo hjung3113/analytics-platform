@@ -9,8 +9,8 @@
 이 문서는 플랫폼 전역 UX / Scope / Context / URL / Menu Extension / Shell Slot / navigation IA의 단일 authoritative source다. `02_domain_menus.md`는 도메인 capability catalog, `04_frontend_ui_ux.md`는 구현 후보·리서치·화면 패턴, `05_roadmap_and_open_questions.md`는 결정 상태·미결 질문 및 Deferred 구현 가설, `07_app_shell_wireframe.md`는 이 계약을 소비하는 셸 설계다. 외부 디자인 참고자료와 에이전트 스킬은 제품 계약의 근거가 아니다.
 
 - **Decided**: 플랫폼 책임 경계와 명시적인 계약 규칙. 구현 완료를 뜻하지 않는다.
-- **Candidate**: 배치·치수·토큰·페이지 예시. 독립 초안끼리 일치해도 승인으로 간주하지 않는다.
-- **Open**: 아래에 미결로 기록한 URL 세부 정책·Scope 계층·시간 의미 등.
+- **Candidate**: 별도로 Decided라고 명시하지 않은 배치·토큰·페이지 예시와 기술 선택. 아래에 명시한 셸 치수·테이블 밀도 결정은 제외한다. 독립 초안끼리 일치해도 승인으로 간주하지 않는다.
+- **Open**: Scope 부모·자식 상속, 최초 기본 Δ, timeDomain assertion 공급 근거, 다중 Site의 같은 날짜·교대일/영업일 등 각 절에 명시한 미결 입력. URL 메커니즘과 Site→Line 계층의 Decided 상태 및 공개 필드명·enum의 Candidate 상태와 구별한다.
 - **Deferred**: 저장된 뷰 등 후속 구현 범위. 이 설계가 기능 제공 시점을 확정하지 않는다.
 
 §5~6, §8~9, §11, §17, §19의 책임·행동 규칙은 Decided다. §7 셸 치수(사이드바 270px·헤더 54px)와 §15 테이블 밀도(최소 32px)는 2026-09-21에 `DESIGN.md` canonical 값으로 Decided됐다 — 이 문서는 그 값을 인용만 하고, 실제 값의 단일 원본은 `DESIGN.md`다. §23 토큰 스케일·§25 반응형 정책·§31은 아직 Candidate다. 구현 일정은 아직 확정하지 않았으며 `05_roadmap_and_open_questions.md`의 Phase 표는 non-authoritative 가설이다.
@@ -549,7 +549,7 @@ EquipmentDeactivateButton
 
 ### UI Primitive
 
-shadcn/ui + Base UI를 기반으로 한다.
+shadcn/ui + Base UI 또는 Radix 조합은 [04 프론트엔드 기술 스택](04_frontend_ui_ux.md#프론트엔드-기술-스택-candidate)의 Candidate다. 아래 primitive 역할 예시는 특정 라이브러리 채택을 확정하지 않는다.
 
 예:
 

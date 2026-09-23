@@ -174,8 +174,8 @@
 1. ~~**셸 치수·테이블 밀도**~~ — 2026-09-21 결정 완료(§0, `docs/05` 참조). DESIGN.md canonical(270px/54px/32px) 채택.
 2. **Scope 도메인 — 일부 Decided / 상속 Open** — 2026-09-22 결정 반영(`CONTEXT.md`, `docs/adr/0001-scope-hierarchy-site-line-only.md`). 계층은 Site→Line 2단계(Factory는 모델링 안 함), Maker→Model→EquipmentID 식별 계층, Process/StGroup은 교차 분류 축, Recipe는 Lot 속성. 설비 소속 변경: Process는 불변(재등록), StGroup은 가변(현재 소속만 사용, 소급은 추후). v1은 단일 Scope 선택만. 부모·자식 상속은 [06 §6.2](docs/06_platform_ui_contract.md#62-scope와-권한-decided--open)의 Open이며 상속 동작 구현 전에 결정한다.
 3. **시간 의미** — 사업장별 실제 TZ 값은 2026-09-22 결정(한국/Asia-Seoul 단일값 우선, 해외 사업장 확장은 배제 안 함 — `docs/05` 참조). timeDomain assertion 공급자, 교대일/영업일, 다중 사업장의 "같은 날짜"는 여전히 Open. assertion 공급 근거는 국내 설비끼리라도 복수 시간축 병합을 제공하기 전에 필요하다([06 시간 계약](docs/06_platform_ui_contract.md#ctx-time)).
-4. **운영 수치** — `defaultRangeTo` 기본 길이, 최대 조회량·timeout은 Open. 지연완료 창 `H`=1시간, 클라이언트 폴링 주기=5분(300s)은 2026-09-22 결정(`docs/05` 참조). 폴링 중단 조건·워커 감지 주기는 여전히 Open(구현 시 운영 설정으로 정함).
-5. **인증·조직·배포 — 일부 Decided / 프로토콜 Open** — 2026-09-22 대부분 결정 완료(`docs/05` 참조): 백엔드 FastAPI, 온프렘, 동시 사용자 ~100명, 데이터 보존 기간 제한 없음, 멀티테넌시는 단일 사업장으로 시작(확장 가능). 남은 Open: 사내 SSO 프로토콜의 정확한 사양(존재는 확인, 스펙은 사내 확인 중).
+4. **운영 수치** — `defaultRangeTo` 기본 길이, 실제 데이터 볼륨·조회 패턴, 최대 조회량·timeout은 Open. 지연완료 창 `H`=1시간, 클라이언트 폴링 주기=5분(300s)은 2026-09-22 결정(`docs/05` 참조). 폴링 중단 조건·워커 감지 주기는 여전히 Open(구현 시 운영 설정으로 정함).
+5. **인증·조직·배포 — 일부 Decided / 프로토콜 Open** — 2026-09-22 대부분 결정 완료(`docs/05` 참조): 백엔드 FastAPI, 온프렘, 동시 사용자 ~100명, 데이터 보존 기간 제한 없음, 멀티테넌시는 단일 사업장으로 시작(확장 가능). 남은 Open: 사내 SSO 프로토콜의 정확한 사양(존재는 확인, 스펙은 사내 확인 중), 브라우저 지원 범위(위 브라우저 지원 매트릭스 제안 참조). 실제 데이터 볼륨은 질문 4에서 추적한다.
 6. **상태 근거 서비스** — 수집/파서 지연/coverage 판정의 statusSource·observedAt 공급자가 없으면 모니터링 메뉴를 열 수 없다.
 7. **공개 계약 산출물 형식** — 필드명·공집합 표식·assessment enum, OpenAPI/JSON Schema/codegen 중 무엇으로 확정할지, URL `v` sunset 정책.
 8. **디자인 바인딩** — 아이콘(Lucide)·CJK 폰트(Noto Sans KR, 망분리라 자체 호스팅)·기간 프리셋(1일/7일/사용자 지정)은 2026-09-22 결정(`docs/05` 참조, 실제 물질화는 구현 시). 다크모드는 Deferred. UI 프리미티브 조합과 ECharts/Plotly 선택은 Candidate이며 채택 전 비교 검증이 필요하다. 이 검증을 수행한 증거는 아직 없다.
