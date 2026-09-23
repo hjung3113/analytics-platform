@@ -1,0 +1,26 @@
+{
+  "grok_session": "01a0c77f-e13d-7421-9111-5beb5976299d",
+  "grok_summary": {
+    "current_model_id": "grok-4.6",
+    "reasoning_effort": "high"
+  },
+  "glm_configuration_events": [
+    {
+      "type": "model_change",
+      "id": "c6380be4",
+      "parentId": null,
+      "timestamp": "2026-09-22T05:04:19.600Z",
+      "model": "zai/glm-5.3",
+      "resolvedModelIsFallback": false
+    },
+    {
+      "type": "thinking_level_change",
+      "id": "321ff70f",
+      "parentId": "c6380be4",
+      "timestamp": "2026-09-22T05:04:19.600Z",
+      "thinkingLevel": "max",
+      "configured": null
+    }
+  ],
+  "note": "Selected local runtime metadata only. No credential or account configuration copied."
+}

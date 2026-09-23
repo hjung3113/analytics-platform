@@ -413,7 +413,7 @@ components:
     scrollbarThumbColor: "{colors.surface-dark-nav-raised}"
     scrollPadding: 8px
   date-range-segments:
-    labels: [7D, 30D, 90D, Custom]
+    labels: [1일, 7일, 사용자 지정]
     height: 36px
     gap: 4px
     padding: 0px 12px
@@ -760,7 +760,7 @@ the parent's 8px radius or flatten a pill to satisfy concentric geometry.
 ## Components
 
 ### Navigation
-- **`sidebar-shell`** — dark, fixed-width, grouped by domain (Equipment, Data Management, Processing Pipeline, Monitoring & Operations, Quality & Analytics, System), matching the platform's menu-registry groups in `docs/06_platform_ui_contract.md` §9 rather than inventing new groupings per screen.
+- **`sidebar-shell`** — dark, fixed-width, grouped by the seven canonical menu-registry groups in [06 §9](docs/06_platform_ui_contract.md#9-information-architecture). The reference screenshot uses Equipment, Data Management, Processing Pipeline, Monitoring & Operations, Quality & Analytics, and System; those six reference labels do not define production navigation.
 - **`sidebar-item`** / **`sidebar-item-active`** — active state is the system's only large filled-`{colors.primary}` surface; everything else on the sidebar is translucent white text on dark.
 - **`top-bar`** — global search, scope switcher (`scope-pill`), notification badge, profile menu. Owns Context display per `docs/06_platform_ui_contract.md` §11, not a decorative element.
 
@@ -809,8 +809,10 @@ the parent's 8px radius or flatten a pill to satisfy concentric geometry.
   exposes the exact applied interval. This is a rendering of the **same global
   period control**, not a second page-owned filter. Materialize URL wall-clock
   `[from,to)` values via §6.3; never derive defaults from browser now. Calendar
-  inclusive end dates convert to next-day exclusive midnight. Preset anchoring
-  is Open below; labels do not settle its meaning.
+  inclusive end dates convert to next-day exclusive midnight. Presets use the
+  decided rolling wall-clock mechanism in [06 §6.3](docs/06_platform_ui_contract.md#ctx-time)
+  (see Date preset meaning below); the initial automatic default duration and
+  shift/business-day semantics remain Open.
 - **Top bar/profile:** `top-bar-search` left, scope then notification and profile
   right; use `icon-button` + `notification-count`, with a readable notification
   count label. `profile-trigger` shows avatar, display name, role and chevron;
@@ -930,7 +932,7 @@ Dashboard; link ancestors, mark the current page, preserve Context on navigation
 
 - **Dark mode**: not designed. The reference screenshot and this system are light-canvas only; if dark mode is requested, it needs its own pass, not a naive token invert (the sidebar is already dark — inverting the whole app would collide with it).
 - **Chart library token mapping**: `docs/04_frontend_ui_ux.md` recommends Apache ECharts as a candidate; this file's semantic/category colors are the palette contract charts should consume, but the actual ECharts theme config is not authored here.
-- **Icon set**: the reference screenshot uses a rounded-outline icon style (Equipment, Data Management, etc.); a specific icon library (e.g. Lucide) is a Candidate, not decided.
+- **Icon set — Resolved (2026-09-22)**: Lucide is decided (rounded-outline, matching the reference screenshot's style). Actual binding into components is implementation work, not done here.
 - **Component library binding**: token names above are design intent, not shadcn/ui or Radix component props. Binding these tokens to `docs/04_frontend_ui_ux.md`'s shadcn/ui candidate stack is implementation work for the Prototype stage, not this document.
 
 - **Review correction — P0.1 / fourth donut**: the supplied image contains three rings plus the Parser Defects bar chart. No fourth ring token binding is invented; a fourth metric requires its own meaning/data contract.
@@ -939,8 +941,8 @@ Dashboard; link ancestors, mark the current page, preserve Context on navigation
 - **P1.8 focal choice (Candidate)**: pipeline-status is the chosen task focal region; a static image cannot establish the operator's top business priority. Revisit only if the approved dashboard task makes an attention list primary.
 - **P2 breadcrumb / pulse**: no breadcrumb or observable animation in the static reference. Optional breadcrumb and reduced-motion-safe pulse recipes are specified, but neither is required for reproduction; pulse activation needs a confirmed live-source policy.
 - **Reference vs platform baseline — Resolved**: this file's radius and headline/KPI typography now match `docs/06_platform_ui_contract.md` §23 exactly: `rounded.sm/md/lg` corrected to 4px/6px/8px (scale is `sm 4 / md 6 / lg 8`, matching §23's `sm/md/lg`); `page-title` 24/600 (§23 Page Title 24/32/600); `section-title` 18/600 (§23 Section Title 18/28/600); `stat-value` (Primary KPI) 32/600 (§23's 30–36/600 range), with a new `stat-value-secondary` 22/600 added for §23's Secondary KPI (20–24/600); `page-title`/`section-title`/`card-title` line-heights are explicit 32px/28px/20px; `body-md`/`body-sm` line-heights are explicit 20px/18px; a plain `caption` (12/16/400) token was added to cover §23's Caption row, distinct from the pill-badge `badge` token. `spacing` already matched §23's 4px-based scale — `xxxl` (40px) and `huge` (48px) were added only to cover §23's full listed scale, not to change existing values. §23's abstract `--background`/`--surface`/`--text-primary`/etc. semantic-variable naming is satisfied conceptually by this file's `colors.canvas`/`colors.surface-card`/`colors.ink` tokens plus the `components:` layer that consumes them — no renaming was done, since §23 does not mandate the literal variable names, only that raw Tailwind primitives not be used directly in components (already the case here).
-- **Sidebar/top-bar width — Resolved**: neither `docs/06_platform_ui_contract.md` nor `docs/07_app_shell_wireframe.md` pins an exact pixel width, so this was never a platform-contract conflict, only a duplicate-number issue resolved using the screenshot's measured value (270px/54px). Resolved by adopting the measured 270px/54px as the single canonical `sidebar-shell.width` / `top-bar.height` — the separate `layout.reference-dashboard.sidebarWidth`/`topBarHeight` duplicates were removed so there is exactly one source of truth.
+- **Sidebar/top-bar width — Resolved**: the duplicate-number issue was resolved using the screenshot's measured value (270px/54px). The current 06 §7 and 07 consume this DESIGN baseline; this resolution note does not define another width source. Resolved by adopting the measured 270px/54px as the single canonical `sidebar-shell.width` / `top-bar.height` — the separate `layout.reference-dashboard.sidebarWidth`/`topBarHeight` duplicates were removed so there is exactly one source of truth.
 - **Existing prose qualifications**: screenshot groups in Navigation do not match canonical §9 IA; category chip/series colors and soft fills are exceptions to earlier “only” wording, specified above. Exact source font, CSS colors, subtle gradients and sizing cannot be recovered with certainty from a raster; chosen solid colors are approximations, not sampled authoritative CSS. Full pixel fidelity remains unverified without a rendered implementation.
-- **Date preset meaning**: 7D/30D/90D may mean rolling wall-clock durations or inclusive calendar days; image alone does not decide anchoring/current-day inclusion. Product must choose before wiring shortcuts, use server defaultRangeTo where applicable, and retain §6.3 explicit half-open URL ranges. No auto-moving URL or new default duration is decided here.
+- **Date preset meaning — Resolved (2026-09-22)**: actual usage is "usually 1 day, sometimes 7 days, rarely longer" — the reference screenshot's `7D/30D/90D` set doesn't match. Presets are now `1일/7일/사용자 지정` (1-day/7-day/custom), materialized as rolling wall-clock durations off the existing `defaultRangeTo` mechanism (§6.3, midnight-unaligned, naive duration arithmetic) — 1일=Δ24h, 7일=Δ168h. No calendar-day alignment. See [06 time contract](docs/06_platform_ui_contract.md#ctx-time).
 - **Queue/lifecycle semantics**: screenshot queue total (28) and running/pending counts (12/16) do not explain its visible gray segment. Do not manufacture a third category. Lifecycle marker meanings and categorical badge mappings likewise require domain definitions before production use.
 - **Profile/bulk action inventory**: visual controls are specified, but actual account items, permitted bulk operations and export limits depend on existing auth/menu capabilities; do not invent operational actions from the screenshot.

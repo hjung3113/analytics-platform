@@ -4,9 +4,9 @@
 
 | 계층 | 추천 | 이유 |
 | --- | --- | --- |
-| Backend | FastAPI(Python), 단 SQL-first 전제 — **팀 언어 확정 전 Open, `05_roadmap_and_open_questions.md` 참조** | 무거운 집계는 Postgres(mart)에서 처리하고 API는 얇은 조회/권한/지표계약 계층 + 지표 DSL 검증/비동기 배치로 역할을 좁힌다. 요청 경로에서 DataFrame을 만드는 패턴은 동시성·메모리에서 확장 불가. 팀이 C# 중심이면 ASP.NET Core, TypeScript 중심이면 NestJS도 동등 후보(OpenAPI 자동생성은 ASP.NET Core도 공식 지원해 FastAPI만의 장점이 아님) |
+| Backend | FastAPI(Python), SQL-first — **방향 Decided, 세부 버전·구성 Candidate**([05 결정 상태](05_roadmap_and_open_questions.md)) | 무거운 집계는 Postgres(mart)에서 처리하고 API는 얇은 조회/권한/지표계약 계층 + 지표 DSL 검증/비동기 배치로 역할을 좁힌다. 요청 경로에서 DataFrame을 만드는 패턴은 동시성·메모리에서 확장 불가. 확정 전 비교 근거: 팀이 C# 중심이면 ASP.NET Core, TypeScript 중심이면 NestJS도 대안으로 검토했으며, OpenAPI 자동생성은 ASP.NET Core도 지원해 FastAPI만의 장점은 아니었다. 현재 방향은 05의 FastAPI 결정을 따른다 |
 | DB | 파서 Postgres(read-only) + 같은 인스턴스의 별도 스키마 | 완전 분리 인스턴스는 보안 격리 요구가 실제로 생기기 전엔 운영 비용만 추가. mart 갱신은 pg_cron으로 시작(단, 지연 완료 watermark 감지 기반 재계산 메커니즘 별도 필요 — `01_architecture_and_data_contract.md`) |
-| 인증 | OIDC(day 1부터 라이브러리 도입) | 사내 SSO가 예정돼 있다면 로컬 인증을 먼저 만들고 나중에 SSO로 바꾸는 전환 비용이 크다 |
+| 인증 | 사내 SSO 존재 확인, 정확한 프로토콜은 Open — 확인 전 인증 계층은 pluggable([05 Open Questions](05_roadmap_and_open_questions.md#open-questions)) | 종전 OIDC 조기 도입 추천은 로컬 인증→SSO 전환 비용을 줄이려는 비교 근거였다. OIDC 채택·라이브러리·도입 시점이 확정된 것으로 해석하지 않는다 |
 | 플랫폼 DB 마이그레이션 | Alembic(또는 팀 표준 도구) | 플랫폼 메타 DB/mart 스키마 버전 관리 — 파서의 DbUp과는 별개 |
 
 ## 백엔드 역할 분담 원칙 (SQL-first)
@@ -23,14 +23,15 @@
 
 ## 시간 계약 (중요 — 2차 리뷰에서 발견된 실수)
 
-파서의 업무 시각은 **시간대 없는 설비 wall-clock**이다(`context_recognized_parser` 원칙). 소비 계층이 이를 UTC로 임의 변환하면 조회 구간과 마스터 귀속이 틀어진다. Phase 0에서 최소한 다음을 결정한다:
+파서의 업무 시각은 **시간대 없는 설비 wall-clock**이다(`context_recognized_parser` 원칙). 소비 계층이 이를 UTC로 임의 변환하면 조회 구간과 마스터 귀속이 틀어진다. 원천 의미는 이 절이 소유하고, 전역 Context·URL의 시간 메커니즘은 [06 전역 계약](06_platform_ui_contract.md) §6.3을 따른다.
 
-- 설비 또는 사업장별 원천 시간대와 미확인 시 처리
-- 소비 계층의 UTC 변환 책임 소재
-- 조회 구간의 경계 의미 (예: `[from, to)`)
-- 여러 사업장의 "같은 날짜"가 동일 UTC 구간인지, 각 사업장 현지 영업일인지
+- **Decided — 메커니즘:** half-open `[from, to)`, v1의 초 단위 naive URL, 날짜-only 입력 변환과 URL 형식 구분, TZ 미확인 fallback, 서버 assertion에 의한 복수 설비 시간축 병합 가드, `defaultRangeTo` 물질화는 06 §6.3에 정의돼 있다. 공개 필드명·구현 산출물 형식은 원본의 Candidate 상태를 따른다.
+- **Decided — 초기 TZ:** 한국(Asia/Seoul) 단일값으로 우선 시작한다([05 결정 상태](05_roadmap_and_open_questions.md), 2026-09-22). 중국 시안·미국 오스틴으로의 확장 여지는 배제하지 않으며, 이 초기값이 시간역 병합 assertion을 대신하지 않는다.
+- **Open — 남은 입력:** 다중 사업장이 실제 편입될 때의 "같은 날짜" 의미, 교대일/영업일 의미, timeDomain assertion 공급자와 최초 진입 기본 Δ 숫자는 별도 결정이 필요하다. 확정된 시간 메커니즘을 다시 Open으로 돌리지 않는다.
 
-원천 wall-clock은 보존하고, 변환 가능한 경우에만 분석용 시각을 별도로 제공하는 방향이 안전하다.
+TZ를 몰라도 단일 설비 또는 동일 wall-clock 기준이 확인된 설비 집합의 naive 조회는 허용한다. `R` 부재 시에도 독립적으로 유효한 `defaultRangeTo`는 물질화할 수 있고 자동 재집계만 보류한다. 기본 구간은 06 §6.3, 원천 진행 경계 `R`/자동 창 `H`의 상세 정책은 [01 지연 완료 허용 시간](01_architecture_and_data_contract.md#late-arrival-policy)을 참조한다.
+
+원천 wall-clock은 보존하고, 변환 가능한 경우에만 분석용 시각을 별도로 제공하는 방향이 안전하다. 확인된 TZ 이름만으로 변환 가능성을 보장하지 않으며, 이 계약이 향후 별도 UTC 분석 API 자체를 영구 금지하지는 않는다.
 
 ## 로딩·빈 상태·오류의 근거 소유자
 

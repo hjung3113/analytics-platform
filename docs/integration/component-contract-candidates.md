@@ -56,7 +56,7 @@ FileGateway는 설비 로그/Configuration 파일을 `equipmentId` + 기간으�
 | 조회 파라미터 | 로그: `equipmentId`, `logType`, `[from,to)`, pagination cursor, `attr.*`. Configuration은 **다른 축**이다 — current는 `equipmentId + configurationType`으로 기간·cursor 없이 배열을 반환하고, history만 `from`/`to` 필수 + pagination이 있다 | 플랫폼 URL의 `equipmentIds`/`from`/`to`/`scopeId`를 gateway 요청으로 변환하되, 로그의 시간 기반 조회·Configuration history·Configuration current를 구분해서 매핑한다. 셋을 같은 `[from,to)` 축으로 뭉치면 의미가 달라진다. adapter 범위에서 Configuration을 통째로 빼면 원문 조회 범위가 조용히 줄어든다 |
 | audit 기록 범위 | caller/equipment/log/config/file metadata/status/error/elapsed는 기록, API key 원문·**token payload**·물리 경로는 기록 안 함(`/health`류는 애초에 감사 대상 아님) | 06에는 아직 이런 요청 감사의 필드 계약이 없다(있는 것은 02의 마스터 변경 감사, who/when/before-after — 다른 Audit이다). "맞는 범위"가 아니라 "신설 필요 여부를 03에서 결정"으로 참고 |
 | 읽기 전용 경계 | read-only, opaque cursor, status/error code, health, 물리 경로 비노출, partial FTP failure 차단 | Data Trust outcome으로 변환할 상태값 후보 |
-| 인증 불일치 | 현재 `X-Api-Key` middleware(callerId만 `Items`에 보존, 설비 단위 ACL 없음), 플랫폼 OIDC/Scope와 다름 | adapter가 OIDC-to-caller mapping으로 Scope를 **매 요청마다** 재검증해야 함 — 그대로 신뢰 금지. 요청에 포함된 설비 ID를 먼저 검증하고, 권한 없는 ID는 **명시적으로 거부**한 뒤 검증된 조회만 gateway에 전달한다. 무단 ID를 조용히 걸러내고 남은 부분집합 결과를 같은 요청의 "성공"으로 보이게 하면 06 §6.2 위반이다 |
+| 인증 불일치 | 현재 `X-Api-Key` middleware(callerId만 `Items`에 보존, 설비 단위 ACL 없음), 플랫폼의 인증/Scope 경계와 다름. SSO 존재는 확인됐으나 [정확한 프로토콜은 Open](../05_roadmap_and_open_questions.md#open-questions) | 채택 시 adapter는 확인된 인증 주체와 caller의 매핑을 정의하고 Scope를 **매 요청마다** 재검증해야 함 — 그대로 신뢰 금지. 요청에 포함된 설비 ID를 먼저 검증하고, 권한 없는 ID는 **명시적으로 거부**한 뒤 검증된 조회만 gateway에 전달한다. 무단 ID를 조용히 걸러내고 남은 부분집합 결과를 같은 요청의 "성공"으로 보이게 하면 06 §6.2 위반이다 |
 | 시간 모델 | `SiteTime.Parse`: offset 없는 값→고정 `Asia/Seoul`, offset **있는** 값→그 offset 유지, API 경계는 offset 포함 ISO-8601·내부 비교는 UTC instant, 시간 기반 로그 조회에서 `from`/`to` 둘 다 생략하면 gateway 자체 default range, 전 설비 단일 Site TZ | 아래 표. gateway의 시간 표현 자체가 무조건 06 위반은 아니며, **adapter가 특정 방식으로 다룰 때만** 06 §6.3–§6.4 Decided를 위반한다 |
 
 | adapter 행동 | 판정 |
@@ -109,8 +109,8 @@ parser 소비 경계는 이 문서가 새로 뽑은 후보가 아니라 [01 데�
 parser 기준선과 번호 후보 1~2·검증 lifecycle 참고는 우선순위 목록이 아니라 서로 다른 게이트다.
 
 0. **기준선 확인**: parser 소비 계약은 다른 후보의 채택 여부와 무관하게, 01이 이미 진행 중인 의존으로 먼저 고정한다.
-1. Evidence drill-through를 1급 제품 요구로 확정할지 결정 → 확정 시 후보 1의 필드부터 플랫폼 소유 계약으로 고정. 단 06 §18 lineage 표시 어휘 자체는 메뉴 승인과 별개로 Kernel 책임이라, "메뉴를 만들 것인가"와 "표시 표준을 §18에 남길 것인가"는 다른 질문이다.
-2. 원문 파일 접근(FileGateway) 필요 여부 확정 → 필요 시 후보 2의 adapter 경계, 특히 시간 모델 adapter 행동별 판정을 06 §6.3–§6.4 대조로 검증.
+1. ~~Evidence drill-through를 1급 제품 요구로 확정할지 결정~~ → **2026-09-22 도메인 인터뷰에서 defer로 결정.** 필드/컬럼 원인 추적을 1급 메뉴/상세 surface로 만들 실제 요구가 아직 없어, 후보 1 전체를 보류한다(`05_roadmap_and_open_questions.md` 결정 상태 표). 06 §18의 기존 `source / lineage entry` 표시 책임은 이 메뉴 보류와 별개로 유지한다. 추가 lineage 표시 어휘의 신설·구현은 여기서 승인하지 않으며, 필요 시 Kernel 계약 변경으로 따로 판단한다.
+2. ~~원문 파일 접근(FileGateway) 필요 여부 확정~~ → **2026-09-22 도메인 인터뷰에서 현재 불필요하여 defer로 결정.** parser의 view/mart 조회로 충분하며, 원본 로그/설정파일 접근은 내부 개발자 전용 메뉴가 실제로 필요해질 때 후보 2의 adapter 경계(특히 시간 모델 adapter 행동별 판정)를 다시 꺼내 06 §6.3–§6.4와 대조한다.
 3. 검증 lifecycle 메뉴가 실제로 승인될 때만 `standard-log-lifecycle`/`log-contract-lens` 어휘를 다시 검토.
 
 ## 문서 반영 지점
