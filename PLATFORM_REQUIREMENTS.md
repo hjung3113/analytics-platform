@@ -42,13 +42,13 @@
 - [ ] **Data Trust 시각 표준화(Updated/Data through/Coverage/Metric version/Provisional을 공통 vocabulary로)** — 숫자만큼 숫자의 상태를 보여줘야 함. **[3/3] Must** — Decided, `docs/06` §18.
 - [ ] **상태 배지 4종(success/warning/danger/neutral) + §19 매핑표를 임의색으로 확장 금지** — 매핑표 자체는 문서에 없어 공백. **[2/3 · Codex, Grok] Must** — Candidate + 신규 제안(공백 메움).
 - [ ] **다크모드는 지금 설계하지 않되 토큰 구조가 이후 확장을 막지 않게** — 사이드바가 이미 다크라 단순 invert 불가. **[3/3] Nice** — Deferred. [DESIGN Open Decisions](DESIGN.md#open-decisions-per-wireframe-skill-convention)와 아래 질문 8 참조.
-- [ ] **장식적 시각화 금지(Gauge/3D/장식 게이지) — donut은 분모 있는 비율에만** — 2026-09-22 grilling으로 경계 확정: 기본값은 분모 있는 비율에 한해 donut만 허용, gauge/3D/그라디언트는 기본 비허용이나 업무 근거 확인 시 케이스별 예외 가능(전면·영구 금지 아님). `docs/05` §시각화 경계 참고. **[2/3 · Grok, omp] Must** — Decided.
+- [ ] **장식적 시각화 금지(Gauge/3D/장식 게이지) — donut은 분모 있는 비율에만** — 2026-09-22 grilling으로 경계 확정: 기본값은 분모 있는 비율에 한해 donut만 허용, gauge/3D/그라디언트는 기본 비허용이나 업무 근거 확인 시 케이스별 예외 가능(전면·영구 금지 아님). [06 시각화 경계](docs/06_platform_ui_contract.md#decorative-visualization) 참고. **[2/3 · Grok, omp] Must** — Decided.
 - [ ] **모션 토큰(120ms 전환, reduced-motion 0ms, live pulse는 freshness 근거 있을 때만)** — **[2/3 · Codex, Grok] Should**.
 - [ ] **KPI 타일 상한 5–6개** — KPI 행이 지표 화면을 대체하지 않게. **[2/3 · Grok, omp] Should**.
 - [ ] **숫자 표시 규칙(우측 정렬·tabular-nums·ID mono)** — **[2/3 · Codex, omp] Must**.
 - [ ] **반응형(Desktop-first, ≥1440 full / 1024–1439 collapse / <1024 조회 중심)** — **[3/3] Must(정책)**, 실제 모바일 구현은 Nice — Desktop-first 제약과 [06 §25](docs/06_platform_ui_contract.md#25-responsive-strategy)의 Candidate breakpoint 정책을 구별한다.
 - [ ] **z-index/오버레이 스택 계약(Dropdown/Popover/Drawer/Modal/Palette/Toast)** — 전역 스택 정의가 없음. **[1/3 · Grok] Should** — 신규 제안.
-- [ ] **기간 프리셋 값·의미 확정** — 2026-09-22 grilling으로 확정: 프리셋 버튼은 `7D/30D/90D`가 아니라 **`1일/7일/사용자 지정`**(실사용 패턴: 보통 1일, 길면 7일, 드물게 그 이상). Δ는 §6.3이 이미 정한 `defaultRangeTo` 기준 rolling wall-clock(자정 비정렬) 그대로 재사용(1일=Δ24h, 7일=Δ168h). 달력일 정렬·교대일/영업일 의미는 별도 Open. `docs/05` §기간 프리셋과 집계 단위 참고. **[3/3] Must** — Decided.
+- [ ] **기간 프리셋 값·의미 확정** — 2026-09-22 grilling으로 확정: 프리셋 버튼은 `7D/30D/90D`가 아니라 **`1일/7일/사용자 지정`**(실사용 패턴: 보통 1일, 길면 7일, 드물게 그 이상). Δ는 §6.3이 이미 정한 `defaultRangeTo` 기준 rolling wall-clock(자정 비정렬) 그대로 재사용(1일=Δ24h, 7일=Δ168h). 달력일 정렬·교대일/영업일 의미는 별도 Open. [06 시간 계약](docs/06_platform_ui_contract.md#ctx-time) 참고. **[3/3] Must** — Decided.
 - [ ] **집계 단위(`granularity`) URL 계약 신설** — 2026-09-22 grilling에서 새로 확인: 조회 기간과 별개로 "시간별/일별/주별로 뭉쳐 보기" 축이 필요. 06 §6.1의 page-owned 계약 패턴(화면별 선언·등록)으로 추가, 전역 Context Bar에는 넣지 않는다. 값 후보 `hour`/`day`/`week`. **[신규, 이번 세션 확인] Must** — Decided(메커니즘/소유 방식), 필드명은 Candidate.
 - [ ] **디자인 상태 갤러리/Storybook(정상·빈값·권한없음·긴 한글·부분실패 비교)** — **[2/3 · Codex, omp] Should** — 신규 제안.
 
@@ -89,7 +89,7 @@
 
 - [ ] **Context Link helper 공통 라이브러리** — destination·transferable·unsupported·permission을 처리. 메뉴가 서로 URL 문자열을 직접 조립하지 않는다. **[3/3] Must** — Decided, `docs/06` §22.
 - [ ] **목적지 객체 ID와 분석 Context 분리** — occurrence `(equipmentId, entityType, anchor)` vs 설비 `equipment_id` vs `vocId` vs `metricId+metricVersion`. **[3/3] Must** — Decided, §6.1.
-- [ ] **Recipe/StGroup 딥링크 키 정책** — 2026-09-22 grilling: `recipeIds`는 §6.1 URL 소유 키 목록에 추가(Candidate 필드명, Recipe는 Lot 고정 속성이라 재현성 문제 없음). StGroup은 소속 가변성 때문에 URL 키로 승격하지 않고, 선택 시점에 `equipmentIds`로 물질화한다. `docs/05` §딥링크 키 확장, `docs/adr/0002-stgroup-materializes-to-equipment-ids.md` 참고. **[신규, 이번 세션 확인] Must** — Decided.
+- [ ] **Recipe/StGroup 딥링크 키 정책** — 2026-09-22 grilling: `recipeIds`는 §6.1 URL 소유 키 목록에 추가(Candidate 필드명, Recipe는 Lot 고정 속성이라 재현성 문제 없음). StGroup은 소속 가변성 때문에 URL 키로 승격하지 않고, 선택 시점에 `equipmentIds`로 물질화한다. [06 §6.1](docs/06_platform_ui_contract.md#61-식별자와-url-소유-상태-decided), `docs/adr/0002-stgroup-materializes-to-equipment-ids.md` 참고. **[신규, 이번 세션 확인] Must** — Decided.
 - [ ] **미지원 Context는 폐기하지 않고 칩으로 표시("Lot: A1023 · Not used")** — 지원 메뉴 복귀 시 재검증 후 적용. **[3/3] Must** — Decided.
 - [ ] **전역 Context / Page Filter / Visualization / 영속 주석 4층 분리** — 차트 줌은 로컬, Brush 후 명시적 적용만 URL 승격. **[3/3] Must** — Decided.
 - [ ] **URL이 세션/최근방문보다 우선, 누락값을 과거 세션으로 채우지 않음** — **[3/3] Must** — Decided.

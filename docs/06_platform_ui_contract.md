@@ -206,7 +206,7 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 - 목적지 객체 식별자와 전달하는 분석 Context를 분리한다. `(equipmentId, entityType, anchor)`는 **occurrence 전용 식별키**다. `lotId` 같은 업무 ID는 occurrence 검색 보조이며 anchor 없는 occurrence 조인에 쓰지 않는다.
 - 설비 마스터는 `equipment_id`만으로 열 수 있다. VOC는 `vocId`, 지표는 `metricId`와 `metricVersion`으로 식별한다. 도메인 객체에 occurrence 키를 강제하지 않는다.
 - URL은 요청한 `scopeId`, `from`/`to`, `equipmentIds`, `lotIds`, `recipeIds`, `metricId`/`metricVersion`, 해당 화면의 탭/저장된 조회조건 식별자 및 해당하는 경우 occurrence anchor를 소유한다. 객체 ID는 목적지 경로/계약에 따라 별도로 전달한다.
-- **`recipeIds`(Candidate 필드명, Decided)**: Recipe(`prc_name`)는 Lot 실행에 고정되는 속성이라 `equipmentIds`/`lotIds`와 같은 집합 키 정규화 규칙(§6.1 위 "집합 키 정규화와 공집합 표식")을 그대로 적용해도 딥링크 재현성이 깨지지 않는다. 근거: `CONTEXT.md`, `docs/05_roadmap_and_open_questions.md` §딥링크 키 확장.
+- **`recipeIds`(Candidate 필드명, Decided)**: Recipe(`prc_name`)는 Lot 실행에 고정되는 속성이라 `equipmentIds`/`lotIds`와 같은 집합 키 정규화 규칙(§6.1 "집합 키 정규화와 공집합 표식")을 그대로 적용해도 딥링크 재현성이 깨지지 않는다. 근거: `CONTEXT.md`, [당시 딥링크 결정 기록](reviews/2026-09-23-decision-detail-history.md).
 - **StGroup은 URL 소유 키가 아니다(Decided)**: 소속이 가변적이고 v1은 현재 소속만 쓰기 때문에(`CONTEXT.md`), `stGroupId`를 URL 키로 두면 재방문 시 조회 대상 설비 집합이 조용히 달라져 이 절의 재현성 원칙과 충돌한다. 대신 UI에서 StGroup 프리셋을 선택하는 순간 그 시점의 멤버 EquipmentID 목록을 `equipmentIds`로 물질화해 URL에 기록한다. 근거: `docs/adr/0002-stgroup-materializes-to-equipment-ids.md`.
 - **page-owned URL 키의 예시로 `granularity`(Candidate 필드명, Decided — 메커니즘)**: 조회 기간(`from`/`to`)과 집계 단위(시간별/일별/주별로 뭉쳐 보기)는 다른 축이다. 모든 메뉴가 집계 단위 선택을 갖는 게 아니므로 전역 Context Bar가 아니라 `metricId`+`metricVersion` 쌍과 같은 방식으로 화면마다 선언·등록하는 page-owned 계약으로 둔다. 값 후보: `hour`/`day`/`week`.
 - 딥링크 왕복은 조회조건과 지표 버전을 재현한다. 지연 완료·마스터 정정으로 숫자는 달라질 수 있으므로 결과에는 계산 기준시각을 표시한다.
@@ -267,7 +267,9 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 **복수 설비 시간축 병합 가드 (Decided):** 서로 다른 설비를 같은 시간축/버킷으로 병합하는 조회는 **서버 소유 assertion**이 있을 때만 허용한다(비보장을 "경고 후 허용"으로 약화하지 않는다). `scopeId`나 클라이언트가 보낸 시간역 id는 증명이 아니다. 최소 assertion 계약: `(equipmentId, timeDomainId, validFrom, validTo)`, 범위 `[validFrom, validTo)`(해당 설비의 naive wall-clock, 내부 정밀도 유지 — 지금 특정 테이블·마이그레이션을 요구하지 않는다). 실제 조회 대상 설비 전체에 대해 요청 `[from, to)` 전체가 빈틈없이 덮이고, 그 구간들의 `timeDomainId`가 모두 같을 때만 병합을 허용한다(한 설비가 요청 중간에 도메인을 바꿔도 v1 병합은 거절). 덮이지 않은 구간이 있으면 `time_domain_unverified`, 확인된 도메인 불일치가 있으면 `time_domain_mismatch`이며, 둘 다 `outcome=error`(요청 검증 오류, correlation id)로 처리하고 `empty`/`unknown`/경고 후 병합으로 위장하지 않는다. 이력 없는 현재 스냅샷으로 과거 구간을 소급 증명하지 않는다. 서로 다른 시간역의 **분리** 조회는 계속 허용한다.
 
-**기본 구간 물질화 시계 `defaultRangeTo` (Decided):** 브라우저 로컬 now, 서버 UTC 문자열 절단, "watermark = now = Data through" 등식은 모두 쓰지 않는다. 서버가 해당 시간역·데이터셋의 기본 조회 상한 `defaultRangeTo`(배타적 초 경계, wall-clock)를 제공한다. `defaultRangeTo`는 half-open 구간의 상한이므로 그 값 자체는 §6.3의 경계 규칙에 따라 항상 제외된다. 서버가 이 값을 정할 때 "포함"이 뜻하는 것은 **포함하려는 마지막 실제 데이터 시각이 `defaultRangeTo`보다 항상 이전이 되도록**(그 시각이 필터로 잘리지 않도록) 상한을 잡는다는 것이지, 상한 이전 데이터가 모두 도착했거나 집계가 완전하다는 뜻이 아니다 — 예를 들어 포함하려는 마지막 시각이 `10:00:00.000` 또는 `10:00:00.500`이면 `defaultRangeTo`는 최소 `10:00:01`이어야 한다. 기본 구간은 `[defaultRangeTo − Δ, defaultRangeTo)`(naive 길이 산술, 자정 비정렬)로 물질화하며, 산출 불가 시 자동 물질화하지 않고 기간 선택을 요구한다. 한 번 물질화한 URL 기간을 데이터 갱신만으로 자동 이동시키지 않는다. 사용자가 명시적으로 고르는 기간 프리셋(`1일/7일/사용자 지정`)은 이 메커니즘을 그대로 재사용해 Δ=24h/168h로 확정했다(2026-09-22, 실사용 패턴이 "보통 1일, 길면 7일, 드물게 그 이상"이라 참고 스크린샷의 `7D/30D/90D`를 대체 — `docs/05_roadmap_and_open_questions.md` §기간 프리셋과 집계 단위). 최초 진입 시 자동 물질화되는 기본 Δ 숫자 자체는 별도로 Open이다.
+**기본 구간 물질화 시계 `defaultRangeTo` (Decided):** 브라우저 로컬 now, 서버 UTC 문자열 절단, "watermark = now = Data through" 등식은 모두 쓰지 않는다. 서버가 해당 시간역·데이터셋의 기본 조회 상한 `defaultRangeTo`(배타적 초 경계, wall-clock)를 제공한다. `defaultRangeTo`는 half-open 구간의 상한이므로 그 값 자체는 §6.3의 경계 규칙에 따라 항상 제외된다. 서버가 이 값을 정할 때 "포함"이 뜻하는 것은 **포함하려는 마지막 실제 데이터 시각이 `defaultRangeTo`보다 항상 이전이 되도록**(그 시각이 필터로 잘리지 않도록) 상한을 잡는다는 것이지, 상한 이전 데이터가 모두 도착했거나 집계가 완전하다는 뜻이 아니다 — 예를 들어 포함하려는 마지막 시각이 `10:00:00.000` 또는 `10:00:00.500`이면 `defaultRangeTo`는 최소 `10:00:01`이어야 한다. 기본 구간은 `[defaultRangeTo − Δ, defaultRangeTo)`(naive 길이 산술, 자정 비정렬)로 물질화하며, 산출 불가 시 자동 물질화하지 않고 기간 선택을 요구한다. 한 번 물질화한 URL 기간을 데이터 갱신만으로 자동 이동시키지 않는다. 사용자가 명시적으로 고르는 기간 프리셋(`1일/7일/사용자 지정`)은 이 메커니즘을 그대로 재사용해 Δ=24h/168h로 확정했다(2026-09-22, 실사용 패턴이 "보통 1일, 길면 7일, 드물게 그 이상"이라 참고 스크린샷의 `7D/30D/90D`를 대체 — [당시 기간 결정 기록](reviews/2026-09-23-decision-detail-history.md)). 최초 진입 시 자동 물질화되는 기본 Δ 숫자 자체는 별도로 Open이다.
+
+선택 배경과 범위: 로그 자체의 1시간 단위는 조회 단위가 아니다. 30일/90일은 프리셋 버튼에서 제외했지만 사용자 지정 조회는 가능하다. 자주 쓰이는 수요가 확인되면 버튼 확장을 재검토한다.
 
 `defaultRangeTo`와 자동 재집계 창의 원천 진행 경계 `R`(정의는 [01 지연 완료 허용 시간](01_architecture_and_data_contract.md#late-arrival-policy) 참조)은 서로 다른 계약 필드이며 항상 같은 값은 아니다. **`R`이 존재할 때만** 같은 시간역·대상 조건에서 `defaultRangeTo ≤ R`인 경우에만 그 기본 구간을 자동 물질화하고, 만족하는 값이 없으면 마지막 점을 버리거나 `R`을 올리지 않고 기간 선택을 요구한다(L2). `R`이 아직 없는 경우(첫 mart 세대 생성 전, 워커 일시 중단 등)에는 이 비교를 적용하지 않는다 — `defaultRangeTo`가 독립적으로 유효하면 그대로 자동 물질화하고, 자동 재집계만 보류한다([01 정책](01_architecture_and_data_contract.md#late-arrival-policy) 참조).
 
@@ -1008,7 +1010,7 @@ Equipment / 기간 / Metric Version / Scope가 분석 중 사라지지 않아야
 
 ### Decorative Visualization
 
-업무 판단에 기여하지 않는 Gauge, Gradient, 3D Chart를 사용하지 않는다. **경계(Decided, 2026-09-22):** 기본값은 분모가 있는 비율(예: 가동률, 완료율)에 한해 donut만 허용하고, 게이지·스피드미터류(3D/그라디언트 포함)는 기본적으로 쓰지 않는다. 전면·영구 금지는 아니다 — 특정 업무 판단에 실제로 기여한다는 근거가 확인되면 케이스별로 예외를 추가할 수 있다. 근거: `docs/05_roadmap_and_open_questions.md` §시각화 경계.
+업무 판단에 기여하지 않는 Gauge, Gradient, 3D Chart를 사용하지 않는다. **경계(Decided, 2026-09-22):** 기본값은 분모가 있는 비율(예: 가동률, 완료율)에 한해 donut만 허용하고, 게이지·스피드미터류(3D/그라디언트 포함)는 기본적으로 쓰지 않는다. 전면·영구 금지는 아니다 — 특정 업무 판단에 실제로 기여한다는 근거가 확인되면 케이스별로 예외를 추가할 수 있다. 근거: [당시 시각화 채택 기록](reviews/2026-09-23-decision-detail-history.md).
 
 ---
 

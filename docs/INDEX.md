@@ -26,7 +26,7 @@
 - `02_domain_menus.md` — 플랫폼 코어 공통 기능, 도메인 메뉴 그룹(설비관리/기준정보관리/생산성분석/지표관리/공지/VOC)
 - `03_backend_stack.md` — 백엔드/DB/인증/마이그레이션 기술 스택, 재현성·시간 계약
 - `04_frontend_ui_ux.md` — 프론트 구현 후보, UI/UX 리서치(상용 SaaS 참고), 전역 계약 참조, 페이지별 UI 패턴, 차트/주석 설계
-- [05 결정 상태와 미결 질문](05_roadmap_and_open_questions.md) — Design Decisions / Open Questions, 이관된 데이터 운영 정책의 이전 링크 안내, Deferred인 과거 Phase 가설
+- [05 결정 상태와 미결 질문](05_roadmap_and_open_questions.md) — Design Decisions / Open Questions, 이관된 데이터 운영 정책의 이전 링크 안내, 과거 Phase 가설의 이력 포인터
 - `06_platform_ui_contract.md` — 플랫폼 우선 SaaS 디자인 계약: Platform Kernel, Menu Registry, Context Capability, Shell Slot, Page Archetype, Shared Component 승격 기준, Data Trust/권한/상태 UX, navigation IA
 - `07_app_shell_wireframe.md` — App Shell(전역 셸) Requirements/IA/Wireframe, `06_platform_ui_contract.md`를 화면 단위로 구체화, 설계 단계 산출물
 
@@ -56,3 +56,7 @@
 - [공통 컴포넌트/계약 후보](integration/component-contract-candidates.md) — 위 아이디어 모음에서 필드 수준 계약으로 뽑아낼 수 있는 것만 추려 정리. Research/Candidate이며 06/01/03에 반영되기 전 초안이다.
 
 - [Standard Log Lifecycle](references/standard-log-lifecycle/README.md) — 모델 표준 로그 개발·검증·결함·재검증 관리의 설계 참고. 원본 커밋에 고정한 Markdown 7개, 출처·해시 manifest와 4개 화면 시안 적용 범위를 포함한다. 기존 플랫폼 계약을 대체하지 않는다.
+
+## 현재 작업과 과거 기록
+
+현재 작업 상태는 [HANDOFF](../HANDOFF.md)에서 확인한다. 과거 맥락이 필요한 경우에만 [이전 HANDOFF 기록](../.agents/reports/handoff-history-through-2026-09-23.md), [결정 상세·Phase 가설 이관 기록](reviews/2026-09-23-decision-detail-history.md), 해당 리뷰/조사 보고서로 내려간다. 과거 Open·후보·실행 모델명은 당시 기록이며 현재 계약으로 승격하지 않는다. 일반 탐색은 위 역할별 경로부터 시작하고 `docs/reviews/`, `.agents/reports/`는 근거 확인이 필요할 때 검색한다.
