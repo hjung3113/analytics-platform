@@ -58,8 +58,33 @@ API가 파서 원본 테이블을 직접 참조하지 않고 소비 계층(view/
 
 아키텍처에는 외부 마스터(room/maker/model)가 있고, `02_domain_menus.md`의 설비관리 메뉴에는 플랫폼 속성 수정이 있다. 같은 필드를 양쪽이 수정하면 다음 import가 운영자의 변경을 덮어쓸 수 있다. 필드별 원천 소유자(외부 동기화 전용 / 플랫폼 직접관리)를 Phase 0에서 명확히 구분해야 한다. "사용중지"와 속성 이력의 `valid_to` 종료도 동일한 의미로 처리하지 않는다.
 
+## 데이터 운영 정책
+
+이 절은 폴링·파서 DB 접근·지연완료 정책의 상세 원본이다. 05는 결정 상태와 과거 위치 안내를 유지한다. Decided는 구현 완료가 아니며 각 문단의 Candidate/Open을 별도로 따른다.
+
+<a id="refresh-policy"></a>
+### 실시간성 (Decided — 메커니즘)
+
+기본은 **폴링 + 서버가 제공하는 완료된 계산 세대/갱신 정보 기반 캐시 재검증**이다. 원천 watermark 이동을 mart 재집계 완료와 같다고 보지 않는다(감지→재계산→정합 결과 제공을 구분). 웹소켓/SSE는 열린 대시보드의 초 단위 갱신, 또는 동시 편집 presence가 **문서화된 제품 요구**로 확인될 때 재평가한다(이 두 조건만이 영구 유일하다고 못박지 않는다). 클라이언트 폴링 주기는 **5분(300s)으로 확정**(2026-09-22, 필요시 조정 가능한 값으로 취급). 폴링 중단 조건·워커 감지 주기의 숫자는 여전히 Open이다(운영 설정으로 구현 시점에 정함, 이번 세션에서 grilling하지 않음). 근거: `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §6.1.
+
+<a id="parser-db-access"></a>
+### 파서 DB 접근 방식 (Decided — 메커니즘)
+
+"직접 연결 vs read replica"를 **mart 소스 인스턴스가 어디에 사는가**의 문제로 재정의한다. **기본 정책은 같은 Postgres 인스턴스, 파서 read-only 역할, 플랫폼 전용 스키마다**(`03_backend_stack.md`가 이미 추천했던 토폴로지를 이 세션에서 기본값으로 확정). API는 파서 원본 테이블을 직접 조회하지 않는다(`01_architecture_and_data_contract.md`). replica/분리 인스턴스는 쓰기 경합 또는 보안 격리 요구가 **실제로 확인될 때만** 평가 대상으로 승격한다(경합 존재만으로 자동 승격하지 않는다). 근거: `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §6.2.
+
+<a id="late-arrival-policy"></a>
+### 지연 완료 허용 시간 (Decided — 정책 메커니즘 + 구체 숫자)
+
+> **원본·변경 영향:** 이 절이 R/H·지연완료 자동 재집계 정책을 소유한다. [06 시간 계약](06_platform_ui_contract.md#ctx-time)은 기본 조회 상한과 R을 대조한다. 이 문서의 [mart 재계산 트리거](#mart-재계산-트리거-2차-리뷰-보강)·[실시간성](#refresh-policy), [03 시간 요약](03_backend_stack.md), [02 소비 기능](02_domain_menus.md), [REQUIREMENTS §6](../PLATFORM_REQUIREMENTS.md#6-기타-제안-위-5개-범위-밖-플랫폼이-메뉴-없이도-실패하는-지점)을 함께 검토한다. 조회 기간·표시가 바뀌면 06의 소비자 경로까지 따른다. `lateArrivalAutoHorizon`, `autoRefreshClosed`, 원천 진행 경계/자동 창을 검색해 추가 영향을 작업 기록에 남긴다.
+
+필수 운영 설정 `lateArrivalAutoHorizon`(Candidate 이름) 없이는 자동 재집계를 시작하지 않는다(0이나 무한을 암묵값으로 넣지 않고, 숫자 미정이면 "설정 미충족"으로 보고한다). 창 **안**의 지연완료는 자동 재집계하고, 창 **밖**은 자동 재개방하지도 조용히 버리지도 않으며 식별·조회 가능한 정정/backfill 후보로 남겨 운영자가 명시적으로 실행한다(새 승인 워크플로 UI는 이번에 만들지 않음; 기존 플랫폼 권한·감사를 적용). `autoRefreshClosed`는 자동 창이 닫혔다는 뜻일 뿐 데이터가 완전/불변이라는 뜻이 아니다. 마스터 소급·재분류·지표 정의 변경은 이 창과 다른 트리거다.
+
+창의 기준은 시간역별 **원천 진행 경계 `R`**(데이터 계층 소유, naive 배타 경계, 첫 mart 세대 생성 전에도 공급 가능하며 mart 계산 완료 시각·클라이언트 now·UTC 절단과는 다른 값)과 **명시적 wall-clock 길이 설정 `H`**다. 자동 창은 `[R-H, R)`이고, 원천 진행이 멈추면 창도 멈춘다(현실 경과일로 반드시 닫히는 것이 아니라 데이터 진행 기준의 창이다). `R`이 없으면 자동 재집계만 보류하며 지연완료 식별·후보 보존은 계속한다. 사업장 override·지표별 horizon은 수요·모델이 확인되기 전에는 구현하지 않는다(영구 금지와는 다르다). 근거: `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §6.3.
+
+`H`=**1시간**으로 확정(2026-09-22 도메인 인터뷰).
+
 ## 멀티테넌시/확장성
 
-멀티테넌시는 Open Question(→ `05_roadmap_and_open_questions.md`)으로 미룬다. 초기엔 풀 멀티테넌시(테넌트별 스키마/DB)보다 단일 테넌트 + 모든 분석 grain에 site/plant 차원을 넣는 행 스코핑이 가장 싼 미래호환 설계다. RLS(Row Level Security) 도입은 실제 요구가 생길 때.
+초기 1개 Site/Line으로 시작하되 확장 가능한 구조를 유지한다([05 결정 상태](05_roadmap_and_open_questions.md#결정-상태)). Scope는 Site→Line 2단계이며 Factory/plant를 별도 계층으로 두지 않고 v1은 단일 Scope 선택만 허용한다([06 §6.2](06_platform_ui_contract.md#62-scope와-권한-decided--open), [ADR-0001](adr/0001-scope-hierarchy-site-line-only.md)). 상속은 여전히 Open이다. 종전 site/plant 행 스코핑 추천은 확정된 데이터 스키마가 아니다. 테넌트별 스키마/DB 분리나 구체 행 스코핑 방식은 이 문서에서 채택하지 않는다. RLS(Row Level Security) 도입은 실제 요구가 생길 때 검토한다.
 
 확장성에서는 프레임워크보다 한 요청이 읽는 행 수와 반환하는 점 수가 중요하다. 초기 설계에 조회 기간·반환량 제한, SQL timeout, 장기 작업의 비동기 실행, 서버 집계·다운샘플링을 포함할 것.

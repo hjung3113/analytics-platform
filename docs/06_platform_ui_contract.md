@@ -251,9 +251,9 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 > **참조 `CTX-TIME` — 이 절이 전역 Context·URL 시간 계약의 원본이다.** 문서 탐색용 식별자이며 공개 API 버전이 아니다. 결정 상태·예외·미결은 아래 해당 문단을 읽는다. 위 두 anchor는 안정 참조와 과거 제목 링크 호환용이며 제목 변경 때도 유지한다.
 >
-> **의존:** [03 시간 계약](03_backend_stack.md#시간-계약-중요--2차-리뷰에서-발견된-실수)의 원천 wall-clock, §6.1의 초 정렬·원천 정밀도 및 §6.2의 Scope, [05 R/H 정책 원본](05_roadmap_and_open_questions.md#late-arrival-policy). `defaultRangeTo`의 의미는 이 절, `R`/`H`의 의미는 05가 소유한다.
+> **의존:** [03 시간 계약](03_backend_stack.md#시간-계약-중요--2차-리뷰에서-발견된-실수)의 원천 wall-clock, §6.1의 초 정렬·원천 정밀도 및 §6.2의 Scope, [01 R/H 정책 원본](01_architecture_and_data_contract.md#late-arrival-policy). `defaultRangeTo`의 의미는 이 절, `R`/`H`의 의미는 01이 소유한다.
 >
-> **변경 시 직접 검토:** 이 문서 §6.4(기간 누락·URL 복원), §11(Context 전환), §18–19(시간역 오류·Data Trust), [03 시간 요약](03_backend_stack.md), [04 URL 구현 후보](04_frontend_ui_ux.md), [07 §6–8 기간 입력·시나리오](07_app_shell_wireframe.md#6-data-requirements), [DESIGN 기간 control/Date preset](../DESIGN.md#reference-component-bindings), [05 기간 프리셋](05_roadmap_and_open_questions.md#기간-프리셋과-집계-단위-decided-2026-09-22-grilling-round-2). R/H 변경을 동반하면 05의 관련 문서 경로도 따른다.
+> **변경 시 직접 검토:** 이 문서 §6.4(기간 누락·URL 복원), §11(Context 전환), §18–19(시간역 오류·Data Trust), [03 시간 요약](03_backend_stack.md), [04 URL 구현 후보](04_frontend_ui_ux.md), [07 §6–8 기간 입력·시나리오](07_app_shell_wireframe.md#6-data-requirements), [DESIGN 기간 control/Date preset](../DESIGN.md#reference-component-bindings), [05 기간 프리셋](05_roadmap_and_open_questions.md#기간-프리셋과-집계-단위-decided-2026-09-22-grilling-round-2). R/H 변경을 동반하면 01의 관련 문서 경로도 따른다.
 >
 > **파생·후보 확인:** [REQUIREMENTS](../PLATFORM_REQUIREMENTS.md) §1/§3/§6/Open Questions, [연동 후보 2](integration/component-contract-candidates.md)의 시간 매핑. 이 목록은 탐색 출발점이지 전수 의존성 그래프가 아니다. `defaultRangeTo`, `timeDomain`, `wall-clock`, `from`/`to`와 절 참조를 추가 검색하고, 작업 기록에 각 대상의 수정/대조/보류 이유와 실제 코드·검증 유무를 남긴다. 문서 대조를 런타임 검증으로 표시하지 않는다.
 
@@ -269,7 +269,7 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 **기본 구간 물질화 시계 `defaultRangeTo` (Decided):** 브라우저 로컬 now, 서버 UTC 문자열 절단, "watermark = now = Data through" 등식은 모두 쓰지 않는다. 서버가 해당 시간역·데이터셋의 기본 조회 상한 `defaultRangeTo`(배타적 초 경계, wall-clock)를 제공한다. `defaultRangeTo`는 half-open 구간의 상한이므로 그 값 자체는 §6.3의 경계 규칙에 따라 항상 제외된다. 서버가 이 값을 정할 때 "포함"이 뜻하는 것은 **포함하려는 마지막 실제 데이터 시각이 `defaultRangeTo`보다 항상 이전이 되도록**(그 시각이 필터로 잘리지 않도록) 상한을 잡는다는 것이지, 상한 이전 데이터가 모두 도착했거나 집계가 완전하다는 뜻이 아니다 — 예를 들어 포함하려는 마지막 시각이 `10:00:00.000` 또는 `10:00:00.500`이면 `defaultRangeTo`는 최소 `10:00:01`이어야 한다. 기본 구간은 `[defaultRangeTo − Δ, defaultRangeTo)`(naive 길이 산술, 자정 비정렬)로 물질화하며, 산출 불가 시 자동 물질화하지 않고 기간 선택을 요구한다. 한 번 물질화한 URL 기간을 데이터 갱신만으로 자동 이동시키지 않는다. 사용자가 명시적으로 고르는 기간 프리셋(`1일/7일/사용자 지정`)은 이 메커니즘을 그대로 재사용해 Δ=24h/168h로 확정했다(2026-09-22, 실사용 패턴이 "보통 1일, 길면 7일, 드물게 그 이상"이라 참고 스크린샷의 `7D/30D/90D`를 대체 — `docs/05_roadmap_and_open_questions.md` §기간 프리셋과 집계 단위). 최초 진입 시 자동 물질화되는 기본 Δ 숫자 자체는 별도로 Open이다.
 
-`defaultRangeTo`와 자동 재집계 창의 원천 진행 경계 `R`(정의는 `05_roadmap_and_open_questions.md`의 "지연 완료 허용 시간" 참조)은 서로 다른 계약 필드이며 항상 같은 값은 아니다. **`R`이 존재할 때만** 같은 시간역·대상 조건에서 `defaultRangeTo ≤ R`인 경우에만 그 기본 구간을 자동 물질화하고, 만족하는 값이 없으면 마지막 점을 버리거나 `R`을 올리지 않고 기간 선택을 요구한다(L2). `R`이 아직 없는 경우(첫 mart 세대 생성 전, 워커 일시 중단 등)에는 이 비교를 적용하지 않는다 — `defaultRangeTo`가 독립적으로 유효하면 그대로 자동 물질화하고, 자동 재집계만 보류한다(`05_roadmap_and_open_questions.md` 참조).
+`defaultRangeTo`와 자동 재집계 창의 원천 진행 경계 `R`(정의는 [01 지연 완료 허용 시간](01_architecture_and_data_contract.md#late-arrival-policy) 참조)은 서로 다른 계약 필드이며 항상 같은 값은 아니다. **`R`이 존재할 때만** 같은 시간역·대상 조건에서 `defaultRangeTo ≤ R`인 경우에만 그 기본 구간을 자동 물질화하고, 만족하는 값이 없으면 마지막 점을 버리거나 `R`을 올리지 않고 기간 선택을 요구한다(L2). `R`이 아직 없는 경우(첫 mart 세대 생성 전, 워커 일시 중단 등)에는 이 비교를 적용하지 않는다 — `defaultRangeTo`가 독립적으로 유효하면 그대로 자동 물질화하고, 자동 재집계만 보류한다([01 정책](01_architecture_and_data_contract.md#late-arrival-policy) 참조).
 
 세부 판정 근거, 반례, Candidate 필드명 전체 목록은 `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §3을 따른다.
 

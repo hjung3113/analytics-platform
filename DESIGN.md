@@ -809,8 +809,10 @@ the parent's 8px radius or flatten a pill to satisfy concentric geometry.
   exposes the exact applied interval. This is a rendering of the **same global
   period control**, not a second page-owned filter. Materialize URL wall-clock
   `[from,to)` values via §6.3; never derive defaults from browser now. Calendar
-  inclusive end dates convert to next-day exclusive midnight. Preset anchoring
-  is Open below; labels do not settle its meaning.
+  inclusive end dates convert to next-day exclusive midnight. Presets use the
+  decided rolling wall-clock mechanism in [06 §6.3](docs/06_platform_ui_contract.md#ctx-time)
+  (see Date preset meaning below); the initial automatic default duration and
+  shift/business-day semantics remain Open.
 - **Top bar/profile:** `top-bar-search` left, scope then notification and profile
   right; use `icon-button` + `notification-count`, with a readable notification
   count label. `profile-trigger` shows avatar, display name, role and chevron;

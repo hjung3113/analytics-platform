@@ -16,7 +16,7 @@
 - **Decided**는 원본에 확정된 계약, **Candidate/신규 제안**은 미채택 후보, **Open**은 필요한 입력·결정이 남은 범위, **Deferred**는 보류 범위다. 한 항목 안에서도 계약·필드명·구현 형식의 상태를 따로 읽는다. 상태·원본이 불명확한 추천은 승인된 요구로 간주하지 않는다.
 - **§0의 [x]는 문서의 결정 반영 완료**다. §1–6의 [ ]는 미완료 작업/검토 후보이며 채택 여부를 뜻하지 않는다. 구현 항목을 [x]로 바꾸려면 해당 줄에 작업 기록 또는 PR 링크를 붙이고 `원본 revision·구현 파일/commit·검증 명령/환경/결과·미검증 범위`를 남긴다. 후보 검토 완료는 채택/기각 근거를 남기며 제품 구현 완료와 구별한다.
 - 플랫폼 자체의 구현·런타임 검증 증거는 현재 없다. FeedbackOps 구현을 이 목록의 완료 증거로 쓰지 않는다. 메뉴 구현 완료는 [06 §29](docs/06_platform_ui_contract.md#29-platform-first-definition-of-done)의 Platform Done과 Domain Done을 함께 확인한다.
-- 전역 행동·URL·Scope·상태의 원본은 [06](docs/06_platform_ui_contract.md), 시각 token/render는 [DESIGN](DESIGN.md), 데이터 계약은 [01](docs/01_architecture_and_data_contract.md), 도메인 의미는 [02](docs/02_domain_menus.md)와 [CONTEXT](CONTEXT.md)다. 기술 선택은 [03](docs/03_backend_stack.md)/[04](docs/04_frontend_ui_ux.md), 결정 경로와 폴링·DB 접근·R/H 상세는 [05](docs/05_roadmap_and_open_questions.md)를 본다. 아래 `§6.1` 같은 전역 계약 절 표기는 06을 가리킨다.
+- 전역 행동·URL·Scope·상태의 원본은 [06](docs/06_platform_ui_contract.md), 시각 token/render는 [DESIGN](DESIGN.md), 데이터 계약은 [01](docs/01_architecture_and_data_contract.md), 도메인 의미는 [02](docs/02_domain_menus.md)와 [CONTEXT](CONTEXT.md)다. 기술 선택은 [03](docs/03_backend_stack.md)/[04](docs/04_frontend_ui_ux.md), 결정 경로는 [05](docs/05_roadmap_and_open_questions.md), 폴링·DB 접근·R/H 상세는 [01 데이터 운영 정책](docs/01_architecture_and_data_contract.md#데이터-운영-정책)을 본다. 아래 `§6.1` 같은 전역 계약 절 표기는 06을 가리킨다.
 
 ---
 
@@ -150,7 +150,7 @@
 - [ ] **버전 5종 혼동 방지** — 분석 계약 버전 ≠ 파서 SnapshotSchema ≠ DB 마이그레이션 ≠ 지표 정의 버전 ≠ URL `v`. 하나의 숫자로 묶지 않는다. **[3/3] Must** — Decided.
 - [ ] **mart 재계산 트리거 4종 + 계산 세대 관리** — 지연 완료 watermark, 마스터 소급 정정, 설비 재분류, 지표 정의 변경. 한 화면의 차트·표·CSV가 다른 세대를 섞지 않는다. **[3/3] Must** — Decided, `docs/01`.
 - [ ] **집계 가능성 규칙 강제(비율은 분자·분모 각각 합산, P95의 평균 금지)** — **[3/3] Must** — Decided.
-- [ ] **지연완료 정책(`lateArrivalAutoHorizon`, 진행 경계 `R`·창 `H`, 창 밖은 정정 후보로 보존)** — 메커니즘과 **H=1시간은 Decided**, 필드명은 Candidate. 원본: [05 R/H 정책](docs/05_roadmap_and_open_questions.md#late-arrival-policy), 조회 기간과의 연결은 [06 CTX-TIME](docs/06_platform_ui_contract.md#ctx-time). 운영 설정·워커 구현·검증 증거는 아직 없다. **[3/3] Must**.
+- [ ] **지연완료 정책(`lateArrivalAutoHorizon`, 진행 경계 `R`·창 `H`, 창 밖은 정정 후보로 보존)** — 메커니즘과 **H=1시간은 Decided**, 필드명은 Candidate. 원본: [01 R/H 정책](docs/01_architecture_and_data_contract.md#late-arrival-policy), 조회 기간과의 연결은 [06 CTX-TIME](docs/06_platform_ui_contract.md#ctx-time). 운영 설정·워커 구현·검증 증거는 아직 없다. **[3/3] Must**.
 - [ ] **재현성 계약(딥링크는 조회조건·지표 버전만 재현, 숫자는 계산 기준시각과 함께 표시)** — **[3/3] Must** — Decided.
 - [ ] **파서 DB 접근 토폴로지(같은 인스턴스, read-only, 플랫폼 전용 스키마, API는 원본 테이블 직접 조회 금지)** — **[3/3] Must** — Decided.
 - [ ] **초기 1개 Site/Line 범위, 확장 가능한 구조** — Scope는 Site→Line 2단계이며 Factory/plant 레벨은 두지 않는다. v1 단일 선택은 Decided, 상속은 Open. 구체 행 스코핑 구현 방식은 이 항목이 확정하지 않는다. 원본: [06 §6.2](docs/06_platform_ui_contract.md#62-scope와-권한-decided--open), [05 결정 상태](docs/05_roadmap_and_open_questions.md#결정-상태). **[3/3] Should**.
