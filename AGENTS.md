@@ -4,15 +4,23 @@
 
 이 레포의 목적은 "설비관리·기준정보관리·생산성 분석·지표관리·공지·VOC 같은 메뉴들을 전부 만드는 것"이 아니다.
 
-**목적은 그 메뉴들을 계속 얹어갈 수 있는 플랫폼 자체(Platform Kernel + Menu Registry + 전역 Context + 딥링크/URL 계약 + 권한·Scope + Audit 같은 플랫폼 공통 기능)를 만드는 것이다.**
+**목적은 그 메뉴들이 얹힐 플랫폼 자체를 만드는 것이다.** 플랫폼이 제공하는 것은 다섯 갈래로 고정한다 — 이 다섯 갈래 밖의 산출물(개별 메뉴 화면 자체)은 목적이 아니라 아래 갈래를 검증하는 수단일 뿐이다.
 
-이 원칙의 authoritative 버전은 **`docs/06_platform_ui_contract.md`**다(Platform Kernel 책임 범위, Menu Extension Contract, Platform-first Definition of Done, Governance 체크리스트까지 상세히 정의돼 있음). 아래는 에이전트가 매번 그 문서를 열지 않아도 되게 하는 요약이다 — 상세·최신 버전은 항상 `docs/06_platform_ui_contract.md`를 우선한다.
+| 갈래 | 내용 | 원본 |
+| --- | --- | --- |
+| Kernel 기능 | Menu Registry, 전역 Context, 딥링크/URL 계약, 권한·Scope, Audit | `docs/06_platform_ui_contract.md` §4–6 |
+| 공통 컴포넌트 | PlatformDataTable, DetailDrawer, AuditTimeline, DataTrustIndicator 등 | §13 Platform Component |
+| 차트 계약 | Chart Frame + Zoom/Brush/Compare/Annotate 공통 Interaction | §16 |
+| 레이아웃 | Overview/Analysis Workspace/Management/Catalog/Workflow 5개 Page Archetype | §12 |
+| 메뉴간 연결 | Cross-menu Context Link, 목적지 ID와 분석 Context 분리 | §22 |
+
+이 원칙의 authoritative 버전은 **`docs/06_platform_ui_contract.md`**다(Platform Kernel 책임 범위, Menu Extension Contract, Platform-first Definition of Done, Governance 체크리스트까지 상세히 정의돼 있음). 위 표는 에이전트가 매번 그 문서를 열지 않아도 되게 하는 요약이다 — 상세·최신 버전은 항상 `docs/06_platform_ui_contract.md`를 우선한다.
 
 ### 이게 실무에 미치는 영향
 
 - 새 화면/메뉴를 설계·구현할 때, "Domain Done"(그 화면 요구사항이 동작하는가)보다 먼저 "Platform Done"(공통 계약 위에 올라가 있는가, 다른 메뉴와 Context가 연결되는가, 권한/Scope가 일관되는가)을 검증한다 — `docs/06_platform_ui_contract.md` §29.
 - 화면별로 반복되는 패턴을 발견하면 그 화면에 국한해서 구현하지 말고 플랫폼 공통 컴포넌트/계약으로 추출할지 먼저 판단한다. 단, 실제 메뉴 2~3개에서 반복이 확인되기 전에 범용 프레임워크를 미리 만들지 않는다(Premature Platformization 금지, §24).
-- 메뉴 개수를 늘리는 작업보다 Platform Kernel(App Shell·Menu Registry·전역 Context·딥링크 계약)의 완성도를 우선한다 — `docs/06_platform_ui_contract.md` §1의 설계 우선순위다. `docs/05_roadmap_and_open_questions.md`는 결정 상태와 미결 질문을 추적하며 Phase 표는 Deferred 가설이다.
+- **메뉴 화면은 위 다섯 갈래를 검증하는 Consumer일 뿐, 만드는 것 자체가 목적이 아니다.** 메뉴 화면(wireframe이든 구현이든)에 착수하기 전에 "이게 다섯 갈래 중 어디를 검증하는가"(어느 archetype, 어느 공통 컴포넌트, 어느 연결 기능)를 먼저 밝힌다. 그 검증이 끝나면 — 예: 목표한 archetype/컴포넌트를 한 번씩 확인했으면 — 다음 메뉴로 곧장 이어가지 않고 플랫폼 갈래 작업이나 사용자 확인으로 돌아간다. **메뉴 화면을 3개 이상 연속 제작하는 작업은 시작 전에 사용자에게 범위(왜 이 개수가 필요한지)를 확인한다.**
 - 개별 메뉴 요구사항이 플랫폼 공통 계약(1급 딥링크 키, wall-clock 시간 계약, URL 보안 경계 원칙 등)과 충돌하면 개별 메뉴 쪽을 공통 계약에 맞추는 게 기본값이고, 공통 계약을 바꿔야 한다면 그건 플랫폼 레벨 결정으로 격상해서 다룬다.
 
 ## 문서

@@ -29,11 +29,17 @@
 - [05 결정 상태와 미결 질문](05_roadmap_and_open_questions.md) — Design Decisions / Open Questions, 이관된 데이터 운영 정책의 이전 링크 안내, 메뉴 활용률 계측 정책 원본, 과거 Phase 가설의 이력 포인터
 - `06_platform_ui_contract.md` — 플랫폼 우선 SaaS 디자인 계약: Platform Kernel, Menu Registry, Context Capability, Shell Slot, Page Archetype, Shared Component 승격 기준, Data Trust/권한/상태 UX, navigation IA
 - `07_app_shell_wireframe.md` — App Shell(전역 셸) Requirements/IA/Wireframe, `06_platform_ui_contract.md`를 화면 단위로 구체화, 설계 단계 산출물
+- `08_operations_overview_wireframe.md` — 운영 개요(랜딩) 화면, 07 content slot의 첫 소비 화면. Kernel 공통 기능(메뉴 그리드/즐겨찾기/최근방문/공지 배너) 소비 패턴의 첫 검증
+- `09_equipment_master_wireframe.md` — 설비관리 설비 마스터 목록/상세, Management archetype 첫 Consumer, PlatformDataTable/DetailDrawer/AuditTimeline 소비 패턴
+- `10_reference_data_wireframe.md` — 기준정보관리 마스터 데이터(공정/레시피/자재) 목록/상세, 09와 같은 Management archetype이지만 다중 엔티티 유형 처리 패턴을 추가로 다룸. 필드 원천 소유권·Recipe 마스터와 PRC 실행값 관계는 Open으로 유지
+- `11_productivity_overview_wireframe.md` — 생산성 분석 개요, Overview archetype 첫 Consumer(물리 점유율/비Process 체류/사이클타임 P50·P95/Job 처리량). granularity·지표별 버전 page-owned 키, Global room_name·PPID/Recipe·Equipment Group Condition/Selection을 다룸
+- `12_cycle_time_drilldown_wireframe.md` — 사이클타임 상세→느린 실행→occurrence 상세, Analysis Workspace archetype. PLATFORM_REQUIREMENTS §3의 대표 드릴다운 왕복 검증 경로(occurrence 식별자·Context 분리·VOC 생성/복귀 링크 계약)를 구체화
+- `13_metric_catalog_wireframe.md` — 지표관리 카탈로그/상세, Catalog archetype. `metricId`+`metricVersion` 쌍(06 §6.1)의 등록·발행 원본이며, 11/12는 이 문서가 정의한 식별 쌍의 소비자로 명시 연결됨
 
 - [DESIGN](../DESIGN.md) — 시각 token/render 원본. 전역 행동·상태·접근성 의무와 최소 기준은 06을 따른다.
 - [PLATFORM_REQUIREMENTS](../PLATFORM_REQUIREMENTS.md) — 원본 계약에서 파생된 요구·작업·제안 목록. 결정 반영 체크가 구현 완료를 뜻하지 않는다.
 - [HANDOFF](../HANDOFF.md) — 현재 세션 배경과 후속 작업 안내. 역사 기록은 현재 계약·권한을 대체하지 않는다.
-- [CONTEXT](../CONTEXT.md) — 현행 도메인 용어와 관계. [ADR-0001](adr/0001-scope-hierarchy-site-line-only.md)은 Site→Line Scope, [ADR-0002](adr/0002-stgroup-materializes-to-equipment-ids.md)는 StGroup 선택의 설비 집합 물질화 결정 근거다. 전역 소비 계약은 06을 따른다.
+- [CONTEXT](../CONTEXT.md) — 현행 도메인 용어와 관계. [ADR-0005](adr/0005-scope-room-name-line-independent.md)는 room_name 기준 Scope와 독립 Line 축([ADR-0001](adr/0001-scope-hierarchy-site-line-only.md)의 Scope 주장 대체), [ADR-0002](adr/0002-stgroup-materializes-to-equipment-ids.md)는 Equipment Group Condition/Selection 두 층, [ADR-0004](adr/0004-site-is-db-partition-not-column.md)는 Site DB 경계·전역 유일 EquipmentID의 근거다. 전역 소비 계약은 06을 따른다.
 
 ## 원본
 
@@ -41,7 +47,7 @@
 
 `06_platform_ui_contract.md`는 위 설계들을 플랫폼 개발 관점으로 통합해, 개별 메뉴가 공통 Shell/Context/확장 계약 위에 올라가도록 정의한 구현 전 Design Contract다. `07_app_shell_wireframe.md`는 그 계약 중 App Shell 화면 하나를 `analysis-platform-wireframe` 스킬 절차(Requirements→IA→Screen Spec→Wireframe)로 구체화하고 codex 리뷰를 거친 산출물이다.
 
-`docs/reviews/`는 이후 설계 세션의 인터뷰/리뷰 합의록을 보존하는 디렉토리다. `docs/reviews/2026-09-18-url-time-status-contract-grilling.md`는 grok-4.6(griller)과 codex gpt-6-astra(answerer)의 grill-duel로 `06`/`05`의 URL·시간·상태·실시간성·DB 접근·지연완료 메커니즘 Open 항목을 검토한 기록이며, 그 결과는 `06`과 [01 데이터 운영 정책](01_architecture_and_data_contract.md#데이터-운영-정책) 본문에 Decided로 반영돼 있으며 `05`에서 결정 상태를 추적한다. 리뷰 문서 자체는 authoritative source가 아니다.
+`docs/reviews/`는 이후 설계 세션의 인터뷰/리뷰 합의록을 보존하는 디렉토리다. [2026-09-24 2차 도메인 인터뷰](reviews/2026-09-24-equipment-routing-domain-interview-round-2.md)는 1차 punch list와 선행 리뷰 해소 사항의 문서 반영을 추적한다. `docs/reviews/2026-09-18-url-time-status-contract-grilling.md`는 grok-4.6(griller)과 codex gpt-6-astra(answerer)의 grill-duel로 `06`/`05`의 URL·시간·상태·실시간성·DB 접근·지연완료 메커니즘 Open 항목을 검토한 기록이며, 그 결과는 `06`과 [01 데이터 운영 정책](01_architecture_and_data_contract.md#데이터-운영-정책) 본문에 Decided로 반영돼 있으며 `05`에서 결정 상태를 추적한다. 리뷰 문서 자체는 authoritative source가 아니다.
 
 ## 문서 소유권과 tooling 경계
 

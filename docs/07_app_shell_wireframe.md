@@ -81,7 +81,7 @@ Analysis Platform
 └───────────────┴─────────────────────────────────────────────────────┘
 ```
 
-Scope는 Site→Line 2단계이며 v1은 단일 선택이다(전역 계약 §6.2). Factory는 별도 레벨로 모델링하지 않으며, 설비 식별 계층과 Process/StGroup 교차 축을 Scope 계층에 추가하지 않는다. 부모·자식 상속은 Open이며 고정 다단 선택기를 요구하지 않는다. 헤더의 Scope와 분석 필터는 시각적으로 구분하되 둘 다 계약에 따른 URL 상태를 소비한다.
+Scope의 포함 관계는 Site→room_name→StGroup→Equipment이며 실무 권한·조회 기준은 room_name이다. Line은 room_name과 교차하는 독립 축이고 v1의 요청 scopeId는 단일 선택이다(전역 계약 §6.2, [ADR-0005](adr/0005-scope-room-name-line-independent.md)). Site 선택은 DB 연결 대상을 정한다. Factory는 별도 레벨로 모델링하지 않는다. 부모·자식 상속 세부는 Open이며 고정 다단 선택기를 요구하지 않는다. 헤더 Scope 선택기를 중복 배치하지 않고, Global Context의 room_name·Equipment Group 두 층은 같은 권한 경계 안의 조회 조건으로 표시한다.
 
 공지 배너의 위치·노출 조건은 Open이다. 전역 알림 벨·통합 미확인 배지는 필수 영역에 넣지 않는다. 저장된 뷰의 비활성 버튼도 배치하지 않는다.
 
@@ -93,7 +93,7 @@ Scope는 Site→Line 2단계이며 v1은 단일 선택이다(전역 계약 §6.2
 | 헤더 | Scope 선택과 검증 상태, 메뉴 검색, 사용자 메뉴 |
 | 내비게이션 | 레지스트리 그룹 표시, 검색·접기/펼치기, 즐겨찾기·최근방문 |
 | 현재 위치 | Breadcrumb·페이지 제목 |
-| Context 영역 | 기간·설비·Lot과 적용 범위·미지원 상태 표시 |
+| Context 영역 | 기간·room_name·Equipment Group Condition/Selection·Lot·PPID·Recipe와 적용 범위·미지원 상태 표시 |
 | 콘텐츠 슬롯 | 선택 메뉴의 화면과 데이터 신뢰 정보 수용 |
 
 이는 React 컴포넌트 이름이나 API 선언이 아니다. 슬롯 결합 규칙은 전역 계약 §8을 따른다.
@@ -101,9 +101,9 @@ Scope는 Site→Line 2단계이며 v1은 단일 선택이다(전역 계약 §6.2
 ## 6. DATA REQUIREMENTS
 
 - 메뉴 레지스트리에서 표시명·그룹·목적지·필요 권한·지원 Context를 읽는다(전역 계약 §5).
-- 요청 Scope, 현재 검증 상태, 사용자가 접근 가능한 Scope 선택 항목을 읽는다(§6.2). Site→Line 2단계·v1 단일 선택은 Decided이며 부모·자식 상속은 Open이다. 선택기 API 구현을 확정한 것은 아니다.
+- 요청 Scope, 현재 검증 상태, 사용자가 접근 가능한 Scope 선택 항목을 읽는다(§6.2). room_name 기준 Scope·v1 단일 선택은 Decided이며 부모·자식 상속은 Open이다. 선택기 API 구현을 확정한 것은 아니다.
 - URL에서 복원된 요청 Context와 목적지 객체 ID를 구분해 표시한다(§6.1). 직렬화·충돌 메커니즘은 §6.1/§6.4의 Decided 계약을 소비하며, 공개 필드명·enum·산출물 형식은 원본의 Candidate 상태를 따른다.
-- 즐겨찾기/최근방문은 사용자별 목적지를 표시한다. 마지막 조건 저장 여부는 Candidate이며 복원은 §6.2의 재검증을 따른다.
+- 즐겨찾기/최근방문은 사용자별 목적지를 표시한다. **즐겨찾기는 목적지 ID만 저장한다(Decided, 2026-09-24 — [08 §6](08_operations_overview_wireframe.md#6-data-requirements))**: 마지막 조회 Context는 저장하지 않으며, 클릭 시 그 화면의 기본 상태로 진입하고 §6.2의 재검증을 그대로 따른다.
 - 시간 표시/입력은 §6.3의 Decided 경계·fallback·병합 가드·기본 구간 물질화를 따른다. 초기 TZ는 한국(Asia/Seoul) 우선으로 Decided이며 다중 사업장 같은 날짜·교대일/영업일 의미는 Open이다. 이 화면에서 시간 계약을 재정의하지 않는다.
 
 ## 7. INTERACTION / DOCUMENT REVIEW SCENARIOS
@@ -113,7 +113,7 @@ Scope는 Site→Line 2단계이며 v1은 단일 선택이다(전역 계약 §6.2
 | 시나리오 | 셸에서 확인할 결과 | 원본 계약 |
 | --- | --- | --- |
 | 결과 0건, 수집/파서 상태 근거 없음 | No matching result; 원인 상태는 Unknown이며 지연/중단으로 추론하지 않음 | §19 |
-| 같은 링크로 재진입 | 요청 조건·지표 버전 복원, 계산 기준시각 표시 | §6.1 |
+| 같은 링크로 재진입 | 요청 조건·고정 Selection·지표 버전 복원, live Condition은 현재 결과 재평가, 계산 기준시각 표시 | §6.1 |
 | occurrence 상세 → 설비/VOC 이동 | 목적지 객체 ID와 분석 Context를 분리해 전달 | §6.1 |
 | 링크의 Scope 접근 불가 | 오류/선택 상태, 조용한 대체 없음 | §6.2 |
 | 기간·설비·Scope 변경 중 이전 응답 도착 | 이전 결과를 새 조건 결과로 표시하지 않음 | §11 |
@@ -131,7 +131,7 @@ Scope는 Site→Line 2단계이며 v1은 단일 선택이다(전역 계약 §6.2
 | --- | --- | --- |
 | Decided | 7그룹 navigation과 전역 Context·권한 계약 재사용 | 전역 계약 §6/§9/§11/§17 |
 | Candidate | 헤더 Scope, 고정 Context 영역, 하단 즐겨찾기/최근방문 배치 | 이 문서 |
-| Decided / Open | Site→Line 2단계·v1 단일 Scope 선택은 Decided. 부모·자식 상속은 Open이며 복수 선택은 v1 범위 밖의 이후 확장 후보 | 전역 계약 §6.2, [도메인 용어](../CONTEXT.md), [ADR-0001](adr/0001-scope-hierarchy-site-line-only.md) |
+| Decided / Open | room_name 기준 Scope·v1 단일 Scope 선택은 Decided. 부모·자식 상속은 Open이며 복수 선택은 v1 범위 밖의 이후 확장 후보 | 전역 계약 §6.2, [도메인 용어](../CONTEXT.md), [ADR-0005](adr/0005-scope-room-name-line-independent.md) |
 | Decided(메커니즘) | URL 버전 `v` 수명주기·우선순위·잘못된 값·뒤로가기/미지원 Context 복원 — 필드명 자체는 Candidate | 전역 계약 §6.4, `docs/05` 결정 상태 |
 | Decided / Open | 시간 경계·TZ 미확인 fallback 등 메커니즘과 한국(Asia/Seoul) 우선 TZ는 Decided. 해외 확장은 미착수이며 다중 사업장 같은 날짜·교대일/영업일 의미는 Open | 전역 계약 §6.3, [05 결정 상태](05_roadmap_and_open_questions.md) |
 | Open | 공지 배너 위치·게시기간/대상 메뉴/권한에 따른 노출 | 셸과 공지 도메인 설계 |

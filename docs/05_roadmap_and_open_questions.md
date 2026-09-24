@@ -12,10 +12,10 @@
 | Decided | URL 직렬화·집합 키/공집합·지표 버전 쌍·초 단위 구간, 시간 경계 메커니즘(half-open, 날짜-only, TZ 미확인 fallback, 복수 설비 병합 가드, `defaultRangeTo`), URL 계약(세션 우선순위, 버전 `v`, 잘못된 값, 뒤로가기/셸 전환 복원), §19 응답 스키마(2층: `outcome`+`assessments[]`) | `06_platform_ui_contract.md` §6.1/§6.3/§6.4/§19, `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` |
 | Decided | 실시간성 기본 정책(폴링+세대 기반 캐시 재검증), 파서 DB 접근 기본 정책(같은 인스턴스·read-only·플랫폼 스키마), 지연 완료 허용 시간의 정책 메커니즘(`lateArrivalAutoHorizon`, 진행 경계 `R`/창 길이 `H`, 창 밖은 정정 후보로 보존) — **`H`=1시간과 클라이언트 폴링=5분은 Decided. 폴링 중단 조건·워커 감지 주기는 Open, 공개 필드명은 Candidate** | [01 데이터 운영 정책](01_architecture_and_data_contract.md#데이터-운영-정책), `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §6 |
 | Decided | 셸 치수(사이드바 270px·헤더 54px)와 테이블 행 밀도(최소 32px, 25px는 compact 시각 목표)는 `DESIGN.md` canonical 값으로 통일. `docs/06` §7/§15를 `DESIGN.md`에 맞춰 갱신 완료(2026-09-21) | `06_platform_ui_contract.md` §7/§15, `DESIGN.md` `sidebar-shell`/`top-bar`/`table-density`, `PLATFORM_REQUIREMENTS.md` §0 |
-| Decided | Scope/설비 도메인 모델: Site→Line 2단계(Factory는 모델링하지 않음), Maker→Model→EquipmentID 식별 계층, Process(`room_name`)·StGroup(`stgroup`)은 계층이 아닌 교차 분류 축, Recipe(`prc_name`)는 설비가 아니라 Lot/Job에 붙는 속성(2026-09-22 도메인 인터뷰) | `CONTEXT.md`, `docs/adr/0001-scope-hierarchy-site-line-only.md` |
+| Decided | Scope는 Site→room_name→StGroup→Equipment 관계, 권한·조회는 room_name 기준, Line은 독립 축(Factory 제외). EquipmentID는 전 Site 유일, Site는 DB 연결 경계이며 ID 사용 전 확립. room_name 변경은 같은 ID 유지, EquipmentName 변경은 재등록·기존 ID 종료. Lot과 Job은 구별하고 Recipe는 PRC 단계 값 | [CONTEXT](../CONTEXT.md), [ADR-0005](adr/0005-scope-room-name-line-independent.md), [ADR-0004](adr/0004-site-is-db-partition-not-column.md) |
 | Decided | 조직/운영 요구값(2026-09-22 확정): 백엔드 FastAPI, 배포 on-prem, 동시 사용자 ~100명, 데이터 보존 기간 제한 없음(삭제 안 함), 초기 1개 Site/Line으로 시작하되 구조는 확장 가능하게, Scope는 v1에서 단일 선택만(복수 선택은 이후), TZ는 한국(Asia/Seoul) 단일값으로 우선 시작(해외 사업장인 중국 시안·미국 오스틴 실존 확인, 확장 여지는 설계에서 배제하지 않음) | `03_backend_stack.md`; 아래 Open Questions |
 | Decided | Evidence/Lineage drill-through(후보 1)와 원문 로그/설정파일 drill-through(후보 2, FileGateway류)는 현재 defer — parser의 view/mart 조회로 충분하며, 원본 접근은 내부 개발자 전용 메뉴가 실제로 필요해질 때 재검토(2026-09-22) | `docs/integration/component-contract-candidates.md` §다음 결정 순서 |
-| Decided | 딥링크 키 확장(Recipe는 `recipeIds`로 승격, StGroup은 URL 키로 승격하지 않고 선택 시점 `equipmentIds`로 물질화), 기간 프리셋(`1일/7일/사용자 지정`)과 집계 단위(`granularity`, page-owned), 시각화 경계(donut은 분모 있는 비율만 기본 허용, gauge/3D/그라디언트는 기본 비허용이나 업무 근거 확인 시 케이스별 예외 가능), 폴링 주기 5분(300s), CJK 폰트(망분리 확인 — Noto Sans KR 자체 호스팅), 아이콘 세트(Lucide), 메뉴 활용률 계측(v1 범위 포함, 수집 필드·보존·열람권한 확정) — 전부 2026-09-22 grilling Round 2 | 아래 §딥링크 키 확장, §기간 프리셋과 집계 단위, §시각화 경계, §메뉴 활용률 계측; `docs/adr/0002-stgroup-materializes-to-equipment-ids.md`; `PLATFORM_REQUIREMENTS.md` |
+| Decided | 딥링크 키 확장(Recipe/PPID/room_name, Equipment Group Condition은 live reference 가능·Selection은 고정 ID 목록 — 2026-09-24 개정), 기간 프리셋(`1일/7일/사용자 지정`)과 집계 단위(`granularity`, page-owned), 시각화 경계(donut은 분모 있는 비율만 기본 허용, gauge/3D/그라디언트는 기본 비허용이나 업무 근거 확인 시 케이스별 예외 가능), 폴링 주기 5분(300s), CJK 폰트(망분리 확인 — Noto Sans KR 자체 호스팅), 아이콘 세트(Lucide), 메뉴 활용률 계측(v1 범위 포함, 수집 필드·보존·열람권한 확정) — 2026-09-22 grilling Round 2 및 2026-09-24 도메인 인터뷰 반영 | 아래 §딥링크 키 확장, §기간 프리셋과 집계 단위, §시각화 경계, §메뉴 활용률 계측; `docs/adr/0002-stgroup-materializes-to-equipment-ids.md`; `PLATFORM_REQUIREMENTS.md` |
 | Candidate | 대표 분석 흐름으로 차트·표·드릴다운·딥링크 계약을 검증한다 | 아래 설계 검증 기준; 구현 착수는 별도 결정 |
 | Candidate | 프론트엔드 라이브러리 및 백엔드 기술 선택(백엔드는 FastAPI로 방향 확정, 세부 프레임워크 버전·구성은 Candidate) | `04_frontend_ui_ux.md`, `03_backend_stack.md`; 제품 제약과 검증 결과에 따라 결정 |
 | Open | 인증 프로토콜의 정확한 사양 — 사내 SSO 존재는 확인됐으나 프로토콜 미확인(사내 확인 중). 확인 전까지 인증 계층은 나중에 붙일 수 있도록 pluggable하게 구현한다 | 아래 Open Questions |
@@ -46,7 +46,7 @@ Decided는 설계 계약의 상태이며 구현 완료를 뜻하지 않는다. C
 
 이 목록은 인증 입력을 추적하며 전체 미결 목록은 아니다. Scope·시간·공개 계약의 미결은 [06](06_platform_ui_contract.md), 파생 질문은 [REQUIREMENTS](../PLATFORM_REQUIREMENTS.md#open-questions--미결-범위와-결정-이력)를 함께 확인한다.
 
-2026-09-22 도메인 인터뷰로 이 절의 나머지 항목(백엔드 언어, 멀티테넌시, 배포 환경, 동시 사용자, 데이터 보존, 지연 완료 허용 시간 구체 숫자, 사업장 TZ 실제 값, Scope hierarchy)은 결정됐거나 초기 범위가 정해졌다. 값과 근거는 위 결정 상태 표와 [CONTEXT](../CONTEXT.md), [ADR-0001](adr/0001-scope-hierarchy-site-line-only.md)을 본다. Scope 상속·구체 행 스코핑 방식, 다중 Site 시간 의미·assertion 공급 근거, 최초 기본 Δ, 데이터 볼륨·최대 조회량·timeout, 브라우저 지원 범위 등 남은 입력은 아래 원본 포인터와 REQUIREMENTS의 미결 질문을 따른다.
+2026-09-22 도메인 인터뷰로 이 절의 나머지 항목(백엔드 언어, 멀티테넌시, 배포 환경, 동시 사용자, 데이터 보존, 지연 완료 허용 시간 구체 숫자, 사업장 TZ 실제 값, Scope hierarchy)은 결정됐거나 초기 범위가 정해졌다. 값과 근거는 위 결정 상태 표와 [CONTEXT](../CONTEXT.md), [ADR-0005](adr/0005-scope-room-name-line-independent.md)을 본다. Scope 상속·구체 행 스코핑 방식, 다중 Site 시간 의미·assertion 공급 근거, 최초 기본 Δ, 데이터 볼륨·최대 조회량·timeout, 브라우저 지원 범위 등 남은 입력은 아래 원본 포인터와 REQUIREMENTS의 미결 질문을 따른다.
 
 ### 실시간성 (Decided — 메커니즘)
 
@@ -64,7 +64,7 @@ Decided는 설계 계약의 상태이며 구현 완료를 뜻하지 않는다. C
 
 ### 딥링크 키 확장 — Recipe/StGroup (Decided, 2026-09-22 grilling Round 2)
 
-현행 규칙·Candidate 필드명은 [06 §6.1](06_platform_ui_contract.md#61-식별자와-url-소유-상태-decided), StGroup 대안·재선택 시 의미·재검토 조건은 [ADR-0002](adr/0002-stgroup-materializes-to-equipment-ids.md)를 따른다. [당시 결정 근거](reviews/2026-09-23-decision-detail-history.md)는 이력으로 보존하며 규칙을 중복 편집하지 않는다.
+이 제목은 기존 링크 호환을 위해 유지한다. 2026-09-24 인터뷰로 PPID/room_name과 모든 Equipment Group 축의 두 층 모델로 확장됐다. 현행 규칙·Candidate 필드명은 [06 §6.1](06_platform_ui_contract.md#61-식별자와-url-소유-상태-decided), 모든 그룹 축의 Condition/Selection 대안·재평가 의미은 [ADR-0002](adr/0002-stgroup-materializes-to-equipment-ids.md)를 따른다. [당시 결정 근거](reviews/2026-09-23-decision-detail-history.md)는 이력으로 보존하며 규칙을 중복 편집하지 않는다.
 
 ### 기간 프리셋과 집계 단위 (Decided, 2026-09-22 grilling Round 2)
 

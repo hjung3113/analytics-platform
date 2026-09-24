@@ -930,6 +930,8 @@ Dashboard; link ancestors, mark the current page, preserve Context on navigation
 
 ## Open Decisions (per wireframe-skill convention)
 
+- **Korean/English scope — Resolved (2026-09-24)**: translate UI copy and static body text only. Keep user-authored VOC/notice content, master values (EquipmentName/team names), and identifiers unchanged. The behavior contract and Candidate account-level language preference are owned by [06 §23](docs/06_platform_ui_contract.md#23-design-tokens). Validate both languages with the existing self-hosted Noto Sans KR + Inter stack; this note does not claim rendered verification.
+
 - **Dark mode**: not designed. The reference screenshot and this system are light-canvas only; if dark mode is requested, it needs its own pass, not a naive token invert (the sidebar is already dark — inverting the whole app would collide with it).
 - **Chart library token mapping**: `docs/04_frontend_ui_ux.md` recommends Apache ECharts as a candidate; this file's semantic/category colors are the palette contract charts should consume, but the actual ECharts theme config is not authored here.
 - **Icon set — Resolved (2026-09-22)**: Lucide is decided (rounded-outline, matching the reference screenshot's style). Actual binding into components is implementation work, not done here.

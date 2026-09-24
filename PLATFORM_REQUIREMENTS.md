@@ -38,6 +38,7 @@
 - [ ] **UI 프리미티브 조합 검토(shadcn/ui + Base UI/Radix 비교 후 채택)** — **[3/3] Must** — Candidate. 원본: [04 구현 후보](docs/04_frontend_ui_ux.md#프론트엔드-기술-스택-candidate). 비교·접근성/호환성 검증과 채택 근거가 필요하며 라이브러리 채택·구현·POC 증거는 없다.
 - [ ] **인터랙션 상태 전체 구현(hover/pressed/selected/focus/disabled/busy)과 중복 제출 차단** — 토큰만 있고 동작 미구현. **[3/3] Must** — Decided/디자인 요구.
 - [ ] **접근성 구현·렌더 검증(§26): 키보드 탐색, focus trap, 색 외 구분, 대비 4.5:1/3:1** — 토큰만으로 통과 주장 불가. **[3/3] Must** — Decided.
+- [ ] **한/영 UI 범위** — UI 문구·정적 본문만 번역하며 사용자 입력 본문·마스터 값·식별자는 번역하지 않는다. [06 §23](docs/06_platform_ui_contract.md#23-design-tokens) Decided, 언어 선호 저장은 Candidate. 구현 완료를 뜻하지 않는다.
 - [ ] **한글/CJK 타이포 검증** — 2026-09-22 grilling으로 폰트 스택 확정: Noto Sans KR + Inter 페어링. 사내망이 망분리(인터넷 차단)돼 있어 **CDN이 아니라 자체 호스팅**(폰트 파일 번들)으로 간다. 실제 CSS/토큰 반영은 아직. **[3/3] Should** — Decided(스택/호스팅 방식), 실제 물질화는 구현 시.
 - [ ] **Data Trust 시각 표준화(Updated/Data through/Coverage/Metric version/Provisional을 공통 vocabulary로)** — 숫자만큼 숫자의 상태를 보여줘야 함. **[3/3] Must** — Decided, `docs/06` §18.
 - [ ] **상태 배지 4종(success/warning/danger/neutral) + §19 매핑표를 임의색으로 확장 금지** — 매핑표 자체는 문서에 없어 공백. **[2/3 · Codex, Grok] Must** — Candidate + 신규 제안(공백 메움).
@@ -89,7 +90,7 @@
 
 - [ ] **Context Link helper 공통 라이브러리** — destination·transferable·unsupported·permission을 처리. 메뉴가 서로 URL 문자열을 직접 조립하지 않는다. **[3/3] Must** — Decided, `docs/06` §22.
 - [ ] **목적지 객체 ID와 분석 Context 분리** — occurrence `(equipmentId, entityType, anchor)` vs 설비 `equipment_id` vs `vocId` vs `metricId+metricVersion`. **[3/3] Must** — Decided, §6.1.
-- [ ] **Recipe/StGroup 딥링크 키 정책** — 2026-09-22 grilling: `recipeIds`는 §6.1 URL 소유 키 목록에 추가(Candidate 필드명, Recipe는 Lot 고정 속성이라 재현성 문제 없음). StGroup은 소속 가변성 때문에 URL 키로 승격하지 않고, 선택 시점에 `equipmentIds`로 물질화한다. [06 §6.1](docs/06_platform_ui_contract.md#61-식별자와-url-소유-상태-decided), `docs/adr/0002-stgroup-materializes-to-equipment-ids.md` 참고. **[신규, 이번 세션 확인] Must** — Decided.
+- [ ] **전역 필터·Equipment Group 두 층 URL 정책** — room_name/PPID/Recipe는 전역 축이며 Operation은 v1 필터에서 제외. StGroup / 분임조 / Maker+Model 중 한 축을 Condition으로 유지하고 현재 결과 재평가를 허용한다. 명시 Selection은 축과 무관하게 고정 EquipmentID 목록이다. 공개 키 후보·기존 equipmentIds 대응은 [06 §6.1/§6.4](docs/06_platform_ui_contract.md), 근거는 [ADR-0002](docs/adr/0002-stgroup-materializes-to-equipment-ids.md). **Must — Decided(2026-09-24 개정), 구현 미완료**.
 - [ ] **미지원 Context는 폐기하지 않고 칩으로 표시("Lot: A1023 · Not used")** — 지원 메뉴 복귀 시 재검증 후 적용. **[3/3] Must** — Decided.
 - [ ] **전역 Context / Page Filter / Visualization / 영속 주석 4층 분리** — 차트 줌은 로컬, Brush 후 명시적 적용만 URL 승격. **[3/3] Must** — Decided.
 - [ ] **URL이 세션/최근방문보다 우선, 누락값을 과거 세션으로 채우지 않음** — **[3/3] Must** — Decided.
@@ -111,7 +112,7 @@
 
 - [ ] **선언형 Menu Registry(이름·그룹·경로·권한·지원 Context·페이지 유형)** — 신규 메뉴마다 Sidebar/Breadcrumb 코드 수정 금지. **[3/3] Must** — Decided, `docs/06` §5.
 - [ ] **App Shell + Shell Slot 계약(title/actions/contextExtension/content/dataTrustSummary)** — **[3/3] Must** — Decided, §4/§8.
-- [ ] **전역 Context Bar(Time/Equipment/Group/Lot/Process/Metric Version/Scope), 헤더 Scope 선택기와 중복 배치 금지** — **[3/3] Must** — Decided.
+- [ ] **전역 Context Bar(Time/Equipment/Group Condition·Selection/room_name/Lot/PPID/Recipe/Metric Version/Scope), 헤더 Scope 선택기와 중복 배치 금지** — **[3/3] Must** — Decided.
 - [ ] **인증/세션** — 사내 SSO 존재는 확인됐고 정확한 프로토콜은 Open. 확인 전 pluggable 경계만 확정했으며 OIDC·라이브러리·도입 시점을 확정하지 않는다. **[3/3] Must(방향)**. 원본: [05 인증 질문](docs/05_roadmap_and_open_questions.md#open-questions), [03 인증 행](docs/03_backend_stack.md). 실제 연동은 질문 5의 사내 입력에 의존한다.
 - [ ] **전 경로 권한/Scope 집행(메뉴·URL·필터·조회·캐시·내보내기·딥링크·저장된 뷰 전부 동일 정책, 서버 매 요청 재검증)** — **[3/3] Must** — Decided, §6.2/§17.
 - [ ] **권한없음 vs 데이터없음 Empty State 분리** — **[3/3] Must** — Decided.
@@ -153,7 +154,7 @@
 - [ ] **지연완료 정책(`lateArrivalAutoHorizon`, 진행 경계 `R`·창 `H`, 창 밖은 정정 후보로 보존)** — 메커니즘과 **H=1시간은 Decided**, 필드명은 Candidate. 원본: [01 R/H 정책](docs/01_architecture_and_data_contract.md#late-arrival-policy), 조회 기간과의 연결은 [06 CTX-TIME](docs/06_platform_ui_contract.md#ctx-time). 운영 설정·워커 구현·검증 증거는 아직 없다. **[3/3] Must**.
 - [ ] **재현성 계약(딥링크는 조회조건·지표 버전만 재현, 숫자는 계산 기준시각과 함께 표시)** — **[3/3] Must** — Decided.
 - [ ] **파서 DB 접근 토폴로지(같은 인스턴스, read-only, 플랫폼 전용 스키마, API는 원본 테이블 직접 조회 금지)** — **[3/3] Must** — Decided.
-- [ ] **초기 1개 Site/Line 범위, 확장 가능한 구조** — Scope는 Site→Line 2단계이며 Factory/plant 레벨은 두지 않는다. v1 단일 선택은 Decided, 상속은 Open. 구체 행 스코핑 구현 방식은 이 항목이 확정하지 않는다. 원본: [06 §6.2](docs/06_platform_ui_contract.md#62-scope와-권한-decided--open), [05 결정 상태](docs/05_roadmap_and_open_questions.md#결정-상태). **[3/3] Should**.
+- [ ] **초기 1개 Site/Line 운영 범위, 확장 가능한 구조** — 운영 시작 범위와 권한 계층은 구별한다. Scope 관계는 Site→room_name→StGroup→Equipment, Line은 독립 축, Factory/plant는 제외. Site별 DB 분리, v1 단일 Scope 선택은 Decided이며 상속 세부는 Open. 원본: [06 §6.2](docs/06_platform_ui_contract.md#62-scope와-권한-decided--open), [ADR-0005](docs/adr/0005-scope-room-name-line-independent.md). **[3/3] Should**.
 - [ ] **접근성 릴리스 게이트(색만으로 상태 구분 금지)** — **[2/3 · Grok, omp] Must**.
 - [ ] **보안: URL 필터는 보안 경계가 아님을 위협모델에 명시(권한은 서버에)** — **[2/3 · Grok, omp] Must**.
 - [ ] **브라우저 지원 매트릭스 정의** — Desktop-first/Canvas 차트/가상화가 브라우저에 의존. **[3/3] Should** — 신규 제안.
@@ -172,7 +173,7 @@
 질문 처리 경로: 인증·운영 입력은 [05](docs/05_roadmap_and_open_questions.md#open-questions), 시간은 [06 CTX-TIME](docs/06_platform_ui_contract.md#ctx-time), Scope·공개 계약·상태는 [06](docs/06_platform_ui_contract.md), 기술 후보는 [04](docs/04_frontend_ui_ux.md)를 먼저 확인한다. 후속 작업 담당은 필요한 입력·결정 주체·차단되는 동작·답변 전 가능한 일을 작업 기록에 적는다. 담당자가 미지정이면 지정 필요로 남기고 답을 만들어 넣지 않는다.
 
 1. ~~**셸 치수·테이블 밀도**~~ — 2026-09-21 결정 완료(§0, `docs/05` 참조). DESIGN.md canonical(270px/54px/32px) 채택.
-2. **Scope 도메인 — 일부 Decided / 상속 Open** — 2026-09-22 결정 반영(`CONTEXT.md`, `docs/adr/0001-scope-hierarchy-site-line-only.md`). 계층은 Site→Line 2단계(Factory는 모델링 안 함), Maker→Model→EquipmentID 식별 계층, Process/StGroup은 교차 분류 축, Recipe는 Lot 속성. 설비 소속 변경: Process는 불변(재등록), StGroup은 가변(현재 소속만 사용, 소급은 추후). v1은 단일 Scope 선택만. 부모·자식 상속은 [06 §6.2](docs/06_platform_ui_contract.md#62-scope와-권한-decided--open)의 Open이며 상속 동작 구현 전에 결정한다.
+2. **Scope 도메인 — Decided / 상속 세부 Open** — Site→room_name→StGroup→Equipment 관계, room_name 기준 권한, 독립 Line 축을 따른다([ADR-0005](docs/adr/0005-scope-room-name-line-independent.md)). EquipmentID는 전 Site 유일하고 Site는 ID 사용 전 활성 Scope에서 확립한다([ADR-0004](docs/adr/0004-site-is-db-partition-not-column.md)). room_name은 드물게 변경 가능·ID 유지, EquipmentName 변경은 재등록·기존 ID 종료. StGroup·분임조는 외부 소속 정보다. v1 단일 Scope 및 [06 §6.2](docs/06_platform_ui_contract.md#62-scope와-권한-decided--open)의 상속 Open을 유지한다.
 3. **시간 의미** — 사업장별 실제 TZ 값은 2026-09-22 결정(한국/Asia-Seoul 단일값 우선, 해외 사업장 확장은 배제 안 함 — `docs/05` 참조). timeDomain assertion 공급자, 교대일/영업일, 다중 사업장의 "같은 날짜"는 여전히 Open. assertion 공급 근거는 국내 설비끼리라도 복수 시간축 병합을 제공하기 전에 필요하다([06 시간 계약](docs/06_platform_ui_contract.md#ctx-time)).
 4. **운영 수치** — `defaultRangeTo` 기본 길이, 실제 데이터 볼륨·조회 패턴, 최대 조회량·timeout은 Open. 지연완료 창 `H`=1시간, 클라이언트 폴링 주기=5분(300s)은 2026-09-22 결정(`docs/05` 참조). 폴링 중단 조건·워커 감지 주기는 여전히 Open(구현 시 운영 설정으로 정함).
 5. **인증·조직·배포 — 일부 Decided / 프로토콜 Open** — 2026-09-22 대부분 결정 완료(`docs/05` 참조): 백엔드 FastAPI, 온프렘, 동시 사용자 ~100명, 데이터 보존 기간 제한 없음, 멀티테넌시는 단일 사업장으로 시작(확장 가능). 남은 Open: 사내 SSO 프로토콜의 정확한 사양(존재는 확인, 스펙은 사내 확인 중), 브라우저 지원 범위(위 브라우저 지원 매트릭스 제안 참조). 실제 데이터 볼륨은 질문 4에서 추적한다.
