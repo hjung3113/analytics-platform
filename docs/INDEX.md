@@ -65,4 +65,4 @@
 
 ## 현재 작업과 과거 기록
 
-현재 작업 상태는 [HANDOFF](../HANDOFF.md)에서 확인한다. 과거 맥락이 필요한 경우에만 [이전 HANDOFF 기록](../.agents/reports/handoff-history-through-2026-09-23.md), [결정 상세·Phase 가설 이관 기록](reviews/2026-09-23-decision-detail-history.md), 해당 리뷰/조사 보고서로 내려간다. 과거 Open·후보·실행 모델명은 당시 기록이며 현재 계약으로 승격하지 않는다. 일반 탐색은 위 역할별 경로부터 시작하고 `docs/reviews/`, `.agents/reports/`는 근거 확인이 필요할 때 검색한다.
+현재 작업 상태는 [HANDOFF](../HANDOFF.md)에서 확인한다. 과거 맥락이 필요한 경우에만 [이전 HANDOFF 기록](../.agents/reports/handoff-history-through-2026-09-24.md), [결정 상세·Phase 가설 이관 기록](reviews/2026-09-23-decision-detail-history.md), 해당 리뷰/조사 보고서로 내려간다. 과거 Open·후보·실행 모델명은 당시 기록이며 현재 계약으로 승격하지 않는다. 일반 탐색은 위 역할별 경로부터 시작하고 `docs/reviews/`, `.agents/reports/`는 근거 확인이 필요할 때 검색한다.
