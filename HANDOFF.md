@@ -1,45 +1,52 @@
-# Handoff — 2026-09-24 도메인 모델 정정·플랫폼 가드레일·와이어프레임 08-13
+# Handoff — 2026-09-25 첫 Kernel 프로토타입(Context/URL/Scope), Astra↔Opus 교차 검토
 
 ## 현재 상태
 
-커밋 `a698dcb`를 `origin/main`에 push 완료(2026-09-24). 로컬 `main`은 `origin/main`과 일치하고 작업 트리는 clean이다. 다음 세션에는 다시 확인한다. 제품 구현·새 제품 결정은 범위 밖이다.
+`main`은 커밋 `41067ab`에서 변경 없음, `origin/main`과 일치, 작업 트리는 clean이다. **이번 세션의 실제 산출물은 main이 아니라 별도 Orca worktree/브랜치에 있다** — 아직 리뷰·머지·push 여부를 결정하지 않았다. 다음 세션에는 git 상태와 함께 이 worktree의 존재를 다시 확인한다.
 
-- **AGENTS.md**: 플랫폼 목적을 5갈래 표(Kernel 기능/공통 컴포넌트/차트 계약/레이아웃/메뉴간 연결)로 명시하고, "메뉴 화면 3개 이상 연속 제작 시 사전 범위 확인" 가드레일을 추가했다 — 이번 세션 자체가 6개 화면을 연속 제작한 뒤에야 이 가드레일을 만들었다는 자기 지적을 계기로 한 것이다.
-- **와이어프레임 08-13**: 남은 Must 메뉴 archetype을 GPT-6 Astra에게 자유 오케스트레이션으로 제작시키고, 화면마다 Opus 5.5 Medium이 문서-대비 준수만 검수했다. Workflow archetype은 아직 검증되지 않았고(0회), 차트 Compare/Annotate도 실사용 사례가 없다 — 다음 플랫폼 갈래 작업의 후보다.
-- **도메인 모델 정정 (1차 인터뷰, 15문항)**: `context_recognized_parser` 실제 데이터 모델과 충돌하던 Lot/Job/Carrier 혼동을 해소(Carrier=물리 용기, Lot=논리 개념, Job=분석 grain), StGroup(공정 능력 단위)과 분임조(조직 단위)를 분리, 제품 라우팅 계층(Operation/PPID/Recipe)을 신설했다. `CONTEXT.md`, ADR-0003(설비 마스터 플랫폼 소유 지향), ADR-0004(Site=DB 분리)에 반영. 기록: [1차 인터뷰](docs/reviews/2026-09-24-equipment-routing-domain-interview.md).
-- **외부 검증 (Grok 4.7 High)**: SEMI 표준(E30/E40/E116/E139)·PROMIS·FabTime 기준으로 Operation 명명·CFG 데이터 형태·생산성 분석 화면 패턴을 조사. Operation 이름 유지 근거 확인, CFG는 SEMI E30 Equipment Constant(설비 단위, 유효 시각 이력)에 가장 가까움을 확인. 기록: [research README](docs/research/semiconductor-domain-2026-09-24/README.md) (Candidate, CONTEXT.md를 덮지 않음).
-- **"잘못된 방향" 독립 리뷰 (Opus 5.5 + GPT-6 Astra, 병렬·비공유)**: 두 모델이 교차로 짚은 문제 — Site DB 분리(ADR-0004)가 EquipmentID 식별 계약과 안 맞물림, 08-13에서 나온 Kernel 요구가 `06`으로 회수되지 않고 흩어짐, Equipment Group(`O`) 의미가 `06`과 09에서 다르게 서술됨. Astra만 추가로 찾은 것: Recipe 혼합 모집단에서 P95 계산 문제(11/12), 설비 사용중지=이력종료 오통합 위험.
-- **2차 인터뷰로 리뷰 결론 확정**: room_name(Line 아님)이 실제 권한/조회 축이고 Line과 독립/교차한다(**ADR-0005 신규**, ADR-0001의 Site→Line 주장을 대체). EquipmentID는 Site 전역 유일, Site는 ID로 역추적하지 않고 항상 활성 Scope의 전제. Equipment Group(StGroup/분임조/Maker+Model)은 **Condition(live)+Selection(frozen) 2계층**으로 통일(**ADR-0002 재작성**). room_name은 드물게 바뀔 수 있고 그래도 같은 EquipmentID 유지, 재등록 기준은 EquipmentName 변경. CFG는 Job 시작 시점 값으로 충분, 로그는 모듈/슬롯 단위·CFG는 설비 단위 저장. 기록: [2차 인터뷰](docs/reviews/2026-09-24-equipment-routing-domain-interview-round-2.md).
-- **반영**: 위 10개 결론과 1차 인터뷰의 punch list를 GPT-6 Astra가 22개 문서에 일괄 적용(Claude 미사용, 한도 문제로 제외). 새 ADR 3건(0003/0004/0005), ADR 2건 재작성/보강(0001/0002), `CONTEXT.md`·`06`·wireframes 07-13·`PLATFORM_REQUIREMENTS.md`·`DESIGN.md` 갱신.
+- **worktree**: `/Users/hyojung/orca/workspaces/analytics-platform/kernel-context-url-scope` (Orca worktree id `2ac6391e-6480-46bd-9078-c0d3920f37b9::/Users/hyojung/orca/workspaces/analytics-platform/kernel-context-url-scope`)
+- **branch**: `hjung3113/kernel-context-url-scope`, base `41067ab`, 로컬 커밋 `10f270d` 1개, **origin에 push 안 함**
 
-## 다음 세션에서 할 일 — 첫 Kernel 구현 작업의 준비
+## 이번 세션에서 한 일
 
-이전 세션(2026-09-23)까지 완료한 문서 구조 정비(M1-M4)에 더해, 이번 세션에서 **Kernel 구현을 막던 도메인 모델 전제(Scope 축, ID 유일성, Equipment Group URL 모델)를 정정했다.** 다음 권장 작업은 여전히 **Platform Kernel의 첫 구현 단위를 정하고, 그 단위에 필요한 결정·근거·수용 기준을 준비하는 것**이다 — 이번엔 그 전제가 실제로 맞는 도메인 모델 위에서 할 수 있다. 아직 구현 단위나 기술 후보의 채택을 승인한 것은 아니고, 추가 메뉴 화면 제작이 다음 순서도 아니다(AGENTS.md 가드레일 참고).
+1. **핸드오프 로테이션 마무리**: 직전 세션이 우표만 찍고 커밋하지 않은 HANDOFF.md/INDEX.md 갱신을 커밋·push(`41067ab`). 내용 변경 없음, 정리 커밋.
+2. **첫 Kernel 구현 단위 선정**: 직전 HANDOFF가 제시한 3개 후보(App Shell·Menu Registry·Context/URL 연결) 중 **Context/URL 연결(room_name 기준 Scope + Equipment Group Condition/Selection 2계층)**을 선택했다 — 오늘 도메인 모델 정정을 가장 직접 검증하고, 딥링크 왕복이라는 구체적 수용 기준을 잡기 쉬웠기 때문.
+3. **Orca orchestration으로 Astra↔Opus 교차 검토 루프를 실행**(`orca orchestration`, Run `run_1aabb0c30482`, 위 worktree에서):
+   - **Round 1 (GPT-6 Astra, medium)**: 작업지시서(`​.agents/reports/kernel-work-order-context-url-scope-draft.md`)와 Python 표준 라이브러리 프로토타입(`prototypes/kernel-context-url-scope/`)을 생성. URL→`ContextState`→URL 왕복, Condition(live)/Selection(frozen) 분리, 목적지 ID·Selection 분리, 권한 철회 후 forbidden을 11개 unittest + demo.py로 증명.
+   - **Round 2 (Claude Opus 5.5, medium, compliance-only)**: docs/06 §4-6/8/17-19/22/26/28-29, CONTEXT.md, ADR-0002/0004/0005 대비 문장 단위로 대조. 판정 **PASS-WITH-MINOR-ISSUES — BLOCKING 0건, MINOR 3건**(리포트: `.agents/reports/kernel-work-order-context-url-scope-compliance-review.md`).
+   - **Round 3 (GPT-6 Astra, medium)**: MINOR 중 M1(범위 밖 등록 키를 거절 대신 보존·미적용 처리, §6.4)과 M2(버전 검사 순서)를 코드로 수정하고 회귀 테스트 3개 추가. M3(권한 밖 EquipmentID의 `not_found`/`forbidden` 구분 노출 — 06이 정하지 않은 정책 질문)는 코드를 바꾸지 않고 work order의 P0 Open 질문으로 기록.
+   - 각 라운드 결과를 **내가 직접 재실행해 검증**했다(worker 보고를 그대로 신뢰하지 않음): 최종 `python3 -B -m unittest discover -s prototypes/kernel-context-url-scope -p "test_*.py" -v` → **14 pass / 0 fail**, `python3 -B prototypes/kernel-context-url-scope/demo.py` → 전체 assertion PASS, exit 0.
+4. worktree 안에서 커밋(`10f270d`)했다. **main에는 아무 것도 반영하지 않았다.** 원본 계약 문서(docs/06, CONTEXT.md, ADR, PLATFORM_REQUIREMENTS.md)는 세 라운드 내내 무변경 — Opus가 diff 확인, 내가 재확인.
 
-1. AGENTS, `git status --short`, 현재 branch/HEAD 상태를 확인한다. [INDEX](docs/INDEX.md) → [06 Kernel 계약](docs/06_platform_ui_contract.md) §4-6/§8/§17-19/§26/§28-29 → [2차 인터뷰](docs/reviews/2026-09-24-equipment-routing-domain-interview-round-2.md)(오늘 확정된 Scope/URL 모델의 근거) → [REQUIREMENTS 미결 질문](PLATFORM_REQUIREMENTS.md#open-questions--미결-범위와-결정-이력) 순으로 읽는다.
-2. **첫 구현 단위 제안 1개**를 작성한다. 후보는 App Shell·Menu Registry·Context/URL 연결(room_name 기준 Scope + Equipment Group Condition/Selection 2계층 포함) 중 작게 검증할 수 있는 범위다. 전체 메뉴 구현으로 확대하지 말고 목표 동작, 포함/제외 범위, 원본 절·revision, 입력/출력·실패 조건, Platform Done 수용 사례를 적는다.
-3. 남은 Open 질문 중 그 범위를 실제로 막는 것만 추린다: Scope 부모·자식 상속 세부, SSO 프로토콜 정확한 사양, 시간 assertion 공급자, room_name 공개 URL 키 매핑, PPID/Recipe의 지표별 조인 범위. `11`/`12`의 Recipe 혼합 모집단 P95 문제와 `12`의 Module/Slot 노출은 **메뉴 레벨 Open 항목**으로 이미 각 문서에 기록돼 있다 — Kernel 작업의 선행조건이 아니다.
-4. 기술 Candidate는 위 범위에 필요한 것만 비교한다. 모델 합의나 기존 FeedbackOps 구현을 채택 승인으로 쓰지 않는다.
+## 다음 세션에서 할 일 — 이 프로토타입을 어떻게 할지 결정
 
-**다음 세션 산출물:** 첫 Kernel 작업 지시서 1개와 우선순위 있는 미결 질문 목록.
+**Decided는 구현 완료가 아니다.** 이 프로토타입은 로컬 round-trip 증명이며, work order가 명시한 대로 App Shell/Menu Registry/실제 SSO·DB/시간축/지표/메뉴 UI를 포함하지 않는다. 다음 세션은 의미 있는 다음 결정이 무엇인지부터 정한다:
+
+1. **먼저 확인**: `git status --short`, `main`이 여전히 `origin/main`과 일치하는지, 그리고 위 worktree/브랜치가 아직 존재하는지(`orca worktree list --repo id:2ac6391e-6480-46bd-9078-c0d3920f37b9 --json`). 다른 세션이 이미 처리했을 수 있다.
+2. **결정 필요**: 이 브랜치를 PR로 올려 사람이 리뷰할지, 이 위에서 계속 확장할지(App Shell/Menu Registry로 넓히기 전에), 아니면 Candidate 증명으로만 남기고 별도 구현에서 재작성할지 — 이건 사용자 판단이며 이번 세션은 임의로 push/PR까지 진행하지 않았다.
+3. **실제 서비스 채택 전 막는 질문 2개**(work order §"실제 차단 Open 질문"에 우선순위와 함께 기록됨, 재질문 금지):
+   - P0: 실제 `scopeId`→Site 연결·room grant를 누가 어떤 상속 규칙으로 공급하는가(도메인·인증 담당 지정 필요) — 이번 라운드에서 권한 밖 ID `not_found` vs `forbidden` 노출 정책도 이 항목에 합쳐졌다.
+   - P1: 후보 키/표식/Condition JSON 스키마를 공유 v1 계약으로 승인할 것인가(플랫폼 계약 담당 지정 필요).
+4. `room_name` Scope 축·EquipmentID 전역 유일·Condition/Selection 2계층은 이미 Decided이므로 다시 묻지 않는다.
 
 ## 남은 범위 (변경 없음)
 
-- **M5 — 실제 구현 때 적용:** 첫 코드 slice의 작업/PR 기록에 계약 원문 revision → 코드·schema → 실행한 테스트/환경/결과를 연결한다. 코드가 없는데 문서만으로 M5 완료라고 하지 않는다. Platform Done과 Domain Done을 따로 확인한다.
-- **M6 — 실제 변경 3건 이후 평가:** 아직 실행하지 않았다.
-- CFG의 메뉴 간 연계(§22)는 오늘도 **Deferred로 유지**했다 — 화면 연결만 미룬 것이고, Job 시작 시점 CFG 값을 붙일 식별·시간 정보 자체는 CONTEXT.md/01에 이미 반영했다.
+- **M5 — 실제 구현 때 적용:** 이 프로토타입이 M5를 만족하는지는 아직 판단하지 않았다 — 코드는 있지만 worktree 전용이고 PR/리뷰 기록이 없다. main에 반영할 때 계약 원문 revision → 코드 → 테스트 결과 연결을 다시 정리한다.
+- **M6 — 실제 변경 3건 이후 평가:** 아직 실행하지 않았다. 이 프로토타입은 M6가 요구하는 "실제 변경"에 해당하는지 다음 세션에서 판단한다(현재는 main 미반영이라 카운트하지 않는다).
+- CFG의 메뉴 간 연계(§22)는 Deferred로 유지.
 
 ## 이번 검증과 기록
 
-Astra의 자체 검증: 상대 링크/앵커 396개 통과, Markdown 구조 검사·`git diff --check` 통과. 내가 직접 스팟체크: `CONTEXT.md`(room_name/Module-Slot/CFG 항목), ADR-0002/0004/0005 전문, `docs/11`의 room_name Global Context 반영 — 모두 오늘 확정한 10개 결론과 정확히 일치함을 확인했다. 런타임/브라우저 검증은 대상이 없다(문서 전용 레포). 09-13 전체 문서의 문장 단위 전수 검토는 하지 않았다 — 이상 발견 시 개별 정정한다.
+각 라운드 worker의 `worker_done` 보고를 그대로 신뢰하지 않고, 코드·테스트·verification.log를 내가 직접 열람·재실행했다: Round 1 직후 11/11 pass 확인, Round 3 직후 14/14 pass + demo exit 0 확인, work order·compliance review 문서 본문을 전문 읽음. 원본 계약 문서 무변경은 Opus의 `git diff HEAD -- docs CONTEXT.md PLATFORM_REQUIREMENTS.md` 결과(diff 없음)와 내 `git status --short`로 이중 확인했다. 런타임/브라우저 검증 대상 없음(Python 스크립트·unittest만).
 
 ## 보존할 경계
 
-- Decided는 구현 완료가 아니다. 필드명/기술 Candidate, Scope 상속 세부·SSO 프로토콜 등 Open을 임의 결정하지 않는다. 자세한 상태는 각 원본 문단을 따른다.
+- Decided는 구현 완료가 아니다. 필드명/공개 스키마(Candidate), Scope 상속 세부·SSO 프로토콜·권한 밖 ID 노출 정책 등 Open을 임의 결정하지 않는다.
 - FeedbackOps gitlink `b5dd614ac8da3792cb1627e7daeffb8fc9c4944e` 및 독립 parser 책임을 유지한다.
-- GPT-6(Astra 포함), Grok 4.7을 사용한다. 호출 가용성은 실제 확인하며 과거 모델명은 고치지 않는다.
+- GPT-6(Astra 포함), Claude Opus 5.5, Grok 4.7을 사용한다. 호출 가용성은 실제 확인하며 과거 모델명은 고치지 않는다.
 - 역사 snapshot/외부 원본은 덮어쓰지 않는다. 문서 검증을 제품 런타임 검증으로 보고하지 않는다.
+- 이 프로토타입은 별도 worktree/브랜치에만 존재한다 — main의 Decided 상태를 바꾸지 않았다.
 
 ## 필요할 때만 읽는 기록
 
-[직전 HANDOFF(2026-09-23) 전체](.agents/reports/handoff-history-through-2026-09-24.md) · [1차 인터뷰(15문항)](docs/reviews/2026-09-24-equipment-routing-domain-interview.md) · [2차 인터뷰(리뷰 결론 10개)](docs/reviews/2026-09-24-equipment-routing-domain-interview-round-2.md) · [외부 리서치](docs/research/semiconductor-domain-2026-09-24/README.md) · [도메인 세션 원본 노트](.agents/reports/equipment-routing-domain-glossary-notes-2026-09-24.md)(authoritative 아님, CONTEXT.md/ADR이 반영 대상). 과거 지시와 미커밋 상태는 당시 기록이며 현재 요청과 Git 상태를 대체하지 않는다.
+[직전 HANDOFF(2026-09-24) 전체](.agents/reports/handoff-history-through-2026-09-25.md) · [2차 인터뷰(리뷰 결론 10개)](docs/reviews/2026-09-24-equipment-routing-domain-interview-round-2.md). Kernel work order 초안·compliance review·프로토타입은 main에 없다 — `hjung3113/kernel-context-url-scope` 브랜치의 `.agents/reports/kernel-work-order-context-url-scope-draft.md` · `-compliance-review.md` · `prototypes/kernel-context-url-scope/`에서 확인한다(파일 링크 아님, main 체크아웃에는 존재하지 않음). 과거 지시와 미커밋 상태는 당시 기록이며 현재 요청과 Git 상태를 대체하지 않는다.
