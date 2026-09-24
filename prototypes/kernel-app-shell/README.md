@@ -1,0 +1,71 @@
+# Kernel App Shell — Unit A
+
+**합성 fixture, 실제 메뉴 아님.** sample-overview / sample-analysis / sample-reference는 capability 차이를 검증하는 빈 라우트이며 업무 메뉴·업무 콘텐츠가 없다.
+
+이 프로토타입은 플랫폼 다섯 갈래 중 Kernel(App Shell/Menu Registry/Context/URL)과 메뉴간 Context 연결을 검증한다. Chart Frame, PlatformDataTable, DetailDrawer는 범위 밖이다.
+
+## 실행
+
+설치된 Node 26.7.0 / npm 11.19.0으로 검증했다. 이 디렉터리에서:
+
+```sh
+npm ci --cache .npm-cache --no-audit --no-fund
+npm run dev
+```
+
+http://127.0.0.1:5173/sample-analysis 를 연다. 최초 Scope는 선택되지 않는다. 헤더 Scope와 전역 room/Condition/Selection을 명시적으로 변경한 뒤 sidebar 또는 Search ⌘K 목록으로 이동한다. reference에서 `Not used on this page`, overview에서 Condition `Reference only`, analysis에서 `Supported · server validation pending`을 확인한다. 브라우저 back/forward는 URL 상태를 복원한다. Cmd+K(Ctrl+K도 지원), Escape, Tab으로 palette를 조작할 수 있다.
+
+- `Selection → Explicit empty set`은 부재와 다르며 미지원 페이지에서도 URL에 남는다.
+- Condition 변경은 고정 Selection을 바꾸지 않는다.
+- 실제 서버 요청·SSO·권한 승인은 없다. Supported는 capability 선언일 뿐, 검증·조회 완료가 아니다.
+- Help/User는 명시적인 자리 표시다. 검색 입력·인덱싱·조회는 없다.
+
+## Candidate 선택
+
+`docs/04_frontend_ui_ux.md`의 React + TypeScript + Tailwind 후보를 사용했다. 작은 독립 실행 디렉터리를 위해 Vite, 자동 DOM 검증에 Vitest/jsdom/Testing Library를 선택했다. Radix Dialog는 palette의 focus trap/Escape/초점 복귀에 사용한다. lockfile이 이번 검증 버전을 고정하며 production 채택 결정이 아니다.
+
+TanStack Router는 검토 대상이지만 이번 실험에서는 채택하지 않았다. 기존 codec의 반복 query 키·alias·opaque 보존을 그대로 검증하기 위해 Browser History와 단일 URL adapter만 사용한다. 라우트 중첩/loader/서버 캐시가 없는 빈 fixture 3개에 Query/Zustand를 추가하지 않았다. 이 선택은 원본 Candidate를 확정하거나 변경하지 않는다.
+
+## 구조와 codec 경계
+
+- `src/codec.ts`: 기존 `../kernel-context-url-scope/context_url.py`와 **95개 parity vector 범위 내 동등성이 검증된** 포팅. Python과 같은 원본 capability route를 유지한다.
+- `src/kernel.ts`: fixture 경로 ↔ 원본 codec 경로 adapter. 메뉴 이동만 extras를 제외하고 등록된 전역 Context는 모두 보존한다.
+- `src/registry.ts`: 식별자/그룹/이름/경로/아이콘, 필요 권한·Scope, 8개 Context capability, page type, 선택 기능 선언. requiredPermissions/requiredScope는 선언만 하며 Shell이 노출 판단에 소비하지 않는다. §5/§9 Permission-aware visibility의 클라이언트 구현은 이번 Unit 범위 밖(Deferred)이며 서버 권한 엔진과 별개인 후속 작업이다.
+- `src/App.tsx`: Shell이 sidebar/header/breadcrumb/global controls/palette를 소유한다. 페이지 등록으로 전역 renderer를 전달할 수 없다.
+- `src/PlatformPage.tsx`: 7개 required named slots(null 허용), `children?: never`, 런타임 exact-key 검사. content=null.
+- `src/slots.typecheck.tsx`: 직접 JSX 속성(children, header 등)과 누락 slot이 컴파일 오류라는 음성 검사. spread나 `data-*` 같은 우회는 타입 검사를 통과할 수 있으며 런타임 exact-key 검사가 막는다. TypeScript 구조 계약이며 임의 React portal/직접 DOM 조작까지 막는 보안 격리는 아니다.
+
+포팅은 기존 bounded codec처럼 room/Condition/Selection만 해석한다. 기간/from/to, Lot/Recipe/지표/anchor 등의 기존 outside-profile 키는 opaque 미적용으로 보존한다. 단독 from도 원본처럼 opaque이며 전체 생산 URL/시간 계약의 구현 완료를 뜻하지 않는다. 미래 v는 전체 거절한다. Scope URL은 권한 증명이 아니며 미지 Scope를 다른 값으로 대체하지 않는다. 실제 서버 검증/선택지 원천은 보류했다.
+
+**시간 지원 메뉴 추가 gate (M7):** `from`/`to`를 지원하는 메뉴를 추가하기 전에 §6.3/§6.4의 datetime 형식 검증(`Z` 접미사 거절, 한쪽만 있으면 오류)을 이 codec의 opaque 보존 경로에 실제로 적용해야 한다. 현재 profile과 모든 fixture는 time을 미지원으로 선언하며 조회가 없다. 이는 구현 범위의 Deferred이며, 시간 형식과 metricId+metricVersion 쌍 계약 자체는 이미 Decided다.
+
+## Known divergence (M1)
+
+[Compliance review](../../.agents/reports/kernel-work-order-app-shell-menu-registry-compliance-review.md)의 벡터 밖 탐침 결과를 기록한다. 아래 6개 유형은 95개 parity vector에 포함되지 않은 **known divergence**이며, 동등성 테스트의 기대값으로 편입하지 않았다. 빈 fragment 유형은 두 입력을 함께 적었다. 이번 라운드는 문서 정정만 수행하며 아래 탐침을 재실행하거나 codec 동작을 수정하지 않았다.
+
+| # | 입력/조건 | Python 원본 | TypeScript | 차이 분류 |
+| --- | --- | --- | --- | --- |
+| 1 | `/prototype/context?v=1#`, `/prototype/context#` (빈 fragment) | 허용 | `invalid_url` | TS가 더 엄격함 |
+| 2 | `///prototype/context?v=1` (urlsplit의 빈 netloc) | 허용 | `invalid_url` | TS가 더 엄격함 |
+| 3 | `a_b:foo` | `invalid_route` | `invalid_url` | 둘 다 거절; 오류 코드만 다름 |
+| 4 | equipmentGroup Condition의 `id`가 객체 `{"id":1}` | `invalid_id` | `invalid_condition` | 둘 다 거절; 오류 코드만 다름(TS 중복 key 탐지가 중첩 객체 key까지 셈) |
+| 5 | equipmentGroup Condition의 `id`가 `NaN` | `invalid_id` | `invalid_condition` | 둘 다 거절; 오류 코드만 다름(TS JSON.parse가 NaN 거절) |
+| 6 | Condition에 JSON 이스케이프 `\ud800` (짝 없는 서로게이트) | serialize에서 `UnicodeEncodeError` 발생(ContractError 아님) | 성공 | **Python 원본 결함**; TS가 더 엄격하거나 오류 코드만 다른 경우가 아님 |
+
+Shell은 `pathname+search`로 원본 codec 경로를 조립하므로 리뷰상 앞의 3개 유형은 앱 경로에서 발생하지 않는다. Python 서로게이트 버그는 [work order](../../.agents/reports/kernel-work-order-app-shell-menu-registry-draft.md)의 사용자 확인 #7에 별도 수정 필요로 기록했다. 기존 Python 파일은 수정하지 않았으며 전체 입력 공간의 동등성을 주장하지 않는다.
+
+## 검증
+
+```sh
+npm ci --cache .npm-cache --no-audit --no-fund
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/generate-parity.py
+npm run typecheck
+npm test
+npm run build
+```
+
+Python 생성기는 원본 codec를 읽기 전용으로 실행해 95개 정상/오류 벡터를 만든다. 테스트는 canonical 문자열, 오류 코드 우선순위, 모든 Condition 축, 공집합/부재, Unicode code point 정렬, 중복 JSON 키, 별칭, 미등록/opaque 필드, 목적지 ID 분리까지 대조한다. 109개 테스트(95 parity + 1 constructed-state + 12 Shell + 1 canonical token 대조)가 통과하며 typecheck는 3개 음성 타입 사례를 포함한다. 실제 명령과 출력은 `verification.log`에 있다.
+
+이번 문서 정정 라운드에서 npm ci, parity 생성, typecheck, 자동 DOM/키보드 테스트, build를 재실행했다. 개발 서버 HTTP smoke는 이전 구현 라운드에서 수행했으며 이번에는 재실행하지 않았다. 실제 브라우저 시각 검토·production 권한/데이터 연동은 수행하지 않았다. 데이터 조회가 없으므로 loading/조회 empty/계산 기준시각을 꾸며내지 않는다.
+
+원본 revision과 §29 수용 범위, **사용자 확인 필요 8개**는 [work order](../../.agents/reports/kernel-work-order-app-shell-menu-registry-draft.md)에 모았다. 원본 계약 문서와 기존 Python 프로토타입은 수정하지 않았다.

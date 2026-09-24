@@ -1,0 +1,82 @@
+Unit A compliance-response verification; synthetic fixtures only, no production server/auth validation.
+Run at: 2026-09-24T16:00:22.645768+00:00
+Source revision: 10f270dc58e1b8b03aa4743f55a70848ebc4fbe4
+HTTP smoke and visual browser review not rerun in this documentation-only round.
+
+$ node --version
+v26.7.0
+
+exit=0
+
+$ npm --version
+11.19.0
+
+exit=0
+
+$ npm ci --cache .npm-cache --no-audit --no-fund
+npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+
+added 154 packages in 799ms
+npm warn install-scripts 2 packages have install scripts not yet covered by allowScripts:
+npm warn install-scripts   esbuild@0.28.2 (postinstall: node install.js)
+npm warn install-scripts   fsevents@2.3.3 (install: (install scripts present))
+npm warn install-scripts
+npm warn install-scripts Run `npm install-scripts ls` to review, or `npm install-scripts approve <pkg>` to allow.
+
+exit=0
+
+$ python3 -B scripts/generate-parity.py
+Generated 95 vectors from unchanged Python codec
+
+exit=0
+
+$ npm run typecheck
+
+> kernel-app-shell-fixture@0.0.0 typecheck
+> tsc --noEmit
+
+
+exit=0
+
+$ npm test
+
+> kernel-app-shell-fixture@0.0.0 test
+> vitest run
+
+
+ RUN  v3.2.7 /Users/hyojung/orca/workspaces/analytics-platform/kernel-context-url-scope/prototypes/kernel-app-shell
+
+ ✓ src/codec.test.ts (96 tests) 14ms
+ ✓ src/tokens.test.ts (1 test) 2ms
+ ✓ src/App.test.tsx (12 tests) 143ms
+
+ Test Files  3 passed (3)
+      Tests  109 passed (109)
+   Start at  01:00:24
+   Duration  526ms (transform 67ms, setup 0ms, collect 166ms, tests 158ms, environment 431ms, prepare 98ms)
+
+
+exit=0
+
+$ npm run build
+
+> kernel-app-shell-fixture@0.0.0 build
+> tsc --noEmit && vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+node_modules/@radix-ui/react-dialog/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-dialog/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-portal/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-portal/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-focus-scope/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-focus-scope/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-presence/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-presence/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-focus-guards/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-focus-guards/dist/index.mjs" was ignored.
+✓ 88 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.40 kB │ gzip:  0.32 kB
+dist/assets/index-DDMXtMQP.css    6.40 kB │ gzip:  2.22 kB
+dist/assets/index-oSvvGH3K.js   276.25 kB │ gzip: 87.41 kB
+✓ built in 412ms
+
+exit=0
