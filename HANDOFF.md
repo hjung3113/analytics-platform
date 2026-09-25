@@ -1,95 +1,96 @@
-# Handoff — 2026-09-25 Kernel + 플랫폼 공통 3갈래 프로토타입, 프론트엔드 스택 Decided
+# Handoff — 2026-09-25 플랫폼 다섯 갈래 전부 병합 (PR #4-9)
 
 ## 현재 상태
 
-`main`은 커밋 `044de58`, `origin/main`과 일치, 작업 트리 clean. **이번 세션의 코드 산출물(프로토타입 4개)은 main이 아니라 별도 Orca worktree/브랜치에 있다** — 아직 PR·머지·push 여부를 결정하지 않았다.
+`main`은 커밋 `b4eaca6`, `origin/main`과 일치, 작업 트리 clean. 이번 세션에 시작했던 `hjung3113/kernel-context-url-scope` 브랜치(직전 handoff가 "운명을 먼저 결정하라"고 했던 그 브랜치)를 포함해 **이번 세션의 모든 코드 산출물이 PR #4-9로 main에 병합 완료**됐다. worktree 전용 미병합 상태는 더 이상 없다.
 
-- **worktree**: `/Users/hyojung/orca/workspaces/analytics-platform/kernel-context-url-scope` (Orca worktree id `2ac6391e-6480-46bd-9078-c0d3920f37b9::/Users/hyojung/orca/workspaces/analytics-platform/kernel-context-url-scope`)
-- **branch**: `hjung3113/kernel-context-url-scope`, base `41067ab`(main보다 3커밋 뒤처짐 — 아래 참고), **origin에 push 안 함**
-- **로컬 커밋 4개** (모두 이 세션, Astra↔Opus 교차 검토 완료):
-  1. `10f270d` — Context/URL/Scope codec (Python, `prototypes/kernel-context-url-scope/`, 14 tests)
-  2. `479699c` — Unit A: App Shell + Menu Registry (React/TS, `prototypes/kernel-app-shell/`, 109 tests)
-  3. `f8aa5ad` — Unit B: Analysis Chart Frame (React/TS + ECharts, `prototypes/kernel-chart-frame/`, 23 tests)
-  4. `bb36929` — Unit C: PlatformDataTable + DetailDrawer (React/TS + TanStack, `prototypes/kernel-platform-table/`, 5 vitest + Playwright)
-- **주의**: 이 브랜치는 `41067ab` 기준이라 main의 최근 3커밋(핸드오프 갱신 2건 + 프론트엔드 스택 Decided)을 반영하지 못한다. 특히 Unit A work order의 "production router/state/UI stack 채택" 확인 항목은 이제 main에서 **Decided로 해소됐다** — 이 브랜치를 다시 열 때 그 사실을 work order에 반영하거나, 최소한 main을 rebase/merge해서 동기화한다.
+- **병합된 PR 6개**(전부 `--merge`, 2-parent merge commit, 기존 PR #1-3 컨벤션과 동일):
+  - **#4** (`e868660`) — Kernel codec + Unit A/B/C 프로토타입(직전 handoff가 넘겨준 브랜치)를 main과 동기화 후 PR로 올려 리뷰·병합
+  - **#5** (`7f86127`) — Unit A 디자인 시스템 이식(Tailwind v4 + FeedbackOps shadcn)
+  - **#6** (`9411ef2`) — Unit B 디자인 시스템 이식
+  - **#7** (`61fc70a`) — Unit C 디자인 시스템 이식
+  - **#8** (`8249774`) — Cross-menu Context Link(§22)
+  - **#9** (`b4eaca6`) — 5 Page Archetypes(§12)
+- **정리 안 된 worktree 6개**(모두 병합 완료라 삭제해도 안전하지만, 이번 세션에서 지우지 않았다 — 다음 세션에서 필요 없으면 정리): `kernel-context-url-scope`, `platform-design-system-port`(Unit A), `design-system-port-unit-b`, `design-system-port-unit-c`, `cross-menu-context-link`, `page-archetypes`. 전부 `/Users/hyojung/orca/workspaces/analytics-platform/`에 있다.
 
 ## 이번 세션 전체 요약
 
-1. **핸드오프 로테이션 마무리**(`41067ab`): 직전 세션이 커밋 안 한 HANDOFF/INDEX 갱신 정리.
-2. **Kernel 첫 단위 — Context/URL/Scope codec**: Astra→Opus→Astra 3라운드. room_name Scope + Equipment Group Condition/Selection 2계층의 URL 왕복을 Python으로 증명(14 tests). Claude 아티팩트로도 재현해 공개: [Scope Contract Console](https://claude.ai/artifact/UCcdxht21KCBvwc7REvKrE) — 실제 codec 로직을 JS로 포팅한 인터랙티브 콘솔.
-3. **사용자가 이후 범위를 "플랫폼 공통 갈래만(메뉴 화면 제외)"로 확정** — AGENTS.md "메뉴 3개 이상 연속 제작 전 범위 확인" 가드레일에 따라 `AskUserQuestion`으로 먼저 확인받음.
-4. **플랫폼 공통 3개 Unit을 동일한 Astra(draft)→Opus(compliance-only)→Astra(fix) 루프로 순차 실행**(`orca orchestration`, Run `run_1aabb0c30482`). 매 라운드 결과를 내가 직접 재실행해 검증(worker 자체 보고를 신뢰하지 않음):
+**오케스트레이션 패턴**(사용자 지시, 6개 PR 전부 동일하게 적용): 설계·구현은 **Opus 5.5**(`claude-opus-5-5`, effort high, `orca orchestration worker-start`), 리뷰는 **Codex Astra medium**(`gpt-6-astra`)과 **Grok 4.7 max**(`grok-4.7`, reasoning-effort max, `terminal create` + `dispatch --inject`로 저수준 디스패치 — worker-start가 model/effort를 못 넘기는 provider라서) 중 하나 이상, blocking/minor 발견 시 **OMP + GLM-5.3-Flash-Max**(`omp --model glm-5.3-flash --thinking max`)가 보강. 매 라운드 `worker_done` 자체 보고를 신뢰하지 않고 **coordinator(나)가 diff를 직접 읽고 테스트를 직접 재실행**해서 검증 — 이 패턴으로 실제 버그 2건을 self-report 통과 후에 잡아냈다(아래).
 
-   | Unit | 내용 | Opus 1차 판정 | 발견·조치 |
-   | --- | --- | --- | --- |
-   | A — App Shell + Menu Registry | codec를 TS로 이식(Python 대비 95개 parity vector 교차검증), §8 named Shell Slots를 타입 수준으로 강제, 합성 fixture 3개 | PASS-WITH-MINOR(0 blocking/8 minor) | 상태 라벨 오표기(Decided→Open 오기) 정정, **Python 원본의 Unicode 서로게이트 버그 발견**(수정은 범위 밖) |
-   | B — Analysis Chart Frame | 실제 Apache ECharts 6.1.0 SVG SSR, Toolbar 7종, 4층 상태 분리 | PASS-WITH-MINOR(0 blocking/9 minor) | **실버그 2건 수정**: Empty 오분류, Compare 시 주석 중복 렌더 |
-   | C — PlatformDataTable + DetailDrawer | TanStack Table/Virtual, 실제 Playwright/Chromium, 2000행 합성 서버 | **FAIL(1 blocking/5 minor)** | "13 tests PASS" 주장이 재현 안 됨(내 재실행 4번 중 1번 실패) → Opus가 `useEffect` loading 타이밍 결함까지 근본 원인 진단 → Astra가 동기 파생 상태로 수정, 15+8회 연속 무실패로 재확인 |
+1. **PR #4 — 이전 세션이 넘긴 미병합 브랜치 처리**. main을 `41067ab`→`68df7a8`로 rebase(파일 경로 안 겹쳐서 충돌 없음), Unit A work order의 "production stack 채택" 항목을 방금 Decided된 프론트엔드 스택 문서에 맞춰 정리(단 실제로는 TanStack Router/Query/Zustand 대신 Browser History + 자체 adapter를 쓴다는 divergence를 있는 그대로 기록). Astra medium 리뷰 1건(PASS-WITH-MINOR, 표 형식 깨짐 1건 자체 수정), Astra medium + Grok 4.7 max 2차 리뷰(PR 본문·전체 diff 대상, 둘 다 PASS-WITH-MINOR) → **Grok이 진짜 코드 버그 발견**: `App.tsx`에서 다중/미지 Selection을 표시하는 `'__inherited'` sentinel을 사용자가 재선택하면 실제 상태가 리터럴 문자열로 덮어써지는 문제. OMP가 sentinel을 no-op 가드로 수정, 회귀 테스트 추가(수정 전 코드로 되돌려 실패 재현 후 복구해서 검증).
+2. **PR #5-7 — 디자인 시스템 이식**. 3개 Unit(A/B/C)을 **별도 worktree 3개에서 병렬로 Opus 5.5 디스패치**(worktree를 분리한 이유: 같은 워크트리에 여러 에이전트를 동시에 넣으면 git index/node_modules/포트가 충돌한다). FeedbackOps(`products/feedbackops` 서브모듈, `b5dd614`)의 shadcn 컴포넌트·cn()·토큰을 **복사**(런타임 import 아님, 서브모듈 경계 유지)하고 Tailwind v3 preset→v4 `@theme` 블록으로 마이그레이션. Astra medium(Unit A) → **FAIL 발견**: Radix Select의 "선택 안 됨" sentinel(`'__absent'`)이 우연히 같은 문자열인 실제 opaque scopeId와 충돌해 두 옵션이 동시에 checked로 표시되고 클리어가 안 되는 버그(앞선 `__inherited` 버그와 같은 클래스 — 고정 sentinel 문자열이 opaque 실데이터 공간과 겹칠 수 있다는 패턴이 이 세션에서 2번 나왔다). OMP가 렌더링마다 실제 값과 충돌하지 않을 때까지 sentinel을 동적으로 늘리는 방식으로 수정. Grok 4.7 max(Unit B/C)는 둘 다 clean PASS(Unit C는 Playwright 5회 연속 재실행까지 직접 수행).
+3. **PR #8 — Cross-menu Context Link(§22)**. **핵심 발견**: codec(`codec.ts`, Python 원본 이식)이 이미 `route='equipment'`+`destination`+`contextLink()`를 갖고 있었고 destination ID를 URL 경로 세그먼트로 인코딩해 Selection 쿼리 파라미터와 구조적으로 분리해뒀다 — §22가 요구하는 "목적지 ID로 출발 설비 선택을 안 바꾼다"가 이미 codec 레벨에서 증명돼 있었다(codec.test.ts). 이번 작업은 이 기존 능력을 Unit A App Shell UI에 연결하는 것만 했다(`codec.ts` 자체는 무변경). Opus 5.5가 `/equipment/{id}` 라우팅, "Open detail" 액션, 진입 직전 origin URL을 비등록 쿼리 키(`returnTo`)로 실어보내는 Back 복원, 외부/프로토콜 상대/다른 detail로의 루프/중복 키를 거부하는 `returnTarget()` 검증을 구현. Astra medium 리뷰: **clean PASS**, 자체적으로 sentinel/encoded-destination 36조합 + invalid return target 10개를 추가로 탐침.
+4. **PR #9 — 5 Page Archetypes(§12)**. §12 원문이 Overview·Analysis Workspace 목록에만 "Page Header/Global Context/Data Trust"를 적어놔서 나머지 3개(Management/Catalog/Workflow)는 뭘 의미하는지 모호했다 — **Opus 5.5가 §6 Context Capability Contract의 예시 표**(Equipment Master/Metric Catalog/VOC도 "Not used on this page" 같은 inherited Context 미지원 표시를 한다)**를 근거로 5개 전부 이 3가지를 Shell-level(§8/§11)로 취급**하고 자체 region으로 안 갖는다고 판단, 커밋 메시지에 근거를 남겼다. `PlatformPage.tsx`와 같은 exact-key 강제 패턴을 `defineArchetype` 팩토리 하나로 5번 적용. 기존 3개 fixture 메뉴(Overview/Analysis/Catalog pageType)에 연결(Management/Workflow는 컴포넌트·타입 테스트로만 증명, 새 메뉴 미추가). Grok 4.7 max 리뷰: PASS-WITH-MINOR — 해석 판단에 독립 동의(§7/§14/§18/`docs/09`까지 추가 근거 제시) + **CSS 버그 발견**: 1024-1439px 드로어가 `position:fixed; inset-y-0`라 Shell 헤더·Global Context를 뷰포트 최상단부터 덮음. OMP가 `sticky top-0`로 교체(정상 문서 흐름 위치라 스크롤해야 고정되므로 header 안 덮임), 실제 컴파일된 Tailwind CSS를 vitest에서 검사해 증명. `aria-label` 문구도 §12 원문(대소문자·구두점)에 맞춤(14개 수정).
+5. **플랫폼 다섯 갈래 전부 완료**: Kernel(#4) / 공통 컴포넌트(#4-7) / 차트 계약(#4·#6) / 메뉴간 연결(#8) / 레이아웃(#9). AGENTS.md의 "메뉴 3개 이상 연속 제작 전 범위 확인" 가드레일을 지켰다 — 메뉴 화면 0개 제작, 이번 세션 내내 전부 플랫폼 공통 갈래 작업.
 
-5. **원본 계약 문서는 4개 커밋 내내 무변경** — 매 라운드 Opus가 `git diff`로 확인, 나도 재확인. 메뉴 화면은 0개 제작.
-6. **프론트엔드 기술 스택 결정**(`ae50326`~`044de58`, main): FeedbackOps(`products/feedbackops`)의 실사용 비-백엔드 스택을 채택 — React+TS+Vite, TanStack Router/Query, Zustand, react-hook-form+zod, lucide-react, sonner, cmdk, Playwright+Vitest. **UI 컴포넌트는 FeedbackOps `packages/ui/src/components/shadcn/`의 실제 shadcn/ui 컴포넌트 22개+`cn()` 헬퍼를 이식**(FeedbackOps가 shadcn 패턴만 흉내낸 게 아니라 실제 소스를 커스터마이즈해 썼음을 코드로 확인). 예외 2가지: 스타일링은 FeedbackOps의 Tailwind v3가 아니라 **v4**로(FeedbackOps 자체는 소급 변경 안 함), 테이블/차트는 FeedbackOps에 선례가 없어 이 세션에서 검증한 **TanStack Table+Virtual / Apache ECharts**를 그대로 채택. `docs/04`(Decided 섹션 신설)·`docs/06` §13·`PLATFORM_REQUIREMENTS.md` 체크리스트 3곳에 반영.
+## 사용자 확인 필요 — 15개 + 버그 1건 (변경 없음, 이번 세션에서 새로 해소된 항목 없음)
 
-## 사용자 확인 필요 — 16개 (기술 스택 3개는 해소됨, 재질문 대상 아님)
-
-각 항목의 원문·근거는 브랜치의 해당 Unit work order에 있다. **이미 Decided인 사항은 여기 없다.**
+각 항목의 원문·근거는 `.agents/reports/kernel-work-order-*-draft.md`(main에 없음 — 병합 전 브랜치에만 있던 리뷰 기록, 필요하면 `git log`로 옛 커밋에서 찾는다)와 아래 요약에 있다. **이미 Decided인 사항(기술 스택, App 스택의 실제 divergence 등)은 여기 없다.**
 
 **인증/권한**
-- 실제 SSO·서버 권한/Scope 재검증 연동 (Unit A #1, Unit C #1)
-- Scope 선택지의 실제 데이터 원천과 계층 상속 규칙 (Unit A #2)
-- Registry의 requiredPermissions/requiredScope를 Shell이 소비해 메뉴 노출을 판단할지 (Unit A #8, Deferred)
-- 권한 밖 EquipmentID를 `not_found`와 `forbidden`으로 구분해 노출할지 — 같은 Site DB enumeration 위험, 06이 정의하지 않음; 보안·권한 정책 담당자 지정 필요 (Context/URL/Scope codec P0)
+- 실제 SSO·서버 권한/Scope 재검증 연동
+- Scope 선택지의 실제 데이터 원천과 계층 상속 규칙
+- Registry의 requiredPermissions/requiredScope를 Shell이 소비해 메뉴 노출을 판단할지 (Deferred)
+- 권한 밖 EquipmentID를 `not_found`와 `forbidden`으로 구분해 노출할지 — 같은 Site DB enumeration 위험, 06이 정의하지 않음; 보안·권한 정책 담당자 지정 필요
 
 **UX 정책**
-- Condition 편집 시 기존 Selection 처리 UX (Unit A #4 — §6.4가 Candidate로 지정한 것, 구현 시 확정 필요)
-- Chart Selection Summary 안의 Pan/Brush/Apply 배치 정리 (Unit B #5)
-- Zoom-out/viewport 복귀를 Toolbar vocabulary에 넣을지 (Unit B #6)
-- 필터 변경 후 결과 밖으로 벗어난 행의 선택을 유지·표시할지 (Unit C #5)
+- Condition 편집 시 기존 Selection 처리 UX (§6.4가 Candidate로 지정)
+- Chart Selection Summary 안의 Pan/Brush/Apply 배치 정리
+- Zoom-out/viewport 복귀를 Toolbar vocabulary에 넣을지
+- 필터 변경 후 결과 밖으로 벗어난 행의 선택을 유지·표시할지
 
 **후속 구현 범위(Deferred)**
-- 전역 검색 인덱스·Command Palette 실검색 (Unit A #3)
-- 기간·지표 등 profile 밖 Context의 이 codec 구현 범위 — 계약은 Decided, 시간 지원 메뉴 전 반드시 닫아야 함 (Unit A #6)
-- Annotation 영구 저장·권한·Audit·편집 모델 (Unit B #2)
-- Export 실제 포맷·범위·권한 (Unit B #3, Unit C #3)
-- DetailDrawer의 실제 Audit 데이터 연동 (Unit C #4)
+- 전역 검색 인덱스·Command Palette 실검색(cmdk 미도입 — Decided 스택 항목이지만 아직 이식 안 함)
+- 기간·지표 등 profile 밖 Context의 codec 구현 범위 — 계약은 Decided, 시간 지원 메뉴 전 반드시 닫아야 함
+- Annotation 영구 저장·권한·Audit·편집 모델
+- Export 실제 포맷·범위·권한
+- DetailDrawer의 실제 Audit 데이터 연동
+- 사이드바 자동 collapse(1024-1439px) — Page Archetypes 반응형 작업에서 수동 토글만 구현, 자동 collapse는 미착수(PR #9)
 
 **아키텍처 — 의도적으로 지금 결정하지 않음**
-- Chart Interaction Contract를 공통 Frame으로 승격할지 — §14 Promotion Rule(2번째 consumer 전까지 승격 안 함)에 따라 Deferred (Unit B #4)
+- Chart Interaction Contract를 공통 Frame으로 승격할지 — §14 Promotion Rule(2번째 consumer 전까지 승격 안 함)에 따라 Deferred
+- CFG의 다른 메뉴와의 Context Link 연계(§22) — Deferred 유지
 
 **공개 URL 계약**
-- 공개 URL 후보 키/표식/Condition JSON 별칭 이행과 공유 스키마 형식 승인 — 플랫폼 계약 담당자 지정 필요 (Context/URL/Scope codec P1, 06 §6.1/6.4, Requirements OQ7)
+- 공개 URL 후보 키/표식/Condition JSON 별칭 이행과 공유 스키마 형식 승인 — 플랫폼 계약 담당자 지정 필요 (06 §6.1/6.4, Requirements OQ7)
 
-**버그(결정 아님, 별도 수정 필요)**
-- Python codec(`prototypes/kernel-context-url-scope/context_url.py`)의 Unicode 서로게이트 처리 버그 — `\ud800`류 Condition 입력 시 `ContractError` 대신 `UnicodeEncodeError`로 죽음.
+**버그(결정 아님, 별도 수정 필요, 여전히 미수정)**
+- Python codec(`prototypes/kernel-context-url-scope/context_url.py`)의 Unicode 서로게이트 처리 버그 — `\ud800`류 Condition 입력 시 `ContractError` 대신 `UnicodeEncodeError`로 죽음. 작고 독립적이라 아무 때나 스케줄 가능.
 
 ## 다음 세션 추천 작업
 
 우선순위 순:
 
-1. **가장 먼저 결정할 것 — 이 브랜치의 운명.** PR로 올려 리뷰할지 / 계속 이 위에 쌓을지 / Candidate 증명으로만 남기고 재작성할지. 이후 모든 작업이 이 결정에 갈린다.
-2. **(계속 쌓기로 하면) 자연스러운 다음 작업 — Decided 디자인 시스템 이식.** Unit A/B/C는 지금 손으로 짠 CSS/Tailwind를 쓴다. 방금 Decided된 FeedbackOps shadcn 컴포넌트 22개 + 토큰(ADR-0021)을 이식해서 세 프로토타입을 실제 디자인 시스템 위로 옮기는 게 다음으로 자연스럽다 — 새 Unit을 여는 게 아니라 기존 3개를 정합시키는 작업이라 범위가 명확하고, Unit A work order의 "production stack 채택" 확인 항목도 이걸로 자동 해소된다.
-3. **Python Unicode 버그 수정** — 작고 독립적, 아무 때나 스케줄 가능.
-4. **다섯 갈래 중 미착수 2개**: 메뉴간 연결(Cross-menu Context Link, §22), 레이아웃(5개 Page Archetype). 둘 다 지금 있는 Kernel/Component 위에서 검증 가능하지만, **디자인 시스템 이식이 먼저 끝난 뒤** 하는 게 낫다 — 안 그러면 새 화면을 두 번 다시 만드는 꼴이 된다.
-5. 메뉴 화면 실제 제작은 여전히 다음 순서가 아니다(AGENTS.md 가드레일 — 착수 전 범위를 사용자와 다시 확인).
+1. **플랫폼 다섯 갈래가 전부 끝났다 — 다음 자연스러운 단계는 실제 메뉴 화면 제작이다.** 단 AGENTS.md 가드레일에 따라 **메뉴 3개 이상 연속 제작 전 사용자에게 범위(왜 이 개수가 필요한지)를 먼저 확인**해야 한다. 어떤 메뉴부터(Equipment Master/Occupancy Analysis/Wafer Journey/Metric Catalog/VOC 등 `docs/02_domain_menus.md` 후보 중) 시작할지, 몇 개를 한 세션에 만들지 사용자와 먼저 정한다.
+2. **작은 후속들 — 스케줄 유연**: Python Unicode 버그 수정(독립적, 작음), cmdk 도입(Command Palette 실검색, Decided 스택 항목인데 아직 이식 안 함), 사이드바 자동 collapse.
+3. 위 "사용자 확인 필요" 15개 항목은 실제 메뉴 구현 착수 전에 관련된 것부터 순서대로 닫는 게 자연스럽다(전부 한 번에 결정할 필요는 없음 — 막는 항목만).
+4. worktree 6개(위 "현재 상태" 참고)는 전부 병합 완료라 정리해도 안전하다 — 필요 없으면 다음 세션에서 지운다(이번 세션은 지우지 않았음).
 
-## 남은 범위 (변경 없음)
+## 남은 범위 (갱신)
 
-- **M5 — 실제 구현 때 적용:** 4개 프로토타입이 M5를 만족하는지 아직 판단 안 함(worktree 전용, PR/리뷰 기록 없음). main 반영 시 계약 원문 revision → 코드 → 테스트 결과 연결을 정리한다.
-- **M6 — 실제 변경 3건 이후 평가:** 아직 실행 안 함(main 미반영이라 카운트 안 함).
-- CFG의 메뉴 간 연계(§22)는 Deferred 유지.
+- **M5 — 실제 구현 때 적용:** 6개 PR 전부 계약 원문 §번호 → 코드 → 테스트 결과를 연결해 기록했다(PR 본문·커밋 메시지). 실제 업무 메뉴 구현 시에도 같은 패턴을 유지한다.
+- **M6 — 실제 변경 3건 이후 평가:** 이번 세션에서 6개 PR이 병합됐으니 트리거 조건은 이미 여러 번 넘었다 — 다음 세션 시작 시 M6 평가를 한 번 돌리는 걸 고려한다(정확한 M6 정의는 `docs/05_roadmap_and_open_questions.md` 참고, 이번 세션에서 직접 확인 안 함).
+- CFG의 메뉴 간 연계(§22)는 Deferred 유지(변경 없음).
 
 ## 이번 검증과 기록
 
-매 Unit·매 라운드 `worker_done` 보고를 그대로 신뢰하지 않고 직접 재실행: Unit A 109 tests, Unit B 23 tests, Unit C 5 vitest + Playwright(최종 15+8=23회 연속 무실패) 모두 로컬 재확인. Unit C는 내 재실행이 Astra의 최초 "13 tests PASS" 주장과 다른 결과(4번 중 1번 실패)를 내어 Opus 리뷰 지시에 명시 포함시켰고, Opus가 근본 원인(loading state race)을 확정했다. 원본 계약 문서 무변경은 매 라운드 `git diff`로 이중 확인. 브라우저 실사용(수동 시각 검토)은 4개 프로토타입 모두 미실행 — 각 README에 명시.
+6개 PR 전부 동일한 원칙: **worker_done 자체 보고를 신뢰하지 않고 diff를 직접 읽고 테스트를 직접 재실행**. 구체적으로 —
+- PR #4: rebase 후 Python 14/14, Unit A 109/109(→112/112 버그 수정 후)+typecheck+build, Unit B 23/23+typecheck+build, Unit C 5/5+Playwright 9/9×6회 연속 직접 재실행. Astra medium의 2차 리뷰가 Playwright 러닝 카운트("15+8회")의 근거 수준(커밋된 로그 vs coordinator 세션 보고)을 지적해 PR 본문을 정정.
+- PR #5-7: Unit A 112→113(버그 수정)→121(§22)→151(§12) 순으로 누적 테스트 수 증가, 매 단계 직접 재실행. Unit C는 Playwright를 **로컬 브라우저 경로 문제**(이 저장소는 `PLAYWRIGHT_BROWSERS_PATH=.browsers`로 워크트리 로컬에 브라우저를 설치하는데, 새 워크트리에는 없어서 처음엔 전부 실패로 보였다 — `PLAYWRIGHT_BROWSERS_PATH` 없이 설치했던 게 원인, 재설치 후 5회 연속 정상) 직접 겪고 해결한 뒤 5+10회(리뷰 포함) 연속 무실패 확인.
+- PR #8: App.tsx의 `__inherited`·`__absent` 두 sentinel 버그를 각각 "수정 전 코드로 되돌려 새 회귀 테스트가 실제로 실패하는지"까지 직접 재현해서 수정을 검증(자기 자신을 믿지 않는 이중 확인).
+- PR #9: 리뷰가 지적한 CSS 드로어 오버레이 버그를 OMP가 실제 컴파일된 Tailwind 출력에서 클래스가 사라졌는지/새 클래스가 생겼는지까지 vitest로 검사하도록 지시해 "소스 코드 class 이름만 바뀌고 실제 동작은 그대로"인 가짜 수정을 배제했다.
+
+원본 계약 문서(`docs/06_platform_ui_contract.md` 등)는 6개 PR 전부 `git diff`로 무변경 확인. FeedbackOps 서브모듈(`products/feedbackops`)은 매번 `git diff -- products/feedbackops`로 gitlink 고정(`b5dd614`) 확인, 자체 코드 소급 변경 없음. 브라우저 실사용(수동 시각 검토)은 이번 세션도 전부 미실행 — 각 PR 본문에 명시.
 
 ## 보존할 경계
 
-- Decided는 구현 완료가 아니다. 위 16개 확인 항목을 임의로 결정하지 않는다.
-- FeedbackOps gitlink `b5dd614ac8da3792cb1627e7daeffb8fc9c4944e` 및 독립 parser 책임을 유지한다. FeedbackOps 자체 코드(Tailwind v3 등)는 이번 결정으로 소급 변경하지 않았다.
-- GPT-6(Astra 포함), Claude Opus 5.5, Grok 4.7을 사용한다. 호출 가용성은 실제 확인하며 과거 모델명은 고치지 않는다.
+- Decided는 구현 완료가 아니다. 위 15개 확인 항목을 임의로 결정하지 않는다.
+- FeedbackOps gitlink `b5dd614ac8da3792cb1627e7daeffb8fc9c4944e` 및 독립 parser 책임을 유지한다. FeedbackOps 자체 코드(Tailwind v3 등)는 이번 세션 어떤 PR에서도 소급 변경하지 않았다.
+- GPT-6(Astra 포함, `gpt-6-astra`), Claude Opus 5.5(`claude-opus-5-5`), Grok 4.7(`grok-4.7`), GLM-5.3-Flash(`glm-5.3-flash`, via OMP)를 사용했다. 호출 가용성은 실제 확인하며 과거 모델명은 고치지 않는다.
 - 역사 snapshot/외부 원본은 덮어쓰지 않는다. 문서 검증을 제품 런타임 검증으로 보고하지 않는다.
-- 4개 프로토타입은 별도 worktree/브랜치에만 존재한다 — main의 Decided 상태를 바꾸지 않았다.
-- AGENTS.md "메뉴 3개 이상 연속 제작 전 범위 확인" 가드레일을 지켰다(메뉴 화면 0개 제작, 사전에 `AskUserQuestion`으로 범위 확정).
+- AGENTS.md "메뉴 3개 이상 연속 제작 전 범위 확인" 가드레일을 지켰다 — 이번 세션 메뉴 화면 0개 제작.
+- 병렬 오케스트레이션은 반드시 **워크트리를 분리**해서 돌렸다(같은 워크트리에 여러 에이전트를 동시에 넣지 않음 — git index/node_modules/dev 서버 포트 충돌 방지).
 
 ## 필요할 때만 읽는 기록
 
-[직전 HANDOFF(2026-09-24) 전체](.agents/reports/handoff-history-through-2026-09-25.md) · [2차 인터뷰(리뷰 결론 10개)](docs/reviews/2026-09-24-equipment-routing-domain-interview-round-2.md) · [Scope Contract Console 아티팩트](https://claude.ai/artifact/UCcdxht21KCBvwc7REvKrE). 4개 Unit의 work order·compliance review·프로토타입은 main에 없다 — `hjung3113/kernel-context-url-scope` 브랜치의 `.agents/reports/kernel-work-order-*-draft.md` / `-compliance-review.md`와 `prototypes/kernel-*/`에서 확인한다(파일 링크 아님, main 체크아웃에는 존재하지 않음). 과거 지시와 미커밋 상태는 당시 기록이며 현재 요청과 Git 상태를 대체하지 않는다.
+[직전 HANDOFF(2026-09-25 오전) 전체](.agents/reports/handoff-history-through-2026-09-25-b.md) · [2차 인터뷰(리뷰 결론 10개)](docs/reviews/2026-09-24-equipment-routing-domain-interview-round-2.md) · [Scope Contract Console 아티팩트](https://claude.ai/artifact/UCcdxht21KCBvwc7REvKrE) · 병합된 PR: [#4](https://github.com/hjung3113/analytics-platform/pull/4) [#5](https://github.com/hjung3113/analytics-platform/pull/5) [#6](https://github.com/hjung3113/analytics-platform/pull/6) [#7](https://github.com/hjung3113/analytics-platform/pull/7) [#8](https://github.com/hjung3113/analytics-platform/pull/8) [#9](https://github.com/hjung3113/analytics-platform/pull/9). 과거 지시와 미커밋 상태는 당시 기록이며 현재 요청과 Git 상태를 대체하지 않는다.
