@@ -6,12 +6,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from './components/shadcn/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/shadcn/select';
 import { ContractError, decodeCondition, type ContextState } from './codec';
-import { FIXTURE_NOTICE, menus, type Capability, type MenuEntry } from './registry';
-import { readLocation, writeLocation } from './kernel';
+import { FIXTURE_NOTICE, menus, type Capability, type MenuEntry, type PageEntry } from './registry';
+import { detailLink, readLocation, returnTarget, writeLocation } from './kernel';
 import { PlatformPage } from './PlatformPage';
 export const shellDimensions = { expanded: 270, collapsed: 64, header: 54 } as const;
 const valueLabel = (v: unknown) => v === null ? 'Not selected' : Array.isArray(v) ? (v.length ? v.join(', ') : 'Explicit empty set') : typeof v === 'object' ? JSON.stringify(v) : String(v);
-export function ContextDisplay({ menu, context }: { menu: MenuEntry; context: ContextState }) {
+export function ContextDisplay({ menu, context }: { menu: PageEntry; context: ContextState }) {
   const entries: [string, unknown, Capability][] = [
     ['room', context.room_names, menu.supportedContext.room_names],
     ['Condition', context.condition, menu.supportedContext.condition],
@@ -37,6 +37,12 @@ function ContextSelect({ label, value, options, disabled, onChange }: { label: s
     </Select>
   </div>;
 }
+// Synthetic drill-down rows on sample-analysis; the destination is an EquipmentID, the same identifier concept as Selection but a different role (§6.4).
+const fixtureExecutions = [
+  { id: 'fixture-exec-001', equipmentId: 'fixture-equipment-a' },
+  { id: 'fixture-exec-002', equipmentId: 'fixture-equipment-c' },
+  { id: 'fixture-exec-003', equipmentId: 'fixture-equipment-d' },
+] as const;
 function currentUrl() { return window.location.pathname + window.location.search; }
 export function App() {
   const [url, setUrl] = useState(currentUrl);
@@ -52,11 +58,9 @@ export function App() {
   let state: ReturnType<typeof readLocation> | undefined; let error = '';
   try { state = readLocation(url === '/' ? menus[0].path : url); }
   catch (caught) { error = caught instanceof ContractError ? `${caught.code}: ${caught.message}` : String(caught); }
-  const navigate = (menu: MenuEntry) => {
-    if (!state) return;
-    const next = writeLocation(menu, state.context, true);
-    window.history.pushState(null, '', next); setUrl(next); setPalette(false); setEditError('');
-  };
+  const go = (next: string) => { window.history.pushState(null, '', next); setUrl(next); setPalette(false); setEditError(''); };
+  const navigate = (menu: MenuEntry) => { if (state) go(writeLocation(menu, state.context, true)); };
+  const openDetail = (destination: string) => { if (state) go(detailLink(url, state.context, destination)); };
   const update = (patch: Partial<ContextState>) => {
     if (!state) return;
     try {
@@ -115,8 +119,24 @@ export function App() {
           <small>Condition edits preserve fixed Selection. No server request or authorization is performed.</small>
         </section>
         {editError && <p role="alert">{editError}</p>}
-        <PlatformPage title={state.menu.name} description={FIXTURE_NOTICE} primaryAction={null} secondaryActions={null} contextExtension={null} content={null} dataTrustSummary="Fixture only · no dataset, calculation basis, or verified permissions" />
+        <PlatformPage title={state.menu.name} description={FIXTURE_NOTICE} primaryAction={null} secondaryActions={null} contextExtension={null} content={
+          'pathPrefix' in state.menu ? <DetailContent context={context} onBack={go} />
+          : state.menu.id === 'sample-analysis' ? <ul aria-label="Synthetic executions" className="grid gap-2 p-4">{fixtureExecutions.map(item => <li key={item.id} className="flex items-center gap-4">
+            <span>{item.id} · {item.equipmentId}</span>
+            <Button variant="secondary" size="sm" aria-label={`Open detail ${item.equipmentId}`} onClick={() => openDetail(item.equipmentId)}>Open detail</Button>
+          </li>)}</ul>
+          : null
+        } dataTrustSummary="Fixture only · no dataset, calculation basis, or verified permissions" />
       </>}
     </div>
+  </div>;
+}
+function DetailContent({ context, onBack }: { context: ContextState; onBack: (url: string) => void }) {
+  const back = returnTarget(context);
+  return <div className="grid gap-3 p-4">
+    {back ? <a href={back.url} className="text-accent-primary underline" onClick={event => { event.preventDefault(); onBack(back.url); }}>← Back to {back.menu.name}</a>
+      : <p role="status">Return context unavailable · open a menu from the sidebar</p>}
+    {/* The destination is its own field, never merged into the inherited Selection shown in Global Context. */}
+    <dl><dt className="text-text-muted">Destination EquipmentID (detail target, not Selection)</dt><dd data-destination>{context.destination}</dd></dl>
   </div>;
 }

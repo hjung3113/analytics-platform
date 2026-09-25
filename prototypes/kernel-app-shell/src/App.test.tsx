@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { App, shellDimensions } from './App';
 import { FIXTURE_NOTICE, menus } from './registry';
-import { readLocation, writeLocation } from './kernel';
+import { RETURN_KEY, readLocation, writeLocation } from './kernel';
 import { PlatformPage, type PageSlots, slotNames } from './PlatformPage';
 afterEach(cleanup);
 function mount(url = '/sample-analysis') { window.history.replaceState(null, '', url); return render(<App />); }
@@ -35,12 +35,14 @@ describe('platform shell acceptance — 합성 fixture, 실제 메뉴 아님', (
     expect(reference.context.room_names).toEqual(['fixture-room-a']); expect(reference.context.condition?.axis).toBe('team');
     expect(reference.context.unapplied_globals).toEqual([['lotIds', 'L']]);
     expect(screen.getAllByText(/Not used on this page/)).toHaveLength(4);
+    expect(document.querySelector('[data-slot=content]')?.textContent).toBe('');
     fireEvent.click(screen.getByRole('button', { name: 'Sample overview' }));
     expect(screen.getByText(/Reference only/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Sample analysis' }));
     expect(screen.getAllByText(/Supported · server validation pending/)).toHaveLength(3);
     expect(readLocation(window.location.pathname + window.location.search).context.selection).toEqual([]);
-    expect(document.querySelector('[data-slot=content]')?.textContent).toBe('');
+    // Analysis carries only the synthetic drill-down rows that exercise the detail Context Link.
+    expect(within(screen.getByRole('list', { name: 'Synthetic executions' })).getAllByRole('button', { name: /^Open detail / })).toHaveLength(3);
   });
   it('uses codec for controls and preserves fixed selection when condition changes', async () => {
     const user = userEvent.setup(); mount();
@@ -153,6 +155,64 @@ describe('platform shell acceptance — 합성 fixture, 실제 메뉴 아님', (
     expect(() => PlatformPage({ ...slots, children: 'bad' } as unknown as PageSlots)).toThrow('exactly seven');
     expect(() => PlatformPage({ title: 'missing slots' } as PageSlots)).toThrow('exactly seven');
     render(<PlatformPage {...slots} />); expect(document.querySelector('header')).toBeNull(); expect(document.querySelector('aside')).toBeNull();
+  });
+  it('opens detail through the Context Link with the destination as a path segment, never touching Selection', () => {
+    const selected = '/sample-analysis?scopeId=fixture-scope-a&selectedEquipmentIds=fixture-equipment-a&selectedEquipmentIds=fixture-equipment-b&lotIds=L&unknown=local';
+    mount(selected);
+    fireEvent.click(screen.getByRole('button', { name: 'Open detail fixture-equipment-c' }));
+    expect(window.location.pathname).toBe('/equipment/fixture-equipment-c');
+    const params = new URLSearchParams(window.location.search);
+    expect(params.getAll('selectedEquipmentIds')).toEqual(['fixture-equipment-a', 'fixture-equipment-b']);
+    expect(params.get(RETURN_KEY)).toBe(selected); expect(params.has('unknown')).toBe(false);
+    const detail = readLocation(here()).context;
+    expect(detail.destination).toBe('fixture-equipment-c'); expect(detail.selection).toEqual(['fixture-equipment-a', 'fixture-equipment-b']);
+    expect(detail.scope_id).toBe('fixture-scope-a'); expect(detail.unapplied_globals).toEqual([['lotIds', 'L']]);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Sample equipment detail');
+    expect(document.querySelector('[data-destination]')?.textContent).toBe('fixture-equipment-c');
+    expect(document.querySelector('[data-context=Selection]')?.textContent).toMatch(/^Selection: fixture-equipment-a, fixture-equipment-b · /);
+    // A destination that is already in the Selection does not narrow it either.
+    fireEvent.click(screen.getByRole('link', { name: '← Back to Sample analysis' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open detail fixture-equipment-a' }));
+    expect(window.location.pathname).toBe('/equipment/fixture-equipment-a');
+    expect(readLocation(here()).context.selection).toEqual(['fixture-equipment-a', 'fixture-equipment-b']);
+    // Leaving detail through the sidebar is an ordinary menu transfer: destination and return target are dropped.
+    fireEvent.click(screen.getByRole('button', { name: 'Sample reference' }));
+    expect(here()).toBe('/sample-reference?v=1&scopeId=fixture-scope-a&selectedEquipmentIds=fixture-equipment-a&selectedEquipmentIds=fixture-equipment-b&lotIds=L');
+  });
+  it('Back restores the exact pre-entry origin URL even after Context edits on the detail page', async () => {
+    const user = userEvent.setup(); mount(origin);
+    fireEvent.click(screen.getByRole('button', { name: 'Open detail fixture-equipment-c' }));
+    expect(here()).not.toBe(origin);
+    fireEvent.click(screen.getByRole('link', { name: '← Back to Sample analysis' }));
+    expect(here()).toBe(origin);
+    fireEvent.click(screen.getByRole('button', { name: 'Open detail fixture-equipment-c' }));
+    await choose(user, 'room', 'fixture-room-b');
+    expect(window.location.pathname).toBe('/equipment/fixture-equipment-c');
+    expect(readLocation(here()).context.room_names).toEqual(['fixture-room-b']);
+    fireEvent.click(screen.getByRole('link', { name: '← Back to Sample analysis' }));
+    expect(here()).toBe(origin);
+    expect(readLocation(here()).context).toEqual(readLocation(origin).context);
+  });
+  it('shows detail-unsupported Context as not used and re-applies it on the origin after Back', () => {
+    mount('/sample-analysis?roomNames=fixture-room-a&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D&selectedEquipmentIds=fixture-equipment-a&selectedEquipmentIds=fixture-equipment-b');
+    const capability = (key: string) => document.querySelector(`[data-context=${key}] small`)?.textContent;
+    expect([capability('room'), capability('Condition'), capability('Selection')]).toEqual(Array(3).fill(' · Supported · server validation pending'));
+    fireEvent.click(screen.getByRole('button', { name: 'Open detail fixture-equipment-d' }));
+    expect([capability('room'), capability('Condition'), capability('Selection')]).toEqual([' · Reference only', ' · Not used on this page', ' · Not used on this page']);
+    fireEvent.click(screen.getByRole('link', { name: '← Back to Sample analysis' }));
+    expect([capability('room'), capability('Condition'), capability('Selection')]).toEqual(Array(3).fill(' · Supported · server validation pending'));
+  });
+  it.each([
+    ['missing', '/equipment/fixture-equipment-c?v=1'],
+    ['external', '/equipment/fixture-equipment-c?returnTo=' + encodeURIComponent('https://evil.example/sample-analysis')],
+    ['protocol-relative', '/equipment/fixture-equipment-c?returnTo=' + encodeURIComponent('//evil.example/sample-analysis')],
+    ['another detail', '/equipment/fixture-equipment-c?returnTo=' + encodeURIComponent('/equipment/fixture-equipment-d?v=1')],
+    ['duplicated', '/equipment/fixture-equipment-c?returnTo=%2Fsample-analysis&returnTo=%2Fsample-reference'],
+  ])('refuses a %s Back target instead of guessing one', (_, url) => {
+    mount(url);
+    expect(document.querySelector('[data-destination]')?.textContent).toBe('fixture-equipment-c');
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.getByRole('status').textContent).toContain('Return context unavailable');
   });
   it('roundtrips opaque context and keeps current unknown keys until menu transfer', () => {
     const { context, menu } = readLocation(origin);

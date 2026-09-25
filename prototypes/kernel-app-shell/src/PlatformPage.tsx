@@ -8,7 +8,7 @@ export function PlatformPage(props: PageSlots) {
   return <main>
     <section className="flex min-h-16 items-center justify-between px-6 py-3"><div><h1 className="text-[22px] font-semibold">{props.title}</h1><p>{props.description}</p></div><div>{props.primaryAction}{props.secondaryActions}</div></section>
     <div data-slot="contextExtension">{props.contextExtension}</div>
-    <section data-slot="content" aria-label="Empty fixture page" className="mx-6 min-h-60 border border-dashed border-border-subtle">{props.content}</section>
+    <section data-slot="content" aria-label="Page content" className="mx-6 min-h-60 border border-dashed border-border-subtle">{props.content}</section>
     <footer data-slot="dataTrustSummary" className="m-6 text-text-muted">{props.dataTrustSummary}</footer>
   </main>;
 }

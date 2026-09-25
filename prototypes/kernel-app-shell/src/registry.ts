@@ -17,3 +17,7 @@ export const menus: readonly MenuEntry[] = [
   { ...base, id: 'sample-analysis', name: 'Sample analysis', path: '/sample-analysis', icon: '◇', pageType: 'analysis', supportedContext: { ...unsupported, room_names: 'apply', condition: 'apply', selection: 'apply' } },
   { ...base, id: 'sample-reference', name: 'Sample reference', path: '/sample-reference', icon: '□', pageType: 'catalog', supportedContext: unsupported },
 ];
+/** Parameterized Full Page detail (§20) reached only through a Context Link, never from the sidebar; same capability model as a MenuEntry. */
+export type DetailEntry = Omit<MenuEntry, 'path' | 'icon'> & { pathPrefix: '/equipment/' };
+export type PageEntry = MenuEntry | DetailEntry;
+export const equipmentDetail: DetailEntry = { ...base, id: 'sample-equipment-detail', name: 'Sample equipment detail', pathPrefix: '/equipment/', pageType: 'analysis', supportedContext: { ...unsupported, room_names: 'reference' } };
