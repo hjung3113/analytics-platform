@@ -22,16 +22,18 @@ export function ContextDisplay({ menu, context }: { menu: MenuEntry; context: Co
     <strong>{key}</strong>: {valueLabel(value)}{value !== null && <small className="text-text-warning"> · {capability === 'unsupported' ? 'Not used on this page' : capability === 'reference' ? 'Reference only' : 'Supported · server validation pending'}</small>}
   </li>)}</ul>;
 }
-// Radix Select reserves '' for "no value", so absence crosses the boundary as this sentinel and the callers keep native-select strings.
-const ABSENT = '__absent';
+// Radix Select reserves '' for "no value", so absence crosses the boundary as a sentinel while the callers keep native-select strings.
 type Option = { value: string; label: string };
+// Grown per render until it collides with neither the current value nor any option value, so an opaque id like scopeId='__absent' can never share a DOM value with the placeholder item.
+const absentSentinel = (taken: string[]) => { let absent = '__absent'; while (taken.includes(absent)) absent = `_${absent}`; return absent; };
 function ContextSelect({ label, value, options, disabled, onChange }: { label: string; value: string; options: Option[]; disabled?: boolean; onChange: (value: string) => void }) {
   const id = useId();
+  const absent = absentSentinel([value, ...options.map(option => option.value)]);
   return <div className="inline-flex items-center gap-2">
     <Label htmlFor={id}>{label}</Label>
-    <Select value={value || ABSENT} disabled={disabled} onValueChange={next => onChange(next === ABSENT ? '' : next)}>
+    <Select value={value || absent} disabled={disabled} onValueChange={next => onChange(next === absent ? '' : next)}>
       <SelectTrigger id={id} aria-label={label} className="h-8 w-auto min-w-44 gap-2 rounded-sm border-border-strong bg-surface-card"><SelectValue /></SelectTrigger>
-      <SelectContent>{options.map(option => <SelectItem key={option.value} value={option.value || ABSENT}>{option.label}</SelectItem>)}</SelectContent>
+      <SelectContent>{options.map(option => <SelectItem key={option.value} value={option.value || absent}>{option.label}</SelectItem>)}</SelectContent>
     </Select>
   </div>;
 }

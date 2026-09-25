@@ -76,6 +76,20 @@ describe('platform shell acceptance — 합성 fixture, 실제 메뉴 아님', (
     await user.keyboard('{Escape}');
     expect(screen.getByText(/Requested Scope: unauthorized/)).toBeTruthy();
   });
+  it('keeps an opaque scopeId of "__absent" distinct from the placeholder option and clearable', async () => {
+    const user = userEvent.setup(); mount('/sample-analysis?scopeId=__absent');
+    expect(screen.getByText(/Requested Scope: __absent/)).toBeTruthy();
+    await user.click(screen.getByLabelText('Scope'));
+    const options = screen.getAllByRole('option');
+    expect(options.map(option => option.textContent)).toEqual(['Select scope', 'fixture-scope-a', 'fixture-scope-b', '__absent · unverified']);
+    const checked = options.filter(option => option.getAttribute('data-state') === 'checked');
+    expect(checked).toHaveLength(1);
+    expect(checked[0].textContent).toBe('__absent · unverified');
+    await user.click(screen.getByRole('option', { name: 'Select scope' }));
+    expect(here()).toBe('/sample-analysis?v=1');
+    expect(readLocation(here()).context.scope_id).toBeNull();
+    expect(screen.getByLabelText('Scope').textContent).toBe('Select scope');
+  });
   it('renders inherited multi-ID selection without narrowing it', async () => {
     const user = userEvent.setup(); mount('/sample-analysis?selectedEquipmentIds=A&selectedEquipmentIds=B');
     expect(screen.getByLabelText('Selection').textContent).toBe('Inherited: A, B');
