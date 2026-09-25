@@ -219,26 +219,26 @@ describe('platform shell acceptance — 합성 fixture, 실제 메뉴 아님', (
   it('renders sample-overview as the Overview archetype with empty region landmarks', () => {
     mount('/sample-overview');
     expect(document.querySelector('[data-slot=content] > [data-archetype]')?.getAttribute('data-archetype')).toBe('overview');
-    expect(regionsOf()).toEqual(['Primary KPI / Summary', 'Main trend or status', 'Attention list']);
+    expect(regionsOf()).toEqual(['Primary KPI / Summary', 'Main Trend or Status', 'Attention List']);
     expect(document.querySelector('[data-slot=content]')?.textContent).toBe('');
     // Page Header, Global Context and Data Trust stay Shell slots outside the archetype.
     expect(screen.getByRole('heading', { level: 1 }).closest('[data-archetype]')).toBeNull();
     expect(screen.getByRole('region', { name: 'Global Context' }).closest('[data-archetype]')).toBeNull();
     expect(document.querySelector('[data-slot=dataTrustSummary]')?.closest('[data-archetype]')).toBeNull();
   });
-  it('renders sample-analysis as the Analysis Workspace archetype with the Context Link rows in Breakdown table', () => {
+  it('renders sample-analysis as the Analysis Workspace archetype with the Context Link rows in Breakdown Table', () => {
     mount();
     expect(document.querySelector('[data-slot=content] > [data-archetype]')?.getAttribute('data-archetype')).toBe('analysis');
-    expect(regionsOf()).toEqual(['KPI summary', 'Primary chart', 'Selection / Annotation', 'Breakdown table']);
-    const breakdown = screen.getByRole('region', { name: 'Breakdown table' });
+    expect(regionsOf()).toEqual(['KPI Summary', 'Primary Chart', 'Selection / Annotation', 'Breakdown Table']);
+    const breakdown = screen.getByRole('region', { name: 'Breakdown Table' });
     expect(within(breakdown).getByRole('list', { name: 'Synthetic executions' })).toBe(screen.getByRole('list', { name: 'Synthetic executions' }));
     expect(within(breakdown).getAllByRole('button', { name: /^Open detail / })).toHaveLength(3);
-    for (const name of ['KPI summary', 'Primary chart', 'Selection / Annotation']) expect(screen.getByRole('region', { name }).textContent).toBe('');
+    for (const name of ['KPI Summary', 'Primary Chart', 'Selection / Annotation']) expect(screen.getByRole('region', { name }).textContent).toBe('');
   });
   it('renders sample-reference as the Catalog archetype and keeps the detail page outside any archetype', () => {
     mount('/sample-reference');
     expect(document.querySelector('[data-slot=content] > [data-archetype]')?.getAttribute('data-archetype')).toBe('catalog');
-    expect(regionsOf()).toEqual(['Catalog list', 'Definition detail', 'Version', 'Ownership', 'Coverage', 'Usage / Dependency', 'History']);
+    expect(regionsOf()).toEqual(['Catalog List', 'Definition Detail', 'Version', 'Ownership', 'Coverage', 'Usage / Dependency', 'History']);
     cleanup(); mount('/equipment/fixture-equipment-c');
     expect(document.querySelector('[data-archetype]')).toBeNull();
     expect(document.querySelector('[data-destination]')?.textContent).toBe('fixture-equipment-c');

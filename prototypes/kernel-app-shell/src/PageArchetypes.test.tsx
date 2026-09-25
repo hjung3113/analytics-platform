@@ -8,11 +8,11 @@ afterEach(cleanup);
 type AnyArchetype = ((props: Record<string, unknown>) => React.ReactNode) & { regionNames: readonly string[] };
 // §12 regions verbatim, minus Page Header / Global Context / Data Trust which the Shell owns (§8/§11).
 const spec: [string, AnyArchetype, [name: string, label: string, role: 'region' | 'search'][]][] = [
-  ['overview', OverviewArchetype as unknown as AnyArchetype, [['primarySummary', 'Primary KPI / Summary', 'region'], ['mainTrend', 'Main trend or status', 'region'], ['attentionList', 'Attention list', 'region']]],
-  ['analysis', AnalysisWorkspaceArchetype as unknown as AnyArchetype, [['kpiSummary', 'KPI summary', 'region'], ['primaryChart', 'Primary chart', 'region'], ['selectionAnnotation', 'Selection / Annotation', 'region'], ['breakdownTable', 'Breakdown table', 'region']]],
-  ['management', ManagementArchetype as unknown as AnyArchetype, [['searchFilter', 'Search and filter', 'search'], ['dataTable', 'Data table', 'region'], ['selectionActions', 'Selection actions', 'region'], ['detailDrawer', 'Detail drawer', 'region'], ['historyAudit', 'History / Audit', 'region']]],
-  ['catalog', CatalogArchetype as unknown as AnyArchetype, [['catalogList', 'Catalog list', 'region'], ['definitionDetail', 'Definition detail', 'region'], ['version', 'Version', 'region'], ['ownership', 'Ownership', 'region'], ['coverage', 'Coverage', 'region'], ['usageDependency', 'Usage / Dependency', 'region'], ['history', 'History', 'region']]],
-  ['workflow', WorkflowArchetype as unknown as AnyArchetype, [['queueList', 'Queue / List', 'region'], ['statusFilter', 'Status / Priority / Owner filter', 'search'], ['detail', 'Detail', 'region'], ['timeline', 'Timeline', 'region'], ['comments', 'Comments', 'region'], ['relatedContext', 'Related context', 'region']]],
+  ['overview', OverviewArchetype as unknown as AnyArchetype, [['primarySummary', 'Primary KPI / Summary', 'region'], ['mainTrend', 'Main Trend or Status', 'region'], ['attentionList', 'Attention List', 'region']]],
+  ['analysis', AnalysisWorkspaceArchetype as unknown as AnyArchetype, [['kpiSummary', 'KPI Summary', 'region'], ['primaryChart', 'Primary Chart', 'region'], ['selectionAnnotation', 'Selection / Annotation', 'region'], ['breakdownTable', 'Breakdown Table', 'region']]],
+  ['management', ManagementArchetype as unknown as AnyArchetype, [['searchFilter', 'Search + Filter', 'search'], ['dataTable', 'Data Table', 'region'], ['selectionActions', 'Selection Actions', 'region'], ['detailDrawer', 'Detail Drawer', 'region'], ['historyAudit', 'History / Audit', 'region']]],
+  ['catalog', CatalogArchetype as unknown as AnyArchetype, [['catalogList', 'Catalog List', 'region'], ['definitionDetail', 'Definition Detail', 'region'], ['version', 'Version', 'region'], ['ownership', 'Ownership', 'region'], ['coverage', 'Coverage', 'region'], ['usageDependency', 'Usage / Dependency', 'region'], ['history', 'History', 'region']]],
+  ['workflow', WorkflowArchetype as unknown as AnyArchetype, [['queueList', 'Queue/List', 'region'], ['statusFilter', 'Status/Priority/Owner Filter', 'search'], ['detail', 'Detail', 'region'], ['timeline', 'Timeline', 'region'], ['comments', 'Comments', 'region'], ['relatedContext', 'Related Context', 'region']]],
 ];
 describe.each(spec)('%s archetype (§12)', (archetype, Archetype, regions) => {
   const filled = () => Object.fromEntries(regions.map(([name]) => [name, <span>{`${name} content`}</span>]));
@@ -58,11 +58,16 @@ describe('archetype responsive grid (§25)', () => {
     const css = await compile(readFileSync('src/style.css', 'utf8'), { base: resolve('src'), onDependency: () => {} }).then(compiler => compiler.build(candidates));
     const media = new Set(css.match(/@media \([^)]*\)/g));
     expect([...media].sort()).toEqual(['@media (width < 90rem)', '@media (width >= 64rem)', '@media (width >= 90rem)']);
-    // The docked secondary panel turns into a fixed right drawer only inside 1024–1439px, and is hidden there while empty.
+    // The docked secondary panel stays in normal flow inside 1024–1439px — sticky top-0 with a viewport height cap,
+    // never `fixed inset-y-0`, which rendered it from the viewport top over the Shell header/Global Context (§8/§11).
     const lg = css.slice(css.indexOf('@media (width >= 64rem)'), css.indexOf('@media (width >= 90rem)'));
     const laptopOnly = lg.slice(lg.indexOf('@media (width < 90rem)'));
-    expect(laptopOnly).not.toBe(''); expect(css.split('.lg\\:max-wide\\:fixed')).toHaveLength(2);
-    expect(laptopOnly).toMatch(/\.lg\\:max-wide\\:fixed \{\s+position: fixed;/);
+    expect(laptopOnly).not.toBe('');
+    expect(css).not.toContain('.lg\\:max-wide\\:fixed');
+    expect(css).not.toContain('.lg\\:max-wide\\:inset-y-0');
+    expect(laptopOnly).toMatch(/\.lg\\:max-wide\\:sticky \{\s+position: sticky;/);
+    expect(laptopOnly).toMatch(/\.lg\\:max-wide\\:top-0 \{\s+top: /);
+    expect(laptopOnly).toMatch(/\.lg\\:max-wide\\:max-h-screen \{\s+max-height: 100vh;/);
     expect(laptopOnly).toMatch(/\.lg\\:max-wide\\:empty\\:hidden:empty \{\s+display: none;/);
     expect(css).toContain('.empty\\:before\\:content-\\[attr\\(aria-label\\)\\]:empty::before');
   });
