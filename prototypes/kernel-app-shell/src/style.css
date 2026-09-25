@@ -1,0 +1,30 @@
+@import "tailwindcss";
+:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #1d2939; background: #f6f8fa; font-size: 14px; }
+* { box-sizing: border-box; }
+button, select { font: inherit; min-height: 32px; border: 1px solid #cad2dd; border-radius: 4px; padding: 4px 10px; background: white; color: inherit; }
+button { cursor: pointer; } button:disabled { cursor: default; opacity: .5; }
+button:focus-visible, select:focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; }
+.shell { display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); min-height: 100vh; }
+aside { padding: 16px 8px; background: #172331; color: #e4e9ef; }
+aside h2 { font-size: 17px; font-weight: 650; margin: 20px 8px 8px; } aside p { margin: 8px; font-size: 12px; }
+aside button { background: transparent; color: inherit; border-color: #526174; }
+.group-label { padding-top: 24px; text-transform: uppercase; letter-spacing: .05em; }
+nav button { display: flex; align-items: center; gap: 12px; width: 100%; margin: 8px 0; text-align: left; }
+aside [aria-current=page] { background: #2764c5; border-color: #2764c5; }
+.workspace { min-width: 0; }
+.top-bar { display: flex; align-items: center; gap: 16px; padding: 0 24px; border-bottom: 1px solid #dfe4eb; background: white; overflow-x: auto; white-space: nowrap; }
+.breadcrumb { padding: 16px 24px; color: #526174; }
+.global-context { border-block: 1px solid #dfe4eb; padding: 12px 24px; min-height: 48px; background: white; }
+.context-values { display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 8px 0; list-style: none; overflow-wrap: anywhere; }
+.context-values small { color: #725300; }
+.context-controls { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+label { display: inline-flex; align-items: center; gap: 8px; }
+.page-heading { min-height: 64px; display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; }
+h1 { font-size: 22px; font-weight: 650; } h2 { font-weight: 650; }
+[data-slot=content] { min-height: 240px; margin: 0 24px; border: 1px dashed #dfe4eb; }
+footer { margin: 24px; color: #526174; }
+.error { margin: 24px; border: 1px solid #b42318; padding: 16px; color: #b42318; }
+.dialog-overlay { position: fixed; inset: 0; background: rgb(10 20 30 / .4); }
+.dialog-content { position: fixed; left: 50%; top: 20%; transform: translateX(-50%); width: min(520px, 90vw); padding: 24px; background: white; border-radius: 8px; }
+.dialog-content h2 { font-size: 20px; margin-bottom: 8px; }
+@media (max-width: 700px) { .top-bar { gap: 8px; padding-inline: 12px; } .context-controls label { flex-wrap: wrap; } }

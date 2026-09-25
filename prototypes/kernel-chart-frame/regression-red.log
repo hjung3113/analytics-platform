@@ -1,0 +1,11 @@
+Initial regression run before implementation (2026-09-25):
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/App.test.tsx > AnalysisChartFrame contract > distinguishes an empty Brush from four threshold-filtered plot points
+ FAIL  src/App.test.tsx > AnalysisChartFrame contract > all hidden series are a selection state rather than Empty
+ FAIL  src/App.test.tsx > AnalysisChartFrame contract > Empty follows Page Filter and viewport, independent of Brush
+ FAIL  src/App.test.tsx > AnalysisChartFrame contract > closing Brush discards draft and cannot apply or restore it on reopen
+ FAIL  src/plot.test.ts > Brush and annotation remain in real SVG when every data series is hidden
+ FAIL  src/plot.test.ts > Compare renders an annotation label exactly once
+ Test Files  2 failed (2)
+      Tests  6 failed | 16 passed (22)
+Viewport probe initially used threshold 60 (above fixture maximum); corrected to 57 before final verification.

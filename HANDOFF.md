@@ -37,6 +37,7 @@
 - 실제 SSO·서버 권한/Scope 재검증 연동 (Unit A #1, Unit C #1)
 - Scope 선택지의 실제 데이터 원천과 계층 상속 규칙 (Unit A #2)
 - Registry의 requiredPermissions/requiredScope를 Shell이 소비해 메뉴 노출을 판단할지 (Unit A #8, Deferred)
+- 권한 밖 EquipmentID를 `not_found`와 `forbidden`으로 구분해 노출할지 — 같은 Site DB enumeration 위험, 06이 정의하지 않음; 보안·권한 정책 담당자 지정 필요 (Context/URL/Scope codec P0)
 
 **UX 정책**
 - Condition 편집 시 기존 Selection 처리 UX (Unit A #4 — §6.4가 Candidate로 지정한 것, 구현 시 확정 필요)
@@ -53,6 +54,9 @@
 
 **아키텍처 — 의도적으로 지금 결정하지 않음**
 - Chart Interaction Contract를 공통 Frame으로 승격할지 — §14 Promotion Rule(2번째 consumer 전까지 승격 안 함)에 따라 Deferred (Unit B #4)
+
+**공개 URL 계약**
+- 공개 URL 후보 키/표식/Condition JSON 별칭 이행과 공유 스키마 형식 승인 — 플랫폼 계약 담당자 지정 필요 (Context/URL/Scope codec P1, 06 §6.1/6.4, Requirements OQ7)
 
 **버그(결정 아님, 별도 수정 필요)**
 - Python codec(`prototypes/kernel-context-url-scope/context_url.py`)의 Unicode 서로게이트 처리 버그 — `\ud800`류 Condition 입력 시 `ContractError` 대신 `UnicodeEncodeError`로 죽음.

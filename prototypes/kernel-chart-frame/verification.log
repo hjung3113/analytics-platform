@@ -1,0 +1,158 @@
+
+> kernel-chart-frame-fixture@0.0.0 test
+> vitest run
+
+
+ RUN  v3.2.7 /Users/hyojung/orca/workspaces/analytics-platform/kernel-context-url-scope/prototypes/kernel-chart-frame
+
+ ✓ src/plot.test.ts (4 tests) 30ms
+ ✓ src/App.test.tsx (11 tests) 508ms
+
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+   Start at  01:07:43
+   Duration  1.12s (transform 58ms, setup 103ms, collect 430ms, tests 538ms, environment 207ms, prepare 88ms)
+
+
+> kernel-chart-frame-fixture@0.0.0 build
+> tsc --noEmit && vite build
+
+src/App.test.tsx(11,69): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+src/plot.test.ts(22,56): error TS2352: Conversion of type 'Range' to type 'number[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  The type 'Range' is 'readonly' and cannot be assigned to the mutable type 'number[]'.
+
+> kernel-chart-frame-fixture@0.0.0 test
+> vitest run
+
+
+ RUN  v3.2.7 /Users/hyojung/orca/workspaces/analytics-platform/kernel-context-url-scope/prototypes/kernel-chart-frame
+
+ ✓ src/plot.test.ts (4 tests) 30ms
+ ✓ src/App.test.tsx (11 tests) 476ms
+
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+   Start at  01:08:39
+   Duration  1.11s (transform 54ms, setup 99ms, collect 443ms, tests 505ms, environment 208ms, prepare 71ms)
+
+
+> kernel-chart-frame-fixture@0.0.0 build
+> tsc --noEmit && vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 619 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.37 kB │ gzip:   0.27 kB
+dist/assets/index-DzMcaNIp.css    1.46 kB │ gzip:   0.73 kB
+dist/assets/index-D-XrYhzv.js   716.15 kB │ gzip: 239.68 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 1.09s
+
+> kernel-chart-frame-fixture@0.0.0 typecheck
+> tsc --noEmit
+
+
+> kernel-chart-frame-fixture@0.0.0 test
+> vitest run
+
+
+ RUN  v3.2.7 /Users/hyojung/orca/workspaces/analytics-platform/kernel-context-url-scope/prototypes/kernel-chart-frame
+
+ ✓ src/plot.test.ts (6 tests) 36ms
+ ❯ src/App.test.tsx (16 tests | 1 failed) 595ms
+   ✓ AnalysisChartFrame contract > renders frame regions and seven toolbar actions 43ms
+   ✓ AnalysisChartFrame contract > keeps zoom and pan local and resets viewport explicitly 52ms
+   ✓ AnalysisChartFrame contract > page filter affects data but neither global nor local viewport 28ms
+   ✓ AnalysisChartFrame contract > brush changes global only after explicit Apply and Reset preserves applied range 43ms
+   ✓ AnalysisChartFrame contract > rejects reversed, empty and out-of-domain Brush without global mutation 37ms
+   ✓ AnalysisChartFrame contract > Compare distinguishes overlay legend and selection summary 24ms
+   ✓ AnalysisChartFrame contract > visibility is local and Reset restores series defaults 24ms
+   ✓ AnalysisChartFrame contract > annotation repository survives Reset and remount independently of chart/page/global 131ms
+   ✓ AnalysisChartFrame contract > remount cannot restore chart state through URL or global 39ms
+   ✓ AnalysisChartFrame contract > Export gives explicit stub feedback and More toggles details 33ms
+   ✓ AnalysisChartFrame contract > empty annotation is rejected without adding a saved row 25ms
+   ✓ AnalysisChartFrame contract > distinguishes an empty Brush from four threshold-filtered plot points 22ms
+   ✓ AnalysisChartFrame contract > all hidden series are a selection state rather than Empty 33ms
+   ✓ AnalysisChartFrame contract > normal data has no empty or selection warning 4ms
+   × AnalysisChartFrame contract > Empty follows Page Filter and viewport, independent of Brush 9ms
+     → expected <p role="status"></p> to be null
+   ✓ AnalysisChartFrame contract > closing Brush discards draft and cannot apply or restore it on reopen 48ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/App.test.tsx > AnalysisChartFrame contract > Empty follows Page Filter and viewport, independent of Brush
+AssertionError: expected <p role="status"></p> to be null
+
+- Expected: 
+null
+
++ Received: 
+<p
+  role="status"
+>
+  Empty: 조건에 맞는 표시 데이터 없음
+</p>
+
+ ❯ src/App.test.tsx:118:42
+    116|     const { user } = mount();
+    117|     fireEvent.change(screen.getByLabelText('Threshold'), { target: { v…
+    118|     expect(screen.queryByText(/Empty:/)).toBeNull();
+       |                                          ^
+    119|     await user.click(button('Zoom')); await user.click(button('Zoom'));
+    120|     expect(screen.getByText(/Empty:/)).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 21 passed (22)
+   Start at  01:16:51
+   Duration  1.18s (transform 61ms, setup 94ms, collect 444ms, tests 631ms, environment 192ms, prepare 77ms)
+
+
+> kernel-chart-frame-fixture@0.0.0 typecheck
+> tsc --noEmit
+
+
+> kernel-chart-frame-fixture@0.0.0 test
+> vitest run
+
+
+ RUN  v3.2.7 /Users/hyojung/orca/workspaces/analytics-platform/kernel-context-url-scope/prototypes/kernel-chart-frame
+
+ ✓ src/plot.test.ts (7 tests) 42ms
+ ✓ src/App.test.tsx (16 tests) 626ms
+
+ Test Files  2 passed (2)
+      Tests  23 passed (23)
+   Start at  01:17:47
+   Duration  1.22s (transform 61ms, setup 100ms, collect 453ms, tests 668ms, environment 200ms, prepare 71ms)
+
+
+> kernel-chart-frame-fixture@0.0.0 build
+> tsc --noEmit && vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 620 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.37 kB │ gzip:   0.27 kB
+dist/assets/index-C6ePHwXB.css    1.63 kB │ gzip:   0.75 kB
+dist/assets/index-DylLmIT3.js   717.09 kB │ gzip: 240.09 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 1.09s

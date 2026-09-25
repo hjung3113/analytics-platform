@@ -1,0 +1,651 @@
+Unit C B1/M1-M5 repair verification — current evidence follows the historical section.
+The old single-run result is not the current acceptance evidence.
+
+Unit C verification — 2026-09-25, source revision f8aa5ad17ae0d915820459c0ab01b56608d6715b
+HISTORICAL SINGLE-RUN RESULT (superseded): 13 distinct tests PASS (5 Vitest Node tests + 8 real Chromium Playwright tests); typecheck and Vite build PASS.
+Earlier attempts below retained: initial pin-position expectation and virtual-window test synchronization were corrected. Browser binaries were installed locally in .browsers after initial missing-executable launch failure (not included below).
+Final Drawer test requires nonzero scroll >1000px and resolves selection against the current virtual window before verifying exact scroll preservation.
+No actual backend, authorization/Scope integration, real Audit or export tested.
+
+
+> kernel-platform-table-fixture@0.0.0 test
+> vitest run && playwright test
+
+
+ RUN  v3.2.7 /Users/hyojung/orca/workspaces/analytics-platform/kernel-context-url-scope/prototypes/kernel-platform-table
+
+ ✓ tests/server.unit.test.ts (5 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  01:27:03
+   Duration  162ms (transform 14ms, setup 0ms, collect 11ms, tests 3ms, environment 0ms, prepare 28ms)
+
+[WebServer] (node:30274) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 8 tests using 1 worker
+
+(node:30279) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (307ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (201ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (145ms)
+  ✘  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (5.2s)
+(node:30444) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  5 tests/table.browser.test.ts:55:1 › multi-select survives server page changes and can be cleared (312ms)
+  ✓  6 tests/table.browser.test.ts:62:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (397ms)
+  ✓  7 tests/table.browser.test.ts:81:1 › loading, error/retry and empty are distinct (209ms)
+  ✓  8 tests/table.browser.test.ts:90:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (201ms)
+
+
+  1) tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally 
+
+    Error: expect(received).toBeLessThan(expected)
+
+    Expected: < 25
+    Received:   25
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      48 |   await page.getByTestId('viewport').evaluate(el => { el.scrollLeft = 200; });
+      49 |   // Pinned id moves to the left edge once the preceding selection column scrolls away.
+    > 50 |   await expect.poll(() => header.evaluate(el => el.getBoundingClientRect().x)).toBeLessThan(before);
+         |                                                                                ^
+      51 |   const pinned = await header.evaluate(el => el.getBoundingClientRect().x);
+      52 |   await page.getByTestId('viewport').evaluate(el => { el.scrollLeft = 300; });
+      53 |   expect(await header.evaluate(el => el.getBoundingClientRect().x)).toBe(pinned);
+        at /Users/hyojung/orca/workspaces/analytics-platform/kernel-context-url-scope/prototypes/kernel-platform-table/tests/table.browser.test.ts:50:80
+
+    Error Context: test-results/table.browser-resize-visib-bcfd7-in-stays-fixed-horizontally/error-context.md
+
+  1 failed
+    tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally 
+  7 passed (8.0s)
+
+> kernel-platform-table-fixture@0.0.0 test
+> vitest run && playwright test
+
+
+ RUN  v3.2.7 /Users/hyojung/orca/workspaces/analytics-platform/kernel-context-url-scope/prototypes/kernel-platform-table
+
+ ✓ tests/server.unit.test.ts (5 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  01:27:29
+   Duration  145ms (transform 15ms, setup 0ms, collect 12ms, tests 3ms, environment 0ms, prepare 37ms)
+
+[WebServer] (node:30944) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 8 tests using 1 worker
+
+(node:30947) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (151ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (197ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (150ms)
+  ✘  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (5.2s)
+(node:31087) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  5 tests/table.browser.test.ts:55:1 › multi-select survives server page changes and can be cleared (313ms)
+  ✓  6 tests/table.browser.test.ts:62:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (376ms)
+  ✓  7 tests/table.browser.test.ts:81:1 › loading, error/retry and empty are distinct (210ms)
+  ✓  8 tests/table.browser.test.ts:90:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (183ms)
+
+
+  1) tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally 
+
+    Error: expect(received).toBeLessThan(expected)
+
+    Expected: < 25
+    Received:   25
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      48 |   await page.getByTestId('viewport').evaluate(el => { el.scrollLeft = 200; });
+      49 |   // Pinned id moves to the left edge once the preceding selection column scrolls away.
+    > 50 |   await expect.poll(() => header.evaluate(el => el.getBoundingClientRect().x)).toBeLessThan(before);
+         |                                                                                ^
+      51 |   const pinned = await header.evaluate(el => el.getBoundingClientRect().x);
+      52 |   await page.getByTestId('viewport').evaluate(el => { el.scrollLeft = 300; });
+      53 |   expect(await header.evaluate(el => el.getBoundingClientRect().x)).toBe(pinned);
+        at /Users/hyojung/orca/workspaces/analytics-platform/kernel-context-url-scope/prototypes/kernel-platform-table/tests/table.browser.test.ts:50:80
+
+    Error Context: test-results/table.browser-resize-visib-bcfd7-in-stays-fixed-horizontally/error-context.md
+
+  1 failed
+    tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally 
+  7 passed (7.7s)
+
+> kernel-platform-table-fixture@0.0.0 test
+> vitest run && playwright test
+
+
+ RUN  v3.2.7 /Users/hyojung/orca/workspaces/analytics-platform/kernel-context-url-scope/prototypes/kernel-platform-table
+
+ ✓ tests/server.unit.test.ts (5 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  01:27:46
+   Duration  152ms (transform 12ms, setup 0ms, collect 11ms, tests 3ms, environment 0ms, prepare 31ms)
+
+[WebServer] (node:31405) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 8 tests using 1 worker
+
+(node:31407) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (147ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (203ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (148ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (288ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (303ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (393ms)
+  ✓  7 tests/table.browser.test.ts:82:1 › loading, error/retry and empty are distinct (207ms)
+  ✓  8 tests/table.browser.test.ts:91:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (185ms)
+
+  8 passed (2.6s)
+
+> kernel-platform-table-fixture@0.0.0 build
+> tsc --noEmit && vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 38 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.37 kB │ gzip:  0.27 kB
+dist/assets/index-l9cCBgPA.css    2.49 kB │ gzip:  1.04 kB
+dist/assets/index-3nGWnPQo.js   307.24 kB │ gzip: 93.15 kB
+✓ built in 352ms
+
+> kernel-platform-table-fixture@0.0.0 test:browser
+> playwright test
+
+[WebServer] (node:32042) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 8 tests using 1 worker
+
+(node:32044) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (154ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (199ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (148ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (286ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (302ms)
+  ✘  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (30.0s)
+(node:32691) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  7 tests/table.browser.test.ts:84:1 › loading, error/retry and empty are distinct (225ms)
+  ✓  8 tests/table.browser.test.ts:93:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (202ms)
+
+
+  1) tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.check: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByLabel('Select row-0249', { exact: true })
+        - locator resolved to <input type="checkbox" aria-label="Select row-0249"/>
+
+
+      68 |   await expect(page.locator(dataRows).first()).not.toHaveAttribute('data-row-id', 'row-0001');
+      69 |   const visible = page.locator(dataRows).nth(5); const id = await visible.getAttribute('data-row-id');
+    > 70 |   await page.getByLabel(`Select ${id}`, { exact: true }).check();
+         |                                                          ^
+      71 |   const scroll = await page.getByTestId('viewport').evaluate(el => el.scrollTop);
+      72 |   expect(scroll).toBeGreaterThan(1000);
+      73 |   await page.getByRole('button', { name: `Open ${id}`, exact: true }).click();
+        at /Users/hyojung/orca/workspaces/analytics-platform/kernel-context-url-scope/prototypes/kernel-platform-table/tests/table.browser.test.ts:70:58
+
+    Error Context: test-results/table.browser-drawer-tabs--b961e-election-Context-and-scroll/error-context.md
+
+  1 failed
+    tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll 
+  7 passed (32.5s)
+
+> kernel-platform-table-fixture@0.0.0 test:browser
+> playwright test
+
+[WebServer] (node:33007) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 8 tests using 1 worker
+
+(node:33018) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (192ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (218ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (150ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (289ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (311ms)
+  ✘  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (30.0s)
+(node:34634) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  7 tests/table.browser.test.ts:85:1 › loading, error/retry and empty are distinct (243ms)
+  ✓  8 tests/table.browser.test.ts:94:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (187ms)
+
+
+  1) tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.check: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByLabel('Select row-0249', { exact: true })
+        - locator resolved to <input type="checkbox" aria-label="Select row-0249"/>
+
+
+      69 |   await expect(page.locator(dataRows).first()).not.toHaveAttribute('data-row-id', topRow!);
+      70 |   const visible = page.locator(dataRows).nth(5); const id = await visible.getAttribute('data-row-id');
+    > 71 |   await page.getByLabel(`Select ${id}`, { exact: true }).check();
+         |                                                          ^
+      72 |   const scroll = await page.getByTestId('viewport').evaluate(el => el.scrollTop);
+      73 |   expect(scroll).toBeGreaterThan(1000);
+      74 |   await page.getByRole('button', { name: `Open ${id}`, exact: true }).click();
+        at /Users/hyojung/orca/workspaces/analytics-platform/kernel-context-url-scope/prototypes/kernel-platform-table/tests/table.browser.test.ts:71:58
+
+    Error Context: test-results/table.browser-drawer-tabs--b961e-election-Context-and-scroll/error-context.md
+
+  1 failed
+    tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll 
+  7 passed (32.6s)
+
+> kernel-platform-table-fixture@0.0.0 test:browser
+> playwright test
+
+[WebServer] (node:35779) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 8 tests using 1 worker
+
+(node:35799) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (272ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (216ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (146ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (291ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (302ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (411ms)
+  ✓  7 tests/table.browser.test.ts:87:1 › loading, error/retry and empty are distinct (210ms)
+  ✓  8 tests/table.browser.test.ts:96:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (185ms)
+
+  8 passed (2.8s)
+kernel-platform-table-fixture@0.0.0 /Users/hyojung/orca/workspaces/analytics-platform/kernel-context-url-scope/prototypes/kernel-platform-table
+├── @playwright/test@1.63.0
+├── @tanstack/react-table@8.21.3
+├── @tanstack/react-virtual@3.14.13
+├── @types/node@22.20.4
+├── @types/react-dom@19.3.0
+├── @types/react@19.3.0
+├── react-dom@19.3.0
+├── react@19.3.0
+├── typescript@5.9.3
+├── vite@7.3.6
+└── vitest@3.2.7
+
+
+Final npx tsc --noEmit: exit 0.
+
+
+=== CURRENT REPAIR VERIFICATION ===
+2026-09-25T01:39:40.920875+09:00
+SHA256 02459fc5fcd7661315e51a848fef54d10a3c21c371c58bf48972cb4fa36bf2a2 src/platform/PlatformDataTable.tsx
+SHA256 5602779c682c508bb98c09c177398df7361e55507943d6c752da68fe835a30c0 src/fixture/App.tsx
+SHA256 3c317685960f23c43c0435424ba2ca8f72b1fbab6813149e905dbd2dadf54f64 tests/table.browser.test.ts
+COMMAND: npm run test:unit
+
+> kernel-platform-table-fixture@0.0.0 test:unit
+> vitest run
+
+
+ RUN  v3.2.7 /Users/hyojung/orca/workspaces/analytics-platform/kernel-context-url-scope/prototypes/kernel-platform-table
+
+ ✓ tests/server.unit.test.ts (5 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  01:39:41
+   Duration  151ms (transform 13ms, setup 0ms, collect 11ms, tests 3ms, environment 0ms, prepare 36ms)
+
+EXIT: 0
+COMMAND: npm run build
+
+> kernel-platform-table-fixture@0.0.0 build
+> tsc --noEmit && vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 38 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.37 kB │ gzip:  0.27 kB
+dist/assets/index-l9cCBgPA.css    2.49 kB │ gzip:  1.04 kB
+dist/assets/index-BEWpL2X9.js   307.56 kB │ gzip: 93.28 kB
+✓ built in 331ms
+EXIT: 0
+RUN 01/15 START 2026-09-25T01:39:42.431237+09:00
+COMMAND: npx playwright test tests/table.browser.test.ts
+[WebServer] (node:58305) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 9 tests using 1 worker
+
+(node:58310) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (270ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (198ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (149ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (290ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (337ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (430ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (245ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (185ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (267ms)
+
+  9 passed (3.2s)
+RUN 01/15 PASS exit=0
+RUN 02/15 START 2026-09-25T01:39:46.120498+09:00
+COMMAND: npx playwright test tests/table.browser.test.ts
+[WebServer] (node:58447) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 9 tests using 1 worker
+
+(node:58451) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (132ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (203ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (143ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (284ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (335ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (428ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (255ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (185ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (268ms)
+
+  9 passed (2.9s)
+RUN 02/15 PASS exit=0
+RUN 03/15 START 2026-09-25T01:39:49.423187+09:00
+COMMAND: npx playwright test tests/table.browser.test.ts
+[WebServer] (node:58566) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 9 tests using 1 worker
+
+(node:58571) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (135ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (198ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (149ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (284ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (333ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (428ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (246ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (184ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (283ms)
+
+  9 passed (2.9s)
+RUN 03/15 PASS exit=0
+RUN 04/15 START 2026-09-25T01:39:52.757975+09:00
+COMMAND: npx playwright test tests/table.browser.test.ts
+[WebServer] (node:58716) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 9 tests using 1 worker
+
+(node:58753) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (129ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (217ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (161ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (291ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (340ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (413ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (247ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (188ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (287ms)
+
+  9 passed (2.9s)
+RUN 04/15 PASS exit=0
+RUN 05/15 START 2026-09-25T01:39:56.113215+09:00
+COMMAND: npx playwright test tests/table.browser.test.ts
+[WebServer] (node:58956) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 9 tests using 1 worker
+
+(node:58961) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (135ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (201ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (145ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (301ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (337ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (410ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (243ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (188ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (272ms)
+
+  9 passed (2.9s)
+RUN 05/15 PASS exit=0
+RUN 06/15 START 2026-09-25T01:39:59.431040+09:00
+COMMAND: npx playwright test tests/table.browser.test.ts
+[WebServer] (node:59222) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 9 tests using 1 worker
+
+(node:59231) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (149ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (201ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (152ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (307ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (334ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (409ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (244ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (189ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (269ms)
+
+  9 passed (2.9s)
+RUN 06/15 PASS exit=0
+RUN 07/15 START 2026-09-25T01:40:02.774504+09:00
+COMMAND: npx playwright test tests/table.browser.test.ts
+[WebServer] (node:59347) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 9 tests using 1 worker
+
+(node:59367) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (132ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (197ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (150ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (287ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (336ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (443ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (244ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (195ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (266ms)
+
+  9 passed (2.9s)
+RUN 07/15 PASS exit=0
+RUN 08/15 START 2026-09-25T01:40:06.127931+09:00
+COMMAND: npx playwright test tests/table.browser.test.ts
+[WebServer] (node:59478) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 9 tests using 1 worker
+
+(node:59480) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (133ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (202ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (171ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (289ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (334ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (406ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (241ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (170ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (268ms)
+
+  9 passed (2.9s)
+RUN 08/15 PASS exit=0
+RUN 09/15 START 2026-09-25T01:40:09.421066+09:00
+COMMAND: npx playwright test tests/table.browser.test.ts
+[WebServer] (node:59601) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 9 tests using 1 worker
+
+(node:59603) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (152ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (217ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (150ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (285ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (339ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (438ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (243ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (185ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (265ms)
+
+  9 passed (2.9s)
+RUN 09/15 PASS exit=0
+RUN 10/15 START 2026-09-25T01:40:12.789246+09:00
+COMMAND: npx playwright test tests/table.browser.test.ts
+[WebServer] (node:59834) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 9 tests using 1 worker
+
+(node:59875) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (135ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (198ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (152ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (288ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (338ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (426ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (244ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (202ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (268ms)
+
+  9 passed (2.9s)
+RUN 10/15 PASS exit=0
+RUN 11/15 START 2026-09-25T01:40:16.140198+09:00
+COMMAND: npx playwright test tests/table.browser.test.ts
+[WebServer] (node:60203) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 9 tests using 1 worker
+
+(node:60209) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (133ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (201ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (149ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (286ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (335ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (426ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (244ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (169ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (269ms)
+
+  9 passed (2.9s)
+RUN 11/15 PASS exit=0
+RUN 12/15 START 2026-09-25T01:40:19.444660+09:00
+COMMAND: npx playwright test tests/table.browser.test.ts
+[WebServer] (node:60338) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 9 tests using 1 worker
+
+(node:60340) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (130ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (202ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (144ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (287ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (336ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (427ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (246ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (188ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (268ms)
+
+  9 passed (2.9s)
+RUN 12/15 PASS exit=0
+RUN 13/15 START 2026-09-25T01:40:22.750437+09:00
+COMMAND: npx playwright test tests/table.browser.test.ts
+[WebServer] (node:60456) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 9 tests using 1 worker
+
+(node:60469) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (132ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (199ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (149ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (290ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (335ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (429ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (247ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (187ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (285ms)
+
+  9 passed (2.9s)
+RUN 13/15 PASS exit=0
+RUN 14/15 START 2026-09-25T01:40:26.091734+09:00
+COMMAND: npx playwright test tests/table.browser.test.ts
+[WebServer] (node:60661) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 9 tests using 1 worker
+
+(node:60665) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (135ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (201ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (148ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (284ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (337ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (427ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (242ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (170ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (266ms)
+
+  9 passed (2.9s)
+RUN 14/15 PASS exit=0
+RUN 15/15 START 2026-09-25T01:40:29.408824+09:00
+COMMAND: npx playwright test tests/table.browser.test.ts
+[WebServer] (node:60853) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 9 tests using 1 worker
+
+(node:60855) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (135ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (198ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (150ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (287ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (353ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (429ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (214ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (187ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (277ms)
+
+  9 passed (2.9s)
+RUN 15/15 PASS exit=0
+FINAL REPAIR RESULT: 15/15 consecutive browser suite runs PASS; 9 tests/run, 135 browser test executions PASS; Vitest 5/5 PASS; typecheck and build PASS.

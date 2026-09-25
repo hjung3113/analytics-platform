@@ -1,0 +1,1214 @@
+[
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": null,
+      "condition": null,
+      "selection": null,
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentSelection=none",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": null,
+      "condition": null,
+      "selection": [],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&equipmentSelection=none",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&equipmentSelection=none",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&equipmentSelection=none"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&selectedEquipmentIds=A&selectedEquipmentIds=B",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": null,
+      "condition": null,
+      "selection": [
+        "A",
+        "B"
+      ],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&selectedEquipmentIds=A&selectedEquipmentIds=B",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&selectedEquipmentIds=A&selectedEquipmentIds=B",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&selectedEquipmentIds=A&selectedEquipmentIds=B"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomSelection=none",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [],
+      "condition": null,
+      "selection": null,
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomSelection=none",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomSelection=none",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomSelection=none"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomSelection=none&equipmentSelection=none",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [],
+      "condition": null,
+      "selection": [],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentSelection=none",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentSelection=none",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentSelection=none"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomSelection=none&selectedEquipmentIds=A&selectedEquipmentIds=B",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [],
+      "condition": null,
+      "selection": [
+        "A",
+        "B"
+      ],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomSelection=none&selectedEquipmentIds=A&selectedEquipmentIds=B",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomSelection=none&selectedEquipmentIds=A&selectedEquipmentIds=B",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomSelection=none&selectedEquipmentIds=A&selectedEquipmentIds=B"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomNames=PHOTO",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [
+        "PHOTO"
+      ],
+      "condition": null,
+      "selection": null,
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomNames=PHOTO",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomNames=PHOTO",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomNames=PHOTO"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomNames=PHOTO&equipmentSelection=none",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [
+        "PHOTO"
+      ],
+      "condition": null,
+      "selection": [],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentSelection=none",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentSelection=none",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentSelection=none"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomNames=PHOTO&selectedEquipmentIds=A&selectedEquipmentIds=B",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [
+        "PHOTO"
+      ],
+      "condition": null,
+      "selection": [
+        "A",
+        "B"
+      ],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&selectedEquipmentIds=A&selectedEquipmentIds=B",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&selectedEquipmentIds=A&selectedEquipmentIds=B",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&selectedEquipmentIds=A&selectedEquipmentIds=B"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A+%22stgroup%22%2C+%22id%22%3A+%22fixture-group%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": null,
+      "condition": {
+        "axis": "stgroup",
+        "values": [
+          "fixture-group"
+        ]
+      },
+      "selection": null,
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A+%22stgroup%22%2C+%22id%22%3A+%22fixture-group%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": null,
+      "condition": {
+        "axis": "stgroup",
+        "values": [
+          "fixture-group"
+        ]
+      },
+      "selection": [],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A+%22stgroup%22%2C+%22id%22%3A+%22fixture-group%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": null,
+      "condition": {
+        "axis": "stgroup",
+        "values": [
+          "fixture-group"
+        ]
+      },
+      "selection": [
+        "A",
+        "B"
+      ],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomSelection=none&equipmentGroup=%7B%22axis%22%3A+%22stgroup%22%2C+%22id%22%3A+%22fixture-group%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [],
+      "condition": {
+        "axis": "stgroup",
+        "values": [
+          "fixture-group"
+        ]
+      },
+      "selection": null,
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomSelection=none&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A+%22stgroup%22%2C+%22id%22%3A+%22fixture-group%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [],
+      "condition": {
+        "axis": "stgroup",
+        "values": [
+          "fixture-group"
+        ]
+      },
+      "selection": [],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomSelection=none&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A+%22stgroup%22%2C+%22id%22%3A+%22fixture-group%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [],
+      "condition": {
+        "axis": "stgroup",
+        "values": [
+          "fixture-group"
+        ]
+      },
+      "selection": [
+        "A",
+        "B"
+      ],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomSelection=none&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomSelection=none&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomSelection=none&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomNames=PHOTO&equipmentGroup=%7B%22axis%22%3A+%22stgroup%22%2C+%22id%22%3A+%22fixture-group%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [
+        "PHOTO"
+      ],
+      "condition": {
+        "axis": "stgroup",
+        "values": [
+          "fixture-group"
+        ]
+      },
+      "selection": null,
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomNames=PHOTO&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A+%22stgroup%22%2C+%22id%22%3A+%22fixture-group%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [
+        "PHOTO"
+      ],
+      "condition": {
+        "axis": "stgroup",
+        "values": [
+          "fixture-group"
+        ]
+      },
+      "selection": [],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomNames=PHOTO&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A+%22stgroup%22%2C+%22id%22%3A+%22fixture-group%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [
+        "PHOTO"
+      ],
+      "condition": {
+        "axis": "stgroup",
+        "values": [
+          "fixture-group"
+        ]
+      },
+      "selection": [
+        "A",
+        "B"
+      ],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22fixture-group%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A+%22team%22%2C+%22id%22%3A+%22fixture-team%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": null,
+      "condition": {
+        "axis": "team",
+        "values": [
+          "fixture-team"
+        ]
+      },
+      "selection": null,
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A+%22team%22%2C+%22id%22%3A+%22fixture-team%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": null,
+      "condition": {
+        "axis": "team",
+        "values": [
+          "fixture-team"
+        ]
+      },
+      "selection": [],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A+%22team%22%2C+%22id%22%3A+%22fixture-team%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": null,
+      "condition": {
+        "axis": "team",
+        "values": [
+          "fixture-team"
+        ]
+      },
+      "selection": [
+        "A",
+        "B"
+      ],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomSelection=none&equipmentGroup=%7B%22axis%22%3A+%22team%22%2C+%22id%22%3A+%22fixture-team%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [],
+      "condition": {
+        "axis": "team",
+        "values": [
+          "fixture-team"
+        ]
+      },
+      "selection": null,
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomSelection=none&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A+%22team%22%2C+%22id%22%3A+%22fixture-team%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [],
+      "condition": {
+        "axis": "team",
+        "values": [
+          "fixture-team"
+        ]
+      },
+      "selection": [],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomSelection=none&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A+%22team%22%2C+%22id%22%3A+%22fixture-team%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [],
+      "condition": {
+        "axis": "team",
+        "values": [
+          "fixture-team"
+        ]
+      },
+      "selection": [
+        "A",
+        "B"
+      ],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomSelection=none&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomSelection=none&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomSelection=none&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomNames=PHOTO&equipmentGroup=%7B%22axis%22%3A+%22team%22%2C+%22id%22%3A+%22fixture-team%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [
+        "PHOTO"
+      ],
+      "condition": {
+        "axis": "team",
+        "values": [
+          "fixture-team"
+        ]
+      },
+      "selection": null,
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomNames=PHOTO&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A+%22team%22%2C+%22id%22%3A+%22fixture-team%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [
+        "PHOTO"
+      ],
+      "condition": {
+        "axis": "team",
+        "values": [
+          "fixture-team"
+        ]
+      },
+      "selection": [],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomNames=PHOTO&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A+%22team%22%2C+%22id%22%3A+%22fixture-team%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [
+        "PHOTO"
+      ],
+      "condition": {
+        "axis": "team",
+        "values": [
+          "fixture-team"
+        ]
+      },
+      "selection": [
+        "A",
+        "B"
+      ],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A+%22makerModel%22%2C+%22maker%22%3A+%22M%22%2C+%22model%22%3A+%22X%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": null,
+      "condition": {
+        "axis": "makerModel",
+        "values": [
+          "M",
+          "X"
+        ]
+      },
+      "selection": null,
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A+%22makerModel%22%2C+%22maker%22%3A+%22M%22%2C+%22model%22%3A+%22X%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": null,
+      "condition": {
+        "axis": "makerModel",
+        "values": [
+          "M",
+          "X"
+        ]
+      },
+      "selection": [],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A+%22makerModel%22%2C+%22maker%22%3A+%22M%22%2C+%22model%22%3A+%22X%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": null,
+      "condition": {
+        "axis": "makerModel",
+        "values": [
+          "M",
+          "X"
+        ]
+      },
+      "selection": [
+        "A",
+        "B"
+      ],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomSelection=none&equipmentGroup=%7B%22axis%22%3A+%22makerModel%22%2C+%22maker%22%3A+%22M%22%2C+%22model%22%3A+%22X%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [],
+      "condition": {
+        "axis": "makerModel",
+        "values": [
+          "M",
+          "X"
+        ]
+      },
+      "selection": null,
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomSelection=none&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A+%22makerModel%22%2C+%22maker%22%3A+%22M%22%2C+%22model%22%3A+%22X%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [],
+      "condition": {
+        "axis": "makerModel",
+        "values": [
+          "M",
+          "X"
+        ]
+      },
+      "selection": [],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomSelection=none&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomSelection=none&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A+%22makerModel%22%2C+%22maker%22%3A+%22M%22%2C+%22model%22%3A+%22X%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [],
+      "condition": {
+        "axis": "makerModel",
+        "values": [
+          "M",
+          "X"
+        ]
+      },
+      "selection": [
+        "A",
+        "B"
+      ],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomSelection=none&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomSelection=none&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomSelection=none&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomNames=PHOTO&equipmentGroup=%7B%22axis%22%3A+%22makerModel%22%2C+%22maker%22%3A+%22M%22%2C+%22model%22%3A+%22X%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [
+        "PHOTO"
+      ],
+      "condition": {
+        "axis": "makerModel",
+        "values": [
+          "M",
+          "X"
+        ]
+      },
+      "selection": null,
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomNames=PHOTO&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A+%22makerModel%22%2C+%22maker%22%3A+%22M%22%2C+%22model%22%3A+%22X%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [
+        "PHOTO"
+      ],
+      "condition": {
+        "axis": "makerModel",
+        "values": [
+          "M",
+          "X"
+        ]
+      },
+      "selection": [],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&equipmentSelection=none&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomNames=PHOTO&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A+%22makerModel%22%2C+%22maker%22%3A+%22M%22%2C+%22model%22%3A+%22X%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": [
+        "PHOTO"
+      ],
+      "condition": {
+        "axis": "makerModel",
+        "values": [
+          "M",
+          "X"
+        ]
+      },
+      "selection": [
+        "A",
+        "B"
+      ],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&roomNames=PHOTO&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22M%22%2C%22model%22%3A%22X%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&v=0",
+    "error": "invalid_version"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&v=01",
+    "error": "invalid_version"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&v=-1",
+    "error": "invalid_version"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&v=2",
+    "error": "unsupported_version"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&v=1&v=1",
+    "error": "duplicate_singleton"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&scopeId=x",
+    "error": "duplicate_singleton"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&selectedEquipmentIds=",
+    "error": "invalid_id"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&selectedEquipmentIds=+++",
+    "error": "invalid_id"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentIds=A&selectedEquipmentIds=A",
+    "error": "alias_conflict"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentIds=A&equipmentSelection=none",
+    "error": "invalid_set"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&selectedEquipmentIds=A&equipmentSelection=none",
+    "error": "invalid_set"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomNames=PHOTO&roomSelection=none",
+    "error": "invalid_set"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomSelection=wrong",
+    "error": "invalid_set"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentSelection=none&equipmentSelection=none",
+    "error": "duplicate_singleton"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentGroup=%7Bbad",
+    "error": "invalid_condition"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentGroup=%FF",
+    "error": "invalid_url"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomNames=%ZZ",
+    "error": "invalid_url"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&unregistered=x&unregistered=y",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": null,
+      "condition": null,
+      "selection": null,
+      "destination": null,
+      "extras": [
+        [
+          "unregistered",
+          "x"
+        ],
+        [
+          "unregistered",
+          "y"
+        ]
+      ],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&unregistered=x&unregistered=y",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&from=2026-09-24T00%3A00%3A00",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": null,
+      "condition": null,
+      "selection": null,
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": [
+        [
+          "from",
+          "2026-09-24T00:00:00"
+        ]
+      ]
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&from=2026-09-24T00%3A00%3A00",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&from=2026-09-24T00%3A00%3A00",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&from=2026-09-24T00%3A00%3A00"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentIds=B&equipmentIds=A&equipmentIds=A",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": null,
+      "condition": null,
+      "selection": [
+        "A",
+        "B"
+      ],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&selectedEquipmentIds=A&selectedEquipmentIds=B",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&selectedEquipmentIds=A&selectedEquipmentIds=B",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&selectedEquipmentIds=A&selectedEquipmentIds=B"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentGroup=%5B%5D",
+    "error": "invalid_condition"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22%22%7D",
+    "error": "invalid_id"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22X%22%2C%22maker%22%3A%22Y%22%7D",
+    "error": "invalid_condition"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22axis%22%3A%22team%22%2C%22id%22%3A%22X%22%7D",
+    "error": "invalid_condition"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%5B%22stgroup%22%5D%2C%22id%22%3A%22X%22%7D",
+    "error": "invalid_condition"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22makerModel%22%2C%22maker%22%3A%22X%22%7D",
+    "error": "invalid_condition"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22%5Cu0069d%22%3A%22A%22%2C%22id%22%3A%22B%22%7D",
+    "error": "invalid_condition"
+  },
+  {
+    "url": "https://example.test/prototype/context?scopeId=fixture-scope-a",
+    "error": "invalid_url"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a#x",
+    "error": "invalid_url"
+  },
+  {
+    "url": "/prototype/equipment/",
+    "error": "invalid_id"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a\n",
+    "error": "invalid_url"
+  },
+  {
+    "url": "/prototype/equipment/A/B",
+    "error": "invalid_route"
+  },
+  {
+    "url": "/prototype/equipment/%FF",
+    "error": "invalid_url"
+  },
+  {
+    "url": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26",
+    "state": {
+      "route": "equipment",
+      "scope_id": null,
+      "room_names": null,
+      "condition": null,
+      "selection": null,
+      "destination": "ID/공백 +?&",
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1",
+    "reference": "/prototype/reference?v=1",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1"
+  },
+  {
+    "url": "/prototype/context?v=2&scopeId=a&scopeId=a",
+    "error": "unsupported_version"
+  },
+  {
+    "url": "/prototype/other?v=2",
+    "error": "unsupported_version"
+  },
+  {
+    "url": "/prototype/equipment/?v=2",
+    "error": "unsupported_version"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&v=2&equipmentGroup=%FF",
+    "error": "unsupported_version"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomNames=%ZZ&v=2",
+    "error": "unsupported_version"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&v=2&equipmentGroup=%7Bbad",
+    "error": "unsupported_version"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&v=1&v=2",
+    "error": "unsupported_version"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&v=2#fragment",
+    "error": "unsupported_version"
+  },
+  {
+    "url": "/prototype/other\n?v=2",
+    "error": "unsupported_version"
+  },
+  {
+    "url": "/prototype/context?v=99&scopeId=a&scopeId=a",
+    "error": "unsupported_version"
+  },
+  {
+    "url": "/prototype/other?v=99",
+    "error": "unsupported_version"
+  },
+  {
+    "url": "/prototype/equipment/?v=99",
+    "error": "unsupported_version"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&v=99&equipmentGroup=%FF",
+    "error": "unsupported_version"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&roomNames=%ZZ&v=99",
+    "error": "unsupported_version"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&v=99&equipmentGroup=%7Bbad",
+    "error": "unsupported_version"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&v=1&v=99",
+    "error": "unsupported_version"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&v=99#fragment",
+    "error": "unsupported_version"
+  },
+  {
+    "url": "/prototype/other\n?v=99",
+    "error": "unsupported_version"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&selectedEquipmentIds=%F0%9F%98%80&selectedEquipmentIds=%EE%80%80&selectedEquipmentIds=A%2CB&selectedEquipmentIds=a&selectedEquipmentIds=+A+&selectedEquipmentIds=%C3%A9&selectedEquipmentIds=e%CC%81&selectedEquipmentIds=A%2FB%26%3F&selectedEquipmentIds=A%2CB&selectedEquipmentIds=~%21%27%28%29%2A",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": null,
+      "condition": null,
+      "selection": [
+        " A ",
+        "A,B",
+        "A/B&?",
+        "a",
+        "é",
+        "~!'()*",
+        "é",
+        "",
+        "😀"
+      ],
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&selectedEquipmentIds=+A+&selectedEquipmentIds=A%2CB&selectedEquipmentIds=A%2FB%26%3F&selectedEquipmentIds=a&selectedEquipmentIds=e%CC%81&selectedEquipmentIds=~%21%27%28%29%2A&selectedEquipmentIds=%C3%A9&selectedEquipmentIds=%EE%80%80&selectedEquipmentIds=%F0%9F%98%80",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&selectedEquipmentIds=+A+&selectedEquipmentIds=A%2CB&selectedEquipmentIds=A%2FB%26%3F&selectedEquipmentIds=a&selectedEquipmentIds=e%CC%81&selectedEquipmentIds=~%21%27%28%29%2A&selectedEquipmentIds=%C3%A9&selectedEquipmentIds=%EE%80%80&selectedEquipmentIds=%F0%9F%98%80",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&selectedEquipmentIds=+A+&selectedEquipmentIds=A%2CB&selectedEquipmentIds=A%2FB%26%3F&selectedEquipmentIds=a&selectedEquipmentIds=e%CC%81&selectedEquipmentIds=~%21%27%28%29%2A&selectedEquipmentIds=%C3%A9&selectedEquipmentIds=%EE%80%80&selectedEquipmentIds=%F0%9F%98%80"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&anchor=opaque&entityType=opaque&from=opaque&lotIds=opaque&metricId=opaque&metricVersion=opaque&ppid=opaque&recipeIds=opaque&savedViewToken=opaque&to=opaque&unknown=local",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": null,
+      "condition": null,
+      "selection": null,
+      "destination": null,
+      "extras": [
+        [
+          "unknown",
+          "local"
+        ]
+      ],
+      "unapplied_globals": [
+        [
+          "anchor",
+          "opaque"
+        ],
+        [
+          "entityType",
+          "opaque"
+        ],
+        [
+          "from",
+          "opaque"
+        ],
+        [
+          "lotIds",
+          "opaque"
+        ],
+        [
+          "metricId",
+          "opaque"
+        ],
+        [
+          "metricVersion",
+          "opaque"
+        ],
+        [
+          "ppid",
+          "opaque"
+        ],
+        [
+          "recipeIds",
+          "opaque"
+        ],
+        [
+          "savedViewToken",
+          "opaque"
+        ],
+        [
+          "to",
+          "opaque"
+        ]
+      ]
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&anchor=opaque&entityType=opaque&from=opaque&lotIds=opaque&metricId=opaque&metricVersion=opaque&ppid=opaque&recipeIds=opaque&savedViewToken=opaque&to=opaque&unknown=local",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&anchor=opaque&entityType=opaque&from=opaque&lotIds=opaque&metricId=opaque&metricVersion=opaque&ppid=opaque&recipeIds=opaque&savedViewToken=opaque&to=opaque",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&anchor=opaque&entityType=opaque&from=opaque&lotIds=opaque&metricId=opaque&metricVersion=opaque&ppid=opaque&recipeIds=opaque&savedViewToken=opaque&to=opaque"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A+%22team%22%2C+%22id%22%3A+%22%5Cu0085%22%7D",
+    "error": "invalid_id"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A+%22team%22%2C+%22id%22%3A+%22%5Cufeff%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": null,
+      "condition": {
+        "axis": "team",
+        "values": [
+          "﻿"
+        ]
+      },
+      "selection": null,
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22%EF%BB%BF%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22%EF%BB%BF%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22%EF%BB%BF%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A+%22team%22%2C+%22id%22%3A+%22%5Cu001c%22%7D",
+    "error": "invalid_id"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A+%22team%22%2C+%22id%22%3A+%22quote+%5C%22key%5C%22%3A+value%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": null,
+      "condition": {
+        "axis": "team",
+        "values": [
+          "quote \"key\": value"
+        ]
+      },
+      "selection": null,
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22quote+%5C%22key%5C%22%3A+value%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22quote+%5C%22key%5C%22%3A+value%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22quote+%5C%22key%5C%22%3A+value%22%7D"
+  },
+  {
+    "url": "/prototype/context?scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A+%22team%22%2C+%22id%22%3A+%22backslash+%5C%5C%22%7D",
+    "state": {
+      "route": "context",
+      "scope_id": "fixture-scope-a",
+      "room_names": null,
+      "condition": {
+        "axis": "team",
+        "values": [
+          "backslash \\"
+        ]
+      },
+      "selection": null,
+      "destination": null,
+      "extras": [],
+      "unapplied_globals": []
+    },
+    "canonical": "/prototype/context?v=1&scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22backslash+%5C%5C%22%7D",
+    "reference": "/prototype/reference?v=1&scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22backslash+%5C%5C%22%7D",
+    "detail": "/prototype/equipment/ID%2F%EA%B3%B5%EB%B0%B1%20%2B%3F%26?v=1&scopeId=fixture-scope-a&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22backslash+%5C%5C%22%7D"
+  }
+]

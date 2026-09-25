@@ -1,0 +1,36 @@
+$ python3 -B -m unittest discover -s prototypes/kernel-context-url-scope -p "test_*.py" -v
+test_alias_v1_canonicalization_and_duplicate_ids (test_context_url.ContextContractTests) ... ok
+test_condition_live_selection_fixed (test_context_url.ContextContractTests) ... ok
+test_detail_outside_selection_and_restore_revalidation (test_context_url.ContextContractTests) ... ok
+test_empty_validates_other_inputs_first (test_context_url.ContextContractTests) ... ok
+test_missing_scope_and_different_user (test_context_url.ContextContractTests) ... ok
+test_registered_outside_profile_preserved_unapplied_across_routes (test_context_url.ContextContractTests) ... ok
+test_reject_malformed_inputs (test_context_url.ContextContractTests) ... ok
+test_review_single_from_probe_preserved_without_application (test_context_url.ContextContractTests) ... ok
+test_room_scope_not_line_or_group_authority (test_context_url.ContextContractTests) ... ok
+test_round_trip_all_group_axes_and_three_set_states (test_context_url.ContextContractTests) ... ok
+test_unicode_order_reserved_chars_and_no_lossy_normalization (test_context_url.ContextContractTests) ... ok
+test_unknown_preserved_only_in_current_url (test_context_url.ContextContractTests) ... ok
+test_unsupported_context_preserved_and_empty_not_applied (test_context_url.ContextContractTests) ... ok
+test_unsupported_version_precedes_other_format_errors (test_context_url.ContextContractTests) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.007s
+
+OK
+
+EXIT CODE: 0
+
+$ python3 -B prototypes/kernel-context-url-scope/demo.py
+INPUT: /prototype/context?scopeId=scope-photo&roomNames=PHOTO&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22SG-photo%22%7D&selectedEquipmentIds=B&selectedEquipmentIds=A&selectedEquipmentIds=A
+STATE: {"route": "context", "scope_id": "scope-photo", "room_names": ["PHOTO"], "condition": {"axis": "stgroup", "values": ["SG-photo"]}, "selection": ["A", "B"], "destination": null, "extras": [], "unapplied_globals": []}
+CANONICAL: /prototype/context?v=1&scopeId=scope-photo&roomNames=PHOTO&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22SG-photo%22%7D
+ROUND TRIP: PASS
+DETAIL C: /prototype/equipment/C?v=1&scopeId=scope-photo&roomNames=PHOTO&selectedEquipmentIds=A&selectedEquipmentIds=B&equipmentGroup=%7B%22axis%22%3A%22stgroup%22%2C%22id%22%3A%22SG-photo%22%7D
+REFERENCE UNAPPLIED: ['room_names', 'condition', 'selection']
+RETURN FIXED SELECTION: ['A', 'B']
+CURRENT LIVE CONDITION: {'mode': 'live', 'evaluatedAt': '2026-09-24T09:05:00+09:00', 'currentEquipmentIds': ['B', 'C'], 'source': 'local-fixture'}
+RETURN AFTER REVOKED GRANT: forbidden scope_forbidden
+ALL DEMO ASSERTIONS: PASS (local fixtures only; no analytical query)
+
+EXIT CODE: 0
