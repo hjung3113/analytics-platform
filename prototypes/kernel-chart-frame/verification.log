@@ -156,3 +156,37 @@ dist/assets/index-DylLmIT3.js   717.09 kB │ gzip: 240.09 kB
 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
 ✓ built in 1.09s
+
+## 2026-09-25 Decided stack port (Tailwind v4 + FeedbackOps shadcn)
+
+> kernel-chart-frame-fixture@0.0.0 typecheck
+> tsc --noEmit
+
+ RUN  v3.2.7 /Users/hyojung/orca/workspaces/analytics-platform/design-system-port-unit-b/prototypes/kernel-chart-frame
+ ✓ src/plot.test.ts (7 tests) 46ms
+ ✓ src/App.test.tsx (16 tests) 704ms
+ Test Files  2 passed (2)
+      Tests  23 passed (23)
+   Start at  16:40:04
+   Duration  1.49s (transform 117ms, setup 113ms, collect 600ms, tests 750ms, environment 218ms, prepare 120ms)
+
+> kernel-chart-frame-fixture@0.0.0 build
+> tsc --noEmit && vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+node_modules/@radix-ui/react-label/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-label/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-checkbox/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-checkbox/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-presence/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-presence/dist/index.mjs" was ignored.
+✓ 2196 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.37 kB │ gzip:   0.27 kB
+dist/assets/index-7buQaXnW.css   22.75 kB │ gzip:   5.22 kB
+dist/assets/index-D911IPXL.js   770.31 kB │ gzip: 256.93 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 1.72s

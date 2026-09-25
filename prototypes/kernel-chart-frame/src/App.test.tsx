@@ -61,7 +61,7 @@ describe('AnalysisChartFrame contract', () => {
     const { user } = mount(); const before = globalText();
     await user.click(screen.getByLabelText('Synthetic A — solid'));
     expect(screen.getByRole('img').getAttribute('aria-label')).toContain('표시 시리즈 없음'); expect(globalText()).toBe(before);
-    await user.click(button('Reset')); expect((screen.getByLabelText('Synthetic A — solid') as HTMLInputElement).checked).toBe(true);
+    await user.click(button('Reset')); expect(screen.getByRole('checkbox', { name: 'Synthetic A — solid' }).getAttribute('aria-checked')).toBe('true');
   });
   it('annotation repository survives Reset and remount independently of chart/page/global', async () => {
     const { user, repository, unmount } = mount();

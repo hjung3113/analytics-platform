@@ -1,0 +1,73 @@
+/* Ported from FeedbackOps packages/ui/src/styles/tokens.css + semantic.css
+ * (ADR-0021 Pack 17 Samsung-light, submodule revision b5dd614). Copied, not referenced.
+ *
+ * Colors stay R G B triples so `rgb(var(--X))` composes alpha (`bg-x/15`) in theme.css.
+ * Components MUST NOT reference --color-* directly; consume the semantic tokens.
+ *
+ * Port scope: raw colors + semantic text/surface/border/focus + the two semantic.css
+ * compat aliases that ported components use (surface-raised, border-default).
+ * Not ported: VOC domain tokens (status-reporter/internal, severity, confidence,
+ * managed-system), FeedbackOps layout/entity-link sizes, and the typography/spacing
+ * scales — those names (--text-sm, --spacing-4, --leading-*, --tracking-*) collide
+ * with Tailwind v4 theme namespaces and would silently re-size core utilities.
+ * Radius/shadow/font values move into the v4 @theme block in theme.css.
+ */
+:root {
+  /* --- Raw color tokens (R G B triple format per ADR-0021) --- */
+  --color-pitch-black: 243 247 254;   /* #f3f7fe — canvas / lightest bg */
+  --color-graphite: 251 253 255;      /* #fbfdff — detail / card surface */
+  --color-deep-slate: 237 243 251;    /* #edf3fb — popover / elevated */
+  --color-charcoal-grey: 203 214 230; /* #cbd6e6 — subtle border */
+  --color-muted-ash: 184 196 214;     /* #b8c4d6 — strong border */
+  --color-gunmetal: 148 163 184;      /* #94a3b8 */
+  --color-porcelain: 16 24 40;        /* #101828 — primary text */
+  --color-light-steel: 55 65 81;      /* #374151 — secondary text */
+  --color-storm-cloud: 104 115 134;   /* #687386 — muted text */
+  --color-fog-grey: 152 162 179;      /* #98a2b3 — disabled text */
+  --color-alabaster: 229 229 230;     /* #e5e5e6 */
+  --color-neon-lime: 20 40 160;       /* #1428a0 — Samsung blue; name historical per ADR-0021 */
+  --color-aether-blue: 20 40 160;     /* #1428a0 — alias of neon-lime */
+  --color-forest-green: 0 141 76;     /* #008d4c */
+  --color-cyan-spark: 0 169 224;      /* #00a9e0 */
+  --color-emerald: 24 168 107;        /* #18a86b */
+  --color-warning-red: 217 45 58;     /* #d92d3a */
+  --color-deep-violet: 49 87 213;     /* #3157d5 */
+  --color-amethyst: 106 141 255;      /* #6a8dff */
+  --color-amber: 165 99 0;            /* #a56300 */
+
+  /* --- Semantic text tokens --- */
+  --text-primary: var(--color-porcelain);
+  --text-secondary: var(--color-light-steel);
+  --text-muted: var(--color-storm-cloud);
+  --text-disabled: var(--color-fog-grey);
+  --text-danger: var(--color-warning-red);
+  --text-warning: var(--color-amber);
+  --text-success: var(--color-emerald);
+  --text-info: var(--color-cyan-spark);
+  --text-on-accent: 255 255 255;       /* #ffffff */
+
+  /* --- Surface tokens --- */
+  --surface-canvas: var(--color-pitch-black);
+  --surface-sidebar: 238 244 251;      /* #eef4fb */
+  --surface-list: var(--color-pitch-black);
+  --surface-row-hover: 231 239 252;    /* #e7effc */
+  --surface-row-selected: 216 231 251; /* #d8e7fb */
+  --surface-detail: var(--color-graphite);
+  --surface-popover: var(--color-deep-slate);
+  --surface-field: transparent;
+  --surface-field-filled: 255 255 255; /* #ffffff */
+  --surface-blocked: 238 242 247;      /* #eef2f7 */
+  --surface-card: var(--color-graphite);
+  --surface-card-elevated: var(--color-deep-slate);
+
+  /* --- Border tokens --- */
+  --border-subtle: var(--color-charcoal-grey);
+  --border-strong: var(--color-muted-ash);
+  --border-selected: var(--color-aether-blue);
+  --focus-ring: var(--color-neon-lime);
+  --focus-ring-danger: var(--color-warning-red);
+
+  /* --- semantic.css backward-compat aliases (used by ported Button/Badge) --- */
+  --surface-raised: var(--color-graphite);
+  --border-default: var(--color-charcoal-grey);
+}

@@ -1,0 +1,76 @@
+/* Tailwind v4 migration of FeedbackOps packages/ui/tailwind.preset.ts (v3 `theme.extend`).
+ * Same semantic utility names (bg-surface-canvas, text-text-primary, border-border-subtle,
+ * bg-accent-primary, ...); v3 `rgb(var(--X) / <alpha-value>)` becomes `rgb(var(--X))` and
+ * v4 composes opacity modifiers (`bg-accent-primary/15`) through color-mix.
+ * `inline` keeps each utility pointing at the :root semantic var from tokens.css.
+ */
+
+/* Drop Tailwind's default palette: utilities may only use the semantic names below (ADR-0021). */
+@theme {
+  --color-*: initial;
+}
+
+@theme inline {
+  /* --- Surface tokens --- */
+  --color-surface-canvas: rgb(var(--surface-canvas));
+  --color-surface-raised: rgb(var(--surface-raised)); /* compat alias */
+  --color-surface-sidebar: rgb(var(--surface-sidebar));
+  --color-surface-list: rgb(var(--surface-list));
+  --color-surface-row-hover: rgb(var(--surface-row-hover));
+  --color-surface-row-selected: rgb(var(--surface-row-selected));
+  --color-surface-detail: rgb(var(--surface-detail));
+  --color-surface-popover: rgb(var(--surface-popover));
+  --color-surface-field: transparent;
+  --color-surface-field-filled: rgb(var(--surface-field-filled));
+  --color-surface-blocked: rgb(var(--surface-blocked));
+  --color-surface-card: rgb(var(--surface-card));
+  --color-surface-card-elevated: rgb(var(--surface-card-elevated));
+
+  /* --- Text tokens --- */
+  --color-text-primary: rgb(var(--text-primary));
+  --color-text-secondary: rgb(var(--text-secondary));
+  --color-text-muted: rgb(var(--text-muted));
+  --color-text-disabled: rgb(var(--text-disabled));
+  --color-text-danger: rgb(var(--text-danger));
+  --color-text-warning: rgb(var(--text-warning));
+  --color-text-success: rgb(var(--text-success));
+  --color-text-info: rgb(var(--text-info));
+  --color-text-on-accent: rgb(var(--text-on-accent));
+  --color-text-inverse: rgb(var(--color-pitch-black));
+
+  /* --- Border tokens --- */
+  --color-border-default: rgb(var(--border-default)); /* compat alias */
+  --color-border-subtle: rgb(var(--border-subtle));
+  --color-border-strong: rgb(var(--border-strong));
+  --color-border-selected: rgb(var(--border-selected));
+
+  /* --- Focus tokens --- */
+  --color-focus-ring: rgb(var(--color-neon-lime));
+  --color-focus-ring-danger: rgb(var(--color-warning-red));
+
+  /* --- Accent tokens --- */
+  --color-accent-primary: rgb(var(--color-neon-lime));
+  --color-accent-info: rgb(var(--color-cyan-spark));
+  --color-accent-warn: rgb(var(--color-amber));
+  --color-accent-danger: rgb(var(--color-warning-red));
+  --color-accent-success: rgb(var(--color-emerald));
+}
+
+/* preset borderRadius / boxShadow / tokens.css font family, as native v4 theme values. */
+@theme {
+  --radius-sm: 2px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-pill: 9999px;
+
+  --shadow-sm: rgba(16, 24, 40, 0.06) 0px 2px 4px 0px;
+  --shadow-md: rgba(20, 40, 160, 0.06) 0px 0px 12px 0px inset;
+  --shadow-subtle: rgb(213, 224, 244) 0px 0px 0px 1px inset;
+  --shadow-subtle-2: rgba(20, 40, 160, 0.10) 0px 0px 0px 1px;
+  --shadow-xl: rgba(20, 40, 160, 0.12) 0px 12px 36px 0px;
+  --shadow-focus: 0 0 0 2px #ffffff, 0 0 0 4px rgb(var(--color-neon-lime));
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
