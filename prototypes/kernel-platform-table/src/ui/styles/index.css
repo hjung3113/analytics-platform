@@ -1,0 +1,5 @@
+/* Design system entry: Tailwind v4 + FeedbackOps ADR-0021 tokens (copied, not referenced). */
+@import 'tailwindcss';
+@import './tokens.css';
+@import './semantic.css';
+@import './theme.css';
