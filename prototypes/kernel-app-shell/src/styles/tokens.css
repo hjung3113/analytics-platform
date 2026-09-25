@@ -1,0 +1,55 @@
+/* Platform semantic color tokens — values only; Tailwind utilities are declared in ../style.css `@theme`.
+ * Names and R G B triple format are ported from FeedbackOps ADR-0021
+ * (packages/ui/src/styles/tokens.css + semantic.css @ b5dd614) so `rgb(var(--x))` composes with opacity modifiers.
+ * Values come from this repo's DESIGN.md `colors:` — docs/04 ports FeedbackOps naming only, DESIGN.md stays the palette.
+ * Not ported: FeedbackOps status-reporter/status-internal/severity/confidence/managed-system (VOC domain vocabulary),
+ * layout/spacing/typography sizes (DESIGN.md + docs/06 own 270/64/54 shell dimensions; --text-* sizes would override Tailwind's).
+ */
+:root {
+  /* --- Surface tokens --- */
+  --surface-canvas: 247 248 250;       /* #f7f8fa colors.canvas */
+  --surface-raised: 255 255 255;       /* #ffffff colors.surface-card (FeedbackOps compat alias) */
+  --surface-sidebar: 15 21 38;         /* #0f1526 colors.surface-dark-nav */
+  --surface-list: 255 255 255;         /* #ffffff colors.surface-card */
+  --surface-row-hover: 241 243 246;    /* #f1f3f6 colors.surface-sunken */
+  --surface-row-selected: 239 246 255; /* #eff6ff colors.primary-soft */
+  --surface-detail: 255 255 255;       /* #ffffff colors.surface-card */
+  --surface-popover: 241 243 246;      /* #f1f3f6 colors.surface-sunken — FeedbackOps ladder: popover tinted, card lighter */
+  --surface-field-filled: 255 255 255; /* #ffffff colors.surface-card */
+  --surface-blocked: 241 243 246;      /* #f1f3f6 colors.surface-sunken */
+  --surface-card: 255 255 255;         /* #ffffff colors.surface-card */
+  --surface-card-elevated: 241 243 246; /* #f1f3f6 colors.surface-sunken */
+
+  /* --- Text tokens --- */
+  --text-primary: 17 24 39;            /* #111827 colors.ink */
+  --text-secondary: 55 65 81;          /* #374151 colors.ink-secondary */
+  --text-muted: 107 114 128;           /* #6b7280 colors.ink-muted */
+  --text-disabled: 156 163 175;        /* #9ca3af colors.ink-faint */
+  --text-danger: 220 38 38;            /* #dc2626 colors.danger */
+  --text-warning: 146 64 14;           /* #92400e colors.warning-text */
+  --text-success: 22 101 52;           /* #166534 colors.success-text */
+  --text-info: 37 99 235;              /* #2563eb colors.info */
+  --text-on-accent: 255 255 255;       /* #ffffff colors.on-primary */
+  --text-inverse: 247 248 250;         /* #f7f8fa colors.canvas */
+
+  /* --- Border / focus tokens --- */
+  --border-default: 229 231 235;       /* #e5e7eb colors.hairline (FeedbackOps compat alias of subtle) */
+  --border-subtle: 229 231 235;        /* #e5e7eb colors.hairline */
+  --border-strong: 209 213 219;        /* #d1d5db colors.hairline-strong */
+  --border-selected: 37 99 235;        /* #2563eb colors.primary */
+  --focus-ring: 37 99 235;             /* #2563eb colors.focus-visible */
+  --focus-ring-danger: 220 38 38;      /* #dc2626 colors.danger */
+
+  /* --- Accent tokens --- */
+  --accent-primary: 37 99 235;         /* #2563eb colors.primary */
+  --accent-info: 37 99 235;            /* #2563eb colors.info */
+  --accent-warn: 217 119 6;            /* #d97706 colors.warning */
+  --accent-danger: 220 38 38;          /* #dc2626 colors.danger */
+  --accent-success: 22 163 74;         /* #16a34a colors.success */
+
+  /* --- Platform additions: DESIGN.md dark sidebar (FeedbackOps sidebar is light, so it has no equivalents) --- */
+  --surface-sidebar-hover: 26 34 54;   /* #1a2236 colors.surface-dark-nav-hover */
+  --text-sidebar: 195 209 228;         /* #c3d1e4 colors.nav-text */
+  --border-sidebar: 41 53 74;          /* #29354a colors.nav-divider */
+  --focus-ring-sidebar: 147 197 253;   /* #93c5fd colors.nav-focus */
+}

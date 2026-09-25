@@ -7,6 +7,12 @@ import { readLocation, writeLocation } from './kernel';
 import { PlatformPage, type PageSlots, slotNames } from './PlatformPage';
 afterEach(cleanup);
 function mount(url = '/sample-analysis') { window.history.replaceState(null, '', url); return render(<App />); }
+const here = () => window.location.pathname + window.location.search;
+// Global controls are Radix Selects (shadcn port): pick an option the way a pointer user does instead of firing native change events.
+async function choose(user: ReturnType<typeof userEvent.setup>, label: string, option: string) {
+  await user.click(screen.getByLabelText(label));
+  await user.click(screen.getByRole('option', { name: option }));
+}
 const origin = '/sample-analysis?scopeId=fixture-scope-a&roomNames=fixture-room-a&equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A%22fixture-team%22%7D&equipmentSelection=none&lotIds=L&unknown=local';
 describe('platform shell acceptance — 합성 fixture, 실제 메뉴 아님', () => {
   it('declares all registry fields with distinct context capabilities and unique routes', () => {
@@ -36,37 +42,73 @@ describe('platform shell acceptance — 합성 fixture, 실제 메뉴 아님', (
     expect(readLocation(window.location.pathname + window.location.search).context.selection).toEqual([]);
     expect(document.querySelector('[data-slot=content]')?.textContent).toBe('');
   });
-  it('uses codec for controls and preserves fixed selection when condition changes', () => {
-    mount();
-    fireEvent.change(screen.getByLabelText('Scope'), { target: { value: 'fixture-scope-b' } });
-    fireEvent.change(screen.getByLabelText('room'), { target: { value: 'fixture-room-b' } });
-    fireEvent.change(screen.getByLabelText('Selection'), { target: { value: 'fixture-equipment-a' } });
-    fireEvent.change(screen.getByLabelText('Condition'), { target: { value: JSON.stringify({ axis: 'stgroup', values: ['fixture-group'] }) } });
-    const state = readLocation(window.location.pathname + window.location.search).context;
+  it('uses codec for controls and preserves fixed selection when condition changes', async () => {
+    const user = userEvent.setup(); mount();
+    await choose(user, 'Scope', 'fixture-scope-b');
+    await choose(user, 'room', 'fixture-room-b');
+    await choose(user, 'Selection', 'fixture-equipment-a');
+    await choose(user, 'Condition', 'stgroup: fixture-group');
+    const state = readLocation(here()).context;
     expect(state.scope_id).toBe('fixture-scope-b'); expect(state.room_names).toEqual(['fixture-room-b']);
     expect(state.selection).toEqual(['fixture-equipment-a']); expect(state.condition?.axis).toBe('stgroup');
+    expect(screen.getByLabelText('Condition').textContent).toBe('stgroup: fixture-group');
     expect(screen.getAllByLabelText('Scope')).toHaveLength(1);
   });
-  it('never defaults absent scope and preserves explicit unknown scope as unverified', () => {
-    mount(); expect(screen.getByText(/Scope selection required/)).toBeTruthy(); cleanup();
-    mount('/sample-analysis?scopeId=unauthorized');
-    expect((screen.getByLabelText('Scope') as HTMLSelectElement).value).toBe('unauthorized');
+  it('matches URL conditions to JSON-string option values and clears through the absent sentinel', async () => {
+    const user = userEvent.setup(); mount(origin);
+    const condition = screen.getByLabelText('Condition');
+    expect(condition.textContent).toBe('team: fixture-team');
+    await user.click(condition);
+    expect(screen.getAllByRole('option', { name: 'team: fixture-team' })).toHaveLength(1);
+    expect(screen.getByRole('option', { name: 'team: fixture-team' }).getAttribute('data-state')).toBe('checked');
+    await user.click(screen.getByRole('option', { name: 'Not selected' }));
+    const state = readLocation(here()).context;
+    expect(state.condition).toBeNull(); expect(state.selection).toEqual([]);
+    expect(condition.textContent).toBe('Not selected');
+  });
+  it('never defaults absent scope and preserves explicit unknown scope as unverified', async () => {
+    mount(); expect(screen.getByText(/Scope selection required/)).toBeTruthy();
+    expect(screen.getByLabelText('Scope').textContent).toBe('Select scope'); cleanup();
+    const user = userEvent.setup(); mount('/sample-analysis?scopeId=unauthorized');
+    expect(screen.getByLabelText('Scope').textContent).toBe('unauthorized · unverified');
+    await user.click(screen.getByLabelText('Scope'));
+    expect(screen.getByRole('option', { name: 'unauthorized · unverified' }).getAttribute('data-state')).toBe('checked');
+    await user.keyboard('{Escape}');
     expect(screen.getByText(/Requested Scope: unauthorized/)).toBeTruthy();
   });
-  it('renders inherited multi-ID selection without narrowing it', () => {
-    mount('/sample-analysis?selectedEquipmentIds=A&selectedEquipmentIds=B');
-    expect(screen.getByRole('option', { name: 'Inherited: A, B' })).toBeTruthy();
-    fireEvent.change(screen.getByLabelText('room'), { target: { value: 'none' } });
-    expect(readLocation(window.location.pathname + window.location.search).context.selection).toEqual(['A', 'B']);
+  it('keeps an opaque scopeId of "__absent" distinct from the placeholder option and clearable', async () => {
+    const user = userEvent.setup(); mount('/sample-analysis?scopeId=__absent');
+    expect(screen.getByText(/Requested Scope: __absent/)).toBeTruthy();
+    await user.click(screen.getByLabelText('Scope'));
+    const options = screen.getAllByRole('option');
+    expect(options.map(option => option.textContent)).toEqual(['Select scope', 'fixture-scope-a', 'fixture-scope-b', '__absent · unverified']);
+    const checked = options.filter(option => option.getAttribute('data-state') === 'checked');
+    expect(checked).toHaveLength(1);
+    expect(checked[0].textContent).toBe('__absent · unverified');
+    await user.click(screen.getByRole('option', { name: 'Select scope' }));
+    expect(here()).toBe('/sample-analysis?v=1');
+    expect(readLocation(here()).context.scope_id).toBeNull();
+    expect(screen.getByLabelText('Scope').textContent).toBe('Select scope');
   });
-  it('keeps inherited multi-ID selection when the inherited sentinel option is re-selected', () => {
+  it('renders inherited multi-ID selection without narrowing it', async () => {
+    const user = userEvent.setup(); mount('/sample-analysis?selectedEquipmentIds=A&selectedEquipmentIds=B');
+    expect(screen.getByLabelText('Selection').textContent).toBe('Inherited: A, B');
+    await user.click(screen.getByLabelText('Selection'));
+    expect(screen.getByRole('option', { name: 'Inherited: A, B' })).toBeTruthy();
+    await user.keyboard('{Escape}');
+    await choose(user, 'room', 'Explicit empty set');
+    expect(readLocation(here()).context.room_names).toEqual([]);
+    expect(readLocation(here()).context.selection).toEqual(['A', 'B']);
+  });
+  it('keeps inherited multi-ID selection when the inherited sentinel option is re-selected', async () => {
     const url = '/sample-analysis?selectedEquipmentIds=fixture-equipment-a&selectedEquipmentIds=fixture-equipment-b';
-    mount(url);
-    const select = screen.getByLabelText('Selection') as HTMLSelectElement;
-    expect(select.value).toBe('__inherited');
-    fireEvent.change(select, { target: { value: '__inherited' } });
-    expect(readLocation(window.location.pathname + window.location.search).context.selection).toEqual(['fixture-equipment-a', 'fixture-equipment-b']);
-    expect(window.location.pathname + window.location.search).toBe(url);
+    const user = userEvent.setup(); mount(url);
+    const history = window.history.length;
+    expect(screen.getByLabelText('Selection').textContent).toBe('Inherited: fixture-equipment-a, fixture-equipment-b');
+    await choose(user, 'Selection', 'Inherited: fixture-equipment-a, fixture-equipment-b');
+    expect(readLocation(here()).context.selection).toEqual(['fixture-equipment-a', 'fixture-equipment-b']);
+    expect(here()).toBe(url); expect(window.history.length).toBe(history);
+    expect(screen.queryByRole('listbox')).toBeNull();
   });
   it('reports future version errors without URL rewriting or partial navigation', () => {
     const url = '/sample-analysis?v=99&roomNames=%ZZ'; mount(url);
