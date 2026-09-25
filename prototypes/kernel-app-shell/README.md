@@ -2,7 +2,7 @@
 
 **합성 fixture, 실제 메뉴 아님.** sample-overview / sample-analysis / sample-reference는 capability 차이를 검증하는 빈 라우트이며 업무 메뉴·업무 콘텐츠가 없다.
 
-이 프로토타입은 플랫폼 다섯 갈래 중 Kernel(App Shell/Menu Registry/Context/URL)과 메뉴간 Context 연결을 검증한다. Chart Frame, PlatformDataTable, DetailDrawer는 범위 밖이다.
+이 프로토타입은 플랫폼 다섯 갈래 중 Kernel(App Shell/Menu Registry/Context/URL), 메뉴간 Context 연결, 레이아웃(§12 Page Archetype 5종)을 검증한다. Chart Frame, PlatformDataTable, DetailDrawer는 범위 밖이다.
 
 ## 실행
 
@@ -46,7 +46,11 @@ TanStack Router는 검토 대상이지만 이번 실험에서는 채택하지 �
   - **Cross-menu Context Link (§22):** `/equipment/{id}`는 codec의 `route === 'equipment'`(`/prototype/equipment/{id}`)로 매핑되는 상세 pseudo-page다. `detailLink()`가 `contextLink(context, 'equipment', id)`로 등록 Context를 그대로 옮기고, 목적지 ID는 경로 세그먼트에만 둔다 — `selectedEquipmentIds`에 합치거나 대체하지 않는다(§6.4 `[A,B]`→C 예시). 진입 직전 origin URL 전체를 미등록 키 `returnTo`로 상세 URL에 싣고, Back은 그 URL로 정확히 돌아간다. 따라서 상세에서 Context를 바꿔도 출발 Context를 덮어쓰지 않는다. `returnTarget()`은 `returnTo`가 정확히 하나이고 등록 메뉴의 로컬 URL일 때만 링크를 만든다(외부·protocol-relative·다른 상세·중복 값은 거부하고 "Return context unavailable"을 표시). 상세에서 sidebar로 나가면 일반 메뉴 전환처럼 destination과 `returnTo`를 버린다. 권한 기반 링크 숨김/비활성화와 CFG 연계는 Deferred다.
 - `src/registry.ts`: `equipmentDetail`은 sidebar에 없는 파라미터 경로 상세이며 `menus`에 넣지 않지만 같은 `supportedContext`/`pageType` 모델을 쓴다(room `reference`, Condition/Selection 포함 나머지 `unsupported`). 메뉴 항목은 식별자/그룹/이름/경로/아이콘, 필요 권한·Scope, 8개 Context capability, page type, 선택 기능 선언. requiredPermissions/requiredScope는 선언만 하며 Shell이 노출 판단에 소비하지 않는다. §5/§9 Permission-aware visibility의 클라이언트 구현은 이번 Unit 범위 밖(Deferred)이며 서버 권한 엔진과 별개인 후속 작업이다.
 - `src/App.tsx`: Shell이 sidebar/header/breadcrumb/global controls/palette를 소유한다. 페이지 등록으로 전역 renderer를 전달할 수 없다.
-- `src/PlatformPage.tsx`: 7개 required named slots(null 허용), `children?: never`, 런타임 exact-key 검사. content=null.
+- `src/PlatformPage.tsx`: 7개 required named slots(null 허용), `children?: never`, 런타임 exact-key 검사. content에는 pageType별 archetype(또는 상세 pseudo-page 내용)만 들어간다.
+- `src/PageArchetypes.tsx` (§12): Overview / Analysis Workspace / Management / Catalog / Workflow 5개 archetype. 각각 `PlatformPage`의 `content` slot 안에만 들어가며, 정확한 named region 집합(null 허용)·`children?: never`·런타임 exact-key 검사를 `PlatformPage`와 같은 방식으로 강제한다. region은 §12 나열 순서대로 `<section data-region aria-label>` landmark로 렌더링되고(Management의 Search+Filter와 Workflow의 Status/Priority/Owner Filter는 `role="search"`), 시각 배치도 읽기 순서를 뒤집지 않는다. 비어 있는 region은 landmark를 유지하고 라벨을 pseudo-element로만 표시한다(textContent는 빈 문자열).
+  - **Page Header / Global Context / Data Trust 해석:** §12에서 이 세 항목은 Overview·Analysis Workspace 목록에만(Page Header는 Management에도) 나오지만, §8은 title/description/actions/dataTrustSummary를 모든 페이지의 Shell Slot으로 두고 그 밖의 전역 UI 삽입을 금지하며, §6 예시는 Equipment Master(management)·Metric Catalog(catalog)·VOC(workflow)도 Context capability를 선언해 Global Context에 `Not used on this page`를 표시하는 대상으로 둔다. 따라서 세 항목은 모든 page type에서 Shell이 제공하고, archetype은 그 사이의 고유 region만 받는다(Management의 Page Header도 제외). archetype에 `title`/`contextExtension`/`dataTrustSummary`를 넘기면 타입·런타임 오류다.
+  - **반응형 (§25):** `src/style.css`에 `--breakpoint-wide: 90rem`(1440px)을 추가하고 Tailwind 기본 `lg`(64rem = 1024px)와 함께 쓴다. <1024px는 1열 stack(조회 중심, Analysis Workspace를 모바일용으로 재배치하지 않음), `lg` 1024–1439px는 grid column 축소, `wide` ≥1440px는 full layout. Analysis의 Selection/Annotation과 Management의 Detail Drawer는 `wide`에서 오른쪽 docked column이고, 1024–1439px에서는 오른쪽 고정 drawer로 전환되며 비어 있으면 숨는다. drawer의 열기/닫기와 focus trap(§26)은 slot 내용(DetailDrawer 등) 책임이다. Sidebar collapse는 Shell의 수동 토글(inline width)로만 동작하며 1024–1439px 자동 collapse는 이번 범위에 넣지 않았다. 실제 브라우저 리사이즈 검증은 수행하지 않았고, `src/PageArchetypes.test.tsx`가 Tailwind 컴파일 결과의 media query(64rem/90rem, 1024–1439 전용 drawer 규칙)만 확인한다.
+  - **Fixture 연결:** Shell은 registry의 `pageType`으로 archetype을 고른다. sample-overview → Overview, sample-analysis → Analysis Workspace(기존 Context Link용 `Synthetic executions` 행은 drill-down 목록이므로 Breakdown table region으로 이동, 나머지 region은 비움), sample-reference → Catalog(전부 빈 region). 상세 pseudo-page는 archetype 없이 기존 DetailContent를 쓴다. Management/Workflow는 등록 메뉴를 추가하지 않고 컴포넌트 테스트와 `src/archetypes.typecheck.tsx` 음성 타입 검사로만 검증한다.
 - `src/slots.typecheck.tsx`: 직접 JSX 속성(children, header 등)과 누락 slot이 컴파일 오류라는 음성 검사. spread나 `data-*` 같은 우회는 타입 검사를 통과할 수 있으며 런타임 exact-key 검사가 막는다. TypeScript 구조 계약이며 임의 React portal/직접 DOM 조작까지 막는 보안 격리는 아니다.
 
 포팅은 기존 bounded codec처럼 room/Condition/Selection만 해석한다. 기간/from/to, Lot/Recipe/지표/anchor 등의 기존 outside-profile 키는 opaque 미적용으로 보존한다. 단독 from도 원본처럼 opaque이며 전체 생산 URL/시간 계약의 구현 완료를 뜻하지 않는다. 미래 v는 전체 거절한다. Scope URL은 권한 증명이 아니며 미지 Scope를 다른 값으로 대체하지 않는다. 실제 서버 검증/선택지 원천은 보류했다.
@@ -78,8 +82,8 @@ npm test
 npm run build
 ```
 
-Python 생성기는 원본 codec를 읽기 전용으로 실행해 95개 정상/오류 벡터를 만든다. 테스트는 canonical 문자열, 오류 코드 우선순위, 모든 Condition 축, 공집합/부재, Unicode code point 정렬, 중복 JSON 키, 별칭, 미등록/opaque 필드, 목적지 ID 분리까지 대조한다. 121개 테스트(95 parity + 1 constructed-state + 23 Shell〈Context Link 8개 포함〉 + 1 canonical token 대조 + 1 Tailwind v4 theme 컴파일)가 통과하며 typecheck는 3개 음성 타입 사례를 포함한다. 실제 명령과 출력은 `verification.log`에 있다.
+Python 생성기는 원본 codec를 읽기 전용으로 실행해 95개 정상/오류 벡터를 만든다. 테스트는 canonical 문자열, 오류 코드 우선순위, 모든 Condition 축, 공집합/부재, Unicode code point 정렬, 중복 JSON 키, 별칭, 미등록/opaque 필드, 목적지 ID 분리까지 대조한다. 151개 테스트(95 parity + 1 constructed-state + 26 Shell〈Context Link 8개, archetype 연결 3개 포함〉 + 27 Page Archetype〈5종 × 5 + 반응형 2〉 + 1 canonical token 대조 + 1 Tailwind v4 theme 컴파일)가 통과하며 typecheck는 3개 Shell slot 음성 타입 사례와 15개 archetype 음성 타입 사례(5종 × children/Shell slot 또는 타 archetype region/누락 region)를 포함한다. 실제 명령과 출력은 `verification.log`에 있다.
 
-Context Link 라운드에서 npm ci, parity 생성, typecheck, 자동 DOM/키보드 테스트, build를 재실행했다. 개발 서버 HTTP smoke는 이번에 재실행하지 않았다. 실제 브라우저 시각 검토·production 권한/데이터 연동은 수행하지 않았다. 데이터 조회가 없으므로 loading/조회 empty/계산 기준시각을 꾸며내지 않는다.
+Page Archetype 라운드와 Context Link 라운드에서 npm ci, parity 생성, typecheck, 자동 DOM/키보드 테스트, build를 재실행했다. 개발 서버 HTTP smoke는 이번에 재실행하지 않았다. 실제 브라우저 시각 검토·production 권한/데이터 연동은 수행하지 않았다. 데이터 조회가 없으므로 loading/조회 empty/계산 기준시각을 꾸며내지 않는다.
 
 원본 revision과 §29 수용 범위, **사용자 확인 필요 8개**는 [work order](../../.agents/reports/kernel-work-order-app-shell-menu-registry-draft.md)에 모았다. 원본 계약 문서와 기존 Python 프로토타입은 수정하지 않았다.

@@ -9,6 +9,7 @@ import { ContractError, decodeCondition, type ContextState } from './codec';
 import { FIXTURE_NOTICE, menus, type Capability, type MenuEntry, type PageEntry } from './registry';
 import { detailLink, readLocation, returnTarget, writeLocation } from './kernel';
 import { PlatformPage } from './PlatformPage';
+import { AnalysisWorkspaceArchetype, CatalogArchetype, OverviewArchetype } from './PageArchetypes';
 export const shellDimensions = { expanded: 270, collapsed: 64, header: 54 } as const;
 const valueLabel = (v: unknown) => v === null ? 'Not selected' : Array.isArray(v) ? (v.length ? v.join(', ') : 'Explicit empty set') : typeof v === 'object' ? JSON.stringify(v) : String(v);
 export function ContextDisplay({ menu, context }: { menu: PageEntry; context: ContextState }) {
@@ -120,16 +121,26 @@ export function App() {
         </section>
         {editError && <p role="alert">{editError}</p>}
         <PlatformPage title={state.menu.name} description={FIXTURE_NOTICE} primaryAction={null} secondaryActions={null} contextExtension={null} content={
-          'pathPrefix' in state.menu ? <DetailContent context={context} onBack={go} />
-          : state.menu.id === 'sample-analysis' ? <ul aria-label="Synthetic executions" className="grid gap-2 p-4">{fixtureExecutions.map(item => <li key={item.id} className="flex items-center gap-4">
-            <span>{item.id} · {item.equipmentId}</span>
-            <Button variant="secondary" size="sm" aria-label={`Open detail ${item.equipmentId}`} onClick={() => openDetail(item.equipmentId)}>Open detail</Button>
-          </li>)}</ul>
-          : null
+          'pathPrefix' in state.menu ? <DetailContent context={context} onBack={go} /> : <ArchetypeContent menu={state.menu} onOpenDetail={openDetail} />
         } dataTrustSummary="Fixture only · no dataset, calculation basis, or verified permissions" />
       </>}
     </div>
   </div>;
+}
+/** The Shell picks the §12 archetype from the registry's declared pageType. Fixture regions stay empty landmarks; only analysis carries the synthetic drill-down rows. */
+function ArchetypeContent({ menu, onOpenDetail }: { menu: MenuEntry; onOpenDetail: (equipmentId: string) => void }) {
+  switch (menu.pageType) {
+    case 'overview': return <OverviewArchetype primarySummary={null} mainTrend={null} attentionList={null} />;
+    case 'analysis': return <AnalysisWorkspaceArchetype kpiSummary={null} primaryChart={null} selectionAnnotation={null} breakdownTable={
+      <ul aria-label="Synthetic executions" className="grid gap-2 p-4">{fixtureExecutions.map(item => <li key={item.id} className="flex items-center gap-4">
+        <span>{item.id} · {item.equipmentId}</span>
+        <Button variant="secondary" size="sm" aria-label={`Open detail ${item.equipmentId}`} onClick={() => onOpenDetail(item.equipmentId)}>Open detail</Button>
+      </li>)}</ul>
+    } />;
+    case 'catalog': return <CatalogArchetype catalogList={null} definitionDetail={null} version={null} ownership={null} coverage={null} usageDependency={null} history={null} />;
+    // No management/workflow fixture menu is registered; those archetypes are proven by their own tests only.
+    case 'management': case 'workflow': return null;
+  }
 }
 function DetailContent({ context, onBack }: { context: ContextState; onBack: (url: string) => void }) {
   const back = returnTarget(context);

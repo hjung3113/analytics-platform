@@ -1,7 +1,7 @@
-Unit A cross-menu Context Link verification (§22 detail route + Back restore); synthetic fixtures only, no production server/auth validation.
-Run at: 2026-09-25T11:35:45+00:00
-Base revision: 61fc70af4230f75ee9e5118b32e1edc7b91291e5 + uncommitted Context Link changes in this directory
-No dev-server HTTP smoke or browser screenshot was run this round; DOM behavior is covered by the Vitest/jsdom suite below.
+Unit A §12 Page Archetype verification (5 archetypes in PlatformPage content slot + §25 breakpoints); synthetic fixtures only, no production server/auth validation.
+Run at: 2026-09-25T12:53:12+00:00
+Base revision: 8249774f2f7a6d05a9d2fb5ef3f71a1e9c8d633d + uncommitted Page Archetype changes in this directory
+No dev-server HTTP smoke, browser resize, or screenshot was run this round; DOM order/landmarks are covered by Vitest/jsdom and breakpoints by Tailwind compile assertions below.
 
 $ node --version
 v26.7.0
@@ -44,17 +44,18 @@ $ npm test
 > vitest run
 
 
- RUN  v3.2.7 /Users/hyojung/orca/workspaces/analytics-platform/cross-menu-context-link/prototypes/kernel-app-shell
+ RUN  v3.2.7 /Users/hyojung/orca/workspaces/analytics-platform/page-archetypes/prototypes/kernel-app-shell
 
  ✓ src/theme.test.ts (1 test) 19ms
- ✓ src/codec.test.ts (96 tests) 24ms
+ ✓ src/codec.test.ts (96 tests) 20ms
  ✓ src/tokens.test.ts (1 test) 2ms
- ✓ src/App.test.tsx (23 tests) 701ms
+ ✓ src/PageArchetypes.test.tsx (27 tests) 113ms
+ ✓ src/App.test.tsx (26 tests) 737ms
 
- Test Files  4 passed (4)
-      Tests  121 passed (121)
-   Start at  20:35:47
-   Duration  1.22s (transform 100ms, setup 24ms, collect 439ms, tests 746ms, environment 683ms, prepare 158ms)
+ Test Files  5 passed (5)
+      Tests  151 passed (151)
+   Start at  21:53:15
+   Duration  1.34s (transform 130ms, setup 15ms, collect 640ms, tests 891ms, environment 1.08s, prepare 211ms)
 
 
 exit=0
@@ -75,17 +76,16 @@ node_modules/@radix-ui/react-portal/dist/index.mjs (1:0): Module level directive
 node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs" was ignored.
 node_modules/@radix-ui/react-presence/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-presence/dist/index.mjs" was ignored.
 node_modules/@radix-ui/react-focus-scope/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-focus-scope/dist/index.mjs" was ignored.
-node_modules/@radix-ui/react-direction/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-direction/dist/index.mjs" was ignored.
 node_modules/@radix-ui/react-focus-guards/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-focus-guards/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-direction/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-direction/dist/index.mjs" was ignored.
 node_modules/@radix-ui/react-popper/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-popper/dist/index.mjs" was ignored.
 node_modules/@radix-ui/react-collection/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-collection/dist/index.mjs" was ignored.
-✓ 1980 modules transformed.
+✓ 1981 modules transformed.
 rendering chunks...
 computing gzip size...
 dist/index.html                   0.40 kB │ gzip:   0.32 kB
-dist/assets/index-DxNMM5oe.css   20.66 kB │ gzip:   4.95 kB
-dist/assets/index-YLreqqTO.js   373.05 kB │ gzip: 120.14 kB
-✓ built in 738ms
+dist/assets/index-D9tXq8pY.css   25.06 kB │ gzip:   5.74 kB
+dist/assets/index-DFH12ewC.js   376.76 kB │ gzip: 121.23 kB
+✓ built in 748ms
 
 exit=0
-

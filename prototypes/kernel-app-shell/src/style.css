@@ -56,6 +56,11 @@
   --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
+/* docs/06 §25: Tailwind's default `lg` (64rem = 1024px) is the lower bound; `wide` adds the 1440px full-experience bound. */
+@theme {
+  --breakpoint-wide: 90rem;
+}
+
 @layer base {
   body { @apply bg-surface-canvas font-sans text-[14px] text-text-primary; }
 }
