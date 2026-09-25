@@ -83,7 +83,7 @@ Decided 치수를 소비한다. 라이브러리/필드 타입/fixture 경로 ada
 | 2 | Open | Scope 선택지 실제 데이터 원천과 계층 상속 | 명시 합성 값만 |
 | 3 | Deferred | 전역 검색 인덱스 및 Command Palette 실검색 범위 | Registry 목록만 |
 | 4 | Candidate | 조건 편집 시 기존 Selection 처리 제품 UX(06 §6.4) | 자동 변경 없이 유지 |
-| 5 | Decided (2026-09-25, [docs/04_frontend_ui_ux.md](../../docs/04_frontend_ui_ux.md) §프론트엔드 기술 스택) — production stack 자체는 확정됨. 단, **이 Unit의 구현은 그 스택과 다르다**: React+TS+Vite는 일치하지만, 라우팅은 TanStack Router 대신 Browser History + 자체 codec adapter, 서버 상태/전역 상태는 Query/Zustand 미사용(빈 fixture라 불필요), UI 컴포넌트는 shadcn/ui 미이식(자체 CSS) | README가 이 divergence를 이미 명시: "TanStack Router는 검토 대상이지만 이번 실험에서는 채택하지 않았다"; 이식은 별도 후속 작업(HANDOFF 우선순위 2) |
+| 5 | Decided (2026-09-25, [docs/04_frontend_ui_ux.md](../../docs/04_frontend_ui_ux.md) §프론트엔드 기술 스택) — production stack 자체는 확정, 단 이 Unit 구현과는 divergence 있음(아래) | production router/state/UI stack 채택 — React+TS+Vite는 일치하지만, 라우팅은 TanStack Router 대신 Browser History + 자체 codec adapter, 서버/전역 상태는 Query/Zustand 미사용(빈 fixture라 불필요), UI 컴포넌트는 shadcn/ui 미이식(자체 CSS) | README가 이 divergence를 이미 명시: "TanStack Router는 검토 대상이지만 이번 실험에서는 채택하지 않았다"; 이식은 별도 후속 작업(HANDOFF 우선순위 2) |
 | 6 | Deferred (구현 범위) | 기간·지표 등 profile 밖 Context의 이 prototype 구현 범위 보류; §6.3 datetime 형식, §6.4 한쪽만 있는 from/to 거절, §6.1 metricId+metricVersion 쌍 계약은 이미 Decided | 원본 codec처럼 opaque 미적용 보존; 시간 지원 전 위 gate 필수 |
 | 7 | Open (별도 수정 필요) | Python 원본 codec의 Unicode 서로게이트 처리 버그: Condition의 `\ud800` 직렬화 시 ContractError가 아닌 UnicodeEncodeError 발생; 별도 수정 필요 | 버그 기록만; 기존 Python 파일은 수정하지 않음 |
 | 8 | Deferred (구현 범위) | §5/§9 Permission-aware visibility: Registry requiredPermissions/requiredScope를 소비하는 Shell의 클라이언트 노출 판단 | 필드 선언만, Shell은 소비하지 않음; 서버 권한 엔진과 별개로 이번 Unit 범위 밖 |
