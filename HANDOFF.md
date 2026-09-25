@@ -27,19 +27,20 @@
 
 5. **세 Unit 모두 worktree 안에서 커밋했다. main에는 아무 것도 반영하지 않았다.** 원본 계약 문서(docs/06, docs/04, CONTEXT.md, ADR, DESIGN.md)는 4개 커밋 내내 무변경 — 매 라운드 Opus가 diff 확인, 내가 재확인.
 
-## 사용자 확인 필요 — 전체 19개 (세 Unit 종합, 우선순위 없이 주제별 정리)
+## 프론트엔드 기술 스택 — 2026-09-25 사용자 결정으로 해소
 
-세션 종료 시 사용자에게 한 번에 전달하기로 한 목록이다. 각 Unit의 work order에 원문과 판단 근거가 있다. **이미 Decided인 사항(room_name Scope 축, EquipmentID 전역 유일, Condition/Selection 2계층, §6.3 시간 계약 형태 등)은 여기 없다 — 재질문 대상이 아니다.**
+19개 확인 항목 중 "기술 스택 실채택" 3개(Unit A #5, Unit B #1, Unit C #2)는 이 세션 안에서 사용자가 직접 결정해 **해소했다**. FeedbackOps(`products/feedbackops`)의 실사용 비-백엔드 스택을 그대로 가져오기로 했다 — React+TS+Vite, TanStack Router/Query, Zustand, react-hook-form+zod, lucide-react, sonner, cmdk, Playwright+Vitest는 FeedbackOps와 동일. **UI 컴포넌트는 FeedbackOps `packages/ui/src/components/shadcn/`의 실제 shadcn/ui 컴포넌트 22개(+`cn()` 헬퍼)를 이식**하기로 확정 — FeedbackOps는 shadcn을 패턴만 따라한 게 아니라 실제 shadcn 소스를 커스터마이즈해 썼다(devtool 확인 완료). 스타일링은 FeedbackOps의 Tailwind v3가 아니라 **v4로 마이그레이션**(사용자 명시 결정) — FeedbackOps 자체는 이 결정으로 소급 변경하지 않는다. 테이블/차트는 FeedbackOps에 선례가 없어 이 세션 Unit C/B에서 검증한 **TanStack Table+Virtual**, **Apache ECharts**를 그대로 채택했다. `docs/04_frontend_ui_ux.md`(Decided 섹션 신설), `docs/06_platform_ui_contract.md` §13, `PLATFORM_REQUIREMENTS.md` 체크리스트 3곳에 반영·커밋함(main, 커밋 예정 해시는 다음 `git log` 참고).
+
+남은 것: 실제 FeedbackOps 컴포넌트/토큰 이식 작업(코드 포팅), Tailwind v3→v4 문법 변환, 정확한 라이브러리 버전 고정 — 이건 "결정"이 아니라 "구현" 항목이라 별도 작업으로 남긴다.
+
+## 사용자 확인 필요 — 나머지 16개 (스택 3개 해소 후, 주제별 정리)
+
+세션 종료 시 사용자에게 한 번에 전달하기로 한 목록이다. 각 Unit의 work order에 원문과 판단 근거가 있다. **이미 Decided인 사항(room_name Scope 축, EquipmentID 전역 유일, Condition/Selection 2계층, §6.3 시간 계약 형태, 프론트엔드 기술 스택 등)은 여기 없다 — 재질문 대상이 아니다.**
 
 **인증/권한**
 - 실제 SSO·서버 권한/Scope 재검증 연동 (Unit A #1, Unit C #1)
 - Scope 선택지의 실제 데이터 원천과 계층 상속 규칙 (Unit A #2)
 - Registry의 requiredPermissions/requiredScope를 Shell이 소비해 메뉴 노출을 판단할지 (Unit A #8, Deferred)
-
-**기술 스택 실채택**
-- production router/상태관리/UI stack 채택 (Unit A #5, Candidate)
-- 제품 ECharts 채택 (Unit B #1, Candidate)
-- TanStack Table+Virtual 실채택과 실데이터 성능 기준 (Unit C #2, Candidate)
 
 **UX 정책**
 - Condition 편집 시 기존 Selection 처리 UX (Unit A #4 — 06 §6.4가 이미 "Candidate"로 지정한 것을 구현할 때 확정 필요)

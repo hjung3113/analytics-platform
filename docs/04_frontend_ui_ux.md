@@ -6,19 +6,30 @@
 
 **Decided product constraints**는 `06_platform_ui_contract.md`의 Desktop-first, 메뉴 공통 계약, Context/URL 재현, 서버 권한 재검증, 접근성 및 데이터 상태 근거 규칙이다. 이 제약들은 특정 프레임워크를 요구하지 않는다.
 
-아래 기술 스택은 모두 **implementation candidate**다. 라이브러리 채택·버전·조합·성능 POC·도입 시점은 확정하지 않았다. 기존 리서치의 추천은 비교 근거이며 제품 제약이나 구현 승인으로 해석하지 않는다. 선택 시 현재 공식 문서와 실제 데이터로 재검증한다.
+아래 대시보드 편집 후보(react-grid-layout)만 여전히 **implementation candidate**다 — 해당 기능 자체가 Deferred이기 때문이며, 채택 시점에 버전·성능을 재검증한다.
 
-## 프론트엔드 기술 스택 (Candidate)
+## 프론트엔드 기술 스택 (Decided, 2026-09-25)
 
-| 계층 | 추천 | 이유 |
+**결정 근거**: FeedbackOps(`products/feedbackops/apps/frontend`, `packages/ui`)가 실사용 중인 비-백엔드 스택을 그대로 가져온다 — 이미 검증되고 채택 경험이 있어 마이그레이션 부담이 적다는 것이 사용자 판단이다. 테이블/차트는 FeedbackOps에 선례가 없어, 이 세션에서 Astra↔Opus 교차 검토로 실제 동작을 검증한 것을 그대로 채택한다(Unit B `prototypes/kernel-chart-frame/`, Unit C `prototypes/kernel-platform-table/`, 별도 worktree/브랜치 `hjung3113/kernel-context-url-scope`). FeedbackOps 자체 코드는 이 결정으로 소급 변경하지 않는다(AGENTS.md FeedbackOps 서브모듈 경계).
+
+| 계층 | 채택 | 근거 |
 | --- | --- | --- |
-| Frontend 기반 | React + TypeScript + Tailwind | 구현 후보; 팀 역량·제품 제약·검증 결과로 선택 |
-| 프론트 상태 | TanStack Query(서버 상태) + Zustand(UI 상태) + URL query param 동기화 | 서버 조회 결과의 캐싱/재검증/무효화를 지연 재집계(확정/미확정) 정책과 맞물려 관리 — 전역 필터 컨텍스트는 URL을 기준으로 딥링크 가능하게 유지 |
-| UI 컴포넌트 | shadcn/ui + Base UI 또는 Radix 비교 | 접근성·합성 API·기존 자산 호환성을 비교할 후보. primitive 간 API 차이를 검증하고 실제 채택 시 조합을 명시한다 |
-| 라우팅 | TanStack Router | 타입 있는 검색 파라미터·검증·기본값 지원으로 필터 딥링크 계약을 타입 안전하게 관리. 단 URL 계약의 버전·폐기 필드·미지원 필터 처리까지 자동으로 설계해주지는 않음 — 06 §6.4의 확정 메커니즘을 구현해야 함 |
-| 테이블/그리드 | TanStack Table(컬럼고정·그룹화 로직 API 내장, 서버사이드 연동은 직접 배선) + TanStack Virtual, 대규모 로그 탐색기만 AG Grid 검토 | headless로 Tailwind/shadcn와 잘 맞음. **AG Grid는 Community(MIT)가 Infinite Row Model만 제공 — 피벗·행그룹화·서버사이드 Row Model은 전부 Enterprise 유료**. 피벗 요구가 생기면 SQL-first로 mart에서 미리 피벗된 결과를 내리는 방안과 비용 대비 |
-| 대시보드 편집 | react-grid-layout | Deferred인 사용자 편집 요구가 채택될 경우 검토할 후보. 드래그·리사이즈·breakpoint·저장복원 지원하지만 영속 저장 서비스는 애플리케이션 책임 — 위치 계산기로만 쓰고 `layoutVersion`/`dashboardId`/`owner`/`scope`/`status`/`publishedAt`은 애플리케이션 모델에 별도 보관. 2.2.0은 critical layout bug로 제외, 채택 시 버전 하한 재검증 필요 |
+| Frontend 기반 | React + TypeScript + Vite | FeedbackOps `apps/frontend`와 동일 |
+| 스타일링 | **Tailwind CSS v4** | FeedbackOps는 v3(`packages/ui/tailwind.preset.ts`, "Tailwind 3 syntax only. No `@theme` v4 blocks" 명시, ADR-0021 semantic token 방식). 이 플랫폼은 v4로 가고 FeedbackOps의 시맨틱 토큰 네이밍(ADR-0021)만 이식한다 — 문법을 `@theme` 블록으로 옮기는 건 이 플랫폼 쪽 마이그레이션 작업이며, FeedbackOps 자체를 v4로 올리는 것은 별도 과제(강제하지 않음) |
+| UI 컴포넌트 | **shadcn/ui + Radix**(FeedbackOps `packages/ui/src/components/shadcn/`의 22개 컴포넌트 소스를 이식) + 자체 확장 컴포넌트(`ChipPicker`/`AnalyticsAreaPicker` 등 패턴 참고) | shadcn은 설치형 패키지가 아니라 소스 복사 방식이라 FeedbackOps가 이미 커스터마이즈해 둔 실제 파일을 그대로 가져올 수 있다. `cn()` 헬퍼(clsx+tailwind-merge)도 동일하게 이식 |
+| 라우팅 | TanStack Router | FeedbackOps와 동일. 타입 있는 검색 파라미터로 06 §6.4 URL 계약을 타입 안전하게 관리하되, 버전·폐기 필드·미지원 필터 처리는 이 문서 §6.4 메커니즘을 별도로 구현해야 한다 |
+| 서버 상태 | TanStack Query | FeedbackOps와 동일 |
+| UI 상태 | Zustand | FeedbackOps와 동일 |
+| Form | react-hook-form + zod (+ `@hookform/resolvers`) | FeedbackOps와 동일 |
+| 아이콘 | lucide-react | FeedbackOps와 동일. 2026-09-22 grilling에서 이미 Candidate→Decided([PLATFORM_REQUIREMENTS](../PLATFORM_REQUIREMENTS.md) 아이콘 항목)로 확정된 것과 일치 |
+| Toast | sonner | FeedbackOps와 동일 |
+| Command Palette | cmdk | FeedbackOps와 동일. §4 Kernel 책임의 Command Palette를 이 라이브러리로 구현 |
+| 테이블/가상화 | TanStack Table + TanStack Virtual | FeedbackOps에 선례 없음. 이 세션 Unit C(`prototypes/kernel-platform-table/`)에서 서버사이드 sort/filter·virtualization·column 선호 저장·multi-select를 Playwright/Chromium으로 실검증(23 tests) |
+| 차트 | Apache ECharts (SVG 렌더러) | FeedbackOps에 선례 없음. 이 세션 Unit B(`prototypes/kernel-chart-frame/`)에서 실제 SVG SSR 렌더링·4층 상태 분리·Toolbar 7종을 검증(23 tests) |
+| 테스트 | Playwright(e2e/visual) + Vitest(unit) | FeedbackOps와 동일, 이 세션 프로토타입도 동일 조합 사용 |
 | 조회 레이아웃 | CSS Grid | 고정 화면은 react-grid-layout보다 단순·안정적 |
+
+**아직 Candidate로 남는 것**: 대시보드 편집(react-grid-layout, Deferred 기능이라 채택 보류), 정확한 라이브러리 버전 고정(실제 구현 착수 시 재검증), FeedbackOps 컴포넌트/토큰 이식의 세부 매핑(실제 포팅 작업에서 확정).
 
 Node/NestJS는 프론트와의 언어 통일·SQL-first 관점에서 비교했던 대안이다. 현재 백엔드는 FastAPI 방향이 Decided이며 세부 버전·구성은 Candidate다([05 결정 상태](05_roadmap_and_open_questions.md), [03 백엔드 스택](03_backend_stack.md)).
 

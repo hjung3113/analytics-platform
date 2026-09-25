@@ -33,9 +33,9 @@
 ## 1. 디자인 요소
 
 - [ ] **디자인 토큰 3층(primitive→semantic→component)을 실제 CSS/Tailwind 변수로 물질화** — `docs/06` §23은 Candidate, `DESIGN.md`는 그와 정렬됐지만 코드 산출물은 없다. 화면마다 임의 색·간격이 생기지 않게 하는 기반. **[3/3] Must** — Decided/Candidate.
-- [ ] **차트 라이브러리(ECharts 후보) 테마를 토큰에 바인딩** — 팔레트 계약은 있지만 실제 theme config·POC 검증(대용량 시계열, 다중 차트 브러시 동기화)이 없다. **[3/3] Must** — `DESIGN.md` Open Decisions, `docs/04`.
+- [ ] **차트 라이브러리(ECharts, 2026-09-25 Decided) 테마를 토큰에 바인딩** — 채택은 확정했고(`docs/04` 프론트엔드 기술 스택), 이 세션 Unit B(`prototypes/kernel-chart-frame/`)에서 SVG 렌더러 기본 동작은 실검증했다. 다만 실제 디자인 토큰 바인딩과 대용량 시계열·다중 차트 브러시 동기화 POC는 아직 없다. **[3/3] Must** — `DESIGN.md` Open Decisions, `docs/04`.
 - [ ] **아이콘 세트 단일화(Lucide, rounded-outline)** — 2026-09-22 grilling으로 Lucide 확정(Candidate→Decided). 실제 바인딩/구현은 아직. **[3/3] Should** — Decided.
-- [ ] **UI 프리미티브 조합 검토(shadcn/ui + Base UI/Radix 비교 후 채택)** — **[3/3] Must** — Candidate. 원본: [04 구현 후보](docs/04_frontend_ui_ux.md#프론트엔드-기술-스택-candidate). 비교·접근성/호환성 검증과 채택 근거가 필요하며 라이브러리 채택·구현·POC 증거는 없다.
+- [x] **UI 프리미티브 조합 확정** — 2026-09-25 결정: shadcn/ui + Radix, FeedbackOps `packages/ui/src/components/shadcn/`의 실제 22개 컴포넌트 소스와 `cn()` 헬퍼를 이식한다. `docs/06` §13을 Decided로 갱신 완료. **[3/3]** 실제 이식·포팅 작업은 아직(체크는 채택 결정 완료를 뜻하며 코드 이식 완료가 아니다). 원본: [04 프론트엔드 기술 스택](docs/04_frontend_ui_ux.md#프론트엔드-기술-스택-decided-2026-09-25).
 - [ ] **인터랙션 상태 전체 구현(hover/pressed/selected/focus/disabled/busy)과 중복 제출 차단** — 토큰만 있고 동작 미구현. **[3/3] Must** — Decided/디자인 요구.
 - [ ] **접근성 구현·렌더 검증(§26): 키보드 탐색, focus trap, 색 외 구분, 대비 4.5:1/3:1** — 토큰만으로 통과 주장 불가. **[3/3] Must** — Decided.
 - [ ] **한/영 UI 범위** — UI 문구·정적 본문만 번역하며 사용자 입력 본문·마스터 값·식별자는 번역하지 않는다. [06 §23](docs/06_platform_ui_contract.md#23-design-tokens) Decided, 언어 선호 저장은 Candidate. 구현 완료를 뜻하지 않는다.
@@ -179,7 +179,7 @@
 5. **인증·조직·배포 — 일부 Decided / 프로토콜 Open** — 2026-09-22 대부분 결정 완료(`docs/05` 참조): 백엔드 FastAPI, 온프렘, 동시 사용자 ~100명, 데이터 보존 기간 제한 없음, 멀티테넌시는 단일 사업장으로 시작(확장 가능). 남은 Open: 사내 SSO 프로토콜의 정확한 사양(존재는 확인, 스펙은 사내 확인 중), 브라우저 지원 범위(위 브라우저 지원 매트릭스 제안 참조). 실제 데이터 볼륨은 질문 4에서 추적한다.
 6. **상태 근거 서비스** — 수집/파서 지연/coverage 판정의 statusSource·observedAt 공급자가 없으면 모니터링 메뉴를 열 수 없다.
 7. **공개 계약 산출물 형식** — 필드명·공집합 표식·assessment enum, OpenAPI/JSON Schema/codegen 중 무엇으로 확정할지, URL `v` sunset 정책.
-8. **디자인 바인딩** — 아이콘(Lucide)·CJK 폰트(Noto Sans KR, 망분리라 자체 호스팅)·기간 프리셋(1일/7일/사용자 지정)은 2026-09-22 결정(`docs/05` 참조, 실제 물질화는 구현 시). 다크모드는 Deferred. UI 프리미티브 조합과 ECharts/Plotly 선택은 Candidate이며 채택 전 비교 검증이 필요하다. 이 검증을 수행한 증거는 아직 없다.
+8. **디자인 바인딩** — 아이콘(Lucide)·CJK 폰트(Noto Sans KR, 망분리라 자체 호스팅)·기간 프리셋(1일/7일/사용자 지정)은 2026-09-22 결정(`docs/05` 참조, 실제 물질화는 구현 시). 다크모드는 Deferred. UI 프리미티브 조합(shadcn/ui+Radix, FeedbackOps 이식)과 차트(ECharts)는 2026-09-25 Decided이며 이 세션 프로토타입(Unit B/C)으로 기본 동작을 검증했다. 실제 디자인 토큰 바인딩·대용량 성능·POC는 아직 없다.
 9. **공지·알림** — 배너 위치·노출 조건, 알림 벨의 읽음/집계/권한 의미(벨 자체는 비필수).
 10. ~~**메뉴 활용률의 목적과 노출 범위**~~ — 2026-09-22 결정 완료(`docs/05` §메뉴 활용률 계측 참조): v1 범위 포함(커널 범위 기능), 수집은 조회조건·필터값까지, 보존기간 무제한(수동 삭제 가능), 열람권한은 개발자·운영자 + 운영자 개별 승인 계정.
 11. **업무 모델 세부** — 필드별 외부/플랫폼 소유권, VOC 담당 조직·상태 전이 예외, 마스터 필드 원천 소유권.

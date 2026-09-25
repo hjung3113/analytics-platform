@@ -558,7 +558,7 @@ EquipmentDeactivateButton
 
 ### UI Primitive
 
-shadcn/ui + Base UI 또는 Radix 조합은 [04 프론트엔드 기술 스택](04_frontend_ui_ux.md#프론트엔드-기술-스택-candidate)의 Candidate다. 아래 primitive 역할 예시는 특정 라이브러리 채택을 확정하지 않는다.
+shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](04_frontend_ui_ux.md#프론트엔드-기술-스택-decided-2026-09-25)에서 Decided(2026-09-25, FeedbackOps `packages/ui`의 실제 shadcn 컴포넌트 이식)다. 아래 primitive 역할 예시는 그 구체 컴포넌트 매핑까지 확정하는 것은 아니다.
 
 예:
 
