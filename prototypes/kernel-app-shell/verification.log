@@ -1,7 +1,7 @@
-Unit A Decided-stack port verification (Tailwind v4 + shadcn/Radix + cn); synthetic fixtures only, no production server/auth validation.
-Run at: 2026-09-25T07:43:17+00:00
-Base revision: e868660230dcb2b16abeb45dffa9d6e314c960ca + uncommitted port changes in this directory
-Dev-server HTTP smoke (200) and one headless Chrome screenshot of /sample-analysis were checked manually this round; not recorded below.
+Unit A cross-menu Context Link verification (§22 detail route + Back restore); synthetic fixtures only, no production server/auth validation.
+Run at: 2026-09-25T11:35:45+00:00
+Base revision: 61fc70af4230f75ee9e5118b32e1edc7b91291e5 + uncommitted Context Link changes in this directory
+No dev-server HTTP smoke or browser screenshot was run this round; DOM behavior is covered by the Vitest/jsdom suite below.
 
 $ node --version
 v26.7.0
@@ -44,17 +44,17 @@ $ npm test
 > vitest run
 
 
- RUN  v3.2.7 /Users/hyojung/orca/workspaces/analytics-platform/platform-design-system-port/prototypes/kernel-app-shell
+ RUN  v3.2.7 /Users/hyojung/orca/workspaces/analytics-platform/cross-menu-context-link/prototypes/kernel-app-shell
 
- ✓ src/codec.test.ts (96 tests) 18ms
- ✓ src/theme.test.ts (1 test) 15ms
+ ✓ src/theme.test.ts (1 test) 19ms
+ ✓ src/codec.test.ts (96 tests) 24ms
  ✓ src/tokens.test.ts (1 test) 2ms
- ✓ src/App.test.tsx (14 tests) 499ms
+ ✓ src/App.test.tsx (23 tests) 701ms
 
  Test Files  4 passed (4)
-      Tests  112 passed (112)
-   Start at  16:43:20
-   Duration  975ms (transform 92ms, setup 16ms, collect 379ms, tests 535ms, environment 651ms, prepare 131ms)
+      Tests  121 passed (121)
+   Start at  20:35:47
+   Duration  1.22s (transform 100ms, setup 24ms, collect 439ms, tests 746ms, environment 683ms, prepare 158ms)
 
 
 exit=0
@@ -73,19 +73,19 @@ node_modules/@radix-ui/react-dialog/dist/index.mjs (1:0): Module level directive
 node_modules/@radix-ui/react-select/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-select/dist/index.mjs" was ignored.
 node_modules/@radix-ui/react-portal/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-portal/dist/index.mjs" was ignored.
 node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs" was ignored.
-node_modules/@radix-ui/react-focus-scope/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-focus-scope/dist/index.mjs" was ignored.
-node_modules/@radix-ui/react-focus-guards/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-focus-guards/dist/index.mjs" was ignored.
 node_modules/@radix-ui/react-presence/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-presence/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-focus-scope/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-focus-scope/dist/index.mjs" was ignored.
 node_modules/@radix-ui/react-direction/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-direction/dist/index.mjs" was ignored.
-node_modules/@radix-ui/react-collection/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-collection/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-focus-guards/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-focus-guards/dist/index.mjs" was ignored.
 node_modules/@radix-ui/react-popper/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-popper/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-collection/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-collection/dist/index.mjs" was ignored.
 ✓ 1980 modules transformed.
 rendering chunks...
 computing gzip size...
-dist/index.html                   0.40 kB │ gzip:   0.31 kB
-dist/assets/index-CsTodFdO.css   20.61 kB │ gzip:   4.94 kB
-dist/assets/index-DEUgdb6N.js   371.15 kB │ gzip: 119.56 kB
-✓ built in 765ms
+dist/index.html                   0.40 kB │ gzip:   0.32 kB
+dist/assets/index-DxNMM5oe.css   20.66 kB │ gzip:   4.95 kB
+dist/assets/index-YLreqqTO.js   373.05 kB │ gzip: 120.14 kB
+✓ built in 738ms
 
 exit=0
 

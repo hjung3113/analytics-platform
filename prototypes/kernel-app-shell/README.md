@@ -15,6 +15,8 @@ npm run dev
 
 http://127.0.0.1:5173/sample-analysis 를 연다. 최초 Scope는 선택되지 않는다. 헤더 Scope와 전역 room/Condition/Selection을 명시적으로 변경한 뒤 sidebar 또는 Search ⌘K 목록으로 이동한다. reference에서 `Not used on this page`, overview에서 Condition `Reference only`, analysis에서 `Supported · server validation pending`을 확인한다. 브라우저 back/forward는 URL 상태를 복원한다. Cmd+K(Ctrl+K도 지원), Escape, Tab으로 palette를 조작할 수 있다.
 
+analysis의 합성 execution 행에서 `Open detail`을 누르면 `/equipment/{id}` 상세로 이동한다. 상세는 목적지 EquipmentID를 Selection과 별도 필드로 보여주고 Condition/Selection을 `Not used on this page`로 표시한다. `← Back to Sample analysis`는 진입 직전 URL을 그대로 복원한다.
+
 - `Selection → Explicit empty set`은 부재와 다르며 미지원 페이지에서도 URL에 남는다.
 - Condition 변경은 고정 Selection을 바꾸지 않는다.
 - 실제 서버 요청·SSO·권한 승인은 없다. Supported는 capability 선언일 뿐, 검증·조회 완료가 아니다.
@@ -41,7 +43,8 @@ TanStack Router는 검토 대상이지만 이번 실험에서는 채택하지 �
 
 - `src/codec.ts`: 기존 `../kernel-context-url-scope/context_url.py`와 **95개 parity vector 범위 내 동등성이 검증된** 포팅. Python과 같은 원본 capability route를 유지한다.
 - `src/kernel.ts`: fixture 경로 ↔ 원본 codec 경로 adapter. 메뉴 이동만 extras를 제외하고 등록된 전역 Context는 모두 보존한다.
-- `src/registry.ts`: 식별자/그룹/이름/경로/아이콘, 필요 권한·Scope, 8개 Context capability, page type, 선택 기능 선언. requiredPermissions/requiredScope는 선언만 하며 Shell이 노출 판단에 소비하지 않는다. §5/§9 Permission-aware visibility의 클라이언트 구현은 이번 Unit 범위 밖(Deferred)이며 서버 권한 엔진과 별개인 후속 작업이다.
+  - **Cross-menu Context Link (§22):** `/equipment/{id}`는 codec의 `route === 'equipment'`(`/prototype/equipment/{id}`)로 매핑되는 상세 pseudo-page다. `detailLink()`가 `contextLink(context, 'equipment', id)`로 등록 Context를 그대로 옮기고, 목적지 ID는 경로 세그먼트에만 둔다 — `selectedEquipmentIds`에 합치거나 대체하지 않는다(§6.4 `[A,B]`→C 예시). 진입 직전 origin URL 전체를 미등록 키 `returnTo`로 상세 URL에 싣고, Back은 그 URL로 정확히 돌아간다. 따라서 상세에서 Context를 바꿔도 출발 Context를 덮어쓰지 않는다. `returnTarget()`은 `returnTo`가 정확히 하나이고 등록 메뉴의 로컬 URL일 때만 링크를 만든다(외부·protocol-relative·다른 상세·중복 값은 거부하고 "Return context unavailable"을 표시). 상세에서 sidebar로 나가면 일반 메뉴 전환처럼 destination과 `returnTo`를 버린다. 권한 기반 링크 숨김/비활성화와 CFG 연계는 Deferred다.
+- `src/registry.ts`: `equipmentDetail`은 sidebar에 없는 파라미터 경로 상세이며 `menus`에 넣지 않지만 같은 `supportedContext`/`pageType` 모델을 쓴다(room `reference`, Condition/Selection 포함 나머지 `unsupported`). 메뉴 항목은 식별자/그룹/이름/경로/아이콘, 필요 권한·Scope, 8개 Context capability, page type, 선택 기능 선언. requiredPermissions/requiredScope는 선언만 하며 Shell이 노출 판단에 소비하지 않는다. §5/§9 Permission-aware visibility의 클라이언트 구현은 이번 Unit 범위 밖(Deferred)이며 서버 권한 엔진과 별개인 후속 작업이다.
 - `src/App.tsx`: Shell이 sidebar/header/breadcrumb/global controls/palette를 소유한다. 페이지 등록으로 전역 renderer를 전달할 수 없다.
 - `src/PlatformPage.tsx`: 7개 required named slots(null 허용), `children?: never`, 런타임 exact-key 검사. content=null.
 - `src/slots.typecheck.tsx`: 직접 JSX 속성(children, header 등)과 누락 slot이 컴파일 오류라는 음성 검사. spread나 `data-*` 같은 우회는 타입 검사를 통과할 수 있으며 런타임 exact-key 검사가 막는다. TypeScript 구조 계약이며 임의 React portal/직접 DOM 조작까지 막는 보안 격리는 아니다.
@@ -75,8 +78,8 @@ npm test
 npm run build
 ```
 
-Python 생성기는 원본 codec를 읽기 전용으로 실행해 95개 정상/오류 벡터를 만든다. 테스트는 canonical 문자열, 오류 코드 우선순위, 모든 Condition 축, 공집합/부재, Unicode code point 정렬, 중복 JSON 키, 별칭, 미등록/opaque 필드, 목적지 ID 분리까지 대조한다. 112개 테스트(95 parity + 1 constructed-state + 14 Shell + 1 canonical token 대조 + 1 Tailwind v4 theme 컴파일)가 통과하며 typecheck는 3개 음성 타입 사례를 포함한다. 실제 명령과 출력은 `verification.log`에 있다.
+Python 생성기는 원본 codec를 읽기 전용으로 실행해 95개 정상/오류 벡터를 만든다. 테스트는 canonical 문자열, 오류 코드 우선순위, 모든 Condition 축, 공집합/부재, Unicode code point 정렬, 중복 JSON 키, 별칭, 미등록/opaque 필드, 목적지 ID 분리까지 대조한다. 121개 테스트(95 parity + 1 constructed-state + 23 Shell〈Context Link 8개 포함〉 + 1 canonical token 대조 + 1 Tailwind v4 theme 컴파일)가 통과하며 typecheck는 3개 음성 타입 사례를 포함한다. 실제 명령과 출력은 `verification.log`에 있다.
 
-이번 문서 정정 라운드에서 npm ci, parity 생성, typecheck, 자동 DOM/키보드 테스트, build를 재실행했다. 개발 서버 HTTP smoke는 이전 구현 라운드에서 수행했으며 이번에는 재실행하지 않았다. 실제 브라우저 시각 검토·production 권한/데이터 연동은 수행하지 않았다. 데이터 조회가 없으므로 loading/조회 empty/계산 기준시각을 꾸며내지 않는다.
+Context Link 라운드에서 npm ci, parity 생성, typecheck, 자동 DOM/키보드 테스트, build를 재실행했다. 개발 서버 HTTP smoke는 이번에 재실행하지 않았다. 실제 브라우저 시각 검토·production 권한/데이터 연동은 수행하지 않았다. 데이터 조회가 없으므로 loading/조회 empty/계산 기준시각을 꾸며내지 않는다.
 
 원본 revision과 §29 수용 범위, **사용자 확인 필요 8개**는 [work order](../../.agents/reports/kernel-work-order-app-shell-menu-registry-draft.md)에 모았다. 원본 계약 문서와 기존 Python 프로토타입은 수정하지 않았다.
