@@ -1,7 +1,8 @@
 import { defineConfig } from 'vitest/config';
+import tailwindcss from '@tailwindcss/vite';
 import { queryFixture } from './src/fixture/server';
 export default defineConfig({
-  plugins: [{ name: 'synthetic-server', configureServer(server) {
+  plugins: [tailwindcss(), { name: 'synthetic-server', configureServer(server) {
     server.middlewares.use('/api/rows', (req, res) => {
       res.setHeader('Content-Type', 'application/json');
       try { res.end(JSON.stringify(queryFixture(new URL(req.url!, 'http://localhost').searchParams))); }

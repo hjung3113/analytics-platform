@@ -649,3 +649,267 @@ Running 9 tests using 1 worker
   9 passed (2.9s)
 RUN 15/15 PASS exit=0
 FINAL REPAIR RESULT: 15/15 consecutive browser suite runs PASS; 9 tests/run, 135 browser test executions PASS; Vitest 5/5 PASS; typecheck and build PASS.
+
+=== DESIGN SYSTEM PORT VERIFICATION (Tailwind v4 + shadcn/Radix) ===
+2026-09-25T16:42:10+09:00
+SHA256 c466f5084ba84f5d71502a40f8896910fe166a8b7be4f4781490358fb94677c9 src/platform/PlatformDataTable.tsx
+SHA256 68abe76a27c8001efce9fde12d3bace1618111d3512ff9214a06f5aefa8e83dc src/platform/DetailDrawer.tsx
+SHA256 86365d9cc17ff97449e55eaa339bbd0abcc2bd9d73cab6cffadd49e9c93dc40a src/fixture/App.tsx
+SHA256 3c317685960f23c43c0435424ba2ca8f72b1fbab6813149e905dbd2dadf54f64 tests/table.browser.test.ts
+COMMAND: npx tsc --noEmit
+EXIT: 0
+COMMAND: npm run test:unit
+
+> kernel-platform-table-fixture@0.0.0 test:unit
+> vitest run
+
+
+ RUN  v3.2.7 /Users/hyojung/orca/workspaces/analytics-platform/design-system-port-unit-c/prototypes/kernel-platform-table
+
+ ✓ tests/server.unit.test.ts (5 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  16:42:12
+   Duration  148ms (transform 15ms, setup 0ms, collect 11ms, tests 3ms, environment 0ms, prepare 33ms)
+
+EXIT: 0
+COMMAND: npm run build
+
+> kernel-platform-table-fixture@0.0.0 build
+> tsc --noEmit && vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+node_modules/@radix-ui/react-label/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-label/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-tabs/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-tabs/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-checkbox/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-checkbox/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-popover/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-popover/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-direction/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-direction/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-presence/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-presence/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-roving-focus/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-roving-focus/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-focus-guards/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-focus-guards/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-portal/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-portal/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-focus-scope/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-focus-scope/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-popper/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-popper/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-collection/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-collection/dist/index.mjs" was ignored.
+✓ 1668 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.37 kB │ gzip:   0.27 kB
+dist/assets/index-KQwe0KPg.css   25.11 kB │ gzip:   6.11 kB
+dist/assets/index-CztXOxbQ.js   428.63 kB │ gzip: 133.92 kB
+✓ built in 795ms
+EXIT: 0
+RUN 1/10 START 2026-09-25T16:42:14+09:00
+COMMAND: npm run test:browser
+
+> kernel-platform-table-fixture@0.0.0 test:browser
+> playwright test
+
+
+Running 9 tests using 1 worker
+
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (287ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (268ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (217ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (418ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (370ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (476ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (279ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (236ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (345ms)
+
+  9 passed (3.7s)
+RUN 1/10 PASS exit=0
+RUN 2/10 START 2026-09-25T16:42:18+09:00
+COMMAND: npm run test:browser
+
+> kernel-platform-table-fixture@0.0.0 test:browser
+> playwright test
+
+
+Running 9 tests using 1 worker
+
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (157ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (245ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (208ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (408ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (377ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (505ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (258ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (242ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (349ms)
+
+  9 passed (3.4s)
+RUN 2/10 PASS exit=0
+RUN 3/10 START 2026-09-25T16:42:21+09:00
+COMMAND: npm run test:browser
+
+> kernel-platform-table-fixture@0.0.0 test:browser
+> playwright test
+
+
+Running 9 tests using 1 worker
+
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (166ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (264ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (210ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (409ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (372ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (476ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (282ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (236ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (345ms)
+
+  9 passed (3.5s)
+RUN 3/10 PASS exit=0
+RUN 4/10 START 2026-09-25T16:42:25+09:00
+COMMAND: npm run test:browser
+
+> kernel-platform-table-fixture@0.0.0 test:browser
+> playwright test
+
+
+Running 9 tests using 1 worker
+
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (173ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (269ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (211ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (410ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (373ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (509ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (283ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (238ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (347ms)
+
+  9 passed (3.5s)
+RUN 4/10 PASS exit=0
+RUN 5/10 START 2026-09-25T16:42:29+09:00
+COMMAND: npm run test:browser
+
+> kernel-platform-table-fixture@0.0.0 test:browser
+> playwright test
+
+
+Running 9 tests using 1 worker
+
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (160ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (244ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (220ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (415ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (373ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (481ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (287ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (237ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (346ms)
+
+  9 passed (3.4s)
+RUN 5/10 PASS exit=0
+RUN 6/10 START 2026-09-25T16:42:32+09:00
+COMMAND: npm run test:browser
+
+> kernel-platform-table-fixture@0.0.0 test:browser
+> playwright test
+
+
+Running 9 tests using 1 worker
+
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (159ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (244ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (210ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (408ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (408ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (475ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (278ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (237ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (351ms)
+
+  9 passed (3.4s)
+RUN 6/10 PASS exit=0
+RUN 7/10 START 2026-09-25T16:42:36+09:00
+COMMAND: npm run test:browser
+
+> kernel-platform-table-fixture@0.0.0 test:browser
+> playwright test
+
+
+Running 9 tests using 1 worker
+
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (179ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (279ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (211ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (411ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (372ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (493ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (281ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (238ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (345ms)
+
+  9 passed (3.5s)
+RUN 7/10 PASS exit=0
+RUN 8/10 START 2026-09-25T16:42:40+09:00
+COMMAND: npm run test:browser
+
+> kernel-platform-table-fixture@0.0.0 test:browser
+> playwright test
+
+
+Running 9 tests using 1 worker
+
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (160ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (267ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (220ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (411ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (389ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (473ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (279ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (238ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (346ms)
+
+  9 passed (3.5s)
+RUN 8/10 PASS exit=0
+RUN 9/10 START 2026-09-25T16:42:44+09:00
+COMMAND: npm run test:browser
+
+> kernel-platform-table-fixture@0.0.0 test:browser
+> playwright test
+
+
+Running 9 tests using 1 worker
+
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (166ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (260ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (212ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (410ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (370ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (489ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (296ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (237ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (355ms)
+
+  9 passed (3.5s)
+RUN 9/10 PASS exit=0
+RUN 10/10 START 2026-09-25T16:42:47+09:00
+COMMAND: npm run test:browser
+
+> kernel-platform-table-fixture@0.0.0 test:browser
+> playwright test
+
+
+Running 9 tests using 1 worker
+
+  ✓  1 tests/table.browser.test.ts:5:1 › contract baseline is applied in real Chromium layout (166ms)
+  ✓  2 tests/table.browser.test.ts:16:1 › HTTP sort/filter is paged and reaches server (262ms)
+  ✓  3 tests/table.browser.test.ts:28:1 › virtualization mounts a moving window, not all 250 loaded rows (212ms)
+  ✓  4 tests/table.browser.test.ts:35:1 › resize, visibility and pin persist through reload and pin stays fixed horizontally (428ms)
+  ✓  5 tests/table.browser.test.ts:56:1 › multi-select survives server page changes and can be cleared (374ms)
+  ✓  6 tests/table.browser.test.ts:63:1 › drawer tabs and close preserve filter, sort, selection, Context and scroll (507ms)
+  ✓  7 tests/table.browser.test.ts:95:1 › loading, error/retry and empty are distinct (278ms)
+  ✓  8 tests/table.browser.test.ts:104:1 › keyboard tabs/Escape restore focus and export is explicitly an entry (240ms)
+  ✓  9 tests/table.browser.test.ts:112:1 › sort, filter and page refresh retain rows and expose busy until response (362ms)
+
+  9 passed (3.5s)
+RUN 10/10 PASS exit=0
+FINAL DESIGN SYSTEM PORT RESULT: 10/10 consecutive browser suite runs PASS
