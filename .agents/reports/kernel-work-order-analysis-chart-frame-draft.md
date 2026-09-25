@@ -55,7 +55,7 @@ AnalysisChartFrame은 metadata/legend/plot/summary/footer 슬롯을 제공한다
 ## DESIGN DECISIONS / 사용자 확인 필요
 | # | 상태 | 항목 | 이번 실험 경계 |
 |---|---|---|---|
-| 1 | Candidate | 실제 제품 ECharts 채택 | SVG 작은 fixture만 검증; 대용량/상호작용 POC 후 확정 |
+| 1 | Decided (2026-09-25, [docs/04_frontend_ui_ux.md](../../docs/04_frontend_ui_ux.md) §프론트엔드 기술 스택) — Apache ECharts(SVG 렌더러) 제품 채택 확정; 버전 고정과 대용량·상호작용 성능 재검증은 실제 구현 착수 시 | 실제 제품 ECharts 채택 | SVG 작은 fixture만 검증 |
 | 2 | Open | Annotation 영구 저장·권한·Audit·편집 모델 | 독립 in-memory repository만 사용 |
 | 3 | Open | Export 실제 포맷·범위 | 클릭 가능한 안내 stub |
 | 4 (M1) | Deferred | Interaction Contract 승격 | Toolbar 구성·Reset 의미론·Brush→Apply 경계가 공통 Frame이 아니라 fixture host에만 구현돼 있다. §14 Promotion Rule(2개 이상 메뉴에서 확인 후 공통화)에 따라 두 번째 consumer가 생기기 전에는 의도적으로 승격하지 않는다 |

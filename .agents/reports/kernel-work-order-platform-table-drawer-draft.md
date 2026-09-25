@@ -51,7 +51,7 @@ Deferred: 실제 메뉴/업무 의미, CRUD, 실제 export/Audit, 서버 권한�
 | # | 항목 | 상태 |
 |---|---|---|
 | 1 | 실제 서버 페이지네이션·정렬·필터 API 및 권한/Scope 재검증 계약 | Open |
-| 2 | TanStack Table + Virtual 제품 실채택과 실제 데이터 성능 기준 | Candidate |
+| 2 | TanStack Table + Virtual 제품 실채택과 실제 데이터 성능 기준 | Decided (2026-09-25, [docs/04_frontend_ui_ux.md](../../docs/04_frontend_ui_ux.md) §프론트엔드 기술 스택) — 채택 확정; 정확한 버전 고정과 실제 데이터 성능 기준은 실제 구현 착수 시 재검증 |
 | 3 | export 실제 포맷·범위·권한 | Open |
 | 4 | DetailDrawer 실제 Audit 데이터 연결 | Open |
 | 5 | 필터 변경 후 결과 밖으로 벗어난 행의 선택을 유지할지, 화면에 어떻게 표시할지(예: “N개 숨겨진 선택” 배지) — 실제 메뉴의 일괄 작업 범위와 연결된 결정 | Open |

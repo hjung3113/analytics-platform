@@ -47,7 +47,8 @@ export function App() {
   };
   const context = state?.context;
   const scope = context?.scope_id ?? '';
-  const setSelect = (key: 'room_names' | 'selection', value: string) => update({ [key]: value === '' ? null : value === 'none' ? [] : [value] });
+  // '__inherited'는 setValue의 표시용 sentinel — 재선택해도 현재 다중/미지 값을 리터럴로 덮어쓰지 않는다.
+  const setSelect = (key: 'room_names' | 'selection', value: string) => { if (value === '__inherited') return; update({ [key]: value === '' ? null : value === 'none' ? [] : [value] }); };
   const setValue = (value: string[] | null | undefined) => value == null ? '' : value.length === 0 ? 'none' : value.length === 1 ? value[0] : '__inherited';
   const inheritedOption = (values: string[] | null | undefined, known: string[]) => values?.length && (values.length > 1 || !known.includes(values[0])) ? <option value={setValue(values)}>Inherited: {values.join(', ')}</option> : null;
   return <div className="shell" style={{ '--sidebar-width': `${collapsed ? shellDimensions.collapsed : shellDimensions.expanded}px`, '--header-height': `${shellDimensions.header}px` } as CSSProperties}>

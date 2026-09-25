@@ -59,6 +59,15 @@ describe('platform shell acceptance — 합성 fixture, 실제 메뉴 아님', (
     fireEvent.change(screen.getByLabelText('room'), { target: { value: 'none' } });
     expect(readLocation(window.location.pathname + window.location.search).context.selection).toEqual(['A', 'B']);
   });
+  it('keeps inherited multi-ID selection when the inherited sentinel option is re-selected', () => {
+    const url = '/sample-analysis?selectedEquipmentIds=fixture-equipment-a&selectedEquipmentIds=fixture-equipment-b';
+    mount(url);
+    const select = screen.getByLabelText('Selection') as HTMLSelectElement;
+    expect(select.value).toBe('__inherited');
+    fireEvent.change(select, { target: { value: '__inherited' } });
+    expect(readLocation(window.location.pathname + window.location.search).context.selection).toEqual(['fixture-equipment-a', 'fixture-equipment-b']);
+    expect(window.location.pathname + window.location.search).toBe(url);
+  });
   it('reports future version errors without URL rewriting or partial navigation', () => {
     const url = '/sample-analysis?v=99&roomNames=%ZZ'; mount(url);
     expect(screen.getByRole('alert').textContent).toContain('unsupported_version');
