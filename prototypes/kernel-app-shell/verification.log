@@ -1,7 +1,7 @@
-Unit A compliance-response verification; synthetic fixtures only, no production server/auth validation.
-Run at: 2026-09-24T16:00:22.645768+00:00
-Source revision: 10f270dc58e1b8b03aa4743f55a70848ebc4fbe4
-HTTP smoke and visual browser review not rerun in this documentation-only round.
+Unit A Decided-stack port verification (Tailwind v4 + shadcn/Radix + cn); synthetic fixtures only, no production server/auth validation.
+Run at: 2026-09-25T07:43:17+00:00
+Base revision: e868660230dcb2b16abeb45dffa9d6e314c960ca + uncommitted port changes in this directory
+Dev-server HTTP smoke (200) and one headless Chrome screenshot of /sample-analysis were checked manually this round; not recorded below.
 
 $ node --version
 v26.7.0
@@ -16,7 +16,7 @@ exit=0
 $ npm ci --cache .npm-cache --no-audit --no-fund
 npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
 
-added 154 packages in 799ms
+added 174 packages in 1s
 npm warn install-scripts 2 packages have install scripts not yet covered by allowScripts:
 npm warn install-scripts   esbuild@0.28.2 (postinstall: node install.js)
 npm warn install-scripts   fsevents@2.3.3 (install: (install scripts present))
@@ -44,16 +44,17 @@ $ npm test
 > vitest run
 
 
- RUN  v3.2.7 /Users/hyojung/orca/workspaces/analytics-platform/kernel-context-url-scope/prototypes/kernel-app-shell
+ RUN  v3.2.7 /Users/hyojung/orca/workspaces/analytics-platform/platform-design-system-port/prototypes/kernel-app-shell
 
- ✓ src/codec.test.ts (96 tests) 14ms
+ ✓ src/codec.test.ts (96 tests) 18ms
+ ✓ src/theme.test.ts (1 test) 15ms
  ✓ src/tokens.test.ts (1 test) 2ms
- ✓ src/App.test.tsx (12 tests) 143ms
+ ✓ src/App.test.tsx (14 tests) 499ms
 
- Test Files  3 passed (3)
-      Tests  109 passed (109)
-   Start at  01:00:24
-   Duration  526ms (transform 67ms, setup 0ms, collect 166ms, tests 158ms, environment 431ms, prepare 98ms)
+ Test Files  4 passed (4)
+      Tests  112 passed (112)
+   Start at  16:43:20
+   Duration  975ms (transform 92ms, setup 16ms, collect 379ms, tests 535ms, environment 651ms, prepare 131ms)
 
 
 exit=0
@@ -65,18 +66,26 @@ $ npm run build
 
 vite v7.3.6 building client environment for production...
 transforming...
+node_modules/lucide-react/dist/esm/context.mjs (2:0): Module level directives cause errors when bundled, "use client" in "node_modules/lucide-react/dist/esm/context.mjs" was ignored.
+node_modules/lucide-react/dist/esm/Icon.mjs (2:0): Module level directives cause errors when bundled, "use client" in "node_modules/lucide-react/dist/esm/Icon.mjs" was ignored.
+node_modules/@radix-ui/react-label/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-label/dist/index.mjs" was ignored.
 node_modules/@radix-ui/react-dialog/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-dialog/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-select/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-select/dist/index.mjs" was ignored.
 node_modules/@radix-ui/react-portal/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-portal/dist/index.mjs" was ignored.
 node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs" was ignored.
 node_modules/@radix-ui/react-focus-scope/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-focus-scope/dist/index.mjs" was ignored.
-node_modules/@radix-ui/react-presence/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-presence/dist/index.mjs" was ignored.
 node_modules/@radix-ui/react-focus-guards/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-focus-guards/dist/index.mjs" was ignored.
-✓ 88 modules transformed.
+node_modules/@radix-ui/react-presence/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-presence/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-direction/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-direction/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-collection/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-collection/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-popper/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-popper/dist/index.mjs" was ignored.
+✓ 1980 modules transformed.
 rendering chunks...
 computing gzip size...
-dist/index.html                   0.40 kB │ gzip:  0.32 kB
-dist/assets/index-DDMXtMQP.css    6.40 kB │ gzip:  2.22 kB
-dist/assets/index-oSvvGH3K.js   276.25 kB │ gzip: 87.41 kB
-✓ built in 412ms
+dist/index.html                   0.40 kB │ gzip:   0.31 kB
+dist/assets/index-CsTodFdO.css   20.61 kB │ gzip:   4.94 kB
+dist/assets/index-DEUgdb6N.js   371.15 kB │ gzip: 119.56 kB
+✓ built in 765ms
 
 exit=0
+

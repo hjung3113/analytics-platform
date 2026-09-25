@@ -24,6 +24,17 @@ http://127.0.0.1:5173/sample-analysis 를 연다. 최초 Scope는 선택되지 �
 
 `docs/04_frontend_ui_ux.md`의 React + TypeScript + Tailwind 후보를 사용했다. 작은 독립 실행 디렉터리를 위해 Vite, 자동 DOM 검증에 Vitest/jsdom/Testing Library를 선택했다. Radix Dialog는 palette의 focus trap/Escape/초점 복귀에 사용한다. lockfile이 이번 검증 버전을 고정하며 production 채택 결정이 아니다.
 
+### Decided 스택 이식 (docs/04, 2026-09-25)
+
+Tailwind CSS v4 + shadcn/ui(Radix) + `cn()` 위로 옮겼다. FeedbackOps 원본(`products/feedbackops` @ `b5dd614`)은 런타임에 참조하지 않고 파일을 복사했으며, 복사본은 import 경로만 바꿨다(각 파일 첫 줄에 출처 표기).
+
+- 이식: `src/utils/cn.ts`, `src/components/Button.tsx`(FeedbackOps 커스텀 CVA Button) + `shadcn/button.tsx` 재수출 shim, `shadcn/dialog.tsx`(palette), `shadcn/select.tsx`(Scope/room/Condition/Selection), `shadcn/label.tsx`.
+- 제외: 나머지 18개(alert-dialog, alert, avatar, badge, card, checkbox, combobox, dropdown-menu, hover-card, input, popover, radio-group, sheet, skeleton, tabs, textarea, toggle-group, tooltip) — Shell에 소비처가 없다. combobox는 검색이 필요 없는 고정 옵션 4개라 select로 충분하다. cmdk palette 재작성은 범위 밖이다.
+- 토큰: `src/styles/tokens.css`는 FeedbackOps ADR-0021의 시맨틱 **이름**과 R G B triple 형식을 따르고 **값**은 이 레포 `DESIGN.md` `colors:`를 쓴다(docs/04가 네이밍만 이식한다고 명시). FeedbackOps VOC 도메인 토큰(status/severity/confidence/managed-system)과 레이아웃·spacing·글자 크기 토큰은 가져오지 않았다(Shell 치수는 DESIGN.md/06의 270/64/54). 어두운 sidebar용 `surface-sidebar-hover`/`text-sidebar`/`border-sidebar`/`focus-ring-sidebar`는 FeedbackOps에 없는 플랫폼 추가분이다.
+- v3→v4: FeedbackOps `tailwind.preset.ts`의 `theme.extend.colors: rgb(var(--x) / <alpha-value>)`를 `src/style.css`의 `@theme inline { --color-x: rgb(var(--x)); }`로 옮겼다. `bg-accent-primary/15` 같은 투명도 합성은 v4 `color-mix()`로 유지되며 `src/theme.test.ts`가 실제 Tailwind 컴파일로 검증한다. 원본 `animate-in`류 클래스는 FeedbackOps에서도 플러그인 없이 무효이며 그대로 둔다.
+- Radix Select는 빈 문자열 item을 금지하므로 `ContextSelect`가 경계에서 `''`↔`__absent`를 변환한다. 호출부의 문자열 계약(Condition의 JSON 문자열 value, `'__inherited'` sentinel)은 그대로다. Radix Select는 이미 선택된 값을 다시 고르면 `onValueChange`를 부르지 않으므로 `'__inherited'` 재선택은 원시 컴포넌트 단계에서 no-op이며, `setSelect`의 sentinel guard는 방어적으로 남겼다.
+- 테스트는 native `change` 이벤트 대신 user-event로 trigger→option을 클릭한다. jsdom에 없는 ResizeObserver/pointer capture/scrollIntoView는 `src/test-setup.ts`에서 no-op로만 채운다.
+
 TanStack Router는 검토 대상이지만 이번 실험에서는 채택하지 않았다. 기존 codec의 반복 query 키·alias·opaque 보존을 그대로 검증하기 위해 Browser History와 단일 URL adapter만 사용한다. 라우트 중첩/loader/서버 캐시가 없는 빈 fixture 3개에 Query/Zustand를 추가하지 않았다. 이 선택은 원본 Candidate를 확정하거나 변경하지 않는다.
 
 ## 구조와 codec 경계
@@ -64,7 +75,7 @@ npm test
 npm run build
 ```
 
-Python 생성기는 원본 codec를 읽기 전용으로 실행해 95개 정상/오류 벡터를 만든다. 테스트는 canonical 문자열, 오류 코드 우선순위, 모든 Condition 축, 공집합/부재, Unicode code point 정렬, 중복 JSON 키, 별칭, 미등록/opaque 필드, 목적지 ID 분리까지 대조한다. 109개 테스트(95 parity + 1 constructed-state + 12 Shell + 1 canonical token 대조)가 통과하며 typecheck는 3개 음성 타입 사례를 포함한다. 실제 명령과 출력은 `verification.log`에 있다.
+Python 생성기는 원본 codec를 읽기 전용으로 실행해 95개 정상/오류 벡터를 만든다. 테스트는 canonical 문자열, 오류 코드 우선순위, 모든 Condition 축, 공집합/부재, Unicode code point 정렬, 중복 JSON 키, 별칭, 미등록/opaque 필드, 목적지 ID 분리까지 대조한다. 112개 테스트(95 parity + 1 constructed-state + 14 Shell + 1 canonical token 대조 + 1 Tailwind v4 theme 컴파일)가 통과하며 typecheck는 3개 음성 타입 사례를 포함한다. 실제 명령과 출력은 `verification.log`에 있다.
 
 이번 문서 정정 라운드에서 npm ci, parity 생성, typecheck, 자동 DOM/키보드 테스트, build를 재실행했다. 개발 서버 HTTP smoke는 이전 구현 라운드에서 수행했으며 이번에는 재실행하지 않았다. 실제 브라우저 시각 검토·production 권한/데이터 연동은 수행하지 않았다. 데이터 조회가 없으므로 loading/조회 empty/계산 기준시각을 꾸며내지 않는다.
 
