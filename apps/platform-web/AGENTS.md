@@ -17,7 +17,7 @@
 - 메뉴 화면 작성법은 [README "페이지 작성 가이드"](README.md#페이지-작성-가이드-consumer-규칙)가 원본이다. 요약: 최상위 `PlatformPage`, 조회는 `usePlatformQuery` + `QueryView`, 이동은 `linkTo()`, page 상태는 등록된 `pageKeys`만.
 - 페이지는 `packages/*`를 수정하지 않는다. 공통 부품이 부족하면 필요 사항을 보고하고 플랫폼 작업으로 올린다.
 - 메뉴를 추가하면 `menus.ts`에 선언하고 06 §5(Menu Extension Contract)·§29(Platform Done)를 확인한다. 메뉴 화면 3개 이상 연속 제작은 사용자에게 범위를 먼저 확인한다.
-- mock은 서버 역할을 흉내낸다: 권한·Scope 판단은 mock이 하고 페이지는 하지 않는다. 역할은 요청 시점에 고정한다(localStorage `platform:role`).
+- mock은 서버 역할을 흉내낸다: Scope·room 허용 범위와 데이터 권한은 `serve()`가 재검증하고 페이지는 판단하지 않는다. **메뉴 권한은 mock이 재검증하지 않는다** — 지금은 클라이언트 라우트 게이트뿐인 알려진 공백이다(README "남은 플랫폼 과제"). 새 화면을 서버 권한으로 보호된다고 가정하지 않는다. 역할은 요청 시점에 고정한다(localStorage `platform:role`).
 - 페이지는 아직 `mock/server`를 직접 호출한다(D8). 5단계에서 메뉴별 `api.ts`로 모으므로 새 호출처를 늘리지 않는다.
 
 ## 검증
