@@ -1,0 +1,71 @@
+/* Semantic token values. Names follow FeedbackOps ADR-0021 (R G B triples so opacity modifiers compose);
+ * every value comes from DESIGN.md `colors:`. Tailwind utilities are bound in ../style.css. */
+:root {
+  /* Surface ladder: canvas → card → sunken; hairlines carry hierarchy (no shadow stacking). */
+  --surface-canvas: 247 248 250;        /* canvas #f7f8fa */
+  --surface-card: 255 255 255;          /* surface-card */
+  --surface-raised: 255 255 255;        /* FeedbackOps alias of card */
+  --surface-sunken: 241 243 246;        /* surface-sunken #f1f3f6 */
+  --surface-popover: 255 255 255;
+  --surface-row-hover: 241 243 246;     /* interaction.hover */
+  --surface-row-selected: 239 246 255;  /* interaction.selected = primary-soft */
+  --surface-detail: 255 255 255;
+  --surface-blocked: 241 243 246;
+
+  /* Dark navigation — the single polarity flip, sidebar only. */
+  --nav-surface: 15 21 38;              /* surface-dark-nav #0f1526 */
+  --nav-surface-hover: 26 34 54;        /* surface-dark-nav-hover #1a2236 */
+  --nav-surface-subtle: 19 29 47;       /* surface-dark-nav-subtle #131d2f */
+  --nav-surface-raised: 36 49 73;       /* surface-dark-nav-raised #243149 */
+  --nav-divider: 41 53 74;              /* nav-divider #29354a */
+  --nav-text: 195 209 228;              /* nav-text #c3d1e4 */
+  --nav-text-faint: 156 163 175;        /* ink-faint on dark (group labels) */
+  --nav-focus: 147 197 253;             /* nav-focus #93c5fd */
+
+  /* Ink ladder — never pure black. */
+  --text-primary: 17 24 39;             /* ink */
+  --text-secondary: 55 65 81;           /* ink-secondary */
+  --text-muted: 107 114 128;            /* ink-muted */
+  --text-disabled: 156 163 175;         /* ink-faint */
+  --text-on-accent: 255 255 255;        /* on-primary */
+  --text-danger: 153 27 27;             /* danger-text (accessible) */
+  --text-warning: 146 64 14;            /* warning-text (accessible) */
+  --text-success: 22 101 52;            /* success-text (accessible) */
+  --text-info: 37 99 235;
+
+  /* Borders / focus */
+  --border-default: 229 231 235;        /* hairline */
+  --border-subtle: 229 231 235;
+  --border-strong: 209 213 219;         /* hairline-strong */
+  --border-control: 123 135 153;        /* control-border #7b8799 */
+  --border-selected: 37 99 235;
+  --focus-ring: 37 99 235;              /* focus-visible */
+  --focus-ring-danger: 220 38 38;
+
+  /* Single chromatic accent + semantic status (display only; mapping owned by docs/06 §19). */
+  --accent-primary: 37 99 235;          /* primary #2563eb */
+  --accent-primary-hover: 29 78 216;    /* primary-hover #1d4ed8 */
+  --accent-primary-soft: 239 246 255;   /* primary-soft */
+  --accent-info: 37 99 235;
+  --accent-success: 22 163 74;          /* success #16a34a */
+  --accent-success-soft: 220 252 231;
+  --accent-warn: 217 119 6;             /* warning #d97706 */
+  --accent-warn-soft: 254 243 199;
+  --accent-danger: 220 38 38;           /* danger #dc2626 */
+  --accent-danger-soft: 254 226 226;
+  --accent-neutral: 107 114 128;
+  --accent-neutral-soft: 243 244 246;
+
+  /* Category / chart-series identity — never for primary actions. */
+  --cat-purple: 124 58 237;
+  --cat-teal: 13 148 136;
+  --cat-amber: 217 119 6;
+  --chart-blue: 59 156 255;
+  --chart-teal: 0 163 181;
+  --chart-green: 0 188 139;
+  --chart-purple: 161 116 245;
+  --chart-remainder: 203 210 227;
+  --chart-grid: 237 241 247;
+  --icon-blue-soft: 227 239 255;
+  --icon-teal-soft: 220 248 239;
+}
