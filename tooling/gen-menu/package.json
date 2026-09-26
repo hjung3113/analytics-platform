@@ -1,0 +1,19 @@
+{
+  "name": "@ap/gen-menu",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@ap/eslint-config": "workspace:*",
+    "@ap/tsconfig": "workspace:*",
+    "@types/node": "^26.6.3",
+    "eslint": "^10.11.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}

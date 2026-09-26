@@ -2,7 +2,9 @@
 @import "@ap/ui/styles.css";
 @import "@ap/components/styles.css";
 @import "@ap/shell/styles.css";
+/* <gen:menu-styles> */
 @import "@ap/menu-home/styles.css";
 @import "@ap/menu-equipment/styles.css";
 @import "@ap/menu-analytics/styles.css";
 @import "@ap/menu-metrics/styles.css";
+/* </gen:menu-styles> */

@@ -7,6 +7,7 @@ import {
   BarChart3, Cpu, Database, Gauge, LayoutDashboard, Megaphone, ShieldCheck,
 } from 'lucide-react';
 import { createRegistry, type GroupDef, type MenuEntry } from '@ap/kernel';
+// <gen:menu-imports>
 import { manifests as home } from '@ap/menu-home';
 import { manifests as equipment } from '@ap/menu-equipment';
 import { manifests as masterData } from '@ap/menu-master-data';
@@ -14,6 +15,7 @@ import { manifests as analytics } from '@ap/menu-analytics';
 import { manifests as metrics } from '@ap/menu-metrics';
 import { manifests as noticeVoc } from '@ap/menu-notice-voc';
 import { manifests as admin } from '@ap/menu-admin';
+// </gen:menu-imports>
 
 export const GROUPS: GroupDef[] = [
   { id: 'overview', label: { ko: '운영 개요', en: 'Overview' }, icon: LayoutDashboard },
@@ -23,10 +25,19 @@ export const GROUPS: GroupDef[] = [
   { id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge },
   { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: Megaphone },
   { id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: ShieldCheck },
+  // </gen:menu-groups>
 ];
 
 export const MENUS: MenuEntry[] = [
-  ...home, ...equipment, ...masterData, ...analytics, ...metrics, ...noticeVoc, ...admin,
+  // <gen:menu-spreads>
+  ...home,
+  ...equipment,
+  ...masterData,
+  ...analytics,
+  ...metrics,
+  ...noticeVoc,
+  ...admin,
+  // </gen:menu-spreads>
 ];
 
 export const registry = createRegistry({ groups: GROUPS, menus: MENUS });
