@@ -18,6 +18,7 @@ import { shift } from '../../kernel/url';
 import { AnalysisChartFrame, type ChartSeries } from '../../platform/AnalysisChartFrame';
 import { DataTrustIndicator } from '../../platform/DataTrustIndicator';
 import { Panel, PlatformPage } from '../../platform/PlatformPage';
+import { SegmentedRadio } from '../../platform/RadioGroup';
 import { StatCard, type Delta } from '../../platform/StatCard';
 import { QueryView, StateMessage } from '../../platform/StateView';
 import { StatusBadge } from '../../platform/StatusBadge';
@@ -240,16 +241,16 @@ export default function ProductivityOverview(_: PageProps) {
       : null}
     contextExtension={<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
       <span id="granularity-label" className="text-[12px] font-medium text-text-secondary">{ko ? '집계 단위 (페이지 소유)' : 'Granularity (page-owned)'}</span>
-      <div role="radiogroup" aria-labelledby="granularity-label" className="inline-flex overflow-hidden rounded-md border border-border-subtle bg-surface-card">
-        {GRANS.map(g => {
-          const label = g === 'hour' ? (ko ? '시간' : 'Hour') : g === 'day' ? (ko ? '일' : 'Day') : (ko ? '주' : 'Week');
-          return <button key={g} type="button" role="radio" aria-checked={gran === g} onClick={() => setPage({ granularity: g })}
-            className={cn('min-h-8 border-l border-border-subtle px-3 text-[12px] font-medium first:border-l-0 focus-visible:z-10',
-              gran === g ? 'bg-accent-primary text-text-on-accent' : 'text-text-secondary hover:bg-surface-sunken')}>
-            {label}
-          </button>;
-        })}
-      </div>
+      <SegmentedRadio
+        labelledBy="granularity-label"
+        label={ko ? '집계 단위 (페이지 소유)' : 'Granularity (page-owned)'}
+        value={gran}
+        onChange={g => setPage({ granularity: g })}
+        className="inline-flex overflow-hidden rounded-md border border-border-subtle bg-surface-card"
+        optionClassName={selected => cn('min-h-8 border-l border-border-subtle px-3 text-[12px] font-medium first:border-l-0 focus-visible:z-10',
+          selected ? 'bg-accent-primary text-text-on-accent' : 'text-text-secondary hover:bg-surface-sunken')}
+        options={GRANS.map(g => ({ value: g, label: g === 'hour' ? (ko ? '시간' : 'Hour') : g === 'day' ? (ko ? '일' : 'Day') : (ko ? '주' : 'Week') }))}
+      />
       <span className="t-caption text-text-muted">
         {ko
           ? 'URL 키 granularity — 전역 필터가 아니라 이 화면 소유이며 기간과 독립입니다. 미지정 시 기본: 기간 ≤48시간이면 시간, 아니면 일 (Candidate).'
@@ -329,13 +330,15 @@ export default function ProductivityOverview(_: PageProps) {
                   metricVersion={METRIC_VERSIONS.occupancy}
                   xType="category" stacked unit="h" height={240} canApplyRange={false}
                   valueFormat={v => n1(v)}
-                  extraActions={<div role="radiogroup" aria-label={ko ? 'URL 키 axis' : 'URL key axis'} className="inline-flex overflow-hidden rounded-md border border-border-subtle">
-                    {(['room', 'stgroup'] as const).map(a => <button key={a} type="button" role="radio" aria-checked={axis === a} onClick={() => setPage({ axis: a === 'room' ? null : a })}
-                      className={cn('min-h-7 border-l border-border-subtle px-2 text-[11px] font-medium first:border-l-0',
-                        axis === a ? 'bg-accent-primary text-text-on-accent' : 'text-text-secondary hover:bg-surface-sunken')}>
-                      {a === 'room' ? 'room_name' : 'StGroup'}
-                    </button>)}
-                  </div>}
+                  extraActions={<SegmentedRadio
+                    label={ko ? 'URL 키 axis' : 'URL key axis'}
+                    value={axis}
+                    onChange={a => setPage({ axis: a === 'room' ? null : a })}
+                    className="inline-flex overflow-hidden rounded-md border border-border-subtle"
+                    optionClassName={selected => cn('min-h-7 border-l border-border-subtle px-2 text-[11px] font-medium first:border-l-0',
+                      selected ? 'bg-accent-primary text-text-on-accent' : 'text-text-secondary hover:bg-surface-sunken')}
+                    options={[{ value: 'room', label: 'room_name' }, { value: 'stgroup', label: 'StGroup' }]}
+                  />}
                   series={[
                     { id: 'occupied', name: ko ? '점유 시간' : 'Occupied hours', color: 'chart-blue', kind: 'bar', points: rows.map(r => [r.key, r.occupiedHours] as [string, number | null]) },
                     { id: 'remainder', name: ko ? '미점유 (관측 가능 시간)' : 'Not occupied (observable)', color: 'chart-remainder', kind: 'bar', points: rows.map(r => [r.key, r.observableHours - r.occupiedHours] as [string, number | null]) },

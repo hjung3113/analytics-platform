@@ -1,5 +1,5 @@
 import { CalendarDays, ChevronDown, Link2, RotateCcw, X } from 'lucide-react';
-import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useI18n } from '../kernel/i18n';
 import { usePlatform } from '../kernel/platform';
 import { CONTEXT_LABELS, type Capability, type ContextKey } from '../kernel/registry';
@@ -9,6 +9,7 @@ import { EQUIPMENT, makerModelsFor, stgroupsFor, teamsFor } from '../mock/world'
 import { Button } from '../ui/components/Button';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/components/shadcn/popover';
 import { cn } from '../ui/utils/cn';
+import { SegmentedRadio } from '../platform/RadioGroup';
 
 const hours = (g: GlobalContext) => (g.from && g.to ? (parseDateTime(g.to, 'to').getTime() - parseDateTime(g.from, 'from').getTime()) / 3_600_000 : null);
 const short = (v: string) => v.replace('T', ' ').slice(5, 16);
@@ -102,13 +103,6 @@ function PeriodControl({ cap }: { cap: Capability }) {
     if (id === 'custom') { setOpen(true); return; }
     setGlobal({ from: shift(defaultRangeTo, -p.h), to: defaultRangeTo });
   };
-  const onKey = (e: KeyboardEvent) => {
-    if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
-    e.preventDefault();
-    const i = presets.findIndex(p => p.id === preset);
-    const next = presets[(Math.max(0, i) + (e.key === 'ArrowRight' ? 1 : presets.length - 1)) % presets.length];
-    choose(next.id);
-  };
   return <div className="flex items-center gap-1">
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -124,10 +118,14 @@ function PeriodControl({ cap }: { cap: Capability }) {
         <CustomRange onDone={() => setOpen(false)} />
       </PopoverContent>
     </Popover>
-    <div role="radiogroup" aria-label={t('period')} onKeyDown={onKey} className="flex h-8 items-center gap-0.5 rounded-sm border border-border-subtle bg-surface-card p-0.5">
-      {presets.map(p => <button key={p.id} type="button" role="radio" aria-checked={preset === p.id} tabIndex={preset === p.id || (!preset && p.id === '1d') ? 0 : -1} onClick={() => choose(p.id)}
-        className={cn('h-full rounded-xs px-2.5 text-[12px] font-medium', preset === p.id ? 'bg-accent-primary text-text-on-accent' : 'text-text-secondary hover:bg-surface-sunken')}>{p.label}</button>)}
-    </div>
+    <SegmentedRadio
+      label={t('period')}
+      value={preset}
+      onChange={id => choose(id)}
+      className="flex h-8 items-center gap-0.5 rounded-sm border border-border-subtle bg-surface-card p-0.5"
+      optionClassName={selected => cn('h-full rounded-xs px-2.5 text-[12px] font-medium', selected ? 'bg-accent-primary text-text-on-accent' : 'text-text-secondary hover:bg-surface-sunken')}
+      options={presets.map(p => ({ value: p.id, label: p.label }))}
+    />
   </div>;
 }
 
@@ -157,12 +155,17 @@ function CustomRange({ onDone }: { onDone: () => void }) {
   } catch (e) { error = e instanceof Error ? e.message : String(e); }
   const input = 'h-8 w-full rounded-md border border-border-control bg-surface-card px-2 text-[12px] tabular';
   return <form onSubmit={e => { e.preventDefault(); if (result) { setGlobal(result); onDone(); } }} onKeyDown={e => { if (e.key === 'Escape') onDone(); }} className="space-y-3 text-[12px]">
-    <div role="radiogroup" aria-label={lang === 'ko' ? '입력 방식' : 'Input mode'} className="flex gap-1">
-      {(['date', 'time'] as const).map(m => <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)}
-        className={cn('rounded-sm border px-2 py-1', mode === m ? 'border-accent-primary bg-accent-primary-soft text-accent-primary' : 'border-border-subtle')}>
-        {m === 'date' ? (lang === 'ko' ? '날짜 (양끝 포함)' : 'Dates (inclusive)') : (lang === 'ko' ? '시각 (초 단위)' : 'Date-time (seconds)')}
-      </button>)}
-    </div>
+    <SegmentedRadio
+      label={lang === 'ko' ? '입력 방식' : 'Input mode'}
+      value={mode}
+      onChange={setMode}
+      className="flex gap-1"
+      optionClassName={selected => cn('rounded-sm border px-2 py-1', selected ? 'border-accent-primary bg-accent-primary-soft text-accent-primary' : 'border-border-subtle')}
+      options={[
+        { value: 'date', label: lang === 'ko' ? '날짜 (양끝 포함)' : 'Dates (inclusive)' },
+        { value: 'time', label: lang === 'ko' ? '시각 (초 단위)' : 'Date-time (seconds)' },
+      ]}
+    />
     {mode === 'date' ? <div className="grid grid-cols-2 gap-2">
       <label className="space-y-1"><span className="text-text-muted">{lang === 'ko' ? '시작일' : 'Start date'}</span><input type="date" className={input} value={start} onChange={e => setStart(e.target.value)} /></label>
       <label className="space-y-1"><span className="text-text-muted">{lang === 'ko' ? '종료일 (포함)' : 'End date (inclusive)'}</span><input type="date" className={input} value={end} onChange={e => setEnd(e.target.value)} /></label>
@@ -198,11 +201,18 @@ function SetEditor({ label, cap, value, options, absentLabel, onApply, note, sea
   return <Popover open={open} onOpenChange={reset}>
     <PopoverTrigger asChild><ChipShell label={label} value={value === null ? absentLabel : value.length ? (value.length <= 2 ? value.join(', ') : `${value[0]} +${value.length - 1}`) : t('explicitEmpty')} cap={cap} empty={value === null}><ChevronDown className="size-3.5 text-text-muted" aria-hidden /></ChipShell></PopoverTrigger>
     <PopoverContent align="start" className="w-80 rounded-md border border-border-strong bg-surface-card p-3 text-[12px] shadow-md">
-      <div role="radiogroup" aria-label={label} className="mb-2 flex flex-wrap gap-1">
-        {([['absent', absentLabel], ['some', lang === 'ko' ? '명시 선택' : 'Explicit'], ['empty', t('explicitEmpty')]] as const).map(([m, l]) =>
-          <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)}
-            className={cn('rounded-sm border px-2 py-1', mode === m ? 'border-accent-primary bg-accent-primary-soft text-accent-primary' : 'border-border-subtle hover:bg-surface-sunken')}>{l}</button>)}
-      </div>
+      <SegmentedRadio
+        label={label}
+        value={mode}
+        onChange={setMode}
+        className="mb-2 flex flex-wrap gap-1"
+        optionClassName={selected => cn('rounded-sm border px-2 py-1', selected ? 'border-accent-primary bg-accent-primary-soft text-accent-primary' : 'border-border-subtle hover:bg-surface-sunken')}
+        options={[
+          { value: 'absent', label: absentLabel },
+          { value: 'some', label: lang === 'ko' ? '명시 선택' : 'Explicit' },
+          { value: 'empty', label: t('explicitEmpty') },
+        ]}
+      />
       {mode === 'some' && <>
         {search && <input value={q} onChange={e => setQ(e.target.value)} placeholder={lang === 'ko' ? '검색…' : 'Search…'} aria-label={lang === 'ko' ? '검색' : 'Search'} className="mb-2 h-7 w-full rounded-md border border-border-control px-2" />}
         <ul className="max-h-56 space-y-0.5 overflow-auto">
@@ -250,10 +260,14 @@ function ConditionEditor({ cap }: { cap: Capability }) {
     <PopoverTrigger asChild><ChipShell label={t('condition')} cap={cap} empty={!global.condition}
       value={global.condition ? `${axisLabel[global.condition.axis]}: ${conditionLabel(global.condition)}` : t('none')}><ChevronDown className="size-3.5 text-text-muted" aria-hidden /></ChipShell></PopoverTrigger>
     <PopoverContent align="start" className="w-80 rounded-md border border-border-strong bg-surface-card p-3 text-[12px] shadow-md">
-      <div role="radiogroup" aria-label={lang === 'ko' ? '조건 축 (하나만)' : 'Condition axis (one)'} className="mb-2 flex gap-1">
-        {(['stgroup', 'team', 'makerModel'] as const).map(a => <button key={a} type="button" role="radio" aria-checked={axis === a} onClick={() => { setAxis(a); setVal(''); }}
-          className={cn('rounded-sm border px-2 py-1', axis === a ? 'border-accent-primary bg-accent-primary-soft text-accent-primary' : 'border-border-subtle hover:bg-surface-sunken')}>{axisLabel[a]}</button>)}
-      </div>
+      <SegmentedRadio
+        label={lang === 'ko' ? '조건 축 (하나만)' : 'Condition axis (one)'}
+        value={axis}
+        onChange={a => { setAxis(a); setVal(''); }}
+        className="mb-2 flex gap-1"
+        optionClassName={selected => cn('rounded-sm border px-2 py-1', selected ? 'border-accent-primary bg-accent-primary-soft text-accent-primary' : 'border-border-subtle hover:bg-surface-sunken')}
+        options={(['stgroup', 'team', 'makerModel'] as const).map(a => ({ value: a, label: axisLabel[a] }))}
+      />
       <ul role="listbox" aria-label={axisLabel[axis]} className="max-h-48 space-y-0.5 overflow-auto">
         {options.map(o => <li key={o} role="option" aria-selected={val === o}><button type="button" onClick={() => setVal(o)}
           className={cn('w-full rounded-sm px-2 py-1 text-left t-mono', val === o ? 'bg-accent-primary-soft text-accent-primary' : 'hover:bg-surface-sunken')}>{o}</button></li>)}

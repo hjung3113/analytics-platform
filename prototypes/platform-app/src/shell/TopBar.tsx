@@ -6,6 +6,7 @@ import { SITES, USERS, type RoleId } from '../mock/world';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/components/shadcn/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/components/shadcn/popover';
 import { cn } from '../ui/utils/cn';
+import { SegmentedRadio } from '../platform/RadioGroup';
 
 const SCENARIOS: { id: Scenario; ko: string; en: string }[] = [
   { id: 'normal', ko: '정상', en: 'Normal' },
@@ -76,12 +77,14 @@ export function TopBar() {
         <PopoverContent align="end" className="w-80 rounded-md border border-border-strong bg-surface-card p-3 shadow-md">
           <p className="t-card-title">{t('scenario')}</p>
           <p className="mb-2 text-[11px] text-text-muted">{t('scenarioHint')}</p>
-          <div role="radiogroup" aria-label={t('scenario')} className="grid grid-cols-2 gap-1">
-            {SCENARIOS.map(s => <button key={s.id} type="button" role="radio" aria-checked={scenario === s.id} onClick={() => setScenario(s.id)}
-              className={cn('flex items-center gap-1.5 rounded-sm border px-2 py-1.5 text-left text-[12px]', scenario === s.id ? 'border-accent-primary bg-accent-primary-soft text-accent-primary' : 'border-border-subtle hover:bg-surface-sunken')}>
-              {scenario === s.id && <Check className="size-3" aria-hidden />}{lang === 'ko' ? s.ko : s.en}
-            </button>)}
-          </div>
+          <SegmentedRadio
+            label={t('scenario')}
+            value={scenario}
+            onChange={setScenario}
+            className="grid grid-cols-2 gap-1"
+            optionClassName={selected => cn('flex items-center gap-1.5 rounded-sm border px-2 py-1.5 text-left text-[12px]', selected ? 'border-accent-primary bg-accent-primary-soft text-accent-primary' : 'border-border-subtle hover:bg-surface-sunken')}
+            options={SCENARIOS.map(s => ({ value: s.id, label: <>{scenario === s.id && <Check className="size-3" aria-hidden />}{lang === 'ko' ? s.ko : s.en}</> }))}
+          />
           <p className="mb-1 mt-3 text-[11px] font-semibold uppercase tracking-wide text-text-muted">{lang === 'ko' ? '계약 검증 링크' : 'Contract test links'}</p>
           <ul className="space-y-0.5 text-[12px]">
             {[

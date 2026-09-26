@@ -1,7 +1,21 @@
 import { X } from 'lucide-react';
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useI18n } from '../kernel/i18n';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/components/shadcn/tabs';
+
+function useMinWidth1440(): boolean {
+  const query = '(min-width: 1440px)';
+  const [wide, setWide] = useState(() => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia(query).matches);
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const sync = () => setWide(media.matches);
+    sync();
+    media.addEventListener('change', sync);
+    return () => media.removeEventListener('change', sync);
+  }, []);
+  return wide;
+}
 
 /**
  * §20 Drawer: table-row detail that keeps the list usable. Non-modal on purpose — Radix Sheet either traps focus
@@ -14,18 +28,57 @@ export function DetailDrawer({ title, subtitle, headerActions, context, tabs, on
 }) {
   const { lang } = useI18n();
   const close = useRef<HTMLButtonElement>(null);
+  const asideRef = useRef<HTMLElement>(null);
   const id = useId();
+  const wide = useMinWidth1440();
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     close.current?.focus({ preventScroll: true });
-    // Wide screens reflow content beside the drawer so the list stays usable; narrower screens overlay.
-    const main = document.getElementById('platform-main');
-    main?.classList.add('wide:pr-[32rem]');
-    return () => { main?.classList.remove('wide:pr-[32rem]'); opener?.focus({ preventScroll: true }); };
+    return () => {
+      document.getElementById('root')?.removeAttribute('inert');
+      opener?.focus({ preventScroll: true });
+    };
   }, []);
-  return <aside role="dialog" aria-modal="false" aria-labelledby={`${id}-t`}
+  useEffect(() => {
+    const main = document.getElementById('platform-main');
+    const root = document.getElementById('root');
+    if (wide) main?.classList.add('wide:pr-[32rem]');
+    else root?.setAttribute('inert', '');
+    return () => {
+      root?.removeAttribute('inert');
+      main?.classList.remove('wide:pr-[32rem]');
+    };
+  }, [wide]);
+  useEffect(() => {
+    if (wide) return;
+    const aside = asideRef.current;
+    if (!aside) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab' || !aside) return;
+      const items = [...aside.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+        .filter(el => !el.hasAttribute('disabled') && el.tabIndex !== -1);
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && active === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && active === last) { event.preventDefault(); first.focus(); }
+      else if (!aside.contains(active)) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [wide, onClose]);
+  const tree = <>
+    {!wide && <div data-testid="drawer-scrim" className="fixed inset-0 z-30 bg-text-primary/45" onClick={onClose} aria-hidden />}
+    <aside ref={asideRef} role="dialog" aria-modal={wide ? 'false' : 'true'} aria-labelledby={`${id}-t`}
     onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}
-    className="fixed bottom-0 right-0 top-[54px] z-30 flex w-detail-panel max-w-[95vw] flex-col border-l border-border-strong bg-surface-detail shadow-[-8px_0_24px_-12px_rgba(17,24,39,0.18)]">
+    className={`fixed bottom-0 right-0 top-[54px] ${wide ? 'z-30' : 'z-40'} flex w-detail-panel max-w-[95vw] flex-col border-l border-border-strong bg-surface-detail shadow-[-8px_0_24px_-12px_rgba(17,24,39,0.18)]`}>
     <header className="flex items-start justify-between gap-3 border-b border-border-subtle px-5 py-4">
       <div className="min-w-0">
         <h2 id={`${id}-t`} className="t-section-title truncate">{title}</h2>
@@ -43,7 +96,9 @@ export function DetailDrawer({ title, subtitle, headerActions, context, tabs, on
       </TabsList>
       {tabs.map(tb => <TabsContent key={tb.id} value={tb.id} className="min-h-0 flex-1 overflow-auto px-5 py-3">{tb.content}</TabsContent>)}
     </Tabs>
-  </aside>;
+    </aside>
+  </>;
+  return wide ? tree : createPortal(tree, document.body);
 }
 
 export function Field({ label, children, mono }: { label: ReactNode; children: ReactNode; mono?: boolean }) {

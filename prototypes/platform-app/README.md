@@ -79,3 +79,5 @@ Kernel 규약 추가: `metricVersion`은 bare 토큰(`'3'`), 표시는 `formatMe
 - 드로어·팝오버 overlay 그림자(DESIGN no-shadow 규칙과 overlay elevation 경계 미정).
 - AnalysisChartFrame compare의 이전 기간 x축 정렬 옵션 부재(페이지가 bucket index 정렬로 우회).
 - 번들 672kB(ECharts) — 코드 분할 미적용.
+- 메뉴 권한을 mock 서버(`serve()`)가 재검증하지 않음 — 클라이언트 라우트 게이트만 있음(교차 리뷰 P2-3, 보류).
+- Lot·PPID·Recipe·지표 쌍을 Context Bar에서 새로 지정하는 편집기 없음 — 전달된 값의 제거만 가능(교차 리뷰 P2-4, 도메인 선택지 정의 후).
