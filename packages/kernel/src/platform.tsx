@@ -16,6 +16,8 @@ export type LinkOptions = { params?: Record<string, string>; page?: Record<strin
 
 type Platform = {
   registry: Registry;
+  /** For platform layers (shell) that query the server directly; pages go through their own api seam. */
+  adapter: PlatformAdapter;
   url: string;
   pathname: string;
   route: { menu: MenuEntry; params: Record<string, string> } | null;
@@ -235,7 +237,7 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   }, [pageParam, route, linkTo, safeReturnTo]);
 
   const value: Platform = {
-    registry, url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, returnTarget,
+    registry, adapter, url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, returnTarget,
     session, user, revision, can, visibleMenus, scope, lastScope, favorites, toggleFavorite, recent, usage,
     toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen,
   };
