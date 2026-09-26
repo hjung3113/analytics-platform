@@ -18,7 +18,7 @@
 - 페이지는 `packages/*`를 수정하지 않는다. 공통 부품이 부족하면 필요 사항을 보고하고 플랫폼 작업으로 올린다.
 - 메뉴를 추가하면 해당 그룹 패키지(`menus/<group>/src/index.ts`)의 `manifests`에 선언하고 06 §5(Menu Extension Contract)·§29(Platform Done)를 확인한다. 메뉴 화면 3개 이상 연속 제작은 사용자에게 범위를 먼저 확인한다.
 - mock은 서버 역할을 흉내낸다: Scope·room 허용 범위와 데이터 권한은 `serve()`가 재검증하고 페이지는 판단하지 않는다. **메뉴 권한은 mock이 재검증하지 않는다** — 지금은 클라이언트 라우트 게이트뿐인 알려진 공백이다(README "남은 플랫폼 과제"). 새 화면을 서버 권한으로 보호된다고 가정하지 않는다. 역할은 요청 시점에 고정한다(localStorage `platform:role`).
-- `@ap/mock-server`를 화면이 직접 import하지 않는다. 각 메뉴 패키지의 `src/api.ts`만 import하고, 화면은 `api.ts`가 다시 내보낸 `serve`를 쓴다. 상세 규칙은 [`menus/AGENTS.md`](../../menus/AGENTS.md). 앱이 mock을 쓰는 곳은 `mockAdapter` 주입과 DevTools뿐이다.
+- `@ap/mock-server`를 화면이 직접 import하지 않는다. 각 메뉴 패키지의 `src/api.ts`만 import하고, 화면은 `api.ts`가 다시 내보낸 `serve`를 쓴다. 상세 규칙은 [`menus/AGENTS.md`](../../menus/AGENTS.md). 앱 런타임에서 mock을 쓰는 곳은 `mockAdapter` 주입과 DevTools뿐이다. 테스트로는 kernel `classifyMetricInit`과 mock 발행 지표를 함께 보는 앱 통합 테스트 `src/published-metrics.test.ts`가 직접 import한다(위층 통합 테스트라 허용, 패키지 경계 §3 규칙 6).
 
 ## 검증
 
