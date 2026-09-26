@@ -4,11 +4,11 @@
 
 `main`은 PR #14 병합 커밋 `6e5a749` 이후 이 핸드오프 커밋까지 반영된 상태이며 작업 트리 clean. CI는 이제 **5개 Job**(기존 4개 + `platform-app`)이고 전부 초록불이다.
 
-- **PR #13** (`a9e1e01`) — `prototypes/platform-app`: 흩어져 있던 Kernel 유닛 4개를 하나의 앱으로 통합한 인터랙티브 프로토타입. 기존 유닛은 수정하지 않았다.
+- **PR #13** (`a9e1e01`) — `prototypes/platform-app`(현재 `apps/platform-web`): 흩어져 있던 Kernel 유닛 4개를 하나의 앱으로 통합한 인터랙티브 프로토타입. 기존 유닛은 수정하지 않았다.
   - Kernel: Menu Registry(06 §9 그룹), 전역 Context URL 계약(시간·room_name·Condition/Selection·Lot/PPID/Recipe·지표 쌍), 요청마다 Scope 재검증, 역할 권한, 즐겨찾기/최근방문, 메뉴 활용률 계측, 이전 Context 결과를 새 결과로 보이지 않는 요청 수명주기.
   - 셸: 스크린샷 스타일의 다크 아코디언 사이드바(64px 레일), 탑바(Scope 검증 상태, ⌘K, 한/EN, 역할 전환, 응답 시나리오 시뮬레이터), 전역 Context Bar(미지원 Context 보존 표시).
   - 공통 컴포넌트: PlatformPage 슬롯, PlatformDataTable, DetailDrawer, AuditTimeline(첫 실구현), DataTrustIndicator, §19 상태 분류, StatCard, AnalysisChartFrame.
-  - Consumer 화면: 08 랜딩(coordinator), 09 설비 마스터(Codex), 11 생산성 개요(OMP GLM‑5.3), 12 사이클타임 드릴다운·13 지표 카탈로그(Grok 4.7). 워커 보고서는 `prototypes/platform-app/reports/`.
+  - Consumer 화면: 08 랜딩(coordinator), 09 설비 마스터(Codex), 11 생산성 개요(OMP GLM‑5.3), 12 사이클타임 드릴다운·13 지표 카탈로그(Grok 4.7). 워커 보고서는 `apps/platform-web/reports/`.
   - 교차 리뷰(Grok: 플랫폼 계층 P0 2·P1 6·P2 5, OMP: 화면 P1 2·P2 3)의 수정 6건을 **Grok 4.7 high 설계 → 구현(GLM 5.3 Flash max, 한도 소진 후 GPT‑6‑Luna max) → coordinator 브라우저 검증** 순서로 하나씩 반영. 설계서는 `reports/design/01~06`. 테스트 51개.
 - **PR #14** (`6e5a749`) — 사용자 인터뷰 결정 문서화: 워크스페이스 3개(분석/운영 콘솔/피드백, 06 §9.1), 가공 상태 원천=적재 워커 보고(06 §19, 01), FeedbackOps 단계적 통합(integration/repository-layout.md), 07 IA·05 결정 행·인터뷰 기록. GPT‑6‑Astra medium 리뷰(P0 1·P1 2·P2 1)를 보강 커밋 `9c275a9`로 반영.
 - **PR #15** (`5bbe96b`) — CI에 `platform-app` Job 추가(Node 26.7.0, typecheck/test/build).
@@ -53,4 +53,4 @@
 
 ## 필요할 때만 읽는 기록
 
-[직전 HANDOFF(PR #10-12)](.agents/reports/handoff-history-through-2026-09-26-b.md) · [그 이전](.agents/reports/handoff-history-through-2026-09-26.md) · [platform-app README](prototypes/platform-app/README.md) · [교차 리뷰](prototypes/platform-app/reports/review-grok-kernel.md), [화면 리뷰](prototypes/platform-app/reports/review-omp-screens.md) · 병합된 PR: [#13](https://github.com/hjung3113/analytics-platform/pull/13) [#14](https://github.com/hjung3113/analytics-platform/pull/14) [#15](https://github.com/hjung3113/analytics-platform/pull/15). 과거 지시와 미커밋 상태는 당시 기록이며 현재 요청과 Git 상태를 대체하지 않는다.
+[직전 HANDOFF(PR #10-12)](.agents/reports/handoff-history-through-2026-09-26-b.md) · [그 이전](.agents/reports/handoff-history-through-2026-09-26.md) · [platform-app README](apps/platform-web/README.md) · [교차 리뷰](apps/platform-web/reports/review-grok-kernel.md), [화면 리뷰](apps/platform-web/reports/review-omp-screens.md) · 병합된 PR: [#13](https://github.com/hjung3113/analytics-platform/pull/13) [#14](https://github.com/hjung3113/analytics-platform/pull/14) [#15](https://github.com/hjung3113/analytics-platform/pull/15). 과거 지시와 미커밋 상태는 당시 기록이며 현재 요청과 Git 상태를 대체하지 않는다.
