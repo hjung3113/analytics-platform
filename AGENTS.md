@@ -29,7 +29,7 @@
 
 ## 코드 작업 원칙
 
-- 플랫폼 코드는 루트 pnpm workspace(`apps/*`, `packages/*`, 향후 `menus/*`, `tooling/*`)다. 루트에서 `pnpm install`, `pnpm dev`, `pnpm typecheck`, `pnpm test`, `pnpm build`(Node 26.7.0, pnpm 11.1.1).
+- 플랫폼 코드는 루트 pnpm workspace(`apps/*`, `packages/*`, `menus/*`, `tooling/*`)다. 루트에서 `pnpm install`, `pnpm dev`, `pnpm typecheck`, `pnpm test`, `pnpm build`(Node 26.7.0, pnpm 11.1.1).
 - 의존 방향은 `contracts → ui/kernel → components → shell → apps`이며 역방향 import는 금지다. 원본은 `docs/integration/platform-packages.md` §3.
 - Kernel·공통 컴포넌트·셸은 메뉴와 mock을 모른다. 메뉴 목록은 Registry로, 서버는 `PlatformAdapter`로 앱이 주입한다.
 - 작업하는 폴더에 `AGENTS.md`가 있으면 그 폴더 규칙을 추가로 따른다. 폴더 지침은 루트를 좁힐 수 있지만 루트 원칙과 충돌하면 루트를 따른다.
@@ -41,7 +41,8 @@
 | 폴더 | 역할 |
 | --- | --- |
 | [`docs/`](docs/AGENTS.md) | 설계 계약 원본, 상태 표기·소유권 규칙 |
-| [`apps/platform-web/`](apps/platform-web/AGENTS.md) | 조립 지점, 메뉴 선언·화면(Consumer), mock 서버, dev 도구 |
+| [`apps/platform-web/`](apps/platform-web/AGENTS.md) | 조립 지점(GROUPS·Registry 조립, 어댑터 주입), mock 서버, dev 도구 |
+| [`menus/`](menus/AGENTS.md) | 메뉴 Consumer 패키지(`@ap/menu-<group>`, 그룹별 manifest·화면) |
 | [`packages/`](packages/AGENTS.md) | 플랫폼 패키지 공통 규칙과 의존 방향 → 각 패키지 `contracts`·`ui`·`kernel`·`components`·`shell`의 `AGENTS.md` |
 | [`tooling/`](tooling/AGENTS.md) | 공유 tsconfig, 향후 lint·메뉴 생성기 |
 | [`prototypes/`](prototypes/AGENTS.md) | 통합 전 Kernel 단위 프로토타입(보존, 새 기능 금지) |

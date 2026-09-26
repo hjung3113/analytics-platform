@@ -2,7 +2,7 @@
 
 > 상태: [05 Decided "다음 구현 범위: 프론트엔드 플랫폼 틀 + 메뉴 개발 환경"](../05_roadmap_and_open_questions.md)의 첫 단계로 패키지 경계와 의존 방향을 정한다. §8의 5개 항목은 2026-09-26 사용자가 제안안대로 **Decided**. `PlatformAdapter`·`MenuMeta`·`evaluateSelection` 같은 필드·타입 이름은 구현하면서 바뀔 수 있는 Candidate다.
 >
-> 진행(2026-09-27): §7의 1–4d단계 완료(PR #17–#23). 5a(`@ap/mock-server` 추출)·5b(메뉴별 `api.ts`) 완료. 5c(메뉴 패키지)와 6단계(경계 lint·생성기)가 남았다. 아래 §2의 경로는 분리 전 `platform-app` 기준이다.
+> 진행(2026-09-27): §7의 1–4d단계 완료(PR #17–#23). 5단계 완료 — 5a(`@ap/mock-server` 추출, #25)·5b(메뉴별 `api.ts`, #26)·5c(메뉴 패키지, 이번 PR). 6단계(경계 lint·생성기)만 남았다. 아래 §2의 경로는 분리 전 `platform-app` 기준이다.
 >
 > 근거: `prototypes/platform-app/src`의 import 그래프(2026-09-26, `main` `ebb471c`), [06 §3 아키텍처](../06_platform_ui_contract.md#3-platform-ui-architecture), [§4 Kernel 책임](../06_platform_ui_contract.md#4-platform-kernel-responsibilities), [§5 Menu Extension Contract](../06_platform_ui_contract.md#5-menu-extension-contract), [§13 컴포넌트 층](../06_platform_ui_contract.md#13-shared-component-layers).
 
@@ -28,7 +28,7 @@
 | D7 | `pages/*/data.ts` → `platform/AuditTimeline`, `platform/StatusBadge`의 **타입** (`AuditEvent`, `Tone`) | 데이터 모듈이 컴포넌트 파일에 의존 | 타입을 `contracts`(`AuditEvent`) 또는 `ui`(`Tone`)로 |
 | D8 | 각 메뉴 화면 → `mock/server.serve`, `mock/world`, `mock/jobs` 직접 호출 | 메뉴 곳곳에 mock 호출이 흩어져 실서버 전환 때 전부 수정 | 메뉴마다 `api.ts` 한 파일만 데이터 원천을 알게 함(§5) |
 | D9 | `kernel/url.ts` → `kernel/registry.matchRoute` (`safeReturnTo`가 등록 메뉴·`pageKeys`로 복귀 경로 검증) | `url.ts`를 그대로 `contracts`로 옮기면 `contracts → kernel → contracts` 순환 | 순수 URL codec(`parseQuery`, `buildQuery`, `isAppRelativePath` 등)만 `contracts`로. `safeReturnTo`는 Registry를 인자로 받는 Kernel 함수로 남김 |
-| D10 | 테스트의 층 교차: `mock/jobs.test.ts`·`mock/published-metrics.test.ts` → `pages/analytics/*`, `pages/metrics/data`. `kernel/url.test.ts`·`kernel/return-to.test.ts` → 실제 `MENUS` | 테스트를 원래 파일과 함께 옮기면 `mock-server → menu-*`, `kernel → menu-*` 역의존(런타임이 아니라 테스트 그래프의 순환) | 층 안의 단위 테스트와 교차 통합 테스트를 나눔. mock·메뉴 계산을 함께 보는 테스트는 해당 `menu-*`로, 실제 메뉴 목록이 필요한 URL·복귀 경로 테스트는 `apps/platform-web` 통합 테스트로. Kernel 단위 테스트는 fixture Registry 사용 |
+| D10 | 테스트의 층 교차: `mock/jobs.test.ts`·`mock/published-metrics.test.ts` → `pages/analytics/*`, `pages/metrics/data`. `kernel/url.test.ts`·`kernel/return-to.test.ts` → 실제 `MENUS` | 테스트를 원래 파일과 함께 옮기면 `mock-server → menu-*`, `kernel → menu-*` 역의존(런타임이 아니라 테스트 그래프의 순환) | 층 안의 단위 테스트와 교차 통합 테스트를 나눔. mock·메뉴 계산을 함께 보는 테스트는 해당 `menu-*`로, 실제 메뉴 목록이 필요한 URL·복귀 경로 테스트는 `apps/platform-web` 통합 테스트로. Kernel 단위 테스트는 fixture Registry 사용. 5c에서 시행: `jobs-population` → `@ap/menu-analytics`, `published-metrics`는 발행 포인터 비교(`@ap/menu-metrics`)·페이지 기본 버전 검증(`@ap/menu-analytics`)·kernel+mock 부분(앱)으로 분할 |
 
 D1–D8은 화면·런타임 코드, D9는 같은 폴더 안이라 폴더 구조로는 드러나지 않는 의존, D10은 테스트 그래프의 의존이다.
 
@@ -169,10 +169,10 @@ const registry = createRegistry({ groups: GROUPS, menus: [...home.manifests, ...
    - 4a **ui (완료):** `packages/ui` — shadcn·`Button`·`cn`·`StatusBadge`(`Tone`, D7 마무리)와 디자인 시스템 CSS(`tokens.css` + Tailwind 테마 매핑·base·타이포 유틸리티, `@ap/ui/styles.css`). 앱 밖 패키지라 CSS가 `@source`로 자기 컴포넌트를 스캔한다. 빌드 CSS가 이동 전과 동일(selector 629개, 파일 해시 동일)함을 확인.
    - 4b **Registry 주입 + kernel (완료):** `GROUPS`·`MENUS`(화면 lazy import 포함)를 앱 `src/menus.ts`로 옮기고 `createRegistry()` 결과를 `PlatformProvider registry={…}`로 주입(D1 앞부분). §5 검증(id 중복, parent, 선언 그룹, 그룹별 primary 1개, pageKeys×전역 키, 경로 정규형 충돌)과 정적 세그먼트 우선 매칭을 구현하고 fixture 단위 테스트로 고정. 그 뒤 `packages/kernel`(`@ap/kernel`)로 이동. 실제 메뉴가 필요한 URL·복귀 경로 테스트는 앱 통합 테스트(`src/url-contract.test.ts`, `src/return-to.test.ts`)로 남김(D10 일부).
    - 4c **components (완료):** Kernel `PlatformProvider slots={{ contextBar, topBarTools }}`(06 §8 Shell Slots)를 도입해 `PlatformPage`가 셸을 import하지 않게 함(D4). `src/platform/*`을 `packages/components`(`@ap/components`)로 이동, Tailwind 스캔용 `@ap/components/styles.css`(`@source`). 빌드 CSS가 4b와 동일(selector 629개, 해시 동일).
-   - 4d **shell (완료):** GlobalContextBar가 `contextOptions`/`evaluateSelection`을 Kernel `useAdapterRequest`(usePlatformQuery와 같은 무효화 규칙)로 호출해 mock 의존 0건(D5 해소). mock 구현은 이전 클라이언트 계산과 결과가 같음을 테스트로 확인. `src/shell/*`과 `App.tsx`의 라우트 출력(`RouteOutlet`: 미등록·계약 오류·권한·미구현 상태)을 `packages/shell`(`@ap/shell`)로 이동. 이제 앱에는 조립(`main.tsx`), 메뉴 선언(`menus.ts`), 메뉴 화면(`pages/`), mock, dev 도구만 남는다.
-5. **5a — mock-server 추출 (완료):** `apps/platform-web/src/mock/*`를 `packages/mock-server`(`@ap/mock-server`)로 이동. 페이지는 아직 `@ap/mock-server`의 `serve`를 직접 호출하고, 교차 테스트(`jobs-population`, `published-metrics`)는 앱에 남는다.
-   - **5b — 메뉴별 `api.ts` (완료):** 그룹마다 `pages/<area>/api.ts`가 `@ap/mock-server`의 유일한 페이지 접점(D8, §3 규칙 3 — `menu-*` 패키지는 아직 없고 `apps/platform-web/src/pages` 트리가 그 대역). D8의 import 벽만 해소. 집계의 서버 이관과 `menus/*`는 5c 이후.
-   - **5c — 메뉴 패키지 (미완료):** 그룹별로 `menus/*`로 이동, Registry를 manifest 등록 방식으로(D1). `jobs-population`은 `menu-analytics`로 옮기고 두 메뉴를 잇는 `published-metrics`는 앱 통합 테스트로 남기며(D10 나머지) Kernel 테스트를 fixture Registry로 전환(D10).
+   - 4d **shell (완료):** GlobalContextBar가 `contextOptions`/`evaluateSelection`을 Kernel `useAdapterRequest`(usePlatformQuery와 같은 무효화 규칙)로 호출해 mock 의존 0건(D5 해소). mock 구현은 이전 클라이언트 계산과 결과가 같음을 테스트로 확인. `src/shell/*`과 `App.tsx`의 라우트 출력(`RouteOutlet`: 미등록·계약 오류·권한·미구현 상태)을 `packages/shell`(`@ap/shell`)로 이동. 이제(4d 시점) 앱에는 조립(`main.tsx`), 메뉴 선언(`menus.ts`), 메뉴 화면(`pages/` — 5c에서 `menus/*`로 이동), mock, dev 도구만 남는다.
+5. **5a — mock-server 추출 (완료, #25):** `apps/platform-web/src/mock/*`를 `packages/mock-server`(`@ap/mock-server`)로 이동. 당시 페이지는 `@ap/mock-server`의 `serve`를 직접 호출했고 교차 테스트(`jobs-population`, `published-metrics`)는 앱에 남았다(재배치는 5c).
+   - **5b — 메뉴별 `api.ts` (완료, #26):** 그룹마다 `pages/<area>/api.ts`가 `@ap/mock-server`의 유일한 페이지 접점(D8, §3 규칙 3 — `menu-*` 패키지가 없어 `apps/platform-web/src/pages` 트리가 그 대역이었음). D8의 import 벽만 해소. 집계의 서버 이관은 5c 이후 과제로 남는다.
+   - **5c — 메뉴 패키지 (완료, 이번 PR):** 그룹별로 `menus/*` 패키지로 이동, 앱 `src/menus.ts`는 `GROUPS`와 패키지 `manifests` 연결만(D1). `jobs-population`은 `@ap/menu-analytics`로 이동. `published-metrics`는 분할했다: 발행 포인터 비교는 `@ap/menu-metrics`, 페이지 기본 버전 미충족 검증은 `@ap/menu-analytics`, kernel `classifyMetricInit`+mock 통합 부분만 앱에 남김(D10 나머지).
 6. **경계 lint와 생성기:** 규칙 켜고 CI에 추가, `gen:menu`로 빈 메뉴 하나를 만들어 검증한 뒤 삭제.
 
 이 순서를 마치면 D1–D10이 모두 해소되고, 워크스페이스 층(06 §9.1)은 Registry `space` 필드와 셸 공간 전환기로 이 구조 위에 얹는다.

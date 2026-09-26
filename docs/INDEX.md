@@ -25,10 +25,10 @@
 
 | 작업 | 1. 계약 | 2. 폴더 지침 | 3. 코드 |
 | --- | --- | --- | --- |
-| 메뉴 화면 추가·수정 | [06](06_platform_ui_contract.md) §5 Menu Extension·§29 Platform Done → 해당 화면 wireframe(`08`–`13`) | [apps/platform-web](../apps/platform-web/AGENTS.md) → [README 페이지 작성 가이드](../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙) | `src/menus.ts`(선언) → `src/pages/<area>/` → 필요한 부품은 [components](../packages/components/AGENTS.md) |
+| 메뉴 화면 추가·수정 | [06](06_platform_ui_contract.md) §5 Menu Extension·§29 Platform Done → 해당 화면 wireframe(`08`–`13`) | [menus](../menus/AGENTS.md) → [README 페이지 작성 가이드](../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙) | `menus/<group>/src/index.ts`(선언) → `menus/<group>/src/pages/` → 필요한 부품은 [components](../packages/components/AGENTS.md) |
 | Kernel 동작(Registry·전역 Context·URL·Scope·조회 수명주기) | 06 §4–6 | [packages](../packages/AGENTS.md) → [kernel](../packages/kernel/AGENTS.md) → 타입이 바뀌면 [contracts](../packages/contracts/AGENTS.md) | `packages/kernel/src/registry.ts`·`platform.tsx`·`query.ts` → 테스트 `adapter.test.tsx`·`registry.test.ts` → 앱 `url-contract.test.ts` |
 | 서버 계약·어댑터(실서버 전환 포함) | [패키지 경계](integration/platform-packages.md) §4, 06 §18–19 | [contracts](../packages/contracts/AGENTS.md) → [packages/mock-server](../packages/mock-server/AGENTS.md) → [apps/platform-web](../apps/platform-web/AGENTS.md)(주입·dev 도구) | `packages/contracts/src/adapter.ts` → `packages/mock-server/src/adapter.ts` → kernel `adapter.test.tsx` |
-| 공통 컴포넌트·차트·상태 화면 | 06 §13·§16·§18–19·§24 | [packages](../packages/AGENTS.md) → [components](../packages/components/AGENTS.md) → primitive가 필요하면 [ui](../packages/ui/AGENTS.md) | `packages/components/src/` → 소비 화면(`apps/platform-web/src/pages`)에서 확인 |
+| 공통 컴포넌트·차트·상태 화면 | 06 §13·§16·§18–19·§24 | [packages](../packages/AGENTS.md) → [components](../packages/components/AGENTS.md) → primitive가 필요하면 [ui](../packages/ui/AGENTS.md) | `packages/components/src/` → 소비 화면(`menus/*/src/pages`)에서 확인 |
 | 셸(사이드바·탑바·Context Bar·라우트 상태·워크스페이스 층) | [07 셸](07_app_shell_wireframe.md), 06 §8–9 | [shell](../packages/shell/AGENTS.md) → 슬롯·Registry는 [kernel](../packages/kernel/AGENTS.md) | `packages/shell/src/` → 앱 `src/main.tsx`(조립) |
 | 디자인 토큰·시각 규칙 | [DESIGN](../DESIGN.md) | [ui](../packages/ui/AGENTS.md) | `packages/ui/src/styles/` |
 | 모노레포 구조·빌드·CI·접두사 변경 | [패키지 경계](integration/platform-packages.md) §3·§6–8, [저장소 구조](integration/repository-layout.md) | [tooling](../tooling/AGENTS.md) → [packages](../packages/AGENTS.md) | 루트 `package.json`·`pnpm-workspace.yaml`·`turbo.json` → `.github/workflows/ci.yml` |

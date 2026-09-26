@@ -20,7 +20,7 @@ pnpm build
 
 | 갈래 (AGENTS.md) | 위치 |
 | --- | --- |
-| Kernel: Menu Registry, 전역 Context, URL 계약, 권한·Scope, 즐겨찾기/최근/활용 계측 | `packages/kernel`(`@ap/kernel`: `createRegistry`, `PlatformProvider`, `usePlatformQuery`, i18n), 메뉴 선언은 앱의 `src/menus.ts`, URL codec·manifest·응답 envelope 타입은 `packages/contracts` |
+| Kernel: Menu Registry, 전역 Context, URL 계약, 권한·Scope, 즐겨찾기/최근/활용 계측 | `packages/kernel`(`@ap/kernel`: `createRegistry`, `PlatformProvider`, `usePlatformQuery`, i18n), 메뉴 선언은 `menus/<group>/src/index.ts`(앱 `src/menus.ts`가 연결), URL codec·manifest·응답 envelope 타입은 `packages/contracts` |
 | 공통 컴포넌트 | `packages/components`(`@ap/components`) — `PlatformPage`(§8 Slot: Context Bar는 `slots.contextBar`로 주입), `PlatformDataTable`, `DetailDrawer`, `AuditTimeline`, `DataTrustIndicator`, `StateView`(§19), `StatCard`. UI primitive·`StatusBadge`·토큰은 `packages/ui`(`@ap/ui`) |
 | 차트 계약 | `packages/components/src/AnalysisChartFrame.tsx` (Zoom/Brush/Reset/Compare/Annotate/Export/More, 4층 상태 분리), `EChart.tsx` |
 | 레이아웃 | `packages/shell`(`@ap/shell`: AppShell 270/64/54, Sidebar 아코디언, TopBar, GlobalContextBar, CommandPalette, RouteOutlet) + 페이지 archetype |
@@ -28,10 +28,10 @@ pnpm build
 
 ## 페이지 작성 가이드 (Consumer 규칙)
 
-페이지는 `src/pages/<area>/*.tsx`에 default export로 두고 `src/menus.ts`의 `component`로 lazy 등록된다. **페이지는 `packages/*`(kernel/shell/components/ui/contracts/mock-server)를 수정하지 않는다.** 공통 컴포넌트가 부족하면 수정하지 말고 필요 사항을 보고한다.
+페이지는 `menus/<group>/src/pages/*.tsx`에 default export로 두고 그룹 패키지 `src/index.ts`의 `component`로 lazy 등록되며, 앱 `src/menus.ts`는 `@ap/menu-*` 패키지의 `manifests`를 이어 붙인다. **페이지는 `packages/*`(kernel/shell/components/ui/contracts/mock-server)를 수정하지 않는다.** 공통 컴포넌트가 부족하면 수정하지 말고 필요 사항을 보고한다.
 
 1. 최상위는 반드시 `<PlatformPage>`. 슬롯: `title`, `description`, `primaryAction`, `secondaryActions`, `contextExtension`(page-owned 필터), `dataTrustSummary`, `crumbs`, `children`. 전역 Context Bar·Scope 게이트·Breadcrumb·즐겨찾기는 PlatformPage가 자동 렌더링한다 — 페이지가 날짜 선택기·Scope 선택기를 따로 만들지 않는다(§5 금지).
-2. 데이터 조회는 `usePlatformQuery(signal => serve({...}), pageInputs)` → `<QueryView query={q}>{data => ...}</QueryView>`. `serve`는 `@ap/mock-server`가 아니라 그룹의 `./api`에서 온다. 데이터 원천 import는 `api.ts` 한 파일. 다른 메뉴 폴더를 import하지 않고 이동은 `linkTo`만. 로딩/갱신/empty/forbidden/too_large/timeout/error 분기는 QueryView가 한다. 위젯마다 따로 조회하면 부분 실패가 그 위젯에만 머문다(§19).
+2. 데이터 조회는 `usePlatformQuery(signal => serve({...}), pageInputs)` → `<QueryView query={q}>{data => ...}</QueryView>`. `serve`는 `@ap/mock-server`가 아니라 그룹 패키지의 `../api`(`menus/<group>/src/api.ts`)에서 온다. 데이터 원천 import는 `api.ts` 한 파일. 다른 메뉴 폴더를 import하지 않고 이동은 `linkTo`만. 로딩/갱신/empty/forbidden/too_large/timeout/error 분기는 QueryView가 한다. 위젯마다 따로 조회하면 부분 실패가 그 위젯에만 머문다(§19).
    - `serve({ global, signal, compute: ({ equipment }) => ..., isEmpty, kinds, maxHours, metricVersion, mergeTimeDomain })` — `equipment`는 Scope→허가 room→room_name→Condition→Selection으로 이미 해석된 설비 목록이다. 페이지가 권한 판단을 하지 않는다. `mergeTimeDomain` defaults to true: 2대 이상과 `[from, to)`가 있으면 서버 assertion 없이 시간축을 합치지 않는다. 마스터 목록·카탈로그·공지·occurrence 단건은 `mergeTimeDomain: false`.
    - 0건을 수집 중단/지연으로 해석하지 않는다. `null` 값은 0이 아니라 “미확인”이다.
 3. 전역 Context 읽기: `const { global } = usePlatform()` (`from`,`to`,`roomNames`,`condition`,`selection`,`lotIds`,`ppid`,`recipeIds`,`metricId`,`metricVersion`, `scopeId`). 전역 변경은 사용자의 명시적 액션일 때만 `setGlobal(patch)`.
@@ -41,7 +41,7 @@ pnpm build
 7. 표는 `PlatformDataTable` (`loadPage`가 `serve()` envelope 반환, `sortAndPage` 헬퍼), 상세는 `DetailDrawer` + `Field` + `AuditTimeline`.
 8. 스타일은 DESIGN.md 토큰 유틸리티만 사용: `bg-surface-card`, `border-border-subtle`, `text-text-muted`, `bg-accent-primary-soft`, `t-page-title`/`t-section-title`/`t-card-title`/`t-stat`/`t-caption`/`t-mono`/`tabular` 등. 임의 hex·그림자 스택·pill 버튼 금지. 상태 색은 `StatusBadge`(success/warning/danger/neutral/info)만.
 9. UI 문구는 `const { tx, lang } = useI18n()`로 한/영 모두 제공(`lang === 'ko' ? … : …` 또는 `tx({ko, en})`). 설비 ID·팀명 같은 마스터 값은 번역하지 않는다.
-10. 합성 데이터는 해당 페이지 폴더 안(`src/pages/<area>/data.ts`)에 둔다. `EQUIPMENT`는 각 화면이 `serve`의 `compute`로 받은 목록을 쓰고, metrics 카탈로그는 월드 표를 직접 읽지 않는다.
+10. 합성 데이터는 해당 페이지 폴더 안(`menus/<group>/src/pages/data.ts`)에 둔다. `EQUIPMENT`는 각 화면이 `serve`의 `compute`로 받은 목록을 쓰고, metrics 카탈로그는 월드 표를 직접 읽지 않는다.
 
 ## 확인된 동작 (셸/Kernel)
 
