@@ -21,6 +21,10 @@ Registry 7개 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가
 - import 가능: `@ap/contracts`·`@ap/kernel`·`@ap/components`·`@ap/ui`(공개 진입점만) + `api.ts`에 한해 `@ap/mock-server`. 앱(`apps/*`)과 다른 `@ap/menu-*`는 import하지 않는다(패키지 경계 §3).
 - 알려진 debt: `home`·`equipment`·`analytics`·`metrics`가 `@types/node`를 devDependency로 선언한다. `@ap/ui` `Button.tsx`의 `process.env` 때문에 타입 그래프에 `@types/node`가 필요하다(기존 소비자 `@ap/shell`·앱과 같은 패턴). `@ap/ui`가 이 의존을 없애면 네 패키지에서 함께 뺀다.
 
+## 새 그룹 패키지
+
+새 그룹은 사람이 먼저 `GroupId` 리터럴(`packages/contracts/src/menu.ts`)과 `GROUPS` 행(라벨·아이콘, `apps/platform-web/src/menus.ts`)을 추가한 뒤 `pnpm gen:menu <group> --label-ko … --label-en …`을 돌리고 `pnpm install`한다. 결과는 스켈레톤이지 Domain Done이 아니므로, 이후 화면 작업은 별도 요청·검증(06 §29)으로 진행한다. 실제 메뉴를 여러 개 한 번에 생성하지 않는다. `overview`는 `menus/home`이 그대로 소유한다.
+
 ## 검증
 
 루트에서 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`. `test` 스크립트(vitest)는 `@ap/menu-analytics`·`@ap/menu-metrics`(node 환경)와 `@ap/menu-home`(jsdom, 공지 닫기 수명)에만 있다. 화면이 바뀌면 `pnpm dev`로 브라우저에서 확인한다. lint상 `src/api.ts`가 그 패키지에서 `@ap/mock-server`를 import하는 유일한 파일이며, 테스트(`*.test.ts`)도 이 규칙의 면제 대상이 아니다.

@@ -5,7 +5,7 @@
 ## 폴더
 
 - `src/main.tsx` — `I18nProvider` → `PlatformProvider adapter registry slots` → `AppShell` + `RouteOutlet`. 조립만 한다.
-- `src/menus.ts` — IA 그룹(`GROUPS`)과 7개 `@ap/menu-*` 패키지 `manifests`의 연결(`MENUS`), `createRegistry` 호출. 화면 lazy import는 각 메뉴 패키지가 소유한다.
+- `src/menus.ts` — IA 그룹(`GROUPS`)과 7개 `@ap/menu-*` 패키지 `manifests`의 연결(`MENUS`), `createRegistry` 호출. 화면 lazy import는 각 메뉴 패키지가 소유한다. 패키지 연결(import·spread)은 `gen:menu` 마커 영역이며 `pnpm gen:menu`가 쓴다 — `GROUPS`는 손으로 쓴다.
 - 메뉴 화면과 그 화면 전용 합성 데이터(`data.ts`)는 `menus/<group>/src/pages/`에 있다.
 - 서버 대역은 `packages/mock-server`(`@ap/mock-server`). 앱에 남는 것은 `main.tsx`의 `mockAdapter` 주입, `src/dev/DevTools.tsx`, 그리고 실제 Registry가 필요한 통합 테스트다: `src/url-contract.test.ts`·`src/return-to.test.ts`, 그리고 `published-metrics`의 kernel `classifyMetricInit`+mock 부분을 남긴 `src/published-metrics.test.ts`(`jobs-population`은 `@ap/menu-analytics`로, `published-metrics`의 발행 포인터 비교는 `@ap/menu-metrics`, 페이지 기본 버전 검증은 `@ap/menu-analytics`로 이동).
 - `src/dev/DevTools.tsx` — 역할 전환·응답 시나리오 시뮬레이터(탑바 슬롯). 운영 코드 아님.

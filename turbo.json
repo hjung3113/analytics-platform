@@ -1,5 +1,6 @@
 {
-  "$schema": "https://turbo.build/schema.json",
+  "$schema": "./node_modules/turbo/schema.json",
+  "globalPassThroughEnv": ["GEN_MENU_PROBE"],
   "tasks": {
     "typecheck": { "dependsOn": ["^typecheck"] },
     "lint": { "dependsOn": ["^lint"], "outputs": [] },
