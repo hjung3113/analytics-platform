@@ -18,7 +18,7 @@
 - 페이지는 `packages/*`를 수정하지 않는다. 공통 부품이 부족하면 필요 사항을 보고하고 플랫폼 작업으로 올린다.
 - 메뉴를 추가하면 `menus.ts`에 선언하고 06 §5(Menu Extension Contract)·§29(Platform Done)를 확인한다. 메뉴 화면 3개 이상 연속 제작은 사용자에게 범위를 먼저 확인한다.
 - mock은 서버 역할을 흉내낸다: Scope·room 허용 범위와 데이터 권한은 `serve()`가 재검증하고 페이지는 판단하지 않는다. **메뉴 권한은 mock이 재검증하지 않는다** — 지금은 클라이언트 라우트 게이트뿐인 알려진 공백이다(README "남은 플랫폼 과제"). 새 화면을 서버 권한으로 보호된다고 가정하지 않는다. 역할은 요청 시점에 고정한다(localStorage `platform:role`).
-- 페이지는 아직 `@ap/mock-server`의 `serve`를 직접 호출한다(D8). `api.ts`는 5b이므로 새 호출처를 늘리지 않는다.
+- 페이지·`data.ts`·`cycleData.ts`·`productivityData.ts`는 `@ap/mock-server`를 import하지 않는다. 그룹의 `pages/<area>/api.ts`만 import한다(`home`, `equipment`, `analytics`, `metrics`). 화면은 아직 `api.ts`가 다시 내보낸 `serve`를 호출한다. 집계 함수는 메뉴에 둔다(5b는 mock 패키지로 옮기지 않음). `api.ts`를 새로 만들지 말고 그 넷만 고친다.
 
 ## 검증
 

@@ -7,8 +7,8 @@ import { formatDateTime, parseDateTime } from '@ap/contracts';
 import {
   bucketStart, DATA_THROUGH, jobPercentile, jobsInPeriod, observableHours,
   type Grain, type Job,
-} from '@ap/mock-server';
-import type { Equipment } from '@ap/mock-server';
+} from './api';
+import type { Equipment } from './api';
 
 export { DATA_THROUGH };
 

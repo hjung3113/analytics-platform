@@ -7,7 +7,6 @@
  */
 import type { AuditEvent } from '@ap/contracts';
 import type { Tone } from '@ap/ui';
-import { EQUIPMENT } from '@ap/mock-server';
 
 export type Text = { ko: string; en: string };
 export type Lang = 'ko' | 'en';
@@ -516,7 +515,7 @@ function matchesPopulation(status: string, chamberType: string, rule: Population
 }
 
 /** Example equipment IDs for the definition's population rule. Not a coverage rate. */
-export function populationExamples(rule: PopulationRule, equipment: { equipmentId: string; room: string; status: string; chamberType: string }[] = EQUIPMENT): { ids: string[]; rooms: string[] } {
+export function populationExamples(rule: PopulationRule, equipment: { equipmentId: string; room: string; status: string; chamberType: string }[]): { ids: string[]; rooms: string[] } {
   const rows = equipment.filter(e => matchesPopulation(e.status, e.chamberType, rule));
   const rooms = [...new Set(rows.map(e => e.room))].sort();
   return { ids: rows.slice(0, 3).map(e => e.equipmentId), rooms };

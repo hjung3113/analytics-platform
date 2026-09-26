@@ -15,7 +15,7 @@
 - 의존성은 `@ap/contracts` 하나뿐이다. React도, 다른 `@ap/*`도 import하지 않는다.
 - 페이지(`apps/*`)나 메뉴 화면을 import하지 않는다. 화면 전용 데이터는 앱 쪽에 둔다.
 - mock과 화면 계산을 함께 보는 테스트(`jobs-population`, `published-metrics`)는 이 패키지에 두지 않는다(지금은 `apps/platform-web/src`, 5c에서 `jobs-population`만 `menu-analytics`로). 패키지가 앱을 import하게 만들지 않는다.
-- 페이지가 `@ap/mock-server`의 `serve`를 직접 호출하는 것은 5a의 임시 상태다. 메뉴별 `api.ts`(5b) 전까지 새 호출처를 늘리지 않는다.
+- 메뉴 코드는 이 패키지를 직접 import하지 않는다. `apps/platform-web/src/pages/<area>/api.ts`와 앱 조립(`main.tsx`, `src/dev/DevTools.tsx`)만 import한다. 생산성·사이클 집계는 메뉴 쪽에 둔다.
 - 이 패키지에 `api.ts`를 만들지 않는다. 그것은 5b의 앱 쪽 작업이다.
 
 ## 검증

@@ -9,8 +9,7 @@ import { formatMetricVersion, shift } from '@ap/contracts';
  */
 import { AlertTriangle, ArrowRight, BarChart3, Hourglass, Percent, RotateCw, Timer } from 'lucide-react';
 import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { CYCLE_VERSION_NOTE } from '@ap/mock-server';
-import { periodHours, serve } from '@ap/mock-server';
+import { CYCLE_VERSION_NOTE, periodHours, serve } from './api';
 import { AnalysisChartFrame, type ChartSeries, DataTrustIndicator, type Delta, Panel, PlatformPage, QueryView, SegmentedRadio, StatCard, StateMessage } from '@ap/components';
 import { Button, cn, StatusBadge } from '@ap/ui';
 import {
