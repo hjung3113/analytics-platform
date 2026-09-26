@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, realpathSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   depLine, importLine, menuPackage, renderFiles, spreadLine, styleLine,
@@ -139,6 +139,50 @@ export function splitLines(text: string): { lines: string[]; eol: string } {
   return { lines: text.split(eol), eol };
 }
 
+export type OwnedLineState =
+  | { kind: 'found'; at: number }
+  | { kind: 'missing' }
+  | { kind: 'duplicate'; count: number };
+
+/**
+ * Where `line` sits strictly inside the marker region: full-line matches, tolerant only of a
+ * trailing carriage return — never of indentation (F4).
+ */
+export function ownedLine(lines: string[], start: string, end: string, line: string): OwnedLineState {
+  const s = lines.findIndex(l => l.trim() === start);
+  const e = lines.findIndex(l => l.trim() === end);
+  if (s === -1 || e === -1 || e <= s) return { kind: 'missing' };
+  let count = 0;
+  let at = -1;
+  for (let i = s + 1; i < e; i++) {
+    if ((lines[i] as string).replace(/\r$/, '') === line) {
+      count++;
+      at = i;
+    }
+  }
+  if (count === 1) return { kind: 'found', at };
+  return count === 0 ? { kind: 'missing' } : { kind: 'duplicate', count };
+}
+
+/** F9: refuse when `target` — or, for not-yet-created paths, its nearest existing ancestor — resolves outside the real root. */
+export function checkInsideRoot(realRoot: string, target: string, label: string): void {
+  let dir = target;
+  let resolved: string | null = null;
+  for (;;) {
+    try {
+      resolved = realpathSync(dir);
+      break;
+    } catch {
+      const parent = dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+  }
+  const boundary = resolved ?? dir;
+  const inside = boundary === realRoot || boundary.startsWith(realRoot + sep);
+  if (!inside) throw new GenMenuError(`${label} resolves outside the workspace root '${realRoot}' (via '${boundary}')`);
+}
+
 /** A menu-* workspace dependency line: indent, package name, optional trailing comma. */
 export function parseDepLine(raw: string): { indent: string; name: string } | null {
   const m = /^(\s*)"([^"]*menu-[^"]*)": "workspace:\*"(,)?\s*?$/.exec(raw.replace(/\r$/, ''));
@@ -222,6 +266,11 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
   if (!existsSync(join(root, 'pnpm-workspace.yaml'))) {
     throw new GenMenuError(`'${root}' has no pnpm-workspace.yaml`);
   }
+  // F9: every path this generator reads or writes must resolve inside the real root.
+  const realRoot = realpathSync(root);
+  checkInsideRoot(realRoot, join(root, 'menus'), 'menus/');
+  checkInsideRoot(realRoot, join(root, 'menus', folder), `menus/${folder}`);
+  for (const rel of [MENUS_TS, STYLE_CSS, APP_PKG]) checkInsideRoot(realRoot, join(root, rel), rel);
 
   const inputs: MenuInputs = { group, folder, menuId, page, path, pageType: pageType as PageType, labelKo, labelEn, binding };
 
@@ -300,14 +349,51 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
 }
 
 export function applyGenerate(plan: GeneratePlan): void {
-  mkdirSync(plan.packageDir, { recursive: true });
-  for (const f of plan.files) {
-    const target = join(plan.packageDir, f.relPath);
-    mkdirSync(dirname(target), { recursive: true });
-    writeFileSync(target, f.content);
+  // F3: capture the original bytes of every app file before the first mutation.
+  const snapshots = new Map<string, string>();
+  for (const e of plan.edits) snapshots.set(e.relPath, readFileSync(join(plan.root, e.relPath), 'utf8'));
+
+  const completedAppWrites = new Set<string>();
+  const failures: string[] = [];
+  let originalError: unknown;
+  try {
+    mkdirSync(plan.packageDir, { recursive: true });
+    for (const f of plan.files) {
+      const target = join(plan.packageDir, f.relPath);
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, f.content);
+    }
+    writeFileSync(join(plan.packageDir, '.gen-menu.json'), `${JSON.stringify(plan.inputs, null, 2)}\n`);
+    for (const e of plan.edits) {
+      writeFileSync(join(plan.root, e.relPath), e.after);
+      completedAppWrites.add(e.relPath);
+    }
+  } catch (err) {
+    originalError = err;
   }
-  writeFileSync(join(plan.packageDir, '.gen-menu.json'), `${JSON.stringify(plan.inputs, null, 2)}\n`);
-  for (const e of plan.edits) writeFileSync(join(plan.root, e.relPath), e.after);
+  if (originalError === undefined) return;
+  // F3: attempt every cleanup independently — one failure must not suppress the rest —
+  // and never rewrite an app file whose write did not complete.
+  for (const e of plan.edits) {
+    if (!completedAppWrites.has(e.relPath)) continue;
+    try {
+      const path = join(plan.root, e.relPath);
+      const snapshot = snapshots.get(e.relPath) ?? '';
+      if (readFileSync(path, 'utf8') !== snapshot) writeFileSync(path, snapshot);
+    } catch (restoreErr) {
+      failures.push(`${e.relPath}: ${restoreErr instanceof Error ? restoreErr.message : String(restoreErr)}`);
+    }
+  }
+  try {
+    rmSync(plan.packageDir, { recursive: true, force: true });
+  } catch (rmErr) {
+    failures.push(`menus/${plan.inputs.folder}: ${rmErr instanceof Error ? rmErr.message : String(rmErr)}`);
+  }
+  const original = originalError instanceof Error ? originalError : new GenMenuError(String(originalError));
+  if (failures.length > 0) {
+    throw new GenMenuError(`generate failed (${original.message}) and rollback could not restore: ${failures.join('; ')}`);
+  }
+  throw original;
 }
 
 /** The four wiring lines, for stdout. */

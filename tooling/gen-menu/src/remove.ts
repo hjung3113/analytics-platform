@@ -1,54 +1,22 @@
-import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { depLine, importLine, renderFiles, spreadLine, styleLine, type MenuInputs } from './templates.ts';
-import { APP_PKG, GROUP_RE, GenMenuError, MENUS_TS, STYLE_CSS, hasLine, kebab, removeLine, splitLines } from './generate.ts';
+import {
+  APP_PKG, GROUP_RE, GenMenuError, MENUS_TS, STYLE_CSS,
+  IMPORT_END, IMPORT_START, SPREADS_END, SPREADS_START, STYLES_END, STYLES_START,
+  checkInsideRoot, kebab, ownedLine, parseDepLine, splitLines, type OwnedLineState,
+} from './generate.ts';
+
+export type InsertSpec = { relPath: string; line: string; start?: string; end?: string };
 
 export type RemovePlan = {
   root: string;
   inputs: MenuInputs;
   packageDir: string;
-  /** The exact insert lines that must be removed, with the files they live in. */
-  inserts: { relPath: string; line: string }[];
+  /** The exact insert lines that must be removed, bounded to their owned region (F4). */
+  inserts: InsertSpec[];
   deleteDir: string;
 };
-
-export type RemoveArgs = {
-  root: string;
-  group: string;
-  inputs: MenuInputs;
-  /** Rollback after a failed write: a missing insert or folder counts as already gone. */
-  allowMissing: boolean;
-};
-
-function readApp(root: string, rel: string, allowMissing: boolean): string {
-  const path = join(root, rel);
-  if (!existsSync(path)) {
-    if (allowMissing) return '';
-    throw new GenMenuError(`--remove: ${rel} not found`);
-  }
-  return readFileSync(path, 'utf8');
-}
-
-/** Best-effort revert used when an app edit throws mid-generate. Never throws for "already gone". */
-export function rollbackAfterFailedWrite(root: string, inputs: MenuInputs): void {
-  const inserts = [
-    { relPath: MENUS_TS, line: importLine(inputs) },
-    { relPath: MENUS_TS, line: spreadLine(inputs) },
-    { relPath: STYLE_CSS, line: styleLine(inputs) },
-    { relPath: APP_PKG, line: depLine(inputs) },
-  ];
-  const edited = new Map<string, string>();
-  for (const ins of inserts) {
-    const current = edited.get(ins.relPath) ?? readApp(root, ins.relPath, true);
-    if (current === '') continue;
-    const next = ins.relPath === APP_PKG
-      ? removeDepLine(current, ins.line)
-      : removeLine(current, ins.line);
-    edited.set(ins.relPath, next);
-  }
-  for (const [rel, content] of edited) writeFileSync(join(root, rel), content);
-  rmSync(join(root, 'menus', inputs.folder), { recursive: true, force: true });
-}
 
 /** Check-only; throws `--remove: …` refusals and deletes nothing. */
 export function planRemove(root: string, group: string): RemovePlan {
@@ -60,6 +28,11 @@ export function planRemove(root: string, group: string): RemovePlan {
   if (!existsSync(packageDir)) {
     throw new GenMenuError(`--remove: menus/${folder} does not exist`);
   }
+  // F9: the deletion target and every edited file must resolve inside the real root.
+  const realRoot = realpathSync(root);
+  checkInsideRoot(realRoot, packageDir, `--remove: menus/${folder}`);
+  for (const rel of [MENUS_TS, STYLE_CSS, APP_PKG]) checkInsideRoot(realRoot, join(root, rel), `--remove: ${rel}`);
+
   const metaPath = join(packageDir, '.gen-menu.json');
   const failNotGenerated = (): GenMenuError =>
     new GenMenuError(`--remove: menus/${folder}/.gen-menu.json: not a generated package`);
@@ -81,17 +54,25 @@ export function planRemove(root: string, group: string): RemovePlan {
     }
   }
 
-  const inserts: RemovePlan['inserts'] = [
-    { relPath: MENUS_TS, line: importLine(inputs) },
-    { relPath: MENUS_TS, line: spreadLine(inputs) },
-    { relPath: STYLE_CSS, line: styleLine(inputs) },
+  const menusLines = splitLines(readFileSync(join(root, MENUS_TS), 'utf8')).lines;
+  const styleLines = splitLines(readFileSync(join(root, STYLE_CSS), 'utf8')).lines;
+  const pkgLines = splitLines(readFileSync(join(root, APP_PKG), 'utf8')).lines;
+  const inserts: InsertSpec[] = [
+    { relPath: MENUS_TS, line: importLine(inputs), start: IMPORT_START, end: IMPORT_END },
+    { relPath: MENUS_TS, line: spreadLine(inputs), start: SPREADS_START, end: SPREADS_END },
+    { relPath: STYLE_CSS, line: styleLine(inputs), start: STYLES_START, end: STYLES_END },
     { relPath: APP_PKG, line: depLine(inputs) },
   ];
   for (const ins of inserts) {
-    const text = readFileSync(join(root, ins.relPath), 'utf8');
-    const present = ins.relPath === APP_PKG ? hasDepLine(text, ins.line) : hasLine(text, ins.line);
-    if (!present) {
-      throw new GenMenuError(`--remove: ${ins.relPath} was edited`);
+    const lines = ins.relPath === MENUS_TS ? menusLines : ins.relPath === STYLE_CSS ? styleLines : pkgLines;
+    const owned = ins.start !== undefined && ins.end !== undefined
+      ? ownedLine(lines, ins.start, ins.end, ins.line)
+      : depOwnership(lines, ins.line);
+    if (owned.kind === 'missing') {
+      throw new GenMenuError(`--remove: ${ins.relPath} was edited — the generated line is not present inside its owned region`);
+    }
+    if (owned.kind === 'duplicate') {
+      throw new GenMenuError(`--remove: ${ins.relPath} was edited — the generated line appears ${owned.count} times inside its owned region`);
     }
   }
 
@@ -99,6 +80,30 @@ export function planRemove(root: string, group: string): RemovePlan {
   checkEntries(packageDir, `menus/${folder}`, '', known);
 
   return { root, inputs, packageDir, inserts, deleteDir: `menus/${folder}` };
+}
+
+/** F4: the dep line is owned only when it appears exactly once inside the contiguous menu-dependency block. */
+function depOwnership(lines: string[], line: string): OwnedLineState {
+  const entries = lines
+    .map((l, i) => ({ i, dep: parseDepLine(l) }))
+    .filter((e): e is { i: number; dep: { indent: string; name: string } } => e.dep !== null);
+  const first = entries[0];
+  const last = entries.at(-1);
+  if (first === undefined || last === undefined || entries.length !== last.i - first.i + 1) {
+    return { kind: 'missing' };
+  }
+  const bare = line.replace(/,$/, '');
+  let count = 0;
+  let at = -1;
+  for (const e of entries) {
+    const t = (lines[e.i] as string).replace(/\r$/, '');
+    if (t === line || t === bare) {
+      count++;
+      at = e.i;
+    }
+  }
+  if (count === 1) return { kind: 'found', at };
+  return count === 0 ? { kind: 'missing' } : { kind: 'duplicate', count };
 }
 
 /** Tool artifact directories turbo/vitest create at the top level of the package; deleted with the folder. */
@@ -117,42 +122,61 @@ function checkEntries(dir: string, display: string, base: string, known: Set<str
   }
 }
 
-export function applyRemove(plan: RemovePlan): void {
-  const edited = new Map<string, string>();
-  for (const ins of plan.inserts) {
-    const current = edited.get(ins.relPath) ?? readFileSync(join(plan.root, ins.relPath), 'utf8');
-    const next = ins.relPath === APP_PKG
-      ? removeDepLine(current, ins.line)
-      : removeLine(current, ins.line);
-    edited.set(ins.relPath, next);
-  }
-  for (const [rel, content] of edited) writeFileSync(join(plan.root, rel), content);
-  rmSync(plan.packageDir, { recursive: true });
-}
-
-/** The dep line on disk may or may not carry the trailing comma depending on block position. */
-function depLineAt(lines: string[], line: string): number {
-  const bare = line.replace(/,$/, '');
-  return lines.findIndex(l => {
-    const t = l.replace(/\r$/, '');
-    return t === line || t === bare;
-  });
-}
-
-function hasDepLine(text: string, line: string): boolean {
-  return depLineAt(splitLines(text).lines, line) !== -1;
-}
-
-/** Remove a dependency line; if the block then ends the JSON object, drop the now-trailing comma. */
-function removeDepLine(text: string, line: string): string {
+/** F4: remove exactly the owned occurrence; refuse anything ambiguous before touching a byte. */
+function removeOwnedLine(text: string, ins: InsertSpec): string {
   const { lines, eol } = splitLines(text);
-  const at = depLineAt(lines, line);
-  if (at === -1) return text;
-  lines.splice(at, 1);
-  const prev = (lines[at - 1] ?? '') as string;
-  const next = (lines[at] ?? '') as string;
-  if (prev.trimEnd().endsWith(',') && next.trimStart().startsWith('}')) {
-    lines[at - 1] = prev.trimEnd().slice(0, -1);
+  const owned = ins.start !== undefined && ins.end !== undefined
+    ? ownedLine(lines, ins.start, ins.end, ins.line)
+    : depOwnership(lines, ins.line);
+  if (owned.kind !== 'found') throw new GenMenuError(`--remove: ${ins.relPath} was edited — the generated line is not uniquely present inside its owned region`);
+  lines.splice(owned.at, 1);
+  if (ins.relPath === APP_PKG) {
+    // The removed entry may have carried the object's closing comma position (N1).
+    const prev = (lines[owned.at - 1] ?? '') as string;
+    const next = (lines[owned.at] ?? '') as string;
+    if (prev.trimEnd().endsWith(',') && next.trimStart().startsWith('}')) {
+      lines[owned.at - 1] = prev.trimEnd().slice(0, -1);
+    }
   }
   return lines.join(eol);
+}
+
+export function applyRemove(plan: RemovePlan): void {
+  // F3: snapshot every app file before the first mutation; restore on failure.
+  const snapshots = new Map<string, string>();
+  for (const rel of new Set(plan.inserts.map(i => i.relPath))) {
+    snapshots.set(rel, readFileSync(join(plan.root, rel), 'utf8'));
+  }
+  const edited = new Map<string, string>();
+  const completedWrites: string[] = [];
+  let originalError: unknown;
+  try {
+    for (const ins of plan.inserts) {
+      const current = edited.get(ins.relPath) ?? readFileSync(join(plan.root, ins.relPath), 'utf8');
+      edited.set(ins.relPath, removeOwnedLine(current, ins));
+    }
+    for (const [rel, content] of edited) {
+      writeFileSync(join(plan.root, rel), content);
+      completedWrites.push(rel);
+    }
+  } catch (err) {
+    originalError = err;
+  }
+  if (originalError !== undefined) {
+    const failures: string[] = [];
+    for (const rel of completedWrites) {
+      try {
+        const snapshot = snapshots.get(rel) ?? '';
+        if (readFileSync(join(plan.root, rel), 'utf8') !== snapshot) writeFileSync(join(plan.root, rel), snapshot);
+      } catch (restoreErr) {
+        failures.push(`${rel}: ${restoreErr instanceof Error ? restoreErr.message : String(restoreErr)}`);
+      }
+    }
+    const original = originalError instanceof Error ? originalError : new GenMenuError(String(originalError));
+    if (failures.length > 0) {
+      throw new GenMenuError(`--remove failed (${original.message}) and rollback could not restore: ${failures.join('; ')}`);
+    }
+    throw original;
+  }
+  rmSync(plan.packageDir, { recursive: true });
 }

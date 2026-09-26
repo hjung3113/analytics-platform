@@ -2,7 +2,7 @@ import { parseArgs } from 'node:util';
 import {
   GenMenuError, applyGenerate, editSummary, planGenerate, resolveRoot,
 } from './generate.ts';
-import { applyRemove, planRemove, rollbackAfterFailedWrite } from './remove.ts';
+import { applyRemove, planRemove } from './remove.ts';
 
 const USAGE = `gen:menu — scaffold one skeleton menu package for an existing sidebar group
 
@@ -102,12 +102,7 @@ function run(argv: string[]): void {
     console.log('next: pnpm install');
     return;
   }
-  try {
-    applyGenerate(plan);
-  } catch (err) {
-    rollbackAfterFailedWrite(root, plan.inputs);
-    throw new GenMenuError(`write failed, rolled back: ${err instanceof Error ? err.message : String(err)}`);
-  }
+  applyGenerate(plan);
   for (const f of plan.files) console.log(`created ${pkgDir}/${f.relPath}`);
   console.log(`created ${pkgDir}/.gen-menu.json`);
   for (const line of editSummary(plan)) console.log(`edit ${line}`);

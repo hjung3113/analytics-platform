@@ -1,31 +1,21 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { GROUPS_END, MENUS_TS, removeLine, resolveRoot } from '../src/generate.ts';
+import { GenMenuError, MENUS_TS, resolveRoot } from '../src/generate.ts';
 import { PACKAGE_PREFIX } from '../src/prefix.ts';
+import {
+  PROBE_FOLDER, assertCleanTree, gitPorcelain, insertGroupIdMember, insertGroupsRow,
+  preflightReservedPaths, writeRegistryTest,
+} from '../src/probe-support.ts';
 
 /**
  * §4 create-then-delete verification (coordinator-run, once, not CI): the committed tree must be
- * clean. The probe inserts a throwaway `genProbe` group member and GROUPS row by hand (the
- * generator never edits them), generates the package, asserts the app registry, runs the root
- * gates, and reverts everything in `finally`.
+ * verifiably clean (F8 fail-closed), reserved paths are preflighted, and revert attempts every
+ * step independently — restoring pre-run snapshots so only what this run created is deleted.
  */
 const ROOT = resolveRoot();
 const CONTRACTS_MENU = join(ROOT, 'packages/contracts/src/menu.ts');
 const MENUS = join(ROOT, MENUS_TS);
-const PROBE_TEST = join(ROOT, 'apps/platform-web/src/gen-probe.test.ts');
-const FOLDER = 'gen-probe';
-const GROUP_ID_MEMBER = " | 'genProbe';";
-const GROUPS_ROW = `  { id: 'genProbe', label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard },`;
-
-function fail(message: string): never {
-  throw new Error(`probe: ${message}`);
-}
-
-function gitPorcelain(): string {
-  const res = spawnSync('git', ['status', '--porcelain'], { cwd: ROOT, encoding: 'utf8' });
-  return (res.stdout ?? '').trim();
-}
 
 function run(cmd: string, args: string[], env?: Record<string, string>): void {
   const childEnv = env === undefined ? process.env : { ...process.env, ...env };
@@ -34,84 +24,102 @@ function run(cmd: string, args: string[], env?: Record<string, string>): void {
   console.log(`probe: ok — ${cmd} ${args.join(' ')}`);
 }
 
-function insertGroupIdMember(): void {
-  const lines = readFileSync(CONTRACTS_MENU, 'utf8').split('\n');
-  const at = lines.findIndex(l => l.startsWith('export type GroupId ='));
-  if (at === -1) fail('GroupId union line not found in packages/contracts/src/menu.ts');
-  if (!lines[at].endsWith(';')) fail('GroupId line does not end with ;');
-  lines[at] = `${lines[at].slice(0, -1)}${GROUP_ID_MEMBER}`;
-  writeFileSync(CONTRACTS_MENU, lines.join('\n'));
+function fail(message: string): never {
+  throw new GenMenuError(`probe: ${message}`);
 }
 
-function insertGroupsRow(): void {
-  const lines = readFileSync(MENUS, 'utf8').split('\n');
-  const at = lines.findIndex(l => l.trim() === GROUPS_END);
-  if (at === -1) fail(`marker '${GROUPS_END}' not found in ${MENUS_TS}`);
-  lines.splice(at, 0, GROUPS_ROW);
-  writeFileSync(MENUS, lines.join('\n'));
-}
+const message = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
-function writeRegistryTest(): void {
-  writeFileSync(PROBE_TEST, `import { expect, it } from 'vitest';
-import { registry } from './menus';
-
-it('registers the generated probe menu in the app registry', () => {
-  const menu = registry.menuById('gen-probe');
-  expect(menu.group).toBe('genProbe');
-  expect(menu.path).toBe('/gen-probe');
-  expect(menu.primary).toBe(true);
-  expect(menu.pageKeys).toEqual([]);
-  expect(registry.groupById('genProbe')).toBeDefined();
-});
-`);
-}
-
-function revert(): void {
-  const contracts = readFileSync(CONTRACTS_MENU, 'utf8');
-  if (contracts.includes(GROUP_ID_MEMBER)) {
-    writeFileSync(CONTRACTS_MENU, contracts.replace(GROUP_ID_MEMBER, ';'));
-  }
-  const menus = readFileSync(MENUS, 'utf8');
-  if (menus.includes(GROUPS_ROW)) writeFileSync(MENUS, removeLine(menus, GROUPS_ROW));
-  rmSync(PROBE_TEST, { force: true });
-
-  const res = spawnSync('pnpm', ['gen:menu', '--remove', 'genProbe'], { cwd: ROOT, encoding: 'utf8' });
-  if ((res.status ?? 1) !== 0 && existsSync(join(ROOT, 'menus', FOLDER))) {
-    process.stderr.write(`${res.stdout ?? ''}${res.stderr ?? ''}`);
-    fail('--remove refused (byte mismatch or unexpected file) — leaving the tree as-is');
-  }
-  run('pnpm', ['install']);
-  const dirty = gitPorcelain();
-  if (dirty !== '') fail(`tree not clean after revert:\n${dirty}`);
-}
-
-function main(): void {
-  if (gitPorcelain() !== '') fail('git status --porcelain is non-empty — commit the implementation first');
+/** F8: every step is attempted independently; all failures are collected, none mask another. */
+function revert(snapshots: { contracts: string; menus: string }): string[] {
+  const failures: string[] = [];
   try {
-    insertGroupIdMember();
-    insertGroupsRow();
+    if (readFileSync(CONTRACTS_MENU, 'utf8') !== snapshots.contracts) writeFileSync(CONTRACTS_MENU, snapshots.contracts);
+  } catch (err) {
+    failures.push(`packages/contracts/src/menu.ts: ${message(err)}`);
+  }
+  try {
+    if (readFileSync(MENUS, 'utf8') !== snapshots.menus) writeFileSync(MENUS, snapshots.menus);
+  } catch (err) {
+    failures.push(`${MENUS_TS}: ${message(err)}`);
+  }
+  try {
+    rmSync(join(ROOT, 'apps/platform-web/src/gen-probe.test.ts'), { force: true });
+  } catch (err) {
+    failures.push(`apps/platform-web/src/gen-probe.test.ts: ${message(err)}`);
+  }
+  try {
+    const res = spawnSync('pnpm', ['gen:menu', '--remove', 'genProbe'], { cwd: ROOT, encoding: 'utf8' });
+    if ((res.status ?? 1) !== 0 && existsSync(join(ROOT, 'menus', PROBE_FOLDER))) {
+      process.stderr.write(`${res.stdout ?? ''}${res.stderr ?? ''}`);
+      failures.push('--remove refused — menus/gen-probe left in place');
+    }
+  } catch (err) {
+    failures.push(`--remove: ${message(err)}`);
+  }
+  try {
+    const res = spawnSync('pnpm', ['install'], { cwd: ROOT, stdio: 'inherit' });
+    if (res.status !== 0) failures.push('pnpm install failed');
+  } catch (err) {
+    failures.push(`pnpm install: ${message(err)}`);
+  }
+  try {
+    const dirty = gitPorcelain(ROOT);
+    if (dirty !== '') failures.push(`tree not clean after revert:\n${dirty}`);
+  } catch (err) {
+    failures.push(message(err));
+  }
+  return failures;
+}
+
+/** Returns revert failures; throws the original gate error after reverting. */
+function main(): string[] {
+  assertCleanTree(ROOT);
+  preflightReservedPaths(ROOT);
+  const snapshots = { contracts: readFileSync(CONTRACTS_MENU, 'utf8'), menus: readFileSync(MENUS, 'utf8') };
+  let gateError: unknown;
+  let failures: string[] = [];
+  try {
+    insertGroupIdMember(ROOT);
+    insertGroupsRow(ROOT);
     run('pnpm', ['gen:menu', 'genProbe', '--label-ko', '생성 확인', '--label-en', 'Gen probe', '--path', '/gen-probe', '--page-type', 'overview']);
-    writeRegistryTest();
+    writeRegistryTest(ROOT);
     run('pnpm', ['install']);
     run('pnpm', ['lint']);
     run('pnpm', ['typecheck']);
-    // Full gate: the extensible wiring locks hold while the probe menu exists; only the
-    // probe-name check is skipped via GEN_MENU_PROBE (turbo globalPassThroughEnv). The locks
-    // are re-verified without the env after the revert below.
+    // Full gate: the wiring locks hold while the probe menu exists; only the probe-name check
+    // is skipped via GEN_MENU_PROBE (turbo globalPassThroughEnv). The locks are re-verified
+    // without the env after the revert below.
     run('pnpm', ['test'], { GEN_MENU_PROBE: '1' });
     run('pnpm', ['build']);
     console.log('probe: verified — reverting');
+  } catch (err) {
+    gateError = err;
   } finally {
-    revert();
-    // Locks must pass on the restored tree with the probe env explicitly OFF.
-    run('pnpm', ['--filter', `${PACKAGE_PREFIX}gen-menu`, 'test'], { GEN_MENU_PROBE: '' });
+    failures = revert(snapshots);
+    if (failures.length === 0) {
+      try {
+        run('pnpm', ['--filter', `${PACKAGE_PREFIX}gen-menu`, 'test'], { GEN_MENU_PROBE: '' });
+      } catch (err) {
+        failures.push(`post-revert gen-menu test: ${message(err)}`);
+      }
+    }
   }
+  if (gateError !== undefined) {
+    for (const f of failures) console.error(`probe: revert failure — ${f}`);
+    throw gateError;
+  }
+  return failures;
 }
 
 try {
-  main();
+  const failures = main();
+  if (failures.length > 0) {
+    console.error(`probe: revert incomplete:\n  ${failures.join('\n  ')}`);
+    process.exit(1);
+  }
   console.log('probe: OK — tree is clean');
 } catch (err) {
-  console.error(err instanceof Error ? err.message : String(err));
+  console.error(message(err));
   process.exit(1);
 }
