@@ -67,6 +67,15 @@ git -C products/feedbackops diff --stat HEAD origin/develop
 - 개발 서버·패키지 설치·테스트는 FeedbackOps 디렉터리와 자체 workspace 설정을 기준으로 실행한다. 루트 통합 실행 명령은 아직 없다.
 - DB 통합 테스트는 초기화·재시드 동작이 있으므로 기존 데이터를 가진 DB에 실행하지 않는다.
 
+## FeedbackOps 통합 방식 (Decided, 2026-09-26)
+
+FeedbackOps는 플랫폼의 **피드백 공간**([06 §9.1](../06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26))이 되며 단계적으로 통합한다.
+
+1. **1단계 — 연결:** 원본 앱은 독립 실행을 유지한다. 공유 SSO·디자인 토큰, 서로의 Context를 넘기는 딥링크로 연결한다. 분석 공간의 사용자용 화면(내 VOC 등록·상태 확인, 설문 응답)은 FeedbackOps API를 읽기 전용으로 소비한다. 사용자에게 보이는 상태와 내부 처리 상태를 자동으로 연결하지 않는 FeedbackOps 원칙(ADR-0005)을 그대로 따른다.
+2. **2단계 — 셸 편입:** 인증 프로토콜과 Scope↔Managed System 관계가 결정된 뒤 같은 셸 안의 피드백 공간으로 옮긴다. 이 결정 전에는 FeedbackOps 코드를 플랫폼 계약에 맞춰 소급 수정하지 않는다.
+
+**Milestone:** FeedbackOps 설계에 이미 정의돼 있다(`products/feedbackops/docs/design/06-task-project-system.md` FR-TASK-004 — Finding에서 생성, Task 묶음, 상세에 하위 Task 간트 차트; 디자인 프로토타입 `docs/design-prototype/screen-milestone-gantt.jsx`, `screen-milestones.jsx`). 2026-09-26 기준 고정 커밋(`6a0c7f8`)에서는 **아직 구현되지 않았고** 백엔드에 `tasks.milestone_id`·`findings.linked_milestone_id` 자리만 있다. 구현은 FeedbackOps 원본 저장소에서 진행하며, 피드백 공간은 그 구현을 참조한다. 플랫폼 쪽에서 별도 마일스톤 기능을 만들지 않는다.
+
 ## 다음 설계에서 확정할 항목
 
 인증·사용자 식별, Scope와 Managed System의 관계, 권한 검증 책임, 메뉴·URL·Context 계약, 셸과 업무 화면의 책임, UI 재사용 범위, 감사·알림 계약, 실행·배포 단위를 결정한다. 그 결과를 바탕으로 공통 코드 추출과 서브모듈의 정식 편입 여부를 정한다.

@@ -85,6 +85,15 @@ API가 파서 원본 테이블을 직접 참조하지 않고 소비 계층(view/
 
 `H`=**1시간**으로 확정(2026-09-22 도메인 인터뷰).
 
+<a id="processing-status-report"></a>
+### 가공 상태 보고 (Decided — 원천, 2026-09-26)
+
+설비·기간별 가공 상태의 원천은 **적재 워커가 기록하는 단계별 처리 결과**다(`06` §19 가공 상태 원천). 플랫폼은 적재된 행 수나 mart 결과로 "왜 가공이 안 됐는지"를 추론하지 않는다.
+
+- 워커는 처리 단위(파일 또는 배치)마다 최소한 설비 ID, 대상 구간, 단계(수집/변환/파싱/적재/검증), 결과(성공/실패/대기), 원인 분류, 관측 시각을 남긴다. 원시 오류 메시지·단계 로그는 같은 기록에 연결하되 사용자 화면에는 노출하지 않는다.
+- 이 기록은 `06` §19의 `assessments[]`가 요구하는 `statusSource`·`observedAt`의 근거가 된다. 기록이 없는 구간은 `unknown`이지 정상이 아니다.
+- **Open:** 기록 테이블 스키마와 원인 분류 목록, 보존 기간, `context_recognized_parser` 저장소의 변경 범위와 일정. 파서 저장소 쪽 합의가 선행 조건이다.
+
 ## 멀티테넌시/확장성
 
 초기 1개 Site/Line 운영 범위에서 시작하되 확장 가능한 구조를 유지한다([05 결정 상태](05_roadmap_and_open_questions.md#결정-상태)). 권한·조회 범위는 Site→room_name→StGroup→Equipment 관계이고 Line은 독립 축이며, Factory/plant는 별도 Scope로 두지 않는다. v1은 단일 Scope 선택, 상속 세부는 Open이다([06 §6.2](06_platform_ui_contract.md#62-scope와-권한-decided--open), [ADR-0005](adr/0005-scope-room-name-line-independent.md)). Site별 물리 DB 분리는 현행 사실이며 Site 컬럼 필터가 아니다([ADR-0004](adr/0004-site-is-db-partition-not-column.md)). 구체 행 스코핑 구현과 RLS 도입 여부는 별도 검토한다.

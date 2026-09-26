@@ -47,7 +47,7 @@
 
 `06_platform_ui_contract.md`는 위 설계들을 플랫폼 개발 관점으로 통합해, 개별 메뉴가 공통 Shell/Context/확장 계약 위에 올라가도록 정의한 구현 전 Design Contract다. `07_app_shell_wireframe.md`는 그 계약 중 App Shell 화면 하나를 `analysis-platform-wireframe` 스킬 절차(Requirements→IA→Screen Spec→Wireframe)로 구체화하고 codex 리뷰를 거친 산출물이다.
 
-`docs/reviews/`는 이후 설계 세션의 인터뷰/리뷰 합의록을 보존하는 디렉토리다. [2026-09-24 2차 도메인 인터뷰](reviews/2026-09-24-equipment-routing-domain-interview-round-2.md)는 1차 punch list와 선행 리뷰 해소 사항의 문서 반영을 추적한다. `docs/reviews/2026-09-18-url-time-status-contract-grilling.md`는 grok-4.6(griller)과 codex gpt-6-astra(answerer)의 grill-duel로 `06`/`05`의 URL·시간·상태·실시간성·DB 접근·지연완료 메커니즘 Open 항목을 검토한 기록이며, 그 결과는 `06`과 [01 데이터 운영 정책](01_architecture_and_data_contract.md#데이터-운영-정책) 본문에 Decided로 반영돼 있으며 `05`에서 결정 상태를 추적한다. 리뷰 문서 자체는 authoritative source가 아니다.
+`docs/reviews/`는 이후 설계 세션의 인터뷰/리뷰 합의록을 보존하는 디렉토리다. [2026-09-26 워크스페이스·운영 메뉴 인터뷰](reviews/2026-09-26-workspace-ops-interview.md)는 분석 / 운영 콘솔 / 피드백 3개 공간, 가공 상태 원천, FeedbackOps 단계적 통합 결정을 기록한다. [2026-09-24 2차 도메인 인터뷰](reviews/2026-09-24-equipment-routing-domain-interview-round-2.md)는 1차 punch list와 선행 리뷰 해소 사항의 문서 반영을 추적한다. `docs/reviews/2026-09-18-url-time-status-contract-grilling.md`는 grok-4.6(griller)과 codex gpt-6-astra(answerer)의 grill-duel로 `06`/`05`의 URL·시간·상태·실시간성·DB 접근·지연완료 메커니즘 Open 항목을 검토한 기록이며, 그 결과는 `06`과 [01 데이터 운영 정책](01_architecture_and_data_contract.md#데이터-운영-정책) 본문에 Decided로 반영돼 있으며 `05`에서 결정 상태를 추적한다. 리뷰 문서 자체는 authoritative source가 아니다.
 
 ## 문서 소유권과 tooling 경계
 
