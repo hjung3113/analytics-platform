@@ -6,6 +6,7 @@ import {
   depLine, importLine, menuPackage, pageImportedIdentifiers, renderFiles, spreadLine, styleLine,
   PAGE_TYPES, type MenuInputs, type PageType,
 } from './templates.ts';
+import { writeAppFile } from './app-write.ts';
 
 export class GenMenuError extends Error {}
 
@@ -268,7 +269,16 @@ function insertDep(text: string, pkgName: string): string {
     return lines.join(eol);
   }
   const lastText = (lines[last.i] as string).replace(/\r$/, '');
-  const nextIsCloser = ((lines[last.i + 1] ?? '') as string).replace(/\r$/, '').trimStart().startsWith('}');
+  // R4: the next non-whitespace token decides the comma — skip blank/whitespace-only lines.
+  let next = '';
+  for (let k = last.i + 1; k < lines.length; k++) {
+    const candidate = (lines[k] as string).replace(/\r$/, '');
+    if (candidate.trim() !== '') {
+      next = candidate;
+      break;
+    }
+  }
+  const nextIsCloser = next.trimStart().startsWith('}');
   if (lastText.trimEnd().endsWith(',')) {
     lines.splice(last.i + 1, 0, newLine(!nextIsCloser));
   } else {
@@ -475,6 +485,12 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
   }
   const stylesEdit = insertAbove(stylesText, STYLES_END, styleLine(inputs));
   const pkgEdit = insertDep(appPkgText, menuPackage(folder));
+  // R4: the planned dependency block must stay valid JSON before anything is written.
+  try {
+    JSON.parse(pkgEdit);
+  } catch (err) {
+    throw new GenMenuError(`planned ${APP_PKG} is invalid JSON: ${err instanceof Error ? err.message : String(err)}`);
+  }
 
   return {
     root,
@@ -490,11 +506,13 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
 }
 
 export function applyGenerate(plan: GeneratePlan): void {
-  // F3: capture the original bytes of every app file before the first mutation.
+  // F3/R1: capture the original bytes of every app file before the first mutation.
   const snapshots = new Map<string, string>();
   for (const e of plan.edits) snapshots.set(e.relPath, readFileSync(join(plan.root, e.relPath), 'utf8'));
 
-  const completedAppWrites = new Set<string>();
+  // R1: a target is ATTEMPTED before writeFileSync runs — a partial write that throws still
+  // counts, because its bytes may already differ from the snapshot.
+  const attemptedAppWrites = new Set<string>();
   const failures: string[] = [];
   let originalError: unknown;
   try {
@@ -506,17 +524,18 @@ export function applyGenerate(plan: GeneratePlan): void {
     }
     writeFileSync(join(plan.packageDir, '.gen-menu.json'), `${JSON.stringify(plan.inputs, null, 2)}\n`);
     for (const e of plan.edits) {
-      writeFileSync(join(plan.root, e.relPath), e.after);
-      completedAppWrites.add(e.relPath);
+      attemptedAppWrites.add(e.relPath);
+      writeAppFile(join(plan.root, e.relPath), e.after);
     }
   } catch (err) {
     originalError = err;
   }
   if (originalError === undefined) return;
-  // F3: attempt every cleanup independently — one failure must not suppress the rest —
-  // and never rewrite an app file whose write did not complete.
+  // F3/R1: attempt every cleanup independently — one failure must not suppress the rest —
+  // and for every attempted target compare current bytes to the snapshot, restoring when they
+  // differ (a denied write whose bytes are unchanged needs no retry).
   for (const e of plan.edits) {
-    if (!completedAppWrites.has(e.relPath)) continue;
+    if (!attemptedAppWrites.has(e.relPath)) continue;
     try {
       const path = join(plan.root, e.relPath);
       const snapshot = snapshots.get(e.relPath) ?? '';

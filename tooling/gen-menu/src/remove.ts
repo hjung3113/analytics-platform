@@ -6,6 +6,7 @@ import {
   IMPORT_END, IMPORT_START, SPREADS_END, SPREADS_START, STYLES_END, STYLES_START,
   checkAppMarkers, checkInsideRoot, kebab, ownedLine, parseDepLine, splitLines, type OwnedLineState,
 } from './generate.ts';
+import { writeAppFile } from './app-write.ts';
 
 export type InsertSpec = { relPath: string; line: string; start?: string; end?: string };
 
@@ -133,9 +134,17 @@ function removeOwnedLine(text: string, ins: InsertSpec): string {
   if (owned.kind !== 'found') throw new GenMenuError(`--remove: ${ins.relPath} was edited — the generated line is not uniquely present inside its owned region`);
   lines.splice(owned.at, 1);
   if (ins.relPath === APP_PKG) {
-    // The removed entry may have carried the object's closing comma position (N1).
+    // R4: the removed entry may have carried the object's closing comma position — the next
+    // non-whitespace token decides, skipping blank/whitespace-only lines.
     const prev = (lines[owned.at - 1] ?? '') as string;
-    const next = (lines[owned.at] ?? '') as string;
+    let next = '';
+    for (let k = owned.at; k < lines.length; k++) {
+      const candidate = (lines[k] as string).replace(/\r$/, '');
+      if (candidate.trim() !== '') {
+        next = candidate;
+        break;
+      }
+    }
     if (prev.trimEnd().endsWith(',') && next.trimStart().startsWith('}')) {
       lines[owned.at - 1] = prev.trimEnd().slice(0, -1);
     }
@@ -150,28 +159,58 @@ export function applyRemove(plan: RemovePlan): void {
     snapshots.set(rel, readFileSync(join(plan.root, rel), 'utf8'));
   }
   const edited = new Map<string, string>();
-  const completedWrites: string[] = [];
+  // R1: a target is ATTEMPTED before writeFileSync runs — a partial write that throws still
+  // counts, because its bytes may already differ from the snapshot.
+  const attemptedWrites = new Set<string>();
+  const failures: string[] = [];
   let originalError: unknown;
+  let failedDeletingDir = false;
+  let wroteAllAppFiles = false;
   try {
     for (const ins of plan.inserts) {
       const current = edited.get(ins.relPath) ?? readFileSync(join(plan.root, ins.relPath), 'utf8');
       edited.set(ins.relPath, removeOwnedLine(current, ins));
     }
-    for (const [rel, content] of edited) {
-      writeFileSync(join(plan.root, rel), content);
-      completedWrites.push(rel);
+    // R4: the planned app manifest must stay valid JSON before anything is written.
+    const plannedPkg = edited.get(APP_PKG);
+    if (plannedPkg !== undefined) {
+      try {
+        JSON.parse(plannedPkg);
+      } catch (err) {
+        throw new GenMenuError(`planned ${APP_PKG} is invalid JSON: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
+    for (const [rel, content] of edited) {
+      attemptedWrites.add(rel);
+      writeAppFile(join(plan.root, rel), content);
+    }
+    wroteAllAppFiles = true;
+    // R1: the final recursive deletion is inside the recovery/report scope — a failure here is
+    // residual state (app wiring already removed) and must be reported, not thrown bare.
+    rmSync(plan.packageDir, { recursive: true });
   } catch (err) {
     originalError = err;
+    failedDeletingDir = wroteAllAppFiles;
   }
   if (originalError !== undefined) {
-    const failures: string[] = [];
-    for (const rel of completedWrites) {
+    // R1/F3: restore every attempted target whose bytes drifted from its snapshot.
+    for (const rel of attemptedWrites) {
       try {
         const snapshot = snapshots.get(rel) ?? '';
         if (readFileSync(join(plan.root, rel), 'utf8') !== snapshot) writeFileSync(join(plan.root, rel), snapshot);
       } catch (restoreErr) {
         failures.push(`${rel}: ${restoreErr instanceof Error ? restoreErr.message : String(restoreErr)}`);
+      }
+    }
+    if (failedDeletingDir) {
+      // Best-effort retry, then report the residual package directory.
+      try {
+        rmSync(plan.packageDir, { recursive: true, force: true });
+      } catch {
+        // reported below via the residual check
+      }
+      if (existsSync(plan.packageDir)) {
+        failures.push(`menus/${plan.inputs.folder}: could not be fully deleted — package directory remains`);
       }
     }
     const original = originalError instanceof Error ? originalError : new GenMenuError(String(originalError));
@@ -180,5 +219,4 @@ export function applyRemove(plan: RemovePlan): void {
     }
     throw original;
   }
-  rmSync(plan.packageDir, { recursive: true });
 }

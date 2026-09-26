@@ -50,12 +50,18 @@ function buildRevertSteps(snapshots: { contracts: string; menus: string; style: 
       if ((res.status ?? 1) !== 0) throw new GenMenuError(`--remove exited ${res.status}`);
     },
     // (3) after a successful --remove the hand-edited files must equal their pre-run snapshots.
+    // Each restore is attempted independently — one failure must not suppress the other.
     restoreHandEdits: () => {
-      restoreFile(CONTRACTS_MENU, snapshots.contracts);
-      restoreFile(MENUS, snapshots.menus);
+      const failures: string[] = [];
       for (const [path, snapshot] of [[CONTRACTS_MENU, snapshots.contracts], [MENUS, snapshots.menus]] as const) {
-        if (readFileSync(path, 'utf8') !== snapshot) throw new GenMenuError(`${path} does not match its pre-run snapshot`);
+        try {
+          restoreFile(path, snapshot);
+          if (readFileSync(path, 'utf8') !== snapshot) throw new GenMenuError(`${path} does not match its pre-run snapshot`);
+        } catch (err) {
+          failures.push(`${path}: ${message(err)}`);
+        }
       }
+      if (failures.length > 0) throw new GenMenuError(`hand-edit restore incomplete: ${failures.join('; ')}`);
     },
     // (4) fallback when --remove refused: restore every app file this run touched and delete the
     // package dir (preflight guaranteed it did not exist before this run).
