@@ -18,6 +18,12 @@ describe('createRegistry validation (platform-packages.md §5)', () => {
     expect(() => createRegistry({ groups, menus: [catalog, menu('a', '/a', { group: 'admin' })] })).toThrow(/undeclared group/);
   });
 
+  it('rejects duplicate group ids and parents whose route needs parameters', () => {
+    expect(() => createRegistry({ groups: [...groups, ...groups], menus: [catalog] })).toThrow(/Duplicate group id/);
+    const detail = menu('detail', '/metrics/:metricId', { parent: 'catalog' });
+    expect(() => createRegistry({ groups, menus: [catalog, detail, menu('sub', '/metrics/:metricId/versions', { parent: 'detail' })] })).toThrow(/needs parameters/);
+  });
+
   it('requires exactly one primary per group', () => {
     expect(() => createRegistry({ groups, menus: [menu('a', '/a')] })).toThrow(/exactly one primary.*found 0/);
     expect(() => createRegistry({ groups, menus: [catalog, menu('b', '/b', { primary: true })] })).toThrow(/found 2/);
