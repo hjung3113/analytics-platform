@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, it } from 'vitest';
+import { PACKAGE_PREFIX } from './prefix.ts';
 import { FIXTURE_GROUP, GEN_ARGS, appSnapshot, fixtureMenusTs, makeFixture, removeFixture, runCli } from './fixture.ts';
 
 const movedSpreadEnd = fixtureMenusTs().replace(
@@ -21,6 +22,16 @@ const reversedSpreads = fixtureMenusTs().replace(
   `  // </gen:menu-spreads>
   ...home,
   // <gen:menu-spreads>`,
+);
+
+const commentedImportMarkers = fixtureMenusTs().replace(
+  `// <gen:menu-imports>
+import { manifests as home } from '${PACKAGE_PREFIX}menu-home';
+// </gen:menu-imports>`,
+  `/*
+// <gen:menu-imports>
+// </gen:menu-imports>
+*/`,
 );
 
 describe('marker context validation (F7)', () => {
@@ -52,6 +63,15 @@ describe('marker context validation (F7)', () => {
     const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/must precede/);
+    expect(appSnapshot(root)).toEqual(before);
+  });
+
+  it('refuses import markers hidden inside a block comment (R3)', () => {
+    const root = fresh(commentedImportMarkers);
+    const before = appSnapshot(root);
+    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/missing marker '\/\/ <gen:menu-imports>'/);
     expect(appSnapshot(root)).toEqual(before);
   });
 });

@@ -85,17 +85,21 @@ function readText(root: string, rel: string): string {
 export type ManifestEntry = { id: string; group: string; path: string };
 
 /**
- * F6: collect id/group/path string literals from the `manifests` array of one index file with the
- * TS parser — any quote style, any spacing. Entries that are not plain object literals of plain
- * string literals (spreads, computed values, template expressions) are refused, never skipped.
+ * F6/R2: collect id/group/path string literals from the `manifests` array of one index file with
+ * the TS parser — any quote style, any spacing. Refusals, never skips: object spreads, computed
+ * properties, non-literal values, missing keys, and anything but exactly one local
+ * `export const manifests = [...]` declaration (a re-export or missing declaration refuses too).
  */
 export function manifestEntries(sourceText: string, rel: string): ManifestEntry[] {
   const sf = ts.createSourceFile(rel, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   const entries: ManifestEntry[] = [];
+  let declarations = 0;
   for (const stmt of sf.statements) {
-    if (!ts.isVariableStatement(stmt)) continue;
+    if (!ts.isVariableStatement(stmt) || !(stmt.modifiers ?? []).some(m => m.kind === ts.SyntaxKind.ExportKeyword)) continue;
     for (const d of stmt.declarationList.declarations) {
       if (!(ts.isIdentifier(d.name) && d.name.text === 'manifests')) continue;
+      declarations++;
+      if (declarations > 1) unsupportedEntry(rel);
       const init = d.initializer;
       if (init === undefined || !ts.isArrayLiteralExpression(init)) {
         throw new GenMenuError(`unsupported manifest form in ${rel} — manifests must be an array literal`);
@@ -104,6 +108,9 @@ export function manifestEntries(sourceText: string, rel: string): ManifestEntry[
         if (!ts.isObjectLiteralExpression(element)) unsupportedEntry(rel);
         const values: { id?: string; group?: string; path?: string } = {};
         for (const prop of element.properties) {
+          if (ts.isSpreadAssignment(prop) || ts.isComputedPropertyName(prop.name)) {
+            unsupportedEntry(rel);
+          }
           if (!ts.isPropertyAssignment(prop)) continue;
           const name = ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name) ? prop.name.text : undefined;
           if (name === undefined || (name !== 'id' && name !== 'group' && name !== 'path')) continue;
@@ -114,6 +121,9 @@ export function manifestEntries(sourceText: string, rel: string): ManifestEntry[
         entries.push({ id: values.id, group: values.group, path: values.path });
       }
     }
+  }
+  if (declarations === 0) {
+    throw new GenMenuError(`unsupported manifest form in ${rel} — no local 'export const manifests = [...]' declaration`);
   }
   return entries;
 }
@@ -222,23 +232,118 @@ export function checkAppMarkers(menusText: string, styleText: string): void {
   for (const [start, end, file] of pairs) {
     const text = file === MENUS_TS ? menusText : styleText;
     for (const marker of [start, end]) {
-      const count = countOccurrences(text, marker);
-      if (count !== 1) throw new GenMenuError(`missing marker '${marker}' in ${file} (appears ${count} times, expected exactly once)`);
+      const count = standaloneMarkerPositions(text, marker).length;
+      if (count !== 1) throw new GenMenuError(`missing marker '${marker}' in ${file} (found ${count} standalone occurrences, expected exactly once)`);
     }
-    if (text.indexOf(start) > text.indexOf(end)) {
+    const [startAt] = standaloneMarkerPositions(text, start);
+    const [endAt] = standaloneMarkerPositions(text, end);
+    if (startAt === undefined || endAt === undefined || startAt > endAt) {
       throw new GenMenuError(`markers out of order in ${file}: '${start}' must precede '${end}'`);
     }
   }
-  const groupsCount = countOccurrences(menusText, GROUPS_END);
-  if (groupsCount !== 1) throw new GenMenuError(`missing marker '${GROUPS_END}' in ${MENUS_TS} (appears ${groupsCount} times, expected exactly once)`);
+  const groupsCount = standaloneMarkerPositions(menusText, GROUPS_END).length;
+  if (groupsCount !== 1) throw new GenMenuError(`missing marker '${GROUPS_END}' in ${MENUS_TS} (found ${groupsCount} standalone occurrences, expected exactly once)`);
   assertMarkerInsideArray(menusText, 'GROUPS', GROUPS_END);
   assertMarkerInsideArray(menusText, 'MENUS', SPREADS_END);
   assertImportsOnly(menusText);
 }
 
-function countOccurrences(text: string, needle: string): number {
-  return text.split(needle).length - 1;
+/**
+ * R3: positions where `marker` occurs as a real standalone comment token — the scanner tracks
+ * code/string/template/line-comment/block-comment state, so markers nested inside a block
+ * comment, a string or a template literal are not counted.
+ */
+function standaloneMarkerPositions(text: string, marker: string): number[] {
+  const found: number[] = [];
+  let state: 'code' | 'line' | 'block' | 'single' | 'double' | 'template' = 'code';
+  let i = 0;
+  while (i < text.length) {
+    if (state === 'code' && text.startsWith(marker, i)) {
+      found.push(i);
+      if (marker.startsWith('//')) {
+        while (i < text.length && text[i] !== '\n') i++;
+        continue;
+      }
+      i += marker.length;
+      continue;
+    }
+    const ch = text[i];
+    if (state === 'code') {
+      if (ch === '/' && text[i + 1] === '/') {
+        state = 'line';
+        i += 2;
+        continue;
+      }
+      if (ch === '/' && text[i + 1] === '*') {
+        state = 'block';
+        i += 2;
+        continue;
+      }
+      if (ch === "'") {
+        state = 'single';
+        i++;
+        continue;
+      }
+      if (ch === '"') {
+        state = 'double';
+        i++;
+        continue;
+      }
+      if (ch === '`') {
+        state = 'template';
+        i++;
+        continue;
+      }
+    } else if (state === 'line') {
+      if (ch === '\n') state = 'code';
+    } else if (state === 'block') {
+      if (ch === '*' && text[i + 1] === '/') {
+        state = 'code';
+        i += 2;
+        continue;
+      }
+    } else if (ch === '\\') {
+      i += 2;
+      continue;
+    } else if ((state === 'single' && ch === "'") || (state === 'double' && ch === '"') || (state === 'template' && ch === '`')) {
+      state = 'code';
+    }
+    i++;
+  }
+  return found;
 }
+
+/** R3: the proposed menus.ts must wire the new binding actively, not just parse. */
+function assertActiveWiring(menusEdit: string, binding: string, pkgName: string): void {
+  const sf = ts.createSourceFile(MENUS_TS, menusEdit, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  let importActive = false;
+  let spreadActive = false;
+  for (const stmt of sf.statements) {
+    if (ts.isImportDeclaration(stmt) && ts.isStringLiteral(stmt.moduleSpecifier) && stmt.moduleSpecifier.text === pkgName) {
+      const clause = stmt.importClause;
+      if (clause?.namedBindings !== undefined && ts.isNamedImports(clause.namedBindings)) {
+        for (const el of clause.namedBindings.elements) {
+          if (el.name.text === binding && (el.propertyName === undefined || (ts.isIdentifier(el.propertyName) && el.propertyName.text === 'manifests'))) {
+            importActive = true;
+          }
+        }
+      }
+    }
+    if (ts.isVariableStatement(stmt)) {
+      for (const d of stmt.declarationList.declarations) {
+        if (!(ts.isIdentifier(d.name) && d.name.text === 'MENUS') || d.initializer === undefined || !ts.isArrayLiteralExpression(d.initializer)) continue;
+        for (const element of d.initializer.elements) {
+          if (ts.isSpreadElement(element) && ts.isIdentifier(element.expression) && element.expression.text === binding) {
+            spreadActive = true;
+          }
+        }
+      }
+    }
+  }
+  if (!importActive) throw new GenMenuError(`proposed ${MENUS_TS} has no active import of '${binding}' from '${pkgName}' — refusing to write`);
+  if (!spreadActive) throw new GenMenuError(`proposed ${MENUS_TS} has no active spread of '${binding}' inside MENUS — refusing to write`);
+}
+
 
 function insertAbove(text: string, marker: string, line: string): string {
   const { lines, eol } = splitLines(text);
@@ -483,6 +588,8 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
     const first = parsed.diagnostics[0];
     throw new GenMenuError(`proposed ${MENUS_TS} does not parse: ${ts.flattenDiagnosticMessageText(first?.messageText, '\n')} — refusing to write`);
   }
+  // R3: the wiring must be active code in the proposed AST, not commented-out text.
+  assertActiveWiring(menusEdit, binding, menuPackage(folder));
   const stylesEdit = insertAbove(stylesText, STYLES_END, styleLine(inputs));
   const pkgEdit = insertDep(appPkgText, menuPackage(folder));
   // R4: the planned dependency block must stay valid JSON before anything is written.

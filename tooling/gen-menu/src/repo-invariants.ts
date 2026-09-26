@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { PACKAGE_PREFIX } from './prefix.ts';
 import {
   APP_PKG, GROUPS_END, IMPORT_END, IMPORT_START, MENUS_TS, SPREADS_END, SPREADS_START,
-  STYLES_END, STYLES_START, STYLE_CSS, parseDepLine,
+  STYLES_END, STYLES_START, STYLE_CSS, manifestEntries, parseDepLine,
 } from './generate.ts';
 
 const CONTRACTS_MENU = 'packages/contracts/src/menu.ts';
@@ -94,14 +94,17 @@ export function checkGroups(shape: RepoShape): void {
   const union = groupUnion(shape.contracts);
   const menusLines = shape.menusTs.split('\n');
   const groupsSection = menusLines.slice(0, markerIndex(menusLines, GROUPS_END)).join('\n');
-  const owners = Object.entries(shape.indexes);
+  const owners = Object.entries(shape.indexes).map(([folder, text]) => ({
+    folder,
+    entries: manifestEntries(text, `menus/${folder}/src/index.ts`),
+  }));
   for (const group of union) {
     const rowRe = new RegExp(`(?<![\\w$])id: '${group}'`);
     const rows = groupsSection.split('\n').filter(l => rowRe.test(l)).length;
     if (rows !== 1) throw new Error(`group '${group}' must have exactly one GROUPS row, found ${rows}`);
-    const owned = owners.filter(([, text]) => new RegExp(`(?<![\\w$])group: '${group}'`).test(text));
+    const owned = owners.filter(o => o.entries.some(e => e.group === group));
     if (owned.length !== 1) {
-      throw new Error(`group '${group}' must be owned by exactly one menus/*/src/index.ts, found ${owned.length === 0 ? 'none' : owned.map(([f]) => f).join(',')}`);
+      throw new Error(`group '${group}' must be owned by exactly one menus/*/src/index.ts, found ${owned.length === 0 ? 'none' : owned.map(o => o.folder).join(',')}`);
     }
   }
 }

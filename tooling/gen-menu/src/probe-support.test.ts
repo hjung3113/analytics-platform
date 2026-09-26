@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -28,6 +28,26 @@ describe('probe support helpers (F8)', () => {
     mkdirSync(join(root, 'apps/platform-web/src'), { recursive: true });
     writeFileSync(join(root, 'apps/platform-web/src/gen-probe.test.ts'), 'stale\n');
     expect(() => preflightReservedPaths(root)).toThrow(/gen-probe\.test\.ts/);
+  });
+
+  it('preflight counts a dangling test-file symlink as present (R5)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gen-menu-preflight-'));
+    mkdirSync(join(root, 'apps/platform-web/src'), { recursive: true });
+    const outside = mkdtempSync(join(tmpdir(), 'gen-menu-preflight-out-'));
+    const target = join(outside, 'valuable.ts');
+    symlinkSync(target, join(root, 'apps/platform-web/src/gen-probe.test.ts'));
+    expect(() => preflightReservedPaths(root)).toThrow(/gen-probe\.test\.ts/);
+    expect(existsSync(target)).toBe(false);
+  });
+
+  it('preflight counts a dangling package-dir symlink as present (R5)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gen-menu-preflight-'));
+    mkdirSync(join(root, 'menus'), { recursive: true });
+    const outsideBase = mkdtempSync(join(tmpdir(), 'gen-menu-preflight-out-'));
+    const target = join(outsideBase, 'menus-dir');
+    symlinkSync(target, join(root, 'menus', 'gen-probe'), 'dir');
+    expect(() => preflightReservedPaths(root)).toThrow(/gen-probe/);
+    expect(existsSync(target)).toBe(false);
   });
 });
 
