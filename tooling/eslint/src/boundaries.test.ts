@@ -156,6 +156,8 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `await import('@ap/mock-server');`, rule: '' },
   { file: MENU, code: `lazy(() => import('./pages/X'));`, rule: '' },
   { file: 'packages/kernel/src/x.ts', code: `await import('@ap/contracts');`, rule: '' },
+  { file: MENU, code: `lazy(() => import('@ap/menu-equipment'));`, rule: 'ap/restricted-import-source' },
+  { file: 'packages/kernel/src/x.ts', code: `await import('@ap/mock-server');`, rule: 'ap/restricted-import-source' },
 
   // --- F1: globalThis.location writes ---
   { file: MENU, code: `globalThis.location.href = '/x';`, rule: 'no-restricted-syntax', token: 'window.location' },
