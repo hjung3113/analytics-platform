@@ -1,5 +1,7 @@
 # 6a — boundary + contract lint (`@ap/eslint-config`)
 
+> **As implemented (supersedes parts of this design):** after the Astra review (`6a-review.md`, `6a-rereview.md`) there are three local rules — `ap/no-relative-package-escape` (also `require`, import types, `import x = require`), `ap/restricted-import-source` (literal `import()`, import types, `require` with the same layer data as `no-restricted-imports`) and `ap/no-hand-built-url` (replaces the query selectors below). F1's fix is a module store (`menus/home/src/pages/dismissed-notices.ts`) with a remount test, not `useState`. Test counts below (74 / 141) are the pre-review numbers.
+
 Design only. 6b `gen:menu` is out of scope except the files it must emit. Do not lint `prototypes/`, `products/`, or CSS. Do not add formatting, `eslint:recommended`, `@typescript-eslint` recommended, or type-aware `projectService`. No new workflow job. Do not edit `HANDOFF.md`.
 
 Current tree was read on `hjung3113/step6a-boundary-lint` (workspace after step 5). One live violation (F1) must be fixed in this PR. Do not allowlist it.

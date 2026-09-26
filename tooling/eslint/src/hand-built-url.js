@@ -8,8 +8,9 @@ function literalMatches(node) {
  * Walk only the expressions that actually construct the URL. Approved URL
  * builders (linkTo calls, identifiers, member reads) stop the walk, so data
  * handed to them — including query-like keys and localized text with `?` or
- * `&` — is never reported. Condition tests and logical left sides are not
- * part of the URL and are skipped.
+ * `&` — is never reported. For logical expressions both sides are value
+ * positions except the guard operand of `&&`, which is a condition, not the
+ * URL. Condition tests of conditionals are likewise conditions, not the URL.
  */
 function walk(node, report) {
   if (!node) return;
@@ -18,13 +19,16 @@ function walk(node, report) {
       if (literalMatches(node)) report(node);
       return;
     case 'TemplateLiteral': {
-      // Quasis are the URL text; expressions are values the builder encodes.
+      // Raw interpolation is not encoded: quasis are URL text, and a
+      // substitution can itself be the URL (or part of one), so expressions
+      // go through the same walker.
       for (const quasi of node.quasis) {
         if (QUERY_PATTERN.test(quasi.value.raw)) {
           report(node);
           return;
         }
       }
+      for (const expression of node.expressions) walk(expression, report);
       return;
     }
     case 'BinaryExpression':
@@ -38,10 +42,19 @@ function walk(node, report) {
       walk(node.alternate, report);
       return;
     case 'LogicalExpression':
+      // `&&` left operand is a guard condition; both sides of `??`/`||`
+      // can be the returned URL.
+      if (node.operator === '&&') {
+        walk(node.right, report);
+        return;
+      }
+      walk(node.left, report);
       walk(node.right, report);
       return;
     case 'TSAsExpression':
+    case 'TSSatisfiesExpression':
     case 'TSNonNullExpression':
+    case 'TSTypeAssertion':
     case 'ParenthesizedExpression':
       walk(node.expression, report);
       return;

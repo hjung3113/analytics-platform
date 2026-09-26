@@ -88,12 +88,51 @@ const noRelativePackageEscape = {
       checkLiteral(arg);
     };
 
+    // typeof import('<relative>') / type T = import('<relative>').X
+    // typescript-estree <8 puts the string in `argument` (as a TSLiteralType
+    // or Literal), >=8 in `source` (Literal).
+    const checkImportType = (node) => {
+      const candidate = node.source ?? node.argument;
+      if (!candidate) return;
+      const literal =
+        candidate.type === 'Literal'
+          ? candidate
+          : candidate.type === 'TSLiteralType'
+            ? candidate.literal
+            : null;
+      if (
+        literal &&
+        literal.type === 'Literal' &&
+        typeof literal.value === 'string' &&
+        literal.value.startsWith('.')
+      ) {
+        checkLiteral(literal);
+      }
+    };
+
+    // import x = require('<relative>')
+    const checkImportEquals = (node) => {
+      const ref = node.moduleReference;
+      if (!ref || ref.type !== 'TSExternalModuleReference') return;
+      const expression = ref.expression;
+      if (
+        expression &&
+        expression.type === 'Literal' &&
+        typeof expression.value === 'string' &&
+        expression.value.startsWith('.')
+      ) {
+        checkLiteral(expression);
+      }
+    };
+
     return {
       ImportDeclaration: checkNode,
       ExportNamedDeclaration: checkNode,
       ExportAllDeclaration: checkNode,
       ImportExpression: checkNode,
       CallExpression: checkRequire,
+      TSImportType: checkImportType,
+      TSImportEqualsDeclaration: checkImportEquals,
     };
   },
 };

@@ -166,6 +166,19 @@ const rows: Row[] = [
   { file: MENU, code: `navigate(linkTo('home', { page: { q: '왜?' } }));`, rule: '' },
   { file: MENU, code: `<a href={linkTo('home', { page: { q: 'R&D' } })} />`, rule: '' },
   { file: MENU, code: `navigate(confirm('이동할까요?') ? linkTo('home') : linkTo('equipment'));`, rule: '' },
+
+  // --- N1: URL values hidden in ??/||, template substitutions, satisfies ---
+  { file: MENU, code: `navigate((preferred ? '/equipment?x=1' : null) ?? linkTo('home'));`, rule: 'ap/no-hand-built-url', token: 'query string' },
+  { file: MENU, code: 'navigate(`/equipment${ok ? \'?x=1\' : \'\'}`);', rule: 'ap/no-hand-built-url', token: 'query string' },
+  { file: MENU, code: `navigate('/equipment?x=1' satisfies string);`, rule: 'ap/no-hand-built-url', token: 'query string' },
+  { file: MENU, code: 'navigate(`${linkTo(\'home\')}`);', rule: '' },
+  { file: MENU, code: `navigate(ok && linkTo('home'));`, rule: '' },
+  { file: MENU, code: `navigate(linkTo('home') ?? linkTo('equipment'));`, rule: '' },
+
+  // --- N2: relative sources in TS import type / import-equals escape ---
+  { file: MENU, code: `type X = typeof import('../../../../packages/mock-server/src/index');`, rule: 'ap/no-relative-package-escape' },
+  { file: MENU, code: `import x = require('../../../../packages/mock-server/src/index');`, rule: 'ap/no-relative-package-escape' },
+  { file: MENU, code: `type X = typeof import('../api');`, rule: '' },
 ];
 
 describe('boundary + contract fixtures', () => {
