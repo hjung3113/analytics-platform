@@ -4,7 +4,7 @@ import { useI18n } from '../../kernel/i18n';
 import { PlatformLink, usePlatform } from '../../kernel/platform';
 import { usePlatformQuery } from '../../kernel/query';
 import { serve } from '../../mock/server';
-import { parseDateTime } from '../../kernel/url';
+import { parseDateTime, safeReturnTo } from '../../kernel/url';
 import { DataTrustIndicator } from '../../platform/DataTrustIndicator';
 import { Panel, PlatformPage } from '../../platform/PlatformPage';
 import { QueryView, StateMessage } from '../../platform/StateView';
@@ -20,17 +20,17 @@ const SEGMENT_CLASS: Record<SegmentKind, string> = {
 
 export default function ExecutionDetail({ params }: PageProps) {
   const { lang } = useI18n();
-  const { global, role, pageParam, linkTo } = usePlatform();
+  const { global, role, pageParam, linkTo, returnTarget } = usePlatform();
   const ko = lang === 'ko';
   const equipmentId = params.equipmentId;
   const entityType = pageParam('entityType');
   const anchor = pageParam('anchor');
-  const returnTo = pageParam('returnTo');
   const errors = identityErrors(entityType, anchor, ko);
   const valid = errors.length === 0;
   const metric = resolveMetric(global);
   const metricVersion = metric.kind === 'unconfirmed' ? null : metric.metricVersion;
-  const backHref = returnTo ?? linkTo('cycle-time');
+  const backHref = returnTarget();
+  const restored = safeReturnTo(pageParam('returnTo')) !== null;
 
   // serve() always applies selection/room/condition/lot/recipe. This menu declares them reference,
   // so the occurrence lookup passes a copy with those filters cleared and does not pass maxHours
@@ -63,7 +63,7 @@ export default function ExecutionDetail({ params }: PageProps) {
         {ko
           ? 'Time·room·condition·selection·lot·ppid·recipe·metric은 참조입니다. 상세에서 본 설비로 전역 Selection을 바꾸지 않습니다. VOC 메뉴에는 occurrence page key가 없어 전역 Context만 전달됩니다.'
           : 'Time, room, condition, selection, lot, ppid, recipe and metric are reference only. This page does not rewrite the global selection to the equipment it shows. VOC has no occurrence page key, so only the global context is carried.'}
-        {returnTo ? '' : (ko ? ' returnTo가 없어 사이클타임 분석의 현재 Context로 돌아갑니다.' : ' returnTo is absent, so Back opens cycle time with the current context.')}
+        {restored ? '' : (ko ? ' returnTo가 없어 사이클타임 분석의 현재 Context로 돌아갑니다.' : ' returnTo is absent, so Back opens cycle time with the current context.')}
       </p>
 
       <Panel title={ko ? 'Occurrence 식별' : 'Occurrence identity'} subtitle={ko ? '분석 Context와 별도입니다. Lot은 검색 보조이지 대체 키가 아닙니다.' : 'Separate from the analysis context. Lot is a search aid, not a substitute key.'}>

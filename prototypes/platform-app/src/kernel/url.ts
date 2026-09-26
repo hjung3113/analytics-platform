@@ -1,3 +1,5 @@
+import { matchRoute } from './registry';
+
 /**
  * Global Context URL contract (docs/06 §6.1–6.4). Field names are Candidate; mechanisms are Decided.
  * Extends the bounded kernel-app-shell codec: time, Lot/PPID/Recipe and the metric pair are applied
@@ -200,4 +202,34 @@ export function incompleteMetricPair(
   if (metricId === null || metricVersion !== null) return null;
   if (menu?.initializesMetric) return null;
   return new ContractError('metric_pair_incomplete', `metricId=${metricId} requires metricVersion on this route`);
+}
+
+/** Syntactic same-origin path. Detail routes still pass. Open redirects do not. */
+export function isAppRelativePath(value: string): boolean {
+  if (!value.startsWith('/') || value.startsWith('//')) return false;
+  if (value.includes('#') || value.includes('\\') || value.includes('//')) return false;
+  if (/[\u0000-\u001F\u007F]/.test(value)) return false;
+  let decoded: string;
+  try { decoded = decodeURIComponent(value); } catch { return false; }
+  if (!decoded.startsWith('/') || decoded.startsWith('//')) return false;
+  if (decoded.includes('#') || decoded.includes('\\') || decoded.includes('//')) return false;
+  if (/[\u0000-\u001F\u007F]/.test(decoded)) return false;
+  const path = decoded.split('?')[0];
+  if (path.includes(':')) return false;
+  return true;
+}
+
+/**
+ * Entry URL for “back”, or null. Registered non-detail menu, query parses for that menu.
+ * Returns the original string so the entry URL is not rewritten.
+ */
+export function safeReturnTo(value: string | null): string | null {
+  if (value === null || !isAppRelativePath(value)) return null;
+  const q = value.indexOf('?');
+  const path = q === -1 ? value : value.slice(0, q);
+  const search = q === -1 ? '' : value.slice(q);
+  const route = matchRoute(path);
+  if (!route || route.menu.navHidden) return null;
+  try { parseQuery(search, route.menu.pageKeys); } catch { return null; }
+  return value;
 }

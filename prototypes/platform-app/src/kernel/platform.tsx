@@ -3,7 +3,7 @@ import { DEFAULT_RANGE_TO, USERS, classifyMetricInit, type MetricInit, type Role
 import { getScenario, setScenario, subscribeScenario, validateScope, type Scenario } from '../mock/server';
 import { MENUS, matchRoute, menuById, pathFor, type MenuEntry, type Permission } from './registry';
 import { useI18n } from './i18n';
-import { ContractError, buildQuery, emptyGlobal, incompleteMetricPair, parseQuery, shift, type GlobalContext, type Pair, type ParsedQuery } from './url';
+import { ContractError, buildQuery, emptyGlobal, incompleteMetricPair, isAppRelativePath, parseQuery, safeReturnTo, shift, type GlobalContext, type Pair, type ParsedQuery } from './url';
 
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope'; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
@@ -25,6 +25,7 @@ type Platform = {
   setPage: (patch: Record<string, string | null>, options?: { replace?: boolean }) => void;
   resetContext: () => void;
   linkTo: (menuId: string, options?: LinkOptions) => string;
+  returnTarget: () => string;
   user: User;
   role: RoleId;
   setRole: (role: RoleId) => void;
@@ -94,6 +95,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const extras = parsed?.extras ?? [];
 
   const navigate = useCallback((next: string, options?: { replace?: boolean }) => {
+    if (!isAppRelativePath(next)) return;
     if (next === currentUrl()) return;
     if (options?.replace) window.history.replaceState(null, '', next); else window.history.pushState(null, '', next);
     setUrl(currentUrl());
@@ -202,9 +204,14 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   }, [route, pathname]);
 
   const pageParam = useCallback((key: string) => page.find(([k]) => k === key)?.[1] ?? null, [page]);
+  const returnTarget = useCallback(() => {
+    const safe = safeReturnTo(pageParam('returnTo'));
+    if (safe) return safe;
+    return linkTo(route?.menu.parent ?? 'home');
+  }, [pageParam, route, linkTo]);
 
   const value: Platform = {
-    url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo,
+    url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, returnTarget,
     user, role, setRole, can, visibleMenus, scope, lastScope, favorites, toggleFavorite, recent, usage,
     toasts, toast, dismissToast, scenario, setScenario, defaultRangeTo: DEFAULT_RANGE_TO, paletteOpen, setPaletteOpen,
   };
