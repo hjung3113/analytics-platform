@@ -2,7 +2,7 @@
 
 > 상태: [05 Decided "다음 구현 범위: 프론트엔드 플랫폼 틀 + 메뉴 개발 환경"](../05_roadmap_and_open_questions.md)의 첫 단계로 패키지 경계와 의존 방향을 정한다. §8의 5개 항목은 2026-09-26 사용자가 제안안대로 **Decided**. `PlatformAdapter`·`MenuMeta`·`evaluateSelection` 같은 필드·타입 이름은 구현하면서 바뀔 수 있는 Candidate다.
 >
-> 진행(2026-09-27): §7의 1–4d단계 완료(PR #17–#23). 5a(`@ap/mock-server` 추출) 완료. 5b(메뉴별 `api.ts`)·5c(메뉴 패키지)와 6단계(경계 lint·생성기)가 남았다. 아래 §2의 경로는 분리 전 `platform-app` 기준이다.
+> 진행(2026-09-27): §7의 1–4d단계 완료(PR #17–#23). 5a(`@ap/mock-server` 추출)·5b(메뉴별 `api.ts`) 완료. 5c(메뉴 패키지)와 6단계(경계 lint·생성기)가 남았다. 아래 §2의 경로는 분리 전 `platform-app` 기준이다.
 >
 > 근거: `prototypes/platform-app/src`의 import 그래프(2026-09-26, `main` `ebb471c`), [06 §3 아키텍처](../06_platform_ui_contract.md#3-platform-ui-architecture), [§4 Kernel 책임](../06_platform_ui_contract.md#4-platform-kernel-responsibilities), [§5 Menu Extension Contract](../06_platform_ui_contract.md#5-menu-extension-contract), [§13 컴포넌트 층](../06_platform_ui_contract.md#13-shared-component-layers).
 
@@ -171,7 +171,7 @@ const registry = createRegistry({ groups: GROUPS, menus: [...home.manifests, ...
    - 4c **components (완료):** Kernel `PlatformProvider slots={{ contextBar, topBarTools }}`(06 §8 Shell Slots)를 도입해 `PlatformPage`가 셸을 import하지 않게 함(D4). `src/platform/*`을 `packages/components`(`@ap/components`)로 이동, Tailwind 스캔용 `@ap/components/styles.css`(`@source`). 빌드 CSS가 4b와 동일(selector 629개, 해시 동일).
    - 4d **shell (완료):** GlobalContextBar가 `contextOptions`/`evaluateSelection`을 Kernel `useAdapterRequest`(usePlatformQuery와 같은 무효화 규칙)로 호출해 mock 의존 0건(D5 해소). mock 구현은 이전 클라이언트 계산과 결과가 같음을 테스트로 확인. `src/shell/*`과 `App.tsx`의 라우트 출력(`RouteOutlet`: 미등록·계약 오류·권한·미구현 상태)을 `packages/shell`(`@ap/shell`)로 이동. 이제 앱에는 조립(`main.tsx`), 메뉴 선언(`menus.ts`), 메뉴 화면(`pages/`), mock, dev 도구만 남는다.
 5. **5a — mock-server 추출 (완료):** `apps/platform-web/src/mock/*`를 `packages/mock-server`(`@ap/mock-server`)로 이동. 페이지는 아직 `@ap/mock-server`의 `serve`를 직접 호출하고, 교차 테스트(`jobs-population`, `published-metrics`)는 앱에 남는다.
-   - **5b — 메뉴별 `api.ts` (미완료):** 메뉴마다 `api.ts` 한 파일만 데이터 원천을 알게 한다(D8, §3 규칙 3).
+   - **5b — 메뉴별 `api.ts` (완료):** 그룹마다 `pages/<area>/api.ts`가 `@ap/mock-server`의 유일한 페이지 접점(D8, §3 규칙 3 — `menu-*` 패키지는 아직 없고 `apps/platform-web/src/pages` 트리가 그 대역). D8의 import 벽만 해소. 집계의 서버 이관과 `menus/*`는 5c 이후.
    - **5c — 메뉴 패키지 (미완료):** 그룹별로 `menus/*`로 이동, Registry를 manifest 등록 방식으로(D1). `jobs-population`은 `menu-analytics`로 옮기고 두 메뉴를 잇는 `published-metrics`는 앱 통합 테스트로 남기며(D10 나머지) Kernel 테스트를 fixture Registry로 전환(D10).
 6. **경계 lint와 생성기:** 규칙 켜고 CI에 추가, `gen:menu`로 빈 메뉴 하나를 만들어 검증한 뒤 삭제.
 

@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { serve } from '@ap/mock-server';
-import type { Equipment } from '@ap/mock-server';
+import { serve, type Equipment } from './api';
 import { DetailDrawer, PlatformDataTable, PlatformPage, QueryView, sortAndPage } from '@ap/components';
 import { Button } from '@ap/ui';
 import { EquipmentPanel, EquipmentStatus } from './EquipmentDetail';

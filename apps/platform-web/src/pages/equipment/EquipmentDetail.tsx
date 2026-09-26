@@ -1,7 +1,7 @@
 import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { AuditTimeline, DataTrustIndicator, Field, PlatformPage, QueryView } from '@ap/components';
 import { Button, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
-import type { Equipment } from '@ap/mock-server';
+import type { Equipment } from './api';
 import { audit, equipmentRequest, fields, statusText, statusTone, validity } from './data';
 
 export function EquipmentStatus({ equipment }: { equipment: Equipment }) {

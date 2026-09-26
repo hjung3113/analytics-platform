@@ -5,8 +5,8 @@
  * strings and are never shortened to join or display.
  */
 import { formatDateTime, type GlobalContext, parseDateTime, shift } from '@ap/contracts';
-import { EQUIPMENT, type Equipment } from '@ap/mock-server';
-import { bucketStart as jobBucketStart, cycleMinutes, jobPercentile, jobsForEquipmentDay, jobsInPeriod, type Job } from '@ap/mock-server';
+import { EQUIPMENT, getScenario, resolveEquipment, type Equipment } from './api';
+import { bucketStart as jobBucketStart, cycleMinutes, jobPercentile, jobsForEquipmentDay, jobsInPeriod, type Job } from './api';
 
 export const PAGE_METRIC_ID = 'cycle_time';
 export const PAGE_METRIC_VERSION = '3';
@@ -192,6 +192,18 @@ export function population(equipment: Equipment[], global: GlobalContext, versio
     if (global.ppid !== null && job.ppid !== global.ppid) return false;
     return true;
   }).map(job => executionFromJob(job, version));
+}
+
+export function rowsForExport(global: GlobalContext, version: string | null):
+  | { status: 'unavailable' } | { status: 'rejected' } | { status: 'ok'; rows: Execution[] } {
+  const scenario = getScenario();
+  if (version === null || scenario === 'error' || scenario === 'forbidden' || scenario === 'timeout' || scenario === 'too_large') {
+    return { status: 'unavailable' };
+  }
+  const resolved = resolveEquipment(global);
+  if (resolved.forbidden || !global.from || !global.to) return { status: 'rejected' };
+  const rows = scenario === 'empty' ? [] : population(resolved.rows, global, version);
+  return { status: 'ok', rows };
 }
 
 export function slowExecutions(

@@ -3,14 +3,13 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { AlertTriangle, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
 import type { Trust } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { CYCLE_VERSION_NOTE } from '@ap/mock-server';
-import { getScenario, periodHours, resolveEquipment, serve } from '@ap/mock-server';
+import { CYCLE_VERSION_NOTE, periodHours, serve } from './api';
 import { AnalysisChartFrame, type ColumnMeta, DataTrustIndicator, type Delta, PlatformDataTable, PlatformPage, QueryView, sortAndPage, StatCard, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import {
   DEFAULT_SORT, MAX_HOURS, PAGE_METRIC_ID, SORT_COLUMNS, bucketContaining, bucketEnd,
   encodeSort, histogram, parseSortParam, percentile, population, previousWindow, resolveGranularity,
-  resolveMetric, resolveTail, slowExecutions, trendOf, executionKey, equipmentIdFromKey,
+  resolveMetric, rowsForExport, resolveTail, slowExecutions, trendOf, executionKey, equipmentIdFromKey,
   type Granularity, type ResolvedMetric, type SlowRow, type SortColumn, type TailMode,
 } from './cycleData';
 
@@ -117,18 +116,16 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const granularityPending = granularityRaw === null && hours === null;
 
   function exportRows(scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered'; total: number }) {
-    // Export is computed client-side in this prototype, so it asks the mock server for its current scenario.
-    const scenario = getScenario();
-    if (cycleVersion === null || scenario === 'error' || scenario === 'forbidden' || scenario === 'timeout' || scenario === 'too_large') {
+    const result = rowsForExport(global, cycleVersion);
+    if (result.status === 'unavailable') {
       toast(ko ? '이 응답 상태에서는 목록을 내보내지 않습니다.' : 'Export is not available for this response state.');
       return;
     }
-    const resolved = resolveEquipment(global);
-    if (resolved.forbidden || !global.from || !global.to) {
+    if (result.status === 'rejected') {
       toast(ko ? '서버가 이 조건의 내보내기를 거부했습니다.' : 'The server rejected export for this context.');
       return;
     }
-    const rows = scenario === 'empty' ? [] : populationForVersion(resolved.rows, global, cycleVersion);
+    const rows = result.rows;
     const p50 = percentile(rows.map(row => row.cycleMin), 0.5);
     const p95 = percentile(rows.map(row => row.cycleMin), 0.95);
     let list = slowExecutions(rows, tailMode, p50, p95, bucketRange, bin);

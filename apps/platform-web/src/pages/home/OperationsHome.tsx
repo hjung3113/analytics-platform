@@ -1,7 +1,7 @@
 import { ArrowRight, Clock3, Lock, Megaphone, Star, X } from 'lucide-react';
 import { useState } from 'react';
 import { PAGE_TYPE_LABELS, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { serve } from '@ap/mock-server';
+import { serve } from './api';
 import { Panel, PlatformPage, QueryView } from '@ap/components';
 import { StatusBadge } from '@ap/ui';
 

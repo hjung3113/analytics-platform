@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { serve } from '@ap/mock-server';
+import { serve } from './api';
 import { type ColumnMeta, PlatformDataTable, PlatformPage, QueryView, sortAndPage } from '@ap/components';
 import { Button, Input, StatusBadge } from '@ap/ui';
 import {
