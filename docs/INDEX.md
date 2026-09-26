@@ -61,6 +61,8 @@
 
 - [공통 컴포넌트/계약 후보](integration/component-contract-candidates.md) — 위 아이디어 모음에서 필드 수준 계약으로 뽑아낼 수 있는 것만 추려 정리. Research/Candidate이며 06/01/03에 반영되기 전 초안이다.
 
+- [플랫폼 모노레포 패키지 경계](integration/platform-packages.md) — `platform-app`을 contracts/ui/kernel/components/shell/mock-server/메뉴 패키지로 나누는 경계·의존 방향·메뉴 템플릿·이행 순서. Candidate이며 사용자 확인 전에는 코드를 옮기지 않는다.
+
 - [Standard Log Lifecycle](references/standard-log-lifecycle/README.md) — 모델 표준 로그 개발·검증·결함·재검증 관리의 설계 참고. 원본 커밋에 고정한 Markdown 7개, 출처·해시 manifest와 4개 화면 시안 적용 범위를 포함한다. 기존 플랫폼 계약을 대체하지 않는다.
 
 ## 현재 작업과 과거 기록
