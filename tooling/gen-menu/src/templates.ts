@@ -1,3 +1,4 @@
+import ts from 'typescript';
 import { PACKAGE_PREFIX } from './prefix.ts';
 
 export type PageType = 'overview' | 'analysis' | 'management' | 'catalog' | 'workflow';
@@ -50,6 +51,26 @@ export const renderFiles = (i: MenuInputs): { relPath: string; content: string }
   { relPath: `src/pages/${i.page}.tsx`, content: pageTsx(i) },
   { relPath: 'src/manifest.test.ts', content: manifestTest(i) },
 ];
+
+const SAMPLE_PAGE_INPUTS: MenuInputs = {
+  group: 'sample', folder: 'sample', menuId: 'sample', page: 'Sample',
+  path: '/sample', pageType: 'overview', labelKo: 'x', labelEn: 'x', binding: 'sample',
+};
+
+/** F5: identifiers the generated page imports — the component name must never collide with these. */
+export function pageImportedIdentifiers(): string[] {
+  const sf = ts.createSourceFile('page.tsx', pageTsx(SAMPLE_PAGE_INPUTS), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const names: string[] = [];
+  for (const stmt of sf.statements) {
+    if (!ts.isImportDeclaration(stmt) || stmt.importClause === undefined) continue;
+    const clause = stmt.importClause;
+    if (clause.name !== undefined) names.push(clause.name.text);
+    if (clause.namedBindings !== undefined && ts.isNamedImports(clause.namedBindings)) {
+      for (const element of clause.namedBindings.elements) names.push(element.name.text);
+    }
+  }
+  return names;
+}
 
 function packageJson(i: MenuInputs): string {
   const body = {
@@ -114,7 +135,8 @@ function pageTsx(i: MenuInputs): string {
 import { PlatformPage, QueryView } from '${PACKAGE_PREFIX}components';
 import { serve } from '../api';
 
-export default function ${i.page}() {
+// The Screen suffix keeps the component name clear of the imports above (review F5).
+export default function ${i.page}Screen() {
   const { global } = usePlatform();
   const { lang } = useI18n();
   const query = usePlatformQuery(signal => serve({

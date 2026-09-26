@@ -1,8 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, realpathSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 import {
-  depLine, importLine, menuPackage, renderFiles, spreadLine, styleLine,
+  depLine, importLine, menuPackage, pageImportedIdentifiers, renderFiles, spreadLine, styleLine,
   PAGE_TYPES, type MenuInputs, type PageType,
 } from './templates.ts';
 
@@ -14,7 +15,8 @@ const MENU_ID_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 const PATH_SEGMENT = '([a-z0-9]+(-[a-z0-9]+)*|:[a-z][a-zA-Z0-9]*)';
 const PATH_RE = new RegExp(`^/${PATH_SEGMENT}(/${PATH_SEGMENT})*$`);
 
-/** Bindings and identifiers: reject reserved words that would break `import { manifests as <binding> }`. */
+/** Bindings and identifiers: reject reserved words that would break `import { manifests as <binding> }`,
+ * plus strict-mode-only bindings (`eval`, `arguments`) (F5). */
 const RESERVED_WORDS: Record<string, true> = {
   break: true, case: true, catch: true, class: true, const: true, continue: true, debugger: true,
   default: true, delete: true, do: true, else: true, enum: true, export: true, extends: true,
@@ -22,7 +24,7 @@ const RESERVED_WORDS: Record<string, true> = {
   instanceof: true, new: true, null: true, return: true, super: true, switch: true, this: true,
   throw: true, true: true, try: true, typeof: true, var: true, void: true, while: true, with: true,
   yield: true, let: true, static: true, await: true, implements: true, interface: true,
-  package: true, private: true, protected: true, public: true,
+  package: true, private: true, protected: true, public: true, eval: true, arguments: true,
 };
 
 export const MENUS_TS = 'apps/platform-web/src/menus.ts';
@@ -45,8 +47,11 @@ export const kebab = (camel: string): string => camel.replace(/[A-Z]/g, c => `-$
 export const pageName = (menuId: string): string =>
   menuId.split('-').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('');
 
-/** Erase `:param` names so `/metrics/:metricId` and `/metrics/:other` count as the same shape. */
-export const pathShape = (path: string): string => path.replace(/:[a-zA-Z0-9]+/g, ':');
+/** Route shapes — mirrors packages/kernel/src/registry.ts createRegistry: split on '/', drop empty
+ * segments (leading/trailing/double slashes), whole-segment params become ':'. Static-vs-param
+ * overlaps are allowed by the kernel, so only identical shapes collide. */
+export const pathShape = (path: string): string =>
+  `/${path.split('/').filter(Boolean).map(s => (s.startsWith(':') ? ':' : s)).join('/')}`;
 
 /** Walk up from the generator's own directory for `pnpm-workspace.yaml`. */
 export function findWorkspaceRoot(startDir: string): string {
@@ -75,22 +80,163 @@ function readText(root: string, rel: string): string {
   return readFileSync(path, 'utf8');
 }
 
-/** Every `menus/<folder>/src/index.ts` that exists; folders without one are skipped. */
-function menuIndexes(root: string): { folder: string; text: string }[] {
-  const menusDir = join(root, 'menus');
-  if (!existsSync(menusDir)) return [];
-  return readdirSync(menusDir, { withFileTypes: true })
-    .filter(e => e.isDirectory())
-    .map(e => existsSync(join(menusDir, e.name, 'src', 'index.ts'))
-      ? { folder: e.name, text: readFileSync(join(menusDir, e.name, 'src', 'index.ts'), 'utf8') }
-      : null)
-    .filter(x => x !== null);
+/** A plain string literal for the id/group/path properties of one manifest entry (F6). */
+export type ManifestEntry = { id: string; group: string; path: string };
+
+/**
+ * F6: collect id/group/path string literals from the `manifests` array of one index file with the
+ * TS parser — any quote style, any spacing. Entries that are not plain object literals of plain
+ * string literals (spreads, computed values, template expressions) are refused, never skipped.
+ */
+export function manifestEntries(sourceText: string, rel: string): ManifestEntry[] {
+  const sf = ts.createSourceFile(rel, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const entries: ManifestEntry[] = [];
+  for (const stmt of sf.statements) {
+    if (!ts.isVariableStatement(stmt)) continue;
+    for (const d of stmt.declarationList.declarations) {
+      if (!(ts.isIdentifier(d.name) && d.name.text === 'manifests')) continue;
+      const init = d.initializer;
+      if (init === undefined || !ts.isArrayLiteralExpression(init)) {
+        throw new GenMenuError(`unsupported manifest form in ${rel} — manifests must be an array literal`);
+      }
+      for (const element of init.elements) {
+        if (!ts.isObjectLiteralExpression(element)) unsupportedEntry(rel);
+        const values: { id?: string; group?: string; path?: string } = {};
+        for (const prop of element.properties) {
+          if (!ts.isPropertyAssignment(prop)) continue;
+          const name = ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name) ? prop.name.text : undefined;
+          if (name === undefined || (name !== 'id' && name !== 'group' && name !== 'path')) continue;
+          if (!ts.isStringLiteral(prop.initializer)) unsupportedEntry(rel);
+          values[name] = prop.initializer.text;
+        }
+        if (values.id === undefined || values.group === undefined || values.path === undefined) unsupportedEntry(rel);
+        entries.push({ id: values.id, group: values.group, path: values.path });
+      }
+    }
+  }
+  return entries;
 }
 
-/** The nearest `id: '…'` above the match — names the menu that owns a colliding path. */
-function owningMenuId(text: string, at: number): string {
-  const matches = [...text.slice(0, at).matchAll(/(?<![\w$])id: '([^']*)'/g)];
-  return matches.at(-1)?.[1] ?? '?';
+function unsupportedEntry(rel: string): never {
+  throw new GenMenuError(`unsupported manifest form in ${rel}`);
+}
+
+/** Every `menus/<folder>/src/index.ts` that exists, parsed into manifest literals. */
+function menuManifests(root: string): { folder: string; entries: ManifestEntry[] }[] {
+  const menusDir = join(root, 'menus');
+  if (!existsSync(menusDir)) return [];
+  const result: { folder: string; entries: ManifestEntry[] }[] = [];
+  for (const e of readdirSync(menusDir, { withFileTypes: true })) {
+    if (!e.isDirectory()) continue;
+    const rel = `menus/${e.name}/src/index.ts`;
+    const path = join(menusDir, e.name, 'src', 'index.ts');
+    if (!existsSync(path)) continue;
+    result.push({ folder: e.name, entries: manifestEntries(readFileSync(path, 'utf8'), rel) });
+  }
+  return result;
+}
+
+/** F5: every binding name a top-level declaration in menus.ts introduces (imports included). */
+export function appTopLevelBindings(menusText: string): Set<string> {
+  const sf = ts.createSourceFile(MENUS_TS, menusText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const names = new Set<string>();
+  const add = (name: ts.Identifier | undefined): void => {
+    if (name !== undefined) names.add(name.text);
+  };
+  const collect = (node: ts.Node): void => {
+    if (ts.isIdentifier(node)) names.add(node.text);
+    ts.forEachChild(node, collect);
+  };
+  for (const stmt of sf.statements) {
+    if (ts.isImportDeclaration(stmt)) {
+      const clause = stmt.importClause;
+      if (clause === undefined) continue;
+      add(clause.name ?? undefined);
+      if (clause.namedBindings !== undefined) {
+        if (ts.isNamedImports(clause.namedBindings)) for (const el of clause.namedBindings.elements) add(el.name);
+        else if (ts.isNamespaceImport(clause.namedBindings)) add(clause.namedBindings.name);
+      }
+      continue;
+    }
+    if (ts.isVariableStatement(stmt)) {
+      for (const d of stmt.declarationList.declarations) collect(d.name);
+    }
+    if (ts.isFunctionDeclaration(stmt) || ts.isClassDeclaration(stmt) || ts.isInterfaceDeclaration(stmt) || ts.isTypeAliasDeclaration(stmt) || ts.isEnumDeclaration(stmt)) {
+      add(stmt.name ?? undefined);
+    }
+  }
+  return names;
+}
+
+const bracesIn = (line: string): number => (line.match(/\{/g)?.length ?? 0) - (line.match(/\}/g)?.length ?? 0);
+
+/** F7: the import marker region may only contain import statements and comments. */
+function assertImportsOnly(menusText: string): void {
+  const lines = menusText.split('\n');
+  const s = lines.findIndex(l => l.trim() === IMPORT_START);
+  const e = lines.findIndex(l => l.trim() === IMPORT_END);
+  if (s === -1 || e === -1 || e <= s) throw new GenMenuError(`import markers missing or out of order in ${MENUS_TS}`);
+  let depth = 0;
+  for (let i = s + 1; i < e; i++) {
+    const line = (lines[i] as string).trim();
+    if (depth > 0) {
+      depth += bracesIn(line);
+      continue;
+    }
+    if (line === '' || line.startsWith('//') || line.startsWith('/*') || line.startsWith('*')) continue;
+    if (line.startsWith('import')) {
+      depth += bracesIn(line);
+      continue;
+    }
+    throw new GenMenuError(`${MENUS_TS} import marker region contains a non-import line: '${line}'`);
+  }
+  if (depth !== 0) throw new GenMenuError(`${MENUS_TS} import marker region has an unterminated import`);
+}
+
+/** F7: the marker comment must sit inside the named top-level array literal. */
+function assertMarkerInsideArray(menusText: string, arrayName: string, marker: string): void {
+  const sf = ts.createSourceFile(MENUS_TS, menusText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  for (const stmt of sf.statements) {
+    if (!ts.isVariableStatement(stmt)) continue;
+    for (const d of stmt.declarationList.declarations) {
+      if (!(ts.isIdentifier(d.name) && d.name.text === arrayName)) continue;
+      if (d.initializer === undefined || !ts.isArrayLiteralExpression(d.initializer)) {
+        throw new GenMenuError(`'${arrayName}' in ${MENUS_TS} is not an array literal`);
+      }
+      const at = menusText.indexOf(marker);
+      if (d.initializer.getStart(sf) < at && at < d.initializer.getEnd()) return;
+      throw new GenMenuError(`marker '${marker}' is not inside the '${arrayName}' array literal in ${MENUS_TS}`);
+    }
+  }
+  throw new GenMenuError(`'${arrayName}' array literal not found in ${MENUS_TS}`);
+}
+
+/** F7: every marker appears exactly once, pairs are ordered, and each pair sits in its right context. */
+export function checkAppMarkers(menusText: string, styleText: string): void {
+  const pairs: [string, string, string][] = [
+    [IMPORT_START, IMPORT_END, MENUS_TS],
+    [SPREADS_START, SPREADS_END, MENUS_TS],
+    [STYLES_START, STYLES_END, STYLE_CSS],
+  ];
+  for (const [start, end, file] of pairs) {
+    const text = file === MENUS_TS ? menusText : styleText;
+    for (const marker of [start, end]) {
+      const count = countOccurrences(text, marker);
+      if (count !== 1) throw new GenMenuError(`missing marker '${marker}' in ${file} (appears ${count} times, expected exactly once)`);
+    }
+    if (text.indexOf(start) > text.indexOf(end)) {
+      throw new GenMenuError(`markers out of order in ${file}: '${start}' must precede '${end}'`);
+    }
+  }
+  const groupsCount = countOccurrences(menusText, GROUPS_END);
+  if (groupsCount !== 1) throw new GenMenuError(`missing marker '${GROUPS_END}' in ${MENUS_TS} (appears ${groupsCount} times, expected exactly once)`);
+  assertMarkerInsideArray(menusText, 'GROUPS', GROUPS_END);
+  assertMarkerInsideArray(menusText, 'MENUS', SPREADS_END);
+  assertImportsOnly(menusText);
+}
+
+function countOccurrences(text: string, needle: string): number {
+  return text.split(needle).length - 1;
 }
 
 function insertAbove(text: string, marker: string, line: string): string {
@@ -189,20 +335,6 @@ export function parseDepLine(raw: string): { indent: string; name: string } | nu
   return m === null ? null : { indent: m[1], name: m[2] };
 }
 
-/** True when the exact line exists, tolerating a CRLF file's trailing carriage returns. */
-export function hasLine(text: string, line: string): boolean {
-  return splitLines(text).lines.some(l => l === line || l.replace(/\r$/, '') === line);
-}
-
-/** Remove one exact line (EOL-tolerant); absent means already gone (rollback after a failed write). */
-export function removeLine(text: string, line: string): string {
-  const { lines, eol } = splitLines(text);
-  const at = lines.findIndex(l => l === line || l.replace(/\r$/, '') === line);
-  if (at === -1) return text;
-  lines.splice(at, 1);
-  return lines.join(eol);
-}
-
 export type FileEdit = { relPath: string; after: string };
 
 export type GeneratePlan = {
@@ -245,6 +377,10 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
     throw new GenMenuError(`invalid --menu '${menuId}' — use kebab-case /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/ like 'metric-catalog'`);
   }
   const page = pageName(menuId);
+  const pageImports = pageImportedIdentifiers();
+  if (pageImports.includes(page)) {
+    throw new GenMenuError(`invalid --menu '${menuId}' — page component '${page}' collides with the page template imports (${pageImports.join(', ')})`);
+  }
   const pageType = args.pageType ?? 'overview';
   if (!(PAGE_TYPES as readonly string[]).includes(pageType)) {
     throw new GenMenuError(`invalid --page-type '${pageType}' — one of ${PAGE_TYPES.join(' | ')}`);
@@ -276,12 +412,8 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
 
   const menusText = readText(root, MENUS_TS);
   const stylesText = readText(root, STYLE_CSS);
-  for (const marker of [IMPORT_START, IMPORT_END, GROUPS_END, SPREADS_START, SPREADS_END]) {
-    if (!menusText.includes(marker)) throw new GenMenuError(`missing marker '${marker}' in ${MENUS_TS}`);
-  }
-  for (const marker of [STYLES_START, STYLES_END]) {
-    if (!stylesText.includes(marker)) throw new GenMenuError(`missing marker '${marker}' in ${STYLE_CSS}`);
-  }
+  // F7: markers must be unique, ordered, and in the right context before planning.
+  checkAppMarkers(menusText, stylesText);
 
   const groupIdLine = readText(root, CONTRACTS_MENU)
     .split('\n')
@@ -297,8 +429,10 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
     throw new GenMenuError(`unknown group '${group}' — no GROUPS row in ${MENUS_TS}; add { id: '${group}', … } by hand first, the generator does not add sidebar groups`);
   }
 
-  for (const { folder: owner, text } of menuIndexes(root)) {
-    if (new RegExp(`(?<![\\w$])group: '${group}'`).test(text)) {
+  // F6: ownership and id/path collisions are computed from parsed manifest literals, not text regexes.
+  const manifests = menuManifests(root);
+  for (const { folder: owner, entries } of manifests) {
+    if (entries.some(entry => entry.group === group)) {
       throw new GenMenuError(`group '${group}' is already owned by menus/${owner} — one package per group`);
     }
   }
@@ -307,19 +441,20 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
   if (existsSync(packageDir)) throw new GenMenuError(`menus/${folder} already exists`);
 
   const shape = pathShape(path);
-  for (const { folder: owner, text } of menuIndexes(root)) {
-    if (new RegExp(`(?<![\\w$])id: '${menuId}'`).test(text)) {
-      throw new GenMenuError(`menu id '${menuId}' is already used by menus/${owner}`);
-    }
-    for (const m of text.matchAll(/(?<![\w$])path: '([^']*)'/g)) {
-      if (pathShape(m[1]) === shape) {
-        throw new GenMenuError(`path shape '${shape}' collides with menus/${owner} (menu '${owningMenuId(text, m.index)}')`);
+  for (const { folder: owner, entries } of manifests) {
+    for (const entry of entries) {
+      if (entry.id === menuId) {
+        throw new GenMenuError(`menu id '${menuId}' is already used by menus/${owner}`);
+      }
+      if (pathShape(entry.path) === shape) {
+        throw new GenMenuError(`path shape '${shape}' collides with menus/${owner} (menu '${entry.id}')`);
       }
     }
   }
 
-  if (new RegExp(`manifests as ${binding}(?![\\w$])`).test(menusText)) {
-    throw new GenMenuError(`binding 'manifests as ${binding}' is already imported in ${MENUS_TS}`);
+  // F5: the binding must not collide with any top-level declaration in the app's menus.ts.
+  if (appTopLevelBindings(menusText).has(binding)) {
+    throw new GenMenuError(`binding '${binding}' is already imported or declared in ${MENUS_TS}`);
   }
 
   const appPkgText = readText(root, APP_PKG);
@@ -332,6 +467,12 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
     SPREADS_END,
     spreadLine(inputs),
   );
+  // F7: the proposed menus.ts must parse before anything is written.
+  const parsed = ts.transpileModule(menusEdit, { reportDiagnostics: true, fileName: MENUS_TS });
+  if (parsed.diagnostics !== undefined && parsed.diagnostics.length > 0) {
+    const first = parsed.diagnostics[0];
+    throw new GenMenuError(`proposed ${MENUS_TS} does not parse: ${ts.flattenDiagnosticMessageText(first?.messageText, '\n')} — refusing to write`);
+  }
   const stylesEdit = insertAbove(stylesText, STYLES_END, styleLine(inputs));
   const pkgEdit = insertDep(appPkgText, menuPackage(folder));
 

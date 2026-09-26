@@ -4,7 +4,7 @@ import { depLine, importLine, renderFiles, spreadLine, styleLine, type MenuInput
 import {
   APP_PKG, GROUP_RE, GenMenuError, MENUS_TS, STYLE_CSS,
   IMPORT_END, IMPORT_START, SPREADS_END, SPREADS_START, STYLES_END, STYLES_START,
-  checkInsideRoot, kebab, ownedLine, parseDepLine, splitLines, type OwnedLineState,
+  checkAppMarkers, checkInsideRoot, kebab, ownedLine, parseDepLine, splitLines, type OwnedLineState,
 } from './generate.ts';
 
 export type InsertSpec = { relPath: string; line: string; start?: string; end?: string };
@@ -57,6 +57,8 @@ export function planRemove(root: string, group: string): RemovePlan {
   const menusLines = splitLines(readFileSync(join(root, MENUS_TS), 'utf8')).lines;
   const styleLines = splitLines(readFileSync(join(root, STYLE_CSS), 'utf8')).lines;
   const pkgLines = splitLines(readFileSync(join(root, APP_PKG), 'utf8')).lines;
+  // F7: the same marker rules apply on removal — the regions must be well-formed.
+  checkAppMarkers(menusLines.join('\n'), styleLines.join('\n'));
   const inserts: InsertSpec[] = [
     { relPath: MENUS_TS, line: importLine(inputs), start: IMPORT_START, end: IMPORT_END },
     { relPath: MENUS_TS, line: spreadLine(inputs), start: SPREADS_START, end: SPREADS_END },

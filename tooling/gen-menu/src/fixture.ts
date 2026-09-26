@@ -60,6 +60,7 @@ function fixtureGroupIdLine(extra: string[]): string {
 function fixtureMenusTsText(extra: string[]): string {
   const extraRows = extra.map(g => `  { id: '${g}', label: { ko: 'g', en: 'g' }, icon: I },`).join('\n');
   return `import { Gauge, LayoutDashboard } from 'lucide-react';
+import { createRegistry, type GroupDef, type MenuEntry } from '${PACKAGE_PREFIX}kernel';
 // <gen:menu-imports>
 import { manifests as home } from '${PACKAGE_PREFIX}menu-home';
 // </gen:menu-imports>
@@ -76,6 +77,8 @@ export const MENUS: MenuEntry[] = [
   ...home,
   // </gen:menu-spreads>
 ];
+
+export const registry = createRegistry({ groups: GROUPS, menus: MENUS });
 `;
 }
 
@@ -104,7 +107,7 @@ const existingMenuIndex = `export const manifests = [
 `;
 
 /** Temp workspace with genProbe already in GroupId and GROUPS, markers, and one existing menu. */
-export function makeFixture(variants: { menusTs?: string; appPkg?: string; extraGroups?: string[] } = {}): string {
+export function makeFixture(variants: { menusTs?: string; appPkg?: string; extraGroups?: string[]; existingMenuIndex?: string } = {}): string {
   const root = mkdtempSync(join(tmpdir(), 'gen-menu-test-'));
   writeFileSync(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - apps/*\n  - packages/*\n  - menus/*\n  - tooling/*\n');
   mkdirSync(join(root, 'packages/contracts/src'), { recursive: true });
@@ -114,7 +117,7 @@ export function makeFixture(variants: { menusTs?: string; appPkg?: string; extra
   writeFileSync(join(root, 'apps/platform-web/src/style.css'), styleCss);
   writeFileSync(join(root, 'apps/platform-web/package.json'), variants.appPkg ?? appPkg);
   mkdirSync(join(root, 'menus/metric-catalog/src'), { recursive: true });
-  writeFileSync(join(root, 'menus/metric-catalog/src/index.ts'), existingMenuIndex);
+  writeFileSync(join(root, 'menus/metric-catalog/src/index.ts'), variants.existingMenuIndex ?? existingMenuIndex);
   return root;
 }
 
