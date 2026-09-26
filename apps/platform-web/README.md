@@ -4,12 +4,16 @@
 
 기존 4개 Kernel 유닛(`kernel-app-shell`, `kernel-chart-frame`, `kernel-platform-table`, `kernel-context-url-scope`)을 하나의 앱으로 통합해, 플랫폼 다섯 갈래가 실제 메뉴 화면(Consumer) 아래에서 함께 동작하는지 검증한다. 기존 유닛은 수정하지 않았다.
 
+2026-09-26 `prototypes/platform-app`에서 pnpm 모노레포의 `apps/platform-web`(`@ap/platform-web`)으로 옮겼다. 패키지 분리 계획은 [플랫폼 모노레포 패키지 경계](../../docs/integration/platform-packages.md)를 따른다. `reports/`의 `prototypes/platform-app/...` 경로는 당시 기록이라 그대로 둔다.
+
+저장소 루트에서 실행한다(Node 26.7.0, pnpm 11.1.1):
+
 ```sh
-npm ci --cache .npm-cache --no-audit --no-fund
-npm run dev        # http://127.0.0.1:5173
-npm run typecheck
-npm test
-npm run build
+pnpm install
+pnpm dev           # http://127.0.0.1:5173
+pnpm typecheck
+pnpm test
+pnpm build
 ```
 
 ## 다섯 갈래 ↔ 코드

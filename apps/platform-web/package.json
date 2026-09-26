@@ -1,5 +1,5 @@
 {
-  "name": "platform-app-prototype",
+  "name": "@ap/platform-web",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -33,6 +33,7 @@
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
+    "@ap/tsconfig": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",

@@ -1,0 +1,19 @@
+{
+  "name": "analytics-platform",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "pnpm@11.1.1",
+  "engines": {
+    "node": ">=26.7.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev --filter=@ap/platform-web",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "build": "turbo run build"
+  },
+  "devDependencies": {
+    "turbo": "^2.11.4"
+  }
+}

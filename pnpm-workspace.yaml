@@ -1,0 +1,9 @@
+# docs/integration/platform-packages.md §3, §7.
+# products/feedbackops keeps its own workspace; prototypes/* are standalone npm units.
+packages:
+  - apps/*
+  - packages/*
+  - menus/*
+  - tooling/*
+allowBuilds:
+  esbuild: true
