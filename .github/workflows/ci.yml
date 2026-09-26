@@ -13,8 +13,8 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# 경로 필터 없이 매 push/PR마다 4개 Job을 모두 실행한다(레포가 작아 단순함 우선).
-# 체크아웃은 모두 submodules: false — 세 프로토타입 어느 것도 products/feedbackops를 런타임에 참조하지 않으므로(이식이지 참조가 아님) 서브모듈을 초기화하지 않는다.
+# 경로 필터 없이 매 push/PR마다 5개 Job을 모두 실행한다(레포가 작아 단순함 우선).
+# 체크아웃은 모두 submodules: false — 어느 프로토타입도 products/feedbackops를 런타임에 참조하지 않으므로(이식이지 참조가 아님) 서브모듈을 초기화하지 않는다.
 
 jobs:
   python-codec:
@@ -106,4 +106,25 @@ jobs:
       - name: Verify Chromium landed in PLAYWRIGHT_BROWSERS_PATH
         run: ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-*
       - run: npm run test:browser
+      - run: npm run build
+
+  platform-app:
+    name: Platform app (integrated prototype)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: prototypes/platform-app
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: false
+      - uses: actions/setup-node@v5
+        with:
+          # 로컬 검증 환경(Node 26.7.0 / npm 11.19.0)과 동일. package-lock이 이 조합으로 생성됐다.
+          node-version: '26.7.0'
+          cache: npm
+          cache-dependency-path: prototypes/platform-app/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test
       - run: npm run build
