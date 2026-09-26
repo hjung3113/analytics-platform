@@ -23,18 +23,17 @@ export function ContextDisplay({ menu, context }: { menu: PageEntry; context: Co
     <strong>{key}</strong>: {valueLabel(value)}{value !== null && <small className="text-text-warning"> · {capability === 'unsupported' ? 'Not used on this page' : capability === 'reference' ? 'Reference only' : 'Supported · server validation pending'}</small>}
   </li>)}</ul>;
 }
-// Radix Select reserves '' for "no value", so absence crosses the boundary as a sentinel while the callers keep native-select strings.
 type Option = { value: string; label: string };
-// Grown per render until it collides with neither the current value nor any option value, so an opaque id like scopeId='__absent' can never share a DOM value with the placeholder item.
-const absentSentinel = (taken: string[]) => { let absent = '__absent'; while (taken.includes(absent)) absent = `_${absent}`; return absent; };
+// The DOM value Radix sees is only the option's array index, never the option's own string: opaque ids (scopeId, room_name, EquipmentID) can be any string,
+// so no string they carry can collide with UI state. '-1' (current value not listed) can never be an index, and Radix's reserved '' never appears.
 function ContextSelect({ label, value, options, disabled, onChange }: { label: string; value: string; options: Option[]; disabled?: boolean; onChange: (value: string) => void }) {
   const id = useId();
-  const absent = absentSentinel([value, ...options.map(option => option.value)]);
   return <div className="inline-flex items-center gap-2">
     <Label htmlFor={id}>{label}</Label>
-    <Select value={value || absent} disabled={disabled} onValueChange={next => onChange(next === absent ? '' : next)}>
+    {/* Re-picking the current value is a no-op here, not by Radix's equality check, so display-only values like '__inherited' never reach onChange. */}
+    <Select value={String(options.findIndex(option => option.value === value))} disabled={disabled} onValueChange={next => { const option = options[Number(next)]; if (option && option.value !== value) onChange(option.value); }}>
       <SelectTrigger id={id} aria-label={label} className="h-8 w-auto min-w-44 gap-2 rounded-sm border-border-strong bg-surface-card"><SelectValue /></SelectTrigger>
-      <SelectContent>{options.map(option => <SelectItem key={option.value} value={option.value || absent}>{option.label}</SelectItem>)}</SelectContent>
+      <SelectContent>{options.map((option, i) => <SelectItem key={i} value={String(i)}>{option.label}</SelectItem>)}</SelectContent>
     </Select>
   </div>;
 }
@@ -71,8 +70,8 @@ export function App() {
   };
   const context = state?.context;
   const scope = context?.scope_id ?? '';
-  // '__inherited'는 setValue의 표시용 sentinel — 재선택해도 현재 다중/미지 값을 리터럴로 덮어쓰지 않는다.
-  const setSelect = (key: 'room_names' | 'selection', value: string) => { if (value === '__inherited') return; update({ [key]: value === '' ? null : value === 'none' ? [] : [value] }); };
+  // '__inherited'는 setValue의 표시용 값 — 그 옵션은 항상 현재 값이고 ContextSelect는 현재 값 재선택을 onChange로 넘기지 않으므로 setSelect에 도달하지 않는다.
+  const setSelect = (key: 'room_names' | 'selection', value: string) => { update({ [key]: value === '' ? null : value === 'none' ? [] : [value] }); };
   const setValue = (value: string[] | null | undefined) => value == null ? '' : value.length === 0 ? 'none' : value.length === 1 ? value[0] : '__inherited';
   const inheritedOption = (values: string[] | null | undefined, known: string[]): Option[] => values?.length && (values.length > 1 || !known.includes(values[0])) ? [{ value: setValue(values), label: `Inherited: ${values.join(', ')}` }] : [];
   const setOptions = (known: string[]): Option[] => [{ value: '', label: 'Not selected' }, { value: 'none', label: 'Explicit empty set' }, ...known.map(value => ({ value, label: value }))];

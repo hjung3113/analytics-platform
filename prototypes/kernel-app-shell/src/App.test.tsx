@@ -56,7 +56,7 @@ describe('platform shell acceptance — 합성 fixture, 실제 메뉴 아님', (
     expect(screen.getByLabelText('Condition').textContent).toBe('stgroup: fixture-group');
     expect(screen.getAllByLabelText('Scope')).toHaveLength(1);
   });
-  it('matches URL conditions to JSON-string option values and clears through the absent sentinel', async () => {
+  it('matches URL conditions to JSON-string option values and clears through the Not selected option', async () => {
     const user = userEvent.setup(); mount(origin);
     const condition = screen.getByLabelText('Condition');
     expect(condition.textContent).toBe('team: fixture-team');
@@ -91,6 +91,39 @@ describe('platform shell acceptance — 합성 fixture, 실제 메뉴 아님', (
     expect(here()).toBe('/sample-analysis?v=1');
     expect(readLocation(here()).context.scope_id).toBeNull();
     expect(screen.getByLabelText('Scope').textContent).toBe('Select scope');
+  });
+  // ContextSelect exposes only option indexes to Radix, so opaque values that look like indexes ('-1', '0', '1') or old sentinels must still resolve by content.
+  it.each(['-1', '0', '3', '__inherited', 'opaque-scope-not-in-registry'])('shows unlisted opaque scopeId "%s" as its own unverified option and stays switchable', async scopeId => {
+    const user = userEvent.setup(); mount(`/sample-analysis?scopeId=${encodeURIComponent(scopeId)}`);
+    expect(screen.getByLabelText('Scope').textContent).toBe(`${scopeId} · unverified`);
+    await user.click(screen.getByLabelText('Scope'));
+    const options = screen.getAllByRole('option');
+    expect(options.map(option => option.textContent)).toEqual(['Select scope', 'fixture-scope-a', 'fixture-scope-b', `${scopeId} · unverified`]);
+    expect(options.filter(option => option.getAttribute('data-state') === 'checked').map(option => option.textContent)).toEqual([`${scopeId} · unverified`]);
+    await user.click(screen.getByRole('option', { name: 'fixture-scope-a' }));
+    expect(readLocation(here()).context.scope_id).toBe('fixture-scope-a');
+    expect(screen.getByLabelText('Scope').textContent).toBe('fixture-scope-a');
+  });
+  it('keeps index-like room_names "0" and "1" distinct from the options at those positions', async () => {
+    const user = userEvent.setup(); mount('/sample-analysis?roomNames=1');
+    // Option index 1 is "Explicit empty set"; the real room_name "1" must still select its own inherited option.
+    expect(screen.getByLabelText('room').textContent).toBe('Inherited: 1');
+    await user.click(screen.getByLabelText('room'));
+    expect(screen.getAllByRole('option').filter(option => option.getAttribute('data-state') === 'checked').map(option => option.textContent)).toEqual(['Inherited: 1']);
+    await user.click(screen.getByRole('option', { name: 'fixture-room-a' }));
+    expect(readLocation(here()).context.room_names).toEqual(['fixture-room-a']);
+    cleanup();
+    mount('/sample-analysis?roomNames=0&roomNames=1');
+    expect(screen.getByLabelText('room').textContent).toBe('Inherited: 0, 1');
+    await choose(user, 'room', 'Not selected');
+    expect(readLocation(here()).context.room_names).toBeNull();
+  });
+  it('treats a real single EquipmentID of "__inherited" as data, not as the display value guard', async () => {
+    const user = userEvent.setup(); mount('/sample-analysis?selectedEquipmentIds=__inherited');
+    expect(screen.getByLabelText('Selection').textContent).toBe('Inherited: __inherited');
+    await choose(user, 'Selection', 'fixture-equipment-b');
+    expect(readLocation(here()).context.selection).toEqual(['fixture-equipment-b']);
+    expect(screen.getByLabelText('Selection').textContent).toBe('fixture-equipment-b');
   });
   it('renders inherited multi-ID selection without narrowing it', async () => {
     const user = userEvent.setup(); mount('/sample-analysis?selectedEquipmentIds=A&selectedEquipmentIds=B');
