@@ -5,7 +5,7 @@
  * Equipment examples are derived from `EQUIPMENT`; they are population illustrations,
  * not a runtime coverage rate.
  */
-import type { AuditEvent } from '../../platform/AuditTimeline';
+import type { AuditEvent } from '@ap/contracts';
 import type { Tone } from '../../platform/StatusBadge';
 import { EQUIPMENT } from '../../mock/world';
 

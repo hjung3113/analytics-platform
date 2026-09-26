@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildQuery, ContractError, emptyGlobal, incompleteMetricPair, parseQuery, shift } from './url';
 import { matchRoute, MENUS, pathFor } from './registry';
+import { buildQuery, ContractError, emptyGlobal, incompleteMetricPair, parseQuery, shift } from '@ap/contracts';
 
 const code = (fn: () => unknown) => { try { fn(); } catch (e) { return e instanceof ContractError ? e.code : 'other'; } return 'ok'; };
 

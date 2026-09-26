@@ -1,0 +1,7 @@
+{
+  "extends": "@ap/tsconfig/base.json",
+  // No DOM, no Node and no React: contracts must stay shareable with a backend (platform-packages.md §3 rule 5).
+  // The one host API it needs (URLSearchParams) is declared in src/globals.d.ts.
+  "compilerOptions": { "lib": ["ES2022"], "types": [] },
+  "include": ["src"]
+}

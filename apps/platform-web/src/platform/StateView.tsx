@@ -2,7 +2,7 @@ import { AlertTriangle, Ban, Clock, HelpCircle, Inbox, Loader2, Maximize2, Rotat
 import type { ReactNode } from 'react';
 import { useI18n } from '../kernel/i18n';
 import type { QueryState } from '../kernel/query';
-import type { ApiResponse } from '../mock/server';
+import type { ApiResponse } from '@ap/contracts';
 import { Button } from '../ui/components/Button';
 import { Skeleton } from '../ui/components/shadcn/skeleton';
 import { cn } from '../ui/utils/cn';

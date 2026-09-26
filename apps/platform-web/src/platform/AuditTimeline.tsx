@@ -1,17 +1,7 @@
 import { FilePen, FilePlus2, FileX2, RefreshCw } from 'lucide-react';
 import { useI18n } from '../kernel/i18n';
 import { StatusBadge } from './StatusBadge';
-
-export type AuditEvent = {
-  id: string;
-  at: string;
-  actor: string;
-  action: 'create' | 'update' | 'retire' | 'sync';
-  /** field → [before, after]; null = absent */
-  changes?: Record<string, [string | null, string | null]>;
-  reason?: string;
-  source: 'user' | 'system';
-};
+import type { AuditEvent } from '@ap/contracts';
 
 const ICONS = { create: FilePlus2, update: FilePen, retire: FileX2, sync: RefreshCw };
 const LABEL = {

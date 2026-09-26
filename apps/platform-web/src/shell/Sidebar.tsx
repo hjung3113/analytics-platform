@@ -2,7 +2,8 @@ import { ChevronDown, ChevronsLeft, ChevronsRight, Clock3, Hexagon, Search, Star
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../kernel/i18n';
 import { PlatformLink, usePlatform } from '../kernel/platform';
-import { GROUPS, MENUS, type GroupId, type MenuEntry } from '../kernel/registry';
+import type { GroupId } from '@ap/contracts';
+import { GROUPS, MENUS, type MenuEntry } from '../kernel/registry';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/components/shadcn/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/components/shadcn/tooltip';
 import { cn } from '../ui/utils/cn';

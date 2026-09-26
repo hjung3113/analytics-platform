@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { AlertTriangle, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
+import type { Trust } from '@ap/contracts';
 import type { PageProps } from '../../kernel/registry';
 import { useI18n } from '../../kernel/i18n';
 import { PlatformLink, usePlatform } from '../../kernel/platform';
 import { usePlatformQuery } from '../../kernel/query';
 import { CYCLE_VERSION_NOTE } from '../../mock/jobs';
-import { periodHours, resolveEquipment, serve, type Trust } from '../../mock/server';
+import { periodHours, resolveEquipment, serve } from '../../mock/server';
 import { AnalysisChartFrame } from '../../platform/AnalysisChartFrame';
 import { DataTrustIndicator } from '../../platform/DataTrustIndicator';
 import { PlatformDataTable, sortAndPage, type ColumnMeta } from '../../platform/PlatformDataTable';

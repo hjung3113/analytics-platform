@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { emptyGlobal } from '../kernel/url';
 import { serve } from './server';
+import { emptyGlobal } from '@ap/contracts';
 
 const period = { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' };
 

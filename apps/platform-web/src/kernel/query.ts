@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ApiResponse } from '../mock/server';
 import { usePlatform } from './platform';
-import { serializeGlobal } from './url';
+import { type ApiResponse, serializeGlobal } from '@ap/contracts';
 
 export type QueryState<T> = {
   /** loading: no result for the current Context yet. refreshing: same Context re-query, prior result kept. */

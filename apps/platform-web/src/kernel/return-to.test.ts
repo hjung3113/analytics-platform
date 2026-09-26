@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { isAppRelativePath, safeReturnTo } from './url';
+import { isAppRelativePath } from '@ap/contracts';
+import { safeReturnTo } from './registry';
 
 const cycle = '/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
 
