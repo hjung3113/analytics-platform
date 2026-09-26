@@ -30,7 +30,9 @@ function ContextSelect({ label, value, options, disabled, onChange }: { label: s
   const id = useId();
   return <div className="inline-flex items-center gap-2">
     <Label htmlFor={id}>{label}</Label>
-    {/* Re-picking the current value is a no-op here, not by Radix's equality check, so display-only values like '__inherited' never reach onChange. */}
+    {/* Radix's own useControllableState already filters a re-picked current value before onValueChange fires;
+        the `option.value !== value` check below is a second, explicit guard for the same case, so display-only
+        values like '__inherited' never reach onChange either way. */}
     <Select value={String(options.findIndex(option => option.value === value))} disabled={disabled} onValueChange={next => { const option = options[Number(next)]; if (option && option.value !== value) onChange(option.value); }}>
       <SelectTrigger id={id} aria-label={label} className="h-8 w-auto min-w-44 gap-2 rounded-sm border-border-strong bg-surface-card"><SelectValue /></SelectTrigger>
       <SelectContent>{options.map((option, i) => <SelectItem key={i} value={String(i)}>{option.label}</SelectItem>)}</SelectContent>

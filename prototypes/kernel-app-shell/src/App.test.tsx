@@ -93,6 +93,11 @@ describe('platform shell acceptance — 합성 fixture, 실제 메뉴 아님', (
     expect(screen.getByLabelText('Scope').textContent).toBe('Select scope');
   });
   // ContextSelect exposes only option indexes to Radix, so opaque values that look like indexes ('-1', '0', '1') or old sentinels must still resolve by content.
+  // These are structural-safety checks, not old-vs-new regression checks: most of these specific values ('-1', '0', '3',
+  // 'opaque-scope-not-in-registry') also passed under the pre-0fa6045 growing-string sentinel, since they never collided
+  // with that scheme's own sentinel text. The '__inherited' case is the one that actually could collide under the old
+  // scheme (identifier(), not this component); the guarantee this test suite gives is that no possible option content
+  // reaches the DOM by value under the current index-based design, which the old design could not promise.
   it.each(['-1', '0', '3', '__inherited', 'opaque-scope-not-in-registry'])('shows unlisted opaque scopeId "%s" as its own unverified option and stays switchable', async scopeId => {
     const user = userEvent.setup(); mount(`/sample-analysis?scopeId=${encodeURIComponent(scopeId)}`);
     expect(screen.getByLabelText('Scope').textContent).toBe(`${scopeId} · unverified`);
