@@ -24,8 +24,16 @@
 
 ## 사용자 확인 필요
 
-- 기존 15개와 2026-09-26 워크스페이스 인터뷰 Open 4개는 변경 없음. 목록은 [직전 handoff](.agents/reports/handoff-history-through-2026-09-26-c.md#사용자-확인-필요).
-- 패키지 접두사 `@ap/`는 임시다. 회사 시스템 이름이 정해지면 [§8 절차](docs/integration/platform-packages.md#8-결정-decided-2026-09-26)로 일괄 변경한다.
+임의로 결정하지 않는다. 일부는 `apps/platform-web`에 Candidate로 구현돼 있지만 결정된 것은 아니다.
+
+- **인증/권한:** SSO·서버 권한 재검증, Scope 데이터 원천·상속 규칙, Registry permission 필드를 Shell이 소비할지.
+- **UX 정책:** Condition 편집 시 Selection 처리, Chart Selection Summary 배치, Zoom-out 용어, 필터 변경 후 선택 유지.
+- **후속 구현 범위:** 전역 검색(cmdk), 시간 codec 지원 범위, Annotation 영속성, Export 포맷, DetailDrawer Audit 연동.
+- **아키텍처:** Chart Interaction Contract 승격(06 §14 Promotion Rule 대기).
+- **공개 URL 계약:** 후보 키·스키마 승인. **CFG 메뉴 연계**(06 §22): Deferred 유지.
+- **워크스페이스 인터뷰 Open**([기록](docs/reviews/2026-09-26-workspace-ops-interview.md#남은-open)): 적재 워커 상태 기록 스키마와 파서 저장소 변경 범위, Registry `space` 필드명·공간별 그룹 상한, FeedbackOps 1단계 VOC·설문 딥링크 방식, 운영 콘솔 권한 모델.
+- **패키지 접두사:** `@ap/`는 임시. 회사 시스템 이름이 정해지면 [§8 절차](docs/integration/platform-packages.md#8-결정-decided-2026-09-26)로 일괄 변경.
+- 알려진 잔여 이슈(결정 아님): 실제 EquipmentID·room_name이 문자열 `"none"`이면 명시적 빈 집합과 구분되지 않는다(Unit A `setValue`).
 
 ## 다음 세션 추천 작업
 
@@ -35,7 +43,7 @@
 2. **6단계 — 경계 lint와 생성기:** `tooling/eslint`에 의존 방향·깊은 경로 import 금지·URL 직접 조립 금지 규칙, CI 추가. `gen:menu`로 빈 메뉴 하나를 만들어 검증한 뒤 삭제.
 3. **6단계 후보(사용자 제안) — CSS/시각 회귀 테스트:** 이번 세션에 손으로 한 빌드 CSS selector 집합 비교를 CI 검사로 만들거나, Playwright 스크린샷 비교를 도입. 범위는 사용자와 정한다.
 4. **부채:** `@ap/ui` `Button.tsx`의 `process.env.NODE_ENV` 때문에 `@ap/ui`·`@ap/shell`에 `@types/node`가 있다. `import.meta.env` 등으로 바꾸고 제거.
-5. 그 뒤 직전 handoff의 후속 목록: 워크스페이스 층(06 §9.1), [앱 README "남은 플랫폼 과제"](apps/platform-web/README.md#남은-플랫폼-과제-워커-보고-기반), Storybook, 파서 저장소 협의.
+5. 그 뒤: 워크스페이스 층(06 §9.1, `space` 필드는 Candidate로), [앱 README "남은 플랫폼 과제"](apps/platform-web/README.md#남은-플랫폼-과제-워커-보고-기반), Storybook, 파서 저장소와 적재 워커 상태 스키마 협의(합의 전 운영 콘솔은 화면 설계까지만). FeedbackOps 피드백 공간은 원본 저장소의 Milestone 구현(#514)을 참조.
 
 ## 이번 라운드에서 배운 운영 사항
 
@@ -45,7 +53,11 @@
 - **Node 26 + jsdom:** 테스트에서 `localStorage`가 undefined다. `vi.stubGlobal`로 대체한다.
 - **Playwright 브라우저:** `PLAYWRIGHT_BROWSERS_PATH=$PWD/prototypes/kernel-platform-table/.browsers`.
 - **zsh:** `$SHA:r`처럼 변수 뒤 `:`가 수정자로 해석된다. `${SHA}`로 쓴다.
-- PR마다 Codex 자동 리뷰(P1/P2)가 달린다. 이번 P2 지적(권한 누수, 오류 무시)은 모두 실제 버그였다.
+- PR마다 Codex 자동 리뷰(P1/P2)가 달린다. 이번 P2 지적(권한 누수, 오류 무시)은 모두 실제 버그였다. 수동 리뷰는 `codex exec -m gpt-6-astra -c model_reasoning_effort="medium" -s read-only -C . -o <out> "<지시>" < /dev/null`.
+- **워커 분배:** 여러 발견 사항을 한 워커에 몰면 GLM max가 계획만 하다 멈춘다. Grok 설계 → 구현 모델 → coordinator 검증을 하나씩.
+- **GLM 경로:** OpenRouter 금지. omp에서 접두사 없는 z.ai 직접 ID(`glm-5.3-flash` 등)만 쓰고, 사전 확인은 `omp -p "reply with OK only" --model <id> --thinking low < /dev/null`. 한도가 차면 사용자가 지정한 다른 모델로.
+- **Orca:** `orca terminal create`로 띄운 탭은 `worker-release` 후에도 열려 있으니 직접 닫는다. Codex 한도 경고가 있으면 `worker-start --agent codex`가 실패하므로 `terminal create --command "codex ..."` → `task-create` → `dispatch --inject`로 우회.
+- CI: `ubuntu-latest`가 2026-10-19부터 Ubuntu 26. 그 무렵 CI가 깨지면 먼저 확인.
 
 ## 보존할 경계
 
@@ -56,4 +68,4 @@
 
 ## 필요할 때만 읽는 기록
 
-[직전 HANDOFF(PR #13-15)](.agents/reports/handoff-history-through-2026-09-26-c.md) · [그 이전](.agents/reports/handoff-history-through-2026-09-26-b.md) · [패키지 경계](docs/integration/platform-packages.md) · [앱 README](apps/platform-web/README.md). 과거 지시와 미커밋 상태는 당시 기록이며 현재 요청과 Git 상태를 대체하지 않는다.
+[패키지 경계](docs/integration/platform-packages.md) · [앱 README](apps/platform-web/README.md) · [결정 상태](docs/05_roadmap_and_open_questions.md). HANDOFF는 다음 세션에 넘길 정보만 담고 매번 덮어쓴다. 이전 내용은 git 이력(`git log -p HANDOFF.md`)으로 본다.
