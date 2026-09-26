@@ -1,6 +1,6 @@
-# 플랫폼 모노레포 패키지 경계 (Candidate — 사용자 확인 대기)
+# 플랫폼 모노레포 패키지 경계 (Decided 2026-09-26 — 세부 필드명은 Candidate)
 
-> 상태: **Candidate.** 이 문서는 [05 Decided "다음 구현 범위: 프론트엔드 플랫폼 틀 + 메뉴 개발 환경"](../05_roadmap_and_open_questions.md)의 첫 단계로 패키지 경계와 의존 방향을 제안한다. 사용자 확인 전에는 코드를 옮기지 않는다. 패키지 이름·폴더명·도구 선택은 모두 Candidate다.
+> 상태: [05 Decided "다음 구현 범위: 프론트엔드 플랫폼 틀 + 메뉴 개발 환경"](../05_roadmap_and_open_questions.md)의 첫 단계로 패키지 경계와 의존 방향을 정한다. §8의 5개 항목은 2026-09-26 사용자가 제안안대로 **Decided**. `PlatformAdapter`·`MenuMeta`·`evaluateSelection` 같은 필드·타입 이름은 구현하면서 바뀔 수 있는 Candidate다.
 >
 > 근거: `prototypes/platform-app/src`의 import 그래프(2026-09-26, `main` `ebb471c`), [06 §3 아키텍처](../06_platform_ui_contract.md#3-platform-ui-architecture), [§4 Kernel 책임](../06_platform_ui_contract.md#4-platform-kernel-responsibilities), [§5 Menu Extension Contract](../06_platform_ui_contract.md#5-menu-extension-contract), [§13 컴포넌트 층](../06_platform_ui_contract.md#13-shared-component-layers).
 
@@ -171,10 +171,18 @@ const registry = createRegistry({ groups: GROUPS, menus: [...home.manifests, ...
 
 이 순서를 마치면 D1–D10이 모두 해소되고, 워크스페이스 층(06 §9.1)은 Registry `space` 필드와 셸 공간 전환기로 이 구조 위에 얹는다.
 
-## 8. 사용자 확인 필요
+## 8. 결정 (Decided, 2026-09-26)
 
-1. 위 패키지 7종 구성과 의존 방향(§3)을 이대로 가져갈지.
-2. 메뉴 패키지 단위: **그룹 단위**(제안, `menu-analytics`에 생산성 개요·사이클타임·실행 상세) vs 메뉴 단위.
-3. `prototypes/platform-app`을 `apps/platform-web`으로 **옮길지**(제안, 이력 유지) vs 프로토타입은 동결하고 새로 복사할지.
-4. lint 도구: ESLint(제안) / Biome / 혼합(§6).
-5. 패키지 접두사 `@ap/`과 폴더명 `menus/`.
+| # | 항목 | 결정 | 이유 |
+| --- | --- | --- | --- |
+| 1 | 패키지 구성·의존 방향 | §3 그대로 | 현재 폴더 구조와 거의 일치해 이동 비용이 적고, `contracts` 분리로 향후 백엔드와 계약 공유 가능 |
+| 2 | 메뉴 패키지 단위 | **그룹 단위** (`menu-analytics`에 생산성 개요·사이클타임·실행 상세) | 같은 그룹 안 목록→상세 import가 자연스럽고, 사이드바 그룹(06 §9)·소유 단위와 일치. 커지면 그때 분할 |
+| 3 | 프로토타입 처리 | `prototypes/platform-app` → `apps/platform-web`으로 **`git mv`** | 이력·리뷰 보고서 연결 유지, 코드 두 벌 방지 |
+| 4 | lint 도구 | **ESLint** | 경계·URL 조립 금지 같은 커스텀 규칙이 목적. FeedbackOps(Biome)와는 별도 workspace라 충돌 없음 |
+| 5 | 이름 | 접두사 `@ap/`, 메뉴 폴더 `menus/` | `menus/`는 "메뉴는 Consumer" 원칙을 구조로 드러냄 |
+
+**`@ap/`는 임시 접두사다.** 회사 시스템 이름이 정해지면 일괄 변경한다. 변경 비용을 낮게 유지하려고 다음을 지킨다.
+
+- 접두사는 `package.json` 이름·의존성, import 문, lint 경계 설정과 생성기 설정의 상수 한 곳에만 쓴다.
+- localStorage 키·이벤트 이름 등 런타임 문자열에 접두사를 넣지 않는다.
+- 변경 절차: 문자열 일괄 치환 → `pnpm install`(lockfile 재생성) → typecheck·test·build.
