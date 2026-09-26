@@ -3,8 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { preflightReservedPaths } from './probe-support.ts';
-import { gitPorcelain } from './probe-support.ts';
+import { gitPorcelain, preflightReservedPaths, runRevert, type RevertSteps } from './probe-support.ts';
 
 describe('probe support helpers (F8)', () => {
   it('gitPorcelain throws when git cannot run (bad cwd)', () => {
@@ -29,6 +28,49 @@ describe('probe support helpers (F8)', () => {
     mkdirSync(join(root, 'apps/platform-web/src'), { recursive: true });
     writeFileSync(join(root, 'apps/platform-web/src/gen-probe.test.ts'), 'stale\n');
     expect(() => preflightReservedPaths(root)).toThrow(/gen-probe\.test\.ts/);
+  });
+});
+
+describe('revert ordering (runRevert)', () => {
+  const stepsRecording = (order: string[], removeThrows = false, throwing: string[] = []): RevertSteps => {
+    const step = (name: string, body: () => void): (() => void) => () => {
+      order.push(name);
+      if (removeThrows && name === 'remove') throw new Error('--remove refused');
+      if (throwing.includes(name)) throw new Error(`${name} failed`);
+      body();
+    };
+    return {
+      deleteProbeTest: step('deleteProbeTest', () => undefined),
+      remove: step('remove', () => undefined),
+      restoreHandEdits: step('restoreHandEdits', () => undefined),
+      fallbackRestore: step('fallbackRestore', () => undefined),
+      install: step('install', () => undefined),
+      cleanTree: step('cleanTree', () => undefined),
+      postRevertTest: step('postRevertTest', () => undefined),
+    };
+  };
+
+  it('runs --remove before restoring the hand-edited group files', () => {
+    const order: string[] = [];
+    const outcome = runRevert(stepsRecording(order));
+    expect(order).toEqual(['deleteProbeTest', 'remove', 'restoreHandEdits', 'install', 'cleanTree', 'postRevertTest']);
+    expect(outcome.fallback).toBe(false);
+    expect(outcome.failures).toEqual([]);
+  });
+
+  it('takes the snapshot fallback when --remove refuses', () => {
+    const order: string[] = [];
+    const outcome = runRevert(stepsRecording(order, true));
+    expect(order).toEqual(['deleteProbeTest', 'remove', 'fallbackRestore', 'install', 'cleanTree', 'postRevertTest']);
+    expect(outcome.fallback).toBe(true);
+    expect(outcome.failures).toEqual([{ step: 'remove', message: '--remove refused' }]);
+  });
+
+  it('attempts every step independently and collects all failures', () => {
+    const order: string[] = [];
+    const outcome = runRevert(stepsRecording(order, true, ['install', 'cleanTree']));
+    expect(order).toEqual(['deleteProbeTest', 'remove', 'fallbackRestore', 'install', 'cleanTree', 'postRevertTest']);
+    expect(outcome.failures.map(f => f.step)).toEqual(['remove', 'install', 'cleanTree']);
   });
 });
 

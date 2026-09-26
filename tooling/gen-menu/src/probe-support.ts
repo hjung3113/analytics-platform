@@ -68,3 +68,52 @@ it('registers the generated probe menu in the app registry', () => {
 });
 `);
 }
+
+export type RevertStepName =
+  | 'deleteProbeTest'
+  | 'remove'
+  | 'restoreHandEdits'
+  | 'fallbackRestore'
+  | 'install'
+  | 'cleanTree'
+  | 'postRevertTest';
+
+export type RevertStepFailure = { step: RevertStepName; message: string };
+
+export type RevertOutcome = {
+  /** True when --remove refused and the snapshot fallback ran instead of the targeted restore. */
+  fallback: boolean;
+  /** Steps actually executed, in execution order. */
+  order: RevertStepName[];
+  failures: RevertStepFailure[];
+};
+
+export type RevertSteps = Record<RevertStepName, () => void>;
+
+/**
+ * F8 revert order: (1) delete the probe test, (2) run `--remove` while the hand-edited genProbe
+ * GroupId member and GROUPS row are still in place, (3) only then restore the hand-edited files,
+ * (4) on a --remove refusal fall back to restoring every touched app file and deleting the
+ * package dir, then (5) install, (6) clean-tree check, (7) the post-revert lock test. Every step
+ * is attempted independently — one failure never suppresses the rest.
+ */
+export function runRevert(steps: RevertSteps): RevertOutcome {
+  const order: RevertStepName[] = [];
+  const failures: RevertStepFailure[] = [];
+  const attempt = (step: RevertStepName, fn: () => void): void => {
+    order.push(step);
+    try {
+      fn();
+    } catch (err) {
+      failures.push({ step, message: err instanceof Error ? err.message : String(err) });
+    }
+  };
+  attempt('deleteProbeTest', steps.deleteProbeTest);
+  attempt('remove', steps.remove);
+  const fallback = failures.some(f => f.step === 'remove');
+  attempt(fallback ? 'fallbackRestore' : 'restoreHandEdits', fallback ? steps.fallbackRestore : steps.restoreHandEdits);
+  attempt('install', steps.install);
+  attempt('cleanTree', steps.cleanTree);
+  attempt('postRevertTest', steps.postRevertTest);
+  return { fallback, order, failures };
+}

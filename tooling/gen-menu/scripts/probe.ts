@@ -1,84 +1,113 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { GenMenuError, MENUS_TS, resolveRoot } from '../src/generate.ts';
+import {
+  GenMenuError, MENUS_TS, STYLE_CSS, APP_PKG, resolveRoot,
+} from '../src/generate.ts';
 import { PACKAGE_PREFIX } from '../src/prefix.ts';
 import {
-  PROBE_FOLDER, assertCleanTree, gitPorcelain, insertGroupIdMember, insertGroupsRow,
-  preflightReservedPaths, writeRegistryTest,
+  PROBE_FOLDER, PROBE_TEST_REL, assertCleanTree, gitPorcelain, insertGroupIdMember,
+  insertGroupsRow, preflightReservedPaths, runRevert, writeRegistryTest,
+  type RevertSteps,
 } from '../src/probe-support.ts';
 
 /**
  * §4 create-then-delete verification (coordinator-run, once, not CI): the committed tree must be
- * verifiably clean (F8 fail-closed), reserved paths are preflighted, and revert attempts every
- * step independently — restoring pre-run snapshots so only what this run created is deleted.
+ * verifiably clean (F8 fail-closed) and reserved paths are preflighted. The revert is ordered
+ * (F8/F3): --remove runs FIRST, while the hand-edited genProbe GroupId member and GROUPS row are
+ * still in place; only afterwards are the hand-edited files restored from pre-run snapshots.
  */
 const ROOT = resolveRoot();
 const CONTRACTS_MENU = join(ROOT, 'packages/contracts/src/menu.ts');
 const MENUS = join(ROOT, MENUS_TS);
+const STYLE = join(ROOT, STYLE_CSS);
+const APP_PKG_PATH = join(ROOT, APP_PKG);
+const PACKAGE_DIR = join(ROOT, 'menus', PROBE_FOLDER);
+
+function message(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
 
 function run(cmd: string, args: string[], env?: Record<string, string>): void {
   const childEnv = env === undefined ? process.env : { ...process.env, ...env };
   const res = spawnSync(cmd, args, { cwd: ROOT, stdio: 'inherit', env: childEnv });
-  if (res.status !== 0) fail(`'${cmd} ${args.join(' ')}' exited ${res.status ?? 'by signal'}`);
+  if (res.status !== 0) throw new GenMenuError(`probe: '${cmd} ${args.join(' ')}' exited ${res.status ?? 'by signal'}`);
   console.log(`probe: ok — ${cmd} ${args.join(' ')}`);
 }
 
-function fail(message: string): never {
-  throw new GenMenuError(`probe: ${message}`);
+function restoreFile(path: string, snapshot: string): void {
+  if (readFileSync(path, 'utf8') !== snapshot) writeFileSync(path, snapshot);
 }
 
-const message = (err: unknown): string => (err instanceof Error ? err.message : String(err));
-
-/** F8: every step is attempted independently; all failures are collected, none mask another. */
-function revert(snapshots: { contracts: string; menus: string }): string[] {
-  const failures: string[] = [];
-  try {
-    if (readFileSync(CONTRACTS_MENU, 'utf8') !== snapshots.contracts) writeFileSync(CONTRACTS_MENU, snapshots.contracts);
-  } catch (err) {
-    failures.push(`packages/contracts/src/menu.ts: ${message(err)}`);
-  }
-  try {
-    if (readFileSync(MENUS, 'utf8') !== snapshots.menus) writeFileSync(MENUS, snapshots.menus);
-  } catch (err) {
-    failures.push(`${MENUS_TS}: ${message(err)}`);
-  }
-  try {
-    rmSync(join(ROOT, 'apps/platform-web/src/gen-probe.test.ts'), { force: true });
-  } catch (err) {
-    failures.push(`apps/platform-web/src/gen-probe.test.ts: ${message(err)}`);
-  }
-  try {
-    const res = spawnSync('pnpm', ['gen:menu', '--remove', 'genProbe'], { cwd: ROOT, encoding: 'utf8' });
-    if ((res.status ?? 1) !== 0 && existsSync(join(ROOT, 'menus', PROBE_FOLDER))) {
+function buildRevertSteps(snapshots: { contracts: string; menus: string; style: string; appPkg: string }): RevertSteps {
+  return {
+    // (1) the probe test is owned by this run — preflight guaranteed it did not exist before.
+    deleteProbeTest: () => rmSync(join(ROOT, PROBE_TEST_REL), { force: true }),
+    // (2) --remove FIRST, while the genProbe GroupId member and GROUPS row still exist.
+    remove: () => {
+      const res = spawnSync('pnpm', ['gen:menu', '--remove', 'genProbe'], { cwd: ROOT, encoding: 'utf8' });
       process.stderr.write(`${res.stdout ?? ''}${res.stderr ?? ''}`);
-      failures.push('--remove refused — menus/gen-probe left in place');
-    }
-  } catch (err) {
-    failures.push(`--remove: ${message(err)}`);
-  }
-  try {
-    const res = spawnSync('pnpm', ['install'], { cwd: ROOT, stdio: 'inherit' });
-    if (res.status !== 0) failures.push('pnpm install failed');
-  } catch (err) {
-    failures.push(`pnpm install: ${message(err)}`);
-  }
-  try {
-    const dirty = gitPorcelain(ROOT);
-    if (dirty !== '') failures.push(`tree not clean after revert:\n${dirty}`);
-  } catch (err) {
-    failures.push(message(err));
-  }
-  return failures;
+      if ((res.status ?? 1) !== 0) throw new GenMenuError(`--remove exited ${res.status}`);
+    },
+    // (3) after a successful --remove the hand-edited files must equal their pre-run snapshots.
+    restoreHandEdits: () => {
+      restoreFile(CONTRACTS_MENU, snapshots.contracts);
+      restoreFile(MENUS, snapshots.menus);
+      for (const [path, snapshot] of [[CONTRACTS_MENU, snapshots.contracts], [MENUS, snapshots.menus]] as const) {
+        if (readFileSync(path, 'utf8') !== snapshot) throw new GenMenuError(`${path} does not match its pre-run snapshot`);
+      }
+    },
+    // (4) fallback when --remove refused: restore every app file this run touched and delete the
+    // package dir (preflight guaranteed it did not exist before this run).
+    fallbackRestore: () => {
+      const failures: string[] = [];
+      const touched: [string, string][] = [
+        [CONTRACTS_MENU, snapshots.contracts],
+        [MENUS, snapshots.menus],
+        [STYLE, snapshots.style],
+        [APP_PKG_PATH, snapshots.appPkg],
+      ];
+      for (const [path, snapshot] of touched) {
+        try {
+          if (readFileSync(path, 'utf8') !== snapshot) writeFileSync(path, snapshot);
+        } catch (err) {
+          failures.push(`${path}: ${message(err)}`);
+        }
+      }
+      try {
+        rmSync(PACKAGE_DIR, { recursive: true, force: true });
+      } catch (err) {
+        failures.push(`menus/${PROBE_FOLDER}: ${message(err)}`);
+      }
+      if (failures.length > 0) throw new GenMenuError(`fallback restore incomplete: ${failures.join('; ')}`);
+    },
+    // (5)
+    install: () => {
+      const res = spawnSync('pnpm', ['install'], { cwd: ROOT, stdio: 'inherit' });
+      if (res.status !== 0) throw new GenMenuError(`pnpm install exited ${res.status}`);
+    },
+    // (6)
+    cleanTree: () => {
+      const dirty = gitPorcelain(ROOT);
+      if (dirty !== '') throw new GenMenuError(`tree not clean after revert:\n${dirty}`);
+    },
+    // (7) the wiring locks must pass on the restored tree with the probe env explicitly off.
+    postRevertTest: () => run('pnpm', ['--filter', `${PACKAGE_PREFIX}gen-menu`, 'test'], { GEN_MENU_PROBE: '' }),
+  };
 }
 
-/** Returns revert failures; throws the original gate error after reverting. */
-function main(): string[] {
+/** Returns the revert outcome; throws the original gate error after the revert has run. */
+function main(): { fallback: boolean; failures: { step: string; message: string }[] } {
   assertCleanTree(ROOT);
   preflightReservedPaths(ROOT);
-  const snapshots = { contracts: readFileSync(CONTRACTS_MENU, 'utf8'), menus: readFileSync(MENUS, 'utf8') };
+  const snapshots = {
+    contracts: readFileSync(CONTRACTS_MENU, 'utf8'),
+    menus: readFileSync(MENUS, 'utf8'),
+    style: readFileSync(STYLE, 'utf8'),
+    appPkg: readFileSync(APP_PKG_PATH, 'utf8'),
+  };
   let gateError: unknown;
-  let failures: string[] = [];
+  let outcome: ReturnType<typeof runRevert> | undefined;
   try {
     insertGroupIdMember(ROOT);
     insertGroupsRow(ROOT);
@@ -89,35 +118,23 @@ function main(): string[] {
     run('pnpm', ['typecheck']);
     // Full gate: the wiring locks hold while the probe menu exists; only the probe-name check
     // is skipped via GEN_MENU_PROBE (turbo globalPassThroughEnv). The locks are re-verified
-    // without the env after the revert below.
+    // without the env after the revert.
     run('pnpm', ['test'], { GEN_MENU_PROBE: '1' });
     run('pnpm', ['build']);
     console.log('probe: verified — reverting');
   } catch (err) {
     gateError = err;
   } finally {
-    failures = revert(snapshots);
-    if (failures.length === 0) {
-      try {
-        run('pnpm', ['--filter', `${PACKAGE_PREFIX}gen-menu`, 'test'], { GEN_MENU_PROBE: '' });
-      } catch (err) {
-        failures.push(`post-revert gen-menu test: ${message(err)}`);
-      }
-    }
+    outcome = runRevert(buildRevertSteps(snapshots));
   }
-  if (gateError !== undefined) {
-    for (const f of failures) console.error(`probe: revert failure — ${f}`);
-    throw gateError;
-  }
-  return failures;
+  for (const f of outcome.failures) console.error(`probe: revert failure (${f.step}) — ${f.message}`);
+  if (gateError !== undefined) throw gateError;
+  if (outcome.failures.length > 0) throw new GenMenuError('revert reported failures — see above');
+  return { fallback: outcome.fallback, failures: outcome.failures };
 }
 
 try {
-  const failures = main();
-  if (failures.length > 0) {
-    console.error(`probe: revert incomplete:\n  ${failures.join('\n  ')}`);
-    process.exit(1);
-  }
+  main();
   console.log('probe: OK — tree is clean');
 } catch (err) {
   console.error(message(err));
