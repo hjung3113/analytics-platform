@@ -57,7 +57,9 @@ export type PlatformDataTableProps<T> = {
 /** §15: platform owns interaction, loading/error, column preference, selection model, toolbar layout; domain owns columns/cells/actions/filters. */
 export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const { t, lang } = useI18n();
-  const { global, role, scenario } = usePlatform();
+  const { global, role, scenario, route } = usePlatform();
+  // Registry declares export capability (§5); the table never offers Export on a menu that did not declare it.
+  const canExport = !!p.onExport && !!route?.menu.features.export;
   const pageSize = p.pageSize ?? 100;
   const [preferences, setPreferences] = useState(() => readPreferences(p.preferenceKey));
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -151,7 +153,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             </li>)}</ul>
           </PopoverContent>
         </Popover>
-        {p.onExport && <Button variant="secondary" size="sm" className="h-8 gap-1.5 rounded-sm border-border-strong"
+        {canExport && <Button variant="secondary" size="sm" className="h-8 gap-1.5 rounded-sm border-border-strong"
           onClick={() => p.onExport!(selectedIds.length ? { kind: 'selected', ids: selectedIds } : { kind: 'filtered', total: data.total })}>
           <Download className="size-3.5" aria-hidden />{t('export')}{selectedIds.length ? ` (${selectedIds.length})` : ''}
         </Button>}

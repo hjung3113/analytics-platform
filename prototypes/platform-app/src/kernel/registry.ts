@@ -94,7 +94,7 @@ export const MENUS: MenuEntry[] = [
     description: { ko: '물리 점유율, 비Process 체류, 사이클타임 P50·P95, Job 처리량을 요약합니다.', en: 'Occupancy, non-process dwell, cycle time P50/P95 and job throughput.' },
     path: '/analytics/productivity', icon: Activity, permission: 'analytics:view', requiresScope: true, pageType: 'overview',
     context: { ...none, time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', ppid: 'apply', recipe: 'apply', metric: 'reference', lot: 'unsupported' },
-    features: { ...noFeatures, export: true }, pageKeys: ['granularity'],
+    features: { ...noFeatures, export: true }, pageKeys: ['granularity', 'kpi', 'axis', 'sort'],
     component: lazy(() => import('../pages/analytics/ProductivityOverview')),
   },
   {
@@ -123,7 +123,7 @@ export const MENUS: MenuEntry[] = [
     id: 'metric-catalog', primary: true, group: 'metrics', label: { ko: '지표 카탈로그', en: 'Metric catalog' },
     description: { ko: 'grain·분자/분모·버전·발행 상태로 지표 정의를 탐색합니다.', en: 'Browse metric definitions by grain, numerator/denominator, version and status.' },
     path: '/metrics', icon: BookOpen, permission: 'metrics:view', requiresScope: false, pageType: 'catalog',
-    context: { ...none, metric: 'apply', selection: 'reference' }, features: noFeatures, pageKeys: ['q', 'status', 'domain'],
+    context: { ...none, metric: 'apply', selection: 'reference' }, features: { ...noFeatures, export: true }, pageKeys: ['q', 'status', 'domain'],
     component: lazy(() => import('../pages/metrics/MetricCatalog')),
   },
   {
