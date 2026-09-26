@@ -3,13 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@ap/tsconfig": "workspace:*",
-    "@types/node": "^26.6.3",
     "typescript": "^5.9.3"
   }
 }
