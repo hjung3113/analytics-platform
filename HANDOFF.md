@@ -40,8 +40,8 @@
 - **워커 분배:** 발견 사항 여러 개를 한 워커에 몰아주면 GLM max가 25분 넘게 계획만 하고 파일을 하나도 바꾸지 않았다. 작업을 잘게 나눠 **Grok 설계 → 구현 모델 구현 → coordinator 검증**을 하나씩 하는 방식이 빨랐다. 설계 문서는 구현과 겹쳐서 미리 받아도 된다.
 - **Orca 탭 정리:** `orca terminal create`로 띄운 Grok/OMP/Codex 터미널은 external이라 `worker-release` 후에도 열려 있다. 수락 후 `orca terminal close`로 직접 닫는다.
 - **Codex 준비 확인 실패:** 주간 한도 경고 배너가 있으면 `worker-start --agent codex`가 `agent_readiness`에서 실패한다. `orca terminal create --command "codex -m <model> -c model_reasoning_effort=\"<effort>\""` → `task-create` → `dispatch --inject`로 우회했다. orca는 `gpt-6-luna`의 `max` effort를 거부하지만 Codex CLI 자체는 지원한다.
-- **GLM 경로:** `z-ai/glm-*`는 OpenRouter 경유(크레딧 부족 시 402, 대화형 TUI는 오류 없이 멈춤), `glm-*`는 z.ai 직접 연결(5시간 한도 있음). 사전 확인은 `omp -p "reply with OK only" --model <id> --thinking low`. 비대화 실행은 반드시 `< /dev/null`(아니면 stdin 대기로 멈춤).
-- **계정 한도(2026-09-26 기준):** Codex 주간 약 9% 남음, Grok 주간 약 46% 사용, OpenRouter 크레딧 부족, z.ai는 5시간 한도 후 재개.
+- **GLM 경로 — OpenRouter 사용 금지:** omp에서 `z-ai/glm-*`처럼 `vendor/` 접두사가 붙은 ID는 OpenRouter 경유다. 이번 라운드에 실수로 이 경로를 썼다가 크레딧 부족(402)으로 멈췄다(대화형 TUI는 오류 없이 멈춤). 반드시 접두사 없는 z.ai 직접 연결 ID(`glm-5.3-flash` 등, 5시간 한도 있음)만 쓰고, 한도가 차면 OpenRouter가 아니라 사용자가 지정한 다른 모델(예: Codex Luna)로 바꾼다. 사전 확인은 `omp -p "reply with OK only" --model <id> --thinking low < /dev/null`. 비대화 실행은 반드시 `< /dev/null`(아니면 stdin 대기로 멈춤).
+- **계정 한도(2026-09-26 기준):** Codex 주간 약 9% 남음, Grok 주간 약 46% 사용, z.ai는 5시간 한도 후 재개. OpenRouter는 쓰지 않는다.
 - CI: `ubuntu-latest`가 2026-10-19부터 Ubuntu 26으로 바뀐다는 GitHub 공지가 있다. 그 무렵 CI가 깨지면 이것부터 확인한다.
 
 ## 보존할 경계
