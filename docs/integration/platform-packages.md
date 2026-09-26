@@ -86,14 +86,14 @@ export type PlatformAdapter = {
   session(): Session;                       // 스냅샷. 세션이 바뀔 때까지 같은 객체 (user + 접근 가능한 scopes)
   validateScope(scopeId: string, signal?: AbortSignal): Promise<ScopeCheck>;
   publishedMetrics(): readonly PublishedMetric[];  // metricId 단독 진입 보완 (스냅샷)
+  contextOptions(scopeId: string, signal?): Promise<ConditionOptions>;           // 4d: 조건 축 선택지
+  evaluateSelection(input: SelectionInput, signal?): Promise<SelectionEvaluation>; // 4d: 조건 결과·조건 밖 선택
   defaultRangeTo(): string;                 // 기본 기간 기준 시각
   subscribe(onChange: () => void): () => void;     // 세션·서버 상태 변경 알림
 };
 
-// 4단계(GlobalContextBar 전환)에서 추가
-//   contextOptions(scopeId: string): Promise<ContextOptions>;  // 조건 축(stgroup·team·makerModel) 선택지
-//   evaluateSelection(input: { scopeId; roomNames; condition; selection }, signal?): Promise<SelectionEvaluation>;
-// SelectionEvaluation = { pool, inCondition, outOfCondition } — 현재 GlobalContextBar.tsx가 클라이언트에서 계산하는 값
+// SelectionEvaluation = { inCondition: EquipmentOption[]; outOfCondition: string[] }
+//   이전 GlobalContextBar가 클라이언트에서 계산하던 값. 초안의 pool은 화면에서 쓰지 않아 뺐다.
 ```
 
 - **세션형 데이터는 동기 스냅샷 + `subscribe`:** 셸이 로딩 공백 없이 그려지도록 `session()`·`publishedMetrics()`는 동기로 둔다. 실서버 어댑터는 Provider를 마운트하기 전에 세션을 받아 둔다(부트스트랩). 요청마다 달라지는 검증(`validateScope`, 4단계의 `evaluateSelection`)만 비동기다. 초안의 `session(): Promise<User>`·`scopes()`는 이 규칙에 따라 `Session`(user + scopes) 스냅샷 하나로 합쳤다.
@@ -167,7 +167,7 @@ const registry = createRegistry({ groups: GROUPS, menus: [...home.manifests, ...
    - 4a **ui (완료):** `packages/ui` — shadcn·`Button`·`cn`·`StatusBadge`(`Tone`, D7 마무리)와 디자인 시스템 CSS(`tokens.css` + Tailwind 테마 매핑·base·타이포 유틸리티, `@ap/ui/styles.css`). 앱 밖 패키지라 CSS가 `@source`로 자기 컴포넌트를 스캔한다. 빌드 CSS가 이동 전과 동일(selector 629개, 파일 해시 동일)함을 확인.
    - 4b **Registry 주입 + kernel (완료):** `GROUPS`·`MENUS`(화면 lazy import 포함)를 앱 `src/menus.ts`로 옮기고 `createRegistry()` 결과를 `PlatformProvider registry={…}`로 주입(D1 앞부분). §5 검증(id 중복, parent, 선언 그룹, 그룹별 primary 1개, pageKeys×전역 키, 경로 정규형 충돌)과 정적 세그먼트 우선 매칭을 구현하고 fixture 단위 테스트로 고정. 그 뒤 `packages/kernel`(`@ap/kernel`)로 이동. 실제 메뉴가 필요한 URL·복귀 경로 테스트는 앱 통합 테스트(`src/url-contract.test.ts`, `src/return-to.test.ts`)로 남김(D10 일부).
    - 4c **components (완료):** Kernel `PlatformProvider slots={{ contextBar, topBarTools }}`(06 §8 Shell Slots)를 도입해 `PlatformPage`가 셸을 import하지 않게 함(D4). `src/platform/*`을 `packages/components`(`@ap/components`)로 이동, Tailwind 스캔용 `@ap/components/styles.css`(`@source`). 빌드 CSS가 4b와 동일(selector 629개, 해시 동일).
-   - 4d **shell:** GlobalContextBar를 `contextOptions`/`evaluateSelection` 어댑터로(D5 마무리).
+   - 4d **shell (완료):** GlobalContextBar가 `contextOptions`/`evaluateSelection`을 Kernel `useAdapterRequest`(usePlatformQuery와 같은 무효화 규칙)로 호출해 mock 의존 0건(D5 해소). mock 구현은 이전 클라이언트 계산과 결과가 같음을 테스트로 확인. `src/shell/*`과 `App.tsx`의 라우트 출력(`RouteOutlet`: 미등록·계약 오류·권한·미구현 상태)을 `packages/shell`(`@ap/shell`)로 이동. 이제 앱에는 조립(`main.tsx`), 메뉴 선언(`menus.ts`), 메뉴 화면(`pages/`), mock, dev 도구만 남는다.
 5. **메뉴 패키지:** 그룹별로 `menus/*`로 이동, `api.ts` 도입(D8), Registry를 manifest 등록 방식으로(D1). 교차 테스트를 메뉴·앱 통합 테스트로 재배치하고 Kernel 테스트를 fixture Registry로 전환(D10).
 6. **경계 lint와 생성기:** 규칙 켜고 CI에 추가, `gen:menu`로 빈 메뉴 하나를 만들어 검증한 뒤 삭제.
 

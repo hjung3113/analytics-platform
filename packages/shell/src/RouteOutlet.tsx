@@ -2,14 +2,10 @@ import { Ban, FileQuestion, Link2Off } from 'lucide-react';
 import { CONTEXT_LABELS, PAGE_TYPE_LABELS, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { Panel, PlatformPage, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
-import { AppShell } from './shell/AppShell';
 import type { ContextKey } from '@ap/contracts';
 
-export function App() {
-  return <AppShell><RouteOutlet /></AppShell>;
-}
-
-function RouteOutlet() {
+/** Renders the matched menu page, or the kernel's not-found / contract-error / permission / planned states (docs/06 §17, §19). */
+export function RouteOutlet() {
   const { route, contractError, can, url, global, metricInit, setGlobal } = usePlatform();
   const { t, lang } = useI18n();
   if (!route) return <KernelMessage icon={<FileQuestion className="size-4" aria-hidden />} title={t('notFound')} body={<span className="t-mono">{url}</span>} />;

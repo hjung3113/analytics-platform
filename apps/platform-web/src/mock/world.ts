@@ -89,18 +89,6 @@ export const EQUIPMENT: Equipment[] = (() => {
   return rows;
 })();
 
-export function stgroupsFor(site: string): string[] {
-  return [...new Set(EQUIPMENT.filter(e => e.site === site).map(e => e.stgroup))].sort();
-}
-export function makerModelsFor(site: string): { maker: string; model: string }[] {
-  const seen = new Map<string, { maker: string; model: string }>();
-  for (const e of EQUIPMENT.filter(x => x.site === site)) seen.set(`${e.maker}/${e.model}`, { maker: e.maker, model: e.model });
-  return [...seen.values()].sort((a, b) => `${a.maker}${a.model}`.localeCompare(`${b.maker}${b.model}`));
-}
-export function teamsFor(site: string): string[] {
-  return [...new Set(EQUIPMENT.filter(e => e.site === site).map(e => e.team))].sort();
-}
-
 /** Server-owned exclusive upper bound for default periods (§6.3 defaultRangeTo); never browser now. */
 export const DEFAULT_RANGE_TO = '2026-09-26T09:00:00';
 

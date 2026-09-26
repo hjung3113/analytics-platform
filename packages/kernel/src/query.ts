@@ -44,3 +44,33 @@ export function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<ApiRes
   const busy = inFlight?.identity === identity || (enabled && !current);
   return { status: !current ? 'loading' : busy ? 'refreshing' : 'done', response: current, refetch };
 }
+
+export type RequestState<T> = { status: 'loading' | 'done' | 'error'; data: T | null; retry: () => void };
+
+/**
+ * Same lifecycle as usePlatformQuery for plain adapter calls (shell editors): the result is keyed by
+ * (adapter revision, user, key); when that changes the previous data is hidden at once and late replies are dropped.
+ */
+export function useAdapterRequest<T>(run: (signal: AbortSignal) => Promise<T>, key: unknown, enabled = true): RequestState<T> {
+  const { user, revision } = usePlatform();
+  const identity = JSON.stringify([revision, user.id, key]);
+  const [result, setResult] = useState<{ identity: string; state: Omit<RequestState<T>, 'retry'> } | null>(null);
+  const [tick, setTick] = useState(0);
+  const retry = useCallback(() => { setResult(null); setTick(t => t + 1); }, []);
+  const runRef = useRef(run);
+  runRef.current = run;
+
+  useEffect(() => {
+    if (!enabled) return;
+    const controller = new AbortController();
+    runRef.current(controller.signal).then(data => {
+      if (!controller.signal.aborted) setResult({ identity, state: { status: 'done', data } });
+    }).catch(error => {
+      if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
+      setResult({ identity, state: { status: 'error', data: null } });
+    });
+    return () => controller.abort();
+  }, [identity, enabled, tick]);
+
+  return result?.identity === identity ? { ...result.state, retry } : { status: 'loading', data: null, retry };
+}

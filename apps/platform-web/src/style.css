@@ -1,3 +1,4 @@
 @import "tailwindcss";
 @import "@ap/ui/styles.css";
 @import "@ap/components/styles.css";
+@import "@ap/shell/styles.css";

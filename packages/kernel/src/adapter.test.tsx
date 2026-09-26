@@ -1,9 +1,10 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
+import { useState } from 'react';
 import type { ApiResponse, PlatformAdapter, Session } from '@ap/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
-import { usePlatformQuery } from './query';
+import { useAdapterRequest, usePlatformQuery } from './query';
 import { createRegistry } from './registry';
 import { House } from 'lucide-react';
 
@@ -24,6 +25,8 @@ function fixture() {
     validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
     publishedMetrics: () => [],
     defaultRangeTo: () => '2026-09-26T09:00:00',
+    contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
+    evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
     subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
   };
   return {
@@ -100,9 +103,47 @@ describe('adapter shape', () => {
       async validateScope() { return { status: 'valid' as const, grantedRooms: [] }; }
       publishedMetrics() { return []; }
       defaultRangeTo() { return '2026-09-26T09:00:00'; }
+      async contextOptions() { return { stgroup: [], team: [], makerModel: [] }; }
+      async evaluateSelection() { return { inCondition: [], outOfCondition: [] }; }
       subscribe(listener: () => void) { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
     }
     mount(new ServerAdapter());
     expect(await screen.findByText('done:cls#1')).toBeTruthy();
+  });
+});
+
+describe('useAdapterRequest', () => {
+  it('hides the previous data as soon as its key changes', async () => {
+    const f = fixture();
+    let setKey: (k: string) => void = () => {};
+    function Req() {
+      const [key, set] = useState('a');
+      setKey = set;
+      const r = useAdapterRequest(async () => `data-${key}`, key);
+      return <p data-testid="req">{r.status}:{r.data ?? '-'}</p>;
+    }
+    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><Req /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('done:data-a')).toBeTruthy();
+    act(() => setKey('b'));
+    expect(screen.getByTestId('req').textContent).toBe('loading:-');
+    expect(await screen.findByText('done:data-b')).toBeTruthy();
+    act(() => f.serverChanged());
+    expect(screen.getByTestId('req').textContent).toBe('loading:-');
+  });
+});
+
+describe('useAdapterRequest error', () => {
+  it('reports errors and retries on demand', async () => {
+    const f = fixture();
+    let fail = true;
+    function Req() {
+      const r = useAdapterRequest(async () => { if (fail) throw new Error('down'); return 'ok'; }, 'k');
+      return <button type="button" data-testid="r" onClick={r.retry}>{r.status}:{r.data ?? '-'}</button>;
+    }
+    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><Req /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('error:-')).toBeTruthy();
+    fail = false;
+    act(() => screen.getByTestId('r').click());
+    expect(await screen.findByText('done:ok')).toBeTruthy();
   });
 });

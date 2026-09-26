@@ -1,5 +1,6 @@
 import type { Text } from './i18n';
 import type { Permission } from './menu';
+import type { Condition, IdSet } from './url';
 
 /**
  * Kernel port to the platform server (docs/integration/platform-packages.md §4). The kernel consumes it;
@@ -20,11 +21,24 @@ export type ScopeCheck = { status: 'valid' | 'forbidden' | 'unknown_scope'; gran
 /** Server-owned published pointer per metricId (docs/06 §6.1). Bare version token. Null = known, unpublished. */
 export type PublishedMetric = { metricId: string; publishedVersion: string | null };
 
+/** Choices for the Global Context condition editor, per site (one axis at a time, docs/06 §11). */
+export type ConditionOptions = { stgroup: string[]; team: string[]; makerModel: { maker: string; model: string }[] };
+
+export type EquipmentOption = { equipmentId: string; room: string; model: string };
+export type SelectionInput = { scopeId: string | null; roomNames: IdSet; condition: Condition | null; selection: IdSet };
+/**
+ * Server-side evaluation for the selection editor: equipment the user may pick under the current room/condition
+ * (already filtered by the session's grants), and selected IDs that fall outside the condition (shown, never removed).
+ */
+export type SelectionEvaluation = { inCondition: EquipmentOption[]; outOfCondition: string[] };
+
 export type PlatformAdapter = {
   /** Current session. Must return the same object until the session changes (it is a store snapshot). */
   session(): Session;
   validateScope(scopeId: string, signal?: AbortSignal): Promise<ScopeCheck>;
   publishedMetrics(): readonly PublishedMetric[];
+  contextOptions(scopeId: string, signal?: AbortSignal): Promise<ConditionOptions>;
+  evaluateSelection(input: SelectionInput, signal?: AbortSignal): Promise<SelectionEvaluation>;
   /** Anchor for default periods (naive wall-clock, docs/06 §6.3). */
   defaultRangeTo(): string;
   /**

@@ -23,12 +23,12 @@ pnpm build
 | Kernel: Menu Registry, 전역 Context, URL 계약, 권한·Scope, 즐겨찾기/최근/활용 계측 | `packages/kernel`(`@ap/kernel`: `createRegistry`, `PlatformProvider`, `usePlatformQuery`, i18n), 메뉴 선언은 앱의 `src/menus.ts`, URL codec·manifest·응답 envelope 타입은 `packages/contracts` |
 | 공통 컴포넌트 | `packages/components`(`@ap/components`) — `PlatformPage`(§8 Slot: Context Bar는 `slots.contextBar`로 주입), `PlatformDataTable`, `DetailDrawer`, `AuditTimeline`, `DataTrustIndicator`, `StateView`(§19), `StatCard`. UI primitive·`StatusBadge`·토큰은 `packages/ui`(`@ap/ui`) |
 | 차트 계약 | `packages/components/src/AnalysisChartFrame.tsx` (Zoom/Brush/Reset/Compare/Annotate/Export/More, 4층 상태 분리), `EChart.tsx` |
-| 레이아웃 | `src/shell/` (AppShell 270/64/54, Sidebar 아코디언, TopBar, GlobalContextBar, CommandPalette) + 페이지 archetype |
+| 레이아웃 | `packages/shell`(`@ap/shell`: AppShell 270/64/54, Sidebar 아코디언, TopBar, GlobalContextBar, CommandPalette, RouteOutlet) + 페이지 archetype |
 | 메뉴간 연결 | `usePlatform().linkTo()` Context Link helper, `returnTo` 복귀 |
 
 ## 페이지 작성 가이드 (Consumer 규칙)
 
-페이지는 `src/pages/<area>/*.tsx`에 default export로 두고 `registry.ts`의 `component`로 lazy 등록된다. **페이지는 kernel/shell/platform 파일을 수정하지 않는다.** 공통 컴포넌트가 부족하면 수정하지 말고 필요 사항을 보고한다.
+페이지는 `src/pages/<area>/*.tsx`에 default export로 두고 `src/menus.ts`의 `component`로 lazy 등록된다. **페이지는 `packages/*`(kernel/shell/components/ui/contracts)를 수정하지 않는다.** 공통 컴포넌트가 부족하면 수정하지 말고 필요 사항을 보고한다.
 
 1. 최상위는 반드시 `<PlatformPage>`. 슬롯: `title`, `description`, `primaryAction`, `secondaryActions`, `contextExtension`(page-owned 필터), `dataTrustSummary`, `crumbs`, `children`. 전역 Context Bar·Scope 게이트·Breadcrumb·즐겨찾기는 PlatformPage가 자동 렌더링한다 — 페이지가 날짜 선택기·Scope 선택기를 따로 만들지 않는다(§5 금지).
 2. 데이터 조회는 `usePlatformQuery(signal => serve({...}), pageInputs)` → `<QueryView query={q}>{data => ...}</QueryView>`. 로딩/갱신/empty/forbidden/too_large/timeout/error 분기는 QueryView가 한다. 위젯마다 따로 조회하면 부분 실패가 그 위젯에만 머문다(§19).
