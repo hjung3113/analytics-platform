@@ -44,11 +44,19 @@ export function createRegistry({ groups, menus }: { groups: readonly GroupDef[];
     if (byId.has(m.id)) fail(`Duplicate menu id "${m.id}"`);
     byId.set(m.id, m);
   }
-  const groupIds = new Set(groups.map(g => g.id));
+  const groupIds = new Set<string>();
+  for (const g of groups) {
+    if (groupIds.has(g.id)) fail(`Duplicate group id "${g.id}"`);
+    groupIds.add(g.id);
+  }
   const shapes = new Map<string, string>();
   for (const m of menus) {
     if (!groupIds.has(m.group)) fail(`Menu "${m.id}" uses undeclared group "${m.group}"`);
-    if (m.parent !== undefined && !byId.has(m.parent)) fail(`Menu "${m.id}" has unknown parent "${m.parent}"`);
+    if (m.parent !== undefined) {
+      const parent = byId.get(m.parent) ?? fail(`Menu "${m.id}" has unknown parent "${m.parent}"`);
+      // Breadcrumbs and returnTarget link to the parent without params, so a parent route must not need any.
+      if (segments(parent.path).some(isParam)) fail(`Menu "${m.id}" has parent "${parent.id}" whose route needs parameters`);
+    }
     const clash = m.pageKeys.find(k => GLOBAL_KEYS.has(k));
     if (clash) fail(`Menu "${m.id}" page key "${clash}" collides with a global Context key`);
     // Same shape once parameter names are erased (/a/:x vs /a/:y) is ambiguous; static-vs-param overlaps are resolved below.
