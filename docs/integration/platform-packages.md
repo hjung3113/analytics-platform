@@ -78,33 +78,28 @@ D1–D8은 화면·런타임 코드, D9는 같은 폴더 안이라 폴더 구조
 
 ## 4. Kernel 포트: `PlatformAdapter` (D2·D5 해소)
 
-포트 타입과 입출력 DTO는 `@ap/contracts`에 둔다. `mock-server`(허용 의존: `contracts`뿐)가 이를 구현하고, Kernel은 소비만 한다. 포트가 Kernel에 있으면 구현체가 Kernel을 import해야 해 §3 규칙과 충돌한다. 포트는 순수 비동기 함수라 React 의존이 없다. 필드명은 Candidate이고, 현재 mock이 하는 일만 옮긴다.
+포트 타입과 입출력 DTO는 `@ap/contracts`에 둔다. `mock-server`(허용 의존: `contracts`뿐)가 이를 구현하고, Kernel은 소비만 한다. 포트가 Kernel에 있으면 구현체가 Kernel을 import해야 해 §3 규칙과 충돌한다. 포트는 함수 시그니처뿐이라 React·DOM 의존이 없다. 필드명은 Candidate이고, 현재 mock이 하는 일만 옮긴다.
 
 ```ts
-// @ap/contracts
+// @ap/contracts (3단계 구현, packages/contracts/src/adapter.ts)
 export type PlatformAdapter = {
-  session(): Promise<User>;                                    // 현재 USERS[role]
+  session(): Session;                       // 스냅샷. 세션이 바뀔 때까지 같은 객체 (user + 접근 가능한 scopes)
   validateScope(scopeId: string, signal?: AbortSignal): Promise<ScopeCheck>;
-  scopes(): Promise<Site[]>;                                   // TopBar 사이트 목록 (현재 SITES)
-  contextOptions(scopeId: string): Promise<ContextOptions>;    // 조건 축(stgroup·team·makerModel) 선택지
-  evaluateSelection(input: {                                   // GlobalContextBar 설비 풀·조건 판정
-    scopeId: string; roomNames: IdSet; condition: Condition | null; selection: IdSet;
-  }, signal?: AbortSignal): Promise<SelectionEvaluation>;
-  publishedMetrics(): Promise<PublishedMetric[]>;              // metricId 단독 진입 보완
-  defaultRangeTo(): string;                                    // 현재 DEFAULT_RANGE_TO
-  subscribe(onChange: () => void): () => void;                 // 세션·권한·서버 상태가 바뀌었음을 Kernel에 알림
+  publishedMetrics(): readonly PublishedMetric[];  // metricId 단독 진입 보완 (스냅샷)
+  defaultRangeTo(): string;                 // 기본 기간 기준 시각
+  subscribe(onChange: () => void): () => void;     // 세션·서버 상태 변경 알림
 };
 
-// 현재 GlobalContextBar.tsx:290 부근이 클라이언트에서 계산하는 값을 그대로 옮긴다
-type SelectionEvaluation = {
-  pool: EquipmentOption[];            // 허용 방 ∩ roomNames 안의 선택 후보
-  inCondition: EquipmentOption[];     // 그중 condition에 맞는 설비(조건 결과 개수)
-  outOfCondition: string[];           // 현재 selection 중 condition 밖 id(표시용)
-};
+// 4단계(GlobalContextBar 전환)에서 추가
+//   contextOptions(scopeId: string): Promise<ContextOptions>;  // 조건 축(stgroup·team·makerModel) 선택지
+//   evaluateSelection(input: { scopeId; roomNames; condition; selection }, signal?): Promise<SelectionEvaluation>;
+// SelectionEvaluation = { pool, inCondition, outOfCondition } — 현재 GlobalContextBar.tsx가 클라이언트에서 계산하는 값
 ```
 
-- 역할 전환과 응답 시나리오 시뮬레이터(`setRole`, `setScenario`)는 **실서버에 없는 개발 기능**이다. `Platform` 컨텍스트에서 빼고 `apps/platform-web`의 dev 도구가 TopBar 슬롯에 붙인다. 운영 빌드에는 포함하지 않는다.
-- **무효화 계약 보존:** 현재 `usePlatformQuery`는 결과 identity에 `role`·`scenario`를 넣어, 전환 즉시 이전 결과를 숨기고 재조회한다. 분리 후에는 dev 도구가 mock 어댑터의 상태를 바꾸고 어댑터가 `subscribe` 리스너를 호출한다. Kernel은 알림을 받으면 ① `session()`을 다시 읽고 ② 현재 Scope를 재검증하고 ③ 세션 revision을 올린다. `usePlatformQuery`의 identity는 `[revision, user 식별자, 전역 Context, page 입력]`이 되어 지금과 같은 시점에 이전 결과를 숨긴다. 실서버에서는 재로그인·권한 변경 알림이 같은 경로를 탄다. 이행 3단계의 검증 항목: 역할·시나리오 전환 직후 이전 결과가 한 프레임도 보이지 않을 것.
+- **세션형 데이터는 동기 스냅샷 + `subscribe`:** 셸이 로딩 공백 없이 그려지도록 `session()`·`publishedMetrics()`는 동기로 둔다. 실서버 어댑터는 Provider를 마운트하기 전에 세션을 받아 둔다(부트스트랩). 요청마다 달라지는 검증(`validateScope`, 4단계의 `evaluateSelection`)만 비동기다. 초안의 `session(): Promise<User>`·`scopes()`는 이 규칙에 따라 `Session`(user + scopes) 스냅샷 하나로 합쳤다.
+
+- 역할 전환과 응답 시나리오 시뮬레이터(`setRole`, `setScenario`)는 **실서버에 없는 개발 기능**이다. `Platform` 컨텍스트에서 빼고 `apps/platform-web`의 dev 도구가 TopBar 슬롯에 붙인다. 운영 빌드에는 포함하지 않는다(현재 앱은 mock 전용이라 `main.tsx`가 항상 마운트한다. 실서버 어댑터를 붙일 때 함께 뺀다).
+- **무효화 계약 보존:** 현재 `usePlatformQuery`는 결과 identity에 `role`·`scenario`를 넣어, 전환 즉시 이전 결과를 숨기고 재조회한다. 분리 후에는 dev 도구가 mock 어댑터의 상태를 바꾸고 어댑터가 `subscribe` 리스너를 호출한다. Kernel은 알림을 받으면 ① `session()`을 다시 읽고 ② 세션 객체가 바뀌었으면 현재 Scope를 재검증하고 ③ revision을 올린다(시나리오처럼 세션이 그대로인 변경은 ③만). `usePlatformQuery`의 identity는 `[revision, user 식별자, 전역 Context, page 입력]`이 되어 지금과 같은 시점에 이전 결과를 숨긴다. 실서버에서는 재로그인·권한 변경 알림이 같은 경로를 탄다. 이행 3단계의 검증 항목: 역할·시나리오 전환 직후 이전 결과가 한 프레임도 보이지 않을 것(`kernel/adapter.test.tsx`).
 - `matchesCondition` 같은 조건 판정은 서버 책임이다. 셸은 조건·방·Selection이 바뀔 때 `evaluateSelection`을 다시 호출하고 결과(후보, 조건 결과 개수, 조건 밖 선택)만 표시한다. 이전 요청 결과를 새 결과로 보이지 않는 요청 수명주기는 `usePlatformQuery`와 같은 규칙을 따른다.
 
 ## 5. 메뉴 패키지 계약과 템플릿
@@ -167,7 +162,7 @@ const registry = createRegistry({ groups: GROUPS, menus: [...home.manifests, ...
 
 1. **골격 (완료, PR #17):** 루트 workspace·tooling 추가, `prototypes/platform-app`을 `apps/platform-web`으로 `git mv`(내용 변경 없음), CI 경로 수정.
 2. **contracts 추출 (완료):** `safeReturnTo`를 `kernel/registry.ts`로 옮겨 `url.ts`의 Registry 의존을 끊고(D9 — Registry를 인자로 받는 형태는 `createRegistry`가 생기는 5단계에서), `MenuEntry`를 `MenuMeta`와 React binding으로 나눈 뒤, 순수 codec과 D3·D6·D7(`AuditEvent`) 타입을 이동. `Tone`은 `ui` 추출(4단계)과 함께 옮긴다. 런타임 변화 없음.
-3. **Kernel 포트:** `PlatformAdapter` 도입, mock 구현 주입, dev 도구 분리(D2·D5 일부).
+3. **Kernel 포트 (완료):** `PlatformAdapter`(contracts) 도입, `mock/adapter.ts`를 `main.tsx`가 주입, 역할·시나리오를 `src/dev/DevTools.tsx`로 분리(탑바 `devTools` 슬롯). Kernel·공통 컴포넌트의 mock import 0건(D2). 페이지는 `serve`에 `role`을 넘기지 않고 mock 서버가 세션을 읽는다. 무효화 계약은 `kernel/adapter.test.tsx`(fixture 어댑터)로 고정. D5 중 TopBar만 해소, GlobalContextBar는 4단계.
 4. **ui → components → shell 순서로 추출:** PlatformPage Context Bar 슬롯(D4), GlobalContextBar·TopBar 어댑터 전환(D5).
 5. **메뉴 패키지:** 그룹별로 `menus/*`로 이동, `api.ts` 도입(D8), Registry를 manifest 등록 방식으로(D1). 교차 테스트를 메뉴·앱 통합 테스트로 재배치하고 Kernel 테스트를 fixture Registry로 전환(D10).
 6. **경계 lint와 생성기:** 규칙 켜고 CI에 추가, `gen:menu`로 빈 메뉴 하나를 만들어 검증한 뒤 삭제.

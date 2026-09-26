@@ -1,4 +1,4 @@
-import type { Equipment, RoleId } from '../../mock/world';
+import type { Equipment } from '../../mock/world';
 import { type AuditEvent, type GlobalContext, parseDateTime, shift } from '@ap/contracts';
 import { serve } from '../../mock/server';
 
@@ -21,8 +21,8 @@ export function filterEquipment(rows: Equipment[], q: string, status: string, ma
   return rows.filter(e => (!search || `${e.equipmentId} ${e.name}`.toLowerCase().includes(search)) && (!status || e.status === status) && (!maker || e.maker === maker));
 }
 // Destination identity is a request constraint, never a mutation of inherited URL Context.
-export function equipmentRequest(role: RoleId, global: GlobalContext, id: string, signal: AbortSignal) {
-  return serve({ role, global: { ...global, roomNames: null, condition: null, selection: [id] }, signal, mergeTimeDomain: false,
+export function equipmentRequest(global: GlobalContext, id: string, signal: AbortSignal) {
+  return serve({ global: { ...global, roomNames: null, condition: null, selection: [id] }, signal, mergeTimeDomain: false,
     compute: ({ equipment }) => equipment.find(e => e.equipmentId === id) ?? null, isEmpty: e => e === null });
 }
 export function validity(e: Equipment) {

@@ -21,7 +21,7 @@ const SEGMENT_CLASS: Record<SegmentKind, string> = {
 
 export default function ExecutionDetail({ params }: PageProps) {
   const { lang } = useI18n();
-  const { global, role, pageParam, linkTo, returnTarget } = usePlatform();
+  const { global, pageParam, linkTo, returnTarget } = usePlatform();
   const ko = lang === 'ko';
   const equipmentId = params.equipmentId;
   const entityType = pageParam('entityType');
@@ -37,7 +37,6 @@ export default function ExecutionDetail({ params }: PageProps) {
   // so the occurrence lookup passes a copy with those filters cleared and does not pass maxHours
   // (a carried 90-day period must not hide the object). Scope grants still apply.
   const query = usePlatformQuery(signal => serve<OccurrenceResult>({
-    role,
     global: { ...global, selection: null, roomNames: null, condition: null, lotIds: null, ppid: null, recipeIds: null },
     signal,
     mergeTimeDomain: false,

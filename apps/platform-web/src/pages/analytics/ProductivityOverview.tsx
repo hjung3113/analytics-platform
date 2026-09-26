@@ -50,7 +50,7 @@ function resolveBreakdownSort(raw: string | null): { ok: true; key: typeof SORT_
 type TrendData = { equipmentCount: number; current: TrendBucket[]; previous: TrendBucket[] };
 
 export default function ProductivityOverview(_: PageProps) {
-  const { global, role, scope, pageParam, setPage, setGlobal, linkTo } = usePlatform();
+  const { global, scope, pageParam, setPage, setGlobal, linkTo } = usePlatform();
   const { lang } = useI18n();
   const ko = lang === 'ko';
 
@@ -81,7 +81,7 @@ export default function ProductivityOverview(_: PageProps) {
   const granLabel = gran === 'hour' ? (ko ? '시간' : 'hourly') : gran === 'day' ? (ko ? '일별' : 'daily') : (ko ? '주별' : 'weekly');
 
   const kpiQ = usePlatformQuery(signal => serve({
-    role, global, signal, maxHours: MAX_QUERY_HOURS,
+    global, signal, maxHours: MAX_QUERY_HOURS,
     metricVersion: `occupancy v${METRIC_VERSIONS.occupancy} · dwell v${METRIC_VERSIONS.dwell} · cycleTime v${METRIC_VERSIONS.cycleTime} · throughput v${METRIC_VERSIONS.throughput}`,
     kinds: ['collection', 'processing_delay', 'coverage', 'time_domain'],
     compute: ({ equipment }) => ({
@@ -92,7 +92,7 @@ export default function ProductivityOverview(_: PageProps) {
   }), 'kpis', enabled);
 
   const trendQ = usePlatformQuery(signal => serve({
-    role, global, signal, maxHours: MAX_QUERY_HOURS, metricVersion: METRIC_VERSIONS[selectedKpi],
+    global, signal, maxHours: MAX_QUERY_HOURS, metricVersion: METRIC_VERSIONS[selectedKpi],
     compute: ({ equipment }) => ({
       equipmentCount: equipment.length,
       current: trendBuckets(equipment, from!, to!, gran),
@@ -102,13 +102,13 @@ export default function ProductivityOverview(_: PageProps) {
   }), ['trend', selectedKpi, gran], enabled);
 
   const breakdownQ = usePlatformQuery(signal => serve({
-    role, global, signal, maxHours: MAX_QUERY_HOURS, metricVersion: METRIC_VERSIONS.occupancy,
+    global, signal, maxHours: MAX_QUERY_HOURS, metricVersion: METRIC_VERSIONS.occupancy,
     compute: ({ equipment }) => occupancyBreakdown(equipment, from!, to!, axis),
     isEmpty: rows => rows.length === 0,
   }), ['breakdown', axis], enabled);
 
   const attentionQ = usePlatformQuery(signal => serve({
-    role, global, signal, maxHours: MAX_QUERY_HOURS,
+    global, signal, maxHours: MAX_QUERY_HOURS,
     metricVersion: `dwell v${METRIC_VERSIONS.dwell} · cycleTime v${METRIC_VERSIONS.cycleTime}`,
     compute: ({ equipment }) => attentionRows(equipment, from!, to!),
     isEmpty: rows => rows.length === 0,

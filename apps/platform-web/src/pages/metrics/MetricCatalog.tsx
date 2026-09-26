@@ -48,10 +48,10 @@ function pairText(verdict: PairVerdict, lang: 'ko' | 'en', pageVersion: string |
 
 /** Validates the global metricId+metricVersion pair through serve() (§6.1). Does not write the URL. */
 export function MetricPairBanner({ viewedId = null, pageVersion = null }: { viewedId?: string | null; pageVersion?: string | null }) {
-  const { global, role, setPage } = usePlatform();
+  const { global, setPage } = usePlatform();
   const { lang } = useI18n();
   const query = usePlatformQuery(signal => serve({
-    role, global, signal, requiresScope: false, mergeTimeDomain: false, latency: 180, kinds: ['processing_delay'],
+    global, signal, requiresScope: false, mergeTimeDomain: false, latency: 180, kinds: ['processing_delay'],
     metricVersion: global.metricVersion ?? undefined,
     compute: () => judgeGlobalPair(global.metricId, global.metricVersion, viewedId, pageVersion),
   }), [global.metricId, global.metricVersion, viewedId, pageVersion]);
@@ -78,7 +78,7 @@ function detailPage(row: CatalogRow): Record<string, string> {
 }
 
 export default function MetricCatalogPage(_: PageProps) {
-  const { pageParam, setPage, linkTo, global, role } = usePlatform();
+  const { pageParam, setPage, linkTo, global } = usePlatform();
   const { lang, tx } = useI18n();
   const q = pageParam('q');
   const status = pageParam('status');
@@ -188,7 +188,7 @@ export default function MetricCatalogPage(_: PageProps) {
         height={360}
         activeRowId={activeRowId}
         loadPage={(query, signal) => serve({
-          role, global, signal, requiresScope: false, mergeTimeDomain: false, latency: 280, kinds: ['processing_delay'],
+          global, signal, requiresScope: false, mergeTimeDomain: false, latency: 280, kinds: ['processing_delay'],
           compute: () => sortAndPage(filterCatalog(catalogRows(lang), q, status, domain).rows, query),
           isEmpty: data => data.total === 0,
         })}

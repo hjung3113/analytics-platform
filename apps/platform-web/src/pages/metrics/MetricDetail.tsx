@@ -32,28 +32,28 @@ function sectionId(id: string) { return `metric-section-${id}`; }
 
 export default function MetricDetailPage({ params }: PageProps) {
   const metricId = params.metricId;
-  const { pageParam, setPage, setGlobal, linkTo, global, role, url, toast } = usePlatform();
+  const { pageParam, setPage, setGlobal, linkTo, global, url, toast } = usePlatform();
   const { lang, tx } = useI18n();
   const versionParam = pageParam('version');
   const tab = pageParam('tab');
   const tabKnown = SECTIONS.some(s => s.id === tab);
 
   const definition = usePlatformQuery(signal => serve({
-    role, global, signal, requiresScope: false, mergeTimeDomain: false, latency: 280, kinds: ['processing_delay'],
+    global, signal, requiresScope: false, mergeTimeDomain: false, latency: 280, kinds: ['processing_delay'],
     metricVersion: versionParam ?? undefined,
     compute: ({ equipment }) => buildDefinition(metricId, versionParam, equipment),
     isEmpty: () => false,
   }), [metricId, versionParam]);
 
   const usage = usePlatformQuery(signal => serve({
-    role, global, signal, requiresScope: false, mergeTimeDomain: false, latency: 320, kinds: ['processing_delay'],
+    global, signal, requiresScope: false, mergeTimeDomain: false, latency: 320, kinds: ['processing_delay'],
     metricVersion: versionParam ?? undefined,
     compute: () => buildUsage(metricId, versionParam),
     isEmpty: data => data.problem === null && data.rows.length === 0,
   }), [metricId, versionParam], versionParam !== null);
 
   const history = usePlatformQuery(signal => serve({
-    role, global, signal, requiresScope: false, mergeTimeDomain: false, latency: 240, kinds: ['processing_delay'],
+    global, signal, requiresScope: false, mergeTimeDomain: false, latency: 240, kinds: ['processing_delay'],
     compute: () => buildHistory(metricId, lang),
     isEmpty: () => false,
   }), [metricId, lang]);

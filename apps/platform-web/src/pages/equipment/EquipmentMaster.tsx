@@ -16,11 +16,11 @@ import { downloadCsv, fields, filterEquipment, statusText } from './data';
 export default function EquipmentMaster() {
   const { lang } = useI18n();
   const ko = lang === 'ko';
-  const { role, global, scope, pageParam, setPage, linkTo, toast } = usePlatform();
+  const { global, scope, pageParam, setPage, linkTo, toast } = usePlatform();
   const [drawerTab, setDrawerTab] = useState('attributes');
   const q = pageParam('q') ?? '', status = pageParam('status') ?? '', maker = pageParam('maker') ?? '', focus = pageParam('focus');
   const filterKey = JSON.stringify([q, status, maker]);
-  const source = usePlatformQuery(signal => serve({ role, global, signal, mergeTimeDomain: false, compute: ({ equipment }) => equipment }), null, scope.status === 'valid');
+  const source = usePlatformQuery(signal => serve({ global, signal, mergeTimeDomain: false, compute: ({ equipment }) => equipment }), null, scope.status === 'valid');
   const columns = useMemo<ColumnDef<Equipment>[]>(() => fields.map(f => ({
     accessorKey: f.key, header: f[lang], size: ['validFrom', 'validTo', 'updatedAt'].includes(f.key) ? 188 : f.key === 'name' ? 220 : f.key === 'equipmentId' ? 184 : 128,
     cell: ({ row }) => f.key === 'status' ? <EquipmentStatus equipment={row.original} /> : <span className={f.key === 'equipmentId' ? 't-mono' : f.key.includes('At') || f.key.startsWith('valid') ? 'tabular' : ''}>{row.original[f.key] ?? '—'}</span>,
@@ -32,7 +32,7 @@ export default function EquipmentMaster() {
       title={ko ? '설비 목록' : 'Equipment list'} ariaLabel={ko ? '설비 마스터 목록' : 'Equipment master list'}
       subtitle={ko ? '행 체크는 내보내기용입니다. 분석 이동을 클릭할 때만 전역 Selection을 교체합니다.' : 'Row checks are for export. Only the explicit analysis link replaces global Selection.'}
       columns={columns} getRowId={e => e.equipmentId} filterKey={filterKey} preferenceKey="equipment-master:columns:v1" activeRowId={focus} pageSize={25} height={430}
-      loadPage={(page, signal) => serve({ role, global, signal, mergeTimeDomain: false, compute: ({ equipment }) => sortAndPage(filterEquipment(equipment, q, status, maker), page), isEmpty: data => data.total === 0 })}
+      loadPage={(page, signal) => serve({ global, signal, mergeTimeDomain: false, compute: ({ equipment }) => sortAndPage(filterEquipment(equipment, q, status, maker), page), isEmpty: data => data.total === 0 })}
       filters={<fieldset className="flex flex-wrap items-center gap-2 border-l-2 border-border-strong pl-3"><legend className="t-caption text-text-muted">{ko ? '페이지 필터' : 'Page filters'}</legend>
         <label className="flex items-center gap-1 text-xs">{ko ? '검색' : 'Search'}<input className={control} aria-label={ko ? '설비 ID 또는 이름 검색' : 'Search equipment ID or name'} value={q} onChange={e => setPage({ q: e.target.value || null }, { replace: true })} /></label>
         <label className="flex items-center gap-1 text-xs">{ko ? '상태' : 'Status'}<select className={control} value={status} onChange={e => setPage({ status: e.target.value || null })}><option value="">{ko ? '전체' : 'All'}</option>{Object.entries(statusText).map(([id, text]) => <option key={id} value={id}>{text[lang]}</option>)}</select></label>
