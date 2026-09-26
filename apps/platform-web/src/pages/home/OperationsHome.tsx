@@ -2,8 +2,7 @@ import { ArrowRight, Clock3, Lock, Megaphone, Star, X } from 'lucide-react';
 import { useState } from 'react';
 import { PAGE_TYPE_LABELS, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { serve } from '../../mock/server';
-import { Panel, PlatformPage } from '../../platform/PlatformPage';
-import { QueryView } from '../../platform/StateView';
+import { Panel, PlatformPage, QueryView } from '@ap/components';
 import { StatusBadge } from '@ap/ui';
 
 type Notice = { id: string; title: { ko: string; en: string }; scopeId: string | null; until: string };

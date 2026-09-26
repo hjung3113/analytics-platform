@@ -5,7 +5,7 @@ import { type Capability, type Condition, type ConditionAxis, conditionLabel, ty
 import { matchesCondition } from '../mock/server';
 import { EQUIPMENT, makerModelsFor, stgroupsFor, teamsFor } from '../mock/world';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
-import { SegmentedRadio } from '../platform/RadioGroup';
+import { SegmentedRadio } from '@ap/components';
 
 const hours = (g: GlobalContext) => (g.from && g.to ? (parseDateTime(g.to, 'to').getTime() - parseDateTime(g.from, 'from').getTime()) / 3_600_000 : null);
 const short = (v: string) => v.replace('T', ' ').slice(5, 16);

@@ -10,11 +10,12 @@ import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { DevTools } from './dev/DevTools';
 import { registry } from './menus';
 import { mockAdapter } from './mock/adapter';
+import { GlobalContextBar } from './shell/GlobalContextBar';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <I18nProvider>
-      <PlatformProvider adapter={mockAdapter} registry={registry} devTools={<DevTools />}>
+      <PlatformProvider adapter={mockAdapter} registry={registry} slots={{ contextBar: <GlobalContextBar />, topBarTools: <DevTools /> }}>
         <App />
       </PlatformProvider>
     </I18nProvider>

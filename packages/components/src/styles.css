@@ -1,0 +1,2 @@
+/* Tailwind scans this package's components (they live outside the consuming app's root). Import after @ap/ui/styles.css. */
+@source "./";

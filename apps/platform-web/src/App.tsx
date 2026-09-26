@@ -1,7 +1,6 @@
 import { Ban, FileQuestion, Link2Off } from 'lucide-react';
 import { CONTEXT_LABELS, PAGE_TYPE_LABELS, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
-import { Panel, PlatformPage } from './platform/PlatformPage';
-import { StateMessage } from './platform/StateView';
+import { Panel, PlatformPage, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { AppShell } from './shell/AppShell';
 import type { ContextKey } from '@ap/contracts';

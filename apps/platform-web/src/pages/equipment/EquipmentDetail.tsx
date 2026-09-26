@@ -1,9 +1,5 @@
 import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { PlatformPage } from '../../platform/PlatformPage';
-import { Field } from '../../platform/DetailDrawer';
-import { AuditTimeline } from '../../platform/AuditTimeline';
-import { DataTrustIndicator } from '../../platform/DataTrustIndicator';
-import { QueryView } from '../../platform/StateView';
+import { AuditTimeline, DataTrustIndicator, Field, PlatformPage, QueryView } from '@ap/components';
 import { Button, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 import type { Equipment } from '../../mock/world';
 import { audit, equipmentRequest, fields, statusText, statusTone, validity } from './data';

@@ -7,6 +7,11 @@ import { buildQuery, ContractError, emptyGlobal, type GlobalContext, incompleteM
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope'; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
 export type Toast = { id: number; text: string; tone: 'info' | 'warning' | 'danger' };
+/**
+ * Shell slots (docs/06 §8) the app fills at composition time, so platform components never import the shell.
+ * contextBar: rendered by PlatformPage above page content. topBarTools: extra TopBar controls (today the mock dev tools).
+ */
+export type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode };
 export type LinkOptions = { params?: Record<string, string>; page?: Record<string, string>; global?: Partial<GlobalContext>; returnTo?: boolean };
 
 type Platform = {
@@ -42,8 +47,7 @@ type Platform = {
   toast: (text: string, tone?: Toast['tone']) => void;
   dismissToast: (id: number) => void;
   defaultRangeTo: string;
-  /** App-provided tools rendered by the shell (today: the mock server's dev controls). */
-  devTools: ReactNode;
+  slots: PlatformSlots;
   paletteOpen: boolean;
   setPaletteOpen: (open: boolean) => void;
 };
@@ -64,7 +68,7 @@ function counterStore(adapter: PlatformAdapter) {
   return { subscribe: (listener: () => void) => adapter.subscribe(() => { n++; listener(); }), get: () => n };
 }
 
-export function PlatformProvider({ adapter, registry, devTools = null, children }: { adapter: PlatformAdapter; registry: Registry; devTools?: ReactNode; children: ReactNode }) {
+export function PlatformProvider({ adapter, registry, slots = {}, children }: { adapter: PlatformAdapter; registry: Registry; slots?: PlatformSlots; children: ReactNode }) {
   const { matchRoute, menuById, safeReturnTo } = registry;
   // Bound here so class-based adapters keep their receiver when React calls these.
   const sessionStore = useMemo(() => ({ subscribe: (l: () => void) => adapter.subscribe(l), get: () => adapter.session() }), [adapter]);
@@ -233,7 +237,7 @@ export function PlatformProvider({ adapter, registry, devTools = null, children 
   const value: Platform = {
     registry, url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, returnTarget,
     session, user, revision, can, visibleMenus, scope, lastScope, favorites, toggleFavorite, recent, usage,
-    toasts, toast, dismissToast, defaultRangeTo, devTools, paletteOpen, setPaletteOpen,
+    toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen,
   };
   return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>;
 }

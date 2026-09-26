@@ -1,11 +1,7 @@
 import { useEffect } from 'react';
 import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { serve } from '../../mock/server';
-import { AuditTimeline } from '../../platform/AuditTimeline';
-import { DataTrustIndicator } from '../../platform/DataTrustIndicator';
-import { Field } from '../../platform/DetailDrawer';
-import { Panel, PlatformPage } from '../../platform/PlatformPage';
-import { QueryView, StateMessage } from '../../platform/StateView';
+import { AuditTimeline, DataTrustIndicator, Field, Panel, PlatformPage, QueryView, StateMessage } from '@ap/components';
 import { Button, cn, StatusBadge } from '@ap/ui';
 import { MetricPairBanner } from './MetricCatalog';
 import {

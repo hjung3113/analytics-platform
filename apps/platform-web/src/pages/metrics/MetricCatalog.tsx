@@ -2,9 +2,7 @@ import { useMemo } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { serve } from '../../mock/server';
-import { PlatformDataTable, sortAndPage, type ColumnMeta } from '../../platform/PlatformDataTable';
-import { PlatformPage } from '../../platform/PlatformPage';
-import { QueryView } from '../../platform/StateView';
+import { type ColumnMeta, PlatformDataTable, PlatformPage, QueryView, sortAndPage } from '@ap/components';
 import { Button, Input, StatusBadge } from '@ap/ui';
 import {
   DOMAINS, DOMAIN_LABEL, METRICS, STATUS_LABEL, STATUS_TONE, STATUSES,

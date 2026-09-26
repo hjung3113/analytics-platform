@@ -11,12 +11,7 @@ import { AlertTriangle, ArrowRight, BarChart3, Hourglass, Percent, RotateCw, Tim
 import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { CYCLE_VERSION_NOTE } from '../../mock/jobs';
 import { periodHours, serve } from '../../mock/server';
-import { AnalysisChartFrame, type ChartSeries } from '../../platform/AnalysisChartFrame';
-import { DataTrustIndicator } from '../../platform/DataTrustIndicator';
-import { Panel, PlatformPage } from '../../platform/PlatformPage';
-import { SegmentedRadio } from '../../platform/RadioGroup';
-import { StatCard, type Delta } from '../../platform/StatCard';
-import { QueryView, StateMessage } from '../../platform/StateView';
+import { AnalysisChartFrame, type ChartSeries, DataTrustIndicator, type Delta, Panel, PlatformPage, QueryView, SegmentedRadio, StatCard, StateMessage } from '@ap/components';
 import { Button, cn, StatusBadge } from '@ap/ui';
 import {
   METRIC_VERSIONS, attentionRows, computeKpis, occupancyBreakdown, trendBuckets,

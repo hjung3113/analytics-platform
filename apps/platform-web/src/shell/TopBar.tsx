@@ -3,7 +3,7 @@ import { useI18n, usePlatform } from '@ap/kernel';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 
 export function TopBar() {
-  const { global, setGlobal, scope, session, user, devTools, setPaletteOpen } = usePlatform();
+  const { global, setGlobal, scope, session, user, slots, setPaletteOpen } = usePlatform();
   const { t, tx, lang, setLang } = useI18n();
   const current = session.scopes.find(s => s.id === global.scopeId);
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -47,7 +47,7 @@ export function TopBar() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {devTools}
+      {slots.topBarTools}
 
       <Popover>
         <PopoverTrigger asChild><button type="button" aria-label="Help" className="grid size-8 place-items-center rounded-xs text-text-secondary hover:bg-surface-sunken"><CircleHelp className="size-4" aria-hidden /></button></PopoverTrigger>
