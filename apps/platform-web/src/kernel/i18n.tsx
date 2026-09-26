@@ -1,7 +1,9 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
 export type Lang = 'ko' | 'en';
-export type Text = { ko: string; en: string };
+import type { Text } from '@ap/contracts';
+
+export type { Text };
 
 // UI copy only (docs/06 §23): master values and identifiers are never translated.
 const dict = {

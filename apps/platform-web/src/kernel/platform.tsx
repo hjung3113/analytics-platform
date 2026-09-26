@@ -1,9 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { DEFAULT_RANGE_TO, USERS, classifyMetricInit, type MetricInit, type RoleId, type User } from '../mock/world';
 import { getScenario, setScenario, subscribeScenario, validateScope, type Scenario } from '../mock/server';
-import { MENUS, matchRoute, menuById, pathFor, type MenuEntry, type Permission } from './registry';
+import { MENUS, matchRoute, menuById, pathFor, type MenuEntry, safeReturnTo } from './registry';
 import { useI18n } from './i18n';
-import { ContractError, buildQuery, emptyGlobal, incompleteMetricPair, isAppRelativePath, parseQuery, safeReturnTo, shift, type GlobalContext, type Pair, type ParsedQuery } from './url';
+import { buildQuery, ContractError, emptyGlobal, type GlobalContext, incompleteMetricPair, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, shift } from '@ap/contracts';
 
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope'; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };

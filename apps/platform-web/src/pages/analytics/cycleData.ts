@@ -4,7 +4,7 @@
  * are Candidate choices — see the page captions. Anchors stay second-precision
  * strings and are never shortened to join or display.
  */
-import { formatDateTime, parseDateTime, shift, type GlobalContext } from '../../kernel/url';
+import { formatDateTime, type GlobalContext, parseDateTime, shift } from '@ap/contracts';
 import { EQUIPMENT, type Equipment } from '../../mock/world';
 import { bucketStart as jobBucketStart, cycleMinutes, jobPercentile, jobsForEquipmentDay, jobsInPeriod, type Job } from '../../mock/jobs';
 

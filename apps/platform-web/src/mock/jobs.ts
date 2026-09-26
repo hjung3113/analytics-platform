@@ -1,5 +1,5 @@
-import { formatDateTime, parseDateTime } from '../kernel/url';
 import type { Equipment } from './world';
+import { formatDateTime, parseDateTime } from '@ap/contracts';
 
 export const DATA_THROUGH = '2026-09-26T08:00:00';
 export type Grain = 'hour' | 'day' | 'week';

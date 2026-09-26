@@ -1,7 +1,6 @@
 import { Info } from 'lucide-react';
 import { useI18n } from '../kernel/i18n';
-import { formatMetricVersion } from '../kernel/url';
-import type { Assessment, Trust } from '../mock/server';
+import { type Assessment, formatMetricVersion, type Trust } from '@ap/contracts';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/components/shadcn/popover';
 import { cn } from '../ui/utils/cn';
 import { Dot, StatusBadge, type Tone } from './StatusBadge';

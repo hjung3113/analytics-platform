@@ -1,0 +1,7 @@
+{
+  "extends": "@ap/tsconfig/base.json",
+  // No DOM and no React: contracts must stay shareable with a backend (platform-packages.md §3 rule 5).
+  // Node types only for URLSearchParams, which both Node and browsers provide.
+  "compilerOptions": { "lib": ["ES2022"], "types": ["node"] },
+  "include": ["src"]
+}

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { emptyGlobal } from '../kernel/url';
 import { resolveMetric } from '../pages/analytics/cycleData';
 import { METRICS } from '../pages/metrics/data';
 import { classifyMetricInit, PUBLISHED_METRICS } from './world';
+import { emptyGlobal } from '@ap/contracts';
 
 describe('published metric versions', () => {
   it('equals the catalog published pointers, in catalog order', () => {

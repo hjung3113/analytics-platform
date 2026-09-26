@@ -165,8 +165,8 @@ const registry = createRegistry({ groups: GROUPS, menus: [...home.manifests, ...
 
 각 단계는 별도 커밋(또는 PR)이며 매 단계 테스트 51개와 브라우저 동작이 그대로여야 한다.
 
-1. **골격:** 루트 workspace·tooling 추가, `prototypes/platform-app`을 `apps/platform-web`으로 `git mv`(내용 변경 없음), CI 경로 수정.
-2. **contracts 추출:** 먼저 `safeReturnTo`가 Registry를 인자로 받게 바꿔 `url.ts`의 Registry 의존을 끊고(D9), `MenuEntry`를 `MenuMeta`와 React binding으로 나눈 뒤, 순수 codec과 D3·D6·D7 타입을 이동. 런타임 변화 없음.
+1. **골격 (완료, PR #17):** 루트 workspace·tooling 추가, `prototypes/platform-app`을 `apps/platform-web`으로 `git mv`(내용 변경 없음), CI 경로 수정.
+2. **contracts 추출 (완료):** `safeReturnTo`를 `kernel/registry.ts`로 옮겨 `url.ts`의 Registry 의존을 끊고(D9 — Registry를 인자로 받는 형태는 `createRegistry`가 생기는 5단계에서), `MenuEntry`를 `MenuMeta`와 React binding으로 나눈 뒤, 순수 codec과 D3·D6·D7(`AuditEvent`) 타입을 이동. `Tone`은 `ui` 추출(4단계)과 함께 옮긴다. 런타임 변화 없음.
 3. **Kernel 포트:** `PlatformAdapter` 도입, mock 구현 주입, dev 도구 분리(D2·D5 일부).
 4. **ui → components → shell 순서로 추출:** PlatformPage Context Bar 슬롯(D4), GlobalContextBar·TopBar 어댑터 전환(D5).
 5. **메뉴 패키지:** 그룹별로 `menus/*`로 이동, `api.ts` 도입(D8), Registry를 manifest 등록 방식으로(D1). 교차 테스트를 메뉴·앱 통합 테스트로 재배치하고 Kernel 테스트를 fixture Registry로 전환(D10).

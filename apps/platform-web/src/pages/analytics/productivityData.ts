@@ -3,7 +3,7 @@
  * Both productivity and cycle-time detail read the same deterministic job population;
  * metric definitions remain prototype Candidates (docs/11 §6).
  */
-import { formatDateTime, parseDateTime } from '../../kernel/url';
+import { formatDateTime, parseDateTime } from '@ap/contracts';
 import {
   bucketStart, DATA_THROUGH, jobPercentile, jobsInPeriod, observableHours,
   type Grain, type Job,

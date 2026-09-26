@@ -2,37 +2,8 @@
  * Mock request validation + response envelope (docs/06 §19): exclusive `outcome` plus declared `assessments[]`.
  * Every page query goes through `serve()` so Scope/room grants are re-validated per request (§6.2).
  */
-import type { Condition, GlobalContext } from '../kernel/url';
-import { parseDateTime } from '../kernel/url';
+import { parseDateTime, type ApiResponse, type Assessment, type AssessmentKind, type Condition, type GlobalContext, type Trust } from '@ap/contracts';
 import { EQUIPMENT, SITES, TIME_DOMAIN_ASSERTIONS, USERS, type Equipment, type RoleId, type TimeDomainAssertion } from './world';
-
-export type Outcome = 'ok' | 'empty' | 'error' | 'forbidden' | 'too_large' | 'timeout';
-export type AssessmentKind = 'collection' | 'processing_delay' | 'coverage' | 'time_domain';
-export type Assessment = {
-  kind: AssessmentKind;
-  state: 'confirmed' | 'clear' | 'unknown';
-  statusSource?: string;
-  observedAt?: string;
-  reason?: 'source_unavailable' | 'check_failed';
-  explainsEmpty?: boolean;
-  detail?: string;
-};
-export type Trust = {
-  updatedAt: string;
-  dataThrough: string | null;
-  coverage: number | null;
-  metricVersion?: string;
-  provisional: boolean;
-  source: string;
-};
-export type ApiResponse<T> = {
-  outcome: Outcome;
-  data: T | null;
-  assessments: Assessment[];
-  trust: Trust | null;
-  correlationId: string;
-  message?: string;
-};
 
 export type Scenario = 'normal' | 'slow' | 'empty' | 'error' | 'forbidden' | 'too_large' | 'timeout' | 'partial' | 'unknown_status';
 let scenario: Scenario = 'normal';

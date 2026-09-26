@@ -2,7 +2,7 @@
  * Synthetic server world. Values are fabricated for the prototype; they are not parser data,
  * real Site names, grants or equipment. Master values (IDs, team names) are never translated.
  */
-import type { Permission } from '../kernel/registry';
+import type { Permission } from '@ap/contracts';
 
 export type Site = { id: string; label: string; rooms: string[] };
 export const SITES: Site[] = [

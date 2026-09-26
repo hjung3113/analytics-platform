@@ -1,5 +1,3 @@
-import { matchRoute } from './registry';
-
 /**
  * Global Context URL contract (docs/06 §6.1–6.4). Field names are Candidate; mechanisms are Decided.
  * Extends the bounded kernel-app-shell codec: time, Lot/PPID/Recipe and the metric pair are applied
@@ -223,19 +221,4 @@ export function isAppRelativePath(value: string): boolean {
   const path = decoded.split('?')[0];
   if (path.includes(':')) return false;
   return true;
-}
-
-/**
- * Entry URL for “back”, or null. Registered non-detail menu, query parses for that menu.
- * Returns the original string so the entry URL is not rewritten.
- */
-export function safeReturnTo(value: string | null): string | null {
-  if (value === null || !isAppRelativePath(value)) return null;
-  const q = value.indexOf('?');
-  const path = q === -1 ? value : value.slice(0, q);
-  const search = q === -1 ? '' : value.slice(q);
-  const route = matchRoute(path);
-  if (!route || route.menu.navHidden) return null;
-  try { parseQuery(search, route.menu.pageKeys); } catch { return null; }
-  return value;
 }

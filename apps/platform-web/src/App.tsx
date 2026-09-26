@@ -1,12 +1,13 @@
 import { Ban, FileQuestion, Link2Off } from 'lucide-react';
 import { useI18n } from './kernel/i18n';
 import { PlatformLink, usePlatform } from './kernel/platform';
-import { CONTEXT_LABELS, GROUPS, PAGE_TYPE_LABELS, type ContextKey } from './kernel/registry';
+import { CONTEXT_LABELS, GROUPS, PAGE_TYPE_LABELS } from './kernel/registry';
 import { Panel, PlatformPage } from './platform/PlatformPage';
 import { StateMessage } from './platform/StateView';
 import { StatusBadge } from './platform/StatusBadge';
 import { AppShell } from './shell/AppShell';
 import { Button } from './ui/components/Button';
+import type { ContextKey } from '@ap/contracts';
 
 export function App() {
   return <AppShell><RouteOutlet /></AppShell>;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { emptyGlobal, type GlobalContext } from '../kernel/url';
 import { evaluateTimeDomainMerge, serve, setScenario } from './server';
+import { emptyGlobal, type GlobalContext } from '@ap/contracts';
 import {
   DEFAULT_RANGE_TO, EQUIPMENT, LATE_TIME_DOMAIN_EQUIPMENT_IDS, TIME_DOMAIN_ASSERTIONS,
   TIME_DOMAIN_LATE_FROM, TIME_DOMAIN_OPEN_END, TIME_DOMAIN_SEEDED_FROM, type TimeDomainAssertion,

@@ -1,4 +1,4 @@
-import { formatMetricVersion } from '../../kernel/url';
+import { formatMetricVersion, shift } from '@ap/contracts';
 /**
  * 생산성 분석 — 개요 (wireframe 11, Overview archetype §12.1).
  * Header → Global Context (kernel) → page-owned granularity → KPI row → main trend →
@@ -14,7 +14,6 @@ import { usePlatformQuery } from '../../kernel/query';
 import type { PageProps } from '../../kernel/registry';
 import { CYCLE_VERSION_NOTE } from '../../mock/jobs';
 import { periodHours, serve } from '../../mock/server';
-import { shift } from '../../kernel/url';
 import { AnalysisChartFrame, type ChartSeries } from '../../platform/AnalysisChartFrame';
 import { DataTrustIndicator } from '../../platform/DataTrustIndicator';
 import { Panel, PlatformPage } from '../../platform/PlatformPage';

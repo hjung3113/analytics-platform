@@ -4,42 +4,13 @@ import {
   Activity, BarChart3, BookOpen, Boxes, ClipboardList, Cpu, Database, FileClock, FlaskConical, Gauge, LayoutDashboard,
   Megaphone, MessageSquareWarning, Route, ShieldCheck, Timer, Users, type LucideIcon,
 } from 'lucide-react';
-import type { Text } from './i18n';
+import { isAppRelativePath, parseQuery, type Capability, type ContextKey, type GroupId, type MenuMeta, type PageType, type Text } from '@ap/contracts';
 
-/** docs/06 §5: menus declare, the shell consumes. Field names are prototype Candidates. */
-export type ContextKey = 'time' | 'roomNames' | 'condition' | 'selection' | 'lot' | 'ppid' | 'recipe' | 'metric';
-/** apply = direct query filter · reference = carried/visible, not a query filter · unsupported = preserved, not applied */
-export type Capability = 'apply' | 'reference' | 'unsupported';
-export type PageType = 'overview' | 'analysis' | 'management' | 'catalog' | 'workflow';
-export type GroupId = 'overview' | 'equipment' | 'masterData' | 'analytics' | 'metrics' | 'noticeVoc' | 'admin';
-export type Permission = 'platform:view' | 'equipment:view' | 'master:view' | 'analytics:view' | 'metrics:view' | 'notice:view' | 'voc:view' | 'admin:manage';
-
+/** docs/06 §5: menus declare, the shell consumes. Metadata lives in @ap/contracts; this adds the React bindings. */
 export type PageProps = { params: Record<string, string> };
 
-export type MenuEntry = {
-  id: string;
-  group: GroupId;
-  label: Text;
-  description: Text;
-  /** Route pattern; `:name` segments become params. */
-  path: string;
+export type MenuEntry = MenuMeta & {
   icon: LucideIcon;
-  permission: Permission;
-  /** Scope must be selected and server-validated before this page queries data. */
-  requiresScope: boolean;
-  context: Record<ContextKey, Capability>;
-  pageType: PageType;
-  features: { export: boolean; savedView: boolean; annotate: boolean; compare: boolean };
-  /** Registered page-owned URL keys (§6.1). Only these survive on this route besides globals/extras. */
-  pageKeys: readonly string[];
-  /** Id-only metricId is completed from PUBLISHED_METRICS. Every other menu rejects it as metric_pair_incomplete. */
-  initializesMetric?: boolean;
-  /** Detail/destination routes are reachable through Context Links, not the sidebar. */
-  navHidden?: boolean;
-  /** Parent menu for breadcrumb/active-nav on detail routes. */
-  parent?: string;
-  /** Group's representative destination for the home group cards (08 §4; registry field is a Candidate). Exactly one per group. */
-  primary?: boolean;
   component?: LazyExoticComponent<ComponentType<PageProps>>;
 };
 
@@ -210,3 +181,19 @@ export const PAGE_TYPE_LABELS: Record<PageType, Text> = {
   catalog: { ko: 'Catalog', en: 'Catalog' },
   workflow: { ko: 'Workflow', en: 'Workflow' },
 };
+
+/**
+ * Registry-dependent half of the URL contract (kept out of @ap/contracts, platform-packages.md D9).
+ * Entry URL for “back”, or null. Registered non-detail menu, query parses for that menu.
+ * Returns the original string so the entry URL is not rewritten.
+ */
+export function safeReturnTo(value: string | null): string | null {
+  if (value === null || !isAppRelativePath(value)) return null;
+  const q = value.indexOf('?');
+  const path = q === -1 ? value : value.slice(0, q);
+  const search = q === -1 ? '' : value.slice(q);
+  const route = matchRoute(path);
+  if (!route || route.menu.navHidden) return null;
+  try { parseQuery(search, route.menu.pageKeys); } catch { return null; }
+  return value;
+}

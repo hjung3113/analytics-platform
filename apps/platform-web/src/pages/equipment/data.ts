@@ -1,7 +1,6 @@
 import type { Equipment, RoleId } from '../../mock/world';
+import { type AuditEvent, type GlobalContext, parseDateTime, shift } from '@ap/contracts';
 import { serve } from '../../mock/server';
-import { shift, parseDateTime, type GlobalContext } from '../../kernel/url';
-import type { AuditEvent } from '../../platform/AuditTimeline';
 
 export const statusText = {
   active: { ko: '사용중', en: 'Active' }, idle: { ko: '대기', en: 'Idle' },

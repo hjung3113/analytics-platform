@@ -1,16 +1,17 @@
 import { AlertTriangle, Ban } from 'lucide-react';
+import { parseDateTime } from '@ap/contracts';
 import type { PageProps } from '../../kernel/registry';
 import { useI18n } from '../../kernel/i18n';
 import { PlatformLink, usePlatform } from '../../kernel/platform';
 import { usePlatformQuery } from '../../kernel/query';
 import { serve } from '../../mock/server';
-import { parseDateTime, safeReturnTo } from '../../kernel/url';
 import { DataTrustIndicator } from '../../platform/DataTrustIndicator';
 import { Panel, PlatformPage } from '../../platform/PlatformPage';
 import { QueryView, StateMessage } from '../../platform/StateView';
 import { StatusBadge } from '../../platform/StatusBadge';
 import { Button } from '../../ui/components/Button';
 import { isAnchor, lookupOccurrence, resolveMetric, type OccurrenceResult, type Segment, type SegmentKind } from './cycleData';
+import { safeReturnTo } from '../../kernel/registry';
 
 const SEGMENT_CLASS: Record<SegmentKind, string> = {
   XFR: 'bg-chart-blue',
