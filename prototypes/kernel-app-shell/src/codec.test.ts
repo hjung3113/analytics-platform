@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import vectors from './parity-vectors.json';
-import { ContractError, contextLink, parseUrl, restoreContext, serialize } from './codec';
+import { ContractError, contextLink, parseUrl, restoreContext, serialize, type ContextState } from './codec';
 describe('Python codec parity — 합성 fixture, 실제 메뉴 아님', () => {
   it.each(vectors)('$url', vector => {
     if ('error' in vector) {
@@ -21,5 +21,19 @@ describe('Python codec parity — 합성 fixture, 실제 메뉴 아님', () => {
     expect(() => serialize({ ...state, unapplied_globals: [['unknown', 'x']] })).toThrow();
     expect(() => serialize({ ...state, route: 'equipment' })).toThrow();
     expect(() => serialize({ ...state, condition: { axis: 'makerModel', values: ['M'] } })).toThrow();
+  });
+  it.each([
+    ['scope_id', { scope_id: '\ud800' }],
+    ['room_names', { room_names: ['\ud800'] }],
+    ['selection', { selection: ['\ud800'] }],
+    ['destination', { route: 'equipment', destination: '\ud800' }],
+  ] as [string, Partial<ContextState>][])('rejects a lone surrogate in %s as invalid_id, not URIError', (_field, patch) => {
+    const state = parseUrl('/prototype/context');
+    try { serialize({ ...state, ...patch }); throw new Error('accepted lone surrogate'); }
+    catch (error) { expect(error).toBeInstanceOf(ContractError); expect((error as ContractError).code).toBe('invalid_id'); }
+  });
+  it('keeps known divergence #6: a lone surrogate in the Condition still round-trips', () => {
+    const state = { ...parseUrl('/prototype/context'), condition: { axis: 'stgroup', values: ['\ud800'] } };
+    expect(restoreContext(serialize(state))).toEqual(state);
   });
 });

@@ -68,9 +68,11 @@ TanStack Router는 검토 대상이지만 이번 실험에서는 채택하지 �
 | 3 | `a_b:foo` | `invalid_route` | `invalid_url` | 둘 다 거절; 오류 코드만 다름 |
 | 4 | equipmentGroup Condition의 `id`가 객체 `{"id":1}` | `invalid_id` | `invalid_condition` | 둘 다 거절; 오류 코드만 다름(TS 중복 key 탐지가 중첩 객체 key까지 셈) |
 | 5 | equipmentGroup Condition의 `id`가 `NaN` | `invalid_id` | `invalid_condition` | 둘 다 거절; 오류 코드만 다름(TS JSON.parse가 NaN 거절) |
-| 6 | Condition에 JSON 이스케이프 `\ud800` (짝 없는 서로게이트) | serialize에서 `UnicodeEncodeError` 발생(ContractError 아님) | 성공 | **Python 원본 결함**; TS가 더 엄격하거나 오류 코드만 다른 경우가 아님 |
+| 6 | **Condition 값에 한정:** JSON 이스케이프 `\ud800` (짝 없는 서로게이트) | `invalid_id` (07c20ac 수정 전에는 serialize에서 `UnicodeEncodeError`, ContractError 아님) | 성공 | Python이 더 엄격함. 원래 **Python 원본 결함**으로 기록했으나 Python을 수정했고, TS Condition 경로는 의도적으로 그대로 둠 |
 
-Shell은 `pathname+search`로 원본 codec 경로를 조립하므로 리뷰상 앞의 3개 유형은 앱 경로에서 발생하지 않는다. Python 서로게이트 버그는 [work order](../../.agents/reports/kernel-work-order-app-shell-menu-registry-draft.md)의 사용자 확인 #7에 별도 수정 필요로 기록했다. 기존 Python 파일은 수정하지 않았으며 전체 입력 공간의 동등성을 주장하지 않는다.
+#6의 범위는 Condition 값으로 한정한다. `scope_id`/`room_names`/`selection`/`destination`에 짝 없는 서로게이트를 넣은 constructed state는 이전에 TS `serialize()`에서 잡히지 않은 `URIError: URI malformed`로 실패했다(벡터 밖, 별도 버그). 지금은 TS도 Python과 같이 `invalid_id` ContractError로 거절하므로 divergence가 아니며, `codec.test.ts`의 회귀 테스트가 네 필드의 거절과 Condition 성공(#6 유지)을 함께 고정한다.
+
+Shell은 `pathname+search`로 원본 codec 경로를 조립하므로 리뷰상 앞의 3개 유형은 앱 경로에서 발생하지 않는다. Python 서로게이트 버그는 [work order](../../.agents/reports/kernel-work-order-app-shell-menu-registry-draft.md)의 사용자 확인 #7에 별도 수정 필요로 기록했고, 이후 07c20ac에서 수정했다. 전체 입력 공간의 동등성은 주장하지 않는다.
 
 ## 검증
 
@@ -82,7 +84,7 @@ npm test
 npm run build
 ```
 
-Python 생성기는 원본 codec를 읽기 전용으로 실행해 95개 정상/오류 벡터를 만든다. 테스트는 canonical 문자열, 오류 코드 우선순위, 모든 Condition 축, 공집합/부재, Unicode code point 정렬, 중복 JSON 키, 별칭, 미등록/opaque 필드, 목적지 ID 분리까지 대조한다. 151개 테스트(95 parity + 1 constructed-state + 26 Shell〈Context Link 8개, archetype 연결 3개 포함〉 + 27 Page Archetype〈5종 × 5 + 반응형 2〉 + 1 canonical token 대조 + 1 Tailwind v4 theme 컴파일)가 통과하며 typecheck는 3개 Shell slot 음성 타입 사례와 15개 archetype 음성 타입 사례(5종 × children/Shell slot 또는 타 archetype region/누락 region)를 포함한다. 실제 명령과 출력은 `verification.log`에 있다.
+Python 생성기는 원본 codec를 읽기 전용으로 실행해 95개 정상/오류 벡터를 만든다. 테스트는 canonical 문자열, 오류 코드 우선순위, 모든 Condition 축, 공집합/부재, Unicode code point 정렬, 중복 JSON 키, 별칭, 미등록/opaque 필드, 목적지 ID 분리까지 대조한다. 156개 테스트(95 parity + 1 constructed-state + 5 lone-surrogate〈4개 필드 거절 + Condition 성공〉 + 26 Shell〈Context Link 8개, archetype 연결 3개 포함〉 + 27 Page Archetype〈5종 × 5 + 반응형 2〉 + 1 canonical token 대조 + 1 Tailwind v4 theme 컴파일)가 통과하며 typecheck는 3개 Shell slot 음성 타입 사례와 15개 archetype 음성 타입 사례(5종 × children/Shell slot 또는 타 archetype region/누락 region)를 포함한다. 실제 명령과 출력은 `verification.log`에 있다.
 
 Page Archetype 라운드와 Context Link 라운드에서 npm ci, parity 생성, typecheck, 자동 DOM/키보드 테스트, build를 재실행했다. 개발 서버 HTTP smoke는 이번에 재실행하지 않았다. 실제 브라우저 시각 검토·production 권한/데이터 연동은 수행하지 않았다. 데이터 조회가 없으므로 loading/조회 empty/계산 기준시각을 꾸며내지 않는다.
 

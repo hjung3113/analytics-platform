@@ -7,6 +7,15 @@ function identifier(value: unknown): string {
   if (typeof value !== 'string' || !value.replace(/[\u0009-\u000d\u001c-\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/g, '')) fail('invalid_id', 'ID must contain a non-whitespace character; correct the URL.');
   return value;
 }
+// scope_id/room_names/selection/destination only; Condition values keep known divergence #6.
+function urlIdentifier(value: unknown): string {
+  const id = identifier(value);
+  try { encodeURIComponent(id); } catch (error) {
+    if (error instanceof URIError) fail('invalid_id', 'ID must be valid Unicode (no lone surrogates); correct the URL.');
+    throw error;
+  }
+  return id;
+}
 export type Condition = { axis: string; values: string[] };
 export type Pair = [string, string];
 export type ContextState = {
@@ -25,7 +34,7 @@ function codepointCompare(a: string, b: string): number {
   for (let i = 0; i < Math.min(aa.length, bb.length); i++) if (aa[i] !== bb[i]) return aa[i] - bb[i];
   return aa.length - bb.length;
 }
-function normalized(values: string[]): string[] { return [...new Set(values.map(identifier))].sort(codepointCompare); }
+function normalized(values: string[]): string[] { return [...new Set(values.map(urlIdentifier))].sort(codepointCompare); }
 export function decodeCondition(raw: string): Condition {
   let obj: Record<string, unknown>;
   try {
@@ -66,7 +75,7 @@ export function parseUrl(url: string): ContextState {
   if (path.startsWith('/prototype/equipment/')) {
     const rawId = path.slice('/prototype/equipment/'.length);
     if (rawId.includes('/')) fail('invalid_route', 'Encode the EquipmentID as one path segment.');
-    try { destination = identifier(decodeURIComponent(rawId)); } catch (error) {
+    try { destination = urlIdentifier(decodeURIComponent(rawId)); } catch (error) {
       if (error instanceof ContractError) throw error;
       fail('invalid_url', 'Invalid UTF-8 encoding; correct the URL.');
     }
@@ -84,7 +93,7 @@ export function parseUrl(url: string): ContextState {
     }
     return query.has(key) ? normalized(query.get(key)!) : null;
   }
-  const scope = query.has('scopeId') ? identifier(query.get('scopeId')![0]) : null;
+  const scope = query.has('scopeId') ? urlIdentifier(query.get('scopeId')![0]) : null;
   const condition = query.has('equipmentGroup') ? decodeCondition(query.get('equipmentGroup')![0]) : null;
   return { route, scope_id: scope, room_names: readSet('roomNames', 'roomSelection'), condition,
     selection: readSet(query.has('equipmentIds') ? 'equipmentIds' : 'selectedEquipmentIds', 'equipmentSelection'), destination,
@@ -95,9 +104,9 @@ function quote(value: string): string { return encodeURIComponent(value).replace
 export function serialize(state: ContextState): string {
   if (!capabilities.includes(state.route) || (state.route === 'equipment') !== (state.destination !== null)) fail('invalid_route', 'Unknown route or invalid destination ID.');
   let path = '/prototype/' + state.route;
-  if (state.destination !== null) path += '/' + quote(identifier(state.destination));
+  if (state.destination !== null) path += '/' + quote(urlIdentifier(state.destination));
   const pairs: Pair[] = [['v', '1']];
-  if (state.scope_id !== null) pairs.push(['scopeId', identifier(state.scope_id)]);
+  if (state.scope_id !== null) pairs.push(['scopeId', urlIdentifier(state.scope_id)]);
   for (const [key, marker, values] of [['roomNames', 'roomSelection', state.room_names], ['selectedEquipmentIds', 'equipmentSelection', state.selection]] as const) {
     if (values !== null) {
       if (!values.length) pairs.push([marker, 'none']);
