@@ -1,6 +1,6 @@
 # packages/ — 플랫폼 패키지 공통 지침
 
-플랫폼 다섯 갈래(루트 `AGENTS.md`)의 구현이 사는 곳이다. 메뉴 화면은 여기 두지 않는다(지금은 `apps/platform-web/src/pages`, 5단계 이후 `menus/*`).
+플랫폼 다섯 갈래(루트 `AGENTS.md`)의 구현이 사는 곳이다. 메뉴 화면은 여기 두지 않는다(`menus/<group>` 패키지가 산다).
 
 경계·의존 방향의 원본은 [플랫폼 모노레포 패키지 경계](../docs/integration/platform-packages.md) §3이다. 이 파일은 요약이며 충돌하면 그 문서를 따른다.
 
