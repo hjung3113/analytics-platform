@@ -1,8 +1,8 @@
-# Handoff — 2026-09-25 플랫폼 다섯 갈래 전부 병합 (PR #4-9)
+# Handoff — 2026-09-26 플랫폼 다섯 갈래 전부 병합 (PR #4-9), 첫 실제 화면 검토 완료
 
 ## 현재 상태
 
-`main`은 커밋 `b4eaca6`, `origin/main`과 일치, 작업 트리 clean. 이번 세션에 시작했던 `hjung3113/kernel-context-url-scope` 브랜치(직전 handoff가 "운명을 먼저 결정하라"고 했던 그 브랜치)를 포함해 **이번 세션의 모든 코드 산출물이 PR #4-9로 main에 병합 완료**됐다. worktree 전용 미병합 상태는 더 이상 없다.
+`main`은 커밋 `bd85079`, `origin/main`과 일치, 작업 트리 clean. 코드 작업은 2026-09-25 세션(PR #4-9)에서 끝났고, 2026-09-26에는 **핸드오프 정리 + 사용자 질문에 답하며 확인 작업만** 했다(코드 변경 없음).
 
 - **병합된 PR 6개**(전부 `--merge`, 2-parent merge commit, 기존 PR #1-3 컨벤션과 동일):
   - **#4** (`e868660`) — Kernel codec + Unit A/B/C 프로토타입(직전 handoff가 넘겨준 브랜치)를 main과 동기화 후 PR로 올려 리뷰·병합
@@ -11,7 +11,8 @@
   - **#7** (`61fc70a`) — Unit C 디자인 시스템 이식
   - **#8** (`8249774`) — Cross-menu Context Link(§22)
   - **#9** (`b4eaca6`) — 5 Page Archetypes(§12)
-- **정리 안 된 worktree 6개**(모두 병합 완료라 삭제해도 안전하지만, 이번 세션에서 지우지 않았다 — 다음 세션에서 필요 없으면 정리): `kernel-context-url-scope`, `platform-design-system-port`(Unit A), `design-system-port-unit-b`, `design-system-port-unit-c`, `cross-menu-context-link`, `page-archetypes`. 전부 `/Users/hyojung/orca/workspaces/analytics-platform/`에 있다.
+- **worktree 6개 정리 완료(2026-09-26)**: `kernel-context-url-scope`, `platform-design-system-port`(Unit A), `design-system-port-unit-b`, `design-system-port-unit-c`, `cross-menu-context-link`, `page-archetypes` 전부 `orca worktree rm`으로 삭제. main 병합 상태에는 영향 없음(전부 이미 병합 완료 상태였음).
+- **이번 세션 전체를 통틀어 첫 실제 브라우저 시각 검토를 2026-09-26에 수행**(그동안 모든 PR이 "실제 브라우저 시각 검토 미실행"으로 명시해온 것의 첫 실행): `kernel-app-shell`을 로컬 dev server로 띄우고 Playwright(headless Chromium)로 5개 화면(Overview/Analysis Workspace+Selection/Analysis with Context Link detail/Catalog)을 스크린샷. App Shell·Page Archetype 레이아웃·Cross-menu Context Link(Selection 유지 + 목적지 ID 분리 + Back 복원)가 실제로 렌더링·동작함을 육안으로 확인, 콘솔 에러 없음. **중요 — 사용자가 명확히 구분해달라고 요청**: 이 화면들은 실제 제품 화면이 아니다. `docs/06_platform_ui_contract.md`의 플랫폼 계약(Shell Slots·Page Archetype 구조·Context Link 메커니즘)을 증명하는 **합성 fixture**(각 페이지에 "합성 fixture, 실제 메뉴 아님" 명시)이며, 실제 업무 메뉴(Equipment Master 등)는 아직 하나도 없다. 시각 디자인도 최소 Tailwind+shadcn 기본값이라 최종 폴리시가 아니다(`.agents/skills/analysis-platform-wireframe/SKILL.md`가 Design System/Prototype/Visual Polish를 별도 게이트로 둔 이유).
 
 ## 이번 세션 전체 요약
 
@@ -61,15 +62,19 @@
 
 우선순위 순:
 
-1. **플랫폼 다섯 갈래가 전부 끝났다 — 다음 자연스러운 단계는 실제 메뉴 화면 제작이다.** 단 AGENTS.md 가드레일에 따라 **메뉴 3개 이상 연속 제작 전 사용자에게 범위(왜 이 개수가 필요한지)를 먼저 확인**해야 한다. 어떤 메뉴부터(Equipment Master/Occupancy Analysis/Wafer Journey/Metric Catalog/VOC 등 `docs/02_domain_menus.md` 후보 중) 시작할지, 몇 개를 한 세션에 만들지 사용자와 먼저 정한다.
+1. **플랫폼 다섯 갈래가 전부 끝났다 — 다음 자연스러운 단계는 실제 메뉴 화면 1개를 조립하는 것이다(3개 이상이 아니라 딱 1개부터).** AGENTS.md 가드레일은 "3개 이상 연속 제작 전" 확인을 요구하므로, **첫 1개는 곧장 시작해도 가드레일 위반이 아니다** — 다만 그 1개를 끝내고 다음 메뉴로 넘어가기 전에는 사용자에게 범위를 다시 확인한다.
+   - **추천 후보**: `docs/02_domain_menus.md`의 6개 그룹 중 **설비관리(Equipment Master)** 또는 **생산성 분석(Occupancy/Wafer Journey/Cycle time 중 하나)**. 이유: (a) 둘 다 Phase 1 전제(사용자/조직 모델 등, 공지·VOC가 필요로 하는 것)가 없어 지금 바로 시작 가능, (b) 설비관리는 Management archetype(§12)+PlatformDataTable/DetailDrawer(Unit C)에 정확히 대응, 생산성 분석은 Analysis Workspace archetype+Chart Frame(Unit B)+Cross-menu Context Link(§22, 상세 드릴다운)에 정확히 대응 — 지금까지 만든 플랫폼 조각을 실제로 조립해보는 첫 검증이 된다.
+   - 시작 전 `.agents/skills/analysis-platform-wireframe/SKILL.md`의 Requirements → IA → Conceptual Contract/Screen Spec → Wireframe → Open Decisions 순서를 따른다. Design System/Prototype/Visual Polish는 이번 요청에 없으면 건너뛴다.
 2. **작은 후속들 — 스케줄 유연**: Python Unicode 버그 수정(독립적, 작음), cmdk 도입(Command Palette 실검색, Decided 스택 항목인데 아직 이식 안 함), 사이드바 자동 collapse.
 3. 위 "사용자 확인 필요" 15개 항목은 실제 메뉴 구현 착수 전에 관련된 것부터 순서대로 닫는 게 자연스럽다(전부 한 번에 결정할 필요는 없음 — 막는 항목만).
-4. worktree 6개(위 "현재 상태" 참고)는 전부 병합 완료라 정리해도 안전하다 — 필요 없으면 다음 세션에서 지운다(이번 세션은 지우지 않았음).
+4. M6 평가(위 "남은 범위" 참고) — 실제 메뉴 작업 전에 짧게 돌려볼 수 있다.
 
-## 남은 범위 (갱신)
+## 남은 범위 (갱신) — M0-M6 정체 확인함(2026-09-26)
+
+**M0-M6는 제품 기능 마일스톤이 아니다** — `.agents/reports/doc-operations-2026-09-22/migration-plan.md`가 정의한 **2026-09-22 문서 재구성 작업의 6단계 체크리스트**다(M0 현재 기준 재확인 → M1 INDEX/03/04/07 진입점 정리 → M2 06 §6.3 계약 연결 샘플 → M3 REQUIREMENTS 파생 체크리스트 정리 → M4 05의 정책 상세를 01로 실제 이관 → M5 코드 slice의 task record에 계약 원문 §→코드→테스트 연결 → M6 "실제 변경 3건" 이후 metadata 비용 대비 효과 평가). 별도의 "제품 로드맵/기능 마일스톤" 문서는 이 레포에 없다 — 로드맵에 가장 가까운 건 `docs/05_roadmap_and_open_questions.md`(Design Decisions/Open Questions, 일정이 아니라 결정 상태 목록)다.
 
 - **M5 — 실제 구현 때 적용:** 6개 PR 전부 계약 원문 §번호 → 코드 → 테스트 결과를 연결해 기록했다(PR 본문·커밋 메시지). 실제 업무 메뉴 구현 시에도 같은 패턴을 유지한다.
-- **M6 — 실제 변경 3건 이후 평가:** 이번 세션에서 6개 PR이 병합됐으니 트리거 조건은 이미 여러 번 넘었다 — 다음 세션 시작 시 M6 평가를 한 번 돌리는 걸 고려한다(정확한 M6 정의는 `docs/05_roadmap_and_open_questions.md` 참고, 이번 세션에서 직접 확인 안 함).
+- **M6 — "실제 변경 3건 이후 평가":** 트리거 조건(3건)을 이번 세션 6개 PR로 이미 2배 넘게 초과했다. 아직 실행 안 함 — 다음 세션에서 `migration-plan.md`의 M6 행(탐색 실패/누락 관계/유지 비용 측정)을 한 번 돌려서, 지금의 `docs/06` 중심 문서 구조가 실제로 잘 버텼는지(이번 세션 내내 §6/§8/§11/§12/§14/§18/§22/§25/§26을 참조만 하고 원문을 한 번도 안 고쳤다는 사실이 긍정적 신호) 평가하는 걸 권한다.
 - CFG의 메뉴 간 연계(§22)는 Deferred 유지(변경 없음).
 
 ## 이번 검증과 기록
@@ -80,7 +85,7 @@
 - PR #8: App.tsx의 `__inherited`·`__absent` 두 sentinel 버그를 각각 "수정 전 코드로 되돌려 새 회귀 테스트가 실제로 실패하는지"까지 직접 재현해서 수정을 검증(자기 자신을 믿지 않는 이중 확인).
 - PR #9: 리뷰가 지적한 CSS 드로어 오버레이 버그를 OMP가 실제 컴파일된 Tailwind 출력에서 클래스가 사라졌는지/새 클래스가 생겼는지까지 vitest로 검사하도록 지시해 "소스 코드 class 이름만 바뀌고 실제 동작은 그대로"인 가짜 수정을 배제했다.
 
-원본 계약 문서(`docs/06_platform_ui_contract.md` 등)는 6개 PR 전부 `git diff`로 무변경 확인. FeedbackOps 서브모듈(`products/feedbackops`)은 매번 `git diff -- products/feedbackops`로 gitlink 고정(`b5dd614`) 확인, 자체 코드 소급 변경 없음. 브라우저 실사용(수동 시각 검토)은 이번 세션도 전부 미실행 — 각 PR 본문에 명시.
+원본 계약 문서(`docs/06_platform_ui_contract.md` 등)는 6개 PR 전부 `git diff`로 무변경 확인. FeedbackOps 서브모듈(`products/feedbackops`)은 매번 `git diff -- products/feedbackops`로 gitlink 고정(`b5dd614`) 확인, 자체 코드 소급 변경 없음. 6개 PR 각각의 리뷰 라운드에서는 브라우저 실사용(수동 시각 검토)을 하지 않았다고 PR 본문에 명시했으나, **병합 완료 후 2026-09-26에 coordinator가 별도로 Playwright 스크린샷 5장을 찍어 App Shell·Page Archetype·Cross-menu Context Link가 실제로 렌더링·동작하는 것을 확인**했다(위 "현재 상태" 참고) — PR별 검증이 아니라 세션 마무리 확인이다.
 
 ## 보존할 경계
 
