@@ -25,7 +25,27 @@
 
 ## 문서
 
-`docs/INDEX.md`부터 시작. 역할별 진입점이 표로 정리돼 있다. 플랫폼/프론트엔드 작업은 `docs/06_platform_ui_contract.md`를 먼저 본다.
+`docs/INDEX.md`부터 시작. 역할별 진입점과 **작업별 읽기 경로**(어떤 작업이면 어느 문서 → 어느 폴더 `AGENTS.md` → 어느 파일 순서로 볼지)가 정리돼 있다. 플랫폼/프론트엔드 작업은 `docs/06_platform_ui_contract.md`를 먼저 본다.
+
+## 코드 작업 원칙
+
+- 플랫폼 코드는 루트 pnpm workspace(`apps/*`, `packages/*`, 향후 `menus/*`, `tooling/*`)다. 루트에서 `pnpm install`, `pnpm dev`, `pnpm typecheck`, `pnpm test`, `pnpm build`(Node 26.7.0, pnpm 11.1.1).
+- 의존 방향은 `contracts → ui/kernel → components → shell → apps`이며 역방향 import는 금지다. 원본은 `docs/integration/platform-packages.md` §3.
+- Kernel·공통 컴포넌트·셸은 메뉴와 mock을 모른다. 메뉴 목록은 Registry로, 서버는 `PlatformAdapter`로 앱이 주입한다.
+- 작업하는 폴더에 `AGENTS.md`가 있으면 그 폴더 규칙을 추가로 따른다. 폴더 지침은 루트를 좁힐 수 있지만 루트 원칙과 충돌하면 루트를 따른다.
+- 변경마다 typecheck·test·build를 돌리고, 화면이 바뀌면 `pnpm dev`로 브라우저에서 확인한다. 실행하지 않은 검증은 했다고 보고하지 않는다.
+- PR은 한 단계씩 올리고 리뷰 코멘트를 반영한 뒤 병합한다. 리뷰 지적을 고칠 때는 수정 없이 실패하는 회귀 테스트를 함께 넣는다.
+
+## 폴더별 지침
+
+| 폴더 | 역할 |
+| --- | --- |
+| [`docs/`](docs/AGENTS.md) | 설계 계약 원본, 상태 표기·소유권 규칙 |
+| [`apps/platform-web/`](apps/platform-web/AGENTS.md) | 조립 지점, 메뉴 선언·화면(Consumer), mock 서버, dev 도구 |
+| [`packages/`](packages/AGENTS.md) | 플랫폼 패키지 공통 규칙과 의존 방향 → 각 패키지 `contracts`·`ui`·`kernel`·`components`·`shell`의 `AGENTS.md` |
+| [`tooling/`](tooling/AGENTS.md) | 공유 tsconfig, 향후 lint·메뉴 생성기 |
+| [`prototypes/`](prototypes/AGENTS.md) | 통합 전 Kernel 단위 프로토타입(보존, 새 기능 금지) |
+| [`products/feedbackops/`](products/feedbackops/AGENTS.md) | 독립 제품 서브모듈(아래 경계 참조) |
 
 ## FeedbackOps 서브모듈 경계
 
@@ -40,7 +60,7 @@
 
 ## 공통 에이전트 자산
 
-- 지침 원본은 이 `AGENTS.md`다. `CLAUDE.md`는 이 파일을 가리키는 상대 심링크다.
+- 지침 원본은 이 `AGENTS.md`와 폴더별 `AGENTS.md`다. 같은 폴더의 `CLAUDE.md`는 그 파일을 가리키는 상대 심링크다. 새 폴더 지침을 만들 때도 `ln -s AGENTS.md CLAUDE.md`로 연결한다.
 - 스킬·명령·외부 디자인 참고자료 원본은 `.agents/skills`, `.agents/commands`, `.agents/references`다. 에이전트별 경로의 심링크 대신 원본을 편집한다.
 - 모든 에이전트는 필요한 `SKILL.md`만 읽고, 도구 이름은 현재 세션에서 제공되는 동등 도구로 대응한다. 없는 도구·비밀키·외부 서비스는 사용할 수 있다고 가정하지 않는다.
 - 탐색 경로와 실행 방법은 `.agents/README.md`를 참조한다. 외부 디자인 참고자료와 범용 스킬은 제품 계약을 덮어쓰지 않는다.
