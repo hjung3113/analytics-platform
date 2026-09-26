@@ -8,7 +8,7 @@ import { createRoot } from 'react-dom/client';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { DevTools } from './dev/DevTools';
 import { registry } from './menus';
-import { mockAdapter } from './mock/adapter';
+import { mockAdapter } from '@ap/mock-server';
 import { AppShell, GlobalContextBar, RouteOutlet } from '@ap/shell';
 
 createRoot(document.getElementById('root')!).render(

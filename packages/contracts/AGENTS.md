@@ -16,7 +16,7 @@
 - import 금지: React, DOM 타입, Node API, 다른 `@ap/*` 패키지, 외부 런타임 라이브러리.
 - 필드 추가·이름 변경은 계약 변경이다. 소비처(kernel, shell, 앱 mock 구현)를 같은 PR에서 맞추고, 06이나 패키지 경계 문서에 반영할 결정인지 먼저 판단한다. 필드 이름 대부분은 Candidate다.
 - URL codec을 바꾸면 앱 통합 테스트 `apps/platform-web/src/url-contract.test.ts`를 함께 갱신한다. 보정 없이 오류로 거부하는 원칙(06 §6)을 유지한다.
-- `PlatformAdapter`에 메서드를 추가하면 `apps/platform-web/src/mock/adapter.ts` 구현과 `packages/kernel/src/adapter.test.tsx` fixture 어댑터를 같이 고친다.
+- `PlatformAdapter`에 메서드를 추가하면 `packages/mock-server/src/adapter.ts` 구현과 `packages/kernel/src/adapter.test.tsx` fixture 어댑터를 같이 고친다.
 
 ## 검증
 

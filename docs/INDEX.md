@@ -27,7 +27,7 @@
 | --- | --- | --- | --- |
 | 메뉴 화면 추가·수정 | [06](06_platform_ui_contract.md) §5 Menu Extension·§29 Platform Done → 해당 화면 wireframe(`08`–`13`) | [apps/platform-web](../apps/platform-web/AGENTS.md) → [README 페이지 작성 가이드](../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙) | `src/menus.ts`(선언) → `src/pages/<area>/` → 필요한 부품은 [components](../packages/components/AGENTS.md) |
 | Kernel 동작(Registry·전역 Context·URL·Scope·조회 수명주기) | 06 §4–6 | [packages](../packages/AGENTS.md) → [kernel](../packages/kernel/AGENTS.md) → 타입이 바뀌면 [contracts](../packages/contracts/AGENTS.md) | `packages/kernel/src/registry.ts`·`platform.tsx`·`query.ts` → 테스트 `adapter.test.tsx`·`registry.test.ts` → 앱 `url-contract.test.ts` |
-| 서버 계약·어댑터(실서버 전환 포함) | [패키지 경계](integration/platform-packages.md) §4, 06 §18–19 | [contracts](../packages/contracts/AGENTS.md) → [apps/platform-web](../apps/platform-web/AGENTS.md)(mock) | `packages/contracts/src/adapter.ts` → `apps/platform-web/src/mock/adapter.ts` → kernel `adapter.test.tsx` |
+| 서버 계약·어댑터(실서버 전환 포함) | [패키지 경계](integration/platform-packages.md) §4, 06 §18–19 | [contracts](../packages/contracts/AGENTS.md) → [packages/mock-server](../packages/mock-server/AGENTS.md) → [apps/platform-web](../apps/platform-web/AGENTS.md)(주입·dev 도구) | `packages/contracts/src/adapter.ts` → `packages/mock-server/src/adapter.ts` → kernel `adapter.test.tsx` |
 | 공통 컴포넌트·차트·상태 화면 | 06 §13·§16·§18–19·§24 | [packages](../packages/AGENTS.md) → [components](../packages/components/AGENTS.md) → primitive가 필요하면 [ui](../packages/ui/AGENTS.md) | `packages/components/src/` → 소비 화면(`apps/platform-web/src/pages`)에서 확인 |
 | 셸(사이드바·탑바·Context Bar·라우트 상태·워크스페이스 층) | [07 셸](07_app_shell_wireframe.md), 06 §8–9 | [shell](../packages/shell/AGENTS.md) → 슬롯·Registry는 [kernel](../packages/kernel/AGENTS.md) | `packages/shell/src/` → 앱 `src/main.tsx`(조립) |
 | 디자인 토큰·시각 규칙 | [DESIGN](../DESIGN.md) | [ui](../packages/ui/AGENTS.md) | `packages/ui/src/styles/` |
@@ -80,7 +80,7 @@
 
 - [공통 컴포넌트/계약 후보](integration/component-contract-candidates.md) — 위 아이디어 모음에서 필드 수준 계약으로 뽑아낼 수 있는 것만 추려 정리. Research/Candidate이며 06/01/03에 반영되기 전 초안이다.
 
-- [플랫폼 모노레포 패키지 경계](integration/platform-packages.md) — `platform-app`을 contracts/ui/kernel/components/shell/mock-server/메뉴 패키지로 나누는 경계·의존 방향·메뉴 템플릿·이행 순서. 구성·단위·도구·이름은 2026-09-26 Decided, 세부 타입 이름은 Candidate. 1–4d단계 완료(PR #17–#23), 5–6단계 남음.
+- [플랫폼 모노레포 패키지 경계](integration/platform-packages.md) — `platform-app`을 contracts/ui/kernel/components/shell/mock-server/메뉴 패키지로 나누는 경계·의존 방향·메뉴 템플릿·이행 순서. 구성·단위·도구·이름은 2026-09-26 Decided, 세부 타입 이름은 Candidate. 1–4d단계 완료(PR #17–#23), 5a(mock-server) 완료, 5b–5c·6단계 남음.
 
 - [Standard Log Lifecycle](references/standard-log-lifecycle/README.md) — 모델 표준 로그 개발·검증·결함·재검증 관리의 설계 참고. 원본 커밋에 고정한 Markdown 7개, 출처·해시 manifest와 4개 화면 시안 적용 범위를 포함한다. 기존 플랫폼 계약을 대체하지 않는다.
 

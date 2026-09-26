@@ -3,8 +3,8 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { AlertTriangle, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
 import type { Trust } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { CYCLE_VERSION_NOTE } from '../../mock/jobs';
-import { getScenario, periodHours, resolveEquipment, serve } from '../../mock/server';
+import { CYCLE_VERSION_NOTE } from '@ap/mock-server';
+import { getScenario, periodHours, resolveEquipment, serve } from '@ap/mock-server';
 import { AnalysisChartFrame, type ColumnMeta, DataTrustIndicator, type Delta, PlatformDataTable, PlatformPage, QueryView, sortAndPage, StatCard, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import {

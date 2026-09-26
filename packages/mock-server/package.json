@@ -1,0 +1,15 @@
+{
+  "name": "@ap/mock-server",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "typecheck": "tsc --noEmit", "test": "vitest run" },
+  "dependencies": { "@ap/contracts": "workspace:*" },
+  "devDependencies": {
+    "@ap/tsconfig": "workspace:*",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}

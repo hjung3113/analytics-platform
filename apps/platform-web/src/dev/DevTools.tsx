@@ -1,8 +1,8 @@
 import { Check, FlaskConical, UserCog } from 'lucide-react';
 import { useSyncExternalStore } from 'react';
 import { useI18n, usePlatform } from '@ap/kernel';
-import { getRole, getScenario, setRole, setScenario, subscribeServer, type Scenario } from '../mock/server';
-import { USERS, type RoleId } from '../mock/world';
+import { getRole, getScenario, setRole, setScenario, subscribeServer, type Scenario } from '@ap/mock-server';
+import { USERS, type RoleId } from '@ap/mock-server';
 import { SegmentedRadio } from '@ap/components';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 

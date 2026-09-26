@@ -1,7 +1,7 @@
 import { AlertTriangle, Ban } from 'lucide-react';
 import { parseDateTime } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { serve } from '../../mock/server';
+import { serve } from '@ap/mock-server';
 import { DataTrustIndicator, Panel, PlatformPage, QueryView, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { isAnchor, lookupOccurrence, resolveMetric, type OccurrenceResult, type Segment, type SegmentKind } from './cycleData';
