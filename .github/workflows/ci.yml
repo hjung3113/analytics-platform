@@ -29,8 +29,10 @@ jobs:
           submodules: false
       - uses: actions/setup-python@v6
         with:
-          # README: "Python 3.9+ standard library only ... Verified locally with Python 3.9.6"
-          python-version: '3.9'
+          # README requires "Python 3.9+ standard library only" (stdlib only, no version-specific features).
+          # Pinned to 3.12 rather than the 3.9 verified locally: 3.9 reached EOL 2025-10 and risks disappearing
+          # from setup-python's version manifest on ubuntu-latest. Reverified 14/14 passing on 3.12 before this change.
+          python-version: '3.12'
       - run: python -m pip install pytest==8.4.2
       - run: python3 -m pytest test_context_url.py -q
 
