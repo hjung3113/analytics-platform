@@ -7,7 +7,7 @@
 - `src/main.tsx` — `I18nProvider` → `PlatformProvider adapter registry slots` → `AppShell` + `RouteOutlet`. 조립만 한다.
 - `src/menus.ts` — IA 그룹(`GROUPS`)과 메뉴 선언(`MENUS`, 화면 lazy import), `createRegistry` 호출.
 - `src/pages/<area>/` — 메뉴 화면과 그 화면 전용 합성 데이터(`data.ts`).
-- `src/mock/` — 서버 대역: `world.ts`(설비·사이트·사용자), `server.ts`(`serve()`: Scope 재검증·응답 envelope·시나리오·역할), `adapter.ts`(`PlatformAdapter` 구현), `jobs.ts`.
+- 서버 대역은 `packages/mock-server`(`@ap/mock-server`). 앱에 남는 것은 `main.tsx`의 `mockAdapter` 주입, `src/dev/DevTools.tsx`, 그리고 mock과 화면 계산을 함께 보는 통합 테스트 `src/jobs-population.test.ts`(5c에서 `menu-analytics`로)·`src/published-metrics.test.ts`(두 메뉴를 잇는 앱 통합 테스트로 유지).
 - `src/dev/DevTools.tsx` — 역할 전환·응답 시나리오 시뮬레이터(탑바 슬롯). 운영 코드 아님.
 - `src/url-contract.test.ts`, `src/return-to.test.ts` — 실제 메뉴 Registry로 URL·복귀 경로를 보는 통합 테스트.
 - `reports/` — 화면 제작·리뷰 기록(역사 기록, 수정하지 않음).
@@ -18,7 +18,7 @@
 - 페이지는 `packages/*`를 수정하지 않는다. 공통 부품이 부족하면 필요 사항을 보고하고 플랫폼 작업으로 올린다.
 - 메뉴를 추가하면 `menus.ts`에 선언하고 06 §5(Menu Extension Contract)·§29(Platform Done)를 확인한다. 메뉴 화면 3개 이상 연속 제작은 사용자에게 범위를 먼저 확인한다.
 - mock은 서버 역할을 흉내낸다: Scope·room 허용 범위와 데이터 권한은 `serve()`가 재검증하고 페이지는 판단하지 않는다. **메뉴 권한은 mock이 재검증하지 않는다** — 지금은 클라이언트 라우트 게이트뿐인 알려진 공백이다(README "남은 플랫폼 과제"). 새 화면을 서버 권한으로 보호된다고 가정하지 않는다. 역할은 요청 시점에 고정한다(localStorage `platform:role`).
-- 페이지는 아직 `mock/server`를 직접 호출한다(D8). 5단계에서 메뉴별 `api.ts`로 모으므로 새 호출처를 늘리지 않는다.
+- 페이지는 아직 `@ap/mock-server`의 `serve`를 직접 호출한다(D8). `api.ts`는 5b이므로 새 호출처를 늘리지 않는다.
 
 ## 검증
 

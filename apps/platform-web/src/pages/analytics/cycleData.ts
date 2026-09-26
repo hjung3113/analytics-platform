@@ -5,8 +5,8 @@
  * strings and are never shortened to join or display.
  */
 import { formatDateTime, type GlobalContext, parseDateTime, shift } from '@ap/contracts';
-import { EQUIPMENT, type Equipment } from '../../mock/world';
-import { bucketStart as jobBucketStart, cycleMinutes, jobPercentile, jobsForEquipmentDay, jobsInPeriod, type Job } from '../../mock/jobs';
+import { EQUIPMENT, type Equipment } from '@ap/mock-server';
+import { bucketStart as jobBucketStart, cycleMinutes, jobPercentile, jobsForEquipmentDay, jobsInPeriod, type Job } from '@ap/mock-server';
 
 export const PAGE_METRIC_ID = 'cycle_time';
 export const PAGE_METRIC_VERSION = '3';

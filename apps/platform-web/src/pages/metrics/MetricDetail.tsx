@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { serve } from '../../mock/server';
+import { serve } from '@ap/mock-server';
 import { AuditTimeline, DataTrustIndicator, Field, Panel, PlatformPage, QueryView, StateMessage } from '@ap/components';
 import { Button, cn, StatusBadge } from '@ap/ui';
 import { MetricPairBanner } from './MetricCatalog';

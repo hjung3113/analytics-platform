@@ -1,6 +1,6 @@
-import type { Equipment } from '../../mock/world';
+import type { Equipment } from '@ap/mock-server';
 import { type AuditEvent, type GlobalContext, parseDateTime, shift } from '@ap/contracts';
-import { serve } from '../../mock/server';
+import { serve } from '@ap/mock-server';
 
 export const statusText = {
   active: { ko: '사용중', en: 'Active' }, idle: { ko: '대기', en: 'Idle' },

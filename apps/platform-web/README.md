@@ -1,6 +1,6 @@
 # Platform App — 통합 인터랙티브 프로토타입
 
-**합성 데이터 프로토타입.** 실제 파서 데이터·SSO·권한 서버·mart가 없다. `src/mock/`이 서버 역할(Scope/room 재검증, `outcome`+`assessments[]` 응답 envelope)을 흉내낸다. Kernel은 mock을 직접 import하지 않고 `@ap/contracts`의 `PlatformAdapter`를 통해서만 서버에 닿는다(`src/mock/adapter.ts`를 `main.tsx`가 주입).
+**합성 데이터 프로토타입.** 실제 파서 데이터·SSO·권한 서버·mart가 없다. `@ap/mock-server`(`packages/mock-server`)이 서버 역할(Scope/room 재검증, `outcome`+`assessments[]` 응답 envelope)을 흉내낸다. Kernel은 mock을 직접 import하지 않고 `@ap/contracts`의 `PlatformAdapter`를 통해서만 서버에 닿는다(`mockAdapter`를 `main.tsx`가 주입).
 
 기존 4개 Kernel 유닛(`kernel-app-shell`, `kernel-chart-frame`, `kernel-platform-table`, `kernel-context-url-scope`)을 하나의 앱으로 통합해, 플랫폼 다섯 갈래가 실제 메뉴 화면(Consumer) 아래에서 함께 동작하는지 검증한다. 기존 유닛은 수정하지 않았다.
 
@@ -28,7 +28,7 @@ pnpm build
 
 ## 페이지 작성 가이드 (Consumer 규칙)
 
-페이지는 `src/pages/<area>/*.tsx`에 default export로 두고 `src/menus.ts`의 `component`로 lazy 등록된다. **페이지는 `packages/*`(kernel/shell/components/ui/contracts)를 수정하지 않는다.** 공통 컴포넌트가 부족하면 수정하지 말고 필요 사항을 보고한다.
+페이지는 `src/pages/<area>/*.tsx`에 default export로 두고 `src/menus.ts`의 `component`로 lazy 등록된다. **페이지는 `packages/*`(kernel/shell/components/ui/contracts/mock-server)를 수정하지 않는다.** 공통 컴포넌트가 부족하면 수정하지 말고 필요 사항을 보고한다.
 
 1. 최상위는 반드시 `<PlatformPage>`. 슬롯: `title`, `description`, `primaryAction`, `secondaryActions`, `contextExtension`(page-owned 필터), `dataTrustSummary`, `crumbs`, `children`. 전역 Context Bar·Scope 게이트·Breadcrumb·즐겨찾기는 PlatformPage가 자동 렌더링한다 — 페이지가 날짜 선택기·Scope 선택기를 따로 만들지 않는다(§5 금지).
 2. 데이터 조회는 `usePlatformQuery(signal => serve({...}), pageInputs)` → `<QueryView query={q}>{data => ...}</QueryView>`. 로딩/갱신/empty/forbidden/too_large/timeout/error 분기는 QueryView가 한다. 위젯마다 따로 조회하면 부분 실패가 그 위젯에만 머문다(§19).
@@ -41,7 +41,7 @@ pnpm build
 7. 표는 `PlatformDataTable` (`loadPage`가 `serve()` envelope 반환, `sortAndPage` 헬퍼), 상세는 `DetailDrawer` + `Field` + `AuditTimeline`.
 8. 스타일은 DESIGN.md 토큰 유틸리티만 사용: `bg-surface-card`, `border-border-subtle`, `text-text-muted`, `bg-accent-primary-soft`, `t-page-title`/`t-section-title`/`t-card-title`/`t-stat`/`t-caption`/`t-mono`/`tabular` 등. 임의 hex·그림자 스택·pill 버튼 금지. 상태 색은 `StatusBadge`(success/warning/danger/neutral/info)만.
 9. UI 문구는 `const { tx, lang } = useI18n()`로 한/영 모두 제공(`lang === 'ko' ? … : …` 또는 `tx({ko, en})`). 설비 ID·팀명 같은 마스터 값은 번역하지 않는다.
-10. 합성 데이터는 해당 페이지 폴더 안(`src/pages/<area>/data.ts`)에 둔다. `src/mock/world.ts`의 `EQUIPMENT`를 기반으로 결정적(seeded) 값으로 만든다.
+10. 합성 데이터는 해당 페이지 폴더 안(`src/pages/<area>/data.ts`)에 둔다. `packages/mock-server`의 `EQUIPMENT`를 기반으로 결정적(seeded) 값으로 만든다.
 
 ## 확인된 동작 (셸/Kernel)
 

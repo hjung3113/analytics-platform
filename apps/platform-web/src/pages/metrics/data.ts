@@ -7,7 +7,7 @@
  */
 import type { AuditEvent } from '@ap/contracts';
 import type { Tone } from '@ap/ui';
-import { EQUIPMENT } from '../../mock/world';
+import { EQUIPMENT } from '@ap/mock-server';
 
 export type Text = { ko: string; en: string };
 export type Lang = 'ko' | 'en';
