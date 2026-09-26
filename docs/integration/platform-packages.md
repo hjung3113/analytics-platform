@@ -2,7 +2,7 @@
 
 > 상태: [05 Decided "다음 구현 범위: 프론트엔드 플랫폼 틀 + 메뉴 개발 환경"](../05_roadmap_and_open_questions.md)의 첫 단계로 패키지 경계와 의존 방향을 정한다. §8의 5개 항목은 2026-09-26 사용자가 제안안대로 **Decided**. `PlatformAdapter`·`MenuMeta`·`evaluateSelection` 같은 필드·타입 이름은 구현하면서 바뀔 수 있는 Candidate다.
 >
-> 진행(2026-09-27): §7의 1–4d단계 완료(PR #17–#23). 5단계 완료 — 5a(`@ap/mock-server` 추출, #25)·5b(메뉴별 `api.ts`, #26)·5c(메뉴 패키지, 이전 PR). 6단계 중 6a 경계 lint 완료(이번 PR). 6b `gen:menu` 생성기만 남았다. 아래 §2의 경로는 분리 전 `platform-app` 기준이다.
+> 진행(2026-09-27): §7의 1–4d단계 완료(PR #17–#23). 5단계 완료 — 5a(`@ap/mock-server` 추출, #25)·5b(메뉴별 `api.ts`, #26)·5c(메뉴 패키지, 이전 PR). 6단계 완료 — 6a 경계 lint와 6b `gen:menu` 생성기 모두 완료(이번 PR). 아래 §2의 경로는 분리 전 `platform-app` 기준이다.
 >
 > 근거: `prototypes/platform-app/src`의 import 그래프(2026-09-26, `main` `ebb471c`), [06 §3 아키텍처](../06_platform_ui_contract.md#3-platform-ui-architecture), [§4 Kernel 책임](../06_platform_ui_contract.md#4-platform-kernel-responsibilities), [§5 Menu Extension Contract](../06_platform_ui_contract.md#5-menu-extension-contract), [§13 컴포넌트 층](../06_platform_ui_contract.md#13-shared-component-layers).
 
@@ -111,14 +111,20 @@ export type PlatformAdapter = {
 ```text
 menus/<group>/
   package.json          # name: @ap/menu-<group>, exports: "." (+ 클래스를 쓰면 "./styles.css")
+  tsconfig.json         # @ap/tsconfig/base.json extends
+  eslint.config.js      # @ap/eslint-config menu 프리셋 한 줄
+  vitest.config.ts      # node 환경
+  .gen-menu.json        # 생성기 입력값 — --remove가 이 값으로 파일을 재렌더링해 대조한다
   src/
     index.ts            # export const manifests: MenuEntry[] (manifest만, 화면·데이터 재export 금지 — lazy 유지)
     styles.css          # Tailwind 클래스를 쓰는 패키지만: @source "./"; 앱 src/style.css가 import
     api.ts              # 이 메뉴의 데이터 원천 유일 접점 (지금은 mock-server, 나중에 HTTP)
     pages/<Page>.tsx    # PlatformPage 위에 archetype 하나
-    components/         # Domain Component (06 §13, 플랫폼으로 승격하지 않음)
-    *.test.ts(x)
+    manifest.test.ts    # createRegistry fixture 검증 1개
+  components/           # 이후 Domain Component(06 §13)가 가는 곳 — 생성기 출력이 아니다
 ```
+
+생성기는 한 번에 스켈레톤 하나를 만든다 — manifest 1개, archetype은 manifest의 `pageType`(다섯 중 선택), `api.ts`, `manifest.test.ts` — 그리고 앱의 마커 영역에 연결 3줄(import·spread·`@import`)과 앱 `package.json` 의존 1줄을 추가한다. `GROUPS`와 `GroupId`는 편집하지 않는다(사람이 먼저 추가한다).
 
 `manifests`의 각 항목은 `kernel`의 `MenuEntry`(= `contracts`의 `MenuMeta` + `icon` + `component`, 06 §5 선언)이고, 화면은 `component: lazy(() => import('./pages/X'))`로 지연 로드한다. 앱은 다음처럼 조립한다.
 
@@ -176,7 +182,7 @@ const registry = createRegistry({ groups: GROUPS, menus: [...home.manifests, ...
    - **5c — 메뉴 패키지 (완료, 이전 PR):** 그룹별로 `menus/*` 패키지로 이동, 앱 `src/menus.ts`는 `GROUPS`와 패키지 `manifests` 연결만(D1). `jobs-population`은 `@ap/menu-analytics`로 이동. `published-metrics`는 분할했다: 발행 포인터 비교는 `@ap/menu-metrics`, 페이지 기본 버전 미충족 검증은 `@ap/menu-analytics`, kernel `classifyMetricInit`+mock 통합 부분만 앱에 남김(D10 나머지).
 6. **경계 lint와 생성기:**
    - **6a — 경계 lint (완료, 이번 PR):** `@ap/eslint-config`(`tooling/eslint`)의 패키지별 프리셋으로 §3 규칙과 메뉴 계약 규칙(web storage·`window.location` 쓰기·쿼리 문자열 직접 조립 금지)을 켜고, 루트 `pnpm lint`(turbo)를 CI `platform-workspace`의 typecheck 앞 단계로 추가. 유일하던 위반(`OperationsHome.tsx` sessionStorage)은 이번 PR에서 제거.
-   - **6b — 생성기 (남음):** `gen:menu`로 빈 메뉴 하나를 만들어 검증한 뒤 삭제.
+   - **6b — 생성기 (완료, 이번 PR):** `tooling/gen-menu`(`@ap/gen-menu`). probe가 `gen:menu`로 메뉴 하나를 만들고 루트 네 명령을 통과시킨 뒤 삭제했다 — 트리는 생성된 메뉴를 갖지 않는다.
 
 이 순서를 마치면 D1–D10이 모두 해소되고, 워크스페이스 층(06 §9.1)은 Registry `space` 필드와 셸 공간 전환기로 이 구조 위에 얹는다.
 
@@ -192,6 +198,6 @@ const registry = createRegistry({ groups: GROUPS, menus: [...home.manifests, ...
 
 **`@ap/`는 임시 접두사다.** 회사 시스템 이름이 정해지면 일괄 변경한다. 변경 비용을 낮게 유지하려고 다음을 지킨다.
 
-- 접두사는 `package.json` 이름·의존성, import 문, lint 경계 설정과 생성기 설정의 상수 한 곳에만 쓴다.
+- 접두사는 `package.json` 이름·의존성, import 문, lint 경계 설정과 생성기 설정의 상수 한 곳에만 쓴다. 생성기 상수는 `tooling/gen-menu/src/prefix.ts`에 있다.
 - localStorage 키·이벤트 이름 등 런타임 문자열에 접두사를 넣지 않는다.
 - 변경 절차: 문자열 일괄 치환 → `pnpm install`(lockfile 재생성) → typecheck·test·build.

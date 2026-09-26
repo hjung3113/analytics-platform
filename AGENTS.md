@@ -44,7 +44,7 @@
 | [`apps/platform-web/`](apps/platform-web/AGENTS.md) | 조립 지점(GROUPS·Registry 조립, 어댑터 주입), mock 서버, dev 도구 |
 | [`menus/`](menus/AGENTS.md) | 메뉴 Consumer 패키지(`@ap/menu-<group>`, 그룹별 manifest·화면) |
 | [`packages/`](packages/AGENTS.md) | 플랫폼 패키지 공통 규칙과 의존 방향 → 각 패키지 `contracts`·`ui`·`kernel`·`components`·`shell`의 `AGENTS.md` |
-| [`tooling/`](tooling/AGENTS.md) | 공유 tsconfig, 향후 lint·메뉴 생성기 |
+| [`tooling/`](tooling/AGENTS.md) | 공유 tsconfig·경계 lint·메뉴 생성기(`pnpm gen:menu`) |
 | [`prototypes/`](prototypes/AGENTS.md) | 통합 전 Kernel 단위 프로토타입(보존, 새 기능 금지) |
 | [`products/feedbackops/`](products/feedbackops/AGENTS.md) | 독립 제품 서브모듈(아래 경계 참조) |
 
