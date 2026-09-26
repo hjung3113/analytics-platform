@@ -110,9 +110,10 @@ export type PlatformAdapter = {
 
 ```text
 menus/<group>/
-  package.json          # name: @ap/menu-<group>, exports: "." 만
+  package.json          # name: @ap/menu-<group>, exports: "." (+ 클래스를 쓰면 "./styles.css")
   src/
-    index.ts            # export const manifests: MenuManifest[]
+    index.ts            # export const manifests: MenuEntry[] (manifest만, 화면·데이터 재export 금지 — lazy 유지)
+    styles.css          # Tailwind 클래스를 쓰는 패키지만: @source "./"; 앱 src/style.css가 import
     api.ts              # 이 메뉴의 데이터 원천 유일 접점 (지금은 mock-server, 나중에 HTTP)
     pages/<Page>.tsx    # PlatformPage 위에 archetype 하나
     components/         # Domain Component (06 §13, 플랫폼으로 승격하지 않음)
