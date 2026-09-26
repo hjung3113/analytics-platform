@@ -1,74 +1,56 @@
-# Handoff — 2026-09-26 코드 품질 개선 3건 병합 (PR #10-12), CI 최초 가동
+# Handoff — 2026-09-26 통합 인터랙티브 프로토타입 병합 (PR #13-15), 워크스페이스 결정 반영
 
 ## 현재 상태
 
-`main`은 커밋 `612bba6`, `origin/main`과 일치, 작업 트리 clean. **이 레포에 처음으로 CI가 생겼고 실제 GitHub Actions에서 초록불로 확인했다**(아래 참고). PR #4-9(플랫폼 다섯 갈래)에 이어, 이번 라운드는 사용자가 요청한 "시니어 개발자 리뷰에서 지적한 약점 개선"을 했다.
+`main`은 PR #14 병합 커밋 `6e5a749` 이후 이 핸드오프 커밋까지 반영된 상태이며 작업 트리 clean. CI는 이제 **5개 Job**(기존 4개 + `platform-app`)이고 전부 초록불이다.
 
-- **FeedbackOps 서브모듈을 처음으로 실제 pull**했다(`f3a8c17`, `b5dd614`→`6a0c7f8`, 28커밋 갱신). 이전엔 "서브모듈 경계 유지"라는 이유로 핀을 손대지 않았는데, 사용자가 "최신 버전 pull한 거 맞아?"라고 물어서 확인해보니 **실제로는 최신이 아니었다** — 다행히 이식 대상 파일(`packages/ui/src/components/shadcn`, `cn.ts`, `tokens.css` 등)은 그 28커밋 동안 무변경이라 실질 영향은 없었지만, "안전하게 최신을 확인 안 하고 핀만 유지"와 "실제로 최신인지 확인하고 유지"는 다르다는 지적을 받아들여 pull했다.
-- **병합된 PR 3개**(전부 `--merge`):
-  - **#10** (`46a7247`) — Unicode 서로게이트 버그: Python(`context_url.py`) 원래 버그 수정 + **TS(`codec.ts`)에서 새로 발견된 대칭 버그**도 함께 수정
-  - **#11** (`03ccf66`) — `ContextSelect`의 sentinel 문자열 충돌을 index 기반 DOM 값으로 구조적으로 제거(이 세션 중 같은 클래스 버그가 두 번 났던 것의 근본 수정)
-  - **#12** (`612bba6`) — GitHub Actions CI 신설, **실제 Actions 실행에서 4개 Job 전부 초록불 확인**(PR 시점 + main push 시점 둘 다)
-- **worktree 3개 정리 완료**: `fix-unicode-surrogate`, `fix-sentinel-architecture`, `add-ci-pipeline` 전부 `orca worktree rm`으로 삭제.
+- **PR #13** (`a9e1e01`) — `prototypes/platform-app`: 흩어져 있던 Kernel 유닛 4개를 하나의 앱으로 통합한 인터랙티브 프로토타입. 기존 유닛은 수정하지 않았다.
+  - Kernel: Menu Registry(06 §9 그룹), 전역 Context URL 계약(시간·room_name·Condition/Selection·Lot/PPID/Recipe·지표 쌍), 요청마다 Scope 재검증, 역할 권한, 즐겨찾기/최근방문, 메뉴 활용률 계측, 이전 Context 결과를 새 결과로 보이지 않는 요청 수명주기.
+  - 셸: 스크린샷 스타일의 다크 아코디언 사이드바(64px 레일), 탑바(Scope 검증 상태, ⌘K, 한/EN, 역할 전환, 응답 시나리오 시뮬레이터), 전역 Context Bar(미지원 Context 보존 표시).
+  - 공통 컴포넌트: PlatformPage 슬롯, PlatformDataTable, DetailDrawer, AuditTimeline(첫 실구현), DataTrustIndicator, §19 상태 분류, StatCard, AnalysisChartFrame.
+  - Consumer 화면: 08 랜딩(coordinator), 09 설비 마스터(Codex), 11 생산성 개요(OMP GLM‑5.3), 12 사이클타임 드릴다운·13 지표 카탈로그(Grok 4.7). 워커 보고서는 `prototypes/platform-app/reports/`.
+  - 교차 리뷰(Grok: 플랫폼 계층 P0 2·P1 6·P2 5, OMP: 화면 P1 2·P2 3)의 수정 6건을 **Grok 4.7 high 설계 → 구현(GLM 5.3 Flash max, 한도 소진 후 GPT‑6‑Luna max) → coordinator 브라우저 검증** 순서로 하나씩 반영. 설계서는 `reports/design/01~06`. 테스트 51개.
+- **PR #14** (`6e5a749`) — 사용자 인터뷰 결정 문서화: 워크스페이스 3개(분석/운영 콘솔/피드백, 06 §9.1), 가공 상태 원천=적재 워커 보고(06 §19, 01), FeedbackOps 단계적 통합(integration/repository-layout.md), 07 IA·05 결정 행·인터뷰 기록. GPT‑6‑Astra medium 리뷰(P0 1·P1 2·P2 1)를 보강 커밋 `9c275a9`로 반영.
+- **PR #15** (`5bbe96b`) — CI에 `platform-app` Job 추가(Node 26.7.0, typecheck/test/build).
+- worktree·워커 탭 모두 정리 완료(이 세션이 연 것만. FeedbackOps #513/#514 탭은 다른 세션 소유).
 
-## 이번 라운드 배경 — 사용자가 요청한 "약점 개선"
+## 사용자 확인 필요
 
-직전 세션 종료 후 사용자가 "구성한 플랫폼 기능들을 시니어 개발자에게 설명하듯 장단점·부족한 점을 설명해달라"고 요청했고, 다음을 약점으로 짚었다:
-1. Sentinel/opaque 값 충돌 아키텍처 스멜(패치는 했지만 근본 해법 아님) — **이번에 고침(#11)**
-2. Python Unicode 서로게이트 버그(미수정 상태로 남아있던 것) — **이번에 고침(#10)**
-3. CI 파이프라인 부재(테스트를 전부 사람이 손으로 돌림) — **이번에 신설(#12)**
-4. 그 외(실제 백엔드 부재, Export/Annotation 영속성 미구현, 디자인 시스템 공유 패키지 미추출 등)는 **제품/인프라 결정이 필요해서 이번 범위에서 의도적으로 제외**했다 — 코드로 "고칠" 수 있는 게 아니라 사용자가 결정할 사안이기 때문.
+**기존 15개(변경 없음)** — 인증/권한 3, UX 정책 4, 후속 구현 범위 5, 아키텍처 1, 공개 URL 1, CFG 연계 1. 목록은 [직전 handoff](.agents/reports/handoff-history-through-2026-09-26-b.md#사용자-확인-필요--15개-변경-없음-unicode-버그는-해소).
 
-사용자가 "이전 워크플로우대로 진행"을 지시해서 PR #4-9와 같은 패턴(Opus 5.5 설계 → Astra medium/Grok 4.7 max 리뷰 → OMP 보강 → coordinator 직접 재검증 → 병합)을 그대로 적용했다.
-
-## 이번 라운드 상세
-
-1. **PR #10 — Unicode 서로게이트, Python + TS 둘 다**. Python `identifier()`에 UTF-8 strict 인코딩 검사를 추가해 5개 필드(Condition 포함) 전부 `ContractError(invalid_id)`로 거절하게 고쳤다(`07c20ac`). 이 작업 중 Opus 5.5가 **TS 포트(`codec.ts`)에서 대칭이지만 별개인, 이번에 처음 발견된 버그**를 찾았다: scope_id/room_names/selection/destination에 같은 입력을 넣으면 `URIError`로 죽음(Condition만 알려진 divergence #6으로 성공 유지). coordinator가 직접 `tsx`로 재현해 확인 후 같은 브랜치에 후속 작업으로 추가 지시, 별도 `urlIdentifier()` wrapper로 4개 필드만 고치고 Condition 경로(divergence #6)는 그대로 뒀다(`f00265f`). Grok 4.7 max 리뷰: PASS-WITH-MINOR(문서 drift만) → coordinator가 직접 README/verification.log/work-order 정정(`b676b72`).
-2. **PR #11 — sentinel 아키텍처 개선**. `ContextSelect`가 Radix Select에 노출하는 DOM `value`를 실제 opaque 데이터 문자열에서 완전히 분리하고 `options` 배열의 위치(index)로만 인코딩하도록 재설계 — 실데이터가 어떤 문자열이든 구조적으로 충돌 불가능(`0fa6045`). `absentSentinel` 헬퍼 삭제, `'__inherited'` no-op guard도 이제 도달 불가능하다는 근거로 제거. Grok 4.7 max 리뷰: PASS-WITH-MINOR(comment 정확도 2건) → coordinator가 직접 정정(`5067507`). **잔여 이슈 발견(범위 밖)**: 실제 EquipmentID/room_name이 문자열 `"none"`이면 여전히 "Explicit empty set"으로 오표시됨 — 이건 `ContextSelect` 내부가 아니라 호출부(`setValue`)의 다른 레이어 문제라 이번엔 안 고쳤다. 플랫폼 레벨 결정 필요.
-3. **PR #12 — CI 신설**. `.github/workflows/ci.yml`에 4개 Job(Python codec, Unit A/B/C). FeedbackOps 서브모듈은 4개 Job 전부 `submodules: false`(런타임 참조 없음). Unit C는 Playwright 브라우저 설치 경로(`PLAYWRIGHT_BROWSERS_PATH`)를 이 세션 중 실제로 겪은 함정(설치 위치≠실행 위치)이 재발 안 하게 명시적으로 맞춤(`5bd3b39`). Opus 5.5가 스스로 "Python 3.9는 EOL이라 위험"이라고 자체 보고 → coordinator가 직접 3.12로 바꾸고 venv로 재검증(`b89c353`). Grok 4.7 max 리뷰: **clean PASS**. **PR을 열자 실제 GitHub Actions가 돌았고 4개 Job 전부 통과**(Python 9s / Unit A 21s / Unit B 23-28s / Unit C 51-54s, Playwright apt-get 설치 포함) — 로컬에서는 검증 못 했던 부분(ubuntu 환경, `--with-deps` apt 설치)까지 실제로 확인됐다. 병합 후 main push에서도 재확인.
-4. **오케스트레이션 중 실제 장애 발생**: 이번 라운드 리뷰 디스패치 중 Codex/Astra(`gpt-6-astra`)가 두 번 연속 시작 실패했다(터미널을 열어보니 Codex CLI가 자기 자신을 자동 업데이트하다 멈춰서 그냥 셸 프롬프트에 있었다 — "possibly dead" 추측이 아니라 실제로 확인한 증거). `worker-abandon` → 재시도도 실패 → **Astra 대신 Grok 4.7 max로 전환**해서 3개 리뷰 전부 무사히 완료. Codex/Astra 자체의 일시적 문제로 보이며, 다음 세션에서 다시 써봐도 된다.
-
-## 사용자 확인 필요 — 15개 (변경 없음, Unicode 버그는 해소)
-
-**Unicode 서로게이트 버그는 이번 라운드에서 완전히 수정 완료** — 더 이상 목록에 없다. 나머지 15개는 PR #4-9 이후로 변경 없음(자세한 목록은 [직전 handoff](.agents/reports/handoff-history-through-2026-09-26.md) 참고). 요약:
-
-- **인증/권한**(3): SSO/서버 권한 재검증, Scope 데이터 원천/상속 규칙, Registry permission 필드를 Shell이 소비할지
-- **UX 정책**(4): Condition 편집 시 Selection 처리, Chart Selection Summary 배치, Zoom-out vocabulary, 필터 변경 후 선택 유지
-- **후속 구현 범위**(5): 전역 검색/cmdk, 시간 지원 codec 범위, Annotation 영속성, Export 포맷, DetailDrawer Audit 연동
-- **아키텍처**(1): Chart Interaction Contract 승격(§14 Promotion Rule 대기)
-- **공개 URL 계약**(1): 후보 키/스키마 승인
-- **CFG 메뉴 연계**(§22): Deferred 유지
-
-**새로 발견된 잔여 이슈 1건(이번 라운드, 결정 아님)**: 실제 EquipmentID/room_name이 문자열 `"none"`이면 `setValue`가 명시적 빈 집합과 구분 못 하고 "Explicit empty set"으로 표시 — Unit A `App.tsx`의 `setValue` 함수 레이어, `ContextSelect` 내부 문제 아님(PR #11 리뷰에서 발견, 의도적으로 이번 범위 밖).
+**2026-09-26 새 Open** ([인터뷰 기록](docs/reviews/2026-09-26-workspace-ops-interview.md#남은-open)):
+- 적재 워커 상태 기록 스키마·원인 분류·보존 기간, `context_recognized_parser` 저장소 변경 범위(운영 콘솔·가공 상태 조회의 선행 조건).
+- Registry `space` 필드명, 공간별 그룹 상한, 06 §9.1 표의 그룹/화면 구분.
+- FeedbackOps 1단계에서 VOC 등록·설문 응답 제출을 원본 화면 딥링크로 처리하는 방식(Candidate) 확정 여부.
+- 운영 콘솔 권한 모델(개발자와 운영자 역할 분리 여부).
 
 ## 다음 세션 추천 작업
 
-우선순위 순, PR #4-9 handoff와 동일:
+우선순위 순. 05에 Decided로 기록된 다음 구현 범위는 **프론트엔드 플랫폼 틀 + 메뉴 개발 환경(서버는 mock)** 이다(인터뷰 기록의 추정 6~9주, 일정 승인 아님).
 
-1. **플랫폼 다섯 갈래 + 이번 코드 품질 개선까지 끝났다 — 다음 자연스러운 단계는 실제 메뉴 화면 1개를 조립하는 것이다.** AGENTS.md 가드레일(3개 이상 연속 제작 전 확인)은 첫 1개는 막지 않는다.
-   - **추천 후보**: `docs/02_domain_menus.md`의 **설비관리(Equipment Master)**(Management archetype + PlatformDataTable/DetailDrawer 대응) 또는 **생산성 분석** 메뉴 1개(Analysis Workspace archetype + Chart Frame + Cross-menu Context Link 대응). 둘 다 Phase 1 전제 없음.
-   - 시작 전 `.agents/skills/analysis-platform-wireframe/SKILL.md` 순서(Requirements → IA → Contract/Screen Spec → Wireframe → Open Decisions)를 따른다.
-2. **"none" 표시 오류**(위 잔여 이슈) — 작고 독립적, 실제 메뉴 작업 전에 정리해도 되고 미뤄도 됨.
-3. **CI 후속**: `ubuntu-latest`가 2026-10-19부터 Ubuntu 26으로 마이그레이션된다는 GitHub 공지가 Actions 실행에 붙어 있었다(현재는 문제 없음, 그 날짜 근처에 CI가 갑자기 깨지면 이게 원인일 수 있다는 것만 기억해둔다).
-4. cmdk 도입(Command Palette 실검색), 사이드바 자동 collapse — 여전히 작은 후속.
-5. M6 문서-구조 평가(직전 handoff의 "남은 범위" 참고) — 실제 메뉴 작업 전에 짧게 돌려볼 수 있다.
+1. **모노레포와 패키지 추출** — `platform-app`에서 `kernel` / `ui`(토큰·shadcn) / `components` / `shell` 패키지를 pnpm workspace로 분리하고 메뉴 패키지 템플릿(생성기)을 만든다. 첫 단계로 패키지 경계와 의존 방향만 설계 문서로 확정하고 사용자 확인을 받는다.
+2. **워크스페이스 층 구현(06 §9.1)** — Registry `space` 선언, 좌상단 공간 전환기(접근 가능한 공간 2개 이상일 때만), 공간 간 전역 Context 보존, 관리·감사를 운영 콘솔로 이동. 필드명·그룹 상한은 Open이므로 Candidate로 구현하고 표시한다.
+3. **platform-app README "남은 플랫폼 과제" 해소** — 표 정렬/페이지 등 page key 등록, 지표별 버전 page key와 Trust envelope 다중 버전, 목적지 객체 단건 조회 API, overlay 그림자 규칙, compare 이전 기간 정렬, ECharts 코드 분할(번들 672kB), 서버 측 메뉴 권한 재검증, Lot·PPID·Recipe 편집기. 시간역 병합 실패 시 "설비 선택을 좁히세요" 같은 구체 안내도 추가.
+4. **개발 환경 정비** — lint(URL 직접 조립 금지 등 계약 lint), Storybook, 시각 회귀·접근성 테스트.
+5. **파서 저장소 협의** — 적재 워커 상태 보고 스키마(위 Open). 합의 전에는 운영 콘솔·가공 상태 조회를 화면 설계까지만 진행한다.
+6. FeedbackOps Milestone(FR-TASK-004)은 사용자가 원본 저장소에서 구현 중(#514). 피드백 공간은 그 구현을 참조한다.
 
-## 이번 검증과 기록
+## 이번 라운드에서 배운 운영 사항
 
-- **FeedbackOps pull**: `git diff --stat HEAD..origin/develop -- packages/ui/`로 이식 대상 파일 무변경을 먼저 확인한 뒤에 pull(사후 확인이었다는 점은 그대로 기록 — "안전했다"와 "사전에 확인했다"는 다르다).
-- **PR #10**: 수정 전 코드로 되돌려 Python/TS 둘 다 새 테스트가 실제로 실패하는지 재현 후 복구. `generate-parity.py` 재실행으로 95개 vector sha256 무변경 확인(Condition 경로 안 건드렸다는 주장 검증).
-- **PR #11**: 커밋 diff를 직접 읽고 index 기반 설계가 실제로 구현됐는지 코드 레벨에서 추적. Grok이 "새 테스트 7개 중 다수가 실제로는 구코드에서도 통과한다"(진짜 regression trap이 아니다)는 걸 직접 revert해서 확인 — 이 발견을 그대로 반영해 테스트 파일에 정직한 comment를 추가했다(과장된 주장 안 남김).
-- **PR #12**: coordinator가 로컬에서 각 Job의 정확한 커맨드를 재현했을 뿐 아니라, **PR을 열어 실제 GitHub Actions 실행 결과까지 확인**(로컬 macOS로는 검증 불가능했던 ubuntu 환경·`--with-deps` apt 설치 포함) — "로컬 재현"과 "실제 CI 통과"를 구분해서 보고했다.
-- **오케스트레이션 장애 대응**: Codex/Astra 디스패치 실패 시 "unverifiable/추측"으로 방치하지 않고 터미널을 직접 열어 실제 상태(Codex 자동 업데이트로 멈춤)를 확인한 뒤 `worker-abandon`으로 정리하고 다른 provider(Grok)로 전환 — orchestration 스킬의 "positive evidence 없이는 stop/abandon 안 함" 원칙을 따름.
+- **워커 분배:** 발견 사항 여러 개를 한 워커에 몰아주면 GLM max가 25분 넘게 계획만 하고 파일을 하나도 바꾸지 않았다. 작업을 잘게 나눠 **Grok 설계 → 구현 모델 구현 → coordinator 검증**을 하나씩 하는 방식이 빨랐다. 설계 문서는 구현과 겹쳐서 미리 받아도 된다.
+- **Orca 탭 정리:** `orca terminal create`로 띄운 Grok/OMP/Codex 터미널은 external이라 `worker-release` 후에도 열려 있다. 수락 후 `orca terminal close`로 직접 닫는다.
+- **Codex 준비 확인 실패:** 주간 한도 경고 배너가 있으면 `worker-start --agent codex`가 `agent_readiness`에서 실패한다. `orca terminal create --command "codex -m <model> -c model_reasoning_effort=\"<effort>\""` → `task-create` → `dispatch --inject`로 우회했다. orca는 `gpt-6-luna`의 `max` effort를 거부하지만 Codex CLI 자체는 지원한다.
+- **GLM 경로:** `z-ai/glm-*`는 OpenRouter 경유(크레딧 부족 시 402, 대화형 TUI는 오류 없이 멈춤), `glm-*`는 z.ai 직접 연결(5시간 한도 있음). 사전 확인은 `omp -p "reply with OK only" --model <id> --thinking low`. 비대화 실행은 반드시 `< /dev/null`(아니면 stdin 대기로 멈춤).
+- **계정 한도(2026-09-26 기준):** Codex 주간 약 9% 남음, Grok 주간 약 46% 사용, OpenRouter 크레딧 부족, z.ai는 5시간 한도 후 재개.
+- CI: `ubuntu-latest`가 2026-10-19부터 Ubuntu 26으로 바뀐다는 GitHub 공지가 있다. 그 무렵 CI가 깨지면 이것부터 확인한다.
 
 ## 보존할 경계
 
-- FeedbackOps gitlink는 이제 `6a0c7f8`(2026-09-26 기준 origin/develop HEAD). 다음에 다시 pull할 때도 `docs/integration/repository-layout.md`의 절차(fetch → diff 검토 → detached checkout → `git add`)를 따른다.
-- Decided는 구현 완료가 아니다. 위 15개 확인 항목 + "none" 잔여 이슈를 임의로 결정하지 않는다.
-- GPT-6 Astra(`gpt-6-astra`), Claude Opus 5.5(`claude-opus-5-5`), Grok 4.7(`grok-4.7`), GLM-5.3-Flash(`glm-5.3-flash`, via OMP)를 사용했다. Astra가 이번 라운드에 일시적으로 불안정했다는 것도 기록(모델 자체 결함이 아니라 CLI 자동업데이트 충돌로 보임).
-- 역사 snapshot/외부 원본은 덮어쓰지 않는다. 문서 검증을 제품 런타임 검증으로 보고하지 않는다 — 단 이번엔 CI를 통해 **진짜 런타임(GitHub Actions) 검증**을 처음으로 확보했다.
-- AGENTS.md "메뉴 3개 이상 연속 제작 전 범위 확인" 가드레일 — 이번 라운드도 메뉴 화면 0개 제작.
+- Decided는 구현 완료가 아니다. 위 확인 필요 항목을 임의로 결정하지 않는다.
+- 메뉴 화면은 플랫폼 갈래를 검증하는 Consumer다. platform-app의 화면 5개로 다섯 갈래 검증은 한 차례 끝났으므로, 다음은 메뉴 추가가 아니라 플랫폼 틀(패키지·워크스페이스·개발 환경)이다.
+- FeedbackOps 코드는 2단계(인증·Scope 결정) 전까지 플랫폼 계약에 맞춰 소급 수정하지 않는다. 서브모듈 gitlink는 `6a0c7f8`.
+- 역사 기록과 외부 원본은 덮어쓰지 않는다. 문서 대조를 런타임 검증으로 보고하지 않는다.
 
 ## 필요할 때만 읽는 기록
 
-[직전 HANDOFF(2026-09-26 오전, PR #4-9 상세) 전체](.agents/reports/handoff-history-through-2026-09-26.md) · [Scope Contract Console 아티팩트](https://claude.ai/artifact/UCcdxht21KCBvwc7REvKrE) · 병합된 PR: [#10](https://github.com/hjung3113/analytics-platform/pull/10) [#11](https://github.com/hjung3113/analytics-platform/pull/11) [#12](https://github.com/hjung3113/analytics-platform/pull/12)(+ [실제 Actions 실행](https://github.com/hjung3113/analytics-platform/actions/runs/36213082533)). 과거 지시와 미커밋 상태는 당시 기록이며 현재 요청과 Git 상태를 대체하지 않는다.
+[직전 HANDOFF(PR #10-12)](.agents/reports/handoff-history-through-2026-09-26-b.md) · [그 이전](.agents/reports/handoff-history-through-2026-09-26.md) · [platform-app README](prototypes/platform-app/README.md) · [교차 리뷰](prototypes/platform-app/reports/review-grok-kernel.md), [화면 리뷰](prototypes/platform-app/reports/review-omp-screens.md) · 병합된 PR: [#13](https://github.com/hjung3113/analytics-platform/pull/13) [#14](https://github.com/hjung3113/analytics-platform/pull/14) [#15](https://github.com/hjung3113/analytics-platform/pull/15). 과거 지시와 미커밋 상태는 당시 기록이며 현재 요청과 Git 상태를 대체하지 않는다.
