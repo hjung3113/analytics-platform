@@ -94,40 +94,69 @@ function owningMenuId(text: string, at: number): string {
 }
 
 function insertAbove(text: string, marker: string, line: string): string {
-  const lines = text.split('\n');
+  const { lines, eol } = splitLines(text);
   const at = lines.findIndex(l => l.trim() === marker);
   if (at === -1) throw new GenMenuError(`missing marker '${marker}'`);
   lines.splice(at, 0, line);
-  return lines.join('\n');
+  return lines.join(eol);
 }
 
 /** Insert the dependency line lexicographically inside the contiguous menu-* dependency lines. */
-function insertDep(text: string, line: string, pkgName: string): string {
-  const lines = text.split('\n');
-  const nameOf = (l: string): string | null => {
-    const m = /^    "([^"]*menu-[^"]*)": "workspace:\*",$/.exec(l);
-    return m === null ? null : m[1];
-  };
-  const menuIdx = lines.map((l, i) => (nameOf(l) !== null ? i : -1)).filter(i => i !== -1);
-  if (menuIdx.length === 0) throw new GenMenuError(`no menu dependency block in ${APP_PKG}`);
-  const first = menuIdx[0];
-  const last = menuIdx.at(-1);
-  if (last !== undefined && menuIdx.length !== last - first + 1) {
+function insertDep(text: string, pkgName: string): string {
+  const { lines, eol } = splitLines(text);
+  const entries = lines
+    .map((l, i) => ({ i, dep: parseDepLine(l) }))
+    .filter((e): e is { i: number; dep: { indent: string; name: string } } => e.dep !== null);
+  const first = entries[0];
+  const last = entries.at(-1);
+  if (first === undefined || last === undefined) throw new GenMenuError(`no menu dependency block in ${APP_PKG}`);
+  if (entries.length !== last.i - first.i + 1) {
     throw new GenMenuError(`menu dependency block in ${APP_PKG} is not contiguous`);
   }
-  let at = first;
-  while (at < menuIdx.length && nameOf(lines[at]) !== null && (nameOf(lines[at]) as string) < pkgName) at++;
-  lines.splice(at, 0, line);
-  return lines.join('\n');
+  const newLine = (comma: boolean): string => `${first.dep.indent}"${pkgName}": "workspace:*"${comma ? ',' : ''}`;
+  // Before the first entry whose name sorts after the new one; else after the last (F2).
+  const before = entries.find(e => e.dep.name > pkgName);
+  if (before !== undefined) {
+    // Preceding an existing entry, the new line can never be the object's last entry.
+    lines.splice(before.i, 0, newLine(true));
+    return lines.join(eol);
+  }
+  const lastText = (lines[last.i] as string).replace(/\r$/, '');
+  const nextIsCloser = ((lines[last.i + 1] ?? '') as string).replace(/\r$/, '').trimStart().startsWith('}');
+  if (lastText.trimEnd().endsWith(',')) {
+    lines.splice(last.i + 1, 0, newLine(!nextIsCloser));
+  } else {
+    // The comma-less entry ended the object: it takes the comma, the new entry takes none (N1).
+    lines[last.i] = `${lastText},`;
+    lines.splice(last.i + 1, 0, newLine(false));
+  }
+  return lines.join(eol);
 }
 
-/** Remove one exact line; absent means already gone (rollback after a failed write). */
+/** The file's line ending (CRLF wins when present), so re-joined edits keep it. */
+export function splitLines(text: string): { lines: string[]; eol: string } {
+  const eol = text.includes('\r\n') ? '\r\n' : '\n';
+  return { lines: text.split(eol), eol };
+}
+
+/** A menu-* workspace dependency line: indent, package name, optional trailing comma. */
+export function parseDepLine(raw: string): { indent: string; name: string } | null {
+  const m = /^(\s*)"([^"]*menu-[^"]*)": "workspace:\*"(,)?\s*?$/.exec(raw.replace(/\r$/, ''));
+  return m === null ? null : { indent: m[1], name: m[2] };
+}
+
+/** True when the exact line exists, tolerating a CRLF file's trailing carriage returns. */
+export function hasLine(text: string, line: string): boolean {
+  return splitLines(text).lines.some(l => l === line || l.replace(/\r$/, '') === line);
+}
+
+/** Remove one exact line (EOL-tolerant); absent means already gone (rollback after a failed write). */
 export function removeLine(text: string, line: string): string {
-  const lines = text.split('\n');
-  const at = lines.indexOf(line);
+  const { lines, eol } = splitLines(text);
+  const at = lines.findIndex(l => l === line || l.replace(/\r$/, '') === line);
   if (at === -1) return text;
   lines.splice(at, 1);
-  return lines.join('\n');
+  return lines.join(eol);
 }
 
 export type FileEdit = { relPath: string; after: string };
@@ -255,7 +284,7 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
     spreadLine(inputs),
   );
   const stylesEdit = insertAbove(stylesText, STYLES_END, styleLine(inputs));
-  const pkgEdit = insertDep(appPkgText, depLine(inputs), menuPackage(folder));
+  const pkgEdit = insertDep(appPkgText, menuPackage(folder));
 
   return {
     root,

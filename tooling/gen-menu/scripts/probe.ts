@@ -27,8 +27,9 @@ function gitPorcelain(): string {
   return (res.stdout ?? '').trim();
 }
 
-function run(cmd: string, args: string[]): void {
-  const res = spawnSync(cmd, args, { cwd: ROOT, stdio: 'inherit' });
+function run(cmd: string, args: string[], env?: Record<string, string>): void {
+  const childEnv = env === undefined ? process.env : { ...process.env, ...env };
+  const res = spawnSync(cmd, args, { cwd: ROOT, stdio: 'inherit', env: childEnv });
   if (res.status !== 0) fail(`'${cmd} ${args.join(' ')}' exited ${res.status ?? 'by signal'}`);
   console.log(`probe: ok — ${cmd} ${args.join(' ')}`);
 }
@@ -94,15 +95,16 @@ function main(): void {
     run('pnpm', ['install']);
     run('pnpm', ['lint']);
     run('pnpm', ['typecheck']);
-    // The gen-menu lock tests read the committed tree and would fail on their own probe edits,
-    // so the test gate excludes this package; the locks are re-verified after the revert below.
-    run('pnpm', ['exec', 'turbo', 'run', 'test', `--filter=!${PACKAGE_PREFIX}gen-menu`]);
+    // Full gate: the extensible wiring locks hold while the probe menu exists; only the
+    // probe-name check is skipped via GEN_MENU_PROBE (turbo globalPassThroughEnv). The locks
+    // are re-verified without the env after the revert below.
+    run('pnpm', ['test'], { GEN_MENU_PROBE: '1' });
     run('pnpm', ['build']);
     console.log('probe: verified — reverting');
   } finally {
     revert();
-    // Locks (repo.test.ts) must pass on the restored tree; revert already checked it is clean.
-    run('pnpm', ['--filter', `${PACKAGE_PREFIX}gen-menu`, 'test']);
+    // Locks must pass on the restored tree with the probe env explicitly OFF.
+    run('pnpm', ['--filter', `${PACKAGE_PREFIX}gen-menu`, 'test'], { GEN_MENU_PROBE: '' });
   }
 }
 

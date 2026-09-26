@@ -121,7 +121,7 @@ menus/<group>/
     api.ts              # 이 메뉴의 데이터 원천 유일 접점 (지금은 mock-server, 나중에 HTTP)
     pages/<Page>.tsx    # PlatformPage 위에 archetype 하나
     manifest.test.ts    # createRegistry fixture 검증 1개
-  components/           # 이후 Domain Component(06 §13)가 가는 곳 — 생성기 출력이 아니다
+    components/         # 이후 Domain Component(06 §13)가 가는 곳 — 생성기 출력이 아니다
 ```
 
 생성기는 한 번에 스켈레톤 하나를 만든다 — manifest 1개, archetype은 manifest의 `pageType`(다섯 중 선택), `api.ts`, `manifest.test.ts` — 그리고 앱의 마커 영역에 연결 3줄(import·spread·`@import`)과 앱 `package.json` 의존 1줄을 추가한다. `GROUPS`와 `GroupId`는 편집하지 않는다(사람이 먼저 추가한다).
@@ -181,8 +181,8 @@ const registry = createRegistry({ groups: GROUPS, menus: [...home.manifests, ...
    - **5b — 메뉴별 `api.ts` (완료, #26):** 그룹마다 `pages/<area>/api.ts`가 `@ap/mock-server`의 유일한 페이지 접점(D8, §3 규칙 3 — `menu-*` 패키지가 없어 `apps/platform-web/src/pages` 트리가 그 대역이었음). D8의 import 벽만 해소. 집계의 서버 이관은 5c 이후 과제로 남는다.
    - **5c — 메뉴 패키지 (완료, 이전 PR):** 그룹별로 `menus/*` 패키지로 이동, 앱 `src/menus.ts`는 `GROUPS`와 패키지 `manifests` 연결만(D1). `jobs-population`은 `@ap/menu-analytics`로 이동. `published-metrics`는 분할했다: 발행 포인터 비교는 `@ap/menu-metrics`, 페이지 기본 버전 미충족 검증은 `@ap/menu-analytics`, kernel `classifyMetricInit`+mock 통합 부분만 앱에 남김(D10 나머지).
 6. **경계 lint와 생성기:**
-   - **6a — 경계 lint (완료, 이번 PR):** `@ap/eslint-config`(`tooling/eslint`)의 패키지별 프리셋으로 §3 규칙과 메뉴 계약 규칙(web storage·`window.location` 쓰기·쿼리 문자열 직접 조립 금지)을 켜고, 루트 `pnpm lint`(turbo)를 CI `platform-workspace`의 typecheck 앞 단계로 추가. 유일하던 위반(`OperationsHome.tsx` sessionStorage)은 이번 PR에서 제거.
-   - **6b — 생성기 (완료, 이번 PR):** `tooling/gen-menu`(`@ap/gen-menu`). probe가 `gen:menu`로 메뉴 하나를 만들고 루트 네 명령을 통과시킨 뒤 삭제했다 — 트리는 생성된 메뉴를 갖지 않는다.
+   - **6a — 경계 lint (완료, #29):** `@ap/eslint-config`(`tooling/eslint`)의 패키지별 프리셋으로 §3 규칙과 메뉴 계약 규칙(web storage·`window.location` 쓰기·쿼리 문자열 직접 조립 금지)을 켜고, 루트 `pnpm lint`(turbo)를 CI `platform-workspace`의 typecheck 앞 단계로 추가. 유일하던 위반(`OperationsHome.tsx` sessionStorage)은 이번 PR에서 제거.
+   - **6b — 생성기 (완료, 이번 PR):** `tooling/gen-menu`(`@ap/gen-menu`). `tooling/gen-menu/scripts/probe.ts`가 임시 그룹 `genProbe`와 메뉴를 만든 상태에서 루트 네 명령(lint·typecheck·test·build, gen-menu 자체 테스트 포함)을 통과시킨 뒤 전부 되돌린다 — 트리는 생성된 메뉴를 갖지 않는다.
 
 이 순서를 마치면 D1–D10이 모두 해소되고, 워크스페이스 층(06 §9.1)은 Registry `space` 필드와 셸 공간 전환기로 이 구조 위에 얹는다.
 
