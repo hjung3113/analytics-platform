@@ -153,7 +153,10 @@ export function evaluateTimeDomainMerge(
 const OBSERVED = '2026-09-26T08:58:00';
 
 export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
+  // Pin the request's identity at send time, like a session cookie on the request: a role switch while it is
+  // in flight must not re-evaluate it with the new user's grants.
   const s = scenario;
+  const requestRole = o.role ?? role;
   const correlationId = nextCorrelation();
   await sleep((o.latency ?? 450) + (s === 'slow' ? 2200 : 0) + Math.random() * 200, o.signal);
   const base = { correlationId, data: null, trust: null, assessments: [] as Assessment[] };
@@ -162,7 +165,7 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
   // Every other widget query fails so pages can show a local failure next to healthy widgets (§19 Partial widget failure).
   if (s === 'partial' && partialCounter++ % 2 === 1) return { ...base, outcome: 'error', message: 'Widget query failed (partial scenario)' };
   const requiresScope = o.requiresScope ?? true;
-  const resolved = requiresScope ? resolveEquipment(o.global, o.role ?? role) : { rows: EQUIPMENT, forbidden: null };
+  const resolved = requiresScope ? resolveEquipment(o.global, requestRole) : { rows: EQUIPMENT, forbidden: null };
   if (s === 'forbidden' || resolved.forbidden) return { ...base, outcome: 'forbidden', message: resolved.forbidden ?? 'Permission revoked (scenario)' };
   const hours = periodHours(o.global);
   if (s === 'too_large' || (o.maxHours && hours !== null && hours > o.maxHours && (o.global.selection === null || o.global.selection.length > 40))) {
