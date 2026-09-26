@@ -2,7 +2,7 @@
 
 ## 현재 상태
 
-`main`은 PR #23 병합 커밋 `ab575dd` 이후 이 세션 정리 PR까지 반영된 상태. CI 5개 Job(`platform-workspace` + 기존 Unit A–C·Python codec) 모두 초록불. 테스트 67개(kernel 13, components 3, app 51).
+이 세션의 코드 변경은 PR #23 병합 커밋 `ab575dd`까지이고, 그 위에 문서 정리 PR #24(이 HANDOFF 포함)가 병합된다. CI 5개 Job(`platform-workspace` + 기존 Unit A–C·Python codec) 모두 초록불. 테스트 67개(kernel 13, components 3, app 51).
 
 [플랫폼 모노레포 패키지 경계](docs/integration/platform-packages.md) §7 이행 순서의 1–4d단계를 끝냈다.
 
