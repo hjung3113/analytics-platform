@@ -65,7 +65,13 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const [recent, setRecent] = useState<Recent[]>(() => read(`platform:recent:${role}`, [] as Recent[]));
   const [usage, setUsage] = useState<Record<string, number>>(() => read('platform:usage', {} as Record<string, number>));
   const [lastScope, setLastScope] = useState<string | null>(() => read<string | null>(`platform:lastScope:${role}`, null));
-  const [scope, setScope] = useState<ScopeState>({ scopeId: null, status: 'none', grantedRooms: [] });
+  const [scope, setScope] = useState<ScopeState>(() => {
+    try {
+      const id = new URLSearchParams(window.location.search).get('scopeId');
+      if (id) return { scopeId: id, status: 'validating', grantedRooms: [] };
+    } catch { /* keep none */ }
+    return { scopeId: null, status: 'none', grantedRooms: [] };
+  });
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const scenario = useSyncExternalStore(subscribeScenario, getScenario);
@@ -128,7 +134,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   }, [global, page, extras, pathname, navigate]);
 
   // Reset clears analysis Context but keeps the requested Scope (a separate header control).
-  const resetContext = useCallback(() => navigate(pathname + buildQuery({ ...emptyGlobal, scopeId: global.scopeId }, page)), [pathname, navigate, global.scopeId, page]);
+  const resetContext = useCallback(
+    () => navigate(pathname + buildQuery({ ...emptyGlobal, scopeId: global.scopeId }, page, extras)),
+    [pathname, navigate, global.scopeId, page, extras],
+  );
 
   // Context Link helper (§22/§6.4): every registered global is preserved regardless of target support;
   // page-owned state and unregistered extras are never copied implicitly.

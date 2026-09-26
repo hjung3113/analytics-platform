@@ -61,6 +61,12 @@ describe('URL contract (§6.1–6.4)', () => {
     expect(r.page).toEqual([['granularity', 'day']]);
     expect(r.extras).toEqual([['utm', 'x']]);
   });
+  it('rejects a repeated registered page key and still keeps repeated extras', () => {
+    expect(code(() => parseQuery('?granularity=hour&granularity=day', ['granularity']))).toBe('duplicate_page_key');
+    expect(code(() => parseQuery('?granularity=hour&granularity=hour', ['granularity']))).toBe('duplicate_page_key');
+    expect(parseQuery('?granularity=week', ['granularity']).page).toEqual([['granularity', 'week']]);
+    expect(parseQuery('?utm=a&utm=b', ['granularity']).extras).toEqual([['utm', 'a'], ['utm', 'b']]);
+  });
 });
 
 describe('Menu Registry', () => {

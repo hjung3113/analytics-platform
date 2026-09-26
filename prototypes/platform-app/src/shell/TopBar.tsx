@@ -48,7 +48,7 @@ export function TopBar() {
               : scope.status === 'valid' ? <span aria-hidden className="size-2 rounded-pill bg-accent-success" />
                 : scope.status === 'none' ? <MapPin className="size-3.5" aria-hidden /> : <ShieldAlert className="size-3.5" aria-hidden />}
             <span>{current?.label ?? global.scopeId ?? t('scopeNone')}</span>
-            {scope.status !== 'none' && <span className="text-[11px] font-normal opacity-80">· {scope.status === 'valid' ? t('scopeValid') : scope.status === 'validating' ? t('scopeValidating') : t('scopeForbidden')}</span>}
+            {scope.status !== 'none' && <span className="text-[11px] font-normal opacity-80">· {scope.status === 'valid' ? t('scopeValid') : scope.status === 'validating' ? t('scopeValidating') : scope.status === 'unknown_scope' ? t('scopeUnknown') : t('scopeForbidden')}</span>}
             <ChevronDown className="size-3.5 opacity-70" aria-hidden />
           </button>
         </DropdownMenuTrigger>

@@ -86,7 +86,16 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     const controller = new AbortController();
     loadRef.current({ page: effectivePage, pageSize, sorting }, controller.signal)
       .then(response => { if (!controller.signal.aborted) setResult({ identity: requestIdentity, response }); })
-      .catch(() => { /* aborted */ });
+      .catch(error => {
+        if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
+        setResult({
+          identity: requestIdentity,
+          response: {
+            outcome: 'error', data: null, assessments: [], trust: null,
+            correlationId: 'client-' + Date.now().toString(16), message: String(error),
+          },
+        });
+      });
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestIdentity]);
@@ -95,6 +104,9 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   // Same Context (page/sort/retry) keeps the last rows visible while loading; a new Context hides them.
   const sameContext = result !== null && JSON.parse(result.identity)[0] === contextIdentity;
   const shown = sameContext ? result!.response : null;
+  const shownPage = shown
+    ? (JSON.parse(result!.identity) as [string, number])[1]
+    : effectivePage;
   const loading = result?.identity !== requestIdentity;
   const data = shown?.outcome === 'ok' ? shown.data! : { rows: [] as T[], total: shown?.data?.total ?? 0 };
 
@@ -168,7 +180,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     </div>}
 
     <div className="flex min-h-7 items-center justify-between gap-2 border-t border-border-subtle px-3 py-1 text-[12px] text-text-muted" aria-live="polite">
-      <span className="tabular">{shown ? (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${effectivePage + 1}/${pageCount} 페이지` : `${data.total.toLocaleString()} results · page ${effectivePage + 1}/${pageCount}`) : t('loading')}</span>
+      <span className="tabular">{shown ? (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${shownPage + 1}/${pageCount} 페이지` : `${data.total.toLocaleString()} results · page ${shownPage + 1}/${pageCount}`) : t('loading')}</span>
       <span className="flex items-center gap-2">
         {loading && shown && <span role="status" className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}</span>}
         {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} className="min-h-6" />}
@@ -198,7 +210,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             <div role="rowgroup" style={{ height: virtual.getTotalSize(), position: 'relative' }}>{virtual.getVirtualItems().map(item => {
               const row = rows[item.index];
               const active = p.activeRowId === row.id;
-              return <div role="row" key={row.id} ref={virtual.measureElement} data-index={item.index} aria-rowindex={effectivePage * pageSize + item.index + 2}
+              return <div role="row" key={row.id} ref={virtual.measureElement} data-index={item.index} aria-rowindex={shownPage * pageSize + item.index + 2}
                 aria-selected={row.getIsSelected()} data-row-id={row.id}
                 className={cn('group absolute left-0 top-0 flex w-full', loading && 'opacity-60')} style={{ transform: `translateY(${item.start}px)` }}>
                 {row.getVisibleCells().map(cell => <div role="cell" key={cell.id} data-column={cell.column.id} style={cellStyle(cell.column)}

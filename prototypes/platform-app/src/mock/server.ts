@@ -181,6 +181,9 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
   if (s === 'too_large' || (o.maxHours && hours !== null && hours > o.maxHours && (o.global.selection === null || o.global.selection.length > 40))) {
     return { ...base, outcome: 'too_large', message: `Period ${hours ?? '?'}h exceeds ${o.maxHours ?? '—'}h without a narrow fixed Selection` };
   }
+  if (o.global.selection?.length === 0 || o.global.roomNames?.length === 0) {
+    return { ...base, outcome: 'empty' };
+  }
   let verifiedDomain: string | null = null;
   if (o.mergeTimeDomain !== false && o.global.from && o.global.to && resolved.rows.length >= 1) {
     const verdict = evaluateTimeDomainMerge(

@@ -149,9 +149,15 @@ export function parseQuery(search: string, pageKeys: readonly string[] = []): Pa
   global.metricVersion = metricVersion === null ? null : identifier(metricVersion, 'metricVersion');
 
   const pageSet = new Set(pageKeys);
+  const page = all.filter(([k]) => pageSet.has(k));
+  const seenPage = new Set<string>();
+  for (const [key] of page) {
+    if (seenPage.has(key)) fail('duplicate_page_key', `${key} appears more than once`);
+    seenPage.add(key);
+  }
   return {
     global,
-    page: all.filter(([k]) => pageSet.has(k)),
+    page,
     extras: all.filter(([k]) => !GLOBAL_KEYS.has(k) && !pageSet.has(k)),
   };
 }

@@ -39,7 +39,10 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
       : scope.status === 'none'
         ? <StateMessage icon={<MapPinOff className="size-4" aria-hidden />} title={t('selectScope')} body={t('selectScopeBody')}
             action={lastScope && <Button size="sm" onClick={() => setGlobal({ scopeId: lastScope })}>{t('applySuggested')}: {lastScope}</Button>} />
-        : <StateMessage tone="warning" icon={<MapPinOff className="size-4" aria-hidden />} title={t('stateForbidden')}
+        : scope.status === 'unknown_scope'
+          ? <StateMessage icon={<MapPinOff className="size-4" aria-hidden />} title={t('scopeUnknownTitle')}
+              body={<>{t('scopeUnknownBody')} <span className="t-mono">scopeId={scope.scopeId}</span></>} />
+          : <StateMessage tone="warning" icon={<MapPinOff className="size-4" aria-hidden />} title={t('stateForbidden')}
             body={<>{t('stateForbiddenBody')} <span className="t-mono">scopeId={scope.scopeId}</span></>} />;
   }
 
