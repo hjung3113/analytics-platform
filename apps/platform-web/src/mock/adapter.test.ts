@@ -31,10 +31,22 @@ describe('mockAdapter.evaluateSelection', () => {
     }
   });
 
-  it('returns per-site condition choices', async () => {
-    const got = await mockAdapter.contextOptions('ICH');
-    expect(got.stgroup.length).toBeGreaterThan(0);
-    expect(got.team.length).toBeGreaterThan(0);
-    expect(got.makerModel.every(m => m.maker && m.model)).toBe(true);
+  it('returns condition choices only from rooms the session may see', async () => {
+    const before = getRole();
+    try {
+      for (const role of ['engineer', 'admin', 'viewer'] as const) {
+        setRole(role);
+        const granted = USERS[role].grants.ICH ?? [];
+        const visible = EQUIPMENT.filter(e => e.site === 'ICH' && granted.includes(e.room));
+        const got = await mockAdapter.contextOptions('ICH');
+        expect(got.stgroup).toEqual([...new Set(visible.map(e => e.stgroup))].sort());
+        expect(got.team).toEqual([...new Set(visible.map(e => e.team))].sort());
+        expect(new Set(got.makerModel.map(m => `${m.maker}/${m.model}`))).toEqual(new Set(visible.map(e => `${e.maker}/${e.model}`)));
+      }
+      setRole('viewer');
+      expect(await mockAdapter.contextOptions('XIA')).toEqual({ stgroup: [], team: [], makerModel: [] }); // no grant
+    } finally {
+      setRole(before);
+    }
   });
 });

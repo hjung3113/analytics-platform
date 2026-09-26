@@ -45,7 +45,7 @@ export function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<ApiRes
   return { status: !current ? 'loading' : busy ? 'refreshing' : 'done', response: current, refetch };
 }
 
-export type RequestState<T> = { status: 'loading' | 'done' | 'error'; data: T | null };
+export type RequestState<T> = { status: 'loading' | 'done' | 'error'; data: T | null; retry: () => void };
 
 /**
  * Same lifecycle as usePlatformQuery for plain adapter calls (shell editors): the result is keyed by
@@ -54,7 +54,9 @@ export type RequestState<T> = { status: 'loading' | 'done' | 'error'; data: T | 
 export function useAdapterRequest<T>(run: (signal: AbortSignal) => Promise<T>, key: unknown, enabled = true): RequestState<T> {
   const { user, revision } = usePlatform();
   const identity = JSON.stringify([revision, user.id, key]);
-  const [result, setResult] = useState<{ identity: string; state: RequestState<T> } | null>(null);
+  const [result, setResult] = useState<{ identity: string; state: Omit<RequestState<T>, 'retry'> } | null>(null);
+  const [tick, setTick] = useState(0);
+  const retry = useCallback(() => { setResult(null); setTick(t => t + 1); }, []);
   const runRef = useRef(run);
   runRef.current = run;
 
@@ -68,7 +70,7 @@ export function useAdapterRequest<T>(run: (signal: AbortSignal) => Promise<T>, k
       setResult({ identity, state: { status: 'error', data: null } });
     });
     return () => controller.abort();
-  }, [identity, enabled]);
+  }, [identity, enabled, tick]);
 
-  return result?.identity === identity ? result.state : { status: 'loading', data: null };
+  return result?.identity === identity ? { ...result.state, retry } : { status: 'loading', data: null, retry };
 }

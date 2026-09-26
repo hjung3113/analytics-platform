@@ -131,3 +131,19 @@ describe('useAdapterRequest', () => {
     expect(screen.getByTestId('req').textContent).toBe('loading:-');
   });
 });
+
+describe('useAdapterRequest error', () => {
+  it('reports errors and retries on demand', async () => {
+    const f = fixture();
+    let fail = true;
+    function Req() {
+      const r = useAdapterRequest(async () => { if (fail) throw new Error('down'); return 'ok'; }, 'k');
+      return <button type="button" data-testid="r" onClick={r.retry}>{r.status}:{r.data ?? '-'}</button>;
+    }
+    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><Req /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('error:-')).toBeTruthy();
+    fail = false;
+    act(() => screen.getByTestId('r').click());
+    expect(await screen.findByText('done:ok')).toBeTruthy();
+  });
+});

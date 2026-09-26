@@ -4,7 +4,7 @@
  */
 import type { PlatformAdapter, Session } from '@ap/contracts';
 import { checkScope, getRole, matchesCondition, subscribeServer, validateScope } from './server';
-import { DEFAULT_RANGE_TO, EQUIPMENT, makerModelsFor, PUBLISHED_METRICS, SITES, stgroupsFor, teamsFor, USERS, type RoleId } from './world';
+import { DEFAULT_RANGE_TO, EQUIPMENT, PUBLISHED_METRICS, SITES, USERS, type RoleId } from './world';
 
 /** Short async hop so the shell exercises its loading path, as it would against a real server. */
 function pause(signal?: AbortSignal, ms = 80) {
@@ -35,8 +35,18 @@ export const mockAdapter: PlatformAdapter = {
   publishedMetrics: () => PUBLISHED_METRICS,
   defaultRangeTo: () => DEFAULT_RANGE_TO,
   contextOptions: async (scopeId, signal) => {
+    const role = getRole();
     await pause(signal);
-    return { stgroup: stgroupsFor(scopeId), team: teamsFor(scopeId), makerModel: makerModelsFor(scopeId) };
+    // Only values present on equipment the session may see: a forbidden or partly granted site must not leak
+    // groups, teams or models from denied rooms.
+    const granted = checkScope(role, scopeId).grantedRooms;
+    const rows = EQUIPMENT.filter(e => e.site === scopeId && granted.includes(e.room));
+    const makerModel = new Map(rows.map(e => [`${e.maker}/${e.model}`, { maker: e.maker, model: e.model }]));
+    return {
+      stgroup: [...new Set(rows.map(e => e.stgroup))].sort(),
+      team: [...new Set(rows.map(e => e.team))].sort(),
+      makerModel: [...makerModel.values()].sort((a, b) => `${a.maker}${a.model}`.localeCompare(`${b.maker}${b.model}`)),
+    };
   },
   evaluateSelection: async ({ scopeId, roomNames, condition, selection }, signal) => {
     const role = getRole();

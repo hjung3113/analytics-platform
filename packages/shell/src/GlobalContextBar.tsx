@@ -265,7 +265,9 @@ function ConditionEditor({ cap }: { cap: Capability }) {
         optionClassName={selected => cn('rounded-sm border px-2 py-1', selected ? 'border-accent-primary bg-accent-primary-soft text-accent-primary' : 'border-border-subtle hover:bg-surface-sunken')}
         options={(['stgroup', 'team', 'makerModel'] as const).map(a => ({ value: a, label: axisLabel[a] }))}
       />
-      {choices.status !== 'done' && <p role="status" className="px-2 py-1 text-text-muted">{choices.status === 'error' ? (lang === 'ko' ? '선택지를 불러오지 못했습니다.' : 'Could not load choices.') : (lang === 'ko' ? '선택지를 불러오는 중…' : 'Loading choices…')}</p>}
+      {choices.status !== 'done' && <p role="status" className="px-2 py-1 text-text-muted">{choices.status === 'error'
+        ? <>{lang === 'ko' ? '선택지를 불러오지 못했습니다.' : 'Could not load choices.'} <button type="button" className="text-accent-primary underline" onClick={choices.retry}>{lang === 'ko' ? '다시 시도' : 'Retry'}</button></>
+        : (lang === 'ko' ? '선택지를 불러오는 중…' : 'Loading choices…')}</p>}
       <ul role="listbox" aria-label={axisLabel[axis]} className="max-h-48 space-y-0.5 overflow-auto">
         {options.map(o => <li key={o} role="option" aria-selected={val === o}><button type="button" onClick={() => setVal(o)}
           className={cn('w-full rounded-sm px-2 py-1 text-left t-mono', val === o ? 'bg-accent-primary-soft text-accent-primary' : 'hover:bg-surface-sunken')}>{o}</button></li>)}
@@ -290,11 +292,11 @@ function SelectionEditor({ cap }: { cap: Capability }) {
   const evaluation = useAdapterRequest(signal => adapter.evaluateSelection(input, signal), [input, scope.status], scope.status === 'valid');
   const inCondition = evaluation.data?.inCondition ?? [];
   const outside = evaluation.data?.outOfCondition ?? [];
-  const pending = evaluation.status !== 'done';
+  const failed = evaluation.status === 'error';
   const options = [...inCondition.map(e => ({ id: e.equipmentId, hint: `${e.room} · ${e.model}` })), ...outside.map(id => ({ id, hint: undefined, outside: true }))];
-  const count = pending ? '…' : String(inCondition.length);
+  const count = failed ? (lang === 'ko' ? '확인 실패' : 'unavailable') : evaluation.status === 'done' ? String(inCondition.length) : '…';
   return <SetEditor label={t('selection')} cap={cap} value={global.selection} search
     absentLabel={global.condition ? (lang === 'ko' ? `조건 결과 전체 (${count})` : `All condition results (${count})`) : t('all')}
     onApply={v => setGlobal({ selection: v })} options={options}
-    note={<>{lang === 'ko' ? 'Selection은 고정 EquipmentID 집합입니다.' : 'Selection is a fixed EquipmentID set.'}{outside.length > 0 && <b className="mt-1 block text-text-warning">{lang === 'ko' ? `현재 조건 결과 밖 ${outside.length}대 — 자동 제거하지 않습니다.` : `${outside.length} outside the current condition — not removed automatically.`}</b>}</>} />;
+    note={<>{lang === 'ko' ? 'Selection은 고정 EquipmentID 집합입니다.' : 'Selection is a fixed EquipmentID set.'}{failed && <span role="alert" className="mt-1 block text-text-danger">{lang === 'ko' ? '조건 결과를 확인하지 못했습니다.' : 'Could not evaluate the condition.'} <button type="button" className="text-accent-primary underline" onClick={evaluation.retry}>{lang === 'ko' ? '다시 시도' : 'Retry'}</button></span>}{outside.length > 0 && <b className="mt-1 block text-text-warning">{lang === 'ko' ? `현재 조건 결과 밖 ${outside.length}대 — 자동 제거하지 않습니다.` : `${outside.length} outside the current condition — not removed automatically.`}</b>}</>} />;
 }
