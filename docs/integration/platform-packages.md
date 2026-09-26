@@ -2,6 +2,8 @@
 
 > 상태: [05 Decided "다음 구현 범위: 프론트엔드 플랫폼 틀 + 메뉴 개발 환경"](../05_roadmap_and_open_questions.md)의 첫 단계로 패키지 경계와 의존 방향을 정한다. §8의 5개 항목은 2026-09-26 사용자가 제안안대로 **Decided**. `PlatformAdapter`·`MenuMeta`·`evaluateSelection` 같은 필드·타입 이름은 구현하면서 바뀔 수 있는 Candidate다.
 >
+> 진행(2026-09-26): §7의 1–4d단계 완료(PR #17–#23). 5단계(메뉴 패키지)·6단계(경계 lint·생성기)가 남았다. 아래 §2의 경로는 분리 전 `platform-app` 기준이다.
+>
 > 근거: `prototypes/platform-app/src`의 import 그래프(2026-09-26, `main` `ebb471c`), [06 §3 아키텍처](../06_platform_ui_contract.md#3-platform-ui-architecture), [§4 Kernel 책임](../06_platform_ui_contract.md#4-platform-kernel-responsibilities), [§5 Menu Extension Contract](../06_platform_ui_contract.md#5-menu-extension-contract), [§13 컴포넌트 층](../06_platform_ui_contract.md#13-shared-component-layers).
 
 ## 1. 목표와 범위

@@ -1,6 +1,6 @@
 # 문서 인덱스
 
-이 레포는 `context_recognized_parser`(별도 레포)가 적재한 데이터를 소비하는 분석 플랫폼의 개념 설계를 담는다. 분석 플랫폼 자체의 런타임 코드는 없으며, 기존 FeedbackOps 구현은 `products/feedbackops/` 서브모듈로 연결돼 있다. 문서는 구현 전 설계이며 Decided / Candidate / Open / Deferred를 구분한다. 에이전트용 보조 스크립트는 `.agents/`에 있다.
+이 레포는 `context_recognized_parser`(별도 레포)가 적재한 데이터를 소비하는 분석 플랫폼의 설계와 프론트엔드 플랫폼 코드를 담는다. 코드는 루트 pnpm workspace(`packages/*` 플랫폼 패키지, `apps/platform-web` 조립 앱, 서버는 mock)이며, 기존 FeedbackOps 구현은 `products/feedbackops/` 서브모듈로 연결돼 있다. 문서는 Decided / Candidate / Open / Deferred를 구분한다. 에이전트용 보조 스크립트는 `.agents/`에 있다.
 
 저장소 전체를 살펴보려면 [폴더 구조와 FeedbackOps 연결 방식](integration/repository-layout.md)을 먼저 본다.
 
@@ -18,6 +18,25 @@
 | 시간·기간·지연완료 계약 변경 | [06 시간 계약·변경 영향 경로](06_platform_ui_contract.md#ctx-time) | [01 R/H 정책 원본](01_architecture_and_data_contract.md#late-arrival-policy) → 원본 옆의 소비자 포인터와 실제 변경 작업 기록 |
 
 새 메뉴는 위 06 계약부터 읽고 Platform Done을 먼저 확인한다. 필드 원천은 [01 데이터 계약](01_architecture_and_data_contract.md), 화면 설계 절차는 [설계 스킬](../.agents/skills/analysis-platform-wireframe/SKILL.md), 시각 token/render는 [DESIGN](../DESIGN.md)을 함께 본다.
+
+## 작업별 읽기 경로
+
+코드를 만지는 작업은 아래 순서대로 따라간다. 각 단계의 폴더 `AGENTS.md`가 그 폴더의 역할·금지 사항·검증 방법과 다음에 볼 파일을 알려 준다. 모든 경로는 루트 [AGENTS.md](../AGENTS.md)(목적·코드 작업 원칙)를 읽었다고 가정한다.
+
+| 작업 | 1. 계약 | 2. 폴더 지침 | 3. 코드 |
+| --- | --- | --- | --- |
+| 메뉴 화면 추가·수정 | [06](06_platform_ui_contract.md) §5 Menu Extension·§29 Platform Done → 해당 화면 wireframe(`08`–`13`) | [apps/platform-web](../apps/platform-web/AGENTS.md) → [README 페이지 작성 가이드](../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙) | `src/menus.ts`(선언) → `src/pages/<area>/` → 필요한 부품은 [components](../packages/components/AGENTS.md) |
+| Kernel 동작(Registry·전역 Context·URL·Scope·조회 수명주기) | 06 §4–6 | [packages](../packages/AGENTS.md) → [kernel](../packages/kernel/AGENTS.md) → 타입이 바뀌면 [contracts](../packages/contracts/AGENTS.md) | `packages/kernel/src/{registry,platform,query}.ts` → 테스트 `adapter.test.tsx`·`registry.test.ts` → 앱 `url-contract.test.ts` |
+| 서버 계약·어댑터(실서버 전환 포함) | [패키지 경계](integration/platform-packages.md) §4, 06 §18–19 | [contracts](../packages/contracts/AGENTS.md) → [apps/platform-web](../apps/platform-web/AGENTS.md)(mock) | `packages/contracts/src/adapter.ts` → `apps/platform-web/src/mock/adapter.ts` → kernel `adapter.test.tsx` |
+| 공통 컴포넌트·차트·상태 화면 | 06 §13·§16·§18–19·§24 | [packages](../packages/AGENTS.md) → [components](../packages/components/AGENTS.md) → primitive가 필요하면 [ui](../packages/ui/AGENTS.md) | `packages/components/src/` → 소비 화면(`apps/platform-web/src/pages`)에서 확인 |
+| 셸(사이드바·탑바·Context Bar·라우트 상태·워크스페이스 층) | [07 셸](07_app_shell_wireframe.md), 06 §8–9 | [shell](../packages/shell/AGENTS.md) → 슬롯·Registry는 [kernel](../packages/kernel/AGENTS.md) | `packages/shell/src/` → 앱 `src/main.tsx`(조립) |
+| 디자인 토큰·시각 규칙 | [DESIGN](../DESIGN.md) | [ui](../packages/ui/AGENTS.md) | `packages/ui/src/styles/` |
+| 모노레포 구조·빌드·CI·접두사 변경 | [패키지 경계](integration/platform-packages.md) §3·§6–8, [저장소 구조](integration/repository-layout.md) | [tooling](../tooling/AGENTS.md) → [packages](../packages/AGENTS.md) | 루트 `package.json`·`pnpm-workspace.yaml`·`turbo.json` → `.github/workflows/ci.yml` |
+| 설계 문서·결정 갱신 | 해당 소유 문서 → [05](05_roadmap_and_open_questions.md) | [docs](AGENTS.md) | 새 화면 설계는 [설계 스킬](../.agents/skills/analysis-platform-wireframe/SKILL.md) |
+| 통합 전 단위 프로토타입 | — | [prototypes](../prototypes/AGENTS.md) | 각 프로토타입 README |
+| FeedbackOps | [저장소 구조](integration/repository-layout.md) | [products/feedbackops](../products/feedbackops/AGENTS.md) | 서브모듈 하위 `AGENTS.md` |
+
+진행 중인 이행 순서(모노레포 5–6단계)와 남은 결정은 [HANDOFF](../HANDOFF.md)에서 확인한다.
 
 ## 문서 목록
 
@@ -61,10 +80,10 @@
 
 - [공통 컴포넌트/계약 후보](integration/component-contract-candidates.md) — 위 아이디어 모음에서 필드 수준 계약으로 뽑아낼 수 있는 것만 추려 정리. Research/Candidate이며 06/01/03에 반영되기 전 초안이다.
 
-- [플랫폼 모노레포 패키지 경계](integration/platform-packages.md) — `platform-app`을 contracts/ui/kernel/components/shell/mock-server/메뉴 패키지로 나누는 경계·의존 방향·메뉴 템플릿·이행 순서. 구성·단위·도구·이름은 2026-09-26 Decided, 세부 타입 이름은 Candidate.
+- [플랫폼 모노레포 패키지 경계](integration/platform-packages.md) — `platform-app`을 contracts/ui/kernel/components/shell/mock-server/메뉴 패키지로 나누는 경계·의존 방향·메뉴 템플릿·이행 순서. 구성·단위·도구·이름은 2026-09-26 Decided, 세부 타입 이름은 Candidate. 1–4d단계 완료(PR #17–#23), 5–6단계 남음.
 
 - [Standard Log Lifecycle](references/standard-log-lifecycle/README.md) — 모델 표준 로그 개발·검증·결함·재검증 관리의 설계 참고. 원본 커밋에 고정한 Markdown 7개, 출처·해시 manifest와 4개 화면 시안 적용 범위를 포함한다. 기존 플랫폼 계약을 대체하지 않는다.
 
 ## 현재 작업과 과거 기록
 
-현재 작업 상태는 [HANDOFF](../HANDOFF.md)에서 확인한다. 과거 맥락이 필요한 경우에만 [이전 HANDOFF 기록](../.agents/reports/handoff-history-through-2026-09-26-b.md), [결정 상세·Phase 가설 이관 기록](reviews/2026-09-23-decision-detail-history.md), 해당 리뷰/조사 보고서로 내려간다. 과거 Open·후보·실행 모델명은 당시 기록이며 현재 계약으로 승격하지 않는다. 일반 탐색은 위 역할별 경로부터 시작하고 `docs/reviews/`, `.agents/reports/`는 근거 확인이 필요할 때 검색한다.
+현재 작업 상태는 [HANDOFF](../HANDOFF.md)에서 확인한다. 과거 맥락이 필요한 경우에만 [이전 HANDOFF 기록](../.agents/reports/handoff-history-through-2026-09-26-c.md), [결정 상세·Phase 가설 이관 기록](reviews/2026-09-23-decision-detail-history.md), 해당 리뷰/조사 보고서로 내려간다. 과거 Open·후보·실행 모델명은 당시 기록이며 현재 계약으로 승격하지 않는다. 일반 탐색은 위 역할별 경로부터 시작하고 `docs/reviews/`, `.agents/reports/`는 근거 확인이 필요할 때 검색한다.

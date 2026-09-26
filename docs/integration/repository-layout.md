@@ -2,7 +2,7 @@
 
 ## 현재 단계
 
-FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를 참고하고 플랫폼 설계를 구체화한다. 공통 계약과 책임 범위를 확정한 뒤 통합 구현을 시작한다. 플랫폼 프론트엔드는 루트 pnpm workspace로 옮기는 중이다([패키지 경계](platform-packages.md)). FeedbackOps는 이 workspace에 포함하지 않으며, 서버·DB·배포 통합 여부는 아직 확정하지 않았다.
+FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를 참고하고 플랫폼 설계를 구체화한다. 공통 계약과 책임 범위를 확정한 뒤 통합 구현을 시작한다. 플랫폼 프론트엔드는 루트 pnpm workspace다. 패키지 추출은 1–4d단계까지 끝났고 메뉴 패키지·lint는 남았다([패키지 경계](platform-packages.md) §7). FeedbackOps는 이 workspace에 포함하지 않으며, 서버·DB·배포 통합 여부는 아직 확정하지 않았다.
 
 기존 플랫폼 문서는 링크와 소유권을 보존하기 위해 `docs/`에 유지한다. `docs/platform/` 이동이나 공통 코드 추출은 이번 연결에 포함하지 않는다.
 
@@ -15,8 +15,10 @@ FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를
 | `DESIGN.md`, `PLATFORM_REQUIREMENTS.md` | 기존 플랫폼 디자인 및 요구사항 자료 |
 | `.agents/` | 플랫폼 에이전트 스킬·참고자료·보고서 |
 | `package.json`, `pnpm-workspace.yaml`, `turbo.json` | 플랫폼 pnpm workspace 루트(`apps/*`, `packages/*`, `menus/*`, `tooling/*`) |
-| `apps/platform-web/` | 플랫폼 앱(조립 지점). 통합 프로토타입 `prototypes/platform-app`을 옮긴 것 |
+| `apps/platform-web/` | 플랫폼 앱(조립 지점): 메뉴 선언·화면, mock 서버, dev 도구. 통합 프로토타입 `prototypes/platform-app`을 옮긴 것 |
+| `packages/` | 플랫폼 패키지 `contracts`·`ui`·`kernel`·`components`·`shell`(`@ap/*`). 경계는 [패키지 경계](platform-packages.md) |
 | `tooling/` | 공유 tsconfig 등 개발 도구 설정 |
+| `prototypes/` | 통합 전 Kernel 단위 프로토타입(개별 npm 프로젝트, workspace 밖). 보존 |
 | `products/feedbackops/` | FeedbackOps 원본 Git 저장소의 고정 커밋 |
 | `products/feedbackops/apps/frontend/` | 기존 React 프론트엔드. `src/features/`에 업무 화면 구성 |
 | `products/feedbackops/apps/backend/` | 기존 Fastify 백엔드. `src/modules/`에 업무 및 공통 기능 구현 |
