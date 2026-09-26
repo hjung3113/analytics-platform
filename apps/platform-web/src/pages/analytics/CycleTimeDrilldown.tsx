@@ -5,12 +5,7 @@ import type { Trust } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { CYCLE_VERSION_NOTE } from '../../mock/jobs';
 import { getScenario, periodHours, resolveEquipment, serve } from '../../mock/server';
-import { AnalysisChartFrame } from '../../platform/AnalysisChartFrame';
-import { DataTrustIndicator } from '../../platform/DataTrustIndicator';
-import { PlatformDataTable, sortAndPage, type ColumnMeta } from '../../platform/PlatformDataTable';
-import { PlatformPage } from '../../platform/PlatformPage';
-import { StatCard, type Delta } from '../../platform/StatCard';
-import { QueryView, StateMessage } from '../../platform/StateView';
+import { AnalysisChartFrame, type ColumnMeta, DataTrustIndicator, type Delta, PlatformDataTable, PlatformPage, QueryView, sortAndPage, StatCard, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import {
   DEFAULT_SORT, MAX_HOURS, PAGE_METRIC_ID, SORT_COLUMNS, bucketContaining, bucketEnd,

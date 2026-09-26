@@ -3,13 +3,13 @@ import { useSyncExternalStore } from 'react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { getRole, getScenario, setRole, setScenario, subscribeServer, type Scenario } from '../mock/server';
 import { USERS, type RoleId } from '../mock/world';
-import { SegmentedRadio } from '../platform/RadioGroup';
+import { SegmentedRadio } from '@ap/components';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 
 /**
  * Mock-server controls: response scenario and signed-in role (a stand-in for SSO). They change server state only;
  * the kernel hears it through the adapter's subscribe (docs/integration/platform-packages.md §4). Rendered in the
- * shell's devTools slot by main.tsx; a real server build does not mount this.
+ * TopBar's topBarTools slot by main.tsx; a real server build does not mount this.
  */
 const SCENARIOS: { id: Scenario; ko: string; en: string }[] = [
   { id: 'normal', ko: '정상', en: 'Normal' },

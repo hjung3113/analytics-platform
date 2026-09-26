@@ -2,7 +2,6 @@ import { ChevronRight, Loader2, MapPinOff, Star } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { Button, cn } from '@ap/ui';
-import { GlobalContextBar } from '../shell/GlobalContextBar';
 import { StateMessage } from './StateView';
 
 export type PlatformPageProps = {
@@ -21,7 +20,7 @@ export type PlatformPageProps = {
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
 export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, dataTrustSummary, crumbs = [], children }: PlatformPageProps) {
-  const { route, favorites, toggleFavorite, scope, setGlobal, lastScope, linkTo, registry } = usePlatform();
+  const { route, favorites, toggleFavorite, scope, setGlobal, lastScope, linkTo, registry, slots } = usePlatform();
   const { t, tx } = useI18n();
   const menu = route!.menu;
   const group = registry.groupById(menu.group);
@@ -71,7 +70,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
         {!gate && primaryAction}
       </div>
     </header>
-    <GlobalContextBar />
+    {slots.contextBar}
     {contextExtension && !gate && <div className="px-5 pt-3">{contextExtension}</div>}
     <div className="flex-1 px-5 pb-6 pt-3">{gate ?? children}</div>
   </div>;

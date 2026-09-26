@@ -1,7 +1,7 @@
 import { AlertTriangle, Info, X, XCircle } from 'lucide-react';
 import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useI18n, usePlatform } from '@ap/kernel';
-import { LoadingBlock } from '../platform/StateView';
+import { LoadingBlock } from '@ap/components';
 import { cn } from '@ap/ui';
 import { CommandPalette } from './CommandPalette';
 import { Sidebar } from './Sidebar';
