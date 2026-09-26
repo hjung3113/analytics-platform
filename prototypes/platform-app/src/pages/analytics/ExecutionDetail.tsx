@@ -42,7 +42,9 @@ export default function ExecutionDetail({ params }: PageProps) {
     mergeTimeDomain: false,
     metricVersion: metricVersion ?? undefined,
     isEmpty: data => data.access === 'missing',
-    compute: ({ equipment }) => lookupOccurrence(equipment, equipmentId, anchor!),
+    compute: ({ equipment }) => metricVersion === null
+      ? { access: 'missing' }
+      : lookupOccurrence(equipment, equipmentId, anchor!, metricVersion),
   }), [equipmentId, entityType, anchor], valid && metricVersion !== null);
 
   const back = <Button asChild variant="secondary" size="sm"><PlatformLink href={backHref}>{ko ? '← 사이클타임 분석으로 돌아가기' : '← Back to cycle time'}</PlatformLink></Button>;

@@ -7,19 +7,19 @@ import { formatMetricVersion } from '../../kernel/url';
  * Every widget runs its own usePlatformQuery so a partial failure stays local (§19).
  * Synthetic values from ./productivityData; definitions are Candidates per wireframe 11 §6.
  */
-import { ArrowRight, BarChart3, Hourglass, Percent, RotateCw, Timer } from 'lucide-react';
-import { useState } from 'react';
+import { AlertTriangle, ArrowRight, BarChart3, Hourglass, Percent, RotateCw, Timer } from 'lucide-react';
 import { useI18n } from '../../kernel/i18n';
 import { PlatformLink, usePlatform } from '../../kernel/platform';
 import { usePlatformQuery } from '../../kernel/query';
 import type { PageProps } from '../../kernel/registry';
+import { CYCLE_VERSION_NOTE } from '../../mock/jobs';
 import { periodHours, serve } from '../../mock/server';
 import { shift } from '../../kernel/url';
 import { AnalysisChartFrame, type ChartSeries } from '../../platform/AnalysisChartFrame';
 import { DataTrustIndicator } from '../../platform/DataTrustIndicator';
 import { Panel, PlatformPage } from '../../platform/PlatformPage';
 import { StatCard, type Delta } from '../../platform/StatCard';
-import { QueryView } from '../../platform/StateView';
+import { QueryView, StateMessage } from '../../platform/StateView';
 import { StatusBadge } from '../../platform/StatusBadge';
 import { Button } from '../../ui/components/Button';
 import { cn } from '../../ui/utils/cn';
@@ -31,6 +31,21 @@ import {
 /** Prototype guard against unbounded analytics (README serve contract; real limits are Open, wireframe 11 §6). */
 const MAX_QUERY_HOURS = 2160;
 const GRANS: readonly Granularity[] = ['hour', 'day', 'week'];
+const KPI_KEYS = ['occupancy', 'dwell', 'cycleTime', 'throughput'] as const;
+const AXES = ['room', 'stgroup'] as const;
+const SORT_KEYS = ['key', 'occ', 'obs', 'pct', 'jobs'] as const;
+
+function resolveChoice<T extends string>(raw: string | null, allowed: readonly T[], fallback: T): { ok: true; value: T } | { ok: false } {
+  if (raw === null || raw === '') return { ok: true, value: fallback };
+  return (allowed as readonly string[]).includes(raw) ? { ok: true, value: raw as T } : { ok: false };
+}
+
+function resolveBreakdownSort(raw: string | null): { ok: true; key: typeof SORT_KEYS[number]; dir: 1 | -1 } | { ok: false } {
+  if (raw === null || raw === '') return { ok: true, key: 'key', dir: 1 };
+  const match = /^(key|occ|obs|pct|jobs):(asc|desc)$/.exec(raw);
+  if (!match) return { ok: false };
+  return { ok: true, key: match[1] as typeof SORT_KEYS[number], dir: match[2] === 'asc' ? 1 : -1 };
+}
 
 type TrendData = { equipmentCount: number; current: TrendBucket[]; previous: TrendBucket[] };
 
@@ -38,14 +53,26 @@ export default function ProductivityOverview(_: PageProps) {
   const { global, role, scope, pageParam, setPage, setGlobal, linkTo } = usePlatform();
   const { lang } = useI18n();
   const ko = lang === 'ko';
-  const [selectedKpi, setSelectedKpi] = useState<KpiKey>('throughput');
-  const [axis, setAxis] = useState<'room' | 'stgroup'>('room');
-  const [sort, setSort] = useState<{ key: 'key' | 'occ' | 'obs' | 'pct' | 'jobs'; dir: 1 | -1 }>({ key: 'key', dir: 1 });
 
   const from = global.from;
   const to = global.to;
   const hours = periodHours(global);
-  const enabled = from !== null && to !== null && scope.status === 'valid';
+  const rawKpi = pageParam('kpi');
+  const rawAxis = pageParam('axis');
+  const rawSort = pageParam('sort');
+  const kpiResult = resolveChoice(rawKpi, KPI_KEYS, 'throughput');
+  const axisResult = resolveChoice(rawAxis, AXES, 'room');
+  const sortResult = resolveBreakdownSort(rawSort);
+  const invalidPage = !kpiResult.ok || !axisResult.ok || !sortResult.ok;
+  const selectedKpi = kpiResult.ok ? kpiResult.value : 'throughput';
+  const axis = axisResult.ok ? axisResult.value : 'room';
+  const sort = sortResult.ok ? { key: sortResult.key, dir: sortResult.dir } : { key: 'key' as const, dir: 1 as const };
+  const errors = [
+    !kpiResult.ok ? `kpi=${rawKpi}` : null,
+    !axisResult.ok ? `axis=${rawAxis}` : null,
+    !sortResult.ok ? `sort=${rawSort}` : null,
+  ].filter((item): item is string => item !== null).join(', ');
+  const enabled = from !== null && to !== null && scope.status === 'valid' && !invalidPage;
 
   // Page-owned URL key `granularity` (wireframe 11 §3.1). Unset → hour for ≤48h, else day (Candidate).
   const rawGran = pageParam('granularity');
@@ -104,7 +131,11 @@ export default function ProductivityOverview(_: PageProps) {
     ? <Button size="sm" variant="secondary" onClick={() => setGlobal({ selection: null })}>{ko ? '명시적 빈 Selection 지우기' : 'Clear explicit empty selection'}</Button>
     : undefined;
 
-  // --- KPI cards (one metric per tile; click = which trend shows below; local state, not URL) ---
+  // --- KPI cards (the selected trend is a registered page URL key) ---
+  function selectKpi(kpi: KpiKey) {
+    setPage({ kpi: kpi === 'throughput' ? null : kpi });
+  }
+
   function kpiCard(kpi: KpiKey, data: { current: KpiSet; previous: KpiSet | null }) {
     const c = data.current; const p = data.previous;
     const active = selectedKpi === kpi;
@@ -112,7 +143,7 @@ export default function ProductivityOverview(_: PageProps) {
     if (kpi === 'occupancy') {
       const o = c.occupancy; const po = p?.occupancy ?? null;
       return <StatCard key={kpi} icon={Percent} chip="blue" label={ko ? '물리 점유율' : 'Physical occupancy'}
-        onClick={() => setSelectedKpi('occupancy')} active={active}
+        onClick={() => selectKpi(kpi)} active={active}
         value={o ? n1(o.pct) : '—'} unit="%"
         delta={o && po ? deltaOf(o.pct, po.pct, true, v => `${v.toFixed(1)}pp`) : undefined}
         caption={o ? `${n1(o.num)}h / ${n1(o.den)}h · ${ver(METRIC_VERSIONS.occupancy)}` : (ko ? '분모 0 — 미확인 (0% 아님)' : 'denominator 0 — unknown, not 0%')}
@@ -124,7 +155,7 @@ export default function ProductivityOverview(_: PageProps) {
     if (kpi === 'dwell') {
       const d = c.dwell; const pd = p?.dwell ?? null;
       return <StatCard key={kpi} icon={Hourglass} chip="teal" label={ko ? '비Process 체류' : 'Non-process dwell'}
-        onClick={() => setSelectedKpi('dwell')} active={active}
+        onClick={() => selectKpi(kpi)} active={active}
         value={d ? n2(d.perJobH) : '—'} unit={ko ? '시간 / Job' : 'h / Job'}
         delta={d && pd ? deltaOf(d.perJobH, pd.perJobH, false, v => `${v.toFixed(3)}h`) : undefined}
         caption={d ? `${n1(d.hours)}h ÷ ${ni(d.jobs)} Job · ${ver(METRIC_VERSIONS.dwell)}` : (ko ? '완료 Job 없음 — 미확인' : 'no completed job — unknown')} />;
@@ -132,7 +163,7 @@ export default function ProductivityOverview(_: PageProps) {
     if (kpi === 'cycleTime') {
       const cy = c.cycle; const pc = p?.cycle ?? null;
       return <StatCard key={kpi} icon={Timer} chip="purple" label={ko ? '사이클타임 P50 / P95' : 'Cycle time P50 / P95'}
-        onClick={() => setSelectedKpi('cycleTime')} active={active}
+        onClick={() => selectKpi(kpi)} active={active}
         value={<span className="flex items-baseline gap-2">
           <span>{cy.p50 !== null ? n1(cy.p50) : '—'}</span>
           <span className="t-stat-2 text-text-secondary">{cy.p95 !== null ? n1(cy.p95) : '—'}</span>
@@ -142,7 +173,7 @@ export default function ProductivityOverview(_: PageProps) {
     }
     const t = c.throughput; const pt = p?.throughput ?? null;
     return <StatCard key={kpi} icon={BarChart3} chip="amber" label={ko ? 'Job 처리량' : 'Job throughput'}
-      onClick={() => setSelectedKpi('throughput')} active={active}
+      onClick={() => selectKpi(kpi)} active={active}
       value={ni(t.jobs)} unit={ko ? 'Job · 기간 내 완료' : 'jobs completed'}
       delta={deltaOf(t.jobs, pt?.jobs ?? null, true, v => ni(v))}
       caption={`${ko ? '완료' : 'completed'} ${ni(t.jobs)} / ${ko ? '착수' : 'started'} ${ni(t.started)} · ${ver(METRIC_VERSIONS.throughput)}`} />;
@@ -227,12 +258,19 @@ export default function ProductivityOverview(_: PageProps) {
       {rawGran !== null && !granKnown && <StatusBadge tone="warning">{`granularity=${rawGran} — ${ko ? '알 수 없는 값, 기본 정책 적용' : 'unknown value, default policy applied'}`}</StatusBadge>}
     </div>}
   >
-    <div className="space-y-4">
+    {invalidPage ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '페이지 키 값이 올바르지 않습니다' : 'Invalid page key'}
+      body={ko
+        ? `${errors} 은 이 화면의 등록 값이 아닙니다. kpi=occupancy|dwell|cycleTime|throughput, axis=room|stgroup, sort=key|occ|obs|pct|jobs:asc|desc 만 허용하며 다른 값으로 바꾸지 않습니다.`
+        : `${errors} is not a registered value. Allowed: kpi=occupancy|dwell|cycleTime|throughput, axis=room|stgroup, sort=key|occ|obs|pct|jobs:asc|desc. Nothing was substituted.`} />
+      : <div className="space-y-4">
       {/* Primary KPI / Summary */}
       <section aria-labelledby="kpi-heading">
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="kpi-heading" className="t-section-title">{ko ? '네 지표 요약' : 'Four-metric summary'}</h2>
-          <p className="t-caption text-text-muted">{ko ? '카드를 누르면 아래 추세가 전환됩니다 (페이지 로컬 상태, URL 미기록). 증감은 직전 동일 길이 기간과의 비교입니다.' : 'Click a card to switch the trend below (page-local state, not in the URL). Deltas compare the previous equal-length period.'}</p>
+          <div>
+            <p className="t-caption text-text-muted">{ko ? '카드 클릭은 URL 키 kpi, 구성 축은 axis, 표 정렬은 sort에 기록됩니다. 증감은 직전 동일 길이 기간과 비교합니다.' : 'Card clicks write kpi to the URL, the axis writes axis, and table sorting writes sort. Deltas compare the previous equal-length period.'}</p>
+            <p className="t-caption text-text-muted">{CYCLE_VERSION_NOTE[ko ? 'ko' : 'en']}</p>
+          </div>
         </div>
         <QueryView query={kpiQ} skeletonRows={4} emptyAction={clearEmptySelection}>
           {data => <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -291,8 +329,8 @@ export default function ProductivityOverview(_: PageProps) {
                   metricVersion={METRIC_VERSIONS.occupancy}
                   xType="category" stacked unit="h" height={240} canApplyRange={false}
                   valueFormat={v => n1(v)}
-                  extraActions={<div role="radiogroup" aria-label={ko ? '구성 축 (페이지 로컬 Candidate)' : 'Composition axis (page-local Candidate)'} className="inline-flex overflow-hidden rounded-md border border-border-subtle">
-                    {(['room', 'stgroup'] as const).map(a => <button key={a} type="button" role="radio" aria-checked={axis === a} onClick={() => setAxis(a)}
+                  extraActions={<div role="radiogroup" aria-label={ko ? 'URL 키 axis' : 'URL key axis'} className="inline-flex overflow-hidden rounded-md border border-border-subtle">
+                    {(['room', 'stgroup'] as const).map(a => <button key={a} type="button" role="radio" aria-checked={axis === a} onClick={() => setPage({ axis: a === 'room' ? null : a })}
                       className={cn('min-h-7 border-l border-border-subtle px-2 text-[11px] font-medium first:border-l-0',
                         axis === a ? 'bg-accent-primary text-text-on-accent' : 'text-text-secondary hover:bg-surface-sunken')}>
                       {a === 'room' ? 'room_name' : 'StGroup'}
@@ -309,7 +347,13 @@ export default function ProductivityOverview(_: PageProps) {
                     <caption className="sr-only">{ko ? '점유 구성 분자·분모 표 — 차트와 같은 세대' : 'Occupancy numerator/denominator table — same generation as the chart'}</caption>
                     <thead className="bg-surface-sunken"><tr>
                       {columns.map(col => <th key={col.key} scope="col" aria-sort={sort.key === col.key ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'} className={cn('t-table-header px-3 py-1.5 text-text-muted', col.align === 'right' ? 'text-right' : 'text-left')}>
-                        <button type="button" onClick={() => setSort(s => s.key === col.key ? { key: s.key, dir: s.dir === 1 ? -1 : 1 } : { key: col.key, dir: col.key === 'key' ? 1 : -1 })}
+                        <button type="button" onClick={() => {
+                          const next = sort.key === col.key
+                            ? { key: sort.key, dir: sort.dir === 1 ? -1 as const : 1 as const }
+                            : { key: col.key, dir: col.key === 'key' ? 1 as const : -1 as const };
+                          const value = `${next.key}:${next.dir === 1 ? 'asc' : 'desc'}`;
+                          setPage({ sort: value === 'key:asc' ? null : value });
+                        }}
                           className="inline-flex items-center gap-1 hover:text-text-primary">{col.label}{sort.key === col.key ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}</button>
                       </th>)}
                     </tr></thead>
@@ -362,6 +406,6 @@ export default function ProductivityOverview(_: PageProps) {
           </Panel>
         </section>
       </div>
-    </div>
+    </div>}
   </PlatformPage>;
 }

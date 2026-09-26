@@ -5,6 +5,7 @@ import type { PageProps } from '../../kernel/registry';
 import { useI18n } from '../../kernel/i18n';
 import { PlatformLink, usePlatform } from '../../kernel/platform';
 import { usePlatformQuery } from '../../kernel/query';
+import { CYCLE_VERSION_NOTE } from '../../mock/jobs';
 import { periodHours, resolveEquipment, serve, type Trust } from '../../mock/server';
 import { AnalysisChartFrame } from '../../platform/AnalysisChartFrame';
 import { DataTrustIndicator } from '../../platform/DataTrustIndicator';
@@ -43,8 +44,10 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const sortSpec = sortResult.ok ? sortResult : { ok: true as const, id: 'cycleMin' as const, desc: true, explicit: false };
   const periodReady = global.from !== null && global.to !== null;
   const metric = resolveMetric(global);
-  const metricVersion = metric.kind === 'unconfirmed' ? null : metric.metricVersion;
-  const enabled = !invalidPage && periodReady && metricVersion !== null;
+  const cycleVersion = metric.kind === 'page-default' || metric.kind === 'applied' || metric.kind === 'not-applied'
+    ? metric.metricVersion
+    : null;
+  const enabled = !invalidPage && periodReady && cycleVersion !== null;
   const ko = lang === 'ko';
 
   const [bucket, setBucket] = useState<string | null>(null);
@@ -58,19 +61,19 @@ export default function CycleTimeDrilldown(_: PageProps) {
   useEffect(() => { setBin(null); }, [globalKey]);
 
   const bucketRange = bucket ? { from: bucket, to: bucketEnd(bucket, granularity) } : null;
-  const inputs = [metricVersion, metric.kind];
+  const inputs = [cycleVersion, metric.kind];
 
   const kpi = usePlatformQuery(signal => serve<Kpi>({
-    role, global, signal, maxHours: MAX_HOURS, metricVersion: metricVersion ?? undefined,
+    role, global, signal, maxHours: MAX_HOURS, metricVersion: cycleVersion ?? undefined,
     isEmpty: data => data.count === 0,
-    compute: ({ equipment }) => summarize(equipment, global),
+    compute: ({ equipment }) => summarize(equipment, global, cycleVersion),
   }), ['kpi', ...inputs], enabled);
 
   const trend = usePlatformQuery(signal => serve<TrendData>({
-    role, global, signal, maxHours: MAX_HOURS, metricVersion: metricVersion ?? undefined,
+    role, global, signal, maxHours: MAX_HOURS, metricVersion: cycleVersion ?? undefined,
     isEmpty: data => data.count === 0,
     compute: ({ equipment }) => {
-      const rows = population(equipment, global);
+      const rows = populationForVersion(equipment, global, cycleVersion);
       const from = global.from!;
       const to = global.to!;
       const prev = previousWindow(from, to);
@@ -78,16 +81,16 @@ export default function CycleTimeDrilldown(_: PageProps) {
         count: rows.length,
         populationP95: percentile(rows.map(row => row.cycleMin), 0.95),
         current: trendOf(rows, from, to, granularity),
-        previous: trendOf(population(equipment, { ...global, from: prev.from, to: prev.to }), prev.from, prev.to, granularity),
+        previous: trendOf(populationForVersion(equipment, { ...global, from: prev.from, to: prev.to }, cycleVersion), prev.from, prev.to, granularity),
       };
     },
   }), ['trend', granularity, ...inputs], enabled);
 
   const dist = usePlatformQuery(signal => serve<DistData>({
-    role, global, signal, maxHours: MAX_HOURS, metricVersion: metricVersion ?? undefined,
+    role, global, signal, maxHours: MAX_HOURS, metricVersion: cycleVersion ?? undefined,
     isEmpty: data => data.count === 0,
     compute: ({ equipment }) => {
-      const rows = population(equipment, global);
+      const rows = populationForVersion(equipment, global, cycleVersion);
       return { count: rows.length, bins: histogram(rows) };
     },
   }), ['dist', ...inputs], enabled);
@@ -122,7 +125,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const granularityPending = granularityRaw === null && hours === null;
 
   function exportRows(scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered'; total: number }) {
-    if (scenario === 'error' || scenario === 'forbidden' || scenario === 'timeout' || scenario === 'too_large') {
+    if (cycleVersion === null || scenario === 'error' || scenario === 'forbidden' || scenario === 'timeout' || scenario === 'too_large') {
       toast(ko ? '이 응답 상태에서는 목록을 내보내지 않습니다.' : 'Export is not available for this response state.');
       return;
     }
@@ -131,7 +134,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
       toast(ko ? '서버가 이 조건의 내보내기를 거부했습니다.' : 'The server rejected export for this context.');
       return;
     }
-    const rows = scenario === 'empty' ? [] : population(resolved.rows, global);
+    const rows = scenario === 'empty' ? [] : populationForVersion(resolved.rows, global, cycleVersion);
     const p50 = percentile(rows.map(row => row.cycleMin), 0.5);
     const p95 = percentile(rows.map(row => row.cycleMin), 0.95);
     let list = slowExecutions(rows, tailMode, p50, p95, bucketRange, bin);
@@ -167,9 +170,9 @@ export default function CycleTimeDrilldown(_: PageProps) {
       <div className="flex flex-wrap items-center gap-2 rounded-md border border-border-subtle bg-surface-card px-3 py-2">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{ko ? '페이지 필터' : 'Page filter'}</span>
         <span className="text-[12px] text-text-secondary">{ko ? '집계' : 'Grain'}</span>
-        {(['hour', 'day'] as const).map(value => <button key={value} type="button" aria-pressed={!granularityPending && granularityResult.ok && granularity === value}
+        {(['hour', 'day', 'week'] as const).map(value => <button key={value} type="button" aria-pressed={!granularityPending && granularityResult.ok && granularity === value}
           className={!granularityPending && granularityResult.ok && granularity === value ? 'h-8 rounded-md bg-accent-primary-soft px-2 text-[12px] font-medium text-accent-primary' : 'h-8 rounded-md px-2 text-[12px] text-text-secondary hover:bg-surface-sunken'}
-          onClick={() => setPage({ granularity: value })}>{value === 'hour' ? (ko ? '시간' : 'Hour') : (ko ? '일' : 'Day')}</button>)}
+          onClick={() => setPage({ granularity: value })}>{value === 'hour' ? (ko ? '시간' : 'Hour') : value === 'day' ? (ko ? '일' : 'Day') : (ko ? '주' : 'Week')}</button>)}
         <label className="flex items-center gap-1 text-[12px] text-text-secondary">{ko ? '꼬리' : 'Tail'}
           <select aria-label={ko ? '느린 실행 기준' : 'Slow-execution predicate'} className={control} value={tailResult.ok ? tailMode : ''}
             onChange={event => setPage({ percentile: event.target.value })}>
@@ -204,8 +207,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
   >
     {invalidPage ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '페이지 키 값이 올바르지 않습니다' : 'Invalid page key'}
       body={ko
-        ? `${pageErrors.join(', ')} 은 이 화면의 등록 값이 아닙니다. hour|day, p50|p95|all, column:asc|desc 만 허용하며 다른 값으로 바꾸지 않습니다.`
-        : `${pageErrors.join(', ')} is not a registered value. Allowed: hour|day, p50|p95|all, column:asc|desc. Nothing was substituted.`} />
+          ? `${pageErrors.join(', ')} 은 이 화면의 등록 값이 아닙니다. hour|day|week, p50|p95|all, column:asc|desc 만 허용하며 다른 값으로 바꾸지 않습니다.`
+        : `${pageErrors.join(', ')} is not a registered value. Allowed: hour|day|week, p50|p95|all, column:asc|desc. Nothing was substituted.`} />
       : !periodReady ? <p className="text-[13px] text-text-muted">{ko ? '전역 기간이 URL에 확정되면 조회합니다.' : 'The query starts once the global period is in the URL.'}</p>
         : <div className="space-y-4">
           <div className="relative pt-6" data-testid="cycle-kpi">
@@ -227,7 +230,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
               {(data, response) => <AnalysisChartFrame
                 chartId="cycle-time-trend"
                 title={ko ? '사이클타임 추세' : 'Cycle time trend'}
-                description={ko ? `버킷별 P50/P95 · ${granularity === 'hour' ? '시간' : '일'} · 단위 분(Candidate)` : `P50/P95 by bucket · ${granularity} · minutes (Candidate)`}
+                description={ko ? `버킷별 P50/P95 · ${granularity === 'hour' ? '시간' : granularity === 'day' ? '일' : '주'} · 단위 분(Candidate)` : `P50/P95 by bucket · ${granularity} · minutes (Candidate)`}
                 metricVersion={metricLabel(metric)}
                 unit={ko ? '분' : 'min'}
                 valueFormat={value => formatMin(value, lang)}
@@ -307,10 +310,10 @@ export default function CycleTimeDrilldown(_: PageProps) {
               }
               const sorting = [{ id: sortSpec.id, desc: sortSpec.desc }];
               return serve({
-                role, global, signal, maxHours: MAX_HOURS, metricVersion: metricVersion ?? undefined,
+                role, global, signal, maxHours: MAX_HOURS, metricVersion: cycleVersion ?? undefined,
                 isEmpty: data => data.total === 0,
                 compute: ({ equipment }) => {
-                  const rows = population(equipment, global);
+                  const rows = populationForVersion(equipment, global, cycleVersion);
                   const p50 = percentile(rows.map(row => row.cycleMin), 0.5);
                   const p95 = percentile(rows.map(row => row.cycleMin), 0.95);
                   return sortAndPage(slowExecutions(rows, tailMode, p50, p95, bucketRange, bin), { ...query, sorting });
@@ -326,13 +329,17 @@ export default function CycleTimeDrilldown(_: PageProps) {
   </PlatformPage>;
 }
 
-function summarize(equipment: ExecutionSource, global: Parameters<typeof population>[1]): Kpi {
-  const rows = population(equipment, global);
+function populationForVersion(equipment: ExecutionSource, global: Parameters<typeof population>[1], version: string | null): ReturnType<typeof population> {
+  return version === null ? [] : population(equipment, global, version);
+}
+
+function summarize(equipment: ExecutionSource, global: Parameters<typeof population>[1], version: string | null): Kpi {
+  const rows = populationForVersion(equipment, global, version);
   const values = rows.map(row => row.cycleMin);
   const p50 = percentile(values, 0.5);
   const p95 = percentile(values, 0.95);
   const prev = global.from && global.to ? previousWindow(global.from, global.to) : null;
-  const prevValues = prev ? population(equipment, { ...global, from: prev.from, to: prev.to }).map(row => row.cycleMin) : [];
+  const prevValues = prev ? populationForVersion(equipment, { ...global, from: prev.from, to: prev.to }, version).map(row => row.cycleMin) : [];
   return {
     p50, p95, count: rows.length,
     slowCount: p95 === null ? 0 : rows.filter(row => row.cycleMin >= p95).length,
@@ -349,11 +356,15 @@ function MetricBanner({ metric }: { metric: ResolvedMetric }) {
   if (metric.kind === 'unconfirmed') {
     return <p className="text-[12px] text-text-secondary" data-testid="metric-banner">{ko ? `${metric.metricId} 버전이 확인되지 않았습니다. 페이지 기본 버전으로 채우지 않습니다.` : `${metric.metricId} has no confirmed version. The page default is not filled in.`}</p>;
   }
+  const versionNote = metric.metricVersion === '4'
+    ? (ko ? '분은 생산성 개요의 cycle_time v4와 같습니다.' : 'Minutes match productivity’s cycle_time v4.')
+    : CYCLE_VERSION_NOTE[ko ? 'ko' : 'en'];
   if (metric.kind === 'page-default') {
     return <p className="flex flex-wrap items-center gap-2 text-[12px] text-text-secondary" data-testid="metric-banner">
       <StatusBadge tone="info">{ko ? '페이지 기본값' : 'Page default'}</StatusBadge>
       <span className="t-mono">{PAGE_METRIC_ID} v{metric.metricVersion}</span>
       <span>{ko ? '전역 metric 쌍이 없습니다. 이 값으로 계산하며 URL에는 쓰지 않습니다.' : 'No global metric pair. Calculations use this value and do not write it into the URL.'}</span>
+      <span>{versionNote}</span>
     </p>;
   }
   if (metric.kind === 'not-applied') {
@@ -363,6 +374,7 @@ function MetricBanner({ metric }: { metric: ResolvedMetric }) {
       <span>{ko
         ? `전역 지표가 ${PAGE_METRIC_ID}이 아니라서 조회에 쓰지 않습니다. 계산은 페이지 기본값 ${PAGE_METRIC_ID} v${metric.metricVersion}이며 전역 쌍은 유지합니다.`
         : `The global metric is not ${PAGE_METRIC_ID}, so it is not used for this query. Calculations use the page default ${PAGE_METRIC_ID} v${metric.metricVersion}; the global pair is left unchanged.`}</span>
+      <span>{versionNote}</span>
     </p>;
   }
   return <p className="flex flex-wrap items-center gap-2 text-[12px] text-text-secondary" data-testid="metric-banner">
@@ -371,6 +383,7 @@ function MetricBanner({ metric }: { metric: ResolvedMetric }) {
     <span>{metric.versionIsPageDefault
       ? (ko ? '전역 cycle_time 쌍을 적용했습니다.' : 'The global cycle_time pair is applied.')
       : (ko ? '요청한 버전 라벨을 표시합니다. 합성 데이터는 v3 시계열 하나뿐이라 다른 세대 숫자로 바꾸지 않습니다. (Open)' : 'The requested version label is shown. Synthetic data has only the v3 series, so figures are not rewritten as another generation. (Open)')}</span>
+    <span>{versionNote}</span>
   </p>;
 }
 

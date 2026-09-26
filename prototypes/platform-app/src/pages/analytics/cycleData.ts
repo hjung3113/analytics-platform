@@ -6,18 +6,14 @@
  */
 import { formatDateTime, parseDateTime, shift, type GlobalContext } from '../../kernel/url';
 import { EQUIPMENT, type Equipment } from '../../mock/world';
+import { bucketStart as jobBucketStart, cycleMinutes, jobPercentile, jobsForEquipmentDay, jobsInPeriod, type Job } from '../../mock/jobs';
 
 export const PAGE_METRIC_ID = 'cycle_time';
 export const PAGE_METRIC_VERSION = '3';
 /** Analysis page passes this to serve() so the 90-day contract link is too_large. */
 export const MAX_HOURS = 24 * 31;
 
-const WINDOW_FROM = '2026-06-20T00:00:00';
-const WINDOW_TO = '2026-09-26T09:00:00';
-const RECIPES = ['RCP-A', 'RCP-B', 'RCP-C', 'RCP-D'] as const;
-const PPIDS = ['PPID-100', 'PPID-240', 'PPID-380'] as const;
-
-export type Granularity = 'hour' | 'day';
+export type Granularity = 'hour' | 'day' | 'week';
 export type TailMode = 'p50' | 'p95' | 'all';
 export type Quality = 'unknown' | 'review';
 export type SegmentKind = 'XFR' | 'FNC' | 'PRC';
@@ -96,7 +92,7 @@ export function resolveMetric(global: GlobalContext): ResolvedMetric {
 
 export function resolveGranularity(raw: string | null, hours: number | null): { ok: true; value: Granularity; explicit: boolean } | { ok: false } {
   if (raw === null || raw === '') return { ok: true, value: hours !== null && hours <= 48 ? 'hour' : 'day', explicit: false };
-  if (raw === 'hour' || raw === 'day') return { ok: true, value: raw, explicit: true };
+  if (raw === 'hour' || raw === 'day' || raw === 'week') return { ok: true, value: raw, explicit: true };
   return { ok: false };
 }
 
@@ -123,13 +119,7 @@ export function round1(n: number): number {
 
 /** Candidate percentile: linear interpolation, then round to 0.1 min before ≥ comparisons. */
 export function percentile(values: number[], p: number): number | null {
-  if (!values.length) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const index = (sorted.length - 1) * p;
-  const lo = Math.floor(index);
-  const hi = Math.ceil(index);
-  const value = lo === hi ? sorted[lo] : sorted[lo] * (hi - index) + sorted[hi] * (index - lo);
-  return round1(value);
+  return jobPercentile(values, p);
 }
 
 export function addSeconds(value: string, seconds: number): string {
@@ -142,11 +132,11 @@ export function previousWindow(from: string, to: string): { from: string; to: st
 }
 
 export function bucketStart(anchor: string, granularity: Granularity): string {
-  return granularity === 'hour' ? `${anchor.slice(0, 13)}:00:00` : `${anchor.slice(0, 10)}T00:00:00`;
+  return jobBucketStart(anchor, granularity);
 }
 
 export function bucketEnd(start: string, granularity: Granularity): string {
-  return shift(start, granularity === 'hour' ? 1 : 24);
+  return shift(start, granularity === 'hour' ? 1 : granularity === 'day' ? 24 : 168);
 }
 
 export function bucketContaining(instant: string, granularity: Granularity): string | null {
@@ -157,7 +147,7 @@ export function bucketContaining(instant: string, granularity: Granularity): str
 export function enumerateBuckets(from: string, to: string, granularity: Granularity): string[] {
   const out: string[] = [];
   let cursor = bucketStart(from, granularity);
-  const step = granularity === 'hour' ? 1 : 24;
+  const step = granularity === 'hour' ? 1 : granularity === 'day' ? 24 : 168;
   while (cursor < to && out.length < 4000) {
     out.push(cursor);
     const next = shift(cursor, step);
@@ -194,22 +184,14 @@ export function trendOf(rows: Execution[], from: string, to: string, granularity
 }
 
 /** Scope-resolved equipment × applied period × lot/ppid/recipe. Does not apply page filters. */
-export function population(equipment: Equipment[], global: GlobalContext): Execution[] {
+export function population(equipment: Equipment[], global: GlobalContext, version = '3'): Execution[] {
   if (!global.from || !global.to) return [];
-  const ids = new Set(equipment.map(equipment => equipment.equipmentId));
-  const from = global.from;
-  const to = global.to;
-  const lots = global.lotIds;
-  const recipes = global.recipeIds;
-  const ppid = global.ppid;
-  return allExecutions().filter(row => {
-    if (!ids.has(row.equipmentId)) return false;
-    if (row.anchor < from || row.anchor >= to) return false;
-    if (lots !== null && !lots.includes(row.lotId)) return false;
-    if (recipes !== null && !recipes.includes(row.recipe)) return false;
-    if (ppid !== null && row.ppid !== ppid) return false;
+  return jobsInPeriod(equipment, global.from, global.to).filter(job => {
+    if (global.lotIds !== null && !global.lotIds.includes(job.lotId)) return false;
+    if (global.recipeIds !== null && !global.recipeIds.includes(job.recipe)) return false;
+    if (global.ppid !== null && job.ppid !== global.ppid) return false;
     return true;
-  });
+  }).map(job => executionFromJob(job, version));
 }
 
 export function slowExecutions(
@@ -252,9 +234,12 @@ export function equipmentIdFromKey(key: string): string {
   return split === -1 ? key : key.slice(0, split);
 }
 
-export function findExecution(equipmentId: string, anchor: string): Execution | null {
-  allExecutions();
-  return byKey.get(executionKey({ equipmentId, anchor })) ?? null;
+export function findExecution(equipmentId: string, anchor: string, version = '3'): Execution | null {
+  if (!isAnchor(anchor)) return null;
+  const equipment = EQUIPMENT.find(item => item.equipmentId === equipmentId);
+  if (!equipment) return null;
+  const job = jobsForEquipmentDay(equipment, anchor.slice(0, 10)).find(item => item.anchor === anchor);
+  return job ? executionFromJob(job, version) : null;
 }
 
 /**
@@ -262,129 +247,40 @@ export function findExecution(equipmentId: string, anchor: string): Execution | 
  * An id that exists but is outside that set is forbidden; an unknown id or unknown anchor is missing.
  * Neither case is replaced with a nearby execution.
  */
-export function lookupOccurrence(equipment: Equipment[], equipmentId: string, anchor: string): OccurrenceResult {
+export function lookupOccurrence(equipment: Equipment[], equipmentId: string, anchor: string, version = '3'): OccurrenceResult {
   if (equipment.length === 0) return { access: 'missing' };
   const known = EQUIPMENT.some(item => item.equipmentId === equipmentId);
   const granted = equipment.some(item => item.equipmentId === equipmentId);
   if (known && !granted) return { access: 'forbidden' };
   if (!granted) return { access: 'missing' };
-  const execution = findExecution(equipmentId, anchor);
+  const execution = findExecution(equipmentId, anchor, version);
   if (!execution) return { access: 'missing' };
   return { access: 'ok', execution, segments: segmentsFor(execution) };
 }
 
 /** Candidate timeline: one job split into XFR/FNC/PRC. Gaps are unclassified, not wait or scrap. */
 export function segmentsFor(execution: Execution): Segment[] {
-  const rnd = rng(hash(`${execution.equipmentId}|${execution.anchor}|timeline`));
-  const total = Math.max(90, Math.round(execution.cycleMin * 60));
-  const xfr = clamp(Math.round(total * (0.08 + rnd() * 0.04)), 20, total);
-  const fnc = clamp(Math.round(total * (0.06 + rnd() * 0.04)), 15, total - xfr);
-  const prc1 = clamp(Math.round(total * (0.28 + rnd() * 0.1)), 30, Math.max(30, total - xfr - fnc));
-  const remain = total - xfr - fnc - prc1;
-  const gapBudget = Math.max(0, Math.round(remain * 0.22));
-  const prc2 = remain - gapBudget;
-  const gap1 = Math.round(gapBudget * 0.45);
-  const gap2 = gapBudget - gap1;
-  const moduleA = `MD-${(hash(execution.equipmentId) % 3) + 1}`;
-  const slotA = `SL-${(hash(execution.anchor) % 2) + 1}`;
-  const moduleB = `MD-${(hash(execution.equipmentId + ':b') % 3) + 1}`;
-  const slotB = slotA === 'SL-1' ? 'SL-2' : 'SL-1';
-  const pieces: { kind: SegmentKind | 'gap'; seconds: number; module: string; slot: string }[] = prc2 >= 20
-    ? [
-        { kind: 'XFR', seconds: xfr, module: moduleA, slot: slotA },
-        { kind: 'gap', seconds: gap1, module: moduleA, slot: slotA },
-        { kind: 'FNC', seconds: fnc, module: moduleA, slot: slotA },
-        { kind: 'PRC', seconds: prc1, module: moduleA, slot: slotA },
-        { kind: 'gap', seconds: gap2, module: moduleB, slot: slotB },
-        { kind: 'PRC', seconds: prc2, module: moduleB, slot: slotB },
-      ]
-    : [
-        { kind: 'XFR', seconds: xfr, module: moduleA, slot: slotA },
-        { kind: 'gap', seconds: gap1, module: moduleA, slot: slotA },
-        { kind: 'FNC', seconds: fnc, module: moduleA, slot: slotA },
-        { kind: 'PRC', seconds: prc1 + Math.max(0, prc2), module: moduleA, slot: slotA },
-        { kind: 'gap', seconds: gap2, module: moduleA, slot: slotA },
-      ];
-  let cursor = execution.anchor;
-  const segments: Segment[] = [];
-  for (const piece of pieces) {
-    const end = addSeconds(cursor, piece.seconds);
-    if (piece.kind !== 'gap' && piece.seconds > 0) {
-      segments.push({
-        kind: piece.kind,
-        module: piece.module,
-        slot: piece.slot,
-        start: cursor,
-        end,
-        durationMin: round1(piece.seconds / 60),
-      });
-    }
-    cursor = end;
-  }
-  return segments;
+  const equipment = EQUIPMENT.find(item => item.equipmentId === execution.equipmentId);
+  const job = equipment
+    ? jobsForEquipmentDay(equipment, execution.anchor.slice(0, 10)).find(item => item.anchor === execution.anchor)
+    : undefined;
+  return job?.segments.map(segment => ({ ...segment })) ?? [];
 }
-
-let cache: Execution[] | null = null;
-let byKey = new Map<string, Execution>();
 
 export function allExecutions(): Execution[] {
-  if (cache) return cache;
-  const rows: Execution[] = [];
-  const days: string[] = [];
-  for (let cursor = WINDOW_FROM; cursor < WINDOW_TO; cursor = shift(cursor, 24)) days.push(cursor.slice(0, 10));
-  for (const equipment of EQUIPMENT) {
-    const seen = new Set<string>();
-    const perDay = 3 + (hash(equipment.equipmentId) % 4);
-    for (const day of days) {
-      for (let index = 0; index < perDay; index++) {
-        const rnd = rng(hash(`${equipment.equipmentId}|${day}|${index}`));
-        const hour = Math.floor(rnd() * 24);
-        const minute = Math.floor(rnd() * 60);
-        const second = Math.floor(rnd() * 60);
-        let anchor = `${day}T${pad(hour)}:${pad(minute)}:${pad(second)}`;
-        while (seen.has(anchor)) anchor = addSeconds(anchor, 1);
-        if (anchor < WINDOW_FROM || anchor >= WINDOW_TO) continue;
-        seen.add(anchor);
-        const personality = 28 + (hash(equipment.equipmentId) % 25);
-        const cycleMin = round1(Math.max(8, personality + rnd() * 18 + (rnd() < 0.07 ? 30 + rnd() * 80 : 0)));
-        const recipe = RECIPES[Math.floor(rnd() * RECIPES.length)];
-        const ppid = PPIDS[Math.floor(rnd() * PPIDS.length)];
-        rows.push({
-          equipmentId: equipment.equipmentId,
-          room: equipment.room,
-          recipe,
-          lotId: `LOT-${day.replace(/-/g, '')}-${equipment.equipmentId}-${index + 1}`,
-          ppid,
-          anchor,
-          cycleMin,
-          quality: rnd() < 0.15 ? 'review' : 'unknown',
-        });
-      }
-    }
-  }
-  cache = rows;
-  byKey = new Map(rows.map(row => [executionKey(row), row]));
-  return cache;
+  return jobsInPeriod(EQUIPMENT, '2026-06-20T00:00:00', '2026-09-26T09:00:00')
+    .map(job => executionFromJob(job, '3'));
 }
 
-function pad(n: number): string {
-  return String(n).padStart(2, '0');
-}
-
-function clamp(n: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, n));
-}
-
-function hash(value: string): number {
-  let h = 2166136261;
-  for (const char of value) h = Math.imul(h ^ (char.codePointAt(0) ?? 0), 16777619);
-  return h >>> 0;
-}
-
-function rng(seed: number) {
-  let state = seed || 1;
-  return () => {
-    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
-    return state / 4294967296;
+function executionFromJob(job: Job, version: string): Execution {
+  return {
+    equipmentId: job.equipmentId,
+    room: job.room,
+    recipe: job.recipe,
+    lotId: job.lotId,
+    ppid: job.ppid,
+    anchor: job.anchor,
+    cycleMin: cycleMinutes(job, version),
+    quality: job.quality,
   };
 }
