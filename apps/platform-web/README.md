@@ -21,7 +21,7 @@ pnpm build
 | 갈래 (AGENTS.md) | 위치 |
 | --- | --- |
 | Kernel: Menu Registry, 전역 Context, URL 계약, 권한·Scope, 즐겨찾기/최근/활용 계측 | `src/kernel/registry.ts`, `platform.tsx`, `query.ts`, URL codec·manifest·응답 envelope 타입은 `packages/contracts` |
-| 공통 컴포넌트 | `src/platform/` — `PlatformPage`(§8 Slot), `PlatformDataTable`, `DetailDrawer`, `AuditTimeline`, `DataTrustIndicator`, `StateView`(§19), `StatCard`, `StatusBadge` |
+| 공통 컴포넌트 | `src/platform/` — `PlatformPage`(§8 Slot), `PlatformDataTable`, `DetailDrawer`, `AuditTimeline`, `DataTrustIndicator`, `StateView`(§19), `StatCard`. UI primitive·`StatusBadge`·토큰은 `packages/ui`(`@ap/ui`) |
 | 차트 계약 | `src/platform/AnalysisChartFrame.tsx` (Zoom/Brush/Reset/Compare/Annotate/Export/More, 4층 상태 분리), `EChart.tsx` |
 | 레이아웃 | `src/shell/` (AppShell 270/64/54, Sidebar 아코디언, TopBar, GlobalContextBar, CommandPalette) + 페이지 archetype |
 | 메뉴간 연결 | `usePlatform().linkTo()` Context Link helper, `returnTo` 복귀 |
@@ -37,7 +37,7 @@ pnpm build
 3. 전역 Context 읽기: `const { global } = usePlatform()` (`from`,`to`,`roomNames`,`condition`,`selection`,`lotIds`,`ppid`,`recipeIds`,`metricId`,`metricVersion`, `scopeId`). 전역 변경은 사용자의 명시적 액션일 때만 `setGlobal(patch)`.
 4. Page-owned URL 상태: registry의 `pageKeys`에 등록된 키만 `pageParam(key)` / `setPage({key: value|null}, {replace?})`. 미등록 키를 쓰지 않는다. 탭·필터·정렬처럼 공유 링크로 재현돼야 하는 것만 URL에 둔다.
 5. 다른 메뉴로 이동은 반드시 `linkTo(menuId, { params, page, global, returnTo: true })` + `<PlatformLink href>` 또는 `navigate()`. URL 문자열을 직접 조립하지 않는다(§22). 목적지 객체 ID(`params`)와 분석 Context(`global`)는 분리한다 — 상세로 갈 때 Selection을 목적지 ID로 바꾸지 않는다. 상세의 “분석으로 돌아가기”는 `pageParam('returnTo')`로 받은 URL을 그대로 `navigate()`한다(§6.4).
-6. 차트는 `AnalysisChartFrame`으로 감싼다. 시리즈 색은 tokens.css 변수명(`chart-blue`, `chart-teal`, `chart-green`, `chart-purple`, `accent-warn` …). 차트 클릭으로 전역 Context를 조용히 바꾸지 않는다 — 드릴다운은 `onPointClick`의 명시적 이동, 구간 승격은 프레임의 “분석 구간 적용”.
+6. 차트는 `AnalysisChartFrame`으로 감싼다. 시리즈 색은 `packages/ui/src/styles/tokens.css` 변수명(`chart-blue`, `chart-teal`, `chart-green`, `chart-purple`, `accent-warn` …). 차트 클릭으로 전역 Context를 조용히 바꾸지 않는다 — 드릴다운은 `onPointClick`의 명시적 이동, 구간 승격은 프레임의 “분석 구간 적용”.
 7. 표는 `PlatformDataTable` (`loadPage`가 `serve()` envelope 반환, `sortAndPage` 헬퍼), 상세는 `DetailDrawer` + `Field` + `AuditTimeline`.
 8. 스타일은 DESIGN.md 토큰 유틸리티만 사용: `bg-surface-card`, `border-border-subtle`, `text-text-muted`, `bg-accent-primary-soft`, `t-page-title`/`t-section-title`/`t-card-title`/`t-stat`/`t-caption`/`t-mono`/`tabular` 등. 임의 hex·그림자 스택·pill 버튼 금지. 상태 색은 `StatusBadge`(success/warning/danger/neutral/info)만.
 9. UI 문구는 `const { tx, lang } = useI18n()`로 한/영 모두 제공(`lang === 'ko' ? … : …` 또는 `tx({ko, en})`). 설비 ID·팀명 같은 마스터 값은 번역하지 않는다.

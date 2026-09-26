@@ -8,8 +8,7 @@ import { serve } from '../../mock/server';
 import { DataTrustIndicator } from '../../platform/DataTrustIndicator';
 import { Panel, PlatformPage } from '../../platform/PlatformPage';
 import { QueryView, StateMessage } from '../../platform/StateView';
-import { StatusBadge } from '../../platform/StatusBadge';
-import { Button } from '../../ui/components/Button';
+import { Button, StatusBadge } from '@ap/ui';
 import { isAnchor, lookupOccurrence, resolveMetric, type OccurrenceResult, type Segment, type SegmentKind } from './cycleData';
 import { safeReturnTo } from '../../kernel/registry';
 

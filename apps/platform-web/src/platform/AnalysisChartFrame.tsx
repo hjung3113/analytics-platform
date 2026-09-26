@@ -4,9 +4,7 @@ import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n } from '../kernel/i18n';
 import { usePlatform } from '../kernel/platform';
 import { formatDateTime, formatMetricVersion, parseDateTime } from '@ap/contracts';
-import { Button } from '../ui/components/Button';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/components/shadcn/popover';
-import { cn } from '../ui/utils/cn';
+import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { EChart, token } from './EChart';
 
 export type ChartSeries = {

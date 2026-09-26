@@ -9,9 +9,7 @@ import { DataTrustIndicator } from '../../platform/DataTrustIndicator';
 import { Field } from '../../platform/DetailDrawer';
 import { Panel, PlatformPage } from '../../platform/PlatformPage';
 import { QueryView, StateMessage } from '../../platform/StateView';
-import { StatusBadge } from '../../platform/StatusBadge';
-import { Button } from '../../ui/components/Button';
-import { cn } from '../../ui/utils/cn';
+import { Button, cn, StatusBadge } from '@ap/ui';
 import { MetricPairBanner } from './MetricCatalog';
 import {
   CONSUMER_LABEL, KIND_LABEL, PERIOD_BASIS, STATUS_LABEL, STATUS_TONE,

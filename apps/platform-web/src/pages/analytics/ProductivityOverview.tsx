@@ -20,9 +20,7 @@ import { Panel, PlatformPage } from '../../platform/PlatformPage';
 import { SegmentedRadio } from '../../platform/RadioGroup';
 import { StatCard, type Delta } from '../../platform/StatCard';
 import { QueryView, StateMessage } from '../../platform/StateView';
-import { StatusBadge } from '../../platform/StatusBadge';
-import { Button } from '../../ui/components/Button';
-import { cn } from '../../ui/utils/cn';
+import { Button, cn, StatusBadge } from '@ap/ui';
 import {
   METRIC_VERSIONS, attentionRows, computeKpis, occupancyBreakdown, trendBuckets,
   type AttentionRow, type Granularity, type KpiKey, type KpiSet, type TrendBucket,

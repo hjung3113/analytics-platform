@@ -2,7 +2,7 @@ import { X } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useI18n } from '../kernel/i18n';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/components/shadcn/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 
 function useMinWidth1440(): boolean {
   const query = '(min-width: 1440px)';

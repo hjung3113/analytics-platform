@@ -163,7 +163,11 @@ const registry = createRegistry({ groups: GROUPS, menus: [...home.manifests, ...
 1. **골격 (완료, PR #17):** 루트 workspace·tooling 추가, `prototypes/platform-app`을 `apps/platform-web`으로 `git mv`(내용 변경 없음), CI 경로 수정.
 2. **contracts 추출 (완료):** `safeReturnTo`를 `kernel/registry.ts`로 옮겨 `url.ts`의 Registry 의존을 끊고(D9 — Registry를 인자로 받는 형태는 `createRegistry`가 생기는 5단계에서), `MenuEntry`를 `MenuMeta`와 React binding으로 나눈 뒤, 순수 codec과 D3·D6·D7(`AuditEvent`) 타입을 이동. `Tone`은 `ui` 추출(4단계)과 함께 옮긴다. 런타임 변화 없음.
 3. **Kernel 포트 (완료):** `PlatformAdapter`(contracts) 도입, `mock/adapter.ts`를 `main.tsx`가 주입, 역할·시나리오를 `src/dev/DevTools.tsx`로 분리(탑바 `devTools` 슬롯). Kernel·공통 컴포넌트의 mock import 0건(D2). 페이지는 `serve`에 `role`을 넘기지 않고 mock 서버가 세션을 읽는다. 무효화 계약은 `kernel/adapter.test.tsx`(fixture 어댑터)로 고정. D5 중 TopBar만 해소, GlobalContextBar는 4단계.
-4. **ui → components → shell 순서로 추출:** PlatformPage Context Bar 슬롯(D4), GlobalContextBar·TopBar 어댑터 전환(D5).
+4. **ui → kernel → components → shell 순서로 추출:** PlatformPage Context Bar 슬롯(D4), GlobalContextBar·TopBar 어댑터 전환(D5).
+   - 4a **ui (완료):** `packages/ui` — shadcn·`Button`·`cn`·`StatusBadge`(`Tone`, D7 마무리)와 디자인 시스템 CSS(`tokens.css` + Tailwind 테마 매핑·base·타이포 유틸리티, `@ap/ui/styles.css`). 앱 밖 패키지라 CSS가 `@source`로 자기 컴포넌트를 스캔한다. 빌드 CSS가 이동 전과 동일(selector 629개, 파일 해시 동일)함을 확인.
+   - 4b **Registry 주입 + kernel:** `components`가 `kernel`에 의존하므로 kernel 패키지가 먼저다. 그 전에 Registry의 메뉴 목록(화면 lazy import 포함)을 앱으로 빼고 Provider에 주입해야 한다(D1의 앞부분, §5 `createRegistry` 검증·정적 세그먼트 우선 포함).
+   - 4c **components:** PlatformPage Context Bar 슬롯(D4).
+   - 4d **shell:** GlobalContextBar를 `contextOptions`/`evaluateSelection` 어댑터로(D5 마무리).
 5. **메뉴 패키지:** 그룹별로 `menus/*`로 이동, `api.ts` 도입(D8), Registry를 manifest 등록 방식으로(D1). 교차 테스트를 메뉴·앱 통합 테스트로 재배치하고 Kernel 테스트를 fixture Registry로 전환(D10).
 6. **경계 lint와 생성기:** 규칙 켜고 CI에 추가, `gen:menu`로 빈 메뉴 하나를 만들어 검증한 뒤 삭제.
 

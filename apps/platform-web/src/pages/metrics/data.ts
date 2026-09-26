@@ -6,7 +6,7 @@
  * not a runtime coverage rate.
  */
 import type { AuditEvent } from '@ap/contracts';
-import type { Tone } from '../../platform/StatusBadge';
+import type { Tone } from '@ap/ui';
 import { EQUIPMENT } from '../../mock/world';
 
 export type Text = { ko: string; en: string };

@@ -4,9 +4,7 @@ import { useI18n } from '../kernel/i18n';
 import { PlatformLink, usePlatform } from '../kernel/platform';
 import type { GroupId } from '@ap/contracts';
 import { GROUPS, MENUS, type MenuEntry } from '../kernel/registry';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/components/shadcn/popover';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/components/shadcn/tooltip';
-import { cn } from '../ui/utils/cn';
+import { cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 
 const OPEN_KEY = 'platform:nav-open';
 function readOpen(): Record<string, boolean> {

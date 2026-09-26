@@ -8,9 +8,7 @@ import { serve } from '../../mock/server';
 import { PlatformDataTable, sortAndPage, type ColumnMeta } from '../../platform/PlatformDataTable';
 import { PlatformPage } from '../../platform/PlatformPage';
 import { QueryView } from '../../platform/StateView';
-import { StatusBadge } from '../../platform/StatusBadge';
-import { Button } from '../../ui/components/Button';
-import { Input } from '../../ui/components/shadcn/input';
+import { Button, Input, StatusBadge } from '@ap/ui';
 import {
   DOMAINS, DOMAIN_LABEL, METRICS, STATUS_LABEL, STATUS_TONE, STATUSES,
   catalogRows, filterCatalog, judgeGlobalPair,

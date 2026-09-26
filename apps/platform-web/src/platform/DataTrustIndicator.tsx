@@ -1,9 +1,7 @@
 import { Info } from 'lucide-react';
 import { useI18n } from '../kernel/i18n';
 import { type Assessment, formatMetricVersion, type Trust } from '@ap/contracts';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/components/shadcn/popover';
-import { cn } from '../ui/utils/cn';
-import { Dot, StatusBadge, type Tone } from './StatusBadge';
+import { cn, Dot, Popover, PopoverContent, PopoverTrigger, StatusBadge, type Tone } from '@ap/ui';
 
 const time = (v: string | null | undefined) => (v ? v.replace('T', ' ').slice(5, 16) : '—');
 

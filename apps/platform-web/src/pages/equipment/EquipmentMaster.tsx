@@ -9,7 +9,7 @@ import { PlatformPage } from '../../platform/PlatformPage';
 import { PlatformDataTable, sortAndPage } from '../../platform/PlatformDataTable';
 import { DetailDrawer } from '../../platform/DetailDrawer';
 import { QueryView } from '../../platform/StateView';
-import { Button } from '../../ui/components/Button';
+import { Button } from '@ap/ui';
 import { EquipmentPanel, EquipmentStatus } from './EquipmentDetail';
 import { downloadCsv, fields, filterEquipment, statusText } from './data';
 

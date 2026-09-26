@@ -1,9 +1,7 @@
 import { ChevronDown, CircleHelp, Loader2, LogOut, MapPin, Search, ShieldAlert } from 'lucide-react';
 import { useI18n } from '../kernel/i18n';
 import { usePlatform } from '../kernel/platform';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/components/shadcn/dropdown-menu';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/components/shadcn/popover';
-import { cn } from '../ui/utils/cn';
+import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 
 export function TopBar() {
   const { global, setGlobal, scope, session, user, devTools, setPaletteOpen } = usePlatform();

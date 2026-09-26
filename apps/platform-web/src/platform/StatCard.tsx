@@ -1,6 +1,6 @@
 import { ArrowDownRight, ArrowUpRight, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { cn } from '../ui/utils/cn';
+import { cn } from '@ap/ui';
 
 export type Delta = { value: string; direction: 'up' | 'down'; /** Whether this direction is good for the metric. */ good: boolean };
 

@@ -6,9 +6,7 @@ import { type Capability, type Condition, type ConditionAxis, conditionLabel, ty
 import { CONTEXT_LABELS } from '../kernel/registry';
 import { matchesCondition } from '../mock/server';
 import { EQUIPMENT, makerModelsFor, stgroupsFor, teamsFor } from '../mock/world';
-import { Button } from '../ui/components/Button';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/components/shadcn/popover';
-import { cn } from '../ui/utils/cn';
+import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { SegmentedRadio } from '../platform/RadioGroup';
 
 const hours = (g: GlobalContext) => (g.from && g.to ? (parseDateTime(g.to, 'to').getTime() - parseDateTime(g.from, 'from').getTime()) / 3_600_000 : null);
