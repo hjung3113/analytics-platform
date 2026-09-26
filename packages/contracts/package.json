@@ -7,10 +7,13 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@ap/eslint-config": "workspace:*",
     "@ap/tsconfig": "workspace:*",
+    "eslint": "^10.11.0",
     "typescript": "^5.9.3"
   }
 }

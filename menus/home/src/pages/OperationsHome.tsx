@@ -10,14 +10,12 @@ const NOTICES: Notice[] = [
   { id: 'N-2026-091', title: { ko: '9/28(일) 02:00–04:00 mart 재계산 작업으로 생산성 지표가 잠정 표시됩니다.', en: 'Sep 28 02:00–04:00: productivity metrics show as provisional during mart recompute.' }, scopeId: 'ICH', until: '2026-09-29T00:00:00' },
   { id: 'N-2026-088', title: { ko: 'CJU PH-301 설비 마스터 정정 반영 완료 — 지난 7일 값이 달라질 수 있습니다.', en: 'CJU PH-301 master correction applied — the last 7 days may change.' }, scopeId: 'CJU', until: '2026-09-30T00:00:00' },
 ];
-const DISMISS = 'platform:notice-dismissed';
-const readDismissed = (): string[] => { try { return JSON.parse(sessionStorage.getItem(DISMISS) || '[]'); } catch { return []; } };
 
 /** 08 운영 개요(랜딩): consumes kernel menu visibility, favorites and recent; applies no analysis Context. */
 export default function OperationsHome() {
   const { visibleMenus, favorites, toggleFavorite, recent, linkTo, global, registry } = usePlatform();
   const { t, tx, lang } = useI18n();
-  const [dismissed, setDismissed] = useState<string[]>(readDismissed);
+  const [dismissed, setDismissed] = useState<string[]>([]);
 
   // Notice targeting is by the current requested scopeId (08 §6, Decided).
   const notices = usePlatformQuery(signal => serve({
@@ -41,7 +39,7 @@ export default function OperationsHome() {
           <span className="flex-1"><span className="t-mono mr-2 text-[11px] text-text-muted">{n.id}</span>{tx(n.title)}</span>
           <PlatformLink href={linkTo('notices')} className="inline-flex items-center gap-1 whitespace-nowrap text-[12px] font-medium text-accent-primary hover:underline">{lang === 'ko' ? '전체 공지 보기' : 'All notices'}<ArrowRight className="size-3" aria-hidden /></PlatformLink>
           <button type="button" aria-label={lang === 'ko' ? '이번 세션 동안 닫기' : 'Dismiss for this session'} className="grid size-6 place-items-center rounded-xs text-text-muted hover:bg-surface-card"
-            onClick={() => { const next = [...dismissed, n.id]; setDismissed(next); try { sessionStorage.setItem(DISMISS, JSON.stringify(next)); } catch { /* ignore */ } }}><X className="size-3.5" aria-hidden /></button>
+            onClick={() => setDismissed([...dismissed, n.id])}><X className="size-3.5" aria-hidden /></button>
         </div>)}
       {notices.response && !['ok', 'empty'].includes(notices.response.outcome) && <QueryView query={notices} compact>{() => null}</QueryView>}
 

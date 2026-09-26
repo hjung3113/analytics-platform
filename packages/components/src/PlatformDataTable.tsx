@@ -90,7 +90,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
         });
       });
     return () => controller.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Deps intentionally restricted to requestIdentity (would trip react-hooks/exhaustive-deps if that rule is enabled).
   }, [requestIdentity]);
   useEffect(() => { try { localStorage.setItem(p.preferenceKey, JSON.stringify(preferences)); } catch { /* memory-only */ } }, [preferences, p.preferenceKey]);
 

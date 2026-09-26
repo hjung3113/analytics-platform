@@ -126,7 +126,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         },
       ],
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Deps intentionally restricted to the chart inputs below (would trip react-hooks/exhaustive-deps if that rule is enabled).
   }, [visible, xType, categories, zoom, brushMode, selection, annotations.length, p.markLines, p.unit, lang, p.stacked]);
 
   // Re-arm the brush cursor after each option replacement.

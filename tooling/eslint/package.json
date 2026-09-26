@@ -1,24 +1,23 @@
 {
-  "name": "@ap/mock-server",
+  "name": "@ap/eslint-config",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.js"
   },
   "scripts": {
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@ap/contracts": "workspace:*"
+    "@typescript-eslint/parser": "^8.70.1",
+    "eslint": "^10.11.0"
   },
   "devDependencies": {
-    "@ap/eslint-config": "workspace:*",
     "@ap/tsconfig": "workspace:*",
-    "eslint": "^10.11.0",
-    "jsdom": "^26.1.0",
+    "@types/node": "^26.6.3",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7"
   }
