@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { GROUPS_END, MENUS_TS, removeLine, resolveRoot } from '../src/generate.ts';
+import { PACKAGE_PREFIX } from '../src/prefix.ts';
 
 /**
  * §4 create-then-delete verification (coordinator-run, once, not CI): the committed tree must be
@@ -93,11 +94,15 @@ function main(): void {
     run('pnpm', ['install']);
     run('pnpm', ['lint']);
     run('pnpm', ['typecheck']);
-    run('pnpm', ['test']);
+    // The gen-menu lock tests read the committed tree and would fail on their own probe edits,
+    // so the test gate excludes this package; the locks are re-verified after the revert below.
+    run('pnpm', ['exec', 'turbo', 'run', 'test', `--filter=!${PACKAGE_PREFIX}gen-menu`]);
     run('pnpm', ['build']);
     console.log('probe: verified — reverting');
   } finally {
     revert();
+    // Locks (repo.test.ts) must pass on the restored tree; revert already checked it is clean.
+    run('pnpm', ['--filter', `${PACKAGE_PREFIX}gen-menu`, 'test']);
   }
 }
 

@@ -96,12 +96,15 @@ export function planRemove(root: string, group: string): RemovePlan {
   return { root, inputs, packageDir, inserts, deleteDir: `menus/${folder}` };
 }
 
-/** Only the known files (and anything under node_modules) may exist inside the generated package. */
+/** Tool artifact directories turbo/vitest create at the top level of the package; deleted with the folder. */
+const ARTIFACT_DIRS = new Set(['node_modules', '.turbo', 'dist', 'coverage']);
+
+/** Only the known files (and top-level tool artifact dirs) may exist inside the generated package. */
 function checkEntries(dir: string, display: string, base: string, known: Set<string>): void {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const rel = base === '' ? e.name : `${base}/${e.name}`;
     if (e.isDirectory()) {
-      if (e.name === 'node_modules') continue;
+      if (base === '' && ARTIFACT_DIRS.has(e.name)) continue;
       checkEntries(join(dir, e.name), display, rel, known);
     } else if (!known.has(rel)) {
       throw new GenMenuError(`--remove: unexpected file ${display}/${rel}`);
