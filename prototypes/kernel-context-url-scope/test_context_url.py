@@ -65,6 +65,20 @@ class ContextContractTests(unittest.TestCase):
             with self.subTest(url=url), self.assertRaises(ContractError):
                 parse_url(url)
 
+    def test_lone_surrogate_ids_rejected_as_contract_error(self):
+        # JSON \ud800 escapes decode to a lone surrogate that cannot be UTF-8 encoded.
+        with self.assertRaises(ContractError) as ctx:
+            parse_url(BASE + '&' + urlencode({'equipmentGroup': '{"axis":"stgroup","id":"\\ud800"}'}))
+        self.assertEqual(ctx.exception.code, 'invalid_id')
+        for state in (sample(Condition('stgroup', ('\ud800',))),
+                      replace(sample(), scope_id='\ud800'),
+                      replace(sample(), room_names=('\ud800',)),
+                      sample(selection=('\ud800',)),
+                      ContextState('equipment', destination='\ud800')):
+            with self.subTest(state=state), self.assertRaises(ContractError) as ctx:
+                serialize(state)
+            self.assertEqual(ctx.exception.code, 'invalid_id')
+
     def test_unknown_preserved_only_in_current_url(self):
         state = parse_url(BASE + '&unregistered=x&unregistered=y')
         self.assertEqual(parse_url(serialize(state)).extras, (('unregistered', 'x'), ('unregistered', 'y')))
