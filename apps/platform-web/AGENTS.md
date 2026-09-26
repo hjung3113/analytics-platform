@@ -22,4 +22,4 @@
 
 ## 검증
 
-루트 `pnpm typecheck && pnpm test && pnpm build`, `pnpm dev`(http://127.0.0.1:5173)로 역할 전환·시나리오 시뮬레이터를 써서 화면을 확인한다.
+루트 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`, `pnpm dev`(http://127.0.0.1:5173)로 역할 전환·시나리오 시뮬레이터를 써서 화면을 확인한다. lint는 `@ap/mock-server` import를 `src/main.tsx`, `src/dev/**`, `src/published-metrics.test.ts`에서만 허용하고, `src/menus.ts`와 URL 테스트는 대상이 아니다(D2).

@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "turbo run dev --filter=@ap/platform-web",
+    "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "build": "turbo run build"

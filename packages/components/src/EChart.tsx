@@ -34,7 +34,7 @@ export function EChart({ option, height = 280, onEvents, onReady, ariaLabel, cla
     observer?.observe(el.current);
     onReady?.(instance);
     return () => { observer?.disconnect(); instance.dispose(); chart.current = null; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Deps intentionally empty: effect owns mount/unmount only (would trip react-hooks/exhaustive-deps if that rule is enabled).
   }, []);
 
   useEffect(() => {

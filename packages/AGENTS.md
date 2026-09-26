@@ -26,6 +26,6 @@
 
 ## 검증
 
-루트에서 `pnpm typecheck && pnpm test && pnpm build`. UI가 바뀌면 `pnpm dev`로 브라우저에서 확인한다. 이동·리팩터링 PR은 빌드 CSS selector 집합이 바뀌지 않았는지도 확인한다.
+루트에서 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`. UI가 바뀌면 `pnpm dev`로 브라우저에서 확인한다. 이동·리팩터링 PR은 빌드 CSS selector 집합이 바뀌지 않았는지도 확인한다.
 
 다음 단계: 수정할 패키지의 `AGENTS.md`.

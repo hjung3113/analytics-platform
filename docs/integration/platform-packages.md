@@ -2,7 +2,7 @@
 
 > 상태: [05 Decided "다음 구현 범위: 프론트엔드 플랫폼 틀 + 메뉴 개발 환경"](../05_roadmap_and_open_questions.md)의 첫 단계로 패키지 경계와 의존 방향을 정한다. §8의 5개 항목은 2026-09-26 사용자가 제안안대로 **Decided**. `PlatformAdapter`·`MenuMeta`·`evaluateSelection` 같은 필드·타입 이름은 구현하면서 바뀔 수 있는 Candidate다.
 >
-> 진행(2026-09-27): §7의 1–4d단계 완료(PR #17–#23). 5단계 완료 — 5a(`@ap/mock-server` 추출, #25)·5b(메뉴별 `api.ts`, #26)·5c(메뉴 패키지, 이번 PR). 6단계(경계 lint·생성기)만 남았다. 아래 §2의 경로는 분리 전 `platform-app` 기준이다.
+> 진행(2026-09-27): §7의 1–4d단계 완료(PR #17–#23). 5단계 완료 — 5a(`@ap/mock-server` 추출, #25)·5b(메뉴별 `api.ts`, #26)·5c(메뉴 패키지, 이전 PR). 6단계 중 6a 경계 lint 완료(이번 PR). 6b `gen:menu` 생성기만 남았다. 아래 §2의 경로는 분리 전 `platform-app` 기준이다.
 >
 > 근거: `prototypes/platform-app/src`의 import 그래프(2026-09-26, `main` `ebb471c`), [06 §3 아키텍처](../06_platform_ui_contract.md#3-platform-ui-architecture), [§4 Kernel 책임](../06_platform_ui_contract.md#4-platform-kernel-responsibilities), [§5 Menu Extension Contract](../06_platform_ui_contract.md#5-menu-extension-contract), [§13 컴포넌트 층](../06_platform_ui_contract.md#13-shared-component-layers).
 
@@ -142,12 +142,12 @@ const registry = createRegistry({ groups: GROUPS, menus: [...home.manifests, ...
 | --- | --- | --- |
 | 패키지 관리 | pnpm workspace + Turborepo | FeedbackOps와 동일(pnpm 9 / turbo 2). 버전은 구현 시점 최신으로 |
 | 내부 패키지 빌드 | 빌드 없이 TS 소스를 `exports`로 노출, 앱의 Vite가 번들 | 패키지별 `tsc --noEmit`으로 타입 경계 검사 |
-| 경계 검사 | ESLint `no-restricted-imports` + 계약 규칙 | §3 규칙 1–4를 패키지별 설정으로 |
+| 경계 검사 | ESLint `no-restricted-imports` + 계약 규칙 — `tooling/eslint`(`@ap/eslint-config`)의 레이어별 프리셋을 각 패키지 `eslint.config.js`가 한 줄로 가져다 쓴다 | §3 규칙 1–4를 패키지별 설정으로. 규칙·프리셋 원본은 `tooling/eslint/src/` |
 | 계약 lint | URL 직접 조립 금지(`?`/`&` 문자열 조합 대신 `linkTo`/`buildQuery`), `window.location` 직접 쓰기 금지, 메뉴 코드에서 `localStorage` 금지 | 인터뷰 기록의 "URL 직접 조립 금지 lint" |
 | 테스트 | Vitest를 패키지별로. 기존 51개 테스트는 원래 파일과 같이 옮기되, 층을 넘는 테스트 파일은 D10대로 메뉴·앱 통합 테스트로 재배치 | 테스트 개수 합계가 줄지 않았는지 단계마다 확인 |
-| CI | `platform-app` Job을 `pnpm typecheck`·`pnpm test`·`pnpm build`(각각 별도 단계, Turbo 태스크 그래프) + lint Job으로 교체 | Node 26.7.0 유지. `pnpm -r typecheck test build`처럼 한 줄로 쓰면 뒤 두 개가 첫 스크립트의 인자가 되어 실행되지 않는다 |
+| CI | `platform-workspace` Job에서 `pnpm lint`·`pnpm typecheck`·`pnpm test`·`pnpm build`를 각각 별도 단계로(Turbo 태스크 그래프). lint는 별도 Job이 아니라 같은 Job의 단계(6a) | Node 26.7.0 유지. `pnpm -r typecheck test build`처럼 한 줄로 쓰면 뒤 두 개가 첫 스크립트의 인자가 되어 실행되지 않는다 |
 
-**결정 필요 — lint 도구:** FeedbackOps는 Biome을 쓴다. 제안은 ESLint다. 경계 규칙과 URL 조립 금지 같은 커스텀 AST 규칙이 필요한데, Biome 플러그인(GritQL)은 아직 이런 규칙을 쓰기에 제한적이기 때문이다. 포맷팅만 Biome으로 맞추는 혼합안도 가능하다.
+**lint 도구 — ESLint (Decided, §8 #4):** FeedbackOps는 Biome을 쓰지만 경계 규칙과 URL 조립 금지 같은 커스텀 AST 규칙이 필요해 ESLint를 택했다(Biome 플러그인 GritQL은 이런 규칙에 제한적). 6a에서 `tooling/eslint`(`@ap/eslint-config`)의 층별 preset으로 구현했다. 문법 기반이라 변수에 담아 조립한 URL, computed 속성(`window['localStorage']`), optional chaining 호출 같은 우회는 잡지 않는다 — 규칙이 허용한다는 뜻이 아니다.
 
 ## 7. 폴더 배치와 이행 순서
 
@@ -173,8 +173,10 @@ const registry = createRegistry({ groups: GROUPS, menus: [...home.manifests, ...
    - 4d **shell (완료):** GlobalContextBar가 `contextOptions`/`evaluateSelection`을 Kernel `useAdapterRequest`(usePlatformQuery와 같은 무효화 규칙)로 호출해 mock 의존 0건(D5 해소). mock 구현은 이전 클라이언트 계산과 결과가 같음을 테스트로 확인. `src/shell/*`과 `App.tsx`의 라우트 출력(`RouteOutlet`: 미등록·계약 오류·권한·미구현 상태)을 `packages/shell`(`@ap/shell`)로 이동. 이제(4d 시점) 앱에는 조립(`main.tsx`), 메뉴 선언(`menus.ts`), 메뉴 화면(`pages/` — 5c에서 `menus/*`로 이동), mock, dev 도구만 남는다.
 5. **5a — mock-server 추출 (완료, #25):** `apps/platform-web/src/mock/*`를 `packages/mock-server`(`@ap/mock-server`)로 이동. 당시 페이지는 `@ap/mock-server`의 `serve`를 직접 호출했고 교차 테스트(`jobs-population`, `published-metrics`)는 앱에 남았다(재배치는 5c).
    - **5b — 메뉴별 `api.ts` (완료, #26):** 그룹마다 `pages/<area>/api.ts`가 `@ap/mock-server`의 유일한 페이지 접점(D8, §3 규칙 3 — `menu-*` 패키지가 없어 `apps/platform-web/src/pages` 트리가 그 대역이었음). D8의 import 벽만 해소. 집계의 서버 이관은 5c 이후 과제로 남는다.
-   - **5c — 메뉴 패키지 (완료, 이번 PR):** 그룹별로 `menus/*` 패키지로 이동, 앱 `src/menus.ts`는 `GROUPS`와 패키지 `manifests` 연결만(D1). `jobs-population`은 `@ap/menu-analytics`로 이동. `published-metrics`는 분할했다: 발행 포인터 비교는 `@ap/menu-metrics`, 페이지 기본 버전 미충족 검증은 `@ap/menu-analytics`, kernel `classifyMetricInit`+mock 통합 부분만 앱에 남김(D10 나머지).
-6. **경계 lint와 생성기:** 규칙 켜고 CI에 추가, `gen:menu`로 빈 메뉴 하나를 만들어 검증한 뒤 삭제.
+   - **5c — 메뉴 패키지 (완료, 이전 PR):** 그룹별로 `menus/*` 패키지로 이동, 앱 `src/menus.ts`는 `GROUPS`와 패키지 `manifests` 연결만(D1). `jobs-population`은 `@ap/menu-analytics`로 이동. `published-metrics`는 분할했다: 발행 포인터 비교는 `@ap/menu-metrics`, 페이지 기본 버전 미충족 검증은 `@ap/menu-analytics`, kernel `classifyMetricInit`+mock 통합 부분만 앱에 남김(D10 나머지).
+6. **경계 lint와 생성기:**
+   - **6a — 경계 lint (완료, 이번 PR):** `@ap/eslint-config`(`tooling/eslint`)의 패키지별 프리셋으로 §3 규칙과 메뉴 계약 규칙(web storage·`window.location` 쓰기·쿼리 문자열 직접 조립 금지)을 켜고, 루트 `pnpm lint`(turbo)를 CI `platform-workspace`의 typecheck 앞 단계로 추가. 유일하던 위반(`OperationsHome.tsx` sessionStorage)은 이번 PR에서 제거.
+   - **6b — 생성기 (남음):** `gen:menu`로 빈 메뉴 하나를 만들어 검증한 뒤 삭제.
 
 이 순서를 마치면 D1–D10이 모두 해소되고, 워크스페이스 층(06 §9.1)은 Registry `space` 필드와 셸 공간 전환기로 이 구조 위에 얹는다.
 

@@ -29,11 +29,11 @@
 
 ## 코드 작업 원칙
 
-- 플랫폼 코드는 루트 pnpm workspace(`apps/*`, `packages/*`, `menus/*`, `tooling/*`)다. 루트에서 `pnpm install`, `pnpm dev`, `pnpm typecheck`, `pnpm test`, `pnpm build`(Node 26.7.0, pnpm 11.1.1).
+- 플랫폼 코드는 루트 pnpm workspace(`apps/*`, `packages/*`, `menus/*`, `tooling/*`)다. 루트에서 `pnpm install`, `pnpm dev`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`(Node 26.7.0, pnpm 11.1.1).
 - 의존 방향은 `contracts → ui/kernel → components → shell → apps`이며 역방향 import는 금지다. 원본은 `docs/integration/platform-packages.md` §3.
 - Kernel·공통 컴포넌트·셸은 메뉴와 mock을 모른다. 메뉴 목록은 Registry로, 서버는 `PlatformAdapter`로 앱이 주입한다.
 - 작업하는 폴더에 `AGENTS.md`가 있으면 그 폴더 규칙을 추가로 따른다. 폴더 지침은 루트를 좁힐 수 있지만 루트 원칙과 충돌하면 루트를 따른다.
-- 변경마다 typecheck·test·build를 돌리고, 화면이 바뀌면 `pnpm dev`로 브라우저에서 확인한다. 실행하지 않은 검증은 했다고 보고하지 않는다.
+- 변경마다 lint·typecheck·test·build를 돌리고, 화면이 바뀌면 `pnpm dev`로 브라우저에서 확인한다. 실행하지 않은 검증은 했다고 보고하지 않는다.
 - PR은 한 단계씩 올리고 리뷰 코멘트를 반영한 뒤 병합한다. 리뷰 지적을 고칠 때는 수정 없이 실패하는 회귀 테스트를 함께 넣는다.
 
 ## 폴더별 지침
