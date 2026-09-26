@@ -18,7 +18,7 @@
 | # | 현재 의존 | 문제 | 해소 방향 |
 | --- | --- | --- | --- |
 | D1 | `kernel/registry.ts` → `pages/*` (`lazy(() => import('../pages/...'))`로 메뉴 목록 `MENUS` 하드코딩) | Kernel이 메뉴를 안다. 새 메뉴마다 Kernel 수정 | 메뉴가 manifest를 export하고, 앱(조립 지점)이 Kernel에 등록 |
-| D2 | `kernel/platform.tsx` → `mock/world`, `mock/server` (사용자·역할, Scope 검증, 응답 시나리오, 기본 기간, 게시 지표) | Kernel이 mock 구현에 묶임. 실서버로 교체 불가 | `PlatformAdapter` 포트를 Kernel이 정의하고 mock이 구현 |
+| D2 | `kernel/platform.tsx` → `mock/world`, `mock/server` (사용자·역할, Scope 검증, 응답 시나리오, 기본 기간, 게시 지표) | Kernel이 mock 구현에 묶임. 실서버로 교체 불가 | `PlatformAdapter` 포트 타입을 `contracts`에 두고 Kernel이 소비, mock이 구현(§4) |
 | D3 | `platform/*`, `kernel/query.ts` → `mock/server`의 **타입** (`ApiResponse`, `Trust`, `Assessment`) | 응답·신뢰 envelope(06 §18–19 계약)이 mock 파일에 정의돼 있음 | 계약 타입을 `contracts`로 이동 |
 | D4 | `platform/PlatformPage.tsx` → `shell/GlobalContextBar` | 공통 컴포넌트가 셸을 import(층 역전) | 셸이 PlatformPage의 Context Bar 슬롯을 채움(Kernel이 슬롯 제공) |
 | D5 | `shell/GlobalContextBar`, `shell/TopBar` → `mock/world` (`EQUIPMENT`, `SITES`, `USERS`, 조건 옵션 목록) | 셸이 도메인 데이터 원천을 직접 읽음 | Context 선택지·사이트 목록을 어댑터에서 조회. 역할 전환·시나리오 시뮬레이터는 dev 전용 슬롯으로 |
@@ -38,13 +38,13 @@ D1–D8은 화면·런타임 코드, D9는 같은 폴더 안이라 폴더 구조
 
 | 패키지 | 06 갈래 | 내용(현재 파일 기준) | React | 의존 가능 |
 | --- | --- | --- | --- | --- |
-| `@ap/contracts` | Kernel 계약 | 순수 URL codec(`kernel/url.ts`에서 `safeReturnTo` 제외, D9), manifest **메타데이터** 타입(`MenuMeta`: `MenuEntry`에서 `icon`·`component`를 뺀 선언부, `ContextKey`, `Capability`, `PageType`, `Permission`), 응답·Trust envelope(`ApiResponse`, `Trust`, `Assessment`, `Outcome`), `AuditEvent`, `Text`(i18n 문자열 쌍) | 없음(타입 포함) | 없음 |
+| `@ap/contracts` | Kernel 계약 | 순수 URL codec(`kernel/url.ts`에서 `safeReturnTo` 제외, D9), manifest **메타데이터** 타입(`MenuMeta`: `MenuEntry`에서 `icon`·`component`를 뺀 선언부, `ContextKey`, `Capability`, `PageType`, `Permission`), 응답·Trust envelope(`ApiResponse`, `Trust`, `Assessment`, `Outcome`), `AuditEvent`, `Text`(i18n 문자열 쌍), `PlatformAdapter` 포트와 그 입출력 타입(§4) | 없음(타입 포함) | 없음 |
 | `@ap/ui` | 공통 컴포넌트(UI Primitive) | `styles/tokens.css`, `ui/components/shadcn/*`, `Button`, `cn`, `StatusBadge`(`Tone`) | 있음 | 외부 라이브러리만 |
-| `@ap/kernel` | Kernel 기능 | `PlatformProvider`/`usePlatform`/`PlatformLink`, `usePlatformQuery`, i18n Provider, Registry 런타임(`createRegistry`, `matchRoute`, `pathFor`, `safeReturnTo`), React binding 타입 `MenuEntry = MenuMeta & { icon: LucideIcon; component?: LazyExoticComponent<…> }`, `PlatformAdapter` 포트, 슬롯 등록 | 있음 | `contracts` |
+| `@ap/kernel` | Kernel 기능 | `PlatformProvider`/`usePlatform`/`PlatformLink`, `usePlatformQuery`, i18n Provider, Registry 런타임(`createRegistry`, `matchRoute`, `pathFor`, `safeReturnTo`), React binding 타입 `MenuEntry = MenuMeta & { icon: LucideIcon; component?: LazyExoticComponent<…> }`, 어댑터 주입(`PlatformProvider adapter={…}`)과 세션 revision, 슬롯 등록 | 있음 | `contracts` |
 | `@ap/components` | 공통 컴포넌트(Platform Component) + 차트 계약 + 레이아웃 | `PlatformPage`, `PlatformDataTable`, `DetailDrawer`, `AuditTimeline`, `DataTrustIndicator`, `StateView`, `StatCard`, `RadioGroup`, `AnalysisChartFrame`, `EChart` | 있음 | `contracts`, `kernel`, `ui` |
 | `@ap/shell` | Kernel 기능(App Shell) | `AppShell`, `Sidebar`, `TopBar`, `CommandPalette`, `GlobalContextBar`, 계약 오류/미구현 화면(`App.tsx`의 fallback) | 있음 | `contracts`, `kernel`, `components`, `ui` |
 | `@ap/mock-server` | (개발용) | `mock/world`, `mock/server`, `mock/jobs`와 이들만 보는 단위 테스트(`explicit-empty`, `time-domain`). `PlatformAdapter` mock 구현 | 없음 | `contracts` |
-| `@ap/menu-<group>` | Consumer | `home`, `equipment`, `analytics`, `metrics`. 각 패키지가 `manifests`(여러 메뉴 가능)와 화면·도메인 컴포넌트·`api.ts`를 가진다 | 있음 | `contracts`, `kernel`, `components`, `ui` (+ `api.ts`에 한해 `mock-server`) |
+| `@ap/menu-<group>` | Consumer | Registry의 7개 그룹마다 하나: `home`(overview), `equipment`, `master-data`, `analytics`, `metrics`, `notice-voc`, `admin`. 화면이 아직 없는 계획 메뉴(공정·레시피 마스터, Wafer Journey, 공지, VOC, 관리 3종)도 `component` 없는 manifest로 자기 그룹 패키지가 소유한다(셸이 미구현 화면으로 표시). 각 패키지가 `manifests`(여러 메뉴 가능)와 화면·도메인 컴포넌트·`api.ts`를 가진다 | 있음 | `contracts`, `kernel`, `components`, `ui` (+ `api.ts`에 한해 `mock-server`) |
 | `apps/platform-web` | 조립 지점 | `main.tsx`, IA 설정(`GROUPS`, 향후 공간), 메뉴 등록, 어댑터 주입, dev 도구(역할 전환·응답 시나리오) | 있음 | 전부 |
 | `tooling/*` | 개발 환경 | 공유 tsconfig, lint 설정(경계·계약 규칙), 메뉴 생성기 | — | — |
 
@@ -78,10 +78,10 @@ D1–D8은 화면·런타임 코드, D9는 같은 폴더 안이라 폴더 구조
 
 ## 4. Kernel 포트: `PlatformAdapter` (D2·D5 해소)
 
-Kernel이 인터페이스를 정의하고 앱이 구현을 주입한다. 필드명은 Candidate이고, 현재 mock이 하는 일만 옮긴다.
+포트 타입과 입출력 DTO는 `@ap/contracts`에 둔다. `mock-server`(허용 의존: `contracts`뿐)가 이를 구현하고, Kernel은 소비만 한다. 포트가 Kernel에 있으면 구현체가 Kernel을 import해야 해 §3 규칙과 충돌한다. 포트는 순수 비동기 함수라 React 의존이 없다. 필드명은 Candidate이고, 현재 mock이 하는 일만 옮긴다.
 
 ```ts
-// @ap/kernel
+// @ap/contracts
 export type PlatformAdapter = {
   session(): Promise<User>;                                    // 현재 USERS[role]
   validateScope(scopeId: string, signal?: AbortSignal): Promise<ScopeCheck>;
@@ -92,6 +92,7 @@ export type PlatformAdapter = {
   }, signal?: AbortSignal): Promise<SelectionEvaluation>;
   publishedMetrics(): Promise<PublishedMetric[]>;              // metricId 단독 진입 보완
   defaultRangeTo(): string;                                    // 현재 DEFAULT_RANGE_TO
+  subscribe(onChange: () => void): () => void;                 // 세션·권한·서버 상태가 바뀌었음을 Kernel에 알림
 };
 
 // 현재 GlobalContextBar.tsx:290 부근이 클라이언트에서 계산하는 값을 그대로 옮긴다
@@ -103,6 +104,7 @@ type SelectionEvaluation = {
 ```
 
 - 역할 전환과 응답 시나리오 시뮬레이터(`setRole`, `setScenario`)는 **실서버에 없는 개발 기능**이다. `Platform` 컨텍스트에서 빼고 `apps/platform-web`의 dev 도구가 TopBar 슬롯에 붙인다. 운영 빌드에는 포함하지 않는다.
+- **무효화 계약 보존:** 현재 `usePlatformQuery`는 결과 identity에 `role`·`scenario`를 넣어, 전환 즉시 이전 결과를 숨기고 재조회한다. 분리 후에는 dev 도구가 mock 어댑터의 상태를 바꾸고 어댑터가 `subscribe` 리스너를 호출한다. Kernel은 알림을 받으면 ① `session()`을 다시 읽고 ② 현재 Scope를 재검증하고 ③ 세션 revision을 올린다. `usePlatformQuery`의 identity는 `[revision, user 식별자, 전역 Context, page 입력]`이 되어 지금과 같은 시점에 이전 결과를 숨긴다. 실서버에서는 재로그인·권한 변경 알림이 같은 경로를 탄다. 이행 3단계의 검증 항목: 역할·시나리오 전환 직후 이전 결과가 한 프레임도 보이지 않을 것.
 - `matchesCondition` 같은 조건 판정은 서버 책임이다. 셸은 조건·방·Selection이 바뀔 때 `evaluateSelection`을 다시 호출하고 결과(후보, 조건 결과 개수, 조건 밖 선택)만 표시한다. 이전 요청 결과를 새 결과로 보이지 않는 요청 수명주기는 `usePlatformQuery`와 같은 규칙을 따른다.
 
 ## 5. 메뉴 패키지 계약과 템플릿
@@ -129,7 +131,8 @@ const registry = createRegistry({ groups: GROUPS, menus: [...home.manifests, ...
 
 `createRegistry`가 검증할 것(현재 코드는 일부를 런타임에만 암묵적으로 가정):
 
-- 메뉴 `id`·`path` 중복 없음, `parent`가 존재하는 메뉴를 가리킴
+- 메뉴 `id` 중복 없음, `parent`가 존재하는 메뉴를 가리킴
+- **route 충돌 없음:** 파라미터 이름을 지운 정규형(`/metrics/:metricId` → `/metrics/:`)이 같은 두 패턴은 거부한다. 정적 세그먼트와 파라미터가 같은 위치에서 겹치는 경우(`/metrics/new` vs `/metrics/:metricId`)는 허용하되, `matchRoute`가 등록 순서가 아니라 **정적 세그먼트 우선**(앞 세그먼트부터 정적 > 파라미터)으로 고른다. 현재 `matchRoute`는 선언 순서 first-match라 메뉴 패키지로 나누면 등록 순서가 결과를 바꿀 수 있다
 - 그룹마다 `primary` 정확히 하나(08 §4 Candidate)
 - `pageKeys`가 전역 Context 키와 겹치지 않음(06 §6.1)
 
@@ -144,7 +147,7 @@ const registry = createRegistry({ groups: GROUPS, menus: [...home.manifests, ...
 | 경계 검사 | ESLint `no-restricted-imports` + 계약 규칙 | §3 규칙 1–4를 패키지별 설정으로 |
 | 계약 lint | URL 직접 조립 금지(`?`/`&` 문자열 조합 대신 `linkTo`/`buildQuery`), `window.location` 직접 쓰기 금지, 메뉴 코드에서 `localStorage` 금지 | 인터뷰 기록의 "URL 직접 조립 금지 lint" |
 | 테스트 | Vitest를 패키지별로. 기존 51개 테스트는 원래 파일과 같이 옮기되, 층을 넘는 테스트 파일은 D10대로 메뉴·앱 통합 테스트로 재배치 | 테스트 개수 합계가 줄지 않았는지 단계마다 확인 |
-| CI | `platform-app` Job을 `pnpm -r typecheck test build` + lint Job으로 교체 | Node 26.7.0 유지 |
+| CI | `platform-app` Job을 `pnpm typecheck`·`pnpm test`·`pnpm build`(각각 별도 단계, Turbo 태스크 그래프) + lint Job으로 교체 | Node 26.7.0 유지. `pnpm -r typecheck test build`처럼 한 줄로 쓰면 뒤 두 개가 첫 스크립트의 인자가 되어 실행되지 않는다 |
 
 **결정 필요 — lint 도구:** FeedbackOps는 Biome을 쓴다. 제안은 ESLint다. 경계 규칙과 URL 조립 금지 같은 커스텀 AST 규칙이 필요한데, Biome 플러그인(GritQL)은 아직 이런 규칙을 쓰기에 제한적이기 때문이다. 포맷팅만 Biome으로 맞추는 혼합안도 가능하다.
 
@@ -154,7 +157,7 @@ const registry = createRegistry({ groups: GROUPS, menus: [...home.manifests, ...
 /                        # 루트 package.json, pnpm-workspace.yaml (products/** 제외)
   apps/platform-web/
   packages/{contracts,ui,kernel,components,shell,mock-server}/
-  menus/{home,equipment,analytics,metrics}/
+  menus/{home,equipment,master-data,analytics,metrics,notice-voc,admin}/
   tooling/{tsconfig,eslint,gen-menu}/
   prototypes/            # 기존 단위 프로토타입은 그대로 둠
   products/feedbackops/  # 자체 workspace, 포함 안 함
