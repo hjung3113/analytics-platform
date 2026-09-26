@@ -7,12 +7,14 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { I18nProvider } from './kernel/i18n';
+import { DevTools } from './dev/DevTools';
 import { PlatformProvider } from './kernel/platform';
+import { mockAdapter } from './mock/adapter';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <I18nProvider>
-      <PlatformProvider>
+      <PlatformProvider adapter={mockAdapter} devTools={<DevTools />}>
         <App />
       </PlatformProvider>
     </I18nProvider>

@@ -1,6 +1,6 @@
 # Platform App — 통합 인터랙티브 프로토타입
 
-**합성 데이터 프로토타입.** 실제 파서 데이터·SSO·권한 서버·mart가 없다. `src/mock/`이 서버 역할(Scope/room 재검증, `outcome`+`assessments[]` 응답 envelope)을 흉내낸다.
+**합성 데이터 프로토타입.** 실제 파서 데이터·SSO·권한 서버·mart가 없다. `src/mock/`이 서버 역할(Scope/room 재검증, `outcome`+`assessments[]` 응답 envelope)을 흉내낸다. Kernel은 mock을 직접 import하지 않고 `@ap/contracts`의 `PlatformAdapter`를 통해서만 서버에 닿는다(`src/mock/adapter.ts`를 `main.tsx`가 주입).
 
 기존 4개 Kernel 유닛(`kernel-app-shell`, `kernel-chart-frame`, `kernel-platform-table`, `kernel-context-url-scope`)을 하나의 앱으로 통합해, 플랫폼 다섯 갈래가 실제 메뉴 화면(Consumer) 아래에서 함께 동작하는지 검증한다. 기존 유닛은 수정하지 않았다.
 
@@ -32,7 +32,7 @@ pnpm build
 
 1. 최상위는 반드시 `<PlatformPage>`. 슬롯: `title`, `description`, `primaryAction`, `secondaryActions`, `contextExtension`(page-owned 필터), `dataTrustSummary`, `crumbs`, `children`. 전역 Context Bar·Scope 게이트·Breadcrumb·즐겨찾기는 PlatformPage가 자동 렌더링한다 — 페이지가 날짜 선택기·Scope 선택기를 따로 만들지 않는다(§5 금지).
 2. 데이터 조회는 `usePlatformQuery(signal => serve({...}), pageInputs)` → `<QueryView query={q}>{data => ...}</QueryView>`. 로딩/갱신/empty/forbidden/too_large/timeout/error 분기는 QueryView가 한다. 위젯마다 따로 조회하면 부분 실패가 그 위젯에만 머문다(§19).
-   - `serve({ role, global, signal, compute: ({ equipment }) => ..., isEmpty, kinds, maxHours, metricVersion, mergeTimeDomain })` — `equipment`는 Scope→허가 room→room_name→Condition→Selection으로 이미 해석된 설비 목록이다. 페이지가 권한 판단을 하지 않는다. `mergeTimeDomain` defaults to true: 2대 이상과 `[from, to)`가 있으면 서버 assertion 없이 시간축을 합치지 않는다. 마스터 목록·카탈로그·공지·occurrence 단건은 `mergeTimeDomain: false`.
+   - `serve({ global, signal, compute: ({ equipment }) => ..., isEmpty, kinds, maxHours, metricVersion, mergeTimeDomain })` — `equipment`는 Scope→허가 room→room_name→Condition→Selection으로 이미 해석된 설비 목록이다. 페이지가 권한 판단을 하지 않는다. `mergeTimeDomain` defaults to true: 2대 이상과 `[from, to)`가 있으면 서버 assertion 없이 시간축을 합치지 않는다. 마스터 목록·카탈로그·공지·occurrence 단건은 `mergeTimeDomain: false`.
    - 0건을 수집 중단/지연으로 해석하지 않는다. `null` 값은 0이 아니라 “미확인”이다.
 3. 전역 Context 읽기: `const { global } = usePlatform()` (`from`,`to`,`roomNames`,`condition`,`selection`,`lotIds`,`ppid`,`recipeIds`,`metricId`,`metricVersion`, `scopeId`). 전역 변경은 사용자의 명시적 액션일 때만 `setGlobal(patch)`.
 4. Page-owned URL 상태: registry의 `pageKeys`에 등록된 키만 `pageParam(key)` / `setPage({key: value|null}, {replace?})`. 미등록 키를 쓰지 않는다. 탭·필터·정렬처럼 공유 링크로 재현돼야 하는 것만 URL에 둔다.
@@ -46,13 +46,13 @@ pnpm build
 ## 확인된 동작 (셸/Kernel)
 
 - 7그룹 아코디언 사이드바(270px) ↔ 64px 아이콘 레일(플라이아웃), `[` 단축키, 메뉴 필터, 즐겨찾기/최근 방문.
-- 권한 기반 메뉴 노출(역할 전환: 프로필 메뉴), 직접 URL은 서버 거부 화면.
+- 권한 기반 메뉴 노출(역할 전환: 탑바의 개발 도구 `src/dev/DevTools.tsx`, SSO 대역), 직접 URL은 서버 거부 화면.
 - Scope 단일 선택 + 서버 재검증(검증 중/검증됨/접근 불가), Scope 전환 시 Site 경계 Context 명시 초기화.
 - 기간 `1일/7일/사용자 지정`, 사용자 지정 날짜(양끝 포함)→`[D1T00:00:00,(D2+1)T00:00:00)`, 초 단위 입력.
 - room_name / Condition(StGroup·분임조·Maker+Model 중 하나) / Selection(부재·명시·명시적 빈 집합), 조건 밖 선택 경고(자동 제거 없음).
 - 미지원 Context는 URL에 보존되고 “이 화면에서 미사용”으로 표시.
 - URL 계약 오류(`v=2`, 한쪽 기간, 공집합 표식 충돌 등)는 보정 없이 오류 화면.
-- 응답 시나리오 시뮬레이터(플라스크 아이콘)로 §19 taxonomy 전 상태 재현 + 계약 검증 링크.
+- 응답 시나리오 시뮬레이터(플라스크 아이콘, 같은 개발 도구)로 §19 taxonomy 전 상태 재현 + 계약 검증 링크.
 
 ## Candidate / Open으로 남긴 것
 

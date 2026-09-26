@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { resolveMetric } from '../pages/analytics/cycleData';
 import { METRICS } from '../pages/metrics/data';
-import { classifyMetricInit, PUBLISHED_METRICS } from './world';
+import { classifyMetricInit as classify } from '../kernel/metric-init';
+import { PUBLISHED_METRICS } from './world';
+
+const classifyMetricInit = (initializesMetric: boolean, metricId: string | null, metricVersion: string | null) =>
+  classify(PUBLISHED_METRICS, initializesMetric, metricId, metricVersion);
 import { emptyGlobal } from '@ap/contracts';
 
 describe('published metric versions', () => {

@@ -19,10 +19,10 @@ export function EquipmentStatus({ equipment }: { equipment: Equipment }) {
 }
 
 export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 'validity' | 'audit' | 'analysis' }) {
-  const { role, global, scope, linkTo } = usePlatform();
+  const { global, scope, linkTo } = usePlatform();
   const { lang } = useI18n();
   const ko = lang === 'ko';
-  const query = usePlatformQuery(signal => equipmentRequest(role, global, id, signal), [id, kind], scope.status === 'valid');
+  const query = usePlatformQuery(signal => equipmentRequest(global, id, signal), [id, kind], scope.status === 'valid');
   return <QueryView query={query}>{(e, response) => e && <div className="space-y-4">
     <DataTrustIndicator trust={response.trust} assessments={response.assessments} />
     {kind === 'attributes' && <>
@@ -49,12 +49,12 @@ export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 
 export default function EquipmentDetail({ params }: PageProps) {
   const id = params.equipmentId;
   const { lang } = useI18n();
-  const { role, global, scope, pageParam, setPage, returnTarget } = usePlatform();
+  const { global, scope, pageParam, setPage, returnTarget } = usePlatform();
   const ko = lang === 'ko';
   const requestedTab = pageParam('tab') ?? 'attributes';
   const tabs = [{ id: 'attributes', label: ko ? '속성' : 'Attributes' }, { id: 'validity', label: ko ? '유효구간' : 'Validity' }, { id: 'audit', label: 'Audit' }, { id: 'analysis', label: ko ? '관련 분석' : 'Related analysis' }] as const;
   const validTab = tabs.some(t => t.id === requestedTab);
-  const header = usePlatformQuery(signal => equipmentRequest(role, global, id, signal), [id, 'header'], scope.status === 'valid');
+  const header = usePlatformQuery(signal => equipmentRequest(global, id, signal), [id, 'header'], scope.status === 'valid');
   return <PlatformPage title={<span className="t-mono">{id}</span>}
     description={ko ? '목적지 ID는 위의 전달된 분석 Selection과 별개입니다. Scope와 설비 접근 권한은 다시 검증합니다.' : 'The destination ID is separate from the inherited analysis Selection above. Scope and equipment access are revalidated.'}
     secondaryActions={<Button asChild variant="secondary" size="sm"><PlatformLink href={returnTarget()}>{ko ? '이전 화면으로' : 'Back to previous view'}</PlatformLink></Button>}>

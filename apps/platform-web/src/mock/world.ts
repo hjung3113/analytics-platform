@@ -2,7 +2,7 @@
  * Synthetic server world. Values are fabricated for the prototype; they are not parser data,
  * real Site names, grants or equipment. Master values (IDs, team names) are never translated.
  */
-import type { Permission } from '@ap/contracts';
+import type { Permission, PublishedMetric } from '@ap/contracts';
 
 export type Site = { id: string; label: string; rooms: string[] };
 export const SITES: Site[] = [
@@ -143,9 +143,6 @@ export const TIME_DOMAIN_ASSERTIONS: TimeDomainAssertion[] = EQUIPMENT.map(e => 
   validTo: TIME_DOMAIN_OPEN_END,
 }));
 
-/** Server-owned published pointer per metricId (§6.1). Bare version token, not `v4`. Null = known, unpublished. */
-export type PublishedMetric = { metricId: string; publishedVersion: string | null };
-
 export const PUBLISHED_METRICS: readonly PublishedMetric[] = [
   { metricId: 'cycle_time', publishedVersion: '4' },
   { metricId: 'occupancy_physical', publishedVersion: '3' },
@@ -162,17 +159,3 @@ export const PUBLISHED_METRICS: readonly PublishedMetric[] = [
   { metricId: 'energy_per_wafer', publishedVersion: '1' },
   { metricId: 'setup_time', publishedVersion: null },
 ];
-
-export type MetricInit =
-  | { phase: 'skip' }
-  | { phase: 'confirm'; metricVersion: string }
-  | { phase: 'blocked'; reason: 'unknown_metric' | 'unpublished' };
-
-/** Id-only on an initialization route. A finished pair, or a route that does not initialize, is `skip`. */
-export function classifyMetricInit(initializesMetric: boolean, metricId: string | null, metricVersion: string | null): MetricInit {
-  if (!initializesMetric || metricId === null || metricVersion !== null) return { phase: 'skip' };
-  const row = PUBLISHED_METRICS.find(m => m.metricId === metricId);
-  if (!row) return { phase: 'blocked', reason: 'unknown_metric' };
-  if (row.publishedVersion === null) return { phase: 'blocked', reason: 'unpublished' };
-  return { phase: 'confirm', metricVersion: row.publishedVersion };
-}

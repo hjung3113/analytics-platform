@@ -1,9 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { DEFAULT_RANGE_TO, USERS, classifyMetricInit, type MetricInit, type RoleId, type User } from '../mock/world';
-import { getScenario, setScenario, subscribeScenario, validateScope, type Scenario } from '../mock/server';
+import { classifyMetricInit, type MetricInit } from './metric-init';
 import { MENUS, matchRoute, menuById, pathFor, type MenuEntry, safeReturnTo } from './registry';
 import { useI18n } from './i18n';
-import { buildQuery, ContractError, emptyGlobal, type GlobalContext, incompleteMetricPair, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, shift } from '@ap/contracts';
+import { buildQuery, ContractError, emptyGlobal, type GlobalContext, incompleteMetricPair, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, type Session, type SessionUser, shift } from '@ap/contracts';
 
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope'; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
@@ -26,9 +25,10 @@ type Platform = {
   resetContext: () => void;
   linkTo: (menuId: string, options?: LinkOptions) => string;
   returnTarget: () => string;
-  user: User;
-  role: RoleId;
-  setRole: (role: RoleId) => void;
+  session: Session;
+  user: SessionUser;
+  /** Bumps whenever the adapter announces a change; part of every query identity. */
+  revision: number;
   can: (permission: Permission) => boolean;
   visibleMenus: MenuEntry[];
   scope: ScopeState;
@@ -40,9 +40,9 @@ type Platform = {
   toasts: Toast[];
   toast: (text: string, tone?: Toast['tone']) => void;
   dismissToast: (id: number) => void;
-  scenario: Scenario;
-  setScenario: (s: Scenario) => void;
   defaultRangeTo: string;
+  /** App-provided tools rendered by the shell (today: the mock server's dev controls). */
+  devTools: ReactNode;
   paletteOpen: boolean;
   setPaletteOpen: (open: boolean) => void;
 };
@@ -58,13 +58,32 @@ function write(key: string, value: unknown) {
 
 function currentUrl() { return window.location.pathname + window.location.search; }
 
-export function PlatformProvider({ children }: { children: ReactNode }) {
+function counterStore(adapter: PlatformAdapter) {
+  let n = 0;
+  return { subscribe: (listener: () => void) => adapter.subscribe(() => { n++; listener(); }), get: () => n };
+}
+
+export function PlatformProvider({ adapter, devTools = null, children }: { adapter: PlatformAdapter; devTools?: ReactNode; children: ReactNode }) {
+  // Bound here so class-based adapters keep their receiver when React calls these.
+  const sessionStore = useMemo(() => ({ subscribe: (l: () => void) => adapter.subscribe(l), get: () => adapter.session() }), [adapter]);
+  const session = useSyncExternalStore(sessionStore.subscribe, sessionStore.get);
+  const revisions = useMemo(() => counterStore(adapter), [adapter]);
+  const revision = useSyncExternalStore(revisions.subscribe, revisions.get);
+  const user = session.user;
+  const userId = user.id;
   const [url, setUrl] = useState(currentUrl);
-  const [role, setRoleState] = useState<RoleId>(() => read<RoleId>('platform:role', 'engineer'));
-  const [favorites, setFavorites] = useState<string[]>(() => read(`platform:favorites:${role}`, [] as string[]));
-  const [recent, setRecent] = useState<Recent[]>(() => read(`platform:recent:${role}`, [] as Recent[]));
+  const [favorites, setFavorites] = useState<string[]>(() => read(`platform:favorites:${userId}`, [] as string[]));
+  const [recent, setRecent] = useState<Recent[]>(() => read(`platform:recent:${userId}`, [] as Recent[]));
   const [usage, setUsage] = useState<Record<string, number>>(() => read('platform:usage', {} as Record<string, number>));
-  const [lastScope, setLastScope] = useState<string | null>(() => read<string | null>(`platform:lastScope:${role}`, null));
+  const [lastScope, setLastScope] = useState<string | null>(() => read<string | null>(`platform:lastScope:${userId}`, null));
+  // Per-user state is swapped in the same render the session changes, so no frame shows another user's lists.
+  const [loadedFor, setLoadedFor] = useState(userId);
+  if (loadedFor !== userId) {
+    setLoadedFor(userId);
+    setFavorites(read(`platform:favorites:${userId}`, []));
+    setRecent(read(`platform:recent:${userId}`, []));
+    setLastScope(read(`platform:lastScope:${userId}`, null));
+  }
   const [scope, setScope] = useState<ScopeState>(() => {
     try {
       const id = new URLSearchParams(window.location.search).get('scopeId');
@@ -74,7 +93,6 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   });
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const scenario = useSyncExternalStore(subscribeScenario, getScenario);
   const toastId = useRef(1);
   const { lang } = useI18n();
 
@@ -96,7 +114,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const global = parsed?.global ?? emptyGlobal;
   const pairError = contractError ? null : incompleteMetricPair(route?.menu ?? null, global.metricId, global.metricVersion);
   const routeContractError = contractError ?? pairError;
-  const metricInit = classifyMetricInit(route?.menu.initializesMetric === true, global.metricId, global.metricVersion);
+  const metricInit = classifyMetricInit(adapter.publishedMetrics(), route?.menu.initializesMetric === true, global.metricId, global.metricVersion);
   const page = parsed?.page ?? [];
   const extras = parsed?.extras ?? [];
 
@@ -149,46 +167,37 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     return pathFor(target, options.params) + buildQuery(g, pagePairs);
   }, [global, url]);
 
-  const user = USERS[role];
   const can = useCallback((p: Permission) => user.permissions.includes(p), [user]);
   const visibleMenus = useMemo(() => MENUS.filter(m => can(m.permission)), [can]);
-
-  const setRole = useCallback((next: RoleId) => {
-    setRoleState(next);
-    write('platform:role', next);
-    setFavorites(read(`platform:favorites:${next}`, []));
-    setRecent(read(`platform:recent:${next}`, []));
-    setLastScope(read(`platform:lastScope:${next}`, null));
-    toast(lang === 'ko' ? `역할 전환: ${USERS[next].title.ko} — 권한·Scope를 다시 검증합니다.` : `Role switched: ${USERS[next].title.en} — permissions and scope re-validated.`, 'info');
-  }, [toast, lang]);
 
   const toggleFavorite = useCallback((menuId: string) => {
     setFavorites(list => {
       const next = list.includes(menuId) ? list.filter(id => id !== menuId) : [...list, menuId];
-      write(`platform:favorites:${role}`, next);
+      write(`platform:favorites:${userId}`, next);
       return next;
     });
-  }, [role]);
+  }, [userId]);
 
-  // Scope is re-validated on every change of requested scope or identity (§6.2); URL is never proof.
+  // Scope is re-validated on every change of requested scope or session (§6.2); URL is never proof.
   useEffect(() => {
     const scopeId = global.scopeId;
     if (!scopeId) { setScope({ scopeId: null, status: 'none', grantedRooms: [] }); return; }
     const controller = new AbortController();
     setScope({ scopeId, status: 'validating', grantedRooms: [] });
-    validateScope(role, scopeId, controller.signal).then(result => {
+    adapter.validateScope(scopeId, controller.signal).then(result => {
       setScope({ scopeId, status: result.status, grantedRooms: result.grantedRooms });
-      if (result.status === 'valid') { setLastScope(scopeId); write(`platform:lastScope:${role}`, scopeId); }
+      if (result.status === 'valid') { setLastScope(scopeId); write(`platform:lastScope:${userId}`, scopeId); }
     }).catch(() => { /* superseded */ });
     return () => controller.abort();
-  }, [global.scopeId, role]);
+  }, [global.scopeId, session, userId, adapter]);
 
   // Materialize the default period once for time-applying menus (§6.3/§6.4): absolute from/to written into the URL.
   // The initial Δ (24h here) is an Open decision; this prototype uses the 1-day preset as a Candidate.
+  const defaultRangeTo = adapter.defaultRangeTo();
   useEffect(() => {
     if (!route || routeContractError || route.menu.context.time !== 'apply' || global.from !== null) return;
-    navigate(pathname + buildQuery({ ...global, from: shift(DEFAULT_RANGE_TO, -24), to: DEFAULT_RANGE_TO }, page, extras), { replace: true });
-  }, [route, routeContractError, global, page, extras, pathname, navigate]);
+    navigate(pathname + buildQuery({ ...global, from: shift(defaultRangeTo, -24), to: defaultRangeTo }, page, extras), { replace: true });
+  }, [route, routeContractError, global, page, extras, pathname, navigate, defaultRangeTo]);
 
   useEffect(() => {
     if (!route || routeContractError || metricInit.phase !== 'confirm') return;
@@ -201,10 +210,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     const menuId = route.menu.id;
     setRecent(list => {
       const next = [{ menuId, url, at: Date.now() }, ...list.filter(r => r.menuId !== menuId)].slice(0, 12);
-      write(`platform:recent:${role}`, next);
+      write(`platform:recent:${userId}`, next);
       return next;
     });
-  }, [url, route, routeContractError, role, can]);
+  }, [url, route, routeContractError, userId, can]);
   const lastCounted = useRef<string | null>(null);
   useEffect(() => {
     if (!route || lastCounted.current === route.menu.id + pathname) return;
@@ -221,8 +230,8 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
 
   const value: Platform = {
     url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, returnTarget,
-    user, role, setRole, can, visibleMenus, scope, lastScope, favorites, toggleFavorite, recent, usage,
-    toasts, toast, dismissToast, scenario, setScenario, defaultRangeTo: DEFAULT_RANGE_TO, paletteOpen, setPaletteOpen,
+    session, user, revision, can, visibleMenus, scope, lastScope, favorites, toggleFavorite, recent, usage,
+    toasts, toast, dismissToast, defaultRangeTo, devTools, paletteOpen, setPaletteOpen,
   };
   return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>;
 }

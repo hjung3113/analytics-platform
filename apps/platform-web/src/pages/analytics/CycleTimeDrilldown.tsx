@@ -7,7 +7,7 @@ import { useI18n } from '../../kernel/i18n';
 import { PlatformLink, usePlatform } from '../../kernel/platform';
 import { usePlatformQuery } from '../../kernel/query';
 import { CYCLE_VERSION_NOTE } from '../../mock/jobs';
-import { periodHours, resolveEquipment, serve } from '../../mock/server';
+import { getScenario, periodHours, resolveEquipment, serve } from '../../mock/server';
 import { AnalysisChartFrame } from '../../platform/AnalysisChartFrame';
 import { DataTrustIndicator } from '../../platform/DataTrustIndicator';
 import { PlatformDataTable, sortAndPage, type ColumnMeta } from '../../platform/PlatformDataTable';
@@ -31,7 +31,7 @@ const control = 'h-8 rounded-md border border-border-strong bg-surface-card px-2
 
 export default function CycleTimeDrilldown(_: PageProps) {
   const { lang } = useI18n();
-  const { global, role, scenario, pageParam, setPage, setGlobal, linkTo, toast } = usePlatform();
+  const { global, pageParam, setPage, setGlobal, linkTo, toast } = usePlatform();
   const granularityRaw = pageParam('granularity');
   const percentileRaw = pageParam('percentile');
   const sortRaw = pageParam('sort');
@@ -65,13 +65,13 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const inputs = [cycleVersion, metric.kind];
 
   const kpi = usePlatformQuery(signal => serve<Kpi>({
-    role, global, signal, maxHours: MAX_HOURS, metricVersion: cycleVersion ?? undefined,
+    global, signal, maxHours: MAX_HOURS, metricVersion: cycleVersion ?? undefined,
     isEmpty: data => data.count === 0,
     compute: ({ equipment }) => summarize(equipment, global, cycleVersion),
   }), ['kpi', ...inputs], enabled);
 
   const trend = usePlatformQuery(signal => serve<TrendData>({
-    role, global, signal, maxHours: MAX_HOURS, metricVersion: cycleVersion ?? undefined,
+    global, signal, maxHours: MAX_HOURS, metricVersion: cycleVersion ?? undefined,
     isEmpty: data => data.count === 0,
     compute: ({ equipment }) => {
       const rows = populationForVersion(equipment, global, cycleVersion);
@@ -88,7 +88,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
   }), ['trend', granularity, ...inputs], enabled);
 
   const dist = usePlatformQuery(signal => serve<DistData>({
-    role, global, signal, maxHours: MAX_HOURS, metricVersion: cycleVersion ?? undefined,
+    global, signal, maxHours: MAX_HOURS, metricVersion: cycleVersion ?? undefined,
     isEmpty: data => data.count === 0,
     compute: ({ equipment }) => {
       const rows = populationForVersion(equipment, global, cycleVersion);
@@ -126,11 +126,13 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const granularityPending = granularityRaw === null && hours === null;
 
   function exportRows(scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered'; total: number }) {
+    // Export is computed client-side in this prototype, so it asks the mock server for its current scenario.
+    const scenario = getScenario();
     if (cycleVersion === null || scenario === 'error' || scenario === 'forbidden' || scenario === 'timeout' || scenario === 'too_large') {
       toast(ko ? '이 응답 상태에서는 목록을 내보내지 않습니다.' : 'Export is not available for this response state.');
       return;
     }
-    const resolved = resolveEquipment(role, global);
+    const resolved = resolveEquipment(global);
     if (resolved.forbidden || !global.from || !global.to) {
       toast(ko ? '서버가 이 조건의 내보내기를 거부했습니다.' : 'The server rejected export for this context.');
       return;
@@ -311,7 +313,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
               }
               const sorting = [{ id: sortSpec.id, desc: sortSpec.desc }];
               return serve({
-                role, global, signal, maxHours: MAX_HOURS, metricVersion: cycleVersion ?? undefined,
+                global, signal, maxHours: MAX_HOURS, metricVersion: cycleVersion ?? undefined,
                 isEmpty: data => data.total === 0,
                 compute: ({ equipment }) => {
                   const rows = populationForVersion(equipment, global, cycleVersion);

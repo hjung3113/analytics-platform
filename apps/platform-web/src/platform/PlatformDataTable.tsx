@@ -56,7 +56,7 @@ export type PlatformDataTableProps<T> = {
 /** §15: platform owns interaction, loading/error, column preference, selection model, toolbar layout; domain owns columns/cells/actions/filters. */
 export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const { t, lang } = useI18n();
-  const { global, role, scenario, route } = usePlatform();
+  const { global, user, revision, route } = usePlatform();
   // Registry declares export capability (§5); the table never offers Export on a menu that did not declare it.
   const canExport = !!p.onExport && !!route?.menu.features.export;
   const pageSize = p.pageSize ?? 100;
@@ -68,8 +68,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const [result, setResult] = useState<{ identity: string; response: ApiResponse<PageResult<T>> } | null>(null);
   const viewport = useRef<HTMLDivElement>(null);
 
-  // Context identity: global Context + role + page filters. Selection never survives a Context change (DESIGN Tables).
-  const contextIdentity = JSON.stringify([serializeGlobal(global), role, p.filterKey, scenario]);
+  // Context identity: global Context + user + page filters + adapter revision. Selection never survives a Context change (DESIGN Tables).
+  const contextIdentity = JSON.stringify([serializeGlobal(global), user.id, p.filterKey, revision]);
   const lastContext = useRef(contextIdentity);
   const effectivePage = lastContext.current === contextIdentity ? page : 0;
   useEffect(() => {

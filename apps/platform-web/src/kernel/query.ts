@@ -10,12 +10,13 @@ export type QueryState<T> = {
 };
 
 /**
- * Platform request lifecycle (§11/§19). The identity of a result is (role, global Context, page inputs):
- * when it changes the previous result is hidden immediately and late responses are discarded.
+ * Platform request lifecycle (§11/§19). The identity of a result is (adapter revision, user, global Context, page inputs):
+ * when it changes the previous result is hidden immediately and late responses are discarded. The revision covers
+ * server-side changes the URL cannot show (session switch, dev response scenario).
  */
 export function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<ApiResponse<T>>, pageInputs: unknown = null, enabled = true): QueryState<T> {
-  const { global, role, scenario } = usePlatform();
-  const identity = JSON.stringify([role, serializeGlobal(global), pageInputs, scenario]);
+  const { global, user, revision } = usePlatform();
+  const identity = JSON.stringify([revision, user.id, serializeGlobal(global), pageInputs]);
   const [result, setResult] = useState<{ identity: string; response: ApiResponse<T> } | null>(null);
   const [tick, setTick] = useState(0);
   const [inFlight, setInFlight] = useState<{ identity: string; tick: number } | null>(null);

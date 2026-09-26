@@ -19,13 +19,13 @@ const readDismissed = (): string[] => { try { return JSON.parse(sessionStorage.g
 
 /** 08 운영 개요(랜딩): consumes kernel menu visibility, favorites and recent; applies no analysis Context. */
 export default function OperationsHome() {
-  const { visibleMenus, favorites, toggleFavorite, recent, linkTo, global, role } = usePlatform();
+  const { visibleMenus, favorites, toggleFavorite, recent, linkTo, global } = usePlatform();
   const { t, tx, lang } = useI18n();
   const [dismissed, setDismissed] = useState<string[]>(readDismissed);
 
   // Notice targeting is by the current requested scopeId (08 §6, Decided).
   const notices = usePlatformQuery(signal => serve({
-    role, global, signal, requiresScope: false, mergeTimeDomain: false, latency: 250, kinds: [],
+    global, signal, requiresScope: false, mergeTimeDomain: false, latency: 250, kinds: [],
     compute: () => NOTICES.filter(n => n.scopeId === global.scopeId),
     isEmpty: rows => rows.length === 0,
   }), 'notices');

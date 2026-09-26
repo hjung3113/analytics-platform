@@ -2,15 +2,31 @@
  * Mock request validation + response envelope (docs/06 §19): exclusive `outcome` plus declared `assessments[]`.
  * Every page query goes through `serve()` so Scope/room grants are re-validated per request (§6.2).
  */
-import { parseDateTime, type ApiResponse, type Assessment, type AssessmentKind, type Condition, type GlobalContext, type Trust } from '@ap/contracts';
+import { parseDateTime, type ApiResponse, type Assessment, type AssessmentKind, type Condition, type GlobalContext, type ScopeCheck, type Trust } from '@ap/contracts';
 import { EQUIPMENT, SITES, TIME_DOMAIN_ASSERTIONS, USERS, type Equipment, type RoleId, type TimeDomainAssertion } from './world';
 
+/**
+ * Server-side state the dev tools can flip: the signed-in role (a stand-in for SSO) and the response scenario.
+ * Listeners hear both; the platform adapter forwards them to the kernel (mock/adapter.ts).
+ */
 export type Scenario = 'normal' | 'slow' | 'empty' | 'error' | 'forbidden' | 'too_large' | 'timeout' | 'partial' | 'unknown_status';
+const ROLE_KEY = 'platform:role';
+function storedRole(): RoleId {
+  try { const raw = localStorage.getItem(ROLE_KEY); const role = raw ? JSON.parse(raw) : null; return role in USERS ? role : 'engineer'; } catch { return 'engineer'; }
+}
+let role: RoleId = storedRole();
 let scenario: Scenario = 'normal';
 const listeners = new Set<() => void>();
+const notify = () => listeners.forEach(l => l());
+export const getRole = () => role;
+export function setRole(next: RoleId) {
+  role = next;
+  try { localStorage.setItem(ROLE_KEY, JSON.stringify(next)); } catch { /* memory-only */ }
+  notify();
+}
 export const getScenario = () => scenario;
-export function setScenario(next: Scenario) { scenario = next; listeners.forEach(l => l()); }
-export function subscribeScenario(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; }
+export function setScenario(next: Scenario) { scenario = next; notify(); }
+export function subscribeServer(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; }
 
 let correlation = 4100;
 let partialCounter = 0;
@@ -20,7 +36,6 @@ const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((resolve, 
   signal?.addEventListener('abort', () => { clearTimeout(id); reject(new DOMException('aborted', 'AbortError')); });
 });
 
-export type ScopeCheck = { status: 'valid' | 'forbidden' | 'unknown_scope'; grantedRooms: string[] };
 export function checkScope(role: RoleId, scopeId: string | null): ScopeCheck {
   if (!scopeId) return { status: 'unknown_scope', grantedRooms: [] };
   if (!SITES.some(s => s.id === scopeId)) return { status: 'unknown_scope', grantedRooms: [] };
@@ -41,7 +56,7 @@ export function matchesCondition(e: Equipment, c: Condition | null): boolean {
 }
 
 /** Equipment the request may analyse: Scope → granted rooms → room filter → Condition → Selection. */
-export function resolveEquipment(role: RoleId, g: GlobalContext): { rows: Equipment[]; forbidden: string | null } {
+export function resolveEquipment(g: GlobalContext, role: RoleId = getRole()): { rows: Equipment[]; forbidden: string | null } {
   const scope = checkScope(role, g.scopeId);
   if (scope.status !== 'valid') return { rows: [], forbidden: scope.status === 'forbidden' ? `No grant for scope ${g.scopeId}` : `Unknown scope ${g.scopeId}` };
   if (g.roomNames?.length) {
@@ -65,7 +80,8 @@ export function periodHours(g: GlobalContext): number | null {
 }
 
 export type ServeOptions<T> = {
-  role: RoleId;
+  /** Tests pin a role; pages omit it and the server uses the signed-in session, as a real server would. */
+  role?: RoleId;
   global: GlobalContext;
   /** Kinds this query contract declares (§19); every one is answered exactly once. */
   kinds?: AssessmentKind[];
@@ -137,7 +153,10 @@ export function evaluateTimeDomainMerge(
 const OBSERVED = '2026-09-26T08:58:00';
 
 export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
+  // Pin the request's identity at send time, like a session cookie on the request: a role switch while it is
+  // in flight must not re-evaluate it with the new user's grants.
   const s = scenario;
+  const requestRole = o.role ?? role;
   const correlationId = nextCorrelation();
   await sleep((o.latency ?? 450) + (s === 'slow' ? 2200 : 0) + Math.random() * 200, o.signal);
   const base = { correlationId, data: null, trust: null, assessments: [] as Assessment[] };
@@ -146,7 +165,7 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
   // Every other widget query fails so pages can show a local failure next to healthy widgets (§19 Partial widget failure).
   if (s === 'partial' && partialCounter++ % 2 === 1) return { ...base, outcome: 'error', message: 'Widget query failed (partial scenario)' };
   const requiresScope = o.requiresScope ?? true;
-  const resolved = requiresScope ? resolveEquipment(o.role, o.global) : { rows: EQUIPMENT, forbidden: null };
+  const resolved = requiresScope ? resolveEquipment(o.global, requestRole) : { rows: EQUIPMENT, forbidden: null };
   if (s === 'forbidden' || resolved.forbidden) return { ...base, outcome: 'forbidden', message: resolved.forbidden ?? 'Permission revoked (scenario)' };
   const hours = periodHours(o.global);
   if (s === 'too_large' || (o.maxHours && hours !== null && hours > o.maxHours && (o.global.selection === null || o.global.selection.length > 40))) {
