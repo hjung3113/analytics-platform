@@ -64,7 +64,9 @@ function counterStore(adapter: PlatformAdapter) {
 }
 
 export function PlatformProvider({ adapter, devTools = null, children }: { adapter: PlatformAdapter; devTools?: ReactNode; children: ReactNode }) {
-  const session = useSyncExternalStore(adapter.subscribe, adapter.session);
+  // Bound here so class-based adapters keep their receiver when React calls these.
+  const sessionStore = useMemo(() => ({ subscribe: (l: () => void) => adapter.subscribe(l), get: () => adapter.session() }), [adapter]);
+  const session = useSyncExternalStore(sessionStore.subscribe, sessionStore.get);
   const revisions = useMemo(() => counterStore(adapter), [adapter]);
   const revision = useSyncExternalStore(revisions.subscribe, revisions.get);
   const user = session.user;

@@ -82,3 +82,19 @@ describe('per-user kernel state', () => {
     expect(screen.getByTestId('favs').textContent).toBe('m-b');
   });
 });
+
+describe('adapter shape', () => {
+  it('works with a class-based adapter whose methods use `this`', async () => {
+    class ServerAdapter implements PlatformAdapter {
+      private listeners = new Set<() => void>();
+      private current: Session = { user: { id: 'cls', name: 'cls', title: { ko: 'c', en: 'c' }, permissions: ['platform:view'] }, scopes: [] };
+      session() { return this.current; }
+      async validateScope() { return { status: 'valid' as const, grantedRooms: [] }; }
+      publishedMetrics() { return []; }
+      defaultRangeTo() { return '2026-09-26T09:00:00'; }
+      subscribe(listener: () => void) { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
+    }
+    mount(new ServerAdapter());
+    expect(await screen.findByText('done:cls#1')).toBeTruthy();
+  });
+});
