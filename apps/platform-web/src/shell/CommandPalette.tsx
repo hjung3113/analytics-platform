@@ -1,14 +1,12 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { CornerDownLeft, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { useI18n } from '../kernel/i18n';
-import { usePlatform } from '../kernel/platform';
-import { GROUPS, PAGE_TYPE_LABELS } from '../kernel/registry';
+import { PAGE_TYPE_LABELS, useI18n, usePlatform } from '@ap/kernel';
 import { cn } from '@ap/ui';
 
 /** §10: menu navigation is the palette's base responsibility; entity search/action commands are Deferred. */
 export function CommandPalette() {
-  const { paletteOpen, setPaletteOpen, visibleMenus, recent, navigate, linkTo } = usePlatform();
+  const { paletteOpen, setPaletteOpen, visibleMenus, recent, navigate, linkTo, registry } = usePlatform();
   const { t, tx, lang } = useI18n();
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
@@ -26,7 +24,7 @@ export function CommandPalette() {
     const rank = (id: string) => { const i = recent.findIndex(r => r.menuId === id); return i < 0 ? 99 : i; };
     const needle = q.trim().toLowerCase();
     return visibleMenus.filter(m => !m.navHidden)
-      .filter(m => !needle || [m.label.ko, m.label.en, GROUPS.find(g => g.id === m.group)!.label.ko, GROUPS.find(g => g.id === m.group)!.label.en].some(s => s.toLowerCase().includes(needle)))
+      .filter(m => !needle || [m.label.ko, m.label.en, registry.groupById(m.group).label.ko, registry.groupById(m.group).label.en].some(s => s.toLowerCase().includes(needle)))
       .sort((a, b) => rank(a.id) - rank(b.id));
   }, [visibleMenus, recent, q]);
 
@@ -57,7 +55,7 @@ export function CommandPalette() {
           {items.length === 0 && <li className="px-3 py-6 text-center text-[13px] text-text-muted">{t('paletteEmpty')}</li>}
           {items.map((m, i) => {
             const Icon = m.icon;
-            const group = GROUPS.find(g => g.id === m.group)!;
+            const group = registry.groupById(m.group);
             return <li key={m.id} id={`palette-${m.id}`} role="option" aria-selected={i === active} onMouseEnter={() => setActive(i)} onClick={() => go(i)}
               className={cn('flex cursor-pointer items-center gap-3 rounded-md px-3 py-2', i === active && 'bg-accent-primary-soft')}>
               <Icon className="size-4 text-text-muted" aria-hidden />

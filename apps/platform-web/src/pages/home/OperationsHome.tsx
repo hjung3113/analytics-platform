@@ -1,9 +1,6 @@
 import { ArrowRight, Clock3, Lock, Megaphone, Star, X } from 'lucide-react';
 import { useState } from 'react';
-import { useI18n } from '../../kernel/i18n';
-import { PlatformLink, usePlatform } from '../../kernel/platform';
-import { usePlatformQuery } from '../../kernel/query';
-import { GROUPS, MENUS, PAGE_TYPE_LABELS } from '../../kernel/registry';
+import { PAGE_TYPE_LABELS, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { serve } from '../../mock/server';
 import { Panel, PlatformPage } from '../../platform/PlatformPage';
 import { QueryView } from '../../platform/StateView';
@@ -19,7 +16,7 @@ const readDismissed = (): string[] => { try { return JSON.parse(sessionStorage.g
 
 /** 08 운영 개요(랜딩): consumes kernel menu visibility, favorites and recent; applies no analysis Context. */
 export default function OperationsHome() {
-  const { visibleMenus, favorites, toggleFavorite, recent, linkTo, global } = usePlatform();
+  const { visibleMenus, favorites, toggleFavorite, recent, linkTo, global, registry } = usePlatform();
   const { t, tx, lang } = useI18n();
   const [dismissed, setDismissed] = useState<string[]>(readDismissed);
 
@@ -30,7 +27,7 @@ export default function OperationsHome() {
     isEmpty: rows => rows.length === 0,
   }), 'notices');
 
-  const favoriteMenus = favorites.map(id => MENUS.find(m => m.id === id)).filter(m => m && visibleMenus.includes(m));
+  const favoriteMenus = favorites.map(id => registry.menus.find(m => m.id === id)).filter(m => m && visibleMenus.includes(m));
   const recentRows = recent.filter(r => visibleMenus.some(m => m.id === r.menuId));
   const ago = (at: number) => {
     const mins = Math.max(0, Math.round((Date.now() - at) / 60000));
@@ -52,10 +49,10 @@ export default function OperationsHome() {
       <section aria-labelledby="home-groups">
         <h2 id="home-groups" className="t-section-title mb-2">{lang === 'ko' ? '내 메뉴 바로가기' : 'My menus'}</h2>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 wide:grid-cols-6">
-          {GROUPS.filter(g => g.id !== 'overview').map(g => {
+          {registry.groups.filter(g => g.id !== 'overview').map(g => {
             const inGroup = visibleMenus.filter(m => m.group === g.id && !m.navHidden);
             if (!inGroup.length) return null;
-            const primary = MENUS.find(m => m.group === g.id && m.primary)!;
+            const primary = registry.menus.find(m => m.group === g.id && m.primary)!;
             const allowed = visibleMenus.includes(primary);
             const Icon = g.icon;
             const body = <>
@@ -83,7 +80,7 @@ export default function OperationsHome() {
         </Panel>
         <Panel title={<span className="inline-flex items-center gap-2"><Clock3 className="size-4 text-text-muted" aria-hidden />{t('recent')}</span>} subtitle={lang === 'ko' ? '방문 당시 URL(Context 포함)로 돌아갑니다. 진입 시 권한·Scope를 다시 검증합니다.' : 'Returns to the visited URL (with context); access is re-validated on entry.'}>
           {recentRows.length === 0 ? <p className="rounded-md bg-surface-sunken p-3 text-[12px] text-text-secondary">{t('noRecent')}</p> :
-            <ul className="divide-y divide-border-subtle">{recentRows.map(r => { const m = MENUS.find(x => x.id === r.menuId)!; return <li key={r.menuId} className="flex items-center gap-3 py-2">
+            <ul className="divide-y divide-border-subtle">{recentRows.map(r => { const m = registry.menuById(r.menuId); return <li key={r.menuId} className="flex items-center gap-3 py-2">
               <m.icon className="size-4 text-text-muted" aria-hidden />
               <PlatformLink href={r.url} className="min-w-0 flex-1 text-[13px] font-medium hover:text-accent-primary hover:underline">{tx(m.label)}<span className="t-mono ml-2 hidden truncate text-[11px] font-normal text-text-muted wide:inline">{decodeURIComponent(r.url).slice(0, 72)}</span></PlatformLink>
               <StatusBadge tone="neutral">{ago(r.at)}</StatusBadge>

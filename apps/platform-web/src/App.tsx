@@ -1,7 +1,5 @@
 import { Ban, FileQuestion, Link2Off } from 'lucide-react';
-import { useI18n } from './kernel/i18n';
-import { PlatformLink, usePlatform } from './kernel/platform';
-import { CONTEXT_LABELS, GROUPS, PAGE_TYPE_LABELS } from './kernel/registry';
+import { CONTEXT_LABELS, PAGE_TYPE_LABELS, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { Panel, PlatformPage } from './platform/PlatformPage';
 import { StateMessage } from './platform/StateView';
 import { Button, StatusBadge } from '@ap/ui';
@@ -55,7 +53,7 @@ function ContractErrorView() {
 
 /** Registry-only menu: proves shell, permissions and Context transfer work before the screen exists. */
 function PlannedPage() {
-  const { route } = usePlatform();
+  const { route, registry } = usePlatform();
   const { t, tx, lang } = useI18n();
   const menu = route!.menu;
   const keys = Object.keys(menu.context) as ContextKey[];
@@ -65,7 +63,7 @@ function PlannedPage() {
       <Panel title={t('plannedTitle')} subtitle={t('plannedBody')}>
         <dl className="grid grid-cols-[10rem_1fr] gap-y-1.5 text-[13px]">
           <dt className="text-text-muted">id</dt><dd className="t-mono">{menu.id}</dd>
-          <dt className="text-text-muted">{lang === 'ko' ? '그룹' : 'Group'}</dt><dd>{tx(GROUPS.find(g => g.id === menu.group)!.label)}</dd>
+          <dt className="text-text-muted">{lang === 'ko' ? '그룹' : 'Group'}</dt><dd>{tx(registry.groupById(menu.group).label)}</dd>
           <dt className="text-text-muted">{t('pageType')}</dt><dd>{tx(PAGE_TYPE_LABELS[menu.pageType])}</dd>
           <dt className="text-text-muted">path</dt><dd className="t-mono">{menu.path}</dd>
           <dt className="text-text-muted">permission</dt><dd className="t-mono">{menu.permission}</dd>

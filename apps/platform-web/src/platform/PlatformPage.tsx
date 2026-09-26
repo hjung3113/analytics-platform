@@ -1,8 +1,6 @@
 import { ChevronRight, Loader2, MapPinOff, Star } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useI18n } from '../kernel/i18n';
-import { PlatformLink, usePlatform } from '../kernel/platform';
-import { GROUPS, menuById, type MenuEntry } from '../kernel/registry';
+import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { Button, cn } from '@ap/ui';
 import { GlobalContextBar } from '../shell/GlobalContextBar';
 import { StateMessage } from './StateView';
@@ -23,13 +21,13 @@ export type PlatformPageProps = {
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
 export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, dataTrustSummary, crumbs = [], children }: PlatformPageProps) {
-  const { route, favorites, toggleFavorite, scope, setGlobal, lastScope, linkTo } = usePlatform();
+  const { route, favorites, toggleFavorite, scope, setGlobal, lastScope, linkTo, registry } = usePlatform();
   const { t, tx } = useI18n();
   const menu = route!.menu;
-  const group = GROUPS.find(g => g.id === menu.group)!;
+  const group = registry.groupById(menu.group);
   const favoriteTarget = menu.navHidden ? null : menu;
   const isFavorite = favoriteTarget ? favorites.includes(favoriteTarget.id) : false;
-  const parent: MenuEntry | null = menu.parent ? menuById(menu.parent) : null;
+  const parent: MenuEntry | null = menu.parent ? registry.menuById(menu.parent) : null;
 
   let gate: ReactNode = null;
   if (menu.requiresScope && scope.status !== 'valid') {

@@ -1,8 +1,7 @@
 import { BrushIcon, Download, GitCompare, MessageSquarePlus, MoreHorizontal, RotateCcw, Table2, ZoomIn } from 'lucide-react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
-import { useI18n } from '../kernel/i18n';
-import { usePlatform } from '../kernel/platform';
+import { useI18n, usePlatform } from '@ap/kernel';
 import { formatDateTime, formatMetricVersion, parseDateTime } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { EChart, token } from './EChart';

@@ -1,6 +1,5 @@
 import { ChevronDown, CircleHelp, Loader2, LogOut, MapPin, Search, ShieldAlert } from 'lucide-react';
-import { useI18n } from '../kernel/i18n';
-import { usePlatform } from '../kernel/platform';
+import { useI18n, usePlatform } from '@ap/kernel';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 
 export function TopBar() {

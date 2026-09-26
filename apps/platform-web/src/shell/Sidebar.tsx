@@ -1,9 +1,7 @@
 import { ChevronDown, ChevronsLeft, ChevronsRight, Clock3, Hexagon, Search, Star, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { useI18n } from '../kernel/i18n';
-import { PlatformLink, usePlatform } from '../kernel/platform';
+import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import type { GroupId } from '@ap/contracts';
-import { GROUPS, MENUS, type MenuEntry } from '../kernel/registry';
 import { cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 
 const OPEN_KEY = 'platform:nav-open';
@@ -12,7 +10,7 @@ function readOpen(): Record<string, boolean> {
 }
 
 export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
-  const { visibleMenus, route, linkTo, favorites, recent } = usePlatform();
+  const { visibleMenus, route, linkTo, favorites, recent, registry } = usePlatform();
   const { t, tx, lang } = useI18n();
   const [open, setOpen] = useState<Record<string, boolean>>(readOpen);
   const [filter, setFilter] = useState('');
@@ -26,10 +24,10 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
   const navMenus = visibleMenus.filter(m => !m.navHidden);
   const q = filter.trim().toLowerCase();
   const matches = (m: MenuEntry) => !q || m.label.ko.toLowerCase().includes(q) || m.label.en.toLowerCase().includes(q);
-  const grouped = useMemo(() => GROUPS.map(g => ({ group: g, items: navMenus.filter(m => m.group === g.id && matches(m)) })).filter(x => x.items.length), [navMenus, q]);
+  const grouped = useMemo(() => registry.groups.map(g => ({ group: g, items: navMenus.filter(m => m.group === g.id && matches(m)) })).filter(x => x.items.length), [registry, navMenus, q]);
   const isOpen = (id: GroupId) => (q ? true : open[id] ?? true);
 
-  const favoriteMenus = favorites.map(id => MENUS.find(m => m.id === id)).filter((m): m is MenuEntry => !!m && visibleMenus.includes(m));
+  const favoriteMenus = favorites.map(id => registry.menus.find(m => m.id === id)).filter((m): m is MenuEntry => !!m && visibleMenus.includes(m));
   const recentItems = recent.filter(r => visibleMenus.some(m => m.id === r.menuId)).slice(0, 5);
 
   if (collapsed) return <TooltipProvider delayDuration={200}>
@@ -123,7 +121,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
       </NavSection>
       <NavSection id="recent" icon={<Clock3 className="size-[18px]" aria-hidden />} label={t('recent')} open={open.recent ?? false} onToggle={() => setOpen(o => ({ ...o, recent: !(o.recent ?? false) }))}>
         {recentItems.length ? recentItems.map(r => {
-          const m = MENUS.find(x => x.id === r.menuId)!;
+          const m = registry.menuById(r.menuId);
           const Icon = m.icon;
           return <li key={r.menuId}><PlatformLink href={r.url} className="flex min-h-7 items-center gap-2.5 rounded-sm py-1 pl-[42px] pr-3 text-[12px] hover:bg-nav-hover focus-visible:outline-nav-focus" title={r.url}>
             <Icon className="size-3.5 shrink-0 opacity-80" aria-hidden /><span className="truncate">{tx(m.label)}</span>

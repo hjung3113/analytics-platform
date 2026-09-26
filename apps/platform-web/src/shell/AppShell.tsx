@@ -1,7 +1,6 @@
 import { AlertTriangle, Info, X, XCircle } from 'lucide-react';
 import { Suspense, useEffect, useState, type ReactNode } from 'react';
-import { useI18n } from '../kernel/i18n';
-import { usePlatform } from '../kernel/platform';
+import { useI18n, usePlatform } from '@ap/kernel';
 import { LoadingBlock } from '../platform/StateView';
 import { cn } from '@ap/ui';
 import { CommandPalette } from './CommandPalette';

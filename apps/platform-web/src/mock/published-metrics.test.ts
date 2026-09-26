@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolveMetric } from '../pages/analytics/cycleData';
 import { METRICS } from '../pages/metrics/data';
-import { classifyMetricInit as classify } from '../kernel/metric-init';
+import { classifyMetricInit as classify } from '@ap/kernel';
 import { PUBLISHED_METRICS } from './world';
 
 const classifyMetricInit = (initializesMetric: boolean, metricId: string | null, metricVersion: string | null) =>

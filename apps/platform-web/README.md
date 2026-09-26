@@ -20,7 +20,7 @@ pnpm build
 
 | 갈래 (AGENTS.md) | 위치 |
 | --- | --- |
-| Kernel: Menu Registry, 전역 Context, URL 계약, 권한·Scope, 즐겨찾기/최근/활용 계측 | `src/kernel/registry.ts`, `platform.tsx`, `query.ts`, URL codec·manifest·응답 envelope 타입은 `packages/contracts` |
+| Kernel: Menu Registry, 전역 Context, URL 계약, 권한·Scope, 즐겨찾기/최근/활용 계측 | `packages/kernel`(`@ap/kernel`: `createRegistry`, `PlatformProvider`, `usePlatformQuery`, i18n), 메뉴 선언은 앱의 `src/menus.ts`, URL codec·manifest·응답 envelope 타입은 `packages/contracts` |
 | 공통 컴포넌트 | `src/platform/` — `PlatformPage`(§8 Slot), `PlatformDataTable`, `DetailDrawer`, `AuditTimeline`, `DataTrustIndicator`, `StateView`(§19), `StatCard`. UI primitive·`StatusBadge`·토큰은 `packages/ui`(`@ap/ui`) |
 | 차트 계약 | `src/platform/AnalysisChartFrame.tsx` (Zoom/Brush/Reset/Compare/Annotate/Export/More, 4층 상태 분리), `EChart.tsx` |
 | 레이아웃 | `src/shell/` (AppShell 270/64/54, Sidebar 아코디언, TopBar, GlobalContextBar, CommandPalette) + 페이지 archetype |

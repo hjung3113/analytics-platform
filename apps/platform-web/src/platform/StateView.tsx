@@ -1,7 +1,6 @@
 import { AlertTriangle, Ban, Clock, HelpCircle, Inbox, Loader2, Maximize2, RotateCw, ServerCrash } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useI18n } from '../kernel/i18n';
-import type { QueryState } from '../kernel/query';
+import { type QueryState, useI18n } from '@ap/kernel';
 import type { ApiResponse } from '@ap/contracts';
 import { Button, cn, Skeleton } from '@ap/ui';
 

@@ -4,6 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { usePlatformQuery } from './query';
+import { createRegistry } from './registry';
+import { House } from 'lucide-react';
+
+const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
+const registry = createRegistry({
+  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House }],
+  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
+});
 
 /** Fixture adapter: no mock server, so these tests pin the kernel side of the port (platform-packages.md §4). */
 function fixture() {
@@ -37,7 +45,7 @@ function Probe() {
 }
 
 function mount(adapter: PlatformAdapter) {
-  return render(<I18nProvider><PlatformProvider adapter={adapter}><Probe /></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Probe /></PlatformProvider></I18nProvider>);
 }
 
 // Node's own (file-less) localStorage shadows jsdom's here, so give each test an in-memory store.
@@ -76,7 +84,7 @@ describe('per-user kernel state', () => {
     localStorage.setItem('platform:favorites:user-b', JSON.stringify(['m-b']));
     const f = fixture();
     function Favs() { return <p data-testid="favs">{usePlatform().favorites.join(',')}</p>; }
-    render(<I18nProvider><PlatformProvider adapter={f.adapter}><Favs /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><Favs /></PlatformProvider></I18nProvider>);
     expect(screen.getByTestId('favs').textContent).toBe('m-a');
     act(() => f.switchTo('b'));
     expect(screen.getByTestId('favs').textContent).toBe('m-b');
