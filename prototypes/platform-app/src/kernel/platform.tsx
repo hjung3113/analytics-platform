@@ -1,9 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { DEFAULT_RANGE_TO, USERS, type RoleId, type User } from '../mock/world';
+import { DEFAULT_RANGE_TO, USERS, classifyMetricInit, type MetricInit, type RoleId, type User } from '../mock/world';
 import { getScenario, setScenario, subscribeScenario, validateScope, type Scenario } from '../mock/server';
 import { MENUS, matchRoute, menuById, pathFor, type MenuEntry, type Permission } from './registry';
 import { useI18n } from './i18n';
-import { ContractError, buildQuery, emptyGlobal, parseQuery, shift, type GlobalContext, type Pair, type ParsedQuery } from './url';
+import { ContractError, buildQuery, emptyGlobal, incompleteMetricPair, parseQuery, shift, type GlobalContext, type Pair, type ParsedQuery } from './url';
 
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope'; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
@@ -15,6 +15,7 @@ type Platform = {
   pathname: string;
   route: { menu: MenuEntry; params: Record<string, string> } | null;
   contractError: ContractError | null;
+  metricInit: MetricInit;
   global: GlobalContext;
   page: Pair[];
   extras: Pair[];
@@ -86,6 +87,9 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     }
   }, [search, route]);
   const global = parsed?.global ?? emptyGlobal;
+  const pairError = contractError ? null : incompleteMetricPair(route?.menu ?? null, global.metricId, global.metricVersion);
+  const routeContractError = contractError ?? pairError;
+  const metricInit = classifyMetricInit(route?.menu.initializesMetric === true, global.metricId, global.metricVersion);
   const page = parsed?.page ?? [];
   const extras = parsed?.extras ?? [];
 
@@ -171,20 +175,25 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   // Materialize the default period once for time-applying menus (§6.3/§6.4): absolute from/to written into the URL.
   // The initial Δ (24h here) is an Open decision; this prototype uses the 1-day preset as a Candidate.
   useEffect(() => {
-    if (!route || contractError || route.menu.context.time !== 'apply' || global.from !== null) return;
+    if (!route || routeContractError || route.menu.context.time !== 'apply' || global.from !== null) return;
     navigate(pathname + buildQuery({ ...global, from: shift(DEFAULT_RANGE_TO, -24), to: DEFAULT_RANGE_TO }, page, extras), { replace: true });
-  }, [route, contractError, global, page, extras, pathname, navigate]);
+  }, [route, routeContractError, global, page, extras, pathname, navigate]);
+
+  useEffect(() => {
+    if (!route || routeContractError || metricInit.phase !== 'confirm') return;
+    navigate(pathname + buildQuery({ ...global, metricVersion: metricInit.metricVersion }, page, extras), { replace: true });
+  }, [route, routeContractError, metricInit, global, page, extras, pathname, navigate]);
 
   // Recent visits + usage instrumentation (kernel observability of its own registry).
   useEffect(() => {
-    if (!route || contractError || !can(route.menu.permission)) return;
+    if (!route || routeContractError || !can(route.menu.permission)) return;
     const menuId = route.menu.id;
     setRecent(list => {
       const next = [{ menuId, url, at: Date.now() }, ...list.filter(r => r.menuId !== menuId)].slice(0, 12);
       write(`platform:recent:${role}`, next);
       return next;
     });
-  }, [url, route, contractError, role, can]);
+  }, [url, route, routeContractError, role, can]);
   const lastCounted = useRef<string | null>(null);
   useEffect(() => {
     if (!route || lastCounted.current === route.menu.id + pathname) return;
@@ -195,7 +204,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const pageParam = useCallback((key: string) => page.find(([k]) => k === key)?.[1] ?? null, [page]);
 
   const value: Platform = {
-    url, pathname, route, contractError, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo,
+    url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo,
     user, role, setRole, can, visibleMenus, scope, lastScope, favorites, toggleFavorite, recent, usage,
     toasts, toast, dismissToast, scenario, setScenario, defaultRangeTo: DEFAULT_RANGE_TO, paletteOpen, setPaletteOpen,
   };

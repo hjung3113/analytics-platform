@@ -42,8 +42,9 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const tailMode: TailMode = tailResult.ok ? tailResult.value : 'p95';
   const sortSpec = sortResult.ok ? sortResult : { ok: true as const, id: 'cycleMin' as const, desc: true, explicit: false };
   const periodReady = global.from !== null && global.to !== null;
-  const enabled = !invalidPage && periodReady;
   const metric = resolveMetric(global);
+  const metricVersion = metric.kind === 'unconfirmed' ? null : metric.metricVersion;
+  const enabled = !invalidPage && periodReady && metricVersion !== null;
   const ko = lang === 'ko';
 
   const [bucket, setBucket] = useState<string | null>(null);
@@ -57,16 +58,16 @@ export default function CycleTimeDrilldown(_: PageProps) {
   useEffect(() => { setBin(null); }, [globalKey]);
 
   const bucketRange = bucket ? { from: bucket, to: bucketEnd(bucket, granularity) } : null;
-  const inputs = [metric.metricVersion, metric.kind];
+  const inputs = [metricVersion, metric.kind];
 
   const kpi = usePlatformQuery(signal => serve<Kpi>({
-    role, global, signal, maxHours: MAX_HOURS, metricVersion: metric.metricVersion,
+    role, global, signal, maxHours: MAX_HOURS, metricVersion: metricVersion ?? undefined,
     isEmpty: data => data.count === 0,
     compute: ({ equipment }) => summarize(equipment, global),
   }), ['kpi', ...inputs], enabled);
 
   const trend = usePlatformQuery(signal => serve<TrendData>({
-    role, global, signal, maxHours: MAX_HOURS, metricVersion: metric.metricVersion,
+    role, global, signal, maxHours: MAX_HOURS, metricVersion: metricVersion ?? undefined,
     isEmpty: data => data.count === 0,
     compute: ({ equipment }) => {
       const rows = population(equipment, global);
@@ -83,7 +84,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
   }), ['trend', granularity, ...inputs], enabled);
 
   const dist = usePlatformQuery(signal => serve<DistData>({
-    role, global, signal, maxHours: MAX_HOURS, metricVersion: metric.metricVersion,
+    role, global, signal, maxHours: MAX_HOURS, metricVersion: metricVersion ?? undefined,
     isEmpty: data => data.count === 0,
     compute: ({ equipment }) => {
       const rows = population(equipment, global);
@@ -306,7 +307,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
               }
               const sorting = [{ id: sortSpec.id, desc: sortSpec.desc }];
               return serve({
-                role, global, signal, maxHours: MAX_HOURS, metricVersion: metric.metricVersion,
+                role, global, signal, maxHours: MAX_HOURS, metricVersion: metricVersion ?? undefined,
                 isEmpty: data => data.total === 0,
                 compute: ({ equipment }) => {
                   const rows = population(equipment, global);
@@ -345,6 +346,9 @@ type ExecutionSource = Parameters<typeof population>[0];
 function MetricBanner({ metric }: { metric: ResolvedMetric }) {
   const { lang } = useI18n();
   const ko = lang === 'ko';
+  if (metric.kind === 'unconfirmed') {
+    return <p className="text-[12px] text-text-secondary" data-testid="metric-banner">{ko ? `${metric.metricId} 버전이 확인되지 않았습니다. 페이지 기본 버전으로 채우지 않습니다.` : `${metric.metricId} has no confirmed version. The page default is not filled in.`}</p>;
+  }
   if (metric.kind === 'page-default') {
     return <p className="flex flex-wrap items-center gap-2 text-[12px] text-text-secondary" data-testid="metric-banner">
       <StatusBadge tone="info">{ko ? '페이지 기본값' : 'Page default'}</StatusBadge>
@@ -403,6 +407,7 @@ function cycleDelta(current: number | null, previous: number | null): Delta | un
 }
 
 function metricLabel(metric: ResolvedMetric): string {
+  if (metric.kind === 'unconfirmed') return `${metric.metricId} unconfirmed`;
   return `${metric.metricId} v${metric.metricVersion}${metric.kind === 'page-default' ? ' page default' : metric.kind === 'not-applied' ? ' page default, global not applied' : ''}`;
 }
 

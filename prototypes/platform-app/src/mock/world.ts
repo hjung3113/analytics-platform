@@ -142,3 +142,37 @@ export const TIME_DOMAIN_ASSERTIONS: TimeDomainAssertion[] = EQUIPMENT.map(e => 
   validFrom: LATE_TIME_DOMAIN_EQUIPMENT_IDS.includes(e.equipmentId) ? TIME_DOMAIN_LATE_FROM : TIME_DOMAIN_SEEDED_FROM,
   validTo: TIME_DOMAIN_OPEN_END,
 }));
+
+/** Server-owned published pointer per metricId (§6.1). Bare version token, not `v4`. Null = known, unpublished. */
+export type PublishedMetric = { metricId: string; publishedVersion: string | null };
+
+export const PUBLISHED_METRICS: readonly PublishedMetric[] = [
+  { metricId: 'cycle_time', publishedVersion: '4' },
+  { metricId: 'occupancy_physical', publishedVersion: '3' },
+  { metricId: 'non_process_dwell', publishedVersion: '2' },
+  { metricId: 'job_throughput', publishedVersion: '1' },
+  { metricId: 'wafer_move_count', publishedVersion: '2' },
+  { metricId: 'queue_time', publishedVersion: null },
+  { metricId: 'availability_scheduled', publishedVersion: '2' },
+  { metricId: 'alarm_count', publishedVersion: '1' },
+  { metricId: 'recipe_changeover', publishedVersion: '1' },
+  { metricId: 'lot_hold_dwell', publishedVersion: '3' },
+  { metricId: 'chamber_utilization', publishedVersion: '1' },
+  { metricId: 'rework_rate', publishedVersion: '2' },
+  { metricId: 'energy_per_wafer', publishedVersion: '1' },
+  { metricId: 'setup_time', publishedVersion: null },
+];
+
+export type MetricInit =
+  | { phase: 'skip' }
+  | { phase: 'confirm'; metricVersion: string }
+  | { phase: 'blocked'; reason: 'unknown_metric' | 'unpublished' };
+
+/** Id-only on an initialization route. A finished pair, or a route that does not initialize, is `skip`. */
+export function classifyMetricInit(initializesMetric: boolean, metricId: string | null, metricVersion: string | null): MetricInit {
+  if (!initializesMetric || metricId === null || metricVersion !== null) return { phase: 'skip' };
+  const row = PUBLISHED_METRICS.find(m => m.metricId === metricId);
+  if (!row) return { phase: 'blocked', reason: 'unknown_metric' };
+  if (row.publishedVersion === null) return { phase: 'blocked', reason: 'unpublished' };
+  return { phase: 'confirm', metricVersion: row.publishedVersion };
+}

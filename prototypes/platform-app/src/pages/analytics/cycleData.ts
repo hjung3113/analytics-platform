@@ -48,7 +48,8 @@ export type SlowRow = Execution & { delta: number | null };
 export type ResolvedMetric =
   | { kind: 'page-default'; metricId: typeof PAGE_METRIC_ID; metricVersion: typeof PAGE_METRIC_VERSION }
   | { kind: 'applied'; metricId: typeof PAGE_METRIC_ID; metricVersion: string; versionIsPageDefault: boolean }
-  | { kind: 'not-applied'; metricId: typeof PAGE_METRIC_ID; metricVersion: typeof PAGE_METRIC_VERSION; globalMetricId: string; globalMetricVersion: string | null };
+  | { kind: 'not-applied'; metricId: typeof PAGE_METRIC_ID; metricVersion: typeof PAGE_METRIC_VERSION; globalMetricId: string; globalMetricVersion: string }
+  | { kind: 'unconfirmed'; metricId: string };
 
 export const BINS = [
   { id: '0-30', min: 0, max: 30 },
@@ -75,14 +76,14 @@ export function isAnchor(value: string | null): value is string {
   try { parseDateTime(value, 'anchor'); return true; } catch { return false; }
 }
 
-/** Absent global metric → page default cycle_time v3. A different metricId is kept and not applied. */
+/** Absent global metric → page default cycle_time v3, not written to the URL. Id-only is unconfirmed: never fill PAGE_METRIC_VERSION. */
 export function resolveMetric(global: GlobalContext): ResolvedMetric {
   if (global.metricId === null) {
     return { kind: 'page-default', metricId: PAGE_METRIC_ID, metricVersion: PAGE_METRIC_VERSION };
   }
+  if (global.metricVersion === null) return { kind: 'unconfirmed', metricId: global.metricId };
   if (global.metricId === PAGE_METRIC_ID) {
-    const version = global.metricVersion ?? PAGE_METRIC_VERSION;
-    return { kind: 'applied', metricId: PAGE_METRIC_ID, metricVersion: version, versionIsPageDefault: version === PAGE_METRIC_VERSION };
+    return { kind: 'applied', metricId: PAGE_METRIC_ID, metricVersion: global.metricVersion, versionIsPageDefault: global.metricVersion === PAGE_METRIC_VERSION };
   }
   return {
     kind: 'not-applied',

@@ -32,6 +32,8 @@ export type MenuEntry = {
   features: { export: boolean; savedView: boolean; annotate: boolean; compare: boolean };
   /** Registered page-owned URL keys (§6.1). Only these survive on this route besides globals/extras. */
   pageKeys: readonly string[];
+  /** Id-only metricId is completed from PUBLISHED_METRICS. Every other menu rejects it as metric_pair_incomplete. */
+  initializesMetric?: boolean;
   /** Detail/destination routes are reachable through Context Links, not the sidebar. */
   navHidden?: boolean;
   /** Parent menu for breadcrumb/active-nav on detail routes. */
@@ -102,7 +104,7 @@ export const MENUS: MenuEntry[] = [
     description: { ko: '사이클타임 분포에서 느린 실행을 찾아 실행 상세로 드릴다운합니다.', en: 'Find slow executions in the cycle-time distribution and drill into them.' },
     path: '/analytics/cycle-time', icon: Timer, permission: 'analytics:view', requiresScope: true, pageType: 'analysis',
     context: { ...none, time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', lot: 'apply', ppid: 'apply', recipe: 'apply', metric: 'apply' },
-    features: { export: true, savedView: false, annotate: true, compare: true }, pageKeys: ['granularity', 'percentile', 'sort'],
+    features: { export: true, savedView: false, annotate: true, compare: true }, pageKeys: ['granularity', 'percentile', 'sort'], initializesMetric: true,
     component: lazy(() => import('../pages/analytics/CycleTimeDrilldown')),
   },
   {
@@ -130,7 +132,7 @@ export const MENUS: MenuEntry[] = [
     id: 'metric-detail', group: 'metrics', parent: 'metric-catalog', navHidden: true, label: { ko: '지표 상세', en: 'Metric detail' },
     description: { ko: '정의·버전 이력·사용처', en: 'Definition, version history and usage' },
     path: '/metrics/:metricId', icon: Gauge, permission: 'metrics:view', requiresScope: false, pageType: 'catalog',
-    context: { ...none, metric: 'apply', selection: 'reference' }, features: noFeatures, pageKeys: ['tab', 'version'],
+    context: { ...none, metric: 'apply', selection: 'reference' }, features: noFeatures, pageKeys: ['tab', 'version'], initializesMetric: true,
     component: lazy(() => import('../pages/metrics/MetricDetail')),
   },
   {

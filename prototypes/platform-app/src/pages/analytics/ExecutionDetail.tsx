@@ -29,6 +29,7 @@ export default function ExecutionDetail({ params }: PageProps) {
   const errors = identityErrors(entityType, anchor, ko);
   const valid = errors.length === 0;
   const metric = resolveMetric(global);
+  const metricVersion = metric.kind === 'unconfirmed' ? null : metric.metricVersion;
   const backHref = returnTo ?? linkTo('cycle-time');
 
   // serve() always applies selection/room/condition/lot/recipe. This menu declares them reference,
@@ -39,10 +40,10 @@ export default function ExecutionDetail({ params }: PageProps) {
     global: { ...global, selection: null, roomNames: null, condition: null, lotIds: null, ppid: null, recipeIds: null },
     signal,
     mergeTimeDomain: false,
-    metricVersion: metric.metricVersion,
+    metricVersion: metricVersion ?? undefined,
     isEmpty: data => data.access === 'missing',
     compute: ({ equipment }) => lookupOccurrence(equipment, equipmentId, anchor!),
-  }), [equipmentId, entityType, anchor], valid);
+  }), [equipmentId, entityType, anchor], valid && metricVersion !== null);
 
   const back = <Button asChild variant="secondary" size="sm"><PlatformLink href={backHref}>{ko ? '← 사이클타임 분석으로 돌아가기' : '← Back to cycle time'}</PlatformLink></Button>;
   const equipmentLink = <Button asChild variant="secondary" size="sm"><PlatformLink href={linkTo('equipment-detail', { params: { equipmentId }, returnTo: true })}>{ko ? '설비 상세' : 'Equipment detail'}</PlatformLink></Button>;

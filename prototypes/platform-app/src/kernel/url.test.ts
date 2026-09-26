@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildQuery, ContractError, emptyGlobal, parseQuery, shift } from './url';
+import { buildQuery, ContractError, emptyGlobal, incompleteMetricPair, parseQuery, shift } from './url';
 import { matchRoute, MENUS, pathFor } from './registry';
 
 const code = (fn: () => unknown) => { try { fn(); } catch (e) { return e instanceof ContractError ? e.code : 'other'; } return 'ok'; };
@@ -36,9 +36,21 @@ describe('URL contract (§6.1–6.4)', () => {
     expect(code(() => parseQuery('?v=abc'))).toBe('invalid_version');
     expect(code(() => parseQuery('?scopeId=ICH&scopeId=ICH'))).toBe('duplicate_singleton');
   });
-  it('keeps the metric pair together', () => {
+  it('rejects version-without-id and gates id-only by route', () => {
     expect(code(() => parseQuery('?metricVersion=v3'))).toBe('metric_pair');
-    expect(parseQuery('?metricId=cycle_time').global.metricVersion).toBeNull();
+    const idOnly = parseQuery('?metricId=cycle_time').global;
+    expect(idOnly.metricId).toBe('cycle_time');
+    expect(idOnly.metricVersion).toBeNull();
+    const menu = (id: string) => MENUS.find(m => m.id === id)!;
+    expect(incompleteMetricPair(menu('equipment-master'), 'cycle_time', null)?.code).toBe('metric_pair_incomplete');
+    expect(incompleteMetricPair(menu('metric-catalog'), 'cycle_time', null)?.code).toBe('metric_pair_incomplete');
+    expect(incompleteMetricPair(menu('productivity-overview'), 'cycle_time', null)?.code).toBe('metric_pair_incomplete');
+    expect(incompleteMetricPair(menu('execution-detail'), 'cycle_time', null)?.code).toBe('metric_pair_incomplete');
+    expect(incompleteMetricPair(menu('cycle-time'), 'cycle_time', null)).toBeNull();
+    expect(incompleteMetricPair(menu('metric-detail'), 'cycle_time', null)).toBeNull();
+    expect(incompleteMetricPair(menu('equipment-master'), 'cycle_time', '4')).toBeNull();
+    expect(incompleteMetricPair(menu('equipment-master'), null, null)).toBeNull();
+    expect(MENUS.filter(m => m.initializesMetric).map(m => m.id).sort()).toEqual(['cycle-time', 'metric-detail']);
   });
   it('allows exactly one Condition axis', () => {
     expect(code(() => parseQuery(`?equipmentGroup=${encodeURIComponent('{"axis":"stgroup","id":"S","maker":"X"}')}`))).toBe('invalid_condition');

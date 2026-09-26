@@ -190,3 +190,14 @@ export function conditionLabel(c: Condition): string {
 export function formatMetricVersion(version: string): string {
   return /^\d+$/.test(version) ? `v${version}` : version;
 }
+
+/** Id-only is a contract error except on a menu that declares initialization (§6.1). */
+export function incompleteMetricPair(
+  menu: { initializesMetric?: boolean } | null,
+  metricId: string | null,
+  metricVersion: string | null,
+): ContractError | null {
+  if (metricId === null || metricVersion !== null) return null;
+  if (menu?.initializesMetric) return null;
+  return new ContractError('metric_pair_incomplete', `metricId=${metricId} requires metricVersion on this route`);
+}
