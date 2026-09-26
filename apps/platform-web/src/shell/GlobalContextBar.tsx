@@ -1,9 +1,7 @@
 import { CalendarDays, ChevronDown, Link2, RotateCcw, X } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
-import { useI18n } from '../kernel/i18n';
-import { usePlatform } from '../kernel/platform';
+import { CONTEXT_LABELS, useI18n, usePlatform } from '@ap/kernel';
 import { type Capability, type Condition, type ConditionAxis, conditionLabel, type ContextKey, formatDateTime, type GlobalContext, parseDateTime, shift } from '@ap/contracts';
-import { CONTEXT_LABELS } from '../kernel/registry';
 import { matchesCondition } from '../mock/server';
 import { EQUIPMENT, makerModelsFor, stgroupsFor, teamsFor } from '../mock/world';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';

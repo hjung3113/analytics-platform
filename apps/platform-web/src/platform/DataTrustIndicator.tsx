@@ -1,5 +1,5 @@
 import { Info } from 'lucide-react';
-import { useI18n } from '../kernel/i18n';
+import { useI18n } from '@ap/kernel';
 import { type Assessment, formatMetricVersion, type Trust } from '@ap/contracts';
 import { cn, Dot, Popover, PopoverContent, PopoverTrigger, StatusBadge, type Tone } from '@ap/ui';
 

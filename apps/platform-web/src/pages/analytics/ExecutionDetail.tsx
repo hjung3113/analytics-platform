@@ -1,16 +1,12 @@
 import { AlertTriangle, Ban } from 'lucide-react';
 import { parseDateTime } from '@ap/contracts';
-import type { PageProps } from '../../kernel/registry';
-import { useI18n } from '../../kernel/i18n';
-import { PlatformLink, usePlatform } from '../../kernel/platform';
-import { usePlatformQuery } from '../../kernel/query';
+import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { serve } from '../../mock/server';
 import { DataTrustIndicator } from '../../platform/DataTrustIndicator';
 import { Panel, PlatformPage } from '../../platform/PlatformPage';
 import { QueryView, StateMessage } from '../../platform/StateView';
 import { Button, StatusBadge } from '@ap/ui';
 import { isAnchor, lookupOccurrence, resolveMetric, type OccurrenceResult, type Segment, type SegmentKind } from './cycleData';
-import { safeReturnTo } from '../../kernel/registry';
 
 const SEGMENT_CLASS: Record<SegmentKind, string> = {
   XFR: 'bg-chart-blue',
@@ -20,7 +16,7 @@ const SEGMENT_CLASS: Record<SegmentKind, string> = {
 
 export default function ExecutionDetail({ params }: PageProps) {
   const { lang } = useI18n();
-  const { global, pageParam, linkTo, returnTarget } = usePlatform();
+  const { global, pageParam, linkTo, returnTarget, registry } = usePlatform();
   const ko = lang === 'ko';
   const equipmentId = params.equipmentId;
   const entityType = pageParam('entityType');
@@ -30,7 +26,7 @@ export default function ExecutionDetail({ params }: PageProps) {
   const metric = resolveMetric(global);
   const metricVersion = metric.kind === 'unconfirmed' ? null : metric.metricVersion;
   const backHref = returnTarget();
-  const restored = safeReturnTo(pageParam('returnTo')) !== null;
+  const restored = registry.safeReturnTo(pageParam('returnTo')) !== null;
 
   // serve() always applies selection/room/condition/lot/recipe. This menu declares them reference,
   // so the occurrence lookup passes a copy with those filters cleared and does not pass maxHours

@@ -165,7 +165,7 @@ const registry = createRegistry({ groups: GROUPS, menus: [...home.manifests, ...
 3. **Kernel 포트 (완료):** `PlatformAdapter`(contracts) 도입, `mock/adapter.ts`를 `main.tsx`가 주입, 역할·시나리오를 `src/dev/DevTools.tsx`로 분리(탑바 `devTools` 슬롯). Kernel·공통 컴포넌트의 mock import 0건(D2). 페이지는 `serve`에 `role`을 넘기지 않고 mock 서버가 세션을 읽는다. 무효화 계약은 `kernel/adapter.test.tsx`(fixture 어댑터)로 고정. D5 중 TopBar만 해소, GlobalContextBar는 4단계.
 4. **ui → kernel → components → shell 순서로 추출:** PlatformPage Context Bar 슬롯(D4), GlobalContextBar·TopBar 어댑터 전환(D5).
    - 4a **ui (완료):** `packages/ui` — shadcn·`Button`·`cn`·`StatusBadge`(`Tone`, D7 마무리)와 디자인 시스템 CSS(`tokens.css` + Tailwind 테마 매핑·base·타이포 유틸리티, `@ap/ui/styles.css`). 앱 밖 패키지라 CSS가 `@source`로 자기 컴포넌트를 스캔한다. 빌드 CSS가 이동 전과 동일(selector 629개, 파일 해시 동일)함을 확인.
-   - 4b **Registry 주입 + kernel:** `components`가 `kernel`에 의존하므로 kernel 패키지가 먼저다. 그 전에 Registry의 메뉴 목록(화면 lazy import 포함)을 앱으로 빼고 Provider에 주입해야 한다(D1의 앞부분, §5 `createRegistry` 검증·정적 세그먼트 우선 포함).
+   - 4b **Registry 주입 + kernel (완료):** `GROUPS`·`MENUS`(화면 lazy import 포함)를 앱 `src/menus.ts`로 옮기고 `createRegistry()` 결과를 `PlatformProvider registry={…}`로 주입(D1 앞부분). §5 검증(id 중복, parent, 선언 그룹, 그룹별 primary 1개, pageKeys×전역 키, 경로 정규형 충돌)과 정적 세그먼트 우선 매칭을 구현하고 fixture 단위 테스트로 고정. 그 뒤 `packages/kernel`(`@ap/kernel`)로 이동. 실제 메뉴가 필요한 URL·복귀 경로 테스트는 앱 통합 테스트(`src/url-contract.test.ts`, `src/return-to.test.ts`)로 남김(D10 일부).
    - 4c **components:** PlatformPage Context Bar 슬롯(D4).
    - 4d **shell:** GlobalContextBar를 `contextOptions`/`evaluateSelection` 어댑터로(D5 마무리).
 5. **메뉴 패키지:** 그룹별로 `menus/*`로 이동, `api.ts` 도입(D8), Registry를 manifest 등록 방식으로(D1). 교차 테스트를 메뉴·앱 통합 테스트로 재배치하고 Kernel 테스트를 fixture Registry로 전환(D10).

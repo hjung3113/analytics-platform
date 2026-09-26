@@ -1,7 +1,4 @@
-import type { PageProps } from '../../kernel/registry';
-import { useI18n } from '../../kernel/i18n';
-import { PlatformLink, usePlatform } from '../../kernel/platform';
-import { usePlatformQuery } from '../../kernel/query';
+import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { PlatformPage } from '../../platform/PlatformPage';
 import { Field } from '../../platform/DetailDrawer';
 import { AuditTimeline } from '../../platform/AuditTimeline';

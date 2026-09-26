@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider } from '../kernel/i18n';
+import { I18nProvider } from '@ap/kernel';
 import { DetailDrawer } from './DetailDrawer';
 import { SegmentedRadio } from './RadioGroup';
 

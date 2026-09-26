@@ -1,7 +1,6 @@
 import { Check, FlaskConical, UserCog } from 'lucide-react';
 import { useSyncExternalStore } from 'react';
-import { useI18n } from '../kernel/i18n';
-import { usePlatform } from '../kernel/platform';
+import { useI18n, usePlatform } from '@ap/kernel';
 import { getRole, getScenario, setRole, setScenario, subscribeServer, type Scenario } from '../mock/server';
 import { USERS, type RoleId } from '../mock/world';
 import { SegmentedRadio } from '../platform/RadioGroup';

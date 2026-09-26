@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { classifyMetricInit, type MetricInit } from './metric-init';
-import { MENUS, matchRoute, menuById, pathFor, type MenuEntry, safeReturnTo } from './registry';
+import { pathFor, type MenuEntry, type Registry } from './registry';
 import { useI18n } from './i18n';
 import { buildQuery, ContractError, emptyGlobal, type GlobalContext, incompleteMetricPair, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, type Session, type SessionUser, shift } from '@ap/contracts';
 
@@ -10,6 +10,7 @@ export type Toast = { id: number; text: string; tone: 'info' | 'warning' | 'dang
 export type LinkOptions = { params?: Record<string, string>; page?: Record<string, string>; global?: Partial<GlobalContext>; returnTo?: boolean };
 
 type Platform = {
+  registry: Registry;
   url: string;
   pathname: string;
   route: { menu: MenuEntry; params: Record<string, string> } | null;
@@ -63,7 +64,8 @@ function counterStore(adapter: PlatformAdapter) {
   return { subscribe: (listener: () => void) => adapter.subscribe(() => { n++; listener(); }), get: () => n };
 }
 
-export function PlatformProvider({ adapter, devTools = null, children }: { adapter: PlatformAdapter; devTools?: ReactNode; children: ReactNode }) {
+export function PlatformProvider({ adapter, registry, devTools = null, children }: { adapter: PlatformAdapter; registry: Registry; devTools?: ReactNode; children: ReactNode }) {
+  const { matchRoute, menuById, safeReturnTo } = registry;
   // Bound here so class-based adapters keep their receiver when React calls these.
   const sessionStore = useMemo(() => ({ subscribe: (l: () => void) => adapter.subscribe(l), get: () => adapter.session() }), [adapter]);
   const session = useSyncExternalStore(sessionStore.subscribe, sessionStore.get);
@@ -104,7 +106,7 @@ export function PlatformProvider({ adapter, devTools = null, children }: { adapt
 
   const pathname = url.split('?')[0] || '/';
   const search = url.includes('?') ? url.slice(url.indexOf('?')) : '';
-  const route = useMemo(() => matchRoute(pathname), [pathname]);
+  const route = useMemo(() => matchRoute(pathname), [matchRoute, pathname]);
   const { parsed, contractError } = useMemo((): { parsed: ParsedQuery | null; contractError: ContractError | null } => {
     try { return { parsed: parseQuery(search, route?.menu.pageKeys ?? []), contractError: null }; } catch (e) {
       if (e instanceof ContractError) return { parsed: null, contractError: e };
@@ -165,10 +167,10 @@ export function PlatformProvider({ adapter, devTools = null, children }: { adapt
     const pagePairs: Pair[] = Object.entries(options.page ?? {}).filter(([k]) => target.pageKeys.includes(k));
     if (options.returnTo && target.pageKeys.includes('returnTo')) pagePairs.push(['returnTo', url]);
     return pathFor(target, options.params) + buildQuery(g, pagePairs);
-  }, [global, url]);
+  }, [global, url, menuById]);
 
   const can = useCallback((p: Permission) => user.permissions.includes(p), [user]);
-  const visibleMenus = useMemo(() => MENUS.filter(m => can(m.permission)), [can]);
+  const visibleMenus = useMemo(() => registry.menus.filter(m => can(m.permission)), [registry, can]);
 
   const toggleFavorite = useCallback((menuId: string) => {
     setFavorites(list => {
@@ -226,10 +228,10 @@ export function PlatformProvider({ adapter, devTools = null, children }: { adapt
     const safe = safeReturnTo(pageParam('returnTo'));
     if (safe) return safe;
     return linkTo(route?.menu.parent ?? 'home');
-  }, [pageParam, route, linkTo]);
+  }, [pageParam, route, linkTo, safeReturnTo]);
 
   const value: Platform = {
-    url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, returnTarget,
+    registry, url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, returnTarget,
     session, user, revision, can, visibleMenus, scope, lastScope, favorites, toggleFavorite, recent, usage,
     toasts, toast, dismissToast, defaultRangeTo, devTools, paletteOpen, setPaletteOpen,
   };

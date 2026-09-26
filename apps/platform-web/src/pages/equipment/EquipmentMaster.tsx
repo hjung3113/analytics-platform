@@ -1,8 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { useI18n } from '../../kernel/i18n';
-import { PlatformLink, usePlatform } from '../../kernel/platform';
-import { usePlatformQuery } from '../../kernel/query';
+import { PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { serve } from '../../mock/server';
 import type { Equipment } from '../../mock/world';
 import { PlatformPage } from '../../platform/PlatformPage';

@@ -8,10 +8,7 @@ import { formatMetricVersion, shift } from '@ap/contracts';
  * Synthetic values from ./productivityData; definitions are Candidates per wireframe 11 §6.
  */
 import { AlertTriangle, ArrowRight, BarChart3, Hourglass, Percent, RotateCw, Timer } from 'lucide-react';
-import { useI18n } from '../../kernel/i18n';
-import { PlatformLink, usePlatform } from '../../kernel/platform';
-import { usePlatformQuery } from '../../kernel/query';
-import type { PageProps } from '../../kernel/registry';
+import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { CYCLE_VERSION_NOTE } from '../../mock/jobs';
 import { periodHours, serve } from '../../mock/server';
 import { AnalysisChartFrame, type ChartSeries } from '../../platform/AnalysisChartFrame';

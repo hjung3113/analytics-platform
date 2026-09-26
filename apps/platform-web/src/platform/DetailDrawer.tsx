@@ -1,7 +1,7 @@
 import { X } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { useI18n } from '../kernel/i18n';
+import { useI18n } from '@ap/kernel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 
 function useMinWidth1440(): boolean {

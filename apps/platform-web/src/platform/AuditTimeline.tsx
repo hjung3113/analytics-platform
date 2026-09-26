@@ -1,5 +1,5 @@
 import { FilePen, FilePlus2, FileX2, RefreshCw } from 'lucide-react';
-import { useI18n } from '../kernel/i18n';
+import { useI18n } from '@ap/kernel';
 import { StatusBadge } from '@ap/ui';
 import type { AuditEvent } from '@ap/contracts';
 
