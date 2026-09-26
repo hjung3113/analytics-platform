@@ -7,7 +7,7 @@ import { GROUPS, MENUS, PAGE_TYPE_LABELS } from '../../kernel/registry';
 import { serve } from '../../mock/server';
 import { Panel, PlatformPage } from '../../platform/PlatformPage';
 import { QueryView } from '../../platform/StateView';
-import { StatusBadge } from '../../platform/StatusBadge';
+import { StatusBadge } from '@ap/ui';
 
 type Notice = { id: string; title: { ko: string; en: string }; scopeId: string | null; until: string };
 const NOTICES: Notice[] = [

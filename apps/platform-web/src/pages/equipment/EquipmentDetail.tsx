@@ -7,10 +7,8 @@ import { Field } from '../../platform/DetailDrawer';
 import { AuditTimeline } from '../../platform/AuditTimeline';
 import { DataTrustIndicator } from '../../platform/DataTrustIndicator';
 import { QueryView } from '../../platform/StateView';
-import { StatusBadge } from '../../platform/StatusBadge';
+import { Button, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 import type { Equipment } from '../../mock/world';
-import { Button } from '../../ui/components/Button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/components/shadcn/tabs';
 import { audit, equipmentRequest, fields, statusText, statusTone, validity } from './data';
 
 export function EquipmentStatus({ equipment }: { equipment: Equipment }) {

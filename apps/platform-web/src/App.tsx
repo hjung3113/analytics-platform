@@ -4,9 +4,8 @@ import { PlatformLink, usePlatform } from './kernel/platform';
 import { CONTEXT_LABELS, GROUPS, PAGE_TYPE_LABELS } from './kernel/registry';
 import { Panel, PlatformPage } from './platform/PlatformPage';
 import { StateMessage } from './platform/StateView';
-import { StatusBadge } from './platform/StatusBadge';
+import { Button, StatusBadge } from '@ap/ui';
 import { AppShell } from './shell/AppShell';
-import { Button } from './ui/components/Button';
 import type { ContextKey } from '@ap/contracts';
 
 export function App() {

@@ -3,8 +3,7 @@ import type { ReactNode } from 'react';
 import { useI18n } from '../kernel/i18n';
 import { PlatformLink, usePlatform } from '../kernel/platform';
 import { GROUPS, menuById, type MenuEntry } from '../kernel/registry';
-import { Button } from '../ui/components/Button';
-import { cn } from '../ui/utils/cn';
+import { Button, cn } from '@ap/ui';
 import { GlobalContextBar } from '../shell/GlobalContextBar';
 import { StateMessage } from './StateView';
 

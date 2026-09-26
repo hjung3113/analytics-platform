@@ -5,12 +5,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Columns3, Download, Loader2 } from 'lu
 import { useI18n } from '../kernel/i18n';
 import { usePlatform } from '../kernel/platform';
 import { type ApiResponse, serializeGlobal } from '@ap/contracts';
-import { Button } from '../ui/components/Button';
-import { Checkbox } from '../ui/components/shadcn/checkbox';
-import { Label } from '../ui/components/shadcn/label';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/components/shadcn/popover';
-import { Skeleton } from '../ui/components/shadcn/skeleton';
-import { cn } from '../ui/utils/cn';
+import { Button, Checkbox, cn, Label, Popover, PopoverContent, PopoverTrigger, Skeleton } from '@ap/ui';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { OutcomeView } from './StateView';
 

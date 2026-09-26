@@ -5,9 +5,7 @@ import { usePlatform } from '../kernel/platform';
 import { getRole, getScenario, setRole, setScenario, subscribeServer, type Scenario } from '../mock/server';
 import { USERS, type RoleId } from '../mock/world';
 import { SegmentedRadio } from '../platform/RadioGroup';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '../ui/components/shadcn/dropdown-menu';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/components/shadcn/popover';
-import { cn } from '../ui/utils/cn';
+import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 
 /**
  * Mock-server controls: response scenario and signed-in role (a stand-in for SSO). They change server state only;

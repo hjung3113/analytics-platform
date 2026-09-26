@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../kernel/i18n';
 import { usePlatform } from '../kernel/platform';
 import { GROUPS, PAGE_TYPE_LABELS } from '../kernel/registry';
-import { cn } from '../ui/utils/cn';
+import { cn } from '@ap/ui';
 
 /** §10: menu navigation is the palette's base responsibility; entity search/action commands are Deferred. */
 export function CommandPalette() {

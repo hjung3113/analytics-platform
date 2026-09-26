@@ -1,5 +1,5 @@
 import { useRef, type KeyboardEvent, type ReactNode } from 'react';
-import { cn } from '../ui/utils/cn';
+import { cn } from '@ap/ui';
 
 export type SegmentedRadioOption<T extends string> = { value: T; label: ReactNode };
 

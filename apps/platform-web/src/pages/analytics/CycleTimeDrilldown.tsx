@@ -14,8 +14,7 @@ import { PlatformDataTable, sortAndPage, type ColumnMeta } from '../../platform/
 import { PlatformPage } from '../../platform/PlatformPage';
 import { StatCard, type Delta } from '../../platform/StatCard';
 import { QueryView, StateMessage } from '../../platform/StateView';
-import { StatusBadge } from '../../platform/StatusBadge';
-import { Button } from '../../ui/components/Button';
+import { Button, StatusBadge } from '@ap/ui';
 import {
   DEFAULT_SORT, MAX_HOURS, PAGE_METRIC_ID, SORT_COLUMNS, bucketContaining, bucketEnd,
   encodeSort, histogram, parseSortParam, percentile, population, previousWindow, resolveGranularity,

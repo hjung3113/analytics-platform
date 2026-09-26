@@ -3,9 +3,7 @@ import type { ReactNode } from 'react';
 import { useI18n } from '../kernel/i18n';
 import type { QueryState } from '../kernel/query';
 import type { ApiResponse } from '@ap/contracts';
-import { Button } from '../ui/components/Button';
-import { Skeleton } from '../ui/components/shadcn/skeleton';
-import { cn } from '../ui/utils/cn';
+import { Button, cn, Skeleton } from '@ap/ui';
 
 type StateProps = { icon: ReactNode; title: string; body?: ReactNode; action?: ReactNode; tone?: 'neutral' | 'danger' | 'warning'; correlationId?: string; compact?: boolean };
 
