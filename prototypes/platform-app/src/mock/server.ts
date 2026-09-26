@@ -4,7 +4,7 @@
  */
 import type { Condition, GlobalContext } from '../kernel/url';
 import { parseDateTime } from '../kernel/url';
-import { EQUIPMENT, SITES, USERS, type Equipment, type RoleId } from './world';
+import { EQUIPMENT, SITES, TIME_DOMAIN_ASSERTIONS, USERS, type Equipment, type RoleId, type TimeDomainAssertion } from './world';
 
 export type Outcome = 'ok' | 'empty' | 'error' | 'forbidden' | 'too_large' | 'timeout';
 export type AssessmentKind = 'collection' | 'processing_delay' | 'coverage' | 'time_domain';
@@ -106,9 +106,62 @@ export type ServeOptions<T> = {
   metricVersion?: string;
   /** Logical source shown in Data Trust (e.g. 'master.equipment'); defaults to the productivity mart. */
   source?: string;
+  /**
+   * Default true. Set false when this query does not merge equipment onto one time axis
+   * (master list, catalog, notices, one occurrence). §6.3.
+   */
+  mergeTimeDomain?: boolean;
   compute: (ctx: { equipment: Equipment[] }) => T;
   isEmpty?: (data: T) => boolean;
 };
+
+export type TimeDomainMergeResult =
+  | { ok: true; timeDomainId: string }
+  | { ok: false; code: 'time_domain_unverified' | 'time_domain_mismatch'; message: string };
+
+const wallMs = (value: string) => parseDateTime(value, 'time').getTime();
+
+/** §6.3. No scopeId argument. Call only when [from, to) exists. Length 1 is a coverage check, not a rejection by itself. */
+export function evaluateTimeDomainMerge(
+  equipmentIds: readonly string[],
+  from: string,
+  to: string,
+  assertions: readonly TimeDomainAssertion[],
+): TimeDomainMergeResult {
+  const fromMs = wallMs(from);
+  const toMs = wallMs(to);
+  const unverified: string[] = [];
+  const domains = new Set<string>();
+  for (const equipmentId of equipmentIds) {
+    const slices = assertions
+      .filter(a => a.equipmentId === equipmentId)
+      .map(a => ({
+        domain: a.timeDomainId,
+        start: Math.max(wallMs(a.validFrom), fromMs),
+        end: Math.min(wallMs(a.validTo), toMs),
+      }))
+      .filter(s => s.start < s.end)
+      .sort((a, b) => a.start - b.start || a.end - b.end);
+    let cursor = fromMs;
+    const local = new Set<string>();
+    for (const slice of slices) {
+      if (slice.start > cursor) break;
+      local.add(slice.domain);
+      if (slice.end > cursor) cursor = slice.end;
+    }
+    if (cursor < toMs || local.size === 0) unverified.push(equipmentId);
+    else for (const domain of local) domains.add(domain);
+  }
+  if (unverified.length) {
+    const ids = [...new Set(unverified)].sort();
+    return { ok: false, code: 'time_domain_unverified', message: `time_domain_unverified: ${ids.join(', ')}` };
+  }
+  const domainIds = [...domains].sort();
+  if (domainIds.length !== 1) {
+    return { ok: false, code: 'time_domain_mismatch', message: `time_domain_mismatch: ${domainIds.join(', ')}` };
+  }
+  return { ok: true, timeDomainId: domainIds[0] };
+}
 
 const OBSERVED = '2026-09-26T08:58:00';
 
@@ -128,6 +181,21 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
   if (s === 'too_large' || (o.maxHours && hours !== null && hours > o.maxHours && (o.global.selection === null || o.global.selection.length > 40))) {
     return { ...base, outcome: 'too_large', message: `Period ${hours ?? '?'}h exceeds ${o.maxHours ?? '—'}h without a narrow fixed Selection` };
   }
+  let verifiedDomain: string | null = null;
+  if (o.mergeTimeDomain !== false && o.global.from && o.global.to && resolved.rows.length >= 1) {
+    const verdict = evaluateTimeDomainMerge(
+      resolved.rows.map(e => e.equipmentId),
+      o.global.from,
+      o.global.to,
+      TIME_DOMAIN_ASSERTIONS,
+    );
+    if (!verdict.ok) {
+      if (resolved.rows.length >= 2) return { ...base, outcome: 'error', message: verdict.message };
+    } else {
+      verifiedDomain = verdict.timeDomainId;
+    }
+  }
+
   const equipment = s === 'empty' ? [] : resolved.rows;
   const data = o.compute({ equipment });
   const empty = s === 'empty' || (o.isEmpty ? o.isEmpty(data) : false);
@@ -136,6 +204,7 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
     if (s === 'unknown_status' || kind === 'collection') return { kind, state: 'unknown', reason: 'source_unavailable' };
     if (kind === 'processing_delay') return { kind, state: 'clear', statusSource: 'mart-watermark', observedAt: OBSERVED };
     if (kind === 'coverage') return { kind, state: 'clear', statusSource: 'coverage-service', observedAt: OBSERVED, detail: '98.7%' };
+    if (kind === 'time_domain' && verifiedDomain) return { kind, state: 'clear', statusSource: 'time-domain-registry', observedAt: OBSERVED, detail: verifiedDomain };
     return { kind, state: 'unknown', reason: 'source_unavailable' };
   });
   return {

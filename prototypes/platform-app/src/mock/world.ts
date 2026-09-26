@@ -103,3 +103,42 @@ export function teamsFor(site: string): string[] {
 
 /** Server-owned exclusive upper bound for default periods (§6.3 defaultRangeTo); never browser now. */
 export const DEFAULT_RANGE_TO = '2026-09-26T09:00:00';
+
+/** Explicit exclusive end. Not a null snapshot and not equipment-master validTo. */
+export const TIME_DOMAIN_OPEN_END = '9999-01-01T00:00:00';
+/** Well before DEFAULT_RANGE_TO and before the prototype's 90-day links. */
+export const TIME_DOMAIN_SEEDED_FROM = '2020-01-01T00:00:00';
+/**
+ * Inside the last 7 days before DEFAULT_RANGE_TO
+ * ([2026-09-19T09:00:00, 2026-09-26T09:00:00)) and on or before the default
+ * 24h start 2026-09-25T09:00:00, so a 1-day merge still covers these rows.
+ */
+export const TIME_DOMAIN_LATE_FROM = '2026-09-22T00:00:00';
+
+export type TimeDomainAssertion = {
+  equipmentId: string;
+  timeDomainId: string;
+  validFrom: string;
+  validTo: string;
+};
+
+/** First two ICH PH-101 ids (sorted). Engineer and admin both resolve PH-101. Viewer has no analytics menu. */
+export const LATE_TIME_DOMAIN_EQUIPMENT_IDS: readonly string[] = EQUIPMENT
+  .filter(e => e.site === 'ICH' && e.room === 'PH-101')
+  .map(e => e.equipmentId)
+  .sort()
+  .slice(0, 2);
+
+function timeDomainIdFor(site: string): string {
+  if (site === 'ICH' || site === 'CJU') return 'KR-WALL';
+  if (site === 'XIA') return 'CN-XIA';
+  throw new Error(`no time domain for site ${site}`);
+}
+
+/** One row per equipment. Read this array on each request; do not copy it at startup. */
+export const TIME_DOMAIN_ASSERTIONS: TimeDomainAssertion[] = EQUIPMENT.map(e => ({
+  equipmentId: e.equipmentId,
+  timeDomainId: timeDomainIdFor(e.site),
+  validFrom: LATE_TIME_DOMAIN_EQUIPMENT_IDS.includes(e.equipmentId) ? TIME_DOMAIN_LATE_FROM : TIME_DOMAIN_SEEDED_FROM,
+  validTo: TIME_DOMAIN_OPEN_END,
+}));

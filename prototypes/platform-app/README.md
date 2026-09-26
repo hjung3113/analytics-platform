@@ -28,7 +28,7 @@ npm run build
 
 1. 최상위는 반드시 `<PlatformPage>`. 슬롯: `title`, `description`, `primaryAction`, `secondaryActions`, `contextExtension`(page-owned 필터), `dataTrustSummary`, `crumbs`, `children`. 전역 Context Bar·Scope 게이트·Breadcrumb·즐겨찾기는 PlatformPage가 자동 렌더링한다 — 페이지가 날짜 선택기·Scope 선택기를 따로 만들지 않는다(§5 금지).
 2. 데이터 조회는 `usePlatformQuery(signal => serve({...}), pageInputs)` → `<QueryView query={q}>{data => ...}</QueryView>`. 로딩/갱신/empty/forbidden/too_large/timeout/error 분기는 QueryView가 한다. 위젯마다 따로 조회하면 부분 실패가 그 위젯에만 머문다(§19).
-   - `serve({ role, global, signal, compute: ({ equipment }) => ..., isEmpty, kinds, maxHours, metricVersion })` — `equipment`는 Scope→허가 room→room_name→Condition→Selection으로 이미 해석된 설비 목록이다. 페이지가 권한 판단을 하지 않는다.
+   - `serve({ role, global, signal, compute: ({ equipment }) => ..., isEmpty, kinds, maxHours, metricVersion, mergeTimeDomain })` — `equipment`는 Scope→허가 room→room_name→Condition→Selection으로 이미 해석된 설비 목록이다. 페이지가 권한 판단을 하지 않는다. `mergeTimeDomain` defaults to true: 2대 이상과 `[from, to)`가 있으면 서버 assertion 없이 시간축을 합치지 않는다. 마스터 목록·카탈로그·공지·occurrence 단건은 `mergeTimeDomain: false`.
    - 0건을 수집 중단/지연으로 해석하지 않는다. `null` 값은 0이 아니라 “미확인”이다.
 3. 전역 Context 읽기: `const { global } = usePlatform()` (`from`,`to`,`roomNames`,`condition`,`selection`,`lotIds`,`ppid`,`recipeIds`,`metricId`,`metricVersion`, `scopeId`). 전역 변경은 사용자의 명시적 액션일 때만 `setGlobal(patch)`.
 4. Page-owned URL 상태: registry의 `pageKeys`에 등록된 키만 `pageParam(key)` / `setPage({key: value|null}, {replace?})`. 미등록 키를 쓰지 않는다. 탭·필터·정렬처럼 공유 링크로 재현돼야 하는 것만 URL에 둔다.

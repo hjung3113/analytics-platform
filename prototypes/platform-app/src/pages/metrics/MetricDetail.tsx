@@ -39,21 +39,21 @@ export default function MetricDetailPage({ params }: PageProps) {
   const tabKnown = SECTIONS.some(s => s.id === tab);
 
   const definition = usePlatformQuery(signal => serve({
-    role, global, signal, requiresScope: false, latency: 280, kinds: ['processing_delay'],
+    role, global, signal, requiresScope: false, mergeTimeDomain: false, latency: 280, kinds: ['processing_delay'],
     metricVersion: versionParam ?? undefined,
     compute: ({ equipment }) => buildDefinition(metricId, versionParam, equipment),
     isEmpty: () => false,
   }), [metricId, versionParam]);
 
   const usage = usePlatformQuery(signal => serve({
-    role, global, signal, requiresScope: false, latency: 320, kinds: ['processing_delay'],
+    role, global, signal, requiresScope: false, mergeTimeDomain: false, latency: 320, kinds: ['processing_delay'],
     metricVersion: versionParam ?? undefined,
     compute: () => buildUsage(metricId, versionParam),
     isEmpty: data => data.problem === null && data.rows.length === 0,
   }), [metricId, versionParam], versionParam !== null);
 
   const history = usePlatformQuery(signal => serve({
-    role, global, signal, requiresScope: false, latency: 240, kinds: ['processing_delay'],
+    role, global, signal, requiresScope: false, mergeTimeDomain: false, latency: 240, kinds: ['processing_delay'],
     compute: () => buildHistory(metricId, lang),
     isEmpty: () => false,
   }), [metricId, lang]);

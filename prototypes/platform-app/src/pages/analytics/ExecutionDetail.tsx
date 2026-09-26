@@ -38,6 +38,7 @@ export default function ExecutionDetail({ params }: PageProps) {
     role,
     global: { ...global, selection: null, roomNames: null, condition: null, lotIds: null, ppid: null, recipeIds: null },
     signal,
+    mergeTimeDomain: false,
     metricVersion: metric.metricVersion,
     isEmpty: data => data.access === 'missing',
     compute: ({ equipment }) => lookupOccurrence(equipment, equipmentId, anchor!),

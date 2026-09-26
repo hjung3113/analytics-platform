@@ -23,7 +23,7 @@ export function filterEquipment(rows: Equipment[], q: string, status: string, ma
 }
 // Destination identity is a request constraint, never a mutation of inherited URL Context.
 export function equipmentRequest(role: RoleId, global: GlobalContext, id: string, signal: AbortSignal) {
-  return serve({ role, global: { ...global, roomNames: null, condition: null, selection: [id] }, signal,
+  return serve({ role, global: { ...global, roomNames: null, condition: null, selection: [id] }, signal, mergeTimeDomain: false,
     compute: ({ equipment }) => equipment.find(e => e.equipmentId === id) ?? null, isEmpty: e => e === null });
 }
 export function validity(e: Equipment) {

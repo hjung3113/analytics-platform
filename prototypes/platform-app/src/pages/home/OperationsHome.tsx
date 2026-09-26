@@ -25,7 +25,7 @@ export default function OperationsHome() {
 
   // Notice targeting is by the current requested scopeId (08 §6, Decided).
   const notices = usePlatformQuery(signal => serve({
-    role, global, signal, requiresScope: false, latency: 250, kinds: [],
+    role, global, signal, requiresScope: false, mergeTimeDomain: false, latency: 250, kinds: [],
     compute: () => NOTICES.filter(n => n.scopeId === global.scopeId),
     isEmpty: rows => rows.length === 0,
   }), 'notices');

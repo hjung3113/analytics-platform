@@ -51,7 +51,7 @@ export function MetricPairBanner({ viewedId = null, pageVersion = null }: { view
   const { global, role, setPage } = usePlatform();
   const { lang } = useI18n();
   const query = usePlatformQuery(signal => serve({
-    role, global, signal, requiresScope: false, latency: 180, kinds: ['processing_delay'],
+    role, global, signal, requiresScope: false, mergeTimeDomain: false, latency: 180, kinds: ['processing_delay'],
     metricVersion: global.metricVersion ?? undefined,
     compute: () => judgeGlobalPair(global.metricId, global.metricVersion, viewedId, pageVersion),
   }), [global.metricId, global.metricVersion, viewedId, pageVersion]);
@@ -188,7 +188,7 @@ export default function MetricCatalogPage(_: PageProps) {
         height={360}
         activeRowId={activeRowId}
         loadPage={(query, signal) => serve({
-          role, global, signal, requiresScope: false, latency: 280, kinds: ['processing_delay'],
+          role, global, signal, requiresScope: false, mergeTimeDomain: false, latency: 280, kinds: ['processing_delay'],
           compute: () => sortAndPage(filterCatalog(catalogRows(lang), q, status, domain).rows, query),
           isEmpty: data => data.total === 0,
         })}
