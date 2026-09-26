@@ -108,23 +108,21 @@ jobs:
       - run: npm run test:browser
       - run: npm run build
 
-  platform-app:
-    name: Platform app (integrated prototype)
+  platform-workspace:
+    name: Platform workspace (pnpm monorepo)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: prototypes/platform-app
     steps:
       - uses: actions/checkout@v5
         with:
           submodules: false
+      # pnpm 버전은 루트 package.json의 packageManager를 따른다.
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:
-          # 로컬 검증 환경(Node 26.7.0 / npm 11.19.0)과 동일. package-lock이 이 조합으로 생성됐다.
+          # 로컬 검증 환경(Node 26.7.0 / pnpm 11.1.1)과 동일.
           node-version: '26.7.0'
-          cache: npm
-          cache-dependency-path: prototypes/platform-app/package-lock.json
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm run test
-      - run: npm run build
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build

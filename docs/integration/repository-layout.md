@@ -2,7 +2,7 @@
 
 ## 현재 단계
 
-FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를 참고하고 플랫폼 설계를 구체화한다. 공통 계약과 책임 범위를 확정한 뒤 통합 구현을 시작한다. 단일 패키지 workspace·서버·DB·배포 여부는 아직 확정하지 않았다.
+FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를 참고하고 플랫폼 설계를 구체화한다. 공통 계약과 책임 범위를 확정한 뒤 통합 구현을 시작한다. 플랫폼 프론트엔드는 루트 pnpm workspace로 옮기는 중이다([패키지 경계](platform-packages.md)). FeedbackOps는 이 workspace에 포함하지 않으며, 서버·DB·배포 통합 여부는 아직 확정하지 않았다.
 
 기존 플랫폼 문서는 링크와 소유권을 보존하기 위해 `docs/`에 유지한다. `docs/platform/` 이동이나 공통 코드 추출은 이번 연결에 포함하지 않는다.
 
@@ -14,6 +14,9 @@ FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를
 | `docs/integration/` | 저장소 연결 및 향후 통합 결정. 기존 제품 계약을 암묵적으로 덮어쓰지 않음 |
 | `DESIGN.md`, `PLATFORM_REQUIREMENTS.md` | 기존 플랫폼 디자인 및 요구사항 자료 |
 | `.agents/` | 플랫폼 에이전트 스킬·참고자료·보고서 |
+| `package.json`, `pnpm-workspace.yaml`, `turbo.json` | 플랫폼 pnpm workspace 루트(`apps/*`, `packages/*`, `menus/*`, `tooling/*`) |
+| `apps/platform-web/` | 플랫폼 앱(조립 지점). 통합 프로토타입 `prototypes/platform-app`을 옮긴 것 |
+| `tooling/` | 공유 tsconfig 등 개발 도구 설정 |
 | `products/feedbackops/` | FeedbackOps 원본 Git 저장소의 고정 커밋 |
 | `products/feedbackops/apps/frontend/` | 기존 React 프론트엔드. `src/features/`에 업무 화면 구성 |
 | `products/feedbackops/apps/backend/` | 기존 Fastify 백엔드. `src/modules/`에 업무 및 공통 기능 구현 |
@@ -64,7 +67,7 @@ git -C products/feedbackops diff --stat HEAD origin/develop
 - 플랫폼 설계: 저장소 루트에서 시작하고 `AGENTS.md` → `docs/INDEX.md`를 읽는다.
 - FeedbackOps 탐색: `products/feedbackops/`에서 시작하고 그 안의 `AGENTS.md` → `README.md`를 읽는다.
 - FeedbackOps 기능 개발: 기존 원본 체크아웃을 기본으로 사용한다. 참조용 서브모듈의 detached HEAD에서 바로 커밋하지 않는다.
-- 개발 서버·패키지 설치·테스트는 FeedbackOps 디렉터리와 자체 workspace 설정을 기준으로 실행한다. 루트 통합 실행 명령은 아직 없다.
+- 개발 서버·패키지 설치·테스트는 FeedbackOps 디렉터리와 자체 workspace 설정을 기준으로 실행한다. 플랫폼 앱은 루트에서 `pnpm install` 후 `pnpm dev`/`pnpm test`로 실행하며 FeedbackOps를 포함하지 않는다.
 - DB 통합 테스트는 초기화·재시드 동작이 있으므로 기존 데이터를 가진 DB에 실행하지 않는다.
 
 ## FeedbackOps 통합 방식 (Decided, 2026-09-26)
