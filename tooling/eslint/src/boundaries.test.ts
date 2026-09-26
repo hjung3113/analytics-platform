@@ -107,12 +107,12 @@ const rows: Row[] = [
   { file: 'packages/kernel/src/platform.tsx', code: `import('../../menus/home/src/index');`, rule: 'ap/no-relative-package-escape' },
 
   // --- hand-built query strings in menus (42-55) ---
-  { file: MENU, code: `<a href="/equipment?v=1" />`, rule: 'no-restricted-syntax', token: 'query string' },
-  { file: MENU, code: `<a href={'/equipment?v=1&scopeId=ICH'} />`, rule: 'no-restricted-syntax', token: 'query string' },
-  { file: MENU, code: '<a href={`/equipment?v=${id}`} />', rule: 'no-restricted-syntax', token: 'query string' },
-  { file: MENU, code: `<a href={'/equipment' + '?' + 'v=1'} />`, rule: 'no-restricted-syntax', token: 'query string' },
-  { file: MENU, code: `navigate('/equipment?v=1');`, rule: 'no-restricted-syntax', token: 'query string' },
-  { file: MENU, code: 'navigate(`/equipment?v=${id}`);', rule: 'no-restricted-syntax', token: 'query string' },
+  { file: MENU, code: `<a href="/equipment?v=1" />`, rule: 'ap/no-hand-built-url', token: 'query string' },
+  { file: MENU, code: `<a href={'/equipment?v=1&scopeId=ICH'} />`, rule: 'ap/no-hand-built-url', token: 'query string' },
+  { file: MENU, code: '<a href={`/equipment?v=${id}`} />', rule: 'ap/no-hand-built-url', token: 'query string' },
+  { file: MENU, code: `<a href={'/equipment' + '?' + 'v=1'} />`, rule: 'ap/no-hand-built-url', token: 'query string' },
+  { file: MENU, code: `navigate('/equipment?v=1');`, rule: 'ap/no-hand-built-url', token: 'query string' },
+  { file: MENU, code: 'navigate(`/equipment?v=${id}`);', rule: 'ap/no-hand-built-url', token: 'query string' },
   { file: MENU, code: `<a href={linkTo('home')} />`, rule: '' },
   { file: MENU, code: `<a href={r.url} />`, rule: '' },
   { file: MENU, code: `<a href="/equipment" />`, rule: '' },
@@ -143,6 +143,29 @@ const rows: Row[] = [
   { file: MENU, code: `a.href = URL.createObjectURL(blob);`, rule: '' },
   { file: 'packages/kernel/src/x.ts', code: `window.history.replaceState(null, '', next);`, rule: '' },
   { file: MENU, code: `window?.location?.assign('/x');`, rule: '' },
+
+  // --- F1: dynamic import / import() type / require must obey boundaries ---
+  { file: 'menus/home/src/api.test.ts', code: `const m = await import('@ap/mock-server');`, rule: 'ap/restricted-import-source' },
+  { file: 'packages/kernel/src/x.ts', code: `await import('@ap/shell');`, rule: 'ap/restricted-import-source' },
+  { file: 'packages/contracts/src/x.ts', code: `type X = import('react').ReactNode;`, rule: 'ap/restricted-import-source' },
+  { file: MENU, code: `require('@ap/mock-server');`, rule: 'ap/restricted-import-source' },
+  { file: MENU, code: `require('../../../../packages/contracts/src/url');`, rule: 'ap/no-relative-package-escape' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import('@ap/mock-server/src/server');`, rule: 'ap/restricted-import-source' },
+  { file: 'menus/home/src/api.ts', code: `import('@ap/mock-server/src/server');`, rule: 'ap/restricted-import-source' },
+  { file: 'menus/home/src/api.ts', code: `await import('@ap/mock-server');`, rule: '' },
+  { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `await import('@ap/mock-server');`, rule: '' },
+  { file: MENU, code: `lazy(() => import('./pages/X'));`, rule: '' },
+  { file: 'packages/kernel/src/x.ts', code: `await import('@ap/contracts');`, rule: '' },
+
+  // --- F1: globalThis.location writes ---
+  { file: MENU, code: `globalThis.location.href = '/x';`, rule: 'no-restricted-syntax', token: 'window.location' },
+  { file: MENU, code: `globalThis.location.assign('/x');`, rule: 'no-restricted-syntax', token: 'window.location' },
+
+  // --- F2: builder input and non-URL text inside href/navigate stay legal ---
+  { file: MENU, code: `navigate(ok ? '/a?x=1' : linkTo('home'));`, rule: 'ap/no-hand-built-url', token: 'query string' },
+  { file: MENU, code: `navigate(linkTo('home', { page: { q: '왜?' } }));`, rule: '' },
+  { file: MENU, code: `<a href={linkTo('home', { page: { q: 'R&D' } })} />`, rule: '' },
+  { file: MENU, code: `navigate(confirm('이동할까요?') ? linkTo('home') : linkTo('equipment'));`, rule: '' },
 ];
 
 describe('boundary + contract fixtures', () => {

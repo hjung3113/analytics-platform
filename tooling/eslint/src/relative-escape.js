@@ -53,8 +53,7 @@ const noRelativePackageEscape = {
     const fileDir = path.dirname(context.filename);
     const owner = findOwningPackage(fileDir);
 
-    const check = (node) => {
-      const source = relativeSourceLiteral(node);
+    const checkLiteral = (source) => {
       if (!source) return;
       if (!owner) {
         context.report({
@@ -74,11 +73,27 @@ const noRelativePackageEscape = {
       }
     };
 
+    // import ... from '...' / export ... from '...' / import('...')
+    const checkNode = (node) => checkLiteral(relativeSourceLiteral(node));
+
+    // require('<relative>')
+    const checkRequire = (node) => {
+      if (!node.callee || node.callee.type !== 'Identifier' || node.callee.name !== 'require') {
+        return;
+      }
+      const arg = node.arguments[0];
+      if (!arg || arg.type !== 'Literal' || typeof arg.value !== 'string' || !arg.value.startsWith('.')) {
+        return;
+      }
+      checkLiteral(arg);
+    };
+
     return {
-      ImportDeclaration: check,
-      ExportNamedDeclaration: check,
-      ExportAllDeclaration: check,
-      ImportExpression: check,
+      ImportDeclaration: checkNode,
+      ExportNamedDeclaration: checkNode,
+      ExportAllDeclaration: checkNode,
+      ImportExpression: checkNode,
+      CallExpression: checkRequire,
     };
   },
 };

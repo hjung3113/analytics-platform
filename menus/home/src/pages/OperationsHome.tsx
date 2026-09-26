@@ -1,7 +1,7 @@
 import { ArrowRight, Clock3, Lock, Megaphone, Star, X } from 'lucide-react';
-import { useState } from 'react';
 import { PAGE_TYPE_LABELS, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { serve } from '../api';
+import { dismissNotice, useDismissedNotices } from './dismissed-notices';
 import { Panel, PlatformPage, QueryView } from '@ap/components';
 import { StatusBadge } from '@ap/ui';
 
@@ -15,7 +15,7 @@ const NOTICES: Notice[] = [
 export default function OperationsHome() {
   const { visibleMenus, favorites, toggleFavorite, recent, linkTo, global, registry } = usePlatform();
   const { t, tx, lang } = useI18n();
-  const [dismissed, setDismissed] = useState<string[]>([]);
+  const dismissed = useDismissedNotices();
 
   // Notice targeting is by the current requested scopeId (08 §6, Decided).
   const notices = usePlatformQuery(signal => serve({
@@ -39,7 +39,7 @@ export default function OperationsHome() {
           <span className="flex-1"><span className="t-mono mr-2 text-[11px] text-text-muted">{n.id}</span>{tx(n.title)}</span>
           <PlatformLink href={linkTo('notices')} className="inline-flex items-center gap-1 whitespace-nowrap text-[12px] font-medium text-accent-primary hover:underline">{lang === 'ko' ? '전체 공지 보기' : 'All notices'}<ArrowRight className="size-3" aria-hidden /></PlatformLink>
           <button type="button" aria-label={lang === 'ko' ? '이번 세션 동안 닫기' : 'Dismiss for this session'} className="grid size-6 place-items-center rounded-xs text-text-muted hover:bg-surface-card"
-            onClick={() => setDismissed([...dismissed, n.id])}><X className="size-3.5" aria-hidden /></button>
+            onClick={() => dismissNotice(n.id)}><X className="size-3.5" aria-hidden /></button>
         </div>)}
       {notices.response && !['ok', 'empty'].includes(notices.response.outcome) && <QueryView query={notices} compact>{() => null}</QueryView>}
 

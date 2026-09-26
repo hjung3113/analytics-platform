@@ -23,6 +23,6 @@ Registry 7개 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가
 
 ## 검증
 
-루트에서 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`. `@ap/menu-analytics`·`@ap/menu-metrics`만 `test` 스크립트(vitest, node 환경)가 있다. 화면이 바뀌면 `pnpm dev`로 브라우저에서 확인한다. lint상 `src/api.ts`가 그 패키지에서 `@ap/mock-server`를 import하는 유일한 파일이며, 테스트(`*.test.ts`)도 이 규칙의 면제 대상이 아니다.
+루트에서 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`. `test` 스크립트(vitest)는 `@ap/menu-analytics`·`@ap/menu-metrics`(node 환경)와 `@ap/menu-home`(jsdom, 공지 닫기 수명)에만 있다. 화면이 바뀌면 `pnpm dev`로 브라우저에서 확인한다. lint상 `src/api.ts`가 그 패키지에서 `@ap/mock-server`를 import하는 유일한 파일이며, 테스트(`*.test.ts`)도 이 규칙의 면제 대상이 아니다.
 
 다음 단계: 화면 작성법은 [apps/platform-web README "페이지 작성 가이드"](../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙), 메뉴 선언 계약은 06 §5.

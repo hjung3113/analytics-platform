@@ -1,4 +1,1 @@
-{
-  "extends": "@ap/tsconfig/base.json",
-  "include": ["src"]
-}
+{"extends": "@ap/tsconfig/base.json", "include": ["src", "vitest.config.ts"]}

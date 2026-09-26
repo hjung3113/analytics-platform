@@ -20,7 +20,7 @@ Current tree was read on `hjung3113/step6a-boundary-lint` (workspace after step 
 
 `menus/home/src/pages/OperationsHome.tsx:14` and `:44` call `sessionStorage` (`platform:notice-dismissed`). That is the only menu storage use. After the rule is on, `pnpm lint` is red until this is gone.
 
-**Fix:** delete `DISMISS`, `readDismissed`, and `sessionStorage.setItem`. Keep `useState<string[]>([])`. Dismiss still lasts for the SPA session; a reload shows the notice again. Do not add a kernel helper (06 §24, one caller). Do not change button copy. `@ap/menu-home` has no test for this. No other file change in menus.
+**Fix:** delete `DISMISS`, `readDismissed`, and `sessionStorage.setItem`. Keep `useState<string[]>([])`. ~~Dismiss still lasts for the SPA session~~ (wrong: component state resets when the route unmounts — review F3; fixed with a module-level store, `menus/home/src/pages/dismissed-notices.ts`); a reload shows the notice again. Do not add a kernel helper (06 §24, one caller). Do not change button copy. `@ap/menu-home` has no test for this. No other file change in menus.
 
 If reload persistence is required, stop: that is a kernel-owned API, a separate decision, not an override.
 
@@ -90,7 +90,7 @@ Allowlist helper: `group: ['${PREFIX}*', '!' + pkg(a), '!' + pkg(b), …]` plus,
 
   Not dataflow. `href={r.url}` (`OperationsHome.tsx:84`), `href={linkTo(...)}`, `href={returnTarget()}`, and `const u = '/x?v=1'; <a href={u} />` pass. Copy such as `Roles & access` (`menus/admin/src/index.ts`) is not an `href`. `contracts` `return '?' + params.toString()` is not under the menu preset. DevTools query strings (`apps/platform-web/src/dev/DevTools.tsx:59-66`) are app code and are passed as `navigate(l.url)` — out of scope. Optional `window?.location?.assign` is an accepted gap; fixture 73 must pass.
 
-## 2. Opt-in (15 consumers + this package)
+## 2. Opt-in (14 consumers + this package = 15 lint tasks)
 
 One line, package `"type": "module"` already:
 

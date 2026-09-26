@@ -145,9 +145,9 @@ const registry = createRegistry({ groups: GROUPS, menus: [...home.manifests, ...
 | 경계 검사 | ESLint `no-restricted-imports` + 계약 규칙 — `tooling/eslint`(`@ap/eslint-config`)의 레이어별 프리셋을 각 패키지 `eslint.config.js`가 한 줄로 가져다 쓴다 | §3 규칙 1–4를 패키지별 설정으로. 규칙·프리셋 원본은 `tooling/eslint/src/` |
 | 계약 lint | URL 직접 조립 금지(`?`/`&` 문자열 조합 대신 `linkTo`/`buildQuery`), `window.location` 직접 쓰기 금지, 메뉴 코드에서 `localStorage` 금지 | 인터뷰 기록의 "URL 직접 조립 금지 lint" |
 | 테스트 | Vitest를 패키지별로. 기존 51개 테스트는 원래 파일과 같이 옮기되, 층을 넘는 테스트 파일은 D10대로 메뉴·앱 통합 테스트로 재배치 | 테스트 개수 합계가 줄지 않았는지 단계마다 확인 |
-| CI | `platform-app` Job을 `pnpm typecheck`·`pnpm test`·`pnpm build`(각각 별도 단계, Turbo 태스크 그래프) + lint Job으로 교체 | Node 26.7.0 유지. `pnpm -r typecheck test build`처럼 한 줄로 쓰면 뒤 두 개가 첫 스크립트의 인자가 되어 실행되지 않는다 |
+| CI | `platform-workspace` Job에서 `pnpm lint`·`pnpm typecheck`·`pnpm test`·`pnpm build`를 각각 별도 단계로(Turbo 태스크 그래프). lint는 별도 Job이 아니라 같은 Job의 단계(6a) | Node 26.7.0 유지. `pnpm -r typecheck test build`처럼 한 줄로 쓰면 뒤 두 개가 첫 스크립트의 인자가 되어 실행되지 않는다 |
 
-**결정 필요 — lint 도구:** FeedbackOps는 Biome을 쓴다. 제안은 ESLint다. 경계 규칙과 URL 조립 금지 같은 커스텀 AST 규칙이 필요한데, Biome 플러그인(GritQL)은 아직 이런 규칙을 쓰기에 제한적이기 때문이다. 포맷팅만 Biome으로 맞추는 혼합안도 가능하다.
+**lint 도구 — ESLint (Decided, §8 #4):** FeedbackOps는 Biome을 쓰지만 경계 규칙과 URL 조립 금지 같은 커스텀 AST 규칙이 필요해 ESLint를 택했다(Biome 플러그인 GritQL은 이런 규칙에 제한적). 6a에서 `tooling/eslint`(`@ap/eslint-config`)의 층별 preset으로 구현했다. 문법 기반이라 변수에 담아 조립한 URL, computed 속성(`window['localStorage']`), optional chaining 호출 같은 우회는 잡지 않는다 — 규칙이 허용한다는 뜻이 아니다.
 
 ## 7. 폴더 배치와 이행 순서
 

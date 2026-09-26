@@ -1,7 +1,9 @@
 import tsParser from '@typescript-eslint/parser';
 
 import { PACKAGE_PREFIX } from './prefix.js';
+import noHandBuiltUrl from './hand-built-url.js';
 import noRelativePackageEscape from './relative-escape.js';
+import restrictedImportSource from './import-source.js';
 
 const pkg = (name) => `${PACKAGE_PREFIX}${name}`;
 
@@ -13,29 +15,22 @@ const REACT_MESSAGE = 'react / react-dom are not allowed in this package.';
 const MENU_ALLOW = ['contracts', 'kernel', 'components', 'ui'];
 const APP_CARVEOUT_FILES = ['src/main.tsx', 'src/dev/**/*.{ts,tsx}', 'src/published-metrics.test.ts'];
 
-// Universal: deep subpaths are always banned. Layer allowlist: entries only,
-// with `!` negations for the packages this layer may import. `*` does not
-// cross `/`, so exempting a package never exempts its src subpaths.
-const deepSubpathBan = {
-  group: [`${PACKAGE_PREFIX}*/*`, `${PACKAGE_PREFIX}*/*/**`],
-  message: DEEP_SUBPATH_MESSAGE,
-};
+// Restriction data is the single decision source: each layer declares
+// { allow, denyReact, mockAllowed } and BOTH import rules are built from it,
+// so static and dynamic imports can never drift apart.
+//   allow: package-entry names this layer may import; null = every entry.
+//   mockAllowed: exempts exactly the mock-server entry (never its subpaths).
+// Deep subpaths are banned for everyone, including inside carve-outs.
+const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, mockAllowed: false };
+const MENU_API_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, mockAllowed: true };
+const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false };
+const APP_CARVEOUT_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true };
 
-const layerAllowlist = (allow) =>
-  allow === null
-    ? undefined
-    : {
-        group: [`${PACKAGE_PREFIX}*`, ...allow.map((name) => `!${pkg(name)}`)],
-        message: LAYER_MESSAGE,
-      };
-
-const mockServerBan = {
-  group: [pkg('mock-server'), pkg('mock-server/*')],
-  message: MOCK_SERVER_MESSAGE,
-};
-
-function importRestrictions({ allow, denyReact, banMockServer }) {
-  const allowlist = layerAllowlist(allow);
+function importRestrictions({ allow, denyReact, mockAllowed }) {
+  const negations = [
+    ...(allow === null ? [] : allow.map((name) => `!${pkg(name)}`)),
+    ...(mockAllowed ? [`!${pkg('mock-server')}`] : []),
+  ];
   return [
     'error',
     {
@@ -46,25 +41,40 @@ function importRestrictions({ allow, denyReact, banMockServer }) {
           ]
         : [],
       patterns: [
-        deepSubpathBan,
-        ...(allowlist ? [allowlist] : []),
-        ...(banMockServer ? [mockServerBan] : []),
+        {
+          group: [`${PACKAGE_PREFIX}*/*`, `${PACKAGE_PREFIX}*/*/**`],
+          message: DEEP_SUBPATH_MESSAGE,
+        },
+        ...(allow === null
+          ? []
+          : [{ group: [`${PACKAGE_PREFIX}*`, ...negations], message: LAYER_MESSAGE }]),
+        ...(mockAllowed ? [] : [{ group: [pkg('mock-server'), pkg('mock-server/*')], message: MOCK_SERVER_MESSAGE }]),
         ...(denyReact ? [{ group: ['react/*', 'react-dom/*'], message: REACT_MESSAGE }] : []),
       ],
     },
   ];
 }
 
+function importSourceOptions(restriction) {
+  return {
+    ...restriction,
+    deepMessage: DEEP_SUBPATH_MESSAGE,
+    layerMessage: LAYER_MESSAGE,
+    mockMessage: MOCK_SERVER_MESSAGE,
+    reactMessage: REACT_MESSAGE,
+  };
+}
+
 const MENU_STORAGE_MESSAGE = 'Menu code cannot touch web storage; kernel, shell, and components own it.';
 const MENU_LOCATION_MESSAGE = 'Menu code cannot write window.location; navigate through the kernel deep-link API.';
 const MENU_QUERY_MESSAGE = 'Menu code cannot hand-build a query string in href or navigate; use linkTo().';
 
-// Design note vs 6a-design §1: two deviations, both required by the §4 fixture table.
-// 1) Added AssignmentExpression[left.object.object.name='window'][left.object.property.name='location']
-//    so `window.location.href = '/x'` (row 64) is caught; without it the 3-level
-//    member write matches no selector and row 64 would have to pass.
-// 2) The window.location.assign/replace selector carries [callee.object.optional!=true]
-//    so the optional chain `window?.location?.assign(...)` (row 73, accepted gap) stays allowed.
+// Location-write selectors, with accepted gaps documented:
+// - The 3-level member forms exist so `window.location.href = '/x'` and the
+//   globalThis equivalents are caught (bare 2-level selectors cannot match them).
+// - The call selectors carry [callee.object.optional!=true] so the optional
+//   chains `window?.location?.assign(...)` / `globalThis?.location?.assign(...)`
+//   stay allowed (accepted gap from 6a-design §4 row 73).
 const menuContractSyntax = [
   {
     selector:
@@ -89,6 +99,15 @@ const menuContractSyntax = [
     message: MENU_LOCATION_MESSAGE,
   },
   {
+    selector: "AssignmentExpression[left.object.name='globalThis'][left.property.name='location']",
+    message: MENU_LOCATION_MESSAGE,
+  },
+  {
+    selector:
+      "AssignmentExpression[left.object.object.name='globalThis'][left.object.property.name='location']",
+    message: MENU_LOCATION_MESSAGE,
+  },
+  {
     selector:
       "CallExpression[callee.object.name='location'][callee.property.name=/^(assign|replace)$/]",
     message: MENU_LOCATION_MESSAGE,
@@ -99,28 +118,9 @@ const menuContractSyntax = [
     message: MENU_LOCATION_MESSAGE,
   },
   {
-    selector: "JSXAttribute[name.name='href'] Literal[value=/[?&]/]",
-    message: MENU_QUERY_MESSAGE,
-  },
-  {
-    selector: "JSXAttribute[name.name='href'] TemplateElement[value.raw=/[?&]/]",
-    message: MENU_QUERY_MESSAGE,
-  },
-  {
-    selector: "CallExpression[callee.name='navigate'] Literal[value=/[?&]/]",
-    message: MENU_QUERY_MESSAGE,
-  },
-  {
-    selector: "CallExpression[callee.name='navigate'] TemplateElement[value.raw=/[?&]/]",
-    message: MENU_QUERY_MESSAGE,
-  },
-  {
-    selector: "CallExpression[callee.property.name='navigate'] Literal[value=/[?&]/]",
-    message: MENU_QUERY_MESSAGE,
-  },
-  {
-    selector: "CallExpression[callee.property.name='navigate'] TemplateElement[value.raw=/[?&]/]",
-    message: MENU_QUERY_MESSAGE,
+    selector:
+      "CallExpression[callee.object.object.name='globalThis'][callee.object.property.name='location'][callee.object.optional!=true][callee.property.name=/^(assign|replace)$/]",
+    message: MENU_LOCATION_MESSAGE,
   },
 ];
 
@@ -131,9 +131,12 @@ const menuContractRules = {
     { name: 'sessionStorage', message: MENU_STORAGE_MESSAGE },
   ],
   'no-restricted-syntax': ['error', ...menuContractSyntax],
+  // Query strings: structural walk of the URL expression only (6a-review F2
+  // replaced six descendant no-restricted-syntax selectors with this rule).
+  'ap/no-hand-built-url': ['error', { message: MENU_QUERY_MESSAGE }],
 };
 
-function layerConfig({ allow, denyReact, banMockServer = false, extraRules = {} }) {
+function layerConfig({ restriction, extraRules = {} }) {
   return {
     ignores: ['dist/**', 'coverage/**'],
     files: ['**/*.{ts,tsx}'],
@@ -146,73 +149,93 @@ function layerConfig({ allow, denyReact, banMockServer = false, extraRules = {} 
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
     plugins: {
-      ap: { rules: { 'no-relative-package-escape': noRelativePackageEscape } },
+      ap: {
+        rules: {
+          'no-relative-package-escape': noRelativePackageEscape,
+          'restricted-import-source': restrictedImportSource,
+          'no-hand-built-url': noHandBuiltUrl,
+        },
+      },
     },
     rules: {
       'ap/no-relative-package-escape': 'error',
-      'no-restricted-imports': importRestrictions({ allow, denyReact, banMockServer }),
+      'ap/restricted-import-source': ['error', importSourceOptions(restriction)],
+      'no-restricted-imports': importRestrictions(restriction),
       ...extraRules,
     },
   };
 }
 
 /** @type {import('eslint').Linter.Config[]} */
-export const contracts = [layerConfig({ allow: [], denyReact: true })];
-
-/** @type {import('eslint').Linter.Config[]} */
-export const ui = [layerConfig({ allow: [], denyReact: false })];
-
-/** @type {import('eslint').Linter.Config[]} */
-export const kernel = [layerConfig({ allow: ['contracts'], denyReact: false })];
-
-/** @type {import('eslint').Linter.Config[]} */
-export const components = [layerConfig({ allow: ['contracts', 'kernel', 'ui'], denyReact: false })];
-
-/** @type {import('eslint').Linter.Config[]} */
-export const shell = [
-  layerConfig({ allow: ['contracts', 'kernel', 'ui', 'components'], denyReact: false }),
+export const contracts = [
+  layerConfig({ restriction: { allow: [], denyReact: true, mockAllowed: false } }),
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
-export const mockServer = [layerConfig({ allow: ['contracts'], denyReact: true })];
+export const ui = [layerConfig({ restriction: { allow: [], denyReact: false, mockAllowed: false } })];
+
+/** @type {import('eslint').Linter.Config[]} */
+export const kernel = [
+  layerConfig({ restriction: { allow: ['contracts'], denyReact: false, mockAllowed: false } }),
+];
+
+/** @type {import('eslint').Linter.Config[]} */
+export const components = [
+  layerConfig({
+    restriction: { allow: ['contracts', 'kernel', 'ui'], denyReact: false, mockAllowed: false },
+  }),
+];
+
+/** @type {import('eslint').Linter.Config[]} */
+export const shell = [
+  layerConfig({
+    restriction: {
+      allow: ['contracts', 'kernel', 'ui', 'components'],
+      denyReact: false,
+      mockAllowed: false,
+    },
+  }),
+];
+
+/** @type {import('eslint').Linter.Config[]} */
+export const mockServer = [
+  layerConfig({ restriction: { allow: ['contracts'], denyReact: true, mockAllowed: false } }),
+];
 
 // Menu: mock-server banned outside src/api.ts; contract rules (storage,
 // location writes, hand-built query strings) apply to every menu file.
-// src/api.ts keeps the contract rules and swaps the mock-server ban for an
-// allowlist entry (flat config replaces the rule id; other rules cascade).
+// src/api.ts keeps the contract rules and swaps the mock-server exemption on
+// for both import rules together (flat config replaces each rule id; other
+// rules cascade).
 /** @type {import('eslint').Linter.Config[]} */
 export const menu = [
-  layerConfig({
-    allow: MENU_ALLOW,
-    denyReact: false,
-    banMockServer: true,
-    extraRules: menuContractRules,
-  }),
+  layerConfig({ restriction: MENU_RESTRICTION, extraRules: menuContractRules }),
   {
     files: ['src/api.ts'],
     rules: {
-      'no-restricted-imports': importRestrictions({
-        allow: [...MENU_ALLOW, 'mock-server'],
-        denyReact: false,
-        banMockServer: false,
-      }),
+      'no-restricted-imports': importRestrictions(MENU_API_RESTRICTION),
+      'ap/restricted-import-source': ['error', importSourceOptions(MENU_API_RESTRICTION)],
     },
   },
 ];
 
 // App: all package entries allowed, deep subpaths and mock-server banned;
 // main.tsx / src/dev / published-metrics.test.ts keep the deep-subpath ban
-// but drop the mock-server ban. No ignores for **/*.test.*.
+// but drop the mock-server ban for both import rules together. No ignores
+// for **/*.test.*.
 /** @type {import('eslint').Linter.Config[]} */
 export const app = [
-  layerConfig({ allow: null, denyReact: false, banMockServer: true }),
+  layerConfig({ restriction: APP_RESTRICTION }),
   {
     files: APP_CARVEOUT_FILES,
     rules: {
-      'no-restricted-imports': importRestrictions({ allow: null, denyReact: false, banMockServer: false }),
+      'no-restricted-imports': importRestrictions(APP_CARVEOUT_RESTRICTION),
+      'ap/restricted-import-source': ['error', importSourceOptions(APP_CARVEOUT_RESTRICTION)],
     },
   },
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
-export const tooling = [layerConfig({ allow: [], denyReact: true })];
+export const tooling = [
+  layerConfig({ restriction: { allow: [], denyReact: true, mockAllowed: false } }),
+];
