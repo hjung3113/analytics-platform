@@ -19,6 +19,10 @@ def fail(code, message):
 def identifier(value):
     if not isinstance(value, str) or not value.strip():
         fail('invalid_id', 'ID must contain a non-whitespace character; correct the URL.')
+    try:
+        value.encode('utf-8', errors='strict')
+    except UnicodeEncodeError:
+        fail('invalid_id', 'ID must be valid Unicode (no lone surrogates); correct the URL.')
     return value
 
 
