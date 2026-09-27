@@ -54,7 +54,7 @@
 - **dev 서버 누수:** vite가 `node …/vite.js`로 떠서 `pkill -f "vite --host"`에 안 걸린다. 끝나면 `lsof -tiTCP:5173-5180 -sTCP:LISTEN | xargs kill`. 포트가 밀리면 브라우저 검사가 엉뚱한 서버를 본다.
 - **브라우저 검사:** `PLAYWRIGHT_BROWSERS_PATH=$PWD/prototypes/kernel-platform-table/.browsers`, 스크립트는 그 폴더에서 실행. 데스크톱 1440×900 기준.
 - **스택 PR:** 기반 PR을 `--delete-branch`로 병합하면 위 PR이 닫힌다. 기반은 브랜치 유지로 병합 → `gh pr edit <n> --base main` → `origin/main` 병합 후 push.
-- **Tailwind v4:** 앱 밖 패키지는 `styles.css`의 `@source` + 앱 `style.css` import. 이동·생성 PR은 빌드 CSS selector 집합 비교.
+- **Tailwind v4:** 앱 밖 패키지는 `styles.css`의 `@source` + 앱 `style.css` import. 이동·생성 PR의 빌드 CSS selector 집합 비교는 CI `css-selectors` 워크플로(`.github/workflows/css-selectors.yml`, #58)가 검사한다 — selector가 제거되면 실패하고, 의도된 제거는 `css-removal-ok` 라벨로 통과시킨다.
 - **알려진 잔여:** gen-menu `--remove`의 EBUSY 재시도 경로(P2), 문법 기반 lint의 한계(platform-packages §6), `"none"` 문자열 EquipmentID 구분 불가(Unit A).
 - CI: `ubuntu-latest`가 2026-10-19부터 Ubuntu 26. 그 무렵 CI가 깨지면 먼저 확인.
 

@@ -1,0 +1,60 @@
+name: CSS selectors
+
+# 빌드 산물의 selector 집합 비교(#58, 결정 #39/05). 픽셀 비교는 디자인 확정 뒤 과제.
+# ci.yml과 트리거를 분리한다(리뷰 P1-c): 라벨 on/off가 이 워크플로만 재실행하게 하고,
+# 다른 Job은 PR 이벤트(opened/synchronize/reopened)에만 돌도록 되돌렸다.
+on:
+  pull_request:
+    branches: [main]
+    # labeled/unlabeled: `css-removal-ok` 라벨을 다는 것만으로 css-selectors 재평가(#58).
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  # PR 단위로 묶고 이전 실행을 취소한다 — 라벨 토글은 마지막 상태만 평가하면 충분하다.
+  group: css-selectors-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  css-selectors:
+    name: CSS selectors (build diff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: false
+          fetch-depth: 0
+          # 합성 merge 커밋이 아니라 PR head 자체를 빌드한다(리뷰 P1-b).
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Fetch base branch (merge-base baseline)
+        run: git fetch --no-tags origin "+refs/heads/${{ github.event.pull_request.base.ref }}:refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '26.7.0'
+          cache: pnpm
+      - name: Build head
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter @ap/platform-web build
+      - name: Collect head CSS
+        # 앱 CSS는 청크 1개가 정상이고, 여러 개면 집합 비교라 순서 무관하게 이어 붙인다.
+        run: cat apps/platform-web/dist/assets/*.css > "$RUNNER_TEMP/head.css"
+      - name: Check out base worktree (merge-base with target branch)
+        run: git worktree add "$RUNNER_TEMP/base" "$(git merge-base HEAD "origin/${{ github.event.pull_request.base.ref }}")"
+      - name: Build base
+        working-directory: ${{ runner.temp }}/base
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter @ap/platform-web build
+      - name: Collect base CSS
+        run: cat "$RUNNER_TEMP/base/apps/platform-web/dist/assets/"*.css > "$RUNNER_TEMP/base.css"
+      - name: Compare selector sets
+        run: |
+          ARGS=(--summary "$GITHUB_STEP_SUMMARY")
+          if ${{ contains(github.event.pull_request.labels.*.name, 'css-removal-ok') }}; then
+            ARGS+=(--allow-removal)
+          fi
+          node tooling/css-selectors/src/cli.ts "$RUNNER_TEMP/base.css" "$RUNNER_TEMP/head.css" "${ARGS[@]}"
