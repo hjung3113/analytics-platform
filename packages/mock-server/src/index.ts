@@ -6,7 +6,7 @@ export {
 } from './jobs';
 
 export {
-  getRole, getScenario, periodHours, resolveEquipment, serve, setRole, setScenario,
+  getEntity, getRole, getScenario, periodHours, resolveEquipment, serve, setRole, setScenario,
   subscribeServer, type Scenario,
 } from './server';
 

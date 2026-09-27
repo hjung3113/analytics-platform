@@ -3,7 +3,7 @@
  * main.tsx injects this. A real server adapter replaces this file, not the kernel.
  */
 import type { PlatformAdapter, Session } from '@ap/contracts';
-import { checkScope, getRole, matchesCondition, subscribeServer, validateScope } from './server';
+import { checkScope, getEntity, getRole, matchesCondition, subscribeServer, validateScope } from './server';
 import { DEFAULT_RANGE_TO, EQUIPMENT, PUBLISHED_METRICS, SITES, USERS, type RoleId } from './world';
 
 /** Short async hop so the shell exercises its loading path, as it would against a real server. */
@@ -60,4 +60,5 @@ export const mockAdapter: PlatformAdapter = {
     return { inCondition, outOfCondition };
   },
   subscribe: subscribeServer,
+  getEntity: (ref, signal) => getEntity(ref, signal),
 };

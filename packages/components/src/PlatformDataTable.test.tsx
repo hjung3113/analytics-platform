@@ -24,6 +24,7 @@ const adapter: PlatformAdapter = {
   defaultRangeTo: () => '2026-09-26T09:00:00',
   contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
   evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
+  getEntity: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'c' }),
   subscribe: () => () => {},
 };
 

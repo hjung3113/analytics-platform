@@ -4,7 +4,7 @@ import type { ApiResponse, PlatformAdapter, Session } from '@ap/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
-import { useAdapterRequest, usePlatformQuery } from './query';
+import { useAdapterRequest, useEntityQuery, usePlatformQuery } from './query';
 import { createRegistry } from './registry';
 import { House } from 'lucide-react';
 
@@ -15,7 +15,7 @@ const registry = createRegistry({
 });
 
 /** Fixture adapter: no mock server, so these tests pin the kernel side of the port (platform-packages.md §4). */
-function fixture() {
+function fixture(getEntity?: PlatformAdapter['getEntity']) {
   const make = (id: string): Session => ({ user: { id, name: id, title: { ko: id, en: id }, permissions: ['platform:view'] }, scopes: [] });
   const sessions = { a: make('user-a'), b: make('user-b') };
   let current: Session = sessions.a;
@@ -27,6 +27,7 @@ function fixture() {
     defaultRangeTo: () => '2026-09-26T09:00:00',
     contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
     evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
+    getEntity: getEntity ?? (async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' })),
     subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
   };
   return {
@@ -105,6 +106,7 @@ describe('adapter shape', () => {
       defaultRangeTo() { return '2026-09-26T09:00:00'; }
       async contextOptions() { return { stgroup: [], team: [], makerModel: [] }; }
       async evaluateSelection() { return { inCondition: [], outOfCondition: [] }; }
+      async getEntity() { return { outcome: 'empty' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
       subscribe(listener: () => void) { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
     }
     mount(new ServerAdapter());
@@ -145,6 +147,69 @@ describe('useAdapterRequest error', () => {
     fail = false;
     act(() => screen.getByTestId('r').click());
     expect(await screen.findByText('done:ok')).toBeTruthy();
+  });
+});
+
+describe('useEntityQuery (session identity)', () => {
+  /** Row probe: a global period change (button) must not refetch; ref/revision changes must. */
+  function RowProbe(props: { id: string }) {
+    const { setGlobal } = usePlatform();
+    const query = useEntityQuery<string>({ type: 'device', id: props.id, scopeId: null }, 'header');
+    return (
+      <button type="button" data-testid="ent" onClick={() => setGlobal({ from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' })}>
+        {query.status}:{query.response?.data ?? '-'}
+      </button>
+    );
+  }
+
+  function RowSwitch(props: { onId: (set: (id: string) => void) => void }) {
+    const [id, setId] = useState('d-1');
+    props.onId(setId);
+    return <RowProbe id={id} />;
+  }
+
+  it('returns ok and a global period change neither refetches nor hides the row', async () => {
+    let calls = 0;
+    const f = fixture(async ref => {
+      calls++;
+      return { outcome: 'ok', data: `row-${ref.id}`, assessments: [], trust: null, correlationId: 'e' };
+    });
+    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><RowProbe id="d-1" /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('done:row-d-1')).toBeTruthy();
+    expect(calls).toBe(1);
+    act(() => screen.getByTestId('ent').click());
+    expect(screen.getByTestId('ent').textContent).toBe('done:row-d-1');
+    await act(async () => {}); // a stray refetch would surface here
+    expect(calls).toBe(1);
+  });
+
+  it('hides the row immediately when ref.id changes, then shows the new id', async () => {
+    let calls = 0;
+    const f = fixture(async ref => {
+      calls++;
+      return { outcome: 'ok', data: `row-${ref.id}`, assessments: [], trust: null, correlationId: 'e' };
+    });
+    let setId: (id: string) => void = () => {};
+    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><RowSwitch onId={set => { setId = set; }} /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('done:row-d-1')).toBeTruthy();
+    act(() => setId('d-2'));
+    expect(screen.getByTestId('ent').textContent).toBe('loading:-');
+    expect(await screen.findByText('done:row-d-2')).toBeTruthy();
+    expect(calls).toBe(2);
+  });
+
+  it('hides the row immediately when the server announces a change', async () => {
+    let calls = 0;
+    const f = fixture(async ref => {
+      calls++;
+      return { outcome: 'ok', data: `row-${ref.id}`, assessments: [], trust: null, correlationId: 'e' };
+    });
+    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><RowProbe id="d-1" /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('done:row-d-1')).toBeTruthy();
+    act(() => f.serverChanged());
+    expect(screen.getByTestId('ent').textContent).toBe('loading:-');
+    expect(await screen.findByText('done:row-d-1')).toBeTruthy();
+    expect(calls).toBe(2);
   });
 });
 

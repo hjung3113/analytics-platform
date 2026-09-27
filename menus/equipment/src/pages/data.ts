@@ -1,6 +1,5 @@
 import type { Equipment } from '../api';
-import { type AuditEvent, type GlobalContext, parseDateTime, shift } from '@ap/contracts';
-import { serve } from '../api';
+import { type AuditEvent, parseDateTime, shift } from '@ap/contracts';
 
 export const statusText = {
   active: { ko: '사용중', en: 'Active' }, idle: { ko: '대기', en: 'Idle' },
@@ -21,11 +20,6 @@ export const sortFields: readonly (keyof Equipment)[] = fields.map(f => f.key);
 export function filterEquipment(rows: Equipment[], q: string, status: string, maker: string) {
   const search = q.trim().toLowerCase();
   return rows.filter(e => (!search || `${e.equipmentId} ${e.name}`.toLowerCase().includes(search)) && (!status || e.status === status) && (!maker || e.maker === maker));
-}
-// Destination identity is a request constraint, never a mutation of inherited URL Context.
-export function equipmentRequest(global: GlobalContext, id: string, signal: AbortSignal) {
-  return serve({ permission: 'equipment:view', global: { ...global, roomNames: null, condition: null, selection: [id] }, signal, mergeTimeDomain: false,
-    compute: ({ equipment }) => equipment.find(e => e.equipmentId === id) ?? null, isEmpty: e => e === null });
 }
 export function validity(e: Equipment) {
   const durationHours = e.validTo ? (parseDateTime(e.validTo, 'validTo').getTime() - parseDateTime(e.validFrom, 'validFrom').getTime()) / 3_600_000 : 24 * 60;

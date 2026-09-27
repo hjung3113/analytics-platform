@@ -5,7 +5,7 @@
 ## 파일
 
 - `src/world.ts` — 설비·사이트·사용자 마스터와 `PUBLISHED_METRICS`.
-- `src/server.ts` — `serve()`: 데이터 권한·Scope 재검증·응답 envelope·시나리오·역할(localStorage `platform:role`). 조회는 읽는 데이터·엔드포인트의 권한을 필수 옵션 `permission`으로 받고, 요청 시점에 고정된 역할로 판정한다. 보통은 소유 메뉴의 권한이다.
+- `src/server.ts` — `serve()`: 데이터 권한·Scope 재검증·응답 envelope·시나리오·역할(localStorage `platform:role`). 조회는 읽는 데이터·엔드포인트의 권한을 필수 옵션 `permission`으로 받고, 요청 시점에 고정된 역할로 판정한다. 보통은 소유 메뉴의 권한이다. `getEntity(ref)`(§22 목적지 단건 조회)는 권한을 클라이언트 인수로 받지 않는다 — 서버 소유 map(`equipment` → `equipment:view`)으로 판정하고 site 검증 뒤 그 설비의 room을 다시 검증하며, 거부 응답에 row 필드를 노출하지 않는다.
 - `src/jobs.ts` — 작업(job) 합성 데이터와 조회 함수.
 - `src/adapter.ts` — `PlatformAdapter` 구현(`mockAdapter`).
 - `src/index.ts` — 공개 진입점. 명시적 export만 한다(`export *` 금지).

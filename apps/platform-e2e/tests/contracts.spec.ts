@@ -168,6 +168,52 @@ test.describe('권한 — 메뉴 비노출·직접 URL 거부 (06 §6.2, §17)',
   });
 });
 
+test.describe('목적지 단건 조회 (06 §6.2, §22)', () => {
+  test('설비 상세 직접 URL은 그 설비의 room 권한을 다시 검증하고 Selection으로 대체하지 않는다', async ({ page }, testInfo) => {
+    // The page header and the active EquipmentPanel tab fetch independently (two getEntity calls, 06 §22).
+    // Before any negative assertion, wait for BOTH surfaces to reach their expected terminal state — the
+    // status/name block under the h1 (header query) and the active tabpanel (panel query) — and for no
+    // aria-busy to remain in main. Otherwise a fast correct header plus a slower panel that later renders
+    // a substituted Selection row or an unauthorized row would pass.
+    const header = page.getByRole('main').locator('div.flex-1 > div').first(); // PlatformPage body renders the header query result before the tabs
+    const panel = page.getByRole('tabpanel'); // Radix mounts only the active tab's content
+
+    // 1. Granted room (PH-101): the URL id's own row renders on both surfaces, and the inherited Selection stays untouched in the URL.
+    await page.goto('/equipment/ICH-PHOTO-0103?v=1&scopeId=ICH&selectedEquipmentIds=ICH-PHOTO-0105');
+    await expect(header.getByText('PHOTO Lithius-Pro #1')).toBeVisible();
+    await expect(panel.getByText('PHOTO Lithius-Pro #1')).toBeVisible();
+    await expect(page.getByRole('main').locator('[aria-busy="true"]')).toHaveCount(0);
+    expect(query(page).get('selectedEquipmentIds')).toBe('ICH-PHOTO-0105');
+    await expect(page.getByRole('main')).not.toContainText('PHOTO Lithius-Pro #2');
+    await evidence(page, testInfo, 'entity-room-granted');
+
+    // 2. Same site, ungranted room (DIF-202): the site grant holds, but the row's room is re-checked server-side — on both surfaces.
+    await page.goto('/equipment/ICH-DIFF-0176?v=1&scopeId=ICH');
+    await expectScopeValid(page, 'ICH · Site A');
+    await expect(mainHeading(page)).toHaveText('ICH-DIFF-0176'); // the URL id, not a fetched name
+    await expect(header.getByText('이 Scope에 접근 권한이 없습니다')).toBeVisible();
+    await expect(header.getByText('No grant for equipment')).toBeVisible();
+    await expect(panel.getByText('이 Scope에 접근 권한이 없습니다')).toBeVisible();
+    await expect(panel.getByText('No grant for equipment')).toBeVisible();
+    await expect(page.getByRole('main').locator('[aria-busy="true"]')).toHaveCount(0);
+    const denied = await page.getByRole('main').innerText();
+    expect(denied).not.toContain('DIFF XP8 #5');
+    expect(denied).not.toContain('DIF-202');
+    await evidence(page, testInfo, 'entity-room-denied');
+
+    // 3. Unknown id: a successful zero (empty) on both surfaces, never a denial and never another row's fields.
+    await page.goto('/equipment/DOES-NOT-EXIST?v=1&scopeId=ICH');
+    await expect(header.getByText('조건에 맞는 결과가 없습니다')).toBeVisible();
+    await expect(panel.getByText('조건에 맞는 결과가 없습니다')).toBeVisible();
+    await expect(page.getByRole('main').locator('[aria-busy="true"]')).toHaveCount(0);
+    const missing = await page.getByRole('main').innerText();
+    expect(missing).not.toContain('이 Scope에 접근 권한이 없습니다');
+    expect(missing).not.toContain('PHOTO Lithius-Pro');
+    expect(missing).not.toContain('DIFF XP8 #5');
+    await evidence(page, testInfo, 'entity-empty');
+  });
+});
+
 test.describe('Scope·세션 전환 시 이전 결과 비노출 (06 §11, §19)', () => {
   test('Scope를 바꾸는 순간 이전 Scope의 결과는 사라지고 로딩으로 바뀐다', async ({ page }, testInfo) => {
     await page.goto(PRODUCTIVITY);
