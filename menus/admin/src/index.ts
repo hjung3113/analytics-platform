@@ -3,7 +3,7 @@
  * Menus declare, the kernel's createRegistry validates and the shell consumes.
  */
 import { lazy } from 'react';
-import { ClipboardList, FileClock, Users } from 'lucide-react';
+import { ClipboardList, FileClock, Library, Users } from 'lucide-react';
 import type { Capability, ContextKey } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
 
@@ -26,5 +26,11 @@ export const manifests: MenuEntry[] = [
     description: { ko: 'Menu Registry 활용 계측 (Kernel 관측 기능)', en: 'Menu registry usage instrumentation (kernel observability)' },
     path: '/admin/usage', icon: ClipboardList, permission: 'console:access', requiresScope: false, pageType: 'management', context: none, features: noFeatures, pageKeys: ['sort', 'page'],
     component: lazy(() => import('./pages/UsageOverview')),
+  },
+  {
+    id: 'admin-registry', group: 'admin', label: { ko: '메뉴 레지스트리', en: 'Menu registry' },
+    description: { ko: '등록된 메뉴 선언을 조회합니다.', en: 'Registered menu declarations.' },
+    path: '/admin/registry', icon: Library, permission: 'console:access', requiresScope: false, pageType: 'catalog', context: none, features: noFeatures, pageKeys: ['sort', 'page', 'focus'],
+    component: lazy(() => import('./pages/RegistryCatalog')),
   },
 ];

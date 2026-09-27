@@ -531,3 +531,51 @@ test.describe('메뉴 활용률 (06 §4, docs/05 — kernel이 recordUsage로 �
     await evidence(page, testInfo, 'usage-visit-counted');
   });
 });
+
+test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read back through the client registry)', () => {
+  const DIRECT_URL = '/admin/registry';
+
+  test('권한 없는 역할(engineer)은 메뉴가 비노출이고 직접 URL은 공간 거부다', async ({ page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    await page.goto('/');
+    const nav = page.getByRole('navigation', { name: '주 메뉴' });
+    await expect(nav.getByRole('link', { name: '메뉴 레지스트리' })).toHaveCount(0);
+
+    await page.goto(DIRECT_URL);
+    const main = page.getByRole('main');
+    await expect(main).toContainText('이 공간에 들어갈 수 없습니다');
+    await expect(main).toContainText('space=operations');
+    // The client gate refuses without redirecting: the URL the user typed stays exact.
+    expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(DIRECT_URL);
+    await evidence(page, testInfo, 'registry-engineer-space-denied');
+  });
+
+  test('viewer도 메뉴가 비노출이고 직접 URL은 공간 거부다', async ({ page }, testInfo) => {
+    await signInAs(page, 'viewer');
+    await page.goto('/');
+    const nav = page.getByRole('navigation', { name: '주 메뉴' });
+    await expect(nav.getByRole('link', { name: '메뉴 레지스트리' })).toHaveCount(0);
+
+    await page.goto(DIRECT_URL);
+    const main = page.getByRole('main');
+    await expect(main).toContainText('이 공간에 들어갈 수 없습니다');
+    await expect(main).toContainText('space=operations');
+    expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(DIRECT_URL);
+    await evidence(page, testInfo, 'registry-viewer-space-denied');
+  });
+
+  test('관리자: equipment-master 행이 경로·권한을 보여주고 행 동작으로 선언 드로어를 연다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto(DIRECT_URL);
+    const row = page.getByRole('main').getByRole('table').first().locator('[data-row-id="equipment-master"]');
+    await expect(row).toBeVisible({ timeout: 10_000 });
+    await expect(row).toContainText('/equipment');
+    await expect(row).toContainText('equipment:view');
+
+    await row.getByRole('button', { name: '보기' }).click();
+    await expect(page.getByRole('main')).toContainText('requiresScope');
+    // The drawer is opened by writing the focus page key (§6.1): the URL carries it.
+    expect(page.url()).toContain('focus=equipment-master');
+    await evidence(page, testInfo, 'registry-admin-declaration');
+  });
+});

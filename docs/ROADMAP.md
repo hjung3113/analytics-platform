@@ -17,7 +17,7 @@
 | 1. 계약 문서 | 완료 | 다섯 갈래의 규칙(`docs/00`–`13`, 핵심은 `06_platform_ui_contract.md`) |
 | 2. 프로토타입 | 완료 | Kernel 단위 프로토타입(`prototypes/`) → 통합 앱 |
 | 3. 코드 정리(모노레포) | 완료 | 패키지 분리, 메뉴 패키지, 경계 lint, 메뉴 생성기 — PR #16–#32 |
-| 4. 플랫폼 기능 추가 | **다음** | 공간(워크스페이스), 운영 콘솔, Kernel 잔여 — 마일스톤 M1 |
+| 4. 플랫폼 기능 추가 | 완료 | 공간(워크스페이스), 운영 콘솔, Kernel 잔여 — 마일스톤 M1 |
 | 5. 디자인 시스템 | **보류** | FeedbackOps 디자인 개선 확정 뒤 재개. 그 디자인을 기반으로 삼고 플랫폼 확장 패턴을 더함 — 마일스톤 M2 |
 | 6. FeedbackOps 연결(1단계) | 결정 대기 | 딥링크·토큰 공유·읽기 전용 조회 — 마일스톤 M3 |
 
@@ -25,9 +25,7 @@
 
 선행 이슈가 없는 것들이다. 위에서부터 추천 순서.
 
-1. **운영 콘솔: Menu Registry 조회 (#42)** — 다음 작업. 메뉴 활용률 계측(#43)은 완료 — kernel이 `adapter.recordUsage`(entry/dwell)로 계측하고 콘솔은 `usageSummary` 집계만 읽는다(조회조건 수집 여부는 #75 결정 대기). 워크스페이스(공간) 층(#41)과 Kernel 잔여(#45·#46·#47)는 완료, 계약 안전망은 `pnpm e2e`(#44).
-2. 차트 번들 코드 분할 (#48), `@types/node` 부채 (#57), CSS selector 비교 CI (#58)
-3. 적재 워커 상태 스키마 초안 → 파서 담당 협의 (#37), FeedbackOps 양방향 딥링크 계약 (#61)
+1. **틈틈이 목록** — M1 완료(마지막 조각 Menu Registry 조회 #42 포함): 차트 번들 코드 분할 (#48), `@types/node` 부채 (#57), CSS selector 비교 CI (#58), 적재 워커 상태 스키마 초안 → 파서 담당 협의 (#37), FeedbackOps 양방향 딥링크 계약 (#61). 계약 안전망은 `pnpm e2e`(#44), 메뉴 활용률 계측(#43)도 완료 — kernel이 `adapter.recordUsage`(entry/dwell)로 계측하고 콘솔은 `usageSummary` 집계만 읽는다(조회조건 수집 여부는 #75 결정 대기).
 
 디자인 방향 프로토타입(#52)은 보류다(아래 M2).
 
@@ -53,7 +51,7 @@
 | 이슈 | 선행 |
 | --- | --- |
 | ~~워크스페이스(공간) 층 (#41)~~ 완료 — 그룹 `space`, `console:access`, 최소 전환기 | — |
-| 운영 콘솔: Menu Registry 조회 (#42) | #41 |
+| ~~운영 콘솔: Menu Registry 조회 (#42)~~ 완료 — `admin-registry` 메뉴(`pageType: catalog`, pageKeys `sort`/`page`/`focus`), client registry 조회 화면 | #41 |
 | ~~운영 콘솔: 메뉴 활용률 계측 (#43)~~ 완료 — `adapter.recordUsage`/`usageSummary` 포트 + 관리 화면 `admin-usage` | #41 |
 | ~~플랫폼 계약 자동 검사(E2E) (#44)~~ 완료 — `apps/platform-e2e`, CI `Platform contracts (E2E)` | — |
 | ~~Kernel: 화면 상태 URL 등록 (#45)~~ 완료 — 표 `urlState` + 메뉴 page key | — |
