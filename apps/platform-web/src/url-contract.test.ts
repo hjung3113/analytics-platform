@@ -64,6 +64,11 @@ describe('URL contract (§6.1–6.4)', () => {
     expect(r.page).toEqual([['granularity', 'day']]);
     expect(r.extras).toEqual([['utm', 'x']]);
   });
+  it('treats the literal page key like any registered key (06 §6.1)', () => {
+    expect(parseQuery('?v=1&page=2', ['page']).page).toEqual([['page', '2']]);
+    expect(code(() => parseQuery('?page=2&page=3', ['page']))).toBe('duplicate_page_key');
+    expect(parseQuery('?page=2', ['granularity']).extras).toEqual([['page', '2']]);
+  });
   it('rejects a repeated registered page key and still keeps repeated extras', () => {
     expect(code(() => parseQuery('?granularity=hour&granularity=day', ['granularity']))).toBe('duplicate_page_key');
     expect(code(() => parseQuery('?granularity=hour&granularity=hour', ['granularity']))).toBe('duplicate_page_key');
