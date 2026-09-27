@@ -21,6 +21,8 @@
 | `area:feedbackops` | FeedbackOps 통합 |
 | `area:tooling` | lint, 생성기, CI, 검증 도구 |
 
+보류 중인 이슈에는 `on-hold` 라벨을 단다(외부 조건이 풀리면 제거). 예: 디자인 트랙은 FeedbackOps 디자인 확정까지 보류.
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.**
