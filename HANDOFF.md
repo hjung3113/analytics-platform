@@ -1,4 +1,4 @@
-# Handoff — 2026-09-27 다음 세션: Kernel 잔여(#45–#47)부터
+# Handoff — 2026-09-27 다음 세션: 워크스페이스(공간) 층(#41)부터
 
 ## 먼저 볼 것
 
@@ -11,7 +11,7 @@
 
 ## 현재 상태
 
-- main은 이 PR 병합 시점 기준. 플랫폼 계약 E2E 19개(#44·#45). CI `Platform workspace`·`Platform contracts (E2E)`·Unit A–C·Python codec·`PR checklist` 초록.
+- main은 이 PR 병합 시점 기준. 플랫폼 계약 E2E 21개(#44·#45·#46). CI `Platform workspace`·`Platform contracts (E2E)`·Unit A–C·Python codec·`PR checklist` 초록.
 - 모노레포 이행 1–6단계 완료(PR #16–#32). 작업 관리 체계(#62), 데스크톱 전용 결정(#65).
 - **디자인 트랙(M2)은 보류:** FeedbackOps 디자인 개선이 확정된 뒤 재개한다.
   - 재개 방향: FeedbackOps 디자인을 기반으로 삼고 플랫폼 확장 패턴(Context 바·차트 프레임·분석 레이아웃·KPI)을 더한다.
@@ -20,13 +20,13 @@
 
 ## 다음 세션 할 일 (순서대로)
 
-1. **Kernel 잔여 — #46 목적지 단건 조회 포트.** 화면 모양 변화 없는 계약 작업이다. 안전망은 `pnpm e2e`(#44, [`apps/platform-e2e`](apps/platform-e2e/AGENTS.md)).
-   - #45(완료): 표 정렬·페이지·드로어 탭·사이클타임 bucket/bin이 page key다. 새 화면 상태도 manifest `pageKeys` + `setPage`로(앱 README 7번).
-   - #47(완료): mock `serve()`는 `permission`이 필수이고 요청 시점 역할로 거부한다. 새 조회는 읽는 데이터의 권한을 넘긴다 — 보통 소유 메뉴의 권한이다(OperationsHome 공지는 `notice:view`).
-   - 새 계약을 만들면 E2E에도 검사를 더하고, Kernel 가드를 일부러 망가뜨려 실패하는지 확인한다.
-2. **워크스페이스(공간) 층 — #41.** 기능 먼저 한다(`space` 선언은 Candidate 이름, 공간 권한, 공간 간 Context 보존, 팔레트 공간 표시). 공간 전환기 모양은 디자인 재개 때 정하고, 지금은 기존 스타일로 최소한만 둔다.
-3. **운영 콘솔 — #42(Registry 조회), #43(활용률 계측).** #41 위에 올린다.
-4. 틈틈이: #48 차트 번들 분할, #57 `@types/node` 부채, #58 CSS selector 비교 CI, #37 적재 워커 스키마 초안, #61 FeedbackOps 양방향 딥링크 계약.
+1. **워크스페이스(공간) 층 — #41.** Kernel 잔여(#45·#46·#47)는 끝났다. 안전망은 `pnpm e2e`(#44, [`apps/platform-e2e`](apps/platform-e2e/AGENTS.md)).
+   - #47: mock `serve()`는 `permission`(읽는 데이터의 권한) 필수, 요청 시점 역할로 거부.
+   - #45: 화면 상태는 manifest `pageKeys` + `setPage`, Context 변경 시 지울 키는 `contextResetKeys`(앱 README 7번).
+   - #46: 상세 화면의 목적지 객체는 `useEntityQuery`(`adapter.getEntity`)로 조회한다. 분석 Context를 쓰지 않는다.
+   공간 층: 기능 먼저 한다(`space` 선언은 Candidate 이름, 공간 권한, 공간 간 Context 보존, 팔레트 공간 표시). 공간 전환기 모양은 디자인 재개 때 정하고, 지금은 기존 스타일로 최소한만 둔다.
+2. **운영 콘솔 — #42(Registry 조회), #43(활용률 계측).** #41 위에 올린다.
+3. 틈틈이: #48 차트 번들 분할, #57 `@types/node` 부채, #58 CSS selector 비교 CI, #37 적재 워커 스키마 초안, #61 FeedbackOps 양방향 딥링크 계약.
 
 ## 결정 (2026-09-27 인터뷰로 확정)
 

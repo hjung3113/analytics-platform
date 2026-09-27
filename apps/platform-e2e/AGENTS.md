@@ -12,6 +12,7 @@
 | 메뉴 간 Context 보존·미적용 표시 | §6, §22 | 메뉴 이동 후 전역 Context 유지·page 상태 비복사, 미지원 Context "미사용" 표시 → 지원 메뉴에서 조회 결과에 실제 적용(결과 표의 Lot이 그 값뿐) |
 | 권한 | §6.2, §17 | 권한 없는 메뉴 비노출, 직접 URL → 권한 거부 화면, 권한 없는 Scope → 대체 없이 거부 |
 | 이전 결과 비노출 | §11, §19 | Scope 전환, 같은 Scope의 기간 변경, 역할(세션) 전환 |
+| 목적지 단건 조회 | §6.2, §22 | 설비 상세 직접 URL: URL id의 row를 대상으로 site 검증 뒤 room 권한을 서버가 다시 검증한다(미승인 room → 서버 forbidden `No grant for equipment`, row 필드 무노출), 상세는 전달된 Selection으로 대체하지 않고 URL의 `selectedEquipmentIds`를 그대로 보존하며, 미지정 id는 권한 거부가 아니라 empty(0건)다 |
 | 공통 상태 화면 | §19 | 오류·시간 초과·0건·권한 거부 |
 | returnTo 복귀 | §22 | 떠난 URL로 정확히 복귀, 앱 밖 `returnTo` 무시, 사이클타임의 정렬·bucket·bin을 returnTo에 보존하고 복귀 후 유지 — 복귀 전·후 행 값까지 검사(시작∈[bucket, bucket+1h), 사이클타임∈bin 범위, 시작 오름차순) |
 

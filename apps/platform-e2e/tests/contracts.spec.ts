@@ -168,6 +168,37 @@ test.describe('권한 — 메뉴 비노출·직접 URL 거부 (06 §6.2, §17)',
   });
 });
 
+test.describe('목적지 단건 조회 (06 §6.2, §22)', () => {
+  test('설비 상세 직접 URL은 그 설비의 room 권한을 다시 검증하고 Selection으로 대체하지 않는다', async ({ page }, testInfo) => {
+    // 1. Granted room (PH-101): the URL id's own row renders, and the inherited Selection stays untouched in the URL.
+    await page.goto('/equipment/ICH-PHOTO-0103?v=1&scopeId=ICH&selectedEquipmentIds=ICH-PHOTO-0105');
+    await expect(page.getByRole('main').getByText('PHOTO Lithius-Pro #1').first()).toBeVisible();
+    expect(query(page).get('selectedEquipmentIds')).toBe('ICH-PHOTO-0105');
+    await expect(page.getByRole('main')).not.toContainText('PHOTO Lithius-Pro #2');
+    await evidence(page, testInfo, 'entity-room-granted');
+
+    // 2. Same site, ungranted room (DIF-202): the site grant holds, but the row's room is re-checked server-side.
+    await page.goto('/equipment/ICH-DIFF-0176?v=1&scopeId=ICH');
+    await expectScopeValid(page, 'ICH · Site A');
+    await expect(mainHeading(page)).toHaveText('ICH-DIFF-0176'); // the URL id, not a fetched name
+    await expect(page.getByRole('main').getByText('이 Scope에 접근 권한이 없습니다').first()).toBeVisible();
+    await expect(page.getByRole('main').getByText('No grant for equipment').first()).toBeVisible();
+    const denied = await page.getByRole('main').innerText();
+    expect(denied).not.toContain('DIFF XP8 #5');
+    expect(denied).not.toContain('DIF-202');
+    await evidence(page, testInfo, 'entity-room-denied');
+
+    // 3. Unknown id: a successful zero (empty), never a denial and never another row's fields.
+    await page.goto('/equipment/DOES-NOT-EXIST?v=1&scopeId=ICH');
+    await expect(page.getByRole('main').getByText('조건에 맞는 결과가 없습니다').first()).toBeVisible();
+    const missing = await page.getByRole('main').innerText();
+    expect(missing).not.toContain('이 Scope에 접근 권한이 없습니다');
+    expect(missing).not.toContain('PHOTO Lithius-Pro');
+    expect(missing).not.toContain('DIFF XP8 #5');
+    await evidence(page, testInfo, 'entity-empty');
+  });
+});
+
 test.describe('Scope·세션 전환 시 이전 결과 비노출 (06 §11, §19)', () => {
   test('Scope를 바꾸는 순간 이전 Scope의 결과는 사라지고 로딩으로 바뀐다', async ({ page }, testInfo) => {
     await page.goto(PRODUCTIVITY);
