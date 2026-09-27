@@ -1,0 +1,1 @@
+{"extends":"@ap/tsconfig/base.json","compilerOptions":{"types":["node"]},"include":["tests","*.ts"]}

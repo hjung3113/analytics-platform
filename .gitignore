@@ -1,3 +1,8 @@
 node_modules/
 dist/
 .turbo/
+# Playwright outputs (apps/platform-e2e)
+test-results/
+playwright-report/
+contract-report/
+.browsers/
