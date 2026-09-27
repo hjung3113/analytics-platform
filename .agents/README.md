@@ -25,6 +25,7 @@
 
 ## 실행·유지보수
 
+- 작업 관리·프로토타입 스킬(`prototype`, `to-tickets`, `to-spec`, `triage`, `wayfinder`, `setup-matt-pocock-skills`, `zoom-out`)은 FeedbackOps에 벤더링된 `mattpocock/skills` 복사본이다. 이슈 추적 설정은 `docs/agents/`. UI 방향은 `prototype` 스킬의 UI 분기로 사용자 컨펌을 받는다(루트 `AGENTS.md` "화면/UI 설계").
 - 화면 설계 진입점은 `skills/analysis-platform-wireframe/SKILL.md`다. 기본 종료점은 Wireframe + Open Decisions이며 구현 요청이 있을 때 후속 단계를 진행한다.
 - 스킬 안의 `scripts/`, `references/`는 그 `SKILL.md`가 있는 디렉터리를 기준으로 해석한다. `ui-ux-pro-max`의 검색 예제는 해당 디렉터리에서 실행한다: `python3 scripts/search.py "analytics dashboard" --domain product`.
 - 도구 이름·이미지 생성·외부 요청·자격 증명은 실행 환경에 따라 다르다. 현재 사용 가능한 도구로 대응하고, 필요한 의존성이 없으면 해당 작업의 제한을 보고한다. 경로 공유가 모든 외부 기능의 실행 검증을 뜻하지 않는다.

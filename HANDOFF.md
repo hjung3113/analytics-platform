@@ -35,6 +35,8 @@
 
 ## 다음 세션 추천 작업
 
+> 진행 관리는 이제 [로드맵](docs/ROADMAP.md)과 GitHub 이슈(#33–#61)가 원본이다. 아래는 그 요약이며, 충돌하면 로드맵을 따른다.
+
 1. **CSS/시각 회귀 테스트(사용자 제안, 범위 먼저 합의):** 이번에도 손으로 한 빌드 CSS selector 집합 비교를 CI 검사로 만들거나 Playwright 스크린샷 비교를 도입.
 2. **부채:** `@ap/ui` `Button.tsx`의 `process.env.NODE_ENV` 때문에 `@ap/ui`·`@ap/shell`과 화면 있는 메뉴 4개(+생성 템플릿)가 `@types/node`를 가진다. `import.meta.env` 등으로 바꾸고 함께 제거.
 3. **알려진 잔여(결정 아님):**
