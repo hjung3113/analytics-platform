@@ -8,6 +8,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
+  "dependencies": {
+    "postcss": "8.5.28"
+  },
   "devDependencies": {
     "@ap/eslint-config": "workspace:*",
     "@ap/tsconfig": "workspace:*",

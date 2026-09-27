@@ -5,8 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-    # labeled/unlabeled: `css-removal-ok` 라벨을 다는 것만으로 css-selectors 재평가(#58).
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
@@ -160,42 +159,3 @@ jobs:
             apps/platform-e2e/contract-report/
             apps/platform-e2e/playwright-report/
           retention-days: 14
-
-  css-selectors:
-    # 빌드 산물의 selector 집합 비교(#58, 결정 #39/05). 픽셀 비교는 디자인 확정 뒤 과제.
-    # 의도된 selector 제거 PR은 `css-removal-ok` 라벨로 통과시킨다(labeled/unlabeled에서 재평가).
-    name: CSS selectors (build diff)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: false
-          fetch-depth: 0
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '26.7.0'
-          cache: pnpm
-      - name: Build head
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm --filter @ap/platform-web build
-      - name: Collect head CSS
-        # 앱 CSS는 청크 1개가 정상이고, 여러 개면 집합 비교라 순서 무관하게 이어 붙인다.
-        run: cat apps/platform-web/dist/assets/*.css > "$RUNNER_TEMP/head.css"
-      - name: Check out base worktree (merge-base with target branch)
-        run: git worktree add "$RUNNER_TEMP/base" "$(git merge-base HEAD origin/${{ github.base_ref }})"
-      - name: Build base
-        working-directory: ${{ runner.temp }}/base
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm --filter @ap/platform-web build
-      - name: Collect base CSS
-        run: cat "$RUNNER_TEMP/base/apps/platform-web/dist/assets/"*.css > "$RUNNER_TEMP/base.css"
-      - name: Compare selector sets
-        run: |
-          ARGS=(--summary "$GITHUB_STEP_SUMMARY")
-          if ${{ contains(github.event.pull_request.labels.*.name, 'css-removal-ok') }}; then
-            ARGS+=(--allow-removal)
-          fi
-          node tooling/css-selectors/src/cli.ts "$RUNNER_TEMP/base.css" "$RUNNER_TEMP/head.css" "${ARGS[@]}"

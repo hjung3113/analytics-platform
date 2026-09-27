@@ -758,6 +758,10 @@ importers:
         version: 3.2.7(@types/node@26.6.3)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
 
   tooling/css-selectors:
+    dependencies:
+      postcss:
+        specifier: 8.5.28
+        version: 8.5.28
     devDependencies:
       '@ap/eslint-config':
         specifier: workspace:*

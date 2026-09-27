@@ -100,6 +100,16 @@ describe('cli', () => {
     expect(run([head, head, '--summary']).status).toBe(2);
   });
 
+  // 리뷰 P2-a: 한쪽이라도 selector가 0개면 비교하지 않고 exit 2 (--allow-removal과 무관).
+  it('exits 2 when either side extracts zero selectors, even with --allow-removal', () => {
+    const kept = write('head7.css', '.a {}');
+    const empty = write('empty7.css', '');
+    const comments = write('comments7.css', '/* no rules here, only a comment */');
+    expect(run(['/dev/null', kept]).status).toBe(2);
+    expect(run([kept, empty]).status).toBe(2);
+    expect(run([comments, comments, '--allow-removal']).status).toBe(2);
+  });
+
   it('prints usage for --help and exits 0', () => {
     const r = run(['--help']);
     expect(r.status).toBe(0);

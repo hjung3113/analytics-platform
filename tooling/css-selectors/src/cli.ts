@@ -12,8 +12,8 @@ Usage:
 Prints selector counts and the added/removed selectors (up to 50 each).
 --summary writes the same diff as a markdown report (for $GITHUB_STEP_SUMMARY).
 Exit codes: 0 equal or --allow-removal, 1 removed selectors without --allow-removal,
-2 usage or IO error.
-CI (.github/workflows/ci.yml css-selectors job) passes --allow-removal when the PR
+2 usage, IO error, or an input with no extracted selectors.
+CI (.github/workflows/css-selectors.yml) passes --allow-removal when the PR
 has the css-removal-ok label.`;
 
 const SUMMARY_LIMIT = 50;
@@ -82,6 +82,12 @@ function run(argv: string[]): void {
 
   const base = extractSelectors(readFileSync(positionals[0], 'utf8'));
   const head = extractSelectors(readFileSync(positionals[1], 'utf8'));
+  // 한쪽이라도 비어 있으면 diff는 전량 제거/추가로 왜곡된다 — 비교 전에 차단(#58 리뷰 P2-a).
+  if (base.length === 0 || head.length === 0) {
+    const emptySide = base.length === 0 ? (head.length === 0 ? 'both inputs' : positionals[0]) : positionals[1];
+    console.error(`css-selectors: no selectors extracted from ${emptySide}; refusing to compare an empty selector set`);
+    process.exit(2);
+  }
   const diff = diffSelectors(base, head);
 
   console.log(`base selectors: ${base.length}`);

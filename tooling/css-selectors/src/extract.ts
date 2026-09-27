@@ -2,80 +2,35 @@
 //
 // Contract (docs/ROADMAP.md 틈틈이 list, decision #39/05):
 // - selector lists split on top-level commas only (commas inside :is(), [] or
-//   quoted strings do not split);
-// - rules nested in block at-rules (@media, @supports, @layer, …) are kept,
-//   without the at-rule prelude — only the selector text is reported;
+//   quoted strings do not split; escaped commas like `.a\,b` do not split);
+// - rules nested in block at-rules (@media, @supports, @layer, @container, …)
+//   are kept, without the at-rule prelude — only the selector text is reported;
 // - the bodies of @keyframes (from/to/N% steps), @font-face and @property
 //   are not style rules and are ignored entirely;
-// - whitespace runs collapse to a single space.
+// - whitespace runs outside strings/escapes collapse to a single space; quoted
+//   strings (e.g. `[data-x="a  b"]`) and escape sequences are kept verbatim.
 // The result is sorted and unique.
+//
+// Rule walking is delegated to postcss (#58 리뷰): the previous hand-rolled
+// scanner treated quotes/braces/commas inside selectors as syntax, so minified
+// Tailwind rules like `.content-\[\'hello\'\]{content:'hello'}` (and everything
+// after them) vanished. postcss keeps the selector text verbatim; only list
+// splitting and whitespace normalization stay local.
+
+import postcss from 'postcss';
+import type { AtRule, Rule } from 'postcss';
 
 /** At-rule bodies that contain no style rules. `…keyframes` also matches vendor-prefixed variants. */
 function isOpaqueAtRule(name: string): boolean {
   return name === 'font-face' || name === 'property' || name === 'counter-style' || name.endsWith('keyframes');
 }
 
-function isQuote(ch: string): boolean {
-  return ch === '"' || ch === "'";
-}
-
-/** Removes /* … *&#47; comments. `/*` inside a quoted string is kept (Tailwind content values). */
-function stripComments(css: string): string {
-  let out = '';
-  let quote: string | null = null;
-  for (let i = 0; i < css.length; i++) {
-    const ch = css[i];
-    if (quote) {
-      out += ch;
-      if (ch === '\\') {
-        out += css[i + 1] ?? '';
-        i++;
-      } else if (ch === quote) {
-        quote = null;
-      }
-      continue;
-    }
-    if (isQuote(ch)) {
-      quote = ch;
-      out += ch;
-      continue;
-    }
-    if (ch === '/' && css[i + 1] === '*') {
-      const end = css.indexOf('*/', i + 2);
-      // A comment separates tokens: `a/*x*/,b` must split like `a,b`.
-      out += ' ';
-      i = end === -1 ? css.length : end + 1;
-      continue;
-    }
-    out += ch;
+/** True when a rule sits inside @keyframes/@font-face/@property — its "selectors" are steps, not selectors. */
+function insideOpaqueAtRule(rule: Rule): boolean {
+  for (let parent = rule.parent; parent && parent.type !== 'root'; parent = parent.parent) {
+    if (parent.type === 'atrule' && isOpaqueAtRule((parent as AtRule).name)) return true;
   }
-  return out;
-}
-
-/** Index of the `}` matching the `{` at `open`, or end of input when unbalanced. Skips quoted strings. */
-function matchingBrace(css: string, open: number): number {
-  let depth = 0;
-  let quote: string | null = null;
-  for (let i = open; i < css.length; i++) {
-    const ch = css[i];
-    if (quote) {
-      if (ch === '\\') i++;
-      else if (ch === quote) quote = null;
-      continue;
-    }
-    if (isQuote(ch)) quote = ch;
-    else if (ch === '{') depth++;
-    else if (ch === '}') {
-      depth--;
-      if (depth === 0) return i;
-    }
-  }
-  return css.length;
-}
-
-function atRuleName(prelude: string): string {
-  // At-rule names are case-insensitive; `@-webkit-keyframes` → `webkit-keyframes`.
-  return /^@([-a-z\d]+)/i.exec(prelude)?.[1]?.toLowerCase() ?? '';
+  return false;
 }
 
 /** Splits a selector list on commas that sit outside (), [], {}, quotes and escapes. */
@@ -96,7 +51,13 @@ function splitSelectorList(list: string): string[] {
       }
       continue;
     }
-    if (isQuote(ch)) {
+    // An escape pair is literal text (`.a\,b` is one identifier, not a list separator).
+    if (ch === '\\') {
+      buf += ch + (list[i + 1] ?? '');
+      i++;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
       quote = ch;
       buf += ch;
       continue;
@@ -114,58 +75,54 @@ function splitSelectorList(list: string): string[] {
   return parts;
 }
 
-function collect(body: string, found: Set<string>): void {
-  let prelude = '';
-  for (let i = 0; i < body.length; i++) {
-    const ch = body[i];
-    // Inside quoted strings braces/semicolons are literal (`content: "{"`).
-    if (isQuote(ch)) {
-      const end = matchingQuote(body, i);
-      prelude += body.slice(i, end + 1);
-      i = end;
-      continue;
-    }
-    if (ch === '{') {
-      const close = matchingBrace(body, i);
-      const inner = body.slice(i + 1, close);
-      // The prelude can start with whitespace left over from the previous rule.
-      const header = prelude.trimStart();
-      if (header.startsWith('@')) {
-        if (!isOpaqueAtRule(atRuleName(header))) collect(inner, found);
-      } else {
-        addSelectors(prelude, found);
+/**
+ * Collapses whitespace runs outside quotes/escapes to single spaces and trims.
+ * Quoted attribute values (`[data-x="a  b"]`) and escape pairs (`\.a\ `) are kept verbatim (#58 P2-b).
+ */
+function normalizeSelector(selector: string): string {
+  let out = '';
+  let quote: string | null = null;
+  for (let i = 0; i < selector.length; i++) {
+    const ch = selector[i];
+    if (quote) {
+      out += ch;
+      if (ch === '\\') {
+        out += selector[i + 1] ?? '';
+        i++;
+      } else if (ch === quote) {
+        quote = null;
       }
-      prelude = '';
-      i = close;
       continue;
     }
-    if (ch === ';' || ch === '}') {
-      // At-statements (`@import …;`) and stray closes carry no selectors.
-      prelude = '';
+    if (ch === '\\') {
+      out += ch + (selector[i + 1] ?? '');
+      i++;
       continue;
     }
-    prelude += ch;
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      out += ch;
+      continue;
+    }
+    if (/\s/.test(ch)) {
+      out += ' ';
+      while (i + 1 < selector.length && /\s/.test(selector[i + 1])) i++;
+      continue;
+    }
+    out += ch;
   }
+  return out.trim();
 }
 
-function matchingQuote(body: string, open: number): number {
-  for (let i = open + 1; i < body.length; i++) {
-    if (body[i] === '\\') i++;
-    else if (body[i] === body[open]) return i;
-  }
-  return body.length;
-}
-
-function addSelectors(prelude: string, found: Set<string>): void {
-  for (const raw of splitSelectorList(prelude)) {
-    const selector = raw.replace(/\s+/g, ' ').trim();
-    if (selector) found.add(selector);
-  }
-}
-
-/** Sorted unique selectors of a built CSS file. Runs with plain `node` (no dependencies). */
+/** Sorted unique selectors of a built CSS file. */
 export function extractSelectors(css: string): string[] {
   const found = new Set<string>();
-  collect(stripComments(css), found);
+  postcss.parse(css, { from: undefined }).walkRules((rule) => {
+    if (insideOpaqueAtRule(rule)) return;
+    for (const part of splitSelectorList(rule.selector)) {
+      const selector = normalizeSelector(part);
+      if (selector) found.add(selector);
+    }
+  });
   return [...found].sort();
 }
