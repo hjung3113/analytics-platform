@@ -32,9 +32,10 @@ const ADMIN: Session['user']['permissions'] = ['platform:view', 'console:access'
 const ANALYST: Session['user']['permissions'] = ['platform:view'];
 
 /** Fixture adapter that records every usage event the kernel sends, in order. */
-function recordingFixture(permissions: Session['user']['permissions']) {
-  const events: UsageEvent[] = [];
-  const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions }, scopes: [] };
+function recordingFixture(permissions: Session['user']['permissions'], userId = 'u1', recordUsage?: PlatformAdapter['recordUsage']) {
+  const events: (UsageEvent & { userId: string })[] = [];
+  let session: Session = { user: { id: userId, name: 'u', title: { ko: 'u', en: 'u' }, permissions }, scopes: [] };
+  const listeners = new Set<() => void>();
   const adapter: PlatformAdapter = {
     session: () => session,
     validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
@@ -43,11 +44,21 @@ function recordingFixture(permissions: Session['user']['permissions']) {
     contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
     evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
     getEntity: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    recordUsage: async batch => { events.push(...batch); return { accepted: batch.length }; },
+    // The mock server stamps the session user at call time; mirror that so a dwell crossing a role
+    // switch is attributed the way the real adapter would.
+    recordUsage: recordUsage ?? (async batch => {
+      events.push(...batch.map(e => ({ ...e, userId: session.user.id })));
+      return { accepted: batch.length };
+    }),
     usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    subscribe: () => () => {},
+    subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; },
   };
-  return { adapter, events };
+  // Session identity change the way the app's session store announces one (new snapshot + notify).
+  const setSessionUser = (id: string) => {
+    session = { ...session, user: { ...session.user, id } };
+    for (const l of listeners) l();
+  };
+  return { adapter, events, setSessionUser };
 }
 
 function UsageProbe() {
@@ -59,11 +70,22 @@ function UsageProbe() {
   </div>;
 }
 
+function mountUi(url: string, adapter: PlatformAdapter, strict = false) {
+  window.history.replaceState(null, '', url);
+  const ui = <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><UsageProbe /></PlatformProvider></I18nProvider>;
+  render(strict ? <StrictMode>{ui}</StrictMode> : ui);
+}
+
+function mountFixture(url: string, permissions: Session['user']['permissions'], userId?: string) {
+  const fixture = recordingFixture(permissions, userId);
+  mountUi(url, fixture.adapter);
+  return fixture;
+}
+
 function mountAt(url: string, permissions: Session['user']['permissions'], strict = false) {
   window.history.replaceState(null, '', url);
   const { adapter, events } = recordingFixture(permissions);
-  const ui = <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><UsageProbe /></PlatformProvider></I18nProvider>;
-  render(strict ? <StrictMode>{ui}</StrictMode> : ui);
+  mountUi(url, adapter, strict);
   return events;
 }
 
@@ -124,17 +146,37 @@ describe('usage events (docs/05 메뉴 활용률 계측)', () => {
     expect(events[4].at).toBeGreaterThanOrEqual(events[0].at);
   });
 
-  it('a visibilitychange to hidden sends no further entry', async () => {
-    const events = mountAt('/equipment?v=1&scopeId=ICH', ADMIN);
-    await settle();
-    expect(events).toHaveLength(1);
-    const hidden = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+  it('hidden emits exactly one dwell with the exact enteredAt and dwellMs; after unmount the listener is gone', async () => {
+    vi.useFakeTimers();
     try {
-      act(() => { document.dispatchEvent(new Event('visibilitychange')); });
-      await settle();
-      expect(events.filter(e => e.name === 'entry')).toHaveLength(1);
+      const base = Date.parse('2026-09-25T09:00:00Z');
+      vi.setSystemTime(base);
+      const events = mountAt('/equipment?v=1&scopeId=ICH', ADMIN);
+      act(() => { vi.advanceTimersByTime(0); }); // fires exactly the deferred entry timer
+      expect(events).toEqual([expect.objectContaining({ name: 'entry', at: base })]);
+      const hidden = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+      try {
+        act(() => { vi.setSystemTime(base + 5_000); document.dispatchEvent(new Event('visibilitychange')); });
+      } finally {
+        hidden.mockRestore();
+      }
+      expect(events).toEqual([
+        expect.objectContaining({ name: 'entry', at: base }),
+        expect.objectContaining({ name: 'dwell', enteredAt: base, dwellMs: 5_000, at: base + 5_000 }),
+      ]);
+      // Leaving (unmount) sends the final dwell by design (the server replaces by enteredAt) and
+      // removes the visibilitychange listener: a later hidden emits nothing more.
+      cleanup();
+      const afterLeave = events.length;
+      const hiddenAgain = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+      try {
+        act(() => { document.dispatchEvent(new Event('visibilitychange')); });
+      } finally {
+        hiddenAgain.mockRestore();
+      }
+      expect(events).toHaveLength(afterLeave);
     } finally {
-      hidden.mockRestore();
+      vi.useRealTimers();
     }
   });
 
@@ -164,5 +206,51 @@ describe('usage events (docs/05 메뉴 활용률 계측)', () => {
     const events = mountAt('/equipment?v=9', ADMIN);
     await settle();
     expect(events).toHaveLength(0);
+  });
+
+  it('a role switch does not bill the old stay\'s dwell to the new user', async () => {
+    // The mock stamps the session user at call time, so a dwell sent after the switch would carry the
+    // new user's id — the kernel must not send that stale dwell at all.
+    const fixture = mountFixture('/equipment?v=1&scopeId=ICH', ANALYST, 'engineer');
+    await settle();
+    expect(fixture.events).toEqual([expect.objectContaining({ name: 'entry', userId: 'engineer' })]);
+    act(() => fixture.setSessionUser('admin'));
+    await settle();
+    expect(fixture.events.filter(e => e.name === 'dwell')).toHaveLength(0);
+    expect(fixture.events.map(e => `${e.userId}:${e.name}`)).toEqual(['engineer:entry', 'admin:entry']);
+  });
+
+  it('a pending entry timer from the old user does not fire after a role switch', async () => {
+    const fixture = mountFixture('/equipment?v=1&scopeId=ICH', ANALYST, 'engineer');
+    act(() => fixture.setSessionUser('admin')); // before the deferred entry timer fires
+    await settle();
+    expect(fixture.events.map(e => `${e.userId}:${e.name}`)).toEqual(['admin:entry']);
+  });
+
+  it('a rejecting recordUsage stays silent and navigation still works', async () => {
+    const rejections: unknown[] = [];
+    const onRejection = (reason: unknown) => { rejections.push(reason); };
+    process.on('unhandledRejection', onRejection);
+    try {
+      const { adapter } = recordingFixture(ADMIN, 'u1', async () => { throw new Error('network down'); });
+      mountUi('/equipment?v=1&scopeId=ICH', adapter);
+      await settle();
+      act(() => screen.getByTestId('leave').click());
+      await settle();
+      expect(window.location.pathname).toBe('/admin/roles');
+      await settle(); // one macrotask hop: the unhandled-rejection hook fires before this resolves
+      expect(rejections).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onRejection);
+    }
+  });
+
+  it('a synchronously throwing recordUsage does not break navigation', async () => {
+    const { adapter } = recordingFixture(ADMIN, 'u1', () => { throw new Error('sync boom'); });
+    mountUi('/equipment?v=1&scopeId=ICH', adapter);
+    await settle();
+    act(() => screen.getByTestId('leave').click());
+    await settle();
+    expect(window.location.pathname).toBe('/admin/roles');
   });
 });

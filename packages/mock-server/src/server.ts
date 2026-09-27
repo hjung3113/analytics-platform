@@ -293,24 +293,41 @@ const usageEvents: StoredUsageEvent[] = [];
 
 const SPACE_IDS = ['analytics', 'operations', 'feedback'] as const satisfies readonly SpaceId[];
 
-/** True when the id carries anything the manifest route pattern must not: empty, `?`, `#`, `&`, whitespace, too long. */
+/** True when the id is not a string, or carries anything the manifest route pattern must not: empty, `?`, `#`, `&`, whitespace, too long. */
 function invalidUsageId(value: string, max: number): boolean {
-  return !value || value.length > max || /[?#&\s]/.test(value);
+  return typeof value !== 'string' || !value || value.length > max || /[?#&\s]/.test(value);
+}
+
+/** Declared wire fields (docs/05 v1) — anything else a client sends is an unknown key. */
+const USAGE_KEYS = ['name', 'menuId', 'spaceId', 'path', 'at', 'sessionId'] as const;
+
+/** True when the event is not exactly the declared wire shape for its name (unknown or missing keys). */
+function hasUnknownUsageKeys(e: UsageEvent): boolean {
+  const allowed: readonly string[] = e.name === 'dwell' ? [...USAGE_KEYS, 'dwellMs', 'enteredAt'] : USAGE_KEYS;
+  const keys = Object.keys(e);
+  return keys.length !== allowed.length || keys.some(k => !allowed.includes(k));
 }
 
 /**
  * Records a batch of events. Any signed-in session may record (engineers must be counted), so this endpoint
  * never checks console:access. Whole-call reject: one invalid event stores nothing (accepted: 0) — bad
- * clients must not poison the log piecemeal. The server stamps userId and receivedAt; no client id is trusted.
+ * clients must not poison the log piecemeal. An event must be exactly the declared wire shape: unknown
+ * keys (query strings, recent URLs, Context values) are rejected wholesale, not stored, and every field
+ * is shape-checked (string ids, finite `at`/`enteredAt`, `dwellMs` a nonnegative integer). The server
+ * stamps userId and receivedAt; stored rows carry only the projected wire fields.
  */
 export async function recordUsage(events: readonly UsageEvent[], opts?: { role?: RoleId }): Promise<{ accepted: number }> {
   if (events.length > 20) return { accepted: 0 };
   const invalid = events.some(e =>
-    invalidUsageId(e.menuId, 80)
+    hasUnknownUsageKeys(e)
+    || invalidUsageId(e.menuId, 80)
     || invalidUsageId(e.path, 200)
-    || !SPACE_IDS.includes(e.spaceId)
-    || (e.name !== 'entry' && e.name !== 'dwell')
-    || (e.name === 'dwell' && (e.dwellMs === undefined || e.enteredAt === undefined)));
+    || typeof e.sessionId !== 'string'
+    || typeof e.spaceId !== 'string' || !SPACE_IDS.includes(e.spaceId)
+    || typeof e.name !== 'string' || (e.name !== 'entry' && e.name !== 'dwell')
+    || typeof e.at !== 'number' || !Number.isFinite(e.at)
+    || (e.name === 'dwell' && (typeof e.enteredAt !== 'number' || !Number.isFinite(e.enteredAt)
+      || typeof e.dwellMs !== 'number' || e.dwellMs < 0 || !Number.isInteger(e.dwellMs))));
   if (invalid) return { accepted: 0 };
   const userId = USERS[opts?.role ?? role].role;
   const receivedAt = Date.now();
@@ -320,7 +337,11 @@ export async function recordUsage(events: readonly UsageEvent[], opts?: { role?:
       const previous = usageEvents.findIndex(x => x.name === 'dwell' && x.userId === userId && x.sessionId === e.sessionId && x.menuId === e.menuId && x.enteredAt === e.enteredAt);
       if (previous >= 0) usageEvents.splice(previous, 1);
     }
-    usageEvents.push({ ...e, userId, receivedAt });
+    usageEvents.push({
+      name: e.name, menuId: e.menuId, spaceId: e.spaceId, path: e.path, at: e.at, sessionId: e.sessionId,
+      ...(e.name === 'dwell' && { dwellMs: e.dwellMs, enteredAt: e.enteredAt }),
+      userId, receivedAt,
+    });
   }
   return { accepted: events.length };
 }

@@ -297,24 +297,40 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   // blocks. Admission is `${userId}\0${menu.id}\0${pathname}` and requires the route to clear the space and
   // menu gates, so query-only changes (setGlobal/setPage, default-period replace) never re-admit. `path` is
   // the manifest route pattern, never the concrete pathname, search or Context values.
+  // Latest session user id, readable from the usage effect's cleanup at call time: a role switch
+  // re-renders before the previous effect's cleanup runs, so the closure's own userId is stale there.
+  const userIdRef = useRef(userId);
+  userIdRef.current = userId;
   const lastAdmitted = useRef<string | null>(null);
   useEffect(() => {
     if (!route || routeContractError || !can(route.menu.permission) || !canEnter(registry.spaceOf(route.menu))) return;
     const admitKey = `${userId}\0${route.menu.id}\0${pathname}`;
     if (lastAdmitted.current === admitKey) return;
     lastAdmitted.current = admitKey;
+    const admitUser = userId;
     const menu = route.menu;
     const spaceId = registry.spaceOf(menu).id;
     let enteredAt: number | null = null;
-    const record = (event: UsageEvent) => { void adapter.recordUsage([event]); };
+    // Fire-and-forget twice over: a rejected promise and a sync throw both die here — telemetry never
+    // surfaces an unhandled rejection and never breaks the navigation that triggered it (docs/05).
+    const record = (event: UsageEvent) => {
+      try {
+        void adapter.recordUsage([event]).catch(() => { /* silent */ });
+      } catch { /* silent */ }
+    };
     const sendDwell = () => {
       if (enteredAt === null) return;
+      // Role switch mid-stay: the dwell would be stamped with the *new* session user at the server, so
+      // the old stay is dropped rather than billed to the wrong user.
+      if (userIdRef.current !== admitUser) return;
       record({ name: 'dwell', menuId: menu.id, spaceId, path: menu.path, at: Date.now(), sessionId: usageSessionId, dwellMs: Math.max(0, Date.now() - enteredAt), enteredAt });
     };
     const onHidden = () => { if (document.visibilityState === 'hidden') sendDwell(); };
     // setTimeout(0) keeps StrictMode's fake first mount silent: its cleanup clears the timer, so neither an
-    // entry nor a dwell is emitted for a stay that never really started.
+    // entry nor a dwell is emitted for a stay that never really started. If the session user changed before
+    // it fired, the old user's stay never started either.
     const timer = setTimeout(() => {
+      if (userIdRef.current !== admitUser) return;
       enteredAt = Date.now();
       record({ name: 'entry', menuId: menu.id, spaceId, path: menu.path, at: enteredAt, sessionId: usageSessionId });
       document.addEventListener('visibilitychange', onHidden);

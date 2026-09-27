@@ -123,6 +123,37 @@ describe('menu usage (docs/05 메뉴 활용률 계측)', () => {
     expect(storedUsage()).toHaveLength(0);
   });
 
+  it('rejects events carrying unknown keys and stores nothing, for the whole call', async () => {
+    const leak = { ...entry(), query: 'lot=SECRET', recentUrl: '/equipment/E-123?scopeId=ICH' } as unknown as UsageEvent;
+    expect((await recordUsage([leak])).accepted).toBe(0);
+    expect((await recordUsage([entry(), leak])).accepted).toBe(0); // one bad event rejects the whole call
+    // Dwell-only fields are unknown keys on an entry.
+    expect((await recordUsage([{ ...entry(), dwellMs: 5 } as unknown as UsageEvent])).accepted).toBe(0);
+    expect(storedUsage()).toHaveLength(0);
+  });
+
+  it('stores a valid event projected to exactly the declared wire fields plus userId and receivedAt', async () => {
+    await recordUsage([entry()], { role: 'engineer' });
+    await recordUsage([entry({ name: 'dwell', dwellMs: 120, enteredAt: 1_000 })], { role: 'engineer' });
+    const rows = storedUsage();
+    expect(Object.keys(rows[0]).sort()).toEqual(
+      ['at', 'menuId', 'name', 'path', 'receivedAt', 'sessionId', 'spaceId', 'userId']);
+    expect(Object.keys(rows[1]).sort()).toEqual(
+      ['at', 'dwellMs', 'enteredAt', 'menuId', 'name', 'path', 'receivedAt', 'sessionId', 'spaceId', 'userId']);
+  });
+
+  it('validates field types: non-string ids, non-finite times, negative or fractional dwell reject the whole call', async () => {
+    const good = entry();
+    expect((await recordUsage([good, { ...entry(), menuId: 42 } as unknown as UsageEvent])).accepted).toBe(0);
+    expect((await recordUsage([good, { ...entry(), path: 7 } as unknown as UsageEvent])).accepted).toBe(0);
+    expect((await recordUsage([good, { ...entry(), sessionId: 9 } as unknown as UsageEvent])).accepted).toBe(0);
+    expect((await recordUsage([good, { ...entry(), at: Number.NaN }])).accepted).toBe(0);
+    expect((await recordUsage([good, entry({ name: 'dwell', dwellMs: -1, enteredAt: 1_000 })])).accepted).toBe(0);
+    expect((await recordUsage([good, entry({ name: 'dwell', dwellMs: 1.5, enteredAt: 1_000 })])).accepted).toBe(0);
+    expect((await recordUsage([good, entry({ name: 'dwell', dwellMs: 120, enteredAt: Number.NaN })])).accepted).toBe(0);
+    expect(storedUsage()).toHaveLength(0);
+  });
+
   it('resetUsage clears the store', async () => {
     await recordUsage([entry()]);
     resetUsage();
