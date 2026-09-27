@@ -13,11 +13,11 @@ export const SITES: Site[] = [
 
 export type RoleId = 'engineer' | 'admin' | 'viewer';
 export type User = { role: RoleId; name: string; title: { ko: string; en: string }; permissions: Permission[]; grants: Record<string, string[]> };
-const ALL: Permission[] = ['platform:view', 'equipment:view', 'master:view', 'analytics:view', 'metrics:view', 'notice:view', 'voc:view', 'admin:manage'];
+const ALL: Permission[] = ['platform:view', 'equipment:view', 'master:view', 'analytics:view', 'metrics:view', 'notice:view', 'voc:view', 'console:access'];
 export const USERS: Record<RoleId, User> = {
   engineer: {
     role: 'engineer', name: 'Process Engineer', title: { ko: '공정 엔지니어', en: 'Process engineer' },
-    permissions: ALL.filter(p => p !== 'admin:manage'),
+    permissions: ALL.filter(p => p !== 'console:access'),
     grants: { ICH: ['PH-101', 'ET-102', 'CVD-201'], CJU: ['PH-301'] },
   },
   admin: {

@@ -160,6 +160,7 @@ export default function ${i.page}Screen() {
 
 function manifestTest(i: MenuInputs): string {
   return `import { describe, expect, it } from 'vitest';
+import type { SpaceDef } from '${PACKAGE_PREFIX}contracts';
 import { createRegistry, type GroupDef } from '${PACKAGE_PREFIX}kernel';
 import { manifests } from './index';
 
@@ -171,8 +172,9 @@ describe('manifest', () => {
     expect(menu.pageKeys).toEqual([]);
     expect(menu.pageType).toBe('${i.pageType}');
     expect(menu.group).toBe('${i.group}');
-    const groups: GroupDef[] = [{ id: menu.group, label: { ko: 'g', en: 'g' }, icon: menu.icon }];
-    const registry = createRegistry({ groups, menus: manifests });
+    const spaces: SpaceDef[] = [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: menu.id }];
+    const groups: GroupDef[] = [{ id: menu.group, label: { ko: 'g', en: 'g' }, icon: menu.icon, space: 'analytics' }];
+    const registry = createRegistry({ spaces, groups, menus: manifests });
     expect(registry.menuById('${i.menuId}').path).toBe('${i.path}');
   });
 });

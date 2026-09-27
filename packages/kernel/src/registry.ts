@@ -1,6 +1,6 @@
 import type { ComponentType, LazyExoticComponent } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { GLOBAL_KEYS, isAppRelativePath, parseQuery, type ContextKey, type GroupId, type MenuMeta, type PageType, type Text } from '@ap/contracts';
+import { GLOBAL_KEYS, isAppRelativePath, parseQuery, type ContextKey, type GroupId, type MenuMeta, type PageType, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
 
 /** docs/06 §5: menus declare, the shell consumes. Metadata lives in @ap/contracts; this adds the React bindings. */
 export type PageProps = { params: Record<string, string> };
@@ -10,14 +10,18 @@ export type MenuEntry = MenuMeta & {
   component?: LazyExoticComponent<ComponentType<PageProps>>;
 };
 
-export type GroupDef = { id: GroupId; label: Text; icon: LucideIcon };
+export type GroupDef = { id: GroupId; label: Text; icon: LucideIcon; space: SpaceId };
 
 export type RouteMatch = { menu: MenuEntry; params: Record<string, string> };
 
 export type Registry = {
   groups: readonly GroupDef[];
   menus: readonly MenuEntry[];
+  spaces: readonly SpaceDef[];
   groupById: (id: GroupId) => GroupDef;
+  spaceById: (id: SpaceId) => SpaceDef;
+  /** Space of the menu's group — membership lives on the group, never on the menu (06 §9.1). */
+  spaceOf: (menu: MenuEntry) => SpaceDef;
   menuById: (id: string) => MenuEntry;
   matchRoute: (pathname: string) => RouteMatch | null;
   /**
@@ -37,17 +41,25 @@ const isParam = (seg: string) => seg.startsWith(':');
  * Validates the declared IA once and returns the lookup functions the kernel and shell use
  * (docs/integration/platform-packages.md §5). Throws RegistryError on any violation.
  */
-export function createRegistry({ groups, menus }: { groups: readonly GroupDef[]; menus: readonly MenuEntry[] }): Registry {
+export function createRegistry({ spaces, groups, menus }: { spaces: readonly SpaceDef[]; groups: readonly GroupDef[]; menus: readonly MenuEntry[] }): Registry {
   const fail = (message: string): never => { throw new RegistryError(message); };
+  const spaceByIdMap = new Map<SpaceId, SpaceDef>();
+  for (const s of spaces) {
+    if (spaceByIdMap.has(s.id)) fail(`Duplicate space id "${s.id}"`);
+    spaceByIdMap.set(s.id, s);
+  }
   const byId = new Map<string, MenuEntry>();
   for (const m of menus) {
     if (byId.has(m.id)) fail(`Duplicate menu id "${m.id}"`);
     byId.set(m.id, m);
   }
   const groupIds = new Set<string>();
+  const groupSpace = new Map<GroupId, SpaceId>();
   for (const g of groups) {
     if (groupIds.has(g.id)) fail(`Duplicate group id "${g.id}"`);
+    if (!spaceByIdMap.has(g.space)) fail(`Group "${g.id}" uses undeclared space "${g.space}"`);
     groupIds.add(g.id);
+    groupSpace.set(g.id, g.space);
   }
   const shapes = new Map<string, string>();
   for (const m of menus) {
@@ -56,6 +68,9 @@ export function createRegistry({ groups, menus }: { groups: readonly GroupDef[];
       const parent = byId.get(m.parent) ?? fail(`Menu "${m.id}" has unknown parent "${m.parent}"`);
       // Breadcrumbs and returnTarget link to the parent without params, so a parent route must not need any.
       if (segments(parent.path).some(isParam)) fail(`Menu "${m.id}" has parent "${parent.id}" whose route needs parameters`);
+      // A parent whose group is undeclared is reported by the parent's own iteration; only compare known spaces.
+      const parentSpace = groupSpace.get(parent.group);
+      if (parentSpace !== undefined && parentSpace !== groupSpace.get(m.group)) fail(`Menu "${m.id}" parent "${parent.id}" is in another space`);
     }
     const clash = m.pageKeys.find(k => GLOBAL_KEYS.has(k));
     if (clash) fail(`Menu "${m.id}" page key "${clash}" collides with a global Context key`);
@@ -71,8 +86,18 @@ export function createRegistry({ groups, menus }: { groups: readonly GroupDef[];
     const primaries = menus.filter(m => m.group === g.id && m.primary).length;
     if (primaries !== 1) fail(`Group "${g.id}" needs exactly one primary menu, found ${primaries}`);
   }
+  for (const s of spaces) {
+    const home = byId.get(s.homeMenuId) ?? fail(`Space "${s.id}" homeMenuId "${s.homeMenuId}" is unknown`);
+    if (groupSpace.get(home.group) !== s.id) fail(`Space "${s.id}" homeMenuId "${s.homeMenuId}" is not in that space`);
+    // Space entry lands on the home menu without params, so its route must not need any.
+    if (segments(home.path).some(isParam)) fail(`Space "${s.id}" homeMenuId "${s.homeMenuId}" home route must not need parameters`);
+    // The landing menu must not re-block a user who passed the space gate.
+    if (s.permission !== undefined && home.permission !== s.permission) fail(`Space "${s.id}" home permission must be "${s.permission}"`);
+  }
 
   const groupById = (id: GroupId) => groups.find(g => g.id === id) ?? fail(`Unknown group ${id}`);
+  const spaceById = (id: SpaceId) => spaceByIdMap.get(id) ?? fail(`Unknown space ${id}`);
+  const spaceOf = (menu: MenuEntry) => spaceById(groupById(menu.group).space);
   const menuById = (id: string) => byId.get(id) ?? fail(`Unknown menu ${id}`);
 
   // Static segments win over parameters, compared left to right, whatever the declaration order.
@@ -107,7 +132,7 @@ export function createRegistry({ groups, menus }: { groups: readonly GroupDef[];
     return value;
   };
 
-  return { groups, menus, groupById, menuById, matchRoute, safeReturnTo };
+  return { groups, menus, spaces, groupById, spaceById, spaceOf, menuById, matchRoute, safeReturnTo };
 }
 
 export function pathFor(menu: MenuEntry, params: Record<string, string> = {}): string {

@@ -9,7 +9,17 @@ export type ContextKey = 'time' | 'roomNames' | 'condition' | 'selection' | 'lot
 export type Capability = 'apply' | 'reference' | 'unsupported';
 export type PageType = 'overview' | 'analysis' | 'management' | 'catalog' | 'workflow';
 export type GroupId = 'overview' | 'equipment' | 'masterData' | 'analytics' | 'metrics' | 'noticeVoc' | 'admin';
-export type Permission = 'platform:view' | 'equipment:view' | 'master:view' | 'analytics:view' | 'metrics:view' | 'notice:view' | 'voc:view' | 'admin:manage';
+export type SpaceId = 'analytics' | 'operations' | 'feedback';
+/** Sidebar-visible group set + entry permission (06 §9.1). Groups declare membership via GroupDef.space, menus never do. */
+export type SpaceDef = {
+  id: SpaceId;
+  label: Text;
+  /** Entry permission; absent means every signed-in user (analytics). */
+  permission?: Permission;
+  /** Landing menu inside this space whose path has no `:param`. */
+  homeMenuId: string;
+};
+export type Permission = 'platform:view' | 'equipment:view' | 'master:view' | 'analytics:view' | 'metrics:view' | 'notice:view' | 'voc:view' | 'console:access';
 
 export type MenuMeta = {
   id: string;

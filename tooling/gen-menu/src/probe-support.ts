@@ -6,7 +6,7 @@ import { GROUPS_END, MENUS_TS, GenMenuError, checkInsideRoot, splitLines } from 
 export const PROBE_FOLDER = 'gen-probe';
 export const PROBE_TEST_REL = 'apps/platform-web/src/gen-probe.test.ts';
 export const PROBE_GROUP_ID_MEMBER = " | 'genProbe';";
-export const PROBE_GROUPS_ROW = `  { id: 'genProbe', label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard },`;
+export const PROBE_GROUPS_ROW = `  { id: 'genProbe', label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard, space: 'analytics' },`;
 
 /** Fail-closed `git status --porcelain --untracked-files=all` (F8): any git failure throws. */
 export function gitPorcelain(root: string): string {
