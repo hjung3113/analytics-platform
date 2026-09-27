@@ -1,11 +1,6 @@
-import { useEffect, useRef } from 'react';
-import * as echarts from 'echarts/core';
-import { BarChart, LineChart, PieChart, ScatterChart } from 'echarts/charts';
-import { BrushComponent, DataZoomComponent, GridComponent, MarkAreaComponent, MarkLineComponent, ToolboxComponent, TooltipComponent } from 'echarts/components';
-import { CanvasRenderer } from 'echarts/renderers';
+import { Suspense, lazy } from 'react';
 import type { EChartsCoreOption, ECharts } from 'echarts/core';
-
-echarts.use([LineChart, BarChart, PieChart, ScatterChart, GridComponent, TooltipComponent, DataZoomComponent, BrushComponent, ToolboxComponent, MarkAreaComponent, MarkLineComponent, CanvasRenderer]);
+import { Skeleton } from '@ap/ui';
 
 /** Palette contract consumed by charts (DESIGN.md colors). Read from CSS variables so tokens stay single-sourced. */
 export function token(name: string): string {
@@ -16,40 +11,23 @@ export function token(name: string): string {
 
 export const baseTextStyle = { fontFamily: 'Inter Variable, Inter, Noto Sans KR, system-ui, sans-serif', fontSize: 11, color: '#6b7280' };
 
-export function EChart({ option, height = 280, onEvents, onReady, ariaLabel, className }: {
+export type EChartProps = {
   option: EChartsCoreOption; height?: number; ariaLabel: string; className?: string;
   onEvents?: Record<string, (params: any, chart: ECharts) => void>;
   onReady?: (chart: ECharts) => void;
-}) {
-  const el = useRef<HTMLDivElement>(null);
-  const chart = useRef<ECharts | null>(null);
-  const events = useRef(onEvents);
-  events.current = onEvents;
+};
 
-  useEffect(() => {
-    if (!el.current) return;
-    const instance = echarts.init(el.current, undefined, { renderer: 'canvas' });
-    chart.current = instance;
-    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => instance.resize()) : null;
-    observer?.observe(el.current);
-    onReady?.(instance);
-    return () => { observer?.disconnect(); instance.dispose(); chart.current = null; };
-    // Deps intentionally empty: effect owns mount/unmount only (would trip react-hooks/exhaustive-deps if that rule is enabled).
-  }, []);
+// ECharts is code-split (#48): the echarts-dependent implementation lives in EChartImpl and loads on first chart mount.
+const EChartImpl = lazy(() => import('./EChartImpl'));
 
-  useEffect(() => {
-    const instance = chart.current;
-    if (!instance) return;
-    instance.setOption({ textStyle: baseTextStyle, animationDuration: 120, useUTC: true, ...option }, { notMerge: true });
-  }, [option]);
-
-  useEffect(() => {
-    const instance = chart.current;
-    if (!instance || !onEvents) return;
-    const names = Object.keys(onEvents);
-    for (const name of names) instance.on(name, (p: unknown) => events.current?.[name]?.(p, instance));
-    return () => { for (const name of names) instance.off(name); };
-  }, [onEvents ? Object.keys(onEvents).join(',') : '']);
-
-  return <div ref={el} role="img" aria-label={ariaLabel} className={className} style={{ height, width: '100%' }} />;
+export function EChart({ option, height = 280, onEvents, onReady, ariaLabel, className }: EChartProps) {
+  return (
+    <Suspense fallback={
+      <div role="status" aria-busy className={className} style={{ height, width: '100%' }}>
+        <Skeleton className="h-full w-full" />
+      </div>
+    }>
+      <EChartImpl option={option} height={height} onEvents={onEvents} onReady={onReady} ariaLabel={ariaLabel} className={className} />
+    </Suspense>
+  );
 }

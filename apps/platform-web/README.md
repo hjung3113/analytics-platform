@@ -81,5 +81,4 @@ Kernel 규약 추가: `metricVersion`은 bare 토큰(`'3'`), 표시는 `formatMe
 - 목적지 객체 단건 조회 API 부재(설비 상세가 request-only Context 복사로 우회), export/facet은 대량 데이터용 서버 엔드포인트 필요.
 - 드로어·팝오버 overlay 그림자(DESIGN no-shadow 규칙과 overlay elevation 경계 미정).
 - AnalysisChartFrame compare의 이전 기간 x축 정렬 옵션 부재(페이지가 bucket index 정렬로 우회).
-- 번들 672kB(ECharts) — 코드 분할 미적용.
 - Lot·PPID·Recipe·지표 쌍을 Context Bar에서 새로 지정하는 편집기 없음 — 전달된 값의 제거만 가능(교차 리뷰 P2-4, 도메인 선택지 정의 후).
