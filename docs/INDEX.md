@@ -37,7 +37,7 @@
 | 모노레포 구조·빌드·CI·접두사 변경 | [패키지 경계](integration/platform-packages.md) §3·§6–8, [저장소 구조](integration/repository-layout.md) | [tooling](../tooling/AGENTS.md) → [packages](../packages/AGENTS.md) | 루트 `package.json`·`pnpm-workspace.yaml`·`turbo.json` → `.github/workflows/ci.yml` |
 | 설계 문서·결정 갱신 | 해당 소유 문서 → [05](05_roadmap_and_open_questions.md) | [docs](AGENTS.md) | 새 화면 설계는 [설계 스킬](../.agents/skills/analysis-platform-wireframe/SKILL.md) |
 | 통합 전 단위 프로토타입 | — | [prototypes](../prototypes/AGENTS.md) | 각 프로토타입 README |
-| FeedbackOps | [저장소 구조](integration/repository-layout.md) | [products/feedbackops](../products/feedbackops/AGENTS.md) | 서브모듈 하위 `AGENTS.md` |
+| FeedbackOps | [저장소 구조](integration/repository-layout.md), [딥링크 계약](integration/feedbackops-deeplink.md) | [products/feedbackops](../products/feedbackops/AGENTS.md) | 서브모듈 하위 `AGENTS.md` |
 
 진행 중인 이행 순서(모노레포 5–6단계)와 남은 결정은 [HANDOFF](../HANDOFF.md)에서 확인한다.
 

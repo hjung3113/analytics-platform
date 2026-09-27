@@ -960,6 +960,8 @@ Create VOC with current context
 
 상세에서 분석으로 복귀할 때는 §6.4에 따라 진입 전 Context를 그대로 복원하며, 목적지 ID로 출발 설비 선택을 변경하지 않는다. **CFG의 다른 메뉴와의 Context Link 연계는 Deferred**다. CFG 자체의 시각화·분석 범위와는 구분하며 이번 예시 경로에 CFG hop을 추가하지 않는다.
 
+FeedbackOps로 나가는 외부 hop은 `linkTo`가 아니라 [FeedbackOps 딥링크 계약](integration/feedbackops-deeplink.md)을 따른다(절대 URL · 새 탭 · phase-1 allowlist).
+
 ---
 
 ## 23. Design Tokens
