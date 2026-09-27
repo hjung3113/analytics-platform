@@ -38,3 +38,17 @@ export async function expectScopeValid(page: Page, label: string) {
 export function query(page: Page): URLSearchParams {
   return new URL(page.url()).searchParams;
 }
+
+/** Lot values of the rendered result table (column header "Lot"), after the query settled. */
+export async function lotColumn(page: Page): Promise<string[]> {
+  const table = page.getByRole('main').getByRole('table').first();
+  await expect(table).toBeVisible({ timeout: 10_000 });
+  const headers = await table.getByRole('columnheader').allInnerTexts();
+  const index = headers.findIndex(h => h.trim().toLowerCase() === 'lot');
+  expect(index, 'result table has a Lot column').toBeGreaterThanOrEqual(0);
+  const rows = table.getByRole('row').filter({ has: page.getByRole('cell') });
+  await expect(rows.first()).toBeVisible();
+  const values: string[] = [];
+  for (const row of await rows.all()) values.push((await row.getByRole('cell').nth(index).innerText()).trim());
+  return values;
+}

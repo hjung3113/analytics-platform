@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { contextBar, evidence, expectScopeValid, mainHeading, query, setScenario, signInAs, switchScope } from './support';
+import { contextBar, evidence, expectScopeValid, lotColumn, mainHeading, query, setScenario, signInAs, switchScope } from './support';
 
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
@@ -26,12 +26,16 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
     await expect(contextBar(page).getByRole('button', { name: 'room_name PH-101' })).toBeVisible();
   });
 
-  test('기간이 빠진 시간 적용 메뉴는 기본 기간을 절대값으로 URL에 기록한다', async ({ page }, testInfo) => {
+  test('기간이 빠진 시간 적용 메뉴는 서버 기준시각으로 기본 기간을 절대값으로 URL에 기록한다', async ({ page }, testInfo) => {
+    // The mock server's defaultRangeTo is 2026-09-26T09:00:00 (a fixture value): never browser now or midnight rounding (§6.3).
     await page.goto('/analytics/productivity?v=1&scopeId=ICH');
-    await expect.poll(() => query(page).get('from')).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/);
-    expect(query(page).get('to')).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/);
+    await expect.poll(() => query(page).get('to')).toBe('2026-09-26T09:00:00');
+    expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
     await expect(contextBar(page).getByRole('radio', { name: '1일' })).toBeChecked();
     await evidence(page, testInfo, 'default-period');
+    await page.reload();
+    expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
+    expect(query(page).get('to')).toBe('2026-09-26T09:00:00');
   });
 
   test('지원하지 않는 URL 버전은 자동 보정하지 않고 계약 오류로 보인다', async ({ page }, testInfo) => {
@@ -61,19 +65,28 @@ test.describe('메뉴 간 Context 보존과 미적용 표시 (06 §6, §22)', ()
     await evidence(page, testInfo, 'equipment-after-link');
   });
 
-  test('지원하지 않는 Context는 지우지 않고 "미사용"으로 표시하고, 지원 메뉴로 가면 적용된다', async ({ page }, testInfo) => {
-    await page.goto('/equipment?v=1&scopeId=ICH&lotIds=LOT-A1023');
+  test('지원하지 않는 Context는 지우지 않고 "미사용"으로 표시하고, 지원 메뉴로 가면 조회에 적용된다', async ({ page }, testInfo) => {
+    // Pick a Lot that really exists in the period so the destination can prove the filter, not just the chip.
+    await page.goto(`/analytics/cycle-time?v=1&scopeId=ICH&${PERIOD}`);
+    const lots = await lotColumn(page);
+    const lot = lots[0];
+    expect(lots.some(l => l !== lot), 'fixture needs more than one Lot in the unfiltered period').toBe(true);
+
+    await page.goto(`/equipment?v=1&scopeId=ICH&${PERIOD}&lotIds=${lot}`);
     await expectScopeValid(page, 'ICH · Site A');
     const lotChip = contextBar(page).locator('span', { has: page.getByRole('button', { name: '지우기 Lot' }) });
-    await expect(lotChip).toContainText('LOT-A1023');
+    await expect(lotChip).toContainText(lot);
     await expect(lotChip).toContainText('이 화면에서 미사용');
     await evidence(page, testInfo, 'lot-not-used');
 
     await page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: '사이클타임 상세' }).click();
     await expect(mainHeading(page)).toHaveText('사이클타임 상세');
-    expect(query(page).getAll('lotIds')).toEqual(['LOT-A1023']);
-    await expect(contextBar(page)).toContainText('LOT-A1023');
+    expect(query(page).getAll('lotIds')).toEqual([lot]);
+    await expect(contextBar(page)).toContainText(lot);
     await expect(contextBar(page)).not.toContainText('이 화면에서 미사용');
+    const filtered = await lotColumn(page);
+    expect(filtered.length).toBeGreaterThan(0);
+    expect(new Set(filtered)).toEqual(new Set([lot]));
     await evidence(page, testInfo, 'lot-applied');
   });
 });

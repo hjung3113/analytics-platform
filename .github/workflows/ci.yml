@@ -132,7 +132,7 @@ jobs:
     name: Platform contracts (E2E)
     runs-on: ubuntu-latest
     env:
-      # playwright.config.ts와 같은 경로. `playwright install`은 config를 읽지 않으므로 Job 전체에 명시한다.
+      # 설치와 실행이 같은 경로를 보도록 Job 전체에 명시한다(config는 기본 캐시를 쓰고 이 변수를 따른다).
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/apps/platform-e2e/.browsers
     steps:
       - uses: actions/checkout@v5
