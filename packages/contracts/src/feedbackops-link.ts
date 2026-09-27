@@ -4,7 +4,7 @@
  * (submodule commit 6a0c7f8); direction B builds/validates platform inbound URLs (06 §6/§22).
  * Reuses the global-Context codec in ./url; adds no React, env, registry or cross-package imports.
  */
-import { buildQuery, ContractError, emptyGlobal, isAppRelativePath, parseQuery, type GlobalContext, type Pair } from './url';
+import { buildQuery, ContractError, isAppRelativePath, normalizeSet, parseDateTime, parseQuery, type GlobalContext, type Pair } from './url';
 
 const fail = (code: string, message: string): never => { throw new ContractError(code, message); };
 
@@ -24,19 +24,41 @@ export type PlatformHop =
   | { menuId: 'equipment-master' }
   | { menuId: 'cycle-time' };
 
-export type HopContext = { scopeId: string | null; from: string | null; to: string | null; selection: string[] | null };
-
-/** Canonical absolute origin: https anywhere, http only for loopback hosts; no path/query/hash/userinfo, no default port. */
+/** Canonical absolute origin via URL-standard parsing: input must equal `new URL(input).origin`
+ *  (a single trailing '/' is allowed); https anywhere, http only for loopback hosts; no path/query/hash/userinfo. */
 function origin(input: string): string {
-  const m = /^(https?):\/\/([A-Za-z0-9.-]+)(?::(\d{1,5}))?$/.exec(input);
-  if (!m) return fail('feedbackops_origin', `origin must be a bare absolute https://host[:port] (http only for localhost/127.0.0.1; no path/query/hash/userinfo), got ${JSON.stringify(input)}`);
-  const scheme = m[1]; const host = m[2].toLowerCase(); const port = m[3] === undefined ? null : Number(m[3]);
-  if (scheme === 'http' && host !== 'localhost' && host !== '127.0.0.1') return fail('feedbackops_origin', `http is allowed only for localhost/127.0.0.1, got ${host}`);
-  if (port !== null && (port < 1 || port > 65535)) return fail('feedbackops_origin', `invalid port ${m[3]}`);
-  if (port !== null && ((scheme === 'https' && port === 443) || (scheme === 'http' && port === 80))) return fail('feedbackops_origin', `drop the default port: ${input}`);
-  const canonical = `${scheme}://${host}${port === null ? '' : `:${port}`}`;
-  if (canonical !== input) return fail('feedbackops_origin', `origin must be canonical (${canonical}), got ${JSON.stringify(input)}`);
+  let url: URL;
+  try { url = new URL(input); } catch { return fail('feedbackops_origin', `origin must be an absolute https://host[:port] URL (http only for localhost/127.0.0.1; no path/query/hash/userinfo), got ${JSON.stringify(input)}`); }
+  const canonical = url.origin;
+  if (input !== canonical && !(input.endsWith('/') && input.slice(0, -1) === canonical)) {
+    return fail('feedbackops_origin', `origin must be the canonical URL origin (${canonical}), got ${JSON.stringify(input)}`);
+  }
+  const scheme = url.protocol.slice(0, -1);
+  if (scheme !== 'https' && scheme !== 'http') return fail('feedbackops_origin', `origin scheme must be https or http, got ${JSON.stringify(input)}`);
+  if (scheme === 'http' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') return fail('feedbackops_origin', `http is allowed only for localhost/127.0.0.1, got ${url.hostname}`);
+  if (url.hostname.endsWith('.')) return fail('feedbackops_origin', `origin host must not end with a dot, got ${JSON.stringify(input)}`);
   return canonical;
+}
+
+/** One nonblank path segment; '.'/'..' are rejected because browsers normalize them away in the path. */
+function equipmentDetailId(id: string): string {
+  if (!id.length || id === '.' || id === '..' || Array.from(id).every(c => /\s/.test(c))) {
+    return fail('invalid_id', `equipmentId must be a single nonblank path segment and must not be '.' or '..', got ${JSON.stringify(id)}`);
+  }
+  return id;
+}
+
+/** Builder-side parity with parseQuery: reject what it would reject BEFORE serialization silently drops it. */
+function validateContext(g: GlobalContext): void {
+  if ((g.from === null) !== (g.to === null)) fail('partial_period', 'from and to must be supplied together');
+  if (g.from !== null && g.to !== null) {
+    if (parseDateTime(g.from, 'from') >= parseDateTime(g.to, 'to')) fail('invalid_period', 'from must be earlier than to');
+  }
+  if (g.metricVersion !== null && g.metricId === null) fail('metric_pair', 'metricVersion requires metricId (the pair travels together)');
+  for (const [field, key] of [['roomNames', 'roomNames'], ['selection', 'selectedEquipmentIds'], ['lotIds', 'lotIds'], ['recipeIds', 'recipeIds']] as const) {
+    const ids = g[field];
+    if (ids !== null) normalizeSet(ids, key);
+  }
 }
 
 /** Split an absolute deep link. Fragment or backslash is rejected: neither is part of the contract. */
@@ -111,37 +133,29 @@ const RETURN_TO: readonly string[] = ['returnTo'];
 export function buildPlatformInboundLink(input: {
   origin: string;
   hop: PlatformHop;
-  context: HopContext;
+  context: GlobalContext;
   returnTo?: string;
 }): string {
   const base = origin(input.origin);
   const wantsReturnTo = input.returnTo !== undefined;
   if (wantsReturnTo && input.hop.menuId !== 'equipment-detail') return fail('unsupported_page_key', `returnTo is a page key of equipment-detail only, not ${input.hop.menuId}`);
   if (wantsReturnTo && !isAppRelativePath(input.returnTo!)) return fail('external_return', `returnTo must be an app-relative platform path, got ${JSON.stringify(input.returnTo)}`);
-  if (input.hop.menuId === 'equipment-detail') {
-    const id = input.hop.equipmentId;
-    if (!id.length || Array.from(id).every(c => /\s/.test(c))) return fail('invalid_id', `equipmentId must not be empty or whitespace-only, got ${JSON.stringify(id)}`);
-  }
-  const global: GlobalContext = {
-    ...emptyGlobal,
-    scopeId: input.context.scopeId,
-    from: input.context.from,
-    to: input.context.to,
-    selection: input.context.selection,
-  };
+  if (input.hop.menuId === 'equipment-detail') equipmentDetailId(input.hop.equipmentId);
+  validateContext(input.context); // before serialization: serializeGlobal would silently drop a one-sided period or orphan metricVersion.
   const page: Pair[] = wantsReturnTo ? [['returnTo', input.returnTo!]] : [];
-  const query = buildQuery(global, page);
-  parseQuery(query, wantsReturnTo ? RETURN_TO : []); // validate before hand-out: period pair/format/order, ids, set markers.
+  const query = buildQuery(input.context, page);
+  parseQuery(query, wantsReturnTo ? RETURN_TO : []); // validate the serialized form before hand-out: scopeId/ppid/condition identifiers, set markers.
   const path = input.hop.menuId === 'equipment-detail'
     ? `/equipment/${encodeURIComponent(input.hop.equipmentId)}`
     : input.hop.menuId === 'equipment-master' ? '/equipment' : '/analytics/cycle-time';
   return base + path + query;
 }
 
-/** Direction B parse — validates origin, hop path and the §2 rules; unregistered keys stay in `extras` (06 §6.4). */
+/** Direction B parse — validates origin, hop path and the §2 rules; `context` is the full parsed
+ *  GlobalContext (06 §6.4 preservation) and unregistered keys stay in `extras`. */
 export function parsePlatformInboundLink(url: string, expectedOrigin: string): {
   hop: PlatformHop;
-  context: HopContext;
+  context: GlobalContext;
   extras: Pair[];
   returnTo: string | null;
 } {
@@ -154,9 +168,10 @@ export function parsePlatformInboundLink(url: string, expectedOrigin: string): {
   else if (split.path === '/analytics/cycle-time') hop = { menuId: 'cycle-time' };
   else if (split.path.startsWith('/equipment/')) {
     const raw = split.path.slice('/equipment/'.length);
+    if (raw.includes('/')) return fail('invalid_id', `equipmentId must be exactly one path segment, got ${JSON.stringify(raw)}`);
     let equipmentId: string;
     try { equipmentId = decodeURIComponent(raw); } catch { return fail('invalid_id', `equipmentId segment is not decodable: ${JSON.stringify(raw)}`); }
-    if (!equipmentId.length) return fail('invalid_id', 'equipmentId must not be empty');
+    equipmentDetailId(equipmentId);
     hop = { menuId: 'equipment-detail', equipmentId };
     returnToIsPageKey = true;
   } else return fail('unsupported_path', `unsupported platform hop path ${split.path}`);
@@ -170,7 +185,7 @@ export function parsePlatformInboundLink(url: string, expectedOrigin: string): {
   }
   return {
     hop,
-    context: { scopeId: parsed.global.scopeId, from: parsed.global.from, to: parsed.global.to, selection: parsed.global.selection },
+    context: parsed.global,
     extras: parsed.extras,
     returnTo,
   };

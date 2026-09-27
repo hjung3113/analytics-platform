@@ -3,8 +3,10 @@ import {
   buildFeedbackOpsLink,
   buildPlatformInboundLink,
   ContractError,
+  emptyGlobal,
   parseFeedbackOpsLink,
   parsePlatformInboundLink,
+  type GlobalContext,
 } from '@ap/contracts';
 
 const code = (fn: () => unknown) => { try { fn(); } catch (e) { return e instanceof ContractError ? e.code : 'other'; } return 'ok'; };
@@ -14,8 +16,8 @@ const P = 'https://platform.example';
 const MS_ID = '11111111-1111-4111-8111-111111111111';
 const VOC_ID = '22222222-2222-4222-8222-222222222222';
 const SURVEY_ID = '33333333-3333-4333-8333-333333333333';
-const NONE = { scopeId: null, from: null, to: null, selection: null };
-const PERIOD = { scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', selection: null as string[] | null };
+const NONE: GlobalContext = { ...emptyGlobal };
+const PERIOD: GlobalContext = { ...NONE, scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' };
 
 describe('FeedbackOps deep link A — platform → FeedbackOps (contract: 1)', () => {
   it('emits the phase-1 allowlist URLs byte-exactly', () => {
@@ -92,11 +94,11 @@ describe('FeedbackOps deep link B — FeedbackOps → platform (06 §6/§22)', (
     const url = buildPlatformInboundLink({
       origin: P,
       hop: { menuId: 'cycle-time' },
-      context: { scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', selection: ['ICH-PHOTO-0103', 'ICH-ETCH-01', 'ICH-ETCH-01'] },
+      context: { ...PERIOD, selection: ['ICH-PHOTO-0103', 'ICH-ETCH-01', 'ICH-ETCH-01'] },
     });
     const parsed = parsePlatformInboundLink(url, P);
     expect(parsed.hop).toEqual({ menuId: 'cycle-time' });
-    expect(parsed.context).toEqual({ scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', selection: ['ICH-ETCH-01', 'ICH-PHOTO-0103'] });
+    expect(parsed.context).toEqual({ ...PERIOD, selection: ['ICH-ETCH-01', 'ICH-PHOTO-0103'] });
     const detail = parsePlatformInboundLink(
       buildPlatformInboundLink({ origin: P, hop: { menuId: 'equipment-detail', equipmentId: 'ICH/ETCH 01' }, context: NONE }),
       P,
@@ -141,5 +143,64 @@ describe('FeedbackOps deep link B — FeedbackOps → platform (06 §6/§22)', (
     expect(code(() => parsePlatformInboundLink(url, 'platform.example'))).toBe('feedbackops_origin');
     expect(code(() => parsePlatformInboundLink(`${P}/voc?v=1`, P))).toBe('unsupported_path');
     expect(code(() => parsePlatformInboundLink(`${P}/equipment/%zz`, P))).toBe('invalid_id');
+  });
+  it('validates the context before serialization with parser error codes (P1)', () => {
+    const master = { origin: P, hop: { menuId: 'equipment-master' } as const };
+    // serializeGlobal drops one-sided periods and orphan metricVersions, so these must fail before serialization.
+    expect(code(() => buildPlatformInboundLink({ ...master, context: { ...NONE, from: '2026-09-25T09:00:00' } }))).toBe('partial_period');
+    expect(code(() => buildPlatformInboundLink({ ...master, context: { ...NONE, to: '2026-09-26T09:00:00' } }))).toBe('partial_period');
+    expect(code(() => buildPlatformInboundLink({ ...master, context: { ...NONE, metricVersion: '3' } }))).toBe('metric_pair');
+    expect(code(() => buildPlatformInboundLink({ ...master, context: { ...NONE, from: '2026-09-26T09:00:00', to: '2026-09-25T09:00:00' } }))).toBe('invalid_period');
+    expect(code(() => buildPlatformInboundLink({ ...master, context: { ...NONE, from: '2026-09-25T09:00:00Z', to: '2026-09-26T09:00:00' } }))).toBe('invalid_time');
+    expect(code(() => buildPlatformInboundLink({ ...master, context: { ...NONE, selection: ['  '] } }))).toBe('invalid_id');
+  });
+  it('preserves every registered global key on round-trip (06 §6.4, P2-a)', () => {
+    const context: GlobalContext = {
+      ...emptyGlobal,
+      scopeId: 'ICH',
+      from: '2026-09-25T09:00:00',
+      to: '2026-09-26T09:00:00',
+      roomNames: ['PHOTO'],
+      condition: { axis: 'stgroup', id: 'ST-01' },
+      selection: ['ICH-PHOTO-0103'],
+      lotIds: ['LOT-1'],
+      ppid: 'PP-1',
+      recipeIds: ['RCP-1'],
+      metricId: 'ct',
+      metricVersion: '3',
+    };
+    const url = buildPlatformInboundLink({ origin: P, hop: { menuId: 'cycle-time' }, context });
+    const parsed = parsePlatformInboundLink(url, P);
+    expect(parsed.context).toEqual(context);
+    expect(buildPlatformInboundLink({ origin: P, hop: { menuId: 'cycle-time' }, context: parsed.context })).toBe(url);
+  });
+  it('rejects dot-segment equipmentIds in build and parse (P2-b)', () => {
+    for (const id of ['.', '..']) {
+      expect(code(() => buildPlatformInboundLink({ origin: P, hop: { menuId: 'equipment-detail', equipmentId: id }, context: NONE }))).toBe('invalid_id');
+      expect(code(() => parsePlatformInboundLink(`${P}/equipment/${id}`, P))).toBe('invalid_id');
+    }
+    expect(code(() => parsePlatformInboundLink(`${P}/equipment/%2e%2e`, P))).toBe('invalid_id');
+    expect(code(() => parsePlatformInboundLink(`${P}/equipment/%2E%2e`, P))).toBe('invalid_id');
+    // A browser normalizes raw and percent-encoded dot segments, so they can never address a detail page.
+    expect(new URL(`${P}/equipment/..`).pathname).toBe('/');
+    expect(new URL(`${P}/equipment/%2E%2E`).pathname).toBe('/');
+    expect(new URL(`${P}/equipment/.`).pathname).toBe('/equipment/');
+  });
+  it('requires exactly one raw path segment and applies the builder id rule on parse (P2-c)', () => {
+    expect(code(() => parsePlatformInboundLink(`${P}/equipment/A/B`, P))).toBe('invalid_id');
+    expect(code(() => parsePlatformInboundLink(`${P}/equipment/%20`, P))).toBe('invalid_id');
+    expect(code(() => parsePlatformInboundLink(`${P}/equipment//`, P))).toBe('invalid_id');
+    expect(parsePlatformInboundLink(`${P}/equipment/ICH%2FPHOTO-0103`, P).hop).toEqual({ menuId: 'equipment-detail', equipmentId: 'ICH/PHOTO-0103' });
+  });
+  it('canonicalizes origins with URL-standard parsing (P2-d)', () => {
+    expect(code(() => buildFeedbackOpsLink({ origin: 'https://127.1', target: { kind: 'voc-create' } }))).toBe('feedbackops_origin');
+    expect(code(() => buildFeedbackOpsLink({ origin: 'https://EXAMPLE.com', target: { kind: 'voc-create' } }))).toBe('feedbackops_origin');
+    expect(code(() => buildFeedbackOpsLink({ origin: 'https://feedbackops.example.', target: { kind: 'voc-create' } }))).toBe('feedbackops_origin');
+    expect(code(() => buildPlatformInboundLink({ origin: 'https://127.1', hop: { menuId: 'equipment-master' }, context: NONE }))).toBe('feedbackops_origin');
+    expect(code(() => parsePlatformInboundLink(`${P}/equipment?v=1`, 'https://platform.example.'))).toBe('feedbackops_origin');
+    // A single trailing slash is tolerated; the emitted link still carries the canonical origin byte-exactly.
+    expect(buildFeedbackOpsLink({ origin: `${F}/`, target: { kind: 'voc-create' } })).toBe(`${F}/vocs?action=create`);
+    expect(new URL(buildFeedbackOpsLink({ origin: F, target: { kind: 'voc-create' } })).origin).toBe(F);
+    expect(new URL(buildPlatformInboundLink({ origin: P, hop: { menuId: 'cycle-time' }, context: PERIOD })).origin).toBe(P);
   });
 });

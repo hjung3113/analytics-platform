@@ -10,7 +10,7 @@ FeedbackOps `validateSearch`가 `.strict()`라 알 수 없는 쿼리 키는 그�
 
 ## 1. 방향 A — 플랫폼 → FeedbackOps
 
-Base는 인자 `origin`(절대 origin, path/query/hash/userinfo 없음). `https`만 허용하고 `http`는 `localhost`/`127.0.0.1`만 허용한다. 결과 origin이 인자 origin(정규형)과 다르면 `feedbackops_origin` 오류로 거부한다 — 보정하지 않는다. 앱이 `VITE_FEEDBACKOPS_ORIGIN`을 읽어 helper에 넘긴다(`PlatformAdapter`·kernel에 넣지 않는다. 어댑터 origin은 플랫폼 서버 포트다). env 연결은 #60이 링크를 그릴 때까지 미룬다.
+Base는 인자 `origin`이다. 정규형은 정규식이 아니라 URL 표준 파싱(`new URL(input)`)으로 정하고, 입력이 `new URL(input).origin`과 정확히 같아야 한다(끝의 단일 슬래시 `/` 1개는 허용). `https`만 허용하고 `http`는 `localhost`/`127.0.0.1`만 허용한다. 정규형에서 벗어난 입력 — 축약 IPv4(`https://127.1`의 브라우저 origin은 `https://127.0.0.1`), 대문자 호스트(`https://EXAMPLE.com`), trailing-dot 호스트(`https://example.com.`), userinfo·path·query·hash, 기본 포트 — 는 `feedbackops_origin` 오류로 거부한다 — 보정하지 않는다. 앱이 `VITE_FEEDBACKOPS_ORIGIN`을 읽어 helper에 넘긴다(`PlatformAdapter`·kernel에 넣지 않는다. 어댑터 origin은 플랫폼 서버 포트다). env 연결은 #60이 링크를 그릴 때까지 미룬다.
 
 | target | phase-1이 내는 URL | FeedbackOps가 이미 읽는 것 (`6a0c7f8`) |
 | --- | --- | --- |
@@ -58,9 +58,12 @@ https://platform.example/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-25T09
 (예의 시각 값은 사람이 읽은 형태고, 실제 직렬화는 `buildQuery`의 form-urlencoded 규칙을 따른다 — `T` 구분자의 `:`는 `%3A`로 직렬화된다.)
 
 - `v` 생략은 1. `v=2`는 `unsupported_version`으로 전체 거부(rewrite 없음).
+- 생성기는 파서와 같은 규칙을 **직렬화 전에** 입력에 적용한다. `from`/`to` 쌍·naive 형식·`from < to`와 metric 쌍 위반은 파서와 같은 오류 코드(`partial_period`·`invalid_time`·`invalid_period`·`metric_pair`)로 거부한다 — 직렬화가 한쪽만 있는 기간이나 metricVersion을 조용히 버리지 않도록 먼저 검증한다.
+- `equipmentId`는 빌드·파스 모두 공백 없는(nonblank) 단일 세그먼트여야 하고, `.`/`..`(`%2E` 같은 인코딩형 포함)는 `invalid_id`로 거부한다 — 브라우저는 dot 세그먼트를 경로 정규화로 지워버린다(`/equipment/..` → `/`). 파스는 `/equipment/` 뒤 **정확히 1개의 raw 세그먼트**를 요구한다(레지스트리 `matchRoute`와 동일 — `/equipment/A/B` 거부). 인코딩된 슬래시 id(`A%2FB`)는 여전히 유효하다.
 - `from`/`to`는 naive `YYYY-MM-DDTHH:mm:ss`, 둘 다 있거나 둘 다 없음, `from < to`. 날짜-only·`Z` 거부(06 §6.3).
 - 설비 집합은 반복 키 `selectedEquipmentIds`. 별칭 `equipmentIds`는 parse가 받지만 **생성기는 canonical만** 낸다. 동시 사용은 `alias_conflict`.
 - `returnTo`는 `equipment-detail`만(manifest `pageKeys`). 값은 `isAppRelativePath`인 플랫폼 경로. `https://…`, `//`, `\`는 `external_return`으로 거부하고 extras로 남기지 않는다. `cycle-time`/`equipment-master`는 `returnTo` page 키가 아니므로 생성·파싱 모두 거부한다.
+- 파스는 **등록된 전역 키 전체**를 `context`(`GlobalContext`)로 반환한다(06 §6.4 보존) — `roomNames`·`condition`·`lotIds`·`ppid`·`recipeIds`·`metricId`/`metricVersion`도 버려지지 않는다. 생성기도 같은 전역 Context를 받으므로 파스→빌드 라운드트립이 모든 등록 키를 보존한다.
 - 미등록 키(`managedSystem`, `vocId`, `fo` 등)는 `parseQuery`의 `extras`로 보존한다. 전역 Context로 올리지 않고 조회에 쓰지 않는다. 현재 URL에는 kernel이 보존한다(06 §6.4).
 - Scope는 URL이 증명이 아니다. 화면은 기존처럼 `validateScope`을 하고, 설비 상세는 `useEntityQuery` → `getEntity({ type, id, scopeId })`로 확인한다. id로 Site를 채우지 않는다. 이 codec은 그 호출을 하지 않는다.
 - 플랫폼 `/voc`는 FeedbackOps VOC가 아니다. VOC id의 플랫폼 목적지를 만들지 않는다(#60).
