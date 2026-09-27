@@ -16,10 +16,6 @@ UI Primitive 층(06 §13)과 디자인 시스템 CSS. 플랫폼 개념(Context, 
 - 데이터 조회, 권한 판단, 라우팅, 도메인 문구를 넣지 않는다. 그런 조합은 `@ap/components`다.
 - shadcn 컴포넌트를 추가하면 `src/index.ts`에 export하고 `styles/index.css`의 `@source`가 새 파일을 스캔하는지 확인한다.
 
-## 알려진 부채
-
-`Button.tsx`의 `process.env.NODE_ENV` 참조 때문에 이 패키지와 소스를 함께 타입체크하는 `@ap/shell`에 `@types/node` devDependency가 있다. `import.meta.env` 등으로 바꾸면 둘 다 제거할 수 있다.
-
 ## 검증
 
 루트 `pnpm typecheck && pnpm build`. 토큰·스타일 변경은 `pnpm dev`로 화면을 직접 확인한다.
