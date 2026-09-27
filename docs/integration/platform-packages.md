@@ -93,6 +93,8 @@ export type PlatformAdapter = {
   evaluateSelection(input: SelectionInput, signal?): Promise<SelectionEvaluation>; // 4d: 조건 결과·조건 밖 선택
   getEntity(ref: EntityRef, signal?): Promise<ApiResponse<unknown>>; // §22 목적지 단건 조회 — 분석 경로가 아니다(전역 Context·Selection 대체 없음, 서버가 엔드포인트 권한·site·room을 재검증)
   defaultRangeTo(): string;                 // 기본 기간 기준 시각
+  recordUsage(events: readonly UsageEvent[]): Promise<{ accepted: number }>; // 메뉴 활용률 이벤트 적재(진입·체류). userId 필드 없음 — 서버가 세션 사용자로 기록
+  usageSummary(range: UsageRange, signal?): Promise<ApiResponse<UsageSummary>>; // 메뉴 활용률 집계 읽기(열람 권한: console:access, 콘솔은 집계만 읽는다)
   subscribe(onChange: () => void): () => void;     // 세션·서버 상태 변경 알림
 };
 

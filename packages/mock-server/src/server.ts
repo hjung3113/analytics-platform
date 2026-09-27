@@ -2,7 +2,7 @@
  * Mock request validation + response envelope (docs/06 §19): exclusive `outcome` plus declared `assessments[]`.
  * Every page query goes through `serve()` so Scope/room grants are re-validated per request (§6.2).
  */
-import { parseDateTime, type ApiResponse, type Assessment, type AssessmentKind, type Condition, type EntityRef, type GlobalContext, type Permission, type ScopeCheck, type Trust } from '@ap/contracts';
+import { parseDateTime, type ApiResponse, type Assessment, type AssessmentKind, type Condition, type EntityRef, type GlobalContext, type Permission, type ScopeCheck, type SpaceId, type Trust, type UsageEvent, type UsageRange, type UsageSummary } from '@ap/contracts';
 import { EQUIPMENT, SITES, TIME_DOMAIN_ASSERTIONS, USERS, type Equipment, type RoleId, type TimeDomainAssertion } from './world';
 
 /**
@@ -280,4 +280,94 @@ export async function getEntity(ref: EntityRef, signal?: AbortSignal, opts?: Get
   if (s === 'empty' || !row) return finish({ correlationId, data: null, empty: true, scenario: s, provisional: false });
   // 10. Hit: that one object, not an array. No period on this port, so trust.provisional is false.
   return finish({ correlationId, data: row, empty: false, scenario: s, provisional: false });
+}
+
+/**
+ * Menu usage telemetry (docs/05 메뉴 활용률 계측; 06 §4). Module-level store: it survives `setRole`, so an
+ * admin reading aggregates still sees engineer visits. Aggregates use entries only and `receivedAt`, so a
+ * lying client `at` cannot move "last used"; dwell never changes visits, distinct users or lastUsedAt.
+ */
+export type StoredUsageEvent = UsageEvent & { userId: string; receivedAt: number };
+
+const usageEvents: StoredUsageEvent[] = [];
+
+const SPACE_IDS = ['analytics', 'operations', 'feedback'] as const satisfies readonly SpaceId[];
+
+/** True when the id carries anything the manifest route pattern must not: empty, `?`, `#`, `&`, whitespace, too long. */
+function invalidUsageId(value: string, max: number): boolean {
+  return !value || value.length > max || /[?#&\s]/.test(value);
+}
+
+/**
+ * Records a batch of events. Any signed-in session may record (engineers must be counted), so this endpoint
+ * never checks console:access. Whole-call reject: one invalid event stores nothing (accepted: 0) — bad
+ * clients must not poison the log piecemeal. The server stamps userId and receivedAt; no client id is trusted.
+ */
+export async function recordUsage(events: readonly UsageEvent[], opts?: { role?: RoleId }): Promise<{ accepted: number }> {
+  if (events.length > 20) return { accepted: 0 };
+  const invalid = events.some(e =>
+    invalidUsageId(e.menuId, 80)
+    || invalidUsageId(e.path, 200)
+    || !SPACE_IDS.includes(e.spaceId)
+    || (e.name !== 'entry' && e.name !== 'dwell')
+    || (e.name === 'dwell' && (e.dwellMs === undefined || e.enteredAt === undefined)));
+  if (invalid) return { accepted: 0 };
+  const userId = USERS[opts?.role ?? role].role;
+  const receivedAt = Date.now();
+  for (const e of events) {
+    if (e.name === 'dwell') {
+      // Same (userId, sessionId, menuId, enteredAt) dwell replaces the previous one — the final dwell wins.
+      const previous = usageEvents.findIndex(x => x.name === 'dwell' && x.userId === userId && x.sessionId === e.sessionId && x.menuId === e.menuId && x.enteredAt === e.enteredAt);
+      if (previous >= 0) usageEvents.splice(previous, 1);
+    }
+    usageEvents.push({ ...e, userId, receivedAt });
+  }
+  return { accepted: events.length };
+}
+
+/** Pure aggregate over stored events. Entries only; zero-visit menus are omitted here (the screen left-joins). */
+export function aggregateUsage(events: readonly StoredUsageEvent[], range: UsageRange): UsageSummary {
+  const inRange = events.filter(e =>
+    e.name === 'entry'
+    && ('preset' in range || (e.receivedAt >= range.from && e.receivedAt < range.to)));
+  const byMenu = new Map<string, { visits: number; users: Set<string>; last: number }>();
+  for (const e of inRange) {
+    const agg = byMenu.get(e.menuId) ?? { visits: 0, users: new Set<string>(), last: 0 };
+    agg.visits += 1;
+    agg.users.add(e.userId);
+    if (e.receivedAt > agg.last) agg.last = e.receivedAt;
+    byMenu.set(e.menuId, agg);
+  }
+  return {
+    preset: 'preset' in range ? 'all' : 'range',
+    menus: [...byMenu.entries()].map(([menuId, agg]) => ({ menuId, visits: agg.visits, distinctUsers: agg.users.size, lastUsedAt: agg.last })),
+  };
+}
+
+/** Test-only store reset (docs/05: manual deletion is a real-adapter concern). Not on the adapter, no UI. */
+export function resetUsage() { usageEvents.length = 0; }
+
+/** Read-only store snapshot for tests (e.g. the dwell replace rule). */
+export function storedUsage(): readonly StoredUsageEvent[] { return usageEvents; }
+
+export type UsageSummaryOptions = { role?: RoleId; latency?: number };
+
+/**
+ * Console aggregate read (docs/05 열람 권한). console:access on the pinned role is checked BEFORE any dev
+ * scenario (same order as serve(): a missing permission outranks every scenario). Scope, time-domain and
+ * partial do not apply to this endpoint. Nothing matched is a successful zero — outcome 'ok' with
+ * `menus: []`, never 'empty' (empty would trip OutcomeView and hide the zero rows).
+ */
+export async function usageSummary(range: UsageRange, signal?: AbortSignal, opts?: UsageSummaryOptions): Promise<ApiResponse<UsageSummary>> {
+  const s = scenario;
+  const requestRole = opts?.role ?? role;
+  const correlationId = nextCorrelation();
+  await sleep(opts?.latency ?? 80, signal);
+  const base = { correlationId, data: null, trust: null, assessments: [] as Assessment[] };
+  if (!USERS[requestRole].permissions.includes('console:access')) return { ...base, outcome: 'forbidden', message: 'No permission console:access' };
+  if (s === 'timeout') return { ...base, outcome: 'timeout', message: 'Query exceeded 30s budget' };
+  if (s === 'error') return { ...base, outcome: 'error', message: 'Upstream mart query failed' };
+  if (s === 'forbidden') return { ...base, outcome: 'forbidden', message: 'Permission revoked (scenario)' };
+  if ('from' in range && range.from >= range.to) return { ...base, outcome: 'error', message: 'Invalid usage range' };
+  return { ...base, outcome: 'ok', data: aggregateUsage(usageEvents, range) };
 }
