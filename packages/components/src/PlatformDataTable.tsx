@@ -26,6 +26,15 @@ function readPreferences(key: string): Preferences {
   } catch { return defaults; }
 }
 
+export type TableUrlState = {
+  /** 1-based; null = default page 1 (key omitted). */
+  page: number | null;
+  /** What the header shows; empty = unsorted. */
+  sorting: SortingState;
+  /** One callback for user sort/page gestures; the page owns the URL keys and its own resets (§6.1). */
+  onChange: (next: { page: number | null; sorting: SortingState }, reason: 'user' | 'reset') => void;
+};
+
 export type PlatformDataTableProps<T> = {
   title: ReactNode;
   subtitle?: ReactNode;
@@ -45,6 +54,8 @@ export type PlatformDataTableProps<T> = {
   pageSize?: number;
   height?: number;
   emptyAction?: ReactNode;
+  /** Controlled sort/page (§6.1 page keys). Omit to keep today's internal state. The table never knows URL key names. */
+  urlState?: TableUrlState;
 };
 
 /** §15: platform owns interaction, loading/error, column preference, selection model, toolbar layout; domain owns columns/cells/actions/filters. */
@@ -61,23 +72,25 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const [retry, setRetry] = useState(0);
   const [result, setResult] = useState<{ identity: string; response: ApiResponse<PageResult<T>> } | null>(null);
   const viewport = useRef<HTMLDivElement>(null);
+  // urlState (§6.1): controlled sort/page. The page writes the URL via onChange; the table never touches keys.
+  const activeSorting = p.urlState ? p.urlState.sorting : sorting;
 
   // Context identity: global Context + user + page filters + adapter revision. Selection never survives a Context change (DESIGN Tables).
   const contextIdentity = JSON.stringify([serializeGlobal(global), user.id, p.filterKey, revision]);
   const lastContext = useRef(contextIdentity);
-  const effectivePage = lastContext.current === contextIdentity ? page : 0;
+  const effectivePage = p.urlState ? (p.urlState.page ?? 1) - 1 : lastContext.current === contextIdentity ? page : 0;
   useEffect(() => {
     if (lastContext.current !== contextIdentity) {
-      lastContext.current = contextIdentity; setPage(0); setSelection({});
+      lastContext.current = contextIdentity; if (!p.urlState) setPage(0); setSelection({});
       if (viewport.current) viewport.current.scrollTop = 0;
     }
   }, [contextIdentity]);
-  const requestIdentity = JSON.stringify([contextIdentity, effectivePage, sorting, retry]);
+  const requestIdentity = JSON.stringify([contextIdentity, effectivePage, activeSorting, retry]);
   const loadRef = useRef(p.loadPage);
   loadRef.current = p.loadPage;
   useEffect(() => {
     const controller = new AbortController();
-    loadRef.current({ page: effectivePage, pageSize, sorting }, controller.signal)
+    loadRef.current({ page: effectivePage, pageSize, sorting: activeSorting }, controller.signal)
       .then(response => { if (!controller.signal.aborted) setResult({ identity: requestIdentity, response }); })
       .catch(error => {
         if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
@@ -118,9 +131,19 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const table = useReactTable({
     data: data.rows, columns: allColumns, getRowId: p.getRowId, getCoreRowModel: getCoreRowModel(),
     manualSorting: true, manualPagination: true, enableRowSelection: true, columnResizeMode: 'onChange',
+    enableMultiSort: !p.urlState,
     defaultColumn: { size: 150, minSize: 60, maxSize: 600 },
-    state: { sorting, rowSelection: selection, columnSizing: preferences.sizing, columnVisibility: preferences.visibility, columnPinning: preferences.pinning },
-    onSortingChange: u => { setSorting(u); setPage(0); if (viewport.current) viewport.current.scrollTop = 0; },
+    state: { sorting: activeSorting, rowSelection: selection, columnSizing: preferences.sizing, columnVisibility: preferences.visibility, columnPinning: preferences.pinning },
+    onSortingChange: u => {
+      const next = typeof u === 'function' ? u(p.urlState ? p.urlState.sorting : sorting) : u;
+      if (p.urlState) {
+        // §6.1: one callback; a sort gesture also resets the page to its default (null).
+        p.urlState.onChange({ sorting: next, page: null }, 'user');
+        if (viewport.current) viewport.current.scrollTop = 0;
+        return;
+      }
+      setSorting(next); setPage(0); if (viewport.current) viewport.current.scrollTop = 0;
+    },
     onRowSelectionChange: setSelection,
     onColumnSizingChange: u => setPreferences(pr => ({ ...pr, sizing: typeof u === 'function' ? u(pr.sizing) : u })),
     onColumnVisibilityChange: u => setPreferences(pr => ({ ...pr, visibility: typeof u === 'function' ? u(pr.visibility) : u })),
@@ -216,8 +239,19 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       </div>}
 
     <div className="flex items-center justify-end gap-2 border-t border-border-subtle p-2">
-      <Button variant="secondary" size="sm" className="h-7 rounded-sm px-2 text-[12px]" disabled={loading || effectivePage === 0} onClick={() => { setPage(effectivePage - 1); if (viewport.current) viewport.current.scrollTop = 0; }}>{lang === 'ko' ? '이전' : 'Previous'}</Button>
-      <Button variant="secondary" size="sm" className="h-7 rounded-sm px-2 text-[12px]" disabled={loading || effectivePage + 1 >= pageCount} onClick={() => { setPage(effectivePage + 1); if (viewport.current) viewport.current.scrollTop = 0; }}>{lang === 'ko' ? '다음' : 'Next'}</Button>
+      <Button variant="secondary" size="sm" className="h-7 rounded-sm px-2 text-[12px]" disabled={loading || effectivePage === 0}
+        onClick={() => {
+          // zero-based target; controlled mode reports 1-based with null = page 1 (§6.1).
+          if (p.urlState) p.urlState.onChange({ sorting: p.urlState.sorting, page: effectivePage === 1 ? null : effectivePage }, 'user');
+          else setPage(effectivePage - 1);
+          if (viewport.current) viewport.current.scrollTop = 0;
+        }}>{lang === 'ko' ? '이전' : 'Previous'}</Button>
+      <Button variant="secondary" size="sm" className="h-7 rounded-sm px-2 text-[12px]" disabled={loading || effectivePage + 1 >= pageCount}
+        onClick={() => {
+          if (p.urlState) p.urlState.onChange({ sorting: p.urlState.sorting, page: effectivePage + 2 }, 'user');
+          else setPage(effectivePage + 1);
+          if (viewport.current) viewport.current.scrollTop = 0;
+        }}>{lang === 'ko' ? '다음' : 'Next'}</Button>
     </div>
   </section>;
 }
@@ -232,4 +266,24 @@ export function sortAndPage<T>(rows: T[], q: PageQuery): PageResult<T> {
     return s.desc ? -c : c;
   });
   return { rows: sorted.slice(q.page * q.pageSize, (q.page + 1) * q.pageSize), total: rows.length };
+}
+
+/** §6.1 page-key codecs. Value domains (allowed columns, tab ids) stay page-owned; these pin only the shared wire format. */
+export function parsePageIndex(raw: string | null): { ok: true; page: number } | { ok: false } {
+  if (raw === null || raw === '') return { ok: true, page: 1 };
+  if (!/^[1-9][0-9]*$/.test(raw)) return { ok: false };
+  const page = Number(raw);
+  return Number.isSafeInteger(page) ? { ok: true, page } : { ok: false };
+}
+
+export function parseTableSort(raw: string | null, allowed: readonly string[]): { ok: true; sorting: SortingState } | { ok: false } {
+  if (raw === null || raw === '') return { ok: true, sorting: [] };
+  const m = /^([A-Za-z][A-Za-z0-9_]*):(asc|desc)$/.exec(raw);
+  if (!m || !allowed.includes(m[1])) return { ok: false };
+  return { ok: true, sorting: [{ id: m[1], desc: m[2] === 'desc' }] };
+}
+
+export function encodeTableSort(sorting: SortingState): string | null {
+  const s = sorting[0];
+  return s ? `${s.id}:${s.desc ? 'desc' : 'asc'}` : null;
 }
