@@ -1,72 +1,74 @@
-# Handoff — 2026-09-27 모노레포 이행 5–6단계 완료 (PR #25–#30)
+# Handoff — 2026-09-27 다음 세션: 플랫폼 기능(M1)부터
+
+## 먼저 볼 것
+
+- **진행 상황의 원본은 [`docs/ROADMAP.md`](docs/ROADMAP.md)와 고정 이슈 [#63 로드맵](https://github.com/hjung3113/analytics-platform/issues/63)이다.** 이 HANDOFF는 다음 세션 시작점만 적는다. 충돌하면 로드맵을 따른다.
+- 작업 규칙은 루트 [`AGENTS.md`](AGENTS.md) "작업 관리"·"화면/UI 설계":
+  - 작업은 이슈에서 시작하고, PR에 `Closes #n`을 적는다.
+  - 무엇이 확정되면 공통화 판단·문서 갱신·로드맵 갱신을 확인한다. PR 템플릿과 CI `PR checklist`가 강제한다.
+  - UI 변경은 인터랙티브 프로토타입으로 사용자 컨펌을 받은 뒤 구현한다.
+- MVP는 데스크톱 웹만 지원한다(05 Decided). 메뉴 화면은 사내에서 새로 만들 견본이라 다듬지 않는다.
 
 ## 현재 상태
 
-[플랫폼 모노레포 패키지 경계](docs/integration/platform-packages.md) §7 이행 순서 1–6단계가 모두 끝났다. main `9aacff5`. CI 5개 Job 초록불. 테스트 245개(eslint-config 102, gen-menu 75, mock-server 30, platform-web 16, kernel 13, menu-analytics 5, components 3, menu-home 1, menu-metrics 1).
+- main은 이 PR 병합 시점 기준. 테스트 245개, CI `Platform workspace`·Unit A–C·Python codec·`PR checklist` 초록.
+- 모노레포 이행 1–6단계 완료(PR #16–#32). 작업 관리 체계(#62), 데스크톱 전용 결정(#65).
+- **디자인 트랙(M2)은 보류:** FeedbackOps 디자인 개선이 확정된 뒤 재개한다.
+  - 재개 방향: FeedbackOps 디자인을 기반으로 삼고 플랫폼 확장 패턴(Context 바·차트 프레임·분석 레이아웃·KPI)을 더한다.
+  - 1차 평가는 #33.
+  - 지금까지의 프로토타입(A안 완성, B안 WIP)은 브랜치 `hjung3113/prototype-design-direction`에 있다(main 병합 안 함). 재개 절차는 #52 코멘트.
 
-| PR | 단계 | 내용 |
-| --- | --- | --- |
-| [#25](https://github.com/hjung3113/analytics-platform/pull/25) | 5a | `@ap/mock-server` 추출(`contracts`만 의존) |
-| [#26](https://github.com/hjung3113/analytics-platform/pull/26) | 5b | 메뉴 그룹마다 `api.ts` 한 파일만 mock을 앎. CSV 내보내기 분기는 `cycleData.rowsForExport` |
-| [#27](https://github.com/hjung3113/analytics-platform/pull/27) | 5c | `menus/*` 7개 그룹 패키지(`@ap/menu-<group>`), 앱 `menus.ts`는 `GROUPS` + manifests 연결 |
-| [#28](https://github.com/hjung3113/analytics-platform/pull/28) | 5 리뷰 | Astra 리뷰 반영(문서 nit 3건, 코드 지적 없음) |
-| [#29](https://github.com/hjung3113/analytics-platform/pull/29) | 6a | `@ap/eslint-config` 층별 preset + 로컬 규칙 3개, 루트 `pnpm lint`, CI 단계 |
-| [#30](https://github.com/hjung3113/analytics-platform/pull/30) | 6b | `pnpm gen:menu` 생성기 + `scripts/probe.ts`(임시 메뉴 생성 → 네 게이트 → 되돌림) |
+## 다음 세션 할 일 (순서대로)
 
-- 모든 설계·리뷰 기록은 `.agents/reports/step5/`, `.agents/reports/step6/`.
-- 리뷰 지적은 수정 없이 실패하는 회귀 테스트와 함께 반영했다(6a fixture 102개, 6b 트랜잭션·소유권·경계·마커 테스트).
-- 브랜치(로컬·원격)는 `main`만 남았고, worktree와 이전 세션 탭도 정리했다.
+1. **플랫폼 계약 자동 검사(E2E) — #44.** Kernel을 고치기 전에 안전망부터.
+   - Playwright로 다음 계약을 CI에서 검사한다:
+     - 딥링크 복원
+     - 메뉴 간 Context 보존과 미적용 표시
+     - 권한 없는 메뉴 비노출·직접 URL 거부
+     - Scope 전환 시 이전 결과 비노출
+     - 공통 상태 화면(오류·빈 결과·권한 거부)
+     - `returnTo` 복귀
+   - 결과는 항목별 통과/실패 + 증거 스크린샷. 앞으로 "플랫폼 기능 확인"은 이 보고로 보여 준다.
+   - 시나리오는 dev 도구의 역할·응답 시나리오(`@ap/mock-server`의 `setRole`/`setScenario`)로 만든다.
+2. **Kernel 잔여 — #45, #46, #47.** 화면 모양 변화 없는 계약 작업이다.
+   - #45: 화면 상태 URL 등록
+   - #46: 목적지 단건 조회 포트
+   - #47: mock 서버 메뉴 권한 재검증
+3. **워크스페이스(공간) 층 — #41.** 기능 먼저 한다(`space` 선언은 Candidate 이름, 공간 권한, 공간 간 Context 보존, 팔레트 공간 표시). 공간 전환기 모양은 디자인 재개 때 정하고, 지금은 기존 스타일로 최소한만 둔다.
+4. **운영 콘솔 — #42(Registry 조회), #43(활용률 계측).** #41 위에 올린다.
+5. 틈틈이: #48 차트 번들 분할, #57 `@types/node` 부채.
 
-## 사용자 확인 필요
+## 사용자 결정 대기 (답 전에는 기대는 구현 금지)
 
-임의로 결정하지 않는다.
+인증/SSO(#35), 운영 콘솔 권한 모델(#36), 적재 워커 스키마(#37), `space` 필드명(#38), 시각 회귀 범위(#39), FeedbackOps 연결 방식(#40). 무엇을 막는지는 로드맵 표.
 
-- **이번 세션에 기본값으로 진행한 것(되돌릴 수 있음):**
-  - 생성기는 사이드바 그룹을 만들지 않는다(6b D1). `GroupId`·`GROUPS`는 사람이 추가. 필요하면 `--with-group` 확장.
-  - 홈 공지 닫기: 메뉴 코드의 web storage 금지(6a) 때문에 `sessionStorage` 대신 모듈 상태. 화면 이동 후에도 유지, 새로고침(재접속)하면 다시 노출. 08 §8 "세션 동안만 유지"를 이렇게 해석했다. 새로고침 후 유지가 필요하면 Kernel 소유 API로 결정.
-  - `published-metrics` 테스트를 그룹별로 분할(깊은 경로 import 금지 때문). kernel+mock 부분만 앱 통합 테스트.
-- **인증/권한:** SSO·서버 권한 재검증, Scope 데이터 원천·상속 규칙, Registry permission 필드를 Shell이 소비할지.
-- **UX 정책:** Condition 편집 시 Selection 처리, Chart Selection Summary 배치, Zoom-out 용어, 필터 변경 후 선택 유지.
-- **후속 구현 범위:** 전역 검색(cmdk), 시간 codec 지원 범위, Annotation 영속성, Export 포맷, DetailDrawer Audit 연동.
-- **아키텍처:** Chart Interaction Contract 승격(06 §14 Promotion Rule 대기).
-- **공개 URL 계약:** 후보 키·스키마 승인. **CFG 메뉴 연계**(06 §22): Deferred 유지.
-- **워크스페이스 인터뷰 Open**([기록](docs/reviews/2026-09-26-workspace-ops-interview.md#남은-open)): 적재 워커 상태 기록 스키마와 파서 저장소 변경 범위, Registry `space` 필드명·공간별 그룹 상한, FeedbackOps 1단계 VOC·설문 딥링크 방식, 운영 콘솔 권한 모델.
-- **패키지 접두사:** `@ap/`는 임시. 바꿀 곳은 `package.json`·import 외에 상수 두 곳(`tooling/eslint/src/prefix.js`, `tooling/gen-menu/src/prefix.ts`). [§8 절차](docs/integration/platform-packages.md#8-결정-decided-2026-09-26).
+## 워커 오케스트레이션 (Orca)
 
-## 다음 세션 추천 작업
-
-> 진행 관리는 이제 [로드맵](docs/ROADMAP.md)과 GitHub 이슈(#33–#61)가 원본이다. 아래는 그 요약이며, 충돌하면 로드맵을 따른다.
-
-1. **CSS/시각 회귀 테스트(사용자 제안, 범위 먼저 합의):** 이번에도 손으로 한 빌드 CSS selector 집합 비교를 CI 검사로 만들거나 Playwright 스크린샷 비교를 도입.
-2. **부채:** `@ap/ui` `Button.tsx`의 `process.env.NODE_ENV` 때문에 `@ap/ui`·`@ap/shell`과 화면 있는 메뉴 4개(+생성 템플릿)가 `@types/node`를 가진다. `import.meta.env` 등으로 바꾸고 함께 제거.
-3. **알려진 잔여(결정 아님):**
-   - `gen:menu --remove`에서 패키지 삭제가 일시 실패(EBUSY)하면 앱 연결은 복원되고 재시도로 패키지는 지워져 연결이 남을 수 있다(Astra final check P2, `tooling/gen-menu/src/remove.ts`).
-   - 6a lint는 문법 기반이다. 변수에 담아 만든 URL, computed 속성, optional chaining 호출, 템플릿 문자열 `import(\`…\`)`는 잡지 않는다(platform-packages §6).
-   - 실제 EquipmentID·room_name이 문자열 `"none"`이면 명시적 빈 집합과 구분되지 않는다(Unit A `setValue`).
-4. 그 뒤: 워크스페이스 층(06 §9.1, `space` 필드는 Candidate), [앱 README "남은 플랫폼 과제"](apps/platform-web/README.md#남은-플랫폼-과제-워커-보고-기반), Storybook, 파서 저장소와 적재 워커 상태 스키마 협의(합의 전 운영 콘솔은 화면 설계까지만). FeedbackOps 피드백 공간은 원본 저장소의 Milestone 구현(#514)을 참조. 새 메뉴 그룹은 `pnpm gen:menu`로 시작하되 메뉴 화면 3개 이상 연속 제작은 사용자 확인.
+- **역할과 모델:**
+  - 설계: Grok 4.7 high. TUI는 `--effort`를 무시하므로 띄운 뒤 `/effort high`를 보낸다.
+  - 구현: GLM 5.3 Flash max(`omp --model glm-5.3-flash --thinking max`, OpenRouter 금지). 시각 품질이 필요하면 Claude Opus, **구현 워커는 `--effort low`**.
+  - 리뷰: Codex gpt-6-astra medium.
+  - 조율·검증·PR: coordinator.
+  - 작업은 하나씩 작게 나눈다.
+- **Codex 실행:** `worker-start --agent codex`는 경고(⚠)가 있으면 준비 단계에서 타임아웃난다. `orca terminal create --command 'codex -m gpt-6-astra -c model_reasoning_effort="medium"'` → `task-create` → `dispatch --inject`. 리뷰어 역할을 빼지 않는다.
+- **완료 대기:** `check --wait` 출력은 keepalive 줄 뒤에 JSON이 온다(마지막 `\n{\n`부터 파싱). heartbeat만 온 배치는 ack하고 다시 기다린다.
+- **정리:** 끝난 탭은 바로 닫고(`terminal create`로 연 탭은 release 후에도 남음), 병합된 워크트리·브랜치는 지운다.
 
 ## 운영 사항
 
-- **새 메뉴 그룹:** `GroupId`(contracts)와 `GROUPS`(앱 `menus.ts`)에 사람이 추가 → `pnpm gen:menu <group> --label-ko … --label-en …` → `pnpm install`. 생성기 변경은 `node tooling/gen-menu/scripts/probe.ts`로 확인(깨끗한 트리에서만 실행, 끝나면 트리가 원상복구).
-- **검증 순서:** `pnpm lint && pnpm typecheck && pnpm test && pnpm build`. 캐시 없이 보려면 `pnpm exec turbo run lint typecheck test --force`.
-- **dev 서버 누수:** `pnpm dev`의 vite는 `node …/vite.js --host …`로 떠서 `pkill -f "vite --host"`에 안 걸린다. 끝낼 때 `lsof -tiTCP:5173-5180 -sTCP:LISTEN`으로 확인하고 종료. 포트가 밀리면(5174…) 브라우저 검사가 다른 워크트리의 서버를 볼 수 있다.
-- **Orca 워커 분배(이번 세션):** Grok 4.7 high 설계 → GLM 5.3 Flash max 구현 → Codex gpt-6-astra medium 리뷰 → coordinator 검증·PR. 한 작업씩.
-  - Grok TUI는 `--effort` 플래그를 무시한다. 띄운 뒤 `/effort high`.
-  - Codex `worker-start`는 경고(⚠ 1 warning)가 있으면 준비 단계에서 타임아웃난다. `terminal create --command 'codex -m gpt-6-astra -c model_reasoning_effort="medium"'` → `task-create` → `dispatch --inject`.
-  - GLM은 `omp --model glm-5.3-flash --thinking max`(OpenRouter 금지, 접두사 없는 ID).
-  - `check --wait` 출력은 keepalive 줄 뒤에 JSON이 온다. 마지막 `\n{\n`부터 파싱.
-- **스택 PR 병합:** 기반 PR을 `--delete-branch`로 병합하면 위 PR이 닫힌다. 기반을 브랜치 유지로 병합 → `gh pr edit <n> --base main` → `origin/main`을 병합해 push(CI 재실행).
-- **Tailwind v4:** 앱 밖 패키지는 `styles.css`의 `@source` + 앱 `style.css` import. 이동·생성 PR은 빌드 CSS selector 집합 비교(`tr '}' '\n' < a.css | sed 's/{.*//' | tr ',' '\n' | grep '^\.' | LC_ALL=C sort -u`).
-- **Node 26 + jsdom:** 테스트에서 `localStorage`가 없다. `vi.stubGlobal`. Playwright 브라우저: `PLAYWRIGHT_BROWSERS_PATH=$PWD/prototypes/kernel-platform-table/.browsers`.
+- **새 메뉴 그룹:** `GroupId`·`GROUPS`에 사람이 추가 → `pnpm gen:menu <group> --label-ko … --label-en …` → `pnpm install`. 생성기 변경은 깨끗한 트리에서 `node tooling/gen-menu/scripts/probe.ts`로 확인.
+- **검증:** `pnpm lint && pnpm typecheck && pnpm test && pnpm build`. 캐시 없이는 `pnpm exec turbo run lint typecheck test --force`.
+- **dev 서버 누수:** vite가 `node …/vite.js`로 떠서 `pkill -f "vite --host"`에 안 걸린다. 끝나면 `lsof -tiTCP:5173-5180 -sTCP:LISTEN | xargs kill`. 포트가 밀리면 브라우저 검사가 엉뚱한 서버를 본다.
+- **브라우저 검사:** `PLAYWRIGHT_BROWSERS_PATH=$PWD/prototypes/kernel-platform-table/.browsers`, 스크립트는 그 폴더에서 실행. 데스크톱 1440×900 기준.
+- **스택 PR:** 기반 PR을 `--delete-branch`로 병합하면 위 PR이 닫힌다. 기반은 브랜치 유지로 병합 → `gh pr edit <n> --base main` → `origin/main` 병합 후 push.
+- **Tailwind v4:** 앱 밖 패키지는 `styles.css`의 `@source` + 앱 `style.css` import. 이동·생성 PR은 빌드 CSS selector 집합 비교.
+- **알려진 잔여:** gen-menu `--remove`의 EBUSY 재시도 경로(P2), 문법 기반 lint의 한계(platform-packages §6), `"none"` 문자열 EquipmentID 구분 불가(Unit A).
 - CI: `ubuntu-latest`가 2026-10-19부터 Ubuntu 26. 그 무렵 CI가 깨지면 먼저 확인.
 
 ## 보존할 경계
 
 - Decided는 구현 완료가 아니다. 확인 필요 항목을 임의로 결정하지 않는다.
-- 메뉴 화면은 Consumer다. 생성기가 생겼다고 메뉴를 연달아 만들지 않는다.
-- FeedbackOps 코드는 플랫폼 계약에 맞춰 소급 수정하지 않는다. 서브모듈 gitlink는 `6a0c7f8`.
+- FeedbackOps 코드는 플랫폼 계약에 맞춰 소급 수정하지 않는다(서브모듈 gitlink `6a0c7f8`).
 - 역사 기록(`reports/`, `docs/reviews/`, `.agents/reports/`)은 덮어쓰지 않는다.
 
-## 필요할 때만 읽는 기록
-
-[패키지 경계](docs/integration/platform-packages.md) · [앱 README](apps/platform-web/README.md) · [결정 상태](docs/05_roadmap_and_open_questions.md) · [tooling](tooling/AGENTS.md) · [menus](menus/AGENTS.md). HANDOFF는 다음 세션에 넘길 정보만 담고 매번 덮어쓴다. 이전 내용은 `git log -p HANDOFF.md`.
+이전 HANDOFF 내용은 `git log -p HANDOFF.md`.
