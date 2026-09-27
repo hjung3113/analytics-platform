@@ -5,7 +5,7 @@
 ## 파일
 
 - `src/world.ts` — 설비·사이트·사용자 마스터와 `PUBLISHED_METRICS`.
-- `src/server.ts` — `serve()`: Scope 재검증·응답 envelope·시나리오·역할(localStorage `platform:role`).
+- `src/server.ts` — `serve()`: 메뉴 권한·Scope 재검증·응답 envelope·시나리오·역할(localStorage `platform:role`). 메뉴 권한은 조회의 필수 옵션 `permission`으로 받고, 요청 시점에 고정된 역할로 판정한다.
 - `src/jobs.ts` — 작업(job) 합성 데이터와 조회 함수.
 - `src/adapter.ts` — `PlatformAdapter` 구현(`mockAdapter`).
 - `src/index.ts` — 공개 진입점. 명시적 export만 한다(`export *` 금지).

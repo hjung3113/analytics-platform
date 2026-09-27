@@ -18,6 +18,17 @@ const INPUTS: MenuInputs = {
   binding: FIXTURE_GROUP,
 };
 
+describe('scaffold permission (#47)', () => {
+  it('the sample page requests with the permission its manifest declares', () => {
+    const files = renderFiles(INPUTS);
+    const index = files.find(f => f.relPath === 'src/index.ts')!.content;
+    const page = files.find(f => f.relPath.startsWith('src/pages/'))!.content;
+    const declared = /permission: '([^']+)'/.exec(index)?.[1];
+    expect(declared).toBeTruthy();
+    expect(page).toMatch(new RegExp(`serve\\(\\{[\\s\\S]*permission: '${declared}'`));
+  });
+});
+
 describe('generate in a temp workspace', () => {
   const keep: string[] = [];
   afterAll(() => { for (const root of keep) removeFixture(root); });

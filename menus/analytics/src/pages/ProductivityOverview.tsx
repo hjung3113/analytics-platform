@@ -70,6 +70,7 @@ export default function ProductivityOverview(_: PageProps) {
   const granLabel = gran === 'hour' ? (ko ? '시간' : 'hourly') : gran === 'day' ? (ko ? '일별' : 'daily') : (ko ? '주별' : 'weekly');
 
   const kpiQ = usePlatformQuery(signal => serve({
+    permission: 'analytics:view',
     global, signal, maxHours: MAX_QUERY_HOURS,
     metricVersion: `occupancy v${METRIC_VERSIONS.occupancy} · dwell v${METRIC_VERSIONS.dwell} · cycleTime v${METRIC_VERSIONS.cycleTime} · throughput v${METRIC_VERSIONS.throughput}`,
     kinds: ['collection', 'processing_delay', 'coverage', 'time_domain'],
@@ -81,6 +82,7 @@ export default function ProductivityOverview(_: PageProps) {
   }), 'kpis', enabled);
 
   const trendQ = usePlatformQuery(signal => serve({
+    permission: 'analytics:view',
     global, signal, maxHours: MAX_QUERY_HOURS, metricVersion: METRIC_VERSIONS[selectedKpi],
     compute: ({ equipment }) => ({
       equipmentCount: equipment.length,
@@ -91,12 +93,14 @@ export default function ProductivityOverview(_: PageProps) {
   }), ['trend', selectedKpi, gran], enabled);
 
   const breakdownQ = usePlatformQuery(signal => serve({
+    permission: 'analytics:view',
     global, signal, maxHours: MAX_QUERY_HOURS, metricVersion: METRIC_VERSIONS.occupancy,
     compute: ({ equipment }) => occupancyBreakdown(equipment, from!, to!, axis),
     isEmpty: rows => rows.length === 0,
   }), ['breakdown', axis], enabled);
 
   const attentionQ = usePlatformQuery(signal => serve({
+    permission: 'analytics:view',
     global, signal, maxHours: MAX_QUERY_HOURS,
     metricVersion: `dwell v${METRIC_VERSIONS.dwell} · cycleTime v${METRIC_VERSIONS.cycleTime}`,
     compute: ({ equipment }) => attentionRows(equipment, from!, to!),

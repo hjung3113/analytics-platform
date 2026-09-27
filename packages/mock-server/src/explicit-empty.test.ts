@@ -8,7 +8,7 @@ describe('explicit empty sets', () => {
   it('returns empty for selection [] and roomNames [] without calling compute or isEmpty', async () => {
     for (const patch of [{ selection: [] as string[] }, { roomNames: [] as string[] }]) {
       const res = await serve({
-        role: 'engineer',
+        role: 'engineer', permission: 'analytics:view',
         global: { ...emptyGlobal, scopeId: 'ICH', ...period, ...patch },
         latency: 0,
         isEmpty: () => false,
@@ -24,7 +24,7 @@ describe('explicit empty sets', () => {
 
   it('does not treat an absent set as empty, and forbidden still wins', async () => {
     const ok = await serve({
-      role: 'engineer',
+      role: 'engineer', permission: 'analytics:view',
       global: { ...emptyGlobal, scopeId: 'ICH', ...period },
       latency: 0,
       mergeTimeDomain: false,
@@ -33,7 +33,7 @@ describe('explicit empty sets', () => {
     expect(ok.outcome).toBe('ok');
     expect(ok.data).toBe(1);
     const denied = await serve({
-      role: 'engineer',
+      role: 'engineer', permission: 'analytics:view',
       global: { ...emptyGlobal, scopeId: 'XIA', ...period, selection: [] },
       latency: 0,
       compute: () => { throw new Error('must not run'); },
@@ -48,7 +48,7 @@ describe('request identity', () => {
     setRole('engineer');
     try {
       // CVD-201 is granted to engineer, not to viewer.
-      const pending = serve({ global: { ...emptyGlobal, scopeId: 'ICH', ...period, roomNames: ['CVD-201'] }, latency: 30, mergeTimeDomain: false, compute: () => 1 });
+      const pending = serve({ permission: 'analytics:view', global: { ...emptyGlobal, scopeId: 'ICH', ...period, roomNames: ['CVD-201'] }, latency: 30, mergeTimeDomain: false, compute: () => 1 });
       setRole('viewer');
       const res = await pending;
       expect(res.outcome).toBe('ok');

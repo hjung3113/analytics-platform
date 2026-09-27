@@ -32,7 +32,7 @@ pnpm build
 
 1. 최상위는 반드시 `<PlatformPage>`. 슬롯: `title`, `description`, `primaryAction`, `secondaryActions`, `contextExtension`(page-owned 필터), `dataTrustSummary`, `crumbs`, `children`. 전역 Context Bar·Scope 게이트·Breadcrumb·즐겨찾기는 PlatformPage가 자동 렌더링한다 — 페이지가 날짜 선택기·Scope 선택기를 따로 만들지 않는다(§5 금지).
 2. 데이터 조회는 `usePlatformQuery(signal => serve({...}), pageInputs)` → `<QueryView query={q}>{data => ...}</QueryView>`. `serve`는 `@ap/mock-server`가 아니라 그룹 패키지의 `../api`(`menus/<group>/src/api.ts`)에서 온다. 데이터 원천 import는 `api.ts` 한 파일. 다른 메뉴 폴더를 import하지 않고 이동은 `linkTo`만. 로딩/갱신/empty/forbidden/too_large/timeout/error 분기는 QueryView가 한다. 위젯마다 따로 조회하면 부분 실패가 그 위젯에만 머문다(§19).
-   - `serve({ global, signal, compute: ({ equipment }) => ..., isEmpty, kinds, maxHours, metricVersion, mergeTimeDomain })` — `equipment`는 Scope→허가 room→room_name→Condition→Selection으로 이미 해석된 설비 목록이다. 페이지가 권한 판단을 하지 않는다. `mergeTimeDomain` defaults to true: 2대 이상과 `[from, to)`가 있으면 서버 assertion 없이 시간축을 합치지 않는다. 마스터 목록·카탈로그·공지·occurrence 단건은 `mergeTimeDomain: false`.
+   - `serve({ permission, global, signal, compute: ({ equipment }) => ..., isEmpty, kinds, maxHours, metricVersion, mergeTimeDomain })` — `permission`은 화면이 속한 메뉴의 권한이며 서버가 요청 시점에 고정된 역할로 재검증한다. `equipment`는 Scope→허가 room→room_name→Condition→Selection으로 이미 해석된 설비 목록이다. 페이지가 권한 판단을 하지 않는다. `mergeTimeDomain` defaults to true: 2대 이상과 `[from, to)`가 있으면 서버 assertion 없이 시간축을 합치지 않는다. 마스터 목록·카탈로그·공지·occurrence 단건은 `mergeTimeDomain: false`.
    - 0건을 수집 중단/지연으로 해석하지 않는다. `null` 값은 0이 아니라 “미확인”이다.
 3. 전역 Context 읽기: `const { global } = usePlatform()` (`from`,`to`,`roomNames`,`condition`,`selection`,`lotIds`,`ppid`,`recipeIds`,`metricId`,`metricVersion`, `scopeId`). 전역 변경은 사용자의 명시적 액션일 때만 `setGlobal(patch)`.
 4. Page-owned URL 상태: registry의 `pageKeys`에 등록된 키만 `pageParam(key)` / `setPage({key: value|null}, {replace?})`. 미등록 키를 쓰지 않는다. 탭·필터·정렬처럼 공유 링크로 재현돼야 하는 것만 URL에 둔다.
@@ -83,5 +83,4 @@ Kernel 규약 추가: `metricVersion`은 bare 토큰(`'3'`), 표시는 `formatMe
 - 드로어·팝오버 overlay 그림자(DESIGN no-shadow 규칙과 overlay elevation 경계 미정).
 - AnalysisChartFrame compare의 이전 기간 x축 정렬 옵션 부재(페이지가 bucket index 정렬로 우회).
 - 번들 672kB(ECharts) — 코드 분할 미적용.
-- 메뉴 권한을 mock 서버(`serve()`)가 재검증하지 않음 — 클라이언트 라우트 게이트만 있음(교차 리뷰 P2-3, 보류).
 - Lot·PPID·Recipe·지표 쌍을 Context Bar에서 새로 지정하는 편집기 없음 — 전달된 값의 제거만 가능(교차 리뷰 P2-4, 도메인 선택지 정의 후).

@@ -55,12 +55,14 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const inputs = [cycleVersion, metric.kind];
 
   const kpi = usePlatformQuery(signal => serve<Kpi>({
+    permission: 'analytics:view',
     global, signal, maxHours: MAX_HOURS, metricVersion: cycleVersion ?? undefined,
     isEmpty: data => data.count === 0,
     compute: ({ equipment }) => summarize(equipment, global, cycleVersion),
   }), ['kpi', ...inputs], enabled);
 
   const trend = usePlatformQuery(signal => serve<TrendData>({
+    permission: 'analytics:view',
     global, signal, maxHours: MAX_HOURS, metricVersion: cycleVersion ?? undefined,
     isEmpty: data => data.count === 0,
     compute: ({ equipment }) => {
@@ -78,6 +80,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
   }), ['trend', granularity, ...inputs], enabled);
 
   const dist = usePlatformQuery(signal => serve<DistData>({
+    permission: 'analytics:view',
     global, signal, maxHours: MAX_HOURS, metricVersion: cycleVersion ?? undefined,
     isEmpty: data => data.count === 0,
     compute: ({ equipment }) => {
@@ -301,6 +304,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
               }
               const sorting = [{ id: sortSpec.id, desc: sortSpec.desc }];
               return serve({
+                permission: 'analytics:view',
                 global, signal, maxHours: MAX_HOURS, metricVersion: cycleVersion ?? undefined,
                 isEmpty: data => data.total === 0,
                 compute: ({ equipment }) => {

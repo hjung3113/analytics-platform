@@ -111,7 +111,7 @@ describe('serve time-domain guard', () => {
 
   it('errors a 7-day ICH merge and does not compute', async () => {
     const res = await serve({
-      role: 'engineer',
+      role: 'engineer', permission: 'analytics:view',
       global: ctx({ from: WEEK_FROM, to: WEEK_TO }),
       latency: 0,
       kinds: [...kinds],
@@ -127,7 +127,7 @@ describe('serve time-domain guard', () => {
 
   it('passes the default 24h ICH merge with a registry clear', async () => {
     const res = await serve({
-      role: 'engineer',
+      role: 'engineer', permission: 'analytics:view',
       global: ctx(),
       latency: 0,
       kinds: [...kinds],
@@ -143,7 +143,7 @@ describe('serve time-domain guard', () => {
 
   it('passes a 7-day CJU merge (no late tools there)', async () => {
     const res = await serve({
-      role: 'engineer',
+      role: 'engineer', permission: 'analytics:view',
       global: ctx({ scopeId: 'CJU', from: WEEK_FROM, to: WEEK_TO }),
       latency: 0,
       kinds: ['time_domain'],
@@ -156,7 +156,7 @@ describe('serve time-domain guard', () => {
 
   it('passes a multi-equipment XIA merge as CN-XIA', async () => {
     const res = await serve({
-      role: 'admin',
+      role: 'admin', permission: 'analytics:view',
       global: ctx({ scopeId: 'XIA' }),
       latency: 0,
       kinds: ['time_domain'],
@@ -169,7 +169,7 @@ describe('serve time-domain guard', () => {
 
   it('passes a 7-day selection that excludes the late tools', async () => {
     const res = await serve({
-      role: 'engineer',
+      role: 'engineer', permission: 'analytics:view',
       global: ctx({ from: WEEK_FROM, to: WEEK_TO, selection: [coveredIch[0], coveredIch[1]] }),
       latency: 0,
       kinds: ['time_domain'],
@@ -182,7 +182,7 @@ describe('serve time-domain guard', () => {
 
   it('covers the late tools when the request starts at their validFrom', async () => {
     const res = await serve({
-      role: 'engineer',
+      role: 'engineer', permission: 'analytics:view',
       global: ctx({ from: TIME_DOMAIN_LATE_FROM, to: WEEK_TO, selection: [...LATE_TIME_DOMAIN_EQUIPMENT_IDS] }),
       latency: 0,
       kinds: ['time_domain'],
@@ -195,7 +195,7 @@ describe('serve time-domain guard', () => {
 
   it('rejects the late tools one second before their validFrom', async () => {
     const res = await serve({
-      role: 'engineer',
+      role: 'engineer', permission: 'analytics:view',
       global: ctx({ from: '2026-09-21T23:59:59', to: WEEK_TO, selection: [...LATE_TIME_DOMAIN_EQUIPMENT_IDS] }),
       latency: 0,
       compute: () => { throw new Error('must not merge'); },
@@ -206,7 +206,7 @@ describe('serve time-domain guard', () => {
 
   it('allows one equipment through a gap and does not claim clear', async () => {
     const res = await serve({
-      role: 'engineer',
+      role: 'engineer', permission: 'analytics:view',
       global: ctx({ from: WEEK_FROM, to: WEEK_TO, selection: [LATE_TIME_DOMAIN_EQUIPMENT_IDS[0]] }),
       latency: 0,
       kinds: ['time_domain'],
@@ -219,7 +219,7 @@ describe('serve time-domain guard', () => {
 
   it('allows one fully covered equipment to clear', async () => {
     const res = await serve({
-      role: 'engineer',
+      role: 'engineer', permission: 'analytics:view',
       global: ctx({ from: WEEK_FROM, to: WEEK_TO, selection: [coveredIch[0]] }),
       latency: 0,
       kinds: ['time_domain'],
@@ -231,7 +231,7 @@ describe('serve time-domain guard', () => {
 
   it('does not turn an explicit empty selection into a time-domain error', async () => {
     const res = await serve({
-      role: 'engineer',
+      role: 'engineer', permission: 'analytics:view',
       global: ctx({ from: WEEK_FROM, to: WEEK_TO, selection: [] }),
       latency: 0,
       kinds: ['time_domain'],
@@ -244,7 +244,7 @@ describe('serve time-domain guard', () => {
 
   it('mismatches when one request sees KR-WALL and CN-XIA', async () => {
     const res = await serve({
-      role: 'admin',
+      role: 'admin', permission: 'analytics:view',
       global: ctx(),
       requiresScope: false,
       latency: 0,
@@ -257,7 +257,7 @@ describe('serve time-domain guard', () => {
 
   it('lets a gap win over a cross-site domain conflict', async () => {
     const res = await serve({
-      role: 'admin',
+      role: 'admin', permission: 'analytics:view',
       global: ctx({ from: WEEK_FROM, to: WEEK_TO }),
       requiresScope: false,
       latency: 0,
@@ -269,7 +269,7 @@ describe('serve time-domain guard', () => {
 
   it('opt-out skips the guard and does not claim clear', async () => {
     const res = await serve({
-      role: 'admin',
+      role: 'admin', permission: 'analytics:view',
       global: ctx({ from: WEEK_FROM, to: WEEK_TO }),
       requiresScope: false,
       mergeTimeDomain: false,
@@ -284,7 +284,7 @@ describe('serve time-domain guard', () => {
 
   it('does not invent a time_domain assessment, but still rejects an undeclared merge', async () => {
     const ok = await serve({
-      role: 'engineer',
+      role: 'engineer', permission: 'analytics:view',
       global: ctx(),
       latency: 0,
       compute: () => 1,
@@ -292,7 +292,7 @@ describe('serve time-domain guard', () => {
     expect(ok.outcome).toBe('ok');
     expect(ok.assessments.map(a => a.kind)).toEqual(['collection', 'processing_delay', 'coverage']);
     const bad = await serve({
-      role: 'engineer',
+      role: 'engineer', permission: 'analytics:view',
       global: ctx({ from: WEEK_FROM, to: WEEK_TO }),
       latency: 0,
       compute: () => { throw new Error('must not merge'); },
@@ -305,7 +305,7 @@ describe('serve time-domain guard', () => {
     setScenario('empty');
     try {
       const bad = await serve({
-        role: 'engineer',
+        role: 'engineer', permission: 'analytics:view',
         global: ctx({ from: WEEK_FROM, to: WEEK_TO }),
         latency: 0,
         kinds: ['time_domain'],
@@ -314,7 +314,7 @@ describe('serve time-domain guard', () => {
       expect(bad.outcome).toBe('error');
       expect(bad.message).toBe('time_domain_unverified: ICH-PHOTO-0103, ICH-PHOTO-0105');
       const quiet = await serve({
-        role: 'engineer',
+        role: 'engineer', permission: 'analytics:view',
         global: ctx(),
         latency: 0,
         kinds: ['time_domain'],
@@ -332,7 +332,7 @@ describe('serve time-domain guard', () => {
     setScenario('unknown_status');
     try {
       const res = await serve({
-        role: 'engineer',
+        role: 'engineer', permission: 'analytics:view',
         global: ctx(),
         latency: 0,
         kinds: ['time_domain'],
@@ -349,7 +349,7 @@ describe('serve time-domain guard', () => {
     setScenario('error');
     try {
       const failed = await serve({
-        role: 'engineer',
+        role: 'engineer', permission: 'analytics:view',
         global: ctx({ from: WEEK_FROM, to: WEEK_TO }),
         latency: 0,
         compute: () => 1,
@@ -359,7 +359,7 @@ describe('serve time-domain guard', () => {
       setScenario('normal');
     }
     const denied = await serve({
-      role: 'engineer',
+      role: 'engineer', permission: 'analytics:view',
       global: ctx({ scopeId: 'XIA', from: WEEK_FROM, to: WEEK_TO }),
       latency: 0,
       compute: () => 1,
@@ -367,7 +367,7 @@ describe('serve time-domain guard', () => {
     expect(denied.outcome).toBe('forbidden');
     expect(denied.message ?? '').not.toMatch(/time_domain_/);
     const huge = await serve({
-      role: 'engineer',
+      role: 'engineer', permission: 'analytics:view',
       global: ctx({ from: '2026-06-28T09:00:00', to: DEFAULT_RANGE_TO }),
       maxHours: 24 * 31,
       latency: 0,
@@ -382,7 +382,7 @@ describe('serve time-domain guard', () => {
     TIME_DOMAIN_ASSERTIONS.push(row(id, 'CN-XIA', TIME_DOMAIN_SEEDED_FROM, TIME_DOMAIN_OPEN_END));
     try {
       const alone = await serve({
-        role: 'engineer',
+        role: 'engineer', permission: 'analytics:view',
         global: ctx({ selection: [id] }),
         latency: 0,
         kinds: ['time_domain'],
@@ -392,7 +392,7 @@ describe('serve time-domain guard', () => {
       expect(alone.data).toBe(1);
       expect(alone.assessments).toEqual([{ kind: 'time_domain', state: 'unknown', reason: 'source_unavailable' }]);
       const pair = await serve({
-        role: 'engineer',
+        role: 'engineer', permission: 'analytics:view',
         global: ctx({ selection: [id, coveredIch[1]] }),
         latency: 0,
         compute: () => { throw new Error('must not merge'); },
