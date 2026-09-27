@@ -726,7 +726,7 @@ KPI columns and move secondary operations into an accessible drawer per §25;
 keep pipeline order with contained horizontal scrolling if needed. Below 1024px
 use stacked panels, two/one KPI columns as content allows, and a horizontally
 scrollable table with its toolbar outside the scroll region. Never shrink table
-text to fit. Use `table-density` for normal desktop (32px minimum rows); the 25px
+text to fit. **MVP scope (Decided 2026-09-27, docs/05): desktop web only — the below-1024px and coarse-pointer rules in this paragraph are post-MVP and are not verified.** Use `table-density` for normal desktop (32px minimum rows); the 25px
 reference rows are a compact visual target only, growing for wrapping, focus and
 24px minimum desktop targets. Coarse-pointer controls/rows grow to 44px targets.
 
