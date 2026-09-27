@@ -81,6 +81,10 @@ Decided는 설계 계약의 상태이며 구현 완료를 뜻하지 않는다. C
 
 기본 허용 범위와 업무 근거에 따른 예외는 [06 Decorative Visualization](06_platform_ui_contract.md#decorative-visualization)이 소유한다. [당시 채택 기록](reviews/2026-09-23-decision-detail-history.md)은 배경이며 이 절에서 별도 규칙을 만들지 않는다.
 
+### MVP 지원 환경 — 데스크톱 웹만 (Decided, 2026-09-27)
+
+MVP는 데스크톱 웹 브라우저만 지원한다. 1024px 미만 화면과 터치(coarse pointer) 환경은 MVP 범위 밖이다 — 깨지지 않게 최소 동작만 두고, 전용 레이아웃·44px 터치 타깃·모바일 검증은 하지 않는다. 디자인 프로토타입과 시각 검증은 데스크톱 폭(1280px 이상, 기준 1440px)으로 한다. 06 §25와 `DESIGN.md` 레이아웃 규칙의 1024px 미만 항목은 MVP 이후 과제다.
+
 ### 메뉴 활용률 계측 (Decided — v1 범위 포함, 2026-09-22 grilling Round 2)
 
 **범위 판단 정정:** 이 계측은 "메뉴가 몇 개 쌓이면 그때 붙이는" 메뉴 부가기능이 아니라 **Platform Kernel 자체의 관측 범위**(Menu Registry가 실제로 어떻게 쓰이는지)다. 메뉴별 반복 패턴 확인 후 공통 컴포넌트로 승격하는 Premature Platformization 게이트(§24)는 여기 적용 대상이 아니다 — 플랫폼 우선순위(`AGENTS.md`, 06 §1)에 따라 v1 범위에 포함한다.

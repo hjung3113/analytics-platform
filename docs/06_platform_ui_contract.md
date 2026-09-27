@@ -1053,7 +1053,7 @@ Equipment / 기간 / Metric Version / Scope가 분석 중 사라지지 않아야
 
 ## 25. Responsive Strategy
 
-이 제품은 Desktop-first다.
+이 제품은 Desktop-first다. **MVP는 데스크톱 웹만 지원한다(Decided, 2026-09-27, [05](05_roadmap_and_open_questions.md#mvp-지원-환경--데스크톱-웹만-decided-2026-09-27)).** 아래 `< 1024px` 항목은 MVP 이후 과제다.
 
 ### ≥ 1440px
 
