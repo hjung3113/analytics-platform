@@ -66,6 +66,23 @@ export async function firstRowByColumn(page: Page): Promise<Record<string, strin
   return out;
 }
 
+/** Header → cell text maps of every displayed data row in the main result table, for row-level contracts. */
+export async function rowMapsByColumn(page: Page): Promise<Record<string, string>[]> {
+  const table = page.getByRole('main').getByRole('table').first();
+  await expect(table).toBeVisible({ timeout: 10_000 });
+  const headers = (await table.getByRole('columnheader').allInnerTexts()).map(h => h.trim());
+  const rows = table.getByRole('row').filter({ has: page.getByRole('cell') });
+  await expect(rows.first()).toBeVisible();
+  const out: Record<string, string>[] = [];
+  for (const row of await rows.all()) {
+    const cells = await row.getByRole('cell').allInnerTexts();
+    const map: Record<string, string> = {};
+    headers.forEach((h, i) => { map[h] = (cells[i] ?? '').trim(); });
+    out.push(map);
+  }
+  return out;
+}
+
 /** Status line of the platform table ("N건 · p/P 페이지"), after the query settled. */
 export const tableStatusLine = (page: Page) =>
   page.locator('[aria-live="polite"]').filter({ hasText: '페이지' });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { AlertTriangle, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
 import type { Trust } from '@ap/contracts';
@@ -50,14 +50,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const ko = lang === 'ko';
 
   const [reload, setReload] = useState(0);
-  const globalKey = `${global.scopeId}|${global.from}|${global.to}|${JSON.stringify(global.roomNames)}|${JSON.stringify(global.condition)}|${JSON.stringify(global.selection)}|${JSON.stringify(global.lotIds)}|${global.ppid}|${JSON.stringify(global.recipeIds)}`;
-  // §4: a global-context change clears the result-set page keys; replace amends the entry setGlobal just pushed, and a deep link on mount survives (first render skipped).
-  const lastGlobalKey = useRef(globalKey);
-  useEffect(() => {
-    if (lastGlobalKey.current === globalKey) return;
-    lastGlobalKey.current = globalKey;
-    setPage({ page: null, bucket: null, bin: null }, { replace: true });
-  }, [globalKey]);
+  // A global-Context change clears page/bucket/bin in the kernel (manifest contextResetKeys); pages write no reset effect.
 
   const bucketRange = bucket ? { from: bucket, to: bucketEnd(bucket, granularity) } : null;
   const inputs = [cycleVersion, metric.kind];

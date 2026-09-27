@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { serve } from '../api';
 import { type ColumnMeta, PlatformDataTable, PlatformPage, QueryView, encodeTableSort, parsePageIndex, parseTableSort, sortAndPage } from '@ap/components';
-import { serializeGlobal } from '@ap/contracts';
 import { Button, Input, StatusBadge } from '@ap/ui';
 import {
   DOMAINS, DOMAIN_LABEL, METRICS, STATUS_LABEL, STATUS_TONE, STATUSES,
@@ -84,14 +83,7 @@ export default function MetricCatalogPage(_: PageProps) {
   const parsedSort = parseTableSort(pageParam('sort'), sortColumns);
   const parsedPage = parsePageIndex(pageParam('page'));
   const tableInvalid = !parsedSort.ok || !parsedPage.ok;
-  // §4: a global-context change clears the page index; replace amends the entry setGlobal just pushed, and a deep link on mount survives (first render skipped).
-  const globalSignature = JSON.stringify(serializeGlobal(global));
-  const lastGlobal = useRef(globalSignature);
-  useEffect(() => {
-    if (lastGlobal.current === globalSignature) return;
-    lastGlobal.current = globalSignature;
-    setPage({ page: null }, { replace: true });
-  }, [globalSignature]);
+  // A global-Context change clears `page` in the kernel (manifest contextResetKeys); pages write no reset effect.
   const verdict = judgeGlobalPair(global.metricId, global.metricVersion, null, null);
   const activeRowId = verdict.kind === 'valid' || verdict.kind === 'id-only' ? verdict.metricId : null;
 

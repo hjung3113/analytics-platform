@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { serve, type Equipment } from '../api';
 import { DetailDrawer, PlatformDataTable, PlatformPage, QueryView, encodeTableSort, parsePageIndex, parseTableSort, sortAndPage } from '@ap/components';
 import { Button } from '@ap/ui';
-import { serializeGlobal } from '@ap/contracts';
 import { EquipmentPanel, EquipmentStatus } from './EquipmentDetail';
 import { downloadCsv, fields, filterEquipment, sortFields, statusText } from './data';
 
@@ -21,14 +20,7 @@ export default function EquipmentMaster() {
   const tableInvalid = !parsedSort.ok || !parsedPage.ok;
   const filterKey = JSON.stringify([q, status, maker]);
   const source = usePlatformQuery(signal => serve({ permission: 'equipment:view', global, signal, mergeTimeDomain: false, compute: ({ equipment }) => equipment }), null, scope.status === 'valid' && !tableInvalid);
-  // §4: a global-context change clears the page index; replace amends the entry setGlobal just pushed, and a deep link on mount survives (first render skipped).
-  const globalSignature = JSON.stringify(serializeGlobal(global));
-  const lastGlobal = useRef(globalSignature);
-  useEffect(() => {
-    if (lastGlobal.current === globalSignature) return;
-    lastGlobal.current = globalSignature;
-    setPage({ page: null }, { replace: true });
-  }, [globalSignature]);
+  // A global-Context change clears `page` in the kernel (manifest contextResetKeys); pages write no reset effect.
   const columns = useMemo<ColumnDef<Equipment>[]>(() => fields.map(f => ({
     accessorKey: f.key, header: f[lang], size: ['validFrom', 'validTo', 'updatedAt'].includes(f.key) ? 188 : f.key === 'name' ? 220 : f.key === 'equipmentId' ? 184 : 128,
     cell: ({ row }) => f.key === 'status' ? <EquipmentStatus equipment={row.original} /> : <span className={f.key === 'equipmentId' ? 't-mono' : f.key.includes('At') || f.key.startsWith('valid') ? 'tabular' : ''}>{row.original[f.key] ?? '—'}</span>,

@@ -15,7 +15,7 @@ export const manifests: MenuEntry[] = [
     id: 'metric-catalog', primary: true, group: 'metrics', label: { ko: '지표 카탈로그', en: 'Metric catalog' },
     description: { ko: 'grain·분자/분모·버전·발행 상태로 지표 정의를 탐색합니다.', en: 'Browse metric definitions by grain, numerator/denominator, version and status.' },
     path: '/metrics', icon: BookOpen, permission: 'metrics:view', requiresScope: false, pageType: 'catalog',
-    context: { ...none, metric: 'apply', selection: 'reference' }, features: { ...noFeatures, export: true }, pageKeys: ['q', 'status', 'domain', 'sort', 'page'],
+    context: { ...none, metric: 'apply', selection: 'reference' }, features: { ...noFeatures, export: true }, pageKeys: ['q', 'status', 'domain', 'sort', 'page'], contextResetKeys: ['page'],
     component: lazy(() => import('./pages/MetricCatalog')),
   },
   {

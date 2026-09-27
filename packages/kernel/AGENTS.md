@@ -4,8 +4,8 @@ Platform Kernel 런타임(06 §4). 메뉴 목록도, 서버 구현도 모른다.
 
 ## 파일
 
-- `registry.ts` — `createRegistry({ groups, menus })`: §5 검증(id·그룹 중복, parent 존재·파라미터 없는 경로, 선언 그룹, 그룹별 primary 1개, `pageKeys`×전역 키, 경로 정규형 충돌)과 정적 세그먼트 우선 매칭. 반환 Registry가 `matchRoute`·`safeReturnTo`를 제공하고 `pathFor(menu, params)`가 경로를 만든다. `MenuEntry = MenuMeta & { icon, component? }`.
-- `platform.tsx` — `PlatformProvider adapter registry slots`, `usePlatform()`(전역 Context 읽기·`setGlobal`·`pageParam`·`setPage`·`linkTo`·Scope 상태·즐겨찾기/최근), `PlatformLink`. 슬롯은 `contextBar`, `topBarTools`(06 §8).
+- `registry.ts` — `createRegistry({ groups, menus })`: §5 검증(id·그룹 중복, parent 존재·파라미터 없는 경로, 선언 그룹, 그룹별 primary 1개, `pageKeys`×전역 키, `contextResetKeys`⊆`pageKeys`, 경로 정규형 충돌)과 정적 세그먼트 우선 매칭. 반환 Registry가 `matchRoute`·`safeReturnTo`를 제공하고 `pathFor(menu, params)`가 경로를 만든다. `MenuEntry = MenuMeta & { icon, component? }`.
+- `platform.tsx` — `PlatformProvider adapter registry slots`, `usePlatform()`(전역 Context 읽기·`setGlobal`·`pageParam`·`setPage`·`linkTo`·Scope 상태·즐겨찾기/최근), `PlatformLink`. 슬롯은 `contextBar`, `topBarTools`(06 §8). `setGlobal`·`resetContext`는 전역 Context가 실제로 바뀔 때 현재 메뉴 manifest의 `contextResetKeys`를 같은 내비게이션에서 지운다(히스토리 항목 1개, 뒤로 가면 이전 URL 그대로 복원). popstate·`navigate`는 아무것도 지우지 않는다.
 - `query.ts` — `usePlatformQuery`(페이지 데이터): 식별자 `[revision, user.id, global, pageInputs]`가 바뀌면 이전 결과를 숨긴다. `useAdapterRequest(run, key, enabled)`(셸의 어댑터 조회, `retry` 포함): 식별자는 `[revision, user.id, key]`뿐이라 전역 Context를 자동 추적하지 않는다 — 요청이 의존하는 값은 호출자가 전부 `key`에 넣는다.
 - `i18n.tsx` — `I18nProvider`, `useI18n()`(`tx`, `lang`). `metric-init.ts` — 지표 쌍 초기화 분류.
 
