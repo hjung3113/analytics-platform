@@ -72,6 +72,9 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [compare, setCompare] = useState(false);
   const [brushMode, setBrushMode] = useState(false);
+  // Bumped from onReady: imperative instance effects below must replay once the lazy EChartImpl
+  // creates the instance (a Brush click during chunk load would otherwise never reach it, #48 P1).
+  const [instanceReady, setInstanceReady] = useState(0);
   const [zoom, setZoom] = useState<[number, number]>([0, 100]);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [preview, setPreview] = useState<Selection | null>(null);
@@ -129,10 +132,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     // Deps intentionally restricted to the chart inputs below (would trip react-hooks/exhaustive-deps if that rule is enabled).
   }, [visible, xType, categories, zoom, brushMode, selection, annotations.length, p.markLines, p.unit, lang, p.stacked]);
 
-  // Re-arm the brush cursor after each option replacement.
+  // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
     chart.current?.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: brushMode ? { brushType: 'lineX', brushMode: 'single' } : { brushType: false } });
-  }, [option, brushMode]);
+  }, [option, brushMode, instanceReady]);
 
   const onEvents = useMemo(() => ({
     brushEnd: (params: { areas?: { coordRange?: [number, number] }[] }, instance: ECharts) => {
@@ -212,7 +215,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       {p.onPointClick && !brushMode && p.pointClickHint && <span className="text-[11px] text-text-muted">{p.pointClickHint}</span>}
     </div>
 
-    <div className="px-2"><EChart option={option} height={p.height ?? 260} onEvents={onEvents} onReady={c => { chart.current = c; }}
+    <div className="px-2"><EChart option={option} height={p.height ?? 260} onEvents={onEvents} onReady={c => { chart.current = c; setInstanceReady(v => v + 1); }}
       ariaLabel={`${typeof p.title === 'string' ? p.title : p.chartId}: ${visible.map(s => s.name).join(', ')}`} /></div>
 
     {showTable && <div className="mx-4 mb-2 max-h-56 overflow-auto rounded-md border border-border-subtle">
