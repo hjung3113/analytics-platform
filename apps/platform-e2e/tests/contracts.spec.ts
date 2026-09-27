@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { contextBar, evidence, expectScopeValid, firstRowByColumn, lotColumn, mainHeading, query, rowMapsByColumn, setScenario, signInAs, switchScope, tableStatusLine } from './support';
+import { contextBar, evidence, expectScopeValid, firstRowByColumn, lotColumn, mainHeading, query, rowMapsByColumn, setScenario, signInAs, switchScope, tableStatusLine, usageVisits } from './support';
 
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
@@ -473,5 +473,61 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     expect(href).toMatch(/^\/equipment\?/);
     expect(href).not.toContain('example.com');
     await evidence(page, testInfo, 'unsafe-return-to');
+  });
+});
+
+test.describe('메뉴 활용률 (06 §4, docs/05 — kernel이 recordUsage로 계측, 콘솔은 집계만 읽는다)', () => {
+  const DIRECT_URL = '/admin/usage';
+
+  test('권한 없는 역할(engineer)은 메뉴가 비노출이고 직접 URL은 공간 거부다', async ({ page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    await page.goto('/');
+    const nav = page.getByRole('navigation', { name: '주 메뉴' });
+    await expect(nav.getByRole('link', { name: '메뉴 활용률' })).toHaveCount(0);
+
+    await page.goto(DIRECT_URL);
+    const main = page.getByRole('main');
+    await expect(main).toContainText('이 공간에 들어갈 수 없습니다');
+    await expect(main).toContainText('space=operations');
+    // The client gate refuses without redirecting: the URL the user typed stays exact.
+    expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(DIRECT_URL);
+    await evidence(page, testInfo, 'usage-engineer-space-denied');
+  });
+
+  test('viewer도 메뉴가 비노출이고 직접 URL은 공간 거부다', async ({ page }, testInfo) => {
+    await signInAs(page, 'viewer');
+    await page.goto('/');
+    const nav = page.getByRole('navigation', { name: '주 메뉴' });
+    await expect(nav.getByRole('link', { name: '메뉴 활용률' })).toHaveCount(0);
+
+    await page.goto(DIRECT_URL);
+    const main = page.getByRole('main');
+    await expect(main).toContainText('이 공간에 들어갈 수 없습니다');
+    await expect(main).toContainText('space=operations');
+    expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(DIRECT_URL);
+    await evidence(page, testInfo, 'usage-viewer-space-denied');
+  });
+
+  test('관리자: 설비를 다녀오면 설비 마스터 행의 방문 수가 정확히 +1이다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    // The usage store lives in the tab's JS realm, so the round trip must be SPA navigation (command
+    // palette spans every accessible space) — a document reload restarts the mock server and erases counts.
+    await page.goto('/equipment?v=1&scopeId=ICH');
+    await expect(page.getByRole('main').getByRole('table').first()).toBeVisible({ timeout: 10_000 });
+    const paletteTo = async (menu: RegExp) => {
+      await page.getByRole('button', { name: '메뉴 검색…' }).click();
+      await page.getByRole('option', { name: menu }).click();
+    };
+
+    await paletteTo(/메뉴 활용률/);
+    const before = await usageVisits(page, 'equipment-master');
+
+    // One more real visit: exactly one more entry for equipment-master (dedupe is per stay).
+    await paletteTo(/설비 마스터/);
+    await expect(page.getByRole('main').getByRole('table').first()).toBeVisible({ timeout: 10_000 });
+    await paletteTo(/메뉴 활용률/);
+    const after = await usageVisits(page, 'equipment-master');
+    expect(after).toBe(before + 1);
+    await evidence(page, testInfo, 'usage-visit-counted');
   });
 });

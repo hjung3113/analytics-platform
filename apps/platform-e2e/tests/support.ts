@@ -86,3 +86,15 @@ export async function rowMapsByColumn(page: Page): Promise<Record<string, string
 /** Status line of the platform table ("N건 · p/P 페이지"), after the query settled. */
 export const tableStatusLine = (page: Page) =>
   page.locator('[aria-live="polite"]').filter({ hasText: '페이지' });
+
+/** 방문(visit) count of one row in the 메뉴 활용률 table, read by row id after the summary settled. */
+export async function usageVisits(page: Page, rowId: string): Promise<number> {
+  const table = page.getByRole('main').getByRole('table').first();
+  await expect(table).toBeVisible({ timeout: 10_000 });
+  const headers = (await table.getByRole('columnheader').allInnerTexts()).map(h => h.trim());
+  const index = headers.indexOf('방문');
+  expect(index, 'usage table has a 방문 column').toBeGreaterThanOrEqual(0);
+  const cell = table.locator(`[data-row-id="${rowId}"]`).getByRole('cell').nth(index);
+  await expect(cell).toBeVisible();
+  return Number((await cell.innerText()).trim());
+}

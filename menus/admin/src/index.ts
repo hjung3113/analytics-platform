@@ -2,6 +2,7 @@
  * @ap/menu-admin — admin group manifests (docs/06 §5, §9).
  * Menus declare, the kernel's createRegistry validates and the shell consumes.
  */
+import { lazy } from 'react';
 import { ClipboardList, FileClock, Users } from 'lucide-react';
 import type { Capability, ContextKey } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
@@ -23,6 +24,7 @@ export const manifests: MenuEntry[] = [
   {
     id: 'admin-usage', group: 'admin', label: { ko: '메뉴 활용률', en: 'Menu usage' },
     description: { ko: 'Menu Registry 활용 계측 (Kernel 관측 기능)', en: 'Menu registry usage instrumentation (kernel observability)' },
-    path: '/admin/usage', icon: ClipboardList, permission: 'console:access', requiresScope: false, pageType: 'overview', context: none, features: noFeatures, pageKeys: [],
+    path: '/admin/usage', icon: ClipboardList, permission: 'console:access', requiresScope: false, pageType: 'management', context: none, features: noFeatures, pageKeys: ['sort', 'page'],
+    component: lazy(() => import('./pages/UsageOverview')),
   },
 ];

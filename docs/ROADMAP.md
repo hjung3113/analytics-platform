@@ -25,7 +25,7 @@
 
 선행 이슈가 없는 것들이다. 위에서부터 추천 순서.
 
-1. **운영 콘솔: Menu Registry 조회 (#42), 메뉴 활용률 계측 (#43)** — 다음 작업. 워크스페이스(공간) 층(#41)과 Kernel 잔여(#45·#46·#47)는 완료, 계약 안전망은 `pnpm e2e`(#44).
+1. **운영 콘솔: Menu Registry 조회 (#42)** — 다음 작업. 메뉴 활용률 계측(#43)은 완료 — kernel이 `adapter.recordUsage`(entry/dwell)로 계측하고 콘솔은 `usageSummary` 집계만 읽는다(조회조건 수집 여부는 #75 결정 대기). 워크스페이스(공간) 층(#41)과 Kernel 잔여(#45·#46·#47)는 완료, 계약 안전망은 `pnpm e2e`(#44).
 2. 차트 번들 코드 분할 (#48), `@types/node` 부채 (#57), CSS selector 비교 CI (#58)
 3. 적재 워커 상태 스키마 초안 → 파서 담당 협의 (#37), FeedbackOps 양방향 딥링크 계약 (#61)
 
@@ -54,7 +54,7 @@
 | --- | --- |
 | ~~워크스페이스(공간) 층 (#41)~~ 완료 — 그룹 `space`, `console:access`, 최소 전환기 | — |
 | 운영 콘솔: Menu Registry 조회 (#42) | #41 |
-| 운영 콘솔: 메뉴 활용률 계측 (#43) | #41 |
+| ~~운영 콘솔: 메뉴 활용률 계측 (#43)~~ 완료 — `adapter.recordUsage`/`usageSummary` 포트 + 관리 화면 `admin-usage` | #41 |
 | ~~플랫폼 계약 자동 검사(E2E) (#44)~~ 완료 — `apps/platform-e2e`, CI `Platform contracts (E2E)` | — |
 | ~~Kernel: 화면 상태 URL 등록 (#45)~~ 완료 — 표 `urlState` + 메뉴 page key | — |
 | ~~Kernel: 목적지 단건 조회 포트 (#46)~~ 완료 — `getEntity` + `useEntityQuery` | — |
