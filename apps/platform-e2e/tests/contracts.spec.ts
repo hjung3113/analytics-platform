@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { contextBar, evidence, expectScopeValid, firstRowByColumn, lotColumn, mainHeading, query, rowMapsByColumn, setScenario, signInAs, switchScope, tableStatusLine, usageVisits } from './support';
 
 /**
@@ -534,34 +534,112 @@ test.describe('메뉴 활용률 (06 §4, docs/05 — kernel이 recordUsage로 �
 
 test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read back through the client registry)', () => {
   const DIRECT_URL = '/admin/registry';
+  const DIRECT_FOCUS_URL = `${DIRECT_URL}?v=1&focus=equipment-master`;
+  const NEEDLES = ['레지스트리', 'admin-registry', '메뉴 레지스트리'];
+
+  // Kernel per-user recent store (packages/kernel/src/platform.tsx): localStorage key
+  // `platform:recent:${userId}` (userId = role id on the mock adapter), value Recent[] = { menuId, url, at }.
+  // The denied operations row is seeded first (it must never surface) plus one row the role does own,
+  // so a passing assertion means the visibleMenus guard filtered it — not that the list is simply empty.
+  const seedRecent = (page: Page, role: 'engineer' | 'viewer', accessible: { menuId: string; url: string }) =>
+    page.addInitScript(({ key, accessible }) => {
+      localStorage.setItem(key, JSON.stringify([
+        { menuId: 'admin-registry', url: '/admin/registry', at: 1_000 },
+        { ...accessible, at: 900 },
+      ]));
+    }, { key: `platform:recent:${role}`, accessible });
+
+  const searchPalette = async (page: Page, needle: string) => {
+    await page.getByRole('button', { name: '메뉴 검색…' }).click();
+    await page.getByRole('dialog').getByRole('combobox').fill(needle);
+  };
 
   test('권한 없는 역할(engineer)은 메뉴가 비노출이고 직접 URL은 공간 거부다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
+    await seedRecent(page, 'engineer', { menuId: 'equipment-master', url: '/equipment' });
     await page.goto('/');
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
+    // Absence proves nothing before the shell has rendered: wait for a link this role does own.
+    await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
     await expect(nav.getByRole('link', { name: '메뉴 레지스트리' })).toHaveCount(0);
 
-    await page.goto(DIRECT_URL);
+    // The palette spans every space the session may enter, so an operations leak would surface here.
+    const palette = page.getByRole('dialog');
+    for (const needle of NEEDLES) {
+      await searchPalette(page, needle);
+      await expect(palette.getByRole('option', { name: /메뉴 레지스트리/ })).toHaveCount(0);
+      await expect(palette).toContainText('일치하는 메뉴가 없습니다.');
+      await page.keyboard.press('Escape');
+    }
+
+    // Recent list: the seeded accessible row renders; the operations row must be dropped by the
+    // Sidebar's visibleMenus guard, not by the list happening to be empty.
+    await nav.getByRole('button', { name: '최근 방문' }).click();
+    const recentList = nav.locator('#nav-recent');
+    await expect(recentList.getByRole('link', { name: '설비 마스터' })).toBeVisible();
+    await expect(recentList.getByRole('link', { name: '메뉴 레지스트리' })).toHaveCount(0);
+    await expect(recentList.locator('a[href="/admin/registry"]')).toHaveCount(0);
+
+    await page.goto(DIRECT_FOCUS_URL);
     const main = page.getByRole('main');
     await expect(main).toContainText('이 공간에 들어갈 수 없습니다');
     await expect(main).toContainText('space=operations');
+    // The space gate replaces the page: no registry table and no declaration drawer/dialog content.
+    await expect(main.getByRole('table')).toHaveCount(0);
+    await expect(main.getByText('requiresScope')).toHaveCount(0);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
     // The client gate refuses without redirecting: the URL the user typed stays exact.
-    expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(DIRECT_URL);
+    expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(DIRECT_FOCUS_URL);
     await evidence(page, testInfo, 'registry-engineer-space-denied');
   });
 
   test('viewer도 메뉴가 비노출이고 직접 URL은 공간 거부다', async ({ page }, testInfo) => {
     await signInAs(page, 'viewer');
+    await seedRecent(page, 'viewer', { menuId: 'metric-catalog', url: '/metrics' });
     await page.goto('/');
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
+    await expect(nav.getByRole('link', { name: '지표 카탈로그' })).toBeVisible();
     await expect(nav.getByRole('link', { name: '메뉴 레지스트리' })).toHaveCount(0);
 
-    await page.goto(DIRECT_URL);
+    const palette = page.getByRole('dialog');
+    for (const needle of NEEDLES) {
+      await searchPalette(page, needle);
+      await expect(palette.getByRole('option', { name: /메뉴 레지스트리/ })).toHaveCount(0);
+      await expect(palette).toContainText('일치하는 메뉴가 없습니다.');
+      await page.keyboard.press('Escape');
+    }
+
+    await nav.getByRole('button', { name: '최근 방문' }).click();
+    const recentList = nav.locator('#nav-recent');
+    await expect(recentList.getByRole('link', { name: '지표 카탈로그' })).toBeVisible();
+    await expect(recentList.getByRole('link', { name: '메뉴 레지스트리' })).toHaveCount(0);
+    await expect(recentList.locator('a[href="/admin/registry"]')).toHaveCount(0);
+
+    await page.goto(DIRECT_FOCUS_URL);
     const main = page.getByRole('main');
     await expect(main).toContainText('이 공간에 들어갈 수 없습니다');
     await expect(main).toContainText('space=operations');
-    expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(DIRECT_URL);
+    await expect(main.getByRole('table')).toHaveCount(0);
+    await expect(main.getByText('requiresScope')).toHaveCount(0);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(DIRECT_FOCUS_URL);
     await evidence(page, testInfo, 'registry-viewer-space-denied');
+  });
+
+  test('관리자: 팔레트 검색으로 메뉴 레지스트리(운영 콘솔)에 도달한다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto('/');
+    // Positive control for the non-exposure checks above: the same search finds the menu for admin.
+    await expect(page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: '설비 마스터' })).toBeVisible();
+    await searchPalette(page, '레지스트리');
+    const option = page.getByRole('dialog').getByRole('option', { name: /메뉴 레지스트리/ });
+    await expect(option).toHaveCount(1);
+    await expect(option).toContainText('운영 콘솔');
+    await option.click();
+    await expect(page.getByRole('main').getByRole('table').first()).toBeVisible({ timeout: 10_000 });
+    // The palette navigates through linkTo: the target is the menu's v=1 deep link (§6.1).
+    expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(`${DIRECT_URL}?v=1`);
+    await evidence(page, testInfo, 'registry-admin-palette');
   });
 
   test('관리자: equipment-master 행이 경로·권한을 보여주고 행 동작으로 선언 드로어를 연다', async ({ page }, testInfo) => {
