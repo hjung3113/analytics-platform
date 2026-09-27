@@ -145,7 +145,7 @@ function Banner({ response, onRetry }: { response: ApiResponse<unknown>; onRetry
 
 /* ---------- scope gate (same t() copy as PlatformPage) ---------- */
 
-function Gate() {
+export function Gate() {
   const { scope, lastScope, setGlobal } = usePlatform();
   const { t } = useI18n();
   const g = scope.status === 'validating' ? { icon: <Loader2 className="size-4 animate-spin" aria-hidden />, title: t('scopeValidating'), body: null }
@@ -276,7 +276,7 @@ function WidgetRow({ icon, message, id, onRetry }: { icon: ReactNode; message: s
 }
 
 /** Export-scope check only; never calls setGlobal (it is not the analysis Selection). */
-function CheckBox({ checked, onChange, label, disabled }: { checked: boolean; onChange: () => void; label: string; disabled?: boolean }) {
+export function CheckBox({ checked, onChange, label, disabled }: { checked: boolean; onChange: () => void; label: string; disabled?: boolean }) {
   return <button type="button" role="checkbox" aria-checked={checked} aria-label={label} disabled={disabled} onClick={onChange}
     className="grid size-7 place-items-center rounded-(--dp-radius-sm) disabled:opacity-40">
     <span className={cn('grid size-3.5 place-items-center rounded-[4px] border transition-colors', checked ? 'border-(--dp-text) bg-(--dp-text)' : 'border-(--dp-dashed) bg-(--dp-surface) hover:border-(--dp-muted)')}>

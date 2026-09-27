@@ -48,11 +48,95 @@
 }
 
 [data-variant="B"] {
-  /* Datadog / Grafana — part 2 */
+  /* Datadog / Grafana */
+  --dp-canvas: #f4f5f7;
+  --dp-surface: #ffffff;
+  --dp-border: #e6e8eb;
+  --dp-border-strong: #d7dade;
+  --dp-text: #111827;
+  --dp-secondary: #374151;
+  --dp-muted: #6b7280;
+  --dp-faint: #9ca3af;
+  --dp-primary: #632ca6;
+  --dp-primary-soft: #f5f3ff;
+  --dp-focus: rgba(99, 44, 166, 0.45);
+  --dp-success: #0e7c3a;
+  --dp-warning: #b45309;
+  --dp-danger: #c2410c;
+  --dp-danger-soft: #fff7ed;
+  --dp-danger-text: #9a3412;
+
+  --dp-rail: #111827;
+  --dp-rail-text: #d1d5db;
+  --dp-flyout: #1f2937;
+  --dp-nav-bg: #111827;
+  --dp-nav-hover: #1f2937;
+  --dp-nav-active: #374151;
+  --dp-row-line: #eef0f2;
+  --dp-row-hover: #f1f3f6;
+  --dp-row-active: #f5f3ff;
+  --dp-zebra: #f7f8fa;
+  --dp-chip-soft: #f3f4f6;
+  --dp-dashed: #9ca3af;
+  --dp-star: #ca8a04;
+  --dp-seg-on: #111827;
+  --dp-btn-bg: #111827;
+  --dp-shadow-pop: 0 6px 20px rgba(17, 24, 39, 0.12);
+
+  --dp-radius-sm: 2px;
+  --dp-radius: 4px;
+  --dp-radius-lg: 4px;
+  --dp-gutter: 12px;
+
+  --dp-font: "Inter Variable", "Noto Sans KR", ui-sans-serif, system-ui, sans-serif;
+  --dp-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 [data-variant="C"] {
-  /* Stripe Dashboard — part 2 */
+  /* Stripe Dashboard */
+  --dp-canvas: #f6f9fc;
+  --dp-surface: #ffffff;
+  --dp-border: #e6ebf1;
+  --dp-border-strong: #cfd7df;
+  --dp-text: #0a2540;
+  --dp-secondary: #425466;
+  --dp-muted: #697386;
+  --dp-faint: #8898aa;
+  --dp-primary: #635bff;
+  --dp-primary-soft: #f0efff;
+  --dp-focus: rgba(99, 91, 255, 0.45);
+  --dp-success: #0e6245;
+  --dp-success-soft: #cbf4c9;
+  --dp-warning: #9a6700;
+  --dp-warning-soft: #fce9c8;
+  --dp-danger: #df1b41;
+  --dp-danger-soft: #ffffff;
+  --dp-danger-border: #ffccd2;
+  --dp-danger-text: #0a2540;
+
+  --dp-nav-bg: #ffffff;
+  --dp-nav-hover: #f6f9fc;
+  --dp-nav-active: #f6f9fc;
+  --dp-row-line: #e6ebf1;
+  --dp-row-hover: #f6f9fc;
+  --dp-row-active: #f0efff;
+  --dp-chip-soft: #f6f9fc;
+  --dp-dashed: #cfd7df;
+  --dp-star: #d97917;
+  --dp-btn-bg: #0a2540;
+  --dp-shadow-pop: 0 12px 32px rgba(10, 37, 64, 0.12), 0 2px 6px rgba(10, 37, 64, 0.06);
+
+  --dp-radius-sm: 4px;
+  --dp-radius: 6px;
+  --dp-radius-lg: 8px;
+  --dp-gutter: 32px;
+
+  --dp-font: "Inter Variable", "Noto Sans KR", ui-sans-serif, system-ui, sans-serif;
+  --dp-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (max-width: 1439px) {
+  [data-variant="C"] { --dp-gutter: 24px; }
 }
 
 /* Shared prototype base: focus ring and numerals follow the active variant. */
