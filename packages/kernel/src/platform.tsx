@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { classifyMetricInit, type MetricInit } from './metric-init';
 import { pathFor, type MenuEntry, type Registry } from './registry';
 import { useI18n } from './i18n';
-import { buildQuery, ContractError, emptyGlobal, type GlobalContext, incompleteMetricPair, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId } from '@ap/contracts';
+import { buildQuery, ContractError, emptyGlobal, type GlobalContext, incompleteMetricPair, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type UsageEvent } from '@ap/contracts';
 
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope'; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
@@ -55,7 +55,6 @@ type Platform = {
   favorites: string[];
   toggleFavorite: (menuId: string) => void;
   recent: Recent[];
-  usage: Record<string, number>;
   toasts: Toast[];
   toast: (text: string, tone?: Toast['tone']) => void;
   dismissToast: (id: number) => void;
@@ -81,6 +80,9 @@ function counterStore(adapter: PlatformAdapter) {
   return { subscribe: (listener: () => void) => adapter.subscribe(() => { n++; listener(); }), get: () => n };
 }
 
+/** Fallback tab-session id when sessionStorage is unavailable (privacy mode, tests). One per JS runtime. */
+let fallbackUsageSession: string | null = null;
+
 export function PlatformProvider({ adapter, registry, slots = {}, children }: { adapter: PlatformAdapter; registry: Registry; slots?: PlatformSlots; children: ReactNode }) {
   const { matchRoute, menuById, safeReturnTo } = registry;
   // Bound here so class-based adapters keep their receiver when React calls these.
@@ -93,8 +95,20 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   const [url, setUrl] = useState(currentUrl);
   const [favorites, setFavorites] = useState<string[]>(() => read(`platform:favorites:${userId}`, [] as string[]));
   const [recent, setRecent] = useState<Recent[]>(() => read(`platform:recent:${userId}`, [] as Recent[]));
-  const [usage, setUsage] = useState<Record<string, number>>(() => read('platform:usage', {} as Record<string, number>));
   const [lastScope, setLastScope] = useState<string | null>(() => read<string | null>(`platform:lastScope:${userId}`, null));
+  // Tab-scoped usage session id (docs/05): sessionStorage, never localStorage — tabs must not share it.
+  const [usageSessionId] = useState(() => {
+    try {
+      const existing = sessionStorage.getItem('platform:usageSession');
+      if (existing) return existing;
+      const next = crypto.randomUUID();
+      sessionStorage.setItem('platform:usageSession', next);
+      return next;
+    } catch {
+      fallbackUsageSession ??= `usage-${Math.random().toString(36).slice(2)}`;
+      return fallbackUsageSession;
+    }
+  });
   // Per-user state is swapped in the same render the session changes, so no frame shows another user's lists.
   const [loadedFor, setLoadedFor] = useState(userId);
   if (loadedFor !== userId) {
@@ -278,14 +292,40 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
       return next;
     });
   }, [url, route, routeContractError, userId, can, canEnter, registry]);
-  const lastCounted = useRef<string | null>(null);
+  // Usage events (docs/05 메뉴 활용률 계측): one `entry` per admitted stay and a `dwell` on leave, sent
+  // fire-and-forget through the adapter — no await, no abort signal, failures are silent, navigation never
+  // blocks. Admission is `${userId}\0${menu.id}\0${pathname}` and requires the route to clear the space and
+  // menu gates, so query-only changes (setGlobal/setPage, default-period replace) never re-admit. `path` is
+  // the manifest route pattern, never the concrete pathname, search or Context values.
+  const lastAdmitted = useRef<string | null>(null);
   useEffect(() => {
-    if (!route || lastCounted.current === route.menu.id + pathname) return;
-    // A denied direct URL is neither recorded nor counted; menu permission stays out of usage.
-    if (!canEnter(registry.spaceOf(route.menu))) return;
-    lastCounted.current = route.menu.id + pathname;
-    setUsage(u => { const next = { ...u, [route.menu.id]: (u[route.menu.id] ?? 0) + 1 }; write('platform:usage', next); return next; });
-  }, [route, pathname, registry, canEnter]);
+    if (!route || routeContractError || !can(route.menu.permission) || !canEnter(registry.spaceOf(route.menu))) return;
+    const admitKey = `${userId}\0${route.menu.id}\0${pathname}`;
+    if (lastAdmitted.current === admitKey) return;
+    lastAdmitted.current = admitKey;
+    const menu = route.menu;
+    const spaceId = registry.spaceOf(menu).id;
+    let enteredAt: number | null = null;
+    const record = (event: UsageEvent) => { void adapter.recordUsage([event]); };
+    const sendDwell = () => {
+      if (enteredAt === null) return;
+      record({ name: 'dwell', menuId: menu.id, spaceId, path: menu.path, at: Date.now(), sessionId: usageSessionId, dwellMs: Math.max(0, Date.now() - enteredAt), enteredAt });
+    };
+    const onHidden = () => { if (document.visibilityState === 'hidden') sendDwell(); };
+    // setTimeout(0) keeps StrictMode's fake first mount silent: its cleanup clears the timer, so neither an
+    // entry nor a dwell is emitted for a stay that never really started.
+    const timer = setTimeout(() => {
+      enteredAt = Date.now();
+      record({ name: 'entry', menuId: menu.id, spaceId, path: menu.path, at: enteredAt, sessionId: usageSessionId });
+      document.addEventListener('visibilitychange', onHidden);
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onHidden);
+      lastAdmitted.current = null;
+      sendDwell();
+    };
+  }, [route, routeContractError, pathname, userId, can, canEnter, registry, adapter, usageSessionId]);
 
   const pageParam = useCallback((key: string) => page.find(([k]) => k === key)?.[1] ?? null, [page]);
   const returnTarget = useCallback(() => {
@@ -296,7 +336,7 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
 
   const value: Platform = {
     registry, adapter, url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, returnTarget,
-    session, user, revision, can, visibleMenus, menusInSpace, accessibleSpaces, currentSpace, sidebarSpace, switchSpace, scope, lastScope, favorites, toggleFavorite, recent, usage,
+    session, user, revision, can, visibleMenus, menusInSpace, accessibleSpaces, currentSpace, sidebarSpace, switchSpace, scope, lastScope, favorites, toggleFavorite, recent,
     toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen,
   };
   return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>;
