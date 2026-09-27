@@ -36,6 +36,33 @@
 - 변경마다 lint·typecheck·test·build를 돌리고, 화면이 바뀌면 `pnpm dev`로 브라우저에서 확인한다. 실행하지 않은 검증은 했다고 보고하지 않는다.
 - PR은 한 단계씩 올리고 리뷰 코멘트를 반영한 뒤 병합한다. 리뷰 지적을 고칠 때는 수정 없이 실패하는 회귀 테스트를 함께 넣는다.
 
+## 작업 관리 — 이슈로 시작하고, 확정되면 세 가지를 확인한다
+
+- **이슈로 시작:** 작업은 GitHub 이슈에서 시작하고 PR 본문에 `Closes #n`(또는 `Refs #n`)을 적는다. 전체 진행 상황은 [`docs/ROADMAP.md`](docs/ROADMAP.md)와 고정된 로드맵 이슈가 원본이다. 새 일을 발견하면 바로 하지 말고 이슈로 올린다(오타 수준 예외).
+- **확정 시 체크(Definition of Done에 추가, PR 템플릿과 CI `pr-checklist`가 강제):**
+  1. **공통화 판단:** 확정된 UI·로직·계약을 플랫폼 공통 컴포넌트/계약으로 올릴지 판단하고 결과와 이유를 PR에 적는다. 기준은 06 §24 — 실제 소비자 2–3곳에서 반복될 때 승격, 그 전에는 소비자 쪽에 둔다.
+  2. **문서 갱신:** 이 변경이 닿는 문서(06·DESIGN.md·`docs/integration/*`·폴더 `AGENTS.md`·README·INDEX·ROADMAP)를 같은 PR에서 고쳤는지 확인한다. 고칠 게 없으면 "해당 없음"과 이유를 적는다.
+  3. **로드맵 갱신:** 닫히는 이슈와 `docs/ROADMAP.md` 상태가 맞는지 확인한다.
+- 사람이 답해야 하는 결정은 `ready-for-human` 이슈로 올리고, 답이 나오기 전에는 그 결정에 기대는 구현을 시작하지 않는다.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues(`hjung3113/analytics-platform`, `gh` CLI), 영역 라벨 `area:*`, 트랙별 마일스톤. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+기본 다섯 가지(`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+single-context(`CONTEXT.md` + `docs/INDEX.md` + `docs/adr/`). See `docs/agents/domain.md`.
+
+### Vendored skills
+
+`.agents/skills/`의 `prototype`, `to-tickets`, `to-spec`, `triage`, `wayfinder`, `setup-matt-pocock-skills`, `zoom-out`은 FeedbackOps에 벤더링된 `mattpocock/skills`를 복사한 것이다.
+
 ## 폴더별 지침
 
 | 폴더 | 역할 |
@@ -57,7 +84,14 @@
 
 ## 화면/UI 설계
 
-새 화면이나 UI 작업은 `.agents/skills/analysis-platform-wireframe/SKILL.md`부터 읽는다. 현재 설계 단계는 Requirements → IA → Conceptual Contract / Screen Spec → Wireframe → Open Decisions에서 완료할 수 있다. Design System / Prototype / Visual Polish는 별도 구현 요청이 있을 때만 진행한다.
+새 화면이나 UI 작업은 `.agents/skills/analysis-platform-wireframe/SKILL.md`부터 읽는다. 설계 단계는 Requirements → IA → Conceptual Contract / Screen Spec → Wireframe → Open Decisions다.
+
+**UI는 프로토타입 컨펌 후 구현한다(FeedbackOps "Prototype Is The Spec" 준용).**
+
+- 보이는 모양이 바뀌는 작업(공통 UI 부품, 셸, 레이아웃, 디자인 토큰, DESIGN.md 방향)은 코드를 확정하기 전에 **인터랙티브 프로토타입**으로 사용자 컨펌을 받는다. `.agents/skills/prototype/UI.md`: 실제 앱 화면 위에 `?variant=`로 2–3안을 띄우고 하단 바로 전환한다. 정적 이미지·문장 설명만으로 컨펌을 대신하지 않는다.
+- 컨펌된 안(프로토타입 브랜치 + 스크린샷)이 그 작업의 스펙이다. 구현 리뷰는 렌더된 프로토타입과 비교한다. 벗어나야 하면 사용자 OK를 PR 본문에 적는다.
+- 프로토타입 코드는 버린다. 검증된 결정만 본 코드와 문서(DESIGN.md 등)에 옮기고, 프로토타입 브랜치 위치와 결정은 이슈에 남긴다.
+- 메뉴 화면은 사내에서 새로 만든다. 메뉴 화면 자체를 다듬지 말고 플랫폼 부품·셸·계약에 노력을 쓴다.
 
 ## 공통 에이전트 자산
 

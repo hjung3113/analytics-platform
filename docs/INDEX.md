@@ -2,6 +2,8 @@
 
 이 레포는 `context_recognized_parser`(별도 레포)가 적재한 데이터를 소비하는 분석 플랫폼의 설계와 프론트엔드 플랫폼 코드를 담는다. 코드는 루트 pnpm workspace(`packages/*` 플랫폼 패키지, `apps/platform-web` 조립 앱, 서버는 mock)이며, 기존 FeedbackOps 구현은 `products/feedbackops/` 서브모듈로 연결돼 있다. 문서는 Decided / Candidate / Open / Deferred를 구분한다. 에이전트용 보조 스크립트는 `.agents/`에 있다.
 
+**지금 무엇이 끝났고 무엇이 남았는지는 [로드맵](ROADMAP.md) 한 페이지에서 본다**(작업은 GitHub 이슈로 관리, [이슈 추적 방식](agents/issue-tracker.md)).
+
 저장소 전체를 살펴보려면 [폴더 구조와 FeedbackOps 연결 방식](integration/repository-layout.md)을 먼저 본다.
 
 ## 역할별 진입점
