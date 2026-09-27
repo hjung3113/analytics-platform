@@ -95,6 +95,8 @@ MVP는 데스크톱 웹 브라우저만 지원한다. 1024px 미만 화면과 �
 - **열람 권한**: 개발자 및 운영자 기본 열람. 그 외 계정은 운영자가 개별로 권한을 부여한 경우에만 열람 가능(기존 06 §17 권한/Scope 집행 정책과 같은 서버 재검증 원칙을 따름 — 별도 새 권한 모델을 만들지 않고 기존 역할 체계 위에 얹는다).
 - 계측 파이프라인의 이벤트 스키마·PII 최소화 세부 구현은 구현 착수 직전 별도로 다룬다(위 세 항목은 정책 수준 Decided).
 
+v1 구현은 식별 필드만 보낸다(menuId·spaceId·경로 패턴·시각·탭 sessionId·dwellMs), 조회조건 포함 여부는 #75에서 결정 대기.
+
 ## Deferred — 과거 Phase roadmap 가설 (non-authoritative)
 
 [과거 Phase 0–4 표](reviews/2026-09-23-decision-detail-history.md#deferred--과거-phase-roadmap-가설-non-authoritative)는 이력으로 분리했다. 확정 일정·기술 도입·POC 착수·완료 기준이 아니며, 다른 문서의 Phase 참조도 이 가설을 가리킨다. 구현 요청 시 현행 계약과 미결 입력으로 별도 계획을 세운다.

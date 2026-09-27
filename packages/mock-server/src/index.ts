@@ -6,8 +6,8 @@ export {
 } from './jobs';
 
 export {
-  getEntity, getRole, getScenario, periodHours, resolveEquipment, serve, setRole, setScenario,
-  subscribeServer, type Scenario,
+  aggregateUsage, getEntity, getRole, getScenario, periodHours, resetUsage, resolveEquipment, serve, setRole,
+  setScenario, subscribeServer, type Scenario, type StoredUsageEvent,
 } from './server';
 
 export { EQUIPMENT, PUBLISHED_METRICS, USERS, type Equipment, type RoleId } from './world';

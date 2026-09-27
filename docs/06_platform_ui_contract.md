@@ -122,6 +122,7 @@ Platform Kernel이 소유해야 하는 UI 책임:
 - Toast / Confirm / Modal infrastructure
 - Theme / Design Token
 - 공통 Keyboard Shortcut
+- 메뉴 활용률 계측(진입·체류 이벤트는 어댑터로 전송하고, 콘솔은 집계만 읽는다)
 
 ### Kernel이 소유하지 않는 것
 

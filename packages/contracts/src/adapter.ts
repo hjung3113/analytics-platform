@@ -1,5 +1,5 @@
 import type { Text } from './i18n';
-import type { Permission } from './menu';
+import type { Permission, SpaceId } from './menu';
 import type { ApiResponse } from './response';
 import type { Condition, IdSet } from './url';
 
@@ -40,6 +40,28 @@ export type EntityRef = {
   scopeId: string | null; // requested site; never inferred from id (ADR-0004)
 };
 
+/** Menu usage telemetry (docs/05 메뉴 활용률 계측; 06 §4). v1 sends identity fields only (issue #75 pending). */
+export type UsageEventName = 'entry' | 'dwell';
+export type UsageEvent = {
+  name: UsageEventName;
+  menuId: string;
+  spaceId: SpaceId;
+  /** Manifest route pattern (`menu.path`), never the concrete pathname or search. */
+  path: string;
+  /** Client epoch ms. */
+  at: number;
+  /** Tab id, not a user id. */
+  sessionId: string;
+  /** dwell only, integer >= 0. */
+  dwellMs?: number;
+  /** dwell only; the entry's `at`. */
+  enteredAt?: number;
+};
+/** from inclusive, to exclusive. */
+export type UsageRange = { preset: 'all' } | { from: number; to: number };
+export type UsageMenuSummary = { menuId: string; visits: number; distinctUsers: number; lastUsedAt: number };
+export type UsageSummary = { preset: 'all' | 'range'; menus: UsageMenuSummary[] };
+
 export type PlatformAdapter = {
   /** Current session. Must return the same object until the session changes (it is a store snapshot). */
   session(): Session;
@@ -51,6 +73,13 @@ export type PlatformAdapter = {
   getEntity(ref: EntityRef, signal?: AbortSignal): Promise<ApiResponse<unknown>>;
   /** Anchor for default periods (naive wall-clock, docs/06 §6.3). */
   defaultRangeTo(): string;
+  /**
+   * Menu usage events (docs/05 메뉴 활용률 계측). No userId field — the server stamps SessionUser.id.
+   * Fire-and-forget from the kernel: no AbortSignal, failures are silent, navigation never blocks.
+   */
+  recordUsage(events: readonly UsageEvent[]): Promise<{ accepted: number }>;
+  /** Console aggregate read (docs/05 열람 권한: console:access, server-checked). The console never reads raw events. */
+  usageSummary(range: UsageRange, signal?: AbortSignal): Promise<ApiResponse<UsageSummary>>;
   /**
    * Announces that the session or server-side state changed. The kernel then re-reads the session,
    * re-validates the scope when the session changed, and hides every earlier query result.

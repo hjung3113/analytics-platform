@@ -44,6 +44,8 @@ function fixture(permissions: Session['user']['permissions']) {
     contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
     evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
     getEntity: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    recordUsage: async () => ({ accepted: 0 }),
+    usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     subscribe: () => () => {},
   };
   return adapter;
@@ -145,12 +147,13 @@ describe('spaces on Platform (06 §9.1)', () => {
     expect(localStorage.getItem('platform:usage')).toBeNull();
   });
 
-  it('a console:access user visiting the same child URL is recorded in recent and usage', () => {
+  it('a console:access user visiting the same child URL is recorded in recent', () => {
     mountAt('/admin/child?v=1&scopeId=ICH', ADMIN);
     expect(screen.getByTestId('recent').textContent).toBe('admin-child');
     expect(JSON.parse(localStorage.getItem('platform:recent:u1') ?? 'null')).toEqual([
       { menuId: 'admin-child', url: '/admin/child?v=1&scopeId=ICH', at: expect.any(Number) },
     ]);
-    expect(JSON.parse(localStorage.getItem('platform:usage') ?? 'null')).toEqual({ 'admin-child': 1 });
+    // Usage is events via adapter.recordUsage now — the old platform:usage counter must stay dead.
+    expect(localStorage.getItem('platform:usage')).toBeNull();
   });
 });
