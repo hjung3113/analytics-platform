@@ -235,6 +235,27 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await expect(page.getByRole('button', { name: '공간: 운영 콘솔' })).toBeVisible();
     await evidence(page, testInfo, 'admin-operations');
 
+    // The switch pushed a history entry: Back lands on the exact origin URL (page=2 included, 06 §6.4)
+    // with the analytics sidebar restored, and Forward returns to the console URL.
+    await page.goBack();
+    await expect.poll(() => page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(EQUIPMENT_URL);
+    await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '공간: 분석' })).toBeVisible();
+    await evidence(page, testInfo, 'admin-history-back');
+
+    await page.goForward();
+    // Forward returns to the entry switchSpace pushed: console home path, globals kept, page key dropped
+    // (compared decoded — the kernel's buildQuery percent-encodes values in the pushed URL).
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/admin/roles');
+    const fwd = query(page);
+    expect(fwd.get('scopeId')).toBe('ICH');
+    expect(fwd.get('from')).toBe('2026-09-25T09:00:00');
+    expect(fwd.get('to')).toBe('2026-09-26T09:00:00');
+    expect(fwd.get('selectedEquipmentIds')).toBe('ICH-PHOTO-0103');
+    expect(fwd.get('page')).toBeNull();
+    await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toBeVisible();
+    await evidence(page, testInfo, 'admin-history-forward');
+
     await page.getByRole('button', { name: '공간: 운영 콘솔' }).click();
     await page.getByRole('menuitemradio', { name: '분석' }).click();
     expect(new URL(page.url()).pathname).toBe('/');

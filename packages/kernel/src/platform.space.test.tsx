@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlatformAdapter, Session, SpaceDef } from '@ap/contracts';
@@ -9,7 +9,9 @@ import { createRegistry } from './registry';
 const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 
-// Two spaces, one menu each (06 §9.1 fixture): equipment carries a page key, admin-roles is the console home.
+// Two spaces (06 §9.1 fixture): equipment carries a page key, admin-roles is the console home, and
+// admin-child is a non-home console menu whose permission ('platform:view') is weaker than its space's
+// gate ('console:access') — so a space denial on it cannot be masked by the menu-permission guard.
 const spaces: SpaceDef[] = [
   { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'equipment' },
   { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' },
@@ -23,6 +25,7 @@ const registry = createRegistry({
   menus: [
     { id: 'equipment', group: 'equipment', primary: true, label: { ko: '설비', en: 'Equipment' }, description: { ko: '', en: '' }, path: '/equipment', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'analysis', features: noFeatures, pageKeys: ['page'] },
     { id: 'admin-roles', group: 'admin', primary: true, label: { ko: '권한/역할 관리', en: 'Roles & access' }, description: { ko: '', en: '' }, path: '/admin/roles', icon: House, permission: 'console:access', requiresScope: false, context: none, pageType: 'management', features: noFeatures, pageKeys: [] },
+    { id: 'admin-child', group: 'admin', label: { ko: '콘솔 하위', en: 'Console child' }, description: { ko: '', en: '' }, path: '/admin/child', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'management', features: noFeatures, pageKeys: [] },
   ],
 });
 
@@ -92,8 +95,22 @@ describe('spaces on Platform (06 §9.1)', () => {
     expect(params.get('selectedEquipmentIds')).toBe('ICH-PHOTO-0103');
     expect(params.get('page')).toBeNull();
     expect(screen.getByTestId('current').textContent).toBe('operations');
-    expect(screen.getByTestId('visible').textContent).toBe('admin-roles');
+    expect(screen.getByTestId('visible').textContent).toBe('admin-roles,admin-child');
     expect(screen.getByTestId('ana-menus').textContent).toBe('equipment');
+  });
+
+  it('switchSpace pushes a history entry so Back restores the exact origin URL', async () => {
+    mountAt(EQUIPMENT_URL, ADMIN);
+    const startLength = window.history.length;
+    act(() => screen.getByTestId('to-operations').click());
+    expect(screen.getByTestId('pathname').textContent).toBe('/admin/roles');
+    expect(window.history.length).toBe(startLength + 1);
+
+    await act(async () => {
+      window.history.back();
+      await waitFor(() => expect(window.location.pathname + window.location.search).toBe(EQUIPMENT_URL));
+    });
+    expect(screen.getByTestId('pathname').textContent).toBe('/equipment');
   });
 
   it('switchSpace to the current space is a no-op and keeps the URL', () => {
@@ -117,13 +134,23 @@ describe('spaces on Platform (06 §9.1)', () => {
     expect(window.location.href).toBe(before);
   });
 
-  it('a space-denied direct URL is not recorded in recent, while allowed navigation is', () => {
-    mountAt('/admin/roles?v=1&scopeId=ICH', ANALYST);
+  it('a space-denied direct URL is neither recent nor usage even when its menu permission passes', () => {
+    // admin-child only needs 'platform:view', which the analyst has: the operations space gate
+    // ('console:access') is the ONLY guard that can deny /admin/child, so this pins the canEnter
+    // checks in both the recent and usage effects (the /admin/roles home is menu-denied as well).
+    mountAt('/admin/child?v=1&scopeId=ICH', ANALYST);
     expect(screen.getByTestId('current').textContent).toBe('operations');
     expect(screen.getByTestId('recent').textContent).toBe('');
+    expect(localStorage.getItem('platform:recent:u1')).toBeNull();
+    expect(localStorage.getItem('platform:usage')).toBeNull();
+  });
 
-    act(() => screen.getByTestId('to-analytics').click());
-    expect(screen.getByTestId('pathname').textContent).toBe('/equipment');
-    expect(screen.getByTestId('recent').textContent).toBe('equipment');
+  it('a console:access user visiting the same child URL is recorded in recent and usage', () => {
+    mountAt('/admin/child?v=1&scopeId=ICH', ADMIN);
+    expect(screen.getByTestId('recent').textContent).toBe('admin-child');
+    expect(JSON.parse(localStorage.getItem('platform:recent:u1') ?? 'null')).toEqual([
+      { menuId: 'admin-child', url: '/admin/child?v=1&scopeId=ICH', at: expect.any(Number) },
+    ]);
+    expect(JSON.parse(localStorage.getItem('platform:usage') ?? 'null')).toEqual({ 'admin-child': 1 });
   });
 });
