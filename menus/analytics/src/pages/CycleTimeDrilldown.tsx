@@ -118,8 +118,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const unknown = ko ? '미확인' : 'Unknown';
   const granularityPending = granularityRaw === null && hours === null;
 
-  function exportRows(scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered'; total: number }) {
-    const result = rowsForExport(global, cycleVersion);
+  async function exportRows(scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered'; total: number }) {
+    const result = await rowsForExport(global, cycleVersion);
     if (result.status === 'unavailable') {
       toast(ko ? '이 응답 상태에서는 목록을 내보내지 않습니다.' : 'Export is not available for this response state.');
       return;
