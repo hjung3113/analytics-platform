@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | Backend | FastAPI(Python), SQL-first — **방향 Decided, 세부 버전·구성 Candidate**([05 결정 상태](05_roadmap_and_open_questions.md)) | 무거운 집계는 Postgres(mart)에서 처리하고 API는 얇은 조회/권한/지표계약 계층 + 지표 DSL 검증/비동기 배치로 역할을 좁힌다. 요청 경로에서 DataFrame을 만드는 패턴은 동시성·메모리에서 확장 불가. 확정 전 비교 근거: 팀이 C# 중심이면 ASP.NET Core, TypeScript 중심이면 NestJS도 대안으로 검토했으며, OpenAPI 자동생성은 ASP.NET Core도 지원해 FastAPI만의 장점은 아니었다. 현재 방향은 05의 FastAPI 결정을 따른다 |
 | DB | 파서 Postgres(read-only) + 같은 인스턴스의 별도 스키마 | 완전 분리 인스턴스는 보안 격리 요구가 실제로 생기기 전엔 운영 비용만 추가. mart 갱신은 pg_cron으로 시작(단, 지연 완료 watermark 감지 기반 재계산 메커니즘 별도 필요 — `01_architecture_and_data_contract.md`) |
-| 인증 | 사내 SSO 존재 확인, 정확한 프로토콜은 Open — 확인 전 인증 계층은 pluggable([05 Open Questions](05_roadmap_and_open_questions.md#open-questions)) | 종전 OIDC 조기 도입 추천은 로컬 인증→SSO 전환 비용을 줄이려는 비교 근거였다. OIDC 채택·라이브러리·도입 시점이 확정된 것으로 해석하지 않는다 |
+| 인증 | **구조 Decided(2026-09-27): FeedbackOps ADR-0006 방식** — AuthProvider 추상화(개발 Mock + 운영 OIDC 계열), 서버 저장 세션 + httpOnly 쿠키, 권한은 플랫폼 백엔드가 매 요청 재검증. 실제 IdP 사양·설정값은 사내 SSO 확인 뒤([05](05_roadmap_and_open_questions.md#open-questions)) | FeedbackOps와 같은 구조라 두 앱의 SSO 공유(통합 1단계)가 쉽다. 라이브러리는 FastAPI 쪽에서 구현할 때 고른다 |
 | 플랫폼 DB 마이그레이션 | Alembic(또는 팀 표준 도구) | 플랫폼 메타 DB/mart 스키마 버전 관리 — 파서의 DbUp과는 별개 |
 
 ## 백엔드 역할 분담 원칙 (SQL-first)
