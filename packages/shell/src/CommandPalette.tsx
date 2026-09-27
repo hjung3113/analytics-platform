@@ -6,7 +6,7 @@ import { cn } from '@ap/ui';
 
 /** §10: menu navigation is the palette's base responsibility; entity search/action commands are Deferred. */
 export function CommandPalette() {
-  const { paletteOpen, setPaletteOpen, visibleMenus, recent, navigate, linkTo, registry } = usePlatform();
+  const { paletteOpen, setPaletteOpen, menusInSpace, accessibleSpaces, recent, navigate, linkTo, registry } = usePlatform();
   const { t, tx, lang } = useI18n();
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
@@ -23,10 +23,11 @@ export function CommandPalette() {
   const items = useMemo(() => {
     const rank = (id: string) => { const i = recent.findIndex(r => r.menuId === id); return i < 0 ? 99 : i; };
     const needle = q.trim().toLowerCase();
-    return visibleMenus.filter(m => !m.navHidden)
-      .filter(m => !needle || [m.label.ko, m.label.en, registry.groupById(m.group).label.ko, registry.groupById(m.group).label.en].some(s => s.toLowerCase().includes(needle)))
+    return accessibleSpaces.flatMap(s => menusInSpace(s.id))
+      .filter(m => !m.navHidden)
+      .filter(m => !needle || [m.label.ko, m.label.en, registry.spaceOf(m).label.ko, registry.spaceOf(m).label.en, registry.groupById(m.group).label.ko, registry.groupById(m.group).label.en].some(s2 => s2.toLowerCase().includes(needle)))
       .sort((a, b) => rank(a.id) - rank(b.id));
-  }, [visibleMenus, recent, q]);
+  }, [accessibleSpaces, menusInSpace, recent, q, registry]);
 
   const go = (index: number) => {
     const m = items[index];
@@ -61,7 +62,7 @@ export function CommandPalette() {
               <Icon className="size-4 text-text-muted" aria-hidden />
               <span className="flex-1">
                 <span className="block text-[13px] font-medium">{tx(m.label)}</span>
-                <span className="block text-[11px] text-text-muted">{tx(group.label)} · {tx(PAGE_TYPE_LABELS[m.pageType])}{!m.component && ` · ${t('planned')}`}</span>
+                <span className="block text-[11px] text-text-muted">{tx(registry.spaceOf(m).label)} · {tx(group.label)} · {tx(PAGE_TYPE_LABELS[m.pageType])}{!m.component && ` · ${t('planned')}`}</span>
               </span>
               {i === active && <CornerDownLeft className="size-3.5 text-text-muted" aria-hidden />}
             </li>;
