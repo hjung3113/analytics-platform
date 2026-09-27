@@ -168,6 +168,85 @@ test.describe('권한 — 메뉴 비노출·직접 URL 거부 (06 §6.2, §17)',
   });
 });
 
+test.describe('워크스페이스 (06 §9.1)', () => {
+  const ADMIN_URL = `/admin/roles?v=1&scopeId=ICH&${PERIOD}&selectedEquipmentIds=ICH-PHOTO-0103&page=2`;
+  const EQUIPMENT_URL = `/equipment?v=1&scopeId=ICH&${PERIOD}&selectedEquipmentIds=ICH-PHOTO-0103&page=2`;
+
+  test('진입 가능한 공간이 하나뿐인 역할에는 전환기가 없고 운영 콘솔 메뉴가 보이지 않는다', async ({ page }, testInfo) => {
+    for (const role of ['engineer', 'viewer'] as const) {
+      await signInAs(page, role);
+      await page.goto('/');
+      await expect(page.getByRole('button', { name: /^공간:/ })).toHaveCount(0);
+      const nav = page.getByRole('navigation', { name: '주 메뉴' });
+      await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toHaveCount(0);
+      await page.getByRole('button', { name: '메뉴 검색…' }).click();
+      await expect(page.getByRole('option', { name: /권한\/역할 관리/ })).toHaveCount(0);
+      await page.keyboard.press('Escape');
+      await evidence(page, testInfo, `no-switcher-${role}`);
+    }
+  });
+
+  test('진입 권한이 없는 공간의 직접 URL은 메뉴 권한 검사 전에 공간 거부를 보인다', async ({ page }, testInfo) => {
+    for (const role of ['engineer', 'viewer'] as const) {
+      await signInAs(page, role);
+      await page.goto(ADMIN_URL);
+      await expect(page.getByRole('status').filter({ hasText: '이 공간에 들어갈 수 없습니다' })).toBeVisible();
+      // The body names the space (`space=operations`), distinct from the menu denial's `permission=…`.
+      await expect(page.getByText('space=operations')).toBeVisible();
+      await expect(page.getByRole('heading', { name: '권한/역할 관리' })).toHaveCount(0);
+      // Denial never rewrites the address: pathname and the four global keys stay exactly as entered.
+      expect(new URL(page.url()).pathname).toBe('/admin/roles');
+      const q = query(page);
+      expect(q.get('scopeId')).toBe('ICH');
+      expect(q.get('from')).toBe('2026-09-25T09:00:00');
+      expect(q.get('to')).toBe('2026-09-26T09:00:00');
+      expect(q.get('selectedEquipmentIds')).toBe('ICH-PHOTO-0103');
+      await evidence(page, testInfo, `space-denial-${role}`);
+    }
+  });
+
+  test('관리자는 로고 칸 전환기로 운영 콘솔을 오가며 전역 Context를 보존한다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto(EQUIPMENT_URL);
+    const switcher = page.getByRole('button', { name: '공간: 분석' });
+    await expect(switcher).toBeVisible();
+    const nav = page.getByRole('navigation', { name: '주 메뉴' });
+    await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toHaveCount(0);
+    await page.getByRole('button', { name: '메뉴 검색…' }).click();
+    // Palette spans every accessible space; the secondary line names the space first.
+    await expect(page.getByRole('option', { name: /권한\/역할 관리/ })).toContainText('운영 콘솔');
+    await expect(page.getByRole('option', { name: /설비 마스터/ })).toContainText('분석');
+    await page.keyboard.press('Escape');
+    await evidence(page, testInfo, 'admin-analytics');
+
+    await switcher.click();
+    await page.getByRole('menuitemradio', { name: '운영 콘솔' }).click();
+    expect(new URL(page.url()).pathname).toBe('/admin/roles');
+    const q = query(page);
+    expect(q.get('scopeId')).toBe('ICH');
+    expect(q.get('from')).toBe('2026-09-25T09:00:00');
+    expect(q.get('to')).toBe('2026-09-26T09:00:00');
+    expect(q.get('selectedEquipmentIds')).toBe('ICH-PHOTO-0103');
+    // Globals survive the switch; page-owned state does not.
+    expect(q.get('page')).toBeNull();
+    await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: '설비 마스터' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '공간: 운영 콘솔' })).toBeVisible();
+    await evidence(page, testInfo, 'admin-operations');
+
+    await page.getByRole('button', { name: '공간: 운영 콘솔' }).click();
+    await page.getByRole('menuitemradio', { name: '분석' }).click();
+    expect(new URL(page.url()).pathname).toBe('/');
+    const back = query(page);
+    expect(back.get('scopeId')).toBe('ICH');
+    expect(back.get('from')).toBe('2026-09-25T09:00:00');
+    expect(back.get('to')).toBe('2026-09-26T09:00:00');
+    expect(back.get('selectedEquipmentIds')).toBe('ICH-PHOTO-0103');
+    await evidence(page, testInfo, 'admin-back');
+  });
+});
+
 test.describe('목적지 단건 조회 (06 §6.2, §22)', () => {
   test('설비 상세 직접 URL은 그 설비의 room 권한을 다시 검증하고 Selection으로 대체하지 않는다', async ({ page }, testInfo) => {
     // The page header and the active EquipmentPanel tab fetch independently (two getEntity calls, 06 §22).

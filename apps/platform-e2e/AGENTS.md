@@ -15,10 +15,11 @@
 | 목적지 단건 조회 | §6.2, §22 | 설비 상세 직접 URL: URL id의 row를 대상으로 site 검증 뒤 room 권한을 서버가 다시 검증한다(미승인 room → 서버 forbidden `No grant for equipment`, row 필드 무노출), 상세는 전달된 Selection으로 대체하지 않고 URL의 `selectedEquipmentIds`를 그대로 보존하며, 미지정 id는 권한 거부가 아니라 empty(0건)다 |
 | 공통 상태 화면 | §19 | 오류·시간 초과·0건·권한 거부 |
 | returnTo 복귀 | §22 | 떠난 URL로 정확히 복귀, 앱 밖 `returnTo` 무시, 사이클타임의 정렬·bucket·bin을 returnTo에 보존하고 복귀 후 유지 — 복귀 전·후 행 값까지 검사(시작∈[bucket, bucket+1h), 사이클타임∈bin 범위, 시작 오름차순) |
+| 워크스페이스 | §9.1 | 진입 가능 공간 1개 역할엔 전환기·운영 콘솔 메뉴 비노출, 진입 권한 없는 공간의 직접 URL은 메뉴 권한 검사 전 공간 거부(`space=operations`, URL 무변경), 관리자 전환기로 운영 콘솔 왕복 시 전역 Context 보존·page 키 Drop·사이드바·팔레트 공간 표기 |
 
 각 검사가 실제로 계약을 지키는지는 Kernel 가드를 일부러 망가뜨려 실패하는지로 확인했다(PR 본문 "변이 검사"). 검사를 고치거나 더할 때도 같은 방식으로 확인한다.
 
-**알려진 공백:** 서버의 메뉴 권한 거부는 mock 서버 단위 테스트가 검사한다(`packages/mock-server/src/menu-permission.test.ts`). UI는 클라이언트 라우트 게이트가 먼저 렌더되므로 서버 거부를 관찰할 수 없고, "직접 URL 거부" 검사는 클라이언트 게이트를 본다.
+**알려진 공백:** 서버의 메뉴 권한 거부는 mock 서버 단위 테스트가 검사한다(`packages/mock-server/src/menu-permission.test.ts`). UI는 클라이언트 라우트 게이트가 먼저 렌더되므로 서버 거부를 관찰할 수 없고, "직접 URL 거부" 검사는 클라이언트 게이트를 본다. 공간 진입 거부(§9.1)도 같은 공백이다 — 서버 거부는 단위 테스트 영역이고, E2E는 `RouteOutlet`의 클라이언트 게이트를 관찰한다.
 
 ## 규칙
 
