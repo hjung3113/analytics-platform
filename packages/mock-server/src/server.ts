@@ -2,7 +2,7 @@
  * Mock request validation + response envelope (docs/06 §19): exclusive `outcome` plus declared `assessments[]`.
  * Every page query goes through `serve()` so Scope/room grants are re-validated per request (§6.2).
  */
-import { parseDateTime, type ApiResponse, type Assessment, type AssessmentKind, type Condition, type GlobalContext, type Permission, type ScopeCheck, type Trust } from '@ap/contracts';
+import { parseDateTime, type ApiResponse, type Assessment, type AssessmentKind, type Condition, type EntityRef, type GlobalContext, type Permission, type ScopeCheck, type Trust } from '@ap/contracts';
 import { EQUIPMENT, SITES, TIME_DOMAIN_ASSERTIONS, USERS, type Equipment, type RoleId, type TimeDomainAssertion } from './world';
 
 /**
@@ -157,6 +157,38 @@ export function evaluateTimeDomainMerge(
 
 const OBSERVED = '2026-09-26T08:58:00';
 
+/** Shared successful-response tail (declared assessments §19 + Trust envelope). Private; serve() and getEntity() only. */
+function finish<T>(args: {
+  correlationId: string;
+  data: T;
+  empty: boolean;
+  scenario: Scenario;
+  verifiedDomain?: string | null;
+  kinds?: AssessmentKind[];
+  metricVersion?: string;
+  source?: string;
+  provisional: boolean;
+}): ApiResponse<T> {
+  const kinds = args.kinds ?? ['collection', 'processing_delay', 'coverage'];
+  const assessments: Assessment[] = kinds.map(kind => {
+    if (args.scenario === 'unknown_status' || kind === 'collection') return { kind, state: 'unknown', reason: 'source_unavailable' };
+    if (kind === 'processing_delay') return { kind, state: 'clear', statusSource: 'mart-watermark', observedAt: OBSERVED };
+    if (kind === 'coverage') return { kind, state: 'clear', statusSource: 'coverage-service', observedAt: OBSERVED, detail: '98.7%' };
+    if (kind === 'time_domain' && args.verifiedDomain) return { kind, state: 'clear', statusSource: 'time-domain-registry', observedAt: OBSERVED, detail: args.verifiedDomain };
+    return { kind, state: 'unknown', reason: 'source_unavailable' };
+  });
+  return {
+    correlationId: args.correlationId,
+    outcome: args.empty ? 'empty' : 'ok',
+    data: args.data,
+    assessments,
+    trust: {
+      updatedAt: '2026-09-26T09:02:00', dataThrough: '2026-09-26T08:00:00', coverage: args.scenario === 'unknown_status' ? null : 0.987,
+      metricVersion: args.metricVersion, provisional: args.provisional, source: args.source ?? 'mart.productivity_hourly',
+    },
+  };
+}
+
 export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
   // Pin the request's identity at send time, like a session cookie on the request: a role switch while it is
   // in flight must not re-evaluate it with the new user's grants.
@@ -200,22 +232,52 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
   const equipment = s === 'empty' ? [] : resolved.rows;
   const data = o.compute({ equipment });
   const empty = s === 'empty' || (o.isEmpty ? o.isEmpty(data) : false);
-  const kinds = o.kinds ?? ['collection', 'processing_delay', 'coverage'];
-  const assessments: Assessment[] = kinds.map(kind => {
-    if (s === 'unknown_status' || kind === 'collection') return { kind, state: 'unknown', reason: 'source_unavailable' };
-    if (kind === 'processing_delay') return { kind, state: 'clear', statusSource: 'mart-watermark', observedAt: OBSERVED };
-    if (kind === 'coverage') return { kind, state: 'clear', statusSource: 'coverage-service', observedAt: OBSERVED, detail: '98.7%' };
-    if (kind === 'time_domain' && verifiedDomain) return { kind, state: 'clear', statusSource: 'time-domain-registry', observedAt: OBSERVED, detail: verifiedDomain };
-    return { kind, state: 'unknown', reason: 'source_unavailable' };
-  });
-  return {
+  return finish({
     correlationId,
-    outcome: empty ? 'empty' : 'ok',
     data,
-    assessments,
-    trust: {
-      updatedAt: '2026-09-26T09:02:00', dataThrough: '2026-09-26T08:00:00', coverage: s === 'unknown_status' ? null : 0.987,
-      metricVersion: o.metricVersion, provisional: hours !== null && hours <= 24, source: o.source ?? 'mart.productivity_hourly',
-    },
-  };
+    empty,
+    scenario: s,
+    verifiedDomain,
+    kinds: o.kinds,
+    metricVersion: o.metricVersion,
+    source: o.source,
+    provisional: hours !== null && hours <= 24,
+  });
+}
+
+export type GetEntityOptions = { role?: RoleId; latency?: number };
+
+/**
+ * Single destination row (docs/06 §22). Not an analysis path: no GlobalContext, no Selection substitute, and the
+ * endpoint's permission is a server-side map (`equipment` → `equipment:view`), never a client argument.
+ */
+export async function getEntity(ref: EntityRef, signal?: AbortSignal, opts?: GetEntityOptions): Promise<ApiResponse<unknown>> {
+  // Pin identity at send time, like serve(): a role switch while in flight must not re-evaluate this request.
+  const s = scenario;
+  const requestRole = opts?.role ?? role;
+  const correlationId = nextCorrelation();
+  await sleep((opts?.latency ?? 450) + (s === 'slow' ? 2200 : 0) + Math.random() * 200, signal);
+  const base = { correlationId, data: null, trust: null, assessments: [] as Assessment[] };
+  // 1. Unknown entity type.
+  if (ref.type !== 'equipment') return { ...base, outcome: 'error', message: 'Unknown entity type' };
+  // 2. Endpoint permission. A missing permission outranks every response scenario.
+  if (!USERS[requestRole].permissions.includes('equipment:view')) return { ...base, outcome: 'forbidden', message: 'No permission equipment:view' };
+  // 3. Scenario early returns, same as serve() (shared partialCounter).
+  if (s === 'timeout') return { ...base, outcome: 'timeout', message: 'Query exceeded 30s budget' };
+  if (s === 'error') return { ...base, outcome: 'error', message: 'Upstream mart query failed' };
+  if (s === 'partial' && partialCounter++ % 2 === 1) return { ...base, outcome: 'error', message: 'Widget query failed (partial scenario)' };
+  // 4. Site gate first (same messages as resolveEquipment): never search equipment for an ungranted or unknown scope.
+  const scope = checkScope(requestRole, ref.scopeId);
+  if (scope.status !== 'valid') return { ...base, outcome: 'forbidden', message: scope.status === 'forbidden' ? `No grant for scope ${ref.scopeId}` : `Unknown scope ${ref.scopeId}` };
+  // 5. Lookup only inside the requested site: other sites are invisible, whatever the id says.
+  const row = EQUIPMENT.find(e => e.site === ref.scopeId && e.equipmentId === ref.id);
+  // 6. Room gate. Beats scenario empty/too_large; the message must not leak id, name, room, maker, model, team, line, stgroup.
+  if (row && !scope.grantedRooms.includes(row.room)) return { ...base, outcome: 'forbidden', message: 'No grant for equipment' };
+  // 7–8. Dev-tools scenarios (no period on this port, so too_large is reachable only by flipping the scenario).
+  if (s === 'forbidden') return { ...base, outcome: 'forbidden', message: 'Permission revoked (scenario)' };
+  if (s === 'too_large') return { ...base, outcome: 'too_large', message: 'Period ?h exceeds —h without a narrow fixed Selection' };
+  // 9. A miss (scenario empty, other site, or unknown id) is a successful zero with the same trust + assessments as serve.
+  if (s === 'empty' || !row) return finish({ correlationId, data: null, empty: true, scenario: s, provisional: false });
+  // 10. Hit: that one object, not an array. No period on this port, so trust.provisional is false.
+  return finish({ correlationId, data: row, empty: false, scenario: s, provisional: false });
 }

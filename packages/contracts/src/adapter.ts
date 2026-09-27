@@ -1,5 +1,6 @@
 import type { Text } from './i18n';
 import type { Permission } from './menu';
+import type { ApiResponse } from './response';
 import type { Condition, IdSet } from './url';
 
 /**
@@ -32,6 +33,13 @@ export type SelectionInput = { scopeId: string | null; roomNames: IdSet; conditi
  */
 export type SelectionEvaluation = { inCondition: EquipmentOption[]; outOfCondition: string[] };
 
+/** Destination single-row lookup (docs/06 §22): menu constant + opaque destination id, never an analysis Context. */
+export type EntityRef = {
+  type: string; // menu constant; not a contracts union
+  id: string; // opaque destination id
+  scopeId: string | null; // requested site; never inferred from id (ADR-0004)
+};
+
 export type PlatformAdapter = {
   /** Current session. Must return the same object until the session changes (it is a store snapshot). */
   session(): Session;
@@ -39,6 +47,8 @@ export type PlatformAdapter = {
   publishedMetrics(): readonly PublishedMetric[];
   contextOptions(scopeId: string, signal?: AbortSignal): Promise<ConditionOptions>;
   evaluateSelection(input: SelectionInput, signal?: AbortSignal): Promise<SelectionEvaluation>;
+  /** One destination row by ref (detail pages). Not an analysis query: no GlobalContext, no Selection substitute. */
+  getEntity(ref: EntityRef, signal?: AbortSignal): Promise<ApiResponse<unknown>>;
   /** Anchor for default periods (naive wall-clock, docs/06 §6.3). */
   defaultRangeTo(): string;
   /**

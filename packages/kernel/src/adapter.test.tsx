@@ -27,6 +27,7 @@ function fixture() {
     defaultRangeTo: () => '2026-09-26T09:00:00',
     contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
     evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
+    getEntity: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
   };
   return {
@@ -105,6 +106,7 @@ describe('adapter shape', () => {
       defaultRangeTo() { return '2026-09-26T09:00:00'; }
       async contextOptions() { return { stgroup: [], team: [], makerModel: [] }; }
       async evaluateSelection() { return { inCondition: [], outOfCondition: [] }; }
+      async getEntity() { return { outcome: 'empty' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
       subscribe(listener: () => void) { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
     }
     mount(new ServerAdapter());
