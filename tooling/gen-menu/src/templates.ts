@@ -97,7 +97,6 @@ function packageJson(i: MenuInputs): string {
     devDependencies: {
       [`${PACKAGE_PREFIX}eslint-config`]: 'workspace:*',
       [`${PACKAGE_PREFIX}tsconfig`]: 'workspace:*',
-      '@types/node': '^26.6.3',
       '@types/react': '^19.3.0',
       '@types/react-dom': '^19.3.0',
       'eslint': '^10.11.0',

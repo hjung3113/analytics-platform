@@ -18,8 +18,7 @@ Registry 7개 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가
 - `@ap/menu-*`끼리 서로 import하지 않는다. 교차 메뉴 이동은 `linkTo(menuId)`뿐이다(06 §22).
 - `@ap/mock-server`는 그 패키지의 `src/api.ts` 한 파일만 import한다. `src/pages/*`는 `../api`를 import한다.
 - 화면이 없는 그룹도 계획 메뉴의 manifest로 자기 그룹을 소유한다. `component` 없는 항목에 화면을 얹는 것이 이 패키지 분리의 목적이 아니다 — 새 화면 추가는 별도 요청·검증(06 §5, §29)이 필요하다.
-- import 가능: `@ap/contracts`·`@ap/kernel`·`@ap/components`·`@ap/ui`(공개 진입점만) + `api.ts`에 한해 `@ap/mock-server`. 앱(`apps/*`)과 다른 `@ap/menu-*`는 import하지 않는다(패키지 경계 §3).
-- 알려진 debt: `home`·`equipment`·`analytics`·`metrics`가 `@types/node`를 devDependency로 선언한다. `@ap/ui` `Button.tsx`의 `process.env` 때문에 타입 그래프에 `@types/node`가 필요하다(기존 소비자 `@ap/shell`·앱과 같은 패턴). `@ap/ui`가 이 의존을 없애면 네 패키지에서 함께 뺀다.
+- import 가능: `@ap/contracts`·`@ap/kernel`·`@ap/components`·`@ap/ui`(공개 진입점만) + `api.ts`에 한해 `@ap/mock-server`. 앱(`apps/*`)과 다른 `@ap/menu-*`는 import하지 않는다(패키지 경계 §3). Node API를 쓰지 않는 메뉴 패키지에 `@types/node`를 선언하지 않는다(의존 방향·호스트 타입은 루트 `AGENTS.md`).
 
 ## 새 그룹 패키지
 
