@@ -1,0 +1,75 @@
+/*
+ * #52 design-direction prototype tokens (throwaway). Spec: .agents/reports/design/52-directions.md.
+ * Shells read only these --dp-* variables. The attribute is set on the prototype wrapper and on <body>
+ * so Radix portals (popovers, menus) inherit the same variant.
+ */
+
+[data-variant="A"] {
+  /* Linear / Vercel */
+  --dp-canvas: #fafafa;
+  --dp-surface: #ffffff;
+  --dp-border: #ececee;
+  --dp-border-strong: #e4e4e7;
+  --dp-text: #18181b;
+  --dp-secondary: #3f3f46;
+  --dp-muted: #71717a;
+  --dp-faint: #a1a1aa;
+  --dp-primary: #5e6ad2;
+  --dp-primary-soft: #eef0ff;
+  --dp-focus: rgba(94, 106, 210, 0.45);
+  --dp-success: #1f8a4c;
+  --dp-warning: #b45309;
+  --dp-danger: #b91c1c;
+  --dp-danger-soft: #fef2f2;
+  --dp-danger-text: #991b1b;
+
+  --dp-nav-bg: #f7f7f8;
+  --dp-nav-hover: #efeff1;
+  --dp-nav-active: #ececee;
+  --dp-row-line: #f4f4f5;
+  --dp-row-hover: #fafafa;
+  --dp-row-active: #f4f4f5;
+  --dp-chip-soft: #f4f4f5;
+  --dp-dashed: #d4d4d8;
+  --dp-star: #ca8a04;
+  --dp-shadow-pop: 0 8px 24px rgba(24, 24, 27, 0.08);
+
+  --dp-radius-sm: 4px;
+  --dp-radius: 6px;
+  --dp-radius-lg: 8px;
+  --dp-gutter: 32px;
+
+  --dp-font: "Inter Variable", "Noto Sans KR", ui-sans-serif, system-ui, sans-serif;
+  --dp-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (max-width: 1439px) {
+  [data-variant="A"] { --dp-gutter: 24px; }
+}
+
+[data-variant="B"] {
+  /* Datadog / Grafana — part 2 */
+}
+
+[data-variant="C"] {
+  /* Stripe Dashboard — part 2 */
+}
+
+/* Shared prototype base: focus ring and numerals follow the active variant. */
+.dp-root {
+  font-family: var(--dp-font);
+  color: var(--dp-text);
+  background: var(--dp-canvas);
+}
+.dp-root :focus-visible,
+.dp-pop :focus-visible {
+  outline: 2px solid var(--dp-focus);
+  outline-offset: 1px;
+}
+.dp-pop {
+  font-family: var(--dp-font);
+  color: var(--dp-text);
+}
+.dp-mono { font-family: var(--dp-mono); }
+.dp-num { font-variant-numeric: tabular-nums lining-nums; }
+.dp-scroll { scrollbar-width: thin; scrollbar-color: #d4d4d8 transparent; }

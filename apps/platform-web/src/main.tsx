@@ -9,13 +9,14 @@ import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { DevTools } from './dev/DevTools';
 import { registry } from './menus';
 import { mockAdapter } from '@ap/mock-server';
-import { AppShell, GlobalContextBar, RouteOutlet } from '@ap/shell';
+import { ContextBarSlot, Frame } from './dev/design-prototype/frame';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <I18nProvider>
-      <PlatformProvider adapter={mockAdapter} registry={registry} slots={{ contextBar: <GlobalContextBar />, topBarTools: <DevTools /> }}>
-        <AppShell><RouteOutlet /></AppShell>
+      {/* #52 design prototype: Frame renders AppShell + RouteOutlet unless ?variant= is set; ContextBarSlot is null then. */}
+      <PlatformProvider adapter={mockAdapter} registry={registry} slots={{ contextBar: <ContextBarSlot />, topBarTools: <DevTools /> }}>
+        <Frame />
       </PlatformProvider>
     </I18nProvider>
   </StrictMode>,
