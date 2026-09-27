@@ -21,9 +21,10 @@
 | Decided | FeedbackOps 단계적 통합: 1단계 SSO·토큰·딥링크 연결과 사용자용 VOC·설문 읽기 전용 소비, 2단계 인증·Scope 결정 후 셸 편입. Milestone은 FeedbackOps FR-TASK-004(미구현, 원본 저장소에서 구현 예정)를 참조(2026-09-26) | [저장소 연결](integration/repository-layout.md#feedbackops-통합-방식-decided-2026-09-26) |
 | Decided | 다음 구현 범위는 프론트엔드 플랫폼 틀과 메뉴 개발 환경(모노레포, Kernel, 공유 컴포넌트, 메뉴 템플릿, Storybook, CI). 서버는 mock 유지. 일정 추정은 인터뷰 기록의 참고치이며 일정 승인이 아니다(2026-09-26) | [인터뷰 기록](reviews/2026-09-26-workspace-ops-interview.md), `apps/platform-web`(구 `prototypes/platform-app`) |
 | Decided | 모노레포 패키지 경계: contracts/ui/kernel/components/shell/mock-server + 그룹 단위 `menus/*` + `apps/platform-web`(프로토타입을 `git mv`), lint는 ESLint, 접두사 `@ap/`(임시, 회사 시스템 이름으로 일괄 변경 예정). 타입·필드 이름은 Candidate(2026-09-26) | [패키지 경계](integration/platform-packages.md#8-결정-decided-2026-09-26) |
+| Decided | 2026-09-27 인터뷰 결정: ① 인증은 FeedbackOps ADR-0006 방식 — AuthProvider 추상화(개발 Mock + 운영 OIDC 계열), 서버 세션(httpOnly 쿠키), 권한은 플랫폼 백엔드가 매 요청 재검증. 실제 IdP 연결은 사내 SSO 스펙 확인 뒤 설정 ② 운영 콘솔은 '운영 콘솔 접근' 한 역할로 시작(개발자·운영자 공통, 필요 시 분리) ③ 메뉴 공간 필드명 `space`, 공간별 그룹 수 상한 없음(새 그룹 전 기존 그룹 흡수 검토, 권장 7개 이하) ④ FeedbackOps 1단계 쓰기(VOC 등록·설문 제출)는 원본 화면 딥링크 ⑤ 적재 워커 상태 스키마는 플랫폼이 초안을 쓰고 파서 담당과 협의 ⑥ 시각 회귀는 지금 빌드 CSS selector 비교만 CI, 픽셀 비교는 디자인 확정 뒤 | [ROADMAP](ROADMAP.md), 이슈 #35–#40 |
 | Candidate | 대표 분석 흐름으로 차트·표·드릴다운·딥링크 계약을 검증한다 | 아래 설계 검증 기준; 구현 착수는 별도 결정 |
 | Candidate | 프론트엔드 라이브러리 및 백엔드 기술 선택(백엔드는 FastAPI로 방향 확정, 세부 프레임워크 버전·구성은 Candidate) | `04_frontend_ui_ux.md`, `03_backend_stack.md`; 제품 제약과 검증 결과에 따라 결정 |
-| Open | 인증 프로토콜의 정확한 사양 — 사내 SSO 존재는 확인됐으나 프로토콜 미확인(사내 확인 중). 확인 전까지 인증 계층은 나중에 붙일 수 있도록 pluggable하게 구현한다 | 아래 Open Questions |
+| Open | 인증 프로토콜의 정확한 사양 — 사내 SSO 존재는 확인됐으나 프로토콜 미확인(사내 확인 중). 인증 구조는 FeedbackOps 방식으로 Decided(2026-09-27, 위)이며, 남은 것은 실제 IdP 사양·설정값뿐이다 | 아래 Open Questions |
 | Open | Scope 상속·행 스코핑, 다중 Site 시간 의미·assertion 공급 근거·최초 기본 Δ, 데이터 볼륨·조회 제한·브라우저 지원 등 남은 입력 | [06 Scope/시간](06_platform_ui_contract.md#62-scope와-권한-decided--open), [01 멀티테넌시](01_architecture_and_data_contract.md), [REQUIREMENTS 질문 2–5](../PLATFORM_REQUIREMENTS.md#open-questions--미결-범위와-결정-이력) |
 | Deferred | 구현 순서·일정·POC·저장된 뷰·범용 위젯/플러그인 확장 | 별도 implementation-planning에서 재평가 |
 
