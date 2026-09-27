@@ -1,12 +1,13 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { serve } from '../api';
-import { type ColumnMeta, PlatformDataTable, PlatformPage, QueryView, sortAndPage } from '@ap/components';
+import { type ColumnMeta, PlatformDataTable, PlatformPage, QueryView, encodeTableSort, parsePageIndex, parseTableSort, sortAndPage } from '@ap/components';
+import { serializeGlobal } from '@ap/contracts';
 import { Button, Input, StatusBadge } from '@ap/ui';
 import {
   DOMAINS, DOMAIN_LABEL, METRICS, STATUS_LABEL, STATUS_TONE, STATUSES,
-  catalogRows, filterCatalog, judgeGlobalPair,
+  catalogRows, filterCatalog, judgeGlobalPair, sortColumns,
   type CatalogRow, type PairVerdict, type PublicationState,
 } from './data';
 
@@ -79,6 +80,18 @@ export default function MetricCatalogPage(_: PageProps) {
   const domain = pageParam('domain');
   const statusIllegal = status !== null && !STATUSES.includes(status as PublicationState);
   const domainIllegal = domain !== null && !DOMAINS.includes(domain as typeof DOMAINS[number]);
+  // §6.1 page keys: sort/page are URL-owned; invalid wire values alert instead of substituting (never "empty rows").
+  const parsedSort = parseTableSort(pageParam('sort'), sortColumns);
+  const parsedPage = parsePageIndex(pageParam('page'));
+  const tableInvalid = !parsedSort.ok || !parsedPage.ok;
+  // §4: a global-context change clears the page index; replace amends the entry setGlobal just pushed, and a deep link on mount survives (first render skipped).
+  const globalSignature = JSON.stringify(serializeGlobal(global));
+  const lastGlobal = useRef(globalSignature);
+  useEffect(() => {
+    if (lastGlobal.current === globalSignature) return;
+    lastGlobal.current = globalSignature;
+    setPage({ page: null }, { replace: true });
+  }, [globalSignature]);
   const verdict = judgeGlobalPair(global.metricId, global.metricVersion, null, null);
   const activeRowId = verdict.kind === 'valid' || verdict.kind === 'id-only' ? verdict.metricId : null;
 
@@ -133,12 +146,12 @@ export default function MetricCatalogPage(_: PageProps) {
       <label className="grid gap-1 text-[11px] text-text-muted">
         {lang === 'ko' ? '이름 또는 metricId' : 'Name or metricId'}
         <Input data-testid="metric-search" value={q ?? ''} placeholder={lang === 'ko' ? '검색' : 'Search'} className="h-8 w-56 rounded-sm text-[12px]"
-          onChange={e => setPage({ q: e.target.value === '' ? null : e.target.value }, { replace: true })} />
+          onChange={e => setPage({ q: e.target.value === '' ? null : e.target.value, page: null }, { replace: true })} />
       </label>
       <label className="grid gap-1 text-[11px] text-text-muted">
         {lang === 'ko' ? '상태' : 'Status'}
         <select data-testid="metric-status-filter" value={status ?? ''} className="h-8 rounded-sm border border-border-strong bg-surface-card px-2 text-[12px] text-text-primary"
-          onChange={e => setPage({ status: e.target.value === '' ? null : e.target.value })}>
+          onChange={e => setPage({ status: e.target.value === '' ? null : e.target.value, page: null })}>
           <option value="">{lang === 'ko' ? '전체' : 'All'}</option>
           {STATUSES.map(s => <option key={s} value={s}>{tx(STATUS_LABEL[s])}</option>)}
           {statusIllegal && <option value={status!}>{status}</option>}
@@ -147,13 +160,13 @@ export default function MetricCatalogPage(_: PageProps) {
       <label className="grid gap-1 text-[11px] text-text-muted">
         domain
         <select data-testid="metric-domain-filter" value={domain ?? ''} className="h-8 rounded-sm border border-border-strong bg-surface-card px-2 text-[12px] text-text-primary"
-          onChange={e => setPage({ domain: e.target.value === '' ? null : e.target.value })}>
+          onChange={e => setPage({ domain: e.target.value === '' ? null : e.target.value, page: null })}>
           <option value="">{lang === 'ko' ? '전체' : 'All'}</option>
           {DOMAINS.map(d => <option key={d} value={d}>{tx(DOMAIN_LABEL[d])}</option>)}
           {domainIllegal && <option value={domain!}>{domain}</option>}
         </select>
       </label>
-      {(q || status || domain) && <Button variant="secondary" size="sm" className="h-8 rounded-sm" onClick={() => setPage({ q: null, status: null, domain: null })}>{lang === 'ko' ? '필터 초기화' : 'Reset filters'}</Button>}
+      {(q || status || domain) && <Button variant="secondary" size="sm" className="h-8 rounded-sm" onClick={() => setPage({ q: null, status: null, domain: null, page: null })}>{lang === 'ko' ? '필터 초기화' : 'Reset filters'}</Button>}
     </div>}
   >
     <div className="space-y-3">
@@ -168,7 +181,10 @@ export default function MetricCatalogPage(_: PageProps) {
           ? `등록되지 않은 페이지 필터입니다 (${statusIllegal ? `status=${status}` : `domain=${domain}`}). 전체로 바꾸지 않아 결과가 비었습니다.`
           : `Unregistered page filter (${statusIllegal ? `status=${status}` : `domain=${domain}`}). It is not coerced to All, so the result is empty.`}
       </p>}
-      <PlatformDataTable
+      {tableInvalid ? <p role="alert" className="rounded-md bg-accent-warn-soft px-3 py-2 text-[12px] text-text-warning">
+        {lang === 'ko' ? '정렬·페이지 값이 잘못되었습니다.' : 'Invalid sort or page value.'}
+        <Button variant="secondary" size="sm" className="ml-2 h-7 rounded-sm px-2 text-[12px]" onClick={() => setPage({ sort: null, page: null })}>{lang === 'ko' ? '초기화' : 'Reset'}</Button>
+      </p> : <PlatformDataTable
         title={lang === 'ko' ? '지표 카탈로그' : 'Metric catalog'}
         subtitle={lang === 'ko'
           ? `합성 ${METRICS.length}건. 게시 포인터는 레코드에 저장된 값이며 최대 버전 번호가 아닙니다. 초안 열기는 동작 열.`
@@ -180,6 +196,11 @@ export default function MetricCatalogPage(_: PageProps) {
         filterKey={JSON.stringify([q, status, domain, lang])}
         pageSize={8}
         height={360}
+        urlState={parsedSort.ok && parsedPage.ok ? {
+          page: parsedPage.page === 1 ? null : parsedPage.page,
+          sorting: parsedSort.sorting,
+          onChange: ({ page, sorting }) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }),
+        } : undefined}
         activeRowId={activeRowId}
         loadPage={(query, signal) => serve({
           permission: 'metrics:view',
@@ -208,7 +229,7 @@ export default function MetricCatalogPage(_: PageProps) {
           a.click();
           URL.revokeObjectURL(url);
         }}
-      />
+      />}
       <p className="t-caption text-text-muted">
         {lang === 'ko'
           ? 'Time·Lot·room_name·Condition·Selection은 이 목록의 필터가 아닙니다. 검색·상태·domain만 페이지 필터이며 URL 키 q, status, domain에 있습니다. 예시 데이터입니다.'
