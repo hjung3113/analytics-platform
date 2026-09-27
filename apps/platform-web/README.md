@@ -38,7 +38,7 @@ pnpm build
 4. Page-owned URL 상태: registry의 `pageKeys`에 등록된 키만 `pageParam(key)` / `setPage({key: value|null}, {replace?})`. 미등록 키를 쓰지 않는다. 탭·필터·정렬처럼 공유 링크로 재현돼야 하는 것만 URL에 둔다.
 5. 다른 메뉴로 이동은 반드시 `linkTo(menuId, { params, page, global, returnTo: true })` + `<PlatformLink href>` 또는 `navigate()`. URL 문자열을 직접 조립하지 않는다(§22). 목적지 객체 ID(`params`)와 분석 Context(`global`)는 분리한다 — 상세로 갈 때 Selection을 목적지 ID로 바꾸지 않는다. 상세의 “분석으로 돌아가기”는 `pageParam('returnTo')`로 받은 URL을 그대로 `navigate()`한다(§6.4).
 6. 차트는 `AnalysisChartFrame`으로 감싼다. 시리즈 색은 `packages/ui/src/styles/tokens.css` 변수명(`chart-blue`, `chart-teal`, `chart-green`, `chart-purple`, `accent-warn` …). 차트 클릭으로 전역 Context를 조용히 바꾸지 않는다 — 드릴다운은 `onPointClick`의 명시적 이동, 구간 승격은 프레임의 “분석 구간 적용”.
-7. 표는 `PlatformDataTable` (`loadPage`가 `serve()` envelope 반환, `sortAndPage` 헬퍼), 상세는 `DetailDrawer` + `Field` + `AuditTimeline`.
+7. 표는 `PlatformDataTable` (`loadPage`가 `serve()` envelope 반환, `sortAndPage` 헬퍼), 상세는 `DetailDrawer` + `Field` + `AuditTimeline`. 정렬·페이지·드로어 탭처럼 딥링크·복귀에 남아야 하는 화면 상태는 manifest `pageKeys`에 등록하고 페이지가 `setPage`로 쓴다. 표는 `urlState`(controlled, 키 이름 모름)로, 값은 `parseTableSort`·`parsePageIndex`·`encodeTableSort`로 다룬다. 잘못된 값은 대체하지 않고 경고로 보인다. 행 집합 필터(`q`, `status` 등)가 바뀌면 같은 `setPage`에서 `page`를 함께 지운다. 전역 Context가 바뀔 때 지워질 키는 manifest `contextResetKeys`로 선언한다(예: equipment-master `['page']`, cycle-time `['page','bucket','bin']`) — kernel `setGlobal`·`resetContext`가 같은 내비게이션에서 지우고, 뒤로·앞으로 가기(히스토리 복원)는 아무것도 지우지 않는다. 페이지는 전역 Context 변화를 지우는 effect를 쓰지 않는다(#45).
 8. 스타일은 DESIGN.md 토큰 유틸리티만 사용: `bg-surface-card`, `border-border-subtle`, `text-text-muted`, `bg-accent-primary-soft`, `t-page-title`/`t-section-title`/`t-card-title`/`t-stat`/`t-caption`/`t-mono`/`tabular` 등. 임의 hex·그림자 스택·pill 버튼 금지. 상태 색은 `StatusBadge`(success/warning/danger/neutral/info)만.
 9. UI 문구는 `const { tx, lang } = useI18n()`로 한/영 모두 제공(`lang === 'ko' ? … : …` 또는 `tx({ko, en})`). 설비 ID·팀명 같은 마스터 값은 번역하지 않는다.
 10. 합성 데이터는 해당 페이지 폴더 안(`menus/<group>/src/pages/data.ts`)에 둔다. `EQUIPMENT`는 각 화면이 `serve`의 `compute`로 받은 목록을 쓰고, metrics 카탈로그는 월드 표를 직접 읽지 않는다.
@@ -77,7 +77,6 @@ Kernel 규약 추가: `metricVersion`은 bare 토큰(`'3'`), 표시는 `formatMe
 
 ## 남은 플랫폼 과제 (워커 보고 기반)
 
-- 표 정렬/페이지, 사이클타임 버킷·분포 선택, 설비 드로어 탭의 page key 미등록 → URL/복귀 링크에 남지 않음.
 - 생산성 개요의 지표별 버전 page key(`occupancyVersion` 등, wireframe 11 Candidate) 미등록, Trust envelope `metricVersion` 단일 필드.
 - 목적지 객체 단건 조회 API 부재(설비 상세가 request-only Context 복사로 우회), export/facet은 대량 데이터용 서버 엔드포인트 필요.
 - 드로어·팝오버 overlay 그림자(DESIGN no-shadow 규칙과 overlay elevation 경계 미정).

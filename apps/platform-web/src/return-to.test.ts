@@ -28,6 +28,17 @@ describe('safeReturnTo', () => {
     expect(safeReturnTo('/')).toBe('/');
   });
 
+  it('keeps §6.1 screen state (sort/page/tab/focus, cycle bucket/bin) in the return URL', () => {
+    const equipment = '/equipment?v=1&scopeId=ICH&sort=status:desc&page=2&focus=ICH-PHOTO-0103&tab=audit';
+    const cycleFull = '/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&sort=anchor:asc&page=2&bucket=2026-09-25T09:00:00&bin=45-60';
+    expect(safeReturnTo(equipment)).toBe(equipment);
+    expect(safeReturnTo(cycleFull)).toBe(cycleFull);
+  });
+
+  it('rejects a duplicated page key instead of guessing', () => {
+    expect(safeReturnTo('/equipment?v=1&scopeId=ICH&page=2&page=3')).toBeNull();
+  });
+
   it('does not treat a detail path as an app-relative failure', () => {
     expect(isAppRelativePath('/equipment/X')).toBe(true);
     expect(safeReturnTo('/equipment/X')).toBeNull();

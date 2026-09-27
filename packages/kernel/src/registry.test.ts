@@ -33,6 +33,16 @@ describe('createRegistry validation (platform-packages.md §5)', () => {
     expect(() => createRegistry({ groups, menus: [menu('a', '/a', { primary: true, pageKeys: ['scopeId'] })] })).toThrow(/global Context key/);
   });
 
+  it('rejects contextResetKeys outside pageKeys and accepts declared subsets', () => {
+    expect(() => createRegistry({ groups, menus: [menu('a', '/a', { primary: true, pageKeys: ['sort'], contextResetKeys: ['page'] })] })).toThrow(/contextResetKey "page" is not a declared pageKeys entry/);
+    expect(() => createRegistry({ groups, menus: [menu('a', '/a', { primary: true, pageKeys: ['sort', 'page', 'bucket', 'bin'], contextResetKeys: ['page', 'bucket', 'bin'] })] })).not.toThrow();
+  });
+
+  it('allows §6.1 screen-state page keys (sort, page, tab, bucket, bin)', () => {
+    expect(() => createRegistry({ groups, menus: [menu('a', '/a', { primary: true, pageKeys: ['sort', 'page', 'tab', 'bucket', 'bin'] })] })).not.toThrow();
+    expect(() => createRegistry({ groups, menus: [menu('a', '/a', { primary: true, pageKeys: ['q', 'status', 'maker', 'focus', 'sort', 'page', 'tab'] })] })).not.toThrow();
+  });
+
   it('rejects routes with the same shape once parameter names are erased', () => {
     expect(() => createRegistry({ groups, menus: [catalog, menu('x', '/metrics/:metricId'), menu('y', '/metrics/:id')] })).toThrow(/same route shape/);
   });

@@ -113,6 +113,28 @@ export function encodeSort(id: string, desc: boolean): string {
   return `${id}:${desc ? 'desc' : 'asc'}`;
 }
 
+/** §6.1 bucket: a naive datetime aligned to the grain boundary (bucketStart(bucket, grain) === bucket). No snapping; out-of-period but aligned stays valid. */
+export function parseBucket(raw: string | null, granularity: Granularity): { ok: true; value: string | null } | { ok: false } {
+  if (raw === null || raw === '') return { ok: true, value: null };
+  if (!ANCHOR.test(raw)) return { ok: false };
+  try { parseDateTime(raw, 'bucket'); } catch { return { ok: false }; }
+  return bucketStart(raw, granularity) === raw ? { ok: true, value: raw } : { ok: false };
+}
+
+/** §6.1 bin: one BINS id or `from..to` with index(from) ≤ index(to). */
+export function parseBin(raw: string | null): { ok: true; value: { from: string; to: string } | null } | { ok: false } {
+  if (raw === null || raw === '') return { ok: true, value: null };
+  const range = /^([A-Za-z0-9+-]+)\.\.([A-Za-z0-9+-]+)$/.exec(raw);
+  if (!range) {
+    if (binIndex(raw) < 0) return { ok: false };
+    return { ok: true, value: { from: raw, to: raw } };
+  }
+  const from = binIndex(range[1]);
+  const to = binIndex(range[2]);
+  if (from < 0 || to < 0 || from > to) return { ok: false };
+  return { ok: true, value: { from: range[1], to: range[2] } };
+}
+
 export function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }

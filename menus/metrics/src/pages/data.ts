@@ -18,6 +18,8 @@ export type ConsumerMenuId = 'productivity-overview' | 'cycle-time';
 
 export const DOMAINS: Domain[] = ['productivity', 'time', 'movement', 'quality', 'maintenance'];
 export const STATUSES: PublicationState[] = ['draft', 'published', 'deprecated'];
+/** §6.1: sortable catalog columns, in table order; the synthetic _select column never joins the allow-list. */
+export const sortColumns = ['metricId', 'nameSort', 'domain', 'grain', 'numerator', 'denominator', 'publishedPointer', 'status', 'owner', 'updatedAt'] as const;
 
 export const DOMAIN_LABEL: Record<Domain, Text> = {
   productivity: { ko: '생산성', en: 'Productivity' },

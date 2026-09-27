@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { contextBar, evidence, expectScopeValid, lotColumn, mainHeading, query, setScenario, signInAs, switchScope } from './support';
+import { contextBar, evidence, expectScopeValid, firstRowByColumn, lotColumn, mainHeading, query, rowMapsByColumn, setScenario, signInAs, switchScope, tableStatusLine } from './support';
 
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
@@ -44,6 +44,53 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
     await expect(page.getByRole('button', { name: 'Context 초기화' })).toBeVisible();
     expect(query(page).get('v')).toBe('2');
     await evidence(page, testInfo, 'contract-error');
+  });
+
+  test('표 정렬·페이지·드로어 탭을 등록된 page key로 복원하고 새로고침에도 유지한다', async ({ page }, testInfo) => {
+    // Fixture: ICH equipment list fills page 1 (25/row) and overflows to page 2.
+    await page.goto('/equipment?v=1&scopeId=ICH');
+    const focus = await page.locator('[data-row-id]').first().getAttribute('data-row-id');
+    expect(focus).toBeTruthy();
+
+    await page.goto(`/equipment?v=1&scopeId=ICH&sort=status:desc&page=2&focus=${focus}&tab=audit`);
+    // URL keys are kept as registered page keys — not stripped, not rewritten.
+    expect(query(page).get('sort')).toBe('status:desc');
+    expect(query(page).get('page')).toBe('2');
+    expect(query(page).get('focus')).toBe(focus);
+    expect(query(page).get('tab')).toBe('audit');
+    const statusHeader = page.locator('[role="columnheader"][data-column="status"]');
+    await expect(statusHeader).toHaveAttribute('aria-sort', 'descending');
+    await expect(tableStatusLine(page)).toContainText(/2\/\d+/);
+    await expect(page.getByRole('dialog').getByRole('tab', { name: 'Audit' })).toHaveAttribute('aria-selected', 'true');
+    await evidence(page, testInfo, 'equipment-page-keys');
+
+    await page.reload();
+    expect(query(page).get('sort')).toBe('status:desc');
+    expect(query(page).get('page')).toBe('2');
+    expect(query(page).get('focus')).toBe(focus);
+    expect(query(page).get('tab')).toBe('audit');
+    await expect(statusHeader).toHaveAttribute('aria-sort', 'descending');
+    await expect(tableStatusLine(page)).toContainText(/2\/\d+/);
+    await expect(page.getByRole('dialog').getByRole('tab', { name: 'Audit' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('Scope 전환은 manifest가 선언한 page 키만 지우고, 뒤로 가면 이전 URL을 그대로 복원한다', async ({ page }, testInfo) => {
+    await page.goto('/equipment?v=1&scopeId=ICH&page=2');
+    await expectScopeValid(page, 'ICH · Site A');
+    await expect(tableStatusLine(page)).toContainText(/2\/\d+/);
+
+    await switchScope(page, 'CJU');
+    await expectScopeValid(page, 'CJU · Site B');
+    // contextResetKeys(['page']) is dropped by setGlobal itself — same navigation, no follow-up rewrite.
+    expect(query(page).get('scopeId')).toBe('CJU');
+    expect(query(page).has('page')).toBe(false);
+    await evidence(page, testInfo, 'scope-switch-drops-page');
+
+    // History traversal restores the entry exactly — the page key must survive Back (06 §6.4).
+    await page.goBack();
+    await expect.poll(() => page.url().replace(/^https?:\/\/[^/]+/, '')).toBe('/equipment?v=1&scopeId=ICH&page=2');
+    await expect(tableStatusLine(page)).toContainText(/2\/\d+/);
+    await evidence(page, testInfo, 'back-restores-page');
   });
 });
 
@@ -208,6 +255,68 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     await expect.poll(() => page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(origin);
     await expect(page.getByRole('table')).toBeVisible();
     await evidence(page, testInfo, 'returned');
+  });
+
+  test('사이클타임 bucket·bin·정렬을 returnTo에 그대로 남기고 복귀 후에도 유지한다', async ({ page }, testInfo) => {
+    const base = '/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
+    // Read a bucket and bin that really contain the first slow execution, so the filter keeps a row (deterministic fixture).
+    await page.goto(`${base}&sort=anchor:asc`);
+    const first = await firstRowByColumn(page);
+    const anchor = first['시작'].replace(' ', 'T');
+    const bucket = `${anchor.slice(0, 13)}:00:00`;
+    const bucketEnd = new Date(Date.parse(`${bucket}Z`) + 3_600_000).toISOString().slice(0, 19); // default granularity = hour
+    const minutes = Number(first['사이클타임 (분)'].replace(/,/g, ''));
+    const bin = minutes < 30 ? '0-30' : minutes < 45 ? '30-45' : minutes < 60 ? '45-60' : minutes < 75 ? '60-75' : minutes < 90 ? '75-90' : '90+';
+    const binMin = bin === '90+' ? 90 : Number(bin.split('-')[0]);
+    const binMax = bin === '90+' ? Infinity : Number(bin.split('-')[1]);
+
+    // The filter must actually restrict: the unfiltered table needs a row outside the chosen bucket or bin.
+    const unfiltered = await rowMapsByColumn(page);
+    const outside = unfiltered.some(row => {
+      const rowBucket = `${row['시작'].replace(' ', 'T').slice(0, 13)}:00:00`;
+      const rowMin = Number(row['사이클타임 (분)'].replace(/,/g, ''));
+      return rowBucket !== bucket || rowMin < binMin || rowMin >= binMax;
+    });
+    expect(outside, 'fixture needs an unfiltered row outside the chosen bucket/bin').toBe(true);
+
+    const origin = `${base}&sort=anchor:asc&bucket=${bucket}&bin=${bin}`;
+
+    // Row-level contract: every displayed row sits in [bucket, bucket+1h), inside the bin range, ascending by 시작.
+    const expectRowsFiltered = async () => {
+      const rows = await rowMapsByColumn(page);
+      expect(rows.length).toBeGreaterThan(0);
+      const anchors = rows.map(row => row['시작'].replace(' ', 'T'));
+      for (const [i, value] of anchors.entries()) {
+        expect(value >= bucket && value < bucketEnd, `row ${i} 시작 ${value} inside [${bucket}, ${bucketEnd})`).toBe(true);
+        const min = Number(rows[i]['사이클타임 (분)'].replace(/,/g, ''));
+        expect(min >= binMin && min < binMax, `row ${i} 사이클타임 ${min} inside bin ${bin}`).toBe(true);
+        if (i > 0) expect(value >= anchors[i - 1], `row ${i} ordered by 시작 ascending (sort=anchor:asc)`).toBe(true);
+      }
+      return rows.length;
+    };
+
+    await page.goto(origin);
+    await expect(page.getByRole('button', { name: '버킷 필터 해제' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '분포 필터 해제' })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: '정렬' })).toHaveValue('anchor:asc');
+    // The first unfiltered row is inside bucket+bin by construction, so the filter must still show a row.
+    const filteredCount = await expectRowsFiltered();
+    expect(filteredCount).toBeGreaterThanOrEqual(1);
+    await expect(page.getByRole('link', { name: '상세', exact: true }).first()).toBeVisible();
+    await evidence(page, testInfo, 'cycle-page-keys');
+
+    await page.getByRole('link', { name: '상세', exact: true }).first().click();
+    await expect(page).toHaveURL(/\/analytics\/executions\/[^?]+\?/);
+    expect(query(page).get('returnTo')).toBe(origin);
+
+    // execution-detail's back button follows returnTarget() (same contract as 이전 화면으로).
+    await page.getByRole('link', { name: '← 사이클타임 분석으로 돌아가기' }).click();
+    await expect.poll(() => page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(origin);
+    await expect(page.getByRole('button', { name: '버킷 필터 해제' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '분포 필터 해제' })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: '정렬' })).toHaveValue('anchor:asc');
+    expect(await expectRowsFiltered()).toBe(filteredCount);
+    await evidence(page, testInfo, 'cycle-returned');
   });
 
   test('앱 밖을 가리키는 returnTo는 따르지 않고 상위 메뉴로 돌아간다', async ({ page }, testInfo) => {

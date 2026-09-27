@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { classifyMetricInit, type MetricInit } from './metric-init';
 import { pathFor, type MenuEntry, type Registry } from './registry';
 import { useI18n } from './i18n';
-import { buildQuery, ContractError, emptyGlobal, type GlobalContext, incompleteMetricPair, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, type Session, type SessionUser, shift } from '@ap/contracts';
+import { buildQuery, ContractError, emptyGlobal, type GlobalContext, incompleteMetricPair, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift } from '@ap/contracts';
 
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope'; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
@@ -141,6 +141,15 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   }, []);
   const dismissToast = useCallback((id: number) => setToasts(list => list.filter(t => t.id !== id)), []);
 
+  // A deliberate global-Context change drops the manifest's contextResetKeys (e.g. the result-set page index)
+  // from the page pairs in the SAME navigation — one history entry, so Back returns to the pre-change URL
+  // exactly (06 §6.4). History traversal (popstate, navigate) and no-op setGlobal calls never drop anything.
+  const dropContextResetKeys = useCallback((pairs: Pair[], next: GlobalContext): Pair[] => {
+    const keys = route?.menu.contextResetKeys;
+    if (!keys || keys.length === 0 || sameGlobal(global, next)) return pairs;
+    return pairs.filter(([k]) => !keys.includes(k));
+  }, [route, global]);
+
   const setGlobal = useCallback((patch: Partial<GlobalContext>, options?: { replace?: boolean; silent?: boolean }) => {
     let next: GlobalContext = { ...global, ...patch };
     if ('scopeId' in patch && patch.scopeId !== global.scopeId) {
@@ -149,8 +158,8 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
       next = { ...next, roomNames: null, condition: null, selection: null, lotIds: null, recipeIds: null, ppid: null };
       if (had && !options?.silent) toast(lang === 'ko' ? 'Scope 변경: room_name·설비 조건·선택·Lot·Recipe를 초기화했습니다 (Site 경계).' : 'Scope changed: room_name, condition, selection, Lot and Recipe were cleared (site boundary).', 'warning');
     }
-    navigate(pathname + buildQuery(next, page, extras), options);
-  }, [global, page, extras, pathname, navigate, toast, lang]);
+    navigate(pathname + buildQuery(next, dropContextResetKeys(page, next), extras), options);
+  }, [global, page, extras, pathname, navigate, toast, lang, dropContextResetKeys]);
 
   const setPage = useCallback((patch: Record<string, string | null>, options?: { replace?: boolean }) => {
     const keys = Object.keys(patch);
@@ -160,10 +169,10 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   }, [global, page, extras, pathname, navigate]);
 
   // Reset clears analysis Context but keeps the requested Scope (a separate header control).
-  const resetContext = useCallback(
-    () => navigate(pathname + buildQuery({ ...emptyGlobal, scopeId: global.scopeId }, page, extras)),
-    [pathname, navigate, global.scopeId, page, extras],
-  );
+  const resetContext = useCallback(() => {
+    const next: GlobalContext = { ...emptyGlobal, scopeId: global.scopeId };
+    navigate(pathname + buildQuery(next, dropContextResetKeys(page, next), extras));
+  }, [pathname, navigate, global, page, extras, dropContextResetKeys]);
 
   // Context Link helper (§22/§6.4): every registered global is preserved regardless of target support;
   // page-owned state and unregistered extras are never copied implicitly.

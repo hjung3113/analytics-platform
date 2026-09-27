@@ -16,6 +16,8 @@ export const fields: { key: keyof Equipment; ko: string; en: string }[] = [
   { key: 'validFrom', ko: '유효 시작', en: 'Valid from' }, { key: 'validTo', ko: '유효 종료', en: 'Valid to' },
   { key: 'updatedAt', ko: '변경 시각', en: 'Updated at' }, { key: 'updatedBy', ko: '변경자', en: 'Updated by' },
 ];
+/** §6.1: sortable columns are exactly the data fields; the synthetic _select/_action columns never join the allow-list. */
+export const sortFields: readonly (keyof Equipment)[] = fields.map(f => f.key);
 export function filterEquipment(rows: Equipment[], q: string, status: string, maker: string) {
   const search = q.trim().toLowerCase();
   return rows.filter(e => (!search || `${e.equipmentId} ${e.name}`.toLowerCase().includes(search)) && (!status || e.status === status) && (!maker || e.maker === maker));

@@ -59,6 +59,8 @@ export function createRegistry({ groups, menus }: { groups: readonly GroupDef[];
     }
     const clash = m.pageKeys.find(k => GLOBAL_KEYS.has(k));
     if (clash) fail(`Menu "${m.id}" page key "${clash}" collides with a global Context key`);
+    const foreignReset = (m.contextResetKeys ?? []).find(k => !m.pageKeys.includes(k));
+    if (foreignReset) fail(`Menu "${m.id}" contextResetKey "${foreignReset}" is not a declared pageKeys entry`);
     // Same shape once parameter names are erased (/a/:x vs /a/:y) is ambiguous; static-vs-param overlaps are resolved below.
     const shape = '/' + segments(m.path).map(s => (isParam(s) ? ':' : s)).join('/');
     const other = shapes.get(shape);

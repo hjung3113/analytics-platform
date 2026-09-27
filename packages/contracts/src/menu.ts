@@ -26,6 +26,12 @@ export type MenuMeta = {
   features: { export: boolean; savedView: boolean; annotate: boolean; compare: boolean };
   /** Registered page-owned URL keys (§6.1). Only these survive on this route besides globals/extras. */
   pageKeys: readonly string[];
+  /**
+   * Subset of `pageKeys` that a deliberate global-Context change clears (e.g. the result-set page index).
+   * The kernel drops them from the page pairs in the SAME navigation as `setGlobal`/`resetContext`.
+   * History traversal (popstate, `navigate`, Back/Forward) never clears them — restored entries are exact (§6.4).
+   */
+  contextResetKeys?: readonly string[];
   /** Id-only metricId is completed from PUBLISHED_METRICS. Every other menu rejects it as metric_pair_incomplete. */
   initializesMetric?: boolean;
   /** Detail/destination routes are reachable through Context Links, not the sidebar. */

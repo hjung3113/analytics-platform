@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import type { ApiResponse, PlatformAdapter, Session } from '@ap/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -145,5 +145,65 @@ describe('useAdapterRequest error', () => {
     fail = false;
     act(() => screen.getByTestId('r').click());
     expect(await screen.findByText('done:ok')).toBeTruthy();
+  });
+});
+
+describe('setGlobal drops contextResetKeys in the same navigation (06 §6.4)', () => {
+  const stateful = createRegistry({
+    groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House }],
+    menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['sort', 'page', 'bucket'], contextResetKeys: ['page', 'bucket'] }],
+  });
+
+  function UrlProbe() {
+    const { global, pageParam, setGlobal, navigate } = usePlatform();
+    return <div>
+      <button type="button" data-testid="switch" onClick={() => setGlobal({ scopeId: 'CJU' })}>switch</button>
+      <button type="button" data-testid="noop" onClick={() => setGlobal({ scopeId: 'ICH' })}>noop</button>
+      <button type="button" data-testid="deep" onClick={() => navigate('/?v=1&scopeId=ICH&page=3&bucket=b9')}>deep</button>
+      <p data-testid="url">{window.location.search}</p>
+      <p data-testid="page">{pageParam('page') ?? '-'}</p>
+      <p data-testid="bucket">{pageParam('bucket') ?? '-'}</p>
+      <p data-testid="sort">{pageParam('sort') ?? '-'}</p>
+    </div>;
+  }
+
+  const mountStateful = () => render(
+    <I18nProvider><PlatformProvider adapter={fixture().adapter} registry={stateful}><UrlProbe /></PlatformProvider></I18nProvider>,
+  );
+
+  it('drops declared keys, keeps others, and history.back() restores the earlier URL exactly', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&page=2&bucket=b1&sort=cycleMin');
+    mountStateful();
+    expect(screen.getByTestId('page').textContent).toBe('2');
+    expect(screen.getByTestId('bucket').textContent).toBe('b1');
+    expect(screen.getByTestId('sort').textContent).toBe('cycleMin');
+
+    act(() => screen.getByTestId('switch').click());
+    // page/bucket are dropped by setGlobal itself (one entry, no follow-up replace); sort is kept.
+    expect(window.location.search).toBe('?v=1&scopeId=CJU&sort=cycleMin');
+    expect(screen.getByTestId('page').textContent).toBe('-');
+    expect(screen.getByTestId('bucket').textContent).toBe('-');
+    expect(screen.getByTestId('sort').textContent).toBe('cycleMin');
+
+    await act(async () => {
+      window.history.back();
+      await waitFor(() => expect(window.location.search).toBe('?v=1&scopeId=ICH&page=2&bucket=b1&sort=cycleMin'));
+    });
+    expect(window.location.search).toBe('?v=1&scopeId=ICH&page=2&bucket=b1&sort=cycleMin');
+    expect(screen.getByTestId('page').textContent).toBe('2');
+    expect(screen.getByTestId('bucket').textContent).toBe('b1');
+  });
+
+  it('keeps declared keys on a no-op setGlobal and on navigate() to a URL carrying them', () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&page=2&bucket=b1');
+    mountStateful();
+    act(() => screen.getByTestId('noop').click());
+    // The global Context did not actually change — nothing is dropped.
+    expect(window.location.search).toBe('?v=1&scopeId=ICH&page=2&bucket=b1');
+    act(() => screen.getByTestId('deep').click());
+    // popstate and navigate() never drop: restored/entered URLs keep their keys verbatim.
+    expect(window.location.search).toBe('?v=1&scopeId=ICH&page=3&bucket=b9');
+    expect(screen.getByTestId('page').textContent).toBe('3');
+    expect(screen.getByTestId('bucket').textContent).toBe('b9');
   });
 });

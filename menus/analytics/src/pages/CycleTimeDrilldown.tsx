@@ -1,16 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { AlertTriangle, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
 import type { Trust } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { CYCLE_VERSION_NOTE, periodHours, serve } from '../api';
-import { AnalysisChartFrame, type ColumnMeta, DataTrustIndicator, type Delta, PlatformDataTable, PlatformPage, QueryView, sortAndPage, StatCard, StateMessage } from '@ap/components';
+import { AnalysisChartFrame, type ColumnMeta, DataTrustIndicator, type Delta, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, sortAndPage, StatCard, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import {
-  DEFAULT_SORT, MAX_HOURS, PAGE_METRIC_ID, SORT_COLUMNS, bucketContaining, bucketEnd,
-  encodeSort, histogram, parseSortParam, percentile, population, previousWindow, resolveGranularity,
+  DEFAULT_SORT, MAX_HOURS, PAGE_METRIC_ID, bucketContaining, bucketEnd,
+  encodeSort, histogram, parseBucket, parseBin, parseSortParam, percentile, population, previousWindow, resolveGranularity,
   resolveMetric, rowsForExport, resolveTail, slowExecutions, trendOf, executionKey, equipmentIdFromKey,
-  type Granularity, type ResolvedMetric, type SlowRow, type SortColumn, type TailMode,
+  type Granularity, type ResolvedMetric, type SlowRow, type TailMode,
 } from './cycleData';
 
 type Kpi = { p50: number | null; p95: number | null; count: number; slowCount: number; prevP50: number | null; prevP95: number | null };
@@ -25,14 +25,22 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const granularityRaw = pageParam('granularity');
   const percentileRaw = pageParam('percentile');
   const sortRaw = pageParam('sort');
+  const bucketRaw = pageParam('bucket');
+  const binRaw = pageParam('bin');
+  const pageRaw = pageParam('page');
   const hours = periodHours(global);
   const granularityResult = resolveGranularity(granularityRaw, hours);
   const tailResult = resolveTail(percentileRaw);
   const sortResult = parseSortParam(sortRaw);
-  const invalidPage = !granularityResult.ok || !tailResult.ok || !sortResult.ok;
+  const bucketResult = parseBucket(bucketRaw, granularityResult.ok ? granularityResult.value : 'hour');
+  const binResult = parseBin(binRaw);
+  const pageResult = parsePageIndex(pageRaw);
+  const invalidPage = !granularityResult.ok || !tailResult.ok || !sortResult.ok || !bucketResult.ok || !binResult.ok || !pageResult.ok;
   const granularity: Granularity = granularityResult.ok ? granularityResult.value : 'hour';
   const tailMode: TailMode = tailResult.ok ? tailResult.value : 'p95';
   const sortSpec = sortResult.ok ? sortResult : { ok: true as const, id: 'cycleMin' as const, desc: true, explicit: false };
+  const bucket = bucketResult.ok ? bucketResult.value : null;
+  const bin = binResult.ok ? binResult.value : null;
   const periodReady = global.from !== null && global.to !== null;
   const metric = resolveMetric(global);
   const cycleVersion = metric.kind === 'page-default' || metric.kind === 'applied' || metric.kind === 'not-applied'
@@ -41,15 +49,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const enabled = !invalidPage && periodReady && cycleVersion !== null;
   const ko = lang === 'ko';
 
-  const [bucket, setBucket] = useState<string | null>(null);
-  const [bin, setBin] = useState<{ from: string; to: string } | null>(null);
-  const [tableKey, setTableKey] = useState(0);
   const [reload, setReload] = useState(0);
-  const headerSortRef = useRef<string | null>(null);
-
-  useEffect(() => { setBucket(null); }, [granularity, global.from, global.to]);
-  const globalKey = `${global.scopeId}|${global.from}|${global.to}|${JSON.stringify(global.roomNames)}|${JSON.stringify(global.condition)}|${JSON.stringify(global.selection)}|${JSON.stringify(global.lotIds)}|${global.ppid}|${JSON.stringify(global.recipeIds)}`;
-  useEffect(() => { setBin(null); }, [globalKey]);
+  // A global-Context change clears page/bucket/bin in the kernel (manifest contextResetKeys); pages write no reset effect.
 
   const bucketRange = bucket ? { from: bucket, to: bucketEnd(bucket, granularity) } : null;
   const inputs = [cycleVersion, metric.kind];
@@ -151,13 +152,16 @@ export default function CycleTimeDrilldown(_: PageProps) {
     !granularityResult.ok ? `granularity=${granularityRaw}` : null,
     !tailResult.ok ? `percentile=${percentileRaw}` : null,
     !sortResult.ok ? `sort=${sortRaw}` : null,
+    !bucketResult.ok ? `bucket=${bucketRaw}` : null,
+    !binResult.ok ? `bin=${binRaw}` : null,
+    !pageResult.ok ? `page=${pageRaw}` : null,
   ].filter((item): item is string => item !== null);
 
   return <PlatformPage
     description={ko
       ? '적용된 전역 기간·설비의 사이클타임입니다. 분위수·느린 실행 기준은 Candidate이고, 점·분포 선택은 목록만 줄입니다.'
       : 'Cycle time for the applied global period and equipment. Percentiles are Candidate; point and histogram choices filter only the list.'}
-    secondaryActions={<Button variant="secondary" size="sm" onClick={() => { kpi.refetch(); trend.refetch(); dist.refetch(); setReload(n => n + 1); }}><RotateCw className="size-3.5" aria-hidden />{ko ? '새로고침' : 'Refresh'}</Button>}
+    secondaryActions={<Button variant="secondary" size="sm" onClick={() => { kpi.refetch(); trend.refetch(); dist.refetch(); setReload(n => n + 1); if (pageRaw !== null) setPage({ page: null }, { replace: true }); }}><RotateCw className="size-3.5" aria-hidden />{ko ? '새로고침' : 'Refresh'}</Button>}
     dataTrustSummary={kpi.response?.trust ? <DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} /> : undefined}
     contextExtension={<div className="space-y-2">
       <MetricBanner metric={metric} />
@@ -166,10 +170,10 @@ export default function CycleTimeDrilldown(_: PageProps) {
         <span className="text-[12px] text-text-secondary">{ko ? '집계' : 'Grain'}</span>
         {(['hour', 'day', 'week'] as const).map(value => <button key={value} type="button" aria-pressed={!granularityPending && granularityResult.ok && granularity === value}
           className={!granularityPending && granularityResult.ok && granularity === value ? 'h-8 rounded-md bg-accent-primary-soft px-2 text-[12px] font-medium text-accent-primary' : 'h-8 rounded-md px-2 text-[12px] text-text-secondary hover:bg-surface-sunken'}
-          onClick={() => setPage({ granularity: value })}>{value === 'hour' ? (ko ? '시간' : 'Hour') : value === 'day' ? (ko ? '일' : 'Day') : (ko ? '주' : 'Week')}</button>)}
+          onClick={() => setPage({ granularity: value, bucket: null, page: null })}>{value === 'hour' ? (ko ? '시간' : 'Hour') : value === 'day' ? (ko ? '일' : 'Day') : (ko ? '주' : 'Week')}</button>)}
         <label className="flex items-center gap-1 text-[12px] text-text-secondary">{ko ? '꼬리' : 'Tail'}
           <select aria-label={ko ? '느린 실행 기준' : 'Slow-execution predicate'} className={control} value={tailResult.ok ? tailMode : ''}
-            onChange={event => setPage({ percentile: event.target.value })}>
+            onChange={event => setPage({ percentile: event.target.value, page: null })}>
             <option value="p95">≥ P95</option>
             <option value="p50">≥ P50</option>
             <option value="all">{ko ? '전체 실행' : 'All executions'}</option>
@@ -177,7 +181,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
         </label>
         <label className="flex items-center gap-1 text-[12px] text-text-secondary">{ko ? '정렬' : 'Sort'}
           <select aria-label={ko ? '정렬' : 'Sort'} className={control} value={sortResult.ok ? encodeSort(sortSpec.id, sortSpec.desc) : ''}
-            onChange={event => { setPage({ sort: event.target.value === DEFAULT_SORT ? null : event.target.value }); headerSortRef.current = null; setTableKey(key => key + 1); }}>
+            onChange={event => setPage({ sort: event.target.value === DEFAULT_SORT ? null : event.target.value, page: null })}>
             <option value="cycleMin:desc">{ko ? '사이클타임 내림차순' : 'Cycle time descending'}</option>
             <option value="cycleMin:asc">{ko ? '사이클타임 오름차순' : 'Cycle time ascending'}</option>
             <option value="delta:desc">{ko ? 'P95 대비 내림차순' : 'vs P95 descending'}</option>
@@ -186,23 +190,23 @@ export default function CycleTimeDrilldown(_: PageProps) {
             <option value="equipmentId:asc">Equipment A→Z</option>
           </select>
         </label>
-        <Button variant="ghost" size="sm" className="h-8 px-2 text-[12px]" onClick={() => { setPage({ granularity: null, percentile: null, sort: null }); setBucket(null); setBin(null); headerSortRef.current = null; setTableKey(key => key + 1); }}>{ko ? '페이지 조건 기본값' : 'Reset page filters'}</Button>
+        <Button variant="ghost" size="sm" className="h-8 px-2 text-[12px]" onClick={() => setPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{ko ? '페이지 조건 기본값' : 'Reset page filters'}</Button>
       </div>
       <p className="text-[12px] text-text-muted">
         {ko
-          ? `집계 기본값은 기간 ≤48h이면 hour, 아니면 day${!granularityResult.ok || granularityResult.explicit ? '' : ` (지금 ${granularity}, URL에 없음)`}. 꼬리 기본값은 ≥ P95 (Candidate, 동률 포함)이며 KPI 모집단을 다시 줄이지 않습니다. 버킷·분포 구간은 등록된 page key가 없어 URL과 복귀 링크에 남지 않습니다.`
-          : `Default grain is hour when the period is ≤48h, otherwise day${!granularityResult.ok || granularityResult.explicit ? '' : ` (now ${granularity}, not in the URL)`}. Default tail is ≥ P95 (Candidate, ties included) and does not shrink the KPI population. Bucket and histogram filters have no registered page key, so they are absent from the URL and the return link.`}
+          ? `집계 기본값은 기간 ≤48h이면 hour, 아니면 day${!granularityResult.ok || granularityResult.explicit ? '' : ` (지금 ${granularity}, URL에 없음)`}. 꼬리 기본값은 ≥ P95 (Candidate, 동률 포함)이며 KPI 모집단을 다시 줄이지 않습니다. 버킷·분포 구간은 URL 키 bucket·bin에, 정렬·페이지는 sort·page에 남습니다.`
+          : `Default grain is hour when the period is ≤48h, otherwise day${!granularityResult.ok || granularityResult.explicit ? '' : ` (now ${granularity}, not in the URL)`}. Default tail is ≥ P95 (Candidate, ties included) and does not shrink the KPI population. Bucket and histogram selections stay in the URL keys bucket and bin; sort and page are URL keys too.`}
       </p>
       {(bucketRange || bin) && <div className="flex flex-wrap items-center gap-2">
-        {bucketRange && <FilterChip label={ko ? '버킷' : 'Bucket'} value={`${bucketRange.from.replace('T', ' ')} → ${bucketRange.to.replace('T', ' ')}`} onClear={() => setBucket(null)} clearLabel={ko ? '버킷 필터 해제' : 'Clear bucket filter'} />}
-        {bin && <FilterChip label={ko ? '분포 구간' : 'Histogram'} value={bin.from === bin.to ? bin.from : `${bin.from} – ${bin.to}`} onClear={() => setBin(null)} clearLabel={ko ? '분포 필터 해제' : 'Clear histogram filter'} />}
+        {bucketRange && <FilterChip label={ko ? '버킷' : 'Bucket'} value={`${bucketRange.from.replace('T', ' ')} → ${bucketRange.to.replace('T', ' ')}`} onClear={() => setPage({ bucket: null })} clearLabel={ko ? '버킷 필터 해제' : 'Clear bucket filter'} />}
+        {bin && <FilterChip label={ko ? '분포 구간' : 'Histogram'} value={bin.from === bin.to ? bin.from : `${bin.from} – ${bin.to}`} onClear={() => setPage({ bin: null })} clearLabel={ko ? '분포 필터 해제' : 'Clear histogram filter'} />}
       </div>}
     </div>}
   >
     {invalidPage ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '페이지 키 값이 올바르지 않습니다' : 'Invalid page key'}
       body={ko
-          ? `${pageErrors.join(', ')} 은 이 화면의 등록 값이 아닙니다. hour|day|week, p50|p95|all, column:asc|desc 만 허용하며 다른 값으로 바꾸지 않습니다.`
-        : `${pageErrors.join(', ')} is not a registered value. Allowed: hour|day|week, p50|p95|all, column:asc|desc. Nothing was substituted.`} />
+          ? `${pageErrors.join(', ')} 은 이 화면의 등록 값이 아닙니다. hour|day|week, p50|p95|all, column:asc|desc, bucket=경계 시각, bin=구간|from..to, page=1 이상 정수 만 허용하며 다른 값으로 바꾸지 않습니다.`
+        : `${pageErrors.join(', ')} is not a registered value. Allowed: hour|day|week, p50|p95|all, column:asc|desc, bucket=aligned timestamp, bin=id|from..to, page=integer ≥ 1. Nothing was substituted.`} />
       : !periodReady ? <p className="text-[13px] text-text-muted">{ko ? '전역 기간이 URL에 확정되면 조회합니다.' : 'The query starts once the global period is in the URL.'}</p>
         : <div className="space-y-4">
           <div className="relative pt-6" data-testid="cycle-kpi">
@@ -248,7 +252,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
                   if (!start || !global.from || !global.to) return;
                   const end = bucketEnd(start, granularity);
                   if (end <= global.from || start >= global.to) return;
-                  setBucket(start);
+                  setPage({ bucket: start, page: null });
                 }}
               />}
             </QueryView>
@@ -267,13 +271,12 @@ export default function CycleTimeDrilldown(_: PageProps) {
                 height={220}
                 series={[{ id: 'hist', name: ko ? '실행 수' : 'Executions', color: 'chart-blue', kind: 'bar', points: data.bins.map((item): [string, number] => [item.id, item.count]) }]}
                 trust={chartTrust(response.trust, unknown)}
-                selectionActions={selection => <Button size="sm" className="h-7 px-2 text-[12px]" onClick={() => setBin({ from: selection.from, to: selection.to })}>{ko ? '이 구간 실행 보기' : 'Show executions in this range'}</Button>}
+                selectionActions={selection => <Button size="sm" className="h-7 px-2 text-[12px]" onClick={() => setPage({ bin: selection.from === selection.to ? selection.from : `${selection.from}..${selection.to}`, page: null })}>{ko ? '이 구간 실행 보기' : 'Show executions in this range'}</Button>}
               />}
             </QueryView>
           </div>
 
           <PlatformDataTable<SlowRow>
-            key={tableKey}
             title={ko ? '느린 실행' : 'Slow executions'}
             subtitle={ko
               ? `페이지 필터 적용 목록입니다. 꼬리 ${tailMode === 'all' ? '전체' : `≥ ${tailMode.toUpperCase()}`} · 모집단 ${kpi.response?.outcome === 'ok' ? kpi.response.data!.count.toLocaleString('ko-KR') : '…'}건. 정렬은 URL sort 키입니다.`
@@ -285,9 +288,20 @@ export default function CycleTimeDrilldown(_: PageProps) {
             filterKey={filterKey}
             pageSize={50}
             height={420}
+            urlState={{
+              page: pageResult.ok && pageResult.page !== 1 ? pageResult.page : null,
+              sorting: [{ id: sortSpec.id, desc: sortSpec.desc }],
+              onChange: ({ page, sorting }) => {
+                const first = sorting[0];
+                const nextSort = first ? encodeSort(first.id, first.desc) : null;
+                if (nextSort === null) { setPage({ sort: null, page: null }); return; } // header removal toggle restores the absent default
+                if (nextSort === encodeSort(sortSpec.id, sortSpec.desc)) { setPage({ page: page === null ? null : String(page) }); return; } // pagination keeps the sort untouched
+                setPage({ sort: nextSort === DEFAULT_SORT ? null : nextSort, page: null }); // header sort gesture resets the page with the sort
+              },
+            }}
             onExport={exportRows}
             emptyAction={(bucketRange || bin || tailMode !== 'p95')
-              ? <Button size="sm" variant="secondary" onClick={() => { setBucket(null); setBin(null); setPage({ percentile: 'all' }); }}>{ko ? '목록 필터 해제' : 'Clear list filters'}</Button>
+              ? <Button size="sm" variant="secondary" onClick={() => setPage({ bucket: null, bin: null, percentile: 'all', page: null })}>{ko ? '목록 필터 해제' : 'Clear list filters'}</Button>
               : undefined}
             rowAction={row => <PlatformLink className="text-[12px] font-medium text-accent-primary hover:underline" href={linkTo('execution-detail', { params: { equipmentId: row.equipmentId }, page: { entityType: 'job', anchor: row.anchor }, returnTo: true })}>{ko ? '상세' : 'Detail'}</PlatformLink>}
             bulkActions={ids => <Button size="sm" className="h-7 px-2 text-[12px]" onClick={() => {
@@ -296,12 +310,6 @@ export default function CycleTimeDrilldown(_: PageProps) {
               toast(ko ? `설비 ${equipmentIds.length}대를 전역 Selection으로 적용했습니다. 다른 메뉴에도 유지됩니다.` : `Applied ${equipmentIds.length} equipment as the global selection. It carries across menus.`);
             }}>{ko ? '선택 설비로 분석 좁히기' : 'Narrow analysis to selected equipment'}</Button>}
             loadPage={(query, signal) => {
-              const header = query.sorting[0];
-              const headerEncoded = header && SORT_COLUMNS.includes(header.id as SortColumn) ? encodeSort(header.id, !!header.desc) : null;
-              if (headerEncoded && headerEncoded !== headerSortRef.current) {
-                headerSortRef.current = headerEncoded;
-                if ((pageParam('sort') ?? DEFAULT_SORT) !== headerEncoded) setPage({ sort: headerEncoded === DEFAULT_SORT ? null : headerEncoded }, { replace: true });
-              }
               const sorting = [{ id: sortSpec.id, desc: sortSpec.desc }];
               return serve({
                 permission: 'analytics:view',
