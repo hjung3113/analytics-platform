@@ -5,9 +5,15 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { Loader2 } from 'lucide-react';
 import { cn } from '../utils/cn';
 
-// Dev gate without process.env/@types/node: Vite/Vitest set import.meta.env.DEV; false in prod builds and absent-shaped elsewhere (plain Node), so dev-throw/prod-warn behavior matches the old NODE_ENV check.
-const metaEnv = (import.meta as { env?: { DEV?: boolean } }).env; // cast: ImportMeta gains `env` only from vite/client types, which @ap/ui deliberately does not reference
-const isDev = metaEnv?.DEV === true;
+// Dev/prod gate bundler-neutral without @types/node: production only on a positive signal (Vite PROD or NODE_ENV=production), so dev/test/plain-Node keep the old dev-throw; casts: ImportMeta gains `env` only from vite/client types, which @ap/ui deliberately does not reference.
+export function isProductionEnv(meta: { env?: { PROD?: boolean } }, g: { process?: { env?: { NODE_ENV?: string } } }): boolean {
+  return meta.env?.PROD === true || g.process?.env?.NODE_ENV === 'production';
+}
+
+const isProduction = isProductionEnv(
+  import.meta as { env?: { PROD?: boolean } },
+  globalThis as { process?: { env?: { NODE_ENV?: string } } },
+);
 
 /**
  * Pack 17 shadcn-CVA Button. Per ADR-0021.
@@ -73,7 +79,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ref,
   ) => {
     if (asChild && loading) {
-      if (isDev) {
+      if (!isProduction) {
         throw new Error(
           'Button: `loading` is incompatible with `asChild` — Slot enforces single-child contract.',
         );
