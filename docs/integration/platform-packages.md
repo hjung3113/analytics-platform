@@ -132,7 +132,7 @@ menus/<group>/
 
 ```ts
 // apps/platform-web
-const registry = createRegistry({ groups: GROUPS, menus: [...home.manifests, ...equipment.manifests, ...] });
+const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: [...home.manifests, ...equipment.manifests, ...] });
 ```
 
 `createRegistry`가 검증할 것(현재 코드는 일부를 런타임에만 암묵적으로 가정):
@@ -141,6 +141,7 @@ const registry = createRegistry({ groups: GROUPS, menus: [...home.manifests, ...
 - **route 충돌 없음:** 파라미터 이름을 지운 정규형(`/metrics/:metricId` → `/metrics/:`)이 같은 두 패턴은 거부한다. 정적 세그먼트와 파라미터가 같은 위치에서 겹치는 경우(`/metrics/new` vs `/metrics/:metricId`)는 허용하되, `matchRoute`가 등록 순서가 아니라 **정적 세그먼트 우선**(앞 세그먼트부터 정적 > 파라미터)으로 고른다. 현재 `matchRoute`는 선언 순서 first-match라 메뉴 패키지로 나누면 등록 순서가 결과를 바꿀 수 있다
 - 그룹마다 `primary` 정확히 하나(08 §4 Candidate)
 - `pageKeys`가 전역 Context 키와 겹치지 않음(06 §6.1)
+- **공간(06 §9.1):** 그룹의 `space`는 등록된 `SpaceDef`여야 하고, 공간별 `homeMenuId`는 그 공간 소속·파라미터 없는 경로·공간 `permission`과 같은 메뉴여야 하며, 부모 메뉴는 자식과 같은 공간에 있다
 
 생성기는 manifest 뼈대, archetype별 PlatformPage 예시, `api.ts`, 테스트 1개를 만들고 앱 등록 목록에 한 줄을 추가한다. 메뉴 템플릿이 Sidebar·Breadcrumb·권한 숨김을 직접 구현하지 못하게 하는 것은 06 §5 "금지" 목록을 lint로 옮겨 막는다(§6).
 

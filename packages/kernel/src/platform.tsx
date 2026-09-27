@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { classifyMetricInit, type MetricInit } from './metric-init';
 import { pathFor, type MenuEntry, type Registry } from './registry';
 import { useI18n } from './i18n';
-import { buildQuery, ContractError, emptyGlobal, type GlobalContext, incompleteMetricPair, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift } from '@ap/contracts';
+import { buildQuery, ContractError, emptyGlobal, type GlobalContext, incompleteMetricPair, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId } from '@ap/contracts';
 
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope'; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
@@ -38,7 +38,18 @@ type Platform = {
   /** Bumps whenever the adapter announces a change; part of every query identity. */
   revision: number;
   can: (permission: Permission) => boolean;
+  /** Menus of the sidebar space the user may enter: menu permission ∧ space entry (06 §9.1). */
   visibleMenus: MenuEntry[];
+  /** Menus of one space with granted permission; [] when the space is unknown or entry is denied. */
+  menusInSpace: (spaceId: SpaceId) => MenuEntry[];
+  /** Registration order; enterable and with at least one permission-visible menu. */
+  accessibleSpaces: readonly SpaceDef[];
+  /** The matched route's space — even when entry is denied; null on unmatched routes. */
+  currentSpace: SpaceDef | null;
+  /** currentSpace when accessible, else the first accessible space; route-derived only, never stored. */
+  sidebarSpace: SpaceDef;
+  /** No-op when spaceId is the current space or not accessible; else push to the space home keeping globals only. */
+  switchSpace: (spaceId: SpaceId) => void;
   scope: ScopeState;
   lastScope: string | null;
   favorites: string[];
@@ -185,7 +196,42 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   }, [global, url, menuById]);
 
   const can = useCallback((p: Permission) => user.permissions.includes(p), [user]);
-  const visibleMenus = useMemo(() => registry.menus.filter(m => can(m.permission)), [registry, can]);
+  // Space entry gate (06 §9.1): a space without permission is open to every signed-in user.
+  const canEnter = useCallback((space: SpaceDef) => !space.permission || can(space.permission), [can]);
+  // Permission-visible menus grouped by their space; membership lives on the group, never the menu.
+  const spaceMenus = useMemo(() => {
+    const map = new Map<SpaceId, MenuEntry[]>();
+    for (const space of registry.spaces) map.set(space.id, []);
+    for (const m of registry.menus) {
+      if (!can(m.permission)) continue;
+      const list = map.get(registry.spaceOf(m).id);
+      if (list) list.push(m);
+    }
+    return map;
+  }, [registry, can]);
+  const menusInSpace = useCallback((spaceId: SpaceId) => {
+    const space = registry.spaces.find(s => s.id === spaceId);
+    return space !== undefined && canEnter(space) ? spaceMenus.get(spaceId) ?? [] : [];
+  }, [registry, canEnter, spaceMenus]);
+  const accessibleSpaces = useMemo(
+    () => registry.spaces.filter(s => canEnter(s) && (spaceMenus.get(s.id)?.length ?? 0) > 0),
+    [registry, canEnter, spaceMenus],
+  );
+  const currentSpace = useMemo(() => (route ? registry.spaceOf(route.menu) : null), [registry, route]);
+  const sidebarSpace = useMemo((): SpaceDef => {
+    if (currentSpace !== null && accessibleSpaces.some(s => s.id === currentSpace.id)) return currentSpace;
+    const fallback = accessibleSpaces[0] ?? registry.spaces[0];
+    if (fallback === undefined) throw new Error('registry declares no spaces');
+    return fallback;
+  }, [currentSpace, accessibleSpaces, registry]);
+  const visibleMenus = useMemo(() => menusInSpace(sidebarSpace.id), [menusInSpace, sidebarSpace]);
+  // Reselecting the current space never sends the user home; non-accessible targets keep the URL.
+  const switchSpace = useCallback((spaceId: SpaceId) => {
+    if (currentSpace?.id === spaceId) return;
+    const target = accessibleSpaces.find(s => s.id === spaceId);
+    if (!target) return;
+    navigate(linkTo(target.homeMenuId));
+  }, [currentSpace, accessibleSpaces, linkTo, navigate]);
 
   const toggleFavorite = useCallback((menuId: string) => {
     setFavorites(list => {
@@ -224,19 +270,22 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   // Recent visits + usage instrumentation (kernel observability of its own registry).
   useEffect(() => {
     if (!route || routeContractError || !can(route.menu.permission)) return;
+    if (!canEnter(registry.spaceOf(route.menu))) return;
     const menuId = route.menu.id;
     setRecent(list => {
       const next = [{ menuId, url, at: Date.now() }, ...list.filter(r => r.menuId !== menuId)].slice(0, 12);
       write(`platform:recent:${userId}`, next);
       return next;
     });
-  }, [url, route, routeContractError, userId, can]);
+  }, [url, route, routeContractError, userId, can, canEnter, registry]);
   const lastCounted = useRef<string | null>(null);
   useEffect(() => {
     if (!route || lastCounted.current === route.menu.id + pathname) return;
+    // A denied direct URL is neither recorded nor counted; menu permission stays out of usage.
+    if (!canEnter(registry.spaceOf(route.menu))) return;
     lastCounted.current = route.menu.id + pathname;
     setUsage(u => { const next = { ...u, [route.menu.id]: (u[route.menu.id] ?? 0) + 1 }; write('platform:usage', next); return next; });
-  }, [route, pathname]);
+  }, [route, pathname, registry, canEnter]);
 
   const pageParam = useCallback((key: string) => page.find(([k]) => k === key)?.[1] ?? null, [page]);
   const returnTarget = useCallback(() => {
@@ -247,7 +296,7 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
 
   const value: Platform = {
     registry, adapter, url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, returnTarget,
-    session, user, revision, can, visibleMenus, scope, lastScope, favorites, toggleFavorite, recent, usage,
+    session, user, revision, can, visibleMenus, menusInSpace, accessibleSpaces, currentSpace, sidebarSpace, switchSpace, scope, lastScope, favorites, toggleFavorite, recent, usage,
     toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen,
   };
   return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>;

@@ -44,7 +44,7 @@ function makeWiredRepo(): string {
   mkdirSync(join(root, 'apps/platform-web/src'), { recursive: true });
 
   const imports = GROUPS.map(g => `import { manifests as ${binding(g.folder)} } from '${PACKAGE_PREFIX}menu-${g.folder}';`).join('\n');
-  const rows = GROUPS.map(g => `  { id: '${g.group}', label: { ko: 'g', en: 'g' }, icon: I },`).join('\n');
+  const rows = GROUPS.map(g => `  { id: '${g.group}', label: { ko: 'g', en: 'g' }, icon: I, space: 'analytics' },`).join('\n');
   const spreads = GROUPS.map(g => `  ...${binding(g.folder)},`).join('\n');
   writeFileSync(join(root, 'apps/platform-web/src/menus.ts'), `// <gen:menu-imports>
 ${imports}

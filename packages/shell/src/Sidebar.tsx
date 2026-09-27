@@ -1,8 +1,8 @@
 import { ChevronDown, ChevronsLeft, ChevronsRight, Clock3, Hexagon, Search, Star, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
-import type { GroupId } from '@ap/contracts';
-import { cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import type { GroupId, SpaceId } from '@ap/contracts';
+import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 
 const OPEN_KEY = 'platform:nav-open';
 function readOpen(): Record<string, boolean> {
@@ -10,7 +10,7 @@ function readOpen(): Record<string, boolean> {
 }
 
 export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
-  const { visibleMenus, route, linkTo, favorites, recent, registry } = usePlatform();
+  const { visibleMenus, route, linkTo, favorites, recent, registry, sidebarSpace, accessibleSpaces } = usePlatform();
   const { t, tx, lang } = useI18n();
   const [open, setOpen] = useState<Record<string, boolean>>(readOpen);
   const [filter, setFilter] = useState('');
@@ -24,7 +24,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
   const navMenus = visibleMenus.filter(m => !m.navHidden);
   const q = filter.trim().toLowerCase();
   const matches = (m: MenuEntry) => !q || m.label.ko.toLowerCase().includes(q) || m.label.en.toLowerCase().includes(q);
-  const grouped = useMemo(() => registry.groups.map(g => ({ group: g, items: navMenus.filter(m => m.group === g.id && matches(m)) })).filter(x => x.items.length), [registry, navMenus, q]);
+  const grouped = useMemo(() => registry.groups.filter(g => g.space === sidebarSpace.id).map(g => ({ group: g, items: navMenus.filter(m => m.group === g.id && matches(m)) })).filter(x => x.items.length), [registry, navMenus, q, sidebarSpace]);
   const isOpen = (id: GroupId) => (q ? true : open[id] ?? true);
 
   const favoriteMenus = favorites.map(id => registry.menus.find(m => m.id === id)).filter((m): m is MenuEntry => !!m && visibleMenus.includes(m));
@@ -33,7 +33,11 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
   if (collapsed) return <TooltipProvider delayDuration={200}>
     <nav aria-label={lang === 'ko' ? '주 메뉴' : 'Primary'} className="flex h-full w-16 flex-col items-center bg-nav text-nav-text">
       <div className="flex h-[54px] w-full items-center justify-center border-b border-nav-divider">
-        <Hexagon className="size-7 fill-accent-primary/30 text-accent-primary" strokeWidth={1.75} aria-hidden />
+        {accessibleSpaces.length >= 2
+          ? <SpaceSwitcher className="grid size-10 place-items-center rounded-sm hover:bg-nav-hover focus-visible:outline-nav-focus">
+              <Hexagon className="size-7 fill-accent-primary/30 text-accent-primary" strokeWidth={1.75} aria-hidden />
+            </SpaceSwitcher>
+          : <Hexagon className="size-7 fill-accent-primary/30 text-accent-primary" strokeWidth={1.75} aria-hidden />}
       </div>
       <div className="nav-scroll flex w-full flex-1 flex-col items-center gap-1 overflow-y-auto py-3">
         {grouped.map(({ group, items }) => {
@@ -66,11 +70,21 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
 
   return <nav aria-label={lang === 'ko' ? '주 메뉴' : 'Primary'} className="flex h-full w-[270px] flex-col bg-nav text-nav-text">
     <div className="flex h-[54px] shrink-0 items-center gap-2.5 border-b border-nav-divider pl-4 pr-2">
-      <Hexagon className="size-8 shrink-0 fill-accent-primary/30 text-accent-primary" strokeWidth={1.75} aria-hidden />
-      <div className="min-w-0 flex-1 leading-tight">
-        <p className="truncate text-[15px] font-semibold text-text-on-accent">{t('appName')}</p>
-        <p className="truncate text-[11px] text-nav-text-faint">{t('appTagline')}</p>
-      </div>
+      {accessibleSpaces.length >= 2
+        ? <SpaceSwitcher className="flex min-w-0 flex-1 items-center gap-2.5 rounded-sm text-left hover:bg-nav-hover focus-visible:outline-nav-focus">
+            <Hexagon className="size-8 shrink-0 fill-accent-primary/30 text-accent-primary" strokeWidth={1.75} aria-hidden />
+            <span className="min-w-0 flex-1 leading-tight">
+              <span className="block truncate text-[15px] font-semibold text-text-on-accent">{t('appName')}</span>
+              <span className="block truncate text-[11px] text-nav-text-faint">{t('appTagline')}</span>
+            </span>
+          </SpaceSwitcher>
+        : <>
+            <Hexagon className="size-8 shrink-0 fill-accent-primary/30 text-accent-primary" strokeWidth={1.75} aria-hidden />
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="truncate text-[15px] font-semibold text-text-on-accent">{t('appName')}</p>
+              <p className="truncate text-[11px] text-nav-text-faint">{t('appTagline')}</p>
+            </div>
+          </>}
       <button type="button" onClick={onToggle} aria-label={t('collapse')} title={`${t('collapse')} ([)`} className="grid size-8 place-items-center rounded-sm hover:bg-nav-hover focus-visible:outline-nav-focus">
         <ChevronsLeft className="size-4" aria-hidden />
       </button>
@@ -134,6 +148,22 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
       {lang === 'ko' ? '통합 프로토타입 · 합성 데이터' : 'Integrated prototype · synthetic data'}
     </div>
   </nav>;
+}
+
+/** Brand-cell space switcher (06 §9.1/07): the TopBar Scope dropdown primitives; rendered only when two or more spaces are accessible. */
+function SpaceSwitcher({ className, children }: { className?: string; children: React.ReactNode }) {
+  const { sidebarSpace, accessibleSpaces, switchSpace } = usePlatform();
+  const { tx, lang } = useI18n();
+  return <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <button type="button" aria-haspopup="menu" aria-label={`${lang === 'ko' ? '공간' : 'Space'}: ${tx(sidebarSpace.label)}`} className={className}>{children}</button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="start" className="min-w-44 rounded-md border border-border-strong bg-surface-card p-1 shadow-md">
+      <DropdownMenuRadioGroup value={sidebarSpace.id} onValueChange={v => switchSpace(v as SpaceId)}>
+        {accessibleSpaces.map(s => <DropdownMenuRadioItem key={s.id} value={s.id} className="text-[13px]">{tx(s.label)}</DropdownMenuRadioItem>)}
+      </DropdownMenuRadioGroup>
+    </DropdownMenuContent>
+  </DropdownMenu>;
 }
 
 function NavSection({ id, icon, label, open, onToggle, children }: { id: string; icon: React.ReactNode; label: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {

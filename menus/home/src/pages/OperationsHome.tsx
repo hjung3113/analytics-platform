@@ -13,7 +13,7 @@ const NOTICES: Notice[] = [
 
 /** 08 운영 개요(랜딩): consumes kernel menu visibility, favorites and recent; applies no analysis Context. */
 export default function OperationsHome() {
-  const { visibleMenus, favorites, toggleFavorite, recent, linkTo, global, registry } = usePlatform();
+  const { visibleMenus, favorites, toggleFavorite, recent, linkTo, global, registry, sidebarSpace } = usePlatform();
   const { t, tx, lang } = useI18n();
   const dismissed = useDismissedNotices();
 
@@ -47,7 +47,7 @@ export default function OperationsHome() {
       <section aria-labelledby="home-groups">
         <h2 id="home-groups" className="t-section-title mb-2">{lang === 'ko' ? '내 메뉴 바로가기' : 'My menus'}</h2>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 wide:grid-cols-6">
-          {registry.groups.filter(g => g.id !== 'overview').map(g => {
+          {registry.groups.filter(g => g.space === sidebarSpace.id && g.id !== 'overview').map(g => {
             const inGroup = visibleMenus.filter(m => m.group === g.id && !m.navHidden);
             if (!inGroup.length) return null;
             const primary = registry.menus.find(m => m.group === g.id && m.primary)!;

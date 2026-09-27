@@ -10,7 +10,8 @@ import { House } from 'lucide-react';
 
 const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const registry = createRegistry({
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House }],
+  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' }],
+  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
   menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
 
@@ -215,7 +216,8 @@ describe('useEntityQuery (session identity)', () => {
 
 describe('setGlobal drops contextResetKeys in the same navigation (06 §6.4)', () => {
   const stateful = createRegistry({
-    groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House }],
+    spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' }],
+    groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
     menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['sort', 'page', 'bucket'], contextResetKeys: ['page', 'bucket'] }],
   });
 

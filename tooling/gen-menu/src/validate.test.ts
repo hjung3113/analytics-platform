@@ -102,8 +102,8 @@ import { manifests as ${FIXTURE_GROUP} } from '${PACKAGE_PREFIX}menu-${FIXTURE_F
 // </gen:menu-imports>
 
 export const GROUPS: GroupDef[] = [
-  { id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge },
-  { id: '${FIXTURE_GROUP}', label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard },
+  { id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge, space: 'analytics' },
+  { id: '${FIXTURE_GROUP}', label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard, space: 'analytics' },
   // </gen:menu-groups>
 ];
 

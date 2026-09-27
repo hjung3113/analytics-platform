@@ -1,4 +1,4 @@
-# Handoff — 2026-09-27 다음 세션: 워크스페이스(공간) 층(#41)부터
+# Handoff — 2026-09-27 다음 세션: 운영 콘솔(#42·#43)부터
 
 ## 먼저 볼 것
 
@@ -11,7 +11,7 @@
 
 ## 현재 상태
 
-- main은 이 PR 병합 시점 기준. 플랫폼 계약 E2E 21개(#44·#45·#46). CI `Platform workspace`·`Platform contracts (E2E)`·Unit A–C·Python codec·`PR checklist` 초록.
+- main은 이 PR 병합 시점 기준. 플랫폼 계약 E2E 24개(#44·#45·#46·#41). CI `Platform workspace`·`Platform contracts (E2E)`·Unit A–C·Python codec·`PR checklist` 초록.
 - 모노레포 이행 1–6단계 완료(PR #16–#32). 작업 관리 체계(#62), 데스크톱 전용 결정(#65).
 - **디자인 트랙(M2)은 보류:** FeedbackOps 디자인 개선이 확정된 뒤 재개한다.
   - 재개 방향: FeedbackOps 디자인을 기반으로 삼고 플랫폼 확장 패턴(Context 바·차트 프레임·분석 레이아웃·KPI)을 더한다.
@@ -20,13 +20,12 @@
 
 ## 다음 세션 할 일 (순서대로)
 
-1. **워크스페이스(공간) 층 — #41.** Kernel 잔여(#45·#46·#47)는 끝났다. 안전망은 `pnpm e2e`(#44, [`apps/platform-e2e`](apps/platform-e2e/AGENTS.md)).
+1. **운영 콘솔 — #42(Registry 조회), #43(활용률 계측).** 공간 층(#41)과 Kernel 잔여(#45·#46·#47)는 끝났다. 안전망은 `pnpm e2e`(#44, [`apps/platform-e2e`](apps/platform-e2e/AGENTS.md)).
+   - #41: 공간은 그룹의 `space`로 선언, 현재 공간은 라우트에서 유도(URL 키 없음). 운영 콘솔 = `operations` 공간 + `console:access`(mock `admin`만). 전환기는 접근 공간 2개 이상일 때 로고 칸의 기존 Dropdown(모양은 디자인 재개 때).
    - #47: mock `serve()`는 `permission`(읽는 데이터의 권한) 필수, 요청 시점 역할로 거부.
    - #45: 화면 상태는 manifest `pageKeys` + `setPage`, Context 변경 시 지울 키는 `contextResetKeys`(앱 README 7번).
    - #46: 상세 화면의 목적지 객체는 `useEntityQuery`(`adapter.getEntity`)로 조회한다. 분석 Context를 쓰지 않는다.
-   공간 층: 기능 먼저 한다(`space` 선언은 Candidate 이름, 공간 권한, 공간 간 Context 보존, 팔레트 공간 표시). 공간 전환기 모양은 디자인 재개 때 정하고, 지금은 기존 스타일로 최소한만 둔다.
-2. **운영 콘솔 — #42(Registry 조회), #43(활용률 계측).** #41 위에 올린다.
-3. 틈틈이: #48 차트 번들 분할, #57 `@types/node` 부채, #58 CSS selector 비교 CI, #37 적재 워커 스키마 초안, #61 FeedbackOps 양방향 딥링크 계약.
+2. 틈틈이: #48 차트 번들 분할, #57 `@types/node` 부채, #58 CSS selector 비교 CI, #37 적재 워커 스키마 초안, #61 FeedbackOps 양방향 딥링크 계약.
 
 ## 결정 (2026-09-27 인터뷰로 확정)
 
@@ -53,7 +52,7 @@
 
 ## 운영 사항
 
-- **새 메뉴 그룹:** `GroupId`·`GROUPS`에 사람이 추가 → `pnpm gen:menu <group> --label-ko … --label-en …` → `pnpm install`. 생성기 변경은 깨끗한 트리에서 `node tooling/gen-menu/scripts/probe.ts`로 확인.
+- **새 메뉴 그룹:** `GroupId`·`GROUPS`(행에 `space` 포함, 06 §9.1)에 사람이 추가 → `pnpm gen:menu <group> --label-ko … --label-en …` → `pnpm install`. 생성기 변경은 깨끗한 트리에서 `node tooling/gen-menu/scripts/probe.ts`로 확인.
 - **검증:** `pnpm lint && pnpm typecheck && pnpm test && pnpm build`, Kernel·셸·공통 컴포넌트·mock을 바꿨으면 `pnpm e2e`(보고: `apps/platform-e2e/contract-report/README.md`). 캐시 없이는 `pnpm exec turbo run lint typecheck test --force`.
 - **dev 서버 누수:** vite가 `node …/vite.js`로 떠서 `pkill -f "vite --host"`에 안 걸린다. 끝나면 `lsof -tiTCP:5173-5180 -sTCP:LISTEN | xargs kill`. 포트가 밀리면 브라우저 검사가 엉뚱한 서버를 본다.
 - **브라우저 검사:** `PLAYWRIGHT_BROWSERS_PATH=$PWD/prototypes/kernel-platform-table/.browsers`, 스크립트는 그 폴더에서 실행. 데스크톱 1440×900 기준.

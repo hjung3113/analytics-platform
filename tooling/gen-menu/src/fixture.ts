@@ -58,18 +58,24 @@ function fixtureGroupIdLine(extra: string[]): string {
 }
 
 function fixtureMenusTsText(extra: string[]): string {
-  const extraRows = extra.map(g => `  { id: '${g}', label: { ko: 'g', en: 'g' }, icon: I },`).join('\n');
+  const extraRows = extra.map(g => `  { id: '${g}', label: { ko: 'g', en: 'g' }, icon: I, space: 'analytics' },`).join('\n');
   return `import { Gauge, LayoutDashboard } from 'lucide-react';
+import type { SpaceDef } from '${PACKAGE_PREFIX}contracts';
 import { createRegistry, type GroupDef, type MenuEntry } from '${PACKAGE_PREFIX}kernel';
 // <gen:menu-imports>
 import { manifests as home } from '${PACKAGE_PREFIX}menu-home';
 // </gen:menu-imports>
 
 export const GROUPS: GroupDef[] = [
-  { id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge },
-  { id: '${FIXTURE_GROUP}', label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard },
+  { id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge, space: 'analytics' },
+  { id: '${FIXTURE_GROUP}', label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard, space: 'analytics' },
 ${extraRows}
   // </gen:menu-groups>
+];
+
+/** Below the groups marker: the wiring lock counts id: lines above it. */
+export const SPACES: SpaceDef[] = [
+  { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' },
 ];
 
 export const MENUS: MenuEntry[] = [
@@ -78,7 +84,7 @@ export const MENUS: MenuEntry[] = [
   // </gen:menu-spreads>
 ];
 
-export const registry = createRegistry({ groups: GROUPS, menus: MENUS });
+export const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: MENUS });
 `;
 }
 
