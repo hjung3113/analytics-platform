@@ -20,7 +20,8 @@
 
 ## 다음 세션 할 일 (순서대로)
 
-1. **틈틈이 목록**: #57 `@types/node` 부채, #58 CSS selector 비교 CI, #37 적재 워커 스키마 초안, #61 FeedbackOps 양방향 딥링크 계약.
+1. **틈틈이 목록**: 남은 것은 #37 적재 워커 스키마 초안(합의는 파서 담당). #57·#58·#61은 완료.
+   - 사람의 결정 대기: #75(활용률 조회조건 수집), #81(FeedbackOps 딥링크 확장 — `docs/integration/feedbackops-deeplink.md`).
    - **M1 완료 — 마지막 이슈였던 #48 차트 번들 분할도 끝났다(#41·#42·#43·#45·#46·#47·#48).** EChart 구현이 lazy 청크(`EChartImpl`)로 분리됐다. #42(Registry 조회) 한 줄 요약: `admin-registry` 메뉴(`pageType: catalog`, pageKeys `sort`/`page`/`focus`)가 client registry를 `PlatformDataTable`로 조회하고 행 동작으로 선언 드로어를 연다. #43(활용률 계측)도 완료 — kernel이 `adapter.recordUsage`(entry/dwell, 식별 필드만)로 계측하고 콘솔 `admin-usage`는 `adapter.usageSummary` 집계만 읽는다(조회조건 수집 여부는 #75 결정 대기).
    - 안전망은 `pnpm e2e`(#44, [`apps/platform-e2e`](apps/platform-e2e/AGENTS.md)).
 

@@ -25,7 +25,7 @@
 
 선행 이슈가 없는 것들이다. 위에서부터 추천 순서.
 
-1. **틈틈이 목록**: ~~`@types/node` 부채 (#57)~~ 완료, ~~CSS selector 비교 CI (#58)~~ 완료 — `tooling/css-selectors` + CI `css-selectors` Job(라벨 `css-removal-ok`), 적재 워커 상태 스키마 초안 → 파서 담당 협의 (#37), FeedbackOps 양방향 딥링크 계약 (#61). 계약 안전망은 `pnpm e2e`(#44), 메뉴 활용률 계측(#43)도 완료 — kernel이 `adapter.recordUsage`(entry/dwell)로 계측하고 콘솔은 `usageSummary` 집계만 읽는다(조회조건 수집 여부는 #75 결정 대기).
+1. **틈틈이 목록**: ~~`@types/node` 부채 (#57)~~ 완료, ~~CSS selector 비교 CI (#58)~~ 완료 — `tooling/css-selectors` + CI `css-selectors` Job(라벨 `css-removal-ok`), 적재 워커 상태 스키마 초안 → 파서 담당 협의 (#37), ~~FeedbackOps 양방향 딥링크 계약 (#61)~~ 완료 — `docs/integration/feedbackops-deeplink.md`(phase-1, 확장은 #81 결정 대기). 계약 안전망은 `pnpm e2e`(#44), 메뉴 활용률 계측(#43)도 완료 — kernel이 `adapter.recordUsage`(entry/dwell)로 계측하고 콘솔은 `usageSummary` 집계만 읽는다(조회조건 수집 여부는 #75 결정 대기).
 
 디자인 방향 프로토타입(#52)은 보류다(아래 M2).
 
@@ -81,7 +81,7 @@
 | --- | --- |
 | 디자인 토큰 공유 (#59) | #53, #40 |
 | 내 VOC·설문 이력 조회 + 원본 딥링크 (#60) | #41, #40 |
-| 양방향 Context 딥링크 계약 (#61) | #40 |
+| ~~양방향 Context 딥링크 계약 (#61)~~ 완료 — 확장은 #81 | #40 |
 
 ## 작업 방식 요약
 
