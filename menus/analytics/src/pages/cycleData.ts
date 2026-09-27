@@ -5,7 +5,7 @@
  * strings and are never shortened to join or display.
  */
 import { formatDateTime, type GlobalContext, parseDateTime, shift } from '@ap/contracts';
-import { EQUIPMENT, getScenario, resolveEquipment, type Equipment } from '../api';
+import { EQUIPMENT, serve, type Equipment } from '../api';
 import { bucketStart as jobBucketStart, cycleMinutes, jobPercentile, jobsForEquipmentDay, jobsInPeriod, type Job } from '../api';
 
 export const PAGE_METRIC_ID = 'cycle_time';
@@ -194,16 +194,23 @@ export function population(equipment: Equipment[], global: GlobalContext, versio
   }).map(job => executionFromJob(job, version));
 }
 
-export function rowsForExport(global: GlobalContext, version: string | null):
-  | { status: 'unavailable' } | { status: 'rejected' } | { status: 'ok'; rows: Execution[] } {
-  const scenario = getScenario();
-  if (version === null || scenario === 'error' || scenario === 'forbidden' || scenario === 'timeout' || scenario === 'too_large') {
-    return { status: 'unavailable' };
-  }
-  const resolved = resolveEquipment(global);
-  if (resolved.forbidden || !global.from || !global.to) return { status: 'rejected' };
-  const rows = scenario === 'empty' ? [] : population(resolved.rows, global, version);
-  return { status: 'ok', rows };
+/** Export reads through serve() like any query: permission and Scope are re-validated per request. */
+export async function rowsForExport(global: GlobalContext, version: string | null): Promise<
+  { status: 'unavailable' } | { status: 'rejected' } | { status: 'ok'; rows: Execution[] }> {
+  if (version === null) return { status: 'unavailable' };
+  if (!global.from || !global.to) return { status: 'rejected' };
+  const response = await serve({
+    global,
+    permission: 'analytics:view',
+    mergeTimeDomain: false,
+    latency: 0,
+    compute: ({ equipment }) => population(equipment, global, version),
+    isEmpty: rows => rows.length === 0,
+  });
+  if (response.outcome === 'ok') return { status: 'ok', rows: response.data ?? [] };
+  if (response.outcome === 'empty') return { status: 'ok', rows: [] };
+  if (response.outcome === 'forbidden') return { status: 'rejected' };
+  return { status: 'unavailable' };
 }
 
 export function slowExecutions(

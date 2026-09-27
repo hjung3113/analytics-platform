@@ -2,7 +2,7 @@
  * Mock request validation + response envelope (docs/06 §19): exclusive `outcome` plus declared `assessments[]`.
  * Every page query goes through `serve()` so Scope/room grants are re-validated per request (§6.2).
  */
-import { parseDateTime, type ApiResponse, type Assessment, type AssessmentKind, type Condition, type GlobalContext, type ScopeCheck, type Trust } from '@ap/contracts';
+import { parseDateTime, type ApiResponse, type Assessment, type AssessmentKind, type Condition, type GlobalContext, type Permission, type ScopeCheck, type Trust } from '@ap/contracts';
 import { EQUIPMENT, SITES, TIME_DOMAIN_ASSERTIONS, USERS, type Equipment, type RoleId, type TimeDomainAssertion } from './world';
 
 /**
@@ -83,6 +83,11 @@ export type ServeOptions<T> = {
   /** Tests pin a role; pages omit it and the server uses the signed-in session, as a real server would. */
   role?: RoleId;
   global: GlobalContext;
+  /**
+   * The endpoint's access rule, like a real server's per-endpoint ACL. The server decides with the
+   * request's pinned role; the client route gate is only UX.
+   */
+  permission: Permission;
   /** Kinds this query contract declares (§19); every one is answered exactly once. */
   kinds?: AssessmentKind[];
   requiresScope?: boolean;
@@ -160,6 +165,9 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
   const correlationId = nextCorrelation();
   await sleep((o.latency ?? 450) + (s === 'slow' ? 2200 : 0) + Math.random() * 200, o.signal);
   const base = { correlationId, data: null, trust: null, assessments: [] as Assessment[] };
+  // Menu permission (§17): the same rule as menu visibility and route access, re-validated per request
+  // with the pinned role. A missing permission outranks every response scenario.
+  if (!USERS[requestRole].permissions.includes(o.permission)) return { ...base, outcome: 'forbidden', message: `No permission ${o.permission}` };
   if (s === 'timeout') return { ...base, outcome: 'timeout', message: 'Query exceeded 30s budget' };
   if (s === 'error') return { ...base, outcome: 'error', message: 'Upstream mart query failed' };
   // Every other widget query fails so pages can show a local failure next to healthy widgets (§19 Partial widget failure).

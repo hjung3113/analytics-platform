@@ -18,6 +18,12 @@ export type MenuInputs = {
   binding: string;
 };
 
+/**
+ * The scaffold's one permission: the manifest declares it and the sample page's serve() requires it, because the
+ * server re-validates menu permission per request (#47). Kept in one place so the two never drift apart.
+ */
+export const SCAFFOLD_PERMISSION = 'platform:view';
+
 export const menuPackage = (folder: string): string => `${PACKAGE_PREFIX}menu-${folder}`;
 
 /** apps/platform-web/src/menus.ts import insert. */
@@ -122,7 +128,7 @@ export const manifests: MenuEntry[] = [
     id: '${i.menuId}', primary: true, group: '${i.group}',
     label: { ko: '${i.labelKo}', en: '${i.labelEn}' },
     description: { ko: '${i.labelKo}', en: '${i.labelEn}' },
-    path: '${i.path}', icon: LayoutDashboard, permission: 'platform:view',
+    path: '${i.path}', icon: LayoutDashboard, permission: '${SCAFFOLD_PERMISSION}',
     requiresScope: false, context: none, pageType: '${i.pageType}', features: noFeatures, pageKeys: [],
     component: lazy(() => import('./pages/${i.page}')),
   },
@@ -140,7 +146,7 @@ export default function ${i.page}Screen() {
   const { global } = usePlatform();
   const { lang } = useI18n();
   const query = usePlatformQuery(signal => serve({
-    global, signal, requiresScope: false, mergeTimeDomain: false,
+    global, signal, permission: '${SCAFFOLD_PERMISSION}', requiresScope: false, mergeTimeDomain: false,
     compute: () => ({ ready: true }),
     isEmpty: () => false,
   }));
