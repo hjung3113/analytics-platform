@@ -1,4 +1,4 @@
-# Handoff — 2026-09-27 다음 세션: 운영 콘솔 #42(Registry 조회)부터
+# Handoff — 2026-09-27 다음 세션: 틈틈이 목록(M1 완료)부터
 
 ## 먼저 볼 것
 
@@ -11,7 +11,7 @@
 
 ## 현재 상태
 
-- main은 이 PR 병합 시점 기준. 플랫폼 계약 E2E 24개(#44·#45·#46·#41). CI `Platform workspace`·`Platform contracts (E2E)`·Unit A–C·Python codec·`PR checklist` 초록.
+- main은 이 PR 병합 시점 기준. 플랫폼 계약 E2E 30개(#44·#45·#46·#41·#43·#42). CI `Platform workspace`·`Platform contracts (E2E)`·Unit A–C·Python codec·`PR checklist` 초록.
 - 모노레포 이행 1–6단계 완료(PR #16–#32). 작업 관리 체계(#62), 데스크톱 전용 결정(#65).
 - **디자인 트랙(M2)은 보류:** FeedbackOps 디자인 개선이 확정된 뒤 재개한다.
   - 재개 방향: FeedbackOps 디자인을 기반으로 삼고 플랫폼 확장 패턴(Context 바·차트 프레임·분석 레이아웃·KPI)을 더한다.
@@ -20,12 +20,9 @@
 
 ## 다음 세션 할 일 (순서대로)
 
-1. **운영 콘솔 — #42(Registry 조회)가 다음 작업.** #43(활용률 계측)은 완료 — kernel이 `adapter.recordUsage`(entry/dwell, 식별 필드만)로 계측하고 콘솔 `admin-usage`는 `adapter.usageSummary` 집계만 읽는다(조회조건 수집 여부는 #75 결정 대기). 공간 층(#41)과 Kernel 잔여(#45·#46·#47)는 끝났다. 안전망은 `pnpm e2e`(#44, [`apps/platform-e2e`](apps/platform-e2e/AGENTS.md)).
-   - #41: 공간은 그룹의 `space`로 선언, 현재 공간은 라우트에서 유도(URL 키 없음). 운영 콘솔 = `operations` 공간 + `console:access`(mock `admin`만). 전환기는 접근 공간 2개 이상일 때 로고 칸의 기존 Dropdown(모양은 디자인 재개 때).
-   - #47: mock `serve()`는 `permission`(읽는 데이터의 권한) 필수, 요청 시점 역할로 거부.
-   - #45: 화면 상태는 manifest `pageKeys` + `setPage`, Context 변경 시 지울 키는 `contextResetKeys`(앱 README 7번).
-   - #46: 상세 화면의 목적지 객체는 `useEntityQuery`(`adapter.getEntity`)로 조회한다. 분석 Context를 쓰지 않는다.
-2. 틈틈이: #48 차트 번들 분할, #57 `@types/node` 부채, #58 CSS selector 비교 CI, #37 적재 워커 스키마 초안, #61 FeedbackOps 양방향 딥링크 계약.
+1. **M1 마지막 이슈 #48 차트 번들 분할.** 그 뒤 틈틈이: #57 `@types/node` 부채, #58 CSS selector 비교 CI, #37 적재 워커 스키마 초안, #61 FeedbackOps 양방향 딥링크 계약.
+   - **M1은 #48만 남았다(#41·#42·#43·#45·#46·#47 완료).** #42(Registry 조회) 한 줄 요약: `admin-registry` 메뉴(`pageType: catalog`, pageKeys `sort`/`page`/`focus`)가 client registry를 `PlatformDataTable`로 조회하고 행 동작으로 선언 드로어를 연다. #43(활용률 계측)도 완료 — kernel이 `adapter.recordUsage`(entry/dwell, 식별 필드만)로 계측하고 콘솔 `admin-usage`는 `adapter.usageSummary` 집계만 읽는다(조회조건 수집 여부는 #75 결정 대기).
+   - 안전망은 `pnpm e2e`(#44, [`apps/platform-e2e`](apps/platform-e2e/AGENTS.md)).
 
 ## 결정 (2026-09-27 인터뷰로 확정)
 
