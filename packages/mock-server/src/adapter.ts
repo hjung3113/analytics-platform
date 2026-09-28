@@ -4,6 +4,7 @@
  */
 import type { PlatformAdapter, Session } from '@ap/contracts';
 import { checkScope, getEntity, getRole, matchesCondition, recordUsage, subscribeServer, usageSummary, validateScope } from './server';
+import { mySurveyHistory, myVocHistory } from './my-voc';
 import { DEFAULT_RANGE_TO, EQUIPMENT, PUBLISHED_METRICS, SITES, USERS, type RoleId } from './world';
 
 /** Short async hop so the shell exercises its loading path, as it would against a real server. */
@@ -64,4 +65,7 @@ export const mockAdapter: PlatformAdapter = {
   // Fire-and-forget telemetry: the kernel never awaits these and passes no AbortSignal.
   recordUsage: events => recordUsage(events),
   usageSummary: (range, signal) => usageSummary(range, signal),
+  // opts (test role pin, latency) stay server-side: the adapter passes the port arguments only.
+  myVocHistory: (query, signal) => myVocHistory(query, signal),
+  mySurveyHistory: signal => mySurveyHistory(signal),
 };

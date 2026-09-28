@@ -31,6 +31,8 @@ function fixture(getEntity?: PlatformAdapter['getEntity']) {
     getEntity: getEntity ?? (async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' })),
     recordUsage: async () => ({ accepted: 0 }),
     usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    myVocHistory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    mySurveyHistory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
   };
   return {
@@ -112,6 +114,8 @@ describe('adapter shape', () => {
       async getEntity() { return { outcome: 'empty' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
       async recordUsage() { return { accepted: 0 }; }
       async usageSummary() { return { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
+      async myVocHistory() { return { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
+      async mySurveyHistory() { return { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
       subscribe(listener: () => void) { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
     }
     mount(new ServerAdapter());

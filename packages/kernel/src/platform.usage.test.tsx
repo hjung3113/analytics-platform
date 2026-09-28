@@ -51,6 +51,8 @@ function recordingFixture(permissions: Session['user']['permissions'], userId = 
       return { accepted: batch.length };
     }),
     usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    myVocHistory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    mySurveyHistory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; },
   };
   // Session identity change the way the app's session store announces one (new snapshot + notify).

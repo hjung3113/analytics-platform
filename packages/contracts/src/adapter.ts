@@ -62,6 +62,41 @@ export type UsageRange = { preset: 'all' } | { from: number; to: number };
 export type UsageMenuSummary = { menuId: string; visits: number; distinctUsers: number; lastUsedAt: number };
 export type UsageSummary = { preset: 'all' | 'range'; menus: UsageMenuSummary[] };
 
+/** User-facing VOC status only (issue #60). Not triage_state, not an operator inbox. */
+export type MyVocStatus =
+  | 'received' | 'reviewing' | 'assigned' | 'progress'
+  | 'prep' | 'resolved' | 'reopened' | 'closed';
+
+/** One filed VOC, mapped from the FeedbackOps `VocListItem` (issue #60); the FeedbackOps DTO never leaks. */
+export type MyVocItem = {
+  id: string; // FeedbackOps voc id (uuid). Deep-link vocId. Not display_id.
+  displayId: string; // display_id. Shown as-is; not translated.
+  title: string; // user text; not translated (06 §23).
+  status: MyVocStatus; // reporter_facing_status. The only status on the wire.
+  openedAt: string; // created_at, ISO-8601. Not an analysis from/to.
+  updatedAt: string; // updated_at, ISO-8601.
+  managedSystemId: string; // primary_managed_system_id (uuid). Not a platform scopeId; never shown, never linked.
+};
+
+export type MyVocQuery = {
+  /** Opaque token from the previous page's nextCursor. Omitted = first page. */
+  cursor?: string;
+};
+
+export type MyVocPage = {
+  items: readonly MyVocItem[];
+  /** Null on the last page. Client must not parse it. */
+  nextCursor: string | null;
+};
+
+export type MySurveyItem = {
+  surveyId: string; // uuid, only once a source exists
+  title: string;
+  submittedAt: string; // ISO-8601
+};
+
+export type MySurveyPage = { items: readonly MySurveyItem[] };
+
 export type PlatformAdapter = {
   /** Current session. Must return the same object until the session changes (it is a store snapshot). */
   session(): Session;
@@ -80,6 +115,16 @@ export type PlatformAdapter = {
   recordUsage(events: readonly UsageEvent[]): Promise<{ accepted: number }>;
   /** Console aggregate read (docs/05 열람 권한: console:access, server-checked). The console never reads raw events. */
   usageSummary(range: UsageRange, signal?: AbortSignal): Promise<ApiResponse<UsageSummary>>;
+  /**
+   * The session actor's filed VOCs, newest openedAt first, cursor-paged (issue #60). No user id, scopeId or
+   * Global Context argument — the server stamps the session actor. `managedSystemId` is data, never a link or filter input.
+   */
+  myVocHistory(query: MyVocQuery, signal?: AbortSignal): Promise<ApiResponse<MyVocPage>>;
+  /**
+   * The session actor's survey submissions. No FeedbackOps read exists yet (issue #60): success is always the
+   * declared `respondent_history`/`unknown` envelope, never a confirmed zero.
+   */
+  mySurveyHistory(signal?: AbortSignal): Promise<ApiResponse<MySurveyPage>>;
   /**
    * Announces that the session or server-side state changed. The kernel then re-reads the session,
    * re-validates the scope when the session changed, and hides every earlier query result.
