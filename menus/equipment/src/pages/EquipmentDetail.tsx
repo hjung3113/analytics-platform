@@ -1,8 +1,8 @@
-import { type PageProps, PlatformLink, useEntityQuery, useI18n, usePlatform } from '@ap/kernel';
+import { type PageProps, PlatformLink, useEntityQuery, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { AuditTimeline, DataTrustIndicator, Field, PlatformPage, QueryView } from '@ap/components';
 import { Button, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 import { EQUIPMENT_ENTITY_TYPE, type Equipment } from '../api';
-import { audit, fields, statusText, statusTone, validity } from './data';
+import { fields, statusText, statusTone, validity } from './data';
 
 export function EquipmentStatus({ equipment }: { equipment: Equipment }) {
   const { lang } = useI18n();
@@ -10,10 +10,21 @@ export function EquipmentStatus({ equipment }: { equipment: Equipment }) {
 }
 
 export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 'validity' | 'audit' | 'analysis' }) {
-  const { global, scope, linkTo } = usePlatform();
+  const { adapter, global, scope, linkTo } = usePlatform();
   const { lang } = useI18n();
   const ko = lang === 'ko';
-  const query = useEntityQuery<Equipment>({ type: EQUIPMENT_ENTITY_TYPE, id, scopeId: global.scopeId }, kind, scope.status === 'valid');
+  const query = useEntityQuery<Equipment>({ type: EQUIPMENT_ENTITY_TYPE, id, scopeId: global.scopeId }, kind, kind !== 'audit' && scope.status === 'valid');
+  // #50: the audit tab reads the destination's events from the port, not the entity payload. Context
+  // identity (default): the ref carries the scope, so a scope change refetches like any page query.
+  const auditQuery = usePlatformQuery(
+    signal => adapter.entityAudit({ type: EQUIPMENT_ENTITY_TYPE, id, scopeId: global.scopeId }, signal),
+    [id, global.scopeId],
+    kind === 'audit' && scope.status === 'valid',
+  );
+  if (kind === 'audit') return <QueryView query={auditQuery}>{events => <div className="space-y-4">
+    <p className="t-caption text-text-muted">{ko ? '합성 감사 이벤트 · 실제 변경 기록이 아닙니다.' : 'Synthetic audit events · not real change records.'}</p>
+    <AuditTimeline events={[...events.events]} />
+  </div>}</QueryView>;
   return <QueryView query={query}>{(e, response) => e && <div className="space-y-4">
     <DataTrustIndicator trust={response.trust} assessments={response.assessments} />
     {kind === 'attributes' && <>
@@ -29,7 +40,6 @@ export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 
       </li>)}</ol>
       {e.validTo && <p className="text-sm">{ko ? '유효 종료된 ID입니다. 레코드와 이력은 보존됩니다.' : 'This ID is retired. The record and history are retained.'}</p>}
     </>}
-    {kind === 'audit' && <><p className="t-caption text-text-muted">{ko ? '합성 감사 이벤트 · 실제 변경 기록이 아닙니다.' : 'Synthetic audit events · not real change records.'}</p><AuditTimeline events={audit(e)} /></>}
     {kind === 'analysis' && <>
       <p className="text-sm">{ko ? '아래 링크를 클릭하면 분석 Selection을 이 설비 한 대로 명시적으로 교체합니다. 현재 상세를 여는 것만으로는 Selection이 바뀌지 않습니다.' : 'Clicking this link explicitly replaces the analysis Selection with this equipment. Opening details alone does not change Selection.'}</p>
       <Button asChild size="sm"><PlatformLink href={linkTo('cycle-time', { global: { selection: [id] } })}>{ko ? '이 설비로 사이클타임 상세' : 'Cycle time for this equipment'}</PlatformLink></Button>

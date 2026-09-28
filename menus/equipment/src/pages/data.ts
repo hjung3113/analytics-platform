@@ -1,5 +1,5 @@
 import type { Equipment } from '../api';
-import { type AuditEvent, parseDateTime, shift } from '@ap/contracts';
+import { parseDateTime, shift } from '@ap/contracts';
 
 export const statusText = {
   active: { ko: '사용중', en: 'Active' }, idle: { ko: '대기', en: 'Idle' },
@@ -27,17 +27,6 @@ export function validity(e: Equipment) {
   return [
     { from: e.validFrom, to: changedAt, chamberType: `${e.chamberType}-V1` },
     { from: changedAt, to: e.validTo, chamberType: e.chamberType },
-  ];
-}
-export function audit(e: Equipment): AuditEvent[] {
-  const segments = validity(e);
-  // #50: the destination triple (06 §22). `at` stays naive until step 2 replaces this generator with entityAudit.
-  const target = { type: 'equipment', id: e.equipmentId, scopeId: e.site };
-  return [
-    { id: `${e.equipmentId}-create`, at: e.validFrom, actor: 'master-sync', action: 'create', source: 'system', target, changes: { equipmentId: [null, e.equipmentId], chamberType: [null, segments[0].chamberType] } },
-    { id: `${e.equipmentId}-version`, at: segments[1].from, actor: 'master-sync', action: 'update', source: 'system', target, changes: { chamberType: [segments[0].chamberType, e.chamberType] } },
-    ...(e.validTo ? [{ id: `${e.equipmentId}-retire`, at: e.validTo, actor: e.updatedBy, action: 'retire' as const, source: 'user' as const, target, changes: { validTo: [null, e.validTo] as [null, string] } }] : []),
-    { id: `${e.equipmentId}-sync`, at: e.updatedAt, actor: e.updatedBy, action: 'sync', source: 'system', target },
   ];
 }
 export function downloadCsv(rows: Equipment[]) {
