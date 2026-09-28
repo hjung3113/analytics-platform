@@ -15,18 +15,28 @@ const REACT_MESSAGE = 'react / react-dom are not allowed in this package.';
 const MENU_ALLOW = ['contracts', 'kernel', 'components', 'ui'];
 const APP_CARVEOUT_FILES = ['src/main.tsx', 'src/dev/**/*.{ts,tsx}', 'src/published-metrics.test.ts'];
 
+// Composition-root-only menu subpath (issue #60): the app injects the FeedbackOps origin slot through the
+// menu package's "./feedbackops-origin" export. Narrowest deep-subpath allowance there is — this exact
+// subpath inside src/main.tsx ONLY; every other menu subpath, any `*/src` import, and every other
+// carve-out file (src/dev, published-metrics.test.ts) stays banned.
+const MENU_SUBPATH_ALLOW = ['menu-notice-voc/feedbackops-origin'];
+
 // Restriction data is the single decision source: each layer declares
-// { allow, denyReact, mockAllowed } and BOTH import rules are built from it,
+// { allow, denyReact, mockAllowed, allowSubpaths } and BOTH import rules are built from it,
 // so static and dynamic imports can never drift apart.
 //   allow: package-entry names this layer may import; null = every entry.
 //   mockAllowed: exempts exactly the mock-server entry (never its subpaths).
-// Deep subpaths are banned for everyone, including inside carve-outs.
+//   allowSubpaths: exact `name/subpath` entries exempted from the deep-subpath ban (default none).
+// Deep subpaths are banned for everyone, except the exact allowSubpaths entries, everywhere.
 const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, mockAllowed: false };
 const MENU_API_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, mockAllowed: true };
 const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false };
+// src/main.tsx is the composition root: mock-server allowed AND the origin subpath allowed (both import rules).
+const APP_MAIN_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true, allowSubpaths: MENU_SUBPATH_ALLOW };
+// The other carve-out files keep the mock-server exemption but never the menu-subpath allowance.
 const APP_CARVEOUT_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true };
 
-function importRestrictions({ allow, denyReact, mockAllowed }) {
+function importRestrictions({ allow, denyReact, mockAllowed, allowSubpaths = [] }) {
   const negations = [
     ...(allow === null ? [] : allow.map((name) => `!${pkg(name)}`)),
     ...(mockAllowed ? [`!${pkg('mock-server')}`] : []),
@@ -42,7 +52,7 @@ function importRestrictions({ allow, denyReact, mockAllowed }) {
         : [],
       patterns: [
         {
-          group: [`${PACKAGE_PREFIX}*/*`, `${PACKAGE_PREFIX}*/*/**`],
+          group: [`${PACKAGE_PREFIX}*/*`, `${PACKAGE_PREFIX}*/*/**`, ...allowSubpaths.map((s) => `!${pkg(s)}`)],
           message: DEEP_SUBPATH_MESSAGE,
         },
         ...(allow === null
@@ -219,15 +229,22 @@ export const menu = [
   },
 ];
 
-// App: all package entries allowed, deep subpaths and mock-server banned;
-// main.tsx / src/dev / published-metrics.test.ts keep the deep-subpath ban
-// but drop the mock-server ban for both import rules together. No ignores
-// for **/*.test.*.
+// App: all package entries allowed, deep subpaths and mock-server banned; src/main.tsx additionally
+// keeps the mock-server exemption and the origin-subpath allowance for both import rules together;
+// the other carve-out files (src/dev / published-metrics.test.ts) keep only the mock-server
+// exemption — the origin subpath stays banned there, static and dynamic. No ignores for **/*.test.*.
 /** @type {import('eslint').Linter.Config[]} */
 export const app = [
   layerConfig({ restriction: APP_RESTRICTION }),
   {
-    files: APP_CARVEOUT_FILES,
+    files: ['src/main.tsx'],
+    rules: {
+      'no-restricted-imports': importRestrictions(APP_MAIN_RESTRICTION),
+      'ap/restricted-import-source': ['error', importSourceOptions(APP_MAIN_RESTRICTION)],
+    },
+  },
+  {
+    files: APP_CARVEOUT_FILES.filter((f) => f !== 'src/main.tsx'),
     rules: {
       'no-restricted-imports': importRestrictions(APP_CARVEOUT_RESTRICTION),
       'ap/restricted-import-source': ['error', importSourceOptions(APP_CARVEOUT_RESTRICTION)],

@@ -176,11 +176,13 @@ Domain logic이 Kernel로 역류하지 않도록 한다.
 | Occupancy Analysis | O | O | △ | O |
 | Wafer Journey | O | O | O | △ |
 | Metric Catalog | X | △ | X | O |
-| VOC | △ | △ | △ | △ |
+| VOC | X | X | X | X |
 
 `O`: 직접 필터로 적용  
 `△`: 전달/참조 가능하지만 직접 조회 필터는 아닐 수 있음  
 `X`: 미지원
+
+VOC 행: FeedbackOps 1단계의 `/voc`(내 VOC)는 세션 사용자 기준 읽기라 전역 Context를 모두 `unsupported`로 선언한다(#60). 플랫폼 안에서 VOC를 처리하는 워크플로가 생기면 다시 정한다.
 
 ### 규칙
 

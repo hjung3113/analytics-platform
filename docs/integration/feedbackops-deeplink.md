@@ -10,7 +10,7 @@ FeedbackOps `validateSearch`가 `.strict()`라 알 수 없는 쿼리 키는 그�
 
 ## 1. 방향 A — 플랫폼 → FeedbackOps
 
-Base는 인자 `origin`이다. 정규형은 정규식이 아니라 URL 표준 파싱(`new URL(input)`)으로 정하고, 입력이 `new URL(input).origin`과 정확히 같아야 한다(끝의 단일 슬래시 `/` 1개는 허용). `https`만 허용하고 `http`는 `localhost`/`127.0.0.1`만 허용한다. 정규형에서 벗어난 입력 — 축약 IPv4(`https://127.1`의 브라우저 origin은 `https://127.0.0.1`), 대문자 호스트(`https://EXAMPLE.com`), trailing-dot 호스트(`https://example.com.`), userinfo·path·query·hash, 기본 포트 — 는 `feedbackops_origin` 오류로 거부한다 — 보정하지 않는다. 앱이 `VITE_FEEDBACKOPS_ORIGIN`을 읽어 helper에 넘긴다(`PlatformAdapter`·kernel에 넣지 않는다. 어댑터 origin은 플랫폼 서버 포트다). env 연결은 #60이 링크를 그릴 때까지 미룬다.
+Base는 인자 `origin`이다. 정규형은 정규식이 아니라 URL 표준 파싱(`new URL(input)`)으로 정하고, 입력이 `new URL(input).origin`과 정확히 같아야 한다(끝의 단일 슬래시 `/` 1개는 허용). `https`만 허용하고 `http`는 `localhost`/`127.0.0.1`만 허용한다. 정규형에서 벗어난 입력 — 축약 IPv4(`https://127.1`의 브라우저 origin은 `https://127.0.0.1`), 대문자 호스트(`https://EXAMPLE.com`), trailing-dot 호스트(`https://example.com.`), userinfo·path·query·hash, 기본 포트 — 는 `feedbackops_origin` 오류로 거부한다 — 보정하지 않는다. 앱이 `VITE_FEEDBACKOPS_ORIGIN`을 읽어 helper에 넘긴다(`PlatformAdapter`·kernel에 넣지 않는다. 어댑터 origin은 플랫폼 서버 포트다). 앱이 시작할 때 `VITE_FEEDBACKOPS_ORIGIN`을 읽어 `@ap/menu-notice-voc/feedbackops-origin`에 넣고, 메뉴가 `buildFeedbackOpsLink`로 링크를 만든다(#60). 값이 없거나 정규형이 아니면 링크를 만들지 않고 비활성으로 보인다(보정하지 않음).
 
 | target | phase-1이 내는 URL | FeedbackOps가 이미 읽는 것 (`6a0c7f8`) |
 | --- | --- | --- |

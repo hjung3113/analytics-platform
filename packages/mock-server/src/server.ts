@@ -30,8 +30,9 @@ export function subscribeServer(listener: () => void) { listeners.add(listener);
 
 let correlation = 4100;
 let partialCounter = 0;
-const nextCorrelation = () => `corr-${(correlation++).toString(16)}-${Math.random().toString(16).slice(2, 6)}`;
-const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((resolve, reject) => {
+/** Shared by every endpoint module (server.ts itself, my-voc.ts): one counter, one format `corr-…`. */
+export const nextCorrelation = () => `corr-${(correlation++).toString(16)}-${Math.random().toString(16).slice(2, 6)}`;
+export const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((resolve, reject) => {
   const id = setTimeout(resolve, ms);
   signal?.addEventListener('abort', () => { clearTimeout(id); reject(new DOMException('aborted', 'AbortError')); });
 });

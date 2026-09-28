@@ -1,6 +1,7 @@
 /** Response envelope (docs/06 §18–19): exclusive `outcome` plus declared `assessments[]`. Field names are Candidates. */
 export type Outcome = 'ok' | 'empty' | 'error' | 'forbidden' | 'too_large' | 'timeout';
-export type AssessmentKind = 'collection' | 'processing_delay' | 'coverage' | 'time_domain';
+/** §19: the platform owns the kind list; a query must not drop an applicable kind because its source is unimplemented. */
+export type AssessmentKind = 'collection' | 'processing_delay' | 'coverage' | 'time_domain' | 'respondent_history';
 export type Assessment = {
   kind: AssessmentKind;
   state: 'confirmed' | 'clear' | 'unknown';

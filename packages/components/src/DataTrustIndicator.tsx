@@ -10,6 +10,7 @@ const KIND: Record<Assessment['kind'], { ko: string; en: string }> = {
   processing_delay: { ko: '처리 지연', en: 'Processing delay' },
   coverage: { ko: '커버리지', en: 'Coverage' },
   time_domain: { ko: '시간역', en: 'Time domain' },
+  respondent_history: { ko: '응답 이력', en: 'Respondent history' },
 };
 
 function assessmentTone(a: Assessment): Tone {

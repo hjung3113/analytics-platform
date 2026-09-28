@@ -46,6 +46,8 @@ function fixture(permissions: Session['user']['permissions']) {
     getEntity: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     recordUsage: async () => ({ accepted: 0 }),
     usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    myVocHistory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    mySurveyHistory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     subscribe: () => () => {},
   };
   return adapter;

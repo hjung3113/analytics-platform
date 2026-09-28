@@ -4,15 +4,21 @@
   "version": "0.0.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./feedbackops-origin": "./src/feedbackops-origin.ts",
+    "./styles.css": "./src/styles.css"
   },
   "scripts": {
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@ap/components": "workspace:*",
     "@ap/contracts": "workspace:*",
     "@ap/kernel": "workspace:*",
+    "@ap/ui": "workspace:*",
+    "@tanstack/react-table": "^8.21.3",
     "lucide-react": "^1.48.0"
   },
   "peerDependencies": {
@@ -22,11 +28,15 @@
   "devDependencies": {
     "@ap/eslint-config": "workspace:*",
     "@ap/tsconfig": "workspace:*",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "eslint": "^10.11.0",
+    "jsdom": "^26.1.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
   }
 }
