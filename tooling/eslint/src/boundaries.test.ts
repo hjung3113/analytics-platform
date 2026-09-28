@@ -99,12 +99,18 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-home';`, rule: '' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-home/src/index';`, rule: 'no-restricted-imports' },
 
-  // --- composition-root menu subpath allowance (issue #60) ---
+  // --- composition-root menu subpath allowance (issue #60): main.tsx ONLY ---
   { file: 'apps/platform-web/src/main.tsx', code: `import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';`, rule: '' },
   { file: 'apps/platform-web/src/main.tsx', code: `import('@ap/menu-notice-voc/feedbackops-origin');`, rule: '' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-notice-voc/feedbackops-origin';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-notice-voc/styles.css';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-notice-voc/src/feedbackops-origin';`, rule: 'no-restricted-imports' },
+  // The origin subpath allowance is scoped to src/main.tsx: the other carve-out files keep the
+  // deep-subpath ban, static and dynamic.
+  { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `await import('@ap/menu-notice-voc/feedbackops-origin');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/published-metrics.test.ts', code: `import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/published-metrics.test.ts', code: `import('@ap/menu-notice-voc/feedbackops-origin');`, rule: 'ap/restricted-import-source' },
 
   // --- relative package escape (37-41) ---
   { file: MENU, code: `import { x } from '../../../../packages/contracts/src/url';`, rule: 'ap/no-relative-package-escape' },

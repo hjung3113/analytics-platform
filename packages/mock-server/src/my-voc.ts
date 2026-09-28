@@ -16,8 +16,13 @@ function cursorOffset(token: string, role: RoleId): number | null {
   const m = /^mock:([a-z]+):(\d+)$/.exec(token);
   // A token naming another actor is invalid, never rewound to page 1: it must not hand over their slice.
   if (!m || m[1] !== role) return null;
-  const offset = Number(m[2]);
-  return offset < MY_VOC_ROWS[role].length ? offset : null;
+  // Accept only tokens the mock actually issues: nextCursor is always a full page past the served window,
+  // so a valid continue point is a positive multiple of MY_VOC_PAGE_SIZE below the row count, written
+  // canonically — `:0` would rewind to page 1, `:1` is off the page grid, and `:0002` was never issued.
+  const digits = m[2];
+  if (digits.length > 1 && digits.startsWith('0')) return null;
+  const offset = Number(digits);
+  return offset > 0 && offset % MY_VOC_PAGE_SIZE === 0 && offset < MY_VOC_ROWS[role].length ? offset : null;
 }
 
 /**

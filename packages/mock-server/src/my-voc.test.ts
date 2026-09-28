@@ -49,6 +49,16 @@ describe('myVocHistory (issue #60: the session actor\'s filed VOCs)', () => {
     expect(JSON.stringify(res)).not.toContain('Admin-only ticket');
   });
 
+  // The mock only ever issues offset 2 for the engineer (one full page before 3 rows). Anything else in
+  // cursor shape was never issued: 0 would rewind to page 1, 1 is not a page boundary, 0002 is not
+  // canonical decimal — all three must be outcome 'error', never a rewind or a shifted window.
+  it.each(['mock:engineer:0', 'mock:engineer:1', 'mock:engineer:0002'])('rejects the never-issued cursor %s as Invalid cursor, not page 1', async (cursor) => {
+    const res = await myVocHistory({ cursor }, undefined, { role: 'engineer', latency: 0 });
+    expect(res.outcome).toBe('error');
+    expect(res.message).toBe('Invalid cursor');
+    expect(res.data).toBeNull();
+  });
+
   it('treats an empty-string cursor as Invalid cursor, not page 1', async () => {
     const res = await myVocHistory({ cursor: '' }, undefined, { role: 'engineer', latency: 0 });
     expect(res.outcome).toBe('error');

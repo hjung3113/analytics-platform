@@ -78,7 +78,7 @@ export default function MyVocHistory() {
     primaryAction={createControl}
   >
     {!cursorOk
-      ? <p role="alert">{ko ? '커서 값이 잘못되었습니다.' : 'Invalid cursor value.'} <Button size="sm" variant="secondary" onClick={() => setPage({ cursor: null })}>{ko ? '초기화' : 'Reset'}</Button></p>
+      ? <p role="alert">{ko ? '커서 값이 잘못되었습니다.' : 'Invalid cursor value.'}</p>
       : <QueryView query={vocQ} emptyAction={createControl}>{(data, response) => {
         // The adapter already returned one window: the table only wraps it (no sortAndPage, no urlState).
         const items = data.items;
@@ -93,12 +93,18 @@ export default function MyVocHistory() {
             rowAction={openInFeedbackOps}
             loadPage={async () => ({ outcome: 'ok', data: { rows: [...items], total: items.length }, assessments: [], trust: null, correlationId: response.correlationId })}
           />
-          {(next !== null || cursor !== null) && <div className="flex justify-end gap-2 pt-2">
-            {next !== null && <Button size="sm" variant="secondary" onClick={() => setPage({ cursor: next })}>{ko ? '더 보기' : 'More'}</Button>}
-            {cursor !== null && <Button size="sm" variant="secondary" onClick={() => setPage({ cursor: null })}>{ko ? '처음' : 'First page'}</Button>}
+          {next !== null && <div className="flex justify-end gap-2 pt-2">
+            <Button size="sm" variant="secondary" onClick={() => setPage({ cursor: next })}>{ko ? '더 보기' : 'More'}</Button>
           </div>}
         </>;
       }}</QueryView>}
+
+    {/* Cursor reset lives OUTSIDE the QueryView success child (issue #60 review): a stale cursor can error
+        (e.g. issued by the previous role) or hit forbidden/empty, and the outcome view only offers Retry —
+        which resends the same cursor forever. The error itself stays visible; nothing auto-clears it. */}
+    {cursor !== null && <div className="flex justify-end pt-2">
+      <Button size="sm" variant="secondary" onClick={() => setPage({ cursor: null })}>{ko ? '처음' : 'First page'}</Button>
+    </div>}
 
     <Panel title={ko ? '설문 응답' : 'Survey responses'} className="mt-4">
       <QueryView query={surveyQ}>{(_, response) => {
