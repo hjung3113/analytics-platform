@@ -95,6 +95,8 @@ export type PlatformAdapter = {
   defaultRangeTo(): string;                 // 기본 기간 기준 시각
   recordUsage(events: readonly UsageEvent[]): Promise<{ accepted: number }>; // 메뉴 활용률 이벤트 적재(진입·체류). userId 필드 없음 — 서버가 세션 사용자로 기록
   usageSummary(range: UsageRange, signal?): Promise<ApiResponse<UsageSummary>>; // 메뉴 활용률 집계 읽기(열람 권한: console:access, 콘솔은 집계만 읽는다)
+  myVocHistory(query: MyVocQuery, signal?): Promise<ApiResponse<MyVocPage>>; // 세션 사용자가 접수한 FeedbackOps VOC(권한 voc:view, 서버가 사용자를 정함, cursor 페이징, #60)
+  mySurveyHistory(signal?): Promise<ApiResponse<MySurveyPage>>; // 세션 사용자의 설문 응답 이력. 원천 API가 없어 respondent_history=unknown으로 응답(#60, #84)
   subscribe(onChange: () => void): () => void;     // 세션·서버 상태 변경 알림
 };
 
