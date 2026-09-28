@@ -32,21 +32,35 @@ const calendarValid = (y: number, mo: number, d: number, h: number, mi: number, 
 
 const num = (v: string | undefined): number => (v === undefined ? 0 : Number(v));
 
+/** The one string parser: full ISO-8601 datetime with a required zone plus calendar validation. Both
+ *  formatInstant and instantEpochMs go through it — never a copied regex. Returns the input unchanged. */
+function parseInstant(instant: string): string {
+  const m = ISO_INSTANT.exec(instant);
+  if (!m) {
+    return fail('invalid_time', `instant: '${instant}' is not a full ISO-8601 datetime with a required zone (Z/z/±HH:MM/±HHMM; hour-only +09 rejected) — naive wall-clock is formatDateTime's domain`);
+  }
+  const [, y, mo, d, h, mi, s, , offH, offM] = m;
+  if (!calendarValid(num(y), num(mo), num(d), num(h), num(mi), num(s), num(offH), num(offM))) {
+    return fail('invalid_time', `instant: '${instant}' has impossible calendar date/time components`);
+  }
+  return instant;
+}
+
 /** Format a real instant (epoch ms, or ISO-8601 with an explicit offset/Z) with Intl date+time 'short' in
  *  `timeZone` (default: the viewer's). A naive string — formatDateTime's wall-clock domain — is rejected,
  *  so silent UTC-digits-as-local rendering cannot happen. */
 export function formatInstant(instant: number | string, lang: keyof Text, timeZone?: string): string {
-  if (typeof instant === 'string') {
-    const m = ISO_INSTANT.exec(instant);
-    if (!m) {
-      return fail('invalid_time', `instant: '${instant}' is not a full ISO-8601 datetime with a required zone (Z/z/±HH:MM/±HHMM; hour-only +09 rejected) — naive wall-clock is formatDateTime's domain`);
-    }
-    const [, y, mo, d, h, mi, s, , offH, offM] = m;
-    if (!calendarValid(num(y), num(mo), num(d), num(h), num(mi), num(s), num(offH), num(offM))) {
-      return fail('invalid_time', `instant: '${instant}' has impossible calendar date/time components`);
-    }
-  }
-  const date = new Date(instant);
+  const value = typeof instant === 'string' ? parseInstant(instant) : instant;
+  const date = new Date(value);
   if (Number.isNaN(date.getTime())) return fail('invalid_time', 'instant: not a parseable epoch-ms or offset ISO-8601 value');
   return date.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { dateStyle: 'short', timeStyle: 'short', timeZone });
+}
+
+/** Epoch ms of an ISO-8601 instant string — the sort/compare key where string compare is wrong once `Z`
+ *  and `+09:00` both occur (`2026-09-26T11:00:00+09:00` equals `2026-09-26T02:00:00.000Z`). Same grammar
+ *  and calendar check as formatInstant's string path. No number overload: an `at` travels as a string. */
+export function instantEpochMs(instant: string): number {
+  const date = new Date(parseInstant(instant));
+  if (Number.isNaN(date.getTime())) return fail('invalid_time', `instant: '${instant}' is not a parseable offset ISO-8601 value`);
+  return date.getTime();
 }

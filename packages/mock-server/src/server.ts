@@ -32,6 +32,11 @@ let correlation = 4100;
 let partialCounter = 0;
 /** Shared by every endpoint module (server.ts itself, my-voc.ts): one counter, one format `corr-…`. */
 export const nextCorrelation = () => `corr-${(correlation++).toString(16)}-${Math.random().toString(16).slice(2, 6)}`;
+/** §19: under the partial scenario every other widget query fails. One shared counter for every endpoint
+ *  that consults partial (serve, getEntity, entityAudit) — endpoints that do not apply partial never call it. */
+export function partialFails(s: Scenario): boolean {
+  return s === 'partial' && partialCounter++ % 2 === 1;
+}
 export const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((resolve, reject) => {
   const id = setTimeout(resolve, ms);
   signal?.addEventListener('abort', () => { clearTimeout(id); reject(new DOMException('aborted', 'AbortError')); });
@@ -204,7 +209,7 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
   if (s === 'timeout') return { ...base, outcome: 'timeout', message: 'Query exceeded 30s budget' };
   if (s === 'error') return { ...base, outcome: 'error', message: 'Upstream mart query failed' };
   // Every other widget query fails so pages can show a local failure next to healthy widgets (§19 Partial widget failure).
-  if (s === 'partial' && partialCounter++ % 2 === 1) return { ...base, outcome: 'error', message: 'Widget query failed (partial scenario)' };
+  if (partialFails(s)) return { ...base, outcome: 'error', message: 'Widget query failed (partial scenario)' };
   const requiresScope = o.requiresScope ?? true;
   const resolved = requiresScope ? resolveEquipment(o.global, requestRole) : { rows: EQUIPMENT, forbidden: null };
   if (s === 'forbidden' || resolved.forbidden) return { ...base, outcome: 'forbidden', message: resolved.forbidden ?? 'Permission revoked (scenario)' };
@@ -266,7 +271,7 @@ export async function getEntity(ref: EntityRef, signal?: AbortSignal, opts?: Get
   // 3. Scenario early returns, same as serve() (shared partialCounter).
   if (s === 'timeout') return { ...base, outcome: 'timeout', message: 'Query exceeded 30s budget' };
   if (s === 'error') return { ...base, outcome: 'error', message: 'Upstream mart query failed' };
-  if (s === 'partial' && partialCounter++ % 2 === 1) return { ...base, outcome: 'error', message: 'Widget query failed (partial scenario)' };
+  if (partialFails(s)) return { ...base, outcome: 'error', message: 'Widget query failed (partial scenario)' };
   // 4. Site gate first (same messages as resolveEquipment): never search equipment for an ungranted or unknown scope.
   const scope = checkScope(requestRole, ref.scopeId);
   if (scope.status !== 'valid') return { ...base, outcome: 'forbidden', message: scope.status === 'forbidden' ? `No grant for scope ${ref.scopeId}` : `Unknown scope ${ref.scopeId}` };

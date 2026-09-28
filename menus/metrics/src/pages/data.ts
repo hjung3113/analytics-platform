@@ -542,6 +542,8 @@ export function versionDiff(current: MetricVersion, previous: MetricVersion | nu
 
 export function auditEvents(metric: MetricDef, lang: Lang): AuditEvent[] {
   const events: AuditEvent[] = [];
+  // #50: the destination triple (06 §22). A metric has no site, and `at` stays naive until step 2.
+  const target = { type: 'metric', id: metric.metricId, scopeId: null };
   let prev: MetricVersion | null = null;
   for (const v of metric.versions) {
     const diff = versionDiff(v, prev, lang);
@@ -553,6 +555,7 @@ export function auditEvents(metric: MetricDef, lang: Lang): AuditEvent[] {
       actor: v.updatedBy,
       action: 'create',
       source: 'user',
+      target,
       reason: v.changeReason[lang],
       changes,
     });
@@ -563,6 +566,7 @@ export function auditEvents(metric: MetricDef, lang: Lang): AuditEvent[] {
         actor: v.updatedBy,
         action: 'update',
         source: 'user',
+        target,
         reason: lang === 'ko' ? '게시 확정. mart 재계산 완료가 아닙니다.' : 'Published. This is not mart-recompute completion.',
         changes: { metricVersion: [v.version, v.version], publicationState: ['draft', 'published'] },
       });
@@ -574,6 +578,7 @@ export function auditEvents(metric: MetricDef, lang: Lang): AuditEvent[] {
         actor: v.updatedBy,
         action: 'retire',
         source: 'user',
+        target,
         reason: lang === 'ko' ? '폐기. 기존 참조는 유지하고 최신으로 대체하지 않습니다.' : 'Deprecated. Existing references stay; latest is not substituted.',
         changes: { metricVersion: [v.version, v.version], publicationState: ['published', 'deprecated'] },
       });

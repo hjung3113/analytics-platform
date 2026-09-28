@@ -1,5 +1,6 @@
 import type { Text } from './i18n';
 import type { Permission, SpaceId } from './menu';
+import type { AuditAction, AuditEvent, AuditSource } from './audit';
 import type { ApiResponse } from './response';
 import type { Condition, IdSet } from './url';
 
@@ -97,6 +98,31 @@ export type MySurveyItem = {
 
 export type MySurveyPage = { items: readonly MySurveyItem[] };
 
+/** Sort keys of the global audit index (issue #50). `targetType` sorts `target.type`. */
+export type AuditSortField = 'at' | 'actor' | 'action' | 'source' | 'targetType';
+
+/**
+ * Global audit-trail read filters (issue #50). The client never sends a user id, a role, a Global Context
+ * or an `at` to stamp — fixture actors are server data. The actor filter is a search constraint the
+ * operator typed, not an identity stamp; a read does not append an audit row.
+ */
+export type AuditTrailQuery = {
+  type?: string; // 'equipment' | 'metric'. Absent = all.
+  actor?: string; // exact, case-sensitive.
+  action?: AuditAction;
+  source?: AuditSource;
+  fromAt?: string; // inclusive instant. Half-open with toAt.
+  toAt?: string; // exclusive instant.
+  targetId?: string; // exact destination id. Requires type.
+  page?: number; // 1-based. Absent = 1.
+  pageSize?: number; // integer 1..100. Absent = 25.
+  /** Absent = at desc, then id ascending. */
+  sort?: { field: AuditSortField; desc: boolean };
+};
+
+/** Offset page, not cursor: the screen is a table (page + one sort column) over an arbitrarily filtered set. */
+export type AuditTrailPage = { items: readonly AuditEvent[]; total: number };
+
 export type PlatformAdapter = {
   /** Current session. Must return the same object until the session changes (it is a store snapshot). */
   session(): Session;
@@ -115,6 +141,18 @@ export type PlatformAdapter = {
   recordUsage(events: readonly UsageEvent[]): Promise<{ accepted: number }>;
   /** Console aggregate read (docs/05 열람 권한: console:access, server-checked). The console never reads raw events. */
   usageSummary(range: UsageRange, signal?: AbortSignal): Promise<ApiResponse<UsageSummary>>;
+  /**
+   * The console audit log (issue #50): console:access, every site, no room gate — an audit screen that hid
+   * a room's change would hide the change. Offset-paged, server-sorted; the client never re-sorts a page.
+   */
+  auditTrail(query: AuditTrailQuery, signal?: AbortSignal): Promise<ApiResponse<AuditTrailPage>>;
+  /**
+   * One destination's audit events (issue #50), the detail-tab read: the destination's own view permission,
+   * not console:access, so an engineer sees the equipment tab they already have. A `targetId` on auditTrail
+   * is only a list filter — one method with a weaker check for a target would let a list filter borrow the
+   * detail permission. Not paged, no list filters.
+   */
+  entityAudit(ref: EntityRef, signal?: AbortSignal): Promise<ApiResponse<{ events: readonly AuditEvent[] }>>;
   /**
    * The session actor's filed VOCs, newest openedAt first, cursor-paged (issue #60). No user id, scopeId or
    * Global Context argument — the server stamps the session actor. `managedSystemId` is data, never a link or filter input.
