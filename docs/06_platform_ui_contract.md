@@ -279,6 +279,8 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 `defaultRangeTo`와 자동 재집계 창의 원천 진행 경계 `R`(정의는 [01 지연 완료 허용 시간](01_architecture_and_data_contract.md#late-arrival-policy) 참조)은 서로 다른 계약 필드이며 항상 같은 값은 아니다. **`R`이 존재할 때만** 같은 시간역·대상 조건에서 `defaultRangeTo ≤ R`인 경우에만 그 기본 구간을 자동 물질화하고, 만족하는 값이 없으면 마지막 점을 버리거나 `R`을 올리지 않고 기간 선택을 요구한다(L2). `R`이 아직 없는 경우(첫 mart 세대 생성 전, 워커 일시 중단 등)에는 이 비교를 적용하지 않는다 — `defaultRangeTo`가 독립적으로 유효하면 그대로 자동 물질화하고, 자동 재집계만 보류한다([01 정책](01_architecture_and_data_contract.md#late-arrival-policy) 참조).
 
+**실제 시점은 wall-clock이 아니다 (Decided, 2026-09-28):** 설비 업무 시각이 아닌 실제 시점(epoch·timestamptz — 예: 메뉴 활용률 마지막 사용, FeedbackOps VOC 접수 시각)은 이 절의 wall-clock 계약 대상이 아니다. 화면에는 `@ap/contracts`의 `formatInstant`로 보는 사람의 시간대에 맞춰 표시하고, `formatDateTime`(naive wall-clock 전용)으로 표시하지 않는다. `formatInstant`는 offset 없는 문자열을 거부해 두 종류가 섞이지 않게 한다(#88).
+
 세부 판정 근거, 반례, Candidate 필드명 전체 목록은 `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §3을 따른다.
 
 ### 6.4 URL 계약 (Decided; 필드명·enum 문자열은 Candidate)
