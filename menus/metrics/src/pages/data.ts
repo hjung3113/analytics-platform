@@ -542,6 +542,11 @@ export function versionDiff(current: MetricVersion, previous: MetricVersion | nu
 
 export function auditEvents(metric: MetricDef, lang: Lang): AuditEvent[] {
   const events: AuditEvent[] = [];
+  // #50: the destination triple (06 §22). A metric has no site. The `at` stopgap: these catalog digit
+  // strings are zone-less synthetic person-times, and the decided viewer zone is Asia/Seoul (§6.3), so
+  // `+09:00` keeps the hour a Seoul viewer already saw. The catalog objects stay naive — only the audit
+  // `at` gains a zone. Menu-local until follow-up A moves this generator onto the shared store.
+  const target = { type: 'metric', id: metric.metricId, scopeId: null };
   let prev: MetricVersion | null = null;
   for (const v of metric.versions) {
     const diff = versionDiff(v, prev, lang);
@@ -549,20 +554,22 @@ export function auditEvents(metric: MetricDef, lang: Lang): AuditEvent[] {
     for (const row of diff) changes[row.field] = [row.before, row.after];
     events.push({
       id: `${metric.metricId}-v${v.version}-draft`,
-      at: v.registeredAt,
+      at: `${v.registeredAt}+09:00`,
       actor: v.updatedBy,
       action: 'create',
       source: 'user',
+      target,
       reason: v.changeReason[lang],
       changes,
     });
     if (v.publishedAt) {
       events.push({
         id: `${metric.metricId}-v${v.version}-publish`,
-        at: v.publishedAt,
+        at: `${v.publishedAt}+09:00`,
         actor: v.updatedBy,
         action: 'update',
         source: 'user',
+        target,
         reason: lang === 'ko' ? '게시 확정. mart 재계산 완료가 아닙니다.' : 'Published. This is not mart-recompute completion.',
         changes: { metricVersion: [v.version, v.version], publicationState: ['draft', 'published'] },
       });
@@ -570,10 +577,11 @@ export function auditEvents(metric: MetricDef, lang: Lang): AuditEvent[] {
     if (v.deprecatedAt) {
       events.push({
         id: `${metric.metricId}-v${v.version}-deprecate`,
-        at: v.deprecatedAt,
+        at: `${v.deprecatedAt}+09:00`,
         actor: v.updatedBy,
         action: 'retire',
         source: 'user',
+        target,
         reason: lang === 'ko' ? '폐기. 기존 참조는 유지하고 최신으로 대체하지 않습니다.' : 'Deprecated. Existing references stay; latest is not substituted.',
         changes: { metricVersion: [v.version, v.version], publicationState: ['published', 'deprecated'] },
       });

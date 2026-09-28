@@ -97,6 +97,8 @@ export type PlatformAdapter = {
   usageSummary(range: UsageRange, signal?): Promise<ApiResponse<UsageSummary>>; // 메뉴 활용률 집계 읽기(열람 권한: console:access, 콘솔은 집계만 읽는다)
   myVocHistory(query: MyVocQuery, signal?): Promise<ApiResponse<MyVocPage>>; // 세션 사용자가 접수한 FeedbackOps VOC(권한 voc:view, 서버가 사용자를 정함, cursor 페이징, #60)
   mySurveyHistory(signal?): Promise<ApiResponse<MySurveyPage>>; // 세션 사용자의 설문 응답 이력. 원천 API가 없어 respondent_history=unknown으로 응답(#60, #84)
+  auditTrail(query: AuditTrailQuery, signal?): Promise<ApiResponse<AuditTrailPage>>; // 전역 변경 감사(권한 console:access, 필터·offset 페이징, 기간은 실제 시점 fromAt/toAt, #50)
+  entityAudit(ref: EntityRef, signal?): Promise<ApiResponse<{ events: readonly AuditEvent[] }>>; // 목적지 한 건의 감사 이벤트(권한은 그 목적지의 조회 권한, 상세 Audit 탭, #50). 클라이언트는 actor·at을 보내지 않는다
   subscribe(onChange: () => void): () => void;     // 세션·서버 상태 변경 알림
 };
 

@@ -88,4 +88,23 @@ describe('Menu Registry', () => {
     const groups = new Set(MENUS.map(m => m.group));
     for (const g of groups) expect(MENUS.filter(m => m.group === g && m.primary)).toHaveLength(1);
   });
+
+  // #50: the audit screen's page keys are the nine filter keys, the log is not bound to Scope or a
+  // period (no contextResetKeys), and the menu sits in the operations space behind console:access.
+  it('declares the admin-audit page keys, unsupported context and the operations space', () => {
+    const audit = MENUS.find(m => m.id === 'admin-audit')!;
+    expect(audit.permission).toBe('console:access');
+    expect(audit.requiresScope).toBe(false);
+    expect(audit.context).toEqual({
+      time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
+      lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
+    });
+    expect(audit.pageKeys).toEqual(['type', 'actor', 'action', 'source', 'fromAt', 'toAt', 'targetId', 'sort', 'page']);
+    expect(audit.contextResetKeys).toBeUndefined();
+    expect(registry.spaceOf(audit).id).toBe('operations');
+  });
+
+  it('declares returnTo on metric-detail so cross-menu links can offer the way back', () => {
+    expect(MENUS.find(m => m.id === 'metric-detail')!.pageKeys).toContain('returnTo');
+  });
 });

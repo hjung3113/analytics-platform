@@ -1,18 +1,25 @@
 import { FilePen, FilePlus2, FileX2, RefreshCw } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
 import { StatusBadge } from '@ap/ui';
-import type { AuditEvent } from '@ap/contracts';
+import { formatInstant, instantEpochMs, type AuditEvent } from '@ap/contracts';
 
 const ICONS = { create: FilePlus2, update: FilePen, retire: FileX2, sync: RefreshCw };
 const LABEL = {
   create: { ko: '생성', en: 'Created' }, update: { ko: '변경', en: 'Updated' }, retire: { ko: '유효 종료', en: 'Retired' }, sync: { ko: '동기화', en: 'Synced' },
 };
 
-/** Platform AuditTimeline (§13): who/when/what changed with before→after, newest first. Domain supplies events. */
+/** Platform AuditTimeline (§13): who/when/what changed with before→after, newest first. Domain supplies events.
+ *  `at` is a real instant (§6.3): sorted by instantEpochMs desc (string compare is wrong once `Z` and `+09:00`
+ *  both occur), id asc as tie-break, and printed with formatInstant so the viewer's zone applies. A bad `at`
+ *  throws — producers are in this repo, so the error surfaces instead of hiding behind a fallback. `changes`
+ *  values are text, not instants: a naive validTo prints digit-for-digit and never goes through formatInstant. */
 export function AuditTimeline({ events }: { events: AuditEvent[] }) {
   const { tx, lang } = useI18n();
   if (!events.length) return <p className="rounded-md bg-surface-sunken p-3 text-[12px] text-text-secondary">{lang === 'ko' ? '변경 이력이 없습니다.' : 'No changes recorded.'}</p>;
-  const sorted = [...events].sort((a, b) => (a.at < b.at ? 1 : -1));
+  const sorted = [...events].sort((a, b) => {
+    const byAt = instantEpochMs(b.at) - instantEpochMs(a.at);
+    return byAt !== 0 ? byAt : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
   return <ol className="relative space-y-3 before:absolute before:bottom-2 before:left-[11px] before:top-2 before:w-px before:bg-border-subtle">
     {sorted.map(e => {
       const Icon = ICONS[e.action];
@@ -23,7 +30,7 @@ export function AuditTimeline({ events }: { events: AuditEvent[] }) {
             <span className="font-semibold text-text-primary">{tx(LABEL[e.action])}</span>
             <StatusBadge tone={e.source === 'system' ? 'neutral' : 'info'}>{e.source === 'system' ? 'system' : 'user'}</StatusBadge>
             <span className="t-mono text-text-secondary">{e.actor}</span>
-            <time className="ml-auto tabular text-text-muted" dateTime={e.at}>{e.at.replace('T', ' ').slice(0, 16)}</time>
+            <time className="ml-auto tabular text-text-muted" dateTime={e.at}>{formatInstant(e.at, lang)}</time>
           </div>
           {e.changes && <dl className="mt-1 space-y-0.5 rounded-md bg-surface-sunken px-2 py-1.5 text-[12px]">
             {Object.entries(e.changes).map(([field, [before, after]]) => <div key={field} className="flex flex-wrap gap-x-2">

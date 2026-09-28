@@ -44,6 +44,8 @@ function recordingFixture(permissions: Session['user']['permissions'], userId = 
     contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
     evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
     getEntity: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    auditTrail: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    entityAudit: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     // The mock server stamps the session user at call time; mirror that so a dwell crossing a role
     // switch is attributed the way the real adapter would.
     recordUsage: recordUsage ?? (async batch => {

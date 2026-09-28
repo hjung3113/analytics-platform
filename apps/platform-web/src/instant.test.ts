@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ContractError, formatInstant } from '@ap/contracts';
+import { ContractError, formatInstant, instantEpochMs } from '@ap/contracts';
 
 const code = (fn: () => unknown) => { try { fn(); } catch (e) { return e instanceof ContractError ? e.code : 'other'; } return 'ok'; };
 
@@ -57,5 +57,20 @@ describe('formatInstant (real instants)', () => {
     expect(code(() => formatInstant(Number.NaN, 'en'))).toBe('invalid_time');
     expect(code(() => formatInstant(Number.POSITIVE_INFINITY, 'en'))).toBe('invalid_time');
     expect(code(() => formatInstant(Number.NEGATIVE_INFINITY, 'en'))).toBe('invalid_time');
+  });
+});
+
+// #50: the audit sort key. One parser with formatInstant — Z and an offset spelling of the same instant
+// must compare equal, and a naive string (formatDateTime's domain) must never get a number.
+describe('instantEpochMs (audit sort key)', () => {
+  it('treats Z and an offset spelling of the same instant as one value', () => {
+    expect(instantEpochMs('2026-09-26T02:00:00.000Z')).toBe(instantEpochMs('2026-09-26T11:00:00+09:00'));
+  });
+  it('orders two spellings where the naive digit order would disagree', () => {
+    expect(instantEpochMs('2026-09-26T12:00:00+09:00')).toBeGreaterThan(instantEpochMs('2026-09-26T02:00:00.000Z'));
+  });
+  it('rejects naive wall-clock and impossible calendar dates', () => {
+    expect(code(() => instantEpochMs('2026-09-26T02:00:00'))).toBe('invalid_time');
+    expect(code(() => instantEpochMs('2026-02-30T00:00:00.000Z'))).toBe('invalid_time');
   });
 });

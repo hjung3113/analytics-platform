@@ -19,7 +19,9 @@ export const manifests: MenuEntry[] = [
   {
     id: 'admin-audit', group: 'admin', label: { ko: '변경 감사', en: 'Audit trail' },
     description: { ko: '전역 Audit Trail (각 상세에도 탭으로 노출)', en: 'Global audit trail (also a tab on each detail)' },
-    path: '/admin/audit', icon: FileClock, permission: 'console:access', requiresScope: false, pageType: 'management', context: none, features: noFeatures, pageKeys: [],
+    path: '/admin/audit', icon: FileClock, permission: 'console:access', requiresScope: false, pageType: 'management', context: none, features: noFeatures,
+    pageKeys: ['type', 'actor', 'action', 'source', 'fromAt', 'toAt', 'targetId', 'sort', 'page'],
+    component: lazy(() => import('./pages/AuditTrail')),
   },
   {
     id: 'admin-usage', group: 'admin', label: { ko: '메뉴 활용률', en: 'Menu usage' },
