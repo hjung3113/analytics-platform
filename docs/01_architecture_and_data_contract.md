@@ -92,7 +92,7 @@ API가 파서 원본 테이블을 직접 참조하지 않고 소비 계층(view/
 
 - 워커는 처리 단위(파일 또는 배치)마다 최소한 설비 ID, 대상 구간, 단계(수집/변환/파싱/적재/검증), 결과(성공/실패/대기), 원인 분류, 관측 시각을 남긴다. 원시 오류 메시지·단계 로그는 같은 기록에 연결하되 사용자 화면에는 노출하지 않는다.
 - 이 기록은 `06` §19의 `assessments[]`가 요구하는 `statusSource`·`observedAt`의 근거가 된다. 기록이 없는 구간은 `unknown`이지 정상이 아니다.
-- **Open:** 기록 테이블 스키마와 원인 분류 목록, 보존 기간, `context_recognized_parser` 저장소의 변경 범위와 일정. 파서 저장소 쪽 합의가 선행 조건이다. 플랫폼 초안(Draft, 합의 전)은 [적재 워커 상태 기록 스키마](integration/ingest-status-schema.md)다(#37).
+- **Open:** 기록 테이블 스키마와 원인 분류 목록, 보존 기간, `context_recognized_parser` 저장소의 변경 범위와 일정. 파서 저장소 쪽 합의가 선행 조건이다. 플랫폼 초안(Candidate)은 [적재 워커 상태 기록 스키마](integration/ingest-status-schema.md)다(#37).
 
 ## 멀티테넌시/확장성
 

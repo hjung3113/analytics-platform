@@ -86,7 +86,7 @@
 
 - [플랫폼 모노레포 패키지 경계](integration/platform-packages.md) — `platform-app`을 contracts/ui/kernel/components/shell/mock-server/메뉴 패키지로 나누는 경계·의존 방향·메뉴 템플릿·이행 순서. 구성·단위·도구·이름은 2026-09-26 Decided, 세부 타입 이름은 Candidate. 1–4d단계 완료(PR #17–#23), 5단계(5a–5c, PR #25–#27) 완료, 6단계(6a 경계 lint, 6b 생성기) 완료.
 
-- [적재 워커 상태 기록 스키마 (초안)](integration/ingest-status-schema.md) — 가공 상태 원천인 적재 워커의 단계별 기록 구조, 원인 분류, 보존 기간, 파서 저장소 변경 제안, 파서 담당에게 물을 질문. Draft(파서 담당 합의 전, #37).
+- [적재 워커 상태 기록 스키마 (초안)](integration/ingest-status-schema.md) — 가공 상태 원천인 적재 워커의 단계별 기록 구조, 06 §19 평가로 줄이는 규칙, 원인 분류, 보존 기간, 파서 저장소 변경 제안, 파서 담당에게 물을 질문. Candidate(초안, 파서 담당 합의 Open, #37).
 
 - [Standard Log Lifecycle](references/standard-log-lifecycle/README.md) — 모델 표준 로그 개발·검증·결함·재검증 관리의 설계 참고. 원본 커밋에 고정한 Markdown 7개, 출처·해시 manifest와 4개 화면 시안 적용 범위를 포함한다. 기존 플랫폼 계약을 대체하지 않는다.
 
