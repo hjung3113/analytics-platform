@@ -1,6 +1,6 @@
 # 로드맵 — 한 일, 하는 일, 남은 일
 
-> 이 문서가 진행 상황의 한 페이지 요약이다. 체크리스트로 보는 진행률은 고정 이슈 [로드맵: 플랫폼 작업 전체 진행 상황 (#63)](https://github.com/hjung3113/analytics-platform/issues/63), 트랙별 진행률은 [마일스톤](https://github.com/hjung3113/analytics-platform/milestones). 세부는 각 이슈에 있고, 이슈가 닫히면 이 문서도 같은 PR에서 고친다(AGENTS.md "작업 관리"). 마지막 갱신: 2026-09-27.
+> 이 문서가 진행 상황의 한 페이지 요약이다. 체크리스트로 보는 진행률은 고정 이슈 [로드맵: 플랫폼 작업 전체 진행 상황 (#63)](https://github.com/hjung3113/analytics-platform/issues/63), 트랙별 진행률은 [마일스톤](https://github.com/hjung3113/analytics-platform/milestones). 세부는 각 이슈에 있고, 이슈가 닫히면 이 문서도 같은 PR에서 고친다(AGENTS.md "작업 관리"). 마지막 갱신: 2026-09-28.
 
 ## 무엇을 만드나
 
@@ -25,7 +25,7 @@
 
 선행 이슈가 없는 것들이다. 위에서부터 추천 순서.
 
-1. **틈틈이 목록**: ~~`@types/node` 부채 (#57)~~ 완료, ~~CSS selector 비교 CI (#58)~~ 완료 — `tooling/css-selectors` + CI `css-selectors` Job(라벨 `css-removal-ok`), 적재 워커 상태 스키마 초안 → 파서 담당 협의 (#37), ~~FeedbackOps 양방향 딥링크 계약 (#61)~~ 완료 — `docs/integration/feedbackops-deeplink.md`(phase-1, 확장은 #81 결정 대기). 계약 안전망은 `pnpm e2e`(#44), 메뉴 활용률 계측(#43)도 완료 — kernel이 `adapter.recordUsage`(entry/dwell)로 계측하고 콘솔은 `usageSummary` 집계만 읽는다(조회조건 수집 여부는 #75 결정 대기).
+1. **틈틈이 목록**: ~~`@types/node` 부채 (#57)~~ 완료, ~~CSS selector 비교 CI (#58)~~ 완료 — `tooling/css-selectors` + CI `css-selectors` Job(라벨 `css-removal-ok`), 적재 워커 상태 스키마 초안 (#37) 작성 완료 — `docs/integration/ingest-status-schema.md`, 파서 담당 합의 대기, ~~FeedbackOps 양방향 딥링크 계약 (#61)~~ 완료 — `docs/integration/feedbackops-deeplink.md`(phase-1, 확장은 #81 결정 대기). 계약 안전망은 `pnpm e2e`(#44), 메뉴 활용률 계측(#43)도 완료 — kernel이 `adapter.recordUsage`(entry/dwell)로 계측하고 콘솔은 `usageSummary` 집계만 읽는다(조회조건 수집 여부는 #75 결정 대기).
 
 디자인 방향 프로토타입(#52)은 보류다(아래 M2).
 
@@ -37,7 +37,7 @@
 | --- | --- | --- |
 | 인증/SSO (#35) | FeedbackOps 방식(AuthProvider: Mock + OIDC 계열, 서버 세션). 실제 IdP는 사내 SSO 스펙 확인 뒤 | 권한/역할 관리 (#49), 변경 감사 (#50) — 워크스페이스 층(#41) 뒤 |
 | 운영 콘솔 권한 (#36) | '운영 콘솔 접근' 한 역할로 시작 | 권한/역할 관리 (#49) |
-| 적재 워커 스키마 (#37) | 플랫폼이 초안 작성 → 파서 담당과 협의 | 초안 작성(#37이 작업 이슈로 바뀜), 합의 뒤 모니터링 (#51) |
+| 적재 워커 스키마 (#37) | 플랫폼이 초안 작성 → 파서 담당과 협의 | 초안 작성 완료(`docs/integration/ingest-status-schema.md`), 파서 담당 합의 뒤 #37 닫고 모니터링 (#51) |
 | `space` 필드명 (#38) | `space`, 그룹 수 상한 없음(권장 7개 이하) | 워크스페이스 층 (#41) 확정 |
 | 시각 회귀 범위 (#39) | 지금 빌드 CSS selector 비교만 CI, 픽셀 비교는 디자인 확정 뒤 | 시각 회귀 CI (#58) |
 | FeedbackOps 연결 (#40) | 쓰기(VOC 등록·설문 제출)는 원본 화면 딥링크 | VOC·설문 조회 (#60), 양방향 딥링크 (#61). 토큰 공유(#59)는 디자인 보류 때문에 대기 |

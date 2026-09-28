@@ -37,6 +37,7 @@
 | 모노레포 구조·빌드·CI·접두사 변경 | [패키지 경계](integration/platform-packages.md) §3·§6–8, [저장소 구조](integration/repository-layout.md) | [tooling](../tooling/AGENTS.md) → [packages](../packages/AGENTS.md) | 루트 `package.json`·`pnpm-workspace.yaml`·`turbo.json` → `.github/workflows/ci.yml` |
 | 설계 문서·결정 갱신 | 해당 소유 문서 → [05](05_roadmap_and_open_questions.md) | [docs](AGENTS.md) | 새 화면 설계는 [설계 스킬](../.agents/skills/analysis-platform-wireframe/SKILL.md) |
 | 통합 전 단위 프로토타입 | — | [prototypes](../prototypes/AGENTS.md) | 각 프로토타입 README |
+| 적재 워커 상태·가공 상태 조회·운영 콘솔 모니터링 | [01 가공 상태 보고](01_architecture_and_data_contract.md#processing-status-report), 06 §19, [상태 기록 스키마 초안](integration/ingest-status-schema.md) | [docs](AGENTS.md) | 파서 저장소 `context_recognized_parser` `docs/11`·`docs/16`·`docs/22` |
 | FeedbackOps | [저장소 구조](integration/repository-layout.md), [딥링크 계약](integration/feedbackops-deeplink.md) | [products/feedbackops](../products/feedbackops/AGENTS.md) | 서브모듈 하위 `AGENTS.md` |
 
 진행 중인 이행 순서(모노레포 5–6단계)와 남은 결정은 [HANDOFF](../HANDOFF.md)에서 확인한다.
@@ -84,6 +85,8 @@
 - [공통 컴포넌트/계약 후보](integration/component-contract-candidates.md) — 위 아이디어 모음에서 필드 수준 계약으로 뽑아낼 수 있는 것만 추려 정리. Research/Candidate이며 06/01/03에 반영되기 전 초안이다.
 
 - [플랫폼 모노레포 패키지 경계](integration/platform-packages.md) — `platform-app`을 contracts/ui/kernel/components/shell/mock-server/메뉴 패키지로 나누는 경계·의존 방향·메뉴 템플릿·이행 순서. 구성·단위·도구·이름은 2026-09-26 Decided, 세부 타입 이름은 Candidate. 1–4d단계 완료(PR #17–#23), 5단계(5a–5c, PR #25–#27) 완료, 6단계(6a 경계 lint, 6b 생성기) 완료.
+
+- [적재 워커 상태 기록 스키마 (초안)](integration/ingest-status-schema.md) — 가공 상태 원천인 적재 워커의 단계별 기록 구조, 원인 분류, 보존 기간, 파서 저장소 변경 제안, 파서 담당에게 물을 질문. Draft(파서 담당 합의 전, #37).
 
 - [Standard Log Lifecycle](references/standard-log-lifecycle/README.md) — 모델 표준 로그 개발·검증·결함·재검증 관리의 설계 참고. 원본 커밋에 고정한 Markdown 7개, 출처·해시 manifest와 4개 화면 시안 적용 범위를 포함한다. 기존 플랫폼 계약을 대체하지 않는다.
 
