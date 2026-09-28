@@ -22,7 +22,7 @@ export const manifests: MenuEntry[] = [
     id: 'metric-detail', group: 'metrics', parent: 'metric-catalog', navHidden: true, label: { ko: '지표 상세', en: 'Metric detail' },
     description: { ko: '정의·버전 이력·사용처', en: 'Definition, version history and usage' },
     path: '/metrics/:metricId', icon: Gauge, permission: 'metrics:view', requiresScope: false, pageType: 'catalog',
-    context: { ...none, metric: 'apply', selection: 'reference' }, features: noFeatures, pageKeys: ['tab', 'version'], initializesMetric: true,
+    context: { ...none, metric: 'apply', selection: 'reference' }, features: noFeatures, pageKeys: ['tab', 'version', 'returnTo'], initializesMetric: true,
     component: lazy(() => import('./pages/MetricDetail')),
   },
 ];

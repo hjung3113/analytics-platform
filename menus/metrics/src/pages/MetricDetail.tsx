@@ -23,10 +23,11 @@ function sectionId(id: string) { return `metric-section-${id}`; }
 
 export default function MetricDetailPage({ params }: PageProps) {
   const metricId = params.metricId;
-  const { pageParam, setPage, setGlobal, linkTo, global, url, toast } = usePlatform();
+  const { pageParam, setPage, setGlobal, linkTo, global, url, toast, returnTarget } = usePlatform();
   const { lang, tx } = useI18n();
   const versionParam = pageParam('version');
   const tab = pageParam('tab');
+  const returnTo = pageParam('returnTo');
   const tabKnown = SECTIONS.some(s => s.id === tab);
 
   const definition = usePlatformQuery(signal => serve({
@@ -86,6 +87,7 @@ export default function MetricDetailPage({ params }: PageProps) {
       <PlatformLink href={linkTo('metric-catalog')} className="inline-flex h-8 items-center rounded-sm border border-border-subtle bg-surface-raised px-3 text-[12px] font-medium hover:bg-surface-card">
         {lang === 'ko' ? '카탈로그' : 'Catalog'}
       </PlatformLink>
+      {returnTo !== null && <Button asChild variant="secondary" size="sm" className="h-8 rounded-sm"><PlatformLink href={returnTarget()}>{lang === 'ko' ? '이전 화면으로' : 'Back to previous view'}</PlatformLink></Button>}
     </>}
     contextExtension={<nav aria-label={lang === 'ko' ? '카탈로그 영역' : 'Catalog sections'} className="flex flex-wrap gap-1">
       {SECTIONS.map(s => <button key={s.id} type="button" aria-current={tab === s.id ? 'true' : undefined}
