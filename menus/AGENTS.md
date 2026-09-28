@@ -9,12 +9,12 @@ Registry 7개 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가
 | `@ap/menu-master-data` | `masterData` | 없음(계획 메뉴 manifest만) |
 | `@ap/menu-analytics` | `analytics` | ProductivityOverview, CycleTimeDrilldown, ExecutionDetail + Wafer Journey(계획) |
 | `@ap/menu-metrics` | `metrics` | MetricCatalog, MetricDetail |
-| `@ap/menu-notice-voc` | `noticeVoc` | 없음(공지·VOC 계획) |
-| `@ap/menu-admin` | `admin` | 없음(관리 3종 계획) |
+| `@ap/menu-notice-voc` | `noticeVoc` | MyVocHistory(내 VOC, #60) + 공지(계획) |
+| `@ap/menu-admin` | `admin` | RegistryCatalog, UsageOverview + 관리 계획 메뉴 |
 
 ## 규칙
 
-- `src/index.ts`는 `manifests: MenuEntry[]`만 export한다. 페이지·집계(`METRICS`, `resolveMetric` 등)를 재export하지 않는다 — 앱이 `manifests`만 import해도 라우트 lazy가 깨지지 않아야 한다.
+- `src/index.ts`는 `manifests: MenuEntry[]`만 export한다. 페이지·집계(`METRICS`, `resolveMetric` 등)를 재export하지 않는다 — 앱이 `manifests`만 import해도 라우트 lazy가 깨지지 않아야 한다. 앱이 메뉴에 설정값을 넣어야 하면 index가 아니라 별도 서브패스로 내보낸다(예: `@ap/menu-notice-voc/feedbackops-origin`, 앱 `main.tsx`만 import 가능 — lint가 강제).
 - `@ap/menu-*`끼리 서로 import하지 않는다. 교차 메뉴 이동은 `linkTo(menuId)`뿐이다(06 §22).
 - `@ap/mock-server`는 그 패키지의 `src/api.ts` 한 파일만 import한다. `src/pages/*`는 `../api`를 import한다.
 - 화면이 없는 그룹도 계획 메뉴의 manifest로 자기 그룹을 소유한다. `component` 없는 항목에 화면을 얹는 것이 이 패키지 분리의 목적이 아니다 — 새 화면 추가는 별도 요청·검증(06 §5, §29)이 필요하다.
@@ -26,6 +26,6 @@ Registry 7개 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가
 
 ## 검증
 
-루트에서 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`. `test` 스크립트(vitest)는 `@ap/menu-analytics`·`@ap/menu-metrics`(node 환경)와 `@ap/menu-home`(jsdom, 공지 닫기 수명)에만 있다. 화면이 바뀌면 `pnpm dev`로 브라우저에서 확인한다. lint상 `src/api.ts`가 그 패키지에서 `@ap/mock-server`를 import하는 유일한 파일이며, 테스트(`*.test.ts`)도 이 규칙의 면제 대상이 아니다.
+루트에서 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`. `test` 스크립트(vitest)는 `@ap/menu-master-data`를 뺀 모든 메뉴 패키지에 있다. 화면이 바뀌면 `pnpm dev`로 브라우저에서 확인한다. lint상 `src/api.ts`가 그 패키지에서 `@ap/mock-server`를 import하는 유일한 파일이며, 테스트(`*.test.ts`)도 이 규칙의 면제 대상이 아니다.
 
 다음 단계: 화면 작성법은 [apps/platform-web README "페이지 작성 가이드"](../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙), 메뉴 선언 계약은 06 §5.
