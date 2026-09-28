@@ -122,7 +122,7 @@
 | 선택 액션 바 | 선택 행 수 표시, 내보내기(CSV). 일괄 사용중지 등 다른 일괄 액션은 Open(§8) |
 | 상세 Drawer | `DetailDrawer`(`06` §13 Platform Component) — 탭 전환, Context 유지, 닫기 시 목록 필터 보존 |
 | 유효구간 타임라인 | `EquipmentValidityTimeline`(`06` §13 Domain Component 예시로 명시된 컴포넌트) — 등록부터 현재까지 속성 유효구간을 시각화. "사용중지"는 물리 삭제가 아니라 구간 종료(`valid_to`)로 표현(`02_domain_menus.md` 설비관리 항목) |
-| Audit 탭 | `AuditTimeline`(`06` §13 Platform Component) — who/when/before-after. 유효구간 이력과 별개 기능(언제 바뀌었는지 계산 vs 누가 바꿨는지 기록, `02_domain_menus.md`) |
+| Audit 탭 | `AuditTimeline`(`06` §13 Platform Component) — who/when/before-after. 유효구간 이력과 별개 기능(언제 바뀌었는지 계산 vs 누가 바꿨는지 기록, `02_domain_menus.md`). 이벤트는 `entityAudit` 포트로 읽고 유효구간에서 만들어 내지 않는다(#50) |
 
 React 컴포넌트 이름이나 API 선언이 아니다. Platform/Domain 경계는 `06` §13/§14를 따른다.
 

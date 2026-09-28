@@ -610,6 +610,8 @@ shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](04_frontend_ui_ux
 - PermissionGuard
 - SavedViewSelector
 
+`AuditTimeline`이 보이는 이벤트 타입은 `@ap/contracts`의 `AuditEvent`다. `at`은 실제 시점이라 `formatInstant`로 표시한다(§6.3). `target`은 목적지 참조(§22)이지 분석 Context가 아니다. 전역 감사 조회와 상세 감사 탭은 어댑터 포트(`auditTrail`·`entityAudit`, [패키지 경계](integration/platform-packages.md) §4)로 읽으며 셸 위젯이 아니다(#50).
+
 ### Domain Component
 
 업무 의미가 있는 컴포넌트다.
