@@ -20,4 +20,4 @@ App Shell(06 §8–9, 화면 설계 [07](../../docs/07_app_shell_wireframe.md)).
 
 ## 검증
 
-루트 `pnpm typecheck && pnpm test && pnpm build`, `pnpm dev`로 사이드바·레일·Context Bar·역할 전환 후 메뉴 노출을 직접 확인.
+루트 네 명령(`pnpm lint && pnpm typecheck && pnpm test && pnpm build`, 루트 `AGENTS.md`)에 더해 `pnpm dev`로 사이드바·레일·Context Bar·역할 전환 후 메뉴 노출을 직접 확인.

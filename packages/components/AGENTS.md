@@ -20,4 +20,4 @@ Platform Component 층(06 §13) + 차트 계약(§16) + 페이지 archetype 골�
 
 ## 검증
 
-`pnpm --filter @ap/components test`, 루트 `pnpm typecheck && pnpm build`, 소비 화면을 `pnpm dev`로 확인.
+`pnpm --filter @ap/components test`로 먼저 좁혀 본 뒤 루트 네 명령(`pnpm lint && pnpm typecheck && pnpm test && pnpm build`, 루트 `AGENTS.md`). 소비 화면을 `pnpm dev`로 확인.

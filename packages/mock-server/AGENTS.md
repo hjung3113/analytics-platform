@@ -20,4 +20,4 @@
 
 ## 검증
 
-`pnpm --filter @ap/mock-server test`, 이후 루트에서 `pnpm typecheck && pnpm test && pnpm build`.
+`pnpm --filter @ap/mock-server test`로 먼저 좁혀 본 뒤 루트 네 명령(`pnpm lint && pnpm typecheck && pnpm test && pnpm build`, 루트 `AGENTS.md`).

@@ -1056,6 +1056,8 @@ Equipment / 기간 / Metric Version / Scope가 분석 중 사라지지 않아야
 
 한 화면에서만 쓰이는 복잡한 도메인 컴포넌트를 범용 프레임워크로 일반화하지 않는다.
 
+**적용 범위(Decided, 2026-09-22):** "실제 소비자 2–3곳에서 반복될 때 승격"은 메뉴에서 나온 패턴을 공통 컴포넌트로 추출할 때의 기준이다. §4 Platform Kernel 책임(App Shell, Menu Registry, 전역 Context, 딥링크, 권한·Scope, 감사, 메뉴 활용률 계측)은 그 정의상 플랫폼 기능이므로 메뉴 반복을 기다리지 않고 Kernel 준비 순서에 따라 판단한다.
+
 ### Decorative Visualization
 
 업무 판단에 기여하지 않는 Gauge, Gradient, 3D Chart를 사용하지 않는다. **경계(Decided, 2026-09-22):** 기본값은 분모가 있는 비율(예: 가동률, 완료율)에 한해 donut만 허용하고, 게이지·스피드미터류(3D/그라디언트 포함)는 기본적으로 쓰지 않는다. 전면·영구 금지는 아니다 — 특정 업무 판단에 실제로 기여한다는 근거가 확인되면 케이스별로 예외를 추가할 수 있다. 근거: [당시 시각화 채택 기록](reviews/2026-09-23-decision-detail-history.md).

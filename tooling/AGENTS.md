@@ -11,6 +11,6 @@ workspace 패키지가 공유하는 설정 패키지. 런타임 코드는 두지
 
 ## 규칙
 
-- 설정 변경은 모든 패키지에 퍼진다. 바꾼 뒤 루트 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`를 돌린다.
+- 설정 변경은 모든 패키지에 퍼진다. 바꾼 뒤 루트 네 명령(`pnpm lint && pnpm typecheck && pnpm test && pnpm build`, 루트 `AGENTS.md`)을 돌린다.
 - 패키지 접두사(`@ap/`, 임시)를 설정에 쓸 때는 상수 한 곳에만 둔다(패키지 경계 §8).
 - 루트 workspace 파일(`package.json`, `pnpm-workspace.yaml`, `turbo.json`)과 CI(`.github/workflows/ci.yml`의 `platform-workspace` Job)는 여기 규칙과 함께 바꾼다.

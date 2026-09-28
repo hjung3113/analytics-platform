@@ -21,4 +21,4 @@
 
 ## 검증
 
-`pnpm --filter @ap/contracts typecheck`, 그 뒤 루트 `pnpm typecheck && pnpm test`.
+`pnpm --filter @ap/contracts typecheck`로 먼저 좁혀 본 뒤 루트 네 명령(`pnpm lint && pnpm typecheck && pnpm test && pnpm build`, 루트 `AGENTS.md`).
