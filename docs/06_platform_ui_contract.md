@@ -850,6 +850,7 @@ Unknown
 - **원천:** 설비·기간별 가공(수집→변환→파싱→적재→검증) 상태의 `statusSource`는 **적재 워커의 단계별 처리 결과 보고**다. 플랫폼이 적재 결과 행 수로 원인을 추론하지 않는다. 보고 스키마와 파서 저장소 변경은 [01 가공 상태 보고](01_architecture_and_data_contract.md#processing-status-report)를 따른다. 이 원천이 구현되기 전까지 07/08의 수집 상태 위젯 보류 결정은 유지된다.
 - **사용자용 가공 상태 조회(분석 공간):** 단계별 상태, 원인 분류(예: 파일 미수신, 형식 오류, 처리 대기), 원천이 제공한 경우의 예상 해소 시점, 현재 Context를 담은 "VOC로 문의" 동작을 보여준다. 원시 오류 메시지·스택·단계 로그·재처리 동작은 노출하지 않는다.
 - **개발자용 트레이스(운영 콘솔):** 같은 원천의 원시 오류, 단계별 로그, 재처리 동작까지 보여준다. 원문 로그·설정 파일 drill-through는 [05](05_roadmap_and_open_questions.md#결정-상태)의 defer 결정을 따르며 이 결정으로 열리지 않는다.
+- **가공 실패는 별도 상태가 아니다(2026-09-28):** 적재 워커가 실패를 보고해도 사용자 화면은 `Processing delayed` + 원인 분류(예: 원천 형식 오류, 처리 오류)로 보인다. 사용자에게 실패와 대기는 모두 "아직 가공되지 않음"이고 대응 경로(VOC 문의)도 같다. 실패·재시도 구분은 개발자용 트레이스가 보인다. 원인 분류 목록은 [적재 워커 상태 기록 스키마](integration/ingest-status-schema.md) §4(초안)를 따른다.
 - 두 화면은 같은 원천을 공유하고 표시 수준만 다르다. 사용자에게 보이는 상태와 내부 처리 상태를 자동으로 동일시하지 않는다(FeedbackOps ADR-0005 원칙과 같음).
 
 ### 응답 스키마 형태 (Decided; 필드명·enum 문자열은 Candidate)
@@ -859,7 +860,7 @@ Unknown
 1. **`outcome`(배타값):** `ok | empty | error | forbidden | too_large | timeout`. `empty`는 성공한 조회의 0건을 뜻하며, 본 조회 자체가 실패했다면 빈 배열 유무와 무관하게 `empty`가 아니라 `error`다. `error`는 나머지 구체 값에 해당하지 않는 잔여 실패다.
 2. **`assessments[]`(이름 Candidate):** 그 조회 계약이 선언한 **적용 kind**를 빠짐없이 1회씩 담는다. 각 항목은 `state = confirmed | clear | unknown`이다. 플랫폼이 kind **어휘**를 소유하고, 각 조회 계약(공개 스키마/메뉴 선언)이 그 조회에 **적용되는 kind 목록**을 선언한다. 원천이 아직 미구현이라는 이유로 적용 kind를 목록에서 빼지 않는다 — 그 경우 `unknown`으로 응답한다(의미상 해당하지 않는 kind만 목록에서 제외). 적용 목록의 누락·중복·잘못된 상태 조합은 응답 계약 위반이며, 클라이언트는 생략을 `clear`로 보정하지 않는다.
 
-`clear`는 "그 kind가 표현하는 문제가 해당 Context에 없음을 원천이 실제로 확인했다"는 제한적 주장이며 전반적 데이터 건강/완전성 선언이 아니다(가짜 `clear` 금지). `confirmed`/`clear`는 논리적 `statusSource`(원천 서비스 id)와 `observedAt`이 필수다. `unknown`은 생략하지 않으며 `source_unavailable`/`check_failed` 같은 평가 불가 이유를 명시한다.
+`clear`는 "그 kind가 표현하는 문제가 해당 Context에 없음을 원천이 실제로 확인했다"는 제한적 주장이며 전반적 데이터 건강/완전성 선언이 아니다(가짜 `clear` 금지). `confirmed`/`clear`는 논리적 `statusSource`(원천 서비스 id)와 `observedAt`이 필수다. `unknown`은 생략하지 않으며 `source_unavailable`/`check_failed`/`retention_expired`(원천 보존 기간 밖, 이름 Candidate) 같은 평가 불가 이유를 명시한다.
 
 `Loading`/`Refreshing same context`는 이 응답 페이로드에 없다(클라이언트 요청 생명주기). `Partial widget failure`는 위젯 결과가 섞일 때 페이지가 종합해 도출한다.
 
