@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { House } from 'lucide-react';
 import type { UsageMenuSummary } from '@ap/contracts';
 import { createRegistry, type MenuEntry } from '@ap/kernel';
-import { joinUsageRows } from './usage-rows';
+import { joinUsageRows, formatLastUsed } from './usage-rows';
 
 const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
@@ -35,5 +35,16 @@ describe('joinUsageRows', () => {
       { id: 'admin-roles', label: { ko: '권한/역할 관리', en: 'Roles & access' }, spaceId: 'operations', visits: 0, distinctUsers: 0, lastUsedAt: null },
       { id: 'admin-usage', label: { ko: '메뉴 활용률', en: 'Menu usage' }, spaceId: 'operations', visits: 0, distinctUsers: 0, lastUsedAt: null },
     ]);
+  });
+});
+
+// Regression (#88): lastUsedAt is an epoch-ms instant — formatDateTime printed the UTC digits as local.
+describe('formatLastUsed', () => {
+  it('renders the instant in the viewer time zone, not the UTC digits', () => {
+    expect(formatLastUsed(1_790_560_800_000, 'en', 'Asia/Seoul')).toContain('11:00');
+    expect(formatLastUsed(1_790_560_800_000, 'en', 'Asia/Seoul')).not.toContain('02:00');
+  });
+  it('renders an em dash for a menu never used', () => {
+    expect(formatLastUsed(null, 'en', 'Asia/Seoul')).toBe('—');
   });
 });
