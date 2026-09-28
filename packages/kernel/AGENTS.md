@@ -19,4 +19,4 @@ Platform Kernel 런타임(06 §4). 메뉴 목록도, 서버 구현도 모른다.
 
 ## 검증
 
-`pnpm --filter @ap/kernel test`, 그 뒤 루트 `pnpm typecheck && pnpm test`(앱 통합 테스트가 Registry·URL을 실제 메뉴로 검증).
+`pnpm --filter @ap/kernel test`로 먼저 좁혀 본 뒤 루트 네 명령(`pnpm lint && pnpm typecheck && pnpm test && pnpm build`, 루트 `AGENTS.md`)(앱 통합 테스트가 Registry·URL을 실제 메뉴로 검증).

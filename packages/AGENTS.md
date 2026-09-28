@@ -21,11 +21,11 @@
 - 다른 패키지는 `package.json` `exports`의 공개 진입점으로만 import한다(`@ap/kernel`, `@ap/ui/styles.css`). `@ap/x/src/...` 깊은 경로 금지.
 - 패키지는 TS 소스를 그대로 export하고 빌드 단계가 없다. 앱의 Vite가 번들한다.
 - Tailwind 클래스를 쓰는 패키지는 `styles.css`에 `@source`로 자기 소스를 등록하고 앱 `src/style.css`가 그것을 import한다. 새 패키지를 만들면 이 둘을 같이 추가한다. Tailwind를 쓰지 않는 패키지(`mock-server`)는 `styles.css`를 만들지 않는다.
-- 새 공개 API는 `src/index.ts`에 명시적으로 export한다. 메뉴 한 곳에서만 쓰이는 것은 올리지 않는다(06 §24, 2~3개 메뉴 반복 확인 후 승격).
+- 새 공개 API는 `src/index.ts`에 명시적으로 export한다. 메뉴 한 곳에서만 쓰이는 것은 올리지 않는다(06 §24, 2~3개 메뉴 반복 확인 후 승격). §4 Kernel 책임은 이 기준 밖이다.
 - 접두사 `@ap/`는 임시다. 런타임 문자열(localStorage 키, 이벤트 이름)에 넣지 않는다.
 
 ## 검증
 
-루트에서 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`. UI가 바뀌면 `pnpm dev`로 브라우저에서 확인한다. 이동·리팩터링 PR은 빌드 CSS selector 집합이 바뀌지 않았는지도 확인한다.
+루트 네 명령(`pnpm lint && pnpm typecheck && pnpm test && pnpm build`, 루트 `AGENTS.md`)에 더해: 이동·리팩터링 PR은 빌드 CSS selector 집합이 바뀌지 않았는지도 확인한다.
 
 다음 단계: 수정할 패키지의 `AGENTS.md`.

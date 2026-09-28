@@ -18,4 +18,4 @@ UI Primitive 층(06 §13)과 디자인 시스템 CSS. 플랫폼 개념(Context, 
 
 ## 검증
 
-루트 `pnpm typecheck && pnpm build`. 토큰·스타일 변경은 `pnpm dev`로 화면을 직접 확인한다.
+루트 네 명령(`pnpm lint && pnpm typecheck && pnpm test && pnpm build`, 루트 `AGENTS.md`). 토큰·스타일 변경은 `pnpm dev`로 화면을 직접 확인한다.
