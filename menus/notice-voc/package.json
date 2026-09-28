@@ -4,15 +4,20 @@
   "version": "0.0.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./styles.css": "./src/styles.css"
   },
   "scripts": {
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@ap/components": "workspace:*",
     "@ap/contracts": "workspace:*",
     "@ap/kernel": "workspace:*",
+    "@ap/ui": "workspace:*",
+    "@tanstack/react-table": "^8.21.3",
     "lucide-react": "^1.48.0"
   },
   "peerDependencies": {
@@ -27,6 +32,7 @@
     "eslint": "^10.11.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
   }
 }
