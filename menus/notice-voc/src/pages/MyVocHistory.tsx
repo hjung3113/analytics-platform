@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { HelpCircle } from 'lucide-react';
-import { type MySurveyPage, type MyVocItem, type MyVocPage, type MyVocStatus } from '@ap/contracts';
+import { formatInstant, type MySurveyPage, type MyVocItem, type MyVocPage, type MyVocStatus } from '@ap/contracts';
 import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { Panel, PlatformDataTable, PlatformPage, QueryView, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
@@ -19,14 +19,6 @@ import { VOC_STATUS } from '../voc-status';
 
 /** `cursor` page-key shape, checked before the request: a single token, no URL structure, 1..512 chars. */
 const CURSOR = /^[^?#&\s]{1,512}$/;
-
-/**
- * FeedbackOps times are instants (timestamptz), not equipment wall-clock: shown in the viewer's time zone.
- * formatDateTime would print the UTC digits as if they were local.
- */
-function formatInstant(iso: string, ko: boolean): string {
-  return new Date(iso).toLocaleString(ko ? 'ko-KR' : 'en-US', { dateStyle: 'short', timeStyle: 'short' });
-}
 
 export default function MyVocHistory() {
   const { t, lang } = useI18n();
@@ -60,9 +52,9 @@ export default function MyVocHistory() {
       accessorKey: 'status', header: ko ? '상태' : 'Status', enableSorting: false,
       cell: info => { const s = VOC_STATUS[info.getValue() as MyVocStatus]; return <StatusBadge tone={s.tone}>{ko ? s.ko : s.en}</StatusBadge>; },
     },
-    { accessorKey: 'openedAt', header: ko ? '접수' : 'Opened', enableSorting: false, cell: info => formatInstant(info.getValue() as string, ko) },
-    { accessorKey: 'updatedAt', header: ko ? '마지막 업데이트' : 'Updated', enableSorting: false, cell: info => formatInstant(info.getValue() as string, ko) },
-  ], [ko]);
+    { accessorKey: 'openedAt', header: ko ? '접수' : 'Opened', enableSorting: false, cell: info => formatInstant(info.getValue() as string, lang) },
+    { accessorKey: 'updatedAt', header: ko ? '마지막 업데이트' : 'Updated', enableSorting: false, cell: info => formatInstant(info.getValue() as string, lang) },
+  ], [ko, lang]);
 
   const openInFeedbackOps = (row: MyVocItem) => {
     const link = feedbackOpsHref(origin, { kind: 'voc-detail', vocId: row.id });

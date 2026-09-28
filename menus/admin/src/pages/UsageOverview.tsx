@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { formatDateTime, type Text, type UsageSummary } from '@ap/contracts';
+import { type Text, type UsageSummary } from '@ap/contracts';
 import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { encodeTableSort, parsePageIndex, parseTableSort, PlatformDataTable, PlatformPage, QueryView, sortAndPage } from '@ap/components';
 import { Button } from '@ap/ui';
-import { joinUsageRows, type UsageRow } from '../usage-rows';
+import { formatLastUsed, joinUsageRows, type UsageRow } from '../usage-rows';
 
 const SORT_FIELDS = ['id', 'spaceId', 'visits', 'distinctUsers', 'lastUsedAt'] as const;
 
@@ -30,7 +30,7 @@ export default function UsageOverview() {
     { accessorKey: 'distinctUsers', header: ko ? '방문 사용자' : 'Distinct users', meta: { align: 'right' } },
     {
       accessorKey: 'lastUsedAt', header: ko ? '마지막 사용' : 'Last used', meta: { align: 'right' },
-      cell: info => (info.getValue() == null ? '—' : formatDateTime(new Date(info.getValue() as number))),
+      cell: info => formatLastUsed(info.getValue() as number | null, lang),
     },
   ], [ko, lang]);
   return <PlatformPage description={ko ? '메뉴 진입·체류 이벤트의 집계입니다. v1은 식별 필드만 수집합니다(#75 결정 대기).' : 'Aggregates of menu entry and dwell events. v1 collects identity fields only (#75 pending).'}>

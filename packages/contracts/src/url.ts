@@ -75,7 +75,8 @@ export function parseDateTime(value: string, field: string): Date {
   if (date.getUTCFullYear() !== y || date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d || h > 23 || mi > 59 || s > 59) fail('invalid_time', `${field}: not a real calendar time`);
   return date;
 }
-/** Naive calendar arithmetic helpers; Date is used as a UTC-labelled container, never as an instant. */
+/** Naive wall-clock only (§6.3): prints the stored UTC digits as calendar text. Never a real instant —
+ *  those are formatInstant's domain. */
 export function formatDateTime(date: Date): string {
   return date.toISOString().slice(0, 19);
 }
