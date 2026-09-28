@@ -6,7 +6,6 @@ import { lazy } from 'react';
 import { Megaphone, MessageSquareWarning } from 'lucide-react';
 import type { Capability, ContextKey } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
-import { setFeedbackOpsOrigin, feedbackOpsOrigin } from './feedbackops-origin';
 
 const none: Record<ContextKey, Capability> = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' };
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
@@ -25,5 +24,3 @@ export const manifests: MenuEntry[] = [
     component: lazy(() => import('./pages/MyVocHistory')),
   },
 ];
-
-export { setFeedbackOpsOrigin, feedbackOpsOrigin };

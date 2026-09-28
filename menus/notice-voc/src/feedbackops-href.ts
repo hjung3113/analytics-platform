@@ -1,7 +1,9 @@
 /**
  * Platform → FeedbackOps deep-link builder wrapper (issue #60 §4). Fails closed: a missing origin is
- * `missing`, a rejected origin or id is `invalid` — never coerced (no lowercase, no added scheme, no
- * stripped path) and never thrown, so a bad env value must not break the screen or the app startup.
+ * `missing`, any ContractError from the builder (rejected origin, rejected id, or any other contract
+ * code) is `invalid` — never coerced (no lowercase, no added scheme, no stripped path) and never
+ * thrown, so a bad env value must not break the screen or the app startup. Only non-ContractError
+ * values (genuine bugs) propagate.
  */
 import { ContractError, buildFeedbackOpsLink, type FeedbackOpsTarget } from '@ap/contracts';
 
@@ -12,9 +14,7 @@ export function feedbackOpsHref(origin: string | null, target: FeedbackOpsTarget
   try {
     return { ok: true, href: buildFeedbackOpsLink({ origin, target }) };
   } catch (error) {
-    if (error instanceof ContractError && (error.code === 'feedbackops_origin' || error.code === 'feedbackops_id')) {
-      return { ok: false, reason: 'invalid' };
-    }
+    if (error instanceof ContractError) return { ok: false, reason: 'invalid' };
     throw error;
   }
 }

@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./feedbackops-origin": "./src/feedbackops-origin.ts",
     "./styles.css": "./src/styles.css"
   },
   "scripts": {

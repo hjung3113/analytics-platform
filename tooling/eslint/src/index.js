@@ -15,18 +15,24 @@ const REACT_MESSAGE = 'react / react-dom are not allowed in this package.';
 const MENU_ALLOW = ['contracts', 'kernel', 'components', 'ui'];
 const APP_CARVEOUT_FILES = ['src/main.tsx', 'src/dev/**/*.{ts,tsx}', 'src/published-metrics.test.ts'];
 
+// Composition-root-only menu subpath (issue #60): the app injects the FeedbackOps origin slot through the
+// menu package's "./feedbackops-origin" export. Narrowest deep-subpath allowance there is — this exact
+// subpath inside the src/main.tsx carve-out; every other menu subpath, and any `*/src` import, stays banned.
+const MENU_SUBPATH_ALLOW = ['menu-notice-voc/feedbackops-origin'];
+
 // Restriction data is the single decision source: each layer declares
-// { allow, denyReact, mockAllowed } and BOTH import rules are built from it,
+// { allow, denyReact, mockAllowed, allowSubpaths } and BOTH import rules are built from it,
 // so static and dynamic imports can never drift apart.
 //   allow: package-entry names this layer may import; null = every entry.
 //   mockAllowed: exempts exactly the mock-server entry (never its subpaths).
-// Deep subpaths are banned for everyone, including inside carve-outs.
+//   allowSubpaths: exact `name/subpath` entries exempted from the deep-subpath ban (default none).
+// Deep subpaths are banned for everyone, except the exact allowSubpaths entries, everywhere.
 const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, mockAllowed: false };
 const MENU_API_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, mockAllowed: true };
 const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false };
-const APP_CARVEOUT_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true };
+const APP_CARVEOUT_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true, allowSubpaths: MENU_SUBPATH_ALLOW };
 
-function importRestrictions({ allow, denyReact, mockAllowed }) {
+function importRestrictions({ allow, denyReact, mockAllowed, allowSubpaths = [] }) {
   const negations = [
     ...(allow === null ? [] : allow.map((name) => `!${pkg(name)}`)),
     ...(mockAllowed ? [`!${pkg('mock-server')}`] : []),
@@ -42,7 +48,7 @@ function importRestrictions({ allow, denyReact, mockAllowed }) {
         : [],
       patterns: [
         {
-          group: [`${PACKAGE_PREFIX}*/*`, `${PACKAGE_PREFIX}*/*/**`],
+          group: [`${PACKAGE_PREFIX}*/*`, `${PACKAGE_PREFIX}*/*/**`, ...allowSubpaths.map((s) => `!${pkg(s)}`)],
           message: DEEP_SUBPATH_MESSAGE,
         },
         ...(allow === null

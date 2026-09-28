@@ -99,6 +99,13 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-home';`, rule: '' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-home/src/index';`, rule: 'no-restricted-imports' },
 
+  // --- composition-root menu subpath allowance (issue #60) ---
+  { file: 'apps/platform-web/src/main.tsx', code: `import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';`, rule: '' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import('@ap/menu-notice-voc/feedbackops-origin');`, rule: '' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-notice-voc/feedbackops-origin';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-notice-voc/styles.css';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-notice-voc/src/feedbackops-origin';`, rule: 'no-restricted-imports' },
+
   // --- relative package escape (37-41) ---
   { file: MENU, code: `import { x } from '../../../../packages/contracts/src/url';`, rule: 'ap/no-relative-package-escape' },
   { file: 'menus/home/src/index.ts', code: `import { x } from '../../equipment/src/index';`, rule: 'ap/no-relative-package-escape' },
