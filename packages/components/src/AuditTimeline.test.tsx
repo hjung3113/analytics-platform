@@ -7,11 +7,13 @@ import { AuditTimeline } from './AuditTimeline';
 
 afterEach(cleanup);
 
-// One instant written both ways: `+09:00` is three hours later than the Z row, so string compare would
-// sort it first and print the wrong hour.
+// The Sep 26 +09:00 row is 03:00Z, one hour older than the 04:00Z row, despite sorting first as text.
+// The Sep 25 pair are the same instant; their IDs deliberately oppose lexical timestamp order.
 const EVENTS: AuditEvent[] = [
-  { id: 'e-z', at: '2026-09-26T02:00:00.000Z', actor: 'master-sync', action: 'create', source: 'system', target: { type: 'equipment', id: 'ICH-ETCH-0101', scopeId: 'ICH' }, changes: { chamberType: ['ET-A', 'ET-B'], validTo: [null, '2026-09-26T00:00:00'] } },
+  { id: 'e-z', at: '2026-09-26T04:00:00.000Z', actor: 'master-sync', action: 'create', source: 'system', target: { type: 'equipment', id: 'ICH-ETCH-0101', scopeId: 'ICH' }, changes: { chamberType: ['ET-A', 'ET-B'], validTo: [null, '2026-09-26T00:00:00'] } },
   { id: 'e-seoul', at: '2026-09-26T12:00:00+09:00', actor: 'kim.j', action: 'retire', source: 'user', target: { type: 'equipment', id: 'ICH-ETCH-0101', scopeId: 'ICH' } },
+  { id: 'a-tie', at: '2026-09-25T03:00:00.000Z', actor: 'actor-tie-a', action: 'update', source: 'user', target: { type: 'equipment', id: 'ICH-ETCH-0101', scopeId: 'ICH' } },
+  { id: 'z-tie', at: '2026-09-25T12:00:00+09:00', actor: 'actor-tie-z', action: 'sync', source: 'system', target: { type: 'equipment', id: 'ICH-ETCH-0101', scopeId: 'ICH' } },
 ];
 
 function Timeline() {
@@ -19,12 +21,15 @@ function Timeline() {
 }
 
 describe('AuditTimeline (§6.3: at is a real instant)', () => {
-  it('orders by instant, not by string: the +09:00 row (later) renders first', () => {
+  it('orders by epoch, then by id for equal instants', () => {
     render(<Timeline />);
     const times = screen.getAllByRole('time');
-    expect(times).toHaveLength(2);
-    expect(times[0]).toHaveAttribute('dateTime', '2026-09-26T12:00:00+09:00');
-    expect(times[1]).toHaveAttribute('dateTime', '2026-09-26T02:00:00.000Z');
+    expect(times).toHaveLength(4);
+    expect(times[0].getAttribute('dateTime')).toBe('2026-09-26T04:00:00.000Z');
+    expect(times[1].getAttribute('dateTime')).toBe('2026-09-26T12:00:00+09:00');
+    expect(times[2].getAttribute('dateTime')).toBe('2026-09-25T03:00:00.000Z');
+    expect(times[3].getAttribute('dateTime')).toBe('2026-09-25T12:00:00+09:00');
+    expect(screen.getAllByText(/^actor-tie-/).map(actor => actor.textContent)).toEqual(['actor-tie-a', 'actor-tie-z']);
   });
 
   it('prints formatInstant(at, lang) with the viewer zone applied, never the 16-char slice', () => {
@@ -32,10 +37,12 @@ describe('AuditTimeline (§6.3: at is a real instant)', () => {
     const times = screen.getAllByRole('time');
     // formatInstant applies the viewer zone; equality with the same call pins the component to §6.3
     // rendering (Intl in the viewer's zone) and rules out the old digit slice in every host zone.
-    expect(times[0].textContent).toBe(formatInstant('2026-09-26T12:00:00+09:00', 'ko'));
-    expect(times[0].textContent).not.toBe('2026-09-26 12:00');
-    expect(times[1].textContent).toBe(formatInstant('2026-09-26T02:00:00.000Z', 'ko'));
-    expect(times[1].textContent).not.toBe('2026-09-26 02:00');
+    const orderedAts = EVENTS.map(event => event.at).sort((a, b) => {
+      const ae = new Date(a).getTime(); const be = new Date(b).getTime();
+      return be - ae;
+    });
+    expect(times.map(time => time.textContent)).toEqual(orderedAts.map(at => formatInstant(at, 'ko')));
+    expect(times.map(time => time.textContent)).not.toEqual(orderedAts.map(at => at.slice(0, 16).replace('T', ' ')));
   });
 
   it('shows changes values digit-for-digit: a naive validTo is text, not an instant', () => {

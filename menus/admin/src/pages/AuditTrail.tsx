@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { formatInstant, type AuditAction, type AuditEvent, type AuditSortField } from '@ap/contracts';
 import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
@@ -30,7 +30,42 @@ export default function AuditTrail() {
   const filterKey = JSON.stringify(parsed.ok ? parsed.filters : null);
   // Every filter change returns to page 1 in the same setPage call — the table does not reset a controlled page.
   const setFilter = (key: string, value: string | null) => setPage({ [key]: value, page: null });
-  const clear = <Button size="sm" variant="secondary" onClick={() => setPage(Object.fromEntries(AUDIT_PAGE_KEYS.map(k => [k, null])))}>{ko ? '필터 초기화' : 'Clear filters'}</Button>;
+  const [drafts, setDrafts] = useState(() => ({
+    actor: raw.actor ?? '', targetId: raw.targetId ?? '', fromAt: raw.fromAt ?? '', toAt: raw.toAt ?? '',
+  }));
+  useEffect(() => {
+    setDrafts({ actor: raw.actor ?? '', targetId: raw.targetId ?? '', fromAt: raw.fromAt ?? '', toAt: raw.toAt ?? '' });
+  }, [raw.actor, raw.targetId, raw.fromAt, raw.toAt]);
+  const setDraft = (key: keyof typeof drafts, value: string) => setDrafts(current => ({ ...current, [key]: value }));
+  const applyDrafts = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setPage({
+      actor: drafts.actor || null,
+      targetId: drafts.targetId || null,
+      fromAt: drafts.fromAt || null,
+      toAt: drafts.toAt || null,
+      page: null,
+    });
+  };
+  const clearFilters = () => {
+    setDrafts({ actor: '', targetId: '', fromAt: '', toAt: '' });
+    setPage(Object.fromEntries(AUDIT_PAGE_KEYS.map(k => [k, null])));
+  };
+  const clear = <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{ko ? '필터 초기화' : 'Clear filters'}</Button>;
+  const filters = <form className="mb-3" onSubmit={applyDrafts}>
+    <fieldset className="flex flex-wrap items-center gap-2 border-l-2 border-border-strong pl-3">
+      <legend className="t-caption text-text-muted">{ko ? '감사 필터' : 'Audit filters'}</legend>
+      <label className="flex items-center gap-1 text-xs">{ko ? '대상 유형' : 'Type'}<select className={control} value={raw.type ?? ''} onChange={e => setFilter('type', e.target.value || null)}><option value="">{ko ? '전체' : 'All'}</option><option value="equipment">equipment</option><option value="metric">metric</option></select></label>
+      <label className="flex items-center gap-1 text-xs">{ko ? '작업' : 'Action'}<select className={control} value={raw.action ?? ''} onChange={e => setFilter('action', e.target.value || null)}><option value="">{ko ? '전체' : 'All'}</option>{Object.entries(ACTION_LABEL).map(([id, label]) => <option key={id} value={id}>{label[lang]}</option>)}</select></label>
+      <label className="flex items-center gap-1 text-xs">{ko ? '출처' : 'Source'}<select className={control} value={raw.source ?? ''} onChange={e => setFilter('source', e.target.value || null)}><option value="">{ko ? '전체' : 'All'}</option><option value="user">user</option><option value="system">system</option></select></label>
+      <label className="flex items-center gap-1 text-xs">{ko ? '행위자' : 'Actor'}<input className={control} aria-label={ko ? '행위자 정확 일치' : 'Exact actor'} value={drafts.actor} onChange={e => setDraft('actor', e.target.value)} /></label>
+      <label className="flex items-center gap-1 text-xs">{ko ? '대상 ID' : 'Target ID'}<input className={control} aria-label={ko ? '대상 ID 정확 일치' : 'Exact target id'} value={drafts.targetId} onChange={e => setDraft('targetId', e.target.value)} /></label>
+      <label className="flex items-center gap-1 text-xs">{ko ? '부터' : 'From'}<input className={`${control} tabular`} aria-label={ko ? '시각 이상 (ISO 시점)' : 'From instant'} placeholder="2026-09-26T02:00:00.000Z" value={drafts.fromAt} onChange={e => setDraft('fromAt', e.target.value)} /></label>
+      <label className="flex items-center gap-1 text-xs">{ko ? '까지' : 'To'}<input className={`${control} tabular`} aria-label={ko ? '시각 미만 (ISO 시점)' : 'To instant'} placeholder="2026-09-26T02:00:00.000Z" value={drafts.toAt} onChange={e => setDraft('toAt', e.target.value)} /></label>
+      <Button type="submit" size="sm" variant="secondary">{ko ? '적용' : 'Apply'}</Button>
+      {parsed.ok && clear}
+    </fieldset>
+  </form>;
   const columns = useMemo<ColumnDef<AuditEvent>[]>(() => [
     { accessorKey: 'at', header: ko ? '시각' : 'At', size: 150, cell: info => <span className="tabular">{formatInstant(info.getValue() as string, lang)}</span> },
     { accessorKey: 'actor', header: ko ? '행위자' : 'Actor', size: 130, cell: info => mono(info.getValue()) },
@@ -42,8 +77,9 @@ export default function AuditTrail() {
     { id: 'changes', header: ko ? '변경 필드' : 'Changed fields', enableSorting: false, size: 220, cell: ({ row }) => row.original.changes ? Object.keys(row.original.changes).sort().join(', ') : '—' },
   ], [ko, lang]);
   return <PlatformPage description={ko ? '모든 사이트의 마스터 변경 로그입니다. 행의 링크는 각 상세 화면의 Audit 탭으로 이동합니다.' : 'The master-change log across all sites. A row link opens the destination detail\'s Audit tab.'}>
-    {!parsed.ok ? <p role="alert">{ko ? '필터 값이 잘못되었습니다.' : 'Invalid filter value.'} {clear}</p> :
-      <PlatformDataTable<AuditEvent>
+    {filters}
+    {!parsed.ok && <p role="alert">{ko ? '필터 값이 잘못되었습니다.' : 'Invalid filter value.'} {clear}</p>}
+    {parsed.ok && <PlatformDataTable<AuditEvent>
         title={ko ? '변경 감사' : 'Audit trail'}
         ariaLabel={ko ? '변경 감사 목록' : 'Audit trail list'}
         subtitle={ko ? '합성 감사 이벤트입니다. 기본 정렬은 최신순이며 room 필터를 적용하지 않습니다.' : 'Synthetic audit events. Default sort is newest first; no room filter is applied.'}
@@ -80,15 +116,6 @@ export default function AuditTrail() {
           };
         }}
         emptyAction={clear}
-        filters={<fieldset className="flex flex-wrap items-center gap-2 border-l-2 border-border-strong pl-3"><legend className="t-caption text-text-muted">{ko ? '감사 필터' : 'Audit filters'}</legend>
-          <label className="flex items-center gap-1 text-xs">{ko ? '대상 유형' : 'Type'}<select className={control} value={raw.type ?? ''} onChange={e => setFilter('type', e.target.value || null)}><option value="">{ko ? '전체' : 'All'}</option><option value="equipment">equipment</option><option value="metric">metric</option></select></label>
-          <label className="flex items-center gap-1 text-xs">{ko ? '작업' : 'Action'}<select className={control} value={raw.action ?? ''} onChange={e => setFilter('action', e.target.value || null)}><option value="">{ko ? '전체' : 'All'}</option>{Object.entries(ACTION_LABEL).map(([id, label]) => <option key={id} value={id}>{label[lang]}</option>)}</select></label>
-          <label className="flex items-center gap-1 text-xs">{ko ? '출처' : 'Source'}<select className={control} value={raw.source ?? ''} onChange={e => setFilter('source', e.target.value || null)}><option value="">{ko ? '전체' : 'All'}</option><option value="user">user</option><option value="system">system</option></select></label>
-          <label className="flex items-center gap-1 text-xs">{ko ? '행위자' : 'Actor'}<input className={control} aria-label={ko ? '행위자 정확 일치' : 'Exact actor'} value={raw.actor ?? ''} onChange={e => setFilter('actor', e.target.value || null)} /></label>
-          <label className="flex items-center gap-1 text-xs">{ko ? '대상 ID' : 'Target ID'}<input className={control} aria-label={ko ? '대상 ID 정확 일치' : 'Exact target id'} value={raw.targetId ?? ''} onChange={e => setFilter('targetId', e.target.value || null)} /></label>
-          <label className="flex items-center gap-1 text-xs">{ko ? '부터' : 'From'}<input className={`${control} tabular`} aria-label={ko ? '시각 이상 (ISO 시점)' : 'From instant'} placeholder="2026-09-26T02:00:00.000Z" value={raw.fromAt ?? ''} onChange={e => setFilter('fromAt', e.target.value || null)} /></label>
-          <label className="flex items-center gap-1 text-xs">{ko ? '까지' : 'To'}<input className={`${control} tabular`} aria-label={ko ? '시각 미만 (ISO 시점)' : 'To instant'} placeholder="2026-09-26T02:00:00.000Z" value={raw.toAt ?? ''} onChange={e => setFilter('toAt', e.target.value || null)} /></label>{clear}
-        </fieldset>}
         rowAction={row => {
           const link = auditDestination(linkTo, row.target, global.scopeId);
           return link.ok
