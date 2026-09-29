@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { PACKAGE_PREFIX } from './prefix.ts';
 import { APP_PKG, MENUS_TS, STYLE_CSS, editSummary } from './generate.ts';
-import { depLine, importLine, renderFiles, spreadLine, styleLine, type MenuInputs } from './templates.ts';
+import { PAGE_SLOTS, PAGE_TYPES, depLine, importLine, renderFiles, spreadLine, styleLine, type MenuInputs } from './templates.ts';
 import { FIXTURE_FOLDER, FIXTURE_GROUP, GEN_ARGS, appSnapshot, makeFixture, menusTree, removeFixture, runCli } from './fixture.ts';
 
 const INPUTS: MenuInputs = {
@@ -26,6 +26,33 @@ describe('scaffold permission (#47)', () => {
     const declared = /permission: '([^']+)'/.exec(index)?.[1];
     expect(declared).toBeTruthy();
     expect(page).toMatch(new RegExp(`serve\\(\\{[\\s\\S]*permission: '${declared}'`));
+  });
+});
+
+describe('page archetype skeletons (06 §12, #104)', () => {
+  const pageOf = (pageType: MenuInputs['pageType']) =>
+    renderFiles({ ...INPUTS, pageType }).find(f => f.relPath.startsWith('src/pages/'))!.content;
+
+  it.each(PAGE_TYPES)('%s: manifest pageType and page slots agree, in reading order', pageType => {
+    const files = renderFiles({ ...INPUTS, pageType });
+    expect(files.find(f => f.relPath === 'src/index.ts')!.content).toContain(`pageType: '${pageType}'`);
+    const page = pageOf(pageType);
+    const ids = [...page.matchAll(/\{ id: '([^']+)', ko:/g)].map(m => m[1]);
+    expect(ids).toEqual(PAGE_SLOTS[pageType].map(slot => slot.id));
+    expect(ids.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('each archetype has its own skeleton, not one shared body', () => {
+    const bodies = new Set(PAGE_TYPES.map(pageOf));
+    expect(bodies.size).toBe(PAGE_TYPES.length);
+  });
+
+  it('the archetype-defining slots from 06 §12 are present', () => {
+    expect(pageOf('analysis')).toContain("id: 'chart'");
+    expect(pageOf('management')).toContain("id: 'drawer'");
+    expect(pageOf('workflow')).toContain("id: 'timeline'");
+    expect(pageOf('catalog')).toContain("id: 'definition'");
+    expect(pageOf('overview')).toContain("id: 'attention'");
   });
 });
 

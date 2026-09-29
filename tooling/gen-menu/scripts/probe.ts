@@ -117,7 +117,7 @@ function main(): { fallback: boolean; failures: { step: string; message: string 
   try {
     insertGroupIdMember(ROOT);
     insertGroupsRow(ROOT);
-    run('pnpm', ['gen:menu', 'genProbe', '--label-ko', '생성 확인', '--label-en', 'Gen probe', '--path', '/gen-probe', '--page-type', 'overview']);
+    run('pnpm', ['gen:menu', 'genProbe', '--label-ko', '생성 확인', '--label-en', 'Gen probe', '--path', '/gen-probe', '--page-type', process.env.GEN_MENU_PROBE_PAGE_TYPE ?? 'overview']);
     writeRegistryTest(ROOT);
     run('pnpm', ['install']);
     run('pnpm', ['lint']);

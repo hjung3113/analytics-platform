@@ -135,10 +135,65 @@ export const manifests: MenuEntry[] = [
 `;
 }
 
+type Slot = { id: string; ko: string; en: string };
+
+/**
+ * 06 §12 content slots per archetype. Page Header, Global Context and Data Trust are shell slots (§8) that
+ * PlatformPage already renders, so they are not repeated here. Order is the archetype's reading order.
+ */
+export const PAGE_SLOTS: Record<PageType, readonly Slot[]> = {
+  overview: [
+    { id: 'summary', ko: '핵심 KPI·요약', en: 'Primary KPI / summary' },
+    { id: 'trend', ko: '주요 추이·상태', en: 'Main trend or status' },
+    { id: 'attention', ko: '주의 목록', en: 'Attention list' },
+  ],
+  analysis: [
+    { id: 'kpi', ko: 'KPI 요약', en: 'KPI summary' },
+    { id: 'chart', ko: '주 차트', en: 'Primary chart' },
+    { id: 'annotation', ko: '선택·주석', en: 'Selection / annotation' },
+    { id: 'breakdown', ko: '분해 표', en: 'Breakdown table' },
+  ],
+  management: [
+    { id: 'filter', ko: '검색·필터', en: 'Search and filter' },
+    { id: 'table', ko: '데이터 표', en: 'Data table' },
+    { id: 'actions', ko: '선택 작업', en: 'Selection actions' },
+    { id: 'drawer', ko: '상세 드로어', en: 'Detail drawer' },
+    { id: 'history', ko: '이력·감사', en: 'History / audit' },
+  ],
+  catalog: [
+    { id: 'list', ko: '목록', en: 'List' },
+    { id: 'definition', ko: '정의 상세', en: 'Definition detail' },
+    { id: 'version', ko: '버전', en: 'Version' },
+    { id: 'ownership', ko: '소유', en: 'Ownership' },
+    { id: 'coverage', ko: '적용 범위', en: 'Coverage' },
+    { id: 'usage', ko: '사용·의존', en: 'Usage / dependency' },
+    { id: 'history', ko: '이력', en: 'History' },
+  ],
+  workflow: [
+    { id: 'queue', ko: '큐·목록', en: 'Queue / list' },
+    { id: 'filter', ko: '상태·우선순위·담당 필터', en: 'Status / priority / owner filter' },
+    { id: 'detail', ko: '상세', en: 'Detail' },
+    { id: 'timeline', ko: '타임라인', en: 'Timeline' },
+    { id: 'comments', ko: '댓글', en: 'Comments' },
+    { id: 'related', ko: '관련 Context', en: 'Related context' },
+  ],
+};
+
+function slotsLiteral(pageType: PageType): string {
+  return PAGE_SLOTS[pageType]
+    .map(slot => `  { id: '${slot.id}', ko: '${slot.ko}', en: '${slot.en}' },`)
+    .join('\n');
+}
+
 function pageTsx(i: MenuInputs): string {
   return `import { useI18n, usePlatform, usePlatformQuery } from '${PACKAGE_PREFIX}kernel';
 import { PlatformPage, QueryView } from '${PACKAGE_PREFIX}components';
 import { serve } from '../api';
+
+// 06 §12 ${i.pageType} skeleton: content slots in reading order. Replace each section with the platform component it names.
+const SLOTS = [
+${slotsLiteral(i.pageType)}
+];
 
 // The Screen suffix keeps the component name clear of the imports above (review F5).
 export default function ${i.page}Screen() {
@@ -151,7 +206,12 @@ export default function ${i.page}Screen() {
   }));
   const caption = lang === 'ko' ? '${i.labelKo}' : '${i.labelEn}';
   return <PlatformPage>
-    <QueryView query={query}>{() => <p className="t-caption text-text-muted">{caption}</p>}</QueryView>
+    <QueryView query={query}>{() => <div className="space-y-3">
+      <p className="t-caption text-text-muted">{caption}</p>
+      {SLOTS.map(slot => <section key={slot.id} data-slot={slot.id} className="rounded-lg border border-dashed border-border-subtle p-4">
+        <h2 className="text-[13px] font-medium text-text-secondary">{lang === 'ko' ? slot.ko : slot.en}</h2>
+      </section>)}
+    </div>}</QueryView>
   </PlatformPage>;
 }
 `;
