@@ -82,7 +82,7 @@ function hasExactAssessmentKinds(actual: readonly { kind: AssessmentKind }[], ex
  * `[revision, user.id, spec.id, projectContext(spec, global), params]`: Context keys the endpoint does not apply
  * do not invalidate the result, while applied keys and session changes hide it immediately.
  *
- * A `requiresScope` endpoint waits until the selected Scope is server-validated for the current user and matches the Context.
+ * A `requiresScope` endpoint waits until the selected Scope is server-validated for the current session and matches the Context.
  * `MenuMeta.requiresScope` means Scope must be selected and validated before a page queries data, so the Kernel
  * enforces that rule once instead of requiring every page to duplicate the gate. Params use the existing
  * `JSON.stringify` query key; callers should pass objects with a stable key order.
@@ -90,9 +90,9 @@ function hasExactAssessmentKinds(actual: readonly { kind: AssessmentKind }[], ex
  * The explicit-empty envelope bypasses kind checks only when the projected request contains an applied empty set, per 06 §6 명시적 공집합.
  */
 export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, enabled = true): QueryState<T> {
-  const { adapter, global, scope, user } = usePlatform();
+  const { adapter, global, scope, session } = usePlatform();
   const projected = projectContext(spec, global);
-  const scopeReady = !spec.requiresScope || (scope.status === 'valid' && scope.scopeId === global.scopeId && scope.validatedFor === user.id);
+  const scopeReady = !spec.requiresScope || (scope.status === 'valid' && scope.scopeId === global.scopeId && scope.validatedFor === session);
   const periodReady = spec.context.time !== 'apply' || (global.from !== null && global.to !== null);
 
   return usePlatformQuery<T>(async signal => {

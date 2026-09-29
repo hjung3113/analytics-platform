@@ -88,6 +88,10 @@ function fixture(options: FixtureOptions = {}) {
     adapter,
     requests,
     switchTo: (key: keyof typeof sessions) => { current = sessions[key]; listeners.forEach(listener => listener()); },
+    replaceWithSameUser: () => {
+      current = { ...current, user: { ...current.user, permissions: [...current.user.permissions] } };
+      listeners.forEach(listener => listener());
+    },
   };
 }
 
@@ -245,6 +249,41 @@ describe('useMenuQuery identity and request shape', () => {
     expect(f.requests).toHaveLength(1);
 
     act(() => finishUserBValidation({ status: 'valid', grantedRooms: [] }));
+    expect(await screen.findByText('done:2')).toBeTruthy();
+    expect(f.requests).toHaveLength(2);
+  });
+
+  it('does not query for a replacement same-ID session until that session validates Scope', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    const replacementValidations: Array<(check: ScopeCheck) => void> = [];
+    let validationCount = 0;
+    const f = fixture({
+      validateScope: async () => {
+        validationCount++;
+        if (validationCount === 1) return { status: 'valid', grantedRooms: [] };
+        return new Promise<ScopeCheck>(resolve => replacementValidations.push(resolve));
+      },
+    });
+    mount(f, { spec: { ...endpoint, requiresScope: true } });
+    expect(await screen.findByText('done:1')).toBeTruthy();
+    expect(f.requests).toHaveLength(1);
+
+    act(() => f.replaceWithSameUser());
+    await act(async () => { await Promise.resolve(); });
+    expect(validationCount).toBe(2);
+    expect(f.requests).toHaveLength(1);
+
+    // A late result for the replaced session must not validate the current session.
+    act(() => f.replaceWithSameUser());
+    await act(async () => { await Promise.resolve(); });
+    expect(validationCount).toBe(3);
+    await act(async () => {
+      replacementValidations[0]({ status: 'valid', grantedRooms: [] });
+      await Promise.resolve();
+    });
+    expect(f.requests).toHaveLength(1);
+
+    act(() => replacementValidations[1]({ status: 'valid', grantedRooms: [] }));
     expect(await screen.findByText('done:2')).toBeTruthy();
     expect(f.requests).toHaveLength(2);
   });

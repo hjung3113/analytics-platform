@@ -117,7 +117,7 @@ export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>,
 
 - `spec`에서 `P`를 추론하고 `params`는 `NoInfer<P>`로 검사해, params 리터럴이 선언된 타입을 넓히지 않게 한다.
 - `usePlatformQuery` 위에 얹는다. 식별자는 `[revision, user.id, spec.id, projectContext(spec, global), params]` — 적용하지 않는 Context 키가 바뀌어도 결과를 숨기거나 재조회하지 않고, 적용 키가 바뀌면 지금처럼 이전 결과를 숨긴다(06 §19 규칙 유지).
-- `spec.requiresScope`이면 현재 Context의 Scope가 `scope.scopeId === global.scopeId`이고 `scope.validatedFor === user.id`인 상태로 서버 검증을 통과할 때까지 요청하지 않는다. `spec.context.time === 'apply'`이면 절대 기간 `from`·`to`가 준비된 뒤 요청한다. `MenuMeta.requiresScope`는 조회 전에 Scope 선택과 서버 검증을 요구하므로, Kernel이 한 번 강제해 페이지마다 게이트를 중복 구현하지 않게 한다.
+- `spec.requiresScope`이면 현재 Context의 Scope가 `scope.scopeId === global.scopeId`이고 `scope.validatedFor === session`인 상태로 서버 검증을 통과할 때까지 요청하지 않는다. `validatedFor`는 검증 기준 세션 객체의 identity이므로 같은 `user.id`를 유지한 채 세션이 교체돼도 다시 검증한다. `spec.context.time === 'apply'`이면 절대 기간 `from`·`to`가 준비된 뒤 요청한다. `MenuMeta.requiresScope`는 조회 전에 Scope 선택과 서버 검증을 요구하므로, Kernel이 한 번 강제해 페이지마다 게이트를 중복 구현하지 않게 한다.
 - 응답 `outcome`이 `ok` 또는 `empty`일 때 `assessments`의 kind 다중집합 누락·중복·초과가 있으면 `error`와 `contract_violation: assessments <got> ≠ declared <want>`를 반환한다. 단, 적용된 집합 키에 요청 값 `[]`가 실리고 응답이 `outcome: 'empty'`, `assessments: []`, `trust: null`이면 06 §6 명시적 공집합으로 그대로 전달한다. 그 외 `ok`·`empty` 응답에는 정확한 kind 다중집합 검사를 적용한다. 다른 outcome은 그대로 전달한다.
 - Kernel은 개별 엔드포인트를 모른다(선언을 인자로 받을 뿐).
 
