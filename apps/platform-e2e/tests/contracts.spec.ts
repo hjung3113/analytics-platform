@@ -422,6 +422,27 @@ test.describe('화면 오류 격리 (06 §4 전역 Error Boundary)', () => {
   });
 });
 
+test.describe('메뉴 간 링크 허용 여부 (06 §22 — 목적지 권한을 링크가 안다)', () => {
+  const METRIC_USAGE = '/metrics/cycle_time?v=1&version=4';
+
+  test('분석 권한이 없는 역할(viewer)에게는 사용처 열기 링크가 열리지 않고 사유가 보인다', async ({ page }, testInfo) => {
+    await signInAs(page, 'viewer');
+    await page.goto(METRIC_USAGE);
+    const main = page.getByRole('main');
+    await expect(main.getByText('열 권한이 없습니다').first()).toBeVisible();
+    await expect(main.getByRole('link', { name: '사용처 열기' })).toHaveCount(0);
+    await evidence(page, testInfo, 'link-not-allowed');
+  });
+
+  test('분석 권한이 있는 역할(admin)에게는 같은 링크가 열린다', async ({ page }) => {
+    await signInAs(page, 'admin');
+    await page.goto(METRIC_USAGE);
+    const main = page.getByRole('main');
+    await expect(main.getByRole('link', { name: '사용처 열기' }).first()).toBeVisible();
+    await expect(main.getByText('열 권한이 없습니다')).toHaveCount(0);
+  });
+});
+
 test.describe('returnTo 복귀 (06 §22)', () => {
   test('상세로 갔다가 "이전 화면으로"를 누르면 떠난 URL로 정확히 돌아온다', async ({ page }, testInfo) => {
     await page.goto(`/equipment?v=1&scopeId=ICH&${PERIOD}&status=active`);

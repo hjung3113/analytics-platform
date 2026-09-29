@@ -13,6 +13,13 @@ export type Toast = { id: number; text: string; tone: 'info' | 'warning' | 'dang
  */
 export type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode };
 export type LinkOptions = { params?: Record<string, string>; page?: Record<string, string>; global?: Partial<GlobalContext>; returnTo?: boolean };
+export type LinkResolution = {
+  href: string;
+  /** False when the signed-in user lacks the target's permission or space entry. Display only — never a permission proof. */
+  allowed: boolean;
+  /** Requested page keys the target menu does not register; they are not in `href`. */
+  droppedPageKeys: string[];
+};
 
 type Platform = {
   registry: Registry;
@@ -32,6 +39,8 @@ type Platform = {
   setPage: (patch: Record<string, string | null>, options?: { replace?: boolean }) => void;
   resetContext: () => void;
   linkTo: (menuId: string, options?: LinkOptions) => string;
+  /** `linkTo` plus what a menu needs to draw the link honestly: whether the user may open it and which page keys were dropped. */
+  resolveLink: (menuId: string, options?: LinkOptions) => LinkResolution;
   /**
    * Reports a render failure the route error boundary contained and returns the correlation id to show
    * (06 §4). Fire-and-forget: a rejected or throwing adapter is swallowed. Only the matched route's
@@ -205,19 +214,31 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     navigate(pathname + buildQuery(next, dropContextResetKeys(page, next), extras));
   }, [pathname, navigate, global, page, extras, dropContextResetKeys]);
 
-  // Context Link helper (§22/§6.4): every registered global is preserved regardless of target support;
-  // page-owned state and unregistered extras are never copied implicitly.
-  const linkTo = useCallback((menuId: string, options: LinkOptions = {}) => {
-    const target = menuById(menuId);
-    const g = { ...global, ...options.global };
-    const pagePairs: Pair[] = Object.entries(options.page ?? {}).filter(([k]) => target.pageKeys.includes(k));
-    if (options.returnTo && target.pageKeys.includes('returnTo')) pagePairs.push(['returnTo', url]);
-    return pathFor(target, options.params) + buildQuery(g, pagePairs);
-  }, [global, url, menuById]);
-
   const can = useCallback((p: Permission) => user.permissions.includes(p), [user]);
   // Space entry gate (06 §9.1): a space without permission is open to every signed-in user.
   const canEnter = useCallback((space: SpaceDef) => !space.permission || can(space.permission), [can]);
+
+  // Context Link helper (§22/§6.4): every registered global is preserved regardless of target support;
+  // page-owned state and unregistered extras are never copied implicitly. Changing the site applies the same
+  // site boundary as setGlobal (ADR-0004) to the values carried over from the current URL — values the caller
+  // passes explicitly are meant for the destination and stay. `allowed` is a display hint (permission + space
+  // entry, like the sidebar); the server re-checks on arrival.
+  const resolveLink = useCallback((menuId: string, options: LinkOptions = {}): LinkResolution => {
+    const target = menuById(menuId);
+    const carried: GlobalContext = options.global && 'scopeId' in options.global && options.global.scopeId !== global.scopeId
+      ? { ...global, roomNames: null, condition: null, selection: null, lotIds: null, recipeIds: null, ppid: null }
+      : global;
+    const g = { ...carried, ...options.global };
+    const requested = Object.entries(options.page ?? {});
+    const pagePairs: Pair[] = requested.filter(([k]) => target.pageKeys.includes(k));
+    if (options.returnTo && target.pageKeys.includes('returnTo')) pagePairs.push(['returnTo', url]);
+    return {
+      href: pathFor(target, options.params) + buildQuery(g, pagePairs),
+      allowed: can(target.permission) && canEnter(registry.spaceOf(target)),
+      droppedPageKeys: requested.map(([k]) => k).filter(k => !target.pageKeys.includes(k)),
+    };
+  }, [global, url, menuById, can, canEnter, registry]);
+  const linkTo = useCallback((menuId: string, options: LinkOptions = {}) => resolveLink(menuId, options).href, [resolveLink]);
   // Permission-visible menus grouped by their space; membership lives on the group, never the menu.
   const spaceMenus = useMemo(() => {
     const map = new Map<SpaceId, MenuEntry[]>();
@@ -371,7 +392,7 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   }, [adapter, registry, route]);
 
   const value: Platform = {
-    registry, adapter, url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, reportError, returnTarget,
+    registry, adapter, url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget,
     session, user, revision, can, visibleMenus, menusInSpace, accessibleSpaces, currentSpace, sidebarSpace, switchSpace, scope, lastScope, favorites, toggleFavorite, recent,
     toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen,
   };

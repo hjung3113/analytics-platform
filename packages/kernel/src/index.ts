@@ -1,6 +1,6 @@
 export { I18nProvider, useI18n, type Key, type Lang, type Text } from './i18n';
 export { classifyMetricInit, type MetricInit } from './metric-init';
-export { PlatformLink, PlatformProvider, usePlatform, type LinkOptions, type PlatformSlots, type Recent, type ScopeState, type Toast } from './platform';
+export { PlatformLink, PlatformProvider, usePlatform, type LinkOptions, type LinkResolution, type PlatformSlots, type Recent, type ScopeState, type Toast } from './platform';
 export { useAdapterRequest, useEntityQuery, usePlatformQuery, type QueryState, type RequestState } from './query';
 export {
   CONTEXT_LABELS, createRegistry, PAGE_TYPE_LABELS, pathFor, RegistryError,

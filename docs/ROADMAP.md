@@ -66,7 +66,7 @@
 | 이슈 | 상태 |
 | --- | --- |
 | ~~Kernel: 라우트 단위 Error Boundary와 오류 보고 포트 (#101)~~ 완료 — 셸 `RouteErrorBoundary`가 메뉴 화면 렌더 실패를 콘텐츠 슬롯에 가두고, `usePlatform().reportError` → 포트 `reportClientError`(식별 필드만)로 보고, 화면에 Correlation ID를 보인다. mock 시나리오 `malformed`로 E2E 재현(총 36) | 완료 |
-| Kernel: `linkTo`가 목적지 권한·사이트 경계 초기화·미지원 Context를 처리 (#102) | 착수 가능 |
+| ~~Kernel: `linkTo`가 목적지 권한·사이트 경계 초기화·미지원 Context를 처리 (#102)~~ 완료 — `resolveLink`가 `href`·`allowed`(목적지 권한·공간 진입)·`droppedPageKeys`를 돌려주고 Scope가 바뀌면 site 종속 Context를 비운다. 감사 화면의 자체 SITE_BOUNDARY 로직 제거, 지표 사용처는 권한 없으면 사유 표시. E2E 총 38 | 완료 |
 | 차트 계약: 주석 Scope 격리·manifest features 준수·E2E 검사 (#103) | 착수 가능 |
 | 레이아웃: pageType을 실제 계약으로 (#104) | 착수 가능 |
 | [결정+설계] 메뉴 데이터 조회 포트: 서버 경계 계약을 mock 밖 contracts로 (#100) | 사람 결정 대기 |
