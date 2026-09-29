@@ -77,6 +77,8 @@ import type { GlobalContext } from './url';
 /** 메뉴가 선언하는 조회 엔드포인트 하나. 클라이언트·서버가 같은 선언을 읽는다(PLATFORM_REQUIREMENTS:141). */
 export type EndpointSpec<P, T> = {
   id: string;                    // '<group>.<name>', 전역 유일. 전송 경로 키
+  menuId: string;                // 이 엔드포인트를 소유한 메뉴(manifest id). 그룹 접두사만으로는 같은 그룹의 다른 권한 메뉴를 구분하지 못한다
+  paramKeys: readonly (keyof P & string)[]; // 허용 params 키. 런타임 값이라 서버·HTTP 어댑터가 미선언 키를 거부할 수 있다(값 검증 스키마는 Q2 codegen 결정 때)
   permission: Permission;        // 서버의 엔드포인트 ACL. 요청에 싣지 않는다
   requiresScope: boolean;
   context: Partial<Record<ContextKey, Exclude<Capability, 'unsupported'>>>; // 없는 키 = unsupported
@@ -101,7 +103,7 @@ export type MenuQuery<P = unknown> = { endpoint: string; context: MenuQueryConte
 - **ContextKey → 필드 대응:** `time`→`from`,`to` · `roomNames` · `condition` · `selection` · `lot`→`lotIds` · `ppid` · `recipe`→`recipeIds` · `metric`→`metricId`,`metricVersion`(쌍으로만). `scopeId`는 `requiresScope`면 항상 싣는다.
 - **`reference` 키는 싣지 않는다.** reference는 "보이지만 조회 필터 아님"(06 §6)이므로 조회 요청에 들어갈 이유가 없다. `ExecutionDetail`의 수동 null 처리가 선언으로 대체된다.
 - **null과 `[]` 구분 유지:** 현재 코드 관례대로 `null`=제약 없음, `[]`=명시적 공집합(`server.ts:220-222`). URL 표식(`equipmentSelection=none` 등)과 JSON `[]`의 대응은 기존 codec이 맡는다.
-- **params:** 페이지 입력(`granularity`, `sort`, `page`, 커서 등). 엔드포인트마다 타입이 있고 서버는 선언되지 않은 키를 거부한다(`accessDirectory`·`recordUsage`가 이미 쓰는 "unknown key 거부" 자세와 같음).
+- **params:** 페이지 입력(`granularity`, `sort`, `page`, 커서 등). 엔드포인트마다 타입이 있고, 허용 키는 `paramKeys`(런타임 값)로 선언한다. 팬텀 제네릭 `_types`는 런타임에 지워져 키를 알 수 없기 때문이다. 서버는 `paramKeys`에 없는 키를 거부한다(`accessDirectory`·`recordUsage`가 이미 쓰는 "unknown key 거부" 자세와 같음).
 - **응답:** 기존 `ApiResponse<T>` 그대로. 새 envelope를 만들지 않는다.
 
 ### 2.3 Kernel (`@ap/kernel`)
@@ -119,7 +121,8 @@ export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: P, enabled?
 mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴다.
 
 1. `endpoint` 미등록 → `error`("unknown endpoint").
-2. 요청 모양 위반(요청 최상위에 `permission`·`kinds` 같은 알 수 없는 키, 선언이 `apply`하지 않는 Context 키, 선언되지 않은 params 키) → `error`. **클라이언트가 보낸 값으로 권한·kind를 정하는 길 자체를 없앤다.**
+2. 요청 모양 위반(요청 최상위에 `permission`·`kinds` 같은 알 수 없는 키, `paramKeys`에 없는 params 키) → `error`. **클라이언트가 보낸 값으로 권한·kind를 정하는 길 자체를 없앤다.** 선언이 `apply`하지 않는 Context 키를 거부할지 무시할지는 Q3 답 전까지 정하지 않는다(게이트 뒤 단계에서 추가). 우리 클라이언트는 `projectContext`가 그 키를 애초에 싣지 않는다.
+   - 등록 시점 검증: `createMockAdapter`(그리고 실서버 등록)는 `spec.menuId`의 manifest 권한과 `spec.permission`이 같은지 검사하고 다르면 등록을 거부한다(Q5). 서버는 요청이 아니라 이 검증을 통과한 선언 사본을 믿는다.
 3. `spec.permission`을 세션으로 검사 → `forbidden`. 응답 시나리오보다 우선(현재와 같음).
 4. (mock만) 시나리오 early return.
 5. `requiresScope`면 Scope → room grant → Condition → Selection(현재 `resolveEquipment`) → `forbidden`.
@@ -216,7 +219,7 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 - 페이징 공통 추상화(cursor vs offset) — `auditTrail`·`accessDirectory`는 offset, `myVocHistory`는 cursor로 이미 다르다. 엔드포인트 params에 둔다.
 - 여러 위젯 요청 묶기(batch), 스트리밍, 장기 작업.
 - 공개 스키마 내보내기/codegen(OpenAPI·JSON Schema) — 실서버(FastAPI) 착수 때(§8 Q2).
-- manifest ↔ 엔드포인트 교차 검증(예: manifest가 `apply`한 키를 어떤 엔드포인트도 apply하지 않으면 거부) — 이전 메뉴가 3개 이상 되면.
+- manifest ↔ 엔드포인트 Context 교차 검증(예: manifest가 `apply`한 키를 어떤 엔드포인트도 apply하지 않으면 거부) — 이전 메뉴가 3개 이상 되면. 단 권한 일치 검사(Q5)는 `menuId`로 등록 시점에 지금 한다.
 - 엔드포인트 권한이 메뉴 권한과 다른 경우의 규칙(§8 Q5).
 
 ## 7. 대안과 기각 이유
@@ -235,7 +238,7 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 - **Q2.** 실서버 착수 후 선언의 원본은 어디인가: TS 선언 → FastAPI(Pydantic) codegen, 아니면 FastAPI OpenAPI → TS codegen. `PLATFORM_REQUIREMENTS.md:141`과 06 §6.1("형식은 Candidate")이 여기에 걸린다.
 - **Q3.** 선언이 apply하지 않는 Context 키가 요청에 오면 서버가 거부(error)할지 무시할지. 추천: 거부 — 클라이언트 투영 버그를 드러낸다.
 - **Q4.** 06 §5 "메뉴가 선언하는 정보"(Decided 표)에 "조회 엔드포인트(권한·적용 Context·적용 kind)"를 추가하나. 06 변경이라 플랫폼 레벨 결정.
-- **Q5.** 엔드포인트 권한이 그 메뉴 manifest 권한과 달라도 되나(예: 내보내기 전용 권한). 지금 소비자 없음 — 같아야 한다로 시작하는 것을 추천.
+- **Q5.** 엔드포인트 권한이 그 메뉴 manifest 권한과 달라도 되나(예: 내보내기 전용 권한). 지금 소비자 없음 — 같아야 한다로 시작하는 것을 추천. `menuId`로 등록 시점에 강제한다.
 - **Q6.** 메뉴 하나만 쓰는 assessment kind(`respondent_history`)를 플랫폼 어휘에 둘지, 메뉴 확장 어휘를 허용할지.
 - **Q7.** 마이그레이션 범위(5.1) 승인: 2개 검증 → 확인 → 생성기 → 나머지 패키지별(각각 이슈). 이 과정에서 기존 화면 8개를 차례로 건드리므로 루트 규칙("메뉴 화면 3개 이상 연속 작업 전 범위 확인")에 따라 여기서 범위를 확인받는다. VOC 이전을 #100에 포함할지 별도 이슈로 할지도.
 - **Q8.** `accessDirectory`를 Kernel 포트에 두는 판정(§3 규칙 2)에 동의하나.
@@ -261,13 +264,14 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 
 | # | 단계 | 검증 |
 | --- | --- | --- |
-| 1 | contracts: `menu-query.ts`(`EndpointSpec`·`defineEndpoint`·`MenuQuery`·`projectContext`) + `PlatformAdapter.menuQuery` 시그니처 | contracts 단위 테스트: capability별 투영, `null`/`[]` 보존, metric 쌍은 함께만, reference 키 제외. React import 0(lint) |
-| 2 | mock-server: `serveEndpoint` 엔진(현 `serve` 단계 재사용) + `createMockAdapter({ endpoints })` | 요청에 `permission`/`kinds` 키 → error, 선언 밖 Context 키 → error, 미등록 id → error, kind 정확히 1회, 권한이 시나리오보다 우선. 기존 `time-domain`·`explicit-empty`·`menu-permission` 테스트 통과 수 유지 |
+| 1 | contracts: `menu-query.ts`(`EndpointSpec`(`menuId`·`paramKeys` 포함)·`defineEndpoint`·`MenuQuery`·`projectContext`) + `PlatformAdapter.menuQuery` 시그니처 | contracts 단위 테스트: capability별 투영, `null`/`[]` 보존, metric 쌍은 함께만, reference 키 제외. React import 0(lint) |
+| 2 | mock-server: `serveEndpoint` 엔진(현 `serve` 단계 재사용) + `createMockAdapter({ endpoints })` | 요청에 `permission`/`kinds` 키 → error, `paramKeys` 밖 params 키 → error, 미등록 id → error, 엔드포인트 권한이 `menuId` manifest 권한과 다르면 등록 거부, kind 정확히 1회, 권한이 시나리오보다 우선. 기존 `time-domain`·`explicit-empty`·`menu-permission` 테스트 통과 수 유지 |
 | 3 | kernel: `useMenuQuery` | fixture 어댑터: 역할 전환 즉시 이전 결과 숨김, apply 아닌 키 변경은 재조회 없음, apply 키 변경은 숨김. Kernel 변경이므로 `pnpm e2e` |
 | 4 | lint: `mock-server`는 `src/mock/**`(+ 이행 중 `src/api.ts`), pages → `mock/` 금지, `@ap/menu-*/mock`은 `main.tsx`만 | `tooling/eslint` `boundaries.test.ts`에 위반 사례 추가(수정 전 실패) |
 | 5 | `productivity-overview` 이전(엔드포인트 4개, 계산 → `src/mock/`) | 기존 테스트, `pnpm dev`에서 시나리오 normal/partial/too_large/forbidden/역할 전환, `pnpm e2e` 보고서 |
 | 6 | `execution-detail` 이전(수동 null 처리 제거) | returnTo 왕복·§22 e2e, occurrence 조회가 90일 Context에서도 too_large가 아님 |
-| 7 | **사람 확인 게이트** — 1–6 결과로 §8 Q1·Q3·Q4 답 받기 | — |
+| 7 | **사람 확인 게이트** — 1–6 결과로 §8 Q3·Q4 답 받기 | — |
+| 7a | Q3 결과 반영: 선언 밖 Context 키 처리(거부 추천)를 `serveEndpoint`에 추가 | 선택한 동작의 테스트(거부면 error, 무시면 결과 동일) |
 | 8 | gen-menu 전환(§4) | gen-menu 테스트 + `scripts/probe.ts`(임시 그룹이 루트 네 명령 통과 = 다중 패키지 mock 등록 확인) |
 | 9 | 나머지 이전, 패키지별 1 PR: `cycle-time`(+내보내기 `cycleData.ts:224`, `export-permission.test.ts` 이동), `equipment-master`, `metrics`(쌍 검증 서버로), `home`(`NOTICES` → mock) | 각 패키지 테스트 + 브라우저 + `pnpm e2e` |
 | 10 | VOC 이전: 두 메서드 어댑터에서 제거, `MyVoc*` 타입 메뉴로 | `MyVocHistory.test.tsx`, `voc-status.test.ts`, contracts에서 `MyVocStatus` grep 0 |
