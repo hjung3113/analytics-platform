@@ -1,4 +1,5 @@
-export { mockAdapter } from './adapter';
+export { createMockAdapter } from './adapter';
+export { defineMockEndpoint, MockRegistrationError, type AnyMockEndpoint, type MockEndpoint } from './endpoints';
 
 export {
   CYCLE_VERSION_NOTE, DATA_THROUGH, bucketStart, cycleMinutes, jobPercentile,

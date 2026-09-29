@@ -49,6 +49,7 @@ const session: Session = {
   user: { id: 'user-a', name: 'a', title: { ko: 'a', en: 'a' }, permissions: ['platform:view'] }, scopes: [],
 };
 const adapter: PlatformAdapter = {
+  menuQuery: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
   session: () => session,
   validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
   publishedMetrics: () => [],

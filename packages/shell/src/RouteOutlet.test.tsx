@@ -43,6 +43,7 @@ function fixture(reportClientError: PlatformAdapter['reportClientError']) {
   const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view'] }, scopes: [] };
   const listeners = new Set<() => void>();
   const adapter: PlatformAdapter = {
+    menuQuery: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     session: () => session,
     validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
     publishedMetrics: () => [],

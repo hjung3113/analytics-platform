@@ -13,7 +13,7 @@
 | `kernel/` (`@ap/kernel`) | Registry 런타임, `PlatformProvider`, 전역 Context·URL·Scope 상태, 요청 수명주기, i18n | `contracts` |
 | `components/` (`@ap/components`) | `PlatformPage`, 표·드로어·감사·신뢰 표시, 상태 화면, 차트 프레임 | `contracts`, `kernel`, `ui` |
 | `shell/` (`@ap/shell`) | AppShell, Sidebar, TopBar, CommandPalette, GlobalContextBar, RouteOutlet | `contracts`, `kernel`, `components`, `ui` |
-| `mock-server/` (`@ap/mock-server`) | 개발용 서버 대역(`world`·`server`·`jobs`·`mockAdapter`). 앱이 주입. Tailwind 없음 | `contracts` |
+| `mock-server/` (`@ap/mock-server`) | 개발용 서버 대역(`world`·`server`·`jobs`·`createMockAdapter`). 앱이 주입. Tailwind 없음 | `contracts` |
 
 ## 모든 패키지에 적용
 

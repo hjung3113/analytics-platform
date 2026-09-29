@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { mockAdapter } from './adapter';
+import { createMockAdapter } from './adapter';
 import { getRole, matchesCondition, setRole } from './server';
 import { EQUIPMENT, USERS, type RoleId } from './world';
+
+const mockAdapter = createMockAdapter({ endpoints: [], registry: { menus: [] } });
 
 /** The pre-adapter GlobalContextBar computed this in the browser; the server-side evaluation must agree. */
 function clientSide(role: RoleId, scopeId: string, roomNames: string[] | null, condition: Parameters<typeof matchesCondition>[1], selection: string[] | null) {

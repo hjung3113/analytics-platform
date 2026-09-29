@@ -92,6 +92,8 @@ export type PlatformAdapter = {
   contextOptions(scopeId: string, signal?): Promise<ConditionOptions>;           // 4d: 조건 축 선택지
   evaluateSelection(input: SelectionInput, signal?): Promise<SelectionEvaluation>; // 4d: 조건 결과·조건 밖 선택
   getEntity(ref: EntityRef, signal?): Promise<ApiResponse<unknown>>; // §22 목적지 단건 조회 — 분석 경로가 아니다(전역 Context·Selection 대체 없음, 서버가 엔드포인트 권한·site·room을 재검증)
+  /** 메뉴 데이터 조회 — 서버가 자기 선언 사본으로 판정 (설계: menu-query-port.md, Candidate). */
+  menuQuery(req: MenuQuery, signal?): Promise<ApiResponse<unknown>>;
   defaultRangeTo(): string;                 // 기본 기간 기준 시각
   recordUsage(events: readonly UsageEvent[]): Promise<{ accepted: number }>; // 메뉴 활용률 이벤트 적재(진입·체류). userId 필드 없음 — 서버가 세션 사용자로 기록
   reportClientError(report: ClientErrorReport): Promise<{ accepted: boolean }>; // 라우트 Error Boundary가 가둔 렌더 실패 보고(#101). 식별 필드만(URL·Context 값·스택·`Error.message` 없음, `name`은 식별자 모양만), 서버가 세션 사용자·시각을 기록

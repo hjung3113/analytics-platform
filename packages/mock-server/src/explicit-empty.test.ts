@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getRole, serve, setRole } from './server';
+import { getRole, serve, setRole, setScenario } from './server';
 import { emptyGlobal } from '@ap/contracts';
 
 const period = { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' };
@@ -39,6 +39,27 @@ describe('explicit empty sets', () => {
       compute: () => { throw new Error('must not run'); },
     });
     expect(denied.outcome).toBe('forbidden');
+  });
+});
+
+describe('malformed responses', () => {
+  it('skips a shape-aware empty predicate and returns the malformed ok payload', async () => {
+    setScenario('malformed');
+    try {
+      const result = await serve<{ rows: number[] }>({
+        role: 'engineer', permission: 'analytics:view',
+        global: { ...emptyGlobal, scopeId: 'ICH', ...period },
+        latency: 0,
+        mergeTimeDomain: false,
+        compute: () => ({ rows: [] }),
+        isEmpty: data => data.rows.length === 0,
+      });
+
+      expect(result.outcome).toBe('ok');
+      expect(result.data).toEqual({});
+    } finally {
+      setScenario('normal');
+    }
   });
 });
 

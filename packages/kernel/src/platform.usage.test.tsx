@@ -37,6 +37,7 @@ function recordingFixture(permissions: Session['user']['permissions'], userId = 
   let session: Session = { user: { id: userId, name: 'u', title: { ko: 'u', en: 'u' }, permissions }, scopes: [] };
   const listeners = new Set<() => void>();
   const adapter: PlatformAdapter = {
+    menuQuery: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     session: () => session,
     validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
     publishedMetrics: () => [],

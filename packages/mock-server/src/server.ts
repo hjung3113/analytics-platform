@@ -102,6 +102,8 @@ export type ServeOptions<T> = {
   latency?: number;
   signal?: AbortSignal;
   metricVersion?: string;
+  /** @internal Engine-only; menu handlers declare metricVersion on their endpoint instead. */
+  metricVersionOf?: () => string | undefined;
   /** Logical source shown in Data Trust (e.g. 'master.equipment'); defaults to the productivity mart. */
   source?: string;
   /**
@@ -238,7 +240,9 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
   const equipment = s === 'empty' ? [] : resolved.rows;
   // malformed: an ok envelope whose data does not match the declared shape, so a page that trusts it throws while rendering.
   const data = s === 'malformed' ? ({} as T) : o.compute({ equipment });
-  const empty = s === 'empty' || (o.isEmpty ? o.isEmpty(data) : false);
+  const empty = s === 'empty'
+    || (s !== 'malformed' && o.isEmpty?.(data) === true);
+  const metricVersion = o.metricVersionOf ? o.metricVersionOf() : o.metricVersion;
   return finish({
     correlationId,
     data,
@@ -246,7 +250,7 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
     scenario: s,
     verifiedDomain,
     kinds: o.kinds,
-    metricVersion: o.metricVersion,
+    metricVersion,
     source: o.source,
     provisional: hours !== null && hours <= 24,
   });
