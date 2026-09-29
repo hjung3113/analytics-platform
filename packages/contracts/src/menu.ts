@@ -19,7 +19,9 @@ export type SpaceDef = {
   /** Landing menu inside this space whose path has no `:param`. */
   homeMenuId: string;
 };
-export type Permission = 'platform:view' | 'equipment:view' | 'master:view' | 'analytics:view' | 'metrics:view' | 'notice:view' | 'voc:view' | 'console:access';
+/** The permission vocabulary in canonical order — one runtime list for validators and selects (mock server, console filters). */
+export const PERMISSIONS = ['platform:view', 'equipment:view', 'master:view', 'analytics:view', 'metrics:view', 'notice:view', 'voc:view', 'console:access'] as const;
+export type Permission = typeof PERMISSIONS[number];
 
 export type MenuMeta = {
   id: string;

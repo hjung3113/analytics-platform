@@ -123,6 +123,47 @@ export type AuditTrailQuery = {
 /** Offset page, not cursor: the screen is a table (page + one sort column) over an arbitrarily filtered set. */
 export type AuditTrailPage = { items: readonly AuditEvent[]; total: number };
 
+/** Sort keys of the console access directory (issue #49). `permissionCount`/`grantCount` are sort keys only — the client recomputes both from the arrays; no second copy on the wire. */
+export type AccessSortField = 'name' | 'role' | 'permissionCount' | 'grantCount';
+
+/**
+ * Console access-directory read filters (issue #49). Search constraints only — not an identity stamp: no
+ * user id, no caller role, no scopeId. The role filter is an exact token, not a contracts enum: the mock
+ * role keys are server data, and freezing them here would freeze a mock vocabulary.
+ */
+export type AccessDirectoryQuery = {
+  role?: string; // exact, case-sensitive role key. Absent = all.
+  permission?: Permission; // Absent = all.
+  page?: number; // 1-based. Absent = 1.
+  pageSize?: number; // integer 1..100. Absent = 25.
+  /** Absent = role ascending, id ascending tie-break. */
+  sort?: { field: AccessSortField; desc: boolean };
+};
+
+/**
+ * One site's rooms granted to a principal (issue #49). Every known site, zero-grant sites included — unlike
+ * ScopeOption, which drops them. Room names are master values, never translated: the data-scope axis is
+ * room_name (ADR-0005).
+ */
+export type SiteGrant = { id: string; label: string; grantedRooms: readonly string[]; totalRooms: number };
+
+/** One directory row (issue #49). `id` is opaque and never sent back — the mock sets it to the role key only because one mock role is one row. */
+export type AccessPrincipal = {
+  id: string;
+  /** Untranslated master name. Sort uses this, not title. */
+  name: string;
+  title: Text;
+  /** Role key. Exact target of the role filter. */
+  role: string;
+  /** Held permissions in canonical Permission order. The page joins menus from the registry client-side. */
+  permissions: readonly Permission[];
+  /** One row per known site in site order, zero-grant sites included. */
+  sites: readonly SiteGrant[];
+};
+
+/** Offset page, not cursor, like AuditTrailPage: a table over an arbitrarily filtered set. */
+export type AccessDirectoryPage = { items: readonly AccessPrincipal[]; total: number };
+
 export type PlatformAdapter = {
   /** Current session. Must return the same object until the session changes (it is a store snapshot). */
   session(): Session;
@@ -153,6 +194,13 @@ export type PlatformAdapter = {
    * detail permission. Not paged, no list filters.
    */
   entityAudit(ref: EntityRef, signal?: AbortSignal): Promise<ApiResponse<{ events: readonly AuditEvent[] }>>;
+  /**
+   * The console access directory (issue #49): console:access, every site, no room gate — the scope axis is
+   * room_name (ADR-0005) and the same role already reads every site's audit. Read-only: grant/revoke has no
+   * owner yet and waits on issue #98. Menus per permission are a client join over the registry; the server
+   * returns the principal's permissions only. Not mart data: trust stays null, assessments stay empty.
+   */
+  accessDirectory(query: AccessDirectoryQuery, signal?: AbortSignal): Promise<ApiResponse<AccessDirectoryPage>>;
   /**
    * The session actor's filed VOCs, newest openedAt first, cursor-paged (issue #60). No user id, scopeId or
    * Global Context argument — the server stamps the session actor. `managedSystemId` is data, never a link or filter input.

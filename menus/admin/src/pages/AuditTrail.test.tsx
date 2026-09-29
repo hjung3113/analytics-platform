@@ -36,6 +36,7 @@ function fixture() {
     usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     auditTrail: async (query: AuditTrailQuery) => { calls.push(query); return response; },
     entityAudit: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    accessDirectory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     myVocHistory: async () => ({ outcome: 'ok', data: { items: [], nextCursor: null }, assessments: [], trust: null, correlationId: 'fixture' }),
     mySurveyHistory: async () => ({ outcome: 'ok', data: { items: [] }, assessments: [], trust: null, correlationId: 'fixture' }),
     subscribe: () => () => undefined,
