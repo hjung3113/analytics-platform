@@ -15,7 +15,7 @@ const mono = (value: unknown) => <span className="t-mono">{String(value)}</span>
  * port: the server sorts and pages, the client never re-sorts a page, and the default (no sort key) is
  * the server's role-ascending. The menu list in the drawer is the registry joined to the principal's
  * permission set client-side — a declaration, not an authorization proof. This screen grants and revokes
- * nothing: the write owner is decision issue #98. Not mart data, so there is no trust indicator.
+ * nothing: room/individual grants are meta-DB owned but the role-membership source stays open (issue #98). Not mart data, so there is no trust indicator.
  */
 export default function AccessDirectory() {
   const { lang } = useI18n();
@@ -130,8 +130,8 @@ export default function AccessDirectory() {
         <Button size="sm" variant="secondary" className="mt-2" onClick={() => setPage({ focus: null })}>{ko ? '닫기' : 'Close'}</Button>
       </div>) : null;
   return <PlatformPage description={ko
-    ? '권한·역할 조회 화면입니다. 부여·회수는 이 화면에서 하지 않으며 쓰기 주체는 이슈 #98의 결정 사항입니다.'
-    : 'Read-only directory of permissions and roles. Grant/revoke is not on this screen; the write owner is decision issue #98.'}>
+    ? '권한·역할 조회 화면입니다. 부여·회수는 이 화면에서 하지 않으며 역할 소속 원천은 이슈 #98에서 결정 대기입니다.'
+    : 'Read-only directory of permissions and roles. Grant/revoke is not on this screen; the role-membership source is pending in issue #98.'}>
     {filters}
     {!parsed.ok && <p role="alert">{ko ? '필터 값이 잘못되었습니다.' : 'Invalid filter value.'} {clear}</p>}
     {parsed.ok && <PlatformDataTable<AccessPrincipal>

@@ -121,7 +121,7 @@ export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: P, enabled?
 mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴다.
 
 1. `endpoint` 미등록 → `error`("unknown endpoint").
-2. 요청 모양 위반(요청 최상위에 `permission`·`kinds` 같은 알 수 없는 키, `paramKeys`에 없는 params 키) → `error`. **클라이언트가 보낸 값으로 권한·kind를 정하는 길 자체를 없앤다.** 선언이 `apply`하지 않는 Context 키를 거부할지 무시할지는 Q3 답 전까지 정하지 않는다(게이트 뒤 단계에서 추가). 우리 클라이언트는 `projectContext`가 그 키를 애초에 싣지 않는다.
+2. 요청 모양 위반(요청 최상위에 `permission`·`kinds` 같은 알 수 없는 키, `paramKeys`에 없는 params 키) → `error`. **클라이언트가 보낸 값으로 권한·kind를 정하는 길 자체를 없앤다.** 선언이 `apply`하지 않는 Context 키는 **단계 2부터 엔진이 해석(Scope·room·Condition·Selection 판정과 핸들러 입력)에 넘기지 않고 버린다**(`resolveEquipment`가 `execution-detail`처럼 reference로만 선언한 `roomNames`·`condition`·`selection`을 소비하는 일이 없게). 이 중립화는 Q3와 무관한 안전 기본값이고, Q3가 정하는 것은 그런 키가 왔을 때 응답을 error로 거부할지 조용히 무시할지뿐이며 게이트 뒤 단계 7a에서 정한다. 우리 클라이언트는 `projectContext`가 그 키를 애초에 싣지 않는다.
    - 등록 시점 검증: `createMockAdapter({ endpoints, registry })`(실서버도 같은 검증)는 앱이 주입한 Registry(manifest 목록)로 `spec.menuId`가 실재하는지, `spec.permission`이 Registry의 어떤 메뉴가 선언한 권한 이름인지(오타 방지)를 검사하고 아니면 등록을 거부한다. `mock-server`는 메뉴를 모르므로 manifest는 앱이 넘긴다. **엔드포인트 권한은 메뉴 권한과 같을 필요가 없다**(Q5): manifest 권한은 메뉴 노출·진입, 엔드포인트 권한은 서버의 데이터 접근 판정이다. 서버는 요청이 아니라 이 선언 사본을 믿으므로 엔드포인트 권한은 엔드포인트 PR에서 데이터 소유 기준으로 리뷰한다.
 3. `spec.permission`을 세션으로 검사 → `forbidden`. 응답 시나리오보다 우선(현재와 같음).
 4. (mock만) 시나리오 early return.
@@ -167,7 +167,7 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 | `accessDirectory` | **유지(조회 투영으로 고정)** | 권한·Scope 저장소(규칙 2). 단 원천이 #98에 달려 있어 쓰기 메서드는 추가하지 않는다. #98 영향은 §9. |
 | `myVocHistory`, `mySurveyHistory` | **이전** | FeedbackOps 제품 데이터의 사용자 투영이고 06 §4가 "VOC 상태 전이 규칙"을 Kernel 밖으로 둔다. `menus/notice-voc/src/endpoints.ts`에 `noticeVoc.myVocHistory`(params `{ cursor? }`, context 전부 unsupported, `requiresScope: false`, kinds `[]`), `noticeVoc.mySurveyHistory`(kinds `['respondent_history']`)로 선언. `packages/mock-server/src/my-voc.ts`의 핸들러 본문과 픽스처는 `menus/notice-voc/src/mock/`으로. |
 | `MyVocStatus`, `MyVocItem`, `MyVocQuery`, `MyVocPage`, `MySurvey*` | **이전** | `@ap/contracts` 루트에서 빼서 `menus/notice-voc/src/endpoints.ts`로. 현재 사용처는 `menus/notice-voc/src/voc-status.ts`, `pages/MyVocHistory.tsx`, `voc-status.test.ts`와 mock뿐이라 메뉴 밖 소비자가 없다. |
-| `AssessmentKind`의 `'respondent_history'` | 판단 보류 | kind 어휘는 플랫폼 소유(06 §19)라 contracts에 남는 게 맞다. 메뉴 전용 kind를 어휘에 두는 기준은 §8 Q6. |
+| `AssessmentKind`의 `'respondent_history'` | **유지(결정됨, Q6)** | kind 어휘는 플랫폼 소유(06 §19)라 contracts에 남는다. 두 번째 소비자가 나오면 재검토(§8 Q6). |
 | 나머지(`session`·`validateScope`·`publishedMetrics`·`contextOptions`·`evaluateSelection`·`getEntity`·`defaultRangeTo`·`recordUsage`·`reportClientError`·`listAnnotations`·`saveAnnotation`·`subscribe`) | 유지 | 규칙 1 또는 2. |
 
 `feedbackops-link.ts`(contracts)는 제품 간 딥링크 계약(06 §22 외부 hop)이라 이 판정 대상이 아니다.
@@ -238,7 +238,7 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 - **Q3.** 선언이 apply하지 않는 Context 키가 요청에 오면 서버가 거부(error)할지 무시할지. 추천: 거부 — 클라이언트 투영 버그를 드러낸다.
 - **Q4.** 06 §5 "메뉴가 선언하는 정보"(Decided 표)에 "조회 엔드포인트(권한·적용 Context·적용 kind)"를 추가하나. 06 변경이라 플랫폼 레벨 결정.
 - **Q5.** (결정됨, 개정) 엔드포인트 권한은 데이터 접근 권한이라 메뉴 manifest 권한과 달라도 된다. 근거 사례: `menus/home/src/index.ts`는 `platform:view`, `OperationsHome.tsx`의 공지 조회는 `notice:view`. 등록 시에는 `menuId`와 권한 이름의 실재만 검사한다.
-- **Q6.** 메뉴 하나만 쓰는 assessment kind(`respondent_history`)를 플랫폼 어휘에 둘지, 메뉴 확장 어휘를 허용할지.
+- **Q6.** (결정됨) 메뉴 하나만 쓰는 assessment kind(`respondent_history`)는 플랫폼 어휘에 유지한다. 두 번째 소비자가 나오면 메뉴 확장 어휘 허용 여부를 재검토한다.
 - **Q7.** 마이그레이션 범위(5.1) 승인: 2개 검증 → 확인 → 생성기 → 나머지 패키지별(각각 이슈). 이 과정에서 기존 화면 8개를 차례로 건드리므로 루트 규칙("메뉴 화면 3개 이상 연속 작업 전 범위 확인")에 따라 여기서 범위를 확인받는다. VOC 이전을 #100에 포함할지 별도 이슈로 할지도.
 - **Q8.** `accessDirectory`를 Kernel 포트에 두는 판정(§3 규칙 2)에 동의하나.
 
@@ -255,7 +255,7 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 
 - 조회 모양(`AccessPrincipal`: 역할·권한·사이트별 부여 room)은 어느 안이든 유지된다. 선택지 3이면 행의 필드마다 원천이 다르므로, (Candidate) 필드 출처 표시(`role`은 upstream, `sites`는 platform)를 나중에 붙일 수 있다 — 지금은 소비자가 없어 미룬다.
 - 쓰기 포트가 생긴다면 room_name 부여·회수만이고, §3 규칙 2(권한 저장소 = Kernel 책임)에 따라 **메뉴 엔드포인트가 아니라 `PlatformAdapter`**에 둔다. 역할 소속 쓰기는 upstream이면 영원히 없다.
-- `accessDirectory` doc 주석의 "grant/revoke … waits on issue #98"(`adapter.ts:228-233`)은 결정 후 갱신 대상이다.
+- `accessDirectory` doc 주석(`adapter.ts`)·`mock-server/src/access.ts`·`menus/admin/src/pages/AccessDirectory.tsx`의 "#98 대기" 문구는 이 결정에 맞춰 갱신했다: room_name·개별 부여의 소유는 플랫폼 메타 DB로 확정, 역할 소속 원천만 Open.
 
 **#100 설계에 주는 영향:** 없음에 가깝다. 메뉴 엔드포인트의 권한 판정(2.4의 3·5단계)은 서버가 세션·부여 저장소를 읽는 것이고 원천이 IdP든 메타 DB든 요청 모양은 같다. 따라서 #100은 #98 결정을 기다리지 않고 진행할 수 있다.
 
@@ -264,13 +264,13 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 | # | 단계 | 검증 |
 | --- | --- | --- |
 | 1 | contracts: `menu-query.ts`(`EndpointSpec`(`menuId`·`paramKeys` 포함)·`defineEndpoint`·`MenuQuery`·`projectContext`) + `PlatformAdapter.menuQuery` 시그니처 | contracts 단위 테스트: capability별 투영, `null`/`[]` 보존, metric 쌍은 함께만, reference 키 제외. React import 0(lint) |
-| 2 | mock-server: `serveEndpoint` 엔진(현 `serve` 단계 재사용) + `createMockAdapter({ endpoints, registry })` | 요청에 `permission`/`kinds` 키 → error, `paramKeys` 밖 params 키 → error, 미등록 id → error, `menuId`·권한 이름이 Registry에 없으면 등록 거부, kind 정확히 1회, 권한이 시나리오보다 우선. 기존 `time-domain`·`explicit-empty`·`menu-permission` 테스트 통과 수 유지 |
+| 2 | mock-server: `serveEndpoint` 엔진(현 `serve` 단계 재사용) + `createMockAdapter({ endpoints, registry })`. 선언이 apply하지 않는 Context 키는 해석·핸들러에 넘기지 않는다 | 요청에 `permission`/`kinds` 키 → error, reference로만 선언한 `roomNames`·`condition`·`selection`이 실려 와도 결과가 그 키가 없을 때와 같음(회귀 테스트), `paramKeys` 밖 params 키 → error, 미등록 id → error, `menuId`·권한 이름이 Registry에 없으면 등록 거부, kind 정확히 1회, 권한이 시나리오보다 우선. 기존 `time-domain`·`explicit-empty`·`menu-permission` 테스트 통과 수 유지 |
 | 3 | kernel: `useMenuQuery` | fixture 어댑터: 역할 전환 즉시 이전 결과 숨김, apply 아닌 키 변경은 재조회 없음, apply 키 변경은 숨김. Kernel 변경이므로 `pnpm e2e` |
 | 4 | lint: `mock-server`는 `src/mock/**`(+ 이행 중 `src/api.ts`), pages → `mock/` 금지, `@ap/menu-*/mock`은 `main.tsx`만 | `tooling/eslint` `boundaries.test.ts`에 위반 사례 추가(수정 전 실패) |
 | 5 | `productivity-overview` 이전(엔드포인트 4개, 계산 → `src/mock/`) | 기존 테스트, `pnpm dev`에서 시나리오 normal/partial/too_large/forbidden/역할 전환, `pnpm e2e` 보고서 |
 | 6 | `execution-detail` 이전(수동 null 처리 제거) | returnTo 왕복·§22 e2e, occurrence 조회가 90일 Context에서도 too_large가 아님 |
 | 7 | **사람 확인 게이트** — 1–6 결과로 §8 Q3·Q4 답 받기 | — |
-| 7a | Q3 결과 반영: 선언 밖 Context 키 처리(거부 추천)를 `serveEndpoint`에 추가 | 선택한 동작의 테스트(거부면 error, 무시면 결과 동일) |
+| 7a | Q3 결과 반영: 선언 밖 Context 키가 오면 응답을 error로 거부할지 무시할지(거부 추천) | 선택한 동작의 테스트(거부면 error, 무시면 단계 2의 결과 동일 유지) |
 | 8 | gen-menu 전환(§4) | gen-menu 테스트 + `scripts/probe.ts`(임시 그룹이 루트 네 명령 통과 = 다중 패키지 mock 등록 확인) |
 | 9 | 나머지 이전, 패키지별 1 PR: `cycle-time`(+내보내기 `cycleData.ts:224`, `export-permission.test.ts` 이동), `equipment-master`, `metrics`(쌍 검증 서버로), `home`(`NOTICES` → mock) | 각 패키지 테스트 + 브라우저 + `pnpm e2e` |
 | 10 | VOC 이전: 두 메서드 어댑터에서 제거, `MyVoc*` 타입 메뉴로 | `MyVocHistory.test.tsx`, `voc-status.test.ts`, contracts에서 `MyVocStatus` grep 0 |

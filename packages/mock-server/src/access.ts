@@ -1,7 +1,7 @@
 /**
- * The console access directory (issue #49): one read-only row per USERS entry joined to SITES. Grant/revoke
- * has no owner yet (platform meta DB vs in-house system vs IdP groups) and waits on issue #98 — this module
- * never mutates USERS and offers no write path, and three roles are the whole server world (extra people
+ * The console access directory (issue #49): one read-only row per USERS entry joined to SITES. Room_name and
+ * individual grants belong to the platform meta DB (issue #98, decided) but the role-membership source (IdP
+ * group claim spec) is still open, so no write port exists — this module never mutates USERS and offers no write path, and three roles are the whole server world (extra people
  * would pretend a user directory exists). Not finished by finish(): no mart kind exists to declare, so trust
  * is null and assessments are empty on every branch — finish() would attach a fake mart.productivity_hourly
  * trust and a fake collection assessment. `partial` and `too_large` do not apply (not a mart, no period

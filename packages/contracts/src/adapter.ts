@@ -227,8 +227,9 @@ export type PlatformAdapter = {
   entityAudit(ref: EntityRef, signal?: AbortSignal): Promise<ApiResponse<{ events: readonly AuditEvent[] }>>;
   /**
    * The console access directory (issue #49): console:access, every site, no room gate — the scope axis is
-   * room_name (ADR-0005) and the same role already reads every site's audit. Read-only: grant/revoke has no
-   * owner yet and waits on issue #98. Menus per permission are a client join over the registry; the server
+   * room_name (ADR-0005) and the same role already reads every site's audit. Read-only: room_name and individual grants are owned by the
+   * platform meta DB (issue #98, decided), but no write port exists until the role-membership source (IdP group
+   * claim spec) is settled. Menus per permission are a client join over the registry; the server
    * returns the principal's permissions only. Not mart data: trust stays null, assessments stay empty.
    */
   accessDirectory(query: AccessDirectoryQuery, signal?: AbortSignal): Promise<ApiResponse<AccessDirectoryPage>>;
