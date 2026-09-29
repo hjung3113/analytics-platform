@@ -93,7 +93,7 @@ export async function serveEndpoint(
       latency: opts?.latency,
       signal,
       source: endpoint.source,
-      metricVersion: endpoint.metricVersion?.(global),
+      metricVersionOf: endpoint.metricVersion ? () => endpoint.metricVersion!(global) : undefined,
       isEmpty: endpoint.isEmpty,
       compute: ({ equipment }) => endpoint.handle({ equipment, context: global, params: req.params }),
     });

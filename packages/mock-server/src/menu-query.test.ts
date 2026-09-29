@@ -240,6 +240,64 @@ describe('serveEndpoint declaration pipeline', () => {
     expect(result.outcome).toBe('ok');
     expect(result.trust).toMatchObject({ source: 'analytics.hourly', metricVersion: 'v7' });
   });
+
+  it('returns forbidden before evaluating metricVersion for a caller without permission', async () => {
+    const spec = makeSpec('analytics.bad-metric-version-forbidden', { permission: 'analytics:view' });
+    const endpoint = defineMockEndpoint(spec, {
+      handle: () => ({ ok: true }),
+      metricVersion: () => { throw new Error('bad pair'); },
+    });
+    const result = await serveEndpoint(
+      new Map([[spec.id, endpoint]]),
+      request(spec.id),
+      undefined,
+      { role: 'viewer', latency: 0 },
+    );
+
+    expect(result.outcome).toBe('forbidden');
+    expect(result.message).toContain('analytics:view');
+  });
+
+  it('evaluates a throwing metricVersion after the authorized endpoint handler', async () => {
+    const spec = makeSpec('analytics.bad-metric-version-authorized', { permission: 'analytics:view' });
+    const handle = vi.fn(() => ({ ok: true }));
+    const endpoint = defineMockEndpoint(spec, {
+      handle,
+      metricVersion: () => { throw new Error('bad pair'); },
+    });
+    const result = await serveEndpoint(
+      new Map([[spec.id, endpoint]]),
+      request(spec.id),
+      undefined,
+      { role: 'engineer', latency: 0 },
+    );
+
+    expect(result.outcome).toBe('error');
+    expect(result.data).toBeNull();
+    expect(handle).toHaveBeenCalledOnce();
+  });
+
+  it('preserves malformed endpoint data without calling its empty predicate', async () => {
+    const spec = makeSpec('analytics.malformed-empty-check');
+    const isEmpty = vi.fn((data: unknown) => (data as { total: number }).total === 0);
+    const endpoint = defineMockEndpoint(spec, {
+      handle: () => ({ total: 7 }),
+      isEmpty,
+    });
+    const endpoints = new Map([[spec.id, endpoint]]);
+    setScenario('malformed');
+
+    const result = await serveEndpoint(
+      endpoints,
+      request(spec.id),
+      undefined,
+      { role: 'engineer', latency: 0 },
+    );
+
+    expect(result.outcome).toBe('ok');
+    expect(result.data).toEqual({});
+    expect(isEmpty).not.toHaveBeenCalled();
+  });
 });
 
 describe('createMockAdapter registration', () => {
