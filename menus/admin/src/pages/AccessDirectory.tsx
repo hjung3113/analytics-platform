@@ -75,7 +75,7 @@ export default function AccessDirectory() {
     { id: 'menus', header: ko ? '메뉴' : 'Menus', enableSorting: false, accessorFn: row => menusForPermissions(registry, row.permissions).length },
   ], [ko, lang, registry]);
   // The drawer reads the loaded page's rows (the last loadPage result) — no second adapter call for a row.
-  // Null until a page answered ok or empty: before that, and after forbidden/error/timeout, the page cannot
+  // Null until the current page request answered ok or empty: before that, and after forbidden/error/timeout, the page cannot
   // say a focus is unknown (06 §17 — no access and not loaded are not "no such principal").
   const [rows, setRows] = useState<readonly AccessPrincipal[] | null>(null);
   const active = parsed.ok && parsed.focus && rows ? rows.find(p => p.id === parsed.focus) : undefined;
@@ -147,6 +147,9 @@ export default function AccessDirectory() {
         loadPage={async (pageQuery, signal) => {
           const { filters } = parsed;
           const sort = pageQuery.sorting[0];
+          // A new request voids the last answer: until it settles ok/empty, neither the old drawer nor an
+          // "unknown" verdict speaks for the current query (a rejected request leaves them void too).
+          setRows(null);
           // The port answers AccessDirectoryPage { items, total }; the table wants PageResult { rows, total }.
           const response = await adapter.accessDirectory({
             ...(filters.role && { role: filters.role }),

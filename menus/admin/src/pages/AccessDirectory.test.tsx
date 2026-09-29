@@ -246,6 +246,25 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('voids an earlier verdict and drawer while the next request is pending (review P2)', async () => {
+    let resolveSecond!: (response: ApiResponse<AccessDirectoryPage>) => void;
+    const empty: ApiResponse<AccessDirectoryPage> = { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'empty' };
+    const f = renderRoles(`/admin/roles?${new URLSearchParams({ role: 'ghost', focus: 'engineer' })}`, (_query, call) => call === 1
+      ? empty
+      : new Promise<ApiResponse<AccessDirectoryPage>>(resolve => { resolveSecond = resolve; }));
+    expect(await screen.findByText(/없는 주체입니다\.|Unknown principal\./)).toBeTruthy();
+
+    fireEvent.change(roleInput(), { target: { value: 'engineer' } });
+    fireEvent.click(applyButton());
+    await waitFor(() => expect(f.calls).toHaveLength(2));
+    // Pending: the empty answer was about role=ghost, not about this query.
+    expect(screen.queryByText(/없는 주체입니다\.|Unknown principal\./)).toBeNull();
+
+    resolveSecond(okResponse([ENGINEER]));
+    expect(await screen.findByRole('heading', { name: 'Process Engineer' })).toBeTruthy();
+    expect(screen.queryByText(/없는 주체입니다\.|Unknown principal\./)).toBeNull();
+  });
+
   it('alerts inside the drawer for a well-formed unknown focus while the table stays', async () => {
     const f = renderRoles(`/admin/roles?${new URLSearchParams({ focus: 'ghost' })}`);
     await waitFor(() => expect(f.calls).toHaveLength(1));
