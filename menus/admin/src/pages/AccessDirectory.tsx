@@ -125,7 +125,8 @@ export default function AccessDirectory() {
           },
         ]} />
     : <div role="alert" className="p-3">
-        <p>{ko ? '없는 주체입니다.' : 'Unknown principal.'} <span className="t-mono">{parsed.focus}</span></p>
+        {/* Only the loaded page is known here: absence from it is not proof the principal does not exist. */}
+        <p>{ko ? '이 페이지에 없는 주체입니다.' : 'Principal not on this page.'} <span className="t-mono">{parsed.focus}</span></p>
         <Button size="sm" variant="secondary" className="mt-2" onClick={() => setPage({ focus: null })}>{ko ? '닫기' : 'Close'}</Button>
       </div>) : null;
   return <PlatformPage description={ko
@@ -142,7 +143,8 @@ export default function AccessDirectory() {
         urlState={{
           page: parsed.page,
           sorting: parsed.sorting,
-          onChange: ({ page, sorting }) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }),
+          // A user sort/page change moves rows between pages, so the focused row leaves with them (bot review P2).
+          onChange: ({ page, sorting }, reason) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page), ...(reason === 'user' && { focus: null }) }),
         }}
         loadPage={async (pageQuery, signal) => {
           const { filters } = parsed;

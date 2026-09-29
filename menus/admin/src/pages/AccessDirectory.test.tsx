@@ -213,7 +213,7 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
 
     fireEvent.change(permissionSelect(), { target: { value: 'console:access' } });
     await waitFor(() => expect(f.calls).toHaveLength(2));
-    expect(await screen.findByText(/없는 주체입니다\.|Unknown principal\./)).toBeTruthy();
+    expect(await screen.findByText(/이 페이지에 없는 주체입니다\.|Principal not on this page\./)).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Process Engineer' })).toBeNull();
   });
 
@@ -238,11 +238,11 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     const f = renderRoles('/admin/roles?focus=engineer', () => new Promise<ApiResponse<AccessDirectoryPage>>(resolve => { resolveFirst = resolve; }));
     await waitFor(() => expect(f.calls).toHaveLength(1));
     // In flight: no rows yet, so no verdict about the focus.
-    expect(screen.queryByText(/없는 주체입니다\.|Unknown principal\./)).toBeNull();
+    expect(screen.queryByText(/이 페이지에 없는 주체입니다\.|Principal not on this page\./)).toBeNull();
     resolveFirst({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture', message: 'No permission console:access' });
     await screen.findByText('No permission console:access');
     // No access is not "no such principal": the drawer alert stays off and no drawer opens.
-    expect(screen.queryByText(/없는 주체입니다\.|Unknown principal\./)).toBeNull();
+    expect(screen.queryByText(/이 페이지에 없는 주체입니다\.|Principal not on this page\./)).toBeNull();
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
@@ -252,24 +252,34 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     const f = renderRoles(`/admin/roles?${new URLSearchParams({ role: 'ghost', focus: 'engineer' })}`, (_query, call) => call === 1
       ? empty
       : new Promise<ApiResponse<AccessDirectoryPage>>(resolve => { resolveSecond = resolve; }));
-    expect(await screen.findByText(/없는 주체입니다\.|Unknown principal\./)).toBeTruthy();
+    expect(await screen.findByText(/이 페이지에 없는 주체입니다\.|Principal not on this page\./)).toBeTruthy();
 
     fireEvent.change(roleInput(), { target: { value: 'engineer' } });
     fireEvent.click(applyButton());
     await waitFor(() => expect(f.calls).toHaveLength(2));
     // Pending: the empty answer was about role=ghost, not about this query.
-    expect(screen.queryByText(/없는 주체입니다\.|Unknown principal\./)).toBeNull();
+    expect(screen.queryByText(/이 페이지에 없는 주체입니다\.|Principal not on this page\./)).toBeNull();
 
     resolveSecond(okResponse([ENGINEER]));
     expect(await screen.findByRole('heading', { name: 'Process Engineer' })).toBeTruthy();
-    expect(screen.queryByText(/없는 주체입니다\.|Unknown principal\./)).toBeNull();
+    expect(screen.queryByText(/이 페이지에 없는 주체입니다\.|Principal not on this page\./)).toBeNull();
+  });
+
+  it('drops focus when the user re-sorts, so a row that moved pages is not called missing (bot review P2)', async () => {
+    const f = renderRoles('/admin/roles?focus=engineer');
+    expect(await screen.findByRole('heading', { name: 'Process Engineer' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /이름|Name/ }));
+    await waitFor(() => expect(url().get('sort')).not.toBeNull());
+    expect(url().has('focus')).toBe(false);
+    await waitFor(() => expect(f.calls.length).toBeGreaterThan(1));
+    expect(screen.queryByText(/이 페이지에 없는 주체입니다\.|Principal not on this page\./)).toBeNull();
   });
 
   it('alerts inside the drawer for a well-formed unknown focus while the table stays', async () => {
     const f = renderRoles(`/admin/roles?${new URLSearchParams({ focus: 'ghost' })}`);
     await waitFor(() => expect(f.calls).toHaveLength(1));
     expect(f.calls[0]).toEqual({ page: 1, pageSize: 25 });
-    expect(await screen.findByText(/없는 주체입니다\.|Unknown principal\./)).toBeTruthy();
+    expect(await screen.findByText(/이 페이지에 없는 주체입니다\.|Principal not on this page\./)).toBeTruthy();
     await screen.findByText('Field Requester'); // the table still lists the page
     fireEvent.click(screen.getByRole('button', { name: /닫기|Close/ }));
     expect(url().has('focus')).toBe(false);

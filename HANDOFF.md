@@ -34,7 +34,7 @@
 
 ## 최근 생긴 플랫폼 계약
 
-- **권한/역할 조회(#49):** `accessDirectory` — 전 사이트·room gate 없음, 부여 0인 사이트도 행으로 포함(`SiteGrant`, `ScopeOption`과 다름). 메뉴 × 권한은 서버가 아니라 Registry `permission` 클라이언트 조인(권한 증명 아님). 드로어의 "없는 주체" 판정은 현재 조회가 ok/empty로 끝난 뒤에만. `Permission` 값 목록은 contracts `PERMISSIONS` 하나만 쓴다.
+- **권한/역할 조회(#49):** `accessDirectory` — 전 사이트·room gate 없음, 부여 0인 사이트도 행으로 포함(`SiteGrant`, `ScopeOption`과 다름). 메뉴 × 권한은 서버가 아니라 Registry `permission` 클라이언트 조인(권한 증명 아님). 드로어의 "이 페이지에 없는 주체" 경고는 현재 조회가 ok/empty로 끝난 뒤에만 뜨고(불러온 페이지 밖의 존재는 단정하지 않음), 사용자 정렬·페이지 변경은 `focus`를 지운다. `Permission` 값 목록은 contracts `PERMISSIONS` 하나만 쓴다.
 - **실제 시점 vs wall-clock (06 §6.3):** 설비 업무 시각이 아닌 시점(epoch·timestamptz: 활용률 마지막 사용, FeedbackOps 시각, 감사 `at`)은 `formatInstant`(offset 필수, 달력 검증)로 보는 사람 시간대에 표시. `formatDateTime`은 naive wall-clock 전용. 비교·정렬은 `instantEpochMs`.
 - **포트 추가(`PlatformAdapter`):** `myVocHistory`(cursor)·`mySurveyHistory`, `auditTrail`(전역, `console:access`, 필터·offset·`fromAt`/`toAt`)·`entityAudit`(목적지 권한). 서버가 사용자를 정하고 클라이언트는 사용자 id·Scope·`at`을 보내지 않는다.
 - **`AuditEvent.target`:** 목적지 참조(`type`·`id`·`scopeId`, 06 §22). 콘솔 행 → `linkTo`로 상세 이동, 사이트가 바뀌면 site 종속 Context를 비우고 Selection은 덮지 않는다.
