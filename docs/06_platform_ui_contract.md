@@ -557,14 +557,14 @@ Domain 메뉴는 가능하면 이 Archetype을 조합하고, 새로운 Page Type
 
 ### 12.6 pageType의 현재 계약과 슬롯 후보 (#104)
 
-**지금 pageType이 강제하는 것:** manifest의 `pageType`(5종 중 하나)과, 생성기(`pnpm gen:menu --page-type`)가 만드는 화면 뼈대의 콘텐츠 슬롯(위 12.1–12.5의 슬롯 이름, 읽는 순서 그대로)이다. Page Header·Global Context·Data Trust는 셸 슬롯(§8)이라 `PlatformPage`가 이미 그리므로 뼈대에 다시 넣지 않는다. 레이아웃 공통 컴포넌트는 아직 없고, 시각 변화도 없다.
+**지금 pageType이 강제하는 것:** manifest의 `pageType`(5종 중 하나)과, 생성기(`pnpm gen:menu --page-type`)가 만드는 화면 뼈대의 콘텐츠 슬롯(위 12.1–12.5의 슬롯 이름, 읽는 순서 그대로)이다. Page Header·Global Context는 셸 슬롯(§8)이라 `PlatformPage`·셸이 이미 그리므로 뼈대에 다시 넣지 않는다. Data Trust는 12.1·12.2가 슬롯으로 적으므로 뼈대에 `trust` 슬롯으로 넣는다 — `PlatformPage`는 소비자가 넘긴 `dataTrustSummary`만 그리므로 신뢰 정보를 가진 화면이 그 슬롯을 채워야 한다. 슬롯 이름은 12.1–12.5의 영문 표기 그대로다. 레이아웃 공통 컴포넌트는 아직 없고, 기존 화면·공통 컴포넌트의 시각 변화도 없다(새로 생성되는 뼈대 화면만 점선 구획을 그린다).
 
 **반복 패턴 확인(2026-09-29, 소비자 = 현재 메뉴 화면):**
 
 | 패턴 | 확인된 소비자 | §24 판단 |
 | --- | --- | --- |
-| Management: 필터 + `PlatformDataTable` + `DetailDrawer` | 설비 마스터, 권한·역할 조회, 레지스트리 카탈로그 (3곳) | 반복 충족 — 레이아웃 슬롯 후보 |
-| 감사·이력: `AuditTimeline` | 감사 조회, 설비 상세, 지표 상세 (3곳) | 이미 공통 컴포넌트 |
+| Management: 필터 + `PlatformDataTable` + `DetailDrawer` | 설비 마스터, 권한·역할 조회 (2곳). 레지스트리 카탈로그는 표 + 드로어만(필터 없음)이라 3곳째는 아님 | 경계선(표 + 드로어는 3곳) — 슬롯 후보 |
+| 감사·이력: `AuditTimeline` | 설비 상세, 지표 상세 (2곳. 감사 조회는 `PlatformDataTable`이고 타임라인은 목적지 상세에 맡긴다) | 이미 공통 컴포넌트 |
 | Analysis: KPI `StatCard` + `AnalysisChartFrame` + `DataTrustIndicator` | 생산성 개요, 사이클 타임 (2곳) | 경계선 — 한 곳 더 확인 후 |
 | Catalog: 목록 + 정의 상세 + 버전·소유·적용 범위 | 지표 카탈로그(목록·상세 2화면)뿐 | 미충족 |
 | Workflow: 큐 + 상세 + 타임라인 + 댓글 | 표본 메뉴 0개 (VOC는 내 이력 조회만) | 미충족 — 추출하지 않는다 |
