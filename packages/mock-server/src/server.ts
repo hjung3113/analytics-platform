@@ -2,14 +2,14 @@
  * Mock request validation + response envelope (docs/06 §19): exclusive `outcome` plus declared `assessments[]`.
  * Every page query goes through `serve()` so Scope/room grants are re-validated per request (§6.2).
  */
-import { parseDateTime, type ApiResponse, type Assessment, type AssessmentKind, type Condition, type EntityRef, type GlobalContext, type Permission, type ScopeCheck, type SpaceId, type Trust, type UsageEvent, type UsageRange, type UsageSummary } from '@ap/contracts';
+import { parseDateTime, type ApiResponse, type ClientErrorReport, type Assessment, type AssessmentKind, type Condition, type EntityRef, type GlobalContext, type Permission, type ScopeCheck, type SpaceId, type Trust, type UsageEvent, type UsageRange, type UsageSummary } from '@ap/contracts';
 import { EQUIPMENT, SITES, TIME_DOMAIN_ASSERTIONS, USERS, type Equipment, type RoleId, type TimeDomainAssertion } from './world';
 
 /**
  * Server-side state the dev tools can flip: the signed-in role (a stand-in for SSO) and the response scenario.
  * Listeners hear both; the platform adapter forwards them to the kernel (mock/adapter.ts).
  */
-export type Scenario = 'normal' | 'slow' | 'empty' | 'error' | 'forbidden' | 'too_large' | 'timeout' | 'partial' | 'unknown_status';
+export type Scenario = 'normal' | 'slow' | 'empty' | 'error' | 'forbidden' | 'too_large' | 'timeout' | 'partial' | 'unknown_status' | 'malformed';
 const ROLE_KEY = 'platform:role';
 function storedRole(): RoleId {
   try { const raw = localStorage.getItem(ROLE_KEY); const role = raw ? JSON.parse(raw) : null; return role in USERS ? role : 'engineer'; } catch { return 'engineer'; }
@@ -236,7 +236,8 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
   }
 
   const equipment = s === 'empty' ? [] : resolved.rows;
-  const data = o.compute({ equipment });
+  // malformed: an ok envelope whose data does not match the declared shape, so a page that trusts it throws while rendering.
+  const data = s === 'malformed' ? ({} as T) : o.compute({ equipment });
   const empty = s === 'empty' || (o.isEmpty ? o.isEmpty(data) : false);
   return finish({
     correlationId,
@@ -376,6 +377,35 @@ export function resetUsage() { usageEvents.length = 0; }
 
 /** Read-only store snapshot for tests (e.g. the dwell replace rule). */
 export function storedUsage(): readonly StoredUsageEvent[] { return usageEvents; }
+
+export type StoredClientError = ClientErrorReport & { userId: string; receivedAt: number };
+const clientErrors: StoredClientError[] = [];
+const CLIENT_ERROR_KEYS = ['correlationId', 'menuId', 'spaceId', 'path', 'name', 'message'] as const;
+const CLIENT_ERROR_CAP = 200;
+
+/**
+ * Contained render failures (issue #101). Any signed-in session may report — the person who hit the failure is
+ * rarely console:access. Same posture as recordUsage: exactly the declared wire shape (unknown keys rejected,
+ * so a client cannot smuggle a URL or Context value in), length-bounded strings, whole-call reject, the server
+ * stamps userId and receivedAt. Bounded log: the oldest rows drop first.
+ */
+export async function reportClientError(report: ClientErrorReport, opts?: { role?: RoleId }): Promise<{ accepted: boolean }> {
+  const keys = typeof report === 'object' && report !== null ? Object.keys(report) : [];
+  const text = (v: unknown, max: number) => typeof v === 'string' && v.length <= max;
+  const invalid = keys.length !== CLIENT_ERROR_KEYS.length || keys.some(k => !(CLIENT_ERROR_KEYS as readonly string[]).includes(k))
+    || !text(report.correlationId, 80) || !report.correlationId.startsWith('client-')
+    || invalidUsageId(report.menuId, 80) || invalidUsageId(report.path, 200)
+    || typeof report.spaceId !== 'string' || !SPACE_IDS.includes(report.spaceId)
+    || !text(report.name, 80) || !text(report.message, 300);
+  if (invalid) return { accepted: false };
+  clientErrors.push({ ...report, userId: USERS[opts?.role ?? role].role, receivedAt: Date.now() });
+  if (clientErrors.length > CLIENT_ERROR_CAP) clientErrors.splice(0, clientErrors.length - CLIENT_ERROR_CAP);
+  return { accepted: true };
+}
+
+/** Read-only store snapshot for tests. Not on the adapter: the console has no client-error read yet. */
+export function storedClientErrors(): readonly StoredClientError[] { return clientErrors; }
+export function resetClientErrors() { clientErrors.length = 0; }
 
 export type UsageSummaryOptions = { role?: RoleId; latency?: number };
 

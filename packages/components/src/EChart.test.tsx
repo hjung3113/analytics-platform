@@ -63,6 +63,7 @@ const adapter: PlatformAdapter = {
   usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'c' }),
   myVocHistory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'c' }),
   mySurveyHistory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'c' }),
+  reportClientError: async () => ({ accepted: true }),
   subscribe: () => () => {},
 };
 

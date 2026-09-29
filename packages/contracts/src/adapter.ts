@@ -58,6 +58,23 @@ export type UsageEvent = {
   /** dwell only; the entry's `at`. */
   enteredAt?: number;
 };
+/**
+ * A render failure the kernel's route error boundary contained (issue #101). Identity fields only, like UsageEvent:
+ * no URL, Context value, stack or component stack — a thrown message can still carry a value, so the client
+ * truncates it and the server validates it. The server stamps the session user and receive time.
+ */
+export type ClientErrorReport = {
+  /** Client-generated `client-…`, the same id the person sees on the error screen. */
+  correlationId: string;
+  menuId: string;
+  spaceId: SpaceId;
+  /** Manifest route pattern (`menu.path`), never the concrete pathname or search. */
+  path: string;
+  /** `Error.name`, at most 80 characters. */
+  name: string;
+  /** `Error.message`, at most 300 characters. */
+  message: string;
+};
 /** from inclusive, to exclusive. */
 export type UsageRange = { preset: 'all' } | { from: number; to: number };
 export type UsageMenuSummary = { menuId: string; visits: number; distinctUsers: number; lastUsedAt: number };
@@ -180,6 +197,11 @@ export type PlatformAdapter = {
    * Fire-and-forget from the kernel: no AbortSignal, failures are silent, navigation never blocks.
    */
   recordUsage(events: readonly UsageEvent[]): Promise<{ accepted: number }>;
+  /**
+   * Contained render failures (06 §4 전역 Error Boundary). Fire-and-forget from the kernel like `recordUsage`:
+   * no AbortSignal, failures are silent — reporting must never cause a second failure.
+   */
+  reportClientError(report: ClientErrorReport): Promise<{ accepted: boolean }>;
   /** Console aggregate read (docs/05 열람 권한: console:access, server-checked). The console never reads raw events. */
   usageSummary(range: UsageRange, signal?: AbortSignal): Promise<ApiResponse<UsageSummary>>;
   /**

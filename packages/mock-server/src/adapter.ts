@@ -3,7 +3,7 @@
  * main.tsx injects this. A real server adapter replaces this file, not the kernel.
  */
 import type { PlatformAdapter, Session } from '@ap/contracts';
-import { checkScope, getEntity, getRole, matchesCondition, recordUsage, subscribeServer, usageSummary, validateScope } from './server';
+import { checkScope, getEntity, getRole, matchesCondition, recordUsage, reportClientError, subscribeServer, usageSummary, validateScope } from './server';
 import { auditTrail, entityAudit } from './audit';
 import { accessDirectory } from './access';
 import { mySurveyHistory, myVocHistory } from './my-voc';
@@ -70,6 +70,7 @@ export const mockAdapter: PlatformAdapter = {
   accessDirectory: (query, signal) => accessDirectory(query, signal),
   // Fire-and-forget telemetry: the kernel never awaits these and passes no AbortSignal.
   recordUsage: events => recordUsage(events),
+  reportClientError: report => reportClientError(report),
   usageSummary: (range, signal) => usageSummary(range, signal),
   // opts (test role pin, latency) stay server-side: the adapter passes the port arguments only.
   myVocHistory: (query, signal) => myVocHistory(query, signal),

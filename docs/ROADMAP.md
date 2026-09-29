@@ -61,6 +61,16 @@
 
 마일스톤 밖: ~~권한/역할 관리 (#49)~~ 완료 — `/admin/roles` 조회 전용 화면 + 포트 `accessDirectory`(사용자별 권한·사이트별 부여 room, 메뉴는 Registry 클라이언트 조인), 부여·회수의 원천은 #98 결정 대기, ~~변경 감사 (#50)~~ 완료 — 전역 `/admin/audit` + 설비 상세 Audit 탭이 같은 mock 저장소(`auditTrail`·`entityAudit`), 지표 이력 통합은 #90, 전역 조회 room 권한은 #91 결정 대기, 모니터링·트레이스 설계 (#51 — 적재 워커 스키마 합의 #37 대기).
 
+### 플랫폼 보강 (2026-09-29 플랫폼 관점 점검, #63 체크리스트)
+
+| 이슈 | 상태 |
+| --- | --- |
+| ~~Kernel: 라우트 단위 Error Boundary와 오류 보고 포트 (#101)~~ 완료 — 셸 `RouteErrorBoundary`가 메뉴 화면 렌더 실패를 콘텐츠 슬롯에 가두고, `usePlatform().reportError` → 포트 `reportClientError`(식별 필드만)로 보고, 화면에 Correlation ID를 보인다. mock 시나리오 `malformed`로 E2E 재현(총 36) | 완료 |
+| Kernel: `linkTo`가 목적지 권한·사이트 경계 초기화·미지원 Context를 처리 (#102) | 착수 가능 |
+| 차트 계약: 주석 Scope 격리·manifest features 준수·E2E 검사 (#103) | 착수 가능 |
+| 레이아웃: pageType을 실제 계약으로 (#104) | 착수 가능 |
+| [결정+설계] 메뉴 데이터 조회 포트: 서버 경계 계약을 mock 밖 contracts로 (#100) | 사람 결정 대기 |
+
 ### M2 디자인 시스템 (1차 평가: #33) — 보류
 
 **보류 (2026-09-27 결정):** FeedbackOps도 디자인을 개선하고 있다. 그 디자인이 확정된 뒤 재개하고, FeedbackOps 디자인을 기반으로 삼아 플랫폼 확장 패턴(전역 Context 바, 차트 프레임, 분석 레이아웃, KPI)을 더한다. 스택 차이(FeedbackOps Tailwind 3.4, 플랫폼 v4) 때문에 `@fops/ui`를 직접 쓰지 않고 토큰·패턴을 `@ap/ui`·`@ap/components`로 옮긴다. 재개 시 프로토타입(#52)에 D안(FeedbackOps 기반, 레일=공간 전환)을 추가해 컨펌받는다. 지금까지의 A안(완성)·B안(WIP)은 브랜치 `hjung3113/prototype-design-direction`에 있다(main 병합 안 함). 보류 중인 이슈에는 `on-hold` 라벨.

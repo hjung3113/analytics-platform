@@ -121,7 +121,7 @@
 - [ ] **감사(Audit Trail) 공통 기반(who/when/before-after, 유효기간 이력과 분리)** — **[3/3] Must**.
 - [ ] **두 층 응답 스키마(outcome + assessments[]), unknown 누락 없이 반환** — 가짜 상태 판정 방지. **[3/3] Must** — Decided, §19.
 - [ ] **폴링 + 완료된 계산 세대 기반 캐시 재검증(watermark 이동 ≠ mart 완료)** — SSE/WebSocket은 요구 확인 후. **[3/3] Must** — Decided.
-- [ ] **Toast/Confirm/Modal/전역 Error Boundary + Correlation ID** — **[3/3] Must** — Decided.
+- [ ] **Toast/Confirm/Modal/전역 Error Boundary + Correlation ID** — **[3/3] Must** — Decided. 라우트 Error Boundary·`reportClientError` 포트·Correlation ID는 구현 완료(#101), Toast/Confirm/Modal은 아직.
 - [ ] **공지 배너 인프라(게시기간·대상 메뉴·Scope)** — 통합 알림 벨/미확인 배지는 읽음 모델이 미정이라 **비필수**. **[3/3] Should(배너)/Nice(벨)**.
 - [ ] **메뉴 활용률 계측 파이프라인** — 2026-09-22 grilling으로 정책 확정: 수집 필드는 menuId·이벤트·시각뿐 아니라 **조회조건·필터값까지 포함**. 보존기간은 **무제한**(자동 삭제 없음, 개발자가 필요시 수동 삭제). 열람권한은 **개발자·운영자 기본, 그 외는 운영자가 개별 승인한 계정만**(기존 권한/Scope 재검증 원칙 위에 얹음, 새 권한 모델 아님). 이벤트 스키마 등 실제 구현 세부는 착수 직전 별도로 다룬다. `docs/05` §메뉴 활용률 계측 참고. **[3/3] Should** — Decided(정책), Open(이벤트 스키마 구현 세부).
 - [ ] **즐겨찾기/최근 메뉴(재진입 시 권한 재검증)** — **[3/3] Should**.

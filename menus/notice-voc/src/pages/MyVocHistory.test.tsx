@@ -36,6 +36,7 @@ function fixture() {
     entityAudit: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     accessDirectory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     recordUsage: async () => ({ accepted: 0 }),
+    reportClientError: async () => ({ accepted: true }),
     usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     myVocHistory: async (query: MyVocQuery) => {
       calls.push(query);

@@ -32,6 +32,12 @@ type Platform = {
   setPage: (patch: Record<string, string | null>, options?: { replace?: boolean }) => void;
   resetContext: () => void;
   linkTo: (menuId: string, options?: LinkOptions) => string;
+  /**
+   * Reports a render failure the route error boundary contained and returns the correlation id to show
+   * (06 §4). Fire-and-forget: a rejected or throwing adapter is swallowed. Only the matched route's
+   * identity fields go out — no URL, Context value or stack.
+   */
+  reportError: (error: unknown) => string;
   returnTarget: () => string;
   session: Session;
   user: SessionUser;
@@ -350,8 +356,21 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     return linkTo(route?.menu.parent ?? 'home');
   }, [pageParam, route, linkTo, safeReturnTo]);
 
+  const reportError = useCallback((error: unknown): string => {
+    const correlationId = `client-${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 6)}`;
+    if (!route) return correlationId;
+    const err = error instanceof Error ? error : new Error(String(error));
+    try {
+      void adapter.reportClientError({
+        correlationId, menuId: route.menu.id, spaceId: registry.spaceOf(route.menu).id, path: route.menu.path,
+        name: err.name.slice(0, 80), message: err.message.slice(0, 300),
+      }).catch(() => { /* silent */ });
+    } catch { /* silent */ }
+    return correlationId;
+  }, [adapter, registry, route]);
+
   const value: Platform = {
-    registry, adapter, url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, returnTarget,
+    registry, adapter, url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, reportError, returnTarget,
     session, user, revision, can, visibleMenus, menusInSpace, accessibleSpaces, currentSpace, sidebarSpace, switchSpace, scope, lastScope, favorites, toggleFavorite, recent,
     toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen,
   };

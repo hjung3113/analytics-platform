@@ -94,6 +94,7 @@ export type PlatformAdapter = {
   getEntity(ref: EntityRef, signal?): Promise<ApiResponse<unknown>>; // §22 목적지 단건 조회 — 분석 경로가 아니다(전역 Context·Selection 대체 없음, 서버가 엔드포인트 권한·site·room을 재검증)
   defaultRangeTo(): string;                 // 기본 기간 기준 시각
   recordUsage(events: readonly UsageEvent[]): Promise<{ accepted: number }>; // 메뉴 활용률 이벤트 적재(진입·체류). userId 필드 없음 — 서버가 세션 사용자로 기록
+  reportClientError(report: ClientErrorReport): Promise<{ accepted: boolean }>; // 라우트 Error Boundary가 가둔 렌더 실패 보고(#101). 식별 필드만(URL·Context 값·스택 없음), 서버가 세션 사용자·시각을 기록
   usageSummary(range: UsageRange, signal?): Promise<ApiResponse<UsageSummary>>; // 메뉴 활용률 집계 읽기(열람 권한: console:access, 콘솔은 집계만 읽는다)
   myVocHistory(query: MyVocQuery, signal?): Promise<ApiResponse<MyVocPage>>; // 세션 사용자가 접수한 FeedbackOps VOC(권한 voc:view, 서버가 사용자를 정함, cursor 페이징, #60)
   mySurveyHistory(signal?): Promise<ApiResponse<MySurveyPage>>; // 세션 사용자의 설문 응답 이력. 원천 API가 없어 respondent_history=unknown으로 응답(#60, #84)
