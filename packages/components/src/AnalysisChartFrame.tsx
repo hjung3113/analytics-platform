@@ -78,6 +78,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const annotations = useMemo(() => annotationQuery.response?.data?.items ?? [], [annotationQuery.response]);
   const refetchAnnotations = annotationQuery.refetch;
   const [saving, setSaving] = useState(false);
+  // Each editor session gets a generation; a save that finishes after cancel/reopen/Scope change must not touch the newer draft.
+  const draftGen = useRef(0);
+  const openNote = () => { draftGen.current++; setNote(''); };
+  const closeNote = useCallback(() => { draftGen.current++; setNote(null); }, []);
 
   const allSeries = useMemo(() => [...p.series, ...(compare && canCompare ? p.compareSeries ?? [] : [])], [p.series, p.compareSeries, compare, canCompare]);
   const visible = allSeries.filter(s => !hidden.has(s.id));
@@ -85,11 +89,11 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const format = p.valueFormat ?? ((v: number) => v.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { maximumFractionDigits: 1 }));
 
   const resetLocal = useCallback(() => {
-    setHidden(new Set()); setCompare(false); setBrushMode(false); setZoom([0, 100]); setSelection(null); setPreview(null); setNote(null);
-  }, []);
+    setHidden(new Set()); setCompare(false); setBrushMode(false); setZoom([0, 100]); setSelection(null); setPreview(null); closeNote();
+  }, [closeNote]);
   // Global Context changes invalidate local selection (it described the previous result).
   const contextKey = JSON.stringify(global);
-  useEffect(() => { setSelection(null); setPreview(null); setNote(null); setZoom([0, 100]); }, [contextKey]);
+  useEffect(() => { setSelection(null); setPreview(null); closeNote(); setZoom([0, 100]); }, [contextKey, closeNote]);
 
   const xValue = (x: string) => (xType === 'time' ? toMs(x) : x);
   const option = useMemo<EChartsCoreOption>(() => {
@@ -177,14 +181,17 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   async function saveNote(range: Selection) {
     const text = (note ?? '').trim();
     if (!text || scopeId === null || saving) return;
+    const gen = draftGen.current;
+    const failed = () => { if (gen === draftGen.current) toast(lang === 'ko' ? '주석을 저장하지 못했습니다. 입력은 유지됩니다.' : 'Could not save the annotation. Your text is kept.'); };
     setSaving(true);
     try {
       const res = await adapter.saveAnnotation({ chartId: p.chartId, scopeId, from: range.from, to: range.to, text });
-      if (res.outcome === 'ok') { setNote(null); refetchAnnotations(); toast(lang === 'ko' ? '주석을 저장했습니다.' : 'Annotation saved.'); }
-      else toast(lang === 'ko' ? '주석을 저장하지 못했습니다. 입력은 유지됩니다.' : 'Could not save the annotation. Your text is kept.');
-    } catch {
-      toast(lang === 'ko' ? '주석을 저장하지 못했습니다. 입력은 유지됩니다.' : 'Could not save the annotation. Your text is kept.');
-    } finally { setSaving(false); }
+      if (res.outcome !== 'ok') failed();
+      else {
+        refetchAnnotations();
+        if (gen === draftGen.current) { closeNote(); toast(lang === 'ko' ? '주석을 저장했습니다.' : 'Annotation saved.'); }
+      }
+    } catch { failed(); } finally { setSaving(false); }
   }
 
   const tb = 'h-7 gap-1 px-2 text-[12px]';
@@ -200,7 +207,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         <Button variant="ghost" size="sm" className={cn(tb, brushMode && 'bg-accent-primary-soft text-accent-primary')} aria-pressed={brushMode} onClick={() => setBrushMode(b => !b)}><BrushIcon className="size-3.5" aria-hidden />Brush</Button>
         <Button variant="ghost" size="sm" className={tb} onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />Reset</Button>
         {canCompare && <Button variant="ghost" size="sm" className={cn(tb, compare && 'bg-accent-primary-soft text-accent-primary')} aria-pressed={compare} onClick={() => setCompare(c => !c)}><GitCompare className="size-3.5" aria-hidden />Compare</Button>}
-        {canAnnotate && <Button variant="ghost" size="sm" className={tb} disabled={!selection || scopeId === null} title={scopeId === null ? (lang === 'ko' ? '주석은 사이트(Scope)를 선택한 뒤 남길 수 있습니다' : 'Pick a site (Scope) to annotate') : selection ? undefined : (lang === 'ko' ? 'Brush로 구간을 먼저 선택하세요' : 'Brush a range first')} onClick={() => setNote('')}><MessageSquarePlus className="size-3.5" aria-hidden />Annotate</Button>}
+        {canAnnotate && <Button variant="ghost" size="sm" className={tb} disabled={!selection || scopeId === null} title={scopeId === null ? (lang === 'ko' ? '주석은 사이트(Scope)를 선택한 뒤 남길 수 있습니다' : 'Pick a site (Scope) to annotate') : selection ? undefined : (lang === 'ko' ? 'Brush로 구간을 먼저 선택하세요' : 'Brush a range first')} onClick={openNote}><MessageSquarePlus className="size-3.5" aria-hidden />Annotate</Button>}
         {canExport && <Button variant="ghost" size="sm" className={tb} onClick={exportCsv}><Download className="size-3.5" aria-hidden />Export</Button>}
         <Popover>
           <PopoverTrigger asChild><Button variant="ghost" size="sm" className={tb} aria-label="More"><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
@@ -256,8 +263,12 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       {canAnnotate && note !== null && selection && <form className="mt-2 flex flex-wrap items-center gap-2" onSubmit={e => { e.preventDefault(); void saveNote(selection); }}>
         <input autoFocus aria-label={lang === 'ko' ? '주석 내용' : 'Annotation text'} value={note} onChange={e => setNote(e.target.value)} placeholder={lang === 'ko' ? '예: PM 작업으로 인한 대기 증가' : 'e.g. queue spike due to PM'} className="h-7 min-w-64 flex-1 rounded-md border border-border-control bg-surface-card px-2" />
         <Button size="sm" type="submit" disabled={saving} className="h-7 px-2 text-[12px]">{lang === 'ko' ? '저장' : 'Save'}</Button>
-        <Button size="sm" type="button" variant="ghost" className="h-7 px-2 text-[12px]" onClick={() => setNote(null)}>{t('cancel')}</Button>
+        <Button size="sm" type="button" variant="ghost" className="h-7 px-2 text-[12px]" onClick={closeNote}>{t('cancel')}</Button>
       </form>}
+      {canAnnotate && scopeId !== null && annotationQuery.response && !['ok', 'empty'].includes(annotationQuery.response.outcome) && <p role="alert" className="mt-2 flex items-center gap-2 border-t border-border-subtle pt-1.5 text-[11px] text-text-secondary">
+        {lang === 'ko' ? '주석을 불러오지 못했습니다. 차트는 그대로 사용할 수 있습니다.' : 'Could not load annotations. The chart is unaffected.'}
+        <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={refetchAnnotations}>{lang === 'ko' ? '다시 시도' : 'Retry'}</Button>
+      </p>}
       {annotations.length > 0 && <ul className="mt-2 space-y-0.5 border-t border-border-subtle pt-1.5 text-[11px] text-text-secondary">
         {annotations.map(a => <li key={a.id} className="tabular"><span className="mr-1 inline-block size-2 rounded-xs bg-chart-purple/60 align-middle" aria-hidden />{xType === 'time' ? `${fmt(a.from)}–${fmt(a.to)}` : `${a.from}–${a.to}`}: {a.text}</li>)}
       </ul>}

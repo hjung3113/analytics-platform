@@ -146,4 +146,33 @@ describe('chart annotations are keyed by chart and Scope (06 §16 layer 4)', () 
     expect((screen.getByLabelText('주석 내용') as HTMLInputElement).value).toBe('거부될 메모');
     expect(screen.queryByRole('list')).toBeNull();
   });
+
+  it('a save that finishes after the editor was cancelled and reopened does not clear the newer draft', async () => {
+    const f = fixture();
+    let release: () => void = () => {};
+    const inner = f.save.getMockImplementation()!;
+    f.save.mockImplementationOnce(input => new Promise(resolve => { release = () => resolve(inner(input)); }));
+    mount(f.adapter, on);
+    await brushAndOpenNote();
+    fireEvent.change(screen.getByLabelText('주석 내용'), { target: { value: '메모 A' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(f.save).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: '취소' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Annotate' }));
+    fireEvent.change(screen.getByLabelText('주석 내용'), { target: { value: '메모 B' } });
+    await act(async () => { release(); });
+    await waitFor(() => expect(f.list.mock.calls.length).toBeGreaterThan(1));
+    expect((screen.getByLabelText('주석 내용') as HTMLInputElement).value).toBe('메모 B');
+  });
+
+  it('a failed annotation lookup says so and can be retried, instead of looking like "no annotations"', async () => {
+    const f = fixture();
+    f.list.mockResolvedValueOnce(none_('forbidden'));
+    mount(f.adapter, on);
+    expect(await screen.findByRole('alert')).toHaveTextContent('주석을 불러오지 못했습니다');
+    f.rows.push({ id: 'r1', chartId: 'chart-1', scopeId: 'ICH', from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00', text: '재시도 후 보이는 메모', at: '2026-09-29T09:00' });
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    expect(await screen.findByText(/재시도 후 보이는 메모/)).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
 });
