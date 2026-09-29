@@ -33,6 +33,8 @@ const registry = createRegistry({
 });
 
 const URL_ICH = '/source?v=1&scopeId=ICH&roomNames=PH-101&selectedEquipmentIds=E1&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
+const URL_FULL = URL_ICH + '&equipmentGroup=' + encodeURIComponent('{"axis":"team","id":"TEAM1"}') + '&lotIds=L1&recipeIds=R1&ppid=P1';
+const SITE_BOUND = ['roomNames', 'equipmentGroup', 'selectedEquipmentIds', 'lotIds', 'recipeIds', 'ppid'];
 const ANALYST: Session['user']['permissions'] = ['platform:view', 'analytics:view'];
 const VIEWER: Session['user']['permissions'] = ['platform:view'];
 
@@ -89,25 +91,29 @@ describe('resolveLink (06 §22, issue #102)', () => {
     expect(resolve(URL_ICH, [...VIEWER, 'console:access'], 'ops-child').allowed).toBe(true);
   });
 
-  it('applies the site boundary: a different scopeId drops carried site-bound sets, explicit ones for the destination stay', () => {
-    const cleared = query(resolve(URL_ICH, ANALYST, 'analysis', { global: { scopeId: 'CJU' } }).href);
+  it('applies the site boundary: a different scopeId drops every carried site-bound set, explicit ones for the destination stay', () => {
+    expect(SITE_BOUND.every(k => query(URL_FULL).has(k))).toBe(true);
+    const cleared = query(resolve(URL_FULL, ANALYST, 'analysis', { global: { scopeId: 'CJU' } }).href);
     expect(cleared.get('scopeId')).toBe('CJU');
-    expect(cleared.has('roomNames')).toBe(false);
-    expect(cleared.has('selectedEquipmentIds')).toBe(false);
+    for (const key of SITE_BOUND) expect(cleared.has(key), key).toBe(false);
     expect(cleared.get('from')).toBe('2026-09-25T09:00:00');
     cleanup();
-    const explicit = query(resolve(URL_ICH, ANALYST, 'analysis', { global: { scopeId: 'CJU', selection: ['CJU-1'] } }).href);
+    const explicit = query(resolve(URL_FULL, ANALYST, 'analysis', { global: { scopeId: 'CJU', selection: ['CJU-1'], lotIds: ['CJU-L'], ppid: 'CJU-P' } }).href);
     expect(explicit.get('selectedEquipmentIds')).toBe('CJU-1');
-    expect(explicit.has('roomNames')).toBe(false);
+    expect(explicit.get('lotIds')).toBe('CJU-L');
+    expect(explicit.get('ppid')).toBe('CJU-P');
+    for (const key of ['roomNames', 'equipmentGroup', 'recipeIds']) expect(explicit.has(key), key).toBe(false);
+    cleanup();
+    const toNone = query(resolve(URL_FULL, ANALYST, 'analysis', { global: { scopeId: null } }).href);
+    for (const key of SITE_BOUND) expect(toNone.has(key), key).toBe(false);
   });
 
-  it('keeps carried sets when the scope is unchanged or not mentioned', () => {
-    const same = query(resolve(URL_ICH, ANALYST, 'analysis', { global: { scopeId: 'ICH' } }).href);
-    expect(same.get('roomNames')).toBe('PH-101');
-    expect(same.get('selectedEquipmentIds')).toBe('E1');
+  it('keeps every carried set when the scope is unchanged or not mentioned', () => {
+    const same = query(resolve(URL_FULL, ANALYST, 'analysis', { global: { scopeId: 'ICH' } }).href);
+    for (const key of SITE_BOUND) expect(same.has(key), key).toBe(true);
     cleanup();
-    const none = query(resolve(URL_ICH, ANALYST, 'analysis').href);
-    expect(none.get('roomNames')).toBe('PH-101');
+    const unmentioned = query(resolve(URL_FULL, ANALYST, 'analysis').href);
+    for (const key of SITE_BOUND) expect(unmentioned.has(key), key).toBe(true);
   });
 
   it('reports the page keys the destination does not register instead of dropping them silently', () => {
