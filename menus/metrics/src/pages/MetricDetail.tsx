@@ -23,7 +23,7 @@ function sectionId(id: string) { return `metric-section-${id}`; }
 
 export default function MetricDetailPage({ params }: PageProps) {
   const metricId = params.metricId;
-  const { pageParam, setPage, setGlobal, linkTo, global, url, toast, returnTarget } = usePlatform();
+  const { pageParam, setPage, setGlobal, linkTo, resolveLink, global, url, toast, returnTarget } = usePlatform();
   const { lang, tx } = useI18n();
   const versionParam = pageParam('version');
   const tab = pageParam('tab');
@@ -158,7 +158,12 @@ export default function MetricDetailPage({ params }: PageProps) {
                 <td className="py-2 pr-3">{tx(row.place)}</td>
                 <td className="py-2 pr-3 text-right tabular">v{row.version}</td>
                 <td className="py-2 pr-3 text-[12px] text-text-secondary">{row.evidenceSource}<span className="mt-0.5 block text-text-muted">{lang === 'ko' ? '확인 시각 미확인' : 'Observed time unknown'}</span></td>
-                <td className="py-2"><PlatformLink className="font-medium text-accent-primary hover:underline" href={linkTo(row.menuId, { global: { metricId, metricVersion: row.version } })}>{lang === 'ko' ? '사용처 열기' : 'Open consumer'}</PlatformLink></td>
+                <td className="py-2">{(() => {
+                  const link = resolveLink(row.menuId, { global: { metricId, metricVersion: row.version } });
+                  return link.allowed
+                    ? <PlatformLink className="font-medium text-accent-primary hover:underline" href={link.href}>{lang === 'ko' ? '사용처 열기' : 'Open consumer'}</PlatformLink>
+                    : <span className="text-[12px] text-text-muted">{lang === 'ko' ? '열 권한이 없습니다' : 'No access to open'}</span>;
+                })()}</td>
               </tr>)}</tbody>
             </table>
           )}

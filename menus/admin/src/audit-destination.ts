@@ -16,22 +16,12 @@ export type LinkTo = (menuId: string, options?: {
 
 export type DestinationLink = { ok: true; href: string } | { ok: false };
 
-/** Opening a destination of another site must not carry the previous site's rooms across the boundary —
- *  the same site-boundary clear as setGlobal. The analysis Selection is never replaced by a link (§22). */
-const SITE_BOUNDARY_CLEAR = (scopeId: string): Partial<GlobalContext> => ({
-  scopeId, roomNames: null, condition: null, selection: null, lotIds: null, recipeIds: null, ppid: null,
-});
-
-export function auditDestination(linkTo: LinkTo, target: AuditTarget, currentScopeId: string | null): DestinationLink {
+export function auditDestination(linkTo: LinkTo, target: AuditTarget): DestinationLink {
   if (target.type === 'equipment') {
     if (target.scopeId === null) return { ok: false };
-    const options = {
-      params: { equipmentId: target.id },
-      page: { tab: 'audit' },
-      returnTo: true,
-      ...(target.scopeId !== currentScopeId ? { global: SITE_BOUNDARY_CLEAR(target.scopeId) } : {}),
-    };
-    return { ok: true, href: linkTo('equipment-detail', options) };
+    // The destination's site goes in as the requested scope; the kernel clears the previous site's rooms when it
+    // differs (site boundary) and never replaces the analysis Selection with the equipment id (§22).
+    return { ok: true, href: linkTo('equipment-detail', { params: { equipmentId: target.id }, page: { tab: 'audit' }, returnTo: true, global: { scopeId: target.scopeId } }) };
   }
   if (target.type === 'metric') {
     // The destination id must not overwrite the carried metric pair (06 §6.1): no metricId/metricVersion

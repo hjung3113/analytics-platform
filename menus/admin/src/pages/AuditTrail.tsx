@@ -117,7 +117,7 @@ export default function AuditTrail() {
         }}
         emptyAction={clear}
         rowAction={row => {
-          const link = auditDestination(linkTo, row.target, global.scopeId);
+          const link = auditDestination(linkTo, row.target);
           return link.ok
             ? <Button asChild size="sm" variant="ghost"><PlatformLink href={link.href}>{ko ? '상세' : 'Detail'}</PlatformLink></Button>
             : <Button size="sm" variant="ghost" disabled>{ko ? '이 대상의 상세 화면이 없습니다.' : 'No detail screen for this target.'}</Button>;

@@ -963,7 +963,11 @@ Create VOC with current context
 - unsupported context
 - permission
 
-을 공통 처리한다.
+을 공통 처리한다. 구현은 Kernel `resolveLink(menuId, options)`이며(`linkTo`는 그 `href`), 결과는 세 가지다.
+
+- `href`: 전역 Context는 목적지 지원 여부와 무관하게 실어 보낸다(미지원 표시는 목적지 화면 몫). 목적지가 다른 Scope(site)면 이전 site에 묶인 값(room_name·Condition·Selection·Lot·Recipe·PPID)은 비우고 호출자가 명시한 값만 남긴다. page key는 목적지 manifest `pageKeys`에 있는 것만 싣는다.
+- `allowed`: 목적지 메뉴 권한과 공간 진입 권한을 링크가 안다. 표시용이며 서버가 다시 검사한다. 호출자는 `false`면 링크 대신 사유를 보인다(임의로 숨기지 않는다).
+- `droppedPageKeys`: 목적지가 받지 않아 버려진 page key.
 
 상세에서 분석으로 복귀할 때는 §6.4에 따라 진입 전 Context를 그대로 복원하며, 목적지 ID로 출발 설비 선택을 변경하지 않는다. **CFG의 다른 메뉴와의 Context Link 연계는 Deferred**다. CFG 자체의 시각화·분석 범위와는 구분하며 이번 예시 경로에 CFG hop을 추가하지 않는다.
 
