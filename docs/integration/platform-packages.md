@@ -151,7 +151,7 @@ const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: [...hom
 - `pageKeys`가 전역 Context 키와 겹치지 않음(06 §6.1)
 - **공간(06 §9.1):** 그룹의 `space`는 등록된 `SpaceDef`여야 하고, 공간별 `homeMenuId`는 그 공간 소속·파라미터 없는 경로·공간 `permission`과 같은 메뉴여야 하며, 부모 메뉴는 자식과 같은 공간에 있다
 
-생성기는 manifest 뼈대, archetype별 PlatformPage 예시, `api.ts`, 테스트 1개를 만들고 앱 등록 목록에 한 줄을 추가한다. 메뉴 템플릿이 Sidebar·Breadcrumb·권한 숨김을 직접 구현하지 못하게 하는 것은 06 §5 "금지" 목록을 lint로 옮겨 막는다(§6).
+생성기는 manifest 뼈대, `pageType`별 06 §12 슬롯 뼈대(화면 슬롯은 12.6), `api.ts`, 테스트 1개를 만들고 앱 등록 목록에 한 줄을 추가한다. 메뉴 템플릿이 Sidebar·Breadcrumb·권한 숨김을 직접 구현하지 못하게 하는 것은 06 §5 "금지" 목록을 lint로 옮겨 막는다(§6).
 
 ## 6. 경계 강제와 도구
 
