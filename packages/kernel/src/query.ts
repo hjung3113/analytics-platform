@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePlatform } from './platform';
-import { type ApiResponse, type EntityRef, serializeGlobal } from '@ap/contracts';
+import { projectContext, type ApiResponse, type AssessmentKind, type EndpointSpec, type EntityRef, serializeGlobal } from '@ap/contracts';
 
 export type QueryState<T> = {
   /** loading: no result for the current Context yet. refreshing: same Context re-query, prior result kept. */
@@ -62,6 +62,58 @@ export function useEntityQuery<T>(ref: EntityRef, pageInputs: unknown = null, en
     enabled,
     'session',
   );
+}
+
+function hasExactAssessmentKinds(actual: readonly { kind: AssessmentKind }[], expected: readonly AssessmentKind[]): boolean {
+  if (actual.length !== expected.length) return false;
+
+  const remaining = new Map<AssessmentKind, number>();
+  for (const kind of expected) remaining.set(kind, (remaining.get(kind) ?? 0) + 1);
+  for (const assessment of actual) {
+    const count = remaining.get(assessment.kind);
+    if (count === undefined || count === 0) return false;
+    remaining.set(assessment.kind, count - 1);
+  }
+  return [...remaining.values()].every(count => count === 0);
+}
+
+/**
+ * Queries one declared menu endpoint through the platform adapter. Results use session identity
+ * `[revision, user.id, spec.id, projectContext(spec, global), params]`: Context keys the endpoint does not apply
+ * do not invalidate the result, while applied keys and session changes hide it immediately.
+ *
+ * A `requiresScope` endpoint waits until the selected Scope is server-validated for the current user and matches the Context.
+ * `MenuMeta.requiresScope` means Scope must be selected and validated before a page queries data, so the Kernel
+ * enforces that rule once instead of requiring every page to duplicate the gate. Params use the existing
+ * `JSON.stringify` query key; callers should pass objects with a stable key order.
+ * Endpoints applying time wait for an absolute `from` and `to`; 06 §6.3 defaults are materialized before the query.
+ * The explicit-empty envelope bypasses kind checks only when the projected request contains an applied empty set, per 06 §6 명시적 공집합.
+ */
+export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, enabled = true): QueryState<T> {
+  const { adapter, global, scope, user } = usePlatform();
+  const projected = projectContext(spec, global);
+  const scopeReady = !spec.requiresScope || (scope.status === 'valid' && scope.scopeId === global.scopeId && scope.validatedFor === user.id);
+  const periodReady = spec.context.time !== 'apply' || (global.from !== null && global.to !== null);
+
+  return usePlatformQuery<T>(async signal => {
+    const response = await adapter.menuQuery({ endpoint: spec.id, context: projected, params }, signal);
+    const requestedEmpty = [projected.selection, projected.roomNames, projected.lotIds, projected.recipeIds]
+      .some(value => Array.isArray(value) && value.length === 0);
+    const explicitEmpty = requestedEmpty && response.outcome === 'empty' && response.assessments.length === 0 && response.trust === null;
+    if ((response.outcome === 'ok' || response.outcome === 'empty') && !explicitEmpty && !hasExactAssessmentKinds(response.assessments, spec.kinds)) {
+      const got = `[${response.assessments.map(({ kind }) => kind).join(', ')}]`;
+      const declared = `[${spec.kinds.join(', ')}]`;
+      return {
+        outcome: 'error',
+        data: null,
+        trust: null,
+        assessments: [],
+        correlationId: response.correlationId,
+        message: `contract_violation: assessments ${got} ≠ declared ${declared}`,
+      };
+    }
+    return response as ApiResponse<T>;
+  }, [spec.id, projected, params], enabled && scopeReady && periodReady, 'session');
 }
 
 export type RequestState<T> = { status: 'loading' | 'done' | 'error'; data: T | null; retry: () => void };

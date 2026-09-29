@@ -117,7 +117,8 @@ export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>,
 
 - `spec`에서 `P`를 추론하고 `params`는 `NoInfer<P>`로 검사해, params 리터럴이 선언된 타입을 넓히지 않게 한다.
 - `usePlatformQuery` 위에 얹는다. 식별자는 `[revision, user.id, spec.id, projectContext(spec, global), params]` — 적용하지 않는 Context 키가 바뀌어도 결과를 숨기거나 재조회하지 않고, 적용 키가 바뀌면 지금처럼 이전 결과를 숨긴다(06 §19 규칙 유지).
-- (Candidate) 응답 `assessments`가 `spec.kinds`와 정확히 일치하지 않으면 계약 위반 상태로 표시한다. 선언이 클라이언트에도 있으니 "생략을 clear로 보정하지 않는다"(06 §19)를 클라이언트가 검사할 수 있다.
+- `spec.requiresScope`이면 현재 Context의 Scope가 `scope.scopeId === global.scopeId`이고 `scope.validatedFor === user.id`인 상태로 서버 검증을 통과할 때까지 요청하지 않는다. `spec.context.time === 'apply'`이면 절대 기간 `from`·`to`가 준비된 뒤 요청한다. `MenuMeta.requiresScope`는 조회 전에 Scope 선택과 서버 검증을 요구하므로, Kernel이 한 번 강제해 페이지마다 게이트를 중복 구현하지 않게 한다.
+- 응답 `outcome`이 `ok` 또는 `empty`일 때 `assessments`의 kind 다중집합 누락·중복·초과가 있으면 `error`와 `contract_violation: assessments <got> ≠ declared <want>`를 반환한다. 단, 적용된 집합 키에 요청 값 `[]`가 실리고 응답이 `outcome: 'empty'`, `assessments: []`, `trust: null`이면 06 §6 명시적 공집합으로 그대로 전달한다. 그 외 `ok`·`empty` 응답에는 정확한 kind 다중집합 검사를 적용한다. 다른 outcome은 그대로 전달한다.
 - Kernel은 개별 엔드포인트를 모른다(선언을 인자로 받을 뿐).
 
 ### 2.4 오류·권한·Scope 처리 (서버 쪽 판정 순서, Candidate)
@@ -243,6 +244,7 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 - **Q4.** 06 §5 "메뉴가 선언하는 정보"(Decided 표)에 "조회 엔드포인트(권한·적용 Context·적용 kind)"를 추가하나. 06 변경이라 플랫폼 레벨 결정.
 - **Q9.** (#117, 게이트) 적용하는 Context 키가 요청에 없거나 null이면? 지금은 `time` 적용 + `limits.maxHours` 엔드포인트에 `to`를 빼면 "기간 없음"으로 한도 검사를 건너뛴다(`serve()`와 같음). 추천: 적용 키는 반드시 있어야 한다(없으면 error) — Q3와 같은 "요청 모양은 선언과 정확히 일치" 원칙, 단계 7a에서 함께.
 - **Q10.** (#117, 게이트) `requiresScope: false` 엔드포인트가 `roomNames`·`condition`·`selection`을 apply해도 되나? 지금은 등록 검증을 통과하고 site·room 부여 검증 없이 핸들러에 간다. 추천: 등록 규칙 6으로 금지(§2.4 규칙 목록 변경이라 플랫폼 레벨 결정).
+- **#117 게이트 질문.** 명시적 공집합은 원천 조회가 실행되지 않아 `outcome: 'empty'`, `assessments: []`, `trust: null`로 반환하는 의도적 예외이며, 06 §19의 “`empty`는 선언한 kind를 모두 담는다”는 규칙과 다르다. 06 §19에도 이 예외를 적을지 게이트에서 확인한다.
 - **Q5.** (결정됨, 개정) 엔드포인트 권한은 데이터 접근 권한이라 메뉴 manifest 권한과 달라도 된다. 근거 사례: `menus/home/src/index.ts`는 `platform:view`, `OperationsHome.tsx`의 공지 조회는 `notice:view`. 등록 시에는 `menuId`와 권한 이름의 실재만 검사한다.
 - **Q6.** (결정됨) 메뉴 하나만 쓰는 assessment kind(`respondent_history`)는 플랫폼 어휘에 유지한다. 두 번째 소비자가 나오면 메뉴 확장 어휘 허용 여부를 재검토한다.
 - **Q7.** (결정됨) 마이그레이션 범위(5.1) 승인: 2개 검증 → 확인 → 생성기 → 나머지 패키지별(각각 이슈). 이 과정에서 기존 화면 8개를 차례로 건드리므로 루트 규칙("메뉴 화면 3개 이상 연속 작업 전 범위 확인")에 따라 여기서 범위를 확인받았다. VOC 이전은 #100에 포함한다.
