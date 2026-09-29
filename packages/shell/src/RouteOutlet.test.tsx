@@ -14,6 +14,9 @@ const menu = (id: string, path: string, over: object = {}) => ({
 
 let broken = true;
 function Crash(): never { throw new Error('boom: unexpected shape'); }
+function Leaky(): never { throw new Error('lotIds=PRIVATE-LOT user@example.test'); }
+function Odd(): never { throw Object.create(null); }
+function Renamed(): never { const e = new Error('x'); e.name = 'PRIVATE LOT A1'; throw e; }
 function Flaky() { if (broken) throw new TypeError('flaky'); return <p>flaky ok</p>; }
 
 const registry = createRegistry({
@@ -23,6 +26,9 @@ const registry = createRegistry({
     menu('home', '/home', { primary: true, component: () => <p>home page</p> }),
     menu('crash', '/crash', { component: Crash }),
     menu('flaky', '/flaky', { component: Flaky }),
+    menu('leaky', '/leaky', { component: Leaky }),
+    menu('odd', '/odd', { component: Odd }),
+    menu('renamed', '/renamed', { component: Renamed }),
   ],
 });
 
@@ -69,13 +75,45 @@ describe('RouteOutlet error boundary (06 §4)', () => {
     expect(await screen.findByText('이 화면에서 오류가 발생했습니다')).toBeTruthy();
     expect(reports).toHaveLength(1);
     expect(reports[0]).toEqual({
-      correlationId: expect.stringMatching(/^client-/), menuId: 'crash', spaceId: 'analytics', path: '/crash', name: 'Error', message: 'boom: unexpected shape',
+      correlationId: expect.stringMatching(/^client-/), menuId: 'crash', spaceId: 'analytics', path: '/crash', name: 'Error',
     });
     expect(screen.getByText(new RegExp(reports[0].correlationId))).toBeTruthy();
     // The shell sibling still works and leaves the failed screen.
     fireEvent.click(screen.getByText('go home'));
     expect(await screen.findByText('home page')).toBeTruthy();
     expect(screen.queryByText('이 화면에서 오류가 발생했습니다')).toBeNull();
+  });
+
+  it('never sends the free-text message or a non-identifier name (values can ride in them)', async () => {
+    const reports: ClientErrorReport[] = [];
+    const { adapter } = fixture(async r => { reports.push(r); return { accepted: true }; });
+    const view = mountAt('/leaky', adapter);
+    await screen.findByText('이 화면에서 오류가 발생했습니다');
+    view.unmount();
+    mountAt('/renamed', adapter);
+    await screen.findByText('이 화면에서 오류가 발생했습니다');
+    expect(reports).toHaveLength(2);
+    expect(JSON.stringify(reports)).not.toMatch(/PRIVATE|user@example/);
+    expect(reports.map(r => r.name)).toEqual(['Error', 'Error']);
+  });
+
+  it('a thrown value that cannot be stringified still ends in the contained error view', async () => {
+    const { adapter } = fixture(async () => ({ accepted: true }));
+    mountAt('/odd', adapter);
+    expect(await screen.findByText('이 화면에서 오류가 발생했습니다')).toBeTruthy();
+    expect(screen.getByText(/Correlation ID: client-/)).toBeTruthy();
+    fireEvent.click(screen.getByText('go home'));
+    expect(await screen.findByText('home page')).toBeTruthy();
+  });
+
+  it('navigating from a healthy screen to one that fails reports once, not once per automatic retry', async () => {
+    const reports: ClientErrorReport[] = [];
+    const { adapter } = fixture(async r => { reports.push(r); return { accepted: true }; });
+    mountAt('/home', adapter);
+    await screen.findByText('home page');
+    fireEvent.click(screen.getByText('go flaky'));
+    await screen.findByText('이 화면에서 오류가 발생했습니다');
+    expect(reports).toHaveLength(1);
   });
 
   it('retry remounts the screen once the cause is gone', async () => {

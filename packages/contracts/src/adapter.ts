@@ -47,7 +47,7 @@ export type UsageEvent = {
   name: UsageEventName;
   menuId: string;
   spaceId: SpaceId;
-  /** Manifest route pattern (`menu.path`), never the concrete pathname or search. */
+  /** Manifest route pattern (`menu.path`, app-relative), never the concrete pathname or search. */
   path: string;
   /** Client epoch ms. */
   at: number;
@@ -60,8 +60,9 @@ export type UsageEvent = {
 };
 /**
  * A render failure the kernel's route error boundary contained (issue #101). Identity fields only, like UsageEvent:
- * no URL, Context value, stack or component stack — a thrown message can still carry a value, so the client
- * truncates it and the server validates it. The server stamps the session user and receive time.
+ * no URL, Context value, stack, component stack or `Error.message` — a thrown message is free text that can carry
+ * a lot id or a person's value, and truncating is not redaction. `name` is limited to identifier syntax. Adding a
+ * message needs a decided redaction policy first. The server stamps the session user and receive time.
  */
 export type ClientErrorReport = {
   /** Client-generated `client-…`, the same id the person sees on the error screen. */
@@ -70,10 +71,8 @@ export type ClientErrorReport = {
   spaceId: SpaceId;
   /** Manifest route pattern (`menu.path`), never the concrete pathname or search. */
   path: string;
-  /** `Error.name`, at most 80 characters. */
+  /** `Error.name` when it is identifier-shaped (`/^[A-Za-z_$][\w$]{0,79}$/`), else `Error`. */
   name: string;
-  /** `Error.message`, at most 300 characters. */
-  message: string;
 };
 /** from inclusive, to exclusive. */
 export type UsageRange = { preset: 'all' } | { from: number; to: number };

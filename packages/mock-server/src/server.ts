@@ -380,13 +380,13 @@ export function storedUsage(): readonly StoredUsageEvent[] { return usageEvents;
 
 export type StoredClientError = ClientErrorReport & { userId: string; receivedAt: number };
 const clientErrors: StoredClientError[] = [];
-const CLIENT_ERROR_KEYS = ['correlationId', 'menuId', 'spaceId', 'path', 'name', 'message'] as const;
+const CLIENT_ERROR_KEYS = ['correlationId', 'menuId', 'spaceId', 'path', 'name'] as const;
 const CLIENT_ERROR_CAP = 200;
 
 /**
  * Contained render failures (issue #101). Any signed-in session may report — the person who hit the failure is
  * rarely console:access. Same posture as recordUsage: exactly the declared wire shape (unknown keys rejected,
- * so a client cannot smuggle a URL or Context value in), length-bounded strings, whole-call reject, the server
+ * so a client cannot smuggle a URL or Context value in), identifier-shaped `name` and an app-relative `path` (no absolute or protocol-relative URL), no free-text message, whole-call reject, the server
  * stamps userId and receivedAt. Bounded log: the oldest rows drop first.
  */
 export async function reportClientError(report: ClientErrorReport, opts?: { role?: RoleId }): Promise<{ accepted: boolean }> {
@@ -394,9 +394,9 @@ export async function reportClientError(report: ClientErrorReport, opts?: { role
   const text = (v: unknown, max: number) => typeof v === 'string' && v.length <= max;
   const invalid = keys.length !== CLIENT_ERROR_KEYS.length || keys.some(k => !(CLIENT_ERROR_KEYS as readonly string[]).includes(k))
     || !text(report.correlationId, 80) || !report.correlationId.startsWith('client-')
-    || invalidUsageId(report.menuId, 80) || invalidUsageId(report.path, 200)
+    || invalidUsageId(report.menuId, 80) || invalidUsageId(report.path, 200) || !/^\/(?!\/)/.test(report.path)
     || typeof report.spaceId !== 'string' || !SPACE_IDS.includes(report.spaceId)
-    || !text(report.name, 80) || !text(report.message, 300);
+    || typeof report.name !== 'string' || !/^[A-Za-z_$][\w$]{0,79}$/.test(report.name);
   if (invalid) return { accepted: false };
   clientErrors.push({ ...report, userId: USERS[opts?.role ?? role].role, receivedAt: Date.now() });
   if (clientErrors.length > CLIENT_ERROR_CAP) clientErrors.splice(0, clientErrors.length - CLIENT_ERROR_CAP);

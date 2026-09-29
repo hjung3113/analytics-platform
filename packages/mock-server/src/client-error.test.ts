@@ -4,7 +4,7 @@ import { getRole, reportClientError, resetClientErrors, setRole, storedClientErr
 import type { RoleId } from './world';
 
 const report = (over: Partial<ClientErrorReport> = {}): ClientErrorReport => ({
-  correlationId: 'client-1a2b-c3d4', menuId: 'equipment-master', spaceId: 'analytics', path: '/equipment', name: 'TypeError', message: 'x is undefined', ...over,
+  correlationId: 'client-1a2b-c3d4', menuId: 'equipment-master', spaceId: 'analytics', path: '/equipment', name: 'TypeError', ...over,
 });
 
 let previousRole: RoleId = getRole();
@@ -23,12 +23,19 @@ describe('client error reports (issue #101)', () => {
     expect(storedClientErrors()).toHaveLength(0);
   });
 
+  it('rejects a free-text message field, so a value in an error message cannot be stored', async () => {
+    const withMessage = { ...report(), message: 'lotIds=PRIVATE-LOT' } as unknown as ClientErrorReport;
+    expect(await reportClientError(withMessage)).toEqual({ accepted: false });
+  });
+
   it.each([
     ['correlation id without the client- prefix', { correlationId: 'corr-1' }],
     ['menu id with a query string', { menuId: 'equipment?x=1' }],
     ['path with whitespace', { path: '/a b' }],
     ['unknown space', { spaceId: 'nowhere' as never }],
-    ['message over 300 chars', { message: 'x'.repeat(301) }],
+    ['absolute URL as path', { path: 'https://example.test/private-id' }],
+    ['protocol-relative path', { path: '//example.test/path' }],
+    ['name that is not identifier-shaped', { name: 'lot A1023 failed' }],
     ['name over 80 chars', { name: 'x'.repeat(81) }],
   ])('rejects %s', async (_label, over) => {
     expect(await reportClientError(report(over))).toEqual({ accepted: false });

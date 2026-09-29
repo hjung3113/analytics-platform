@@ -21,8 +21,9 @@ export class RouteErrorBoundary extends Component<Props, State> {
   state: State = { failed: false, correlationId: null };
   static getDerivedStateFromError(): Partial<State> { return { failed: true }; }
   componentDidCatch(error: unknown) { this.setState({ correlationId: this.props.onError(error) }); }
-  componentDidUpdate(prev: Props) {
-    if (this.state.failed && prev.resetKey !== this.props.resetKey) this.reset();
+  componentDidUpdate(prev: Props, prevState: State) {
+    // Only a failure that was already on screen is cleared by a new key; one that just happened under the new key is not retried.
+    if (prevState.failed && this.state.failed && prev.resetKey !== this.props.resetKey) this.reset();
   }
   reset = () => this.setState({ failed: false, correlationId: null });
   render() {

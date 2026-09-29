@@ -359,11 +359,12 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   const reportError = useCallback((error: unknown): string => {
     const correlationId = `client-${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 6)}`;
     if (!route) return correlationId;
-    const err = error instanceof Error ? error : new Error(String(error));
     try {
+      // Only an identifier-shaped Error.name leaves the client; the message is free text and stays out (see ClientErrorReport).
+      const rawName = error instanceof Error ? error.name : '';
+      const name = typeof rawName === 'string' && /^[A-Za-z_$][\w$]{0,79}$/.test(rawName) ? rawName : 'Error';
       void adapter.reportClientError({
-        correlationId, menuId: route.menu.id, spaceId: registry.spaceOf(route.menu).id, path: route.menu.path,
-        name: err.name.slice(0, 80), message: err.message.slice(0, 300),
+        correlationId, menuId: route.menu.id, spaceId: registry.spaceOf(route.menu).id, path: route.menu.path, name,
       }).catch(() => { /* silent */ });
     } catch { /* silent */ }
     return correlationId;
