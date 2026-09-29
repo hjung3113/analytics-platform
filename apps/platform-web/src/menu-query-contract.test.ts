@@ -15,7 +15,7 @@ const endpoint = (
 ) => defineEndpoint<{ granularity: string }, unknown>({
   id: 'analytics.test',
   menuId: 'productivity-overview',
-  paramKeys: [],
+  paramKeys: { granularity: true },
   permission: 'analytics:view',
   requiresScope,
   context,
@@ -180,7 +180,7 @@ describe('menu query contracts', () => {
     const specA = {
       id: 'analytics.granularity',
       menuId: 'productivity-overview',
-      paramKeys: ['granularity'] as const,
+      paramKeys: { granularity: true } as const,
       permission: 'analytics:view' as const,
       requiresScope: false,
       context: { time: 'apply' as const },
@@ -191,7 +191,7 @@ describe('menu query contracts', () => {
     const endpointB = defineEndpoint<{ cursor?: string }, { rows: string[] }>({
       id: 'analytics.cursor',
       menuId: 'productivity-overview',
-      paramKeys: ['cursor'],
+      paramKeys: { cursor: true },
       permission: 'analytics:view',
       requiresScope: false,
       context: {},
@@ -211,5 +211,48 @@ describe('menu query contracts', () => {
       void total;
     };
     void checkUseMenuQueryTypes;
+
+    expect(Object.keys(endpointB.paramKeys)).toStrictEqual(['cursor']);
+  });
+
+  it('requires an exhaustive params allow-list at compile time', () => {
+    const compileTimeChecks = () => {
+      defineEndpoint<{ granularity: string; cursor?: string }, unknown>({
+        id: 'analytics.incomplete',
+        menuId: 'productivity-overview',
+        // @ts-expect-error optional params keys must also be listed
+        paramKeys: { granularity: true },
+        permission: 'analytics:view',
+        requiresScope: false,
+        context: {},
+        kinds: [],
+        mergeTimeDomain: false,
+      });
+
+      defineEndpoint<{ granularity: string; cursor?: string }, unknown>({
+        id: 'analytics.legacy-incomplete',
+        menuId: 'productivity-overview',
+        // @ts-expect-error legacy arrays could omit cursor; the exhaustive object form rejects them
+        paramKeys: ['granularity'],
+        permission: 'analytics:view',
+        requiresScope: false,
+        context: {},
+        kinds: [],
+        mergeTimeDomain: false,
+      });
+
+      defineEndpoint<{ granularity: string }, unknown>({
+        id: 'analytics.extra',
+        menuId: 'productivity-overview',
+        // @ts-expect-error params keys not declared in P are rejected
+        paramKeys: { granularity: true, sort: true },
+        permission: 'analytics:view',
+        requiresScope: false,
+        context: {},
+        kinds: [],
+        mergeTimeDomain: false,
+      });
+    };
+    void compileTimeChecks;
   });
 });

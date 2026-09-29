@@ -8,8 +8,8 @@ export type EndpointSpec<P, T> = {
   id: string;
   /** Owning menu manifest id; the Registry must contain it. */
   menuId: string;
-  /** Runtime params allow-list; servers reject keys not declared here. */
-  paramKeys: readonly (keyof P & string)[];
+  /** Runtime allow-list is Object.keys(spec.paramKeys); list every params key, including optional ones. */
+  paramKeys: Readonly<Record<keyof P & string, true>>;
   /** Server endpoint ACL; permission is not sent in the request. */
   permission: Permission;
   /** Whether the endpoint requires and projects a scope. */

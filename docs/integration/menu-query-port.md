@@ -78,7 +78,7 @@ import type { GlobalContext } from './url';
 export type EndpointSpec<P, T> = {
   id: string;                    // '<group>.<name>', 전역 유일. 전송 경로 키
   menuId: string;                // 이 엔드포인트를 소유한 메뉴(manifest id). 등록 시 Registry에 실재해야 한다
-  paramKeys: readonly (keyof P & string)[]; // 허용 params 키. 런타임 값이라 서버·HTTP 어댑터가 미선언 키를 거부할 수 있다(값 검증 스키마는 Q2 codegen 결정 때)
+  paramKeys: Readonly<Record<keyof P & string, true>>; // 허용 params 키 전부를 객체 키로 — 빠뜨리면 컴파일 오류; 런타임 목록은 Object.keys(spec.paramKeys)
   permission: Permission;        // 서버의 엔드포인트 ACL. 요청에 싣지 않는다
   requiresScope: boolean;
   context: Partial<Record<ContextKey, Exclude<Capability, 'unsupported'>>>; // 없는 키 = unsupported
@@ -105,7 +105,7 @@ export type MenuQuery<P = unknown> = { endpoint: string; context: MenuQueryConte
 - **ContextKey → 필드 대응:** `time`→`from`,`to` · `roomNames` · `condition` · `selection` · `lot`→`lotIds` · `ppid` · `recipe`→`recipeIds` · `metric`→`metricId`,`metricVersion`(쌍으로만). `scopeId`는 `requiresScope`면 항상 싣는다.
 - **`reference` 키는 싣지 않는다.** reference는 "보이지만 조회 필터 아님"(06 §6)이므로 조회 요청에 들어갈 이유가 없다. `ExecutionDetail`의 수동 null 처리가 선언으로 대체된다.
 - **null과 `[]` 구분 유지:** 현재 코드 관례대로 `null`=제약 없음, `[]`=명시적 공집합(`server.ts:220-222`). URL 표식(`equipmentSelection=none` 등)과 JSON `[]`의 대응은 기존 codec이 맡는다.
-- **params:** 페이지 입력(`granularity`, `sort`, `page`, 커서 등). 엔드포인트마다 타입이 있고, 허용 키는 `paramKeys`(런타임 값)로 선언한다. 팬텀 제네릭 `_types`는 런타임에 지워져 키를 알 수 없기 때문이다. 서버는 `paramKeys`에 없는 키를 거부한다(`accessDirectory`·`recordUsage`가 이미 쓰는 "unknown key 거부" 자세와 같음).
+- **params:** 페이지 입력(`granularity`, `sort`, `page`, 커서 등). 엔드포인트마다 타입이 있고, 허용 키는 `paramKeys` 객체의 키로 전부 선언한다(런타임 목록은 `Object.keys`). 팬텀 제네릭 `_types`는 런타임에 지워져 키를 알 수 없기 때문이다. 서버는 `paramKeys`에 없는 키를 거부한다(`accessDirectory`·`recordUsage`가 이미 쓰는 "unknown key 거부" 자세와 같음).
 - **이기종 엔드포인트 Registry:** `P`는 `paramKeys`에서 반공변이고 팬텀 `_types.params`에서 공변이어서 invariant다. 여러 params 타입을 한 배열로 묶는 단계 2 Registry는 `AnyEndpointSpec = EndpointSpec<any, unknown>`을 쓴다.
 - **응답:** 기존 `ApiResponse<T>` 그대로. 새 envelope를 만들지 않는다.
 
