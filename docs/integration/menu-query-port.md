@@ -78,7 +78,7 @@ import type { GlobalContext } from './url';
 export type EndpointSpec<P, T> = {
   id: string;                    // '<group>.<name>', 전역 유일. 전송 경로 키
   menuId: string;                // 이 엔드포인트를 소유한 메뉴(manifest id). 등록 시 Registry에 실재해야 한다
-  paramKeys: readonly (keyof P & string)[]; // 허용 params 키. 런타임 값이라 서버·HTTP 어댑터가 미선언 키를 거부할 수 있다(값 검증 스키마는 Q2 codegen 결정 때)
+  paramKeys: Readonly<Record<keyof P & string, true>>; // 허용 params 키 전부를 객체 키로 — 빠뜨리면 컴파일 오류; 런타임 목록은 Object.keys(spec.paramKeys)
   permission: Permission;        // 서버의 엔드포인트 ACL. 요청에 싣지 않는다
   requiresScope: boolean;
   context: Partial<Record<ContextKey, Exclude<Capability, 'unsupported'>>>; // 없는 키 = unsupported
@@ -88,10 +88,12 @@ export type EndpointSpec<P, T> = {
   readonly _types?: { params: P; data: T }; // 팬텀. 런타임 값 없음
 };
 export const defineEndpoint = <P, T>(spec: Omit<EndpointSpec<P, T>, '_types'>): EndpointSpec<P, T> => spec;
+/** 여러 params 타입의 선언을 한 배열로 받는 자리(단계 2 Registry). `P`가 invariant라 `any`만 모두 받는다. */
+export type AnyEndpointSpec = EndpointSpec<any, unknown>;
 
 /** 요청 Context: 선언에서 'apply'인 키와 scopeId만. JSON 배열·camelCase(06 §6.1). */
 export type MenuQueryContext = Partial<GlobalContext>;
-export function projectContext(spec: EndpointSpec<unknown, unknown>, g: GlobalContext): MenuQueryContext;
+export function projectContext<P, T>(spec: EndpointSpec<P, T>, g: GlobalContext): MenuQueryContext;
 
 /** 전송되는 요청. permission·kinds·compute·metricVersion 표시값은 없다. */
 export type MenuQuery<P = unknown> = { endpoint: string; context: MenuQueryContext; params: P };
@@ -103,15 +105,17 @@ export type MenuQuery<P = unknown> = { endpoint: string; context: MenuQueryConte
 - **ContextKey → 필드 대응:** `time`→`from`,`to` · `roomNames` · `condition` · `selection` · `lot`→`lotIds` · `ppid` · `recipe`→`recipeIds` · `metric`→`metricId`,`metricVersion`(쌍으로만). `scopeId`는 `requiresScope`면 항상 싣는다.
 - **`reference` 키는 싣지 않는다.** reference는 "보이지만 조회 필터 아님"(06 §6)이므로 조회 요청에 들어갈 이유가 없다. `ExecutionDetail`의 수동 null 처리가 선언으로 대체된다.
 - **null과 `[]` 구분 유지:** 현재 코드 관례대로 `null`=제약 없음, `[]`=명시적 공집합(`server.ts:220-222`). URL 표식(`equipmentSelection=none` 등)과 JSON `[]`의 대응은 기존 codec이 맡는다.
-- **params:** 페이지 입력(`granularity`, `sort`, `page`, 커서 등). 엔드포인트마다 타입이 있고, 허용 키는 `paramKeys`(런타임 값)로 선언한다. 팬텀 제네릭 `_types`는 런타임에 지워져 키를 알 수 없기 때문이다. 서버는 `paramKeys`에 없는 키를 거부한다(`accessDirectory`·`recordUsage`가 이미 쓰는 "unknown key 거부" 자세와 같음).
+- **params:** 페이지 입력(`granularity`, `sort`, `page`, 커서 등). 엔드포인트마다 타입이 있고, 허용 키는 `paramKeys` 객체의 키로 전부 선언한다(런타임 목록은 `Object.keys`). 팬텀 제네릭 `_types`는 런타임에 지워져 키를 알 수 없기 때문이다. 서버는 `paramKeys`에 없는 키를 거부한다(`accessDirectory`·`recordUsage`가 이미 쓰는 "unknown key 거부" 자세와 같음).
+- **이기종 엔드포인트 Registry:** `P`는 `paramKeys`에서 반공변이고 팬텀 `_types.params`에서 공변이어서 invariant다. 여러 params 타입을 한 배열로 묶는 단계 2 Registry는 `AnyEndpointSpec = EndpointSpec<any, unknown>`을 쓴다.
 - **응답:** 기존 `ApiResponse<T>` 그대로. 새 envelope를 만들지 않는다.
 
 ### 2.3 Kernel (`@ap/kernel`)
 
 ```ts
-export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: P, enabled?: boolean): QueryState<T>;
+export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, enabled?: boolean): QueryState<T>;
 ```
 
+- `spec`에서 `P`를 추론하고 `params`는 `NoInfer<P>`로 검사해, params 리터럴이 선언된 타입을 넓히지 않게 한다.
 - `usePlatformQuery` 위에 얹는다. 식별자는 `[revision, user.id, spec.id, projectContext(spec, global), params]` — 적용하지 않는 Context 키가 바뀌어도 결과를 숨기거나 재조회하지 않고, 적용 키가 바뀌면 지금처럼 이전 결과를 숨긴다(06 §19 규칙 유지).
 - (Candidate) 응답 `assessments`가 `spec.kinds`와 정확히 일치하지 않으면 계약 위반 상태로 표시한다. 선언이 클라이언트에도 있으니 "생략을 clear로 보정하지 않는다"(06 §19)를 클라이언트가 검사할 수 있다.
 - Kernel은 개별 엔드포인트를 모른다(선언을 인자로 받을 뿐).
@@ -137,9 +141,9 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 
 | 위치 | 내용 | import |
 | --- | --- | --- |
-| `@ap/contracts` `src/menu-query.ts` | `EndpointSpec`, `defineEndpoint`, `MenuQuery`, `MenuQueryContext`, `projectContext`(순수 함수), `PlatformAdapter.menuQuery` | 없음(현행 규칙) |
+| `@ap/contracts` `src/menu-query.ts` | `EndpointSpec`, `AnyEndpointSpec`, `defineEndpoint`, `MenuQuery`, `MenuQueryContext`, `projectContext`(순수 함수), `PlatformAdapter.menuQuery` | 없음(현행 규칙) |
 | `@ap/kernel` | `useMenuQuery` | `contracts` |
-| `@ap/mock-server` | 범용 엔진 `serveEndpoint(spec, req, handler)` + `createMockAdapter({ endpoints, registry })`. `world`·`jobs`는 그대로 | `contracts` |
+| `@ap/mock-server` | 범용 엔진 `serveEndpoint(spec, req, handler)` + `createMockAdapter({ endpoints: readonly AnyEndpointSpec[], registry })`. `world`·`jobs`는 그대로 | `contracts` |
 | `menus/<g>/src/endpoints.ts` | 그 메뉴의 `defineEndpoint(...)` 목록과 params/data 타입 | `contracts` |
 | `menus/<g>/src/mock/` → 서브패스 `@ap/menu-<g>/mock` | 엔드포인트별 mock 핸들러(지금의 `compute`, `productivityData.ts`·`cycleData.ts` 계산, `NOTICES`) | `contracts`, `mock-server`, 자기 `endpoints.ts` |
 | `menus/<g>/src/pages/*` | `useMenuQuery(endpoint, params)` | `contracts`, `kernel`, `components`, `ui`, 자기 `endpoints.ts`. **`mock/`·`mock-server` 금지** |
