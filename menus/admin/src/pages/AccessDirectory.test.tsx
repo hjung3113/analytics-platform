@@ -73,6 +73,7 @@ type ResponseForCall = (query: AccessDirectoryQuery, call: number) => ApiRespons
 function fixture(response: ApiResponse<AccessDirectoryPage> | ResponseForCall) {
   const calls: AccessDirectoryQuery[] = [];
   const adapter: PlatformAdapter = {
+    menuQuery: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     session: () => session,
     validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
     publishedMetrics: () => [],

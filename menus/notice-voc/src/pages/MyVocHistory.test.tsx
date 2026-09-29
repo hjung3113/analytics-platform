@@ -25,6 +25,7 @@ function fixture() {
   const calls: MyVocQuery[] = [];
   const okPage: ApiResponse<MyVocPage> = { outcome: 'ok', data: { items: [ROW], nextCursor: null }, assessments: [], trust: null, correlationId: 'fixture' };
   const adapter: PlatformAdapter = {
+    menuQuery: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     session: () => session,
     validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
     publishedMetrics: () => [],

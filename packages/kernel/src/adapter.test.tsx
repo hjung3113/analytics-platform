@@ -22,6 +22,7 @@ function fixture(getEntity?: PlatformAdapter['getEntity']) {
   let current: Session = sessions.a;
   const listeners = new Set<() => void>();
   const adapter: PlatformAdapter = {
+    menuQuery: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     session: () => current,
     validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
     publishedMetrics: () => [],
@@ -118,6 +119,7 @@ describe('adapter shape', () => {
       async contextOptions() { return { stgroup: [], team: [], makerModel: [] }; }
       async evaluateSelection() { return { inCondition: [], outOfCondition: [] }; }
       async getEntity() { return { outcome: 'empty' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
+      async menuQuery() { return { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
       async auditTrail() { return { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
       async entityAudit() { return { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
       async accessDirectory() { return { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }

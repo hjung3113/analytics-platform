@@ -42,6 +42,7 @@ function fixture() {
     return { ...envelope, outcome: 'ok', data: row };
   });
   const adapter: PlatformAdapter = {
+    menuQuery: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     session: () => session,
     validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
     publishedMetrics: () => [],

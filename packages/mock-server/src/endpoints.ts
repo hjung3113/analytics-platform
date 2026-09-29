@@ -1,0 +1,105 @@
+import { emptyGlobal, projectContext } from '@ap/contracts';
+import type { ApiResponse, EndpointSpec, GlobalContext } from '@ap/contracts';
+import { nextCorrelation, serve } from './server';
+import type { Equipment, RoleId } from './world';
+
+/** A menu's mock handler for one declared endpoint. Lives in the menu's `src/mock/` from step 5 on. */
+export type MockEndpoint<P, T> = {
+  spec: EndpointSpec<P, T>;
+  /** Receives only neutralized input: equipment already resolved by the engine, `context` with non-applied keys reset to "no constraint". */
+  handle: (input: { equipment: Equipment[]; context: GlobalContext; params: P }) => T;
+  isEmpty?: (data: T) => boolean;
+  /** Trust source shown in Data Trust; defaults like serve(). */
+  source?: string;
+  /** Server-attached metricVersion display value (§2.4 step 9). */
+  metricVersion?: (context: GlobalContext) => string | undefined;
+};
+
+export const defineMockEndpoint = <P, T>(
+  spec: EndpointSpec<P, T>,
+  impl: Omit<MockEndpoint<P, T>, 'spec'>,
+): MockEndpoint<P, T> => ({ spec, ...impl });
+
+/** Heterogeneous list (P invariant, see AnyEndpointSpec). */
+export type AnyMockEndpoint = MockEndpoint<any, any>;
+
+export class MockRegistrationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MockRegistrationError';
+  }
+}
+
+const requestKeys = ['endpoint', 'context', 'params'] as const;
+const contextKeys = new Set<keyof GlobalContext>([
+  'scopeId', 'from', 'to', 'roomNames', 'condition', 'selection', 'lotIds', 'ppid', 'recipeIds', 'metricId', 'metricVersion',
+]);
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function requestError(message: string): ApiResponse<unknown> {
+  return { outcome: 'error', message, data: null, assessments: [], trust: null, correlationId: nextCorrelation() };
+}
+
+/**
+ * Runs a menu query using the server-owned endpoint declaration. Shape errors return immediately;
+ * valid requests enter `serve()` and follow its permission, scenario, scope and data pipeline.
+ */
+export async function serveEndpoint(
+  endpoints: ReadonlyMap<string, AnyMockEndpoint>,
+  req: unknown,
+  signal?: AbortSignal,
+  opts?: { role?: RoleId; latency?: number },
+): Promise<ApiResponse<unknown>> {
+  if (!isPlainObject(req)) return requestError('request must be a plain object');
+
+  const actualKeys = Object.keys(req);
+  const unexpected = actualKeys.find(key => !(requestKeys as readonly string[]).includes(key));
+  if (unexpected) return requestError(`unexpected request key ${unexpected}`);
+  const missing = requestKeys.find(key => !Object.prototype.hasOwnProperty.call(req, key));
+  if (missing) return requestError(`missing request key ${missing}`);
+  if (typeof req.endpoint !== 'string') return requestError('request endpoint must be a string');
+  if (!isPlainObject(req.context)) return requestError('request context must be a plain object');
+  if (!isPlainObject(req.params)) return requestError('request params must be a plain object');
+
+  const endpoint = endpoints.get(req.endpoint);
+  if (!endpoint) return requestError(`unknown endpoint ${req.endpoint}`);
+
+  const unknownContextKey = Object.keys(req.context).find(key => !contextKeys.has(key as keyof GlobalContext));
+  if (unknownContextKey) return requestError(`unknown context key ${unknownContextKey}`);
+  const unknownParamKey = Object.keys(req.params).find(key => !Object.prototype.hasOwnProperty.call(endpoint.spec.paramKeys, key));
+  if (unknownParamKey) return requestError(`unknown params key ${unknownParamKey}`);
+
+  // Overlay onto emptyGlobal first so omitted applied fields still have their neutral null values.
+  // projectContext keeps only applied keys and scopeId when required; non-applied input never reaches
+  // scope resolution, time-domain checks, or the handler.
+  const requestedContext = { ...emptyGlobal, ...req.context } as GlobalContext;
+  const projected = projectContext(endpoint.spec, requestedContext);
+  const global: GlobalContext = { ...emptyGlobal, ...projected };
+
+  try {
+    return await serve({
+      permission: endpoint.spec.permission,
+      kinds: [...endpoint.spec.kinds],
+      requiresScope: endpoint.spec.requiresScope,
+      maxHours: endpoint.spec.limits?.maxHours,
+      mergeTimeDomain: endpoint.spec.mergeTimeDomain,
+      global,
+      role: opts?.role,
+      latency: opts?.latency,
+      signal,
+      source: endpoint.source,
+      metricVersion: endpoint.metricVersion?.(global),
+      isEmpty: endpoint.isEmpty,
+      compute: ({ equipment }) => endpoint.handle({ equipment, context: global, params: req.params }),
+    });
+  } catch (error) {
+    // Cancellation is control flow for callers; malformed applied Context is a request error.
+    if (typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError') throw error;
+    return requestError('invalid request context');
+  }
+}
