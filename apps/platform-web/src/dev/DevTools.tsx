@@ -21,6 +21,7 @@ const SCENARIOS: { id: Scenario; ko: string; en: string }[] = [
   { id: 'too_large', ko: '조회 과대 (too_large)', en: 'Too large' },
   { id: 'timeout', ko: '시간 초과 (timeout)', en: 'Timeout' },
   { id: 'error', ko: '서버 오류 (error)', en: 'Server error' },
+  { id: 'malformed', ko: '응답 형식 오류 (malformed)', en: 'Malformed response' },
 ];
 
 export function DevTools() {

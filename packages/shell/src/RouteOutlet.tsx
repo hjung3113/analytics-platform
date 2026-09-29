@@ -3,10 +3,11 @@ import { CONTEXT_LABELS, PAGE_TYPE_LABELS, PlatformLink, useI18n, usePlatform } 
 import { Panel, PlatformPage, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import type { ContextKey } from '@ap/contracts';
+import { RouteErrorBoundary } from './RouteErrorBoundary';
 
 /** Renders the matched menu page, or the kernel's not-found / contract-error / permission / planned states (docs/06 §17, §19). */
 export function RouteOutlet() {
-  const { route, contractError, can, url, global, metricInit, setGlobal, currentSpace } = usePlatform();
+  const { route, contractError, can, url, global, metricInit, setGlobal, currentSpace, reportError, revision } = usePlatform();
   const { t, lang } = useI18n();
   if (!route) return <KernelMessage icon={<FileQuestion className="size-4" aria-hidden />} title={t('notFound')} body={<span className="t-mono">{url}</span>} />;
   if (contractError) return <ContractErrorView />;
@@ -33,7 +34,10 @@ export function RouteOutlet() {
     body={<>{lang === 'ko' ? '내비게이션에서는 숨겨지며, 직접 URL 접근도 서버가 거부합니다.' : 'Hidden from navigation; direct URL access is rejected by the server.'} <span className="t-mono">permission={route.menu.permission}</span></>} />;
   const Page = route.menu.component;
   if (!Page) return <PlannedPage />;
-  return <Page key={route.menu.id + JSON.stringify(route.params)} params={route.params} />;
+  const pageKey = route.menu.id + JSON.stringify(route.params);
+  return <RouteErrorBoundary onError={reportError} resetKey={`${pageKey}|${revision}`}>
+    <Page key={pageKey} params={route.params} />
+  </RouteErrorBoundary>;
 }
 
 function KernelMessage({ icon, title, body, tone }: { icon: React.ReactNode; title: string; body: React.ReactNode; tone?: 'warning' | 'danger' }) {

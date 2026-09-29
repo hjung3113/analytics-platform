@@ -384,6 +384,44 @@ test.describe('공통 상태 화면 (06 §19)', () => {
   }
 });
 
+test.describe('화면 오류 격리 (06 §4 전역 Error Boundary)', () => {
+  test('메뉴 화면이 렌더 중 예외를 던져도 셸·내비게이션은 살고, Correlation ID를 보이며, 다시 시도는 원인이 남아 있으면 새 Correlation ID로 다시 가두고, 원인이 사라지면 복구한다', async ({ page }, testInfo) => {
+    await page.goto(PRODUCTIVITY);
+    await expect(mainHeading(page)).toHaveText('생산성 개요');
+    const main = page.getByRole('main');
+    await setScenario(page, '응답 형식 오류 (malformed)');
+    await expect(main.getByText('이 화면에서 오류가 발생했습니다')).toBeVisible();
+    await expect(main.getByText(/Correlation ID: client-/)).toBeVisible();
+    await expect(page.getByRole('navigation').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Scope:/ })).toBeVisible();
+    await evidence(page, testInfo, 'route-error');
+
+    const firstId = await main.getByText(/Correlation ID: client-/).innerText();
+    await main.getByRole('button', { name: '다시 시도' }).click();
+    await expect(main.getByText('이 화면에서 오류가 발생했습니다')).toBeVisible();
+    await expect(main.getByText(/Correlation ID: client-/)).not.toHaveText(firstId);
+
+    await setScenario(page, '정상');
+    await expect(main.getByText('이 화면에서 오류가 발생했습니다')).toHaveCount(0);
+    await expect(mainHeading(page)).toHaveText('생산성 개요');
+  });
+
+  test('오류 화면의 홈 링크로 다른 메뉴로 벗어난다', async ({ page }) => {
+    await page.goto(PRODUCTIVITY);
+    await expect(mainHeading(page)).toHaveText('생산성 개요');
+    await setScenario(page, '응답 형식 오류 (malformed)');
+    const main = page.getByRole('main');
+    await expect(main.getByText('이 화면에서 오류가 발생했습니다')).toBeVisible();
+    await main.getByRole('link', { name: '홈' }).click();
+    await expect(page).not.toHaveURL(/\/analytics\/productivity/);
+    // The scenario is still on, so the home screen fails on its own data — and that failure is contained the same way.
+    await expect(main.getByText('이 화면에서 오류가 발생했습니다')).toBeVisible();
+    await setScenario(page, '정상');
+    await expect(main.getByText('이 화면에서 오류가 발생했습니다')).toHaveCount(0);
+    await expect(mainHeading(page)).not.toHaveText('생산성 개요');
+  });
+});
+
 test.describe('returnTo 복귀 (06 §22)', () => {
   test('상세로 갔다가 "이전 화면으로"를 누르면 떠난 URL로 정확히 돌아온다', async ({ page }, testInfo) => {
     await page.goto(`/equipment?v=1&scopeId=ICH&${PERIOD}&status=active`);

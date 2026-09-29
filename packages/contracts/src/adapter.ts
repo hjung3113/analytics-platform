@@ -47,7 +47,7 @@ export type UsageEvent = {
   name: UsageEventName;
   menuId: string;
   spaceId: SpaceId;
-  /** Manifest route pattern (`menu.path`), never the concrete pathname or search. */
+  /** Manifest route pattern (`menu.path`, app-relative), never the concrete pathname or search. */
   path: string;
   /** Client epoch ms. */
   at: number;
@@ -57,6 +57,22 @@ export type UsageEvent = {
   dwellMs?: number;
   /** dwell only; the entry's `at`. */
   enteredAt?: number;
+};
+/**
+ * A render failure the kernel's route error boundary contained (issue #101). Identity fields only, like UsageEvent:
+ * no URL, Context value, stack, component stack or `Error.message` — a thrown message is free text that can carry
+ * a lot id or a person's value, and truncating is not redaction. `name` is limited to identifier syntax. Adding a
+ * message needs a decided redaction policy first. The server stamps the session user and receive time.
+ */
+export type ClientErrorReport = {
+  /** Client-generated `client-…`, the same id the person sees on the error screen. */
+  correlationId: string;
+  menuId: string;
+  spaceId: SpaceId;
+  /** Manifest route pattern (`menu.path`), never the concrete pathname or search. */
+  path: string;
+  /** `Error.name` when it is identifier-shaped (`/^[A-Za-z_$][\w$]{0,79}$/`), else `Error`. */
+  name: string;
 };
 /** from inclusive, to exclusive. */
 export type UsageRange = { preset: 'all' } | { from: number; to: number };
@@ -180,6 +196,11 @@ export type PlatformAdapter = {
    * Fire-and-forget from the kernel: no AbortSignal, failures are silent, navigation never blocks.
    */
   recordUsage(events: readonly UsageEvent[]): Promise<{ accepted: number }>;
+  /**
+   * Contained render failures (06 §4 전역 Error Boundary). Fire-and-forget from the kernel like `recordUsage`:
+   * no AbortSignal, failures are silent — reporting must never cause a second failure.
+   */
+  reportClientError(report: ClientErrorReport): Promise<{ accepted: boolean }>;
   /** Console aggregate read (docs/05 열람 권한: console:access, server-checked). The console never reads raw events. */
   usageSummary(range: UsageRange, signal?: AbortSignal): Promise<ApiResponse<UsageSummary>>;
   /**
