@@ -18,7 +18,7 @@
 
 ## 다음 세션 할 일
 
-1. **#100 구현 이슈 쪼개기.** 설계 [`docs/integration/menu-query-port.md`](docs/integration/menu-query-port.md) §10의 단계 1–6(계약 → mock 엔진 → `useMenuQuery` → lint 경계 → `productivity-overview`·`execution-detail` 이전)을 이슈로 올린다. 단계 7은 사람 확인 게이트(Q3·Q4 답), 이후 8–12(생성기, 나머지 이전, VOC 이전, `serve` 제거, 문서). 게이트 전에는 메뉴 화면 2개만 건드린다.
+1. **#100 구현 착수.** 1–6단계 이슈가 올라가 있다(#110 contracts → #111 mock 엔진 → #112 `useMenuQuery`, #113 lint 경계, → #114 productivity-overview → #115 execution-detail). 순서대로 한 PR씩. #115 뒤에는 **사람 확인 게이트**: 사용자에게 Q3·Q4를 묻고, 답 전에는 설계 §10 단계 8–12를 이슈화·착수하지 않는다. 게이트 전에는 메뉴 화면 2개만 건드린다.
 2. #104의 레이아웃 슬롯 컴포넌트(Management `filter`/`table`/`drawer`, Analysis `kpi`/`chart`/`breakdown`)는 M2 재개 때 인터랙티브 프로토타입 컨펌 뒤에 올린다(06 §12.6).
 
 ## 2026-09-29 사용자 결정 (설계 문서 "결정 기록"에 있음)

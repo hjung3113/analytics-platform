@@ -69,7 +69,7 @@
 | ~~Kernel: `linkTo`가 목적지 권한·사이트 경계 초기화·미지원 Context를 처리 (#102)~~ 완료 — `resolveLink`가 `href`·`allowed`(목적지 권한·공간 진입)·`droppedPageKeys`를 돌려주고 Scope가 바뀌면 site 종속 Context를 비운다. 감사 화면의 자체 SITE_BOUNDARY 로직 제거, 지표 사용처는 권한 없으면 사유 표시. E2E 총 38 | 완료 |
 | ~~차트 계약: 주석 Scope 격리·manifest features 준수·E2E 검사 (#103)~~ 완료 — 주석은 서버 소유·`(chartId, scopeId)` 키의 포트(`listAnnotations`·`saveAnnotation`, 모듈 전역 저장소 제거), Chart Frame이 Compare·Annotate·Export를 manifest `features`로 게이트, E2E 3건(Brush→구간 적용 확인, 주석 사이트 격리, features 준수; 총 41) | 완료 |
 | ~~레이아웃: pageType을 실제 계약으로 (#104)~~ 생성기 부분 완료 — `--page-type`별 06 §12 슬롯 뼈대, 반복 패턴·슬롯 후보 정리(06 §12.6). 레이아웃 슬롯 컴포넌트는 M2 재개 때 프로토타입 컨펌 후 | 생성기 완료, 슬롯 컴포넌트 M2 대기 |
-| [결정+설계] 메뉴 데이터 조회 포트: 서버 경계 계약을 mock 밖 contracts로 (#100) — 방향 결정 완료(범용 요청 + 메뉴 선언 + 전송 하나 주입, 2개 화면 검증 → 게이트 → 생성기 → 나머지 이전 → VOC 이전 → `serve` 제거), 설계 [`menu-query-port.md`](integration/menu-query-port.md)(Candidate). 구현 이슈로 쪼개는 일이 남음 | 설계 결정 완료, 구현 이슈화 대기 |
+| [결정+설계] 메뉴 데이터 조회 포트: 서버 경계 계약을 mock 밖 contracts로 (#100) — 방향 결정 완료(범용 요청 + 메뉴 선언 + 전송 하나 주입, 2개 화면 검증 → 게이트 → 생성기 → 나머지 이전 → VOC 이전 → `serve` 제거), 설계 [`menu-query-port.md`](integration/menu-query-port.md)(Candidate). 구현 이슈 1–6단계: #110 contracts, #111 mock 엔진, #112 `useMenuQuery`, #113 lint 경계, #114 productivity-overview, #115 execution-detail(끝나면 사람 확인 게이트 — Q3·Q4). 게이트 뒤 단계(생성기·나머지 이전·VOC·`serve` 제거·문서)는 게이트 답을 받은 뒤 이슈화 | 구현 1–6단계 이슈 등록, 게이트 대기 |
 
 ### M2 디자인 시스템 (1차 평가: #33) — 보류
 
