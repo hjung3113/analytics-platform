@@ -4,5 +4,6 @@ export * from './feedbackops-link';
 export * from './i18n';
 export * from './instant';
 export * from './menu';
+export * from './menu-query';
 export * from './response';
 export * from './url';
