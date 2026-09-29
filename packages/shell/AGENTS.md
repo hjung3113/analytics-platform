@@ -10,7 +10,7 @@ App Shell(06 §8–9, 화면 설계 [07](../../docs/07_app_shell_wireframe.md)).
 - `CommandPalette.tsx` — 메뉴 검색 이동.
 - `GlobalContextBar.tsx` — 기간·room_name·Condition·Selection·전달 Context 표시/편집. 선택지는 `useAdapterRequest`로 `contextOptions`·`evaluateSelection` 조회, 실패 시 오류와 재시도.
 - `RouteOutlet.tsx` — 현재 경로의 메뉴 화면 또는 미등록·계약 오류·권한 없음·미구현 상태.
-- `RouteErrorBoundary.tsx` — 메뉴 화면의 렌더 실패를 콘텐츠 슬롯 안에 가둔다(06 §4). 셸·내비게이션·다른 메뉴는 살고, 오류 화면은 Correlation ID(`usePlatform().reportError`가 보고하고 돌려준 값)와 다시 시도·홈을 보인다. 메뉴·라우트 params·서버 revision(`adapter.subscribe` 알림)이 바뀌면 자동으로 풀린다. 이벤트 핸들러·비동기 오류는 React 경계가 잡지 않으므로 대상이 아니다.
+- `RouteErrorBoundary.tsx` — 메뉴 화면의 렌더 실패를 콘텐츠 슬롯 안에 가둔다(06 §4). 셸·내비게이션·다른 메뉴는 살고, 오류 화면은 Correlation ID(`usePlatform().reportError`가 보고하고 돌려준 값)와 다시 시도·홈을 보인다. 메뉴·라우트 params·서버 revision(`adapter.subscribe` 알림)이 바뀌면 자동으로 풀린다. lazy 청크 로드 실패는 React가 거부를 lazy 객체에 캐시하므로 "다시 시도"가 페이지를 새로고침한다(URL이 딥링크라 화면 복원, `reload.ts`). 이벤트 핸들러·비동기 오류는 React 경계가 잡지 않으므로 대상이 아니다.
 
 ## 규칙
 

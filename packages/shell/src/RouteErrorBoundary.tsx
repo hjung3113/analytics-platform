@@ -3,6 +3,7 @@ import { ServerCrash } from 'lucide-react';
 import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { StateMessage } from '@ap/components';
 import { Button } from '@ap/ui';
+import { reloadApp } from './reload';
 
 type Props = {
   /** Reports the contained error and returns the correlation id to show. */
@@ -11,24 +12,31 @@ type Props = {
   resetKey: string;
   children: ReactNode;
 };
-type State = { failed: boolean; correlationId: string | null };
+type State = { failed: boolean; correlationId: string | null; chunkFailure: boolean };
+
+const CHUNK_FAILURE = /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Loading (CSS )?chunk .* failed/i;
+/** A rejected `React.lazy` import: React caches the rejection on the lazy object the manifest keeps, so only a reload can retry it. */
+function isChunkLoadFailure(error: unknown): boolean {
+  try { return error instanceof Error && (error.name === 'ChunkLoadError' || CHUNK_FAILURE.test(error.message)); } catch { return false; }
+}
 
 /**
  * Contains a menu screen's render failure in the content slot (06 §4 전역 Error Boundary) so the shell,
  * navigation and other menus stay usable. Retry and a new resetKey remount the screen.
  */
 export class RouteErrorBoundary extends Component<Props, State> {
-  state: State = { failed: false, correlationId: null };
-  static getDerivedStateFromError(): Partial<State> { return { failed: true }; }
+  state: State = { failed: false, correlationId: null, chunkFailure: false };
+  static getDerivedStateFromError(error: unknown): Partial<State> { return { failed: true, chunkFailure: isChunkLoadFailure(error) }; }
   componentDidCatch(error: unknown) { this.setState({ correlationId: this.props.onError(error) }); }
   componentDidUpdate(prev: Props, prevState: State) {
     // Only a failure that was already on screen is cleared by a new key; one that just happened under the new key is not retried.
     if (prevState.failed && this.state.failed && prev.resetKey !== this.props.resetKey) this.reset();
   }
-  reset = () => this.setState({ failed: false, correlationId: null });
+  reset = () => this.setState({ failed: false, correlationId: null, chunkFailure: false });
+  retry = () => { if (this.state.chunkFailure) reloadApp(); else this.reset(); };
   render() {
     if (!this.state.failed) return this.props.children;
-    return <RouteErrorView correlationId={this.state.correlationId ?? undefined} onRetry={this.reset} />;
+    return <RouteErrorView correlationId={this.state.correlationId ?? undefined} onRetry={this.retry} />;
   }
 }
 

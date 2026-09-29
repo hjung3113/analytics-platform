@@ -1,9 +1,13 @@
+import { lazy } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ClientErrorReport, PlatformAdapter, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { RouteOutlet } from './RouteOutlet';
+import { reloadApp } from './reload';
+
+vi.mock('./reload', () => ({ reloadApp: vi.fn() }));
 
 const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
@@ -17,6 +21,7 @@ function Crash(): never { throw new Error('boom: unexpected shape'); }
 function Leaky(): never { throw new Error('lotIds=PRIVATE-LOT user@example.test'); }
 function Odd(): never { throw Object.create(null); }
 function Renamed(): never { const e = new Error('x'); e.name = 'PRIVATE LOT A1'; throw e; }
+const lazyMissing = lazy(() => Promise.reject(new TypeError('Failed to fetch dynamically imported module: https://x/y.js')));
 function Flaky() { if (broken) throw new TypeError('flaky'); return <p>flaky ok</p>; }
 
 const registry = createRegistry({
@@ -26,6 +31,7 @@ const registry = createRegistry({
     menu('home', '/home', { primary: true, component: () => <p>home page</p> }),
     menu('crash', '/crash', { component: Crash }),
     menu('flaky', '/flaky', { component: Flaky }),
+    menu('missing', '/missing', { component: lazyMissing }),
     menu('leaky', '/leaky', { component: Leaky }),
     menu('odd', '/odd', { component: Odd }),
     menu('renamed', '/renamed', { component: Renamed }),
@@ -114,6 +120,14 @@ describe('RouteOutlet error boundary (06 §4)', () => {
     fireEvent.click(screen.getByText('go flaky'));
     await screen.findByText('이 화면에서 오류가 발생했습니다');
     expect(reports).toHaveLength(1);
+  });
+
+  it('retry after a failed lazy chunk reloads the page, since React caches the rejected import', async () => {
+    const { adapter } = fixture(async () => ({ accepted: true }));
+    mountAt('/missing', adapter);
+    await screen.findByText('이 화면에서 오류가 발생했습니다');
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    expect(reloadApp).toHaveBeenCalledTimes(1);
   });
 
   it('retry remounts the screen once the cause is gone', async () => {
