@@ -12,18 +12,22 @@
 ## 현재 상태
 
 - M1 완료. M2(디자인) 보류(FeedbackOps 디자인 확정 뒤, #52 코멘트).
-- 2026-09-29 Opus 플랫폼 관점 검토(#100–#104, 추적 #63)에서 #101(라우트 Error Boundary)·#102(`resolveLink`)·#103(차트 주석 Scope 격리·features 준수)·#104(생성기 `--page-type`별 06 §12 슬롯 뼈대, 06 §12.6 패턴·슬롯 후보)를 처리했다. 남은 것은 **#100**(사람 결정)뿐.
+- 2026-09-29 Opus 플랫폼 관점 검토(#100–#104, 추적 #63)에서 #101(라우트 Error Boundary)·#102(`resolveLink`)·#103(차트 주석 Scope 격리·features 준수)·#104(생성기 `--page-type`별 06 §12 슬롯 뼈대, 06 §12.6 패턴·슬롯 후보)를 처리했다. #100·#98은 2026-09-29에 사용자가 결정했다(아래).
 - #37 적재 워커 상태 스키마 **초안**(`docs/integration/ingest-status-schema.md`, Candidate)은 파서 담당 합의 대기.
 - CI: `Platform workspace`·`Platform contracts (E2E)`(41개)·`CSS selectors (build diff)`·Unit A–C·Python codec·`PR checklist`.
 
 ## 다음 세션 할 일
 
-1. 착수 가능한 새 일은 없다 — 남은 이슈는 아래 결정·외부 답 대기이거나 M2 보류다. 사용자에게 다음 방향(결정 이슈 답, 또는 새 플랫폼 갈래 작업)을 확인한다.
+1. **#100 구현 착수.** 1–6단계 이슈가 올라가 있다(#110 contracts → #111 mock 엔진 → #112 `useMenuQuery`, #113 lint 경계, → #114 productivity-overview → #115 execution-detail). 순서대로 한 PR씩. #115 뒤에는 **사람 확인 게이트**: 사용자에게 Q3·Q4를 묻고, 답 전에는 설계 §10 단계 8–12를 이슈화·착수하지 않는다. 게이트 전에는 메뉴 화면 2개만 건드린다.
 2. #104의 레이아웃 슬롯 컴포넌트(Management `filter`/`table`/`drawer`, Analysis `kpi`/`chart`/`breakdown`)는 M2 재개 때 인터랙티브 프로토타입 컨펌 뒤에 올린다(06 §12.6).
+
+## 2026-09-29 사용자 결정 (설계 문서 "결정 기록"에 있음)
+
+- **#100:** 범용 `MenuQuery` + 메뉴 `EndpointSpec` + 앱이 주입하는 전송 하나. 단계 이행, VOC 이전도 #100 범위. `PlatformAdapter`는 Kernel 저장소 소유 기준(`accessDirectory` 유지, `myVocHistory`·`mySurveyHistory`·`MyVoc*`는 notice-voc로 이전). 엔드포인트 권한은 데이터 접근 권한이라 메뉴 권한과 달라도 됨(등록 시 `menuId`·권한 이름 실재만 검사), `respondent_history` kind 유지. Q2(스키마 원본)는 FastAPI 착수 때, Q3(무시 키 거부)·Q4(06 §5 추가)는 검증 게이트에서.
+- **#98:** 선택지 3, 절반만 확정. room_name 부여·열람 개별 부여는 플랫폼 메타 DB 소유, 역할 소속 원천은 IdP 그룹 claim 사양 대기. 쓰기 포트·변경 가능한 mock `USERS`는 계속 만들지 않는다.
 
 ## 사람·외부 결정 대기 — 답이 나오기 전에 거기에 기대는 구현을 하지 않는다
 
-- **#100** 메뉴 데이터 조회 포트: 서버 경계 계약을 mock 밖 contracts로(`ready-for-human`).
 - #37 파서 담당 합의(스키마 초안). 합의 뒤 #51 모니터링·트레이스 설계.
 - #75 활용률 이벤트에 조회조건을 넣을지.
 - #81 FeedbackOps 딥링크 확장.
@@ -31,7 +35,7 @@
 - #85 = FeedbackOps#549 신고자용 `view=my&selected=` 딥링크 확인.
 - #86 실제 VOC 어댑터 — #59 토큰 공유(디자인 보류) 뒤.
 - #90 지표 상세 이력을 감사 저장소로, #91 전역 감사 room 권한 결정.
-- **#98** 권한 부여·회수(쓰기)의 원천. 답 전에는 부여·회수 포트, 변경 가능한 mock `USERS`, 두 번째 콘솔 권한을 만들지 않는다.
+- #98 역할 소속 원천(IdP 그룹 claim 사양). 답 전에는 부여·회수 포트, 변경 가능한 mock `USERS`, 두 번째 콘솔 권한을 만들지 않는다.
 
 ## 최근 플랫폼 계약
 
