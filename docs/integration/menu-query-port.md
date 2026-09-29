@@ -122,7 +122,7 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 
 1. `endpoint` 미등록 → `error`("unknown endpoint").
 2. 요청 모양 위반(요청 최상위에 `permission`·`kinds` 같은 알 수 없는 키, `paramKeys`에 없는 params 키) → `error`. **클라이언트가 보낸 값으로 권한·kind를 정하는 길 자체를 없앤다.** 선언이 `apply`하지 않는 Context 키는 **단계 2부터 엔진이 해석(Scope·room·Condition·Selection 판정과 핸들러 입력)에 넘기지 않고 버린다**(`resolveEquipment`가 `execution-detail`처럼 reference로만 선언한 `roomNames`·`condition`·`selection`을 소비하는 일이 없게). 이 중립화는 Q3와 무관한 안전 기본값이고, Q3가 정하는 것은 그런 키가 왔을 때 응답을 error로 거부할지 조용히 무시할지뿐이며 게이트 뒤 단계 7a에서 정한다. 우리 클라이언트는 `projectContext`가 그 키를 애초에 싣지 않는다.
-   - 등록 시점 검증: `createMockAdapter({ endpoints, registry })`(실서버도 같은 검증)는 앱이 주입한 Registry(manifest 목록)로 `spec.menuId`가 실재하는지, `spec.permission`이 Registry의 어떤 메뉴가 선언한 권한 이름인지(오타 방지)를 검사하고, 둘 중 하나라도 아니거나 `id`가 이미 등록된 것과 겹치면(여러 메뉴 패키지의 배열을 합칠 때 생기는 중복) 등록을 거부한다. `mock-server`는 메뉴를 모르므로 manifest는 앱이 넘긴다. **엔드포인트 권한은 메뉴 권한과 같을 필요가 없다**(Q5): manifest 권한은 메뉴 노출·진입, 엔드포인트 권한은 서버의 데이터 접근 판정이다. 서버는 요청이 아니라 이 선언 사본을 믿으므로 엔드포인트 권한은 엔드포인트 PR에서 데이터 소유 기준으로 리뷰한다.
+   - 등록 시점 검증: `createMockAdapter({ endpoints, registry })`(실서버도 같은 검증)는 앱이 주입한 Registry(manifest 목록)로 `spec.menuId`가 실재하는지, `spec.permission`이 Registry의 어떤 메뉴가 선언한 권한 이름인지(오타 방지)를 검사하고, 둘 중 하나라도 아니거나 `id`가 이미 등록된 것과 겹치면(여러 메뉴 패키지의 배열을 합칠 때 생기는 중복) 등록을 거부한다. 또 엔드포인트가 `apply`로 선언한 Context 키를 소유 메뉴 manifest가 `apply`로 선언하지 않았으면(reference·unsupported·없음) 등록을 거부한다 — 엔드포인트가 manifest보다 넓게 apply하면 `projectContext`가 그 키를 실어 보내 서버가 신뢰하게 된다(예: `execution-detail`의 `roomNames`·`condition`·`selection`). `mock-server`는 메뉴를 모르므로 manifest는 앱이 넘긴다. **엔드포인트 권한은 메뉴 권한과 같을 필요가 없다**(Q5): manifest 권한은 메뉴 노출·진입, 엔드포인트 권한은 서버의 데이터 접근 판정이다. 서버는 요청이 아니라 이 선언 사본을 믿으므로 엔드포인트 권한은 엔드포인트 PR에서 데이터 소유 기준으로 리뷰한다.
 3. `spec.permission`을 세션으로 검사 → `forbidden`. 응답 시나리오보다 우선(현재와 같음).
 4. (mock만) 시나리오 early return.
 5. `requiresScope`면 Scope → room grant → Condition → Selection(현재 `resolveEquipment`) → `forbidden`.
@@ -219,7 +219,7 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 - 페이징 공통 추상화(cursor vs offset) — `auditTrail`·`accessDirectory`는 offset, `myVocHistory`는 cursor로 이미 다르다. 엔드포인트 params에 둔다.
 - 여러 위젯 요청 묶기(batch), 스트리밍, 장기 작업.
 - 공개 스키마 내보내기/codegen(OpenAPI·JSON Schema) — 실서버(FastAPI) 착수 때(§8 Q2).
-- manifest ↔ 엔드포인트 Context 교차 검증(예: manifest가 `apply`한 키를 어떤 엔드포인트도 apply하지 않으면 거부) — 이전 메뉴가 3개 이상 되면.
+- manifest ↔ 엔드포인트 Context **역방향** 교차 검증(manifest가 `apply`한 키를 어떤 엔드포인트도 apply하지 않으면 거부) — 이전 메뉴가 3개 이상 되면. 정방향(엔드포인트가 manifest보다 넓게 `apply`하면 등록 거부)은 등록 검증에 포함한다(§2.4).
 
 ## 7. 대안과 기각 이유
 
@@ -231,16 +231,16 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 | D. 선언을 contracts에 중앙 집중 | 모든 엔드포인트 선언을 `@ap/contracts`에 둔다 | contracts가 메뉴 목록을 알게 된다(06 §3 "플랫폼은 개별 메뉴를 알지 못한다"). manifest를 메뉴가 소유하는 것과 같은 이유로 선언도 메뉴가 소유. |
 | E. mock 핸들러를 `@ap/mock-server` 안에 | 메뉴 계산을 mock-server로 옮김 | mock-server가 메뉴 선언 타입을 import해야 해서 `mock-server → menu` 역방향 간선이 생긴다. |
 
-## 8. 미해결 질문 (사람이 답해야 함)
+## 8. 질문과 결정 상태 (미해결: Q2·Q3·Q4)
 
-- **Q1.** 2.1의 방향(범용 요청 + 메뉴 선언 + 전송 하나 주입)을 채택하나, 이슈 원안에 가까운 대안 A(메뉴별 포트 주입)를 택하나.
+- **Q1.** (결정됨) 2.1의 방향(범용 요청 + 메뉴 선언 + 전송 하나 주입)을 채택한다. 대안 A(메뉴별 포트 주입)는 조회 모양에 안 맞는 기능이 생기면 재검토.
 - **Q2.** 실서버 착수 후 선언의 원본은 어디인가: TS 선언 → FastAPI(Pydantic) codegen, 아니면 FastAPI OpenAPI → TS codegen. `PLATFORM_REQUIREMENTS.md:141`과 06 §6.1("형식은 Candidate")이 여기에 걸린다.
 - **Q3.** 선언이 apply하지 않는 Context 키가 요청에 오면 서버가 거부(error)할지 무시할지. 추천: 거부 — 클라이언트 투영 버그를 드러낸다.
 - **Q4.** 06 §5 "메뉴가 선언하는 정보"(Decided 표)에 "조회 엔드포인트(권한·적용 Context·적용 kind)"를 추가하나. 06 변경이라 플랫폼 레벨 결정.
 - **Q5.** (결정됨, 개정) 엔드포인트 권한은 데이터 접근 권한이라 메뉴 manifest 권한과 달라도 된다. 근거 사례: `menus/home/src/index.ts`는 `platform:view`, `OperationsHome.tsx`의 공지 조회는 `notice:view`. 등록 시에는 `menuId`와 권한 이름의 실재만 검사한다.
 - **Q6.** (결정됨) 메뉴 하나만 쓰는 assessment kind(`respondent_history`)는 플랫폼 어휘에 유지한다. 두 번째 소비자가 나오면 메뉴 확장 어휘 허용 여부를 재검토한다.
-- **Q7.** 마이그레이션 범위(5.1) 승인: 2개 검증 → 확인 → 생성기 → 나머지 패키지별(각각 이슈). 이 과정에서 기존 화면 8개를 차례로 건드리므로 루트 규칙("메뉴 화면 3개 이상 연속 작업 전 범위 확인")에 따라 여기서 범위를 확인받는다. VOC 이전을 #100에 포함할지 별도 이슈로 할지도.
-- **Q8.** `accessDirectory`를 Kernel 포트에 두는 판정(§3 규칙 2)에 동의하나.
+- **Q7.** (결정됨) 마이그레이션 범위(5.1) 승인: 2개 검증 → 확인 → 생성기 → 나머지 패키지별(각각 이슈). 이 과정에서 기존 화면 8개를 차례로 건드리므로 루트 규칙("메뉴 화면 3개 이상 연속 작업 전 범위 확인")에 따라 여기서 범위를 확인받았다. VOC 이전은 #100에 포함한다.
+- **Q8.** (결정됨) `accessDirectory`를 Kernel 포트에 두는 판정(§3 규칙 2)에 동의한다.
 
 ## 9. #98 영향 (권한 부여·회수의 원천)
 
@@ -264,7 +264,7 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 | # | 단계 | 검증 |
 | --- | --- | --- |
 | 1 | contracts: `menu-query.ts`(`EndpointSpec`(`menuId`·`paramKeys` 포함)·`defineEndpoint`·`MenuQuery`·`projectContext`) + `PlatformAdapter.menuQuery` 시그니처 | contracts 단위 테스트: capability별 투영, `null`/`[]` 보존, metric 쌍은 함께만, reference 키 제외. React import 0(lint) |
-| 2 | mock-server: `serveEndpoint` 엔진(현 `serve` 단계 재사용) + `createMockAdapter({ endpoints, registry })`. 선언이 apply하지 않는 Context 키는 해석·핸들러에 넘기지 않는다 | 요청에 `permission`/`kinds` 키 → error, reference로만 선언한 `roomNames`·`condition`·`selection`이 실려 와도 결과가 그 키가 없을 때와 같음(회귀 테스트), `paramKeys` 밖 params 키 → error, 미등록 id → error, `menuId`·권한 이름이 Registry에 없거나 `id`가 중복이면 등록 거부, kind 정확히 1회, 권한이 시나리오보다 우선. 기존 `time-domain`·`explicit-empty`·`menu-permission` 테스트 통과 수 유지 |
+| 2 | mock-server: `serveEndpoint` 엔진(현 `serve` 단계 재사용) + `createMockAdapter({ endpoints, registry })`. 선언이 apply하지 않는 Context 키는 해석·핸들러에 넘기지 않는다 | 요청에 `permission`/`kinds` 키 → error, reference로만 선언한 `roomNames`·`condition`·`selection`이 실려 와도 결과가 그 키가 없을 때와 같음(회귀 테스트), `paramKeys` 밖 params 키 → error, 미등록 id → error, `menuId`·권한 이름이 Registry에 없거나 `id`가 중복이거나 manifest보다 넓게 `apply`하면 등록 거부, kind 정확히 1회, 권한이 시나리오보다 우선. 기존 `time-domain`·`explicit-empty`·`menu-permission` 테스트 통과 수 유지 |
 | 3 | kernel: `useMenuQuery` | fixture 어댑터: 역할 전환 즉시 이전 결과 숨김, apply 아닌 키 변경은 재조회 없음, apply 키 변경은 숨김. Kernel 변경이므로 `pnpm e2e` |
 | 4 | lint: `mock-server`는 `src/mock/**`(+ 이행 중 `src/api.ts`), pages → `mock/` 금지, `@ap/menu-*/mock`은 `main.tsx`만 | `tooling/eslint` `boundaries.test.ts`에 위반 사례 추가(수정 전 실패) |
 | 5 | `productivity-overview` 이전(엔드포인트 4개, 계산 → `src/mock/`) | 기존 테스트, `pnpm dev`에서 시나리오 normal/partial/too_large/forbidden/역할 전환, `pnpm e2e` 보고서 |
