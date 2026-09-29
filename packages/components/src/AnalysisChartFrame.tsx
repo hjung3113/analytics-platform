@@ -1,7 +1,7 @@
 import { BrushIcon, Download, GitCompare, MessageSquarePlus, MoreHorizontal, RotateCcw, Table2, ZoomIn } from 'lucide-react';
-import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
-import { useI18n, usePlatform } from '@ap/kernel';
+import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { formatDateTime, formatMetricVersion, parseDateTime } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { EChart, token } from './EChart';
@@ -15,19 +15,6 @@ export type ChartSeries = {
   points: [string, number | null][];
   kind?: 'line' | 'bar';
   dashed?: boolean;
-};
-
-export type Annotation = { id: number; chartId: string; from: string; to: string; text: string; at: string };
-
-/** Persistent Annotation stand-in (§6 layer 4): owned outside chart state; survives Reset/remount, not reload. */
-const annotationRows: Annotation[] = [];
-const annotationListeners = new Set<() => void>();
-let annotationVersion = 0;
-export const annotationStore = {
-  list: (chartId: string) => annotationRows.filter(a => a.chartId === chartId),
-  add(a: Omit<Annotation, 'id' | 'at'>) { annotationRows.push({ ...a, id: annotationRows.length + 1, at: new Date().toISOString().slice(0, 16) }); annotationVersion++; annotationListeners.forEach(l => l()); },
-  subscribe(l: () => void) { annotationListeners.add(l); return () => { annotationListeners.delete(l); }; },
-  version: () => annotationVersion,
 };
 
 type Selection = { from: string; to: string };
@@ -61,11 +48,16 @@ export type AnalysisChartFrameProps = {
 
 /**
  * §16 Chart Frame: Title/Actions → Description/Metric Version → Legend → Plot → Selection Summary → Source·Updated·Coverage.
- * State layers stay separate: Global Context (URL) · Page Filter (page) · Chart Local State (here) · Persistent Annotation (store).
+ * State layers stay separate: Global Context (URL) · Page Filter (page) · Chart Local State (here) · Persistent Annotation (server, keyed by chartId + Scope).
+ * Compare/Annotate/Export follow the current menu's manifest `features`; a chart outside a routed menu offers none of them.
  */
 export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const { t, lang } = useI18n();
-  const { setGlobal, toast, global } = usePlatform();
+  const { setGlobal, toast, global, adapter, route } = usePlatform();
+  const features = route?.menu.features;
+  const canCompare = !!features?.compare && !!p.compareSeries;
+  const canAnnotate = !!features?.annotate;
+  const canExport = !!features?.export;
   const titleId = useId();
   const xType = p.xType ?? 'time';
   const chart = useRef<ECharts | null>(null);
@@ -80,20 +72,28 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const [preview, setPreview] = useState<Selection | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [showTable, setShowTable] = useState(false);
-  useSyncExternalStore(annotationStore.subscribe, annotationStore.version);
-  const annotations = annotationStore.list(p.chartId);
+  // A row belongs to one site: the Scope is part of the query identity, so a site switch hides the previous site's notes.
+  const scopeId = global.scopeId;
+  const annotationQuery = usePlatformQuery(signal => adapter.listAnnotations({ chartId: p.chartId, scopeId }, signal), [p.chartId, scopeId], canAnnotate && scopeId !== null, 'session');
+  const annotations = useMemo(() => annotationQuery.response?.data?.items ?? [], [annotationQuery.response]);
+  const refetchAnnotations = annotationQuery.refetch;
+  const [saving, setSaving] = useState(false);
+  // Each editor session gets a generation; a save that finishes after cancel/reopen/Scope change must not touch the newer draft.
+  const draftGen = useRef(0);
+  const openNote = () => { draftGen.current++; setNote(''); };
+  const closeNote = useCallback(() => { draftGen.current++; setNote(null); }, []);
 
-  const allSeries = useMemo(() => [...p.series, ...(compare ? p.compareSeries ?? [] : [])], [p.series, p.compareSeries, compare]);
+  const allSeries = useMemo(() => [...p.series, ...(compare && canCompare ? p.compareSeries ?? [] : [])], [p.series, p.compareSeries, compare, canCompare]);
   const visible = allSeries.filter(s => !hidden.has(s.id));
   const categories = useMemo(() => (xType === 'category' ? p.series[0]?.points.map(([x]) => x) ?? [] : []), [xType, p.series]);
   const format = p.valueFormat ?? ((v: number) => v.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { maximumFractionDigits: 1 }));
 
   const resetLocal = useCallback(() => {
-    setHidden(new Set()); setCompare(false); setBrushMode(false); setZoom([0, 100]); setSelection(null); setPreview(null); setNote(null);
-  }, []);
+    setHidden(new Set()); setCompare(false); setBrushMode(false); setZoom([0, 100]); setSelection(null); setPreview(null); closeNote();
+  }, [closeNote]);
   // Global Context changes invalidate local selection (it described the previous result).
   const contextKey = JSON.stringify(global);
-  useEffect(() => { setSelection(null); setPreview(null); setZoom([0, 100]); }, [contextKey]);
+  useEffect(() => { setSelection(null); setPreview(null); closeNote(); setZoom([0, 100]); }, [contextKey, closeNote]);
 
   const xValue = (x: string) => (xType === 'time' ? toMs(x) : x);
   const option = useMemo<EChartsCoreOption>(() => {
@@ -130,7 +130,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       ],
     };
     // Deps intentionally restricted to the chart inputs below (would trip react-hooks/exhaustive-deps if that rule is enabled).
-  }, [visible, xType, categories, zoom, brushMode, selection, annotations.length, p.markLines, p.unit, lang, p.stacked]);
+  }, [visible, xType, categories, zoom, brushMode, selection, annotations, p.markLines, p.unit, lang, p.stacked]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
@@ -178,6 +178,22 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     toast(lang === 'ko' ? `${p.chartId}.csv 내보냄 (보이는 시리즈, 현재 적용 Context 기준)` : `Exported ${p.chartId}.csv (visible series, applied context)`);
   }
 
+  async function saveNote(range: Selection) {
+    const text = (note ?? '').trim();
+    if (!text || scopeId === null || saving) return;
+    const gen = draftGen.current;
+    const failed = () => { if (gen === draftGen.current) toast(lang === 'ko' ? '주석을 저장하지 못했습니다. 입력은 유지됩니다.' : 'Could not save the annotation. Your text is kept.'); };
+    setSaving(true);
+    try {
+      const res = await adapter.saveAnnotation({ chartId: p.chartId, scopeId, from: range.from, to: range.to, text });
+      if (res.outcome !== 'ok') failed();
+      else {
+        refetchAnnotations();
+        if (gen === draftGen.current) { closeNote(); toast(lang === 'ko' ? '주석을 저장했습니다.' : 'Annotation saved.'); }
+      }
+    } catch { failed(); } finally { setSaving(false); }
+  }
+
   const tb = 'h-7 gap-1 px-2 text-[12px]';
   return <section role="region" aria-labelledby={titleId} className="flex flex-col rounded-lg border border-border-subtle bg-surface-card">
     <header className="flex flex-wrap items-start justify-between gap-2 px-4 pt-3">
@@ -190,16 +206,16 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         <Button variant="ghost" size="sm" className={tb} onClick={() => setZoom(([a, b]) => { const q = (b - a) / 4; return [a + q, b - q]; })} title={lang === 'ko' ? '확대 (Shift+휠도 가능)' : 'Zoom in (Shift+wheel)'}><ZoomIn className="size-3.5" aria-hidden />Zoom</Button>
         <Button variant="ghost" size="sm" className={cn(tb, brushMode && 'bg-accent-primary-soft text-accent-primary')} aria-pressed={brushMode} onClick={() => setBrushMode(b => !b)}><BrushIcon className="size-3.5" aria-hidden />Brush</Button>
         <Button variant="ghost" size="sm" className={tb} onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />Reset</Button>
-        {p.compareSeries && <Button variant="ghost" size="sm" className={cn(tb, compare && 'bg-accent-primary-soft text-accent-primary')} aria-pressed={compare} onClick={() => setCompare(c => !c)}><GitCompare className="size-3.5" aria-hidden />Compare</Button>}
-        <Button variant="ghost" size="sm" className={tb} disabled={!selection} title={selection ? undefined : (lang === 'ko' ? 'Brush로 구간을 먼저 선택하세요' : 'Brush a range first')} onClick={() => setNote('')}><MessageSquarePlus className="size-3.5" aria-hidden />Annotate</Button>
-        <Button variant="ghost" size="sm" className={tb} onClick={exportCsv}><Download className="size-3.5" aria-hidden />Export</Button>
+        {canCompare && <Button variant="ghost" size="sm" className={cn(tb, compare && 'bg-accent-primary-soft text-accent-primary')} aria-pressed={compare} onClick={() => setCompare(c => !c)}><GitCompare className="size-3.5" aria-hidden />Compare</Button>}
+        {canAnnotate && <Button variant="ghost" size="sm" className={tb} disabled={!selection || scopeId === null} title={scopeId === null ? (lang === 'ko' ? '주석은 사이트(Scope)를 선택한 뒤 남길 수 있습니다' : 'Pick a site (Scope) to annotate') : selection ? undefined : (lang === 'ko' ? 'Brush로 구간을 먼저 선택하세요' : 'Brush a range first')} onClick={openNote}><MessageSquarePlus className="size-3.5" aria-hidden />Annotate</Button>}
+        {canExport && <Button variant="ghost" size="sm" className={tb} onClick={exportCsv}><Download className="size-3.5" aria-hidden />Export</Button>}
         <Popover>
           <PopoverTrigger asChild><Button variant="ghost" size="sm" className={tb} aria-label="More"><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
           <PopoverContent align="end" className="w-72 rounded-md border border-border-strong bg-surface-card p-3 text-[12px] shadow-md">
             <button type="button" className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-surface-sunken" onClick={() => setShowTable(s => !s)}><Table2 className="size-3.5" aria-hidden />{showTable ? (lang === 'ko' ? '데이터 표 숨기기' : 'Hide data table') : (lang === 'ko' ? '같은 데이터를 표로 보기' : 'Show same data as table')}</button>
             <p className="mt-2 border-t border-border-subtle pt-2 text-text-muted">{lang === 'ko'
-              ? 'Zoom·Brush·시리즈 표시·Compare는 이 차트의 로컬 상태로 URL에 저장되지 않습니다. 구간을 전역 기간으로 올리려면 선택 요약의 “분석 구간 적용”을 명시적으로 눌러야 합니다. 주석은 별도 저장소에 보관되어 Reset 후에도 유지됩니다.'
-              : 'Zoom, brush, series visibility and compare are local chart state, never written to the URL. Promoting a range to the global period requires the explicit “Apply analysis range”. Annotations live in a separate store and survive Reset.'}</p>
+              ? 'Zoom·Brush·시리즈 표시·Compare는 이 차트의 로컬 상태로 URL에 저장되지 않습니다. 구간을 전역 기간으로 올리려면 선택 요약의 “분석 구간 적용”을 명시적으로 눌러야 합니다. 주석은 서버에 사이트(Scope)별로 보관되어 Reset 후에도 유지됩니다.'
+              : 'Zoom, brush, series visibility and compare are local chart state, never written to the URL. Promoting a range to the global period requires the explicit “Apply analysis range”. Annotations are stored on the server per site (Scope) and survive Reset.'}</p>
           </PopoverContent>
         </Popover>
       </div>
@@ -244,11 +260,15 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         <Button size="sm" className="h-7 px-2 text-[12px]" onClick={() => { setGlobal({ from: preview.from, to: preview.to }); toast(lang === 'ko' ? '선택 구간을 전역 기간으로 적용했습니다. 다른 메뉴로 이동해도 유지됩니다.' : 'Applied the selection as the global period; it carries across menus.'); }}>{t('apply')}</Button>
         <Button size="sm" variant="secondary" className="h-7 px-2 text-[12px]" onClick={() => setPreview(null)}>{t('cancel')}</Button>
       </div>}
-      {note !== null && selection && <form className="mt-2 flex flex-wrap items-center gap-2" onSubmit={e => { e.preventDefault(); if (!note.trim()) return; annotationStore.add({ chartId: p.chartId, from: selection.from, to: selection.to, text: note.trim() }); setNote(null); toast(lang === 'ko' ? '주석을 저장했습니다 (프로토타입 저장소: 새로고침 시 소멸).' : 'Annotation saved (prototype store: lost on reload).'); }}>
+      {canAnnotate && note !== null && selection && <form className="mt-2 flex flex-wrap items-center gap-2" onSubmit={e => { e.preventDefault(); void saveNote(selection); }}>
         <input autoFocus aria-label={lang === 'ko' ? '주석 내용' : 'Annotation text'} value={note} onChange={e => setNote(e.target.value)} placeholder={lang === 'ko' ? '예: PM 작업으로 인한 대기 증가' : 'e.g. queue spike due to PM'} className="h-7 min-w-64 flex-1 rounded-md border border-border-control bg-surface-card px-2" />
-        <Button size="sm" type="submit" className="h-7 px-2 text-[12px]">{lang === 'ko' ? '저장' : 'Save'}</Button>
-        <Button size="sm" type="button" variant="ghost" className="h-7 px-2 text-[12px]" onClick={() => setNote(null)}>{t('cancel')}</Button>
+        <Button size="sm" type="submit" disabled={saving} className="h-7 px-2 text-[12px]">{lang === 'ko' ? '저장' : 'Save'}</Button>
+        <Button size="sm" type="button" variant="ghost" className="h-7 px-2 text-[12px]" onClick={closeNote}>{t('cancel')}</Button>
       </form>}
+      {canAnnotate && scopeId !== null && annotationQuery.response && !['ok', 'empty'].includes(annotationQuery.response.outcome) && <p role="alert" className="mt-2 flex items-center gap-2 border-t border-border-subtle pt-1.5 text-[11px] text-text-secondary">
+        {lang === 'ko' ? '주석을 불러오지 못했습니다. 차트는 그대로 사용할 수 있습니다.' : 'Could not load annotations. The chart is unaffected.'}
+        <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={refetchAnnotations}>{lang === 'ko' ? '다시 시도' : 'Retry'}</Button>
+      </p>}
       {annotations.length > 0 && <ul className="mt-2 space-y-0.5 border-t border-border-subtle pt-1.5 text-[11px] text-text-secondary">
         {annotations.map(a => <li key={a.id} className="tabular"><span className="mr-1 inline-block size-2 rounded-xs bg-chart-purple/60 align-middle" aria-hidden />{xType === 'time' ? `${fmt(a.from)}–${fmt(a.to)}` : `${a.from}–${a.to}`}: {a.text}</li>)}
       </ul>}

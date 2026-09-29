@@ -779,3 +779,83 @@ test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-
     await evidence(page, testInfo, 'roles-invalid-permission-filter');
   });
 });
+
+test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석 Scope 격리, manifest features)', () => {
+  const CYCLE = `/analytics/cycle-time?v=1&scopeId=ICH&${PERIOD}`;
+  const trend = (page: Page) => page.getByRole('region', { name: '사이클타임 추세' });
+
+  async function brush(page: Page) {
+    const frame = trend(page);
+    await frame.getByRole('button', { name: 'Brush' }).click();
+    const plot = frame.getByRole('img', { name: /^사이클타임 추세/ });
+    await expect(plot).toBeVisible();
+    const box = (await plot.boundingBox())!;
+    await page.mouse.move(box.x + box.width * 0.35, box.y + box.height * 0.5);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.65, box.y + box.height * 0.5, { steps: 8 });
+    await page.mouse.up();
+    await expect(frame.getByRole('region', { name: '선택 요약' })).toContainText('선택 구간');
+  }
+
+  test('Brush는 URL을 바꾸지 않고, 구간 적용은 확인을 거쳐야만 전역 기간을 바꾼다', async ({ page }, testInfo) => {
+    await page.goto(CYCLE);
+    await expect(mainHeading(page)).toHaveText('사이클타임 상세');
+    await brush(page);
+    expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
+    expect(query(page).get('to')).toBe('2026-09-26T09:00:00');
+
+    const frame = trend(page);
+    await frame.getByRole('button', { name: '분석 구간 적용…' }).click();
+    const dialog = frame.getByRole('alertdialog', { name: '구간 적용 확인' });
+    await expect(dialog).toBeVisible();
+    // Nothing is applied while the confirmation is open, and cancelling leaves the period alone.
+    expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
+    await dialog.getByRole('button', { name: '취소' }).click();
+    await expect(dialog).toBeHidden();
+    expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
+    await evidence(page, testInfo, 'apply-confirm');
+
+    await frame.getByRole('button', { name: '분석 구간 적용…' }).click();
+    await frame.getByRole('alertdialog', { name: '구간 적용 확인' }).getByRole('button', { name: '적용' }).click();
+    await expect.poll(() => query(page).get('from')).not.toBe('2026-09-25T09:00:00');
+    expect(query(page).get('from')! < query(page).get('to')!).toBe(true);
+    expect(query(page).get('from')).toMatch(/^2026-09-25T\d\d:\d\d:\d\d$/);
+  });
+
+  test('주석은 사이트(Scope)별로 저장되어 다른 사이트에는 보이지 않고, 돌아오면 다시 보인다', async ({ page }, testInfo) => {
+    await page.goto(CYCLE);
+    await brush(page);
+    const frame = trend(page);
+    await frame.getByRole('button', { name: 'Annotate' }).click();
+    await frame.getByRole('textbox', { name: '주석 내용' }).fill('ICH 전용 PM 작업');
+    await frame.getByRole('button', { name: '저장' }).click();
+    const note = frame.getByText(/ICH 전용 PM 작업/);
+    await expect(note).toBeVisible();
+    await evidence(page, testInfo, 'annotation-ich');
+
+    await switchScope(page, 'CJU');
+    await expectScopeValid(page, 'CJU · Site B');
+    await expect(trend(page).getByRole('button', { name: 'Brush' })).toBeVisible();
+    await expect(trend(page).getByText(/ICH 전용 PM 작업/)).toHaveCount(0);
+    await evidence(page, testInfo, 'annotation-cju-isolated');
+
+    await switchScope(page, 'ICH');
+    await expectScopeValid(page, 'ICH · Site A');
+    await expect(trend(page).getByText(/ICH 전용 PM 작업/)).toBeVisible();
+  });
+
+  test('차트 동작은 메뉴 manifest features를 따른다: 사이클타임은 Compare·Annotate·Export, 생산성 개요는 Export만', async ({ page }, testInfo) => {
+    await page.goto(CYCLE);
+    const frame = trend(page);
+    for (const name of ['Compare', 'Annotate', 'Export']) await expect(frame.getByRole('button', { name })).toBeVisible();
+
+    await page.goto(PRODUCTIVITY);
+    await expect(mainHeading(page)).toHaveText('생산성 개요');
+    const charts = page.getByRole('region').filter({ has: page.getByRole('toolbar', { name: '차트 동작' }) });
+    await expect(charts.first().getByRole('button', { name: 'Brush' })).toBeVisible();
+    await expect(page.getByRole('toolbar', { name: '차트 동작' }).first().getByRole('button', { name: 'Export' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Annotate' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Compare' })).toHaveCount(0);
+    await evidence(page, testInfo, 'features-productivity');
+  });
+});
