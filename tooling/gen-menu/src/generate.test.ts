@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { PACKAGE_PREFIX } from './prefix.ts';
 import { APP_PKG, MENUS_TS, STYLE_CSS, editSummary } from './generate.ts';
-import { depLine, importLine, renderFiles, spreadLine, styleLine, type MenuInputs } from './templates.ts';
+import { PAGE_TYPES, depLine, importLine, renderFiles, slotsLiteral, spreadLine, styleLine, type MenuInputs } from './templates.ts';
 import { FIXTURE_FOLDER, FIXTURE_GROUP, GEN_ARGS, appSnapshot, makeFixture, menusTree, removeFixture, runCli } from './fixture.ts';
 
 const INPUTS: MenuInputs = {
@@ -26,6 +26,39 @@ describe('scaffold permission (#47)', () => {
     const declared = /permission: '([^']+)'/.exec(index)?.[1];
     expect(declared).toBeTruthy();
     expect(page).toMatch(new RegExp(`serve\\(\\{[\\s\\S]*permission: '${declared}'`));
+  });
+});
+
+describe('page archetype skeletons (06 §12, #104)', () => {
+  // Literal copy of 06 §12.1–12.5 content slots (English names as written), independent of PAGE_SLOTS.
+  const CONTRACT: Record<MenuInputs['pageType'], string[]> = {
+    overview: ['Primary KPI / Summary', 'Main Trend or Status', 'Attention List', 'Data Trust'],
+    analysis: ['KPI Summary', 'Primary Chart', 'Selection / Annotation', 'Breakdown Table', 'Data Trust'],
+    management: ['Search + Filter', 'Data Table', 'Selection Actions', 'Detail Drawer', 'History / Audit'],
+    catalog: ['Catalog List', 'Definition Detail', 'Version', 'Ownership', 'Coverage', 'Usage / Dependency', 'History'],
+    workflow: ['Queue/List', 'Status/Priority/Owner Filter', 'Detail', 'Timeline', 'Comments', 'Related Context'],
+  };
+  const pageOf = (pageType: MenuInputs['pageType']) =>
+    renderFiles({ ...INPUTS, pageType }).find(f => f.relPath.startsWith('src/pages/'))!.content;
+  const slotBlock = (page: string) => /const SLOTS = \[\n([\s\S]*?)\n\];/.exec(page)![1];
+  const enNames = (page: string) => [...slotBlock(page).matchAll(/en: '((?:[^'\\]|\\.)*)'/g)].map(m => m[1]);
+
+  it.each(PAGE_TYPES)('%s: manifest pageType and generated slots equal the 06 §12 contract, in order', pageType => {
+    const files = renderFiles({ ...INPUTS, pageType });
+    expect(files.find(f => f.relPath === 'src/index.ts')!.content).toContain(`pageType: '${pageType}'`);
+    expect(enNames(pageOf(pageType))).toEqual(CONTRACT[pageType]);
+  });
+
+  it('each archetype has its own slot list, and the page renders every slot', () => {
+    const blocks = new Set(PAGE_TYPES.map(t => slotBlock(pageOf(t))));
+    expect(blocks.size).toBe(PAGE_TYPES.length);
+    for (const t of PAGE_TYPES) expect(pageOf(t)).toContain('SLOTS.map(slot => <section key={slot.id} data-slot={slot.id}');
+  });
+
+  it('a slot label with an apostrophe or backslash still yields a parseable string literal', () => {
+    const literal = slotsLiteral([{ id: 'x', ko: "소유자's", en: 'a\\b' }]);
+    const value = new Function(`return [\n${literal}\n];`)() as { ko: string; en: string }[];
+    expect(value).toEqual([{ id: 'x', ko: "소유자's", en: 'a\\b' }]);
   });
 });
 

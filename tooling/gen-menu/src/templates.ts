@@ -135,10 +135,67 @@ export const manifests: MenuEntry[] = [
 `;
 }
 
+export type Slot = { id: string; ko: string; en: string };
+
+/**
+ * 06 §12 content slots per archetype, English names as written there. Page Header and Global Context are shell
+ * slots (§8) the shell already draws; Data Trust is listed for the archetypes that name it (12.1, 12.2).
+ * Order is the archetype's reading order.
+ */
+export const PAGE_SLOTS: Record<PageType, readonly Slot[]> = {
+  overview: [
+    { id: 'summary', ko: '핵심 KPI·요약', en: 'Primary KPI / Summary' },
+    { id: 'trend', ko: '주요 추이·상태', en: 'Main Trend or Status' },
+    { id: 'attention', ko: '주의 목록', en: 'Attention List' },
+    { id: 'trust', ko: '데이터 신뢰', en: 'Data Trust' },
+  ],
+  analysis: [
+    { id: 'kpi', ko: 'KPI 요약', en: 'KPI Summary' },
+    { id: 'chart', ko: '주 차트', en: 'Primary Chart' },
+    { id: 'annotation', ko: '선택·주석', en: 'Selection / Annotation' },
+    { id: 'breakdown', ko: '분해 표', en: 'Breakdown Table' },
+    { id: 'trust', ko: '데이터 신뢰', en: 'Data Trust' },
+  ],
+  management: [
+    { id: 'filter', ko: '검색·필터', en: 'Search + Filter' },
+    { id: 'table', ko: '데이터 표', en: 'Data Table' },
+    { id: 'actions', ko: '선택 작업', en: 'Selection Actions' },
+    { id: 'drawer', ko: '상세 드로어', en: 'Detail Drawer' },
+    { id: 'history', ko: '이력·감사', en: 'History / Audit' },
+  ],
+  catalog: [
+    { id: 'list', ko: '목록', en: 'Catalog List' },
+    { id: 'definition', ko: '정의 상세', en: 'Definition Detail' },
+    { id: 'version', ko: '버전', en: 'Version' },
+    { id: 'ownership', ko: '소유', en: 'Ownership' },
+    { id: 'coverage', ko: '적용 범위', en: 'Coverage' },
+    { id: 'usage', ko: '사용·의존', en: 'Usage / Dependency' },
+    { id: 'history', ko: '이력', en: 'History' },
+  ],
+  workflow: [
+    { id: 'queue', ko: '큐·목록', en: 'Queue/List' },
+    { id: 'filter', ko: '상태·우선순위·담당 필터', en: 'Status/Priority/Owner Filter' },
+    { id: 'detail', ko: '상세', en: 'Detail' },
+    { id: 'timeline', ko: '타임라인', en: 'Timeline' },
+    { id: 'comments', ko: '댓글', en: 'Comments' },
+    { id: 'related', ko: '관련 Context', en: 'Related Context' },
+  ],
+};
+
+const str = (text: string): string => `'${text.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+
+export const slotsLiteral = (slots: readonly Slot[]): string =>
+  slots.map(slot => `  { id: ${str(slot.id)}, ko: ${str(slot.ko)}, en: ${str(slot.en)} },`).join('\n');
+
 function pageTsx(i: MenuInputs): string {
   return `import { useI18n, usePlatform, usePlatformQuery } from '${PACKAGE_PREFIX}kernel';
 import { PlatformPage, QueryView } from '${PACKAGE_PREFIX}components';
 import { serve } from '../api';
+
+// 06 §12 ${i.pageType} skeleton: content slots in reading order. Replace each section with the platform component it names.
+const SLOTS = [
+${slotsLiteral(PAGE_SLOTS[i.pageType])}
+];
 
 // The Screen suffix keeps the component name clear of the imports above (review F5).
 export default function ${i.page}Screen() {
@@ -151,7 +208,12 @@ export default function ${i.page}Screen() {
   }));
   const caption = lang === 'ko' ? '${i.labelKo}' : '${i.labelEn}';
   return <PlatformPage>
-    <QueryView query={query}>{() => <p className="t-caption text-text-muted">{caption}</p>}</QueryView>
+    <QueryView query={query}>{() => <div className="space-y-3">
+      <p className="t-caption text-text-muted">{caption}</p>
+      {SLOTS.map(slot => <section key={slot.id} data-slot={slot.id} className="rounded-lg border border-dashed border-border-subtle p-4">
+        <h2 className="text-[13px] font-medium text-text-secondary">{lang === 'ko' ? slot.ko : slot.en}</h2>
+      </section>)}
+    </div>}</QueryView>
   </PlatformPage>;
 }
 `;
