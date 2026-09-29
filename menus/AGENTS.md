@@ -10,7 +10,7 @@ Registry 7개 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가
 | `@ap/menu-analytics` | `analytics` | ProductivityOverview, CycleTimeDrilldown, ExecutionDetail + Wafer Journey(계획) |
 | `@ap/menu-metrics` | `metrics` | MetricCatalog, MetricDetail |
 | `@ap/menu-notice-voc` | `noticeVoc` | MyVocHistory(내 VOC, #60) + 공지(계획) |
-| `@ap/menu-admin` | `admin` | RegistryCatalog, UsageOverview + 관리 계획 메뉴 |
+| `@ap/menu-admin` | `admin` | AccessDirectory(권한/역할 조회 전용, #49), AuditTrail(변경 감사, #50), UsageOverview, RegistryCatalog |
 
 ## 규칙
 

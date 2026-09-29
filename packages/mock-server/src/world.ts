@@ -2,7 +2,7 @@
  * Synthetic server world. Values are fabricated for the prototype; they are not parser data,
  * real Site names, grants or equipment. Master values (IDs, team names) are never translated.
  */
-import type { Permission, PublishedMetric } from '@ap/contracts';
+import { PERMISSIONS, type Permission, type PublishedMetric } from '@ap/contracts';
 
 export type Site = { id: string; label: string; rooms: string[] };
 export const SITES: Site[] = [
@@ -13,7 +13,7 @@ export const SITES: Site[] = [
 
 export type RoleId = 'engineer' | 'admin' | 'viewer';
 export type User = { role: RoleId; name: string; title: { ko: string; en: string }; permissions: Permission[]; grants: Record<string, string[]> };
-const ALL: Permission[] = ['platform:view', 'equipment:view', 'master:view', 'analytics:view', 'metrics:view', 'notice:view', 'voc:view', 'console:access'];
+const ALL: Permission[] = [...PERMISSIONS];
 export const USERS: Record<RoleId, User> = {
   engineer: {
     role: 'engineer', name: 'Process Engineer', title: { ko: '공정 엔지니어', en: 'Process engineer' },

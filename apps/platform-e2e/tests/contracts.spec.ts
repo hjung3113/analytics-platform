@@ -657,3 +657,66 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
     await evidence(page, testInfo, 'registry-admin-declaration');
   });
 });
+
+test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-only)', () => {
+  test('engineer는 메뉴가 비노출이고 직접 URL에서 공간 거부를 본다', async ({ page }, testInfo) => {
+    const directUrl = '/admin/roles?v=1&focus=admin';
+    await signInAs(page, 'engineer');
+    await page.goto('/');
+    const nav = page.getByRole('navigation', { name: '주 메뉴' });
+    await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toHaveCount(0);
+
+    await page.goto(directUrl);
+    const main = page.getByRole('main');
+    await expect(main).toContainText('이 공간에 들어갈 수 없습니다');
+    await expect(main).toContainText('space=operations');
+    await expect(main.getByRole('table')).toHaveCount(0);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(directUrl);
+    await evidence(page, testInfo, 'roles-engineer-space-denied');
+  });
+
+  test('admin은 세 주체를 조회하고 engineer 사이트 범위 드로어를 연다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto('/admin/roles');
+    const table = page.getByRole('main').getByRole('table', { name: '권한/역할 목록' });
+    await expect(table).toBeVisible({ timeout: 10_000 });
+    await expect(table.getByRole('row')).toHaveCount(4);
+    for (const name of ['Platform Admin', 'Process Engineer', 'Field Requester']) {
+      await expect(table.getByRole('row').filter({ hasText: name })).toBeVisible();
+    }
+
+    const engineerRow = table.getByRole('row').filter({ hasText: 'Process Engineer' });
+    await expect(engineerRow).toContainText('4/9');
+    await engineerRow.getByRole('button', { name: '보기' }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    expect(new URL(page.url()).searchParams.get('focus')).toBe('engineer');
+    const drawer = page.getByRole('dialog');
+    await drawer.getByRole('tab', { name: '사이트 범위' }).click();
+    await expect(drawer.getByText('PH-101')).toBeVisible();
+    const xiaRow = drawer.getByRole('listitem').filter({ hasText: 'XIA' });
+    await expect(xiaRow).toContainText('부여 없음');
+    // The sortable room-count column is also named "room 부여"; exclude that heading and catch action labels.
+    await expect(page.getByRole('button', { name: /^(?!room 부여$).*(?:부여|회수)$/ })).toHaveCount(0);
+    await evidence(page, testInfo, 'roles-admin-engineer-site-scope');
+  });
+
+  test('permission page key는 목록을 필터링하고 잘못된 값은 경고한다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto('/admin/roles?v=1&permission=console:access');
+    const table = page.getByRole('main').getByRole('table', { name: '권한/역할 목록' });
+    await expect(table).toBeVisible({ timeout: 10_000 });
+    await expect(table.getByRole('row')).toHaveCount(2);
+    await expect(table.getByRole('row').filter({ hasText: 'Platform Admin' })).toBeVisible();
+    await expect(table.getByRole('row').filter({ hasText: 'Process Engineer' })).toHaveCount(0);
+    await expect(table.getByRole('row').filter({ hasText: 'Field Requester' })).toHaveCount(0);
+    await evidence(page, testInfo, 'roles-console-access-filter');
+
+    await page.goto('/admin/roles?v=1&permission=bogus');
+    const main = page.getByRole('main');
+    await expect(main.getByRole('alert')).toContainText('필터 값이 잘못되었습니다.');
+    await expect(main.getByRole('table')).toHaveCount(0);
+    await evidence(page, testInfo, 'roles-invalid-permission-filter');
+  });
+});

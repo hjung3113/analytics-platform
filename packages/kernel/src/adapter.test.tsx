@@ -31,6 +31,7 @@ function fixture(getEntity?: PlatformAdapter['getEntity']) {
     getEntity: getEntity ?? (async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' })),
     auditTrail: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     entityAudit: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    accessDirectory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     recordUsage: async () => ({ accepted: 0 }),
     usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     myVocHistory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
@@ -116,6 +117,7 @@ describe('adapter shape', () => {
       async getEntity() { return { outcome: 'empty' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
       async auditTrail() { return { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
       async entityAudit() { return { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
+      async accessDirectory() { return { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
       async recordUsage() { return { accepted: 0 }; }
       async usageSummary() { return { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
       async myVocHistory() { return { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }

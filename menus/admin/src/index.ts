@@ -14,7 +14,9 @@ export const manifests: MenuEntry[] = [
   {
     id: 'admin-roles', primary: true, group: 'admin', label: { ko: '권한/역할 관리', en: 'Roles & access' },
     description: { ko: '메뉴 × 데이터 Scope 권한', en: 'Menu × data-scope permissions' },
-    path: '/admin/roles', icon: Users, permission: 'console:access', requiresScope: false, pageType: 'management', context: none, features: noFeatures, pageKeys: [],
+    path: '/admin/roles', icon: Users, permission: 'console:access', requiresScope: false, pageType: 'management', context: none, features: noFeatures,
+    pageKeys: ['role', 'permission', 'sort', 'page', 'focus'],
+    component: lazy(() => import('./pages/AccessDirectory')),
   },
   {
     id: 'admin-audit', group: 'admin', label: { ko: '변경 감사', en: 'Audit trail' },

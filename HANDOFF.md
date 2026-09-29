@@ -1,4 +1,4 @@
-# Handoff — 2026-09-29 다음 세션: #49 권한/역할 관리 화면
+# Handoff — 2026-09-29 다음 세션: #99 병합 확인 → 착수 가능한 일 확인
 
 ## 먼저 볼 것
 
@@ -6,22 +6,20 @@
 - 작업 규칙은 루트 [`AGENTS.md`](AGENTS.md) "작업 관리"·"화면/UI 설계":
   - 작업은 이슈에서 시작하고 PR에 `Closes #n`(합의 대기 등 열어 둘 때는 `Refs #n`)을 적는다.
   - 확정 시 공통화 판단·문서 갱신·로드맵 갱신을 확인한다. PR 템플릿과 CI `PR checklist`가 강제한다. 로드맵은 이슈를 닫는 PR 안에서 고친다.
-  - 공통 UI·셸·토큰의 모양이 바뀌면 인터랙티브 프로토타입으로 사용자 컨펌. 기존 공통 컴포넌트만 조립한 메뉴 화면(견본)은 해당 없음(#60·#50 선례).
+  - 공통 UI·셸·토큰의 모양이 바뀌면 인터랙티브 프로토타입으로 사용자 컨펌. 기존 공통 컴포넌트만 조립한 메뉴 화면(견본)은 해당 없음(#60·#50·#49 선례).
 - MVP는 데스크톱 웹만. 메뉴 화면은 사내에서 새로 만들 견본이라 다듬지 않는다.
 
 ## 현재 상태
 
 - M1 완료. M2(디자인) 보류(FeedbackOps 디자인 확정 뒤, #52 코멘트).
-- 2026-09-28~29 완료: #88(실제 시점 표시 `formatInstant`), #60(분석 공간 내 VOC·설문 이력 + FeedbackOps 딥링크, `VITE_FEEDBACKOPS_ORIGIN` 연결), #50(운영 콘솔 변경 감사 `/admin/audit` + 설비 Audit 탭 단일 원천).
+- 2026-09-29: **#49 권한/역할 조회 화면 PR [#99](https://github.com/hjung3113/analytics-platform/pull/99)** — 병합은 사용자 확인 대기였다. 포트 `accessDirectory`(console:access, 사용자별 권한 + 사이트별 부여 room), `/admin/roles`, E2E 3건(총 34), `PERMISSIONS` 런타임 목록을 contracts로 승격. 조회 전용 — 쓰기 원천은 새 결정 이슈 **#98**. 리뷰 P2 중 "Role 오름차순 클릭 시 `sort=role:asc` 기록"은 정렬 순환을 깨므로 반영하지 않음(PR 코멘트).
 - #37 적재 워커 상태 스키마 **초안** 병합(`docs/integration/ingest-status-schema.md`, Candidate). 사용자가 파서 담당에게 직접 전달 — 합의되면 Decided로 올리고 #37을 닫는다. 협의 문서(Claude Docs): https://claude.ai/code/artifact/e3bfc381-4f4f-4d46-b9a0-abe2928ee0cd
-- CI: `Platform workspace`·`Platform contracts (E2E)`(31개)·`CSS selectors (build diff)`·Unit A–C·Python codec·`PR checklist`.
+- CI: `Platform workspace`·`Platform contracts (E2E)`(34개)·`CSS selectors (build diff)`·Unit A–C·Python codec·`PR checklist`.
 
 ## 다음 세션 할 일
 
-1. **#49 운영 콘솔 권한/역할 관리 화면.** 선행 #35·#36·#41 모두 닫힘. 메뉴 `admin-roles`(운영 콘솔 공간의 home 메뉴)가 manifest만 있다.
-   - 검증 갈래: Kernel 권한·Scope. 역할은 '운영 콘솔 접근' 한 역할(`console:access`), 실제 IdP는 사내 SSO 사양 대기라 mock 역할(admin/engineer/viewer)과 room grant 모델로 조회 중심으로 설계한다. 쓰기(역할 부여)를 넣을지는 설계에서 판단하고, 사람 결정이 필요하면 `ready-for-human` 이슈로.
-   - #50 패턴 재사용: 포트(`@ap/contracts` adapter) → mock(`packages/mock-server`, 권한 확인이 시나리오보다 먼저, `finish()` 금지) → 메뉴 화면(`PlatformDataTable`, page key 검증 시 입력 유지) → 문서.
-2. 그 밖은 결정·외부 답 대기(아래). 착수 가능한 새 일이 없으면 사용자에게 확인한다.
+1. #99가 병합됐는지 확인(안 됐으면 CI·리뷰 상태 확인 후 사용자에게 병합 여부 확인). 병합 뒤 #63 로드맵 체크리스트에서 #49를 체크.
+2. 지금 착수 가능한 새 일은 없다 — 남은 이슈는 모두 아래 결정·외부 답 대기이거나 M2 보류다. 사용자에게 다음 방향(결정 이슈 답, 또는 새 플랫폼 갈래 작업)을 확인한다.
 
 ## 사람·외부 결정 대기 — 답이 나오기 전에 거기에 기대는 구현을 하지 않는다
 
@@ -32,9 +30,11 @@
 - #85 = FeedbackOps#549 신고자용 `view=my&selected=` 딥링크 확인. 확인되면 딥링크 계약·생성기를 계약 절차대로 함께 변경.
 - #86 실제 VOC 어댑터 — #59 토큰 공유(디자인 보류) 뒤.
 - #90 지표 상세 이력을 감사 저장소로(ready-for-agent지만 카탈로그 이전 판단 필요), #91 전역 감사 room 권한 결정.
+- **#98 권한 부여·회수(쓰기)의 원천**(플랫폼 메타 DB / 사내 권한 시스템·IdP 그룹 / 분리). 답 전에는 부여·회수 포트, 변경 가능한 mock `USERS`, 두 번째 콘솔 권한을 만들지 않는다.
 
-## 이번 세션에 생긴 플랫폼 계약
+## 최근 생긴 플랫폼 계약
 
+- **권한/역할 조회(#49):** `accessDirectory` — 전 사이트·room gate 없음, 부여 0인 사이트도 행으로 포함(`SiteGrant`, `ScopeOption`과 다름). 메뉴 × 권한은 서버가 아니라 Registry `permission` 클라이언트 조인(권한 증명 아님). 드로어의 "이 페이지에 없는 주체" 경고는 현재 조회가 ok/empty로 끝난 뒤에만 뜨고(불러온 페이지 밖의 존재는 단정하지 않음), 사용자 정렬·페이지 변경은 `focus`를 지운다. `Permission` 값 목록은 contracts `PERMISSIONS` 하나만 쓴다.
 - **실제 시점 vs wall-clock (06 §6.3):** 설비 업무 시각이 아닌 시점(epoch·timestamptz: 활용률 마지막 사용, FeedbackOps 시각, 감사 `at`)은 `formatInstant`(offset 필수, 달력 검증)로 보는 사람 시간대에 표시. `formatDateTime`은 naive wall-clock 전용. 비교·정렬은 `instantEpochMs`.
 - **포트 추가(`PlatformAdapter`):** `myVocHistory`(cursor)·`mySurveyHistory`, `auditTrail`(전역, `console:access`, 필터·offset·`fromAt`/`toAt`)·`entityAudit`(목적지 권한). 서버가 사용자를 정하고 클라이언트는 사용자 id·Scope·`at`을 보내지 않는다.
 - **`AuditEvent.target`:** 목적지 참조(`type`·`id`·`scopeId`, 06 §22). 콘솔 행 → `linkTo`로 상세 이동, 사이트가 바뀌면 site 종속 Context를 비우고 Selection은 덮지 않는다.
@@ -45,8 +45,8 @@
 ## 워커 오케스트레이션 (Orca)
 
 - **역할과 모델(사용자 요청 없이 바꾸지 않는다):**
-  - 설계: Grok 4.7 high(`grok -m grok-4.7`, 기본 high). **주간 한도 ~6% 남음(2026-09-28, 금 20:50 초기화).** `orca account list`가 "sign-in expired"로 나와도 CLI는 되는 경우가 있다 — TUI를 띄워 배너의 "Weekly limit left"로 확인.
-  - 구현: GLM 5.3 Flash max(`omp --model glm-5.3-flash --thinking max`) — **한도 소진(2026-09-28).** 한도가 없으면 Codex `gpt-6-luna` max(`codex -m gpt-6-luna -c model_reasoning_effort="max"`).
+  - 설계: Grok 4.7 high(`grok -m grok-4.7`, 기본 high). **주간 한도 ~4% 남음(2026-09-29, 금 20:50 초기화).** 첫 실행 시 디렉터리 신뢰 프롬프트에 `y`. `orca account list`가 "sign-in expired"로 나와도 CLI는 되는 경우가 있다 — TUI를 띄워 배너의 "Weekly limit left"로 확인.
+  - 구현: GLM 5.3 Flash max(`omp --model glm-5.3-flash --thinking max`) — **한도 소진, 2026-09-30 15:10 초기화.** TUI에 429가 떠도 보고 파일이 안 생기니 화면을 확인한다. 한도가 없으면 Codex `gpt-6-luna` max(`codex -m gpt-6-luna -c model_reasoning_effort="max"`).
   - 리뷰: Codex gpt-6-astra medium. 조율·스펙·검증·문서·PR: coordinator.
   - 원인·해법이 분명한 작은 작업(#88)은 coordinator가 스펙을 쓰고 설계 워커를 생략했다.
 - **표준 흐름:** `run-create` → `terminal create --command '<CLI>'` → `task-create`(스펙은 scratchpad 파일로 두고 "Read and execute the task spec at …"로 가리킴) → `dispatch --inject` → 백그라운드 루프로 `check --run <run> --json`을 30초마다, heartbeat는 ack하고 `worker_done`만 깨움 → `--ack` → `worker-release` → `terminal close`.

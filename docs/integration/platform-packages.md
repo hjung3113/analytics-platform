@@ -99,6 +99,7 @@ export type PlatformAdapter = {
   mySurveyHistory(signal?): Promise<ApiResponse<MySurveyPage>>; // 세션 사용자의 설문 응답 이력. 원천 API가 없어 respondent_history=unknown으로 응답(#60, #84)
   auditTrail(query: AuditTrailQuery, signal?): Promise<ApiResponse<AuditTrailPage>>; // 전역 변경 감사(권한 console:access, 필터·offset 페이징, 기간은 실제 시점 fromAt/toAt, #50)
   entityAudit(ref: EntityRef, signal?): Promise<ApiResponse<{ events: readonly AuditEvent[] }>>; // 목적지 한 건의 감사 이벤트(권한은 그 목적지의 조회 권한, 상세 Audit 탭, #50). 클라이언트는 actor·at을 보내지 않는다
+  accessDirectory(query: AccessDirectoryQuery, signal?): Promise<ApiResponse<AccessDirectoryPage>>; // 운영 콘솔 권한/역할 조회(권한 console:access, 전 사이트·room gate 없음, 사이트별 부여 room 이름 포함, 필터 role·permission, offset 페이징, #49). 조회 전용 — 부여·회수는 원천 결정 #98 대기. 메뉴 × 권한은 서버가 아니라 클라이언트가 Registry `permission`으로 조인한다
   subscribe(onChange: () => void): () => void;     // 세션·서버 상태 변경 알림
 };
 
