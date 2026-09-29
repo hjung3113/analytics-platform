@@ -23,7 +23,7 @@
 
 ## 2026-09-29 사용자 결정 (설계 문서 "결정 기록"에 있음)
 
-- **#100:** 범용 `MenuQuery` + 메뉴 `EndpointSpec` + 앱이 주입하는 전송 하나. 단계 이행, VOC 이전도 #100 범위. `PlatformAdapter`는 Kernel 저장소 소유 기준(`accessDirectory` 유지, `myVocHistory`·`mySurveyHistory`·`MyVoc*`는 notice-voc로 이전). 엔드포인트 권한 = 메뉴 권한, `respondent_history` kind 유지. Q2(스키마 원본)는 FastAPI 착수 때, Q3(무시 키 거부)·Q4(06 §5 추가)는 검증 게이트에서.
+- **#100:** 범용 `MenuQuery` + 메뉴 `EndpointSpec` + 앱이 주입하는 전송 하나. 단계 이행, VOC 이전도 #100 범위. `PlatformAdapter`는 Kernel 저장소 소유 기준(`accessDirectory` 유지, `myVocHistory`·`mySurveyHistory`·`MyVoc*`는 notice-voc로 이전). 엔드포인트 권한은 데이터 접근 권한이라 메뉴 권한과 달라도 됨(등록 시 `menuId`·권한 이름 실재만 검사), `respondent_history` kind 유지. Q2(스키마 원본)는 FastAPI 착수 때, Q3(무시 키 거부)·Q4(06 §5 추가)는 검증 게이트에서.
 - **#98:** 선택지 3, 절반만 확정. room_name 부여·열람 개별 부여는 플랫폼 메타 DB 소유, 역할 소속 원천은 IdP 그룹 claim 사양 대기. 쓰기 포트·변경 가능한 mock `USERS`는 계속 만들지 않는다.
 
 ## 사람·외부 결정 대기 — 답이 나오기 전에 거기에 기대는 구현을 하지 않는다
