@@ -74,6 +74,16 @@ export type ClientErrorReport = {
   /** `Error.name` when it is identifier-shaped (`/^[A-Za-z_$][\w$]{0,79}$/`), else `Error`. */
   name: string;
 };
+/**
+ * Persistent chart annotation (06 §16 layer 4, issue #103): a domain object owned by the server, keyed by the
+ * site (Scope) it was written under — never by chartId alone, so a note written at one site can not appear at
+ * another (ADR-0004 site boundary). `from`/`to` are the brushed range: naive wall-clock on a time axis, category
+ * labels on a category axis. The server stamps author and `at`; the client never sends either.
+ */
+export type ChartAnnotation = { id: string; chartId: string; scopeId: string; from: string; to: string; text: string; at: string };
+/** Which chart's notes at which site. A null scope is not a request the server answers (forbidden), never "all sites". */
+export type AnnotationRef = { chartId: string; scopeId: string | null };
+export type AnnotationInput = AnnotationRef & { from: string; to: string; text: string };
 /** from inclusive, to exclusive. */
 export type UsageRange = { preset: 'all' } | { from: number; to: number };
 export type UsageMenuSummary = { menuId: string; visits: number; distinctUsers: number; lastUsedAt: number };
@@ -232,6 +242,17 @@ export type PlatformAdapter = {
    * declared `respondent_history`/`unknown` envelope, never a confirmed zero.
    */
   mySurveyHistory(signal?: AbortSignal): Promise<ApiResponse<MySurveyPage>>;
+  /**
+   * Notes on one chart at one site (06 §16, issue #103): the chart's permission and the requested site's grant,
+   * both server-checked. Only rows written under `ref.scopeId` come back. Not mart data: trust stays null,
+   * assessments stay empty. A zero is a meaningful answer (outcome 'empty').
+   */
+  listAnnotations(ref: AnnotationRef, signal?: AbortSignal): Promise<ApiResponse<{ items: readonly ChartAnnotation[] }>>;
+  /**
+   * Saves one note. The server stamps the session user and `at`, checks the same gates as `listAnnotations`,
+   * and answers the stored row. A user/at/id in the input is an unknown key and rejects the call.
+   */
+  saveAnnotation(input: AnnotationInput, signal?: AbortSignal): Promise<ApiResponse<ChartAnnotation>>;
   /**
    * Announces that the session or server-side state changed. The kernel then re-reads the session,
    * re-validates the scope when the session changed, and hides every earlier query result.

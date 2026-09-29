@@ -750,6 +750,13 @@ Source · Updated · Coverage
 
 차트마다 이 상태를 섞어 구현하지 않는다.
 
+### Persistent Annotation과 선택 기능 (Decided, #103)
+
+- **주석은 서버 소유이고 `(chartId, scopeId)`로 키한다.** Chart Frame은 `adapter.listAnnotations({ chartId, scopeId })`·`saveAnnotation({ chartId, scopeId, from, to, text })`로만 읽고 쓴다(모듈 전역 저장소·`chartId`만으로 행을 고르는 조회 금지). 서버는 요청 시점의 세션으로 권한(`analytics:view`)과 Site 경계(§6.2, ADR-0004)를 판정하고, 작성자·시각은 서버가 찍는다(입력에 두 필드가 없다). Scope가 없으면(`null`) 읽지도 쓰지도 않는다 — `null`은 "전체 사이트"가 아니다.
+- **Scope는 조회 식별자에 들어간다.** 사이트를 바꾸면 이전 사이트의 주석은 즉시 숨겨지고 새 사이트의 주석을 읽는다. 저장이 거부·실패하면 입력 문구를 유지하고 행을 추가하지 않는다.
+- **Compare·Annotate·Export는 현재 메뉴 manifest의 `features`(§5)를 따른다.** 선언하지 않은 메뉴의 차트는 그 버튼을 그리지 않고, Annotate가 꺼져 있으면 주석을 조회하지도 않는다. 라우트가 없는 곳에 놓인 차트는 세 기능 모두 제공하지 않는다. Zoom·Brush·Reset은 manifest와 무관한 Chart Local State다.
+- Brush로 잡은 구간은 URL·전역 기간을 바꾸지 않는다. "분석 구간 적용…"의 확인을 거쳐야만 전역 기간이 바뀐다.
+
 ---
 
 ## 17. Permission-aware UX Contract

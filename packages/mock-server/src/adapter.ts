@@ -6,6 +6,7 @@ import type { PlatformAdapter, Session } from '@ap/contracts';
 import { checkScope, getEntity, getRole, matchesCondition, recordUsage, reportClientError, subscribeServer, usageSummary, validateScope } from './server';
 import { auditTrail, entityAudit } from './audit';
 import { accessDirectory } from './access';
+import { listAnnotations, saveAnnotation } from './annotations';
 import { mySurveyHistory, myVocHistory } from './my-voc';
 import { DEFAULT_RANGE_TO, EQUIPMENT, PUBLISHED_METRICS, SITES, USERS, type RoleId } from './world';
 
@@ -68,6 +69,8 @@ export const mockAdapter: PlatformAdapter = {
   auditTrail: (query, signal) => auditTrail(query, signal),
   entityAudit: (ref, signal) => entityAudit(ref, signal),
   accessDirectory: (query, signal) => accessDirectory(query, signal),
+  listAnnotations: (ref, signal) => listAnnotations(ref, signal),
+  saveAnnotation: (input, signal) => saveAnnotation(input, signal),
   // Fire-and-forget telemetry: the kernel never awaits these and passes no AbortSignal.
   recordUsage: events => recordUsage(events),
   reportClientError: report => reportClientError(report),
