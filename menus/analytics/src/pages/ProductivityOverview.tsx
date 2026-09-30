@@ -1,24 +1,23 @@
-import { formatMetricVersion, shift } from '@ap/contracts';
+import { formatMetricVersion } from '@ap/contracts';
 /**
  * 생산성 분석 — 개요 (wireframe 11, Overview archetype §12.1).
  * Header → Global Context (kernel) → page-owned granularity → KPI row → main trend →
  * occupancy breakdown → attention list → Data Trust (header slot).
  *
- * Every widget runs its own usePlatformQuery so a partial failure stays local (§19).
- * Synthetic values from ./productivityData; definitions are Candidates per wireframe 11 §6.
+ * Every widget runs its own useMenuQuery so a partial failure stays local (§19).
+ * Synthetic values come from the declared endpoints (../endpoints), computed by the
+ * mock server half. Definitions are Candidates per wireframe 11 §6.
  */
 import { AlertTriangle, ArrowRight, BarChart3, Hourglass, Percent, RotateCw, Timer } from 'lucide-react';
-import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { CYCLE_VERSION_NOTE, periodHours, serve } from '../api';
+import { type PageProps, PlatformLink, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
+import { CYCLE_VERSION_NOTE, periodHours } from '../api';
 import { AnalysisChartFrame, type ChartSeries, DataTrustIndicator, type Delta, Panel, PlatformPage, QueryView, SegmentedRadio, StatCard, StateMessage } from '@ap/components';
 import { Button, cn, StatusBadge } from '@ap/ui';
 import {
-  METRIC_VERSIONS, attentionRows, computeKpis, occupancyBreakdown, trendBuckets,
-  type AttentionRow, type Granularity, type KpiKey, type KpiSet, type TrendBucket,
-} from './productivityData';
+  METRIC_VERSIONS, attentionEndpoint, breakdownEndpoint, kpisEndpoint, trendEndpoint,
+  type AttentionRow, type Granularity, type KpiKey, type KpiSet, type TrendBucket, type TrendData,
+} from '../endpoints';
 
-/** Prototype guard against unbounded analytics (README serve contract; real limits are Open, wireframe 11 §6). */
-const MAX_QUERY_HOURS = 2160;
 const GRANS: readonly Granularity[] = ['hour', 'day', 'week'];
 const KPI_KEYS = ['occupancy', 'dwell', 'cycleTime', 'throughput'] as const;
 const AXES = ['room', 'stgroup'] as const;
@@ -36,15 +35,11 @@ function resolveBreakdownSort(raw: string | null): { ok: true; key: typeof SORT_
   return { ok: true, key: match[1] as typeof SORT_KEYS[number], dir: match[2] === 'asc' ? 1 : -1 };
 }
 
-type TrendData = { equipmentCount: number; current: TrendBucket[]; previous: TrendBucket[] };
-
 export default function ProductivityOverview(_: PageProps) {
-  const { global, scope, pageParam, setPage, setGlobal, linkTo } = usePlatform();
+  const { global, pageParam, setPage, setGlobal, linkTo } = usePlatform();
   const { lang } = useI18n();
   const ko = lang === 'ko';
 
-  const from = global.from;
-  const to = global.to;
   const hours = periodHours(global);
   const rawKpi = pageParam('kpi');
   const rawAxis = pageParam('axis');
@@ -61,7 +56,6 @@ export default function ProductivityOverview(_: PageProps) {
     !axisResult.ok ? `axis=${rawAxis}` : null,
     !sortResult.ok ? `sort=${rawSort}` : null,
   ].filter((item): item is string => item !== null).join(', ');
-  const enabled = from !== null && to !== null && scope.status === 'valid' && !invalidPage;
 
   // Page-owned URL key `granularity` (wireframe 11 §3.1). Unset → hour for ≤48h, else day (Candidate).
   const rawGran = pageParam('granularity');
@@ -69,43 +63,10 @@ export default function ProductivityOverview(_: PageProps) {
   const gran: Granularity = granKnown ? (rawGran as Granularity) : ((hours ?? 24) <= 48 ? 'hour' : 'day');
   const granLabel = gran === 'hour' ? (ko ? '시간' : 'hourly') : gran === 'day' ? (ko ? '일별' : 'daily') : (ko ? '주별' : 'weekly');
 
-  const kpiQ = usePlatformQuery(signal => serve({
-    permission: 'analytics:view',
-    global, signal, maxHours: MAX_QUERY_HOURS,
-    metricVersion: `occupancy v${METRIC_VERSIONS.occupancy} · dwell v${METRIC_VERSIONS.dwell} · cycleTime v${METRIC_VERSIONS.cycleTime} · throughput v${METRIC_VERSIONS.throughput}`,
-    kinds: ['collection', 'processing_delay', 'coverage', 'time_domain'],
-    compute: ({ equipment }) => ({
-      current: computeKpis(equipment, from!, to!),
-      previous: hours !== null ? computeKpis(equipment, shift(from!, -hours), from!) : null,
-    }),
-    isEmpty: d => d.current.equipmentCount === 0 || d.current.knownBuckets === 0,
-  }), 'kpis', enabled);
-
-  const trendQ = usePlatformQuery(signal => serve({
-    permission: 'analytics:view',
-    global, signal, maxHours: MAX_QUERY_HOURS, metricVersion: METRIC_VERSIONS[selectedKpi],
-    compute: ({ equipment }) => ({
-      equipmentCount: equipment.length,
-      current: trendBuckets(equipment, from!, to!, gran),
-      previous: trendBuckets(equipment, shift(from!, -hours!), from!, gran),
-    }) as TrendData,
-    isEmpty: d => d.equipmentCount === 0 || d.current.length === 0 || d.current.every(b => !b.known),
-  }), ['trend', selectedKpi, gran], enabled);
-
-  const breakdownQ = usePlatformQuery(signal => serve({
-    permission: 'analytics:view',
-    global, signal, maxHours: MAX_QUERY_HOURS, metricVersion: METRIC_VERSIONS.occupancy,
-    compute: ({ equipment }) => occupancyBreakdown(equipment, from!, to!, axis),
-    isEmpty: rows => rows.length === 0,
-  }), ['breakdown', axis], enabled);
-
-  const attentionQ = usePlatformQuery(signal => serve({
-    permission: 'analytics:view',
-    global, signal, maxHours: MAX_QUERY_HOURS,
-    metricVersion: `dwell v${METRIC_VERSIONS.dwell} · cycleTime v${METRIC_VERSIONS.cycleTime}`,
-    compute: ({ equipment }) => attentionRows(equipment, from!, to!),
-    isEmpty: rows => rows.length === 0,
-  }), 'attention', enabled);
+  const kpiQ = useMenuQuery(kpisEndpoint, {}, !invalidPage);
+  const trendQ = useMenuQuery(trendEndpoint, { kpi: selectedKpi, granularity: gran }, !invalidPage);
+  const breakdownQ = useMenuQuery(breakdownEndpoint, { axis }, !invalidPage);
+  const attentionQ = useMenuQuery(attentionEndpoint, {}, !invalidPage);
 
   const locale = ko ? 'ko-KR' : 'en-US';
   const n1 = (v: number) => v.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });

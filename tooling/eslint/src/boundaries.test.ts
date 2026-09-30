@@ -237,7 +237,7 @@ const rows: Row[] = [
 
   // --- no-new-serve migration ratchet (#113) ---
   { file: 'menus/home/src/pages/New.tsx', code: `import { serve } from '../api';`, rule: 'ap/no-new-serve' },
-  { file: 'menus/analytics/src/pages/ProductivityOverview.tsx', code: `import { serve } from '../api';`, rule: '' },
+  { file: 'menus/analytics/src/pages/ProductivityOverview.tsx', code: `import { serve } from '../api';`, rule: 'ap/no-new-serve' },
   { file: 'menus/analytics/src/pages/New.tsx', code: `import { serve } from '../api';`, rule: 'ap/no-new-serve' },
   { file: 'menus/home/src/pages/New.tsx', code: `export { serve } from '../api';`, rule: 'ap/no-new-serve' },
   { file: 'menus/home/src/pages/New.tsx', code: `import { getRole } from '../api';`, rule: '' },
@@ -260,7 +260,7 @@ const rows: Row[] = [
 
   // --- fix round 2 / P2: mock handler relative-import allowlist ---
   // A file under src/mock/** may relatively import only src/mock/**, this menu's
-  // src/endpoints, or (temporarily, until the step-5 test move) src/pages/**.
+  // src/endpoints, or (temporarily, until the cycle-time compute moves in step 9) src/pages/**.
   { file: 'menus/home/src/mock/a.ts', code: `import { x } from '../api';`, rule: 'ap/no-menu-mock-import' },
   { file: 'menus/home/src/mock/a.ts', code: `import { x } from '../index';`, rule: 'ap/no-menu-mock-import' },
   { file: 'menus/home/src/mock/a.ts', code: `export { x } from '../api';`, rule: 'ap/no-menu-mock-import' },

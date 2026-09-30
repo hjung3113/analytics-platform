@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { computeKpis, trendBuckets } from './pages/productivityData';
-import { percentile, population } from './pages/cycleData';
-import { cycleMinutes, EQUIPMENT, jobsInPeriod } from './api';
+import { computeKpis, trendBuckets } from './productivity';
+import { percentile, population } from '../pages/cycleData';
+import { cycleMinutes, EQUIPMENT, jobsInPeriod } from '@ap/mock-server';
 import { emptyGlobal } from '@ap/contracts';
 
 const FROM = '2026-09-20T00:00:00';

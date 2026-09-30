@@ -31,8 +31,9 @@ function resolvesIntoMock(source, fileDir, packageRoot) {
 }
 
 // Mock handlers form a closed dependency graph: their relative imports may resolve only
-// into the mock subtree, this menu's endpoints module, or (temporarily, until the step-5
-// test move closes it) the pages subtree. Anything else — `../api`, `../index`,
+// into the mock subtree, this menu's endpoints module, or (temporarily — productivity moved
+// to src/mock in step 5 but jobs-population still reads cycleData — until the cycle-time
+// compute moves in step 9) the pages subtree. Anything else — `../api`, `../index`,
 // `../../package.json`, `../styles.css` — would pull menu internals into the handler graph.
 const MOCK_RELATIVE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts'];
 

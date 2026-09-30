@@ -1,24 +1,16 @@
 /**
- * Synthetic productivity metrics for the Overview screen (wireframe 11).
+ * Synthetic productivity metrics for the Overview screen (wireframe 11) — server-side half.
+ * Moved out of the client bundle with the menuQuery port (#114); the page consumes the same
+ * numbers through the declared endpoints in `src/endpoints.ts`.
  * Both productivity and cycle-time detail read the same deterministic job population;
  * metric definitions remain prototype Candidates (docs/11 §6).
  */
 import { formatDateTime, parseDateTime } from '@ap/contracts';
 import {
-  bucketStart, DATA_THROUGH, jobPercentile, jobsInPeriod, observableHours,
-  type Grain, type Job,
-} from '../api';
-import type { Equipment } from '../api';
-
-export { DATA_THROUGH };
-
-export type Granularity = Grain;
-export type KpiKey = 'occupancy' | 'dwell' | 'cycleTime' | 'throughput';
-
-/** Candidate metric versions (wireframe 11 §3.1); the registry has no page-owned version keys yet. */
-export const METRIC_VERSIONS: Record<KpiKey, string> = {
-  occupancy: '3', dwell: '2', cycleTime: '4', throughput: '1',
-};
+  bucketStart, jobPercentile, jobsInPeriod, observableHours,
+  type Equipment, type Job,
+} from '@ap/mock-server';
+import type { AttentionRow, BreakdownRow, Granularity, KpiSet, TrendBucket } from '../endpoints';
 
 const HOUR = 3_600_000;
 
@@ -52,19 +44,6 @@ export function buckets(from: string, to: string, g: Granularity): Bucket[] {
   return out;
 }
 
-export type KpiSet = {
-  equipmentCount: number;
-  knownBuckets: number;
-  /** Physical occupancy: occupied hours ÷ observable hours. null = denominator 0 (미확인), never 0%. */
-  occupancy: { num: number; den: number; pct: number } | null;
-  /** Non-process dwell per job in hours. null = no completed job in known buckets. */
-  dwell: { hours: number; jobs: number; perJobH: number } | null;
-  /** Cycle time over pooled jobs; p50/p95 null when no durations. */
-  cycle: { jobs: number; p50: number | null; p95: number | null };
-  /** Job throughput: completed ÷ started (coverage numerator/denominator). */
-  throughput: { jobs: number; started: number };
-};
-
 export function computeKpis(equipment: Equipment[], from: string, to: string): KpiSet {
   const jobs = jobsInPeriod(equipment, from, to);
   const dwellHours = jobs.reduce((sum, job) => sum + job.dwellMin / 60, 0);
@@ -81,12 +60,6 @@ export function computeKpis(equipment: Equipment[], from: string, to: string): K
     throughput: { jobs: jobs.length, started },
   };
 }
-
-export type TrendBucket = {
-  start: string; known: boolean;
-  occupancyPct: number | null; dwellPerJobH: number | null;
-  jobs: number | null; p50: number | null; p95: number | null;
-};
 
 /** Per-bucket values are sums and percentiles over the same clipped job population. */
 export function trendBuckets(equipment: Equipment[], from: string, to: string, g: Granularity): TrendBucket[] {
@@ -115,8 +88,6 @@ export function trendBuckets(equipment: Equipment[], from: string, to: string, g
   });
 }
 
-export type BreakdownRow = { key: string; equipmentCount: number; occupiedHours: number; observableHours: number; jobs: number };
-
 /** Occupancy composition per room_name or StGroup, grouped from the shared job population. */
 export function occupancyBreakdown(equipment: Equipment[], from: string, to: string, axis: 'room' | 'stgroup'): BreakdownRow[] {
   const equipmentById = new Map(equipment.map(row => [row.equipmentId, row]));
@@ -143,11 +114,6 @@ export function occupancyBreakdown(equipment: Equipment[], from: string, to: str
     }))
     .sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
 }
-
-export type AttentionRow = {
-  equipmentId: string; name: string; room: string; stgroup: string; jobs: number;
-  kind: 'dwell' | 'p95'; dwellPerJobH: number | null; p95Min: number | null;
-};
 
 /** Top equipment by non-process dwell per job and by slowest pooled P95. Ranking only. */
 export function attentionRows(equipment: Equipment[], from: string, to: string, topN = 3): AttentionRow[] {
