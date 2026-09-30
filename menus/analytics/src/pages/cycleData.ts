@@ -5,6 +5,7 @@
  * strings and are never shortened to join or display.
  */
 import { formatDateTime, type GlobalContext, parseDateTime, shift } from '@ap/contracts';
+import type { Execution, OccurrenceResult, Segment } from '../endpoints';
 import { EQUIPMENT, serve, type Equipment } from '../api';
 import { bucketStart as jobBucketStart, cycleMinutes, jobPercentile, jobsForEquipmentDay, jobsInPeriod, type Job } from '../api';
 
@@ -15,29 +16,6 @@ export const MAX_HOURS = 24 * 31;
 
 export type Granularity = 'hour' | 'day' | 'week';
 export type TailMode = 'p50' | 'p95' | 'all';
-export type Quality = 'unknown' | 'review';
-export type SegmentKind = 'XFR' | 'FNC' | 'PRC';
-
-export type Execution = {
-  equipmentId: string;
-  room: string;
-  recipe: string;
-  lotId: string;
-  ppid: string;
-  /** Occurrence anchor. Full second string; lotId is not a substitute key. */
-  anchor: string;
-  cycleMin: number;
-  quality: Quality;
-};
-
-export type Segment = {
-  kind: SegmentKind;
-  module: string;
-  slot: string;
-  start: string;
-  end: string;
-  durationMin: number;
-};
 
 export type SlowRow = Execution & { delta: number | null };
 
@@ -59,11 +37,6 @@ export const BINS = [
 export const SORT_COLUMNS = ['cycleMin', 'delta', 'anchor', 'equipmentId', 'room', 'recipe', 'lotId', 'quality'] as const;
 export type SortColumn = (typeof SORT_COLUMNS)[number];
 export const DEFAULT_SORT = 'cycleMin:desc';
-
-export type OccurrenceResult =
-  | { access: 'missing' }
-  | { access: 'forbidden' }
-  | { access: 'ok'; execution: Execution; segments: Segment[] };
 
 const ANCHOR = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/;
 

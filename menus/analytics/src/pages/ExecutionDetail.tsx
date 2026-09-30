@@ -1,10 +1,10 @@
 import { AlertTriangle, Ban } from 'lucide-react';
 import { parseDateTime } from '@ap/contracts';
-import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { serve } from '../api';
+import { type PageProps, PlatformLink, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
 import { DataTrustIndicator, Panel, PlatformPage, QueryView, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
-import { isAnchor, lookupOccurrence, resolveMetric, type OccurrenceResult, type Segment, type SegmentKind } from './cycleData';
+import { OCCURRENCE_ENTITY_TYPES, occurrenceEndpoint, type Segment, type SegmentKind } from '../endpoints';
+import { isAnchor, resolveMetric } from './cycleData';
 
 const SEGMENT_CLASS: Record<SegmentKind, string> = {
   XFR: 'bg-chart-blue',
@@ -26,20 +26,11 @@ export default function ExecutionDetail({ params }: PageProps) {
   const backHref = returnTarget();
   const restored = registry.safeReturnTo(pageParam('returnTo')) !== null;
 
-  // serve() always applies selection/room/condition/lot/recipe. This menu declares them reference,
-  // so the occurrence lookup passes a copy with those filters cleared and does not pass maxHours
-  // (a carried 90-day period must not hide the object). Scope grants still apply.
-  const query = usePlatformQuery(signal => serve<OccurrenceResult>({
-    permission: 'analytics:view',
-    global: { ...global, selection: null, roomNames: null, condition: null, lotIds: null, ppid: null, recipeIds: null },
-    signal,
-    mergeTimeDomain: false,
-    metricVersion: metricVersion ?? undefined,
-    isEmpty: data => data.access === 'missing',
-    compute: ({ equipment }) => metricVersion === null
-      ? { access: 'missing' }
-      : lookupOccurrence(equipment, equipmentId, anchor!, metricVersion),
-  }), [equipmentId, entityType, anchor], valid && metricVersion !== null);
+  const query = useMenuQuery(
+    occurrenceEndpoint,
+    { equipmentId, entityType: entityType!, anchor: anchor!, metricVersion: metricVersion! },
+    valid && metricVersion !== null,
+  );
 
   const back = <Button asChild variant="secondary" size="sm"><PlatformLink href={backHref}>{ko ? '← 사이클타임 분석으로 돌아가기' : '← Back to cycle time'}</PlatformLink></Button>;
   const equipmentLink = <Button asChild variant="secondary" size="sm"><PlatformLink href={linkTo('equipment-detail', { params: { equipmentId }, returnTo: true })}>{ko ? '설비 상세' : 'Equipment detail'}</PlatformLink></Button>;
@@ -175,7 +166,7 @@ function Identity({ label, value }: { label: string; value: string }) {
 function identityErrors(entityType: string | null, anchor: string | null, ko: boolean): string[] {
   const errors: string[] = [];
   if (!entityType) errors.push(ko ? 'entityType이 없습니다. job으로 추정하지 않습니다.' : 'entityType is missing. It is not assumed to be job.');
-  else if (entityType !== 'job') errors.push(ko ? `entityType “${entityType}”은 열 수 없습니다. Candidate로 job만 지원하며 다른 값으로 바꾸지 않습니다.` : `entityType “${entityType}” cannot be opened. Only job is supported (Candidate); it was not rewritten.`);
+  else if (!OCCURRENCE_ENTITY_TYPES.includes(entityType)) errors.push(ko ? `entityType “${entityType}”은 열 수 없습니다. Candidate로 job만 지원하며 다른 값으로 바꾸지 않습니다.` : `entityType “${entityType}” cannot be opened. Only job is supported (Candidate); it was not rewritten.`);
   if (!anchor) errors.push(ko ? 'anchor가 없습니다. Lot이나 가까운 시각으로 복원하지 않습니다.' : 'anchor is missing. It is not recovered from a lot or a nearby time.');
   else if (!isAnchor(anchor)) errors.push(ko ? `anchor “${anchor}”이 YYYY-MM-DDTHH:mm:ss가 아닙니다. 반올림하거나 잘라서 조회하지 않습니다.` : `anchor “${anchor}” is not YYYY-MM-DDTHH:mm:ss. It was not rounded or trimmed into a query.`);
   return errors;

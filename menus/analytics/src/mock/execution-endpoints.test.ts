@@ -1,0 +1,207 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { defineEndpoint, type Capability, type ContextKey, type GlobalContext, type MenuMeta } from '@ap/contracts';
+import { createMockAdapter, cycleMinutes, defineMockEndpoint, EQUIPMENT, getRole, jobsForEquipmentDay, setRole, type AnyMockEndpoint, type RoleId } from '@ap/mock-server';
+import { executionOccurrence } from './execution';
+import { occurrenceEndpoint, type Execution, type OccurrenceParams, type OccurrenceResult } from '../endpoints';
+import { allExecutions } from '../pages/cycleData';
+
+const none: Record<ContextKey, Capability> = {
+  time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
+  lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
+};
+
+/** Inline mirror of execution-detail's registration fields: every Context key is reference-only. */
+const executionMenu: MenuMeta = {
+  id: 'execution-detail',
+  group: 'analytics',
+  label: { ko: '실행 상세', en: 'Execution detail' },
+  description: { ko: '', en: '' },
+  path: '/analytics/executions/:equipmentId',
+  permission: 'analytics:view',
+  requiresScope: true,
+  context: {
+    ...none,
+    time: 'reference', roomNames: 'reference', condition: 'reference', selection: 'reference',
+    lot: 'reference', ppid: 'reference', recipe: 'reference', metric: 'reference',
+  },
+  pageType: 'analysis',
+  features: { export: false, savedView: false, annotate: false, compare: false },
+  pageKeys: ['entityType', 'anchor', 'returnTo'],
+};
+
+const registry = { menus: [executionMenu] };
+const adapter = createMockAdapter({ endpoints: [executionOccurrence], registry });
+const seededExecutions = allExecutions();
+const previousRole: RoleId = getRole();
+beforeEach(() => { setRole('engineer'); });
+afterEach(() => { setRole(previousRole); });
+
+function grantedExecution(before?: string): Execution {
+  const result = seededExecutions.find(execution => {
+    const equipment = EQUIPMENT.find(row => row.equipmentId === execution.equipmentId);
+    return equipment?.site === 'ICH'
+      && ['PH-101', 'ET-102', 'CVD-201'].includes(equipment.room)
+      && (before === undefined || execution.anchor < before);
+  });
+  if (!result) throw new Error('expected a seeded execution in an engineer-granted ICH room');
+  return result;
+}
+
+function occurrenceParams(overrides: Partial<OccurrenceParams> = {}): OccurrenceParams {
+  const execution = grantedExecution();
+  return {
+    equipmentId: execution.equipmentId,
+    entityType: 'job',
+    anchor: execution.anchor,
+    metricVersion: '3',
+    ...overrides,
+  };
+}
+
+describe('execution-detail occurrence endpoint registration', () => {
+  it('registers for an all-reference, scope-required manifest and rejects an applied room filter', () => {
+    expect(() => createMockAdapter({ endpoints: [executionOccurrence], registry })).not.toThrow();
+
+    const roomFilteredEndpoint = defineMockEndpoint(
+      defineEndpoint<OccurrenceParams, OccurrenceResult>({
+        ...occurrenceEndpoint,
+        id: 'analytics.execution.occurrence.bad-room-filter',
+        context: { roomNames: 'apply' },
+      }),
+      { handle: (): OccurrenceResult => ({ access: 'missing' }) },
+    );
+    expect(() => createMockAdapter({ endpoints: [roomFilteredEndpoint], registry })).toThrow(/does not apply context roomNames/);
+  });
+});
+
+describe('execution-detail occurrence endpoint behavior', () => {
+  it('ignores a carried 90-day Context, including room and selection, and preserves an out-of-range occurrence', async () => {
+    const from = '2026-06-28T09:00:00';
+    const to = '2026-09-26T09:00:00';
+    const execution = grantedExecution(from);
+    const outsideGrant = EQUIPMENT.find(row => row.site === 'ICH' && row.room === 'DIF-202');
+    if (!outsideGrant) throw new Error('expected seeded equipment in ungranted ICH room DIF-202');
+
+    let seenContext: GlobalContext | undefined;
+    const handler = executionOccurrence;
+    const observedHandler: AnyMockEndpoint = {
+      ...handler,
+      handle: input => {
+        seenContext = input.context;
+        return handler.handle(input);
+      },
+    };
+    const observedAdapter = createMockAdapter({
+      endpoints: [observedHandler],
+      registry,
+    });
+
+    const params = {
+      equipmentId: execution.equipmentId,
+      entityType: 'job',
+      anchor: execution.anchor,
+      metricVersion: '3',
+    };
+    const withReferenceContext = await observedAdapter.menuQuery({
+      endpoint: occurrenceEndpoint.id,
+      context: { scopeId: 'ICH', from, to, roomNames: ['DIF-202'], selection: [outsideGrant.equipmentId] },
+      params,
+    });
+    expect(['ok', 'empty']).toContain(withReferenceContext.outcome);
+    expect(withReferenceContext.outcome).not.toBe('too_large');
+    expect((withReferenceContext.data as OccurrenceResult | null)?.access).toBe('ok');
+    expect(seenContext).toMatchObject({ scopeId: 'ICH', roomNames: null, selection: null });
+
+    const withoutRoomAndSelection = await observedAdapter.menuQuery({
+      endpoint: occurrenceEndpoint.id,
+      context: { scopeId: 'ICH', from, to },
+      params,
+    });
+    expect(withoutRoomAndSelection.outcome).toBe(withReferenceContext.outcome);
+    expect(withoutRoomAndSelection.data).toEqual(withReferenceContext.data);
+    expect(withReferenceContext.trust?.metricVersion).toBe(params.metricVersion);
+  });
+
+  it('returns granted, forbidden, and missing access states and pins declared kinds', async () => {
+    const execution = grantedExecution();
+    const outsideGrant = EQUIPMENT.find(row => row.site === 'ICH' && row.room === 'DIF-202');
+    if (!outsideGrant) throw new Error('expected seeded equipment in ungranted ICH room DIF-202');
+    const kinds = ['collection', 'processing_delay', 'coverage'];
+    expect(occurrenceEndpoint.kinds).toEqual(kinds);
+
+    const granted = await adapter.menuQuery({
+      endpoint: occurrenceEndpoint.id,
+      context: { scopeId: 'ICH' },
+      params: occurrenceParams({ equipmentId: execution.equipmentId, anchor: execution.anchor }),
+    });
+    expect(granted.outcome).toBe('ok');
+    expect((granted.data as OccurrenceResult | null)?.access).toBe('ok');
+    expect(granted.assessments.map(({ kind }) => kind)).toEqual(kinds);
+    expect(granted.trust?.metricVersion).toBe('3');
+
+    const forbidden = await adapter.menuQuery({
+      endpoint: occurrenceEndpoint.id,
+      context: { scopeId: 'ICH' },
+      params: occurrenceParams({ equipmentId: outsideGrant.equipmentId, anchor: execution.anchor }),
+    });
+    expect(forbidden.outcome).toBe('ok');
+    expect((forbidden.data as OccurrenceResult | null)?.access).toBe('forbidden');
+
+    const missing = await adapter.menuQuery({
+      endpoint: occurrenceEndpoint.id,
+      context: { scopeId: 'ICH' },
+      params: occurrenceParams({ equipmentId: 'UNKNOWN-EQUIPMENT' }),
+    });
+    expect(missing.outcome).toBe('empty');
+  });
+
+  it('computes cycleMin per the requested metricVersion and echoes that version into Data Trust', async () => {
+    const execution = grantedExecution();
+    const equipment = EQUIPMENT.find(row => row.equipmentId === execution.equipmentId);
+    if (!equipment) throw new Error('expected seeded equipment for the granted execution');
+    const job = jobsForEquipmentDay(equipment, execution.anchor.slice(0, 10)).find(item => item.anchor === execution.anchor);
+    if (!job) throw new Error('expected the seeded job behind the granted execution');
+    expect(job.cycleMinV3).not.toBe(job.cycleMinV4);
+
+    const fetchOccurrence = async (metricVersion: string) => {
+      const response = await adapter.menuQuery({
+        endpoint: occurrenceEndpoint.id,
+        context: { scopeId: 'ICH' },
+        params: occurrenceParams({ equipmentId: execution.equipmentId, anchor: execution.anchor, metricVersion }),
+      });
+      expect(response.outcome).toBe('ok');
+      const data = response.data as OccurrenceResult | null;
+      if (!data || data.access !== 'ok') throw new Error('expected an ok occurrence');
+      return { response, data };
+    };
+
+    const v3 = await fetchOccurrence('3');
+    expect(v3.data.execution.cycleMin).toBe(cycleMinutes(job, '3'));
+
+    const v4 = await fetchOccurrence('4');
+    expect(v4.data.execution.cycleMin).toBe(cycleMinutes(job, '4'));
+    expect(v4.response.trust?.metricVersion).toBe('4');
+  });
+
+  it('rejects a non-job entityType and a malformed anchor on an otherwise valid identity', async () => {
+    const execution = grantedExecution();
+
+    // Same valid equipment/anchor, but entityType the page cannot open (identity is (equipmentId, entityType, anchor), 06 §22).
+    const nonJob = await adapter.menuQuery({
+      endpoint: occurrenceEndpoint.id,
+      context: { scopeId: 'ICH' },
+      params: occurrenceParams({ entityType: 'lot' }),
+    });
+    expect(nonJob.outcome).toBe('empty');
+    expect((nonJob.data as OccurrenceResult | null)?.access).toBe('missing');
+
+    // Matches the YYYY-MM-DDTHH:mm:ss shape but is not a real calendar time.
+    const malformedAnchor = await adapter.menuQuery({
+      endpoint: occurrenceEndpoint.id,
+      context: { scopeId: 'ICH' },
+      params: occurrenceParams({ anchor: '2026-13-40T25:61:61' }),
+    });
+    expect(malformedAnchor.outcome).toBe('empty');
+    expect((malformedAnchor.data as OccurrenceResult | null)?.access).toBe('missing');
+  });
+});
