@@ -30,16 +30,36 @@ function resolvesIntoMock(source, fileDir, packageRoot) {
   return resolved === mockRoot || resolved.startsWith(`${mockRoot}${path.sep}`);
 }
 
+// Mock handlers form a closed dependency graph: their relative imports may resolve only
+// into the mock subtree, this menu's endpoints module, or (temporarily, until the step-5
+// test move closes it) the pages subtree. Anything else — `../api`, `../index`,
+// `../../package.json`, `../styles.css` — would pull menu internals into the handler graph.
+const MOCK_RELATIVE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts'];
+
+function mockRelativeAllowed(source, fileDir, packageRoot) {
+  const resolved = path.resolve(fileDir, source.value);
+  const inside = (root) => resolved === root || resolved.startsWith(`${root}${path.sep}`);
+  const endpointsModule = path.join(packageRoot, 'src', 'endpoints');
+  return (
+    inside(path.join(packageRoot, 'src', 'mock')) ||
+    inside(path.join(packageRoot, 'src', 'pages')) ||
+    resolved === endpointsModule ||
+    MOCK_RELATIVE_EXTENSIONS.some((extension) => resolved === `${endpointsModule}${extension}`)
+  );
+}
+
 const noMenuMockImport = {
   meta: {
     type: 'problem',
     docs: {
-      description: 'Disallow relative imports into a menu mock directory from outside that directory',
+      description:
+        'Mock handlers are importable only via the menu mock subpath, and their own relative imports stay inside the mock allowlist',
     },
     schema: [],
     messages: {
       outsideMock:
         "Menu pages must not import mock handlers; the app registers them via '{{mockSubpath}}'.",
+      mockRelative: `Mock handlers may relatively import only src/mock/**, this menu's src/endpoints, or (temporarily) src/pages/** — not '{{source}}'. Mock handlers import '${PACKAGE_PREFIX}mock-server' and '${PACKAGE_PREFIX}contracts' directly, not menu internals like ../api.`,
     },
   },
   create(context) {
@@ -47,20 +67,12 @@ const noMenuMockImport = {
     if (!owner) return {};
 
     const relativeFile = repoRelative(context.filename, owner.root);
-    if (isInsideMock(relativeFile)) return {};
-
     const fileDir = path.dirname(context.filename);
-    const check = (source) => {
-      if (!source || !resolvesIntoMock(source, fileDir, owner.root)) return;
-      const menuName = owner.name.slice(PACKAGE_PREFIX.length);
-      context.report({
-        node: source,
-        messageId: 'outsideMock',
-        data: { mockSubpath: `${PACKAGE_PREFIX}${menuName}/mock` },
-      });
-    };
+    const menuName = owner.name.slice(PACKAGE_PREFIX.length);
 
-    return {
+    // One visitor set for both directions so static, re-export, export *, dynamic
+    // import(), require, typeof import, and import-equals can never drift apart.
+    const visitors = (check) => ({
       ImportDeclaration: (node) => check(sourceLiteral(node)),
       ExportNamedDeclaration: (node) => check(sourceLiteral(node)),
       ExportAllDeclaration: (node) => check(sourceLiteral(node)),
@@ -76,7 +88,29 @@ const noMenuMockImport = {
         const source = ref?.type === 'TSExternalModuleReference' ? ref.expression : null;
         check(source?.type === 'Literal' && typeof source.value === 'string' ? source : null);
       },
+    });
+
+    // Inside src/mock/**: relative imports must resolve into the mock allowlist.
+    if (isInsideMock(relativeFile)) {
+      const check = (source) => {
+        if (!source || !source.value.startsWith('.')) return;
+        if (mockRelativeAllowed(source, fileDir, owner.root)) return;
+        context.report({ node: source, messageId: 'mockRelative', data: { source: source.value } });
+      };
+      return visitors(check);
+    }
+
+    // Everywhere else: nothing may reach src/mock/**; the app registers handlers
+    // through the menu mock subpath.
+    const check = (source) => {
+      if (!source || !resolvesIntoMock(source, fileDir, owner.root)) return;
+      context.report({
+        node: source,
+        messageId: 'outsideMock',
+        data: { mockSubpath: `${PACKAGE_PREFIX}${menuName}/mock` },
+      });
     };
+    return visitors(check);
   },
 };
 
@@ -134,6 +168,11 @@ const noNewServe = {
     const menuName = owner.name.slice(PACKAGE_PREFIX.length);
     const mockSubpath = `${PACKAGE_PREFIX}${menuName}/mock`;
     const isApiSource = (node) => sourcePointsToApi(sourceLiteral(node), fileDir, owner.root);
+    // Local bindings aliasing this menu's api `serve`, tracked in every file (legacy
+    // included): re-exporting or default-exporting the alias relays serve exactly like
+    // `export { serve }`, so the export ban follows the binding, not the identifier text.
+    // Traversal visits imports before the later statements that export them.
+    const serveBindings = new Set();
     const reportServe = (node) => {
       context.report({ node, messageId: 'noNewServe', data: { mockSubpath } });
     };
@@ -156,6 +195,13 @@ const noNewServe = {
 
     return {
       ImportDeclaration(node) {
+        if (isApiSource(node)) {
+          for (const item of node.specifiers) {
+            if (item.type === 'ImportSpecifier' && nodeName(item.imported) === 'serve') {
+              serveBindings.add(nodeName(item.local));
+            }
+          }
+        }
         // Legacy files keep their own serve imports; only re-exports stay banned (P2-1).
         if (legacy || !isApiSource(node)) return;
         // Outside the legacy list the api module is named-imports-only; a namespace
@@ -172,15 +218,23 @@ const noNewServe = {
       },
       ExportNamedDeclaration(node) {
         if (!isApiSource(node)) {
-          // Local re-export (`export { serve }` / `export { serve as x }` after an import).
+          // Local re-export (`export { serve }` / `export { serve as x }` after an
+          // import), including any alias of serve.
           const specifier = (node.specifiers ?? []).find(
-            (item) => item.type === 'ExportSpecifier' && nodeName(item.local) === 'serve',
+            (item) =>
+              item.type === 'ExportSpecifier' &&
+              (nodeName(item.local) === 'serve' || serveBindings.has(nodeName(item.local))),
           );
           if (specifier) reportServe(specifier.local);
           return;
         }
         const specifier = serveSpecifier(node);
         if (specifier) reportServe(specifier.local);
+      },
+      ExportDefaultDeclaration(node) {
+        // `export default <serve alias>` relays serve like a named re-export.
+        if (node.declaration?.type !== 'Identifier') return;
+        if (serveBindings.has(node.declaration.name)) reportServe(node.declaration);
       },
       // Re-exporting the whole API (`export * from`, `export * as ns from`) would expose
       // its legacy `serve` export too. typescript-estree parses both as ExportAllDeclaration.
