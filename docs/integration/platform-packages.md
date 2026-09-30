@@ -46,7 +46,7 @@ D1–D8은 화면·런타임 코드, D9는 같은 폴더 안이라 폴더 구조
 | `@ap/components` | 공통 컴포넌트(Platform Component) + 차트 계약 + 레이아웃 | `PlatformPage`, `PlatformDataTable`, `DetailDrawer`, `AuditTimeline`, `DataTrustIndicator`, `StateView`, `StatCard`, `RadioGroup`, `AnalysisChartFrame`, `EChart` | 있음 | `contracts`, `kernel`, `ui` |
 | `@ap/shell` | Kernel 기능(App Shell) | `AppShell`, `Sidebar`, `TopBar`, `CommandPalette`, `GlobalContextBar`, 계약 오류/미구현 화면(`App.tsx`의 fallback) | 있음 | `contracts`, `kernel`, `components`, `ui` |
 | `@ap/mock-server` | (개발용) | `mock/world`, `mock/server`, `mock/jobs`와 이들만 보는 단위 테스트(`explicit-empty`, `time-domain`). `PlatformAdapter` mock 구현 | 없음 | `contracts` |
-| `@ap/menu-<group>` | Consumer | Registry의 7개 그룹마다 하나: `home`(overview), `equipment`, `master-data`, `analytics`, `metrics`, `notice-voc`, `admin`. 화면이 아직 없는 계획 메뉴(공정·레시피 마스터, Wafer Journey, 공지 등)도 `component` 없는 manifest로 자기 그룹 패키지가 소유한다(셸이 미구현 화면으로 표시). 각 패키지가 `manifests`(여러 메뉴 가능)와 화면·도메인 컴포넌트·`api.ts`를 가진다 | 있음 | `contracts`, `kernel`, `components`, `ui` (+ `api.ts`에 한해 `mock-server`) |
+| `@ap/menu-<group>` | Consumer | Registry의 7개 그룹마다 하나: `home`(overview), `equipment`, `master-data`, `analytics`, `metrics`, `notice-voc`, `admin`. 화면이 아직 없는 계획 메뉴(공정·레시피 마스터, Wafer Journey, 공지 등)도 `component` 없는 manifest로 자기 그룹 패키지가 소유한다(셸이 미구현 화면으로 표시). 각 패키지가 `manifests`(여러 메뉴 가능)와 화면·도메인 컴포넌트·`api.ts`를 가진다 | 있음 | `contracts`, `kernel`, `components`, `ui` (`src/mock/**`는 `contracts`·`mock-server`·자기 `endpoints.ts`만; 이행 중 `src/api.ts`도 `mock-server`) |
 | `apps/platform-web` | 조립 지점 | `main.tsx`, IA 설정(`GROUPS`, 향후 공간), 메뉴 등록, 어댑터 주입, dev 도구(역할 전환·응답 시나리오) | 있음 | 전부 |
 | `apps/platform-e2e` | (검사) | 조립된 앱을 브라우저로 띄워 플랫폼 계약을 검사하는 Playwright 블랙박스 테스트와 항목별 보고(#44) | 없음 | 없음(`@ap/*` import 금지, 브라우저로만 관찰) |
 | `tooling/*` | 개발 환경 | 공유 tsconfig, lint 설정(경계·계약 규칙), 메뉴 생성기 | — | — |
@@ -74,7 +74,7 @@ D1–D8은 화면·런타임 코드, D9는 같은 폴더 안이라 폴더 구조
 
 1. 화살표 반대 방향 import 금지. 특히 `kernel`·`components`·`shell`은 `menu-*`와 `mock-server`를 import하지 않는다.
 2. `menu-*`끼리 import 금지. 교차 메뉴 이동은 `linkTo(menuId, ...)`만 쓴다(06 §22).
-3. `menu-*`에서 `mock-server` import는 그 메뉴의 `src/api.ts` 한 파일에서만 허용한다.
+3. `menu-*`에서 `mock-server` import는 그 메뉴의 `src/mock/**`와, 이행 중 `src/api.ts`에서만 허용한다.
 4. 각 패키지는 `package.json` `exports`로 공개 진입점만 연다. `@ap/components/src/...` 같은 깊은 경로 import 금지.
 5. `contracts`는 React·브라우저 API에 타입 수준으로도 의존하지 않는다(향후 백엔드와 공유할 수 있게). 아이콘·화면 컴포넌트처럼 React 타입이 필요한 manifest 필드는 `kernel`의 `MenuEntry`가 소유한다.
 6. 규칙 1–3은 테스트 파일에도 적용한다. 층을 넘는 검증은 그 위층(메뉴 또는 앱)의 통합 테스트로 둔다(D10).

@@ -4,34 +4,38 @@ import { PACKAGE_PREFIX } from './prefix.js';
 import noHandBuiltUrl from './hand-built-url.js';
 import noRelativePackageEscape from './relative-escape.js';
 import restrictedImportSource from './import-source.js';
+import { noMenuMockImport, noNewServe } from './menu-boundaries.js';
 
 const pkg = (name) => `${PACKAGE_PREFIX}${name}`;
 
 const DEEP_SUBPATH_MESSAGE = `Import the package entry (${PACKAGE_PREFIX}name) or, in CSS only, ${PACKAGE_PREFIX}name/styles.css. No ${PACKAGE_PREFIX}*/src.`;
 const LAYER_MESSAGE = 'Importing an internal workspace package outside this layer allowlist.';
-const MOCK_SERVER_MESSAGE = `${PACKAGE_PREFIX}mock-server is only legal in src/api.ts`;
+const MOCK_SERVER_MESSAGE = `${PACKAGE_PREFIX}mock-server is only legal in menu src/mock/** (and src/api.ts during migration).`;
 const REACT_MESSAGE = 'react / react-dom are not allowed in this package.';
 
 const MENU_ALLOW = ['contracts', 'kernel', 'components', 'ui'];
 const APP_CARVEOUT_FILES = ['src/main.tsx', 'src/dev/**/*.{ts,tsx}', 'src/published-metrics.test.ts'];
 
-// Composition-root-only menu subpath (issue #60): the app injects the FeedbackOps origin slot through the
-// menu package's "./feedbackops-origin" export. Narrowest deep-subpath allowance there is — this exact
-// subpath inside src/main.tsx ONLY; every other menu subpath, any `*/src` import, and every other
-// carve-out file (src/dev, published-metrics.test.ts) stays banned.
-const MENU_SUBPATH_ALLOW = ['menu-notice-voc/feedbackops-origin'];
+// Composition-root-only menu subpaths: the FeedbackOps origin slot and each menu's exact `/mock`
+// export are available from src/main.tsx ONLY. Every other menu subpath, any `*/src` import, and every
+// other carve-out file (src/dev, published-metrics.test.ts) stays banned.
+// NOTE: the gitignore-style `*` in `menu-*/mock` also matches an empty name (no way to say
+// "one or more" here), so a `menu-/mock` source is not rejected on this side; the dynamic-import
+// side (import-source.js) uses `[^/]+` for the same pattern.
+const MENU_SUBPATH_ALLOW = ['menu-notice-voc/feedbackops-origin', 'menu-*/mock'];
 
 // Restriction data is the single decision source: each layer declares
 // { allow, denyReact, mockAllowed, allowSubpaths } and BOTH import rules are built from it,
 // so static and dynamic imports can never drift apart.
 //   allow: package-entry names this layer may import; null = every entry.
 //   mockAllowed: exempts exactly the mock-server entry (never its subpaths).
-//   allowSubpaths: exact `name/subpath` entries exempted from the deep-subpath ban (default none).
-// Deep subpaths are banned for everyone, except the exact allowSubpaths entries, everywhere.
+//   allowSubpaths: exact names or patterns exempted from the deep-subpath ban (default none).
+// Deep subpaths are banned for everyone, except subpaths matched by allowSubpaths.
 const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, mockAllowed: false };
 const MENU_API_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, mockAllowed: true };
+const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, mockAllowed: true };
 const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false };
-// src/main.tsx is the composition root: mock-server allowed AND the origin subpath allowed (both import rules).
+// src/main.tsx is the composition root: mock-server and the listed menu subpaths are allowed by both import rules.
 const APP_MAIN_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true, allowSubpaths: MENU_SUBPATH_ALLOW };
 // The other carve-out files keep the mock-server exemption but never the menu-subpath allowance.
 const APP_CARVEOUT_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true };
@@ -164,6 +168,8 @@ function layerConfig({ restriction, extraRules = {} }) {
           'no-relative-package-escape': noRelativePackageEscape,
           'restricted-import-source': restrictedImportSource,
           'no-hand-built-url': noHandBuiltUrl,
+          'no-menu-mock-import': noMenuMockImport,
+          'no-new-serve': noNewServe,
         },
       },
     },
@@ -212,14 +218,33 @@ export const mockServer = [
   layerConfig({ restriction: { allow: ['contracts'], denyReact: true, mockAllowed: false } }),
 ];
 
-// Menu: mock-server banned outside src/api.ts; contract rules (storage,
-// location writes, hand-built query strings) apply to every menu file.
-// src/api.ts keeps the contract rules and swaps the mock-server exemption on
-// for both import rules together (flat config replaces each rule id; other
-// rules cascade).
+// Menu: mock-server is limited to src/mock/** and, during migration, src/api.ts;
+// contract rules (storage, location writes, hand-built query strings) apply to every menu file.
+// Restriction data stays shared by the static and dynamic import rules in each file carve-out.
+// Legacy `serve` consumers, keyed by `<menu package name>/<relativeFile>` (for example
+// `menu-home/src/pages/x.tsx`) so a menu reusing another menu's legacy filename does not
+// inherit the exemption. The list shrinks in steps 5/6/9 and is deleted in step 11.
+const LEGACY_SERVE_PATHS = [
+  'menu-analytics/src/pages/cycleData.ts',
+  'menu-analytics/src/pages/CycleTimeDrilldown.tsx',
+  'menu-analytics/src/pages/ExecutionDetail.tsx',
+  'menu-analytics/src/pages/ProductivityOverview.tsx',
+  'menu-equipment/src/pages/EquipmentMaster.tsx',
+  'menu-home/src/pages/OperationsHome.tsx',
+  'menu-metrics/src/pages/MetricCatalog.tsx',
+  'menu-metrics/src/pages/MetricDetail.tsx',
+];
+
 /** @type {import('eslint').Linter.Config[]} */
 export const menu = [
-  layerConfig({ restriction: MENU_RESTRICTION, extraRules: menuContractRules }),
+  layerConfig({
+    restriction: MENU_RESTRICTION,
+    extraRules: {
+      ...menuContractRules,
+      'ap/no-menu-mock-import': 'error',
+      'ap/no-new-serve': ['error', { legacyPaths: LEGACY_SERVE_PATHS }],
+    },
+  }),
   {
     files: ['src/api.ts'],
     rules: {
@@ -227,12 +252,19 @@ export const menu = [
       'ap/restricted-import-source': ['error', importSourceOptions(MENU_API_RESTRICTION)],
     },
   },
+  {
+    files: ['src/mock/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': importRestrictions(MENU_MOCK_RESTRICTION),
+      'ap/restricted-import-source': ['error', importSourceOptions(MENU_MOCK_RESTRICTION)],
+    },
+  },
 ];
 
 // App: all package entries allowed, deep subpaths and mock-server banned; src/main.tsx additionally
-// keeps the mock-server exemption and the origin-subpath allowance for both import rules together;
+// keeps the mock-server exemption and the menu-subpath allowances for both import rules together;
 // the other carve-out files (src/dev / published-metrics.test.ts) keep only the mock-server
-// exemption — the origin subpath stays banned there, static and dynamic. No ignores for **/*.test.*.
+// exemption — menu subpaths stay banned there, static and dynamic. No ignores for **/*.test.*.
 /** @type {import('eslint').Linter.Config[]} */
 export const app = [
   layerConfig({ restriction: APP_RESTRICTION }),
