@@ -19,10 +19,10 @@
 
 ## 다음 세션 할 일 (순서대로, 한 PR씩)
 
-1. **#125 (7a)** 서버 요청 모양 엄격화 — 게이트 결정 Q3(비적용 Context 키 → error), Q9(적용 키 누락 → error, `time`의 `from`/`to` null 불가), Q10(등록 규칙 6: Scope 없는 엔드포인트는 `roomNames`·`condition`·`selection` apply 금지).
+1. **#125 (7a)** 서버 요청 모양 엄격화 — 게이트 결정 Q3(비적용 Context 키 → error), Q9(적용 키 누락 → error, `time`의 `from`/`to` null 불가), Q10(등록 규칙 6: Scope 없는 엔드포인트는 site에 묶인 Context — `roomNames`·`condition`·`selection`·`lot`·`recipe`·`ppid` — apply 금지).
 2. **#126 (8)** gen-menu 전환 — 새 메뉴가 `endpoints.ts`·`src/mock/`·`./mock` export·`useMenuQuery`로 생성. probe로 여러 패키지 mock 등록 확인.
 3. **#127–#130 (9)** 나머지 이전, 패키지별 1 PR: cycle-time(임시 `src/mock/** → ../pages/**` lint 허용을 닫는다), equipment-master, metrics(#123 metricVersion 서버 검증과 함께), home(`notice:view`).
-4. **#131 (10)** VOC 이전 → **#132 (11)** `serve` 제거 → **#133 (12)** 문서 이관(06 §5 엔드포인트 선언, 06 §19 명시적 공집합 예외, platform-packages §3–§5).
+4. **#131 (10)** VOC 이전 → **#132 (11)** `serve` 제거 → **#133 (12)** 문서 이관(platform-packages §3–§5, 메뉴·패키지 AGENTS, 설계 문서를 기록으로 전환. 06 §5·§19는 #134에서 반영됨).
 5. 후속 **#122** 목적지 단건 조회의 provisional을 대상 객체 시점으로.
 6. #104의 레이아웃 슬롯 컴포넌트는 M2 재개 때 인터랙티브 프로토타입 컨펌 뒤(06 §12.6).
 
