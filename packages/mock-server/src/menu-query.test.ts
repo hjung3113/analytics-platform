@@ -6,6 +6,7 @@ import { EQUIPMENT, type RoleId } from './world';
 import { getRole, setRole, setScenario } from './server';
 
 type Params = { term: string; page?: number };
+const PERIOD = { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' };
 const allUnsupported: Record<ContextKey, Capability> = {
   time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
   lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
@@ -52,7 +53,11 @@ function mockEndpoint(
   return defineMockEndpoint(spec, { handle });
 }
 
-function request(endpoint = 'analytics.detail', context: Record<string, unknown> = { scopeId: 'ICH' }, params: Record<string, unknown> = { term: 'probe' }) {
+function request(
+  endpoint = 'analytics.detail',
+  context: Record<string, unknown> = { scopeId: 'ICH', ...PERIOD },
+  params: Record<string, unknown> = { term: 'probe' },
+) {
   return { endpoint, context, params };
 }
 
@@ -96,29 +101,201 @@ describe('serveEndpoint request validation', () => {
     expect(badContext.outcome).toBe('error');
     expect(badContext.message).toContain('foo');
   });
+
+  it('rejects a non-applied roomNames key on a scope-required reference-only endpoint before permission', async () => {
+    const spec = makeSpec('analytics.execution-detail', { permission: 'analytics:view', context: {} });
+    const handle = vi.fn(() => ({ ok: true }));
+    const endpoint = mockEndpoint(spec, handle);
+    const result = await serveEndpoint(
+      new Map([[spec.id, endpoint]]),
+      request(spec.id, { scopeId: 'ICH', roomNames: ['X'] }),
+      undefined,
+      { role: 'viewer', latency: 200 },
+    );
+
+    expect(result.outcome).toBe('error');
+    expect(result.message).toContain('context key roomNames is not applied by analytics.execution-detail');
+    expect(handle).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-applied selection key on an endpoint that applies only time', async () => {
+    const spec = makeSpec('analytics.time-only');
+    const result = await serveEndpoint(
+      new Map([[spec.id, mockEndpoint(spec)]]),
+      request(spec.id, { scopeId: 'ICH', ...PERIOD, selection: [] }),
+      undefined,
+      { role: 'engineer', latency: 0 },
+    );
+
+    expect(result.outcome).toBe('error');
+    expect(result.message).toContain('context key selection is not applied by analytics.time-only');
+  });
+
+  it('rejects scopeId on an endpoint that does not require scope', async () => {
+    const spec = makeSpec('analytics.unscoped', { requiresScope: false, context: {} });
+    const result = await serveEndpoint(
+      new Map([[spec.id, mockEndpoint(spec)]]),
+      request(spec.id, { scopeId: 'ICH' }),
+      undefined,
+      { role: 'engineer', latency: 0 },
+    );
+
+    expect(result.outcome).toBe('error');
+    expect(result.message).toContain('context key scopeId is not applied by analytics.unscoped');
+  });
+
+  it('rejects an applied time key that is absent', async () => {
+    const spec = makeSpec('analytics.missing-to');
+    const result = await serveEndpoint(
+      new Map([[spec.id, mockEndpoint(spec)]]),
+      request(spec.id, { scopeId: 'ICH', from: PERIOD.from }),
+      undefined,
+      { role: 'engineer', latency: 0 },
+    );
+
+    expect(result.outcome).toBe('error');
+    expect(result.message).toContain('to');
+  });
+
+  it('rejects an absent from key when time is applied', async () => {
+    const spec = makeSpec('analytics.missing-from');
+    const result = await serveEndpoint(
+      new Map([[spec.id, mockEndpoint(spec)]]),
+      request(spec.id, { scopeId: 'ICH', to: PERIOD.to }),
+      undefined,
+      { role: 'engineer', latency: 0 },
+    );
+
+    expect(result.outcome).toBe('error');
+    expect(result.message).toContain('from');
+  });
+
+  it('rejects a null to key when time is applied', async () => {
+    const spec = makeSpec('analytics.null-to');
+    const result = await serveEndpoint(
+      new Map([[spec.id, mockEndpoint(spec)]]),
+      request(spec.id, { scopeId: 'ICH', from: PERIOD.from, to: null }),
+      undefined,
+      { role: 'engineer', latency: 0 },
+    );
+
+    expect(result.outcome).toBe('error');
+    expect(result.message).toContain('to');
+  });
+
+  it('rejects an absent scopeId key on a scope-required endpoint', async () => {
+    const spec = makeSpec('analytics.missing-scope');
+    const result = await serveEndpoint(
+      new Map([[spec.id, mockEndpoint(spec)]]),
+      request(spec.id, PERIOD),
+      undefined,
+      { role: 'engineer', latency: 0 },
+    );
+
+    expect(result.outcome).toBe('error');
+    expect(result.message).toContain('scopeId');
+  });
+
+  it('allows a present null scopeId to reach the scope check', async () => {
+    const spec = makeSpec('analytics.null-scope');
+    const result = await serveEndpoint(
+      new Map([[spec.id, mockEndpoint(spec)]]),
+      request(spec.id, { scopeId: null, ...PERIOD }),
+      undefined,
+      { role: 'engineer', latency: 0 },
+    );
+
+    expect(result.outcome).toBe('forbidden');
+  });
+
+  it('rejects an absent applied roomNames key', async () => {
+    const spec = makeSpec('analytics.missing-room', { context: { roomNames: 'apply' } });
+    const result = await serveEndpoint(
+      new Map([[spec.id, mockEndpoint(spec)]]),
+      request(spec.id, { scopeId: 'ICH' }),
+      undefined,
+      { role: 'engineer', latency: 0 },
+    );
+
+    expect(result.outcome).toBe('error');
+    expect(result.message).toContain('roomNames');
+  });
+
+  it('allows null roomNames when the applied key is present', async () => {
+    const spec = makeSpec('analytics.null-room', { context: { roomNames: 'apply' } });
+    const result = await serveEndpoint(
+      new Map([[spec.id, mockEndpoint(spec)]]),
+      request(spec.id, { scopeId: 'ICH', roomNames: null }),
+      undefined,
+      { role: 'engineer', latency: 0 },
+    );
+
+    expect(result.outcome).toBe('ok');
+  });
+
+  it('requires both projected metric keys', async () => {
+    const spec = makeSpec('analytics.partial-metric', { context: { metric: 'apply' } });
+    const result = await serveEndpoint(
+      new Map([[spec.id, mockEndpoint(spec)]]),
+      request(spec.id, { scopeId: 'ICH', metricId: 'cycleTime' }),
+      undefined,
+      { role: 'engineer', latency: 0 },
+    );
+
+    expect(result.outcome).toBe('error');
+    expect(result.message).toContain('metricVersion');
+  });
+
+  it('rejects a metric version without a metric id', async () => {
+    const spec = makeSpec('analytics.version-without-id', { context: { metric: 'apply' } });
+    const result = await serveEndpoint(
+      new Map([[spec.id, mockEndpoint(spec)]]),
+      request(spec.id, { scopeId: 'ICH', metricId: null, metricVersion: '3' }),
+      undefined,
+      { role: 'engineer', latency: 0 },
+    );
+
+    expect(result.outcome).toBe('error');
+    expect(result.message).toContain('context key metricVersion requires metricId');
+  });
+
+  it('allows a metric id with a null version (initialization entry)', async () => {
+    const spec = makeSpec('analytics.id-without-version', { context: { metric: 'apply' } });
+    const result = await serveEndpoint(
+      new Map([[spec.id, mockEndpoint(spec)]]),
+      request(spec.id, { scopeId: 'ICH', metricId: 'cycleTime', metricVersion: null }),
+      undefined,
+      { role: 'engineer', latency: 0 },
+    );
+
+    expect(result.outcome).toBe('ok');
+  });
+
+  it('rejects an in-process undefined applied key like an absent wire key', async () => {
+    const spec = makeSpec('analytics.undefined-scope');
+    const result = await serveEndpoint(
+      new Map([[spec.id, mockEndpoint(spec)]]),
+      request(spec.id, { scopeId: undefined, ...PERIOD }),
+      undefined,
+      { role: 'engineer', latency: 0 },
+    );
+
+    expect(result.outcome).toBe('error');
+    expect(result.message).toContain('missing context key scopeId');
+  });
 });
 
 describe('serveEndpoint declaration pipeline', () => {
-  it('neutralizes non-applied room, condition and selection keys before resolution and handling', async () => {
-    const spec = makeSpec('analytics.execution-detail', { context: { time: 'apply' } });
+  it('keeps non-applied Context neutral when a request matches the endpoint projection', async () => {
+    const spec = makeSpec('analytics.execution-detail', { context: {} });
     const handle = vi.fn(({ equipment }: Parameters<MockEndpoint<Params, unknown>['handle']>[0]) => ({ ids: equipment.map(row => row.equipmentId) }));
     const endpoint = mockEndpoint(spec, handle);
     const endpoints = new Map<string, AnyMockEndpoint>([[spec.id, endpoint]]);
-    const period = { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' };
-    const deniedEquipment = EQUIPMENT.find(row => row.site === 'ICH' && row.room === 'DIF-202')!;
 
-    const control = await serveEndpoint(endpoints, request(spec.id, { scopeId: 'ICH', ...period }), undefined, { role: 'engineer', latency: 0 });
-    const withIgnoredKeys = await serveEndpoint(endpoints, request(spec.id, {
-      scopeId: 'ICH',
-      ...period,
-      roomNames: ['DIF-202'],
-      condition: { axis: 'team', id: 'not-granted-team' },
-      selection: [deniedEquipment.equipmentId],
-    }), undefined, { role: 'engineer', latency: 0 });
+    const response = await serveEndpoint(endpoints, request(spec.id, { scopeId: 'ICH' }), undefined, { role: 'engineer', latency: 0 });
 
-    expect(withIgnoredKeys.outcome).toBe('ok');
-    expect({ outcome: withIgnoredKeys.outcome, data: withIgnoredKeys.data }).toEqual({ outcome: control.outcome, data: control.data });
-    const received = handle.mock.calls.at(-1)![0];
+    expect(response.outcome).toBe('ok');
+    const received = handle.mock.calls[0][0];
     expect(received.context.roomNames).toBeNull();
     expect(received.context.condition).toBeNull();
     expect(received.context.selection).toBeNull();
@@ -127,7 +304,7 @@ describe('serveEndpoint declaration pipeline', () => {
   it('resolves declared applied keys and forbids a denied room', async () => {
     const spec = makeSpec('analytics.room-filter', { context: { time: 'apply', roomNames: 'apply' } });
     const endpoint = mockEndpoint(spec);
-    const result = await serveEndpoint(new Map([[spec.id, endpoint]]), request(spec.id, { scopeId: 'ICH', roomNames: ['DIF-202'] }), undefined, { role: 'engineer', latency: 0 });
+    const result = await serveEndpoint(new Map([[spec.id, endpoint]]), request(spec.id, { scopeId: 'ICH', ...PERIOD, roomNames: ['DIF-202'] }), undefined, { role: 'engineer', latency: 0 });
     expect(result.outcome).toBe('forbidden');
   });
 
@@ -163,7 +340,7 @@ describe('serveEndpoint declaration pipeline', () => {
     const endpoint = mockEndpoint(spec);
     const result = await serveEndpoint(
       new Map([[spec.id, endpoint]]),
-      request(spec.id, { scopeId: 'ICH', roomNames: 'PH-101' }),
+      request(spec.id, { scopeId: 'ICH', ...PERIOD, roomNames: 'PH-101' }),
       undefined,
       { role: 'engineer', latency: 0 },
     );
@@ -208,13 +385,13 @@ describe('serveEndpoint declaration pipeline', () => {
     await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
   });
 
-  it('drops scopeId before handling an unscoped endpoint', async () => {
+  it('does not expose scopeId to an unscoped handler when the request matches its projection', async () => {
     const spec = makeSpec('analytics.unscoped', { requiresScope: false, context: {} });
     const handle = vi.fn(({ context }: Parameters<MockEndpoint<Params, unknown>['handle']>[0]) => ({ scopeId: context.scopeId }));
     const endpoint = mockEndpoint(spec, handle);
     const result = await serveEndpoint(
       new Map([[spec.id, endpoint]]),
-      request(spec.id, { scopeId: 'ICH' }),
+      request(spec.id, {}),
       undefined,
       { role: 'engineer', latency: 0 },
     );
@@ -294,7 +471,7 @@ describe('serveEndpoint declaration pipeline', () => {
     });
     const result = await serveEndpoint(
       new Map([[spec.id, endpoint]]),
-      request(spec.id, { scopeId: 'ICH' }, { v: '9' }),
+      request(spec.id, { scopeId: 'ICH', ...PERIOD }, { v: '9' }),
       undefined,
       { role: 'engineer', latency: 0 },
     );
@@ -357,6 +534,32 @@ describe('createMockAdapter registration', () => {
     expect(() => createMockAdapter({ endpoints: [mockEndpoint(spec)], registry })).toThrow('analytics.scope-weakened');
   });
 
+  it.each(['roomNames', 'condition', 'selection', 'lot', 'recipe', 'ppid'] as const)(
+    'rejects a scope-free endpoint that applies site-bound %s', key => {
+      const context = { [key]: 'apply' } as EndpointSpec<Params, unknown>['context'];
+      const spec = makeSpec(`analytics.unscoped-${key}`, { requiresScope: false, context });
+      const owner = menuMeta({ requiresScope: false, context: { ...allUnsupported, ...context } });
+
+      expect(() => createMockAdapter({ endpoints: [mockEndpoint(spec)], registry: { menus: [owner] } }))
+        .toThrow(MockRegistrationError);
+      expect(() => createMockAdapter({ endpoints: [mockEndpoint(spec)], registry: { menus: [owner] } }))
+        .toThrow(new RegExp(`analytics\\.unscoped-${key}.*${key}`));
+    },
+  );
+
+  it('accepts a scope-free endpoint that applies only time', () => {
+    const spec = makeSpec('analytics.unscoped-time', { requiresScope: false, context: { time: 'apply' } });
+    const owner = menuMeta({ requiresScope: false });
+    expect(() => createMockAdapter({ endpoints: [mockEndpoint(spec)], registry: { menus: [owner] } })).not.toThrow();
+  });
+
+  it('accepts a scope-free endpoint that applies only metric', () => {
+    const context = { metric: 'apply' } as EndpointSpec<Params, unknown>['context'];
+    const spec = makeSpec('analytics.unscoped-metric', { requiresScope: false, context });
+    const owner = menuMeta({ requiresScope: false, context: { ...allUnsupported, time: 'apply', ...context } });
+    expect(() => createMockAdapter({ endpoints: [mockEndpoint(spec)], registry: { menus: [owner] } })).not.toThrow();
+  });
+
   it('accepts an endpoint permission declared by a menu other than its owner', () => {
     const spec = makeSpec('analytics.cross-permission', { permission: 'notice:view' });
     expect(() => createMockAdapter({ endpoints: [mockEndpoint(spec)], registry })).not.toThrow();
@@ -366,7 +569,7 @@ describe('createMockAdapter registration', () => {
     const spec = makeSpec('analytics.adapter-smoke');
     const endpoint = mockEndpoint(spec, ({ params, equipment }) => ({ term: params.term, count: equipment.length }));
     const adapter = createMockAdapter({ endpoints: [endpoint], registry });
-    const result = await adapter.menuQuery({ endpoint: spec.id, context: { scopeId: 'ICH' }, params: { term: 'smoke' } });
+    const result = await adapter.menuQuery({ endpoint: spec.id, context: { scopeId: 'ICH', ...PERIOD }, params: { term: 'smoke' } });
     expect(result.outcome).toBe('ok');
     expect(result.data).toEqual({ term: 'smoke', count: expect.any(Number) });
   });

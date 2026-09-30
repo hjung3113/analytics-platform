@@ -74,9 +74,34 @@ export async function serveEndpoint(
   const unknownParamKey = Object.keys(req.params).find(key => !Object.prototype.hasOwnProperty.call(endpoint.spec.paramKeys, key));
   if (unknownParamKey) return requestError(`unknown params key ${unknownParamKey}`);
 
-  // Overlay onto emptyGlobal first so omitted applied fields still have their neutral null values.
-  // projectContext keeps only applied keys and scopeId when required; non-applied input never reaches
-  // scope resolution, time-domain checks, or the handler.
+  const appliedContext = projectContext(endpoint.spec, emptyGlobal);
+  const appliedContextKeys = new Set(Object.keys(appliedContext));
+  const nonAppliedContextKey = Object.keys(req.context).find(key => !appliedContextKeys.has(key));
+  if (nonAppliedContextKey) {
+    return requestError(`context key ${nonAppliedContextKey} is not applied by ${endpoint.spec.id}`);
+  }
+
+  const missingAppliedContextKey = Object.keys(appliedContext).find(
+    key => (req.context as Record<string, unknown>)[key] === undefined,
+  );
+  if (missingAppliedContextKey) {
+    return requestError(`missing context key ${missingAppliedContextKey} for ${endpoint.spec.id}`);
+  }
+
+  if (endpoint.spec.context.time === 'apply') {
+    for (const key of ['from', 'to'] as const) {
+      if (typeof req.context[key] !== 'string') {
+        return requestError(`context key ${key} must be a non-null string for ${endpoint.spec.id}`);
+      }
+    }
+  }
+
+  if (endpoint.spec.context.metric === 'apply' && req.context.metricVersion !== null && req.context.metricId === null) {
+    return requestError('context key metricVersion requires metricId (06 §6.1)');
+  }
+
+  // Build handler input from the validated projection; emptyGlobal keeps non-applied fields neutral.
+  // No non-applied request key reaches scope resolution, time-domain checks, or the handler.
   const requestedContext = { ...emptyGlobal, ...req.context } as GlobalContext;
   const projected = projectContext(endpoint.spec, requestedContext);
   const global: GlobalContext = { ...emptyGlobal, ...projected };
