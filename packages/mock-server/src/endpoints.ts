@@ -11,8 +11,8 @@ export type MockEndpoint<P, T> = {
   isEmpty?: (data: T) => boolean;
   /** Trust source shown in Data Trust; defaults like serve(). */
   source?: string;
-  /** Server-attached metricVersion display value (§2.4 step 9). */
-  metricVersion?: (context: GlobalContext) => string | undefined;
+  /** Server-attached metricVersion display value (§2.4 step 9); may depend on the request params. */
+  metricVersion?: (input: { context: GlobalContext; params: P }) => string | undefined;
 };
 
 export const defineMockEndpoint = <P, T>(
@@ -93,7 +93,7 @@ export async function serveEndpoint(
       latency: opts?.latency,
       signal,
       source: endpoint.source,
-      metricVersionOf: endpoint.metricVersion ? () => endpoint.metricVersion!(global) : undefined,
+      metricVersionOf: endpoint.metricVersion ? () => endpoint.metricVersion!({ context: global, params: req.params }) : undefined,
       isEmpty: endpoint.isEmpty,
       compute: ({ equipment }) => endpoint.handle({ equipment, context: global, params: req.params }),
     });

@@ -277,6 +277,32 @@ describe('serveEndpoint declaration pipeline', () => {
     expect(handle).toHaveBeenCalledOnce();
   });
 
+  it('passes the request params to metricVersion', async () => {
+    const spec = defineEndpoint<{ v: string }, unknown>({
+      id: 'analytics.versioned',
+      menuId: 'owner',
+      paramKeys: { v: true },
+      permission: 'platform:view',
+      requiresScope: true,
+      context: { time: 'apply' },
+      kinds: ['collection', 'coverage'],
+      mergeTimeDomain: false,
+    });
+    const endpoint = defineMockEndpoint(spec, {
+      handle: () => ({ ok: true }),
+      metricVersion: ({ params }) => `v${params.v}`,
+    });
+    const result = await serveEndpoint(
+      new Map([[spec.id, endpoint]]),
+      request(spec.id, { scopeId: 'ICH' }, { v: '9' }),
+      undefined,
+      { role: 'engineer', latency: 0 },
+    );
+
+    expect(result.outcome).toBe('ok');
+    expect(result.trust?.metricVersion).toBe('v9');
+  });
+
   it('preserves malformed endpoint data without calling its empty predicate', async () => {
     const spec = makeSpec('analytics.malformed-empty-check');
     const isEmpty = vi.fn((data: unknown) => (data as { total: number }).total === 0);
