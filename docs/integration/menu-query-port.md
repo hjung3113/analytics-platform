@@ -13,7 +13,12 @@
 | Q8 어댑터 기준 | §3 저장소 소유 기준과 멤버별 판정에 동의(`accessDirectory` 유지, VOC 메서드·타입 이전) |
 | Q5 | 엔드포인트 권한은 **데이터 접근 권한**이며 메뉴 manifest 권한과 달라도 된다(2026-09-29 개정: 처음엔 "같아야 한다"였으나 `home`이 `platform:view` 메뉴이면서 공지 조회에 `notice:view`를 요구하는 실제 사례와 충돌해 바꿨다). 등록 시 `menuId`·권한 이름이 Registry에 실재하는지만 검사한다 |
 | Q6 | `respondent_history`는 플랫폼 kind 어휘에 유지, 두 번째 소비자가 나오면 재검토 |
-| Q2, Q3, Q4 | 미룸. Q2는 FastAPI 착수 때, Q3(추천: 거부)·Q4는 §10 단계 7 검증 게이트에서 답한다 |
+| Q2 | 미룸 — FastAPI 착수 때 |
+| Q3 (2026-10-01, 게이트) | 선언이 apply하지 않는 Context 키가 요청에 오면 **error로 거부**한다(단계 7a, #125) |
+| Q4 (2026-10-01, 게이트) | 06 §5 "메뉴가 선언하는 정보"에 **조회 엔드포인트(권한·적용 Context·kind·한도)를 추가**한다(단계 12, #133) |
+| Q9 (2026-10-01, 게이트) | 선언이 apply하는 Context 키가 요청에 없으면 **error로 거부**한다. `time`의 `from`/`to`는 null 불가(단계 7a, #125) |
+| Q10 (2026-10-01, 게이트) | **등록 규칙 6**: `requiresScope: false` 엔드포인트는 `roomNames`·`condition`·`selection`을 apply할 수 없다(단계 7a, #125) |
+| 06 §19 명시적 공집합 (2026-10-01, 게이트) | 명시적 공집합은 원천 조회 없이 `empty`·assessments 없음·trust 없음으로 답하는 **예외로 06 §19에 명시**한다(단계 12, #133) |
 | #98 | 선택지 3, 절반만 확정: room_name 부여·열람 개별 부여는 플랫폼 메타 DB 소유, 역할 소속 원천은 IdP 그룹 claim 사양이 나올 때까지 보류(§9) |
 
 ## 1. 현재 상태 검증 (이슈 진단 대조)
@@ -236,15 +241,15 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 | D. 선언을 contracts에 중앙 집중 | 모든 엔드포인트 선언을 `@ap/contracts`에 둔다 | contracts가 메뉴 목록을 알게 된다(06 §3 "플랫폼은 개별 메뉴를 알지 못한다"). manifest를 메뉴가 소유하는 것과 같은 이유로 선언도 메뉴가 소유. |
 | E. mock 핸들러를 `@ap/mock-server` 안에 | 메뉴 계산을 mock-server로 옮김 | mock-server가 메뉴 선언 타입을 import해야 해서 `mock-server → menu` 역방향 간선이 생긴다. |
 
-## 8. 질문과 결정 상태 (미해결: Q2·Q3·Q4·Q9·Q10)
+## 8. 질문과 결정 상태 (미해결: Q2)
 
 - **Q1.** (결정됨) 2.1의 방향(범용 요청 + 메뉴 선언 + 전송 하나 주입)을 채택한다. 대안 A(메뉴별 포트 주입)는 조회 모양에 안 맞는 기능이 생기면 재검토.
 - **Q2.** 실서버 착수 후 선언의 원본은 어디인가: TS 선언 → FastAPI(Pydantic) codegen, 아니면 FastAPI OpenAPI → TS codegen. `PLATFORM_REQUIREMENTS.md:141`과 06 §6.1("형식은 Candidate")이 여기에 걸린다.
-- **Q3.** 선언이 apply하지 않는 Context 키가 요청에 오면 서버가 거부(error)할지 무시할지. 추천: 거부 — 클라이언트 투영 버그를 드러낸다.
-- **Q4.** 06 §5 "메뉴가 선언하는 정보"(Decided 표)에 "조회 엔드포인트(권한·적용 Context·적용 kind)"를 추가하나. 06 변경이라 플랫폼 레벨 결정.
-- **Q9.** (#117, 게이트) 적용하는 Context 키가 요청에 없거나 null이면? 지금은 `time` 적용 + `limits.maxHours` 엔드포인트에 `to`를 빼면 "기간 없음"으로 한도 검사를 건너뛴다(`serve()`와 같음). 추천: 적용 키는 반드시 있어야 한다(없으면 error) — Q3와 같은 "요청 모양은 선언과 정확히 일치" 원칙, 단계 7a에서 함께.
-- **Q10.** (#117, 게이트) `requiresScope: false` 엔드포인트가 `roomNames`·`condition`·`selection`을 apply해도 되나? 지금은 등록 검증을 통과하고 site·room 부여 검증 없이 핸들러에 간다. 추천: 등록 규칙 6으로 금지(§2.4 규칙 목록 변경이라 플랫폼 레벨 결정).
-- **#117 게이트 질문.** 명시적 공집합은 원천 조회가 실행되지 않아 `outcome: 'empty'`, `assessments: []`, `trust: null`로 반환하는 의도적 예외이며, 06 §19의 “`empty`는 선언한 kind를 모두 담는다”는 규칙과 다르다. 06 §19에도 이 예외를 적을지 게이트에서 확인한다.
+- **Q3.** (결정됨 2026-10-01: 거부) 선언이 apply하지 않는 Context 키가 요청에 오면 서버가 거부(error)할지 무시할지. 추천: 거부 — 클라이언트 투영 버그를 드러낸다.
+- **Q4.** (결정됨 2026-10-01: 추가) 06 §5 "메뉴가 선언하는 정보"(Decided 표)에 "조회 엔드포인트(권한·적용 Context·적용 kind)"를 추가하나. 06 변경이라 플랫폼 레벨 결정.
+- **Q9.** (결정됨 2026-10-01: 거부, #117) 적용하는 Context 키가 요청에 없거나 null이면? 지금은 `time` 적용 + `limits.maxHours` 엔드포인트에 `to`를 빼면 "기간 없음"으로 한도 검사를 건너뛴다(`serve()`와 같음). 추천: 적용 키는 반드시 있어야 한다(없으면 error) — Q3와 같은 "요청 모양은 선언과 정확히 일치" 원칙, 단계 7a에서 함께.
+- **Q10.** (결정됨 2026-10-01: 등록 규칙 6, #117) `requiresScope: false` 엔드포인트가 `roomNames`·`condition`·`selection`을 apply해도 되나? 지금은 등록 검증을 통과하고 site·room 부여 검증 없이 핸들러에 간다. 추천: 등록 규칙 6으로 금지(§2.4 규칙 목록 변경이라 플랫폼 레벨 결정).
+- **#117 게이트 질문.** 명시적 공집합은 원천 조회가 실행되지 않아 `outcome: 'empty'`, `assessments: []`, `trust: null`로 반환하는 의도적 예외이며, 06 §19의 “`empty`는 선언한 kind를 모두 담는다”는 규칙과 다르다. 06 §19에도 이 예외를 적을지 게이트에서 확인한다 → (결정됨 2026-10-01: 06 §19에 예외로 명시, 단계 12)
 - **Q5.** (결정됨, 개정) 엔드포인트 권한은 데이터 접근 권한이라 메뉴 manifest 권한과 달라도 된다. 근거 사례: `menus/home/src/index.ts`는 `platform:view`, `OperationsHome.tsx`의 공지 조회는 `notice:view`. 등록 시에는 `menuId`와 권한 이름의 실재만 검사한다.
 - **Q6.** (결정됨) 메뉴 하나만 쓰는 assessment kind(`respondent_history`)는 플랫폼 어휘에 유지한다. 두 번째 소비자가 나오면 메뉴 확장 어휘 허용 여부를 재검토한다.
 - **Q7.** (결정됨) 마이그레이션 범위(5.1) 승인: 2개 검증 → 확인 → 생성기 → 나머지 패키지별(각각 이슈). 이 과정에서 기존 화면 8개를 차례로 건드리므로 루트 규칙("메뉴 화면 3개 이상 연속 작업 전 범위 확인")에 따라 여기서 범위를 확인받았다. VOC 이전은 #100에 포함한다.
@@ -277,8 +282,8 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 | 4 | lint: `mock-server`는 `src/mock/**`(+ 이행 중 `src/api.ts`), pages → `mock/` 금지, `@ap/menu-*/mock`은 `main.tsx`만 | `tooling/eslint` `boundaries.test.ts`에 위반 사례 추가(수정 전 실패) |
 | 5 | `productivity-overview` 이전(엔드포인트 4개, 계산 → `src/mock/`) | 기존 테스트, `pnpm dev`에서 시나리오 normal/partial/too_large/forbidden/역할 전환, `pnpm e2e` 보고서 |
 | 6 | `execution-detail` 이전(수동 null 처리 제거) | returnTo 왕복·§22 e2e, occurrence 조회가 90일 Context에서도 too_large가 아님 |
-| 7 | **사람 확인 게이트** — 1–6 결과로 §8 Q3·Q4·Q9·Q10(#117) 답 받기 | — |
-| 7a | Q3 결과 반영: 선언 밖 Context 키가 오면 응답을 error로 거부할지 무시할지(거부 추천) | 선택한 동작의 테스트(거부면 error, 무시면 단계 2의 결과 동일 유지) |
+| 7 | **사람 확인 게이트** — 1–6 결과로 §8 Q3·Q4·Q9·Q10(#117) 답 받기 (2026-10-01 완료) | — |
+| 7a | 게이트 결정 반영(#125): Q3 비적용 키 → error, Q9 적용 키 누락 → error, Q10 등록 규칙 6 | 각 거부 규칙 테스트(수정 전 실패), 기존 테스트·`pnpm e2e` |
 | 8 | gen-menu 전환(§4) | gen-menu 테스트 + `scripts/probe.ts`(임시 그룹이 루트 네 명령 통과 = 다중 패키지 mock 등록 확인) |
 | 9 | 나머지 이전, 패키지별 1 PR: `cycle-time`(+내보내기 `cycleData.ts:224`, `export-permission.test.ts` 이동), `equipment-master`, `metrics`(쌍 검증 서버로), `home`(`NOTICES` → mock) | 각 패키지 테스트 + 브라우저 + `pnpm e2e` |
 | 10 | VOC 이전: 두 메서드 어댑터에서 제거, `MyVoc*` 타입 메뉴로 | `MyVocHistory.test.tsx`, `voc-status.test.ts`, contracts에서 `MyVocStatus` grep 0 |
