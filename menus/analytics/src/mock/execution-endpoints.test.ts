@@ -75,9 +75,8 @@ describe('execution-detail occurrence endpoint registration', () => {
 });
 
 describe('execution-detail occurrence endpoint behavior', () => {
-  it('ignores a carried 90-day Context, including room and selection, and preserves an out-of-range occurrence', async () => {
+  it('rejects carried reference-only Context and accepts a request matching its projection', async () => {
     const from = '2026-06-28T09:00:00';
-    const to = '2026-09-26T09:00:00';
     const execution = grantedExecution(from);
     const outsideGrant = EQUIPMENT.find(row => row.site === 'ICH' && row.room === 'DIF-202');
     if (!outsideGrant) throw new Error('expected seeded equipment in ungranted ICH room DIF-202');
@@ -104,22 +103,23 @@ describe('execution-detail occurrence endpoint behavior', () => {
     };
     const withReferenceContext = await observedAdapter.menuQuery({
       endpoint: occurrenceEndpoint.id,
-      context: { scopeId: 'ICH', from, to, roomNames: ['DIF-202'], selection: [outsideGrant.equipmentId] },
+      context: { scopeId: 'ICH', roomNames: ['DIF-202'], selection: [outsideGrant.equipmentId] },
       params,
     });
-    expect(['ok', 'empty']).toContain(withReferenceContext.outcome);
-    expect(withReferenceContext.outcome).not.toBe('too_large');
-    expect((withReferenceContext.data as OccurrenceResult | null)?.access).toBe('ok');
-    expect(seenContext).toMatchObject({ scopeId: 'ICH', roomNames: null, selection: null });
+    expect(withReferenceContext.outcome).toBe('error');
+    expect(withReferenceContext.message).toContain('roomNames');
+    expect(seenContext).toBeUndefined();
 
-    const withoutRoomAndSelection = await observedAdapter.menuQuery({
+    const wellFormed = await observedAdapter.menuQuery({
       endpoint: occurrenceEndpoint.id,
-      context: { scopeId: 'ICH', from, to },
+      context: { scopeId: 'ICH' },
       params,
     });
-    expect(withoutRoomAndSelection.outcome).toBe(withReferenceContext.outcome);
-    expect(withoutRoomAndSelection.data).toEqual(withReferenceContext.data);
-    expect(withReferenceContext.trust?.metricVersion).toBe(params.metricVersion);
+    expect(['ok', 'empty']).toContain(wellFormed.outcome);
+    expect(wellFormed.outcome).not.toBe('too_large');
+    expect((wellFormed.data as OccurrenceResult | null)?.access).toBe('ok');
+    expect(seenContext).toMatchObject({ scopeId: 'ICH', roomNames: null, selection: null });
+    expect(wellFormed.trust?.metricVersion).toBe(params.metricVersion);
   });
 
   it('returns granted, forbidden, and missing access states and pins declared kinds', async () => {

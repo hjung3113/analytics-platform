@@ -55,8 +55,11 @@ const adapter = createMockAdapter({ endpoints: analyticsMock, registry });
 
 const FROM = '2026-09-25T09:00:00';
 const TO = '2026-09-26T09:00:00';
-/** Applied keys only, like projectContext sends: scope, period, one granted room. */
-const context = { scopeId: 'ICH', from: FROM, to: TO, roomNames: ['PH-101'] };
+/** All applied keys, like projectContext sends: scope, period, and the current filters. */
+const context = {
+  scopeId: 'ICH', from: FROM, to: TO, roomNames: ['PH-101'],
+  condition: null, selection: null, ppid: null, recipeIds: null,
+};
 
 const previousRole = getRole();
 beforeEach(() => { setRole('engineer'); });

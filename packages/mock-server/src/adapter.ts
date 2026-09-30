@@ -2,7 +2,7 @@
  * Mock implementation of the kernel port (@ap/contracts PlatformAdapter). The kernel never imports mock/*;
  * main.tsx injects the object returned by createMockAdapter. A real server adapter replaces this file, not the kernel.
  */
-import type { MenuMeta, PlatformAdapter, Session } from '@ap/contracts';
+import type { ContextKey, MenuMeta, PlatformAdapter, Session } from '@ap/contracts';
 import { checkScope, getEntity, getRole, matchesCondition, recordUsage, reportClientError, subscribeServer, usageSummary, validateScope } from './server';
 import { auditTrail, entityAudit } from './audit';
 import { accessDirectory } from './access';
@@ -10,6 +10,8 @@ import { listAnnotations, saveAnnotation } from './annotations';
 import { mySurveyHistory, myVocHistory } from './my-voc';
 import { DEFAULT_RANGE_TO, EQUIPMENT, PUBLISHED_METRICS, SITES, USERS, type RoleId } from './world';
 import { MockRegistrationError, serveEndpoint, type AnyMockEndpoint } from './endpoints';
+
+const siteBoundContextKeys = new Set<ContextKey>(['roomNames', 'condition', 'selection', 'lot', 'recipe', 'ppid']);
 
 /** Short async hop so the shell exercises its loading path, as it would against a real server. */
 function pause(signal?: AbortSignal, ms = 80) {
@@ -56,6 +58,14 @@ export function createMockAdapter(o: {
     }
     if (owner.requiresScope && !spec.requiresScope) {
       throw new MockRegistrationError(`endpoint ${spec.id}: menu ${spec.menuId} requires scope`);
+    }
+
+    if (!spec.requiresScope) {
+      const siteBoundContext = Object.entries(spec.context).find(([key, capability]) =>
+        capability === 'apply' && siteBoundContextKeys.has(key as ContextKey));
+      if (siteBoundContext) {
+        throw new MockRegistrationError(`endpoint ${spec.id}: scope-free endpoint cannot apply site-bound context ${siteBoundContext[0]}`);
+      }
     }
 
     endpoints.set(spec.id, endpoint);
