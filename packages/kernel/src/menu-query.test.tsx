@@ -1,0 +1,430 @@
+import { act, cleanup, render, screen } from '@testing-library/react';
+import { defineEndpoint, type ApiResponse, type AssessmentKind, type EndpointSpec, type MenuQuery, type PlatformAdapter, type ScopeCheck, type Session } from '@ap/contracts';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { House } from 'lucide-react';
+import { I18nProvider } from './i18n';
+import { PlatformProvider, usePlatform } from './platform';
+import { type QueryState, useMenuQuery } from './query';
+import { createRegistry } from './registry';
+
+type Params = { page: number; sort?: string };
+type QueryData = { call: number; context: MenuQuery['context']; params: Params };
+
+const params: Params = { page: 1, sort: 'cycle' };
+const endpoint: EndpointSpec<Params, QueryData> = defineEndpoint<Params, QueryData>({
+  id: 'fixture.list',
+  menuId: 'home',
+  paramKeys: { page: true, sort: true },
+  permission: 'platform:view',
+  requiresScope: false,
+  context: { time: 'apply' },
+  kinds: ['collection', 'coverage'],
+  mergeTimeDomain: false,
+});
+
+function makeRegistry(time: 'apply' | 'unsupported') {
+  return createRegistry({
+    spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' }],
+    groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
+    menus: [{
+      id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' },
+      path: '/', icon: House, permission: 'platform:view', requiresScope: false,
+      context: {
+        time, roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
+        lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
+      },
+      pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [],
+    }],
+  });
+}
+
+const registry = makeRegistry('unsupported');
+const periodRegistry = makeRegistry('apply');
+
+type Answer = (request: MenuQuery, call: number) => ApiResponse<QueryData>;
+type FixtureOptions = { answer?: Answer; validateScope?: PlatformAdapter['validateScope'] };
+
+function fixture(options: FixtureOptions = {}) {
+  const make = (id: string): Session => ({
+    user: { id, name: id, title: { ko: id, en: id }, permissions: ['platform:view'] },
+    scopes: [],
+  });
+  const sessions = { a: make('user-a'), b: make('user-b') };
+  let current: Session = sessions.a;
+  const listeners = new Set<() => void>();
+  const requests: MenuQuery[] = [];
+  const answer: Answer = options.answer ?? ((request, call) => ({
+    outcome: 'ok',
+    data: { call, context: request.context, params: request.params as Params },
+    assessments: endpoint.kinds.map(kind => ({ kind, state: 'clear' as const })),
+    trust: null,
+    correlationId: `fixture-${call}`,
+  }));
+  const adapter: PlatformAdapter = {
+    menuQuery: vi.fn(async (request: MenuQuery, _signal?: AbortSignal) => {
+      requests.push(request);
+      return answer(request, requests.length);
+    }),
+    session: () => current,
+    validateScope: options.validateScope ?? (async () => ({ status: 'valid', grantedRooms: [] })),
+    publishedMetrics: () => [],
+    defaultRangeTo: () => '2026-09-26T09:00:00',
+    contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
+    evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
+    getEntity: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    auditTrail: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    entityAudit: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    accessDirectory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    recordUsage: async () => ({ accepted: 0 }),
+    usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    myVocHistory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    mySurveyHistory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    listAnnotations: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    saveAnnotation: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    reportClientError: async () => ({ accepted: true }),
+    subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
+  };
+  return {
+    adapter,
+    requests,
+    switchTo: (key: keyof typeof sessions) => { current = sessions[key]; listeners.forEach(listener => listener()); },
+    replaceWithSameUser: () => {
+      current = { ...current, user: { ...current.user, permissions: [...current.user.permissions] } };
+      listeners.forEach(listener => listener());
+    },
+  };
+}
+
+type ProbeProps = {
+  spec?: EndpointSpec<Params, QueryData>;
+  enabled?: boolean;
+  onQuery?: (query: QueryState<QueryData>) => void;
+};
+
+function QueryProbe({ spec = endpoint, enabled = true, onQuery }: ProbeProps) {
+  const { global, setGlobal } = usePlatform();
+  const query = useMenuQuery(spec, params, enabled);
+  onQuery?.(query);
+  return (
+    <>
+      <p data-testid="query">{query.status}:{query.response?.data?.call ?? '-'}</p>
+      <p data-testid="outcome">{query.response?.outcome ?? '-'}</p>
+      <p data-testid="message">{query.response?.message ?? '-'}</p>
+      <p data-testid="period">{global.from ?? '-'}|{global.to ?? '-'}</p>
+      <button type="button" data-testid="non-applied" onClick={() => setGlobal({ roomNames: ['ETCH'] })}>room</button>
+      <button type="button" data-testid="applied" onClick={() => setGlobal({ from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' })}>from</button>
+    </>
+  );
+}
+
+function mount(f: ReturnType<typeof fixture>, props: ProbeProps = {}, selectedRegistry = registry) {
+  return render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={selectedRegistry}><QueryProbe {...props} /></PlatformProvider></I18nProvider>);
+}
+
+function response(outcome: ApiResponse<QueryData>['outcome'], kinds: AssessmentKind[], correlationId = 'server-correlation'): ApiResponse<QueryData> {
+  return {
+    outcome,
+    data: outcome === 'ok' ? { call: 1, context: {}, params } : null,
+    assessments: kinds.map(kind => ({ kind, state: 'clear' })),
+    trust: null,
+    correlationId,
+  };
+}
+
+function MenuQueryNoInferTypeProbe() {
+  // @ts-expect-error Params are fixed by the endpoint declaration, not inferred from this bad literal.
+  useMenuQuery(endpoint, { page: 'not-a-number' });
+  return null;
+}
+void MenuQueryNoInferTypeProbe;
+
+beforeEach(() => {
+  window.history.replaceState(null, '', '/?v=1&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+  const data = new Map<string, string>();
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => data.get(key) ?? null,
+    setItem: (key: string, value: string) => { data.set(key, value); },
+    removeItem: (key: string) => { data.delete(key); },
+    clear: () => data.clear(),
+    key: () => null,
+    get length() { return data.size; },
+  });
+});
+
+afterEach(() => {
+  cleanup();
+  window.history.replaceState(null, '', '/');
+  vi.unstubAllGlobals();
+});
+
+describe('useMenuQuery identity and request shape', () => {
+  it('sends only endpoint, projected Context, and params', async () => {
+    const f = fixture();
+    mount(f);
+    expect(await screen.findByText('done:1')).toBeTruthy();
+
+    const request = f.requests[0];
+    expect(Object.keys(request).sort()).toEqual(['context', 'endpoint', 'params']);
+    expect(request).toEqual({ endpoint: endpoint.id, context: { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' }, params });
+    expect(request.context).not.toHaveProperty('roomNames');
+    expect(request.context).not.toHaveProperty('permission');
+    expect(request).not.toHaveProperty('kinds');
+  });
+
+  it('does not refetch for a Context key the endpoint does not apply and keeps the result visible', async () => {
+    const f = fixture();
+    mount(f);
+    expect(await screen.findByText('done:1')).toBeTruthy();
+
+    act(() => screen.getByTestId('non-applied').click());
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.getByTestId('query').textContent).toBe('done:1');
+    expect(f.requests).toHaveLength(1);
+  });
+
+  it('hides the previous result when an applied key changes, then requests with the new Context', async () => {
+    const f = fixture();
+    mount(f);
+    expect(await screen.findByText('done:1')).toBeTruthy();
+
+    act(() => screen.getByTestId('applied').click());
+    expect(screen.getByTestId('query').textContent).toBe('loading:-');
+    expect(await screen.findByText('done:2')).toBeTruthy();
+    expect(f.requests).toHaveLength(2);
+    expect(f.requests[1].context.from).toBe('2026-09-25T00:00:00');
+  });
+
+  it('hides the previous result immediately after a role/session switch', async () => {
+    const f = fixture();
+    mount(f);
+    expect(await screen.findByText('done:1')).toBeTruthy();
+
+    act(() => f.switchTo('b'));
+    expect(screen.getByTestId('query').textContent).toBe('loading:-');
+    expect(await screen.findByText('done:2')).toBeTruthy();
+  });
+
+  it('waits for the selected Scope to be validated before querying', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    let finishValidation!: (check: ScopeCheck) => void;
+    const validation = new Promise<ScopeCheck>(resolve => { finishValidation = resolve; });
+    const f = fixture({ validateScope: async () => validation });
+    mount(f, { spec: { ...endpoint, requiresScope: true } });
+
+    await act(async () => { await Promise.resolve(); });
+    expect(f.requests).toHaveLength(0);
+
+    act(() => finishValidation({ status: 'valid', grantedRooms: [] }));
+    expect(await screen.findByText('done:1')).toBeTruthy();
+    expect(f.requests).toHaveLength(1);
+    expect(f.requests[0].context.scopeId).toBe('ICH');
+  });
+
+  it('queries an endpoint that does not require Scope when no Scope is selected', async () => {
+    const f = fixture();
+    mount(f);
+    expect(await screen.findByText('done:1')).toBeTruthy();
+    expect(f.requests).toHaveLength(1);
+    expect(f.requests[0].context).not.toHaveProperty('scopeId');
+  });
+
+  it('does not query for a new user until that user has validated the selected Scope', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    let finishUserBValidation!: (check: ScopeCheck) => void;
+    const userBValidation = new Promise<ScopeCheck>(resolve => { finishUserBValidation = resolve; });
+    let validationCount = 0;
+    const f = fixture({
+      validateScope: async () => {
+        validationCount++;
+        return validationCount === 1 ? { status: 'valid', grantedRooms: [] } : userBValidation;
+      },
+    });
+    mount(f, { spec: { ...endpoint, requiresScope: true } });
+    expect(await screen.findByText('done:1')).toBeTruthy();
+    expect(f.requests).toHaveLength(1);
+
+    act(() => f.switchTo('b'));
+    await act(async () => { await Promise.resolve(); });
+    expect(validationCount).toBe(2);
+    expect(f.requests).toHaveLength(1);
+
+    act(() => finishUserBValidation({ status: 'valid', grantedRooms: [] }));
+    expect(await screen.findByText('done:2')).toBeTruthy();
+    expect(f.requests).toHaveLength(2);
+  });
+
+  it('does not query for a replacement same-ID session until that session validates Scope', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    const replacementValidations: Array<(check: ScopeCheck) => void> = [];
+    let validationCount = 0;
+    const f = fixture({
+      validateScope: async () => {
+        validationCount++;
+        if (validationCount === 1) return { status: 'valid', grantedRooms: [] };
+        return new Promise<ScopeCheck>(resolve => replacementValidations.push(resolve));
+      },
+    });
+    mount(f, { spec: { ...endpoint, requiresScope: true } });
+    expect(await screen.findByText('done:1')).toBeTruthy();
+    expect(f.requests).toHaveLength(1);
+
+    act(() => f.replaceWithSameUser());
+    await act(async () => { await Promise.resolve(); });
+    expect(validationCount).toBe(2);
+    expect(f.requests).toHaveLength(1);
+
+    // A late result for the replaced session must not validate the current session.
+    act(() => f.replaceWithSameUser());
+    await act(async () => { await Promise.resolve(); });
+    expect(validationCount).toBe(3);
+    await act(async () => {
+      replacementValidations[0]({ status: 'valid', grantedRooms: [] });
+      await Promise.resolve();
+    });
+    expect(f.requests).toHaveLength(1);
+
+    act(() => replacementValidations[1]({ status: 'valid', grantedRooms: [] }));
+    expect(await screen.findByText('done:2')).toBeTruthy();
+    expect(f.requests).toHaveLength(2);
+  });
+
+  it('does not query a changed URL Scope until that Scope validates', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    let finishXiaValidation!: (check: ScopeCheck) => void;
+    const xiaValidation = new Promise<ScopeCheck>(resolve => { finishXiaValidation = resolve; });
+    const f = fixture({
+      validateScope: async scopeId => scopeId === 'ICH'
+        ? { status: 'valid', grantedRooms: [] }
+        : xiaValidation,
+    });
+    mount(f, { spec: { ...endpoint, requiresScope: true } });
+    expect(await screen.findByText('done:1')).toBeTruthy();
+    expect(f.requests).toHaveLength(1);
+
+    act(() => {
+      window.history.replaceState(null, '', '/?v=1&scopeId=XIA&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    await act(async () => { await Promise.resolve(); });
+    expect(f.requests).toHaveLength(1);
+
+    act(() => finishXiaValidation({ status: 'valid', grantedRooms: [] }));
+    expect(await screen.findByText('done:2')).toBeTruthy();
+    expect(f.requests).toHaveLength(2);
+    expect(f.requests[0].context.scopeId).toBe('ICH');
+    expect(f.requests[1].context.scopeId).toBe('XIA');
+  });
+
+  it('waits for the default period before querying a time-applying endpoint', async () => {
+    window.history.replaceState(null, '', '/');
+    const f = fixture();
+    mount(f, { spec: endpoint }, periodRegistry);
+
+    expect(await screen.findByText('2026-09-25T09:00:00|2026-09-26T09:00:00')).toBeTruthy();
+    await act(async () => { await Promise.resolve(); });
+    expect(f.requests).toHaveLength(1);
+    expect(f.requests[0].context).toMatchObject({ from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' });
+  });
+
+  it('does not query while disabled', async () => {
+    const f = fixture();
+    mount(f, { enabled: false });
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.getByTestId('query').textContent).toBe('loading:-');
+    expect(f.requests).toHaveLength(0);
+  });
+});
+
+describe('useMenuQuery assessment contract', () => {
+  it.each([
+    { label: 'missing', kinds: ['collection'] as AssessmentKind[] },
+    { label: 'extra', kinds: ['collection', 'coverage', 'time_domain'] as AssessmentKind[] },
+    { label: 'duplicate', kinds: ['collection', 'collection'] as AssessmentKind[] },
+  ])('returns a contract error for $label assessment kinds', async ({ kinds }) => {
+    const serverResponse = response('ok', kinds);
+    const f = fixture({ answer: () => serverResponse });
+    const observed: QueryState<QueryData>[] = [];
+    mount(f, { onQuery: query => { observed.push(query); } });
+    expect(await screen.findByText('done:-')).toBeTruthy();
+
+    expect(screen.getByTestId('outcome').textContent).toBe('error');
+    expect(observed.at(-1)?.response).toMatchObject({
+      outcome: 'error', data: null, trust: null, assessments: [], correlationId: 'server-correlation',
+      message: `contract_violation: assessments [${kinds.join(', ')}] ≠ declared [collection, coverage]`,
+    });
+  });
+
+  it('checks assessment kinds for empty responses too', async () => {
+    const serverResponse = response('empty', ['collection']);
+    const f = fixture({ answer: () => serverResponse });
+    const observed: QueryState<QueryData>[] = [];
+    mount(f, { onQuery: query => { observed.push(query); } });
+    expect(await screen.findByText('done:-')).toBeTruthy();
+    expect(observed.at(-1)?.response?.outcome).toBe('error');
+  });
+
+  it('passes through an explicit-empty response requested by an applied empty set', async () => {
+    window.history.replaceState(null, '', '/?v=1&roomSelection=none&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    const serverResponse = response('empty', []);
+    const f = fixture({ answer: () => serverResponse });
+    const observed: QueryState<QueryData>[] = [];
+    const roomEndpoint = { ...endpoint, context: { ...endpoint.context, roomNames: 'apply' as const } };
+    mount(f, { spec: roomEndpoint, onQuery: query => { observed.push(query); } });
+    expect(await screen.findByText('done:-')).toBeTruthy();
+
+    expect(screen.getByTestId('outcome').textContent).toBe('empty');
+    expect(observed.at(-1)?.response).toBe(serverResponse);
+    expect(f.requests[0].context.roomNames).toEqual([]);
+  });
+
+  it('rejects the explicit-empty response shape when the request had no applied empty set', async () => {
+    const serverResponse = response('empty', []);
+    const f = fixture({ answer: () => serverResponse });
+    const observed: QueryState<QueryData>[] = [];
+    const roomEndpoint = { ...endpoint, context: { ...endpoint.context, roomNames: 'apply' as const } };
+    mount(f, { spec: roomEndpoint, onQuery: query => { observed.push(query); } });
+    expect(await screen.findByText('done:-')).toBeTruthy();
+
+    expect(f.requests[0].context.roomNames).toBeNull();
+    expect(observed.at(-1)?.response).toMatchObject({
+      outcome: 'error', trust: null, assessments: [],
+      message: 'contract_violation: assessments [] ≠ declared [collection, coverage]',
+    });
+  });
+
+  it('still rejects an empty response with trust and missing assessment kinds', async () => {
+    const serverResponse = response('empty', []);
+    serverResponse.trust = {
+      updatedAt: '2026-09-26T09:00:00', dataThrough: null, coverage: null,
+      provisional: false, source: 'fixture',
+    };
+    const f = fixture({ answer: () => serverResponse });
+    const observed: QueryState<QueryData>[] = [];
+    mount(f, { onQuery: query => { observed.push(query); } });
+    expect(await screen.findByText('done:-')).toBeTruthy();
+
+    expect(observed.at(-1)?.response).toMatchObject({
+      outcome: 'error', trust: null, assessments: [],
+      message: 'contract_violation: assessments [] ≠ declared [collection, coverage]',
+    });
+  });
+
+  it('passes through an exact multiset even when assessment order differs', async () => {
+    const serverResponse = response('ok', ['coverage', 'collection']);
+    const f = fixture({ answer: () => serverResponse });
+    const observed: QueryState<QueryData>[] = [];
+    mount(f, { onQuery: query => { observed.push(query); } });
+    expect(await screen.findByText('done:1')).toBeTruthy();
+    expect(observed.at(-1)?.response).toBe(serverResponse);
+  });
+
+  it('passes through forbidden responses with empty assessments', async () => {
+    const serverResponse = response('forbidden', []);
+    const f = fixture({ answer: () => serverResponse });
+    const observed: QueryState<QueryData>[] = [];
+    mount(f, { onQuery: query => { observed.push(query); } });
+    expect(await screen.findByText('done:-')).toBeTruthy();
+    expect(screen.getByTestId('outcome').textContent).toBe('forbidden');
+    expect(observed.at(-1)?.response).toBe(serverResponse);
+  });
+});

@@ -4,7 +4,7 @@ import { pathFor, type MenuEntry, type Registry } from './registry';
 import { useI18n } from './i18n';
 import { buildQuery, ContractError, emptyGlobal, type GlobalContext, incompleteMetricPair, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type UsageEvent } from '@ap/contracts';
 
-export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope'; grantedRooms: string[] };
+export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope'; validatedFor: Session | null; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
 export type Toast = { id: number; text: string; tone: 'info' | 'warning' | 'danger' };
 /**
@@ -135,9 +135,9 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   const [scope, setScope] = useState<ScopeState>(() => {
     try {
       const id = new URLSearchParams(window.location.search).get('scopeId');
-      if (id) return { scopeId: id, status: 'validating', grantedRooms: [] };
+      if (id) return { scopeId: id, status: 'validating', validatedFor: session, grantedRooms: [] };
     } catch { /* keep none */ }
-    return { scopeId: null, status: 'none', grantedRooms: [] };
+    return { scopeId: null, status: 'none', validatedFor: session, grantedRooms: [] };
   });
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -285,11 +285,11 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   // Scope is re-validated on every change of requested scope or session (§6.2); URL is never proof.
   useEffect(() => {
     const scopeId = global.scopeId;
-    if (!scopeId) { setScope({ scopeId: null, status: 'none', grantedRooms: [] }); return; }
+    if (!scopeId) { setScope({ scopeId: null, status: 'none', validatedFor: session, grantedRooms: [] }); return; }
     const controller = new AbortController();
-    setScope({ scopeId, status: 'validating', grantedRooms: [] });
+    setScope({ scopeId, status: 'validating', validatedFor: session, grantedRooms: [] });
     adapter.validateScope(scopeId, controller.signal).then(result => {
-      setScope({ scopeId, status: result.status, grantedRooms: result.grantedRooms });
+      setScope({ scopeId, status: result.status, validatedFor: session, grantedRooms: result.grantedRooms });
       if (result.status === 'valid') { setLastScope(scopeId); write(`platform:lastScope:${userId}`, scopeId); }
     }).catch(() => { /* superseded */ });
     return () => controller.abort();
