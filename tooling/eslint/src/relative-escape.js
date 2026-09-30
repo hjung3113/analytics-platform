@@ -137,4 +137,4 @@ const noRelativePackageEscape = {
   },
 };
 
-export default noRelativePackageEscape;
+export { findOwningPackage, noRelativePackageEscape as default };

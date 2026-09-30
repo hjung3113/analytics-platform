@@ -12,13 +12,24 @@ import { PACKAGE_PREFIX } from './prefix.js';
  * Decide whether a string source is restricted for this layer.
  * Returns the violation message, or null when the import is allowed.
  * Mirrors no-restricted-imports pattern semantics: deep subpaths are always
- * banned, except the restriction's exact `allowSubpaths` entries;
+ * banned, except the restriction's exact or glob-matched `allowSubpaths` entries;
  * `allow: null` means every package entry is allowed; mockAllowed
  * exempts exactly the mock-server entry (never its subpaths).
  */
 function makeEvaluate(opts) {
   const allow = 'allow' in opts ? opts.allow : null;
   const allowSubpaths = 'allowSubpaths' in opts ? opts.allowSubpaths : [];
+  const allowsSubpath = (subpath) =>
+    allowSubpaths.some((pattern) => {
+      if (!pattern.includes('*')) return subpath === pattern;
+      // `[^/]+` (not `[^/]*`): a `menu-/mock` source names no real package. The
+      // no-restricted-imports side cannot express "one or more" — see MENU_SUBPATH_ALLOW.
+      const expression = pattern
+        .split('*')
+        .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .join('[^/]+');
+      return new RegExp(`^${expression}$`).test(subpath);
+    });
   return (source) => {
     if (typeof source !== 'string') return null;
     if (source.startsWith(PACKAGE_PREFIX)) {
@@ -26,7 +37,7 @@ function makeEvaluate(opts) {
       const slash = rest.indexOf('/');
       const name = slash === -1 ? rest : rest.slice(0, slash);
       if (slash !== -1) {
-        if (allowSubpaths.includes(rest)) return null;
+        if (allowsSubpath(rest)) return null;
         return opts.deepMessage;
       }
       if (name === 'mock-server') return opts.mockAllowed ? null : opts.mockMessage;

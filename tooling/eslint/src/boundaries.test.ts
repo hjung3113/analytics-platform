@@ -28,6 +28,7 @@ const PRESETS: Record<string, Linter.Config[]> = {
   'packages/shell': shell,
   'packages/mock-server': mockServer,
   'menus/home': menu,
+  'menus/analytics': menu,
   'apps/platform-web': app,
 };
 
@@ -86,7 +87,7 @@ const rows: Row[] = [
   { file: 'menus/home/src/api.ts', code: `import { x } from '@ap/mock-server';`, rule: '' },
   { file: 'menus/home/src/api.ts', code: `export { serve } from '@ap/mock-server';`, rule: '' },
   { file: MENU, code: `import { x } from '@ap/components';`, rule: '' },
-  { file: MENU, code: `import { serve } from '../api';`, rule: '' },
+  { file: 'menus/home/src/pages/OperationsHome.tsx', code: `import { serve } from '../api';`, rule: '' },
   { file: MENU, code: `import '@ap/ui/styles.css';`, rule: 'no-restricted-imports' },
 
   // --- app mock-server carve-out / D2 (29-36) ---
@@ -194,6 +195,67 @@ const rows: Row[] = [
   { file: MENU, code: `type X = typeof import('../../../../packages/mock-server/src/index');`, rule: 'ap/no-relative-package-escape' },
   { file: MENU, code: `import x = require('../../../../packages/mock-server/src/index');`, rule: 'ap/no-relative-package-escape' },
   { file: MENU, code: `type X = typeof import('../api');`, rule: '' },
+
+  // --- menu mock handlers and composition-root registration (#113) ---
+  { file: 'menus/home/src/mock/handlers.ts', code: `import { x } from '@ap/mock-server';`, rule: '' },
+  { file: 'menus/home/src/mock/handlers.ts', code: `await import('@ap/mock-server');`, rule: '' },
+  { file: 'menus/home/src/mock/handlers.ts', code: `import type { X } from '@ap/contracts';`, rule: '' },
+  { file: 'menus/home/src/mock/handlers.ts', code: `import { x } from '../endpoints';`, rule: '' },
+  { file: 'menus/home/src/mock/handlers.ts', code: `import { x } from './sibling';`, rule: '' },
+  { file: 'menus/home/src/mock/handlers.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
+  { file: 'menus/home/src/mock/handlers.ts', code: `import { x } from '@ap/mock-server/src/x';`, rule: 'no-restricted-imports' },
+  { file: 'menus/home/src/mock/handlers.ts', code: `await import('@ap/mock-server/src/x');`, rule: 'ap/restricted-import-source' },
+  { file: MENU, code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports', token: 'src/mock/**' },
+  { file: MENU, code: `await import('@ap/mock-server');`, rule: 'ap/restricted-import-source', token: 'src/mock/**' },
+
+  { file: MENU, code: `import { x } from '../mock/handlers';`, rule: 'ap/no-menu-mock-import', token: '@ap/menu-home/mock' },
+  { file: MENU, code: `import { x } from '../mock';`, rule: 'ap/no-menu-mock-import' },
+  { file: MENU, code: `await import('../mock/handlers');`, rule: 'ap/no-menu-mock-import' },
+  { file: 'menus/home/src/index.ts', code: `export { x } from './mock';`, rule: 'ap/no-menu-mock-import' },
+  { file: 'menus/home/src/pages/deep/New.tsx', code: `import { x } from '../../mock/y';`, rule: 'ap/no-menu-mock-import' },
+  { file: MENU, code: `require('../mock/x');`, rule: 'ap/no-menu-mock-import' },
+  { file: MENU, code: `type X = typeof import('../mock/x');`, rule: 'ap/no-menu-mock-import' },
+  // src/mock/** cannot import react (denyReact) and must not reach serve either.
+  { file: 'menus/home/src/mock/a.ts', code: `import React from 'react';`, rule: 'no-restricted-imports', token: 'react' },
+  { file: 'menus/home/src/mock/a.ts', code: `import { serve } from '../api';`, rule: 'ap/no-new-serve' },
+
+  { file: 'apps/platform-web/src/main.tsx', code: `import { mock } from '@ap/menu-home/mock';`, rule: '' },
+  { file: 'apps/platform-web/src/main.tsx', code: `await import('@ap/menu-home/mock');`, rule: '' },
+  { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `import { mock } from '@ap/menu-home/mock';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `await import('@ap/menu-home/mock');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/published-metrics.test.ts', code: `import { mock } from '@ap/menu-home/mock';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/published-metrics.test.ts', code: `await import('@ap/menu-home/mock');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { mock } from '@ap/menu-home/mock';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { mock } from '@ap/menu-home/mock/deep';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `await import('@ap/menu-home/mock/deep');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { mock } from '@ap/menu-home/src/mock';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `await import('@ap/menu-home/src/mock');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-home/mocks';`, rule: 'no-restricted-imports' },
+  { file: MENU, code: `import { mock } from '@ap/menu-analytics/mock';`, rule: 'no-restricted-imports' },
+  { file: MENU, code: `await import('@ap/menu-analytics/mock');`, rule: 'ap/restricted-import-source' },
+
+  // --- no-new-serve migration ratchet (#113) ---
+  { file: 'menus/home/src/pages/New.tsx', code: `import { serve } from '../api';`, rule: 'ap/no-new-serve' },
+  { file: 'menus/analytics/src/pages/ProductivityOverview.tsx', code: `import { serve } from '../api';`, rule: '' },
+  { file: 'menus/analytics/src/pages/New.tsx', code: `import { serve } from '../api';`, rule: 'ap/no-new-serve' },
+  { file: 'menus/home/src/pages/New.tsx', code: `export { serve } from '../api';`, rule: 'ap/no-new-serve' },
+  { file: 'menus/home/src/pages/New.tsx', code: `import { getRole } from '../api';`, rule: '' },
+  { file: 'menus/home/src/pages/New.tsx', code: `import * as api from '../api'; api.serve();`, rule: 'ap/no-new-serve' },
+  { file: MENU, code: `import { serve as s } from '../api';`, rule: 'ap/no-new-serve' },
+  { file: MENU, code: `export * from '../api';`, rule: 'ap/no-new-serve' },
+  { file: MENU, code: `import * as api from '../api'; api['serve']();`, rule: 'ap/no-new-serve' },
+  // P2-1: a legacy file may keep its own serve import but must not relay it to new pages.
+  { file: 'menus/home/src/pages/OperationsHome.tsx', code: `export { serve } from '../api';`, rule: 'ap/no-new-serve' },
+  { file: 'menus/home/src/pages/OperationsHome.tsx', code: `import { serve } from '../api'; export { serve };`, rule: 'ap/no-new-serve' },
+  { file: 'menus/home/src/pages/OperationsHome.tsx', code: `export * as api from '../api';`, rule: 'ap/no-new-serve' },
+  // P2-2: legacy keys are package-qualified; the same filename in another menu is not exempt.
+  { file: 'menus/analytics/src/pages/OperationsHome.tsx', code: `import { serve } from '../api';`, rule: 'ap/no-new-serve' },
+  { file: 'menus/home/src/pages/MetricCatalog.tsx', code: `import { serve } from '../api';`, rule: 'ap/no-new-serve' },
+  // P2-3: outside the legacy list the api module is named-imports-only (no namespace, no dynamic).
+  { file: MENU, code: `import * as api from '../api'; const { serve } = api;`, rule: 'ap/no-new-serve' },
+  { file: MENU, code: `await import('../api');`, rule: 'ap/no-new-serve' },
+  { file: MENU, code: `require('../api');`, rule: 'ap/no-new-serve' },
+  { file: 'menus/home/src/pages/OperationsHome.tsx', code: `import * as api from '../api';`, rule: '' },
 ];
 
 describe('boundary + contract fixtures', () => {
