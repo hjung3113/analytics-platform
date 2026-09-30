@@ -182,4 +182,26 @@ describe('execution-detail occurrence endpoint behavior', () => {
     expect(v4.data.execution.cycleMin).toBe(cycleMinutes(job, '4'));
     expect(v4.response.trust?.metricVersion).toBe('4');
   });
+
+  it('rejects a non-job entityType and a malformed anchor on an otherwise valid identity', async () => {
+    const execution = grantedExecution();
+
+    // Same valid equipment/anchor, but entityType the page cannot open (identity is (equipmentId, entityType, anchor), 06 §22).
+    const nonJob = await adapter.menuQuery({
+      endpoint: occurrenceEndpoint.id,
+      context: { scopeId: 'ICH' },
+      params: occurrenceParams({ entityType: 'lot' }),
+    });
+    expect(nonJob.outcome).toBe('empty');
+    expect((nonJob.data as OccurrenceResult | null)?.access).toBe('missing');
+
+    // Matches the YYYY-MM-DDTHH:mm:ss shape but is not a real calendar time.
+    const malformedAnchor = await adapter.menuQuery({
+      endpoint: occurrenceEndpoint.id,
+      context: { scopeId: 'ICH' },
+      params: occurrenceParams({ anchor: '2026-13-40T25:61:61' }),
+    });
+    expect(malformedAnchor.outcome).toBe('empty');
+    expect((malformedAnchor.data as OccurrenceResult | null)?.access).toBe('missing');
+  });
 });

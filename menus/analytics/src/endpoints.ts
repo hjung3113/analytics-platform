@@ -133,6 +133,9 @@ export type OccurrenceParams = {
   metricVersion: string;
 };
 
+/** Entity types the execution-detail page opens today (Candidate: job only). Part of the occurrence identity (06 §22); the server must reject others, not resolve them as job. */
+export const OCCURRENCE_ENTITY_TYPES: readonly string[] = ['job'];
+
 /** The page resolves metric from its reference Context and sends that version as a computation input, not a filter. */
 export const occurrenceEndpoint = defineEndpoint<OccurrenceParams, OccurrenceResult>({
   id: 'analytics.execution.occurrence',
