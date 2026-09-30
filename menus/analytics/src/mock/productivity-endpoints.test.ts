@@ -31,7 +31,27 @@ const productivityMenu: MenuMeta = {
   pageKeys: ['granularity', 'kpi', 'axis', 'sort'],
 };
 
-const adapter = createMockAdapter({ endpoints: analyticsMock, registry: { menus: [productivityMenu] } });
+/** Inline mirror for the second endpoint owner registered by analyticsMock (#115). */
+const executionMenu: MenuMeta = {
+  id: 'execution-detail',
+  group: 'analytics',
+  label: { ko: '실행 상세', en: 'Execution detail' },
+  description: { ko: '', en: '' },
+  path: '/analytics/executions/:equipmentId',
+  permission: 'analytics:view',
+  requiresScope: true,
+  context: {
+    ...none,
+    time: 'reference', roomNames: 'reference', condition: 'reference', selection: 'reference',
+    lot: 'reference', ppid: 'reference', recipe: 'reference', metric: 'reference',
+  },
+  pageType: 'analysis',
+  features: { export: false, savedView: false, annotate: false, compare: false },
+  pageKeys: ['entityType', 'anchor', 'returnTo'],
+};
+
+const registry = { menus: [productivityMenu, executionMenu] };
+const adapter = createMockAdapter({ endpoints: analyticsMock, registry });
 
 const FROM = '2026-09-25T09:00:00';
 const TO = '2026-09-26T09:00:00';
@@ -43,13 +63,14 @@ beforeEach(() => { setRole('engineer'); });
 afterEach(() => { setRole(previousRole); });
 
 describe('productivity-overview endpoint registration', () => {
-  it('registers all four endpoints without error', () => {
-    expect(() => createMockAdapter({ endpoints: analyticsMock, registry: { menus: [productivityMenu] } })).not.toThrow();
+  it('registers the analytics endpoint list without error', () => {
+    expect(() => createMockAdapter({ endpoints: analyticsMock, registry })).not.toThrow();
     expect(analyticsMock.map((endpoint: AnyMockEndpoint) => endpoint.spec.id)).toEqual([
       'analytics.productivity.kpis',
       'analytics.productivity.trend',
       'analytics.productivity.breakdown',
       'analytics.productivity.attention',
+      'analytics.execution.occurrence',
     ]);
   });
 });

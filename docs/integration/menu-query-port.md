@@ -202,7 +202,7 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 ### 5.2 검증 메뉴 (추천)
 
 1. **`productivity-overview`** — 가장 어려운 apply 경로: 위젯 4개 병렬, `time`·`roomNames`·`condition`·`selection`·`ppid`·`recipe` apply, `time_domain` 포함 kind, `maxHours` → `too_large`, partial widget failure, Data Trust.
-2. **`execution-detail`** — reference 경로: 모든 Context가 `reference`라 `scopeId`만 적용되는지, 목적지 id(`equipmentId`·`entityType`·`anchor`)를 params로, 분석 Context와 분리하는지(06 §6.1·§22). 지금 수동 null 처리(1.3-4)가 없어지는 게 성공 기준.
+2. **`execution-detail`** — reference 경로: 모든 Context가 `reference`라 `scopeId`만 적용되는지, 목적지 id(`equipmentId`·`entityType`·`anchor`)를 params로, 분석 Context와 분리하는지(06 §6.1·§22). 지금 수동 null 처리(1.3-4)가 없어지는 게 성공 기준. metric이 reference인 화면이 계산 정의(버전)를 고를 때는 화면이 해석한 버전을 params로 넘긴다(필터가 아님).
 
 둘 다 `@ap/menu-analytics`라 여러 패키지의 mock 등록은 검증하지 못한다. 이건 생성기 전환 단계의 probe(임시 그룹 패키지 생성)가 확인한다. 페이징 params 모양이 걱정되면 3번째로 `equipment-master`(PlatformDataTable `loadPage`, 06 §15)를 추가할 수 있다.
 

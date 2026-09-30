@@ -1,13 +1,42 @@
 /**
- * Productivity-overview query endpoints (docs/integration/menu-query-port.md §2.2, #114).
- * Client-safe: declarations, params/data types and display constants only — the computation
- * lives in `src/mock/` on the server side and never enters the client bundle.
+ * Analytics query endpoints (docs/integration/menu-query-port.md §2.2, #114–#115).
+ * Client-safe: declarations, params/data types and display constants only — computation
+ * handlers live in `src/mock/` and never enter the client bundle.
  * Pages import from here, never from `src/mock/**`.
  */
 import { defineEndpoint } from '@ap/contracts';
 
 export type Granularity = 'hour' | 'day' | 'week';
 export type KpiKey = 'occupancy' | 'dwell' | 'cycleTime' | 'throughput';
+
+export type Quality = 'unknown' | 'review';
+export type SegmentKind = 'XFR' | 'FNC' | 'PRC';
+
+export type Execution = {
+  equipmentId: string;
+  room: string;
+  recipe: string;
+  lotId: string;
+  ppid: string;
+  /** Occurrence anchor. Full second string; lotId is not a substitute key. */
+  anchor: string;
+  cycleMin: number;
+  quality: Quality;
+};
+
+export type Segment = {
+  kind: SegmentKind;
+  module: string;
+  slot: string;
+  start: string;
+  end: string;
+  durationMin: number;
+};
+
+export type OccurrenceResult =
+  | { access: 'missing' }
+  | { access: 'forbidden' }
+  | { access: 'ok'; execution: Execution; segments: Segment[] };
 
 /** Candidate metric versions (wireframe 11 §3.1); the registry has no page-owned version keys yet. */
 export const METRIC_VERSIONS: Record<KpiKey, string> = {
@@ -95,4 +124,23 @@ export const attentionEndpoint = defineEndpoint<Record<never, true>, AttentionRo
   kinds: ['collection', 'processing_delay', 'coverage'],
   limits: { maxHours: MAX_QUERY_HOURS },
   mergeTimeDomain: true,
+});
+
+export type OccurrenceParams = {
+  equipmentId: string;
+  entityType: string;
+  anchor: string;
+  metricVersion: string;
+};
+
+/** The page resolves metric from its reference Context and sends that version as a computation input, not a filter. */
+export const occurrenceEndpoint = defineEndpoint<OccurrenceParams, OccurrenceResult>({
+  id: 'analytics.execution.occurrence',
+  menuId: 'execution-detail',
+  paramKeys: { equipmentId: true, entityType: true, anchor: true, metricVersion: true },
+  permission: 'analytics:view',
+  requiresScope: true,
+  context: {},
+  kinds: ['collection', 'processing_delay', 'coverage'],
+  mergeTimeDomain: false,
 });

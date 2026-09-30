@@ -11,6 +11,7 @@ import {
   type KpisData, type TrendData,
 } from '../endpoints';
 import { attentionRows, computeKpis, occupancyBreakdown, trendBuckets } from './productivity';
+import { executionOccurrence } from './execution';
 
 /** Kernel period gate makes a null period unreachable; degrade to empty data instead of crashing a raw engine call. */
 const EMPTY_KPIS: KpisData = {
@@ -64,4 +65,5 @@ export const analyticsMock: readonly AnyMockEndpoint[] = [
     isEmpty: rows => rows.length === 0,
     metricVersion: () => `dwell v${METRIC_VERSIONS.dwell} · cycleTime v${METRIC_VERSIONS.cycleTime}`,
   }),
+  executionOccurrence,
 ];
