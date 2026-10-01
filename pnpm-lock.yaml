@@ -459,6 +459,9 @@ importers:
       '@ap/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel
+      '@ap/mock-server':
+        specifier: workspace:*
+        version: link:../../packages/mock-server
       '@ap/ui':
         specifier: workspace:*
         version: link:../../packages/ui

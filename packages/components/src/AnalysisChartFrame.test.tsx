@@ -52,7 +52,6 @@ function fixture() {
     getEntity: async () => none_('empty'),
     auditTrail: async () => none_('forbidden'), entityAudit: async () => none_('forbidden'),
     accessDirectory: async () => none_('forbidden'), usageSummary: async () => none_('forbidden'),
-    myVocHistory: async () => none_('forbidden'), mySurveyHistory: async () => none_('forbidden'),
     recordUsage: async () => ({ accepted: 0 }), reportClientError: async () => ({ accepted: true }),
     listAnnotations: list, saveAnnotation: save,
     subscribe: () => () => {},

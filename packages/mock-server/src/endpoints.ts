@@ -6,11 +6,17 @@ import type { Equipment, RoleId } from './world';
 /** A menu's mock handler for one declared endpoint. Lives in the menu's `src/mock/` from step 5 on. */
 export type MockEndpoint<P, T> = {
   spec: EndpointSpec<P, T>;
-  /** Receives only neutralized input: equipment already resolved by the engine, `context` with non-applied keys reset to "no constraint". */
-  handle: (input: { equipment: Equipment[]; context: GlobalContext; params: P }) => T;
+  /**
+   * Receives only neutralized input: equipment already resolved by the engine, `context` with non-applied keys reset to
+   * "no constraint", and `actor` — the session actor pinned when the request arrived (sources keyed by who asks).
+   * Throw `MockRequestError` to refuse a request only the data can judge (e.g. a cursor issued to another actor).
+   */
+  handle: (input: { equipment: Equipment[]; context: GlobalContext; params: P; actor: RoleId }) => T;
   isEmpty?: (data: T) => boolean;
   /** Trust source shown in Data Trust; defaults like serve(). */
   source?: string;
+  /** False for a non-mart source: no Data Trust and no mart dev scenarios (ServeOptions.mart). Default true. */
+  mart?: boolean;
   /** Server-attached metricVersion display value (§2.4 step 9); may depend on the request params. */
   metricVersion?: (input: { context: GlobalContext; params: P }) => string | undefined;
   /**
@@ -28,6 +34,14 @@ export const defineMockEndpoint = <P, T>(
 
 /** Heterogeneous list (P invariant, see AnyEndpointSpec). */
 export type AnyMockEndpoint = MockEndpoint<any, any>;
+
+/** Thrown by a handler to answer `error` with this message — a malformed request only the data can judge. */
+export class MockRequestError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MockRequestError';
+  }
+}
 
 export class MockRegistrationError extends Error {
   constructor(message: string) {
@@ -127,13 +141,15 @@ export async function serveEndpoint(
       latency: opts?.latency,
       signal,
       source: endpoint.source,
+      mart: endpoint.mart,
       metricVersionOf: endpoint.metricVersion ? () => endpoint.metricVersion!({ context: global, params: req.params }) : undefined,
       isEmpty: endpoint.isEmpty,
-      compute: ({ equipment }) => endpoint.handle({ equipment, context: global, params: req.params }),
+      compute: ({ equipment, role }) => endpoint.handle({ equipment, context: global, params: req.params, actor: role }),
     });
   } catch (error) {
     // Cancellation is control flow for callers; malformed applied Context is a request error.
     if (typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError') throw error;
+    if (error instanceof MockRequestError) return requestError(error.message);
     return requestError('invalid request context');
   }
 }

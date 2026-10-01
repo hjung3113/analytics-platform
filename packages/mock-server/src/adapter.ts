@@ -7,7 +7,6 @@ import { checkScope, getEntity, getRole, matchesCondition, recordUsage, reportCl
 import { auditTrail, entityAudit } from './audit';
 import { accessDirectory } from './access';
 import { listAnnotations, saveAnnotation } from './annotations';
-import { mySurveyHistory, myVocHistory } from './my-voc';
 import { DEFAULT_RANGE_TO, EQUIPMENT, PUBLISHED_METRICS, SITES, USERS, type RoleId } from './world';
 import { MockRegistrationError, serveEndpoint, type AnyMockEndpoint } from './endpoints';
 
@@ -115,7 +114,5 @@ export function createMockAdapter(o: {
     reportClientError: report => reportClientError(report),
     usageSummary: (range, signal) => usageSummary(range, signal),
     // opts (test role pin, latency) stay server-side: the adapter passes the port arguments only.
-    myVocHistory: (query, signal) => myVocHistory(query, signal),
-    mySurveyHistory: signal => mySurveyHistory(signal),
   };
 }

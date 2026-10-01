@@ -3,7 +3,7 @@
  * the menu). Labels are for this screen only; the wire value `MyVocStatus` is never rewritten, and an
  * unknown token cannot occur (the union is exhaustive here at compile time).
  */
-import type { MyVocStatus } from '@ap/contracts';
+import type { MyVocStatus } from './endpoints';
 import type { Tone } from '@ap/ui';
 
 export type VocStatusInfo = { ko: string; en: string; tone: Tone };

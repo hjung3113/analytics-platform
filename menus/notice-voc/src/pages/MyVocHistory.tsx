@@ -1,13 +1,16 @@
 import { useMemo } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { HelpCircle } from 'lucide-react';
-import { formatInstant, type MySurveyPage, type MyVocItem, type MyVocPage, type MyVocStatus } from '@ap/contracts';
-import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
+import { formatInstant } from '@ap/contracts';
+import { useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
 import { Panel, PlatformDataTable, PlatformPage, QueryView, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { feedbackOpsHref } from '../feedbackops-href';
 import { feedbackOpsOrigin } from '../feedbackops-origin';
 import { VOC_STATUS } from '../voc-status';
+import { myVocHistoryEndpoint, mySurveyHistoryEndpoint, type MyVocItem, type MyVocStatus } from '../endpoints';
+
+const NO_PARAMS = {};
 
 /**
  * 내 VOC (issue #60): the session actor's filed VOCs plus the survey-history unknown envelope. Read-only —
@@ -23,17 +26,14 @@ const CURSOR = /^[^?#&\s]{1,512}$/;
 export default function MyVocHistory() {
   const { t, lang } = useI18n();
   const ko = lang === 'ko';
-  const { adapter, pageParam, setPage } = usePlatform();
+  const { pageParam, setPage } = usePlatform();
 
   const cursor = pageParam('cursor');
   const cursorOk = cursor === null || CURSOR.test(cursor);
   // Session identity: a period / room / scope change neither refetches nor hides the list — they are not
   // filters here. The cursor is the only page input, so turning a page refetches.
-  const vocQ = usePlatformQuery<MyVocPage>(
-    signal => adapter.myVocHistory(cursor === null ? {} : { cursor }, signal),
-    cursor, cursorOk, 'session',
-  );
-  const surveyQ = usePlatformQuery<MySurveyPage>(signal => adapter.mySurveyHistory(signal), null, true, 'session');
+  const vocQ = useMenuQuery(myVocHistoryEndpoint, { cursor }, cursorOk);
+  const surveyQ = useMenuQuery(mySurveyHistoryEndpoint, NO_PARAMS);
 
   const origin = feedbackOpsOrigin();
   const create = feedbackOpsHref(origin, { kind: 'voc-create' });

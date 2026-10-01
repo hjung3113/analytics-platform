@@ -185,7 +185,7 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 | `entityAudit` | 유지 | 감사 저장소 + `AuditTimeline`(공통 컴포넌트) 소비. |
 | `usageSummary` | 유지 | 06 §4 계측. |
 | `accessDirectory` | **유지(조회 투영으로 고정)** | 권한·Scope 저장소(규칙 2). 단 원천이 #98에 달려 있어 쓰기 메서드는 추가하지 않는다. #98 영향은 §9. |
-| `myVocHistory`, `mySurveyHistory` | **이전** | FeedbackOps 제품 데이터의 사용자 투영이고 06 §4가 "VOC 상태 전이 규칙"을 Kernel 밖으로 둔다. `menus/notice-voc/src/endpoints.ts`에 `noticeVoc.myVocHistory`(params `{ cursor? }`, context 전부 unsupported, `requiresScope: false`, kinds `[]`), `noticeVoc.mySurveyHistory`(kinds `['respondent_history']`)로 선언. `packages/mock-server/src/my-voc.ts`의 핸들러 본문과 픽스처는 `menus/notice-voc/src/mock/`으로. |
+| `myVocHistory`, `mySurveyHistory` | **이전(완료, #131)** | FeedbackOps 제품 데이터의 사용자 투영이고 06 §4가 "VOC 상태 전이 규칙"을 Kernel 밖으로 둔다. `menus/notice-voc/src/endpoints.ts`에 `noticeVoc.myVocHistory`(params `{ cursor: string | null }` — 첫 페이지는 `null`, 생략은 발급한 적 없는 커서로 보고 `Invalid cursor`; context 없음, `requiresScope: false`, kinds `[]`, 서버 쪽 `mart: false`), `noticeVoc.mySurveyHistory`(kinds `['respondent_history']`)로 선언. `packages/mock-server/src/my-voc.ts`의 핸들러 본문과 픽스처는 `menus/notice-voc/src/mock/`으로. |
 | `MyVocStatus`, `MyVocItem`, `MyVocQuery`, `MyVocPage`, `MySurvey*` | **이전** | `@ap/contracts` 루트에서 빼서 `menus/notice-voc/src/endpoints.ts`로. 현재 사용처는 `menus/notice-voc/src/voc-status.ts`, `pages/MyVocHistory.tsx`, `voc-status.test.ts`와 mock뿐이라 메뉴 밖 소비자가 없다. |
 | `AssessmentKind`의 `'respondent_history'` | **유지(결정됨, Q6)** | kind 어휘는 플랫폼 소유(06 §19)라 contracts에 남는다. 두 번째 소비자가 나오면 재검토(§8 Q6). |
 | 나머지(`session`·`validateScope`·`publishedMetrics`·`contextOptions`·`evaluateSelection`·`getEntity`·`defaultRangeTo`·`recordUsage`·`reportClientError`·`listAnnotations`·`saveAnnotation`·`subscribe`) | 유지 | 규칙 1 또는 2. |
@@ -297,6 +297,6 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 | 7a | 게이트 결정 반영(#125): Q3 비적용 키 → error, Q9 적용 키 누락 → error, Q10 등록 규칙 6 | 각 거부 규칙 테스트(수정 전 실패), 기존 테스트·`pnpm e2e` |
 | 8 | gen-menu 전환(§4) | gen-menu 테스트 + `scripts/probe.ts`(임시 그룹이 루트 네 명령 통과 = 다중 패키지 mock 등록 확인) |
 | 9 | 나머지 이전(범위는 결정 기록 "단계 9 범위"): `equipment-master` + Kernel `useMenuFetch`·contracts 페이징 모양(#128, 완료), `cycle-time`(계산 → `src/mock/cycle.ts`, 지표 버전은 서버가 적용된 metric 쌍에서 해석, 내보내기 엔드포인트, `src/mock/** → ../pages/**` 임시 lint 허용 종료, analytics `api.ts` 삭제)과 `home`(`NOTICES` → mock, 공지 대상 사이트는 params `targetScopeId`)(#127·#130, 완료), `metrics`(지표 카탈로그·판정을 `src/mock/catalog.ts`로, 쌍 판정·카탈로그 페이지·내보내기·정의·사용처·이력 엔드포인트) + #123 params 값 검증 훅(#129, 완료 — `LEGACY_SERVE_PATHS`가 비었다) | 각 패키지 테스트 + 브라우저 + `pnpm e2e` |
-| 10 | VOC 이전: 두 메서드 어댑터에서 제거, `MyVoc*` 타입 메뉴로 | `MyVocHistory.test.tsx`, `voc-status.test.ts`, contracts에서 `MyVocStatus` grep 0 |
+| 10 | VOC 이전: 두 메서드 어댑터에서 제거, `MyVoc*` 타입 메뉴로 (#131, 완료 — 엔진에 mart가 아닌 원천 `mart: false`(Trust 없음, mart 개발 시나리오 비적용)·핸들러 `actor`·`MockRequestError`(데이터로만 판정하는 잘못된 요청, 예: 다른 사용자 커서)를 추가. `noticeVoc.myVocHistory` params는 `{ cursor: string \| null }`) | `MyVocHistory.test.tsx`, `voc-status.test.ts`, contracts에서 `MyVocStatus` grep 0 |
 | 11 | `serve` 공개 export·`src/api.ts` 규칙 제거 | `grep -rn "serve" menus` 0, lint 규칙에서 api.ts 예외 삭제 |
 | 12 | 문서: platform-packages §3 규칙 3·§4·§5, `menus/AGENTS.md`, `packages/AGENTS.md`, 06 §5(Q4 결과), `PLATFORM_REQUIREMENTS.md:141` 상태, ROADMAP | 각 PR의 "문서 갱신" 체크 |

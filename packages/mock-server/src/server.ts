@@ -106,7 +106,15 @@ export type ServeOptions<T> = {
    * (master list, catalog, notices, one occurrence). §6.3.
    */
   mergeTimeDomain?: boolean;
-  compute: (ctx: { equipment: Equipment[] }) => T;
+  /**
+   * Default true: a mart read — Data Trust is attached and the mart dev scenarios (empty, partial, too_large,
+   * unknown_status) apply. False for a non-mart source (e.g. a FeedbackOps read): trust stays null and only
+   * transport scenarios (slow, timeout, error, forbidden, malformed) apply, so a dev scenario never fakes a
+   * confirmed zero or a mart status the source does not have.
+   */
+  mart?: boolean;
+  /** `role` is the request's pinned session actor, for sources keyed by who asks (my VOCs). */
+  compute: (ctx: { equipment: Equipment[]; role: RoleId }) => T;
   isEmpty?: (data: T) => boolean;
 };
 
@@ -171,6 +179,8 @@ function finish<T>(args: {
   metricVersion?: string;
   source?: string;
   provisional: boolean;
+  /** False: not mart data, so no Data Trust (see ServeOptions.mart). */
+  mart?: boolean;
 }): ApiResponse<T> {
   const kinds = args.kinds ?? ['collection', 'processing_delay', 'coverage'];
   const assessments: Assessment[] = kinds.map(kind => {
@@ -185,7 +195,7 @@ function finish<T>(args: {
     outcome: args.empty ? 'empty' : 'ok',
     data: args.data,
     assessments,
-    trust: {
+    trust: args.mart === false ? null : {
       updatedAt: '2026-09-26T09:02:00', dataThrough: '2026-09-26T08:00:00', coverage: args.scenario === 'unknown_status' ? null : 0.987,
       metricVersion: args.metricVersion, provisional: args.provisional, source: args.source ?? 'mart.productivity_hourly',
     },
@@ -206,12 +216,13 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
   if (s === 'timeout') return { ...base, outcome: 'timeout', message: 'Query exceeded 30s budget' };
   if (s === 'error') return { ...base, outcome: 'error', message: 'Upstream mart query failed' };
   // Every other widget query fails so pages can show a local failure next to healthy widgets (§19 Partial widget failure).
-  if (partialFails(s)) return { ...base, outcome: 'error', message: 'Widget query failed (partial scenario)' };
+  const mart = o.mart !== false;
+  if (mart && partialFails(s)) return { ...base, outcome: 'error', message: 'Widget query failed (partial scenario)' };
   const requiresScope = o.requiresScope ?? true;
   const resolved = requiresScope ? resolveEquipment(o.global, requestRole) : { rows: EQUIPMENT, forbidden: null };
   if (s === 'forbidden' || resolved.forbidden) return { ...base, outcome: 'forbidden', message: resolved.forbidden ?? 'Permission revoked (scenario)' };
   const hours = periodHours(o.global);
-  if (s === 'too_large' || (o.maxHours && hours !== null && hours > o.maxHours && (o.global.selection === null || o.global.selection.length > 40))) {
+  if ((mart && s === 'too_large') || (o.maxHours && hours !== null && hours > o.maxHours && (o.global.selection === null || o.global.selection.length > 40))) {
     return { ...base, outcome: 'too_large', message: `Period ${hours ?? '?'}h exceeds ${o.maxHours ?? '—'}h without a narrow fixed Selection` };
   }
   if (o.global.selection?.length === 0 || o.global.roomNames?.length === 0) {
@@ -232,17 +243,18 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
     }
   }
 
-  const equipment = s === 'empty' ? [] : resolved.rows;
+  const equipment = mart && s === 'empty' ? [] : resolved.rows;
   // malformed: an ok envelope whose data does not match the declared shape, so a page that trusts it throws while rendering.
-  const data = s === 'malformed' ? ({} as T) : o.compute({ equipment });
-  const empty = s === 'empty'
+  const data = s === 'malformed' ? ({} as T) : o.compute({ equipment, role: requestRole });
+  const empty = (mart && s === 'empty')
     || (s !== 'malformed' && o.isEmpty?.(data) === true);
   const metricVersion = o.metricVersionOf ? o.metricVersionOf() : o.metricVersion;
   return finish({
     correlationId,
     data,
     empty,
-    scenario: s,
+    scenario: mart ? s : 'normal',
+    mart,
     verifiedDomain,
     kinds: o.kinds,
     metricVersion,
