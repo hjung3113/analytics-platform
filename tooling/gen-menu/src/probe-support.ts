@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { lstatSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { GROUPS_END, MENUS_TS, GenMenuError, checkInsideRoot, splitLines } from './generate.ts';
+import { GROUPS_END, MAIN_TSX, MENUS_TS, GenMenuError, checkInsideRoot, splitLines } from './generate.ts';
 
 export const PROBE_FOLDER = 'gen-probe';
 export const PROBE_TEST_REL = 'apps/platform-web/src/gen-probe.test.ts';
@@ -31,7 +31,7 @@ export function assertCleanTree(root: string): void {
  * dangling symlinks count as present — and verify real-path containment for every probe write. */
 export function preflightReservedPaths(root: string): void {
   const realRoot = realpathSync(root);
-  const writeTargets = ['packages/contracts/src/menu.ts', MENUS_TS, PROBE_TEST_REL];
+  const writeTargets = ['packages/contracts/src/menu.ts', MENUS_TS, MAIN_TSX, PROBE_TEST_REL];
   for (const rel of writeTargets) checkInsideRoot(realRoot, join(root, rel), rel);
   for (const rel of [PROBE_TEST_REL, `menus/${PROBE_FOLDER}`]) {
     try {

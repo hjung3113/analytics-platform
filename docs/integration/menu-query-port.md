@@ -184,6 +184,7 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 
 ## 4. 메뉴 생성기(`tooling/gen-menu`) 변경
 
+> 단계 8(#126) 반영 완료 — 생성기가 `src/endpoints.ts`·`src/mock/index.ts`·`./mock` export·`useMenuQuery` 페이지·`main.tsx` mock 마커 배선을 만들고, `--remove`는 바이트 단위 inverse로 되돌린다. `manifest.test.ts` 템플릿에는 엔드포인트 소유 검사(id `<group>.` 접두사, `menuId` = manifest id)를 추가했다.
 - `src/api.ts`(`templates.ts:55`) 대신 `src/endpoints.ts`(표본 엔드포인트 1개: `permission: SCAFFOLD_PERMISSION`, `requiresScope: false`, context 없음, kinds `[]`)와 `src/mock/index.ts`(`{ ready: true }` 핸들러)를 만든다.
 - 페이지 템플릿(`templates.ts:193-208`)은 `serve({...compute})` 대신 `useMenuQuery(endpoint, {})`.
 - 생성 패키지 `package.json` `exports`에 `./mock` 추가. `@ap/mock-server` 의존은 유지(mock 절반이 씀).

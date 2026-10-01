@@ -61,6 +61,23 @@ ${spreads}
   // </gen:menu-spreads>
 ];
 `);
+  const mockImports = ['analytics', 'quality'].map(f => `import { ${binding(f)}Mock } from '${PACKAGE_PREFIX}menu-${f}/mock';`).join('\n');
+  const mockSpreads = ['analytics', 'quality'].map(f => `    ...${binding(f)}Mock,`).join('\n');
+  writeFileSync(join(root, 'apps/platform-web/src/main.tsx'), `import { registry } from './menus';
+import { createMockAdapter } from '${PACKAGE_PREFIX}mock-server';
+// <gen:menu-mock-imports>
+${mockImports}
+// </gen:menu-mock-imports>
+
+const adapter = createMockAdapter({
+  endpoints: [
+    // <gen:menu-mock-spreads>
+${mockSpreads}
+    // </gen:menu-mock-spreads>
+  ],
+  registry,
+});
+`);
   const cssImports = GROUPS.map(g => `@import "${PACKAGE_PREFIX}menu-${g.folder}/styles.css";`).join('\n');
   writeFileSync(join(root, 'apps/platform-web/src/style.css'), `/* <gen:menu-styles> */
 ${cssImports}
@@ -71,6 +88,11 @@ ${cssImports}
     mkdirSync(join(root, 'menus', g.folder, 'src'), { recursive: true });
     writeFileSync(join(root, 'menus', g.folder, 'src/index.ts'), `export const manifests = [{ id: '${g.folder}-x', group: '${g.group}', path: '/${g.folder}' }];\n`);
     writeFileSync(join(root, 'menus', g.folder, 'src/styles.css'), '@source "./";\n');
+  }
+  // Only analytics and quality ship a mock half; the other folders must not need registration.
+  for (const folder of ['analytics', 'quality']) {
+    mkdirSync(join(root, 'menus', folder, 'src/mock'), { recursive: true });
+    writeFileSync(join(root, 'menus', folder, 'src/mock/index.ts'), `export const ${binding(folder)}Mock = [];\n`);
   }
   return root;
 }
@@ -88,11 +110,37 @@ describe('wiring invariants against a fixture repo', () => {
     expect(() => checkNoProbe(shape, false)).not.toThrow();
   });
 
+  it('rejects a missing mock spread for the eighth group in main.tsx', () => {
+    const root = fresh();
+    const mainTsx = join(root, 'apps/platform-web/src/main.tsx');
+    writeFileSync(mainTsx, readFileSync(mainTsx, 'utf8').replace(`    ...${binding('quality')}Mock,\n`, ''));
+    expect(() => checkWiring(loadShape(root))).toThrow(/no spread inside the main.tsx mock spread markers/);
+  });
+
+  it('rejects missing mock markers in main.tsx', () => {
+    const root = fresh();
+    const mainTsx = join(root, 'apps/platform-web/src/main.tsx');
+    writeFileSync(mainTsx, readFileSync(mainTsx, 'utf8').replace('// <gen:menu-mock-imports>\n', ''));
+    expect(() => checkMarkers(loadShape(root))).toThrow(/must appear exactly once in apps\/platform-web\/src\/main.tsx/);
+  });
+
   it('rejects a missing spread for the eighth group', () => {
     const root = fresh();
     const menusTs = join(root, 'apps/platform-web/src/menus.ts');
     writeFileSync(menusTs, readFileSync(menusTs, 'utf8').replace(`  ...${binding('quality')},\n`, ''));
     expect(() => checkWiring(loadShape(root))).toThrow(/no spread inside the spread markers/);
+  });
+
+  it('does not count commented-out mock lines as wired', () => {
+    const root = fresh();
+    const mainTsx = join(root, 'apps/platform-web/src/main.tsx');
+    const original = readFileSync(mainTsx, 'utf8');
+    // The commented lines still contain the exact import/spread text as substrings — the checks
+    // match whole trimmed lines, so both must be refused.
+    writeFileSync(mainTsx, original
+      .replace(`import { ${binding('quality')}Mock } from '${PACKAGE_PREFIX}menu-quality/mock';`, `// import { ${binding('quality')}Mock } from '${PACKAGE_PREFIX}menu-quality/mock';`)
+      .replace(`    ...${binding('quality')}Mock,`, `//     ...${binding('quality')}Mock,`));
+    expect(() => checkWiring(loadShape(root))).toThrow(/no import inside the main\.tsx mock import markers/);
   });
 
   it('skips the probe-name check only under GEN_MENU_PROBE', () => {

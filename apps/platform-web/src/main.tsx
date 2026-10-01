@@ -7,7 +7,9 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';
+// <gen:menu-mock-imports>
 import { analyticsMock } from '@ap/menu-analytics/mock';
+// </gen:menu-mock-imports>
 import { DevTools } from './dev/DevTools';
 import { readFeedbackOpsOrigin } from './feedbackops-origin';
 import { registry } from './menus';
@@ -18,7 +20,14 @@ import { AppShell, GlobalContextBar, RouteOutlet } from '@ap/shell';
 // never carries it. Missing env → null → the /voc links render disabled and the data still loads.
 setFeedbackOpsOrigin(readFeedbackOpsOrigin(import.meta.env.VITE_FEEDBACKOPS_ORIGIN));
 
-const adapter = createMockAdapter({ endpoints: [...analyticsMock], registry });
+const adapter = createMockAdapter({
+  endpoints: [
+    // <gen:menu-mock-spreads>
+    ...analyticsMock,
+    // </gen:menu-mock-spreads>
+  ],
+  registry,
+});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -289,6 +289,34 @@ const rows: Row[] = [
   { file: MENU, code: `import { serve as s } from '../api'; export { s };`, rule: 'ap/no-new-serve' },
   { file: MENU, code: `import { serve as s } from '../api'; export default s;`, rule: 'ap/no-new-serve' },
   { file: MENU, code: `import { serve } from '../api'; export default serve;`, rule: 'ap/no-new-serve' },
+
+  // --- generated menu-query scaffold is lint-clean as generated (#126) ---
+  // The exact import surface gen-menu emits: endpoints.ts → contracts only;
+  // src/mock/index.ts → mock-server + own ../endpoints; page → kernel/components + own
+  // ../endpoints (never serve, never mock). The generator test pins the same set textually.
+  { file: 'menus/home/src/endpoints.ts', code: `import { defineEndpoint } from '@ap/contracts';`, rule: '' },
+  { file: 'menus/home/src/endpoints.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
+  {
+    file: 'menus/home/src/mock/index.ts',
+    code: [
+      `import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';`,
+      `import { sampleEndpoint } from '../endpoints';`,
+      `export const homeMock: readonly AnyMockEndpoint[] = [defineMockEndpoint(sampleEndpoint, { handle: () => ({ ready: true }) })];`,
+    ].join('\n'),
+    rule: '',
+  },
+  {
+    file: 'menus/home/src/pages/Sample.tsx',
+    code: [
+      `import { useI18n, useMenuQuery } from '@ap/kernel';`,
+      `import { PlatformPage, QueryView } from '@ap/components';`,
+      `import { sampleEndpoint } from '../endpoints';`,
+      `export default function SampleScreen() { return <PlatformPage />; }`,
+    ].join('\n'),
+    rule: '',
+  },
+  { file: 'menus/home/src/pages/Sample.tsx', code: `import { serve } from '../api';`, rule: 'ap/no-new-serve' },
+  { file: 'menus/home/src/pages/Sample.tsx', code: `import { sampleMock } from '../mock';`, rule: 'ap/no-menu-mock-import' },
 ];
 
 describe('boundary + contract fixtures', () => {

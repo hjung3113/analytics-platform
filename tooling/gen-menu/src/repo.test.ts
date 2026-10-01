@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { repoRoot } from './fixture.ts';
+import { checkAppMarkers } from './generate.ts';
 import { checkGroups, checkMarkers, checkNoProbe, checkWiring, loadShape } from './repo-invariants.ts';
 
 /**
@@ -12,6 +13,10 @@ describe('committed wiring locks (real repo, read-only)', () => {
 
   it('has markers present, unique and correctly ordered', () => {
     expect(() => checkMarkers(shape)).not.toThrow();
+  });
+
+  it('meets the generator marker contract (standalone markers, import-only regions, spreads inside the endpoints array)', () => {
+    expect(() => checkAppMarkers(shape.menusTs, shape.styleCss, shape.mainTsx)).not.toThrow();
   });
 
   it('gives every GroupId member exactly one GROUPS row and one package owner', () => {

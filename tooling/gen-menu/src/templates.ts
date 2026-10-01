@@ -19,8 +19,9 @@ export type MenuInputs = {
 };
 
 /**
- * The scaffold's one permission: the manifest declares it and the sample page's serve() requires it, because the
- * server re-validates menu permission per request (#47). Kept in one place so the two never drift apart.
+ * The scaffold's one permission: the manifest declares it and the sample endpoint's ACL requires
+ * it, because the server re-validates data permission per request (#47). Kept in one place so the
+ * two never drift apart.
  */
 export const SCAFFOLD_PERMISSION = 'platform:view';
 
@@ -33,13 +34,20 @@ export const importLine = (i: MenuInputs): string =>
 /** apps/platform-web/src/menus.ts spread insert. */
 export const spreadLine = (i: MenuInputs): string => `  ...${i.binding},`;
 
+/** apps/platform-web/src/main.tsx `/mock` import insert. */
+export const mockImportLine = (i: MenuInputs): string =>
+  `import { ${i.group}Mock } from '${menuPackage(i.folder)}/mock';`;
+
+/** apps/platform-web/src/main.tsx `endpoints` spread insert. */
+export const mockSpreadLine = (i: MenuInputs): string => `    ...${i.group}Mock,`;
+
 /** apps/platform-web/src/style.css insert. */
 export const styleLine = (i: MenuInputs): string => `@import "${menuPackage(i.folder)}/styles.css";`;
 
 /** apps/platform-web/package.json dependency insert. */
 export const depLine = (i: MenuInputs): string => `    "${menuPackage(i.folder)}": "workspace:*",`;
 
-/** The nine generated files, paths relative to `menus/<folder>/`. LF, trailing newline, UTF-8. */
+/** The eleven generated files, paths relative to `menus/<folder>/`. LF, trailing newline, UTF-8. */
 export const renderFiles = (i: MenuInputs): { relPath: string; content: string }[] => [
   { relPath: 'package.json', content: packageJson(i) },
   {
@@ -52,10 +60,12 @@ export const renderFiles = (i: MenuInputs): { relPath: string; content: string }
     content: `import { defineConfig } from 'vitest/config';\n\nexport default defineConfig({ test: { environment: 'node' } });\n`,
   },
   { relPath: 'src/styles.css', content: `@source "./";\n` },
-  { relPath: 'src/api.ts', content: `export { serve } from '${PACKAGE_PREFIX}mock-server';\n` },
+  { relPath: 'src/endpoints.ts', content: endpointsTs(i) },
+  { relPath: 'src/mock/index.ts', content: mockIndexTs(i) },
   { relPath: 'src/index.ts', content: indexTs(i) },
   { relPath: `src/pages/${i.page}.tsx`, content: pageTsx(i) },
   { relPath: 'src/manifest.test.ts', content: manifestTest(i) },
+  { relPath: 'src/mock/index.test.ts', content: mockIndexTest(i) },
 ];
 
 const SAMPLE_PAGE_INPUTS: MenuInputs = {
@@ -84,7 +94,7 @@ function packageJson(i: MenuInputs): string {
     private: true,
     version: '0.0.0',
     type: 'module',
-    exports: { '.': './src/index.ts', './styles.css': './src/styles.css' },
+    exports: { '.': './src/index.ts', './mock': './src/mock/index.ts', './styles.css': './src/styles.css' },
     scripts: { lint: 'eslint .', typecheck: 'tsc --noEmit', test: 'vitest run' },
     dependencies: {
       [`${PACKAGE_PREFIX}components`]: 'workspace:*',
@@ -187,10 +197,43 @@ const str = (text: string): string => `'${text.replace(/\\/g, '\\\\').replace(/'
 export const slotsLiteral = (slots: readonly Slot[]): string =>
   slots.map(slot => `  { id: ${str(slot.id)}, ko: ${str(slot.ko)}, en: ${str(slot.en)} },`).join('\n');
 
+function endpointsTs(i: MenuInputs): string {
+  return `/** ${menuPackage(i.folder)} — ${i.group} group. Scaffold: one sample query endpoint, no domain data. */
+import { defineEndpoint } from '${PACKAGE_PREFIX}contracts';
+
+/** What the sample mock handler returns today; replace with the real data shape. */
+export type SampleData = { ready: true };
+
+export const sampleEndpoint = defineEndpoint<Record<never, true>, SampleData>({
+  id: '${i.group}.sample',
+  menuId: '${i.menuId}',
+  paramKeys: {},
+  permission: '${SCAFFOLD_PERMISSION}',
+  requiresScope: false,
+  context: {},
+  kinds: [],
+  mergeTimeDomain: false,
+});
+`;
+}
+
+function mockIndexTs(i: MenuInputs): string {
+  return `/** Mock server half of the sample endpoint (${menuPackage(i.folder)}, #126). The app composition
+ * root registers this list via '${menuPackage(i.folder)}/mock' → createMockAdapter({ endpoints, registry });
+ * pages never import this module. */
+import { defineMockEndpoint, type AnyMockEndpoint } from '${PACKAGE_PREFIX}mock-server';
+import { sampleEndpoint } from '../endpoints';
+
+export const ${i.group}Mock: readonly AnyMockEndpoint[] = [
+  defineMockEndpoint(sampleEndpoint, { handle: () => ({ ready: true }) }),
+];
+`;
+}
+
 function pageTsx(i: MenuInputs): string {
-  return `import { useI18n, usePlatform, usePlatformQuery } from '${PACKAGE_PREFIX}kernel';
+  return `import { useI18n, useMenuQuery } from '${PACKAGE_PREFIX}kernel';
 import { PlatformPage, QueryView } from '${PACKAGE_PREFIX}components';
-import { serve } from '../api';
+import { sampleEndpoint } from '../endpoints';
 
 // 06 §12 ${i.pageType} skeleton: content slots in reading order. Replace each section with the platform component it names.
 const SLOTS = [
@@ -199,13 +242,8 @@ ${slotsLiteral(PAGE_SLOTS[i.pageType])}
 
 // The Screen suffix keeps the component name clear of the imports above (review F5).
 export default function ${i.page}Screen() {
-  const { global } = usePlatform();
   const { lang } = useI18n();
-  const query = usePlatformQuery(signal => serve({
-    global, signal, permission: '${SCAFFOLD_PERMISSION}', requiresScope: false, mergeTimeDomain: false,
-    compute: () => ({ ready: true }),
-    isEmpty: () => false,
-  }));
+  const query = useMenuQuery(sampleEndpoint, {});
   const caption = lang === 'ko' ? '${i.labelKo}' : '${i.labelEn}';
   return <PlatformPage>
     <QueryView query={query}>{() => <div className="space-y-3">
@@ -224,6 +262,7 @@ function manifestTest(i: MenuInputs): string {
 import type { SpaceDef } from '${PACKAGE_PREFIX}contracts';
 import { createRegistry, type GroupDef } from '${PACKAGE_PREFIX}kernel';
 import { manifests } from './index';
+import { sampleEndpoint } from './endpoints';
 
 describe('manifest', () => {
   it('is the only menu of its group and passes createRegistry', () => {
@@ -237,6 +276,63 @@ describe('manifest', () => {
     const groups: GroupDef[] = [{ id: menu.group, label: { ko: 'g', en: 'g' }, icon: menu.icon, space: 'analytics' }];
     const registry = createRegistry({ spaces, groups, menus: manifests });
     expect(registry.menuById('${i.menuId}').path).toBe('${i.path}');
+  });
+
+  it('owns the sample endpoint (#126)', () => {
+    expect(sampleEndpoint.menuId).toBe(manifests[0].id);
+    expect(sampleEndpoint.id.startsWith('${i.group}.')).toBe(true);
+  });
+});
+`;
+}
+
+function mockIndexTest(i: MenuInputs): string {
+  return `import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { ApiResponse, Capability, ContextKey, MenuMeta } from '${PACKAGE_PREFIX}contracts';
+import { createMockAdapter, getRole, setRole } from '${PACKAGE_PREFIX}mock-server';
+import { ${i.group}Mock } from './index';
+import { sampleEndpoint } from '../endpoints';
+
+/**
+ * Minimal inline MenuMeta mirroring the ${str(i.menuId)} manifest in '../index.ts'
+ * (permission, requiresScope, context). Importing '../index' from 'src/mock/**' is lint-banned,
+ * so this test restates the registration-relevant fields the adapter validates against.
+ * manifest('../index.ts')를 바꾸면 여기도 같이 바꾼다.
+ */
+const none: Record<ContextKey, Capability> = {
+  time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
+  lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
+};
+const sampleMenu: MenuMeta = {
+  id: ${str(i.menuId)},
+  group: '${i.group}',
+  label: { ko: ${str(i.labelKo)}, en: ${str(i.labelEn)} },
+  description: { ko: ${str(i.labelKo)}, en: ${str(i.labelEn)} },
+  path: ${str(i.path)},
+  permission: '${SCAFFOLD_PERMISSION}',
+  requiresScope: false,
+  context: none,
+  pageType: '${i.pageType}',
+  features: { export: false, savedView: false, annotate: false, compare: false },
+  pageKeys: [],
+};
+
+const registry = { menus: [sampleMenu] };
+const adapter = createMockAdapter({ endpoints: [...${i.group}Mock], registry });
+
+const previousRole = getRole();
+beforeEach(() => { setRole('viewer'); });
+afterEach(() => { setRole(previousRole); });
+
+describe('${i.group} mock registration', () => {
+  it('registers the sample endpoint without error', () => {
+    expect(() => createMockAdapter({ endpoints: [...${i.group}Mock], registry })).not.toThrow();
+  });
+
+  it('answers the sample menuQuery with ok', async () => {
+    const result: ApiResponse<unknown> = await adapter.menuQuery({ endpoint: '${i.group}.sample', context: {}, params: {} });
+    expect(result.outcome).toBe('ok');
+    expect(result.data).toEqual({ ready: true });
   });
 });
 `;

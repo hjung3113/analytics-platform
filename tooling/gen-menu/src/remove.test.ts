@@ -12,7 +12,7 @@ describe('remove', () => {
     expect(runCli([FIXTURE_GROUP, ...GEN_ARGS], root).status).toBe(0);
   };
 
-  it('restores the three app files and deletes the folder', () => {
+  it('restores the four app files and deletes the folder', () => {
     const root = fresh();
     const before = appSnapshot(root);
     generate(root);
