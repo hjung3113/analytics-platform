@@ -30,6 +30,7 @@
 | 2. 지금 가능 | 운영 빌드 조립 분리 + 번들 검사 | [#153](https://github.com/hjung3113/analytics-platform/issues/153) | — | 에이전트 | 운영 모드 산출물에 mock·DevTools 없음을 CI가 확인 |
 | 2. 지금 가능 | `validateScope` 실패 시 Scope가 '확인 중'에 멈추는 Kernel 공백 | [#167](https://github.com/hjung3113/analytics-platform/issues/167) | — | 에이전트 | reject 시 오류·재시도, 회귀 테스트 |
 | 3. 구현 | 실어댑터(HTTP) + 적합성 묶음을 사내 테스트 서버로 | [#154](https://github.com/hjung3113/analytics-platform/issues/154) | #148·#149·#150 | 에이전트(사내 실행은 사람) | 사내 테스트 서버 대상 적합성 묶음 전부 통과 |
+| 3. 구현 | Kernel 5분 폴링·계산 세대 재검증 | [#165](https://github.com/hjung3113/analytics-platform/issues/165) | #149(+#155 세대 신호) | 에이전트 | 세대가 바뀔 때만 다시 읽고 갱신 표시, Kernel 테스트·E2E |
 | 3. 구현 | FastAPI 플랫폼 API | [#155](https://github.com/hjung3113/analytics-platform/issues/155) | #148·#149·#150, 신뢰 원천은 #37 | 사내 백엔드 담당 | 체크리스트 §2·§3 전부 + 적합성 묶음 통과 |
 | 4. 운영 | §6 완료 기준 확인 → 첫 사내 메뉴 | — | 3단계 | 사내 메뉴 개발자 | §6 체크 전부 |
 
@@ -69,7 +70,7 @@
 
 ### 3.4 파서 담당 — [#37](https://github.com/hjung3113/analytics-platform/issues/37)
 
-- [ ] 적재 워커 상태 스키마 초안([ingest-status-schema.md](ingest-status-schema.md)) 합의 — 데이터 신뢰(`trust`, 미수집·처리 지연·커버리지)의 원천. 합의 전 서버 동작은 체크리스트 §7 #37 행(추측으로 채우지 않음). 합의 뒤 모니터링·트레이스(#51).
+- [ ] 적재 워커 상태 스키마 초안([ingest-status-schema.md](ingest-status-schema.md)) 합의 — 데이터 신뢰(`trust`, 미수집·처리 지연·커버리지)의 원천. 합의 전 서버 동작은 체크리스트 §3-9(추측으로 채우지 않음). 합의 뒤 모니터링·트레이스(#51).
 
 ### 3.5 FeedbackOps — M3
 
@@ -130,7 +131,7 @@
 - [ ] 사내 SSO로 로그인 → 세션 부트스트랩 → 권한 다른 두 계정에서 메뉴·데이터 범위가 다르게 보임(서버 판정).
 - [ ] 세션 만료·재로그인 때 이전 결과가 한 프레임도 보이지 않음(체크리스트 §2 `subscribe`).
 - [ ] 오류 화면의 Correlation ID로 서버 로그를 찾을 수 있음.
-- [ ] 데이터 신뢰: #37 합의 전 동작이 체크리스트 §7 #37 행대로다 — 원천 의존 kind(`collection`·`processing_delay`·`coverage`)는 빼지 않고 `unknown`, Trust의 모르는 값은 `null`.
+- [ ] 데이터 신뢰: #37 합의 전 동작이 체크리스트 §3-9대로다 — 원천 의존 kind(`collection`·`processing_delay`·`coverage`)는 빼지 않고 `unknown`, Trust의 모르는 값은 `null`.
 - [ ] `pnpm dev`·`pnpm e2e`는 여전히 mock으로 돈다(개발 경로 유지). 실서버 대상 E2E를 돌릴지는 3단계에서 따로 정한다 — 지금 E2E는 mock 시나리오(`malformed` 등)에 기댄다.
 
 ## 7. 흔한 함정
