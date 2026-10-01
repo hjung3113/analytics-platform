@@ -12,6 +12,7 @@ import {
 } from '../endpoints';
 import { attentionRows, computeKpis, occupancyBreakdown, trendBuckets } from './productivity';
 import { executionOccurrence } from './execution';
+import { cycleMock } from './cycle';
 
 /** Kernel period gate makes a null period unreachable; degrade to empty data instead of crashing a raw engine call. */
 const EMPTY_KPIS: KpisData = {
@@ -66,4 +67,5 @@ export const analyticsMock: readonly AnyMockEndpoint[] = [
     metricVersion: () => `dwell v${METRIC_VERSIONS.dwell} · cycleTime v${METRIC_VERSIONS.cycleTime}`,
   }),
   executionOccurrence,
+  ...cycleMock,
 ];

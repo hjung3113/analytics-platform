@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeKpis, trendBuckets } from './productivity';
-import { percentile, population } from '../pages/cycleData';
+import { percentile, population } from './cycle';
 import { cycleMinutes, EQUIPMENT, jobsInPeriod } from '@ap/mock-server';
 import { emptyGlobal } from '@ap/contracts';
 

@@ -29,6 +29,7 @@ const PRESETS: Record<string, Linter.Config[]> = {
   'packages/mock-server': mockServer,
   'menus/home': menu,
   'menus/analytics': menu,
+  'menus/metrics': menu,
   'apps/platform-web': app,
 };
 
@@ -87,7 +88,7 @@ const rows: Row[] = [
   { file: 'menus/home/src/api.ts', code: `import { x } from '@ap/mock-server';`, rule: '' },
   { file: 'menus/home/src/api.ts', code: `export { serve } from '@ap/mock-server';`, rule: '' },
   { file: MENU, code: `import { x } from '@ap/components';`, rule: '' },
-  { file: 'menus/home/src/pages/OperationsHome.tsx', code: `import { serve } from '../api';`, rule: '' },
+  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve } from '../api';`, rule: '' },
   { file: MENU, code: `import '@ap/ui/styles.css';`, rule: 'no-restricted-imports' },
 
   // --- app mock-server carve-out / D2 (29-36) ---
@@ -246,17 +247,17 @@ const rows: Row[] = [
   { file: MENU, code: `export * from '../api';`, rule: 'ap/no-new-serve' },
   { file: MENU, code: `import * as api from '../api'; api['serve']();`, rule: 'ap/no-new-serve' },
   // P2-1: a legacy file may keep its own serve import but must not relay it to new pages.
-  { file: 'menus/home/src/pages/OperationsHome.tsx', code: `export { serve } from '../api';`, rule: 'ap/no-new-serve' },
-  { file: 'menus/home/src/pages/OperationsHome.tsx', code: `import { serve } from '../api'; export { serve };`, rule: 'ap/no-new-serve' },
-  { file: 'menus/home/src/pages/OperationsHome.tsx', code: `export * as api from '../api';`, rule: 'ap/no-new-serve' },
+  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `export { serve } from '../api';`, rule: 'ap/no-new-serve' },
+  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve } from '../api'; export { serve };`, rule: 'ap/no-new-serve' },
+  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `export * as api from '../api';`, rule: 'ap/no-new-serve' },
   // P2-2: legacy keys are package-qualified; the same filename in another menu is not exempt.
-  { file: 'menus/analytics/src/pages/OperationsHome.tsx', code: `import { serve } from '../api';`, rule: 'ap/no-new-serve' },
+  { file: 'menus/analytics/src/pages/MetricDetail.tsx', code: `import { serve } from '../api';`, rule: 'ap/no-new-serve' },
   { file: 'menus/home/src/pages/MetricCatalog.tsx', code: `import { serve } from '../api';`, rule: 'ap/no-new-serve' },
   // P2-3: outside the legacy list the api module is named-imports-only (no namespace, no dynamic).
   { file: MENU, code: `import * as api from '../api'; const { serve } = api;`, rule: 'ap/no-new-serve' },
   { file: MENU, code: `await import('../api');`, rule: 'ap/no-new-serve' },
   { file: MENU, code: `require('../api');`, rule: 'ap/no-new-serve' },
-  { file: 'menus/home/src/pages/OperationsHome.tsx', code: `import * as api from '../api';`, rule: '' },
+  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import * as api from '../api';`, rule: '' },
 
   // --- fix round 2 / P2: mock handler relative-import allowlist ---
   // A file under src/mock/** may relatively import only src/mock/**, this menu's
@@ -274,17 +275,18 @@ const rows: Row[] = [
   { file: 'menus/home/src/mock/a.ts', code: `import { x } from '../styles.css';`, rule: 'ap/no-menu-mock-import' },
   { file: 'menus/home/src/mock/a.ts', code: `import { x } from './b';`, rule: '' },
   { file: 'menus/home/src/mock/a.ts', code: `import { x } from '../endpoints';`, rule: '' },
-  { file: 'menus/home/src/mock/a.ts', code: `import { x } from '../pages/x';`, rule: '' },
+  // #127 closed the temporary step-5 allowance: mock handlers no longer reach into pages.
+  { file: 'menus/home/src/mock/a.ts', code: `import { x } from '../pages/x';`, rule: 'ap/no-menu-mock-import' },
   { file: 'menus/home/src/mock/deep/b.ts', code: `import { x } from '../../endpoints';`, rule: '' },
 
   // --- fix round 2 / P2: renamed serve bindings are tracked before re-export ---
   // The export ban follows the local binding, not the identifier text, in ANY file.
-  { file: 'menus/home/src/pages/OperationsHome.tsx', code: `import { serve as legacyServe } from '../api'; export { legacyServe };`, rule: 'ap/no-new-serve' },
-  { file: 'menus/home/src/pages/OperationsHome.tsx', code: `import { serve as legacyServe } from '../api'; export { legacyServe as relay };`, rule: 'ap/no-new-serve' },
-  { file: 'menus/home/src/pages/OperationsHome.tsx', code: `import { serve as legacyServe } from '../api'; export default legacyServe;`, rule: 'ap/no-new-serve' },
-  { file: 'menus/home/src/pages/OperationsHome.tsx', code: `import { serve } from '../api'; export default serve;`, rule: 'ap/no-new-serve' },
-  { file: 'menus/home/src/pages/OperationsHome.tsx', code: `import { serve } from '../api'; serve();`, rule: '' },
-  { file: 'menus/home/src/pages/OperationsHome.tsx', code: `import { serve as legacyServe } from '../api'; const t = legacyServe;`, rule: '' },
+  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve as legacyServe } from '../api'; export { legacyServe };`, rule: 'ap/no-new-serve' },
+  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve as legacyServe } from '../api'; export { legacyServe as relay };`, rule: 'ap/no-new-serve' },
+  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve as legacyServe } from '../api'; export default legacyServe;`, rule: 'ap/no-new-serve' },
+  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve } from '../api'; export default serve;`, rule: 'ap/no-new-serve' },
+  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve } from '../api'; serve();`, rule: '' },
+  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve as legacyServe } from '../api'; const t = legacyServe;`, rule: '' },
   // Non-legacy files already reject the import itself; these pin the export/default branch too.
   { file: MENU, code: `import { serve as s } from '../api'; export { s };`, rule: 'ap/no-new-serve' },
   { file: MENU, code: `import { serve as s } from '../api'; export default s;`, rule: 'ap/no-new-serve' },

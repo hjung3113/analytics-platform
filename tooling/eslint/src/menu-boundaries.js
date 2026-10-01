@@ -31,9 +31,8 @@ function resolvesIntoMock(source, fileDir, packageRoot) {
 }
 
 // Mock handlers form a closed dependency graph: their relative imports may resolve only
-// into the mock subtree, this menu's endpoints module, or (temporarily — productivity moved
-// to src/mock in step 5 but jobs-population still reads cycleData — until the cycle-time
-// compute moves in step 9) the pages subtree. Anything else — `../api`, `../index`,
+// into the mock subtree or this menu's endpoints module (the step-5 pages allowance closed
+// with the cycle-time move, #127). Anything else — `../pages`, `../api`, `../index`,
 // `../../package.json`, `../styles.css` — would pull menu internals into the handler graph.
 const MOCK_RELATIVE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts'];
 
@@ -43,7 +42,6 @@ function mockRelativeAllowed(source, fileDir, packageRoot) {
   const endpointsModule = path.join(packageRoot, 'src', 'endpoints');
   return (
     inside(path.join(packageRoot, 'src', 'mock')) ||
-    inside(path.join(packageRoot, 'src', 'pages')) ||
     resolved === endpointsModule ||
     MOCK_RELATIVE_EXTENSIONS.some((extension) => resolved === `${endpointsModule}${extension}`)
   );
@@ -60,7 +58,7 @@ const noMenuMockImport = {
     messages: {
       outsideMock:
         "Menu pages must not import mock handlers; the app registers them via '{{mockSubpath}}'.",
-      mockRelative: `Mock handlers may relatively import only src/mock/**, this menu's src/endpoints, or (temporarily) src/pages/** — not '{{source}}'. Mock handlers import '${PACKAGE_PREFIX}mock-server' and '${PACKAGE_PREFIX}contracts' directly, not menu internals like ../api.`,
+      mockRelative: `Mock handlers may relatively import only src/mock/** and this menu's src/endpoints — not '{{source}}'. Mock handlers import '${PACKAGE_PREFIX}mock-server' and '${PACKAGE_PREFIX}contracts' directly, not menu internals like ../api.`,
     },
   },
   create(context) {

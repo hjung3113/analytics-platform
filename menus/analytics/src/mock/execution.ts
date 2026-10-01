@@ -1,7 +1,7 @@
 /** Mock server handler for the execution-detail occurrence endpoint. */
 import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
-import { OCCURRENCE_ENTITY_TYPES, occurrenceEndpoint } from '../endpoints';
-import { isAnchor, lookupOccurrence } from '../pages/cycleData';
+import { isAnchor, OCCURRENCE_ENTITY_TYPES, occurrenceEndpoint } from '../endpoints';
+import { lookupOccurrence } from './cycle';
 
 export const executionOccurrence: AnyMockEndpoint = defineMockEndpoint(occurrenceEndpoint, {
   handle: ({ equipment, params }) => {

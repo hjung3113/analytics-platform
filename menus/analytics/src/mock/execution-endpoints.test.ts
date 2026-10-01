@@ -3,7 +3,7 @@ import { defineEndpoint, type Capability, type ContextKey, type GlobalContext, t
 import { createMockAdapter, cycleMinutes, defineMockEndpoint, EQUIPMENT, getRole, jobsForEquipmentDay, setRole, type AnyMockEndpoint, type RoleId } from '@ap/mock-server';
 import { executionOccurrence } from './execution';
 import { occurrenceEndpoint, type Execution, type OccurrenceParams, type OccurrenceResult } from '../endpoints';
-import { allExecutions } from '../pages/cycleData';
+import { allExecutions } from './cycle';
 
 const none: Record<ContextKey, Capability> = {
   time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
