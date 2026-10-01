@@ -24,7 +24,7 @@
 | 아이콘 | lucide-react | FeedbackOps와 동일. 2026-09-22 grilling에서 이미 Candidate→Decided([PLATFORM_REQUIREMENTS](../PLATFORM_REQUIREMENTS.md) 아이콘 항목)로 확정된 것과 일치 | 사용 중 |
 | Toast | sonner | FeedbackOps와 동일 | **라이브러리 미도입** — Toast 기능은 Kernel 자체 구현(`usePlatform().toast`·`dismissToast`, 셸이 렌더, 메뉴가 사용 중). sonner로 바꿀지는 M2 디자인 재개 때 판단 |
 | Command Palette | cmdk | FeedbackOps와 동일. §4 Kernel 책임의 Command Palette를 이 라이브러리로 구현 | **자체 구현**(`packages/shell/src/CommandPalette.tsx`, 메뉴 이동만). 실검색(Entity Search)을 넣을 때 cmdk 재검토 |
-| 테이블/가상화 | TanStack Table + TanStack Virtual | FeedbackOps에 선례 없음. 이 세션 Unit C(`prototypes/kernel-platform-table/`)에서 서버사이드 sort/filter·virtualization·column 선호 저장·multi-select를 Playwright/Chromium으로 실검증(23 tests) | 사용 중. 메뉴는 엔진 타입이 아니라 플랫폼 열 타입만 쓰도록 정리 중(#160) |
+| 테이블/가상화 | TanStack Table + TanStack Virtual | FeedbackOps에 선례 없음. 이 세션 Unit C(`prototypes/kernel-platform-table/`)에서 서버사이드 sort/filter·virtualization·column 선호 저장·multi-select를 Playwright/Chromium으로 실검증(23 tests) | 사용 중. 메뉴는 엔진 타입이 아니라 플랫폼 열 타입 `PlatformColumn`만 쓴다(#160, 메뉴의 `@tanstack/*` 표 엔진 import는 lint 금지) — 엔진 교체가 `@ap/components` 안에서 끝난다 |
 | 차트 | Apache ECharts (SVG 렌더러) | FeedbackOps에 선례 없음. 이 세션 Unit B(`prototypes/kernel-chart-frame/`)에서 실제 SVG SSR 렌더링·4층 상태 분리·Toolbar 7종을 검증(23 tests) | 사용 중(ECharts 6.1, 별도 지연 청크 #48). **렌더러는 현재 canvas**(`EChartImpl.tsx`) — SVG 채택 근거와 다르므로 확인 필요 |
 | 테스트 | Playwright(e2e/visual) + Vitest(unit) | FeedbackOps와 동일, 이 세션 프로토타입도 동일 조합 사용 | 사용 중(Playwright 1.63, Vitest 3.2) |
 | 조회 레이아웃 | CSS Grid | 고정 화면은 react-grid-layout보다 단순·안정적 | 사용 중 |
