@@ -26,7 +26,7 @@
 ## 실행·유지보수
 
 - 작업 관리·프로토타입 스킬(`prototype`, `to-tickets`, `to-spec`, `triage`, `wayfinder`)은 FeedbackOps에 벤더링된 `mattpocock/skills` 복사본이다. 이슈 추적 설정은 `docs/agents/`. UI 방향은 `prototype` 스킬의 UI 분기로 사용자 컨펌을 받는다(루트 `AGENTS.md` "화면/UI 설계").
-- 외부 공식 스킬 3종을 벤더링했다(#162, 원본 그대로 — 출처·커밋 SHA·라이선스는 각 폴더 `SOURCE.md`, MIT 고지는 fastapi·supabase는 `LICENSE.upstream`, vercel은 upstream에 LICENSE 파일이 없어 `SOURCE.md`에 기록). `fastapi`는 사내 FastAPI 서버(#155)의 조회·검증·응답 모델에, `supabase-postgres-best-practices`는 플랫폼 스키마·mart SQL의 인덱스·쿼리·연결 관리에(자체 호스팅 Postgres 일반 조언으로만 — Supabase 도입이 아니다), `vercel-react-best-practices`는 요청 지연·렌더링·번들에 쓴다(Next.js 전용 규칙은 이 Vite SPA에 해당 없음).
+- 외부 공식 스킬 3종을 벤더링했다(#162, 원본 그대로(이름 변경·로컬 패치는 각 `SOURCE.md`) — 출처·커밋 SHA·라이선스도 각 폴더 `SOURCE.md`, MIT 고지는 fastapi·supabase는 `LICENSE.upstream`, vercel은 upstream에 LICENSE 파일이 없어 `SOURCE.md`에 기록). `fastapi`는 사내 FastAPI 서버(#155)의 조회·검증·응답 모델에, `supabase-postgres-best-practices`는 플랫폼 스키마·mart SQL의 인덱스·쿼리·연결 관리에(자체 호스팅 Postgres 일반 조언으로만 — Supabase 도입이 아니다), `vercel-react-best-practices`는 요청 지연·렌더링·번들에 쓴다(Next.js 전용 규칙은 이 Vite SPA에 해당 없음).
   - 외부 스킬은 제품 계약과 저장소 규칙을 덮어쓰지 않는다 — 루트·폴더 `AGENTS.md`, `docs/03_backend_stack.md`(SQL-first·시간), `docs/06_platform_ui_contract.md`, `docs/integration/platform-packages.md`(패키지 경계), `docs/integration/real-server-checklist.md`. 충돌하면 이쪽을 따른다. 자주 부딪히는 곳:
     - **시간:** Postgres 스킬의 "항상 `timestamptz`"는 실제 시점(감사·활용률·오류 보고)에만. 설비 업무 시각은 `timestamp without time zone`(naive wall-clock, UTC로 옮기지 않음 — 03 시간 계약, 06 §6.3).
     - **SQL과 스키마:** ORM(SQLModel 등)보다 mart SQL(03 SQL-first). 파서 원천 스키마는 read-only — 인덱스·제약은 플랫폼 스키마에만.
