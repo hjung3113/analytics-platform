@@ -14,6 +14,11 @@ export type ConformanceCase = {
   spec: AnyEndpointSpec;
   /** Params the granted actor's request succeeds with (`ok` or `empty`). Must be a plain object. */
   params: Record<string, unknown>;
+  /**
+   * Params whose result exceeds the spec's declared `limits.maxRows`. Derived only when both the declaration
+   * and this sample exist; the check expects `too_large` with no data (#175).
+   */
+  oversizeParams?: Record<string, unknown>;
 };
 
 export type ServerConformanceHarness = {
@@ -156,6 +161,20 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
           const r = await harness.adapter.menuQuery({ ...base, context: { ...base.context, [emptySet]: [] } });
           if (r.outcome !== 'empty') return `expected empty, got ${describeResponse(r)}`;
           if (r.assessments.length > 0 || r.trust !== null) return 'an explicit empty set is answered without reading a source (06 §19): no assessments, null trust';
+          return null;
+        },
+      });
+    }
+    if (spec.limits?.maxRows !== undefined && c.oversizeParams) {
+      checks.push({
+        id: name('oversize result over the declared maxRows → too_large with no data'),
+        mode: 'granted',
+        run: async () => {
+          const r = await harness.adapter.menuQuery({ ...base, params: c.oversizeParams! });
+          if (r.outcome !== 'too_large') {
+            return `expected too_large over the declared maxRows ${spec.limits!.maxRows}, got ${describeResponse(r)}`;
+          }
+          if (r.data !== null) return 'a too_large answer carries no data';
           return null;
         },
       });

@@ -67,6 +67,17 @@ export function createMockAdapter(o: {
       }
     }
 
+    // Rule 7 (#175): a row cap judges the whole result, so it makes sense only on a non-paged row-array endpoint.
+    if (spec.limits?.maxRows !== undefined) {
+      const { maxRows } = spec.limits;
+      if (!Number.isInteger(maxRows) || maxRows <= 0) {
+        throw new MockRegistrationError(`endpoint ${spec.id}: limits.maxRows must be a positive integer`);
+      }
+      if ('page' in spec.paramKeys || 'pageSize' in spec.paramKeys) {
+        throw new MockRegistrationError(`endpoint ${spec.id}: limits.maxRows is declared on a paged endpoint (rows are bounded by paging)`);
+      }
+    }
+
     endpoints.set(spec.id, endpoint);
   }
 

@@ -110,6 +110,7 @@ export type PlatformAdapter = {
 ```
 
 - **포트에 두는 것과 메뉴 엔드포인트로 두는 것(2026-10-01, 메뉴 조회 포트 #100):** 포트 메서드는 ① Kernel·셸이 직접 부르고 메뉴 어휘가 없거나(세션·Scope·Context 선택지·활용률·오류 보고·주석) ② 권한·감사처럼 Kernel 책임 저장소를 읽는 것(`accessDirectory`·`auditTrail`·`entityAudit`)만이다. 메뉴의 데이터 조회는 메서드를 늘리지 않고 범용 `menuQuery` 하나로 보낸다 — 메뉴가 `src/endpoints.ts`에 선언하고 서버는 요청이 아니라 자기 선언 사본으로 판정한다(06 §5 "조회 엔드포인트"). 이 기준으로 VOC 두 메서드(`myVocHistory`·`mySurveyHistory`)는 #131에서 포트에서 빠져 `@ap/menu-notice-voc` 엔드포인트가 됐다. 설계·결정 기록은 [메뉴 조회 포트](menu-query-port.md). 실서버가 지킬 것과 적합성 묶음 실행 방법은 [실서버 연결 체크리스트](real-server-checklist.md).
+- **엔드포인트 선언의 한도(`limits`, #175):** `maxHours`(적용 기간 상한)에 더해 `maxRows`(결과 전체 행 상한)를 선언할 수 있다. 비교 대상은 페이지가 아니라 핸들러가 돌려준 결과 전체고, 페이지로 묶이지 않은 행 배열 엔드포인트(내보내기·탐색)에만 선언한다 — 페이지 엔드포인트 선언은 등록 검증이 거부하고, ids를 params로 받는 선택 내보내기는 ids로 거른 뒤 크기로 판정한다. 판정 순서와 적합성 검사는 [실서버 연결 체크리스트](real-server-checklist.md) §3–§4.
 - **세션형 데이터는 동기 스냅샷 + `subscribe`:** 셸이 로딩 공백 없이 그려지도록 `session()`·`publishedMetrics()`는 동기로 둔다. 실서버 어댑터는 Provider를 마운트하기 전에 세션을 받아 둔다(부트스트랩). 요청마다 달라지는 검증(`validateScope`, 4단계의 `evaluateSelection`)만 비동기다. 초안의 `session(): Promise<User>`·`scopes()`는 이 규칙에 따라 `Session`(user + scopes) 스냅샷 하나로 합쳤다.
 
 - 역할 전환과 응답 시나리오 시뮬레이터(`setRole`, `setScenario`)는 **실서버에 없는 개발 기능**이다. `Platform` 컨텍스트에서 빼고 `apps/platform-web`의 dev 도구가 TopBar 슬롯에 붙인다. 운영 빌드에는 포함하지 않는다(현재 앱은 mock 전용이라 `main.tsx`가 항상 마운트한다. 실서버 어댑터를 붙일 때 함께 뺀다).

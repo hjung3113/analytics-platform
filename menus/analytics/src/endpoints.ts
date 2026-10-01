@@ -266,4 +266,6 @@ export const cycleSlowPageEndpoint = defineEndpoint<SlowPageParams, PageResult<S
 export const cycleExportEndpoint = defineEndpoint<SlowFilter, SlowRow[]>({
   ...cycleBase, id: 'analytics.cycle.export', mergeTimeDomain: false,
   paramKeys: { tail: true, granularity: true, bucket: true, bin: true },
+  // Prototype row cap for the whole-result export (06 §15); the real limit is decided with the in-house backend.
+  limits: { maxRows: 50_000 },
 });

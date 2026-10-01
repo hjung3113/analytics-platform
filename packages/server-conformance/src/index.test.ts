@@ -143,3 +143,64 @@ describe('server conformance kit (#145)', () => {
     expect(results.every(r => r.failure?.includes('threw'))).toBe(true);
   });
 });
+
+// #175: the maxRows check is derived only for a case that provides an oversize sample, and it must fail a
+// server that ignores the declared cap (answers ok with the oversized rows) while passing a compliant one.
+describe('declared maxRows oversize check (#175)', () => {
+  const exportSpec = defineEndpoint<{ tail: string }, string[]>({
+    id: 'fixture.export',
+    menuId: 'fixture',
+    paramKeys: { tail: true },
+    permission: 'analytics:view',
+    requiresScope: true,
+    context: { time: 'apply', roomNames: 'apply', selection: 'apply', metric: 'apply' },
+    kinds: ['collection', 'coverage'],
+    mergeTimeDomain: false,
+    limits: { maxRows: 2 },
+  });
+  const CHECK_ID = `${exportSpec.id} · oversize result over the declared maxRows → too_large with no data`;
+
+  function oversizeHarness(compliant: boolean): ServerConformanceHarness {
+    const state = { permissions: new Set<Permission>(['analytics:view']) };
+    return {
+      adapter: {
+        menuQuery: async () =>
+          compliant
+            ? { outcome: 'too_large' as const, message: 'Result has 3 rows, over the declared maxRows 2', data: null, assessments: [], trust: null, correlationId: 'ref' }
+            : {
+                outcome: 'ok' as const,
+                data: ['r1', 'r2', 'r3'],
+                assessments: exportSpec.kinds.map(kind => ({ kind, state: 'unknown' as const, reason: 'source_unavailable' as const })),
+                trust: null,
+                correlationId: 'ref',
+              },
+      },
+      cases: [{ spec: exportSpec, params: { tail: 'p95' }, oversizeParams: { tail: 'all' } }],
+      context: { scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' },
+      foreignScopeId: 'XIA',
+      asGranted: fn => fn(),
+      withoutPermission: async (permission, fn) => {
+        state.permissions.delete(permission);
+        try { return await fn(); } finally { state.permissions.add(permission); }
+      },
+    };
+  }
+
+  it('derives the check only when the case provides oversizeParams', () => {
+    expect(planServerConformance(oversizeHarness(true)).map(c => c.id)).toContain(CHECK_ID);
+    const cases = [{ spec: exportSpec, params: { tail: 'p95' } }];
+    expect(planServerConformance({ ...oversizeHarness(true), cases }).map(c => c.id)).not.toContain(CHECK_ID);
+  });
+
+  it('passes on a server that answers too_large with no data', async () => {
+    const h = oversizeHarness(true);
+    const check = planServerConformance(h).find(c => c.id === CHECK_ID)!;
+    expect(await h.asGranted(check.run)).toBeNull();
+  });
+
+  it('fails on a server that ignores the declared maxRows', async () => {
+    const h = oversizeHarness(false);
+    const check = planServerConformance(h).find(c => c.id === CHECK_ID)!;
+    expect(await h.asGranted(check.run)).toContain('too_large');
+  });
+});
