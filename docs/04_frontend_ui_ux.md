@@ -22,7 +22,7 @@
 | UI 상태 | Zustand | FeedbackOps와 동일 | **미도입** — 전역 상태는 Kernel Context + URL로 충분 |
 | Form | react-hook-form + zod (+ `@hookform/resolvers`) | FeedbackOps와 동일 | **미도입** — 쓰기 폼(권한 부여 등, #98 뒤)이 생길 때 |
 | 아이콘 | lucide-react | FeedbackOps와 동일. 2026-09-22 grilling에서 이미 Candidate→Decided([PLATFORM_REQUIREMENTS](../PLATFORM_REQUIREMENTS.md) 아이콘 항목)로 확정된 것과 일치 | 사용 중 |
-| Toast | sonner | FeedbackOps와 동일 | **미도입** — Toast(06 §4)가 아직 없음. M2 디자인 재개 때 |
+| Toast | sonner | FeedbackOps와 동일 | **라이브러리 미도입** — Toast 기능은 Kernel 자체 구현(`usePlatform().toast`·`dismissToast`, 셸이 렌더, 메뉴가 사용 중). sonner로 바꿀지는 M2 디자인 재개 때 판단 |
 | Command Palette | cmdk | FeedbackOps와 동일. §4 Kernel 책임의 Command Palette를 이 라이브러리로 구현 | **자체 구현**(`packages/shell/src/CommandPalette.tsx`, 메뉴 이동만). 실검색(Entity Search)을 넣을 때 cmdk 재검토 |
 | 테이블/가상화 | TanStack Table + TanStack Virtual | FeedbackOps에 선례 없음. 이 세션 Unit C(`prototypes/kernel-platform-table/`)에서 서버사이드 sort/filter·virtualization·column 선호 저장·multi-select를 Playwright/Chromium으로 실검증(23 tests) | 사용 중. 메뉴는 엔진 타입이 아니라 플랫폼 열 타입만 쓰도록 정리 중(#160) |
 | 차트 | Apache ECharts (SVG 렌더러) | FeedbackOps에 선례 없음. 이 세션 Unit B(`prototypes/kernel-chart-frame/`)에서 실제 SVG SSR 렌더링·4층 상태 분리·Toolbar 7종을 검증(23 tests) | 사용 중(ECharts 6.1, 별도 지연 청크 #48). **렌더러는 현재 canvas**(`EChartImpl.tsx`) — SVG 채택 근거와 다르므로 확인 필요 |
@@ -69,7 +69,8 @@ Node/NestJS는 프론트와의 언어 통일·SQL-first 관점에서 비교했�
 | 보이는 행을 엑셀로 복사 | 선택 행을 탭 구분 텍스트로 복사(표 공통 부품) | — |
 | 전체 결과 XLSX | (a) 지금 패턴 그대로: 내보내기 엔드포인트(예: `analytics.cycle.export`)가 필터된 전체 행을 envelope로 돌려주고 클라이언트가 직렬화한다 — CSV 대신 무료 XLSX 라이브러리로 쓰면 `PlatformAdapter` 변경 없음. (b) 서버 파일 생성(openpyxl·XlsxWriter): 대용량에 유리하지만 파일 다운로드 경로가 `PlatformAdapter` 밖이라 #149·Kernel 포트 결정이 필요 | AG Grid Enterprise Excel 내보내기(그리드에 렌더된 데이터 기준 — 서버 행 모델에서 안 불러온 행을 내보내는지는 공식 문서 미확인, #164에서 확인) |
 | 사용자 자유 피벗·즉석 차트 | Perspective 탐색 탭 | AG Grid Enterprise 피벗 |
-| 셀 범위 선택·여러 셀 복붙·채우기, 붙여넣기 대량 편집 | 사실상 없음 | AG Grid Enterprise |
+| 셀 범위 선택·여러 셀 복사·채우기(읽기) | 사실상 없음 | AG Grid Enterprise |
+| 붙여넣기 대량 편집(쓰기) | 없음 | AG Grid Enterprise + **쓰기 계약**(아래 4) |
 
 공식 지표는 언제나 서버 계산이다. 그리드의 SUM·AVERAGE는 공식 지표의 집계 방식을 정하지 않는다 — 비율을 행별로 평균하면 분자·분모를 합한 값과 다르다. 셀 수식(AG Grid Enterprise)은 서버 행 모델·피벗과 함께 쓸 수 없다고 공식 문서가 밝히므로 공식 지표 화면에 결합하지 않는다.
 
@@ -78,7 +79,7 @@ Node/NestJS는 프론트와의 언어 통일·SQL-first 관점에서 비교했�
 1. 지금: 메뉴가 표 엔진 타입을 직접 쓰지 않게 한다(#160) — 엔진 교체가 `@ap/components` 안에서 끝나도록.
 2. 트리거: #159에서 셀 범위 복붙·채우기·붙여넣기 편집이 업무 필수로 확인될 때(실제 사내 메뉴 2–3곳 근거).
 3. 평가: AG Grid Enterprise 평가판 POC(#164) — 리서치 문서 §7의 8개 항목 + `urlState` 연동, 디자인 토큰 테마, 06 §26 접근성, 지연 청크, **망분리에서 라이선스 키가 외부 통신 없이 동작하는지**, 라이선스 조건·비용.
-4. 전환: `PlatformDataTable` 내부만 교체. 메뉴 코드는 그대로.
+4. 전환: 읽기 기능(셀 범위 선택·복사·채우기 표시·피벗)은 `PlatformDataTable` 내부만 교체하고 메뉴 코드는 그대로다. 붙여넣기 대량 편집은 그리드 교체만으로 안 된다 — 지금 표 API는 `loadPage`·`onExport`뿐이고 메뉴 엔드포인트도 읽기 전용이라, 편집을 저장하려면 메뉴가 선언하는 쓰기(mutation) 엔드포인트·서버 검증·권한·감사·부분 실패 처리 계약이 먼저 필요하다. 별도 플랫폼 작업이고, 권한 쓰기 원천(#98) 같은 결정에 걸린다.
 
 ### Perspective 사용 방식
 
