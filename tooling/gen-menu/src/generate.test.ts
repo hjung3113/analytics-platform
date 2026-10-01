@@ -30,19 +30,64 @@ describe('scaffold permission (#47)', () => {
   });
 });
 
+/** Leading whitespace of one line. */
+const leadOf = (line: string): string => line.slice(0, line.length - line.trimStart().length);
+
+const analyticsSpreadLine = (text: string): string => {
+  const line = text.split('\n').find(l => l.trim() === '...analyticsMock,');
+  expect(line, '...analyticsMock, row not found').toBeDefined();
+  return line as string;
+};
+
+const analyticsImportLine = (text: string): string => {
+  const line = text.split('\n').find(l => l.trim() === `import { analyticsMock } from '${PACKAGE_PREFIX}menu-analytics/mock';`);
+  expect(line, 'analytics mock import line not found').toBeDefined();
+  return line as string;
+};
+
 describe('menu-query scaffold (#126)', () => {
-  /** #126: the fixture must mirror the real createMockAdapter layout (4-space spread lines) so indent drift fails here, not in the coordinator probe. */
-  it('keeps the fixture createMockAdapter block byte-identical to the real main.tsx', () => {
-    const blockOf = (text: string): string => {
-      const lines = text.split('\n');
-      const start = lines.indexOf('const adapter = createMockAdapter({');
-      expect(start, 'createMockAdapter block not found').toBeGreaterThan(-1);
-      const end = lines.indexOf('});', start);
-      expect(end, 'createMockAdapter block not closed').toBeGreaterThan(start);
-      return lines.slice(start, end + 1).join('\n');
-    };
+  /**
+   * #126: the coordinator probe legitimately inserts extra generated lines inside the real file's
+   * mock-spread region, so byte equality on the whole block breaks. The guard compares the block
+   * skeleton instead: the createMockAdapter block with every line strictly between the
+   * `// <gen:menu-mock-spreads>` and `// </gen:menu-mock-spreads>` markers removed — markers,
+   * their indentation, and the surrounding lines stay byte-identical.
+   */
+  const skeletonOf = (text: string): string => {
+    const lines = text.split('\n');
+    const start = lines.indexOf('const adapter = createMockAdapter({');
+    expect(start, 'createMockAdapter block not found').toBeGreaterThan(-1);
+    const end = lines.indexOf('});', start);
+    expect(end, 'createMockAdapter block not closed').toBeGreaterThan(start);
+    const block = lines.slice(start, end + 1);
+    const open = block.findIndex(l => l.trim() === '// <gen:menu-mock-spreads>');
+    const close = block.findIndex(l => l.trim() === '// </gen:menu-mock-spreads>');
+    expect(open, 'mock-spread region not found inside the block').toBeGreaterThan(-1);
+    expect(close, 'mock-spread region not closed inside the block').toBeGreaterThan(open);
+    return [...block.slice(0, open + 1), ...block.slice(close)].join('\n');
+  };
+
+  it('keeps the fixture createMockAdapter block skeleton byte-identical to the real main.tsx', () => {
     const real = readFileSync(join(repoRoot(), MAIN_TSX), 'utf8');
-    expect(blockOf(fixtureMainTsx())).toBe(blockOf(real));
+    expect(skeletonOf(fixtureMainTsx())).toBe(skeletonOf(real));
+  });
+
+  it('the skeleton guard survives the probe condition: an extra generated line inside the region (string copy)', () => {
+    const real = readFileSync(join(repoRoot(), MAIN_TSX), 'utf8');
+    const probed = real.replace('    ...analyticsMock,\n', `    ...analyticsMock,\n${mockSpreadLine(INPUTS)}\n`);
+    expect(probed, 'probe simulation did not insert a line').not.toBe(real);
+    // The old byte-identity guard failed under exactly this edit; the skeleton guard must pass.
+    expect(skeletonOf(probed)).toBe(skeletonOf(real));
+  });
+
+  /** #126: the generated rows' indentation must equal the region indentation — pinned where the skeleton guard deliberately strips it. */
+  it('mockSpreadLine/mockImportLine indentation equals the region indentation in the fixture and the real main.tsx (byte-level)', () => {
+    const real = readFileSync(join(repoRoot(), MAIN_TSX), 'utf8');
+    const fixture = fixtureMainTsx();
+    expect(leadOf(mockSpreadLine(INPUTS))).toBe(leadOf(analyticsSpreadLine(fixture)));
+    expect(leadOf(analyticsSpreadLine(real))).toBe(leadOf(analyticsSpreadLine(fixture)));
+    expect(leadOf(mockImportLine(INPUTS))).toBe(leadOf(analyticsImportLine(fixture)));
+    expect(leadOf(analyticsImportLine(real))).toBe(leadOf(analyticsImportLine(fixture)));
   });
 
   it('generates src/endpoints.ts and src/mock/index.ts instead of src/api.ts', () => {
@@ -158,6 +203,21 @@ describe('generate in a temp workspace', () => {
     for (const line of editSummary({ root, inputs: INPUTS, files: [], packageDir: pkgDir, edits: [] })) {
       expect(res.stdout).toContain(line);
     }
+  });
+
+  it('inserts the mock import/spread lines with exactly the existing region indentation (pins the #126 original bug)', () => {
+    const root = makeFixture();
+    keep.push(root);
+    expect(runCli([FIXTURE_GROUP, ...GEN_ARGS], root).status).toBe(0);
+    const lines = readFileSync(join(root, MAIN_TSX), 'utf8').split('\n');
+    const region = (start: string, end: string): string[] =>
+      lines.slice(lines.findIndex(l => l.trim() === start) + 1, lines.findIndex(l => l.trim() === end));
+    const spreadRegion = region('// <gen:menu-mock-spreads>', '// </gen:menu-mock-spreads>');
+    expect(spreadRegion).toEqual(['    ...analyticsMock,', mockSpreadLine(INPUTS)]);
+    expect(leadOf(spreadRegion[1]), 'inserted spread row must match the analytics row indentation').toBe(leadOf(spreadRegion[0]));
+    const importRegion = region('// <gen:menu-mock-imports>', '// </gen:menu-mock-imports>');
+    expect(importRegion).toEqual([`import { analyticsMock } from '${PACKAGE_PREFIX}menu-analytics/mock';`, mockImportLine(INPUTS)]);
+    expect(leadOf(importRegion[1]), 'inserted import row must match the analytics row indentation').toBe(leadOf(importRegion[0]));
   });
 
   it('refuses a second generate without changing bytes', () => {
