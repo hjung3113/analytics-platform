@@ -92,6 +92,17 @@ const rows: Row[] = [
   { file: MENU, code: `import { x } from '@ap/components';`, rule: '' },
   { file: MENU, code: `import '@ap/ui/styles.css';`, rule: 'no-restricted-imports' },
 
+  // --- #160: the table engine is components-internal; menus ban it statically and dynamically ---
+  { file: MENU, code: `import type { ColumnDef } from '@tanstack/react-table';`, rule: 'no-restricted-imports', token: 'table engine' },
+  { file: MENU, code: `import { x } from '@tanstack/react-table';`, rule: 'no-restricted-imports', token: 'table engine' },
+  { file: MENU, code: `import '@tanstack/react-virtual';`, rule: 'no-restricted-imports', token: 'table engine' },
+  { file: MENU, code: `import { x } from '@tanstack/react-table/dist/cjs';`, rule: 'no-restricted-imports', token: 'table engine' },
+  { file: MENU, code: `const m = await import('@tanstack/react-table');`, rule: 'ap/restricted-import-source' },
+  { file: 'menus/home/src/mock/handlers.ts', code: `import { x } from '@tanstack/react-table';`, rule: 'no-restricted-imports', token: 'table engine' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@tanstack/react-table';`, rule: '' },
+  { file: 'packages/components/src/x.ts', code: `import { x } from '@tanstack/react-table';`, rule: '' },
+  { file: 'packages/shell/src/x.ts', code: `import { x } from '@tanstack/react-table';`, rule: '' },
+
   // --- app mock-server carve-out / D2 (29-36) ---
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/url-contract.test.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },

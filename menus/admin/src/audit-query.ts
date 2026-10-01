@@ -5,8 +5,7 @@
  * list (§2 step 4): an id is only unique inside a type, and the instant window is half-open [fromAt, toAt)
  * compared as epochs — a one-sided pair, a naive digit string or fromAt >= toAt is invalid, never clamped.
  */
-import type { SortingState } from '@tanstack/react-table';
-import type { AuditAction, AuditSource } from '@ap/contracts';
+import type { AuditAction, AuditSource, PageSort } from '@ap/contracts';
 import { instantEpochMs } from '@ap/contracts';
 import { parsePageIndex, parseTableSort } from '@ap/components';
 
@@ -36,7 +35,7 @@ export type AuditFilters = {
 };
 
 export type ParsedAuditKeys =
-  | { ok: true; filters: AuditFilters; sorting: SortingState; page: number | null }
+  | { ok: true; filters: AuditFilters; sorting: PageSort[]; page: number | null }
   | { ok: false };
 
 /** True when the operator text is not a plain token: empty, over 80 chars, or URL/whitespace-bearing. */

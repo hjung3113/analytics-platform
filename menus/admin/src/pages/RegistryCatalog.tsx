@@ -1,8 +1,7 @@
 import { useMemo } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
 import { CONTEXT_LABELS, PAGE_TYPE_LABELS, useI18n, usePlatform } from '@ap/kernel';
 import type { Text } from '@ap/contracts';
-import { DetailDrawer, encodeTableSort, parsePageIndex, parseTableSort, PlatformDataTable, PlatformPage, sortAndPage } from '@ap/components';
+import { DetailDrawer, type PlatformColumn, encodeTableSort, parsePageIndex, parseTableSort, PlatformDataTable, PlatformPage, sortAndPage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { toRegistryRow, type RegistryRow } from '../registry-rows';
 
@@ -28,16 +27,16 @@ export default function RegistryCatalog() {
   const rows = useMemo(() => registry.menus.map(menu => toRegistryRow(menu, registry)), [registry]);
   // Full 8-key context, one badge per value — the PlannedPage capability list, copied inline (do not extract).
   const tone = { apply: 'success', reference: 'info', unsupported: 'neutral' } as const;
-  const columns = useMemo<ColumnDef<RegistryRow>[]>(() => [
-    { accessorKey: 'id', header: 'ID', cell: info => <span className="t-mono">{String(info.getValue())}</span> },
-    { accessorKey: 'spaceId', header: ko ? '공간' : 'Space', cell: info => <span className="t-mono">{String(info.getValue())}</span> },
-    { accessorKey: 'groupId', header: ko ? '그룹' : 'Group', cell: info => <span className="t-mono">{String(info.getValue())}</span> },
-    { accessorKey: 'path', header: 'Path', cell: info => <span className="t-mono">{String(info.getValue())}</span> },
-    { accessorKey: 'permission', header: ko ? '권한' : 'Permission', cell: info => <span className="t-mono">{String(info.getValue())}</span> },
-    { accessorKey: 'capabilities', header: ko ? 'Context' : 'Context' },
-    { accessorKey: 'pageKeys', header: ko ? '페이지 키' : 'Page keys', cell: info => <span className="t-mono">{String(info.getValue())}</span> },
-    { accessorKey: 'contextResetKeys', header: ko ? '리셋 키' : 'Reset keys', cell: info => <span className="t-mono">{String(info.getValue())}</span> },
-    { accessorKey: 'status', header: ko ? '상태' : 'Status', cell: info => STATUS[info.getValue() as RegistryRow['status']][lang] },
+  const columns = useMemo<PlatformColumn<RegistryRow>[]>(() => [
+    { id: 'id', header: 'ID', cell: row => <span className="t-mono">{String(row.id)}</span> },
+    { id: 'spaceId', header: ko ? '공간' : 'Space', cell: row => <span className="t-mono">{String(row.spaceId)}</span> },
+    { id: 'groupId', header: ko ? '그룹' : 'Group', cell: row => <span className="t-mono">{String(row.groupId)}</span> },
+    { id: 'path', header: 'Path', cell: row => <span className="t-mono">{String(row.path)}</span> },
+    { id: 'permission', header: ko ? '권한' : 'Permission', cell: row => <span className="t-mono">{String(row.permission)}</span> },
+    { id: 'capabilities', header: ko ? 'Context' : 'Context' },
+    { id: 'pageKeys', header: ko ? '페이지 키' : 'Page keys', cell: row => <span className="t-mono">{String(row.pageKeys)}</span> },
+    { id: 'contextResetKeys', header: ko ? '리셋 키' : 'Reset keys', cell: row => <span className="t-mono">{String(row.contextResetKeys)}</span> },
+    { id: 'status', header: ko ? '상태' : 'Status', cell: row => STATUS[row.status][lang] },
   ], [ko, lang]);
   const menu = focus ? registry.menus.find(m => m.id === focus) : undefined;
   // Computed outside JSX children: a multi-line JSX ternary in children is a parser trap.

@@ -12,6 +12,8 @@ const DEEP_SUBPATH_MESSAGE = `Import the package entry (${PACKAGE_PREFIX}name) o
 const LAYER_MESSAGE = 'Importing an internal workspace package outside this layer allowlist.';
 const MOCK_SERVER_MESSAGE = `${PACKAGE_PREFIX}mock-server is only legal in menu src/mock/**.`;
 const REACT_MESSAGE = 'react / react-dom are not allowed in this package.';
+// #160: the table engine is components-internal; menus declare columns with the platform types.
+const TABLE_ENGINE_MESSAGE = `The table engine belongs to ${PACKAGE_PREFIX}components; menus use the platform column types (PlatformColumn).`;
 
 const MENU_ALLOW = ['contracts', 'kernel', 'components', 'ui'];
 // The composition root sees mock-server and every menu subpath below; the server conformance test (#145) registers
@@ -30,14 +32,15 @@ const MENU_MOCK_SUBPATH = 'menu-*/mock';
 const MENU_SUBPATH_ALLOW = ['menu-notice-voc/feedbackops-origin', MENU_MOCK_SUBPATH];
 
 // Restriction data is the single decision source: each layer declares
-// { allow, denyReact, mockAllowed, allowSubpaths } and BOTH import rules are built from it,
-// so static and dynamic imports can never drift apart.
+// { allow, denyReact, denyTableEngine, mockAllowed, allowSubpaths } and BOTH import rules are built
+// from it, so static and dynamic imports can never drift apart.
 //   allow: package-entry names this layer may import; null = every entry.
 //   mockAllowed: exempts exactly the mock-server entry (never its subpaths).
 //   allowSubpaths: exact names or patterns exempted from the deep-subpath ban (default none).
 // Deep subpaths are banned for everyone, except subpaths matched by allowSubpaths.
-const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, mockAllowed: false };
-const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, mockAllowed: true };
+const TABLE_ENGINE_PACKAGES = ['@tanstack/react-table', '@tanstack/react-virtual'];
+const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, denyTableEngine: true, mockAllowed: false };
+const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTableEngine: true, mockAllowed: true };
 const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false };
 // src/main.tsx is the composition root: mock-server and the listed menu subpaths are allowed by both import rules.
 const APP_MAIN_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true, allowSubpaths: MENU_SUBPATH_ALLOW };
@@ -46,7 +49,7 @@ const APP_CONFORMANCE_RESTRICTION = { allow: null, denyReact: false, mockAllowed
 // The other carve-out files keep the mock-server exemption but never the menu-subpath allowance.
 const APP_CARVEOUT_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true };
 
-function importRestrictions({ allow, denyReact, mockAllowed, allowSubpaths = [] }) {
+function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, allowSubpaths = [] }) {
   const negations = [
     ...(allow === null ? [] : allow.map((name) => `!${pkg(name)}`)),
     ...(mockAllowed ? [`!${pkg('mock-server')}`] : []),
@@ -54,12 +57,15 @@ function importRestrictions({ allow, denyReact, mockAllowed, allowSubpaths = [] 
   return [
     'error',
     {
-      paths: denyReact
-        ? [
-            { name: 'react', message: REACT_MESSAGE },
-            { name: 'react-dom', message: REACT_MESSAGE },
-          ]
-        : [],
+      paths: [
+        ...(denyReact
+          ? [
+              { name: 'react', message: REACT_MESSAGE },
+              { name: 'react-dom', message: REACT_MESSAGE },
+            ]
+          : []),
+        ...(denyTableEngine ? TABLE_ENGINE_PACKAGES.map((name) => ({ name, message: TABLE_ENGINE_MESSAGE })) : []),
+      ],
       patterns: [
         {
           group: [`${PACKAGE_PREFIX}*/*`, `${PACKAGE_PREFIX}*/*/**`, ...allowSubpaths.map((s) => `!${pkg(s)}`)],
@@ -70,6 +76,7 @@ function importRestrictions({ allow, denyReact, mockAllowed, allowSubpaths = [] 
           : [{ group: [`${PACKAGE_PREFIX}*`, ...negations], message: LAYER_MESSAGE }]),
         ...(mockAllowed ? [] : [{ group: [pkg('mock-server'), pkg('mock-server/*')], message: MOCK_SERVER_MESSAGE }]),
         ...(denyReact ? [{ group: ['react/*', 'react-dom/*'], message: REACT_MESSAGE }] : []),
+        ...(denyTableEngine ? [{ group: TABLE_ENGINE_PACKAGES.map((name) => `${name}/*`), message: TABLE_ENGINE_MESSAGE }] : []),
       ],
     },
   ];
@@ -82,6 +89,7 @@ function importSourceOptions(restriction) {
     layerMessage: LAYER_MESSAGE,
     mockMessage: MOCK_SERVER_MESSAGE,
     reactMessage: REACT_MESSAGE,
+    tableEngineMessage: TABLE_ENGINE_MESSAGE,
   };
 }
 

@@ -1,16 +1,50 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type ColumnSizingState, type RowSelectionState, type SortingState, type VisibilityState } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type ColumnSizingState, type RowSelectionState, type VisibilityState } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, Columns3, Download, Loader2 } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
-import { type ApiResponse, type PageQuery, type PageResult, serializeGlobal } from '@ap/contracts';
+import { type ApiResponse, type PageQuery, type PageResult, type PageSort, serializeGlobal } from '@ap/contracts';
 import { Button, Checkbox, cn, Label, Popover, PopoverContent, PopoverTrigger, Skeleton } from '@ap/ui';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { OutcomeView } from './StateView';
 
 export type { PageQuery, PageResult } from '@ap/contracts';
 export { sortAndPage } from '@ap/contracts';
-export type ColumnMeta = { align?: 'right'; label?: string };
+type ColumnMeta = { align?: 'right'; label?: string };
+
+/** §15 domain-owned column shape (#160): what menus declare; the TanStack `ColumnDef` conversion happens inside this file only. */
+export type PlatformColumn<T> = {
+  /** Stable id = server sort field = column-preference key = URL sort value. */
+  id: string;
+  /** Header text and the column-menu label. */
+  header: string;
+  /** Sort/default display value; default `(row as Record<string, unknown>)[id]`. */
+  value?: (row: T) => unknown;
+  /** Display; default String(value) ('' for null/undefined). */
+  cell?: (row: T) => ReactNode;
+  size?: number;
+  /** Numeric: right aligned + tabular. */
+  align?: 'right';
+  /** Default true. */
+  sortable?: boolean;
+  /** Default true. */
+  hideable?: boolean;
+};
+
+function toColumnDef<T>(c: PlatformColumn<T>): ColumnDef<T> {
+  return {
+    id: c.id,
+    header: c.header,
+    size: c.size,
+    enableSorting: c.sortable !== false,
+    enableHiding: c.hideable !== false,
+    meta: { align: c.align },
+    accessorFn: c.value ?? ((row: T) => (row as Record<string, unknown>)[c.id]),
+    cell: c.cell
+      ? ({ row }) => c.cell!(row.original)
+      : ({ getValue }) => { const v = getValue(); return v == null ? '' : String(v); },
+  };
+}
 
 type Preferences = { sizing: ColumnSizingState; visibility: VisibilityState; pinning: ColumnPinningState };
 const defaults: Preferences = { sizing: {}, visibility: {}, pinning: { left: [], right: [] } };
@@ -30,16 +64,16 @@ export type TableUrlState = {
   /** 1-based; null = default page 1 (key omitted). */
   page: number | null;
   /** What the header shows; empty = unsorted. */
-  sorting: SortingState;
+  sorting: PageSort[];
   /** One callback for user sort/page gestures; the page owns the URL keys and its own resets (§6.1). */
-  onChange: (next: { page: number | null; sorting: SortingState }, reason: 'user' | 'reset') => void;
+  onChange: (next: { page: number | null; sorting: PageSort[] }, reason: 'user' | 'reset') => void;
 };
 
 export type PlatformDataTableProps<T> = {
   title: ReactNode;
   subtitle?: ReactNode;
   ariaLabel: string;
-  columns: ColumnDef<T>[];
+  columns: PlatformColumn<T>[];
   getRowId: (row: T) => string;
   /** Server-side sort/page. Returns the §19 envelope; the table renders the outcome taxonomy. */
   loadPage: (query: PageQuery, signal: AbortSignal) => Promise<ApiResponse<PageResult<T>>>;
@@ -66,7 +100,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const canExport = !!p.onExport && !!route?.menu.features.export;
   const pageSize = p.pageSize ?? 100;
   const [preferences, setPreferences] = useState(() => readPreferences(p.preferenceKey));
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [sorting, setSorting] = useState<PageSort[]>([]);
   const [selection, setSelection] = useState<RowSelectionState>({});
   const [page, setPage] = useState(0);
   const [retry, setRetry] = useState(0);
@@ -124,7 +158,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
         onCheckedChange={v => table.toggleAllPageRowsSelected(v === true)} className="size-3.5 border-border-control" />,
       cell: ({ row }) => <Checkbox aria-label={`${lang === 'ko' ? '선택' : 'Select'} ${row.id}`} checked={row.getIsSelected()} onCheckedChange={v => row.toggleSelected(v === true)} className="size-3.5 border-border-control" />,
     },
-    ...p.columns,
+    ...p.columns.map(toColumnDef),
     ...(p.rowAction ? [{ id: '_action', size: 128, enableSorting: false, enableHiding: false, enableResizing: false, header: lang === 'ko' ? '동작' : 'Actions', cell: ({ row }: { row: { original: T } }) => p.rowAction!(row.original) } as ColumnDef<T>] : []),
   ], [p.columns, p.rowAction, lang]);
 
@@ -264,14 +298,14 @@ export function parsePageIndex(raw: string | null): { ok: true; page: number } |
   return Number.isSafeInteger(page) ? { ok: true, page } : { ok: false };
 }
 
-export function parseTableSort(raw: string | null, allowed: readonly string[]): { ok: true; sorting: SortingState } | { ok: false } {
+export function parseTableSort(raw: string | null, allowed: readonly string[]): { ok: true; sorting: PageSort[] } | { ok: false } {
   if (raw === null || raw === '') return { ok: true, sorting: [] };
   const m = /^([A-Za-z][A-Za-z0-9_]*):(asc|desc)$/.exec(raw);
   if (!m || !allowed.includes(m[1])) return { ok: false };
   return { ok: true, sorting: [{ id: m[1], desc: m[2] === 'desc' }] };
 }
 
-export function encodeTableSort(sorting: SortingState): string | null {
+export function encodeTableSort(sorting: PageSort[]): string | null {
   const s = sorting[0];
   return s ? `${s.id}:${s.desc ? 'desc' : 'asc'}` : null;
 }

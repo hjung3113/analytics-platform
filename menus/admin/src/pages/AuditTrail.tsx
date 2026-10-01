@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
-import { formatInstant, type AuditAction, type AuditEvent, type AuditSortField } from '@ap/contracts';
+import { formatInstant, type AuditEvent, type AuditSortField } from '@ap/contracts';
 import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
-import { PlatformDataTable, PlatformPage, encodeTableSort } from '@ap/components';
+import { type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { auditDestination } from '../audit-destination';
 import { ACTION_LABEL, AUDIT_PAGE_KEYS, parseAuditKeys } from '../audit-query';
@@ -66,15 +65,15 @@ export default function AuditTrail() {
       {parsed.ok && clear}
     </fieldset>
   </form>;
-  const columns = useMemo<ColumnDef<AuditEvent>[]>(() => [
-    { accessorKey: 'at', header: ko ? '시각' : 'At', size: 150, cell: info => <span className="tabular">{formatInstant(info.getValue() as string, lang)}</span> },
-    { accessorKey: 'actor', header: ko ? '행위자' : 'Actor', size: 130, cell: info => mono(info.getValue()) },
-    { accessorKey: 'action', header: ko ? '작업' : 'Action', size: 110, cell: info => ACTION_LABEL[info.getValue() as AuditAction][lang] },
-    { accessorKey: 'source', header: ko ? '출처' : 'Source', size: 100, cell: ({ row }) => <StatusBadge tone={row.original.source === 'system' ? 'neutral' : 'info'}>{row.original.source}</StatusBadge> },
-    { id: 'targetType', header: ko ? '대상 유형' : 'Target type', accessorFn: row => row.target.type, size: 110, cell: info => mono(info.getValue()) },
-    { id: 'targetId', header: 'target id', enableSorting: false, accessorFn: row => row.target.id, size: 170, cell: info => mono(info.getValue()) },
-    { id: 'scopeId', header: ko ? '사이트' : 'Site', enableSorting: false, size: 90, cell: ({ row }) => row.original.target.scopeId ?? '—' },
-    { id: 'changes', header: ko ? '변경 필드' : 'Changed fields', enableSorting: false, size: 220, cell: ({ row }) => row.original.changes ? Object.keys(row.original.changes).sort().join(', ') : '—' },
+  const columns = useMemo<PlatformColumn<AuditEvent>[]>(() => [
+    { id: 'at', header: ko ? '시각' : 'At', size: 150, cell: row => <span className="tabular">{formatInstant(row.at, lang)}</span> },
+    { id: 'actor', header: ko ? '행위자' : 'Actor', size: 130, cell: row => mono(row.actor) },
+    { id: 'action', header: ko ? '작업' : 'Action', size: 110, cell: row => ACTION_LABEL[row.action][lang] },
+    { id: 'source', header: ko ? '출처' : 'Source', size: 100, cell: row => <StatusBadge tone={row.source === 'system' ? 'neutral' : 'info'}>{row.source}</StatusBadge> },
+    { id: 'targetType', header: ko ? '대상 유형' : 'Target type', value: row => row.target.type, size: 110, cell: row => mono(row.target.type) },
+    { id: 'targetId', header: 'target id', sortable: false, value: row => row.target.id, size: 170, cell: row => mono(row.target.id) },
+    { id: 'scopeId', header: ko ? '사이트' : 'Site', sortable: false, size: 90, cell: row => row.target.scopeId ?? '—' },
+    { id: 'changes', header: ko ? '변경 필드' : 'Changed fields', sortable: false, size: 220, cell: row => row.changes ? Object.keys(row.changes).sort().join(', ') : '—' },
   ], [ko, lang]);
   return <PlatformPage description={ko ? '모든 사이트의 마스터 변경 로그입니다. 행의 링크는 각 상세 화면의 Audit 탭으로 이동합니다.' : 'The master-change log across all sites. A row link opens the destination detail\'s Audit tab.'}>
     {filters}

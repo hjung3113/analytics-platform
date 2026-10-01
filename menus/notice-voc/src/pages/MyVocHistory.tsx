@@ -1,14 +1,13 @@
 import { useMemo } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
 import { HelpCircle } from 'lucide-react';
 import { formatInstant } from '@ap/contracts';
 import { useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
-import { Panel, PlatformDataTable, PlatformPage, QueryView, StateMessage } from '@ap/components';
+import { type PlatformColumn, Panel, PlatformDataTable, PlatformPage, QueryView, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { feedbackOpsHref } from '../feedbackops-href';
 import { feedbackOpsOrigin } from '../feedbackops-origin';
 import { VOC_STATUS } from '../voc-status';
-import { myVocHistoryEndpoint, mySurveyHistoryEndpoint, type MyVocItem, type MyVocStatus } from '../endpoints';
+import { myVocHistoryEndpoint, mySurveyHistoryEndpoint, type MyVocItem } from '../endpoints';
 
 const NO_PARAMS = {};
 
@@ -45,15 +44,15 @@ export default function MyVocHistory() {
     ? <Button asChild size="sm"><a href={create.href} target="_blank" rel="noopener noreferrer">{ko ? 'VOC 등록' : 'New VOC'}</a></Button>
     : <Button size="sm" disabled>{noLink}</Button>;
 
-  const columns = useMemo<ColumnDef<MyVocItem>[]>(() => [
-    { accessorKey: 'displayId', header: ko ? 'VOC 번호' : 'VOC ID', enableSorting: false, cell: info => <span className="t-mono">{String(info.getValue())}</span> },
-    { accessorKey: 'title', header: ko ? '제목' : 'Title', enableSorting: false },
+  const columns = useMemo<PlatformColumn<MyVocItem>[]>(() => [
+    { id: 'displayId', header: ko ? 'VOC 번호' : 'VOC ID', sortable: false, cell: row => <span className="t-mono">{String(row.displayId)}</span> },
+    { id: 'title', header: ko ? '제목' : 'Title', sortable: false },
     {
-      accessorKey: 'status', header: ko ? '상태' : 'Status', enableSorting: false,
-      cell: info => { const s = VOC_STATUS[info.getValue() as MyVocStatus]; return <StatusBadge tone={s.tone}>{ko ? s.ko : s.en}</StatusBadge>; },
+      id: 'status', header: ko ? '상태' : 'Status', sortable: false,
+      cell: row => { const s = VOC_STATUS[row.status]; return <StatusBadge tone={s.tone}>{ko ? s.ko : s.en}</StatusBadge>; },
     },
-    { accessorKey: 'openedAt', header: ko ? '접수' : 'Opened', enableSorting: false, cell: info => formatInstant(info.getValue() as string, lang) },
-    { accessorKey: 'updatedAt', header: ko ? '마지막 업데이트' : 'Updated', enableSorting: false, cell: info => formatInstant(info.getValue() as string, lang) },
+    { id: 'openedAt', header: ko ? '접수' : 'Opened', sortable: false, cell: row => formatInstant(row.openedAt, lang) },
+    { id: 'updatedAt', header: ko ? '마지막 업데이트' : 'Updated', sortable: false, cell: row => formatInstant(row.updatedAt, lang) },
   ], [ko, lang]);
 
   const openInFeedbackOps = (row: MyVocItem) => {

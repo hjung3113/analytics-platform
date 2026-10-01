@@ -6,7 +6,7 @@ Platform Component 층(06 §13) + 차트 계약(§16) + 페이지 archetype 골�
 
 - `PlatformPage.tsx` — 페이지 최상위. 제목·액션·`contextExtension`·`dataTrustSummary`·breadcrumb 슬롯, Scope 게이트, 전역 Context Bar는 `slots.contextBar`로 받아 렌더(셸을 import하지 않음).
 - `StateView.tsx` — §19 상태 분류(`QueryView`: 로딩/갱신/empty/forbidden/too_large/timeout/error).
-- `PlatformDataTable.tsx`(`loadPage`의 `PageQuery`·`PageResult`·`sortAndPage`는 `@ap/contracts` 소유를 재export — 서버 mock도 같은 모양을 쓴다, 정렬·페이지는 `urlState`로 제어 가능, 페이지 키 코덱 `parsePageIndex`·`parseTableSort`·`encodeTableSort` — 키 이름·값 도메인은 페이지가 소유, #45), `DetailDrawer.tsx`(+`Field`), `AuditTimeline.tsx`, `DataTrustIndicator.tsx`, `StatCard.tsx`, `RadioGroup.tsx`.
+- `PlatformDataTable.tsx`(`loadPage`의 `PageQuery`·`PageResult`·`sortAndPage`는 `@ap/contracts` 소유를 재export — 서버 mock도 같은 모양을 쓴다, 정렬·페이지는 `urlState`로 제어 가능, 페이지 키 코덱 `parsePageIndex`·`parseTableSort`·`encodeTableSort` — 키 이름·값 도메인은 페이지가 소유, #45; 열은 엔진 무관 타입 `PlatformColumn<T>`(#160)만 받고 TanStack `ColumnDef` 변환은 파일 안에서만 한다 — 정렬 상태도 contracts의 `PageSort[]`, 표 엔진(`@tanstack/react-table`·`react-virtual`)은 여기 내부이며 메뉴 import는 lint 금지), `DetailDrawer.tsx`(+`Field`), `AuditTimeline.tsx`, `DataTrustIndicator.tsx`, `StatCard.tsx`, `RadioGroup.tsx`.
 - `AnalysisChartFrame.tsx`(Zoom/Brush/Reset/Compare/Annotate/Export), `EChart.tsx`(ECharts adapter). Compare·Annotate·Export는 현재 메뉴 manifest `features`가 켠 것만 그리고, 주석은 `adapter.listAnnotations`·`saveAnnotation`(키 `chartId + scopeId`, `usePlatformQuery` 'session' 식별자에 Scope 포함)으로만 읽고 쓴다 — 모듈 전역 저장소를 두지 않는다(06 §16, #103).
 - `styles.css` — Tailwind `@source`. `a11y.test.tsx` — 드로어·라디오 키보드·포커스 접근성 테스트.
 

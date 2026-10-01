@@ -17,7 +17,6 @@
     "@ap/contracts": "workspace:*",
     "@ap/kernel": "workspace:*",
     "@ap/ui": "workspace:*",
-    "@tanstack/react-table": "^8.21.3",
     "lucide-react": "^1.48.0"
   },
   "peerDependencies": {
