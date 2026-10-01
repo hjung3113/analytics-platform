@@ -8,7 +8,7 @@
 
 - 실어댑터(클라이언트)는 각 포트 메서드를 서버 호출로 옮긴다. 전송 형식(HTTP 경로·JSON 모양)은 아직 정하지 않았다(§7).
 - 서버는 mock 엔진이 하는 판정을 그대로 한다. 판정의 기준은 요청이 아니라 **서버가 가진 엔드포인트 선언 사본**이다.
-- 운영 빌드에서는 dev 도구(역할 전환·응답 시나리오, `src/dev/DevTools.tsx`)를 빼고, `menus/*/src/mock/`은 번들에 넣지 않는다.
+- 운영 빌드에서는 dev 도구(역할 전환·응답 시나리오, `src/dev/DevTools.tsx`)를 빼고, `menus/*/src/mock/`은 번들에 넣지 않는다 — 지금은 이를 보장하는 장치가 없다(`main.tsx`가 무조건 import). 분리와 번들 검사는 #153.
 
 ## 2. `PlatformAdapter` 메서드별로 지킬 것
 
@@ -61,6 +61,8 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 - `context`·`foreignScopeId`: 테스트 계정에 부여된 site·기간, 부여되지 않은 site.
 - `asGranted`·`withoutPermission`: 모든 엔드포인트 권한을 가진 테스트 계정과, 권한 하나씩만 뺀 계정(또는 그렇게 세션을 바꾸는 테스트 훅).
 
+지금 묶음은 `menuQuery`만 검사한다. §2의 나머지 포트 메서드로 넓히는 일은 #152.
+
 묶음이 다루지 않는 것(메뉴별 수치·행, 한도·시간 도메인 경계값, 비 mart `trust: null`)은 메뉴 테스트와 E2E(`pnpm e2e`)가 맡는다.
 
 ## 5. 세션·사용자
@@ -76,10 +78,13 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 
 ## 7. 아직 사람 결정이 필요한 것
 
+순서·담당자별 질문 목록은 [사내 적용 가이드](in-house-rollout.md) §2–§3, 진행은 지도 이슈 [#157](https://github.com/hjung3113/analytics-platform/issues/157).
+
 | 결정 | 왜 필요한가 |
 | --- | --- |
-| 메뉴 조회 포트 Q2 — 선언 원본을 TS로 두고 서버가 읽을지, FastAPI에서 생성할지 | 서버의 "선언 사본"을 어디서 가져올지. 공개 스키마·codegen(PLATFORM_REQUIREMENTS)도 여기에 달려 있다. |
-| 전송 형식 — HTTP 경로·메서드·JSON 모양, 취소(`AbortSignal`)·타임아웃 | 실어댑터와 서버의 경계. mock은 함수 호출이라 정해진 게 없다. |
-| 사내 SSO 사양(#35 후속)·역할 소속 원천(#98) | 세션·권한의 원천. |
+| 메뉴 조회 포트 Q2(#148) — 선언 원본을 TS로 두고 서버가 읽을지, FastAPI에서 생성할지 | 서버의 "선언 사본"을 어디서 가져올지. 공개 스키마·codegen(PLATFORM_REQUIREMENTS)도 여기에 달려 있다. |
+| 전송 형식(#149, 초안 → 합의) — HTTP 경로·메서드·JSON 모양, 취소(`AbortSignal`)·타임아웃 | 실어댑터와 서버의 경계. mock은 함수 호출이라 정해진 게 없다. |
+| 사내 SSO 사양(#150)·역할 소속 원천(#98) | 세션·권한의 원천. |
 | 적재 워커 상태 스키마(#37) | 데이터 신뢰(`trust`, `processing_delay`·`coverage` assessment)의 원천. 합의 뒤 모니터링(#51). |
 | FeedbackOps API(#84 설문 응답 읽기, #85 신고자 딥링크, #86 실제 VOC 어댑터) | 내 VOC·설문 화면의 비 mart 원천. |
+| 배포·인프라 환경(#151) | 같은 출처 배포·쿠키·CSRF, 망분리 빌드, CI 위치. 전송 형식 합의가 여기에 기댄다. |

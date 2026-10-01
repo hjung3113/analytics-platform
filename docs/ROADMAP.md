@@ -1,6 +1,6 @@
 # 로드맵 — 한 일, 하는 일, 남은 일
 
-> 이 문서가 진행 상황의 한 페이지 요약이다. 체크리스트로 보는 진행률은 고정 이슈 [로드맵: 플랫폼 작업 전체 진행 상황 (#63)](https://github.com/hjung3113/analytics-platform/issues/63), 트랙별 진행률은 [마일스톤](https://github.com/hjung3113/analytics-platform/milestones). 세부는 각 이슈에 있고, 이슈가 닫히면 이 문서도 같은 PR에서 고친다(AGENTS.md "작업 관리"). 마지막 갱신: 2026-10-01.
+> 이 문서가 진행 상황의 한 페이지 요약이다. 체크리스트로 보는 진행률은 고정 이슈 [로드맵: 플랫폼 작업 전체 진행 상황 (#63)](https://github.com/hjung3113/analytics-platform/issues/63), 트랙별 진행률은 [마일스톤](https://github.com/hjung3113/analytics-platform/milestones). 세부는 각 이슈에 있고, 이슈가 닫히면 이 문서도 같은 PR에서 고친다(AGENTS.md "작업 관리"). 마지막 갱신: 2026-10-02.
 
 ## 무엇을 만드나
 
@@ -20,12 +20,15 @@
 | 4. 플랫폼 기능 추가 | 완료 | 공간(워크스페이스), 운영 콘솔, Kernel 잔여, 차트 번들 코드 분할(#48)까지 완료 — 마일스톤 M1 |
 | 5. 디자인 시스템 | **보류** | FeedbackOps 디자인 개선 확정 뒤 재개. 그 디자인을 기반으로 삼고 플랫폼 확장 패턴을 더함 — 마일스톤 M2 |
 | 6. FeedbackOps 연결(1단계) | 결정 대기 | 딥링크·토큰 공유·읽기 전용 조회 — 마일스톤 M3 |
+| 7. 사내 적용 | **사내 입력 대기** | mock 어댑터를 실어댑터·실서버(FastAPI)로 바꾼다. 플랫폼 준비(#100·#145)는 끝났고 SSO 사양·배포 환경·백엔드 합의가 남았다 — 마일스톤 M4, 지도 [#157](https://github.com/hjung3113/analytics-platform/issues/157), 가이드 [`in-house-rollout.md`](integration/in-house-rollout.md) |
 
 ## 지금 바로 시작할 수 있는 것
 
 선행 이슈가 없는 것들이다. 위에서부터 추천 순서.
 
-1. **틈틈이 목록**: ~~`@types/node` 부채 (#57)~~ 완료, ~~CSS selector 비교 CI (#58)~~ 완료 — `tooling/css-selectors` + CI `css-selectors` Job(라벨 `css-removal-ok`), 적재 워커 상태 스키마 초안 (#37) 작성 완료 — `docs/integration/ingest-status-schema.md`, 파서 담당 합의 대기, ~~FeedbackOps 양방향 딥링크 계약 (#61)~~ 완료 — `docs/integration/feedbackops-deeplink.md`(phase-1, 확장은 #81 결정 대기). 계약 안전망은 `pnpm e2e`(#44), 메뉴 활용률 계측(#43)도 완료 — kernel이 `adapter.recordUsage`(entry/dwell)로 계측하고 콘솔은 `usageSummary` 집계만 읽는다(조회조건 수집 여부는 #75 결정 대기).
+1. **사내 적용 준비(외부 입력 없음)**: 적합성 묶음을 `menuQuery` 밖 포트 메서드로 넓히기 (#152), 운영 빌드에서 mock·DevTools 빼기 (#153), 전송 형식 초안 (#149). 작은 후속 #122, #90.
+2. **사내에 물을 것(사람)**: SSO 사양 (#150), 배포·인프라 환경 (#151), 선언 원본 결정 (#148). 질문 목록은 [사내 적용 가이드](integration/in-house-rollout.md) §3.
+3. **틈틈이 목록**: ~~`@types/node` 부채 (#57)~~ 완료, ~~CSS selector 비교 CI (#58)~~ 완료 — `tooling/css-selectors` + CI `css-selectors` Job(라벨 `css-removal-ok`), 적재 워커 상태 스키마 초안 (#37) 작성 완료 — `docs/integration/ingest-status-schema.md`, 파서 담당 합의 대기, ~~FeedbackOps 양방향 딥링크 계약 (#61)~~ 완료 — `docs/integration/feedbackops-deeplink.md`(phase-1, 확장은 #81 결정 대기). 계약 안전망은 `pnpm e2e`(#44), 메뉴 활용률 계측(#43)도 완료 — kernel이 `adapter.recordUsage`(entry/dwell)로 계측하고 콘솔은 `usageSummary` 집계만 읽는다(조회조건 수집 여부는 #75 결정 대기).
 
 디자인 방향 프로토타입(#52)은 보류다(아래 M2).
 
@@ -68,9 +71,24 @@
 | ~~Kernel: 라우트 단위 Error Boundary와 오류 보고 포트 (#101)~~ 완료 — 셸 `RouteErrorBoundary`가 메뉴 화면 렌더 실패를 콘텐츠 슬롯에 가두고, `usePlatform().reportError` → 포트 `reportClientError`(식별 필드만)로 보고, 화면에 Correlation ID를 보인다. mock 시나리오 `malformed`로 E2E 재현(총 36) | 완료 |
 | ~~Kernel: `linkTo`가 목적지 권한·사이트 경계 초기화·미지원 Context를 처리 (#102)~~ 완료 — `resolveLink`가 `href`·`allowed`(목적지 권한·공간 진입)·`droppedPageKeys`를 돌려주고 Scope가 바뀌면 site 종속 Context를 비운다. 감사 화면의 자체 SITE_BOUNDARY 로직 제거, 지표 사용처는 권한 없으면 사유 표시. E2E 총 38 | 완료 |
 | ~~차트 계약: 주석 Scope 격리·manifest features 준수·E2E 검사 (#103)~~ 완료 — 주석은 서버 소유·`(chartId, scopeId)` 키의 포트(`listAnnotations`·`saveAnnotation`, 모듈 전역 저장소 제거), Chart Frame이 Compare·Annotate·Export를 manifest `features`로 게이트, E2E 3건(Brush→구간 적용 확인, 주석 사이트 격리, features 준수; 총 41) | 완료 |
-| ~~레이아웃: pageType을 실제 계약으로 (#104)~~ 생성기 부분 완료 — `--page-type`별 06 §12 슬롯 뼈대, 반복 패턴·슬롯 후보 정리(06 §12.6). 레이아웃 슬롯 컴포넌트는 M2 재개 때 프로토타입 컨펌 후 | 생성기 완료, 슬롯 컴포넌트 M2 대기 |
+| ~~레이아웃: pageType을 실제 계약으로 (#104)~~ 생성기 부분 완료 — `--page-type`별 06 §12 슬롯 뼈대, 반복 패턴·슬롯 후보 정리(06 §12.6). 레이아웃 슬롯 컴포넌트는 M2 재개 때 프로토타입 컨펌 후(#156) | 생성기 완료, 슬롯 컴포넌트 M2 대기(#156) |
 | ~~[결정+설계] 메뉴 데이터 조회 포트: 서버 경계 계약을 mock 밖 contracts로 (#100)~~ 완료(2026-10-01) — 메뉴는 `src/endpoints.ts`에 조회를 선언하고 화면은 Kernel `useMenuQuery`(렌더 시점)·`useMenuFetch`(표 페이지·내보내기)만 쓴다. 서버(mock 엔진)는 요청이 아니라 자기 선언 사본으로 요청 모양·권한·Scope·한도·params 값을 판정한다. 모든 메뉴 화면 이전 완료, `PlatformAdapter`에서 메뉴 어휘(VOC) 제거, `serve` 경로·이행용 lint 제거. 9단계는 화면을 다듬지 않고 계약 검증 + 최소 이전으로 줄였다(사용자). 현재 계약은 06 §5·§19와 [패키지 경계](integration/platform-packages.md) §3–§5, 설계·결정 경과는 [`menu-query-port.md`](integration/menu-query-port.md)(설계 기록). 남은 것: Q2 선언 원본 TS ↔ FastAPI codegen(FastAPI 착수 때), 후속 #122(목적지 단건 조회 provisional) | 완료 |
 | ~~서버 경계 적합성 묶음 + 실서버 연결 체크리스트 (#145)~~ 완료 — 사내 적용 준비. `@ap/server-conformance`가 엔드포인트 선언에서 검사를 도출해 어떤 어댑터든 같은 잣대로 판정한다(지금 mock: 21개 엔드포인트·391개 검사 통과). 실서버가 지킬 것은 [`real-server-checklist.md`](integration/real-server-checklist.md) 넓힌 검사가 mock의 명시적 공집합(lot·recipe) 위반을 찾아 고쳤다 | 완료 |
+
+### M4 사내 적용 — 지도 [#157](https://github.com/hjung3113/analytics-platform/issues/157)
+
+mock 어댑터 자리를 실어댑터로 바꾸는 트랙(2026-10-02 정리). Kernel·셸·공통 컴포넌트·메뉴 화면은 고치지 않는다. 순서·담당자별 질문·사내 메뉴 개발 가이드·완료 기준은 [`in-house-rollout.md`](integration/in-house-rollout.md), 서버 규칙은 [`real-server-checklist.md`](integration/real-server-checklist.md).
+
+| 이슈 | 선행 | 누가 |
+| --- | --- | --- |
+| [확인] 사내 SSO(IdP) 사양 (#150) | — | 사람(사내 SSO 담당) |
+| [확인] 배포·인프라 환경 (#151) | — | 사람(인프라 담당) |
+| [결정] 엔드포인트 선언의 원본 TS ↔ FastAPI codegen (#148) | — | 사람 + 백엔드 담당 |
+| 전송 형식(HTTP 경계) 초안 → 합의 (#149) | 초안은 지금 | 에이전트 → 백엔드 담당 |
+| 적합성 묶음을 menuQuery 밖 포트 메서드로 (#152) | — | 에이전트, 지금 가능 |
+| 운영 빌드 조립 분리 + 번들 검사 (#153) | — | 에이전트, 지금 가능 |
+| 실어댑터(HTTP) + 사내 테스트 서버로 적합성 묶음 (#154) | #148, #149, #150 | 에이전트(사내 실행은 사람) |
+| [사내 구현] FastAPI 플랫폼 API (#155) | #148, #149, #150, 신뢰 원천 #37 | 사내 백엔드 담당 |
 
 ### M2 디자인 시스템 (1차 평가: #33) — 보류
 
@@ -85,6 +103,7 @@
 | 셸 톤·Context 바·도움말 자리 (#56) | #53 |
 | ~~`@types/node` 부채 (#57)~~ 완료 | — |
 | ~~시각 회귀 검사 CI (#58)~~ 완료 — CSS selector 비교(`css-selectors` job), 픽셀 비교는 디자인 확정 뒤 | #39 |
+| 레이아웃 슬롯 컴포넌트 Management·Analysis (#156, #104 후속) | #52, #53 |
 
 ### M3 FeedbackOps 1단계
 
