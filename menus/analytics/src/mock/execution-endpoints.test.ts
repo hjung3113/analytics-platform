@@ -183,6 +183,20 @@ describe('execution-detail occurrence endpoint behavior', () => {
     expect(v4.response.trust?.metricVersion).toBe('4');
   });
 
+  // #123: an unknown version used to come back as "v999" in Data Trust over v3 figures.
+  it('rejects a metricVersion the cycle_time series does not have instead of computing v3 under its label', async () => {
+    const execution = grantedExecution();
+    for (const metricVersion of ['999', '2']) {
+      const response = await adapter.menuQuery({
+        endpoint: occurrenceEndpoint.id,
+        context: { scopeId: 'ICH' },
+        params: occurrenceParams({ equipmentId: execution.equipmentId, anchor: execution.anchor, metricVersion }),
+      });
+      expect(response).toMatchObject({ outcome: 'error', data: null, trust: null });
+      expect(response.message).toContain(`metricVersion ${metricVersion}`);
+    }
+  });
+
   it('rejects a non-job entityType and a malformed anchor on an otherwise valid identity', async () => {
     const execution = grantedExecution();
 

@@ -1,6 +1,6 @@
 /** Mock server handler for the execution-detail occurrence endpoint. */
 import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
-import { isAnchor, OCCURRENCE_ENTITY_TYPES, occurrenceEndpoint } from '../endpoints';
+import { CYCLE_SERIES_VERSIONS, isAnchor, OCCURRENCE_ENTITY_TYPES, occurrenceEndpoint } from '../endpoints';
 import { lookupOccurrence } from './cycle';
 
 export const executionOccurrence: AnyMockEndpoint = defineMockEndpoint(occurrenceEndpoint, {
@@ -12,4 +12,6 @@ export const executionOccurrence: AnyMockEndpoint = defineMockEndpoint(occurrenc
   },
   isEmpty: data => data.access === 'missing',
   metricVersion: ({ params }) => params.metricVersion,
+  // 06 §6.1: the server checks the version belongs to the metric; an unknown one is an error, never a silent v3 (#123).
+  validate: ({ params }) => (CYCLE_SERIES_VERSIONS.includes(params.metricVersion) ? null : `metricVersion ${params.metricVersion} is not a cycle_time version`),
 });

@@ -1,14 +1,13 @@
 import { useEffect } from 'react';
-import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { serve } from '../api';
+import { type PageProps, PlatformLink, useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
 import { AuditTimeline, DataTrustIndicator, Field, Panel, PlatformPage, QueryView, StateMessage } from '@ap/components';
 import { Button, cn, StatusBadge } from '@ap/ui';
 import { MetricPairBanner } from './MetricCatalog';
 import {
-  CONSUMER_LABEL, KIND_LABEL, PERIOD_BASIS, STATUS_LABEL, STATUS_TONE,
-  buildDefinition, buildHistory, buildUsage, versionDiff,
-  type MetricDef, type MetricVersion,
-} from './data';
+  PERIOD_BASIS, definitionEndpoint, historyEndpoint, usageEndpoint, versionDiff,
+  type Lang, type MetricDef, type MetricVersion,
+} from '../endpoints';
+import { CONSUMER_LABEL, KIND_LABEL, STATUS_LABEL, STATUS_TONE } from './data';
 
 const SECTIONS = [
   { id: 'definition', ko: '정의', en: 'Definition' },
@@ -30,28 +29,9 @@ export default function MetricDetailPage({ params }: PageProps) {
   const returnTo = pageParam('returnTo');
   const tabKnown = SECTIONS.some(s => s.id === tab);
 
-  const definition = usePlatformQuery(signal => serve({
-    permission: 'metrics:view',
-    global, signal, requiresScope: false, mergeTimeDomain: false, latency: 280, kinds: ['processing_delay'],
-    metricVersion: versionParam ?? undefined,
-    compute: ({ equipment }) => buildDefinition(metricId, versionParam, equipment),
-    isEmpty: () => false,
-  }), [metricId, versionParam]);
-
-  const usage = usePlatformQuery(signal => serve({
-    permission: 'metrics:view',
-    global, signal, requiresScope: false, mergeTimeDomain: false, latency: 320, kinds: ['processing_delay'],
-    metricVersion: versionParam ?? undefined,
-    compute: () => buildUsage(metricId, versionParam),
-    isEmpty: data => data.problem === null && data.rows.length === 0,
-  }), [metricId, versionParam], versionParam !== null);
-
-  const history = usePlatformQuery(signal => serve({
-    permission: 'metrics:view',
-    global, signal, requiresScope: false, mergeTimeDomain: false, latency: 240, kinds: ['processing_delay'],
-    compute: () => buildHistory(metricId, lang),
-    isEmpty: () => false,
-  }), [metricId, lang]);
+  const definition = useMenuQuery(definitionEndpoint, { metricId, version: versionParam });
+  const usage = useMenuQuery(usageEndpoint, { metricId, version: versionParam ?? '' }, versionParam !== null);
+  const history = useMenuQuery(historyEndpoint, { metricId, lang: lang as Lang });
 
   useEffect(() => {
     if (!tab || !tabKnown) return;

@@ -324,6 +324,28 @@ describe('serveEndpoint declaration pipeline', () => {
     expect(result.message).toContain('analytics:view');
   });
 
+  it('rejects a params value the endpoint validate hook refuses, before the handler runs (#123)', async () => {
+    const spec = makeSpec('analytics.validated', { requiresScope: false, context: {} });
+    const handle = vi.fn(() => ({ ok: true }));
+    const endpoint = defineMockEndpoint(spec, { handle, validate: ({ params }) => (params.term === 'bad' ? `term ${params.term} is not allowed` : null) });
+    const map = new Map([[spec.id, endpoint as AnyMockEndpoint]]);
+    const rejected = await serveEndpoint(map, request(spec.id, {}, { term: 'bad' }), undefined, { role: 'engineer', latency: 0 });
+    expect(rejected).toMatchObject({ outcome: 'error', message: 'term bad is not allowed', data: null, trust: null, assessments: [] });
+    expect(handle).not.toHaveBeenCalled();
+    const accepted = await serveEndpoint(map, request(spec.id, {}, { term: 'good' }), undefined, { role: 'engineer', latency: 0 });
+    expect(accepted.outcome).toBe('ok');
+  });
+
+  it('keeps a throwing validate hook inside the response boundary as an error envelope (#140 review)', async () => {
+    const spec = makeSpec('analytics.validate-throws', { requiresScope: false, context: {} });
+    const endpoint = defineMockEndpoint(spec, {
+      handle: () => ({ ok: true }),
+      validate: ({ params }) => ((params as unknown as { term: { trim(): string } }).term.trim() === '' ? 'blank' : null),
+    });
+    const result = await serveEndpoint(new Map([[spec.id, endpoint as AnyMockEndpoint]]), request(spec.id, {}, { term: 42 }), undefined, { role: 'engineer', latency: 0 });
+    expect(result).toMatchObject({ outcome: 'error', data: null, trust: null, assessments: [] });
+  });
+
   it('passes params to the handler without changing them', async () => {
     const spec = makeSpec('analytics.params', { requiresScope: false, context: {} });
     const params = { term: 'untouched', page: 4 };

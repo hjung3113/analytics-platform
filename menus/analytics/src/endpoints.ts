@@ -157,6 +157,8 @@ export const CYCLE_VERSION_NOTE = {
 };
 
 export const PAGE_METRIC_ID = 'cycle_time';
+/** cycle_time versions the synthetic series computes (v3 drops queue wait, v4 includes it). The server rejects others (#123). */
+export const CYCLE_SERIES_VERSIONS: readonly string[] = ['3', '4'];
 export const PAGE_METRIC_VERSION = '3';
 /** Analysis limit: a 90-day contract link is too_large. */
 export const CYCLE_MAX_HOURS = 24 * 31;

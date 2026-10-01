@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
-import { sortColumns } from './data';
+import { sortColumns } from '../endpoints';
 
 // metric-catalog 06 §6.1 page keys: sort/page are wire format owned by the page.
 // The allow-list must stay exactly the catalog's table columns (06 §2 metric-catalog row),
