@@ -3,7 +3,9 @@ import { House } from 'lucide-react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { ApiResponse, PageSort, PlatformAdapter, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
-import { PlatformDataTable, toColumnDef, type PageQuery, type PageResult, type PlatformDataTableProps, type TableUrlState } from './PlatformDataTable';
+import { toColumnDef } from './columnDef';
+import * as publicApi from './index';
+import { PlatformDataTable, type PageQuery, type PageResult, type PlatformDataTableProps, type TableUrlState } from './PlatformDataTable';
 
 afterEach(cleanup);
 
@@ -216,6 +218,11 @@ describe('PlatformColumn size default (#160 review P3-1)', () => {
   it('a column without size carries no own size key, so the table defaultColumn.size applies', () => {
     expect(Object.prototype.hasOwnProperty.call(toColumnDef({ id: 'a', header: 'A' }), 'size')).toBe(false);
     expect(toColumnDef({ id: 'b', header: 'B', size: 90 }).size).toBe(90);
+  });
+
+  // #160 review N1: the conversion stays internal — the public entry never exposes an engine type.
+  it('keeps toColumnDef out of the public @ap/components entry', () => {
+    expect('toColumnDef' in publicApi).toBe(false);
   });
 });
 

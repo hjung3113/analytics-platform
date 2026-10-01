@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Columns3, Download, Loader2 } from 'lu
 import { useI18n, usePlatform } from '@ap/kernel';
 import { type ApiResponse, type PageQuery, type PageResult, type PageSort, serializeGlobal } from '@ap/contracts';
 import { Button, Checkbox, cn, Label, Popover, PopoverContent, PopoverTrigger, Skeleton } from '@ap/ui';
+import { toColumnDef } from './columnDef';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { OutcomeView } from './StateView';
 
@@ -12,7 +13,7 @@ export type { PageQuery, PageResult } from '@ap/contracts';
 export { sortAndPage } from '@ap/contracts';
 type ColumnMeta = { align?: 'right'; label?: string };
 
-/** §15 domain-owned column shape (#160): what menus declare; the TanStack `ColumnDef` conversion happens inside this file only. */
+/** §15 domain-owned column shape (#160): what menus declare; the TanStack `ColumnDef` conversion lives in the internal `columnDef.ts`, which index.ts does not export. */
 export type PlatformColumn<T> = {
   /** Stable id = server sort field = column-preference key = URL sort value. A sortable column's id must be a server sort field; display-only columns set `sortable: false`. */
   id: string;
@@ -30,22 +31,6 @@ export type PlatformColumn<T> = {
   /** Default true. */
   hideable?: boolean;
 };
-
-/** Exported for the module test only (#160); not re-exported from index.ts. */
-export function toColumnDef<T>(c: PlatformColumn<T>): ColumnDef<T> {
-  return {
-    id: c.id,
-    header: c.header,
-    ...(c.size !== undefined && { size: c.size }),
-    enableSorting: c.sortable !== false,
-    enableHiding: c.hideable !== false,
-    meta: { align: c.align },
-    accessorFn: c.value ?? ((row: T) => (row as Record<string, unknown>)[c.id]),
-    cell: c.cell
-      ? ({ row }) => c.cell!(row.original)
-      : ({ getValue }) => { const v = getValue(); return v == null ? '' : String(v); },
-  };
-}
 
 type Preferences = { sizing: ColumnSizingState; visibility: VisibilityState; pinning: ColumnPinningState };
 const defaults: Preferences = { sizing: {}, visibility: {}, pinning: { left: [], right: [] } };
