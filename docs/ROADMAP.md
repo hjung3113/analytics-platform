@@ -26,9 +26,10 @@
 
 선행 이슈가 없는 것들이다. 위에서부터 추천 순서.
 
-1. **사내 적용 준비(외부 입력 없음)**: 적합성 묶음을 `menuQuery` 밖 포트 메서드로 넓히기 (#152) → 운영 빌드에서 mock·DevTools 빼기 (#153) → Scope 확인 실패 처리 (#167) → 전송 형식 초안 (#149). 작은 후속 #122, #90.
+1. **사내 적용 준비(외부 입력 없음)**: 적합성 묶음을 `menuQuery` 밖 포트 메서드로 넓히기 (#152) → 운영 빌드에서 mock·DevTools 빼기 (#153) → Scope 확인 실패 처리 (#167) → 전송 형식 초안 (#149). 작은 후속 #122, #90, 불안정 테스트 #166.
 2. **사내에 물을 것(사람)**: SSO 사양 (#150), 배포·인프라 환경 (#151), 선언 원본 결정 (#148). 질문 목록은 [사내 적용 가이드](integration/in-house-rollout.md) §3.
-3. **틈틈이 목록**: ~~`@types/node` 부채 (#57)~~ 완료, ~~CSS selector 비교 CI (#58)~~ 완료 — `tooling/css-selectors` + CI `css-selectors` Job(라벨 `css-removal-ok`), 적재 워커 상태 스키마 초안 (#37) 작성 완료 — `docs/integration/ingest-status-schema.md`, 파서 담당 합의 대기, ~~FeedbackOps 양방향 딥링크 계약 (#61)~~ 완료 — `docs/integration/feedbackops-deeplink.md`(phase-1, 확장은 #81 결정 대기). 계약 안전망은 `pnpm e2e`(#44), 메뉴 활용률 계측(#43)도 완료 — kernel이 `adapter.recordUsage`(entry/dwell)로 계측하고 콘솔은 `usageSummary` 집계만 읽는다(조회조건 수집 여부는 #75 결정 대기).
+3. **사용자 결정**: 그리드 "엑셀 수준 편의성"의 실제 요구 (#159) — 기술 스택 검토 트랙의 유일한 남은 일.
+4. **틈틈이 목록**: ~~`@types/node` 부채 (#57)~~ 완료, ~~CSS selector 비교 CI (#58)~~ 완료 — `tooling/css-selectors` + CI `css-selectors` Job(라벨 `css-removal-ok`), 적재 워커 상태 스키마 초안 (#37) 작성 완료 — `docs/integration/ingest-status-schema.md`, 파서 담당 합의 대기, ~~FeedbackOps 양방향 딥링크 계약 (#61)~~ 완료 — `docs/integration/feedbackops-deeplink.md`(phase-1, 확장은 #81 결정 대기). 계약 안전망은 `pnpm e2e`(#44), 메뉴 활용률 계측(#43)도 완료 — kernel이 `adapter.recordUsage`(entry/dwell)로 계측하고 콘솔은 `usageSummary` 집계만 읽는다(조회조건 수집 여부는 #75 결정 대기).
 
 디자인 방향 프로토타입(#52)은 보류다(아래 M2).
 
@@ -105,7 +106,7 @@ mock 어댑터 자리를 실어댑터로 바꾸는 트랙(2026-10-02 정리). Ke
 | ~~04 스택 표를 코드 상태와 맞추고 검토 기록 (#161)~~ | 완료 |
 | ~~개발 에이전트 스킬 도입: FastAPI·Postgres·React (#162)~~ | 완료 — `.agents/skills`에 원본 그대로, 우선순위·함정은 `.agents/README.md` |
 | [POC·보류] Perspective 탐색 탭 (#163) | #159 대기 |
-| [POC·보류] AG Grid Enterprise 평가 (#164) | #159·#160 대기 |
+| [POC·보류] AG Grid Enterprise 평가 (#164) | #159 대기 (#160 완료) |
 | Kernel 5분 폴링·계산 세대 재검증 (#165) | M4 표, #149 대기 |
 
 ### M2 디자인 시스템 (1차 평가: #33) — 보류
