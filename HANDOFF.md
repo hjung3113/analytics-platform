@@ -1,4 +1,4 @@
-# Handoff — 2026-10-01 다음 세션: 메뉴 조회 포트 완료 뒤, 다음 플랫폼 작업 고르기
+# Handoff — 2026-10-01 다음 세션: 사내 적용 준비 완료 뒤
 
 ## 먼저 볼 것
 
@@ -16,15 +16,16 @@
   - mock 엔진(`serveEndpoint`)은 요청이 아니라 자기 선언 사본으로 요청 모양·권한·Scope·한도를 판정하고, `validate` 훅으로 params 값(예: 계열에 없는 `metricVersion`)을 거부한다. 비 mart 원천은 `mart: false`(Trust 없음, mart 개발 시나리오 비적용), 핸들러는 요청 시점 `actor`를 받고 `MockRequestError`로 잘못된 요청을 거부한다.
   - `PlatformAdapter`에는 메뉴 어휘가 없다(VOC 두 메서드 제거). 포트 메서드는 Kernel·셸이 부르거나 Kernel 책임 저장소(권한·감사·활용률)를 읽는 것만.
   - `serve` 공개 export·`src/api.ts`·이행용 lint 장치는 없다. 공용 순수 계산은 contracts(`paging.ts` `PageQuery`·`sortAndPage`, `period.ts` `periodHours`·`bucketStart`).
+- **사내 적용 준비(#145) 완료.** [`real-server-checklist.md`](docs/integration/real-server-checklist.md)가 실서버·실어댑터가 지킬 것(포트 메서드별, `menuQuery` 판정 순서·등록 검증, 남은 사람 결정)을 한 장으로 묶었고, `@ap/server-conformance`가 엔드포인트 선언에서 검사를 도출해 어떤 어댑터든 같은 잣대로 판정한다 — 지금 mock으로 21개 엔드포인트·391개 검사 통과(`apps/platform-web/src/server-conformance.test.ts`). 새 메뉴 mock을 `main.tsx`에 등록하면 이 테스트의 `MOCKS`·params 표에도 넣는다(빠지면 실패).
 - CI: `Platform workspace`·`Platform contracts (E2E)`(41개)·`CSS selectors (build diff)`·Unit A–C·Python codec·`PR checklist`.
 
 ## 다음 세션 할 일 — 사용자에게 먼저 확인
 
-남은 막히지 않은 플랫폼 작업이 적다. 어느 쪽으로 갈지 사용자에게 묻고 시작한다.
+디자인(M2)을 빼면 남은 일은 사실상 사내 적용이다(사용자 확인, 2026-10-01). 밖에서 막히지 않고 할 수 있는 플랫폼 작업은 거의 없다.
 
-1. **실서버 경계 착수(추천, 사용자 결정 필요).** 실데이터에 다가가는 플랫폼 일. mock 엔진이 하는 판정을 실제 서버(FastAPI) 쪽 어댑터로. 착수 전에 메뉴 조회 포트 Q2(선언 원본: TS로 두고 서버가 읽을지, FastAPI에서 생성할지)와 FastAPI 프로젝트 위치·범위를 정해야 한다 — `ready-for-human` 이슈로 올리고 답 전에는 구현하지 않는다.
-2. **#122** 목적지 단건 조회(execution-detail)의 provisional을 대상 객체 시점으로 판정 — 작은 Kernel/서버 계약 후속.
-3. #104 레이아웃 슬롯 컴포넌트는 M2 재개 때 인터랙티브 프로토타입 컨펌 뒤(06 §12.6).
+1. **사내 적용**: 체크리스트 §7의 결정(Q2 선언 원본, 전송 형식, SSO, #98, #37)부터. 실어댑터가 생기면 적합성 묶음을 같은 하네스로 돌린다(체크리스트 §4).
+2. **M2 디자인**: FeedbackOps 디자인 확정 뒤 [#52 코멘트](https://github.com/hjung3113/analytics-platform/issues/52#issuecomment-5929729163)부터.
+3. 작은 후속: **#122** 목적지 단건 조회 provisional을 대상 객체 시점으로. #104 레이아웃 슬롯 컴포넌트는 M2 때.
 
 ### 작업 방식 메모
 
