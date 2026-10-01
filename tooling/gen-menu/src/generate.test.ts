@@ -5,7 +5,7 @@ import ts from 'typescript';
 import { PACKAGE_PREFIX } from './prefix.ts';
 import { APP_PKG, MAIN_TSX, MENUS_TS, STYLE_CSS, editSummary } from './generate.ts';
 import { PAGE_TYPES, depLine, importLine, mockImportLine, mockSpreadLine, renderFiles, slotsLiteral, spreadLine, styleLine, type MenuInputs } from './templates.ts';
-import { FIXTURE_FOLDER, FIXTURE_GROUP, GEN_ARGS, appSnapshot, makeFixture, menusTree, removeFixture, runCli } from './fixture.ts';
+import { FIXTURE_FOLDER, FIXTURE_GROUP, GEN_ARGS, appSnapshot, fixtureMainTsx, makeFixture, menusTree, removeFixture, repoRoot, runCli } from './fixture.ts';
 
 const INPUTS: MenuInputs = {
   group: FIXTURE_GROUP,
@@ -31,6 +31,20 @@ describe('scaffold permission (#47)', () => {
 });
 
 describe('menu-query scaffold (#126)', () => {
+  /** #126: the fixture must mirror the real createMockAdapter layout (4-space spread lines) so indent drift fails here, not in the coordinator probe. */
+  it('keeps the fixture createMockAdapter block byte-identical to the real main.tsx', () => {
+    const blockOf = (text: string): string => {
+      const lines = text.split('\n');
+      const start = lines.indexOf('const adapter = createMockAdapter({');
+      expect(start, 'createMockAdapter block not found').toBeGreaterThan(-1);
+      const end = lines.indexOf('});', start);
+      expect(end, 'createMockAdapter block not closed').toBeGreaterThan(start);
+      return lines.slice(start, end + 1).join('\n');
+    };
+    const real = readFileSync(join(repoRoot(), MAIN_TSX), 'utf8');
+    expect(blockOf(fixtureMainTsx())).toBe(blockOf(real));
+  });
+
   it('generates src/endpoints.ts and src/mock/index.ts instead of src/api.ts', () => {
     const paths = renderFiles(INPUTS).map(f => f.relPath);
     expect(paths, paths.join('\n')).not.toContain('src/api.ts');

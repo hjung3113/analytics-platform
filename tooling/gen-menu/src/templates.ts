@@ -39,7 +39,7 @@ export const mockImportLine = (i: MenuInputs): string =>
   `import { ${i.group}Mock } from '${menuPackage(i.folder)}/mock';`;
 
 /** apps/platform-web/src/main.tsx `endpoints` spread insert. */
-export const mockSpreadLine = (i: MenuInputs): string => `  ...${i.group}Mock,`;
+export const mockSpreadLine = (i: MenuInputs): string => `    ...${i.group}Mock,`;
 
 /** apps/platform-web/src/style.css insert. */
 export const styleLine = (i: MenuInputs): string => `@import "${menuPackage(i.folder)}/styles.css";`;

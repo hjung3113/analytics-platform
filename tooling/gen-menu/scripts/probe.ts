@@ -168,7 +168,7 @@ function verifyGeneratedScaffold(): void {
     [MOCK_IMPORTS_START, MOCK_IMPORTS_END, mockImportLine(inputs)],
     [MOCK_IMPORTS_START, MOCK_IMPORTS_END, `import { analyticsMock } from '${PACKAGE_PREFIX}menu-analytics/mock';`],
     [MOCK_SPREADS_START, MOCK_SPREADS_END, mockSpreadLine(inputs)],
-    [MOCK_SPREADS_START, MOCK_SPREADS_END, '  ...analyticsMock,'],
+    [MOCK_SPREADS_START, MOCK_SPREADS_END, mockSpreadLine({ ...inputs, group: 'analytics' })],
   ];
   for (const [start, end, line] of expected) {
     if (ownedLine(lines, start, end, line).kind !== 'found') {
