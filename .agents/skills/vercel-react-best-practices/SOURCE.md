@@ -9,7 +9,7 @@
 Note: the upstream `AGENTS.md` was renamed to `AGENTS.upstream.md` so agents do not treat it as folder instructions; it is otherwise unchanged.
 
 - Local folder is `vercel-react-best-practices/` to match the SKILL.md frontmatter `name` (Agent Skills spec: name must match the directory); the upstream folder is `skills/react-best-practices/`.
-- `SKILL.md` "Full Compiled Document … `AGENTS.md`" means `AGENTS.upstream.md` in this folder, not the repository root `AGENTS.md`.
+- Local patch (the only content edit): `SKILL.md` line 149 "Full Compiled Document" now points to `AGENTS.upstream.md` instead of `AGENTS.md`, so an agent that loads only SKILL.md does not open the repository root `AGENTS.md`. Re-apply after re-vendoring.
 - `README.md` was renamed to `README.upstream.md`: it is the upstream contributor guide (its `pnpm install`/`pnpm build` refer to upstream build scripts that are not vendored). Do not run those commands here.
 
 Do not edit; re-vendor from upstream.
