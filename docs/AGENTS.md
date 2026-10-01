@@ -6,7 +6,7 @@
 
 - `06_platform_ui_contract.md` — 전역 계약과 navigation IA. 다른 문서는 이를 소비한다.
 - `01` 데이터 계약·운영 정책, `02` 도메인 catalog, `03` 백엔드, `04` 프론트 구현 후보, `05` 결정 상태 추적, `07`–`13` 화면 설계(wireframe).
-- `integration/` — 저장소 구조와 통합 결정(모노레포 패키지 경계 포함). `adr/` — 도메인 결정 기록.
+- `integration/` — 저장소 구조와 통합 결정(모노레포 패키지 경계 포함). `adr/` — 도메인·기술 결정 기록(결정과 이유만 둔다. 세부 규칙은 소유 문서에 두고 ADR은 링크한다).
 - `reviews/`, `research/` — 합의록·조사 기록. authoritative source가 아니다.
 
 ## 규칙

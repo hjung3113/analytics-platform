@@ -37,9 +37,9 @@ Node/NestJS는 프론트와의 언어 통일·SQL-first 관점에서 비교했�
 
 ## 그리드·차트·데이터 도구 검토 (2026-10-02)
 
-사내 리서치 문서 "반도체 생산성 분석 웹 시스템: 스킬·그리드·차트 조사"(2026-10-02, 조사 기준일 2026-10-01)의 후보를 이 플랫폼 계약(06 §15 표, §16 차트, §19 응답, §24 승격 기준, §26 접근성, [실서버 연결 체크리스트](integration/real-server-checklist.md) §3)에 비춰 검토했다. 라이선스·기능 경계는 리서치 문서와 아래 출처를 따랐고 성능은 측정하지 않았다. **상태: Candidate** — 채택·구매 결정이 아니다.
+사내 리서치 문서 "반도체 생산성 분석 웹 시스템: 스킬·그리드·차트 조사"(2026-10-02, 조사 기준일 2026-10-01)의 후보를 이 플랫폼 계약(06 §15 표, §16 차트, §19 응답, §24 승격 기준, §26 접근성, [실서버 연결 체크리스트](integration/real-server-checklist.md) §3)에 비춰 검토했다. 라이선스·기능 경계는 리서치 문서와 아래 출처를 따랐고 성능은 측정하지 않았다. **상태:** 판정 표의 후보 순위·유료 후보는 Candidate(채택·구매 결정이 아니다). 무료 우선·엔진 은닉·2026-10-02 범위는 [ADR-0006](adr/0006-grid-free-first-engine-hidden-from-menus.md), Perspective 경계는 [ADR-0007](adr/0007-perspective-browser-engine-only.md)(Decided).
 
-**방침:** 무료로 시작하고 필요성이 확인되면 유료로 전환한다 — 원본은 [05 결정 상태](05_roadmap_and_open_questions.md)(2026-10-02, 사용자).
+**방침:** 무료로 시작하고 필요성이 확인되면 유료로 전환한다 — [ADR-0006](adr/0006-grid-free-first-engine-hidden-from-menus.md), [05 결정 상태](05_roadmap_and_open_questions.md)(2026-10-02, 사용자).
 
 ### 판정
 
@@ -67,7 +67,7 @@ Node/NestJS는 프론트와의 언어 통일·SQL-first 관점에서 비교했�
 | 요구 | 무료 경로 | 유료 경로 |
 | --- | --- | --- |
 | 보이는 행을 엑셀로 복사 | 선택 행을 탭 구분 텍스트로 복사(표 공통 부품) | — |
-| 전체 결과 XLSX | (a) 지금 패턴 그대로: 내보내기 엔드포인트(예: `analytics.cycle.export`)가 필터된 전체 행을 envelope로 돌려주고 클라이언트가 직렬화한다 — CSV 대신 무료 XLSX 라이브러리로 쓰면 `PlatformAdapter` 변경 없음. (b) 서버 파일 생성(openpyxl·XlsxWriter): 대용량에 유리하지만 파일 다운로드 경로가 `PlatformAdapter` 밖이라 #149·Kernel 포트 결정이 필요 | AG Grid Enterprise Excel 내보내기(그리드에 렌더된 데이터 기준 — 서버 행 모델에서 안 불러온 행을 내보내는지는 공식 문서 미확인, #164에서 확인) |
+| 전체 결과 XLSX | (a, 채택 — #173) 지금 패턴 그대로: 내보내기 엔드포인트(예: `analytics.cycle.export`)가 필터된 전체 행을 envelope로 돌려주고 클라이언트가 직렬화한다 — CSV 대신 무료 XLSX 라이브러리로 쓰면 `PlatformAdapter` 변경 없음. (b) 서버 파일 생성(openpyxl·XlsxWriter): 대용량에 유리하지만 파일 다운로드 경로가 `PlatformAdapter` 밖이라 #149·Kernel 포트 결정이 필요 | AG Grid Enterprise Excel 내보내기(그리드에 렌더된 데이터 기준 — 서버 행 모델에서 안 불러온 행을 내보내는지는 공식 문서 미확인, #164에서 확인) |
 | 사용자 자유 피벗·즉석 차트 | Perspective 탐색 탭 | AG Grid Enterprise 피벗 |
 | 셀 범위 선택·여러 셀 복사·채우기(읽기) | 사실상 없음 | AG Grid Enterprise |
 | 붙여넣기 대량 편집(쓰기) | 없음 | AG Grid Enterprise + **쓰기 계약**(아래 4) |
@@ -83,12 +83,11 @@ Node/NestJS는 프론트와의 언어 통일·SQL-first 관점에서 비교했�
 
 ### Perspective 사용 방식
 
-결정 기록: [ADR-0007](adr/0007-perspective-browser-engine-only.md).
 
 Perspective(조사 시점 최신 5.x — v5.5.1, 2026-09-18)는 C++ 엔진을 WASM으로 돌리고, 표·WebGL 차트·그룹·분할(피벗)·필터·수식 열을 웹 컴포넌트 하나로 준다. 같은 클라이언트 API로 Web Worker 안 엔진과 원격 서버(WebSocket)를 모두 쓸 수 있고, Virtual Server로 DuckDB·ClickHouse·PostgreSQL(Python, 16 이상)에 피벗 설정을 SQL로 보낸다.
 
-- **허용: 브라우저 엔진만.** 메뉴가 선언한 엔드포인트의 `menuQuery` 결과 — 서버가 권한·Scope·한도를 판정한 결과 집합 — 를 Worker 엔진에 넣고 사용자가 다시 집계한다. 지금 엔드포인트는 화면용으로 집계·비율화된 값을 주므로 대개 탐색용 원 값 엔드포인트를 새로 선언해야 한다. 브라우저 적재량은 선언 `limits`(`too_large`)와 행 상한으로 묶는다 — 06 §15 "대규모 데이터에서는 브라우저에 전체 데이터를 전달하지 않는다".
-- **금지: Virtual Server·원격 모드로 DB나 서버 엔진에 직접 붙기.** 브라우저가 보낸 임의 피벗 설정이 쿼리가 되고, 공식 문서에 권한·행 단위 보안 장치에 대한 언급이 없다. `menuQuery` 판정 순서(체크리스트 §3)를 우회한다. 데이터가 브라우저에 다 안 들어갈 만큼 커지면, FastAPI 안 Perspective 서버가 세션별로 권한 필터를 적용한 테이블만 만들어 보내는 방식을 검토할 수 있지만 `PlatformAdapter` 밖 통신 경로라 Kernel 포트 변경 — 플랫폼 결정이다.
+- **경계는 [ADR-0007](adr/0007-perspective-browser-engine-only.md)**: 브라우저 엔진만, Virtual Server·원격 모드로 DB·서버 엔진에 직접 붙지 않는다(이유와 대안은 ADR).
+- 데이터는 메뉴가 선언한 엔드포인트의 `menuQuery` 결과다. 지금 엔드포인트는 화면용으로 집계·비율화된 값을 주므로 대개 탐색용 원 값 엔드포인트를 새로 선언해야 한다. 브라우저 적재량의 상한은 아직 계약에 없다(선언 `limits`는 `maxHours`뿐) — 탐색용 엔드포인트에 행 상한 선언이 필요하다(06 §15 "대규모 데이터에서는 브라우저에 전체 데이터를 전달하지 않는다", #163).
 - 탐색 탭에는 더할 수 있는 원 값(건수·시간·분자·분모)만 넣고 "공식 지표 아님"과 결과 집합의 `DataTrustIndicator`를 함께 보인다.
 - Perspective 차트(WebGL)는 탐색 탭 안에서만. 06 §16 Chart Frame 계약 화면은 ECharts. WebGL 차트는 스크린 리더로 읽히지 않으므로 같은 데이터의 표 경로를 남긴다(06 §26).
 - 피벗 설정은 화면 로컬 상태(시각화 층). URL 공유는 page key 또는 저장된 뷰(Deferred) 결정 뒤. 셀 클릭은 `linkTo`로 상세 이동, 전역 Context를 조용히 바꾸지 않는다(06 §22).
