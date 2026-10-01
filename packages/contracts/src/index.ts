@@ -5,5 +5,6 @@ export * from './i18n';
 export * from './instant';
 export * from './menu';
 export * from './menu-query';
+export * from './paging';
 export * from './response';
 export * from './url';

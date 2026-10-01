@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePlatform } from './platform';
-import { projectContext, type ApiResponse, type AssessmentKind, type EndpointSpec, type EntityRef, serializeGlobal } from '@ap/contracts';
+import { projectContext, type ApiResponse, type AssessmentKind, type EndpointSpec, type EntityRef, type MenuQueryContext, serializeGlobal } from '@ap/contracts';
 
 export type QueryState<T> = {
   /** loading: no result for the current Context yet. refreshing: same Context re-query, prior result kept. */
@@ -77,6 +77,41 @@ function hasExactAssessmentKinds(actual: readonly { kind: AssessmentKind }[], ex
   return [...remaining.values()].every(count => count === 0);
 }
 
+/** Applied set keys sent as `[]`: the only requests whose `empty` reply may skip the kind check (06 §6 명시적 공집합). */
+function requestedEmptySet(projected: MenuQueryContext): boolean {
+  return [projected.selection, projected.roomNames, projected.lotIds, projected.recipeIds]
+    .some(value => Array.isArray(value) && value.length === 0);
+}
+
+/** Replaces an `ok`/`empty` reply whose assessment kinds differ from the declaration with a `contract_violation` error. */
+function checkMenuResponse<P, T>(spec: EndpointSpec<P, T>, projected: MenuQueryContext, response: ApiResponse<unknown>): ApiResponse<T> {
+  const explicitEmpty = requestedEmptySet(projected) && response.outcome === 'empty' && response.assessments.length === 0 && response.trust === null;
+  if ((response.outcome === 'ok' || response.outcome === 'empty') && !explicitEmpty && !hasExactAssessmentKinds(response.assessments, spec.kinds)) {
+    const got = `[${response.assessments.map(({ kind }) => kind).join(', ')}]`;
+    const declared = `[${spec.kinds.join(', ')}]`;
+    return {
+      outcome: 'error',
+      data: null,
+      trust: null,
+      assessments: [],
+      correlationId: response.correlationId,
+      message: `contract_violation: assessments ${got} ≠ declared ${declared}`,
+    };
+  }
+  return response as ApiResponse<T>;
+}
+
+/** The request gates shared by useMenuQuery and useMenuFetch: Scope validated for this session, absolute period when time applies. */
+function useMenuRequest<P, T>(spec: EndpointSpec<P, T>) {
+  const { adapter, global, scope, session } = usePlatform();
+  const projected = projectContext(spec, global);
+  const scopeReady = !spec.requiresScope || (scope.status === 'valid' && scope.scopeId === global.scopeId && scope.validatedFor === session);
+  const periodReady = spec.context.time !== 'apply' || (global.from !== null && global.to !== null);
+  const send = async (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> =>
+    checkMenuResponse(spec, projected, await adapter.menuQuery({ endpoint: spec.id, context: projected, params }, signal));
+  return { projected, ready: scopeReady && periodReady, send };
+}
+
 /**
  * Queries one declared menu endpoint through the platform adapter. Results use session identity
  * `[revision, user.id, spec.id, projectContext(spec, global), params]`: Context keys the endpoint does not apply
@@ -90,30 +125,29 @@ function hasExactAssessmentKinds(actual: readonly { kind: AssessmentKind }[], ex
  * The explicit-empty envelope bypasses kind checks only when the projected request contains an applied empty set, per 06 §6 명시적 공집합.
  */
 export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, enabled = true): QueryState<T> {
-  const { adapter, global, scope, session } = usePlatform();
-  const projected = projectContext(spec, global);
-  const scopeReady = !spec.requiresScope || (scope.status === 'valid' && scope.scopeId === global.scopeId && scope.validatedFor === session);
-  const periodReady = spec.context.time !== 'apply' || (global.from !== null && global.to !== null);
+  const { projected, ready, send } = useMenuRequest(spec);
+  return usePlatformQuery<T>(signal => send(params, signal), [spec.id, projected, params], enabled && ready, 'session');
+}
 
-  return usePlatformQuery<T>(async signal => {
-    const response = await adapter.menuQuery({ endpoint: spec.id, context: projected, params }, signal);
-    const requestedEmpty = [projected.selection, projected.roomNames, projected.lotIds, projected.recipeIds]
-      .some(value => Array.isArray(value) && value.length === 0);
-    const explicitEmpty = requestedEmpty && response.outcome === 'empty' && response.assessments.length === 0 && response.trust === null;
-    if ((response.outcome === 'ok' || response.outcome === 'empty') && !explicitEmpty && !hasExactAssessmentKinds(response.assessments, spec.kinds)) {
-      const got = `[${response.assessments.map(({ kind }) => kind).join(', ')}]`;
-      const declared = `[${spec.kinds.join(', ')}]`;
-      return {
-        outcome: 'error',
-        data: null,
-        trust: null,
-        assessments: [],
-        correlationId: response.correlationId,
-        message: `contract_violation: assessments ${got} ≠ declared ${declared}`,
-      };
-    }
-    return response as ApiResponse<T>;
-  }, [spec.id, projected, params], enabled && scopeReady && periodReady, 'session');
+export type MenuFetch<P, T> = {
+  /** The same gates as useMenuQuery: Scope validated for this session, absolute period when the endpoint applies time. */
+  ready: boolean;
+  /** One request with the Context projected at call time; same request shape and assessment contract as useMenuQuery. */
+  fetch: (params: P, signal?: AbortSignal) => Promise<ApiResponse<T>>;
+};
+
+/**
+ * Caller-driven form of useMenuQuery for requests a component or user gesture starts — PlatformDataTable `loadPage`
+ * (06 §15) and export. The caller owns result identity (the table keys pages on Context, user and revision). A call
+ * before `ready` resolves to an error envelope without reaching the adapter, so a page that skipped the gate still
+ * never sends an unvalidated Scope.
+ */
+export function useMenuFetch<P, T>(spec: EndpointSpec<P, T>): MenuFetch<P, T> {
+  const { ready, send } = useMenuRequest(spec);
+  const fetch = (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> => ready
+    ? send(params, signal)
+    : Promise.resolve({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'client-' + Date.now().toString(16), message: `not_ready: ${spec.id} waits for a validated Scope and period` });
+  return { ready, fetch };
 }
 
 export type RequestState<T> = { status: 'loading' | 'done' | 'error'; data: T | null; retry: () => void };

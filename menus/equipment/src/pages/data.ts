@@ -1,4 +1,4 @@
-import type { Equipment } from '../api';
+import type { Equipment } from '../endpoints';
 import { parseDateTime, shift } from '@ap/contracts';
 
 export const statusText = {
@@ -17,10 +17,6 @@ export const fields: { key: keyof Equipment; ko: string; en: string }[] = [
 ];
 /** §6.1: sortable columns are exactly the data fields; the synthetic _select/_action columns never join the allow-list. */
 export const sortFields: readonly (keyof Equipment)[] = fields.map(f => f.key);
-export function filterEquipment(rows: Equipment[], q: string, status: string, maker: string) {
-  const search = q.trim().toLowerCase();
-  return rows.filter(e => (!search || `${e.equipmentId} ${e.name}`.toLowerCase().includes(search)) && (!status || e.status === status) && (!maker || e.maker === maker));
-}
 export function validity(e: Equipment) {
   const durationHours = e.validTo ? (parseDateTime(e.validTo, 'validTo').getTime() - parseDateTime(e.validFrom, 'validFrom').getTime()) / 3_600_000 : 24 * 60;
   const changedAt = shift(e.validFrom, Math.min(24 * 30, Math.floor(durationHours / 2)));

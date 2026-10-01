@@ -19,6 +19,7 @@
 | Q9 (2026-10-01, 게이트) | 선언이 apply하는 Context 키가 요청에 없으면 **error로 거부**한다. `time`의 `from`/`to`는 null 불가(단계 7a, #125) |
 | Q10 (2026-10-01, 게이트) | **등록 규칙 6**: `requiresScope: false` 엔드포인트는 site에 묶인 Context(`roomNames`·`condition`·`selection`·`lot`·`recipe`·`ppid`, 06 §22)를 apply할 수 없다(단계 7a, #125). 질문은 앞의 셋으로 받았으나 site 경계 우회를 막는다는 결정 취지에 맞춰 06 §22의 site 종속 키 여섯 개로 적용 |
 | 06 §19 명시적 공집합 (2026-10-01, 게이트) | 명시적 공집합은 원천 조회 없이 `empty`·assessments 없음·trust 없음으로 답하는 **예외로 06 §19에 명시**한다 — 반영 완료(#134) |
+| 단계 9 범위 (2026-10-01, 사용자) | 나머지 메뉴는 화면을 다듬지 않고 **플랫폼 계약 검증 + 최소 이전**만 한다(실데이터 없는 견본 화면이므로). 메뉴마다 새 조회 방식 위에서 처음 확인하는 계약만 의미가 있다: 공통 표 서버 페이징(`equipment-master`, `cycle-time`, `metrics`), 내보내기 서버 재검증(`cycle-time`·`equipment-master`), 지표 버전 서버 검증(`metrics`+#123), 엔드포인트 권한 ≠ 메뉴 권한(`home`). 작은 메뉴는 한 PR로 묶어도 된다 |
 | #98 | 선택지 3, 절반만 확정: room_name 부여·열람 개별 부여는 플랫폼 메타 DB 소유, 역할 소속 원천은 IdP 그룹 claim 사양이 나올 때까지 보류(§9) |
 
 ## 1. 현재 상태 검증 (이슈 진단 대조)
@@ -125,6 +126,14 @@ export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>,
 - `spec.requiresScope`이면 현재 Context의 Scope가 `scope.scopeId === global.scopeId`이고 `scope.validatedFor === session`인 상태로 서버 검증을 통과할 때까지 요청하지 않는다. `validatedFor`는 검증 기준 세션 객체의 identity이므로 같은 `user.id`를 유지한 채 세션이 교체돼도 다시 검증한다. `spec.context.time === 'apply'`이면 절대 기간 `from`·`to`가 준비된 뒤 요청한다. `MenuMeta.requiresScope`는 조회 전에 Scope 선택과 서버 검증을 요구하므로, Kernel이 한 번 강제해 페이지마다 게이트를 중복 구현하지 않게 한다.
 - 응답 `outcome`이 `ok` 또는 `empty`일 때 `assessments`의 kind 다중집합 누락·중복·초과가 있으면 `error`와 `contract_violation: assessments <got> ≠ declared <want>`를 반환한다. 단, 적용된 집합 키에 요청 값 `[]`가 실리고 응답이 `outcome: 'empty'`, `assessments: []`, `trust: null`이면 06 §6 명시적 공집합으로 그대로 전달한다. 그 외 `ok`·`empty` 응답에는 정확한 kind 다중집합 검사를 적용한다. 다른 outcome은 그대로 전달한다.
 - Kernel은 개별 엔드포인트를 모른다(선언을 인자로 받을 뿐).
+
+```ts
+export type MenuFetch<P, T> = { ready: boolean; fetch: (params: P, signal?: AbortSignal) => Promise<ApiResponse<T>> };
+export function useMenuFetch<P, T>(spec: EndpointSpec<P, T>): MenuFetch<P, T>;
+```
+
+- **호출형(단계 9, #128).** 컴포넌트나 사용자 동작이 시작하는 요청 — `PlatformDataTable`의 `loadPage`(06 §15)와 내보내기 — 은 결과 식별자를 호출자가 가진다(표는 Context·사용자·revision으로 페이지를 식별한다). `useMenuFetch`는 `useMenuQuery`와 같은 Scope·기간 게이트(`ready`), 같은 요청 모양(호출 시점의 `projectContext`), 같은 assessment kind 검사를 쓴다. `ready` 전에 부르면 어댑터를 부르지 않고 `error`(`not_ready: …`)로 답해, 게이트를 빠뜨린 페이지도 검증 안 된 Scope를 보내지 못한다.
+- **페이징 모양:** `PageQuery`(`page` 0부터·`pageSize`·`sorting`)·`PageResult`·`sortAndPage`는 `@ap/contracts`(`paging.ts`)에 둔다 — 클라이언트 표와 서버(mock 핸들러)가 같은 모양을 쓰고, mock은 `contracts`만 import할 수 있기 때문이다. 엔드포인트 params는 페이지 필터와 `PageQuery`를 펼쳐 싣는다(예: `equipment.master.page`의 `q`·`status`·`maker`·`page`·`pageSize`·`sorting`). cursor 페이징이 필요한 엔드포인트는 자기 params에 둔다(§7).
 
 ### 2.4 오류·권한·Scope 처리 (서버 쪽 판정 순서, Candidate)
 
@@ -286,7 +295,7 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 | 7 | **사람 확인 게이트** — 1–6 결과로 §8 Q3·Q4·Q9·Q10(#117) 답 받기 (2026-10-01 완료) | — |
 | 7a | 게이트 결정 반영(#125): Q3 비적용 키 → error, Q9 적용 키 누락 → error, Q10 등록 규칙 6 | 각 거부 규칙 테스트(수정 전 실패), 기존 테스트·`pnpm e2e` |
 | 8 | gen-menu 전환(§4) | gen-menu 테스트 + `scripts/probe.ts`(임시 그룹이 루트 네 명령 통과 = 다중 패키지 mock 등록 확인) |
-| 9 | 나머지 이전, 패키지별 1 PR: `cycle-time`(+내보내기 `cycleData.ts:224`, `export-permission.test.ts` 이동), `equipment-master`, `metrics`(쌍 검증 서버로), `home`(`NOTICES` → mock) | 각 패키지 테스트 + 브라우저 + `pnpm e2e` |
+| 9 | 나머지 이전(범위는 결정 기록 "단계 9 범위"): `equipment-master` + Kernel `useMenuFetch`·contracts 페이징 모양(#128, 완료), `cycle-time`(+내보내기 `cycleData.ts:224`, `export-permission.test.ts` 이동)과 `home`(`NOTICES` → mock), `metrics`(쌍 검증 서버로) | 각 패키지 테스트 + 브라우저 + `pnpm e2e` |
 | 10 | VOC 이전: 두 메서드 어댑터에서 제거, `MyVoc*` 타입 메뉴로 | `MyVocHistory.test.tsx`, `voc-status.test.ts`, contracts에서 `MyVocStatus` grep 0 |
 | 11 | `serve` 공개 export·`src/api.ts` 규칙 제거 | `grep -rn "serve" menus` 0, lint 규칙에서 api.ts 예외 삭제 |
 | 12 | 문서: platform-packages §3 규칙 3·§4·§5, `menus/AGENTS.md`, `packages/AGENTS.md`, 06 §5(Q4 결과), `PLATFORM_REQUIREMENTS.md:141` 상태, ROADMAP | 각 PR의 "문서 갱신" 체크 |

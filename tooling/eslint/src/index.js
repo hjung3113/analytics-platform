@@ -227,7 +227,6 @@ export const mockServer = [
 const LEGACY_SERVE_PATHS = [
   'menu-analytics/src/pages/cycleData.ts',
   'menu-analytics/src/pages/CycleTimeDrilldown.tsx',
-  'menu-equipment/src/pages/EquipmentMaster.tsx',
   'menu-home/src/pages/OperationsHome.tsx',
   'menu-metrics/src/pages/MetricCatalog.tsx',
   'menu-metrics/src/pages/MetricDetail.tsx',

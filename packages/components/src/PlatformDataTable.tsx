@@ -3,13 +3,13 @@ import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, Columns3, Download, Loader2 } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
-import { type ApiResponse, serializeGlobal } from '@ap/contracts';
+import { type ApiResponse, type PageQuery, type PageResult, serializeGlobal } from '@ap/contracts';
 import { Button, Checkbox, cn, Label, Popover, PopoverContent, PopoverTrigger, Skeleton } from '@ap/ui';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { OutcomeView } from './StateView';
 
-export type PageQuery = { page: number; pageSize: number; sorting: SortingState };
-export type PageResult<T> = { rows: T[]; total: number };
+export type { PageQuery, PageResult } from '@ap/contracts';
+export { sortAndPage } from '@ap/contracts';
 export type ColumnMeta = { align?: 'right'; label?: string };
 
 type Preferences = { sizing: ColumnSizingState; visibility: VisibilityState; pinning: ColumnPinningState };
@@ -254,18 +254,6 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
         }}>{lang === 'ko' ? '다음' : 'Next'}</Button>
     </div>
   </section>;
-}
-
-/** Server-side sort/page over an in-memory result set (mock server helper). */
-export function sortAndPage<T>(rows: T[], q: PageQuery): PageResult<T> {
-  const sorted = [...rows];
-  const s = q.sorting[0];
-  if (s) sorted.sort((a, b) => {
-    const av = (a as Record<string, unknown>)[s.id]; const bv = (b as Record<string, unknown>)[s.id];
-    const c = av === bv ? 0 : av === null || av === undefined ? 1 : bv === null || bv === undefined ? -1 : av < bv ? -1 : 1;
-    return s.desc ? -c : c;
-  });
-  return { rows: sorted.slice(q.page * q.pageSize, (q.page + 1) * q.pageSize), total: rows.length };
 }
 
 /** §6.1 page-key codecs. Value domains (allowed columns, tab ids) stay page-owned; these pin only the shared wire format. */
