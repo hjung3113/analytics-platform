@@ -13,11 +13,11 @@
 | `kernel/` (`@ap/kernel`) | Registry 런타임, `PlatformProvider`, 전역 Context·URL·Scope 상태, 요청 수명주기, i18n | `contracts` |
 | `components/` (`@ap/components`) | `PlatformPage`, 표·드로어·감사·신뢰 표시, 상태 화면, 차트 프레임 | `contracts`, `kernel`, `ui` |
 | `shell/` (`@ap/shell`) | AppShell, Sidebar, TopBar, CommandPalette, GlobalContextBar, RouteOutlet | `contracts`, `kernel`, `components`, `ui` |
-| `mock-server/` (`@ap/mock-server`) | 개발용 서버 대역(`world`·`server`·`jobs`·`createMockAdapter`). 앱이 주입. Tailwind 없음 | `contracts` |
+| `mock-server/` (`@ap/mock-server`) | 개발용 서버 대역(`world`·`server`·`jobs`·`createMockAdapter`, 메뉴 조회 엔진 `serveEndpoint`·`defineMockEndpoint`). 앱이 주입. 메뉴별 핸들러는 각 메뉴 `src/mock/`이 소유. Tailwind 없음 | `contracts` |
 
 ## 모든 패키지에 적용
 
-- 위 표의 역방향 import 금지. 어느 패키지도 앱(`apps/*`)이나 메뉴 화면을 import하지 않는다. `mock-server`는 `contracts`만 import한다. kernel·components·shell·ui는 `mock-server`를 import하지 않는다. 서버에 닿는 길은 `PlatformAdapter` 하나다.
+- 위 표의 역방향 import 금지. 어느 패키지도 앱(`apps/*`)이나 메뉴 화면을 import하지 않는다. `mock-server`는 `contracts`만 import한다. kernel·components·shell·ui는 `mock-server`를 import하지 않는다. 서버에 닿는 길은 `PlatformAdapter` 하나다 — 메뉴 데이터는 그 안의 범용 `menuQuery`로만 가고, 메뉴 어휘가 있는 메서드를 포트에 추가하지 않는다([패키지 경계](../docs/integration/platform-packages.md) §4).
 - 다른 패키지는 `package.json` `exports`의 공개 진입점으로만 import한다(`@ap/kernel`, `@ap/ui/styles.css`). `@ap/x/src/...` 깊은 경로 금지.
 - 패키지는 TS 소스를 그대로 export하고 빌드 단계가 없다. 앱의 Vite가 번들한다.
 - Tailwind 클래스를 쓰는 패키지는 `styles.css`에 `@source`로 자기 소스를 등록하고 앱 `src/style.css`가 그것을 import한다. 새 패키지를 만들면 이 둘을 같이 추가한다. Tailwind를 쓰지 않는 패키지(`mock-server`)는 `styles.css`를 만들지 않는다.

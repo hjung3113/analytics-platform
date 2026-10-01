@@ -88,7 +88,7 @@
 
 - [적재 워커 상태 기록 스키마 (초안)](integration/ingest-status-schema.md) — 가공 상태 원천인 적재 워커의 단계별 기록 구조, 06 §19 평가로 줄이는 규칙, 원인 분류, 보존 기간, 파서 저장소 변경 제안, 파서 담당에게 물을 질문. Candidate(초안, 파서 담당 합의 Open, #37).
 
-- [메뉴 데이터 조회 포트 (설계)](integration/menu-query-port.md) — 메뉴 조회 경로 세 갈래 진단, 범용 `MenuQuery` + 메뉴 `EndpointSpec` 계약, `PlatformAdapter` 판정 기준, 생성기 변경, 단계 이행 계획, #98 영향. Candidate(방향·범위·어댑터 기준은 2026-09-29 결정, 나머지 Open, #100).
+- [메뉴 데이터 조회 포트 (설계 기록)](integration/menu-query-port.md) — 메뉴 조회를 범용 `MenuQuery` + 메뉴 `EndpointSpec` 선언으로 옮긴 설계와 결정 경과(구현 완료 2026-10-01, #100). 현재 계약은 06 §5·§19와 [패키지 경계](integration/platform-packages.md) §3–§5. 미해결은 Q2(선언 원본 TS ↔ FastAPI codegen).
 
 - [Standard Log Lifecycle](references/standard-log-lifecycle/README.md) — 모델 표준 로그 개발·검증·결함·재검증 관리의 설계 참고. 원본 커밋에 고정한 Markdown 7개, 출처·해시 manifest와 4개 화면 시안 적용 범위를 포함한다. 기존 플랫폼 계약을 대체하지 않는다.
 

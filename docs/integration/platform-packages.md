@@ -40,13 +40,13 @@ D1–D8은 화면·런타임 코드, D9는 같은 폴더 안이라 폴더 구조
 
 | 패키지 | 06 갈래 | 내용(현재 파일 기준) | React | 의존 가능 |
 | --- | --- | --- | --- | --- |
-| `@ap/contracts` | Kernel 계약 | 순수 URL codec(`kernel/url.ts`에서 `safeReturnTo` 제외, D9), manifest **메타데이터** 타입(`MenuMeta`: `MenuEntry`에서 `icon`·`component`를 뺀 선언부, `ContextKey`, `Capability`, `PageType`, `Permission`), 응답·Trust envelope(`ApiResponse`, `Trust`, `Assessment`, `Outcome`), `AuditEvent`, `Text`(i18n 문자열 쌍), `PlatformAdapter` 포트와 그 입출력 타입(§4) | 없음(타입 포함) | 없음 |
+| `@ap/contracts` | Kernel 계약 | 순수 URL codec(`kernel/url.ts`에서 `safeReturnTo` 제외, D9), manifest **메타데이터** 타입(`MenuMeta`: `MenuEntry`에서 `icon`·`component`를 뺀 선언부, `ContextKey`, `Capability`, `PageType`, `Permission`), 응답·Trust envelope(`ApiResponse`, `Trust`, `Assessment`, `Outcome`), `AuditEvent`, `Text`(i18n 문자열 쌍), `PlatformAdapter` 포트와 그 입출력 타입(§4), 메뉴 조회 선언 `EndpointSpec`·`defineEndpoint`·`projectContext`·`MenuQuery`(§5), 서버 페이징 모양 `PageQuery`·`PageResult`·`sortAndPage`, wall-clock 기간 계산 `periodHours`·`bucketStart` | 없음(타입 포함) | 없음 |
 | `@ap/ui` | 공통 컴포넌트(UI Primitive) | `styles/tokens.css`, `ui/components/shadcn/*`, `Button`, `cn`, `StatusBadge`(`Tone`) | 있음 | 외부 라이브러리만 |
-| `@ap/kernel` | Kernel 기능 | `PlatformProvider`/`usePlatform`/`PlatformLink`, `usePlatformQuery`, i18n Provider, Registry 런타임(`createRegistry`, `matchRoute`, `pathFor`, `safeReturnTo`), React binding 타입 `MenuEntry = MenuMeta & { icon: LucideIcon; component?: LazyExoticComponent<…> }`, 어댑터 주입(`PlatformProvider adapter={…}`)과 세션 revision, 슬롯 등록 | 있음 | `contracts` |
+| `@ap/kernel` | Kernel 기능 | `PlatformProvider`/`usePlatform`/`PlatformLink`, `usePlatformQuery`, 메뉴 조회 `useMenuQuery`(렌더 시점)·`useMenuFetch`(표 `loadPage`·내보내기 같은 호출형), i18n Provider, Registry 런타임(`createRegistry`, `matchRoute`, `pathFor`, `safeReturnTo`), React binding 타입 `MenuEntry = MenuMeta & { icon: LucideIcon; component?: LazyExoticComponent<…> }`, 어댑터 주입(`PlatformProvider adapter={…}`)과 세션 revision, 슬롯 등록 | 있음 | `contracts` |
 | `@ap/components` | 공통 컴포넌트(Platform Component) + 차트 계약 + 레이아웃 | `PlatformPage`, `PlatformDataTable`, `DetailDrawer`, `AuditTimeline`, `DataTrustIndicator`, `StateView`, `StatCard`, `RadioGroup`, `AnalysisChartFrame`, `EChart` | 있음 | `contracts`, `kernel`, `ui` |
 | `@ap/shell` | Kernel 기능(App Shell) | `AppShell`, `Sidebar`, `TopBar`, `CommandPalette`, `GlobalContextBar`, 계약 오류/미구현 화면(`App.tsx`의 fallback) | 있음 | `contracts`, `kernel`, `components`, `ui` |
-| `@ap/mock-server` | (개발용) | `mock/world`, `mock/server`, `mock/jobs`와 이들만 보는 단위 테스트(`explicit-empty`, `time-domain`). `PlatformAdapter` mock 구현 | 없음 | `contracts` |
-| `@ap/menu-<group>` | Consumer | Registry의 7개 그룹마다 하나: `home`(overview), `equipment`, `master-data`, `analytics`, `metrics`, `notice-voc`, `admin`. 화면이 아직 없는 계획 메뉴(공정·레시피 마스터, Wafer Journey, 공지 등)도 `component` 없는 manifest로 자기 그룹 패키지가 소유한다(셸이 미구현 화면으로 표시). 각 패키지가 `manifests`(여러 메뉴 가능)와 화면·도메인 컴포넌트·`api.ts`를 가진다 | 있음 | `contracts`, `kernel`, `components`, `ui` (`src/mock/**`는 `contracts`·`mock-server`·자기 `endpoints.ts`만; 이행 중 `src/api.ts`도 `mock-server`) |
+| `@ap/mock-server` | (개발용) | `world`·`server`·`jobs`와 이들만 보는 단위 테스트(`explicit-empty`, `time-domain`). `PlatformAdapter` mock 구현 `createMockAdapter({ endpoints, registry })`, 메뉴 조회 엔진 `serveEndpoint`(선언 사본으로 요청 모양·권한·Scope·한도 판정)와 핸들러 정의 `defineMockEndpoint`. 메뉴별 핸들러는 메뉴 패키지가 소유한다 | 없음 | `contracts` |
+| `@ap/menu-<group>` | Consumer | Registry의 7개 그룹마다 하나: `home`(overview), `equipment`, `master-data`, `analytics`, `metrics`, `notice-voc`, `admin`. 화면이 아직 없는 계획 메뉴(공정·레시피 마스터, Wafer Journey, 공지 등)도 `component` 없는 manifest로 자기 그룹 패키지가 소유한다(셸이 미구현 화면으로 표시). 각 패키지가 `manifests`(여러 메뉴 가능)와 화면·도메인 컴포넌트, 조회 선언 `src/endpoints.ts`, 서버 쪽 핸들러 `src/mock/`(서브패스 `./mock`, 앱 `main.tsx`만 import)을 가진다 | 있음 | `contracts`, `kernel`, `components`, `ui` (`src/mock/**`는 `contracts`·`mock-server`·자기 `endpoints.ts`만) |
 | `apps/platform-web` | 조립 지점 | `main.tsx`, IA 설정(`GROUPS`, 향후 공간), 메뉴 등록, 어댑터 주입, dev 도구(역할 전환·응답 시나리오) | 있음 | 전부 |
 | `apps/platform-e2e` | (검사) | 조립된 앱을 브라우저로 띄워 플랫폼 계약을 검사하는 Playwright 블랙박스 테스트와 항목별 보고(#44) | 없음 | 없음(`@ap/*` import 금지, 브라우저로만 관찰) |
 | `tooling/*` | 개발 환경 | 공유 tsconfig, lint 설정(경계·계약 규칙), 메뉴 생성기 | — | — |
@@ -63,7 +63,7 @@ D1–D8은 화면·런타임 코드, D9는 같은 폴더 안이라 폴더 구조
      components    │              │
         │          │              │
         ▼          ▼              │
-      shell     menu-*  ◀─ api.ts ┘
+      shell     menu-*  ◀─ src/mock ┘
         │          │
         └────┬─────┘
              ▼
@@ -108,6 +108,7 @@ export type PlatformAdapter = {
 //   이전 GlobalContextBar가 클라이언트에서 계산하던 값. 초안의 pool은 화면에서 쓰지 않아 뺐다.
 ```
 
+- **포트에 두는 것과 메뉴 엔드포인트로 두는 것(2026-10-01, 메뉴 조회 포트 #100):** 포트 메서드는 ① Kernel·셸이 직접 부르고 메뉴 어휘가 없거나(세션·Scope·Context 선택지·활용률·오류 보고·주석) ② 권한·감사처럼 Kernel 책임 저장소를 읽는 것(`accessDirectory`·`auditTrail`·`entityAudit`)만이다. 메뉴의 데이터 조회는 메서드를 늘리지 않고 범용 `menuQuery` 하나로 보낸다 — 메뉴가 `src/endpoints.ts`에 선언하고 서버는 요청이 아니라 자기 선언 사본으로 판정한다(06 §5 "조회 엔드포인트"). 이 기준으로 VOC 두 메서드(`myVocHistory`·`mySurveyHistory`)는 #131에서 포트에서 빠져 `@ap/menu-notice-voc` 엔드포인트가 됐다. 설계·결정 기록은 [메뉴 조회 포트](menu-query-port.md).
 - **세션형 데이터는 동기 스냅샷 + `subscribe`:** 셸이 로딩 공백 없이 그려지도록 `session()`·`publishedMetrics()`는 동기로 둔다. 실서버 어댑터는 Provider를 마운트하기 전에 세션을 받아 둔다(부트스트랩). 요청마다 달라지는 검증(`validateScope`, 4단계의 `evaluateSelection`)만 비동기다. 초안의 `session(): Promise<User>`·`scopes()`는 이 규칙에 따라 `Session`(user + scopes) 스냅샷 하나로 합쳤다.
 
 - 역할 전환과 응답 시나리오 시뮬레이터(`setRole`, `setScenario`)는 **실서버에 없는 개발 기능**이다. `Platform` 컨텍스트에서 빼고 `apps/platform-web`의 dev 도구가 TopBar 슬롯에 붙인다. 운영 빌드에는 포함하지 않는다(현재 앱은 mock 전용이라 `main.tsx`가 항상 마운트한다. 실서버 어댑터를 붙일 때 함께 뺀다).
@@ -128,13 +129,15 @@ menus/<group>/
   src/
     index.ts            # export const manifests: MenuEntry[] (manifest만, 화면·데이터 재export 금지 — lazy 유지)
     styles.css          # Tailwind 클래스를 쓰는 패키지만: @source "./"; 앱 src/style.css가 import
-    api.ts              # 이 메뉴의 데이터 원천 유일 접점 (지금은 mock-server, 나중에 HTTP)
-    pages/<Page>.tsx    # PlatformPage 위에 archetype 하나
-    manifest.test.ts    # createRegistry fixture 검증 1개
+    endpoints.ts        # 조회 선언(defineEndpoint: 권한·적용 Context·kind·한도) + 클라이언트 타입·표시 상수. 화면과 서버가 함께 쓰는 순수 코덱도 여기
+    mock/index.ts       # 서버 쪽 핸들러(defineMockEndpoint) — package.json "./mock", 앱 main.tsx만 import. 실서버로 갈 때 HTTP 쪽이 이 자리를 맡는다
+    mock/index.test.ts  # 인라인 MenuMeta로 createMockAdapter 등록 규칙과 menuQuery 스모크
+    pages/<Page>.tsx    # PlatformPage 위에 archetype 하나, 조회는 useMenuQuery/useMenuFetch만
+    manifest.test.ts    # createRegistry fixture 검증 1개 + 엔드포인트 소유(id 접두사·menuId) 검사
     components/         # 이후 Domain Component(06 §13)가 가는 곳 — 생성기 출력이 아니다
 ```
 
-생성기는 한 번에 스켈레톤 하나를 만든다 — manifest 1개, archetype은 manifest의 `pageType`(다섯 중 선택), `api.ts`, `manifest.test.ts` — 그리고 앱의 마커 영역에 연결 3줄(import·spread·`@import`)과 앱 `package.json` 의존 1줄을 추가한다. `GROUPS`와 `GroupId`는 편집하지 않는다(사람이 먼저 추가한다).
+생성기는 한 번에 스켈레톤 하나를 만든다 — manifest 1개, archetype은 manifest의 `pageType`(다섯 중 선택), `endpoints.ts`·`mock/`(표본 엔드포인트 1개)·테스트 — 그리고 앱의 마커 영역에 연결 다섯 줄(`menus.ts` import·spread, `style.css` `@import`, `main.tsx`의 `/mock` import·`endpoints` spread)과 앱 `package.json` 의존 1줄을 추가한다(#126). `GROUPS`와 `GroupId`는 편집하지 않는다(사람이 먼저 추가한다).
 
 `manifests`의 각 항목은 `kernel`의 `MenuEntry`(= `contracts`의 `MenuMeta` + `icon` + `component`, 06 §5 선언)이고, 화면은 `component: lazy(() => import('./pages/X'))`로 지연 로드한다. 앱은 다음처럼 조립한다.
 
@@ -151,7 +154,7 @@ const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: [...hom
 - `pageKeys`가 전역 Context 키와 겹치지 않음(06 §6.1)
 - **공간(06 §9.1):** 그룹의 `space`는 등록된 `SpaceDef`여야 하고, 공간별 `homeMenuId`는 그 공간 소속·파라미터 없는 경로·공간 `permission`과 같은 메뉴여야 하며, 부모 메뉴는 자식과 같은 공간에 있다
 
-생성기는 manifest 뼈대, `pageType`별 06 §12 슬롯 뼈대(화면 슬롯은 12.6), `api.ts`, 테스트 1개를 만들고 앱 등록 목록에 한 줄을 추가한다. 메뉴 템플릿이 Sidebar·Breadcrumb·권한 숨김을 직접 구현하지 못하게 하는 것은 06 §5 "금지" 목록을 lint로 옮겨 막는다(§6).
+생성기는 manifest 뼈대, `pageType`별 06 §12 슬롯 뼈대(화면 슬롯은 12.6), 조회 선언·mock 핸들러, 테스트를 만들고 앱 등록 목록에 연결한다. 메뉴 템플릿이 Sidebar·Breadcrumb·권한 숨김을 직접 구현하지 못하게 하는 것은 06 §5 "금지" 목록을 lint로 옮겨 막는다(§6).
 
 ## 6. 경계 강제와 도구
 
