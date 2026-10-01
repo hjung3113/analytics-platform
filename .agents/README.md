@@ -26,6 +26,7 @@
 ## 실행·유지보수
 
 - 작업 관리·프로토타입 스킬(`prototype`, `to-tickets`, `to-spec`, `triage`, `wayfinder`)은 FeedbackOps에 벤더링된 `mattpocock/skills` 복사본이다. 이슈 추적 설정은 `docs/agents/`. UI 방향은 `prototype` 스킬의 UI 분기로 사용자 컨펌을 받는다(루트 `AGENTS.md` "화면/UI 설계").
+- 외부 스킬 3종을 벤더링했다(#162). `fastapi`는 사내 FastAPI 서버(#155)의 조회·검증·응답 모델 작성에, `supabase-postgres-best-practices`는 mart SQL의 인덱스·쿼리·연결 관리에 쓴다(자체 호스팅 Postgres에도 적용되며 Supabase 도입이 아니다), `vercel-react-best-practices`는 요청 지연·렌더링·번들 최적화에 쓴다(Next.js 전용 규칙은 이 Vite SPA에 해당 없음). 외부 스킬은 제품 계약(`docs/06_platform_ui_contract.md`, `docs/integration/real-server-checklist.md`)을 덮어쓰지 않는다 — 충돌하면 계약을 따른다. 예: 체크리스트 §3 `menuQuery` 판정 순서가 일반 FastAPI 조언보다, Kernel 조회 수명주기가 일반 React 데이터 fetching 조언보다 우선한다. 출처·커밋 SHA·라이선스는 각 스킬 폴더의 `SOURCE.md`에 있다.
 - 화면 설계 진입점은 `skills/analysis-platform-wireframe/SKILL.md`다. 기본 종료점은 Wireframe + Open Decisions이며 구현 요청이 있을 때 후속 단계를 진행한다.
 - 스킬 안의 `scripts/`, `references/`는 그 `SKILL.md`가 있는 디렉터리를 기준으로 해석한다. `ui-ux-pro-max`의 검색 예제는 해당 디렉터리에서 실행한다: `python3 scripts/search.py "analytics dashboard" --domain product`.
 - 도구 이름·이미지 생성·외부 요청·자격 증명은 실행 환경에 따라 다르다. 현재 사용 가능한 도구로 대응하고, 필요한 의존성이 없으면 해당 작업의 제한을 보고한다. 경로 공유가 모든 외부 기능의 실행 검증을 뜻하지 않는다.
