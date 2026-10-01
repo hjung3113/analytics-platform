@@ -28,6 +28,7 @@
 | 1. 결정 | 전송 형식(HTTP 경계) | [#149](https://github.com/hjung3113/analytics-platform/issues/149) | 초안은 지금, 합의는 #151 답 뒤가 낫다 | 에이전트 초안 → 백엔드 담당 합의 | `http-adapter-contract.md`가 Decided |
 | 2. 지금 가능 | 적합성 묶음 확장(포트 메서드 전부) | [#152](https://github.com/hjung3113/analytics-platform/issues/152) | — | 에이전트 | mock이 새 검사 통과, 깬 어댑터에서 실패 |
 | 2. 지금 가능 | 운영 빌드 조립 분리 + 번들 검사 | [#153](https://github.com/hjung3113/analytics-platform/issues/153) | — | 에이전트 | 운영 모드 산출물에 mock·DevTools 없음을 CI가 확인 |
+| 2. 지금 가능 | `validateScope` 실패 시 Scope가 '확인 중'에 멈추는 Kernel 공백 | [#167](https://github.com/hjung3113/analytics-platform/issues/167) | — | 에이전트 | reject 시 오류·재시도, 회귀 테스트 |
 | 3. 구현 | 실어댑터(HTTP) + 적합성 묶음을 사내 테스트 서버로 | [#154](https://github.com/hjung3113/analytics-platform/issues/154) | #148·#149·#150 | 에이전트(사내 실행은 사람) | 사내 테스트 서버 대상 적합성 묶음 전부 통과 |
 | 3. 구현 | FastAPI 플랫폼 API | [#155](https://github.com/hjung3113/analytics-platform/issues/155) | #148·#149·#150, 신뢰 원천은 #37 | 사내 백엔드 담당 | 체크리스트 §2·§3 전부 + 적합성 묶음 통과 |
 | 4. 운영 | §6 완료 기준 확인 → 첫 사내 메뉴 | — | 3단계 | 사내 메뉴 개발자 | §6 체크 전부 |
@@ -36,7 +37,7 @@
 
 ## 3. 사내에서 확인할 것 (담당자별 질문 목록)
 
-이슈 본문에 같은 질문이 있다. 답을 받으면 해당 이슈에 남기고 여기 체크박스를 고친다.
+이슈 본문에 같은 질문이 있다. 답을 받으면 해당 이슈에 남기고, 결정은 05와 그 결정의 원본 문서(03·06·menu-query-port 등)를 Decided로 고친 뒤 여기 체크박스를 고친다. 이 가이드는 Candidate 안내서라 Decided를 붙이지 않는다.
 
 ### 3.1 SSO·보안 담당 — [#150](https://github.com/hjung3113/analytics-platform/issues/150)
 
@@ -68,7 +69,7 @@
 
 ### 3.4 파서 담당 — [#37](https://github.com/hjung3113/analytics-platform/issues/37)
 
-- [ ] 적재 워커 상태 스키마 초안([ingest-status-schema.md](ingest-status-schema.md)) 합의 — 데이터 신뢰(`trust`·처리 지연·커버리지)의 원천. 합의 전에는 실서버가 그 필드를 `unknown`으로 답해야 하고 추측으로 채우지 않는다(06 §19). 합의 뒤 모니터링·트레이스(#51).
+- [ ] 적재 워커 상태 스키마 초안([ingest-status-schema.md](ingest-status-schema.md)) 합의 — 데이터 신뢰(`trust`, 미수집·처리 지연·커버리지)의 원천. 합의 전 서버 동작은 체크리스트 §7 #37 행(추측으로 채우지 않음). 합의 뒤 모니터링·트레이스(#51).
 
 ### 3.5 FeedbackOps — M3
 
@@ -84,10 +85,11 @@
 
 추천 순서.
 
-1. **#152 적합성 묶음 확장** — 지금은 `menuQuery`만 검사한다. 세션 identity·목적지 단건·감사·오류 보고·주석 규칙을 어댑터 무관 검사로. 실서버가 붙는 날 판정 범위가 그대로 넓어진다.
+1. **#152 적합성 묶음 확장** — 지금은 `menuQuery`만 검사한다. 체크리스트 §2의 나머지 포트 메서드 전부(목록은 #152)를 어댑터 무관 검사로. 실서버가 붙는 날 판정 범위가 그대로 넓어진다.
 2. **#153 운영 빌드 조립 분리** — 지금 `pnpm build` 산출물에 mock 계산·DevTools가 들어간다. 분리와 번들 검사를 먼저 만들어 둔다.
-3. **#149 전송 형식 초안** — 합의 전 단계까지.
-4. 작은 후속: #122(목적지 단건 provisional), #90(지표 이력을 감사 저장소로).
+3. **#167 Scope 확인 실패 처리** — 실어댑터는 mock과 달리 `validateScope`가 실패할 수 있다.
+4. **#149 전송 형식 초안** — 합의 전 단계까지.
+5. 작은 후속: #122(목적지 단건 provisional), #90(지표 이력을 감사 저장소로).
 
 ## 5. 사내 메뉴 개발 가이드
 
@@ -105,7 +107,7 @@
 2. **조회 선언**: `menus/<g>/src/endpoints.ts`에 `defineEndpoint`로 권한(데이터 접근 권한 — 메뉴 권한과 다를 수 있음)·적용 Context·params 키·assessment kind·한도를 선언한다.
 3. **화면**: [페이지 작성 가이드](../../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙) — `PlatformPage`, `useMenuQuery` + `QueryView`, 표는 `PlatformDataTable` + `useMenuFetch`, 차트는 `AnalysisChartFrame`, 이동은 `linkTo`, page 상태는 등록된 `pageKeys`만.
 4. **서버 쪽**: 개발 중에는 `menus/<g>/src/mock/`에 핸들러(앱 `main.tsx` 마커 영역에 등록 — 생성기가 씀). 실서버에는 같은 엔드포인트 id로 FastAPI 핸들러를 만든다(선언 사본 공유 방식은 #148).
-5. **적합성 묶음 등록**: `apps/platform-web/src/server-conformance.test.ts`의 `MOCKS`와 `PARAMS` 표에 새 mock·표본 params를 넣는다(빠지면 테스트가 실패한다).
+5. **적합성 묶음 등록**: [`apps/platform-web/src/server-conformance.test.ts`](../../apps/platform-web/src/server-conformance.test.ts)의 `MOCKS`와 `PARAMS` 표에 새 mock·표본 params를 넣는다(빠지면 테스트가 실패한다). 표본 params는 하네스의 권한 있는 역할(`engineer` — `console:access` 없음), site `ICH`, 하네스 기간으로 `ok` 또는 `empty`가 나와야 한다. 엔드포인트가 `console:access`를 요구하면 그 하네스로는 성공 요청을 만들 수 없으니 먼저 묻는다.
 
 ### 5.3 하지 말 것
 
@@ -128,7 +130,7 @@
 - [ ] 사내 SSO로 로그인 → 세션 부트스트랩 → 권한 다른 두 계정에서 메뉴·데이터 범위가 다르게 보임(서버 판정).
 - [ ] 세션 만료·재로그인 때 이전 결과가 한 프레임도 보이지 않음(체크리스트 §2 `subscribe`).
 - [ ] 오류 화면의 Correlation ID로 서버 로그를 찾을 수 있음.
-- [ ] 데이터 신뢰: #37 합의 전이면 선언한 `processing_delay`·`coverage` assessment를 빼지 않고 `state: unknown`(사유 포함)으로 답하고, `trust`의 `dataThrough`·`coverage`처럼 모르는 값은 `null`로 둔다(06 §19 — 생략은 계약 위반).
+- [ ] 데이터 신뢰: #37 합의 전 동작이 체크리스트 §7 #37 행대로다 — 원천 의존 kind(`collection`·`processing_delay`·`coverage`)는 빼지 않고 `unknown`, Trust의 모르는 값은 `null`.
 - [ ] `pnpm dev`·`pnpm e2e`는 여전히 mock으로 돈다(개발 경로 유지). 실서버 대상 E2E를 돌릴지는 3단계에서 따로 정한다 — 지금 E2E는 mock 시나리오(`malformed` 등)에 기댄다.
 
 ## 7. 흔한 함정
@@ -136,9 +138,9 @@
 | 함정 | 맞는 것 | 원본 |
 | --- | --- | --- |
 | 서버가 요청에 실린 권한·kind·한도를 믿는다 | 서버는 자기 선언 사본으로 판정 | 체크리스트 §3 |
-| 거부·실패를 예외로 던진다 | `ApiResponse`를 돌려주는 메서드(`menuQuery`·`getEntity`·`auditTrail`·`entityAudit`·`accessDirectory`·`usageSummary`·`listAnnotations`·`saveAnnotation`)는 실패도 `error` envelope. 동기 스냅샷(`session`·`publishedMetrics`·`defaultRangeTo`)과 `validateScope`·`contextOptions`·`evaluateSelection`은 자기 반환 타입 그대로 | 06 §19, 체크리스트 §2 |
+| 모든 메서드를 같은 방식으로 실패시킨다 | 반환 모양에 따라 다르다 — envelope 메서드는 실패도 `error` envelope, 나머지는 메서드별 규칙 | 체크리스트 §2 메서드 분류 |
 | Scope `null`을 "전체 사이트"로 | `forbidden` | 체크리스트 §3-4 |
-| 클라이언트가 사용자 id·actor를 보낸다, 또는 모든 클라이언트 시각을 버린다 | 사용자는 언제나 서버가 세션으로 찍는다. 시각은 계약마다 다르다 — 감사·주석·오류 보고는 서버 시각, 활용률 이벤트의 `at`·`enteredAt`은 클라이언트 시각을 그대로 받는다 | 체크리스트 §5 |
+| 클라이언트가 사용자 id·actor를 보낸다, 또는 시각을 한 가지 규칙으로 처리한다 | 사용자는 언제나 서버가 세션으로 찍는다. 시각은 메서드마다 다르다(활용률은 서버 수신 시각으로 집계) | 체크리스트 §5 |
 | 세션 스냅샷을 매번 새 객체로 | 바뀔 때까지 같은 객체 | 체크리스트 §2 |
 | 설비 시각을 UTC로 변환 | naive wall-clock 그대로, `[from, to)` | 06 §6.3 |
 | 명시적 공집합(`[]`)에 원천을 읽는다 | 읽지 않고 `empty`, trust `null` | 06 §19 |
