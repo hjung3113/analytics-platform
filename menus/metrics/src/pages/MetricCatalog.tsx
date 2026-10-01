@@ -1,14 +1,15 @@
 import { useMemo } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { serve } from '../api';
-import { type ColumnMeta, PlatformDataTable, PlatformPage, QueryView, encodeTableSort, parsePageIndex, parseTableSort, sortAndPage } from '@ap/components';
+import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
+import { type ColumnMeta, PlatformDataTable, PlatformPage, QueryView, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
 import { Button, Input, StatusBadge } from '@ap/ui';
 import {
-  DOMAINS, DOMAIN_LABEL, METRICS, STATUS_LABEL, STATUS_TONE, STATUSES,
-  catalogRows, filterCatalog, judgeGlobalPair, sortColumns,
-  type CatalogRow, type PairVerdict, type PublicationState,
-} from './data';
+  DOMAINS, STATUSES, catalogListEndpoint, catalogPageEndpoint, metricPairEndpoint, sortColumns,
+  type CatalogRow, type Lang, type PairVerdict, type PublicationState,
+} from '../endpoints';
+import { DOMAIN_LABEL, STATUS_LABEL, STATUS_TONE } from './data';
+
+const NO_DESTINATION = { viewedId: null, pageVersion: null };
 
 function pairText(verdict: PairVerdict, lang: 'ko' | 'en', pageVersion: string | null): { title: string; body: string; tone: 'neutral' | 'danger' | 'warning' } {
   const ko = lang === 'ko';
@@ -39,16 +40,11 @@ function pairText(verdict: PairVerdict, lang: 'ko' | 'en', pageVersion: string |
   }
 }
 
-/** Validates the global metricId+metricVersion pair through serve() (§6.1). Does not write the URL. */
+/** The server validates the global metricId+metricVersion pair against the catalog (§6.1). Does not write the URL. */
 export function MetricPairBanner({ viewedId = null, pageVersion = null }: { viewedId?: string | null; pageVersion?: string | null }) {
-  const { global, setPage } = usePlatform();
+  const { setPage } = usePlatform();
   const { lang } = useI18n();
-  const query = usePlatformQuery(signal => serve({
-    permission: 'metrics:view',
-    global, signal, requiresScope: false, mergeTimeDomain: false, latency: 180, kinds: ['processing_delay'],
-    metricVersion: global.metricVersion ?? undefined,
-    compute: () => judgeGlobalPair(global.metricId, global.metricVersion, viewedId, pageVersion),
-  }), [global.metricId, global.metricVersion, viewedId, pageVersion]);
+  const query = useMenuQuery(metricPairEndpoint, { viewedId, pageVersion });
 
   return <QueryView query={query} compact skeletonRows={2}>
     {verdict => {
@@ -84,8 +80,14 @@ export default function MetricCatalogPage(_: PageProps) {
   const parsedPage = parsePageIndex(pageParam('page'));
   const tableInvalid = !parsedSort.ok || !parsedPage.ok;
   // A global-Context change clears `page` in the kernel (manifest contextResetKeys); pages write no reset effect.
-  const verdict = judgeGlobalPair(global.metricId, global.metricVersion, null, null);
-  const activeRowId = verdict.kind === 'valid' || verdict.kind === 'id-only' ? verdict.metricId : null;
+  const pair = useMenuQuery(metricPairEndpoint, NO_DESTINATION);
+  const verdict = pair.response?.outcome === 'ok' ? pair.response.data : null;
+  const activeRowId = verdict?.kind === 'valid' || verdict?.kind === 'id-only' ? verdict.metricId : null;
+  const filter = { q, status, domain, lang: lang as Lang };
+  const all = useMenuQuery(catalogListEndpoint, { q: null, status: null, domain: null, lang: lang as Lang });
+  const metricCount = all.response?.outcome === 'ok' ? all.response.data!.rows.length : null;
+  const pages = useMenuFetch(catalogPageEndpoint);
+  const list = useMenuFetch(catalogListEndpoint);
 
   const columns = useMemo<ColumnDef<CatalogRow>[]>(() => [
     {
@@ -127,8 +129,6 @@ export default function MetricCatalogPage(_: PageProps) {
       cell: ({ row }) => <time className="tabular" dateTime={row.original.updatedAt}>{row.original.updatedAt.replace('T', ' ').slice(0, 16)}</time>,
     },
   ], [lang, linkTo, tx]);
-
-  const filteredForExport = filterCatalog(catalogRows(lang), q, status, domain).rows;
 
   return <PlatformPage
     description={lang === 'ko'
@@ -179,8 +179,8 @@ export default function MetricCatalogPage(_: PageProps) {
       </p> : <PlatformDataTable
         title={lang === 'ko' ? '지표 카탈로그' : 'Metric catalog'}
         subtitle={lang === 'ko'
-          ? `합성 ${METRICS.length}건. 게시 포인터는 레코드에 저장된 값이며 최대 버전 번호가 아닙니다. 초안 열기는 동작 열.`
-          : `${METRICS.length} synthetic metrics. The published pointer is stored on the record, not max(version). Open a draft from the action column.`}
+          ? `합성 ${metricCount ?? '…'}건. 게시 포인터는 레코드에 저장된 값이며 최대 버전 번호가 아닙니다. 초안 열기는 동작 열.`
+          : `${metricCount ?? '…'} synthetic metrics. The published pointer is stored on the record, not max(version). Open a draft from the action column.`}
         ariaLabel={lang === 'ko' ? '지표 카탈로그' : 'Metric catalog'}
         preferenceKey="platform:table:metric-catalog"
         columns={columns}
@@ -194,12 +194,7 @@ export default function MetricCatalogPage(_: PageProps) {
           onChange: ({ page, sorting }) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }),
         } : undefined}
         activeRowId={activeRowId}
-        loadPage={(query, signal) => serve({
-          permission: 'metrics:view',
-          global, signal, requiresScope: false, mergeTimeDomain: false, latency: 280, kinds: ['processing_delay'],
-          compute: () => sortAndPage(filterCatalog(catalogRows(lang), q, status, domain).rows, query),
-          isEmpty: data => data.total === 0,
-        })}
+        loadPage={(query, signal) => pages.fetch({ ...filter, ...query }, signal)}
         rowAction={row => <span className="flex flex-wrap gap-2">
           <PlatformLink className="text-[12px] font-medium text-accent-primary hover:underline" href={linkTo('metric-detail', { params: { metricId: row.metricId }, page: detailPage(row) })}>
             {lang === 'ko' ? '정의' : 'Definition'}
@@ -208,8 +203,12 @@ export default function MetricCatalogPage(_: PageProps) {
             {lang === 'ko' ? `초안 v${row.draftVersion}` : `Draft v${row.draftVersion}`}
           </PlatformLink>}
         </span>}
-        onExport={scope => {
-          const rows = scope.kind === 'selected' ? filteredForExport.filter(r => scope.ids.includes(r.metricId)) : filteredForExport;
+        onExport={async scope => {
+          // Export reads the filtered catalog from the server like any page (permission re-checked per request).
+          const response = await list.fetch(filter);
+          if (response.outcome !== 'ok') return;
+          const filtered = response.data!.rows;
+          const rows = scope.kind === 'selected' ? filtered.filter(r => scope.ids.includes(r.metricId)) : filtered;
           const header = ['metricId', 'name', 'domain', 'grain', 'numerator', 'denominator', 'publishedPointer', 'status', 'owner', 'updatedAt'];
           const lines = rows.map(r => [r.metricId, lang === 'ko' ? r.nameKo : r.nameEn, r.domain, r.grain, r.numerator, r.denominator, r.publishedPointer ?? '', r.status, r.owner, r.updatedAt]
             .map(value => `"${String(value).replaceAll('"', '""')}"`).join(','));

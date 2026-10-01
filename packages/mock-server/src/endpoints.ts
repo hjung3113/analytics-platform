@@ -13,6 +13,12 @@ export type MockEndpoint<P, T> = {
   source?: string;
   /** Server-attached metricVersion display value (§2.4 step 9); may depend on the request params. */
   metricVersion?: (input: { context: GlobalContext; params: P }) => string | undefined;
+  /**
+   * Param value check the shape rules cannot express (e.g. a metricVersion the series does not have, #123).
+   * Returns an error message to reject the request as `error`, or null. Runs after the shape checks, before
+   * permission and data — like an unknown params key, a bad value is a malformed request, not an empty answer.
+   */
+  validate?: (input: { context: GlobalContext; params: P }) => string | null;
 };
 
 export const defineMockEndpoint = <P, T>(
@@ -105,6 +111,9 @@ export async function serveEndpoint(
   const requestedContext = { ...emptyGlobal, ...req.context } as GlobalContext;
   const projected = projectContext(endpoint.spec, requestedContext);
   const global: GlobalContext = { ...emptyGlobal, ...projected };
+
+  const invalid = endpoint.validate?.({ context: global, params: req.params });
+  if (invalid) return requestError(invalid);
 
   try {
     return await serve({

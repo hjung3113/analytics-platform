@@ -11,6 +11,7 @@ import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';
 import { analyticsMock } from '@ap/menu-analytics/mock';
 import { equipmentMock } from '@ap/menu-equipment/mock';
 import { homeMock } from '@ap/menu-home/mock';
+import { metricsMock } from '@ap/menu-metrics/mock';
 // </gen:menu-mock-imports>
 import { DevTools } from './dev/DevTools';
 import { readFeedbackOpsOrigin } from './feedbackops-origin';
@@ -28,6 +29,7 @@ const adapter = createMockAdapter({
     ...analyticsMock,
     ...equipmentMock,
     ...homeMock,
+    ...metricsMock,
     // </gen:menu-mock-spreads>
   ],
   registry,

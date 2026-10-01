@@ -225,8 +225,6 @@ export const mockServer = [
 // `menu-home/src/pages/x.tsx`) so a menu reusing another menu's legacy filename does not
 // inherit the exemption. The list shrinks in steps 5/6/9 and is deleted in step 11.
 const LEGACY_SERVE_PATHS = [
-  'menu-metrics/src/pages/MetricCatalog.tsx',
-  'menu-metrics/src/pages/MetricDetail.tsx',
 ];
 
 /** @type {import('eslint').Linter.Config[]} */

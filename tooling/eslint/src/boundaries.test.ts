@@ -88,7 +88,8 @@ const rows: Row[] = [
   { file: 'menus/home/src/api.ts', code: `import { x } from '@ap/mock-server';`, rule: '' },
   { file: 'menus/home/src/api.ts', code: `export { serve } from '@ap/mock-server';`, rule: '' },
   { file: MENU, code: `import { x } from '@ap/components';`, rule: '' },
-  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve } from '../api';`, rule: '' },
+  // #129 emptied LEGACY_SERVE_PATHS: the former legacy page is no longer exempt (the rule itself goes in #132).
+  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve } from '../api';`, rule: 'ap/no-new-serve' },
   { file: MENU, code: `import '@ap/ui/styles.css';`, rule: 'no-restricted-imports' },
 
   // --- app mock-server carve-out / D2 (29-36) ---
@@ -257,7 +258,7 @@ const rows: Row[] = [
   { file: MENU, code: `import * as api from '../api'; const { serve } = api;`, rule: 'ap/no-new-serve' },
   { file: MENU, code: `await import('../api');`, rule: 'ap/no-new-serve' },
   { file: MENU, code: `require('../api');`, rule: 'ap/no-new-serve' },
-  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import * as api from '../api';`, rule: '' },
+  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import * as api from '../api';`, rule: 'ap/no-new-serve' },
 
   // --- fix round 2 / P2: mock handler relative-import allowlist ---
   // A file under src/mock/** may relatively import only src/mock/**, this menu's
@@ -285,8 +286,8 @@ const rows: Row[] = [
   { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve as legacyServe } from '../api'; export { legacyServe as relay };`, rule: 'ap/no-new-serve' },
   { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve as legacyServe } from '../api'; export default legacyServe;`, rule: 'ap/no-new-serve' },
   { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve } from '../api'; export default serve;`, rule: 'ap/no-new-serve' },
-  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve } from '../api'; serve();`, rule: '' },
-  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve as legacyServe } from '../api'; const t = legacyServe;`, rule: '' },
+  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve } from '../api'; serve();`, rule: 'ap/no-new-serve' },
+  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve as legacyServe } from '../api'; const t = legacyServe;`, rule: 'ap/no-new-serve' },
   // Non-legacy files already reject the import itself; these pin the export/default branch too.
   { file: MENU, code: `import { serve as s } from '../api'; export { s };`, rule: 'ap/no-new-serve' },
   { file: MENU, code: `import { serve as s } from '../api'; export default s;`, rule: 'ap/no-new-serve' },

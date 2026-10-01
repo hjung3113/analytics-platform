@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { METRICS } from './pages/data';
-import { PUBLISHED_METRICS } from './api';
+import { PUBLISHED_METRICS } from '@ap/mock-server';
+import { METRICS } from './catalog';
 
 describe('published metric versions', () => {
   it('equals the catalog published pointers, in catalog order', () => {
