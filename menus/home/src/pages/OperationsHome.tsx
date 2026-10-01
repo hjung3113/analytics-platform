@@ -1,15 +1,9 @@
 import { ArrowRight, Clock3, Lock, Megaphone, Star, X } from 'lucide-react';
-import { PAGE_TYPE_LABELS, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { serve } from '../api';
+import { PAGE_TYPE_LABELS, PlatformLink, useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
+import { noticesEndpoint } from '../endpoints';
 import { dismissNotice, useDismissedNotices } from './dismissed-notices';
 import { Panel, PlatformPage, QueryView } from '@ap/components';
 import { StatusBadge } from '@ap/ui';
-
-type Notice = { id: string; title: { ko: string; en: string }; scopeId: string | null; until: string };
-const NOTICES: Notice[] = [
-  { id: 'N-2026-091', title: { ko: '9/28(일) 02:00–04:00 mart 재계산 작업으로 생산성 지표가 잠정 표시됩니다.', en: 'Sep 28 02:00–04:00: productivity metrics show as provisional during mart recompute.' }, scopeId: 'ICH', until: '2026-09-29T00:00:00' },
-  { id: 'N-2026-088', title: { ko: 'CJU PH-301 설비 마스터 정정 반영 완료 — 지난 7일 값이 달라질 수 있습니다.', en: 'CJU PH-301 master correction applied — the last 7 days may change.' }, scopeId: 'CJU', until: '2026-09-30T00:00:00' },
-];
 
 /** 08 운영 개요(랜딩): consumes kernel menu visibility, favorites and recent; applies no analysis Context. */
 export default function OperationsHome() {
@@ -18,12 +12,7 @@ export default function OperationsHome() {
   const dismissed = useDismissedNotices();
 
   // Notice targeting is by the current requested scopeId (08 §6, Decided).
-  const notices = usePlatformQuery(signal => serve({
-    permission: 'notice:view',
-    global, signal, requiresScope: false, mergeTimeDomain: false, latency: 250, kinds: [],
-    compute: () => NOTICES.filter(n => n.scopeId === global.scopeId),
-    isEmpty: rows => rows.length === 0,
-  }), 'notices');
+  const notices = useMenuQuery(noticesEndpoint, { targetScopeId: global.scopeId });
 
   const favoriteMenus = favorites.map(id => registry.menus.find(m => m.id === id)).filter(m => m && visibleMenus.includes(m));
   const recentRows = recent.filter(r => visibleMenus.some(m => m.id === r.menuId));

@@ -6,5 +6,6 @@ export * from './instant';
 export * from './menu';
 export * from './menu-query';
 export * from './paging';
+export * from './period';
 export * from './response';
 export * from './url';

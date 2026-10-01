@@ -4,7 +4,7 @@
  * handlers live in `src/mock/` and never enter the client bundle.
  * Pages import from here, never from `src/mock/**`.
  */
-import { defineEndpoint } from '@ap/contracts';
+import { defineEndpoint, parseDateTime, shift, type PageQuery, type PageResult } from '@ap/contracts';
 
 export type Granularity = 'hour' | 'day' | 'week';
 export type KpiKey = 'occupancy' | 'dwell' | 'cycleTime' | 'throughput';
@@ -146,4 +146,122 @@ export const occurrenceEndpoint = defineEndpoint<OccurrenceParams, OccurrenceRes
   context: {},
   kinds: ['collection', 'processing_delay', 'coverage'],
   mergeTimeDomain: false,
+});
+
+// ---- cycle-time (#127) ----
+
+/** Version note shown next to cycle-time figures (display constant shared by both analytics pages). */
+export const CYCLE_VERSION_NOTE = {
+  ko: '완료 Job 건수는 버전과 무관합니다. 생산성 개요의 사이클타임 분은 cycle_time v4(큐 대기 포함)이고, 사이클타임 상세의 기본 v3는 같은 Job에서 큐 대기만 뺍니다. 그래서 P50·P95는 다를 수 있고 건수는 같습니다.',
+  en: 'Completed-job counts ignore version. Productivity cycle-time minutes are cycle_time v4 (queue wait included); cycle-time detail’s default v3 drops only that queue wait on the same jobs, so P50/P95 can differ while the count matches.',
+};
+
+export const PAGE_METRIC_ID = 'cycle_time';
+export const PAGE_METRIC_VERSION = '3';
+/** Analysis limit: a 90-day contract link is too_large. */
+export const CYCLE_MAX_HOURS = 24 * 31;
+
+export type TailMode = 'p50' | 'p95' | 'all';
+export type SlowRow = Execution & { delta: number | null };
+
+export type ResolvedMetric =
+  | { kind: 'page-default'; metricId: typeof PAGE_METRIC_ID; metricVersion: typeof PAGE_METRIC_VERSION }
+  | { kind: 'applied'; metricId: typeof PAGE_METRIC_ID; metricVersion: string; versionIsPageDefault: boolean }
+  | { kind: 'not-applied'; metricId: typeof PAGE_METRIC_ID; metricVersion: typeof PAGE_METRIC_VERSION; globalMetricId: string; globalMetricVersion: string }
+  | { kind: 'unconfirmed'; metricId: string };
+
+/**
+ * Shared by the page (banner, query gate) and the server (computation version): absent global metric → page
+ * default cycle_time v3; id-only is unconfirmed and never filled with PAGE_METRIC_VERSION.
+ */
+export function resolveMetric(global: { metricId: string | null; metricVersion: string | null }): ResolvedMetric {
+  if (global.metricId === null) {
+    return { kind: 'page-default', metricId: PAGE_METRIC_ID, metricVersion: PAGE_METRIC_VERSION };
+  }
+  if (global.metricVersion === null) return { kind: 'unconfirmed', metricId: global.metricId };
+  if (global.metricId === PAGE_METRIC_ID) {
+    return { kind: 'applied', metricId: PAGE_METRIC_ID, metricVersion: global.metricVersion, versionIsPageDefault: global.metricVersion === PAGE_METRIC_VERSION };
+  }
+  return {
+    kind: 'not-applied',
+    metricId: PAGE_METRIC_ID,
+    metricVersion: PAGE_METRIC_VERSION,
+    globalMetricId: global.metricId,
+    globalMetricVersion: global.metricVersion,
+  };
+}
+
+/** The version a cycle-time computation uses; null when the metric pair is unconfirmed (the page does not query). */
+export function cycleVersionOf(metric: ResolvedMetric): string | null {
+  return metric.kind === 'unconfirmed' ? null : metric.metricVersion;
+}
+
+const ANCHOR = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/;
+
+/** Second-precision occurrence anchor (never shortened to join or display). */
+export function isAnchor(value: string | null): value is string {
+  if (!value || !ANCHOR.test(value)) return false;
+  try { parseDateTime(value, 'anchor'); return true; } catch { return false; }
+}
+
+export const BINS = [
+  { id: '0-30', min: 0, max: 30 },
+  { id: '30-45', min: 30, max: 45 },
+  { id: '45-60', min: 45, max: 60 },
+  { id: '60-75', min: 60, max: 75 },
+  { id: '75-90', min: 75, max: 90 },
+  { id: '90+', min: 90, max: Number.POSITIVE_INFINITY },
+] as const;
+
+export function binIndex(id: string): number {
+  return BINS.findIndex(bin => bin.id === id);
+}
+
+export function bucketEnd(start: string, granularity: Granularity): string {
+  return shift(start, granularity === 'hour' ? 1 : granularity === 'day' ? 24 : 168);
+}
+
+export type CycleKpi = { p50: number | null; p95: number | null; count: number; slowCount: number; prevP50: number | null; prevP95: number | null };
+export type CycleTrend = { p50: [string, number | null][]; p95: [string, number | null][] };
+export type CycleTrendData = { count: number; populationP95: number | null; current: CycleTrend; previous: CycleTrend };
+export type CycleDistData = { count: number; bins: { id: string; count: number }[] };
+
+/** Page list filters: tail threshold, one chart bucket (aligned start) and a bin range. */
+export type SlowFilter = { tail: TailMode; granularity: Granularity; bucket: string | null; bin: { from: string; to: string } | null };
+export type SlowPageParams = SlowFilter & PageQuery;
+
+/** Exactly what the cycle-time manifest applies; `metric` applies so the server resolves the computation version. */
+const cycleContext = { time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', lot: 'apply', ppid: 'apply', recipe: 'apply', metric: 'apply' } as const;
+const cycleBase = {
+  menuId: 'cycle-time',
+  permission: 'analytics:view',
+  requiresScope: true,
+  context: cycleContext,
+  kinds: ['collection', 'processing_delay', 'coverage'],
+  // Analysis reads refuse a cross-time-domain equipment set (06 §6.3) — what serve() did by default before #127.
+  mergeTimeDomain: true,
+} as const;
+
+export const cycleKpiEndpoint = defineEndpoint<Record<never, true>, CycleKpi>({
+  ...cycleBase, id: 'analytics.cycle.kpi', paramKeys: {}, limits: { maxHours: CYCLE_MAX_HOURS },
+});
+
+export const cycleTrendEndpoint = defineEndpoint<{ granularity: Granularity }, CycleTrendData>({
+  ...cycleBase, id: 'analytics.cycle.trend', paramKeys: { granularity: true }, limits: { maxHours: CYCLE_MAX_HOURS },
+});
+
+export const cycleDistEndpoint = defineEndpoint<Record<never, true>, CycleDistData>({
+  ...cycleBase, id: 'analytics.cycle.dist', paramKeys: {}, limits: { maxHours: CYCLE_MAX_HOURS },
+});
+
+/** One page of the slow-execution table (06 §15). */
+export const cycleSlowPageEndpoint = defineEndpoint<SlowPageParams, PageResult<SlowRow>>({
+  ...cycleBase, id: 'analytics.cycle.slow', limits: { maxHours: CYCLE_MAX_HOURS },
+  paramKeys: { tail: true, granularity: true, bucket: true, bin: true, page: true, pageSize: true, sorting: true },
+});
+
+/** Every slow row for export. No period limit (the export never had one); permission and Scope are re-checked per request. */
+export const cycleExportEndpoint = defineEndpoint<SlowFilter, SlowRow[]>({
+  ...cycleBase, id: 'analytics.cycle.export', mergeTimeDomain: false,
+  paramKeys: { tail: true, granularity: true, bucket: true, bin: true },
 });

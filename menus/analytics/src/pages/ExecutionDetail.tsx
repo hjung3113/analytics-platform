@@ -3,8 +3,7 @@ import { parseDateTime } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
 import { DataTrustIndicator, Panel, PlatformPage, QueryView, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
-import { OCCURRENCE_ENTITY_TYPES, occurrenceEndpoint, type Segment, type SegmentKind } from '../endpoints';
-import { isAnchor, resolveMetric } from './cycleData';
+import { isAnchor, OCCURRENCE_ENTITY_TYPES, occurrenceEndpoint, resolveMetric, type Segment, type SegmentKind } from '../endpoints';
 
 const SEGMENT_CLASS: Record<SegmentKind, string> = {
   XFR: 'bg-chart-blue',

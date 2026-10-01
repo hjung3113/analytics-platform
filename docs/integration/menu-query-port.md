@@ -295,7 +295,7 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 | 7 | **사람 확인 게이트** — 1–6 결과로 §8 Q3·Q4·Q9·Q10(#117) 답 받기 (2026-10-01 완료) | — |
 | 7a | 게이트 결정 반영(#125): Q3 비적용 키 → error, Q9 적용 키 누락 → error, Q10 등록 규칙 6 | 각 거부 규칙 테스트(수정 전 실패), 기존 테스트·`pnpm e2e` |
 | 8 | gen-menu 전환(§4) | gen-menu 테스트 + `scripts/probe.ts`(임시 그룹이 루트 네 명령 통과 = 다중 패키지 mock 등록 확인) |
-| 9 | 나머지 이전(범위는 결정 기록 "단계 9 범위"): `equipment-master` + Kernel `useMenuFetch`·contracts 페이징 모양(#128, 완료), `cycle-time`(+내보내기 `cycleData.ts:224`, `export-permission.test.ts` 이동)과 `home`(`NOTICES` → mock), `metrics`(쌍 검증 서버로) | 각 패키지 테스트 + 브라우저 + `pnpm e2e` |
+| 9 | 나머지 이전(범위는 결정 기록 "단계 9 범위"): `equipment-master` + Kernel `useMenuFetch`·contracts 페이징 모양(#128, 완료), `cycle-time`(계산 → `src/mock/cycle.ts`, 지표 버전은 서버가 적용된 metric 쌍에서 해석, 내보내기 엔드포인트, `src/mock/** → ../pages/**` 임시 lint 허용 종료, analytics `api.ts` 삭제)과 `home`(`NOTICES` → mock, 공지 대상 사이트는 params `targetScopeId`)(#127·#130, 완료), `metrics`(쌍 검증 서버로) | 각 패키지 테스트 + 브라우저 + `pnpm e2e` |
 | 10 | VOC 이전: 두 메서드 어댑터에서 제거, `MyVoc*` 타입 메뉴로 | `MyVocHistory.test.tsx`, `voc-status.test.ts`, contracts에서 `MyVocStatus` grep 0 |
 | 11 | `serve` 공개 export·`src/api.ts` 규칙 제거 | `grep -rn "serve" menus` 0, lint 규칙에서 api.ts 예외 삭제 |
 | 12 | 문서: platform-packages §3 규칙 3·§4·§5, `menus/AGENTS.md`, `packages/AGENTS.md`, 06 §5(Q4 결과), `PLATFORM_REQUIREMENTS.md:141` 상태, ROADMAP | 각 PR의 "문서 갱신" 체크 |

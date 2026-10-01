@@ -1,21 +1,21 @@
 import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { AlertTriangle, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
-import type { Trust } from '@ap/contracts';
-import { type PageProps, PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { CYCLE_VERSION_NOTE, periodHours, serve } from '../api';
-import { AnalysisChartFrame, type ColumnMeta, DataTrustIndicator, type Delta, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, sortAndPage, StatCard, StateMessage } from '@ap/components';
+import { periodHours, type Trust } from '@ap/contracts';
+import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
+import { AnalysisChartFrame, type ColumnMeta, DataTrustIndicator, type Delta, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import {
-  DEFAULT_SORT, MAX_HOURS, PAGE_METRIC_ID, bucketContaining, bucketEnd,
-  encodeSort, histogram, parseBucket, parseBin, parseSortParam, percentile, population, previousWindow, resolveGranularity,
-  resolveMetric, rowsForExport, resolveTail, slowExecutions, trendOf, executionKey, equipmentIdFromKey,
+  CYCLE_VERSION_NOTE, PAGE_METRIC_ID, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint,
+  cycleTrendEndpoint, cycleVersionOf, resolveMetric,
   type Granularity, type ResolvedMetric, type SlowRow, type TailMode,
+} from '../endpoints';
+import {
+  DEFAULT_SORT, bucketContaining, encodeSort, parseBucket, parseBin, parseSortParam, resolveGranularity, resolveTail,
+  executionKey, equipmentIdFromKey,
 } from './cycleData';
 
-type Kpi = { p50: number | null; p95: number | null; count: number; slowCount: number; prevP50: number | null; prevP95: number | null };
-type TrendData = { count: number; populationP95: number | null; current: ReturnType<typeof trendOf>; previous: ReturnType<typeof trendOf> };
-type DistData = { count: number; bins: { id: string; count: number }[] };
+const NO_PARAMS = {};
 
 const control = 'h-8 rounded-md border border-border-strong bg-surface-card px-2 text-[12px] text-text-primary';
 
@@ -43,9 +43,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const bin = binResult.ok ? binResult.value : null;
   const periodReady = global.from !== null && global.to !== null;
   const metric = resolveMetric(global);
-  const cycleVersion = metric.kind === 'page-default' || metric.kind === 'applied' || metric.kind === 'not-applied'
-    ? metric.metricVersion
-    : null;
+  const cycleVersion = cycleVersionOf(metric);
   const enabled = !invalidPage && periodReady && cycleVersion !== null;
   const ko = lang === 'ko';
 
@@ -53,42 +51,13 @@ export default function CycleTimeDrilldown(_: PageProps) {
   // A global-Context change clears page/bucket/bin in the kernel (manifest contextResetKeys); pages write no reset effect.
 
   const bucketRange = bucket ? { from: bucket, to: bucketEnd(bucket, granularity) } : null;
-  const inputs = [cycleVersion, metric.kind];
-
-  const kpi = usePlatformQuery(signal => serve<Kpi>({
-    permission: 'analytics:view',
-    global, signal, maxHours: MAX_HOURS, metricVersion: cycleVersion ?? undefined,
-    isEmpty: data => data.count === 0,
-    compute: ({ equipment }) => summarize(equipment, global, cycleVersion),
-  }), ['kpi', ...inputs], enabled);
-
-  const trend = usePlatformQuery(signal => serve<TrendData>({
-    permission: 'analytics:view',
-    global, signal, maxHours: MAX_HOURS, metricVersion: cycleVersion ?? undefined,
-    isEmpty: data => data.count === 0,
-    compute: ({ equipment }) => {
-      const rows = populationForVersion(equipment, global, cycleVersion);
-      const from = global.from!;
-      const to = global.to!;
-      const prev = previousWindow(from, to);
-      return {
-        count: rows.length,
-        populationP95: percentile(rows.map(row => row.cycleMin), 0.95),
-        current: trendOf(rows, from, to, granularity),
-        previous: trendOf(populationForVersion(equipment, { ...global, from: prev.from, to: prev.to }, cycleVersion), prev.from, prev.to, granularity),
-      };
-    },
-  }), ['trend', granularity, ...inputs], enabled);
-
-  const dist = usePlatformQuery(signal => serve<DistData>({
-    permission: 'analytics:view',
-    global, signal, maxHours: MAX_HOURS, metricVersion: cycleVersion ?? undefined,
-    isEmpty: data => data.count === 0,
-    compute: ({ equipment }) => {
-      const rows = populationForVersion(equipment, global, cycleVersion);
-      return { count: rows.length, bins: histogram(rows) };
-    },
-  }), ['dist', ...inputs], enabled);
+  // The server resolves the computation version from the applied metric pair; the page only gates the unconfirmed pair.
+  const kpi = useMenuQuery(cycleKpiEndpoint, NO_PARAMS, enabled);
+  const trend = useMenuQuery(cycleTrendEndpoint, { granularity }, enabled);
+  const dist = useMenuQuery(cycleDistEndpoint, NO_PARAMS, enabled);
+  const slowPages = useMenuFetch(cycleSlowPageEndpoint);
+  const exportRowsQuery = useMenuFetch(cycleExportEndpoint);
+  const listFilter = { tail: tailMode, granularity, bucket, bin };
 
   const columns = useMemo<ColumnDef<SlowRow>[]>(() => [
     { id: 'equipmentId', accessorKey: 'equipmentId', header: 'Equipment', meta: { label: 'Equipment' } satisfies ColumnMeta, cell: ({ getValue }) => <span className="t-mono">{getValue<string>()}</span> },
@@ -120,19 +89,17 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const granularityPending = granularityRaw === null && hours === null;
 
   async function exportRows(scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered'; total: number }) {
-    const result = await rowsForExport(global, cycleVersion);
-    if (result.status === 'unavailable') {
-      toast(ko ? '이 응답 상태에서는 목록을 내보내지 않습니다.' : 'Export is not available for this response state.');
-      return;
-    }
-    if (result.status === 'rejected') {
+    // Export reads through the server like any query: permission and Scope are re-validated per request.
+    const response = cycleVersion === null ? null : await exportRowsQuery.fetch(listFilter);
+    if (response?.outcome === 'forbidden') {
       toast(ko ? '서버가 이 조건의 내보내기를 거부했습니다.' : 'The server rejected export for this context.');
       return;
     }
-    const rows = result.rows;
-    const p50 = percentile(rows.map(row => row.cycleMin), 0.5);
-    const p95 = percentile(rows.map(row => row.cycleMin), 0.95);
-    let list = slowExecutions(rows, tailMode, p50, p95, bucketRange, bin);
+    if (!response || (response.outcome !== 'ok' && response.outcome !== 'empty')) {
+      toast(ko ? '이 응답 상태에서는 목록을 내보내지 않습니다.' : 'Export is not available for this response state.');
+      return;
+    }
+    let list = response.data ?? [];
     if (scope.kind === 'selected') {
       const ids = new Set(scope.ids);
       list = list.filter(row => ids.has(executionKey(row)));
@@ -309,20 +276,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
               setGlobal({ selection: equipmentIds });
               toast(ko ? `설비 ${equipmentIds.length}대를 전역 Selection으로 적용했습니다. 다른 메뉴에도 유지됩니다.` : `Applied ${equipmentIds.length} equipment as the global selection. It carries across menus.`);
             }}>{ko ? '선택 설비로 분석 좁히기' : 'Narrow analysis to selected equipment'}</Button>}
-            loadPage={(query, signal) => {
-              const sorting = [{ id: sortSpec.id, desc: sortSpec.desc }];
-              return serve({
-                permission: 'analytics:view',
-                global, signal, maxHours: MAX_HOURS, metricVersion: cycleVersion ?? undefined,
-                isEmpty: data => data.total === 0,
-                compute: ({ equipment }) => {
-                  const rows = populationForVersion(equipment, global, cycleVersion);
-                  const p50 = percentile(rows.map(row => row.cycleMin), 0.5);
-                  const p95 = percentile(rows.map(row => row.cycleMin), 0.95);
-                  return sortAndPage(slowExecutions(rows, tailMode, p50, p95, bucketRange, bin), { ...query, sorting });
-                },
-              });
-            }}
+            loadPage={(query, signal) => slowPages.fetch({ ...listFilter, ...query, sorting: [{ id: sortSpec.id, desc: sortSpec.desc }] }, signal)}
           />
           <p className="text-[12px] text-text-muted">{ko
             ? '품질 배지는 Candidate입니다. unknown은 미확정이며 정상으로 채우지 않습니다. review는 합성 플래그이고 불량·수율이 아닙니다.'
@@ -331,27 +285,6 @@ export default function CycleTimeDrilldown(_: PageProps) {
         </div>}
   </PlatformPage>;
 }
-
-function populationForVersion(equipment: ExecutionSource, global: Parameters<typeof population>[1], version: string | null): ReturnType<typeof population> {
-  return version === null ? [] : population(equipment, global, version);
-}
-
-function summarize(equipment: ExecutionSource, global: Parameters<typeof population>[1], version: string | null): Kpi {
-  const rows = populationForVersion(equipment, global, version);
-  const values = rows.map(row => row.cycleMin);
-  const p50 = percentile(values, 0.5);
-  const p95 = percentile(values, 0.95);
-  const prev = global.from && global.to ? previousWindow(global.from, global.to) : null;
-  const prevValues = prev ? populationForVersion(equipment, { ...global, from: prev.from, to: prev.to }, version).map(row => row.cycleMin) : [];
-  return {
-    p50, p95, count: rows.length,
-    slowCount: p95 === null ? 0 : rows.filter(row => row.cycleMin >= p95).length,
-    prevP50: percentile(prevValues, 0.5),
-    prevP95: percentile(prevValues, 0.95),
-  };
-}
-
-type ExecutionSource = Parameters<typeof population>[0];
 
 function MetricBanner({ metric }: { metric: ResolvedMetric }) {
   const { lang } = useI18n();

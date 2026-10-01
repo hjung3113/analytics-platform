@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveMetric } from './pages/cycleData';
+import { resolveMetric } from './endpoints';
 import { emptyGlobal } from '@ap/contracts';
 
 describe('published metric versions', () => {

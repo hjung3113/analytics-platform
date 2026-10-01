@@ -225,9 +225,6 @@ export const mockServer = [
 // `menu-home/src/pages/x.tsx`) so a menu reusing another menu's legacy filename does not
 // inherit the exemption. The list shrinks in steps 5/6/9 and is deleted in step 11.
 const LEGACY_SERVE_PATHS = [
-  'menu-analytics/src/pages/cycleData.ts',
-  'menu-analytics/src/pages/CycleTimeDrilldown.tsx',
-  'menu-home/src/pages/OperationsHome.tsx',
   'menu-metrics/src/pages/MetricCatalog.tsx',
   'menu-metrics/src/pages/MetricDetail.tsx',
 ];

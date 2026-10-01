@@ -2,12 +2,6 @@ import type { Equipment } from './world';
 import { formatDateTime, parseDateTime } from '@ap/contracts';
 
 export const DATA_THROUGH = '2026-09-26T08:00:00';
-export type Grain = 'hour' | 'day' | 'week';
-
-export const CYCLE_VERSION_NOTE = {
-  ko: '완료 Job 건수는 버전과 무관합니다. 생산성 개요의 사이클타임 분은 cycle_time v4(큐 대기 포함)이고, 사이클타임 상세의 기본 v3는 같은 Job에서 큐 대기만 뺍니다. 그래서 P50·P95는 다를 수 있고 건수는 같습니다.',
-  en: 'Completed-job counts ignore version. Productivity cycle-time minutes are cycle_time v4 (queue wait included); cycle-time detail’s default v3 drops only that queue wait on the same jobs, so P50/P95 can differ while the count matches.',
-};
 
 export type JobSegment = {
   kind: 'XFR' | 'FNC' | 'PRC';
@@ -67,14 +61,6 @@ export function jobPercentile(values: number[], p: number): number | null {
   const hi = Math.ceil(index);
   const value = lo === hi ? sorted[lo] : sorted[lo] * (hi - index) + sorted[hi] * (index - lo);
   return round1(value);
-}
-
-export function bucketStart(instant: string, grain: Grain): string {
-  if (grain === 'hour') return `${instant.slice(0, 13)}:00:00`;
-  if (grain === 'day') return `${instant.slice(0, 10)}T00:00:00`;
-  const midnight = parseDateTime(`${instant.slice(0, 10)}T00:00:00`, 'day');
-  const mondayOffset = (midnight.getUTCDay() + 6) % 7;
-  return formatDateTime(new Date(midnight.getTime() - mondayOffset * 86_400_000));
 }
 
 function segmentsFor(anchor: string, processMin: number, equipmentId: string): JobSegment[] {

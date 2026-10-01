@@ -50,7 +50,22 @@ const executionMenu: MenuMeta = {
   pageKeys: ['entityType', 'anchor', 'returnTo'],
 };
 
-const registry = { menus: [productivityMenu, executionMenu] };
+/** Inline mirror for the third endpoint owner registered by analyticsMock (#127). */
+const cycleMenu: MenuMeta = {
+  id: 'cycle-time',
+  group: 'analytics',
+  label: { ko: '사이클타임 상세', en: 'Cycle time detail' },
+  description: { ko: '', en: '' },
+  path: '/analytics/cycle-time',
+  permission: 'analytics:view',
+  requiresScope: true,
+  context: { ...none, time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', lot: 'apply', ppid: 'apply', recipe: 'apply', metric: 'apply' },
+  pageType: 'analysis',
+  features: { export: true, savedView: false, annotate: true, compare: true },
+  pageKeys: ['granularity', 'percentile', 'sort', 'page', 'bucket', 'bin'],
+};
+
+const registry = { menus: [productivityMenu, executionMenu, cycleMenu] };
 const adapter = createMockAdapter({ endpoints: analyticsMock, registry });
 
 const FROM = '2026-09-25T09:00:00';
@@ -74,6 +89,11 @@ describe('productivity-overview endpoint registration', () => {
       'analytics.productivity.breakdown',
       'analytics.productivity.attention',
       'analytics.execution.occurrence',
+      'analytics.cycle.kpi',
+      'analytics.cycle.trend',
+      'analytics.cycle.dist',
+      'analytics.cycle.slow',
+      'analytics.cycle.export',
     ]);
   });
 });
