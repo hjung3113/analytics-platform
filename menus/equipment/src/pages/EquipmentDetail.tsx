@@ -1,7 +1,7 @@
 import { type PageProps, PlatformLink, useEntityQuery, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { AuditTimeline, DataTrustIndicator, Field, PlatformPage, QueryView } from '@ap/components';
 import { Button, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
-import { EQUIPMENT_ENTITY_TYPE, type Equipment } from '../api';
+import { EQUIPMENT_ENTITY_TYPE, type Equipment } from '../endpoints';
 import { fields, statusText, statusTone, validity } from './data';
 
 export function EquipmentStatus({ equipment }: { equipment: Equipment }) {

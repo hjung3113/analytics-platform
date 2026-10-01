@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { House } from 'lucide-react';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
-import { type QueryState, useMenuQuery } from './query';
+import { type MenuFetch, type QueryState, useMenuFetch, useMenuQuery } from './query';
 import { createRegistry } from './registry';
 
 type Params = { page: number; sort?: string };
@@ -426,5 +426,71 @@ describe('useMenuQuery assessment contract', () => {
     expect(await screen.findByText('done:-')).toBeTruthy();
     expect(screen.getByTestId('outcome').textContent).toBe('forbidden');
     expect(observed.at(-1)?.response).toBe(serverResponse);
+  });
+});
+
+function FetchProbe({ spec = endpoint, onFetch }: { spec?: EndpointSpec<Params, QueryData>; onFetch: (fetcher: MenuFetch<Params, QueryData>) => void }) {
+  const { setGlobal } = usePlatform();
+  const fetcher = useMenuFetch(spec);
+  onFetch(fetcher);
+  return (
+    <>
+      <p data-testid="ready">{String(fetcher.ready)}</p>
+      <button type="button" data-testid="applied" onClick={() => setGlobal({ from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' })}>from</button>
+    </>
+  );
+}
+
+function mountFetch(f: ReturnType<typeof fixture>, spec: EndpointSpec<Params, QueryData> = endpoint) {
+  let latest!: MenuFetch<Params, QueryData>;
+  render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><FetchProbe spec={spec} onFetch={fetcher => { latest = fetcher; }} /></PlatformProvider></I18nProvider>);
+  return () => latest;
+}
+
+describe('useMenuFetch (caller-driven: table loadPage, export)', () => {
+  it('sends nothing until called, then the same request shape as useMenuQuery', async () => {
+    const f = fixture();
+    const fetcher = mountFetch(f);
+    await act(async () => { await Promise.resolve(); });
+    expect(f.requests).toHaveLength(0);
+
+    const result = await fetcher().fetch({ page: 2 });
+    expect(result.outcome).toBe('ok');
+    expect(f.requests).toEqual([{ endpoint: endpoint.id, context: { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' }, params: { page: 2 } }]);
+  });
+
+  it('projects the Context current at call time', async () => {
+    const f = fixture();
+    const fetcher = mountFetch(f);
+    act(() => screen.getByTestId('applied').click());
+    await fetcher().fetch({ page: 1 });
+    expect(f.requests[0].context).toEqual({ from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' });
+  });
+
+  it('answers not_ready without reaching the adapter while Scope is unvalidated', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    let finishValidation!: (check: ScopeCheck) => void;
+    const validation = new Promise<ScopeCheck>(resolve => { finishValidation = resolve; });
+    const f = fixture({ validateScope: async () => validation });
+    const fetcher = mountFetch(f, { ...endpoint, requiresScope: true });
+
+    expect(screen.getByTestId('ready').textContent).toBe('false');
+    const early = await fetcher().fetch({ page: 1 });
+    expect(early).toMatchObject({ outcome: 'error', data: null, assessments: [], trust: null });
+    expect(early.message).toMatch(/^not_ready: fixture\.list/);
+    expect(f.requests).toHaveLength(0);
+
+    act(() => finishValidation({ status: 'valid', grantedRooms: [] }));
+    expect(await screen.findByText('true')).toBeTruthy();
+    expect((await fetcher().fetch({ page: 1 })).outcome).toBe('ok');
+    expect(f.requests[0].context.scopeId).toBe('ICH');
+  });
+
+  it('applies the same assessment contract as useMenuQuery', async () => {
+    const f = fixture({ answer: () => response('ok', ['collection']) });
+    const fetcher = mountFetch(f);
+    expect(await fetcher().fetch({ page: 1 })).toMatchObject({
+      outcome: 'error', message: 'contract_violation: assessments [collection] ≠ declared [collection, coverage]',
+    });
   });
 });

@@ -9,6 +9,7 @@ import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';
 // <gen:menu-mock-imports>
 import { analyticsMock } from '@ap/menu-analytics/mock';
+import { equipmentMock } from '@ap/menu-equipment/mock';
 // </gen:menu-mock-imports>
 import { DevTools } from './dev/DevTools';
 import { readFeedbackOpsOrigin } from './feedbackops-origin';
@@ -24,6 +25,7 @@ const adapter = createMockAdapter({
   endpoints: [
     // <gen:menu-mock-spreads>
     ...analyticsMock,
+    ...equipmentMock,
     // </gen:menu-mock-spreads>
   ],
   registry,

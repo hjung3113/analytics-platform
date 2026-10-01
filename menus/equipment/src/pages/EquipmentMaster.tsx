@@ -1,16 +1,19 @@
 import { useMemo } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { PlatformLink, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { serve, type Equipment } from '../api';
-import { DetailDrawer, PlatformDataTable, PlatformPage, QueryView, encodeTableSort, parsePageIndex, parseTableSort, sortAndPage } from '@ap/components';
+import { PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
+import { equipmentListEndpoint, equipmentPageEndpoint, type Equipment } from '../endpoints';
+import { DetailDrawer, PlatformDataTable, PlatformPage, QueryView, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
 import { Button } from '@ap/ui';
 import { EquipmentPanel, EquipmentStatus } from './EquipmentDetail';
-import { downloadCsv, fields, filterEquipment, sortFields, statusText } from './data';
+import { downloadCsv, fields, sortFields, statusText } from './data';
+
+/** Maker options come from every granted row, not the filtered set. */
+const NO_FILTER = { q: '', status: '', maker: '' };
 
 export default function EquipmentMaster() {
   const { lang } = useI18n();
   const ko = lang === 'ko';
-  const { global, scope, pageParam, setPage, linkTo, toast } = usePlatform();
+  const { pageParam, setPage, linkTo, toast } = usePlatform();
   const q = pageParam('q') ?? '', status = pageParam('status') ?? '', maker = pageParam('maker') ?? '', focus = pageParam('focus');
   // §6.1 page keys: sort/page/tab are URL-owned; invalid wire values alert instead of substituting.
   const drawerTab = pageParam('tab') ?? 'attributes';
@@ -19,7 +22,9 @@ export default function EquipmentMaster() {
   const parsedPage = parsePageIndex(pageParam('page'));
   const tableInvalid = !parsedSort.ok || !parsedPage.ok;
   const filterKey = JSON.stringify([q, status, maker]);
-  const source = usePlatformQuery(signal => serve({ permission: 'equipment:view', global, signal, mergeTimeDomain: false, compute: ({ equipment }) => equipment }), null, scope.status === 'valid' && !tableInvalid);
+  const source = useMenuQuery(equipmentListEndpoint, NO_FILTER, !tableInvalid);
+  const pages = useMenuFetch(equipmentPageEndpoint);
+  const list = useMenuFetch(equipmentListEndpoint);
   // A global-Context change clears `page` in the kernel (manifest contextResetKeys); pages write no reset effect.
   const columns = useMemo<ColumnDef<Equipment>[]>(() => fields.map(f => ({
     accessorKey: f.key, header: f[lang], size: ['validFrom', 'validTo', 'updatedAt'].includes(f.key) ? 188 : f.key === 'name' ? 220 : f.key === 'equipmentId' ? 184 : 128,
@@ -38,7 +43,7 @@ export default function EquipmentMaster() {
         sorting: parsedSort.sorting,
         onChange: ({ page, sorting }) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }),
       } : undefined}
-      loadPage={(page, signal) => serve({ permission: 'equipment:view', global, signal, mergeTimeDomain: false, compute: ({ equipment }) => sortAndPage(filterEquipment(equipment, q, status, maker), page), isEmpty: data => data.total === 0 })}
+      loadPage={(page, signal) => pages.fetch({ q, status, maker, ...page }, signal)}
       filters={<fieldset className="flex flex-wrap items-center gap-2 border-l-2 border-border-strong pl-3"><legend className="t-caption text-text-muted">{ko ? '페이지 필터' : 'Page filters'}</legend>
         <label className="flex items-center gap-1 text-xs">{ko ? '검색' : 'Search'}<input className={control} aria-label={ko ? '설비 ID 또는 이름 검색' : 'Search equipment ID or name'} value={q} onChange={e => setPage({ q: e.target.value || null, page: null }, { replace: true })} /></label>
         <label className="flex items-center gap-1 text-xs">{ko ? '상태' : 'Status'}<select className={control} value={status} onChange={e => setPage({ status: e.target.value || null, page: null })}><option value="">{ko ? '전체' : 'All'}</option>{Object.entries(statusText).map(([id, text]) => <option key={id} value={id}>{text[lang]}</option>)}</select></label>
@@ -46,8 +51,12 @@ export default function EquipmentMaster() {
       </fieldset>}
       rowAction={e => <Button size="sm" variant="ghost" onClick={() => setPage({ focus: e.equipmentId, tab: null })}>{ko ? '보기' : 'View'}</Button>}
       bulkActions={ids => <Button asChild size="sm"><PlatformLink href={linkTo('productivity-overview', { global: { selection: ids } })}>{ko ? '선택 설비로 분석' : 'Analyze selected equipment'}</PlatformLink></Button>}
-      onExport={exportScope => {
-        const filtered = filterEquipment(rows, q, status, maker);
+      onExport={async exportScope => {
+        // Export reads through the server like any page: permission and Scope are re-validated per request.
+        const response = await list.fetch({ q, status, maker });
+        if (response.outcome === 'forbidden') { toast(ko ? '서버가 이 조건의 내보내기를 거부했습니다.' : 'The server rejected export for this context.'); return; }
+        if (response.outcome !== 'ok' && response.outcome !== 'empty') { toast(ko ? '이 응답 상태에서는 목록을 내보내지 않습니다.' : 'Export is not available for this response state.'); return; }
+        const filtered = response.data ?? [];
         const output = exportScope.kind === 'selected' ? filtered.filter(e => exportScope.ids.includes(e.equipmentId)) : filtered;
         downloadCsv(output);
         toast(ko ? `CSV: ${exportScope.kind === 'selected' ? '선택 행' : '필터된 전체 결과'} ${output.length}건 내보내기` : `CSV: exported ${output.length} ${exportScope.kind === 'selected' ? 'selected rows' : 'rows from all filtered results'}`);
