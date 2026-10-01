@@ -28,7 +28,7 @@
 | `reportClientError` | 렌더 실패 보고. 식별 필드만 정확한 모양으로 받고, 알 수 없는 키·URL·자유 문장은 통째 거부. 서버가 세션 사용자·시각을 기록한다. |
 | `listAnnotations`·`saveAnnotation` | 차트 주석은 서버 소유, `(chartId, scopeId)` 키. 차트 권한과 그 site 부여를 검증한다(06 §16). |
 
-모든 읽기는 06 §19 envelope(`outcome` 하나 + 선언한 `assessments` + `trust`)로 답한다. 예외를 던지지 않는다 — 실패도 `error` envelope다.
+`ApiResponse`를 돌려주는 메서드(`menuQuery`·`getEntity`·`auditTrail`·`entityAudit`·`accessDirectory`·`usageSummary`·`listAnnotations`·`saveAnnotation`)는 06 §19 envelope(`outcome` 하나 + 선언한 `assessments` + `trust`)로 답한다. 예외를 던지지 않는다 — 실패도 `error` envelope다. 동기 스냅샷(`session`·`publishedMetrics`·`defaultRangeTo`)과 `validateScope`·`contextOptions`·`evaluateSelection`은 `PlatformAdapter`에 적힌 자기 반환 타입 그대로다(envelope 아님).
 
 ## 3. `menuQuery` 판정 순서
 
@@ -67,7 +67,8 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 
 ## 5. 세션·사용자
 
-- 클라이언트는 사용자 id·actor·시각을 보내지 않는다. 서버가 세션으로 찍는다(활용률·오류 보고·감사·내 VOC).
+- 클라이언트는 사용자 id·actor를 보내지 않는다. 사용자는 서버가 세션으로 찍는다(활용률·오류 보고·감사·내 VOC).
+- 시각은 계약마다 다르다. 감사·차트 주석·오류 보고는 서버가 기록 시각을 찍는다. 활용률 이벤트(`UsageEvent`)의 `at`·`enteredAt`은 클라이언트 epoch ms이고 서버는 그대로 받는다(체류 시간 계산의 기준).
 - 인증은 FeedbackOps 방식(AuthProvider: Mock + OIDC 계열, 서버 세션)으로 정했다(#35). 실제 IdP 설정값은 사내 SSO 사양 확인 뒤.
 - 역할 소속의 원천은 IdP 그룹 claim 사양이 나올 때까지 보류(#98). 그 전에는 부여·회수 쓰기를 만들지 않는다.
 

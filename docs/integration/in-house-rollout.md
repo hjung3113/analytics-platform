@@ -128,7 +128,7 @@
 - [ ] 사내 SSO로 로그인 → 세션 부트스트랩 → 권한 다른 두 계정에서 메뉴·데이터 범위가 다르게 보임(서버 판정).
 - [ ] 세션 만료·재로그인 때 이전 결과가 한 프레임도 보이지 않음(체크리스트 §2 `subscribe`).
 - [ ] 오류 화면의 Correlation ID로 서버 로그를 찾을 수 있음.
-- [ ] 데이터 신뢰 필드: #37 합의 전이면 `unknown`으로 정직하게 답함.
+- [ ] 데이터 신뢰: #37 합의 전이면 선언한 `processing_delay`·`coverage` assessment를 빼지 않고 `state: unknown`(사유 포함)으로 답하고, `trust`의 `dataThrough`·`coverage`처럼 모르는 값은 `null`로 둔다(06 §19 — 생략은 계약 위반).
 - [ ] `pnpm dev`·`pnpm e2e`는 여전히 mock으로 돈다(개발 경로 유지). 실서버 대상 E2E를 돌릴지는 3단계에서 따로 정한다 — 지금 E2E는 mock 시나리오(`malformed` 등)에 기댄다.
 
 ## 7. 흔한 함정
@@ -136,9 +136,9 @@
 | 함정 | 맞는 것 | 원본 |
 | --- | --- | --- |
 | 서버가 요청에 실린 권한·kind·한도를 믿는다 | 서버는 자기 선언 사본으로 판정 | 체크리스트 §3 |
-| 거부·실패를 예외로 던진다 | 모든 읽기는 envelope, 실패도 `error` | 06 §19 |
+| 거부·실패를 예외로 던진다 | `ApiResponse`를 돌려주는 메서드(`menuQuery`·`getEntity`·`auditTrail`·`entityAudit`·`accessDirectory`·`usageSummary`·`listAnnotations`·`saveAnnotation`)는 실패도 `error` envelope. 동기 스냅샷(`session`·`publishedMetrics`·`defaultRangeTo`)과 `validateScope`·`contextOptions`·`evaluateSelection`은 자기 반환 타입 그대로 | 06 §19, 체크리스트 §2 |
 | Scope `null`을 "전체 사이트"로 | `forbidden` | 체크리스트 §3-4 |
-| 클라이언트가 userId·actor·시각을 보낸다 | 서버가 세션으로 기록 | 체크리스트 §5 |
+| 클라이언트가 사용자 id·actor를 보낸다, 또는 모든 클라이언트 시각을 버린다 | 사용자는 언제나 서버가 세션으로 찍는다. 시각은 계약마다 다르다 — 감사·주석·오류 보고는 서버 시각, 활용률 이벤트의 `at`·`enteredAt`은 클라이언트 시각을 그대로 받는다 | 체크리스트 §5 |
 | 세션 스냅샷을 매번 새 객체로 | 바뀔 때까지 같은 객체 | 체크리스트 §2 |
 | 설비 시각을 UTC로 변환 | naive wall-clock 그대로, `[from, to)` | 06 §6.3 |
 | 명시적 공집합(`[]`)에 원천을 읽는다 | 읽지 않고 `empty`, trust `null` | 06 §19 |
