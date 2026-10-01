@@ -1,8 +1,8 @@
-# 메뉴 데이터 조회 포트 (Candidate — 초안, 사람 합의 전)
+# 메뉴 데이터 조회 포트 (설계 기록 — 구현 완료 2026-10-01)
 
-> 상태: **Candidate**. 이슈 #100의 설계 초안이다. 아래 "결정 기록"에 적은 항목만 2026-09-29에 사용자가 정했고, 나머지는 Decided가 아니다. "추천"은 작성자 의견이고 근거를 함께 적는다. 합의되면 경계·의존 규칙은 [platform-packages](platform-packages.md) §3–§5, 메뉴 선언 항목은 [06 §5](../06_platform_ui_contract.md#5-menu-extension-contract)로 옮기고 이 문서는 설계 기록으로 남긴다.
+> 상태: **설계 기록.** 이슈 #100의 설계와 결정 경과를 남긴 문서다. 구현은 §10 단계 1–12로 끝났다(#110–#115, #125–#133). **현재 계약의 원본은 이 문서가 아니다:** 메뉴 선언 항목은 [06 §5](../06_platform_ui_contract.md#5-menu-extension-contract)("조회 엔드포인트"), 명시적 공집합 예외는 06 §19, 패키지 경계·포트 판정·메뉴 패키지 모양은 [platform-packages](platform-packages.md) §3–§5, 규칙은 `menus/AGENTS.md`·`packages/*/AGENTS.md`, 동작은 코드(`packages/contracts/src/menu-query.ts`, `packages/kernel/src/query.ts`, `packages/mock-server/src/endpoints.ts`)다. 충돌하면 그쪽을 따른다.
 >
-> 근거 코드: `main` `0bd8a88`(2026-09-29). 이슈 본문의 줄 번호는 `416c279` 기준이라 아래에 현재 줄로 다시 적는다.
+> 아래 §1–§9의 파일 경로·줄 번호는 작성 시점(`main` `0bd8a88`, 2026-09-29) 기준의 기록이다 — 지금 코드와 다르다(예: `src/api.ts`·`serve`는 #132에서 사라졌다). 미해결로 남은 것은 Q2(선언 원본 TS ↔ FastAPI codegen, FastAPI 착수 때)뿐이다.
 
 ## 결정 기록 (2026-09-29, 사용자)
 
@@ -299,4 +299,4 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 | 9 | 나머지 이전(범위는 결정 기록 "단계 9 범위"): `equipment-master` + Kernel `useMenuFetch`·contracts 페이징 모양(#128, 완료), `cycle-time`(계산 → `src/mock/cycle.ts`, 지표 버전은 서버가 적용된 metric 쌍에서 해석, 내보내기 엔드포인트, `src/mock/** → ../pages/**` 임시 lint 허용 종료, analytics `api.ts` 삭제)과 `home`(`NOTICES` → mock, 공지 대상 사이트는 params `targetScopeId`)(#127·#130, 완료), `metrics`(지표 카탈로그·판정을 `src/mock/catalog.ts`로, 쌍 판정·카탈로그 페이지·내보내기·정의·사용처·이력 엔드포인트) + #123 params 값 검증 훅(#129, 완료 — `LEGACY_SERVE_PATHS`가 비었다) | 각 패키지 테스트 + 브라우저 + `pnpm e2e` |
 | 10 | VOC 이전: 두 메서드 어댑터에서 제거, `MyVoc*` 타입 메뉴로 (#131, 완료 — 엔진에 mart가 아닌 원천 `mart: false`(Trust 없음, mart 개발 시나리오 비적용)·핸들러 `actor`·`MockRequestError`(데이터로만 판정하는 잘못된 요청, 예: 다른 사용자 커서)를 추가. `noticeVoc.myVocHistory` params는 `{ cursor: string \| null }`) | `MyVocHistory.test.tsx`, `voc-status.test.ts`, contracts에서 `MyVocStatus` grep 0 |
 | 11 | `serve` 공개 export·`src/api.ts` 규칙 제거 (#132, 완료 — `ap/no-new-serve` 규칙·`LEGACY_SERVE_PATHS` 삭제, api.ts lint 예외를 에러 fixture로 고정) | `grep -rn "serve" menus` 0, lint 규칙에서 api.ts 예외 삭제 |
-| 12 | 문서: platform-packages §3 규칙 3·§4·§5, `menus/AGENTS.md`, `packages/AGENTS.md`, 06 §5(Q4 결과), `PLATFORM_REQUIREMENTS.md:141` 상태, ROADMAP | 각 PR의 "문서 갱신" 체크 |
+| 12 | (#133, 완료) 문서: platform-packages §3 규칙 3·§4·§5, `menus/AGENTS.md`, `packages/AGENTS.md`, 06 §5(Q4 결과), `PLATFORM_REQUIREMENTS.md:141` 상태, ROADMAP | 각 PR의 "문서 갱신" 체크 |
