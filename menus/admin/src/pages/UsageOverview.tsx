@@ -37,7 +37,7 @@ export default function UsageOverview() {
     {tableInvalid ? <p role="alert">{ko ? '정렬·페이지 값이 잘못되었습니다.' : 'Invalid sort or page value.'} <Button size="sm" variant="secondary" onClick={() => setPage({ sort: null, page: null })}>{ko ? '초기화' : 'Reset'}</Button></p>
       : <QueryView query={q}>{data => {
         const rows = joinUsageRows(registry, data.menus);
-        // Client envelope: the rows are the registry join, not mart data — trust is null and paging never calls serve.
+        // Client envelope: the rows are the registry join, not mart data — trust is null and paging stays client-side.
         return <PlatformDataTable<UsageRow>
           title={ko ? '메뉴 활용률' : 'Menu usage'}
           ariaLabel={ko ? '메뉴 활용률 목록' : 'Menu usage list'}

@@ -85,11 +85,9 @@ const rows: Row[] = [
   { file: MENU, code: `import { x } from '@ap/shell';`, rule: 'no-restricted-imports' },
   { file: MENU, code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
   { file: 'menus/home/src/api.test.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
-  { file: 'menus/home/src/api.ts', code: `import { x } from '@ap/mock-server';`, rule: '' },
-  { file: 'menus/home/src/api.ts', code: `export { serve } from '@ap/mock-server';`, rule: '' },
+  // #132 removed the src/api.ts migration carve-out: mock-server is legal only under src/mock/**.
+  { file: 'menus/home/src/api.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
   { file: MENU, code: `import { x } from '@ap/components';`, rule: '' },
-  // #129 emptied LEGACY_SERVE_PATHS: the former legacy page is no longer exempt (the rule itself goes in #132).
-  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve } from '../api';`, rule: 'ap/no-new-serve' },
   { file: MENU, code: `import '@ap/ui/styles.css';`, rule: 'no-restricted-imports' },
 
   // --- app mock-server carve-out / D2 (29-36) ---
@@ -168,7 +166,7 @@ const rows: Row[] = [
   { file: MENU, code: `require('../../../../packages/contracts/src/url');`, rule: 'ap/no-relative-package-escape' },
   { file: 'apps/platform-web/src/main.tsx', code: `import('@ap/mock-server/src/server');`, rule: 'ap/restricted-import-source' },
   { file: 'menus/home/src/api.ts', code: `import('@ap/mock-server/src/server');`, rule: 'ap/restricted-import-source' },
-  { file: 'menus/home/src/api.ts', code: `await import('@ap/mock-server');`, rule: '' },
+  { file: 'menus/home/src/api.ts', code: `await import('@ap/mock-server');`, rule: 'ap/restricted-import-source' },
   { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `await import('@ap/mock-server');`, rule: '' },
   { file: MENU, code: `lazy(() => import('./pages/X'));`, rule: '' },
   { file: 'packages/kernel/src/x.ts', code: `await import('@ap/contracts');`, rule: '' },
@@ -218,8 +216,7 @@ const rows: Row[] = [
   { file: MENU, code: `require('../mock/x');`, rule: 'ap/no-menu-mock-import' },
   { file: MENU, code: `type X = typeof import('../mock/x');`, rule: 'ap/no-menu-mock-import' },
   // src/mock/** cannot import react (denyReact), and relative imports there are
-  // allowlisted (fix round 2): `../api` is rejected wholesale, which also closes the
-  // serve path (no-new-serve reports alongside, so no single-rule row pins it here).
+  // allowlisted (fix round 2): `../api` is rejected wholesale.
   { file: 'menus/home/src/mock/a.ts', code: `import React from 'react';`, rule: 'no-restricted-imports', token: 'react' },
 
   { file: 'apps/platform-web/src/main.tsx', code: `import { mock } from '@ap/menu-home/mock';`, rule: '' },
@@ -237,36 +234,11 @@ const rows: Row[] = [
   { file: MENU, code: `import { mock } from '@ap/menu-analytics/mock';`, rule: 'no-restricted-imports' },
   { file: MENU, code: `await import('@ap/menu-analytics/mock');`, rule: 'ap/restricted-import-source' },
 
-  // --- no-new-serve migration ratchet (#113) ---
-  { file: 'menus/home/src/pages/New.tsx', code: `import { serve } from '../api';`, rule: 'ap/no-new-serve' },
-  { file: 'menus/analytics/src/pages/ProductivityOverview.tsx', code: `import { serve } from '../api';`, rule: 'ap/no-new-serve' },
-  { file: 'menus/analytics/src/pages/New.tsx', code: `import { serve } from '../api';`, rule: 'ap/no-new-serve' },
-  { file: 'menus/home/src/pages/New.tsx', code: `export { serve } from '../api';`, rule: 'ap/no-new-serve' },
-  { file: 'menus/home/src/pages/New.tsx', code: `import { getRole } from '../api';`, rule: '' },
-  { file: 'menus/home/src/pages/New.tsx', code: `import * as api from '../api'; api.serve();`, rule: 'ap/no-new-serve' },
-  { file: MENU, code: `import { serve as s } from '../api';`, rule: 'ap/no-new-serve' },
-  { file: MENU, code: `export * from '../api';`, rule: 'ap/no-new-serve' },
-  { file: MENU, code: `import * as api from '../api'; api['serve']();`, rule: 'ap/no-new-serve' },
-  // P2-1: a legacy file may keep its own serve import but must not relay it to new pages.
-  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `export { serve } from '../api';`, rule: 'ap/no-new-serve' },
-  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve } from '../api'; export { serve };`, rule: 'ap/no-new-serve' },
-  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `export * as api from '../api';`, rule: 'ap/no-new-serve' },
-  // P2-2: legacy keys are package-qualified; the same filename in another menu is not exempt.
-  { file: 'menus/analytics/src/pages/MetricDetail.tsx', code: `import { serve } from '../api';`, rule: 'ap/no-new-serve' },
-  { file: 'menus/home/src/pages/MetricCatalog.tsx', code: `import { serve } from '../api';`, rule: 'ap/no-new-serve' },
-  // P2-3: outside the legacy list the api module is named-imports-only (no namespace, no dynamic).
-  { file: MENU, code: `import * as api from '../api'; const { serve } = api;`, rule: 'ap/no-new-serve' },
-  { file: MENU, code: `await import('../api');`, rule: 'ap/no-new-serve' },
-  { file: MENU, code: `require('../api');`, rule: 'ap/no-new-serve' },
-  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import * as api from '../api';`, rule: 'ap/no-new-serve' },
-
   // --- fix round 2 / P2: mock handler relative-import allowlist ---
-  // A file under src/mock/** may relatively import only src/mock/**, this menu's
-  // src/endpoints, or (temporarily, until the cycle-time compute moves in step 9) src/pages/**.
+  // A file under src/mock/** may relatively import only src/mock/** and this menu's src/endpoints.
   { file: 'menus/home/src/mock/a.ts', code: `import { x } from '../api';`, rule: 'ap/no-menu-mock-import' },
   { file: 'menus/home/src/mock/a.ts', code: `import { x } from '../index';`, rule: 'ap/no-menu-mock-import' },
   { file: 'menus/home/src/mock/a.ts', code: `export { x } from '../api';`, rule: 'ap/no-menu-mock-import' },
-  // export * from '../api' would also fire no-new-serve, so the export-all row uses '../index'.
   { file: 'menus/home/src/mock/a.ts', code: `export * from '../index';`, rule: 'ap/no-menu-mock-import' },
   { file: 'menus/home/src/mock/a.ts', code: `await import('../index');`, rule: 'ap/no-menu-mock-import' },
   { file: 'menus/home/src/mock/a.ts', code: `require('../index');`, rule: 'ap/no-menu-mock-import' },
@@ -280,23 +252,10 @@ const rows: Row[] = [
   { file: 'menus/home/src/mock/a.ts', code: `import { x } from '../pages/x';`, rule: 'ap/no-menu-mock-import' },
   { file: 'menus/home/src/mock/deep/b.ts', code: `import { x } from '../../endpoints';`, rule: '' },
 
-  // --- fix round 2 / P2: renamed serve bindings are tracked before re-export ---
-  // The export ban follows the local binding, not the identifier text, in ANY file.
-  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve as legacyServe } from '../api'; export { legacyServe };`, rule: 'ap/no-new-serve' },
-  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve as legacyServe } from '../api'; export { legacyServe as relay };`, rule: 'ap/no-new-serve' },
-  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve as legacyServe } from '../api'; export default legacyServe;`, rule: 'ap/no-new-serve' },
-  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve } from '../api'; export default serve;`, rule: 'ap/no-new-serve' },
-  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve } from '../api'; serve();`, rule: 'ap/no-new-serve' },
-  { file: 'menus/metrics/src/pages/MetricCatalog.tsx', code: `import { serve as legacyServe } from '../api'; const t = legacyServe;`, rule: 'ap/no-new-serve' },
-  // Non-legacy files already reject the import itself; these pin the export/default branch too.
-  { file: MENU, code: `import { serve as s } from '../api'; export { s };`, rule: 'ap/no-new-serve' },
-  { file: MENU, code: `import { serve as s } from '../api'; export default s;`, rule: 'ap/no-new-serve' },
-  { file: MENU, code: `import { serve } from '../api'; export default serve;`, rule: 'ap/no-new-serve' },
-
   // --- generated menu-query scaffold is lint-clean as generated (#126) ---
   // The exact import surface gen-menu emits: endpoints.ts → contracts only;
   // src/mock/index.ts → mock-server + own ../endpoints; page → kernel/components + own
-  // ../endpoints (never serve, never mock). The generator test pins the same set textually.
+  // ../endpoints (never mock). The generator test pins the same set textually.
   { file: 'menus/home/src/endpoints.ts', code: `import { defineEndpoint } from '@ap/contracts';`, rule: '' },
   { file: 'menus/home/src/endpoints.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
   {
@@ -318,7 +277,6 @@ const rows: Row[] = [
     ].join('\n'),
     rule: '',
   },
-  { file: 'menus/home/src/pages/Sample.tsx', code: `import { serve } from '../api';`, rule: 'ap/no-new-serve' },
   { file: 'menus/home/src/pages/Sample.tsx', code: `import { sampleMock } from '../mock';`, rule: 'ap/no-menu-mock-import' },
 ];
 

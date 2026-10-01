@@ -4,13 +4,13 @@ import { PACKAGE_PREFIX } from './prefix.js';
 import noHandBuiltUrl from './hand-built-url.js';
 import noRelativePackageEscape from './relative-escape.js';
 import restrictedImportSource from './import-source.js';
-import { noMenuMockImport, noNewServe } from './menu-boundaries.js';
+import { noMenuMockImport } from './menu-boundaries.js';
 
 const pkg = (name) => `${PACKAGE_PREFIX}${name}`;
 
 const DEEP_SUBPATH_MESSAGE = `Import the package entry (${PACKAGE_PREFIX}name) or, in CSS only, ${PACKAGE_PREFIX}name/styles.css. No ${PACKAGE_PREFIX}*/src.`;
 const LAYER_MESSAGE = 'Importing an internal workspace package outside this layer allowlist.';
-const MOCK_SERVER_MESSAGE = `${PACKAGE_PREFIX}mock-server is only legal in menu src/mock/** (and src/api.ts during migration).`;
+const MOCK_SERVER_MESSAGE = `${PACKAGE_PREFIX}mock-server is only legal in menu src/mock/**.`;
 const REACT_MESSAGE = 'react / react-dom are not allowed in this package.';
 
 const MENU_ALLOW = ['contracts', 'kernel', 'components', 'ui'];
@@ -32,7 +32,6 @@ const MENU_SUBPATH_ALLOW = ['menu-notice-voc/feedbackops-origin', 'menu-*/mock']
 //   allowSubpaths: exact names or patterns exempted from the deep-subpath ban (default none).
 // Deep subpaths are banned for everyone, except subpaths matched by allowSubpaths.
 const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, mockAllowed: false };
-const MENU_API_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, mockAllowed: true };
 const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, mockAllowed: true };
 const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false };
 // src/main.tsx is the composition root: mock-server and the listed menu subpaths are allowed by both import rules.
@@ -169,7 +168,6 @@ function layerConfig({ restriction, extraRules = {} }) {
           'restricted-import-source': restrictedImportSource,
           'no-hand-built-url': noHandBuiltUrl,
           'no-menu-mock-import': noMenuMockImport,
-          'no-new-serve': noNewServe,
         },
       },
     },
@@ -218,14 +216,9 @@ export const mockServer = [
   layerConfig({ restriction: { allow: ['contracts'], denyReact: true, mockAllowed: false } }),
 ];
 
-// Menu: mock-server is limited to src/mock/** and, during migration, src/api.ts;
+// Menu: mock-server is limited to src/mock/** (the step-11 removal of src/api.ts and serve, #132);
 // contract rules (storage, location writes, hand-built query strings) apply to every menu file.
 // Restriction data stays shared by the static and dynamic import rules in each file carve-out.
-// Legacy `serve` consumers, keyed by `<menu package name>/<relativeFile>` (for example
-// `menu-home/src/pages/x.tsx`) so a menu reusing another menu's legacy filename does not
-// inherit the exemption. The list shrinks in steps 5/6/9 and is deleted in step 11.
-const LEGACY_SERVE_PATHS = [
-];
 
 /** @type {import('eslint').Linter.Config[]} */
 export const menu = [
@@ -234,16 +227,8 @@ export const menu = [
     extraRules: {
       ...menuContractRules,
       'ap/no-menu-mock-import': 'error',
-      'ap/no-new-serve': ['error', { legacyPaths: LEGACY_SERVE_PATHS }],
     },
   }),
-  {
-    files: ['src/api.ts'],
-    rules: {
-      'no-restricted-imports': importRestrictions(MENU_API_RESTRICTION),
-      'ap/restricted-import-source': ['error', importSourceOptions(MENU_API_RESTRICTION)],
-    },
-  },
   {
     files: ['src/mock/**/*.{ts,tsx}'],
     rules: {

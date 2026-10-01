@@ -8,7 +8,7 @@ export {
 } from './jobs';
 
 export {
-  aggregateUsage, getEntity, getRole, getScenario, resetUsage, resolveEquipment, serve, setRole,
+  aggregateUsage, getEntity, getRole, getScenario, resetUsage, resolveEquipment, setRole,
   setScenario, subscribeServer, type Scenario, type StoredUsageEvent,
 } from './server';
 

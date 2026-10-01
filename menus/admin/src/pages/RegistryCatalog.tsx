@@ -13,7 +13,7 @@ const STATUS: Record<RegistryRow['status'], Text> = { implemented: { ko: '구현
 /**
  * 메뉴 레지스트리 (issue #42; 06 §12.4 catalog archetype — the object is a definition, not a mutable master).
  * Reads `usePlatform().registry` directly: the registry is a client declaration, never a mart result,
- * so there is no adapter method and `loadPage` never calls `serve` (trust stays null).
+ * so there is no adapter method or endpoint and `loadPage` stays client-side (trust stays null).
  */
 export default function RegistryCatalog() {
   const { lang } = useI18n();
@@ -83,7 +83,7 @@ export default function RegistryCatalog() {
           } : undefined}
           rowAction={row => <Button size="sm" variant="ghost" onClick={() => setPage({ focus: row.id })}>{ko ? '보기' : 'View'}</Button>}
           loadPage={async page => {
-            // Client envelope: the rows are the registry projection, not a serve result — trust is null.
+            // Client envelope: the rows are the registry projection, not a server result — trust is null.
             const paged = sortAndPage(rows, page);
             return { outcome: paged.total ? 'ok' : 'empty', data: paged, assessments: [], trust: null, correlationId: 'client-registry' };
           }}
