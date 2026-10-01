@@ -11,7 +11,6 @@ const CONTRACTS_MENU = 'packages/contracts/src/menu.ts';
 const MENUS_MARKERS = [IMPORT_START, IMPORT_END, GROUPS_END, SPREADS_START, SPREADS_END] as const;
 const MAIN_MARKERS = [MOCK_IMPORTS_START, MOCK_IMPORTS_END, MOCK_SPREADS_START, MOCK_SPREADS_END] as const;
 
-
 /** Everything the wiring invariants read from one repo tree. */
 export type RepoShape = {
   menusTs: string;
@@ -143,35 +142,37 @@ export function checkWiring(shape: RepoShape): void {
     if (names[k] <= names[k - 1]) throw new Error(`menu dependency block in ${APP_PKG} is not lexicographic: '${names[k - 1]}' >= '${names[k]}'`);
   }
   const menusLines = shape.menusTs.split('\n');
-  const importSection = section(menusLines, IMPORT_START, IMPORT_END);
-  const spreadSection = section(menusLines, SPREADS_START, SPREADS_END);
-  const styleSection = section(shape.styleCss.split('\n'), STYLES_START, STYLES_END);
+  // Whole trimmed lines only (review nit-2): a commented-out import or spread must not count as wired.
+  const linesOf = (sectionText: string): string[] => sectionText.split('\n').map(l => l.trim());
+  const importLines = linesOf(section(menusLines, IMPORT_START, IMPORT_END));
+  const spreadLines = linesOf(section(menusLines, SPREADS_START, SPREADS_END));
+  const styleLines = linesOf(section(shape.styleCss.split('\n'), STYLES_START, STYLES_END));
   for (const name of names) {
     const folder = name.slice(`${PACKAGE_PREFIX}menu-`.length);
     const binding = toBinding(folder);
-    if (!new RegExp(`import \\{ manifests as ${binding} \\} from '${name}';`).test(importSection)) {
+    if (!importLines.includes(`import { manifests as ${binding} } from '${name}';`)) {
       throw new Error(`dependency '${name}' has no manifests import inside the import markers`);
     }
-    if (!spreadSection.includes(`...${binding},`)) {
+    if (!spreadLines.includes(`...${binding},`)) {
       throw new Error(`dependency '${name}' has no spread inside the spread markers`);
     }
   }
   for (const folder of shape.cssFolders) {
     const cssImport = `@import "${PACKAGE_PREFIX}menu-${folder}/styles.css";`;
-    if (!styleSection.includes(cssImport)) {
+    if (!styleLines.includes(cssImport)) {
       throw new Error(`menus/${folder}/src/styles.css has no @import inside the style markers`);
     }
   }
   const mainLines = shape.mainTsx.split('\n');
-  const mockImportSection = section(mainLines, MOCK_IMPORTS_START, MOCK_IMPORTS_END);
-  const mockSpreadSection = section(mainLines, MOCK_SPREADS_START, MOCK_SPREADS_END);
+  const mockImportLines = linesOf(section(mainLines, MOCK_IMPORTS_START, MOCK_IMPORTS_END));
+  const mockSpreadLines = linesOf(section(mainLines, MOCK_SPREADS_START, MOCK_SPREADS_END));
   for (const folder of shape.mockFolders) {
     const binding = `${toBinding(folder)}Mock`;
     const mockImport = `import { ${binding} } from '${PACKAGE_PREFIX}menu-${folder}/mock';`;
-    if (!mockImportSection.includes(mockImport)) {
+    if (!mockImportLines.includes(mockImport)) {
       throw new Error(`menus/${folder}/src/mock has no import inside the main.tsx mock import markers`);
     }
-    if (!mockSpreadSection.includes(`...${binding},`)) {
+    if (!mockSpreadLines.includes(`...${binding},`)) {
       throw new Error(`menus/${folder}/src/mock has no spread inside the main.tsx mock spread markers`);
     }
   }

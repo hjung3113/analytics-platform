@@ -77,6 +77,15 @@ describe('marker context validation (F7)', () => {
     expect(appSnapshot(root)).toEqual(before);
   });
 
+  it('refuses a spread end marker moved outside the MENUS array', () => {
+    const root = fresh({ menusTs: movedSpreadEnd });
+    const before = appSnapshot(root);
+    const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/not inside the 'MENUS' array literal/);
+    expect(appSnapshot(root)).toEqual(before);
+  });
+
   it('refuses a duplicated marker', () => {
     const root = fresh({ menusTs: duplicatedImportEnd });
     const before = appSnapshot(root);

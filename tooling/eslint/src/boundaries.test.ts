@@ -288,6 +288,7 @@ const rows: Row[] = [
   // Non-legacy files already reject the import itself; these pin the export/default branch too.
   { file: MENU, code: `import { serve as s } from '../api'; export { s };`, rule: 'ap/no-new-serve' },
   { file: MENU, code: `import { serve as s } from '../api'; export default s;`, rule: 'ap/no-new-serve' },
+  { file: MENU, code: `import { serve } from '../api'; export default serve;`, rule: 'ap/no-new-serve' },
 
   // --- generated menu-query scaffold is lint-clean as generated (#126) ---
   // The exact import surface gen-menu emits: endpoints.ts → contracts only;

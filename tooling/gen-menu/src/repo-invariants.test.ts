@@ -131,6 +131,18 @@ describe('wiring invariants against a fixture repo', () => {
     expect(() => checkWiring(loadShape(root))).toThrow(/no spread inside the spread markers/);
   });
 
+  it('does not count commented-out mock lines as wired', () => {
+    const root = fresh();
+    const mainTsx = join(root, 'apps/platform-web/src/main.tsx');
+    const original = readFileSync(mainTsx, 'utf8');
+    // The commented lines still contain the exact import/spread text as substrings — the checks
+    // match whole trimmed lines, so both must be refused.
+    writeFileSync(mainTsx, original
+      .replace(`import { ${binding('quality')}Mock } from '${PACKAGE_PREFIX}menu-quality/mock';`, `// import { ${binding('quality')}Mock } from '${PACKAGE_PREFIX}menu-quality/mock';`)
+      .replace(`    ...${binding('quality')}Mock,`, `//     ...${binding('quality')}Mock,`));
+    expect(() => checkWiring(loadShape(root))).toThrow(/no import inside the main\.tsx mock import markers/);
+  });
+
   it('skips the probe-name check only under GEN_MENU_PROBE', () => {
     const root = fresh();
     const contracts = join(root, 'packages/contracts/src/menu.ts');

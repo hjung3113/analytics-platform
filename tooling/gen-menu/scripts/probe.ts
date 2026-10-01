@@ -3,7 +3,7 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   GenMenuError, MAIN_TSX, MENUS_TS, MOCK_IMPORTS_END, MOCK_IMPORTS_START, MOCK_SPREADS_END, MOCK_SPREADS_START,
-  STYLE_CSS, APP_PKG, checkAppMarkers, ownedLine, resolveRoot, splitLines,
+  STYLE_CSS, APP_PKG, checkAppMarkers, ownedLine, pageName, resolveRoot, splitLines,
 } from '../src/generate.ts';
 import { PACKAGE_PREFIX } from '../src/prefix.ts';
 import { mockImportLine, mockSpreadLine, type MenuInputs, type PageType } from '../src/templates.ts';
@@ -26,6 +26,28 @@ const MAIN = join(ROOT, MAIN_TSX);
 const STYLE = join(ROOT, STYLE_CSS);
 const APP_PKG_PATH = join(ROOT, APP_PKG);
 const PACKAGE_DIR = join(ROOT, 'menus', PROBE_FOLDER);
+
+/** One source for the probe CLI call and every derived value the wiring checks restate (review nit-5). */
+const PROBE_ARGS = {
+  group: 'genProbe',
+  labelKo: '생성 확인',
+  labelEn: 'Gen probe',
+  path: '/gen-probe',
+  pageType: (process.env.GEN_MENU_PROBE_PAGE_TYPE ?? 'overview') as PageType,
+} as const;
+/** folder/menuId/page/binding exactly as planGenerate derives them: kebab(group), folder default
+ * menu, pageName(menuId), binding = group. */
+const PROBE_INPUTS: MenuInputs = {
+  group: PROBE_ARGS.group,
+  folder: PROBE_FOLDER,
+  menuId: PROBE_FOLDER,
+  page: pageName(PROBE_FOLDER),
+  path: PROBE_ARGS.path,
+  pageType: PROBE_ARGS.pageType,
+  labelKo: PROBE_ARGS.labelKo,
+  labelEn: PROBE_ARGS.labelEn,
+  binding: PROBE_ARGS.group,
+};
 
 function message(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -122,7 +144,7 @@ function main(): { fallback: boolean; failures: { step: string; message: string 
   try {
     insertGroupIdMember(ROOT);
     insertGroupsRow(ROOT);
-    run('pnpm', ['gen:menu', 'genProbe', '--label-ko', '생성 확인', '--label-en', 'Gen probe', '--path', '/gen-probe', '--page-type', process.env.GEN_MENU_PROBE_PAGE_TYPE ?? 'overview']);
+    run('pnpm', ['gen:menu', PROBE_ARGS.group, '--label-ko', PROBE_ARGS.labelKo, '--label-en', PROBE_ARGS.labelEn, '--path', PROBE_ARGS.path, '--page-type', PROBE_ARGS.pageType]);
     verifyGeneratedScaffold();
     writeRegistryTest(ROOT);
     run('pnpm', ['install']);
@@ -151,24 +173,19 @@ function main(): { fallback: boolean; failures: { step: string; message: string 
  * analytics — so the four root commands below prove multi-package mock registration.
  */
 function verifyGeneratedScaffold(): void {
-  for (const rel of ['src/endpoints.ts', 'src/mock/index.ts']) {
+  for (const rel of ['src/endpoints.ts', 'src/mock/index.ts', 'src/mock/index.test.ts']) {
     if (!existsSync(join(PACKAGE_DIR, rel))) throw new GenMenuError(`probe: menus/${PROBE_FOLDER}/${rel} was not generated`);
   }
   if (existsSync(join(PACKAGE_DIR, 'src/api.ts'))) throw new GenMenuError(`probe: menus/${PROBE_FOLDER}/src/api.ts must not be generated anymore`);
 
-  const inputs: MenuInputs = {
-    group: 'genProbe', folder: PROBE_FOLDER, menuId: 'gen-probe', page: 'GenProbe', path: '/gen-probe',
-    pageType: (process.env.GEN_MENU_PROBE_PAGE_TYPE ?? 'overview') as PageType,
-    labelKo: '생성 확인', labelEn: 'Gen probe', binding: 'genProbe',
-  };
   const mainText = readFileSync(MAIN, 'utf8');
   checkAppMarkers(readFileSync(MENUS, 'utf8'), readFileSync(STYLE, 'utf8'), mainText);
   const lines = splitLines(mainText).lines;
   const expected: [string, string, string][] = [
-    [MOCK_IMPORTS_START, MOCK_IMPORTS_END, mockImportLine(inputs)],
+    [MOCK_IMPORTS_START, MOCK_IMPORTS_END, mockImportLine(PROBE_INPUTS)],
     [MOCK_IMPORTS_START, MOCK_IMPORTS_END, `import { analyticsMock } from '${PACKAGE_PREFIX}menu-analytics/mock';`],
-    [MOCK_SPREADS_START, MOCK_SPREADS_END, mockSpreadLine(inputs)],
-    [MOCK_SPREADS_START, MOCK_SPREADS_END, mockSpreadLine({ ...inputs, group: 'analytics' })],
+    [MOCK_SPREADS_START, MOCK_SPREADS_END, mockSpreadLine(PROBE_INPUTS)],
+    [MOCK_SPREADS_START, MOCK_SPREADS_END, mockSpreadLine({ ...PROBE_INPUTS, group: 'analytics' })],
   ];
   for (const [start, end, line] of expected) {
     if (ownedLine(lines, start, end, line).kind !== 'found') {

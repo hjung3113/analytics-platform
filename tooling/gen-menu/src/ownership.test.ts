@@ -7,6 +7,7 @@ import { FIXTURE_FOLDER, FIXTURE_GROUP, GEN_ARGS, appSnapshot, makeFixture, remo
 
 const CSS_LINE = `@import "${PACKAGE_PREFIX}menu-${FIXTURE_FOLDER}/styles.css";`;
 const MOCK_IMPORT_LINE = `import { ${FIXTURE_GROUP}Mock } from '${PACKAGE_PREFIX}menu-${FIXTURE_FOLDER}/mock';`;
+const MOCK_SPREAD_LINE = `    ...${FIXTURE_GROUP}Mock,`;
 
 function cssOf(root: string): string {
   return readFileSync(join(root, STYLE_CSS), 'utf8');
@@ -15,7 +16,6 @@ function cssOf(root: string): string {
 function mainOf(root: string): string {
   return readFileSync(join(root, MAIN_TSX), 'utf8');
 }
-
 
 describe('remove ownership is bounded to the marker region (F4)', () => {
   const keep: string[] = [];
@@ -53,6 +53,33 @@ describe('remove ownership is bounded to the marker region (F4)', () => {
     expect(existsSync(join(root, 'menus', FIXTURE_FOLDER))).toBe(true);
   });
 
+  it('refuses when the generated line appears twice inside the region', () => {
+    const root = fresh();
+    expect(runCli([FIXTURE_GROUP, ...GEN_ARGS], root).status).toBe(0);
+    writeFileSync(join(root, STYLE_CSS), cssOf(root).replace(`/* </gen:menu-styles> */`, `${CSS_LINE}\n/* </gen:menu-styles> */`));
+    const tampered = appSnapshot(root);
+    const res = runCli(['--remove', FIXTURE_GROUP], root);
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/appears 2 times inside its owned region/);
+    expect(appSnapshot(root)).toEqual(tampered);
+    expect(existsSync(join(root, 'menus', FIXTURE_FOLDER))).toBe(true);
+  });
+
+  it('refuses when the generated main.tsx mock spread line appears twice inside its region', () => {
+    const root = fresh();
+    expect(runCli([FIXTURE_GROUP, ...GEN_ARGS], root).status).toBe(0);
+    writeFileSync(join(root, MAIN_TSX), mainOf(root).replace(
+      '    // </gen:menu-mock-spreads>',
+      `${MOCK_SPREAD_LINE}\n    // </gen:menu-mock-spreads>`,
+    ));
+    const tampered = appSnapshot(root);
+    const res = runCli(['--remove', FIXTURE_GROUP], root);
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/appears 2 times inside its owned region/);
+    expect(appSnapshot(root)).toEqual(tampered);
+    expect(existsSync(join(root, 'menus', FIXTURE_FOLDER))).toBe(true);
+  });
+
   it('removes the in-region mock import and leaves an identical copy outside the region untouched', () => {
     const root = fresh();
     const pristine = appSnapshot(root);
@@ -69,5 +96,4 @@ describe('remove ownership is bounded to the marker region (F4)', () => {
     expect(after['apps/platform-web/package.json']).toBe(pristine['apps/platform-web/package.json']);
     expect(existsSync(join(root, 'menus', FIXTURE_FOLDER))).toBe(false);
   });
-
 });

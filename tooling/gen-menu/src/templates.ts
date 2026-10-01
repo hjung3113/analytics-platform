@@ -47,7 +47,7 @@ export const styleLine = (i: MenuInputs): string => `@import "${menuPackage(i.fo
 /** apps/platform-web/package.json dependency insert. */
 export const depLine = (i: MenuInputs): string => `    "${menuPackage(i.folder)}": "workspace:*",`;
 
-/** The ten generated files, paths relative to `menus/<folder>/`. LF, trailing newline, UTF-8. */
+/** The eleven generated files, paths relative to `menus/<folder>/`. LF, trailing newline, UTF-8. */
 export const renderFiles = (i: MenuInputs): { relPath: string; content: string }[] => [
   { relPath: 'package.json', content: packageJson(i) },
   {
@@ -65,6 +65,7 @@ export const renderFiles = (i: MenuInputs): { relPath: string; content: string }
   { relPath: 'src/index.ts', content: indexTs(i) },
   { relPath: `src/pages/${i.page}.tsx`, content: pageTsx(i) },
   { relPath: 'src/manifest.test.ts', content: manifestTest(i) },
+  { relPath: 'src/mock/index.test.ts', content: mockIndexTest(i) },
 ];
 
 const SAMPLE_PAGE_INPUTS: MenuInputs = {
@@ -280,6 +281,58 @@ describe('manifest', () => {
   it('owns the sample endpoint (#126)', () => {
     expect(sampleEndpoint.menuId).toBe(manifests[0].id);
     expect(sampleEndpoint.id.startsWith('${i.group}.')).toBe(true);
+  });
+});
+`;
+}
+
+function mockIndexTest(i: MenuInputs): string {
+  return `import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { ApiResponse, Capability, ContextKey, MenuMeta } from '${PACKAGE_PREFIX}contracts';
+import { createMockAdapter, getRole, setRole } from '${PACKAGE_PREFIX}mock-server';
+import { ${i.group}Mock } from './index';
+import { sampleEndpoint } from '../endpoints';
+
+/**
+ * Minimal inline MenuMeta mirroring the ${str(i.menuId)} manifest in '../index.ts'
+ * (permission, requiresScope, context). Importing '../index' from 'src/mock/**' is lint-banned,
+ * so this test restates the registration-relevant fields the adapter validates against.
+ * manifest('../index.ts')를 바꾸면 여기도 같이 바꾼다.
+ */
+const none: Record<ContextKey, Capability> = {
+  time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
+  lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
+};
+const sampleMenu: MenuMeta = {
+  id: ${str(i.menuId)},
+  group: '${i.group}',
+  label: { ko: ${str(i.labelKo)}, en: ${str(i.labelEn)} },
+  description: { ko: ${str(i.labelKo)}, en: ${str(i.labelEn)} },
+  path: ${str(i.path)},
+  permission: '${SCAFFOLD_PERMISSION}',
+  requiresScope: false,
+  context: none,
+  pageType: '${i.pageType}',
+  features: { export: false, savedView: false, annotate: false, compare: false },
+  pageKeys: [],
+};
+
+const registry = { menus: [sampleMenu] };
+const adapter = createMockAdapter({ endpoints: [...${i.group}Mock], registry });
+
+const previousRole = getRole();
+beforeEach(() => { setRole('viewer'); });
+afterEach(() => { setRole(previousRole); });
+
+describe('${i.group} mock registration', () => {
+  it('registers the sample endpoint without error', () => {
+    expect(() => createMockAdapter({ endpoints: [...${i.group}Mock], registry })).not.toThrow();
+  });
+
+  it('answers the sample menuQuery with ok', async () => {
+    const result: ApiResponse<unknown> = await adapter.menuQuery({ endpoint: '${i.group}.sample', context: {}, params: {} });
+    expect(result.outcome).toBe('ok');
+    expect(result.data).toEqual({ ready: true });
   });
 });
 `;

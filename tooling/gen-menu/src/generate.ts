@@ -223,7 +223,7 @@ function assertMarkerInsideArray(menusText: string, arrayName: string, marker: s
       if (d.initializer === undefined || !ts.isArrayLiteralExpression(d.initializer)) {
         throw new GenMenuError(`'${arrayName}' in ${MENUS_TS} is not an array literal`);
       }
-      const at = menusText.indexOf(marker);
+      const at = standaloneMarkerPositions(menusText, marker)[0] ?? -1;
       if (d.initializer.getStart(sf) < at && at < d.initializer.getEnd()) return;
       throw new GenMenuError(`marker '${marker}' is not inside the '${arrayName}' array literal in ${MENUS_TS}`);
     }
@@ -244,7 +244,7 @@ function assertMarkerInsideEndpointsArray(mainText: string, marker: string): voi
           ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name) && prop.name.text === 'endpoints'
           && ts.isArrayLiteralExpression(prop.initializer)
         ) {
-          const at = mainText.indexOf(marker);
+          const at = standaloneMarkerPositions(mainText, marker)[0] ?? -1;
           if (prop.initializer.getStart(sf) < at && at < prop.initializer.getEnd()) return true;
           throw new GenMenuError(`marker '${marker}' is not inside the createMockAdapter endpoints array in ${MAIN_TSX}`);
         }
