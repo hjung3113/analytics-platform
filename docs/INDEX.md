@@ -16,6 +16,7 @@
 | 플랫폼/프론트엔드 | `06_platform_ui_contract.md` | `04_frontend_ui_ux.md`, `02_domain_menus.md` |
 | 개별 프론트엔드 메뉴 구현 | [06 플랫폼 Kernel·메뉴 확장 계약](06_platform_ui_contract.md) §4–6/§8/§17–19/§26/§28–29 | [02 도메인 catalog](02_domain_menus.md) → [07 셸](07_app_shell_wireframe.md)/해당 화면 설계 → [04 구현 후보](04_frontend_ui_ux.md) |
 | UI/UX — App Shell 화면 설계 | `07_app_shell_wireframe.md` | `06_platform_ui_contract.md`, `04_frontend_ui_ux.md`, `.agents/skills/analysis-platform-wireframe/references/wireframe-rules.md` |
+| 사내 적용(백엔드·인프라·사내 메뉴 개발자) | [사내 적용 가이드](integration/in-house-rollout.md) | [실서버 연결 체크리스트](integration/real-server-checklist.md), 06 §5/§29 |
 | 신규 합류자 | `00_overview.md` → `06_platform_ui_contract.md` → 자기 역할 문서 순서로 | — |
 | 시간·기간·지연완료 계약 변경 | [06 시간 계약·변경 영향 경로](06_platform_ui_contract.md#ctx-time) | [01 R/H 정책 원본](01_architecture_and_data_contract.md#late-arrival-policy) → 원본 옆의 소비자 포인터와 실제 변경 작업 기록 |
 
@@ -29,7 +30,7 @@
 | --- | --- | --- | --- |
 | 메뉴 화면 추가·수정 | [06](06_platform_ui_contract.md) §5 Menu Extension·§29 Platform Done → 해당 화면 wireframe(`08`–`13`) | [menus](../menus/AGENTS.md) → [README 페이지 작성 가이드](../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙) | `menus/<group>/src/index.ts`(선언) → `menus/<group>/src/pages/` → 필요한 부품은 [components](../packages/components/AGENTS.md) |
 | Kernel 동작(Registry·전역 Context·URL·Scope·조회 수명주기) | 06 §4–6 | [packages](../packages/AGENTS.md) → [kernel](../packages/kernel/AGENTS.md) → 타입이 바뀌면 [contracts](../packages/contracts/AGENTS.md) | `packages/kernel/src/registry.ts`·`platform.tsx`·`query.ts` → 테스트 `adapter.test.tsx`·`registry.test.ts` → 앱 `url-contract.test.ts` |
-| 서버 계약·어댑터(실서버 전환 포함) | [실서버 연결 체크리스트](integration/real-server-checklist.md), [패키지 경계](integration/platform-packages.md) §4, 06 §18–19 | [contracts](../packages/contracts/AGENTS.md) → [packages/mock-server](../packages/mock-server/AGENTS.md) → [apps/platform-web](../apps/platform-web/AGENTS.md)(주입·dev 도구) | `packages/contracts/src/adapter.ts` → `packages/mock-server/src/adapter.ts` → kernel `adapter.test.tsx` |
+| 서버 계약·어댑터(실서버 전환 포함) | [사내 적용 가이드](integration/in-house-rollout.md)(순서·확인할 것) → [실서버 연결 체크리스트](integration/real-server-checklist.md)(규칙), [패키지 경계](integration/platform-packages.md) §4, 06 §18–19 | [contracts](../packages/contracts/AGENTS.md) → [packages/mock-server](../packages/mock-server/AGENTS.md) → [apps/platform-web](../apps/platform-web/AGENTS.md)(주입·dev 도구) | `packages/contracts/src/adapter.ts` → `packages/mock-server/src/adapter.ts` → kernel `adapter.test.tsx` |
 | 공통 컴포넌트·차트·상태 화면 | 06 §13·§16·§18–19·§24 | [packages](../packages/AGENTS.md) → [components](../packages/components/AGENTS.md) → primitive가 필요하면 [ui](../packages/ui/AGENTS.md) | `packages/components/src/` → 소비 화면(`menus/*/src/pages`)에서 확인 |
 | 셸(사이드바·탑바·Context Bar·라우트 상태·워크스페이스 층) | [07 셸](07_app_shell_wireframe.md), 06 §8–9 | [shell](../packages/shell/AGENTS.md) → 슬롯·Registry는 [kernel](../packages/kernel/AGENTS.md) | `packages/shell/src/` → 앱 `src/main.tsx`(조립) |
 | 디자인 토큰·시각 규칙 | [DESIGN](../DESIGN.md) | [ui](../packages/ui/AGENTS.md) | `packages/ui/src/styles/` |
@@ -90,6 +91,7 @@
 
 - [메뉴 데이터 조회 포트 (설계 기록)](integration/menu-query-port.md) — 메뉴 조회를 범용 `MenuQuery` + 메뉴 `EndpointSpec` 선언으로 옮긴 설계와 결정 경과(구현 완료 2026-10-01, #100). 현재 계약은 06 §5·§19와 [패키지 경계](integration/platform-packages.md) §3–§5. 미해결은 Q2(선언 원본 TS ↔ FastAPI codegen).
 - [실서버 연결 체크리스트](integration/real-server-checklist.md) — 사내에서 mock 어댑터를 실어댑터·실서버로 바꿀 때 지킬 것: `PlatformAdapter` 메서드별 의미, `menuQuery` 판정 순서·등록 검증, 적합성 묶음(`@ap/server-conformance`) 실행 방법, 남은 사람 결정(Q2·전송 형식·SSO·#98·#37). Candidate(#145).
+- [사내 적용 가이드](integration/in-house-rollout.md) — mock → 실어댑터·실서버 전환의 순서, 담당자별(SSO·인프라·백엔드·파서·FeedbackOps) 확인 질문, 지금 바로 할 수 있는 일, 사내 메뉴 개발 가이드, 완료 기준, 흔한 함정. 진행은 지도 이슈 #157·마일스톤 M4. Candidate(2026-10-02).
 
 - [Standard Log Lifecycle](references/standard-log-lifecycle/README.md) — 모델 표준 로그 개발·검증·결함·재검증 관리의 설계 참고. 원본 커밋에 고정한 Markdown 7개, 출처·해시 manifest와 4개 화면 시안 적용 범위를 포함한다. 기존 플랫폼 계약을 대체하지 않는다.
 
