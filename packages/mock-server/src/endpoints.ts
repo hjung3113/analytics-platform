@@ -112,10 +112,10 @@ export async function serveEndpoint(
   const projected = projectContext(endpoint.spec, requestedContext);
   const global: GlobalContext = { ...emptyGlobal, ...projected };
 
-  const invalid = endpoint.validate?.({ context: global, params: req.params });
-  if (invalid) return requestError(invalid);
-
   try {
+    // Inside the boundary: a validator that throws on a malformed runtime value is still an error envelope.
+    const invalid = endpoint.validate?.({ context: global, params: req.params });
+    if (invalid) return requestError(invalid);
     return await serve({
       permission: endpoint.spec.permission,
       kinds: [...endpoint.spec.kinds],

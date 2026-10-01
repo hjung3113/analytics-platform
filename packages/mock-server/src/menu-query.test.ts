@@ -336,6 +336,16 @@ describe('serveEndpoint declaration pipeline', () => {
     expect(accepted.outcome).toBe('ok');
   });
 
+  it('keeps a throwing validate hook inside the response boundary as an error envelope (#140 review)', async () => {
+    const spec = makeSpec('analytics.validate-throws', { requiresScope: false, context: {} });
+    const endpoint = defineMockEndpoint(spec, {
+      handle: () => ({ ok: true }),
+      validate: ({ params }) => ((params as unknown as { term: { trim(): string } }).term.trim() === '' ? 'blank' : null),
+    });
+    const result = await serveEndpoint(new Map([[spec.id, endpoint as AnyMockEndpoint]]), request(spec.id, {}, { term: 42 }), undefined, { role: 'engineer', latency: 0 });
+    expect(result).toMatchObject({ outcome: 'error', data: null, trust: null, assessments: [] });
+  });
+
   it('passes params to the handler without changing them', async () => {
     const spec = makeSpec('analytics.params', { requiresScope: false, context: {} });
     const params = { term: 'untouched', page: 4 };
