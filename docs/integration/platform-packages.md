@@ -74,7 +74,7 @@ D1–D8은 화면·런타임 코드, D9는 같은 폴더 안이라 폴더 구조
 
 1. 화살표 반대 방향 import 금지. 특히 `kernel`·`components`·`shell`은 `menu-*`와 `mock-server`를 import하지 않는다.
 2. `menu-*`끼리 import 금지. 교차 메뉴 이동은 `linkTo(menuId, ...)`만 쓴다(06 §22).
-3. `menu-*`에서 `mock-server` import는 그 메뉴의 `src/mock/**`와, 이행 중 `src/api.ts`에서만 허용한다.
+3. `menu-*`에서 `mock-server` import는 그 메뉴의 `src/mock/**`에서만 허용한다(이행용 `src/api.ts` 예외는 #132에서 제거).
 4. 각 패키지는 `package.json` `exports`로 공개 진입점만 연다. `@ap/components/src/...` 같은 깊은 경로 import 금지.
 5. `contracts`는 React·브라우저 API에 타입 수준으로도 의존하지 않는다(향후 백엔드와 공유할 수 있게). 아이콘·화면 컴포넌트처럼 React 타입이 필요한 manifest 필드는 `kernel`의 `MenuEntry`가 소유한다.
 6. 규칙 1–3은 테스트 파일에도 적용한다. 층을 넘는 검증은 그 위층(메뉴 또는 앱)의 통합 테스트로 둔다(D10).

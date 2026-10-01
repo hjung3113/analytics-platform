@@ -1,7 +1,7 @@
 /**
  * Mock server half of the productivity-overview endpoints (#114). The app composition root
  * registers this list via `@ap/menu-analytics/mock` → `createMockAdapter({ endpoints, registry })`;
- * pages never import this module. Handlers reproduce the previous page-side `serve()` compute,
+ * pages never import this module. Handlers reproduce the previous page-side compute,
  * `isEmpty` and `metricVersion` exactly — only the data path changed, not the numbers.
  */
 import { shift } from '@ap/contracts';

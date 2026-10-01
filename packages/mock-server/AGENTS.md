@@ -17,8 +17,8 @@
 - 의존성은 `@ap/contracts` 하나뿐이다. React도, 다른 `@ap/*`도 import하지 않는다.
 - 앱(`apps/*`)이나 메뉴(`menus/*`)를 import하지 않는다. 화면 전용 데이터와 집계는 각 메뉴 패키지(`menus/<group>/src/pages`)에 둔다.
 - mock과 화면 계산을 함께 보는 테스트는 이 패키지에 두지 않는다. `jobs-population`은 `@ap/menu-analytics`에, `published-metrics`는 발행 포인터 비교(`@ap/menu-metrics`)·페이지 기본 버전 검증(`@ap/menu-analytics`)·kernel+mock 통합 부분(`apps/platform-web/src/published-metrics.test.ts`)으로 나뉘어 있다. 패키지가 앱·메뉴를 import하게 만들지 않는다.
-- 각 메뉴의 `src/mock/**` handler는 이 패키지를 import할 수 있고, 이행 중에는 해당 메뉴의 `src/api.ts`도 import할 수 있다. 앱 조립(`main.tsx`, `src/dev/DevTools.tsx`)과 앱 통합 테스트 `src/published-metrics.test.ts`도 import한다. 메뉴 페이지는 mock handler를 상대 import하지 않고 앱이 메뉴의 `/mock` 서브패스로 등록한다. 생산성·사이클 집계는 메뉴 쪽에 둔다.
-- 이 패키지에 `api.ts`를 만들지 않는다. 데이터 접점 `api.ts`는 각 메뉴 패키지(`menus/<group>/src/api.ts`)가 소유한다.
+- 각 메뉴의 `src/mock/**` handler는 이 패키지를 import할 수 있다(이행용 `src/api.ts` 예외는 #132에서 제거). `serve()`는 엔진 내부 단계라 공개 export하지 않는다. 앱 조립(`main.tsx`, `src/dev/DevTools.tsx`)과 앱 통합 테스트 `src/published-metrics.test.ts`도 import한다. 메뉴 페이지는 mock handler를 상대 import하지 않고 앱이 메뉴의 `/mock` 서브패스로 등록한다. 생산성·사이클 집계는 메뉴 쪽에 둔다.
+- 메뉴 데이터 접점은 각 메뉴의 엔드포인트 선언(`menus/<group>/src/endpoints.ts`)과 그 mock 핸들러(`src/mock/`)다. 이 패키지는 메뉴를 모른다.
 
 ## 검증
 

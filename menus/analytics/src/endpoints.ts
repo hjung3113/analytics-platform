@@ -240,7 +240,7 @@ const cycleBase = {
   requiresScope: true,
   context: cycleContext,
   kinds: ['collection', 'processing_delay', 'coverage'],
-  // Analysis reads refuse a cross-time-domain equipment set (06 §6.3) — what serve() did by default before #127.
+  // Analysis reads refuse a cross-time-domain equipment set (06 §6.3) — the default the analysis reads had before #127.
   mergeTimeDomain: true,
 } as const;
 

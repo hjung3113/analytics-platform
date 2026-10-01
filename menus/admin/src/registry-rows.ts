@@ -1,6 +1,6 @@
 /**
  * Menu Registry → table row projection (issue #42). The registry is a client declaration, not a mart
- * result: rows are projected in the menu package and the page never calls `serve`. Pure so the equality
+ * result: rows are projected in the menu package and the page queries no endpoint. Pure so the equality
  * contract (every row equals registry values) is unit-testable.
  */
 import type { Capability, ContextKey, GroupId, Permission, SpaceId } from '@ap/contracts';
