@@ -61,7 +61,7 @@ single-context(`CONTEXT.md` + `docs/INDEX.md` + `docs/adr/`). See `docs/agents/d
 
 ### Vendored skills
 
-`.agents/skills/`의 `prototype`, `to-tickets`, `to-spec`, `triage`, `wayfinder`는 FeedbackOps에 벤더링된 `mattpocock/skills`를 복사한 것이다. 이슈 트래커·라벨 설정은 위 두 항목(`docs/agents/`)이 제공하므로 `setup-matt-pocock-skills`는 두지 않는다.
+`.agents/skills/`의 `prototype`, `to-tickets`, `to-spec`, `triage`, `wayfinder`는 FeedbackOps에 벤더링된 `mattpocock/skills`를 복사한 것이다. 이슈 트래커·라벨 설정은 위 두 항목(`docs/agents/`)이 제공하므로 `setup-matt-pocock-skills`는 두지 않는다. `fastapi`·`supabase-postgres-best-practices`·`vercel-react-best-practices`는 외부 공식 스킬 사본이다(#162) — 출처와 적용 범위·우선순위는 `.agents/README.md`와 각 `SOURCE.md`.
 
 ## 폴더별 지침
 
