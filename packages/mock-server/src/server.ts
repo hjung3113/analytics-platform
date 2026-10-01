@@ -225,7 +225,8 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
   if ((mart && s === 'too_large') || (o.maxHours && hours !== null && hours > o.maxHours && (o.global.selection === null || o.global.selection.length > 40))) {
     return { ...base, outcome: 'too_large', message: `Period ${hours ?? '?'}h exceeds ${o.maxHours ?? '—'}h without a narrow fixed Selection` };
   }
-  if (o.global.selection?.length === 0 || o.global.roomNames?.length === 0) {
+  // 06 §19 exception: an explicit empty on any set key is answered without reading the source (#146).
+  if ([o.global.selection, o.global.roomNames, o.global.lotIds, o.global.recipeIds].some(set => set?.length === 0)) {
     return { ...base, outcome: 'empty' };
   }
   let verifiedDomain: string | null = null;

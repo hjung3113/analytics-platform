@@ -14,10 +14,11 @@ const MOCK_SERVER_MESSAGE = `${PACKAGE_PREFIX}mock-server is only legal in menu 
 const REACT_MESSAGE = 'react / react-dom are not allowed in this package.';
 
 const MENU_ALLOW = ['contracts', 'kernel', 'components', 'ui'];
-// The composition root and the server conformance test (#145, it registers the same menu mocks) see mock-server
-// and the menu `/mock` subpaths; the other carve-outs see mock-server only.
-const APP_MAIN_FILES = ['src/main.tsx', 'src/server-conformance.test.ts'];
-const APP_CARVEOUT_FILES = [...APP_MAIN_FILES, 'src/dev/**/*.{ts,tsx}', 'src/published-metrics.test.ts'];
+// The composition root sees mock-server and every menu subpath below; the server conformance test (#145) registers
+// the same menu mocks, so it sees mock-server and the `/mock` subpaths only (never the FeedbackOps origin slot).
+// The other carve-outs see mock-server only.
+const APP_CONFORMANCE_FILE = 'src/server-conformance.test.ts';
+const APP_CARVEOUT_FILES = ['src/main.tsx', APP_CONFORMANCE_FILE, 'src/dev/**/*.{ts,tsx}', 'src/published-metrics.test.ts'];
 
 // Composition-root-only menu subpaths: the FeedbackOps origin slot and each menu's exact `/mock`
 // export are available from src/main.tsx ONLY. Every other menu subpath, any `*/src` import, and every
@@ -25,7 +26,8 @@ const APP_CARVEOUT_FILES = [...APP_MAIN_FILES, 'src/dev/**/*.{ts,tsx}', 'src/pub
 // NOTE: the gitignore-style `*` in `menu-*/mock` also matches an empty name (no way to say
 // "one or more" here), so a `menu-/mock` source is not rejected on this side; the dynamic-import
 // side (import-source.js) uses `[^/]+` for the same pattern.
-const MENU_SUBPATH_ALLOW = ['menu-notice-voc/feedbackops-origin', 'menu-*/mock'];
+const MENU_MOCK_SUBPATH = 'menu-*/mock';
+const MENU_SUBPATH_ALLOW = ['menu-notice-voc/feedbackops-origin', MENU_MOCK_SUBPATH];
 
 // Restriction data is the single decision source: each layer declares
 // { allow, denyReact, mockAllowed, allowSubpaths } and BOTH import rules are built from it,
@@ -39,6 +41,8 @@ const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, mockAllow
 const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false };
 // src/main.tsx is the composition root: mock-server and the listed menu subpaths are allowed by both import rules.
 const APP_MAIN_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true, allowSubpaths: MENU_SUBPATH_ALLOW };
+// The conformance test: mock-server and the menu `/mock` subpaths, nothing else.
+const APP_CONFORMANCE_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true, allowSubpaths: [MENU_MOCK_SUBPATH] };
 // The other carve-out files keep the mock-server exemption but never the menu-subpath allowance.
 const APP_CARVEOUT_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true };
 
@@ -256,14 +260,21 @@ export const menu = [
 export const app = [
   layerConfig({ restriction: APP_RESTRICTION }),
   {
-    files: APP_MAIN_FILES,
+    files: ['src/main.tsx'],
     rules: {
       'no-restricted-imports': importRestrictions(APP_MAIN_RESTRICTION),
       'ap/restricted-import-source': ['error', importSourceOptions(APP_MAIN_RESTRICTION)],
     },
   },
   {
-    files: APP_CARVEOUT_FILES.filter((f) => !APP_MAIN_FILES.includes(f)),
+    files: [APP_CONFORMANCE_FILE],
+    rules: {
+      'no-restricted-imports': importRestrictions(APP_CONFORMANCE_RESTRICTION),
+      'ap/restricted-import-source': ['error', importSourceOptions(APP_CONFORMANCE_RESTRICTION)],
+    },
+  },
+  {
+    files: APP_CARVEOUT_FILES.filter((f) => f !== 'src/main.tsx' && f !== APP_CONFORMANCE_FILE),
     rules: {
       'no-restricted-imports': importRestrictions(APP_CARVEOUT_RESTRICTION),
       'ap/restricted-import-source': ['error', importSourceOptions(APP_CARVEOUT_RESTRICTION)],

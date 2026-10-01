@@ -113,6 +113,10 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: '' },
   { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { createMockAdapter } from '@ap/mock-server';`, rule: '' },
   { file: 'apps/platform-web/src/url-contract.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: 'no-restricted-imports' },
+  // #146 review: the conformance test gets the mock subpaths only — the FeedbackOps origin slot stays main.tsx-only.
+  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `await import('@ap/menu-notice-voc/feedbackops-origin');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `await import('@ap/menu-equipment/mock');`, rule: '' },
   { file: 'apps/platform-web/src/published-metrics.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: 'no-restricted-imports' },
   // #145: the conformance kit is adapter-agnostic — contracts only, never the mock it judges, never React.
   { file: 'packages/server-conformance/src/x.ts', code: `import { x } from '@ap/contracts';`, rule: '' },

@@ -105,20 +105,19 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       run: expectOutcome(send({ ...base, params: { ...c.params, [UNKNOWN_KEY]: 1 } }), 'error', 'params outside paramKeys'),
     });
 
-    const nonApplied = CONTEXT_KEYS.find(key => !applied.includes(key));
-    if (nonApplied) {
+    // Every declared key is its own check: a server that validates only a sampled key must not pass (#146 review).
+    for (const key of CONTEXT_KEYS.filter(k => !applied.includes(k))) {
       checks.push({
-        id: name(`non-applied Context key ${nonApplied} → error`),
+        id: name(`non-applied Context key ${key} → error`),
         mode: 'granted',
-        run: expectOutcome(send({ ...base, context: { ...base.context, [nonApplied]: emptyGlobal[nonApplied] } }), 'error', 'a key the endpoint does not apply (Q3)'),
+        run: expectOutcome(send({ ...base, context: { ...base.context, [key]: emptyGlobal[key] } }), 'error', 'a key the endpoint does not apply (Q3)'),
       });
     }
-    if (applied.length > 0) {
-      const dropped = applied[applied.length - 1];
+    for (const key of applied) {
       const context = { ...base.context };
-      delete context[dropped];
+      delete context[key];
       checks.push({
-        id: name(`missing applied Context key ${dropped} → error`),
+        id: name(`missing applied Context key ${key} → error`),
         mode: 'granted',
         run: expectOutcome(send({ ...base, context }), 'error', 'an applied key absent from the request (Q9)'),
       });
@@ -149,8 +148,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
         run: expectOutcome(send({ ...base, context: { ...base.context, scopeId: null } }), 'forbidden', 'a Scope-requiring endpoint has no site to read'),
       });
     }
-    const emptySet = SET_KEYS.find(key => applied.includes(key));
-    if (emptySet) {
+    for (const emptySet of SET_KEYS.filter(key => applied.includes(key))) {
       checks.push({
         id: name(`explicit empty ${emptySet}: [] → empty with no assessments and no trust`),
         mode: 'granted',
