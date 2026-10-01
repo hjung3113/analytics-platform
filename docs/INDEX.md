@@ -64,6 +64,7 @@
 - [PLATFORM_REQUIREMENTS](../PLATFORM_REQUIREMENTS.md) — 원본 계약에서 파생된 요구·작업·제안 목록. 결정 반영 체크가 구현 완료를 뜻하지 않는다.
 - [HANDOFF](../HANDOFF.md) — 현재 세션 배경과 후속 작업 안내. 역사 기록은 현재 계약·권한을 대체하지 않는다.
 - [CONTEXT](../CONTEXT.md) — 현행 도메인 용어와 관계. [ADR-0005](adr/0005-scope-room-name-line-independent.md)는 room_name 기준 Scope와 독립 Line 축([ADR-0001](adr/0001-scope-hierarchy-site-line-only.md)의 Scope 주장 대체), [ADR-0002](adr/0002-stgroup-materializes-to-equipment-ids.md)는 Equipment Group Condition/Selection 두 층, [ADR-0004](adr/0004-site-is-db-partition-not-column.md)는 Site DB 경계·전역 유일 EquipmentID의 근거다. 전역 소비 계약은 06을 따른다.
+- 기술 결정 ADR: [ADR-0006](adr/0006-grid-free-first-engine-hidden-from-menus.md) 그리드·차트 도구는 무료로 시작하고 표 엔진은 메뉴에 드러내지 않는다(유료 전환 경로·2026-10-02 범위), [ADR-0007](adr/0007-perspective-browser-engine-only.md) 자유 피벗 엔진은 브라우저 안에서만(서버 판정 우회 금지).
 
 ## 원본
 
