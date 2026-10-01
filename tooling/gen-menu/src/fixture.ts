@@ -23,9 +23,14 @@ export function runCli(args: string[], root: string): CliResult {
   return { status: res.status ?? -1, stdout: res.stdout ?? '', stderr: res.stderr ?? '' };
 }
 
-/** The three files the generator edits, as a path → bytes snapshot. */
+/** The four files the generator edits, as a path → bytes snapshot. */
 export function appSnapshot(root: string): Record<string, string> {
-  const paths = ['apps/platform-web/src/menus.ts', 'apps/platform-web/src/style.css', 'apps/platform-web/package.json'];
+  const paths = [
+    'apps/platform-web/src/menus.ts',
+    'apps/platform-web/src/main.tsx',
+    'apps/platform-web/src/style.css',
+    'apps/platform-web/package.json',
+  ];
   return Object.fromEntries(paths.map(p => [p, readFileSync(join(root, p), 'utf8')]));
 }
 
@@ -91,6 +96,25 @@ export const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: 
 /** The fixture menus.ts text, for marker-mutation variants. */
 export const fixtureMenusTs = (): string => fixtureMenusTsText([]);
 
+const mainTsx = `import { registry } from './menus';
+import { createMockAdapter } from '${PACKAGE_PREFIX}mock-server';
+// <gen:menu-mock-imports>
+import { analyticsMock } from '${PACKAGE_PREFIX}menu-analytics/mock';
+// </gen:menu-mock-imports>
+
+const adapter = createMockAdapter({
+  endpoints: [
+    // <gen:menu-mock-spreads>
+    ...analyticsMock,
+    // </gen:menu-mock-spreads>
+  ],
+  registry,
+});
+`;
+
+/** The fixture main.tsx text, for marker-mutation variants. */
+export const fixtureMainTsx = (): string => mainTsx;
+
 const styleCss = `@import "tailwindcss";
 /* <gen:menu-styles> */
 @import "${PACKAGE_PREFIX}menu-home/styles.css";
@@ -113,13 +137,14 @@ const existingMenuIndex = `export const manifests = [
 `;
 
 /** Temp workspace with genProbe already in GroupId and GROUPS, markers, and one existing menu. */
-export function makeFixture(variants: { menusTs?: string; appPkg?: string; extraGroups?: string[]; existingMenuIndex?: string } = {}): string {
+export function makeFixture(variants: { menusTs?: string; appPkg?: string; extraGroups?: string[]; existingMenuIndex?: string; mainTsx?: string } = {}): string {
   const root = mkdtempSync(join(tmpdir(), 'gen-menu-test-'));
   writeFileSync(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - apps/*\n  - packages/*\n  - menus/*\n  - tooling/*\n');
   mkdirSync(join(root, 'packages/contracts/src'), { recursive: true });
   writeFileSync(join(root, 'packages/contracts/src/menu.ts'), `${fixtureGroupIdLine(variants.extraGroups ?? [])}\n`);
   mkdirSync(join(root, 'apps/platform-web/src'), { recursive: true });
   writeFileSync(join(root, 'apps/platform-web/src/menus.ts'), variants.menusTs ?? fixtureMenusTsText(variants.extraGroups ?? []));
+  writeFileSync(join(root, 'apps/platform-web/src/main.tsx'), variants.mainTsx ?? mainTsx);
   writeFileSync(join(root, 'apps/platform-web/src/style.css'), styleCss);
   writeFileSync(join(root, 'apps/platform-web/package.json'), variants.appPkg ?? appPkg);
   mkdirSync(join(root, 'menus/metric-catalog/src'), { recursive: true });

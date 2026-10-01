@@ -24,7 +24,7 @@ Registry 7개 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가
 
 ## 새 그룹 패키지
 
-새 그룹은 사람이 먼저 `GroupId` 리터럴(`packages/contracts/src/menu.ts`)과 `GROUPS` 행(라벨·아이콘·공간 `space` — 06 §9.1, `apps/platform-web/src/menus.ts`)을 추가한 뒤 `pnpm gen:menu <group> --label-ko … --label-en …`을 돌리고 `pnpm install`한다. 결과는 스켈레톤이지 Domain Done이 아니므로, 이후 화면 작업은 별도 요청·검증(06 §29)으로 진행한다. 실제 메뉴를 여러 개 한 번에 생성하지 않는다. `overview`는 `menus/home`이 그대로 소유한다.
+새 그룹은 사람이 먼저 `GroupId` 리터럴(`packages/contracts/src/menu.ts`)과 `GROUPS` 행(라벨·아이콘·공간 `space` — 06 §9.1, `apps/platform-web/src/menus.ts`)을 추가한 뒤 `pnpm gen:menu <group> --label-ko … --label-en …`을 돌리고 `pnpm install`한다. 생성 패키지는 menu-query 패턴으로 시작한다(#126) — `src/endpoints.ts`(표본 엔드포인트 1개, manifest와 같은 권한), `src/mock/index.ts`(`./mock` export), 페이지의 `useMenuQuery` 호출, `main.tsx` 마커 영역의 mock 등록. `src/api.ts`/`serve`는 더 이상 생성되지 않는다. 결과는 스켈레톤이지 Domain Done이 아니므로, 이후 화면 작업은 별도 요청·검증(06 §29)으로 진행한다. 실제 메뉴를 여러 개 한 번에 생성하지 않는다. `overview`는 `menus/home`이 그대로 소유한다.
 
 ## 검증
 

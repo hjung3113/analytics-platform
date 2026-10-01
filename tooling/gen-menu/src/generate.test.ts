@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
+import ts from 'typescript';
 import { PACKAGE_PREFIX } from './prefix.ts';
-import { APP_PKG, MENUS_TS, STYLE_CSS, editSummary } from './generate.ts';
-import { PAGE_TYPES, depLine, importLine, renderFiles, slotsLiteral, spreadLine, styleLine, type MenuInputs } from './templates.ts';
+import { APP_PKG, MAIN_TSX, MENUS_TS, STYLE_CSS, editSummary } from './generate.ts';
+import { PAGE_TYPES, depLine, importLine, mockImportLine, mockSpreadLine, renderFiles, slotsLiteral, spreadLine, styleLine, type MenuInputs } from './templates.ts';
 import { FIXTURE_FOLDER, FIXTURE_GROUP, GEN_ARGS, appSnapshot, makeFixture, menusTree, removeFixture, runCli } from './fixture.ts';
 
 const INPUTS: MenuInputs = {
@@ -19,13 +20,53 @@ const INPUTS: MenuInputs = {
 };
 
 describe('scaffold permission (#47)', () => {
-  it('the sample page requests with the permission its manifest declares', () => {
+  it('the sample endpoint ACL uses the permission its manifest declares', () => {
     const files = renderFiles(INPUTS);
     const index = files.find(f => f.relPath === 'src/index.ts')!.content;
-    const page = files.find(f => f.relPath.startsWith('src/pages/'))!.content;
+    const endpoints = files.find(f => f.relPath === 'src/endpoints.ts')!.content;
     const declared = /permission: '([^']+)'/.exec(index)?.[1];
     expect(declared).toBeTruthy();
-    expect(page).toMatch(new RegExp(`serve\\(\\{[\\s\\S]*permission: '${declared}'`));
+    expect(endpoints).toMatch(new RegExp(`permission: '${declared}'`));
+  });
+});
+
+describe('menu-query scaffold (#126)', () => {
+  it('generates src/endpoints.ts and src/mock/index.ts instead of src/api.ts', () => {
+    const paths = renderFiles(INPUTS).map(f => f.relPath);
+    expect(paths, paths.join('\n')).not.toContain('src/api.ts');
+    expect(paths).toContain('src/endpoints.ts');
+    expect(paths).toContain('src/mock/index.ts');
+  });
+
+  it('exports ./mock and the page queries via useMenuQuery, not serve', () => {
+    const files = renderFiles(INPUTS);
+    const pkg = JSON.parse(files.find(f => f.relPath === 'package.json')!.content) as { exports: Record<string, string> };
+    expect(pkg.exports['./mock']).toBe('./src/mock/index.ts');
+    const endpoints = files.find(f => f.relPath === 'src/endpoints.ts')!.content;
+    expect(endpoints).toContain(`id: '${INPUTS.group}.sample'`);
+    expect(endpoints).toContain(`menuId: '${INPUTS.menuId}'`);
+    const mock = files.find(f => f.relPath === 'src/mock/index.ts')!.content;
+    expect(mock).toContain(`export const ${INPUTS.group}Mock`);
+    const page = files.find(f => f.relPath.startsWith('src/pages/'))!.content;
+    expect(page).toContain('useMenuQuery(sampleEndpoint, {})');
+    expect(page).not.toContain('serve');
+  });
+
+  it('generated files import exactly the lint-clean surface (boundaries.test.ts pins the same rows)', () => {
+    const specifiersOf = (code: string, fileName: string): string[] => {
+      const sf = ts.createSourceFile(fileName, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+      return sf.statements
+        .filter(ts.isImportDeclaration)
+        .map(stmt => (stmt.moduleSpecifier as ts.StringLiteral).text)
+        .sort();
+    };
+    const files = renderFiles(INPUTS);
+    expect(specifiersOf(files.find(f => f.relPath === 'src/endpoints.ts')!.content, 'endpoints.ts'))
+      .toEqual([`${PACKAGE_PREFIX}contracts`]);
+    expect(specifiersOf(files.find(f => f.relPath === 'src/mock/index.ts')!.content, 'index.ts'))
+      .toEqual(['../endpoints', `${PACKAGE_PREFIX}mock-server`]);
+    expect(specifiersOf(files.find(f => f.relPath.startsWith('src/pages/'))!.content, 'page.tsx'))
+      .toEqual(['../endpoints', `${PACKAGE_PREFIX}components`, `${PACKAGE_PREFIX}kernel`]);
   });
 });
 
@@ -66,7 +107,7 @@ describe('generate in a temp workspace', () => {
   const keep: string[] = [];
   afterAll(() => { for (const root of keep) removeFixture(root); });
 
-  it('writes the file set and the four edits, bytes equal the templates', () => {
+  it('writes the file set and the six edits, bytes equal the templates', () => {
     const root = makeFixture();
     keep.push(root);
     const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
@@ -88,6 +129,12 @@ describe('generate in a temp workspace', () => {
     const menusLines = readFileSync(join(root, MENUS_TS), 'utf8').split('\n');
     expect(menusLines[menusLines.findIndex(l => l.trim() === '// </gen:menu-imports>') - 1]).toBe(importLine(INPUTS));
     expect(menusLines[menusLines.findIndex(l => l.trim() === '// </gen:menu-spreads>') - 1]).toBe(spreadLine(INPUTS));
+    const mainLines = readFileSync(join(root, MAIN_TSX), 'utf8').split('\n');
+    expect(mainLines[mainLines.findIndex(l => l.trim() === '// <gen:menu-mock-imports>') + 1]).toBe(
+      `import { analyticsMock } from '${PACKAGE_PREFIX}menu-analytics/mock';`,
+    );
+    expect(mainLines[mainLines.findIndex(l => l.trim() === '// </gen:menu-mock-imports>') - 1]).toBe(mockImportLine(INPUTS));
+    expect(mainLines[mainLines.findIndex(l => l.trim() === '// </gen:menu-mock-spreads>') - 1]).toBe(mockSpreadLine(INPUTS));
     const cssLines = readFileSync(join(root, STYLE_CSS), 'utf8').split('\n');
     expect(cssLines[cssLines.indexOf('/* </gen:menu-styles> */') - 1]).toBe(styleLine(INPUTS));
     const pkgLines = readFileSync(join(root, APP_PKG), 'utf8').split('\n');

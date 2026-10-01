@@ -4,7 +4,7 @@
 
 ## 폴더
 
-- `src/main.tsx` — `I18nProvider` → `PlatformProvider adapter registry slots` → `AppShell` + `RouteOutlet`. 조립만 한다. 메뉴 mock 엔드포인트도 여기서 등록한다 — `@ap/menu-analytics/mock`의 `analyticsMock`을 `createMockAdapter({ endpoints, registry })`에 전달한다(#114; 메뉴가 늘어나면 같은 자리에 spread).
+- `src/main.tsx` — `I18nProvider` → `PlatformProvider adapter registry slots` → `AppShell` + `RouteOutlet`. 조립만 한다. 메뉴 mock 엔드포인트도 여기서 등록한다 — 각 메뉴의 `@ap/menu-<g>/mock`가 내보내는 `<g>Mock` 배열을 `createMockAdapter({ endpoints, registry })`에 spread한다(#114, #126). `/mock` import와 `endpoints` spread는 `// <gen:menu-mock-imports>`·`// <gen:menu-mock-spreads>` 마커 영역으로 `pnpm gen:menu`가 쓴다(analytics mock도 같은 영역에 들어 있다) — 등록 자체는 손으로 쓰지 않고, 영역 밖 배선은 손으로 쓴다.
 - `src/menus.ts` — IA 공간(`SPACES`)·그룹(`GROUPS`, 행마다 `space`)과 7개 `@ap/menu-*` 패키지 `manifests`의 연결(`MENUS`), `createRegistry` 호출. 화면 lazy import는 각 메뉴 패키지가 소유한다. 패키지 연결(import·spread)은 `gen:menu` 마커 영역이며 `pnpm gen:menu`가 쓴다 — `SPACES`·`GROUPS`는 손으로 쓴다.
 - 메뉴 화면과 그 화면 전용 합성 데이터(`data.ts`)는 `menus/<group>/src/pages/`에 있다(이행한 화면의 계산은 `src/mock/`).
 - 서버 대역은 `packages/mock-server`(`@ap/mock-server`). 앱에 남는 것은 `main.tsx`의 `createMockAdapter({ endpoints, registry })` 결과 주입, `src/dev/DevTools.tsx`, 그리고 실제 Registry가 필요한 통합 테스트다: `src/url-contract.test.ts`·`src/return-to.test.ts`, 그리고 `published-metrics`의 kernel `classifyMetricInit`+mock 부분을 남긴 `src/published-metrics.test.ts`(`jobs-population`은 `@ap/menu-analytics`로, `published-metrics`의 발행 포인터 비교는 `@ap/menu-metrics`, 페이지 기본 버전 검증은 `@ap/menu-analytics`로 이동).

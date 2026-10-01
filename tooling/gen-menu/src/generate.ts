@@ -3,8 +3,8 @@ import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import {
-  depLine, importLine, menuPackage, pageImportedIdentifiers, renderFiles, spreadLine, styleLine,
-  PAGE_TYPES, type MenuInputs, type PageType,
+  depLine, importLine, menuPackage, mockImportLine, mockSpreadLine, pageImportedIdentifiers, renderFiles,
+  spreadLine, styleLine, PAGE_TYPES, type MenuInputs, type PageType,
 } from './templates.ts';
 import { writeAppFile } from './app-write.ts';
 
@@ -29,6 +29,7 @@ const RESERVED_WORDS: Record<string, true> = {
 };
 
 export const MENUS_TS = 'apps/platform-web/src/menus.ts';
+export const MAIN_TSX = 'apps/platform-web/src/main.tsx';
 export const STYLE_CSS = 'apps/platform-web/src/style.css';
 export const APP_PKG = 'apps/platform-web/package.json';
 const CONTRACTS_MENU = 'packages/contracts/src/menu.ts';
@@ -38,6 +39,10 @@ export const IMPORT_END = '// </gen:menu-imports>';
 export const GROUPS_END = '// </gen:menu-groups>';
 export const SPREADS_START = '// <gen:menu-spreads>';
 export const SPREADS_END = '// </gen:menu-spreads>';
+export const MOCK_IMPORTS_START = '// <gen:menu-mock-imports>';
+export const MOCK_IMPORTS_END = '// </gen:menu-mock-imports>';
+export const MOCK_SPREADS_START = '// <gen:menu-mock-spreads>';
+export const MOCK_SPREADS_END = '// </gen:menu-mock-spreads>';
 export const STYLES_START = '/* <gen:menu-styles> */';
 export const STYLES_END = '/* </gen:menu-styles> */';
 
@@ -147,9 +152,13 @@ function menuManifests(root: string): { folder: string; entries: ManifestEntry[]
   return result;
 }
 
-/** F5: every binding name a top-level declaration in menus.ts introduces (imports included). */
-export function appTopLevelBindings(menusText: string): Set<string> {
-  const sf = ts.createSourceFile(MENUS_TS, menusText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+/** F5: every binding name a top-level declaration in an app file introduces (imports included). */
+export function appTopLevelBindings(
+  text: string,
+  fileName = MENUS_TS,
+  kind: ts.ScriptKind = ts.ScriptKind.TS,
+): Set<string> {
+  const sf = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true, kind);
   const names = new Set<string>();
   const add = (name: ts.Identifier | undefined): void => {
     if (name !== undefined) names.add(name.text);
@@ -181,12 +190,12 @@ export function appTopLevelBindings(menusText: string): Set<string> {
 
 const bracesIn = (line: string): number => (line.match(/\{/g)?.length ?? 0) - (line.match(/\}/g)?.length ?? 0);
 
-/** F7: the import marker region may only contain import statements and comments. */
-function assertImportsOnly(menusText: string): void {
-  const lines = menusText.split('\n');
-  const s = lines.findIndex(l => l.trim() === IMPORT_START);
-  const e = lines.findIndex(l => l.trim() === IMPORT_END);
-  if (s === -1 || e === -1 || e <= s) throw new GenMenuError(`import markers missing or out of order in ${MENUS_TS}`);
+/** F7: an import marker region may only contain import statements and comments. */
+function assertImportsOnly(text: string, start: string, end: string, file: string): void {
+  const lines = text.split('\n');
+  const s = lines.findIndex(l => l.trim() === start);
+  const e = lines.findIndex(l => l.trim() === end);
+  if (s === -1 || e === -1 || e <= s) throw new GenMenuError(`import markers missing or out of order in ${file}`);
   let depth = 0;
   for (let i = s + 1; i < e; i++) {
     const line = (lines[i] as string).trim();
@@ -199,9 +208,9 @@ function assertImportsOnly(menusText: string): void {
       depth += bracesIn(line);
       continue;
     }
-    throw new GenMenuError(`${MENUS_TS} import marker region contains a non-import line: '${line}'`);
+    throw new GenMenuError(`${file} import marker region contains a non-import line: '${line}'`);
   }
-  if (depth !== 0) throw new GenMenuError(`${MENUS_TS} import marker region has an unterminated import`);
+  if (depth !== 0) throw new GenMenuError(`${file} import marker region has an unterminated import`);
 }
 
 /** F7: the marker comment must sit inside the named top-level array literal. */
@@ -222,15 +231,42 @@ function assertMarkerInsideArray(menusText: string, arrayName: string, marker: s
   throw new GenMenuError(`'${arrayName}' array literal not found in ${MENUS_TS}`);
 }
 
+/** F7: the marker comment must sit inside the `endpoints` array of the createMockAdapter call. */
+function assertMarkerInsideEndpointsArray(mainText: string, marker: string): void {
+  const sf = ts.createSourceFile(MAIN_TSX, mainText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const walk = (node: ts.Node): boolean => {
+    if (
+      ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'createMockAdapter'
+      && node.arguments[0] !== undefined && ts.isObjectLiteralExpression(node.arguments[0])
+    ) {
+      for (const prop of node.arguments[0].properties) {
+        if (
+          ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name) && prop.name.text === 'endpoints'
+          && ts.isArrayLiteralExpression(prop.initializer)
+        ) {
+          const at = mainText.indexOf(marker);
+          if (prop.initializer.getStart(sf) < at && at < prop.initializer.getEnd()) return true;
+          throw new GenMenuError(`marker '${marker}' is not inside the createMockAdapter endpoints array in ${MAIN_TSX}`);
+        }
+      }
+    }
+    return node.getChildren(sf).some(walk);
+  };
+  if (!walk(sf)) throw new GenMenuError(`createMockAdapter({ endpoints: [...] }) not found in ${MAIN_TSX}`);
+}
+
 /** F7: every marker appears exactly once, pairs are ordered, and each pair sits in its right context. */
-export function checkAppMarkers(menusText: string, styleText: string): void {
+export function checkAppMarkers(menusText: string, styleText: string, mainText: string): void {
+  const texts: Record<string, string> = { [MENUS_TS]: menusText, [STYLE_CSS]: styleText, [MAIN_TSX]: mainText };
   const pairs: [string, string, string][] = [
     [IMPORT_START, IMPORT_END, MENUS_TS],
     [SPREADS_START, SPREADS_END, MENUS_TS],
     [STYLES_START, STYLES_END, STYLE_CSS],
+    [MOCK_IMPORTS_START, MOCK_IMPORTS_END, MAIN_TSX],
+    [MOCK_SPREADS_START, MOCK_SPREADS_END, MAIN_TSX],
   ];
   for (const [start, end, file] of pairs) {
-    const text = file === MENUS_TS ? menusText : styleText;
+    const text = texts[file] as string;
     for (const marker of [start, end]) {
       const count = standaloneMarkerPositions(text, marker).length;
       if (count !== 1) throw new GenMenuError(`missing marker '${marker}' in ${file} (found ${count} standalone occurrences, expected exactly once)`);
@@ -245,7 +281,10 @@ export function checkAppMarkers(menusText: string, styleText: string): void {
   if (groupsCount !== 1) throw new GenMenuError(`missing marker '${GROUPS_END}' in ${MENUS_TS} (found ${groupsCount} standalone occurrences, expected exactly once)`);
   assertMarkerInsideArray(menusText, 'GROUPS', GROUPS_END);
   assertMarkerInsideArray(menusText, 'MENUS', SPREADS_END);
-  assertImportsOnly(menusText);
+  assertImportsOnly(menusText, IMPORT_START, IMPORT_END, MENUS_TS);
+  assertImportsOnly(mainText, MOCK_IMPORTS_START, MOCK_IMPORTS_END, MAIN_TSX);
+  assertMarkerInsideEndpointsArray(mainText, MOCK_SPREADS_START);
+  assertMarkerInsideEndpointsArray(mainText, MOCK_SPREADS_END);
 }
 
 /**
@@ -344,6 +383,43 @@ function assertActiveWiring(menusEdit: string, binding: string, pkgName: string)
   if (!spreadActive) throw new GenMenuError(`proposed ${MENUS_TS} has no active spread of '${binding}' inside MENUS — refusing to write`);
 }
 
+/** R3: the proposed main.tsx must wire the mock binding actively, not just parse. */
+function assertActiveMockWiring(mainEdit: string, binding: string, pkgName: string): void {
+  const sf = ts.createSourceFile(MAIN_TSX, mainEdit, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let importActive = false;
+  let spreadActive = false;
+  const walk = (node: ts.Node): void => {
+    if (
+      ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'createMockAdapter'
+      && node.arguments[0] !== undefined && ts.isObjectLiteralExpression(node.arguments[0])
+    ) {
+      for (const prop of node.arguments[0].properties) {
+        if (
+          ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name) && prop.name.text === 'endpoints'
+          && ts.isArrayLiteralExpression(prop.initializer)
+        ) {
+          for (const element of prop.initializer.elements) {
+            if (ts.isSpreadElement(element) && ts.isIdentifier(element.expression) && element.expression.text === binding) {
+              spreadActive = true;
+            }
+          }
+        }
+      }
+    }
+    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) && node.moduleSpecifier.text === pkgName) {
+      const clause = node.importClause;
+      if (clause?.namedBindings !== undefined && ts.isNamedImports(clause.namedBindings)) {
+        for (const el of clause.namedBindings.elements) {
+          if (el.name.text === binding) importActive = true;
+        }
+      }
+    }
+    node.getChildren(sf).forEach(walk);
+  };
+  walk(sf);
+  if (!importActive) throw new GenMenuError(`proposed ${MAIN_TSX} has no active import of '${binding}' from '${pkgName}' — refusing to write`);
+  if (!spreadActive) throw new GenMenuError(`proposed ${MAIN_TSX} has no active spread of '${binding}' inside the createMockAdapter endpoints array — refusing to write`);
+}
 
 function insertAbove(text: string, marker: string, line: string): string {
   const { lines, eol } = splitLines(text);
@@ -521,14 +597,15 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
   const realRoot = realpathSync(root);
   checkInsideRoot(realRoot, join(root, 'menus'), 'menus/');
   checkInsideRoot(realRoot, join(root, 'menus', folder), `menus/${folder}`);
-  for (const rel of [MENUS_TS, STYLE_CSS, APP_PKG]) checkInsideRoot(realRoot, join(root, rel), rel);
+  for (const rel of [MENUS_TS, MAIN_TSX, STYLE_CSS, APP_PKG]) checkInsideRoot(realRoot, join(root, rel), rel);
 
   const inputs: MenuInputs = { group, folder, menuId, page, path, pageType: pageType as PageType, labelKo, labelEn, binding };
 
   const menusText = readText(root, MENUS_TS);
   const stylesText = readText(root, STYLE_CSS);
+  const mainText = readText(root, MAIN_TSX);
   // F7: markers must be unique, ordered, and in the right context before planning.
-  checkAppMarkers(menusText, stylesText);
+  checkAppMarkers(menusText, stylesText, mainText);
 
   const groupIdLine = readText(root, CONTRACTS_MENU)
     .split('\n')
@@ -571,6 +648,11 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
   if (appTopLevelBindings(menusText).has(binding)) {
     throw new GenMenuError(`binding '${binding}' is already imported or declared in ${MENUS_TS}`);
   }
+  // F5: the mock binding must not collide with any top-level declaration in the app's main.tsx.
+  const mockBinding = `${group}Mock`;
+  if (appTopLevelBindings(mainText, MAIN_TSX, ts.ScriptKind.TSX).has(mockBinding)) {
+    throw new GenMenuError(`binding '${mockBinding}' is already imported or declared in ${MAIN_TSX}`);
+  }
 
   const appPkgText = readText(root, APP_PKG);
   if (appPkgText.includes(`"${menuPackage(folder)}": "workspace:*"`)) {
@@ -590,6 +672,23 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
   }
   // R3: the wiring must be active code in the proposed AST, not commented-out text.
   assertActiveWiring(menusEdit, binding, menuPackage(folder));
+  const mainEdit = insertAbove(
+    insertAbove(mainText, MOCK_IMPORTS_END, mockImportLine(inputs)),
+    MOCK_SPREADS_END,
+    mockSpreadLine(inputs),
+  );
+  // F7: the proposed main.tsx must parse before anything is written.
+  const mainParsed = ts.transpileModule(mainEdit, {
+    reportDiagnostics: true,
+    fileName: MAIN_TSX,
+    compilerOptions: { jsx: ts.JsxEmit.React },
+  });
+  if (mainParsed.diagnostics !== undefined && mainParsed.diagnostics.length > 0) {
+    const first = mainParsed.diagnostics[0];
+    throw new GenMenuError(`proposed ${MAIN_TSX} does not parse: ${ts.flattenDiagnosticMessageText(first?.messageText, '\n')} — refusing to write`);
+  }
+  // R3: the mock wiring must be active code in the proposed AST, not commented-out text.
+  assertActiveMockWiring(mainEdit, mockBinding, `${menuPackage(folder)}/mock`);
   const stylesEdit = insertAbove(stylesText, STYLES_END, styleLine(inputs));
   const pkgEdit = insertDep(appPkgText, menuPackage(folder));
   // R4: the planned dependency block must stay valid JSON before anything is written.
@@ -606,6 +705,7 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
     packageDir,
     edits: [
       { relPath: MENUS_TS, after: menusEdit },
+      { relPath: MAIN_TSX, after: mainEdit },
       { relPath: STYLE_CSS, after: stylesEdit },
       { relPath: APP_PKG, after: pkgEdit },
     ],
@@ -663,11 +763,13 @@ export function applyGenerate(plan: GeneratePlan): void {
   throw original;
 }
 
-/** The four wiring lines, for stdout. */
+/** The six wiring lines, for stdout. */
 export function editSummary(plan: GeneratePlan): string[] {
   return [
     `${MENUS_TS}: ${importLine(plan.inputs)}`,
     `${MENUS_TS}: ${spreadLine(plan.inputs)}`,
+    `${MAIN_TSX}: ${mockImportLine(plan.inputs)}`,
+    `${MAIN_TSX}: ${mockSpreadLine(plan.inputs)}`,
     `${STYLE_CSS}: ${styleLine(plan.inputs)}`,
     `${APP_PKG}: ${depLine(plan.inputs)}`,
   ];

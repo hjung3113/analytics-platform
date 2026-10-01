@@ -35,4 +35,13 @@ describe('binding safety (F5)', () => {
       expect(appSnapshot(root)).toEqual(before);
     }
   });
+
+  it('rejects a mock binding colliding with an existing top-level declaration in main.tsx', () => {
+    const root = fresh(['analytics']);
+    const before = appSnapshot(root);
+    const res = runCli(['analytics', ...GEN_ARGS], root);
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/binding 'analyticsMock' is already imported or declared in apps\/platform-web\/src\/main.tsx/);
+    expect(appSnapshot(root)).toEqual(before);
+  });
 });
