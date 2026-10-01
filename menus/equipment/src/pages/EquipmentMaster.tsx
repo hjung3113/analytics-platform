@@ -1,8 +1,7 @@
 import { useMemo } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
 import { PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { equipmentListEndpoint, equipmentPageEndpoint, type Equipment } from '../endpoints';
-import { DetailDrawer, PlatformDataTable, PlatformPage, QueryView, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
+import { DetailDrawer, type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
 import { Button } from '@ap/ui';
 import { EquipmentPanel, EquipmentStatus } from './EquipmentDetail';
 import { downloadCsv, fields, sortFields, statusText } from './data';
@@ -26,9 +25,9 @@ export default function EquipmentMaster() {
   const pages = useMenuFetch(equipmentPageEndpoint);
   const list = useMenuFetch(equipmentListEndpoint);
   // A global-Context change clears `page` in the kernel (manifest contextResetKeys); pages write no reset effect.
-  const columns = useMemo<ColumnDef<Equipment>[]>(() => fields.map(f => ({
-    accessorKey: f.key, header: f[lang], size: ['validFrom', 'validTo', 'updatedAt'].includes(f.key) ? 188 : f.key === 'name' ? 220 : f.key === 'equipmentId' ? 184 : 128,
-    cell: ({ row }) => f.key === 'status' ? <EquipmentStatus equipment={row.original} /> : <span className={f.key === 'equipmentId' ? 't-mono' : f.key.includes('At') || f.key.startsWith('valid') ? 'tabular' : ''}>{row.original[f.key] ?? '—'}</span>,
+  const columns = useMemo<PlatformColumn<Equipment>[]>(() => fields.map(f => ({
+    id: f.key, header: f[lang], size: ['validFrom', 'validTo', 'updatedAt'].includes(f.key) ? 188 : f.key === 'name' ? 220 : f.key === 'equipmentId' ? 184 : 128,
+    cell: row => f.key === 'status' ? <EquipmentStatus equipment={row} /> : <span className={f.key === 'equipmentId' ? 't-mono' : f.key.includes('At') || f.key.startsWith('valid') ? 'tabular' : ''}>{row[f.key] ?? '—'}</span>,
   })), [lang]);
   const control = 'h-8 rounded-sm border border-border-control bg-surface-card px-2 text-[12px] focus-visible:outline-2 focus-visible:outline-focus-ring';
   const clear = <Button size="sm" variant="secondary" onClick={() => setPage({ q: null, status: null, maker: null, page: null })}>{ko ? '페이지 필터 초기화' : 'Clear page filters'}</Button>;

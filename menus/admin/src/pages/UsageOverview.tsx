@@ -1,8 +1,7 @@
 import { useMemo } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
-import { type Text, type UsageSummary } from '@ap/contracts';
+import { type UsageSummary } from '@ap/contracts';
 import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { encodeTableSort, parsePageIndex, parseTableSort, PlatformDataTable, PlatformPage, QueryView, sortAndPage } from '@ap/components';
+import { type PlatformColumn, encodeTableSort, parsePageIndex, parseTableSort, PlatformDataTable, PlatformPage, QueryView, sortAndPage } from '@ap/components';
 import { Button } from '@ap/ui';
 import { formatLastUsed, joinUsageRows, type UsageRow } from '../usage-rows';
 
@@ -22,15 +21,15 @@ export default function UsageOverview() {
   const parsedSort = parseTableSort(pageParam('sort'), SORT_FIELDS);
   const parsedPage = parsePageIndex(pageParam('page'));
   const tableInvalid = !parsedSort.ok || !parsedPage.ok;
-  const columns = useMemo<ColumnDef<UsageRow>[]>(() => [
-    { accessorKey: 'id', header: ko ? '메뉴 ID' : 'Menu ID', cell: info => <span className="t-mono">{String(info.getValue())}</span> },
-    { accessorKey: 'label', header: ko ? '메뉴' : 'Menu', enableSorting: false, cell: info => (info.getValue() as Text)[lang] },
-    { accessorKey: 'spaceId', header: ko ? '공간' : 'Space' },
-    { accessorKey: 'visits', header: ko ? '방문' : 'Visits', meta: { align: 'right' } },
-    { accessorKey: 'distinctUsers', header: ko ? '방문 사용자' : 'Distinct users', meta: { align: 'right' } },
+  const columns = useMemo<PlatformColumn<UsageRow>[]>(() => [
+    { id: 'id', header: ko ? '메뉴 ID' : 'Menu ID', cell: row => <span className="t-mono">{String(row.id)}</span> },
+    { id: 'label', header: ko ? '메뉴' : 'Menu', sortable: false, cell: row => row.label[lang] },
+    { id: 'spaceId', header: ko ? '공간' : 'Space' },
+    { id: 'visits', header: ko ? '방문' : 'Visits', align: 'right' },
+    { id: 'distinctUsers', header: ko ? '방문 사용자' : 'Distinct users', align: 'right' },
     {
-      accessorKey: 'lastUsedAt', header: ko ? '마지막 사용' : 'Last used', meta: { align: 'right' },
-      cell: info => formatLastUsed(info.getValue() as number | null, lang),
+      id: 'lastUsedAt', header: ko ? '마지막 사용' : 'Last used', align: 'right',
+      cell: row => formatLastUsed(row.lastUsedAt, lang),
     },
   ], [ko, lang]);
   return <PlatformPage description={ko ? '메뉴 진입·체류 이벤트의 집계입니다. v1은 식별 필드만 수집합니다(#75 결정 대기).' : 'Aggregates of menu entry and dwell events. v1 collects identity fields only (#75 pending).'}>

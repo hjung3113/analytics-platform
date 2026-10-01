@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
 import { PERMISSIONS, type AccessPrincipal, type AccessSortField } from '@ap/contracts';
 import { useI18n, usePlatform } from '@ap/kernel';
-import { DetailDrawer, PlatformDataTable, PlatformPage, encodeTableSort } from '@ap/components';
+import { DetailDrawer, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { grantTotals, menusForPermissions } from '../access-rows';
 import { ACCESS_PAGE_KEYS, parseAccessKeys } from '../access-query';
@@ -58,21 +57,21 @@ export default function AccessDirectory() {
       {parsed.ok && clear}
     </fieldset>
   </form>;
-  const columns = useMemo<ColumnDef<AccessPrincipal>[]>(() => [
-    { accessorKey: 'name', header: ko ? '이름' : 'Name', cell: info => <span className="t-mono">{String(info.getValue())}</span> },
-    { accessorKey: 'role', header: ko ? '역할' : 'Role', cell: info => mono(info.getValue()) },
-    { id: 'title', header: ko ? '직책' : 'Title', enableSorting: false, accessorFn: row => row.title[lang] },
-    { id: 'permissionCount', header: ko ? '권한 수' : 'Permissions', accessorFn: row => row.permissions.length },
+  const columns = useMemo<PlatformColumn<AccessPrincipal>[]>(() => [
+    { id: 'name', header: ko ? '이름' : 'Name', cell: row => <span className="t-mono">{String(row.name)}</span> },
+    { id: 'role', header: ko ? '역할' : 'Role', cell: row => mono(row.role) },
+    { id: 'title', header: ko ? '직책' : 'Title', sortable: false, value: row => row.title[lang] },
+    { id: 'permissionCount', header: ko ? '권한 수' : 'Permissions', value: row => row.permissions.length },
     {
       id: 'grantCount',
       header: ko ? 'room 부여' : 'Room grants',
-      accessorFn: row => grantTotals(row).granted,
-      cell: ({ row }) => {
-        const totals = grantTotals(row.original);
+      value: row => grantTotals(row).granted,
+      cell: row => {
+        const totals = grantTotals(row);
         return <span className="tabular">{totals.granted}/{totals.total}</span>;
       },
     },
-    { id: 'menus', header: ko ? '메뉴' : 'Menus', enableSorting: false, accessorFn: row => menusForPermissions(registry, row.permissions).length },
+    { id: 'menus', header: ko ? '메뉴' : 'Menus', sortable: false, value: row => menusForPermissions(registry, row.permissions).length },
   ], [ko, lang, registry]);
   // The drawer reads the loaded page's rows (the last loadPage result) — no second adapter call for a row.
   // Null until the current page request answered ok or empty: before that, and after forbidden/error/timeout, the page cannot

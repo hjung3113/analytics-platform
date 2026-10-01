@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
 import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
-import { type ColumnMeta, PlatformDataTable, PlatformPage, QueryView, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
+import { type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
 import { Button, Input, StatusBadge } from '@ap/ui';
 import {
   DOMAINS, STATUSES, catalogListEndpoint, catalogPageEndpoint, metricPairEndpoint, sortColumns,
@@ -89,44 +88,40 @@ export default function MetricCatalogPage(_: PageProps) {
   const pages = useMenuFetch(catalogPageEndpoint);
   const list = useMenuFetch(catalogListEndpoint);
 
-  const columns = useMemo<ColumnDef<CatalogRow>[]>(() => [
+  const columns = useMemo<PlatformColumn<CatalogRow>[]>(() => [
     {
-      id: 'metricId', accessorKey: 'metricId', header: 'metricId', size: 200,
-      meta: { label: 'metricId' } satisfies ColumnMeta,
-      cell: ({ row }) => <PlatformLink className="t-mono text-accent-primary hover:underline" href={linkTo('metric-detail', { params: { metricId: row.original.metricId }, page: detailPage(row.original) })}>{row.original.metricId}</PlatformLink>,
+      id: 'metricId', header: 'metricId', size: 200,
+      cell: row => <PlatformLink className="t-mono text-accent-primary hover:underline" href={linkTo('metric-detail', { params: { metricId: row.metricId }, page: detailPage(row) })}>{row.metricId}</PlatformLink>,
     },
     {
-      id: 'nameSort', accessorKey: 'nameSort', header: lang === 'ko' ? '이름' : 'Name', size: 180,
-      cell: ({ row }) => lang === 'ko' ? row.original.nameKo : row.original.nameEn,
+      id: 'nameSort', header: lang === 'ko' ? '이름' : 'Name', size: 180,
+      cell: row => lang === 'ko' ? row.nameKo : row.nameEn,
     },
     {
-      id: 'domain', accessorKey: 'domain', header: lang === 'ko' ? '도메인' : 'Domain', size: 120,
-      cell: ({ row }) => tx(DOMAIN_LABEL[row.original.domain]),
+      id: 'domain', header: lang === 'ko' ? '도메인' : 'Domain', size: 120,
+      cell: row => tx(DOMAIN_LABEL[row.domain]),
     },
-    { id: 'grain', accessorKey: 'grain', header: 'grain', size: 180, cell: ({ row }) => row.original.grain },
+    { id: 'grain', header: 'grain', size: 180, cell: row => row.grain },
     {
-      id: 'numerator', accessorKey: 'numerator', header: lang === 'ko' ? '분자' : 'Numerator', size: 200,
-      meta: { label: lang === 'ko' ? '분자' : 'Numerator' } satisfies ColumnMeta,
-      cell: ({ row }) => <span className="t-mono">{row.original.numerator}</span>,
-    },
-    {
-      id: 'denominator', accessorKey: 'denominator', header: lang === 'ko' ? '분모' : 'Denominator', size: 200,
-      cell: ({ row }) => <span className="t-mono">{row.original.denominator}</span>,
+      id: 'numerator', header: lang === 'ko' ? '분자' : 'Numerator', size: 200,
+      cell: row => <span className="t-mono">{row.numerator}</span>,
     },
     {
-      id: 'publishedPointer', accessorKey: 'publishedPointer', header: lang === 'ko' ? '게시 포인터' : 'Published pointer', size: 130,
-      meta: { align: 'right', label: lang === 'ko' ? '게시 포인터' : 'Published pointer' } satisfies ColumnMeta,
-      cell: ({ row }) => row.original.publishedPointer ? <span className="tabular">v{row.original.publishedPointer}</span> : <span className="text-text-muted">{lang === 'ko' ? '없음' : 'None'}</span>,
+      id: 'denominator', header: lang === 'ko' ? '분모' : 'Denominator', size: 200,
+      cell: row => <span className="t-mono">{row.denominator}</span>,
     },
     {
-      id: 'status', accessorKey: 'status', header: lang === 'ko' ? '상태' : 'Status', size: 110,
-      cell: ({ row }) => <StatusBadge tone={STATUS_TONE[row.original.status]} dot>{tx(STATUS_LABEL[row.original.status])}</StatusBadge>,
+      id: 'publishedPointer', header: lang === 'ko' ? '게시 포인터' : 'Published pointer', size: 130, align: 'right',
+      cell: row => row.publishedPointer ? <span className="tabular">v{row.publishedPointer}</span> : <span className="text-text-muted">{lang === 'ko' ? '없음' : 'None'}</span>,
     },
-    { id: 'owner', accessorKey: 'owner', header: lang === 'ko' ? '정의 책임' : 'Owner', size: 160, cell: ({ row }) => row.original.owner },
     {
-      id: 'updatedAt', accessorKey: 'updatedAt', header: lang === 'ko' ? '수정 시각' : 'Updated', size: 170,
-      meta: { align: 'right', label: lang === 'ko' ? '수정 시각' : 'Updated' } satisfies ColumnMeta,
-      cell: ({ row }) => <time className="tabular" dateTime={row.original.updatedAt}>{row.original.updatedAt.replace('T', ' ').slice(0, 16)}</time>,
+      id: 'status', header: lang === 'ko' ? '상태' : 'Status', size: 110,
+      cell: row => <StatusBadge tone={STATUS_TONE[row.status]} dot>{tx(STATUS_LABEL[row.status])}</StatusBadge>,
+    },
+    { id: 'owner', header: lang === 'ko' ? '정의 책임' : 'Owner', size: 160, cell: row => row.owner },
+    {
+      id: 'updatedAt', header: lang === 'ko' ? '수정 시각' : 'Updated', size: 170, align: 'right',
+      cell: row => <time className="tabular" dateTime={row.updatedAt}>{row.updatedAt.replace('T', ' ').slice(0, 16)}</time>,
     },
   ], [lang, linkTo, tx]);
 

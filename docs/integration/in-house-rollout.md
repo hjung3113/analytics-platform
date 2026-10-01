@@ -113,6 +113,7 @@
 ### 5.3 하지 말 것
 
 - `packages/*`(Kernel·셸·공통 컴포넌트·contracts)를 메뉴 작업 중에 고치지 않는다. 부족하면 이슈로 올려 플랫폼 작업으로 한다.
+- 메뉴는 표 엔진(`@tanstack/react-table`·`react-virtual`·`table-core`·`virtual-core`)을 import하지 않는다 — 열은 `PlatformColumn`으로 선언한다(lint 금지, [README 7번](../../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙)).
 - 메뉴끼리 import하지 않는다. 교차 이동은 `linkTo`뿐, URL 문자열을 직접 만들지 않는다.
 - 새 메뉴 데이터를 위해 `PlatformAdapter` 포트 메서드를 늘리지 않는다 — 엔드포인트 선언으로.
 - 화면이 권한·Scope를 판단하지 않는다(서버가 판정). 0건을 "수집 중단·지연"으로 해석하지 않고, `null`은 0이 아니라 "미확인"이다.

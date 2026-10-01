@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
 import { AlertTriangle, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
 import { periodHours, type Trust } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
-import { AnalysisChartFrame, type ColumnMeta, DataTrustIndicator, type Delta, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage } from '@ap/components';
+import { AnalysisChartFrame, DataTrustIndicator, type Delta, type PlatformColumn, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import {
   CYCLE_VERSION_NOTE, PAGE_METRIC_ID, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint,
@@ -59,28 +58,26 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const exportRowsQuery = useMenuFetch(cycleExportEndpoint);
   const listFilter = { tail: tailMode, granularity, bucket, bin };
 
-  const columns = useMemo<ColumnDef<SlowRow>[]>(() => [
-    { id: 'equipmentId', accessorKey: 'equipmentId', header: 'Equipment', meta: { label: 'Equipment' } satisfies ColumnMeta, cell: ({ getValue }) => <span className="t-mono">{getValue<string>()}</span> },
-    { id: 'room', accessorKey: 'room', header: 'room_name', meta: { label: 'room_name' } satisfies ColumnMeta, cell: ({ getValue }) => <span className="t-mono">{getValue<string>()}</span> },
-    { id: 'recipe', accessorKey: 'recipe', header: 'Recipe', meta: { label: 'Recipe' } satisfies ColumnMeta, cell: ({ getValue }) => <span className="t-mono">{getValue<string>()}</span> },
-    { id: 'lotId', accessorKey: 'lotId', header: 'Lot', meta: { label: 'Lot' } satisfies ColumnMeta, cell: ({ getValue }) => <span className="t-mono">{getValue<string>()}</span> },
-    { id: 'anchor', accessorKey: 'anchor', header: ko ? '시작' : 'Start', meta: { label: ko ? '시작' : 'Start' } satisfies ColumnMeta, cell: ({ getValue }) => <span className="t-mono tabular">{getValue<string>().replace('T', ' ')}</span> },
+  const columns = useMemo<PlatformColumn<SlowRow>[]>(() => [
+    { id: 'equipmentId', header: 'Equipment', cell: row => <span className="t-mono">{row.equipmentId}</span> },
+    { id: 'room', header: 'room_name', cell: row => <span className="t-mono">{row.room}</span> },
+    { id: 'recipe', header: 'Recipe', cell: row => <span className="t-mono">{row.recipe}</span> },
+    { id: 'lotId', header: 'Lot', cell: row => <span className="t-mono">{row.lotId}</span> },
+    { id: 'anchor', header: ko ? '시작' : 'Start', cell: row => <span className="t-mono tabular">{row.anchor.replace('T', ' ')}</span> },
     {
-      id: 'cycleMin', accessorKey: 'cycleMin', header: ko ? '사이클타임 (분)' : 'Cycle time (min)',
-      meta: { align: 'right', label: ko ? '사이클타임 (분)' : 'Cycle time (min)' } satisfies ColumnMeta,
-      cell: ({ getValue }) => <span className="tabular">{formatMin(getValue<number>(), lang)}</span>,
+      id: 'cycleMin', header: ko ? '사이클타임 (분)' : 'Cycle time (min)', align: 'right',
+      cell: row => <span className="tabular">{formatMin(row.cycleMin, lang)}</span>,
     },
     {
-      id: 'delta', accessorKey: 'delta', header: ko ? 'P95 대비' : 'vs P95',
-      meta: { align: 'right', label: ko ? 'P95 대비' : 'vs P95' } satisfies ColumnMeta,
-      cell: ({ getValue }) => {
-        const value = getValue<number | null>();
+      id: 'delta', header: ko ? 'P95 대비' : 'vs P95', align: 'right',
+      cell: row => {
+        const value = row.delta;
         return <span className={value !== null && value > 0 ? 'tabular text-text-danger' : 'tabular text-text-secondary'}>{formatDelta(value, lang)}</span>;
       },
     },
     {
-      id: 'quality', accessorKey: 'quality', header: ko ? '품질' : 'Quality', meta: { label: ko ? '품질' : 'Quality' } satisfies ColumnMeta,
-      cell: ({ getValue }) => qualityBadge(getValue<SlowRow['quality']>(), ko),
+      id: 'quality', header: ko ? '품질' : 'Quality',
+      cell: row => qualityBadge(row.quality, ko),
     },
   ], [ko, lang]);
 

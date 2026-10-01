@@ -53,6 +53,12 @@ function makeEvaluate(opts) {
     ) {
       return opts.reactMessage;
     }
+    if (
+      opts.denyTableEngine &&
+      (opts.tableEnginePackages ?? []).some((name) => source === name || source.startsWith(`${name}/`))
+    ) {
+      return opts.tableEngineMessage;
+    }
     return null;
   };
 }

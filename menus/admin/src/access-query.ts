@@ -6,8 +6,7 @@
  * (1..80 chars, no URL/whitespace marks) and a well-formed token that matches nobody is valid — it
  * answers `empty`, never a parse error.
  */
-import type { SortingState } from '@tanstack/react-table';
-import { PERMISSIONS, type AccessSortField, type Permission } from '@ap/contracts';
+import { PERMISSIONS, type AccessSortField, type PageSort, type Permission } from '@ap/contracts';
 import { parsePageIndex, parseTableSort } from '@ap/components';
 
 /** The five page keys of `admin-roles`; the reset button clears exactly these. */
@@ -23,7 +22,7 @@ export type AccessFilters = {
 };
 
 export type ParsedAccessKeys =
-  | { ok: true; filters: AccessFilters; sorting: SortingState; page: number | null; focus: string | null }
+  | { ok: true; filters: AccessFilters; sorting: PageSort[]; page: number | null; focus: string | null }
   | { ok: false };
 
 /** True when the operator text is not a plain token: empty, over 80 chars, or URL/whitespace-bearing. */
