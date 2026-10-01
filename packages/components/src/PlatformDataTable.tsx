@@ -14,7 +14,7 @@ type ColumnMeta = { align?: 'right'; label?: string };
 
 /** §15 domain-owned column shape (#160): what menus declare; the TanStack `ColumnDef` conversion happens inside this file only. */
 export type PlatformColumn<T> = {
-  /** Stable id = server sort field = column-preference key = URL sort value. */
+  /** Stable id = server sort field = column-preference key = URL sort value. A sortable column's id must be a server sort field; display-only columns set `sortable: false`. */
   id: string;
   /** Header text and the column-menu label. */
   header: string;
@@ -25,17 +25,18 @@ export type PlatformColumn<T> = {
   size?: number;
   /** Numeric: right aligned + tabular. */
   align?: 'right';
-  /** Default true. */
+  /** Default true. Only for columns whose id is a server sort field; display-only columns set `false`. */
   sortable?: boolean;
   /** Default true. */
   hideable?: boolean;
 };
 
-function toColumnDef<T>(c: PlatformColumn<T>): ColumnDef<T> {
+/** Exported for the module test only (#160); not re-exported from index.ts. */
+export function toColumnDef<T>(c: PlatformColumn<T>): ColumnDef<T> {
   return {
     id: c.id,
     header: c.header,
-    size: c.size,
+    ...(c.size !== undefined && { size: c.size }),
     enableSorting: c.sortable !== false,
     enableHiding: c.hideable !== false,
     meta: { align: c.align },

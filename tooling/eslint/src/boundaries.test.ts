@@ -1,5 +1,5 @@
 import { ESLint } from 'eslint';
-import type { Linter } from 'eslint';
+import type { Linter, Rule } from 'eslint';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -96,6 +96,9 @@ const rows: Row[] = [
   { file: MENU, code: `import type { ColumnDef } from '@tanstack/react-table';`, rule: 'no-restricted-imports', token: 'table engine' },
   { file: MENU, code: `import { x } from '@tanstack/react-table';`, rule: 'no-restricted-imports', token: 'table engine' },
   { file: MENU, code: `import '@tanstack/react-virtual';`, rule: 'no-restricted-imports', token: 'table engine' },
+  { file: MENU, code: `import type { ColumnDef } from '@tanstack/table-core';`, rule: 'no-restricted-imports', token: 'table engine' },
+  { file: MENU, code: `import '@tanstack/virtual-core';`, rule: 'no-restricted-imports', token: 'table engine' },
+  { file: MENU, code: `const m = await import('@tanstack/table-core');`, rule: 'ap/restricted-import-source' },
   { file: MENU, code: `import { x } from '@tanstack/react-table/dist/cjs';`, rule: 'no-restricted-imports', token: 'table engine' },
   { file: MENU, code: `const m = await import('@tanstack/react-table');`, rule: 'ap/restricted-import-source' },
   { file: 'menus/home/src/mock/handlers.ts', code: `import { x } from '@tanstack/react-table';`, rule: 'no-restricted-imports', token: 'table engine' },
@@ -350,3 +353,21 @@ async function listJsFiles(dir: string): Promise<string[]> {
   );
   return nested.flat();
 }
+
+// #160 review P3-4: the dynamic-import rule takes the table-engine list from its options (built from
+// index.js), not from a second constant, so static and dynamic decisions cannot drift.
+describe('restricted-import-source table-engine list comes from options', () => {
+  it('bans exactly the packages passed as tableEnginePackages', async () => {
+    const { Linter: LinterClass } = await import('eslint');
+    const { default: rule } = await import('./import-source.js');
+    const linter = new LinterClass({ configType: 'flat' });
+    const run = (code: string) =>
+      linter.verify(code, [{
+        languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
+        plugins: { ap: { rules: { 'restricted-import-source': rule as unknown as Rule.RuleModule } } },
+        rules: { 'ap/restricted-import-source': ['error', { denyTableEngine: true, tableEngineMessage: 'engine', tableEnginePackages: ['only-engine'] }] },
+      }]);
+    expect(run(`import('only-engine/x');`).map((m) => m.message)).toEqual(['engine']);
+    expect(run(`import('@tanstack/react-table');`)).toEqual([]);
+  });
+});

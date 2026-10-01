@@ -38,7 +38,7 @@ const MENU_SUBPATH_ALLOW = ['menu-notice-voc/feedbackops-origin', MENU_MOCK_SUBP
 //   mockAllowed: exempts exactly the mock-server entry (never its subpaths).
 //   allowSubpaths: exact names or patterns exempted from the deep-subpath ban (default none).
 // Deep subpaths are banned for everyone, except subpaths matched by allowSubpaths.
-const TABLE_ENGINE_PACKAGES = ['@tanstack/react-table', '@tanstack/react-virtual'];
+const TABLE_ENGINE_PACKAGES = ['@tanstack/react-table', '@tanstack/react-virtual', '@tanstack/table-core', '@tanstack/virtual-core'];
 const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, denyTableEngine: true, mockAllowed: false };
 const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTableEngine: true, mockAllowed: true };
 const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false };
@@ -90,6 +90,7 @@ function importSourceOptions(restriction) {
     mockMessage: MOCK_SERVER_MESSAGE,
     reactMessage: REACT_MESSAGE,
     tableEngineMessage: TABLE_ENGINE_MESSAGE,
+    tableEnginePackages: TABLE_ENGINE_PACKAGES,
   };
 }
 

@@ -1,25 +1,13 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { ApiResponse, PageSort, PlatformAdapter, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
-import { PlatformDataTable, type PageQuery, type PageResult, type PlatformDataTableProps, type TableUrlState } from './PlatformDataTable';
+import { PlatformDataTable, toColumnDef, type PageQuery, type PageResult, type PlatformDataTableProps, type TableUrlState } from './PlatformDataTable';
 
 afterEach(cleanup);
 
-// jsdom reports zero layout, so @tanstack/react-virtual computes an empty virtual range and no
-// table row renders (every table test above only asserts the footer/header). Small fixed metrics
-// — rows 32px, other elements 420px/800px — keep getVirtualItems() populated for the cell-render
-// assertions below (#160). observeElementRect reads offsetWidth/Height; measureElement reads
-// getBoundingClientRect.
-beforeAll(() => {
-  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return (this as Element).getAttribute('role') === 'row' ? 32 : 420; } });
-  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return 800; } });
-  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
-    const height = this.getAttribute('role') === 'row' ? 32 : 420;
-    return { height, width: 800, top: 0, left: 0, right: 800, bottom: height, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
-  });
-});
+const unstubbedOffsetWidth = document.createElement('div').offsetWidth;
 
 const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const registry = createRegistry({
@@ -149,6 +137,27 @@ describe('PlatformDataTable uncontrolled (no urlState) keeps internal state', ()
 });
 
 describe('PlatformColumn conversion defaults (#160)', () => {
+  // jsdom reports zero layout, so @tanstack/react-virtual computes an empty virtual range and no
+  // table row renders (the tests outside this block only assert the footer/header). Small fixed
+  // metrics — rows 32px, other elements 420px/800px — keep getVirtualItems() populated for the
+  // cell-render assertions below, scoped to this block and restored after it. observeElementRect
+  // reads offsetWidth/Height; measureElement reads getBoundingClientRect.
+  const originalOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+  const originalOffsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
+  beforeAll(() => {
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return (this as Element).getAttribute('role') === 'row' ? 32 : 420; } });
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return 800; } });
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const height = this.getAttribute('role') === 'row' ? 32 : 420;
+      return { height, width: 800, top: 0, left: 0, right: 800, bottom: height, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+    });
+  });
+  afterAll(() => {
+    vi.restoreAllMocks();
+    if (originalOffsetHeight) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', originalOffsetHeight);
+    if (originalOffsetWidth) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalOffsetWidth);
+  });
+
   type Plain = { id: string; status: string | null; visits: number };
   const plainRows: Plain[] = [
     { id: 'r1', status: 's1', visits: 3 },
@@ -200,5 +209,19 @@ describe('PlatformColumn conversion defaults (#160)', () => {
     await screen.findByText('s1');
     fireEvent.click(screen.getByRole('button', { name: 'Visits' }));
     expect(onChange).toHaveBeenCalledWith({ sorting: [{ id: 'visits', desc: true }] satisfies PageSort[], page: null }, 'user');
+  });
+});
+
+describe('PlatformColumn size default (#160 review P3-1)', () => {
+  it('a column without size carries no own size key, so the table defaultColumn.size applies', () => {
+    expect(Object.prototype.hasOwnProperty.call(toColumnDef({ id: 'a', header: 'A' }), 'size')).toBe(false);
+    expect(toColumnDef({ id: 'b', header: 'B', size: 90 }).size).toBe(90);
+  });
+});
+
+describe('jsdom layout stub stays scoped to the #160 block (review P3-3)', () => {
+  it('offsetWidth and getBoundingClientRect are restored after the block', () => {
+    expect(document.createElement('div').offsetWidth).toBe(unstubbedOffsetWidth);
+    expect(vi.isMockFunction(Element.prototype.getBoundingClientRect)).toBe(false);
   });
 });

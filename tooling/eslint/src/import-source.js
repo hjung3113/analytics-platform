@@ -1,8 +1,5 @@
 import { PACKAGE_PREFIX } from './prefix.js';
 
-// #160: the table engine lives inside the components package — menus must not import it, statically or dynamically.
-const TABLE_ENGINE_PACKAGES = ['@tanstack/react-table', '@tanstack/react-virtual'];
-
 // Applies the same import decision as the preset's no-restricted-imports
 // (same options object, built from the same restriction data in index.js)
 // to literal sources of dynamic import, TS import types, and require calls:
@@ -58,7 +55,7 @@ function makeEvaluate(opts) {
     }
     if (
       opts.denyTableEngine &&
-      TABLE_ENGINE_PACKAGES.some((name) => source === name || source.startsWith(`${name}/`))
+      (opts.tableEnginePackages ?? []).some((name) => source === name || source.startsWith(`${name}/`))
     ) {
       return opts.tableEngineMessage;
     }
