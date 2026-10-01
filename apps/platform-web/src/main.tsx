@@ -15,6 +15,8 @@ import { metricsMock } from '@ap/menu-metrics/mock';
 import { noticeVocMock } from '@ap/menu-notice-voc/mock';
 // </gen:menu-mock-imports>
 import { DevTools } from './dev/DevTools';
+// THROWAWAY prototype for #172 — do not merge
+import { TableExportVariantSwitcher } from './dev/TableExportVariantSwitcher';
 import { readFeedbackOpsOrigin } from './feedbackops-origin';
 import { registry } from './menus';
 import { createMockAdapter } from '@ap/mock-server';
@@ -42,6 +44,8 @@ createRoot(document.getElementById('root')!).render(
     <I18nProvider>
       <PlatformProvider adapter={adapter} registry={registry} slots={{ contextBar: <GlobalContextBar />, topBarTools: <DevTools /> }}>
         <AppShell><RouteOutlet /></AppShell>
+        {/* THROWAWAY prototype for #172 — do not merge */}
+        <TableExportVariantSwitcher />
       </PlatformProvider>
     </I18nProvider>
   </StrictMode>,

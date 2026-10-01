@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type ColumnSizingState, type RowSelectionState, type VisibilityState } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, Columns3, Download, Loader2 } from 'lucide-react';
@@ -6,6 +6,8 @@ import { useI18n, usePlatform } from '@ap/kernel';
 import { type ApiResponse, type PageQuery, type PageResult, type PageSort, serializeGlobal } from '@ap/contracts';
 import { Button, Checkbox, cn, Label, Popover, PopoverContent, PopoverTrigger, Skeleton } from '@ap/ui';
 import { toColumnDef } from './columnDef';
+// THROWAWAY prototype for #172 — do not merge
+import { copyToClipboard, downloadBlob, exportTargetKind, ExportTargetStripC, ExportToolbarC, ExportToolbarMenuA, ExportToolbarSplitB, readTableExportVariant, SelectionExportActionsB, serializeTableExport, toCsv, toTsv, toXlsx, type ExportTarget } from './prototypeTableExport';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { OutcomeView } from './StateView';
 
@@ -76,12 +78,14 @@ export type PlatformDataTableProps<T> = {
   emptyAction?: ReactNode;
   /** Controlled sort/page (§6.1 page keys). Omit to keep today's internal state. The table never knows URL key names. */
   urlState?: TableUrlState;
+  /** THROWAWAY #172 prototype — do not merge. Full filtered rows from the server; setting it enables the `?variant=A|B|C` export toolbars. */
+  exportRows?: (signal: AbortSignal) => Promise<ApiResponse<T[]>>;
 };
 
 /** §15: platform owns interaction, loading/error, column preference, selection model, toolbar layout; domain owns columns/cells/actions/filters. */
 export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const { t, lang } = useI18n();
-  const { global, user, revision, route } = usePlatform();
+  const { global, user, revision, route, toast } = usePlatform();
   // Registry declares export capability (§5); the table never offers Export on a menu that did not declare it.
   const canExport = !!p.onExport && !!route?.menu.features.export;
   const pageSize = p.pageSize ?? 100;
@@ -174,6 +178,77 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const selectedIds = Object.keys(selection).filter(k => selection[k]);
   const pageCount = Math.max(1, Math.ceil(data.total / pageSize));
 
+  // THROWAWAY prototype for #172 — do not merge. No `?variant` (and no sessionStorage fallback) keeps today's UI byte-for-byte.
+  const prototypeVariant = p.exportRows ? readTableExportVariant() : null;
+  const [prototypeBusy, setPrototypeBusy] = useState(false);
+  const prototypeTarget: ExportTarget = { selected: selectedIds.length, filtered: data.total };
+  const prototypeColumns = table.getVisibleLeafColumns()
+    .map(c => p.columns.find(pc => pc.id === c.id))
+    .filter((c): c is PlatformColumn<T> => c !== undefined);
+  const prototypeRows = async (selectedOnly: boolean): Promise<T[] | null> => {
+    try {
+      const response = await p.exportRows!(new AbortController().signal);
+      if (response.outcome === 'empty') return [];
+      if (response.outcome !== 'ok') {
+        toast(lang === 'ko' ? '서버가 이 조건의 내보내기를 거부했거나 응답을 내보낼 수 없는 상태입니다.' : 'The server rejected export for this context or the response cannot be exported.', 'warning');
+        return null;
+      }
+      const rows = response.data ?? [];
+      if (!selectedOnly || selectedIds.length === 0) return rows;
+      const ids = new Set(selectedIds);
+      return rows.filter(row => ids.has(p.getRowId(row)));
+    } catch {
+      toast(lang === 'ko' ? '내보내기 요청이 실패했습니다.' : 'The export request failed.', 'warning');
+      return null;
+    }
+  };
+  const prototypeScope = (count: number) => {
+    const selected = exportTargetKind(prototypeTarget) === 'selected';
+    return {
+      ko: selected ? `선택 행 ${count}건` : `필터된 전체 결과 ${count}건`,
+      en: selected ? `${count} selected rows` : `${count} rows from all filtered results`,
+    };
+  };
+  const runPrototypeExport = async (format: 'xlsx' | 'csv') => {
+    if (!p.exportRows || prototypeBusy) return;
+    setPrototypeBusy(true);
+    try {
+      const rows = await prototypeRows(exportTargetKind(prototypeTarget) === 'selected');
+      if (!rows) return;
+      const { headers, cells } = serializeTableExport(prototypeColumns, rows);
+      const scope = prototypeScope(rows.length);
+      if (format === 'csv') {
+        downloadBlob(new Blob([toCsv(headers, cells)], { type: 'text/csv;charset=utf-8' }), 'equipment-master.csv');
+        toast(lang === 'ko' ? `CSV: ${scope.ko} 내보내기` : `CSV: exported ${scope.en}`);
+      } else {
+        downloadBlob(await toXlsx(headers, cells), 'equipment-master.xlsx');
+        toast(lang === 'ko' ? `Excel(.xlsx): ${scope.ko} 내보내기` : `Excel (.xlsx): exported ${scope.en}`);
+      }
+    } finally {
+      setPrototypeBusy(false);
+    }
+  };
+  const runPrototypeCopy = async (selectedOnly: boolean) => {
+    if (!p.exportRows || prototypeBusy) return;
+    setPrototypeBusy(true);
+    try {
+      const rows = await prototypeRows(selectedOnly);
+      if (!rows) return;
+      const { headers, cells } = serializeTableExport(prototypeColumns, rows);
+      const scope = prototypeScope(rows.length);
+      if (await copyToClipboard(toTsv(headers, cells))) toast(lang === 'ko' ? `복사: ${scope.ko} 클립보드에 복사했습니다.` : `Copied ${scope.en} to the clipboard.`);
+      else toast(lang === 'ko' ? '클립보드 접근이 거부되었습니다.' : 'Clipboard access was denied.', 'warning');
+    } finally {
+      setPrototypeBusy(false);
+    }
+  };
+  const onPrototypeKeyDown = (e: ReactKeyboardEvent) => {
+    if (e.key !== 'c' || !(e.metaKey || e.ctrlKey) || selectedIds.length === 0) return;
+    if ((e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
+    e.preventDefault();
+    void runPrototypeCopy(true);
+  };
+
   function cellStyle(column: Column<T>): CSSProperties {
     const pinned = column.getIsPinned();
     return { width: column.getSize(), flexShrink: 0, position: pinned ? 'sticky' : 'relative', left: pinned === 'left' ? column.getStart('left') : undefined, zIndex: pinned ? 2 : undefined };
@@ -182,7 +257,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const cellBase = 'flex min-h-8 items-center px-3 py-1 [overflow-wrap:anywhere] pointer-coarse:min-h-11';
   const nameOf = (c: Column<T>) => (c.columnDef.meta as ColumnMeta | undefined)?.label ?? (typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id);
 
-  return <section aria-label={p.ariaLabel} className="flex flex-col rounded-lg border border-border-subtle bg-surface-card">
+  return <section aria-label={p.ariaLabel} onKeyDown={prototypeVariant ? onPrototypeKeyDown : undefined} className="flex flex-col rounded-lg border border-border-subtle bg-surface-card">
     <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 p-3">
       <div className="min-w-0">
         <h2 className="t-card-title">{p.title}</h2>
@@ -201,15 +276,25 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             </li>)}</ul>
           </PopoverContent>
         </Popover>
-        {canExport && <Button variant="secondary" size="sm" className="h-8 gap-1.5 rounded-sm border-border-strong"
-          onClick={() => p.onExport!(selectedIds.length ? { kind: 'selected', ids: selectedIds } : { kind: 'filtered', total: data.total })}>
-          <Download className="size-3.5" aria-hidden />{t('export')}{selectedIds.length ? ` (${selectedIds.length})` : ''}
-        </Button>}
+        {prototypeVariant && p.exportRows ? (
+          prototypeVariant === 'A' ? <ExportToolbarMenuA target={prototypeTarget} ko={lang === 'ko'} disabled={prototypeBusy}
+            onExport={format => void runPrototypeExport(format)} onCopy={() => void runPrototypeCopy(exportTargetKind(prototypeTarget) === 'selected')} /> :
+          prototypeVariant === 'B' && exportTargetKind(prototypeTarget) === 'filtered' ? <ExportToolbarSplitB ko={lang === 'ko'} disabled={prototypeBusy} onExport={format => void runPrototypeExport(format)} /> :
+          prototypeVariant === 'C' ? <ExportToolbarC hasSelection={prototypeTarget.selected > 0} ko={lang === 'ko'} disabled={prototypeBusy}
+            onCopy={() => void runPrototypeCopy(true)} onExport={format => void runPrototypeExport(format)} /> :
+          null)
+          : canExport && <Button variant="secondary" size="sm" className="h-8 gap-1.5 rounded-sm border-border-strong"
+            onClick={() => p.onExport!(selectedIds.length ? { kind: 'selected', ids: selectedIds } : { kind: 'filtered', total: data.total })}>
+            <Download className="size-3.5" aria-hidden />{t('export')}{selectedIds.length ? ` (${selectedIds.length})` : ''}
+          </Button>}
       </div>
     </div>
 
+    {prototypeVariant === 'C' && p.exportRows && <ExportTargetStripC target={prototypeTarget} ko={lang === 'ko'} />}
+
     {selectedIds.length > 0 && <div className="flex min-h-10 flex-wrap items-center gap-3 border-t border-border-subtle bg-accent-primary-soft px-3 py-2 text-[12px]">
       <span className="font-semibold tabular" data-testid="selected-count">{lang === 'ko' ? `${selectedIds.length}개 선택` : `${selectedIds.length} selected`}</span>
+      {prototypeVariant === 'B' && p.exportRows && <SelectionExportActionsB ko={lang === 'ko'} disabled={prototypeBusy} onCopy={() => void runPrototypeCopy(true)} onExport={format => void runPrototypeExport(format)} />}
       {p.bulkActions?.(selectedIds)}
       <Button variant="ghost" size="sm" className="h-7 px-2 text-[12px]" onClick={() => setSelection({})}>{lang === 'ko' ? '선택 해제' : 'Clear selection'}</Button>
       <span className="text-text-muted">{lang === 'ko' ? '선택은 현재 조회 결과 안에서만 유지되며 Context 변경 시 해제됩니다.' : 'Selection is kept within this result and cleared on context change.'}</span>

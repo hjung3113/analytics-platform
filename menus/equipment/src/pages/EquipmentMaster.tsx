@@ -43,6 +43,7 @@ export default function EquipmentMaster() {
         onChange: ({ page, sorting }) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }),
       } : undefined}
       loadPage={(page, signal) => pages.fetch({ q, status, maker, ...page }, signal)}
+      exportRows={signal => list.fetch({ q, status, maker }, signal)}
       filters={<fieldset className="flex flex-wrap items-center gap-2 border-l-2 border-border-strong pl-3"><legend className="t-caption text-text-muted">{ko ? '페이지 필터' : 'Page filters'}</legend>
         <label className="flex items-center gap-1 text-xs">{ko ? '검색' : 'Search'}<input className={control} aria-label={ko ? '설비 ID 또는 이름 검색' : 'Search equipment ID or name'} value={q} onChange={e => setPage({ q: e.target.value || null, page: null }, { replace: true })} /></label>
         <label className="flex items-center gap-1 text-xs">{ko ? '상태' : 'Status'}<select className={control} value={status} onChange={e => setPage({ status: e.target.value || null, page: null })}><option value="">{ko ? '전체' : 'All'}</option>{Object.entries(statusText).map(([id, text]) => <option key={id} value={id}>{text[lang]}</option>)}</select></label>

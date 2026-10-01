@@ -19,7 +19,8 @@
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.14.13",
     "echarts": "^6.1.0",
-    "lucide-react": "^1.48.0"
+    "lucide-react": "^1.48.0",
+    "write-excel-file": "^4.1.1"
   },
   "peerDependencies": {
     "react": "^19.3.0",
