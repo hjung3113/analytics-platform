@@ -15,6 +15,7 @@
 - 플랫폼 쪽 사내 적용 준비는 끝났다: 메뉴 조회 포트(#100), 서버 경계 적합성 묶음 + 실서버 체크리스트(#145, mock으로 21개 엔드포인트·391개 검사 통과).
 - **2026-10-02: 남은 일을 M4 사내 적용 트랙으로 정리했다.** 새 이슈 #148–#157, 새 문서 `in-house-rollout.md`, 체크리스트 §1·§4·§7과 ROADMAP·INDEX·#63에 연결.
   - 정리하면서 확인한 공백 두 개: 적합성 묶음이 `menuQuery`만 검사함(→ #152), `main.tsx`가 mock·DevTools를 무조건 import해서 운영 번들에 들어감(→ #153).
+- **2026-10-02 기술 스택 검토:** 사내 리서치 문서의 그리드·차트·데이터 도구를 검토해 04에 기록했다(방침: 무료로 시작, 필요성이 확인되면 유료). TanStack Table·ECharts 유지, 유료 전환 1순위는 AG Grid Enterprise, 무료 자유 피벗은 Perspective(브라우저 엔진만). 그리드 요구 결정 #159, 준비 작업 #160·#162, 보류 POC #163·#164.
 - CI: `Platform workspace`·`Platform contracts (E2E)`(41개)·`CSS selectors (build diff)`·Unit A–C·Python codec·`PR checklist`.
 
 ## 다음 세션 할 일 — 사용자에게 먼저 어느 쪽인지 확인
