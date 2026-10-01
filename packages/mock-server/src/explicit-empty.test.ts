@@ -5,8 +5,9 @@ import { emptyGlobal } from '@ap/contracts';
 const period = { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' };
 
 describe('explicit empty sets', () => {
-  it('returns empty for selection [] and roomNames [] without calling compute or isEmpty', async () => {
-    for (const patch of [{ selection: [] as string[] }, { roomNames: [] as string[] }]) {
+  // #146: the conformance kit found lotIds/recipeIds [] read the source and came back with Trust — 06 §19 covers every applied set key.
+  it('returns empty for every explicit empty set key without calling compute or isEmpty', async () => {
+    for (const patch of [{ selection: [] as string[] }, { roomNames: [] as string[] }, { lotIds: [] as string[] }, { recipeIds: [] as string[] }]) {
       const res = await serve({
         role: 'engineer', permission: 'analytics:view',
         global: { ...emptyGlobal, scopeId: 'ICH', ...period, ...patch },

@@ -14,6 +14,7 @@
 | `components/` (`@ap/components`) | `PlatformPage`, 표·드로어·감사·신뢰 표시, 상태 화면, 차트 프레임 | `contracts`, `kernel`, `ui` |
 | `shell/` (`@ap/shell`) | AppShell, Sidebar, TopBar, CommandPalette, GlobalContextBar, RouteOutlet | `contracts`, `kernel`, `components`, `ui` |
 | `mock-server/` (`@ap/mock-server`) | 개발용 서버 대역(`world`·`server`·`jobs`·`createMockAdapter`, 메뉴 조회 엔진 `serveEndpoint`·`defineMockEndpoint`). 앱이 주입. 메뉴별 핸들러는 각 메뉴 `src/mock/`이 소유. Tailwind 없음 | `contracts` |
+| `server-conformance/` (`@ap/server-conformance`) | 서버 경계 적합성 묶음(#145). 어댑터 구현과 무관 — mock·실어댑터를 같은 잣대로. 앱 통합 테스트가 돌린다 | `contracts`(+ vitest) |
 
 ## 모든 패키지에 적용
 

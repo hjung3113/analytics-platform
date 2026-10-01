@@ -33,6 +33,7 @@
   },
   "devDependencies": {
     "@ap/eslint-config": "workspace:*",
+    "@ap/server-conformance": "workspace:*",
     "@ap/tsconfig": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/dom": "^10.4.2",
