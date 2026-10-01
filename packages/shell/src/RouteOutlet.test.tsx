@@ -56,7 +56,7 @@ function fixture(reportClientError: PlatformAdapter['reportClientError']) {
     listAnnotations: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     saveAnnotation: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     reportClientError,
-    usageSummary: async () => forbidden, myVocHistory: async () => forbidden, mySurveyHistory: async () => forbidden,
+    usageSummary: async () => forbidden,
     subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; },
   };
   return { adapter, announce: () => listeners.forEach(l => l()) };

@@ -1,10 +1,11 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ApiResponse, MyVocItem, MyVocPage, MyVocQuery, PlatformAdapter, Session } from '@ap/contracts';
+import type { ApiResponse, MenuQuery, PlatformAdapter, Session } from '@ap/contracts';
 import { Megaphone } from 'lucide-react';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { manifests } from '../index';
 import MyVocHistory from './MyVocHistory';
+import { myVocHistoryEndpoint, type MyVocItem, type MyVocPage, type MySurveyPage } from '../endpoints';
 
 // Real manifests so /voc keeps its declared pageKeys (cursor); only the group/space wiring is added.
 const registry = createRegistry({
@@ -22,10 +23,22 @@ const ROW: MyVocItem = {
 /** Fixture adapter: a stale cursor errors (the mock's "Invalid cursor"), page 1 succeeds. */
 function fixture() {
   const session: Session = { user: { id: 'user-a', name: 'user-a', title: { ko: 'a', en: 'a' }, permissions: ['platform:view', 'notice:view', 'voc:view'] }, scopes: [] };
-  const calls: MyVocQuery[] = [];
+  const calls: unknown[] = [];
   const okPage: ApiResponse<MyVocPage> = { outcome: 'ok', data: { items: [ROW], nextCursor: null }, assessments: [], trust: null, correlationId: 'fixture' };
   const adapter: PlatformAdapter = {
-    menuQuery: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+    menuQuery: async (request: MenuQuery) => {
+      if (request.endpoint !== myVocHistoryEndpoint.id) {
+        const survey: ApiResponse<MySurveyPage> = {
+          outcome: 'ok', data: { items: [] }, trust: null, correlationId: 'fixture',
+          assessments: [{ kind: 'respondent_history', state: 'unknown', reason: 'source_unavailable' }],
+        };
+        return survey;
+      }
+      const { cursor } = request.params as { cursor: string | null };
+      calls.push(request.params);
+      if (cursor !== null) return { outcome: 'error', data: null, message: 'Invalid cursor', assessments: [], trust: null, correlationId: 'fixture' };
+      return okPage;
+    },
     session: () => session,
     validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
     publishedMetrics: () => [],
@@ -41,15 +54,6 @@ function fixture() {
     saveAnnotation: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     reportClientError: async () => ({ accepted: true }),
     usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    myVocHistory: async (query: MyVocQuery) => {
-      calls.push(query);
-      if (query.cursor !== undefined) return { outcome: 'error', data: null, message: 'Invalid cursor', assessments: [], trust: null, correlationId: 'fixture' };
-      return okPage;
-    },
-    mySurveyHistory: async () => ({
-      outcome: 'ok', data: { items: [] }, trust: null, correlationId: 'fixture',
-      assessments: [{ kind: 'respondent_history', state: 'unknown', reason: 'source_unavailable' }],
-    }),
     // Nothing in this test announces a session change; an empty unsubscribe is enough.
     subscribe: () => () => undefined,
   };
@@ -82,7 +86,7 @@ describe('MyVocHistory cursor reset (issue #60 review)', () => {
     expect(window.location.pathname + window.location.search).toBe('/voc?v=1');
     // The stale-cursor error cleared and page 1 requeries: the adapter's last call carries no cursor.
     await waitFor(() => expect(screen.queryByText('Invalid cursor')).toBeNull());
-    expect(f.calls.at(-1)).toEqual({});
+    expect(f.calls.at(-1)).toEqual({ cursor: null });
     // The table virtualizer renders no rows in jsdom, so assert the pager: page 1 of 1 after reset.
     expect(await screen.findByText(/1\/1/)).toBeTruthy();
   });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { MyVocStatus } from '@ap/contracts';
+import type { MyVocStatus } from './endpoints';
 import { VOC_STATUS } from './voc-status';
 
 // The eight literals, listed here so a new MyVocStatus member fails this test until it gets a label.

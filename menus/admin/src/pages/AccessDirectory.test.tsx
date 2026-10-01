@@ -92,8 +92,6 @@ function fixture(response: ApiResponse<AccessDirectoryPage> | ResponseForCall) {
       calls.push(query);
       return typeof response === 'function' ? response(query, calls.length) : response;
     },
-    myVocHistory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    mySurveyHistory: async () => ({ outcome: 'ok', data: { items: [] }, assessments: [], trust: null, correlationId: 'fixture' }),
     subscribe: () => () => undefined,
   };
   return { adapter, calls };

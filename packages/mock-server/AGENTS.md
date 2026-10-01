@@ -9,7 +9,7 @@
 - `src/annotations.ts` — 차트 주석 저장소(06 §16, #103). `listAnnotations`·`saveAnnotation`은 권한(`analytics:view`) → 시나리오 → 검증 → Site 경계 순으로 판정하고, 행은 작성 당시 `scopeId`를 갖고 모든 조회가 `scopeId`로 거른다(`chartId`만으로 고르지 않는다). 작성자·시각은 서버가 찍고 wire 입력에 없다(알 수 없는 키는 거부). 비mart 데이터라 trust는 null.
 - `src/jobs.ts` — 작업(job) 합성 데이터와 조회 함수.
 - `src/adapter.ts` — `createMockAdapter({ endpoints, registry })`(등록 검증 6가지): 기존 포트 구현과 선언 기반 `menuQuery`를 조립한다. 규칙 6은 `requiresScope: false` 엔드포인트가 site 종속 Context(`roomNames`·`condition`·`selection`·`lot`·`recipe`·`ppid`)를 `apply`하지 못하게 한다.
-- `src/endpoints.ts` — `MockEndpoint`·`defineMockEndpoint`·`serveEndpoint`(선언 기반 판정 순서, Q3/Q9 요청 Context 모양 거부: 투영하지 않는 키와 누락된 적용 키를 거부하고 `time`의 `from`·`to`는 non-null 문자열 요구, `metric`을 적용하면 `metricVersion`은 `metricId` 없이 올 수 없다; 파이프라인 예외는 abort를 제외하고 error envelope로 변환; 모양 검사 뒤 엔드포인트의 `validate`가 오류 문장을 돌려주면 권한·데이터 전에 error — params 값 검증, #123)·`MockRegistrationError`. 기간 계산 `periodHours`·`bucketStart`는 `@ap/contracts` 소유를 재export한다.
+- `src/endpoints.ts` — `MockEndpoint`·`defineMockEndpoint`·`serveEndpoint`(선언 기반 판정 순서, Q3/Q9 요청 Context 모양 거부: 투영하지 않는 키와 누락된 적용 키를 거부하고 `time`의 `from`·`to`는 non-null 문자열 요구, `metric`을 적용하면 `metricVersion`은 `metricId` 없이 올 수 없다; 파이프라인 예외는 abort를 제외하고 error envelope로 변환; 모양 검사 뒤 엔드포인트의 `validate`가 오류 문장을 돌려주면 권한·데이터 전에 error — params 값 검증, #123)·`MockRegistrationError`. 핸들러는 요청 시점에 고정된 세션 사용자 `actor`를 받고, 데이터로만 판정하는 잘못된 요청은 `MockRequestError`로 거부한다. `mart: false` 엔드포인트(FeedbackOps 같은 비 mart 원천)는 Data Trust 없이 답하고 mart 개발 시나리오(empty·partial·too_large·unknown_status)를 적용하지 않는다(#131). 기간 계산 `periodHours`·`bucketStart`는 `@ap/contracts` 소유를 재export한다.
 - `src/index.ts` — 공개 진입점. 명시적 export만 한다(`export *` 금지).
 
 ## 규칙

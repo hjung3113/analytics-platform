@@ -4,8 +4,8 @@
  * sees only their own tickets, never the engineer's. One shared primary managed system, and no Site id
  * anywhere: a row's managed system is a FeedbackOps uuid, not a platform scopeId, and is never linked.
  */
-import type { MyVocItem } from '@ap/contracts';
-import type { RoleId } from './world';
+import type { RoleId } from '@ap/mock-server';
+import type { MyVocItem } from '../endpoints';
 
 /** Server-owned page size; small so a test can turn a page without 50 rows (a real adapter would send limit=50). */
 export const MY_VOC_PAGE_SIZE = 2;

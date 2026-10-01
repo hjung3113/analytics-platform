@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineEndpoint, type Capability, type ContextKey, type EndpointSpec, type MenuMeta } from '@ap/contracts';
 import { createMockAdapter } from './adapter';
-import { defineMockEndpoint, MockRegistrationError, serveEndpoint, type AnyMockEndpoint, type MockEndpoint } from './endpoints';
+import { defineMockEndpoint, MockRegistrationError, MockRequestError, serveEndpoint, type AnyMockEndpoint, type MockEndpoint } from './endpoints';
 import { EQUIPMENT, type RoleId } from './world';
 import { getRole, setRole, setScenario } from './server';
 
@@ -344,6 +344,32 @@ describe('serveEndpoint declaration pipeline', () => {
     });
     const result = await serveEndpoint(new Map([[spec.id, endpoint as AnyMockEndpoint]]), request(spec.id, {}, { term: 42 }), undefined, { role: 'engineer', latency: 0 });
     expect(result).toMatchObject({ outcome: 'error', data: null, trust: null, assessments: [] });
+  });
+
+  it('answers a non-mart endpoint without Data Trust and passes the pinned actor to the handler (#131)', async () => {
+    const spec = makeSpec('analytics.nonmart', { requiresScope: false, context: {}, kinds: [] });
+    const endpoint = defineMockEndpoint(spec, { mart: false, handle: ({ actor }) => ({ actor }) });
+    const result = await serveEndpoint(new Map([[spec.id, endpoint as AnyMockEndpoint]]), request(spec.id, {}, {}), undefined, { role: 'admin', latency: 0 });
+    expect(result).toMatchObject({ outcome: 'ok', data: { actor: 'admin' }, trust: null, assessments: [] });
+  });
+
+  it('ignores mart dev scenarios on a non-mart endpoint but keeps transport ones', async () => {
+    const spec = makeSpec('analytics.nonmart-scenario', { requiresScope: false, context: {}, kinds: [] });
+    const map = new Map([[spec.id, defineMockEndpoint(spec, { mart: false, handle: () => ({ rows: 1 }) }) as AnyMockEndpoint]]);
+    for (const s of ['empty', 'partial', 'too_large'] as const) {
+      setScenario(s);
+      expect((await serveEndpoint(map, request(spec.id, {}, {}), undefined, { role: 'engineer', latency: 0 })).outcome).toBe('ok');
+    }
+    setScenario('error');
+    expect((await serveEndpoint(map, request(spec.id, {}, {}), undefined, { role: 'engineer', latency: 0 })).outcome).toBe('error');
+    setScenario('normal');
+  });
+
+  it('turns a MockRequestError from the handler into an error envelope with its message', async () => {
+    const spec = makeSpec('analytics.refuse', { requiresScope: false, context: {} });
+    const endpoint = defineMockEndpoint(spec, { handle: () => { throw new MockRequestError('Invalid cursor'); } });
+    const result = await serveEndpoint(new Map([[spec.id, endpoint as AnyMockEndpoint]]), request(spec.id, {}, {}), undefined, { role: 'engineer', latency: 0 });
+    expect(result).toMatchObject({ outcome: 'error', message: 'Invalid cursor', data: null, trust: null });
   });
 
   it('passes params to the handler without changing them', async () => {
