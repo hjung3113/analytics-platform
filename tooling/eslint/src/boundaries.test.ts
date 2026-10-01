@@ -12,6 +12,7 @@ import {
   kernel,
   menu,
   mockServer,
+  serverConformance,
   shell,
   ui,
 } from './index.js';
@@ -27,6 +28,7 @@ const PRESETS: Record<string, Linter.Config[]> = {
   'packages/components': components,
   'packages/shell': shell,
   'packages/mock-server': mockServer,
+  'packages/server-conformance': serverConformance,
   'menus/home': menu,
   'menus/analytics': menu,
   'menus/metrics': menu,
@@ -106,6 +108,17 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-notice-voc/feedbackops-origin';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-notice-voc/styles.css';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-notice-voc/src/feedbackops-origin';`, rule: 'no-restricted-imports' },
+  // #145: the server conformance test registers the same menu mocks as main.tsx, so it shares main's allowance;
+  // every other app test still cannot reach a menu `/mock` subpath.
+  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: '' },
+  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { createMockAdapter } from '@ap/mock-server';`, rule: '' },
+  { file: 'apps/platform-web/src/url-contract.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/published-metrics.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: 'no-restricted-imports' },
+  // #145: the conformance kit is adapter-agnostic — contracts only, never the mock it judges, never React.
+  { file: 'packages/server-conformance/src/x.ts', code: `import { x } from '@ap/contracts';`, rule: '' },
+  { file: 'packages/server-conformance/src/x.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
+  { file: 'packages/server-conformance/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
+  { file: 'packages/server-conformance/src/x.ts', code: `import React from 'react';`, rule: 'no-restricted-imports' },
   // The origin subpath allowance is scoped to src/main.tsx: the other carve-out files keep the
   // deep-subpath ban, static and dynamic.
   { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';`, rule: 'no-restricted-imports' },

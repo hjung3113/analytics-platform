@@ -139,7 +139,7 @@
 - [ ] **PlatformDataTable 계약(서버 정렬/필터, 가상화, 컬럼 설정, 선택, 내보내기 재사용)** — **[3/3] Must** — Decided, §15.
 - [ ] **Analysis Chart Frame + 공통 Toolbar 어휘(Zoom/Brush/Reset/Compare/Annotate/Export)** — 차트 비즈니스 정의는 도메인 소유. **[3/3] Must** — Decided, §16.
 - [ ] **공개 스키마 단일 산출물(URL/JSON 필드·카디널리티) + codegen** — 클라이언트/서버가 같은 정의 소비. **[3/3] Must/Should** — Decided 소유, 형식은 Candidate. 진행(2026-10-01): 메뉴 조회는 엔드포인트 선언(`EndpointSpec`) 하나를 클라이언트와 mock 서버가 함께 소비한다(#100). 공개 스키마 산출물·codegen(선언 원본을 TS로 둘지 FastAPI에서 생성할지, 메뉴 조회 포트 Q2)은 FastAPI 착수 때 정한다.
-- [ ] **계약 적합성/스냅샷 테스트(URL round-trip, 잘못된 입력, 파서 dump 기반 view 회귀)** — "테스트 없는 계약은 흡수 선언일 뿐"이라는 §01 원칙. **[3/3] Must**.
+- [ ] **계약 적합성/스냅샷 테스트(URL round-trip, 잘못된 입력, 파서 dump 기반 view 회귀)** — "테스트 없는 계약은 흡수 선언일 뿐"이라는 §01 원칙. **[3/3] Must**. 진행(2026-10-01): 서버 경계는 `@ap/server-conformance`(선언 기반, 어댑터 무관, #145), URL round-trip은 `apps/platform-web/src/url-contract.test.ts`. 파서 dump 기반 view 회귀는 파서 스키마 합의(#37) 뒤.
 - [ ] **메뉴 PR 거버넌스 체크리스트 = Platform-first Definition of Done(Domain Done ≠ Platform Done)** — **[3/3] Must** — Decided, §28/§29.
 - [ ] **메뉴 스캐폴드/코드 생성 도구(레지스트리 매니페스트→라우트·권한·Context 스텁)** — 반복 확인 후 도입(과도한 선공통화 금지). **[3/3] Should/Nice**.
 - [ ] **차트 타입 레시피/허용 목록(시계열·분포·히트맵·구간 타임라인, Gauge/3D 기본 금지)** — **[3/3] Should**.

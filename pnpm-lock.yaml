@@ -96,6 +96,9 @@ importers:
       '@ap/eslint-config':
         specifier: workspace:*
         version: link:../../tooling/eslint
+      '@ap/server-conformance':
+        specifier: workspace:*
+        version: link:../../packages/server-conformance
       '@ap/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/tsconfig
@@ -655,6 +658,28 @@ importers:
       jsdom:
         specifier: ^26.1.0
         version: 26.1.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/node@26.6.3)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
+
+  packages/server-conformance:
+    dependencies:
+      '@ap/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@ap/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint
+      '@ap/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/tsconfig
+      eslint:
+        specifier: ^10.11.0
+        version: 10.11.0(jiti@2.7.0)
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

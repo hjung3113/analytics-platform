@@ -70,6 +70,7 @@
 | ~~차트 계약: 주석 Scope 격리·manifest features 준수·E2E 검사 (#103)~~ 완료 — 주석은 서버 소유·`(chartId, scopeId)` 키의 포트(`listAnnotations`·`saveAnnotation`, 모듈 전역 저장소 제거), Chart Frame이 Compare·Annotate·Export를 manifest `features`로 게이트, E2E 3건(Brush→구간 적용 확인, 주석 사이트 격리, features 준수; 총 41) | 완료 |
 | ~~레이아웃: pageType을 실제 계약으로 (#104)~~ 생성기 부분 완료 — `--page-type`별 06 §12 슬롯 뼈대, 반복 패턴·슬롯 후보 정리(06 §12.6). 레이아웃 슬롯 컴포넌트는 M2 재개 때 프로토타입 컨펌 후 | 생성기 완료, 슬롯 컴포넌트 M2 대기 |
 | ~~[결정+설계] 메뉴 데이터 조회 포트: 서버 경계 계약을 mock 밖 contracts로 (#100)~~ 완료(2026-10-01) — 메뉴는 `src/endpoints.ts`에 조회를 선언하고 화면은 Kernel `useMenuQuery`(렌더 시점)·`useMenuFetch`(표 페이지·내보내기)만 쓴다. 서버(mock 엔진)는 요청이 아니라 자기 선언 사본으로 요청 모양·권한·Scope·한도·params 값을 판정한다. 모든 메뉴 화면 이전 완료, `PlatformAdapter`에서 메뉴 어휘(VOC) 제거, `serve` 경로·이행용 lint 제거. 9단계는 화면을 다듬지 않고 계약 검증 + 최소 이전으로 줄였다(사용자). 현재 계약은 06 §5·§19와 [패키지 경계](integration/platform-packages.md) §3–§5, 설계·결정 경과는 [`menu-query-port.md`](integration/menu-query-port.md)(설계 기록). 남은 것: Q2 선언 원본 TS ↔ FastAPI codegen(FastAPI 착수 때), 후속 #122(목적지 단건 조회 provisional) | 완료 |
+| 서버 경계 적합성 묶음 + 실서버 연결 체크리스트 (#145) — 사내 적용 준비. `@ap/server-conformance`가 엔드포인트 선언에서 검사를 도출해 어떤 어댑터든 같은 잣대로 판정한다(지금 mock: 21개 엔드포인트·164개 검사 통과). 실서버가 지킬 것은 [`real-server-checklist.md`](integration/real-server-checklist.md) | 진행 중 |
 
 ### M2 디자인 시스템 (1차 평가: #33) — 보류
 

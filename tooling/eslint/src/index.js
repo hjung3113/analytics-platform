@@ -14,7 +14,10 @@ const MOCK_SERVER_MESSAGE = `${PACKAGE_PREFIX}mock-server is only legal in menu 
 const REACT_MESSAGE = 'react / react-dom are not allowed in this package.';
 
 const MENU_ALLOW = ['contracts', 'kernel', 'components', 'ui'];
-const APP_CARVEOUT_FILES = ['src/main.tsx', 'src/dev/**/*.{ts,tsx}', 'src/published-metrics.test.ts'];
+// The composition root and the server conformance test (#145, it registers the same menu mocks) see mock-server
+// and the menu `/mock` subpaths; the other carve-outs see mock-server only.
+const APP_MAIN_FILES = ['src/main.tsx', 'src/server-conformance.test.ts'];
+const APP_CARVEOUT_FILES = [...APP_MAIN_FILES, 'src/dev/**/*.{ts,tsx}', 'src/published-metrics.test.ts'];
 
 // Composition-root-only menu subpaths: the FeedbackOps origin slot and each menu's exact `/mock`
 // export are available from src/main.tsx ONLY. Every other menu subpath, any `*/src` import, and every
@@ -220,6 +223,13 @@ export const mockServer = [
 // contract rules (storage, location writes, hand-built query strings) apply to every menu file.
 // Restriction data stays shared by the static and dynamic import rules in each file carve-out.
 
+// Server conformance kit (#145): adapter-agnostic, so it may see only the contracts — never
+// mock-server (it must judge a real server the same way) and never React.
+/** @type {import('eslint').Linter.Config[]} */
+export const serverConformance = [
+  layerConfig({ restriction: { allow: ['contracts'], denyReact: true, mockAllowed: false } }),
+];
+
 /** @type {import('eslint').Linter.Config[]} */
 export const menu = [
   layerConfig({
@@ -246,14 +256,14 @@ export const menu = [
 export const app = [
   layerConfig({ restriction: APP_RESTRICTION }),
   {
-    files: ['src/main.tsx'],
+    files: APP_MAIN_FILES,
     rules: {
       'no-restricted-imports': importRestrictions(APP_MAIN_RESTRICTION),
       'ap/restricted-import-source': ['error', importSourceOptions(APP_MAIN_RESTRICTION)],
     },
   },
   {
-    files: APP_CARVEOUT_FILES.filter((f) => f !== 'src/main.tsx'),
+    files: APP_CARVEOUT_FILES.filter((f) => !APP_MAIN_FILES.includes(f)),
     rules: {
       'no-restricted-imports': importRestrictions(APP_CARVEOUT_RESTRICTION),
       'ap/restricted-import-source': ['error', importSourceOptions(APP_CARVEOUT_RESTRICTION)],
