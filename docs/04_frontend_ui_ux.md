@@ -17,7 +17,7 @@
 | Frontend 기반 | React + TypeScript + Vite | FeedbackOps `apps/frontend`와 동일 | 사용 중(Vite 7) |
 | 스타일링 | **Tailwind CSS v4** | FeedbackOps는 v3(`packages/ui/tailwind.preset.ts`, "Tailwind 3 syntax only. No `@theme` v4 blocks" 명시, ADR-0021 semantic token 방식). 이 플랫폼은 v4로 가고 FeedbackOps의 시맨틱 토큰 네이밍(ADR-0021)만 이식한다 — 문법을 `@theme` 블록으로 옮기는 건 이 플랫폼 쪽 마이그레이션 작업이며, FeedbackOps 자체를 v4로 올리는 것은 별도 과제(강제하지 않음) | 사용 중(Tailwind 4.3, `@theme`) |
 | UI 컴포넌트 | **shadcn/ui + Radix**(FeedbackOps `packages/ui/src/components/shadcn/`의 22개 컴포넌트 소스를 이식) + 자체 확장 컴포넌트(`ChipPicker`/`AnalyticsAreaPicker` 등 패턴 참고) | shadcn은 설치형 패키지가 아니라 소스 복사 방식이라 FeedbackOps가 이미 커스터마이즈해 둔 실제 파일을 그대로 가져올 수 있다. `cn()` 헬퍼(clsx+tailwind-merge)도 동일하게 이식 | 사용 중 — Radix 프리미티브 + 자체 `@ap/ui`(shadcn 소스 이식은 M2 디자인 재개 때, #52) |
-| 라우팅 | TanStack Router | FeedbackOps와 동일. 타입 있는 검색 파라미터로 06 §6.4 URL 계약을 타입 안전하게 관리하되, 버전·폐기 필드·미지원 필터 처리는 이 문서 §6.4 메커니즘을 별도로 구현해야 한다 | **미도입** — Kernel 자체 History + URL codec이 06 §6.4를 소유(Unit A 프로토타입부터의 의도된 차이). 도입·미채택 확정은 Open(05) |
+| 라우팅 | TanStack Router | FeedbackOps와 동일. 타입 있는 검색 파라미터로 06 §6.4 URL 계약을 타입 안전하게 관리하되, 버전·폐기 필드·미지원 필터 처리는 이 문서 §6.4 메커니즘을 별도로 구현해야 한다 | **미도입** — Kernel 자체 History + URL codec이 06 §6.4를 소유(Unit A부터 알려진 divergence, `.agents/reports/kernel-work-order-app-shell-menu-registry-draft.md` #5). 도입·미채택 확정은 Open(05) |
 | 서버 상태 | TanStack Query | FeedbackOps와 동일 | **미도입** — Kernel `usePlatformQuery`·`useMenuQuery`가 조회 수명주기 소유. 5분 폴링·계산 세대 재검증(#165)을 만들 때 Kernel 내부 구현 후보(메뉴 비노출) |
 | UI 상태 | Zustand | FeedbackOps와 동일 | **미도입** — 전역 상태는 Kernel Context + URL로 충분 |
 | Form | react-hook-form + zod (+ `@hookform/resolvers`) | FeedbackOps와 동일 | **미도입** — 쓰기 폼(권한 부여 등, #98 뒤)이 생길 때 |
@@ -31,7 +31,7 @@
 
 **아직 Candidate로 남는 것**: 대시보드 편집(react-grid-layout, Deferred 기능이라 채택 보류), 정확한 라이브러리 버전 고정(실제 구현 착수 시 재검증), FeedbackOps 컴포넌트/토큰 이식의 세부 매핑(실제 포팅 작업에서 확정).
 
-**결정과 코드의 차이(2026-10-02 확인):** 위 표의 "현재 코드" 열이 실제 의존(`package.json`)과 구현이다. 결정 자체는 바꾸지 않았다. 라우팅·서버 상태·UI 상태처럼 Kernel이 자체 구현으로 대신하는 항목을 "미채택"으로 확정할지는 [05 Open](05_roadmap_and_open_questions.md)에 올렸다. 새 라이브러리는 그것이 필요한 기능을 만들 때 Kernel·공통 컴포넌트 **안**에 넣고, 메뉴에 노출하지 않는다.
+**결정과 코드의 차이(2026-10-02 확인):** 위 표의 "현재 코드" 열이 실제 의존(`package.json`)과 구현이다. 결정 자체는 바꾸지 않았다. 라우팅·UI 상태처럼 Kernel이 자체 구현으로 대신하는 항목을 "미채택"으로 확정할지는(서버 상태 TanStack Query는 미채택 후보가 아니라 #165의 Kernel 내부 후보) [05 Open](05_roadmap_and_open_questions.md)에 올렸다. 새 라이브러리는 그것이 필요한 기능을 만들 때 Kernel·공통 컴포넌트 **안**에 넣고, 메뉴에 노출하지 않는다.
 
 Node/NestJS는 프론트와의 언어 통일·SQL-first 관점에서 비교했던 대안이다. 현재 백엔드는 FastAPI 방향이 Decided이며 세부 버전·구성은 Candidate다([05 결정 상태](05_roadmap_and_open_questions.md), [03 백엔드 스택](03_backend_stack.md)).
 
@@ -39,7 +39,7 @@ Node/NestJS는 프론트와의 언어 통일·SQL-first 관점에서 비교했�
 
 사내 리서치 문서 "반도체 생산성 분석 웹 시스템: 스킬·그리드·차트 조사"(2026-10-02, 조사 기준일 2026-10-01)의 후보를 이 플랫폼 계약(06 §15 표, §16 차트, §19 응답, §24 승격 기준, §26 접근성, [실서버 연결 체크리스트](integration/real-server-checklist.md) §3)에 비춰 검토했다. 라이선스·기능 경계는 리서치 문서와 아래 출처를 따랐고 성능은 측정하지 않았다. **상태: Candidate** — 채택·구매 결정이 아니다.
 
-**방침(사용자, 2026-10-02):** 오픈소스·무료로 시작하고, 필요성이 확인되면 유료로 전환한다.
+**방침:** 무료로 시작하고 필요성이 확인되면 유료로 전환한다 — 원본은 [05 결정 상태](05_roadmap_and_open_questions.md)(2026-10-02, 사용자).
 
 ### 판정
 
@@ -67,7 +67,7 @@ Node/NestJS는 프론트와의 언어 통일·SQL-first 관점에서 비교했�
 | 요구 | 무료 경로 | 유료 경로 |
 | --- | --- | --- |
 | 보이는 행을 엑셀로 복사 | 선택 행을 탭 구분 텍스트로 복사(표 공통 부품) | — |
-| 전체 결과 XLSX | 서버(FastAPI)가 openpyxl·XlsxWriter로 **전체 필터 결과** 생성 — 플랫폼 내보내기 계약과 일치 | AG Grid Enterprise(브라우저에 불러온 행만) |
+| 전체 결과 XLSX | (a) 지금 패턴 그대로: 내보내기 엔드포인트(예: `analytics.cycle.export`)가 필터된 전체 행을 envelope로 돌려주고 클라이언트가 직렬화한다 — CSV 대신 무료 XLSX 라이브러리로 쓰면 `PlatformAdapter` 변경 없음. (b) 서버 파일 생성(openpyxl·XlsxWriter): 대용량에 유리하지만 파일 다운로드 경로가 `PlatformAdapter` 밖이라 #149·Kernel 포트 결정이 필요 | AG Grid Enterprise Excel 내보내기(그리드에 렌더된 데이터 기준 — 서버 행 모델에서 안 불러온 행을 내보내는지는 공식 문서 미확인, #164에서 확인) |
 | 사용자 자유 피벗·즉석 차트 | Perspective 탐색 탭 | AG Grid Enterprise 피벗 |
 | 셀 범위 선택·여러 셀 복붙·채우기, 붙여넣기 대량 편집 | 사실상 없음 | AG Grid Enterprise |
 
@@ -82,9 +82,9 @@ Node/NestJS는 프론트와의 언어 통일·SQL-first 관점에서 비교했�
 
 ### Perspective 사용 방식
 
-Perspective(4.x)는 C++ 엔진을 WASM으로 돌리고, 표·WebGL 차트·그룹·분할(피벗)·필터·수식 열을 웹 컴포넌트 하나로 준다. 같은 클라이언트 API로 Web Worker 안 엔진과 원격 서버(WebSocket)를 모두 쓸 수 있고, Virtual Server로 DuckDB·ClickHouse·PostgreSQL(Python, 16 이상)에 피벗 설정을 SQL로 보낸다.
+Perspective(조사 시점 최신 5.x — v5.5.1, 2026-09-18)는 C++ 엔진을 WASM으로 돌리고, 표·WebGL 차트·그룹·분할(피벗)·필터·수식 열을 웹 컴포넌트 하나로 준다. 같은 클라이언트 API로 Web Worker 안 엔진과 원격 서버(WebSocket)를 모두 쓸 수 있고, Virtual Server로 DuckDB·ClickHouse·PostgreSQL(Python, 16 이상)에 피벗 설정을 SQL로 보낸다.
 
-- **허용: 브라우저 엔진만.** 기존 메뉴 엔드포인트의 `menuQuery` 결과 — 서버가 권한·Scope·한도를 판정한 결과 집합 — 를 Worker 엔진에 넣고 사용자가 다시 집계한다.
+- **허용: 브라우저 엔진만.** 메뉴가 선언한 엔드포인트의 `menuQuery` 결과 — 서버가 권한·Scope·한도를 판정한 결과 집합 — 를 Worker 엔진에 넣고 사용자가 다시 집계한다. 지금 엔드포인트는 화면용으로 집계·비율화된 값을 주므로 대개 탐색용 원 값 엔드포인트를 새로 선언해야 한다. 브라우저 적재량은 선언 `limits`(`too_large`)와 행 상한으로 묶는다 — 06 §15 "대규모 데이터에서는 브라우저에 전체 데이터를 전달하지 않는다".
 - **금지: Virtual Server·원격 모드로 DB나 서버 엔진에 직접 붙기.** 브라우저가 보낸 임의 피벗 설정이 쿼리가 되고, 공식 문서에 권한·행 단위 보안 장치에 대한 언급이 없다. `menuQuery` 판정 순서(체크리스트 §3)를 우회한다. 데이터가 브라우저에 다 안 들어갈 만큼 커지면, FastAPI 안 Perspective 서버가 세션별로 권한 필터를 적용한 테이블만 만들어 보내는 방식을 검토할 수 있지만 `PlatformAdapter` 밖 통신 경로라 Kernel 포트 변경 — 플랫폼 결정이다.
 - 탐색 탭에는 더할 수 있는 원 값(건수·시간·분자·분모)만 넣고 "공식 지표 아님"과 결과 집합의 `DataTrustIndicator`를 함께 보인다.
 - Perspective 차트(WebGL)는 탐색 탭 안에서만. 06 §16 Chart Frame 계약 화면은 ECharts. WebGL 차트는 스크린 리더로 읽히지 않으므로 같은 데이터의 표 경로를 남긴다(06 §26).
@@ -95,7 +95,7 @@ Perspective(4.x)는 C++ 엔진을 WASM으로 돌리고, 표·WebGL 차트·그�
 
 FastAPI 공식·Postgres Best Practices·React Best Practices를 `.agents/skills`로 들인다(#162). AG Grid 스킬은 유료 전환 때, shadcn 스킬은 M2 재개 때, TanStack Intent는 Query 도입 때, Polars 스킬은 채택 때. webapp-testing은 Playwright E2E·ego-browser가 이미 있어 넣지 않는다. 외부 스킬은 제품 계약을 덮어쓰지 않는다.
 
-출처: [AG Grid Community vs Enterprise](https://www.ag-grid.com/react-data-grid/community-vs-enterprise/), [AG Grid 수식·호환성](https://www.ag-grid.com/react-data-grid/formulas/), [Glide Data Grid](https://github.com/glideapps/glide-data-grid), [Handsontable 라이선스](https://handsontable.com/docs/react-data-grid/license-key/), [HyperFormula 라이선스](https://hyperformula.handsontable.com/docs/guide/license-key.html), [Univer](https://github.com/dream-num/univer), [SpreadJS 라이선스](https://developer.mescius.com/spreadjs/licensing), [Perspective](https://github.com/perspective-dev/perspective), [Perspective Virtual Servers](https://perspective-dev.github.io/guide/explanation/virtual_servers.html), [Apache ECharts](https://github.com/apache/echarts), [Plotly.js](https://github.com/plotly/plotly.js), [uPlot](https://github.com/leeoniya/uPlot), [Polars](https://github.com/pola-rs/polars), [Pandera](https://github.com/unionai-oss/pandera), [DuckDB 동시성](https://duckdb.org/docs/current/connect/concurrency).
+출처: [AG Grid Community vs Enterprise](https://www.ag-grid.com/react-data-grid/community-vs-enterprise/), [AG Grid Fill Handle(Enterprise)](https://www.ag-grid.com/react-data-grid/cell-selection-fill-handle/), [AG Grid Excel Export](https://www.ag-grid.com/react-data-grid/excel-export/), [AG Grid 수식·호환성](https://www.ag-grid.com/react-data-grid/formulas/), [Glide Data Grid](https://github.com/glideapps/glide-data-grid), [Handsontable 라이선스](https://handsontable.com/docs/react-data-grid/license-key/), [HyperFormula 라이선스](https://hyperformula.handsontable.com/docs/guide/license-key.html), [Univer](https://github.com/dream-num/univer), [SpreadJS 라이선스](https://developer.mescius.com/spreadjs/licensing), [Perspective](https://github.com/perspective-dev/perspective), [Perspective Virtual Servers](https://perspective-dev.github.io/guide/explanation/virtual_servers.html), [Apache ECharts](https://github.com/apache/echarts), [Plotly.js](https://github.com/plotly/plotly.js), [uPlot](https://github.com/leeoniya/uPlot), [Polars](https://github.com/pola-rs/polars), [Pandera](https://github.com/unionai-oss/pandera), [DuckDB 동시성](https://duckdb.org/docs/current/connect/concurrency).
 
 ## UI/UX 리서치 (codex gpt-5.6-luna, 실제 웹 검색 기반, 2026-09-17 확인)
 
