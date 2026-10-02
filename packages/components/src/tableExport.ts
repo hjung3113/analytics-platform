@@ -92,13 +92,14 @@ export async function toXlsx(headers: string[], rows: (string | number)[][], inf
 
 const escapeHtml = (text: string) => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 /**
- * Clipboard `text/html` (#174): a plain `<table>` of the same cells as the TSV. String cells carry Excel's text format
- * (`mso-number-format:"\@"`) so leading zeros and long numeric ids paste as text — a text cell is never evaluated, so,
- * like XLSX, no formula prefix. Numbers stay numbers.
+ * Clipboard `text/html` (#174): a plain `<table>` of the same cells as the TSV. Spreadsheets paste this flavor when it
+ * is present and re-read it like typed input, so string cells get the same formula guard as the TSV (review P1-2).
+ * String cells also carry Excel's text format (`mso-number-format:"\@"`) so leading zeros and long numeric ids paste
+ * as text; an in-cell newline becomes Excel's same-cell break (the TSV quotes it). Numbers stay numbers.
  */
 export function toClipboardHtml(headers: string[], rows: (string | number)[][]): string {
   const td = (value: string | number, tag: 'th' | 'td') => typeof value === 'number'
     ? `<${tag}>${value}</${tag}>`
-    : `<${tag} style="mso-number-format:'\\@'">${escapeHtml(value)}</${tag}>`;
+    : `<${tag} style="mso-number-format:'\\@'">${escapeHtml(guardFormula(value)).replace(/\r\n|\r|\n/g, '<br style="mso-data-placement:same-cell">')}</${tag}>`;
   return `<table><thead><tr>${headers.map(h => td(h, 'th')).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${row.map(c => td(c, 'td')).join('')}</tr>`).join('')}</tbody></table>`;
 }

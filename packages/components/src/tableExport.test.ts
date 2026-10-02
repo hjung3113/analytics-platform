@@ -136,6 +136,16 @@ describe('xlsxText truncation (#173 P3-9)', () => {
 });
 
 describe('toClipboardHtml (#174)', () => {
+  it('guards formulas like the TSV (spreadsheets paste the HTML flavor) and keeps in-cell line breaks (#174 review P1-2, P3-4)', () => {
+    const html = toClipboardHtml(['=H'], [['=HYPERLINK("x")', '+8210', '-1', '@a', 'a\nb', 5]]);
+    expect(html).toContain(`<th style="mso-number-format:'\\@'">'=H</th>`);
+    expect(html).toContain(`>'=HYPERLINK(&quot;x&quot;)</td>`);
+    expect(html).toContain(`>'+8210</td>`);
+    expect(html).toContain(`>'-1</td>`);
+    expect(html).toContain(`>'@a</td>`);
+    expect(html).toContain('>a<br style="mso-data-placement:same-cell">b</td>');
+    expect(html).toContain('<td>5</td>');
+  });
   it('escapes markup, marks string cells as Excel text (leading zeros survive) and keeps numbers plain', () => {
     expect(toClipboardHtml(['Id', 'N'], [['00123', 7], ['<b>&"x"</b>', '']])).toBe(
       `<table><thead><tr><th style="mso-number-format:'\\@'">Id</th><th style="mso-number-format:'\\@'">N</th></tr></thead>`

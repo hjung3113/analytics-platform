@@ -694,7 +694,7 @@ Table은 플랫폼 핵심 UI다.
 - Virtualization
 - Saved column preference
 - Row action
-- Export entry — 표 소유 내보내기(#173): `PlatformDataTable`이 `exportRows`·`exportNote` 계약으로 직렬화·파일·토스트까지 소유한다([`packages/components/AGENTS.md`](../packages/components/AGENTS.md))
+- Export entry — 표 소유 내보내기(#173): `PlatformDataTable`이 `exportRows`·`exportNote` 계약으로 직렬화·파일·토스트까지 소유한다([`packages/components/AGENTS.md`](../packages/components/AGENTS.md)). 선택 행 복사(#174)도 같은 게이트·직렬화를 쓰는 내보내기다
 
 Baseline (Decided — `DESIGN.md` `table-density` 토큰과 일치):
 

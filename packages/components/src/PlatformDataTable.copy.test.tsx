@@ -109,6 +109,23 @@ const blobText = (blob: Blob) => new Promise<string>((resolve, reject) => {
   reader.readAsText(blob);
 });
 const writtenText = async (type: string) => blobText(await written.items[0][type]);
+/**
+ * `document.execCommand('copy')` as real Chromium runs it (#174 review P1-1): the copy event starts at the DOM
+ * selection's node — none after a checkbox/button click — so it is dispatched on `<body>`, never inside the table.
+ * `fires: false` models an environment where the command does nothing and returns false.
+ */
+function fakeExecCommand({ fires = true }: { fires?: boolean } = {}) {
+  const data = new Map<string, string>();
+  const execCommand = vi.fn((command: string) => {
+    if (command !== 'copy' || !fires) return false;
+    const event = new Event('copy', { bubbles: true, cancelable: true }) as Event & { clipboardData: { setData: (t: string, v: string) => void } };
+    event.clipboardData = { setData: (t, v) => { data.set(t, v); } };
+    document.body.dispatchEvent(event);
+    return true;
+  });
+  Object.defineProperty(document, 'execCommand', { configurable: true, value: execCommand });
+  return { data, execCommand };
+}
 
 const originalOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
 const originalOffsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
@@ -127,6 +144,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   delete (window as { isSecureContext?: boolean }).isSecureContext;
   delete (navigator as { clipboard?: unknown }).clipboard;
+  delete (document as { execCommand?: unknown }).execCommand;
 });
 afterAll(() => {
   vi.restoreAllMocks();
@@ -172,15 +190,27 @@ describe('PlatformDataTable row copy (#174) — button', () => {
     expect(serverSelected).not.toHaveBeenCalled();
   });
 
-  it('with a selection: "3행 복사", enabled, no tooltip', async () => {
+  it('with a selection: "3행 복사", enabled, the tooltip and aria-keyshortcuts name the shortcut (UX P3-1)', async () => {
     render(<Harness />);
     await ready();
+    expect(copyButton().getAttribute('aria-keyshortcuts')).toBeNull(); // disabled: no shortcut advertised
     select('r1', 'r2', 'r3');
     const button = copyButton();
     expect(button.textContent).toBe('3행 복사');
     expect(button.getAttribute('aria-disabled')).toBeNull();
+    expect(button.getAttribute('aria-keyshortcuts')).toBe('Control+C Meta+C');
     act(() => { button.focus(); });
-    expect(screen.queryByRole('tooltip')).toBeNull();
+    expect((await screen.findByRole('tooltip')).textContent).toBe('Ctrl+C / ⌘C로도 복사할 수 있습니다(표 안에서)');
+  });
+
+  it('the tooltip has no drop shadow — border only (UX P3-2, DESIGN.md)', async () => {
+    render(<Harness />);
+    await ready();
+    act(() => { copyButton().focus(); });
+    await screen.findByRole('tooltip');
+    const content = document.querySelector('[data-radix-popper-content-wrapper] > *');
+    expect(content?.className).toContain('shadow-none');
+    expect(content?.className).toContain('border');
   });
 });
 
@@ -198,6 +228,7 @@ describe('PlatformDataTable row copy (#174) — secure context', () => {
     const html = await writtenText('text/html');
     expect(html).toContain('<th style="mso-number-format:\'\\@\'">Code</th>');
     expect(html).toContain('<td style="mso-number-format:\'\\@\'">00123</td>');
+    expect(html).toContain(">'=1+1</td>"); // the HTML flavor is guarded too (review P1-2)
     await waitFor(() => expect(toasts()).toContain('선택 3행을 복사했습니다 — 엑셀에 붙여넣을 수 있습니다'));
   });
 
@@ -241,7 +272,7 @@ describe('PlatformDataTable row copy (#174) — secure context', () => {
     expect(await writtenText('text/plain')).toBe('Code\tNote\n00123\tplain\n');
   });
 
-  it('a refusal reuses the export refusal text; a permission rejection names its reason', async () => {
+  it('a refusal reuses the export refusal text; a permission rejection names its reason and the permission', async () => {
     secureClipboard();
     const refused = render(<Harness exportRows={async () => ({ outcome: 'too_large', data: null, assessments: [], trust: null, correlationId: 'c' })} />);
     await ready();
@@ -255,64 +286,133 @@ describe('PlatformDataTable row copy (#174) — secure context', () => {
     await ready();
     select('r1');
     fireEvent.click(copyButton());
-    await waitFor(() => expect(toasts()).toContain('클립보드에 복사하지 못했습니다(Write permission denied.)'));
+    await waitFor(() => expect(toasts()).toContain('클립보드에 복사하지 못했습니다(Write permission denied.). 브라우저의 클립보드 권한을 확인하고 다시 시도하세요.'));
   });
 
-  it('falls back to writeText when ClipboardItem refuses promised values (older browsers)', async () => {
-    const clipboard = secureClipboard(async () => { throw new TypeError('promise values unsupported'); });
+  it('a row read that throws (network) says the read failed — never "check the clipboard permission" (review P3-3, UX P2-3)', async () => {
+    secureClipboard();
+    render(<Harness exportRows={async () => { throw new TypeError('Failed to fetch'); }} />);
+    await ready();
+    select('r1');
+    fireEvent.click(copyButton());
+    await waitFor(() => expect(toasts()).toContain('내보내기를 수행하지 못했습니다. 다시 시도하고, 반복되면 관리자에게 문의하세요.'));
+    expect(toasts()).not.toContain('클립보드 권한');
+  });
+
+  it('a browser that refuses promised ClipboardItem values copies the loaded rows synchronously (review P3-2)', async () => {
+    const clipboard = secureClipboard(() => { throw new TypeError('promise values unsupported'); });
+    const { data, execCommand } = fakeExecCommand();
     render(<Harness />);
     await ready();
     select('r1');
     fireEvent.click(copyButton());
-    await waitFor(() => expect(clipboard.writeText).toHaveBeenCalledWith('Code\tNote\n00123\tplain\n'));
-    await waitFor(() => expect(toasts()).toContain('선택 1행을 복사했습니다'));
+    expect(execCommand).toHaveBeenCalledWith('copy'); // still inside the click
+    expect(data.get('text/plain')).toBe('Code\tNote\n00123\tplain\n');
+    expect(clipboard.writeText).not.toHaveBeenCalled();
+    expect(toasts()).toContain('선택 1행을 복사했습니다');
+  });
+
+  it('a late TypeError from the write (after the gesture) says copying is unavailable here', async () => {
+    secureClipboard(async () => { throw new TypeError('promise values unsupported'); });
+    render(<Harness />);
+    await ready();
+    select('r1');
+    fireEvent.click(copyButton());
+    await waitFor(() => expect(toasts()).toContain('이 환경에서는 복사할 수 없습니다 — 내보내기(CSV·Excel)를 쓰세요'));
+  });
+
+  it('copy and export each keep their own status line, in either completion order (review P3-1, UX P2-2)', async () => {
+    const originalCreate = URL.createObjectURL;
+    const originalRevoke = URL.revokeObjectURL;
+    URL.createObjectURL = () => 'blob:test';
+    URL.revokeObjectURL = () => {};
+    const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    try {
+      for (const first of ['copy', 'export'] as const) {
+        secureClipboard();
+        const pending: Record<string, (value: ApiResponse<Row[]>) => void> = {};
+        const exportRows = vi.fn((request: { scope: { kind: string } }) => new Promise<ApiResponse<Row[]>>(resolve => { pending[request.scope.kind === 'selected' && !pending.copy ? 'copy' : 'export'] = resolve; }));
+        const view = render(<Harness exportRows={exportRows} />);
+        await ready();
+        select('r1');
+        fireEvent.click(copyButton());
+        fireEvent.keyDown(screen.getByRole('button', { name: /^내보내기/ }), { key: 'Enter' });
+        fireEvent.click(await screen.findByRole('menuitem', { name: '필터 결과 전체 6행을 CSV로 내보내기' }));
+        const status = () => screen.getByTestId('export-status').textContent ?? '';
+        await waitFor(() => expect(status()).toContain('복사하는 중입니다'));
+        expect(status()).toContain('준비 중입니다');
+        pending[first](ok(first === 'copy' ? [ALL[0]] : ALL));
+        const other = first === 'copy' ? '준비 중입니다' : '복사하는 중입니다';
+        const gone = first === 'copy' ? '복사하는 중입니다' : '준비 중입니다';
+        await waitFor(() => expect(status()).not.toContain(gone));
+        expect(status()).toContain(other); // the finished one never clears the other's announcement
+        pending[first === 'copy' ? 'export' : 'copy'](ok(first === 'copy' ? ALL : [ALL[0]]));
+        await waitFor(() => expect(status()).toBe(''));
+        view.unmount();
+      }
+    } finally {
+      anchorClick.mockRestore();
+      URL.createObjectURL = originalCreate;
+      URL.revokeObjectURL = originalRevoke;
+    }
   });
 });
 
 describe('PlatformDataTable row copy (#174) — insecure context', () => {
-  it('Ctrl+C uses the native copy event with the loaded rows only, and says so when the selection spans pages', async () => {
+  it('Ctrl+C (keydown only) runs execCommand("copy") with the loaded rows and says so when the selection spans pages', async () => {
     insecure();
+    const { data, execCommand } = fakeExecCommand();
     render(<Harness pageSize={2} />);
     await ready();
     select('r1');
     fireEvent.click(screen.getByRole('button', { name: '다음' }));
     await screen.findByRole('checkbox', { name: '선택 r3' });
     select('r3');
-    const target = screen.getByRole('checkbox', { name: '선택 r3' });
-    const keyDown = fireEvent.keyDown(target, { key: 'c', ctrlKey: true });
-    expect(keyDown).toBe(true); // not prevented: the native copy event follows
-    const data = new Map<string, string>();
-    const event = new Event('copy', { bubbles: true, cancelable: true }) as Event & { clipboardData: { setData: (t: string, v: string) => void } };
-    event.clipboardData = { setData: (t, v) => { data.set(t, v); } };
-    fireEvent(target, event);
-    expect(event.defaultPrevented).toBe(true);
+    const keyDown = fireEvent.keyDown(screen.getByRole('checkbox', { name: '선택 r3' }), { key: 'c', ctrlKey: true });
+    expect(keyDown).toBe(false); // the table owns the shortcut on both paths
+    expect(execCommand).toHaveBeenCalledWith('copy');
     expect(data.get('text/plain')).toBe('Code\tNote\n00789\t"a\tb"\n');
     expect(data.get('text/html')).toContain('00789');
     expect(serverSelected).not.toHaveBeenCalled();
     expect(toasts()).toContain('이 환경에서는 현재 페이지에 보이는 선택 1행만 복사됩니다');
   });
 
-  it('the button copies the same loaded rows through execCommand("copy")', async () => {
+  it('the button copies the loaded rows although Chromium sends the copy event to <body> (review P1-1)', async () => {
     insecure();
-    const data = new Map<string, string>();
-    const execCommand = vi.fn((command: string) => {
-      const event = new Event('copy', { bubbles: true, cancelable: true }) as Event & { clipboardData: { setData: (t: string, v: string) => void } };
-      event.clipboardData = { setData: (t, v) => { data.set(t, v); } };
-      copyButton().dispatchEvent(event);
-      return command === 'copy';
-    });
-    Object.defineProperty(document, 'execCommand', { configurable: true, value: execCommand });
-    try {
-      render(<Harness />);
-      await ready();
-      select('r1', 'r2');
-      fireEvent.click(copyButton());
-      expect(execCommand).toHaveBeenCalledWith('copy');
-      expect(data.get('text/plain')).toBe("Code\tNote\n00123\tplain\n00456\t'=1+1\n");
-      expect(toasts()).toContain('선택 2행을 복사했습니다 — 엑셀에 붙여넣을 수 있습니다');
-    } finally {
-      delete (document as { execCommand?: unknown }).execCommand;
-    }
+    const { data, execCommand } = fakeExecCommand();
+    render(<Harness />);
+    await ready();
+    select('r1', 'r2');
+    fireEvent.click(copyButton());
+    expect(execCommand).toHaveBeenCalledWith('copy');
+    expect(data.get('text/plain')).toBe("Code\tNote\n00123\tplain\n00456\t'=1+1\n");
+    expect(data.get('text/html')).toContain(">'=1+1</td>");
+    expect(toasts()).toContain('선택 2행을 복사했습니다 — 엑셀에 붙여넣을 수 있습니다');
+  });
+
+  it('no selected row on this page: the clipboard is untouched and the toast says what to do (UX P2-1)', async () => {
+    insecure();
+    const { execCommand } = fakeExecCommand();
+    render(<Harness pageSize={2} />);
+    await ready();
+    select('r1');
+    fireEvent.click(screen.getByRole('button', { name: '다음' }));
+    await screen.findByRole('checkbox', { name: '선택 r3' });
+    fireEvent.click(copyButton());
+    expect(execCommand).not.toHaveBeenCalled();
+    expect(toasts()).toContain('현재 페이지에 선택한 행이 없어 복사하지 못했습니다. 선택한 행이 있는 페이지로 이동해 다시 시도하세요.');
+    expect(toasts()).not.toContain('복사됩니다');
+  });
+
+  it('execCommand that copies nothing says copying is unavailable here and points to export (review P3-3)', async () => {
+    insecure();
+    fakeExecCommand({ fires: false });
+    render(<Harness />);
+    await ready();
+    select('r1');
+    fireEvent.click(copyButton());
+    expect(toasts()).toContain('이 환경에서는 복사할 수 없습니다 — 내보내기(CSV·Excel)를 쓰세요');
+    expect(toasts()).not.toContain('클립보드 권한');
   });
 });
 
