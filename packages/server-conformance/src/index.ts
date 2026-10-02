@@ -1,13 +1,15 @@
 /**
- * Server boundary conformance kit (#145). Judges any `PlatformAdapter.menuQuery` implementation — the mock today,
+ * Server boundary conformance kit (#145, #152). Judges any `PlatformAdapter` implementation — the mock today,
  * the in-house server adapter later — against the menu query contract (docs/integration/real-server-checklist.md,
- * 06 §5·§19). Every check is derived from an endpoint declaration plus one request the granted actor can run, so
- * the kit knows no menu and no mock internals.
+ * 06 §5·§19) and the port methods beyond menuQuery (checklist §2: session, subscribe, validateScope, getEntity,
+ * entityAudit, the console reads). Every check is derived from a contract declaration plus samples the granted
+ * actor can run, so the kit knows no menu and no mock internals.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
   emptyGlobal, projectContext,
-  type AnyEndpointSpec, type ApiResponse, type AssessmentKind, type GlobalContext, type MenuQuery, type Permission, type PlatformAdapter,
+  type AnyEndpointSpec, type ApiResponse, type Assessment, type AssessmentKind, type ClientErrorReport, type EntityRef,
+  type GlobalContext, type MenuQuery, type Permission, type PlatformAdapter, type Trust, type UsageEvent,
 } from '@ap/contracts';
 
 export type ConformanceCase = {
@@ -22,28 +24,60 @@ export type ConformanceCase = {
   oversizeParams?: Record<string, unknown>;
 };
 
+/**
+ * Sample inputs for the port checks (#152): destinations and events the granted actor may use. Step 2 consumes
+ * `annotation`·`usage`·`clientError`·`otherGrantedScopeId` (annotations, telemetry, error reporting); they shape
+ * the harness now so that step needs no second breaking change.
+ */
+export type PortSamples = {
+  /** A destination the granted actor may read: `ref.scopeId` is `context.scopeId`, its room is granted; `permission` is that type's view permission. */
+  entity: { ref: EntityRef; permission: Permission };
+  /** A chart the granted actor may annotate and the permission it needs (step 2). */
+  annotation: { chartId: string; permission: Permission };
+  /** A valid usage entry event the granted actor may record (step 2). */
+  usage: UsageEvent;
+  /** A valid client error report (step 2). */
+  clientError: ClientErrorReport;
+  /** A second site the granted actor holds a grant in (step 2: annotation isolation). */
+  otherGrantedScopeId: string;
+};
+
 export type ServerConformanceHarness = {
-  adapter: Pick<PlatformAdapter, 'menuQuery'>;
+  adapter: PlatformAdapter;
   cases: readonly ConformanceCase[];
   /** Applied Context values a granted request uses: a granted site and an absolute period inside every endpoint limit. */
   context: { scopeId: string; from: string; to: string };
   /** A site the granted actor holds no grant for. */
   foreignScopeId: string;
-  /** Run `fn` as the granted actor: every case permission and the `context.scopeId` grant. */
+  /** Sample inputs for the port checks: a readable destination, a chart to annotate, telemetry shapes, a second granted site. */
+  ports: PortSamples;
+  /**
+   * Run `fn` as the granted actor: every case permission plus `ports.entity.permission` and
+   * `ports.annotation.permission`, holding grants at `context.scopeId` and `ports.otherGrantedScopeId`.
+   * It need not hold `console:access`.
+   */
   asGranted<T>(fn: () => Promise<T>): Promise<T>;
   /** Run `fn` as the granted actor minus `permission` — everything else equal. */
   withoutPermission<T>(permission: Permission, fn: () => Promise<T>): Promise<T>;
+  /** Run `fn` as an actor holding `console:access` (the console reads); everything else equal. */
+  asConsole<T>(fn: () => Promise<T>): Promise<T>;
 };
 
 /** One check: `run` resolves to null when the adapter conforms, otherwise to the reason it does not. */
 export type ConformanceCheck = {
   id: string;
   /**
-   * 'granted' checks run concurrently as the granted actor; 'permission' checks run one at a time without a
-   * permission; 'skipped' checks never run (#175: a maxRows declaration with no oversize sample) — they surface
-   * in the plan and as `it.skip` in the vitest suite so the gap stays visible.
+   * 'granted' checks run concurrently as the granted actor; 'console' checks run concurrently as the console
+   * actor after the granted batch; 'permission' checks run one at a time without a permission; 'skipped'
+   * checks never run (#175: a maxRows declaration with no oversize sample) — they surface in the plan and as
+   * `it.skip` in the vitest suite so the gap stays visible.
    */
-  mode: 'granted' | 'permission' | 'skipped';
+  mode: 'granted' | 'console' | 'permission' | 'skipped';
+  /**
+   * True for non-envelope methods (checklist §2: `session`, `subscribe`, `validateScope`): a throw is not
+   * "refusing to answer an envelope" there, so the failure message says the method threw/rejected instead.
+   */
+  nonEnvelope?: boolean;
   run: () => Promise<string | null>;
 };
 
@@ -55,6 +89,11 @@ const SET_KEYS = ['roomNames', 'selection', 'lotIds', 'recipeIds'] as const;
 const CONTEXT_KEYS = Object.keys(emptyGlobal) as (keyof GlobalContext)[];
 const UNKNOWN_ENDPOINT = '__conformance.unknown';
 const UNKNOWN_KEY = '__conformance_unknown';
+const UNKNOWN_SITE = '__conformance_unknown_site';
+/** Console reads are `console:access` (adapter.ts) — a contract constant, named so the kit never hardcodes it inline. */
+const CONSOLE_ACCESS: Permission = 'console:access';
+/** Outcomes that answer nothing — checklist §2 getEntity: a rejection never carries row fields. */
+const REJECTIONS: readonly ApiResponse<unknown>['outcome'][] = ['forbidden', 'error', 'too_large', 'timeout'];
 
 function baseRequest(harness: ServerConformanceHarness, c: ConformanceCase): MenuQuery {
   const global: GlobalContext = { ...emptyGlobal, ...harness.context };
@@ -63,6 +102,35 @@ function baseRequest(harness: ServerConformanceHarness, c: ConformanceCase): Men
 
 function describeResponse(r: ApiResponse<unknown>): string {
   return `${r.outcome}${r.message ? ` (${r.message})` : ''}`;
+}
+
+/** 06 §19: each assessment must carry what its state claims — a source when it asserts, a reason when it cannot. */
+function assessmentProblem(assessments: readonly Assessment[], outcome: ApiResponse<unknown>['outcome']): string | null {
+  const seen = new Set<AssessmentKind>();
+  for (const a of assessments) {
+    if (seen.has(a.kind)) return `assessment kind ${a.kind} appears more than once (06 §19)`;
+    seen.add(a.kind);
+    if ((a.state === 'confirmed' || a.state === 'clear') && (!a.statusSource || !a.observedAt)) {
+      return `${a.kind} is ${a.state} without statusSource/observedAt (06 §19)`;
+    }
+    if (a.state === 'unknown' && !a.reason) return `${a.kind} is unknown without a reason (06 §19)`;
+    if (a.explainsEmpty === true && !(outcome === 'empty' && a.state === 'confirmed')) {
+      return `${a.kind} sets explainsEmpty outside an empty outcome confirmed by a source (06 §19)`;
+    }
+  }
+  return null;
+}
+
+/** 06 §18 + contracts `Trust`: trust is null (not mart data) or complete — unknown values are null, never dropped or retyped. */
+function trustProblem(trust: Trust | null): string | null {
+  if (trust === null) return null;
+  if (typeof trust.updatedAt !== 'string') return 'trust.updatedAt is not a string (06 §18)';
+  if (trust.dataThrough !== null && typeof trust.dataThrough !== 'string') return 'trust.dataThrough is not a string or null (06 §18)';
+  if (trust.coverage !== null && typeof trust.coverage !== 'number') return 'trust.coverage is not a number or null (06 §18)';
+  if (typeof trust.provisional !== 'boolean') return 'trust.provisional is not a boolean (06 §18)';
+  if (typeof trust.source !== 'string') return 'trust.source is not a string (06 §18)';
+  if (trust.metricVersion !== undefined && typeof trust.metricVersion !== 'string') return 'trust.metricVersion is neither absent nor a string (06 §18)';
+  return null;
 }
 
 function sameKinds(actual: readonly { kind: AssessmentKind }[], declared: readonly AssessmentKind[]): boolean {
@@ -74,7 +142,11 @@ function sameKinds(actual: readonly { kind: AssessmentKind }[], declared: readon
 function expectOutcome(send: () => Promise<ApiResponse<unknown>>, outcome: ApiResponse<unknown>['outcome'], why: string) {
   return async () => {
     const r = await send();
-    return r.outcome === outcome ? null : `${why}: expected ${outcome}, got ${describeResponse(r)}`;
+    if (r.outcome !== outcome) return `${why}: expected ${outcome}, got ${describeResponse(r)}`;
+    if (REJECTIONS.includes(r.outcome) && r.data !== null) {
+      return `${why}: a ${r.outcome} answer carries no data (checklist §2: rejections never carry row fields)`;
+    }
+    return null;
   };
 }
 
@@ -103,6 +175,24 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
           return `assessments [${r.assessments.map(a => a.kind).join(', ')}] ≠ declared [${spec.kinds.join(', ')}]`;
         }
         return null;
+      },
+    });
+    checks.push({
+      id: name('granted response assessments are well-formed (06 §19)'),
+      mode: 'granted',
+      run: async () => {
+        const r = await harness.adapter.menuQuery(base);
+        if (r.outcome !== 'ok' && r.outcome !== 'empty') return `expected ok or empty, got ${describeResponse(r)}`;
+        return assessmentProblem(r.assessments, r.outcome);
+      },
+    });
+    checks.push({
+      id: name('granted response trust is null or complete (06 §18)'),
+      mode: 'granted',
+      run: async () => {
+        const r = await harness.adapter.menuQuery(base);
+        if (r.outcome !== 'ok' && r.outcome !== 'empty') return `expected ok or empty, got ${describeResponse(r)}`;
+        return trustProblem(r.trust);
       },
     });
     checks.push({
@@ -209,10 +299,190 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       run: () => harness.withoutPermission(spec.permission, expectOutcome(send(base), 'forbidden', 'the endpoint permission is re-checked per request')),
     });
   }
+
+  // Port checks beyond menuQuery (#152, checklist §2). Session/subscribe/validateScope are non-envelope methods:
+  // they answer their own types, so a throw there is reported as the method throwing, not as a missing envelope.
+  const { adapter, ports } = harness;
+  const entityRef = ports.entity.ref;
+  checks.push({
+    id: 'port · session() returns the same object until the session changes',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: async () => (Object.is(adapter.session(), adapter.session())
+      ? null
+      : 'session() must return the same object while the session is unchanged — the kernel compares identity to decide re-validation'),
+  });
+  checks.push({
+    id: 'port · session lists the granted sites and not the foreign one',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: async () => {
+      const ids = adapter.session().scopes.map(s => s.id);
+      if (!ids.includes(harness.context.scopeId) || !ids.includes(ports.otherGrantedScopeId)) {
+        return `session().scopes must list the granted sites ${harness.context.scopeId} and ${ports.otherGrantedScopeId}, got [${ids.join(', ')}]`;
+      }
+      if (ids.includes(harness.foreignScopeId)) {
+        return `session().scopes must not list the foreign site ${harness.foreignScopeId} — a site with no grant is not an option`;
+      }
+      return null;
+    },
+  });
+  checks.push({
+    id: 'port · subscribe returns an unsubscribe function',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: async () => {
+      const unsubscribe = adapter.subscribe(() => {});
+      if (typeof unsubscribe !== 'function') return 'subscribe must return an unsubscribe function';
+      try {
+        unsubscribe();
+        unsubscribe();
+      } catch (error) {
+        return `unsubscribing (twice) threw: ${String(error)}`;
+      }
+      return null;
+    },
+  });
+  checks.push({
+    id: 'port · validateScope(granted site) → valid with its rooms',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: async () => {
+      const check = await adapter.validateScope(harness.context.scopeId);
+      if (check.status !== 'valid') return `expected valid for the granted site ${harness.context.scopeId}, got ${check.status}`;
+      if (check.grantedRooms.length === 0) return 'a valid site must list its granted rooms';
+      return null;
+    },
+  });
+  checks.push({
+    id: 'port · validateScope(foreign site) → forbidden with no rooms',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: async () => {
+      const check = await adapter.validateScope(harness.foreignScopeId);
+      if (check.status !== 'forbidden') return `expected forbidden for the foreign site ${harness.foreignScopeId}, got ${check.status}`;
+      if (check.grantedRooms.length > 0) return `a forbidden site must not list rooms — got [${check.grantedRooms.join(', ')}] (room leak)`;
+      return null;
+    },
+  });
+  checks.push({
+    id: 'port · validateScope(unknown site) → unknown_scope',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: async () => {
+      const check = await adapter.validateScope(UNKNOWN_SITE);
+      if (check.status !== 'unknown_scope') return `expected unknown_scope for ${UNKNOWN_SITE}, got ${check.status}`;
+      if (check.grantedRooms.length > 0) return `an unknown site must not list rooms — got [${check.grantedRooms.join(', ')}]`;
+      return null;
+    },
+  });
+  checks.push({
+    id: 'port · getEntity(sample) → ok with the row',
+    mode: 'granted',
+    run: async () => {
+      const r = await adapter.getEntity(entityRef);
+      if (r.outcome !== 'ok') return `expected ok, got ${describeResponse(r)}`;
+      if (r.data === null) return 'the sample destination row is missing from the ok answer';
+      return assessmentProblem(r.assessments, r.outcome) ?? trustProblem(r.trust);
+    },
+  });
+  checks.push({
+    id: 'port · getEntity of an unregistered type → error',
+    mode: 'granted',
+    run: expectOutcome(() => adapter.getEntity({ ...entityRef, type: UNKNOWN_ENDPOINT }), 'error', 'an unregistered entity type'),
+  });
+  checks.push({
+    id: 'port · getEntity at a site without a grant → forbidden',
+    mode: 'granted',
+    run: expectOutcome(() => adapter.getEntity({ ...entityRef, scopeId: harness.foreignScopeId }), 'forbidden', 'a site the granted actor holds no grant for'),
+  });
+  checks.push({
+    id: 'port · getEntity with a null Scope → forbidden',
+    mode: 'granted',
+    run: expectOutcome(() => adapter.getEntity({ ...entityRef, scopeId: null }), 'forbidden', 'a null Scope leaves no site to read'),
+  });
+  checks.push({
+    id: `port · getEntity without ${ports.entity.permission} → forbidden`,
+    mode: 'permission',
+    run: () => harness.withoutPermission(
+      ports.entity.permission,
+      expectOutcome(() => adapter.getEntity(entityRef), 'forbidden', 'the destination view permission is re-checked per request'),
+    ),
+  });
+  checks.push({
+    id: 'port · entityAudit(sample) → events',
+    mode: 'granted',
+    run: async () => {
+      const r = await adapter.entityAudit(entityRef);
+      if (r.outcome !== 'ok' && r.outcome !== 'empty') return `expected ok or empty, got ${describeResponse(r)}`;
+      if (r.outcome === 'ok' && !Array.isArray(r.data?.events)) return 'an ok entityAudit answer carries data.events as an array';
+      return null;
+    },
+  });
+  checks.push({
+    id: 'port · entityAudit of an unregistered type → error',
+    mode: 'granted',
+    run: expectOutcome(() => adapter.entityAudit({ ...entityRef, type: UNKNOWN_ENDPOINT }), 'error', 'an unregistered entity type'),
+  });
+  checks.push({
+    id: 'port · entityAudit at a site without a grant → forbidden',
+    mode: 'granted',
+    run: expectOutcome(() => adapter.entityAudit({ ...entityRef, scopeId: harness.foreignScopeId }), 'forbidden', 'a site the granted actor holds no grant for'),
+  });
+  checks.push({
+    id: `port · entityAudit without ${ports.entity.permission} → forbidden`,
+    mode: 'permission',
+    run: () => harness.withoutPermission(
+      ports.entity.permission,
+      expectOutcome(() => adapter.entityAudit(entityRef), 'forbidden', 'the destination audit read uses that destination\'s view permission'),
+    ),
+  });
+  // Console reads (checklist §2): console:access under the console actor, forbidden without it. auditTrail and
+  // accessDirectory answer 'empty' on a zero (adapter.ts/mock: a zero is a meaningful audit/directory result);
+  // usageSummary answers 'ok' with an empty list (adapter.ts: the console never reads raw events, a zero is menus: []).
+  const consoleReads = [
+    { method: 'auditTrail', allowEmpty: true, send: () => adapter.auditTrail({}) },
+    { method: 'accessDirectory', allowEmpty: true, send: () => adapter.accessDirectory({}) },
+    { method: 'usageSummary', allowEmpty: false, send: () => adapter.usageSummary({ preset: 'all' }) },
+  ] as const;
+  for (const read of consoleReads) {
+    checks.push({
+      id: `port · ${read.method} as a console actor → ok`,
+      mode: 'console',
+      run: async () => {
+        const r = await read.send();
+        if (r.outcome !== 'ok' && !(read.allowEmpty && r.outcome === 'empty')) {
+          return `a console actor reading ${read.method}: expected ok${read.allowEmpty ? ' or empty' : ''}, got ${describeResponse(r)}`;
+        }
+        return null;
+      },
+    });
+    checks.push({
+      id: `port · ${read.method} without console:access → forbidden`,
+      mode: 'permission',
+      run: () => harness.withoutPermission(
+        CONSOLE_ACCESS,
+        expectOutcome(read.send, 'forbidden', `the console read ${read.method} requires console:access`),
+      ),
+    });
+  }
+  checks.push({
+    id: 'port · accessDirectory is not mart data: no assessments, null trust',
+    mode: 'console',
+    run: async () => {
+      const r = await adapter.accessDirectory({});
+      // A read that did not succeed is the `→ ok` check's failure; this check owns only the mart-data rule.
+      if (r.outcome !== 'ok' && r.outcome !== 'empty') return null;
+      if (r.assessments.length > 0 || r.trust !== null) {
+        return 'accessDirectory is not mart data (adapter.ts): no assessments, null trust';
+      }
+      return null;
+    },
+  });
   return checks;
 }
 
-/** Runs every planned check: granted checks concurrently as the granted actor, permission checks one at a time. Skipped checks are not run — they stay visible in the returned list by id. */
+/** Runs every planned check: granted checks concurrently as the granted actor, then console checks concurrently as the console actor, then permission checks one at a time. Skipped checks are not run — they stay visible in the returned list by id. */
 export async function runServerConformance(harness: ServerConformanceHarness): Promise<ConformanceResult[]> {
   const checks = planServerConformance(harness);
   const failureOf = async (check: ConformanceCheck): Promise<ConformanceResult> => {
@@ -220,13 +490,20 @@ export async function runServerConformance(harness: ServerConformanceHarness): P
       const failure = await check.run();
       return { id: check.id, status: failure === null ? 'passed' : 'failed', failure };
     } catch (error) {
-      return { id: check.id, status: 'failed', failure: `the adapter threw instead of answering an envelope: ${String(error)}` };
+      // Envelope methods must answer an envelope even on transport failure (checklist §2); non-envelope methods
+      // legitimately reject, so the message names the method throwing instead.
+      return {
+        id: check.id,
+        status: 'failed',
+        failure: `${check.nonEnvelope ? 'the adapter threw:' : 'the adapter threw instead of answering an envelope:'} ${String(error)}`,
+      };
     }
   };
   const granted = await harness.asGranted(() => Promise.all(checks.filter(c => c.mode === 'granted').map(failureOf)));
+  const consoleResults = await harness.asConsole(() => Promise.all(checks.filter(c => c.mode === 'console').map(failureOf)));
   const permission: ConformanceResult[] = [];
   for (const check of checks.filter(c => c.mode === 'permission')) permission.push(await failureOf(check));
-  const byId = new Map([...granted, ...permission].map(r => [r.id, r]));
+  const byId = new Map([...granted, ...consoleResults, ...permission].map(r => [r.id, r]));
   return checks.map(c => {
     if (c.mode === 'skipped') return { id: c.id, status: 'skipped', failure: null };
     const result = byId.get(c.id);

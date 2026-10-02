@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   defineEndpoint, emptyGlobal, projectContext,
-  type ApiResponse, type GlobalContext, type MenuQuery, type Permission, type PlatformAdapter,
+  type ApiResponse, type Assessment, type AuditEvent, type GlobalContext, type MenuQuery, type Permission,
+  type PlatformAdapter, type Session, type Trust, type UsageSummary,
 } from '@ap/contracts';
-import { planServerConformance, runServerConformance, type ServerConformanceHarness } from './index';
+import { planServerConformance, runServerConformance, type ConformanceCase, type PortSamples, type ServerConformanceHarness } from './index';
 
 const spec = defineEndpoint<{ page: number }, { rows: number }>({
   id: 'fixture.list',
@@ -16,19 +17,100 @@ const spec = defineEndpoint<{ page: number }, { rows: number }>({
   mergeTimeDomain: false,
 });
 
-const err = (message: string): ApiResponse<unknown> => ({ outcome: 'error', message, data: null, assessments: [], trust: null, correlationId: 'ref' });
+const err = (message: string): ApiResponse<never> => ({ outcome: 'error', message, data: null, assessments: [], trust: null, correlationId: 'ref' });
 const forbidden: ApiResponse<unknown> = { outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'ref' };
 
+// Well-formed 06 §19/§18 shapes the reference answers successful reads with (mirrors the contract, not the mock).
+const OBSERVED = '2026-09-26T08:58:00';
+const REF_ASSESSMENTS: Assessment[] = [
+  { kind: 'collection', state: 'unknown', reason: 'source_unavailable' },
+  { kind: 'processing_delay', state: 'clear', statusSource: 'mart-watermark', observedAt: OBSERVED },
+  { kind: 'coverage', state: 'clear', statusSource: 'coverage-service', observedAt: OBSERVED },
+];
+const REF_TRUST: Trust = { updatedAt: '2026-09-26T09:02:00', dataThrough: '2026-09-26T08:00:00', coverage: 0.987, provisional: false, source: 'mart.productivity_hourly' };
+const REF_EVENT: AuditEvent = {
+  id: 'equipment:ICH-PHOTO-0103:create', at: '2026-01-01T00:00:00.000Z', actor: 'master-sync', action: 'create', source: 'system',
+  target: { type: 'equipment', id: 'ICH-PHOTO-0103', scopeId: 'ICH' }, changes: {},
+};
+
+/** Granted actor: every case/entity permission, grants at ICH + CJU, no console:access; `console` flips under asConsole. */
+type RefState = { permissions: Set<Permission>; console: boolean };
+
 /**
- * A minimal reference server that follows the contract for one endpoint — so every check must pass on it — and
- * a `break` switch that drops exactly one rule, so the matching check must fail.
+ * A full-`PlatformAdapter` reference server that follows every contract rule the kit checks — so the unbroken
+ * reference must pass everything — and a `break` switch that drops exactly one rule, so the matching check must fail.
  */
-function referenceAdapter(state: { permissions: Set<Permission> }, breaks: ReadonlySet<string> = new Set()): Pick<PlatformAdapter, 'menuQuery'> {
+function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set()): PlatformAdapter {
+  const listeners = new Set<() => void>();
+  const envelope = { correlationId: 'ref', data: null, assessments: [] as Assessment[], trust: null };
+  const consoleGate = <T>(method: string, okData: T): ApiResponse<T> =>
+    (state.console
+      ? { ...envelope, outcome: breaks.has(`console-${method}-ok`) ? 'forbidden' : 'ok', data: okData }
+      : { ...envelope, outcome: breaks.has(`console-${method}-permission`) ? 'ok' : 'forbidden', data: breaks.has(`console-${method}-permission`) ? okData : null });
+  let session: Session | null = null;
   return {
+    session: () => {
+      if (session === null || breaks.has('session-identity')) {
+        session = {
+          user: { id: 'engineer', name: 'Engineer', title: { ko: '엔지니어', en: 'Engineer' }, permissions: [...state.permissions] },
+          scopes: (breaks.has('session-scopes') ? ['ICH'] : ['ICH', 'CJU']).map(id => ({ id, label: id, grantedRooms: 1, totalRooms: 4 })),
+        };
+      }
+      return session;
+    },
+    subscribe: onChange => {
+      if (breaks.has('subscribe-unsubscribe')) return undefined as unknown as () => void;
+      listeners.add(onChange);
+      return () => { listeners.delete(onChange); };
+    },
+    validateScope: async scopeId => {
+      if (scopeId === 'ICH' || scopeId === 'CJU') {
+        return { status: 'valid', grantedRooms: breaks.has('validate-granted') ? [] : ['PH-101'] };
+      }
+      if (scopeId === 'XIA') {
+        return { status: 'forbidden', grantedRooms: breaks.has('validate-foreign') ? ['ET-502'] : [] };
+      }
+      return { status: breaks.has('validate-unknown') ? 'forbidden' : 'unknown_scope', grantedRooms: [] };
+    },
+    getEntity: async ref => {
+      if (ref.type !== 'equipment') {
+        return breaks.has('entity-unknown-type') ? { ...envelope, outcome: 'forbidden', message: 'Unknown entity type' } : err('Unknown entity type');
+      }
+      if (!state.permissions.has('equipment:view')) {
+        // 'entity-permission' smuggles the row into the rejection — the no-data-on-rejection rule must catch it.
+        return breaks.has('entity-permission')
+          ? { ...envelope, outcome: 'forbidden', message: 'No permission equipment:view', data: { equipmentId: ref.id } }
+          : { ...envelope, outcome: 'forbidden', message: 'No permission equipment:view' };
+      }
+      if (ref.scopeId === null) {
+        return breaks.has('entity-null-scope')
+          ? { ...envelope, outcome: 'ok', data: { equipmentId: ref.id }, assessments: REF_ASSESSMENTS, trust: REF_TRUST }
+          : { ...envelope, outcome: 'forbidden', message: 'No grant for scope null' };
+      }
+      if (ref.scopeId !== 'ICH') {
+        return breaks.has('entity-foreign')
+          ? { ...envelope, outcome: 'ok', data: { equipmentId: ref.id }, assessments: REF_ASSESSMENTS, trust: REF_TRUST }
+          : { ...envelope, outcome: 'forbidden', message: `No grant for scope ${ref.scopeId}` };
+      }
+      return {
+        ...envelope,
+        outcome: 'ok',
+        data: breaks.has('entity-ok') ? null : { equipmentId: ref.id, room: 'PH-101' },
+        assessments: breaks.has('entity-assessments')
+          ? [{ kind: 'coverage', state: 'clear' }] // clear with no statusSource/observedAt — 06 §19 violation
+          : REF_ASSESSMENTS,
+        trust: breaks.has('entity-trust') ? { ...REF_TRUST, coverage: '98%' as unknown as number | null } : REF_TRUST,
+      };
+    },
     menuQuery: async (raw: MenuQuery) => {
       const req = raw as MenuQuery & Record<string, unknown>;
       if (Object.keys(req).some(k => !['endpoint', 'context', 'params'].includes(k)) && !breaks.has('top-level')) return err('unexpected key');
-      if (req.endpoint !== spec.id) return err('unknown endpoint');
+      if (req.endpoint !== spec.id) {
+        // 'unknown-endpoint-data' smuggles data into the error envelope — rejections carry no row fields.
+        return breaks.has('unknown-endpoint-data')
+          ? { outcome: 'error', message: 'unknown endpoint', data: {}, assessments: [], trust: null, correlationId: 'ref' }
+          : err('unknown endpoint');
+      }
       const params = req.params as Record<string, unknown>;
       if (Object.keys(params).some(k => k !== 'page') && !breaks.has('params')) return err('unknown params key');
       const expected = Object.keys(projectContext(spec, emptyGlobal));
@@ -41,34 +123,97 @@ function referenceAdapter(state: { permissions: Set<Permission> }, breaks: Reado
       if (missing.length > 0 && !(breaks.has('missing-last-only') && !missing.includes(expected[expected.length - 1]))) return err('missing applied key');
       if (typeof context.from !== 'string' || typeof context.to !== 'string') return err('period');
       if (context.metricVersion != null && context.metricId == null) return err('metric pair');
-      if (!state.permissions.has(spec.permission) && !breaks.has('permission')) return forbidden;
+      if (!state.permissions.has(spec.permission) && !breaks.has('permission')) {
+        // 'permission-reject-data' smuggles rows into the forbidden envelope — rejections carry no data.
+        return breaks.has('permission-reject-data')
+          ? { ...forbidden, message: 'No permission analytics:view', data: { rows: 1 } }
+          : forbidden;
+      }
       if (context.scopeId !== 'ICH' && !breaks.has('scope')) return forbidden;
       const emptySets = (['roomNames', 'selection'] as const).filter(k => Array.isArray(context[k]) && (context[k] as unknown[]).length === 0);
       const honoured = breaks.has('explicit-empty-roomNames-only') ? emptySets.filter(k => k === 'roomNames') : emptySets;
       if (honoured.length > 0 && !breaks.has('explicit-empty')) {
         return { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'ref' };
       }
-      const assessments = breaks.has('kinds')
-        ? [{ kind: 'collection' as const, state: 'unknown' as const, reason: 'source_unavailable' as const }]
-        : spec.kinds.map(kind => ({ kind, state: 'unknown' as const, reason: 'source_unavailable' as const }));
-      return { outcome: 'ok', data: { rows: 1 }, assessments, trust: null, correlationId: 'ref' };
+      const assessments: Assessment[] = breaks.has('kinds')
+        ? [{ kind: 'collection', state: 'unknown', reason: 'source_unavailable' }]
+        : breaks.has('assessments-wellformed')
+          ? spec.kinds.map(kind => kind === 'coverage' ? { kind, state: 'clear' as const } : { kind, state: 'unknown' as const, reason: 'source_unavailable' as const })
+          : spec.kinds.map(kind => ({ kind, state: 'unknown' as const, reason: 'source_unavailable' as const }));
+      return {
+        outcome: 'ok',
+        data: { rows: 1 },
+        assessments,
+        trust: breaks.has('trust-incomplete') ? { ...REF_TRUST, coverage: '98%' as unknown as number | null } : null,
+        correlationId: 'ref',
+      };
+    },
+    entityAudit: async (ref): Promise<ApiResponse<{ events: readonly AuditEvent[] }>> => {
+      if (ref.type !== 'equipment' && ref.type !== 'metric') {
+        return breaks.has('entity-audit-unknown-type')
+          ? { ...envelope, outcome: 'forbidden', message: 'Unknown entity type' }
+          : err('Unknown entity type');
+      }
+      if (!state.permissions.has('equipment:view')) {
+        return breaks.has('entity-audit-permission')
+          ? { ...envelope, outcome: 'ok', data: { events: [REF_EVENT] } }
+          : { ...envelope, outcome: 'forbidden', message: 'No permission equipment:view' };
+      }
+      if (ref.scopeId !== 'ICH') {
+        return breaks.has('entity-audit-foreign')
+          ? { ...envelope, outcome: 'ok', data: { events: [REF_EVENT] } }
+          : { ...envelope, outcome: 'forbidden', message: `No grant for scope ${ref.scopeId}` };
+      }
+      if (breaks.has('entity-audit-ok')) return { ...envelope, outcome: 'ok', data: {} as unknown as { events: readonly AuditEvent[] } }; // data.events is not an array
+      return { ...envelope, outcome: 'ok', data: { events: [REF_EVENT] } };
+    },
+    auditTrail: async () => consoleGate('auditTrail', { items: [REF_EVENT], total: 1 }),
+    accessDirectory: async () => {
+      const r = consoleGate('accessDirectory', { items: [], total: 0 });
+      // 'console-accessDirectory-mart' dresses a non-mart read up as mart data — the kit must refuse that.
+      return breaks.has('console-accessDirectory-mart') && r.outcome === 'ok'
+        ? { ...r, assessments: REF_ASSESSMENTS, trust: REF_TRUST }
+        : r;
+    },
+    usageSummary: async () => consoleGate<UsageSummary>('usageSummary', { preset: 'all', menus: [] }),
+    // Ports the kit does not exercise yet (step 2): present, minimal, contract-shaped.
+    publishedMetrics: () => [],
+    defaultRangeTo: () => '2026-09-26T09:00:00',
+    contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
+    evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
+    recordUsage: async () => ({ accepted: 0 }),
+    reportClientError: async () => ({ accepted: false }),
+    listAnnotations: async () => ({ ...envelope, outcome: 'empty' }),
+    saveAnnotation: async () => ({ ...envelope, outcome: 'empty' }),
+  };
+}
+
+const CONTEXT = { scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' };
+const PORTS: PortSamples = {
+  entity: { ref: { type: 'equipment', id: 'ICH-PHOTO-0103', scopeId: 'ICH' }, permission: 'equipment:view' },
+  annotation: { chartId: 'fixture-chart', permission: 'analytics:view' },
+  usage: { name: 'entry', menuId: 'fixture', spaceId: 'analytics', path: '/fixture', at: 0, sessionId: 'tab' },
+  clientError: { correlationId: 'client-ref', menuId: 'fixture', spaceId: 'analytics', path: '/fixture', name: 'Error' },
+  otherGrantedScopeId: 'CJU',
+};
+
+function actors(state: RefState) {
+  return {
+    asGranted: <T>(fn: () => Promise<T>): Promise<T> => fn(),
+    withoutPermission: async <T>(permission: Permission, fn: () => Promise<T>): Promise<T> => {
+      state.permissions.delete(permission);
+      try { return await fn(); } finally { state.permissions.add(permission); }
+    },
+    asConsole: async <T>(fn: () => Promise<T>): Promise<T> => {
+      state.console = true;
+      try { return await fn(); } finally { state.console = false; }
     },
   };
 }
 
-function harness(breaks: ReadonlySet<string> = new Set()): ServerConformanceHarness {
-  const state = { permissions: new Set<Permission>(['analytics:view']) };
-  return {
-    adapter: referenceAdapter(state, breaks),
-    cases: [{ spec, params: { page: 0 } }],
-    context: { scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' },
-    foreignScopeId: 'XIA',
-    asGranted: fn => fn(),
-    withoutPermission: async (permission, fn) => {
-      state.permissions.delete(permission);
-      try { return await fn(); } finally { state.permissions.add(permission); }
-    },
-  };
+function harness(breaks: ReadonlySet<string> = new Set(), cases: readonly ConformanceCase[] = [{ spec, params: { page: 0 } }]): ServerConformanceHarness {
+  const state: RefState = { permissions: new Set<Permission>(['analytics:view', 'equipment:view']), console: false };
+  return { adapter: referenceAdapter(state, breaks), cases, context: CONTEXT, foreignScopeId: 'XIA', ports: PORTS, ...actors(state) };
 }
 
 async function failing(breaks: string[]): Promise<string[]> {
@@ -80,6 +225,8 @@ describe('server conformance kit (#145)', () => {
     expect(planServerConformance(harness()).map(c => c.id)).toEqual([
       'unknown endpoint → error',
       'fixture.list · granted request succeeds with exactly the declared assessment kinds',
+      'fixture.list · granted response assessments are well-formed (06 §19)',
+      'fixture.list · granted response trust is null or complete (06 §18)',
       'fixture.list · unknown top-level request key → error',
       'fixture.list · unknown params key → error',
       'fixture.list · non-applied Context key condition → error',
@@ -100,6 +247,28 @@ describe('server conformance kit (#145)', () => {
       'fixture.list · explicit empty roomNames: [] → empty with no assessments and no trust',
       'fixture.list · explicit empty selection: [] → empty with no assessments and no trust',
       'fixture.list · without analytics:view → forbidden',
+      'port · session() returns the same object until the session changes',
+      'port · session lists the granted sites and not the foreign one',
+      'port · subscribe returns an unsubscribe function',
+      'port · validateScope(granted site) → valid with its rooms',
+      'port · validateScope(foreign site) → forbidden with no rooms',
+      'port · validateScope(unknown site) → unknown_scope',
+      'port · getEntity(sample) → ok with the row',
+      'port · getEntity of an unregistered type → error',
+      'port · getEntity at a site without a grant → forbidden',
+      'port · getEntity with a null Scope → forbidden',
+      'port · getEntity without equipment:view → forbidden',
+      'port · entityAudit(sample) → events',
+      'port · entityAudit of an unregistered type → error',
+      'port · entityAudit at a site without a grant → forbidden',
+      'port · entityAudit without equipment:view → forbidden',
+      'port · auditTrail as a console actor → ok',
+      'port · auditTrail without console:access → forbidden',
+      'port · accessDirectory as a console actor → ok',
+      'port · accessDirectory without console:access → forbidden',
+      'port · usageSummary as a console actor → ok',
+      'port · usageSummary without console:access → forbidden',
+      'port · accessDirectory is not mart data: no assessments, null trust',
     ]);
   });
 
@@ -137,10 +306,59 @@ describe('server conformance kit (#145)', () => {
     ]);
   });
 
+  // #152: one break per port rule (and per envelope-shape rule) — each must fail exactly its own check.
+  it.each([
+    ['session-identity', 'port · session() returns the same object until the session changes'],
+    ['session-scopes', 'port · session lists the granted sites and not the foreign one'],
+    ['subscribe-unsubscribe', 'port · subscribe returns an unsubscribe function'],
+    ['validate-granted', 'port · validateScope(granted site) → valid with its rooms'],
+    ['validate-foreign', 'port · validateScope(foreign site) → forbidden with no rooms'],
+    ['validate-unknown', 'port · validateScope(unknown site) → unknown_scope'],
+    ['entity-ok', 'port · getEntity(sample) → ok with the row'],
+    ['entity-unknown-type', 'port · getEntity of an unregistered type → error'],
+    ['entity-foreign', 'port · getEntity at a site without a grant → forbidden'],
+    ['entity-null-scope', 'port · getEntity with a null Scope → forbidden'],
+    ['entity-permission', 'port · getEntity without equipment:view → forbidden'],
+    // Three ways the getEntity success check can fail: no row, malformed assessments, incomplete trust.
+    ['entity-assessments', 'port · getEntity(sample) → ok with the row'],
+    ['entity-trust', 'port · getEntity(sample) → ok with the row'],
+    ['entity-audit-ok', 'port · entityAudit(sample) → events'],
+    ['entity-audit-unknown-type', 'port · entityAudit of an unregistered type → error'],
+    ['entity-audit-foreign', 'port · entityAudit at a site without a grant → forbidden'],
+    ['entity-audit-permission', 'port · entityAudit without equipment:view → forbidden'],
+    ['console-auditTrail-ok', 'port · auditTrail as a console actor → ok'],
+    ['console-accessDirectory-ok', 'port · accessDirectory as a console actor → ok'],
+    ['console-usageSummary-ok', 'port · usageSummary as a console actor → ok'],
+    ['console-auditTrail-permission', 'port · auditTrail without console:access → forbidden'],
+    ['console-accessDirectory-permission', 'port · accessDirectory without console:access → forbidden'],
+    ['console-usageSummary-permission', 'port · usageSummary without console:access → forbidden'],
+    ['console-accessDirectory-mart', 'port · accessDirectory is not mart data: no assessments, null trust'],
+    ['assessments-wellformed', 'fixture.list · granted response assessments are well-formed (06 §19)'],
+    ['trust-incomplete', 'fixture.list · granted response trust is null or complete (06 §18)'],
+    // Rejections carry no data (checklist §2): demonstrated on one error path and one forbidden path.
+    ['unknown-endpoint-data', 'unknown endpoint → error'],
+    ['permission-reject-data', 'fixture.list · without analytics:view → forbidden'],
+  ])('fails exactly the matching check when the server drops the %s rule', async (broken, check) => {
+    expect(await failing([broken])).toEqual([check]);
+  });
+
   it('reports an adapter that throws instead of answering an envelope', async () => {
     const h = harness();
-    const results = await runServerConformance({ ...h, adapter: { menuQuery: async () => { throw new Error('boom'); } } });
-    expect(results.every(r => r.failure?.includes('threw'))).toBe(true);
+    const results = await runServerConformance({ ...h, adapter: { ...h.adapter, menuQuery: async () => { throw new Error('boom'); } } });
+    const menuQueryChecks = results.filter(r => !r.id.startsWith('port · '));
+    expect(menuQueryChecks.every(r => r.failure?.includes('threw'))).toBe(true);
+    // The port checks do not go through menuQuery — the reference keeps passing them.
+    expect(results.filter(r => r.id.startsWith('port · ')).every(r => r.failure === null)).toBe(true);
+  });
+
+  it('reports a non-envelope method that throws as the method throwing, not as a missing envelope', async () => {
+    const h = harness();
+    const results = await runServerConformance({
+      ...h,
+      adapter: { ...h.adapter, validateScope: async () => { throw new Error('boom'); } },
+    });
+    expect(results.find(r => r.id === 'port · validateScope(granted site) → valid with its rooms')?.failure)
+      .toBe('the adapter threw: Error: boom');
   });
 });
 
@@ -174,17 +392,14 @@ describe('declared maxRows oversize check (#175)', () => {
   };
 
   function oversizeHarness(answers: 'too_large' | 'ok' | 'too_large with data'): ServerConformanceHarness {
-    const state = { permissions: new Set<Permission>(['analytics:view']) };
+    const state: RefState = { permissions: new Set<Permission>(['analytics:view', 'equipment:view']), console: false };
     return {
-      adapter: { menuQuery: async () => ENVELOPE[answers] },
+      adapter: { ...referenceAdapter(state), menuQuery: async () => ENVELOPE[answers] },
       cases: [{ spec: exportSpec, params: { tail: 'p95' }, oversizeParams: { tail: 'all' } }],
-      context: { scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' },
+      context: CONTEXT,
       foreignScopeId: 'XIA',
-      asGranted: fn => fn(),
-      withoutPermission: async (permission, fn) => {
-        state.permissions.delete(permission);
-        try { return await fn(); } finally { state.permissions.add(permission); }
-      },
+      ports: PORTS,
+      ...actors(state),
     };
   }
 
