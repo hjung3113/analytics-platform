@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "build": "tsc --noEmit && vite build --mode mock",
-    "build:prod": "tsc --noEmit && vite build",
+    "build:prod": "tsc --noEmit && node scripts/typecheck-assembly.ts && vite build",
     "check:prod-graph": "node scripts/check-prod-graph.ts",
     "preview": "vite preview --host 127.0.0.1"
   },

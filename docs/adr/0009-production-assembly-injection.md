@@ -11,7 +11,7 @@
 
 - **조립 주입 계약 `#platform-assembly`**: `main.tsx`는 mock·`src/dev/**`를 import하지 않고 `#platform-assembly`의 `createAssembly({ registry })`에서 `{ adapter, topBarTools }`를 받는다(`topBarTools`는 필수 — mock은 DevTools, 운영은 `null`). 계약 타입은 `src/platform-assembly.d.ts`의 `Assembly`·`CreateAssembly`이고, TypeScript는 이 선언만 보므로 모든 구현이 `export const createAssembly: CreateAssembly = …`로 계약에 묶인다(mock 조립 포함 — 계약이 바뀌면 구현이 `tsc`에서 깨진다).
 - **Vite가 mode로 경로를 고른다**(`vite.config.ts`): `development`(dev 서버)·`mock`·vitest → `src/dev/mock-assembly.tsx`(메뉴 mock 등록 + `createMockAdapter` + `<DevTools />`). 그 밖의 mode(운영) → env `AP_PLATFORM_ASSEMBLY`가 가리키는 모듈. 없으면 설정이 예외를 던져 빌드가 실패한다 — 대체(placeholder) 어댑터는 어디에도 없다.
-- **스크립트**: `build`는 `vite build --mode mock`(데모·CI·CSS selector 비교가 쓰는 mock 산출물, 이전과 같은 앱), `build:prod`는 운영 빌드(#154 전에는 설계상 실패), `check:prod-graph`는 운영 그래프 검사.
+- **스크립트**: `build`는 `vite build --mode mock`(데모·CI·CSS selector 비교가 쓰는 mock 산출물, 이전과 같은 앱), `build:prod`는 `tsc --noEmit && node scripts/typecheck-assembly.ts && vite build` — 실조립을 `CreateAssembly`와 대조한 뒤 운영 빌드(#154 전에는 설계상 실패), `check:prod-graph`는 운영 그래프 검사.
 - **CI 검사**(`scripts/check-prod-graph.ts`, `Platform workspace` Job의 `pnpm build` 다음): Vite `build()`로 운영 그래프를 메모리에서 만들되(`write: false`) `#platform-assembly`는 external로 남긴다. 번들된 모듈 중 `packages/mock-server/`·`@ap/mock-server`·`menus/*/src/mock/`·`apps/platform-web/src/dev/`가 하나라도 있거나 조립 모듈이 external로 남지 않았으면 실패한다. 이 검사만 `AP_PROD_GRAPH_CHECK=1`로 설정의 env 요구를 건너뛴다 — 빌드 단계 검사(아래)는 이 env로도 꺼지지 않는다. `--force-mock`은 조립을 mock으로 묶어 검사가 실제로 실패하는지 보인다.
 - **빌드 단계 검사**(`prodGraphGuard()`, `scripts/prod-graph.ts`): mock이 아닌 모든 빌드(`build:prod` 등, 실조립이 해석된 상태)에 Vite 플러그인으로 붙어 `generateBundle`에서 자기 전체 그래프 — 실조립 포함 — 에 같은 금지 규칙을 적용하고 걸리면 빌드를 실패시킨다. 끄는 플래그·env는 없다(검사 스크립트 실행 중에도 켜져 있다). `--force-mock-build`는 `AP_PLATFORM_ASSEMBLY=<mock 조립>` 운영 빌드가 실패하는지 보이고, CI가 두 강제 실패(`--force-mock`·`--force-mock-build`)를 매번 확인한다.
 - **lint**: `src/main.tsx`와 `src/dev/**` 밖의 앱 소스는 `@ap/mock-server`·메뉴 `/mock`·`./dev/**`를 import할 수 없다 — 예외는 `published-metrics.test.ts`(mock-server만)와 서버 적합성 테스트(mock-server와 `./dev/mock-assembly`의 `MOCK_ENDPOINTS` 하나만, 메뉴 `/mock` 없음). 상대·`/src/dev` 루트 절대 경로 모두, 대소문자 무관. `import.meta.glob`은 lint가 못 보고 그래프 검사만 잡는다.
@@ -25,7 +25,7 @@
 
 ## Consequences
 
-- #154(실어댑터)는 `export const createAssembly: CreateAssembly = …`(`import type { CreateAssembly } from '#platform-assembly'`)인 모듈을 만들고 운영 빌드에 `AP_PLATFORM_ASSEMBLY=<그 경로>`를 준다. 운영은 `topBarTools: null`을 쓴다(필수 필드라 빠뜨리면 `tsc`가 잡는다).
+- #154(실어댑터)는 `export const createAssembly: CreateAssembly = …`(`import type { CreateAssembly } from '#platform-assembly'`)인 모듈을 만들고 운영 빌드에 `AP_PLATFORM_ASSEMBLY=<그 경로>`를 준다. 운영은 `topBarTools: null`을 쓴다. 주입 모듈은 앱 tsconfig 밖이라 `tsc --noEmit`이 보지 않으므로, `build:prod`가 번들 전에 `scripts/typecheck-assembly.ts`로 실조립의 `createAssembly`를 `CreateAssembly`에 대입하는 임시 프로젝트를 `tsc`로 검사한다 — 필드를 빠뜨리거나 모양이 다르면 번들 전에 빌드가 실패한다.
 - CI 검사는 조립을 external로 두므로 실조립 자체는 보지 않는다. 실조립(사내 저장소나 앱 밖에 있어 lint가 닿지 않을 수 있다)이 mock·dev 코드를 끌어오면 그 운영 빌드가 빌드 단계 검사에서 실패한다 — #154는 별도 작업 없이 이 검사를 얻는다. 실조립을 넣은 운영 빌드의 통과 확인은 #154 몫이다.
 - 메뉴 mock 등록(`pnpm gen:menu`의 `// <gen:menu-mock-imports>`·`// <gen:menu-mock-spreads>` 마커)은 `src/dev/mock-assembly.tsx`에 있다.
 - e2e·dev 서버는 계속 mock(development mode)을 쓴다. `pnpm build` 산출물도 여전히 mock 앱이다 — 운영 산출물은 `build:prod`뿐이다.
