@@ -7,7 +7,7 @@ import { type ApiResponse, type PageQuery, type PageResult, type PageSort, seria
 import { Button, Checkbox, cn, Label, Popover, PopoverContent, PopoverTrigger, Skeleton } from '@ap/ui';
 import { toColumnDef } from './columnDef';
 // THROWAWAY prototype for #172 — do not merge
-import { copyToClipboard, downloadBlob, exportTargetKind, ExportTargetStripC, ExportToolbarC, ExportToolbarMenuA, ExportToolbarSplitB, readTableExportVariant, SelectionExportActionsB, serializeTableExport, toCsv, toTsv, toXlsx, type ExportTarget } from './prototypeTableExport';
+import { copyToClipboard, downloadBlob, exportTargetKind, ExportTargetStripC, ExportToolbarC, ExportToolbarD, ExportToolbarMenuA, ExportToolbarSplitB, readTableExportVariant, SelectionExportActionsB, serializeTableExport, toCsv, toTsv, toXlsx, type ExportTarget } from './prototypeTableExport';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { OutcomeView } from './StateView';
 
@@ -78,7 +78,7 @@ export type PlatformDataTableProps<T> = {
   emptyAction?: ReactNode;
   /** Controlled sort/page (§6.1 page keys). Omit to keep today's internal state. The table never knows URL key names. */
   urlState?: TableUrlState;
-  /** THROWAWAY #172 prototype — do not merge. Full filtered rows from the server; setting it enables the `?variant=A|B|C` export toolbars. */
+  /** THROWAWAY #172 prototype — do not merge. Full filtered rows from the server; setting it enables the `?variant=A|B|C|D` export toolbars. */
   exportRows?: (signal: AbortSignal) => Promise<ApiResponse<T[]>>;
 };
 
@@ -202,27 +202,24 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       return null;
     }
   };
-  const prototypeScope = (count: number) => {
-    const selected = exportTargetKind(prototypeTarget) === 'selected';
-    return {
-      ko: selected ? `선택 행 ${count}건` : `필터된 전체 결과 ${count}건`,
-      en: selected ? `${count} selected rows` : `${count} rows from all filtered results`,
-    };
-  };
-  const runPrototypeExport = async (format: 'xlsx' | 'csv') => {
+  const prototypeScopeText = (scope: 'selected' | 'filtered', count: number): { ko: string; en: string } =>
+    scope === 'selected'
+      ? { ko: `선택 ${count}행`, en: `${count} selected rows` }
+      : { ko: `필터 결과 전체 ${count}행`, en: `all ${count} filtered results` };
+  const runPrototypeExport = async (format: 'xlsx' | 'csv', scope: 'selected' | 'filtered') => {
     if (!p.exportRows || prototypeBusy) return;
     setPrototypeBusy(true);
     try {
-      const rows = await prototypeRows(exportTargetKind(prototypeTarget) === 'selected');
+      const rows = await prototypeRows(scope === 'selected');
       if (!rows) return;
       const { headers, cells } = serializeTableExport(prototypeColumns, rows);
-      const scope = prototypeScope(rows.length);
+      const target = prototypeScopeText(scope, rows.length);
       if (format === 'csv') {
         downloadBlob(new Blob([toCsv(headers, cells)], { type: 'text/csv;charset=utf-8' }), 'equipment-master.csv');
-        toast(lang === 'ko' ? `CSV: ${scope.ko} 내보내기` : `CSV: exported ${scope.en}`);
+        toast(lang === 'ko' ? `${target.ko}을 CSV 파일로 내보냈습니다` : `Exported ${target.en} as a CSV file`);
       } else {
         downloadBlob(await toXlsx(headers, cells), 'equipment-master.xlsx');
-        toast(lang === 'ko' ? `Excel(.xlsx): ${scope.ko} 내보내기` : `Excel (.xlsx): exported ${scope.en}`);
+        toast(lang === 'ko' ? `${target.ko}을 Excel 파일로 내보냈습니다` : `Exported ${target.en} as an Excel file`);
       }
     } finally {
       setPrototypeBusy(false);
@@ -235,8 +232,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       const rows = await prototypeRows(selectedOnly);
       if (!rows) return;
       const { headers, cells } = serializeTableExport(prototypeColumns, rows);
-      const scope = prototypeScope(rows.length);
-      if (await copyToClipboard(toTsv(headers, cells))) toast(lang === 'ko' ? `복사: ${scope.ko} 클립보드에 복사했습니다.` : `Copied ${scope.en} to the clipboard.`);
+      const target = prototypeScopeText(selectedOnly ? 'selected' : 'filtered', rows.length);
+      if (await copyToClipboard(toTsv(headers, cells))) toast(lang === 'ko' ? `${target.ko}을 복사했습니다 — 엑셀에 붙여넣을 수 있습니다` : `Copied ${target.en} — paste into Excel`);
       else toast(lang === 'ko' ? '클립보드 접근이 거부되었습니다.' : 'Clipboard access was denied.', 'warning');
     } finally {
       setPrototypeBusy(false);
@@ -244,6 +241,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   };
   const onPrototypeKeyDown = (e: ReactKeyboardEvent) => {
     if (e.key !== 'c' || !(e.metaKey || e.ctrlKey) || selectedIds.length === 0) return;
+    // A non-empty text selection keeps the browser's native copy (UX review 필수 수정 2).
+    if (window.getSelection()?.toString()) return;
     if ((e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
     e.preventDefault();
     void runPrototypeCopy(true);
@@ -278,10 +277,12 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
         </Popover>
         {prototypeVariant && p.exportRows ? (
           prototypeVariant === 'A' ? <ExportToolbarMenuA target={prototypeTarget} ko={lang === 'ko'} disabled={prototypeBusy}
-            onExport={format => void runPrototypeExport(format)} onCopy={() => void runPrototypeCopy(exportTargetKind(prototypeTarget) === 'selected')} /> :
-          prototypeVariant === 'B' && exportTargetKind(prototypeTarget) === 'filtered' ? <ExportToolbarSplitB ko={lang === 'ko'} disabled={prototypeBusy} onExport={format => void runPrototypeExport(format)} /> :
+            onExport={format => void runPrototypeExport(format, exportTargetKind(prototypeTarget))} onCopy={() => void runPrototypeCopy(exportTargetKind(prototypeTarget) === 'selected')} /> :
+          prototypeVariant === 'B' && exportTargetKind(prototypeTarget) === 'filtered' ? <ExportToolbarSplitB ko={lang === 'ko'} disabled={prototypeBusy} onExport={format => void runPrototypeExport(format, 'filtered')} /> :
           prototypeVariant === 'C' ? <ExportToolbarC hasSelection={prototypeTarget.selected > 0} ko={lang === 'ko'} disabled={prototypeBusy}
-            onCopy={() => void runPrototypeCopy(true)} onExport={format => void runPrototypeExport(format)} /> :
+            onCopy={() => void runPrototypeCopy(true)} onExport={format => void runPrototypeExport(format, exportTargetKind(prototypeTarget))} /> :
+          prototypeVariant === 'D' ? <ExportToolbarD target={prototypeTarget} ko={lang === 'ko'} disabled={prototypeBusy}
+            onCopy={() => void runPrototypeCopy(true)} onExport={(format, scope) => void runPrototypeExport(format, scope)} /> :
           null)
           : canExport && <Button variant="secondary" size="sm" className="h-8 gap-1.5 rounded-sm border-border-strong"
             onClick={() => p.onExport!(selectedIds.length ? { kind: 'selected', ids: selectedIds } : { kind: 'filtered', total: data.total })}>
@@ -294,7 +295,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
 
     {selectedIds.length > 0 && <div className="flex min-h-10 flex-wrap items-center gap-3 border-t border-border-subtle bg-accent-primary-soft px-3 py-2 text-[12px]">
       <span className="font-semibold tabular" data-testid="selected-count">{lang === 'ko' ? `${selectedIds.length}개 선택` : `${selectedIds.length} selected`}</span>
-      {prototypeVariant === 'B' && p.exportRows && <SelectionExportActionsB ko={lang === 'ko'} disabled={prototypeBusy} onCopy={() => void runPrototypeCopy(true)} onExport={format => void runPrototypeExport(format)} />}
+      {prototypeVariant === 'B' && p.exportRows && <SelectionExportActionsB ko={lang === 'ko'} disabled={prototypeBusy} onCopy={() => void runPrototypeCopy(true)} onExport={format => void runPrototypeExport(format, 'selected')} />}
       {p.bulkActions?.(selectedIds)}
       <Button variant="ghost" size="sm" className="h-7 px-2 text-[12px]" onClick={() => setSelection({})}>{lang === 'ko' ? '선택 해제' : 'Clear selection'}</Button>
       <span className="text-text-muted">{lang === 'ko' ? '선택은 현재 조회 결과 안에서만 유지되며 Context 변경 시 해제됩니다.' : 'Selection is kept within this result and cleared on context change.'}</span>

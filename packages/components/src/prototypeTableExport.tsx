@@ -1,20 +1,21 @@
 // THROWAWAY prototype for #172 — do not merge
 /**
- * #172 throwaway prototype: row copy + CSV/TSV/XLSX export for PlatformDataTable, three toolbar
- * variants A/B/C switched by `?variant=` on the existing /equipment route (sub-shape A).
+ * #172 throwaway prototype: row copy + CSV/TSV/XLSX export for PlatformDataTable, four toolbar
+ * variants A/B/C/D switched by `?variant=` on the existing /equipment route (sub-shape A).
  * Prototype quality on purpose: no tests, minimal error handling — #173/#174 do this properly.
  */
 
-import { ChevronDown, Copy, Download, FileSpreadsheet, FileText } from 'lucide-react';
-import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@ap/ui';
+import { ChevronDown, Copy, Download, FileSpreadsheet, FileText, Loader2 } from 'lucide-react';
+import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 
-export type TableExportVariant = 'A' | 'B' | 'C';
-export const TABLE_EXPORT_VARIANTS: readonly TableExportVariant[] = ['A', 'B', 'C'];
+export type TableExportVariant = 'A' | 'B' | 'C' | 'D';
+export const TABLE_EXPORT_VARIANTS: readonly TableExportVariant[] = ['A', 'B', 'C', 'D'];
 /** Switcher pill labels (dev chrome, Korean fixed). */
 export const TABLE_EXPORT_VARIANT_LABELS: Record<TableExportVariant, string> = {
   A: 'A — 내보내기 메뉴',
   B: 'B — 선택 동작 바',
   C: 'C — 분리 버튼 + 대상 표시',
+  D: 'D — 고정 툴바 + 메뉴에서 대상 선택 (추천)',
 };
 const VARIANT_SESSION_KEY = 'platform:prototype:172:variant';
 const isVariant = (v: string | null): v is TableExportVariant => !!v && (TABLE_EXPORT_VARIANTS as readonly string[]).includes(v);
@@ -204,4 +205,65 @@ export function ExportTargetStripC({ target, ko }: { target: ExportTarget; ko: b
   return <div className="flex min-h-7 items-center gap-2 border-t border-border-subtle bg-surface-sunken px-3 py-1 text-[12px] text-text-muted" aria-live="polite">
     {targetStripText(target, ko)}
   </div>;
+}
+
+/** D — visible menu-item focus: the shared primitive focuses to the card background (invisible on it). D-only classes; the primitive stays untouched. */
+const dItemClass = 'focus:bg-accent-primary-soft focus:text-text-primary';
+
+/** D menu item accessible name: "선택 3행을 Excel(.xlsx)로 내보내기" / "Export 3 selected rows as Excel (.xlsx)". */
+const dExportAria = (ko: boolean, scope: string, format: 'xlsx' | 'csv'): string =>
+  ko
+    ? `${scope}을 ${format === 'xlsx' ? 'Excel(.xlsx)' : 'CSV'}로 내보내기`
+    : `Export ${scope} as ${format === 'xlsx' ? 'Excel (.xlsx)' : 'CSV'}`;
+
+/** D — fixed toolbar [복사][내보내기 ▾]; the export target (selected / all filtered) is chosen inside the menu. */
+export function ExportToolbarD({ target, onCopy, onExport, disabled, ko }: {
+  target: ExportTarget; onCopy: () => void; onExport: (format: 'xlsx' | 'csv', scope: 'selected' | 'filtered') => void; disabled?: boolean; ko: boolean;
+}) {
+  const hasSelection = target.selected > 0;
+  const allTarget: ExportTarget = { selected: 0, filtered: target.filtered };
+  const menuLabelClass = 't-caption tabular text-text-muted';
+  const exportItems = (scope: 'selected' | 'filtered') => <>
+    <DropdownMenuItem className={dItemClass} aria-label={dExportAria(ko, targetText(scope === 'selected' ? target : allTarget, ko), 'xlsx')} onSelect={() => onExport('xlsx', scope)}>
+      <FileSpreadsheet className="size-3.5" aria-hidden />Excel (.xlsx)
+    </DropdownMenuItem>
+    <DropdownMenuItem className={dItemClass} aria-label={dExportAria(ko, targetText(scope === 'selected' ? target : allTarget, ko), 'csv')} onSelect={() => onExport('csv', scope)}>
+      <FileText className="size-3.5" aria-hidden />CSV
+    </DropdownMenuItem>
+  </>;
+  return <span className="flex items-center gap-2">
+    {/* 복사: selected rows only. aria-disabled (not `disabled`) so it stays Tab-reachable and explains itself via the tooltip. */}
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="secondary" size="sm" className={triggerClass} disabled={disabled}
+            aria-disabled={!hasSelection || undefined} onClick={hasSelection ? onCopy : undefined}>
+            {disabled ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
+            {hasSelection ? (ko ? `${target.selected}행 복사` : `Copy ${target.selected} rows`) : ko ? '복사' : 'Copy'}
+          </Button>
+        </TooltipTrigger>
+        {!hasSelection && <TooltipContent className="text-[12px]">{ko ? '행을 선택하면 복사할 수 있습니다' : 'Select rows to copy'}</TooltipContent>}
+      </Tooltip>
+    </TooltipProvider>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="secondary" size="sm" className={triggerClass} disabled={disabled}>
+          <Download className="size-3.5" aria-hidden />{ko ? '내보내기' : 'Export'}
+          {disabled ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <ChevronDown className="size-3.5" aria-hidden />}
+        </Button>
+      </DropdownMenuTrigger>
+      {/* DESIGN.md: no drop shadows → shadow-none + a stronger border. */}
+      <DropdownMenuContent align="end" className="min-w-56 border border-border-strong shadow-none">
+        {hasSelection && <DropdownMenuGroup>
+          <DropdownMenuLabel className={menuLabelClass}>{targetText(target, ko)}</DropdownMenuLabel>
+          {exportItems('selected')}
+        </DropdownMenuGroup>}
+        {hasSelection && <DropdownMenuSeparator />}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className={menuLabelClass}>{targetText(allTarget, ko)}</DropdownMenuLabel>
+          {exportItems('filtered')}
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  </span>;
 }
