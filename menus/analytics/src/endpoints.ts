@@ -4,7 +4,7 @@
  * handlers live in `src/mock/` and never enter the client bundle.
  * Pages import from here, never from `src/mock/**`.
  */
-import { defineEndpoint, parseDateTime, shift, type PageQuery, type PageResult } from '@ap/contracts';
+import { defineEndpoint, parseDateTime, shift, type PageQuery, type PageResult, type PageSort } from '@ap/contracts';
 
 export type Granularity = 'hour' | 'day' | 'week';
 export type KpiKey = 'occupancy' | 'dwell' | 'cycleTime' | 'throughput';
@@ -262,10 +262,22 @@ export const cycleSlowPageEndpoint = defineEndpoint<SlowPageParams, PageResult<S
   paramKeys: { tail: true, granularity: true, bucket: true, bin: true, page: true, pageSize: true, sorting: true },
 });
 
-/** Every slow row for export. No period limit (the export never had one); permission and Scope are re-checked per request. */
-export const cycleExportEndpoint = defineEndpoint<SlowFilter, SlowRow[]>({
-  ...cycleBase, id: 'analytics.cycle.export', mergeTimeDomain: false,
-  paramKeys: { tail: true, granularity: true, bucket: true, bin: true },
-  // Prototype row cap for the whole-result export (06 §15); the real limit is decided with the in-house backend.
-  limits: { maxRows: 50_000 },
+/** Page list filters plus an explicit row selection (execution keys, `null` = every filtered row) and the table's active sort for export. */
+export type SlowExportFilter = SlowFilter & { ids: string[] | null; sorting: PageSort[] };
+
+/**
+ * Every slow row for export, narrowed to the selection ids when given. Permission and Scope are re-checked per
+ * request. `mergeTimeDomain` matches the page endpoints (#173 P3-10): export refuses the same cross-time-domain
+ * sets the screen refuses. `sorting` is the table's active sort — export order = page order (#173 UX P2-6).
+ */
+export const cycleExportEndpoint = defineEndpoint<SlowExportFilter, SlowRow[]>({
+  ...cycleBase, id: 'analytics.cycle.export',
+  paramKeys: { tail: true, granularity: true, bucket: true, bin: true, ids: true, sorting: true },
+  // Prototype row cap judged after the ids filter (06 §15); the period cap matches the page endpoints (#175 review P3-6).
+  limits: { maxRows: 50_000, maxHours: CYCLE_MAX_HOURS },
 });
+
+/** Row key of an execution (equipment + anchor): the table row id and the export selection ids share this codec. */
+export function executionKey(row: { equipmentId: string; anchor: string }): string {
+  return `${row.equipmentId}|${row.anchor}`;
+}

@@ -54,6 +54,12 @@
 
 Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation` 오류로 바꾼다 — 서버가 틀리면 화면에 그대로 드러난다.
 
+**내보내기 엔드포인트(#173, [ADR-0008](../adr/0008-table-owned-export-fixed-toolbar.md))** — 표가 파일을 만들고 서버는 행만 준다. 핸들러가 지킬 것:
+
+- 행 배열을 돌려주고 `limits.maxRows`를 선언한다(위 9단계).
+- `sorting`(`PageSort[]`)을 받아 **같은 메뉴의 페이지 엔드포인트와 같은 정렬**(같은 ORDER BY와 결정적인 동순위 기준)으로 돌려준다 — 화면에서 본 순서와 파일 순서가 같아야 한다.
+- 선택 내보내기의 `ids`는 부여된 Scope·페이지 필터를 적용한 **뒤** 거른다 — ids로 Scope를 넓힐 수 없다. 9단계 행 상한은 이 결과의 크기로 판정한다.
+
 ### 등록 검증 (서버 기동 시)
 
 앱이 넘긴 메뉴 Registry로 엔드포인트 목록을 검증하고 하나라도 어긋나면 기동을 거부한다: 엔드포인트 id 중복 없음, `menuId`가 Registry에 있음, 권한 이름이 어떤 메뉴가 선언한 권한임, 엔드포인트가 `apply`한 키를 소유 메뉴도 `apply`함, 메뉴가 Scope를 요구하면 엔드포인트도 요구, Scope 없는 엔드포인트는 site 종속 키(`roomNames`·`condition`·`selection`·`lot`·`recipe`·`ppid`)를 `apply`할 수 없음(규칙 6), `limits.maxRows`는 양의 정수이고 페이지·커서 엔드포인트(`page`·`pageSize`·`cursor` paramKeys)가 아닐 것(규칙 7, #175). 원본: `packages/mock-server/src/adapter.ts` `createMockAdapter`.

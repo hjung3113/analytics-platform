@@ -3,7 +3,7 @@
  * Client-safe: declarations, the catalog record types, and pure helpers the page and the server share
  * (`versionDiff`). The synthetic catalog itself and every lookup live in `src/mock/` (the server half).
  */
-import { defineEndpoint, type AuditEvent, type PageQuery, type PageResult } from '@ap/contracts';
+import { defineEndpoint, type AuditEvent, type PageQuery, type PageResult, type PageSort } from '@ap/contracts';
 
 export type Text = { ko: string; en: string };
 export type Lang = 'ko' | 'en';
@@ -152,6 +152,19 @@ export const catalogListEndpoint = defineEndpoint<CatalogFilter, CatalogList>({
 export const catalogPageEndpoint = defineEndpoint<CatalogFilter & PageQuery, PageResult<CatalogRow>>({
   ...base, id: 'metrics.catalog.page', menuId: 'metric-catalog', context: {},
   paramKeys: { q: true, status: true, domain: true, lang: true, page: true, pageSize: true, sorting: true },
+});
+
+/** Catalog filters plus an explicit row selection (`null` = every filtered row) and the table's active sort for export. */
+export type CatalogExportFilter = CatalogFilter & { ids: string[] | null; sorting: PageSort[] };
+
+/**
+ * The export set for table-owned export (#173): a row array, so the server declares `limits.maxRows` on it.
+ * `metrics.catalog.list` returns `CatalogList` (an object) and cannot declare a row cap. `sorting` is the
+ * table's active sort, so export order = page order (#173 UX P2-6).
+ */
+export const catalogExportEndpoint = defineEndpoint<CatalogExportFilter, CatalogRow[]>({
+  ...base, id: 'metrics.catalog.export', menuId: 'metric-catalog', context: {}, paramKeys: { q: true, status: true, domain: true, lang: true, ids: true, sorting: true },
+  limits: { maxRows: 50_000 },
 });
 
 export const definitionEndpoint = defineEndpoint<{ metricId: string; version: string | null }, DefinitionPayload>({

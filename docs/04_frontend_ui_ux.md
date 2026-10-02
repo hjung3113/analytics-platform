@@ -67,7 +67,7 @@ Node/NestJS는 프론트와의 언어 통일·SQL-first 관점에서 비교했�
 | 요구 | 무료 경로 | 유료 경로 |
 | --- | --- | --- |
 | 보이는 행을 엑셀로 복사 | 선택 행을 탭 구분 텍스트로 복사(표 공통 부품) | — |
-| 전체 결과 XLSX | (a, 채택 — #173) 지금 패턴 그대로: 내보내기 엔드포인트(예: `analytics.cycle.export`)가 필터된 전체 행을 envelope로 돌려주고 클라이언트가 직렬화한다 — CSV 대신 무료 XLSX 라이브러리로 쓰면 `PlatformAdapter` 변경 없음. (b) 서버 파일 생성(openpyxl·XlsxWriter): 대용량에 유리하지만 파일 다운로드 경로가 `PlatformAdapter` 밖이라 #149·Kernel 포트 결정이 필요 | AG Grid Enterprise Excel 내보내기(그리드에 렌더된 데이터 기준 — 서버 행 모델에서 안 불러온 행을 내보내는지는 공식 문서 미확인, #164에서 확인) |
+| 전체 결과 XLSX | (a, 채택 — #173 구현: `PlatformDataTable` [내보내기 ▾] → Excel(.xlsx), `write-excel-file` 지연 로드) 지금 패턴 그대로: 내보내기 엔드포인트(예: `analytics.cycle.export`)가 필터된 전체 행을 envelope로 돌려주고 클라이언트가 직렬화한다 — CSV 대신 무료 XLSX 라이브러리로 쓰면 `PlatformAdapter` 변경 없음. (b) 서버 파일 생성(openpyxl·XlsxWriter): 대용량에 유리하지만 파일 다운로드 경로가 `PlatformAdapter` 밖이라 #149·Kernel 포트 결정이 필요 | AG Grid Enterprise Excel 내보내기(그리드에 렌더된 데이터 기준 — 서버 행 모델에서 안 불러온 행을 내보내는지는 공식 문서 미확인, #164에서 확인) |
 | 사용자 자유 피벗·즉석 차트 | Perspective 탐색 탭 | AG Grid Enterprise 피벗 |
 | 셀 범위 선택·여러 셀 복사·채우기(읽기) | 사실상 없음 | AG Grid Enterprise |
 | 붙여넣기 대량 편집(쓰기) | 없음 | AG Grid Enterprise + **쓰기 계약**(아래 4) |

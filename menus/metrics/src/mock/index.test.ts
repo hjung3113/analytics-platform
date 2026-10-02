@@ -4,7 +4,7 @@ import { createMockAdapter, getRole, setRole, USERS, type RoleId } from '@ap/moc
 import { metricsMock } from './index';
 import { METRICS } from './catalog';
 import {
-  catalogListEndpoint, catalogPageEndpoint, definitionEndpoint, metricPairEndpoint,
+  catalogExportEndpoint, catalogListEndpoint, catalogPageEndpoint, definitionEndpoint, metricPairEndpoint,
   type CatalogList, type CatalogRow, type DefinitionPayload, type PairVerdict,
 } from '../endpoints';
 
@@ -72,5 +72,36 @@ describe('metric endpoints', () => {
     } finally {
       USERS.viewer.permissions = permissions;
     }
+  });
+});
+
+describe('metric catalog export endpoint (#173)', () => {
+  it('returns a row array (not CatalogList) and declares the row cap the list endpoint cannot', () => {
+    expect(catalogListEndpoint.limits).toBeUndefined();
+    expect(catalogExportEndpoint.limits).toEqual({ maxRows: 50_000 });
+  });
+
+  it('answers the filtered rows for ids: null with the same filter verdict as the list', async () => {
+    const filter = { q: null, status: 'published', domain: null, lang: 'ko' as const };
+    const exported = await adapter.menuQuery({ endpoint: catalogExportEndpoint.id, context: {}, params: { ...filter, ids: null, sorting: [] } });
+    expect(exported.outcome).toBe('ok');
+    const expected = METRICS.filter(m => m.catalogStatus === 'published').map(m => m.metricId);
+    expect((exported.data as CatalogRow[]).map(r => r.metricId)).toEqual(expected);
+  });
+
+  it('exports in the table’s sort, so a sorted set comes out in page order (#173 UX P2-6)', async () => {
+    const sorting = [{ id: 'metricId', desc: true }];
+    const filter = { q: null, status: null, domain: null, lang: 'ko' as const };
+    const exported = await adapter.menuQuery({ endpoint: catalogExportEndpoint.id, context: {}, params: { ...filter, ids: null, sorting } });
+    const page = await adapter.menuQuery({ endpoint: catalogPageEndpoint.id, context: {}, params: { ...filter, page: 0, pageSize: 500, sorting } });
+    const exportIds = (exported.data as CatalogRow[]).map(r => r.metricId);
+    expect(exportIds).toEqual([...exportIds].sort().reverse());
+    expect(exportIds).toEqual((page.data as PageResult<CatalogRow>).rows.map(r => r.metricId));
+  });
+
+  it('filters by the selection metric ids server-side, so the cap is judged on the selection', async () => {
+    const ids = METRICS.slice(0, 2).map(m => m.metricId);
+    const exported = await adapter.menuQuery({ endpoint: catalogExportEndpoint.id, context: {}, params: { q: null, status: null, domain: null, lang: 'ko' as const, ids, sorting: [] } });
+    expect((exported.data as CatalogRow[]).map(r => r.metricId).sort()).toEqual([...ids].sort());
   });
 });

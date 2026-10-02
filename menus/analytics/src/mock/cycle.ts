@@ -3,11 +3,11 @@
  * Synthetic cycle-time executions seeded from EQUIPMENT. Not parser data. Percentile, bins, timeline and quality
  * are Candidate choices — see the page captions. Anchors stay second-precision strings.
  */
-import { bucketStart, formatDateTime, parseDateTime, shift, sortAndPage, type GlobalContext } from '@ap/contracts';
+import { bucketStart, formatDateTime, parseDateTime, shift, sortAndPage, sortRows, type GlobalContext } from '@ap/contracts';
 import { cycleMinutes, defineMockEndpoint, EQUIPMENT, jobPercentile, jobsForEquipmentDay, jobsInPeriod, type AnyMockEndpoint, type Equipment, type Job } from '@ap/mock-server';
 import {
   BINS, binIndex, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint, cycleTrendEndpoint,
-  cycleVersionOf, isAnchor, resolveMetric,
+  cycleVersionOf, executionKey, isAnchor, resolveMetric,
   type CycleKpi, type CycleTrend, type CycleTrendData, type Execution, type Granularity, type OccurrenceResult, type Segment,
   type SlowFilter, type SlowRow, type TailMode,
 } from '../endpoints';
@@ -221,7 +221,14 @@ export const cycleMock: readonly AnyMockEndpoint[] = [
     metricVersion,
   }),
   defineMockEndpoint(cycleExportEndpoint, {
-    handle: ({ equipment, context, params }) => slowRows(equipment, context, params),
+    // Selection export: the server filters by execution keys itself, so the row cap is judged on the selection.
+    // `sorting` is the table's active sort — the same sort the page endpoint applies, so export order = page order (#173 UX P2-6).
+    handle: ({ equipment, context, params }) => {
+      const { ids, sorting = [] } = params;
+      const rows = slowRows(equipment, context, params);
+      const selected = ids == null ? rows : rows.filter(row => ids.includes(executionKey(row)));
+      return sortRows(selected, sorting);
+    },
     metricVersion,
   }),
 ];

@@ -1,12 +1,13 @@
 import { useMemo } from 'react';
 import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
-import { Button, Input, StatusBadge } from '@ap/ui';
+import { Button, Input } from '@ap/ui';
 import {
-  DOMAINS, STATUSES, catalogListEndpoint, catalogPageEndpoint, metricPairEndpoint, sortColumns,
+  DOMAINS, STATUSES, catalogExportEndpoint, catalogListEndpoint, catalogPageEndpoint, metricPairEndpoint, sortColumns,
   type CatalogRow, type Lang, type PairVerdict, type PublicationState,
 } from '../endpoints';
-import { DOMAIN_LABEL, STATUS_LABEL, STATUS_TONE } from './data';
+import { DOMAIN_LABEL, exportFilterSummary, exportParams, STATUS_LABEL } from './data';
+import { catalogColumns } from './columns';
 
 const NO_DESTINATION = { viewedId: null, pageVersion: null };
 
@@ -86,44 +87,12 @@ export default function MetricCatalogPage(_: PageProps) {
   const all = useMenuQuery(catalogListEndpoint, { q: null, status: null, domain: null, lang: lang as Lang });
   const metricCount = all.response?.outcome === 'ok' ? all.response.data!.rows.length : null;
   const pages = useMenuFetch(catalogPageEndpoint);
-  const list = useMenuFetch(catalogListEndpoint);
+  const exports = useMenuFetch(catalogExportEndpoint);
 
-  const columns = useMemo<PlatformColumn<CatalogRow>[]>(() => [
-    {
-      id: 'metricId', header: 'metricId', size: 200,
-      cell: row => <PlatformLink className="t-mono text-accent-primary hover:underline" href={linkTo('metric-detail', { params: { metricId: row.metricId }, page: detailPage(row) })}>{row.metricId}</PlatformLink>,
-    },
-    {
-      id: 'nameSort', header: lang === 'ko' ? '이름' : 'Name', size: 180,
-      cell: row => lang === 'ko' ? row.nameKo : row.nameEn,
-    },
-    {
-      id: 'domain', header: lang === 'ko' ? '도메인' : 'Domain', size: 120,
-      cell: row => tx(DOMAIN_LABEL[row.domain]),
-    },
-    { id: 'grain', header: 'grain', size: 180, cell: row => row.grain },
-    {
-      id: 'numerator', header: lang === 'ko' ? '분자' : 'Numerator', size: 200,
-      cell: row => <span className="t-mono">{row.numerator}</span>,
-    },
-    {
-      id: 'denominator', header: lang === 'ko' ? '분모' : 'Denominator', size: 200,
-      cell: row => <span className="t-mono">{row.denominator}</span>,
-    },
-    {
-      id: 'publishedPointer', header: lang === 'ko' ? '게시 포인터' : 'Published pointer', size: 130, align: 'right',
-      cell: row => row.publishedPointer ? <span className="tabular">v{row.publishedPointer}</span> : <span className="text-text-muted">{lang === 'ko' ? '없음' : 'None'}</span>,
-    },
-    {
-      id: 'status', header: lang === 'ko' ? '상태' : 'Status', size: 110,
-      cell: row => <StatusBadge tone={STATUS_TONE[row.status]} dot>{tx(STATUS_LABEL[row.status])}</StatusBadge>,
-    },
-    { id: 'owner', header: lang === 'ko' ? '정의 책임' : 'Owner', size: 160, cell: row => row.owner },
-    {
-      id: 'updatedAt', header: lang === 'ko' ? '수정 시각' : 'Updated', size: 170, align: 'right',
-      cell: row => <time className="tabular" dateTime={row.updatedAt}>{row.updatedAt.replace('T', ' ').slice(0, 16)}</time>,
-    },
-  ], [lang, linkTo, tx]);
+  const columns = useMemo<PlatformColumn<CatalogRow>[]>(
+    () => catalogColumns({ lang: lang as Lang, linkTo, tx }),
+    [lang, linkTo, tx],
+  );
 
   return <PlatformPage
     description={lang === 'ko'
@@ -198,23 +167,9 @@ export default function MetricCatalogPage(_: PageProps) {
             {lang === 'ko' ? `초안 v${row.draftVersion}` : `Draft v${row.draftVersion}`}
           </PlatformLink>}
         </span>}
-        onExport={async scope => {
-          // Export reads the filtered catalog from the server like any page (permission re-checked per request).
-          const response = await list.fetch(filter);
-          if (response.outcome !== 'ok') return;
-          const filtered = response.data!.rows;
-          const rows = scope.kind === 'selected' ? filtered.filter(r => scope.ids.includes(r.metricId)) : filtered;
-          const header = ['metricId', 'name', 'domain', 'grain', 'numerator', 'denominator', 'publishedPointer', 'status', 'owner', 'updatedAt'];
-          const lines = rows.map(r => [r.metricId, lang === 'ko' ? r.nameKo : r.nameEn, r.domain, r.grain, r.numerator, r.denominator, r.publishedPointer ?? '', r.status, r.owner, r.updatedAt]
-            .map(value => `"${String(value).replaceAll('"', '""')}"`).join(','));
-          const blob = new Blob([`\uFEFF${header.join(',')}\n${lines.join('\n')}\n`], { type: 'text/csv;charset=utf-8' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'metric-catalog.csv';
-          a.click();
-          URL.revokeObjectURL(url);
-        }}
+        // Table-owned export (#173): the page only says how to read the rows; the table builds the file.
+        exportRows={(request, signal) => exports.fetch(exportParams(filter, request), signal)}
+        exportFilterSummary={exportFilterSummary(filter, lang, tx)} exportContext={catalogExportEndpoint.context}
       />}
       <p className="t-caption text-text-muted">
         {lang === 'ko'

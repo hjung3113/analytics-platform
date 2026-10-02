@@ -1,9 +1,9 @@
 /**
  * Cycle-time page codecs (06 §6.1 page keys) and row keys. Computation lives in the server half (`src/mock/cycle.ts`);
- * what both halves share (metric resolution, anchors, bins, bucket ends) lives in `../endpoints`.
+ * what both halves share (metric resolution, anchors, bins, bucket ends, the execution key) lives in `../endpoints`.
  */
-import { bucketStart, parseDateTime } from '@ap/contracts';
-import { binIndex, isAnchor, type Granularity, type TailMode } from '../endpoints';
+import { bucketStart, parseDateTime, type PageSort } from '@ap/contracts';
+import { BINS, bucketEnd, binIndex, isAnchor, type Granularity, type SlowExportFilter, type SlowFilter, type SlowRow, type TailMode } from '../endpoints';
 
 export const SORT_COLUMNS = ['cycleMin', 'delta', 'anchor', 'equipmentId', 'room', 'recipe', 'lotId', 'quality'] as const;
 export type SortColumn = (typeof SORT_COLUMNS)[number];
@@ -61,11 +61,40 @@ export function bucketContaining(instant: string, granularity: Granularity): str
   return bucketStart(instant, granularity);
 }
 
-export function executionKey(row: { equipmentId: string; anchor: string }): string {
-  return `${row.equipmentId}|${row.anchor}`;
-}
+export { executionKey } from '../endpoints';
 
 export function equipmentIdFromKey(key: string): string {
   const split = key.indexOf('|');
   return split === -1 ? key : key.slice(0, split);
+}
+
+/** Quality badge text (#173 P3-7): one source for the cell badge and the export value, so the two cannot drift. */
+export function qualityLabel(quality: SlowRow['quality'], ko: boolean): string {
+  return quality === 'review' ? (ko ? '검토 표시' : 'Review flag') : (ko ? '미확정' : 'Unconfirmed');
+}
+
+/** Table-owned export params (#173): the page filters, the selection execution keys (`null` = every filtered row) and the table's active sort. */
+export function exportParams(
+  filter: SlowFilter,
+  request: { scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }; sorting: PageSort[] },
+): SlowExportFilter {
+  return { ...filter, ids: request.scope.kind === 'selected' ? request.scope.ids : null, sorting: request.sorting };
+}
+
+/** Readable page filters for the XLSX 조회 정보 sheet (#173 review P2-3), labeled as the screen labels them. */
+export function exportFilterSummary({ tail, granularity, bucket, bin }: SlowFilter, ko: boolean): [string, string][] {
+  const rows: [string, string][] = [];
+  rows.push([ko ? '꼬리' : 'Tail', tail === 'p95' ? '≥ P95' : tail === 'p50' ? '≥ P50' : (ko ? '전체 실행' : 'All executions')]);
+  rows.push([ko ? '집계' : 'Grain', granularity === 'hour' ? (ko ? '시간' : 'Hour') : granularity === 'day' ? (ko ? '일' : 'Day') : (ko ? '주' : 'Week')]);
+  if (bucket !== null) rows.push([ko ? '버킷' : 'Bucket', `${bucket.replace('T', ' ')} → ${bucketEnd(bucket, granularity).replace('T', ' ')}`]);
+  if (bin !== null) rows.push([ko ? '분포 구간' : 'Histogram', bin.from === bin.to ? bin.from : `${bin.from} – ${bin.to}`]);
+  return rows;
+}
+
+/**
+ * #173 D-9: the export reader only while the metric pair has a confirmed computation version. Without one the table
+ * gets `exportRows={undefined}` — no export menu — instead of a header-only file.
+ */
+export function exportRowsWhenConfirmed<F>(cycleVersion: string | null, read: F): F | undefined {
+  return cycleVersion === null ? undefined : read;
 }
