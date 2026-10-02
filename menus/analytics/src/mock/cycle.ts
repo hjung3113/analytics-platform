@@ -222,10 +222,12 @@ export const cycleMock: readonly AnyMockEndpoint[] = [
   }),
   defineMockEndpoint(cycleExportEndpoint, {
     // Selection export: the server filters by execution keys itself, so the row cap is judged on the selection.
+    // `sorting` is the table's active sort — the same sort the page endpoint applies, so export order = page order (#173 UX P2-6).
     handle: ({ equipment, context, params }) => {
+      const { ids, sorting = [] } = params;
       const rows = slowRows(equipment, context, params);
-      const { ids } = params;
-      return ids == null ? rows : rows.filter(row => ids.includes(executionKey(row)));
+      const selected = ids == null ? rows : rows.filter(row => ids.includes(executionKey(row)));
+      return sortAndPage(selected, { page: 0, pageSize: Number.MAX_SAFE_INTEGER, sorting }).rows;
     },
     metricVersion,
   }),

@@ -1,6 +1,5 @@
 import type { Equipment, EquipmentExportFilter, EquipmentFilter } from '../endpoints';
-import { parseDateTime, shift } from '@ap/contracts';
-
+import { parseDateTime, shift, type PageSort } from '@ap/contracts';
 export const statusText = {
   active: { ko: '사용중', en: 'Active' }, idle: { ko: '대기', en: 'Idle' },
   maintenance: { ko: '정비', en: 'Maintenance' }, retired: { ko: '유효 종료', en: 'Retired' },
@@ -25,7 +24,20 @@ export function validity(e: Equipment) {
     { from: changedAt, to: e.validTo, chamberType: e.chamberType },
   ];
 }
-/** Table-owned export params (#173): the page filters plus the selection ids (`null` = every filtered row). */
-export function exportParams({ q, status, maker }: EquipmentFilter, scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }): EquipmentExportFilter {
-  return { q, status, maker, ids: scope.kind === 'selected' ? scope.ids : null };
+
+/** Table-owned export params (#173): the page filters, the selection ids (`null` = every filtered row) and the table's active sort. */
+export function exportParams(
+  { q, status, maker }: EquipmentFilter,
+  request: { scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }; sorting: PageSort[] },
+): EquipmentExportFilter {
+  return { q, status, maker, ids: request.scope.kind === 'selected' ? request.scope.ids : null, sorting: request.sorting };
+}
+
+/** Readable page filters for the XLSX 조회 정보 sheet (#173 review P2-3); unset filters are omitted. */
+export function exportFilterSummary({ q, status, maker }: EquipmentFilter, lang: 'ko' | 'en'): [string, string][] {
+  const rows: [string, string][] = [];
+  if (q) rows.push([lang === 'ko' ? '검색어' : 'Search', q]);
+  if (status && status in statusText) rows.push([lang === 'ko' ? '상태' : 'Status', statusText[status as Equipment['status']][lang]]);
+  if (maker) rows.push(['Maker', maker]);
+  return rows;
 }

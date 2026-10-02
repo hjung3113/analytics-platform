@@ -1,12 +1,13 @@
 import { useMemo } from 'react';
 import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
-import { Button, Input, StatusBadge } from '@ap/ui';
+import { Button, Input } from '@ap/ui';
 import {
   DOMAINS, STATUSES, catalogExportEndpoint, catalogListEndpoint, catalogPageEndpoint, metricPairEndpoint, sortColumns,
   type CatalogRow, type Lang, type PairVerdict, type PublicationState,
 } from '../endpoints';
-import { DOMAIN_LABEL, STATUS_LABEL, STATUS_TONE, exportParams } from './data';
+import { DOMAIN_LABEL, exportFilterSummary, exportParams, STATUS_LABEL } from './data';
+import { catalogColumns } from './columns';
 
 const NO_DESTINATION = { viewedId: null, pageVersion: null };
 
@@ -88,48 +89,10 @@ export default function MetricCatalogPage(_: PageProps) {
   const pages = useMenuFetch(catalogPageEndpoint);
   const exports = useMenuFetch(catalogExportEndpoint);
 
-  const columns = useMemo<PlatformColumn<CatalogRow>[]>(() => [
-    {
-      id: 'metricId', header: 'metricId', size: 200,
-      cell: row => <PlatformLink className="t-mono text-accent-primary hover:underline" href={linkTo('metric-detail', { params: { metricId: row.metricId }, page: detailPage(row) })}>{row.metricId}</PlatformLink>,
-    },
-    {
-      id: 'nameSort', header: lang === 'ko' ? '이름' : 'Name', size: 180,
-      cell: row => lang === 'ko' ? row.nameKo : row.nameEn,
-      exportValue: row => (lang === 'ko' ? row.nameKo : row.nameEn),
-    },
-    {
-      id: 'domain', header: lang === 'ko' ? '도메인' : 'Domain', size: 120,
-      cell: row => tx(DOMAIN_LABEL[row.domain]),
-      exportValue: row => tx(DOMAIN_LABEL[row.domain]),
-    },
-    { id: 'grain', header: 'grain', size: 180, cell: row => row.grain },
-    {
-      id: 'numerator', header: lang === 'ko' ? '분자' : 'Numerator', size: 200,
-      cell: row => <span className="t-mono">{row.numerator}</span>,
-    },
-    {
-      id: 'denominator', header: lang === 'ko' ? '분모' : 'Denominator', size: 200,
-      cell: row => <span className="t-mono">{row.denominator}</span>,
-    },
-    {
-      id: 'publishedPointer', header: lang === 'ko' ? '게시 포인터' : 'Published pointer', size: 130, align: 'right',
-      cell: row => row.publishedPointer ? <span className="tabular">v{row.publishedPointer}</span> : <span className="text-text-muted">{lang === 'ko' ? '없음' : 'None'}</span>,
-      // Export shows the same `v3` pointer text; no pointer exports an empty cell (the muted "None" is screen-only).
-      exportValue: row => (row.publishedPointer === null ? null : `v${row.publishedPointer}`),
-    },
-    {
-      id: 'status', header: lang === 'ko' ? '상태' : 'Status', size: 110,
-      cell: row => <StatusBadge tone={STATUS_TONE[row.status]} dot>{tx(STATUS_LABEL[row.status])}</StatusBadge>,
-      exportValue: row => tx(STATUS_LABEL[row.status]),
-    },
-    { id: 'owner', header: lang === 'ko' ? '정의 책임' : 'Owner', size: 160, cell: row => row.owner },
-    {
-      id: 'updatedAt', header: lang === 'ko' ? '수정 시각' : 'Updated', size: 170, align: 'right',
-      cell: row => <time className="tabular" dateTime={row.updatedAt}>{row.updatedAt.replace('T', ' ').slice(0, 16)}</time>,
-      exportValue: row => row.updatedAt.replace('T', ' ').slice(0, 16),
-    },
-  ], [lang, linkTo, tx]);
+  const columns = useMemo<PlatformColumn<CatalogRow>[]>(
+    () => catalogColumns({ lang: lang as Lang, linkTo, tx }),
+    [lang, linkTo, tx],
+  );
 
   return <PlatformPage
     description={lang === 'ko'
@@ -205,7 +168,8 @@ export default function MetricCatalogPage(_: PageProps) {
           </PlatformLink>}
         </span>}
         // Table-owned export (#173): the page only says how to read the rows; the table builds the file.
-        exportRows={(scope, signal) => exports.fetch(exportParams(filter, scope), signal)}
+        exportRows={(request, signal) => exports.fetch(exportParams(filter, request), signal)}
+        exportFilterSummary={exportFilterSummary(filter, lang, tx)}
       />}
       <p className="t-caption text-text-muted">
         {lang === 'ko'

@@ -25,9 +25,11 @@ export const metricsMock: readonly AnyMockEndpoint[] = [
   }),
   defineMockEndpoint(catalogExportEndpoint, {
     // Selection export: ids filter server-side, so the declared maxRows is judged on the selection.
-    handle: ({ params: { q, status, domain, lang, ids } }) => {
+    // `sorting` is the table's active sort — the same sort the page endpoint applies, so export order = page order (#173 UX P2-6).
+    handle: ({ params: { q, status, domain, lang, ids, sorting = [] } }) => {
       const rows = filterCatalog(catalogRows(lang), q, status, domain).rows;
-      return ids == null ? rows : rows.filter(r => ids.includes(r.metricId));
+      const selected = ids == null ? rows : rows.filter(r => ids.includes(r.metricId));
+      return sortAndPage(selected, { page: 0, pageSize: Number.MAX_SAFE_INTEGER, sorting }).rows;
     },
   }),
   defineMockEndpoint(definitionEndpoint, {

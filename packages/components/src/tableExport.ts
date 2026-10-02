@@ -63,8 +63,13 @@ export function toTsv(headers: string[], rows: (string | number)[][]): string {
 /** Excel's per-cell text limit; longer strings are cut and marked so the cut is visible in the sheet. */
 export const XLSX_CELL_MAX = 32_767;
 const XLSX_TRUNCATED = '…(잘림)';
-function xlsxText(text: string): string {
-  return text.length > XLSX_CELL_MAX ? text.slice(0, XLSX_CELL_MAX - XLSX_TRUNCATED.length) + XLSX_TRUNCATED : text;
+export function xlsxText(text: string): string {
+  if (text.length <= XLSX_CELL_MAX) return text;
+  let cut = XLSX_CELL_MAX - XLSX_TRUNCATED.length;
+  // `length`/`slice` count UTF-16 units: back off one unit when the cut would leave a lone high surrogate (emoji, astral chars).
+  const unit = text.charCodeAt(cut - 1);
+  if (unit >= 0xd800 && unit <= 0xdbff) cut -= 1;
+  return text.slice(0, cut) + XLSX_TRUNCATED;
 }
 /** Numbers stay number cells; strings become string cells as-is — no formula guard, a string cell is never evaluated. Empty → blank cell. */
 function xlsxCell(value: string | number): string | number | null {

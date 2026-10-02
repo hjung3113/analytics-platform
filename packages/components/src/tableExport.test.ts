@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { PlatformColumn } from './PlatformDataTable';
-import { exportCell, exportColumns, toCsv, toTsv, toXlsx, XLSX_CELL_MAX } from './tableExport';
+import { exportCell, exportColumns, toCsv, toTsv, toXlsx, xlsxText, XLSX_CELL_MAX } from './tableExport';
 import { readXlsx } from './xlsxTestReader';
 
 type Row = { id: string; label: string | null; count: number; flag: boolean; bad?: unknown };
@@ -55,6 +55,16 @@ describe('exportCell coercion (#173)', () => {
       expect(() => exportCell({ id, header: 'X' }, row)).toThrow(id);
     }
   });
+
+  it('production coerces the same value to an empty cell instead of throwing (#173 P3-8)', () => {
+    vi.stubEnv('PROD', true); // isProductionEnv: positive production signal from the bundler env
+    try {
+      const row = { id: 'a', at: new Date('2026-10-02T00:00:00Z') } as unknown as Row;
+      expect(exportCell({ id: 'at', header: 'At' }, row)).toBe('');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });
 
 describe('toCsv (#173)', () => {
@@ -99,5 +109,28 @@ describe('toXlsx (#173 step 2)', () => {
     expect(cut.length).toBe(XLSX_CELL_MAX);
     expect(cut.endsWith('…(잘림)')).toBe(true);
     expect(info).toEqual({ A1: '메뉴', B1: 'equipment', A2: '커버리지', B2: 0.97, A3: '원천' });
+  });
+});
+
+describe('xlsxText truncation (#173 P3-9)', () => {
+  it('never splits a surrogate pair at the cut: an emoji astride the limit is dropped whole', () => {
+    // 32,767 units minus the 5-unit marker; the emoji's high surrogate lands exactly at the cut.
+    const cut = XLSX_CELL_MAX - '…(잘림)'.length;
+    const text = 'a'.repeat(cut - 1) + '😀' + 'b'.repeat(20);
+    const truncated = xlsxText(text);
+    expect(truncated.length).toBe(XLSX_CELL_MAX - 1); // one unit backed off so the pair is never split
+    expect(truncated.endsWith('…(잘림)')).toBe(true);
+    const body = truncated.slice(0, truncated.length - '…(잘림)'.length);
+    expect(body).toBe('a'.repeat(cut - 1)); // the emoji left with its low surrogate, not as a lone high surrogate
+    for (const ch of truncated) {
+      const code = ch.charCodeAt(0);
+      expect(code >= 0xd800 && code <= 0xdfff).toBe(false);
+    }
+  });
+
+  it('plain text still cuts at exactly the limit with the marker', () => {
+    const truncated = xlsxText('a'.repeat(XLSX_CELL_MAX + 10));
+    expect(truncated.length).toBe(XLSX_CELL_MAX);
+    expect(truncated.endsWith('…(잘림)')).toBe(true);
   });
 });
