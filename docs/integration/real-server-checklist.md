@@ -81,11 +81,11 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 
 포트 메서드도 같은 묶음이 검사한다(#152):
 
-- 세션 identity·부여 site 목록, `subscribe` 해제 함수, `validateScope` 네 상태(부여·두 번째 부여·미부여·알 수 없음 site)
+- 세션 identity·부여 site 목록, `subscribe` 해제 함수(한 번만 호출 — 해제 함수의 멱등성은 계약이 요구하지 않는다), `validateScope` 네 상태(부여·두 번째 부여·미부여·알 수 없음 site), `publishedMetrics` 포인터 모양(`metricId` 비지 않은 문자열, `publishedVersion` 문자열 또는 null), `defaultRangeTo` naive wall-clock(`YYYY-MM-DDTHH:mm:ss`, 지역·오프셋 없음 — 06 §6.3), `contextOptions` 선택지 목록(`stgroup`·`team` 문자열 배열, `makerModel` `{maker, model}`), `evaluateSelection` 부여 room 필터·미부여 site 0건(거부 응답도 통과)
 - `getEntity`·`entityAudit` 권한·site·room 재검증(`ungrantedRoomRef` 표본 있을 때)·null Scope·미등록 type
 - 콘솔 조회 권한(`auditTrail`·`accessDirectory`·`usageSummary`의 `console:access`)과 0건 outcome(`auditTrail`·`accessDirectory`는 `empty`, `usageSummary`는 `ok`·`menus: []`)
 - 주석: 저장·같은 site 재조회, site 격리(다른 부여 site에 보이지 않음), 부여 없는 site·null Scope `forbidden`, 클라이언트 `at`·`id`·`user` 거부(거부한 주석은 저장 안 됨), 비 mart 응답(assessments 없음·trust null), 차트 권한 재검증
-- 활용률: 유효 entry·dwell 적재, 하나라도 어긋나면 전체 거부(unknown key·클라이언트 userId·query 붙은 path·비숫자 `at`·비숫자 `enteredAt`·음수 `dwellMs`), 수신 시각 집계(클라이언트 `at`이 아니라 서버 수신 시각으로 집계)
+- 활용률: 유효 entry·dwell 적재, 하나라도 어긋나면 전체 거부(unknown key·클라이언트 userId·query 붙은 path·비숫자 `at`·비숫자 `enteredAt`·음수 `dwellMs`), 수신 시각 집계(클라이언트 `at`이 아니라 서버 수신 시각으로 집계) — 이 수신 시각 검사는 **부여 계정으로 기록하고 콘솔 계정으로 집계를 읽는다**(하네스가 보장하는 건 부여 계정의 기록 권한뿐이라 콘솔 전용 계정이 기록하지 못하는 것은 적합하다). 혼자 차례로 돌므로 검사 안에서 actor를 전환한다
 - 오류 보고: 유효 표본 적재(positive)와 거부(자유 문장 message·절대 URL path·query 붙은 path·자유 문장 name·누락 필드)
 - 응답 모양 — 거부에 데이터 없음, 누락된 envelope 키 지적(`assessments`·`trust`), 평가 항목 06 §19, Trust 06 §18
 

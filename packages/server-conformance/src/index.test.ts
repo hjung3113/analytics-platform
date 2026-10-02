@@ -36,6 +36,13 @@ const REF_EVENT: AuditEvent = {
 // The granted actor holds only PH-101 in ICH; the room re-check sample (06 §22) sits in DIF-202.
 const GRANTED_ROOMS = ['PH-101'];
 const ROOM_OF: Record<string, string> = { 'ICH-PHOTO-0103': 'PH-101', 'ICH-DIFF-0176': 'DIF-202' };
+// The reference evaluator's world (the kit judges any adapter, so no mock import): two PH-101 rows and one
+// DIF-202 row the granted actor does not hold.
+const REF_EQUIPMENT = [
+  { equipmentId: 'ICH-PHOTO-0103', room: 'PH-101', model: 'HX-1' },
+  { equipmentId: 'ICH-PHOTO-0107', room: 'PH-101', model: 'HX-2' },
+  { equipmentId: 'ICH-DIFF-0176', room: 'DIF-202', model: 'DF-9' },
+];
 
 /** Granted actor: every case/entity permission, grants at ICH + CJU, no console:access; `console` flips under asConsole. */
 type RefState = { permissions: Set<Permission>; console: boolean };
@@ -70,10 +77,12 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
     subscribe: onChange => {
       if (breaks.has('subscribe-unsubscribe')) return undefined as unknown as () => void;
       listeners.add(onChange);
-      // 'unsubscribe-twice' throws on the second call — the double-unsubscribe branch must catch it.
+      // The cleanup need not be idempotent (adapter.ts requires only that subscribe return one) — this
+      // reference is one-shot: a second call throws, which is conforming. 'unsubscribe-throws' breaks the
+      // first call instead, and the check must catch that.
       let unsubscribed = false;
       return () => {
-        if (breaks.has('unsubscribe-twice') && unsubscribed) throw new Error('already unsubscribed');
+        if (breaks.has('unsubscribe-throws') || unsubscribed) throw new Error('already unsubscribed');
         unsubscribed = true;
         listeners.delete(onChange);
       };
@@ -223,16 +232,29 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       if (breaks.has('entity-audit-ok')) return { ...envelope, outcome: 'ok', data: {} as unknown as { events: readonly AuditEvent[] } }; // data.events is not an array
       // adapter.ts zero rule: a zero is outcome `empty` — 'entity-audit-ok-zero' answers ok with no events.
       if (breaks.has('entity-audit-ok-zero')) return { ...envelope, outcome: 'ok', data: { events: [] } };
-      return { ...envelope, outcome: 'ok', data: { events: [REF_EVENT] } };
+      // 'entity-audit-trust' ships a malformed trust on the ok answer — the envelope shape check must catch it.
+      return {
+        ...envelope,
+        outcome: 'ok',
+        data: { events: [REF_EVENT] },
+        trust: breaks.has('entity-audit-trust') ? { ...REF_TRUST, coverage: '98%' as unknown as number | null } : null,
+      };
     },
     auditTrail: async () => {
       // adapter.ts zero rule: a zero is outcome `empty`. 'console-auditTrail-empty' empties the audit store
       // (still conforming); 'console-auditTrail-ok-zero' answers ok with an empty page — the kit must refuse it.
       if (breaks.has('console-auditTrail-ok-zero')) return consoleGate('auditTrail', { items: [], total: 0 });
       const r = consoleGate('auditTrail', { items: [REF_EVENT], total: 1 });
-      return breaks.has('console-auditTrail-empty') && r.outcome === 'ok'
+      const answered = breaks.has('console-auditTrail-empty') && r.outcome === 'ok'
         ? { ...r, outcome: 'empty' as const, data: null }
         : r;
+      // 'console-auditTrail-missing-assessments' omits the key entirely on the ok answer — a key omitted is
+      // not null, and the envelope shape check must name it.
+      if (breaks.has('console-auditTrail-missing-assessments') && answered.outcome === 'ok') {
+        const omittable = answered as { assessments?: Assessment[] };
+        delete omittable.assessments;
+      }
+      return answered;
     },
     accessDirectory: async () => {
       // The reference directory holds no principals: a zero is outcome `empty` (adapter.ts) — the kit must
@@ -265,14 +287,22 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         menus: [...byMenu.entries()].map(([menuId, agg]) => ({ menuId, visits: agg.visits, distinctUsers: agg.users.size, lastUsedAt: agg.last })),
       });
       // 'console-usageSummary-empty' answers empty on a zero — the kit must refuse it (adapter.ts: ok with menus: []).
-      return breaks.has('console-usageSummary-empty') && r.outcome === 'ok'
+      const answered = breaks.has('console-usageSummary-empty') && r.outcome === 'ok'
         ? { ...r, outcome: 'empty' as const, data: null }
         : r;
+      // 'console-usageSummary-clear-no-source' asserts a clear assessment with no statusSource — the ok
+      // answer's envelope shape check must catch it (06 §19).
+      return breaks.has('console-usageSummary-clear-no-source') && answered.outcome === 'ok'
+        ? { ...answered, assessments: [{ kind: 'coverage' as const, state: 'clear' as const }] }
+        : answered;
     },
     recordUsage: async (events) => {
       // 'usage-epoch-throws' rejects only the epoch-0 event — the receive-time check must report recordUsage
       // throwing, not a missing envelope.
       if (breaks.has('usage-epoch-throws') && events.some(e => e.at === 0)) throw new Error('telemetry down');
+      // A console-only actor that cannot record is conforming (the harness guarantees only the granted actor
+      // may record ports.usage) — the receive-time probe must therefore record as the granted actor.
+      if (breaks.has('usage-granted-only-record') && state.console) return { accepted: 0 };
       const USAGE_KEYS = ['name', 'menuId', 'spaceId', 'path', 'at', 'sessionId'];
       const token = (v: unknown, max: number) => typeof v === 'string' && v.length > 0 && v.length <= max
         && (breaks.has('usage-allows-query') ? !/[#&\s]/.test(v) : !/[?#&\s]/.test(v));
@@ -396,11 +426,30 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       if (breaks.has('annotation-save-missing-trust')) delete omittable.trust;
       return okRow;
     },
-    // Ports the kit does not exercise: present, minimal, contract-shaped.
-    publishedMetrics: () => [],
-    defaultRangeTo: () => '2026-09-26T09:00:00',
-    contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-    evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
+    // The ports round D exercises (#152): contract-shaped answers, one break each.
+    publishedMetrics: () => breaks.has('published-metrics')
+      ? [{ metricId: '', publishedVersion: 3 as unknown as string | null }] // empty id, non-string version
+      : [{ metricId: 'cycle_time', publishedVersion: '4' }, { metricId: 'scrap_rate', publishedVersion: null }],
+    // 'default-range' answers with a Z suffix — a zone the naive wall-clock of 06 §6.3 forbids.
+    defaultRangeTo: () => (breaks.has('default-range') ? '2026-09-26T09:00:00Z' : '2026-09-26T09:00:00'),
+    contextOptions: async scopeId => {
+      if (scopeId !== 'ICH') return { stgroup: [], team: [], makerModel: [] };
+      // 'context-options' answers stgroup as a plain string and model as a number.
+      return breaks.has('context-options')
+        ? { stgroup: 'photo' as unknown as string[], team: [], makerModel: [{ maker: 'Canon', model: 3 as unknown as string }] }
+        : { stgroup: ['photo', 'etch'], team: ['shift-a', 'shift-b'], makerModel: [{ maker: 'Canon', model: 'HX-1' }] };
+    },
+    evaluateSelection: async input => {
+      // Grants come from the session (adapter.ts): ICH/PH-101 only. 'selection-ignores-grants' also serves
+      // the ungranted DIF-202 room; 'selection-foreign' lists equipment even at the ungranted site XIA.
+      const grantedRooms = input.scopeId === 'ICH'
+        ? (breaks.has('selection-ignores-grants') ? ['PH-101', 'DIF-202'] : ['PH-101'])
+        : input.scopeId === 'XIA' && breaks.has('selection-foreign') ? ['DIF-202'] : [];
+      const inCondition = REF_EQUIPMENT
+        .filter(e => grantedRooms.includes(e.room) && (input.roomNames === null || input.roomNames.includes(e.room)))
+        .map(e => ({ equipmentId: e.equipmentId, room: e.room, model: e.model }));
+      return { inCondition, outOfCondition: (input.selection ?? []).filter(id => !inCondition.some(e => e.equipmentId === id)) };
+    },
   };
 }
 
@@ -475,6 +524,11 @@ describe('server conformance kit (#145)', () => {
       'port · validateScope(second granted site) → valid',
       'port · validateScope(foreign site) → forbidden with no rooms',
       'port · validateScope(unknown site) → unknown_scope',
+      'port · publishedMetrics() returns well-formed pointers',
+      'port · defaultRangeTo() is a naive wall-clock',
+      'port · contextOptions(granted site) returns the option lists',
+      'port · evaluateSelection lists only equipment in granted rooms',
+      'port · evaluateSelection at a site without a grant lists no equipment',
       'port · getEntity(sample) → ok with the row',
       'port · getEntity of an unregistered type → error',
       'port · getEntity at a site without a grant → forbidden',
@@ -562,7 +616,13 @@ describe('server conformance kit (#145)', () => {
     ['session-scopes', 'port · session lists the granted sites and not the foreign one'],
     ['session-foreign', 'port · session lists the granted sites and not the foreign one'],
     ['subscribe-unsubscribe', 'port · subscribe returns an unsubscribe function'],
-    ['unsubscribe-twice', 'port · subscribe returns an unsubscribe function'],
+    ['unsubscribe-throws', 'port · subscribe returns an unsubscribe function'],
+    // #152 round D: the four ports the kit now exercises — one break each.
+    ['published-metrics', 'port · publishedMetrics() returns well-formed pointers'],
+    ['default-range', 'port · defaultRangeTo() is a naive wall-clock'],
+    ['context-options', 'port · contextOptions(granted site) returns the option lists'],
+    ['selection-ignores-grants', 'port · evaluateSelection lists only equipment in granted rooms'],
+    ['selection-foreign', 'port · evaluateSelection at a site without a grant lists no equipment'],
     ['validate-granted', 'port · validateScope(granted site) → valid with its rooms'],
     ['validate-other', 'port · validateScope(second granted site) → valid'],
     ['validate-foreign', 'port · validateScope(foreign site) → forbidden with no rooms'],
@@ -584,6 +644,10 @@ describe('server conformance kit (#145)', () => {
     ['entity-audit-null', 'port · entityAudit with a null Scope → forbidden'],
     ['entity-audit-room', 'port · entityAudit of a destination in an ungranted room → forbidden'],
     ['entity-audit-permission', 'port · entityAudit without equipment:view → forbidden'],
+    // Round D: every successful port envelope answers the full 06 §19/§18 shape.
+    ['entity-audit-trust', 'port · entityAudit(sample) → events'],
+    ['console-auditTrail-missing-assessments', 'port · auditTrail as a console actor → ok'],
+    ['console-usageSummary-clear-no-source', 'port · usageSummary as a console actor → ok'],
     ['console-auditTrail-ok', 'port · auditTrail as a console actor → ok'],
     // adapter.ts zero rule: ok with an empty page is a violation (a zero is outcome empty).
     ['console-auditTrail-ok-zero', 'port · auditTrail as a console actor → ok'],
@@ -715,7 +779,9 @@ describe('server conformance kit (#145)', () => {
 
   it('names the missing trust key on the saved annotation answer instead of throwing', async () => {
     const results = await runServerConformance(harness(new Set(['annotation-save-missing-trust'])));
+    // Round D: the save/list success check now reads the envelope too, so both it and the mart rule fail.
     expect(results.filter(r => r.failure !== null).map(r => r.id)).toEqual([
+      'port · saveAnnotation then listAnnotations at the same site returns the note',
       'port · annotations are not mart data: no assessments, null trust',
     ]);
     expect(results.find(r => r.id === 'port · annotations are not mart data: no assessments, null trust')?.failure)
@@ -731,6 +797,28 @@ describe('server conformance kit (#145)', () => {
     ]);
     expect(results.find(r => r.id === 'port · usageSummary counts by receive time, not the client at')?.failure)
       .toBe('recordUsage threw/rejected: Error: telemetry down');
+  });
+
+  // Round D (subscribe): adapter.ts requires subscribe to return a cleanup function, not an idempotent one —
+  // a one-shot unsubscribe that throws on its second call is conforming and must pass every check.
+  it('passes every check when the unsubscribe throws on its second call', async () => {
+    const h = harness();
+    let unsubscribed = false;
+    const adapter: PlatformAdapter = {
+      ...h.adapter,
+      subscribe: () => () => {
+        if (unsubscribed) throw new Error('already unsubscribed');
+        unsubscribed = true;
+      },
+    };
+    const results = await runServerConformance({ ...h, adapter });
+    expect(results.filter(r => r.failure !== null)).toEqual([]);
+  });
+
+  // Round D (receive-time probe): the harness guarantees only the granted actor may record ports.usage, so a
+  // console-only actor that cannot record is conforming — the probe records as granted and reads as console.
+  it('passes every check when only the granted actor can record usage', async () => {
+    expect(await failing(['usage-granted-only-record'])).toEqual([]);
   });
 
   // ports.usage may arrive dwell-shaped: the kit derives the entry from the identity fields, so a dwell sample

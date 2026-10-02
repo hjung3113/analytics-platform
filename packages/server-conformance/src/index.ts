@@ -7,7 +7,7 @@
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
-  emptyGlobal, projectContext,
+  emptyGlobal, parseDateTime, projectContext,
   type AnnotationInput, type AnyEndpointSpec, type ApiResponse, type Assessment, type AssessmentKind, type ClientErrorReport, type EntityRef,
   type GlobalContext, type MenuQuery, type Permission, type PlatformAdapter, type Trust, type UsageEvent, type UsageSummary,
 } from '@ap/contracts';
@@ -78,11 +78,13 @@ export type ConformanceCheck = {
   id: string;
   /**
    * 'granted' checks run concurrently as the granted actor; 'console' checks run concurrently as the console
-   * actor after the granted batch; 'permission' checks run one at a time without a permission; 'skipped'
-   * checks never run (#175: a maxRows declaration with no oversize sample) — they surface in the plan and as
-   * `it.skip` in the vitest suite so the gap stays visible.
+   * actor after the granted batch; 'sequential' checks run one at a time after the console batch and before
+   * the permission checks — their `run` switches actors itself (never inside a concurrent batch: the mock's
+   * role is global, so a mid-batch switch would race the other checks); 'permission' checks run one at a
+   * time without a permission; 'skipped' checks never run (#175: a maxRows declaration with no oversize
+   * sample) — they surface in the plan and as `it.skip` in the vitest suite so the gap stays visible.
    */
-  mode: 'granted' | 'console' | 'permission' | 'skipped';
+  mode: 'granted' | 'console' | 'sequential' | 'permission' | 'skipped';
   /**
    * True for checks whose method does not answer an envelope: the non-envelope methods (checklist §2:
    * `session`, `subscribe`, `validateScope`) and the fire-and-forget `recordUsage`/`reportClientError` (they
@@ -378,11 +380,12 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
     run: async () => {
       const unsubscribe = adapter.subscribe(() => {});
       if (typeof unsubscribe !== 'function') return 'subscribe must return an unsubscribe function';
+      // Called once, never twice: adapter.ts requires `subscribe` to return a cleanup function — it does not
+      // require the cleanup to be idempotent, so a one-shot unsubscribe is conforming (#152 round D).
       try {
         unsubscribe();
-        unsubscribe();
       } catch (error) {
-        return `unsubscribing (twice) threw: ${String(error)}`;
+        return `unsubscribing threw: ${String(error)}`;
       }
       return null;
     },
@@ -428,6 +431,108 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
       const check = await adapter.validateScope(UNKNOWN_SITE);
       if (check.status !== 'unknown_scope') return `expected unknown_scope for ${UNKNOWN_SITE}, got ${check.status}`;
       if (check.grantedRooms.length > 0) return `an unknown site must not list rooms — got [${check.grantedRooms.join(', ')}]`;
+      return null;
+    },
+  });
+  // The remaining ports (#152 round D): sync snapshots and the condition-editor reads — non-envelope
+  // methods, so each check judges the returned shape, never a 06 §19 envelope.
+  checks.push({
+    id: 'port · publishedMetrics() returns well-formed pointers',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: async () => {
+      const pointers = adapter.publishedMetrics();
+      if (!Array.isArray(pointers)) return `publishedMetrics() answers an array, got ${typeof pointers}`;
+      for (const p of pointers) {
+        if (typeof p.metricId !== 'string' || p.metricId.length === 0) {
+          return 'every pointer carries a non-empty string metricId (adapter.ts PublishedMetric)';
+        }
+        if (typeof p.publishedVersion !== 'string' && p.publishedVersion !== null) {
+          return `${p.metricId}: publishedVersion is a string or null — null = known, unpublished (adapter.ts PublishedMetric)`;
+        }
+      }
+      return null;
+    },
+  });
+  checks.push({
+    id: 'port · defaultRangeTo() is a naive wall-clock',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: async () => {
+      const anchor = adapter.defaultRangeTo();
+      if (typeof anchor !== 'string') return `defaultRangeTo() answers a string, got ${typeof anchor}`;
+      try {
+        parseDateTime(anchor, 'defaultRangeTo'); // url.ts DATETIME — the URL contract's validator
+      } catch (error) {
+        return `defaultRangeTo() is the URL contract's naive wall-clock YYYY-MM-DDTHH:mm:ss with no zone/offset (06 §6.3): ${String(error)}`;
+      }
+      return null;
+    },
+  });
+  checks.push({
+    id: 'port · contextOptions(granted site) returns the option lists',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: async () => {
+      const options = await adapter.contextOptions(harness.context.scopeId);
+      for (const axis of ['stgroup', 'team'] as const) {
+        if (!Array.isArray(options[axis]) || options[axis].some(v => typeof v !== 'string')) {
+          return `contextOptions(${harness.context.scopeId}).${axis} is a string array (adapter.ts ConditionOptions)`;
+        }
+      }
+      if (!Array.isArray(options.makerModel) || options.makerModel.some(mm => typeof mm.maker !== 'string' || typeof mm.model !== 'string')) {
+        return `contextOptions(${harness.context.scopeId}).makerModel is an array of { maker, model } strings (adapter.ts ConditionOptions)`;
+      }
+      return null;
+    },
+  });
+  // IdSet "no constraint" is null, never [] (url.ts: [] is an explicit empty set) — the kit asks for the
+  // whole granted set and checks the server's own grant filter, not a client-sent room list.
+  checks.push({
+    id: 'port · evaluateSelection lists only equipment in granted rooms',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: async () => {
+      const scope = await adapter.validateScope(harness.context.scopeId);
+      if (scope.status !== 'valid') return `the granted site ${harness.context.scopeId} does not validate here (its own check reports the status)`;
+      // Zero listed rooms is validateScope's own check's failure — the grant filter comparison only judges a
+      // server that does list its rooms.
+      const grantedRooms = scope.grantedRooms.length > 0 ? scope.grantedRooms : null;
+      const evaluation = await adapter.evaluateSelection({ scopeId: harness.context.scopeId, roomNames: null, condition: null, selection: null });
+      if (!Array.isArray(evaluation.inCondition) || !Array.isArray(evaluation.outOfCondition)) {
+        return 'evaluateSelection answers inCondition and outOfCondition arrays (adapter.ts SelectionEvaluation)';
+      }
+      for (const e of evaluation.inCondition) {
+        if (typeof e.equipmentId !== 'string' || typeof e.room !== 'string' || typeof e.model !== 'string') {
+          return 'every inCondition item is { equipmentId, room, model } strings (adapter.ts EquipmentOption)';
+        }
+        if (grantedRooms !== null && !grantedRooms.includes(e.room)) {
+          return `${e.equipmentId} sits in ${e.room}, outside the granted rooms [${grantedRooms.join(', ')}] — the server filters by the session's grants (adapter.ts)`;
+        }
+      }
+      if (evaluation.outOfCondition.some(id => typeof id !== 'string')) {
+        return 'outOfCondition is a string array (adapter.ts SelectionEvaluation)';
+      }
+      return null;
+    },
+  });
+  checks.push({
+    id: 'port · evaluateSelection at a site without a grant lists no equipment',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: async () => {
+      // adapter.ts fixes no failure form for non-envelope async methods: an empty list or a rejection both
+      // pass — only equipment actually listed at the ungranted site fails this check.
+      let evaluation;
+      try {
+        evaluation = await adapter.evaluateSelection({ scopeId: harness.foreignScopeId, roomNames: null, condition: null, selection: null });
+      } catch {
+        return null;
+      }
+      if (!Array.isArray(evaluation.inCondition)) return 'evaluateSelection answers an inCondition array (adapter.ts SelectionEvaluation)';
+      if (evaluation.inCondition.length > 0) {
+        return `equipment is listed at the ungranted site ${harness.foreignScopeId} — grants filter the answer (adapter.ts)`;
+      }
       return null;
     },
   });
@@ -481,7 +586,10 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
       if (r.outcome !== 'ok' && r.outcome !== 'empty') return `expected ok or empty, got ${describeResponse(r)}`;
       if (r.outcome === 'ok' && !Array.isArray(r.data?.events)) return 'an ok entityAudit answer carries data.events as an array';
       if (r.outcome === 'ok' && r.data?.events.length === 0) return 'a zero is outcome empty, not ok with no events (adapter.ts)';
-      return null;
+      // Every successful envelope answers the full 06 §19/§18 shape (#152 round D), like getEntity above.
+      const missing = missingEnvelopeKey(r, 'assessments') ?? missingEnvelopeKey(r, 'trust');
+      if (missing) return missing;
+      return assessmentProblem(r.assessments, r.outcome) ?? trustProblem(r.trust);
     },
   });
   checks.push({
@@ -535,7 +643,9 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
           if (r.outcome !== 'ok') {
             return `a console actor reading ${read.method}: expected ok, got ${describeResponse(r)} — a zero is ok with menus: [], never empty (adapter.ts)`;
           }
-          return null;
+          const missing = missingEnvelopeKey(r, 'assessments') ?? missingEnvelopeKey(r, 'trust');
+          if (missing) return missing;
+          return assessmentProblem(r.assessments, r.outcome) ?? trustProblem(r.trust);
         }
         const r = await read.send();
         if (r.outcome === 'empty') return null; // adapter.ts: a zero is a confirmed result.
@@ -545,7 +655,10 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
         if (r.data === null || r.data.items.length === 0 || r.data.total === 0) {
           return `an ok ${read.method} page 1 with no rows or total: 0 is the zero case — outcome empty, not ok (adapter.ts)`;
         }
-        return null;
+        // Every successful `ok` answers the full 06 §19/§18 envelope shape (#152 round D).
+        const missing = missingEnvelopeKey(r, 'assessments') ?? missingEnvelopeKey(r, 'trust');
+        if (missing) return missing;
+        return assessmentProblem(r.assessments, r.outcome) ?? trustProblem(r.trust);
       },
     });
     checks.push({
@@ -602,8 +715,17 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
       if (extra.length > 0) {
         return `the saved row carries ${extra.join(', ')} — the server stamps the author and the client never sees or sends it (adapter.ts)`;
       }
+      // Both successes answer the full 06 §19/§18 envelope shape (#152 round D), like getEntity above.
+      const savedMissing = missingEnvelopeKey(saved, 'assessments') ?? missingEnvelopeKey(saved, 'trust');
+      if (savedMissing) return `saveAnnotation: ${savedMissing}`;
+      const savedProblem = assessmentProblem(saved.assessments, saved.outcome) ?? trustProblem(saved.trust);
+      if (savedProblem) return `saveAnnotation: ${savedProblem}`;
       const list = await adapter.listAnnotations({ chartId, scopeId: input.scopeId });
       if (list.outcome !== 'ok') return `listing the site that just accepted the save: expected ok, got ${describeResponse(list)}`;
+      const listMissing = missingEnvelopeKey(list, 'assessments') ?? missingEnvelopeKey(list, 'trust');
+      if (listMissing) return `listAnnotations: ${listMissing}`;
+      const listProblem = assessmentProblem(list.assessments, list.outcome) ?? trustProblem(list.trust);
+      if (listProblem) return `listAnnotations: ${listProblem}`;
       if (!Array.isArray(list.data?.items) || !list.data!.items.some(item => item.id === row.id)) {
         return 'the note just saved is missing from its own site\'s list';
       }
@@ -770,31 +892,35 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   // Checklist §4 clock constraint: the ±10 min window is on the test runner's clock, compared against the
   // server's receive stamps — keep runner and server within a few minutes (NTP). The 1970-01-01 window must
   // still answer ok (zero) on a retention-limited server.
+  //
+  // Sequential (#152 round D): the harness guarantees only that the granted actor may record `ports.usage`,
+  // so the probe records under `asGranted` and reads the summaries under `asConsole`. It must run alone —
+  // never inside a concurrent granted/console batch, where switching actors would race the batch's role.
   checks.push({
     id: 'port · usageSummary counts by receive time, not the client at',
-    mode: 'console',
+    mode: 'sequential',
     run: async () => {
       const visitsOf = (r: ApiResponse<UsageSummary>): number => r.data?.menus.find(m => m.menuId === ports.usage.menuId)?.visits ?? 0;
       const t0 = Date.now();
       const receiveWindow = { from: t0 - 10 * 60_000, to: t0 + 10 * 60_000 };
-      const before = await adapter.usageSummary(receiveWindow);
+      const before = await harness.asConsole(() => adapter.usageSummary(receiveWindow));
       if (before.outcome !== 'ok') return `the window summary: expected ok, got ${describeResponse(before)}`;
       // Epoch 0 is a finite number — shape-valid (checklist §5); only the receive time may place it.
       // recordUsage is fire-and-forget (checklist §2): it may reject — report that, not a missing envelope.
       let recorded: { accepted: number };
       try {
-        recorded = await adapter.recordUsage([{ ...usageEntry, at: 0 }]);
+        recorded = await harness.asGranted(() => adapter.recordUsage([{ ...usageEntry, at: 0 }]));
       } catch (error) {
         return `recordUsage threw/rejected: ${String(error)}`;
       }
       if (recorded.accepted !== 1) return `the epoch-0 entry: expected accepted 1, got ${recorded.accepted}`;
-      const after = await adapter.usageSummary(receiveWindow);
+      const after = await harness.asConsole(() => adapter.usageSummary(receiveWindow));
       if (after.outcome !== 'ok') return `the window summary after recording: expected ok, got ${describeResponse(after)}`;
       // ≥, not ===: a shared test server may receive other visits for this menu meanwhile.
       if (visitsOf(after) < visitsOf(before) + 1) {
         return `the epoch-0 entry was not counted in its receive-time window (${visitsOf(after)} after vs ${visitsOf(before)} before)`;
       }
-      const epochDay = await adapter.usageSummary({ from: 0, to: 86_400_000 });
+      const epochDay = await harness.asConsole(() => adapter.usageSummary({ from: 0, to: 86_400_000 }));
       if (epochDay.outcome !== 'ok') return `the 1970-01-01 summary: expected ok, got ${describeResponse(epochDay)}`;
       const there = epochDay.data?.menus.find(m => m.menuId === ports.usage.menuId);
       if (there && there.visits > 0) {
@@ -851,7 +977,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   return checks;
 }
 
-/** Runs every planned check: granted checks concurrently as the granted actor, then console checks concurrently as the console actor, then permission checks one at a time. Skipped checks are not run — they stay visible in the returned list by id. */
+/** Runs every planned check: granted checks concurrently as the granted actor, then console checks concurrently as the console actor, then sequential checks one at a time (each switching actors itself), then permission checks one at a time. Skipped checks are not run — they stay visible in the returned list by id. */
 export async function runServerConformance(harness: ServerConformanceHarness): Promise<ConformanceResult[]> {
   const checks = planServerConformance(harness);
   const failureOf = async (check: ConformanceCheck): Promise<ConformanceResult> => {
@@ -870,9 +996,11 @@ export async function runServerConformance(harness: ServerConformanceHarness): P
   };
   const granted = await harness.asGranted(() => Promise.all(checks.filter(c => c.mode === 'granted').map(failureOf)));
   const consoleResults = await harness.asConsole(() => Promise.all(checks.filter(c => c.mode === 'console').map(failureOf)));
+  const sequential: ConformanceResult[] = [];
+  for (const check of checks.filter(c => c.mode === 'sequential')) sequential.push(await failureOf(check));
   const permission: ConformanceResult[] = [];
   for (const check of checks.filter(c => c.mode === 'permission')) permission.push(await failureOf(check));
-  const byId = new Map([...granted, ...consoleResults, ...permission].map(r => [r.id, r]));
+  const byId = new Map([...granted, ...consoleResults, ...sequential, ...permission].map(r => [r.id, r]));
   return checks.map(c => {
     if (c.mode === 'skipped') return { id: c.id, status: 'skipped', failure: null };
     const result = byId.get(c.id);
@@ -882,8 +1010,10 @@ export async function runServerConformance(harness: ServerConformanceHarness): P
 }
 
 /**
- * Registers the kit as a vitest suite: one test per check, named by endpoint and rule. The checks run once in
- * `beforeAll` (concurrently where the actor allows), then each test reports its own result.
+ * Registers the kit as a vitest suite: one test per check, named by endpoint and rule (sequential checks
+ * like every other run check — only `skipped` becomes `it.skip`). The checks run once in `beforeAll`
+ * (concurrently where the actor allows, one at a time for sequential/permission checks), then each test
+ * reports its own result.
  */
 export function describeServerConformance(title: string, harness: ServerConformanceHarness, timeoutMs = 120_000): void {
   describe(title, () => {
