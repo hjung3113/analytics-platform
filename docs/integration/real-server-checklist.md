@@ -73,7 +73,7 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 - `adapter`: 실어댑터(테스트 환경 서버를 가리킴).
 - `cases`: 엔드포인트 선언과 표본 요청 — 앱 테스트의 `PARAMS` 표를 그대로 쓸 수 있다.
 - `context`·`foreignScopeId`: 테스트 계정에 부여된 site·기간, 부여되지 않은 site. `foreignScopeId`는 **서버가 아는** site여야 한다 — 모르는 id를 고르면 `validateScope(foreign site) → forbidden` 검사가 `unknown_scope`를 만나 실패한다.
-- `ports`: 포트 표본 — 목적지 표본(`EntityRef`와 그 조회 권한), 주석 대상 chartId와 권한, 활용률 이벤트 표본, 오류 보고 표본, 두 번째 부여 site. 목적지 표본은 **site가 있는 type**으로 `context.scopeId`에 둬야 하고 그 계정이 부여받은 room이어야 한다 — 지표 같은 site 없는 type은 site·null Scope 검사를 통과할 수 없다.
+- `ports`: 포트 표본 — 목적지 표본(`EntityRef`와 그 조회 권한, 같은 site의 부여받지 않은 room에 있는 실제 목적지 `ungrantedRoomRef` — 선택), 주석 대상 chartId·권한·그 차트 축의 유효 범위 `from`·`to`(시간축이면 wall-clock, 범주축이면 범주 라벨 — 06 §16), 활용률 이벤트 표본, 오류 보고 표본, 두 번째 부여 site. 목적지 표본은 **site가 있는 type**으로 `context.scopeId`에 둬야 하고 그 계정이 부여받은 room이어야 한다 — 지표 같은 site 없는 type은 site·null Scope 검사를 통과할 수 없다. `ungrantedRoomRef`를 주지 않으면 getEntity·entityAudit의 room 재검사 두 건은 건너뛴 것으로 표시된다(통과로 세지 않는다).
 - `asGranted`·`withoutPermission`: 모든 엔드포인트 권한을 가진 테스트 계정과, 권한 하나씩만 뺀 계정(또는 그렇게 세션을 바꾸는 테스트 훅). 부여 계정은 목적지 조회 권한·주석 권한도 있어야 하고 site 둘에 부여돼 있어야 한다. `withoutPermission`은 모든 엔드포인트 권한과 `ports.entity.permission`·`ports.annotation.permission`·`console:access`으로 불린다 — 부여 계정이 안 가진 권한(예: `console:access`)을 빼면 부여 계정 자신으로 돌아가므로, 권한 하나씩만 뺀 계정을 따로 만드는 팀은 이 목록이 곧 준비할 계정 목록이다.
 - `asConsole`: `console:access`를 가진 계정(콘솔 조회·활용률 집계 검사가 이 계정으로 돈다).
 - 시계: 수신 시각 검사는 **테스트 러너 시각**의 ±10분 창을 서버의 수신 스탬프와 비교한다 — 러너와 서버 시계를 몇 분 이내로 맞춘다(NTP). 1970-01-01 창도 읽는다 — 보존 기간이 제한된 서버도 그 창에는 `ok`(0건)로 답해야 한다.
@@ -81,13 +81,13 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 
 포트 메서드도 같은 묶음이 검사한다(#152):
 
-- 세션 identity·부여 site 목록, `subscribe` 해제 함수, `validateScope` 세 상태(부여·미부여·알 수 없음 site)
-- `getEntity`·`entityAudit` 권한·site·null Scope·미등록 type
+- 세션 identity·부여 site 목록, `subscribe` 해제 함수, `validateScope` 네 상태(부여·두 번째 부여·미부여·알 수 없음 site)
+- `getEntity`·`entityAudit` 권한·site·room 재검증(`ungrantedRoomRef` 표본 있을 때)·null Scope·미등록 type
 - 콘솔 조회 권한(`auditTrail`·`accessDirectory`·`usageSummary`의 `console:access`)과 0건 outcome(`auditTrail`·`accessDirectory`는 `empty`, `usageSummary`는 `ok`·`menus: []`)
-- 주석: 저장·같은 site 재조회, site 격리(다른 부여 site에 보이지 않음), 부여 없는 site·null Scope `forbidden`, 클라이언트 `at` 거부(거부한 주석은 저장 안 됨), 비 mart 응답(assessments 없음·trust null), 차트 권한 재검증
-- 활용률: 유효 entry·dwell 적재, 하나라도 어긋나면 전체 거부(unknown key·클라이언트 userId·query 붙은 path·비숫자 `at`·음수 `dwellMs`), 수신 시각 집계(클라이언트 `at`이 아니라 서버 수신 시각으로 집계)
+- 주석: 저장·같은 site 재조회, site 격리(다른 부여 site에 보이지 않음), 부여 없는 site·null Scope `forbidden`, 클라이언트 `at`·`id`·`user` 거부(거부한 주석은 저장 안 됨), 비 mart 응답(assessments 없음·trust null), 차트 권한 재검증
+- 활용률: 유효 entry·dwell 적재, 하나라도 어긋나면 전체 거부(unknown key·클라이언트 userId·query 붙은 path·비숫자 `at`·비숫자 `enteredAt`·음수 `dwellMs`), 수신 시각 집계(클라이언트 `at`이 아니라 서버 수신 시각으로 집계)
 - 오류 보고: 유효 표본 적재(positive)와 거부(자유 문장 message·절대 URL path·query 붙은 path·자유 문장 name·누락 필드)
-- 응답 모양 — 거부에 데이터 없음, 평가 항목 06 §19, Trust 06 §18
+- 응답 모양 — 거부에 데이터 없음, 누락된 envelope 키 지적(`assessments`·`trust`), 평가 항목 06 §19, Trust 06 §18
 
 **주의: 묶음은 테스트 서버에 주석·활용률 이벤트·오류 보고를 실제로 쓴다 — 운영 서버에 돌리지 않는다.**
 

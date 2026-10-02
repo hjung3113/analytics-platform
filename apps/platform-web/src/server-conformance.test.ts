@@ -69,9 +69,15 @@ describeServerConformance('server boundary conformance — mock adapter', {
   foreignScopeId: 'XIA',
   // Real mock data: the equipment sample sits in ICH/PH-101 (an engineer room), the engineer holds ICH + CJU and
   // every permission except console:access, and the annotation/telemetry samples follow the usage wire contract.
+  // DIF-202 is a real ICH room granted to admin only — the room re-check sample (06 §22). cycle-time-trend is a
+  // time axis, so the annotation range is wall-clock (06 §16).
   ports: {
-    entity: { ref: { type: 'equipment', id: 'ICH-PHOTO-0103', scopeId: 'ICH' }, permission: 'equipment:view' },
-    annotation: { chartId: 'cycle-time-trend', permission: 'analytics:view' },
+    entity: {
+      ref: { type: 'equipment', id: 'ICH-PHOTO-0103', scopeId: 'ICH' },
+      permission: 'equipment:view',
+      ungrantedRoomRef: { type: 'equipment', id: 'ICH-DIFF-0176', scopeId: 'ICH' },
+    },
+    annotation: { chartId: 'cycle-time-trend', from: '2026-09-25T10:00:00', to: '2026-09-25T11:00:00', permission: 'analytics:view' },
     usage: { name: 'entry', menuId: 'equipment', spaceId: 'analytics', path: '/equipment', at: Date.now(), sessionId: 'conformance-tab' },
     clientError: { correlationId: 'client-conformance', menuId: 'equipment', spaceId: 'analytics', path: '/equipment', name: 'TypeError' },
     otherGrantedScopeId: 'CJU',

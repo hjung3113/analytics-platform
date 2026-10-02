@@ -12,7 +12,7 @@
 ## 현재 상태
 
 - M1 완료. M2(디자인) 보류 — FeedbackOps 디자인이 아직 수정 중. 재개 방법은 [#52 코멘트](https://github.com/hjung3113/analytics-platform/issues/52#issuecomment-5929729163)(걸림돌은 Tailwind v3.4 ↔ v4 하나, 추천 A안: 플랫폼을 3.4로 내리고 `@fops/ui` 원본을 그대로 사용 — 미결정·미검증). 레이아웃 슬롯 컴포넌트는 #156.
-- 사내 적용: 플랫폼 쪽 준비(#100 메뉴 조회 포트, #145 적합성 묶음·체크리스트)는 끝났고 남은 일은 지도 #157·가이드에 있다.
+- 사내 적용: 플랫폼 쪽 준비(#100 메뉴 조회 포트, #145·#152 적합성 묶음·체크리스트)는 끝났고 남은 일은 지도 #157·가이드에 있다.
 - 기술 스택: 결과는 04 "그리드·차트·데이터 도구 검토", 방침은 05 Decided(무료로 시작, 필요성 확인 시 유료). #159는 결정됐다(ADR-0006): 자유 피벗 #163·셀 범위 #164는 보류. 툴바는 D안(ADR-0008), 표 소유 내보내기 CSV·Excel(#173)과 서버 행 상한(#175)·행 복사(#174) 완료.
 - 이슈 없이 05 Open으로만 기록한 것: ECharts 렌더러가 결정(SVG)과 달리 코드에서 canvas, Router·Zustand 미채택 확정 여부.
 - CI: `Platform workspace`·`Platform contracts (E2E)`(41개)·`CSS selectors (build diff)`·Unit A–C·Python codec·`PR checklist`.

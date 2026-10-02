@@ -30,10 +30,16 @@ export type ConformanceCase = {
  * site the actor also holds a grant in.
  */
 export type PortSamples = {
-  /** A destination the granted actor may read: a site-scoped type at `ref.scopeId: context.scopeId` whose room is granted (a siteless type like 지표 cannot pass the site/Scope checks — checklist §4); `permission` is that type's view permission. */
-  entity: { ref: EntityRef; permission: Permission };
-  /** A chart the granted actor may annotate and the permission it needs. */
-  annotation: { chartId: string; permission: Permission };
+  /**
+   * A destination the granted actor may read: a site-scoped type at `ref.scopeId: context.scopeId` whose room is
+   * granted (a siteless type like 지표 cannot pass the site/Scope checks — checklist §4); `permission` is that
+   * type's view permission. `ungrantedRoomRef` (optional, 06 §22 room re-check): a real destination at
+   * `context.scopeId` in a room the granted account does NOT hold. Present → the getEntity/entityAudit room
+   * re-checks run; absent → they plan visible skipped checks instead of silently dropping the rule (#175 pattern).
+   */
+  entity: { ref: EntityRef; permission: Permission; ungrantedRoomRef?: EntityRef };
+  /** A chart the granted actor may annotate, the permission it needs, and a valid range on that chart's axis — naive wall-clock on a time axis, category labels on a category axis (06 §16). */
+  annotation: { chartId: string; from: string; to: string; permission: Permission };
   /** A valid usage entry event the granted actor may record. */
   usage: UsageEvent;
   /** A valid client error report. */
@@ -63,7 +69,7 @@ export type ServerConformanceHarness = {
    * provisioning one account per removed permission needs exactly that set (checklist §4).
    */
   withoutPermission<T>(permission: Permission, fn: () => Promise<T>): Promise<T>;
-  /** Run `fn` as an actor holding `console:access` (the console reads); everything else equal. */
+  /** Run `fn` as an actor holding `console:access` (the console reads) — a different account from the granted one in practice. */
   asConsole<T>(fn: () => Promise<T>): Promise<T>;
 };
 
@@ -78,8 +84,10 @@ export type ConformanceCheck = {
    */
   mode: 'granted' | 'console' | 'permission' | 'skipped';
   /**
-   * True for non-envelope methods (checklist §2: `session`, `subscribe`, `validateScope`): a throw is not
-   * "refusing to answer an envelope" there, so the failure message says the method threw/rejected instead.
+   * True for checks whose method does not answer an envelope: the non-envelope methods (checklist §2:
+   * `session`, `subscribe`, `validateScope`) and the fire-and-forget `recordUsage`/`reportClientError` (they
+   * may reject) — a throw there is not "refusing to answer an envelope", so the failure message says the
+   * method threw/rejected instead.
    */
   nonEnvelope?: boolean;
   run: () => Promise<string | null>;
@@ -92,6 +100,7 @@ const SET_KEYS = ['roomNames', 'selection', 'lotIds', 'recipeIds'] as const;
 /** Every GlobalContext key a request may carry, in projection order. */
 const CONTEXT_KEYS = Object.keys(emptyGlobal) as (keyof GlobalContext)[];
 const UNKNOWN_ENDPOINT = '__conformance.unknown';
+const UNKNOWN_ENTITY_TYPE = '__conformance.unknown_type';
 const UNKNOWN_KEY = '__conformance_unknown';
 const UNKNOWN_SITE = '__conformance_unknown_site';
 /** Console reads are `console:access` (adapter.ts) — a contract constant, named so the kit never hardcodes it inline. */
@@ -108,6 +117,18 @@ function baseRequest(harness: ServerConformanceHarness, c: ConformanceCase): Men
 
 function describeResponse(r: ApiResponse<unknown>): string {
   return `${r.outcome}${r.message ? ` (${r.message})` : ''}`;
+}
+
+/**
+ * A key omitted is not null: before the shape checks run, an `assessments` that is not an array or a `trust`
+ * that is `undefined` fails naming the missing key — instead of the shape checks throwing on undefined and
+ * the runner misreporting "the adapter threw instead of answering an envelope". Each check guards only the
+ * key it reads, so one missing key fails its own checks and no others.
+ */
+function missingEnvelopeKey(r: ApiResponse<unknown>, key: 'assessments' | 'trust'): string | null {
+  if (key === 'assessments' && !Array.isArray(r.assessments)) return '`assessments` is missing';
+  if (key === 'trust' && r.trust === undefined) return '`trust` is missing — send null for non-mart data (06 §18)';
+  return null;
 }
 
 /** 06 §19: each assessment must carry what its state claims — a source when it asserts, a reason when it cannot. */
@@ -177,6 +198,8 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       run: async () => {
         const r = await harness.adapter.menuQuery(base);
         if (r.outcome !== 'ok' && r.outcome !== 'empty') return `expected ok or empty, got ${describeResponse(r)}`;
+        const missing = missingEnvelopeKey(r, 'assessments');
+        if (missing) return missing;
         if (!sameKinds(r.assessments, spec.kinds)) {
           return `assessments [${r.assessments.map(a => a.kind).join(', ')}] ≠ declared [${spec.kinds.join(', ')}]`;
         }
@@ -189,6 +212,8 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       run: async () => {
         const r = await harness.adapter.menuQuery(base);
         if (r.outcome !== 'ok' && r.outcome !== 'empty') return `expected ok or empty, got ${describeResponse(r)}`;
+        const missing = missingEnvelopeKey(r, 'assessments');
+        if (missing) return missing;
         return assessmentProblem(r.assessments, r.outcome);
       },
     });
@@ -198,6 +223,8 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       run: async () => {
         const r = await harness.adapter.menuQuery(base);
         if (r.outcome !== 'ok' && r.outcome !== 'empty') return `expected ok or empty, got ${describeResponse(r)}`;
+        const missing = missingEnvelopeKey(r, 'trust');
+        if (missing) return missing;
         return trustProblem(r.trust);
       },
     });
@@ -306,10 +333,19 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
     });
   }
 
-  // Port checks beyond menuQuery (#152, checklist §2). Session/subscribe/validateScope are non-envelope methods:
-  // they answer their own types, so a throw there is reported as the method throwing, not as a missing envelope.
+  return [...checks, ...planPortChecks(harness)];
+}
+
+/**
+ * The port checks beyond menuQuery (#152, checklist §2). Session/subscribe/validateScope are non-envelope
+ * methods — they answer their own types, so a throw there is reported as the method throwing, not as a
+ * missing envelope.
+ */
+function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   const { adapter, ports } = harness;
   const entityRef = ports.entity.ref;
+  const ungrantedRoomRef = ports.entity.ungrantedRoomRef;
+  const checks: ConformanceCheck[] = [];
   checks.push({
     id: 'port · session() returns the same object until the session changes',
     mode: 'granted',
@@ -361,6 +397,17 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
     },
   });
   checks.push({
+    id: 'port · validateScope(second granted site) → valid',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: async () => {
+      const check = await adapter.validateScope(ports.otherGrantedScopeId);
+      if (check.status !== 'valid') return `expected valid for the second granted site ${ports.otherGrantedScopeId}, got ${check.status}`;
+      if (check.grantedRooms.length === 0) return 'a valid site must list its granted rooms';
+      return null;
+    },
+  });
+  checks.push({
     id: 'port · validateScope(foreign site) → forbidden with no rooms',
     mode: 'granted',
     nonEnvelope: true,
@@ -389,13 +436,13 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       const r = await adapter.getEntity(entityRef);
       if (r.outcome !== 'ok') return `expected ok, got ${describeResponse(r)}`;
       if (r.data === null) return 'the sample destination row is missing from the ok answer';
-      return assessmentProblem(r.assessments, r.outcome) ?? trustProblem(r.trust);
+      return missingEnvelopeKey(r, 'assessments') ?? missingEnvelopeKey(r, 'trust') ?? assessmentProblem(r.assessments, r.outcome) ?? trustProblem(r.trust);
     },
   });
   checks.push({
     id: 'port · getEntity of an unregistered type → error',
     mode: 'granted',
-    run: expectOutcome(() => adapter.getEntity({ ...entityRef, type: UNKNOWN_ENDPOINT }), 'error', 'an unregistered entity type'),
+    run: expectOutcome(() => adapter.getEntity({ ...entityRef, type: UNKNOWN_ENTITY_TYPE }), 'error', 'an unregistered entity type'),
   });
   checks.push({
     id: 'port · getEntity at a site without a grant → forbidden',
@@ -406,6 +453,15 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
     id: 'port · getEntity with a null Scope → forbidden',
     mode: 'granted',
     run: expectOutcome(() => adapter.getEntity({ ...entityRef, scopeId: null }), 'forbidden', 'a null Scope leaves no site to read'),
+  });
+  // 06 §22 (checklist §2 getEntity): site 검증 뒤 그 객체의 room을 다시 검증 — the sample sits at a granted
+  // site in a room the granted account does NOT hold. No sample → a visible skipped check, never a silent drop.
+  checks.push({
+    id: 'port · getEntity of a destination in an ungranted room → forbidden',
+    mode: ungrantedRoomRef ? 'granted' : 'skipped',
+    run: ungrantedRoomRef
+      ? expectOutcome(() => adapter.getEntity(ungrantedRoomRef), 'forbidden', 'the site is granted but this destination\'s room is not (06 §22 room re-check)')
+      : async () => null, // never called: skipped checks are filtered out of every run
   });
   checks.push({
     id: `port · getEntity without ${ports.entity.permission} → forbidden`,
@@ -428,7 +484,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
   checks.push({
     id: 'port · entityAudit of an unregistered type → error',
     mode: 'granted',
-    run: expectOutcome(() => adapter.entityAudit({ ...entityRef, type: UNKNOWN_ENDPOINT }), 'error', 'an unregistered entity type'),
+    run: expectOutcome(() => adapter.entityAudit({ ...entityRef, type: UNKNOWN_ENTITY_TYPE }), 'error', 'an unregistered entity type'),
   });
   checks.push({
     id: 'port · entityAudit at a site without a grant → forbidden',
@@ -439,6 +495,14 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
     id: 'port · entityAudit with a null Scope → forbidden',
     mode: 'granted',
     run: expectOutcome(() => adapter.entityAudit({ ...entityRef, scopeId: null }), 'forbidden', 'a site-scoped destination type with a null Scope leaves no site to read (adapter.ts: same gates as getEntity)'),
+  });
+  // Same room re-check on the audit read (adapter.ts: same gates as getEntity).
+  checks.push({
+    id: 'port · entityAudit of a destination in an ungranted room → forbidden',
+    mode: ungrantedRoomRef ? 'granted' : 'skipped',
+    run: ungrantedRoomRef
+      ? expectOutcome(() => adapter.entityAudit(ungrantedRoomRef), 'forbidden', 'the site is granted but this destination\'s room is not (06 §22 room re-check)')
+      : async () => null, // never called: skipped checks are filtered out of every run
   });
   checks.push({
     id: `port · entityAudit without ${ports.entity.permission} → forbidden`,
@@ -506,11 +570,12 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
   // Annotations (06 §16, issue #103): server-owned rows keyed by (chartId, scopeId) — never chartId alone
   // (ADR-0004). The chart's permission and the site's grant are both server-checked; the server stamps the
   // author and `at`, so the client never sends or sees either.
-  const { chartId, permission: annotationPermission } = ports.annotation;
-  const notePeriod = { from: '2026-09-25T10:00:00', to: '2026-09-25T11:00:00' };
+  const { chartId, from: noteFrom, to: noteTo, permission: annotationPermission } = ports.annotation;
   // Every save carries a unique text marker, so a rejected or isolated note can be told apart from earlier ones.
+  // `from`/`to` come from the harness: a range valid for that chart's axis (06 §16) — wall-clock on a time axis,
+  // category labels on a category axis — so a server that validates the range against the axis can accept it.
   const annotationInput = (scopeId: string | null): AnnotationInput => ({
-    chartId, scopeId, ...notePeriod, text: `conformance ${crypto.randomUUID()}`,
+    chartId, scopeId, from: noteFrom, to: noteTo, text: `conformance ${crypto.randomUUID()}`,
   });
   checks.push({
     id: 'port · saveAnnotation then listAnnotations at the same site returns the note',
@@ -588,6 +653,21 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       return null;
     },
   });
+  // adapter.ts saveAnnotation: a user/at/id in the input is an unknown key — one check, both calls.
+  checks.push({
+    id: 'port · saveAnnotation carrying an id or a user → error',
+    mode: 'granted',
+    run: async () => {
+      const input = annotationInput(harness.context.scopeId);
+      for (const extra of [{ id: 'ann-x' }, { user: 'someone' }] as const) {
+        const saved = await adapter.saveAnnotation({ ...input, ...extra } as AnnotationInput);
+        if (saved.outcome !== 'error') {
+          return `a client-sent ${Object.keys(extra)[0]} is an unknown key: expected error, got ${describeResponse(saved)}`;
+        }
+      }
+      return null;
+    },
+  });
   checks.push({
     id: 'port · annotations are not mart data: no assessments, null trust',
     mode: 'granted',
@@ -624,8 +704,13 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
   });
   // Usage telemetry (checklist §2 fire-and-forget, §5): the server stamps the session user and the receive
   // time; the client `at`/`enteredAt` are shape-checked and stored, and one bad event rejects the whole call.
-  const usageEntry: UsageEvent = { ...ports.usage, at: Date.now() };
-  const usageDwell: UsageEvent = { ...ports.usage, name: 'dwell', at: Date.now(), enteredAt: ports.usage.at, dwellMs: 1200 };
+  // ports.usage may arrive dwell-shaped: derive the entry from its identity fields (drop dwellMs/enteredAt) so
+  // a dwell sample cannot turn the valid-entry event invalid.
+  const usageEntry: UsageEvent = {
+    name: 'entry', menuId: ports.usage.menuId, spaceId: ports.usage.spaceId, path: ports.usage.path,
+    sessionId: ports.usage.sessionId, at: Date.now(),
+  };
+  const usageDwell: UsageEvent = { ...usageEntry, name: 'dwell', enteredAt: usageEntry.at, dwellMs: 1200 };
   const badUsageEvent = (patch: Record<string, unknown>): UsageEvent => ({ ...usageEntry, ...patch }) as unknown as UsageEvent;
   const expectAccepted = (events: readonly UsageEvent[], accepted: number, why: string) => async () => {
     const r = await adapter.recordUsage(events);
@@ -662,6 +747,12 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
     run: expectAccepted([badUsageEvent({ at: 'now' })], 0, 'a non-numeric at'),
   });
   checks.push({
+    id: 'port · recordUsage: a non-numeric enteredAt is rejected',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted([{ ...usageDwell, enteredAt: 'then' } as unknown as UsageEvent], 0, 'a non-numeric enteredAt'),
+  });
+  checks.push({
     id: 'port · recordUsage: a negative dwellMs is rejected',
     mode: 'granted',
     nonEnvelope: true,
@@ -680,7 +771,13 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       const before = await adapter.usageSummary(receiveWindow);
       if (before.outcome !== 'ok') return `the window summary: expected ok, got ${describeResponse(before)}`;
       // Epoch 0 is a finite number — shape-valid (checklist §5); only the receive time may place it.
-      const recorded = await adapter.recordUsage([{ ...usageEntry, at: 0 }]);
+      // recordUsage is fire-and-forget (checklist §2): it may reject — report that, not a missing envelope.
+      let recorded: { accepted: number };
+      try {
+        recorded = await adapter.recordUsage([{ ...usageEntry, at: 0 }]);
+      } catch (error) {
+        return `recordUsage threw/rejected: ${String(error)}`;
+      }
       if (recorded.accepted !== 1) return `the epoch-0 entry: expected accepted 1, got ${recorded.accepted}`;
       const after = await adapter.usageSummary(receiveWindow);
       if (after.outcome !== 'ok') return `the window summary after recording: expected ok, got ${describeResponse(after)}`;

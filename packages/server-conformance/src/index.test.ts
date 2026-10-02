@@ -33,6 +33,10 @@ const REF_EVENT: AuditEvent = {
   target: { type: 'equipment', id: 'ICH-PHOTO-0103', scopeId: 'ICH' }, changes: {},
 };
 
+// The granted actor holds only PH-101 in ICH; the room re-check sample (06 §22) sits in DIF-202.
+const GRANTED_ROOMS = ['PH-101'];
+const ROOM_OF: Record<string, string> = { 'ICH-PHOTO-0103': 'PH-101', 'ICH-DIFF-0176': 'DIF-202' };
+
 /** Granted actor: every case/entity permission, grants at ICH + CJU, no console:access; `console` flips under asConsole. */
 type RefState = { permissions: Set<Permission>; console: boolean };
 
@@ -75,8 +79,12 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       };
     },
     validateScope: async scopeId => {
-      if (scopeId === 'ICH' || scopeId === 'CJU') {
+      if (scopeId === 'ICH') {
         return { status: 'valid', grantedRooms: breaks.has('validate-granted') ? [] : ['PH-101'] };
+      }
+      if (scopeId === 'CJU') {
+        // 'validate-other' answers forbidden for the second granted site — the second-site check must catch it.
+        return { status: breaks.has('validate-other') ? 'forbidden' : 'valid', grantedRooms: ['PH-301'] };
       }
       if (scopeId === 'XIA') {
         return { status: 'forbidden', grantedRooms: breaks.has('validate-foreign') ? ['ET-502'] : [] };
@@ -102,6 +110,12 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         return breaks.has('entity-foreign')
           ? { ...envelope, outcome: 'ok', data: { equipmentId: ref.id }, assessments: REF_ASSESSMENTS, trust: REF_TRUST }
           : { ...envelope, outcome: 'forbidden', message: `No grant for scope ${ref.scopeId}` };
+      }
+      // 06 §22 room re-check: the site is granted but this destination's room is not — 'entity-room' serves it anyway.
+      if (!GRANTED_ROOMS.includes(ROOM_OF[ref.id] ?? 'PH-101')) {
+        return breaks.has('entity-room')
+          ? { ...envelope, outcome: 'ok', data: { equipmentId: ref.id }, assessments: REF_ASSESSMENTS, trust: REF_TRUST }
+          : { ...envelope, outcome: 'forbidden', message: 'No grant for equipment' };
       }
       return {
         ...envelope,
@@ -151,13 +165,30 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         : breaks.has('assessments-wellformed')
           ? spec.kinds.map(kind => kind === 'coverage' ? { kind, state: 'clear' as const } : { kind, state: 'unknown' as const, reason: 'source_unavailable' as const })
           : spec.kinds.map(kind => ({ kind, state: 'unknown' as const, reason: 'source_unavailable' as const }));
-      return {
-        outcome: 'ok',
-        data: { rows: 1 },
-        assessments,
-        trust: breaks.has('trust-incomplete') ? { ...REF_TRUST, coverage: '98%' as unknown as number | null } : null,
-        correlationId: 'ref',
-      };
+      // One break per remaining 06 §19 branch: a duplicate kind, an unknown without a reason, explainsEmpty on ok.
+      if (breaks.has('assessments-duplicate-kind')) {
+        assessments[assessments.length - 1] = { kind: assessments[0].kind, state: 'unknown', reason: 'source_unavailable' };
+      }
+      // Deliberate break shape: the first assessment carrying no reason key (unknown without a reason).
+      const firstAssessment = assessments[0] as { reason?: string };
+      if (breaks.has('assessments-unknown-no-reason')) delete firstAssessment.reason;
+      if (breaks.has('assessments-explains-empty')) assessments[0].explainsEmpty = true;
+      // One break per remaining 06 §18 branch (the trust fields the kit shape-checks).
+      const trust: Trust | null =
+        breaks.has('trust-incomplete') ? { ...REF_TRUST, coverage: '98%' as unknown as number }
+          : breaks.has('trust-updated-at-number') ? { ...REF_TRUST, updatedAt: 123 as unknown as string }
+          : breaks.has('trust-provisional-string') ? { ...REF_TRUST, provisional: 'no' as unknown as boolean }
+          : breaks.has('trust-source-missing') ? { ...REF_TRUST, source: undefined as unknown as string }
+          : breaks.has('trust-data-through-number') ? { ...REF_TRUST, dataThrough: 123 as unknown as string }
+          : breaks.has('trust-metric-version-number') ? { ...REF_TRUST, metricVersion: 3 as unknown as string }
+          : null;
+      const response: ApiResponse<{ rows: number }> = { outcome: 'ok', data: { rows: 1 }, assessments, trust, correlationId: 'ref' };
+      // A key omitted is not null — the kit must name the missing key instead of throwing on undefined.
+      // Deliberate break shape: the same envelope with `trust`/`assessments` deleted rather than null/[].
+      const omittable = response as { trust?: Trust | null; assessments?: Assessment[] };
+      if (breaks.has('envelope-missing-trust')) delete omittable.trust;
+      if (breaks.has('envelope-missing-assessments')) delete omittable.assessments;
+      return response;
     },
     entityAudit: async (ref): Promise<ApiResponse<{ events: readonly AuditEvent[] }>> => {
       if (ref.type !== 'equipment' && ref.type !== 'metric') {
@@ -178,6 +209,12 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         return ref.scopeId !== null && breaks.has('entity-audit-foreign')
           ? { ...envelope, outcome: 'ok', data: { events: [REF_EVENT] } }
           : { ...envelope, outcome: 'forbidden', message: `No grant for scope ${ref.scopeId}` };
+      }
+      // Same room re-check on the audit read (adapter.ts: same gates as getEntity) — 'entity-audit-room' serves it anyway.
+      if (!GRANTED_ROOMS.includes(ROOM_OF[ref.id] ?? 'PH-101')) {
+        return breaks.has('entity-audit-room')
+          ? { ...envelope, outcome: 'ok', data: { events: [REF_EVENT] } }
+          : { ...envelope, outcome: 'forbidden', message: 'No grant for equipment' };
       }
       if (breaks.has('entity-audit-ok')) return { ...envelope, outcome: 'ok', data: {} as unknown as { events: readonly AuditEvent[] } }; // data.events is not an array
       return { ...envelope, outcome: 'ok', data: { events: [REF_EVENT] } };
@@ -224,6 +261,9 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         : r;
     },
     recordUsage: async (events) => {
+      // 'usage-epoch-throws' rejects only the epoch-0 event — the receive-time check must report recordUsage
+      // throwing, not a missing envelope.
+      if (breaks.has('usage-epoch-throws') && events.some(e => e.at === 0)) throw new Error('telemetry down');
       const USAGE_KEYS = ['name', 'menuId', 'spaceId', 'path', 'at', 'sessionId'];
       const token = (v: unknown, max: number) => typeof v === 'string' && v.length > 0 && v.length <= max
         && (breaks.has('usage-allows-query') ? !/[#&\s]/.test(v) : !/[?#&\s]/.test(v));
@@ -235,7 +275,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
           || typeof e.spaceId !== 'string' || !['analytics', 'operations', 'feedback'].includes(e.spaceId)
           || (e.name !== 'entry' && e.name !== 'dwell')
           || (!breaks.has('usage-allows-any-at') && (typeof e.at !== 'number' || !Number.isFinite(e.at)))
-          || (e.name === 'dwell' && (typeof e.enteredAt !== 'number' || !Number.isFinite(e.enteredAt)
+          || (e.name === 'dwell' && (!breaks.has('usage-allows-any-entered-at') && (typeof e.enteredAt !== 'number' || !Number.isFinite(e.enteredAt))
             || typeof e.dwellMs !== 'number' || !Number.isInteger(e.dwellMs) || (!breaks.has('usage-allows-negative-dwell') && e.dwellMs < 0)))
           || (breaks.has('usage-drops-dwell') && e.name === 'dwell');
       };
@@ -310,9 +350,13 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
           ? { ...envelope, outcome: 'ok', data: { id: 'ann-0', chartId: input.chartId, scopeId: input.scopeId ?? 'ICH', from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00' } }
           : { ...envelope, outcome: 'forbidden', message: 'No permission analytics:view' };
       }
-      // A user/at/id in the input is an unknown key and rejects the call (adapter.ts) — 'annotation-accepts-at' takes it anyway.
+      // A user/at/id in the input is an unknown key and rejects the call (adapter.ts) — 'annotation-accepts-at'
+      // takes only `at`, 'annotation-accepts-id-user' takes only id/user, so each break fails exactly one check.
       // 'annotation-error-stores' answers error but persists the row — the "nothing stored" half must catch it.
-      if (!breaks.has('annotation-accepts-at') && Object.keys(input).some(k => !['chartId', 'scopeId', 'from', 'to', 'text'].includes(k))) {
+      const extraInputKeys = Object.keys(input).filter(k => !['chartId', 'scopeId', 'from', 'to', 'text'].includes(k));
+      const acceptsExtraKeys = extraInputKeys.every(k =>
+        (breaks.has('annotation-accepts-at') && k === 'at') || (breaks.has('annotation-accepts-id-user') && (k === 'id' || k === 'user')));
+      if (extraInputKeys.length > 0 && !acceptsExtraKeys) {
         if (breaks.has('annotation-error-stores')) {
           annotationRows.push({ id: `ann-${++annotationSeq}`, chartId: input.chartId, scopeId: input.scopeId ?? 'ICH', from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00', authorId: 'engineer' });
         }
@@ -349,8 +393,13 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
 
 const CONTEXT = { scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' };
 const PORTS: PortSamples = {
-  entity: { ref: { type: 'equipment', id: 'ICH-PHOTO-0103', scopeId: 'ICH' }, permission: 'equipment:view' },
-  annotation: { chartId: 'fixture-chart', permission: 'analytics:view' },
+  entity: {
+    ref: { type: 'equipment', id: 'ICH-PHOTO-0103', scopeId: 'ICH' },
+    permission: 'equipment:view',
+    // DIF-202 is a real ICH room the granted actor does not hold — the room re-check sample (06 §22).
+    ungrantedRoomRef: { type: 'equipment', id: 'ICH-DIFF-0176', scopeId: 'ICH' },
+  },
+  annotation: { chartId: 'fixture-chart', from: '2026-09-25T10:00:00', to: '2026-09-25T11:00:00', permission: 'analytics:view' },
   usage: { name: 'entry', menuId: 'fixture', spaceId: 'analytics', path: '/fixture', at: 0, sessionId: 'tab' },
   clientError: { correlationId: 'client-ref', menuId: 'fixture', spaceId: 'analytics', path: '/fixture', name: 'Error' },
   otherGrantedScopeId: 'CJU',
@@ -410,17 +459,20 @@ describe('server conformance kit (#145)', () => {
       'port · session lists the granted sites and not the foreign one',
       'port · subscribe returns an unsubscribe function',
       'port · validateScope(granted site) → valid with its rooms',
+      'port · validateScope(second granted site) → valid',
       'port · validateScope(foreign site) → forbidden with no rooms',
       'port · validateScope(unknown site) → unknown_scope',
       'port · getEntity(sample) → ok with the row',
       'port · getEntity of an unregistered type → error',
       'port · getEntity at a site without a grant → forbidden',
       'port · getEntity with a null Scope → forbidden',
+      'port · getEntity of a destination in an ungranted room → forbidden',
       'port · getEntity without equipment:view → forbidden',
       'port · entityAudit(sample) → events',
       'port · entityAudit of an unregistered type → error',
       'port · entityAudit at a site without a grant → forbidden',
       'port · entityAudit with a null Scope → forbidden',
+      'port · entityAudit of a destination in an ungranted room → forbidden',
       'port · entityAudit without equipment:view → forbidden',
       'port · auditTrail as a console actor → ok',
       'port · auditTrail without console:access → forbidden',
@@ -436,6 +488,7 @@ describe('server conformance kit (#145)', () => {
       'port · listAnnotations with a null Scope → forbidden',
       'port · saveAnnotation with a null Scope → forbidden',
       'port · saveAnnotation carrying an at → error, nothing stored',
+      'port · saveAnnotation carrying an id or a user → error',
       'port · annotations are not mart data: no assessments, null trust',
       'port · listAnnotations without analytics:view → forbidden',
       'port · saveAnnotation without analytics:view → forbidden',
@@ -444,6 +497,7 @@ describe('server conformance kit (#145)', () => {
       'port · recordUsage: a client userId is rejected',
       'port · recordUsage: a concrete path with a query is rejected',
       'port · recordUsage: a non-numeric at is rejected',
+      'port · recordUsage: a non-numeric enteredAt is rejected',
       'port · recordUsage: a negative dwellMs is rejected',
       'port · usageSummary counts by receive time, not the client at',
       'port · reportClientError accepts the sample',
@@ -497,6 +551,7 @@ describe('server conformance kit (#145)', () => {
     ['subscribe-unsubscribe', 'port · subscribe returns an unsubscribe function'],
     ['unsubscribe-twice', 'port · subscribe returns an unsubscribe function'],
     ['validate-granted', 'port · validateScope(granted site) → valid with its rooms'],
+    ['validate-other', 'port · validateScope(second granted site) → valid'],
     ['validate-foreign', 'port · validateScope(foreign site) → forbidden with no rooms'],
     ['validate-unknown', 'port · validateScope(unknown site) → unknown_scope'],
     ['validate-unknown-rooms', 'port · validateScope(unknown site) → unknown_scope'],
@@ -504,6 +559,7 @@ describe('server conformance kit (#145)', () => {
     ['entity-unknown-type', 'port · getEntity of an unregistered type → error'],
     ['entity-foreign', 'port · getEntity at a site without a grant → forbidden'],
     ['entity-null-scope', 'port · getEntity with a null Scope → forbidden'],
+    ['entity-room', 'port · getEntity of a destination in an ungranted room → forbidden'],
     ['entity-permission', 'port · getEntity without equipment:view → forbidden'],
     // Three ways the getEntity success check can fail: no row, malformed assessments, incomplete trust.
     ['entity-assessments', 'port · getEntity(sample) → ok with the row'],
@@ -512,6 +568,7 @@ describe('server conformance kit (#145)', () => {
     ['entity-audit-unknown-type', 'port · entityAudit of an unregistered type → error'],
     ['entity-audit-foreign', 'port · entityAudit at a site without a grant → forbidden'],
     ['entity-audit-null', 'port · entityAudit with a null Scope → forbidden'],
+    ['entity-audit-room', 'port · entityAudit of a destination in an ungranted room → forbidden'],
     ['entity-audit-permission', 'port · entityAudit without equipment:view → forbidden'],
     ['console-auditTrail-ok', 'port · auditTrail as a console actor → ok'],
     // adapter.ts zero rule: ok with an empty page is a violation (a zero is outcome empty).
@@ -532,6 +589,8 @@ describe('server conformance kit (#145)', () => {
     ['annotation-list-null', 'port · listAnnotations with a null Scope → forbidden'],
     ['annotation-save-null', 'port · saveAnnotation with a null Scope → forbidden'],
     ['annotation-accepts-at', 'port · saveAnnotation carrying an at → error, nothing stored'],
+    // 'annotation-accepts-id-user' takes id/user but still rejects at — only the new check fails.
+    ['annotation-accepts-id-user', 'port · saveAnnotation carrying an id or a user → error'],
     // The other half of the same check: answering error but persisting the row anyway.
     ['annotation-error-stores', 'port · saveAnnotation carrying an at → error, nothing stored'],
     // 'annotation-mart' taints save and list; 'annotation-list-mart' taints the list only.
@@ -544,6 +603,7 @@ describe('server conformance kit (#145)', () => {
     ['usage-client-user', 'port · recordUsage: a client userId is rejected'],
     ['usage-allows-query', 'port · recordUsage: a concrete path with a query is rejected'],
     ['usage-allows-any-at', 'port · recordUsage: a non-numeric at is rejected'],
+    ['usage-allows-any-entered-at', 'port · recordUsage: a non-numeric enteredAt is rejected'],
     ['usage-allows-negative-dwell', 'port · recordUsage: a negative dwellMs is rejected'],
     ['usage-aggregates-by-client-at', 'port · usageSummary counts by receive time, not the client at'],
     ['client-error-rejects-all', 'port · reportClientError accepts the sample'],
@@ -554,6 +614,15 @@ describe('server conformance kit (#145)', () => {
     ['client-error-allows-missing', 'port · reportClientError: a missing field is rejected'],
     ['assessments-wellformed', 'fixture.list · granted response assessments are well-formed (06 §19)'],
     ['trust-incomplete', 'fixture.list · granted response trust is null or complete (06 §18)'],
+    // One break per remaining 06 §19/§18 shape branch (duplicate kind gets its own two-check test below).
+    ['assessments-unknown-no-reason', 'fixture.list · granted response assessments are well-formed (06 §19)'],
+    ['assessments-explains-empty', 'fixture.list · granted response assessments are well-formed (06 §19)'],
+    ['trust-updated-at-number', 'fixture.list · granted response trust is null or complete (06 §18)'],
+    ['trust-provisional-string', 'fixture.list · granted response trust is null or complete (06 §18)'],
+    ['trust-source-missing', 'fixture.list · granted response trust is null or complete (06 §18)'],
+    ['trust-data-through-number', 'fixture.list · granted response trust is null or complete (06 §18)'],
+    ['trust-metric-version-number', 'fixture.list · granted response trust is null or complete (06 §18)'],
+    ['envelope-missing-trust', 'fixture.list · granted response trust is null or complete (06 §18)'],
     // Rejections carry no data (checklist §2): demonstrated on one error path and one forbidden path.
     ['unknown-endpoint-data', 'unknown endpoint → error'],
     ['permission-reject-data', 'fixture.list · without analytics:view → forbidden'],
@@ -581,6 +650,67 @@ describe('server conformance kit (#145)', () => {
   // (accessDirectory answers empty in every harness already — this adds auditTrail).
   it('passes every check when the console paged reads answer empty on a zero', async () => {
     expect(await failing(['console-auditTrail-empty'])).toEqual([]);
+  });
+
+  // A duplicate kind breaks both the kinds check (sameKinds) and the well-formed check — asserted honestly.
+  it('fails the kinds and well-formed checks when an assessment kind appears twice', async () => {
+    expect(await failing(['assessments-duplicate-kind'])).toEqual([
+      'fixture.list · granted request succeeds with exactly the declared assessment kinds',
+      'fixture.list · granted response assessments are well-formed (06 §19)',
+    ]);
+  });
+
+  // An omitted envelope key is not null: the check names the missing key instead of the runner reporting a throw.
+  it('names the missing trust key instead of throwing on undefined', async () => {
+    const results = await runServerConformance(harness(new Set(['envelope-missing-trust'])));
+    expect(results.filter(r => r.failure !== null).map(r => r.id)).toEqual([
+      'fixture.list · granted response trust is null or complete (06 §18)',
+    ]);
+    expect(results.find(r => r.id === 'fixture.list · granted response trust is null or complete (06 §18)')?.failure)
+      .toBe('`trust` is missing — send null for non-mart data (06 §18)');
+  });
+
+  it('names the missing assessments key instead of throwing on undefined', async () => {
+    const results = await runServerConformance(harness(new Set(['envelope-missing-assessments'])));
+    expect(results.filter(r => r.failure !== null).map(r => r.id)).toEqual([
+      'fixture.list · granted request succeeds with exactly the declared assessment kinds',
+      'fixture.list · granted response assessments are well-formed (06 §19)',
+    ]);
+    expect(results.find(r => r.id === 'fixture.list · granted response assessments are well-formed (06 §19)')?.failure)
+      .toBe('`assessments` is missing');
+  });
+
+  // recordUsage may reject (fire-and-forget): inside the receive-time check that is reported as recordUsage
+  // throwing, never as a missing envelope.
+  it('reports a recordUsage rejection inside the receive-time check as recordUsage throwing', async () => {
+    const results = await runServerConformance(harness(new Set(['usage-epoch-throws'])));
+    expect(results.filter(r => r.failure !== null).map(r => r.id)).toEqual([
+      'port · usageSummary counts by receive time, not the client at',
+    ]);
+    expect(results.find(r => r.id === 'port · usageSummary counts by receive time, not the client at')?.failure)
+      .toBe('recordUsage threw/rejected: Error: telemetry down');
+  });
+
+  // ports.usage may arrive dwell-shaped: the kit derives the entry from the identity fields, so a dwell sample
+  // must not fail the usage checks.
+  it('passes every check when ports.usage is a dwell-shaped sample', async () => {
+    const h = harness();
+    const usage = {
+      name: 'dwell' as const, menuId: 'fixture', spaceId: 'analytics' as const, path: '/fixture',
+      at: 1_000, sessionId: 'tab', dwellMs: 1200, enteredAt: 500,
+    };
+    const results = await runServerConformance({ ...h, ports: { ...h.ports, usage } });
+    expect(results.filter(r => r.failure !== null)).toEqual([]);
+  });
+
+  // No ungrantedRoomRef sample: the room re-checks must surface as skipped, never silently dropped (#175 pattern).
+  it('plans visible skipped room re-checks when the harness has no ungrantedRoomRef sample', () => {
+    const h = harness();
+    const ports = { ...h.ports, entity: { ref: PORTS.entity.ref, permission: PORTS.entity.permission } };
+    expect(planServerConformance({ ...h, ports }).filter(c => c.mode === 'skipped').map(c => c.id)).toEqual([
+      'port · getEntity of a destination in an ungranted room → forbidden',
+      'port · entityAudit of a destination in an ungranted room → forbidden',
+    ]);
   });
 
   it('reports an adapter that throws instead of answering an envelope', async () => {
