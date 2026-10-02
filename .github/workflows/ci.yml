@@ -136,10 +136,10 @@ jobs:
       # other reason (no offender line) turns the step red.
       - run: |
           if out=$(pnpm --filter @ap/platform-web exec node scripts/check-prod-graph.ts --force-mock 2>&1); then echo "$out"; exit 1; fi
-          echo "$out" | grep -q '\[packages/mock-server/\]'
+          echo "$out" | grep -q 'check:prod-graph FAILED (--force-mock)' && echo "$out" | grep -q '\[packages/mock-server/\]'
       - run: |
           if out=$(pnpm --filter @ap/platform-web exec node scripts/check-prod-graph.ts --force-mock-build 2>&1); then echo "$out"; exit 1; fi
-          echo "$out" | grep -q 'production build bundles mock/dev code'
+          echo "$out" | grep -q 'failed as it must' && echo "$out" | grep -q 'production build bundles mock/dev code'
 
   platform-contracts-e2e:
     name: Platform contracts (E2E)

@@ -10,8 +10,8 @@ declare module '#platform-assembly' {
   import type { PlatformAdapter } from '@ap/contracts';
   import type { Registry } from '@ap/kernel';
 
-  /** What a build injects: the server adapter, and optional top-bar tools (dev only). */
-  export type Assembly = { adapter: PlatformAdapter; topBarTools?: ReactNode };
+  /** What a build injects: the server adapter and its top-bar tools (DevTools in mock builds; production writes `null`). */
+  export type Assembly = { adapter: PlatformAdapter; topBarTools: ReactNode };
   export type CreateAssembly = (o: { registry: Registry }) => Assembly;
   export const createAssembly: CreateAssembly;
 }

@@ -37,6 +37,7 @@ export function prodGraphGuard(): Plugin {
       const ids = Object.values(bundle).flatMap(c => (c.type === 'chunk' ? (c as Rollup.OutputChunk).moduleIds : []));
       const offenders = findForbiddenModules(ids);
       if (offenders.length > 0) {
+        // Rollup prefixes the plugin name (`[plugin ap:prod-graph-guard]`), so the message starts after it.
         this.error(`production build bundles mock/dev code (ADR-0009):\n${offenders.map(o => `  - [${o.rule}] ${o.id}`).join('\n')}`);
       }
     },

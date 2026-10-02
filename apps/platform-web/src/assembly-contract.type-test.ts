@@ -17,4 +17,7 @@ export const wrongAdapter: CreateAssembly = () => ({ adapter: { menuQuery: 1 } }
 // @ts-expect-error — the registry argument is `{ registry }`, not a bare string.
 export const wrongArgument: CreateAssembly = (o: string) => ({ adapter: o as unknown as PlatformAdapter });
 
-export const ok: CreateAssembly = () => ({ adapter });
+// @ts-expect-error — `topBarTools` is required (production writes null), so a renamed `tools` leaves it missing.
+export const renamedTools: CreateAssembly = () => ({ adapter, tools: null });
+
+export const ok: CreateAssembly = () => ({ adapter, topBarTools: null });

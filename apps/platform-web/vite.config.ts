@@ -25,9 +25,9 @@ function assemblyAlias(mode: string, isPreview: boolean): Record<string, string>
   return { [ASSEMBLY_SPECIFIER]: real };
 }
 
-/** Every non-mock build checks its own full graph (real assembly included) for mock/dev code — ADR-0009. The
- * check script reports itself (AP_PROD_GRAPH_CHECK=1), so it does not add the guard. */
-const guardGraph = (mode: string): boolean => !MOCK_MODES.has(mode) && process.env.AP_PROD_GRAPH_CHECK !== '1';
+/** Every non-mock build checks its own full graph (real assembly included) for mock/dev code — ADR-0009. No env
+ * turns it off; the check script runs with it too. */
+const guardGraph = (mode: string): boolean => !MOCK_MODES.has(mode);
 
 export default defineConfig(({ mode, isPreview = false }) => ({
   plugins: [tailwindcss(), ...(guardGraph(mode) ? [prodGraphGuard()] : [])],
