@@ -9,7 +9,7 @@ import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuR
 /**
  * Mock-server controls: response scenario and signed-in role (a stand-in for SSO). They change server state only;
  * the kernel hears it through the adapter's subscribe (docs/integration/platform-packages.md §4). Rendered in the
- * TopBar's topBarTools slot by main.tsx; a real server build does not mount this.
+ * TopBar's topBarTools slot by the mock assembly (mock-assembly.tsx); a production build never bundles it (ADR-0009).
  */
 const SCENARIOS: { id: Scenario; ko: string; en: string }[] = [
   { id: 'normal', ko: '정상', en: 'Normal' },

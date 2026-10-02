@@ -110,7 +110,31 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/url-contract.test.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/return-to.test.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
-  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/mock-server';`, rule: '' },
+  // #153: the composition root carries no mock — mock-server, menu /mock and ./dev live in src/dev/** only.
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `await import('@ap/menu-equipment/mock');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { DevTools } from './dev/DevTools';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import './dev';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
+  { file: 'apps/platform-web/src/main.tsx', code: `await import('./dev/mock-assembly');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { createAssembly } from '#platform-assembly';`, rule: '' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from './devices';`, rule: '' },
+  // #153 review P3-2: Vite root-absolute /src/dev and case variants are banned too, static and dynamic.
+  { file: 'apps/platform-web/src/main.tsx', code: `import '/src/dev/DevTools';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
+  { file: 'apps/platform-web/src/main.tsx', code: `await import('/src/dev/mock-assembly');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from './DEV/x';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
+  { file: 'apps/platform-web/src/main.tsx', code: `await import('./DEV/x');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '/src/devices';`, rule: '' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { DevTools } from './dev/DevTools';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
+  // #153 follow-up: the conformance test reads MOCK_ENDPOINTS from the mock assembly — that exact module only.
+  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { MOCK_ENDPOINTS } from './dev/mock-assembly';`, rule: '' },
+  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { DevTools } from './dev/DevTools';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
+  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { x } from './dev/mock-assembly.tsx';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
+  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `await import('./dev/DevTools');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/url-contract.test.ts', code: `import { MOCK_ENDPOINTS } from './dev/mock-assembly';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
+  { file: 'apps/platform-web/src/published-metrics.test.ts', code: `import { x } from './dev/DevTools';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
+  { file: 'apps/platform-web/src/dev/mock-assembly.tsx', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: '' },
+  { file: 'apps/platform-web/src/dev/mock-assembly.tsx', code: `import { DevTools } from './DevTools';`, rule: '' },
   { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `import { x } from '@ap/mock-server';`, rule: '' },
   { file: 'apps/platform-web/src/published-metrics.test.ts', code: `import { x } from '@ap/mock-server';`, rule: '' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-home';`, rule: '' },
@@ -122,15 +146,15 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-notice-voc/feedbackops-origin';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-notice-voc/styles.css';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-notice-voc/src/feedbackops-origin';`, rule: 'no-restricted-imports' },
-  // #145: the server conformance test registers the same menu mocks as main.tsx, so it shares main's allowance;
-  // every other app test still cannot reach a menu `/mock` subpath.
-  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: '' },
+  // #145/#153: the server conformance test takes its endpoints from the mock assembly's MOCK_ENDPOINTS, so it no
+  // longer reaches a menu `/mock` subpath itself; only src/dev/** does.
+  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { createMockAdapter } from '@ap/mock-server';`, rule: '' },
   { file: 'apps/platform-web/src/url-contract.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: 'no-restricted-imports' },
-  // #146 review: the conformance test gets the mock subpaths only — the FeedbackOps origin slot stays main.tsx-only.
+  // #146 review: the FeedbackOps origin slot stays main.tsx-only — the conformance test never gets it.
   { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/server-conformance.test.ts', code: `await import('@ap/menu-notice-voc/feedbackops-origin');`, rule: 'ap/restricted-import-source' },
-  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `await import('@ap/menu-equipment/mock');`, rule: '' },
+  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `await import('@ap/menu-equipment/mock');`, rule: 'ap/restricted-import-source' },
   { file: 'apps/platform-web/src/published-metrics.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: 'no-restricted-imports' },
   // #145: the conformance kit is adapter-agnostic — contracts only, never the mock it judges, never React.
   { file: 'packages/server-conformance/src/x.ts', code: `import { x } from '@ap/contracts';`, rule: '' },
@@ -196,6 +220,7 @@ const rows: Row[] = [
   { file: MENU, code: `require('@ap/mock-server');`, rule: 'ap/restricted-import-source' },
   { file: MENU, code: `require('../../../../packages/contracts/src/url');`, rule: 'ap/no-relative-package-escape' },
   { file: 'apps/platform-web/src/main.tsx', code: `import('@ap/mock-server/src/server');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/main.tsx', code: `await import('@ap/mock-server');`, rule: 'ap/restricted-import-source' },
   { file: 'menus/home/src/api.ts', code: `import('@ap/mock-server/src/server');`, rule: 'ap/restricted-import-source' },
   { file: 'menus/home/src/api.ts', code: `await import('@ap/mock-server');`, rule: 'ap/restricted-import-source' },
   { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `await import('@ap/mock-server');`, rule: '' },
@@ -250,10 +275,10 @@ const rows: Row[] = [
   // allowlisted (fix round 2): `../api` is rejected wholesale.
   { file: 'menus/home/src/mock/a.ts', code: `import React from 'react';`, rule: 'no-restricted-imports', token: 'react' },
 
-  { file: 'apps/platform-web/src/main.tsx', code: `import { mock } from '@ap/menu-home/mock';`, rule: '' },
-  { file: 'apps/platform-web/src/main.tsx', code: `await import('@ap/menu-home/mock');`, rule: '' },
-  { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `import { mock } from '@ap/menu-home/mock';`, rule: 'no-restricted-imports' },
-  { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `await import('@ap/menu-home/mock');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { mock } from '@ap/menu-home/mock';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/main.tsx', code: `await import('@ap/menu-home/mock');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `import { mock } from '@ap/menu-home/mock';`, rule: '' },
+  { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `await import('@ap/menu-home/mock');`, rule: '' },
   { file: 'apps/platform-web/src/published-metrics.test.ts', code: `import { mock } from '@ap/menu-home/mock';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/published-metrics.test.ts', code: `await import('@ap/menu-home/mock');`, rule: 'ap/restricted-import-source' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { mock } from '@ap/menu-home/mock';`, rule: 'no-restricted-imports' },

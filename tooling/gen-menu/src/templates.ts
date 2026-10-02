@@ -34,12 +34,12 @@ export const importLine = (i: MenuInputs): string =>
 /** apps/platform-web/src/menus.ts spread insert. */
 export const spreadLine = (i: MenuInputs): string => `  ...${i.binding},`;
 
-/** apps/platform-web/src/main.tsx `/mock` import insert. */
+/** apps/platform-web/src/dev/mock-assembly.tsx `/mock` import insert. */
 export const mockImportLine = (i: MenuInputs): string =>
   `import { ${i.group}Mock } from '${menuPackage(i.folder)}/mock';`;
 
-/** apps/platform-web/src/main.tsx `endpoints` spread insert. */
-export const mockSpreadLine = (i: MenuInputs): string => `    ...${i.group}Mock,`;
+/** apps/platform-web/src/dev/mock-assembly.tsx `MOCK_ENDPOINTS` spread insert. */
+export const mockSpreadLine = (i: MenuInputs): string => `  ...${i.group}Mock,`;
 
 /** apps/platform-web/src/style.css insert. */
 export const styleLine = (i: MenuInputs): string => `@import "${menuPackage(i.folder)}/styles.css";`;

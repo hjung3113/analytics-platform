@@ -19,7 +19,7 @@
 
 ## 다음 세션 할 일 — 사용자에게 먼저 어느 쪽인지 확인
 
-1. **외부 입력 없이 지금 가능(에이전트)**, 추천 순서: #153 운영 빌드 조립 분리 → #167 Scope 확인 실패 처리 → #149 전송 형식 초안. 작은 후속 #122, #90(#166 불안정 테스트는 CI test 동시성 제한으로 완료).
+1. **외부 입력 없이 지금 가능(에이전트)**, 추천 순서: #167 Scope 확인 실패 처리 → #149 전송 형식 초안. 작은 후속 #122, #90. #153 운영 빌드 조립 분리는 완료(ADR-0009 Candidate — 사용자 확인 대기, 실어댑터 #154는 `createAssembly`를 구현해 `AP_PLATFORM_ASSEMBLY`로 꽂는다).
 2. **사내에 물을 것(사람)**: #150 SSO 사양, #151 배포·인프라, #148 선언 원본(백엔드 담당과). 질문 목록은 가이드 §3. 답이 오면 해당 이슈에 남기고 05(와 그 결정의 원본 문서)를 Decided로, 가이드 §3 체크박스를 고친다.
 3. **표 행 복사 (#174) 완료**: 툴바 [복사]. 남은 확인은 실제 엑셀·구글 시트 붙여넣기(앞 `'`·앞자리 0 표시)와 Safari 클립보드, HTTP 경로 실브라우저 재확인(dev 서버를 Playwright `page.route`로 비-localhost http origin에 프록시 → `isSecureContext=false`) — 사내 HTTPS 여부(#151)에 따라 여러 페이지 선택 복사가 갈린다. 다음은 1번 목록으로.
 4. 답이 다 오면 #154 실어댑터, #155 사내 FastAPI(사내 구현). #165 폴링·세대 재검증은 #149 합의만 기다린다.
@@ -29,8 +29,8 @@
 
 - 화면에 닿는 변경의 동일성 증명: main과 워크트리에서 dev 서버를 다른 포트로 띄우고 같은 URL·역할의 DOM(머리글 클래스·`aria-sort`·첫 행)을 Playwright로 비교한다. 역할마다 부여된 room이 달라 수치가 다르다(관리자 ≠ 공정 엔지니어).
 - 지난 세션들에서 ego-browser가 최소 스크립트에도 응답하지 않은 적이 있다. 먼저 `ego-browser nodejs -e 'console.log(1)'`로 확인하고, 안 되면 `apps/platform-e2e`의 Playwright로 대체한다고 말한다.
-- 생성기(`tooling/gen-menu`)를 바꾸면 깨끗한 트리에서 probe(`node tooling/gen-menu/scripts/probe.ts`)를 한 번 돌린다. #153은 생성기 마커 위치를 건드릴 수 있다.
-- 새 메뉴 mock을 `main.tsx`에 등록하면 `apps/platform-web/src/server-conformance.test.ts`의 `MOCKS`·`PARAMS` 표에도 넣는다(빠지면 실패).
+- 생성기(`tooling/gen-menu`)를 바꾸면 깨끗한 트리에서 probe(`node tooling/gen-menu/scripts/probe.ts`)를 한 번 돌린다. mock 마커는 #153부터 `apps/platform-web/src/dev/mock-assembly.tsx`에 있다.
+- 새 메뉴 mock은 `src/dev/mock-assembly.tsx`의 `MOCK_ENDPOINTS`(생성기가 등록) 하나로 적합성 테스트까지 들어간다. 엔드포인트가 params를 선언하면 `apps/platform-web/src/server-conformance.test.ts`의 `PARAMS` 표에 표본만 넣는다(빠지면 실패).
 - 이 머신은 16GB다. 작업자에게는 패키지 범위 검사만 시키고, 루트 test/build/e2e는 마지막에 한 번씩 순서대로 돌린다.
 
 ## 사람·외부 결정 대기 — 답이 나오기 전에 거기에 기대는 구현을 하지 않는다

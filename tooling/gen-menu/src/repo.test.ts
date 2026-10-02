@@ -16,7 +16,7 @@ describe('committed wiring locks (real repo, read-only)', () => {
   });
 
   it('meets the generator marker contract (standalone markers, import-only regions, spreads inside the endpoints array)', () => {
-    expect(() => checkAppMarkers(shape.menusTs, shape.styleCss, shape.mainTsx)).not.toThrow();
+    expect(() => checkAppMarkers(shape.menusTs, shape.styleCss, shape.mockAssemblyTsx)).not.toThrow();
   });
 
   it('gives every GroupId member exactly one GROUPS row and one package owner', () => {

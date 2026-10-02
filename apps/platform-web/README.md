@@ -1,6 +1,6 @@
 # Platform App — 통합 인터랙티브 프로토타입
 
-**합성 데이터 프로토타입.** 실제 파서 데이터·SSO·권한 서버·mart가 없다. `@ap/mock-server`(`packages/mock-server`)이 서버 역할(Scope/room 재검증, `outcome`+`assessments[]` 응답 envelope)을 흉내낸다. Kernel은 mock을 직접 import하지 않고 `@ap/contracts`의 `PlatformAdapter`를 통해서만 서버에 닿는다(`createMockAdapter` 결과를 `main.tsx`가 주입).
+**합성 데이터 프로토타입.** 실제 파서 데이터·SSO·권한 서버·mart가 없다. `@ap/mock-server`(`packages/mock-server`)이 서버 역할(Scope/room 재검증, `outcome`+`assessments[]` 응답 envelope)을 흉내낸다. Kernel은 mock을 직접 import하지 않고 `@ap/contracts`의 `PlatformAdapter`를 통해서만 서버에 닿는다(dev·mock 빌드에서는 `src/dev/mock-assembly.tsx`의 `createMockAdapter` 결과를 `main.tsx`가 `#platform-assembly`로 받아 주입, ADR-0009).
 
 기존 4개 Kernel 유닛(`kernel-app-shell`, `kernel-chart-frame`, `kernel-platform-table`, `kernel-context-url-scope`)을 하나의 앱으로 통합해, 플랫폼 다섯 갈래가 실제 메뉴 화면(Consumer) 아래에서 함께 동작하는지 검증한다. 기존 유닛은 수정하지 않았다.
 
@@ -13,7 +13,9 @@ pnpm install
 pnpm dev           # http://127.0.0.1:5173
 pnpm typecheck
 pnpm test
-pnpm build
+pnpm build         # mock 데모 산출물(--mode mock)
+pnpm --filter @ap/platform-web build:prod        # 운영 빌드 — AP_PLATFORM_ASSEMBLY(실어댑터 조립, #154) 필요
+pnpm --filter @ap/platform-web check:prod-graph  # 운영 모듈 그래프에 mock·DevTools 없음 확인(#153)
 ```
 
 ## 다섯 갈래 ↔ 코드
@@ -31,7 +33,7 @@ pnpm build
 페이지는 `menus/<group>/src/pages/*.tsx`에 default export로 두고 그룹 패키지 `src/index.ts`의 `component`로 lazy 등록되며, 앱 `src/menus.ts`는 `@ap/menu-*` 패키지의 `manifests`를 이어 붙인다. **페이지는 `packages/*`(kernel/shell/components/ui/contracts/mock-server)를 수정하지 않는다.** 공통 컴포넌트가 부족하면 수정하지 말고 필요 사항을 보고한다. 새 그룹 패키지는 `pnpm gen:menu`로 만든다 — 생성기가 쓰는 페이지는 이 스켈레톤(`PlatformPage`, `useMenuQuery`, `QueryView`)이지 도메인 화면이 아니다. 자세한 것은 [`tooling/AGENTS.md`](../../tooling/AGENTS.md).
 
 1. 최상위는 반드시 `<PlatformPage>`. 슬롯: `title`, `description`, `primaryAction`, `secondaryActions`, `contextExtension`(page-owned 필터), `dataTrustSummary`, `crumbs`, `children`. 전역 Context Bar·Scope 게이트·Breadcrumb·즐겨찾기는 PlatformPage가 자동 렌더링한다 — 페이지가 날짜 선택기·Scope 선택기를 따로 만들지 않는다(§5 금지).
-2. 메뉴가 소유한 데이터 조회는 자기 메뉴 `src/endpoints.ts`에 `defineEndpoint`로 선언하고(권한·적용 Context·assessment kind·한도), 화면은 `useMenuQuery(endpoint, params)` → `<QueryView query={q}>{data => ...}</QueryView>`로 읽는다. 계산·데이터는 `src/mock/`(서버 쪽)에 두고 앱 `main.tsx`가 `@ap/menu-<group>/mock`으로 등록한다. 다른 메뉴 폴더를 import하지 않고 이동은 `linkTo`만. 로딩/갱신/empty/forbidden/too_large/timeout/error 분기는 QueryView가 한다. 위젯마다 따로 조회하면 부분 실패가 그 위젯에만 머문다(§19). 설계는 [`docs/integration/menu-query-port.md`](../../docs/integration/menu-query-port.md). 예외 두 가지: Kernel 책임 저장소를 읽는 운영 콘솔 화면(권한 `accessDirectory`·감사 `auditTrail`/`entityAudit`·활용률 `usageSummary`)은 `PlatformAdapter` 포트 메서드를 `usePlatformQuery`·표 `loadPage`로 직접 부르고, 클라이언트가 이미 가진 것의 투영(Registry 카탈로그)은 요청 없이 그린다 — 기준은 [패키지 경계](../../docs/integration/platform-packages.md) §4. 새 메뉴 데이터를 위해 포트 메서드를 늘리지 않는다.
+2. 메뉴가 소유한 데이터 조회는 자기 메뉴 `src/endpoints.ts`에 `defineEndpoint`로 선언하고(권한·적용 Context·assessment kind·한도), 화면은 `useMenuQuery(endpoint, params)` → `<QueryView query={q}>{data => ...}</QueryView>`로 읽는다. 계산·데이터는 `src/mock/`(서버 쪽)에 두고 `pnpm gen:menu`가 앱 mock 조립 `src/dev/mock-assembly.tsx`의 `MOCK_ENDPOINTS`에 `@ap/menu-<group>/mock`으로 등록한다(손으로 `main.tsx`에 넣지 않는다 — lint가 막는다). 다른 메뉴 폴더를 import하지 않고 이동은 `linkTo`만. 로딩/갱신/empty/forbidden/too_large/timeout/error 분기는 QueryView가 한다. 위젯마다 따로 조회하면 부분 실패가 그 위젯에만 머문다(§19). 설계는 [`docs/integration/menu-query-port.md`](../../docs/integration/menu-query-port.md). 예외 두 가지: Kernel 책임 저장소를 읽는 운영 콘솔 화면(권한 `accessDirectory`·감사 `auditTrail`/`entityAudit`·활용률 `usageSummary`)은 `PlatformAdapter` 포트 메서드를 `usePlatformQuery`·표 `loadPage`로 직접 부르고, 클라이언트가 이미 가진 것의 투영(Registry 카탈로그)은 요청 없이 그린다 — 기준은 [패키지 경계](../../docs/integration/platform-packages.md) §4. 새 메뉴 데이터를 위해 포트 메서드를 늘리지 않는다.
    - 요청에는 엔드포인트가 적용하는 Context 키와 `scopeId`, 선언한 params만 실린다. 권한은 서버가 요청 시점에 고정된 역할로 선언 사본에서 재검증한다 — 엔드포인트 권한은 데이터 접근 권한이라 메뉴 권한과 다를 수 있다(OperationsHome 공지는 `notice:view`). 핸들러가 받는 `equipment`는 Scope→허가 room→room_name→Condition→Selection으로 이미 해석된 목록이다. 페이지가 권한 판단을 하지 않는다. 분석 조회만 `mergeTimeDomain: true`(2대 이상과 `[from, to)`가 있으면 서버 assertion 없이 시간축을 합치지 않음). FeedbackOps 같은 비 mart 원천은 mock 쪽에 `mart: false`.
    - 0건을 수집 중단/지연으로 해석하지 않는다. `null` 값은 0이 아니라 “미확인”이다.
 3. 전역 Context 읽기: `const { global } = usePlatform()` (`from`,`to`,`roomNames`,`condition`,`selection`,`lotIds`,`ppid`,`recipeIds`,`metricId`,`metricVersion`, `scopeId`). 전역 변경은 사용자의 명시적 액션일 때만 `setGlobal(patch)`.

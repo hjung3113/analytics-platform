@@ -1,24 +1,17 @@
 /**
  * Server boundary conformance (#145): the adapter-agnostic kit judged against the mock adapter, over every menu
  * endpoint the app registers. The in-house server adapter runs the same harness shape
- * (docs/integration/real-server-checklist.md). Lint lets this file see the menu `/mock` subpaths like main.tsx.
+ * (docs/integration/real-server-checklist.md). The endpoint list is the mock assembly's own MOCK_ENDPOINTS (#153) — lint lets exactly this test import it.
  */
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Permission } from '@ap/contracts';
-import { analyticsMock } from '@ap/menu-analytics/mock';
-import { equipmentMock } from '@ap/menu-equipment/mock';
-import { homeMock } from '@ap/menu-home/mock';
-import { metricsMock } from '@ap/menu-metrics/mock';
-import { noticeVocMock } from '@ap/menu-notice-voc/mock';
-import { createMockAdapter, getRole, setRole, USERS, type AnyMockEndpoint, type RoleId } from '@ap/mock-server';
+import { createMockAdapter, getRole, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
+import { MOCK_ENDPOINTS } from './dev/mock-assembly';
 import { registry } from './menus';
 
-/** Same list, same order as the `<gen:menu-mock-spreads>` block in main.tsx (checked below). */
-const MOCKS: Record<string, readonly AnyMockEndpoint[]> = { analyticsMock, equipmentMock, homeMock, metricsMock, noticeVocMock };
-const endpoints = Object.values(MOCKS).flat();
+/** Exactly what the app registers: the mock assembly's list, not a copy. */
+const endpoints = MOCK_ENDPOINTS;
 
 const page = { page: 0, pageSize: 10, sorting: [] };
 const slowFilter = { tail: 'p95', granularity: 'hour', bucket: null, bin: null };
@@ -49,13 +42,6 @@ const GRANTED: RoleId = 'engineer';
 const CONSOLE: RoleId = 'admin';
 
 describe('conformance harness covers what the app registers', () => {
-  it('lists exactly the mocks main.tsx spreads into the adapter', () => {
-    // vitest runs each package from its own directory; jsdom's import.meta.url is not a file URL.
-    const main = readFileSync(resolve(process.cwd(), 'src/main.tsx'), 'utf8');
-    const block = /<gen:menu-mock-spreads>([\s\S]*?)<\/gen:menu-mock-spreads>/.exec(main)?.[1] ?? '';
-    expect([...block.matchAll(/\.\.\.(\w+),/g)].map(m => m[1])).toEqual(Object.keys(MOCKS));
-  });
-
   it('gives a sample request to every endpoint that declares params', () => {
     const missing = endpoints.filter(({ spec }) => Object.keys(spec.paramKeys).length > 0 && !(spec.id in PARAMS)).map(({ spec }) => spec.id);
     expect(missing).toEqual([]);

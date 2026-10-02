@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  GenMenuError, MAIN_TSX, MENUS_TS, MOCK_IMPORTS_END, MOCK_IMPORTS_START, MOCK_SPREADS_END, MOCK_SPREADS_START,
+  GenMenuError, MOCK_ASSEMBLY_TSX, MENUS_TS, MOCK_IMPORTS_END, MOCK_IMPORTS_START, MOCK_SPREADS_END, MOCK_SPREADS_START,
   STYLE_CSS, APP_PKG, checkAppMarkers, ownedLine, pageName, resolveRoot, splitLines,
 } from '../src/generate.ts';
 import { PACKAGE_PREFIX } from '../src/prefix.ts';
@@ -22,7 +22,7 @@ import {
 const ROOT = resolveRoot();
 const CONTRACTS_MENU = join(ROOT, 'packages/contracts/src/menu.ts');
 const MENUS = join(ROOT, MENUS_TS);
-const MAIN = join(ROOT, MAIN_TSX);
+const MAIN = join(ROOT, MOCK_ASSEMBLY_TSX);
 const STYLE = join(ROOT, STYLE_CSS);
 const APP_PKG_PATH = join(ROOT, APP_PKG);
 const PACKAGE_DIR = join(ROOT, 'menus', PROBE_FOLDER);
@@ -169,7 +169,7 @@ function main(): { fallback: boolean; failures: { step: string; message: string 
 
 /**
  * #126: the generated package must carry the menu-query scaffold (endpoints + mock, no api.ts)
- * and main.tsx must have BOTH mocks registered in its marker regions — the probe group's and
+ * and mock-assembly.tsx must have BOTH mocks registered in its marker regions — the probe group's and
  * analytics — so the four root commands below prove multi-package mock registration.
  */
 function verifyGeneratedScaffold(): void {
@@ -189,10 +189,10 @@ function verifyGeneratedScaffold(): void {
   ];
   for (const [start, end, line] of expected) {
     if (ownedLine(lines, start, end, line).kind !== 'found') {
-      throw new GenMenuError(`probe: main.tsx mock marker region does not contain '${line.trim()}'`);
+      throw new GenMenuError(`probe: mock-assembly.tsx mock marker region does not contain '${line.trim()}'`);
     }
   }
-  console.log('probe: generated endpoints/mock + main.tsx mock registration (genProbe + analytics) verified');
+  console.log('probe: generated endpoints/mock + mock-assembly.tsx mock registration (genProbe + analytics) verified');
 }
 
 try {

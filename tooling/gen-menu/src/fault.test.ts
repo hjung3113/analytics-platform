@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { afterAll, describe, expect, it } from 'vitest';
-import { APP_PKG, MAIN_TSX, MENUS_TS, STYLE_CSS } from './generate.ts';
+import { APP_PKG, MOCK_ASSEMBLY_TSX, MENUS_TS, STYLE_CSS } from './generate.ts';
 import { FIXTURE_GROUP, GEN_ARGS, CLI_PATH, appSnapshot, makeFixture, removeFixture, runCli } from './fixture.ts';
 
 const APP_WRITE_MODULE = join(dirname(CLI_PATH), 'app-write.ts');
@@ -45,7 +45,7 @@ function runFaulty(root: string, faultPath: string, args: string[]): { status: n
   return { status: res.status ?? -1, stderr: res.stderr ?? '' };
 }
 
-const TARGETS = [['menus.ts', MENUS_TS], ['main.tsx', MAIN_TSX], ['style.css', STYLE_CSS], ['package.json', APP_PKG]] as const;
+const TARGETS = [['menus.ts', MENUS_TS], ['mock-assembly.tsx', MOCK_ASSEMBLY_TSX], ['style.css', STYLE_CSS], ['package.json', APP_PKG]] as const;
 
 describe('partial-write faults restore every snapshot (R1)', () => {
   const keep: string[] = [];

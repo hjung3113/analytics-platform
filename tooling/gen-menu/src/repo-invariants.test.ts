@@ -41,7 +41,7 @@ function makeWiredRepo(): string {
   mkdirSync(join(root, 'packages/contracts/src'), { recursive: true });
   const union = GROUPS.map(g => `'${g.group}'`).join(' | ');
   writeFileSync(join(root, 'packages/contracts/src/menu.ts'), `export type GroupId = ${union};\n`);
-  mkdirSync(join(root, 'apps/platform-web/src'), { recursive: true });
+  mkdirSync(join(root, 'apps/platform-web/src/dev'), { recursive: true });
 
   const imports = GROUPS.map(g => `import { manifests as ${binding(g.folder)} } from '${PACKAGE_PREFIX}menu-${g.folder}';`).join('\n');
   const rows = GROUPS.map(g => `  { id: '${g.group}', label: { ko: 'g', en: 'g' }, icon: I, space: 'analytics' },`).join('\n');
@@ -62,21 +62,18 @@ ${spreads}
 ];
 `);
   const mockImports = ['analytics', 'quality'].map(f => `import { ${binding(f)}Mock } from '${PACKAGE_PREFIX}menu-${f}/mock';`).join('\n');
-  const mockSpreads = ['analytics', 'quality'].map(f => `    ...${binding(f)}Mock,`).join('\n');
-  writeFileSync(join(root, 'apps/platform-web/src/main.tsx'), `import { registry } from './menus';
+  const mockSpreads = ['analytics', 'quality'].map(f => `  ...${binding(f)}Mock,`).join('\n');
+  writeFileSync(join(root, 'apps/platform-web/src/dev/mock-assembly.tsx'), `import { registry } from './menus';
 import { createMockAdapter } from '${PACKAGE_PREFIX}mock-server';
 // <gen:menu-mock-imports>
 ${mockImports}
 // </gen:menu-mock-imports>
 
-const adapter = createMockAdapter({
-  endpoints: [
-    // <gen:menu-mock-spreads>
+export const MOCK_ENDPOINTS = [
+  // <gen:menu-mock-spreads>
 ${mockSpreads}
-    // </gen:menu-mock-spreads>
-  ],
-  registry,
-});
+  // </gen:menu-mock-spreads>
+];
 `);
   const cssImports = GROUPS.map(g => `@import "${PACKAGE_PREFIX}menu-${g.folder}/styles.css";`).join('\n');
   writeFileSync(join(root, 'apps/platform-web/src/style.css'), `/* <gen:menu-styles> */
@@ -110,18 +107,18 @@ describe('wiring invariants against a fixture repo', () => {
     expect(() => checkNoProbe(shape, false)).not.toThrow();
   });
 
-  it('rejects a missing mock spread for the eighth group in main.tsx', () => {
+  it('rejects a missing mock spread for the eighth group in mock-assembly.tsx', () => {
     const root = fresh();
-    const mainTsx = join(root, 'apps/platform-web/src/main.tsx');
-    writeFileSync(mainTsx, readFileSync(mainTsx, 'utf8').replace(`    ...${binding('quality')}Mock,\n`, ''));
-    expect(() => checkWiring(loadShape(root))).toThrow(/no spread inside the main.tsx mock spread markers/);
+    const mockAssemblyTsx = join(root, 'apps/platform-web/src/dev/mock-assembly.tsx');
+    writeFileSync(mockAssemblyTsx, readFileSync(mockAssemblyTsx, 'utf8').replace(`  ...${binding('quality')}Mock,\n`, ''));
+    expect(() => checkWiring(loadShape(root))).toThrow(/no spread inside the mock-assembly.tsx mock spread markers/);
   });
 
-  it('rejects missing mock markers in main.tsx', () => {
+  it('rejects missing mock markers in mock-assembly.tsx', () => {
     const root = fresh();
-    const mainTsx = join(root, 'apps/platform-web/src/main.tsx');
-    writeFileSync(mainTsx, readFileSync(mainTsx, 'utf8').replace('// <gen:menu-mock-imports>\n', ''));
-    expect(() => checkMarkers(loadShape(root))).toThrow(/must appear exactly once in apps\/platform-web\/src\/main.tsx/);
+    const mockAssemblyTsx = join(root, 'apps/platform-web/src/dev/mock-assembly.tsx');
+    writeFileSync(mockAssemblyTsx, readFileSync(mockAssemblyTsx, 'utf8').replace('// <gen:menu-mock-imports>\n', ''));
+    expect(() => checkMarkers(loadShape(root))).toThrow(/must appear exactly once in apps\/platform-web\/src\/dev\/mock-assembly\.tsx/);
   });
 
   it('rejects a missing spread for the eighth group', () => {
@@ -133,14 +130,14 @@ describe('wiring invariants against a fixture repo', () => {
 
   it('does not count commented-out mock lines as wired', () => {
     const root = fresh();
-    const mainTsx = join(root, 'apps/platform-web/src/main.tsx');
-    const original = readFileSync(mainTsx, 'utf8');
+    const mockAssemblyTsx = join(root, 'apps/platform-web/src/dev/mock-assembly.tsx');
+    const original = readFileSync(mockAssemblyTsx, 'utf8');
     // The commented lines still contain the exact import/spread text as substrings — the checks
     // match whole trimmed lines, so both must be refused.
-    writeFileSync(mainTsx, original
+    writeFileSync(mockAssemblyTsx, original
       .replace(`import { ${binding('quality')}Mock } from '${PACKAGE_PREFIX}menu-quality/mock';`, `// import { ${binding('quality')}Mock } from '${PACKAGE_PREFIX}menu-quality/mock';`)
-      .replace(`    ...${binding('quality')}Mock,`, `//     ...${binding('quality')}Mock,`));
-    expect(() => checkWiring(loadShape(root))).toThrow(/no import inside the main\.tsx mock import markers/);
+      .replace(`  ...${binding('quality')}Mock,`, `//   ...${binding('quality')}Mock,`));
+    expect(() => checkWiring(loadShape(root))).toThrow(/no import inside the mock-assembly\.tsx mock import markers/);
   });
 
   it('skips the probe-name check only under GEN_MENU_PROBE', () => {
