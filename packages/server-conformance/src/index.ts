@@ -681,14 +681,14 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
       // Calls that did not succeed are the save/list checks' failures; this check owns only the mart-data rule.
       if (saved.outcome !== 'ok') return null;
       const saveMissing = missingEnvelopeKey(saved, 'assessments') ?? missingEnvelopeKey(saved, 'trust');
-      if (saveMissing) return saveMissing;
+      if (saveMissing) return `saveAnnotation: ${saveMissing}`;
       if (saved.assessments.length > 0 || saved.trust !== null) {
         return 'saveAnnotation is not mart data (adapter.ts): no assessments, null trust';
       }
       const list = await adapter.listAnnotations({ chartId, scopeId: harness.context.scopeId });
       if (list.outcome !== 'ok' && list.outcome !== 'empty') return null;
       const listMissing = missingEnvelopeKey(list, 'assessments') ?? missingEnvelopeKey(list, 'trust');
-      if (listMissing) return listMissing;
+      if (listMissing) return `listAnnotations: ${listMissing}`;
       if (list.assessments.length > 0 || list.trust !== null) {
         return 'listAnnotations is not mart data (adapter.ts): no assessments, null trust';
       }

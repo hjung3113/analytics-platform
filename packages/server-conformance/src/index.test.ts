@@ -719,7 +719,7 @@ describe('server conformance kit (#145)', () => {
       'port · annotations are not mart data: no assessments, null trust',
     ]);
     expect(results.find(r => r.id === 'port · annotations are not mart data: no assessments, null trust')?.failure)
-      .toBe('`trust` is missing — send null for non-mart data (06 §18)');
+      .toBe('saveAnnotation: `trust` is missing — send null for non-mart data (06 §18)');
   });
 
   // recordUsage may reject (fire-and-forget): inside the receive-time check that is reported as recordUsage
