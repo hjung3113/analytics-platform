@@ -119,6 +119,12 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/main.tsx', code: `await import('./dev/mock-assembly');`, rule: 'ap/restricted-import-source' },
   { file: 'apps/platform-web/src/main.tsx', code: `import { createAssembly } from '#platform-assembly';`, rule: '' },
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from './devices';`, rule: '' },
+  // #153 review P3-2: Vite root-absolute /src/dev and case variants are banned too, static and dynamic.
+  { file: 'apps/platform-web/src/main.tsx', code: `import '/src/dev/DevTools';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
+  { file: 'apps/platform-web/src/main.tsx', code: `await import('/src/dev/mock-assembly');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from './DEV/x';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
+  { file: 'apps/platform-web/src/main.tsx', code: `await import('./DEV/x');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '/src/devices';`, rule: '' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { DevTools } from './dev/DevTools';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
   // #153 follow-up: the conformance test reads MOCK_ENDPOINTS from the mock assembly — that exact module only.
   { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { MOCK_ENDPOINTS } from './dev/mock-assembly';`, rule: '' },
@@ -145,7 +151,7 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { createMockAdapter } from '@ap/mock-server';`, rule: '' },
   { file: 'apps/platform-web/src/url-contract.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: 'no-restricted-imports' },
-  // #146 review: the conformance test gets the mock subpaths only — the FeedbackOps origin slot stays main.tsx-only.
+  // #146 review: the FeedbackOps origin slot stays main.tsx-only — the conformance test never gets it.
   { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/server-conformance.test.ts', code: `await import('@ap/menu-notice-voc/feedbackops-origin');`, rule: 'ap/restricted-import-source' },
   { file: 'apps/platform-web/src/server-conformance.test.ts', code: `await import('@ap/menu-equipment/mock');`, rule: 'ap/restricted-import-source' },

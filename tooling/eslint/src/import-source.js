@@ -7,7 +7,7 @@ import { PACKAGE_PREFIX } from './prefix.js';
 //   - TSImportType      import('x').T
 //   - CallExpression    require('x')
 // Relative sources are owned by ap/no-relative-package-escape and ignored here, except the `denyDev`
-// pattern (#153), which mirrors the static rule's DEV_REGEX.
+// pattern (#153), which mirrors the static rule's DEV_REGEX, case-insensitively like ESLint's `regex`.
 
 /**
  * Decide whether a string source is restricted for this layer.
@@ -31,7 +31,7 @@ function makeEvaluate(opts) {
         .join('[^/]+');
       return new RegExp(`^${expression}$`).test(subpath);
     });
-  const devPattern = opts.denyDev && opts.devRegex ? new RegExp(opts.devRegex) : null;
+  const devPattern = opts.denyDev && opts.devRegex ? new RegExp(opts.devRegex, 'i') : null;
   return (source) => {
     if (typeof source !== 'string') return null;
     if (devPattern !== null && devPattern.test(source)) return opts.devMessage;

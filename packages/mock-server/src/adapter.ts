@@ -1,6 +1,7 @@
 /**
  * Mock implementation of the kernel port (@ap/contracts PlatformAdapter). The kernel never imports mock/*;
- * main.tsx injects the object returned by createMockAdapter. A real server adapter replaces this file, not the kernel.
+ * The app's mock assembly (apps/platform-web/src/dev/mock-assembly.tsx, ADR-0009) hands the object returned by
+ * createMockAdapter to main.tsx through `#platform-assembly`; production builds never contain it. A real server adapter replaces this file, not the kernel.
  */
 import type { ContextKey, MenuMeta, PlatformAdapter, Session } from '@ap/contracts';
 import { checkScope, getEntity, getRole, matchesCondition, recordUsage, reportClientError, subscribeServer, usageSummary, validateScope } from './server';

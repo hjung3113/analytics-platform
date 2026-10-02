@@ -5,9 +5,7 @@ import { homeMock } from '@ap/menu-home/mock';
 import { metricsMock } from '@ap/menu-metrics/mock';
 import { noticeVocMock } from '@ap/menu-notice-voc/mock';
 // </gen:menu-mock-imports>
-import type { ReactNode } from 'react';
-import type { PlatformAdapter } from '@ap/contracts';
-import type { Registry } from '@ap/kernel';
+import type { CreateAssembly } from '#platform-assembly';
 import { createMockAdapter, type AnyMockEndpoint } from '@ap/mock-server';
 import { DevTools } from './DevTools';
 
@@ -29,6 +27,7 @@ export const MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [
  * Mock assembly (#153, ADR-0009): what `#platform-assembly` resolves to in `vite` dev and `--mode mock` builds.
  * Menu mocks are registered in MOCK_ENDPOINTS by `pnpm gen:menu`; a production build never reaches this file.
  */
-export function createAssembly({ registry }: { registry: Registry }): { adapter: PlatformAdapter; topBarTools?: ReactNode } {
-  return { adapter: createMockAdapter({ endpoints: MOCK_ENDPOINTS, registry }), topBarTools: <DevTools /> };
-}
+export const createAssembly: CreateAssembly = ({ registry }) => ({
+  adapter: createMockAdapter({ endpoints: MOCK_ENDPOINTS, registry }),
+  topBarTools: <DevTools />,
+});

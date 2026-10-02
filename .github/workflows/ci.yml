@@ -131,6 +131,15 @@ jobs:
       - run: pnpm build
       # #153 (ADR-0009): the production module graph (assembly external) carries no mock-server, menu mock or src/dev
       - run: pnpm --filter @ap/platform-web check:prod-graph
+      # The checks must still bite (#153 review P3-1): the assembly forced to the mock must fail both the CI graph
+      # check and the build-time guard of a real production build. An unexpected pass (exit 0) or a failure for any
+      # other reason (no offender line) turns the step red.
+      - run: |
+          if out=$(pnpm --filter @ap/platform-web exec node scripts/check-prod-graph.ts --force-mock 2>&1); then echo "$out"; exit 1; fi
+          echo "$out" | grep -q '\[packages/mock-server/\]'
+      - run: |
+          if out=$(pnpm --filter @ap/platform-web exec node scripts/check-prod-graph.ts --force-mock-build 2>&1); then echo "$out"; exit 1; fi
+          echo "$out" | grep -q 'production build bundles mock/dev code'
 
   platform-contracts-e2e:
     name: Platform contracts (E2E)

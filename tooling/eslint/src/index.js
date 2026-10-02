@@ -18,15 +18,17 @@ const TABLE_ENGINE_MESSAGE = `The table engine belongs to ${PACKAGE_PREFIX}compo
 const MENU_ALLOW = ['contracts', 'kernel', 'components', 'ui'];
 // #153 (ADR-0009): the production graph carries no mock. src/main.tsx gets its adapter from `#platform-assembly`
 // and sees neither mock-server nor any menu `/mock` subpath; the mock assembly and DevTools live in src/dev/**,
-// which is the only app source that registers menu mocks. The server conformance test (#145) registers the same
-// mocks, so it keeps mock-server and the `/mock` subpaths (never the FeedbackOps origin slot);
-// published-metrics.test.ts keeps mock-server only. No app file outside src/dev/** may import ./dev/**.
+// which is the only app source that registers menu mocks (MOCK_ENDPOINTS). The server conformance test (#145) reads
+// that list, so it keeps mock-server and exactly ./dev/mock-assembly — no `/mock` subpath, never the FeedbackOps
+// origin slot; published-metrics.test.ts keeps mock-server only. No app file outside src/dev/** may import ./dev/**.
 const APP_CONFORMANCE_FILE = 'src/server-conformance.test.ts';
 const APP_DEV_FILES = 'src/dev/**/*.{ts,tsx}';
 const APP_PUBLISHED_METRICS_FILE = 'src/published-metrics.test.ts';
 const DEV_MESSAGE = 'src/dev/** (mock assembly, DevTools) is reached only through #platform-assembly in mock builds (ADR-0009).';
-// Relative specifiers that name a `dev` folder segment: ./dev, ./dev/x, ../dev/x, ../../src/dev/x.
-const DEV_REGEX = '^\\.{1,2}/(?:.*/)?dev(?:/|$)';
+// Specifiers that name a `dev` folder segment: relative ./dev, ./dev/x, ../dev/x, ../../src/dev/x, and Vite's
+// root-absolute /src/dev/x. Matched case-insensitively by both rules (ESLint's `regex` uses the `i` flag).
+// `import.meta.glob('./dev/*')` is not an import source — only the production-graph check catches it.
+const DEV_REGEX = '^(?:\\.{1,2}/(?:.*/)?|/src/)dev(?:/|$)';
 const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /** DEV_REGEX minus the exact `devAllow` specifiers. */
 const devRegex = (devAllow = []) =>
