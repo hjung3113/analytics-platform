@@ -2,7 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { PACKAGE_PREFIX } from './prefix.ts';
-import { MAIN_TSX, STYLE_CSS } from './generate.ts';
+import { MOCK_ASSEMBLY_TSX, STYLE_CSS } from './generate.ts';
 import { FIXTURE_FOLDER, FIXTURE_GROUP, GEN_ARGS, appSnapshot, makeFixture, removeFixture, runCli } from './fixture.ts';
 
 const CSS_LINE = `@import "${PACKAGE_PREFIX}menu-${FIXTURE_FOLDER}/styles.css";`;
@@ -14,7 +14,7 @@ function cssOf(root: string): string {
 }
 
 function mainOf(root: string): string {
-  return readFileSync(join(root, MAIN_TSX), 'utf8');
+  return readFileSync(join(root, MOCK_ASSEMBLY_TSX), 'utf8');
 }
 
 describe('remove ownership is bounded to the marker region (F4)', () => {
@@ -65,10 +65,10 @@ describe('remove ownership is bounded to the marker region (F4)', () => {
     expect(existsSync(join(root, 'menus', FIXTURE_FOLDER))).toBe(true);
   });
 
-  it('refuses when the generated main.tsx mock spread line appears twice inside its region', () => {
+  it('refuses when the generated mock-assembly.tsx mock spread line appears twice inside its region', () => {
     const root = fresh();
     expect(runCli([FIXTURE_GROUP, ...GEN_ARGS], root).status).toBe(0);
-    writeFileSync(join(root, MAIN_TSX), mainOf(root).replace(
+    writeFileSync(join(root, MOCK_ASSEMBLY_TSX), mainOf(root).replace(
       '    // </gen:menu-mock-spreads>',
       `${MOCK_SPREAD_LINE}\n    // </gen:menu-mock-spreads>`,
     ));
@@ -86,7 +86,7 @@ describe('remove ownership is bounded to the marker region (F4)', () => {
     const pristineMain = mainOf(root);
     expect(runCli([FIXTURE_GROUP, ...GEN_ARGS], root).status).toBe(0);
     // Human copy of the exact mock import sits above the markers; the owned insert stays in-region.
-    writeFileSync(join(root, MAIN_TSX), `${MOCK_IMPORT_LINE}\n${mainOf(root)}`);
+    writeFileSync(join(root, MOCK_ASSEMBLY_TSX), `${MOCK_IMPORT_LINE}\n${mainOf(root)}`);
     const res = runCli(['--remove', FIXTURE_GROUP], root);
     expect(res.status, res.stderr).toBe(0);
     expect(mainOf(root)).toBe(`${MOCK_IMPORT_LINE}\n${pristineMain}`);

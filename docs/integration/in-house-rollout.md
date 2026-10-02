@@ -5,7 +5,7 @@
 ## 0. 지금 어디까지 왔나
 
 - 플랫폼 쪽 준비는 끝났다. 메뉴 데이터는 모두 범용 조회 포트(`menuQuery`, #100)로 오고, 서버 경계 적합성 묶음(`@ap/server-conformance`, #145·#152)이 어떤 어댑터든 같은 잣대로 판정한다 — `menuQuery`와 포트 메서드 전부(세션·Scope·조건 편집기 포트·목적지·감사·콘솔 조회·주석·활용률·오류 보고)를 지금 mock으로 23개 엔드포인트·527개 검사 통과(oversize 표본이 없는 3개 검사는 건너뜀 — 통과로 세지 않는다).
-- 사내 적용은 `apps/platform-web/src/main.tsx`의 `createMockAdapter(...)` 자리를 **실어댑터로 바꾸는 일**이다. Kernel·셸·공통 컴포넌트·메뉴 화면은 고치지 않는다(체크리스트 §1).
+- 사내 적용은 `#platform-assembly` 조립 모듈(dev·mock은 `apps/platform-web/src/dev/mock-assembly.tsx`의 `createMockAdapter(...)`)을 **실어댑터를 돌려주는 조립 모듈로 바꿔 꽂는 일**이다(`AP_PLATFORM_ASSEMBLY`, #153·ADR-0009). Kernel·셸·공통 컴포넌트·메뉴 화면은 고치지 않는다(체크리스트 §1).
 - 남은 일의 대부분은 **사내 입력**(SSO 사양, 배포 환경, 백엔드 담당과의 합의)에 막혀 있다. 외부 입력 없이 할 수 있는 플랫폼 작업은 §4의 몇 개뿐이다.
 - 디자인(M2)은 이 트랙과 별개로 보류 중이다(FeedbackOps 디자인 확정 뒤, [ROADMAP](../ROADMAP.md)).
 
@@ -13,8 +13,8 @@
 
 | 바뀌는 것 | 그대로인 것 |
 | --- | --- |
-| `main.tsx`의 어댑터 주입(mock → 실어댑터, #154) | Kernel(`@ap/kernel`)·셸·공통 컴포넌트·`@ap/contracts` 타입 |
-| 운영 빌드에서 mock 핸들러·dev 도구 제외(#153) | 메뉴 화면(`menus/*/src/pages`)과 엔드포인트 선언(`menus/*/src/endpoints.ts`) |
+| 운영 조립 모듈(`createAssembly` → 실어댑터, `AP_PLATFORM_ASSEMBLY`, #154) | Kernel(`@ap/kernel`)·셸·공통 컴포넌트·`@ap/contracts` 타입 |
+| 운영 빌드에서 mock 핸들러·dev 도구 제외(#153 완료 — CI `check:prod-graph`) | 메뉴 화면(`menus/*/src/pages`)과 엔드포인트 선언(`menus/*/src/endpoints.ts`) |
 | 서버: 메뉴 `src/mock/` 계산 → 사내 FastAPI 핸들러(파서 Postgres·mart SQL, #155) | 판정 규칙(체크리스트 §3 순서), 06 §19 응답 envelope, URL·딥링크 계약 |
 | 인증: Mock 역할 전환 → 사내 SSO 세션(#150) | 개발·E2E는 계속 mock으로 돈다(`pnpm dev`·`pnpm e2e`) |
 
@@ -27,7 +27,7 @@
 | 1. 결정 | 엔드포인트 선언의 원본(TS ↔ FastAPI codegen) | [#148](https://github.com/hjung3113/analytics-platform/issues/148) | — | 사용자 + 백엔드 담당 | 결정이 05·06 §6.1·menu-query-port Q2에 반영 |
 | 1. 결정 | 전송 형식(HTTP 경계) | [#149](https://github.com/hjung3113/analytics-platform/issues/149) | 초안은 지금, 합의는 #151 답 뒤가 낫다 | 에이전트 초안 → 백엔드 담당 합의 | `http-adapter-contract.md`가 Decided |
 | 2. 지금 가능 | ~~적합성 묶음 확장(포트 메서드 전부)~~ 완료 — 주석·활용률·오류 보고까지 포트 메서드 전부 검사 | [#152](https://github.com/hjung3113/analytics-platform/issues/152) | — | 에이전트 | mock이 새 검사 통과, 깬 어댑터에서 실패 |
-| 2. 지금 가능 | 운영 빌드 조립 분리 + 번들 검사 | [#153](https://github.com/hjung3113/analytics-platform/issues/153) | — | 에이전트 | 운영 모드 산출물에 mock·DevTools 없음을 CI가 확인 |
+| 2. 완료 | ~~운영 빌드 조립 분리 + 번들 검사~~ | [#153](https://github.com/hjung3113/analytics-platform/issues/153) | — | 에이전트 | 운영 모드 산출물에 mock·DevTools 없음을 CI가 확인(`check:prod-graph`, ADR-0009) |
 | 2. 지금 가능 | `validateScope` 실패 시 Scope가 '확인 중'에 멈추는 Kernel 공백 | [#167](https://github.com/hjung3113/analytics-platform/issues/167) | — | 에이전트 | reject 시 오류·재시도, 회귀 테스트 |
 | 3. 구현 | 실어댑터(HTTP) + 적합성 묶음을 사내 테스트 서버로 | [#154](https://github.com/hjung3113/analytics-platform/issues/154) | #148·#149·#150 | 에이전트(사내 실행은 사람) | 사내 테스트 서버 대상 적합성 묶음 전부 통과 |
 | 3. 구현 | Kernel 5분 폴링·계산 세대 재검증 | [#165](https://github.com/hjung3113/analytics-platform/issues/165) | #149(+#155 세대 신호) | 에이전트 | 세대가 바뀔 때만 다시 읽고 갱신 표시, Kernel 테스트·E2E |
@@ -88,7 +88,7 @@
 추천 순서.
 
 1. ~~#152 적합성 묶음 확장~~ 완료 — 포트 메서드 전부(주석·활용률·오류 보고 포함)를 어댑터 무관 검사로. 실서버가 붙는 날 판정 범위가 그대로 넓어진다.
-2. **#153 운영 빌드 조립 분리** — 지금 `pnpm build` 산출물에 mock 계산·DevTools가 들어간다. 분리와 번들 검사를 먼저 만들어 둔다.
+2. ~~#153 운영 빌드 조립 분리~~ 완료 — `main.tsx`는 `#platform-assembly`로 조립을 받고, 운영 빌드는 `AP_PLATFORM_ASSEMBLY` 없이는 실패하며, CI `check:prod-graph`가 운영 모듈 그래프에 mock·DevTools가 없음을 확인한다(ADR-0009). 실어댑터(#154)는 `createAssembly`를 구현해 그 env로 꽂는다.
 3. **#167 Scope 확인 실패 처리** — 실어댑터는 mock과 달리 `validateScope`가 실패할 수 있다.
 4. **#149 전송 형식 초안** — 합의 전 단계까지.
 5. 작은 후속: #122(목적지 단건 provisional), #90(지표 이력을 감사 저장소로).
@@ -108,7 +108,7 @@
 1. **그룹**: 기존 7개 그룹(`menus/AGENTS.md` 표)에 넣을 수 있으면 그 패키지에 manifest를 추가한다. 새 그룹이면 `GroupId` 리터럴(`packages/contracts/src/menu.ts`)과 `GROUPS` 행(`apps/platform-web/src/menus.ts`, 공간 `space`)을 사람이 먼저 추가한 뒤 `pnpm gen:menu <group> --label-ko … --label-en … --page-type <type>` → `pnpm install`.
 2. **조회 선언**: `menus/<g>/src/endpoints.ts`에 `defineEndpoint`로 권한(데이터 접근 권한 — 메뉴 권한과 다를 수 있음)·적용 Context·params 키·assessment kind·한도를 선언한다.
 3. **화면**: [페이지 작성 가이드](../../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙) — `PlatformPage`, `useMenuQuery` + `QueryView`, 표는 `PlatformDataTable` + `useMenuFetch`, 차트는 `AnalysisChartFrame`, 이동은 `linkTo`, page 상태는 등록된 `pageKeys`만.
-4. **서버 쪽**: 개발 중에는 `menus/<g>/src/mock/`에 핸들러(앱 `main.tsx` 마커 영역에 등록 — 생성기가 씀). 실서버에는 같은 엔드포인트 id로 FastAPI 핸들러를 만든다(선언 사본 공유 방식은 #148).
+4. **서버 쪽**: 개발 중에는 `menus/<g>/src/mock/`에 핸들러(앱 `src/dev/mock-assembly.tsx` 마커 영역에 등록 — 생성기가 씀, 운영 빌드에는 실리지 않는다). 실서버에는 같은 엔드포인트 id로 FastAPI 핸들러를 만든다(선언 사본 공유 방식은 #148).
 5. **적합성 묶음 등록**: [`apps/platform-web/src/server-conformance.test.ts`](../../apps/platform-web/src/server-conformance.test.ts)의 `MOCKS`와 `PARAMS` 표에 새 mock·표본 params를 넣는다(빠지면 테스트가 실패한다). 표본 params는 하네스의 권한 있는 역할(`engineer` — `console:access` 없음), site `ICH`, 하네스 기간으로 `ok` 또는 `empty`가 나와야 한다. 엔드포인트가 `console:access`를 요구하면 그 하네스로는 성공 요청을 만들 수 없으니 먼저 묻는다.
 
 ### 5.3 하지 말 것
@@ -129,7 +129,7 @@
 
 - [ ] 사내 테스트 서버 대상 적합성 묶음 전부 통과(#152로 넓힌 범위 포함) — 실행 기록을 #154에 남긴다.
 - [ ] 체크리스트 §2 표의 메서드 전부가 실어댑터로 동작, §3 판정 순서·등록 검증이 서버에 있음.
-- [ ] 운영 빌드 산출물에 mock 핸들러·DevTools 없음(#153 번들 검사).
+- [x] 운영 빌드 산출물에 mock 핸들러·DevTools 없음(#153 번들 검사 — CI `check:prod-graph`).
 - [ ] 사내 SSO로 로그인 → 세션 부트스트랩 → 권한 다른 두 계정에서 메뉴·데이터 범위가 다르게 보임(서버 판정).
 - [ ] 세션 만료·재로그인 때 이전 결과가 한 프레임도 보이지 않음(체크리스트 §2 `subscribe`).
 - [ ] 오류 화면의 Correlation ID로 서버 로그를 찾을 수 있음.

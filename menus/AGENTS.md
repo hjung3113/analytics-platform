@@ -14,7 +14,7 @@ Registry 7개 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가
 
 ## 규칙
 
-- `src/index.ts`는 `manifests: MenuEntry[]`만 export한다. 페이지·집계(`METRICS`, `resolveMetric` 등)를 재export하지 않는다 — 앱이 `manifests`만 import해도 라우트 lazy가 깨지지 않아야 한다. 앱이 메뉴에 설정값을 넣어야 하면 index가 아니라 별도 서브패스로 내보낸다(예: `@ap/menu-notice-voc/feedbackops-origin`, `@ap/menu-<g>/mock`; 앱 `main.tsx`만 import 가능 — lint가 강제).
+- `src/index.ts`는 `manifests: MenuEntry[]`만 export한다. 페이지·집계(`METRICS`, `resolveMetric` 등)를 재export하지 않는다 — 앱이 `manifests`만 import해도 라우트 lazy가 깨지지 않아야 한다. 앱이 메뉴에 설정값을 넣어야 하면 index가 아니라 별도 서브패스로 내보낸다(예: `@ap/menu-notice-voc/feedbackops-origin`, `@ap/menu-<g>/mock`; origin 서브패스는 앱 `main.tsx`만, `/mock`은 앱 mock 조립 `src/dev/mock-assembly.tsx`(`pnpm gen:menu`가 마커 영역에 등록)와 서버 적합성 테스트만 import 가능 — lint가 강제, 운영 빌드에는 실리지 않는다(#153).
 - `@ap/menu-*`끼리 서로 import하지 않는다. 교차 메뉴 이동은 `linkTo(menuId)`뿐이다(06 §22).
 - 표 엔진(`@tanstack/react-table`·`@tanstack/react-virtual`·`@tanstack/table-core`·`@tanstack/virtual-core`, 하위 경로 포함 — 목록 원본은 `tooling/eslint/src/index.js` `TABLE_ENGINE_PACKAGES`)은 `@ap/components` 내부이므로 메뉴가 import하지 않는다(#160, `src/mock/**` 포함) — 열은 `PlatformDataTable`의 `PlatformColumn<T>`로 선언하고, 정렬 상태는 `@ap/contracts`의 `PageSort[]`를 쓴다. 경계 lint(`tooling/eslint` 메뉴 프리셋)가 강제한다.
 - 메뉴의 `src/mock/**`에는 mock handler를 두고 `@ap/mock-server`, `@ap/contracts`, 자기 `src/endpoints.ts`를 import할 수 있다(react·react-dom는 금지). 이행 중에 쓰던 `src/api.ts`와 lint 예외는 없어졌다(#129·#132) — `@ap/mock-server`는 `src/mock/**`에서만 import한다. 상대 import는 lint 강제 허용목록으로 제한된다 — `src/mock/**` 안에서 resolve 대상이 자기 `src/mock/**` 또는 자기 `src/endpoints`일 때만 허용되고, 그 외(`../pages`, `../api`, `../index`, `../../package.json` 등)는 에러다(5단계의 `../pages` 임시 허용은 #127에서 닫았다). 즉 mock handler는 메뉴 내부 모듈이 아니라 `@ap/mock-server`·`@ap/contracts`를 직접 import하고, 화면과 서버가 함께 쓰는 순수 계약(지표 버전 해석·anchor·bin 같은 코덱)은 `src/endpoints.ts`에 둔다. `src/pages/**`와 `src/mock/**` 밖의 메뉴 파일은 `mock/`을 상대 import하지 않는다 — 앱 `main.tsx`가 `@ap/menu-<g>/mock`을 통해 handler를 등록한다.
@@ -25,7 +25,7 @@ Registry 7개 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가
 
 ## 새 그룹 패키지
 
-새 그룹은 사람이 먼저 `GroupId` 리터럴(`packages/contracts/src/menu.ts`)과 `GROUPS` 행(라벨·아이콘·공간 `space` — 06 §9.1, `apps/platform-web/src/menus.ts`)을 추가한 뒤 `pnpm gen:menu <group> --label-ko … --label-en …`을 돌리고 `pnpm install`한다. 생성 패키지는 menu-query 패턴으로 시작한다(#126) — `src/endpoints.ts`(표본 엔드포인트 1개, manifest와 같은 권한), `src/mock/index.ts`(`./mock` export), 페이지의 `useMenuQuery` 호출, `main.tsx` 마커 영역의 mock 등록. `src/api.ts`/`serve`는 더 이상 생성되지 않는다. 결과는 스켈레톤이지 Domain Done이 아니므로, 이후 화면 작업은 별도 요청·검증(06 §29)으로 진행한다. 실제 메뉴를 여러 개 한 번에 생성하지 않는다. `overview`는 `menus/home`이 그대로 소유한다.
+새 그룹은 사람이 먼저 `GroupId` 리터럴(`packages/contracts/src/menu.ts`)과 `GROUPS` 행(라벨·아이콘·공간 `space` — 06 §9.1, `apps/platform-web/src/menus.ts`)을 추가한 뒤 `pnpm gen:menu <group> --label-ko … --label-en …`을 돌리고 `pnpm install`한다. 생성 패키지는 menu-query 패턴으로 시작한다(#126) — `src/endpoints.ts`(표본 엔드포인트 1개, manifest와 같은 권한), `src/mock/index.ts`(`./mock` export), 페이지의 `useMenuQuery` 호출, 앱 mock 조립 `apps/platform-web/src/dev/mock-assembly.tsx` 마커 영역의 mock 등록(#153 — 운영 빌드에는 실리지 않는다). `src/api.ts`/`serve`는 더 이상 생성되지 않는다. 결과는 스켈레톤이지 Domain Done이 아니므로, 이후 화면 작업은 별도 요청·검증(06 §29)으로 진행한다. 실제 메뉴를 여러 개 한 번에 생성하지 않는다. `overview`는 `menus/home`이 그대로 소유한다.
 
 ## 검증
 

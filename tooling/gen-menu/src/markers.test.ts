@@ -1,10 +1,10 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { PACKAGE_PREFIX } from './prefix.ts';
-import { FIXTURE_GROUP, GEN_ARGS, appSnapshot, fixtureMainTsx, fixtureMenusTs, makeFixture, removeFixture, runCli } from './fixture.ts';
+import { FIXTURE_GROUP, GEN_ARGS, appSnapshot, fixtureMockAssemblyTsx, fixtureMenusTs, makeFixture, removeFixture, runCli } from './fixture.ts';
 
 /** The mock spread markers moved OUT of the createMockAdapter endpoints array. */
-const mockSpreadOutsideEndpoints = fixtureMainTsx().replace(
-  `const adapter = createMockAdapter({
+const mockSpreadOutsideEndpoints = fixtureMockAssemblyTsx().replace(
+  `const mockAdapter = (registry: Registry): PlatformAdapter => createMockAdapter({
   endpoints: [
     // <gen:menu-mock-spreads>
     ...analyticsMock,
@@ -13,12 +13,12 @@ const mockSpreadOutsideEndpoints = fixtureMainTsx().replace(
   registry,
 });`,
   `const endpoints = [];
-const adapter = createMockAdapter({ endpoints: [...endpoints, ...analyticsMock], registry });
+const mockAdapter = (registry: Registry): PlatformAdapter => createMockAdapter({ endpoints: [...endpoints, ...analyticsMock], registry });
 // <gen:menu-mock-spreads>
 // </gen:menu-mock-spreads>`,
 );
 
-const mockMarkersMissing = fixtureMainTsx()
+const mockMarkersMissing = fixtureMockAssemblyTsx()
   .replace('// <gen:menu-mock-imports>\n', '')
   .replace('// </gen:menu-mock-imports>\n', '');
 
@@ -56,11 +56,11 @@ import { manifests as home } from '${PACKAGE_PREFIX}menu-home';
 
 describe('marker context validation (F7)', () => {
   const keep: string[] = [];
-  const fresh = (variants: { menusTs?: string; mainTsx?: string }): string => { const root = makeFixture(variants); keep.push(root); return root; };
+  const fresh = (variants: { menusTs?: string; mockAssemblyTsx?: string }): string => { const root = makeFixture(variants); keep.push(root); return root; };
   afterAll(() => { for (const root of keep) removeFixture(root); });
 
   it('refuses mock spread markers moved outside the createMockAdapter endpoints array', () => {
-    const root = fresh({ mainTsx: mockSpreadOutsideEndpoints });
+    const root = fresh({ mockAssemblyTsx: mockSpreadOutsideEndpoints });
     const before = appSnapshot(root);
     const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
@@ -68,8 +68,8 @@ describe('marker context validation (F7)', () => {
     expect(appSnapshot(root)).toEqual(before);
   });
 
-  it('refuses a missing main.tsx mock marker pair', () => {
-    const root = fresh({ mainTsx: mockMarkersMissing });
+  it('refuses a missing mock-assembly.tsx mock marker pair', () => {
+    const root = fresh({ mockAssemblyTsx: mockMarkersMissing });
     const before = appSnapshot(root);
     const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);

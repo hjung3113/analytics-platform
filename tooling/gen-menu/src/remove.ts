@@ -2,7 +2,7 @@ import { existsSync, readFileSync, realpathSync, readdirSync, rmSync, writeFileS
 import { join } from 'node:path';
 import { depLine, importLine, mockImportLine, mockSpreadLine, renderFiles, spreadLine, styleLine, type MenuInputs } from './templates.ts';
 import {
-  APP_PKG, GROUP_RE, GenMenuError, MAIN_TSX, MENUS_TS, STYLE_CSS,
+  APP_PKG, GROUP_RE, GenMenuError, MOCK_ASSEMBLY_TSX, MENUS_TS, STYLE_CSS,
   IMPORT_END, IMPORT_START, MOCK_IMPORTS_END, MOCK_IMPORTS_START, MOCK_SPREADS_END, MOCK_SPREADS_START,
   SPREADS_END, SPREADS_START, STYLES_END, STYLES_START,
   checkAppMarkers, checkInsideRoot, kebab, ownedLine, parseDepLine, splitLines, type OwnedLineState,
@@ -33,7 +33,7 @@ export function planRemove(root: string, group: string): RemovePlan {
   // F9: the deletion target and every edited file must resolve inside the real root.
   const realRoot = realpathSync(root);
   checkInsideRoot(realRoot, packageDir, `--remove: menus/${folder}`);
-  for (const rel of [MENUS_TS, MAIN_TSX, STYLE_CSS, APP_PKG]) checkInsideRoot(realRoot, join(root, rel), `--remove: ${rel}`);
+  for (const rel of [MENUS_TS, MOCK_ASSEMBLY_TSX, STYLE_CSS, APP_PKG]) checkInsideRoot(realRoot, join(root, rel), `--remove: ${rel}`);
 
   const metaPath = join(packageDir, '.gen-menu.json');
   const failNotGenerated = (): GenMenuError =>
@@ -57,7 +57,7 @@ export function planRemove(root: string, group: string): RemovePlan {
   }
 
   const menusLines = splitLines(readFileSync(join(root, MENUS_TS), 'utf8')).lines;
-  const mainLines = splitLines(readFileSync(join(root, MAIN_TSX), 'utf8')).lines;
+  const mainLines = splitLines(readFileSync(join(root, MOCK_ASSEMBLY_TSX), 'utf8')).lines;
   const styleLines = splitLines(readFileSync(join(root, STYLE_CSS), 'utf8')).lines;
   const pkgLines = splitLines(readFileSync(join(root, APP_PKG), 'utf8')).lines;
   // F7: the same marker rules apply on removal — the regions must be well-formed.
@@ -65,13 +65,13 @@ export function planRemove(root: string, group: string): RemovePlan {
   const inserts: InsertSpec[] = [
     { relPath: MENUS_TS, line: importLine(inputs), start: IMPORT_START, end: IMPORT_END },
     { relPath: MENUS_TS, line: spreadLine(inputs), start: SPREADS_START, end: SPREADS_END },
-    { relPath: MAIN_TSX, line: mockImportLine(inputs), start: MOCK_IMPORTS_START, end: MOCK_IMPORTS_END },
-    { relPath: MAIN_TSX, line: mockSpreadLine(inputs), start: MOCK_SPREADS_START, end: MOCK_SPREADS_END },
+    { relPath: MOCK_ASSEMBLY_TSX, line: mockImportLine(inputs), start: MOCK_IMPORTS_START, end: MOCK_IMPORTS_END },
+    { relPath: MOCK_ASSEMBLY_TSX, line: mockSpreadLine(inputs), start: MOCK_SPREADS_START, end: MOCK_SPREADS_END },
     { relPath: STYLE_CSS, line: styleLine(inputs), start: STYLES_START, end: STYLES_END },
     { relPath: APP_PKG, line: depLine(inputs) },
   ];
   for (const ins of inserts) {
-    const lines = ins.relPath === MENUS_TS ? menusLines : ins.relPath === MAIN_TSX ? mainLines : ins.relPath === STYLE_CSS ? styleLines : pkgLines;
+    const lines = ins.relPath === MENUS_TS ? menusLines : ins.relPath === MOCK_ASSEMBLY_TSX ? mainLines : ins.relPath === STYLE_CSS ? styleLines : pkgLines;
     const owned = ins.start !== undefined && ins.end !== undefined
       ? ownedLine(lines, ins.start, ins.end, ins.line)
       : depOwnership(lines, ins.line);

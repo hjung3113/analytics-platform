@@ -6,7 +6,8 @@ import { PACKAGE_PREFIX } from './prefix.js';
 //   - ImportExpression  import('x')
 //   - TSImportType      import('x').T
 //   - CallExpression    require('x')
-// Relative sources are owned by ap/no-relative-package-escape and ignored here.
+// Relative sources are owned by ap/no-relative-package-escape and ignored here, except the `denyDev`
+// pattern (#153), which mirrors the static rule's DEV_REGEX.
 
 /**
  * Decide whether a string source is restricted for this layer.
@@ -30,8 +31,10 @@ function makeEvaluate(opts) {
         .join('[^/]+');
       return new RegExp(`^${expression}$`).test(subpath);
     });
+  const devPattern = opts.denyDev && opts.devRegex ? new RegExp(opts.devRegex) : null;
   return (source) => {
     if (typeof source !== 'string') return null;
+    if (devPattern !== null && devPattern.test(source)) return opts.devMessage;
     if (source.startsWith(PACKAGE_PREFIX)) {
       const rest = source.slice(PACKAGE_PREFIX.length);
       const slash = rest.indexOf('/');

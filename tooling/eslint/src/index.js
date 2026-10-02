@@ -16,20 +16,25 @@ const REACT_MESSAGE = 'react / react-dom are not allowed in this package.';
 const TABLE_ENGINE_MESSAGE = `The table engine belongs to ${PACKAGE_PREFIX}components; menus use the platform column types (PlatformColumn).`;
 
 const MENU_ALLOW = ['contracts', 'kernel', 'components', 'ui'];
-// The composition root sees mock-server and every menu subpath below; the server conformance test (#145) registers
-// the same menu mocks, so it sees mock-server and the `/mock` subpaths only (never the FeedbackOps origin slot).
-// The other carve-outs see mock-server only.
+// #153 (ADR-0009): the production graph carries no mock. src/main.tsx gets its adapter from `#platform-assembly`
+// and sees neither mock-server nor any menu `/mock` subpath; the mock assembly and DevTools live in src/dev/**,
+// which is the only app source that registers menu mocks. The server conformance test (#145) registers the same
+// mocks, so it keeps mock-server and the `/mock` subpaths (never the FeedbackOps origin slot);
+// published-metrics.test.ts keeps mock-server only. No app file outside src/dev/** may import ./dev/**.
 const APP_CONFORMANCE_FILE = 'src/server-conformance.test.ts';
-const APP_CARVEOUT_FILES = ['src/main.tsx', APP_CONFORMANCE_FILE, 'src/dev/**/*.{ts,tsx}', 'src/published-metrics.test.ts'];
+const APP_DEV_FILES = 'src/dev/**/*.{ts,tsx}';
+const APP_PUBLISHED_METRICS_FILE = 'src/published-metrics.test.ts';
+const DEV_MESSAGE = 'src/dev/** (mock assembly, DevTools) is reached only through #platform-assembly in mock builds (ADR-0009).';
+// Relative specifiers that name a `dev` folder segment: ./dev, ./dev/x, ../dev/x, ../../src/dev/x.
+const DEV_REGEX = '^\\.{1,2}/(?:.*/)?dev(?:/|$)';
 
-// Composition-root-only menu subpaths: the FeedbackOps origin slot and each menu's exact `/mock`
-// export are available from src/main.tsx ONLY. Every other menu subpath, any `*/src` import, and every
-// other carve-out file (src/dev, published-metrics.test.ts) stays banned.
+// Menu subpaths: the FeedbackOps origin slot is src/main.tsx ONLY; each menu's exact `/mock` export is
+// src/dev/** and the conformance test only. Every other menu subpath and any `*/src` import stays banned.
 // NOTE: the gitignore-style `*` in `menu-*/mock` also matches an empty name (no way to say
 // "one or more" here), so a `menu-/mock` source is not rejected on this side; the dynamic-import
 // side (import-source.js) uses `[^/]+` for the same pattern.
 const MENU_MOCK_SUBPATH = 'menu-*/mock';
-const MENU_SUBPATH_ALLOW = ['menu-notice-voc/feedbackops-origin', MENU_MOCK_SUBPATH];
+const FEEDBACKOPS_ORIGIN_SUBPATH = 'menu-notice-voc/feedbackops-origin';
 
 // Restriction data is the single decision source: each layer declares
 // { allow, denyReact, denyTableEngine, mockAllowed, allowSubpaths } and BOTH import rules are built
@@ -37,19 +42,22 @@ const MENU_SUBPATH_ALLOW = ['menu-notice-voc/feedbackops-origin', MENU_MOCK_SUBP
 //   allow: package-entry names this layer may import; null = every entry.
 //   mockAllowed: exempts exactly the mock-server entry (never its subpaths).
 //   allowSubpaths: exact names or patterns exempted from the deep-subpath ban (default none).
+//   denyDev: bans relative imports of a `dev` folder (DEV_REGEX), static and dynamic.
 // Deep subpaths are banned for everyone, except subpaths matched by allowSubpaths.
 const TABLE_ENGINE_PACKAGES = ['@tanstack/react-table', '@tanstack/react-virtual', '@tanstack/table-core', '@tanstack/virtual-core'];
 const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, denyTableEngine: true, mockAllowed: false };
 const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTableEngine: true, mockAllowed: true };
-const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false };
-// src/main.tsx is the composition root: mock-server and the listed menu subpaths are allowed by both import rules.
-const APP_MAIN_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true, allowSubpaths: MENU_SUBPATH_ALLOW };
-// The conformance test: mock-server and the menu `/mock` subpaths, nothing else.
-const APP_CONFORMANCE_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true, allowSubpaths: [MENU_MOCK_SUBPATH] };
-// The other carve-out files keep the mock-server exemption but never the menu-subpath allowance.
-const APP_CARVEOUT_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true };
+const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false, denyDev: true };
+// src/main.tsx is the composition root: only the FeedbackOps origin slot subpath; no mock, no ./dev (#153).
+const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [FEEDBACKOPS_ORIGIN_SUBPATH] };
+// The mock assembly and DevTools: mock-server and the menu `/mock` subpaths.
+const APP_DEV_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true, allowSubpaths: [MENU_MOCK_SUBPATH] };
+// The conformance test: mock-server and the menu `/mock` subpaths, never ./dev.
+const APP_CONFORMANCE_RESTRICTION = { ...APP_DEV_RESTRICTION, denyDev: true };
+// published-metrics.test.ts keeps the mock-server exemption but never the menu-subpath allowance.
+const APP_PUBLISHED_METRICS_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true };
 
-function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, allowSubpaths = [] }) {
+function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, allowSubpaths = [], denyDev = false }) {
   const negations = [
     ...(allow === null ? [] : allow.map((name) => `!${pkg(name)}`)),
     ...(mockAllowed ? [`!${pkg('mock-server')}`] : []),
@@ -77,6 +85,7 @@ function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, al
         ...(mockAllowed ? [] : [{ group: [pkg('mock-server'), pkg('mock-server/*')], message: MOCK_SERVER_MESSAGE }]),
         ...(denyReact ? [{ group: ['react/*', 'react-dom/*'], message: REACT_MESSAGE }] : []),
         ...(denyTableEngine ? [{ group: TABLE_ENGINE_PACKAGES.map((name) => `${name}/*`), message: TABLE_ENGINE_MESSAGE }] : []),
+        ...(denyDev ? [{ regex: DEV_REGEX, message: DEV_MESSAGE }] : []),
       ],
     },
   ];
@@ -88,6 +97,8 @@ function importSourceOptions(restriction) {
     deepMessage: DEEP_SUBPATH_MESSAGE,
     layerMessage: LAYER_MESSAGE,
     mockMessage: MOCK_SERVER_MESSAGE,
+    devRegex: DEV_REGEX,
+    devMessage: DEV_MESSAGE,
     reactMessage: REACT_MESSAGE,
     tableEngineMessage: TABLE_ENGINE_MESSAGE,
     tableEnginePackages: TABLE_ENGINE_PACKAGES,
@@ -261,34 +272,25 @@ export const menu = [
   },
 ];
 
-// App: all package entries allowed, deep subpaths and mock-server banned; src/main.tsx additionally
-// keeps the mock-server exemption and the menu-subpath allowances for both import rules together;
-// the other carve-out files (src/dev / published-metrics.test.ts) keep only the mock-server
-// exemption — menu subpaths stay banned there, static and dynamic. No ignores for **/*.test.*.
+// App: all package entries allowed, deep subpaths, mock-server and ./dev banned (#153). src/main.tsx keeps only
+// the FeedbackOps origin subpath; src/dev/** and the conformance test see mock-server and the menu `/mock`
+// subpaths; published-metrics.test.ts sees mock-server only. Both import rules use the same restriction.
+// No ignores for **/*.test.*.
+const appOverride = (files, restriction) => ({
+  files,
+  rules: {
+    'no-restricted-imports': importRestrictions(restriction),
+    'ap/restricted-import-source': ['error', importSourceOptions(restriction)],
+  },
+});
+
 /** @type {import('eslint').Linter.Config[]} */
 export const app = [
   layerConfig({ restriction: APP_RESTRICTION }),
-  {
-    files: ['src/main.tsx'],
-    rules: {
-      'no-restricted-imports': importRestrictions(APP_MAIN_RESTRICTION),
-      'ap/restricted-import-source': ['error', importSourceOptions(APP_MAIN_RESTRICTION)],
-    },
-  },
-  {
-    files: [APP_CONFORMANCE_FILE],
-    rules: {
-      'no-restricted-imports': importRestrictions(APP_CONFORMANCE_RESTRICTION),
-      'ap/restricted-import-source': ['error', importSourceOptions(APP_CONFORMANCE_RESTRICTION)],
-    },
-  },
-  {
-    files: APP_CARVEOUT_FILES.filter((f) => f !== 'src/main.tsx' && f !== APP_CONFORMANCE_FILE),
-    rules: {
-      'no-restricted-imports': importRestrictions(APP_CARVEOUT_RESTRICTION),
-      'ap/restricted-import-source': ['error', importSourceOptions(APP_CARVEOUT_RESTRICTION)],
-    },
-  },
+  appOverride(['src/main.tsx'], APP_MAIN_RESTRICTION),
+  appOverride([APP_CONFORMANCE_FILE], APP_CONFORMANCE_RESTRICTION),
+  appOverride([APP_PUBLISHED_METRICS_FILE], APP_PUBLISHED_METRICS_RESTRICTION),
+  appOverride([APP_DEV_FILES], APP_DEV_RESTRICTION),
 ];
 
 /** @type {import('eslint').Linter.Config[]} */

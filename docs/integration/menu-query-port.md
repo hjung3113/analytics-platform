@@ -165,7 +165,7 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 | `menus/<g>/src/endpoints.ts` | 그 메뉴의 `defineEndpoint(...)` 목록과 params/data 타입 | `contracts` |
 | `menus/<g>/src/mock/` → 서브패스 `@ap/menu-<g>/mock` | 엔드포인트별 mock 핸들러(지금의 `compute`, `productivityData.ts`·`cycleData.ts` 계산, `NOTICES`) | `contracts`, `mock-server`, 자기 `endpoints.ts` |
 | `menus/<g>/src/pages/*` | `useMenuQuery(endpoint, params)` | `contracts`, `kernel`, `components`, `ui`, 자기 `endpoints.ts`. **`mock/`·`mock-server` 금지** |
-| `apps/platform-web/src/main.tsx` | `createMockAdapter({ endpoints: [...analyticsMock, ...], registry })` 주입 | 전부 |
+| `apps/platform-web/src/dev/mock-assembly.tsx` (#153 전 `main.tsx`) | `createMockAdapter({ endpoints: [...analyticsMock, ...], registry })` 주입 | 전부 |
 
 - 새 역방향 간선 없음: `contracts → kernel → (menu pages)`, `contracts → mock-server → (menu mock)`, 앱이 둘을 조립. `menu → mock-server` 간선은 이미 있고(`api.ts`), 허용 파일 범위만 `src/api.ts` → `src/mock/**`로 바뀐다.
 - 앱 전용 메뉴 서브패스는 선례가 있다: `@ap/menu-notice-voc/feedbackops-origin`(`tooling/eslint/src/index.js:22`). `/mock`도 같은 방식으로 `main.tsx`만 import하게 lint로 막는다.

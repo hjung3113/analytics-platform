@@ -13,7 +13,9 @@ pnpm install
 pnpm dev           # http://127.0.0.1:5173
 pnpm typecheck
 pnpm test
-pnpm build
+pnpm build         # mock 데모 산출물(--mode mock)
+pnpm build:prod    # 운영 빌드 — AP_PLATFORM_ASSEMBLY(실어댑터 조립, #154) 필요
+pnpm check:prod-graph  # 운영 모듈 그래프에 mock·DevTools 없음 확인(#153)
 ```
 
 ## 다섯 갈래 ↔ 코드

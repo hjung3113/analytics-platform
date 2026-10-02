@@ -1,7 +1,7 @@
 /**
  * Server boundary conformance (#145): the adapter-agnostic kit judged against the mock adapter, over every menu
  * endpoint the app registers. The in-house server adapter runs the same harness shape
- * (docs/integration/real-server-checklist.md). Lint lets this file see the menu `/mock` subpaths like main.tsx.
+ * (docs/integration/real-server-checklist.md). Lint lets this file see the menu `/mock` subpaths like the mock assembly (src/dev/mock-assembly.tsx).
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -16,7 +16,7 @@ import { createMockAdapter, getRole, setRole, USERS, type AnyMockEndpoint, type 
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
 import { registry } from './menus';
 
-/** Same list, same order as the `<gen:menu-mock-spreads>` block in main.tsx (checked below). */
+/** Same list, same order as the `<gen:menu-mock-spreads>` block in src/dev/mock-assembly.tsx (checked below). */
 const MOCKS: Record<string, readonly AnyMockEndpoint[]> = { analyticsMock, equipmentMock, homeMock, metricsMock, noticeVocMock };
 const endpoints = Object.values(MOCKS).flat();
 
@@ -49,10 +49,10 @@ const GRANTED: RoleId = 'engineer';
 const CONSOLE: RoleId = 'admin';
 
 describe('conformance harness covers what the app registers', () => {
-  it('lists exactly the mocks main.tsx spreads into the adapter', () => {
+  it('lists exactly the mocks the mock assembly spreads into the adapter', () => {
     // vitest runs each package from its own directory; jsdom's import.meta.url is not a file URL.
-    const main = readFileSync(resolve(process.cwd(), 'src/main.tsx'), 'utf8');
-    const block = /<gen:menu-mock-spreads>([\s\S]*?)<\/gen:menu-mock-spreads>/.exec(main)?.[1] ?? '';
+    const assembly = readFileSync(resolve(process.cwd(), 'src/dev/mock-assembly.tsx'), 'utf8');
+    const block = /<gen:menu-mock-spreads>([\s\S]*?)<\/gen:menu-mock-spreads>/.exec(assembly)?.[1] ?? '';
     expect([...block.matchAll(/\.\.\.(\w+),/g)].map(m => m[1])).toEqual(Object.keys(MOCKS));
   });
 

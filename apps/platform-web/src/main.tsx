@@ -7,40 +7,22 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';
-// <gen:menu-mock-imports>
-import { analyticsMock } from '@ap/menu-analytics/mock';
-import { equipmentMock } from '@ap/menu-equipment/mock';
-import { homeMock } from '@ap/menu-home/mock';
-import { metricsMock } from '@ap/menu-metrics/mock';
-import { noticeVocMock } from '@ap/menu-notice-voc/mock';
-// </gen:menu-mock-imports>
-import { DevTools } from './dev/DevTools';
+import { createAssembly } from '#platform-assembly';
 import { readFeedbackOpsOrigin } from './feedbackops-origin';
 import { registry } from './menus';
-import { createMockAdapter } from '@ap/mock-server';
 import { AppShell, GlobalContextBar, RouteOutlet } from '@ap/shell';
 
 // Composition root owns the FeedbackOps origin (issue #60 §4): menus never read the env, the adapter
 // never carries it. Missing env → null → the /voc links render disabled and the data still loads.
 setFeedbackOpsOrigin(readFeedbackOpsOrigin(import.meta.env.VITE_FEEDBACKOPS_ORIGIN));
 
-const adapter = createMockAdapter({
-  endpoints: [
-    // <gen:menu-mock-spreads>
-    ...analyticsMock,
-    ...equipmentMock,
-    ...homeMock,
-    ...metricsMock,
-    ...noticeVocMock,
-    // </gen:menu-mock-spreads>
-  ],
-  registry,
-});
+// The build picks the assembly (#153, ADR-0009): mock + DevTools in dev/--mode mock, the real adapter in production.
+const assembly = createAssembly({ registry });
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <I18nProvider>
-      <PlatformProvider adapter={adapter} registry={registry} slots={{ contextBar: <GlobalContextBar />, topBarTools: <DevTools /> }}>
+      <PlatformProvider adapter={assembly.adapter} registry={registry} slots={{ contextBar: <GlobalContextBar />, topBarTools: assembly.topBarTools }}>
         <AppShell><RouteOutlet /></AppShell>
       </PlatformProvider>
     </I18nProvider>

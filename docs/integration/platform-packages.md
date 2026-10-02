@@ -132,7 +132,7 @@ menus/<group>/
     index.ts            # export const manifests: MenuEntry[] (manifest만, 화면·데이터 재export 금지 — lazy 유지)
     styles.css          # Tailwind 클래스를 쓰는 패키지만: @source "./"; 앱 src/style.css가 import
     endpoints.ts        # 조회 선언(defineEndpoint: 권한·적용 Context·kind·한도) + 클라이언트 타입·표시 상수. 화면과 서버가 함께 쓰는 순수 코덱도 여기
-    mock/index.ts       # 서버 쪽 핸들러(defineMockEndpoint) — package.json "./mock", 앱 main.tsx만 import. 실서버로 갈 때 HTTP 쪽이 이 자리를 맡는다
+    mock/index.ts       # 서버 쪽 핸들러(defineMockEndpoint) — package.json "./mock", 앱 mock 조립 src/dev/mock-assembly.tsx만 import(운영 빌드 제외, #153). 실서버로 갈 때 HTTP 쪽이 이 자리를 맡는다
     mock/index.test.ts  # 인라인 MenuMeta로 createMockAdapter 등록 규칙과 menuQuery 스모크
     pages/<Page>.tsx    # PlatformPage 위에 archetype 하나, 조회는 useMenuQuery/useMenuFetch만
     manifest.test.ts    # createRegistry fixture 검증 1개 + 엔드포인트 소유(id 접두사·menuId) 검사
@@ -167,7 +167,7 @@ const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: [...hom
 | 경계 검사 | ESLint `no-restricted-imports` + 계약 규칙 — `tooling/eslint`(`@ap/eslint-config`)의 레이어별 프리셋을 각 패키지 `eslint.config.js`가 한 줄로 가져다 쓴다 | §3 규칙 1–4를 패키지별 설정으로. 규칙·프리셋 원본은 `tooling/eslint/src/` |
 | 계약 lint | URL 직접 조립 금지(`?`/`&` 문자열 조합 대신 `linkTo`/`buildQuery`), `window.location` 직접 쓰기 금지, 메뉴 코드에서 `localStorage` 금지 | 인터뷰 기록의 "URL 직접 조립 금지 lint" |
 | 테스트 | Vitest를 패키지별로. 기존 51개 테스트는 원래 파일과 같이 옮기되, 층을 넘는 테스트 파일은 D10대로 메뉴·앱 통합 테스트로 재배치 | 테스트 개수 합계가 줄지 않았는지 단계마다 확인 |
-| CI | `platform-workspace` Job에서 `pnpm lint`·`pnpm typecheck`·`pnpm test`·`pnpm build`를 각각 별도 단계로(Turbo 태스크 그래프). test 단계는 `pnpm exec turbo run test --concurrency=2`로 동시 패키지 수를 제한한다(패키지별 vitest 워커가 겹쳐 러너 CPU를 초과 구독해 5초 타임아웃이 나던 문제, #166). lint는 별도 Job이 아니라 같은 Job의 단계(6a). 플랫폼 계약 E2E는 별도 Job `platform-contracts-e2e`(브라우저 설치가 무거워 분리, #44) | Node 26.7.0 유지. `pnpm -r typecheck test build`처럼 한 줄로 쓰면 뒤 두 개가 첫 스크립트의 인자가 되어 실행되지 않는다 |
+| CI | `platform-workspace` Job에서 `pnpm lint`·`pnpm typecheck`·`pnpm test`·`pnpm build`를 각각 별도 단계로(Turbo 태스크 그래프). test 단계는 `pnpm exec turbo run test --concurrency=2`로 동시 패키지 수를 제한한다(패키지별 vitest 워커가 겹쳐 러너 CPU를 초과 구독해 5초 타임아웃이 나던 문제, #166). `pnpm build` 다음 단계 `pnpm --filter @ap/platform-web check:prod-graph`가 운영 모듈 그래프(조립 모듈 external)에 mock·`src/dev`가 없음을 확인한다(#153, ADR-0009). lint는 별도 Job이 아니라 같은 Job의 단계(6a). 플랫폼 계약 E2E는 별도 Job `platform-contracts-e2e`(브라우저 설치가 무거워 분리, #44) | Node 26.7.0 유지. `pnpm -r typecheck test build`처럼 한 줄로 쓰면 뒤 두 개가 첫 스크립트의 인자가 되어 실행되지 않는다 |
 
 **lint 도구 — ESLint (Decided, §8 #4):** FeedbackOps는 Biome을 쓰지만 경계 규칙과 URL 조립 금지 같은 커스텀 AST 규칙이 필요해 ESLint를 택했다(Biome 플러그인 GritQL은 이런 규칙에 제한적). 6a에서 `tooling/eslint`(`@ap/eslint-config`)의 층별 preset으로 구현했다. 문법 기반이라 변수에 담아 조립한 URL, computed 속성(`window['localStorage']`), optional chaining 호출 같은 우회는 잡지 않는다 — 규칙이 허용한다는 뜻이 아니다.
 
