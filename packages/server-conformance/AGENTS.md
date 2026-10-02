@@ -1,6 +1,6 @@
 # @ap/server-conformance
 
-서버 경계 적합성 묶음(#145). `PlatformAdapter.menuQuery` 구현이 메뉴 조회 계약(06 §5·§19, [실서버 연결 체크리스트](../../docs/integration/real-server-checklist.md))을 지키는지, 엔드포인트 선언과 표본 요청으로 판정한다 — 기본은 성공하는 요청 하나이고, 선언한 `limits.maxRows`가 있는 엔드포인트는 그것을 넘는 표본(`oversizeParams`)을 추가로 받아 `too_large`·데이터 없음을 검사한다(#175). 표본이 없으면 그 검사는 조용히 빠지지 않는다 — skipped 검사로 계획되어(plan·run 결과에 남고) vitest 묶음에는 `it.skip`으로 표시된다. 어댑터 구현과 무관 — mock·실어댑터를 같은 잣대로. 앱 통합 테스트가 돌리고, 사내 실서버 어댑터가 생기면 같은 하네스로 돌린다.
+서버 경계 적합성 묶음(#145). `PlatformAdapter.menuQuery` 구현이 메뉴 조회 계약(06 §5·§19, [실서버 연결 체크리스트](../../docs/integration/real-server-checklist.md))을 지키는지, 엔드포인트 선언과 표본 요청으로 판정한다 — 기본은 성공하는 요청 하나이고, 선언한 `limits.maxRows`가 있는 엔드포인트는 그것을 넘는 표본(`oversizeParams`)을 추가로 받아 `too_large`·데이터 없음을 검사한다(#175). 표본이 없으면 그 검사는 조용히 빠지지 않는다 — skipped 검사로 계획되어 run 결과에 `status: 'skipped'`로 남고(통과로 세지 않는다) vitest 묶음에는 `it.skip`으로 표시된다. 반대로 `maxRows`를 선언하지 않은 엔드포인트에 `oversizeParams`를 주면 하네스 실수로 실패시킨다. 어댑터 구현과 무관 — mock·실어댑터를 같은 잣대로. 앱 통합 테스트가 돌리고, 사내 실서버 어댑터가 생기면 같은 하네스로 돌린다.
 
 ## 파일
 

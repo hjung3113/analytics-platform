@@ -201,8 +201,16 @@ describe('declared maxRows oversize check (#175)', () => {
     const h = { ...oversizeHarness('too_large'), cases };
     expect(planServerConformance(h).filter(c => c.mode === 'skipped').map(c => c.id))
       .toEqual([`${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`]);
-    expect((await runServerConformance(h)).map(r => r.id))
-      .toContain(`${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`);
+    const skipped = (await runServerConformance(h)).find(r => r.id === `${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`);
+    // #175 follow-up P2-A: a check that did not run is reported as skipped, never as a pass.
+    expect(skipped).toEqual({ id: `${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`, status: 'skipped', failure: null });
+  });
+
+  it('flags an oversize sample on an endpoint that declares no maxRows (P3-B)', async () => {
+    const { limits: _limits, ...uncapped } = exportSpec;
+    const h = { ...oversizeHarness('too_large'), cases: [{ spec: uncapped as typeof exportSpec, params: { tail: 'p95' }, oversizeParams: { tail: 'p50' } }] };
+    const result = (await runServerConformance(h)).find(r => r.id.endsWith('oversizeParams given but the endpoint declares no maxRows'));
+    expect(result?.status).toBe('failed');
   });
 
   it('plans no skipped check when the case provides oversizeParams', () => {

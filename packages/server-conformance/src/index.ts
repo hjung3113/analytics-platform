@@ -47,7 +47,8 @@ export type ConformanceCheck = {
   run: () => Promise<string | null>;
 };
 
-export type ConformanceResult = { id: string; failure: string | null };
+/** `skipped`: planned but not run (e.g. no oversize sample) — never counted as a pass. `failure` is null unless `failed`. */
+export type ConformanceResult = { id: string; status: 'passed' | 'failed' | 'skipped'; failure: string | null };
 
 const SET_KEYS = ['roomNames', 'selection', 'lotIds', 'recipeIds'] as const;
 /** Every GlobalContext key a request may carry, in projection order. */
@@ -170,6 +171,14 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
         },
       });
     }
+    if (spec.limits?.maxRows === undefined && c.oversizeParams) {
+      // A sample for a cap the endpoint does not declare is a harness mistake (wrong endpoint, or a cap assumed but missing).
+      checks.push({
+        id: name('oversizeParams given but the endpoint declares no maxRows'),
+        mode: 'granted',
+        run: async () => 'the case carries an oversize sample, but the declaration has no limits.maxRows to judge it against',
+      });
+    }
     if (spec.limits?.maxRows !== undefined) {
       if (c.oversizeParams) {
         checks.push({
@@ -208,16 +217,22 @@ export async function runServerConformance(harness: ServerConformanceHarness): P
   const checks = planServerConformance(harness);
   const failureOf = async (check: ConformanceCheck): Promise<ConformanceResult> => {
     try {
-      return { id: check.id, failure: await check.run() };
+      const failure = await check.run();
+      return { id: check.id, status: failure === null ? 'passed' : 'failed', failure };
     } catch (error) {
-      return { id: check.id, failure: `the adapter threw instead of answering an envelope: ${String(error)}` };
+      return { id: check.id, status: 'failed', failure: `the adapter threw instead of answering an envelope: ${String(error)}` };
     }
   };
   const granted = await harness.asGranted(() => Promise.all(checks.filter(c => c.mode === 'granted').map(failureOf)));
   const permission: ConformanceResult[] = [];
   for (const check of checks.filter(c => c.mode === 'permission')) permission.push(await failureOf(check));
   const byId = new Map([...granted, ...permission].map(r => [r.id, r]));
-  return checks.map(c => byId.get(c.id) ?? { id: c.id, failure: null }); // skipped checks are planned but never run
+  return checks.map(c => {
+    if (c.mode === 'skipped') return { id: c.id, status: 'skipped', failure: null };
+    const result = byId.get(c.id);
+    if (!result) throw new Error(`conformance check planned but not run: ${c.id}`);
+    return result;
+  });
 }
 
 /**
