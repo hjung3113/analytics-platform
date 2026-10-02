@@ -1,3 +1,4 @@
+import { StrictMode, useEffect } from 'react';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -162,5 +163,43 @@ describe('spaces on Platform (06 §9.1)', () => {
     ]);
     // Usage is events via adapter.recordUsage now — the old platform:usage counter must stay dead.
     expect(localStorage.getItem('platform:usage')).toBeNull();
+  });
+});
+
+describe('toast auto-dismiss timers', () => {
+  function ToastProbe({ onMount }: { onMount?: string }) {
+    const { toast, toasts } = usePlatform();
+    useEffect(() => { if (onMount) toast(onMount); }, [onMount, toast]);
+    return <div>
+      <button type="button" data-testid="toast" onClick={() => toast('clicked')}>toast</button>
+      <p data-testid="toasts">{toasts.map(t => t.text).join(',')}</p>
+    </div>;
+  }
+
+  it('a dismiss timer that fires after the provider unmounted never reaches React (CI: window is not defined)', () => {
+    vi.useFakeTimers();
+    try {
+      const view = render(<I18nProvider><PlatformProvider adapter={fixture(ANALYST)} registry={registry}><ToastProbe /></PlatformProvider></I18nProvider>);
+      act(() => screen.getByTestId('toast').click());
+      view.unmount();
+      // What a torn-down test environment looks like to the timer: React's update path reads window.event.
+      vi.stubGlobal('window', undefined);
+      expect(() => vi.runAllTimers()).not.toThrow();
+    } finally {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
+
+  it('under StrictMode a toast raised during mount still closes by itself', () => {
+    vi.useFakeTimers();
+    try {
+      render(<StrictMode><I18nProvider><PlatformProvider adapter={fixture(ANALYST)} registry={registry}><ToastProbe onMount="mounted" /></PlatformProvider></I18nProvider></StrictMode>);
+      expect(screen.getByTestId('toasts').textContent).toContain('mounted');
+      act(() => { vi.advanceTimersByTime(5000); });
+      expect(screen.getByTestId('toasts').textContent).toBe('');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

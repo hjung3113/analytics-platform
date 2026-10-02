@@ -367,7 +367,10 @@ describe('PlatformDataTable table-owned export (#173)', () => {
       if (last) last.name = this.download;
     });
   });
-  afterAll(() => {
+  afterAll(async () => {
+    // Exports release their blob URLs on a 1s timer; let the last ones fire before jsdom's (absent)
+    // revokeObjectURL is restored, or the timer throws after this block.
+    await new Promise(resolve => setTimeout(resolve, 1100));
     vi.restoreAllMocks();
     if (originalOffsetHeight) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', originalOffsetHeight);
     if (originalOffsetWidth) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalOffsetWidth);
