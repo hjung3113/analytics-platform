@@ -1,8 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ApiResponse, PageSort, PlatformAdapter, Session } from '@ap/contracts';
-import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { toColumnDef } from './columnDef';
 import * as publicApi from './index';
 import { PlatformDataTable, type PageQuery, type PageResult, type PlatformDataTableProps, type TableUrlState } from './PlatformDataTable';
@@ -230,5 +230,199 @@ describe('jsdom layout stub stays scoped to the #160 block (review P3-3)', () =>
   it('offsetWidth and getBoundingClientRect are restored after the block', () => {
     expect(document.createElement('div').offsetWidth).toBe(unstubbedOffsetWidth);
     expect(vi.isMockFunction(Element.prototype.getBoundingClientRect)).toBe(false);
+  });
+});
+
+// ---- table-owned export (#173) ----
+
+const exportRegistry = createRegistry({
+  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'export-menu' }],
+  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
+  menus: [{ id: 'export-menu', group: 'overview', primary: true, label: { ko: '내보내기', en: 'Export' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'management', features: { export: true, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
+});
+
+type Download = { name: string; blob: Blob };
+const downloads: Download[] = [];
+const originalCreateObjectURL = URL.createObjectURL;
+const originalRevokeObjectURL = URL.revokeObjectURL;
+
+function ToastProbe() {
+  const { toasts } = usePlatform();
+  return <div data-testid="toast-probe">{toasts.map(toast => <p key={toast.id}>{toast.text}</p>)}</div>;
+}
+
+function ExportHarness(props: {
+  loadPage: PlatformDataTableProps<Row>['loadPage'];
+  exportRows?: PlatformDataTableProps<Row>['exportRows'];
+  exportNote?: string;
+  filterKey?: string;
+}) {
+  return <I18nProvider><PlatformProvider adapter={adapter} registry={exportRegistry}>
+    <PlatformDataTable<Row>
+      title="T" ariaLabel="table" columns={columns} getRowId={r => r.id}
+      loadPage={props.loadPage} filterKey={props.filterKey ?? 'f'} preferenceKey="test-export-table"
+      pageSize={25} height={200} exportRows={props.exportRows} exportNote={props.exportNote}
+    />
+    <ToastProbe />
+  </PlatformProvider></I18nProvider>;
+}
+
+const ok = (rows: Row[], trust?: ApiResponse<Row[]>['trust']): ApiResponse<Row[]> => ({ outcome: 'ok', data: rows, assessments: [], trust: trust ?? null, correlationId: 'c' });
+const refused = (outcome: 'forbidden' | 'too_large' | 'error' | 'timeout'): ApiResponse<Row[]> => ({ outcome, data: null, assessments: [], trust: null, correlationId: 'c' });
+
+// Same scoped jsdom layout stubs as the #160 block: without them the virtualizer renders no rows, so the
+// row checkboxes (selection) never appear. Restored in this block's afterAll.
+const originalOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+const originalOffsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
+const blobText = (blob: Blob) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result));
+  reader.onerror = () => reject(reader.error);
+  reader.readAsText(blob);
+});
+const emptyEnvelope: ApiResponse<Row[]> = { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'c' };
+// FileReader.readAsText goes through the UTF-8 decoder, which consumes the BOM — so text assertions compare
+// the payload and the BOM itself is asserted from the raw leading bytes (EF BB BF).
+const blobHasBom = (blob: Blob) => new Promise<boolean>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer).slice(0, 3).toString() === '239,187,191');
+  reader.onerror = () => reject(reader.error);
+  reader.readAsArrayBuffer(blob);
+});
+
+describe('PlatformDataTable table-owned export (#173)', () => {
+  beforeAll(() => {
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return (this as Element).getAttribute('role') === 'row' ? 32 : 420; } });
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return 800; } });
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const height = this.getAttribute('role') === 'row' ? 32 : 420;
+      return { height, width: 800, top: 0, left: 0, right: 800, bottom: height, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+    });
+    URL.createObjectURL = (blob: Blob) => { downloads.push({ name: '', blob }); return 'blob:test'; };
+    URL.revokeObjectURL = () => {};
+    vi.spyOn(HTMLElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      const last = downloads[downloads.length - 1];
+      if (last) last.name = this.download;
+    });
+  });
+  afterAll(() => {
+    vi.restoreAllMocks();
+    if (originalOffsetHeight) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', originalOffsetHeight);
+    if (originalOffsetWidth) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalOffsetWidth);
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
+  });
+  beforeEach(() => { downloads.length = 0; });
+  it('shows the button only when exportRows is given AND the manifest declares features.export', async () => {
+    const loadPage = makeLoadPage(3);
+    const { unmount } = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+      <PlatformDataTable<Row> title="T" ariaLabel="table" columns={columns} getRowId={r => r.id}
+        loadPage={loadPage} filterKey="f" preferenceKey="test-export-table" pageSize={25} height={200}
+        exportRows={(_scope, _signal) => Promise.resolve(ok([]))} />
+    </PlatformProvider></I18nProvider>);
+    await screen.findByText(/1\/1/);
+    expect(screen.queryByRole('button', { name: /내보내기/ })).toBeNull(); // features.export false in this registry
+    unmount();
+
+    render(<ExportHarness loadPage={loadPage} />); // no exportRows
+    await screen.findByText(/1\/1/);
+    expect(screen.queryByRole('button', { name: /내보내기/ })).toBeNull();
+  });
+
+  it('exports the filtered set when nothing is selected: BOM + CRLF CSV from the column definitions, count toast', async () => {
+    const exportRows = vi.fn(async () => ok([{ id: 'r1', status: 'a' }, { id: 'r2', status: 'b' }]));
+    render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={exportRows} />);
+    await screen.findByText(/1\/1/);
+    fireEvent.click(screen.getByRole('button', { name: /내보내기/ }));
+    await waitFor(() => expect(downloads.length).toBe(1));
+    expect(exportRows).toHaveBeenCalledWith({ kind: 'filtered' }, expect.anything());
+    expect(downloads[0].name).toMatch(/^export-menu-\d{8}-\d{4}\.csv$/);
+    expect(await blobText(downloads[0].blob)).toBe('Status\r\na\r\nb\r\n');
+    expect(await blobHasBom(downloads[0].blob)).toBe(true);
+    expect(screen.getByText('필터 결과 전체 2행을 CSV 파일로 내보냈습니다')).toBeTruthy();
+  });
+
+  it('exports only the selection, reconciles by getRowId and says which selected rows are gone', async () => {
+    const exportRows = vi.fn(async (scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }) =>
+      scope.kind === 'selected' ? ok([{ id: 'r1', status: 'a' }]) : ok([]));
+    render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={exportRows} />);
+    await screen.findByText(/1\/1/);
+    fireEvent.click(screen.getByRole('checkbox', { name: '선택 r1' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: '선택 r2' }));
+    fireEvent.click(screen.getByRole('button', { name: /내보내기 \(2\)/ }));
+    await waitFor(() => expect(downloads.length).toBe(1));
+    expect(exportRows).toHaveBeenCalledWith({ kind: 'selected', ids: ['r1', 'r2'] }, expect.anything());
+    expect(await blobText(downloads[0].blob)).toBe('Status\r\na\r\n');
+    expect(screen.getByText('선택 2행 중 1행 — 1행은 현재 결과에 없음')).toBeTruthy();
+    expect(screen.getByText('선택 1행을 CSV 파일로 내보냈습니다')).toBeTruthy();
+  });
+
+  it('builds no file for forbidden/too_large/error/timeout and toasts the reason', async () => {
+    for (const outcome of ['forbidden', 'too_large', 'error', 'timeout'] as const) {
+      const view = render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={vi.fn(async () => refused(outcome))} />);
+      await screen.findByText(/1\/1/);
+      fireEvent.click(screen.getByRole('button', { name: /내보내기/ }));
+      await waitFor(() => expect(screen.getByTestId('toast-probe').textContent).toContain('내보'));
+      expect(downloads.length).toBe(0);
+      const text = screen.getByTestId('toast-probe').textContent ?? '';
+      expect(text).toContain(outcome === 'too_large' ? '내보내기 상한을 넘었습니다' : outcome === 'forbidden' ? '거부' : outcome === 'timeout' ? '시간 초과' : '수행하지 못했습니다');
+      view.unmount();
+      downloads.length = 0;
+    }
+  });
+
+  it('empty outcome writes a header-only file', async () => {
+    render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={vi.fn(async () => emptyEnvelope)} />);
+    await screen.findByText(/1\/1/);
+    fireEvent.click(screen.getByRole('button', { name: /내보내기/ }));
+    await waitFor(() => expect(downloads.length).toBe(1));
+    expect(await blobText(downloads[0].blob)).toBe('Status\r\n');
+    expect(screen.getByText('필터 결과 전체 0행을 CSV 파일로 내보냈습니다')).toBeTruthy();
+  });
+
+  it('suffixes -provisional before the extension when the response trust is provisional', async () => {
+    render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={vi.fn(async () => ok([{ id: 'r1', status: 'a' }], { updatedAt: '2026-10-02T09:00:00+09:00', dataThrough: null, coverage: null, provisional: true, source: 'mart' }))} />);
+    await screen.findByText(/1\/1/);
+    fireEvent.click(screen.getByRole('button', { name: /내보내기/ }));
+    await waitFor(() => expect(downloads.length).toBe(1));
+    expect(downloads[0].name).toMatch(/^export-menu-\d{8}-\d{4}-provisional\.csv$/);
+  });
+
+  it('appends exportNote to the completion toast', async () => {
+    render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={vi.fn(async () => ok([]))} exportNote="페이지 필터가 적용된 목록입니다" />);
+    await screen.findByText(/1\/1/);
+    fireEvent.click(screen.getByRole('button', { name: /내보내기/ }));
+    await waitFor(() => expect(screen.getByText(/페이지 필터가 적용된 목록입니다/)).toBeTruthy());
+    expect(screen.getByText('필터 결과 전체 0행을 CSV 파일로 내보냈습니다 — 페이지 필터가 적용된 목록입니다')).toBeTruthy();
+  });
+
+  it('refuses to build a file over the defensive client cap and says why', async () => {
+    const rows = Array.from({ length: 100_001 }, (_, i) => ({ id: `r${i}`, status: 's' }));
+    render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={vi.fn(async () => ok(rows))} />);
+    await screen.findByText(/1\/1/);
+    fireEvent.click(screen.getByRole('button', { name: /내보내기/ }));
+    await waitFor(() => expect(screen.getByTestId('toast-probe').textContent).toContain('100,000'));
+    expect(downloads.length).toBe(0);
+  });
+
+  it('aborts an in-flight export on filterKey change, disables the button while running, and stays silent', async () => {
+    let signal: AbortSignal | undefined;
+    const exportRows = vi.fn((_scope: unknown, s: AbortSignal) => new Promise<ApiResponse<Row[]>>(resolve => {
+      signal = s;
+      s.addEventListener('abort', () => resolve(refused('error')));
+    }));
+    const loadPage = makeLoadPage(3);
+    const view = render(<ExportHarness loadPage={loadPage} exportRows={exportRows} />);
+    await screen.findByText(/1\/1/);
+    const button = screen.getByRole('button', { name: /내보내기/ }) as HTMLButtonElement;
+    fireEvent.click(button);
+    await waitFor(() => expect(exportRows).toHaveBeenCalled());
+    expect(button).toBeDisabled();
+
+    view.rerender(<ExportHarness loadPage={loadPage} exportRows={exportRows} filterKey="g" />);
+    await waitFor(() => expect(signal?.aborted).toBe(true));
+    await waitFor(() => expect(screen.getByRole('button', { name: /내보내기/ })).not.toBeDisabled());
+    expect(downloads.length).toBe(0);
+    expect(screen.getByTestId('toast-probe').textContent).toBe('');
   });
 });

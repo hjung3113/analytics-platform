@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Capability, ContextKey, MenuMeta, PageResult } from '@ap/contracts';
 import { createMockAdapter, EQUIPMENT, getRole, setRole, type RoleId } from '@ap/mock-server';
 import { equipmentMock } from './index';
-import { equipmentListEndpoint, equipmentPageEndpoint, type Equipment } from '../endpoints';
+import { equipmentListEndpoint, equipmentPageEndpoint, equipmentExportEndpoint, type Equipment } from '../endpoints';
 
 const none: Record<ContextKey, Capability> = {
   time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
@@ -74,5 +74,32 @@ describe('equipment-master mock endpoints', () => {
     const response = await adapter.menuQuery({ endpoint: equipmentListEndpoint.id, context: { ...context, from: '2026-09-25T09:00:00' }, params: noFilter });
     expect(response.outcome).toBe('error');
     expect(response.message).toContain('from');
+  });
+});
+
+describe('equipment-master export endpoint (#173)', () => {
+  it('declares the row cap the list cannot: list has no maxRows, export judges the whole result', () => {
+    expect(equipmentListEndpoint.limits).toBeUndefined();
+    expect(equipmentExportEndpoint.limits).toEqual({ maxRows: 50_000 });
+  });
+
+  it('returns every filtered row for ids: null and re-applies the page filters', async () => {
+    const maker = engineerIch[0].maker;
+    const response = await adapter.menuQuery({ endpoint: equipmentExportEndpoint.id, context, params: { q: '', status: '', maker, ids: null } });
+    expect(response.outcome).toBe('ok');
+    const expected = engineerIch.filter(e => e.maker === maker).map(e => e.equipmentId).sort();
+    expect((response.data as Equipment[]).map(e => e.equipmentId).sort()).toEqual(expected);
+  });
+
+  it('filters by the selection ids server-side, so the cap is judged on the selection', async () => {
+    const ids = engineerIch.slice(0, 3).map(e => e.equipmentId);
+    const response = await adapter.menuQuery({ endpoint: equipmentExportEndpoint.id, context, params: { q: '', status: '', maker: '', ids } });
+    expect((response.data as Equipment[]).map(e => e.equipmentId).sort()).toEqual([...ids].sort());
+  });
+
+  it('re-checks equipment:view per export request', async () => {
+    setRole('viewer');
+    const response = await adapter.menuQuery({ endpoint: equipmentExportEndpoint.id, context, params: { q: '', status: '', maker: '', ids: null } });
+    expect(response.outcome).toBe('forbidden');
   });
 });

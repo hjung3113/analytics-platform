@@ -1,4 +1,4 @@
-export { Button, buttonVariants, type ButtonProps } from './components/Button';
+export { Button, buttonVariants, isProductionEnv, type ButtonProps } from './components/Button';
 export { Dot, StatusBadge, type Tone } from './components/StatusBadge';
 export * from './components/shadcn/alert';
 export * from './components/shadcn/badge';

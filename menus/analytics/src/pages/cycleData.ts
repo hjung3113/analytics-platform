@@ -1,9 +1,9 @@
 /**
  * Cycle-time page codecs (06 §6.1 page keys) and row keys. Computation lives in the server half (`src/mock/cycle.ts`);
- * what both halves share (metric resolution, anchors, bins, bucket ends) lives in `../endpoints`.
+ * what both halves share (metric resolution, anchors, bins, bucket ends, the execution key) lives in `../endpoints`.
  */
 import { bucketStart, parseDateTime } from '@ap/contracts';
-import { binIndex, isAnchor, type Granularity, type TailMode } from '../endpoints';
+import { binIndex, isAnchor, type Granularity, type SlowExportFilter, type SlowFilter, type TailMode } from '../endpoints';
 
 export const SORT_COLUMNS = ['cycleMin', 'delta', 'anchor', 'equipmentId', 'room', 'recipe', 'lotId', 'quality'] as const;
 export type SortColumn = (typeof SORT_COLUMNS)[number];
@@ -61,11 +61,14 @@ export function bucketContaining(instant: string, granularity: Granularity): str
   return bucketStart(instant, granularity);
 }
 
-export function executionKey(row: { equipmentId: string; anchor: string }): string {
-  return `${row.equipmentId}|${row.anchor}`;
-}
+export { executionKey } from '../endpoints';
 
 export function equipmentIdFromKey(key: string): string {
   const split = key.indexOf('|');
   return split === -1 ? key : key.slice(0, split);
+}
+
+/** Table-owned export params (#173): the page filters plus the selection execution keys (`null` = every filtered row). */
+export function exportParams(filter: SlowFilter, scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }): SlowExportFilter {
+  return { ...filter, ids: scope.kind === 'selected' ? scope.ids : null };
 }

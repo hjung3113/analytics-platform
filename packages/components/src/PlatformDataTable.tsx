@@ -8,6 +8,7 @@ import { Button, Checkbox, cn, Label, Popover, PopoverContent, PopoverTrigger, S
 import { toColumnDef } from './columnDef';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { OutcomeView } from './StateView';
+import { exportCell, exportColumns, toCsv } from './tableExport';
 
 export type { PageQuery, PageResult } from '@ap/contracts';
 export { sortAndPage } from '@ap/contracts';
@@ -30,7 +31,25 @@ export type PlatformColumn<T> = {
   sortable?: boolean;
   /** Default true. */
   hideable?: boolean;
+  /** Default true; false keeps a column on screen but out of exports. */
+  exportable?: boolean;
+  /**
+   * Export value (#173, 06 §15): export shows what the screen shows. A column whose cell turns a code into a
+   * label or formats a time gives the same text here; numeric columns return `number`. Without it the export
+   * uses `value ?? row[id]`, and an object/array/Date there is a dev-time error asking for `exportValue`.
+   */
+  exportValue?: (row: T) => string | number | boolean | null;
 };
+
+/** Export refusal copy per outcome (#173): no file is built for these; the reason reaches the user as a toast. */
+const EXPORT_REFUSAL: Record<'forbidden' | 'too_large' | 'error' | 'timeout', { ko: string; en: string }> = {
+  forbidden: { ko: '서버가 이 조건의 내보내기를 거부했습니다.', en: 'The server rejected the export for this context.' },
+  too_large: { ko: '내보내기 결과가 내보내기 상한을 넘었습니다. 필터를 좁혀 주세요.', en: 'The export result is over the export limit. Narrow the filter.' },
+  timeout: { ko: '내보내기 요청이 시간 초과되었습니다.', en: 'The export request timed out.' },
+  error: { ko: '내보내기를 수행하지 못했습니다.', en: 'The export could not be completed.' },
+};
+/** Defensive client cap only: the server's declared `limits.maxRows` (#175) is the real guard — this one fires after the rows already arrived. */
+const EXPORT_ROW_CAP = 100_000;
 
 type Preferences = { sizing: ColumnSizingState; visibility: VisibilityState; pinning: ColumnPinningState };
 const defaults: Preferences = { sizing: {}, visibility: {}, pinning: { left: [], right: [] } };
@@ -68,7 +87,10 @@ export type PlatformDataTableProps<T> = {
   filters?: ReactNode;
   rowAction?: (row: T) => ReactNode;
   bulkActions?: (selectedIds: string[]) => ReactNode;
-  onExport?: (scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered'; total: number }) => void;
+  /** Table-owned export (#173, 06 §15): the menu only says how to read the rows to export from the server — permission/Scope/limits re-checked per request. Omit to make the screen un-exportable. */
+  exportRows?: (scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }, signal: AbortSignal) => Promise<ApiResponse<T[]>>;
+  /** Menu note appended to the export toast (e.g. cycle-time "page filters apply; not the full KPI population"). */
+  exportNote?: string;
   activeRowId?: string | null;
   preferenceKey: string;
   pageSize?: number;
@@ -81,9 +103,9 @@ export type PlatformDataTableProps<T> = {
 /** §15: platform owns interaction, loading/error, column preference, selection model, toolbar layout; domain owns columns/cells/actions/filters. */
 export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const { t, lang } = useI18n();
-  const { global, user, revision, route } = usePlatform();
+  const { global, user, revision, route, toast } = usePlatform();
   // Registry declares export capability (§5); the table never offers Export on a menu that did not declare it.
-  const canExport = !!p.onExport && !!route?.menu.features.export;
+  const canExport = !!p.exportRows && !!route?.menu.features.export;
   const pageSize = p.pageSize ?? 100;
   const [preferences, setPreferences] = useState(() => readPreferences(p.preferenceKey));
   const [sorting, setSorting] = useState<PageSort[]>([]);
@@ -91,6 +113,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const [page, setPage] = useState(0);
   const [retry, setRetry] = useState(0);
   const [result, setResult] = useState<{ identity: string; response: ApiResponse<PageResult<T>> } | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const exportAbort = useRef<AbortController | null>(null);
   const viewport = useRef<HTMLDivElement>(null);
   // urlState (§6.1): controlled sort/page. The page writes the URL via onChange; the table never touches keys.
   const activeSorting = p.urlState ? p.urlState.sorting : sorting;
@@ -102,9 +126,11 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   useEffect(() => {
     if (lastContext.current !== contextIdentity) {
       lastContext.current = contextIdentity; if (!p.urlState) setPage(0); setSelection({});
+      exportAbort.current?.abort(); // an in-flight export belongs to the old result set
       if (viewport.current) viewport.current.scrollTop = 0;
     }
   }, [contextIdentity]);
+  useEffect(() => () => exportAbort.current?.abort(), []);
   const requestIdentity = JSON.stringify([contextIdentity, effectivePage, activeSorting, retry]);
   const loadRef = useRef(p.loadPage);
   loadRef.current = p.loadPage;
@@ -182,6 +208,56 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const cellBase = 'flex min-h-8 items-center px-3 py-1 [overflow-wrap:anywhere] pointer-coarse:min-h-11';
   const nameOf = (c: Column<T>) => (c.columnDef.meta as ColumnMeta | undefined)?.label ?? (typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id);
 
+  // Table-owned export (#173): the selection when any, else all filtered rows — one CSV built from the column
+  // definitions. The menu only supplies the row read; outcome handling, reconciliation, size guard, file and toasts live here.
+  async function runExport() {
+    const scope = selectedIds.length ? { kind: 'selected' as const, ids: selectedIds } : { kind: 'filtered' as const };
+    const controller = new AbortController();
+    exportAbort.current = controller;
+    setExporting(true);
+    try {
+      const response = await p.exportRows!(scope, controller.signal);
+      if (controller.signal.aborted) return;
+      if (response.outcome !== 'ok' && response.outcome !== 'empty') {
+        toast(EXPORT_REFUSAL[response.outcome][lang], 'warning');
+        return;
+      }
+      let rows: T[] = response.outcome === 'empty' ? [] : response.data ?? [];
+      if (scope.kind === 'selected') {
+        // The server already filtered by ids; reconcile again by getRowId — a row can have left the current result.
+        const wanted = new Set(scope.ids);
+        rows = rows.filter(row => wanted.has(p.getRowId(row)));
+        const missing = scope.ids.length - rows.length;
+        if (missing > 0) {
+          toast(lang === 'ko' ? `선택 ${scope.ids.length}행 중 ${rows.length}행 — ${missing}행은 현재 결과에 없음` : `${rows.length} of ${scope.ids.length} selected rows — ${missing} ${missing === 1 ? 'row is' : 'rows are'} not in the current results`, 'warning');
+        }
+      }
+      if (rows.length > EXPORT_ROW_CAP) {
+        toast(lang === 'ko' ? `받은 행이 ${EXPORT_ROW_CAP.toLocaleString('ko-KR')}건을 넘어 파일을 만들지 않습니다. 필터를 좁혀 주세요.` : `More than ${EXPORT_ROW_CAP.toLocaleString('en-US')} rows arrived; no file was built. Narrow the filter.`, 'warning');
+        return;
+      }
+      const columns = exportColumns(p.columns, preferences);
+      const csv = toCsv(columns.map(c => c.header), rows.map(row => columns.map(c => exportCell(c, row))));
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${route?.menu.id ?? 'table'}-${stamp}${response.trust?.provisional ? '-provisional' : ''}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      const target = scope.kind === 'selected'
+        ? (lang === 'ko' ? `선택 ${rows.length}행을 CSV 파일로 내보냈습니다` : `Exported ${rows.length} selected ${rows.length === 1 ? 'row' : 'rows'} to a CSV file`)
+        : (lang === 'ko' ? `필터 결과 전체 ${rows.length}행을 CSV 파일로 내보냈습니다` : `Exported all ${rows.length} filtered ${rows.length === 1 ? 'row' : 'rows'} to a CSV file`);
+      toast(p.exportNote ? `${target} — ${p.exportNote}` : target);
+    } catch (error) {
+      if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
+      toast(EXPORT_REFUSAL.error[lang], 'warning');
+    } finally {
+      if (exportAbort.current === controller) { exportAbort.current = null; setExporting(false); }
+    }
+  }
   return <section aria-label={p.ariaLabel} className="flex flex-col rounded-lg border border-border-subtle bg-surface-card">
     <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 p-3">
       <div className="min-w-0">
@@ -201,9 +277,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             </li>)}</ul>
           </PopoverContent>
         </Popover>
-        {canExport && <Button variant="secondary" size="sm" className="h-8 gap-1.5 rounded-sm border-border-strong"
-          onClick={() => p.onExport!(selectedIds.length ? { kind: 'selected', ids: selectedIds } : { kind: 'filtered', total: data.total })}>
-          <Download className="size-3.5" aria-hidden />{t('export')}{selectedIds.length ? ` (${selectedIds.length})` : ''}
+        {canExport && <Button variant="secondary" size="sm" className="h-8 gap-1.5 rounded-sm border-border-strong" disabled={exporting} onClick={runExport}>
+          {exporting ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <Download className="size-3.5" aria-hidden />}{t('export')}{selectedIds.length ? ` (${selectedIds.length})` : ''}
         </Button>}
       </div>
     </div>

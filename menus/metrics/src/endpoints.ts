@@ -154,6 +154,18 @@ export const catalogPageEndpoint = defineEndpoint<CatalogFilter & PageQuery, Pag
   paramKeys: { q: true, status: true, domain: true, lang: true, page: true, pageSize: true, sorting: true },
 });
 
+/** Catalog filters plus an explicit row selection (`null` = every filtered row) for table-owned export. */
+export type CatalogExportFilter = CatalogFilter & { ids: string[] | null };
+
+/**
+ * The export set for table-owned export (#173): a row array, so the server declares `limits.maxRows` on it.
+ * `metrics.catalog.list` returns `CatalogList` (an object) and cannot declare a row cap.
+ */
+export const catalogExportEndpoint = defineEndpoint<CatalogExportFilter, CatalogRow[]>({
+  ...base, id: 'metrics.catalog.export', menuId: 'metric-catalog', context: {}, paramKeys: { q: true, status: true, domain: true, lang: true, ids: true },
+  limits: { maxRows: 50_000 },
+});
+
 export const definitionEndpoint = defineEndpoint<{ metricId: string; version: string | null }, DefinitionPayload>({
   ...base, id: 'metrics.definition', menuId: 'metric-detail', context: {}, paramKeys: { metricId: true, version: true },
 });

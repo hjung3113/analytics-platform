@@ -1,6 +1,6 @@
 /** Metric display labels (client only). Record types and the shared diff live in `../endpoints`. */
 import type { Tone } from '@ap/ui';
-import type { ConsumerMenuId, Domain, MetricKind, PublicationState, Text } from '../endpoints';
+import type { CatalogExportFilter, CatalogFilter, ConsumerMenuId, Domain, MetricKind, PublicationState, Text } from '../endpoints';
 
 export const DOMAIN_LABEL: Record<Domain, Text> = {
   productivity: { ko: '생산성', en: 'Productivity' },
@@ -33,4 +33,9 @@ export const CONSUMER_LABEL: Record<ConsumerMenuId, Text> = {
   'productivity-overview': { ko: '생산성 개요', en: 'Productivity overview' },
   'cycle-time': { ko: '사이클타임 상세', en: 'Cycle time detail' },
 };
+
+/** Table-owned export params (#173): the catalog filters plus the selection ids (`null` = every filtered row). */
+export function exportParams(filter: CatalogFilter, scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }): CatalogExportFilter {
+  return { ...filter, ids: scope.kind === 'selected' ? scope.ids : null };
+}
 

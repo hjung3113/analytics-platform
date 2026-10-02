@@ -1,4 +1,4 @@
-import type { Equipment } from '../endpoints';
+import type { Equipment, EquipmentExportFilter, EquipmentFilter } from '../endpoints';
 import { parseDateTime, shift } from '@ap/contracts';
 
 export const statusText = {
@@ -25,10 +25,7 @@ export function validity(e: Equipment) {
     { from: changedAt, to: e.validTo, chamberType: e.chamberType },
   ];
 }
-export function downloadCsv(rows: Equipment[]) {
-  const escape = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`;
-  const csv = '\uFEFF' + [fields.map(f => f.key).join(','), ...rows.map(e => fields.map(f => escape(e[f.key])).join(','))].join('\r\n');
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-  const a = document.createElement('a'); a.href = url; a.download = 'equipment-master.csv'; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+/** Table-owned export params (#173): the page filters plus the selection ids (`null` = every filtered row). */
+export function exportParams({ q, status, maker }: EquipmentFilter, scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }): EquipmentExportFilter {
+  return { q, status, maker, ids: scope.kind === 'selected' ? scope.ids : null };
 }

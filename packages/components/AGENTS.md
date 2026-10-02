@@ -12,6 +12,8 @@ Platform Component 층(06 §13) + 차트 계약(§16) + 페이지 archetype 골�
 
 ## 규칙
 
+**표 소유 내보내기(#173, 06 §15).** 내보내기는 `PlatformDataTable`이 소유한다 — 메뉴는 `exportRows(scope, signal)`(선택이면 ids, 아니면 필터 전체를 서버에서 읽는 법)와 안내 문구 `exportNote`만 주고, outcome 처리·선택 재조정·클라이언트 상한·CSV 직렬화·파일·토스트는 표가 한다. 직렬화기(`exportColumns`·`exportCell`·`toCsv`·`toTsv`)는 내부 모듈 `src/tableExport.ts`이며 `index.ts`가 내보내지 않는다(`columnDef.ts`와 같은 취급). 화면이 보여 주는 값만 나간다 — 라벨·시간 포맷 열은 `PlatformColumn.exportValue`로 같은 텍스트를 주고, 숫자 열은 `number`를 지킨다. 게이트는 manifest `features.export` 그대로.
+
 - import 가능: `@ap/contracts`, `@ap/kernel`, `@ap/ui`와 표·차트 라이브러리. `@ap/shell`, 앱, mock, 메뉴 화면 import 금지.
 - 컴포넌트는 도메인 의미(설비, 지표 이름)를 모른다. 컬럼·셀·탭 내용은 props로 주입받는다.
 - 06 §19 상태, §18 Data Trust, 접근성(키보드·포커스 복귀·레이블) 의무를 컴포넌트가 소유한다. 페이지가 따로 구현하게 두지 않는다.

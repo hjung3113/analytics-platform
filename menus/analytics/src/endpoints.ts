@@ -262,10 +262,18 @@ export const cycleSlowPageEndpoint = defineEndpoint<SlowPageParams, PageResult<S
   paramKeys: { tail: true, granularity: true, bucket: true, bin: true, page: true, pageSize: true, sorting: true },
 });
 
-/** Every slow row for export. No period limit (the export never had one); permission and Scope are re-checked per request. */
-export const cycleExportEndpoint = defineEndpoint<SlowFilter, SlowRow[]>({
+/** Page list filters plus an explicit row selection (execution keys, `null` = every filtered row) for export. */
+export type SlowExportFilter = SlowFilter & { ids: string[] | null };
+
+/** Every slow row for export, narrowed to the selection ids when given. Permission and Scope are re-checked per request. */
+export const cycleExportEndpoint = defineEndpoint<SlowExportFilter, SlowRow[]>({
   ...cycleBase, id: 'analytics.cycle.export', mergeTimeDomain: false,
-  paramKeys: { tail: true, granularity: true, bucket: true, bin: true },
-  // Prototype row cap for the whole-result export (06 §15); the real limit is decided with the in-house backend.
-  limits: { maxRows: 50_000 },
+  paramKeys: { tail: true, granularity: true, bucket: true, bin: true, ids: true },
+  // Prototype row cap judged after the ids filter (06 §15); the period cap matches the page endpoints (#175 review P3-6).
+  limits: { maxRows: 50_000, maxHours: CYCLE_MAX_HOURS },
 });
+
+/** Row key of an execution (equipment + anchor): the table row id and the export selection ids share this codec. */
+export function executionKey(row: { equipmentId: string; anchor: string }): string {
+  return `${row.equipmentId}|${row.anchor}`;
+}

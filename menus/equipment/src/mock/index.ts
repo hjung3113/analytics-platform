@@ -5,7 +5,7 @@
  */
 import { sortAndPage } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint, type Equipment } from '@ap/mock-server';
-import { equipmentListEndpoint, equipmentPageEndpoint, type EquipmentFilter } from '../endpoints';
+import { equipmentExportEndpoint, equipmentListEndpoint, equipmentPageEndpoint, type EquipmentFilter } from '../endpoints';
 
 export function filterEquipment(rows: Equipment[], { q, status, maker }: EquipmentFilter): Equipment[] {
   const search = q.trim().toLowerCase();
@@ -21,5 +21,13 @@ export const equipmentMock: readonly AnyMockEndpoint[] = [
     handle: ({ equipment, params: { q, status, maker, page, pageSize, sorting } }) =>
       sortAndPage(filterEquipment(equipment, { q, status, maker }), { page, pageSize, sorting }),
     isEmpty: data => data.total === 0,
+  }),
+  defineMockEndpoint(equipmentExportEndpoint, {
+    // Selection export: the server filters by ids itself, so the cap is judged on the selection, not the whole filter result.
+    handle: ({ equipment, params }) => {
+      const rows = filterEquipment(equipment, params);
+      const { ids } = params;
+      return ids == null ? rows : rows.filter(e => ids.includes(e.equipmentId));
+    },
   }),
 ];

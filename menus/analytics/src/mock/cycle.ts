@@ -7,7 +7,7 @@ import { bucketStart, formatDateTime, parseDateTime, shift, sortAndPage, type Gl
 import { cycleMinutes, defineMockEndpoint, EQUIPMENT, jobPercentile, jobsForEquipmentDay, jobsInPeriod, type AnyMockEndpoint, type Equipment, type Job } from '@ap/mock-server';
 import {
   BINS, binIndex, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint, cycleTrendEndpoint,
-  cycleVersionOf, isAnchor, resolveMetric,
+  cycleVersionOf, executionKey, isAnchor, resolveMetric,
   type CycleKpi, type CycleTrend, type CycleTrendData, type Execution, type Granularity, type OccurrenceResult, type Segment,
   type SlowFilter, type SlowRow, type TailMode,
 } from '../endpoints';
@@ -221,7 +221,12 @@ export const cycleMock: readonly AnyMockEndpoint[] = [
     metricVersion,
   }),
   defineMockEndpoint(cycleExportEndpoint, {
-    handle: ({ equipment, context, params }) => slowRows(equipment, context, params),
+    // Selection export: the server filters by execution keys itself, so the row cap is judged on the selection.
+    handle: ({ equipment, context, params }) => {
+      const rows = slowRows(equipment, context, params);
+      const { ids } = params;
+      return ids == null ? rows : rows.filter(row => ids.includes(executionKey(row)));
+    },
     metricVersion,
   }),
 ];

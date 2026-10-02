@@ -10,7 +10,7 @@ import {
   type Granularity, type ResolvedMetric, type SlowRow, type TailMode,
 } from '../endpoints';
 import {
-  DEFAULT_SORT, bucketContaining, encodeSort, parseBucket, parseBin, parseSortParam, resolveGranularity, resolveTail,
+  DEFAULT_SORT, bucketContaining, encodeSort, exportParams, parseBucket, parseBin, parseSortParam, resolveGranularity, resolveTail,
   executionKey, equipmentIdFromKey,
 } from './cycleData';
 
@@ -55,7 +55,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const trend = useMenuQuery(cycleTrendEndpoint, { granularity }, enabled);
   const dist = useMenuQuery(cycleDistEndpoint, NO_PARAMS, enabled);
   const slowPages = useMenuFetch(cycleSlowPageEndpoint);
-  const exportRowsQuery = useMenuFetch(cycleExportEndpoint);
+  const exports = useMenuFetch(cycleExportEndpoint);
   const listFilter = { tail: tailMode, granularity, bucket, bin };
 
   const columns = useMemo<PlatformColumn<SlowRow>[]>(() => [
@@ -63,7 +63,11 @@ export default function CycleTimeDrilldown(_: PageProps) {
     { id: 'room', header: 'room_name', cell: row => <span className="t-mono">{row.room}</span> },
     { id: 'recipe', header: 'Recipe', cell: row => <span className="t-mono">{row.recipe}</span> },
     { id: 'lotId', header: 'Lot', cell: row => <span className="t-mono">{row.lotId}</span> },
-    { id: 'anchor', header: ko ? '시작' : 'Start', cell: row => <span className="t-mono tabular">{row.anchor.replace('T', ' ')}</span> },
+    {
+      id: 'anchor', header: ko ? '시작' : 'Start', cell: row => <span className="t-mono tabular">{row.anchor.replace('T', ' ')}</span>,
+      // The cell shows the wall-clock anchor space-separated (§6.3); the export shows the same text.
+      exportValue: row => row.anchor.replace('T', ' '),
+    },
     {
       id: 'cycleMin', header: ko ? '사이클타임 (분)' : 'Cycle time (min)', align: 'right',
       cell: row => <span className="tabular">{formatMin(row.cycleMin, lang)}</span>,
@@ -78,39 +82,14 @@ export default function CycleTimeDrilldown(_: PageProps) {
     {
       id: 'quality', header: ko ? '품질' : 'Quality',
       cell: row => qualityBadge(row.quality, ko),
+      // The cell shows a label badge; the export shows the same text. Numbers (cycleMin, delta) stay numbers.
+      exportValue: row => (row.quality === 'review' ? (ko ? '검토 표시' : 'Review flag') : (ko ? '미확정' : 'Unconfirmed')),
     },
   ], [ko, lang]);
 
   const filterKey = JSON.stringify({ tail: tailMode, bucket: bucketRange, bin, sort: sortRaw, reload });
   const unknown = ko ? '미확인' : 'Unknown';
   const granularityPending = granularityRaw === null && hours === null;
-
-  async function exportRows(scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered'; total: number }) {
-    // Export reads through the server like any query: permission and Scope are re-validated per request.
-    const response = cycleVersion === null ? null : await exportRowsQuery.fetch(listFilter);
-    if (response?.outcome === 'forbidden') {
-      toast(ko ? '서버가 이 조건의 내보내기를 거부했습니다.' : 'The server rejected export for this context.');
-      return;
-    }
-    if (!response || (response.outcome !== 'ok' && response.outcome !== 'empty')) {
-      toast(ko ? '이 응답 상태에서는 목록을 내보내지 않습니다.' : 'Export is not available for this response state.');
-      return;
-    }
-    let list = response.data ?? [];
-    if (scope.kind === 'selected') {
-      const ids = new Set(scope.ids);
-      list = list.filter(row => ids.has(executionKey(row)));
-    }
-    const header = ['equipmentId', 'room', 'recipe', 'lotId', 'anchor', 'cycleMin', 'deltaVsP95', 'quality'];
-    const lines = [header.join(','), ...list.map(row => [row.equipmentId, row.room, row.recipe, row.lotId, row.anchor, row.cycleMin, row.delta ?? '', row.quality].map(csvCell).join(','))];
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'cycle-time-executions.csv';
-    link.click();
-    URL.revokeObjectURL(link.href);
-    toast(ko ? `실행 ${list.length}건을 내보냈습니다. 페이지 필터가 적용된 목록이며 KPI 모집단 전체가 아닙니다.` : `Exported ${list.length} executions. Page filters apply; this is not the full KPI population.`);
-  }
 
   const pageErrors = [
     !granularityResult.ok ? `granularity=${granularityRaw}` : null,
@@ -263,7 +242,9 @@ export default function CycleTimeDrilldown(_: PageProps) {
                 setPage({ sort: nextSort === DEFAULT_SORT ? null : nextSort, page: null }); // header sort gesture resets the page with the sort
               },
             }}
-            onExport={exportRows}
+            // Table-owned export (#173): the page only says how to read the rows; the table builds the file and toasts.
+            exportRows={(scope, signal) => exports.fetch(exportParams(listFilter, scope), signal)}
+            exportNote={ko ? '페이지 필터가 적용된 목록이며 KPI 모집단 전체가 아닙니다' : 'Page filters apply; this is not the full KPI population'}
             emptyAction={(bucketRange || bin || tailMode !== 'p95')
               ? <Button size="sm" variant="secondary" onClick={() => setPage({ bucket: null, bin: null, percentile: 'all', page: null })}>{ko ? '목록 필터 해제' : 'Clear list filters'}</Button>
               : undefined}
@@ -364,9 +345,4 @@ function chartTrust(trust: Trust | null, unknown: string) {
     updated: trust.updatedAt.replace('T', ' '),
     coverage: trust.coverage === null ? unknown : `${(trust.coverage * 100).toFixed(1)}%`,
   };
-}
-
-function csvCell(value: string | number): string {
-  const text = String(value);
-  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }

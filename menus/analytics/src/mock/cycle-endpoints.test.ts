@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Capability, ContextKey, MenuMeta, PageResult } from '@ap/contracts';
 import { createMockAdapter, getRole, setRole, type RoleId } from '@ap/mock-server';
 import { cycleMock, percentile, population, slowExecutions } from './cycle';
-import { cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint, type CycleKpi, type SlowRow } from '../endpoints';
+import { cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint, executionKey, type CycleKpi, type SlowRow } from '../endpoints';
 import { EQUIPMENT } from '@ap/mock-server';
 import { emptyGlobal } from '@ap/contracts';
 
@@ -43,7 +43,7 @@ describe('cycle-time endpoints', () => {
   });
 
   it('exports the same rows the slow table pages through', async () => {
-    const exported = await adapter.menuQuery({ endpoint: cycleExportEndpoint.id, context, params: allFilter });
+    const exported = await adapter.menuQuery({ endpoint: cycleExportEndpoint.id, context, params: { ...allFilter, ids: null } });
     expect(exported.outcome).toBe('ok');
     const rows = exported.data as SlowRow[];
     expect(rows.length).toBeGreaterThan(0);
@@ -52,6 +52,14 @@ describe('cycle-time endpoints', () => {
       params: { ...allFilter, page: 0, pageSize: 10_000, sorting: [{ id: 'cycleMin', desc: true }] },
     });
     expect((page.data as PageResult<SlowRow>).total).toBe(rows.length);
+  });
+
+  it('filters a selection export by execution keys server-side (#173), judging the cap on the selection', async () => {
+    const all = (await adapter.menuQuery({ endpoint: cycleExportEndpoint.id, context, params: { ...allFilter, ids: null } })).data as SlowRow[];
+    expect(all.length).toBeGreaterThan(2);
+    const keys = [executionKey(all[0]), executionKey(all[1])];
+    const selected = await adapter.menuQuery({ endpoint: cycleExportEndpoint.id, context, params: { ...allFilter, ids: keys } });
+    expect((selected.data as SlowRow[]).map(executionKey).sort()).toEqual([...keys].sort());
   });
 
   it('computes with the version the server resolves from the metric pair: page default v3, not-applied → v3', async () => {

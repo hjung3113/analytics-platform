@@ -3,10 +3,10 @@ import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, useP
 import { type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
 import { Button, Input, StatusBadge } from '@ap/ui';
 import {
-  DOMAINS, STATUSES, catalogListEndpoint, catalogPageEndpoint, metricPairEndpoint, sortColumns,
+  DOMAINS, STATUSES, catalogExportEndpoint, catalogListEndpoint, catalogPageEndpoint, metricPairEndpoint, sortColumns,
   type CatalogRow, type Lang, type PairVerdict, type PublicationState,
 } from '../endpoints';
-import { DOMAIN_LABEL, STATUS_LABEL, STATUS_TONE } from './data';
+import { DOMAIN_LABEL, STATUS_LABEL, STATUS_TONE, exportParams } from './data';
 
 const NO_DESTINATION = { viewedId: null, pageVersion: null };
 
@@ -86,7 +86,7 @@ export default function MetricCatalogPage(_: PageProps) {
   const all = useMenuQuery(catalogListEndpoint, { q: null, status: null, domain: null, lang: lang as Lang });
   const metricCount = all.response?.outcome === 'ok' ? all.response.data!.rows.length : null;
   const pages = useMenuFetch(catalogPageEndpoint);
-  const list = useMenuFetch(catalogListEndpoint);
+  const exports = useMenuFetch(catalogExportEndpoint);
 
   const columns = useMemo<PlatformColumn<CatalogRow>[]>(() => [
     {
@@ -96,10 +96,12 @@ export default function MetricCatalogPage(_: PageProps) {
     {
       id: 'nameSort', header: lang === 'ko' ? '이름' : 'Name', size: 180,
       cell: row => lang === 'ko' ? row.nameKo : row.nameEn,
+      exportValue: row => (lang === 'ko' ? row.nameKo : row.nameEn),
     },
     {
       id: 'domain', header: lang === 'ko' ? '도메인' : 'Domain', size: 120,
       cell: row => tx(DOMAIN_LABEL[row.domain]),
+      exportValue: row => tx(DOMAIN_LABEL[row.domain]),
     },
     { id: 'grain', header: 'grain', size: 180, cell: row => row.grain },
     {
@@ -113,15 +115,19 @@ export default function MetricCatalogPage(_: PageProps) {
     {
       id: 'publishedPointer', header: lang === 'ko' ? '게시 포인터' : 'Published pointer', size: 130, align: 'right',
       cell: row => row.publishedPointer ? <span className="tabular">v{row.publishedPointer}</span> : <span className="text-text-muted">{lang === 'ko' ? '없음' : 'None'}</span>,
+      // Export shows the same `v3` pointer text; no pointer exports an empty cell (the muted "None" is screen-only).
+      exportValue: row => (row.publishedPointer === null ? null : `v${row.publishedPointer}`),
     },
     {
       id: 'status', header: lang === 'ko' ? '상태' : 'Status', size: 110,
       cell: row => <StatusBadge tone={STATUS_TONE[row.status]} dot>{tx(STATUS_LABEL[row.status])}</StatusBadge>,
+      exportValue: row => tx(STATUS_LABEL[row.status]),
     },
     { id: 'owner', header: lang === 'ko' ? '정의 책임' : 'Owner', size: 160, cell: row => row.owner },
     {
       id: 'updatedAt', header: lang === 'ko' ? '수정 시각' : 'Updated', size: 170, align: 'right',
       cell: row => <time className="tabular" dateTime={row.updatedAt}>{row.updatedAt.replace('T', ' ').slice(0, 16)}</time>,
+      exportValue: row => row.updatedAt.replace('T', ' ').slice(0, 16),
     },
   ], [lang, linkTo, tx]);
 
@@ -198,23 +204,8 @@ export default function MetricCatalogPage(_: PageProps) {
             {lang === 'ko' ? `초안 v${row.draftVersion}` : `Draft v${row.draftVersion}`}
           </PlatformLink>}
         </span>}
-        onExport={async scope => {
-          // Export reads the filtered catalog from the server like any page (permission re-checked per request).
-          const response = await list.fetch(filter);
-          if (response.outcome !== 'ok') return;
-          const filtered = response.data!.rows;
-          const rows = scope.kind === 'selected' ? filtered.filter(r => scope.ids.includes(r.metricId)) : filtered;
-          const header = ['metricId', 'name', 'domain', 'grain', 'numerator', 'denominator', 'publishedPointer', 'status', 'owner', 'updatedAt'];
-          const lines = rows.map(r => [r.metricId, lang === 'ko' ? r.nameKo : r.nameEn, r.domain, r.grain, r.numerator, r.denominator, r.publishedPointer ?? '', r.status, r.owner, r.updatedAt]
-            .map(value => `"${String(value).replaceAll('"', '""')}"`).join(','));
-          const blob = new Blob([`\uFEFF${header.join(',')}\n${lines.join('\n')}\n`], { type: 'text/csv;charset=utf-8' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'metric-catalog.csv';
-          a.click();
-          URL.revokeObjectURL(url);
-        }}
+        // Table-owned export (#173): the page only says how to read the rows; the table builds the file.
+        exportRows={(scope, signal) => exports.fetch(exportParams(filter, scope), signal)}
       />}
       <p className="t-caption text-text-muted">
         {lang === 'ko'

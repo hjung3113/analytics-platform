@@ -22,7 +22,7 @@ export type EquipmentPageParams = EquipmentFilter & PageQuery;
 /** Exactly what the equipment-master manifest applies; `time` stays reference. */
 const context = { roomNames: 'apply', condition: 'apply', selection: 'apply' } as const;
 
-/** Every granted row matching the page filters: the export set and the maker options (empty filter). */
+/** Every granted row matching the page filters: the maker options (empty filter) and the render gate. */
 export const equipmentListEndpoint = defineEndpoint<EquipmentFilter, Equipment[]>({
   id: 'equipment.master.list',
   menuId: 'equipment-master',
@@ -31,8 +31,6 @@ export const equipmentListEndpoint = defineEndpoint<EquipmentFilter, Equipment[]
   requiresScope: true,
   context,
   kinds: ['collection', 'processing_delay', 'coverage'],
-  // Prototype row cap for the whole-result export (06 §15); the real limit is decided with the in-house backend.
-  limits: { maxRows: 50_000 },
   mergeTimeDomain: false,
 });
 
@@ -47,3 +45,21 @@ export const equipmentPageEndpoint = defineEndpoint<EquipmentPageParams, PageRes
   kinds: ['collection', 'processing_delay', 'coverage'],
   mergeTimeDomain: false,
 });
+
+/** Page filters plus an explicit row selection (`null` = every filtered row) for table-owned export. */
+export type EquipmentExportFilter = EquipmentFilter & { ids: string[] | null };
+
+/** The export set for the table-owned export (#173): same permission/Context/filters as the list, plus selection ids. */
+export const equipmentExportEndpoint = defineEndpoint<EquipmentExportFilter, Equipment[]>({
+  id: 'equipment.master.export',
+  menuId: 'equipment-master',
+  paramKeys: { q: true, status: true, maker: true, ids: true },
+  permission: 'equipment:view',
+  requiresScope: true,
+  context,
+  kinds: ['collection', 'processing_delay', 'coverage'],
+  // Whole-result row cap judged after the ids filter (06 §15, #175). The list endpoint is the screen's render gate and declares none.
+  limits: { maxRows: 50_000 },
+  mergeTimeDomain: false,
+});
+
