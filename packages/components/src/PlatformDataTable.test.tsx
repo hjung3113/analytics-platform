@@ -422,18 +422,14 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     expect(screen.getByText('선택 1행을 CSV 파일로 내보냈습니다')).toBeTruthy();
   });
 
-  it('builds no file for forbidden/too_large/error/timeout and toasts the reason', async () => {
-    for (const outcome of ['forbidden', 'too_large', 'error', 'timeout'] as const) {
-      const view = render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={vi.fn(async () => refused(outcome))} />);
-      await screen.findByText(/1\/1/);
-      await exportVia(FILTERED_CSV);
-      await waitFor(() => expect(screen.getByTestId('toast-probe').textContent).toContain('내보'));
-      expect(downloads.length).toBe(0);
-      const text = screen.getByTestId('toast-probe').textContent ?? '';
-      expect(text).toContain(outcome === 'too_large' ? '내보내기 상한을 넘었습니다' : outcome === 'forbidden' ? '거부' : outcome === 'timeout' ? '시간 초과' : '수행하지 못했습니다');
-      view.unmount();
-      downloads.length = 0;
-    }
+  it.each(['forbidden', 'too_large', 'error', 'timeout'] as const)('builds no file for %s and toasts the reason', async outcome => {
+    render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={vi.fn(async () => refused(outcome))} />);
+    await screen.findByText(/1\/1/);
+    await exportVia(FILTERED_CSV);
+    await waitFor(() => expect(screen.getByTestId('toast-probe').textContent).toContain('내보'));
+    expect(downloads.length).toBe(0);
+    const text = screen.getByTestId('toast-probe').textContent ?? '';
+    expect(text).toContain(outcome === 'too_large' ? '내보내기 상한을 넘었습니다' : outcome === 'forbidden' ? '거부' : outcome === 'timeout' ? '시간 초과' : '수행하지 못했습니다');
   });
 
   it('empty outcome writes a header-only file', async () => {
