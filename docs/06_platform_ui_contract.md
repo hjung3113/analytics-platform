@@ -708,7 +708,7 @@ Cell padding     4px 12px
 
 숫자는 오른쪽 정렬하고 `tabular-nums`를 사용한다.
 
-대규모 데이터에서는 브라우저에 전체 데이터를 전달하지 않는다. 서버가 이를 판정한다: 페이지로 묶이지 않은 행 배열 엔드포인트(내보내기·탐색)가 선언한 행 상한(`limits.maxRows`)을 넘는 결과는 데이터 없이 `too_large`로 답하고, 판정 순서는 [실서버 연결 체크리스트](integration/real-server-checklist.md) §3이다(#175).
+대규모 데이터에서는 브라우저에 전체 데이터를 전달하지 않는다. 서버가 선언 행 상한(`limits.maxRows`)으로 판정한다 — [실서버 연결 체크리스트](integration/real-server-checklist.md) §3(#175).
 
 ### Platform Table과 Domain Table의 경계
 

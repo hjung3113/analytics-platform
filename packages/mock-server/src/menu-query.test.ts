@@ -585,12 +585,38 @@ describe('serveEndpoint declared limits.maxRows (#175)', () => {
     expect(result.data as string[]).toHaveLength(2);
   });
 
-  it('judges what the handler returns, not the resolved equipment count (selection export)', async () => {
+  it('judges what the handler returns, not the resolved equipment count (narrowed through Context selection)', async () => {
     // Three selected rows, the handler narrows to two: 2 rows pass a maxRows of 2 even though the resolved set was 3.
     const selection = EQUIPMENT.filter(e => e.site === 'ICH').slice(0, 3).map(e => e.equipmentId);
     const result = await send(endpointsWith(({ equipment }) => equipment.slice(0, 2).map(e => e.equipmentId)), request({ scopeId: 'ICH', selection, ...PERIOD }));
     expect(result.outcome).toBe('ok');
     expect(result.data as string[]).toHaveLength(2);
+  });
+
+  // #173 selection export: the ids travel in params and the handler filters on them; the cap judges the filtered
+  // handler output, not the resolved set behind the grant (which alone exceeds the cap here).
+  it('judges the ids-filtered handler output, not the resolved equipment count (ids in params)', async () => {
+    const idsSpec = defineEndpoint<{ ids: string[] }, unknown>({
+      id: 'analytics.ids-capped',
+      menuId: 'owner',
+      paramKeys: { ids: true },
+      permission: 'platform:view',
+      requiresScope: true,
+      context: { time: 'apply' },
+      kinds: ['collection', 'coverage'],
+      mergeTimeDomain: false,
+      limits: { maxRows: 2 },
+    });
+    const idsRequest = (params: { ids: string[] }): MenuQuery =>
+      ({ endpoint: idsSpec.id, context: { scopeId: 'ICH', ...PERIOD }, params });
+    const ids = EQUIPMENT.filter(e => e.site === 'ICH').slice(0, 2).map(e => e.equipmentId);
+    const endpoints = new Map<string, AnyMockEndpoint>([[
+      idsSpec.id,
+      defineMockEndpoint(idsSpec, { handle: ({ equipment, params }) => equipment.filter(e => params.ids.includes(e.equipmentId)).map(e => e.equipmentId) }),
+    ]]);
+    const result = await serveEndpoint(endpoints, idsRequest({ ids }), undefined, { role: 'engineer', latency: 0 });
+    expect(result.outcome).toBe('ok');
+    expect(result.data as string[]).toEqual(ids);
   });
 
   it('leaves the malformed dev scenario alone: the client still receives the malformed ok envelope (#101 boundary drills)', async () => {
@@ -658,8 +684,31 @@ describe('createMockAdapter registration', () => {
     expect(() => createMockAdapter({ endpoints: [mockEndpoint(spec)], registry })).toThrow(/analytics\.paged-maxrows.*paged/);
   });
 
+  it('rejects maxRows declared on an endpoint with pageSize but no page', () => {
+    const spec = makeSpec('analytics.pagesize-maxrows', {
+      paramKeys: { term: true, pageSize: true } as unknown as EndpointSpec<Params, unknown>['paramKeys'],
+      limits: { maxRows: 50_000 },
+    });
+    expect(() => createMockAdapter({ endpoints: [mockEndpoint(spec)], registry })).toThrow(MockRegistrationError);
+    expect(() => createMockAdapter({ endpoints: [mockEndpoint(spec)], registry })).toThrow(/analytics\.pagesize-maxrows.*paged/);
+  });
+
+  // #175 review P3-1: cursor paging bounds rows just like page paging, so the cap is equally meaningless there.
+  it('rejects maxRows declared on a cursor-paged endpoint', () => {
+    const spec = makeSpec('analytics.cursor-maxrows', {
+      paramKeys: { term: true, cursor: true } as unknown as EndpointSpec<Params, unknown>['paramKeys'],
+      limits: { maxRows: 50_000 },
+    });
+    expect(() => createMockAdapter({ endpoints: [mockEndpoint(spec)], registry })).toThrow(MockRegistrationError);
+    expect(() => createMockAdapter({ endpoints: [mockEndpoint(spec)], registry })).toThrow(/analytics\.cursor-maxrows.*paged/);
+  });
+
+  // Non-paged paramKeys (same as the "accepts" test) so the value check is the only thing these pin (#175 review P3-2c).
   it.each([0, -3, 2.5])('rejects a maxRows that is not a positive integer (%s)', maxRows => {
-    const spec = makeSpec('analytics.bad-maxrows', { limits: { maxRows } });
+    const spec = makeSpec('analytics.bad-maxrows', {
+      paramKeys: { term: true } as EndpointSpec<Params, unknown>['paramKeys'],
+      limits: { maxRows },
+    });
     expect(() => createMockAdapter({ endpoints: [mockEndpoint(spec)], registry })).toThrow(MockRegistrationError);
     expect(() => createMockAdapter({ endpoints: [mockEndpoint(spec)], registry })).toThrow('positive integer');
   });

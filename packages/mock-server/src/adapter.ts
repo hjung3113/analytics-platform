@@ -73,8 +73,8 @@ export function createMockAdapter(o: {
       if (!Number.isInteger(maxRows) || maxRows <= 0) {
         throw new MockRegistrationError(`endpoint ${spec.id}: limits.maxRows must be a positive integer`);
       }
-      if ('page' in spec.paramKeys || 'pageSize' in spec.paramKeys) {
-        throw new MockRegistrationError(`endpoint ${spec.id}: limits.maxRows is declared on a paged endpoint (rows are bounded by paging)`);
+      if ('page' in spec.paramKeys || 'pageSize' in spec.paramKeys || 'cursor' in spec.paramKeys) {
+        throw new MockRegistrationError(`endpoint ${spec.id}: limits.maxRows is declared on a paged endpoint (page·pageSize·cursor paramKeys are all paging; rows are bounded by paging)`);
       }
     }
 

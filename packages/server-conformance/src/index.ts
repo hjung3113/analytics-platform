@@ -15,8 +15,9 @@ export type ConformanceCase = {
   /** Params the granted actor's request succeeds with (`ok` or `empty`). Must be a plain object. */
   params: Record<string, unknown>;
   /**
-   * Params whose result exceeds the spec's declared `limits.maxRows`. Derived only when both the declaration
-   * and this sample exist; the check expects `too_large` with no data (#175).
+   * Params whose result exceeds the spec's declared `limits.maxRows`. The check is derived when both the declaration
+   * and this sample exist; it expects `too_large` with no data (#175). A declaration without this sample plans a
+   * skipped check instead of silently dropping the rule.
    */
   oversizeParams?: Record<string, unknown>;
 };
@@ -37,8 +38,12 @@ export type ServerConformanceHarness = {
 /** One check: `run` resolves to null when the adapter conforms, otherwise to the reason it does not. */
 export type ConformanceCheck = {
   id: string;
-  /** 'granted' checks run concurrently as the granted actor; 'permission' checks run one at a time without a permission. */
-  mode: 'granted' | 'permission';
+  /**
+   * 'granted' checks run concurrently as the granted actor; 'permission' checks run one at a time without a
+   * permission; 'skipped' checks never run (#175: a maxRows declaration with no oversize sample) — they surface
+   * in the plan and as `it.skip` in the vitest suite so the gap stays visible.
+   */
+  mode: 'granted' | 'permission' | 'skipped';
   run: () => Promise<string | null>;
 };
 
@@ -165,19 +170,29 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
         },
       });
     }
-    if (spec.limits?.maxRows !== undefined && c.oversizeParams) {
-      checks.push({
-        id: name('oversize result over the declared maxRows → too_large with no data'),
-        mode: 'granted',
-        run: async () => {
-          const r = await harness.adapter.menuQuery({ ...base, params: c.oversizeParams! });
-          if (r.outcome !== 'too_large') {
-            return `expected too_large over the declared maxRows ${spec.limits!.maxRows}, got ${describeResponse(r)}`;
-          }
-          if (r.data !== null) return 'a too_large answer carries no data';
-          return null;
-        },
-      });
+    if (spec.limits?.maxRows !== undefined) {
+      if (c.oversizeParams) {
+        checks.push({
+          id: name('oversize result over the declared maxRows → too_large with no data'),
+          mode: 'granted',
+          run: async () => {
+            const r = await harness.adapter.menuQuery({ ...base, params: c.oversizeParams! });
+            if (r.outcome !== 'too_large') {
+              return `expected too_large over the declared maxRows ${spec.limits!.maxRows}, got ${describeResponse(r)}`;
+            }
+            if (r.data !== null) return 'a too_large answer carries no data';
+            return null;
+          },
+        });
+      } else {
+        // Visible not-covered entry (#175 review P2-3): the declaration exists, so the gap must not vanish — the
+        // vitest suite reports it as `it.skip` and the plan/run list it, instead of silently skipping the rule.
+        checks.push({
+          id: name('declares maxRows but has no oversizeParams sample — oversize check not run'),
+          mode: 'skipped',
+          run: async () => null, // never called: skipped checks are filtered out of every run
+        });
+      }
     }
     checks.push({
       id: name(`without ${spec.permission} → forbidden`),
@@ -188,7 +203,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
   return checks;
 }
 
-/** Runs every planned check: granted checks concurrently as the granted actor, permission checks one at a time. */
+/** Runs every planned check: granted checks concurrently as the granted actor, permission checks one at a time. Skipped checks are not run — they stay visible in the returned list by id. */
 export async function runServerConformance(harness: ServerConformanceHarness): Promise<ConformanceResult[]> {
   const checks = planServerConformance(harness);
   const failureOf = async (check: ConformanceCheck): Promise<ConformanceResult> => {
@@ -202,7 +217,7 @@ export async function runServerConformance(harness: ServerConformanceHarness): P
   const permission: ConformanceResult[] = [];
   for (const check of checks.filter(c => c.mode === 'permission')) permission.push(await failureOf(check));
   const byId = new Map([...granted, ...permission].map(r => [r.id, r]));
-  return checks.map(c => byId.get(c.id)!);
+  return checks.map(c => byId.get(c.id) ?? { id: c.id, failure: null }); // skipped checks are planned but never run
 }
 
 /**
@@ -216,6 +231,10 @@ export function describeServerConformance(title: string, harness: ServerConforma
       results = new Map((await runServerConformance(harness)).map(r => [r.id, r.failure]));
     }, timeoutMs);
     for (const check of planServerConformance(harness)) {
+      if (check.mode === 'skipped') {
+        it.skip(check.id, () => {});
+        continue;
+      }
       it(check.id, () => {
         expect(results.has(check.id), `${check.id} did not run`).toBe(true);
         expect(results.get(check.id), check.id).toBeNull();

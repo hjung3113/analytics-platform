@@ -160,21 +160,23 @@ describe('declared maxRows oversize check (#175)', () => {
   });
   const CHECK_ID = `${exportSpec.id} · oversize result over the declared maxRows → too_large with no data`;
 
-  function oversizeHarness(compliant: boolean): ServerConformanceHarness {
+  const OK_ENVELOPE = {
+    outcome: 'ok' as const,
+    data: ['r1', 'r2', 'r3'],
+    assessments: exportSpec.kinds.map(kind => ({ kind, state: 'unknown' as const, reason: 'source_unavailable' as const })),
+    trust: null,
+    correlationId: 'ref',
+  };
+  const ENVELOPE: Record<'too_large' | 'ok' | 'too_large with data', ApiResponse<unknown>> = {
+    'too_large': { outcome: 'too_large', message: 'Result has 3 rows, over the declared maxRows 2', data: null, assessments: [], trust: null, correlationId: 'ref' },
+    'ok': OK_ENVELOPE,
+    'too_large with data': { ...OK_ENVELOPE, outcome: 'too_large', message: 'Result has 3 rows, over the declared maxRows 2' },
+  };
+
+  function oversizeHarness(answers: 'too_large' | 'ok' | 'too_large with data'): ServerConformanceHarness {
     const state = { permissions: new Set<Permission>(['analytics:view']) };
     return {
-      adapter: {
-        menuQuery: async () =>
-          compliant
-            ? { outcome: 'too_large' as const, message: 'Result has 3 rows, over the declared maxRows 2', data: null, assessments: [], trust: null, correlationId: 'ref' }
-            : {
-                outcome: 'ok' as const,
-                data: ['r1', 'r2', 'r3'],
-                assessments: exportSpec.kinds.map(kind => ({ kind, state: 'unknown' as const, reason: 'source_unavailable' as const })),
-                trust: null,
-                correlationId: 'ref',
-              },
-      },
+      adapter: { menuQuery: async () => ENVELOPE[answers] },
       cases: [{ spec: exportSpec, params: { tail: 'p95' }, oversizeParams: { tail: 'all' } }],
       context: { scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' },
       foreignScopeId: 'XIA',
@@ -187,20 +189,42 @@ describe('declared maxRows oversize check (#175)', () => {
   }
 
   it('derives the check only when the case provides oversizeParams', () => {
-    expect(planServerConformance(oversizeHarness(true)).map(c => c.id)).toContain(CHECK_ID);
+    expect(planServerConformance(oversizeHarness('too_large')).map(c => c.id)).toContain(CHECK_ID);
     const cases = [{ spec: exportSpec, params: { tail: 'p95' } }];
-    expect(planServerConformance({ ...oversizeHarness(true), cases }).map(c => c.id)).not.toContain(CHECK_ID);
+    expect(planServerConformance({ ...oversizeHarness('too_large'), cases }).map(c => c.id)).not.toContain(CHECK_ID);
+  });
+
+  // #175 review P2-3: a maxRows declaration with no oversize sample must not vanish — it plans a skipped check
+  // that runServerConformance reports and describeServerConformance registers as `it.skip`.
+  it('plans a visible not-covered check when the case has no oversizeParams', async () => {
+    const cases = [{ spec: exportSpec, params: { tail: 'p95' } }];
+    const h = { ...oversizeHarness('too_large'), cases };
+    expect(planServerConformance(h).filter(c => c.mode === 'skipped').map(c => c.id))
+      .toEqual([`${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`]);
+    expect((await runServerConformance(h)).map(r => r.id))
+      .toContain(`${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`);
+  });
+
+  it('plans no skipped check when the case provides oversizeParams', () => {
+    expect(planServerConformance(oversizeHarness('too_large')).some(c => c.mode === 'skipped')).toBe(false);
   });
 
   it('passes on a server that answers too_large with no data', async () => {
-    const h = oversizeHarness(true);
+    const h = oversizeHarness('too_large');
     const check = planServerConformance(h).find(c => c.id === CHECK_ID)!;
     expect(await h.asGranted(check.run)).toBeNull();
   });
 
   it('fails on a server that ignores the declared maxRows', async () => {
-    const h = oversizeHarness(false);
+    const h = oversizeHarness('ok');
     const check = planServerConformance(h).find(c => c.id === CHECK_ID)!;
     expect(await h.asGranted(check.run)).toContain('too_large');
+  });
+
+  // #175 review P3-2b: pins the `data !== null` assertion — a too_large that smuggles the rows through is a failure.
+  it('fails on a server that answers too_large with data', async () => {
+    const h = oversizeHarness('too_large with data');
+    const check = planServerConformance(h).find(c => c.id === CHECK_ID)!;
+    expect(await h.asGranted(check.run)).toContain('carries no data');
   });
 });
