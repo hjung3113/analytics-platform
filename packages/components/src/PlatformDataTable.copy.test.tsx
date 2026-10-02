@@ -324,8 +324,10 @@ describe('PlatformDataTable row copy (#174) — secure context', () => {
   it('copy and export each keep their own status line, in either completion order (review P3-1, UX P2-2)', async () => {
     const originalCreate = URL.createObjectURL;
     const originalRevoke = URL.revokeObjectURL;
-    URL.createObjectURL = () => 'blob:test';
-    URL.revokeObjectURL = () => {};
+    let created = 0;
+    let revoked = 0;
+    URL.createObjectURL = () => { created += 1; return 'blob:test'; };
+    URL.revokeObjectURL = () => { revoked += 1; };
     const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     try {
       for (const first of ['copy', 'export'] as const) {
@@ -350,6 +352,9 @@ describe('PlatformDataTable row copy (#174) — secure context', () => {
         await waitFor(() => expect(status()).toBe(''));
         view.unmount();
       }
+      // The export releases its blob URL on a 1s timer; restoring jsdom's (absent) revokeObjectURL before it fires
+      // would throw from the timer in whatever test runs next.
+      await waitFor(() => expect(revoked).toBe(created), { timeout: 2000 });
     } finally {
       anchorClick.mockRestore();
       URL.createObjectURL = originalCreate;

@@ -164,3 +164,24 @@ describe('spaces on Platform (06 §9.1)', () => {
     expect(localStorage.getItem('platform:usage')).toBeNull();
   });
 });
+
+describe('toast auto-dismiss timers', () => {
+  function ToastButton() {
+    const { toast } = usePlatform();
+    return <button type="button" data-testid="toast" onClick={() => toast('hello')}>toast</button>;
+  }
+
+  it('are cancelled when the provider unmounts — none outlives the tree', () => {
+    vi.useFakeTimers();
+    try {
+      const view = render(<I18nProvider><PlatformProvider adapter={fixture(ANALYST)} registry={registry}><ToastButton /></PlatformProvider></I18nProvider>);
+      const before = vi.getTimerCount();
+      act(() => screen.getByTestId('toast').click());
+      expect(vi.getTimerCount()).toBe(before + 1);
+      view.unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
