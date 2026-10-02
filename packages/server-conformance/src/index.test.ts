@@ -58,7 +58,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       if (session === null || breaks.has('session-identity')) {
         session = {
           user: { id: 'engineer', name: 'Engineer', title: { ko: '엔지니어', en: 'Engineer' }, permissions: [...state.permissions] },
-          scopes: (breaks.has('session-scopes') ? ['ICH'] : ['ICH', 'CJU']).map(id => ({ id, label: id, grantedRooms: 1, totalRooms: 4 })),
+          scopes: (breaks.has('session-scopes') ? ['ICH'] : [...(breaks.has('session-foreign') ? ['XIA'] : []), 'ICH', 'CJU']).map(id => ({ id, label: id, grantedRooms: 1, totalRooms: 4 })),
         };
       }
       return session;
@@ -66,7 +66,13 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
     subscribe: onChange => {
       if (breaks.has('subscribe-unsubscribe')) return undefined as unknown as () => void;
       listeners.add(onChange);
-      return () => { listeners.delete(onChange); };
+      // 'unsubscribe-twice' throws on the second call — the double-unsubscribe branch must catch it.
+      let unsubscribed = false;
+      return () => {
+        if (breaks.has('unsubscribe-twice') && unsubscribed) throw new Error('already unsubscribed');
+        unsubscribed = true;
+        listeners.delete(onChange);
+      };
     },
     validateScope: async scopeId => {
       if (scopeId === 'ICH' || scopeId === 'CJU') {
@@ -75,7 +81,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       if (scopeId === 'XIA') {
         return { status: 'forbidden', grantedRooms: breaks.has('validate-foreign') ? ['ET-502'] : [] };
       }
-      return { status: breaks.has('validate-unknown') ? 'forbidden' : 'unknown_scope', grantedRooms: [] };
+      return { status: breaks.has('validate-unknown') ? 'forbidden' : 'unknown_scope', grantedRooms: breaks.has('validate-unknown-rooms') ? ['PH-101'] : [] };
     },
     getEntity: async ref => {
       if (ref.type !== 'equipment') {
@@ -165,20 +171,34 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
           : { ...envelope, outcome: 'forbidden', message: 'No permission equipment:view' };
       }
       if (ref.scopeId !== 'ICH') {
-        return breaks.has('entity-audit-foreign')
+        // 'entity-audit-null' answers ok for a null Scope — the getEntity gate must catch it (adapter.ts).
+        if (ref.scopeId === null && breaks.has('entity-audit-null')) {
+          return { ...envelope, outcome: 'ok', data: { events: [REF_EVENT] } };
+        }
+        return ref.scopeId !== null && breaks.has('entity-audit-foreign')
           ? { ...envelope, outcome: 'ok', data: { events: [REF_EVENT] } }
           : { ...envelope, outcome: 'forbidden', message: `No grant for scope ${ref.scopeId}` };
       }
       if (breaks.has('entity-audit-ok')) return { ...envelope, outcome: 'ok', data: {} as unknown as { events: readonly AuditEvent[] } }; // data.events is not an array
       return { ...envelope, outcome: 'ok', data: { events: [REF_EVENT] } };
     },
-    auditTrail: async () => consoleGate('auditTrail', { items: [REF_EVENT], total: 1 }),
-    accessDirectory: async () => {
-      const r = consoleGate('accessDirectory', { items: [], total: 0 });
-      // 'console-accessDirectory-mart' dresses a non-mart read up as mart data — the kit must refuse that.
-      return breaks.has('console-accessDirectory-mart') && r.outcome === 'ok'
-        ? { ...r, assessments: REF_ASSESSMENTS, trust: REF_TRUST }
+    auditTrail: async () => {
+      // adapter.ts zero rule: a zero is outcome `empty`. 'console-auditTrail-empty' empties the audit store
+      // (still conforming); 'console-auditTrail-ok-zero' answers ok with an empty page — the kit must refuse it.
+      if (breaks.has('console-auditTrail-ok-zero')) return consoleGate('auditTrail', { items: [], total: 0 });
+      const r = consoleGate('auditTrail', { items: [REF_EVENT], total: 1 });
+      return breaks.has('console-auditTrail-empty') && r.outcome === 'ok'
+        ? { ...r, outcome: 'empty' as const, data: null }
         : r;
+    },
+    accessDirectory: async () => {
+      // The reference directory holds no principals: a zero is outcome `empty` (adapter.ts) — the kit must
+      // accept it. 'console-accessDirectory-mart' dresses a non-mart read up as mart data — the kit must refuse that.
+      const r = consoleGate('accessDirectory', { items: [], total: 0 });
+      const zero = r.outcome === 'ok' ? { ...r, outcome: 'empty' as const, data: null } : r;
+      return breaks.has('console-accessDirectory-mart') && zero.outcome === 'empty'
+        ? { ...zero, assessments: REF_ASSESSMENTS, trust: REF_TRUST }
+        : zero;
     },
     usageSummary: async (range: UsageRange) => {
       // §5: aggregation counts entries by the server receive time — 'usage-aggregates-by-client-at' stamps the
@@ -194,10 +214,14 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         agg.last = Math.max(agg.last, stamp(e));
         byMenu.set(e.menuId, agg);
       }
-      return consoleGate<UsageSummary>('usageSummary', {
+      const r = consoleGate<UsageSummary>('usageSummary', {
         preset: 'preset' in range ? 'all' : 'range',
         menus: [...byMenu.entries()].map(([menuId, agg]) => ({ menuId, visits: agg.visits, distinctUsers: agg.users.size, lastUsedAt: agg.last })),
       });
+      // 'console-usageSummary-empty' answers empty on a zero — the kit must refuse it (adapter.ts: ok with menus: []).
+      return breaks.has('console-usageSummary-empty') && r.outcome === 'ok'
+        ? { ...r, outcome: 'empty' as const, data: null }
+        : r;
     },
     recordUsage: async (events) => {
       const USAGE_KEYS = ['name', 'menuId', 'spaceId', 'path', 'at', 'sessionId'];
@@ -275,7 +299,8 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         .filter(r => r.chartId === ref.chartId && (breaks.has('annotation-keyed-by-chart') || r.scopeId === ref.scopeId))
         .map(({ authorId: _author, ...row }) => row);
       if (items.length === 0) return { ...envelope, outcome: 'empty' };
-      return breaks.has('annotation-mart')
+      // 'annotation-list-mart' taints only the list — 'annotation-mart' taints save and list together.
+      return breaks.has('annotation-mart') || breaks.has('annotation-list-mart')
         ? { ...envelope, outcome: 'ok', data: { items }, assessments: REF_ASSESSMENTS, trust: REF_TRUST }
         : { ...envelope, outcome: 'ok', data: { items } };
     },
@@ -286,7 +311,11 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
           : { ...envelope, outcome: 'forbidden', message: 'No permission analytics:view' };
       }
       // A user/at/id in the input is an unknown key and rejects the call (adapter.ts) — 'annotation-accepts-at' takes it anyway.
+      // 'annotation-error-stores' answers error but persists the row — the "nothing stored" half must catch it.
       if (!breaks.has('annotation-accepts-at') && Object.keys(input).some(k => !['chartId', 'scopeId', 'from', 'to', 'text'].includes(k))) {
+        if (breaks.has('annotation-error-stores')) {
+          annotationRows.push({ id: `ann-${++annotationSeq}`, chartId: input.chartId, scopeId: input.scopeId ?? 'ICH', from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00', authorId: 'engineer' });
+        }
         return err('Invalid annotation input');
       }
       if (input.scopeId === null) {
@@ -299,10 +328,13 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
           ? { ...envelope, outcome: 'ok', data: { id: 'ann-0', chartId: input.chartId, scopeId: input.scopeId, from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00' } }
           : { ...envelope, outcome: 'forbidden', message: `No grant for scope ${input.scopeId}` };
       }
-      const stored = { id: `ann-${++annotationSeq}`, chartId: input.chartId, scopeId: input.scopeId, from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00', authorId: 'engineer' };
+      // 'annotation-echo' saves a different text than the input — the saved row must echo it. 'annotation-
+      // row-author' leaks the stamped author into the returned row (adapter.ts: never sent, never returned).
+      const stored = { id: `ann-${++annotationSeq}`, chartId: input.chartId, scopeId: input.scopeId, from: input.from, to: input.to, text: breaks.has('annotation-echo') ? `${input.text} (edited)` : input.text, at: '2026-09-26T09:00:00', authorId: 'engineer' };
       // 'annotation-not-stored' answers ok without persisting — the same-site list must notice.
       if (!breaks.has('annotation-not-stored')) annotationRows.push(stored);
       const { authorId: _author, ...row } = stored;
+      if (breaks.has('annotation-row-author')) return { ...envelope, outcome: 'ok', data: { ...row, authorId: 'engineer' } };
       return breaks.has('annotation-mart')
         ? { ...envelope, outcome: 'ok', data: row, assessments: REF_ASSESSMENTS, trust: REF_TRUST }
         : { ...envelope, outcome: 'ok', data: row };
@@ -388,6 +420,7 @@ describe('server conformance kit (#145)', () => {
       'port · entityAudit(sample) → events',
       'port · entityAudit of an unregistered type → error',
       'port · entityAudit at a site without a grant → forbidden',
+      'port · entityAudit with a null Scope → forbidden',
       'port · entityAudit without equipment:view → forbidden',
       'port · auditTrail as a console actor → ok',
       'port · auditTrail without console:access → forbidden',
@@ -460,10 +493,13 @@ describe('server conformance kit (#145)', () => {
   it.each([
     ['session-identity', 'port · session() returns the same object until the session changes'],
     ['session-scopes', 'port · session lists the granted sites and not the foreign one'],
+    ['session-foreign', 'port · session lists the granted sites and not the foreign one'],
     ['subscribe-unsubscribe', 'port · subscribe returns an unsubscribe function'],
+    ['unsubscribe-twice', 'port · subscribe returns an unsubscribe function'],
     ['validate-granted', 'port · validateScope(granted site) → valid with its rooms'],
     ['validate-foreign', 'port · validateScope(foreign site) → forbidden with no rooms'],
     ['validate-unknown', 'port · validateScope(unknown site) → unknown_scope'],
+    ['validate-unknown-rooms', 'port · validateScope(unknown site) → unknown_scope'],
     ['entity-ok', 'port · getEntity(sample) → ok with the row'],
     ['entity-unknown-type', 'port · getEntity of an unregistered type → error'],
     ['entity-foreign', 'port · getEntity at a site without a grant → forbidden'],
@@ -475,22 +511,32 @@ describe('server conformance kit (#145)', () => {
     ['entity-audit-ok', 'port · entityAudit(sample) → events'],
     ['entity-audit-unknown-type', 'port · entityAudit of an unregistered type → error'],
     ['entity-audit-foreign', 'port · entityAudit at a site without a grant → forbidden'],
+    ['entity-audit-null', 'port · entityAudit with a null Scope → forbidden'],
     ['entity-audit-permission', 'port · entityAudit without equipment:view → forbidden'],
     ['console-auditTrail-ok', 'port · auditTrail as a console actor → ok'],
+    // adapter.ts zero rule: ok with an empty page is a violation (a zero is outcome empty).
+    ['console-auditTrail-ok-zero', 'port · auditTrail as a console actor → ok'],
     ['console-accessDirectory-ok', 'port · accessDirectory as a console actor → ok'],
     ['console-auditTrail-permission', 'port · auditTrail without console:access → forbidden'],
     ['console-accessDirectory-permission', 'port · accessDirectory without console:access → forbidden'],
     ['console-usageSummary-permission', 'port · usageSummary without console:access → forbidden'],
     ['console-accessDirectory-mart', 'port · accessDirectory is not mart data: no assessments, null trust'],
     // #152 step 2: one break per new port rule — each must fail exactly its own check.
+    // Two more ways the save shape check fails: the row does not echo the input, or leaks the stamped author.
     ['annotation-not-stored', 'port · saveAnnotation then listAnnotations at the same site returns the note'],
+    ['annotation-echo', 'port · saveAnnotation then listAnnotations at the same site returns the note'],
+    ['annotation-row-author', 'port · saveAnnotation then listAnnotations at the same site returns the note'],
     ['annotation-keyed-by-chart', 'port · a note saved at one site is not listed at another'],
     ['annotation-list-foreign', 'port · listAnnotations at a site without a grant → forbidden'],
     ['annotation-save-foreign', 'port · saveAnnotation at a site without a grant → forbidden'],
     ['annotation-list-null', 'port · listAnnotations with a null Scope → forbidden'],
     ['annotation-save-null', 'port · saveAnnotation with a null Scope → forbidden'],
     ['annotation-accepts-at', 'port · saveAnnotation carrying an at → error, nothing stored'],
+    // The other half of the same check: answering error but persisting the row anyway.
+    ['annotation-error-stores', 'port · saveAnnotation carrying an at → error, nothing stored'],
+    // 'annotation-mart' taints save and list; 'annotation-list-mart' taints the list only.
     ['annotation-mart', 'port · annotations are not mart data: no assessments, null trust'],
+    ['annotation-list-mart', 'port · annotations are not mart data: no assessments, null trust'],
     ['annotation-list-permission', 'port · listAnnotations without analytics:view → forbidden'],
     ['annotation-save-permission', 'port · saveAnnotation without analytics:view → forbidden'],
     ['usage-drops-dwell', 'port · recordUsage accepts a valid entry and dwell'],
@@ -520,6 +566,21 @@ describe('server conformance kit (#145)', () => {
       'port · usageSummary as a console actor → ok',
       'port · usageSummary counts by receive time, not the client at',
     ]);
+  });
+
+  // adapter.ts zero rule: usageSummary answering `empty` on a zero breaks both console checks — a zero is
+  // `ok` with `menus: []` (the console left-joins zero-visit menus).
+  it('fails the console read and the receive-time check when usageSummary answers empty on a zero', async () => {
+    expect(await failing(['console-usageSummary-empty'])).toEqual([
+      'port · usageSummary as a console actor → ok',
+      'port · usageSummary counts by receive time, not the client at',
+    ]);
+  });
+
+  // The same rule's positive half: auditTrail/accessDirectory answering `empty` on a zero pass every check
+  // (accessDirectory answers empty in every harness already — this adds auditTrail).
+  it('passes every check when the console paged reads answer empty on a zero', async () => {
+    expect(await failing(['console-auditTrail-empty'])).toEqual([]);
   });
 
   it('reports an adapter that throws instead of answering an envelope', async () => {

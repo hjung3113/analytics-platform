@@ -21,10 +21,10 @@
 | `contextOptions`·`evaluateSelection` | 조건 축 선택지, 조건 결과·조건 밖 선택. 조건 판정은 서버 책임이다. |
 | `defaultRangeTo()` | 기본 기간의 기준 시각(wall-clock, 06 §6.3). |
 | `menuQuery(req)` | §3 판정 순서 전부. 메뉴 데이터는 모두 이 한 메서드로 온다. |
-| `getEntity(ref)` | §22 목적지 단건. 권한은 클라이언트 인수가 아니라 서버 소유 map(예: `equipment` → `equipment:view`)으로 판정하고, site 검증 뒤 그 객체의 room을 다시 검증한다. 거부 응답에 행 필드를 싣지 않는다. 전역 Context·Selection으로 대체하지 않는다. |
-| `auditTrail`·`entityAudit` | 변경 감사. 전역은 `console:access`, 단건은 그 목적지의 조회 권한. 클라이언트는 actor·at을 보내지 않는다(서버가 기록). |
-| `accessDirectory` | 권한/역할 조회 전용(`console:access`). 부여·회수 쓰기는 원천 결정(#98) 전에는 없다. |
-| `recordUsage`·`usageSummary` | 활용률 이벤트 적재(userId 없음 — 서버가 세션 사용자로 기록)와 집계 읽기(`console:access`). 조회조건 수집 여부는 #75 결정 대기. |
+| `getEntity(ref)` | §22 목적지 단건. 권한은 클라이언트 인수가 아니라 서버 소유 map(예: `equipment` → `equipment:view`)으로 판정하고, site 검증 뒤 그 객체의 room을 다시 검증한다. 등록 안 된 type은 `error`다. 거부 응답에 행 필드를 싣지 않는다. 전역 Context·Selection으로 대체하지 않는다. |
+| `auditTrail`·`entityAudit` | 변경 감사. 전역은 `console:access`, 단건은 그 목적지의 조회 권한. 클라이언트는 actor·at을 보내지 않는다(서버가 기록). 결과가 없으면 `empty`다(빈 목록의 `ok`가 아니다). 단건(`entityAudit`)은 `getEntity`와 같은 게이트 — 목적지 type의 조회 권한, site가 있는 type은 site·room 부여(부여 안 된 site·null Scope는 `forbidden`), site가 없는 type(지표)은 `scopeId: null`, 등록 안 된 type은 `error`. |
+| `accessDirectory` | 권한/역할 조회 전용(`console:access`). 부여·회수 쓰기는 원천 결정(#98) 전에는 없다. 결과가 없으면 `empty`다(빈 목록의 `ok`가 아니다). |
+| `recordUsage`·`usageSummary` | 활용률 이벤트 적재(userId 없음 — 서버가 세션 사용자로 기록)와 집계 읽기(`console:access`). `usageSummary`는 해당 메뉴가 없어도 `ok`에 `menus: []`다 — `empty`가 아니라(콘솔은 방문 0 메뉴를 left-join해서 보여준다; `empty`면 그 메뉴들이 숨겨진다). 조회조건 수집 여부는 #75 결정 대기. |
 | `reportClientError` | 렌더 실패 보고. 식별 필드만 정확한 모양으로 받고, 알 수 없는 키·URL·자유 문장은 통째 거부. 서버가 세션 사용자·시각을 기록한다. |
 | `listAnnotations`·`saveAnnotation` | 차트 주석은 서버 소유, `(chartId, scopeId)` 키. 차트 권한과 그 site 부여를 검증한다(06 §16). |
 
@@ -72,17 +72,18 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 
 - `adapter`: 실어댑터(테스트 환경 서버를 가리킴).
 - `cases`: 엔드포인트 선언과 표본 요청 — 앱 테스트의 `PARAMS` 표를 그대로 쓸 수 있다.
-- `context`·`foreignScopeId`: 테스트 계정에 부여된 site·기간, 부여되지 않은 site.
-- `ports`: 포트 표본 — 목적지 표본(`EntityRef`와 그 조회 권한), 주석 대상 chartId와 권한, 활용률 이벤트 표본, 오류 보고 표본, 두 번째 부여 site.
-- `asGranted`·`withoutPermission`: 모든 엔드포인트 권한을 가진 테스트 계정과, 권한 하나씩만 뺀 계정(또는 그렇게 세션을 바꾸는 테스트 훅). 부여 계정은 목적지 조회 권한·주석 권한도 있어야 하고 site 둘에 부여돼 있어야 한다.
+- `context`·`foreignScopeId`: 테스트 계정에 부여된 site·기간, 부여되지 않은 site. `foreignScopeId`는 **서버가 아는** site여야 한다 — 모르는 id를 고르면 `validateScope(foreign site) → forbidden` 검사가 `unknown_scope`를 만나 실패한다.
+- `ports`: 포트 표본 — 목적지 표본(`EntityRef`와 그 조회 권한), 주석 대상 chartId와 권한, 활용률 이벤트 표본, 오류 보고 표본, 두 번째 부여 site. 목적지 표본은 **site가 있는 type**으로 `context.scopeId`에 둬야 하고 그 계정이 부여받은 room이어야 한다 — 지표 같은 site 없는 type은 site·null Scope 검사를 통과할 수 없다.
+- `asGranted`·`withoutPermission`: 모든 엔드포인트 권한을 가진 테스트 계정과, 권한 하나씩만 뺀 계정(또는 그렇게 세션을 바꾸는 테스트 훅). 부여 계정은 목적지 조회 권한·주석 권한도 있어야 하고 site 둘에 부여돼 있어야 한다. `withoutPermission`은 모든 엔드포인트 권한과 `ports.entity.permission`·`ports.annotation.permission`·`console:access`으로 불린다 — 부여 계정이 안 가진 권한(예: `console:access`)을 빼면 부여 계정 자신으로 돌아가므로, 권한 하나씩만 뺀 계정을 따로 만드는 팀은 이 목록이 곧 준비할 계정 목록이다.
 - `asConsole`: `console:access`를 가진 계정(콘솔 조회·활용률 집계 검사가 이 계정으로 돈다).
+- 시계: 수신 시각 검사는 **테스트 러너 시각**의 ±10분 창을 서버의 수신 스탬프와 비교한다 — 러너와 서버 시계를 몇 분 이내로 맞춘다(NTP). 1970-01-01 창도 읽는다 — 보존 기간이 제한된 서버도 그 창에는 `ok`(0건)로 답해야 한다.
 - `oversizeParams`(`maxRows`를 선언한 엔드포인트마다): 테스트 서버에서 선언 상한을 넘는 결과가 나오는 표본 요청. 앱 테스트의 `PARAMS` 표에는 없다(mock 데이터가 작다) — 테스트 환경에 상한보다 많은 행을 준비해야 한다. 표본이 없으면 그 검사는 건너뛰었다고 표시된다.
 
 포트 메서드도 같은 묶음이 검사한다(#152):
 
 - 세션 identity·부여 site 목록, `subscribe` 해제 함수, `validateScope` 세 상태(부여·미부여·알 수 없음 site)
-- `getEntity`·`entityAudit` 권한·site·미등록 type, `getEntity` null Scope
-- 콘솔 조회 권한(`auditTrail`·`accessDirectory`·`usageSummary`의 `console:access`)
+- `getEntity`·`entityAudit` 권한·site·null Scope·미등록 type
+- 콘솔 조회 권한(`auditTrail`·`accessDirectory`·`usageSummary`의 `console:access`)과 0건 outcome(`auditTrail`·`accessDirectory`는 `empty`, `usageSummary`는 `ok`·`menus: []`)
 - 주석: 저장·같은 site 재조회, site 격리(다른 부여 site에 보이지 않음), 부여 없는 site·null Scope `forbidden`, 클라이언트 `at` 거부(거부한 주석은 저장 안 됨), 비 mart 응답(assessments 없음·trust null), 차트 권한 재검증
 - 활용률: 유효 entry·dwell 적재, 하나라도 어긋나면 전체 거부(unknown key·클라이언트 userId·query 붙은 path·비숫자 `at`·음수 `dwellMs`), 수신 시각 집계(클라이언트 `at`이 아니라 서버 수신 시각으로 집계)
 - 오류 보고: 유효 표본 적재(positive)와 거부(자유 문장 message·절대 URL path·query 붙은 path·자유 문장 name·누락 필드)

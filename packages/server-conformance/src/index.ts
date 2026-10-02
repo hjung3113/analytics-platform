@@ -30,7 +30,7 @@ export type ConformanceCase = {
  * site the actor also holds a grant in.
  */
 export type PortSamples = {
-  /** A destination the granted actor may read: `ref.scopeId` is `context.scopeId`, its room is granted; `permission` is that type's view permission. */
+  /** A destination the granted actor may read: a site-scoped type at `ref.scopeId: context.scopeId` whose room is granted (a siteless type like 지표 cannot pass the site/Scope checks — checklist §4); `permission` is that type's view permission. */
   entity: { ref: EntityRef; permission: Permission };
   /** A chart the granted actor may annotate and the permission it needs. */
   annotation: { chartId: string; permission: Permission };
@@ -47,9 +47,8 @@ export type ServerConformanceHarness = {
   cases: readonly ConformanceCase[];
   /** Applied Context values a granted request uses: a granted site and an absolute period inside every endpoint limit. */
   context: { scopeId: string; from: string; to: string };
-  /** A site the granted actor holds no grant for. */
+  /** A site the granted actor holds no grant for — one the server knows: an unknown id answers `unknown_scope`, not `forbidden`, and fails the foreign-site check (checklist §4). */
   foreignScopeId: string;
-  /** Sample inputs for the port checks: a readable destination, a chart to annotate, telemetry shapes, a second granted site. */
   ports: PortSamples;
   /**
    * Run `fn` as the granted actor: every case permission plus `ports.entity.permission` and
@@ -57,7 +56,12 @@ export type ServerConformanceHarness = {
    * It need not hold `console:access`.
    */
   asGranted<T>(fn: () => Promise<T>): Promise<T>;
-  /** Run `fn` as the granted actor minus `permission` — everything else equal. */
+  /**
+   * Run `fn` as the granted actor minus `permission`. Called with every case permission plus
+   * `ports.entity.permission`, `ports.annotation.permission` and `console:access` — a permission the
+   * granted account does not hold (e.g. `console:access`) means the granted account itself, so a team
+   * provisioning one account per removed permission needs exactly that set (checklist §4).
+   */
   withoutPermission<T>(permission: Permission, fn: () => Promise<T>): Promise<T>;
   /** Run `fn` as an actor holding `console:access` (the console reads); everything else equal. */
   asConsole<T>(fn: () => Promise<T>): Promise<T>;
@@ -432,6 +436,11 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
     run: expectOutcome(() => adapter.entityAudit({ ...entityRef, scopeId: harness.foreignScopeId }), 'forbidden', 'a site the granted actor holds no grant for'),
   });
   checks.push({
+    id: 'port · entityAudit with a null Scope → forbidden',
+    mode: 'granted',
+    run: expectOutcome(() => adapter.entityAudit({ ...entityRef, scopeId: null }), 'forbidden', 'a site-scoped destination type with a null Scope leaves no site to read (adapter.ts: same gates as getEntity)'),
+  });
+  checks.push({
     id: `port · entityAudit without ${ports.entity.permission} → forbidden`,
     mode: 'permission',
     run: () => harness.withoutPermission(
@@ -439,12 +448,14 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       expectOutcome(() => adapter.entityAudit(entityRef), 'forbidden', 'the destination audit read uses that destination\'s view permission'),
     ),
   });
-  // Console reads (checklist §2): console:access under the console actor, forbidden without it. auditTrail and
-  // accessDirectory answer 'empty' on a zero (adapter.ts/mock: a zero is a meaningful audit/directory result);
-  // usageSummary answers 'ok' with an empty list (adapter.ts: the console never reads raw events, a zero is menus: []).
+  // Console reads (checklist §2): console:access under the console actor, forbidden without it. The zero
+  // outcomes are contract text (adapter.ts, checklist §2): usageSummary — nothing matched is a successful
+  // zero, `ok` with `menus: []`, never `empty` (the console left-joins zero-visit menus; `empty` would hide
+  // them); auditTrail and accessDirectory — a zero is a confirmed result, `empty`, so an `ok` page carries
+  // rows (items non-empty, total > 0), never an empty page.
   const consoleReads = [
-    { method: 'auditTrail', allowEmpty: true, send: () => adapter.auditTrail({}) },
-    { method: 'accessDirectory', allowEmpty: true, send: () => adapter.accessDirectory({}) },
+    { method: 'auditTrail', allowEmpty: true, send: (): Promise<ApiResponse<{ items: readonly unknown[]; total: number }>> => adapter.auditTrail({}) },
+    { method: 'accessDirectory', allowEmpty: true, send: (): Promise<ApiResponse<{ items: readonly unknown[]; total: number }>> => adapter.accessDirectory({}) },
     { method: 'usageSummary', allowEmpty: false, send: () => adapter.usageSummary({ preset: 'all' }) },
   ] as const;
   for (const read of consoleReads) {
@@ -452,9 +463,20 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       id: `port · ${read.method} as a console actor → ok`,
       mode: 'console',
       run: async () => {
+        if (!read.allowEmpty) {
+          const r = await read.send();
+          if (r.outcome !== 'ok') {
+            return `a console actor reading ${read.method}: expected ok, got ${describeResponse(r)} — a zero is ok with menus: [], never empty (adapter.ts)`;
+          }
+          return null;
+        }
         const r = await read.send();
-        if (r.outcome !== 'ok' && !(read.allowEmpty && r.outcome === 'empty')) {
-          return `a console actor reading ${read.method}: expected ok${read.allowEmpty ? ' or empty' : ''}, got ${describeResponse(r)}`;
+        if (r.outcome === 'empty') return null; // adapter.ts: a zero is a confirmed result.
+        if (r.outcome !== 'ok') {
+          return `a console actor reading ${read.method}: expected ok or empty, got ${describeResponse(r)}`;
+        }
+        if (r.data === null || r.data.items.length === 0 || r.data.total === 0) {
+          return `an ok ${read.method} page must carry rows — a zero is outcome empty, not ok with an empty page (adapter.ts)`;
         }
         return null;
       },
@@ -645,6 +667,9 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
     nonEnvelope: true,
     run: expectAccepted([{ ...usageDwell, dwellMs: -1 }], 0, 'a negative dwellMs'),
   });
+  // Checklist §4 clock constraint: the ±10 min window is on the test runner's clock, compared against the
+  // server's receive stamps — keep runner and server within a few minutes (NTP). The 1970-01-01 window must
+  // still answer ok (zero) on a retention-limited server.
   checks.push({
     id: 'port · usageSummary counts by receive time, not the client at',
     mode: 'console',
