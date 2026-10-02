@@ -6,7 +6,7 @@
 
 앱은 서버를 `PlatformAdapter` 하나로만 만난다. `apps/platform-web/src/main.tsx`는 `#platform-assembly`의 `createAssembly({ registry })`가 돌려준 어댑터를 주입한다(#153, [ADR-0009](../adr/0009-production-assembly-injection.md)). 지금 dev·mock 빌드에서는 `src/dev/mock-assembly.tsx`가 `createMockAdapter({ endpoints, registry })`를 돌려준다 — 실어댑터를 돌려주는 조립 모듈을 만들어 운영 빌드에 꽂는 것이 사내 적용의 전부다. Kernel·셸·공통 컴포넌트·메뉴 화면은 고치지 않는다.
 
-- 실어댑터(클라이언트)는 각 포트 메서드를 서버 호출로 옮긴다. 전송 형식(HTTP 경로·JSON 모양)은 아직 정하지 않았다(§7).
+- 실어댑터(클라이언트)는 각 포트 메서드를 서버 호출로 옮긴다. 전송 형식(HTTP 경로·JSON 모양·상태 코드·부트스트랩·CSRF·Correlation ID)은 [전송 형식 초안](http-adapter-contract.md)(Candidate, 합의 대기 — §7)에 있다.
 - 서버는 mock 엔진이 하는 판정을 그대로 한다. 판정의 기준은 요청이 아니라 **서버가 가진 엔드포인트 선언 사본**이다.
 - 운영 빌드에서는 dev 도구(역할 전환·응답 시나리오, `src/dev/DevTools.tsx`)를 빼고, `menus/*/src/mock/`은 번들에 넣지 않는다 — #153이 보장한다: `main.tsx`는 mock을 import하지 않고(lint), 운영 mode는 `AP_PLATFORM_ASSEMBLY`가 가리키는 조립 모듈을 쓰며 없으면 빌드가 실패한다(대체 어댑터 없음). CI `check:prod-graph`가 조립을 external로 둔 운영 모듈 그래프에 `@ap/mock-server`·`menus/*/src/mock/`·`src/dev/`가 없음을 확인하고, 모든 운영 빌드(`build:prod`)는 빌드 단계 검사(`prodGraphGuard`)로 실조립을 포함한 자기 전체 그래프에 같은 규칙을 적용한다 — 걸리면 빌드 실패, 끌 수 없다(ADR-0009). CI 검사만으로는 실조립을 보지 않으므로 실조립 쪽 보장은 이 빌드 단계 검사다.
 - 실어댑터 꽂기(#154): `import type { CreateAssembly } from '#platform-assembly'`로 `export const createAssembly: CreateAssembly = ({ registry }) => ({ adapter, topBarTools: null })`를 export하는 모듈을 만들고(선언과 별개로 시그니처를 손으로 쓰지 않는다) `AP_PLATFORM_ASSEMBLY=<경로> pnpm --filter @ap/platform-web build:prod`로 빌드한다. 운영 조립은 `topBarTools: null`을 쓴다. `build:prod`는 번들 전에 `scripts/typecheck-assembly.ts`로 그 모듈의 `createAssembly`가 `CreateAssembly`를 만족하는지 `tsc`로 검사한다(앱 `tsc --noEmit`은 주입 모듈을 보지 않는다) — 필드를 빠뜨리거나 모양이 다르면 빌드가 실패한다.
@@ -16,7 +16,7 @@
 | 메서드 | 지킬 것 |
 | --- | --- |
 | `session()` | 동기 스냅샷(사용자 + 접근 가능한 Scope). 세션이 바뀔 때까지 **같은 객체**를 돌려준다 — Kernel이 객체 identity로 Scope 재검증 여부를 정한다. 실어댑터는 Provider 마운트 전에 세션을 받아 둔다(부트스트랩). |
-| `subscribe(onChange)` | 재로그인·권한 변경·서버 상태 변경을 알린다. Kernel은 알림마다 `session()`을 다시 읽고 revision을 올려 이전 결과를 한 프레임도 보이지 않게 숨긴다(`kernel/adapter.test.tsx`가 고정). |
+| `subscribe(onChange)` | 재로그인·권한 변경·서버 상태 변경을 알린다. Kernel은 알림마다 `session()`을 다시 읽고 revision을 올려 이전 결과를 한 프레임도 보이지 않게 숨긴다(`kernel/adapter.test.tsx`가 고정). Candidate: 세대 신호는 별도 경로 — #165, [전송 형식 초안](http-adapter-contract.md) §4(합의 전에는 이 행이 원본). |
 | `validateScope(scopeId)` | 그 사용자에게 site가 부여됐는지와 부여된 room. 클라이언트 상태가 아니라 서버 판정이다(06 §6.2). |
 | `publishedMetrics()` | 지표별 게시 버전 스냅샷 — `metricId`만 온 진입점을 보완한다. |
 | `contextOptions`·`evaluateSelection` | 조건 축 선택지, 조건 결과·조건 밖 선택. 조건 판정은 서버 책임이다. |
@@ -31,7 +31,7 @@
 
 메서드는 반환 모양에 따라 네 묶음이다. 이 분류의 원본은 여기다.
 
-- **envelope 메서드** — `menuQuery`·`getEntity`·`auditTrail`·`entityAudit`·`accessDirectory`·`usageSummary`·`listAnnotations`·`saveAnnotation`. 06 §19 envelope(`outcome` 하나 + 선언한 `assessments` + `trust`)로 답한다. 예외를 던지지 않는다 — 전송 실패도 `error` envelope다.
+- **envelope 메서드** — `menuQuery`·`getEntity`·`auditTrail`·`entityAudit`·`accessDirectory`·`usageSummary`·`listAnnotations`·`saveAnnotation`. 06 §19 envelope(`outcome` 하나 + 선언한 `assessments` + `trust`)로 답한다. 예외를 던지지 않는다 — 전송 실패도 `error` envelope다. 예외: Kernel이 넘긴 `signal`로 중단된 경우는 reject해도 된다(`AbortError` — Kernel이 그 결과를 버린다).
 - **동기 스냅샷** — `session`·`publishedMetrics`·`defaultRangeTo`. 부트스트랩에서 받아 둔 값을 돌려준다(던지지 않음).
 - **비 envelope 비동기** — `validateScope`·`contextOptions`·`evaluateSelection`. 자기 반환 타입 그대로다. `contextOptions`·`evaluateSelection`은 전송 실패 때 reject해도 된다(Kernel이 오류·재시도를 보인다). `validateScope`는 실어댑터가 전송 실패를 내부에서 재시도해도 되고, 끝내 실패하면 reject한다 — Kernel은 Scope를 `error`로 두고 "Scope를 확인하지 못했습니다 + 다시 시도"를 보이며, 그동안 Scope가 필요한 요청은 보내지 않는다(#167). Kernel은 자동 재시도하지 않는다. 취소로 보는 것은 Kernel이 넘긴 `signal`이 중단된 경우뿐이다 — 어댑터 내부 타임아웃·중단으로 호출이 끝나면 오류 이름(`AbortError` 포함)과 무관하게 실패로 reject한다.
 - **fire-and-forget** — `recordUsage`·`reportClientError`는 `{ accepted }`를 돌려준다(거부는 `accepted: 0`/`false`). 전송 실패로 reject해도 Kernel이 조용히 무시한다.
@@ -113,7 +113,7 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 | 결정 | 왜 필요한가 |
 | --- | --- |
 | 메뉴 조회 포트 Q2(#148) — 선언 원본을 TS로 두고 서버가 읽을지, FastAPI에서 생성할지 | 서버의 "선언 사본"을 어디서 가져올지. 공개 스키마·codegen(PLATFORM_REQUIREMENTS)도 여기에 달려 있다. |
-| 전송 형식(#149, 초안 → 합의) — HTTP 경로·메서드·JSON 모양, 취소(`AbortSignal`)·타임아웃 | 실어댑터와 서버의 경계. mock은 함수 호출이라 정해진 게 없다. |
+| 전송 형식(#149, 초안 → 합의) — HTTP 경로·메서드·JSON 모양, 취소(`AbortSignal`)·타임아웃 | 실어댑터와 서버의 경계. 초안 [http-adapter-contract.md](http-adapter-contract.md)(Candidate) — 백엔드 담당 합의 대기, 질문은 그 문서 §10. |
 | 사내 SSO 사양(#150)·역할 소속 원천(#98) | 세션·권한의 원천. |
 | 적재 워커 상태 스키마(#37) | 데이터 신뢰(`trust`, `collection`·`processing_delay`·`coverage` assessment)의 원천. 합의 전 서버 동작은 §3-10. 합의 뒤 모니터링(#51). |
 | FeedbackOps API(#84 설문 응답 읽기, #85 신고자 딥링크, #86 실제 VOC 어댑터) | 내 VOC·설문 화면의 비 mart 원천. |
