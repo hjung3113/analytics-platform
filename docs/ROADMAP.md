@@ -26,7 +26,7 @@
 
 선행 이슈가 없는 것들이다. 위에서부터 추천 순서.
 
-1. **사내 적용 준비(외부 입력 없음)**: 운영 빌드에서 mock·DevTools 빼기 (#153) → Scope 확인 실패 처리 (#167) → 전송 형식 초안 (#149). 작은 후속 #122, #90, 불안정 테스트 #166.
+1. **사내 적용 준비(외부 입력 없음)**: 운영 빌드에서 mock·DevTools 빼기 (#153) → Scope 확인 실패 처리 (#167) → 전송 형식 초안 (#149). 작은 후속 #122, #90. ~~불안정 테스트 #166~~ 완료 — CI test 단계 동시성 제한(`--concurrency=2`).
 2. **사내에 물을 것(사람)**: SSO 사양 (#150), 배포·인프라 환경 (#151), 선언 원본 결정 (#148). 질문 목록은 [사내 적용 가이드](integration/in-house-rollout.md) §3.
 3. **표 내보내기·복사(#159 결정 후속)**: 툴바 D안 확정(#172)·공통 내보내기 CSV·Excel(#173)·선언 행 상한(#175)·행 복사(#174) 완료.
 4. **틈틈이 목록**: ~~`@types/node` 부채 (#57)~~ 완료, ~~CSS selector 비교 CI (#58)~~ 완료 — `tooling/css-selectors` + CI `css-selectors` Job(라벨 `css-removal-ok`), 적재 워커 상태 스키마 초안 (#37) 작성 완료 — `docs/integration/ingest-status-schema.md`, 파서 담당 합의 대기, ~~FeedbackOps 양방향 딥링크 계약 (#61)~~ 완료 — `docs/integration/feedbackops-deeplink.md`(phase-1, 확장은 #81 결정 대기). 계약 안전망은 `pnpm e2e`(#44), 메뉴 활용률 계측(#43)도 완료 — kernel이 `adapter.recordUsage`(entry/dwell)로 계측하고 콘솔은 `usageSummary` 집계만 읽는다(조회조건 수집 여부는 #75 결정 대기).

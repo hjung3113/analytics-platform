@@ -126,7 +126,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
-      - run: pnpm test
+      # #166: vitest workers × parallel packages oversubscribe the runner → cap turbo concurrency
+      - run: pnpm exec turbo run test --concurrency=2
       - run: pnpm build
 
   platform-contracts-e2e:
