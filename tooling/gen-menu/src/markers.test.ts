@@ -2,18 +2,14 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { PACKAGE_PREFIX } from './prefix.ts';
 import { FIXTURE_GROUP, GEN_ARGS, appSnapshot, fixtureMockAssemblyTsx, fixtureMenusTs, makeFixture, removeFixture, runCli } from './fixture.ts';
 
-/** The mock spread markers moved OUT of the createMockAdapter endpoints array. */
+/** The mock spread markers moved OUT of the MOCK_ENDPOINTS array. */
 const mockSpreadOutsideEndpoints = fixtureMockAssemblyTsx().replace(
-  `const mockAdapter = (registry: Registry): PlatformAdapter => createMockAdapter({
-  endpoints: [
-    // <gen:menu-mock-spreads>
-    ...analyticsMock,
-    // </gen:menu-mock-spreads>
-  ],
-  registry,
-});`,
-  `const endpoints = [];
-const mockAdapter = (registry: Registry): PlatformAdapter => createMockAdapter({ endpoints: [...endpoints, ...analyticsMock], registry });
+  `export const MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [
+  // <gen:menu-mock-spreads>
+  ...analyticsMock,
+  // </gen:menu-mock-spreads>
+];`,
+  `export const MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [...analyticsMock];
 // <gen:menu-mock-spreads>
 // </gen:menu-mock-spreads>`,
 );
@@ -59,12 +55,12 @@ describe('marker context validation (F7)', () => {
   const fresh = (variants: { menusTs?: string; mockAssemblyTsx?: string }): string => { const root = makeFixture(variants); keep.push(root); return root; };
   afterAll(() => { for (const root of keep) removeFixture(root); });
 
-  it('refuses mock spread markers moved outside the createMockAdapter endpoints array', () => {
+  it('refuses mock spread markers moved outside the MOCK_ENDPOINTS array', () => {
     const root = fresh({ mockAssemblyTsx: mockSpreadOutsideEndpoints });
     const before = appSnapshot(root);
     const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
-    expect(res.stderr).toMatch(/not inside the createMockAdapter endpoints array/);
+    expect(res.stderr).toMatch(/not inside the MOCK_ENDPOINTS array/);
     expect(appSnapshot(root)).toEqual(before);
   });
 

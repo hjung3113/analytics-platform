@@ -27,9 +27,13 @@ const APP_PUBLISHED_METRICS_FILE = 'src/published-metrics.test.ts';
 const DEV_MESSAGE = 'src/dev/** (mock assembly, DevTools) is reached only through #platform-assembly in mock builds (ADR-0009).';
 // Relative specifiers that name a `dev` folder segment: ./dev, ./dev/x, ../dev/x, ../../src/dev/x.
 const DEV_REGEX = '^\\.{1,2}/(?:.*/)?dev(?:/|$)';
+const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** DEV_REGEX minus the exact `devAllow` specifiers. */
+const devRegex = (devAllow = []) =>
+  devAllow.length === 0 ? DEV_REGEX : `^(?!(?:${devAllow.map(escapeRegex).join('|')})$)${DEV_REGEX.slice(1)}`;
 
 // Menu subpaths: the FeedbackOps origin slot is src/main.tsx ONLY; each menu's exact `/mock` export is
-// src/dev/** and the conformance test only. Every other menu subpath and any `*/src` import stays banned.
+// src/dev/** only. Every other menu subpath and any `*/src` import stays banned.
 // NOTE: the gitignore-style `*` in `menu-*/mock` also matches an empty name (no way to say
 // "one or more" here), so a `menu-/mock` source is not rejected on this side; the dynamic-import
 // side (import-source.js) uses `[^/]+` for the same pattern.
@@ -42,7 +46,8 @@ const FEEDBACKOPS_ORIGIN_SUBPATH = 'menu-notice-voc/feedbackops-origin';
 //   allow: package-entry names this layer may import; null = every entry.
 //   mockAllowed: exempts exactly the mock-server entry (never its subpaths).
 //   allowSubpaths: exact names or patterns exempted from the deep-subpath ban (default none).
-//   denyDev: bans relative imports of a `dev` folder (DEV_REGEX), static and dynamic.
+//   denyDev: bans relative imports of a `dev` folder (DEV_REGEX), static and dynamic; devAllow lists exact
+//   specifiers exempted from it.
 // Deep subpaths are banned for everyone, except subpaths matched by allowSubpaths.
 const TABLE_ENGINE_PACKAGES = ['@tanstack/react-table', '@tanstack/react-virtual', '@tanstack/table-core', '@tanstack/virtual-core'];
 const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, denyTableEngine: true, mockAllowed: false };
@@ -52,12 +57,13 @@ const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false, den
 const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [FEEDBACKOPS_ORIGIN_SUBPATH] };
 // The mock assembly and DevTools: mock-server and the menu `/mock` subpaths.
 const APP_DEV_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true, allowSubpaths: [MENU_MOCK_SUBPATH] };
-// The conformance test: mock-server and the menu `/mock` subpaths, never ./dev.
-const APP_CONFORMANCE_RESTRICTION = { ...APP_DEV_RESTRICTION, denyDev: true };
+// The conformance test: mock-server, and from ./dev only the mock assembly's MOCK_ENDPOINTS list (#153 follow-up —
+// one source for "what the app registers"); no menu `/mock` subpath of its own.
+const APP_CONFORMANCE_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true, devAllow: ['./dev/mock-assembly'] };
 // published-metrics.test.ts keeps the mock-server exemption but never the menu-subpath allowance.
 const APP_PUBLISHED_METRICS_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true };
 
-function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, allowSubpaths = [], denyDev = false }) {
+function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [] }) {
   const negations = [
     ...(allow === null ? [] : allow.map((name) => `!${pkg(name)}`)),
     ...(mockAllowed ? [`!${pkg('mock-server')}`] : []),
@@ -85,7 +91,7 @@ function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, al
         ...(mockAllowed ? [] : [{ group: [pkg('mock-server'), pkg('mock-server/*')], message: MOCK_SERVER_MESSAGE }]),
         ...(denyReact ? [{ group: ['react/*', 'react-dom/*'], message: REACT_MESSAGE }] : []),
         ...(denyTableEngine ? [{ group: TABLE_ENGINE_PACKAGES.map((name) => `${name}/*`), message: TABLE_ENGINE_MESSAGE }] : []),
-        ...(denyDev ? [{ regex: DEV_REGEX, message: DEV_MESSAGE }] : []),
+        ...(denyDev ? [{ regex: devRegex(devAllow), message: DEV_MESSAGE }] : []),
       ],
     },
   ];
@@ -97,7 +103,7 @@ function importSourceOptions(restriction) {
     deepMessage: DEEP_SUBPATH_MESSAGE,
     layerMessage: LAYER_MESSAGE,
     mockMessage: MOCK_SERVER_MESSAGE,
-    devRegex: DEV_REGEX,
+    devRegex: devRegex(restriction.devAllow),
     devMessage: DEV_MESSAGE,
     reactMessage: REACT_MESSAGE,
     tableEngineMessage: TABLE_ENGINE_MESSAGE,
@@ -273,8 +279,9 @@ export const menu = [
 ];
 
 // App: all package entries allowed, deep subpaths, mock-server and ./dev banned (#153). src/main.tsx keeps only
-// the FeedbackOps origin subpath; src/dev/** and the conformance test see mock-server and the menu `/mock`
-// subpaths; published-metrics.test.ts sees mock-server only. Both import rules use the same restriction.
+// the FeedbackOps origin subpath; src/dev/** sees mock-server and the menu `/mock`
+// subpaths; the conformance test sees mock-server and ./dev/mock-assembly only; published-metrics.test.ts sees
+// mock-server only. Both import rules use the same restriction.
 // No ignores for **/*.test.*.
 const appOverride = (files, restriction) => ({
   files,

@@ -38,8 +38,8 @@ export const spreadLine = (i: MenuInputs): string => `  ...${i.binding},`;
 export const mockImportLine = (i: MenuInputs): string =>
   `import { ${i.group}Mock } from '${menuPackage(i.folder)}/mock';`;
 
-/** apps/platform-web/src/dev/mock-assembly.tsx `endpoints` spread insert. */
-export const mockSpreadLine = (i: MenuInputs): string => `    ...${i.group}Mock,`;
+/** apps/platform-web/src/dev/mock-assembly.tsx `MOCK_ENDPOINTS` spread insert. */
+export const mockSpreadLine = (i: MenuInputs): string => `  ...${i.group}Mock,`;
 
 /** apps/platform-web/src/style.css insert. */
 export const styleLine = (i: MenuInputs): string => `@import "${menuPackage(i.folder)}/styles.css";`;

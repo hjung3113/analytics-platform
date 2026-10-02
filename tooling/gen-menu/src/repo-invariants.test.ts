@@ -62,21 +62,18 @@ ${spreads}
 ];
 `);
   const mockImports = ['analytics', 'quality'].map(f => `import { ${binding(f)}Mock } from '${PACKAGE_PREFIX}menu-${f}/mock';`).join('\n');
-  const mockSpreads = ['analytics', 'quality'].map(f => `    ...${binding(f)}Mock,`).join('\n');
+  const mockSpreads = ['analytics', 'quality'].map(f => `  ...${binding(f)}Mock,`).join('\n');
   writeFileSync(join(root, 'apps/platform-web/src/dev/mock-assembly.tsx'), `import { registry } from './menus';
 import { createMockAdapter } from '${PACKAGE_PREFIX}mock-server';
 // <gen:menu-mock-imports>
 ${mockImports}
 // </gen:menu-mock-imports>
 
-const adapter = createMockAdapter({
-  endpoints: [
-    // <gen:menu-mock-spreads>
+export const MOCK_ENDPOINTS = [
+  // <gen:menu-mock-spreads>
 ${mockSpreads}
-    // </gen:menu-mock-spreads>
-  ],
-  registry,
-});
+  // </gen:menu-mock-spreads>
+];
 `);
   const cssImports = GROUPS.map(g => `@import "${PACKAGE_PREFIX}menu-${g.folder}/styles.css";`).join('\n');
   writeFileSync(join(root, 'apps/platform-web/src/style.css'), `/* <gen:menu-styles> */
@@ -113,7 +110,7 @@ describe('wiring invariants against a fixture repo', () => {
   it('rejects a missing mock spread for the eighth group in mock-assembly.tsx', () => {
     const root = fresh();
     const mockAssemblyTsx = join(root, 'apps/platform-web/src/dev/mock-assembly.tsx');
-    writeFileSync(mockAssemblyTsx, readFileSync(mockAssemblyTsx, 'utf8').replace(`    ...${binding('quality')}Mock,\n`, ''));
+    writeFileSync(mockAssemblyTsx, readFileSync(mockAssemblyTsx, 'utf8').replace(`  ...${binding('quality')}Mock,\n`, ''));
     expect(() => checkWiring(loadShape(root))).toThrow(/no spread inside the mock-assembly.tsx mock spread markers/);
   });
 
@@ -139,7 +136,7 @@ describe('wiring invariants against a fixture repo', () => {
     // match whole trimmed lines, so both must be refused.
     writeFileSync(mockAssemblyTsx, original
       .replace(`import { ${binding('quality')}Mock } from '${PACKAGE_PREFIX}menu-quality/mock';`, `// import { ${binding('quality')}Mock } from '${PACKAGE_PREFIX}menu-quality/mock';`)
-      .replace(`    ...${binding('quality')}Mock,`, `//     ...${binding('quality')}Mock,`));
+      .replace(`  ...${binding('quality')}Mock,`, `//   ...${binding('quality')}Mock,`));
     expect(() => checkWiring(loadShape(root))).toThrow(/no import inside the mock-assembly\.tsx mock import markers/);
   });
 

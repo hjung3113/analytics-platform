@@ -7,7 +7,7 @@ import { FIXTURE_FOLDER, FIXTURE_GROUP, GEN_ARGS, appSnapshot, makeFixture, remo
 
 const CSS_LINE = `@import "${PACKAGE_PREFIX}menu-${FIXTURE_FOLDER}/styles.css";`;
 const MOCK_IMPORT_LINE = `import { ${FIXTURE_GROUP}Mock } from '${PACKAGE_PREFIX}menu-${FIXTURE_FOLDER}/mock';`;
-const MOCK_SPREAD_LINE = `    ...${FIXTURE_GROUP}Mock,`;
+const MOCK_SPREAD_LINE = `  ...${FIXTURE_GROUP}Mock,`;
 
 function cssOf(root: string): string {
   return readFileSync(join(root, STYLE_CSS), 'utf8');
@@ -69,8 +69,8 @@ describe('remove ownership is bounded to the marker region (F4)', () => {
     const root = fresh();
     expect(runCli([FIXTURE_GROUP, ...GEN_ARGS], root).status).toBe(0);
     writeFileSync(join(root, MOCK_ASSEMBLY_TSX), mainOf(root).replace(
-      '    // </gen:menu-mock-spreads>',
-      `${MOCK_SPREAD_LINE}\n    // </gen:menu-mock-spreads>`,
+      '  // </gen:menu-mock-spreads>',
+      `${MOCK_SPREAD_LINE}\n  // </gen:menu-mock-spreads>`,
     ));
     const tampered = appSnapshot(root);
     const res = runCli(['--remove', FIXTURE_GROUP], root);

@@ -231,28 +231,29 @@ function assertMarkerInsideArray(menusText: string, arrayName: string, marker: s
   throw new GenMenuError(`'${arrayName}' array literal not found in ${MENUS_TS}`);
 }
 
-/** F7: the marker comment must sit inside the `endpoints` array of the createMockAdapter call. */
-function assertMarkerInsideEndpointsArray(mainText: string, marker: string): void {
-  const sf = ts.createSourceFile(MOCK_ASSEMBLY_TSX, mainText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const walk = (node: ts.Node): boolean => {
-    if (
-      ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'createMockAdapter'
-      && node.arguments[0] !== undefined && ts.isObjectLiteralExpression(node.arguments[0])
-    ) {
-      for (const prop of node.arguments[0].properties) {
-        if (
-          ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name) && prop.name.text === 'endpoints'
-          && ts.isArrayLiteralExpression(prop.initializer)
-        ) {
-          const at = standaloneMarkerPositions(mainText, marker)[0] ?? -1;
-          if (prop.initializer.getStart(sf) < at && at < prop.initializer.getEnd()) return true;
-          throw new GenMenuError(`marker '${marker}' is not inside the createMockAdapter endpoints array in ${MOCK_ASSEMBLY_TSX}`);
-        }
+/** The mock assembly's one endpoint list (#153): `export const MOCK_ENDPOINTS[: T] = [ ... ];` at top level. */
+export const MOCK_ENDPOINTS = 'MOCK_ENDPOINTS';
+
+function mockEndpointsArray(sf: ts.SourceFile): ts.ArrayLiteralExpression | undefined {
+  for (const stmt of sf.statements) {
+    if (!ts.isVariableStatement(stmt)) continue;
+    for (const d of stmt.declarationList.declarations) {
+      if (ts.isIdentifier(d.name) && d.name.text === MOCK_ENDPOINTS && d.initializer !== undefined && ts.isArrayLiteralExpression(d.initializer)) {
+        return d.initializer;
       }
     }
-    return node.getChildren(sf).some(walk);
-  };
-  if (!walk(sf)) throw new GenMenuError(`createMockAdapter({ endpoints: [...] }) not found in ${MOCK_ASSEMBLY_TSX}`);
+  }
+  return undefined;
+}
+
+/** F7: the marker comment must sit inside the MOCK_ENDPOINTS array literal. */
+function assertMarkerInsideEndpointsArray(mainText: string, marker: string): void {
+  const sf = ts.createSourceFile(MOCK_ASSEMBLY_TSX, mainText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const array = mockEndpointsArray(sf);
+  if (array === undefined) throw new GenMenuError(`${MOCK_ENDPOINTS} = [...] array literal not found in ${MOCK_ASSEMBLY_TSX}`);
+  const at = standaloneMarkerPositions(mainText, marker)[0] ?? -1;
+  if (array.getStart(sf) < at && at < array.getEnd()) return;
+  throw new GenMenuError(`marker '${marker}' is not inside the ${MOCK_ENDPOINTS} array in ${MOCK_ASSEMBLY_TSX}`);
 }
 
 /** F7: every marker appears exactly once, pairs are ordered, and each pair sits in its right context. */
@@ -387,25 +388,10 @@ function assertActiveWiring(menusEdit: string, binding: string, pkgName: string)
 function assertActiveMockWiring(mainEdit: string, binding: string, pkgName: string): void {
   const sf = ts.createSourceFile(MOCK_ASSEMBLY_TSX, mainEdit, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   let importActive = false;
-  let spreadActive = false;
+  const spreadActive = (mockEndpointsArray(sf)?.elements ?? []).some(
+    element => ts.isSpreadElement(element) && ts.isIdentifier(element.expression) && element.expression.text === binding,
+  );
   const walk = (node: ts.Node): void => {
-    if (
-      ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'createMockAdapter'
-      && node.arguments[0] !== undefined && ts.isObjectLiteralExpression(node.arguments[0])
-    ) {
-      for (const prop of node.arguments[0].properties) {
-        if (
-          ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name) && prop.name.text === 'endpoints'
-          && ts.isArrayLiteralExpression(prop.initializer)
-        ) {
-          for (const element of prop.initializer.elements) {
-            if (ts.isSpreadElement(element) && ts.isIdentifier(element.expression) && element.expression.text === binding) {
-              spreadActive = true;
-            }
-          }
-        }
-      }
-    }
     if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) && node.moduleSpecifier.text === pkgName) {
       const clause = node.importClause;
       if (clause?.namedBindings !== undefined && ts.isNamedImports(clause.namedBindings)) {
@@ -418,7 +404,7 @@ function assertActiveMockWiring(mainEdit: string, binding: string, pkgName: stri
   };
   walk(sf);
   if (!importActive) throw new GenMenuError(`proposed ${MOCK_ASSEMBLY_TSX} has no active import of '${binding}' from '${pkgName}' — refusing to write`);
-  if (!spreadActive) throw new GenMenuError(`proposed ${MOCK_ASSEMBLY_TSX} has no active spread of '${binding}' inside the createMockAdapter endpoints array — refusing to write`);
+  if (!spreadActive) throw new GenMenuError(`proposed ${MOCK_ASSEMBLY_TSX} has no active spread of '${binding}' inside the ${MOCK_ENDPOINTS} array — refusing to write`);
 }
 
 function insertAbove(text: string, marker: string, line: string): string {

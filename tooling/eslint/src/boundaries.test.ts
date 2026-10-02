@@ -120,7 +120,12 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/main.tsx', code: `import { createAssembly } from '#platform-assembly';`, rule: '' },
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from './devices';`, rule: '' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { DevTools } from './dev/DevTools';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
-  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { x } from './dev/mock-assembly';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
+  // #153 follow-up: the conformance test reads MOCK_ENDPOINTS from the mock assembly — that exact module only.
+  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { MOCK_ENDPOINTS } from './dev/mock-assembly';`, rule: '' },
+  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { DevTools } from './dev/DevTools';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
+  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { x } from './dev/mock-assembly.tsx';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
+  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `await import('./dev/DevTools');`, rule: 'ap/restricted-import-source' },
+  { file: 'apps/platform-web/src/url-contract.test.ts', code: `import { MOCK_ENDPOINTS } from './dev/mock-assembly';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
   { file: 'apps/platform-web/src/published-metrics.test.ts', code: `import { x } from './dev/DevTools';`, rule: 'no-restricted-imports', token: 'ADR-0009' },
   { file: 'apps/platform-web/src/dev/mock-assembly.tsx', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: '' },
   { file: 'apps/platform-web/src/dev/mock-assembly.tsx', code: `import { DevTools } from './DevTools';`, rule: '' },
@@ -135,15 +140,15 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-notice-voc/feedbackops-origin';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-notice-voc/styles.css';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-notice-voc/src/feedbackops-origin';`, rule: 'no-restricted-imports' },
-  // #145/#153: the server conformance test registers the same menu mocks as the mock assembly (src/dev/**);
-  // every other app test still cannot reach a menu `/mock` subpath.
-  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: '' },
+  // #145/#153: the server conformance test takes its endpoints from the mock assembly's MOCK_ENDPOINTS, so it no
+  // longer reaches a menu `/mock` subpath itself; only src/dev/** does.
+  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { createMockAdapter } from '@ap/mock-server';`, rule: '' },
   { file: 'apps/platform-web/src/url-contract.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: 'no-restricted-imports' },
   // #146 review: the conformance test gets the mock subpaths only — the FeedbackOps origin slot stays main.tsx-only.
   { file: 'apps/platform-web/src/server-conformance.test.ts', code: `import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/server-conformance.test.ts', code: `await import('@ap/menu-notice-voc/feedbackops-origin');`, rule: 'ap/restricted-import-source' },
-  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `await import('@ap/menu-equipment/mock');`, rule: '' },
+  { file: 'apps/platform-web/src/server-conformance.test.ts', code: `await import('@ap/menu-equipment/mock');`, rule: 'ap/restricted-import-source' },
   { file: 'apps/platform-web/src/published-metrics.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: 'no-restricted-imports' },
   // #145: the conformance kit is adapter-agnostic — contracts only, never the mock it judges, never React.
   { file: 'packages/server-conformance/src/x.ts', code: `import { x } from '@ap/contracts';`, rule: '' },

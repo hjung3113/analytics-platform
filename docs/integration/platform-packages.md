@@ -139,7 +139,7 @@ menus/<group>/
     components/         # 이후 Domain Component(06 §13)가 가는 곳 — 생성기 출력이 아니다
 ```
 
-생성기는 한 번에 스켈레톤 하나를 만든다 — manifest 1개, archetype은 manifest의 `pageType`(다섯 중 선택), `endpoints.ts`·`mock/`(표본 엔드포인트 1개)·테스트 — 그리고 앱의 마커 영역에 연결 다섯 줄(`menus.ts` import·spread, `style.css` `@import`, `main.tsx`의 `/mock` import·`endpoints` spread)과 앱 `package.json` 의존 1줄을 추가한다(#126). `GROUPS`와 `GroupId`는 편집하지 않는다(사람이 먼저 추가한다).
+생성기는 한 번에 스켈레톤 하나를 만든다 — manifest 1개, archetype은 manifest의 `pageType`(다섯 중 선택), `endpoints.ts`·`mock/`(표본 엔드포인트 1개)·테스트 — 그리고 앱의 마커 영역에 연결 다섯 줄(`menus.ts` import·spread, `style.css` `@import`, `src/dev/mock-assembly.tsx`의 `/mock` import·`MOCK_ENDPOINTS` spread, #153)과 앱 `package.json` 의존 1줄을 추가한다(#126). `GROUPS`와 `GroupId`는 편집하지 않는다(사람이 먼저 추가한다).
 
 `manifests`의 각 항목은 `kernel`의 `MenuEntry`(= `contracts`의 `MenuMeta` + `icon` + `component`, 06 §5 선언)이고, 화면은 `component: lazy(() => import('./pages/X'))`로 지연 로드한다. 앱은 다음처럼 조립한다.
 

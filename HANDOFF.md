@@ -30,7 +30,7 @@
 - 화면에 닿는 변경의 동일성 증명: main과 워크트리에서 dev 서버를 다른 포트로 띄우고 같은 URL·역할의 DOM(머리글 클래스·`aria-sort`·첫 행)을 Playwright로 비교한다. 역할마다 부여된 room이 달라 수치가 다르다(관리자 ≠ 공정 엔지니어).
 - 지난 세션들에서 ego-browser가 최소 스크립트에도 응답하지 않은 적이 있다. 먼저 `ego-browser nodejs -e 'console.log(1)'`로 확인하고, 안 되면 `apps/platform-e2e`의 Playwright로 대체한다고 말한다.
 - 생성기(`tooling/gen-menu`)를 바꾸면 깨끗한 트리에서 probe(`node tooling/gen-menu/scripts/probe.ts`)를 한 번 돌린다. mock 마커는 #153부터 `apps/platform-web/src/dev/mock-assembly.tsx`에 있다.
-- 새 메뉴 mock을 `src/dev/mock-assembly.tsx`에 등록하면 `apps/platform-web/src/server-conformance.test.ts`의 `MOCKS`·`PARAMS` 표에도 넣는다(빠지면 실패).
+- 새 메뉴 mock은 `src/dev/mock-assembly.tsx`의 `MOCK_ENDPOINTS`(생성기가 등록) 하나로 적합성 테스트까지 들어간다. 엔드포인트가 params를 선언하면 `apps/platform-web/src/server-conformance.test.ts`의 `PARAMS` 표에 표본만 넣는다(빠지면 실패).
 - 이 머신은 16GB다. 작업자에게는 패키지 범위 검사만 시키고, 루트 test/build/e2e는 마지막에 한 번씩 순서대로 돌린다.
 
 ## 사람·외부 결정 대기 — 답이 나오기 전에 거기에 기대는 구현을 하지 않는다

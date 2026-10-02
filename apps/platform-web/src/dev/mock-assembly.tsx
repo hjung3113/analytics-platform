@@ -8,26 +8,27 @@ import { noticeVocMock } from '@ap/menu-notice-voc/mock';
 import type { ReactNode } from 'react';
 import type { PlatformAdapter } from '@ap/contracts';
 import type { Registry } from '@ap/kernel';
-import { createMockAdapter } from '@ap/mock-server';
+import { createMockAdapter, type AnyMockEndpoint } from '@ap/mock-server';
 import { DevTools } from './DevTools';
 
 /**
+ * Every menu mock endpoint the app registers — the one list (#153): the mock adapter below and the server
+ * conformance test both read it. `pnpm gen:menu` writes the marker region.
+ */
+export const MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [
+  // <gen:menu-mock-spreads>
+  ...analyticsMock,
+  ...equipmentMock,
+  ...homeMock,
+  ...metricsMock,
+  ...noticeVocMock,
+  // </gen:menu-mock-spreads>
+];
+
+/**
  * Mock assembly (#153, ADR-0009): what `#platform-assembly` resolves to in `vite` dev and `--mode mock` builds.
- * Menu mocks are registered here by `pnpm gen:menu`; a production build never reaches this file.
+ * Menu mocks are registered in MOCK_ENDPOINTS by `pnpm gen:menu`; a production build never reaches this file.
  */
 export function createAssembly({ registry }: { registry: Registry }): { adapter: PlatformAdapter; topBarTools?: ReactNode } {
-  return { adapter: mockAdapter(registry), topBarTools: <DevTools /> };
+  return { adapter: createMockAdapter({ endpoints: MOCK_ENDPOINTS, registry }), topBarTools: <DevTools /> };
 }
-
-const mockAdapter = (registry: Registry): PlatformAdapter => createMockAdapter({
-  endpoints: [
-    // <gen:menu-mock-spreads>
-    ...analyticsMock,
-    ...equipmentMock,
-    ...homeMock,
-    ...metricsMock,
-    ...noticeVocMock,
-    // </gen:menu-mock-spreads>
-  ],
-  registry,
-});

@@ -99,18 +99,13 @@ export const fixtureMenusTs = (): string => fixtureMenusTsText([]);
 const mockAssemblyTsx = `// <gen:menu-mock-imports>
 import { analyticsMock } from '${PACKAGE_PREFIX}menu-analytics/mock';
 // </gen:menu-mock-imports>
-import type { PlatformAdapter } from '${PACKAGE_PREFIX}contracts';
-import type { Registry } from '${PACKAGE_PREFIX}kernel';
-import { createMockAdapter } from '${PACKAGE_PREFIX}mock-server';
+import type { AnyMockEndpoint } from '${PACKAGE_PREFIX}mock-server';
 
-const mockAdapter = (registry: Registry): PlatformAdapter => createMockAdapter({
-  endpoints: [
-    // <gen:menu-mock-spreads>
-    ...analyticsMock,
-    // </gen:menu-mock-spreads>
-  ],
-  registry,
-});
+export const MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [
+  // <gen:menu-mock-spreads>
+  ...analyticsMock,
+  // </gen:menu-mock-spreads>
+];
 `;
 
 /** The fixture src/dev/mock-assembly.tsx text, for marker-mutation variants. */

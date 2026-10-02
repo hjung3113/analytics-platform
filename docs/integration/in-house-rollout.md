@@ -109,7 +109,7 @@
 2. **조회 선언**: `menus/<g>/src/endpoints.ts`에 `defineEndpoint`로 권한(데이터 접근 권한 — 메뉴 권한과 다를 수 있음)·적용 Context·params 키·assessment kind·한도를 선언한다.
 3. **화면**: [페이지 작성 가이드](../../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙) — `PlatformPage`, `useMenuQuery` + `QueryView`, 표는 `PlatformDataTable` + `useMenuFetch`, 차트는 `AnalysisChartFrame`, 이동은 `linkTo`, page 상태는 등록된 `pageKeys`만.
 4. **서버 쪽**: 개발 중에는 `menus/<g>/src/mock/`에 핸들러(앱 `src/dev/mock-assembly.tsx` 마커 영역에 등록 — 생성기가 씀, 운영 빌드에는 실리지 않는다). 실서버에는 같은 엔드포인트 id로 FastAPI 핸들러를 만든다(선언 사본 공유 방식은 #148).
-5. **적합성 묶음 등록**: [`apps/platform-web/src/server-conformance.test.ts`](../../apps/platform-web/src/server-conformance.test.ts)의 `MOCKS`와 `PARAMS` 표에 새 mock·표본 params를 넣는다(빠지면 테스트가 실패한다). 표본 params는 하네스의 권한 있는 역할(`engineer` — `console:access` 없음), site `ICH`, 하네스 기간으로 `ok` 또는 `empty`가 나와야 한다. 엔드포인트가 `console:access`를 요구하면 그 하네스로는 성공 요청을 만들 수 없으니 먼저 묻는다.
+5. **적합성 묶음 등록**: [`apps/platform-web/src/server-conformance.test.ts`](../../apps/platform-web/src/server-conformance.test.ts)는 mock 조립의 `MOCK_ENDPOINTS`(생성기가 등록)를 그대로 쓰므로 mock은 따로 넣지 않는다. 엔드포인트가 params를 선언하면 `PARAMS` 표에 표본 params를 넣는다(빠지면 테스트가 실패한다). 표본 params는 하네스의 권한 있는 역할(`engineer` — `console:access` 없음), site `ICH`, 하네스 기간으로 `ok` 또는 `empty`가 나와야 한다. 엔드포인트가 `console:access`를 요구하면 그 하네스로는 성공 요청을 만들 수 없으니 먼저 묻는다.
 
 ### 5.3 하지 말 것
 
