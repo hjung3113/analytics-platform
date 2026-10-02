@@ -301,11 +301,12 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     const controller = new AbortController();
     setScope({ scopeId, status: 'validating', validatedFor: session, grantedRooms: [] });
     adapter.validateScope(scopeId, controller.signal).then(result => {
+      if (controller.signal.aborted) return;
       setScope({ scopeId, status: result.status, validatedFor: session, grantedRooms: result.grantedRooms });
       if (result.status === 'valid') { setLastScope(scopeId); write(`platform:lastScope:${userId}`, scopeId); }
-    }).catch((err: unknown) => {
-      // Superseded requests are ignored; a real failure ends validation in `error` until the person retries (#167).
-      if (controller.signal.aborted || (err instanceof Error && err.name === 'AbortError')) return;
+    }).catch(() => {
+      // Only the Kernel's own abort means superseded; any other rejection (even an adapter-internal AbortError) is `error` until retry (#167).
+      if (controller.signal.aborted) return;
       setScope({ scopeId, status: 'error', validatedFor: session, grantedRooms: [] });
     });
     return () => controller.abort();

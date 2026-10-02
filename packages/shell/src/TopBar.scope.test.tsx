@@ -35,6 +35,9 @@ describe('TopBar Scope pill: validation failure (#167)', () => {
     const adapter = adapterWith(async (): Promise<ScopeCheck> => { throw new Error('down'); });
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><TopBar /></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('· 확인 실패')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Scope: ICH' }).textContent).not.toContain('검증 중');
+    const pill = screen.getByRole('button', { name: 'Scope: ICH' });
+    expect(pill.textContent).not.toContain('검증 중');
+    expect(pill.className).toContain('bg-accent-warn-soft');
+    expect(pill.querySelector('.animate-spin')).toBeNull();
   });
 });

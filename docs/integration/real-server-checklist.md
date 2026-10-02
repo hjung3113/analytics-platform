@@ -33,7 +33,7 @@
 
 - **envelope 메서드** — `menuQuery`·`getEntity`·`auditTrail`·`entityAudit`·`accessDirectory`·`usageSummary`·`listAnnotations`·`saveAnnotation`. 06 §19 envelope(`outcome` 하나 + 선언한 `assessments` + `trust`)로 답한다. 예외를 던지지 않는다 — 전송 실패도 `error` envelope다.
 - **동기 스냅샷** — `session`·`publishedMetrics`·`defaultRangeTo`. 부트스트랩에서 받아 둔 값을 돌려준다(던지지 않음).
-- **비 envelope 비동기** — `validateScope`·`contextOptions`·`evaluateSelection`. 자기 반환 타입 그대로다. `contextOptions`·`evaluateSelection`은 전송 실패 때 reject해도 된다(Kernel이 오류·재시도를 보인다). `validateScope`는 실어댑터가 전송 실패를 내부에서 재시도해도 되고, 끝내 실패하면 reject한다 — Kernel은 Scope를 `error`로 두고 "Scope를 확인하지 못했습니다 + 다시 시도"를 보이며, 그동안 Scope가 필요한 요청은 보내지 않는다(#167). Kernel은 자동 재시도하지 않는다.
+- **비 envelope 비동기** — `validateScope`·`contextOptions`·`evaluateSelection`. 자기 반환 타입 그대로다. `contextOptions`·`evaluateSelection`은 전송 실패 때 reject해도 된다(Kernel이 오류·재시도를 보인다). `validateScope`는 실어댑터가 전송 실패를 내부에서 재시도해도 되고, 끝내 실패하면 reject한다 — Kernel은 Scope를 `error`로 두고 "Scope를 확인하지 못했습니다 + 다시 시도"를 보이며, 그동안 Scope가 필요한 요청은 보내지 않는다(#167). Kernel은 자동 재시도하지 않는다. 취소로 보는 것은 Kernel이 넘긴 `signal`이 중단된 경우뿐이다 — 어댑터 내부 타임아웃·중단으로 호출이 끝나면 오류 이름(`AbortError` 포함)과 무관하게 실패로 reject한다.
 - **fire-and-forget** — `recordUsage`·`reportClientError`는 `{ accepted }`를 돌려준다(거부는 `accepted: 0`/`false`). 전송 실패로 reject해도 Kernel이 조용히 무시한다.
 
 그 밖에 `subscribe(onChange)`는 동기 등록이고 해제 함수를 돌려준다.

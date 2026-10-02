@@ -529,6 +529,30 @@ describe('Scope validation failure (#167)', () => {
     expect(f.requests).toHaveLength(1);
   });
 
+  it('treats an adapter-internal AbortError (Kernel signal not aborted) as error', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    const f = fixture({ validateScope: async () => { throw Object.assign(new Error('timeout'), { name: 'AbortError' }); } });
+    mountScope(f);
+    expect(await screen.findByText('error')).toBeTruthy();
+  });
+
+  it('ignores a late valid for a superseded Scope (adapter ignores the signal)', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    let finishIch!: (check: ScopeCheck) => void;
+    const f = fixture({
+      validateScope: scopeId => scopeId === 'ICH'
+        ? new Promise<ScopeCheck>(resolve => { finishIch = resolve; })
+        : new Promise<ScopeCheck>(() => {}),
+    });
+    const setItem = vi.spyOn(window.localStorage, 'setItem');
+    mountScope(f);
+    act(() => screen.getByTestId('switch').click());
+    expect(screen.getByTestId('scope').textContent).toBe('validating');
+    await act(async () => { finishIch({ status: 'valid', grantedRooms: [] }); await Promise.resolve(); await Promise.resolve(); });
+    expect(screen.getByTestId('scope').textContent).toBe('validating');
+    expect(setItem.mock.calls.filter(([key]) => key.startsWith('platform:lastScope:'))).toHaveLength(0);
+  });
+
   it('never turns a superseded validation into error', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
     let finishXia!: (check: ScopeCheck) => void;
