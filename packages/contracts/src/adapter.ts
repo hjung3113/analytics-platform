@@ -188,7 +188,8 @@ export type PlatformAdapter = {
   /**
    * The console audit log (issue #50): console:access, every site, no room gate — an audit screen that hid
    * a room's change would hide the change. Offset-paged, server-sorted; the client never re-sorts a page.
-   * A zero is a confirmed result: outcome `empty` (no data), not `ok` with an empty list.
+   * A query that matches nothing is `empty`, not `ok` with `items: []`; a page past the end of a non-empty
+   * result is `ok` with `items: []` and the true `total` (never rewritten to page 1).
    */
   auditTrail(query: AuditTrailQuery, signal?: AbortSignal): Promise<ApiResponse<AuditTrailPage>>;
   /**
@@ -207,7 +208,8 @@ export type PlatformAdapter = {
    * platform meta DB (issue #98, decided), but no write port exists until the role-membership source (IdP group
    * claim spec) is settled. Menus per permission are a client join over the registry; the server
    * returns the principal's permissions only. Not mart data: trust stays null, assessments stay empty.
-   * A zero is a confirmed result: outcome `empty` (no data), not `ok` with an empty list.
+   * A query that matches nothing is `empty`, not `ok` with `items: []`; a page past the end of a non-empty
+   * result is `ok` with `items: []` and the true `total` (never rewritten to page 1).
    */
   accessDirectory(query: AccessDirectoryQuery, signal?: AbortSignal): Promise<ApiResponse<AccessDirectoryPage>>;
   /**

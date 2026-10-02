@@ -158,7 +158,11 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       const emptySets = (['roomNames', 'selection'] as const).filter(k => Array.isArray(context[k]) && (context[k] as unknown[]).length === 0);
       const honoured = breaks.has('explicit-empty-roomNames-only') ? emptySets.filter(k => k === 'roomNames') : emptySets;
       if (honoured.length > 0 && !breaks.has('explicit-empty')) {
-        return { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'ref' };
+        const empty: ApiResponse<unknown> = { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'ref' };
+        // A key omitted is not null — the kit must name the missing key instead of throwing on undefined.
+        const omittable = empty as { assessments?: Assessment[] };
+        if (breaks.has('explicit-empty-missing-assessments') && emptySets.includes('selection')) delete omittable.assessments;
+        return empty;
       }
       const assessments: Assessment[] = breaks.has('kinds')
         ? [{ kind: 'collection', state: 'unknown', reason: 'source_unavailable' }]
@@ -217,6 +221,8 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
           : { ...envelope, outcome: 'forbidden', message: 'No grant for equipment' };
       }
       if (breaks.has('entity-audit-ok')) return { ...envelope, outcome: 'ok', data: {} as unknown as { events: readonly AuditEvent[] } }; // data.events is not an array
+      // adapter.ts zero rule: a zero is outcome `empty` — 'entity-audit-ok-zero' answers ok with no events.
+      if (breaks.has('entity-audit-ok-zero')) return { ...envelope, outcome: 'ok', data: { events: [] } };
       return { ...envelope, outcome: 'ok', data: { events: [REF_EVENT] } };
     },
     auditTrail: async () => {
@@ -233,6 +239,9 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       // accept it. 'console-accessDirectory-mart' dresses a non-mart read up as mart data — the kit must refuse that.
       const r = consoleGate('accessDirectory', { items: [], total: 0 });
       const zero = r.outcome === 'ok' ? { ...r, outcome: 'empty' as const, data: null } : r;
+      // A key omitted is not null — the kit must name the missing key instead of throwing on undefined.
+      const omittable = zero as { assessments?: Assessment[] };
+      if (breaks.has('console-accessDirectory-missing-assessments')) delete omittable.assessments;
       return breaks.has('console-accessDirectory-mart') && zero.outcome === 'empty'
         ? { ...zero, assessments: REF_ASSESSMENTS, trust: REF_TRUST }
         : zero;
@@ -379,9 +388,13 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       if (!breaks.has('annotation-not-stored')) annotationRows.push(stored);
       const { authorId: _author, ...row } = stored;
       if (breaks.has('annotation-row-author')) return { ...envelope, outcome: 'ok', data: { ...row, authorId: 'engineer' } };
-      return breaks.has('annotation-mart')
+      const okRow: ApiResponse<ChartAnnotation> = breaks.has('annotation-mart')
         ? { ...envelope, outcome: 'ok', data: row, assessments: REF_ASSESSMENTS, trust: REF_TRUST }
         : { ...envelope, outcome: 'ok', data: row };
+      // A key omitted is not null — the kit must name the missing key instead of throwing on undefined.
+      const omittable = okRow as { trust?: Trust | null };
+      if (breaks.has('annotation-save-missing-trust')) delete omittable.trust;
+      return okRow;
     },
     // Ports the kit does not exercise: present, minimal, contract-shaped.
     publishedMetrics: () => [],
@@ -565,6 +578,7 @@ describe('server conformance kit (#145)', () => {
     ['entity-assessments', 'port · getEntity(sample) → ok with the row'],
     ['entity-trust', 'port · getEntity(sample) → ok with the row'],
     ['entity-audit-ok', 'port · entityAudit(sample) → events'],
+    ['entity-audit-ok-zero', 'port · entityAudit(sample) → events'],
     ['entity-audit-unknown-type', 'port · entityAudit of an unregistered type → error'],
     ['entity-audit-foreign', 'port · entityAudit at a site without a grant → forbidden'],
     ['entity-audit-null', 'port · entityAudit with a null Scope → forbidden'],
@@ -678,6 +692,34 @@ describe('server conformance kit (#145)', () => {
     ]);
     expect(results.find(r => r.id === 'fixture.list · granted response assessments are well-formed (06 §19)')?.failure)
       .toBe('`assessments` is missing');
+  });
+
+  // P3-B: every envelope reader names the missing key — checklist §4's "누락된 envelope 키 지적" is universal.
+  it('names the missing assessments key on the explicit-empty answer instead of throwing', async () => {
+    const results = await runServerConformance(harness(new Set(['explicit-empty-missing-assessments'])));
+    expect(results.filter(r => r.failure !== null).map(r => r.id)).toEqual([
+      'fixture.list · explicit empty selection: [] → empty with no assessments and no trust',
+    ]);
+    expect(results.find(r => r.id === 'fixture.list · explicit empty selection: [] → empty with no assessments and no trust')?.failure)
+      .toBe('`assessments` is missing');
+  });
+
+  it('names the missing assessments key on the accessDirectory answer instead of throwing', async () => {
+    const results = await runServerConformance(harness(new Set(['console-accessDirectory-missing-assessments'])));
+    expect(results.filter(r => r.failure !== null).map(r => r.id)).toEqual([
+      'port · accessDirectory is not mart data: no assessments, null trust',
+    ]);
+    expect(results.find(r => r.id === 'port · accessDirectory is not mart data: no assessments, null trust')?.failure)
+      .toBe('`assessments` is missing');
+  });
+
+  it('names the missing trust key on the saved annotation answer instead of throwing', async () => {
+    const results = await runServerConformance(harness(new Set(['annotation-save-missing-trust'])));
+    expect(results.filter(r => r.failure !== null).map(r => r.id)).toEqual([
+      'port · annotations are not mart data: no assessments, null trust',
+    ]);
+    expect(results.find(r => r.id === 'port · annotations are not mart data: no assessments, null trust')?.failure)
+      .toBe('`trust` is missing — send null for non-mart data (06 §18)');
   });
 
   // recordUsage may reject (fire-and-forget): inside the receive-time check that is reported as recordUsage

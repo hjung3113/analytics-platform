@@ -40,7 +40,7 @@ export type PortSamples = {
   entity: { ref: EntityRef; permission: Permission; ungrantedRoomRef?: EntityRef };
   /** A chart the granted actor may annotate, the permission it needs, and a valid range on that chart's axis — naive wall-clock on a time axis, category labels on a category axis (06 §16). */
   annotation: { chartId: string; from: string; to: string; permission: Permission };
-  /** A valid usage entry event the granted actor may record. */
+  /** Identity fields (menuId·spaceId·path·sessionId) of a usage event the granted account may record; `name`, `at` and dwell fields are ignored — the kit builds its own entry/dwell. */
   usage: UsageEvent;
   /** A valid client error report. */
   clientError: ClientErrorReport;
@@ -289,6 +289,8 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
         run: async () => {
           const r = await harness.adapter.menuQuery({ ...base, context: { ...base.context, [emptySet]: [] } });
           if (r.outcome !== 'empty') return `expected empty, got ${describeResponse(r)}`;
+          const missing = missingEnvelopeKey(r, 'assessments') ?? missingEnvelopeKey(r, 'trust');
+          if (missing) return missing;
           if (r.assessments.length > 0 || r.trust !== null) return 'an explicit empty set is answered without reading a source (06 §19): no assessments, null trust';
           return null;
         },
@@ -478,6 +480,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
       const r = await adapter.entityAudit(entityRef);
       if (r.outcome !== 'ok' && r.outcome !== 'empty') return `expected ok or empty, got ${describeResponse(r)}`;
       if (r.outcome === 'ok' && !Array.isArray(r.data?.events)) return 'an ok entityAudit answer carries data.events as an array';
+      if (r.outcome === 'ok' && r.data?.events.length === 0) return 'a zero is outcome empty, not ok with no events (adapter.ts)';
       return null;
     },
   });
@@ -515,8 +518,8 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   // Console reads (checklist §2): console:access under the console actor, forbidden without it. The zero
   // outcomes are contract text (adapter.ts, checklist §2): usageSummary — nothing matched is a successful
   // zero, `ok` with `menus: []`, never `empty` (the console left-joins zero-visit menus; `empty` would hide
-  // them); auditTrail and accessDirectory — a zero is a confirmed result, `empty`, so an `ok` page carries
-  // rows (items non-empty, total > 0), never an empty page.
+  // them); auditTrail and accessDirectory — a query that matches nothing is `empty`. This check reads page 1
+  // (`auditTrail({})` / `accessDirectory({})`), where an `ok` with no rows or `total: 0` is the zero case.
   const consoleReads = [
     { method: 'auditTrail', allowEmpty: true, send: (): Promise<ApiResponse<{ items: readonly unknown[]; total: number }>> => adapter.auditTrail({}) },
     { method: 'accessDirectory', allowEmpty: true, send: (): Promise<ApiResponse<{ items: readonly unknown[]; total: number }>> => adapter.accessDirectory({}) },
@@ -540,7 +543,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
           return `a console actor reading ${read.method}: expected ok or empty, got ${describeResponse(r)}`;
         }
         if (r.data === null || r.data.items.length === 0 || r.data.total === 0) {
-          return `an ok ${read.method} page must carry rows — a zero is outcome empty, not ok with an empty page (adapter.ts)`;
+          return `an ok ${read.method} page 1 with no rows or total: 0 is the zero case — outcome empty, not ok (adapter.ts)`;
         }
         return null;
       },
@@ -561,6 +564,8 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
       const r = await adapter.accessDirectory({});
       // A read that did not succeed is the `→ ok` check's failure; this check owns only the mart-data rule.
       if (r.outcome !== 'ok' && r.outcome !== 'empty') return null;
+      const missing = missingEnvelopeKey(r, 'assessments') ?? missingEnvelopeKey(r, 'trust');
+      if (missing) return missing;
       if (r.assessments.length > 0 || r.trust !== null) {
         return 'accessDirectory is not mart data (adapter.ts): no assessments, null trust';
       }
@@ -675,11 +680,15 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
       const saved = await adapter.saveAnnotation(annotationInput(harness.context.scopeId));
       // Calls that did not succeed are the save/list checks' failures; this check owns only the mart-data rule.
       if (saved.outcome !== 'ok') return null;
+      const saveMissing = missingEnvelopeKey(saved, 'assessments') ?? missingEnvelopeKey(saved, 'trust');
+      if (saveMissing) return saveMissing;
       if (saved.assessments.length > 0 || saved.trust !== null) {
         return 'saveAnnotation is not mart data (adapter.ts): no assessments, null trust';
       }
       const list = await adapter.listAnnotations({ chartId, scopeId: harness.context.scopeId });
       if (list.outcome !== 'ok' && list.outcome !== 'empty') return null;
+      const listMissing = missingEnvelopeKey(list, 'assessments') ?? missingEnvelopeKey(list, 'trust');
+      if (listMissing) return listMissing;
       if (list.assessments.length > 0 || list.trust !== null) {
         return 'listAnnotations is not mart data (adapter.ts): no assessments, null trust';
       }
