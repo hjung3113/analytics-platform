@@ -50,9 +50,11 @@ export function checkScope(role: RoleId, scopeId: string | null): ScopeCheck {
 }
 
 export async function validateScope(role: RoleId, scopeId: string, signal?: AbortSignal): Promise<ScopeCheck> {
+  // Pin the scenario at send time, like the other request paths — a switch mid-wait must not change this outcome.
+  const s = scenario;
   await sleep(350, signal);
   // scope_error: only Scope validation fails (#167); every other request behaves as `normal`.
-  if (scenario === 'scope_error') throw new Error('Scope check failed (scenario)');
+  if (s === 'scope_error') throw new Error('Scope check failed (scenario)');
   return checkScope(role, scopeId);
 }
 

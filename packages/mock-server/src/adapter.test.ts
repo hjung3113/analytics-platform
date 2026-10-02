@@ -66,4 +66,26 @@ describe('scope_error scenario (#167)', () => {
       expect((await mockAdapter.validateScope('ICH')).status).toBe('valid');
     } finally { setScenario('normal'); setRole(before); }
   });
+
+  it('pins the scenario at send time — a later switch to normal does not rescue an in-flight check', async () => {
+    const before = getRole();
+    try {
+      setRole('engineer');
+      setScenario('scope_error');
+      const failing = mockAdapter.validateScope('ICH');
+      setScenario('normal');
+      await expect(failing).rejects.toThrow('Scope check failed (scenario)');
+    } finally { setScenario('normal'); setRole(before); }
+  });
+
+  it('pins the scenario at send time — a later switch to scope_error does not fail an in-flight check', async () => {
+    const before = getRole();
+    try {
+      setRole('engineer');
+      setScenario('normal');
+      const passing = mockAdapter.validateScope('ICH');
+      setScenario('scope_error');
+      expect((await passing).status).toBe('valid');
+    } finally { setScenario('normal'); setRole(before); }
+  });
 });
