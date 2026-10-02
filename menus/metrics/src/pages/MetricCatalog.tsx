@@ -169,7 +169,7 @@ export default function MetricCatalogPage(_: PageProps) {
         </span>}
         // Table-owned export (#173): the page only says how to read the rows; the table builds the file.
         exportRows={(request, signal) => exports.fetch(exportParams(filter, request), signal)}
-        exportFilterSummary={exportFilterSummary(filter, lang, tx)}
+        exportFilterSummary={exportFilterSummary(filter, lang, tx)} exportContext={catalogExportEndpoint.context}
       />}
       <p className="t-caption text-text-muted">
         {lang === 'ko'

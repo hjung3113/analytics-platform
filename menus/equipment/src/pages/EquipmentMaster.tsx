@@ -60,7 +60,7 @@ export default function EquipmentMaster() {
       bulkActions={ids => <Button asChild size="sm"><PlatformLink href={linkTo('productivity-overview', { global: { selection: ids } })}>{ko ? '선택 설비로 분석' : 'Analyze selected equipment'}</PlatformLink></Button>}
       // Table-owned export (#173): the page only says how to read the rows; the table builds the file.
       exportRows={(request, signal) => exports.fetch(exportParams({ q, status, maker }, request), signal)}
-      exportFilterSummary={exportFilterSummary({ q, status, maker }, lang)}
+      exportFilterSummary={exportFilterSummary({ q, status, maker }, lang)} exportContext={equipmentExportEndpoint.context}
       emptyAction={clear}
     />}
     {focus && <DetailDrawer key={focus} title={<span className="t-mono">{focus}</span>} subtitle={ko ? '설비 상세 · 합성 데이터' : 'Equipment details · synthetic data'}

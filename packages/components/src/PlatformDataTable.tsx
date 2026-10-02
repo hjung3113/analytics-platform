@@ -90,7 +90,7 @@ const CONDITION_AXIS_LABEL = { stgroup: { ko: 'StGroup', en: 'StGroup' }, team: 
  * Applied global Context keys of this menu, rendered readably (the GlobalContextBar vocabulary). Limited to keys the
  * menu's manifest applies; absent keys are omitted as whole rows — never invented.
  */
-function globalContextRows(global: GlobalContext, context: Record<ContextKey, Capability>, lang: 'ko' | 'en'): [string, string][] {
+function globalContextRows(global: GlobalContext, context: Readonly<Partial<Record<ContextKey, Capability>>>, lang: 'ko' | 'en'): [string, string][] {
   const applied = (key: ContextKey) => context[key] === 'apply';
   const rows: [string, string][] = [];
   if (applied('roomNames') && global.roomNames !== null) rows.push([CONTEXT_LABELS.roomNames[lang], global.roomNames.length > 0 ? global.roomNames.join(', ') : EXPLICIT_EMPTY[lang]]);
@@ -152,6 +152,13 @@ export type PlatformDataTableProps<T> = {
    * them. Omit a pair for an unset filter; the table adds the applied global Context keys itself.
    */
   exportFilterSummary?: readonly (readonly [string, string])[];
+  /**
+   * The export endpoint's Context declaration (`endpoint.context`, #173 review R-P2-1). The 조회 정보 sheet lists only the
+   * global keys — and 기간 — this declaration applies; without it the menu manifest's applied keys are used. Pass it
+   * whenever the export endpoint applies fewer keys than the menu (e.g. a catalog whose manifest applies `metric` for
+   * another endpoint).
+   */
+  exportContext?: Readonly<Partial<Record<ContextKey, Capability>>>;
   activeRowId?: string | null;
   preferenceKey: string;
   pageSize?: number;
@@ -289,10 +296,10 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       if (controller.signal.aborted) return;
       if (response.outcome !== 'ok' && response.outcome !== 'empty') {
         // 06 §26 원인/행동: the refusal names a next action; an `error` carries the correlationId for support.
-        // An `error` with a server message (e.g. a deterministic refusal) shows that message instead of the generic retry advice (#173 review N-P3-3).
         const correlation = response.outcome === 'error' && response.correlationId ? ` (correlationId: ${response.correlationId})` : '';
-        const message = response.outcome === 'error' && response.message ? response.message : EXPORT_REFUSAL[response.outcome][lang];
-        toast(message + correlation, 'warning');
+        // The next action always stays; a server message is added as detail, never in its place (#173 review R-P3-1).
+        const detail = response.outcome === 'error' && response.message ? ` — ${response.message}` : '';
+        toast(EXPORT_REFUSAL[response.outcome][lang] + detail + correlation, 'warning');
         return;
       }
       let rows: T[] = response.outcome === 'empty' ? [] : response.data ?? [];
@@ -334,17 +341,18 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
         // empty — never invented. Values render like the screen: times space-separated, coverage as a percent string.
         const trust = response.trust;
         // Labels follow the UI language, like the menus' exportFilterSummary (#173 review N-P3-4). 기간/Scope are written
-        // only when this menu applies them (manifest time 'apply' / requiresScope) — never a condition that did not filter (N-P2-1).
+        // only when they apply (export endpoint's — else the manifest's — time 'apply' / requiresScope) — never a condition that did not filter (N-P2-1).
         const L = INFO_LABELS[lang];
         const menu = route?.menu;
+        const appliedContext = p.exportContext ?? menu?.context;
         const info: [string, string | number][] = [
           [L.menu, menu?.id ?? ''],
           [L.target, exportTarget(scope.kind, rows.length, lang)],
           [L.exportedAt, `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`],
           ...(menu?.requiresScope ? [['Scope', global.scopeId ?? ''] as [string, string]] : []),
-          ...(menu?.context.time === 'apply' ? [[L.period, global.from && global.to ? `${global.from} – ${global.to}` : ''] as [string, string]] : []),
+          ...(appliedContext?.time === 'apply' ? [[L.period, global.from && global.to ? `${global.from} – ${global.to}` : ''] as [string, string]] : []),
           ...(p.exportFilterSummary ?? []).map(([label, value]) => [label, value] as [string, string]),
-          ...(menu ? globalContextRows(global, menu.context, lang) : []),
+          ...(appliedContext ? globalContextRows(global, appliedContext, lang) : []),
           [L.updatedAt, trust?.updatedAt?.replace('T', ' ') ?? ''],
           [L.dataThrough, trust?.dataThrough?.replace('T', ' ') ?? ''],
           [L.coverage, trust != null && trust.coverage !== null ? `${(trust.coverage * 100).toFixed(1)}%` : ''],

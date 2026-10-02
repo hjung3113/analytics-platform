@@ -298,6 +298,7 @@ function ExportHarness(props: {
   exportRows?: PlatformDataTableProps<Row>['exportRows'];
   exportNote?: string;
   exportFilterSummary?: PlatformDataTableProps<Row>['exportFilterSummary'];
+  exportContext?: PlatformDataTableProps<Row>['exportContext'];
   filterKey?: string;
   /** Controlled sort (§6.1): the export request must carry the table's active sorting (#173 UX P2-6). */
   sorting?: PageSort[];
@@ -311,7 +312,7 @@ function ExportHarness(props: {
       title="T" ariaLabel="table" columns={props.columns ?? columns} getRowId={r => r.id}
       loadPage={props.loadPage} filterKey={props.filterKey ?? 'f'} preferenceKey="test-export-table"
       pageSize={25} height={200} exportRows={props.exportRows} exportNote={props.exportNote}
-      exportFilterSummary={props.exportFilterSummary}
+      exportFilterSummary={props.exportFilterSummary} exportContext={props.exportContext}
       urlState={props.sorting === undefined ? undefined : { page: null, sorting: props.sorting, onChange: () => {} }}
     />
     {props.probe}
@@ -696,6 +697,28 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     });
   });
 
+  it('the export endpoint’s Context declaration wins over the manifest: keys it does not apply are omitted (R-P2-1)', async () => {
+    // contextRegistry applies every key (like a catalog manifest applying metric for another endpoint), but the export
+    // endpoint declares context {} → no global row and no 기간 row, even with a full global Context.
+    render(<ExportHarness
+      registry={contextRegistry}
+      exportContext={{}}
+      loadPage={makeLoadPage(3)}
+      exportRows={vi.fn(async () => ok([]))}
+      probe={<GlobalControls initial={{ roomNames: ['PH-101'], ppid: 'PP-9', metricId: 'cycle_time', metricVersion: '4' }} />}
+    />);
+    await screen.findByText(/1\/1/);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'bump-ppid' })).toBeTruthy());
+    await exportVia('필터 결과 전체 3행을 Excel(.xlsx)로 내보내기');
+    await waitFor(() => expect(downloads.length).toBe(1));
+    const info = (await readXlsx(downloads[0].blob)).sheets[1] as Record<string, unknown>;
+    const names = Object.keys(info).filter(k => k.startsWith('A')).map(k => String(info[k]));
+    expect(names).not.toContain('지표·버전');
+    expect(names).not.toContain('room_name');
+    expect(names).not.toContain('PPID');
+    expect(names).not.toContain('기간');
+  });
+
   it('applied global keys outside the menu’s capabilities are omitted, never invented', async () => {
     // exportRegistry applies no Context key at all, yet the global Context is full → none of the rows appear.
     render(<ExportHarness
@@ -800,13 +823,13 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     expect(Object.values(rows).filter(value => /[가-힣]/.test(String(value)))).toEqual([]);
   });
 
-  it('an error refusal with a server message shows that message (plus correlationId) instead of the retry advice (N-P3-3)', async () => {
+  it('an error refusal keeps the next action and adds the server message as detail (N-P3-3, R-P3-1)', async () => {
     const withMessage: ApiResponse<Row[]> = { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'corr-7', message: '시간 도메인이 다른 실행을 함께 내보낼 수 없습니다' };
     render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={vi.fn(async () => withMessage)} />);
     await screen.findByText(/1\/1/);
     await exportVia(FILTERED_CSV);
-    await waitFor(() => expect(screen.getByTestId('toast-probe').textContent).toContain('시간 도메인이 다른 실행을 함께 내보낼 수 없습니다 (correlationId: corr-7)'));
-    expect(screen.getByTestId('toast-probe').textContent).not.toContain('다시 시도');
+    await waitFor(() => expect(screen.getByTestId('toast-probe').textContent).toContain('— 시간 도메인이 다른 실행을 함께 내보낼 수 없습니다 (correlationId: corr-7)'));
+    expect(screen.getByTestId('toast-probe').textContent).toContain('관리자에게 문의하세요');
   });
 
   it('an error refusal appends the response correlationId and names the next action', async () => {

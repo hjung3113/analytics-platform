@@ -7,7 +7,7 @@ export type PageSort = { id: string; desc: boolean };
 export type PageQuery = { page: number; pageSize: number; sorting: PageSort[] };
 export type PageResult<T> = { rows: T[]; total: number };
 
-/** Sort an in-memory row set by the first sort key without slicing (export handlers, #173). Stable; nulls last. */
+/** Sort an in-memory row set by the first sort key without slicing (export handlers, #173). Stable; nulls last ascending (first when desc). */
 export function sortRows<T>(rows: readonly T[], sorting: PageSort[]): T[] {
   const sorted = [...rows];
   const s = sorting[0];

@@ -245,7 +245,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
             // Table-owned export (#173): the page only says how to read the rows; the table builds the file and toasts.
             // No confirmed metric version → no export menu (D-9).
             exportRows={exportRowsWhenConfirmed(cycleVersion, (request, signal) => exports.fetch(exportParams(listFilter, request), signal))}
-            exportFilterSummary={exportFilterSummary(listFilter, ko)}
+            exportFilterSummary={exportFilterSummary(listFilter, ko)} exportContext={cycleExportEndpoint.context}
             exportNote={ko ? '페이지 필터가 적용된 목록이며 KPI 모집단 전체가 아닙니다' : 'Page filters apply; this is not the full KPI population'}
             emptyAction={(bucketRange || bin || tailMode !== 'p95')
               ? <Button size="sm" variant="secondary" onClick={() => setPage({ bucket: null, bin: null, percentile: 'all', page: null })}>{ko ? '목록 필터 해제' : 'Clear list filters'}</Button>
