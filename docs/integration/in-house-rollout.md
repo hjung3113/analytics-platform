@@ -61,6 +61,12 @@
 - [ ] 환경 수(개발·스테이징·운영)와 환경별 URL — IdP redirect URI, `VITE_FEEDBACKOPS_ORIGIN`
 - [ ] 파서 Postgres 접근: 같은 인스턴스·별도 스키마·read-only 계정 요청 절차(03)
 - [ ] 서버 로그 수집처 — 오류 보고·Correlation ID 추적 경로
+- [ ] 프록시 read timeout 60초 이상 가능 여부(서버 25초·클라이언트 30초보다 길게 — [전송 형식 초안](http-adapter-contract.md) §5)
+- [ ] 프록시·서버 본문 크기 한도(초과 시 413 — 초안 §2)
+- [ ] 사내 표준 요청 id 헤더(`X-Request-Id` 등)가 있는지 — 있으면 `X-Correlation-Id` 대신 그것을 쓴다(초안 §7)
+- [ ] 프록시 HTTP/2 여부(HTTP/1.1이면 출처당 6연결 큐 대기가 30초 타임아웃에 들어간다 — 초안 §5)와 `/api/**` 캐시 설정(`Cache-Control: no-store` 존중 — 초안 §1)
+- [ ] SSO 게이트웨이가 미인증 `/api/**`에 302가 아니라 401을 답하게 설정할 수 있는지(초안 §6, #150과 함께)
+- [ ] 사내 표준 브라우저가 `AbortSignal.any`(Chromium 116+)를 지원하는지 — 전송 초안 §5가 Chromium 116+를 가정
 
 ### 3.3 사내 백엔드(FastAPI) 담당 — [#148](https://github.com/hjung3113/analytics-platform/issues/148)·[#149](https://github.com/hjung3113/analytics-platform/issues/149)·[#155](https://github.com/hjung3113/analytics-platform/issues/155)
 
