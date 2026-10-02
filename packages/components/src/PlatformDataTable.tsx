@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type ColumnSizingState, type RowSelectionState, type VisibilityState } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Download, FileSpreadsheet, FileText, Loader2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, Loader2 } from 'lucide-react';
 import { CONTEXT_LABELS, useI18n, usePlatform } from '@ap/kernel';
 import { conditionLabel, type ApiResponse, type Capability, type ContextKey, type GlobalContext, type PageQuery, type PageResult, type PageSort, serializeGlobal, type Trust } from '@ap/contracts';
-import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, isProductionEnv, Label, Popover, PopoverContent, PopoverTrigger, Skeleton } from '@ap/ui';
+import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, isProductionEnv, Label, Popover, PopoverContent, PopoverTrigger, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { toColumnDef } from './columnDef';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { OutcomeView } from './StateView';
-import { exportCell, exportColumns, toCsv, toXlsx } from './tableExport';
+import { exportCell, exportColumns, toClipboardHtml, toCsv, toTsv, toXlsx } from './tableExport';
 
 export type { PageQuery, PageResult } from '@ap/contracts';
 export { sortAndPage } from '@ap/contracts';
@@ -69,6 +69,16 @@ function exportItemName(kind: ExportScopeKind, count: number | null, format: Exp
     : `Export ${target} as ${FORMAT_LABEL[format]}`;
 }
 /** Shared primitive's item focus is the card background (invisible on the popover); this menu-only class makes keyboard focus visible — an inset ring is never clipped by the content's `overflow-hidden`, and it stays on top of the soft focus background. */
+/**
+ * Row copy (#174) clipboard path, by feature detection — never by `.catch`: in an insecure context (in-house HTTP)
+ * `navigator.clipboard` is undefined and touching it throws synchronously.
+ */
+function asyncClipboard(): boolean {
+  return typeof window !== 'undefined' && window.isSecureContext && typeof navigator.clipboard?.write === 'function' && typeof ClipboardItem !== 'undefined';
+}
+/** A copy that stops with a message for the user (refusal, reconciliation to zero rows, cap, serializer bug). */
+class CopyStop extends Error {}
+type CopyPayload = { tsv: string; html: string; count: number };
 const exportItemClass = 'gap-2 focus:bg-accent-primary-soft focus:text-text-primary focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring';
 
 /** 조회 정보 (#173 review P2-3): id sets render as count + leading ids; the explicit empty set is shown, never folded into “all”. */
@@ -185,6 +195,13 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   /** Polite “준비 중” announcement next to the trigger (#173 UX P2-3); visually hidden so the toolbar width stays stable. */
   const [busyNote, setBusyNote] = useState<string | null>(null);
   const exportAbort = useRef<AbortController | null>(null);
+  /** Row copy (#174): busy flag + its own abort (a Context change abandons the read); `pendingCopy` feeds the next `copy` event (insecure path). */
+  const [copying, setCopying] = useState(false);
+  const copyAbort = useRef<AbortController | null>(null);
+  const pendingCopy = useRef<CopyPayload | null>(null);
+  const [copyTip, setCopyTip] = useState(false);
+  /** Column popover / export menu open: the Ctrl/⌘+C shortcut stays native while either is open. */
+  const [overlayOpen, setOverlayOpen] = useState({ columns: false, export: false });
   const viewport = useRef<HTMLDivElement>(null);
   // urlState (§6.1): controlled sort/page. The page writes the URL via onChange; the table never touches keys.
   const activeSorting = p.urlState ? p.urlState.sorting : sorting;
@@ -197,10 +214,11 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     if (lastContext.current !== contextIdentity) {
       lastContext.current = contextIdentity; if (!p.urlState) setPage(0); setSelection({});
       exportAbort.current?.abort(); // an in-flight export belongs to the old result set
+      copyAbort.current?.abort();
       if (viewport.current) viewport.current.scrollTop = 0;
     }
   }, [contextIdentity]);
-  useEffect(() => () => exportAbort.current?.abort(), []);
+  useEffect(() => () => { exportAbort.current?.abort(); copyAbort.current?.abort(); }, []);
   const requestIdentity = JSON.stringify([contextIdentity, effectivePage, activeSorting, retry]);
   const loadRef = useRef(p.loadPage);
   loadRef.current = p.loadPage;
@@ -278,6 +296,19 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const cellBase = 'flex min-h-8 items-center px-3 py-1 [overflow-wrap:anywhere] pointer-coarse:min-h-11';
   const nameOf = (c: Column<T>) => (c.columnDef.meta as ColumnMeta | undefined)?.label ?? (typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id);
 
+  function refusalText(outcome: keyof typeof EXPORT_REFUSAL, response: ApiResponse<unknown>): string {
+    // 06 §26 원인/행동: the refusal names a next action; an `error` carries the correlationId for support.
+    const correlation = outcome === 'error' && response.correlationId ? ` (correlationId: ${response.correlationId})` : '';
+    // The next action always stays; a server message is added as detail, never in its place (#173 review R-P3-1).
+    const detail = outcome === 'error' && response.message ? ` — ${response.message}` : '';
+    return EXPORT_REFUSAL[outcome][lang] + detail + correlation;
+  }
+  /** Export serializer for rows already read: header + cells of the visible exportable columns. Throws on a column bug. */
+  function serialize(rows: T[]): { headers: string[]; cells: (string | number)[][] } {
+    const columns = exportColumns(p.columns, preferences);
+    return { headers: columns.map(c => c.header), cells: rows.map(row => columns.map(c => exportCell(c, row))) };
+  }
+
   // Table-owned export (#173): the target (selection / all filtered rows) and format come from the chosen menu item —
   // a selection never hides "all filtered". The menu only supplies the row read; outcome handling, reconciliation,
   // size guard, file and toasts live here.
@@ -295,11 +326,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       const response = await p.exportRows!({ scope, sorting: activeSorting }, controller.signal);
       if (controller.signal.aborted) return;
       if (response.outcome !== 'ok' && response.outcome !== 'empty') {
-        // 06 §26 원인/행동: the refusal names a next action; an `error` carries the correlationId for support.
-        const correlation = response.outcome === 'error' && response.correlationId ? ` (correlationId: ${response.correlationId})` : '';
-        // The next action always stays; a server message is added as detail, never in its place (#173 review R-P3-1).
-        const detail = response.outcome === 'error' && response.message ? ` — ${response.message}` : '';
-        toast(EXPORT_REFUSAL[response.outcome][lang] + detail + correlation, 'warning');
+        toast(refusalText(response.outcome, response), 'warning');
         return;
       }
       let rows: T[] = response.outcome === 'empty' ? [] : response.data ?? [];
@@ -321,9 +348,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       let headers: string[];
       let cells: (string | number)[][];
       try {
-        const columns = exportColumns(p.columns, preferences);
-        headers = columns.map(c => c.header);
-        cells = rows.map(row => columns.map(c => exportCell(c, row)));
+        ({ headers, cells } = serialize(rows));
       } catch (error) {
         if (!isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) console.error(error);
         toast(EXPORT_REFUSAL.error[lang], 'warning');
@@ -391,9 +416,124 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     <DropdownMenuItem key={format} className={exportItemClass} disabled={exporting} aria-label={exportItemName(kind, count, format, lang)} onSelect={() => { void runExport(format, kind); }}>
       {format === 'xlsx' ? <FileSpreadsheet className="size-3.5" aria-hidden /> : <FileText className="size-3.5" aria-hidden />}{FORMAT_LABEL[format]}
     </DropdownMenuItem>);
+
+  // Row copy (#174, ADR-0008 toolbar D): copy is an export — same gate, same `exportRows` read, columns and values; TSV
+  // for spreadsheets plus `text/html` so leading zeros stay text. Secure context: ClipboardItem with promised blobs,
+  // written inside the user gesture and filled after the server read (multi-page selections copy in full). Insecure
+  // context: the native `copy` event with the loaded rows only, and a toast when that is less than the selection.
+  const copyTarget = (count: number) => exportTarget('selected', count, lang);
+  const copiedText = (count: number) => lang === 'ko'
+    ? `${copyTarget(count)}${objectParticle(copyTarget(count))} 복사했습니다 — 엑셀에 붙여넣을 수 있습니다`
+    : `Copied ${copyTarget(count)} — you can paste them into Excel`;
+  function payload(rows: T[]): CopyPayload {
+    let serialized: ReturnType<typeof serialize>;
+    try { serialized = serialize(rows); } catch (error) {
+      if (!isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) console.error(error);
+      throw new CopyStop(EXPORT_REFUSAL.error[lang]);
+    }
+    return { tsv: toTsv(serialized.headers, serialized.cells), html: toClipboardHtml(serialized.headers, serialized.cells), count: rows.length };
+  }
+  /** Server read of the selection in the table's sort, reconciled by getRowId like export. Rejects with CopyStop for the user. */
+  async function readSelection(ids: string[], signal: AbortSignal): Promise<CopyPayload> {
+    const response = await p.exportRows!({ scope: { kind: 'selected', ids }, sorting: activeSorting }, signal);
+    if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+    if (response.outcome !== 'ok' && response.outcome !== 'empty') throw new CopyStop(refusalText(response.outcome, response));
+    const wanted = new Set(ids);
+    const rows = (response.outcome === 'empty' ? [] : response.data ?? []).filter(row => wanted.has(p.getRowId(row)));
+    const missing = ids.length - rows.length;
+    if (missing > 0) {
+      const note = lang === 'ko' ? `선택 ${ids.length}행 중 ${rows.length}행 — ${missing}행은 현재 결과에 없음` : `${rows.length} of ${ids.length} selected rows — ${missing} ${missing === 1 ? 'row is' : 'rows are'} not in the current results`;
+      if (rows.length === 0) throw new CopyStop(note);
+      toast(note, 'warning');
+    }
+    if (rows.length > EXPORT_ROW_CAP) throw new CopyStop(lang === 'ko' ? `받은 행이 ${EXPORT_ROW_CAP.toLocaleString('ko-KR')}행을 넘어 복사하지 않습니다. 선택을 줄여 주세요.` : `More than ${EXPORT_ROW_CAP.toLocaleString('en-US')} rows arrived; nothing was copied. Select fewer rows.`);
+    return payload(rows);
+  }
+  const clipboardFailure = (error: unknown) => {
+    // DOMException (NotAllowedError…) is not an Error subclass everywhere: read its message structurally.
+    const message = (error as { message?: unknown } | null)?.message;
+    const reason = typeof message === 'string' && message ? message : String(error);
+    return lang === 'ko' ? `클립보드에 복사하지 못했습니다(${reason}). 브라우저의 클립보드 권한을 확인하고 다시 시도하세요.` : `Could not copy to the clipboard (${reason}). Check the browser's clipboard permission and try again.`;
+  };
+  /** Must run synchronously inside the click/keydown: `clipboard.write` is called before any await. */
+  function runCopy() {
+    if (!canExport || selectedIds.length === 0 || copyAbort.current) return; // gate + busy guard
+    if (!asyncClipboard()) { copyLoaded(); return; }
+    const ids = selectedIds;
+    const controller = new AbortController();
+    copyAbort.current = controller;
+    setCopying(true);
+    setBusyNote(lang === 'ko' ? `${copyTarget(ids.length)}${objectParticle(copyTarget(ids.length))} 복사하는 중입니다` : `Copying ${copyTarget(ids.length)}`);
+    const content = readSelection(ids, controller.signal);
+    content.catch(() => {}); // observed below; avoids an unhandled rejection while the clipboard write is pending
+    const blob = (pick: (c: CopyPayload) => string, type: string) => content.then(c => new Blob([pick(c)], { type }));
+    void (async () => {
+      try {
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ 'text/plain': blob(c => c.tsv, 'text/plain'), 'text/html': blob(c => c.html, 'text/html') })]);
+        } catch (error) {
+          const c = await content; // a refusal surfaces as itself, not as a clipboard error
+          // Older browsers refuse promised ClipboardItem values: fall back to plain text once the rows are in.
+          if (!(error instanceof TypeError)) throw error;
+          await navigator.clipboard.writeText(c.tsv);
+        }
+        const c = await content;
+        if (!controller.signal.aborted) toast(copiedText(c.count));
+      } catch (error) {
+        if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
+        toast(error instanceof CopyStop ? error.message : clipboardFailure(error), 'warning');
+      } finally {
+        if (copyAbort.current === controller) { copyAbort.current = null; setCopying(false); setBusyNote(null); }
+      }
+    })();
+  }
+  /** Insecure context: only rows on this page can be copied synchronously. Never a silent subset. */
+  function loadedPayload(): CopyPayload | null {
+    const loaded = data.rows.filter(row => selection[p.getRowId(row)]);
+    if (loaded.length < selectedIds.length) {
+      toast(lang === 'ko' ? `이 환경에서는 현재 페이지에 보이는 선택 ${loaded.length}행만 복사됩니다` : `In this environment only the ${loaded.length} selected ${loaded.length === 1 ? 'row' : 'rows'} visible on this page ${loaded.length === 1 ? 'is' : 'are'} copied`, 'warning');
+    }
+    if (loaded.length === 0) return null;
+    try { return payload(loaded); } catch (error) { toast((error as Error).message, 'warning'); return null; }
+  }
+  function copyLoaded() {
+    const content = loadedPayload();
+    if (!content) return;
+    pendingCopy.current = content;
+    let copied = false;
+    try { copied = document.execCommand('copy'); } catch { copied = false; }
+    if (pendingCopy.current) { pendingCopy.current = null; copied = false; } // no copy event reached the table
+    toast(copied ? copiedText(content.count) : clipboardFailure(lang === 'ko' ? '브라우저가 복사를 거부함' : 'the browser refused the copy'), copied ? undefined : 'warning');
+  }
+  /** Ctrl/⌘+C belongs to the table only with a selection, focus in the table section, and nothing native to copy. */
+  function shortcutApplies(target: EventTarget | null): boolean {
+    if (!canExport || selectedIds.length === 0 || overlayOpen.columns || overlayOpen.export) return false;
+    if (target instanceof Element && target.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"], [role="menu"], [role="dialog"], [data-radix-popper-content-wrapper]')) return false;
+    if (target instanceof HTMLElement && target.isContentEditable) return false;
+    return !(window.getSelection()?.toString());
+  }
+  function onShortcut(e: KeyboardEvent) {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== 'c' || !shortcutApplies(e.target)) return;
+    if (!asyncClipboard()) return; // the native copy event below takes it (insecure path)
+    e.preventDefault();
+    runCopy();
+  }
+  function onCopyEvent(e: ClipboardEvent) {
+    let content = pendingCopy.current;
+    if (content) pendingCopy.current = null; // the button's execCommand
+    else {
+      if (asyncClipboard() || !shortcutApplies(e.target)) return;
+      content = loadedPayload();
+      if (!content) return;
+      toast(copiedText(content.count));
+    }
+    e.clipboardData.setData('text/plain', content.tsv);
+    e.clipboardData.setData('text/html', content.html);
+    e.preventDefault();
+  }
   // No `ok` result yet (new Context loading, refused page): the count is unknown, so the group label says “필터 결과 전체” with no number.
   const filteredCount = shown?.outcome === 'ok' ? data.total : null;
-  return <section aria-label={p.ariaLabel} className="flex flex-col rounded-lg border border-border-subtle bg-surface-card">
+  return <section aria-label={p.ariaLabel} onKeyDown={onShortcut} onCopy={onCopyEvent} className="flex flex-col rounded-lg border border-border-subtle bg-surface-card">
     <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 p-3">
       <div className="min-w-0">
         <h2 className="t-card-title">{p.title}</h2>
@@ -401,7 +541,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {p.filters}
-        <Popover>
+        <Popover onOpenChange={open => setOverlayOpen(o => ({ ...o, columns: open }))}>
           <PopoverTrigger asChild><Button variant="secondary" size="sm" className="h-8 gap-1.5 rounded-sm border-border-strong"><Columns3 className="size-3.5" aria-hidden />{lang === 'ko' ? '컬럼' : 'Columns'}</Button></PopoverTrigger>
           <PopoverContent align="end" className="w-72 rounded-md border border-border-strong bg-surface-card p-3 shadow-md">
             <p className="t-card-title mb-2">{lang === 'ko' ? '컬럼 설정 (브라우저에 저장)' : 'Column preferences (saved locally)'}</p>
@@ -412,8 +552,22 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             </li>)}</ul>
           </PopoverContent>
         </Popover>
-        {/* Toolbar D (#172): fixed order [컬럼] [복사] [내보내기 ▾]. The [복사] button (#174) goes here, between the two. */}
-        {canExport && <DropdownMenu>
+        {/* Toolbar D (#172): fixed order [컬럼] [복사] [내보내기 ▾]. */}
+        {canExport && <TooltipProvider delayDuration={200}>
+          {/* No selection: aria-disabled (focusable, not native disabled) so the tooltip says why on hover and keyboard focus. */}
+          <Tooltip open={copyTip && selectedIds.length === 0} onOpenChange={setCopyTip}>
+            <TooltipTrigger asChild>
+              <Button variant="secondary" size="sm" className="h-8 gap-1.5 rounded-sm border-border-strong aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+                aria-disabled={selectedIds.length === 0 || copying || undefined} aria-busy={copying || undefined}
+                onClick={runCopy}>
+                {copying ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
+                {selectedIds.length === 0 ? (lang === 'ko' ? '복사' : 'Copy') : lang === 'ko' ? `${selectedIds.length}행 복사` : `Copy ${selectedIds.length} ${selectedIds.length === 1 ? 'row' : 'rows'}`}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[12px]">{lang === 'ko' ? '행을 선택하면 복사할 수 있습니다' : 'Select rows to copy'}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>}
+        {canExport && <DropdownMenu onOpenChange={open => setOverlayOpen(o => ({ ...o, export: open }))}>
           <DropdownMenuTrigger asChild>
             {/* aria-disabled, not native disabled (#173 UX P2-2): the trigger stays focusable so Radix can return
                 focus here after an item runs. The keyboard can still open the menu while busy, so its items are disabled

@@ -89,3 +89,16 @@ export async function toXlsx(headers: string[], rows: (string | number)[][], inf
     { sheet: SHEET_NAMES[lang].info, data: info.map(([key, value]) => [key, xlsxCell(value)]) },
   ]).toBlob();
 }
+
+const escapeHtml = (text: string) => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+/**
+ * Clipboard `text/html` (#174): a plain `<table>` of the same cells as the TSV. String cells carry Excel's text format
+ * (`mso-number-format:"\@"`) so leading zeros and long numeric ids paste as text — a text cell is never evaluated, so,
+ * like XLSX, no formula prefix. Numbers stay numbers.
+ */
+export function toClipboardHtml(headers: string[], rows: (string | number)[][]): string {
+  const td = (value: string | number, tag: 'th' | 'td') => typeof value === 'number'
+    ? `<${tag}>${value}</${tag}>`
+    : `<${tag} style="mso-number-format:'\\@'">${escapeHtml(value)}</${tag}>`;
+  return `<table><thead><tr>${headers.map(h => td(h, 'th')).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${row.map(c => td(c, 'td')).join('')}</tr>`).join('')}</tbody></table>`;
+}

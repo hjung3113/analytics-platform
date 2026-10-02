@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PlatformColumn } from './PlatformDataTable';
-import { exportCell, exportColumns, toCsv, toTsv, toXlsx, xlsxText, XLSX_CELL_MAX } from './tableExport';
+import { exportCell, exportColumns, toClipboardHtml, toCsv, toTsv, toXlsx, xlsxText, XLSX_CELL_MAX } from './tableExport';
 import { readXlsx } from './xlsxTestReader';
 
 type Row = { id: string; label: string | null; count: number; flag: boolean; bad?: unknown };
@@ -132,5 +132,14 @@ describe('xlsxText truncation (#173 P3-9)', () => {
     const truncated = xlsxText('a'.repeat(XLSX_CELL_MAX + 10));
     expect(truncated.length).toBe(XLSX_CELL_MAX);
     expect(truncated.endsWith('…(잘림)')).toBe(true);
+  });
+});
+
+describe('toClipboardHtml (#174)', () => {
+  it('escapes markup, marks string cells as Excel text (leading zeros survive) and keeps numbers plain', () => {
+    expect(toClipboardHtml(['Id', 'N'], [['00123', 7], ['<b>&"x"</b>', '']])).toBe(
+      `<table><thead><tr><th style="mso-number-format:'\\@'">Id</th><th style="mso-number-format:'\\@'">N</th></tr></thead>`
+      + `<tbody><tr><td style="mso-number-format:'\\@'">00123</td><td>7</td></tr>`
+      + `<tr><td style="mso-number-format:'\\@'">&lt;b&gt;&amp;&quot;x&quot;&lt;/b&gt;</td><td style="mso-number-format:'\\@'"></td></tr></tbody></table>`);
   });
 });
