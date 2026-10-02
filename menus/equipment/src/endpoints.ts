@@ -31,6 +31,8 @@ export const equipmentListEndpoint = defineEndpoint<EquipmentFilter, Equipment[]
   requiresScope: true,
   context,
   kinds: ['collection', 'processing_delay', 'coverage'],
+  // Prototype row cap for the whole-result export (06 §15); the real limit is decided with the in-house backend.
+  limits: { maxRows: 50_000 },
   mergeTimeDomain: false,
 });
 

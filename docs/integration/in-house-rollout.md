@@ -70,7 +70,7 @@
 
 ### 3.4 파서 담당 — [#37](https://github.com/hjung3113/analytics-platform/issues/37)
 
-- [ ] 적재 워커 상태 스키마 초안([ingest-status-schema.md](ingest-status-schema.md)) 합의 — 데이터 신뢰(`trust`, 미수집·처리 지연·커버리지)의 원천. 합의 전 서버 동작은 체크리스트 §3-9(추측으로 채우지 않음). 합의 뒤 모니터링·트레이스(#51).
+- [ ] 적재 워커 상태 스키마 초안([ingest-status-schema.md](ingest-status-schema.md)) 합의 — 데이터 신뢰(`trust`, 미수집·처리 지연·커버리지)의 원천. 합의 전 서버 동작은 체크리스트 §3-10(추측으로 채우지 않음). 합의 뒤 모니터링·트레이스(#51).
 
 ### 3.5 FeedbackOps — M3
 
@@ -132,7 +132,7 @@
 - [ ] 사내 SSO로 로그인 → 세션 부트스트랩 → 권한 다른 두 계정에서 메뉴·데이터 범위가 다르게 보임(서버 판정).
 - [ ] 세션 만료·재로그인 때 이전 결과가 한 프레임도 보이지 않음(체크리스트 §2 `subscribe`).
 - [ ] 오류 화면의 Correlation ID로 서버 로그를 찾을 수 있음.
-- [ ] 데이터 신뢰: #37 합의 전 동작이 체크리스트 §3-9대로다 — 원천 의존 kind(`collection`·`processing_delay`·`coverage`)는 빼지 않고 `unknown`, Trust의 모르는 값은 `null`.
+- [ ] 데이터 신뢰: #37 합의 전 동작이 체크리스트 §3-10대로다 — 원천 의존 kind(`collection`·`processing_delay`·`coverage`)는 빼지 않고 `unknown`, Trust의 모르는 값은 `null`.
 - [ ] `pnpm dev`·`pnpm e2e`는 여전히 mock으로 돈다(개발 경로 유지). 실서버 대상 E2E를 돌릴지는 3단계에서 따로 정한다 — 지금 E2E는 mock 시나리오(`malformed` 등)에 기댄다.
 
 ## 7. 흔한 함정

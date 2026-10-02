@@ -94,6 +94,11 @@ export type ServeOptions<T> = {
   requiresScope?: boolean;
   /** Reject unbounded analytics: prototype max period in hours when no fixed Selection narrows it. */
   maxHours?: number;
+  /**
+   * Declared row cap for non-paged endpoints: compared against the whole result the handler returns (not a
+   * page), so a selection narrowed by ids passes. A non-array under a declared cap is a declaration misuse.
+   */
+  maxRows?: number;
   latency?: number;
   signal?: AbortSignal;
   metricVersion?: string;
@@ -247,6 +252,13 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
   const equipment = mart && s === 'empty' ? [] : resolved.rows;
   // malformed: an ok envelope whose data does not match the declared shape, so a page that trusts it throws while rendering.
   const data = s === 'malformed' ? ({} as T) : o.compute({ equipment, role: requestRole });
+  // Declared row cap (checklist §3-9), judged on what the handler returns — the whole result, so a selection
+  // narrowed by ids passes. A non-array under a declared cap is a declaration misuse, not a data answer.
+  // The malformed dev scenario is skipped: it simulates a broken server answer that must reach the client (#101).
+  if (o.maxRows !== undefined && s !== 'malformed') {
+    if (!Array.isArray(data)) return { ...base, outcome: 'error', message: 'endpoint declares limits.maxRows but the handler did not return an array' };
+    if (data.length > o.maxRows) return { ...base, outcome: 'too_large', message: `Result has ${data.length} rows, over the declared maxRows ${o.maxRows}` };
+  }
   const empty = (mart && s === 'empty')
     || (s !== 'malformed' && o.isEmpty?.(data) === true);
   const metricVersion = o.metricVersionOf ? o.metricVersionOf() : o.metricVersion;

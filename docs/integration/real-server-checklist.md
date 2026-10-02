@@ -49,17 +49,18 @@
 6. **명시적 공집합** → 적용된 집합 키가 `[]`면 원천을 읽지 않고 `empty`, assessments 없음, trust `null`(06 §19).
 7. **시간 도메인** → `mergeTimeDomain`이면 2대 이상을 한 시간축에 합칠 수 있는지 §6.3 판정, 안 되면 `error`.
 8. **핸들러** → 해석된 설비, 적용 Context만 남긴 값(비적용 키는 "제약 없음"), params, 세션 사용자를 받아 계산. 데이터로만 판정할 수 있는 잘못된 요청(예: 다른 사용자에게 발급한 커서)은 `error`.
-9. **응답** → `assessments`는 선언한 kind마다 정확히 하나. mart 데이터면 `trust`(갱신 시각·데이터 기준 시각·커버리지·지표 버전·잠정 여부·원천), FeedbackOps 같은 비 mart 원천이면 `trust: null`. 원천 의존 kind(`collection`·`processing_delay`·`coverage`)의 원천이 아직 없으면(#37 합의 전) 빼지 않고 `state: 'unknown'`, `reason: 'source_unavailable'`로 답한다(06 §19 — 생략은 계약 위반, 행 수로 `clear`를 추론하지 않음). Trust는 키가 모두 필수이고 모르는 값(`dataThrough`·`coverage`)은 `null`(06 §18, `@ap/contracts` `Trust`).
+9. **행 상한** → `limits.maxRows`를 선언한 비페이지 엔드포인트(내보내기·탐색)는 핸들러가 돌려준 결과 **전체**(페이지가 아님)로 판정한다. 배열 길이가 `maxRows`를 넘으면 데이터 없이 `too_large`(원천을 다 읽기 전에 판정할 수 있으면 그렇게 — 단, 1–8단계 판정이 언제나 앞선다). ids를 params로 받는 선택 내보내기(#173)는 ids로 거른 **뒤의 크기**가 기준이라 큰 필터 결과 안의 작은 선택도 내보낼 수 있다. 선언했는데 핸들러가 배열이 아닌 값을 돌려주면 데이터 답이 아니라 계약 `error`(선언 오용)다. 페이지 엔드포인트에 선언하면 등록 검증이 거부한다.
+10. **응답** → `assessments`는 선언한 kind마다 정확히 하나. mart 데이터면 `trust`(갱신 시각·데이터 기준 시각·커버리지·지표 버전·잠정 여부·원천), FeedbackOps 같은 비 mart 원천이면 `trust: null`. 원천 의존 kind(`collection`·`processing_delay`·`coverage`)의 원천이 아직 없으면(#37 합의 전) 빼지 않고 `state: 'unknown'`, `reason: 'source_unavailable'`로 답한다(06 §19 — 생략은 계약 위반, 행 수로 `clear`를 추론하지 않음). Trust는 키가 모두 필수이고 모르는 값(`dataThrough`·`coverage`)은 `null`(06 §18, `@ap/contracts` `Trust`).
 
 Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation` 오류로 바꾼다 — 서버가 틀리면 화면에 그대로 드러난다.
 
 ### 등록 검증 (서버 기동 시)
 
-앱이 넘긴 메뉴 Registry로 엔드포인트 목록을 검증하고 하나라도 어긋나면 기동을 거부한다: 엔드포인트 id 중복 없음, `menuId`가 Registry에 있음, 권한 이름이 어떤 메뉴가 선언한 권한임, 엔드포인트가 `apply`한 키를 소유 메뉴도 `apply`함, 메뉴가 Scope를 요구하면 엔드포인트도 요구, Scope 없는 엔드포인트는 site 종속 키(`roomNames`·`condition`·`selection`·`lot`·`recipe`·`ppid`)를 `apply`할 수 없음(규칙 6). 원본: `packages/mock-server/src/adapter.ts` `createMockAdapter`.
+앱이 넘긴 메뉴 Registry로 엔드포인트 목록을 검증하고 하나라도 어긋나면 기동을 거부한다: 엔드포인트 id 중복 없음, `menuId`가 Registry에 있음, 권한 이름이 어떤 메뉴가 선언한 권한임, 엔드포인트가 `apply`한 키를 소유 메뉴도 `apply`함, 메뉴가 Scope를 요구하면 엔드포인트도 요구, Scope 없는 엔드포인트는 site 종속 키(`roomNames`·`condition`·`selection`·`lot`·`recipe`·`ppid`)를 `apply`할 수 없음(규칙 6), `limits.maxRows`는 양의 정수이고 페이지·커서 엔드포인트(`page`·`pageSize`·`cursor` paramKeys)가 아닐 것(규칙 7, #175). 원본: `packages/mock-server/src/adapter.ts` `createMockAdapter`.
 
 ## 4. 적합성 묶음으로 확인하기
 
-[`@ap/server-conformance`](../../packages/server-conformance/AGENTS.md)는 §3의 1·3·4·6·9를 엔드포인트 선언에서 도출해 검사한다(엔드포인트마다 성공 요청, 알 수 없는 키·비적용 키·적용 키 누락·`from` null·`metricVersion` 단독 거부, 권한 없으면 `forbidden`, 부여 안 된 site·`null` Scope `forbidden`, 명시적 공집합, kind 정확히 일치). 지금은 `apps/platform-web/src/server-conformance.test.ts`가 앱의 모든 메뉴 엔드포인트와 mock 어댑터로 돌린다.
+[`@ap/server-conformance`](../../packages/server-conformance/AGENTS.md)는 §3의 1·3·4·6·10(그리고 표본이 있으면 9)을 엔드포인트 선언에서 도출해 검사한다(엔드포인트마다 성공 요청, 알 수 없는 키·비적용 키·적용 키 누락·`from` null·`metricVersion` 단독 거부, 권한 없으면 `forbidden`, 부여 안 된 site·`null` Scope `forbidden`, 명시적 공집합, kind 정확히 일치). 선언한 `maxRows`가 있고 표본 요청이 `oversizeParams`를 갖고 있으면(#175), 그 요청이 `too_large`로 데이터 없이 답하는지도 검사한다. 지금은 `apps/platform-web/src/server-conformance.test.ts`가 앱의 모든 메뉴 엔드포인트와 mock 어댑터로 돌린다.
 
 실어댑터를 붙이면 같은 하네스를 실어댑터로 만든다. 사내에서 준비할 것:
 
@@ -67,10 +68,11 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 - `cases`: 엔드포인트 선언과 표본 요청 — 앱 테스트의 `PARAMS` 표를 그대로 쓸 수 있다.
 - `context`·`foreignScopeId`: 테스트 계정에 부여된 site·기간, 부여되지 않은 site.
 - `asGranted`·`withoutPermission`: 모든 엔드포인트 권한을 가진 테스트 계정과, 권한 하나씩만 뺀 계정(또는 그렇게 세션을 바꾸는 테스트 훅).
+- `oversizeParams`(`maxRows`를 선언한 엔드포인트마다): 테스트 서버에서 선언 상한을 넘는 결과가 나오는 표본 요청. 앱 테스트의 `PARAMS` 표에는 없다(mock 데이터가 작다) — 테스트 환경에 상한보다 많은 행을 준비해야 한다. 표본이 없으면 그 검사는 건너뛰었다고 표시된다.
 
 지금 묶음은 `menuQuery`만 검사한다. §2의 나머지 포트 메서드로 넓히는 일은 #152.
 
-묶음이 다루지 않는 것(메뉴별 수치·행, 한도·시간 도메인 경계값, 비 mart `trust: null`)은 메뉴 테스트와 E2E(`pnpm e2e`)가 맡는다.
+묶음이 다루지 않는 것(메뉴별 수치·행, `maxHours` 등 한도 경계값 — `maxRows`는 초과 표본만 검사한다, 시간 도메인 경계값, 비 mart `trust: null`)은 메뉴 테스트와 E2E(`pnpm e2e`)가 맡는다.
 
 ## 5. 세션·사용자
 
@@ -93,6 +95,6 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 | 메뉴 조회 포트 Q2(#148) — 선언 원본을 TS로 두고 서버가 읽을지, FastAPI에서 생성할지 | 서버의 "선언 사본"을 어디서 가져올지. 공개 스키마·codegen(PLATFORM_REQUIREMENTS)도 여기에 달려 있다. |
 | 전송 형식(#149, 초안 → 합의) — HTTP 경로·메서드·JSON 모양, 취소(`AbortSignal`)·타임아웃 | 실어댑터와 서버의 경계. mock은 함수 호출이라 정해진 게 없다. |
 | 사내 SSO 사양(#150)·역할 소속 원천(#98) | 세션·권한의 원천. |
-| 적재 워커 상태 스키마(#37) | 데이터 신뢰(`trust`, `collection`·`processing_delay`·`coverage` assessment)의 원천. 합의 전 서버 동작은 §3-9. 합의 뒤 모니터링(#51). |
+| 적재 워커 상태 스키마(#37) | 데이터 신뢰(`trust`, `collection`·`processing_delay`·`coverage` assessment)의 원천. 합의 전 서버 동작은 §3-10. 합의 뒤 모니터링(#51). |
 | FeedbackOps API(#84 설문 응답 읽기, #85 신고자 딥링크, #86 실제 VOC 어댑터) | 내 VOC·설문 화면의 비 mart 원천. |
 | 배포·인프라 환경(#151) | 같은 출처 배포·쿠키·CSRF, 망분리 빌드, CI 위치. 전송 형식 합의가 여기에 기댄다. |

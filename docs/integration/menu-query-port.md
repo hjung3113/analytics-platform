@@ -89,7 +89,7 @@ export type EndpointSpec<P, T> = {
   requiresScope: boolean;
   context: Partial<Record<ContextKey, Exclude<Capability, 'unsupported'>>>; // 없는 키 = unsupported
   kinds: readonly AssessmentKind[]; // §19 적용 kind. 서버가 정확히 1회씩 응답
-  limits?: { maxHours?: number };   // too_large 판정
+  limits?: { maxHours?: number; maxRows?: number }; // too_large 판정 — maxRows는 결과 전체(페이지 아님) 상한, 비페이지 행 배열 엔드포인트(내보내기·탐색)만 선언(#175)
   mergeTimeDomain: boolean;         // §6.3
   readonly _types?: { params: P; data: T }; // 팬텀. 런타임 값 없음
 };
@@ -141,7 +141,7 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 
 1. `endpoint` 미등록 → `error`("unknown endpoint").
 2. 요청 모양 위반(요청 최상위에 `permission`·`kinds` 같은 알 수 없는 키, GlobalContext 필드가 아닌 Context 키, `projectContext`가 투영하지 않는 Context 키(Q3), 선언이 적용하는 Context 키 누락(Q9), `paramKeys`에 없는 params 키) → `error`. `time`을 적용하면 `from`·`to`는 각각 존재하는 non-null 문자열이어야 한다. `metric`을 적용하면 `metricVersion`은 `metricId` 없이 올 수 없다(06 §6.1; 반대로 `metricId`만 있고 `metricVersion`이 `null`인 초기화 진입점은 허용한다). **클라이언트가 보낸 값으로 권한·kind를 정하는 길 자체를 없앤다.** 요청 Context 키는 `projectContext`가 투영하는 키와 같아야 한다. 적용 키는 값이 `null`이어도 모양이 유효하며(제약 없음), `scopeId: null`도 구조 오류가 아니어서 5단계 Scope 판정이 `forbidden`으로 답한다. 엔진은 검증 후 투영 결과를 `emptyGlobal` 위에 얹으므로 적용하지 않는 필드는 기본 중립값으로 남고 Scope·room·Condition·Selection 판정과 핸들러에 전달되지 않는다. 우리 클라이언트는 `projectContext`가 정확히 그 키만 보낸다.
-   - 등록 시점 검증: `createMockAdapter({ endpoints, registry })`(실서버도 같은 검증)는 앱이 주입한 Registry(manifest 목록)로 `spec.menuId`가 실재하는지, `spec.permission`이 Registry의 어떤 메뉴가 선언한 권한 이름인지(오타 방지)를 검사하고, 둘 중 하나라도 아니거나 `id`가 이미 등록된 것과 겹치면(여러 메뉴 패키지의 배열을 합칠 때 생기는 중복) 등록을 거부한다. 또 엔드포인트가 `apply`로 선언한 Context 키를 소유 메뉴 manifest가 `apply`로 선언하지 않았으면(reference·unsupported·없음) 등록을 거부한다. 소유 메뉴 manifest가 Scope를 요구하는데(`requiresScope`) 엔드포인트가 `requiresScope: false`면 그것도 거부한다(`projectContext`가 `scopeId`를 빼서 5단계의 사이트·room 부여 검증이 건너뛰어진다). **등록 규칙 6:** `requiresScope: false` 엔드포인트는 site에 묶인 Context 키(`roomNames`·`condition`·`selection`·`lot`·`recipe`·`ppid`, 06 §22)를 `apply`할 수 없다. `time`·`metric` 적용은 이 규칙에 막히지 않는다. `mock-server`는 메뉴를 모르므로 manifest는 앱이 넘긴다. **엔드포인트 권한은 메뉴 권한과 같을 필요가 없다**(Q5): manifest 권한은 메뉴 노출·진입, 엔드포인트 권한은 서버의 데이터 접근 판정이다. 서버는 요청이 아니라 이 선언 사본을 믿으므로 엔드포인트 권한은 엔드포인트 PR에서 데이터 소유 기준으로 리뷰한다.
+   - 등록 시점 검증: `createMockAdapter({ endpoints, registry })`(실서버도 같은 검증)는 앱이 주입한 Registry(manifest 목록)로 `spec.menuId`가 실재하는지, `spec.permission`이 Registry의 어떤 메뉴가 선언한 권한 이름인지(오타 방지)를 검사하고, 둘 중 하나라도 아니거나 `id`가 이미 등록된 것과 겹치면(여러 메뉴 패키지의 배열을 합칠 때 생기는 중복) 등록을 거부한다. 또 엔드포인트가 `apply`로 선언한 Context 키를 소유 메뉴 manifest가 `apply`로 선언하지 않았으면(reference·unsupported·없음) 등록을 거부한다. 소유 메뉴 manifest가 Scope를 요구하는데(`requiresScope`) 엔드포인트가 `requiresScope: false`면 그것도 거부한다(`projectContext`가 `scopeId`를 빼서 5단계의 사이트·room 부여 검증이 건너뛰어진다). **등록 규칙 6:** `requiresScope: false` 엔드포인트는 site에 묶인 Context 키(`roomNames`·`condition`·`selection`·`lot`·`recipe`·`ppid`, 06 §22)를 `apply`할 수 없다. `time`·`metric` 적용은 이 규칙에 막히지 않는다. **등록 규칙 7(#175):** `limits.maxRows`를 선언하면 값은 양의 정수여야 하고, `page`·`pageSize`·`cursor` params를 가진 페이지(또는 커서) 엔드포인트에는 선언할 수 없다(행 상한은 결과 전체 기준이라 페이징·커서로 이미 묶인 엔드포인트에는 무의미). `mock-server`는 메뉴를 모르므로 manifest는 앱이 넘긴다. **엔드포인트 권한은 메뉴 권한과 같을 필요가 없다**(Q5): manifest 권한은 메뉴 노출·진입, 엔드포인트 권한은 서버의 데이터 접근 판정이다. 서버는 요청이 아니라 이 선언 사본을 믿으므로 엔드포인트 권한은 엔드포인트 PR에서 데이터 소유 기준으로 리뷰한다.
 2a. params **값** 검증(#123): 모양 규칙으로 표현할 수 없는 값(예: 계열에 없는 `metricVersion`)은 엔드포인트의 `validate`가 오류 문장을 돌려주면 `error`. 알 수 없는 params 키처럼 잘못된 요청이지 빈 결과가 아니다. 실행 상세 occurrence는 `cycle_time` 계열 버전(3·4)만 받는다 — 예전엔 `v999`가 v3 계산 위에 라벨만 붙어 나갔다.
 3. `spec.permission`을 세션으로 검사 → `forbidden`. 응답 시나리오보다 우선(현재와 같음).
 4. (mock만) 시나리오 early return.
@@ -149,7 +149,9 @@ mock `serve`의 현재 순서(`server.ts:198-253`)를 선언 기반으로 옮긴
 6. `limits.maxHours` → `too_large`.
 7. 명시적 공집합 → `empty`.
 8. `mergeTimeDomain`이면 §6.3 판정.
-9. 핸들러 실행 → `spec.kinds`로 `assessments` 채움, `trust`는 서버가 붙임(`metricVersion` 표시값도 서버가).
+9. 핸들러 실행.
+10. 핸들러가 돌려준 결과 전체(페이지 아님)가 `limits.maxRows`를 넘으면 데이터 없이 `too_large`; 선언했는데 배열이 아니면 계약 `error`. ids로 거른 뒤 크기가 기준(#175, 체크리스트 §3-9).
+11. `spec.kinds`로 `assessments` 채움, `trust`는 서버가 붙임(`metricVersion` 표시값도 서버가).
 
 경계: **권한 판단·kind 목록·계산·원천 데이터는 서버 절반에만 있다.** 클라이언트 번들에 남는 것은 선언(권한 이름·kind 이름·한도 숫자)뿐이고, 서버는 요청이 아니라 자기 쪽 선언 사본을 믿는다. 실서버에서 FastAPI가 같은 선언을 어떻게 공유하는지는 §8 Q2.
 

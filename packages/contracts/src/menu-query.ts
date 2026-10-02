@@ -18,8 +18,12 @@ export type EndpointSpec<P, T> = {
   context: Partial<Record<ContextKey, Exclude<Capability, 'unsupported'>>>;
   /** Assessment kinds for which the server returns exactly one assessment each. */
   kinds: readonly AssessmentKind[];
-  /** Limits used for `too_large` assessment. */
-  limits?: { maxHours?: number };
+  /**
+   * Limits used for `too_large` assessment. `maxRows` is compared against the whole result size (not a page),
+   * and is declared only on non-paged row-array endpoints (export, exploration); a selection export (ids in
+   * params) is judged after the ids filter — i.e. against what the handler returns.
+   */
+  limits?: { maxHours?: number; maxRows?: number };
   /** Whether to merge the time-domain assessment (§6.3). */
   mergeTimeDomain: boolean;
   /** Phantom types only; no runtime value. */

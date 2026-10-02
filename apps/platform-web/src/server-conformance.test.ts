@@ -42,6 +42,7 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'noticeVoc.myVocHistory': { cursor: null },
 };
 
+// No oversizeParams samples (#175): mock data sits far below the declared maxRows, so no case can exceed a cap.
 const cases: ConformanceCase[] = endpoints.map(({ spec }) => ({ spec, params: PARAMS[spec.id] ?? {} }));
 const GRANTED: RoleId = 'engineer';
 

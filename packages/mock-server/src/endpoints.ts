@@ -135,6 +135,7 @@ export async function serveEndpoint(
       kinds: [...endpoint.spec.kinds],
       requiresScope: endpoint.spec.requiresScope,
       maxHours: endpoint.spec.limits?.maxHours,
+      maxRows: endpoint.spec.limits?.maxRows,
       mergeTimeDomain: endpoint.spec.mergeTimeDomain,
       global,
       role: opts?.role,

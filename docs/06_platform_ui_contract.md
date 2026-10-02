@@ -708,7 +708,7 @@ Cell padding     4px 12px
 
 숫자는 오른쪽 정렬하고 `tabular-nums`를 사용한다.
 
-대규모 데이터에서는 브라우저에 전체 데이터를 전달하지 않는다.
+대규모 데이터에서는 브라우저에 전체 데이터를 전달하지 않는다. 서버가 선언 행 상한(`limits.maxRows`)으로 판정한다 — [실서버 연결 체크리스트](integration/real-server-checklist.md) §3(#175).
 
 ### Platform Table과 Domain Table의 경계
 
@@ -887,7 +887,7 @@ Unknown
 
 위젯/조회 단위 응답은 두 층으로 구성한다.
 
-1. **`outcome`(배타값):** `ok | empty | error | forbidden | too_large | timeout`. `empty`는 성공한 조회의 0건을 뜻하며, 본 조회 자체가 실패했다면 빈 배열 유무와 무관하게 `empty`가 아니라 `error`다. `error`는 나머지 구체 값에 해당하지 않는 잔여 실패다.
+1. **`outcome`(배타값):** `ok | empty | error | forbidden | too_large | timeout`. `empty`는 성공한 조회의 0건을 뜻하며, 본 조회 자체가 실패했다면 빈 배열 유무와 무관하게 `empty`가 아니라 `error`다. `error`는 나머지 구체 값에 해당하지 않는 잔여 실패다. `too_large`는 선언한 한도(`limits.maxHours`·`maxRows`)를 넘은 조회다 — 판정 기준과 순서는 [실서버 연결 체크리스트](integration/real-server-checklist.md) §3이다(#175).
 2. **`assessments[]`(이름 Candidate):** 그 조회 계약이 선언한 **적용 kind**를 빠짐없이 1회씩 담는다. 각 항목은 `state = confirmed | clear | unknown`이다. 플랫폼이 kind **어휘**를 소유하고, 각 조회 계약(공개 스키마/메뉴 선언)이 그 조회에 **적용되는 kind 목록**을 선언한다. 원천이 아직 미구현이라는 이유로 적용 kind를 목록에서 빼지 않는다 — 그 경우 `unknown`으로 응답한다(의미상 해당하지 않는 kind만 목록에서 제외). 적용 목록의 누락·중복·잘못된 상태 조합은 응답 계약 위반이며, 클라이언트는 생략을 `clear`로 보정하지 않는다. **예외(2026-10-01):** 요청이 적용 집합 키에 명시적 공집합(§6)을 실어 원천 조회를 하지 않은 경우, 응답은 `outcome=empty`에 `assessments` 없음·Trust 없음이다(평가할 원천 결과가 없다). 클라이언트는 요청에 명시적 공집합이 있을 때만 이 모양을 계약 위반으로 보지 않는다.
 
 `clear`는 "그 kind가 표현하는 문제가 해당 Context에 없음을 원천이 실제로 확인했다"는 제한적 주장이며 전반적 데이터 건강/완전성 선언이 아니다(가짜 `clear` 금지). `confirmed`/`clear`는 논리적 `statusSource`(원천 서비스 id)와 `observedAt`이 필수다. `unknown`은 생략하지 않으며 `source_unavailable`/`check_failed`/`retention_expired`(원천 보존 기간 밖, 이름 Candidate) 같은 평가 불가 이유를 명시한다.
