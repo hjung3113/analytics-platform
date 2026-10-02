@@ -1,3 +1,4 @@
+import { StrictMode, useEffect } from 'react';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -166,20 +167,37 @@ describe('spaces on Platform (06 §9.1)', () => {
 });
 
 describe('toast auto-dismiss timers', () => {
-  function ToastButton() {
-    const { toast } = usePlatform();
-    return <button type="button" data-testid="toast" onClick={() => toast('hello')}>toast</button>;
+  function ToastProbe({ onMount }: { onMount?: string }) {
+    const { toast, toasts } = usePlatform();
+    useEffect(() => { if (onMount) toast(onMount); }, [onMount, toast]);
+    return <div>
+      <button type="button" data-testid="toast" onClick={() => toast('clicked')}>toast</button>
+      <p data-testid="toasts">{toasts.map(t => t.text).join(',')}</p>
+    </div>;
   }
 
-  it('are cancelled when the provider unmounts — none outlives the tree', () => {
+  it('a dismiss timer that fires after the provider unmounted never reaches React (CI: window is not defined)', () => {
     vi.useFakeTimers();
     try {
-      const view = render(<I18nProvider><PlatformProvider adapter={fixture(ANALYST)} registry={registry}><ToastButton /></PlatformProvider></I18nProvider>);
-      const before = vi.getTimerCount();
+      const view = render(<I18nProvider><PlatformProvider adapter={fixture(ANALYST)} registry={registry}><ToastProbe /></PlatformProvider></I18nProvider>);
       act(() => screen.getByTestId('toast').click());
-      expect(vi.getTimerCount()).toBe(before + 1);
       view.unmount();
-      expect(vi.getTimerCount()).toBe(0);
+      // What a torn-down test environment looks like to the timer: React's update path reads window.event.
+      vi.stubGlobal('window', undefined);
+      expect(() => vi.runAllTimers()).not.toThrow();
+    } finally {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
+
+  it('under StrictMode a toast raised during mount still closes by itself', () => {
+    vi.useFakeTimers();
+    try {
+      render(<StrictMode><I18nProvider><PlatformProvider adapter={fixture(ANALYST)} registry={registry}><ToastProbe onMount="mounted" /></PlatformProvider></I18nProvider></StrictMode>);
+      expect(screen.getByTestId('toasts').textContent).toContain('mounted');
+      act(() => { vi.advanceTimersByTime(5000); });
+      expect(screen.getByTestId('toasts').textContent).toBe('');
     } finally {
       vi.useRealTimers();
     }

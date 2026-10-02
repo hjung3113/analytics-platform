@@ -174,20 +174,18 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     if (!options?.replace) document.getElementById('platform-main')?.scrollTo({ top: 0 });
   }, []);
 
-  // Auto-dismiss timers die with the provider: a timer that outlives an unmount would set state on a torn-down tree.
-  const toastTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
-  useEffect(() => () => {
-    for (const timer of toastTimers.current) clearTimeout(timer);
-    toastTimers.current.clear();
+  // An auto-dismiss timer can outlive the provider (an unmount, a torn-down test DOM); it must not set state then.
+  // A mounted flag, not clearTimeout in the cleanup: StrictMode's fake unmount would cancel the dismissal of a
+  // toast raised during mount, and that toast would never close.
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
   }, []);
   const toast = useCallback((text: string, tone: Toast['tone'] = 'info') => {
     const id = toastId.current++;
     setToasts(list => [...list.slice(-3), { id, text, tone }]);
-    const timer = setTimeout(() => {
-      toastTimers.current.delete(timer);
-      setToasts(list => list.filter(t => t.id !== id));
-    }, 5000);
-    toastTimers.current.add(timer);
+    setTimeout(() => { if (mounted.current) setToasts(list => list.filter(t => t.id !== id)); }, 5000);
   }, []);
   const dismissToast = useCallback((id: number) => setToasts(list => list.filter(t => t.id !== id)), []);
 
