@@ -73,26 +73,33 @@ const exportItemClass = 'gap-2 focus:bg-accent-primary-soft focus:text-text-prim
 
 /** 조회 정보 (#173 review P2-3): id sets render as count + leading ids; the explicit empty set is shown, never folded into “all”. */
 const CONTEXT_ID_LIMIT = 10;
-function idSetValue(ids: string[]): string {
-  if (ids.length === 0) return '0행 (명시적 빈 집합)';
+const INFO_LABELS = {
+  ko: { menu: '메뉴', target: '대상', exportedAt: '내보낸 시각', period: '기간', updatedAt: '갱신 시각', dataThrough: '데이터 기준 시각', coverage: '커버리지', metricVersion: '지표 버전', provisional: '잠정 여부', provisionalYes: '잠정', provisionalNo: '확정', source: '원천' },
+  en: { menu: 'Menu', target: 'Target', exportedAt: 'Exported at', period: 'Period', updatedAt: 'Updated at', dataThrough: 'Data through', coverage: 'Coverage', metricVersion: 'Metric version', provisional: 'Provisional', provisionalYes: 'Provisional', provisionalNo: 'Final', source: 'Source' },
+} as const;
+// Global id sets count ids (“N개” / “N ids”), not exported rows — “행” stays for table rows (#173 review N-P3-6).
+const EXPLICIT_EMPTY = { ko: '(명시적 빈 집합)', en: '(explicit empty set)' } as const;
+function idSetValue(ids: string[], lang: 'ko' | 'en'): string {
+  const count = lang === 'ko' ? `${ids.length}개` : `${ids.length} ${ids.length === 1 ? 'id' : 'ids'}`;
+  if (ids.length === 0) return `${count} ${EXPLICIT_EMPTY[lang]}`;
   const head = ids.slice(0, CONTEXT_ID_LIMIT).join(', ');
-  return ids.length > CONTEXT_ID_LIMIT ? `${ids.length}행: ${head} …` : `${ids.length}행: ${head}`;
+  return ids.length > CONTEXT_ID_LIMIT ? `${count}: ${head} …` : `${count}: ${head}`;
 }
-const CONDITION_AXIS_LABEL = { stgroup: 'StGroup', team: '분임조', makerModel: 'Maker+Model' } as const;
+const CONDITION_AXIS_LABEL = { stgroup: { ko: 'StGroup', en: 'StGroup' }, team: { ko: '분임조', en: 'Team' }, makerModel: { ko: 'Maker+Model', en: 'Maker+Model' } } as const;
 /**
  * Applied global Context keys of this menu, rendered readably (the GlobalContextBar vocabulary). Limited to keys the
  * menu's manifest applies; absent keys are omitted as whole rows — never invented.
  */
-function globalContextRows(global: GlobalContext, context: Record<ContextKey, Capability>): [string, string][] {
+function globalContextRows(global: GlobalContext, context: Record<ContextKey, Capability>, lang: 'ko' | 'en'): [string, string][] {
   const applied = (key: ContextKey) => context[key] === 'apply';
   const rows: [string, string][] = [];
-  if (applied('roomNames') && global.roomNames !== null) rows.push([CONTEXT_LABELS.roomNames.ko, global.roomNames.length > 0 ? global.roomNames.join(', ') : '(명시적 빈 집합)']);
-  if (applied('condition') && global.condition !== null) rows.push([CONTEXT_LABELS.condition.ko, `${CONDITION_AXIS_LABEL[global.condition.axis]}: ${conditionLabel(global.condition)}`]);
-  if (applied('selection') && global.selection !== null) rows.push([CONTEXT_LABELS.selection.ko, idSetValue(global.selection)]);
-  if (applied('lot') && global.lotIds !== null) rows.push([CONTEXT_LABELS.lot.ko, idSetValue(global.lotIds)]);
-  if (applied('ppid') && global.ppid !== null) rows.push([CONTEXT_LABELS.ppid.ko, global.ppid]);
-  if (applied('recipe') && global.recipeIds !== null) rows.push([CONTEXT_LABELS.recipe.ko, idSetValue(global.recipeIds)]);
-  if (applied('metric') && global.metricId !== null) rows.push([CONTEXT_LABELS.metric.ko, global.metricVersion !== null ? `${global.metricId} v${global.metricVersion}` : global.metricId]);
+  if (applied('roomNames') && global.roomNames !== null) rows.push([CONTEXT_LABELS.roomNames[lang], global.roomNames.length > 0 ? global.roomNames.join(', ') : EXPLICIT_EMPTY[lang]]);
+  if (applied('condition') && global.condition !== null) rows.push([CONTEXT_LABELS.condition[lang], `${CONDITION_AXIS_LABEL[global.condition.axis][lang]}: ${conditionLabel(global.condition)}`]);
+  if (applied('selection') && global.selection !== null) rows.push([CONTEXT_LABELS.selection[lang], idSetValue(global.selection, lang)]);
+  if (applied('lot') && global.lotIds !== null) rows.push([CONTEXT_LABELS.lot[lang], idSetValue(global.lotIds, lang)]);
+  if (applied('ppid') && global.ppid !== null) rows.push([CONTEXT_LABELS.ppid[lang], global.ppid]);
+  if (applied('recipe') && global.recipeIds !== null) rows.push([CONTEXT_LABELS.recipe[lang], idSetValue(global.recipeIds, lang)]);
+  if (applied('metric') && global.metricId !== null) rows.push([CONTEXT_LABELS.metric[lang], global.metricVersion !== null ? `${global.metricId} v${global.metricVersion}` : global.metricId]);
   return rows;
 }
 
@@ -282,8 +289,10 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       if (controller.signal.aborted) return;
       if (response.outcome !== 'ok' && response.outcome !== 'empty') {
         // 06 §26 원인/행동: the refusal names a next action; an `error` carries the correlationId for support.
+        // An `error` with a server message (e.g. a deterministic refusal) shows that message instead of the generic retry advice (#173 review N-P3-3).
         const correlation = response.outcome === 'error' && response.correlationId ? ` (correlationId: ${response.correlationId})` : '';
-        toast(EXPORT_REFUSAL[response.outcome][lang] + correlation, 'warning');
+        const message = response.outcome === 'error' && response.message ? response.message : EXPORT_REFUSAL[response.outcome][lang];
+        toast(message + correlation, 'warning');
         return;
       }
       let rows: T[] = response.outcome === 'empty' ? [] : response.data ?? [];
@@ -324,23 +333,27 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
         // "조회 정보" sheet: what was exported, from which Context, with which filters and trust. Missing values stay
         // empty — never invented. Values render like the screen: times space-separated, coverage as a percent string.
         const trust = response.trust;
+        // Labels follow the UI language, like the menus' exportFilterSummary (#173 review N-P3-4). 기간/Scope are written
+        // only when this menu applies them (manifest time 'apply' / requiresScope) — never a condition that did not filter (N-P2-1).
+        const L = INFO_LABELS[lang];
+        const menu = route?.menu;
         const info: [string, string | number][] = [
-          ['메뉴', route?.menu.id ?? ''],
-          ['대상', exportTarget(scope.kind, rows.length, 'ko')],
-          ['내보낸 시각', `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`],
-          ['Scope', global.scopeId ?? ''],
-          ['기간', global.from && global.to ? `${global.from} – ${global.to}` : ''],
+          [L.menu, menu?.id ?? ''],
+          [L.target, exportTarget(scope.kind, rows.length, lang)],
+          [L.exportedAt, `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`],
+          ...(menu?.requiresScope ? [['Scope', global.scopeId ?? ''] as [string, string]] : []),
+          ...(menu?.context.time === 'apply' ? [[L.period, global.from && global.to ? `${global.from} – ${global.to}` : ''] as [string, string]] : []),
           ...(p.exportFilterSummary ?? []).map(([label, value]) => [label, value] as [string, string]),
-          ...(route ? globalContextRows(global, route.menu.context) : []),
-          ['갱신 시각', trust?.updatedAt?.replace('T', ' ') ?? ''],
-          ['데이터 기준 시각', trust?.dataThrough?.replace('T', ' ') ?? ''],
-          ['커버리지', trust != null && trust.coverage !== null ? `${(trust.coverage * 100).toFixed(1)}%` : ''],
-          ['지표 버전', trust?.metricVersion ?? ''],
-          ['잠정 여부', trust ? (trust.provisional ? '잠정' : '확정') : ''],
-          ['원천', trust?.source ?? ''],
+          ...(menu ? globalContextRows(global, menu.context, lang) : []),
+          [L.updatedAt, trust?.updatedAt?.replace('T', ' ') ?? ''],
+          [L.dataThrough, trust?.dataThrough?.replace('T', ' ') ?? ''],
+          [L.coverage, trust != null && trust.coverage !== null ? `${(trust.coverage * 100).toFixed(1)}%` : ''],
+          [L.metricVersion, trust?.metricVersion ?? ''],
+          [L.provisional, trust ? (trust.provisional ? L.provisionalYes : L.provisionalNo) : ''],
+          [L.source, trust?.source ?? ''],
           ['Correlation ID', response.correlationId ?? ''],
         ];
-        blob = await toXlsx(headers, cells, info);
+        blob = await toXlsx(headers, cells, info, lang);
         if (controller.signal.aborted) return;
       }
       const url = URL.createObjectURL(blob);
@@ -367,7 +380,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     }
   }
   const exportItems = (kind: ExportScopeKind, count: number | null) => (['xlsx', 'csv'] as const).map(format =>
-    <DropdownMenuItem key={format} className={exportItemClass} aria-label={exportItemName(kind, count, format, lang)} onSelect={() => { void runExport(format, kind); }}>
+    <DropdownMenuItem key={format} className={exportItemClass} disabled={exporting} aria-label={exportItemName(kind, count, format, lang)} onSelect={() => { void runExport(format, kind); }}>
       {format === 'xlsx' ? <FileSpreadsheet className="size-3.5" aria-hidden /> : <FileText className="size-3.5" aria-hidden />}{FORMAT_LABEL[format]}
     </DropdownMenuItem>);
   // No `ok` result yet (new Context loading, refused page): the count is unknown, so the group label says “필터 결과 전체” with no number.
@@ -395,7 +408,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
         {canExport && <DropdownMenu>
           <DropdownMenuTrigger asChild>
             {/* aria-disabled, not native disabled (#173 UX P2-2): the trigger stays focusable so Radix can return
-                focus here after an item runs; runExport guards re-entry. The polite status is announced separately. */}
+                focus here after an item runs. The keyboard can still open the menu while busy, so its items are disabled
+                then (#173 review N-P3-1); runExport also guards re-entry. The polite status is announced separately. */}
             <Button variant="secondary" size="sm" className="h-8 gap-1.5 rounded-sm border-border-strong aria-disabled:pointer-events-none aria-disabled:opacity-50"
               aria-disabled={exporting || undefined} aria-busy={exporting || undefined}>
               <Download className="size-3.5" aria-hidden />{t('export')}
@@ -418,7 +432,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
           </DropdownMenuContent>
         </DropdownMenu>}
         {/* Visually hidden (width-stable) so screen readers hear what the export is preparing (#173 UX P2-3). */}
-        {canExport && busyNote && <span role="status" className="sr-only">{busyNote}</span>}
+        {/* Always mounted while export is available; only the text changes, so screen readers announce it (#173 review N-P3-2). */}
+        {canExport && <span role="status" className="sr-only" data-testid="export-status">{busyNote ?? ''}</span>}
       </div>
     </div>
 

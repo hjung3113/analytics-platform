@@ -3,7 +3,7 @@
  * Synthetic cycle-time executions seeded from EQUIPMENT. Not parser data. Percentile, bins, timeline and quality
  * are Candidate choices — see the page captions. Anchors stay second-precision strings.
  */
-import { bucketStart, formatDateTime, parseDateTime, shift, sortAndPage, type GlobalContext } from '@ap/contracts';
+import { bucketStart, formatDateTime, parseDateTime, shift, sortAndPage, sortRows, type GlobalContext } from '@ap/contracts';
 import { cycleMinutes, defineMockEndpoint, EQUIPMENT, jobPercentile, jobsForEquipmentDay, jobsInPeriod, type AnyMockEndpoint, type Equipment, type Job } from '@ap/mock-server';
 import {
   BINS, binIndex, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint, cycleTrendEndpoint,
@@ -227,7 +227,7 @@ export const cycleMock: readonly AnyMockEndpoint[] = [
       const { ids, sorting = [] } = params;
       const rows = slowRows(equipment, context, params);
       const selected = ids == null ? rows : rows.filter(row => ids.includes(executionKey(row)));
-      return sortAndPage(selected, { page: 0, pageSize: Number.MAX_SAFE_INTEGER, sorting }).rows;
+      return sortRows(selected, sorting);
     },
     metricVersion,
   }),

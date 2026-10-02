@@ -3,7 +3,7 @@
  * `@ap/menu-metrics/mock`; pages never import this module. The pair verdict, catalog filters and paging,
  * definition, usage and history are all answered here — the page no longer holds the catalog.
  */
-import { sortAndPage } from '@ap/contracts';
+import { sortAndPage, sortRows } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
 import {
   catalogExportEndpoint, catalogListEndpoint, catalogPageEndpoint, definitionEndpoint, historyEndpoint, metricPairEndpoint, usageEndpoint,
@@ -29,7 +29,7 @@ export const metricsMock: readonly AnyMockEndpoint[] = [
     handle: ({ params: { q, status, domain, lang, ids, sorting = [] } }) => {
       const rows = filterCatalog(catalogRows(lang), q, status, domain).rows;
       const selected = ids == null ? rows : rows.filter(r => ids.includes(r.metricId));
-      return sortAndPage(selected, { page: 0, pageSize: Number.MAX_SAFE_INTEGER, sorting }).rows;
+      return sortRows(selected, sorting);
     },
   }),
   defineMockEndpoint(definitionEndpoint, {

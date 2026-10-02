@@ -3,7 +3,7 @@
  * `@ap/menu-equipment/mock`; pages never import this module. Filtering moved here from the page so the export
  * and every table page are answered — and permission re-checked — by the server.
  */
-import { sortAndPage, type PageSort } from '@ap/contracts';
+import { sortAndPage, sortRows } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint, type Equipment } from '@ap/mock-server';
 import { equipmentExportEndpoint, equipmentMakersEndpoint, equipmentPageEndpoint, type EquipmentFilter } from '../endpoints';
 
@@ -12,10 +12,6 @@ export function filterEquipment(rows: Equipment[], { q, status, maker }: Equipme
   return rows.filter(e => (!search || `${e.equipmentId} ${e.name}`.toLowerCase().includes(search)) && (!status || e.status === status) && (!maker || e.maker === maker));
 }
 
-/** The page endpoint's sort without its slice (#173 UX P2-6): export order = page order. */
-function sortAllRows<T>(rows: T[], sorting: PageSort[]): T[] {
-  return sortAndPage(rows, { page: 0, pageSize: Number.MAX_SAFE_INTEGER, sorting }).rows;
-}
 
 export const equipmentMock: readonly AnyMockEndpoint[] = [
   defineMockEndpoint(equipmentMakersEndpoint, {
@@ -33,7 +29,7 @@ export const equipmentMock: readonly AnyMockEndpoint[] = [
     handle: ({ equipment, params }) => {
       const rows = filterEquipment(equipment, params);
       const { ids, sorting = [] } = params;
-      return sortAllRows(ids == null ? rows : rows.filter(e => ids.includes(e.equipmentId)), sorting);
+      return sortRows(ids == null ? rows : rows.filter(e => ids.includes(e.equipmentId)), sorting);
     },
   }),
 ];

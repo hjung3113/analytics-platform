@@ -77,14 +77,15 @@ function xlsxCell(value: string | number): string | number | null {
 }
 
 /**
- * XLSX workbook: sheet 1 "데이터" (header + rows from the same serializer as CSV), sheet 2 "조회 정보" (key/value
- * rows describing what was exported). `write-excel-file/browser` is loaded with a runtime `import()` so it lands in its
+ * XLSX workbook: sheet 1 "데이터"/"Data" (header + rows from the same serializer as CSV), sheet 2 "조회 정보"/"Query info"
+ * (key/value rows describing what was exported). Sheet names follow the UI language. `write-excel-file/browser` is loaded with a runtime `import()` so it lands in its
  * own chunk — pages that never export never download it.
  */
-export async function toXlsx(headers: string[], rows: (string | number)[][], info: [string, string | number][]): Promise<Blob> {
+const SHEET_NAMES = { ko: { data: '데이터', info: '조회 정보' }, en: { data: 'Data', info: 'Query info' } } as const;
+export async function toXlsx(headers: string[], rows: (string | number)[][], info: [string, string | number][], lang: 'ko' | 'en' = 'ko'): Promise<Blob> {
   const { default: writeXlsxFile } = await import('write-excel-file/browser');
   return writeXlsxFile([
-    { sheet: '데이터', data: [headers.map(xlsxText), ...rows.map(row => row.map(xlsxCell))] },
-    { sheet: '조회 정보', data: info.map(([key, value]) => [key, xlsxCell(value)]) },
+    { sheet: SHEET_NAMES[lang].data, data: [headers.map(xlsxText), ...rows.map(row => row.map(xlsxCell))] },
+    { sheet: SHEET_NAMES[lang].info, data: info.map(([key, value]) => [key, xlsxCell(value)]) },
   ]).toBlob();
 }
