@@ -73,12 +73,24 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 - `adapter`: 실어댑터(테스트 환경 서버를 가리킴).
 - `cases`: 엔드포인트 선언과 표본 요청 — 앱 테스트의 `PARAMS` 표를 그대로 쓸 수 있다.
 - `context`·`foreignScopeId`: 테스트 계정에 부여된 site·기간, 부여되지 않은 site.
-- `asGranted`·`withoutPermission`: 모든 엔드포인트 권한을 가진 테스트 계정과, 권한 하나씩만 뺀 계정(또는 그렇게 세션을 바꾸는 테스트 훅).
+- `ports`: 포트 표본 — 목적지 표본(`EntityRef`와 그 조회 권한), 주석 대상 chartId와 권한, 활용률 이벤트 표본, 오류 보고 표본, 두 번째 부여 site.
+- `asGranted`·`withoutPermission`: 모든 엔드포인트 권한을 가진 테스트 계정과, 권한 하나씩만 뺀 계정(또는 그렇게 세션을 바꾸는 테스트 훅). 부여 계정은 목적지 조회 권한·주석 권한도 있어야 하고 site 둘에 부여돼 있어야 한다.
+- `asConsole`: `console:access`를 가진 계정(콘솔 조회·활용률 집계 검사가 이 계정으로 돈다).
 - `oversizeParams`(`maxRows`를 선언한 엔드포인트마다): 테스트 서버에서 선언 상한을 넘는 결과가 나오는 표본 요청. 앱 테스트의 `PARAMS` 표에는 없다(mock 데이터가 작다) — 테스트 환경에 상한보다 많은 행을 준비해야 한다. 표본이 없으면 그 검사는 건너뛰었다고 표시된다.
 
-지금 묶음은 `menuQuery`만 검사한다. §2의 나머지 포트 메서드로 넓히는 일은 #152.
+포트 메서드도 같은 묶음이 검사한다(#152):
 
-묶음이 다루지 않는 것(메뉴별 수치·행, `maxHours` 등 한도 경계값 — `maxRows`는 초과 표본만 검사한다, 시간 도메인 경계값, 비 mart `trust: null`)은 메뉴 테스트와 E2E(`pnpm e2e`)가 맡는다.
+- 세션 identity·부여 site 목록, `subscribe` 해제 함수, `validateScope` 세 상태(부여·미부여·알 수 없음 site)
+- `getEntity`·`entityAudit` 권한·site·미등록 type, `getEntity` null Scope
+- 콘솔 조회 권한(`auditTrail`·`accessDirectory`·`usageSummary`의 `console:access`)
+- 주석: 저장·같은 site 재조회, site 격리(다른 부여 site에 보이지 않음), 부여 없는 site·null Scope `forbidden`, 클라이언트 `at` 거부(거부한 주석은 저장 안 됨), 비 mart 응답(assessments 없음·trust null), 차트 권한 재검증
+- 활용률: 유효 entry·dwell 적재, 하나라도 어긋나면 전체 거부(unknown key·클라이언트 userId·query 붙은 path·비숫자 `at`·음수 `dwellMs`), 수신 시각 집계(클라이언트 `at`이 아니라 서버 수신 시각으로 집계)
+- 오류 보고: 유효 표본 적재(positive)와 거부(자유 문장 message·절대 URL path·query 붙은 path·자유 문장 name·누락 필드)
+- 응답 모양 — 거부에 데이터 없음, 평가 항목 06 §19, Trust 06 §18
+
+**주의: 묶음은 테스트 서버에 주석·활용률 이벤트·오류 보고를 실제로 쓴다 — 운영 서버에 돌리지 않는다.**
+
+묶음이 다루지 않는 것(메뉴별 수치·행, `maxHours` 등 한도 경계값 — `maxRows`는 초과 표본만 검사한다, 시간 도메인 경계값, 메뉴 조회 원천의 비 mart `trust: null` — 주석·`accessDirectory`의 비 mart 응답은 검사한다)은 메뉴 테스트와 E2E(`pnpm e2e`)가 맡는다.
 
 ## 5. 세션·사용자
 

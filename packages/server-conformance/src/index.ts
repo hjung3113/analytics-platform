@@ -2,14 +2,14 @@
  * Server boundary conformance kit (#145, #152). Judges any `PlatformAdapter` implementation — the mock today,
  * the in-house server adapter later — against the menu query contract (docs/integration/real-server-checklist.md,
  * 06 §5·§19) and the port methods beyond menuQuery (checklist §2: session, subscribe, validateScope, getEntity,
- * entityAudit, the console reads). Every check is derived from a contract declaration plus samples the granted
- * actor can run, so the kit knows no menu and no mock internals.
+ * entityAudit, the console reads, annotations, usage telemetry, client error reports). Every check is derived
+ * from a contract declaration plus samples the granted actor can run, so the kit knows no menu and no mock internals.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
   emptyGlobal, projectContext,
-  type AnyEndpointSpec, type ApiResponse, type Assessment, type AssessmentKind, type ClientErrorReport, type EntityRef,
-  type GlobalContext, type MenuQuery, type Permission, type PlatformAdapter, type Trust, type UsageEvent,
+  type AnnotationInput, type AnyEndpointSpec, type ApiResponse, type Assessment, type AssessmentKind, type ClientErrorReport, type EntityRef,
+  type GlobalContext, type MenuQuery, type Permission, type PlatformAdapter, type Trust, type UsageEvent, type UsageSummary,
 } from '@ap/contracts';
 
 export type ConformanceCase = {
@@ -25,20 +25,20 @@ export type ConformanceCase = {
 };
 
 /**
- * Sample inputs for the port checks (#152): destinations and events the granted actor may use. Step 2 consumes
- * `annotation`·`usage`·`clientError`·`otherGrantedScopeId` (annotations, telemetry, error reporting); they shape
- * the harness now so that step needs no second breaking change.
+ * Sample inputs for the port checks (#152): destinations, charts and events the granted actor may use — a
+ * readable destination, an annotable chart, a valid usage entry, a valid client error report, and a second
+ * site the actor also holds a grant in.
  */
 export type PortSamples = {
   /** A destination the granted actor may read: `ref.scopeId` is `context.scopeId`, its room is granted; `permission` is that type's view permission. */
   entity: { ref: EntityRef; permission: Permission };
-  /** A chart the granted actor may annotate and the permission it needs (step 2). */
+  /** A chart the granted actor may annotate and the permission it needs. */
   annotation: { chartId: string; permission: Permission };
-  /** A valid usage entry event the granted actor may record (step 2). */
+  /** A valid usage entry event the granted actor may record. */
   usage: UsageEvent;
-  /** A valid client error report (step 2). */
+  /** A valid client error report. */
   clientError: ClientErrorReport;
-  /** A second site the granted actor holds a grant in (step 2: annotation isolation). */
+  /** A second site the granted actor holds a grant in (annotation isolation). */
   otherGrantedScopeId: string;
 };
 
@@ -92,6 +92,8 @@ const UNKNOWN_KEY = '__conformance_unknown';
 const UNKNOWN_SITE = '__conformance_unknown_site';
 /** Console reads are `console:access` (adapter.ts) — a contract constant, named so the kit never hardcodes it inline. */
 const CONSOLE_ACCESS: Permission = 'console:access';
+/** adapter.ts `ChartAnnotation`: the only row fields a client ever sees — the server stamps the author, never sent, never returned. */
+const ANNOTATION_ROW_KEYS = ['id', 'chartId', 'scopeId', 'from', 'to', 'text', 'at'] as const;
 /** Outcomes that answer nothing — checklist §2 getEntity: a rejection never carries row fields. */
 const REJECTIONS: readonly ApiResponse<unknown>['outcome'][] = ['forbidden', 'error', 'too_large', 'timeout'];
 
@@ -478,6 +480,242 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
       }
       return null;
     },
+  });
+  // Annotations (06 §16, issue #103): server-owned rows keyed by (chartId, scopeId) — never chartId alone
+  // (ADR-0004). The chart's permission and the site's grant are both server-checked; the server stamps the
+  // author and `at`, so the client never sends or sees either.
+  const { chartId, permission: annotationPermission } = ports.annotation;
+  const notePeriod = { from: '2026-09-25T10:00:00', to: '2026-09-25T11:00:00' };
+  // Every save carries a unique text marker, so a rejected or isolated note can be told apart from earlier ones.
+  const annotationInput = (scopeId: string | null): AnnotationInput => ({
+    chartId, scopeId, ...notePeriod, text: `conformance ${crypto.randomUUID()}`,
+  });
+  checks.push({
+    id: 'port · saveAnnotation then listAnnotations at the same site returns the note',
+    mode: 'granted',
+    run: async () => {
+      const input = annotationInput(harness.context.scopeId);
+      const saved = await adapter.saveAnnotation(input);
+      if (saved.outcome !== 'ok') return `expected ok, got ${describeResponse(saved)}`;
+      const row = saved.data;
+      if (row === null) return 'the ok answer carries no saved row';
+      if (typeof row.id !== 'string' || typeof row.at !== 'string') {
+        return 'the saved row must carry the server-stamped string id and at';
+      }
+      if (row.chartId !== input.chartId || row.scopeId !== input.scopeId || row.from !== input.from || row.to !== input.to) {
+        return 'the saved row must echo the input chartId·scopeId·from·to';
+      }
+      if (row.text !== input.text) return 'the saved row must echo the input text';
+      const extra = Object.keys(row).filter(k => !(ANNOTATION_ROW_KEYS as readonly string[]).includes(k));
+      if (extra.length > 0) {
+        return `the saved row carries ${extra.join(', ')} — the server stamps the author and the client never sees or sends it (adapter.ts)`;
+      }
+      const list = await adapter.listAnnotations({ chartId, scopeId: input.scopeId });
+      if (list.outcome !== 'ok') return `listing the site that just accepted the save: expected ok, got ${describeResponse(list)}`;
+      if (!Array.isArray(list.data?.items) || !list.data!.items.some(item => item.id === row.id)) {
+        return 'the note just saved is missing from its own site\'s list';
+      }
+      return null;
+    },
+  });
+  checks.push({
+    id: 'port · a note saved at one site is not listed at another',
+    mode: 'granted',
+    run: async () => {
+      const saved = await adapter.saveAnnotation(annotationInput(harness.context.scopeId));
+      if (saved.outcome !== 'ok' || saved.data === null) return `expected ok with the saved row, got ${describeResponse(saved)}`;
+      const list = await adapter.listAnnotations({ chartId, scopeId: ports.otherGrantedScopeId });
+      if (list.outcome !== 'ok' && list.outcome !== 'empty') return `expected ok or empty, got ${describeResponse(list)}`;
+      if (list.data?.items.some(item => item.id === saved.data!.id)) {
+        return `a note written at ${harness.context.scopeId} is listed at ${ports.otherGrantedScopeId} — annotations are keyed by (chartId, scopeId), never chartId alone (06 §16, ADR-0004)`;
+      }
+      return null;
+    },
+  });
+  checks.push({
+    id: 'port · listAnnotations at a site without a grant → forbidden',
+    mode: 'granted',
+    run: expectOutcome(() => adapter.listAnnotations({ chartId, scopeId: harness.foreignScopeId }), 'forbidden', 'a site the granted actor holds no grant for'),
+  });
+  checks.push({
+    id: 'port · saveAnnotation at a site without a grant → forbidden',
+    mode: 'granted',
+    run: expectOutcome(() => adapter.saveAnnotation(annotationInput(harness.foreignScopeId)), 'forbidden', 'a site the granted actor holds no grant for'),
+  });
+  checks.push({
+    id: 'port · listAnnotations with a null Scope → forbidden',
+    mode: 'granted',
+    run: expectOutcome(() => adapter.listAnnotations({ chartId, scopeId: null }), 'forbidden', 'a null scope is not a request the server answers, never "all sites"'),
+  });
+  checks.push({
+    id: 'port · saveAnnotation with a null Scope → forbidden',
+    mode: 'granted',
+    run: expectOutcome(() => adapter.saveAnnotation(annotationInput(null)), 'forbidden', 'a null scope is not a request the server answers, never "all sites"'),
+  });
+  checks.push({
+    id: 'port · saveAnnotation carrying an at → error, nothing stored',
+    mode: 'granted',
+    run: async () => {
+      const input = annotationInput(harness.context.scopeId);
+      const saved = await adapter.saveAnnotation({ ...input, at: '2026-01-01T00:00' } as AnnotationInput);
+      if (saved.outcome !== 'error') return `a client-stamped at is an unknown key: expected error, got ${describeResponse(saved)}`;
+      const list = await adapter.listAnnotations({ chartId, scopeId: input.scopeId });
+      if (list.outcome === 'ok' && list.data?.items.some(item => item.text === input.text)) {
+        return 'the rejected note was stored anyway';
+      }
+      return null;
+    },
+  });
+  checks.push({
+    id: 'port · annotations are not mart data: no assessments, null trust',
+    mode: 'granted',
+    run: async () => {
+      const saved = await adapter.saveAnnotation(annotationInput(harness.context.scopeId));
+      // Calls that did not succeed are the save/list checks' failures; this check owns only the mart-data rule.
+      if (saved.outcome !== 'ok') return null;
+      if (saved.assessments.length > 0 || saved.trust !== null) {
+        return 'saveAnnotation is not mart data (adapter.ts): no assessments, null trust';
+      }
+      const list = await adapter.listAnnotations({ chartId, scopeId: harness.context.scopeId });
+      if (list.outcome !== 'ok' && list.outcome !== 'empty') return null;
+      if (list.assessments.length > 0 || list.trust !== null) {
+        return 'listAnnotations is not mart data (adapter.ts): no assessments, null trust';
+      }
+      return null;
+    },
+  });
+  checks.push({
+    id: `port · listAnnotations without ${annotationPermission} → forbidden`,
+    mode: 'permission',
+    run: () => harness.withoutPermission(
+      annotationPermission,
+      expectOutcome(() => adapter.listAnnotations({ chartId, scopeId: harness.context.scopeId }), 'forbidden', 'the annotation read re-checks the chart permission per request'),
+    ),
+  });
+  checks.push({
+    id: `port · saveAnnotation without ${annotationPermission} → forbidden`,
+    mode: 'permission',
+    run: () => harness.withoutPermission(
+      annotationPermission,
+      expectOutcome(() => adapter.saveAnnotation(annotationInput(harness.context.scopeId)), 'forbidden', 'the annotation write re-checks the chart permission per request'),
+    ),
+  });
+  // Usage telemetry (checklist §2 fire-and-forget, §5): the server stamps the session user and the receive
+  // time; the client `at`/`enteredAt` are shape-checked and stored, and one bad event rejects the whole call.
+  const usageEntry: UsageEvent = { ...ports.usage, at: Date.now() };
+  const usageDwell: UsageEvent = { ...ports.usage, name: 'dwell', at: Date.now(), enteredAt: ports.usage.at, dwellMs: 1200 };
+  const badUsageEvent = (patch: Record<string, unknown>): UsageEvent => ({ ...usageEntry, ...patch }) as unknown as UsageEvent;
+  const expectAccepted = (events: readonly UsageEvent[], accepted: number, why: string) => async () => {
+    const r = await adapter.recordUsage(events);
+    return r.accepted === accepted ? null : `${why}: expected accepted ${accepted}, got ${r.accepted}`;
+  };
+  checks.push({
+    id: 'port · recordUsage accepts a valid entry and dwell',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted([usageEntry, usageDwell], 2, 'a valid entry and dwell'),
+  });
+  checks.push({
+    id: 'port · recordUsage: one bad event rejects the whole call',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted([usageEntry, badUsageEvent({ url: '/equipment?scopeId=ICH' })], 0, 'one bad event among a valid one — the whole call rejects (checklist §5)'),
+  });
+  checks.push({
+    id: 'port · recordUsage: a client userId is rejected',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted([badUsageEvent({ userId: 'someone-else' })], 0, 'a client-sent userId — the server stamps the session user'),
+  });
+  checks.push({
+    id: 'port · recordUsage: a concrete path with a query is rejected',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted([badUsageEvent({ path: `${usageEntry.path}?scopeId=ICH` })], 0, 'a concrete pathname with a query — only the manifest route pattern travels'),
+  });
+  checks.push({
+    id: 'port · recordUsage: a non-numeric at is rejected',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted([badUsageEvent({ at: 'now' })], 0, 'a non-numeric at'),
+  });
+  checks.push({
+    id: 'port · recordUsage: a negative dwellMs is rejected',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted([{ ...usageDwell, dwellMs: -1 }], 0, 'a negative dwellMs'),
+  });
+  checks.push({
+    id: 'port · usageSummary counts by receive time, not the client at',
+    mode: 'console',
+    run: async () => {
+      const visitsOf = (r: ApiResponse<UsageSummary>): number => r.data?.menus.find(m => m.menuId === ports.usage.menuId)?.visits ?? 0;
+      const t0 = Date.now();
+      const receiveWindow = { from: t0 - 10 * 60_000, to: t0 + 10 * 60_000 };
+      const before = await adapter.usageSummary(receiveWindow);
+      if (before.outcome !== 'ok') return `the window summary: expected ok, got ${describeResponse(before)}`;
+      // Epoch 0 is a finite number — shape-valid (checklist §5); only the receive time may place it.
+      const recorded = await adapter.recordUsage([{ ...usageEntry, at: 0 }]);
+      if (recorded.accepted !== 1) return `the epoch-0 entry: expected accepted 1, got ${recorded.accepted}`;
+      const after = await adapter.usageSummary(receiveWindow);
+      if (after.outcome !== 'ok') return `the window summary after recording: expected ok, got ${describeResponse(after)}`;
+      // ≥, not ===: a shared test server may receive other visits for this menu meanwhile.
+      if (visitsOf(after) < visitsOf(before) + 1) {
+        return `the epoch-0 entry was not counted in its receive-time window (${visitsOf(after)} after vs ${visitsOf(before)} before)`;
+      }
+      const epochDay = await adapter.usageSummary({ from: 0, to: 86_400_000 });
+      if (epochDay.outcome !== 'ok') return `the 1970-01-01 summary: expected ok, got ${describeResponse(epochDay)}`;
+      const there = epochDay.data?.menus.find(m => m.menuId === ports.usage.menuId);
+      if (there && there.visits > 0) {
+        return 'the epoch-0 entry was counted on 1970-01-01 — the aggregate uses the client at, not the server receive time (checklist §5)';
+      }
+      return null;
+    },
+  });
+  // Client error reports (checklist §2 fire-and-forget): identity fields only — no URL, no Context value, no
+  // free-text message. The sample-accepted check is the positive control: a server that rejects everything would
+  // pass every rejection check, so that one must fail it.
+  const badErrorReport = (patch: Record<string, unknown>): ClientErrorReport => ({ ...ports.clientError, ...patch }) as unknown as ClientErrorReport;
+  const expectReported = (report: ClientErrorReport, accepted: boolean, why: string) => async () => {
+    const r = await adapter.reportClientError(report);
+    return r.accepted === accepted ? null : `${why}: expected accepted ${accepted}, got ${r.accepted}`;
+  };
+  checks.push({
+    id: 'port · reportClientError accepts the sample',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectReported(ports.clientError, true, 'the sample report is the declared wire shape'),
+  });
+  checks.push({
+    id: 'port · reportClientError: an unknown key (free-text message) is rejected',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectReported(badErrorReport({ message: 'Cannot read properties of undefined (lot L-123)' }), false, 'a free-text message is an unknown key'),
+  });
+  checks.push({
+    id: 'port · reportClientError: an absolute URL path is rejected',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectReported(badErrorReport({ path: 'https://example.com/equipment' }), false, 'an absolute URL — only the app-relative manifest route pattern travels'),
+  });
+  checks.push({
+    id: 'port · reportClientError: a path with a query is rejected',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectReported(badErrorReport({ path: `${ports.clientError.path}?scopeId=ICH` }), false, 'a path with a query string'),
+  });
+  checks.push({
+    id: 'port · reportClientError: a free-text name is rejected',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectReported(badErrorReport({ name: 'TypeError: lot L-123 missing' }), false, 'a free-text name — name is identifier-shaped only'),
+  });
+  const { name: _reportedName, ...reportWithoutName } = ports.clientError;
+  checks.push({
+    id: 'port · reportClientError: a missing field is rejected',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectReported(reportWithoutName as ClientErrorReport, false, 'a report missing its name'),
   });
   return checks;
 }

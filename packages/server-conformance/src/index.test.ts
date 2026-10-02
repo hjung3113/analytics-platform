@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   defineEndpoint, emptyGlobal, projectContext,
-  type ApiResponse, type Assessment, type AuditEvent, type GlobalContext, type MenuQuery, type Permission,
-  type PlatformAdapter, type Session, type Trust, type UsageSummary,
+  type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type ClientErrorReport, type GlobalContext,
+  type MenuQuery, type Permission, type PlatformAdapter, type Session, type Trust, type UsageEvent, type UsageRange, type UsageSummary,
 } from '@ap/contracts';
 import { planServerConformance, runServerConformance, type ConformanceCase, type PortSamples, type ServerConformanceHarness } from './index';
 
@@ -48,6 +48,11 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       ? { ...envelope, outcome: breaks.has(`console-${method}-ok`) ? 'forbidden' : 'ok', data: okData }
       : { ...envelope, outcome: breaks.has(`console-${method}-permission`) ? 'ok' : 'forbidden', data: breaks.has(`console-${method}-permission`) ? okData : null });
   let session: Session | null = null;
+  // Server-owned in-memory stores (06 §16, checklist §5): annotations keyed by (chartId, scopeId), usage rows
+  // stamped with the receive time — both live as long as this reference adapter instance.
+  const annotationRows: (ChartAnnotation & { authorId: string })[] = [];
+  let annotationSeq = 0;
+  const usageRows: (UsageEvent & { userId: string; receivedAt: number })[] = [];
   return {
     session: () => {
       if (session === null || breaks.has('session-identity')) {
@@ -175,16 +180,138 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         ? { ...r, assessments: REF_ASSESSMENTS, trust: REF_TRUST }
         : r;
     },
-    usageSummary: async () => consoleGate<UsageSummary>('usageSummary', { preset: 'all', menus: [] }),
-    // Ports the kit does not exercise yet (step 2): present, minimal, contract-shaped.
+    usageSummary: async (range: UsageRange) => {
+      // §5: aggregation counts entries by the server receive time — 'usage-aggregates-by-client-at' stamps the
+      // client at instead, and the receive-time check must catch it.
+      const stamp = (e: UsageEvent & { receivedAt: number }) => (breaks.has('usage-aggregates-by-client-at') ? e.at : e.receivedAt);
+      const from = 'preset' in range ? Number.NEGATIVE_INFINITY : range.from;
+      const to = 'preset' in range ? Number.POSITIVE_INFINITY : range.to;
+      const byMenu = new Map<string, { visits: number; users: Set<string>; last: number }>();
+      for (const e of usageRows.filter(x => x.name === 'entry' && stamp(x) >= from && stamp(x) < to)) {
+        const agg = byMenu.get(e.menuId) ?? { visits: 0, users: new Set<string>(), last: 0 };
+        agg.visits += 1;
+        agg.users.add(e.userId);
+        agg.last = Math.max(agg.last, stamp(e));
+        byMenu.set(e.menuId, agg);
+      }
+      return consoleGate<UsageSummary>('usageSummary', {
+        preset: 'preset' in range ? 'all' : 'range',
+        menus: [...byMenu.entries()].map(([menuId, agg]) => ({ menuId, visits: agg.visits, distinctUsers: agg.users.size, lastUsedAt: agg.last })),
+      });
+    },
+    recordUsage: async (events) => {
+      const USAGE_KEYS = ['name', 'menuId', 'spaceId', 'path', 'at', 'sessionId'];
+      const token = (v: unknown, max: number) => typeof v === 'string' && v.length > 0 && v.length <= max
+        && (breaks.has('usage-allows-query') ? !/[#&\s]/.test(v) : !/[?#&\s]/.test(v));
+      const invalid = (e: UsageEvent) => {
+        const allowed = e.name === 'dwell' ? [...USAGE_KEYS, 'dwellMs', 'enteredAt'] : USAGE_KEYS;
+        return Object.keys(e).some(k => !allowed.includes(k) && !(breaks.has('usage-client-user') && k === 'userId'))
+          || !token(e.menuId, 80) || !token(e.path, 200)
+          || typeof e.sessionId !== 'string'
+          || typeof e.spaceId !== 'string' || !['analytics', 'operations', 'feedback'].includes(e.spaceId)
+          || (e.name !== 'entry' && e.name !== 'dwell')
+          || (!breaks.has('usage-allows-any-at') && (typeof e.at !== 'number' || !Number.isFinite(e.at)))
+          || (e.name === 'dwell' && (typeof e.enteredAt !== 'number' || !Number.isFinite(e.enteredAt)
+            || typeof e.dwellMs !== 'number' || !Number.isInteger(e.dwellMs) || (!breaks.has('usage-allows-negative-dwell') && e.dwellMs < 0)))
+          || (breaks.has('usage-drops-dwell') && e.name === 'dwell');
+      };
+      const store = (rows: readonly UsageEvent[]) => {
+        const userId = state.console ? 'admin' : 'engineer';
+        const receivedAt = Date.now();
+        for (const e of rows) {
+          if (e.name === 'dwell') {
+            // §5: the same (userId, sessionId, menuId, enteredAt) dwell replaces the previous one — the final dwell wins.
+            const previous = usageRows.findIndex(x => x.name === 'dwell' && x.userId === userId && x.sessionId === e.sessionId && x.menuId === e.menuId && x.enteredAt === e.enteredAt);
+            if (previous >= 0) usageRows.splice(previous, 1);
+          }
+          usageRows.push({ ...e, userId, receivedAt });
+        }
+      };
+      if (events.length > 20) return { accepted: 0 };
+      // 'usage-partial-accept' stores the valid subset — the whole-call reject rule must catch it.
+      if (breaks.has('usage-partial-accept')) {
+        const good = events.filter(e => !invalid(e));
+        store(good);
+        return { accepted: good.length };
+      }
+      if (events.some(invalid)) return { accepted: 0 };
+      store(events);
+      return { accepted: events.length };
+    },
+    reportClientError: async (report) => {
+      const CLIENT_ERROR_KEYS = ['correlationId', 'menuId', 'spaceId', 'path', 'name'];
+      const token = (v: unknown, max: number) => typeof v === 'string' && v.length > 0 && v.length <= max
+        && (breaks.has('client-error-allows-query') ? !/[#&\s]/.test(v) : !/[?#&\s]/.test(v));
+      // 'client-error-allows-missing' fills a missing name in instead of rejecting the report.
+      const name: unknown = breaks.has('client-error-allows-missing') && typeof report.name !== 'string' ? 'Error' : report.name;
+      const appRelative = (v: string) => breaks.has('client-error-allows-absolute-path') || /^\/(?!\/)/.test(v);
+      const invalidReport = breaks.has('client-error-rejects-all')
+        || (!breaks.has('client-error-ignores-unknown') && Object.keys(report).some(k => !CLIENT_ERROR_KEYS.includes(k)))
+        || typeof report.correlationId !== 'string' || !report.correlationId.startsWith('client-')
+        || !token(report.menuId, 80)
+        || typeof report.path !== 'string' || !token(report.path, 200) || !appRelative(report.path)
+        || typeof report.spaceId !== 'string' || !['analytics', 'operations', 'feedback'].includes(report.spaceId)
+        || typeof name !== 'string' || (!breaks.has('client-error-allows-any-name') && !/^[A-Za-z_$][\w$]{0,79}$/.test(name));
+      return invalidReport ? { accepted: false } : { accepted: true };
+    },
+    listAnnotations: async (ref) => {
+      if (!state.permissions.has('analytics:view')) {
+        return breaks.has('annotation-list-permission')
+          ? { ...envelope, outcome: 'ok', data: { items: [] } }
+          : { ...envelope, outcome: 'forbidden', message: 'No permission analytics:view' };
+      }
+      if (ref.scopeId === null) {
+        return breaks.has('annotation-list-null')
+          ? { ...envelope, outcome: 'empty' }
+          : { ...envelope, outcome: 'forbidden', message: 'No grant for scope null' };
+      }
+      if (ref.scopeId !== 'ICH' && ref.scopeId !== 'CJU') {
+        return breaks.has('annotation-list-foreign')
+          ? { ...envelope, outcome: 'empty' }
+          : { ...envelope, outcome: 'forbidden', message: `No grant for scope ${ref.scopeId}` };
+      }
+      // 'annotation-keyed-by-chart' selects by chartId alone — a note crosses the site boundary.
+      const items = annotationRows
+        .filter(r => r.chartId === ref.chartId && (breaks.has('annotation-keyed-by-chart') || r.scopeId === ref.scopeId))
+        .map(({ authorId: _author, ...row }) => row);
+      if (items.length === 0) return { ...envelope, outcome: 'empty' };
+      return breaks.has('annotation-mart')
+        ? { ...envelope, outcome: 'ok', data: { items }, assessments: REF_ASSESSMENTS, trust: REF_TRUST }
+        : { ...envelope, outcome: 'ok', data: { items } };
+    },
+    saveAnnotation: async (input) => {
+      if (!state.permissions.has('analytics:view')) {
+        return breaks.has('annotation-save-permission')
+          ? { ...envelope, outcome: 'ok', data: { id: 'ann-0', chartId: input.chartId, scopeId: input.scopeId ?? 'ICH', from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00' } }
+          : { ...envelope, outcome: 'forbidden', message: 'No permission analytics:view' };
+      }
+      // A user/at/id in the input is an unknown key and rejects the call (adapter.ts) — 'annotation-accepts-at' takes it anyway.
+      if (!breaks.has('annotation-accepts-at') && Object.keys(input).some(k => !['chartId', 'scopeId', 'from', 'to', 'text'].includes(k))) {
+        return err('Invalid annotation input');
+      }
+      if (input.scopeId === null) {
+        return breaks.has('annotation-save-null')
+          ? { ...envelope, outcome: 'ok', data: { id: 'ann-0', chartId: input.chartId, scopeId: 'ICH', from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00' } }
+          : { ...envelope, outcome: 'forbidden', message: 'No grant for scope null' };
+      }
+      if (input.scopeId !== 'ICH' && input.scopeId !== 'CJU') {
+        return breaks.has('annotation-save-foreign')
+          ? { ...envelope, outcome: 'ok', data: { id: 'ann-0', chartId: input.chartId, scopeId: input.scopeId, from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00' } }
+          : { ...envelope, outcome: 'forbidden', message: `No grant for scope ${input.scopeId}` };
+      }
+      const stored = { id: `ann-${++annotationSeq}`, chartId: input.chartId, scopeId: input.scopeId, from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00', authorId: 'engineer' };
+      // 'annotation-not-stored' answers ok without persisting — the same-site list must notice.
+      if (!breaks.has('annotation-not-stored')) annotationRows.push(stored);
+      const { authorId: _author, ...row } = stored;
+      return breaks.has('annotation-mart')
+        ? { ...envelope, outcome: 'ok', data: row, assessments: REF_ASSESSMENTS, trust: REF_TRUST }
+        : { ...envelope, outcome: 'ok', data: row };
+    },
+    // Ports the kit does not exercise: present, minimal, contract-shaped.
     publishedMetrics: () => [],
     defaultRangeTo: () => '2026-09-26T09:00:00',
     contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
     evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
-    recordUsage: async () => ({ accepted: 0 }),
-    reportClientError: async () => ({ accepted: false }),
-    listAnnotations: async () => ({ ...envelope, outcome: 'empty' }),
-    saveAnnotation: async () => ({ ...envelope, outcome: 'empty' }),
   };
 }
 
@@ -269,6 +396,29 @@ describe('server conformance kit (#145)', () => {
       'port · usageSummary as a console actor → ok',
       'port · usageSummary without console:access → forbidden',
       'port · accessDirectory is not mart data: no assessments, null trust',
+      'port · saveAnnotation then listAnnotations at the same site returns the note',
+      'port · a note saved at one site is not listed at another',
+      'port · listAnnotations at a site without a grant → forbidden',
+      'port · saveAnnotation at a site without a grant → forbidden',
+      'port · listAnnotations with a null Scope → forbidden',
+      'port · saveAnnotation with a null Scope → forbidden',
+      'port · saveAnnotation carrying an at → error, nothing stored',
+      'port · annotations are not mart data: no assessments, null trust',
+      'port · listAnnotations without analytics:view → forbidden',
+      'port · saveAnnotation without analytics:view → forbidden',
+      'port · recordUsage accepts a valid entry and dwell',
+      'port · recordUsage: one bad event rejects the whole call',
+      'port · recordUsage: a client userId is rejected',
+      'port · recordUsage: a concrete path with a query is rejected',
+      'port · recordUsage: a non-numeric at is rejected',
+      'port · recordUsage: a negative dwellMs is rejected',
+      'port · usageSummary counts by receive time, not the client at',
+      'port · reportClientError accepts the sample',
+      'port · reportClientError: an unknown key (free-text message) is rejected',
+      'port · reportClientError: an absolute URL path is rejected',
+      'port · reportClientError: a path with a query is rejected',
+      'port · reportClientError: a free-text name is rejected',
+      'port · reportClientError: a missing field is rejected',
     ]);
   });
 
@@ -328,11 +478,34 @@ describe('server conformance kit (#145)', () => {
     ['entity-audit-permission', 'port · entityAudit without equipment:view → forbidden'],
     ['console-auditTrail-ok', 'port · auditTrail as a console actor → ok'],
     ['console-accessDirectory-ok', 'port · accessDirectory as a console actor → ok'],
-    ['console-usageSummary-ok', 'port · usageSummary as a console actor → ok'],
     ['console-auditTrail-permission', 'port · auditTrail without console:access → forbidden'],
     ['console-accessDirectory-permission', 'port · accessDirectory without console:access → forbidden'],
     ['console-usageSummary-permission', 'port · usageSummary without console:access → forbidden'],
     ['console-accessDirectory-mart', 'port · accessDirectory is not mart data: no assessments, null trust'],
+    // #152 step 2: one break per new port rule — each must fail exactly its own check.
+    ['annotation-not-stored', 'port · saveAnnotation then listAnnotations at the same site returns the note'],
+    ['annotation-keyed-by-chart', 'port · a note saved at one site is not listed at another'],
+    ['annotation-list-foreign', 'port · listAnnotations at a site without a grant → forbidden'],
+    ['annotation-save-foreign', 'port · saveAnnotation at a site without a grant → forbidden'],
+    ['annotation-list-null', 'port · listAnnotations with a null Scope → forbidden'],
+    ['annotation-save-null', 'port · saveAnnotation with a null Scope → forbidden'],
+    ['annotation-accepts-at', 'port · saveAnnotation carrying an at → error, nothing stored'],
+    ['annotation-mart', 'port · annotations are not mart data: no assessments, null trust'],
+    ['annotation-list-permission', 'port · listAnnotations without analytics:view → forbidden'],
+    ['annotation-save-permission', 'port · saveAnnotation without analytics:view → forbidden'],
+    ['usage-drops-dwell', 'port · recordUsage accepts a valid entry and dwell'],
+    ['usage-partial-accept', 'port · recordUsage: one bad event rejects the whole call'],
+    ['usage-client-user', 'port · recordUsage: a client userId is rejected'],
+    ['usage-allows-query', 'port · recordUsage: a concrete path with a query is rejected'],
+    ['usage-allows-any-at', 'port · recordUsage: a non-numeric at is rejected'],
+    ['usage-allows-negative-dwell', 'port · recordUsage: a negative dwellMs is rejected'],
+    ['usage-aggregates-by-client-at', 'port · usageSummary counts by receive time, not the client at'],
+    ['client-error-rejects-all', 'port · reportClientError accepts the sample'],
+    ['client-error-ignores-unknown', 'port · reportClientError: an unknown key (free-text message) is rejected'],
+    ['client-error-allows-absolute-path', 'port · reportClientError: an absolute URL path is rejected'],
+    ['client-error-allows-query', 'port · reportClientError: a path with a query is rejected'],
+    ['client-error-allows-any-name', 'port · reportClientError: a free-text name is rejected'],
+    ['client-error-allows-missing', 'port · reportClientError: a missing field is rejected'],
     ['assessments-wellformed', 'fixture.list · granted response assessments are well-formed (06 §19)'],
     ['trust-incomplete', 'fixture.list · granted response trust is null or complete (06 §18)'],
     // Rejections carry no data (checklist §2): demonstrated on one error path and one forbidden path.
@@ -340,6 +513,13 @@ describe('server conformance kit (#145)', () => {
     ['permission-reject-data', 'fixture.list · without analytics:view → forbidden'],
   ])('fails exactly the matching check when the server drops the %s rule', async (broken, check) => {
     expect(await failing([broken])).toEqual([check]);
+  });
+  // A console actor the usageSummary read refuses cannot run the receive-time sequence either — both fail.
+  it('fails the console read and the receive-time check when usageSummary refuses the console actor', async () => {
+    expect(await failing(['console-usageSummary-ok'])).toEqual([
+      'port · usageSummary as a console actor → ok',
+      'port · usageSummary counts by receive time, not the client at',
+    ]);
   });
 
   it('reports an adapter that throws instead of answering an envelope', async () => {
