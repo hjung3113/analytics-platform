@@ -4,7 +4,7 @@ import { pathFor, type MenuEntry, type Registry } from './registry';
 import { useI18n } from './i18n';
 import { buildQuery, ContractError, emptyGlobal, type GlobalContext, incompleteMetricPair, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type UsageEvent } from '@ap/contracts';
 
-export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope'; validatedFor: Session | null; grantedRooms: string[] };
+export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope' | 'error'; validatedFor: Session | null; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
 export type Toast = { id: number; text: string; tone: 'info' | 'warning' | 'danger' };
 /**
@@ -66,6 +66,8 @@ type Platform = {
   /** No-op when spaceId is the current space or not accessible; else push to the space home keeping globals only. */
   switchSpace: (spaceId: SpaceId) => void;
   scope: ScopeState;
+  /** Re-runs Scope validation for the requested scope after an `error` (no automatic retry in the Kernel, #167). */
+  retryScope: () => void;
   lastScope: string | null;
   favorites: string[];
   toggleFavorite: (menuId: string) => void;
@@ -290,6 +292,8 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     });
   }, [userId]);
 
+  const [scopeRetry, setScopeRetry] = useState(0);
+  const retryScope = useCallback(() => setScopeRetry(n => n + 1), []);
   // Scope is re-validated on every change of requested scope or session (§6.2); URL is never proof.
   useEffect(() => {
     const scopeId = global.scopeId;
@@ -299,9 +303,13 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     adapter.validateScope(scopeId, controller.signal).then(result => {
       setScope({ scopeId, status: result.status, validatedFor: session, grantedRooms: result.grantedRooms });
       if (result.status === 'valid') { setLastScope(scopeId); write(`platform:lastScope:${userId}`, scopeId); }
-    }).catch(() => { /* superseded */ });
+    }).catch((err: unknown) => {
+      // Superseded requests are ignored; a real failure ends validation in `error` until the person retries (#167).
+      if (controller.signal.aborted || (err instanceof Error && err.name === 'AbortError')) return;
+      setScope({ scopeId, status: 'error', validatedFor: session, grantedRooms: [] });
+    });
     return () => controller.abort();
-  }, [global.scopeId, session, userId, adapter]);
+  }, [global.scopeId, session, userId, adapter, scopeRetry]);
 
   // Materialize the default period once for time-applying menus (§6.3/§6.4): absolute from/to written into the URL.
   // The initial Δ (24h here) is an Open decision; this prototype uses the 1-day preset as a Candidate.
@@ -401,7 +409,7 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
 
   const value: Platform = {
     registry, adapter, url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget,
-    session, user, revision, can, visibleMenus, menusInSpace, accessibleSpaces, currentSpace, sidebarSpace, switchSpace, scope, lastScope, favorites, toggleFavorite, recent,
+    session, user, revision, can, visibleMenus, menusInSpace, accessibleSpaces, currentSpace, sidebarSpace, switchSpace, scope, retryScope, lastScope, favorites, toggleFavorite, recent,
     toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen,
   };
   return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>;

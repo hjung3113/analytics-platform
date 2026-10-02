@@ -1,4 +1,4 @@
-import { ChevronRight, Loader2, MapPinOff, Star } from 'lucide-react';
+import { ChevronRight, Loader2, MapPinOff, RotateCw, ServerCrash, Star } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { Button, cn } from '@ap/ui';
@@ -20,7 +20,7 @@ export type PlatformPageProps = {
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
 export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, dataTrustSummary, crumbs = [], children }: PlatformPageProps) {
-  const { route, favorites, toggleFavorite, scope, setGlobal, lastScope, linkTo, registry, slots } = usePlatform();
+  const { route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots } = usePlatform();
   const { t, tx } = useI18n();
   const menu = route!.menu;
   const group = registry.groupById(menu.group);
@@ -35,6 +35,10 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
       : scope.status === 'none'
         ? <StateMessage icon={<MapPinOff className="size-4" aria-hidden />} title={t('selectScope')} body={t('selectScopeBody')}
             action={lastScope && <Button size="sm" onClick={() => setGlobal({ scopeId: lastScope })}>{t('applySuggested')}: {lastScope}</Button>} />
+        : scope.status === 'error'
+          ? <StateMessage tone="danger" icon={<ServerCrash className="size-4" aria-hidden />} title={t('scopeErrorTitle')}
+              body={<>{t('scopeErrorBody')} <span className="t-mono">scopeId={scope.scopeId}</span></>}
+              action={<Button size="sm" variant="secondary" onClick={retryScope}><RotateCw className="size-3.5" />{t('retry')}</Button>} />
         : scope.status === 'unknown_scope'
           ? <StateMessage icon={<MapPinOff className="size-4" aria-hidden />} title={t('scopeUnknownTitle')}
               body={<>{t('scopeUnknownBody')} <span className="t-mono">scopeId={scope.scopeId}</span></>} />

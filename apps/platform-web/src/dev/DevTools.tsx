@@ -22,6 +22,7 @@ const SCENARIOS: { id: Scenario; ko: string; en: string }[] = [
   { id: 'timeout', ko: '시간 초과 (timeout)', en: 'Timeout' },
   { id: 'error', ko: '서버 오류 (error)', en: 'Server error' },
   { id: 'malformed', ko: '응답 형식 오류 (malformed)', en: 'Malformed response' },
+  { id: 'scope_error', ko: 'Scope 확인 실패', en: 'Scope check failed' },
 ];
 
 export function DevTools() {
