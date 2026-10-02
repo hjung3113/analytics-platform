@@ -28,7 +28,7 @@
 | 1. 결정 | 전송 형식(HTTP 경계) | [#149](https://github.com/hjung3113/analytics-platform/issues/149) | 초안은 지금, 합의는 #151 답 뒤가 낫다 | 에이전트 초안 → 백엔드 담당 합의 | `http-adapter-contract.md`가 Decided |
 | 2. 지금 가능 | ~~적합성 묶음 확장(포트 메서드 전부)~~ 완료 — 주석·활용률·오류 보고까지 포트 메서드 전부 검사 | [#152](https://github.com/hjung3113/analytics-platform/issues/152) | — | 에이전트 | mock이 새 검사 통과, 깬 어댑터에서 실패 |
 | 2. 완료 | ~~운영 빌드 조립 분리 + 번들 검사~~ | [#153](https://github.com/hjung3113/analytics-platform/issues/153) | — | 에이전트 | 운영 모드 산출물에 mock·DevTools 없음을 CI가 확인(`check:prod-graph`, ADR-0009) |
-| 2. 지금 가능 | `validateScope` 실패 시 Scope가 '확인 중'에 멈추는 Kernel 공백 | [#167](https://github.com/hjung3113/analytics-platform/issues/167) | — | 에이전트 | reject 시 오류·재시도, 회귀 테스트 |
+| 2. ~~지금 가능~~ 완료 | `validateScope` 실패 시 Scope가 '확인 중'에 멈추는 Kernel 공백 | [#167](https://github.com/hjung3113/analytics-platform/issues/167) | — | 에이전트 | reject 시 오류·재시도, 회귀 테스트 |
 | 3. 구현 | 실어댑터(HTTP) + 적합성 묶음을 사내 테스트 서버로 | [#154](https://github.com/hjung3113/analytics-platform/issues/154) | #148·#149·#150 | 에이전트(사내 실행은 사람) | 사내 테스트 서버 대상 적합성 묶음 전부 통과 |
 | 3. 구현 | Kernel 5분 폴링·계산 세대 재검증 | [#165](https://github.com/hjung3113/analytics-platform/issues/165) | #149(+#155 세대 신호) | 에이전트 | 세대가 바뀔 때만 다시 읽고 갱신 표시, Kernel 테스트·E2E |
 | 3. 구현 | FastAPI 플랫폼 API | [#155](https://github.com/hjung3113/analytics-platform/issues/155) | #148·#149·#150, 신뢰 원천은 #37 | 사내 백엔드 담당 | 체크리스트 §2·§3 전부 + 적합성 묶음 통과 |
@@ -89,7 +89,7 @@
 
 1. ~~#152 적합성 묶음 확장~~ 완료 — 포트 메서드 전부(주석·활용률·오류 보고 포함)를 어댑터 무관 검사로. 실서버가 붙는 날 판정 범위가 그대로 넓어진다.
 2. ~~#153 운영 빌드 조립 분리~~ 완료 — `main.tsx`는 `#platform-assembly`로 조립을 받고, 운영 빌드는 `AP_PLATFORM_ASSEMBLY` 없이는 실패하며, CI `check:prod-graph`가 운영 모듈 그래프에 mock·DevTools가 없음을 확인한다(ADR-0009). 실어댑터(#154)는 `createAssembly`를 구현해 그 env로 꽂는다.
-3. **#167 Scope 확인 실패 처리** — 실어댑터는 mock과 달리 `validateScope`가 실패할 수 있다.
+3. ~~#167 Scope 확인 실패 처리~~ 완료 — `validateScope`가 reject되면 Kernel이 Scope를 `error`로 두고 "Scope를 확인하지 못했습니다 + 다시 시도"를 보인다(mock 시나리오 "Scope 확인 실패").
 4. **#149 전송 형식 초안** — 합의 전 단계까지.
 5. 작은 후속: #122(목적지 단건 provisional), #90(지표 이력을 감사 저장소로).
 

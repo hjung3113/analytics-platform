@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createMockAdapter } from './adapter';
-import { getRole, matchesCondition, setRole } from './server';
+import { getRole, matchesCondition, setRole, setScenario } from './server';
 import { EQUIPMENT, USERS, type RoleId } from './world';
 
 const mockAdapter = createMockAdapter({ endpoints: [], registry: { menus: [] } });
@@ -50,5 +50,42 @@ describe('mockAdapter.evaluateSelection', () => {
     } finally {
       setRole(before);
     }
+  });
+});
+
+describe('scope_error scenario (#167)', () => {
+  it('rejects validateScope and leaves other calls normal', async () => {
+    const before = getRole();
+    setScenario('scope_error');
+    try {
+      setRole('engineer');
+      await expect(mockAdapter.validateScope('ICH')).rejects.toThrow('Scope check failed (scenario)');
+      const got = await mockAdapter.evaluateSelection({ scopeId: 'ICH', roomNames: null, condition: null, selection: [] });
+      setScenario('normal');
+      expect(got).toEqual(await mockAdapter.evaluateSelection({ scopeId: 'ICH', roomNames: null, condition: null, selection: [] }));
+      expect((await mockAdapter.validateScope('ICH')).status).toBe('valid');
+    } finally { setScenario('normal'); setRole(before); }
+  });
+
+  it('pins the scenario at send time — a later switch to normal does not rescue an in-flight check', async () => {
+    const before = getRole();
+    try {
+      setRole('engineer');
+      setScenario('scope_error');
+      const failing = mockAdapter.validateScope('ICH');
+      setScenario('normal');
+      await expect(failing).rejects.toThrow('Scope check failed (scenario)');
+    } finally { setScenario('normal'); setRole(before); }
+  });
+
+  it('pins the scenario at send time — a later switch to scope_error does not fail an in-flight check', async () => {
+    const before = getRole();
+    try {
+      setRole('engineer');
+      setScenario('normal');
+      const passing = mockAdapter.validateScope('ICH');
+      setScenario('scope_error');
+      expect((await passing).status).toBe('valid');
+    } finally { setScenario('normal'); setRole(before); }
   });
 });

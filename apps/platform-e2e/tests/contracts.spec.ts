@@ -166,6 +166,23 @@ test.describe('권한 — 메뉴 비노출·직접 URL 거부 (06 §6.2, §17)',
     expect(query(page).get('scopeId')).toBe('XIA');
     await evidence(page, testInfo, 'forbidden-scope');
   });
+
+  test('Scope 확인이 실패하면 "확인 중"에 멈추지 않고 실패와 다시 시도를 보이며, 서버가 돌아오면 다시 시도로 화면이 열린다 (#167)', async ({ page }, testInfo) => {
+    await page.goto('/equipment?v=1&scopeId=ICH');
+    await expect(page.getByRole('table')).toBeVisible();
+    await setScenario(page, 'Scope 확인 실패');
+    await switchScope(page, 'CJU');
+    const main = page.getByRole('main');
+    await expect(main.getByText('Scope를 확인하지 못했습니다')).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Scope:/ })).toContainText('확인 실패');
+    await expect(page.getByRole('table')).toHaveCount(0);
+    await evidence(page, testInfo, 'scope-check-failed');
+
+    await setScenario(page, '정상');
+    await main.getByRole('button', { name: '다시 시도' }).click();
+    await expectScopeValid(page, 'CJU · Site B');
+    await expect(page.getByRole('table')).toBeVisible();
+  });
 });
 
 test.describe('워크스페이스 (06 §9.1)', () => {

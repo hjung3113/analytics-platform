@@ -9,7 +9,7 @@ import { EQUIPMENT, SITES, TIME_DOMAIN_ASSERTIONS, USERS, type Equipment, type R
  * Server-side state the dev tools can flip: the signed-in role (a stand-in for SSO) and the response scenario.
  * Listeners hear both; the platform adapter forwards them to the kernel (mock/adapter.ts).
  */
-export type Scenario = 'normal' | 'slow' | 'empty' | 'error' | 'forbidden' | 'too_large' | 'timeout' | 'partial' | 'unknown_status' | 'malformed';
+export type Scenario = 'normal' | 'slow' | 'empty' | 'error' | 'forbidden' | 'too_large' | 'timeout' | 'partial' | 'unknown_status' | 'malformed' | 'scope_error';
 const ROLE_KEY = 'platform:role';
 function storedRole(): RoleId {
   try { const raw = localStorage.getItem(ROLE_KEY); const role = raw ? JSON.parse(raw) : null; return role in USERS ? role : 'engineer'; } catch { return 'engineer'; }
@@ -50,7 +50,11 @@ export function checkScope(role: RoleId, scopeId: string | null): ScopeCheck {
 }
 
 export async function validateScope(role: RoleId, scopeId: string, signal?: AbortSignal): Promise<ScopeCheck> {
+  // Pin the scenario at send time, like the other request paths — a switch mid-wait must not change this outcome.
+  const s = scenario;
   await sleep(350, signal);
+  // scope_error: only Scope validation fails (#167); every other request behaves as `normal`.
+  if (s === 'scope_error') throw new Error('Scope check failed (scenario)');
   return checkScope(role, scopeId);
 }
 

@@ -492,3 +492,82 @@ describe('useMenuFetch (caller-driven: table loadPage, export)', () => {
     });
   });
 });
+
+describe('Scope validation failure (#167)', () => {
+  function ScopeProbe() {
+    const { scope, retryScope, setGlobal } = usePlatform();
+    const query = useMenuQuery({ ...endpoint, requiresScope: true }, params);
+    return (
+      <>
+        <p data-testid="scope">{scope.status}</p>
+        <p data-testid="query">{query.status}:{query.response?.data?.call ?? '-'}</p>
+        <button type="button" data-testid="retry" onClick={retryScope}>retry</button>
+        <button type="button" data-testid="switch" onClick={() => setGlobal({ scopeId: 'XIA' })}>switch</button>
+      </>
+    );
+  }
+  const mountScope = (f: ReturnType<typeof fixture>) =>
+    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><ScopeProbe /></PlatformProvider></I18nProvider>);
+
+  it('ends in error when validateScope rejects, sends no Scope-requiring query, and retryScope re-validates', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    let fail = true;
+    let validations = 0;
+    const f = fixture({ validateScope: async () => { validations++; if (fail) throw new Error('down'); return { status: 'valid', grantedRooms: [] }; } });
+    mountScope(f);
+    expect(await screen.findByText('error')).toBeTruthy();
+    await act(async () => { await Promise.resolve(); });
+    expect(f.requests).toHaveLength(0);
+    expect(screen.getByTestId('query').textContent).toBe('loading:-');
+
+    fail = false;
+    act(() => screen.getByTestId('retry').click());
+    expect(screen.getByTestId('scope').textContent).toBe('validating');
+    expect(await screen.findByText('done:1')).toBeTruthy();
+    expect(screen.getByTestId('scope').textContent).toBe('valid');
+    expect(validations).toBe(2);
+    expect(f.requests).toHaveLength(1);
+  });
+
+  it('treats an adapter-internal AbortError (Kernel signal not aborted) as error', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    const f = fixture({ validateScope: async () => { throw Object.assign(new Error('timeout'), { name: 'AbortError' }); } });
+    mountScope(f);
+    expect(await screen.findByText('error')).toBeTruthy();
+  });
+
+  it('ignores a late valid for a superseded Scope (adapter ignores the signal)', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    let finishIch!: (check: ScopeCheck) => void;
+    const f = fixture({
+      validateScope: scopeId => scopeId === 'ICH'
+        ? new Promise<ScopeCheck>(resolve => { finishIch = resolve; })
+        : new Promise<ScopeCheck>(() => {}),
+    });
+    const setItem = vi.spyOn(window.localStorage, 'setItem');
+    mountScope(f);
+    act(() => screen.getByTestId('switch').click());
+    expect(screen.getByTestId('scope').textContent).toBe('validating');
+    await act(async () => { finishIch({ status: 'valid', grantedRooms: [] }); await Promise.resolve(); await Promise.resolve(); });
+    expect(screen.getByTestId('scope').textContent).toBe('validating');
+    expect(setItem.mock.calls.filter(([key]) => key.startsWith('platform:lastScope:'))).toHaveLength(0);
+  });
+
+  it('never turns a superseded validation into error', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    let finishXia!: (check: ScopeCheck) => void;
+    const f = fixture({
+      validateScope: (scopeId, signal) => scopeId === 'ICH'
+        // Rejects only when aborted, with a non-AbortError reason, like an adapter that rethrows its own error.
+        ? new Promise<ScopeCheck>((_, reject) => signal?.addEventListener('abort', () => reject(new Error('cancelled'))))
+        : new Promise<ScopeCheck>(resolve => { finishXia = resolve; }),
+    });
+    mountScope(f);
+    expect(screen.getByTestId('scope').textContent).toBe('validating');
+    act(() => screen.getByTestId('switch').click());
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(screen.getByTestId('scope').textContent).toBe('validating');
+    act(() => finishXia({ status: 'valid', grantedRooms: [] }));
+    expect(await screen.findByText('valid')).toBeTruthy();
+  });
+});

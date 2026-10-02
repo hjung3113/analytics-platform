@@ -26,7 +26,7 @@
 
 선행 이슈가 없는 것들이다. 위에서부터 추천 순서.
 
-1. **사내 적용 준비(외부 입력 없음)**: ~~운영 빌드에서 mock·DevTools 빼기 (#153)~~ 완료 → Scope 확인 실패 처리 (#167) → 전송 형식 초안 (#149). 작은 후속 #122, #90. ~~불안정 테스트 #166~~ 완료 — CI test 단계 동시성 제한(`--concurrency=2`).
+1. **사내 적용 준비(외부 입력 없음)**: ~~운영 빌드에서 mock·DevTools 빼기 (#153)~~ 완료 → ~~Scope 확인 실패 처리 (#167)~~ 완료 → 전송 형식 초안 (#149). 작은 후속 #122, #90, Scope·조회 상태 후속 #183(#167 리뷰). ~~불안정 테스트 #166~~ 완료 — CI test 단계 동시성 제한(`--concurrency=2`).
 2. **사내에 물을 것(사람)**: SSO 사양 (#150), 배포·인프라 환경 (#151), 선언 원본 결정 (#148). 질문 목록은 [사내 적용 가이드](integration/in-house-rollout.md) §3.
 3. **표 내보내기·복사(#159 결정 후속)**: 툴바 D안 확정(#172)·공통 내보내기 CSV·Excel(#173)·선언 행 상한(#175)·행 복사(#174) 완료.
 4. **틈틈이 목록**: ~~`@types/node` 부채 (#57)~~ 완료, ~~CSS selector 비교 CI (#58)~~ 완료 — `tooling/css-selectors` + CI `css-selectors` Job(라벨 `css-removal-ok`), 적재 워커 상태 스키마 초안 (#37) 작성 완료 — `docs/integration/ingest-status-schema.md`, 파서 담당 합의 대기, ~~FeedbackOps 양방향 딥링크 계약 (#61)~~ 완료 — `docs/integration/feedbackops-deeplink.md`(phase-1, 확장은 #81 결정 대기). 계약 안전망은 `pnpm e2e`(#44), 메뉴 활용률 계측(#43)도 완료 — kernel이 `adapter.recordUsage`(entry/dwell)로 계측하고 콘솔은 `usageSummary` 집계만 읽는다(조회조건 수집 여부는 #75 결정 대기).
@@ -91,7 +91,7 @@ mock 어댑터 자리를 실어댑터로 바꾸는 트랙(2026-10-02 정리). Ke
 | 전송 형식(HTTP 경계) 초안 → 합의 (#149) | 초안 작성 가능 |
 | ~~적합성 묶음을 menuQuery 밖 포트 메서드로 (#152)~~ | 완료 — 세션·Scope·목적지·감사·콘솔 조회·주석·활용률·오류 보고 포트 검사, 규칙마다 깬 참조 어댑터 회귀 테스트 |
 | ~~운영 빌드 조립 분리 + 번들 검사 (#153)~~ | 완료 — `main.tsx`는 `#platform-assembly`로 조립을 받고 운영 빌드는 `AP_PLATFORM_ASSEMBLY` 없으면 실패, CI `check:prod-graph`가 운영 모듈 그래프에 mock·DevTools 없음 확인(ADR-0009 Candidate) |
-| Kernel: validateScope 실패 시 Scope가 멈춤 (#167) | 지금 가능 |
+| ~~Kernel: validateScope 실패 시 Scope가 멈춤 (#167)~~ | 완료 — reject 시 Scope `error` + 다시 시도(`retryScope`), Scope 필요 요청 미전송, mock 시나리오 "Scope 확인 실패" |
 | 실어댑터(HTTP) + 사내 테스트 서버로 적합성 묶음 (#154) | 1단계 대기 |
 | [사내 구현] FastAPI 플랫폼 API (#155) | 1단계 대기 |
 | Kernel: 5분 폴링·계산 세대 재검증 (#165) | #149 대기 |
