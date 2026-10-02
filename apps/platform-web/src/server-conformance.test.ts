@@ -46,6 +46,7 @@ const PARAMS: Record<string, Record<string, unknown>> = {
 // No oversizeParams samples (#175): mock data sits far below the declared maxRows, so no case can exceed a cap.
 const cases: ConformanceCase[] = endpoints.map(({ spec }) => ({ spec, params: PARAMS[spec.id] ?? {} }));
 const GRANTED: RoleId = 'engineer';
+const CONSOLE: RoleId = 'admin';
 
 describe('conformance harness covers what the app registers', () => {
   it('lists exactly the mocks main.tsx spreads into the adapter', () => {
@@ -66,6 +67,21 @@ describeServerConformance('server boundary conformance — mock adapter', {
   cases,
   context: { scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' },
   foreignScopeId: 'XIA',
+  // Real mock data: the equipment sample sits in ICH/PH-101 (an engineer room), the engineer holds ICH + CJU and
+  // every permission except console:access, and the annotation/telemetry samples follow the usage wire contract.
+  // DIF-202 is a real ICH room granted to admin only — the room re-check sample (06 §22). cycle-time-trend is a
+  // time axis, so the annotation range is wall-clock (06 §16).
+  ports: {
+    entity: {
+      ref: { type: 'equipment', id: 'ICH-PHOTO-0103', scopeId: 'ICH' },
+      permission: 'equipment:view',
+      ungrantedRoomRef: { type: 'equipment', id: 'ICH-DIFF-0176', scopeId: 'ICH' },
+    },
+    annotation: { chartId: 'cycle-time-trend', from: '2026-09-25T10:00:00', to: '2026-09-25T11:00:00', permission: 'analytics:view' },
+    usage: { name: 'entry', menuId: 'equipment', spaceId: 'analytics', path: '/equipment', at: Date.now(), sessionId: 'conformance-tab' },
+    clientError: { correlationId: 'client-conformance', menuId: 'equipment', spaceId: 'analytics', path: '/equipment', name: 'TypeError' },
+    otherGrantedScopeId: 'CJU',
+  },
   asGranted: async fn => {
     const previous = getRole();
     setRole(GRANTED);
@@ -80,5 +96,10 @@ describeServerConformance('server boundary conformance — mock adapter', {
       USERS[GRANTED].permissions = permissions;
       setRole(previous);
     }
+  },
+  asConsole: async fn => {
+    const previous = getRole();
+    setRole(CONSOLE);
+    try { return await fn(); } finally { setRole(previous); }
   },
 });

@@ -26,7 +26,7 @@
 
 선행 이슈가 없는 것들이다. 위에서부터 추천 순서.
 
-1. **사내 적용 준비(외부 입력 없음)**: 적합성 묶음을 `menuQuery` 밖 포트 메서드로 넓히기 (#152) → 운영 빌드에서 mock·DevTools 빼기 (#153) → Scope 확인 실패 처리 (#167) → 전송 형식 초안 (#149). 작은 후속 #122, #90, 불안정 테스트 #166.
+1. **사내 적용 준비(외부 입력 없음)**: 운영 빌드에서 mock·DevTools 빼기 (#153) → Scope 확인 실패 처리 (#167) → 전송 형식 초안 (#149). 작은 후속 #122, #90, 불안정 테스트 #166.
 2. **사내에 물을 것(사람)**: SSO 사양 (#150), 배포·인프라 환경 (#151), 선언 원본 결정 (#148). 질문 목록은 [사내 적용 가이드](integration/in-house-rollout.md) §3.
 3. **표 내보내기·복사(#159 결정 후속)**: 툴바 D안 확정(#172)·공통 내보내기 CSV·Excel(#173)·선언 행 상한(#175)·행 복사(#174) 완료.
 4. **틈틈이 목록**: ~~`@types/node` 부채 (#57)~~ 완료, ~~CSS selector 비교 CI (#58)~~ 완료 — `tooling/css-selectors` + CI `css-selectors` Job(라벨 `css-removal-ok`), 적재 워커 상태 스키마 초안 (#37) 작성 완료 — `docs/integration/ingest-status-schema.md`, 파서 담당 합의 대기, ~~FeedbackOps 양방향 딥링크 계약 (#61)~~ 완료 — `docs/integration/feedbackops-deeplink.md`(phase-1, 확장은 #81 결정 대기). 계약 안전망은 `pnpm e2e`(#44), 메뉴 활용률 계측(#43)도 완료 — kernel이 `adapter.recordUsage`(entry/dwell)로 계측하고 콘솔은 `usageSummary` 집계만 읽는다(조회조건 수집 여부는 #75 결정 대기).
@@ -75,7 +75,7 @@
 | ~~차트 계약: 주석 Scope 격리·manifest features 준수·E2E 검사 (#103)~~ 완료 — 주석은 서버 소유·`(chartId, scopeId)` 키의 포트(`listAnnotations`·`saveAnnotation`, 모듈 전역 저장소 제거), Chart Frame이 Compare·Annotate·Export를 manifest `features`로 게이트, E2E 3건(Brush→구간 적용 확인, 주석 사이트 격리, features 준수; 총 41) | 완료 |
 | ~~레이아웃: pageType을 실제 계약으로 (#104)~~ 생성기 부분 완료 — `--page-type`별 06 §12 슬롯 뼈대, 반복 패턴·슬롯 후보 정리(06 §12.6). 레이아웃 슬롯 컴포넌트는 M2 재개 때 프로토타입 컨펌 후(#156) | 생성기 완료, 슬롯 컴포넌트 M2 대기(#156) |
 | ~~[결정+설계] 메뉴 데이터 조회 포트: 서버 경계 계약을 mock 밖 contracts로 (#100)~~ 완료(2026-10-01) — 메뉴는 `src/endpoints.ts`에 조회를 선언하고 화면은 Kernel `useMenuQuery`(렌더 시점)·`useMenuFetch`(표 페이지·내보내기)만 쓴다. 서버(mock 엔진)는 요청이 아니라 자기 선언 사본으로 요청 모양·권한·Scope·한도·params 값을 판정한다. 모든 메뉴 화면 이전 완료, `PlatformAdapter`에서 메뉴 어휘(VOC) 제거, `serve` 경로·이행용 lint 제거. 9단계는 화면을 다듬지 않고 계약 검증 + 최소 이전으로 줄였다(사용자). 현재 계약은 06 §5·§19와 [패키지 경계](integration/platform-packages.md) §3–§5, 설계·결정 경과는 [`menu-query-port.md`](integration/menu-query-port.md)(설계 기록). 남은 것: Q2 선언 원본 TS ↔ FastAPI codegen(FastAPI 착수 때), 후속 #122(목적지 단건 조회 provisional) | 완료 |
-| ~~서버 경계 적합성 묶음 + 실서버 연결 체크리스트 (#145)~~ 완료 — 사내 적용 준비. `@ap/server-conformance`가 엔드포인트 선언에서 검사를 도출해 어떤 어댑터든 같은 잣대로 판정한다(지금 mock: 21개 엔드포인트·391개 검사 통과). 실서버가 지킬 것은 [`real-server-checklist.md`](integration/real-server-checklist.md) 넓힌 검사가 mock의 명시적 공집합(lot·recipe) 위반을 찾아 고쳤다 | 완료 |
+| ~~서버 경계 적합성 묶음 + 실서버 연결 체크리스트 (#145)~~ 완료 — 사내 적용 준비. `@ap/server-conformance`가 엔드포인트 선언에서 검사를 도출해 어떤 어댑터든 같은 잣대로 판정한다(당시 mock: 21개 엔드포인트·391개 검사 통과). 실서버가 지킬 것은 [`real-server-checklist.md`](integration/real-server-checklist.md) 넓힌 검사가 mock의 명시적 공집합(lot·recipe) 위반을 찾아 고쳤다 | 완료 |
 
 ### M4 사내 적용 — 지도 [#157](https://github.com/hjung3113/analytics-platform/issues/157)
 
@@ -89,7 +89,7 @@ mock 어댑터 자리를 실어댑터로 바꾸는 트랙(2026-10-02 정리). Ke
 | [확인] 배포·인프라 환경 (#151) | 사람 확인 대기 |
 | [결정] 엔드포인트 선언의 원본 TS ↔ FastAPI codegen (#148) | 사람 결정 대기 |
 | 전송 형식(HTTP 경계) 초안 → 합의 (#149) | 초안 작성 가능 |
-| 적합성 묶음을 menuQuery 밖 포트 메서드로 (#152) | 지금 가능 |
+| ~~적합성 묶음을 menuQuery 밖 포트 메서드로 (#152)~~ | 완료 — 세션·Scope·목적지·감사·콘솔 조회·주석·활용률·오류 보고 포트 검사, 규칙마다 깬 참조 어댑터 회귀 테스트 |
 | 운영 빌드 조립 분리 + 번들 검사 (#153) | 지금 가능 |
 | Kernel: validateScope 실패 시 Scope가 멈춤 (#167) | 지금 가능 |
 | 실어댑터(HTTP) + 사내 테스트 서버로 적합성 묶음 (#154) | 1단계 대기 |

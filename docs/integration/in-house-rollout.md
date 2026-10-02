@@ -4,7 +4,7 @@
 
 ## 0. 지금 어디까지 왔나
 
-- 플랫폼 쪽 준비는 끝났다. 메뉴 데이터는 모두 범용 조회 포트(`menuQuery`, #100)로 오고, 서버 경계 적합성 묶음(`@ap/server-conformance`, #145)이 어떤 어댑터든 같은 잣대로 판정한다 — 지금 mock으로 21개 엔드포인트·391개 검사 통과.
+- 플랫폼 쪽 준비는 끝났다. 메뉴 데이터는 모두 범용 조회 포트(`menuQuery`, #100)로 오고, 서버 경계 적합성 묶음(`@ap/server-conformance`, #145·#152)이 어떤 어댑터든 같은 잣대로 판정한다 — `menuQuery`와 포트 메서드 전부(세션·Scope·조건 편집기 포트·목적지·감사·콘솔 조회·주석·활용률·오류 보고)를 지금 mock으로 23개 엔드포인트·527개 검사 통과(oversize 표본이 없는 3개 검사는 건너뜀 — 통과로 세지 않는다).
 - 사내 적용은 `apps/platform-web/src/main.tsx`의 `createMockAdapter(...)` 자리를 **실어댑터로 바꾸는 일**이다. Kernel·셸·공통 컴포넌트·메뉴 화면은 고치지 않는다(체크리스트 §1).
 - 남은 일의 대부분은 **사내 입력**(SSO 사양, 배포 환경, 백엔드 담당과의 합의)에 막혀 있다. 외부 입력 없이 할 수 있는 플랫폼 작업은 §4의 몇 개뿐이다.
 - 디자인(M2)은 이 트랙과 별개로 보류 중이다(FeedbackOps 디자인 확정 뒤, [ROADMAP](../ROADMAP.md)).
@@ -26,7 +26,7 @@
 | 1. 확인 | 배포·인프라 환경 | [#151](https://github.com/hjung3113/analytics-platform/issues/151) | — | 사용자(인프라 담당 문의) | §3.2 질문에 답이 있음 |
 | 1. 결정 | 엔드포인트 선언의 원본(TS ↔ FastAPI codegen) | [#148](https://github.com/hjung3113/analytics-platform/issues/148) | — | 사용자 + 백엔드 담당 | 결정이 05·06 §6.1·menu-query-port Q2에 반영 |
 | 1. 결정 | 전송 형식(HTTP 경계) | [#149](https://github.com/hjung3113/analytics-platform/issues/149) | 초안은 지금, 합의는 #151 답 뒤가 낫다 | 에이전트 초안 → 백엔드 담당 합의 | `http-adapter-contract.md`가 Decided |
-| 2. 지금 가능 | 적합성 묶음 확장(포트 메서드 전부) | [#152](https://github.com/hjung3113/analytics-platform/issues/152) | — | 에이전트 | mock이 새 검사 통과, 깬 어댑터에서 실패 |
+| 2. 지금 가능 | ~~적합성 묶음 확장(포트 메서드 전부)~~ 완료 — 주석·활용률·오류 보고까지 포트 메서드 전부 검사 | [#152](https://github.com/hjung3113/analytics-platform/issues/152) | — | 에이전트 | mock이 새 검사 통과, 깬 어댑터에서 실패 |
 | 2. 지금 가능 | 운영 빌드 조립 분리 + 번들 검사 | [#153](https://github.com/hjung3113/analytics-platform/issues/153) | — | 에이전트 | 운영 모드 산출물에 mock·DevTools 없음을 CI가 확인 |
 | 2. 지금 가능 | `validateScope` 실패 시 Scope가 '확인 중'에 멈추는 Kernel 공백 | [#167](https://github.com/hjung3113/analytics-platform/issues/167) | — | 에이전트 | reject 시 오류·재시도, 회귀 테스트 |
 | 3. 구현 | 실어댑터(HTTP) + 적합성 묶음을 사내 테스트 서버로 | [#154](https://github.com/hjung3113/analytics-platform/issues/154) | #148·#149·#150 | 에이전트(사내 실행은 사람) | 사내 테스트 서버 대상 적합성 묶음 전부 통과 |
@@ -48,7 +48,7 @@
 - [ ] 세션 만료·재인증 주기·단일 로그아웃 요구
 - [ ] FeedbackOps와 IdP 클라이언트 공유 가능 여부(M3 SSO 공유)
 - [ ] 망분리에서 서버의 IdP 백채널 접근 가능 여부
-- [ ] 테스트 계정: 모든 엔드포인트 권한 계정 + 권한 하나씩 뺀 계정(또는 세션 전환 훅) — 적합성 묶음에 필요(체크리스트 §4)
+- [ ] 테스트 계정: 모든 엔드포인트 권한 계정 + 권한 하나씩 뺀 계정(또는 세션 전환 훅), `console:access` 계정(`asConsole`), 부여 계정의 site 둘 부여·목적지/주석 권한 — 적합성 묶음에 필요(체크리스트 §4)
 
 ### 3.2 인프라 담당 — [#151](https://github.com/hjung3113/analytics-platform/issues/151)
 
@@ -87,7 +87,7 @@
 
 추천 순서.
 
-1. **#152 적합성 묶음 확장** — 지금은 `menuQuery`만 검사한다. 체크리스트 §2의 나머지 포트 메서드 전부(목록은 #152)를 어댑터 무관 검사로. 실서버가 붙는 날 판정 범위가 그대로 넓어진다.
+1. ~~#152 적합성 묶음 확장~~ 완료 — 포트 메서드 전부(주석·활용률·오류 보고 포함)를 어댑터 무관 검사로. 실서버가 붙는 날 판정 범위가 그대로 넓어진다.
 2. **#153 운영 빌드 조립 분리** — 지금 `pnpm build` 산출물에 mock 계산·DevTools가 들어간다. 분리와 번들 검사를 먼저 만들어 둔다.
 3. **#167 Scope 확인 실패 처리** — 실어댑터는 mock과 달리 `validateScope`가 실패할 수 있다.
 4. **#149 전송 형식 초안** — 합의 전 단계까지.

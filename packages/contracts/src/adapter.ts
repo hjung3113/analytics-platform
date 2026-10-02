@@ -179,18 +179,27 @@ export type PlatformAdapter = {
    * no AbortSignal, failures are silent — reporting must never cause a second failure.
    */
   reportClientError(report: ClientErrorReport): Promise<{ accepted: boolean }>;
-  /** Console aggregate read (docs/05 열람 권한: console:access, server-checked). The console never reads raw events. */
+  /**
+   * Console aggregate read (docs/05 열람 권한: console:access, server-checked). The console never reads raw
+   * events. Nothing matched is a successful zero: outcome `ok` with `menus: []`, never `empty` (the console
+   * left-joins zero-visit menus; `empty` would hide them).
+   */
   usageSummary(range: UsageRange, signal?: AbortSignal): Promise<ApiResponse<UsageSummary>>;
   /**
    * The console audit log (issue #50): console:access, every site, no room gate — an audit screen that hid
    * a room's change would hide the change. Offset-paged, server-sorted; the client never re-sorts a page.
+   * A query that matches nothing is `empty`, not `ok` with `items: []`; a page past the end of a non-empty
+   * result is `ok` with `items: []` and the true `total` (never rewritten to page 1).
    */
   auditTrail(query: AuditTrailQuery, signal?: AbortSignal): Promise<ApiResponse<AuditTrailPage>>;
   /**
    * One destination's audit events (issue #50), the detail-tab read: the destination's own view permission,
    * not console:access, so an engineer sees the equipment tab they already have. A `targetId` on auditTrail
    * is only a list filter — one method with a weaker check for a target would let a list filter borrow the
-   * detail permission. Not paged, no list filters.
+   * detail permission. Not paged, no list filters. Same gates as `getEntity`: the destination type's view
+   * permission, the site·room grant for a site-scoped type (`scopeId: null` for a siteless type like 지표),
+   * `error` for an unregistered type. A zero is a confirmed result: outcome `empty` (no data), not `ok` with
+   * an empty list.
    */
   entityAudit(ref: EntityRef, signal?: AbortSignal): Promise<ApiResponse<{ events: readonly AuditEvent[] }>>;
   /**
@@ -199,6 +208,8 @@ export type PlatformAdapter = {
    * platform meta DB (issue #98, decided), but no write port exists until the role-membership source (IdP group
    * claim spec) is settled. Menus per permission are a client join over the registry; the server
    * returns the principal's permissions only. Not mart data: trust stays null, assessments stay empty.
+   * A query that matches nothing is `empty`, not `ok` with `items: []`; a page past the end of a non-empty
+   * result is `ok` with `items: []` and the true `total` (never rewritten to page 1).
    */
   accessDirectory(query: AccessDirectoryQuery, signal?: AbortSignal): Promise<ApiResponse<AccessDirectoryPage>>;
   /**
