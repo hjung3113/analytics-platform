@@ -59,3 +59,27 @@ export function toCsv(headers: string[], rows: (string | number)[][]): string {
 export function toTsv(headers: string[], rows: (string | number)[][]): string {
   return [headers, ...rows].map(row => row.map(cell => csvField(cell, '\t')).join('\t')).join('\n') + '\n';
 }
+
+/** Excel's per-cell text limit; longer strings are cut and marked so the cut is visible in the sheet. */
+export const XLSX_CELL_MAX = 32_767;
+const XLSX_TRUNCATED = '…(잘림)';
+function xlsxText(text: string): string {
+  return text.length > XLSX_CELL_MAX ? text.slice(0, XLSX_CELL_MAX - XLSX_TRUNCATED.length) + XLSX_TRUNCATED : text;
+}
+/** Numbers stay number cells; strings become string cells as-is — no formula guard, a string cell is never evaluated. Empty → blank cell. */
+function xlsxCell(value: string | number): string | number | null {
+  return typeof value === 'number' ? value : value === '' ? null : xlsxText(value);
+}
+
+/**
+ * XLSX workbook: sheet 1 "데이터" (header + rows from the same serializer as CSV), sheet 2 "조회 정보" (key/value
+ * rows describing what was exported). `write-excel-file/browser` is loaded with a runtime `import()` so it lands in its
+ * own chunk — pages that never export never download it.
+ */
+export async function toXlsx(headers: string[], rows: (string | number)[][], info: [string, string | number][]): Promise<Blob> {
+  const { default: writeXlsxFile } = await import('write-excel-file/browser');
+  return writeXlsxFile([
+    { sheet: '데이터', data: [headers.map(xlsxText), ...rows.map(row => row.map(xlsxCell))] },
+    { sheet: '조회 정보', data: info.map(([key, value]) => [key, xlsxCell(value)]) },
+  ]).toBlob();
+}

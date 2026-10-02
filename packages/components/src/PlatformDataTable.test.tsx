@@ -5,6 +5,7 @@ import type { ApiResponse, PageSort, PlatformAdapter, Session } from '@ap/contra
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { toColumnDef } from './columnDef';
 import * as publicApi from './index';
+import { readXlsx } from './xlsxTestReader';
 import { PlatformDataTable, type PageQuery, type PageResult, type PlatformDataTableProps, type TableUrlState } from './PlatformDataTable';
 
 afterEach(cleanup);
@@ -290,6 +291,14 @@ const blobHasBom = (blob: Blob) => new Promise<boolean>((resolve, reject) => {
   reader.readAsArrayBuffer(blob);
 });
 
+const exportTrigger = () => screen.getByRole('button', { name: /^내보내기/ });
+/** Toolbar D: open [내보내기 ▾] with the keyboard (Radix opens on Enter) and choose the item by its accessible name. */
+async function exportVia(name: string | RegExp) {
+  fireEvent.keyDown(exportTrigger(), { key: 'Enter' });
+  fireEvent.click(await screen.findByRole('menuitem', { name }));
+}
+const FILTERED_CSV = /^필터 결과 전체 \d+행을 CSV로 내보내기$/;
+
 describe('PlatformDataTable table-owned export (#173)', () => {
   beforeAll(() => {
     Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return (this as Element).getAttribute('role') === 'row' ? 32 : 420; } });
@@ -333,7 +342,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     const exportRows = vi.fn(async () => ok([{ id: 'r1', status: 'a' }, { id: 'r2', status: 'b' }]));
     render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={exportRows} />);
     await screen.findByText(/1\/1/);
-    fireEvent.click(screen.getByRole('button', { name: /내보내기/ }));
+    await exportVia(FILTERED_CSV);
     await waitFor(() => expect(downloads.length).toBe(1));
     expect(exportRows).toHaveBeenCalledWith({ kind: 'filtered' }, expect.anything());
     expect(downloads[0].name).toMatch(/^export-menu-\d{8}-\d{4}\.csv$/);
@@ -349,7 +358,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     await screen.findByText(/1\/1/);
     fireEvent.click(screen.getByRole('checkbox', { name: '선택 r1' }));
     fireEvent.click(screen.getByRole('checkbox', { name: '선택 r2' }));
-    fireEvent.click(screen.getByRole('button', { name: /내보내기 \(2\)/ }));
+    await exportVia('선택 2행을 CSV로 내보내기');
     await waitFor(() => expect(downloads.length).toBe(1));
     expect(exportRows).toHaveBeenCalledWith({ kind: 'selected', ids: ['r1', 'r2'] }, expect.anything());
     expect(await blobText(downloads[0].blob)).toBe('Status\r\na\r\n');
@@ -361,7 +370,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     for (const outcome of ['forbidden', 'too_large', 'error', 'timeout'] as const) {
       const view = render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={vi.fn(async () => refused(outcome))} />);
       await screen.findByText(/1\/1/);
-      fireEvent.click(screen.getByRole('button', { name: /내보내기/ }));
+      await exportVia(FILTERED_CSV);
       await waitFor(() => expect(screen.getByTestId('toast-probe').textContent).toContain('내보'));
       expect(downloads.length).toBe(0);
       const text = screen.getByTestId('toast-probe').textContent ?? '';
@@ -374,7 +383,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
   it('empty outcome writes a header-only file', async () => {
     render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={vi.fn(async () => emptyEnvelope)} />);
     await screen.findByText(/1\/1/);
-    fireEvent.click(screen.getByRole('button', { name: /내보내기/ }));
+    await exportVia(FILTERED_CSV);
     await waitFor(() => expect(downloads.length).toBe(1));
     expect(await blobText(downloads[0].blob)).toBe('Status\r\n');
     expect(screen.getByText('필터 결과 전체 0행을 CSV 파일로 내보냈습니다')).toBeTruthy();
@@ -383,7 +392,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
   it('suffixes -provisional before the extension when the response trust is provisional', async () => {
     render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={vi.fn(async () => ok([{ id: 'r1', status: 'a' }], { updatedAt: '2026-10-02T09:00:00+09:00', dataThrough: null, coverage: null, provisional: true, source: 'mart' }))} />);
     await screen.findByText(/1\/1/);
-    fireEvent.click(screen.getByRole('button', { name: /내보내기/ }));
+    await exportVia(FILTERED_CSV);
     await waitFor(() => expect(downloads.length).toBe(1));
     expect(downloads[0].name).toMatch(/^export-menu-\d{8}-\d{4}-provisional\.csv$/);
   });
@@ -391,7 +400,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
   it('appends exportNote to the completion toast', async () => {
     render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={vi.fn(async () => ok([]))} exportNote="페이지 필터가 적용된 목록입니다" />);
     await screen.findByText(/1\/1/);
-    fireEvent.click(screen.getByRole('button', { name: /내보내기/ }));
+    await exportVia(FILTERED_CSV);
     await waitFor(() => expect(screen.getByText(/페이지 필터가 적용된 목록입니다/)).toBeTruthy());
     expect(screen.getByText('필터 결과 전체 0행을 CSV 파일로 내보냈습니다 — 페이지 필터가 적용된 목록입니다')).toBeTruthy();
   });
@@ -400,7 +409,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     const rows = Array.from({ length: 100_001 }, (_, i) => ({ id: `r${i}`, status: 's' }));
     render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={vi.fn(async () => ok(rows))} />);
     await screen.findByText(/1\/1/);
-    fireEvent.click(screen.getByRole('button', { name: /내보내기/ }));
+    await exportVia(FILTERED_CSV);
     await waitFor(() => expect(screen.getByTestId('toast-probe').textContent).toContain('100,000'));
     expect(downloads.length).toBe(0);
   });
@@ -414,15 +423,81 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     const loadPage = makeLoadPage(3);
     const view = render(<ExportHarness loadPage={loadPage} exportRows={exportRows} />);
     await screen.findByText(/1\/1/);
-    const button = screen.getByRole('button', { name: /내보내기/ }) as HTMLButtonElement;
-    fireEvent.click(button);
+    const button = exportTrigger() as HTMLButtonElement;
+    await exportVia(FILTERED_CSV);
     await waitFor(() => expect(exportRows).toHaveBeenCalled());
     expect(button).toBeDisabled();
 
     view.rerender(<ExportHarness loadPage={loadPage} exportRows={exportRows} filterKey="g" />);
     await waitFor(() => expect(signal?.aborted).toBe(true));
-    await waitFor(() => expect(screen.getByRole('button', { name: /내보내기/ })).not.toBeDisabled());
+    await waitFor(() => expect(exportTrigger()).not.toBeDisabled());
     expect(downloads.length).toBe(0);
     expect(screen.getByTestId('toast-probe').textContent).toBe('');
+  });
+
+  // ---- toolbar D export menu (#173 step 2, #172 confirmed D) ----
+  it('without a selection the menu has one group "필터 결과 전체 N행" with Excel then CSV, names carrying the target', async () => {
+    render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={vi.fn(async () => ok([]))} />);
+    await screen.findByText(/1\/1/);
+    fireEvent.keyDown(exportTrigger(), { key: 'Enter' });
+    const menu = await screen.findByRole('menu');
+    expect(within(menu).getAllByRole('menuitem').map(item => item.getAttribute('aria-label')))
+      .toEqual(['필터 결과 전체 3행을 Excel(.xlsx)로 내보내기', '필터 결과 전체 3행을 CSV로 내보내기']);
+    expect(within(menu).getByText('필터 결과 전체 3행')).toBeTruthy();
+    expect(within(menu).queryByText(/^선택/)).toBeNull();
+  });
+
+  it('with a selection the menu offers 선택 N행 and 필터 결과 전체 N행; choosing all-filtered exports {kind:filtered} without clearing the selection', async () => {
+    const exportRows = vi.fn(async (_scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }) => ok([{ id: 'r1', status: 'a' }, { id: 'r2', status: 'b' }, { id: 'r3', status: 'c' }]));
+    render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={exportRows} />);
+    await screen.findByText(/1\/1/);
+    fireEvent.click(screen.getByRole('checkbox', { name: '선택 r1' }));
+    fireEvent.keyDown(exportTrigger(), { key: 'Enter' });
+    const menu = await screen.findByRole('menu');
+    expect(within(menu).getAllByRole('menuitem').map(item => item.getAttribute('aria-label'))).toEqual([
+      '선택 1행을 Excel(.xlsx)로 내보내기', '선택 1행을 CSV로 내보내기',
+      '필터 결과 전체 3행을 Excel(.xlsx)로 내보내기', '필터 결과 전체 3행을 CSV로 내보내기',
+    ]);
+    expect(within(menu).getByRole('separator')).toBeTruthy();
+    fireEvent.click(within(menu).getByRole('menuitem', { name: '필터 결과 전체 3행을 CSV로 내보내기' }));
+    await waitFor(() => expect(downloads.length).toBe(1));
+    expect(exportRows).toHaveBeenCalledWith({ kind: 'filtered' }, expect.anything());
+    expect(await blobText(downloads[0].blob)).toBe('Status\r\na\r\nb\r\nc\r\n');
+    expect(screen.getByTestId('selected-count').textContent).toBe('1개 선택'); // selection kept
+    expect(screen.getByText('필터 결과 전체 3행을 CSV 파일로 내보냈습니다')).toBeTruthy();
+  });
+
+  it('Escape closes the menu and returns focus to the trigger', async () => {
+    render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={vi.fn(async () => ok([]))} />);
+    await screen.findByText(/1\/1/);
+    fireEvent.keyDown(exportTrigger(), { key: 'Enter' });
+    const menu = await screen.findByRole('menu');
+    fireEvent.keyDown(menu, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    expect(document.activeElement).toBe(exportTrigger());
+  });
+
+  it('selection Excel export: .xlsx with numbers kept, 조회 정보 from the response trust, Excel toast', async () => {
+    const trust = { updatedAt: '2026-10-02T09:00:00+09:00', dataThrough: '2026-10-02T08:00:00+09:00', coverage: 0.97, metricVersion: '3', provisional: true, source: 'mart' };
+    const exportRows = vi.fn(async () => ({ ...ok([{ id: 'r1', status: '=1+1' }, { id: 'r2', status: 'b' }], trust), correlationId: 'corr-1' }));
+    render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={exportRows} />);
+    await screen.findByText(/1\/1/);
+    fireEvent.click(screen.getByRole('checkbox', { name: '선택 r1' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: '선택 r2' }));
+    await exportVia('선택 2행을 Excel(.xlsx)로 내보내기');
+    await waitFor(() => expect(downloads.length).toBe(1));
+    expect(exportRows).toHaveBeenCalledWith({ kind: 'selected', ids: ['r1', 'r2'] }, expect.anything());
+    expect(downloads[0].name).toMatch(/^export-menu-\d{8}-\d{4}-provisional\.xlsx$/);
+    const { sheetNames, sheets: [data, info] } = await readXlsx(downloads[0].blob);
+    expect(sheetNames).toEqual(['데이터', '조회 정보']);
+    expect([data.A1, data.A2, data.A3]).toEqual(['Status', '=1+1', 'b']);
+    const rows = Object.fromEntries(Object.keys(info).filter(k => k.startsWith('A')).map(k => [info[k], info['B' + k.slice(1)]]));
+    expect(rows).toMatchObject({
+      메뉴: 'export-menu', 대상: '선택 2행', '갱신 시각': trust.updatedAt, '데이터 기준 시각': trust.dataThrough,
+      커버리지: 0.97, '지표 버전': '3', '잠정 여부': '잠정', 원천: 'mart', 'Correlation ID': 'corr-1',
+    });
+    expect(rows.Scope).toBeUndefined(); // no Scope in this Context → empty, never invented
+    expect(rows['내보낸 시각']).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+    expect(screen.getByText('선택 2행을 Excel 파일로 내보냈습니다')).toBeTruthy();
   });
 });

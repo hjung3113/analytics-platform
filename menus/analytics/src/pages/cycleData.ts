@@ -72,3 +72,11 @@ export function equipmentIdFromKey(key: string): string {
 export function exportParams(filter: SlowFilter, scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }): SlowExportFilter {
   return { ...filter, ids: scope.kind === 'selected' ? scope.ids : null };
 }
+
+/**
+ * #173 D-9: the export reader only while the metric pair has a confirmed computation version. Without one the table
+ * gets `exportRows={undefined}` — no export menu — instead of a header-only file.
+ */
+export function exportRowsWhenConfirmed<F>(cycleVersion: string | null, read: F): F | undefined {
+  return cycleVersion === null ? undefined : read;
+}

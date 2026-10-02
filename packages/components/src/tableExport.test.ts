@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PlatformColumn } from './PlatformDataTable';
-import { exportCell, exportColumns, toCsv, toTsv } from './tableExport';
+import { exportCell, exportColumns, toCsv, toTsv, toXlsx, XLSX_CELL_MAX } from './tableExport';
+import { readXlsx } from './xlsxTestReader';
 
 type Row = { id: string; label: string | null; count: number; flag: boolean; bad?: unknown };
 
@@ -78,5 +79,25 @@ describe('toTsv (#174 serialization ready)', () => {
   it('uses tabs and LF, quotes only values holding a quote, tab or newline, and keeps the formula guard', () => {
     const tsv = toTsv(['a', 'b'], [['x', '=SUM(A1)'], ['with\ttab', 4], ['with"quote', 5]]);
     expect(tsv).toBe('a\tb\nx\t\'=SUM(A1)\n"with\ttab"\t4\n"with""quote"\t5\n');
+  });
+});
+
+describe('toXlsx (#173 step 2)', () => {
+  it('writes numbers as number cells and strings as plain string cells (no formula guard), with a 조회 정보 sheet', async () => {
+    const long = 'a'.repeat(XLSX_CELL_MAX + 10);
+    const blob = await toXlsx(['ID', 'Count'], [['=SUM(A1)', 42], ['-3', 1.5], ['', 0], [long, 7]], [['메뉴', 'equipment'], ['커버리지', 0.97], ['원천', '']]);
+    const { sheetNames, sheets: [data, info] } = await readXlsx(blob);
+    expect(sheetNames).toEqual(['데이터', '조회 정보']);
+    expect(data.A1).toBe('ID');
+    expect(data.A2).toBe('=SUM(A1)'); // no `'` prefix: a string cell is never evaluated
+    expect(data.B2).toBe(42);
+    expect(data.A3).toBe('-3');
+    expect(data.B3).toBe(1.5);
+    expect(data.A4).toBeUndefined(); // '' → blank cell
+    expect(data.B4).toBe(0);
+    const cut = data.A5 as string;
+    expect(cut.length).toBe(XLSX_CELL_MAX);
+    expect(cut.endsWith('…(잘림)')).toBe(true);
+    expect(info).toEqual({ A1: '메뉴', B1: 'equipment', A2: '커버리지', B2: 0.97, A3: '원천' });
   });
 });

@@ -12,7 +12,7 @@ Platform Component 층(06 §13) + 차트 계약(§16) + 페이지 archetype 골�
 
 ## 규칙
 
-**표 소유 내보내기(#173, 06 §15).** 내보내기는 `PlatformDataTable`이 소유한다 — 메뉴는 `exportRows(scope, signal)`(선택이면 ids, 아니면 필터 전체를 서버에서 읽는 법)와 안내 문구 `exportNote`만 주고, outcome 처리·선택 재조정·클라이언트 상한·CSV 직렬화·파일·토스트는 표가 한다. 직렬화기(`exportColumns`·`exportCell`·`toCsv`·`toTsv`)는 내부 모듈 `src/tableExport.ts`이며 `index.ts`가 내보내지 않는다(`columnDef.ts`와 같은 취급). 화면이 보여 주는 값만 나간다 — 라벨·시간 포맷 열은 `PlatformColumn.exportValue`로 같은 텍스트를 주고, 숫자 열은 `number`를 지킨다. 게이트는 manifest `features.export` 그대로.
+**표 소유 내보내기(#173, 06 §15).** 내보내기는 `PlatformDataTable`이 소유한다 — 메뉴는 `exportRows(scope, signal)`(선택이면 ids, 아니면 필터 전체를 서버에서 읽는 법)와 안내 문구 `exportNote`만 주고, outcome 처리·선택 재조정·클라이언트 상한·CSV·XLSX 직렬화·파일·토스트는 표가 한다. 직렬화기(`exportColumns`·`exportCell`·`toCsv`·`toTsv`·`toXlsx`)는 내부 모듈 `src/tableExport.ts`이며 `index.ts`가 내보내지 않는다(`columnDef.ts`와 같은 취급). 화면이 보여 주는 값만 나간다 — 라벨·시간 포맷 열은 `PlatformColumn.exportValue`로 같은 텍스트를 주고, 숫자 열은 `number`를 지킨다. 게이트는 manifest `features.export` 그대로. 툴바는 확정안 D(#172) 고정 순서 [컬럼] [복사(#174)] [내보내기 ▾]: 메뉴는 선택이 없으면 "필터 결과 전체 N행" 한 묶음, 선택이 있으면 "선택 N행" + 구분선 + "필터 결과 전체 N행" 두 묶음(각 Excel (.xlsx) → CSV) — 대상은 고른 항목이 정한다(선택이 있어도 전체를 받을 수 있다). 항목 접근 이름에 대상 포함, 이 메뉴만 그림자 없음·포커스 표시(공유 primitive는 그대로), 실행 중 트리거 비활성+스피너. XLSX는 `write-excel-file/browser`를 클릭 때 동적 `import()`로만 불러 별도 청크에 둔다(메인 청크 금지). 시트 "데이터"(CSV와 같은 직렬화, 숫자는 숫자 셀, 문자열은 수식 방지 접두사 없음, 32,767자 초과는 "…(잘림)"으로 자름)와 "조회 정보"(메뉴·대상·내보낸 시각·Scope·기간·응답 trust의 갱신 시각/데이터 기준 시각/커버리지/지표 버전/잠정 여부/원천·correlationId — 없는 값은 비움). 문구 단위는 "행", 이름은 "Excel". 테스트 전용 XLSX 판독기 `src/xlsxTestReader.ts`(fflate, devDependency).
 
 - import 가능: `@ap/contracts`, `@ap/kernel`, `@ap/ui`와 표·차트 라이브러리. `@ap/shell`, 앱, mock, 메뉴 화면 import 금지.
 - 컴포넌트는 도메인 의미(설비, 지표 이름)를 모른다. 컬럼·셀·탭 내용은 props로 주입받는다.

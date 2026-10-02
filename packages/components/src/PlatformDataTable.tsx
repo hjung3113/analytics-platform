@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type ColumnSizingState, type RowSelectionState, type VisibilityState } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ArrowDown, ArrowUp, ArrowUpDown, Columns3, Download, Loader2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Download, FileSpreadsheet, FileText, Loader2 } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { type ApiResponse, type PageQuery, type PageResult, type PageSort, serializeGlobal } from '@ap/contracts';
-import { Button, Checkbox, cn, Label, Popover, PopoverContent, PopoverTrigger, Skeleton } from '@ap/ui';
+import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Label, Popover, PopoverContent, PopoverTrigger, Skeleton } from '@ap/ui';
 import { toColumnDef } from './columnDef';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { OutcomeView } from './StateView';
-import { exportCell, exportColumns, toCsv } from './tableExport';
+import { exportCell, exportColumns, toCsv, toXlsx } from './tableExport';
 
 export type { PageQuery, PageResult } from '@ap/contracts';
 export { sortAndPage } from '@ap/contracts';
@@ -50,6 +50,23 @@ const EXPORT_REFUSAL: Record<'forbidden' | 'too_large' | 'error' | 'timeout', { 
 };
 /** Defensive client cap only: the server's declared `limits.maxRows` (#175) is the real guard — this one fires after the rows already arrived. */
 const EXPORT_ROW_CAP = 100_000;
+type ExportFormat = 'xlsx' | 'csv';
+type ExportScopeKind = 'selected' | 'filtered';
+/** Export target wording (toolbar D, #172): one source for the menu group labels, item names and toasts. */
+function exportTarget(kind: ExportScopeKind, count: number, lang: 'ko' | 'en'): string {
+  if (lang === 'ko') return kind === 'selected' ? `선택 ${count}행` : `필터 결과 전체 ${count}행`;
+  const rows = count === 1 ? 'row' : 'rows';
+  return kind === 'selected' ? `${count} selected ${rows}` : `all ${count} filtered ${rows}`;
+}
+const FORMAT_LABEL: Record<ExportFormat, string> = { xlsx: 'Excel (.xlsx)', csv: 'CSV' };
+/** Menu item accessible name carries its target: "선택 3행을 Excel(.xlsx)로 내보내기" / "Export 3 selected rows as Excel (.xlsx)". */
+function exportItemName(kind: ExportScopeKind, count: number, format: ExportFormat, lang: 'ko' | 'en'): string {
+  return lang === 'ko'
+    ? `${exportTarget(kind, count, lang)}을 ${format === 'xlsx' ? 'Excel(.xlsx)' : 'CSV'}로 내보내기`
+    : `Export ${exportTarget(kind, count, lang)} as ${FORMAT_LABEL[format]}`;
+}
+/** Shared primitive's item focus is the card background (invisible on the popover); this menu-only class makes keyboard focus visible. */
+const exportItemClass = 'gap-2 focus:bg-accent-primary-soft focus:text-text-primary';
 
 type Preferences = { sizing: ColumnSizingState; visibility: VisibilityState; pinning: ColumnPinningState };
 const defaults: Preferences = { sizing: {}, visibility: {}, pinning: { left: [], right: [] } };
@@ -208,10 +225,11 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const cellBase = 'flex min-h-8 items-center px-3 py-1 [overflow-wrap:anywhere] pointer-coarse:min-h-11';
   const nameOf = (c: Column<T>) => (c.columnDef.meta as ColumnMeta | undefined)?.label ?? (typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id);
 
-  // Table-owned export (#173): the selection when any, else all filtered rows — one CSV built from the column
-  // definitions. The menu only supplies the row read; outcome handling, reconciliation, size guard, file and toasts live here.
-  async function runExport() {
-    const scope = selectedIds.length ? { kind: 'selected' as const, ids: selectedIds } : { kind: 'filtered' as const };
+  // Table-owned export (#173): the target (selection / all filtered rows) and format come from the chosen menu item —
+  // a selection never hides "all filtered". The menu only supplies the row read; outcome handling, reconciliation,
+  // size guard, file and toasts live here.
+  async function runExport(format: ExportFormat, kind: ExportScopeKind) {
+    const scope = kind === 'selected' ? { kind: 'selected' as const, ids: selectedIds } : { kind: 'filtered' as const };
     const controller = new AbortController();
     exportAbort.current = controller;
     setExporting(true);
@@ -233,24 +251,48 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
         }
       }
       if (rows.length > EXPORT_ROW_CAP) {
-        toast(lang === 'ko' ? `받은 행이 ${EXPORT_ROW_CAP.toLocaleString('ko-KR')}건을 넘어 파일을 만들지 않습니다. 필터를 좁혀 주세요.` : `More than ${EXPORT_ROW_CAP.toLocaleString('en-US')} rows arrived; no file was built. Narrow the filter.`, 'warning');
+        toast(lang === 'ko' ? `받은 행이 ${EXPORT_ROW_CAP.toLocaleString('ko-KR')}행을 넘어 파일을 만들지 않습니다. 필터를 좁혀 주세요.` : `More than ${EXPORT_ROW_CAP.toLocaleString('en-US')} rows arrived; no file was built. Narrow the filter.`, 'warning');
         return;
       }
       const columns = exportColumns(p.columns, preferences);
-      const csv = toCsv(columns.map(c => c.header), rows.map(row => columns.map(c => exportCell(c, row))));
+      const headers = columns.map(c => c.header);
+      const cells = rows.map(row => columns.map(c => exportCell(c, row)));
       const now = new Date();
       const pad = (n: number) => String(n).padStart(2, '0');
       const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
-      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+      const target = exportTarget(scope.kind, rows.length, lang);
+      let blob: Blob;
+      if (format === 'csv') {
+        blob = new Blob([toCsv(headers, cells)], { type: 'text/csv;charset=utf-8' });
+      } else {
+        // "조회 정보" sheet: what was exported, from which Context and with which trust. Missing values stay empty — never invented.
+        const trust = response.trust;
+        const info: [string, string | number][] = [
+          ['메뉴', route?.menu.id ?? ''],
+          ['대상', exportTarget(scope.kind, rows.length, 'ko')],
+          ['내보낸 시각', `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`],
+          ['Scope', global.scopeId ?? ''],
+          ['기간', global.from && global.to ? `${global.from} – ${global.to}` : ''],
+          ['갱신 시각', trust?.updatedAt ?? ''],
+          ['데이터 기준 시각', trust?.dataThrough ?? ''],
+          ['커버리지', trust?.coverage ?? ''],
+          ['지표 버전', trust?.metricVersion ?? ''],
+          ['잠정 여부', trust ? (trust.provisional ? '잠정' : '확정') : ''],
+          ['원천', trust?.source ?? ''],
+          ['Correlation ID', response.correlationId ?? ''],
+        ];
+        blob = await toXlsx(headers, cells, info);
+        if (controller.signal.aborted) return;
+      }
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${route?.menu.id ?? 'table'}-${stamp}${response.trust?.provisional ? '-provisional' : ''}.csv`;
+      link.download = `${route?.menu.id ?? 'table'}-${stamp}${response.trust?.provisional ? '-provisional' : ''}.${format}`;
       link.click();
       URL.revokeObjectURL(url);
-      const target = scope.kind === 'selected'
-        ? (lang === 'ko' ? `선택 ${rows.length}행을 CSV 파일로 내보냈습니다` : `Exported ${rows.length} selected ${rows.length === 1 ? 'row' : 'rows'} to a CSV file`)
-        : (lang === 'ko' ? `필터 결과 전체 ${rows.length}행을 CSV 파일로 내보냈습니다` : `Exported all ${rows.length} filtered ${rows.length === 1 ? 'row' : 'rows'} to a CSV file`);
-      toast(p.exportNote ? `${target} — ${p.exportNote}` : target);
+      const file = format === 'xlsx' ? 'Excel' : 'CSV';
+      const done = lang === 'ko' ? `${target}을 ${file} 파일로 내보냈습니다` : `Exported ${target} to ${format === 'xlsx' ? 'an' : 'a'} ${file} file`;
+      toast(p.exportNote ? `${done} — ${p.exportNote}` : done);
     } catch (error) {
       if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
       toast(EXPORT_REFUSAL.error[lang], 'warning');
@@ -258,6 +300,10 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       if (exportAbort.current === controller) { exportAbort.current = null; setExporting(false); }
     }
   }
+  const exportItems = (kind: ExportScopeKind, count: number) => (['xlsx', 'csv'] as const).map(format =>
+    <DropdownMenuItem key={format} className={exportItemClass} aria-label={exportItemName(kind, count, format, lang)} onSelect={() => { void runExport(format, kind); }}>
+      {format === 'xlsx' ? <FileSpreadsheet className="size-3.5" aria-hidden /> : <FileText className="size-3.5" aria-hidden />}{FORMAT_LABEL[format]}
+    </DropdownMenuItem>);
   return <section aria-label={p.ariaLabel} className="flex flex-col rounded-lg border border-border-subtle bg-surface-card">
     <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 p-3">
       <div className="min-w-0">
@@ -277,9 +323,29 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             </li>)}</ul>
           </PopoverContent>
         </Popover>
-        {canExport && <Button variant="secondary" size="sm" className="h-8 gap-1.5 rounded-sm border-border-strong" disabled={exporting} onClick={runExport}>
-          {exporting ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <Download className="size-3.5" aria-hidden />}{t('export')}{selectedIds.length ? ` (${selectedIds.length})` : ''}
-        </Button>}
+        {/* Toolbar D (#172): fixed order [컬럼] [복사] [내보내기 ▾]. The [복사] button (#174) goes here, between the two. */}
+        {canExport && <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="secondary" size="sm" className="h-8 gap-1.5 rounded-sm border-border-strong" disabled={exporting}>
+              <Download className="size-3.5" aria-hidden />{t('export')}
+              {exporting ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <ChevronDown className="size-3.5" aria-hidden />}
+            </Button>
+          </DropdownMenuTrigger>
+          {/* DESIGN.md: no drop shadows — this menu only; the shared primitive keeps its look for other menus. */}
+          <DropdownMenuContent align="end" className="min-w-56 border border-border-strong shadow-none">
+            {selectedIds.length > 0 && <>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="t-caption tabular text-text-muted">{exportTarget('selected', selectedIds.length, lang)}</DropdownMenuLabel>
+                {exportItems('selected', selectedIds.length)}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+            </>}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="t-caption tabular text-text-muted">{exportTarget('filtered', data.total, lang)}</DropdownMenuLabel>
+              {exportItems('filtered', data.total)}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>}
       </div>
     </div>
 

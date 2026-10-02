@@ -11,7 +11,7 @@ import {
 } from '../endpoints';
 import {
   DEFAULT_SORT, bucketContaining, encodeSort, exportParams, parseBucket, parseBin, parseSortParam, resolveGranularity, resolveTail,
-  executionKey, equipmentIdFromKey,
+  executionKey, equipmentIdFromKey, exportRowsWhenConfirmed,
 } from './cycleData';
 
 const NO_PARAMS = {};
@@ -243,7 +243,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
               },
             }}
             // Table-owned export (#173): the page only says how to read the rows; the table builds the file and toasts.
-            exportRows={(scope, signal) => exports.fetch(exportParams(listFilter, scope), signal)}
+            // No confirmed metric version → no export menu (D-9).
+            exportRows={exportRowsWhenConfirmed(cycleVersion, (scope, signal) => exports.fetch(exportParams(listFilter, scope), signal))}
             exportNote={ko ? '페이지 필터가 적용된 목록이며 KPI 모집단 전체가 아닙니다' : 'Page filters apply; this is not the full KPI population'}
             emptyAction={(bucketRange || bin || tailMode !== 'p95')
               ? <Button size="sm" variant="secondary" onClick={() => setPage({ bucket: null, bin: null, percentile: 'all', page: null })}>{ko ? '목록 필터 해제' : 'Clear list filters'}</Button>
