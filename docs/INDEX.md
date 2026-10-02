@@ -92,6 +92,7 @@
 
 - [메뉴 데이터 조회 포트 (설계 기록)](integration/menu-query-port.md) — 메뉴 조회를 범용 `MenuQuery` + 메뉴 `EndpointSpec` 선언으로 옮긴 설계와 결정 경과(구현 완료 2026-10-01, #100). 현재 계약은 06 §5·§19와 [패키지 경계](integration/platform-packages.md) §3–§5. 미해결은 Q2(선언 원본 TS ↔ FastAPI codegen).
 - [실서버 연결 체크리스트](integration/real-server-checklist.md) — 사내에서 mock 어댑터를 실어댑터·실서버로 바꿀 때 지킬 것: `PlatformAdapter` 메서드별 의미, `menuQuery` 판정 순서·등록 검증, 적합성 묶음(`@ap/server-conformance`) 실행 방법, 남은 사람 결정(Q2·전송 형식·SSO·#98·#37). Candidate(#145).
+- [실어댑터 전송 형식 초안](integration/http-adapter-contract.md) — `PlatformAdapter` 메서드별 HTTP 경로·요청/응답, 상태 코드와 `outcome`(판정은 전부 200 + envelope), 실패 → envelope 변환, 부트스트랩·identity, `subscribe` 폴링, 취소·타임아웃, 세션·CSRF, Correlation ID, 버전, 백엔드 담당 질문. Candidate(#149, 합의 대기).
 - [사내 적용 가이드](integration/in-house-rollout.md) — mock → 실어댑터·실서버 전환의 순서, 담당자별(SSO·인프라·백엔드·파서·FeedbackOps) 확인 질문, 지금 바로 할 수 있는 일, 사내 메뉴 개발 가이드, 완료 기준, 흔한 함정. 진행은 지도 이슈 #157·마일스톤 M4. Candidate(2026-10-02).
 
 - [Standard Log Lifecycle](references/standard-log-lifecycle/README.md) — 모델 표준 로그 개발·검증·결함·재검증 관리의 설계 참고. 원본 커밋에 고정한 Markdown 7개, 출처·해시 manifest와 4개 화면 시안 적용 범위를 포함한다. 기존 플랫폼 계약을 대체하지 않는다.

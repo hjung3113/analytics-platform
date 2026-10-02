@@ -25,7 +25,7 @@
 | 1. 확인 | 사내 SSO 사양·설정값 | [#150](https://github.com/hjung3113/analytics-platform/issues/150) | — | 사용자(사내 SSO 담당 문의) | §3.1 질문에 답이 있고 05 Open이 Decided |
 | 1. 확인 | 배포·인프라 환경 | [#151](https://github.com/hjung3113/analytics-platform/issues/151) | — | 사용자(인프라 담당 문의) | §3.2 질문에 답이 있음 |
 | 1. 결정 | 엔드포인트 선언의 원본(TS ↔ FastAPI codegen) | [#148](https://github.com/hjung3113/analytics-platform/issues/148) | — | 사용자 + 백엔드 담당 | 결정이 05·06 §6.1·menu-query-port Q2에 반영 |
-| 1. 결정 | 전송 형식(HTTP 경계) | [#149](https://github.com/hjung3113/analytics-platform/issues/149) | 초안은 지금, 합의는 #151 답 뒤가 낫다 | 에이전트 초안 → 백엔드 담당 합의 | `http-adapter-contract.md`가 Decided |
+| 1. 결정 | 전송 형식(HTTP 경계) | [#149](https://github.com/hjung3113/analytics-platform/issues/149) | 초안 작성(Candidate) — 합의 대기. 합의는 #151 답 뒤가 낫다 | 에이전트 초안 → 백엔드 담당 합의 | `http-adapter-contract.md`가 Decided |
 | 2. 지금 가능 | ~~적합성 묶음 확장(포트 메서드 전부)~~ 완료 — 주석·활용률·오류 보고까지 포트 메서드 전부 검사 | [#152](https://github.com/hjung3113/analytics-platform/issues/152) | — | 에이전트 | mock이 새 검사 통과, 깬 어댑터에서 실패 |
 | 2. 완료 | ~~운영 빌드 조립 분리 + 번들 검사~~ | [#153](https://github.com/hjung3113/analytics-platform/issues/153) | — | 에이전트 | 운영 모드 산출물에 mock·DevTools 없음을 CI가 확인(`check:prod-graph`, ADR-0009) |
 | 2. ~~지금 가능~~ 완료 | `validateScope` 실패 시 Scope가 '확인 중'에 멈추는 Kernel 공백 | [#167](https://github.com/hjung3113/analytics-platform/issues/167) | — | 에이전트 | reject 시 오류·재시도, 회귀 테스트 |
@@ -65,7 +65,7 @@
 ### 3.3 사내 백엔드(FastAPI) 담당 — [#148](https://github.com/hjung3113/analytics-platform/issues/148)·[#149](https://github.com/hjung3113/analytics-platform/issues/149)·[#155](https://github.com/hjung3113/analytics-platform/issues/155)
 
 - [ ] 선언 원본 선호(TS 원본 + 서버가 읽기 / FastAPI 원본 + TS 생성 / 각자 + 비교 검사) — #148
-- [ ] 전송 형식 초안 검토: HTTP 상태와 `outcome` 관계, 부트스트랩 엔드포인트, 알림 경로(폴링·SSE), 타임아웃 값, CSRF, Correlation ID 헤더 — #149
+- [ ] 전송 형식 초안 검토: HTTP 상태와 `outcome` 관계, 부트스트랩 엔드포인트, 알림 경로(폴링·SSE), 타임아웃 값, CSRF, Correlation ID 헤더 — #149. 초안과 질문 목록: [전송 형식 초안](http-adapter-contract.md) §10
 - [ ] 플랫폼 메타 DB(감사·활용률·오류 보고·주석·room 부여) 스키마를 누가 소유하나(Alembic, 03)
 - [ ] 체크리스트를 읽고 "이 규칙은 FastAPI에서 어렵다"는 항목 — 있으면 계약 변경 결정으로 올린다(루트 `AGENTS.md`)
 
@@ -90,7 +90,7 @@
 1. ~~#152 적합성 묶음 확장~~ 완료 — 포트 메서드 전부(주석·활용률·오류 보고 포함)를 어댑터 무관 검사로. 실서버가 붙는 날 판정 범위가 그대로 넓어진다.
 2. ~~#153 운영 빌드 조립 분리~~ 완료 — `main.tsx`는 `#platform-assembly`로 조립을 받고, 운영 빌드는 `AP_PLATFORM_ASSEMBLY` 없이는 실패하며, CI `check:prod-graph`가 운영 모듈 그래프에 mock·DevTools가 없음을 확인한다(ADR-0009). 실어댑터(#154)는 `createAssembly`를 구현해 그 env로 꽂는다.
 3. ~~#167 Scope 확인 실패 처리~~ 완료 — `validateScope`가 reject되면 Kernel이 Scope를 `error`로 두고 "Scope를 확인하지 못했습니다 + 다시 시도"를 보인다(mock 시나리오 "Scope 확인 실패").
-4. **#149 전송 형식 초안** — 합의 전 단계까지.
+4. ~~#149 전송 형식 초안~~ 초안 작성(Candidate) — 합의 대기([http-adapter-contract.md](http-adapter-contract.md)).
 5. 작은 후속: #122(목적지 단건 provisional), #90(지표 이력을 감사 저장소로).
 
 ## 5. 사내 메뉴 개발 가이드
