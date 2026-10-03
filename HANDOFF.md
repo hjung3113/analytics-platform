@@ -1,33 +1,33 @@
-# Handoff — 2026-10-03 다음 세션: FeedbackOps Tailwind v4 업그레이드 → `@fops/ui` 가져오기(M2 재개)
+# Handoff — 2026-10-04 다음 세션: M2 `?variant=` 프로토타입(현재 vs FeedbackOps 디자인) → 사용자 컨펌
 
 ## 먼저 볼 것
 
 - **진행 상황의 원본은 [`docs/ROADMAP.md`](docs/ROADMAP.md)와 고정 이슈 [#63 로드맵](https://github.com/hjung3113/analytics-platform/issues/63)이다.** 이 HANDOFF는 다음 세션 시작점만 적는다. 충돌하면 로드맵을 따른다.
-- 다음 세션 주제는 **M2 재개 — FeedbackOps를 Tailwind v4로 올린 뒤([FeedbackOps#743](https://github.com/hjung3113/FeedbackOps/issues/743)) 디자인(토큰·preset)과 UI 부품(`@fops/ui`)을 플랫폼으로 가져오기**다. 결정은 [ADR-0010](docs/adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md), 경과와 버전 차이는 [#52](https://github.com/hjung3113/analytics-platform/issues/52) 코멘트.
+- 다음 세션 주제는 **M2 프로토타입 — 실제 앱 위 `?variant=`로 현재 디자인과 FeedbackOps 디자인(토큰·셸)을 비교해 사용자 컨펌**이다. 결정은 [ADR-0010](docs/adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md), 소비 검증 결과·구현 조건·범위 영향은 [#52 코멘트](https://github.com/hjung3113/analytics-platform/issues/52#issuecomment-5974265606).
 - 작업 규칙은 루트 [`AGENTS.md`](AGENTS.md):
   - "화면/UI 설계": 공통 UI·셸·토큰의 모양이 바뀌면 **실제 앱 위 `?variant=` 인터랙티브 프로토타입으로 사용자 컨펌 후 구현**(`.agents/skills/prototype/UI.md`). 프로토타입 코드는 버리고 결정만 옮긴다.
-  - "FeedbackOps 서브모듈 경계": 서브모듈 안 수정이나 참조 커밋 갱신은 **요청된 범위에서만**. 통합 계약이 충돌하면 한쪽을 임의로 고치지 않고 명시적으로 결정한다.
+  - "FeedbackOps 서브모듈 경계": 서브모듈 안 수정이나 참조 커밋 갱신은 **요청된 범위에서만**. FeedbackOps 쪽 버그·후속은 그쪽 저장소 이슈로(사용자 확인 뒤).
   - "작업 관리": 이슈에서 시작하고, 대안이 있는 결정은 ADR(+05 행)로 남긴다.
-- MVP는 데스크톱 웹만. 메뉴 화면은 사내에서 새로 만들 견본이라 다듬지 않는다 — 가져오기의 대상은 **플랫폼 공통 부품·셸·토큰**이다.
+- MVP는 데스크톱 웹만. 메뉴 화면은 사내에서 새로 만들 견본이라 다듬지 않는다 — 대상은 **플랫폼 공통 부품·셸·토큰**이다.
 
-## 현재 상태 (2026-10-03)
+## 현재 상태 (2026-10-04)
 
-- **FeedbackOps 디자인은 사실상 끝났다**: FeedbackOps#685(출시 전 UI 점검)·#672(타이포 토큰) 닫힘.
-- 서브모듈 `products/feedbackops` 참조는 `4d11afea`(2026-10-03 develop 최신)로 갱신했다.
-- 버전 차이(`@fops/ui` ↔ 플랫폼): Tailwind 3.4.17(preset) ↔ 4.3.3(`@tailwindcss/vite`·`@theme`), tailwind-merge 2.5.5 ↔ ^3.7.0(3.x는 Tailwind v4 전용), lucide-react 0.469.0 ↔ ^1.48.0(메이저 차이), React ^19.0 ↔ ^19.3(호환). 토큰 **이름**은 같고(ADR-0021 이름) **값**이 다르다(FeedbackOps Samsung 블루 `#1428a0`·밝은 사이드바 / 플랫폼 `#2563eb`·어두운 사이드바).
-- 사내 적용 트랙: 플랫폼 쪽 에이전트 작업은 끝났다(#152 적합성 묶음, #153 운영 조립 분리 — ADR-0009 Candidate, #167·#183·#186 Scope 실패·취소 판정, #149 전송 형식 초안 — Candidate). 남은 것은 사람 결정(아래).
-- CI: `Platform workspace`(test 단계 `--concurrency=2`, `check:prod-graph`와 강제 실패 단계 포함)·`Platform contracts (E2E)`(42개)·`CSS selectors (build diff)`(선택자 제거는 라벨 `css-removal-ok`)·Unit A–C·Python codec·`PR checklist`.
+- FeedbackOps#743(Tailwind v4)이 FeedbackOps#744로 병합됐고, 서브모듈 참조는 `ef6c8e83`(develop 최신)이다.
+- **소비 검증 완료 — 쓸 수 있다.** 버리는 브랜치 `spike/52-fops-ui-consume`(origin에 있음, main 병합 안 함). 구현 조건 4가지: `@types/react` 한 벌(워크스페이스 `overrides`), CI `submodules: true`, gitlink를 올리면 플랫폼 lockfile도 같은 PR에서, `@fops/ui` 배럴 번들 크기(`sideEffects`).
+- **범위 영향**: FeedbackOps 셸 프레임(`AppFrame`·`AppRail`·`AppSidebar`)은 `@fops/ui`가 아니라 FeedbackOps 앱 소유 → 플랫폼 `@ap/shell`이 모양을 따라 그린다. 플랫폼 테마 키 65개 중 34개는 FeedbackOps와 같은 이름, 31개(어두운 사이드바 `nav-*`, `surface-sunken`, `accent-*-soft`, 차트·카테고리 색 등)는 플랫폼 확장 층으로 남기거나 옮긴다. 프리미티브(shadcn)는 이미 거의 같다(파일당 차이 1–19줄) → 모양 차이는 토큰과 셸에서 나온다.
+- 사내 적용 트랙: 플랫폼 쪽 에이전트 작업은 끝났고 사람 결정만 남았다(아래).
 
 ## 다음 세션 할 일 — 순서대로
 
-결정은 끝났다(2026-10-03, [ADR-0010](docs/adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)): **C안** — FeedbackOps를 먼저 Tailwind v4로 올리고, 플랫폼은 v4를 유지한 채 `@fops/ui`를 서브모듈 패키지로 **직접 참조**한다. 범위는 FeedbackOps → 토큰(이름·값 Pack 17)·preset·프리미티브·셸 모양, 플랫폼 → 공통 컴포넌트 계약(`PlatformDataTable`·`DetailDrawer`·`StateView` 등)과 확장 패턴(차트 색·Context 바·KPI·분석 레이아웃). lucide(0.469 ↔ 1.48)는 FeedbackOps 쪽 별도 후속.
-
-1. **FeedbackOps#743 — Tailwind 3.4 → v4 업그레이드**(FeedbackOps 저장소에서, 그쪽 `AGENTS.md`·워크플로우를 따른다: `feature/743-…` 브랜치 → PR to `develop`, 모양 변화 0을 픽셀 비교 게이트로 증명, `theme.extend`를 대체하는 FeedbackOps ADR). 공식 `npx @tailwindcss/upgrade` → diff 검토(의미가 바뀌는 기본 유틸리티 152곳/83파일, 숫자는 이슈 본문). **누가 진행하는지 먼저 확인**한다 — FeedbackOps에는 다른 세션이 작업 중일 수 있다(2026-10-03에 UI 점검 세션이 원본 체크아웃에서 돌고 있었다).
-2. #743 병합 뒤 **서브모듈 참조 갱신**(이 저장소, [저장소 구조](docs/integration/repository-layout.md) 절차). 지금 참조는 `4d11afea`(2026-10-03 develop).
-3. **소비 가능성 검증(버리는 브랜치)**: 플랫폼 pnpm 워크스페이스에 `products/feedbackops/packages/ui`(와 `@fops/shared` 등 연쇄 의존)를 넣어 `@fops/ui`를 import, 빌드·타입·테스트. CI 체크아웃 `submodules: false`도 바꿔야 한다. 결과는 #52에.
-4. **기준 캡처** — 지금 셸 + 대표 화면(분석·관리·목록) 스크린샷.
-5. **프로토타입**: 실제 앱 위 `?variant=`(현재 vs FeedbackOps 토큰·프리미티브·셸 모양) → 사용자 컨펌. UI/UX 리뷰는 Sol 6.1 xhigh.
-6. **구현** → #53 DESIGN.md 개정 → #156 레이아웃 슬롯 컴포넌트.
+1. **프로토타입 브랜치**(main에서, 예: `prototype/52-fops-design`): spike 브랜치의 워크스페이스 연결(`pnpm-workspace.yaml` 패키지 2개 + `overrides`, `@fops/ui` 의존, lockfile)을 가져온다.
+2. **3안**(대표 화면 `/analytics/productivity`·`/analytics/cycle-time`·`/equipment`·`/metrics`, `scopeId=ICH`, 1440×900):
+   - A 현재 그대로.
+   - B FeedbackOps 토큰만 — ADR-0058 import 계약 + 플랫폼 확장 층(플랫폼 전용 키를 FeedbackOps 값에 매핑), 셸 구조는 플랫폼 그대로(사이드바는 밝게).
+   - C FeedbackOps 셸까지 — B 토큰 + 레일(52px, 공간 전환)·밝은 사이드바(240px, 그룹=섹션 제목, Scope 선택)·50px 헤더. 2단계 셸 편입 때 FeedbackOps 쪽 변경이 가장 적은 안.
+   - 토큰은 전역이라 안 전환 때 스타일시트를 통째로 바꾼다(A용 `style.css` ↔ B·C용 FeedbackOps 계약 CSS). Kernel URL 정규화가 `variant` 파라미터를 지우는지 먼저 확인.
+3. **기준 캡처**(현재 화면 4장)를 프로토타입 브랜치 `.agents/reports/design/shots/`에 넣는다.
+4. 사용자 컨펌 → UI/UX 리뷰는 Sol 6.1 xhigh → 결정을 #52에 기록 → 구현(조건 4가지 포함, `repository-layout.md`·CI 갱신) → #53 DESIGN.md 개정 → #156 레이아웃 슬롯.
+5. FeedbackOps 쪽 발견(사용자에게 이슈 등록 여부 확인): `Callout` 인라인 스타일이 RGB 숫자 묶음 토큰을 색으로 써서 테두리·배경 무효, `@fops/ui`에 `sideEffects` 없음, `@types/react` 19.0.2.
 
 ### 그 밖에 남은 일
 
