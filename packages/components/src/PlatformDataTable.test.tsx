@@ -881,7 +881,7 @@ describe('An AbortError the table did not cause is an error, not a cancellation 
 
   it('loadPage rejecting with DOMException AbortError (the table did not abort) shows the error state instead of loading forever', async () => {
     // A menu loadPage with an internal timeout (#186): rejects with its own AbortError while the table's
-    // controller is still live. Today the name check swallows it and the table stays "불러오는 중" forever.
+    // controller is still live. Before #186 the name check swallowed it and the table stayed "불러오는 중" forever.
     const loadPage = async (): Promise<ApiResponse<PageResult<Row>>> => { throw new DOMException('timeout', 'AbortError'); };
     render(<UncontrolledHarness loadPage={loadPage} />);
     expect(await screen.findByText('데이터를 불러오지 못했습니다')).toBeTruthy();

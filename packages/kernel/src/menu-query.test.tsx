@@ -765,4 +765,36 @@ describe('Session-only change mask equals the next effect state (#186)', () => {
     expect(frames).toEqual(['none|null|']);
     expect(screen.getByTestId('scope').textContent).toBe('none:null:');
   });
+
+  it('after a re-login (replaceWithSameUser: same user id, new session object) the frame is the validating mask and a status-gated consumer fires no request in it', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    const f = fixture();
+    const entities = vi.fn(async (): Promise<ApiResponse<string>> => ({ outcome: 'ok', data: 'd1', assessments: [], trust: null, correlationId: 'fixture' }));
+    f.adapter.getEntity = entities;
+    const frames: string[] = [];
+    function ReLoginProbe() {
+      const { scope } = usePlatform();
+      // Same gate as the switchTo case: only `scope.status === 'valid'` enables the destination read.
+      useEntityQuery({ type: 'device', id: 'd1', scopeId: null }, 'header', scope.status === 'valid');
+      useLayoutEffect(() => {
+        const frame = `${scope.status}|${String(scope.scopeId)}|${scope.grantedRooms.join(',')}`;
+        if (frames[frames.length - 1] !== frame) frames.push(frame);
+      });
+      return <p data-testid="scope">{scope.status}:{scope.scopeId ?? 'null'}:{scope.grantedRooms.join(',')}</p>;
+    }
+    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><ReLoginProbe /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('valid:ICH:')).toBeTruthy();
+    expect(entities).toHaveBeenCalledTimes(1);
+
+    // Re-login (the case the docs name): scopeId, user.id and the query key are unchanged, so only
+    // `validatedFor !== session` can mask the frame — the old session's `valid` must not leak and the
+    // gated request must wait for the revalidation.
+    frames.length = 0;
+    entities.mockClear();
+    act(() => f.replaceWithSameUser());
+    expect(frames).toEqual(['validating|ICH|']);
+    expect(entities).not.toHaveBeenCalled();
+    expect(await screen.findByText('valid:ICH:')).toBeTruthy(); // revalidated for the new session object
+    expect(entities).toHaveBeenCalledTimes(1); // exactly one request, after revalidation
+  });
 });
