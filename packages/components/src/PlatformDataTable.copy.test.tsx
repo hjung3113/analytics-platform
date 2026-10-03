@@ -486,11 +486,9 @@ describe('PlatformDataTable row copy — only the copy\'s own controller cancels
 
   it('a filter change mid-read cancels the copy silently: no failure toast and the busy state releases', async () => {
     secureClipboard();
-    const exportRows = vi.fn((_request: unknown, signal: AbortSignal): Promise<ApiResponse<Row[]>> => {
-      const { promise, reject } = Promise.withResolvers<ApiResponse<Row[]>>();
+    const exportRows = vi.fn((_request: unknown, signal: AbortSignal) => new Promise<ApiResponse<Row[]>>((_resolve, reject) => {
       signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
-      return promise;
-    });
+    }));
     const view = render(<Harness exportRows={exportRows} />);
     await ready();
     select('r1');
