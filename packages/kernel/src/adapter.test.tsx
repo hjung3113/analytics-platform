@@ -338,4 +338,37 @@ describe('useAdapterRequest with an adapter-internal AbortError (#183: only the 
     expect(await screen.findByText('done:ok-b')).toBeTruthy();
     expect(screen.getByTestId('req').textContent).not.toContain('error');
   });
+
+  it('stays silent when the Kernel aborts an in-flight call because enabled went false (identity unchanged)', async () => {
+    const f = fixture();
+    let calls = 0;
+    // Like fetch against a server: the call hangs until the Kernel aborts it, then rejects with an AbortError.
+    // Unlike the key change above, no replacement request follows — the hook is disabled, so the identity of
+    // 'k' never changes and a recorded result would stay visible.
+    const run = (signal: AbortSignal): Promise<string> => {
+      calls++;
+      // new Promise form: @ap/tsconfig base lib is ES2022, so Promise.withResolvers is unavailable.
+      return new Promise<string>((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+      });
+    };
+    function Req() {
+      const [enabled, setEnabled] = useState(true);
+      const r = useAdapterRequest(run, 'k', enabled);
+      return (
+        <>
+          <p data-testid="req">{r.status}:{r.data ?? '-'}</p>
+          <button type="button" data-testid="off" onClick={() => setEnabled(false)}>off</button>
+        </>
+      );
+    }
+    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><Req /></PlatformProvider></I18nProvider>);
+    await act(async () => {}); // the call hangs until the Kernel aborts it
+    expect(calls).toBe(1);
+    act(() => screen.getByTestId('off').click());
+    // A disabled hook shows no result at all (the fallback `loading:-`); recording the rejection as
+    // `error:-` on the unchanged identity is the regression this pins.
+    await act(async () => {});
+    expect(screen.getByTestId('req').textContent).toBe('loading:-');
+  });
 });

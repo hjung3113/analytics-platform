@@ -313,9 +313,13 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   }, [global.scopeId, session, userId, adapter, scopeRetry]);
 
   // A Scope switch renders once before the validation effect runs, and in that frame `scope` still describes
-  // the previous Scope. Until the two agree, consumers (gate, pill) must read `validating` — never the
-  // previous Scope's error/forbidden/unknown_scope/valid (#183).
-  const scopeView: ScopeState = scope.scopeId !== global.scopeId ? { ...scope, status: 'validating' } : scope;
+  // the previous Scope. The mask is exactly the value the effect will set next — never the previous Scope's
+  // error/forbidden/unknown_scope/valid, id, or grantedRooms (#183).
+  const scopeView: ScopeState = scope.scopeId !== global.scopeId
+    ? global.scopeId === null
+      ? { scopeId: null, status: 'none', validatedFor: session, grantedRooms: [] }
+      : { scopeId: global.scopeId, status: 'validating', validatedFor: session, grantedRooms: [] }
+    : scope;
 
   // Materialize the default period once for time-applying menus (§6.3/§6.4): absolute from/to written into the URL.
   // The initial Δ (24h here) is an Open decision; this prototype uses the 1-day preset as a Candidate.
