@@ -1,9 +1,9 @@
-import { ChevronDown, CircleHelp, Loader2, LogOut, MapPin, Search, ShieldAlert } from 'lucide-react';
+import { ChevronDown, CircleHelp, Loader2, LogOut, MapPin, RotateCw, Search, ShieldAlert } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 
 export function TopBar() {
-  const { global, setGlobal, scope, session, user, slots, setPaletteOpen } = usePlatform();
+  const { global, setGlobal, scope, retryScope, session, user, slots, setPaletteOpen } = usePlatform();
   const { t, tx, lang, setLang } = useI18n();
   const current = session.scopes.find(s => s.id === global.scopeId);
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -36,12 +36,19 @@ export function TopBar() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-72 rounded-md border border-border-strong bg-surface-card p-1 shadow-md">
           <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{lang === 'ko' ? '요청 Scope (단일 선택, 서버 재검증)' : 'Requested scope (single, server re-validated)'}</DropdownMenuLabel>
-          <DropdownMenuRadioGroup value={global.scopeId ?? ''} onValueChange={v => setGlobal({ scopeId: v })}>
+          <DropdownMenuRadioGroup value={global.scopeId ?? ''} onValueChange={v => {
+            // Re-picking the current Scope from a failed check retries the validation — setGlobal(same) is a
+            // no-op and the check would never re-run (#183). Any other pick navigates as before.
+            if (v === global.scopeId && scope.status === 'error') retryScope(); else setGlobal({ scopeId: v });
+          }}>
             {session.scopes.map(s => <DropdownMenuRadioItem key={s.id} value={s.id} className="text-[13px]">
               <span className="flex-1">{s.label}</span>
               <span className="text-[11px] text-text-muted">room {s.grantedRooms}/{s.totalRooms}</span>
             </DropdownMenuRadioItem>)}
           </DropdownMenuRadioGroup>
+          {scope.status === 'error' && <DropdownMenuItem className="text-[13px]" onSelect={() => retryScope()}>
+            <RotateCw className="size-3.5" aria-hidden />{t('scopeRetryCheck')}
+          </DropdownMenuItem>}
           <DropdownMenuSeparator />
           <p className="px-2 py-1.5 text-[11px] leading-4 text-text-muted">{lang === 'ko' ? '권한 축은 Site 안의 room_name입니다. Scope를 바꾸면 Site 경계를 넘는 room·설비 조건/선택은 초기화됩니다.' : 'Grants are room_name within a Site. Changing scope clears site-bound room/equipment context.'}</p>
         </DropdownMenuContent>

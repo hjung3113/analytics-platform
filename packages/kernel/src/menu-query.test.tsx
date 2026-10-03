@@ -1,4 +1,5 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
+import { useLayoutEffect, useState } from 'react';
 import { defineEndpoint, type ApiResponse, type AssessmentKind, type EndpointSpec, type MenuQuery, type PlatformAdapter, type ScopeCheck, type Session } from '@ap/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { House } from 'lucide-react';
@@ -569,5 +570,143 @@ describe('Scope validation failure (#167)', () => {
     expect(screen.getByTestId('scope').textContent).toBe('validating');
     act(() => finishXia({ status: 'valid', grantedRooms: [] }));
     expect(await screen.findByText('valid')).toBeTruthy();
+  });
+});
+
+describe('Adapter-internal AbortError in queries (#183: only the Kernel signal cancels)', () => {
+  function AbortProbe() {
+    const { setGlobal } = usePlatform();
+    const query = useMenuQuery(endpoint, params);
+    return (
+      <>
+        <p data-testid="query">{query.status}:{query.response?.data?.call ?? '-'}</p>
+        <p data-testid="outcome">{query.response?.outcome ?? '-'}</p>
+        <button type="button" data-testid="retry" onClick={query.refetch}>retry</button>
+        <button type="button" data-testid="period" onClick={() => setGlobal({ from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' })}>period</button>
+      </>
+    );
+  }
+  const mountAbort = (f: { adapter: PlatformAdapter }) =>
+    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><AbortProbe /></PlatformProvider></I18nProvider>);
+
+  // jsdom's DOMException is not `instanceof Error`, so both shapes are covered; the DOMException variant is
+  // the one the pre-#183 check (`error instanceof DOMException && error.name === 'AbortError'`) discarded.
+  it.each([
+    ['a DOMException AbortError', () => new DOMException('timeout', 'AbortError')],
+    ['an Error named AbortError', () => Object.assign(new Error('timeout'), { name: 'AbortError' })],
+  ])('turns %s from the adapter into the error outcome with retry', async (_label, make) => {
+    let calls = 0;
+    const f = fixture({ answer: () => {
+      calls++;
+      if (calls === 1) throw make();
+      return response('ok', [...endpoint.kinds]);
+    } });
+    mountAbort(f);
+    // The query resolves with the error envelope (status `done`, `outcome: 'error'`) instead of hanging in loading.
+    expect(await screen.findByText('done:-')).toBeTruthy();
+    expect(screen.getByTestId('outcome').textContent).toBe('error');
+    act(() => screen.getByTestId('retry').click());
+    expect(await screen.findByText('done:1')).toBeTruthy();
+  });
+
+  it('keeps a Kernel-caused abort silent (Context change mid-flight)', async () => {
+    const f = fixture();
+    let calls = 0;
+    // Like fetch against a server: the first request hangs until the Kernel aborts it, then rejects with an
+    // AbortError; the replacement request resolves normally.
+    f.adapter.menuQuery = (request, signal) => {
+      calls++;
+      if (calls > 1) {
+        return Promise.resolve({ outcome: 'ok' as const, data: { call: calls, context: request.context, params: request.params as Params }, assessments: endpoint.kinds.map(kind => ({ kind, state: 'clear' as const })), trust: null, correlationId: `fixture-${calls}` });
+      }
+      // new Promise form: @ap/tsconfig base lib is ES2022, so Promise.withResolvers is unavailable.
+      return new Promise<ApiResponse<QueryData>>((_resolve, reject) => {
+        signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+      });
+    };
+    mountAbort(f);
+    await act(async () => {}); // the first request hangs until the Kernel aborts it
+    act(() => screen.getByTestId('period').click());
+    expect(await screen.findByText('done:2')).toBeTruthy();
+    expect(screen.getByTestId('outcome').textContent).toBe('ok');
+  });
+
+  it('keeps a Kernel-caused abort silent (enabled → false mid-flight, identity unchanged)', async () => {
+    const f = fixture();
+    let calls = 0;
+    // Like fetch against a server: the request hangs until the Kernel aborts it, then rejects with an
+    // AbortError. Unlike the Context change above, no replacement request follows — the query is disabled,
+    // so the identity of the key never changes and a recorded result would stay visible.
+    f.adapter.menuQuery = (_request, signal) => {
+      calls++;
+      // new Promise form: @ap/tsconfig base lib is ES2022, so Promise.withResolvers is unavailable.
+      return new Promise<ApiResponse<QueryData>>((_resolve, reject) => {
+        signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+      });
+    };
+    function ToggleProbe() {
+      const [enabled, setEnabled] = useState(true);
+      const query = useMenuQuery(endpoint, params, enabled);
+      return (
+        <>
+          <p data-testid="query">{query.status}:{query.response?.data?.call ?? '-'}</p>
+          <p data-testid="outcome">{query.response?.outcome ?? '-'}</p>
+          <button type="button" data-testid="off" onClick={() => setEnabled(false)}>off</button>
+        </>
+      );
+    }
+    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><ToggleProbe /></PlatformProvider></I18nProvider>);
+    await act(async () => {}); // the request hangs until the Kernel aborts it
+    expect(calls).toBe(1);
+    act(() => screen.getByTestId('off').click());
+    // A disabled query shows no result at all; recording the rejection as `done` + `outcome: 'error'` on the
+    // unchanged identity is the regression this pins.
+    await act(async () => {});
+    expect(screen.getByTestId('query').textContent).toBe('loading:-');
+    expect(screen.getByTestId('outcome').textContent).toBe('-');
+  });
+});
+
+describe('Scope switch mask equals the next effect state (#183)', () => {
+  it('masks a switch to a Scope-less URL as the select-Scope state (never 검증 중) with no previous grantedRooms', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    let fail = false;
+    const f = fixture({ validateScope: async () => { if (fail) throw new Error('down'); return { status: 'valid', grantedRooms: ['R1'] }; } });
+    const frames: string[] = [];
+    function MaskProbe() {
+      const { scope, retryScope, setGlobal } = usePlatform();
+      // useLayoutEffect runs on every commit before the passive validation effect, so the frame right after
+      // setGlobal samples the mask. Consecutive duplicates collapse: the mask and the effect's value being
+      // identical is exactly the property under test.
+      useLayoutEffect(() => {
+        const frame = `${scope.status}|${String(scope.scopeId)}|${scope.grantedRooms.join(',')}`;
+        if (frames[frames.length - 1] !== frame) frames.push(frame);
+      });
+      return (
+        <>
+          <p data-testid="scope">{scope.status}:{scope.scopeId ?? 'null'}:{scope.grantedRooms.join(',')}</p>
+          <button type="button" data-testid="retry" onClick={retryScope}>retry</button>
+          <button type="button" data-testid="pick" onClick={() => setGlobal({ scopeId: 'ICH' })}>pick</button>
+          <button type="button" data-testid="clear" onClick={() => setGlobal({ scopeId: null })}>clear</button>
+        </>
+      );
+    }
+    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><MaskProbe /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('valid:ICH:R1')).toBeTruthy();
+
+    // Leaving a valid Scope that had granted rooms: the very next frame is already the select-Scope state and
+    // carries neither the previous scopeId nor its rooms.
+    frames.length = 0;
+    act(() => screen.getByTestId('clear').click());
+    expect(frames).toEqual(['none|null|']);
+
+    // From a Scope in error, a Scope-less URL never shows 검증 중 either.
+    fail = true;
+    act(() => screen.getByTestId('pick').click());
+    expect(await screen.findByText('error:ICH:')).toBeTruthy();
+    frames.length = 0;
+    act(() => screen.getByTestId('clear').click());
+    expect(frames).toEqual(['none|null|']);
+    expect(screen.getByTestId('scope').textContent).toBe('none:null:');
   });
 });

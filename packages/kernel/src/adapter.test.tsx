@@ -1,6 +1,6 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
-import type { ApiResponse, PlatformAdapter, Session } from '@ap/contracts';
+import type { ApiResponse, PlatformAdapter, SelectionEvaluation, Session } from '@ap/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
@@ -290,5 +290,85 @@ describe('setGlobal drops contextResetKeys in the same navigation (06 §6.4)', (
     expect(window.location.search).toBe('?v=1&scopeId=ICH&page=3&bucket=b9');
     expect(screen.getByTestId('page').textContent).toBe('3');
     expect(screen.getByTestId('bucket').textContent).toBe('b9');
+  });
+});
+
+describe('useAdapterRequest with an adapter-internal AbortError (#183: only the Kernel signal cancels)', () => {
+  // jsdom's DOMException is not `instanceof Error`, so both shapes are covered; the DOMException variant is
+  // the one the pre-#183 check (`error instanceof DOMException && error.name === 'AbortError'`) discarded.
+  it.each([
+    ['a DOMException AbortError', () => new DOMException('timeout', 'AbortError')],
+    ['an Error named AbortError', () => Object.assign(new Error('timeout'), { name: 'AbortError' })],
+  ])('reports %s from the adapter as an error with retry, not a discarded result', async (_label, make) => {
+    const f = fixture();
+    let calls = 0;
+    function Req() {
+      const r = useAdapterRequest(async () => { calls++; if (calls === 1) throw make(); return `ok-${calls}`; }, 'k');
+      return <button type="button" data-testid="r" onClick={r.retry}>{r.status}:{r.data ?? '-'}</button>;
+    }
+    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><Req /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('error:-')).toBeTruthy();
+    act(() => screen.getByTestId('r').click());
+    expect(await screen.findByText('done:ok-2')).toBeTruthy();
+  });
+
+  it('stays silent when the Kernel itself aborts an evaluateSelection call mid-flight (key change)', async () => {
+    const f = fixture();
+    let calls = 0;
+    // Like fetch against a server: the adapter hangs until aborted, then rejects with an AbortError.
+    // new Promise form: @ap/tsconfig base lib is ES2022, so Promise.withResolvers is unavailable.
+    f.adapter.evaluateSelection = (_input, signal) => {
+      calls++;
+      if (calls > 1) return Promise.resolve({ inCondition: [], outOfCondition: [] });
+      return new Promise<SelectionEvaluation>((_resolve, reject) => {
+        signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+      });
+    };
+    let setKey: (k: string) => void = () => {};
+    function Req() {
+      const [key, set] = useState('a');
+      setKey = set;
+      const r = useAdapterRequest(async signal => { await f.adapter.evaluateSelection({ scopeId: null, roomNames: null, condition: null, selection: null }, signal); return `ok-${key}`; }, key);
+      return <p data-testid="req">{r.status}:{r.data ?? '-'}</p>;
+    }
+    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><Req /></PlatformProvider></I18nProvider>);
+    await act(async () => {}); // the first call hangs until the Kernel aborts it
+    act(() => setKey('b'));
+    expect(screen.getByTestId('req').textContent).toBe('loading:-');
+    expect(await screen.findByText('done:ok-b')).toBeTruthy();
+    expect(screen.getByTestId('req').textContent).not.toContain('error');
+  });
+
+  it('stays silent when the Kernel aborts an in-flight call because enabled went false (identity unchanged)', async () => {
+    const f = fixture();
+    let calls = 0;
+    // Like fetch against a server: the call hangs until the Kernel aborts it, then rejects with an AbortError.
+    // Unlike the key change above, no replacement request follows — the hook is disabled, so the identity of
+    // 'k' never changes and a recorded result would stay visible.
+    const run = (signal: AbortSignal): Promise<string> => {
+      calls++;
+      // new Promise form: @ap/tsconfig base lib is ES2022, so Promise.withResolvers is unavailable.
+      return new Promise<string>((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+      });
+    };
+    function Req() {
+      const [enabled, setEnabled] = useState(true);
+      const r = useAdapterRequest(run, 'k', enabled);
+      return (
+        <>
+          <p data-testid="req">{r.status}:{r.data ?? '-'}</p>
+          <button type="button" data-testid="off" onClick={() => setEnabled(false)}>off</button>
+        </>
+      );
+    }
+    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><Req /></PlatformProvider></I18nProvider>);
+    await act(async () => {}); // the call hangs until the Kernel aborts it
+    expect(calls).toBe(1);
+    act(() => screen.getByTestId('off').click());
+    // A disabled hook shows no result at all (the fallback `loading:-`); recording the rejection as
+    // `error:-` on the unchanged identity is the regression this pins.
+    await act(async () => {});
+    expect(screen.getByTestId('req').textContent).toBe('loading:-');
   });
 });

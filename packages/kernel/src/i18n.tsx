@@ -26,6 +26,7 @@ const dict = {
   scopeForbidden: { ko: '접근 불가', en: 'No access' },
   scopeUnknown: { ko: '알 수 없는 Scope', en: 'Unknown scope' },
   scopeCheckFailed: { ko: '확인 실패', en: 'Check failed' },
+  scopeRetryCheck: { ko: 'Scope 다시 확인', en: 'Re-check scope' },
   scopeErrorTitle: { ko: 'Scope를 확인하지 못했습니다', en: "Couldn't verify the scope" },
   scopeErrorBody: { ko: '서버에 닿지 못했습니다. 잠시 뒤 다시 시도하세요.', en: 'The server could not be reached. Try again in a moment.' },
   scopeUnknownTitle: { ko: '등록되지 않은 Scope입니다', en: 'This scope is not registered' },
