@@ -1,7 +1,7 @@
 import { ChevronRight, Loader2, MapPinOff, RotateCw, ServerCrash, Star } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
-import { Button, cn } from '@ap/ui';
+import { Button, cn, useProtoVariant } from '@ap/ui';
 import { StateMessage } from './StateView';
 
 export type PlatformPageProps = {
@@ -27,6 +27,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const favoriteTarget = menu.navHidden ? null : menu;
   const isFavorite = favoriteTarget ? favorites.includes(favoriteTarget.id) : false;
   const parent: MenuEntry | null = menu.parent ? registry.menuById(menu.parent) : null;
+  const variant = useProtoVariant(); // PROTOTYPE (#52)
 
   let gate: ReactNode = null;
   if (menu.requiresScope && scope.status !== 'valid') {
@@ -45,6 +46,30 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
           : <StateMessage tone="warning" icon={<MapPinOff className="size-4" aria-hidden />} title={t('stateForbidden')}
             body={<>{t('stateForbiddenBody')} <span className="t-mono">scopeId={scope.scopeId}</span></>} />;
   }
+
+  // PROTOTYPE (#52): C안 — FeedbackOps ShellHeader(50px, 제목·부제·동작 한 줄) + PageShell 여백.
+  if (variant === 'C') return <div className="flex min-h-full flex-col">
+    <header className="sticky top-0 z-20 flex h-[50px] shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-surface-canvas px-4">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        {parent && <><PlatformLink className="shrink-0 text-xs text-text-muted hover:text-accent-primary" href={linkTo(parent.id)}>{tx(parent.label)}</PlatformLink><ChevronRight className="size-3 shrink-0 text-text-disabled" aria-hidden /></>}
+        <h1 className="max-w-full shrink-0 truncate text-sm font-semibold text-text-primary">{title ?? tx(menu.label)}</h1>
+        {favoriteTarget && <button type="button" onClick={() => toggleFavorite(favoriteTarget.id)} aria-pressed={isFavorite}
+          aria-label={isFavorite ? t('removeFavorite') : t('addFavorite')} title={isFavorite ? t('removeFavorite') : t('addFavorite')}
+          className="grid size-6 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover hover:text-accent-warn">
+          <Star className={cn('size-3.5', isFavorite && 'fill-accent-warn text-accent-warn')} aria-hidden />
+        </button>}
+        <div className="min-w-0 flex-1 truncate text-xs text-text-muted" title={typeof (description ?? tx(menu.description)) === 'string' ? String(description ?? tx(menu.description)) : undefined}>{description ?? tx(menu.description)}</div>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        {!gate && dataTrustSummary}
+        {!gate && secondaryActions}
+        {!gate && primaryAction}
+      </div>
+    </header>
+    {slots.contextBar}
+    {contextExtension && !gate && <div className="px-6 pt-3">{contextExtension}</div>}
+    <div className="flex-1 px-6 pb-9 pt-4">{gate ?? children}</div>
+  </div>;
 
   return <div className="flex min-h-full flex-col">
     <header className="flex flex-wrap items-end justify-between gap-3 px-5 pb-3 pt-4">

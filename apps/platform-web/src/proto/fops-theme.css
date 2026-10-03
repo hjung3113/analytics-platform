@@ -1,0 +1,138 @@
+/*
+ * PROTOTYPE (#52) — 버리는 코드, main 병합 금지.
+ * B·C안 스타일시트: FeedbackOps ADR-0058 소비 계약(순서 그대로) + 플랫폼 확장 층.
+ * A안은 ../style.css를 그대로 쓴다. main.tsx가 안에 따라 둘 중 하나만 <style>로 넣는다.
+ */
+@import "tailwindcss";
+@import "@fops/ui/styles/tokens.css" layer(base);
+@import "@fops/ui/styles/semantic.css" layer(base);
+@import "@fops/ui/styles/theme.css";
+@import "@fops/ui/styles/compat.css";
+
+/* @ap/ui/styles.css는 플랫폼 토큰·테마를 싣고 있어 넣지 않는다 — 소스 스캔만 같게 맞춘다. */
+@source "../";
+@source "../../../../packages/ui/src";
+@import "@ap/components/styles.css";
+@import "@ap/shell/styles.css";
+@import "@ap/menu-home/styles.css";
+@import "@ap/menu-equipment/styles.css";
+@import "@ap/menu-analytics/styles.css";
+@import "@ap/menu-metrics/styles.css";
+@import "@ap/menu-admin/styles.css";
+@import "@ap/menu-notice-voc/styles.css";
+
+/*
+ * 플랫폼 확장 층 — FeedbackOps에 없는 플랫폼 전용 키(소비 검증에서 31개)를 FeedbackOps 값으로 표현한다.
+ * 차트·카테고리 색은 ADR-0010대로 플랫폼 소유라 현재 값을 유지한다.
+ * nav-*는 B안(플랫폼 셸 유지)에서 어두운 사이드바를 그대로 쓰기 위해 현재 값을 유지한다. C안 셸은 nav-*를 쓰지 않는다.
+ */
+@layer base {
+  :root {
+    --accent-primary: var(--color-neon-lime);          /* #1428a0 */
+    --accent-primary-hover: 16 32 128;                 /* #102080 */
+    --accent-primary-soft: 228 232 246;                /* #1428a0 ≈12% on white */
+    --accent-info: var(--color-cyan-spark);
+    --accent-success: var(--color-emerald);
+    --accent-success-soft: 227 245 237;
+    --accent-warn: var(--color-amber);
+    --accent-warn-soft: 244 236 224;
+    --accent-danger: var(--color-warning-red);
+    --accent-danger-soft: 250 229 231;
+    --accent-neutral: var(--color-storm-cloud);
+    --accent-neutral-soft: var(--color-deep-slate);
+    --border-control: var(--color-gunmetal);
+    --surface-sunken: var(--color-deep-slate);          /* #edf3fb */
+
+    --nav-surface: 15 21 38;
+    --nav-surface-hover: 26 34 54;
+    --nav-surface-subtle: 19 29 47;
+    --nav-surface-raised: 36 49 73;
+    --nav-divider: 41 53 74;
+    --nav-text: 195 209 228;
+    --nav-text-faint: 156 163 175;
+    --nav-focus: 147 197 253;
+
+    --cat-purple: 124 58 237;
+    --cat-teal: 13 148 136;
+    --cat-amber: 217 119 6;
+    --chart-blue: 59 156 255;
+    --chart-teal: 0 163 181;
+    --chart-green: 0 188 139;
+    --chart-purple: 161 116 245;
+    --chart-remainder: 203 210 227;
+    --chart-grid: 237 241 247;
+    --icon-blue-soft: 227 239 255;
+    --icon-teal-soft: 220 248 239;
+  }
+
+  html, body, #root { height: 100%; }
+  /* FeedbackOps 앱 본문 규칙(Pack 17): 14px / 1.4 */
+  body {
+    background-color: rgb(var(--surface-canvas));
+    color: rgb(var(--text-primary));
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--leading-normal);
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 2px solid rgb(var(--focus-ring)); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-duration: 0ms !important; animation-duration: 0ms !important; }
+  }
+}
+
+@theme inline {
+  --color-surface-sunken: rgb(var(--surface-sunken));
+  --color-nav: rgb(var(--nav-surface));
+  --color-nav-hover: rgb(var(--nav-surface-hover));
+  --color-nav-subtle: rgb(var(--nav-surface-subtle));
+  --color-nav-raised: rgb(var(--nav-surface-raised));
+  --color-nav-divider: rgb(var(--nav-divider));
+  --color-nav-text: rgb(var(--nav-text));
+  --color-nav-text-faint: rgb(var(--nav-text-faint));
+  --color-nav-focus: rgb(var(--nav-focus));
+  --color-accent-primary-hover: rgb(var(--accent-primary-hover));
+  --color-accent-primary-soft: rgb(var(--accent-primary-soft));
+  --color-accent-success-soft: rgb(var(--accent-success-soft));
+  --color-accent-warn-soft: rgb(var(--accent-warn-soft));
+  --color-accent-danger-soft: rgb(var(--accent-danger-soft));
+  --color-accent-neutral: rgb(var(--accent-neutral));
+  --color-accent-neutral-soft: rgb(var(--accent-neutral-soft));
+  --color-border-control: rgb(var(--border-control));
+  --color-cat-purple: rgb(var(--cat-purple));
+  --color-cat-teal: rgb(var(--cat-teal));
+  --color-cat-amber: rgb(var(--cat-amber));
+  --color-chart-blue: rgb(var(--chart-blue));
+  --color-chart-teal: rgb(var(--chart-teal));
+  --color-chart-green: rgb(var(--chart-green));
+  --color-chart-purple: rgb(var(--chart-purple));
+  --color-chart-remainder: rgb(var(--chart-remainder));
+  --color-chart-grid: rgb(var(--chart-grid));
+  --color-icon-blue-soft: rgb(var(--icon-blue-soft));
+  --color-icon-teal-soft: rgb(var(--icon-teal-soft));
+  --radius-xs: var(--radius-sm);
+  /* C안 셸이 쓰는 FeedbackOps 레이아웃 토큰 */
+  --color-surface-sidebar: rgb(var(--surface-sidebar));
+}
+
+@theme {
+  --breakpoint-wide: 90rem;
+  --width-detail-panel: 32rem;
+}
+
+/* 플랫폼 타이포 역할 클래스(@ap/ui) — 플랫폼 확장으로 유지 */
+@layer utilities {
+  .tabular { font-variant-numeric: tabular-nums lining-nums; }
+  .nav-scroll { scrollbar-width: thin; scrollbar-color: rgb(var(--nav-surface-raised)) transparent; }
+  .t-page-title { font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -0.3px; }
+  .t-section-title { font-size: 18px; line-height: 28px; font-weight: 600; }
+  .t-card-title { font-size: 14px; line-height: 20px; font-weight: 600; }
+  .t-stat { font-size: 32px; line-height: 1.1; font-weight: 600; letter-spacing: -0.5px; font-variant-numeric: tabular-nums lining-nums; }
+  .t-stat-2 { font-size: 22px; line-height: 1.2; font-weight: 600; letter-spacing: -0.3px; font-variant-numeric: tabular-nums lining-nums; }
+  .t-delta { font-size: 12px; line-height: 1.4; font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
+  .t-caption { font-size: 12px; line-height: 16px; }
+  .t-table-header { font-size: 12px; line-height: 1.3; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; }
+  .t-badge { font-size: 11px; line-height: 1.3; font-weight: 600; letter-spacing: 0.2px; }
+  .t-nav-group { font-size: 11px; line-height: 1.3; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+  .t-mono { font-family: var(--font-mono); font-size: 12px; line-height: 1.4; }
+}

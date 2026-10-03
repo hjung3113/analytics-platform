@@ -13,3 +13,5 @@ export * from './components/shadcn/skeleton';
 export * from './components/shadcn/tabs';
 export * from './components/shadcn/tooltip';
 export { cn } from './utils/cn';
+// PROTOTYPE (#52): design-direction variant store — main 병합 금지.
+export { PROTO_VARIANTS, getProtoVariant, setProtoVariant, subscribeProtoVariant, useProtoVariant, type ProtoVariant } from './proto/variant';

@@ -2,10 +2,11 @@ import { AlertTriangle, Info, X, XCircle } from 'lucide-react';
 import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { LoadingBlock } from '@ap/components';
-import { cn } from '@ap/ui';
+import { cn, useProtoVariant } from '@ap/ui';
 import { CommandPalette } from './CommandPalette';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
+import { FopsShell } from './proto/FopsShell';
 
 const COLLAPSE_KEY = 'platform:sidebar-collapsed';
 
@@ -23,6 +24,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  // PROTOTYPE (#52): C안은 FeedbackOps 셸 구조로 그린다.
+  const variant = useProtoVariant();
+  if (variant === 'C') return <FopsShell overlays={<><CommandPalette /><Toasts /></>}>{children}</FopsShell>;
 
   return <div className="flex h-full overflow-hidden">
     <a href="#platform-main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">Skip to content</a>
