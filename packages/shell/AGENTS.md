@@ -6,7 +6,7 @@ App Shell(06 §8–9, 화면 설계 [07](../../docs/07_app_shell_wireframe.md)).
 
 - `AppShell.tsx` — 사이드바(270px)/아이콘 레일(64px)/탑바(54px) 배치, `[` 단축키.
 - `Sidebar.tsx` — 그룹 아코디언, 권한 기반 노출, 즐겨찾기·최근, 메뉴 필터.
-- `TopBar.tsx` — Scope 선택(`session.scopes`)과 검증 상태, `error`에서 현재 Scope를 다시 고르면 `retryScope()`(다른 상태에서는 동작 없음, #183), ⌘K, 한/EN, `slots.topBarTools`.
+- `TopBar.tsx` — Scope 선택(`session.scopes`)과 검증 상태, `error`에서 현재 Scope를 다시 고르면 `retryScope()`(다른 상태에서는 동작 없음, #183), `error`일 때 드롭다운에 'Scope 다시 확인'(목록에 없는 Scope도), ⌘K, 한/EN, `slots.topBarTools`.
 - `CommandPalette.tsx` — 메뉴 검색 이동.
 - `GlobalContextBar.tsx` — 기간·room_name·Condition·Selection·전달 Context 표시/편집. 선택지는 `useAdapterRequest`로 `contextOptions`·`evaluateSelection` 조회, 실패 시 오류와 재시도.
 - `RouteOutlet.tsx` — 현재 경로의 메뉴 화면 또는 미등록·계약 오류·권한 없음·미구현 상태.

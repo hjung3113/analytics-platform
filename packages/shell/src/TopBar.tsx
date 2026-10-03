@@ -1,4 +1,4 @@
-import { ChevronDown, CircleHelp, Loader2, LogOut, MapPin, Search, ShieldAlert } from 'lucide-react';
+import { ChevronDown, CircleHelp, Loader2, LogOut, MapPin, RotateCw, Search, ShieldAlert } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 
@@ -46,6 +46,9 @@ export function TopBar() {
               <span className="text-[11px] text-text-muted">room {s.grantedRooms}/{s.totalRooms}</span>
             </DropdownMenuRadioItem>)}
           </DropdownMenuRadioGroup>
+          {scope.status === 'error' && <DropdownMenuItem className="text-[13px]" onSelect={() => retryScope()}>
+            <RotateCw className="size-3.5" aria-hidden />{t('scopeRetryCheck')}
+          </DropdownMenuItem>}
           <DropdownMenuSeparator />
           <p className="px-2 py-1.5 text-[11px] leading-4 text-text-muted">{lang === 'ko' ? '권한 축은 Site 안의 room_name입니다. Scope를 바꾸면 Site 경계를 넘는 room·설비 조건/선택은 초기화됩니다.' : 'Grants are room_name within a Site. Changing scope clears site-bound room/equipment context.'}</p>
         </DropdownMenuContent>

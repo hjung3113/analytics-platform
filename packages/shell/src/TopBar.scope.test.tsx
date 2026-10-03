@@ -116,3 +116,47 @@ describe('TopBar Scope pill follow-ups (#183)', () => {
     }
   });
 });
+
+describe('TopBar Scope retry menu item (#183)', () => {
+  const scopes = [
+    { id: 'ICH', label: 'ICH · 청주', grantedRooms: 3, totalRooms: 5 },
+    { id: 'XIA', label: 'XIA · 안양', grantedRooms: 1, totalRooms: 4 },
+  ];
+
+  function openScopeMenu(id: string) {
+    const trigger = screen.getByRole('button', { name: new RegExp(`^Scope: ${id}`) });
+    act(() => { trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })); });
+  }
+
+  it('offers a re-check item for a requested Scope absent from the list whose check failed, and retrying validates it', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=GHOST');
+    let fail = true;
+    let calls = 0;
+    const adapter = adapterWith(async (): Promise<ScopeCheck> => { calls++; if (fail) throw new Error('down'); return { status: 'valid', grantedRooms: [] }; }, scopes);
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><TopBar /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('· 확인 실패')).toBeTruthy();
+    expect(calls).toBe(1);
+
+    openScopeMenu('GHOST');
+    fail = false;
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Scope 다시 확인' }));
+    expect(await screen.findByText('· 서버 검증됨')).toBeTruthy();
+    expect(calls).toBe(2);
+  });
+
+  it('shows the re-check item only while the check failed', async () => {
+    const scenarios: Array<[string, PlatformAdapter['validateScope'], string]> = [
+      ['valid', async () => ({ status: 'valid', grantedRooms: [] }), '· 서버 검증됨'],
+      ['validating', () => new Promise<ScopeCheck>(() => { /* never settles */ }), '· 검증 중…'],
+      ['forbidden', async () => ({ status: 'forbidden', grantedRooms: [] }), '· 접근 불가'],
+    ];
+    for (const [name, validateScope, pillText] of scenarios) {
+      window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+      render(<I18nProvider><PlatformProvider adapter={adapterWith(validateScope, scopes)} registry={registry}><TopBar /></PlatformProvider></I18nProvider>);
+      expect(await screen.findByText(pillText)).toBeTruthy();
+      openScopeMenu('ICH');
+      expect(screen.queryByRole('menuitem', { name: 'Scope 다시 확인' })).toBeNull();
+      cleanup();
+    }
+  });
+});
