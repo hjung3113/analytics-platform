@@ -36,7 +36,9 @@ export function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<ApiRes
       setResult({ identity: key, response });
       setInFlight(null);
     }).catch(error => {
-      if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
+      // Only the Kernel's own abort means superseded (#183); any other rejection — even an adapter-internal
+      // AbortError timeout — is the normal error path (error outcome + retry), like validateScope since #167.
+      if (controller.signal.aborted) return;
       setResult({ identity: key, response: { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'client-' + Date.now().toString(16), message: String(error) } });
       setInFlight(null);
     });
@@ -170,8 +172,9 @@ export function useAdapterRequest<T>(run: (signal: AbortSignal) => Promise<T>, k
     const controller = new AbortController();
     runRef.current(controller.signal).then(data => {
       if (!controller.signal.aborted) setResult({ identity, state: { status: 'done', data } });
-    }).catch(error => {
-      if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
+    }).catch(() => {
+      // Only the Kernel's own abort means superseded (#183); an adapter-internal AbortError is the error path.
+      if (controller.signal.aborted) return;
       setResult({ identity, state: { status: 'error', data: null } });
     });
     return () => controller.abort();

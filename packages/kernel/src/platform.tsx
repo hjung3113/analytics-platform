@@ -312,6 +312,11 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     return () => controller.abort();
   }, [global.scopeId, session, userId, adapter, scopeRetry]);
 
+  // A Scope switch renders once before the validation effect runs, and in that frame `scope` still describes
+  // the previous Scope. Until the two agree, consumers (gate, pill) must read `validating` — never the
+  // previous Scope's error/forbidden/unknown_scope/valid (#183).
+  const scopeView: ScopeState = scope.scopeId !== global.scopeId ? { ...scope, status: 'validating' } : scope;
+
   // Materialize the default period once for time-applying menus (§6.3/§6.4): absolute from/to written into the URL.
   // The initial Δ (24h here) is an Open decision; this prototype uses the 1-day preset as a Candidate.
   const defaultRangeTo = adapter.defaultRangeTo();
@@ -410,7 +415,7 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
 
   const value: Platform = {
     registry, adapter, url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget,
-    session, user, revision, can, visibleMenus, menusInSpace, accessibleSpaces, currentSpace, sidebarSpace, switchSpace, scope, retryScope, lastScope, favorites, toggleFavorite, recent,
+    session, user, revision, can, visibleMenus, menusInSpace, accessibleSpaces, currentSpace, sidebarSpace, switchSpace, scope: scopeView, retryScope, lastScope, favorites, toggleFavorite, recent,
     toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen,
   };
   return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>;

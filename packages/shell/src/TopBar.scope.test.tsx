@@ -1,8 +1,9 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { useLayoutEffect, useRef } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { PlatformAdapter, ScopeCheck, Session } from '@ap/contracts';
-import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { TopBar } from './TopBar';
 
 const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
@@ -13,8 +14,8 @@ const registry = createRegistry({
 });
 
 const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
-function adapterWith(validateScope: PlatformAdapter['validateScope']): PlatformAdapter {
-  const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view'] }, scopes: [] };
+function adapterWith(validateScope: PlatformAdapter['validateScope'], scopes: Session['scopes'] = []): PlatformAdapter {
+  const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view'] }, scopes };
   return {
     menuQuery: async () => forbidden, session: () => session, validateScope,
     publishedMetrics: () => [], defaultRangeTo: () => '2026-09-26T09:00:00',
@@ -39,5 +40,79 @@ describe('TopBar Scope pill: validation failure (#167)', () => {
     expect(pill.textContent).not.toContain('검증 중');
     expect(pill.className).toContain('bg-accent-warn-soft');
     expect(pill.querySelector('.animate-spin')).toBeNull();
+  });
+});
+
+describe('TopBar Scope pill follow-ups (#183)', () => {
+  const scopes = [
+    { id: 'ICH', label: 'ICH · 청주', grantedRooms: 3, totalRooms: 5 },
+    { id: 'XIA', label: 'XIA · 안양', grantedRooms: 1, totalRooms: 4 },
+  ];
+
+  /** Records the header text of every commit, so the one-frame state between a switch and its effect is visible. */
+  function PillRecorder({ frames }: { frames: string[] }) {
+    usePlatform(); // consume the context: Provider's stable `children` prop alone would bail this subtree out
+    const ref = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => { frames.push(ref.current?.textContent ?? ''); });
+    return <div ref={ref}><TopBar /></div>;
+  }
+
+  function openScopeMenu(id: string) {
+    // The pill names itself after the ScopeOption label (`Scope: <label>`); match by the id prefix.
+    // Radix opens the menu on the trigger's pointerdown and checks button === 0, which RTL's generic
+    // pointer event lacks — dispatch a MouseEvent typed `pointerdown` instead.
+    const trigger = screen.getByRole('button', { name: new RegExp(`^Scope: ${id}`) });
+    act(() => { trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })); });
+  }
+
+  it('retries the validation when the current Scope is re-picked from a failed check', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    let fail = true;
+    let calls = 0;
+    const adapter = adapterWith(async (): Promise<ScopeCheck> => { calls++; if (fail) throw new Error('down'); return { status: 'valid', grantedRooms: [] }; }, scopes);
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><TopBar /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('· 확인 실패')).toBeTruthy();
+    expect(calls).toBe(1);
+
+    openScopeMenu('ICH');
+    fail = false;
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: /ICH/ }));
+    expect(await screen.findByText('· 서버 검증됨')).toBeTruthy();
+    expect(calls).toBe(2);
+  });
+
+  it('does not re-validate when the current Scope is re-picked from a valid pill', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    let calls = 0;
+    const adapter = adapterWith(async (): Promise<ScopeCheck> => { calls++; return { status: 'valid', grantedRooms: [] }; }, scopes);
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><TopBar /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('· 서버 검증됨')).toBeTruthy();
+    expect(calls).toBe(1);
+
+    openScopeMenu('ICH');
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: /ICH/ }));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(calls).toBe(1);
+  });
+
+  it('shows validating — never the previous Scope status — in the frame right after a switch', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    const adapter = adapterWith(scopeId => scopeId === 'ICH'
+      ? Promise.reject(new Error('down'))
+      : new Promise<ScopeCheck>(() => { /* the new Scope never settles */ }), scopes);
+    const frames: string[] = [];
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><PillRecorder frames={frames} /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('· 확인 실패')).toBeTruthy();
+    const before = frames.length;
+
+    openScopeMenu('ICH');
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: /XIA/ }));
+
+    const after = frames.slice(before);
+    expect(after.length).toBeGreaterThan(0);
+    for (const frame of after) {
+      expect(frame).not.toContain('확인 실패');
+      expect(frame).toContain('검증 중');
+    }
   });
 });

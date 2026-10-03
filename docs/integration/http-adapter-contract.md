@@ -7,7 +7,6 @@
 - 메서드의 **의미**(무엇을 지키는가)의 원본은 [실서버 연결 체크리스트](real-server-checklist.md) §2(메서드 표·네 묶음), §3(`menuQuery` 판정 순서), §5(세션·사용자·시각), §6(시간). 이 문서는 그것을 **HTTP로 어떻게 나르는가**만 정한다. 충돌하면 체크리스트와 [06](../06_platform_ui_contract.md)(§4 Correlation ID·Error Boundary, §6.3 wall-clock/instant, §19 envelope)을 따른다.
 - 남은 사람 결정 목록은 체크리스트 §7과 [사내 적용 가이드](in-house-rollout.md) §2–§3. 이 문서의 질문 목록(§10)은 가이드 §3.3의 #149 항목을 펼친 것이다.
 - 실어댑터는 `#platform-assembly`의 `createAssembly` 모듈로 꽂는다([ADR-0009](../adr/0009-production-assembly-injection.md), 구현 [#154](https://github.com/hjung3113/analytics-platform/issues/154)). 서버 구현은 [#155](https://github.com/hjung3113/analytics-platform/issues/155), 폴링·세대 재검증은 [#165](https://github.com/hjung3113/analytics-platform/issues/165).
-- **#154 → #183 의존**: 실어댑터(#154)는 Kernel 조회 훅이 취소를 오류 이름이 아니라 자기 신호로 판정하게 고치는 #183 뒤에 머지한다(§2.2·§5).
 - 타입 원본: `packages/contracts/src/adapter.ts`(`PlatformAdapter`), `response.ts`(`ApiResponse`), `menu-query.ts`(`MenuQuery`).
 
 ## 1. 메서드 → HTTP 매핑
@@ -93,7 +92,7 @@ envelope 메서드는 **reject하지 않는다**(체크리스트 §2). 실패는
 
 ### 2.2 그 밖의 묶음
 
-- **비 envelope 비동기**(`validateScope`·`contextOptions`·`evaluateSelection`): 위 실패 상황에서 **reject**한다. 응답 모양 검사는 위 표의 실패 상황(JSON 아님·필수 필드 없음)만 보고, 모르는 키는 무시한다. **어댑터 내부 타임아웃은 `AbortError`로 reject하지 않는다** — `AbortSignal.timeout`(`TimeoutError`)을 쓰거나 `AbortError`가 아닌 오류로 감싼다. 이유: #167이 `validateScope` 경로만 고쳤고, `contextOptions`·`evaluateSelection`이 쓰는 Kernel 조회 훅(`useAdapterRequest`·`usePlatformQuery`)은 아직 `error.name === 'AbortError'`면 결과를 버린다(#183). 그 상태에서 내부 타임아웃이 `AbortError`면 조건·Selection 편집기가 "불러오는 중"에 멈춘다. 취소 판정은 오류 이름이 아니라 `kernelSignal.aborted`로 한다 — #183이 머지될 때까지 이 조건은 필수다. `validateScope`는 어댑터가 내부에서 짧게 재시도해도 된다(체크리스트 §2) [제안: 네트워크 실패·502/503에 한해 1회].
+- **비 envelope 비동기**(`validateScope`·`contextOptions`·`evaluateSelection`): 위 실패 상황에서 **reject**한다. 응답 모양 검사는 위 표의 실패 상황(JSON 아님·필수 필드 없음)만 보고, 모르는 키는 무시한다. **어댑터 내부 타임아웃은 `AbortError`로 reject하지 않는 것을 권한다** — `AbortSignal.timeout`(`TimeoutError`)을 쓰거나 `AbortError`가 아닌 오류로 감싼다. Kernel은 `AbortError`라는 이름으로 취소를 판정하지 않는다(#183 — 취소 판정은 `kernelSignal.aborted`뿐이다), 그래서 이 표기는 이제 로그·디버깅 가독성을 위한 취향일 뿐 필수가 아니다. `validateScope`는 어댑터가 내부에서 짧게 재시도해도 된다(체크리스트 §2) [제안: 네트워크 실패·502/503에 한해 1회].
 - **fire-and-forget**(`recordUsage`·`reportClientError`): 200이면 본문(`{ accepted }`), 422면 `{ accepted: 0 }`/`{ accepted: false }`로 **푼다**(필수 — §2, 적합성 묶음이 거부 호출의 resolve를 기대한다). 그 밖의 전송 실패(네트워크·5xx 등)는 reject해도 된다(Kernel이 무시). 재시도하지 않는다.
 - **동기 스냅샷**은 네트워크를 타지 않는다(§3).
 
@@ -139,7 +138,7 @@ GET /api/v1/platform/bootstrap
 
 ## 5. 취소·타임아웃
 
-- Kernel이 넘긴 `AbortSignal`을 `fetch`에 넘긴다 — `AbortSignal.any([kernelSignal, AbortSignal.timeout(30_000)])` 또는 같은 동작의 수동 연결(Kernel 신호 리스너 + 타이머). `AbortSignal.any`는 Chrome·Edge 116+, Firefox 124+, Safari 17.4+에서만 되고 사내 표준 브라우저는 [#151] Open이다(이 절은 Chromium 116+를 가정). 수동 연결이면 내부 타임아웃을 `AbortError`로 만들지 않는다(§2.2 — #183 전 필수). 취소 판정은 `kernelSignal.aborted`로 한다. Kernel 신호로 인한 중단은 outcome이 아니다(superseded — §2.1).
+- Kernel이 넘긴 `AbortSignal`을 `fetch`에 넘긴다 — `AbortSignal.any([kernelSignal, AbortSignal.timeout(30_000)])` 또는 같은 동작의 수동 연결(Kernel 신호 리스너 + 타이머). `AbortSignal.any`는 Chrome·Edge 116+, Firefox 124+, Safari 17.4+에서만 되고 사내 표준 브라우저는 [#151] Open이다(이 절은 Chromium 116+를 가정). 수동 연결이면 내부 타임아웃을 `AbortError`로 만들지 않는 것을 권한다(§2.2 — 취향일 뿐 필수는 아니다). 취소 판정은 `kernelSignal.aborted`로 한다(#183 — 오류 이름으로 판정하지 않는다). Kernel 신호로 인한 중단은 outcome이 아니다(superseded — §2.1).
 - **클라이언트 타임아웃 30초** [제안] — mock의 30초 예산과 같은 값. 어댑터 타임아웃은 envelope 메서드에서 `timeout` + `message: 'client_timeout'`(§2.1 — 짧은 코드), 비 envelope 메서드에서는 reject. 이 30초에는 브라우저 연결 큐 대기도 들어간다 — HTTP/1.1이면 출처당 6연결 제한이라 위젯이 많은 화면은 큐에서 기다리는 시간도 예산을 쓴다. 타이머를 큐 대기와 떼어 둘 수 없으므로 프록시 HTTP/2 여부를 [#151]에 묻는다.
 - **서버 쿼리 타임아웃**: 서버는 자기 예산(예: 25초 — 클라이언트 30초보다 짧게 해서 서버 판정이 먼저 오게)을 넘기면 200 + `timeout` envelope로 답하고 DB 쿼리를 취소한다 [백엔드]. 프록시 read timeout은 둘보다 길게(예: 60초) [#151].
 - 클라이언트 중단 시 서버는 연결 끊김을 감지하면 쿼리를 취소해도 된다(선택) [백엔드].

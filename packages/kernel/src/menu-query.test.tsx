@@ -571,3 +571,62 @@ describe('Scope validation failure (#167)', () => {
     expect(await screen.findByText('valid')).toBeTruthy();
   });
 });
+
+describe('Adapter-internal AbortError in queries (#183: only the Kernel signal cancels)', () => {
+  function AbortProbe() {
+    const { setGlobal } = usePlatform();
+    const query = useMenuQuery(endpoint, params);
+    return (
+      <>
+        <p data-testid="query">{query.status}:{query.response?.data?.call ?? '-'}</p>
+        <p data-testid="outcome">{query.response?.outcome ?? '-'}</p>
+        <button type="button" data-testid="retry" onClick={query.refetch}>retry</button>
+        <button type="button" data-testid="period" onClick={() => setGlobal({ from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' })}>period</button>
+      </>
+    );
+  }
+  const mountAbort = (f: { adapter: PlatformAdapter }) =>
+    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><AbortProbe /></PlatformProvider></I18nProvider>);
+
+  // jsdom's DOMException is not `instanceof Error`, so both shapes are covered; the DOMException variant is
+  // the one the pre-#183 check (`error instanceof DOMException && error.name === 'AbortError'`) discarded.
+  it.each([
+    ['a DOMException AbortError', () => new DOMException('timeout', 'AbortError')],
+    ['an Error named AbortError', () => Object.assign(new Error('timeout'), { name: 'AbortError' })],
+  ])('turns %s from the adapter into the error outcome with retry', async (_label, make) => {
+    let calls = 0;
+    const f = fixture({ answer: () => {
+      calls++;
+      if (calls === 1) throw make();
+      return response('ok', [...endpoint.kinds]);
+    } });
+    mountAbort(f);
+    // The query resolves with the error envelope (status `done`, `outcome: 'error'`) instead of hanging in loading.
+    expect(await screen.findByText('done:-')).toBeTruthy();
+    expect(screen.getByTestId('outcome').textContent).toBe('error');
+    act(() => screen.getByTestId('retry').click());
+    expect(await screen.findByText('done:1')).toBeTruthy();
+  });
+
+  it('keeps a Kernel-caused abort silent (Context change mid-flight)', async () => {
+    const f = fixture();
+    let calls = 0;
+    // Like fetch against a server: the first request hangs until the Kernel aborts it, then rejects with an
+    // AbortError; the replacement request resolves normally.
+    f.adapter.menuQuery = (request, signal) => {
+      calls++;
+      if (calls > 1) {
+        return Promise.resolve({ outcome: 'ok' as const, data: { call: calls, context: request.context, params: request.params as Params }, assessments: endpoint.kinds.map(kind => ({ kind, state: 'clear' as const })), trust: null, correlationId: `fixture-${calls}` });
+      }
+      // new Promise form: @ap/tsconfig base lib is ES2022, so Promise.withResolvers is unavailable.
+      return new Promise<ApiResponse<QueryData>>((_resolve, reject) => {
+        signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+      });
+    };
+    mountAbort(f);
+    await act(async () => {}); // the first request hangs until the Kernel aborts it
+    act(() => screen.getByTestId('period').click());
+    expect(await screen.findByText('done:2')).toBeTruthy();
+    expect(screen.getByTestId('outcome').textContent).toBe('ok');
+  });
+});
