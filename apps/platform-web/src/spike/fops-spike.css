@@ -1,0 +1,13 @@
+/* SPIKE (#52, throwaway): FeedbackOps ADR-0058 consumer contract, verbatim order. */
+@import "tailwindcss";
+@import "@fops/ui/styles/tokens.css" layer(base);
+@import "@fops/ui/styles/semantic.css" layer(base);
+@import "@fops/ui/styles/theme.css";
+@import "@fops/ui/styles/compat.css";
+@source "./";
+@source "../../../../products/feedbackops/packages/ui/src";
+
+@layer base {
+  html, body, #root { height: 100%; }
+  body { font-family: var(--font-sans); font-size: var(--text-body); line-height: var(--leading-normal); }
+}

@@ -5,5 +5,10 @@ packages:
   - packages/*
   - menus/*
   - tooling/*
+  - products/feedbackops/packages/ui
+  - products/feedbackops/packages/shared
 allowBuilds:
   esbuild: true
+overrides:
+  '@types/react': ^19.3.0
+  '@types/react-dom': ^19.3.0

@@ -32,5 +32,6 @@ const guardGraph = (mode: string): boolean => !MOCK_MODES.has(mode);
 export default defineConfig(({ mode, isPreview = false }) => ({
   plugins: [tailwindcss(), ...(guardGraph(mode) ? [prodGraphGuard()] : [])],
   resolve: { alias: assemblyAlias(mode, isPreview) },
+  build: { rollupOptions: { input: { main: 'index.html', fopsSpike: 'fops-spike.html' } } },
   test: { environment: 'jsdom', setupFiles: ['./src/test-setup.ts'] },
 }));
