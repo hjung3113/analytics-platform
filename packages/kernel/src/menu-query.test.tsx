@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { House } from 'lucide-react';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
-import { type MenuFetch, type QueryState, useMenuFetch, useMenuQuery } from './query';
+import { type MenuFetch, type QueryState, useEntityQuery, useMenuFetch, useMenuQuery } from './query';
 import { createRegistry } from './registry';
 
 type Params = { page: number; sort?: string };
@@ -706,6 +706,62 @@ describe('Scope switch mask equals the next effect state (#183)', () => {
     expect(await screen.findByText('error:ICH:')).toBeTruthy();
     frames.length = 0;
     act(() => screen.getByTestId('clear').click());
+    expect(frames).toEqual(['none|null|']);
+    expect(screen.getByTestId('scope').textContent).toBe('none:null:');
+  });
+});
+
+describe('Session-only change mask equals the next effect state (#186)', () => {
+  it('after a session switch with the same scopeId the frame is the validating mask, never the old session valid, and a status-gated consumer fires no request in it', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    const f = fixture();
+    const entities = vi.fn(async (): Promise<ApiResponse<string>> => ({ outcome: 'ok', data: 'd1', assessments: [], trust: null, correlationId: 'fixture' }));
+    f.adapter.getEntity = entities;
+    const frames: string[] = [];
+    function SessionProbe() {
+      const { scope } = usePlatform();
+      // EquipmentDetail's gate (#186): only `scope.status === 'valid'` enables the destination read.
+      useEntityQuery({ type: 'device', id: 'd1', scopeId: null }, 'header', scope.status === 'valid');
+      // Same recorder as the #183 test: useLayoutEffect samples every commit, including the frame right
+      // after the subscribe notification and before the passive validation effect runs.
+      useLayoutEffect(() => {
+        const frame = `${scope.status}|${String(scope.scopeId)}|${scope.grantedRooms.join(',')}`;
+        if (frames[frames.length - 1] !== frame) frames.push(frame);
+      });
+      return <p data-testid="scope">{scope.status}:{scope.scopeId ?? 'null'}:{scope.grantedRooms.join(',')}</p>;
+    }
+    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><SessionProbe /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('valid:ICH:')).toBeTruthy();
+    expect(entities).toHaveBeenCalledTimes(1);
+
+    // Role switch with the same scopeId: the frame before revalidation must not present the previous
+    // session's `valid` (no stale rooms either) and the status-gated request must wait.
+    frames.length = 0;
+    entities.mockClear();
+    act(() => f.switchTo('b'));
+    expect(frames).toEqual(['validating|ICH|']);
+    expect(entities).not.toHaveBeenCalled();
+    expect(await screen.findByText('valid:ICH:')).toBeTruthy(); // revalidated for the new session
+    expect(entities).toHaveBeenCalledTimes(1); // exactly one request, after revalidation
+  });
+
+  it('after a session switch with no Scope the mask stays the select-Scope state', async () => {
+    window.history.replaceState(null, '', '/?v=1&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    const f = fixture();
+    const frames: string[] = [];
+    function NoScopeProbe() {
+      const { scope } = usePlatform();
+      useLayoutEffect(() => {
+        const frame = `${scope.status}|${String(scope.scopeId)}|${scope.grantedRooms.join(',')}`;
+        if (frames[frames.length - 1] !== frame) frames.push(frame);
+      });
+      return <p data-testid="scope">{scope.status}:{scope.scopeId ?? 'null'}:{scope.grantedRooms.join(',')}</p>;
+    }
+    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><NoScopeProbe /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('none:null:')).toBeTruthy();
+    frames.length = 0;
+    act(() => f.switchTo('b'));
+    // The effect sets { scopeId: null, status: 'none', validatedFor: session }; the mask shows exactly that.
     expect(frames).toEqual(['none|null|']);
     expect(screen.getByTestId('scope').textContent).toBe('none:null:');
   });

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useEffect, type ReactNode } from 'react';
 import { House } from 'lucide-react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -858,5 +858,57 @@ describe('PlatformDataTable table-owned export (#173)', () => {
       expect(item.className).toContain('focus-visible:ring-inset');
       expect(item.className).toContain('focus:bg-accent-primary-soft');
     }
+  });
+});
+
+describe('An AbortError the table did not cause is an error, not a cancellation (#186)', () => {
+  // Same scoped jsdom layout stubs as the #160/#173 blocks: without them the virtualizer renders no rows.
+  const blockOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+  const blockOffsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
+  beforeAll(() => {
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return (this as Element).getAttribute('role') === 'row' ? 32 : 420; } });
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return 800; } });
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const height = this.getAttribute('role') === 'row' ? 32 : 420;
+      return { height, width: 800, top: 0, left: 0, right: 800, bottom: height, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+    });
+  });
+  afterAll(() => {
+    vi.restoreAllMocks();
+    if (blockOffsetHeight) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', blockOffsetHeight);
+    if (blockOffsetWidth) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', blockOffsetWidth);
+  });
+
+  it('loadPage rejecting with DOMException AbortError (the table did not abort) shows the error state instead of loading forever', async () => {
+    // A menu loadPage with an internal timeout (#186): rejects with its own AbortError while the table's
+    // controller is still live. Today the name check swallows it and the table stays "불러오는 중" forever.
+    const loadPage = async (): Promise<ApiResponse<PageResult<Row>>> => { throw new DOMException('timeout', 'AbortError'); };
+    render(<UncontrolledHarness loadPage={loadPage} />);
+    expect(await screen.findByText('데이터를 불러오지 못했습니다')).toBeTruthy();
+    expect(screen.queryByRole('table')).toBeNull(); // the error state replaced the viewport, no eternal load
+  });
+
+  it('exportRows rejecting with DOMException AbortError (the table did not abort) toasts the export failure advice', async () => {
+    const exportRows = vi.fn((_request: unknown, _signal: AbortSignal) => Promise.reject<ApiResponse<Row[]>>(new DOMException('timeout', 'AbortError')));
+    render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={exportRows} />);
+    await screen.findByText(/1\/1/);
+    await exportVia(FILTERED_CSV);
+    expect(await screen.findByText(/내보내기를 수행하지 못했습니다/)).toBeTruthy();
+    await waitFor(() => expect(exportTrigger().getAttribute('aria-disabled')).toBeNull()); // trigger released
+  });
+
+  it('keeps a table-caused abort silent (filter change mid-load, loadPage rejects with AbortError)', async () => {
+    let calls = 0;
+    const loadPage = vi.fn((_q: PageQuery, s: AbortSignal): Promise<ApiResponse<PageResult<Row>>> => {
+      calls++;
+      if (calls > 1) return Promise.resolve({ outcome: 'ok', data: { rows: [{ id: 'r1', status: 'a' }], total: 1 }, assessments: [], trust: null, correlationId: 'c2' });
+      // Like fetch against a server: the request hangs until the table aborts it on the filter change.
+      return new Promise((_resolve, reject) => { s.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))); });
+    });
+    const view = render(<Harness page={null} sorting={[]} onChange={vi.fn()} loadPage={loadPage} />);
+    await act(async () => {}); // the first request hangs until the table aborts it
+    view.rerender(<Harness page={null} sorting={[]} onChange={vi.fn()} loadPage={loadPage} filterKey="g" />);
+    expect(await screen.findByText('a')).toBeTruthy(); // the replacement request's rows render
+    expect(screen.queryByText('데이터를 불러오지 못했습니다')).toBeNull(); // the superseded request stays silent
   });
 });
