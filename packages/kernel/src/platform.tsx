@@ -312,10 +312,12 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     return () => controller.abort();
   }, [global.scopeId, session, userId, adapter, scopeRetry]);
 
-  // A Scope switch renders once before the validation effect runs, and in that frame `scope` still describes
-  // the previous Scope. The mask is exactly the value the effect will set next — never the previous Scope's
-  // error/forbidden/unknown_scope/valid, id, or grantedRooms (#183).
-  const scopeView: ScopeState = scope.scopeId !== global.scopeId
+  // A Scope switch — or a session-only change (role switch, re-login) that leaves the scopeId alone — renders
+  // once before the validation effect runs, and in that frame `scope` still describes the previous Scope or the
+  // previous session. The mask is exactly the value the effect will set next — never the previous Scope's
+  // error/forbidden/unknown_scope/valid, id, or grantedRooms, and never the previous session's `valid` (#183, #186).
+  const scopeMasked = scope.scopeId !== global.scopeId || scope.validatedFor !== session;
+  const scopeView: ScopeState = scopeMasked
     ? global.scopeId === null
       ? { scopeId: null, status: 'none', validatedFor: session, grantedRooms: [] }
       : { scopeId: global.scopeId, status: 'validating', validatedFor: session, grantedRooms: [] }

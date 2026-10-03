@@ -67,11 +67,11 @@ function ToastProbe() {
   return <div data-testid="toast-probe">{toasts.map(toast => <p key={toast.id}>{toast.text}</p>)}</div>;
 }
 
-function Harness(props: { exportRows?: PlatformDataTableProps<Row>['exportRows']; registry?: typeof exportRegistry; pageSize?: number; sorting?: PageSort[] }) {
+function Harness(props: { exportRows?: PlatformDataTableProps<Row>['exportRows']; registry?: typeof exportRegistry; pageSize?: number; sorting?: PageSort[]; filterKey?: string }) {
   return <I18nProvider><PlatformProvider adapter={adapter} registry={props.registry ?? exportRegistry}>
     <input aria-label="outside" />
     <PlatformDataTable<Row> title="T" ariaLabel="table" columns={columns} getRowId={r => r.id}
-      loadPage={loadPage} filterKey="f" preferenceKey="test-copy-table" pageSize={props.pageSize ?? 25} height={200}
+      loadPage={loadPage} filterKey={props.filterKey ?? 'f'} preferenceKey="test-copy-table" pageSize={props.pageSize ?? 25} height={200}
       exportRows={'exportRows' in props ? props.exportRows : serverSelected}
       urlState={props.sorting ? { page: null, sorting: props.sorting, onChange: () => {} } : undefined} />
     <ToastProbe />
@@ -469,5 +469,34 @@ describe('PlatformDataTable row copy (#174) — Ctrl/⌘+C interception', () => 
     select('r1');
     expect(fireEvent.keyDown(screen.getByRole('checkbox', { name: '선택 r1' }), { key: 'c', ctrlKey: true })).toBe(true);
     expect(clipboard.write).not.toHaveBeenCalled();
+  });
+});
+
+describe('PlatformDataTable row copy — only the copy\'s own controller cancels (#186)', () => {
+  it('an exportRows that rejects with its own AbortError during the read toasts the export failure advice, not a clipboard error', async () => {
+    secureClipboard();
+    render(<Harness exportRows={async () => { throw new DOMException('timeout', 'AbortError'); }} />);
+    await ready();
+    select('r1');
+    fireEvent.click(copyButton());
+    await waitFor(() => expect(toasts()).toContain('내보내기를 수행하지 못했습니다. 다시 시도하고, 반복되면 관리자에게 문의하세요.'));
+    expect(toasts()).not.toContain('클립보드 권한'); // the read failed; it is not a clipboard permission problem
+    await waitFor(() => expect(copyButton().getAttribute('aria-busy')).toBeNull());
+  });
+
+  it('a filter change mid-read cancels the copy silently: no failure toast and the busy state releases', async () => {
+    secureClipboard();
+    const exportRows = vi.fn((_request: unknown, signal: AbortSignal) => new Promise<ApiResponse<Row[]>>((_resolve, reject) => {
+      signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+    }));
+    const view = render(<Harness exportRows={exportRows} />);
+    await ready();
+    select('r1');
+    fireEvent.click(copyButton());
+    expect(copyButton().getAttribute('aria-busy')).toBe('true'); // the read hangs until the table aborts it
+    view.rerender(<Harness exportRows={exportRows} filterKey="g" />);
+    await waitFor(() => expect(copyButton().getAttribute('aria-busy')).toBeNull()); // the superseded copy released the button
+    expect(toasts()).not.toContain('내보내기를 수행하지 못했습니다'); // a table-caused abort is silent
+    expect(toasts()).not.toContain('클립보드 권한');
   });
 });

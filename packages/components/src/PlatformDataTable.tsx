@@ -230,7 +230,9 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     loadRef.current({ page: effectivePage, pageSize, sorting: activeSorting }, controller.signal)
       .then(response => { if (!controller.signal.aborted) setResult({ identity: requestIdentity, response }); })
       .catch(error => {
-        if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
+        // Only the table's own abort cancels (#186, like the Kernel #183): a menu loadPage that rejects with
+        // its own DOMException('…','AbortError') (internal timeout) is an error result, never swallowed.
+        if (controller.signal.aborted) return;
         setResult({
           identity: requestIdentity,
           response: {
@@ -324,7 +326,9 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     const startTarget = exportTarget(kind, kind === 'selected' ? selectedIds.length : shown?.outcome === 'ok' ? data.total : null, lang);
     const file = format === 'xlsx' ? 'Excel' : 'CSV';
     setExportNote(lang === 'ko' ? `${startTarget}${objectParticle(startTarget)} ${file} 파일로 준비 중입니다` : `Preparing ${startTarget} as ${format === 'xlsx' ? 'an Excel' : 'a CSV'} file`);
-    const cancelled = (error: unknown) => controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError');
+    // Only this export's controller cancels (#186, like the Kernel #183): an exportRows that rejects with its
+    // own DOMException('…','AbortError') (internal timeout) is a failure, so the failure toast must appear.
+    const cancelled = () => controller.signal.aborted;
     try {
       const response = await p.exportRows!({ scope, sorting: activeSorting }, controller.signal);
       if (controller.signal.aborted) return;
@@ -409,7 +413,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
         : '';
       toast(p.exportNote ? `${done}${provisional} — ${p.exportNote}` : done + provisional);
     } catch (error) {
-      if (cancelled(error)) return;
+      if (cancelled()) return;
       toast(EXPORT_REFUSAL.error[lang], 'warning');
     } finally {
       if (exportAbort.current === controller) { exportAbort.current = null; setExporting(false); setExportNote(null); }
@@ -441,6 +445,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   /** Server read of the selection in the table's sort, reconciled by getRowId like export. Rejects with CopyStop for the user. */
   async function readSelection(ids: string[], signal: AbortSignal): Promise<CopyPayload> {
     const response = await p.exportRows!({ scope: { kind: 'selected', ids }, sorting: activeSorting }, signal);
+    // Same controller whose catch checks `signal.aborted` (#186): this throw is the table's own cancel there.
     if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
     if (response.outcome !== 'ok' && response.outcome !== 'empty') throw new CopyStop(refusalText(response.outcome, response));
     const wanted = new Set(ids);
@@ -496,7 +501,9 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
         const c = await content;
         if (!controller.signal.aborted) toast(copiedText(c.count));
       } catch (error) {
-        if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
+        // Only the copy's own controller cancels (#186, like the Kernel #183). The internal throw in
+        // `readSelection` uses this same controller's signal, so it still lands here as a cancellation.
+        if (controller.signal.aborted) return;
         if (error instanceof CopyStop) toast(error.message, 'warning');
         // A late TypeError (promised values refused after the gesture): this browser cannot copy here.
         else if (error instanceof ClipboardRejected) toast(error.cause instanceof TypeError ? copyUnavailable() : clipboardFailure(error.cause), 'warning');
