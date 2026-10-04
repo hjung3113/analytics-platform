@@ -50,7 +50,7 @@
 | occurrence 상세 | △ 출발 분석 참조, 객체 구간을 자르지 않음 | △ 동일 EquipmentID 개념의 출발 집합 참조 | △ 참조/검색 보조 | △ 출발 지표 버전 참조 |
 | VOC 진입 | △ | △ | △ | △ — [06] 예시; 실제 VOC 조회 적용은 대상 선언에 따름 |
 
-Scope는 항상 단일 요청·권한 검증 대상이며 헤더에만 선택기가 있다. Site→room_name→StGroup→Equipment 관계, 실무 room_name 권한 기준, 독립 Line 축을 따른다. 상속 세부는 Open이며 Maker→Model→ChamberType→EquipmentID 분류와는 구별한다([ADR-0005](adr/0005-scope-room-name-line-independent.md)).
+Scope는 항상 단일 요청·권한 검증 대상이며 사이드바 머리에만 선택기가 있다(06 §7). Site→room_name→StGroup→Equipment 관계, 실무 room_name 권한 기준, 독립 Line 축을 따른다. 상속 세부는 Open이며 Maker→Model→ChamberType→EquipmentID 분류와는 구별한다([ADR-0005](adr/0005-scope-room-name-line-independent.md)).
 
 - **Global**: Scope, Time, roomNames, Equipment Group Condition/고정 Selection, Lot/PPID/Recipe/metric 쌍을 보존한다. 사이클타임 조회는 room_name·Equipment Group을 적용하며 PPID/Recipe도 필터 축으로 받는다. Recipe의 Job 전체/매칭 PRC 구간 조인 범위는 메뉴 정의 Candidate다. occurrence 상세에서는 이 값들을 출발 분석 참조로 보존하고 객체 구간을 자르지 않는다. 전역 Lot/다른 metric 쌍은 미적용 표시한다. 같은 cycle-time metric 쌍이면 적용; 다른 쌍은 보존하고 page-owned cycleTimeVersion을 사용한다. 동일 지표의 전역/페이지 버전 충돌은 오류다.
 - **Page Filter**: `cycleTimeVersion`, `granularity=hour|day|week`, `slowSelection=p95AndAbove`, `lotSearch`, `selectedOccurrence`(세 키를 담는 구조화 조건), `sort`가 등록 대상 후보다. 키 이름/인코딩/API는 확정 전이다. room_name·PPID/Recipe는 해당 메뉴의 정의에 따라 모집단에 적용하고, slowSelection/lotSearch는 목록에 적용하고 KPI P95의 모집단을 재귀적으로 줄이지 않는다. 선택 occurrence chip은 기존 조건에 추가하며 교체/해제는 명시 동작이다.
@@ -207,10 +207,7 @@ Data Trust    Updated 09.24 00:10 KST / 계산 기준 00:08 KST / Metric v4(참�
 
 ## 9. UX REVIEW (문서 단계)
 
-현재 시각 기준은 위의 FeedbackOps 기반 참조를 따른다. 아래 기존 정적 HTML/Step 2 검증의 셸 측정·검사 기록은 이전 산출물의 이력이며 #53에서 HTML을 변경하거나 재검증하지 않았다.
-
-
-2026-09-24 인터뷰 반영 검수는 이 Markdown의 계약·용어·왕복 규칙을 대상으로 했다. 아래의 기존 HTML/Step 2 검증 기록은 수정 전 산출물의 이력이며, 이번 작업에서 HTML을 갱신하거나 다시 검증한 결과가 아니다.
+2026-09-24 인터뷰 반영 검수는 이 Markdown의 계약·용어·왕복 규칙을 대상으로 했다. 현재 시각 기준은 위의 FeedbackOps 기반 참조를 따른다. 아래 기존 HTML/Step 2 검증의 셸 측정·검사 기록은 이전 산출물의 이력이며 #53에서 HTML을 변경하거나 재검증하지 않았다.
 
 Step 1 자체 검수 완료 후 Step 2 작성: [06](06_platform_ui_contract.md)/[01](01_architecture_and_data_contract.md)/[02](02_domain_menus.md)/[CONTEXT](../CONTEXT.md)를 다시 대조했다. §6 각 항목·§7 각 규칙에 근거를 붙였고 새 키/수치/배치는 Candidate, 데이터 필드 미정은 Open으로 남겼다.
 

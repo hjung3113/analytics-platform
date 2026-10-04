@@ -98,7 +98,7 @@ components:
 
 ## Platform extension layer
 
-아래 `--*`는 CSS 변수명이다. 공유 palette 참조는 FeedbackOps 원본을 따르며, literal은 플랫폼이 소유한다. raw palette를 컴포넌트에서 직접 쓰지 않는다. `tokens.css`는 RGB triple, front matter는 같은 플랫폼 literal의 hex 표기다.
+아래 `--*`는 CSS 변수명이다. 공유 palette 참조는 FeedbackOps 원본을 따르며, literal은 플랫폼이 소유한다. raw palette를 컴포넌트에서 직접 쓰지 않는다. `tokens.css`는 RGB triple을 사용한다. front matter의 literal은 hex, 공유 참조는 FeedbackOps CSS 변수명이다.
 
 ### Colours and surfaces
 
@@ -119,7 +119,7 @@ components:
 | `border-control` | 입력·select·checkbox 등 식별에 필요한 interactive 경계 | FeedbackOps `color-storm-cloud` 참조 |
 | `surface-sunken` | 표 열 머리·검색 배경·progress track·recessed 보조 영역 | FeedbackOps `color-deep-slate` 참조 |
 | `cat-purple` / `cat-teal` / `cat-amber` | 범주 tag·series 구분; 성공·실패 판정이나 CTA에 쓰지 않음 | 플랫폼 literal `#7c3aed` / `#0d9488` / `#d97706` |
-| `chart-blue` / `chart-teal` / `chart-green` / `chart-purple` | series 정체성; 의미 있는 얇은 선 대비는 Open Decisions 참고 | 플랫폼 literal `#3b9cff` / `#00a3b5` / `#00bc8b` / `#a174f5` |
+| `chart-blue` / `chart-teal` / `chart-green` / `chart-purple` | series 정체성; 의미 있는 얇은 선 대비는 Chart stroke 결정 참고 | 플랫폼 literal `#3b9cff` / `#00a3b5` / `#00bc8b` / `#a174f5` |
 | `chart-remainder` | 이름과 분모가 확인된 나머지 범주 | 플랫폼 literal `#cbd2e3` |
 | `chart-grid` | 보조 grid; 의미 있는 데이터 선에 쓰지 않음 | 플랫폼 literal `#edf1f7` |
 | `icon-blue-soft` / `icon-teal-soft` | KPI·분석 범주 icon chip 배경; navigation 그룹에는 채운 chip을 만들지 않음 | 플랫폼 literal `#e3efff` / `#dcf8ef` |
@@ -147,7 +147,7 @@ components:
 | `t-mono` | 12px / 1.4 / 상속 | 공유 `--font-mono` | ID·기술 값·correlation ID |
 | `tabular` | 크기·weight 상속 | tabular-nums lining-nums | 수치 열·분모·비교 값 |
 
-표 열 머리는 한국어 원문과 영어 sentence case를 기본으로 읽기 쉽게 유지한다. `t-table-header`의 현행 uppercase는 기술 약어/역할 variant로 남으며 일반 영문 label에는 `normal-case`를 조합한다. sentence-case를 별도 공유 font token으로 복제하지 않는다. 그룹 제목은 heading/disclosure가 아닌 section label이며 CSS uppercase가 navigation 동작을 뜻하지 않는다.
+표 header row는 승인된 프로토타입과 front matter binding대로 `t-table-header`를 사용한다(uppercase; 한국어 label은 대소문자 변환의 영향을 받지 않는다). PlatformDataTable의 sort button도 같은 uppercase 규칙을 따른다. 그룹 제목은 heading/disclosure가 아닌 section label이며 CSS uppercase가 navigation 동작을 뜻하지 않는다.
 
 ### Radius and layout extensions
 
@@ -181,11 +181,11 @@ components:
 | `border-subtle` | 구조 divider·card·행 구분 | 입력/checkbox의 유일한 식별 경계로 사용 금지 |
 | 공유 `focus-ring` / 플랫폼 `accent-primary` | sidebar/hover/selected 10.304/9.859/9.095:1 | opaque focus/current 막대; 색 외 형태 단서 동반 |
 
-허용 표에 없는 새 fill·opacity 조합은 자동 허용하지 않고 실제 전경/표면을 계산한다. vivid dot/icon 역시 의미를 단독 전달하면 비텍스트 대비를 확인해야 한다. 차트 palette의 알려진 부족은 아래 Open Decisions에서 추적한다.
+허용 표에 없는 새 fill·opacity 조합은 자동 허용하지 않고 실제 전경/표면을 계산한다. vivid dot/icon 역시 의미를 단독 전달하면 비텍스트 대비를 확인해야 한다. 차트 palette의 알려진 부족과 후속 구현은 아래 Chart stroke 결정 및 #203에서 추적한다.
 
 ## Shell visual rules
 
-구조·치수·sticky 배치는 [06 §7 Baseline](docs/06_platform_ui_contract.md#7-application-shell)과 [07 §4](docs/07_app_shell_wireframe.md)가 소유한다: 레일 52, 밝은 사이드바 240/56, 페이지 머리 50의 한 줄, 상단 바 없음. 페이지 머리+Context bar는 하나의 sticky 래퍼다. 본문 좌우 32/위 28/아래 36px와 section/component gap도 06의 baseline을 따르며 여기서 새 값을 정의하지 않는다.
+셸 구조·치수·본문 여백·gap·sticky 배치의 원본은 [06 §7 Baseline](docs/06_platform_ui_contract.md#7-application-shell)과 [07 §4](docs/07_app_shell_wireframe.md)다. 이 문서는 아래 시각 보완만 소유하며 구조 값을 다시 정의하지 않는다.
 
 - 공유 `surface-sidebar` 위에 Registry 그룹을 **section label**로 표시한다. 활성 탐색 제목에 `text-disabled`를 쓰지 않는다. 주 메뉴 navigation과 즐겨찾기/최근 section을 구별한다.
 - 현재 메뉴/공간은 공유 selected 표면 + text weight + **2px accent 막대**로 구별한다. `aria-current`를 유지하고 hover가 막대를 지우지 않는다. 보조 즐겨찾기/최근 링크에 현재 위치 표식을 중복하지 않는다.
@@ -275,7 +275,7 @@ primitive 상태·keyboard 동작은 [FeedbackOps UI 계약](products/feedbackop
 | Table | hover + selected checkbox/shape | focus-within이 cell을 가리지 않음; busy도 헤더 유지 |
 | Chart·linked KPI | series/outline 강조; 의미 색 바꾸지 않음 | actionable mark만 focus/drill-down; 동일 tooltip/table 접근 |
 
-첫 load는 reserved geometry의 공유 `surface-blocked` skeleton과 region `aria-busy`, fabricated 값 없음. 동일 Context refresh는 값+Refreshing을 유지할 수 있다. Context/Scope가 바뀌면 이전 결과를 새 결과처럼 표시하지 않고 권한을 재검증한다(06 §11). 부분 실패는 해당 widget에 국한하고 정상 panel을 유지한다.
+첫 load는 reserved geometry와 region `aria-busy`를 유지하며 fabricated 값을 만들지 않는다. 공유 Skeleton의 기본 fill은 FeedbackOps UI 계약이 소유한다. 플랫폼 PlatformDataTable/StateView는 현재 `bg-surface-sunken`으로 공유 기본 `surface-blocked`를 덮어쓴다. 이 플랫폼 override의 시각 규칙은 이 문서가 소유하며 #55에서 재검토할 수 있다. 동일 Context refresh는 값+Refreshing을 유지할 수 있다. Context/Scope가 바뀌면 이전 결과를 새 결과처럼 표시하지 않고 권한을 재검증한다(06 §11). 부분 실패는 해당 widget에 국한하고 정상 panel을 유지한다.
 
 Empty/error는 원인 설명·허용된 다음 행동·Retry·correlation ID를 읽을 수 있게 표시한다. [06 §19](docs/06_platform_ui_contract.md#19-loading--empty--error-taxonomy)의 no-match/not-collected/delayed/coverage/forbidden/too-large/unknown을 하나로 합치지 않는다. 조회 0건에서 수집/파서 지연을 추론하지 않는다. 실제 비활성·busy도 필요한 이유를 opacity로 숨기지 않는다.
 
@@ -301,7 +301,7 @@ Empty/error는 원인 설명·허용된 다음 행동·Retry·correlation ID를 
 | FeedbackOps tokens.md / tokens.css / UI system / ADR-0058 | 제품 UI 기반·공유 typography·primitive·소비 계약 | **공유 디자인 원본**; 이전 플랫폼 공유 값/독자 font/primitive 설명을 대체 |
 | ADR-0010 / ADR-0011, 승인 prototype `prototype/52-fops-design` (`.agents/reports/design/shots/52-fops/`) | 직접 소비, 프로토타입 C안의 밝은 AppFrame | **Decided**; 이전 어두운 navigation·상단 구성·shell 측정값을 대체 |
 | 06 / 07 | 플랫폼 행동·상태·접근성 및 셸 구조 | **계약 원본**; reference navigation·시간·권한보다 우선 |
-| #193 UIUX-193-03/04/05, #194 P3-D1·수용된 shell 수정 | label/control pairing·sunken 제한·stroke 대비·현재 위치·collapsed 규칙 | 이 문서의 pairing 및 Open 결정 입력; 렌더/동작 통과를 새로 주장하지 않음 |
+| #193 UIUX-193-03/04/05, #194 P3-D1·수용된 shell 수정 | label/control pairing·sunken 제한·stroke 대비·현재 위치·collapsed 규칙 | 이 문서의 pairing 및 chart 결정 배경; 렌더/동작 통과를 새로 주장하지 않음 |
 | `.agents/references/design-md/`의 linear.app | 단일 강조·중립 hierarchy | 원칙만 보존; brand 값·독자 공유 token·marketing layout은 FeedbackOps로 대체/미채택 |
 | 같은 참고자료의 clickhouse | flat hierarchy·shadow stack 회피 | 원칙만; 독자 radius와 전역 shadow 금지는 공유 primitive/06 규칙으로 대체 |
 | 같은 참고자료의 supabase | ink hierarchy·기술 도구의 절제 | 원칙만; font·surface·radius literal은 FeedbackOps로 대체 |
@@ -311,9 +311,9 @@ Empty/error는 원인 설명·허용된 다음 행동·Retry·correlation ID를 
 
 posthog와 sentri(Sentry 스타일) 자료는 당시 illustration/mascot 중심 marketing 방향이라 미채택했다. 원본 raster에서 exact CSS·source font·animation·business priority를 확정하지 않는다. Reference 배치는 Consumer 후보이며 새로운 플랫폼 API나 도메인 화면 구현을 승인하지 않는다.
 
-## Open Decisions
+## Design Decisions
 
-### Chart stroke contrast — Open (UIUX-193-04)
+### Chart stroke contrast — Decided (B, 2026-10-04)
 
 현재 카드 위 thin line mark의 `chart-blue`는 **2.79:1**, `chart-teal`은 **2.98:1**이며 `chart-purple` bar는 **3.25:1**이다(#193 리뷰). 2px 선에서 blue/teal은 의미 있는 비텍스트 mark의 3:1 기준에 부족하다. solid/dashed legend와 동일 데이터 table은 series 구분/대체 경로를 제공하지만 선 자체 대비를 높이지 않는다.
 
@@ -323,11 +323,13 @@ posthog와 sentri(Sentry 스타일) 자료는 당시 illustration/mascot 중심 
 | B. thin line mark용 더 진한 stroke alias 추가, category fill 유지 | 범주 identity·soft fill을 보존하며 line/outline 대비를 조정; 새 alias와 표면별 ≥3:1 검증 필요 |
 | C. palette 자체 변경 | 모든 mark의 일관된 재조정 가능; 승인 palette·category fill·legend 소비자까지 영향과 prototype 재확인 필요 |
 
-**권고는 B**다. 기존 category fill을 유지하며 의미 있는 선 역할만 분리하는 범위가 가장 작다. **채택된 결정이 아니다.** alias 이름·값을 확정하지 않고 기존 CSS/차트 색은 변경하지 않는다. coordinator가 사용자에게 선택을 올린 뒤 플랫폼 디자인 결정·필요한 prototype 승인과 구현 검증으로 이어간다.
+**B 채택 — 사용자 결정, 2026-10-04.** [ADR-0012](docs/adr/0012-chart-thin-line-stroke-aliases.md)에 따라 thin line/outline용 진한 stroke alias를 추가하고 category fill·기존 palette는 유지한다. 새 stroke는 card/canvas/sunken에서 ≥3:1을 확보해야 한다. 위 세 선택지와 대비 수치는 결정 배경으로 보존한다. 별칭 이름·값과 실제 화면의 `?variant=` 프로토타입 확인 → 구현·검증은 [#203](https://github.com/hjung3113/analytics-platform/issues/203) 범위다. **#203 구현 전까지 코드의 차트 선은 기존 색을 사용한다.** 이 문서와 ADR은 런타임 색 변경을 뜻하지 않는다.
+
+## Open Decisions
 
 ### Remaining decisions and reference limits
 
-- Dark mode는 **Open**, 현재 light design을 단순 invert하지 않는다.
+- Dark mode는 [05 상태 추적](docs/05_roadmap_and_open_questions.md)의 **Deferred**, 현재 light design을 단순 invert하지 않는다.
 - ECharts renderer/stack와 현재 코드 차이는 [05 결정 상태](docs/05_roadmap_and_open_questions.md)의 **Open**을 따른다. 이 문서가 새로운 chart theme 구현을 뜻하지 않는다.
 - 언어 번역 범위는 06 §23의 **Decided**, 계정 저장 선호는 **Candidate**다. Lucide는 기존 **Decided**를 유지한다.
 - pipeline focal priority·live pulse·reference queue/lifecycle의 domain 의미는 **Candidate/Open**이며 원천이 확인되기 전 실제 운영 데이터로 주장하지 않는다.

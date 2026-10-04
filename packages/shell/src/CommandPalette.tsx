@@ -62,13 +62,13 @@ export function CommandPalette() {
               <Icon className="size-4 text-text-muted" aria-hidden />
               <span className="flex-1">
                 <span className="block text-[13px] font-medium">{tx(m.label)}</span>
-                <span className="block text-[11px] text-text-muted">{tx(registry.spaceOf(m).label)} · {tx(group.label)} · {tx(PAGE_TYPE_LABELS[m.pageType])}{!m.component && ` · ${t('planned')}`}</span>
+                <span className="block text-[11px] text-text-secondary">{tx(registry.spaceOf(m).label)} · {tx(group.label)} · {tx(PAGE_TYPE_LABELS[m.pageType])}{!m.component && ` · ${t('planned')}`}</span>
               </span>
               {i === active && <CornerDownLeft className="size-3.5 text-text-muted" aria-hidden />}
             </li>;
           })}
         </ul>
-        <p className="border-t border-border-subtle bg-surface-sunken px-4 py-2 text-[11px] text-text-muted">{t('paletteHint')} · {lang === 'ko' ? '이동 시 전역 Context를 보존합니다.' : 'Global context is preserved on navigation.'}</p>
+        <p className="border-t border-border-subtle bg-surface-sunken px-4 py-2 text-[11px] text-text-secondary">{t('paletteHint')} · {lang === 'ko' ? '이동 시 전역 Context를 보존합니다.' : 'Global context is preserved on navigation.'}</p>
       </Dialog.Content>
     </Dialog.Portal>
   </Dialog.Root>;

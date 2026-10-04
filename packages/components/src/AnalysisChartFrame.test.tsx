@@ -104,6 +104,19 @@ describe('AnalysisChartFrame follows the menu manifest features (06 §16, issue 
     expect(hint.className).not.toContain('text-text-muted');
   });
 
+  it('keeps same-data table column headers readable on sunken', async () => {
+    mount(fixture().adapter, off);
+    fireEvent.click(await screen.findByRole('button', { name: 'More' }));
+    fireEvent.click(await screen.findByRole('button', { name: '같은 데이터를 표로 보기' }));
+    const headers = within(await screen.findByRole('table')).getAllByRole('columnheader');
+    expect(headers).toHaveLength(2);
+    for (const header of headers) {
+      expect(header.closest('thead')?.className).toContain('bg-surface-sunken');
+      expect(header.className).toContain('text-text-secondary');
+      expect(header.className).not.toContain('text-text-muted');
+    }
+  });
+
   it('offers all three when the menu declares them', async () => {
     mount(fixture().adapter, on);
     expect(await screen.findByRole('button', { name: 'Compare' })).toBeTruthy();
