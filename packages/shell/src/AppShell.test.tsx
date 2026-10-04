@@ -13,7 +13,7 @@ function menu(id: string, group: GroupId, path: string, permission: Permission) 
 const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const registry = createRegistry({
   spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' }, { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' }],
-  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }, { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' }],
+  groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics', hideLabelWhenSingle: true }, { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' }],
   menus: [menu('ops', 'admin', '/ops', 'console:access'), { id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
 
@@ -32,6 +32,25 @@ function adapterWith(permissions: Session['user']['permissions'] = ['platform:vi
   };
 }
 
+function sidebarRegistry(groupId: GroupId, groupLabel: string, menuIds: string[], hideLabelWhenSingle = false) {
+  const menus = menuIds.map((id, index) => ({
+    ...menu(id, groupId, `/${id}`, 'platform:view'),
+    label: { ko: `메뉴 ${index + 1}`, en: `Menu ${index + 1}` },
+    primary: index === 0,
+  }));
+  return createRegistry({
+    spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: menuIds[0] }],
+    groups: [{
+      id: groupId,
+      label: { ko: groupLabel, en: groupLabel },
+      icon: House,
+      space: 'analytics',
+      ...(hideLabelWhenSingle ? { hideLabelWhenSingle: true } : {}),
+    }],
+    menus,
+  });
+}
+
 
 beforeEach(() => {
   const values = new Map<string, string>();
@@ -46,8 +65,8 @@ function FavoriteControl() {
   return <button onClick={() => toggleFavorite('home')}>save favorite</button>;
 }
 
-function mount(permissions: Session['user']['permissions'] = ['platform:view'], shell = true) {
-  return render(<I18nProvider><PlatformProvider adapter={adapterWith(permissions)} registry={registry} slots={{ topBarTools: <button>injected tool</button> }}>
+function mount(permissions: Session['user']['permissions'] = ['platform:view'], shell = true, registryForRender = registry) {
+  return render(<I18nProvider><PlatformProvider adapter={adapterWith(permissions)} registry={registryForRender} slots={{ topBarTools: <button>injected tool</button> }}>
     {shell ? <AppShell><input aria-label="editor" /><FavoriteControl /></AppShell> : <><AppRail /><AppSidebar collapsed={false} onToggle={() => {}} /></>}
   </PlatformProvider></I18nProvider>);
 }
@@ -125,6 +144,34 @@ describe('light sidebar', () => {
     expect(within(favorites).getByRole('link', { name: '홈' })).toBeTruthy();
     const recent = await screen.findByRole('region', { name: '최근 방문' });
     expect(within(recent).getByRole('link', { name: '최근 방문: 홈' }).getAttribute('href')).toContain('lotIds=kept');
+  });
+});
+
+describe('declared single-menu sidebar group labels', () => {
+  it('omits the label for a non-overview group when declared and showing one menu', () => {
+    const view = sidebarRegistry('equipment', '설비관리', ['equipment-home'], true);
+    mount(['platform:view'], false, view);
+
+    const group = screen.getByRole('group', { name: '설비관리' });
+    expect(within(group).queryByText('설비관리')).toBeNull();
+    expect(within(group).getByRole('link', { name: '메뉴 1' })).toBeTruthy();
+  });
+
+  it('shows the label for overview when the group has no declaration', () => {
+    const view = sidebarRegistry('overview', '운영 개요', ['overview-home']);
+    mount(['platform:view'], false, view);
+
+    const group = screen.getByRole('group', { name: '운영 개요' });
+    expect(within(group).getByText('운영 개요')).toBeTruthy();
+  });
+
+  it('shows the label for a declared group when two menus are visible', () => {
+    const view = sidebarRegistry('equipment', '설비관리', ['equipment-home', 'equipment-list'], true);
+    mount(['platform:view'], false, view);
+
+    const group = screen.getByRole('group', { name: '설비관리' });
+    expect(within(group).getByText('설비관리')).toBeTruthy();
+    expect(within(group).getAllByRole('link')).toHaveLength(2);
   });
 });
 

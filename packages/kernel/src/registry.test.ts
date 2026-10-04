@@ -16,6 +16,13 @@ const menu = (id: string, path: string, extra: Partial<MenuEntry> = {}): MenuEnt
 const catalog = menu('catalog', '/metrics', { primary: true });
 
 describe('createRegistry validation (platform-packages.md §5)', () => {
+  it('passes the optional single-menu sidebar label declaration through unchanged (type + pass-through; no runtime rule)', () => {
+    const group: GroupDef = { ...groups[0], hideLabelWhenSingle: true };
+    const registry = createRegistry({ spaces, groups: [group], menus: [catalog] });
+
+    expect(registry.groupById('metrics').hideLabelWhenSingle).toBe(true);
+  });
+
   it('rejects duplicate ids, unknown parents and undeclared groups', () => {
     expect(() => createRegistry({ spaces, groups, menus: [catalog, menu('catalog', '/x')] })).toThrow(RegistryError);
     expect(() => createRegistry({ spaces, groups, menus: [catalog, menu('detail', '/metrics/:id', { parent: 'nope' })] })).toThrow(/unknown parent/);

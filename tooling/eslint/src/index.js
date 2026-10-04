@@ -5,6 +5,7 @@ import noHandBuiltUrl from './hand-built-url.js';
 import noRelativePackageEscape from './relative-escape.js';
 import restrictedImportSource from './import-source.js';
 import { noMenuMockImport } from './menu-boundaries.js';
+import noShellIdLiteralComparison from './no-shell-id-literal-comparison.js';
 
 const pkg = (name) => `${PACKAGE_PREFIX}${name}`;
 
@@ -214,6 +215,7 @@ function layerConfig({ restriction, extraRules = {} }) {
           'restricted-import-source': restrictedImportSource,
           'no-hand-built-url': noHandBuiltUrl,
           'no-menu-mock-import': noMenuMockImport,
+          'no-shell-id-literal-comparison': noShellIdLiteralComparison,
         },
       },
     },
@@ -256,6 +258,7 @@ export const shell = [
       denyReact: false,
       mockAllowed: false,
     },
+    extraRules: { 'ap/no-shell-id-literal-comparison': 'error' },
   }),
 ];
 

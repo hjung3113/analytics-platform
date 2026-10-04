@@ -19,7 +19,7 @@ import { manifests as admin } from '@ap/menu-admin';
 // </gen:menu-imports>
 
 export const GROUPS: GroupDef[] = [
-  { id: 'overview', label: { ko: '운영 개요', en: 'Overview' }, icon: LayoutDashboard, space: 'analytics' },
+  { id: 'overview', label: { ko: '운영 개요', en: 'Overview' }, icon: LayoutDashboard, space: 'analytics', hideLabelWhenSingle: true },
   { id: 'equipment', label: { ko: '설비관리', en: 'Equipment' }, icon: Cpu, space: 'analytics' },
   { id: 'masterData', label: { ko: '기준정보관리', en: 'Master Data' }, icon: Database, space: 'analytics' },
   { id: 'analytics', label: { ko: '생산성 분석', en: 'Analytics' }, icon: BarChart3, space: 'analytics' },

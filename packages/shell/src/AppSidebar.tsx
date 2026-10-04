@@ -27,7 +27,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
       <div className="shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2">
         <nav aria-label={lang === 'ko' ? '주 메뉴' : 'Primary'}>
           {grouped.map(({ group, items }, index) => <div key={group.id} role="group" aria-label={tx(group.label)}>
-            {!collapsed && !(group.id === 'overview' && items.length === 1) && <p className={cn('mx-2 mb-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted', index === 0 ? 'mt-1.5' : 'mt-3.5')}>{tx(group.label)}</p>}
+            {!collapsed && !(group.hideLabelWhenSingle && items.length === 1) && <p className={cn('mx-2 mb-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted', index === 0 ? 'mt-1.5' : 'mt-3.5')}>{tx(group.label)}</p>}
             {collapsed && index > 0 && <div className="mx-3 my-1.5 border-t border-border-subtle" aria-hidden />}
             <ul className="space-y-0.5">{items.map(menu => <li key={menu.id}><NavItem menu={menu} active={menu.id === activeId} collapsed={collapsed} /></li>)}</ul>
           </div>)}
