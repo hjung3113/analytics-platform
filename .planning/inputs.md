@@ -20,7 +20,7 @@
 번호는 옛 `PLATFORM_REQUIREMENTS.md` Open Questions 번호를 유지한다(화면 설계 문서가 이 번호로 인용한다). 1·10·14번은 결정이 끝나 지웠다.
 
 <a id="q2"></a>
-**2. Scope 상속 세부** — 관계(Site → room_name → StGroup → Equipment, Line 독립 축)와 room_name 기준 권한은 Decided(ADR-0004·0005). v1 단일 Scope와 상속·행 스코핑 방식은 Open([06 §6.2](../docs/06_platform_ui_contract.md#62-scope와-권한-decided--open)).
+**2. Scope 상속 세부** — 관계(Site → room_name → StGroup → Equipment, Line 독립 축)와 room_name 기준 권한은 Decided(ADR-0004·0005). v1 Scope 단일 선택도 Decided(06 §6.2, 05)다. 부모·자식 권한 상속과 조회 필터 자동 포함(행 스코핑) 세부만 Open([06 §6.2](../docs/06_platform_ui_contract.md#62-scope와-권한-decided--open)).
 
 <a id="q3"></a>
 **3. 시간 의미** — TZ는 Asia/Seoul 단일값으로 시작(Decided). timeDomain assertion 공급자, 교대일/영업일, 다중 Site의 "같은 날짜"는 Open. assertion 공급 근거는 복수 시간축 병합을 제공하기 전에 필요하다([06 시간 계약](../docs/06_platform_ui_contract.md#ctx-time)).

@@ -25,9 +25,8 @@ Decided는 계약의 상태이며 구현 완료를 뜻하지 않는다. 각 행�
 | 인증은 FeedbackOps 방식(AuthProvider: 개발 Mock + 운영 OIDC 계열, 서버 세션, 권한은 백엔드가 매 요청 재검증) — 실제 IdP 사양은 #150. 운영 콘솔은 '운영 콘솔 접근' 한 역할로 시작. 공간 필드명 `space`(그룹 수 상한 없음, 권장 7개 이하). 시각 회귀는 빌드 CSS selector 비교만 CI | 2026-09-27 | [03](03_backend_stack.md), [06 §9.1](06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26), [tooling](../tooling/AGENTS.md) |
 | 실제 시점(epoch·timestamptz)은 wall-clock이 아니다 — `formatInstant`로 보는 사람의 시간대에 맞춰 표시, `formatDateTime`은 naive wall-clock 전용 | 2026-09-28 | [06 §6.3](06_platform_ui_contract.md#ctx-time) |
 | 권한 부여·회수의 원천: room_name 부여·활용률 열람 개별 부여는 플랫폼 메타 DB 소유. 역할 소속 원천은 IdP 그룹 claim 사양까지 결정 대기(#98). 쓰기 포트·화면은 아직 만들지 않는다 | 2026-09-29 | [06 §9.1](06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26) |
-| 메뉴 데이터 조회 포트: 메뉴가 엔드포인트를 선언하고 서버는 자기 선언 사본으로 판정한다. 선언 원본(TS ↔ FastAPI codegen)은 #148 | 2026-10-01 | [ADR-0019](adr/0019-menu-query-endpoint-declaration.md) |
 | 전역 감사 조회(`auditTrail`)에도 room 권한을 적용한다 — 권한 없는 room 설비의 변경 내용은 보이지 않는다(06 §17 서버 재검증과 같은 원칙). 지금은 콘솔 역할이 하나(모든 room)라 필터를 두지 않고, 일부 room만 가진 콘솔 역할이 생길 때 서버에서 구현한다(#91). 결정자: 사용자 — 에이전트 추천을 따름 | 2026-10-05 | [06 §17](06_platform_ui_contract.md#17-permission-aware-ux-contract) |
-| 그 밖의 그리드·표·디자인·조회·활용률 결정 | 2026-10-01~05 | [ADR 목록](adr/README.md) |
+| 그 밖의 결정(메뉴 조회 포트, 그리드·표·디자인, 활용률 이벤트, 차트 렌더러 등) | 2026-10-01~05 | [ADR 목록](adr/README.md) |
 
 ## MVP 지원 환경 — 데스크톱 웹만 (Decided, 2026-09-27)
 
