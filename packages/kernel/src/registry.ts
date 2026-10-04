@@ -10,7 +10,14 @@ export type MenuEntry = MenuMeta & {
   component?: LazyExoticComponent<ComponentType<PageProps>>;
 };
 
-export type GroupDef = { id: GroupId; label: Text; icon: LucideIcon; space: SpaceId };
+export type GroupDef = {
+  id: GroupId;
+  label: Text;
+  icon: LucideIcon;
+  space: SpaceId;
+  /** In the expanded sidebar, omit the section label when only one visible menu remains. */
+  hideLabelWhenSingle?: boolean;
+};
 
 export type RouteMatch = { menu: MenuEntry; params: Record<string, string> };
 
