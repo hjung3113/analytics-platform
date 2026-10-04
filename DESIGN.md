@@ -27,10 +27,6 @@ colors:
   accent-neutral: "var(--color-storm-cloud)"
   accent-neutral-soft: "var(--color-deep-slate)"
   border-control: "var(--color-storm-cloud)"
-  text-success-label: "var(--color-text-success-label)"
-  text-info-label: "var(--color-text-info-label)"
-  text-warning-label: "var(--color-text-warning-label)"
-  text-danger-label: "var(--color-text-danger-label)"
   surface-sunken: "var(--color-deep-slate)"
   cat-purple: "#7c3aed"
   cat-teal: "#0d9488"
@@ -161,7 +157,7 @@ components:
 
 ### Allowed foreground/surface pairs
 
-아래 #210 수치는 현재 FeedbackOps label 값을 사용한 opaque sRGB token 계산이다. 렌더 검증을 대신하지 않는다. `surface-popover`는 sunken과 같은 공유 palette를 쓰므로 동일 제한을 받는다.
+label 행은 #210(FeedbackOps 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의 opaque sRGB token 계산이다. 렌더 검증을 대신하지 않는다. `surface-popover`는 sunken과 같은 공유 palette를 쓰므로 동일 제한을 받는다.
 
 | 전경 | 허용 표면 / 대비 | 제한·적용 예 |
 | --- | --- | --- |
@@ -209,7 +205,7 @@ components:
 - icon·label·값·단위·기준이 있는 delta·보조 caption으로 구성한다. 한 tile에 무관한 두 primary 값을 쌓지 않는다.
 - primary 값은 `t-stat`, 보조 값은 `t-stat-2`; 숫자는 tabular, 단위는 덜 강조하되 읽을 수 있게 한다. delta는 비교 기간·분모를 함께 설명하고 증가 자체를 성공으로 판단하지 않는다.
 - 값 → 원천 표/상세로 추적할 수 있어야 한다. 갱신 시각·coverage·정의 버전은 DataTrust 계약과 함께 표시한다. unknown을 0 또는 0%로 만들지 않는다.
-- 보조 문구는 현재 조건과 다음 행동을 짧게 설명한다. sunken/hover/selected의 필수 문구는 secondary, 의미 문구는 label alias를 사용한다. screenshot의 Live 표시는 실제 feed의 근거가 있을 때만 쓴다.
+- 보조 문구는 현재 조건과 다음 행동을 짧게 설명한다. sunken/hover/selected의 필수 문구는 secondary, 의미 문구는 FeedbackOps `text-text-*-label` 쌍을 사용한다. screenshot의 Live 표시는 실제 feed의 근거가 있을 때만 쓴다.
 
 ## Charts
 
@@ -284,7 +280,7 @@ Empty/error는 원인 설명·허용된 다음 행동·Retry·correlation ID를 
 | --- | --- |
 | FeedbackOps semantic token/primitive를 `@ap/ui`로 소비 | 공유 palette·본문·반경을 이 문서나 메뉴에 다시 정의 |
 | primary 강조를 주요 동작·위치·focus에 집중 | 범주 palette로 두 번째 brand CTA 제작 |
-| 필수 sunken 문구 secondary, 의미 문구 label alias | muted-on-sunken을 4.5:1로 반올림하거나 opacity로 fade |
+| 필수 sunken 문구 secondary, 의미 문구 FeedbackOps `text-text-*-label` | muted-on-sunken을 4.5:1로 반올림하거나 opacity로 fade |
 | control 경계 border-control, 구조선 border-subtle | 모든 divider를 진하게 하거나 input 경계를 hairline만으로 식별 |
 | 색+shape/weight/text로 선택·상태 표시 | 색만으로 현재 위치·성공·실패 전달 |
 | KPI→차트→동일 데이터 표/근거로 추적 | unknown을 0으로 만들거나 screenshot 숫자·Live를 제품 사실로 사용 |
