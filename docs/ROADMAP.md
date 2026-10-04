@@ -18,7 +18,7 @@
 | 2. 프로토타입 | 완료 | Kernel 단위 프로토타입(`prototypes/`) → 통합 앱 |
 | 3. 코드 정리(모노레포) | 완료 | 패키지 분리, 메뉴 패키지, 경계 lint, 메뉴 생성기 — PR #16–#32 |
 | 4. 플랫폼 기능 추가 | 완료 | 공간(워크스페이스), 운영 콘솔, Kernel 잔여, 차트 번들 코드 분할(#48)까지 완료 — 마일스톤 M1 |
-| 5. 디자인 시스템 | **프로토타입 준비** | 방식 결정(ADR-0010, 2026-10-03): FeedbackOps를 Tailwind v4로 올리고 `@fops/ui`를 직접 참조. FeedbackOps#743 병합(2026-10-03)·서브모듈 갱신·소비 검증(2026-10-04, 쓸 수 있음 — 조건은 #52) 완료. 다음은 실제 앱 위 `?variant=` 프로토타입 컨펌 — 마일스톤 M2 |
+| 5. 디자인 시스템 | **구현 중** | 방식(ADR-0010)·방향(ADR-0011, 2026-10-04 사용자: 프로토타입 C안 — FeedbackOps 토큰 + FeedbackOps 셸 구조) 결정 완료. 구현 순서: `@fops/ui` 워크스페이스 편입(#192) → 토큰·테마(#193) → 셸(#194) → DESIGN.md(#53) — 마일스톤 M2 |
 | 6. FeedbackOps 연결(1단계) | 결정 대기 | 딥링크·토큰 공유·읽기 전용 조회 — 마일스톤 M3 |
 | 7. 사내 적용 | **사내 입력 대기** | mock 어댑터를 실어댑터·실서버(FastAPI)로 바꾼다. 플랫폼 준비(#100·#145)는 끝났고 SSO 사양·배포 환경·백엔드 합의가 남았다 — 마일스톤 M4, 지도 [#157](https://github.com/hjung3113/analytics-platform/issues/157), 가이드 [`in-house-rollout.md`](integration/in-house-rollout.md) |
 
@@ -31,7 +31,7 @@
 3. **표 내보내기·복사(#159 결정 후속)**: 툴바 D안 확정(#172)·공통 내보내기 CSV·Excel(#173)·선언 행 상한(#175)·행 복사(#174) 완료.
 4. **틈틈이 목록**: ~~`@types/node` 부채 (#57)~~ 완료, ~~CSS selector 비교 CI (#58)~~ 완료 — `tooling/css-selectors` + CI `css-selectors` Job(라벨 `css-removal-ok`), 적재 워커 상태 스키마 초안 (#37) 작성 완료 — `docs/integration/ingest-status-schema.md`, 파서 담당 합의 대기, ~~FeedbackOps 양방향 딥링크 계약 (#61)~~ 완료 — `docs/integration/feedbackops-deeplink.md`(phase-1, 확장은 #81 결정 대기). 계약 안전망은 `pnpm e2e`(#44), 메뉴 활용률 계측(#43)도 완료 — kernel이 `adapter.recordUsage`(entry/dwell)로 계측하고 콘솔은 `usageSummary` 집계만 읽는다(조회조건 수집 여부는 #75 결정 대기).
 
-디자인 방향 프로토타입(#52)을 재개했다 — FeedbackOps#743 병합·`@fops/ui` 소비 검증 완료, 다음은 `?variant=` 프로토타입(아래 M2).
+디자인 방향은 C안으로 정했다(ADR-0011) — 구현은 #192 → #193 → #194(아래 M2).
 
 ## 사람의 결정
 
@@ -114,20 +114,24 @@ mock 어댑터 자리를 실어댑터로 바꾸는 트랙(2026-10-02 정리). Ke
 | [POC·보류] AG Grid Enterprise 평가 (#164) | 보류 — 셀 범위 복붙·채우기가 업무 필수로 확인될 때 |
 | Kernel 5분 폴링·계산 세대 재검증 (#165) | M4 표, #149 대기 |
 
-### M2 디자인 시스템 (1차 평가: #33) — 프로토타입 준비
+### M2 디자인 시스템 (1차 평가: #33) — 구현 중
 
-**방식 결정 (2026-10-03, 사용자 — [ADR-0010](adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)):** FeedbackOps 디자인이 사실상 확정됐다(FeedbackOps#685·#672 닫힘). FeedbackOps 디자인을 기반으로 삼고 플랫폼 확장 패턴(전역 Context 바, 차트 프레임, 분석 레이아웃, KPI)을 더한다는 방향(2026-09-27)은 그대로이고, 가져오는 방식은 **C안** — FeedbackOps를 먼저 Tailwind v4로 올리고([FeedbackOps#743](https://github.com/hjung3113/FeedbackOps/issues/743)) 플랫폼은 v4를 유지한 채 `@fops/ui`를 서브모듈 패키지로 직접 참조한다. 순서: ~~FeedbackOps#743 병합~~(2026-10-03) → ~~서브모듈 갱신~~(`ef6c8e83`) → ~~플랫폼 워크스페이스 소비 검증~~(2026-10-04, 버리는 브랜치 `spike/52-fops-ui-consume` — 쓸 수 있음, 조건 4가지와 범위 영향은 #52 코멘트) → `?variant=` 프로토타입 컨펌(#52) → 구현 → #53 → #156. 지난 프로토타입 A안(완성)·B안(WIP)은 브랜치 `hjung3113/prototype-design-direction`에 있다(main 병합 안 함). 2026-10-04 재개로 #52–#56·#156의 `on-hold` 라벨을 뗐다.
+**방식 결정 (2026-10-03, 사용자 — [ADR-0010](adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)):** FeedbackOps 디자인이 사실상 확정됐다(FeedbackOps#685·#672 닫힘). FeedbackOps 디자인을 기반으로 삼고 플랫폼 확장 패턴(전역 Context 바, 차트 프레임, 분석 레이아웃, KPI)을 더한다는 방향(2026-09-27)은 그대로이고, 가져오는 방식은 **C안** — FeedbackOps를 먼저 Tailwind v4로 올리고([FeedbackOps#743](https://github.com/hjung3113/FeedbackOps/issues/743)) 플랫폼은 v4를 유지한 채 `@fops/ui`를 서브모듈 패키지로 직접 참조한다. 순서: ~~FeedbackOps#743 병합~~(2026-10-03) → ~~서브모듈 갱신~~(`ef6c8e83`) → ~~플랫폼 워크스페이스 소비 검증~~(2026-10-04, 버리는 브랜치 `spike/52-fops-ui-consume` — 쓸 수 있음, 조건 4가지와 범위 영향은 #52 코멘트) → ~~`?variant=` 프로토타입 컨펌(#52)~~(2026-10-04, C안 — [ADR-0011](adr/0011-design-direction-feedbackops-shell.md), 브랜치 `prototype/52-fops-design`) → 구현(#192 → #193 → #194) → #53 → #156. 지난 프로토타입 A안(완성)·B안(WIP)은 브랜치 `hjung3113/prototype-design-direction`에 있다(main 병합 안 함). 2026-10-04 재개로 #52–#56·#156의 `on-hold` 라벨을 뗐다.
 
 | 이슈 | 선행 |
 | --- | --- |
-| 디자인 방향 인터랙티브 프로토타입 → 컨펌 (#52) | — |
-| DESIGN.md 개정 (#53) | #52 |
+| ~~디자인 방향 인터랙티브 프로토타입 → 컨펌 (#52)~~ 완료 — C안(ADR-0011) | — |
+| `@fops/ui` 워크스페이스 편입 — 소비 조건·CI 서브모듈·경계 lint, 화면 변화 없음 (#192) | #52 |
+| 토큰·테마를 FeedbackOps 계약 + 플랫폼 확장 층으로, 프리미티브는 `@fops/ui` 재수출 (#193) | #192 |
+| 셸을 FeedbackOps AppFrame 구조로 — 레일·밝은 사이드바·Scope 선택·50px 머리 (#194) | #193 |
+| [결정] DetailDrawer를 고정 상세 슬롯(440px)으로 바꿀지 (#195) | 사람 결정 |
+| DESIGN.md 개정 (#53) | #193, #194 |
 | 공통 필터 바 승격 (#54) | #53 |
 | StateView 변형 (#55) | #53 |
 | 셸 톤·Context 바·도움말 자리 (#56) | #53 |
 | ~~`@types/node` 부채 (#57)~~ 완료 | — |
 | ~~시각 회귀 검사 CI (#58)~~ 완료 — CSS selector 비교(`css-selectors` job), 픽셀 비교는 디자인 확정 뒤 | #39 |
-| 레이아웃 슬롯 컴포넌트 Management·Analysis (#156, #104 후속) | #52, #53 |
+| 레이아웃 슬롯 컴포넌트 Management·Analysis (#156, #104 후속) | #194, #195, #53 |
 
 ### M3 FeedbackOps 1단계
 
