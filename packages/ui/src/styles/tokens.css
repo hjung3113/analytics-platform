@@ -1,5 +1,5 @@
 /* Platform extension values (ADR-0011). Shared tokens come from @fops/ui.
- * nav-* remains until the shell migration (#194); chart/category/icon values are platform-owned.
+ * Chart/category/icon values are platform-owned.
  */
 :root {
   --accent-primary: var(--color-neon-lime);          /* #1428a0 */
@@ -22,14 +22,6 @@
   --text-danger-label: var(--status-reporter-reopened-label);
   --surface-sunken: var(--color-deep-slate);          /* #edf3fb */
 
-  --nav-surface: 15 21 38;
-  --nav-surface-hover: 26 34 54;
-  --nav-surface-subtle: 19 29 47;
-  --nav-surface-raised: 36 49 73;
-  --nav-divider: 41 53 74;
-  --nav-text: 195 209 228;
-  --nav-text-faint: 156 163 175;
-  --nav-focus: 147 197 253;
 
   --cat-purple: 124 58 237;
   --cat-teal: 13 148 136;

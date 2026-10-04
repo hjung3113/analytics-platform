@@ -89,3 +89,40 @@ describe('PlatformPage Scope gate follow-ups (#183)', () => {
     }
   });
 });
+
+
+describe('PlatformPage 50px header (#194)', () => {
+  it('keeps title, full description, favorite and actions in one sticky header above Context and padded content', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    const adapter = adapterWith(async () => ({ status: 'valid', grantedRooms: [] }));
+    const view = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ contextBar: <div>global context</div> }}>
+      <PlatformPage title="Custom title" description="A long full description" dataTrustSummary={<span>trust</span>} secondaryActions={<button>secondary</button>} primaryAction={<button>primary</button>}><p>page body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByText('page body');
+    const header = view.container.querySelector('header')!;
+    expect(header.className).toContain('h-[50px]');
+    expect(header.className).toContain('sticky');
+    expect(header.querySelector('h1')?.textContent).toBe('Custom title');
+    expect(screen.getByText('A long full description').getAttribute('title')).toBe('A long full description');
+    expect(header.textContent).toContain('trust');
+    expect(header.contains(screen.getByRole('button', { name: 'secondary' }))).toBe(true);
+    expect(header.contains(screen.getByRole('button', { name: 'primary' }))).toBe(true);
+    expect(header.nextElementSibling?.textContent).toBe('global context');
+    expect(screen.getByText('page body').parentElement?.className).toContain('px-8');
+    fireEvent.click(screen.getByRole('button', { name: '즐겨찾기에 추가' }));
+    expect(screen.getByRole('button', { name: '즐겨찾기에서 제거' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('retains header identity and Context but gates trust, actions, extension and body until Scope is valid', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    const adapter = adapterWith(async () => ({ status: 'forbidden', grantedRooms: [] }));
+    const view = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ contextBar: <div>global context</div> }}>
+      <PlatformPage title="Gated title" description="Gated description" dataTrustSummary={<span>trust</span>} secondaryActions={<button>secondary</button>} primaryAction={<button>primary</button>} contextExtension={<div>extension</div>}><p>page body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByText('이 Scope에 접근 권한이 없습니다');
+    expect(view.container.querySelector('header')?.className).toContain('h-[50px]');
+    expect(screen.getByRole('heading', { name: 'Gated title' })).toBeTruthy();
+    expect(screen.getByText('global context')).toBeTruthy();
+    for (const text of ['trust', 'secondary', 'primary', 'extension', 'page body']) expect(screen.queryByText(text)).toBeNull();
+  });
+});
