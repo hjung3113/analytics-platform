@@ -18,14 +18,14 @@ export function ScopeSelector({ collapsed = false }: { collapsed?: boolean }) {
     <button type="button" aria-label={`${t('scope')}: ${current?.label ?? global.scopeId ?? t('scopeNone')}`}
       aria-describedby={descriptionId}
       className="flex min-h-10 w-full items-center gap-2 rounded-md border border-border-control px-2 py-2 text-left text-sm hover:bg-surface-row-hover">
-      <span className={cn('grid size-5 shrink-0 place-items-center rounded text-xs font-semibold', warn ? 'bg-accent-warn-soft text-warning-label' : 'bg-accent-primary-soft text-accent-primary')}>
+      <span className={cn('grid size-5 shrink-0 place-items-center rounded text-xs font-semibold', warn ? 'bg-accent-warn-soft text-text-warning-label' : 'bg-accent-primary-soft text-accent-primary')}>
         {scope.status === 'validating' ? <Loader2 className="size-3 animate-spin" aria-hidden />
           : scope.status === 'none' ? <MapPin className="size-3" aria-hidden />
             : warn ? <ShieldAlert className="size-3" aria-hidden /> : <span aria-hidden>{name.slice(0, 1)}</span>}
       </span>
       <span className={cn('min-w-0 flex-1', collapsed && 'sr-only')}>
         <span className="block truncate font-medium">{name}</span>
-        <span id={descriptionId} className={cn('block truncate text-[10px]', scope.status === 'none' && 'sr-only', warn ? 'text-warning-label' : 'text-text-secondary')}><span role="status" aria-live="polite">{status}</span>{current && ` · room ${current.grantedRooms}/${current.totalRooms}`}</span>
+        <span id={descriptionId} className={cn('block truncate text-[10px]', scope.status === 'none' && 'sr-only', warn ? 'text-text-warning-label' : 'text-text-secondary')}><span role="status" aria-live="polite">{status}</span>{current && ` · room ${current.grantedRooms}/${current.totalRooms}`}</span>
       </span>
       {!collapsed && <ChevronDown className="size-3 shrink-0 text-text-muted" aria-hidden />}
     </button>

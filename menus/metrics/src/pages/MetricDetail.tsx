@@ -75,7 +75,7 @@ export default function MetricDetailPage({ params }: PageProps) {
         onClick={() => setPage({ tab: s.id })}>
         {lang === 'ko' ? s.ko : s.en}
       </button>)}
-      {tab && !tabKnown && <span role="alert" className="self-center text-[12px] text-warning-label">{lang === 'ko' ? `등록되지 않은 tab=${tab}. 섹션을 숨기거나 다른 탭으로 바꾸지 않습니다.` : `Unregistered tab=${tab}. Sections stay visible and the value is not rewritten.`}</span>}
+      {tab && !tabKnown && <span role="alert" className="self-center text-[12px] text-text-warning-label">{lang === 'ko' ? `등록되지 않은 tab=${tab}. 섹션을 숨기거나 다른 탭으로 바꾸지 않습니다.` : `Unregistered tab=${tab}. Sections stay visible and the value is not rewritten.`}</span>}
     </nav>}
   >
     <div className="space-y-3">
@@ -187,7 +187,7 @@ function VersionSection({ metric, selected, onSelect }: { metric: MetricDef; sel
       {diff.length > 0 && <dl className="mt-1 space-y-1 text-[12px]">
         {diff.map(row => <div key={row.field}>
           <dt className="t-mono text-text-muted">{row.field}</dt>
-          <dd className="tabular"><span className="text-danger-label line-through decoration-1">{row.before}</span> → <span className="text-success-label">{row.after}</span></dd>
+          <dd className="tabular"><span className="text-text-danger-label line-through decoration-1">{row.before}</span> → <span className="text-text-success-label">{row.after}</span></dd>
         </div>)}
       </dl>}
     </div>}

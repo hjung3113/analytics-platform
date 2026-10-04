@@ -27,10 +27,10 @@ colors:
   accent-neutral: "var(--color-storm-cloud)"
   accent-neutral-soft: "var(--color-deep-slate)"
   border-control: "var(--color-storm-cloud)"
-  text-success-label: "var(--status-reporter-resolved-label)"
-  text-info-label: "var(--status-reporter-received-label)"
-  text-warning-label: "var(--status-reporter-prep-label)"
-  text-danger-label: "var(--status-reporter-reopened-label)"
+  text-success-label: "var(--color-text-success-label)"
+  text-info-label: "var(--color-text-info-label)"
+  text-warning-label: "var(--color-text-warning-label)"
+  text-danger-label: "var(--color-text-danger-label)"
   surface-sunken: "var(--color-deep-slate)"
   cat-purple: "#7c3aed"
   cat-teal: "#0d9488"
@@ -89,7 +89,7 @@ components:
 
 | 소유자 | 소유하는 규칙 | 이 문서의 관계 |
 | --- | --- | --- |
-| FeedbackOps [tokens.md](products/feedbackops/docs/frontend/tokens.md), [tokens.css](products/feedbackops/packages/ui/src/styles/tokens.css) | 공유 색·표면·간격·반경·폰트·본문 타이포 | 값 스케일을 복제하지 않고 semantic token을 소비 |
+| FeedbackOps [tokens.md](products/feedbackops/docs/frontend/tokens.md), [tokens.css](products/feedbackops/packages/ui/src/styles/tokens.css) | 공유 색·표면·간격·반경·폰트·본문 타이포·AA 의미 label 쌍 | 값 스케일을 복제하지 않고 semantic token을 소비 |
 | FeedbackOps [ui-design-system.md](products/feedbackops/docs/frontend/ui-design-system.md), [ADR-0058](products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md) | primitive의 모양·상태, CSS-first 소비·폰트 로딩 계약 | `@ap/ui`를 통한 공개 primitive·CSS 소비 |
 | [06 §7–9](docs/06_platform_ui_contract.md#7-application-shell), [07](docs/07_app_shell_wireframe.md) | 셸 구조·치수·슬롯·navigation IA·시나리오 | 구조를 복사하지 않고 플랫폼 시각 보완만 정의 |
 | DESIGN.md | 플랫폼 확장 token의 역할·값 출처, 허용 전경/표면, 분석·KPI·표·차트 시각 패턴 | 아래 정의가 원본 |
@@ -111,10 +111,6 @@ components:
 | `accent-warn-soft` | 경고 의미 배경 | 플랫폼 literal `#f4ece0` |
 | `accent-danger-soft` | 오류 의미 배경 | 플랫폼 literal `#fae5e7` |
 | `accent-neutral` / `accent-neutral-soft` | 미평가·보조 상태의 dot 및 배경 | FeedbackOps `color-storm-cloud` / `color-deep-slate` 참조 |
-| `text-success-label` | 작은 긍정 의미 텍스트 | FeedbackOps `status-reporter-resolved-label` 참조 |
-| `text-info-label` | 작은 정보 의미 텍스트 | FeedbackOps `status-reporter-received-label` 참조 |
-| `text-warning-label` | 작은 경고 의미 텍스트 | FeedbackOps `status-reporter-prep-label` 참조 |
-| `text-danger-label` | 작은 오류 의미 텍스트 | FeedbackOps `status-reporter-reopened-label` 참조 |
 | `border-control` | 입력·select·checkbox 등 식별에 필요한 interactive 경계 | FeedbackOps `color-storm-cloud` 참조 |
 | `surface-sunken` | 표 열 머리·검색 배경·progress track·recessed 보조 영역 | FeedbackOps `color-deep-slate` 참조 |
 | `cat-purple` / `cat-teal` / `cat-amber` | 범주 tag·series 구분; 성공·실패 판정이나 CTA에 쓰지 않음 | 플랫폼 literal `#7c3aed` / `#0d9488` / `#d97706` |
@@ -124,7 +120,7 @@ components:
 | `chart-grid` | 보조 grid; 의미 있는 데이터 선에 쓰지 않음 | 플랫폼 literal `#edf1f7` |
 | `icon-blue-soft` / `icon-teal-soft` | KPI·분석 범주 icon chip 배경; navigation 그룹에는 채운 chip을 만들지 않음 | 플랫폼 literal `#e3efff` / `#dcf8ef` |
 
-`text-success-label` 변수의 Tailwind alias는 `--color-success-label`, 유틸리티는 `text-success-label`이다(info/warning/danger도 동일). `text-text-success` 같은 공유 vivid 의미 색과 구별한다. 표면·경계 유틸리티는 `bg-surface-sunken`, `border-border-control`; 구조 구분선은 공유 `border-border-subtle`이다.
+작은 의미 label은 FeedbackOps 소유의 `--text-{success,info,warning,danger}-label` 쌍과 `text-text-{success,info,warning,danger}-label` 유틸리티를 사용한다. 플랫폼은 이를 다시 별칭으로 선언하지 않는다. `text-text-success-label` 같은 label 유틸리티는 공유 vivid 의미 색 `text-text-success`와 구별한다. 표면·경계 유틸리티는 `bg-surface-sunken`, `border-border-control`; 구조 구분선은 공유 `border-border-subtle`이다.
 
 ### Typography roles
 
@@ -165,17 +161,17 @@ components:
 
 ### Allowed foreground/surface pairs
 
-수치는 #193/#194 UI/UX 리뷰의 opaque sRGB token 계산이다. 렌더 검증을 대신하지 않는다. `surface-popover`는 sunken과 같은 공유 palette를 쓰므로 동일 제한을 받는다.
+아래 #210 수치는 현재 FeedbackOps label 값을 사용한 opaque sRGB token 계산이다. 렌더 검증을 대신하지 않는다. `surface-popover`는 sunken과 같은 공유 palette를 쓰므로 동일 제한을 받는다.
 
 | 전경 | 허용 표면 / 대비 | 제한·적용 예 |
 | --- | --- | --- |
 | `text-primary`, `text-secondary` | canvas/card/sidebar/sunken/hover/selected | 필수 제목·검색 입력·열 머리·popover 설명. secondary는 sunken 9.23:1, sidebar/hover/selected 9.310/8.909/8.218:1 |
 | `text-muted` | canvas 4.642:1, card 4.892:1, sidebar 4.505:1 | 원래 opaque 값으로 보조 문구·section label; sidebar에서도 여유가 작으므로 fade 금지 |
 | `text-muted` | sunken **4.469:1** (약 4.47), hover 4.311:1, selected 3.977:1 | **필수 작은 글자에 금지**. sunken 열 머리·검색 문구·popover, hover/selected 상태 label은 `text-secondary`로 |
-| `text-success-label` | card 5.922:1, success-soft 5.334:1; canvas/sunken/hover/selected 포함 최저 4.814:1 | 작은 성공 의미 글자; vivid success는 dot/icon/tint로 분리 |
-| `text-info-label` | card 5.976:1, primary-soft 4.983:1; 동일 표면 집합 최저 4.858:1 | 작은 정보 의미 글자 |
-| `text-warning-label` | card 5.971:1, warn-soft 5.195:1; 동일 표면 집합 최저 4.854:1 | 작은 경고 의미 글자 |
-| `text-danger-label` | card 6.094:1, danger-soft 5.156:1; 동일 표면 집합 최저 4.954:1 | 작은 오류 의미 글자 |
+| FeedbackOps `text-text-success-label` | card 5.764:1, success-soft 5.191:1; canvas/sunken/hover/selected 포함 최저 4.686:1 | 작은 성공 의미 글자; vivid success는 dot/icon/tint로 분리 |
+| FeedbackOps `text-text-info-label` | card 5.564:1, primary-soft 4.639:1; 동일 표면 집합 최저 4.523:1 | 작은 정보 의미 글자 |
+| FeedbackOps `text-text-warning-label` | card 5.971:1, warn-soft 5.195:1; 동일 표면 집합 최저 4.854:1 | 작은 경고 의미 글자 |
+| FeedbackOps `text-text-danger-label` | card 6.571:1, danger-soft 5.560:1; 동일 표면 집합 최저 5.342:1 | 작은 오류 의미 글자 |
 | `text-secondary` (neutral label) | sunken/neutral-soft 9.23:1 | 중립 배지·필수 미평가 설명 |
 | `border-control` | card/canvas/sunken/hover/selected 4.892/4.642/4.469/4.311/3.977:1; sidebar 4.505:1 | interactive control 식별 경계로 모두 ≥3:1; text-muted와 같은 값이어도 비텍스트 기준은 다름 |
 | `border-subtle` | 구조 divider·card·행 구분 | 입력/checkbox의 유일한 식별 경계로 사용 금지 |
@@ -246,7 +242,7 @@ cellPadding: 4px 12px
 
 `StatusBadge` vocabulary는 **success / warning / danger / neutral / info**다. 실제 데이터 판정은 [06 §19](docs/06_platform_ui_contract.md#19-loading--empty--error-taxonomy)의 원천·관측 시각에 근거한다. success는 확인된 긍정, warning은 확인된 주의, danger는 확인된 실패, neutral은 미평가/보조, info는 정보 전달의 시각 역할이다. unknown·permission 제한·미수집을 화면 임의로 success/failure로 바꾸지 않는다.
 
-작은 badge text는 `text-*-label`, neutral은 secondary이며 soft fill/dot은 별도 vivid accent를 쓴다. text+icon/shape로 의미를 함께 전달한다. 평범한 label에 새 상태 색을 만들지 않는다. 범주/제품 milestone label은 성공 판정과 다르다. 새로운 Tone은 플랫폼 디자인 결정으로 다룬다.
+작은 badge text는 FeedbackOps `text-text-*-label`, neutral은 secondary이며 soft fill/dot은 별도 vivid accent를 쓴다. text+icon/shape로 의미를 함께 전달한다. 평범한 label에 새 상태 색을 만들지 않는다. 범주/제품 milestone label은 성공 판정과 다르다. 새로운 Tone은 플랫폼 디자인 결정으로 다룬다.
 
 ## Reference component bindings
 

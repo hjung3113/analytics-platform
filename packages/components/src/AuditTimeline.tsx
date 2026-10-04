@@ -35,7 +35,7 @@ export function AuditTimeline({ events }: { events: AuditEvent[] }) {
           {e.changes && <dl className="mt-1 space-y-0.5 rounded-md bg-surface-sunken px-2 py-1.5 text-[12px]">
             {Object.entries(e.changes).map(([field, [before, after]]) => <div key={field} className="flex flex-wrap gap-x-2">
               <dt className="t-mono text-text-secondary">{field}</dt>
-              <dd className="tabular"><span className="text-danger-label line-through decoration-1">{before ?? '∅'}</span> → <span className="text-success-label">{after ?? '∅'}</span></dd>
+              <dd className="tabular"><span className="text-text-danger-label line-through decoration-1">{before ?? '∅'}</span> → <span className="text-text-success-label">{after ?? '∅'}</span></dd>
             </div>)}
           </dl>}
           {e.reason && <p className="mt-1 text-[12px] text-text-secondary">{e.reason}</p>}

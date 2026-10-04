@@ -55,7 +55,7 @@ function setText(ids: string[] | null, t: (k: 'all' | 'explicitEmpty') => string
 function CapTag({ cap }: { cap: Capability }) {
   const { t } = useI18n();
   if (cap === 'apply') return null;
-  return <span className={cn('rounded-xs px-1 text-[10px] font-semibold', cap === 'reference' ? 'bg-surface-sunken text-text-secondary' : 'bg-accent-warn-soft text-warning-label')}>
+  return <span className={cn('rounded-xs px-1 text-[10px] font-semibold', cap === 'reference' ? 'bg-surface-sunken text-text-secondary' : 'bg-accent-warn-soft text-text-warning-label')}>
     {cap === 'reference' ? t('referenceOnly') : t('notUsed')}
   </span>;
 }
@@ -167,7 +167,7 @@ function CustomRange({ onDone }: { onDone: () => void }) {
       <label className="space-y-1"><span className="text-text-muted">from</span><input type="datetime-local" step={1} className={input} value={fromT} onChange={e => setFromT(e.target.value)} /></label>
       <label className="space-y-1"><span className="text-text-muted">to ({lang === 'ko' ? '미포함' : 'exclusive'})</span><input type="datetime-local" step={1} className={input} value={toT} onChange={e => setToT(e.target.value)} /></label>
     </div>}
-    <p aria-live="polite" className={cn('rounded-md px-2 py-1.5 tabular', error ? 'bg-accent-danger-soft text-danger-label' : 'bg-surface-sunken text-text-secondary')}>
+    <p aria-live="polite" className={cn('rounded-md px-2 py-1.5 tabular', error ? 'bg-accent-danger-soft text-text-danger-label' : 'bg-surface-sunken text-text-secondary')}>
       {error ?? `URL: [${result!.from}, ${result!.to})`}
     </p>
     <p className="text-[11px] text-text-muted">{lang === 'ko' ? '설비 wall-clock(naive) 기준이며 UTC로 변환하지 않습니다. 교대일/영업일 의미는 Open입니다.' : 'Equipment wall-clock (naive), never converted to UTC. Shift/business-day semantics are Open.'}</p>
@@ -214,7 +214,7 @@ function SetEditor({ label, cap, value, options, absentLabel, onApply, note, sea
             <input type="checkbox" className="size-3.5 accent-[rgb(var(--accent-primary))]" checked={picked.includes(o.id)} onChange={() => setPicked(p => (p.includes(o.id) ? p.filter(x => x !== o.id) : [...p, o.id]))} />
             <span className="t-mono">{o.id}</span>
             {o.hint && <span className="truncate text-text-muted">{o.hint}</span>}
-            {o.outside && <span className="ml-auto rounded-xs bg-accent-warn-soft px-1 text-[10px] text-warning-label">{lang === 'ko' ? '조건 밖' : 'outside'}</span>}
+            {o.outside && <span className="ml-auto rounded-xs bg-accent-warn-soft px-1 text-[10px] text-text-warning-label">{lang === 'ko' ? '조건 밖' : 'outside'}</span>}
           </label></li>)}
         </ul>
       </>}
@@ -298,5 +298,5 @@ function SelectionEditor({ cap }: { cap: Capability }) {
   return <SetEditor label={t('selection')} cap={cap} value={global.selection} search
     absentLabel={global.condition ? (lang === 'ko' ? `조건 결과 전체 (${count})` : `All condition results (${count})`) : t('all')}
     onApply={v => setGlobal({ selection: v })} options={options}
-    note={<>{lang === 'ko' ? 'Selection은 고정 EquipmentID 집합입니다.' : 'Selection is a fixed EquipmentID set.'}{failed && <span role="alert" className="mt-1 block text-danger-label">{lang === 'ko' ? '조건 결과를 확인하지 못했습니다.' : 'Could not evaluate the condition.'} <button type="button" className="text-accent-primary underline" onClick={evaluation.retry}>{lang === 'ko' ? '다시 시도' : 'Retry'}</button></span>}{outside.length > 0 && <b className="mt-1 block text-warning-label">{lang === 'ko' ? `현재 조건 결과 밖 ${outside.length}대 — 자동 제거하지 않습니다.` : `${outside.length} outside the current condition — not removed automatically.`}</b>}</>} />;
+    note={<>{lang === 'ko' ? 'Selection은 고정 EquipmentID 집합입니다.' : 'Selection is a fixed EquipmentID set.'}{failed && <span role="alert" className="mt-1 block text-text-danger-label">{lang === 'ko' ? '조건 결과를 확인하지 못했습니다.' : 'Could not evaluate the condition.'} <button type="button" className="text-accent-primary underline" onClick={evaluation.retry}>{lang === 'ko' ? '다시 시도' : 'Retry'}</button></span>}{outside.length > 0 && <b className="mt-1 block text-text-warning-label">{lang === 'ko' ? `현재 조건 결과 밖 ${outside.length}대 — 자동 제거하지 않습니다.` : `${outside.length} outside the current condition — not removed automatically.`}</b>}</>} />;
 }

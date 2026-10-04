@@ -24,7 +24,7 @@ export function StatCard({ icon: Icon, label, value, unit, delta, caption, chip 
         <span className="t-stat">{value}</span>
         {secondary && <span className="t-stat-2 text-text-secondary">{secondary}</span>}
         {unit && <span className="text-[13px] font-medium text-text-muted">{unit}</span>}
-        {delta && <span className={cn('t-delta inline-flex items-center', delta.good ? 'text-success-label' : 'text-danger-label')}>
+        {delta && <span className={cn('t-delta inline-flex items-center', delta.good ? 'text-text-success-label' : 'text-text-danger-label')}>
           {delta.direction === 'up' ? <ArrowUpRight className={cn('size-3.5', delta.good ? 'text-text-success' : 'text-text-danger')} aria-hidden /> : <ArrowDownRight className={cn('size-3.5', delta.good ? 'text-text-success' : 'text-text-danger')} aria-hidden />}{delta.value}
         </span>}
       </span>

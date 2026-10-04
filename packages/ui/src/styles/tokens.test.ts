@@ -54,7 +54,7 @@ it('keeps small semantic labels readable on their soft fills and card/row states
     warning: 'accent-warn-soft', danger: 'accent-danger-soft',
   };
   for (const [tone, soft] of Object.entries(softFills)) {
-    for (const background of [soft, 'surface-card', 'surface-row-hover', 'surface-row-selected']) {
+    for (const background of [soft, 'surface-card', 'surface-canvas', 'surface-sunken', 'surface-row-hover', 'surface-row-selected']) {
       expect(contrast(`text-${tone}-label`, background), `${tone} on ${background}`).toBeGreaterThanOrEqual(4.5);
     }
   }
