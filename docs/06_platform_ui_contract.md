@@ -140,7 +140,7 @@ Domain logic이 Kernel로 역류하지 않도록 한다.
 
 초기에는 외부 설치형 플러그인이 아니라 **코드 내부 선언형 Menu Registry**로 시작한다.
 
-메뉴가 선언하는 개념적 정보(Decided):
+메뉴·그룹이 선언하는 개념적 정보(Decided — 그룹 표시 행만 Candidate):
 
 | 정보 | 책임 |
 | --- | --- |
@@ -152,7 +152,7 @@ Domain logic이 Kernel로 역류하지 않도록 한다.
 | 조회 엔드포인트 (2026-10-01) | 메뉴가 부르는 서버 조회마다: 식별자·소유 메뉴·허용 입력 키·데이터 접근 권한(메뉴 권한과 달라도 됨)·Scope 요구·적용 Context(메뉴가 적용하는 키의 부분집합)·적용 assessment kind(§19)·조회 한도. 요청에는 적용 Context와 입력만 실리고, 서버는 요청이 아니라 자기 선언 사본으로 권한·kind·한도를 판정한다. 선언과 다른 요청 모양(적용하지 않는 Context 키, 적용 키 누락, 선언 밖 입력 키)은 오류다. Scope를 요구하지 않는 조회는 site에 묶인 Context(room_name·Condition·Selection·Lot·Recipe·PPID, §22)를 적용할 수 없다 |
 | Sidebar 그룹 표시 (`hideLabelWhenSingle`, Candidate) | 그룹이 선언하면 확장된 사이드바에서 보이는 메뉴가 하나일 때 섹션 제목을 생략한다. 기본값은 생략하지 않음 |
 
-메뉴와 그룹이 선언하고 Shell이 소비한다. 개별 선언의 TypeScript 타입·등록 방식은 구현 설계에서 구체화한다. 조회 엔드포인트 선언의 구현 형식(Candidate)은 [메뉴 조회 포트](integration/menu-query-port.md)(`EndpointSpec`)다.
+메뉴와 그룹이 선언하고 Shell이 소비한다. 필드명·TypeScript 타입·등록 방식은 구현 설계에서 구체화한다(그룹 표시 행의 필드명 `hideLabelWhenSingle`은 Candidate). 조회 엔드포인트 선언의 구현 형식(Candidate)은 [메뉴 조회 포트](integration/menu-query-port.md)(`EndpointSpec`)다.
 
 ### 금지
 

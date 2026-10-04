@@ -16,7 +16,7 @@ const menu = (id: string, path: string, extra: Partial<MenuEntry> = {}): MenuEnt
 const catalog = menu('catalog', '/metrics', { primary: true });
 
 describe('createRegistry validation (platform-packages.md §5)', () => {
-  it('accepts the optional single-menu sidebar label declaration', () => {
+  it('passes the optional single-menu sidebar label declaration through unchanged (type + pass-through; no runtime rule)', () => {
     const group: GroupDef = { ...groups[0], hideLabelWhenSingle: true };
     const registry = createRegistry({ spaces, groups: [group], menus: [catalog] });
 
