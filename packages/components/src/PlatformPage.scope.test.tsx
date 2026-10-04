@@ -108,7 +108,12 @@ describe('PlatformPage 50px header (#194)', () => {
     expect(header.contains(screen.getByRole('button', { name: 'secondary' }))).toBe(true);
     expect(header.contains(screen.getByRole('button', { name: 'primary' }))).toBe(true);
     expect(header.nextElementSibling?.textContent).toBe('global context');
-    expect(screen.getByText('page body').parentElement?.className).toContain('px-8');
+    const content = view.container.querySelector('[data-platform-page-content]');
+    expect(content).toBe(screen.getByText('page body').parentElement);
+    expect(view.container.querySelectorAll('[data-platform-page-content]')).toHaveLength(1);
+    expect(content?.className).toContain('px-8');
+    expect(content?.contains(header)).toBe(false);
+    expect(content?.contains(screen.getByText('global context'))).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: '즐겨찾기에 추가' }));
     expect(screen.getByRole('button', { name: '즐겨찾기에서 제거' }).getAttribute('aria-pressed')).toBe('true');
   });
@@ -123,6 +128,7 @@ describe('PlatformPage 50px header (#194)', () => {
     expect(view.container.querySelector('header')?.className).toContain('h-[50px]');
     expect(screen.getByRole('heading', { name: 'Gated title' })).toBeTruthy();
     expect(screen.getByText('global context')).toBeTruthy();
+    expect(view.container.querySelector('[data-platform-page-content]')?.textContent).toContain('이 Scope에 접근 권한이 없습니다');
     for (const text of ['trust', 'secondary', 'primary', 'extension', 'page body']) expect(screen.queryByText(text)).toBeNull();
   });
 });

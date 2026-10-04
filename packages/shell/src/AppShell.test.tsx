@@ -119,9 +119,32 @@ describe('light sidebar', () => {
     expect(within(nav).getAllByText('예정').length).toBeGreaterThan(0);
     expect(within(nav).queryByRole('textbox')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'save favorite' }));
-    const favorites = within(nav).getByRole('region', { name: '즐겨찾기' });
+    const favorites = screen.getByRole('region', { name: '즐겨찾기' });
     expect(within(favorites).getByRole('link', { name: '홈' })).toBeTruthy();
-    const recent = await within(nav).findByRole('region', { name: '최근 방문' });
+    const recent = await screen.findByRole('region', { name: '최근 방문' });
     expect(within(recent).getByRole('link', { name: '최근 방문: 홈' }).getAttribute('href')).toContain('lotIds=kept');
+  });
+});
+
+
+describe('primary navigation boundary (#194 FIX1)', () => {
+  it.each([false, true])('keeps favorite and recent links outside the registry menu tree (collapsed=%s)', async collapsed => {
+    localStorage.setItem('platform:sidebar-collapsed', collapsed ? '1' : '0');
+    localStorage.setItem('platform:favorites:u1', JSON.stringify(['home', 'ops']));
+    localStorage.setItem('platform:recent:u1', JSON.stringify([{ menuId: 'home', url: '/?v=1&scopeId=ICH&lotIds=previous' }, { menuId: 'ops', url: '/ops' }]));
+    mount();
+    const primary = screen.getByRole('navigation', { name: '주 메뉴' });
+    const favorites = screen.getByRole('region', { name: '즐겨찾기' });
+    const recent = await screen.findByRole('region', { name: '최근 방문' });
+    // Match by substring, like Playwright's default name matching in the contract suite.
+    expect(within(primary).getAllByRole('link', { name: /홈/ })).toHaveLength(1);
+    expect(within(primary).getAllByRole('link')).toHaveLength(1);
+    expect(primary.contains(favorites)).toBe(false);
+    expect(primary.contains(recent)).toBe(false);
+    expect(within(primary).queryByRole('link', { name: /최근 방문/ })).toBeNull();
+    expect(within(favorites).getByRole('link', { name: '홈' })).toBeTruthy();
+    expect(within(recent).getByRole('link', { name: '최근 방문: 홈' })).toBeTruthy();
+    expect(within(favorites).queryByRole('link', { name: /운영 홈/ })).toBeNull();
+    expect(within(recent).queryByRole('link', { name: /운영 홈/ })).toBeNull();
   });
 });

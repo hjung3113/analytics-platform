@@ -24,12 +24,14 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
         </TooltipTrigger><TooltipContent side="right">{collapsed ? t('expand') : t('collapse')} ([)</TooltipContent></Tooltip>
       </div>
       <ScopeSelector collapsed={collapsed} />
-      <nav aria-label={lang === 'ko' ? '주 메뉴' : 'Primary'} className="shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2">
-        {grouped.map(({ group, items }, index) => <section key={group.id} aria-label={tx(group.label)}>
-          {!collapsed && !(group.id === 'overview' && items.length === 1) && <h2 className={cn('mx-2 mb-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted', index === 0 ? 'mt-1.5' : 'mt-3.5')}>{tx(group.label)}</h2>}
-          {collapsed && index > 0 && <div className="mx-3 my-1.5 border-t border-border-subtle" aria-hidden />}
-          <ul className="space-y-0.5">{items.map(menu => <li key={menu.id}><NavItem menu={menu} active={menu.id === activeId} collapsed={collapsed} /></li>)}</ul>
-        </section>)}
+      <div className="shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2">
+        <nav aria-label={lang === 'ko' ? '주 메뉴' : 'Primary'}>
+          {grouped.map(({ group, items }, index) => <section key={group.id} aria-label={tx(group.label)}>
+            {!collapsed && !(group.id === 'overview' && items.length === 1) && <h2 className={cn('mx-2 mb-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted', index === 0 ? 'mt-1.5' : 'mt-3.5')}>{tx(group.label)}</h2>}
+            {collapsed && index > 0 && <div className="mx-3 my-1.5 border-t border-border-subtle" aria-hidden />}
+            <ul className="space-y-0.5">{items.map(menu => <li key={menu.id}><NavItem menu={menu} active={menu.id === activeId} collapsed={collapsed} /></li>)}</ul>
+          </section>)}
+        </nav>
         {favoriteMenus.length > 0 && <section aria-label={t('favorites')}>
           {!collapsed && <h2 className="mx-2 mb-1 mt-3.5 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted"><Star className="size-3" aria-hidden />{t('favorites')}</h2>}
           <ul className="space-y-0.5">{favoriteMenus.map(menu => <li key={menu.id}><NavItem menu={menu} active={menu.id === activeId} collapsed={collapsed} /></li>)}</ul>
@@ -38,7 +40,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
           {!collapsed && <h2 className="mx-2 mb-1 mt-3.5 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted"><Clock3 className="size-3" aria-hidden />{t('recent')}</h2>}
           <ul className="space-y-0.5">{recentItems.map(r => <li key={r.menuId}><NavItem menu={registry.menuById(r.menuId)} active={false} collapsed={collapsed} href={r.url} labelPrefix={t('recent')} /></li>)}</ul>
         </section>}
-      </nav>
+      </div>
       {!collapsed && <div className="shrink-0 border-t border-border-subtle px-4 py-2.5 text-[10px] text-text-muted">{lang === 'ko' ? '통합 프로토타입 · 합성 데이터' : 'Integrated prototype · synthetic data'}</div>}
     </aside>
   </TooltipProvider>;

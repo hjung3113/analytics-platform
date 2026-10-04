@@ -73,7 +73,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
     </header>
     {slots.contextBar}
     {contextExtension && !gate && <div className="px-8 pt-3">{contextExtension}</div>}
-    <div className="flex-1 px-8 pb-9 pt-7">{gate ?? children}</div>
+    <div data-platform-page-content className="flex-1 px-8 pb-9 pt-7">{gate ?? children}</div>
   </div>;
 }
 

@@ -305,7 +305,7 @@ test.describe('목적지 단건 조회 (06 §6.2, §22)', () => {
     // status/name block under the h1 (header query) and the active tabpanel (panel query) — and for no
     // aria-busy to remain in main. Otherwise a fast correct header plus a slower panel that later renders
     // a substituted Selection row or an unauthorized row would pass.
-    const header = page.getByRole('main').locator('div.flex-1 > div').first(); // PlatformPage body renders the header query result before the tabs
+    const header = page.getByRole('main').locator('[data-platform-page-content] > :first-child'); // PlatformPage body renders the header query result before the tabs
     const panel = page.getByRole('tabpanel'); // Radix mounts only the active tab's content
 
     // 1. Granted room (PH-101): the URL id's own row renders on both surfaces, and the inherited Selection stays untouched in the URL.
@@ -663,7 +663,7 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
 
     // Recent list: the seeded accessible row renders; the operations row must be dropped by the
     // Sidebar's visibleMenus guard, not by the list happening to be empty.
-    const recentList = nav.getByRole('region', { name: '최근 방문' });
+    const recentList = page.getByRole('region', { name: '최근 방문' });
     await expect(recentList.getByRole('link', { name: '최근 방문: 설비 마스터' })).toBeVisible();
     await expect(recentList.getByRole('link', { name: '최근 방문: 메뉴 레지스트리' })).toHaveCount(0);
     await expect(recentList.locator('a[href="/admin/registry"]')).toHaveCount(0);
@@ -697,7 +697,7 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
       await page.keyboard.press('Escape');
     }
 
-    const recentList = nav.getByRole('region', { name: '최근 방문' });
+    const recentList = page.getByRole('region', { name: '최근 방문' });
     await expect(recentList.getByRole('link', { name: '최근 방문: 지표 카탈로그' })).toBeVisible();
     await expect(recentList.getByRole('link', { name: '최근 방문: 메뉴 레지스트리' })).toHaveCount(0);
     await expect(recentList.locator('a[href="/admin/registry"]')).toHaveCount(0);
