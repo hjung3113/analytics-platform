@@ -9,14 +9,6 @@
 
 @theme inline {
   --color-surface-sunken: rgb(var(--surface-sunken));
-  --color-nav: rgb(var(--nav-surface));
-  --color-nav-hover: rgb(var(--nav-surface-hover));
-  --color-nav-subtle: rgb(var(--nav-surface-subtle));
-  --color-nav-raised: rgb(var(--nav-surface-raised));
-  --color-nav-divider: rgb(var(--nav-divider));
-  --color-nav-text: rgb(var(--nav-text));
-  --color-nav-text-faint: rgb(var(--nav-text-faint));
-  --color-nav-focus: rgb(var(--nav-focus));
   --color-success-label: rgb(var(--text-success-label));
   --color-info-label: rgb(var(--text-info-label));
   --color-warning-label: rgb(var(--text-warning-label));
@@ -66,7 +58,7 @@
 
 @layer utilities {
   .tabular { font-variant-numeric: tabular-nums lining-nums; }
-  .nav-scroll { scrollbar-width: thin; scrollbar-color: rgb(var(--nav-surface-raised)) transparent; }
+  .shell-scroll { scrollbar-width: thin; scrollbar-color: rgb(var(--border-strong)) transparent; }
   .t-page-title { font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -0.3px; }
   .t-section-title { font-size: 18px; line-height: 28px; font-weight: 600; }
   .t-card-title { font-size: 14px; line-height: 20px; font-weight: 600; }

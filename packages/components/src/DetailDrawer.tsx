@@ -78,7 +78,7 @@ export function DetailDrawer({ title, subtitle, headerActions, context, tabs, on
     {!wide && <div data-testid="drawer-scrim" className="fixed inset-0 z-30 bg-text-primary/45" onClick={onClose} aria-hidden />}
     <aside ref={asideRef} role="dialog" aria-modal={wide ? 'false' : 'true'} aria-labelledby={`${id}-t`}
     onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}
-    className={`fixed bottom-0 right-0 top-[54px] ${wide ? 'z-30' : 'z-40'} flex w-detail-panel max-w-[95vw] flex-col border-l border-border-strong bg-surface-detail shadow-[-8px_0_24px_-12px_rgba(17,24,39,0.18)]`}>
+    className={`fixed bottom-0 right-0 top-[var(--toolbar-height)] ${wide ? 'z-30' : 'z-40'} flex w-detail-panel max-w-[95vw] flex-col border-l border-border-strong bg-surface-detail shadow-[-8px_0_24px_-12px_rgba(17,24,39,0.18)]`}>
     <header className="flex items-start justify-between gap-3 border-b border-border-subtle px-5 py-4">
       <div className="min-w-0">
         <h2 id={`${id}-t`} className="t-section-title truncate">{title}</h2>

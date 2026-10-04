@@ -22,7 +22,7 @@ export function GlobalContextBar() {
   if (!shown.length) return null;
   const editable = (k: ContextKey) => cap[k] !== 'unsupported';
 
-  return <div role="region" aria-label={t('globalContext')} className="sticky top-0 z-20 border-b border-border-subtle bg-surface-canvas/95 px-5 py-2 backdrop-blur">
+  return <div role="region" aria-label={t('globalContext')} className="border-b border-border-subtle bg-surface-canvas/95 px-5 py-2 backdrop-blur">
     <div className="flex flex-wrap items-center gap-2">
       <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t('globalContext')}</span>
       {shown.includes('time') && (editable('time') ? <PeriodControl cap={cap.time} /> : <CarriedChip k="time" cap={cap.time} value={global.from ? `${short(global.from)} → ${short(global.to!)}` : ''} onRemove={() => setGlobal({ from: null, to: null })} />)}

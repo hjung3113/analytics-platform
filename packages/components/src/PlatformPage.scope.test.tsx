@@ -89,3 +89,94 @@ describe('PlatformPage Scope gate follow-ups (#183)', () => {
     }
   });
 });
+
+
+describe('PlatformPage 50px header (#194)', () => {
+  it('keeps title, full description, favorite and actions in one sticky header above Context and padded content', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    const adapter = adapterWith(async () => ({ status: 'valid', grantedRooms: [] }));
+    const view = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ contextBar: <div>global context</div> }}>
+      <PlatformPage title="Custom title" description="A long full description" dataTrustSummary={<span>trust</span>} secondaryActions={<button>secondary</button>} primaryAction={<button>primary</button>}><p>page body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByText('page body');
+    const header = view.container.querySelector('header')!;
+    expect(header.className).toContain('h-[50px]');
+    expect(header.parentElement).toHaveClass('sticky', 'top-0');
+    expect(header).not.toHaveClass('sticky');
+    expect(header.parentElement?.contains(screen.getByText('global context'))).toBe(true);
+    expect(header.querySelector('h1')?.textContent).toBe('Custom title');
+    expect(screen.getByText('A long full description').getAttribute('title')).toBe('A long full description');
+    expect(header.textContent).toContain('trust');
+    expect(header.contains(screen.getByRole('button', { name: 'secondary' }))).toBe(true);
+    expect(header.contains(screen.getByRole('button', { name: 'primary' }))).toBe(true);
+    expect(header.nextElementSibling?.textContent).toBe('global context');
+    const content = view.container.querySelector('[data-platform-page-content]');
+    expect(content).toBe(screen.getByText('page body').parentElement);
+    expect(view.container.querySelectorAll('[data-platform-page-content]')).toHaveLength(1);
+    expect(content?.className).toContain('px-8');
+    expect(content?.contains(header)).toBe(false);
+    expect(content?.contains(screen.getByText('global context'))).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: '즐겨찾기에 추가' }));
+    expect(screen.getByRole('button', { name: '즐겨찾기에서 제거' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('retains header identity and Context but gates trust, actions, extension and body until Scope is valid', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    const adapter = adapterWith(async () => ({ status: 'forbidden', grantedRooms: [] }));
+    const view = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ contextBar: <div>global context</div> }}>
+      <PlatformPage title="Gated title" description="Gated description" dataTrustSummary={<span>trust</span>} secondaryActions={<button>secondary</button>} primaryAction={<button>primary</button>} contextExtension={<div>extension</div>}><p>page body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByText('이 Scope에 접근 권한이 없습니다');
+    expect(view.container.querySelector('header')?.className).toContain('h-[50px]');
+    expect(screen.getByRole('heading', { name: 'Gated title' })).toBeTruthy();
+    expect(screen.getByText('global context')).toBeTruthy();
+    expect(view.container.querySelector('[data-platform-page-content]')?.textContent).toContain('이 Scope에 접근 권한이 없습니다');
+    for (const text of ['trust', 'secondary', 'primary', 'extension', 'page body']) expect(screen.queryByText(text)).toBeNull();
+  });
+});
+
+
+describe('page header width (#194 FIX2)', () => {
+  it('allows breadcrumb and rich title to shrink, yields description first and reserves favorite/actions', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}>
+      <PlatformPage title={<span>Long object ID</span>} description="Description" crumbs={[{ label: 'Long parent', href: '/' }]} primaryAction={<button>Save</button>}><p>body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByText('body');
+    const title = screen.getByRole('heading', { name: 'Long object ID' });
+    expect(title).toHaveClass('min-w-0', 'shrink', 'truncate');
+    expect(title).not.toHaveClass('shrink-0');
+    expect(title).toHaveAttribute('tabindex', '0');
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveClass('min-w-0');
+    expect(screen.getByRole('link', { name: 'Long parent' })).toHaveClass('truncate');
+    expect(screen.getByText('Description')).toHaveClass('min-w-0', 'basis-0');
+    expect(screen.getByRole('button', { name: '즐겨찾기에 추가' })).toHaveClass('shrink-0');
+    expect(screen.getByRole('button', { name: 'Save' }).parentElement).toHaveClass('shrink-0', 'flex-nowrap');
+    fireEvent.focus(title);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Long object ID');
+  });
+
+  it.each(['', '   '])('does not create an empty description tab stop (%j)', async description => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    const view = render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}>
+      <PlatformPage description={description}><p>body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByText('body');
+    expect(view.container.querySelector('header div[tabindex="0"]')).toBeNull();
+  });
+
+  it('keeps the actual parent link shrinkable and exposes its full label', async () => {
+    const detailRegistry = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [
+      ...registry.menus, { ...registry.menus[0], id: 'detail', path: '/detail', primary: false, navHidden: true, parent: 'home' },
+    ] });
+    window.history.replaceState(null, '', '/detail?v=1&scopeId=ICH');
+    render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={detailRegistry}>
+      <PlatformPage title="Detail"><p>body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByText('body');
+    const parent = screen.getByRole('link', { name: '홈' });
+    expect(parent).toHaveClass('min-w-0', 'truncate');
+    expect(parent).toHaveAttribute('title', '홈');
+  });
+
+});

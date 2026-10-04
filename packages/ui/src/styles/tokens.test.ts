@@ -65,3 +65,11 @@ it('keeps control boundaries identifiable on enabled, hovered and selected surfa
     expect(contrast('border-control', background), background).toBeGreaterThanOrEqual(3);
   }
 });
+
+
+it('keeps shell planned labels, normal Scope grants and language readable in sidebar row states', () => {
+  for (const background of ['surface-sidebar', 'surface-row-hover', 'surface-row-selected']) {
+    expect(contrast('text-secondary', background), `secondary on ${background}`).toBeGreaterThanOrEqual(4.5);
+    expect(contrast('text-warning-label', background), `warning on ${background}`).toBeGreaterThanOrEqual(4.5);
+  }
+});

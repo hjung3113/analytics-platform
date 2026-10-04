@@ -4,12 +4,12 @@ import { useI18n, usePlatform } from '@ap/kernel';
 import { LoadingBlock } from '@ap/components';
 import { cn } from '@ap/ui';
 import { CommandPalette } from './CommandPalette';
-import { Sidebar } from './Sidebar';
-import { TopBar } from './TopBar';
+import { AppSidebar } from './AppSidebar';
+import { AppRail } from './AppRail';
 
 const COLLAPSE_KEY = 'platform:sidebar-collapsed';
 
-/** Application Shell (§7): 270/64px sidebar, 54px top bar; pages render only into the content slot. */
+/** Application Shell (§7): 52px rail, 240/56px sidebar, page-owned 50px header; pages render only into the content slot. */
 export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(() => {
     try { const v = localStorage.getItem(COLLAPSE_KEY); return v === null ? window.innerWidth < 1440 : v === '1'; } catch { return false; }
@@ -26,9 +26,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return <div className="flex h-full overflow-hidden">
     <a href="#platform-main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">Skip to content</a>
-    <div className="shrink-0">{<Sidebar collapsed={collapsed} onToggle={toggle} />}</div>
+    <AppRail />
+    <AppSidebar collapsed={collapsed} onToggle={toggle} />
     <div className="flex min-w-0 flex-1 flex-col">
-      <TopBar />
       <main id="platform-main" tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto outline-none">
         <Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}>{children}</Suspense>
       </main>

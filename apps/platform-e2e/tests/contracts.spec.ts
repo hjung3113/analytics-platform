@@ -23,6 +23,35 @@ test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
   });
 });
 
+test.describe('셸 sticky 계약 (06 §7)', () => {
+  test('main 스크롤 뒤에도 페이지 제목·액션은 Context에 가리지 않는다', async ({ page }, testInfo) => {
+    await page.goto(PRODUCTIVITY);
+    await expect(mainHeading(page)).toHaveText('생산성 개요');
+    await expectScopeValid(page, 'ICH · Site A');
+    await expect(contextBar(page)).toBeVisible();
+    const main = page.locator('#platform-main');
+    // The real overview has KPI, trend and breakdown sections; no synthetic spacer is inserted.
+    await expect.poll(() => main.evaluate(el => el.scrollHeight - el.clientHeight)).toBeGreaterThan(100);
+    await main.evaluate(el => { el.scrollTop = 100; });
+    await expect.poll(() => main.evaluate(el => el.scrollTop)).toBeGreaterThanOrEqual(100);
+    const header = main.locator('header').filter({ has: page.getByRole('heading', { level: 1 }) });
+    for (const target of [mainHeading(page), header.getByRole('button', { name: '새로고침', exact: true })]) {
+      await expect(target).toBeVisible();
+      await expect.poll(() => target.evaluate(el => {
+        const rect = el.getBoundingClientRect();
+        const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+        return hit !== null && el.contains(hit);
+      })).toBe(true);
+    }
+    const headerBox = await header.boundingBox();
+    const contextBox = await contextBar(page).boundingBox();
+    expect(headerBox).not.toBeNull();
+    expect(contextBox).not.toBeNull();
+    expect(contextBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height);
+    await evidence(page, testInfo, 'page-header-context-after-scroll');
+  });
+});
+
 test.describe('딥링크 복원 (06 §6.4)', () => {
   test('전역 Context와 page 소유 상태를 URL에서 그대로 복원한다', async ({ page }, testInfo) => {
     const url = `${PRODUCTIVITY}&granularity=day`;
@@ -237,7 +266,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     }
   });
 
-  test('관리자는 로고 칸 전환기로 운영 콘솔을 오가며 전역 Context를 보존한다', async ({ page }, testInfo) => {
+  test('관리자는 레일 공간 버튼으로 운영 콘솔을 오가며 전역 Context를 보존한다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(EQUIPMENT_URL);
     const switcher = page.getByRole('button', { name: '공간: 분석' });
@@ -252,8 +281,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await page.keyboard.press('Escape');
     await evidence(page, testInfo, 'admin-analytics');
 
-    await switcher.click();
-    await page.getByRole('menuitemradio', { name: '운영 콘솔' }).click();
+    await page.getByRole('button', { name: '공간: 운영 콘솔' }).click();
     expect(new URL(page.url()).pathname).toBe('/admin/roles');
     const q = query(page);
     expect(q.get('scopeId')).toBe('ICH');
@@ -264,7 +292,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     expect(q.get('page')).toBeNull();
     await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toBeVisible();
     await expect(nav.getByRole('link', { name: '설비 마스터' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: '공간: 운영 콘솔' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '공간: 운영 콘솔' })).toHaveAttribute('aria-current', 'page');
     await evidence(page, testInfo, 'admin-operations');
 
     // The switch pushed a history entry: Back lands on the exact origin URL (page=2 included, 06 §6.4)
@@ -272,7 +300,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await page.goBack();
     await expect.poll(() => page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(EQUIPMENT_URL);
     await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '공간: 분석' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '공간: 분석' })).toHaveAttribute('aria-current', 'page');
     await evidence(page, testInfo, 'admin-history-back');
 
     await page.goForward();
@@ -288,8 +316,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toBeVisible();
     await evidence(page, testInfo, 'admin-history-forward');
 
-    await page.getByRole('button', { name: '공간: 운영 콘솔' }).click();
-    await page.getByRole('menuitemradio', { name: '분석' }).click();
+    await page.getByRole('button', { name: '공간: 분석' }).click();
     expect(new URL(page.url()).pathname).toBe('/');
     const back = query(page);
     expect(back.get('scopeId')).toBe('ICH');
@@ -307,7 +334,7 @@ test.describe('목적지 단건 조회 (06 §6.2, §22)', () => {
     // status/name block under the h1 (header query) and the active tabpanel (panel query) — and for no
     // aria-busy to remain in main. Otherwise a fast correct header plus a slower panel that later renders
     // a substituted Selection row or an unauthorized row would pass.
-    const header = page.getByRole('main').locator('div.flex-1 > div').first(); // PlatformPage body renders the header query result before the tabs
+    const header = page.getByRole('main').locator('[data-platform-page-content] > :first-child'); // PlatformPage body renders the header query result before the tabs
     const panel = page.getByRole('tabpanel'); // Radix mounts only the active tab's content
 
     // 1. Granted room (PH-101): the URL id's own row renders on both surfaces, and the inherited Selection stays untouched in the URL.
@@ -665,10 +692,9 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
 
     // Recent list: the seeded accessible row renders; the operations row must be dropped by the
     // Sidebar's visibleMenus guard, not by the list happening to be empty.
-    await nav.getByRole('button', { name: '최근 방문' }).click();
-    const recentList = nav.locator('#nav-recent');
-    await expect(recentList.getByRole('link', { name: '설비 마스터' })).toBeVisible();
-    await expect(recentList.getByRole('link', { name: '메뉴 레지스트리' })).toHaveCount(0);
+    const recentList = page.getByRole('region', { name: '최근 방문' });
+    await expect(recentList.getByRole('link', { name: '최근 방문: 설비 마스터' })).toBeVisible();
+    await expect(recentList.getByRole('link', { name: '최근 방문: 메뉴 레지스트리' })).toHaveCount(0);
     await expect(recentList.locator('a[href="/admin/registry"]')).toHaveCount(0);
 
     await page.goto(DIRECT_FOCUS_URL);
@@ -700,10 +726,9 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
       await page.keyboard.press('Escape');
     }
 
-    await nav.getByRole('button', { name: '최근 방문' }).click();
-    const recentList = nav.locator('#nav-recent');
-    await expect(recentList.getByRole('link', { name: '지표 카탈로그' })).toBeVisible();
-    await expect(recentList.getByRole('link', { name: '메뉴 레지스트리' })).toHaveCount(0);
+    const recentList = page.getByRole('region', { name: '최근 방문' });
+    await expect(recentList.getByRole('link', { name: '최근 방문: 지표 카탈로그' })).toBeVisible();
+    await expect(recentList.getByRole('link', { name: '최근 방문: 메뉴 레지스트리' })).toHaveCount(0);
     await expect(recentList.locator('a[href="/admin/registry"]')).toHaveCount(0);
 
     await page.goto(DIRECT_FOCUS_URL);

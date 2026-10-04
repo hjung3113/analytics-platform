@@ -9,7 +9,7 @@ export type Recent = { menuId: string; url: string; at: number };
 export type Toast = { id: number; text: string; tone: 'info' | 'warning' | 'danger' };
 /**
  * Shell slots (docs/06 §8) the app fills at composition time, so platform components never import the shell.
- * contextBar: rendered by PlatformPage above page content. topBarTools: extra TopBar controls (today the mock dev tools).
+ * contextBar: rendered by PlatformPage above page content. topBarTools: extra controls at the bottom of the app rail (today the mock dev tools).
  */
 export type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode };
 export type LinkOptions = { params?: Record<string, string>; page?: Record<string, string>; global?: Partial<GlobalContext>; returnTo?: boolean };

@@ -345,12 +345,14 @@ Sidebar collapsed    56px   (--sidebar-width-collapsed)
 Top header           없음
 Page header          50px   (--toolbar-height)
 Global context bar   48px
-Content padding      FeedbackOps PageShell 기준
+Content padding      FeedbackOps PageShell 기준 (좌우 32px / 위 28px / 아래 36px)
 Section gap          24px
 Component gap        12~16px
 ```
 
 치수 값의 단일 원본은 FeedbackOps `packages/ui/src/styles/tokens.css`의 레이아웃 토큰이다. 이전 기준(사이드바 270/64px, 상단 바 54px, `DESIGN.md` `sidebar-shell`/`top-bar`)은 ADR-0011로 대체됐다.
+
+50px 페이지 머리와 Context Bar는 스크롤되는 main 안에서 하나의 sticky 래퍼로 유지한다. Context Bar 자체에는 별도 sticky를 두지 않아 페이지 머리를 가리지 않는다. 본문은 FeedbackOps `PageShell`의 여백을 사용하며 분석 페이지에 폭 제한은 추가하지 않는다.
 
 분석 페이지에는 임의의 좁은 `max-width`를 적용하지 않는다.
 
@@ -409,7 +411,7 @@ Sidebar 기능(셸 구조는 §7, ADR-0011):
 - Collapse / Expand(240px ↔ 56px, `[` 단축키)
 - 그룹은 섹션 제목, 메뉴는 그 아래 목록
 - Favorite
-- Recent
+- Recent (최근 URL로 복귀; 접근성 이름에 “최근 방문” 맥락을 포함)
 - Permission-aware visibility
 - 메뉴 검색은 레일의 Command Palette(§10)로 한다. 사이드바 안에 별도 메뉴 필터를 두지 않는다.
 

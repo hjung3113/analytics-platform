@@ -4,9 +4,10 @@ App Shell(06 §8–9, 화면 설계 [07](../../docs/07_app_shell_wireframe.md)).
 
 ## 파일
 
-- `AppShell.tsx` — 사이드바(270px)/아이콘 레일(64px)/탑바(54px) 배치, `[` 단축키.
-- `Sidebar.tsx` — 그룹 아코디언, 권한 기반 노출, 즐겨찾기·최근, 메뉴 필터.
-- `TopBar.tsx` — Scope 선택(`session.scopes`)과 검증 상태, `error`에서 현재 Scope를 다시 고르면 `retryScope()`(다른 상태에서는 동작 없음, #183), `error`일 때 드롭다운에 'Scope 다시 확인'(목록에 없는 Scope도), ⌘K, 한/EN, `slots.topBarTools`.
+- `AppShell.tsx` — 레일(52px)·밝은 사이드바(240/56px)·스크롤 main 배치. `[` 단축키와 `platform:sidebar-collapsed` 저장 키·1440px 미만 기본 접힘 유지. 상단 바 없음.
+- `AppRail.tsx` — 접근 가능한 공간이 2개 이상일 때만 공간 버튼, Kernel `switchSpace`, 명령 팔레트, 레일 아래 `slots.topBarTools`·도움말·언어·사용자 메뉴.
+- `AppSidebar.tsx` — 공간 머리(50px)·접기, Scope 선택기, 그룹 섹션과 평평한 메뉴, 권한 기반 노출·즐겨찾기·최근. `주 메뉴` navigation은 Registry 메뉴 트리만 포함하고 즐겨찾기·최근은 그 밖의 이름 있는 section이다. 그룹은 region·heading이 아닌 이름 있는 group이다. 즐겨찾기·최근은 펼친 모드에만 표시하며 즐겨찾기 링크에는 aria-current를 부여하지 않는다. 세 영역은 동일한 사이드바 스크롤을 공유한다. 메뉴 검색은 팔레트만.
+- `ScopeSelector.tsx` — Scope 선택(`session.scopes`)과 검증 상태·room 부여 수, `error`에서 현재 Scope를 다시 고르면 `retryScope()`(다른 상태에서는 Kernel 동작 없음, #183), `error`일 때 'Scope 다시 확인'(목록에 없는 Scope도). 접힌 사이드바에서도 이름과 상태·room 설명(aria-describedby) 및 Tooltip을 유지. status만 polite live region으로 알린다.
 - `CommandPalette.tsx` — 메뉴 검색 이동.
 - `GlobalContextBar.tsx` — 기간·room_name·Condition·Selection·전달 Context 표시/편집. 선택지는 `useAdapterRequest`로 `contextOptions`·`evaluateSelection` 조회, 실패 시 오류와 재시도.
 - `RouteOutlet.tsx` — 현재 경로의 메뉴 화면 또는 미등록·계약 오류·권한 없음·미구현 상태.
@@ -16,7 +17,7 @@ App Shell(06 §8–9, 화면 설계 [07](../../docs/07_app_shell_wireframe.md)).
 
 - import 가능: `@ap/contracts`, `@ap/kernel`, `@ap/components`, `@ap/ui`. 앱·mock·메뉴 화면 import 금지. 특정 메뉴 id를 코드에 쓰지 않는다.
 - 도메인 선택지(설비·room·조건 목록)를 셸이 계산하지 않는다. 어댑터가 세션 권한으로 거른 결과를 표시만 한다.
-- 개발 전용 도구(역할 전환, 응답 시나리오)는 셸에 넣지 않는다. 앱이 `slots.topBarTools`로 주입한다.
+- 개발 전용 도구(역할 전환, 응답 시나리오)는 셸에 넣지 않는다. 앱이 `slots.topBarTools`로 주입하고 레일 아래에 렌더한다(ADR-0009 슬롯 이름 유지).
 - 레이아웃 치수·IA 변경은 07/06 §9 변경이다. 워크스페이스 층(06 §9.1)도 여기와 Registry에 얹는다.
 
 ## 검증

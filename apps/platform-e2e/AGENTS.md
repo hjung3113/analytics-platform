@@ -15,7 +15,7 @@
 | 목적지 단건 조회 | §6.2, §22 | 설비 상세 직접 URL: URL id의 row를 대상으로 site 검증 뒤 room 권한을 서버가 다시 검증한다(미승인 room → 서버 forbidden `No grant for equipment`, row 필드 무노출), 상세는 전달된 Selection으로 대체하지 않고 URL의 `selectedEquipmentIds`를 그대로 보존하며, 미지정 id는 권한 거부가 아니라 empty(0건)다 |
 | 공통 상태 화면 | §19 | 오류·시간 초과·0건·권한 거부 |
 | returnTo 복귀 | §22 | 떠난 URL로 정확히 복귀, 앱 밖 `returnTo` 무시, 사이클타임의 정렬·bucket·bin을 returnTo에 보존하고 복귀 후 유지 — 복귀 전·후 행 값까지 검사(시작∈[bucket, bucket+1h), 사이클타임∈bin 범위, 시작 오름차순) |
-| 워크스페이스 | §9.1 | 진입 가능 공간 1개 역할엔 전환기·운영 콘솔 메뉴 비노출, 진입 권한 없는 공간의 직접 URL은 메뉴 권한 검사 전 공간 거부(`space=operations`, URL 무변경), 관리자 전환기로 운영 콘솔 왕복 시 전역 Context 보존·page 키 Drop·사이드바·팔레트 공간 표기 |
+| 워크스페이스 | §9.1 | 진입 가능 공간 1개 역할엔 전환기·운영 콘솔 메뉴 비노출, 진입 권한 없는 공간의 직접 URL은 메뉴 권한 검사 전 공간 거부(`space=operations`, URL 무변경), 관리자 레일 공간 버튼으로 운영 콘솔 왕복 시 전역 Context 보존·page 키 Drop·사이드바·팔레트 공간 표기 |
 | 메뉴 활용률 | §4·05 | 권한 없는 역할(engineer·viewer)은 메뉴 비노출 + 직접 URL 공간 거부(`space=operations`, URL 무변경), 관리자는 설비 방문 1회마다 설비 마스터 행의 방문 수가 정확히 +1(집계 표의 해당 행을 읽는다) |
 | 메뉴 레지스트리 | §9.1 | 권한 없는 역할(engineer·viewer)은 메뉴 비노출 + 직접 URL 공간 거부(`space=operations`, URL 무변경), 관리자는 `equipment-master` 행의 경로·권한 확인과 행 동작(보기)으로 선언 드로어(`requiresScope` 등)를 열고 `focus` page key가 URL에 기록된다 |
 | 메뉴 간 링크 허용 | §22 | 분석 권한이 없는 역할(viewer)은 지표 상세 사용처의 "사용처 열기" 링크 대신 사유(`열 권한이 없습니다`)를 보고, admin에게는 같은 링크가 열린다 |

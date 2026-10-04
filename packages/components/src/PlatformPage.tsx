@@ -1,7 +1,7 @@
 import { ChevronRight, Loader2, MapPinOff, RotateCw, ServerCrash, Star } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
-import { Button, cn } from '@ap/ui';
+import { Button, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { StateMessage } from './StateView';
 
 export type PlatformPageProps = {
@@ -23,7 +23,6 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const { route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots } = usePlatform();
   const { t, tx } = useI18n();
   const menu = route!.menu;
-  const group = registry.groupById(menu.group);
   const favoriteTarget = menu.navHidden ? null : menu;
   const isFavorite = favoriteTarget ? favorites.includes(favoriteTarget.id) : false;
   const parent: MenuEntry | null = menu.parent ? registry.menuById(menu.parent) : null;
@@ -46,37 +45,43 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
             body={<>{t('stateForbiddenBody')} <span className="t-mono">scopeId={scope.scopeId}</span></>} />;
   }
 
+  const titleResolved = title ?? tx(menu.label);
+  const descriptionResolved = description ?? tx(menu.description);
+  const hasDescription = typeof descriptionResolved === 'string' ? descriptionResolved.trim().length > 0 : descriptionResolved != null && descriptionResolved !== false;
+
   return <div className="flex min-h-full flex-col">
-    <header className="flex flex-wrap items-end justify-between gap-3 px-5 pb-3 pt-4">
-      <div className="min-w-0 space-y-1">
-        <nav aria-label="Breadcrumb">
-          <ol className="flex flex-wrap items-center gap-1 text-[12px] text-text-secondary">
-            <li>{tx(group.label)}</li>
-            {parent && <><ChevronRight className="size-3 text-text-disabled" aria-hidden /><li><PlatformLink className="hover:text-accent-primary hover:underline" href={linkTo(parent.id)}>{tx(parent.label)}</PlatformLink></li></>}
-            {crumbs.map((c, i) => <li key={i} className="flex items-center gap-1"><ChevronRight className="size-3 text-text-disabled" aria-hidden />{c.href ? <PlatformLink className="hover:text-accent-primary hover:underline" href={c.href}>{c.label}</PlatformLink> : c.label}</li>)}
-            <ChevronRight className="size-3 text-text-disabled" aria-hidden />
-            <li aria-current="page" className="text-text-primary">{tx(menu.label)}</li>
-          </ol>
-        </nav>
-        <div className="flex items-center gap-2">
-          <h1 className="t-page-title truncate">{title ?? tx(menu.label)}</h1>
+    <div className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
+      <header className="flex h-[50px] shrink-0 overflow-x-auto items-center justify-between gap-3 border-b border-border-subtle bg-surface-canvas px-4">
+        <div className="flex min-w-6 flex-1 items-center gap-2">
+          {(parent || crumbs.length > 0) && <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1 text-xs text-text-muted">
+            {parent && <><PlatformLink className="min-w-0 truncate hover:text-accent-primary" title={tx(parent.label)} href={linkTo(parent.id)}>{tx(parent.label)}</PlatformLink><ChevronRight className="size-3 shrink-0" aria-hidden /></>}
+            {crumbs.map((crumb, index) => <span key={index} className="flex min-w-0 items-center gap-1">
+              {crumb.href ? <PlatformLink className="min-w-0 truncate hover:text-accent-primary" title={typeof crumb.label === 'string' ? crumb.label : undefined} href={crumb.href}>{crumb.label}</PlatformLink> : <span className="truncate">{crumb.label}</span>}
+              <ChevronRight className="size-3 shrink-0" aria-hidden />
+            </span>)}
+          </nav>}
+          <TooltipProvider><Tooltip><TooltipTrigger asChild>
+            <h1 tabIndex={0} title={typeof titleResolved === 'string' ? titleResolved : undefined} className="min-w-0 shrink truncate text-sm font-semibold text-text-primary">{titleResolved}</h1>
+          </TooltipTrigger><TooltipContent>{titleResolved}</TooltipContent></Tooltip></TooltipProvider>
           {favoriteTarget && <button type="button" onClick={() => toggleFavorite(favoriteTarget.id)} aria-pressed={isFavorite}
             aria-label={isFavorite ? t('removeFavorite') : t('addFavorite')} title={isFavorite ? t('removeFavorite') : t('addFavorite')}
-            className="grid size-8 place-items-center rounded-sm text-text-muted hover:bg-surface-sunken hover:text-accent-warn">
-            <Star className={cn('size-4', isFavorite && 'fill-accent-warn text-accent-warn')} aria-hidden />
+            className="grid size-6 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover hover:text-accent-warn">
+            <Star className={cn('size-3.5', isFavorite && 'fill-accent-warn text-accent-warn')} aria-hidden />
           </button>}
+          {hasDescription && <TooltipProvider><Tooltip><TooltipTrigger asChild>
+            <div tabIndex={0} className="min-w-0 flex-1 basis-0 truncate text-xs text-text-muted" title={typeof descriptionResolved === 'string' ? descriptionResolved : undefined}>{descriptionResolved}</div>
+          </TooltipTrigger><TooltipContent>{descriptionResolved}</TooltipContent></Tooltip></TooltipProvider>}
         </div>
-        <p className="max-w-3xl text-[13px] text-text-secondary">{description ?? tx(menu.description)}</p>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {!gate && dataTrustSummary}
-        {!gate && secondaryActions}
-        {!gate && primaryAction}
-      </div>
-    </header>
-    {slots.contextBar}
-    {contextExtension && !gate && <div className="px-5 pt-3">{contextExtension}</div>}
-    <div className="flex-1 px-5 pb-6 pt-3">{gate ?? children}</div>
+        <div className="flex shrink-0 flex-nowrap items-center gap-2 whitespace-nowrap">
+          {!gate && dataTrustSummary}
+          {!gate && secondaryActions}
+          {!gate && primaryAction}
+        </div>
+      </header>
+      {slots.contextBar}
+    </div>
+    {contextExtension && !gate && <div className="px-8 pt-3">{contextExtension}</div>}
+    <div data-platform-page-content className="flex-1 px-8 pb-9 pt-7">{gate ?? children}</div>
   </div>;
 }
 
