@@ -7,6 +7,7 @@
 - 표 행 복사(#174, 닫힘) 실확인: 실제 엑셀·구글 시트 붙여넣기, Safari 클립보드, HTTP 경로 실브라우저.
 - `@ap/ui`가 쓰지 않는 의존 선언 정리: `@radix-ui/*` 9개·`class-variance-authority`·`clsx`·`tailwind-merge`(소스는 `@fops/ui` 재수출뿐). 지워도 되는지 빌드로 확인.
 - lucide 버전 정렬: 플랫폼 `^1.48` / FeedbackOps `0.469`.
+- 앱 Tailwind 소스 범위: `apps/platform-web/src/style.css`를 `@import "tailwindcss" source(none)` + 명시 `@source`로 좁혀 Markdown 글자가 CSS를 만들지 않게 할지(#220에서 문서 삭제로 selector 5개가 빠졌다). 바꾸면 CSS selector 비교가 한 번 크게 움직인다.
 - 셸 치수 리터럴: 페이지 머리 50px·Context 바 48px가 토큰(`--toolbar-height`) 대신 코드 리터럴이다(값은 같다).
 - Context 바에는 Lot·PPID·Recipe·지표 쌍을 새로 지정하는 편집기가 없다 — URL로 받은 값을 지우기만 한다(`GlobalContextBar.tsx`). 도메인 선택지가 정해진 뒤 만든다.
 - `AnalysisChartFrame` Compare에 이전 기간 x축 정렬 옵션이 없어 생산성 개요가 bucket index 정렬로 우회한다(`ProductivityOverview.tsx`의 우회 주석).
