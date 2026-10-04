@@ -65,6 +65,7 @@
 - [HANDOFF](../HANDOFF.md) — 현재 세션 배경과 후속 작업 안내. 역사 기록은 현재 계약·권한을 대체하지 않는다.
 - [CONTEXT](../CONTEXT.md) — 현행 도메인 용어와 관계. [ADR-0005](adr/0005-scope-room-name-line-independent.md)는 room_name 기준 Scope와 독립 Line 축([ADR-0001](adr/0001-scope-hierarchy-site-line-only.md)의 Scope 주장 대체), [ADR-0002](adr/0002-stgroup-materializes-to-equipment-ids.md)는 Equipment Group Condition/Selection 두 층, [ADR-0004](adr/0004-site-is-db-partition-not-column.md)는 Site DB 경계·전역 유일 EquipmentID의 근거다. 전역 소비 계약은 06을 따른다.
 - [ADR-0017](adr/0017-shared-outcome-banner.md) — 같은 위젯 응답의 페이지 배너 + 간결 상태(B안). 계약은 [06 §19](06_platform_ui_contract.md#19-loading--empty--error-taxonomy), 시각 규칙은 [DESIGN](../DESIGN.md#shared-interaction-and-data-states).
+- 디자인 2차 컨펌 ADR(2026-10-04, 사용자): [ADR-0014](adr/0014-chart-legend-period-grouping.md) 차트 범례 기간별 그룹·파생 선 패턴, [ADR-0015](adr/0015-context-bar-priority-overflow.md) Context 바 우선순위 넘침(한 줄 48px), [ADR-0016](adr/0016-page-filter-bar.md) 공통 PageFilterBar. FeedbackOps 2단계: [ADR-0018](adr/0018-feedbackops-stage2-screens-into-platform-menus.md) 화면은 플랫폼 메뉴로 이전, 백엔드는 도메인 API로 유지(진행 [#213](https://github.com/hjung3113/analytics-platform/issues/213)).
 - 기술 결정 ADR: [ADR-0006](adr/0006-grid-free-first-engine-hidden-from-menus.md) 그리드 편의 기능은 무료 경로로 먼저 적용하고 표 엔진은 메뉴에 드러내지 않는다(2026-10-02 범위·유료 전환 경로), [ADR-0007](adr/0007-perspective-browser-engine-only.md) 자유 피벗 엔진은 브라우저 안에서만(서버 판정 우회 금지), [ADR-0008](adr/0008-table-owned-export-fixed-toolbar.md) 표 내보내기·복사는 표 부품이 소유하고 툴바는 고정 배치(D안).
 
 ## 원본
