@@ -90,6 +90,8 @@ const dict = {
   dataThrough: { ko: '데이터 기준', en: 'Data through' },
   coverage: { ko: '커버리지', en: 'Coverage' },
   metricVersion: { ko: '지표 버전', en: 'Metric version' },
+  currentPeriod: { ko: '현재 기간', en: 'Current period' },
+  previousPeriod: { ko: '이전 기간', en: 'Previous period' },
   status: { ko: '상태', en: 'Status' },
   provisional: { ko: '잠정', en: 'Provisional' },
   final: { ko: '확정', en: 'Final' },
