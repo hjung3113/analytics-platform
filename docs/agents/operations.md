@@ -17,6 +17,7 @@
 - 작업자가 쓴 E2E는 실행해 보지 못하고 쓴 것이라 첫 실행에서 자주 깨진다(mock에 없는 값, primitive 기본값 추정, Radix 동작). 전체 E2E 전에 `cd apps/platform-e2e && pnpm exec playwright test -g "<describe 이름>"`으로 새 테스트만 먼저 돌린다.
 - 테스트를 고치는 라운드에는 `pnpm --filter <pkg> typecheck`도 넣는다 — vitest는 타입을 보지 않는다.
 - 스펙에 ADR 형식을 그대로 적어 준다(영어 예시를 주면 그대로 베낀다). 형식은 [`docs/adr/README.md`](../adr/README.md).
+- 읽기 전용 리뷰어는 dispatch 없이 첫 프롬프트로 띄우는 게 간단하다: `orca terminal create --worktree path:<repo> --command "codex --model <m> -c model_reasoning_effort=<e> -s workspace-write -a never 'Read .review/<n>-review-spec.md and follow it exactly.'"` → 상태 표시줄에서 모델·effort 확인 → 보고서 파일의 끝 표시(sentinel)를 백그라운드로 기다린다. GitHub 상태가 필요하면 `gh` 결과를 `.review/`에 스냅샷으로 넣어 준다(샌드박스는 네트워크 없음).
 
 ## 메모리(16GB 머신)
 
@@ -34,6 +35,7 @@
 - 강제 push는 훅이 막는다. 이미 push한 브랜치가 main과 충돌하면 rebase 대신 `git merge origin/main`(rebase는 첫 push 전에만).
 - 병렬 PR은 `05`·`06`·`DESIGN.md`·i18n 사전·E2E helper에서 자주 충돌한다 — 하나씩 병합하며 푼다.
 - CSS selector CI: 의도한 클래스 제거는 PR에 `css-removal-ok` 라벨 + 이유 코멘트(라벨만 달아도 재평가된다).
+- 앱 `src/style.css`의 `@import "tailwindcss"`는 소스를 지정하지 않아 Tailwind가 `apps/platform-web/` 아래 Markdown까지 훑는다. 문서에 `z-30`·`wide:pr-[32rem]` 같은 글자가 있으면 CSS가 생기므로, 그런 문서를 지우거나 고치면 CSS selector 비교가 "제거"로 실패할 수 있다(#220). 소스 코드에 그 클래스가 없는지 `git grep`으로 확인하고 `css-removal-ok`.
 - PR 대기는 CI 완료(+시간 상한)로만 한다. 리뷰 봇은 새 커밋을 다시 리뷰하지 않을 수 있다. `Closes #n` 자동 닫힘이 늦으면 병합 뒤 한 번 확인하고 직접 닫는다.
 
 ## 브라우저 확인과 캡처
