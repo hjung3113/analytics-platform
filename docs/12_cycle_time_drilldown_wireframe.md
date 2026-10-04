@@ -96,7 +96,7 @@ returnTarget는 Registry 목적지 + 검증된 구조화 상태만 허용하는 
 
 ## 4. WIREFRAME (Candidate)
 
-하나의 1440×2440 root에 1440×1200 artboard 두 개를 40px 간격으로 배치한다. 전체 경로와 Data Trust가 같은 board에 충분히 들어가도록 세로 1200px을 사용한다. 각 board는 동일한 [07](07_app_shell_wireframe.md) 셸: 54px 헤더, 270px `#0f1526` sidebar. 08/09/10/11이 이미 확립한 셸 시각 스타일을 그대로 재사용하고 현재 메뉴와 예시 Scope만 반영한다. 본문은 [DESIGN](../DESIGN.md) dashboard 20px padding/16px section gap, 수치는 tabular-nums, 표 행 최소 32px이다.
+하나의 1440×2440 root에 1440×1200 artboard 두 개를 40px 간격으로 배치한다. 전체 경로와 Data Trust가 같은 board에 충분히 들어가도록 세로 1200px을 사용한다. 각 board는 현재 [07](07_app_shell_wireframe.md) 셸을 소비하며 구조·본문 여백·gap은 [06 §7](06_platform_ui_contract.md#7-application-shell)을 따른다. 공유 표면·폰트는 FeedbackOps 원본, 수치 alignment·표 밀도·pairing은 [DESIGN](../DESIGN.md#tables)을 따르고 현재 메뉴와 예시 Scope만 반영한다.
 
 ### A. 사이클타임 상세 — primary artboard
 
@@ -206,6 +206,9 @@ Data Trust    Updated 09.24 00:10 KST / 계산 기준 00:08 KST / Metric v4(참�
 | Deferred | VOC 화면, 영속 주석 편집, 저장된 뷰, 자유 위젯 엔진 |
 
 ## 9. UX REVIEW (문서 단계)
+
+현재 시각 기준은 위의 FeedbackOps 기반 참조를 따른다. 아래 기존 정적 HTML/Step 2 검증의 셸 측정·검사 기록은 이전 산출물의 이력이며 #53에서 HTML을 변경하거나 재검증하지 않았다.
+
 
 2026-09-24 인터뷰 반영 검수는 이 Markdown의 계약·용어·왕복 규칙을 대상으로 했다. 아래의 기존 HTML/Step 2 검증 기록은 수정 전 산출물의 이력이며, 이번 작업에서 HTML을 갱신하거나 다시 검증한 결과가 아니다.
 

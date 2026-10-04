@@ -85,7 +85,7 @@ Candidate로 최초 등록은 서버 발급 `metricId`와 초안을 만들고, �
 
 ## 4. WIREFRAME (Candidate)
 
-정적 mockup은 **1440×900 두 artboard**, 세로 배치(전체 1440×1824, 간격 24). 각각 54px 헤더·270px 사이드바를 [07](07_app_shell_wireframe.md)의 셸 배치([DESIGN](../DESIGN.md) 토큰, 08/09/10/11/12가 이미 확립한 시각 스타일)로 재사용하며 활성 메뉴만 지표관리로 표시한다. 데이터는 합성 예시라고 각 화면에서 표시한다. App Shell 소유 컨트롤은 재설계하지 않는다.
+정적 mockup은 **1440×900 두 artboard**, 세로 배치(전체 1440×1824, 간격 24). 각각 현재 [07](07_app_shell_wireframe.md)의 셸 배치와 [06 §7](06_platform_ui_contract.md#7-application-shell)의 치수·여백, FeedbackOps 공유 토큰 및 [DESIGN](../DESIGN.md)의 플랫폼 확장·pairing을 소비하며 활성 메뉴만 지표관리로 표시한다. 데이터는 합성 예시라고 각 화면에서 표시한다. App Shell 소유 컨트롤은 재설계하지 않는다.
 
 ### A. Catalog List
 
@@ -211,6 +211,9 @@ Page Filter  [이름 또는 metricId 검색] [상태: 전체 ▾] [초기화] [�
 **Open:** 게시 초기화 선택 정책, 채번/동시 초안/게시 취소·보존, 정의 소유 조직/권한·Scope 공유 모델, 실제 grain·기간 귀속·분모 0/null·모집단·집계 검증, 분위수 계산 계약, 원천 참조/분석 버전 binding, Coverage 기준과 runtime Coverage 연결, 사용처 추적 공급자/완전성/갱신·개인정보 노출, 목록 URL 직렬화/볼륨/페이지네이션 방식, 정의 발행→mart 재계산의 준비 상태 계약.
 
 ## 9. UX REVIEW (문서 단계)
+
+현재 시각 기준은 위의 FeedbackOps 기반 참조를 따른다. 아래 기존 정적 HTML/Step 2 검증의 셸 측정·검사 기록은 이전 산출물의 이력이며 #53에서 HTML을 변경하거나 재검증하지 않았다.
+
 
 Step 1 검수 완료 후 Step 2 작성. 다음은 문서 대조 결과이며 런타임 테스트·최종 승인 결과가 아니다.
 

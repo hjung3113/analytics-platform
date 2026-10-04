@@ -60,7 +60,7 @@
 
 ## 4. WIREFRAME (Candidate)
 
-한 장, 1440×900. 콘텐츠는 셸 본문에서 세로 스크롤하며 아래 영역을 축소하거나 겹치지 않는다. 헤더 54px·사이드바 270px·색/아이콘/검색/프로필은 08/09가 이미 확립한 셸 시각 스타일을 그대로 소비한다. 현재 메뉴 표시만 생산성 분석으로 옮긴다. 본문은 Overview의 6영역 순서다. 아래 숫자·버전·시각·statusSource는 모두 **합성 예시**이며 실제 계산 정의나 서비스 존재를 확정하지 않는다.
+한 장, 1440×900. 콘텐츠는 셸 본문에서 세로 스크롤하며 아래 영역을 축소하거나 겹치지 않는다. 셸 구조·치수·본문 여백은 현재 [06 §7](06_platform_ui_contract.md#7-application-shell)/[07](07_app_shell_wireframe.md)을 소비하고 공유 색·폰트·primitive는 FeedbackOps 원본, 플랫폼 시각 확장은 [DESIGN](../DESIGN.md)을 따른다. 현재 메뉴 표시만 생산성 분석으로 옮긴다. 본문은 Overview의 6영역 순서다. 아래 숫자·버전·시각·statusSource는 모두 **합성 예시**이며 실제 계산 정의나 서비스 존재를 확정하지 않는다.
 
 ```text
 [07 Header: Analytics Platform | Scope: Site A | 메뉴 검색 | 사용자]
@@ -162,6 +162,9 @@
 | Open 유지 | Scope 상속, 최초 기본 Δ, timeDomain assertion 공급, 다중 Site 날짜·교대일 의미, 조회 상한/timeout/폴링 중단 |
 
 ## 9. UX REVIEW (문서 단계)
+
+현재 시각 기준은 위의 FeedbackOps 기반 참조를 따른다. 아래 기존 정적 HTML/Step 2 검증의 셸 측정·검사 기록은 이전 산출물의 이력이며 #53에서 HTML을 변경하거나 재검증하지 않았다.
+
 
 2026-09-24 인터뷰 반영 검수는 이 Markdown의 계약·용어·왕복 규칙을 대상으로 했다. 아래의 기존 HTML/Step 2 검증 기록은 수정 전 산출물의 이력이며, 이번 작업에서 HTML을 갱신하거나 다시 검증한 결과가 아니다.
 

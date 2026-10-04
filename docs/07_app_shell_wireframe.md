@@ -153,4 +153,4 @@ Scope의 포함 관계는 Site→room_name→StGroup→Equipment이며 실무 �
 | Open | 공지 배너 위치·게시기간/대상 메뉴/권한에 따른 노출 | 셸과 공지 도메인 설계 |
 | Open | 알림 벨·통합 배지의 읽음 상태·집계·권한 의미 | 별도 제안, 필수 요소 아님 |
 | Deferred | 저장된 뷰, 메뉴 등록 UI, 수집 상태 대시보드 | 별도 요구 및 향후 구현 계획 |
-| Deferred | 이 화면의 추가 시각 구체화·Prototype·Visual Polish. 기존 시각 token/render 원본은 DESIGN이며 06의 최소 기준·접근성 의무를 따른다 | [DESIGN](../DESIGN.md), 전역 계약 §7/§15/§26; 후속 작업은 별도 구현 요청 |
+| Deferred | 이 화면의 추가 시각 구체화·Prototype·Visual Polish. 기존 FeedbackOps 기반 플랫폼 시각 확장·pairing 원본은 DESIGN이며 06의 최소 기준·접근성 의무를 따른다 | [DESIGN](../DESIGN.md), 전역 계약 §7/§15/§26; 후속 작업은 별도 구현 요청 |

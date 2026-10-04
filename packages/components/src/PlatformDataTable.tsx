@@ -648,7 +648,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
               const sorted = h.column.getIsSorted();
               return <div role="columnheader" key={h.id} data-column={h.column.id} style={cellStyle(h.column)}
                 aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : h.column.getCanSort() ? 'none' : undefined}
-                className={cn(cellBase, 't-table-header border-b border-border-subtle bg-surface-sunken text-text-muted', align(h.column))}>
+                className={cn(cellBase, 't-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', align(h.column))}>
                 {h.column.getCanSort()
                   ? <button type="button" onClick={h.column.getToggleSortingHandler()} className="-mx-1 inline-flex items-center gap-1 rounded-xs px-1 uppercase hover:text-text-primary">
                       {flexRender(h.column.columnDef.header, h.getContext())}
