@@ -31,7 +31,7 @@ export default function OperationsHome() {
           <button type="button" aria-label={lang === 'ko' ? '이번 세션 동안 닫기' : 'Dismiss for this session'} className="grid size-6 place-items-center rounded-xs text-text-muted hover:bg-surface-card"
             onClick={() => dismissNotice(n.id)}><X className="size-3.5" aria-hidden /></button>
         </div>)}
-      {notices.response && !['ok', 'empty'].includes(notices.response.outcome) && <QueryView query={notices} compact>{() => null}</QueryView>}
+      {notices.response && !['ok', 'empty'].includes(notices.response.outcome) && <QueryView widgetName={lang === 'ko' ? '공지' : 'Notices'} query={notices} compact>{() => null}</QueryView>}
 
       <section aria-labelledby="home-groups">
         <h2 id="home-groups" className="t-section-title mb-2">{lang === 'ko' ? '내 메뉴 바로가기' : 'My menus'}</h2>

@@ -225,7 +225,7 @@ export default function ProductivityOverview(_: PageProps) {
             <p className="t-caption text-text-muted">{CYCLE_VERSION_NOTE[ko ? 'ko' : 'en']}</p>
           </div>
         </div>
-        <QueryView query={kpiQ} skeletonRows={4} emptyAction={clearEmptySelection}>
+        <QueryView widgetName={ko ? '네 지표 요약' : 'Four-metric summary'} hideWidgetName query={kpiQ} skeletonRows={4} emptyAction={clearEmptySelection}>
           {data => <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {(['occupancy', 'dwell', 'cycleTime', 'throughput'] as const).map(k => kpiCard(k, data))}
           </div>}
@@ -234,7 +234,7 @@ export default function ProductivityOverview(_: PageProps) {
 
       {/* Main Trend */}
       <section aria-label={ko ? '주요 추세' : 'Main trend'}>
-        <QueryView query={trendQ} skeletonRows={5} emptyAction={clearEmptySelection}>
+        <QueryView widgetName={meta.title} query={trendQ} skeletonRows={5} emptyAction={clearEmptySelection}>
           {data => {
             const { series, compareSeries, total } = trendSeriesFor(data);
             const t = trendQ.response?.trust;
@@ -257,7 +257,7 @@ export default function ProductivityOverview(_: PageProps) {
       <div className="grid gap-4 xl:grid-cols-2">
         {/* Breakdown: occupancy composition per room_name / StGroup */}
         <section aria-label={ko ? '점유 구성' : 'Occupancy composition'}>
-          <QueryView query={breakdownQ} skeletonRows={4} emptyAction={clearEmptySelection}>
+          <QueryView widgetName={ko ? '점유 구성' : 'Occupancy composition'} query={breakdownQ} skeletonRows={4} emptyAction={clearEmptySelection}>
             {rows => {
               const t = breakdownQ.response?.trust;
               const pct = (r: typeof rows[number]) => (r.observableHours > 0 ? (r.occupiedHours / r.observableHours) * 100 : null);
@@ -332,7 +332,7 @@ export default function ProductivityOverview(_: PageProps) {
         <section aria-label={ko ? '확인할 항목' : 'Attention list'}>
           <Panel title={ko ? '확인할 항목' : 'Attention'}
             subtitle={ko ? '비Process 체류·P95 상위 설비 (랭킹만, 임계값 이상 판정 아님 — Candidate).' : 'Top equipment by dwell and P95 (ranking only, no threshold verdicts — Candidate).'}>
-            <QueryView query={attentionQ} skeletonRows={4} emptyAction={clearEmptySelection}>
+            <QueryView widgetName={ko ? '확인할 항목' : 'Attention'} hideWidgetName query={attentionQ} skeletonRows={4} emptyAction={clearEmptySelection}>
               {(rows: AttentionRow[]) => <>
                 <ul className="divide-y divide-border-subtle">
                   {rows.map(r => <li key={`${r.kind}-${r.equipmentId}`} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2">

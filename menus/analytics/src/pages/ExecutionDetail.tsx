@@ -63,7 +63,7 @@ export default function ExecutionDetail({ params }: PageProps) {
       {!valid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '식별 키가 올바르지 않아 조회하지 않습니다' : 'The identity key is invalid, so nothing was queried'}
         body={<ul className="list-disc pl-4">{errors.map(error => <li key={error}>{error}</li>)}</ul>} />
         : <div className="relative pt-6">
-          <QueryView query={query} skeletonHeight={240}>
+          <QueryView widgetName={ko ? '실행 상세' : 'Execution details'} query={query} skeletonHeight={240}>
             {data => data.access === 'forbidden'
               ? <StateMessage tone="warning" icon={<Ban className="size-4" aria-hidden />} title={ko ? '이 설비는 현재 Scope 권한 밖에 있습니다' : 'This equipment is outside the current scope grant'}
                 body={ko

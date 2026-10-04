@@ -153,7 +153,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
       : !periodReady ? <p className="text-[13px] text-text-muted">{ko ? '전역 기간이 URL에 확정되면 조회합니다.' : 'The query starts once the global period is in the URL.'}</p>
         : <div className="space-y-4">
           <div className="relative pt-6" data-testid="cycle-kpi">
-            <QueryView query={kpi}>
+            <QueryView widgetName={ko ? '사이클타임 요약' : 'Cycle time summary'} query={kpi}>
               {data => <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <StatCard icon={Timer} chip="blue" label="P50" value={formatMin(data.p50, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p50, data.prevP50)} caption={ko ? '적용 모집단' : 'Applied population'} />
                 <StatCard icon={Gauge} chip="amber" label="P95" value={formatMin(data.p95, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p95, data.prevP95)} caption={ko ? '적용 모집단' : 'Applied population'} />
@@ -167,7 +167,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
             : 'Candidate: linear interpolation rounded to 0.1 min, no in-progress jobs, slow means ≥ the displayed P95 (ties included). Deltas versus the previous equal-length period treat a decrease as an improvement. Empty buckets are not zero.'}</p>
 
           <div className="relative pt-6">
-            <QueryView query={trend} skeletonHeight={280}>
+            <QueryView widgetName={ko ? '사이클타임 추세' : 'Cycle time trend'} query={trend} skeletonHeight={280}>
               {(data, response) => <AnalysisChartFrame
                 chartId="cycle-time-trend"
                 title={ko ? '사이클타임 추세' : 'Cycle time trend'}
@@ -202,7 +202,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
           </div>
 
           <div className="relative pt-6">
-            <QueryView query={dist} skeletonHeight={220}>
+            <QueryView widgetName={ko ? '사이클타임 분포' : 'Cycle time distribution'} query={dist} skeletonHeight={220}>
               {(data, response) => <AnalysisChartFrame
                 chartId="cycle-time-distribution"
                 title={ko ? '사이클타임 분포' : 'Cycle time distribution'}

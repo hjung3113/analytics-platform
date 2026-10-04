@@ -1,3 +1,4 @@
+import { OutcomeBanners, OutcomeScope } from './OutcomeScope';
 import { ChevronRight, Loader2, MapPinOff, RotateCw, ServerCrash, Star } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
@@ -81,7 +82,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
       {slots.contextBar}
     </div>
     {contextExtension && !gate && <div className="px-8 pt-3">{contextExtension}</div>}
-    <div data-platform-page-content className="flex-1 px-8 pb-9 pt-7">{gate ?? children}</div>
+    <div data-platform-page-content role="region" aria-label={t('pageContent')} tabIndex={-1} className="flex-1 px-8 pb-9 pt-7">{gate ?? <OutcomeScope><OutcomeBanners />{children}</OutcomeScope>}</div>
   </div>;
 }
 
