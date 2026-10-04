@@ -15,11 +15,6 @@
   --accent-neutral: var(--color-storm-cloud);
   --accent-neutral-soft: var(--color-deep-slate);
   --border-control: var(--color-storm-cloud);
-  /* Text labels use upstream contrast-safe values; vivid accents remain for dots/icons/tints. */
-  --text-success-label: var(--status-reporter-resolved-label);
-  --text-info-label: var(--status-reporter-received-label);
-  --text-warning-label: var(--status-reporter-prep-label);
-  --text-danger-label: var(--status-reporter-reopened-label);
   --surface-sunken: var(--color-deep-slate);          /* #edf3fb */
 
 

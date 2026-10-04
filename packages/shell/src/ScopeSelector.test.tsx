@@ -38,7 +38,7 @@ describe('ScopeSelector Scope pill: validation failure (#167)', () => {
     expect(await screen.findByText(/확인 실패/)).toBeTruthy();
     const pill = screen.getByRole('button', { name: 'Scope: ICH' });
     expect(pill.textContent).not.toContain('검증 중');
-    expect(pill.querySelector('.text-warning-label')).toBeTruthy();
+    expect(pill.querySelector('.text-text-warning-label')).toBeTruthy();
     expect(pill.querySelector('.animate-spin')).toBeNull();
   });
 });
@@ -216,7 +216,7 @@ describe('Scope accessible status (#194 FIX2)', () => {
       expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite');
       expect(screen.getByRole('status')).not.toHaveTextContent('room');
       const description = document.getElementById(descriptionId!);
-      expect(description).toHaveClass(['error', 'forbidden', 'unknown_scope'].includes(_state) ? 'text-warning-label' : 'text-text-secondary');
+      expect(description).toHaveClass(['error', 'forbidden', 'unknown_scope'].includes(_state) ? 'text-text-warning-label' : 'text-text-secondary');
       cleanup();
     }
   });

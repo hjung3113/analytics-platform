@@ -14,6 +14,7 @@ UI Primitive 층(06 §13)과 디자인 시스템 CSS. 플랫폼 개념(Context, 
 - 공유 토큰·폰트·반경·본문 값의 원본은 FeedbackOps [tokens.css](../../products/feedbackops/packages/ui/src/styles/tokens.css)와 [ADR-0058](../../products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md)다(플랫폼 결정: [ADR-0011](../../docs/adr/0011-design-direction-feedbackops-shell.md)). 플랫폼 확장의 설계 원본은 [DESIGN.md](../../DESIGN.md#platform-extension-layer)이며 이 패키지는 구현을 소유한다. 토큰 파일 밖에서 hex 값 금지.
 - 앱은 Tailwind → `@ap/ui/styles.css` 순서로 import한다. 이 진입점은 FeedbackOps tokens·semantic(`layer(base)`) → theme → compat → 플랫폼 확장 → 두 UI 소스 트리 `@source` 순서를 유지한다. 폰트는 앱에서 레이어 없이 import한다. 레거시 `nav-*` 확장·`.nav-scroll`은 #194에서 제거했고 밝은 탐색 스크롤은 `.shell-scroll`이 맡는다.
 - label·vivid accent·control 경계의 역할과 허용 표면은 [DESIGN 접근성 pairing](../../DESIGN.md#accessibility-pairing-rules)을 따른다. 새 소비자도 이 조합을 확인한다.
+- `DialogContent`·`SheetContent`를 플랫폼에서 렌더링하면 `closeLabel`, `Combobox`를 렌더링하면 `listboxLabel`·`emptyText`를 i18n에서 전달한다(FeedbackOps#749).
 - 상태 색은 `StatusBadge`/`Tone`으로만 노출한다. 새 Tone은 DESIGN 변경이다.
 - 데이터 조회, 권한 판단, 라우팅, 도메인 문구를 넣지 않는다. 그런 조합은 `@ap/components`다.
 - shadcn 컴포넌트를 추가하면 `src/index.ts`에 export하고 `styles/index.css`의 `@source`가 새 파일을 스캔하는지 확인한다.

@@ -135,6 +135,7 @@ mock 어댑터 자리를 실어댑터로 바꾸는 트랙(2026-10-02 정리). Ke
 | ~~`@types/node` 부채 (#57)~~ 완료 | — |
 | ~~시각 회귀 검사 CI (#58)~~ 완료 — CSS selector 비교(`css-selectors` job), 픽셀 비교는 디자인 확정 뒤 | #39 |
 | ~~상세 패널을 셸 소유 오른쪽 고정 슬롯으로 (#205, ADR-0013 — #195 B안)~~ 완료 — `DetailDrawer` 계약 유지(focus·tab·딥링크), 오버레이 제거, 440px(360–520) aside, 마지막 등록 우선 | #195 |
+| ~~FeedbackOps#749·#750 반영 — 서브모듈 `a777ad1b`, label 별칭을 FeedbackOps 원본 `text-text-*-label`로 (#210)~~ 완료 — 플랫폼 별칭 제거, 표면 전부 ≥4.5:1 유지(최저 4.52:1) | #193 |
 | 레이아웃 슬롯 컴포넌트 Management·Analysis (#156, #104 후속) | #194, #205(#195 B안 구현), #53 |
 
 ### M3 FeedbackOps 1단계
