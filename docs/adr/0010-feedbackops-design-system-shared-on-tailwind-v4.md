@@ -3,7 +3,7 @@
 상태: **Decided (2026-10-03)**.
 - 결정자: 사용자 — 방식은 C안을 직접 골랐고("c로하자"), 참조 방식과 범위는 에이전트 추천을 따랐다("나머지는 니추천대로").
 
-세부(가져오는 순서·버전 차이·검증 방법)는 [#52](https://github.com/hjung3113/analytics-platform/issues/52) 코멘트와 [`HANDOFF.md`](../../HANDOFF.md)가 소유한다. 이 ADR은 결정과 이유만 둔다.
+세부(가져오는 순서·버전 차이·검증 방법)는 [#52](https://github.com/hjung3113/analytics-platform/issues/52) 코멘트가 소유한다. 이 ADR은 결정과 이유만 둔다.
 
 2026-09-27 결정은 M2 디자인을 FeedbackOps 디자인 위에 세우고 플랫폼 확장 패턴(전역 Context 바, 차트 프레임, 분석 레이아웃, KPI)을 더한다는 것이었다. 남은 질문은 **어떻게 가져오는가**였다. 걸림돌은 Tailwind 버전 하나다. FeedbackOps `@fops/ui`는 Tailwind 3.4(JS preset + `theme.extend`)이고, 플랫폼은 v4(`@tailwindcss/vite`, CSS-first `@theme`)다. v4에서 `rounded`·`shadow`·`ring`·`outline-none` 같은 기본 유틸리티의 의미가 바뀌어서, 한쪽 코드를 다른 쪽 버전에서 그대로 쓰면 모양이 달라진다. FeedbackOps 디자인은 2026-10-03 기준 사실상 확정이다(FeedbackOps#685 출시 전 UI 점검·#672 타이포 토큰 닫힘).
 

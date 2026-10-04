@@ -4,25 +4,7 @@
 
 ## 무엇을 검사하나
 
-`tests/contracts.spec.ts`의 `describe` 하나가 계약 영역 하나, `test` 하나가 보고서의 한 줄이다.
-
-| 영역 | 06 | 검사 |
-| --- | --- | --- |
-| 딥링크 복원 | §6.4 | 전역 Context·page 소유 상태 복원(새로고침 포함), 서버 기준시각(`defaultRangeTo`)으로 기본 기간 기록, 미지원 URL 버전 → 계약 오류, 설비 목록의 정렬·페이지·드로어 탭(sort/page/focus/tab) 딥링크 복원, Scope 전환은 manifest `contextResetKeys`(`page`)만 같은 내비게이션에서 지우고 뒤로 가면 이전 URL(page 포함)을 그대로 복원 |
-| 셸 상세 슬롯 | §7·§13 | 1440/1280에서 focus로 상세 열기, 표의 보이는 영역과 비중첩·목록 클릭, 닫기·Esc는 focus 제거, Back/Forward 복원 |
-| 메뉴 간 Context 보존·미적용 표시 | §6, §22 | 메뉴 이동 후 전역 Context 유지·page 상태 비복사, 미지원 Context "미사용" 표시 → 지원 메뉴에서 조회 결과에 실제 적용(결과 표의 Lot이 그 값뿐) |
-| 권한 | §6.2, §17 | 권한 없는 메뉴 비노출, 직접 URL → 권한 거부 화면, 권한 없는 Scope → 대체 없이 거부 |
-| 이전 결과 비노출 | §11, §19 | Scope 전환, 같은 Scope의 기간 변경, 역할(세션) 전환 |
-| 목적지 단건 조회 | §6.2, §22 | 설비 상세 직접 URL: URL id의 row를 대상으로 site 검증 뒤 room 권한을 서버가 다시 검증한다(미승인 room → 서버 forbidden `No grant for equipment`, row 필드 무노출), 상세는 전달된 Selection으로 대체하지 않고 URL의 `selectedEquipmentIds`를 그대로 보존하며, 미지정 id는 권한 거부가 아니라 empty(0건)다 |
-| 공통 상태 화면 | §19 | 오류·시간 초과·0건·권한 거부 |
-| returnTo 복귀 | §22 | 떠난 URL로 정확히 복귀, 앱 밖 `returnTo` 무시, 사이클타임의 정렬·bucket·bin을 returnTo에 보존하고 복귀 후 유지 — 복귀 전·후 행 값까지 검사(시작∈[bucket, bucket+1h), 사이클타임∈bin 범위, 시작 오름차순) |
-| 워크스페이스 | §9.1 | 진입 가능 공간 1개 역할엔 전환기·운영 콘솔 메뉴 비노출, 진입 권한 없는 공간의 직접 URL은 메뉴 권한 검사 전 공간 거부(`space=operations`, URL 무변경), 관리자 레일 공간 버튼으로 운영 콘솔 왕복 시 전역 Context 보존·page 키 Drop·사이드바·팔레트 공간 표기 |
-| 메뉴 활용률 | §4·05 | 권한 없는 역할(engineer·viewer)은 메뉴 비노출 + 직접 URL 공간 거부(`space=operations`, URL 무변경), 관리자는 설비 방문 1회마다 설비 마스터 행의 방문 수가 정확히 +1(집계 표의 해당 행을 읽는다) |
-| 메뉴 레지스트리 | §9.1 | 권한 없는 역할(engineer·viewer)은 메뉴 비노출 + 직접 URL 공간 거부(`space=operations`, URL 무변경), 관리자는 `equipment-master` 행의 경로·권한 확인과 행 동작(보기)으로 선언 드로어(`requiresScope` 등)를 열고 `focus` page key가 URL에 기록된다 |
-| 메뉴 간 링크 허용 | §22 | 분석 권한이 없는 역할(viewer)은 지표 상세 사용처의 "사용처 열기" 링크 대신 사유(`열 권한이 없습니다`)를 보고, admin에게는 같은 링크가 열린다 |
-| 화면 오류 격리 | §4 | 응답 형식 오류(`malformed` 시나리오)로 메뉴 화면이 렌더 중 예외를 던져도 셸·내비게이션은 살아 있고 오류 화면이 `client-…` Correlation ID를 보이며, 원인이 사라지면 다시 시도 없이 복구, 홈 링크로 다른 메뉴로 벗어난다(그 메뉴도 같은 방식으로 가둬진다) |
-| 권한/역할 | §9.1·§17 | engineer 메뉴 비노출·직접 URL 공간 거부, admin 3명 목록·engineer 사이트 범위/조회 전용 드로어, `permission` page key 필터와 잘못된 값 경고 |
-| 차트 계약 | §16 | Brush는 URL을 바꾸지 않고 "분석 구간 적용…" 확인(취소는 무변경)을 거쳐야만 전역 기간이 바뀐다, 주석은 사이트(Scope)별로 저장되어 다른 사이트에서 보이지 않고 돌아오면 다시 보인다, Compare·Annotate·Export는 메뉴 manifest `features`를 따른다(사이클타임 3개 / 생산성 개요 Export만) |
+`tests/contracts.spec.ts`의 `describe`가 계약 영역, `test`가 보고서의 한 줄이다. 목록은 이 파일에 복사하지 않는다 — spec과 `contract-report/README.md`(실행 산출물, CI Job 요약에도 실린다)가 원본이다. 새 영역의 `describe` 제목에는 해당 06 절을 적는다.
 
 각 검사가 실제로 계약을 지키는지는 Kernel 가드를 일부러 망가뜨려 실패하는지로 확인했다(PR 본문 "변이 검사"). 검사를 고치거나 더할 때도 같은 방식으로 확인한다.
 
@@ -34,7 +16,7 @@
 - 역할은 `signInAs`(localStorage `platform:role`, 로드 전에 설정), 응답 시나리오는 dev 도구 팝오버로 바꾼다(`tests/support.ts`).
 - 선택자는 역할·접근 가능한 이름(한국어 UI)을 쓴다. 문구가 바뀌면 여기도 고친다.
 - 증거 스크린샷은 `evidence(page, testInfo, 이름)`으로 붙인다. 계약이 보이는 순간(전환 직후 등)을 찍는다.
-- 기본은 데스크톱 1440×900(05 Decided)이며, ADR-0013 고정 상세 슬롯 계약만 컨펌된 B안의 1280×900도 검사한다.
+- 기본은 데스크톱 1440×900(05 Decided)이다. 폭에 따라 달라지는 계약(ADR-0013 상세 슬롯, ADR-0015 Context 바)만 해당 `test`가 `setViewportSize`로 1280·1920 등을 검사한다.
 
 ## 실행과 보고
 

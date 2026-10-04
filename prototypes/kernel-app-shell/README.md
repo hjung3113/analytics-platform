@@ -59,7 +59,7 @@ TanStack Router는 검토 대상이지만 이번 실험에서는 채택하지 �
 
 ## Known divergence (M1)
 
-[Compliance review](../../.agents/reports/kernel-work-order-app-shell-menu-registry-compliance-review.md)의 벡터 밖 탐침 결과를 기록한다. 아래 6개 유형은 95개 parity vector에 포함되지 않은 **known divergence**이며, 동등성 테스트의 기대값으로 편입하지 않았다. 빈 fragment 유형은 두 입력을 함께 적었다. #6(서로게이트)은 이후 라운드(07c20ac, f00265f)에서 Python·TS codec 동작을 직접 수정해 좁혔다 — 나머지 5개 유형은 이번에도 재실행하거나 수정하지 않았다.
+Compliance review(git 이력: `kernel-work-order-app-shell-menu-registry-compliance-review.md`)의 벡터 밖 탐침 결과를 기록한다. 아래 6개 유형은 95개 parity vector에 포함되지 않은 **known divergence**이며, 동등성 테스트의 기대값으로 편입하지 않았다. 빈 fragment 유형은 두 입력을 함께 적었다. #6(서로게이트)은 이후 라운드(07c20ac, f00265f)에서 Python·TS codec 동작을 직접 수정해 좁혔다 — 나머지 5개 유형은 이번에도 재실행하거나 수정하지 않았다.
 
 | # | 입력/조건 | Python 원본 | TypeScript | 차이 분류 |
 | --- | --- | --- | --- | --- |
@@ -72,7 +72,7 @@ TanStack Router는 검토 대상이지만 이번 실험에서는 채택하지 �
 
 #6의 범위는 Condition 값으로 한정한다. `scope_id`/`room_names`/`selection`/`destination`에 짝 없는 서로게이트를 넣은 constructed state는 이전에 TS `serialize()`에서 잡히지 않은 `URIError: URI malformed`로 실패했다(벡터 밖, 별도 버그). 지금은 TS도 Python과 같이 `invalid_id` ContractError로 거절하므로 divergence가 아니며, `codec.test.ts`의 회귀 테스트가 네 필드의 거절과 Condition 성공(#6 유지)을 함께 고정한다.
 
-Shell은 `pathname+search`로 원본 codec 경로를 조립하므로 리뷰상 앞의 3개 유형은 앱 경로에서 발생하지 않는다. Python 서로게이트 버그는 [work order](../../.agents/reports/kernel-work-order-app-shell-menu-registry-draft.md)의 사용자 확인 #7에 별도 수정 필요로 기록했고, 이후 07c20ac에서 수정했다. 전체 입력 공간의 동등성은 주장하지 않는다.
+Shell은 `pathname+search`로 원본 codec 경로를 조립하므로 리뷰상 앞의 3개 유형은 앱 경로에서 발생하지 않는다. Python 서로게이트 버그는 work order(git 이력: `kernel-work-order-app-shell-menu-registry-draft.md`)의 사용자 확인 #7에 별도 수정 필요로 기록했고, 이후 07c20ac에서 수정했다. 전체 입력 공간의 동등성은 주장하지 않는다.
 
 ## 검증
 
@@ -88,4 +88,4 @@ Python 생성기는 원본 codec를 읽기 전용으로 실행해 95개 정상/�
 
 Page Archetype 라운드와 Context Link 라운드에서 npm ci, parity 생성, typecheck, 자동 DOM/키보드 테스트, build를 재실행했다. 개발 서버 HTTP smoke는 이번에 재실행하지 않았다. 실제 브라우저 시각 검토·production 권한/데이터 연동은 수행하지 않았다. 데이터 조회가 없으므로 loading/조회 empty/계산 기준시각을 꾸며내지 않는다.
 
-원본 revision과 §29 수용 범위, **사용자 확인 필요 8개**는 [work order](../../.agents/reports/kernel-work-order-app-shell-menu-registry-draft.md)에 모았다(단, #7 서로게이트 버그는 07c20ac/f00265f에서 수정 완료 — work order 자체는 병합 전 브랜치 기록이라 갱신하지 않음). 원본 계약 문서는 수정하지 않았다. Python 프로토타입(`context_url.py`)은 이 서로게이트 수정(07c20ac)에서만 변경했다.
+원본 revision과 §29 수용 범위, **사용자 확인 필요 8개**는 work order(git 이력: `kernel-work-order-app-shell-menu-registry-draft.md`)에 모았다(단, #7 서로게이트 버그는 07c20ac/f00265f에서 수정 완료 — work order 자체는 병합 전 브랜치 기록이라 갱신하지 않음). 원본 계약 문서는 수정하지 않았다. Python 프로토타입(`context_url.py`)은 이 서로게이트 수정(07c20ac)에서만 변경했다.

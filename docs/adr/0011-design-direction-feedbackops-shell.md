@@ -3,7 +3,7 @@
 상태: **Decided (2026-10-04)**.
 - 결정자: 사용자 — "복잡해도 제일 완성도 높은 방향으로". 3안 중 C안이며, 에이전트 추천과 같다.
 
-세부(구현 순서, 토큰 매핑, 셸 치수)는 [#52](https://github.com/hjung3113/analytics-platform/issues/52) 코멘트, 구현 이슈, 프로토타입 브랜치 `prototype/52-fops-design`(`.agents/reports/design/shots/52-fops/`)가 소유한다. 이 ADR은 결정과 이유만 둔다.
+세부(구현 순서, 토큰 매핑, 셸 치수)는 [#52](https://github.com/hjung3113/analytics-platform/issues/52) 코멘트, 구현 이슈, 프로토타입 브랜치 `prototype/52-fops-design`와 스크린샷 `.agents/reports/design/shots/52-fops/`(원격 브랜치 `prototype/52-fops-design`의 커밋에만 있다)가 소유한다. 이 ADR은 결정과 이유만 둔다.
 
 [ADR-0010](0010-feedbackops-design-system-shared-on-tailwind-v4.md)은 **어떻게 가져오는가**를 정했다(FeedbackOps를 Tailwind v4로 올리고 `@fops/ui`를 직접 참조). 남은 질문은 **어디까지 FeedbackOps 모양을 따르는가**였다. 2026-10-04 소비 검증 결과는 이렇다. shadcn 프리미티브는 두 쪽이 이미 거의 같다. 그래서 모양 차이는 토큰과 셸 구조에서 나온다. 셸 프레임(`AppFrame`·`AppRail`·`AppSidebar`)은 `@fops/ui`가 아니라 FeedbackOps 앱 안에 있다. 실제 앱 위 `?variant=` 프로토타입으로 세 안을 비교했다.
 

@@ -1,9 +1,9 @@
 # 운영 빌드는 조립 모듈을 주입받고, CI가 운영 모듈 그래프에 mock이 없음을 확인한다
 
-상태: **Candidate (2026-10-02)**.
-- 결정자: 에이전트 — #153이 구현 때 정하도록 위임, 사용자 확인 전 Candidate.
+상태: **Decided (2026-10-05)**.
+- 결정자: 에이전트가 #153 구현 때 정했고(위임, 2026-10-02 Candidate), 사용자가 에이전트 추천대로 승인했다(2026-10-05, "나머지도 니추천대로 진행").
 
-세부(스크립트·lint 허용 범위·생성기 마커 위치)는 [`apps/platform-web/AGENTS.md`](../../apps/platform-web/AGENTS.md)와 [실서버 연결 체크리스트](../integration/real-server-checklist.md) §1이 소유한다. 이 ADR은 결정과 이유만 둔다.
+세부(스크립트·lint 허용 범위·생성기 마커 위치)는 스크립트 머리 주석(`apps/platform-web/scripts/*.ts`)과 [`apps/platform-web/AGENTS.md`](../../apps/platform-web/AGENTS.md), [실서버 연결 체크리스트](../integration/real-server-checklist.md) §1이 소유한다. 이 ADR은 결정과 이유만 둔다.
 
 #153 전까지 `apps/platform-web/src/main.tsx`가 `@ap/mock-server`·메뉴 `/mock`·`src/dev/DevTools`를 무조건 import했다. 그래서 `pnpm build` 산출물에 mock 계산과 DevTools(역할 전환·응답 시나리오)가 늘 들어갔고, 이를 막거나 알아챌 장치가 없었다.
 

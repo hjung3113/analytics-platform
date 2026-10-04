@@ -3,7 +3,7 @@
 **Candidate — local executable contract proof, not a production platform implementation.**
 Python 3.9+ standard library only, no packages, network, UI, DB or SSO required. Python is a Candidate chosen for a small inspectable codec and runnable server double; it does not select the frontend framework. Verified locally with Python 3.9.6.
 
-Work order / authority mapping: [kernel-work-order-context-url-scope-draft.md](../../.agents/reports/kernel-work-order-context-url-scope-draft.md). The source contracts were read at Git `41067ab2a4421366a42425c9cf56c8e27e0ae116`; no authoritative document was changed.
+Work order / authority mapping: kernel-work-order-context-url-scope-draft.md(git 이력: `kernel-work-order-context-url-scope-draft.md`). The source contracts were read at Git `41067ab2a4421366a42425c9cf56c8e27e0ae116`; no authoritative document was changed.
 
 Run from repository root:
 

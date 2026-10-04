@@ -165,7 +165,7 @@ export type PlatformAdapter = {
   evaluateSelection(input: SelectionInput, signal?: AbortSignal): Promise<SelectionEvaluation>;
   /** One destination row by ref (detail pages). Not an analysis query: no GlobalContext, no Selection substitute. */
   getEntity(ref: EntityRef, signal?: AbortSignal): Promise<ApiResponse<unknown>>;
-  /** Menu data query (docs/integration/menu-query-port.md). The server resolves `req.endpoint` to its own copy of the declaration; permission, kinds and limits never travel in the request. */
+  /** Menu data query (packages/contracts/src/menu-query.ts, docs/adr/0019-menu-query-endpoint-declaration.md). The server resolves `req.endpoint` to its own copy of the declaration; permission, kinds and limits never travel in the request. */
   menuQuery(req: MenuQuery, signal?: AbortSignal): Promise<ApiResponse<unknown>>;
   /** Anchor for default periods (naive wall-clock, docs/06 §6.3). */
   defaultRangeTo(): string;

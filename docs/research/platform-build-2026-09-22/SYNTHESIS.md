@@ -13,12 +13,11 @@ FeedbackOps에 실제 Fastify·TanStack·pg-boss·OIDC·권한·감사 자산이
 
 06 §13에는 Base UI 기반이라는 문구가 있지만, 04/05는 라이브러리 선택을 Candidate로 둔다. 기존 Radix wrapper를 곧바로 승자로 삼거나 Base UI를 확정 기술로 단정하지 않는다. 문서 간 상태를 정렬하고 동일 접근성·CJK 시나리오로 비교한 뒤 선택을 기록한다.
 
-근거는 Luna Max의 [기능·프론트](01-kernel-frontend.md), [데이터·성능](02-data-performance-operations.md), [재사용·보안](03-reuse-security-integration.md), 세 모델의 R1/R2와 [코디네이터 원문 대조](discussion/COORDINATOR_NOTES.md)다. 원본에는 아래 정정이 있으므로 단독 실행 지침으로 사용하지 않는다.
+근거는 Luna Max의 기능·프론트, 데이터·성능, 재사용·보안 조사 3편과 세 모델의 R1/R2, 코디네이터 원문 대조다(원문은 git 이력의 `docs/research/platform-build-2026-09-22/`). 원본에는 아래 정정이 있으므로 단독 실행 지침으로 사용하지 않는다.
 
 ## 2. 토론 방식과 증거 수준
 
 - Luna Max 3개 병렬 조사 → Astra Medium / Grok **4.6 High** / OMP `zai/glm-5.3` Max의 독립 R1 → 상대 주장에 응답하는 R2 → 코디네이터 종합 순서다.
-- [실행 기록](discussion/ORCHESTRATION.md)에 Orca Run·Task·Dispatch, 모델 설정의 실제 확인 근거와 완료 상태를 남긴다.
 - 문서·코드 존재는 사실, 채택 우선순위와 실패 시나리오는 설계 판단, 성능·운영·실통합 적합성은 미검증이다. 모델 수나 동의를 벤치마크 대신 사용하지 않는다.
 - 시작 root HEAD는 `e999c997a4282e9b88b6fb3df36c6212b8adf2e4`, FeedbackOps pin은 `b5dd614ac8da3792cb1627e7daeffb8fc9c4944e`다. package 선언과 최신 upstream 자료를 설치된 실행 버전으로 혼동하지 않는다.
 
@@ -134,7 +133,7 @@ Kernel 책임은 첫 메뉴부터 지켜야 한다. 반면 범용 Table Toolbar�
 
 ## 10. 상호 반론 이후 최종 판정
 
-[아스트라 R2](discussion/astra-r2.md), [Grok R2](discussion/grok-r2.md), [GLM R2](discussion/glm-r2.md)를 모두 읽은 코디네이터의 판정이다. Astra/Grok은 상대 R1에 답했고 GLM은 두 R2까지 읽었으므로, 앞선 보고서의 ‘남은 불일치’ 목록을 그대로 최종 합의표로 사용하지 않았다.
+아스트라·Grok·GLM의 R2(원문은 git 이력)를 모두 읽은 코디네이터의 판정이다. Astra/Grok은 상대 R1에 답했고 GLM은 두 R2까지 읽었으므로, 앞선 보고서의 ‘남은 불일치’ 목록을 그대로 최종 합의표로 사용하지 않았다.
 
 | 쟁점 | 토론에서 실제 바뀐 입장 | 코디네이터 최종 권고 |
 | --- | --- | --- |

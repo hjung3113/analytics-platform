@@ -9,7 +9,7 @@
 
 ## 결정
 
-- 사용자 컨펌 B안(배너 + 간결 상태)을 채택한다. 컨펌 참조는 `hjung3113/proto-m2-batch2` (`d29bec0`)의 위젯 상태 B안과 `.agents/reports/design/shots/m2-batch2` 스크린샷이다. 프로토타입 분기 코드는 본 코드에 옮기지 않는다.
+- 사용자 컨펌 B안(배너 + 간결 상태)을 채택한다. 컨펌 참조는 `hjung3113/proto-m2-batch2` (`d29bec0`)의 위젯 상태 B안과 `.agents/reports/design/shots/m2-batch2`(원격 브랜치 `hjung3113/proto-m2-batch2`의 커밋에만 있다) 스크린샷이다. 프로토타입 분기 코드는 본 코드에 옮기지 않는다.
 - `PlatformPage`가 응답 scope와 본문 상단 배너 위치를 제공한다. `QueryView`는 현재 응답·재시도·선택적 위젯 이름을 가장 가까운 scope에 등록하고 해제한다. 메뉴가 그룹 목록을 별도로 조립하지 않는다.
 - 개별 위젯에 본문·조언·재시도·Correlation ID를 직접 표시한다. 바로 위에 같은 제목이 있으면 중복 제목을 생략하되 접근 이름은 유지한다.
 

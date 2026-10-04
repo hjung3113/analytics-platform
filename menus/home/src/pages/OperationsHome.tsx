@@ -47,10 +47,10 @@ export default function OperationsHome() {
               <span className="mt-3 block t-card-title">{tx(g.label)}</span>
               <span className="mt-0.5 block text-[12px] text-text-muted">{lang === 'ko' ? `메뉴 ${inGroup.length}개 · ` : `${inGroup.length} menus · `}{tx(primary.label)}</span>
             </>;
-            // Open (08 §8): primary destination forbidden but siblings allowed — rendered disabled with the reason, never re-targeted.
+            // 08: primary destination forbidden but siblings allowed — rendered disabled with the reason, never re-targeted.
             return allowed
               ? <PlatformLink key={g.id} href={linkTo(primary.id)} className="rounded-lg border border-border-subtle bg-surface-card p-4 transition-colors hover:border-accent-primary">{body}</PlatformLink>
-              : <div key={g.id} aria-disabled className="rounded-lg border border-dashed border-border-strong bg-surface-card p-4" title={lang === 'ko' ? '대표 목적지 권한 없음 (Open)' : 'No access to primary destination (Open)'}><div className="opacity-70">{body}</div><span className="mt-1 flex items-center gap-1 text-[11px] text-text-warning-label"><Lock className="size-3 text-text-warning" aria-hidden />{lang === 'ko' ? '대표 목적지 권한 없음' : 'Primary destination restricted'}</span></div>;
+              : <div key={g.id} aria-disabled className="rounded-lg border border-dashed border-border-strong bg-surface-card p-4" title={lang === 'ko' ? '대표 목적지 권한 없음' : 'No access to primary destination'}><div className="opacity-70">{body}</div><span className="mt-1 flex items-center gap-1 text-[11px] text-text-warning-label"><Lock className="size-3 text-text-warning" aria-hidden />{lang === 'ko' ? '대표 목적지 권한 없음' : 'Primary destination restricted'}</span></div>;
           })}
         </div>
       </section>

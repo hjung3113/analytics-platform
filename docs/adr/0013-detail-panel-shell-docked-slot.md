@@ -11,7 +11,7 @@
 
 - **셸 소유 오른쪽 고정 상세 슬롯을 채택한다.** 페이지는 내용을 등록하고 셸이 전체 높이 `aside`의 배치를 소유한다. 본문은 슬롯 옆에서 폭을 양보한다.
 - **DetailDrawer의 props·URL 계약은 유지한다.** `focus`·`tab`의 소유권, 닫기·Esc, 딥링크·Back/Forward, 전체 화면 이동은 유지하고 렌더 위치만 바꾼다. modal overlay는 제거한다.
-- 컨펌된 스펙은 `hjung3113/proto-m2-chart-drawer`의 B안과 `drawer-B-1440.png`·`drawer-B-1280.png`다(`.agents/reports/design/shots/m2-chart-drawer/`; #205 작업에는 `.review/proto/` 사본 제공). 프로토타입 코드 자체는 버린다.
+- 컨펌된 스펙은 `hjung3113/proto-m2-chart-drawer`의 B안과 `drawer-B-1440.png`·`drawer-B-1280.png`다(`.agents/reports/design/shots/m2-chart-drawer/`, 원격 브랜치 `hjung3113/proto-m2-chart-drawer`의 커밋에만 있다). 프로토타입 코드 자체는 버린다.
 
 ## Considered Options
 

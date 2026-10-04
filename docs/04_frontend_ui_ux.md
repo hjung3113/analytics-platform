@@ -12,26 +12,28 @@
 
 **결정 근거**: FeedbackOps(`products/feedbackops/apps/frontend`, `packages/ui`)가 실사용 중인 비-백엔드 스택을 그대로 가져온다 — 이미 검증되고 채택 경험이 있어 마이그레이션 부담이 적다는 것이 사용자 판단이다. 테이블/차트는 FeedbackOps에 선례가 없어, 이 세션에서 Astra↔Opus 교차 검토로 실제 동작을 검증한 것을 그대로 채택한다(Unit B `prototypes/kernel-chart-frame/`, Unit C `prototypes/kernel-platform-table/`, 별도 worktree/브랜치 `hjung3113/kernel-context-url-scope`). FeedbackOps 자체 코드는 이 결정으로 소급 변경하지 않는다(AGENTS.md FeedbackOps 서브모듈 경계).
 
-| 계층 | 채택(2026-09-25 결정) | 근거 | 현재 코드(2026-10-02) |
+| 계층 | 채택(2026-09-25 결정) | 근거 | 현재 코드(2026-10-05) |
 | --- | --- | --- | --- |
 | Frontend 기반 | React + TypeScript + Vite | FeedbackOps `apps/frontend`와 동일 | 사용 중(Vite 7) |
-| 스타일링 | **Tailwind CSS v4** | FeedbackOps는 v3(`packages/ui/tailwind.preset.ts`, "Tailwind 3 syntax only. No `@theme` v4 blocks" 명시, ADR-0021 semantic token 방식). 이 플랫폼은 v4로 가고 FeedbackOps의 시맨틱 토큰 네이밍(ADR-0021)만 이식한다 — 문법을 `@theme` 블록으로 옮기는 건 이 플랫폼 쪽 마이그레이션 작업이며, FeedbackOps 자체를 v4로 올리는 것은 별도 과제(강제하지 않음) | 사용 중(Tailwind 4.3, `@theme`) |
-| UI 컴포넌트 | **shadcn/ui + Radix**(FeedbackOps `packages/ui/src/components/shadcn/`의 22개 컴포넌트 소스를 이식) + 자체 확장 컴포넌트(`ChipPicker`/`AnalyticsAreaPicker` 등 패턴 참고) | shadcn은 설치형 패키지가 아니라 소스 복사 방식이라 FeedbackOps가 이미 커스터마이즈해 둔 실제 파일을 그대로 가져올 수 있다. `cn()` 헬퍼(clsx+tailwind-merge)도 동일하게 이식 | 사용 중 — Radix 프리미티브 + 자체 `@ap/ui`(shadcn 소스 이식은 M2 디자인 재개 때, #52) |
-| 라우팅 | TanStack Router | FeedbackOps와 동일. 타입 있는 검색 파라미터로 06 §6.4 URL 계약을 타입 안전하게 관리하되, 버전·폐기 필드·미지원 필터 처리는 이 문서 §6.4 메커니즘을 별도로 구현해야 한다 | **미도입** — Kernel 자체 History + URL codec이 06 §6.4를 소유(Unit A부터 알려진 divergence, `.agents/reports/kernel-work-order-app-shell-menu-registry-draft.md` #5). 도입·미채택 확정은 Open(05) |
+| 스타일링 | **Tailwind CSS v4** | Tailwind CSS v4(CSS-first `@theme`). FeedbackOps도 v4다(FeedbackOps#743, ADR-0058). 플랫폼은 `@ap/ui/styles.css`에서 `@fops/ui/styles/*`를 import한다([ADR-0010](adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](adr/0011-design-direction-feedbackops-shell.md)) | 사용 중(Tailwind 4.3, `@theme`) |
+| UI 컴포넌트 | **shadcn/ui + Radix**(`@fops/ui`가 소유한 프리미티브를 소비) + 자체 확장 컴포넌트(`ChipPicker`/`AnalyticsAreaPicker` 등 패턴 참고) | shadcn/Radix 프리미티브는 `@fops/ui` 원본을 `@ap/ui`가 다시 내보낸다(복사하지 않음, [ADR-0010](adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](adr/0011-design-direction-feedbackops-shell.md)). 플랫폼 자체: `StatusBadge`·`DetailPanelSlot` | 사용 중 — `@ap/ui`가 `@fops/ui` 프리미티브를 재수출하고 플랫폼 자체 컴포넌트를 더한다 |
+| 라우팅 | TanStack Router | FeedbackOps와 동일. 타입 있는 검색 파라미터로 06 §6.4 URL 계약을 타입 안전하게 관리하되, 버전·폐기 필드·미지원 필터 처리는 이 문서 §6.4 메커니즘을 별도로 구현해야 한다 | **미도입** — Kernel 자체 History + URL codec이 06 §6.4를 소유(Unit A부터 알려진 divergence). 도입·미채택 확정은 Open(05) |
 | 서버 상태 | TanStack Query | FeedbackOps와 동일 | **미도입** — Kernel `usePlatformQuery`·`useMenuQuery`가 조회 수명주기 소유. 5분 폴링·계산 세대 재검증(#165)을 만들 때 Kernel 내부 구현 후보(메뉴 비노출) |
 | UI 상태 | Zustand | FeedbackOps와 동일 | **미도입** — 전역 상태는 Kernel Context + URL로 충분 |
 | Form | react-hook-form + zod (+ `@hookform/resolvers`) | FeedbackOps와 동일 | **미도입** — 쓰기 폼(권한 부여 등, #98 뒤)이 생길 때 |
-| 아이콘 | lucide-react | FeedbackOps와 동일. 2026-09-22 grilling에서 이미 Candidate→Decided([PLATFORM_REQUIREMENTS](../PLATFORM_REQUIREMENTS.md) 아이콘 항목)로 확정된 것과 일치 | 사용 중 |
-| Toast | sonner | FeedbackOps와 동일 | **라이브러리 미도입** — Toast 기능은 Kernel 자체 구현(`usePlatform().toast`·`dismissToast`, 셸이 렌더, 메뉴가 사용 중). sonner로 바꿀지는 M2 디자인 재개 때 판단 |
+| 아이콘 | lucide-react | FeedbackOps와 동일(버전은 다르다: 플랫폼 ^1.48 / FeedbackOps 0.469, 정렬은 후속). 2026-09-22 grilling에서 이미 Candidate→Decided로 확정된 것과 일치 | 사용 중 |
+| Toast | sonner | FeedbackOps와 동일 | **라이브러리 미도입** — 현재 Kernel 자체 구현(sonner 미사용): `usePlatform().toast`·`dismissToast`를 셸이 렌더하고 메뉴가 사용 중. 전환은 필요해질 때 검토 |
 | Command Palette | cmdk | FeedbackOps와 동일. §4 Kernel 책임의 Command Palette를 이 라이브러리로 구현 | **자체 구현**(`packages/shell/src/CommandPalette.tsx`, 메뉴 이동만). 실검색(Entity Search)을 넣을 때 cmdk 재검토 |
 | 테이블/가상화 | TanStack Table + TanStack Virtual | FeedbackOps에 선례 없음. 이 세션 Unit C(`prototypes/kernel-platform-table/`)에서 서버사이드 sort/filter·virtualization·column 선호 저장·multi-select를 Playwright/Chromium으로 실검증(23 tests) | 사용 중. 메뉴는 엔진 타입이 아니라 플랫폼 열 타입 `PlatformColumn`만 쓴다(#160, 메뉴가 표 엔진 패키지 `@tanstack/react-table`·`react-virtual`·`table-core`·`virtual-core`를 import하면 lint 에러) — 엔진 교체가 `@ap/components` 안에서 끝난다 |
-| 차트 | Apache ECharts (SVG 렌더러) | FeedbackOps에 선례 없음. 이 세션 Unit B(`prototypes/kernel-chart-frame/`)에서 실제 SVG SSR 렌더링·4층 상태 분리·Toolbar 7종을 검증(23 tests) | 사용 중(ECharts 6.1, 별도 지연 청크 #48). **렌더러는 현재 canvas**(`EChartImpl.tsx`) — SVG 채택 근거와 다르므로 확인 필요 |
+| 차트 | Apache ECharts(Canvas 렌더러, [ADR-0021](adr/0021-echarts-canvas-renderer.md)) | FeedbackOps에 선례 없음. 이 세션 Unit B(`prototypes/kernel-chart-frame/`)에서 실제 SVG SSR 렌더링·4층 상태 분리·Toolbar 7종을 검증(23 tests) | 사용 중(ECharts 6.1, 별도 지연 청크 #48). 렌더러는 Canvas(`EChartImpl.tsx`) — 프로토타입은 SVG로 검증했다 |
 | 테스트 | Playwright(e2e/visual) + Vitest(unit) | FeedbackOps와 동일, 이 세션 프로토타입도 동일 조합 사용 | 사용 중(Playwright 1.63, Vitest 3.2) |
 | 조회 레이아웃 | CSS Grid | 고정 화면은 react-grid-layout보다 단순·안정적 | 사용 중 |
 
+**기타 의존:** 스타일 유틸 `class-variance-authority`·`clsx`·`tailwind-merge`, 폰트 `@fontsource-variable/inter`·`@fontsource-variable/jetbrains-mono`·`pretendard`, 테스트 보조 `@testing-library/*`·`jsdom`. 목록의 원본은 각 `package.json`이다.
+
 **아직 Candidate로 남는 것**: 대시보드 편집(react-grid-layout, Deferred 기능이라 채택 보류), 정확한 라이브러리 버전 고정(실제 구현 착수 시 재검증), FeedbackOps 컴포넌트/토큰 이식의 세부 매핑(실제 포팅 작업에서 확정).
 
-**결정과 코드의 차이(2026-10-02 확인):** 위 표의 "현재 코드" 열이 실제 의존(`package.json`)과 구현이다. 결정 자체는 바꾸지 않았다. 라우팅·UI 상태처럼 Kernel이 자체 구현으로 대신하는 항목을 "미채택"으로 확정할지는(서버 상태 TanStack Query는 미채택 후보가 아니라 #165의 Kernel 내부 후보) [05 Open](05_roadmap_and_open_questions.md)에 올렸다. 새 라이브러리는 그것이 필요한 기능을 만들 때 Kernel·공통 컴포넌트 **안**에 넣고, 메뉴에 노출하지 않는다.
+**결정과 코드의 차이(2026-10-05 확인):** 위 표의 "현재 코드" 열이 실제 의존(`package.json`)과 구현이다. 결정 자체는 바꾸지 않았다. 라우팅·UI 상태처럼 Kernel이 자체 구현으로 대신하는 항목을 "미채택"으로 확정할지는(서버 상태 TanStack Query는 미채택 후보가 아니라 #165의 Kernel 내부 후보) [05 Open](05_roadmap_and_open_questions.md)에 올렸다. 새 라이브러리는 그것이 필요한 기능을 만들 때 Kernel·공통 컴포넌트 **안**에 넣고, 메뉴에 노출하지 않는다.
 
 Node/NestJS는 프론트와의 언어 통일·SQL-first 관점에서 비교했던 대안이다. 현재 백엔드는 FastAPI 방향이 Decided이며 세부 버전·구성은 Candidate다([05 결정 상태](05_roadmap_and_open_questions.md), [03 백엔드 스택](03_backend_stack.md)).
 
@@ -94,28 +96,9 @@ Perspective(조사 시점 최신 5.x — v5.5.1, 2026-09-18)는 C++ 엔진을 WA
 
 ### 개발 에이전트 스킬
 
-FastAPI 공식·Postgres Best Practices·React Best Practices를 `.agents/skills`로 들인다(#162). AG Grid 스킬은 유료 전환 때, shadcn 스킬은 M2 재개 때, TanStack Intent는 Query 도입 때, Polars 스킬은 채택 때. webapp-testing은 Playwright E2E·ego-browser가 이미 있어 넣지 않는다. 외부 스킬은 제품 계약을 덮어쓰지 않는다.
+FastAPI 공식·Postgres Best Practices·React Best Practices를 `.agents/skills`로 들인다(#162). AG Grid 스킬은 유료 전환 때, shadcn 스킬은 필요해질 때, TanStack Intent는 Query 도입 때, Polars 스킬은 채택 때. webapp-testing은 Playwright E2E·ego-browser가 이미 있어 넣지 않는다. 외부 스킬은 제품 계약을 덮어쓰지 않는다.
 
 출처: [AG Grid Community vs Enterprise](https://www.ag-grid.com/react-data-grid/community-vs-enterprise/), [AG Grid Fill Handle(Enterprise)](https://www.ag-grid.com/react-data-grid/cell-selection-fill-handle/), [AG Grid Excel Export](https://www.ag-grid.com/react-data-grid/excel-export/), [AG Grid 수식·호환성](https://www.ag-grid.com/react-data-grid/formulas/), [Glide Data Grid](https://github.com/glideapps/glide-data-grid), [Handsontable 라이선스](https://handsontable.com/docs/react-data-grid/license-key/), [HyperFormula 라이선스](https://hyperformula.handsontable.com/docs/guide/license-key.html), [Univer](https://github.com/dream-num/univer), [SpreadJS 라이선스](https://developer.mescius.com/spreadjs/licensing), [Perspective](https://github.com/perspective-dev/perspective), [Perspective Virtual Servers](https://perspective-dev.github.io/guide/explanation/virtual_servers.html), [Apache ECharts](https://github.com/apache/echarts), [Plotly.js](https://github.com/plotly/plotly.js), [uPlot](https://github.com/leeoniya/uPlot), [Polars](https://github.com/pola-rs/polars), [Pandera](https://github.com/unionai-oss/pandera), [DuckDB 동시성](https://duckdb.org/docs/current/connect/concurrency).
-
-## UI/UX 리서치 (codex gpt-5.6-luna, 실제 웹 검색 기반, 2026-09-17 확인)
-
-이 플랫폼과 정확히 같은 단일 상용 제품은 없다. 가장 현실적인 참고 조합:
-
-| 영역 | 참고 제품 |
-| --- | --- |
-| 운영 앱 셸·CRUD | Retool |
-| 지표 거버넌스·드릴스루·필터 전달 | Looker, Power BI |
-| 고밀도 시계열·주석·컨텍스트 링크 | Grafana, Datadog, New Relic |
-| 대시보드·필터·권한·버전이력 단일 참고 | Apache Superset |
-| 제조 도메인 참고 | AVEVA PI Vision, Seeq |
-
-- **Grafana**: 대시보드 링크/패널 링크/데이터 링크를 구분하고 현재 시간범위·변수까지 링크에 포함 — "설비 점유율 차트 → 이송분포 화면" 이동에 특히 적합. ([공식 문서](https://grafana.com/docs/grafana-cloud/learn-and-build/visualizations/dashboards/build-dashboards/manage-dashboard-links/))
-- **Datadog**: Template Variable/저장된 View/시간범위·필터·기간을 포함하는 Context Link 제공. 단 클릭한 데이터 포인트의 시간 버킷을 전달할 수 있어 "현재 페이지 전체 기간"과는 구분해야 함. ([공식 문서](https://docs.datadoghq.com/dashboards/guide/context-links/))
-- **Metabase**: 전역/카드 필터 범위를 명시적으로 구분하는 게 장점. ([공식 문서](https://www.metabase.com/docs/latest/dashboards/filters))
-- **Power BI**: 드릴스루는 맥락(설비·Lot·기간)을 유지한 채 상세 페이지로 이동하는 좋은 참고. "URL 필터는 보안 경계가 아니다"는 Microsoft 공식 입장. ([공식 문서](https://learn.microsoft.com/en-us/power-bi/create-reports/desktop-drillthrough))
-- **PI Vision / Seeq**: 제조 특화 제품 중 가장 유용 — PI Vision은 자산 중심 화면·실시간 트렌드, Seeq는 신호 검색→구간 표시→계산→공유 분석 흐름. 다만 파서의 완료된 occurrence 데이터에 적용할 때 실시간 센서 분석과 같은 데이터 가용성을 전제하면 안 됨.
-- **Superset**: 필터바·대시보드 탭·레이아웃 편집·권한·버전이력을 한 제품에서 제공하는 가장 가까운 단일 참고. 단 확인된 공식 문서는 "Version: Next" 표기였고, 과거 대시보드 미리보기에도 현재 차트 정의가 쓰이며 권한 변경은 버전이력에 포함되지 않음 — 이 플랫폼의 완전한 감사·재현성 모델과 동일시하지 말 것.
 
 ## 정보구조·Context·딥링크 계약의 소유권
 
@@ -158,17 +141,6 @@ VOC는 분석 화면과 시각 언어를 일부 공유하되 접수/담당자/�
 
 요구사항: 확대/축소, 특정 구간 확대, 차트 위에 그리기(주석/영역 표시) 등 차트 기반 커스텀 기능.
 
-| 라이브러리 | 줌/팬 | 영역 선택 | 그리기(주석) | 비고 |
-| --- | --- | --- | --- | --- |
-| Apache ECharts | 기본 제공(dataZoom) | 기본 제공(brush) | graphic 커스텀 레이어 — 완성된 주석 편집기는 아니며 드래그·좌표변환·리사이즈 갱신을 직접 연결해야 함 | 대용량 시계열 캔버스 렌더(large, sampling:'lttb')에 강함, React 래퍼 존재 |
-| Plotly.js | 기본 제공 | 사각형·lasso 선택 기본 제공 | 선·사각형·원·경로 그리기 및 삭제 도구 기본 제공 | 통계 차트 풍부, 대용량·다중 차트 브러시 동기화는 ECharts가 더 유리하다는 것은 확정 사실이 아니라 POC로 검증할 가설 |
-| visx/D3 (React) | 직접 구현 | 직접 구현 | 자유도 최고 | 구현 비용 큼 |
-| Recharts/Nivo | 약함 | 약함 | 약함 | 선언적이라 쉽지만 커스텀 인터랙션엔 부적합 |
-
-**추천: Apache ECharts 유지.** 대용량 시계열·다중 차트 브러시 동기화에서 우위가 있을 것이라는 가설로 최종 추천은 유지하되, 대표 화면 POC에서 검증한다.
-
-ECharts 6.x(2026-05-19 기준 6.1.0)는 대용량 시계열·Canvas/SVG·progressive rendering·DataZoom·Brush·MarkArea·Graphic을 지원한다. ([릴리스 노트](https://echarts.apache.org/en/changelog.html))
-
 차트 상태는 4층으로 분리:
 
 1. 전역 필터(기간·설비·Lot)
@@ -181,14 +153,3 @@ DataZoom만으로 대용량 문제를 해결하지 말고 백엔드에서 화면
 ### 주석 저장 모델 (진짜 설계 과제)
 
 라이브러리 선택보다 중요한 것은 **주석 저장 모델**이다. 그린 영역/필기를 화면 픽셀이 아니라 시간구간·데이터 좌표·대상 occurrence 기준으로 저장하고, 자유 필기 메모와 분석 필터용 선택 영역을 구분한다. 대표 화면 하나로 줌/팬/영역선택 동기화, 주석 이동·수정·삭제, 리사이즈·줌 후 위치 유지, 저장 후 복원까지 검증한 뒤 라이브러리 선택을 고정한다. 영역 주석 최소형과 자유 필기·고급 편집기는 서로 다른 범위 후보다. 구현 순서와 배치 시점은 Deferred이며 `05_roadmap_and_open_questions.md`의 과거 Phase 표는 확정 계획이 아니다.
-
-## 최종 권장안
-
-1. 앱 셸은 운영 시스템처럼(사이드바·Breadcrumb·전역 필터바·권한별 메뉴), 분석 화면은 BI처럼(지표 인증·데이터 기준시각·교차필터·드릴스루·저장된 보기), 차트는 옵스 도구처럼(시간범위·Brush·주석·컨텍스트 링크), 마스터데이터는 CRUD 도구처럼(테이블·Drawer·유효기간·diff·Audit) 설계한다.
-2. URL은 필터 공유 계약으로 쓰지만 보안 경계로 쓰지 않는다.
-3. 기본 테이블은 TanStack 계열로 시작하고 초대형 분석 그리드만 AG Grid(Enterprise 필요 여부 먼저 확인)를 검토한다. 2026-10-02 검토 결과와 무료→유료 전환 계획은 위 "그리드·차트·데이터 도구 검토".
-4. 대시보드 저장 모델은 레이아웃 라이브러리와 분리한다.
-
-## 확인 한계
-
-제품 공식 문서 중심으로 2026-09-17 기준 상태를 확인했으나, 각 SaaS의 실제 로그인 화면 UI, 한국어/CJK 데이터에서의 그리드 성능, 실제 파서 산출물 규모에 대한 독립 벤치마크는 확인하지 못했다. AG Grid·Glide·Retool의 성능 수치는 공급자 설명으로 취급하고, 도입 전 실제 로그 cardinality와 CJK 데이터로 짧은 POC가 필요하다(향후 검증 후보로 기록, `05_roadmap_and_open_questions.md`).

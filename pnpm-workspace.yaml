@@ -1,4 +1,4 @@
-# docs/integration/platform-packages.md §3, §7.
+# docs/integration/platform-packages.md §3.
 # Only FeedbackOps packages/ui and packages/shared join this workspace; the rest keeps its own workspace.
 # prototypes/* are standalone npm units.
 packages:

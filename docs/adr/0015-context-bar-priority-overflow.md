@@ -10,7 +10,7 @@
 ## 결정
 
 - **B 우선순위 넘침을 채택한다.** 바 자체 폭에 맞춰 기간을 남기고 다른 조건을 하나의 넘침 팝오버에서 편집한다. 한 줄 Baseline과 기존 Context 의미를 유지한다.
-- 컨펌된 스펙은 `hjung3113/proto-m2-batch2`의 B안(`d29bec0`, 병합 안 함)과 `.agents/reports/design/shots/m2-batch2`의 비교 캡처다. 프로토타입 코드와 variant 전환기는 본 코드에 넣지 않는다.
+- 컨펌된 스펙은 `hjung3113/proto-m2-batch2`의 B안(`d29bec0`, 병합 안 함)과 `.agents/reports/design/shots/m2-batch2`(원격 브랜치 `hjung3113/proto-m2-batch2`의 커밋에만 있다)의 비교 캡처다. 프로토타입 코드와 variant 전환기는 본 코드에 넣지 않는다.
 
 ## Considered Options
 

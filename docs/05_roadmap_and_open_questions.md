@@ -1,120 +1,49 @@
-# 05. Design Decisions / Open Questions
+# 05. 결정 상태
 
-현재는 개념 설계 단계다. 이 문서는 결정 상태와 미결 질문을 추적하며 구현 일정·기술 도입 시점·POC 착수를 승인하지 않는다. 기존 파일명은 참조 안정성을 위해 유지한다. 전역 UX 계약의 원본은 `06_platform_ui_contract.md`다.
+ADR로 따로 남기지 않은 계약 결정의 목록이다. 실제 대안 중에서 고른 결정은 [ADR 목록](adr/README.md)에 있고, 아직 답이 없는 결정과 질문은 [`.planning/README.md`](../.planning/README.md) "결정 대기"와 [`.planning/inputs.md`](../.planning/inputs.md)가 관리한다. 파일명은 링크 호환을 위해 유지한다.
+
+Decided는 계약의 상태이며 구현 완료를 뜻하지 않는다. 각 행의 세부 규칙은 원본 문서가 소유하고, 이 표는 어디에 무엇이 정해져 있는지만 가리킨다.
 
 ## 결정 상태
 
-| 상태 | 내용 | 원본 / 다음 판단 |
+| 결정 | 날짜 | 원본 |
 | --- | --- | --- |
-| Decided | Platform Kernel을 우선하고 메뉴가 공통 계약을 소비한다 | `06_platform_ui_contract.md` §1/§4/§5 |
-| Decided | occurrence와 도메인 객체 식별자를 분리하고 URL을 권한 증명으로 쓰지 않는다 | 전역 계약 §6 |
-| Decided | Context 변경 시 이전 결과를 새 조건의 결과로 표시하지 않는다 | 전역 계약 §11 |
-| Decided | URL 직렬화·집합 키/공집합·지표 버전 쌍·초 단위 구간, 시간 경계 메커니즘(half-open, 날짜-only, TZ 미확인 fallback, 복수 설비 병합 가드, `defaultRangeTo`), URL 계약(세션 우선순위, 버전 `v`, 잘못된 값, 뒤로가기/셸 전환 복원), §19 응답 스키마(2층: `outcome`+`assessments[]`) | `06_platform_ui_contract.md` §6.1/§6.3/§6.4/§19, `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` |
-| Decided | 실시간성 기본 정책(폴링+세대 기반 캐시 재검증), 파서 DB 접근 기본 정책(같은 인스턴스·read-only·플랫폼 스키마), 지연 완료 허용 시간의 정책 메커니즘(`lateArrivalAutoHorizon`, 진행 경계 `R`/창 길이 `H`, 창 밖은 정정 후보로 보존) — **`H`=1시간과 클라이언트 폴링=5분은 Decided. 폴링 중단 조건·워커 감지 주기는 Open, 공개 필드명은 Candidate** | [01 데이터 운영 정책](01_architecture_and_data_contract.md#데이터-운영-정책), `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §6 |
-| Decided | 셸 기준은 2026-10-04 ADR-0011로 FeedbackOps 기반으로 대체됐다. 구조·치수는 06 §7 및 FeedbackOps 레이아웃 토큰, 테이블 최소 행·헤더와 셀 padding은 DESIGN table-density가 소유한다. 과거 compact screenshot 측정은 기본 밀도가 아니다 | [06 §7/§15](06_platform_ui_contract.md#7-application-shell), [DESIGN table-density](../DESIGN.md#tables), [ADR-0011](adr/0011-design-direction-feedbackops-shell.md) |
-| Decided | Scope는 Site→room_name→StGroup→Equipment 관계, 권한·조회는 room_name 기준, Line은 독립 축(Factory 제외). EquipmentID는 전 Site 유일, Site는 DB 연결 경계이며 ID 사용 전 확립. room_name 변경은 같은 ID 유지, EquipmentName 변경은 재등록·기존 ID 종료. Lot과 Job은 구별하고 Recipe는 PRC 단계 값 | [CONTEXT](../CONTEXT.md), [ADR-0005](adr/0005-scope-room-name-line-independent.md), [ADR-0004](adr/0004-site-is-db-partition-not-column.md) |
-| Decided | 조직/운영 요구값(2026-09-22 확정): 백엔드 FastAPI, 배포 on-prem, 동시 사용자 ~100명, 데이터 보존 기간 제한 없음(삭제 안 함), 초기 1개 Site/Line으로 시작하되 구조는 확장 가능하게, Scope는 v1에서 단일 선택만(복수 선택은 이후), TZ는 한국(Asia/Seoul) 단일값으로 우선 시작(해외 사업장인 중국 시안·미국 오스틴 실존 확인, 확장 여지는 설계에서 배제하지 않음) | `03_backend_stack.md`; 아래 Open Questions |
-| Decided | Evidence/Lineage drill-through(후보 1)와 원문 로그/설정파일 drill-through(후보 2, FileGateway류)는 현재 defer — parser의 view/mart 조회로 충분하며, 원본 접근은 내부 개발자 전용 메뉴가 실제로 필요해질 때 재검토(2026-09-22) | `docs/integration/component-contract-candidates.md` §다음 결정 순서 |
-| Decided | 딥링크 키 확장(Recipe/PPID/room_name, Equipment Group Condition은 live reference 가능·Selection은 고정 ID 목록 — 2026-09-24 개정), 기간 프리셋(`1일/7일/사용자 지정`)과 집계 단위(`granularity`, page-owned), 시각화 경계(donut은 분모 있는 비율만 기본 허용, gauge/3D/그라디언트는 기본 비허용이나 업무 근거 확인 시 케이스별 예외 가능), 폴링 주기 5분(300s), 폰트(Inter + Pretendard Variable, npm 패키지로 자체 호스팅 — [ADR-0011](adr/0011-design-direction-feedbackops-shell.md)·[FeedbackOps ADR-0058](../products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md)), 아이콘 세트(Lucide), 메뉴 활용률 계측(v1 범위 포함, 수집 필드·보존·열람권한 확정) — 2026-09-22 grilling Round 2 및 2026-09-24 도메인 인터뷰 반영 | 아래 §딥링크 키 확장, §기간 프리셋과 집계 단위, §시각화 경계, §메뉴 활용률 계측; `docs/adr/0002-stgroup-materializes-to-equipment-ids.md`; `PLATFORM_REQUIREMENTS.md` |
-| Decided | 워크스페이스 3개(분석 / 운영 콘솔 / 피드백), 전환기는 접근 가능한 공간이 2개 이상일 때만 노출, 공간 전환 시 전역 Context 전부 보존. 관리·감사는 운영 콘솔로 이동, 분석 공간의 공지·VOC는 사용자용 화면만(2026-09-26) | [06 §9.1](06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26), [인터뷰 기록](reviews/2026-09-26-workspace-ops-interview.md) |
-| Decided | 가공 상태 원천은 적재 워커의 단계별 처리 결과 보고. 사용자용 가공 상태 조회는 단계 상태·원인 분류·예상 해소 시점·VOC 문의까지, 개발자용 트레이스는 원시 오류·로그·재처리까지(2026-09-26). 보고 스키마와 파서 저장소 변경 범위는 Open — 플랫폼 초안 작성 완료, 파서 담당 합의 대기(#37). 가공 실패는 별도 상태 없이 `Processing delayed` + 원인 분류, 보존 기간 밖은 `unknown`(`retention_expired`)(2026-09-28) | [06 §19](06_platform_ui_contract.md#19-loading--empty--error-taxonomy), [01 가공 상태 보고](01_architecture_and_data_contract.md#processing-status-report), [상태 기록 스키마 초안](integration/ingest-status-schema.md) |
-| Decided | FeedbackOps 단계적 통합: 1단계 SSO·토큰·딥링크 연결과 사용자용 VOC·설문 읽기 전용 소비, 2단계 인증·Scope 결정 후 셸 편입. Milestone은 FeedbackOps FR-TASK-004(미구현, 원본 저장소에서 구현 예정)를 참조(2026-09-26) | [저장소 연결](integration/repository-layout.md#feedbackops-통합-방식-decided-2026-09-26) |
-| Decided | 다음 구현 범위는 프론트엔드 플랫폼 틀과 메뉴 개발 환경(모노레포, Kernel, 공유 컴포넌트, 메뉴 템플릿, Storybook, CI). 서버는 mock 유지. 일정 추정은 인터뷰 기록의 참고치이며 일정 승인이 아니다(2026-09-26) | [인터뷰 기록](reviews/2026-09-26-workspace-ops-interview.md), `apps/platform-web`(구 `prototypes/platform-app`) |
-| Decided | 모노레포 패키지 경계: contracts/ui/kernel/components/shell/mock-server + 그룹 단위 `menus/*` + `apps/platform-web`(프로토타입을 `git mv`), lint는 ESLint, 접두사 `@ap/`(임시, 회사 시스템 이름으로 일괄 변경 예정). 타입·필드 이름은 Candidate(2026-09-26) | [패키지 경계](integration/platform-packages.md#8-결정-decided-2026-09-26) |
-| Decided | 2026-09-27 인터뷰 결정: ① 인증은 FeedbackOps ADR-0006 방식 — AuthProvider 추상화(개발 Mock + 운영 OIDC 계열), 서버 세션(httpOnly 쿠키), 권한은 플랫폼 백엔드가 매 요청 재검증. 실제 IdP 연결은 사내 SSO 스펙 확인 뒤 설정 ② 운영 콘솔은 '운영 콘솔 접근' 한 역할로 시작(개발자·운영자 공통, 필요 시 분리) ③ 메뉴 공간 필드명 `space`, 공간별 그룹 수 상한 없음(새 그룹 전 기존 그룹 흡수 검토, 권장 7개 이하) ④ FeedbackOps 1단계 쓰기(VOC 등록·설문 제출)는 원본 화면 딥링크 ⑤ 적재 워커 상태 스키마는 플랫폼이 초안을 쓰고 파서 담당과 협의 ⑥ 시각 회귀는 지금 빌드 CSS selector 비교만 CI, 픽셀 비교는 디자인 확정 뒤 | [ROADMAP](ROADMAP.md), 이슈 #35–#40 |
-| Decided | 실제 시점(epoch·timestamptz)은 wall-clock이 아니며 `formatInstant`로 보는 사람의 시간대에 맞춰 표시한다. `formatDateTime`은 naive wall-clock 전용(2026-09-28, #88) | [06 §6.3](06_platform_ui_contract.md#ctx-time) |
-| Decided | 메뉴 데이터 조회 포트(#100, 2026-10-01 게이트): 메뉴가 조회 엔드포인트(권한·적용 Context·kind·한도)를 선언하고 서버는 자기 선언 사본으로 판정한다. 선언과 다른 요청 모양(비적용 Context 키·적용 키 누락·선언 밖 입력)은 오류, Scope 없는 조회는 site에 묶인 Context를 적용할 수 없다, 명시적 공집합은 assessments·Trust 없는 `empty` 예외. 형식·필드명은 Candidate, 선언 원본(TS ↔ FastAPI codegen)은 FastAPI 착수 때 | [06 §5](06_platform_ui_contract.md#5-menu-extension-contract), [06 §19](06_platform_ui_contract.md#19-loading--empty--error-taxonomy), [메뉴 조회 포트](integration/menu-query-port.md) |
-| Candidate | 대표 분석 흐름으로 차트·표·드릴다운·딥링크 계약을 검증한다 | 아래 설계 검증 기준; 구현 착수는 별도 결정 |
-| Decided / Candidate | 프론트엔드 라이브러리는 Decided(2026-09-25, 04 "프론트엔드 기술 스택") — 코드와의 차이는 아래 Open. 백엔드는 FastAPI 방향 Decided, 세부 프레임워크 버전·구성은 Candidate | `04_frontend_ui_ux.md`, `03_backend_stack.md`; 제품 제약과 검증 결과에 따라 결정 |
-| Open | 인증 프로토콜의 정확한 사양 — 사내 SSO 존재는 확인됐으나 프로토콜 미확인(사내 확인 중). 인증 구조는 FeedbackOps 방식으로 Decided(2026-09-27, 위)이며, 남은 것은 실제 IdP 사양·설정값뿐이다 | 아래 Open Questions |
-| Decided | 권한 부여·회수(쓰기)의 원천은 분리(2026-09-29, 절반 확정, #98): room_name 부여·메뉴 활용률 열람 개별 부여는 플랫폼 메타 DB가 소유한다. 역할 소속 원천은 IdP 그룹 claim 사양이 나올 때까지 Open. 쓰기 포트·화면은 아직 만들지 않는다 | [06 §9.1](06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26), [menu-query-port §9](integration/menu-query-port.md) |
-| Decided | 2026-10-02: 그리드·차트·데이터 도구는 오픈소스·무료로 시작하고 필요성이 확인되면 유료로 전환한다(사용자) · 표 엔진은 메뉴에 드러내지 않는다(플랫폼, #160) · 자유 피벗 엔진(Perspective)은 브라우저 안에서만 쓰고 DB·서버 엔진에 직접 붙이지 않는다(플랫폼, 서버 경계 계약에서 유도). 유료 후보 순위는 04 검토 절(Candidate) | [ADR-0006](adr/0006-grid-free-first-engine-hidden-from-menus.md), [ADR-0007](adr/0007-perspective-browser-engine-only.md), [04 그리드·차트·데이터 도구 검토](04_frontend_ui_ux.md#그리드차트데이터-도구-검토-2026-10-02) |
-| Decided | 그리드 편의 기능 범위(사용자, 2026-10-02, #159): 행 복사(#174)·전체 결과 XLSX(#173)를 무료 경로로 먼저 적용, 자유 피벗(#163)·셀 범위 복붙·채우기(#164)는 이슈로 보류, 붙여넣기 대량 편집은 쓰기 계약이 먼저라 범위 밖, 셀 수식은 채택하지 않음 | [ADR-0006](adr/0006-grid-free-first-engine-hidden-from-menus.md), [#159](https://github.com/hjung3113/analytics-platform/issues/159) |
-| Decided | 표 내보내기·복사는 표 부품이 소유한다(메뉴는 `exportRows`만), 툴바는 고정 배치 [컬럼] [복사] [내보내기 ▾]이고 대상(선택·필터 전체)은 메뉴에서 고른다(사용자, #172 D안), Excel은 `write-excel-file`로 클라이언트 직렬화(플랫폼, #173) — 2026-10-02 | [ADR-0008](adr/0008-table-owned-export-fixed-toolbar.md) |
-| Candidate | 운영 빌드 조립 분리(#153): `main.tsx`는 `#platform-assembly`의 `createAssembly`로 어댑터·상단 도구를 받고, Vite가 mode로 경로를 고른다(dev·`--mode mock` → `src/dev/mock-assembly.tsx`, 그 밖 → env `AP_PLATFORM_ASSEMBLY`, 없으면 빌드 실패 — 대체 어댑터 없음). CI가 조립 모듈을 external로 둔 운영 모듈 그래프에 mock·`src/dev`가 없음을 검사한다(`check:prod-graph`). 에이전트 결정(#153 위임), 사용자 확인 전 — 2026-10-02 | [ADR-0009](adr/0009-production-assembly-injection.md) |
-| Decided | M2 디자인 가져오기 방식(#52): FeedbackOps를 먼저 Tailwind v4로 올리고([FeedbackOps#743](https://github.com/hjung3113/FeedbackOps/issues/743)) 플랫폼은 v4를 유지한 채 `@fops/ui`를 서브모듈 패키지로 직접 참조한다(복사 안 함). FeedbackOps에서 토큰·preset·프리미티브·셸 모양, 플랫폼은 공통 컴포넌트 계약과 확장 패턴(차트 색·Context 바·KPI·분석 레이아웃)을 계속 소유. lucide 버전은 별도 후속. 사용자 결정 — 2026-10-03 | [ADR-0010](adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md), #52 |
-| Decided | M2 디자인 방향(#52, 프로토타입 C안): 토큰·타이포는 FeedbackOps ADR-0058 계약 그대로 + 플랫폼 확장 층(차트·카테고리 색, 타이포 역할), 셸은 FeedbackOps AppFrame 구조(레일 52px 공간 전환 · 밝은 사이드바 240/56px, Scope 선택은 사이드바 머리 · 상단 바 없음 · 50px 페이지 머리)를 `@ap/shell`이 그린다, 프리미티브는 `@fops/ui` 원본을 다시 내보낸다. 공통 컴포넌트 계약·Context 바·Scope·URL 계약은 플랫폼 소유 유지. 사용자 결정 — 2026-10-04 | [ADR-0011](adr/0011-design-direction-feedbackops-shell.md), #52 |
-| Decided | 상세 패널은 셸 소유 오른쪽 고정 슬롯(B)으로 사용자 결정 — 2026-10-04. A overlay / B docked / C responsive `?variant=` 프로토타입 비교 후 B 확정; DetailDrawer URL·동작 계약 유지 | [06 §13](06_platform_ui_contract.md#13-shared-component-layers), [ADR-0013](adr/0013-detail-panel-shell-docked-slot.md), [#205](https://github.com/hjung3113/analytics-platform/issues/205) |
-| Decided | Context 바는 B 우선순위 넘침으로 모든 폭에서 한 줄 유지. A wrap / B priority overflow / C summary + disclosure 비교 후 사용자 결정 — 2026-10-04 | [06 §7](06_platform_ui_contract.md#7-application-shell), [ADR-0015](adr/0015-context-bar-priority-overflow.md), [#56](https://github.com/hjung3113/analytics-platform/issues/56) |
-| Decided | 의미 있는 thin chart stroke는 B(선·외곽선 전용 진한 별칭 추가, category fill 유지)로 사용자 결정 — 2026-10-04. 값은 프로토타입에서 B2로 컨펌(사용자, 2026-10-04) — blue `#2577cc`·teal `#008090`·purple `#8154ce`(카드·캔버스·sunken 최저 4.10:1), #203에서 구현 | [DESIGN 결정](../DESIGN.md#chart-stroke-contrast--decided-b-2026-10-04), [ADR-0012](adr/0012-chart-thin-line-stroke-aliases.md), [#203](https://github.com/hjung3113/analytics-platform/issues/203) |
-| Decided | #207 차트 범례 B: Compare 때 기간별 그룹, 이전 시리즈 파생 선 패턴, 막대 사각형 견본, `cat-amber-stroke`와 중립 markLine — 사용자 결정, 2026-10-04 | [DESIGN 결정](../DESIGN.md#chart-legend-and-series-encoding--decided-b-2026-10-04), [ADR-0014](adr/0014-chart-legend-period-grouping.md), [#207](https://github.com/hjung3113/analytics-platform/issues/207) |
-| Decided | PageFilterBar B안: 라벨이 있는 검색·텍스트·분류 control을 한 줄에 표시하고 필요하면 줄바꿈한다. 사용자 결정 — 2026-10-04 | [ADR-0016](adr/0016-page-filter-bar.md), [06 §13·§15](06_platform_ui_contract.md#13-shared-component-layers), [#54](https://github.com/hjung3113/analytics-platform/issues/54) |
-| Decided | 공유 위젯 응답은 B(페이지 배너 + 간결 상태)로 사용자 결정 — 2026-10-04, #55 `?variant=` 프로토타입. 조언을 추가 클릭 뒤에 숨기는 C는 채택하지 않음 | [06 §19](06_platform_ui_contract.md#19-loading--empty--error-taxonomy), [ADR-0017](adr/0017-shared-outcome-banner.md), [#55](https://github.com/hjung3113/analytics-platform/issues/55) |
-| Decided | FeedbackOps 2단계(피드백 공간 편입) 통합 깊이는 A — 화면을 플랫폼 메뉴 패키지로 옮기고 FeedbackOps 백엔드는 도메인 API로 유지. B(앱 통째로 마운트)·C(백엔드 재작성) 비교 후 사용자 결정 — 2026-10-04, 착수는 M2 릴리스 뒤 | [저장소 연결](integration/repository-layout.md#feedbackops-통합-방식-decided-2026-09-26), [ADR-0018](adr/0018-feedbackops-stage2-screens-into-platform-menus.md), [#213](https://github.com/hjung3113/analytics-platform/issues/213) |
-| Open | 04 스택 결정과 코드의 차이를 확정할지: 라우팅(TanStack Router 대신 Kernel 자체 URL codec)·UI 상태(Zustand 미사용)를 "미채택"으로 확정하는지, ECharts 렌더러가 결정(SVG)과 달리 코드에서 canvas인 것을 어느 쪽으로 맞출지 | [04 프론트엔드 기술 스택](04_frontend_ui_ux.md) "현재 코드" 열, [PLATFORM_REQUIREMENTS](../PLATFORM_REQUIREMENTS.md) ECharts 항목(SVG 전제) |
-| Open | Scope 상속·행 스코핑, 다중 Site 시간 의미·assertion 공급 근거·최초 기본 Δ, 데이터 볼륨·조회 제한·브라우저 지원 등 남은 입력 | [06 Scope/시간](06_platform_ui_contract.md#62-scope와-권한-decided--open), [01 멀티테넌시](01_architecture_and_data_contract.md), [REQUIREMENTS 질문 2–5](../PLATFORM_REQUIREMENTS.md#open-questions--미결-범위와-결정-이력) |
-| Deferred | 다크모드는 현재 설계 범위 밖이다. 향후 별도 요구·설계·검증으로 다루며 light token을 단순 invert하지 않는다 | [DESIGN 미결 범위](../DESIGN.md#remaining-decisions-and-reference-limits), [요구사항](../PLATFORM_REQUIREMENTS.md) 질문 8 |
-| Deferred | 구현 순서·일정·POC·저장된 뷰·범용 위젯/플러그인 확장 | 별도 implementation-planning에서 재평가 |
+| Platform Kernel을 우선하고 메뉴는 공통 계약을 소비한다 | — | [06 §1·§4·§5](06_platform_ui_contract.md) |
+| occurrence와 도메인 객체 식별자를 분리하고, URL을 권한 증명으로 쓰지 않는다 | — | [06 §6](06_platform_ui_contract.md#6-context-capability-contract) |
+| Context가 바뀌면 이전 결과를 새 조건의 결과로 보이지 않는다 | — | [06 §11](06_platform_ui_contract.md#11-global-context-bar) |
+| URL 직렬화(집합 키·공집합·지표 버전 쌍·초 단위 구간), 시간 경계(half-open, 날짜-only, TZ 미확인 대체, 복수 설비 병합 가드, `defaultRangeTo`), URL 계약(세션 우선순위, 버전 `v`, 잘못된 값, 뒤로 가기 복원), 응답 스키마 2층(`outcome` + `assessments[]`) | 2026-09-18 | [06 §6.1·§6.3·§6.4·§19](06_platform_ui_contract.md), 근거 [grilling 기록](reviews/2026-09-18-url-time-status-contract-grilling.md) |
+| 실시간성은 폴링(5분) + 세대 기반 캐시 재검증, 파서 DB는 같은 인스턴스·read-only·플랫폼 스키마, 지연 완료는 진행 경계 `R`/창 `H`(=1시간), 창 밖은 정정 후보로 보존. 폴링 중단 조건·워커 감지 주기는 Open, 공개 필드명은 Candidate | 2026-09-22 | [01 데이터 운영 정책](01_architecture_and_data_contract.md#데이터-운영-정책) |
+| Scope는 Site → room_name → StGroup → Equipment, 권한·조회는 room_name 기준, Line은 독립 축(Factory 없음). EquipmentID는 전 Site 유일, Site는 DB 연결 경계라 ID 사용 전 확립. Lot과 Job은 다르고 Recipe는 PRC 단계 값 | 2026-09-24 | [CONTEXT](../CONTEXT.md), [ADR-0004](adr/0004-site-is-db-partition-not-column.md), [ADR-0005](adr/0005-scope-room-name-line-independent.md) |
+| 조직·운영 요구값: 백엔드 FastAPI, on-prem, 동시 사용자 ~100명, 데이터 보존 무제한, 1개 Site/Line으로 시작하되 확장 가능, v1 Scope 단일 선택, TZ Asia/Seoul 단일값으로 시작 | 2026-09-22 | [03](03_backend_stack.md) |
+| 프론트엔드 라이브러리 구성. 코드와 다른 곳 중 Router·Zustand 미도입은 결정 대기, 차트 렌더러는 Canvas([ADR-0021](adr/0021-echarts-canvas-renderer.md)) | 2026-09-25 | [04 기술 스택](04_frontend_ui_ux.md) |
+| 원본 근거(Evidence/Lineage)·원문 로그/설정 파일 drill-through는 defer — 파서 view/mart 조회로 충분, 내부 개발자 메뉴가 필요해질 때 재검토 | 2026-09-22 | 이 행 |
+| 딥링크 키 확장(Recipe·PPID·room_name, Equipment Group Condition/Selection 두 층), 기간 프리셋 1일/7일/사용자 지정, 집계 단위 `granularity`(page 소유), 시각화 경계(donut은 분모 있는 비율만, gauge/3D/그라디언트는 근거 있을 때만 예외), 아이콘 Lucide, 폰트 Inter + Pretendard | 2026-09-22·24 | [06 §6.1](06_platform_ui_contract.md#61-식별자와-url-소유-상태-decided), [06 시간 계약](06_platform_ui_contract.md#ctx-time), [06 Decorative Visualization](06_platform_ui_contract.md#decorative-visualization), [ADR-0002](adr/0002-stgroup-materializes-to-equipment-ids.md), [ADR-0011](adr/0011-design-direction-feedbackops-shell.md) |
+| 워크스페이스 3개(분석 / 운영 콘솔 / 피드백), 전환기는 진입 가능한 공간이 2개 이상일 때만, 공간 전환 시 전역 Context 보존. 관리·감사는 운영 콘솔, 분석 공간의 공지·VOC는 사용자용 화면만 | 2026-09-26 | [06 §9.1](06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26) |
+| 가공 상태 원천은 적재 워커의 단계별 처리 결과 보고. 가공 실패는 별도 상태 없이 `Processing delayed` + 원인 분류, 보존 기간 밖은 `unknown`. 보고 스키마는 초안, 파서 담당 합의 대기(#37) | 2026-09-26·28 | [06 §19](06_platform_ui_contract.md#19-loading--empty--error-taxonomy), [01 가공 상태 보고](01_architecture_and_data_contract.md#processing-status-report), [상태 기록 스키마 초안](integration/ingest-status-schema.md) |
+| FeedbackOps는 단계적으로 통합한다: 1단계 딥링크·사용자용 VOC·설문 읽기(쓰기는 원본 화면 딥링크), 2단계 피드백 공간 편입(깊이는 ADR-0018) | 2026-09-26·27 | [저장소 연결](integration/repository-layout.md#feedbackops-통합-방식-decided-2026-09-26), [ADR-0018](adr/0018-feedbackops-stage2-screens-into-platform-menus.md) |
+| 모노레포 패키지 경계: contracts/ui/kernel/components/shell/mock-server + 그룹 단위 `menus/*` + `apps/platform-web`, lint는 ESLint, 접두사 `@ap/`(임시). 타입·필드 이름은 Candidate | 2026-09-26 | [패키지 경계](integration/platform-packages.md) |
+| 인증은 FeedbackOps 방식(AuthProvider: 개발 Mock + 운영 OIDC 계열, 서버 세션, 권한은 백엔드가 매 요청 재검증) — 실제 IdP 사양은 #150. 운영 콘솔은 '운영 콘솔 접근' 한 역할로 시작. 공간 필드명 `space`(그룹 수 상한 없음, 권장 7개 이하). 시각 회귀는 빌드 CSS selector 비교만 CI | 2026-09-27 | [03](03_backend_stack.md), [06 §9.1](06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26), [tooling](../tooling/AGENTS.md) |
+| 실제 시점(epoch·timestamptz)은 wall-clock이 아니다 — `formatInstant`로 보는 사람의 시간대에 맞춰 표시, `formatDateTime`은 naive wall-clock 전용 | 2026-09-28 | [06 §6.3](06_platform_ui_contract.md#ctx-time) |
+| 권한 부여·회수의 원천: room_name 부여·활용률 열람 개별 부여는 플랫폼 메타 DB 소유. 역할 소속 원천은 IdP 그룹 claim 사양까지 결정 대기(#98). 쓰기 포트·화면은 아직 만들지 않는다 | 2026-09-29 | [06 §9.1](06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26) |
+| 전역 감사 조회(`auditTrail`)에도 room 권한을 적용한다 — 권한 없는 room 설비의 변경 내용은 보이지 않는다(06 §17 서버 재검증과 같은 원칙). 지금은 콘솔 역할이 하나(모든 room)라 필터를 두지 않고, 일부 room만 가진 콘솔 역할이 생길 때 서버에서 구현한다(#91). 결정자: 사용자 — 에이전트 추천을 따름 | 2026-10-05 | [06 §17](06_platform_ui_contract.md#17-permission-aware-ux-contract) |
+| 그 밖의 결정(메뉴 조회 포트, 그리드·표·디자인, 활용률 이벤트, 차트 렌더러 등) | 2026-10-01~05 | [ADR 목록](adr/README.md) |
 
-Decided는 설계 계약의 상태이며 구현 완료를 뜻하지 않는다. Candidate/Open/Deferred를 구현 지시로 해석하지 않는다.
+## MVP 지원 환경 — 데스크톱 웹만 (Decided, 2026-09-27)
 
-## 대표 분석 시나리오의 설계 검증 기준 (Candidate)
+MVP는 데스크톱 웹 브라우저만 지원한다. 1024px 미만 화면과 터치(coarse pointer) 환경은 MVP 범위 밖이다 — 깨지지 않게 최소 동작만 두고, 전용 레이아웃·모바일 검증은 하지 않는다(표 셀의 44px coarse-pointer 대상은 예외로 이미 있다). 디자인 프로토타입과 시각 검증은 데스크톱 폭(1280px 이상, 기준 1440px)으로 한다. 06 §25와 `DESIGN.md` 레이아웃 규칙의 1024px 미만 항목은 MVP 이후 과제다.
 
-향후 대표 시나리오를 검증할 때 사용할 후보 기준이다. 현재 설계 단계에서 POC 구현이나 통과를 요구하지 않는다:
+## 메뉴 활용률 계측 (Decided — v1 범위 포함, 2026-09-22 grilling Round 2)
 
-- 동일 조건의 차트·상세 표·CSV 일치
-- 지연 완료 후 일치(재집계가 반영됨)
-- 딥링크 왕복(같은 조회조건으로 재방문 가능)
-- 권한 변경 후 비노출(캐시가 권한을 무시하지 않음)
-- 유효구간 경계 귀속(설비 속성이 변경된 구간의 데이터가 올바른 속성값에 귀속)
+이 계측은 메뉴가 쌓이면 붙이는 부가기능이 아니라 **Platform Kernel 자체의 관측 범위**(Menu Registry가 실제로 어떻게 쓰이는지)다. 06 §24의 반복 확인 기준은 여기 적용되지 않는다.
 
-대표 시나리오의 검증 질문은 "차트가 잘 나온다"보다 다음 질문에 답할 수 있는지로 잡는다:
-
-> 이 숫자는 어느 데이터까지 반영했고, 어떤 정의로 계산했으며, 무엇을 제외했고, 어떤 설비 실행에서 나온 것인가?
-
-예를 들어 사이클타임 P95에서 느린 실행 목록으로, 다시 해당 실행의 공정 타임라인과 품질 표시로 내려갈 수 있다면, 그 하나의 흐름에서 지표·필터·식별자·권한·리니지·차트 요구를 함께 검증할 수 있다.
+- **수집 필드**: 식별 필드만 보낸다(menuId·spaceId·경로 패턴·시각·탭 sessionId·dwellMs). 조회조건·필터 **값**은 넣지 않는다 — 필터 사용 신호가 필요해지면 page 키 이름만 더한다([ADR-0020](adr/0020-usage-events-identity-fields-only.md), 2026-09-22의 "조회조건 포함"을 대체).
+- **보존 기간**: 무제한(자동 삭제 없음). 개발자가 필요할 때 수동으로 지울 경로는 둔다.
+- **열람 권한**: 개발자·운영자 기본 열람. 그 밖의 계정은 운영자가 개별로 부여할 때만. 서버 재검증 원칙(06 §17)을 따르고 별도 권한 모델을 만들지 않는다.
 
 ## Open Questions
 
-- [ ] 인증 프로토콜의 정확한 값 (사내 SSO 존재는 확인됐으나 프로토콜은 사내 확인 중 — 확인 전까지 인증 계층은 pluggable하게 구현)
+미결 질문은 [`.planning/inputs.md`](../.planning/inputs.md)로 옮겼다. 사람이 골라야 하는 결정은 [`.planning/README.md`](../.planning/README.md) "결정 대기"에 있다.
 
-이 목록은 인증 입력을 추적하며 전체 미결 목록은 아니다. Scope·시간·공개 계약의 미결은 [06](06_platform_ui_contract.md), 파생 질문은 [REQUIREMENTS](../PLATFORM_REQUIREMENTS.md#open-questions--미결-범위와-결정-이력)를 함께 확인한다.
+## Deferred
 
-2026-09-22 도메인 인터뷰로 이 절의 나머지 항목(백엔드 언어, 멀티테넌시, 배포 환경, 동시 사용자, 데이터 보존, 지연 완료 허용 시간 구체 숫자, 사업장 TZ 실제 값, Scope hierarchy)은 결정됐거나 초기 범위가 정해졌다. 값과 근거는 위 결정 상태 표와 [CONTEXT](../CONTEXT.md), [ADR-0005](adr/0005-scope-room-name-line-independent.md)을 본다. Scope 상속·구체 행 스코핑 방식, 다중 Site 시간 의미·assertion 공급 근거, 최초 기본 Δ, 데이터 볼륨·최대 조회량·timeout, 브라우저 지원 범위 등 남은 입력은 아래 원본 포인터와 REQUIREMENTS의 미결 질문을 따른다.
-
-### 실시간성 (Decided — 메커니즘)
-
-상세 원본은 [01 데이터 운영 정책](01_architecture_and_data_contract.md#refresh-policy)으로 이관했다. 이 제목은 기존 링크 호환을 위해 유지하며 정책을 중복 편집하지 않는다.
-
-### 파서 DB 접근 방식 (Decided — 메커니즘)
-
-상세 원본은 [01 데이터 운영 정책](01_architecture_and_data_contract.md#parser-db-access)으로 이관했다. 이 제목은 기존 링크 호환을 위해 유지하며 정책을 중복 편집하지 않는다.
-
-<a id="지연-완료-허용-시간-decided--정책-메커니즘-구체-숫자는-open-questions-유지"></a>
-<a id="late-arrival-policy"></a>
-### 지연 완료 허용 시간 (Decided — 정책 메커니즘 + 구체 숫자)
-
-상세 원본은 [01 데이터 운영 정책](01_architecture_and_data_contract.md#late-arrival-policy)으로 이관했다. 이 제목은 기존 링크 호환을 위해 유지하며 정책을 중복 편집하지 않는다.
-
-### 딥링크 키 확장 — Recipe/StGroup (Decided, 2026-09-22 grilling Round 2)
-
-이 제목은 기존 링크 호환을 위해 유지한다. 2026-09-24 인터뷰로 PPID/room_name과 모든 Equipment Group 축의 두 층 모델로 확장됐다. 현행 규칙·Candidate 필드명은 [06 §6.1](06_platform_ui_contract.md#61-식별자와-url-소유-상태-decided), 모든 그룹 축의 Condition/Selection 대안·재평가 의미은 [ADR-0002](adr/0002-stgroup-materializes-to-equipment-ids.md)를 따른다. [당시 결정 근거](reviews/2026-09-23-decision-detail-history.md)는 이력으로 보존하며 규칙을 중복 편집하지 않는다.
-
-### 기간 프리셋과 집계 단위 (Decided, 2026-09-22 grilling Round 2)
-
-프리셋의 rolling wall-clock·Δ·초기 기본 기간 및 시간 의미의 Open은 [06 시간 계약](06_platform_ui_contract.md#ctx-time), 집계 단위의 page-owned 메커니즘과 필드/값 Candidate는 [06 §6.1](06_platform_ui_contract.md#61-식별자와-url-소유-상태-decided), 시각 표현은 [DESIGN](../DESIGN.md#reference-component-bindings)이 소유한다.
-
-[당시 결정 기록](reviews/2026-09-23-decision-detail-history.md)에 비교 근거를 보존했다.
-
-### 시각화 경계 — Donut/Gauge (Decided, 2026-09-22 grilling Round 2)
-
-기본 허용 범위와 업무 근거에 따른 예외는 [06 Decorative Visualization](06_platform_ui_contract.md#decorative-visualization)이 소유한다. [당시 채택 기록](reviews/2026-09-23-decision-detail-history.md)은 배경이며 이 절에서 별도 규칙을 만들지 않는다.
-
-### MVP 지원 환경 — 데스크톱 웹만 (Decided, 2026-09-27)
-
-MVP는 데스크톱 웹 브라우저만 지원한다. 1024px 미만 화면과 터치(coarse pointer) 환경은 MVP 범위 밖이다 — 깨지지 않게 최소 동작만 두고, 전용 레이아웃·44px 터치 타깃·모바일 검증은 하지 않는다. 디자인 프로토타입과 시각 검증은 데스크톱 폭(1280px 이상, 기준 1440px)으로 한다. 06 §25와 `DESIGN.md` 레이아웃 규칙의 1024px 미만 항목은 MVP 이후 과제다.
-
-### 메뉴 활용률 계측 (Decided — v1 범위 포함, 2026-09-22 grilling Round 2)
-
-**범위 판단 정정:** 이 계측은 "메뉴가 몇 개 쌓이면 그때 붙이는" 메뉴 부가기능이 아니라 **Platform Kernel 자체의 관측 범위**(Menu Registry가 실제로 어떻게 쓰이는지)다. 메뉴별 반복 패턴 확인 후 공통 컴포넌트로 승격하는 Premature Platformization 게이트(§24)는 여기 적용 대상이 아니다 — 플랫폼 우선순위(`AGENTS.md`, 06 §1)에 따라 v1 범위에 포함한다.
-
-- **수집 필드**: menuId·이벤트·시각뿐 아니라 **조회조건·필터값까지 포함**한다.
-- **보존기간**: 무제한(자동 삭제 없음). 개발자가 필요시 수동으로 삭제할 수 있는 경로는 둔다(자동 purge 잡은 아님).
-- **열람 권한**: 개발자 및 운영자 기본 열람. 그 외 계정은 운영자가 개별로 권한을 부여한 경우에만 열람 가능(기존 06 §17 권한/Scope 집행 정책과 같은 서버 재검증 원칙을 따름 — 별도 새 권한 모델을 만들지 않고 기존 역할 체계 위에 얹는다).
-- 계측 파이프라인의 이벤트 스키마·PII 최소화 세부 구현은 구현 착수 직전 별도로 다룬다(위 세 항목은 정책 수준 Decided).
-
-v1 구현은 식별 필드만 보낸다(menuId·spaceId·경로 패턴·시각·탭 sessionId·dwellMs), 조회조건 포함 여부는 #75에서 결정 대기.
-
-## Deferred — 과거 Phase roadmap 가설 (non-authoritative)
-
-[과거 Phase 0–4 표](reviews/2026-09-23-decision-detail-history.md#deferred--과거-phase-roadmap-가설-non-authoritative)는 이력으로 분리했다. 확정 일정·기술 도입·POC 착수·완료 기준이 아니며, 다른 문서의 Phase 참조도 이 가설을 가리킨다. 구현 요청 시 현행 계약과 미결 입력으로 별도 계획을 세운다.
+- 다크모드는 설계 범위 밖이다. 도입하면 별도 요구·설계·검증으로 다루고 light token을 단순 반전하지 않는다.

@@ -1,102 +1,83 @@
 # AGENTS.md — analytics-platform
 
-## 프로젝트 목적 (읽기 전 반드시 확인)
+## 이 레포의 목적
 
-이 레포의 목적은 "설비관리·기준정보관리·생산성 분석·지표관리·공지·VOC 같은 메뉴들을 전부 만드는 것"이 아니다.
-
-**목적은 그 메뉴들이 얹힐 플랫폼 자체를 만드는 것이다.** 플랫폼이 제공하는 것은 다섯 갈래로 고정한다 — 이 다섯 갈래 밖의 산출물(개별 메뉴 화면 자체)은 목적이 아니라 아래 갈래를 검증하는 수단일 뿐이다.
+설비관리·기준정보·생산성 분석·지표·공지·VOC 같은 메뉴를 만드는 것이 목적이 아니다. **그 메뉴들이 얹힐 플랫폼**을 만든다. 플랫폼이 제공하는 것은 아래 다섯 갈래이고, 이 레포의 메뉴 화면은 이 갈래를 검증하는 견본(Consumer)일 뿐이다. 실제 메뉴는 사내에서 새로 만든다.
 
 | 갈래 | 내용 | 원본 |
 | --- | --- | --- |
 | Kernel 기능 | Menu Registry, 전역 Context, 딥링크/URL 계약, 권한·Scope, Audit | `docs/06_platform_ui_contract.md` §4–6 |
-| 공통 컴포넌트 | PlatformDataTable, DetailDrawer, AuditTimeline, DataTrustIndicator 등 | §13 Platform Component |
+| 공통 컴포넌트 | PlatformDataTable, DetailDrawer, AuditTimeline, DataTrustIndicator 등 | §13 |
 | 차트 계약 | Chart Frame + Zoom/Brush/Compare/Annotate 공통 Interaction | §16 |
 | 레이아웃 | Overview/Analysis Workspace/Management/Catalog/Workflow 5개 Page Archetype | §12 |
 | 메뉴간 연결 | Cross-menu Context Link, 목적지 ID와 분석 Context 분리 | §22 |
 
-이 원칙의 authoritative 버전은 **`docs/06_platform_ui_contract.md`**다(Platform Kernel 책임 범위, Menu Extension Contract, Platform-first Definition of Done, Governance 체크리스트까지 상세히 정의돼 있음). 위 표는 에이전트가 매번 그 문서를 열지 않아도 되게 하는 요약이다 — 상세·최신 버전은 항상 `docs/06_platform_ui_contract.md`를 우선한다.
+상세 원본은 `docs/06_platform_ui_contract.md`다(Platform Done §29, 공통화 기준 §24).
 
-### 이게 실무에 미치는 영향
+- 메뉴 화면은 그것이 검증하는 플랫폼 계약만큼만 손댄다. 화면 자체를 다듬지 않는다.
+- 반복 패턴은 실제 소비자 2–3곳에서 확인된 뒤 공통으로 올린다(§24). Kernel 책임(§4: 계측·감사·Registry 등)은 이 기준과 무관하다.
+- 메뉴 요구가 공통 계약(딥링크 키, wall-clock 시간, URL 보안 경계 등)과 충돌하면 메뉴를 계약에 맞춘다. 계약 자체를 바꿔야 하면 사용자에게 올린다.
+- 메뉴 화면을 3개 이상 연속으로 새로 만들기 전에는 범위를 사용자에게 확인한다.
 
-- 새 화면/메뉴를 설계·구현할 때, "Domain Done"(그 화면 요구사항이 동작하는가)보다 먼저 "Platform Done"(공통 계약 위에 올라가 있는가, 다른 메뉴와 Context가 연결되는가, 권한/Scope가 일관되는가)을 검증한다 — `docs/06_platform_ui_contract.md` §29.
-- 화면별로 반복되는 패턴을 발견하면 그 화면에 국한해서 구현하지 말고 플랫폼 공통 컴포넌트/계약으로 추출할지 먼저 판단한다. 단, 실제 메뉴 2~3개에서 반복이 확인되기 전에 범용 프레임워크를 미리 만들지 않는다(Premature Platformization 금지, §24). 이 반복 기준은 메뉴 패턴 추출에만 적용하고, Kernel 책임(§4: 계측·감사·Registry 등)은 메뉴 수를 기다리지 않는다.
-- **메뉴 화면은 위 다섯 갈래를 검증하는 Consumer일 뿐, 만드는 것 자체가 목적이 아니다.** 메뉴 화면(wireframe이든 구현이든)에 착수하기 전에 "이게 다섯 갈래 중 어디를 검증하는가"(어느 archetype, 어느 공통 컴포넌트, 어느 연결 기능)를 먼저 밝힌다. 그 검증이 끝나면 — 예: 목표한 archetype/컴포넌트를 한 번씩 확인했으면 — 다음 메뉴로 곧장 이어가지 않고 플랫폼 갈래 작업이나 사용자 확인으로 돌아간다. **메뉴 화면을 3개 이상 연속 제작하는 작업은 시작 전에 사용자에게 범위(왜 이 개수가 필요한지)를 확인한다.**
-- 개별 메뉴 요구사항이 플랫폼 공통 계약(1급 딥링크 키, wall-clock 시간 계약, URL 보안 경계 원칙 등)과 충돌하면 개별 메뉴 쪽을 공통 계약에 맞추는 게 기본값이고, 공통 계약을 바꿔야 한다면 그건 플랫폼 레벨 결정으로 격상해서 다룬다.
+## 어디서 시작하나
 
-## 문서
+| 알고 싶은 것 | 문서 |
+| --- | --- |
+| 남은 일, 다음 할 일, 결정 대기 | [`.planning/README.md`](.planning/README.md) |
+| 설계·계약 문서와 작업별 읽기 경로 | [`docs/INDEX.md`](docs/INDEX.md) |
+| 도메인 용어 | [`CONTEXT.md`](CONTEXT.md) |
+| 시각 규칙 | [`DESIGN.md`](DESIGN.md) |
+| 결정과 그 이유 | [`docs/adr/`](docs/adr/) |
+| 에이전트 운영 메모(작업자 샌드박스, worktree, 캡처 함정) | [`docs/agents/operations.md`](docs/agents/operations.md) |
 
-`docs/INDEX.md`부터 시작. 역할별 진입점과 **작업별 읽기 경로**(어떤 작업이면 어느 문서 → 어느 폴더 `AGENTS.md` → 어느 파일 순서로 볼지)가 정리돼 있다. 플랫폼/프론트엔드 작업은 `docs/06_platform_ui_contract.md`를 먼저 본다.
+작업하는 폴더에 `AGENTS.md`가 있으면 함께 따른다(아래 표). 폴더 지침이 루트와 충돌하면 루트를 따른다.
 
-## 코드 작업 원칙
+## 코드
 
-- 플랫폼 코드는 루트 pnpm workspace(`apps/*`, `packages/*`, `menus/*`, `tooling/*`, FeedbackOps `products/feedbackops/packages/ui`·`products/feedbackops/packages/shared`)다. FeedbackOps UI primitive는 `@ap/ui`를 통해서만 소비한다. 루트에서 `pnpm install`, `pnpm dev`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`(Node 26.7.0, pnpm 11.1.1).
-- 의존 방향은 `contracts → ui/kernel → components → shell → apps`이며 역방향 import는 금지다. 원본은 `docs/integration/platform-packages.md` §3.
+- 루트 pnpm workspace: `apps/*`, `packages/*`, `menus/*`, `tooling/*`, FeedbackOps `products/feedbackops/packages/{ui,shared}`. Node 26.7.0, pnpm 11.1.1. 명령은 루트에서 `pnpm install|dev|lint|typecheck|test|build|e2e`.
+- 의존 방향은 `contracts → ui/kernel → components → shell → apps`, 역방향 import 금지(경계 lint가 강제, 원본 `docs/integration/platform-packages.md` §3). FeedbackOps primitive는 `@ap/ui`로만 소비한다.
 - Kernel·공통 컴포넌트·셸은 메뉴와 mock을 모른다. 메뉴 목록은 Registry로, 서버는 `PlatformAdapter`로 앱이 주입한다.
-- 작업하는 폴더에 `AGENTS.md`가 있으면 그 폴더 규칙을 추가로 따른다. 폴더 지침은 루트를 좁힐 수 있지만 루트 원칙과 충돌하면 루트를 따른다.
-- 변경마다 lint·typecheck·test·build를 돌리고, 화면이 바뀌면 `pnpm dev`로 브라우저에서 확인한다. Kernel·셸·공통 컴포넌트·mock 서버를 바꾸면 `pnpm e2e`(플랫폼 계약 검사)도 돌린다. "플랫폼 기능 확인"은 그 항목별 보고(`apps/platform-e2e/contract-report/`)로 보여 준다. 실행하지 않은 검증은 했다고 보고하지 않는다.
-- PR은 한 단계씩 올리고 리뷰 코멘트를 반영한 뒤 병합한다. 리뷰 지적을 고칠 때는 수정 없이 실패하는 회귀 테스트를 함께 넣는다.
 
-## 작업 관리 — 이슈로 시작하고, 확정되면 세 가지를 확인한다
+## 검증
 
-- **이슈로 시작:** 작업은 GitHub 이슈에서 시작하고 PR 본문에 `Closes #n`(또는 `Refs #n`)을 적는다. 전체 진행 상황은 [`docs/ROADMAP.md`](docs/ROADMAP.md)와 고정된 로드맵 이슈가 원본이다. 새 일을 발견하면 바로 하지 말고 이슈로 올린다(오타 수준 예외).
-- **확정 시 체크(Definition of Done에 추가, PR 템플릿과 CI `pr-checklist`가 강제):**
-  1. **공통화 판단:** 확정된 UI·로직·계약을 플랫폼 공통 컴포넌트/계약으로 올릴지 판단하고 결과와 이유를 PR에 적는다. 기준은 06 §24 — 실제 소비자 2–3곳에서 반복될 때 승격, 그 전에는 소비자 쪽에 둔다. §4 Kernel 책임은 이 반복 기준 밖이다(§24 적용 범위).
-  2. **문서 갱신:** 이 변경이 닿는 문서(06·DESIGN.md·`docs/integration/*`·폴더 `AGENTS.md`·README·INDEX·ROADMAP)를 같은 PR에서 고쳤는지 확인한다. 고칠 게 없으면 "해당 없음"과 이유를 적는다.
-  3. **로드맵 갱신:** 닫히는 이슈와 `docs/ROADMAP.md` 상태가 맞는지 확인한다.
-- 사람이 답해야 하는 결정은 `ready-for-human` 이슈로 올리고, 답이 나오기 전에는 그 결정에 기대는 구현을 시작하지 않는다.
+- 코드를 바꿨으면 커밋 전에 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`가 모두 0으로 끝나야 한다. 작업 중에는 `pnpm --filter <pkg> …`로 충분하다.
+- 화면이 바뀌면 브라우저로 확인한다. Kernel·셸·공통 컴포넌트·mock 서버를 바꾸면 관련 E2E를 돌린다(`pnpm e2e`, 좁히려면 `apps/platform-e2e`에서 `pnpm exec playwright test -g "<describe>"`). CI가 전체 E2E를 다시 돌리고 항목별 보고(`apps/platform-e2e/contract-report/`)를 남긴다.
+- 문서만 바꿨으면 `pnpm docs:links`(문서 링크 검사)만 돌린다.
+- 실행하지 않은 검증은 했다고 보고하지 않는다.
 
-## Agent skills
+## 작업 흐름
 
-### Issue tracker
+- 기능·버그 작업은 GitHub 이슈에서 시작하고 PR 본문에 `Closes #n`을 적는다. 오타·문서 정리·작은 수정은 이슈 없이 해도 된다. 작업 중 발견한 별개의 일은 바로 하지 말고 이슈로 남긴다.
+- PR은 하나씩 병합한다. 동작 버그를 고칠 때는 고치기 전에 실패하는 회귀 테스트를 함께 넣는다.
+- 이슈가 닫히거나 상태가 바뀌면 `.planning/README.md`의 해당 줄을 같은 PR에서 고친다. 계약이 바뀌면 그 계약의 소유 문서를 고친다(소유권은 `docs/AGENTS.md`).
+- 사람이 답해야 하는 결정은 `ready-for-human` 이슈로 올리고, 답 전에는 그 결정에 기대는 구현을 하지 않는다. 실제 대안 중에서 고른 결정은 `docs/adr/`에 ADR로 남긴다.
 
-GitHub Issues(`hjung3113/analytics-platform`, `gh` CLI), 영역 라벨 `area:*`, 트랙별 마일스톤. See `docs/agents/issue-tracker.md`.
+## UI는 프로토타입 컨펌 뒤 구현
 
-### Triage labels
+보이는 모양이 바뀌는 작업(공통 부품, 셸, 레이아웃, 디자인 토큰, DESIGN.md 방향)은 실제 앱 위 `?variant=` 2–3안 인터랙티브 프로토타입(`.agents/skills/prototype/UI.md`)으로 사용자 컨펌을 받은 뒤 구현한다. 정적 이미지나 문장 설명으로 컨펌을 대신하지 않는다. 컨펌된 안이 스펙이고, 벗어나야 하면 사용자 OK를 PR 본문에 적는다. 프로토타입 코드는 버리고 결정은 이슈·ADR에 남긴다. 버그 수정과 이미 컨펌된 모양을 그대로 옮기는 작업은 해당하지 않는다.
 
-기본 다섯 가지(`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+새 화면 설계 절차(Requirements → IA → Screen Spec → Wireframe → Open Decisions)는 `.agents/skills/analysis-platform-wireframe/SKILL.md`.
 
-### Domain docs
+## FeedbackOps 서브모듈
 
-single-context(`CONTEXT.md` + `docs/INDEX.md` + `docs/adr/`). See `docs/agents/domain.md`.
-
-### Vendored skills
-
-`.agents/skills/`의 `prototype`, `to-tickets`, `to-spec`, `triage`, `wayfinder`는 FeedbackOps에 벤더링된 `mattpocock/skills`를 복사한 것이다. 이슈 트래커·라벨 설정은 위 두 항목(`docs/agents/`)이 제공하므로 `setup-matt-pocock-skills`는 두지 않는다. `fastapi`·`supabase-postgres-best-practices`·`vercel-react-best-practices`는 외부 공식 스킬 사본이다(#162) — 출처와 적용 범위·우선순위는 `.agents/README.md`와 각 `SOURCE.md`.
+`products/feedbackops/`는 별도 저장소의 특정 커밋을 가리키는 독립 제품이다. 내부 작업은 그 디렉터리의 `AGENTS.md`를 따르고, 플랫폼 규칙을 소급 적용하지 않는다. 서브모듈 수정·참조 커밋 갱신은 요청받은 범위에서만 하고, gitlink를 올리면 플랫폼 lockfile도 같은 PR에서 고친다. 통합 계약이 충돌하면 한쪽을 임의로 고치지 말고 사용자에게 올린다. 절차는 `docs/integration/repository-layout.md`.
 
 ## 폴더별 지침
 
 | 폴더 | 역할 |
 | --- | --- |
 | [`docs/`](docs/AGENTS.md) | 설계 계약 원본, 상태 표기·소유권 규칙 |
-| [`apps/platform-web/`](apps/platform-web/AGENTS.md) | 조립 지점(GROUPS·Registry 조립, 어댑터 주입), mock 서버, dev 도구 |
+| [`apps/platform-web/`](apps/platform-web/AGENTS.md) | 조립 지점(GROUPS·Registry 조립, 어댑터 주입), dev 도구 |
 | [`apps/platform-e2e/`](apps/platform-e2e/AGENTS.md) | 플랫폼 계약 자동 검사(Playwright, 블랙박스)와 항목별 보고 |
 | [`menus/`](menus/AGENTS.md) | 메뉴 Consumer 패키지(`@ap/menu-<group>`, 그룹별 manifest·화면) |
-| [`packages/`](packages/AGENTS.md) | 플랫폼 패키지 공통 규칙과 의존 방향 → 각 패키지 `contracts`·`ui`·`kernel`·`components`·`shell`의 `AGENTS.md` |
-| [`tooling/`](tooling/AGENTS.md) | 공유 tsconfig·경계 lint·메뉴 생성기(`pnpm gen:menu`) |
+| [`packages/`](packages/AGENTS.md) | 플랫폼 패키지 공통 규칙과 의존 방향 → 각 패키지 `AGENTS.md` |
+| [`tooling/`](tooling/AGENTS.md) | 공유 tsconfig·경계 lint·메뉴 생성기(`pnpm gen:menu`)·CSS selector 비교 |
 | [`prototypes/`](prototypes/AGENTS.md) | 통합 전 Kernel 단위 프로토타입(보존, 새 기능 금지) |
-| [`products/feedbackops/`](products/feedbackops/AGENTS.md) | 독립 제품 서브모듈(아래 경계 참조) |
+| [`products/feedbackops/`](products/feedbackops/AGENTS.md) | 독립 제품 서브모듈(위 경계 참조) |
 
-## FeedbackOps 서브모듈 경계
+## 에이전트 자산
 
-- `products/feedbackops/`는 원본 저장소의 특정 커밋을 참조하는 독립 제품이다. 현재는 참고·통합 설계 단계이며 플랫폼 계약 준수를 기존 FeedbackOps에 소급 강제하지 않는다.
-- FeedbackOps 내부 작업은 해당 디렉터리의 `AGENTS.md`와 하위 지침·제품 계약을 따른다. 위 플랫폼 목적·UI 설계 절차와 루트 `.agents/` 자산은 플랫폼 작업에 적용하며 FeedbackOps 자체 규칙을 대체하지 않는다.
-- 원본 기능 개발은 기존 FeedbackOps 저장소에서 계속한다. 서브모듈 내부 수정이나 참조 커밋 갱신은 요청된 범위에서만 수행한다. 통합 계약 충돌은 한쪽을 임의 수정하지 말고 명시적으로 결정한다.
-- 원본 갱신·초기화 절차와 폴더별 소유권은 `docs/integration/repository-layout.md`를 참조한다.
-
-## 화면/UI 설계
-
-새 화면이나 UI 작업은 `.agents/skills/analysis-platform-wireframe/SKILL.md`부터 읽는다. 설계 단계는 Requirements → IA → Conceptual Contract / Screen Spec → Wireframe → Open Decisions다.
-
-**UI는 프로토타입 컨펌 후 구현한다(FeedbackOps "Prototype Is The Spec" 준용).**
-
-- 보이는 모양이 바뀌는 작업(공통 UI 부품, 셸, 레이아웃, 디자인 토큰, DESIGN.md 방향)은 코드를 확정하기 전에 **인터랙티브 프로토타입**으로 사용자 컨펌을 받는다. `.agents/skills/prototype/UI.md`: 실제 앱 화면 위에 `?variant=`로 2–3안을 띄우고 하단 바로 전환한다. 정적 이미지·문장 설명만으로 컨펌을 대신하지 않는다.
-- 컨펌된 안(프로토타입 브랜치 + 스크린샷)이 그 작업의 스펙이다. 구현 리뷰는 렌더된 프로토타입과 비교한다. 벗어나야 하면 사용자 OK를 PR 본문에 적는다.
-- 프로토타입 코드는 버린다. 검증된 결정만 본 코드와 문서(DESIGN.md 등)에 옮기고, 프로토타입 브랜치 위치와 결정은 이슈에 남긴다.
-- 메뉴 화면은 사내에서 새로 만든다. 메뉴 화면 자체를 다듬지 말고 플랫폼 부품·셸·계약에 노력을 쓴다.
-
-## 공통 에이전트 자산
-
-- 지침 원본은 이 `AGENTS.md`와 폴더별 `AGENTS.md`다. 같은 폴더의 `CLAUDE.md`는 그 파일을 가리키는 상대 심링크다. 새 폴더 지침을 만들 때도 `ln -s AGENTS.md CLAUDE.md`로 연결한다.
-- 스킬·명령·외부 디자인 참고자료 원본은 `.agents/skills`, `.agents/commands`, `.agents/references`다. 에이전트별 경로의 심링크 대신 원본을 편집한다.
-- 모든 에이전트는 필요한 `SKILL.md`만 읽고, 도구 이름은 현재 세션에서 제공되는 동등 도구로 대응한다. 없는 도구·비밀키·외부 서비스는 사용할 수 있다고 가정하지 않는다.
-- 탐색 경로와 실행 방법은 `.agents/README.md`를 참조한다. 외부 디자인 참고자료와 범용 스킬은 제품 계약을 덮어쓰지 않는다.
+- 지침 원본은 각 폴더의 `AGENTS.md`이고, 같은 폴더의 `CLAUDE.md`는 그 상대 심링크다. 새 폴더 지침도 `ln -s AGENTS.md CLAUDE.md`로 연결한다.
+- 스킬·명령·외부 디자인 참고자료 원본은 `.agents/skills`·`.agents/commands`·`.agents/references`다(사용법 `.agents/README.md`). 외부 스킬과 참고자료는 제품 계약을 덮어쓰지 않는다.
+- 이슈 트래커 설정(GitHub Issues, `area:*` 라벨, 마일스톤): `docs/agents/issue-tracker.md`. Triage 라벨 5종: `docs/agents/triage-labels.md`. 도메인 문서 구성: `docs/agents/domain.md`.
+- 벤더링 스킬: `prototype`·`to-tickets`·`to-spec`·`triage`·`wayfinder`(mattpocock/skills 사본), `fastapi`·`supabase-postgres-best-practices`·`vercel-react-best-practices`(외부 공식 사본, 출처·우선순위는 각 `SOURCE.md`와 `.agents/README.md`).

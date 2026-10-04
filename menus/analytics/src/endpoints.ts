@@ -1,5 +1,5 @@
 /**
- * Analytics query endpoints (docs/integration/menu-query-port.md §2.2, #114–#115).
+ * Analytics query endpoints (packages/contracts/src/menu-query.ts, #114–#115).
  * Client-safe: declarations, params/data types and display constants only — computation
  * handlers live in `src/mock/` and never enter the client bundle.
  * Pages import from here, never from `src/mock/**`.

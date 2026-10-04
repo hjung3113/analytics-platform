@@ -1,21 +1,18 @@
-## 이슈
-
 Closes #
 
 ## 무엇을 바꿨나
 
 -
 
-## 확정 시 체크 (AGENTS.md "작업 관리")
+## 확인할 것 (해당하는 것만)
 
-- [ ] 공통화 판단: <!-- 공통 컴포넌트/계약으로 올리나? 올림 / 소비자에 둠 / 해당 없음 — 이유 -->
-- [ ] 문서 갱신: <!-- 고친 문서 목록, 또는 "해당 없음 — 이유" -->
-- [ ] 로드맵 갱신: <!-- docs/ROADMAP.md·이슈 상태가 맞는가 -->
-- [ ] UI 변경이면 컨펌된 프로토타입: <!-- 프로토타입 브랜치/이슈 링크, 또는 "UI 변경 없음" -->
+- 공통으로 올릴지: <!-- 올림 / 소비자에 둠 — 이유 (06 §24) -->
+- 고친 문서: <!-- 소유 문서, .planning/README.md -->
+- UI 변경이면 컨펌된 프로토타입: <!-- 브랜치·이슈 링크 -->
 
 ## 검증
 
-- [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm build`
-- 브라우저/기타:
+- [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` (문서만 바꿨으면 `pnpm docs:links`)
+- 브라우저/E2E:
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
