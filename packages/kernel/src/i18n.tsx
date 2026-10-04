@@ -69,7 +69,6 @@ const dict = {
   sharedOutcomeError: { ko: '서버 오류', en: 'server error' },
   sharedOutcomeTimeout: { ko: '시간 초과', en: 'timeout' },
   sharedOutcomeEmpty: { ko: '0건', en: 'zero rows' },
-  pageContent: { ko: '페이지 본문', en: 'Page content' },
   stateTimeoutBody: { ko: '기간을 줄이거나 집계 단위를 키워 다시 시도하세요.', en: 'Shorten the period or coarsen the granularity and retry.' },
   stateEmpty: { ko: '조건에 맞는 결과가 없습니다', en: 'No matching result' },
   stateEmptyBody: { ko: '조회는 성공했고 결과가 0건입니다. 수집 중단·지연을 뜻하지 않습니다.', en: 'The query succeeded with zero rows. This does not imply a collection stop or delay.' },

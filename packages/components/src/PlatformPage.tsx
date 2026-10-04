@@ -82,7 +82,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
       {slots.contextBar}
     </div>
     {contextExtension && !gate && <div className="px-8 pt-3">{contextExtension}</div>}
-    <div data-platform-page-content role="region" aria-label={t('pageContent')} tabIndex={-1} className="flex-1 px-8 pb-9 pt-7">{gate ?? <OutcomeScope><OutcomeBanners />{children}</OutcomeScope>}</div>
+    <div data-platform-page-content tabIndex={-1} className="flex-1 px-8 pb-9 pt-7">{gate ?? <OutcomeScope><OutcomeBanners />{children}</OutcomeScope>}</div>
   </div>;
 }
 

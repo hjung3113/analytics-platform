@@ -180,6 +180,19 @@ describe('Fix round 1 regressions', () => {
     view.rerender(<Page><Widget q={result === 'single' ? a : query(response('ok'))} /><Widget q={query(response('ok'))} name="Widget B" /></Page>);
     expect(screen.getByRole('region', { name: 'Page content' })).toHaveFocus();
   });
+  it.each([['main', true], ['page content', false]] as const)('inside the platform layout returns focus to %s without an extra landmark', (_, withMain) => {
+    const a = query(); const b = query();
+    const Layout = ({ children }: { children: ReactNode }) => {
+      const content = <div data-platform-page-content tabIndex={-1}><OutcomeScope><OutcomeBanners />{children}</OutcomeScope></div>;
+      return <I18nProvider>{withMain ? <main tabIndex={-1}>{content}</main> : content}</I18nProvider>;
+    };
+    const view = render(<Layout><Widget q={a} /><Widget q={b} name="Widget B" /></Layout>);
+    within(screen.getByRole('group', { name: '위젯 상태 요약' })).getByRole('button').focus();
+    view.rerender(<Layout><Widget q={query(response('ok'))} /><Widget q={query(response('ok'))} name="Widget B" /></Layout>);
+    const expected = withMain ? screen.getByRole('main') : view.container.querySelector<HTMLElement>('[data-platform-page-content]')!;
+    expect(expected).toHaveFocus();
+    expect(screen.queryByRole('region')).toBeNull();
+  });
   it('does not steal focus that has moved out of the banner', () => {
     const a = query(); const b = query();
     const view = render(<Page><button>Elsewhere</button><Widget q={a} /><Widget q={b} /></Page>);

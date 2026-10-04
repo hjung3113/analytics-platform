@@ -90,7 +90,10 @@ function OutcomeBanner({ group, onRetry }: { group: Group; onRetry: () => void }
     const element = banner.current;
     return () => {
       if (element?.contains(document.activeElement)) {
-        const target = element.closest<HTMLElement>('[data-platform-page-content], [data-outcome-focus-target], [role="dialog"]');
+        // Detail panel (dialog) first, then the main landmark; the page content element is the fallback outside a shell.
+        // No extra landmark is added around page content (06 §19, §26).
+        const target = element.closest<HTMLElement>('[data-outcome-focus-target], [role="dialog"]')
+          ?? element.closest<HTMLElement>('main[tabindex]') ?? element.closest<HTMLElement>('[data-platform-page-content]');
         if (target?.isConnected) target.focus({ preventScroll: true });
       }
     };

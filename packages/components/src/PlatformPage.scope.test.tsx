@@ -199,7 +199,9 @@ describe('PlatformPage shared outcome placement (#55)', () => {
     const content = view.container.querySelector('[data-platform-page-content]')!;
     expect(content.querySelector('[data-outcome-banner]')?.nextElementSibling).toHaveAttribute('data-testid', 'consumer-body');
     expect(content).toHaveAttribute('tabindex', '-1');
-    expect(content).toHaveAccessibleName('페이지 본문');
+    // No extra landmark around page content: chart/section regions stay the only regions inside <main>.
+    expect(content).not.toHaveAttribute('role');
+    expect(screen.queryByRole('region')).toBeNull();
     expect(content.lastElementChild).toHaveAttribute('data-testid', 'consumer-body');
   });
 });
