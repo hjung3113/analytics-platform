@@ -73,3 +73,11 @@ it('keeps shell planned labels, normal Scope grants and language readable in sid
     expect(contrast('text-warning-label', background), `warning on ${background}`).toBeGreaterThanOrEqual(4.5);
   }
 });
+
+it('keeps chart stroke aliases identifiable on every chart surface (#203)', () => {
+  for (const foreground of ['chart-blue-stroke', 'chart-teal-stroke', 'chart-purple-stroke']) {
+    for (const background of ['surface-card', 'surface-canvas', 'surface-sunken']) {
+      expect(contrast(foreground, background), `${foreground} on ${background}`).toBeGreaterThanOrEqual(3);
+    }
+  }
+});

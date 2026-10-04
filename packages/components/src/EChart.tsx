@@ -12,6 +12,17 @@ export function token(name: string): string {
   return raw ? `rgb(${raw.split(/\s+/).join(',')})` : '#000';
 }
 
+const strokeAliases: Record<string, string> = {
+  'chart-blue': 'chart-blue-stroke',
+  'chart-teal': 'chart-teal-stroke',
+  'chart-purple': 'chart-purple-stroke',
+};
+
+/** Resolve a chart series identity token to its thin-line counterpart when one exists. */
+export function strokeToken(name: string): string {
+  return strokeAliases[name] ?? name;
+}
+
 export const baseTextStyle = {
   get fontFamily(): string {
     // Dynamic-subset glyphs may arrive after the first canvas draw; the fallback is acceptable then.

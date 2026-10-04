@@ -119,6 +119,7 @@ components:
 | `surface-sunken` | 표 열 머리·검색 배경·progress track·recessed 보조 영역 | FeedbackOps `color-deep-slate` 참조 |
 | `cat-purple` / `cat-teal` / `cat-amber` | 범주 tag·series 구분; 성공·실패 판정이나 CTA에 쓰지 않음 | 플랫폼 literal `#7c3aed` / `#0d9488` / `#d97706` |
 | `chart-blue` / `chart-teal` / `chart-green` / `chart-purple` | series 정체성; 의미 있는 얇은 선 대비는 Chart stroke 결정 참고 | 플랫폼 literal `#3b9cff` / `#00a3b5` / `#00bc8b` / `#a174f5` |
+| `chart-blue-stroke` / `chart-teal-stroke` / `chart-purple-stroke` | 얇은 line/outline mark와 해당 line legend 전용; fill에는 쓰지 않음 | B2 platform literal `#2577cc` / `#008090` / `#8154ce` |
 | `chart-remainder` | 이름과 분모가 확인된 나머지 범주 | 플랫폼 literal `#cbd2e3` |
 | `chart-grid` | 보조 grid; 의미 있는 데이터 선에 쓰지 않음 | 플랫폼 literal `#edf1f7` |
 | `icon-blue-soft` / `icon-teal-soft` | KPI·분석 범주 icon chip 배경; navigation 그룹에는 채운 chip을 만들지 않음 | 플랫폼 literal `#e3efff` / `#dcf8ef` |
@@ -218,7 +219,7 @@ components:
 
 [06 §16](docs/06_platform_ui_contract.md#16-analysis-chart-contract)과 [§26](docs/06_platform_ui_contract.md#26-accessibility-baseline)의 Chart Frame/interaction 계약을 따른다. 모든 차트에는 **title, unit, textual summary, 동일 데이터 table 접근 경로**가 있다. legend는 이름+선 모양/기호+색을 제공한다. Tooltip은 hover와 keyboard focus에 대응하고 label/value/unit을 포함한다. passive mark에 가짜 pressed 동작을 넣지 않는다.
 
-series 정체성은 `chart-*`, 범주 구분은 `cat-*`, 상태 판정은 별도 label vocabulary로 표현한다. P50 solid / P95 dashed처럼 색 이외의 구별을 유지한다. 선택/brush/drill-down이 전역 Context를 바꾸는지는 명시적으로 구분하고 단순 chart click으로 조용히 조건을 바꾸지 않는다.
+series fill 정체성은 `chart-*`, 범주 구분은 `cat-*`, 상태 판정은 별도 label vocabulary로 표현한다. 얇은 line/outline mark는 `chart-*-stroke` 별칭을 쓰고 legend도 같은 stroke 색을 사용한다. 막대와 영역, series symbol, 선택/annotation fill은 기존 fill token을 유지한다. P50 solid / P95 dashed처럼 색 이외의 구별을 유지한다. 선택/brush/drill-down이 전역 Context를 바꾸는지는 명시적으로 구분하고 단순 chart click으로 조용히 조건을 바꾸지 않는다.
 
 reference quality recipe는 coverage→blue, traceability→teal, consistency→green, missing/untraced→이름 있는 remainder, inconsistent→cat-amber다. 분자·분모를 detail/table에서 제공하며 donut/gauge의 기본 허용 범위는 [06 §24](docs/06_platform_ui_contract.md#decorative-visualization)를 따른다. defect bar는 zero baseline·정수 ticks·날짜·단위를 갖고 max는 데이터로 산정한다. queue/progress는 완료율과 성공률을 분리하고 분모 없는 회색 remainder를 만들어내지 않는다. pipeline/queue/lifecycle의 도메인 의미는 Consumer 후보이며 반복 확인 전 범용 플랫폼 컴포넌트로 승격하지 않는다.
 
@@ -327,7 +328,15 @@ posthog와 sentri(Sentry 스타일) 자료는 당시 illustration/mascot 중심 
 | B. thin line mark용 더 진한 stroke alias 추가, category fill 유지 | 범주 identity·soft fill을 보존하며 line/outline 대비를 조정; 새 alias와 표면별 ≥3:1 검증 필요 |
 | C. palette 자체 변경 | 모든 mark의 일관된 재조정 가능; 승인 palette·category fill·legend 소비자까지 영향과 prototype 재확인 필요 |
 
-**B 채택 — 사용자 결정, 2026-10-04.** [ADR-0012](docs/adr/0012-chart-thin-line-stroke-aliases.md)에 따라 thin line/outline용 진한 stroke alias를 추가하고 category fill·기존 palette는 유지한다. 새 stroke는 card/canvas/sunken에서 ≥3:1을 확보해야 한다. 위 세 선택지와 대비 수치는 결정 배경으로 보존한다. 별칭 이름·값과 실제 화면의 `?variant=` 프로토타입 확인 → 구현·검증은 [#203](https://github.com/hjung3113/analytics-platform/issues/203) 범위다. **#203 구현 전까지 코드의 차트 선은 기존 색을 사용한다.** 이 문서와 ADR은 런타임 색 변경을 뜻하지 않는다.
+**B 구현 — 사용자 결정, 2026-10-04.** [ADR-0012](docs/adr/0012-chart-thin-line-stroke-aliases.md)에 따라 thin line/outline 전용 stroke alias를 추가했고 category fill·기존 palette는 유지한다. 사용자가 확인한 B2 값과 각 표면 대비는 아래와 같다.
+
+| Stroke alias | 값 | 카드 `#fbfdff` | 캔버스 `#f3f7fe` | Sunken `#edf3fb` |
+| --- | --- | ---: | ---: | ---: |
+| `chart-blue-stroke` | `#2577cc` | 4.49:1 | 4.26:1 | 4.10:1 |
+| `chart-teal-stroke` | `#008090` | 4.59:1 | 4.35:1 | 4.19:1 |
+| `chart-purple-stroke` | `#8154ce` | 5.03:1 | 4.78:1 | 4.60:1 |
+
+`AnalysisChartFrame`은 blue/teal/purple 시리즈의 선, 선 범례 견본, 브러시 외곽선에 이 stroke 별칭을 쓴다. 막대·영역 채움과 선 위 심볼은 원래 채움 색을 유지하고, 그래서 툴팁 마커(심볼 색을 따름)도 채움 색이다. `chart-green`은 얇은 선으로 쓰는 곳이 없어 stroke 값을 두지 않았다. 막대 범례 모양(지금은 선 모양 견본), 생산성 개요 P95 점선과 비교 시리즈 구분, `cat-amber` 비교 선의 표면별 대비는 후속 이슈에서 프로토타입으로 다룬다.
 
 ## Open Decisions
 
