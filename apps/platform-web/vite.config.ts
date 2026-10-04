@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 import tailwindcss from '@tailwindcss/vite';
 import { ASSEMBLY_SPECIFIER, prodGraphGuard } from './scripts/prod-graph.ts';
+import { feedbackOpsUiModuleSideEffects } from './scripts/feedbackops-ui-module-side-effects.ts';
 
 /** `#platform-assembly` (src/platform-assembly.d.ts) is resolved here by mode — #153, ADR-0009. */
 const MOCK_ASSEMBLY = fileURLToPath(new URL('./src/dev/mock-assembly.tsx', import.meta.url));
@@ -28,18 +29,6 @@ function assemblyAlias(mode: string, isPreview: boolean): Record<string, string>
 /** Every non-mock build checks its own full graph (real assembly included) for mock/dev code — ADR-0009. No env
  * turns it off; the check script runs with it too. */
 const guardGraph = (mode: string): boolean => !MOCK_MODES.has(mode);
-
-/**
- * FeedbackOps#747 will make the @fops/ui barrel tree-shake safe. Until then, treat its non-CSS source modules as
- * side-effect free so consumers keep only the primitives they use. Remove this override when #747 is integrated.
- */
-const feedbackOpsUiModuleSideEffects = (id: string): boolean | null => {
-  const normalizedId = id.replaceAll('\\', '/');
-  const sourcePath = normalizedId.split('?')[0] ?? normalizedId;
-  if (!/(?:^|\/)products\/feedbackops\/packages\/ui\/src\//.test(sourcePath)) return null;
-  if (sourcePath.endsWith('.css')) return null;
-  return false;
-};
 
 export default defineConfig(({ mode, isPreview = false }) => ({
   plugins: [tailwindcss(), ...(guardGraph(mode) ? [prodGraphGuard()] : [])],

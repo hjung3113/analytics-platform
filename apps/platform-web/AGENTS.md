@@ -20,6 +20,7 @@
 - 메뉴를 추가하면 해당 그룹 패키지(`menus/<group>/src/index.ts`)의 `manifests`에 선언하고 06 §5(Menu Extension Contract)·§29(Platform Done)를 확인한다. 메뉴 화면 3개 이상 연속 제작은 사용자에게 범위를 먼저 확인한다.
 - mock은 서버 역할을 흉내낸다: Scope·room 허용 범위와 데이터 권한은 mock 엔진(`serveEndpoint`)이 엔드포인트 선언 사본으로 재검증하고 페이지는 판단하지 않는다 — 권한은 읽는 데이터·엔드포인트의 선언 권한이고, 서버가 요청 시점에 고정된 역할로 판정한다. 보통은 화면이 속한 메뉴의 권한이다. OperationsHome은 home manifest가 `platform:view`여도 공지를 `notice:view`로 읽는다. 클라이언트 라우트 게이트는 UX일 뿐이다. 역할은 요청 시점에 고정한다(localStorage `platform:role`).
 - `@ap/mock-server`를 화면이 직접 import하지 않는다. 모든 화면은 `useMenuQuery`·`useMenuFetch`로 자기 메뉴 `src/endpoints.ts`의 선언을 조회한다(`serve`는 #132에서 공개 export가 아니다). 상세 규칙은 [`menus/AGENTS.md`](../../menus/AGENTS.md). 앱 런타임에서 mock을 쓰는 곳은 `src/dev/`의 mock 조립(`createMockAdapter(...)` 결과 주입)과 DevTools뿐이고, 운영 빌드에는 둘 다 실리지 않는다(`check:prod-graph`). 테스트로는 kernel `classifyMetricInit`과 mock 발행 지표를 함께 보는 앱 통합 테스트 `src/published-metrics.test.ts`가 직접 import한다(위층 통합 테스트라 허용, 패키지 경계 §3 규칙 6).
+- 앱에서 FeedbackOps CSS를 소비할 때는 `src/style.css`에서 CSS `@import`로만 가져온다(예: `@fops/ui/styles/tokens.css`); JS/TS import는 쓰지 않는다.
 
 ## 검증
 

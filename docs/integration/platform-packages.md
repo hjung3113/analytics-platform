@@ -11,7 +11,7 @@
 - `platform-app`에 모여 있는 Kernel·UI·공통 컴포넌트·셸을 패키지로 나눈다. 메뉴는 **패키지 경계 밖에서** 선언만으로 얹히게 한다(06 §3: "플랫폼 기능은 개별 메뉴 import 관계를 알지 못해야 한다").
 - 새 메뉴를 만들 때 쓸 템플릿(생성기)의 모양을 정한다.
 - 서버는 mock을 유지한다(05 Decided). mock은 교체 가능한 어댑터 뒤로 숨긴다.
-- **범위 밖:** 워크스페이스 층 구현(06 §9.1), README "남은 플랫폼 과제", Storybook·시각 회귀. 이들은 이 경계 위에서 후속 PR로 진행한다. FeedbackOps(`products/feedbackops`)는 자체 pnpm workspace를 유지하고 이 workspace에 포함하지 않는다.
+- **범위 밖:** 워크스페이스 층 구현(06 §9.1), README "남은 플랫폼 과제", Storybook·시각 회귀. 이들은 이 경계 위에서 후속 PR로 진행한다. FeedbackOps 앱·백엔드는 자체 pnpm workspace에 두고, `packages/ui`와 `packages/shared`만 플랫폼 workspace에 포함한다. 플랫폼 코드는 UI primitive를 `@ap/ui`를 통해 소비한다.
 
 ## 2. 현재 구조에서 끊어야 할 의존
 
@@ -60,7 +60,7 @@ D1–D8은 화면·런타임 코드, D9는 같은 폴더 안이라 폴더 구조
                  contracts
         ┌──────────┼──────────────┐
         ▼          ▼              ▼
-   (ui: 외부만)   kernel        mock-server
+ (ui ◀ @fops/ui)  kernel        mock-server
         │   ┌──────┤              │
         ▼   ▼      │              │
      components    │              │
@@ -170,7 +170,7 @@ const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: [...hom
 | 경계 검사 | ESLint `no-restricted-imports` + 계약 규칙 — `tooling/eslint`(`@ap/eslint-config`)의 레이어별 프리셋을 각 패키지 `eslint.config.js`가 한 줄로 가져다 쓴다 | §3 규칙 1–4를 패키지별 설정으로. 규칙·프리셋 원본은 `tooling/eslint/src/` |
 | 계약 lint | URL 직접 조립 금지(`?`/`&` 문자열 조합 대신 `linkTo`/`buildQuery`), `window.location` 직접 쓰기 금지, 메뉴 코드에서 `localStorage` 금지 | 인터뷰 기록의 "URL 직접 조립 금지 lint" |
 | 테스트 | Vitest를 패키지별로. 기존 51개 테스트는 원래 파일과 같이 옮기되, 층을 넘는 테스트 파일은 D10대로 메뉴·앱 통합 테스트로 재배치 | 테스트 개수 합계가 줄지 않았는지 단계마다 확인 |
-| CI | `platform-workspace` Job에서 `pnpm lint`·`pnpm typecheck`·`pnpm test`·`pnpm build`를 각각 별도 단계로(Turbo 태스크 그래프). test 단계는 `pnpm exec turbo run test --concurrency=2`로 동시 패키지 수를 제한한다(패키지별 vitest 워커가 겹쳐 러너 CPU를 초과 구독해 5초 타임아웃이 나던 문제, #166). `pnpm build` 다음 단계 `pnpm --filter @ap/platform-web check:prod-graph`가 운영 모듈 그래프(조립 모듈 external)에 mock·`src/dev`가 없음을 확인한다(#153, ADR-0009). 이어서 두 강제 실패 단계(`--force-mock`·`--force-mock-build`)가 검사와 빌드 단계 가드가 아직 무는지 확인한다(통과하면 단계 실패). lint는 별도 Job이 아니라 같은 Job의 단계(6a). 플랫폼 계약 E2E는 별도 Job `platform-contracts-e2e`(브라우저 설치가 무거워 분리, #44) | Node 26.7.0 유지. `pnpm -r typecheck test build`처럼 한 줄로 쓰면 뒤 두 개가 첫 스크립트의 인자가 되어 실행되지 않는다 |
+| CI | `platform-workspace` Job에서 `pnpm lint`·`pnpm typecheck`·`pnpm test`·`pnpm build`를 각각 별도 단계로(Turbo 태스크 그래프). test 단계는 `pnpm test --concurrency=2`를 쓰며 root 스크립트의 `--filter='!@fops/*' --only`로 FeedbackOps 태스크를 제외하고 동시 패키지 수를 제한한다(패키지별 vitest 워커가 겹쳐 러너 CPU를 초과 구독해 5초 타임아웃이 나던 문제, #166). CI의 dry-run guard는 root 스크립트 lint·typecheck·test·build 태스크 그래프에 `@fops/*` 태스크가 없는지 확인한다. `pnpm build` 다음 단계 `pnpm --filter @ap/platform-web check:prod-graph`가 운영 모듈 그래프(조립 모듈 external)에 mock·`src/dev`가 없음을 확인한다(#153, ADR-0009). 이어서 두 강제 실패 단계(`--force-mock`·`--force-mock-build`)가 검사와 빌드 단계 가드가 아직 무는지 확인한다(통과하면 단계 실패). lint는 별도 Job이 아니라 같은 Job의 단계(6a). 플랫폼 계약 E2E는 별도 Job `platform-contracts-e2e`(브라우저 설치가 무거워 분리, #44) | Node 26.7.0 유지. `pnpm -r typecheck test build`처럼 한 줄로 쓰면 뒤 두 개가 첫 스크립트의 인자가 되어 실행되지 않는다 |
 
 **lint 도구 — ESLint (Decided, §8 #4):** FeedbackOps는 Biome을 쓰지만 경계 규칙과 URL 조립 금지 같은 커스텀 AST 규칙이 필요해 ESLint를 택했다(Biome 플러그인 GritQL은 이런 규칙에 제한적). 6a에서 `tooling/eslint`(`@ap/eslint-config`)의 층별 preset으로 구현했다. 문법 기반이라 변수에 담아 조립한 URL, computed 속성(`window['localStorage']`), optional chaining 호출 같은 우회는 잡지 않는다 — 규칙이 허용한다는 뜻이 아니다.
 
@@ -212,7 +212,7 @@ const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: [...hom
 | 1 | 패키지 구성·의존 방향 | §3 그대로 | 현재 폴더 구조와 거의 일치해 이동 비용이 적고, `contracts` 분리로 향후 백엔드와 계약 공유 가능 |
 | 2 | 메뉴 패키지 단위 | **그룹 단위** (`menu-analytics`에 생산성 개요·사이클타임·실행 상세) | 같은 그룹 안 목록→상세 import가 자연스럽고, 사이드바 그룹(06 §9)·소유 단위와 일치. 커지면 그때 분할 |
 | 3 | 프로토타입 처리 | `prototypes/platform-app` → `apps/platform-web`으로 **`git mv`** | 이력·리뷰 보고서 연결 유지, 코드 두 벌 방지 |
-| 4 | lint 도구 | **ESLint** | 경계·URL 조립 금지 같은 커스텀 규칙이 목적. FeedbackOps(Biome)와는 별도 workspace라 충돌 없음 |
+| 4 | lint 도구 | **ESLint** | 경계·URL 조립 금지 같은 커스텀 규칙이 목적. FeedbackOps는 Biome을 쓰지만 루트 lint는 `@fops/*` 태스크를 제외한다. 앱·백엔드 등 나머지는 별도 workspace다 |
 | 5 | 이름 | 접두사 `@ap/`, 메뉴 폴더 `menus/` | `menus/`는 "메뉴는 Consumer" 원칙을 구조로 드러냄 |
 
 **`@ap/`는 임시 접두사다.** 회사 시스템 이름이 정해지면 일괄 변경한다. 변경 비용을 낮게 유지하려고 다음을 지킨다.

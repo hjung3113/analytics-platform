@@ -124,10 +124,12 @@ jobs:
           node-version: '26.7.0'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Guard FeedbackOps out of platform task graph
+        run: node .github/scripts/check-platform-turbo-scope.mjs
       - run: pnpm lint
       - run: pnpm typecheck
       # #166: vitest workers × parallel packages oversubscribe the runner → cap turbo concurrency
-      - run: pnpm exec turbo run test --concurrency=2
+      - run: pnpm test --concurrency=2
       - run: pnpm build
       # #153 (ADR-0009): the production module graph (assembly external) carries no mock-server, menu mock or src/dev
       - run: pnpm --filter @ap/platform-web check:prod-graph

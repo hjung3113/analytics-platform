@@ -44,6 +44,9 @@ jobs:
         run: cat apps/platform-web/dist/assets/*.css > "$RUNNER_TEMP/head.css"
       - name: Check out base worktree (merge-base with target branch)
         run: git worktree add "$RUNNER_TEMP/base" "$(git merge-base HEAD "origin/${{ github.event.pull_request.base.ref }}")"
+      - name: Initialize the base FeedbackOps submodule
+        # Read the gitlink from the base worktree; it can point to a different commit than the PR head.
+        run: git -C "$RUNNER_TEMP/base" submodule update --init --depth 1 products/feedbackops
       - name: Build base
         working-directory: ${{ runner.temp }}/base
         run: |
