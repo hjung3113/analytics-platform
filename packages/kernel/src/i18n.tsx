@@ -42,6 +42,7 @@ const dict = {
   preset1d: { ko: '1일', en: '1 day' },
   preset7d: { ko: '7일', en: '7 days' },
   presetCustom: { ko: '사용자 지정', en: 'Custom' },
+  capApplied: { ko: '적용', en: 'Applied' },
   apply: { ko: '적용', en: 'Apply' },
   cancel: { ko: '취소', en: 'Cancel' },
   reset: { ko: '초기화', en: 'Reset' },

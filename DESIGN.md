@@ -179,6 +179,7 @@ label 행은 #210(FeedbackOps 원본 값), 나머지 행은 #193/#194 UI/UX 리�
 
 셸 구조·치수·본문 여백·gap·sticky 배치의 원본은 [06 §7 Baseline](docs/06_platform_ui_contract.md#7-application-shell)과 [07 §4](docs/07_app_shell_wireframe.md)다. 이 문서는 아래 시각 보완만 소유하며 구조 값을 다시 정의하지 않는다.
 
+- B안 Context 바는 모든 control에 적용/참조/미사용 capability 배지를 표시한다. 적용 상태 문구는 `적용` / `Applied`(`capApplied`)이며 편집기의 `적용` / `Apply` 동작과 구분한다. control 표면은 유지한다. 넘침 버튼은 숨은 조건 수와 적용 수를 표시하고, 축약된 기간·아이콘 동작은 전체 접근 이름과 title을 제공한다(06 §7, ADR-0015).
 - 상세 슬롯은 공유 `surface-detail` 표면과 왼쪽 1px `border-subtle` 구분선으로 본문과 나눈다. 셸 전체 높이를 쓰고 그림자·scrim은 없다. 내부 상세 탭 내용은 독립 스크롤하며 폭은 06 §7 Baseline을 소비한다(ADR-0013).
 - 공유 `surface-sidebar` 위에 Registry 그룹을 **section label**로 표시한다. 활성 탐색 제목에 `text-disabled`를 쓰지 않는다. 주 메뉴 navigation과 즐겨찾기/최근 section을 구별한다.
 - 현재 메뉴/공간은 공유 selected 표면 + text weight + **2px accent 막대**로 구별한다. `aria-current`를 유지하고 hover가 막대를 지우지 않는다. 보조 즐겨찾기/최근 링크에 현재 위치 표식을 중복하지 않는다.
@@ -246,7 +247,7 @@ cellPadding: 4px 12px
 
 ### Filter bar
 
-전역 기간은 Context bar의 동일한 control 하나다. page-owned 검색·stage/status filter는 content toolbar에 두고 전역 Context를 보존한다. 적용된 조건은 보이며 persistent accessible label을 제공한다. 폭이 부족하면 wrap하고 active filter를 숨기지 않는다. 입력/검색 문구가 sunken이면 secondary를 사용한다.
+전역 기간은 Context bar의 동일한 control 하나다. page-owned 검색·stage/status filter는 content toolbar에 두고 전역 Context를 보존한다. 적용된 조건은 보이며 persistent accessible label을 제공한다. page-owned toolbar는 폭이 부족하면 wrap하고 active filter를 숨기지 않는다. 전역 Context 바는 [06 §7](docs/06_platform_ui_contract.md#7-application-shell)의 우선순위 넘침을 소비하며 한 줄을 유지한다. 입력/검색 문구가 sunken이면 secondary를 사용한다.
 
 기간 preset은 `1일 / 7일 / 사용자 지정`; rolling wall-clock Δ와 `[from,to)` 물질화는 [06 시간 계약](docs/06_platform_ui_contract.md#ctx-time)을 따른다. screenshot의 기간 preset을 제품 의미로 복사하지 않는다. segment는 이름 있는 single-select/radio+selected 표식, custom picker는 Apply 때 반영하고 Cancel/Escape는 기존 구간을 보존한다. 현재 적용 구간과 draft를 구별하고 browser now로 기본값을 새로 만들지 않는다. 최초 기본 Δ·shift/business-day는 원본의 Open 상태를 따른다.
 
