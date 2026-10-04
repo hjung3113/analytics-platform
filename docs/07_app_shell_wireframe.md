@@ -1,19 +1,19 @@
 # 07. App Shell 요구사항·와이어프레임
 
-상태: 설계 산출물. `.agents/skills/analysis-platform-wireframe/SKILL.md`의 설계 단계에서 종료한다. 프로토타입이나 시각 스타일 검증 결과가 아니다.
+상태: 설계 산출물이며 셸 구조(§4)는 [ADR-0011](adr/0011-design-direction-feedbackops-shell.md)·[0013](adr/0013-detail-panel-shell-docked-slot.md)·[0015](adr/0015-context-bar-priority-overflow.md)로 Decided·구현됐다. 이 문서의 서술은 문서 대조용이며 런타임 통과 기록이 아니다(시나리오 검증은 §7).
 
-전역 계약의 원본은 `06_platform_ui_contract.md`다. 이 문서는 그 계약을 소비하는 셸의 배치와 상태 시나리오만 소유한다. navigation IA는 §9, 식별자·URL·Scope·시간은 §6, Context 전환은 §11, 권한 UX는 §17을 따른다. 결정 상태와 Deferred 구현 가설은 `05_roadmap_and_open_questions.md`, 기술 후보는 `04_frontend_ui_ux.md`를 참조한다. 구현 일정과 스택은 확정하지 않았다.
+전역 계약의 원본은 `06_platform_ui_contract.md`다. 이 문서는 그 계약을 소비하는 셸의 배치와 상태 시나리오만 소유한다. navigation IA는 §9, 식별자·URL·Scope·시간은 §6, Context 전환은 §11, 권한 UX는 §17을 따른다. 결정 상태와 Deferred 구현 가설은 `05_roadmap_and_open_questions.md`, 기술 후보는 `04_frontend_ui_ux.md`를 참조한다.
 
 ## 1. USER TASK
 
 - 주 사용자: 공정/설비 엔지니어, 마스터데이터·지표 관리자, 운영 관리자, 현업 문의자.
 - 작업: 메뉴를 오가며 요청한 Scope·기간·설비를 확인하고 분석 → 상세 → 관련 VOC로 이동한다.
 - 셸의 책임: 현재 위치와 Context, 접근 가능한 메뉴, 재검증·로딩·오류 상태를 표시한다.
-- 가정(Candidate): 메뉴 수십 개 이하, 즐겨찾기/최근방문 수십 건, Desktop-first. 교대 내내 상주하는지와 데이터 규모는 사용자 검증이 필요하다.
+- 가정(Candidate): 메뉴 수십 개 이하, 즐겨찾기 수십 건 이하, Desktop-first. 교대 내내 상주하는지와 데이터 규모는 사용자 검증이 필요하다.
 
 ## 2. IA / SCREEN INVENTORY
 
-`06_platform_ui_contract.md` §9의 그룹과 §9.1의 워크스페이스(분석 / 운영 콘솔 / 피드백, 2026-09-26)를 소비한다. 아래 하위 화면은 탐색 관계의 Candidate 예시이며 제공 일정이나 전체 화면 구현 요구가 아니다. 공지와 VOC는 별개 도메인이다.
+`06_platform_ui_contract.md` §9의 그룹과 §9.1의 워크스페이스(분석 / 운영 콘솔 / 피드백, 2026-09-26)를 소비한다. 아래 하위 화면은 탐색 관계의 Candidate 예시이며 제공 일정이나 전체 화면 구현 요구가 아니다. 공지와 VOC는 별개 도메인이다. 구현 상태는 `menus/*/src/index.ts`의 manifest와 `.planning/README.md`가 원본이며, 이 트리는 탐색 관계만 소유한다.
 
 ```
 [분석 공간]                             모든 사용자
@@ -67,9 +67,9 @@
 | Secondary actions | 메뉴 검색, 즐겨찾기, 필터 제거/편집 |
 | Navigation | 로그인 후 하위 화면에 공통 적용 |
 | Data requirements | §6의 개념적 데이터 요구 |
-| Empty state | 즐겨찾기/최근방문이 없으면 안내. 접근 가능한 메뉴가 없으면 별도 접근 안내 |
-| Loading state | 메뉴 영역 스켈레톤, Scope 검증 중 표시. 세션 후보값을 확정값으로 표현하지 않음 |
-| Error state | 권한 조회 실패 배너. 현재 사용자·Scope에서 접근 가능함이 확인된 항목만 노출 |
+| Empty state | 즐겨찾기/최근방문이 없으면 안내. 접근 가능한 메뉴가 없으면 별도 접근 안내(미구현 — 접근 가능한 메뉴가 0개일 때의 안내 화면은 아직 없다) |
+| Loading state | 세션·메뉴는 동기 snapshot이라 메뉴 영역에 로딩 상태가 없다. Scope 검증 중은 사이드바 선택기('검증 중…')와 페이지 게이트로 표시하고, 세션 후보값을 확정값으로 표현하지 않는다. 화면 청크 로딩은 main의 스켈레톤 |
+| Error state | 라우트 오류 경계(Correlation ID), Scope 확인 실패 + 다시 시도, URL 계약 오류, 권한/공간 거부 화면. 현재 사용자·Scope에서 접근 가능함이 확인된 항목만 노출 |
 
 ## 4. WIREFRAME (Decided 구조, 2026-10-04 — [ADR-0011](adr/0011-design-direction-feedbackops-shell.md))
 
@@ -106,7 +106,7 @@
 
 상세가 없으면 오른쪽 슬롯은 폭 0이다. 폭·등록·URL·포커스 원본은 06 §7·§13이며 1440/1280 데스크톱 모두 같은 고정 슬롯을 쓴다. 페이지 머리 아래에 뜨는 overlay나 scrim은 두지 않는다.
 
-구조는 FeedbackOps AppFrame(레일·밝은 사이드바·50px 머리)을 따른다(06 §7). 위 사이드바는 **분석 공간** 기준이다. 접근 가능한 공간이 2개 이상인 사용자에게는 레일에 공간 버튼이 나타나고, 운영 콘솔·피드백 공간은 자기 그룹만 사이드바에 표시한다(06 §9.1). 메뉴 검색은 레일의 명령 팔레트로 한다. 이전 배치(로고 칸 공간 드롭다운, 상단 바 Scope·검색·사용자 메뉴)는 ADR-0011로 대체됐다.
+구조는 FeedbackOps AppFrame(레일·밝은 사이드바·50px 머리)을 따른다(06 §7). 위 사이드바는 **분석 공간** 기준이다. 접근 가능한 공간이 2개 이상인 사용자에게는 레일에 공간 버튼이 나타나고, 운영 콘솔·피드백 공간은 자기 그룹만 사이드바에 표시한다(06 §9.1). 메뉴 검색은 레일의 명령 팔레트로 한다.
 
 50px 페이지 머리와 Context Bar는 main 스크롤 영역 안에서 하나의 sticky 래퍼로 유지한다(Context Bar는 독립 sticky 아님). 콘텐츠 여백은 FeedbackOps `PageShell` 기준이며 치수 원본은 06 §7 Baseline이다. 접힌 사이드바에서도 Scope 선택·검증 상태는 아이콘·접근성 텍스트로 유지한다.
 
@@ -118,57 +118,26 @@ Scope의 포함 관계는 Site→room_name→StGroup→Equipment이며 실무 �
 
 ## 5. CONCEPTUAL COMPONENT MAP
 
-| 영역 | 책임 |
-| --- | --- |
-| 공통 프레임 | 레일·사이드바·페이지 머리·Context·콘텐츠 슬롯 배치 |
-| 레일 | 공간 전환, 명령 팔레트(메뉴 검색), 앱 주입 도구, 도움말, 언어, 사용자 메뉴 |
-| 사이드바 | 공간 이름·접기/펼치기, Scope 선택과 검증 상태, 레지스트리 그룹 섹션, 즐겨찾기·최근방문 |
-| 현재 위치 | 페이지 머리(부모 링크·페이지 제목·설명·동작) |
-| Context 영역 | 기간·room_name·Equipment Group Condition/Selection·Lot·PPID·Recipe와 적용 범위·미지원 상태 표시 |
-| 콘텐츠 슬롯 | 선택 메뉴의 화면과 데이터 신뢰 정보 수용 |
-| 상세 슬롯 | 셸이 main 옆 전체 높이 aside를 소유하고 페이지의 상세 등록을 수용(06 §13) |
-
-이는 React 컴포넌트 이름이나 API 선언이 아니다. 슬롯 결합 규칙은 전역 계약 §8을 따른다.
+레일·사이드바·페이지 머리·Context 영역·콘텐츠 슬롯·상세 슬롯의 책임은 [06 §7](06_platform_ui_contract.md#7-application-shell)(셸 구조), §8(슬롯), §13(상세 슬롯)이 원본이다.
 
 ## 6. DATA REQUIREMENTS
 
 - 메뉴 레지스트리에서 표시명·그룹·목적지·필요 권한·지원 Context를 읽는다(전역 계약 §5).
 - 요청 Scope, 현재 검증 상태, 사용자가 접근 가능한 Scope 선택 항목을 읽는다(§6.2). room_name 기준 Scope·v1 단일 선택은 Decided이며 부모·자식 상속은 Open이다. 선택기 API 구현을 확정한 것은 아니다.
 - URL에서 복원된 요청 Context와 목적지 객체 ID를 구분해 표시한다(§6.1). 직렬화·충돌 메커니즘은 §6.1/§6.4의 Decided 계약을 소비하며, 공개 필드명·enum·산출물 형식은 원본의 Candidate 상태를 따른다.
-- 즐겨찾기/최근방문은 사용자별 목적지를 표시한다. **즐겨찾기는 목적지 ID만 저장한다(Decided, 2026-09-24 — [08 §6](08_operations_overview_wireframe.md#6-data-requirements))**: 마지막 조회 Context는 저장하지 않으며, 클릭 시 그 화면의 기본 상태로 진입하고 §6.2의 재검증을 그대로 따른다.
+- 즐겨찾기/최근방문은 사용자별 목적지를 표시한다. **즐겨찾기는 목적지 ID만 저장한다(Decided, 2026-09-24 — [08 §6](08_operations_overview_wireframe.md#6-data-requirements))**: 마지막 조회 Context는 저장하지 않으며, 클릭 시 그 화면의 기본 상태로 진입하고 §6.2의 재검증을 그대로 따른다. 최근방문은 최대 12건을 저장하고 사이드바에 5건을 표시한다.
 - 시간 표시/입력은 §6.3의 Decided 경계·fallback·병합 가드·기본 구간 물질화를 따른다. 초기 TZ는 한국(Asia/Seoul) 우선으로 Decided이며 다중 사업장 같은 날짜·교대일/영업일 의미는 Open이다. 이 화면에서 시간 계약을 재정의하지 않는다.
 
 ## 7. INTERACTION / DOCUMENT REVIEW SCENARIOS
 
-전역 규칙을 이 문서에서 재정의하지 않고, 다음 셸 시나리오로 계약 적용을 확인한다.
-
-| 시나리오 | 셸에서 확인할 결과 | 원본 계약 |
-| --- | --- | --- |
-| 결과 0건, 수집/파서 상태 근거 없음 | No matching result; 원인 상태는 Unknown이며 지연/중단으로 추론하지 않음 | §19 |
-| 같은 링크로 재진입 | 요청 조건·고정 Selection·지표 버전 복원, live Condition은 현재 결과 재평가, 계산 기준시각 표시 | §6.1 |
-| occurrence 상세 → 설비/VOC 이동 | 목적지 객체 ID와 분석 Context를 분리해 전달 | §6.1 |
-| 링크의 Scope 접근 불가 | 오류/선택 상태, 조용한 대체 없음 | §6.2 |
-| 기간·설비·Scope 변경 중 이전 응답 도착 | 이전 결과를 새 조건 결과로 표시하지 않음 | §11 |
-| 동일 Context 새로고침 | 기존 결과에 갱신 중 상태 표시 가능 | §11 |
-| 지원하지 않는 Lot Context 전달 | 적용되지 않음을 명시 | §6 |
-| Scope 전환 후 세션값 복원 | 설비·Lot 및 권한 재검증 후 적용 | §6.2 |
-| 권한 없는 메뉴 | 내비게이션 비노출, 직접 URL은 서버 검증 | §17 |
-| 차트 확대 후 메뉴 이동 | 단순 확대와 명시적 구간 적용을 구분 | §6.1 |
-
-모든 § 참조는 `06_platform_ui_contract.md`다. 이 표는 문서 대조용이며 런타임 테스트 통과 기록이 아니다.
+시나리오 검증은 `apps/platform-e2e`의 계약 보고(`contract-report/`)를 본다.
 
 ## 8. DESIGN DECISIONS / OPEN QUESTIONS
 
+이 문서가 소유한 Open·Deferred만 둔다. Decided는 06과 ADR-0011·0013·0015가 원본이다.
+
 | 상태 | 결정/질문 | 소유자 |
 | --- | --- | --- |
-| Decided | 06 §9 그룹과 §9.1 워크스페이스 navigation(분석 공간 6그룹, 관리·감사는 운영 콘솔, VOC 분류·처리는 피드백 공간), 전역 Context·권한 계약 재사용 | 전역 계약 §6/§9/§9.1/§11/§17 |
-| Decided | 셸 구조: 레일(공간 전환·팔레트·도구) + 사이드바(Scope 선택·그룹 섹션·즐겨찾기/최근) + 50px 페이지 머리, 상단 바 없음 — 2026-10-04 사용자 | [ADR-0011](adr/0011-design-direction-feedbackops-shell.md), 전역 계약 §7 |
-| Decided | 상세는 셸 소유 오른쪽 고정 슬롯(B안), 본문과 나란히 조작 — 2026-10-04 사용자 | [ADR-0013](adr/0013-detail-panel-shell-docked-slot.md), 전역 계약 §7·§13 |
-| Decided | Context 바 B 우선순위 넘침 — 2026-10-04 사용자 | [ADR-0015](adr/0015-context-bar-priority-overflow.md), 전역 계약 §7 |
-| Decided / Open | room_name 기준 Scope·v1 단일 Scope 선택은 Decided. 부모·자식 상속은 Open이며 복수 선택은 v1 범위 밖의 이후 확장 후보 | 전역 계약 §6.2, [도메인 용어](../CONTEXT.md), [ADR-0005](adr/0005-scope-room-name-line-independent.md) |
-| Decided(메커니즘) | URL 버전 `v` 수명주기·우선순위·잘못된 값·뒤로가기/미지원 Context 복원 — 필드명 자체는 Candidate | 전역 계약 §6.4, `docs/05` 결정 상태 |
-| Decided / Open | 시간 경계·TZ 미확인 fallback 등 메커니즘과 한국(Asia/Seoul) 우선 TZ는 Decided. 해외 확장은 미착수이며 다중 사업장 같은 날짜·교대일/영업일 의미는 Open | 전역 계약 §6.3, [05 결정 상태](05_roadmap_and_open_questions.md) |
 | Open | 공지 배너 위치·게시기간/대상 메뉴/권한에 따른 노출 | 셸과 공지 도메인 설계 |
 | Open | 알림 벨·통합 배지의 읽음 상태·집계·권한 의미 | 별도 제안, 필수 요소 아님 |
 | Deferred | 저장된 뷰, 메뉴 등록 UI, 수집 상태 대시보드 | 별도 요구 및 향후 구현 계획 |
-| Deferred | 이 화면의 추가 시각 구체화·Prototype·Visual Polish. 기존 FeedbackOps 기반 플랫폼 시각 확장·pairing 원본은 DESIGN이며 06의 최소 기준·접근성 의무를 따른다 | [DESIGN](../DESIGN.md), 전역 계약 §7/§15/§26; 후속 작업은 별도 구현 요청 |

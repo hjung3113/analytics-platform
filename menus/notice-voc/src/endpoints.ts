@@ -1,5 +1,5 @@
 /**
- * My VOC query endpoints (docs/integration/menu-query-port.md §3, #131). FeedbackOps product data projected for the
+ * My VOC query endpoints (docs/adr/0019-menu-query-endpoint-declaration.md, #131). FeedbackOps product data projected for the
  * session actor — menu vocabulary, so it lives here, not on the Kernel port. Not mart data (`mart: false` on the
  * server half): no Data Trust. The server stamps the session actor; the client sends no user id, Scope or Context.
  */

@@ -32,7 +32,7 @@ export type Registry = {
   menuById: (id: string) => MenuEntry;
   matchRoute: (pathname: string) => RouteMatch | null;
   /**
-   * Registry-dependent half of the URL contract (kept out of @ap/contracts, platform-packages.md D9).
+   * Registry-dependent half of the URL contract (kept out of @ap/contracts — it needs the Registry; platform-packages.md §3).
    * Entry URL for “back”, or null. Registered non-detail menu, query parses for that menu.
    * Returns the original string so the entry URL is not rewritten.
    */

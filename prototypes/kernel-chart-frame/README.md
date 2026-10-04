@@ -2,7 +2,7 @@
 
 **합성 fixture, 실제 메뉴 아님.** 플랫폼 공통 컴포넌트/Chart Interaction Contract의 독립 실험이다. 숫자 index 0–20과 합성 A/B 값만 사용한다. **이 Unit은 §6.3 시간 계약을 구현하지 않는다.** 실제 업무 지표·메뉴·권한·URL 연동을 구현하거나 검증한 것이 아니다.
 
-원본 및 수용 사례: [work order](../../.agents/reports/kernel-work-order-analysis-chart-frame-draft.md). 원본 revision `479699c14856be25f5209afb55712b34c6a48c66`, docs/06 §6/13/16/28–29 및 docs/04 차트/도식 자유도 요구사항을 따른다.
+원본 및 수용 사례: work order(git 이력: `kernel-work-order-analysis-chart-frame-draft.md`). 원본 revision `479699c14856be25f5209afb55712b34c6a48c66`, docs/06 §6/13/16/28–29 및 docs/04 차트/도식 자유도 요구사항을 따른다.
 
 ## 실행
 

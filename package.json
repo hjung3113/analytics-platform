@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "turbo run dev --filter=@ap/platform-web",
+    "docs:links": "node .github/scripts/check-doc-links.mjs",
     "gen:menu": "node tooling/gen-menu/src/cli.ts",
     "lint": "turbo run lint --filter='!@fops/*' --only",
     "typecheck": "turbo run typecheck --filter='!@fops/*' --only",

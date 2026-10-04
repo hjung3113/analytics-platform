@@ -12,13 +12,13 @@ const noFeatures = { export: false, savedView: false, annotate: false, compare: 
 export const manifests: MenuEntry[] = [
   {
     id: 'master-process', primary: true, group: 'masterData', label: { ko: '공정 마스터', en: 'Process master' },
-    description: { ko: '공정 기준정보 목록/상세 (10 wireframe)', en: 'Process reference data (wireframe 10)' },
+    description: { ko: '공정 기준정보 목록/상세 (예정)', en: 'Process reference data (planned)' },
     path: '/master/process', icon: Route, permission: 'master:view', requiresScope: true, pageType: 'management',
     context: { ...none, roomNames: 'apply' }, features: noFeatures, pageKeys: [],
   },
   {
     id: 'master-recipe', group: 'masterData', label: { ko: '레시피 마스터', en: 'Recipe master' },
-    description: { ko: '레시피 기준정보 목록/상세 (10 wireframe)', en: 'Recipe reference data (wireframe 10)' },
+    description: { ko: '레시피 기준정보 목록/상세 (예정)', en: 'Recipe reference data (planned)' },
     path: '/master/recipe', icon: FlaskConical, permission: 'master:view', requiresScope: true, pageType: 'management',
     context: { ...none, roomNames: 'apply', recipe: 'apply', ppid: 'reference' }, features: noFeatures, pageKeys: [],
   },

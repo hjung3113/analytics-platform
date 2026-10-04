@@ -1,12 +1,12 @@
 # 실서버 연결 체크리스트 (사내 적용)
 
-> 상태: **Candidate** — 지금 mock(`@ap/mock-server`)이 하는 일을 기준으로 실서버·실어댑터가 지켜야 할 것을 모은 목록(#145). 계약의 원본은 [06](../06_platform_ui_contract.md) §5·§6·§17·§19·§22와 [패키지 경계](platform-packages.md) §4이고, 이 문서는 사내 구현자가 한 번에 보도록 묶은 것이다. 충돌하면 원본을 따른다.
+> 상태: **Candidate** — 지금 mock(`@ap/mock-server`)이 하는 일을 기준으로 실서버·실어댑터가 지켜야 할 것을 모은 목록(#145). 계약의 원본은 [06](../06_platform_ui_contract.md) §5·§6·§17·§19·§22와 [패키지 경계](platform-packages.md) §4이고, 이 문서는 사내 구현자가 한 번에 보도록 묶은 것이다. 충돌하면 원본을 따른다. 본문의 Q3·Q5·Q9는 [ADR-0019](../adr/0019-menu-query-endpoint-declaration.md)의 결정 항목이다.
 
 ## 1. 무엇을 바꾸나
 
 앱은 서버를 `PlatformAdapter` 하나로만 만난다. `apps/platform-web/src/main.tsx`는 `#platform-assembly`의 `createAssembly({ registry })`가 돌려준 어댑터를 주입한다(#153, [ADR-0009](../adr/0009-production-assembly-injection.md)). 지금 dev·mock 빌드에서는 `src/dev/mock-assembly.tsx`가 `createMockAdapter({ endpoints, registry })`를 돌려준다 — 실어댑터를 돌려주는 조립 모듈을 만들어 운영 빌드에 꽂는 것이 사내 적용의 전부다. Kernel·셸·공통 컴포넌트·메뉴 화면은 고치지 않는다.
 
-- 실어댑터(클라이언트)는 각 포트 메서드를 서버 호출로 옮긴다. 전송 형식(HTTP 경로·JSON 모양·상태 코드·부트스트랩·CSRF·Correlation ID)은 [전송 형식 초안](http-adapter-contract.md)(Candidate, 합의 대기 — §7)에 있다.
+- 실어댑터(클라이언트)는 각 포트 메서드를 서버 호출로 옮긴다. 전송 형식(HTTP 경로·JSON 모양·상태 코드·부트스트랩·CSRF·Correlation ID)은 [전송 형식 초안](http-adapter-contract.md)(Candidate, 합의 대기 — [사내 적용 가이드](in-house-rollout.md) §2)에 있다.
 - 서버는 mock 엔진이 하는 판정을 그대로 한다. 판정의 기준은 요청이 아니라 **서버가 가진 엔드포인트 선언 사본**이다.
 - 운영 빌드에서는 dev 도구(역할 전환·응답 시나리오, `src/dev/DevTools.tsx`)를 빼고, `menus/*/src/mock/`은 번들에 넣지 않는다 — #153이 보장한다: `main.tsx`는 mock을 import하지 않고(lint), 운영 mode는 `AP_PLATFORM_ASSEMBLY`가 가리키는 조립 모듈을 쓰며 없으면 빌드가 실패한다(대체 어댑터 없음). CI `check:prod-graph`가 조립을 external로 둔 운영 모듈 그래프에 `@ap/mock-server`·`menus/*/src/mock/`·`src/dev/`가 없음을 확인하고, 모든 운영 빌드(`build:prod`)는 빌드 단계 검사(`prodGraphGuard`)로 실조립을 포함한 자기 전체 그래프에 같은 규칙을 적용한다 — 걸리면 빌드 실패, 끌 수 없다(ADR-0009). CI 검사만으로는 실조립을 보지 않으므로 실조립 쪽 보장은 이 빌드 단계 검사다.
 - 실어댑터 꽂기(#154): `import type { CreateAssembly } from '#platform-assembly'`로 `export const createAssembly: CreateAssembly = ({ registry }) => ({ adapter, topBarTools: null })`를 export하는 모듈을 만들고(선언과 별개로 시그니처를 손으로 쓰지 않는다) `AP_PLATFORM_ASSEMBLY=<경로> pnpm --filter @ap/platform-web build:prod`로 빌드한다. 운영 조립은 `topBarTools: null`을 쓴다. `build:prod`는 번들 전에 `scripts/typecheck-assembly.ts`로 그 모듈의 `createAssembly`가 `CreateAssembly`를 만족하는지 `tsc`로 검사한다(앱 `tsc --noEmit`은 주입 모듈을 보지 않는다) — 필드를 빠뜨리거나 모양이 다르면 빌드가 실패한다.
@@ -108,13 +108,4 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 
 ## 7. 아직 사람 결정이 필요한 것
 
-순서·담당자별 질문 목록은 [사내 적용 가이드](in-house-rollout.md) §2–§3, 진행은 지도 이슈 [#157](https://github.com/hjung3113/analytics-platform/issues/157).
-
-| 결정 | 왜 필요한가 |
-| --- | --- |
-| 메뉴 조회 포트 Q2(#148) — 선언 원본을 TS로 두고 서버가 읽을지, FastAPI에서 생성할지 | 서버의 "선언 사본"을 어디서 가져올지. 공개 스키마·codegen(PLATFORM_REQUIREMENTS)도 여기에 달려 있다. |
-| 전송 형식(#149, 초안 → 합의) — HTTP 경로·메서드·JSON 모양, 취소(`AbortSignal`)·타임아웃 | 실어댑터와 서버의 경계. 초안 [http-adapter-contract.md](http-adapter-contract.md)(Candidate) — 백엔드 담당 합의 대기, 질문은 그 문서 §10. |
-| 사내 SSO 사양(#150)·역할 소속 원천(#98) | 세션·권한의 원천. |
-| 적재 워커 상태 스키마(#37) | 데이터 신뢰(`trust`, `collection`·`processing_delay`·`coverage` assessment)의 원천. 합의 전 서버 동작은 §3-10. 합의 뒤 모니터링(#51). |
-| FeedbackOps API(#84 설문 응답 읽기, #85 신고자 딥링크, #86 실제 VOC 어댑터) | 내 VOC·설문 화면의 비 mart 원천. |
-| 배포·인프라 환경(#151) | 같은 출처 배포·쿠키·CSRF, 망분리 빌드, CI 위치. 전송 형식 합의가 여기에 기댄다. |
+남은 사람 결정은 [사내 적용 가이드](in-house-rollout.md) §2-§3.

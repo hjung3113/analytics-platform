@@ -1,6 +1,6 @@
 # 06. Platform UI Contract
 
-> Status: Draft  
+> Status: 절마다 Decided / Candidate / Open / Deferred로 표기한다(문서 전체 상태 없음).  
 > Scope: Analytics Platform UI / Platform Shell / Extension Contract  
 > Related: `00_overview.md`, `02_domain_menus.md`, `04_frontend_ui_ux.md`, `05_roadmap_and_open_questions.md`
 
@@ -13,7 +13,9 @@
 - **Open**: Scope 부모·자식 상속, 최초 기본 Δ, timeDomain assertion 공급 근거, 다중 Site의 같은 날짜·교대일/영업일 등 각 절에 명시한 미결 입력. URL 메커니즘과 Site→room_name→StGroup→Equipment 관계의 Decided 상태 및 공개 필드명·enum의 Candidate 상태와 구별한다.
 - **Deferred**: 저장된 뷰 등 후속 구현 범위. 이 설계가 기능 제공 시점을 확정하지 않는다.
 
-§5~6, §8~9, §11, §17, §19의 책임·행동 규칙은 Decided다. §7 셸 구조·치수는 2026-10-04 [ADR-0011](adr/0011-design-direction-feedbackops-shell.md)로 FeedbackOps AppFrame 구조(레일 52px·사이드바 240/56px·상단 바 없음·페이지 머리 50px)로 Decided됐다(이전 2026-09-21 기준 사이드바 270px·헤더 54px를 대체). 치수 값의 단일 원본은 FeedbackOps `packages/ui/src/styles/tokens.css`의 레이아웃 토큰이다. §15 테이블 밀도(최소 32px)는 2026-09-21 `DESIGN.md` canonical 값으로 Decided다. §23 토큰 값의 원본은 ADR-0011로 Decided이며, 나머지 §23 정책·§25 반응형 정책·§31은 아직 Candidate다. 구현 일정은 아직 확정하지 않았으며 `05_roadmap_and_open_questions.md`의 Phase 표는 non-authoritative 가설이다.
+§5~6, §8~9, §11, §17, §19의 책임·행동 규칙은 Decided다. §7 셸 구조·치수는 2026-10-04 [ADR-0011](adr/0011-design-direction-feedbackops-shell.md)로 FeedbackOps AppFrame 구조(레일 52px·사이드바 240/56px·상단 바 없음·페이지 머리 50px)로 Decided됐다. 치수 값의 단일 원본은 FeedbackOps `packages/ui/src/styles/tokens.css`의 레이아웃 토큰이다. §15 테이블 밀도(최소 32px)는 2026-09-21 `DESIGN.md` canonical 값으로 Decided다. §23 토큰 값의 원본은 ADR-0011로 Decided이며, 나머지 §23 정책·§25 반응형 정책은 아직 Candidate다. 구현 일정은 아직 확정하지 않았으며 `05_roadmap_and_open_questions.md`의 Phase 표는 non-authoritative 가설이다.
+
+구현 순서·배치 시점은 Deferred이며, 이 문서의 계약은 각 기능이 구현될 때 따라야 할 조건이다. 와이어프레임에 표현됐다는 이유만으로 해당 기능의 구현이 승인되지는 않는다. 구체 셸 배치·사용자 작업·상태 시나리오는 `07_app_shell_wireframe.md`가 관리한다.
 
 ## 1. 문서 목적
 
@@ -118,11 +120,13 @@ Platform Kernel이 소유해야 하는 UI 책임:
 - Saved View 진입점
 - Page-level Action Slot
 - Data Trust 표시 표준
-- 전역 Error Boundary / Correlation ID 표시
-- Toast / Confirm / Modal infrastructure
+- 라우트 단위 Error Boundary(메뉴 화면 렌더 실패를 콘텐츠 슬롯에 가두고 Correlation ID를 표시한다. 보고는 어댑터 `reportClientError`에 식별 필드만 보낸다)
+- Toast / Modal infrastructure (확인 대화상자 헬퍼는 후보)
 - Theme / Design Token
-- 공통 Keyboard Shortcut
+- 공통 Keyboard Shortcut: ⌘/Ctrl+K 명령 팔레트, `[` 사이드바 접기/펼치기(입력 중 제외), Esc로 상세 패널(패널 안)·팝오버 닫기. 셸은 본문 바로가기 링크를 제공한다
 - 메뉴 활용률 계측(진입·체류 이벤트는 어댑터로 전송하고, 콘솔은 집계만 읽는다)
+
+현재 구현: 즐겨찾기·최근 방문(12건)·마지막 Scope 제안·사이드바 접힘·언어·표 열 설정은 브라우저 localStorage에만 저장된다(기기 간 동기 없음). 서버 보존 여부는 결정 대기(`.planning/README.md`).
 
 ### Kernel이 소유하지 않는 것
 
@@ -149,10 +153,14 @@ Domain logic이 Kernel로 역류하지 않도록 한다.
 | 지원 Context | 기간·설비·Equipment Group의 두 층·room_name·Lot·PPID·Recipe·지표 버전의 지원 여부 명시 |
 | 페이지 유형 | overview / analysis / management / catalog / workflow |
 | 선택 기능 | 내보내기·저장된 뷰·주석·비교 지원 여부 |
-| 조회 엔드포인트 (2026-10-01) | 메뉴가 부르는 서버 조회마다: 식별자·소유 메뉴·허용 입력 키·데이터 접근 권한(메뉴 권한과 달라도 됨)·Scope 요구·적용 Context(메뉴가 적용하는 키의 부분집합)·적용 assessment kind(§19)·조회 한도. 요청에는 적용 Context와 입력만 실리고, 서버는 요청이 아니라 자기 선언 사본으로 권한·kind·한도를 판정한다. 선언과 다른 요청 모양(적용하지 않는 Context 키, 적용 키 누락, 선언 밖 입력 키)은 오류다. Scope를 요구하지 않는 조회는 site에 묶인 Context(room_name·Condition·Selection·Lot·Recipe·PPID, §22)를 적용할 수 없다 |
+| 조회 엔드포인트 (2026-10-01) | 메뉴가 부르는 서버 조회마다: 식별자·소유 메뉴·허용 입력 키·데이터 접근 권한(메뉴 권한과 달라도 됨)·Scope 요구·적용 Context(메뉴가 적용하는 키의 부분집합)·적용 assessment kind(§19)·조회 한도·시간역 병합 가드 적용 여부(`mergeTimeDomain`, §6.3). 요청에는 적용 Context와 입력만 실리고, 서버는 요청이 아니라 자기 선언 사본으로 권한·kind·한도를 판정한다. 선언과 다른 요청 모양(적용하지 않는 Context 키, 적용 키 누락, 선언 밖 입력 키)은 오류다. Scope를 요구하지 않는 조회는 site에 묶인 Context(room_name·Condition·Selection·Lot·Recipe·PPID, §22)를 적용할 수 없다 |
 | Sidebar 그룹 표시 (`hideLabelWhenSingle`, Candidate) | 그룹이 선언하면 확장된 사이드바에서 보이는 메뉴가 하나일 때 섹션 제목을 생략한다. 기본값은 생략하지 않음 |
 
-메뉴와 그룹이 선언하고 Shell이 소비한다. 필드명·TypeScript 타입·등록 방식은 구현 설계에서 구체화한다(그룹 표시 행의 필드명 `hideLabelWhenSingle`은 Candidate). 조회 엔드포인트 선언의 구현 형식(Candidate)은 [메뉴 조회 포트](integration/menu-query-port.md)(`EndpointSpec`)다.
+메뉴와 그룹이 선언하고 Shell이 소비한다. 필드명·TypeScript 타입·등록 방식은 구현 설계에서 구체화한다(그룹 표시 행의 필드명 `hideLabelWhenSingle`은 Candidate). 조회 엔드포인트 선언의 구현 형식(Candidate)은 `packages/contracts/src/menu-query.ts`의 `EndpointSpec`이고, 결정과 이유는 [ADR-0019](adr/0019-menu-query-endpoint-declaration.md)다.
+
+페이지 키(`pageKeys`·`contextResetKeys`), 상세 경로(`parent`·`navHidden`), Scope 필요 여부(`requiresScope`), 지표 초기화(`initializesMetric`), 그룹 대표(`primary`, 그룹당 정확히 하나)도 메뉴가 선언한다. `createRegistry`가 시작 시 중복·충돌·공간 규칙을 검증한다([패키지 경계](integration/platform-packages.md) §5). 필드명은 Candidate다.
+
+화면(`component`) 없이 manifest만 등록한 메뉴도 허용한다. 사이드바·팔레트에 '예정'으로 표시되고 선언(권한·pageType·Context capability)만 보여 준다.
 
 ### 금지
 
@@ -166,6 +174,8 @@ Domain logic이 Kernel로 역류하지 않도록 한다.
 
 ## 6. Context Capability Contract
 
+§6.1–6.4와 §19의 세부 판정 근거·반례·Candidate 필드명 전체 목록은 `docs/reviews/2026-09-18-url-time-status-contract-grilling.md`를 따른다.
+
 전역 Context를 모든 메뉴가 무조건 소비하는 것은 아니다.
 
 각 메뉴는 어떤 Context를 지원하는지 선언한다.
@@ -175,7 +185,8 @@ Domain logic이 Kernel로 역류하지 않도록 한다.
 | Menu | Time | Equipment | Lot | Metric Version |
 | --- | --- | --- | --- | --- |
 | Equipment Master | △ | O | X | X |
-| Occupancy Analysis | O | O | △ | O |
+| 생산성 개요 | O | O | X | △ |
+| 사이클타임 | O | O | O | O |
 | Wafer Journey | O | O | O | △ |
 | Metric Catalog | X | △ | X | O |
 | VOC | X | X | X | X |
@@ -184,7 +195,9 @@ Domain logic이 Kernel로 역류하지 않도록 한다.
 `△`: 전달/참조 가능하지만 직접 조회 필터는 아닐 수 있음  
 `X`: 미지원
 
-VOC 행: FeedbackOps 1단계의 `/voc`(내 VOC)는 세션 사용자 기준 읽기라 전역 Context를 모두 `unsupported`로 선언한다(#60). 플랫폼 안에서 VOC를 처리하는 워크플로가 생기면 다시 정한다.
+코드 어휘(이름 Candidate): Context 키 8종 `time`·`roomNames`·`condition`·`selection`·`lot`·`ppid`·`recipe`·`metric`(`scopeId`는 별도 키), 지원 값 `apply`(O)·`reference`(△)·`unsupported`(X).
+
+VOC 행: FeedbackOps 1단계의 `/voc`(내 VOC)는 세션 사용자 기준 읽기라 전역 Context를 모두 `unsupported`로 선언한다(#60). 플랫폼 안에서 VOC를 처리하는 워크플로가 생기면 다시 정한다([ADR-0018](adr/0018-feedbackops-stage2-screens-into-platform-menus.md)).
 
 ### 규칙
 
@@ -235,11 +248,8 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
   - 목적지 객체의 지표 ID와 전역 `metricId`는 역할이 다를 수 있다(지표 A 문맥을 들고 지표 B 상세로 이동). 목적지 ID로 전역 쌍을 몰래 덮어쓰지 않는다. 같은 지표를 요구하는 경로인데 ID가 다르면 오류다.
   - Context Link helper는 대상이 **동일한 `metricId`의 해당 버전**을 조회에 쓸 때만 쌍을 적용한다. 다른 지표·미지원 메뉴는 쌍을 보존하되 미적용으로 표시한다. 사용자가 명시적으로 바꾸거나 제거할 때만 쌍 전체를 변경한다.
   - 여러 지표 버전이 필요한 화면은 page-owned 계약으로 선언·등록·검증한다. 전역 단일값을 모든 위젯의 버전으로 확대 해석하지 않으며, 같은 지표에 전역 값과 page-owned 값이 상충하면 오류로 처리한다(묵시적 우선순위 없음).
-- **근거:** 기존 문서가 지표를 `metricId`+`metricVersion`으로 식별하면서 URL 소유 목록에는 `metricVersion`만 두어, 메뉴를 넘어가면 버전 숫자만 남아 다른 지표로 재해석될 수 있었다(전역 URL 표현의 공백). 자세한 판정 근거는 `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §1.
 
 **줌 vs 명시적 구간 적용, v1 소수초 처리 (Decided):** v1에서 URL/전역 Context로 적용되는 구간은 초 정렬 `[from, to)`뿐이다. 판정 기준은 구간 길이가 아니라 **선택한 양 경계가 초에 정렬돼 있는가**다. 미정렬이면 외향 정렬(시작은 이전 초로 내림, 끝은 다음 초로 올림) 미리보기를 보여주고 사용자가 확인해야 URL/전역 Context가 바뀐다. 확인 전에는 조회·URL을 바꾸지 않고, 취소하면 로컬 브러시만 유지한다. v1은 소수초 정확 구간 공유를 지원하지 않는다.
-
-세부 판정 근거, 반례, Candidate 필드명 전체 목록은 `docs/reviews/2026-09-18-url-time-status-contract-grilling.md`를 따른다.
 
 ### 6.2 Scope와 권한 (Decided / Open)
 
@@ -252,6 +262,7 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 - **요청 `scopeId`는 v1에서 단일 선택만 허용한다(Decided, 2026-09-22).** 복수 Scope 선택은 이후 확장 후보로 남기되 v1 범위 밖이다.
 - **부모·자식 권한 상속 및 조회 필터 자동 포함의 세부 규칙은 Open domain decision이다.** room_name이 실무 권한 축이라는 결정과 구별한다. Site 선택만으로 모든 room_name에 대한 접근이 허용된다고 해석하지 않으며, 셸에 고정 다단 선택기를 요구하지 않는다.
 - **Site는 물리 DB 경계다(Decided).** Site 선택은 컬럼 필터가 아니라 연결 대상을 정한다. 설비 ID 사용 전에 활성 Scope의 Site가 확립돼 있어야 한다. URL에 없는 `scopeId`를 세션에서 몰래 채우거나 EquipmentID로 Site를 역산하지 않는다([ADR-0004](adr/0004-site-is-db-partition-not-column.md)).
+- **Scope 확인 상태(현재 코드 어휘, 이름 Candidate):** `none`·`validating`·`valid`·`forbidden`·`unknown_scope`(서버가 모르는 id — 권한 거부가 아니다)·`error`(확인 요청 실패). `error`는 자동 재시도 없이 사용자가 '다시 시도'하며, 현재 세션에서 `valid`가 되기 전에는 Scope가 필요한 조회를 보내지 않는다.
 
 <a id="ctx-time"></a>
 <a id="63-시간-계약-decided-tz-값다중-사업장-같은-날짜는-open-domain-decision"></a>
@@ -260,10 +271,6 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 > **참조 `CTX-TIME` — 이 절이 전역 Context·URL 시간 계약의 원본이다.** 문서 탐색용 식별자이며 공개 API 버전이 아니다. 결정 상태·예외·미결은 아래 해당 문단을 읽는다. 위 두 anchor는 안정 참조와 과거 제목 링크 호환용이며 제목 변경 때도 유지한다.
 >
 > **의존:** [03 시간 계약](03_backend_stack.md#시간-계약-중요--2차-리뷰에서-발견된-실수)의 원천 wall-clock, §6.1의 초 정렬·원천 정밀도 및 §6.2의 Scope, [01 R/H 정책 원본](01_architecture_and_data_contract.md#late-arrival-policy). `defaultRangeTo`의 의미는 이 절, `R`/`H`의 의미는 01이 소유한다.
->
-> **변경 시 직접 검토:** 이 문서 §6.4(기간 누락·URL 복원), §11(Context 전환), §18–19(시간역 오류·Data Trust), [03 시간 요약](03_backend_stack.md), [04 URL 구현 후보](04_frontend_ui_ux.md), [07 §6–8 기간 입력·시나리오](07_app_shell_wireframe.md#6-data-requirements), [DESIGN 기간 control/Date preset](../DESIGN.md#reference-component-bindings), [05 기간 프리셋](05_roadmap_and_open_questions.md#기간-프리셋과-집계-단위-decided-2026-09-22-grilling-round-2). R/H 변경을 동반하면 01의 관련 문서 경로도 따른다.
->
-> **파생·후보 확인:** [REQUIREMENTS](../PLATFORM_REQUIREMENTS.md) §1/§3/§6/Open Questions, [연동 후보 2](integration/component-contract-candidates.md)의 시간 매핑. 이 목록은 탐색 출발점이지 전수 의존성 그래프가 아니다. `defaultRangeTo`, `timeDomain`, `wall-clock`, `from`/`to`와 절 참조를 추가 검색하고, 작업 기록에 각 대상의 수정/대조/보류 이유와 실제 코드·검증 유무를 남긴다. 문서 대조를 런타임 검증으로 표시하지 않는다.
 
 기간은 파서 원본과 같은 시간대 없는 설비 wall-clock으로 전달하며 임의로 UTC로 변환하지 않는다. 시간의 원천 의미는 `03_backend_stack.md`를 따른다. 아래는 이 wall-clock 계약 위에서 **메커니즘 수준으로 확정한** 항목이다. TZ 실제 값은 한국(Asia/Seoul) 단일값으로 우선 확정했다(2026-09-22, 해외 사업장인 중국 시안·미국 오스틴 실존은 확인됐으나 확장은 아직 미착수). 다중 사업장이 실제로 편입될 때의 "같은 날짜" 의미와 교대일/영업일 의미는 여전히 Open domain decision이다.
 
@@ -275,15 +282,11 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 **복수 설비 시간축 병합 가드 (Decided):** 서로 다른 설비를 같은 시간축/버킷으로 병합하는 조회는 **서버 소유 assertion**이 있을 때만 허용한다(비보장을 "경고 후 허용"으로 약화하지 않는다). `scopeId`나 클라이언트가 보낸 시간역 id는 증명이 아니다. 최소 assertion 계약: `(equipmentId, timeDomainId, validFrom, validTo)`, 범위 `[validFrom, validTo)`(해당 설비의 naive wall-clock, 내부 정밀도 유지 — 지금 특정 테이블·마이그레이션을 요구하지 않는다). 실제 조회 대상 설비 전체에 대해 요청 `[from, to)` 전체가 빈틈없이 덮이고, 그 구간들의 `timeDomainId`가 모두 같을 때만 병합을 허용한다(한 설비가 요청 중간에 도메인을 바꿔도 v1 병합은 거절). 덮이지 않은 구간이 있으면 `time_domain_unverified`, 확인된 도메인 불일치가 있으면 `time_domain_mismatch`이며, 둘 다 `outcome=error`(요청 검증 오류, correlation id)로 처리하고 `empty`/`unknown`/경고 후 병합으로 위장하지 않는다. 이력 없는 현재 스냅샷으로 과거 구간을 소급 증명하지 않는다. 서로 다른 시간역의 **분리** 조회는 계속 허용한다.
 
-**기본 구간 물질화 시계 `defaultRangeTo` (Decided):** 브라우저 로컬 now, 서버 UTC 문자열 절단, "watermark = now = Data through" 등식은 모두 쓰지 않는다. 서버가 해당 시간역·데이터셋의 기본 조회 상한 `defaultRangeTo`(배타적 초 경계, wall-clock)를 제공한다. `defaultRangeTo`는 half-open 구간의 상한이므로 그 값 자체는 §6.3의 경계 규칙에 따라 항상 제외된다. 서버가 이 값을 정할 때 "포함"이 뜻하는 것은 **포함하려는 마지막 실제 데이터 시각이 `defaultRangeTo`보다 항상 이전이 되도록**(그 시각이 필터로 잘리지 않도록) 상한을 잡는다는 것이지, 상한 이전 데이터가 모두 도착했거나 집계가 완전하다는 뜻이 아니다 — 예를 들어 포함하려는 마지막 시각이 `10:00:00.000` 또는 `10:00:00.500`이면 `defaultRangeTo`는 최소 `10:00:01`이어야 한다. 기본 구간은 `[defaultRangeTo − Δ, defaultRangeTo)`(naive 길이 산술, 자정 비정렬)로 물질화하며, 산출 불가 시 자동 물질화하지 않고 기간 선택을 요구한다. 한 번 물질화한 URL 기간을 데이터 갱신만으로 자동 이동시키지 않는다. 사용자가 명시적으로 고르는 기간 프리셋(`1일/7일/사용자 지정`)은 이 메커니즘을 그대로 재사용해 Δ=24h/168h로 확정했다(2026-09-22, 실사용 패턴이 "보통 1일, 길면 7일, 드물게 그 이상"이라 참고 스크린샷의 `7D/30D/90D`를 대체 — [당시 기간 결정 기록](reviews/2026-09-23-decision-detail-history.md)). 최초 진입 시 자동 물질화되는 기본 Δ 숫자 자체는 별도로 Open이다.
-
-선택 배경과 범위: 로그 자체의 1시간 단위는 조회 단위가 아니다. 30일/90일은 프리셋 버튼에서 제외했지만 사용자 지정 조회는 가능하다. 자주 쓰이는 수요가 확인되면 버튼 확장을 재검토한다.
+**기본 구간 물질화 시계 `defaultRangeTo` (Decided):** 브라우저 로컬 now, 서버 UTC 문자열 절단, "watermark = now = Data through" 등식은 모두 쓰지 않는다. 서버가 해당 시간역·데이터셋의 기본 조회 상한 `defaultRangeTo`(배타적 초 경계, wall-clock)를 제공한다. `defaultRangeTo`는 half-open 구간의 상한이므로 그 값 자체는 §6.3의 경계 규칙에 따라 항상 제외된다. 서버가 이 값을 정할 때 "포함"이 뜻하는 것은 **포함하려는 마지막 실제 데이터 시각이 `defaultRangeTo`보다 항상 이전이 되도록**(그 시각이 필터로 잘리지 않도록) 상한을 잡는다는 것이지, 상한 이전 데이터가 모두 도착했거나 집계가 완전하다는 뜻이 아니다 — 예를 들어 포함하려는 마지막 시각이 `10:00:00.000` 또는 `10:00:00.500`이면 `defaultRangeTo`는 최소 `10:00:01`이어야 한다. 기본 구간은 `[defaultRangeTo − Δ, defaultRangeTo)`(naive 길이 산술, 자정 비정렬)로 물질화하며, 산출 불가 시 자동 물질화하지 않고 기간 선택을 요구한다. 현재 포트(`defaultRangeTo(): string`)는 항상 값을 준다 — 산출 불가 분기는 실서버 연결(#154) 때 포트에 더한다(결정 대기, `.planning/README.md`). 한 번 물질화한 URL 기간을 데이터 갱신만으로 자동 이동시키지 않는다. 사용자가 명시적으로 고르는 기간 프리셋(`1일/7일/사용자 지정`)은 이 메커니즘을 그대로 재사용해 Δ=24h/168h로 확정했다(2026-09-22). 최초 진입 시 자동 물질화되는 기본 Δ 숫자 자체는 별도로 Open이다.
 
 `defaultRangeTo`와 자동 재집계 창의 원천 진행 경계 `R`(정의는 [01 지연 완료 허용 시간](01_architecture_and_data_contract.md#late-arrival-policy) 참조)은 서로 다른 계약 필드이며 항상 같은 값은 아니다. **`R`이 존재할 때만** 같은 시간역·대상 조건에서 `defaultRangeTo ≤ R`인 경우에만 그 기본 구간을 자동 물질화하고, 만족하는 값이 없으면 마지막 점을 버리거나 `R`을 올리지 않고 기간 선택을 요구한다(L2). `R`이 아직 없는 경우(첫 mart 세대 생성 전, 워커 일시 중단 등)에는 이 비교를 적용하지 않는다 — `defaultRangeTo`가 독립적으로 유효하면 그대로 자동 물질화하고, 자동 재집계만 보류한다([01 정책](01_architecture_and_data_contract.md#late-arrival-policy) 참조).
 
 **실제 시점은 wall-clock이 아니다 (Decided, 2026-09-28):** 설비 업무 시각이 아닌 실제 시점(epoch·timestamptz — 예: 메뉴 활용률 마지막 사용, FeedbackOps VOC 접수 시각)은 이 절의 wall-clock 계약 대상이 아니다. 화면에는 `@ap/contracts`의 `formatInstant`로 보는 사람의 시간대에 맞춰 표시하고, `formatDateTime`(naive wall-clock 전용)으로 표시하지 않는다. `formatInstant`는 offset 없는 문자열을 거부해 두 종류가 섞이지 않게 한다(#88).
-
-세부 판정 근거, 반례, Candidate 필드명 전체 목록은 `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §3을 따른다.
 
 ### 6.4 URL 계약 (Decided; 필드명·enum 문자열은 Candidate)
 
@@ -292,6 +295,8 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 기존 `equipmentIds` 목록 필터와 `selectedEquipmentIds`는 같은 EquipmentID 명시 집합을 나타내는 공개 표현이다. 새 이름은 Selection의 역할을 드러내는 후보이며 두 개의 독립 필터가 아니다. 기존 이름의 동등 별칭/버전 이행은 아래 `v` 규칙으로 등록한다. 동시 입력은 후보 스키마에서 거부하여 우선순위 추정을 피한다. 상세의 단일 `equipment_id`도 **같은 식별자 개념**이며, 집합 조회와 객체 목적지라는 사용 역할만 다르다.
 
 **분석으로 돌아가기 (Decided):** 상세/드릴인 진입 직전의 분석 Context(Condition·Selection·미적용 값 포함)를 그대로 복원한다. 목록 `equipmentIds=[A,B]`에서 목적지 C를 보았어도 복귀는 `[A,B]`이며 C를 합치거나 C 하나로 바꾸지 않는다. 상세에서 본 객체나 상세의 변경된 조건으로 출발 Context를 덮어쓰지 않는다. 복귀 시 권한·Scope는 재검증하며 실패해도 원래 선택을 조용히 축소하지 않는다. 복원은 원래 조건의 복원이지 live Condition 결과나 계산 숫자의 동결이 아니다. 출발 페이지의 등록된 URL 상태도 보존하되 로컬 줌/brush의 복원 보장은 추가하지 않는다.
+
+**`returnTo`(page key; 메커니즘 Decided, 필드명 Candidate):** 상세 목적지 메뉴는 `pageKeys`에 `returnTo`를 선언해 출발 화면의 전체 URL을 받는다. 값은 앱 내 상대경로여야 하며(`//`·`\`·`#`·제어문자·경로 안 `:`은 거부, 절대 URL은 항상 거부) 등록된 비상세 메뉴 경로로 매칭되고 그 메뉴의 `pageKeys`로 파싱될 때만 채택한다. 아니면 `parent` 메뉴(없으면 홈)로 복귀한다.
 
 **URL vs 세션/최근방문 우선순위, 누락값 (Decided):** URL에 있는 키는 항상 이긴다. URL에 없는 키를 세션/최근방문으로 채우지 않는다(세션은 제안값일 뿐이며, 적용하는 순간 URL에 기록한다). 키 부재는 공개 스키마가 정의한 "선택 없음 / 기본 의미 / 필수 누락" 중 하나로만 해석하고, 필수값을 임의 Scope나 떠다니는 최신 지표 버전으로 대체하지 않는다. 시간을 요구하는 메뉴에서 기간 양쪽이 모두 없으면 기본 구간이 정의·검증 가능할 때만 절대 `from`/`to`를 URL에 물질화하고(불가하면 기간 선택 요구), **한쪽만 있으면 형식 오류로 거부한다**(보정하지 않음). 상대적인 "최근 기간"이 물질화되기 전의 URL은 시점 의존 진입점이며 재현 가능한 분석 링크가 아니다.
 
@@ -303,7 +308,7 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 **복수 Scope와 시간 계약이 해결되기 전 허용할 조회 범위 (Decided):** §6.2의 `scopeId` 단일 원칙과 §6.3의 시간역 병합 가드로 닫힌다. TZ 매핑이 끝날 때까지 분석을 전면 금지하지는 않는다(단일 설비 naive 조회는 계속 허용). 프로토타입에서 무제한 조회를 허용하는 것은 거부한다.
 
-세부 판정 근거는 `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §4를 따른다. 완성된 URL API나 프로토타입 검증을 이 결정만으로 주장하지 않는다 — 구현·필드명 확정은 별도다.
+완성된 URL API나 프로토타입 검증을 이 결정만으로 주장하지 않는다 — 구현·필드명 확정은 별도다.
 
 ---
 
@@ -313,23 +318,7 @@ Desktop-first를 기본으로 한다.
 
 구조는 FeedbackOps AppFrame을 따른다(Decided, 2026-10-04, [ADR-0011](adr/0011-design-direction-feedbackops-shell.md)). 셸은 플랫폼 `@ap/shell`이 그리며 FeedbackOps 앱 코드를 가져오지 않는다.
 
-```text
-┌────┬──────────────┬──────────────────────────────────────────────────┐
-│Rail│ 공간 이름  «  │ 부모 › 제목 ☆  설명…            Page Actions     │  ← 페이지 머리 50px
-│ A  ├──────────────┼──────────────────────────────────────────────────┤
-│    │ [Scope ▾]    │ [Date] [room_name] [Condition] [조건 N개 더]      │
-│ 공간│ 검증 상태     │                                                  │
-│ 공간├──────────────┼──────────────────────────────────────────────────┤
-│ ── │ 운영 개요     │                                                  │
-│ ⌘K │ 설비관리      │                   Page Content                   │
-│    │   설비 마스터 │                                                  │
-│    │ 생산성 분석   │                                                  │
-│ 도구│   …          │                                                  │
-│ ?  │ 즐겨찾기      │                                                  │
-│ 한 │ 최근 방문     │                                                  │
-│ 나 │              │                                                  │
-└────┴──────────────┴──────────────────────────────────────────────────┘
-```
+셸 배치도(레일·사이드바·페이지 머리·Context 바·콘텐츠 슬롯, 상세가 열린 상태 포함)는 [07 §4](07_app_shell_wireframe.md#4-wireframe-decided-구조-2026-10-04--adr-0011)에 하나만 둔다.
 
 - **레일**: 공간 전환(§9.1), 명령 팔레트(§10), 앱이 주입하는 도구 슬롯(`topBarTools`, ADR-0009 이름 유지), 도움말, 언어, 사용자 메뉴.
 - **사이드바**: 머리에 공간 이름과 접기. 그 아래 Scope 선택기와 검증 상태가 있고, 그룹 섹션과 메뉴, 즐겨찾기·최근이 이어진다(§9).
@@ -339,7 +328,7 @@ Scope는 개념적으로 Global Context에 포함되지만 선택기는 **사이
 
 ### Context 바 우선순위 넘침 (Decided, 2026-10-04 — #56, [ADR-0015](adr/0015-context-bar-priority-overflow.md))
 
-- Context 바는 모든 폭에서 **한 줄 48px**을 유지한다. ResizeObserver로 뷰포트가 아닌 바 자체 폭을 관찰해 상세 슬롯·사이드바 변화에도 반응한다. 측정 레이어 자체의 폭·폰트 로딩 변화와 전역 값·capability·언어·표시 키가 바뀌면 전체 컨트롤의 intrinsic 폭을 다시 측정하며 측정용 레이어는 inert·접근성 제외·중복 데이터 조회 없음으로 유지한다.
+- Context 바는 모든 폭에서 **한 줄 48px**을 유지한다. 뷰포트가 아닌 바 자체 폭을 측정해 상세 슬롯·사이드바 변화에도 반응하며, 측정용 레이어는 inert·접근성 제외·중복 데이터 조회 없음으로 유지한다. 재측정 조건 등 구현 세부는 [ADR-0015](adr/0015-context-bar-priority-overflow.md)를 따른다.
 - 기간은 항상 보인다. 폭이 부족하면 기간 프리셋(1일/7일/사용자 지정)을 먼저 기간 팝오버로 옮기고 기간 버튼은 축약할 수 있으나 전체 범위를 접근 이름과 title로 제공한다.
 - 표시 대상인 나머지 키는 `roomNames → condition → selection → lot → ppid → recipe → metric` 순서로 남기며 뒤쪽부터 하나의 넘침 팝오버로 옮긴다. B안은 모든 Context control에 적용/참조/미지원 capability 배지를 표시하고 팝오버에서도 동일한 전체 편집기를 제공한다. 적용 상태는 `적용` / `Applied`(`capApplied`)이며 편집기의 Apply 동작과 구분한다.
 - 넘침 버튼은 `조건 N개 더` / `N more`다. 숨은 키 중 기본값이 아닌 값이 M개 있으면 ` · M개 적용 중` / ` · M applied`를 붙이고 M=0이면 생략한다. 명시적 빈 선택은 기본값과 다르므로 센다.
@@ -360,7 +349,7 @@ Section gap          24px
 Component gap        12~16px
 ```
 
-치수 값의 단일 원본은 FeedbackOps `packages/ui/src/styles/tokens.css`의 레이아웃 토큰이다. DESIGN은 [셸 시각 보완](../DESIGN.md#shell-visual-rules)만 소유하며 이 Baseline을 재정의하지 않는다.
+치수 값의 단일 원본은 FeedbackOps `packages/ui/src/styles/tokens.css`의 레이아웃 토큰이다. 셸은 이 토큰과 같은 값을 쓴다(페이지 머리 50px·Context 바 48px는 코드 리터럴). DESIGN은 [셸 시각 보완](../DESIGN.md#shell-visual-rules)만 소유하며 이 Baseline을 재정의하지 않는다.
 
 50px 페이지 머리와 Context Bar는 스크롤되는 main 안에서 하나의 sticky 래퍼로 유지한다. Context Bar 자체에는 별도 sticky를 두지 않아 페이지 머리를 가리지 않는다. 본문은 FeedbackOps `PageShell`의 여백을 사용하며 분석 페이지에 폭 제한은 추가하지 않는다.
 
@@ -385,6 +374,8 @@ Page
 ```
 
 이 Slot 외의 위치에 페이지가 직접 전역 UI를 삽입하지 않는다. 상세 내용은 등록 경계로 넘기고, 셸이 main 옆의 전체 높이 오른쪽 aside 배치를 소유한다(§13).
+
+앱이 조립 때 주입하는 셸 슬롯은 `PlatformSlots`의 `contextBar`(PlatformPage가 페이지 머리 아래에 그린다)와 `topBarTools`(레일 아래 도구)뿐이다. 페이지는 `crumbs`로 현재 위치(부모 메뉴 뒤 추가 경로)를 확장할 수 있다. 새 슬롯은 이 절에 근거를 먼저 적는다.
 
 ### 이유
 
@@ -415,7 +406,7 @@ Notice & VOC
 Administration
 ```
 
-이 7그룹을 navigation IA의 단일 기준으로 둔다(Decided). 표시명은 운영 개요 / 설비관리 / 기준정보관리 / 생산성 분석 / 지표관리 / 공지·VOC / 관리·감사다. **2026-09-26 개정:** 이 그룹들은 §9.1의 워크스페이스 층 아래에서 배치된다. 관리·감사는 운영 콘솔로 이동하고, 공지·VOC는 분석 공간에 사용자용 화면만 남긴다. `02_domain_menus.md`의 6개 도메인 중 공지와 VOC가 한 그룹을 공유하고, 운영 개요·관리·감사는 플랫폼 기능이다. 도메인 개수와 내비게이션 그룹 개수를 같게 맞출 필요는 없다. 하위 화면 배치와 표시명 변경은 별도 설계 결정이다.
+이 7그룹을 navigation IA의 단일 기준으로 둔다(Decided). 표시명은 운영 개요 / 설비관리 / 기준정보관리 / 생산성 분석 / 지표관리 / 공지·VOC / 관리·감사다. 이 그룹들은 §9.1의 워크스페이스 층 아래에서 배치된다. 관리·감사는 운영 콘솔로 이동하고, 공지·VOC는 분석 공간에 사용자용 화면만 남긴다. `02_domain_menus.md`의 6개 도메인 중 공지와 VOC가 한 그룹을 공유하고, 운영 개요·관리·감사는 플랫폼 기능이다. 도메인 개수와 내비게이션 그룹 개수를 같게 맞출 필요는 없다. 하위 화면 배치와 표시명 변경은 별도 설계 결정이다.
 
 Sidebar 기능(셸 구조는 §7, ADR-0011):
 
@@ -430,7 +421,7 @@ Sidebar 기능(셸 구조는 §7, ADR-0011):
 
 ### 9.1 워크스페이스 (Decided, 2026-09-26)
 
-개발자·운영 메뉴와 FeedbackOps를 추가하면서 사이드바가 무거워지지 않도록, 그룹 위에 **워크스페이스(공간)** 층을 둔다. 모든 공간은 같은 App Shell·Kernel·전역 Context·권한 계약을 공유하며, 공간은 사이드바에 표시할 그룹 집합과 진입 권한만 나눈다. 근거: [2026-09-26 워크스페이스·운영 메뉴 인터뷰](reviews/2026-09-26-workspace-ops-interview.md).
+개발자·운영 메뉴와 FeedbackOps를 추가하면서 사이드바가 무거워지지 않도록, 그룹 위에 **워크스페이스(공간)** 층을 둔다. 모든 공간은 같은 App Shell·Kernel·전역 Context·권한 계약을 공유하며, 공간은 사이드바에 표시할 그룹 집합과 진입 권한만 나눈다.
 
 | 공간 | 대상 | 그룹 / 화면 |
 | --- | --- | --- |
@@ -438,12 +429,12 @@ Sidebar 기능(셸 구조는 §7, ADR-0011):
 | 운영 콘솔 | 개발자·운영자 | 시스템 모니터링, 개발자용 파이프라인 트레이스, 메뉴 활용률([05 계측](05_roadmap_and_open_questions.md#메뉴-활용률-계측-decided--v1-범위-포함-2026-09-22-grilling-round-2)), 관리·감사(권한/역할, 변경 감사), Menu Registry 조회 |
 | 피드백 | 내부 담당자 | FeedbackOps의 VOC 분류·Finding·Task Request/Task·Milestone(FeedbackOps FR-TASK-004) |
 
-- **노출:** 공간 전환은 레일의 공간 버튼으로 한다(2026-10-04, ADR-0011 — 이전에는 좌상단 브랜드 영역의 드롭다운). 접근 가능한 공간이 2개 이상인 사용자에게만 공간 버튼을 표시한다. 일반 사용자는 분석 공간만 보며 전환기가 없다. 공간 진입 권한도 §17 규칙을 따른다(비노출 + 직접 URL은 서버 검증).
+- **노출:** 공간 전환은 레일의 공간 버튼으로 한다(2026-10-04, ADR-0011). 접근 가능한 공간이 2개 이상인 사용자에게만 공간 버튼을 표시한다. 일반 사용자는 분석 공간만 보며 전환기가 없다. 공간 진입 권한도 §17 규칙을 따른다(비노출 + 직접 URL은 서버 검증).
 - **Context:** 공간 전환은 §6.4의 셸 내비게이션과 같은 규칙을 따른다. 등록된 전역 Context(Scope·기간·설비 선택 등)는 전부 보존하고, 대상 화면이 지원·검증한 값만 적용한다. 예: 사용자용 가공 상태 조회에서 본 설비·기간으로 개발자용 트레이스를 바로 연다.
 - **Registry:** 소속 공간은 메뉴가 아니라 **그룹이** 선언한다(`GroupDef.space`, **필드명 Decided, 2026-09-27**). 현재 공간은 매칭된 라우트의 메뉴에서 유도하며 공간용 URL 키는 없다(§6.4: 경로가 이미 공간이다). 위 표의 **공간별 배치**는 Decided다. **공간별 그룹 수 상한은 두지 않는다(Decided, 2026-09-27)** — 새 그룹은 공간 추가보다 먼저 기존 그룹에 흡수할 수 있는지 검토하고, 공간당 7개 이하를 권장한다. 표 항목 중 무엇이 그룹이고 무엇이 그 아래 화면인지는 각 공간을 구현할 때 정한다.
 - **운영 콘솔 권한(Decided, 2026-09-27):** '운영 콘솔 접근' 한 역할로 시작한다. 개발자·운영자 모두 운영 콘솔 전 화면에 들어간다. 메뉴 활용률 열람은 05 결정(개발자·운영자 기본 + 개별 부여)을 따른다. 역할 분리가 필요해지면 그때 나눈다. 권한/역할 화면(`/admin/roles`, #49)은 **조회 전용**이다 — 사용자별 보유 권한, 그 권한이 여는 메뉴(Registry `permission` 기준 클라이언트 조인이며 권한 증명이 아니다), 사이트별 부여 room_name을 보여 준다. 부여·회수(05의 개별 부여 포함)의 원천은 **분리(2026-09-29 Decided, 절반 확정, #98)**: room_name 부여와 메뉴 활용률 열람 개별 부여는 플랫폼 메타 DB가 소유하고, 역할 소속(누가 운영 콘솔 접근자인가)의 원천은 IdP 그룹 claim 사양이 나올 때까지 Open이다(claim을 주면 IdP, 안 주면 메타 DB). 쓰기 포트·화면은 아직 만들지 않는다.
 - **Command Palette:** 사용자가 접근 가능한 모든 공간의 메뉴를 검색한다. 결과에 공간명을 표시한다.
-- **범위 밖:** 공간별 테마·별도 로그인·공간별 Scope는 두지 않는다. FeedbackOps의 셸 편입 시점은 [저장소 연결 문서](integration/repository-layout.md)의 단계를 따른다.
+- **범위 밖:** 공간별 테마·별도 로그인·공간별 Scope는 두지 않는다. FeedbackOps의 셸 편입 시점은 [저장소 연결 문서](integration/repository-layout.md)의 단계를 따른다. 깊이는 [ADR-0018](adr/0018-feedbackops-stage2-screens-into-platform-menus.md)이 정했다(화면은 플랫폼 메뉴로 이전, 백엔드는 도메인 API 유지). 피드백 공간 등록은 M5 착수 때이며(#213) 현재 Registry에는 분석·운영 콘솔 공간만 있다.
 
 ---
 
@@ -456,7 +447,7 @@ Command Palette는 플랫폼 공통 기능으로 둔다.
 지원 후보:
 
 ```text
-Go to Occupancy Analysis
+Go to 사이클타임
 Go to Equipment EQP-013
 Open Metric "Cycle Time P95"
 Open recent view
@@ -472,23 +463,7 @@ Create VOC from current context
 
 플랫폼에서 가장 중요한 공통 UI 중 하나다.
 
-```text
-┌────────────────────────────────────────────────────────────────────┐
-│ Sep 01–17 × │ EQP-001 +3 × │ Lot: All │ + Filter │                │
-│                                             Reset                   │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-대표 Context:
-
-- Time Range
-- Equipment
-- Equipment Group (Condition / Selection)
-- Lot
-- room_name
-- PPID / Recipe
-- Metric Version
-- Scope
+대표 Context: Time Range · room_name · Equipment Group(Condition·Selection) · Lot · PPID · Recipe · Metric(ID+버전 쌍). Scope는 Global Context에 속하지만 선택기는 사이드바 머리에 하나만 둔다(§7).
 
 ### Context 변경 규칙
 
@@ -497,6 +472,7 @@ Create VOC from current context
 - Brush 후 `Analyze selected range` 같은 명시적 Action이 있어야 Global Context로 승격한다.
 - Scope·설비·기간 등 Context가 바뀌면 이전 결과를 새 조건의 결과처럼 표시하지 않는다. 이전 요청이 늦게 완료돼도 새 Context 결과로 채택하지 않는다. 동일 Context 재조회에서만 이전 결과와 갱신 중 표시를 함께 유지할 수 있다. 권한 변경/Scope 전환에서는 이전 결과를 숨기고 현재 권한을 재검증한다.
 - 지원하지 않는 Context는 명시적으로 표시한다.
+- 초기화는 분석 Context만 지우고 요청 Scope는 유지한다(같은 내비게이션에서 `contextResetKeys`도 지운다, §6.4). 링크 복사는 현재 URL을 그대로 복사하며 받는 사람의 권한으로 서버가 다시 검증한다(§6.2).
 
 ---
 
@@ -579,17 +555,9 @@ Domain 메뉴는 가능하면 이 Archetype을 조합하고, 새로운 Page Type
 
 **지금 pageType이 강제하는 것:** manifest의 `pageType`(5종 중 하나)과, 생성기(`pnpm gen:menu --page-type`)가 만드는 화면 뼈대의 콘텐츠 슬롯(위 12.1–12.5의 슬롯 이름, 읽는 순서 그대로)이다. Page Header·Global Context는 셸 슬롯(§8)이라 `PlatformPage`·셸이 이미 그리므로 뼈대에 다시 넣지 않는다. Data Trust는 12.1·12.2가 슬롯으로 적으므로 뼈대에 `trust` 슬롯으로 넣는다 — `PlatformPage`는 소비자가 넘긴 `dataTrustSummary`만 그리므로 신뢰 정보를 가진 화면이 그 슬롯을 채워야 한다. 슬롯 이름은 12.1–12.5의 영문 표기 그대로다. 레이아웃 공통 컴포넌트는 아직 없고, 기존 화면·공통 컴포넌트의 시각 변화도 없다(새로 생성되는 뼈대 화면만 점선 구획을 그린다).
 
-**반복 패턴 확인(2026-09-29, 소비자 = 현재 메뉴 화면):**
+**슬롯 후보(구현하지 않음):** Management의 `table`/`drawer`(필터 행은 `PageFilterBar`로 승격 완료, [ADR-0016](adr/0016-page-filter-bar.md). 드로어 열림은 URL page key, §6.1)와 Analysis의 `kpi`/`chart`/`breakdown`. 레이아웃 슬롯 컴포넌트는 보이는 모양이 바뀌므로 #156에서 인터랙티브 프로토타입 컨펌을 거쳐 올린다(루트 `AGENTS.md`). 그 전에는 뼈대 슬롯이 후보 목록의 유일한 표현이다.
 
-| 패턴 | 확인된 소비자 | §24 판단 |
-| --- | --- | --- |
-| Management: 필터 + `PlatformDataTable` + `DetailDrawer` | 설비 마스터, 권한·역할 조회 (2곳). 레지스트리 카탈로그는 표 + 드로어만(필터 없음)이라 3곳째는 아님 | 경계선(표 + 드로어는 3곳) — 슬롯 후보 |
-| 감사·이력: `AuditTimeline` | 설비 상세, 지표 상세 (2곳. 감사 조회는 `PlatformDataTable`이고 타임라인은 목적지 상세에 맡긴다) | 이미 공통 컴포넌트 |
-| Analysis: KPI `StatCard` + `AnalysisChartFrame` + `DataTrustIndicator` | 생산성 개요, 사이클 타임 (2곳) | 경계선 — 한 곳 더 확인 후 |
-| Catalog: 목록 + 정의 상세 + 버전·소유·적용 범위 | 지표 카탈로그(목록·상세 2화면)뿐 | 미충족 |
-| Workflow: 큐 + 상세 + 타임라인 + 댓글 | 표본 메뉴 0개 (VOC는 내 이력 조회만) | 미충족 — 추출하지 않는다 |
-
-**슬롯 후보(구현하지 않음):** Management의 `filter`/`table`/`drawer`(드로어 열림은 URL page key, §6.1)와 Analysis의 `kpi`/`chart`/`breakdown`. 레이아웃 슬롯 컴포넌트는 보이는 모양이 바뀌므로 M2 재개 때 인터랙티브 프로토타입 컨펌을 거쳐 올린다(루트 `AGENTS.md`). 그 전에는 뼈대 슬롯이 후보 목록의 유일한 표현이다.
+승격 판단은 §24(실제 소비자 2–3곳 반복)를 따르고, 패턴별 소비자 현황은 이슈 #104·#156에서 추적한다.
 
 ---
 
@@ -617,7 +585,7 @@ EquipmentDeactivateButton
 
 ### UI Primitive
 
-shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](04_frontend_ui_ux.md#프론트엔드-기술-스택-decided-2026-09-25)에서 Decided(2026-09-25, FeedbackOps `packages/ui`의 실제 shadcn 컴포넌트 이식)다. 아래 primitive 역할 예시는 그 구체 컴포넌트 매핑까지 확정하는 것은 아니다.
+shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](04_frontend_ui_ux.md#프론트엔드-기술-스택-decided-2026-09-25)에서 Decided(2026-09-25)다. 구현은 FeedbackOps `@fops/ui` 원본을 `@ap/ui`가 재수출한다(복사·이식하지 않는다, [ADR-0010](adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](adr/0011-design-direction-feedbackops-shell.md)). 아래 primitive 역할 예시는 그 구체 컴포넌트 매핑까지 확정하는 것은 아니다.
 
 예:
 
@@ -635,18 +603,18 @@ shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](04_frontend_ui_ux
 
 예:
 
-- GlobalContextBar
-- PageHeader
+- GlobalContextBar (`@ap/shell`)
+- PlatformPage (페이지 머리·슬롯, §8. 별도 PageHeader 컴포넌트는 없다)
 - PageFilterBar
 - DataTrustIndicator
 - AnalysisChartFrame
 - PlatformDataTable
 - DetailDrawer
 - AuditTimeline
-- QueryView / StateMessage (응답 상태), PlatformPage-provided shared outcome scope / banner (§19)
-- EmptyState
-- PermissionGuard
-- SavedViewSelector
+- QueryView / OutcomeView / StateMessage (응답 상태, EmptyState 역할), PlatformPage-provided shared outcome scope / banner (§19)
+- StatCard / Panel
+
+후보(미구현): `PermissionGuard`(현재는 셸 `RouteOutlet`의 권한 게이트), `SavedViewSelector`(Deferred, §21).
 
 `PageFilterBar`는 메뉴가 전달한 검색·정확 일치 텍스트·분류 선택·맞춤형 필드를 라벨과 함께 한 줄에 배치하고 공간이 부족하면 줄바꿈한다. 입력은 `@ap/ui` `Input`, 분류 값은 `Select`를 사용한다. 필드 의미·URL page key·값 변경·초기화·draft 적용은 소비 화면이 소유하며, 알 수 없는 현재 Select 값은 선택 가능한 표시값으로 남긴다(ADR-0016).
 
@@ -657,8 +625,7 @@ shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](04_frontend_ui_ux
 - 이름과 props는 유지하고 렌더 대상은 셸 소유 오른쪽 고정 상세 슬롯이다. 이름 있는 `aside` landmark 안에 제목으로 이름 붙인 비모달 상세 dialog를 둔다. 본문은 폭을 양보하며 목록을 계속 조작할 수 있다. scrim·본문 inert·overlay·페이지 머리 아래 fixed 배치는 쓰지 않는다.
 - 폭은 §7 Baseline을 따른다. 열림/닫힘은 페이지가 등록한 `focus` 키로 결정하고 `tab`으로 탭을 복원한다. close 버튼·패널 안 Esc는 페이지의 `onClose`를 호출해 `focus`를 지운다. 딥링크·새로고침·Back/Forward 복원과 `전체 화면` 이동 동작을 유지한다.
 - 열리면 닫기 버튼으로 포커스를 옮긴다. 닫힐 때 패널에 포커스가 남아 있으면 연결된 트리거로 복귀하고, 트리거가 없거나 제거됐으면 main으로 복귀한다. 사용자가 이미 목록으로 옮긴 포커스는 빼앗지 않는다. 포커스 trap은 없으며 패널 밖 Esc는 상세를 닫지 않는다.
-- 한 셸에 상세 슬롯은 하나다. 마지막 등록이 이기고 개발 환경에서 중복 등록을 경고한다. 등록자 unmount 시 해제하고, 이전 등록자가 살아 있으면 그 내용이 복원된다. 내용 갱신만으로 등록 우선순위를 바꾸지 않는다.
-- 등록 primitive는 `@ap/ui`에 둔다(도메인·URL과 무관한 DOM 슬롯). components와 shell이 함께 접근하고 components → shell 의존을 만들지 않는다. 셸별 Provider로 수명을 격리하며 portal로 등록 페이지의 React Context를 유지한다. DetailDrawer는 AppShell(또는 같은 슬롯 Provider·host) 아래에서 사용한다.
+- 한 셸에 상세 슬롯은 하나이며 마지막 등록이 이기고 개발 환경에서 중복 등록을 경고한다. 등록 primitive는 `@ap/ui`에 있으며 DetailDrawer는 AppShell(또는 같은 슬롯 Provider·host) 아래에서 사용한다.
 
 결정과 비교 선택지는 [ADR-0013](adr/0013-detail-panel-shell-docked-slot.md), 배치는 [07](07_app_shell_wireframe.md), 시각 규칙은 [DESIGN](../DESIGN.md#shell-visual-rules)을 따른다.
 
@@ -727,7 +694,7 @@ Table은 플랫폼 핵심 UI다.
 - Virtualization
 - Saved column preference
 - Row action
-- Export entry — 표 소유 내보내기(#173): `PlatformDataTable`이 `exportRows`·`exportNote` 계약으로 직렬화·파일·토스트까지 소유한다([`packages/components/AGENTS.md`](../packages/components/AGENTS.md)). 선택 행 복사(#174)도 같은 게이트·직렬화를 쓰는 내보내기다
+- Export entry — 표 소유 내보내기(#173): `PlatformDataTable`이 `exportRows`·`exportNote` 계약으로 직렬화·파일·토스트까지 소유한다([ADR-0008](adr/0008-table-owned-export-fixed-toolbar.md)). 선택 행 복사(#174)도 같은 게이트·직렬화를 쓰는 내보내기다. 아래 "표 내보내기·복사 구현 계약"
 
 Baseline (Decided — `DESIGN.md` `table-density` 토큰과 일치):
 
@@ -737,11 +704,22 @@ Header height    32px (최소)
 Cell padding     4px 12px
 ```
 
-과거 screenshot의 compact 행 측정은 구현 기본값이 아니다. 줄바꿈·포커스·24px 최소 타겟에 따라 32px보다 늘어날 수 있으며, coarse-pointer(터치) 행은 44px 타겟까지 커진다.
+행 높이는 줄바꿈·포커스·24px 최소 타겟에 따라 32px보다 늘어날 수 있으며, coarse-pointer(터치) 행은 44px 타겟까지 커진다.
 
 숫자는 오른쪽 정렬하고 `tabular-nums`를 사용한다.
 
 대규모 데이터에서는 브라우저에 전체 데이터를 전달하지 않는다. 서버가 선언 행 상한(`limits.maxRows`)으로 판정한다 — [실서버 연결 체크리스트](integration/real-server-checklist.md) §3(#175).
+
+표 URL 상태: 페이지 키 `page`는 1부터이며 생략=1, 정렬 키는 `<열 id>:asc|desc` 한 개다. 허용 열·키 이름은 페이지가 소유하고, 형식 오류는 보정하지 않고 거부한다(§6.4).
+
+### 표 내보내기·복사 구현 계약
+
+툴바 순서·메뉴 항목·거절 문구·시트 구성·파일 이름·복사 라벨·단축키 조건은 `PlatformDataTable` 테스트(`PlatformDataTable.test.tsx`·`PlatformDataTable.copy.test.tsx`·`PlatformDataTable.export-abort.test.tsx`·`tableExport.test.ts`)가 원본이다. 테스트가 고정하지 않는 다음 규칙을 함께 지킨다.
+
+- 진행 안내용 sr-only `role="status"` 영역은 **항상 마운트해 두고 글자만 바꾼다**(채워진 채 나타나는 영역은 스크린리더가 읽지 않는다). 복사 안내와 내보내기 안내는 따로 두고, 한쪽이 끝나도 다른 쪽을 지우지 않는다.
+- 내보내기 메뉴 항목은 그림자 없는 메뉴 전용 모양 + inset 초점 링을 쓴다. 공유 Radix primitive는 바꾸지 않는다. 복사 중에는 `aria-busy`와 함께 스피너를 보인다.
+- 클립보드 경로는 오류 폴백이 아니라 **기능 감지**(`isSecureContext && navigator.clipboard.write && ClipboardItem`)로 고른다. 보안 컨텍스트는 클릭·keydown 안에서 `clipboard.write([ClipboardItem({ text/plain, text/html: Promise<Blob> })])`를 부르고 내용은 `exportRows`가 끝난 뒤 채운다(여러 페이지 선택도 전부 복사). Promise 값 `ClipboardItem`을 동기적으로 거부하는 브라우저는 비보안 경로(현재 페이지에 불러온 선택 행만)로 내려가며, 버튼과 단축키가 같은 경로를 쓴다.
+- 비보안 경로는 클릭·keydown 안에서 document 수준 일회성 capture `copy` 리스너(text/plain·text/html 설정 + `preventDefault`)를 걸고 `execCommand('copy')`를 부르며, `finally`에서 리스너를 반드시 제거한다. 표 `section`에 리스너를 달지 않는다(Chromium은 이 이벤트를 selection 노드나 `<body>`로 보낸다).
 
 ### Platform Table과 Domain Table의 경계
 
@@ -861,10 +839,10 @@ Metric        v3
 Status        Provisional
 ```
 
-상태가 정상이라면 한 줄로 압축할 수 있다.
+원천이 확인한 문제가 없을 때 한 줄로 압축할 수 있다(`clear`는 '건강' 선언이 아니다, §19).
 
 ```text
-● Data healthy · 98.7% coverage · Updated 10:32
+● 확인된 이슈 없음 · Coverage 98.7% · Updated 10:32
 ```
 
 상세는 Popover로 확장한다.
@@ -899,6 +877,7 @@ Processing delayed
 Insufficient coverage
 Permission restricted
 Query too large
+Query timed out
 Partial widget failure
 Server error
 Unknown
@@ -919,7 +898,7 @@ Unknown
 - 그룹 재시도 중에는 배너 버튼이 busy 상태를 표시하며 중복 활성화를 막고 폭·포커스를 유지한다. 그룹별 갱신 문구는 기존 알림 채널 한 곳에서 안내한다. 각 위젯의 `aria-busy`는 유지하되 반복 `role=status` 갱신 label은 표시하지 않는다. 배너가 사라질 때 포커스가 그 안에 있으면 이름 있는 상세 패널(dialog) 또는 `main` 랜드마크(셸 밖에서는 페이지 본문 요소)로 이동하며 다른 곳으로 이동한 포커스는 빼앗지 않는다. 페이지 본문 주위에 랜드마크를 더하지 않는다.
 - 그룹에 속한 empty 위젯에는 개별 retry와 Correlation ID를 추가한다(확정된 사용자 결정). 한 개뿐인 empty 위젯은 기존 표시·emptyAction을 그대로 유지하며 retry·ID를 추가하지 않는다.
 - DetailDrawer는 페이지와 독립된 scope 및 상세 상단 배너를 제공하며 두 표면의 위젯을 함께 묶지 않는다. 위젯 이름이 없으면 visible 이름·접근 이름을 발명하지 않는다. 보이는 이름은 non-heading label과 aria-labelledby로 연결하고 이름을 숨길 때만 aria-label을 사용한다.
-- `PlatformPage`가 페이지별 scope와 배너 위치를 제공하고 `QueryView`가 현재 응답·refetch·선택적 위젯 이름을 가장 가까운 scope에 등록한다. 등록은 응답·재시도·이름·조회 상태 변화에 따라 layout effect로 갱신하고 cleanup에서 해제한다. 그룹 판정은 응답 객체 identity 대신 동일 grouping key의 peer 존재를 읽는 위젯별 boolean snapshot을 사용해 재조회·두 번째 응답 도착 때 일시적인 전체 alert commit을 막는다. scope 밖의 QueryView는 기존 동작을 유지한다. 결정 배경은 [ADR-0017](adr/0017-shared-outcome-banner.md)을 따른다.
+- `PlatformPage`가 페이지별 scope와 배너 위치를 제공하고 `QueryView`가 현재 응답·refetch·선택적 위젯 이름을 가장 가까운 scope에 등록한다. scope 밖의 QueryView는 기존 동작을 유지한다. 등록 갱신·그룹 판정 방식과 결정 배경은 [ADR-0017](adr/0017-shared-outcome-banner.md)을 따른다.
 
 ### 가공 상태 원천과 트레이스 노출 수준 (Decided, 2026-09-26)
 
@@ -934,20 +913,15 @@ Unknown
 위젯/조회 단위 응답은 두 층으로 구성한다.
 
 1. **`outcome`(배타값):** `ok | empty | error | forbidden | too_large | timeout`. `empty`는 성공한 조회의 0건을 뜻하며, 본 조회 자체가 실패했다면 빈 배열 유무와 무관하게 `empty`가 아니라 `error`다. `error`는 나머지 구체 값에 해당하지 않는 잔여 실패다. `too_large`는 선언한 한도(`limits.maxHours`·`maxRows`)를 넘은 조회다 — 판정 기준과 순서는 [실서버 연결 체크리스트](integration/real-server-checklist.md) §3이다(#175).
-2. **`assessments[]`(이름 Candidate):** 그 조회 계약이 선언한 **적용 kind**를 빠짐없이 1회씩 담는다. 각 항목은 `state = confirmed | clear | unknown`이다. 플랫폼이 kind **어휘**를 소유하고, 각 조회 계약(공개 스키마/메뉴 선언)이 그 조회에 **적용되는 kind 목록**을 선언한다. 원천이 아직 미구현이라는 이유로 적용 kind를 목록에서 빼지 않는다 — 그 경우 `unknown`으로 응답한다(의미상 해당하지 않는 kind만 목록에서 제외). 적용 목록의 누락·중복·잘못된 상태 조합은 응답 계약 위반이며, 클라이언트는 생략을 `clear`로 보정하지 않는다. **예외(2026-10-01):** 요청이 적용 집합 키에 명시적 공집합(§6)을 실어 원천 조회를 하지 않은 경우, 응답은 `outcome=empty`에 `assessments` 없음·Trust 없음이다(평가할 원천 결과가 없다). 클라이언트는 요청에 명시적 공집합이 있을 때만 이 모양을 계약 위반으로 보지 않는다.
+2. **`assessments[]`(이름 Candidate):** 그 조회 계약이 선언한 **적용 kind**를 빠짐없이 1회씩 담는다. 각 항목은 `state = confirmed | clear | unknown`이다. 플랫폼이 kind **어휘**를 소유하고, 각 조회 계약(공개 스키마/메뉴 선언)이 그 조회에 **적용되는 kind 목록**을 선언한다. 원천이 아직 미구현이라는 이유로 적용 kind를 목록에서 빼지 않는다 — 그 경우 `unknown`으로 응답한다(의미상 해당하지 않는 kind만 목록에서 제외). 적용 목록의 누락·중복·잘못된 상태 조합은 응답 계약 위반이며, 클라이언트는 생략을 `clear`로 보정하지 않는다. **예외(2026-10-01):** 요청이 적용 집합 키에 명시적 공집합(§6)을 실어 원천 조회를 하지 않은 경우, 응답은 `outcome=empty`에 `assessments` 없음·Trust 없음이다(평가할 원천 결과가 없다). 클라이언트는 요청에 명시적 공집합이 있을 때만 이 모양을 계약 위반으로 보지 않는다. 현재 kind 어휘(이름 Candidate)는 `collection`·`processing_delay`·`coverage`·`time_domain`·`respondent_history`이며, 새 kind는 플랫폼 어휘 변경이다(메뉴 단독 추가 불가).
 
-`clear`는 "그 kind가 표현하는 문제가 해당 Context에 없음을 원천이 실제로 확인했다"는 제한적 주장이며 전반적 데이터 건강/완전성 선언이 아니다(가짜 `clear` 금지). `confirmed`/`clear`는 논리적 `statusSource`(원천 서비스 id)와 `observedAt`이 필수다. `unknown`은 생략하지 않으며 `source_unavailable`/`check_failed`/`retention_expired`(원천 보존 기간 밖, 이름 Candidate) 같은 평가 불가 이유를 명시한다.
+`clear`는 "그 kind가 표현하는 문제가 해당 Context에 없음을 원천이 실제로 확인했다"는 제한적 주장이며 전반적 데이터 건강/완전성 선언이 아니다(가짜 `clear` 금지). `confirmed`/`clear`는 논리적 `statusSource`(원천 서비스 id)와 `observedAt`이 필수다. `unknown`은 생략하지 않으며 `source_unavailable`/`check_failed`(현재 코드 어휘)와 `retention_expired`(원천 보존 기간 밖, 적재 워커 스키마 합의 뒤 추가 — 이름 Candidate) 같은 평가 불가 이유를 명시한다.
 
 `Loading`/`Refreshing same context`는 이 응답 페이로드에 없다(클라이언트 요청 생명주기). `Partial widget failure`는 위젯 결과가 섞일 때 페이지가 종합해 도출한다.
 
 `explainsEmpty`(이름 Candidate)는 `outcome=empty`이고 해당 평가가 `confirmed`이며 원천이 **그 요청 결과의 0건 원인**을 확인한 경우에만 true다(기본 false). UI는 배열 순서·행 수로 인과를 추론하지 않는다. 복수 원인이 확인되면 모두 유지한다. `No matching result`만 보이는 조건은 `outcome=empty`이고 표시할 `explainsEmpty=true` finding이 없을 때다 — 원인 원천이 없다는 것이 `empty`의 필수조건은 아니다.
 
-세부 판정 근거는 `docs/reviews/2026-09-18-url-time-status-contract-grilling.md` §5를 따른다. 개별 원천 서비스의 실제 구현·응답 스키마 세부는 Open이며, 이 계약이 그 구현을 뜻하지 않는다.
-- 동일 Context 재조회라면 기존 데이터를 유지하며 `Refreshing` 표시 가능
-- Equipment/기간/Scope가 바뀌었다면 이전 값을 새 Context 결과처럼 보여주지 않음
-- Dashboard 한 영역 실패 시 나머지 영역 유지
-- 오류에는 Query ID / Correlation ID 제공
-- 장기 Query에는 취소/기간축소/집계수준 변경 경로 제공
+개별 원천 서비스의 실제 구현·응답 스키마 세부는 Open이며, 이 계약이 그 구현을 뜻하지 않는다.
 
 ---
 
@@ -1049,7 +1023,7 @@ FeedbackOps로 나가는 외부 hop은 `linkTo`가 아니라 [FeedbackOps 딥링
 
 ## 23. Design Tokens
 
-**한/영 지원 범위(Decided, 2026-09-24):** UI 문구와 정적 본문만 번역한다. VOC·공지의 사용자 입력 본문, EquipmentName·분임조 이름 등 마스터 값과 식별자는 번역하지 않는다. 언어 설정 저장은 사용자 계정 선호값으로 보존하는 Candidate를 두며 저장소/API는 구현 시 확정한다. 언어 변경이 Context 값이나 URL 식별자를 바꾸지 않는다. CJK 폰트는 FeedbackOps ADR-0058의 Inter + Pretendard Variable 소비 계약을 따른다.
+**한/영 지원 범위(Decided, 2026-09-24):** UI 문구와 정적 본문만 번역한다. VOC·공지의 사용자 입력 본문, EquipmentName·분임조 이름 등 마스터 값과 식별자는 번역하지 않는다. 언어 설정은 현재 브라우저 localStorage에만 저장한다(§4). 사용자 계정 선호값으로 서버에 보존하는 것은 Candidate이며 저장소/API는 구현 시 확정한다. 언어 변경이 Context 값이나 URL 식별자를 바꾸지 않는다. CJK 폰트는 FeedbackOps ADR-0058의 Inter + Pretendard Variable 소비 계약을 따른다.
 
 ### Token value source (Decided — ADR-0011)
 
@@ -1059,23 +1033,7 @@ FeedbackOps로 나가는 외부 hop은 `linkTo`가 아니라 [FeedbackOps 딥링
 
 ### Semantic Colors
 
-Component에서 Tailwind primitive 색을 직접 의미로 사용하지 않는다.
-
-```text
---background
---surface
---surface-subtle
---text-primary
---text-secondary
---text-muted
---border
---border-strong
---accent
---success
---warning
---danger
---info
-```
+Component에서 Tailwind primitive 색을 직접 의미로 사용하지 않는다. 의미 토큰 이름·값은 FeedbackOps `theme.css`와 [DESIGN](../DESIGN.md#platform-extension-layer) 플랫폼 확장 층이 소유한다.
 
 Shadow보다 Border를 기본으로 하고 Shadow는 Popover/Dropdown/Drawer/Modal 같은 floating surface에 제한한다.
 
@@ -1111,7 +1069,7 @@ Equipment / 기간 / Metric Version / Scope가 분석 중 사라지지 않아야
 
 ### Decorative Visualization
 
-업무 판단에 기여하지 않는 Gauge, Gradient, 3D Chart를 사용하지 않는다. **경계(Decided, 2026-09-22):** 기본값은 분모가 있는 비율(예: 가동률, 완료율)에 한해 donut만 허용하고, 게이지·스피드미터류(3D/그라디언트 포함)는 기본적으로 쓰지 않는다. 전면·영구 금지는 아니다 — 특정 업무 판단에 실제로 기여한다는 근거가 확인되면 케이스별로 예외를 추가할 수 있다. 근거: [당시 시각화 채택 기록](reviews/2026-09-23-decision-detail-history.md).
+업무 판단에 기여하지 않는 Gauge, Gradient, 3D Chart를 사용하지 않는다. **경계(Decided, 2026-09-22):** 기본값은 분모가 있는 비율(예: 가동률, 완료율)에 한해 donut만 허용하고, 게이지·스피드미터류(3D/그라디언트 포함)는 기본적으로 쓰지 않는다. 전면·영구 금지는 아니다 — 특정 업무 판단에 실제로 기여한다는 근거가 확인되면 케이스별로 예외를 추가할 수 있다.
 
 ---
 
@@ -1125,7 +1083,7 @@ Full experience.
 
 ### 1024–1439px
 
-- Sidebar collapse
+- Sidebar collapse — 구현 현황: 1440px 미만은 기본 접힘(사용자가 저장한 선택이 있으면 그 값).
 - Secondary panel Drawer 전환은 Candidate; DetailDrawer는 이 폭에서도 §13 고정 슬롯 유지
 - Grid column 축소
 
@@ -1162,10 +1120,12 @@ Full experience.
 UI 계약:
 
 - Query timeout / cancellation
+- 장기 Query에는 취소/기간 축소/집계 수준 변경 경로 제공
 - Progressive or partial rendering where meaningful
 - large table virtualization
 - server-side aggregation/downsampling
 - stale data 여부 표시
+- 동일 Context 재조회는 기존 데이터를 유지하며 `Refreshing` 표시 가능(§11)
 - route transition 중 Context 혼동 방지
 
 차트에 원본 로그 전체를 내려보내고 프론트에서 DataZoom으로 해결하는 방식은 금지한다.
@@ -1228,34 +1188,8 @@ UI 계약:
 
 ---
 
-## 30. 구현 계획과의 경계
-
-구현 순서·배치 시점은 Deferred다. `05_roadmap_and_open_questions.md`는 설계 결정과 Open Questions를 추적하고 과거 Phase roadmap을 non-authoritative 가설로 보존한다. 이 문서의 계약은 각 기능이 구현될 때 따라야 할 조건이며, 와이어프레임에 표현됐다는 이유만으로 해당 기능의 구현이 승인되지는 않는다.
-
----
-
-## 31. App Shell 설계 산출물
-
-구체 셸 배치·사용자 작업·상태 시나리오는 `07_app_shell_wireframe.md`에서 관리한다. §7의 레이아웃은 Shell Slot 관계를 설명하는 Candidate 예시이며 독립적인 화면 명세가 아니다.
-
----
-
-## 32. Final Design Target
-
-목표는 특정 SaaS의 외관을 복제하는 것이 아니다.
-
-최종 플랫폼은 다음 특성을 가져야 한다.
-
-> **정돈된 SaaS Shell**  
-> + **고밀도 운영 UI**  
-> + **재현 가능한 분석 Context**  
-> + **시계열 Interaction**  
-> + **명시적 Data Trust**
-
-그리고 가장 중요한 기준은 다음이다.
+## 30. Final Design Target
 
 > 새 메뉴가 추가될 때 플랫폼 코드를 계속 고쳐야 한다면 플랫폼 설계가 실패한 것이다.
-
-반대로 모든 것을 범용화하느라 첫 메뉴조차 느리게 개발된다면 그것도 실패다.
 
 이 플랫폼은 **작은 Kernel + 명시적 Contract + 검증된 Shared Component + 독립적인 Domain Menu** 구조를 목표로 한다.

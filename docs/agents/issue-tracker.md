@@ -1,6 +1,6 @@
 # Issue tracker: GitHub
 
-이 저장소의 작업·결정·PRD는 `hjung3113/analytics-platform`의 GitHub 이슈로 관리한다. 모든 조작은 `gh` CLI로 한다. 전체 진행 상황은 [`docs/ROADMAP.md`](../ROADMAP.md)와 고정된 로드맵 이슈에서 본다.
+이 저장소의 작업·결정·PRD는 `hjung3113/analytics-platform`의 GitHub 이슈로 관리한다. 모든 조작은 `gh` CLI로 한다. 남은 일 한눈 보기는 [`.planning/README.md`](../../.planning/README.md)다(원본은 이슈·마일스톤).
 
 ## Conventions
 
@@ -21,7 +21,7 @@
 | `area:feedbackops` | FeedbackOps 통합 |
 | `area:tooling` | lint, 생성기, CI, 검증 도구 |
 
-보류 중인 이슈에는 `on-hold` 라벨을 단다(외부 조건이 풀리면 제거). 예: 디자인 트랙은 FeedbackOps 디자인 확정까지 보류.
+보류 중인 이슈에는 `on-hold` 라벨을 단다(외부 조건이 풀리면 제거). 예: #163·#164는 업무 필수로 확인될 때까지 보류.
 
 ## Pull requests as a triage surface
 
@@ -46,4 +46,4 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 - **Claim**: `gh issue edit <n> --add-assignee @me`.
 - **Resolve**: comment the answer, close, and add a one-line pointer to the map.
 
-Milestones are the progress authority per track (`M1 플랫폼 기능 기반`, `M2 디자인 시스템`, `M3 FeedbackOps 1단계`). A wayfinder map lives inside a milestone.
+Milestones are the progress authority per track (`M1 플랫폼 기능 기반`, `M2 디자인 시스템`, `M3 FeedbackOps 1단계`, `M4 사내 적용`; FeedbackOps 2단계는 지도 이슈 #213). A wayfinder map lives inside a milestone. The at-a-glance board is `.planning/README.md`.

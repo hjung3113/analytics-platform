@@ -50,6 +50,6 @@ export type MenuMeta = {
   navHidden?: boolean;
   /** Parent menu for breadcrumb/active-nav on detail routes. */
   parent?: string;
-  /** Group's representative destination for the home group cards (08 §4; registry field is a Candidate). Exactly one per group. */
+  /** Group's representative destination for the home group cards (08; field name Candidate, 06 §5). Exactly one per group. */
   primary?: boolean;
 };

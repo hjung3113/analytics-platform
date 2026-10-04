@@ -2,7 +2,7 @@
 
 작성일: 2026-09-24. 상태: **Research / Candidate**.
 
-후속 도메인 확인(같은 날 [2차 인터뷰](../../reviews/2026-09-24-equipment-routing-domain-interview-round-2.md)): XFR/FNC/PRC는 Module/Slot grain, CFG 기록은 설비 단위이며 Module 대상은 값 내부 속성(테이블 분할 키 아님)이다. 분석의 유효값 기준은 Job 시작 시점 하나로 충분하다. 아래 외부 조사·형식 제안의 Candidate 상태는 유지한다.
+후속 도메인 확인(같은 날 2차 도메인 인터뷰, 결과는 [CONTEXT.md](../../../CONTEXT.md)·[01](../../01_architecture_and_data_contract.md)에 반영): XFR/FNC/PRC는 Module/Slot grain, CFG 기록은 설비 단위이며 Module 대상은 값 내부 속성(테이블 분할 키 아님)이다. 분석의 유효값 기준은 Job 시작 시점 하나로 충분하다. 아래 외부 조사·형식 제안의 Candidate 상태는 유지한다.
 
 이 문서는 외부 표준·특허·제품 자료를 이번 세션의 열린 질문에만 비춘 조사다. [CONTEXT.md](../../../CONTEXT.md)와 `docs/adr/`, [06](../../06_platform_ui_contract.md)의 Decided를 덮지 않는다. 용어를 바꾸거나 CFG 형식을 확정하는 문서가 아니다. 다음 리뷰의 입력이다.
 

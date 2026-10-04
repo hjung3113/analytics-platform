@@ -126,6 +126,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Guard FeedbackOps out of platform task graph
         run: node .github/scripts/check-platform-turbo-scope.mjs
+      # Relative links and heading anchors in tracked Markdown (CLAUDE.md symlinks and vendored skills excluded)
+      - run: pnpm docs:links
       - run: pnpm lint
       - run: pnpm typecheck
       # #166: vitest workers × parallel packages oversubscribe the runner → cap turbo concurrency

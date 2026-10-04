@@ -4,7 +4,7 @@
 - 사용자 결정: 툴바 모양 — 프로토타입 #172의 D안(4안 비교 후 "d로가자").
 - 플랫폼 결정: 내보내기를 표 부품이 소유하는 계약, 직렬화 규칙, 형식 경로(지금 패턴 + 클라이언트 직렬화), XLSX 라이브러리 — #173. 메뉴 3곳 반복(06 §24)과 [ADR-0006](0006-grid-free-first-engine-hidden-from-menus.md)의 "행 복사·XLSX를 무료 경로로 먼저" 결정의 구현.
 
-계약의 세부(`exportRows`·`exportNote`, 직렬화 규칙, 결과 처리)는 [`packages/components/AGENTS.md`](../../packages/components/AGENTS.md)와 06 §15가 소유하고, 서버 행 상한은 [실서버 연결 체크리스트](../integration/real-server-checklist.md) §3-9가 소유한다. 이 ADR은 결정과 이유만 둔다.
+계약의 세부(`exportRows`·`exportNote`, 직렬화 규칙, 결과 처리)는 [06 §15](../06_platform_ui_contract.md#15-platform-data-table-contract)와 `PlatformDataTable` 테스트(`PlatformDataTable.test.tsx`·`PlatformDataTable.copy.test.tsx`·`tableExport.test.ts`)가 소유하고, 서버 행 상한은 [실서버 연결 체크리스트](../integration/real-server-checklist.md) §3-9가 소유한다. 이 ADR은 결정과 이유만 둔다.
 
 #173 전까지 표 내보내기는 메뉴 3곳(지표 카탈로그·설비 마스터·사이클타임)이 CSV를 각자 손으로 만들었다. BOM·줄바꿈·따옴표 규칙이 서로 달라(사이클타임은 BOM이 없어 엑셀에서 한글이 깨질 수 있었다) 같은 표가 메뉴마다 다른 파일을 냈고, 응답 상태 처리와 선택 행 거르기도 메뉴마다 따로 했다.
 

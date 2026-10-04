@@ -2,7 +2,7 @@
 
 ## 현재 단계
 
-FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를 참고하고 플랫폼 설계를 구체화한다. 공통 계약과 책임 범위를 확정한 뒤 통합 구현을 시작한다. 플랫폼 프론트엔드는 루트 pnpm workspace다. 패키지 추출은 완료됐다([패키지 경계](platform-packages.md) §7). `products/feedbackops/packages/ui`와 `packages/shared`만 플랫폼 workspace에 포함하며, 앱·백엔드 등 나머지 FeedbackOps workspace와 서버·DB·배포 통합 여부는 아직 확정하지 않았다.
+FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를 참고하고 플랫폼 설계를 구체화한다. 공통 계약과 책임 범위를 확정한 뒤 통합 구현을 시작한다. 플랫폼 프론트엔드는 루트 pnpm workspace다. 패키지 추출은 완료됐다([패키지 경계](platform-packages.md)). `products/feedbackops/packages/ui`와 `packages/shared`만 플랫폼 workspace에 포함하며, 앱·백엔드 등 나머지 FeedbackOps workspace와 서버·DB·배포 통합 여부는 아직 확정하지 않았다.
 
 기존 플랫폼 문서는 링크와 소유권을 보존하기 위해 `docs/`에 유지한다. `docs/platform/` 이동이나 공통 코드 추출은 이번 연결에 포함하지 않는다.
 
@@ -10,14 +10,18 @@ FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를
 
 | 경로 | 역할 |
 | --- | --- |
-| `docs/00_*.md` ~ `docs/07_*.md` | 기존 플랫폼 설계. 전역 계약은 `06_platform_ui_contract.md`가 소유 |
+| `docs/00_*.md` ~ `docs/13_*.md` | 기존 플랫폼 설계. 전역 계약은 `06_platform_ui_contract.md`가 소유 |
+| `docs/adr/` | 결정 기록(ADR). 목록·형식은 `docs/adr/README.md` |
 | `docs/integration/` | 저장소 연결 및 향후 통합 결정. 기존 제품 계약을 암묵적으로 덮어쓰지 않음 |
-| `DESIGN.md`, `PLATFORM_REQUIREMENTS.md` | 기존 플랫폼 디자인 및 요구사항 자료 |
+| `DESIGN.md`, `CONTEXT.md` | 플랫폼 디자인 방향, 도메인 용어 |
+| `.planning/` | 남은 일·결정 대기(원본은 GitHub 이슈) |
 | `.agents/` | 플랫폼 에이전트 스킬·참고자료·보고서 |
 | `package.json`, `pnpm-workspace.yaml`, `turbo.json` | 플랫폼 pnpm workspace 루트(`apps/*`, `packages/*`, `menus/*`, `tooling/*`)와 FeedbackOps `packages/ui`, `packages/shared` |
-| `apps/platform-web/` | 플랫폼 앱(조립 지점): 메뉴 선언·화면, mock 서버, dev 도구. 통합 프로토타입 `prototypes/platform-app`을 옮긴 것 |
-| `packages/` | 플랫폼 패키지 `contracts`·`ui`·`kernel`·`components`·`shell`(`@ap/*`). 경계는 [패키지 경계](platform-packages.md) |
-| `tooling/` | 공유 tsconfig 등 개발 도구 설정 |
+| `apps/platform-web/` | 플랫폼 앱(조립 지점, dev 도구) |
+| `apps/platform-e2e/` | 플랫폼 계약 E2E(Playwright 블랙박스) |
+| `packages/` | 플랫폼 패키지 `contracts`·`ui`·`kernel`·`components`·`shell`·`mock-server`·`server-conformance`(`@ap/*`). 경계는 [패키지 경계](platform-packages.md) |
+| `menus/` | 메뉴 Consumer 패키지(`@ap/menu-<group>`) |
+| `tooling/` | 공유 도구: tsconfig, eslint 경계 규칙, `gen-menu`, `css-selectors` |
 | `prototypes/` | 통합 전 Kernel 단위 프로토타입(개별 npm 프로젝트, workspace 밖). 보존 |
 | `products/feedbackops/` | FeedbackOps 원본 Git 저장소의 고정 커밋 |
 | `products/feedbackops/apps/frontend/` | 기존 React 프론트엔드. `src/features/`에 업무 화면 구성 |
@@ -79,8 +83,8 @@ FeedbackOps는 플랫폼의 **피드백 공간**([06 §9.1](../06_platform_ui_co
 1. **1단계 — 연결:** 원본 앱은 독립 실행을 유지한다. 공유 SSO·디자인 토큰, 서로의 Context를 넘기는 딥링크로 연결한다. 분석 공간의 사용자용 화면은 VOC 상태와 설문 응답 이력을 FeedbackOps API에서 **읽기 전용**으로 조회한다. **VOC 등록과 설문 응답 제출(쓰기)은 1단계에서 FeedbackOps 원본 화면으로 딥링크한다(Decided, 2026-09-27)** — 플랫폼 화면 안의 쓰기는 2단계 셸 편입 이후로 미룬다. 사용자에게 보이는 상태와 내부 처리 상태를 자동으로 연결하지 않는 FeedbackOps 원칙(ADR-0005)을 그대로 따른다.
 2. **2단계 — 셸 편입:** 인증 프로토콜과 Scope↔Managed System 관계가 결정된 뒤 같은 셸 안의 피드백 공간으로 옮긴다. 이 결정 전에는 FeedbackOps 코드를 플랫폼 계약에 맞춰 소급 수정하지 않는다. **통합 깊이는 A — FeedbackOps 화면을 플랫폼 메뉴 패키지로 옮기고 FeedbackOps 백엔드는 도메인 API 서비스로 유지한다(Decided, 2026-10-04, [ADR-0018](../adr/0018-feedbackops-stage2-screens-into-platform-menus.md)).** 진행 계획은 [#213](https://github.com/hjung3113/analytics-platform/issues/213).
 
-**Milestone:** FeedbackOps 설계에 이미 정의돼 있다(`products/feedbackops/docs/design/06-task-project-system.md` FR-TASK-004 — Finding에서 생성, Task 묶음, 상세에 하위 Task 간트 차트; 디자인 프로토타입 `docs/design-prototype/screen-milestone-gantt.jsx`, `screen-milestones.jsx`). 2026-09-26 기준 고정 커밋(`6a0c7f8`)에서는 **아직 구현되지 않았고** 백엔드에 `tasks.milestone_id`·`findings.linked_milestone_id` 자리만 있다. 구현은 FeedbackOps 원본 저장소에서 진행하며, 피드백 공간은 그 구현을 참조한다. 플랫폼 쪽에서 별도 마일스톤 기능을 만들지 않는다.
+**Milestone:** 정의와 구현 상태는 FeedbackOps 저장소가 소유하며(`products/feedbackops/docs/design/06-task-project-system.md` FR-TASK-004), 플랫폼 쪽에서 별도 마일스톤 기능을 만들지 않는다.
 
 ## 다음 설계에서 확정할 항목
 
-인증·사용자 식별, Scope와 Managed System의 관계, 권한 검증 책임, 메뉴·URL·Context 계약, 셸과 업무 화면의 책임, UI 재사용 범위, 감사·알림 계약, 실행·배포 단위를 결정한다. 그 결과를 바탕으로 공통 코드 추출과 서브모듈의 정식 편입 여부를 정한다.
+Scope와 Managed System의 관계, 권한 검증 책임, 메뉴·URL·Context 계약, 감사·알림 계약, 실행·배포 단위를 결정한다. 그 결과를 바탕으로 공통 코드 추출과 서브모듈의 정식 편입 여부를 정한다. 답이 필요한 질문과 미결 범위는 [`.planning/README.md`](../../.planning/README.md)에 있다.

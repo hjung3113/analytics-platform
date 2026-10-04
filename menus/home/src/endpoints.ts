@@ -1,5 +1,5 @@
 /**
- * Home query endpoints (docs/integration/menu-query-port.md §2.2, #130).
+ * Home query endpoints (packages/contracts/src/menu-query.ts, #130).
  * Client-safe: declarations and data types only — notice data lives in `src/mock/`.
  */
 import { defineEndpoint } from '@ap/contracts';

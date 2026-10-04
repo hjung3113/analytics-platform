@@ -38,7 +38,7 @@ npm run dev
 
 ## 근거와 한계
 
-[work order](../../.agents/reports/kernel-work-order-platform-table-drawer-draft.md)에 원본 revision, 수용 사례 및 사용자 확인 필요 **5항목**이 있다. [TanStack pagination](https://tanstack.com/table/v8/docs/guide/pagination)의 manualPagination과 [Virtualizer](https://tanstack.com/virtual/latest/docs/api/virtualizer)의 count/estimateSize/measureElement를 사용한다. 실제 서버/데이터 규모 성능, 권한/Scope·cross-menu Context 연결, export와 Audit 데이터는 미검증·미연동이다.
+work order(git 이력: `kernel-work-order-platform-table-drawer-draft.md`)에 원본 revision, 수용 사례 및 사용자 확인 필요 **5항목**이 있다. [TanStack pagination](https://tanstack.com/table/v8/docs/guide/pagination)의 manualPagination과 [Virtualizer](https://tanstack.com/virtual/latest/docs/api/virtualizer)의 count/estimateSize/measureElement를 사용한다. 실제 서버/데이터 규모 성능, 권한/Scope·cross-menu Context 연결, export와 Audit 데이터는 미검증·미연동이다.
 
 [Web Interface Guidelines](https://raw.githubusercontent.com/vercel-labs/web-interface-guidelines/main/command.md)로 label/focus/keyboard/virtualization/overflow를 검토했다. resize slider는 drag의 키보드 대안이며 탭은 Arrow/Home/End를 지원한다. URL 동기화는 이번 standalone component 범위 밖이다. screen-reader 수동 검사나 실제 모바일 실기기 검사는 수행하지 않았다.
 

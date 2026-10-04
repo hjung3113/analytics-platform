@@ -18,9 +18,8 @@
 
 ## 모든 패키지에 적용
 
-- 위 표의 역방향 import 금지. 어느 패키지도 앱(`apps/*`)이나 메뉴 화면을 import하지 않는다. `mock-server`는 `contracts`만 import한다. kernel·components·shell·ui는 `mock-server`를 import하지 않는다. 서버에 닿는 길은 `PlatformAdapter` 하나다 — 메뉴 데이터는 그 안의 범용 `menuQuery`로만 가고, 메뉴 어휘가 있는 메서드를 포트에 추가하지 않는다([패키지 경계](../docs/integration/platform-packages.md) §4).
+- 역방향 import 금지, 서버에 닿는 길은 `PlatformAdapter` 하나([패키지 경계](../docs/integration/platform-packages.md) §3-§4) — 메뉴 어휘 메서드를 포트에 추가하지 않는다.
 - `@fops/*`는 외부 원본이다. FeedbackOps primitive는 `@ap/ui`만 `@fops/ui`에서 가져오며, 다른 플랫폼 코드는 `@ap/ui` 공개 export를 사용한다(ADR-0011).
-- FeedbackOps CSS도 같은 길이다. `@ap/ui/styles.css`가 `@fops/ui/styles/*`를 import하고(ADR-0058 순서), 앱은 `@ap/ui/styles.css`만 가져온다. 앱은 `@fops/ui`에 의존하지 않는다.
 - 다른 패키지는 `package.json` `exports`의 공개 진입점으로만 import한다(`@ap/kernel`, `@ap/ui/styles.css`). `@ap/x/src/...` 깊은 경로 금지.
 - 패키지는 TS 소스를 그대로 export하고 빌드 단계가 없다. 앱의 Vite가 번들한다.
 - Tailwind 클래스를 쓰는 패키지는 `styles.css`에 `@source`로 자기 소스를 등록하고 앱 `src/style.css`가 그것을 import한다. 새 패키지를 만들면 이 둘을 같이 추가한다. Tailwind를 쓰지 않는 패키지(`mock-server`)는 `styles.css`를 만들지 않는다.
@@ -29,6 +28,6 @@
 
 ## 검증
 
-루트 네 명령(`pnpm lint && pnpm typecheck && pnpm test && pnpm build`, 루트 `AGENTS.md`)에 더해: 이동·리팩터링 PR은 빌드 CSS selector 집합이 바뀌지 않았는지도 확인한다.
+패키지별 검사(`pnpm --filter @ap/<패키지> test`)로 좁혀 본 뒤 루트 검사(루트 `AGENTS.md`). 이동·리팩터링 PR의 빌드 CSS selector 집합은 CI `CSS selectors (build diff)`가 자동 비교한다(의도한 제거만 `css-removal-ok` 라벨, [tooling/AGENTS.md](../tooling/AGENTS.md)).
 
 다음 단계: 수정할 패키지의 `AGENTS.md`.

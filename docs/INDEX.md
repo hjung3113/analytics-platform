@@ -1,104 +1,81 @@
 # 문서 인덱스
 
-이 레포는 `context_recognized_parser`(별도 레포)가 적재한 데이터를 소비하는 분석 플랫폼의 설계와 프론트엔드 플랫폼 코드를 담는다. 코드는 루트 pnpm workspace(`packages/*` 플랫폼 패키지, `apps/platform-web` 조립 앱, 서버는 mock)이며, 기존 FeedbackOps 구현은 `products/feedbackops/` 서브모듈로 연결돼 있다. 문서는 Decided / Candidate / Open / Deferred를 구분한다. 에이전트용 보조 스크립트는 `.agents/`에 있다.
+이 레포는 `context_recognized_parser`(별도 레포)가 적재한 데이터를 소비하는 분석 플랫폼의 설계와 프론트엔드 플랫폼 코드를 담는다. 코드는 루트 pnpm workspace(`packages/*` 플랫폼 패키지, `menus/*` 견본 메뉴, `apps/platform-web` 조립 앱, 서버는 mock)이고, FeedbackOps는 `products/feedbackops/` 서브모듈로 연결돼 있다.
 
-**지금 무엇이 끝났고 무엇이 남았는지는 [로드맵](ROADMAP.md) 한 페이지에서 본다**(작업은 GitHub 이슈로 관리, [이슈 추적 방식](agents/issue-tracker.md)).
-
-저장소 전체를 살펴보려면 [폴더 구조와 FeedbackOps 연결 방식](integration/repository-layout.md)을 먼저 본다.
+| 알고 싶은 것 | 어디 |
+| --- | --- |
+| 남은 일, 다음 할 일, 결정 대기 | [`.planning/README.md`](../.planning/README.md) |
+| 작업 규칙 | 루트 [AGENTS.md](../AGENTS.md), 이 폴더 [AGENTS.md](AGENTS.md)(문서 소유권·상태 표기) |
+| 저장소 구조와 FeedbackOps 연결 | [저장소 구조](integration/repository-layout.md) |
+| 결정과 그 이유 | [ADR 목록](adr/README.md), ADR 없는 계약 결정은 [05](05_roadmap_and_open_questions.md) |
+| 도메인 용어 | [CONTEXT](../CONTEXT.md) |
+| 시각 규칙 | [DESIGN](../DESIGN.md) |
+| 이슈 관리·에이전트 운영 메모 | [이슈 트래커](agents/issue-tracker.md), [운영 메모](agents/operations.md) |
 
 ## 역할별 진입점
 
 | 역할 | 먼저 볼 문서 | 같이 볼 문서 |
 | --- | --- | --- |
-| 전체 / 기획(PM) | `00_overview.md` | `02_domain_menus.md`, `05_roadmap_and_open_questions.md` |
-| 기획(PM) — 도메인/설계 결정 | `02_domain_menus.md` | `05_roadmap_and_open_questions.md` |
-| 백엔드/인프라 | `01_architecture_and_data_contract.md` | `03_backend_stack.md` |
-| 플랫폼/프론트엔드 | `06_platform_ui_contract.md` | `04_frontend_ui_ux.md`, `02_domain_menus.md` |
-| 개별 프론트엔드 메뉴 구현 | [06 플랫폼 Kernel·메뉴 확장 계약](06_platform_ui_contract.md) §4–6/§8/§17–19/§26/§28–29 | [02 도메인 catalog](02_domain_menus.md) → [07 셸](07_app_shell_wireframe.md)/해당 화면 설계 → [04 구현 후보](04_frontend_ui_ux.md) |
-| UI/UX — App Shell 화면 설계 | `07_app_shell_wireframe.md` | `06_platform_ui_contract.md`, `04_frontend_ui_ux.md`, `.agents/skills/analysis-platform-wireframe/references/wireframe-rules.md` |
-| 사내 적용(백엔드·인프라·사내 메뉴 개발자) | [사내 적용 가이드](integration/in-house-rollout.md) | [실서버 연결 체크리스트](integration/real-server-checklist.md), 06 §5/§29 |
-| 신규 합류자 | `00_overview.md` → `06_platform_ui_contract.md` → 자기 역할 문서 순서로 | — |
-| 시간·기간·지연완료 계약 변경 | [06 시간 계약·변경 영향 경로](06_platform_ui_contract.md#ctx-time) | [01 R/H 정책 원본](01_architecture_and_data_contract.md#late-arrival-policy) → 원본 옆의 소비자 포인터와 실제 변경 작업 기록 |
+| 신규 합류자 | [00 개요](00_overview.md) → [06 플랫폼 계약](06_platform_ui_contract.md) | 자기 역할 행 |
+| 기획(PM) — 도메인 | [02 도메인 catalog](02_domain_menus.md) | [CONTEXT](../CONTEXT.md), [05](05_roadmap_and_open_questions.md) |
+| 백엔드·인프라 | [01 아키텍처·데이터 계약](01_architecture_and_data_contract.md) | [03 백엔드](03_backend_stack.md), [실서버 연결 체크리스트](integration/real-server-checklist.md) |
+| 플랫폼·프론트엔드 | [06 플랫폼 계약](06_platform_ui_contract.md) | [04 프론트 기술 스택](04_frontend_ui_ux.md), [07 셸](07_app_shell_wireframe.md) |
+| 사내 적용(백엔드·인프라·사내 메뉴 개발자) | [사내 적용 가이드](integration/in-house-rollout.md) | [실서버 연결 체크리스트](integration/real-server-checklist.md), [전송 형식 초안](integration/http-adapter-contract.md) |
+| 시간·기간·지연 완료 계약 변경 | [06 시간 계약](06_platform_ui_contract.md#ctx-time) | [01 R/H 정책 원본](01_architecture_and_data_contract.md#late-arrival-policy) |
 
-새 메뉴는 위 06 계약부터 읽고 Platform Done을 먼저 확인한다. 필드 원천은 [01 데이터 계약](01_architecture_and_data_contract.md), 화면 설계 절차는 [설계 스킬](../.agents/skills/analysis-platform-wireframe/SKILL.md), 시각 token/render는 [DESIGN](../DESIGN.md)을 함께 본다.
+새 메뉴는 06 계약부터 읽고 Platform Done(§29)을 먼저 확인한다. 화면 설계 절차는 [설계 스킬](../.agents/skills/analysis-platform-wireframe/SKILL.md).
 
 ## 작업별 읽기 경로
 
-코드를 만지는 작업은 아래 순서대로 따라간다. 각 단계의 폴더 `AGENTS.md`가 그 폴더의 역할·금지 사항·검증 방법과 다음에 볼 파일을 알려 준다. 모든 경로는 루트 [AGENTS.md](../AGENTS.md)(목적·코드 작업 원칙)를 읽었다고 가정한다.
+코드를 만지는 작업은 아래 순서로 따라간다. 각 폴더 `AGENTS.md`가 그 폴더의 역할·금지 사항·검증 방법과 다음에 볼 파일을 알려 준다.
 
 | 작업 | 1. 계약 | 2. 폴더 지침 | 3. 코드 |
 | --- | --- | --- | --- |
-| 메뉴 화면 추가·수정 | [06](06_platform_ui_contract.md) §5 Menu Extension·§29 Platform Done → 해당 화면 wireframe(`08`–`13`) | [menus](../menus/AGENTS.md) → [README 페이지 작성 가이드](../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙) | `menus/<group>/src/index.ts`(선언) → `menus/<group>/src/pages/` → 필요한 부품은 [components](../packages/components/AGENTS.md) |
-| Kernel 동작(Registry·전역 Context·URL·Scope·조회 수명주기) | 06 §4–6 | [packages](../packages/AGENTS.md) → [kernel](../packages/kernel/AGENTS.md) → 타입이 바뀌면 [contracts](../packages/contracts/AGENTS.md) | `packages/kernel/src/registry.ts`·`platform.tsx`·`query.ts` → 테스트 `adapter.test.tsx`·`registry.test.ts` → 앱 `url-contract.test.ts` |
-| 서버 계약·어댑터(실서버 전환 포함) | [사내 적용 가이드](integration/in-house-rollout.md)(순서·확인할 것) → [실서버 연결 체크리스트](integration/real-server-checklist.md)(규칙) → [전송 형식 초안](integration/http-adapter-contract.md)(HTTP 경계), [패키지 경계](integration/platform-packages.md) §4, 06 §18–19 | [contracts](../packages/contracts/AGENTS.md) → [packages/mock-server](../packages/mock-server/AGENTS.md) → [apps/platform-web](../apps/platform-web/AGENTS.md)(주입·dev 도구) | `packages/contracts/src/adapter.ts` → `packages/mock-server/src/adapter.ts` → kernel `adapter.test.tsx` |
-| 공통 컴포넌트·차트·상태 화면 | 06 §13·§16·§18–19·§24 | [packages](../packages/AGENTS.md) → [components](../packages/components/AGENTS.md) → primitive가 필요하면 [ui](../packages/ui/AGENTS.md) | `packages/components/src/` → 소비 화면(`menus/*/src/pages`)에서 확인 |
-| 셸(레일·사이드바·페이지 머리·Context Bar·라우트 상태·워크스페이스 층) | [07 셸](07_app_shell_wireframe.md), 06 §8–9 | [shell](../packages/shell/AGENTS.md) → 슬롯·Registry는 [kernel](../packages/kernel/AGENTS.md) | `packages/shell/src/` → 앱 `src/main.tsx`(조립) |
-| 디자인 토큰·시각 규칙 | [ADR-0011](adr/0011-design-direction-feedbackops-shell.md) → [FeedbackOps ADR-0058](../products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md), [06 §23](06_platform_ui_contract.md#23-design-tokens) | [ui](../packages/ui/AGENTS.md) | `packages/ui/src/styles/` |
+| 메뉴 화면 추가·수정 | [06](06_platform_ui_contract.md) §5 Menu Extension·§29 Platform Done → 해당 화면 설계(`08`·`09`·`11`–`13`) | [menus](../menus/AGENTS.md) → [페이지 작성 가이드](../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙) | `menus/<group>/src/index.ts`(선언) → `menus/<group>/src/pages/` → 필요한 부품은 [components](../packages/components/AGENTS.md) |
+| Kernel 동작(Registry·전역 Context·URL·Scope·조회 수명주기) | 06 §4–6 | [packages](../packages/AGENTS.md) → [kernel](../packages/kernel/AGENTS.md) → 타입이 바뀌면 [contracts](../packages/contracts/AGENTS.md) | `packages/kernel/src/registry.ts`·`platform.tsx`·`query.ts` → 테스트 → 앱 `url-contract.test.ts` |
+| 서버 계약·어댑터(실서버 전환 포함) | [사내 적용 가이드](integration/in-house-rollout.md)(순서) → [실서버 연결 체크리스트](integration/real-server-checklist.md)(규칙) → [전송 형식 초안](integration/http-adapter-contract.md)(HTTP 경계), [ADR-0019](adr/0019-menu-query-endpoint-declaration.md), 06 §18–19 | [contracts](../packages/contracts/AGENTS.md) → [mock-server](../packages/mock-server/AGENTS.md) → [server-conformance](../packages/server-conformance/AGENTS.md) → [apps/platform-web](../apps/platform-web/AGENTS.md)(주입·dev 도구) | `packages/contracts/src/adapter.ts`·`menu-query.ts` → `packages/mock-server/src/adapter.ts` |
+| 공통 컴포넌트·차트·상태 화면 | 06 §13·§15·§16·§18–19·§24 | [packages](../packages/AGENTS.md) → [components](../packages/components/AGENTS.md) → primitive가 필요하면 [ui](../packages/ui/AGENTS.md) | `packages/components/src/` → 소비 화면(`menus/*/src/pages`) |
+| 셸(레일·사이드바·페이지 머리·Context 바·상세 슬롯·라우트 상태·공간) | [07 셸](07_app_shell_wireframe.md), 06 §7–9 | [shell](../packages/shell/AGENTS.md) → 슬롯·Registry는 [kernel](../packages/kernel/AGENTS.md) | `packages/shell/src/` → 앱 `src/main.tsx`(조립) |
+| 디자인 토큰·시각 규칙 | [DESIGN](../DESIGN.md), [ADR-0011](adr/0011-design-direction-feedbackops-shell.md) → [FeedbackOps ADR-0058](../products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md), [06 §23](06_platform_ui_contract.md#23-design-tokens) | [ui](../packages/ui/AGENTS.md) | `packages/ui/src/styles/` |
 | 플랫폼 계약 자동 검사(E2E) | 06 §6·§11·§17·§19·§22 | [apps/platform-e2e](../apps/platform-e2e/AGENTS.md) | `apps/platform-e2e/tests/contracts.spec.ts` → `support.ts` → 보고 `contract-reporter.ts` |
-| 모노레포 구조·빌드·CI·접두사 변경 | [패키지 경계](integration/platform-packages.md) §3·§6–8, [저장소 구조](integration/repository-layout.md) | [tooling](../tooling/AGENTS.md) → [packages](../packages/AGENTS.md) | 루트 `package.json`·`pnpm-workspace.yaml`·`turbo.json` → `.github/workflows/ci.yml` |
-| 설계 문서·결정 갱신 | 해당 소유 문서 → [05](05_roadmap_and_open_questions.md) | [docs](AGENTS.md) | 새 화면 설계는 [설계 스킬](../.agents/skills/analysis-platform-wireframe/SKILL.md) |
+| 모노레포 구조·빌드·CI·접두사 변경 | [패키지 경계](integration/platform-packages.md), [저장소 구조](integration/repository-layout.md) | [tooling](../tooling/AGENTS.md) → [packages](../packages/AGENTS.md) | 루트 `package.json`·`pnpm-workspace.yaml`·`turbo.json` → `.github/workflows/ci.yml` |
+| 설계 문서·결정 갱신 | 해당 소유 문서 → [ADR 목록](adr/README.md) 또는 [05](05_roadmap_and_open_questions.md) | [docs](AGENTS.md) | 바꾼 뒤 `pnpm docs:links` |
+| 적재 워커 상태·가공 상태 조회·운영 콘솔 모니터링 | [01 가공 상태 보고](01_architecture_and_data_contract.md#processing-status-report), 06 §19, [상태 기록 스키마 초안](integration/ingest-status-schema.md) | [docs](AGENTS.md) | 파서 저장소 `context_recognized_parser` |
+| FeedbackOps 연결 | [저장소 구조](integration/repository-layout.md), [딥링크 계약](integration/feedbackops-deeplink.md), [ADR-0018](adr/0018-feedbackops-stage2-screens-into-platform-menus.md) | [products/feedbackops](../products/feedbackops/AGENTS.md) | 서브모듈 하위 `AGENTS.md` |
 | 통합 전 단위 프로토타입 | — | [prototypes](../prototypes/AGENTS.md) | 각 프로토타입 README |
-| 적재 워커 상태·가공 상태 조회·운영 콘솔 모니터링 | [01 가공 상태 보고](01_architecture_and_data_contract.md#processing-status-report), 06 §19, [상태 기록 스키마 초안](integration/ingest-status-schema.md) | [docs](AGENTS.md) | 파서 저장소 `context_recognized_parser` `docs/11`·`docs/16`·`docs/22` |
-| FeedbackOps | [저장소 구조](integration/repository-layout.md), [딥링크 계약](integration/feedbackops-deeplink.md) | [products/feedbackops](../products/feedbackops/AGENTS.md) | 서브모듈 하위 `AGENTS.md` |
-
-진행 중인 이행 순서(모노레포 5–6단계)와 남은 결정은 [HANDOFF](../HANDOFF.md)에서 확인한다.
 
 ## 문서 목록
 
-- `00_overview.md` — 목적/범위, 리뷰 반영 핵심 발견(1차·2차), YAGNI 제외 목록
-- `01_architecture_and_data_contract.md` — 전체 아키텍처(view/mart), 파서-플랫폼 데이터 계약 리스크, mart 재계산·집계 가능성·마스터 소유권, 폴링·파서 DB 접근·R/H 상세 원본
-- `02_domain_menus.md` — 플랫폼 코어 공통 기능, 도메인 메뉴 그룹(설비관리/기준정보관리/생산성분석/지표관리/공지/VOC)
-- `03_backend_stack.md` — 백엔드/DB/인증/마이그레이션 기술 스택, 재현성·시간 계약
-- `04_frontend_ui_ux.md` — 프론트 구현 후보, UI/UX 리서치(상용 SaaS 참고), 전역 계약 참조, 페이지별 UI 패턴, 차트/주석 설계
-- [05 결정 상태와 미결 질문](05_roadmap_and_open_questions.md) — Design Decisions / Open Questions, 이관된 데이터 운영 정책의 이전 링크 안내, 메뉴 활용률 계측 정책 원본, 과거 Phase 가설의 이력 포인터
-- `06_platform_ui_contract.md` — 플랫폼 우선 SaaS 디자인 계약: Platform Kernel, Menu Registry, Context Capability, Shell Slot, Page Archetype, Shared Component 승격 기준, Data Trust/권한/상태 UX, navigation IA
-- `07_app_shell_wireframe.md` — App Shell(전역 셸) Requirements/IA/Wireframe, `06_platform_ui_contract.md`를 화면 단위로 구체화, 설계 단계 산출물
-- `08_operations_overview_wireframe.md` — 운영 개요(랜딩) 화면, 07 content slot의 첫 소비 화면. Kernel 공통 기능(메뉴 그리드/즐겨찾기/최근방문/공지 배너) 소비 패턴의 첫 검증
-- `09_equipment_master_wireframe.md` — 설비관리 설비 마스터 목록/상세, Management archetype 첫 Consumer, PlatformDataTable/DetailDrawer/AuditTimeline 소비 패턴
-- `10_reference_data_wireframe.md` — 기준정보관리 마스터 데이터(공정/레시피/자재) 목록/상세, 09와 같은 Management archetype이지만 다중 엔티티 유형 처리 패턴을 추가로 다룸. 필드 원천 소유권·Recipe 마스터와 PRC 실행값 관계는 Open으로 유지
-- `11_productivity_overview_wireframe.md` — 생산성 분석 개요, Overview archetype 첫 Consumer(물리 점유율/비Process 체류/사이클타임 P50·P95/Job 처리량). granularity·지표별 버전 page-owned 키, Global room_name·PPID/Recipe·Equipment Group Condition/Selection을 다룸
-- `12_cycle_time_drilldown_wireframe.md` — 사이클타임 상세→느린 실행→occurrence 상세, Analysis Workspace archetype. PLATFORM_REQUIREMENTS §3의 대표 드릴다운 왕복 검증 경로(occurrence 식별자·Context 분리·VOC 생성/복귀 링크 계약)를 구체화
-- `13_metric_catalog_wireframe.md` — 지표관리 카탈로그/상세, Catalog archetype. `metricId`+`metricVersion` 쌍(06 §6.1)의 등록·발행 원본이며, 11/12는 이 문서가 정의한 식별 쌍의 소비자로 명시 연결됨
+설계 문서(`docs/`):
 
-- [DESIGN](../DESIGN.md) — FeedbackOps 기반 플랫폼 시각 확장·pairing 원본. 전역 행동·상태·접근성 의무와 최소 기준은 06을 따른다.
-- [PLATFORM_REQUIREMENTS](../PLATFORM_REQUIREMENTS.md) — 원본 계약에서 파생된 요구·작업·제안 목록. 결정 반영 체크가 구현 완료를 뜻하지 않는다.
-- [HANDOFF](../HANDOFF.md) — 현재 세션 배경과 후속 작업 안내. 역사 기록은 현재 계약·권한을 대체하지 않는다.
-- [CONTEXT](../CONTEXT.md) — 현행 도메인 용어와 관계. [ADR-0005](adr/0005-scope-room-name-line-independent.md)는 room_name 기준 Scope와 독립 Line 축([ADR-0001](adr/0001-scope-hierarchy-site-line-only.md)의 Scope 주장 대체), [ADR-0002](adr/0002-stgroup-materializes-to-equipment-ids.md)는 Equipment Group Condition/Selection 두 층, [ADR-0004](adr/0004-site-is-db-partition-not-column.md)는 Site DB 경계·전역 유일 EquipmentID의 근거다. 전역 소비 계약은 06을 따른다.
-- [ADR-0017](adr/0017-shared-outcome-banner.md) — 같은 위젯 응답의 페이지 배너 + 간결 상태(B안). 계약은 [06 §19](06_platform_ui_contract.md#19-loading--empty--error-taxonomy), 시각 규칙은 [DESIGN](../DESIGN.md#shared-interaction-and-data-states).
-- 디자인 2차 컨펌 ADR(2026-10-04, 사용자): [ADR-0014](adr/0014-chart-legend-period-grouping.md) 차트 범례 기간별 그룹·파생 선 패턴, [ADR-0015](adr/0015-context-bar-priority-overflow.md) Context 바 우선순위 넘침(한 줄 48px), [ADR-0016](adr/0016-page-filter-bar.md) 공통 PageFilterBar. FeedbackOps 2단계: [ADR-0018](adr/0018-feedbackops-stage2-screens-into-platform-menus.md) 화면은 플랫폼 메뉴로 이전, 백엔드는 도메인 API로 유지(진행 [#213](https://github.com/hjung3113/analytics-platform/issues/213)).
-- 기술 결정 ADR: [ADR-0006](adr/0006-grid-free-first-engine-hidden-from-menus.md) 그리드 편의 기능은 무료 경로로 먼저 적용하고 표 엔진은 메뉴에 드러내지 않는다(2026-10-02 범위·유료 전환 경로), [ADR-0007](adr/0007-perspective-browser-engine-only.md) 자유 피벗 엔진은 브라우저 안에서만(서버 판정 우회 금지), [ADR-0008](adr/0008-table-owned-export-fixed-toolbar.md) 표 내보내기·복사는 표 부품이 소유하고 툴바는 고정 배치(D안).
+- [00 개요](00_overview.md) — 목적·범위, YAGNI 제외 목록.
+- [01 아키텍처·데이터 계약](01_architecture_and_data_contract.md) — view/mart 구조, 파서-플랫폼 데이터 계약, mart 재계산·집계 가능성·마스터 소유권, 폴링·파서 DB 접근·지연 완료 R/H 원본.
+- [02 도메인 catalog](02_domain_menus.md) — 플랫폼 코어 기능과 도메인 메뉴 그룹.
+- [03 백엔드](03_backend_stack.md) — 백엔드·DB·인증 기술 스택, 재현성·시간 계약.
+- [04 프론트 기술 스택](04_frontend_ui_ux.md) — 라이브러리 결정과 코드 현황, 그리드·차트·데이터 도구 검토, 페이지별 UI 패턴.
+- [05 결정 상태](05_roadmap_and_open_questions.md) — ADR 없는 계약 결정 목록, MVP 지원 환경, 메뉴 활용률 계측 정책.
+- [06 플랫폼 UI 계약](06_platform_ui_contract.md) — Platform Kernel, Menu Registry, Context Capability, Shell Slot, Page Archetype, 공통 컴포넌트 승격 기준, Data Trust·권한·상태 UX, navigation IA. **전역 계약의 원본.**
+- [07 App Shell](07_app_shell_wireframe.md) — 셸 구조(ADR-0011·0013·0015로 Decided)와 IA.
+- 견본 메뉴 화면의 계약 메모(사내에서 새로 만들 메뉴라 계약에 닿는 부분만 둔다): [08 운영 개요](08_operations_overview_wireframe.md), [09 설비 마스터](09_equipment_master_wireframe.md), [11 생산성 개요](11_productivity_overview_wireframe.md), [12 사이클타임 드릴다운](12_cycle_time_drilldown_wireframe.md)(대표 드릴다운 왕복 계약), [13 지표 카탈로그](13_metric_catalog_wireframe.md)(`metricId`+`metricVersion` 쌍의 원본).
 
-## 원본
+통합 계약(`docs/integration/`):
 
-`00`~`05` 문서는 Claude Docs에서 진행된 설계 세션(1차 리뷰: grok-4.6/gpt-6-astra/glm-5.3-flash, UI/UX 리서치: codex gpt-5.6-luna, 2차 리뷰: grok-4.6/gpt-6-astra/glm-5.3-flash)의 최종 산출물을 역할별로 분리해 옮긴 것이다. 원본 통합 문서: https://claude.ai/code/artifact/005e792f-7bda-4f27-b9fd-e89b4474fead
+- [저장소 구조](integration/repository-layout.md) — 폴더 구조, FeedbackOps 서브모듈 연결·갱신 절차.
+- [패키지 경계](integration/platform-packages.md) — 패키지 의존 방향, 메뉴 템플릿, 결정(2026-09-26, 세부 타입 이름은 Candidate).
+- [실서버 연결 체크리스트](integration/real-server-checklist.md) — `PlatformAdapter` 메서드별 의미, `menuQuery` 판정 순서·등록 검증, 적합성 묶음 실행. Candidate.
+- [전송 형식 초안](integration/http-adapter-contract.md) — 메서드별 HTTP 경로·요청/응답, 상태 코드와 `outcome`, 세션·CSRF, 백엔드 담당 질문. Candidate(#149 합의 대기).
+- [사내 적용 가이드](integration/in-house-rollout.md) — mock → 실어댑터·실서버 전환 순서, 담당자별 확인 질문, 사내 메뉴 개발 가이드, 완료 기준.
+- [적재 워커 상태 기록 스키마](integration/ingest-status-schema.md) — 가공 상태 원천의 기록 구조와 평가 규칙. Candidate(#37 파서 담당 합의 대기).
+- [FeedbackOps 딥링크 계약](integration/feedbackops-deeplink.md) — 양방향 딥링크 1단계(확장은 #81).
 
-`06_platform_ui_contract.md`는 위 설계들을 플랫폼 개발 관점으로 통합해, 개별 메뉴가 공통 Shell/Context/확장 계약 위에 올라가도록 정의한 구현 전 Design Contract다. `07_app_shell_wireframe.md`는 그 계약 중 App Shell 화면 하나를 `analysis-platform-wireframe` 스킬 절차(Requirements→IA→Screen Spec→Wireframe)로 구체화하고 codex 리뷰를 거친 산출물이다.
+루트 문서: [DESIGN](../DESIGN.md)(FeedbackOps 기반 플랫폼 시각 확장 — 06의 최소 기준·상태·접근성 의무는 바꾸지 않는다), [CONTEXT](../CONTEXT.md)(현행 도메인 용어와 관계).
 
-`docs/reviews/`는 이후 설계 세션의 인터뷰/리뷰 합의록을 보존하는 디렉토리다. [2026-09-26 워크스페이스·운영 메뉴 인터뷰](reviews/2026-09-26-workspace-ops-interview.md)는 분석 / 운영 콘솔 / 피드백 3개 공간, 가공 상태 원천, FeedbackOps 단계적 통합 결정을 기록한다. [2026-09-24 2차 도메인 인터뷰](reviews/2026-09-24-equipment-routing-domain-interview-round-2.md)는 1차 punch list와 선행 리뷰 해소 사항의 문서 반영을 추적한다. `docs/reviews/2026-09-18-url-time-status-contract-grilling.md`는 grok-4.6(griller)과 codex gpt-6-astra(answerer)의 grill-duel로 `06`/`05`의 URL·시간·상태·실시간성·DB 접근·지연완료 메커니즘 Open 항목을 검토한 기록이며, 그 결과는 `06`과 [01 데이터 운영 정책](01_architecture_and_data_contract.md#데이터-운영-정책) 본문에 Decided로 반영돼 있으며 `05`에서 결정 상태를 추적한다. 리뷰 문서 자체는 authoritative source가 아니다.
+조사·근거 기록(authoritative 아님):
 
-## 문서 소유권과 tooling 경계
+- [URL·시간·상태 계약 grilling](reviews/2026-09-18-url-time-status-contract-grilling.md) — 06 §6.1·§6.3·§6.4·§19의 세부 판정 근거와 반례.
+- [플랫폼 구축 리서치 종합](research/platform-build-2026-09-22/SYNTHESIS.md) — #165(폴링·계산 세대)·#155(서버) 착수 때 설계 입력.
+- [반도체 도메인 외부 조사](research/semiconductor-domain-2026-09-24/README.md) — SEMI 표준·제품 자료를 우리 용어에 대 본 조사(Operation 이름·CFG 형식은 아직 Open).
 
-`06_platform_ui_contract.md`가 전역 계약과 navigation IA를 소유하고 `07_app_shell_wireframe.md`는 이를 소비한다. `02`는 도메인 catalog, `04`는 구현 후보/리서치, [05](05_roadmap_and_open_questions.md)는 결정 상태와 미결 질문을 추적한다. 폴링·파서 DB 접근·지연완료 R/H 상세 원본은 [01 데이터 운영 정책](01_architecture_and_data_contract.md#데이터-운영-정책)에 있다. [DESIGN](../DESIGN.md)은 FeedbackOps 기반 플랫폼 시각 확장·pairing 원본이며 06의 최소 기준·상태·접근성 의무를 변경하지 않는다. [PLATFORM_REQUIREMENTS](../PLATFORM_REQUIREMENTS.md)는 파생 목록, [HANDOFF](../HANDOFF.md)는 세션 배경이다. Phase 0~4는 Deferred/non-authoritative 가설이며 구현 일정·기술 도입·POC 착수를 확정하지 않는다. `.agents/`의 스킬·명령·외부 레퍼런스는 별도 tooling 자산이며 제품 설계를 확정하는 권한을 갖지 않는다. 에이전트 공통 사용법은 [`../.agents/README.md`](../.agents/README.md)를 참조한다.
+## 상태 표기
 
-## 외부 프로젝트 설계 레퍼런스
-
-- [플랫폼 구축 리서치와 다중 모델 토론](research/platform-build-2026-09-22/README.md) — 기능·성능·OSS·기존 구현 재사용을 조사하고 문서 보강·대체 후보를 비교한다. Research/Candidate이며 기존 계약이나 구현 승인을 대체하지 않는다.
-
-- [기존 프로젝트 활용 아이디어 모음](integration/repository-ideas.md) — FeedbackOps 및 소유 저장소 조사 기반 브레인스토밍. 후보·질문을 모으는 문서이며 채택 결정이나 구현 계획이 아니다. 상세 근거는 연결된 Luna Max 조사 보고서에 보존한다.
-
-- [공통 컴포넌트/계약 후보](integration/component-contract-candidates.md) — 위 아이디어 모음에서 필드 수준 계약으로 뽑아낼 수 있는 것만 추려 정리. Research/Candidate이며 06/01/03에 반영되기 전 초안이다.
-
-- [플랫폼 모노레포 패키지 경계](integration/platform-packages.md) — `platform-app`을 contracts/ui/kernel/components/shell/mock-server/메뉴 패키지로 나누는 경계·의존 방향·메뉴 템플릿·이행 순서. 구성·단위·도구·이름은 2026-09-26 Decided, 세부 타입 이름은 Candidate. 1–4d단계 완료(PR #17–#23), 5단계(5a–5c, PR #25–#27) 완료, 6단계(6a 경계 lint, 6b 생성기) 완료.
-
-- [적재 워커 상태 기록 스키마 (초안)](integration/ingest-status-schema.md) — 가공 상태 원천인 적재 워커의 단계별 기록 구조, 06 §19 평가로 줄이는 규칙, 원인 분류, 보존 기간, 파서 저장소 변경 제안, 파서 담당에게 물을 질문. Candidate(초안, 파서 담당 합의 Open, #37).
-
-- [메뉴 데이터 조회 포트 (설계 기록)](integration/menu-query-port.md) — 메뉴 조회를 범용 `MenuQuery` + 메뉴 `EndpointSpec` 선언으로 옮긴 설계와 결정 경과(구현 완료 2026-10-01, #100). 현재 계약은 06 §5·§19와 [패키지 경계](integration/platform-packages.md) §3–§5. 미해결은 Q2(선언 원본 TS ↔ FastAPI codegen).
-- [실서버 연결 체크리스트](integration/real-server-checklist.md) — 사내에서 mock 어댑터를 실어댑터·실서버로 바꿀 때 지킬 것: `PlatformAdapter` 메서드별 의미, `menuQuery` 판정 순서·등록 검증, 적합성 묶음(`@ap/server-conformance`) 실행 방법, 남은 사람 결정(Q2·전송 형식·SSO·#98·#37). Candidate(#145).
-- [실어댑터 전송 형식 초안](integration/http-adapter-contract.md) — `PlatformAdapter` 메서드별 HTTP 경로·요청/응답, 상태 코드와 `outcome`(판정은 전부 200 + envelope), 실패 → envelope 변환, 부트스트랩·identity, `subscribe` 폴링, 취소·타임아웃, 세션·CSRF, Correlation ID, 버전, 백엔드 담당 질문. Candidate(#149, 합의 대기).
-- [사내 적용 가이드](integration/in-house-rollout.md) — mock → 실어댑터·실서버 전환의 순서, 담당자별(SSO·인프라·백엔드·파서·FeedbackOps) 확인 질문, 지금 바로 할 수 있는 일, 사내 메뉴 개발 가이드, 완료 기준, 흔한 함정. 진행은 지도 이슈 #157·마일스톤 M4. Candidate(2026-10-02).
-
-- [Standard Log Lifecycle](references/standard-log-lifecycle/README.md) — 모델 표준 로그 개발·검증·결함·재검증 관리의 설계 참고. 원본 커밋에 고정한 Markdown 7개, 출처·해시 manifest와 4개 화면 시안 적용 범위를 포함한다. 기존 플랫폼 계약을 대체하지 않는다.
-
-## 현재 작업과 과거 기록
-
-현재 작업 상태는 [HANDOFF](../HANDOFF.md)에서 확인한다. 과거 맥락이 필요한 경우에만 [이전 HANDOFF 기록](../.agents/reports/handoff-history-through-2026-09-26-b.md), [결정 상세·Phase 가설 이관 기록](reviews/2026-09-23-decision-detail-history.md), 해당 리뷰/조사 보고서로 내려간다. 과거 Open·후보·실행 모델명은 당시 기록이며 현재 계약으로 승격하지 않는다. 일반 탐색은 위 역할별 경로부터 시작하고 `docs/reviews/`, `.agents/reports/`는 근거 확인이 필요할 때 검색한다.
+문서는 Decided / Candidate / Open / Deferred를 구분한다. 규칙은 [docs/AGENTS.md](AGENTS.md). `.agents/`의 스킬·명령·외부 레퍼런스는 tooling 자산이며 제품 설계를 확정하지 않는다([`.agents/README.md`](../.agents/README.md)).

@@ -5,7 +5,7 @@
 ## 읽는 순서·관계
 
 - 메서드의 **의미**(무엇을 지키는가)의 원본은 [실서버 연결 체크리스트](real-server-checklist.md) §2(메서드 표·네 묶음), §3(`menuQuery` 판정 순서), §5(세션·사용자·시각), §6(시간). 이 문서는 그것을 **HTTP로 어떻게 나르는가**만 정한다. 충돌하면 체크리스트와 [06](../06_platform_ui_contract.md)(§4 Correlation ID·Error Boundary, §6.3 wall-clock/instant, §19 envelope)을 따른다.
-- 남은 사람 결정 목록은 체크리스트 §7과 [사내 적용 가이드](in-house-rollout.md) §2–§3. 이 문서의 질문 목록(§10)은 가이드 §3.3의 #149 항목을 펼친 것이다.
+- 남은 사람 결정 목록은 [사내 적용 가이드](in-house-rollout.md) §2–§3. 이 문서의 질문 목록(§10)은 가이드 §3.3의 #149 항목을 펼친 것이다.
 - 실어댑터는 `#platform-assembly`의 `createAssembly` 모듈로 꽂는다([ADR-0009](../adr/0009-production-assembly-injection.md), 구현 [#154](https://github.com/hjung3113/analytics-platform/issues/154)). 서버 구현은 [#155](https://github.com/hjung3113/analytics-platform/issues/155), 폴링·세대 재검증은 [#165](https://github.com/hjung3113/analytics-platform/issues/165).
 - 타입 원본: `packages/contracts/src/adapter.ts`(`PlatformAdapter`), `response.ts`(`ApiResponse`), `menu-query.ts`(`MenuQuery`).
 
@@ -176,7 +176,7 @@ GET /api/v1/platform/bootstrap
 ## 9. 합의 뒤 할 일
 
 - 이 문서를 Decided로 바꾸고, 바뀐 결정을 [05](../05_roadmap_and_open_questions.md)에 행으로 올린다(대안이 있던 결정은 ADR).
-- [체크리스트](real-server-checklist.md) §1 전송 형식 항목·§7 #149 행을 Decided로.
+- [체크리스트](real-server-checklist.md) §1 전송 형식 항목을 Decided로.
 - [사내 적용 가이드](in-house-rollout.md) §2 #149 행·§3.3 체크박스.
 - `packages/contracts/src/adapter.ts` `subscribe` 주석 갱신(세션·권한 변경 전용, 세대는 별도 경로 — §4 Candidate가 합의되면), 체크리스트 §2 `subscribe` 행도 Decided로.
 - #154(실어댑터)·#155(서버)·#165(세대 신호) 이슈 본문에 결정 링크. 부트스트랩 조립(§3 A/B)은 #154에서 ADR-0009 갱신.

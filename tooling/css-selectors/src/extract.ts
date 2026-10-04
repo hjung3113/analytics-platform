@@ -1,6 +1,6 @@
 // Extracts the set of selectors from a built CSS file (#58).
 //
-// Contract (docs/ROADMAP.md 틈틈이 list, decision #39/05):
+// Contract (#58, decision #39 — visual regression = build CSS selector diff only):
 // - selector lists split on top-level commas only (commas inside :is(), [] or
 //   quoted strings do not split; escaped commas like `.a\,b` do not split);
 // - rules nested in block at-rules (@media, @supports, @layer, @container, …)

@@ -4,7 +4,7 @@
 
 | 계층 | 추천 | 이유 |
 | --- | --- | --- |
-| Backend | FastAPI(Python), SQL-first — **방향 Decided, 세부 버전·구성 Candidate**([05 결정 상태](05_roadmap_and_open_questions.md)) | 무거운 집계는 Postgres(mart)에서 처리하고 API는 얇은 조회/권한/지표계약 계층 + 지표 DSL 검증/비동기 배치로 역할을 좁힌다. 요청 경로에서 DataFrame을 만드는 패턴은 동시성·메모리에서 확장 불가. 확정 전 비교 근거: 팀이 C# 중심이면 ASP.NET Core, TypeScript 중심이면 NestJS도 대안으로 검토했으며, OpenAPI 자동생성은 ASP.NET Core도 지원해 FastAPI만의 장점은 아니었다. 현재 방향은 05의 FastAPI 결정을 따른다 |
+| Backend | FastAPI(Python), SQL-first — **방향 Decided, 세부 버전·구성 Candidate**([05 결정 상태](05_roadmap_and_open_questions.md)) | 무거운 집계는 Postgres(mart)에서 처리하고 API는 얇은 조회/권한/지표계약 계층 + 지표 DSL 검증/비동기 배치로 역할을 좁힌다. 요청 경로에서 DataFrame을 만드는 패턴은 동시성·메모리에서 확장 불가. 방향은 05의 FastAPI 결정을 따른다 |
 | DB | 파서 Postgres(read-only) + 같은 인스턴스의 별도 스키마 | 완전 분리 인스턴스는 보안 격리 요구가 실제로 생기기 전엔 운영 비용만 추가. mart 갱신은 pg_cron으로 시작(단, 지연 완료 watermark 감지 기반 재계산 메커니즘 별도 필요 — `01_architecture_and_data_contract.md`) |
 | 인증 | **구조 Decided(2026-09-27): FeedbackOps ADR-0006 방식** — AuthProvider 추상화(개발 Mock + 운영 OIDC 계열), 서버 저장 세션 + httpOnly 쿠키, 권한은 플랫폼 백엔드가 매 요청 재검증. 실제 IdP 사양·설정값은 사내 SSO 확인 뒤([05](05_roadmap_and_open_questions.md#open-questions)) | FeedbackOps와 같은 구조라 두 앱의 SSO 공유(통합 1단계)가 쉽다. 라이브러리는 FastAPI 쪽에서 구현할 때 고른다 |
 | 플랫폼 DB 마이그레이션 | Alembic(또는 팀 표준 도구) | 플랫폼 메타 DB/mart 스키마 버전 관리 — 파서의 DbUp과는 별개 |
@@ -21,13 +21,14 @@
 
 지표 버전을 고정해도 늦게 완료된 occurrence, 마스터 이력 정정, `module_class_map` 재분류로 같은 URL의 숫자는 바뀔 수 있다. 딥링크는 "조회조건과 지표 버전의 재현"만 보장하고 "같은 숫자의 재현"은 보장하지 않는다 — 결과 화면에는 계산 기준시각을 표시한다. 상세는 `06_platform_ui_contract.md` §6.1(Decided).
 
-## 시간 계약 (중요 — 2차 리뷰에서 발견된 실수)
+<a id="시간-계약-중요--2차-리뷰에서-발견된-실수"></a>
+## 시간 계약
 
 파서의 업무 시각은 **시간대 없는 설비 wall-clock**이다(`context_recognized_parser` 원칙). 소비 계층이 이를 UTC로 임의 변환하면 조회 구간과 마스터 귀속이 틀어진다. 원천 의미는 이 절이 소유하고, 전역 Context·URL의 시간 메커니즘은 [06 전역 계약](06_platform_ui_contract.md) §6.3을 따른다.
 
 - **Decided — 메커니즘:** half-open `[from, to)`, v1의 초 단위 naive URL, 날짜-only 입력 변환과 URL 형식 구분, TZ 미확인 fallback, 서버 assertion에 의한 복수 설비 시간축 병합 가드, `defaultRangeTo` 물질화는 06 §6.3에 정의돼 있다. 공개 필드명·구현 산출물 형식은 원본의 Candidate 상태를 따른다.
 - **Decided — 초기 TZ:** 한국(Asia/Seoul) 단일값으로 우선 시작한다([05 결정 상태](05_roadmap_and_open_questions.md), 2026-09-22). 중국 시안·미국 오스틴으로의 확장 여지는 배제하지 않으며, 이 초기값이 시간역 병합 assertion을 대신하지 않는다.
-- **Open — 남은 입력:** 다중 사업장이 실제 편입될 때의 "같은 날짜" 의미, 교대일/영업일 의미, timeDomain assertion 공급자와 최초 진입 기본 Δ 숫자는 별도 결정이 필요하다. 확정된 시간 메커니즘을 다시 Open으로 돌리지 않는다.
+- **Open — 남은 입력:** 다중 Site가 실제 편입될 때의 "같은 날짜" 의미, 교대일/영업일 의미, timeDomain assertion 공급자와 최초 진입 기본 Δ 숫자는 별도 결정이 필요하다. 확정된 시간 메커니즘을 다시 Open으로 돌리지 않는다.
 
 TZ를 몰라도 단일 설비 또는 동일 wall-clock 기준이 확인된 설비 집합의 naive 조회는 허용한다. `R` 부재 시에도 독립적으로 유효한 `defaultRangeTo`는 물질화할 수 있고 자동 재집계만 보류한다. 기본 구간은 06 §6.3, 원천 진행 경계 `R`/자동 창 `H`의 상세 정책은 [01 지연 완료 허용 시간](01_architecture_and_data_contract.md#late-arrival-policy)을 참조한다.
 

@@ -9,15 +9,13 @@
 ```text
 docs/                     플랫폼 설계 문서
 docs/integration/         저장소 연결 및 통합 결정 문서
-apps/platform-web/        플랫폼 앱(조립 지점, 메뉴 화면, mock 서버)
-packages/                 플랫폼 패키지: contracts, ui, kernel, components, shell
-tooling/                  공유 개발 도구 설정
+apps/platform-web/        플랫폼 앱(조립 지점, dev 도구)
+apps/platform-e2e/        플랫폼 계약 E2E(Playwright 블랙박스)
+packages/                 플랫폼 패키지: contracts, ui, kernel, components, shell, mock-server, server-conformance
+menus/                    메뉴 Consumer 패키지(@ap/menu-<group>)
+tooling/                  공유 도구: tsconfig, eslint 경계 규칙, gen-menu, css-selectors
 prototypes/               통합 전 Kernel 단위 프로토타입(보존)
-products/feedbackops/     독립 개발을 유지하는 FeedbackOps 서브모듈
-  apps/frontend/         React 프론트엔드
-  apps/backend/          Fastify 백엔드
-  packages/shared/       FeedbackOps 공용 계약
-  packages/ui/           FeedbackOps UI
+products/feedbackops/     독립 개발을 유지하는 FeedbackOps 서브모듈(내부 구조는 저장소 구조 문서)
 .agents/                  플랫폼 에이전트 자산
 ```
 
