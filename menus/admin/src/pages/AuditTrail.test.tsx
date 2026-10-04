@@ -1,10 +1,17 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ApiResponse, AuditTrailPage, AuditTrailQuery, PlatformAdapter, Session } from '@ap/contracts';
 import { House } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { manifests } from '../index';
 import AuditTrail from './AuditTrail';
+
+const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+beforeAll(() => { HTMLElement.prototype.scrollIntoView = vi.fn(); });
+afterAll(() => {
+  if (originalScrollIntoView) HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+  else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+});
 
 const registry = createRegistry({
   spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' }],
@@ -59,6 +66,10 @@ const targetIdInput = () => screen.getByRole('textbox', { name: /Exact target id
 const typeSelect = () => screen.getByRole('combobox', { name: /Type|대상 유형/ });
 const applyButton = () => screen.getByRole('button', { name: /Apply|적용/ });
 const clearButton = () => screen.getByRole('button', { name: /Clear filters|필터 초기화/ });
+const chooseType = async (value: string) => {
+  fireEvent.keyDown(typeSelect(), { key: 'ArrowDown' });
+  fireEvent.click(await screen.findByRole('option', { name: value }));
+};
 
 beforeEach(() => { window.history.replaceState(null, '', '/admin/audit'); });
 afterEach(() => { cleanup(); window.history.replaceState(null, '', '/'); });
@@ -66,13 +77,14 @@ afterEach(() => { cleanup(); window.history.replaceState(null, '', '/'); });
 describe('AuditTrail text filters (issue #50 review)', () => {
   it('keeps filter controls mounted while editing and applies the complete range together', async () => {
     const f = renderAudit('/admin/audit');
+    expect(screen.getByTestId('page-filter-bar')).toBeTruthy();
     await waitFor(() => expect(f.calls).toHaveLength(1));
     f.calls.length = 0;
 
     fireEvent.change(targetIdInput(), { target: { value: 'ICH-ETCH-0101' } });
     expect(typeSelect()).toBeTruthy();
     expect(new URLSearchParams(window.location.search).has('targetId')).toBe(false);
-    fireEvent.change(typeSelect(), { target: { value: 'equipment' } });
+    await chooseType('equipment');
     await waitFor(() => expect(f.calls).toHaveLength(1));
     expect(new URLSearchParams(window.location.search).get('type')).toBe('equipment');
     expect(new URLSearchParams(window.location.search).has('targetId')).toBe(false);

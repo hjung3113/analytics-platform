@@ -8,6 +8,10 @@ import { contextBar, evidence, expectScopeValid, firstRowByColumn, lotColumn, ma
 const PERIOD = 'from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
 const PRODUCTIVITY = `/analytics/productivity?v=1&scopeId=ICH&${PERIOD}&roomNames=PH-101`;
 
+async function chooseFilterOption(page: Page, field: string, option: string) {
+  await page.getByRole('combobox', { name: field }).click();
+  await page.getByRole('option', { name: option, exact: true }).click();
+}
 // Wait for the period anchor before deciding whether a control is inline or portaled.
 async function contextEditor(page: Page, name: string) {
   const bar = contextBar(page);
@@ -57,15 +61,87 @@ async function overflowCount(page: Page) {
 test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
   test('FeedbackOps base 값이 theme보다 우선하고 플랫폼 control 경계는 label 대비를 유지한다', async ({ page }, testInfo) => {
     await page.goto('/metrics?v=1&scopeId=ICH');
+    await expect(page.getByTestId('page-filter-bar')).toBeVisible();
     const search = page.getByTestId('metric-search');
     await expect(search).toBeVisible();
     await expect(page.locator('body')).toHaveCSS('font-size', '14px');
     await expect(page.locator('body')).toHaveCSS('font-family', /Pretendard Variable/);
     await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(243, 247, 254)');
-    // Observe the real rounded-sm Input consumer, rather than injecting a synthetic CSS probe.
-    await expect(search).toHaveCSS('border-radius', '2px');
+    // Confirmed B uses the shared Input/Select primitive radius and Select typography.
+    await expect(search).toHaveCSS('border-radius', '6px');
+    // Shared Select primitive default (FeedbackOps SelectTrigger) is 13px.
+    await expect(page.getByTestId('metric-status-filter')).toHaveCSS('font-size', '13px');
     await expect(search).toHaveCSS('border-top-color', 'rgb(102, 112, 131)');
     await evidence(page, testInfo, 'feedbackops-token-cascade');
+  });
+});
+
+test.describe('PageFilterBar page-key 계약 (#54)', () => {
+  test('설비 q/status/maker는 동일한 page key를 쓰고 page와 전체 필터를 초기화한다', async ({ page }, testInfo) => {
+    await page.goto('/equipment?v=1&scopeId=ICH&page=2');
+    await page.getByRole('searchbox', { name: '설비 ID 또는 이름 검색' }).fill('PHOTO');
+    await expect.poll(() => query(page).get('q')).toBe('PHOTO');
+    await expect.poll(() => query(page).has('page')).toBe(false);
+
+    await page.goto('/equipment?v=1&scopeId=ICH&page=2');
+    await chooseFilterOption(page, '상태', '정비');
+    await expect.poll(() => query(page).get('status')).toBe('maintenance');
+    await expect.poll(() => query(page).has('page')).toBe(false);
+    await chooseFilterOption(page, '상태', '전체');
+    await expect.poll(() => query(page).has('status')).toBe(false);
+
+    await page.goto('/equipment?v=1&scopeId=ICH&maker=ZZZ&page=2');
+    const maker = page.getByRole('combobox', { name: 'Maker' });
+    await expect(maker).toHaveText('ZZZ');
+    await chooseFilterOption(page, 'Maker', 'TEL');
+    await expect.poll(() => query(page).get('maker')).toBe('TEL');
+    await expect.poll(() => query(page).has('page')).toBe(false);
+
+    await page.goto('/equipment?v=1&scopeId=ICH&q=PHOTO&status=maintenance&maker=ZZZ&page=2');
+    await page.getByRole('button', { name: '페이지 필터 초기화' }).click();
+    await expect.poll(() => query(page).has('q')).toBe(false);
+    expect(query(page).has('status')).toBe(false);
+    expect(query(page).has('maker')).toBe(false);
+    expect(query(page).has('page')).toBe(false);
+    await evidence(page, testInfo, 'equipment-filter-page-keys');
+  });
+
+  test('지표 q/status/domain은 동일한 page key를 쓰고 unknown domain을 표시하며 전체 필터를 초기화한다', async ({ page }, testInfo) => {
+    await page.goto('/metrics?v=1&scopeId=ICH&page=2');
+    const search = page.getByRole('searchbox', { name: '이름 또는 metricId' });
+    await page.locator('label').filter({ hasText: '이름 또는 metricId' }).click();
+    await expect(search).toBeFocused();
+    const status = page.getByRole('combobox', { name: '상태' });
+    await page.locator('label').filter({ hasText: '상태' }).click();
+    await expect(status).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('option', { name: '게시', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await search.fill('yield');
+    await expect.poll(() => query(page).get('q')).toBe('yield');
+    await expect.poll(() => query(page).has('page')).toBe(false);
+
+    await page.goto('/metrics?v=1&scopeId=ICH&page=2');
+    await chooseFilterOption(page, '상태', '게시');
+    await expect.poll(() => query(page).get('status')).toBe('published');
+    await expect.poll(() => query(page).has('page')).toBe(false);
+
+    await page.goto('/metrics?v=1&scopeId=ICH&page=2');
+    await chooseFilterOption(page, 'domain', '품질');
+    await expect.poll(() => query(page).get('domain')).toBe('quality');
+    await expect.poll(() => query(page).has('page')).toBe(false);
+
+    await page.goto('/metrics?v=1&scopeId=ICH&domain=bogus');
+    await expect(page.getByRole('alert')).toContainText('domain=bogus');
+    await expect(page.getByRole('combobox', { name: 'domain' })).toHaveText('bogus');
+
+    await page.goto('/metrics?v=1&scopeId=ICH&q=yield&status=draft&domain=quality&page=2');
+    await page.getByRole('button', { name: '필터 초기화' }).click();
+    await expect.poll(() => query(page).has('q')).toBe(false);
+    expect(query(page).has('status')).toBe(false);
+    expect(query(page).has('domain')).toBe(false);
+    expect(query(page).has('page')).toBe(false);
+    await evidence(page, testInfo, 'metrics-filter-page-keys');
   });
 });
 
@@ -211,6 +287,7 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
   test('표 정렬·페이지·드로어 탭을 등록된 page key로 복원하고 새로고침에도 유지한다', async ({ page }, testInfo) => {
     // Fixture: ICH equipment list fills page 1 (25/row) and overflows to page 2.
     await page.goto('/equipment?v=1&scopeId=ICH');
+    await expect(page.getByTestId('page-filter-bar')).toBeVisible();
     const focus = await page.locator('[data-row-id]').first().getAttribute('data-row-id');
     expect(focus).toBeTruthy();
 
@@ -757,6 +834,8 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     const base = '/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
     // Read a bucket and bin that really contain the first slow execution, so the filter keeps a row (deterministic fixture).
     await page.goto(`${base}&sort=anchor:asc`);
+    await expect(page.getByTestId('page-filter-bar')).toBeVisible();
+    await expect(page.getByRole('combobox', { name: '느린 실행 기준' })).toBeVisible();
     const first = await firstRowByColumn(page);
     const anchor = first['시작'].replace(' ', 'T');
     const bucket = `${anchor.slice(0, 13)}:00:00`;
@@ -794,7 +873,8 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     await page.goto(origin);
     await expect(page.getByRole('button', { name: '버킷 필터 해제' })).toBeVisible();
     await expect(page.getByRole('button', { name: '분포 필터 해제' })).toBeVisible();
-    await expect(page.getByRole('combobox', { name: '정렬' })).toHaveValue('anchor:asc');
+    expect(query(page).get('sort')).toBe('anchor:asc');
+    await expect(page.getByRole('combobox', { name: '정렬' })).toHaveText('시작 오래된');
     // The first unfiltered row is inside bucket+bin by construction, so the filter must still show a row.
     const filteredCount = await expectRowsFiltered();
     expect(filteredCount).toBeGreaterThanOrEqual(1);
@@ -810,7 +890,8 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     await expect.poll(() => page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(origin);
     await expect(page.getByRole('button', { name: '버킷 필터 해제' })).toBeVisible();
     await expect(page.getByRole('button', { name: '분포 필터 해제' })).toBeVisible();
-    await expect(page.getByRole('combobox', { name: '정렬' })).toHaveValue('anchor:asc');
+    expect(query(page).get('sort')).toBe('anchor:asc');
+    await expect(page.getByRole('combobox', { name: '정렬' })).toHaveText('시작 오래된');
     expect(await expectRowsFiltered()).toBe(filteredCount);
     await evidence(page, testInfo, 'cycle-returned');
   });

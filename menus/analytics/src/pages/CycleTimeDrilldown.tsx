@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { AlertTriangle, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
 import { periodHours, type Trust } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
-import { AnalysisChartFrame, DataTrustIndicator, type Delta, type PlatformColumn, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage } from '@ap/components';
+import { AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type Delta, type PlatformColumn, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import {
   CYCLE_VERSION_NOTE, PAGE_METRIC_ID, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint,
@@ -11,12 +11,10 @@ import {
 } from '../endpoints';
 import {
   DEFAULT_SORT, bucketContaining, encodeSort, exportFilterSummary, exportParams, parseBucket, parseBin, parseSortParam, qualityLabel, resolveGranularity, resolveTail,
-  executionKey, equipmentIdFromKey, exportRowsWhenConfirmed,
+  cycleTailFilterLabel, executionKey, equipmentIdFromKey, exportRowsWhenConfirmed,
 } from './cycleData';
 
 const NO_PARAMS = {};
-
-const control = 'h-8 rounded-md border border-border-strong bg-surface-card px-2 text-[12px] text-text-primary';
 
 export default function CycleTimeDrilldown(_: PageProps) {
   const { lang } = useI18n();
@@ -108,33 +106,24 @@ export default function CycleTimeDrilldown(_: PageProps) {
     dataTrustSummary={kpi.response?.trust ? <DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} /> : undefined}
     contextExtension={<div className="space-y-2">
       <MetricBanner metric={metric} />
-      <div className="flex flex-wrap items-center gap-2 rounded-md border border-border-subtle bg-surface-card px-3 py-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{ko ? '페이지 필터' : 'Page filter'}</span>
-        <span className="text-[12px] text-text-secondary">{ko ? '집계' : 'Grain'}</span>
-        {(['hour', 'day', 'week'] as const).map(value => <button key={value} type="button" aria-pressed={!granularityPending && granularityResult.ok && granularity === value}
-          className={!granularityPending && granularityResult.ok && granularity === value ? 'h-8 rounded-md bg-accent-primary-soft px-2 text-[12px] font-medium text-accent-primary' : 'h-8 rounded-md px-2 text-[12px] text-text-secondary hover:bg-surface-sunken'}
-          onClick={() => setPage({ granularity: value, bucket: null, page: null })}>{value === 'hour' ? (ko ? '시간' : 'Hour') : value === 'day' ? (ko ? '일' : 'Day') : (ko ? '주' : 'Week')}</button>)}
-        <label className="flex items-center gap-1 text-[12px] text-text-secondary">{ko ? '꼬리' : 'Tail'}
-          <select aria-label={ko ? '느린 실행 기준' : 'Slow-execution predicate'} className={control} value={tailResult.ok ? tailMode : ''}
-            onChange={event => setPage({ percentile: event.target.value, page: null })}>
-            <option value="p95">≥ P95</option>
-            <option value="p50">≥ P50</option>
-            <option value="all">{ko ? '전체 실행' : 'All executions'}</option>
-          </select>
-        </label>
-        <label className="flex items-center gap-1 text-[12px] text-text-secondary">{ko ? '정렬' : 'Sort'}
-          <select aria-label={ko ? '정렬' : 'Sort'} className={control} value={sortResult.ok ? encodeSort(sortSpec.id, sortSpec.desc) : ''}
-            onChange={event => setPage({ sort: event.target.value === DEFAULT_SORT ? null : event.target.value, page: null })}>
-            <option value="cycleMin:desc">{ko ? '사이클타임 내림차순' : 'Cycle time descending'}</option>
-            <option value="cycleMin:asc">{ko ? '사이클타임 오름차순' : 'Cycle time ascending'}</option>
-            <option value="delta:desc">{ko ? 'P95 대비 내림차순' : 'vs P95 descending'}</option>
-            <option value="anchor:desc">{ko ? '시작 최신' : 'Start newest'}</option>
-            <option value="anchor:asc">{ko ? '시작 오래된' : 'Start oldest'}</option>
-            <option value="equipmentId:asc">Equipment A→Z</option>
-          </select>
-        </label>
-        <Button variant="ghost" size="sm" className="h-8 px-2 text-[12px]" onClick={() => setPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{ko ? '페이지 조건 기본값' : 'Reset page filters'}</Button>
-      </div>
+      <PageFilterBar label={ko ? '페이지 필터' : 'Page filter'} fields={[
+        { kind: 'custom', key: 'granularity', label: ko ? '집계' : 'Grain', content: <div className="flex flex-wrap items-center gap-1">
+          {(['hour', 'day', 'week'] as const).map(value => <button key={value} type="button" aria-pressed={!granularityPending && granularityResult.ok && granularity === value}
+            className={!granularityPending && granularityResult.ok && granularity === value ? 'h-8 rounded-md bg-accent-primary-soft px-2 text-[12px] font-medium text-accent-primary' : 'h-8 rounded-md px-2 text-[12px] text-text-secondary hover:bg-surface-sunken'}
+            onClick={() => setPage({ granularity: value, bucket: null, page: null })}>{value === 'hour' ? (ko ? '시간' : 'Hour') : value === 'day' ? (ko ? '일' : 'Day') : (ko ? '주' : 'Week')}</button>)}
+        </div> },
+        { kind: 'select', key: 'percentile', label: cycleTailFilterLabel(ko ? 'ko' : 'en'), value: tailResult.ok ? tailMode : percentileRaw ?? '', options: [
+          { value: 'p95', label: '≥ P95' }, { value: 'p50', label: '≥ P50' }, { value: 'all', label: ko ? '전체 실행' : 'All executions' },
+        ], onValueChange: value => setPage({ percentile: value, page: null }) },
+        { kind: 'select', key: 'sort', label: ko ? '정렬' : 'Sort', value: sortResult.ok ? encodeSort(sortSpec.id, sortSpec.desc) : sortRaw ?? '', options: [
+          { value: 'cycleMin:desc', label: ko ? '사이클타임 내림차순' : 'Cycle time descending' },
+          { value: 'cycleMin:asc', label: ko ? '사이클타임 오름차순' : 'Cycle time ascending' },
+          { value: 'delta:desc', label: ko ? 'P95 대비 내림차순' : 'vs P95 descending' },
+          { value: 'anchor:desc', label: ko ? '시작 최신' : 'Start newest' },
+          { value: 'anchor:asc', label: ko ? '시작 오래된' : 'Start oldest' },
+          { value: 'equipmentId:asc', label: 'Equipment A→Z' },
+        ], onValueChange: value => setPage({ sort: value === DEFAULT_SORT ? null : value, page: null }) },
+      ]} actions={<Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-[12px]" onClick={() => setPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{ko ? '페이지 조건 기본값' : 'Reset page filters'}</Button>} />
       <p className="text-[12px] text-text-muted">
         {ko
           ? `집계 기본값은 기간 ≤48h이면 hour, 아니면 day${!granularityResult.ok || granularityResult.explicit ? '' : ` (지금 ${granularity}, URL에 없음)`}. 꼬리 기본값은 ≥ P95 (Candidate, 동률 포함)이며 KPI 모집단을 다시 줄이지 않습니다. 버킷·분포 구간은 URL 키 bucket·bin에, 정렬·페이지는 sort·page에 남습니다.`

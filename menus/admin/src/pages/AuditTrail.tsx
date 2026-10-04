@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { formatInstant, type AuditEvent, type AuditSortField } from '@ap/contracts';
 import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
-import { type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort } from '@ap/components';
+import { PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { auditDestination } from '../audit-destination';
 import { ACTION_LABEL, AUDIT_PAGE_KEYS, parseAuditKeys } from '../audit-query';
 
-const control = 'h-8 rounded-sm border border-border-control bg-surface-card px-2 text-[12px] focus-visible:outline-2 focus-visible:outline-focus-ring';
 const mono = (value: unknown) => <span className="t-mono">{String(value)}</span>;
 
 /**
@@ -51,19 +50,16 @@ export default function AuditTrail() {
     setPage(Object.fromEntries(AUDIT_PAGE_KEYS.map(k => [k, null])));
   };
   const clear = <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{ko ? '필터 초기화' : 'Clear filters'}</Button>;
-  const filters = <form className="mb-3" onSubmit={applyDrafts}>
-    <fieldset className="flex flex-wrap items-center gap-2 border-l-2 border-border-strong pl-3">
-      <legend className="t-caption text-text-muted">{ko ? '감사 필터' : 'Audit filters'}</legend>
-      <label className="flex items-center gap-1 text-xs">{ko ? '대상 유형' : 'Type'}<select className={control} value={raw.type ?? ''} onChange={e => setFilter('type', e.target.value || null)}><option value="">{ko ? '전체' : 'All'}</option><option value="equipment">equipment</option><option value="metric">metric</option></select></label>
-      <label className="flex items-center gap-1 text-xs">{ko ? '작업' : 'Action'}<select className={control} value={raw.action ?? ''} onChange={e => setFilter('action', e.target.value || null)}><option value="">{ko ? '전체' : 'All'}</option>{Object.entries(ACTION_LABEL).map(([id, label]) => <option key={id} value={id}>{label[lang]}</option>)}</select></label>
-      <label className="flex items-center gap-1 text-xs">{ko ? '출처' : 'Source'}<select className={control} value={raw.source ?? ''} onChange={e => setFilter('source', e.target.value || null)}><option value="">{ko ? '전체' : 'All'}</option><option value="user">user</option><option value="system">system</option></select></label>
-      <label className="flex items-center gap-1 text-xs">{ko ? '행위자' : 'Actor'}<input className={control} aria-label={ko ? '행위자 정확 일치' : 'Exact actor'} value={drafts.actor} onChange={e => setDraft('actor', e.target.value)} /></label>
-      <label className="flex items-center gap-1 text-xs">{ko ? '대상 ID' : 'Target ID'}<input className={control} aria-label={ko ? '대상 ID 정확 일치' : 'Exact target id'} value={drafts.targetId} onChange={e => setDraft('targetId', e.target.value)} /></label>
-      <label className="flex items-center gap-1 text-xs">{ko ? '부터' : 'From'}<input className={`${control} tabular`} aria-label={ko ? '시각 이상 (ISO 시점)' : 'From instant'} placeholder="2026-09-26T02:00:00.000Z" value={drafts.fromAt} onChange={e => setDraft('fromAt', e.target.value)} /></label>
-      <label className="flex items-center gap-1 text-xs">{ko ? '까지' : 'To'}<input className={`${control} tabular`} aria-label={ko ? '시각 미만 (ISO 시점)' : 'To instant'} placeholder="2026-09-26T02:00:00.000Z" value={drafts.toAt} onChange={e => setDraft('toAt', e.target.value)} /></label>
-      <Button type="submit" size="sm" variant="secondary">{ko ? '적용' : 'Apply'}</Button>
-      {parsed.ok && clear}
-    </fieldset>
+  const filters = <form onSubmit={applyDrafts}>
+    <PageFilterBar label={ko ? '감사 필터' : 'Audit filters'} fields={[
+      { kind: 'select', key: 'type', label: ko ? '대상 유형' : 'Type', value: raw.type ?? '', emptyOptionLabel: ko ? '전체' : 'All', options: [{ value: 'equipment', label: 'equipment' }, { value: 'metric', label: 'metric' }], onValueChange: value => setFilter('type', value || null) },
+      { kind: 'select', key: 'action', label: ko ? '작업' : 'Action', value: raw.action ?? '', emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(ACTION_LABEL).map(([value, label]) => ({ value, label: label[lang] })), onValueChange: value => setFilter('action', value || null) },
+      { kind: 'select', key: 'source', label: ko ? '출처' : 'Source', value: raw.source ?? '', emptyOptionLabel: ko ? '전체' : 'All', options: [{ value: 'user', label: 'user' }, { value: 'system', label: 'system' }], onValueChange: value => setFilter('source', value || null) },
+      { kind: 'text', key: 'actor', label: ko ? '행위자 정확 일치' : 'Exact actor', value: drafts.actor, onValueChange: value => setDraft('actor', value) },
+      { kind: 'text', key: 'targetId', label: ko ? '대상 ID 정확 일치' : 'Exact target id', value: drafts.targetId, onValueChange: value => setDraft('targetId', value) },
+      { kind: 'text', key: 'fromAt', label: ko ? '시각 이상 (ISO 시점)' : 'From instant', value: drafts.fromAt, placeholder: '2026-09-26T02:00:00.000Z', onValueChange: value => setDraft('fromAt', value) },
+      { kind: 'text', key: 'toAt', label: ko ? '시각 미만 (ISO 시점)' : 'To instant', value: drafts.toAt, placeholder: '2026-09-26T02:00:00.000Z', onValueChange: value => setDraft('toAt', value) },
+    ]} actions={<><Button type="submit" size="sm" variant="secondary">{ko ? '적용' : 'Apply'}</Button>{parsed.ok && clear}</>} />
   </form>;
   const columns = useMemo<PlatformColumn<AuditEvent>[]>(() => [
     { id: 'at', header: ko ? '시각' : 'At', size: 150, cell: row => <span className="tabular">{formatInstant(row.at, lang)}</span> },

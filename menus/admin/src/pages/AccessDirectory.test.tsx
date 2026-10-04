@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { AccessDirectoryPage, AccessDirectoryQuery, AccessPrincipal, ApiResponse, PlatformAdapter, Permission, Session } from '@ap/contracts';
 import { House, Wrench } from 'lucide-react';
@@ -6,6 +6,13 @@ import { createRegistry, I18nProvider, PlatformProvider, type MenuEntry } from '
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { manifests } from '../index';
 import AccessDirectory from './AccessDirectory';
+
+const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+beforeAll(() => { HTMLElement.prototype.scrollIntoView = vi.fn(); });
+afterAll(() => {
+  if (originalScrollIntoView) HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+  else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+});
 
 // jsdom has no layout: the virtualizer's viewport measures 0 and calculateRange returns null, so zero
 // rows render. Report fixed dimensions so the loaded rows render (test-only; a browser has real layout).
@@ -105,6 +112,10 @@ function renderRoles(path: string, response: ApiResponse<AccessDirectoryPage> | 
 const roleInput = () => screen.getByRole('textbox', { name: /Exact role|역할 정확 일치/ });
 const permissionSelect = () => screen.getByRole('combobox', { name: /Permission|권한/ });
 const applyButton = () => screen.getByRole('button', { name: /Apply|적용/ });
+const choosePermission = async (value: string) => {
+  fireEvent.keyDown(permissionSelect(), { key: 'ArrowDown' });
+  fireEvent.click(await screen.findByRole('option', { name: value }));
+};
 const url = () => new URLSearchParams(window.location.search);
 const dataRows = () => [...document.querySelectorAll('[data-row-id]')].map(el => el.textContent ?? '');
 
@@ -114,6 +125,7 @@ afterEach(() => { cleanup(); window.history.replaceState(null, '', '/'); });
 describe('AccessDirectory (issue #49: /admin/roles)', () => {
   it('sends the mapped query only — no focus, no scopeId, no user id, no default sort — and lists server order', async () => {
     const f = renderRoles('/admin/roles');
+    expect(screen.getByTestId('page-filter-bar')).toBeTruthy();
     await waitFor(() => expect(f.calls).toHaveLength(1));
     expect(f.calls[0]).toEqual({ page: 1, pageSize: 25 });
     // Payload order [viewer, admin, engineer] is served as-is: the client never re-sorts a page.
@@ -225,7 +237,7 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     fireEvent.click(within(engineerRow).getByRole('button', { name: /보기|View/ }));
     expect(await screen.findByRole('heading', { name: 'Process Engineer' })).toBeTruthy();
 
-    fireEvent.change(permissionSelect(), { target: { value: 'console:access' } });
+    await choosePermission('console:access');
     await waitFor(() => expect(f.calls).toHaveLength(2));
     expect(await screen.findByText(/이 페이지에 없는 주체입니다\.|Principal not on this page\./)).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Process Engineer' })).toBeNull();
@@ -238,7 +250,7 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
       : okResponse([VIEWER]));
     await waitFor(() => expect(f.calls).toHaveLength(1));
 
-    fireEvent.change(permissionSelect(), { target: { value: 'console:access' } });
+    await choosePermission('console:access');
     await waitFor(() => expect(f.calls).toHaveLength(2));
     expect(await screen.findByRole('heading', { name: 'Field Requester' })).toBeTruthy();
 
@@ -303,7 +315,7 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     const f = renderRoles('/admin/roles?page=2');
     await waitFor(() => expect(f.calls).toHaveLength(1));
     expect(f.calls[0].page).toBe(2);
-    fireEvent.change(permissionSelect(), { target: { value: 'console:access' } });
+    await choosePermission('console:access');
     await waitFor(() => expect(f.calls).toHaveLength(2));
     expect(f.calls[1]).toMatchObject({ permission: 'console:access', page: 1 });
     expect(url().has('page')).toBe(false);

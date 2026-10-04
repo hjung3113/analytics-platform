@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
 import { PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { equipmentExportEndpoint, equipmentMakersEndpoint, equipmentPageEndpoint, type Equipment } from '../endpoints';
-import { DetailDrawer, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
+import { DetailDrawer, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
 import { Button } from '@ap/ui';
 import { EquipmentPanel, EquipmentStatus } from './EquipmentDetail';
 import { exportFilterSummary, exportParams, fields, sortFields, statusText } from './data';
+import { equipmentPageFilterFields, resetEquipmentPageFilters } from './filter-fields';
 
 const NO_PARAMS = {} as const;
 
@@ -37,8 +38,7 @@ export default function EquipmentMaster() {
     // The status cell shows a label badge; the export shows the same text (06 §15).
     exportValue: f.key === 'status' ? (row: Equipment) => statusText[row.status][lang] : undefined,
   })), [lang]);
-  const control = 'h-8 rounded-sm border border-border-control bg-surface-card px-2 text-[12px] focus-visible:outline-2 focus-visible:outline-focus-ring';
-  const clear = <Button size="sm" variant="secondary" onClick={() => setPage({ q: null, status: null, maker: null, page: null })}>{ko ? '페이지 필터 초기화' : 'Clear page filters'}</Button>;
+  const clear = <Button type="button" size="sm" variant="secondary" onClick={() => resetEquipmentPageFilters(setPage)}>{ko ? '페이지 필터 초기화' : 'Clear page filters'}</Button>;
   return <PlatformPage description={ko ? '설비 속성 → 유효구간 → Audit. 합성 데이터 · 조회 전용 Candidate.' : 'Equipment attributes → validity → audit. Synthetic data · read-only Candidate.'}>
     {tableInvalid ? <p role="alert">{ko ? '정렬·페이지 값이 잘못되었습니다.' : 'Invalid sort or page value.'} <Button size="sm" variant="secondary" onClick={() => setPage({ sort: null, page: null })}>{ko ? '초기화' : 'Reset'}</Button></p> :
     <PlatformDataTable<Equipment>
@@ -51,11 +51,7 @@ export default function EquipmentMaster() {
         onChange: ({ page, sorting }) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }),
       } : undefined}
       loadPage={(page, signal) => pages.fetch({ q, status, maker, ...page }, signal)}
-      filters={<fieldset className="flex flex-wrap items-center gap-2 border-l-2 border-border-strong pl-3"><legend className="t-caption text-text-muted">{ko ? '페이지 필터' : 'Page filters'}</legend>
-        <label className="flex items-center gap-1 text-xs">{ko ? '검색' : 'Search'}<input className={control} aria-label={ko ? '설비 ID 또는 이름 검색' : 'Search equipment ID or name'} value={q} onChange={e => setPage({ q: e.target.value || null, page: null }, { replace: true })} /></label>
-        <label className="flex items-center gap-1 text-xs">{ko ? '상태' : 'Status'}<select className={control} value={status} onChange={e => setPage({ status: e.target.value || null, page: null })}><option value="">{ko ? '전체' : 'All'}</option>{Object.entries(statusText).map(([id, text]) => <option key={id} value={id}>{text[lang]}</option>)}</select></label>
-        <label className="flex items-center gap-1 text-xs">Maker<select className={control} value={maker} onChange={e => setPage({ maker: e.target.value || null, page: null })}><option value="">{ko ? '전체' : 'All'}</option>{makerOptions.map(m => <option key={m}>{m}</option>)}</select></label>{clear}
-      </fieldset>}
+      filters={<PageFilterBar label={ko ? '페이지 필터' : 'Page filters'} fields={equipmentPageFilterFields({ q, status, maker, makers: makerOptions, lang, setPage })} actions={clear} />}
       rowAction={e => <Button size="sm" variant="ghost" onClick={() => setPage({ focus: e.equipmentId, tab: null })}>{ko ? '보기' : 'View'}</Button>}
       bulkActions={ids => <Button asChild size="sm"><PlatformLink href={linkTo('productivity-overview', { global: { selection: ids } })}>{ko ? '선택 설비로 분석' : 'Analyze selected equipment'}</PlatformLink></Button>}
       // Table-owned export (#173): the page only says how to read the rows; the table builds the file.

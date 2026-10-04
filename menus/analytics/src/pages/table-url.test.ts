@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { parseBucket, parseBin } from './cycleData';
+import { cycleTailFilterLabel, parseBucket, parseBin } from './cycleData';
 
 // §6.1 cycle-time page keys: bucket must sit exactly on a grain boundary (no snapping),
 // out-of-period but aligned stays valid; bin is one BINS id or an ordered range.
+
+describe('cycle-time tail filter accessible label', () => {
+  it('keeps the predicate meaning in Korean and English', () => {
+    expect(cycleTailFilterLabel('ko')).toBe('느린 실행 기준');
+    expect(cycleTailFilterLabel('en')).toBe('Slow-execution predicate');
+  });
+});
 
 describe('parseBucket', () => {
   it('treats an absent key as no bucket filter', () => {

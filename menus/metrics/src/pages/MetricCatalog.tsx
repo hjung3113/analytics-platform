@@ -1,13 +1,14 @@
 import { useMemo } from 'react';
 import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
-import { type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
-import { Button, Input } from '@ap/ui';
+import { PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
+import { Button } from '@ap/ui';
 import {
   DOMAINS, STATUSES, catalogExportEndpoint, catalogListEndpoint, catalogPageEndpoint, metricPairEndpoint, sortColumns,
   type CatalogRow, type Lang, type PairVerdict, type PublicationState,
 } from '../endpoints';
-import { DOMAIN_LABEL, exportFilterSummary, exportParams, STATUS_LABEL } from './data';
+import { exportFilterSummary, exportParams } from './data';
 import { catalogColumns } from './columns';
+import { metricCatalogHasActiveFilters, metricCatalogPageFilterFields, resetMetricCatalogPageFilters } from './filter-fields';
 
 const NO_DESTINATION = { viewedId: null, pageVersion: null };
 
@@ -98,32 +99,7 @@ export default function MetricCatalogPage(_: PageProps) {
     description={lang === 'ko'
       ? '정의·grain·분자/분모·게시 포인터를 탐색합니다. 초안은 분석 기본 버전이 아닙니다. 정의 등록·발행 화면은 Open이라 두지 않았습니다.'
       : 'Browse definitions, grain, numerator/denominator and the published pointer. Drafts are not analysis defaults. Registration and publish UI is Open and omitted.'}
-    contextExtension={<div className="flex flex-wrap items-end gap-2">
-      <label className="grid gap-1 text-[11px] text-text-muted">
-        {lang === 'ko' ? '이름 또는 metricId' : 'Name or metricId'}
-        <Input data-testid="metric-search" value={q ?? ''} placeholder={lang === 'ko' ? '검색' : 'Search'} className="h-8 w-56 rounded-sm border-border-control text-[12px]"
-          onChange={e => setPage({ q: e.target.value === '' ? null : e.target.value, page: null }, { replace: true })} />
-      </label>
-      <label className="grid gap-1 text-[11px] text-text-muted">
-        {lang === 'ko' ? '상태' : 'Status'}
-        <select data-testid="metric-status-filter" value={status ?? ''} className="h-8 rounded-sm border border-border-control bg-surface-card px-2 text-[12px] text-text-primary"
-          onChange={e => setPage({ status: e.target.value === '' ? null : e.target.value, page: null })}>
-          <option value="">{lang === 'ko' ? '전체' : 'All'}</option>
-          {STATUSES.map(s => <option key={s} value={s}>{tx(STATUS_LABEL[s])}</option>)}
-          {statusIllegal && <option value={status!}>{status}</option>}
-        </select>
-      </label>
-      <label className="grid gap-1 text-[11px] text-text-muted">
-        domain
-        <select data-testid="metric-domain-filter" value={domain ?? ''} className="h-8 rounded-sm border border-border-control bg-surface-card px-2 text-[12px] text-text-primary"
-          onChange={e => setPage({ domain: e.target.value === '' ? null : e.target.value, page: null })}>
-          <option value="">{lang === 'ko' ? '전체' : 'All'}</option>
-          {DOMAINS.map(d => <option key={d} value={d}>{tx(DOMAIN_LABEL[d])}</option>)}
-          {domainIllegal && <option value={domain!}>{domain}</option>}
-        </select>
-      </label>
-      {(q || status || domain) && <Button variant="secondary" size="sm" className="h-8 rounded-sm" onClick={() => setPage({ q: null, status: null, domain: null, page: null })}>{lang === 'ko' ? '필터 초기화' : 'Reset filters'}</Button>}
-    </div>}
+    contextExtension={<PageFilterBar label={lang === 'ko' ? '페이지 필터' : 'Page filters'} fields={metricCatalogPageFilterFields({ q, status, domain, lang, tx, setPage })} actions={metricCatalogHasActiveFilters(q, status, domain) ? <Button type="button" variant="secondary" size="sm" className="h-8 rounded-sm" onClick={() => resetMetricCatalogPageFilters(setPage)}>{lang === 'ko' ? '필터 초기화' : 'Reset filters'}</Button> : undefined} />}
   >
     <div className="space-y-3">
       <MetricPairBanner />
