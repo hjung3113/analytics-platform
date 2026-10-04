@@ -332,7 +332,7 @@ posthog와 sentri(Sentry 스타일) 자료는 당시 illustration/mascot 중심 
 | `chart-teal-stroke` | `#008090` | 4.59:1 | 4.35:1 | 4.19:1 |
 | `chart-purple-stroke` | `#8154ce` | 5.03:1 | 4.78:1 | 4.60:1 |
 
-`AnalysisChartFrame` maps blue/teal/purple series identity tokens to these aliases for line strokes, brush outline and line legend swatches. Bars and area fills continue to use their original fill tokens. No thin-line consumer of `chart-green` was found, so no green stroke value is defined. Productivity cycle-time P50 remains solid and P95 is dashed, matching the cycle-time drilldown.
+`AnalysisChartFrame`은 blue/teal/purple 시리즈의 선, 선 범례 견본, 브러시 외곽선에 이 stroke 별칭을 쓴다. 막대·영역 채움과 선 위 심볼은 원래 채움 색을 유지하고, 그래서 툴팁 마커(심볼 색을 따름)도 채움 색이다. `chart-green`은 얇은 선으로 쓰는 곳이 없어 stroke 값을 두지 않았다. 막대 범례 모양(지금은 선 모양 견본), 생산성 개요 P95 점선과 비교 시리즈 구분, `cat-amber` 비교 선의 표면별 대비는 후속 이슈에서 프로토타입으로 다룬다.
 
 ## Open Decisions
 

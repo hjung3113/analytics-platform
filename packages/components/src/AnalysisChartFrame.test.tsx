@@ -12,10 +12,12 @@ vi.mock('./EChartImpl', () => ({ default: FakePlot }));
 
 type CapturedSeries = { id?: string; type?: string; lineStyle?: { color?: string }; itemStyle?: { color?: string } };
 let plottedSeries: CapturedSeries[] = [];
+let plottedBrush: { brushStyle?: { borderColor?: string } } | undefined;
 
 /** Stand-in plot: one button plays a Brush selection over the whole series. */
 function FakePlot(props: EChartProps): ReactElement {
   plottedSeries = (props.option as unknown as { series?: CapturedSeries[] }).series ?? [];
+  plottedBrush = (props.option as unknown as { brush?: { brushStyle?: { borderColor?: string } } }).brush;
   const range = [parseDateTime('2026-09-01T00:00:00', 'x').getTime(), parseDateTime('2026-09-02T00:00:00', 'x').getTime()];
   return <div role="img" aria-label={props.ariaLabel}>
     <button type="button" onClick={() => props.onEvents?.brushEnd?.({ areas: [{ coordRange: range }] }, { dispatchAction: () => {} } as never)}>fake-brush</button>
@@ -151,6 +153,12 @@ describe('chart stroke aliases (#203)', () => {
       expect(plottedSeries.find(item => item.id === 'line')?.lineStyle?.color).toBe('rgb(37,119,204)');
       expect(plottedSeries.find(item => item.id === 'line')?.itemStyle?.color).toBe('rgb(59,156,255)');
       expect(plottedSeries.find(item => item.id === 'bar')?.itemStyle?.color).toBe('rgb(59,156,255)');
+      // Legend swatches follow what they label: the line's stroke, the bar's fill (#203 review P2-3).
+      const swatch = (name: string) => screen.getByText(name, { selector: 'label' }).querySelector('span[aria-hidden]') as HTMLElement;
+      expect(swatch('Line').style.borderColor).toBe('rgb(37, 119, 204)');
+      expect(swatch('Bar').style.borderColor).toBe('rgb(59, 156, 255)');
+      // The brush outline is a thin line mark too.
+      expect(plottedBrush?.brushStyle?.borderColor).toBe('rgb(37,119,204)');
     } finally {
       for (const [name, value] of previous) {
         if (value) root.style.setProperty(name, value); else root.style.removeProperty(name);

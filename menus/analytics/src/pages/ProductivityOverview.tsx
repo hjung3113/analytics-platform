@@ -162,7 +162,7 @@ export default function ProductivityOverview(_: PageProps) {
       name: dashed ? `${name} (${ko ? '이전 동일 기간' : 'previous period'})` : name,
       color: dashed ? 'cat-amber' : meta.colors[i],
       kind: meta.kind,
-      dashed: dashed || (selectedKpi === 'cycleTime' && i === 1),
+      dashed,
       // Compare is x-aligned by bucket index onto the current period's axis.
       points: data.current.map((c, idx) => [c.start, source[idx] ? trendValue(source[idx], i) : null] as [string, number | null]),
     }));
