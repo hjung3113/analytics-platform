@@ -95,9 +95,9 @@ export default function AccessDirectory() {
                   {joined.length
                     ? <ul className="grid gap-1">
                         {joined.map(menu => <li key={menu.id} className="flex items-center justify-between gap-2 rounded-sm bg-surface-sunken px-2 py-1 text-[13px]">
-                          <span>{menu.label[lang]} <span className="t-mono text-text-muted">{menu.id}</span></span>
+                          <span>{menu.label[lang]} <span className="t-mono text-text-secondary">{menu.id}</span></span>
                           <span className="flex items-center gap-2">
-                            <span className="t-mono text-text-muted">{menu.path}</span>
+                            <span className="t-mono text-text-secondary">{menu.path}</span>
                             {menu.spaceGated && <StatusBadge tone="neutral">{ko ? '공간' : 'space'}</StatusBadge>}
                           </span>
                         </li>)}
@@ -117,7 +117,7 @@ export default function AccessDirectory() {
                   <span className="tabular">{site.grantedRooms.length}/{site.totalRooms}</span>
                   {site.grantedRooms.length
                     ? <span className="t-mono">{site.grantedRooms.join(', ')}</span>
-                    : <span className="text-text-muted">{ko ? '부여 없음' : 'No rooms granted'}</span>}
+                    : <span className="text-text-secondary">{ko ? '부여 없음' : 'No rooms granted'}</span>}
                 </span>
               </li>)}
             </ul>,

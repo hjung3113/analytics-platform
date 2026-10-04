@@ -18,6 +18,8 @@ UI Primitive 층(06 §13)과 디자인 시스템 CSS. 플랫폼 개념(Context, 
 - 데이터 조회, 권한 판단, 라우팅, 도메인 문구를 넣지 않는다. 그런 조합은 `@ap/components`다.
 - shadcn 컴포넌트를 추가하면 `src/index.ts`에 export하고 `styles/index.css`의 `@source`가 새 파일을 스캔하는지 확인한다.
 
+- `DetailPanelSlot.tsx`는 도메인·URL을 모르는 셸별 DOM 슬롯 primitive다. Provider·host hook·등록 hook을 공개하며 components와 shell이 역방향 의존 없이 함께 소비한다(06 §13, ADR-0013). portal 내용은 소비자가 소유하고 등록 우선순위는 mount 수명에만 따른다.
+
 ## 검증
 
 루트 네 명령(`pnpm lint && pnpm typecheck && pnpm test && pnpm build`, 루트 `AGENTS.md`). 토큰·스타일 변경은 `pnpm dev`로 화면을 직접 확인한다.

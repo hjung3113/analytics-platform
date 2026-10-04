@@ -60,7 +60,6 @@ rounded:
   xs: "var(--radius-sm)"
 layout:
   breakpoint-wide: 90rem
-  width-detail-panel: 32rem
 components:
   table-density:
     rowMinHeight: 32px
@@ -156,9 +155,9 @@ components:
 | --- | --- | --- |
 | `radius-xs` | 작은 inline chip/아이콘 버튼의 compact 반경 alias | `index.css`의 `var(--radius-sm)` → FeedbackOps 공유 반경; 별도 literal 아님 |
 | `breakpoint-wide` | 넓은 분석 grid를 전환하는 `wide:` 기준 | 플랫폼 literal `90rem` |
-| `width-detail-panel` | 플랫폼 DetailDrawer 폭 유틸리티(`w-detail-panel`) | 플랫폼 literal `32rem`; FeedbackOps `detail-panel-width`와 다른 플랫폼 overlay 역할 |
+| `detail-panel-width` | 셸 고정 상세 슬롯 폭 | FeedbackOps 공유 토큰; 소비 시 fallback·clamp는 06 §7 |
 
-`width-detail-panel`은 FeedbackOps 오른쪽 고정 상세 슬롯으로의 변경 승인이 아니다([ADR-0011](docs/adr/0011-design-direction-feedbackops-shell.md)). 반응형 정책의 상태·MVP 범위는 [06 §25](docs/06_platform_ui_contract.md#25-responsive-strategy)와 [05](docs/05_roadmap_and_open_questions.md#mvp-지원-환경--데스크톱-웹만-decided-2026-09-27)를 따른다. rem을 임의 px literal로 대체하지 않는다.
+사용하지 않는 overlay 전용 `width-detail-panel`/`w-detail-panel` 확장은 ADR-0013으로 폐기했다. 상세 슬롯은 공유 `--detail-panel-width`를 직접 소비한다. 반응형 정책의 상태·MVP 범위는 [06 §25](docs/06_platform_ui_contract.md#25-responsive-strategy)와 [05](docs/05_roadmap_and_open_questions.md#mvp-지원-환경--데스크톱-웹만-decided-2026-09-27)를 따른다. DetailDrawer는 지원 데스크톱에서 고정 슬롯을 유지한다.
 
 ## Accessibility pairing rules
 
@@ -188,6 +187,7 @@ components:
 
 셸 구조·치수·본문 여백·gap·sticky 배치의 원본은 [06 §7 Baseline](docs/06_platform_ui_contract.md#7-application-shell)과 [07 §4](docs/07_app_shell_wireframe.md)다. 이 문서는 아래 시각 보완만 소유하며 구조 값을 다시 정의하지 않는다.
 
+- 상세 슬롯은 공유 `surface-detail` 표면과 왼쪽 1px `border-subtle` 구분선으로 본문과 나눈다. 셸 전체 높이를 쓰고 그림자·scrim은 없다. 내부 상세 탭 내용은 독립 스크롤하며 폭은 06 §7 Baseline을 소비한다(ADR-0013).
 - 공유 `surface-sidebar` 위에 Registry 그룹을 **section label**로 표시한다. 활성 탐색 제목에 `text-disabled`를 쓰지 않는다. 주 메뉴 navigation과 즐겨찾기/최근 section을 구별한다.
 - 현재 메뉴/공간은 공유 selected 표면 + text weight + **2px accent 막대**로 구별한다. `aria-current`를 유지하고 hover가 막대를 지우지 않는다. 보조 즐겨찾기/최근 링크에 현재 위치 표식을 중복하지 않는다.
 - hover는 공유 row-hover, focus는 opaque 2px outline과 offset을 사용한다. hover/selected 안의 작은 필수 글자(‘예정’, Scope 상태·room, 언어)는 secondary 또는 허용 label로 유지한다.
@@ -314,6 +314,10 @@ posthog와 sentri(Sentry 스타일) 자료는 당시 illustration/mascot 중심 
 
 ## Design Decisions
 
+### Detail panel — Decided (B, 2026-10-04)
+
+상세 패널은 셸 소유 고정 슬롯(B)으로 컨펌됐다. [ADR-0013](docs/adr/0013-detail-panel-shell-docked-slot.md)이 ADR-0011에서 남긴 별도 결정을 닫는다. 배치·동작 원본은 06 §7·§13, 표면·경계는 위 Shell visual rules를 따른다.
+
 ### Chart stroke contrast — Decided (B, 2026-10-04)
 
 현재 카드 위 thin line mark의 `chart-blue`는 **2.79:1**, `chart-teal`은 **2.98:1**이며 `chart-purple` bar는 **3.25:1**이다(#193 리뷰). 2px 선에서 blue/teal은 의미 있는 비텍스트 mark의 3:1 기준에 부족하다. solid/dashed legend와 동일 데이터 table은 series 구분/대체 경로를 제공하지만 선 자체 대비를 높이지 않는다.
@@ -342,4 +346,3 @@ posthog와 sentri(Sentry 스타일) 자료는 당시 illustration/mascot 중심 
 - ECharts renderer/stack와 현재 코드 차이는 [05 결정 상태](docs/05_roadmap_and_open_questions.md)의 **Open**을 따른다. 이 문서가 새로운 chart theme 구현을 뜻하지 않는다.
 - 언어 번역 범위는 06 §23의 **Decided**, 계정 저장 선호는 **Candidate**다. Lucide는 기존 **Decided**를 유지한다.
 - pipeline focal priority·live pulse·reference queue/lifecycle의 domain 의미는 **Candidate/Open**이며 원천이 확인되기 전 실제 운영 데이터로 주장하지 않는다.
-- DetailDrawer를 FeedbackOps 고정 상세 슬롯으로 바꾸는 결정은 ADR-0011 범위 밖이다. 현재 플랫폼 width extension을 그 승인으로 해석하지 않는다.

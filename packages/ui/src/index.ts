@@ -14,3 +14,5 @@ export * from './components/shadcn/tabs';
 export * from './components/shadcn/tooltip';
 export { cn } from '@fops/ui';
 export { isProductionEnv } from './utils/isProductionEnv';
+
+export { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from './DetailPanelSlot';

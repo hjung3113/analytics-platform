@@ -105,7 +105,7 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
     const statusHeader = page.locator('[role="columnheader"][data-column="status"]');
     await expect(statusHeader).toHaveAttribute('aria-sort', 'descending');
     await expect(tableStatusLine(page)).toContainText(/2\/\d+/);
-    await expect(page.getByRole('dialog').getByRole('tab', { name: 'Audit' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog').getByRole('tab', { name: 'Audit' })).toHaveAttribute('aria-selected', 'true');
     await evidence(page, testInfo, 'equipment-page-keys');
 
     await page.reload();
@@ -115,7 +115,7 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
     expect(query(page).get('tab')).toBe('audit');
     await expect(statusHeader).toHaveAttribute('aria-sort', 'descending');
     await expect(tableStatusLine(page)).toContainText(/2\/\d+/);
-    await expect(page.getByRole('dialog').getByRole('tab', { name: 'Audit' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog').getByRole('tab', { name: 'Audit' })).toHaveAttribute('aria-selected', 'true');
   });
 
   test('Scope 전환은 manifest가 선언한 page 키만 지우고, 뒤로 가면 이전 URL을 그대로 복원한다', async ({ page }, testInfo) => {
@@ -136,6 +136,65 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
     await expect(tableStatusLine(page)).toContainText(/2\/\d+/);
     await evidence(page, testInfo, 'back-restores-page');
   });
+});
+
+test.describe('셸 고정 상세 슬롯 (06 §13, ADR-0013)', () => {
+  for (const width of [1440, 1280]) {
+    test(`focus로 열린 상세가 표 옆에 놓이고 닫기·Back/Forward로 복원된다 (${width}px)`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/equipment?v=1&scopeId=ICH');
+      const main = page.getByRole('main');
+      const row = main.locator('[data-row-id]').first();
+      await expect(row).toBeVisible();
+      const focus = await row.getAttribute('data-row-id');
+      const closedWidth = (await main.boundingBox())!.width;
+      // The row action writes the registered focus key; no direct DOM or Kernel access.
+      const trigger = row.getByRole('button', { name: '보기', exact: true });
+      await trigger.click();
+      await expect.poll(() => query(page).get('focus')).toBe(focus);
+      const slot = page.getByRole('complementary', { name: '상세 패널' });
+      const dialog = slot.getByRole('dialog');
+      await expect(dialog).toBeVisible();
+      await expect(dialog).toHaveAttribute('aria-modal', 'false');
+      await expect(dialog.getByRole('button', { name: '상세 닫기' })).toBeFocused();
+      await expect(page.locator('#root')).not.toHaveAttribute('inert');
+      await expect(page.getByTestId('drawer-scrim')).toHaveCount(0);
+      const panelBox = (await slot.boundingBox())!;
+      const mainBox = (await main.boundingBox())!;
+      expect(panelBox.width).toBe(440);
+      expect(panelBox.y).toBe(0);
+      expect(panelBox.height).toBe(900);
+      expect(mainBox.width).toBeLessThan(closedWidth);
+      // Wide table columns scroll inside this viewport; compare its visible edge, not the overflowing inner table.
+      const tableBox = (await main.getByLabel('스크롤 가능한 행 영역', { exact: true }).boundingBox())!;
+      expect(tableBox.x + tableBox.width).toBeLessThanOrEqual(panelBox.x);
+      const checkbox = row.getByRole('checkbox');
+      await checkbox.click();
+      await expect(checkbox).toBeChecked();
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole('link', { name: '전체 화면' })).toBeVisible();
+      await evidence(page, testInfo, `docked-detail-${width}`);
+
+      await dialog.getByRole('button', { name: '상세 닫기' }).click();
+      await expect.poll(() => query(page).has('focus')).toBe(false);
+      await expect(dialog).toHaveCount(0);
+      await expect(slot).toBeHidden();
+      await expect(page.getByRole('complementary', { name: '상세 패널' })).toHaveCount(0);
+      await page.goBack();
+      await expect.poll(() => query(page).get('focus')).toBe(focus);
+      await expect(dialog).toBeVisible();
+      await page.goForward();
+      await expect.poll(() => query(page).has('focus')).toBe(false);
+      await expect(dialog).toHaveCount(0);
+      await page.goBack();
+      await expect(dialog).toBeVisible();
+      await dialog.getByRole('button', { name: '상세 닫기' }).focus();
+      await page.keyboard.press('Escape');
+      await expect.poll(() => query(page).has('focus')).toBe(false);
+      await expect(dialog).toHaveCount(0);
+      await evidence(page, testInfo, `docked-detail-closed-${width}`);
+    });
+  }
 });
 
 test.describe('메뉴 간 Context 보존과 미적용 표시 (06 §6, §22)', () => {
@@ -767,7 +826,7 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
     await expect(row).toContainText('equipment:view');
 
     await row.getByRole('button', { name: '보기' }).click();
-    await expect(page.getByRole('main')).toContainText('requiresScope');
+    await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog')).toContainText('requiresScope');
     // The drawer is opened by writing the focus page key (§6.1): the URL carries it.
     expect(page.url()).toContain('focus=equipment-master');
     await evidence(page, testInfo, 'registry-admin-declaration');

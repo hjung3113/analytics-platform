@@ -92,6 +92,20 @@
  레일 52px  사이드바 240/56px   상단 바 없음
 ```
 
+상세가 열린 상태(B안, [ADR-0013](adr/0013-detail-panel-shell-docked-slot.md)):
+
+```text
+┌────┬───────────────┬────────────────────────┬──────────────────┐
+│레일│ 사이드바       │ 페이지 머리·Context     │ 상세 제목·동작·닫기│
+│    │               ├────────────────────────┤ Context·상세 탭    │
+│    │               │ 목록 / content slot    │ 상세 내용          │
+│    │               │ (폭을 양보, 조작 가능)  │ 독립 스크롤        │
+└────┴───────────────┴────────────────────────┴──────────────────┘
+                                              셸 전체 높이 aside
+```
+
+상세가 없으면 오른쪽 슬롯은 폭 0이다. 폭·등록·URL·포커스 원본은 06 §7·§13이며 1440/1280 데스크톱 모두 같은 고정 슬롯을 쓴다. 페이지 머리 아래에 뜨는 overlay나 scrim은 두지 않는다.
+
 구조는 FeedbackOps AppFrame(레일·밝은 사이드바·50px 머리)을 따른다(06 §7). 위 사이드바는 **분석 공간** 기준이다. 접근 가능한 공간이 2개 이상인 사용자에게는 레일에 공간 버튼이 나타나고, 운영 콘솔·피드백 공간은 자기 그룹만 사이드바에 표시한다(06 §9.1). 메뉴 검색은 레일의 명령 팔레트로 한다. 이전 배치(로고 칸 공간 드롭다운, 상단 바 Scope·검색·사용자 메뉴)는 ADR-0011로 대체됐다.
 
 50px 페이지 머리와 Context Bar는 main 스크롤 영역 안에서 하나의 sticky 래퍼로 유지한다(Context Bar는 독립 sticky 아님). 콘텐츠 여백은 FeedbackOps `PageShell` 기준이며 치수 원본은 06 §7 Baseline이다. 접힌 사이드바에서도 Scope 선택·검증 상태는 아이콘·접근성 텍스트로 유지한다.
@@ -110,6 +124,7 @@ Scope의 포함 관계는 Site→room_name→StGroup→Equipment이며 실무 �
 | 현재 위치 | 페이지 머리(부모 링크·페이지 제목·설명·동작) |
 | Context 영역 | 기간·room_name·Equipment Group Condition/Selection·Lot·PPID·Recipe와 적용 범위·미지원 상태 표시 |
 | 콘텐츠 슬롯 | 선택 메뉴의 화면과 데이터 신뢰 정보 수용 |
+| 상세 슬롯 | 셸이 main 옆 전체 높이 aside를 소유하고 페이지의 상세 등록을 수용(06 §13) |
 
 이는 React 컴포넌트 이름이나 API 선언이 아니다. 슬롯 결합 규칙은 전역 계약 §8을 따른다.
 
@@ -146,6 +161,7 @@ Scope의 포함 관계는 Site→room_name→StGroup→Equipment이며 실무 �
 | --- | --- | --- |
 | Decided | 06 §9 그룹과 §9.1 워크스페이스 navigation(분석 공간 6그룹, 관리·감사는 운영 콘솔, VOC 분류·처리는 피드백 공간), 전역 Context·권한 계약 재사용 | 전역 계약 §6/§9/§9.1/§11/§17 |
 | Decided | 셸 구조: 레일(공간 전환·팔레트·도구) + 사이드바(Scope 선택·그룹 섹션·즐겨찾기/최근) + 50px 페이지 머리, 상단 바 없음 — 2026-10-04 사용자 | [ADR-0011](adr/0011-design-direction-feedbackops-shell.md), 전역 계약 §7 |
+| Decided | 상세는 셸 소유 오른쪽 고정 슬롯(B안), 본문과 나란히 조작 — 2026-10-04 사용자 | [ADR-0013](adr/0013-detail-panel-shell-docked-slot.md), 전역 계약 §7·§13 |
 | Candidate | 고정 Context 영역 배치 | 이 문서 |
 | Decided / Open | room_name 기준 Scope·v1 단일 Scope 선택은 Decided. 부모·자식 상속은 Open이며 복수 선택은 v1 범위 밖의 이후 확장 후보 | 전역 계약 §6.2, [도메인 용어](../CONTEXT.md), [ADR-0005](adr/0005-scope-room-name-line-independent.md) |
 | Decided(메커니즘) | URL 버전 `v` 수명주기·우선순위·잘못된 값·뒤로가기/미지원 Context 복원 — 필드명 자체는 Candidate | 전역 계약 §6.4, `docs/05` 결정 상태 |

@@ -37,7 +37,6 @@
 
 @theme {
   --breakpoint-wide: 90rem;
-  --width-detail-panel: 32rem;
 }
 
 @layer base {
