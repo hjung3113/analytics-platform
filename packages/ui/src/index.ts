@@ -16,3 +16,5 @@ export { cn } from '@fops/ui';
 export { isProductionEnv } from './utils/isProductionEnv';
 
 export { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from './DetailPanelSlot';
+
+export { PrototypeContext, usePrototype, type ProtoVariant } from './proto/context';

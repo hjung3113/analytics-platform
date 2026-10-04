@@ -4,6 +4,8 @@ import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { formatDateTime, formatMetricVersion, parseDateTime } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { PrototypeChartLegend, protoLine, protoStroke } from './proto/ChartLegend';
+import { usePrototype } from '@ap/ui';
 import { EChart, strokeToken, token } from './EChart';
 
 export type ChartSeries = {
@@ -53,6 +55,7 @@ export type AnalysisChartFrameProps = {
  */
 export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const { t, lang } = useI18n();
+  const { chart: protoVariant } = usePrototype();
   const { setGlobal, toast, global, adapter, route } = usePlatform();
   const features = route?.menu.features;
   const canCompare = !!features?.compare && !!p.compareSeries;
@@ -117,11 +120,12 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       series: [
         ...visible.map(s => {
           const kind = s.kind ?? 'line';
-          const color = token(kind === 'line' ? strokeToken(s.color) : s.color);
+          const previous = !!p.compareSeries?.some(c => c.id === s.id);
+          const color = kind === 'line' ? protoStroke(s, previous, protoVariant) : token(s.color);
           return {
             id: s.id, name: s.name, type: kind, stack: p.stacked && kind === 'bar' ? 'total' : undefined,
-            showSymbol: false, symbolSize: 5, connectNulls: false, barMaxWidth: 18,
-            lineStyle: { ...(kind === 'line' ? { color } : {}), width: 2, type: s.dashed ? 'dashed' : 'solid' }, itemStyle: { color: token(s.color) },
+            showSymbol: protoVariant === 'C' && previous, symbol: protoVariant === 'A' ? undefined : s.dashed ? 'triangle' : 'circle', symbolSize: protoVariant === 'A' ? 5 : 6, connectNulls: false, barMaxWidth: 18,
+            lineStyle: { ...(kind === 'line' ? { color } : {}), width: 2, type: protoLine(s, previous, protoVariant) }, itemStyle: { color: protoVariant === 'C' && previous ? color : token(s.color) },
             emphasis: { focus: 'series' },
             data: s.points.map(([x, y]) => (xType === 'time' ? [toMs(x), y] : y)),
           };
@@ -129,12 +133,12 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         {
           id: '__overlay', type: 'line', data: [], silent: true, symbol: 'none',
           markArea: { silent: true, data: areas },
-          markLine: p.markLines?.length ? { silent: true, symbol: 'none', lineStyle: { color: token('accent-warn'), type: 'dashed' }, label: { formatter: '{b}', fontSize: 10 }, data: p.markLines.map(m => ({ name: m.label, yAxis: m.y })) } : undefined,
+          markLine: p.markLines?.length ? { silent: true, symbol: 'none', lineStyle: { color: token('text-secondary'), type: 'dashed' }, label: { formatter: '{b}', fontSize: 10, color: token('text-secondary') }, data: p.markLines.map(m => ({ name: m.label, yAxis: m.y })) } : undefined,
         },
       ],
     };
     // Deps intentionally restricted to the chart inputs below (would trip react-hooks/exhaustive-deps if that rule is enabled).
-  }, [visible, xType, categories, zoom, brushMode, selection, annotations, p.markLines, p.unit, lang, p.stacked]);
+  }, [visible, xType, categories, zoom, brushMode, selection, annotations, p.markLines, p.unit, lang, p.stacked, protoVariant, p.compareSeries]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
@@ -226,7 +230,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     </header>
 
     <div role="group" aria-label={lang === 'ko' ? '범례' : 'Legend'} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 pt-2">
-      {allSeries.map(s => {
+      {protoVariant !== 'A' ? <PrototypeChartLegend series={allSeries} previousIds={new Set(compare && canCompare ? p.compareSeries?.map(s => s.id) : [])} hidden={hidden} toggle={id => setHidden(h => { const n = new Set(h); if (n.has(id)) n.delete(id); else n.add(id); return n; })} variant={protoVariant} currentLabel={lang === 'ko' ? '현재 기간' : 'Current period'} previousLabel={lang === 'ko' ? '이전 기간' : 'Previous period'} /> : allSeries.map(s => {
         const color = token((s.kind ?? 'line') === 'line' ? strokeToken(s.color) : s.color);
         return <label key={s.id} className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] text-text-secondary">
           <input type="checkbox" className="size-3.5 accent-[rgb(var(--accent-primary))]" checked={!hidden.has(s.id)} onChange={() => setHidden(h => { const n = new Set(h); if (n.has(s.id)) n.delete(s.id); else n.add(s.id); return n; })} />

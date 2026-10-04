@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { formatInstant, type AuditEvent, type AuditSortField } from '@ap/contracts';
 import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
-import { type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort } from '@ap/components';
+import { PrototypePageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { auditDestination } from '../audit-destination';
 import { ACTION_LABEL, AUDIT_PAGE_KEYS, parseAuditKeys } from '../audit-query';
@@ -52,7 +52,15 @@ export default function AuditTrail() {
   };
   const clear = <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{ko ? '필터 초기화' : 'Clear filters'}</Button>;
   const filters = <form className="mb-3" onSubmit={applyDrafts}>
-    <fieldset className="flex flex-wrap items-center gap-2 border-l-2 border-border-strong pl-3">
+    <PrototypePageFilterBar label={ko ? '감사 필터' : 'Audit filters'} allLabel={ko ? '전체' : 'All'} filterLabel={ko ? '필터' : 'Filters'} reset={parsed.ok && clear} actions={<Button type="submit" size="sm" variant="secondary">{ko ? '적용' : 'Apply'}</Button>} fields={[
+      { key: 'type', label: ko ? '대상 유형' : 'Type', value: raw.type ?? '', onChange: v => setFilter('type', v || null), options: ['equipment', 'metric'].map(value => ({ value, label: value })) },
+      { key: 'action', label: ko ? '작업' : 'Action', value: raw.action ?? '', onChange: v => setFilter('action', v || null), options: Object.entries(ACTION_LABEL).map(([value, label]) => ({ value, label: label[lang] })) },
+      { key: 'source', label: ko ? '출처' : 'Source', value: raw.source ?? '', onChange: v => setFilter('source', v || null), options: ['user', 'system'].map(value => ({ value, label: value })) },
+      { key: 'actor', label: ko ? '행위자 정확 일치' : 'Exact actor', value: drafts.actor, onChange: v => setDraft('actor', v) },
+      { key: 'targetId', label: ko ? '대상 ID 정확 일치' : 'Exact target id', value: drafts.targetId, onChange: v => setDraft('targetId', v) },
+      { key: 'fromAt', label: ko ? '시각 이상 (ISO 시점)' : 'From instant', value: drafts.fromAt, onChange: v => setDraft('fromAt', v), placeholder: '2026-09-26T02:00:00.000Z' },
+      { key: 'toAt', label: ko ? '시각 미만 (ISO 시점)' : 'To instant', value: drafts.toAt, onChange: v => setDraft('toAt', v), placeholder: '2026-09-26T02:00:00.000Z' },
+    ]}><fieldset className="flex flex-wrap items-center gap-2 border-l-2 border-border-strong pl-3">
       <legend className="t-caption text-text-muted">{ko ? '감사 필터' : 'Audit filters'}</legend>
       <label className="flex items-center gap-1 text-xs">{ko ? '대상 유형' : 'Type'}<select className={control} value={raw.type ?? ''} onChange={e => setFilter('type', e.target.value || null)}><option value="">{ko ? '전체' : 'All'}</option><option value="equipment">equipment</option><option value="metric">metric</option></select></label>
       <label className="flex items-center gap-1 text-xs">{ko ? '작업' : 'Action'}<select className={control} value={raw.action ?? ''} onChange={e => setFilter('action', e.target.value || null)}><option value="">{ko ? '전체' : 'All'}</option>{Object.entries(ACTION_LABEL).map(([id, label]) => <option key={id} value={id}>{label[lang]}</option>)}</select></label>
@@ -63,7 +71,7 @@ export default function AuditTrail() {
       <label className="flex items-center gap-1 text-xs">{ko ? '까지' : 'To'}<input className={`${control} tabular`} aria-label={ko ? '시각 미만 (ISO 시점)' : 'To instant'} placeholder="2026-09-26T02:00:00.000Z" value={drafts.toAt} onChange={e => setDraft('toAt', e.target.value)} /></label>
       <Button type="submit" size="sm" variant="secondary">{ko ? '적용' : 'Apply'}</Button>
       {parsed.ok && clear}
-    </fieldset>
+    </fieldset></PrototypePageFilterBar>
   </form>;
   const columns = useMemo<PlatformColumn<AuditEvent>[]>(() => [
     { id: 'at', header: ko ? '시각' : 'At', size: 150, cell: row => <span className="tabular">{formatInstant(row.at, lang)}</span> },

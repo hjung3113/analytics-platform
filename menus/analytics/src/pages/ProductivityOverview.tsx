@@ -10,8 +10,8 @@ import { formatMetricVersion, periodHours } from '@ap/contracts';
  */
 import { AlertTriangle, ArrowRight, BarChart3, Hourglass, Percent, RotateCw, Timer } from 'lucide-react';
 import { type PageProps, PlatformLink, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
-import { AnalysisChartFrame, type ChartSeries, DataTrustIndicator, type Delta, Panel, PlatformPage, QueryView, SegmentedRadio, StatCard, StateMessage } from '@ap/components';
-import { Button, cn, StatusBadge } from '@ap/ui';
+import { PrototypeWidgetStates, AnalysisChartFrame, type ChartSeries, DataTrustIndicator, type Delta, Panel, PlatformPage, QueryView, SegmentedRadio, StatCard, StateMessage } from '@ap/components';
+import { Button, cn, StatusBadge, usePrototype } from '@ap/ui';
 import {
   CYCLE_VERSION_NOTE, METRIC_VERSIONS, attentionEndpoint, breakdownEndpoint, kpisEndpoint, trendEndpoint,
   type AttentionRow, type Granularity, type KpiKey, type KpiSet, type TrendBucket, type TrendData,
@@ -38,6 +38,7 @@ export default function ProductivityOverview(_: PageProps) {
   const { global, pageParam, setPage, setGlobal, linkTo } = usePlatform();
   const { lang } = useI18n();
   const ko = lang === 'ko';
+  const { chart: protoChart } = usePrototype();
 
   const hours = periodHours(global);
   const rawKpi = pageParam('kpi');
@@ -162,7 +163,7 @@ export default function ProductivityOverview(_: PageProps) {
       name: dashed ? `${name} (${ko ? '이전 동일 기간' : 'previous period'})` : name,
       color: dashed ? 'cat-amber' : meta.colors[i],
       kind: meta.kind,
-      dashed,
+      dashed: protoChart !== 'A' && selectedKpi === 'cycleTime' ? i === 1 : dashed,
       // Compare is x-aligned by bucket index onto the current period's axis.
       points: data.current.map((c, idx) => [c.start, source[idx] ? trendValue(source[idx], i) : null] as [string, number | null]),
     }));
@@ -215,7 +216,7 @@ export default function ProductivityOverview(_: PageProps) {
       body={ko
         ? `${errors} 은 이 화면의 등록 값이 아닙니다. kpi=occupancy|dwell|cycleTime|throughput, axis=room|stgroup, sort=key|occ|obs|pct|jobs:asc|desc 만 허용하며 다른 값으로 바꾸지 않습니다.`
         : `${errors} is not a registered value. Allowed: kpi=occupancy|dwell|cycleTime|throughput, axis=room|stgroup, sort=key|occ|obs|pct|jobs:asc|desc. Nothing was substituted.`} />
-      : <div className="space-y-4">
+      : <PrototypeWidgetStates widgets={[{ response: kpiQ.response, retry: kpiQ.refetch }, { response: trendQ.response, retry: trendQ.refetch }, { response: breakdownQ.response, retry: breakdownQ.refetch }, { response: attentionQ.response, retry: attentionQ.refetch }]}><div className="space-y-4">
       {/* Primary KPI / Summary */}
       <section aria-labelledby="kpi-heading">
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
@@ -225,7 +226,7 @@ export default function ProductivityOverview(_: PageProps) {
             <p className="t-caption text-text-muted">{CYCLE_VERSION_NOTE[ko ? 'ko' : 'en']}</p>
           </div>
         </div>
-        <QueryView query={kpiQ} skeletonRows={4} emptyAction={clearEmptySelection}>
+        <QueryView prototypeWidgetTitle={ko ? '네 지표 요약' : 'Four-metric summary'} query={kpiQ} skeletonRows={4} emptyAction={clearEmptySelection}>
           {data => <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {(['occupancy', 'dwell', 'cycleTime', 'throughput'] as const).map(k => kpiCard(k, data))}
           </div>}
@@ -234,7 +235,7 @@ export default function ProductivityOverview(_: PageProps) {
 
       {/* Main Trend */}
       <section aria-label={ko ? '주요 추세' : 'Main trend'}>
-        <QueryView query={trendQ} skeletonRows={5} emptyAction={clearEmptySelection}>
+        <QueryView prototypeWidgetTitle={meta.title} query={trendQ} skeletonRows={5} emptyAction={clearEmptySelection}>
           {data => {
             const { series, compareSeries, total } = trendSeriesFor(data);
             const t = trendQ.response?.trust;
@@ -257,7 +258,7 @@ export default function ProductivityOverview(_: PageProps) {
       <div className="grid gap-4 xl:grid-cols-2">
         {/* Breakdown: occupancy composition per room_name / StGroup */}
         <section aria-label={ko ? '점유 구성' : 'Occupancy composition'}>
-          <QueryView query={breakdownQ} skeletonRows={4} emptyAction={clearEmptySelection}>
+          <QueryView prototypeWidgetTitle={ko ? '점유 구성' : 'Occupancy composition'} query={breakdownQ} skeletonRows={4} emptyAction={clearEmptySelection}>
             {rows => {
               const t = breakdownQ.response?.trust;
               const pct = (r: typeof rows[number]) => (r.observableHours > 0 ? (r.occupiedHours / r.observableHours) * 100 : null);
@@ -332,7 +333,7 @@ export default function ProductivityOverview(_: PageProps) {
         <section aria-label={ko ? '확인할 항목' : 'Attention list'}>
           <Panel title={ko ? '확인할 항목' : 'Attention'}
             subtitle={ko ? '비Process 체류·P95 상위 설비 (랭킹만, 임계값 이상 판정 아님 — Candidate).' : 'Top equipment by dwell and P95 (ranking only, no threshold verdicts — Candidate).'}>
-            <QueryView query={attentionQ} skeletonRows={4} emptyAction={clearEmptySelection}>
+            <QueryView prototypeWidgetTitle={ko ? '확인할 항목' : 'Attention'} query={attentionQ} skeletonRows={4} emptyAction={clearEmptySelection}>
               {(rows: AttentionRow[]) => <>
                 <ul className="divide-y divide-border-subtle">
                   {rows.map(r => <li key={`${r.kind}-${r.equipmentId}`} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2">
@@ -361,6 +362,6 @@ export default function ProductivityOverview(_: PageProps) {
           </Panel>
         </section>
       </div>
-    </div>}
+    </div></PrototypeWidgetStates>}
   </PlatformPage>;
 }

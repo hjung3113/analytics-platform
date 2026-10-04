@@ -8,3 +8,6 @@ export * from './PlatformPage';
 export * from './RadioGroup';
 export * from './StatCard';
 export * from './StateView';
+
+export { PrototypePageFilterBar, type ProtoFilterField } from './proto/PageFilterBar';
+export { PrototypeWidgetStates } from './proto/WidgetStates';

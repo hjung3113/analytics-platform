@@ -20,6 +20,8 @@
 
   --cat-purple: 124 58 237;
   --cat-teal: 13 148 136;
+  /* THROWAWAY #207 previous-period stroke, opaque on every chart surface. */
+  --proto-amber-stroke: 180 83 9;
   --cat-amber: 217 119 6;
   --chart-blue: 59 156 255;
   --chart-teal: 0 163 181;

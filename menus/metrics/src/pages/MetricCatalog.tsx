@@ -1,3 +1,4 @@
+import { PrototypePageFilterBar } from '@ap/components';
 import { useMemo } from 'react';
 import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
@@ -98,7 +99,11 @@ export default function MetricCatalogPage(_: PageProps) {
     description={lang === 'ko'
       ? '정의·grain·분자/분모·게시 포인터를 탐색합니다. 초안은 분석 기본 버전이 아닙니다. 정의 등록·발행 화면은 Open이라 두지 않았습니다.'
       : 'Browse definitions, grain, numerator/denominator and the published pointer. Drafts are not analysis defaults. Registration and publish UI is Open and omitted.'}
-    contextExtension={<div className="flex flex-wrap items-end gap-2">
+    contextExtension={<PrototypePageFilterBar label={lang === 'ko' ? '페이지 필터' : 'Page filters'} allLabel={lang === 'ko' ? '전체' : 'All'} filterLabel={lang === 'ko' ? '필터' : 'Filters'} reset={(q || status || domain) && <Button variant="secondary" size="sm" onClick={() => setPage({ q: null, status: null, domain: null, page: null })}>{lang === 'ko' ? '필터 초기화' : 'Reset filters'}</Button>} fields={[
+      { key: 'q', testId: 'metric-search', label: lang === 'ko' ? '이름 또는 metricId' : 'Name or metricId', value: q ?? '', onChange: value => setPage({ q: value || null, page: null }, { replace: true }) },
+      { key: 'status', testId: 'metric-status-filter', label: lang === 'ko' ? '상태' : 'Status', value: status ?? '', onChange: value => setPage({ status: value || null, page: null }), options: STATUSES.map(value => ({ value, label: tx(STATUS_LABEL[value]) })) },
+      { key: 'domain', testId: 'metric-domain-filter', label: 'domain', value: domain ?? '', onChange: value => setPage({ domain: value || null, page: null }), options: DOMAINS.map(value => ({ value, label: tx(DOMAIN_LABEL[value]) })) },
+    ]}><div className="flex flex-wrap items-end gap-2">
       <label className="grid gap-1 text-[11px] text-text-muted">
         {lang === 'ko' ? '이름 또는 metricId' : 'Name or metricId'}
         <Input data-testid="metric-search" value={q ?? ''} placeholder={lang === 'ko' ? '검색' : 'Search'} className="h-8 w-56 rounded-sm border-border-control text-[12px]"
@@ -123,7 +128,7 @@ export default function MetricCatalogPage(_: PageProps) {
         </select>
       </label>
       {(q || status || domain) && <Button variant="secondary" size="sm" className="h-8 rounded-sm" onClick={() => setPage({ q: null, status: null, domain: null, page: null })}>{lang === 'ko' ? '필터 초기화' : 'Reset filters'}</Button>}
-    </div>}
+    </div></PrototypePageFilterBar>}
   >
     <div className="space-y-3">
       <MetricPairBanner />

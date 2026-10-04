@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { equipmentExportEndpoint, equipmentMakersEndpoint, equipmentPageEndpoint, type Equipment } from '../endpoints';
-import { DetailDrawer, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
+import { PrototypePageFilterBar, DetailDrawer, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
 import { Button } from '@ap/ui';
 import { EquipmentPanel, EquipmentStatus } from './EquipmentDetail';
 import { exportFilterSummary, exportParams, fields, sortFields, statusText } from './data';
@@ -51,11 +51,15 @@ export default function EquipmentMaster() {
         onChange: ({ page, sorting }) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }),
       } : undefined}
       loadPage={(page, signal) => pages.fetch({ q, status, maker, ...page }, signal)}
-      filters={<fieldset className="flex flex-wrap items-center gap-2 border-l-2 border-border-strong pl-3"><legend className="t-caption text-text-muted">{ko ? '페이지 필터' : 'Page filters'}</legend>
+      filters={<PrototypePageFilterBar label={ko ? '페이지 필터' : 'Page filters'} allLabel={ko ? '전체' : 'All'} filterLabel={ko ? '필터' : 'Filters'} reset={clear} fields={[
+        { key: 'q', label: ko ? '설비 ID 또는 이름 검색' : 'Search equipment ID or name', value: q, onChange: value => setPage({ q: value || null, page: null }, { replace: true }) },
+        { key: 'status', label: ko ? '상태' : 'Status', value: status, onChange: value => setPage({ status: value || null, page: null }), options: Object.entries(statusText).map(([value, text]) => ({ value, label: text[lang] })) },
+        { key: 'maker', label: 'Maker', value: maker, onChange: value => setPage({ maker: value || null, page: null }), options: makerOptions.map(value => ({ value, label: value })) },
+      ]}><fieldset className="flex flex-wrap items-center gap-2 border-l-2 border-border-strong pl-3"><legend className="t-caption text-text-muted">{ko ? '페이지 필터' : 'Page filters'}</legend>
         <label className="flex items-center gap-1 text-xs">{ko ? '검색' : 'Search'}<input className={control} aria-label={ko ? '설비 ID 또는 이름 검색' : 'Search equipment ID or name'} value={q} onChange={e => setPage({ q: e.target.value || null, page: null }, { replace: true })} /></label>
         <label className="flex items-center gap-1 text-xs">{ko ? '상태' : 'Status'}<select className={control} value={status} onChange={e => setPage({ status: e.target.value || null, page: null })}><option value="">{ko ? '전체' : 'All'}</option>{Object.entries(statusText).map(([id, text]) => <option key={id} value={id}>{text[lang]}</option>)}</select></label>
         <label className="flex items-center gap-1 text-xs">Maker<select className={control} value={maker} onChange={e => setPage({ maker: e.target.value || null, page: null })}><option value="">{ko ? '전체' : 'All'}</option>{makerOptions.map(m => <option key={m}>{m}</option>)}</select></label>{clear}
-      </fieldset>}
+      </fieldset></PrototypePageFilterBar>}
       rowAction={e => <Button size="sm" variant="ghost" onClick={() => setPage({ focus: e.equipmentId, tab: null })}>{ko ? '보기' : 'View'}</Button>}
       bulkActions={ids => <Button asChild size="sm"><PlatformLink href={linkTo('productivity-overview', { global: { selection: ids } })}>{ko ? '선택 설비로 분석' : 'Analyze selected equipment'}</PlatformLink></Button>}
       // Table-owned export (#173): the page only says how to read the rows; the table builds the file.

@@ -2,14 +2,16 @@ import { CalendarDays, ChevronDown, Link2, RotateCcw, X } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { CONTEXT_LABELS, useAdapterRequest, useI18n, usePlatform } from '@ap/kernel';
 import { type Capability, type Condition, type ConditionAxis, conditionLabel, type ContextKey, formatDateTime, type GlobalContext, parseDateTime, shift } from '@ap/contracts';
-import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { Button, cn, usePrototype, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { PrototypeContextBar, useContextEditingDone } from './proto/ContextBar';
 import { SegmentedRadio } from '@ap/components';
 
 const hours = (g: GlobalContext) => (g.from && g.to ? (parseDateTime(g.to, 'to').getTime() - parseDateTime(g.from, 'from').getTime()) / 3_600_000 : null);
 const short = (v: string) => v.replace('T', ' ').slice(5, 16);
 
 export function GlobalContextBar() {
-  const { route, global, setGlobal, resetContext, toast, url } = usePlatform();
+  const { context: prototypeContext } = usePrototype();
+  const { route, global, setGlobal, resetContext, toast, url, defaultRangeTo } = usePlatform();
   const { t, lang } = useI18n();
   if (!route) return null;
   const cap = route.menu.context;
@@ -21,6 +23,31 @@ export function GlobalContextBar() {
   const shown = keys.filter(k => cap[k] !== 'unsupported' || has[k]);
   if (!shown.length) return null;
   const editable = (k: ContextKey) => cap[k] !== 'unsupported';
+
+  if (prototypeContext !== 'A') {
+    const controls = [
+      ...(shown.includes('time') ? [{ key: 'time' as const, cap: cap.time, applied: global.from !== null && (global.to !== defaultRangeTo || hours(global) !== 24), node: editable('time') ? <PeriodControl cap={cap.time} /> : <CarriedChip k="time" cap={cap.time} value={global.from ? `${short(global.from)} → ${short(global.to!)}` : ''} onRemove={() => setGlobal({ from: null, to: null })} />, compactNode: editable('time') ? <PeriodControl compact cap={cap.time} /> : <CarriedChip compact k="time" cap={cap.time} value={global.from ? `${short(global.from)} → ${short(global.to!)}` : ''} onRemove={() => setGlobal({ from: null, to: null })} /> }] : []),
+      ...(shown.includes('roomNames') ? [{ key: 'roomNames' as const, cap: cap.roomNames, applied: has.roomNames, node: editable('roomNames') ? <RoomEditor cap={cap.roomNames} /> : <CarriedChip k="roomNames" cap={cap.roomNames} value={setText(global.roomNames, t)} onRemove={() => setGlobal({ roomNames: null })} /> }] : []),
+      ...(shown.includes('condition') ? [{ key: 'condition' as const, cap: cap.condition, applied: has.condition, node: editable('condition') ? <ConditionEditor cap={cap.condition} /> : <CarriedChip k="condition" cap={cap.condition} value={global.condition ? conditionLabel(global.condition) : ''} onRemove={() => setGlobal({ condition: null })} /> }] : []),
+      ...(shown.includes('selection') ? [{ key: 'selection' as const, cap: cap.selection, applied: has.selection, node: editable('selection') ? <SelectionEditor cap={cap.selection} /> : <CarriedChip k="selection" cap={cap.selection} value={setText(global.selection, t)} onRemove={() => setGlobal({ selection: null })} /> }] : []),
+      ...(has.lot ? [{ key: 'lot' as const, cap: cap.lot, applied: true, node: <CarriedChip k="lot" cap={cap.lot} value={setText(global.lotIds, t)} onRemove={() => setGlobal({ lotIds: null })} /> }] : []),
+      ...(has.ppid ? [{ key: 'ppid' as const, cap: cap.ppid, applied: true, node: <CarriedChip k="ppid" cap={cap.ppid} value={global.ppid!} onRemove={() => setGlobal({ ppid: null })} /> }] : []),
+      ...(has.recipe ? [{ key: 'recipe' as const, cap: cap.recipe, applied: true, node: <CarriedChip k="recipe" cap={cap.recipe} value={setText(global.recipeIds, t)} onRemove={() => setGlobal({ recipeIds: null })} /> }] : []),
+      ...(has.metric ? [{ key: 'metric' as const, cap: cap.metric, applied: true, node: <CarriedChip k="metric" cap={cap.metric} value={`${global.metricId}${global.metricVersion ? ` @ ${global.metricVersion}` : ''}`} onRemove={() => setGlobal({ metricId: null, metricVersion: null })} /> }] : []),
+    ];
+    const fullSet = (ids: string[] | null) => ids === null ? t('all') : ids.length ? ids.join(', ') : t('explicitEmpty');
+    const values: Record<ContextKey, string> = {
+      time: global.from ? `${short(global.from)} → ${short(global.to!)}` : t('selectPeriod'), roomNames: fullSet(global.roomNames),
+      condition: global.condition ? conditionLabel(global.condition) : t('none'), selection: fullSet(global.selection),
+      lot: fullSet(global.lotIds), ppid: global.ppid ?? t('none'), recipe: fullSet(global.recipeIds),
+      metric: global.metricId ? `${global.metricId}${global.metricVersion ? ` @ ${global.metricVersion}` : ` (${lang === 'ko' ? '버전 미정' : 'no version'})`}` : t('none'),
+    };
+    const summary = keys.map(k => `${CONTEXT_LABELS[k][lang]} ${values[k]} (${cap[k] === 'apply' ? t('apply') : cap[k] === 'reference' ? t('referenceOnly') : t('notUsed')})`).join(' · ');
+    return <PrototypeContextBar key={JSON.stringify([global, cap, lang, prototypeContext])} variant={prototypeContext} controls={controls} summary={summary} actions={(narrow, done) => <span className="flex items-center gap-1">
+      <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs text-text-secondary" aria-label={lang === 'ko' ? '링크 복사' : 'Copy link'} title={lang === 'ko' ? '링크 복사' : 'Copy link'} onClick={() => { void navigator.clipboard?.writeText(window.location.origin + url); toast(lang === 'ko' ? '현재 Context가 담긴 링크를 복사했습니다. 받는 사람의 권한으로 서버가 다시 검증합니다.' : 'Copied a link with the current context. The server re-validates for the recipient.'); }}><Link2 className="size-3.5" aria-hidden />{!narrow && (lang === 'ko' ? '링크 복사' : 'Copy link')}</Button>
+      <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs text-text-secondary" aria-label={t('reset')} title={t('reset')} onClick={() => { done(); resetContext(); }}><RotateCcw className="size-3.5" aria-hidden />{!narrow && t('reset')}</Button>
+    </span>} />;
+  }
 
   return <div role="region" aria-label={t('globalContext')} className="border-b border-border-subtle bg-surface-canvas/95 px-5 py-2 backdrop-blur">
     <div className="flex flex-wrap items-center gap-2">
@@ -53,10 +80,11 @@ function setText(ids: string[] | null, t: (k: 'all' | 'explicitEmpty') => string
 }
 
 function CapTag({ cap }: { cap: Capability }) {
-  const { t } = useI18n();
-  if (cap === 'apply') return null;
-  return <span className={cn('rounded-xs px-1 text-[10px] font-semibold', cap === 'reference' ? 'bg-surface-sunken text-text-secondary' : 'bg-accent-warn-soft text-text-warning-label')}>
-    {cap === 'reference' ? t('referenceOnly') : t('notUsed')}
+  const { t, lang } = useI18n();
+  const { context } = usePrototype();
+  if (cap === 'apply' && context === 'A') return null;
+  return <span className={cn('shrink-0 rounded-xs px-1 text-[10px] font-semibold', cap !== 'unsupported' ? 'bg-surface-sunken text-text-secondary' : 'bg-accent-warn-soft text-text-warning-label')}>
+    {cap === 'apply' ? (lang === 'ko' ? '적용' : 'Apply') : cap === 'reference' ? t('referenceOnly') : t('notUsed')}
   </span>;
 }
 
@@ -73,19 +101,22 @@ function ChipShell({ label, value, cap, empty, children, ...rest }: { label: Rea
 }
 
 /** Preserved context the current page does not edit: never silently dropped (§6); removable explicitly. */
-function CarriedChip({ k, cap, value, onRemove }: { k: ContextKey; cap: Capability; value: string; onRemove: () => void }) {
+function CarriedChip({ k, cap, value, onRemove, compact }: { k: ContextKey; cap: Capability; value: string; onRemove: () => void; compact?: boolean }) {
+  const done = useContextEditingDone();
   const { tx, t, lang } = useI18n();
   return <span className={cn('inline-flex h-8 items-center gap-1.5 rounded-sm border pl-2.5 pr-1 text-[12px]',
-    cap === 'unsupported' ? 'border-dashed border-border-strong text-text-muted' : 'border-border-strong bg-surface-card')}
+    cap === 'unsupported' ? 'border-dashed border-border-strong text-text-muted' : 'border-border-strong bg-surface-card', compact && 'max-w-full min-w-0')}
     title={cap === 'unsupported' ? (lang === 'ko' ? 'URL에 보존되며 지원 메뉴로 이동하면 재검증 후 적용됩니다.' : 'Kept in the URL; re-validated and applied on a supporting page.') : undefined}>
     <span className="text-text-muted">{tx(CONTEXT_LABELS[k])}</span>
-    <span className="max-w-48 truncate font-medium tabular">{value}</span>
+    <span className="min-w-0 max-w-48 truncate font-medium tabular" title={value}>{value}</span>
     <CapTag cap={cap} />
-    <button type="button" onClick={onRemove} aria-label={`${t('clear')} ${tx(CONTEXT_LABELS[k])}`} className="grid size-6 place-items-center rounded-xs hover:bg-surface-sunken"><X className="size-3" aria-hidden /></button>
+    <button type="button" onClick={() => { done(); onRemove(); }} aria-label={`${t('clear')} ${tx(CONTEXT_LABELS[k])}`} className="grid size-6 place-items-center rounded-xs hover:bg-surface-sunken"><X className="size-3" aria-hidden /></button>
   </span>;
 }
 
-function PeriodControl({ cap }: { cap: Capability }) {
+function PeriodControl({ cap, compact = false }: { cap: Capability; compact?: boolean }) {
+  const done = useContextEditingDone();
+  const { context: contextVariant } = usePrototype();
   const { global, setGlobal, defaultRangeTo } = usePlatform();
   const { t, lang } = useI18n();
   const [open, setOpen] = useState(false);
@@ -95,36 +126,32 @@ function PeriodControl({ cap }: { cap: Capability }) {
   const choose = (id: string) => {
     const p = presets.find(x => x.id === id)!;
     if (id === 'custom') { setOpen(true); return; }
-    setGlobal({ from: shift(defaultRangeTo, -p.h), to: defaultRangeTo });
+    done(); setGlobal({ from: shift(defaultRangeTo, -p.h), to: defaultRangeTo });
   };
-  return <div className="flex items-center gap-1">
+  const presetsControl = <SegmentedRadio label={t('period')} value={preset} onChange={choose} className="flex h-8 shrink-0 items-center gap-0.5 rounded-sm border border-border-subtle bg-surface-card p-0.5" optionClassName={selected => cn('h-full rounded-xs px-2.5 text-[12px] font-medium', selected ? 'bg-accent-primary text-text-on-accent' : 'text-text-secondary hover:bg-surface-sunken')} options={presets.map(p => ({ value: p.id, label: p.label }))} />;
+  return <div className={cn('flex items-center gap-1', contextVariant !== 'A' && 'min-w-0')}>
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type="button" className="inline-flex h-8 min-w-[204px] items-center gap-2 rounded-sm border border-border-strong bg-surface-card px-2.5 text-[12px] hover:border-border-control" aria-label={`${t('period')}: ${global.from ?? ''} – ${global.to ?? ''}`}>
-          <CalendarDays className="size-4 text-text-muted" aria-hidden />
-          {global.from ? <span className="font-medium tabular">{short(global.from)} → {short(global.to!)}</span> : <span className="text-text-muted">{t('selectPeriod')}</span>}
-          {h !== null && <span className="text-text-muted tabular">({h >= 48 ? `${Math.round(h / 24)}${lang === 'ko' ? '일' : 'd'}` : `${h}h`})</span>}
+        <button type="button" className={cn('inline-flex h-8 items-center gap-2 rounded-sm border border-border-control bg-surface-card px-2.5 text-[12px]', compact ? 'w-full min-w-0' : 'min-w-[204px]', contextVariant === 'A' && 'border-border-strong hover:border-border-control')} aria-label={`${t('period')}: ${global.from ?? ''} – ${global.to ?? ''}`}>
+          <CalendarDays className="size-4 shrink-0 text-text-muted" aria-hidden />
+          {global.from ? <span className={cn('font-medium tabular', compact && 'min-w-0 truncate')} title={`${global.from} → ${global.to}`}>{short(global.from)} → {short(global.to!)}</span> : <span className="text-text-muted">{t('selectPeriod')}</span>}
+          {!compact && h !== null && <span className="text-text-muted tabular">({h >= 48 ? `${Math.round(h / 24)}${lang === 'ko' ? '일' : 'd'}` : `${h}h`})</span>}
           <CapTag cap={cap} />
-          <ChevronDown className="size-3.5 text-text-muted" aria-hidden />
+          <ChevronDown className="size-3.5 shrink-0 text-text-muted" aria-hidden />
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[22rem] rounded-md border border-border-strong bg-surface-card p-3 shadow-md">
+        {compact && <div className="mb-3">{presetsControl}</div>}
         <CustomRange onDone={() => setOpen(false)} />
       </PopoverContent>
     </Popover>
-    <SegmentedRadio
-      label={t('period')}
-      value={preset}
-      onChange={id => choose(id)}
-      className="flex h-8 items-center gap-0.5 rounded-sm border border-border-subtle bg-surface-card p-0.5"
-      optionClassName={selected => cn('h-full rounded-xs px-2.5 text-[12px] font-medium', selected ? 'bg-accent-primary text-text-on-accent' : 'text-text-secondary hover:bg-surface-sunken')}
-      options={presets.map(p => ({ value: p.id, label: p.label }))}
-    />
+    {!compact && presetsControl}
   </div>;
 }
 
 /** Calendar dates are inclusive in the UI and become [D1T00:00:00, (D2+1)T00:00:00) in the URL (§6.3). */
 function CustomRange({ onDone }: { onDone: () => void }) {
+  const done = useContextEditingDone();
   const { global, setGlobal, defaultRangeTo } = usePlatform();
   const { t, lang } = useI18n();
   const [mode, setMode] = useState<'date' | 'time'>('date');
@@ -148,7 +175,7 @@ function CustomRange({ onDone }: { onDone: () => void }) {
     }
   } catch (e) { error = e instanceof Error ? e.message : String(e); }
   const input = 'h-8 w-full rounded-md border border-border-control bg-surface-card px-2 text-[12px] tabular';
-  return <form onSubmit={e => { e.preventDefault(); if (result) { setGlobal(result); onDone(); } }} onKeyDown={e => { if (e.key === 'Escape') onDone(); }} className="space-y-3 text-[12px]">
+  return <form onSubmit={e => { e.preventDefault(); if (result) { done(); setGlobal(result); onDone(); } }} onKeyDown={e => { if (e.key === 'Escape') onDone(); }} className="space-y-3 text-[12px]">
     <SegmentedRadio
       label={lang === 'ko' ? '입력 방식' : 'Input mode'}
       value={mode}
@@ -186,6 +213,7 @@ function SetEditor({ label, cap, value, options, absentLabel, onApply, note, sea
   absentLabel: string; onApply: (v: string[] | null) => void; note?: ReactNode; search?: boolean;
 }) {
   const { t, lang } = useI18n();
+  const done = useContextEditingDone();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<SetMode>(modeOf(value));
   const [picked, setPicked] = useState<string[]>(value ?? []);
@@ -222,7 +250,7 @@ function SetEditor({ label, cap, value, options, absentLabel, onApply, note, sea
       <div className="mt-3 flex justify-end gap-2">
         <Button size="sm" variant="secondary" className="h-7 px-3 text-[12px]" onClick={() => setOpen(false)}>{t('cancel')}</Button>
         <Button size="sm" className="h-7 px-3 text-[12px]" disabled={mode === 'some' && !picked.length}
-          onClick={() => { onApply(mode === 'absent' ? null : mode === 'empty' ? [] : picked); setOpen(false); }}>{t('apply')}</Button>
+          onClick={() => { done(); onApply(mode === 'absent' ? null : mode === 'empty' ? [] : picked); setOpen(false); }}>{t('apply')}</Button>
       </div>
     </PopoverContent>
   </Popover>;
@@ -237,6 +265,7 @@ function RoomEditor({ cap }: { cap: Capability }) {
 }
 
 function ConditionEditor({ cap }: { cap: Capability }) {
+  const done = useContextEditingDone();
   const { global, setGlobal, adapter } = usePlatform();
   const { t, lang } = useI18n();
   const site = global.scopeId ?? '';
@@ -274,10 +303,10 @@ function ConditionEditor({ cap }: { cap: Capability }) {
       </ul>
       <p className="mt-2 rounded-md bg-surface-sunken px-2 py-1.5 text-[11px] text-text-secondary">{lang === 'ko' ? 'live 조건: 재방문 시 현재 소속으로 다시 평가됩니다. 조건 변경은 고정 Selection을 바꾸지 않습니다.' : 'Live condition: membership is re-evaluated on revisit. Changing it never alters the fixed Selection.'}</p>
       <div className="mt-3 flex justify-between gap-2">
-        <Button size="sm" variant="ghost" className="h-7 px-2 text-[12px]" onClick={() => { setGlobal({ condition: null }); setOpen(false); }}>{t('clear')}</Button>
+        <Button size="sm" variant="ghost" className="h-7 px-2 text-[12px]" onClick={() => { done(); setGlobal({ condition: null }); setOpen(false); }}>{t('clear')}</Button>
         <span className="flex gap-2">
           <Button size="sm" variant="secondary" className="h-7 px-3 text-[12px]" onClick={() => setOpen(false)}>{t('cancel')}</Button>
-          <Button size="sm" className="h-7 px-3 text-[12px]" disabled={!val} onClick={() => { setGlobal({ condition: build() }); setOpen(false); }}>{t('apply')}</Button>
+          <Button size="sm" className="h-7 px-3 text-[12px]" disabled={!val} onClick={() => { done(); setGlobal({ condition: build() }); setOpen(false); }}>{t('apply')}</Button>
         </span>
       </div>
     </PopoverContent>

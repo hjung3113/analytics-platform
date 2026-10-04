@@ -2,12 +2,25 @@ import { AlertTriangle, Ban, Clock, HelpCircle, Inbox, Loader2, Maximize2, Rotat
 import type { ReactNode } from 'react';
 import { type QueryState, useI18n } from '@ap/kernel';
 import type { ApiResponse } from '@ap/contracts';
+import { useWidgetState } from './proto/WidgetStateContext';
 import { Button, cn, Skeleton } from '@ap/ui';
 
 type StateProps = { icon: ReactNode; title: string; body?: ReactNode; action?: ReactNode; tone?: 'neutral' | 'danger' | 'warning'; correlationId?: string; compact?: boolean };
 
 export function StateMessage({ icon, title, body, action, tone = 'neutral', correlationId, compact }: StateProps) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const variant = useWidgetState();
+  if (variant !== 'A') return <div role={tone === 'danger' ? 'alert' : 'status'} className="grid min-w-0 gap-2 rounded-md bg-surface-sunken px-3 py-2 text-xs text-text-secondary">
+    <div className={cn('flex min-w-0 items-start gap-2', tone === 'danger' ? 'text-text-danger-label' : tone === 'warning' ? 'text-text-warning-label' : 'text-text-secondary')}>
+      <span aria-hidden className="shrink-0">{icon}</span><strong className={cn('min-w-0', variant === 'C' && 'rounded-pill border border-current px-2 py-0.5')}>{title}</strong>
+    </div>
+    {variant === 'B' && body && <div className="min-w-0 break-words leading-5">{body}</div>}
+    {variant === 'C' && body && <details className="min-w-0"><summary className="cursor-pointer focus-visible:outline-2 focus-visible:outline-focus-ring">{lang === 'ko' ? '상세 안내' : 'Details'}</summary><div className="break-words py-1 leading-5">{body}</div></details>}
+    {(action || correlationId) && <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+      {action && <div className="shrink-0">{action}</div>}
+      {correlationId && <span className="t-mono min-w-0 break-all text-[11px]">{t('correlationId')}: {correlationId}</span>}
+    </div>}
+  </div>;
   return <div role={tone === 'danger' ? 'alert' : 'status'} className={cn('flex flex-col items-start gap-2 rounded-md p-4',
     tone === 'danger' ? 'bg-accent-danger-soft text-text-danger-label' : tone === 'warning' ? 'bg-accent-warn-soft text-text-warning-label' : 'bg-surface-sunken text-text-secondary',
     compact ? 'p-3' : 'min-h-24')}>
@@ -55,13 +68,16 @@ export function OutcomeView<T>({ response, onRetry, emptyAction, compact, childr
 }
 
 /** Query boundary: first load → skeleton; same-Context refresh → keep data + label; otherwise outcome taxonomy. */
-export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, emptyAction, compact }: {
-  query: QueryState<T>; children: (data: T, response: ApiResponse<T>) => ReactNode; skeletonRows?: number; skeletonHeight?: number; emptyAction?: ReactNode; compact?: boolean;
+export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, emptyAction, compact, prototypeWidgetTitle }: {
+  query: QueryState<T>; children: (data: T, response: ApiResponse<T>) => ReactNode; skeletonRows?: number; skeletonHeight?: number; emptyAction?: ReactNode; compact?: boolean; prototypeWidgetTitle?: string;
 }) {
+  const variant = useWidgetState();
   const { t } = useI18n();
   if (!query.response) return <LoadingBlock rows={skeletonRows} height={skeletonHeight} />;
   const response = query.response;
-  return <div aria-busy={query.status === 'refreshing'} className="relative">
+  const namedState = variant !== 'A' && response.outcome !== 'ok' && prototypeWidgetTitle;
+  return <div aria-busy={query.status === 'refreshing'} className={cn('relative min-w-0', namedState && 'rounded-lg border border-border-subtle bg-surface-card p-3')}>
+    {namedState && <h3 className="mb-2 text-[13px] font-semibold text-text-primary">{prototypeWidgetTitle}</h3>}
     {query.status === 'refreshing' && <span role="status" className="absolute right-0 -top-7 inline-flex items-center gap-1 text-[11px] text-text-muted">
       <Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}
     </span>}
