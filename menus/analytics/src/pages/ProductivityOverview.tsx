@@ -133,7 +133,7 @@ export default function ProductivityOverview(_: PageProps) {
   }
 
   // --- Main trend: AnalysisChartFrame for the selected KPI; Compare overlays the previous equal period (bucket-index aligned). ---
-  const trendMeta: Record<KpiKey, { title: string; names: string[]; colors: string[]; kind: 'line' | 'bar'; unit: string; decimals: 0 | 1 | 2; description: string }> = {
+  const trendMeta: Record<KpiKey, { title: string; names: string[]; colors: string[]; dashed?: boolean[]; kind: 'line' | 'bar'; unit: string; decimals: 0 | 1 | 2; description: string }> = {
     occupancy: {
       title: ko ? '물리 점유율 추세' : 'Physical occupancy trend', names: [ko ? '물리 점유율' : 'Physical occupancy'], colors: ['chart-blue'], kind: 'line', unit: '%', decimals: 1,
       description: ko ? '점유 시간 합 ÷ 관측 가능 시간 합 — 비율은 분자·분모를 각각 합산 (설비별 %의 평균 아님)' : 'sum(occupied) ÷ sum(observable); ratios sum numerator and denominator separately, never average per-equipment %',
@@ -143,7 +143,7 @@ export default function ProductivityOverview(_: PageProps) {
       description: ko ? '체류 시간 합 ÷ 완료 Job 수' : 'sum(dwell hours) ÷ completed jobs',
     },
     cycleTime: {
-      title: ko ? '사이클타임 추세 (P50·P95)' : 'Cycle time trend (P50·P95)', names: ['P50', 'P95'], colors: ['chart-blue', 'chart-purple'], kind: 'line', unit: ko ? '분' : 'min', decimals: 1,
+      title: ko ? '사이클타임 추세 (P50·P95)' : 'Cycle time trend (P50·P95)', names: ['P50', 'P95'], colors: ['chart-blue', 'chart-purple'], dashed: [false, true], kind: 'line', unit: ko ? '분' : 'min', decimals: 1,
       description: ko ? '완료 Job 풀링 모집단의 분위수 — 설비·버킷별 P95의 평균 아님' : 'quantiles over the pooled completed-job population, never averages of per-equipment/bucket P95s',
     },
     throughput: {
@@ -157,12 +157,13 @@ export default function ProductivityOverview(_: PageProps) {
   const fmtTrend = (v: number) => v.toLocaleString(locale, { minimumFractionDigits: meta.decimals, maximumFractionDigits: meta.decimals });
 
   function trendSeriesFor(data: TrendData): { series: ChartSeries[]; compareSeries: ChartSeries[]; total: number | null } {
-    const build = (source: TrendBucket[], dashed: boolean): ChartSeries[] => meta.names.map((name, i) => ({
-      id: `${selectedKpi}-${dashed ? 'prev' : 'cur'}-${i}`,
-      name: dashed ? `${name} (${ko ? '이전 동일 기간' : 'previous period'})` : name,
-      color: dashed ? 'cat-amber' : meta.colors[i],
+    const build = (source: TrendBucket[], previous: boolean): ChartSeries[] => meta.names.map((name, i) => ({
+      id: `${selectedKpi}-${previous ? 'prev' : 'cur'}-${i}`,
+      name: previous ? `${name} (${ko ? '이전 동일 기간' : 'previous period'})` : name,
+      color: previous ? 'cat-amber' : meta.colors[i],
       kind: meta.kind,
-      dashed,
+      // Previous-period series mirror their current counterpart; the Chart Frame derives the previous pattern (06 §16, ADR-0014).
+      dashed: meta.dashed?.[i] ?? false,
       // Compare is x-aligned by bucket index onto the current period's axis.
       points: data.current.map((c, idx) => [c.start, source[idx] ? trendValue(source[idx], i) : null] as [string, number | null]),
     }));
@@ -225,7 +226,7 @@ export default function ProductivityOverview(_: PageProps) {
             <p className="t-caption text-text-muted">{CYCLE_VERSION_NOTE[ko ? 'ko' : 'en']}</p>
           </div>
         </div>
-        <QueryView query={kpiQ} skeletonRows={4} emptyAction={clearEmptySelection}>
+        <QueryView widgetName={ko ? '네 지표 요약' : 'Four-metric summary'} hideWidgetName query={kpiQ} skeletonRows={4} emptyAction={clearEmptySelection}>
           {data => <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {(['occupancy', 'dwell', 'cycleTime', 'throughput'] as const).map(k => kpiCard(k, data))}
           </div>}
@@ -234,7 +235,7 @@ export default function ProductivityOverview(_: PageProps) {
 
       {/* Main Trend */}
       <section aria-label={ko ? '주요 추세' : 'Main trend'}>
-        <QueryView query={trendQ} skeletonRows={5} emptyAction={clearEmptySelection}>
+        <QueryView widgetName={meta.title} query={trendQ} skeletonRows={5} emptyAction={clearEmptySelection}>
           {data => {
             const { series, compareSeries, total } = trendSeriesFor(data);
             const t = trendQ.response?.trust;
@@ -257,7 +258,7 @@ export default function ProductivityOverview(_: PageProps) {
       <div className="grid gap-4 xl:grid-cols-2">
         {/* Breakdown: occupancy composition per room_name / StGroup */}
         <section aria-label={ko ? '점유 구성' : 'Occupancy composition'}>
-          <QueryView query={breakdownQ} skeletonRows={4} emptyAction={clearEmptySelection}>
+          <QueryView widgetName={ko ? '점유 구성' : 'Occupancy composition'} query={breakdownQ} skeletonRows={4} emptyAction={clearEmptySelection}>
             {rows => {
               const t = breakdownQ.response?.trust;
               const pct = (r: typeof rows[number]) => (r.observableHours > 0 ? (r.occupiedHours / r.observableHours) * 100 : null);
@@ -332,7 +333,7 @@ export default function ProductivityOverview(_: PageProps) {
         <section aria-label={ko ? '확인할 항목' : 'Attention list'}>
           <Panel title={ko ? '확인할 항목' : 'Attention'}
             subtitle={ko ? '비Process 체류·P95 상위 설비 (랭킹만, 임계값 이상 판정 아님 — Candidate).' : 'Top equipment by dwell and P95 (ranking only, no threshold verdicts — Candidate).'}>
-            <QueryView query={attentionQ} skeletonRows={4} emptyAction={clearEmptySelection}>
+            <QueryView widgetName={ko ? '확인할 항목' : 'Attention'} hideWidgetName query={attentionQ} skeletonRows={4} emptyAction={clearEmptySelection}>
               {(rows: AttentionRow[]) => <>
                 <ul className="divide-y divide-border-subtle">
                   {rows.map(r => <li key={`${r.kind}-${r.equipmentId}`} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2">

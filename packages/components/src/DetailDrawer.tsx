@@ -1,3 +1,4 @@
+import { OutcomeBanners, OutcomeScope } from './OutcomeScope';
 import { X } from 'lucide-react';
 import { useId, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -11,7 +12,7 @@ export function DetailDrawer({ title, subtitle, headerActions, context, tabs, on
   onClose: () => void; tab?: string; onTabChange?: (tab: string) => void;
 }) {
   const host = useDetailPanelSlot();
-  return host ? createPortal(<DetailContent title={title} subtitle={subtitle} headerActions={headerActions} context={context} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} />, host) : null;
+  return host ? createPortal(<OutcomeScope><DetailContent title={title} subtitle={subtitle} headerActions={headerActions} context={context} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} /></OutcomeScope>, host) : null;
 }
 
 function DetailContent({ title, subtitle, headerActions, context, tabs, onClose, tab, onTabChange }: Parameters<typeof DetailDrawer>[0]) {
@@ -30,7 +31,7 @@ function DetailContent({ title, subtitle, headerActions, context, tabs, onClose,
       }
     };
   }, []);
-  return <div ref={panel} role="dialog" aria-modal="false" aria-labelledby={`${id}-t`}
+  return <div ref={panel} role="dialog" tabIndex={-1} aria-modal="false" aria-labelledby={`${id}-t`}
     onKeyDown={e => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); e.stopPropagation(); onClose(); } }}
     className="flex h-full min-h-0 w-full flex-col bg-surface-detail">
     <header className="flex items-start justify-between gap-3 border-b border-border-subtle px-5 py-4">
@@ -44,6 +45,7 @@ function DetailContent({ title, subtitle, headerActions, context, tabs, onClose,
       </div>
     </header>
     {context && <div className="border-b border-border-subtle bg-surface-sunken px-5 py-2 text-[12px] text-text-secondary">{context}</div>}
+    <OutcomeBanners />
     <Tabs value={tab} defaultValue={tab ? undefined : tabs[0].id} onValueChange={onTabChange} className="flex min-h-0 flex-1 flex-col">
       <TabsList aria-label={lang === 'ko' ? '상세 탭' : 'Detail tabs'} className="mx-5 mt-3 w-fit bg-surface-sunken text-text-secondary">
         {tabs.map(tb => <TabsTrigger key={tb.id} value={tb.id} className="text-[12px]">{tb.label}</TabsTrigger>)}

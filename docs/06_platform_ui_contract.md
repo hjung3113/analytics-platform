@@ -317,8 +317,8 @@ Desktop-first를 기본으로 한다.
 ┌────┬──────────────┬──────────────────────────────────────────────────┐
 │Rail│ 공간 이름  «  │ 부모 › 제목 ☆  설명…            Page Actions     │  ← 페이지 머리 50px
 │ A  ├──────────────┼──────────────────────────────────────────────────┤
-│    │ [Scope ▾]    │ Global Context Bar                               │
-│ 공간│ 검증 상태     │ [Date] [room_name] [Condition] [Selection]       │
+│    │ [Scope ▾]    │ [Date] [room_name] [Condition] [조건 N개 더]      │
+│ 공간│ 검증 상태     │                                                  │
 │ 공간├──────────────┼──────────────────────────────────────────────────┤
 │ ── │ 운영 개요     │                                                  │
 │ ⌘K │ 설비관리      │                   Page Content                   │
@@ -336,6 +336,14 @@ Desktop-first를 기본으로 한다.
 - **상단 바는 없다.** 페이지 머리는 한 줄에 위치·제목·설명·동작을 둔다(§8 슬롯).
 
 Scope는 개념적으로 Global Context에 포함되지만 선택기는 **사이드바 머리에 하나만** 둔다. Context Bar에 두 번째 Scope 선택기를 만들지 않는다. 구체 셸 배치는 `07_app_shell_wireframe.md`를 따른다.
+
+### Context 바 우선순위 넘침 (Decided, 2026-10-04 — #56, [ADR-0015](adr/0015-context-bar-priority-overflow.md))
+
+- Context 바는 모든 폭에서 **한 줄 48px**을 유지한다. ResizeObserver로 뷰포트가 아닌 바 자체 폭을 관찰해 상세 슬롯·사이드바 변화에도 반응한다. 측정 레이어 자체의 폭·폰트 로딩 변화와 전역 값·capability·언어·표시 키가 바뀌면 전체 컨트롤의 intrinsic 폭을 다시 측정하며 측정용 레이어는 inert·접근성 제외·중복 데이터 조회 없음으로 유지한다.
+- 기간은 항상 보인다. 폭이 부족하면 기간 프리셋(1일/7일/사용자 지정)을 먼저 기간 팝오버로 옮기고 기간 버튼은 축약할 수 있으나 전체 범위를 접근 이름과 title로 제공한다.
+- 표시 대상인 나머지 키는 `roomNames → condition → selection → lot → ppid → recipe → metric` 순서로 남기며 뒤쪽부터 하나의 넘침 팝오버로 옮긴다. B안은 모든 Context control에 적용/참조/미지원 capability 배지를 표시하고 팝오버에서도 동일한 전체 편집기를 제공한다. 적용 상태는 `적용` / `Applied`(`capApplied`)이며 편집기의 Apply 동작과 구분한다.
+- 넘침 버튼은 `조건 N개 더` / `N more`다. 숨은 키 중 기본값이 아닌 값이 M개 있으면 ` · M개 적용 중` / ` · M applied`를 붙이고 M=0이면 생략한다. 명시적 빈 선택은 기본값과 다르므로 센다.
+- 좁을 때 링크 복사·초기화는 아이콘만 보이고 접근 이름과 title을 유지한다. 편집·초기화·링크·URL·권한·미지원 보존 의미는 §6을 그대로 따른다.
 
 ### Baseline (Decided, 2026-10-04 — FeedbackOps 레이아웃 토큰)
 
@@ -635,6 +643,7 @@ shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](04_frontend_ui_ux
 - PlatformDataTable
 - DetailDrawer
 - AuditTimeline
+- QueryView / StateMessage (응답 상태), PlatformPage-provided shared outcome scope / banner (§19)
 - EmptyState
 - PermissionGuard
 - SavedViewSelector
@@ -901,6 +910,17 @@ Unknown
 - 성공한 조회가 0건이라는 사실만 확인되면 `No matching result`를 표시한다. 원인/가용성 상태를 확인할 수 없으면 `Unknown`으로 표시한다. **0건 ≠ 수집 중단·미수집·파서 지연**이다. 권한 제한 역시 서버가 확인한 경우에만 그 사유를 표시한다.
 - 상태 원천이 아직 없거나 원천 조회에 실패했다면 원인을 단정하지 않는다. taxonomy의 존재가 해당 상태 판정 기능의 구현을 뜻하지 않는다.
 
+### 공유 위젯 응답 (Decided, 사용자 2026-10-04, #55 B안)
+
+- 페이지에서 `outcome ∈ {error, timeout, empty}`·`message`·확정된 empty 설명(`explainsEmpty && state === confirmed`)의 근거 전체가 같은 위젯이 두 개 이상이면 한 그룹으로 묶는다. 평가 순서는 무관하며 원천·관측시각·설명이 다르면 묶지 않는다. `forbidden`, `too_large`, `ok`, 알 수 없는 상태는 묶지 않는다. 같은 응답에서 수집·상위 시스템 원인을 추론하지 않는다.
+- 각 그룹은 본문 상단에 Callout 배너 하나를 표시한다: 의미 아이콘·§19 상태 제목·“위젯 N개에서 같은 응답(서버 오류)이 확인되었습니다” 형태의 한/영 요약·그룹의 모든 조회를 다시 실행하는 재시도 하나. 배너에는 Correlation ID를 표시하지 않는다. 여러 그룹이 있으면 모두 표시하며 큰 그룹이 먼저다.
+- 그룹 위젯은 이름을 유지하는 중립 간결 상태로 표시한다. 제목·아이콘에만 의미 톤을 적용하고 본문(시간 초과 조언 포함)을 직접 노출한다. 개별 재시도와 Correlation ID는 위젯에 남긴다. 좁은 카드에서는 본문을 독립 행에 놓고 동작·ID는 다음 행에서 줄바꿈한다. Consumer가 같은 제목을 바로 위에 보여주면 중복 visible 제목은 생략하고 등록·접근 이름은 유지한다.
+- error/timeout 배너는 danger, empty 배너는 neutral이며 보이는 배너는 non-live `role=group`이다. scope는 처음부터 빈 assertive/polite live region을 유지하고, danger 요약은 assertive 채널, neutral 요약은 polite 채널의 문구를 갱신해 한 번 안내한다. 보이는 배너와 위젯은 별도 live 채널을 만들지 않는다. 그룹 위젯은 live region 없는 이름 있는 group으로 두어 같은 응답을 반복 announce하지 않는다(§26). 한 위젯만 실패하면 배너 없이 기존 전체 StateMessage를 유지한다.
+- 그룹 재시도 중에는 배너 버튼이 busy 상태를 표시하며 중복 활성화를 막고 폭·포커스를 유지한다. 그룹별 갱신 문구는 기존 알림 채널 한 곳에서 안내한다. 각 위젯의 `aria-busy`는 유지하되 반복 `role=status` 갱신 label은 표시하지 않는다. 배너가 사라질 때 포커스가 그 안에 있으면 이름 있는 상세 패널(dialog) 또는 `main` 랜드마크(셸 밖에서는 페이지 본문 요소)로 이동하며 다른 곳으로 이동한 포커스는 빼앗지 않는다. 페이지 본문 주위에 랜드마크를 더하지 않는다.
+- 그룹에 속한 empty 위젯에는 개별 retry와 Correlation ID를 추가한다(확정된 사용자 결정). 한 개뿐인 empty 위젯은 기존 표시·emptyAction을 그대로 유지하며 retry·ID를 추가하지 않는다.
+- DetailDrawer는 페이지와 독립된 scope 및 상세 상단 배너를 제공하며 두 표면의 위젯을 함께 묶지 않는다. 위젯 이름이 없으면 visible 이름·접근 이름을 발명하지 않는다. 보이는 이름은 non-heading label과 aria-labelledby로 연결하고 이름을 숨길 때만 aria-label을 사용한다.
+- `PlatformPage`가 페이지별 scope와 배너 위치를 제공하고 `QueryView`가 현재 응답·refetch·선택적 위젯 이름을 가장 가까운 scope에 등록한다. 등록은 응답·재시도·이름·조회 상태 변화에 따라 layout effect로 갱신하고 cleanup에서 해제한다. 그룹 판정은 응답 객체 identity 대신 동일 grouping key의 peer 존재를 읽는 위젯별 boolean snapshot을 사용해 재조회·두 번째 응답 도착 때 일시적인 전체 alert commit을 막는다. scope 밖의 QueryView는 기존 동작을 유지한다. 결정 배경은 [ADR-0017](adr/0017-shared-outcome-banner.md)을 따른다.
+
 ### 가공 상태 원천과 트레이스 노출 수준 (Decided, 2026-09-26)
 
 - **원천:** 설비·기간별 가공(수집→변환→파싱→적재→검증) 상태의 `statusSource`는 **적재 워커의 단계별 처리 결과 보고**다. 플랫폼이 적재 결과 행 수로 원인을 추론하지 않는다. 보고 스키마와 파서 저장소 변경은 [01 가공 상태 보고](01_architecture_and_data_contract.md#processing-status-report)를 따른다. 이 원천이 구현되기 전까지 07/08의 수집 상태 위젯 보류 결정은 유지된다.
@@ -1130,6 +1150,7 @@ Full experience.
 - Chart와 동일 데이터의 Table 접근 경로 제공
 - icon-only action에는 accessible label
 - 오류 메시지는 원인/행동을 텍스트로 제공
+- §19 공유 응답은 배너 하나가 announce하며 그룹 위젯에는 중복 alert/status live region을 두지 않는다
 - 선택 상태는 색 + shape/text 병행
 
 ---

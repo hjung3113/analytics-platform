@@ -84,7 +84,7 @@ export default function MetricDetailPage({ params }: PageProps) {
         {lang === 'ko' ? '설비 선택은 참조만이며 정의·커버리지 예시를 Selection으로 좁히지 않습니다.' : 'Equipment selection is reference only and does not narrow the definition or coverage examples.'}
       </p>}
 
-      <QueryView query={definition} skeletonRows={6} skeletonHeight={220}>
+      <QueryView widgetName={lang === 'ko' ? '지표 정의' : 'Metric definition'} query={definition} skeletonRows={6} skeletonHeight={220}>
         {(data, response) => <>
           <div className="mb-2 flex justify-end"><DataTrustIndicator trust={response.trust} assessments={response.assessments} /></div>
           {data.problem === 'unknown-metric' || !data.metric ? (
@@ -120,7 +120,7 @@ export default function MetricDetailPage({ params }: PageProps) {
         subtitle={versionParam
           ? (lang === 'ko' ? `${metricId} @ ${versionParam} 만 조회합니다. 확인 범위는 선언된 productivity-overview · cycle-time 입니다. 0건은 그 범위의 성공이며 전 플랫폼 미사용이 아닙니다.` : `Queries only ${metricId} @ ${versionParam}. The checked scope is the declared productivity-overview and cycle-time menus. Zero rows means that scope, not the whole platform.`)
           : (lang === 'ko' ? '버전을 고르면 그 쌍의 사용처만 조회합니다.' : 'Choose a version to query usage for that pair only.')}>
-        {versionParam ? <QueryView query={usage} compact skeletonRows={3}>
+        {versionParam ? <QueryView widgetName={lang === 'ko' ? '사용처 / 의존성' : 'Usage / dependency'} hideWidgetName query={usage} compact skeletonRows={3}>
           {data => data.problem ? (
             <StateMessage tone="danger" icon={<span className="t-mono">!</span>} title={lang === 'ko' ? '이 버전의 사용처를 조회하지 않습니다' : 'Usage was not queried for this version'}
               body={lang === 'ko' ? '소속되지 않은 버전을 최신 게시 쌍으로 바꿔 사용처를 채우지 않습니다.' : 'A version that does not belong here is not rewritten to the latest published pair.'} />
@@ -151,7 +151,7 @@ export default function MetricDetailPage({ params }: PageProps) {
       </Panel>
 
       <Panel id={sectionId('history')} title={lang === 'ko' ? '이력' : 'History'} subtitle={lang === 'ko' ? '정의의 등록·게시·폐기입니다. mart 계산 세대가 아닙니다.' : 'Registration, publication and deprecation of the definition. Not a mart generation.'}>
-        <QueryView query={history} compact skeletonRows={4}>
+        <QueryView widgetName={lang === 'ko' ? '이력' : 'History'} hideWidgetName query={history} compact skeletonRows={4}>
           {data => data.problem ? <StateMessage tone="danger" icon={<span className="t-mono">!</span>} title={lang === 'ko' ? '이력을 조회할 지표가 없습니다' : 'No metric to load history for'} body={metricId} /> : <AuditTimeline events={data.events} />}
         </QueryView>
       </Panel>

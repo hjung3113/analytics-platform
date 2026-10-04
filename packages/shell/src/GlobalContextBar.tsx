@@ -1,7 +1,8 @@
 import { CalendarDays, ChevronDown, Link2, RotateCcw, X } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
-import { CONTEXT_LABELS, useAdapterRequest, useI18n, usePlatform } from '@ap/kernel';
-import { type Capability, type Condition, type ConditionAxis, conditionLabel, type ContextKey, formatDateTime, type GlobalContext, parseDateTime, shift } from '@ap/contracts';
+import { useContext, type ReactNode } from 'react';
+import { ContextBarLayout, MeasuringContext, useContextEditorState, useContextEditorFocusRecovery } from './ContextBarLayout';
+import { CONTEXT_LABELS, useAdapterRequest, useI18n, usePlatform, type RequestState } from '@ap/kernel';
+import { type Capability, type Condition, type ConditionAxis, conditionLabel, type ContextKey, formatDateTime, type GlobalContext, type SelectionEvaluation, parseDateTime, shift } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { SegmentedRadio } from '@ap/components';
 
@@ -9,8 +10,12 @@ const hours = (g: GlobalContext) => (g.from && g.to ? (parseDateTime(g.to, 'to')
 const short = (v: string) => v.replace('T', ' ').slice(5, 16);
 
 export function GlobalContextBar() {
-  const { route, global, setGlobal, resetContext, toast, url } = usePlatform();
+  const { route, global, setGlobal, resetContext, toast, url, scope, adapter } = usePlatform();
   const { t, lang } = useI18n();
+  // Keep one request owner while the Selection editor moves between inline and overflow.
+  const input = { scopeId: global.scopeId, roomNames: global.roomNames, condition: global.condition, selection: global.selection };
+  const evaluation = useAdapterRequest(signal => adapter.evaluateSelection(input, signal), [input, scope.status],
+    scope.status === 'valid' && !!route && route.menu.context.selection !== 'unsupported');
   if (!route) return null;
   const cap = route.menu.context;
   const has: Record<ContextKey, boolean> = {
@@ -22,28 +27,24 @@ export function GlobalContextBar() {
   if (!shown.length) return null;
   const editable = (k: ContextKey) => cap[k] !== 'unsupported';
 
-  return <div role="region" aria-label={t('globalContext')} className="border-b border-border-subtle bg-surface-canvas/95 px-5 py-2 backdrop-blur">
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t('globalContext')}</span>
-      {shown.includes('time') && (editable('time') ? <PeriodControl cap={cap.time} /> : <CarriedChip k="time" cap={cap.time} value={global.from ? `${short(global.from)} → ${short(global.to!)}` : ''} onRemove={() => setGlobal({ from: null, to: null })} />)}
-      {shown.includes('roomNames') && (editable('roomNames') ? <RoomEditor cap={cap.roomNames} /> : <CarriedChip k="roomNames" cap={cap.roomNames} value={setText(global.roomNames, t)} onRemove={() => setGlobal({ roomNames: null })} />)}
-      {shown.includes('condition') && (editable('condition') ? <ConditionEditor cap={cap.condition} /> : <CarriedChip k="condition" cap={cap.condition} value={global.condition ? conditionLabel(global.condition) : ''} onRemove={() => setGlobal({ condition: null })} />)}
-      {shown.includes('selection') && (editable('selection') ? <SelectionEditor cap={cap.selection} /> : <CarriedChip k="selection" cap={cap.selection} value={setText(global.selection, t)} onRemove={() => setGlobal({ selection: null })} />)}
-      {has.lot && <CarriedChip k="lot" cap={cap.lot} value={setText(global.lotIds, t)} onRemove={() => setGlobal({ lotIds: null })} />}
-      {has.ppid && <CarriedChip k="ppid" cap={cap.ppid} value={global.ppid!} onRemove={() => setGlobal({ ppid: null })} />}
-      {has.recipe && <CarriedChip k="recipe" cap={cap.recipe} value={setText(global.recipeIds, t)} onRemove={() => setGlobal({ recipeIds: null })} />}
-      {has.metric && <CarriedChip k="metric" cap={cap.metric} value={`${global.metricId}${global.metricVersion ? ` @ ${global.metricVersion}` : ` (${lang === 'ko' ? '버전 미정' : 'no version'})`}`} onRemove={() => setGlobal({ metricId: null, metricVersion: null })} />}
-      <span className="ml-auto flex items-center gap-1">
-        <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-[12px] text-text-secondary" onClick={() => { void navigator.clipboard?.writeText(window.location.origin + url); toast(lang === 'ko' ? '현재 Context가 담긴 링크를 복사했습니다. 받는 사람의 권한으로 서버가 다시 검증합니다.' : 'Copied a link with the current context. The server re-validates for the recipient.'); }}>
-          <Link2 className="size-3.5" aria-hidden />{lang === 'ko' ? '링크 복사' : 'Copy link'}
+  const controls = [
+    ...(shown.includes('time') ? [{ key: 'time' as const, applied: has.time, node: (editable('time') ? <PeriodControl cap={cap.time} /> : <CarriedChip k="time" cap={cap.time} value={global.from ? `${short(global.from)} → ${short(global.to!)}` : ''} onRemove={() => setGlobal({ from: null, to: null })} />), compactNode: editable('time') ? <PeriodControl cap={cap.time} compact /> : <CarriedChip k="time" cap={cap.time} value={global.from ? `${short(global.from)} → ${short(global.to!)}` : ''} onRemove={() => setGlobal({ from: null, to: null })} /> }] : []),
+    ...(shown.includes('roomNames') ? [{ key: 'roomNames' as const, applied: has.roomNames, node: (editable('roomNames') ? <RoomEditor cap={cap.roomNames} /> : <CarriedChip k="roomNames" cap={cap.roomNames} value={setText(global.roomNames, t)} onRemove={() => setGlobal({ roomNames: null })} />) }] : []),
+    ...(shown.includes('condition') ? [{ key: 'condition' as const, applied: has.condition, node: (editable('condition') ? <ConditionEditor cap={cap.condition} /> : <CarriedChip k="condition" cap={cap.condition} value={global.condition ? conditionLabel(global.condition) : ''} onRemove={() => setGlobal({ condition: null })} />) }] : []),
+    ...(shown.includes('selection') ? [{ key: 'selection' as const, applied: has.selection, node: (editable('selection') ? <SelectionEditor cap={cap.selection} evaluation={evaluation} /> : <CarriedChip k="selection" cap={cap.selection} value={setText(global.selection, t)} onRemove={() => setGlobal({ selection: null })} />) }] : []),
+    ...(has.lot ? [{ key: 'lot' as const, applied: has.lot, node: <CarriedChip k="lot" cap={cap.lot} value={setText(global.lotIds, t)} onRemove={() => setGlobal({ lotIds: null })} /> }] : []),
+    ...(has.ppid ? [{ key: 'ppid' as const, applied: has.ppid, node: <CarriedChip k="ppid" cap={cap.ppid} value={global.ppid!} onRemove={() => setGlobal({ ppid: null })} /> }] : []),
+    ...(has.recipe ? [{ key: 'recipe' as const, applied: has.recipe, node: <CarriedChip k="recipe" cap={cap.recipe} value={setText(global.recipeIds, t)} onRemove={() => setGlobal({ recipeIds: null })} /> }] : []),
+    ...(has.metric ? [{ key: 'metric' as const, applied: has.metric, node: <CarriedChip k="metric" cap={cap.metric} value={`${global.metricId}${global.metricVersion ? ` @ ${global.metricVersion}` : ` (${lang === 'ko' ? '버전 미정' : 'no version'})`}`} onRemove={() => setGlobal({ metricId: null, metricVersion: null })} /> }] : []),
+  ];
+  return <ContextBarLayout controls={controls} revision={JSON.stringify([global, cap, lang, shown, evaluation.status, evaluation.data?.inCondition.length])} actions={compact => <span className="flex items-center gap-1">
+        <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2 text-[12px] text-text-secondary" aria-label={lang === 'ko' ? '링크 복사' : 'Copy link'} title={lang === 'ko' ? '링크 복사' : 'Copy link'} onClick={() => { void navigator.clipboard?.writeText(window.location.origin + url); toast(lang === 'ko' ? '현재 Context가 담긴 링크를 복사했습니다. 받는 사람의 권한으로 서버가 다시 검증합니다.' : 'Copied a link with the current context. The server re-validates for the recipient.'); }}>
+          <Link2 className="size-3.5" aria-hidden />{!compact && (lang === 'ko' ? '링크 복사' : 'Copy link')}
         </Button>
-        <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-[12px] text-text-secondary" onClick={resetContext}>
-          <RotateCcw className="size-3.5" aria-hidden />{t('reset')}
+        <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2 text-[12px] text-text-secondary" aria-label={t('reset')} title={t('reset')} onClick={resetContext}>
+          <RotateCcw className="size-3.5" aria-hidden />{!compact && t('reset')}
         </Button>
-      </span>
-    </div>
-  </div>;
-
+  </span>} />;
 }
 
 function setText(ids: string[] | null, t: (k: 'all' | 'explicitEmpty') => string): string {
@@ -54,15 +55,15 @@ function setText(ids: string[] | null, t: (k: 'all' | 'explicitEmpty') => string
 
 function CapTag({ cap }: { cap: Capability }) {
   const { t } = useI18n();
-  if (cap === 'apply') return null;
-  return <span className={cn('rounded-xs px-1 text-[10px] font-semibold', cap === 'reference' ? 'bg-surface-sunken text-text-secondary' : 'bg-accent-warn-soft text-text-warning-label')}>
-    {cap === 'reference' ? t('referenceOnly') : t('notUsed')}
+
+  return <span className={cn('shrink-0 rounded-xs px-1 text-[10px] font-semibold', cap !== 'unsupported' ? 'bg-surface-sunken text-text-secondary' : 'bg-accent-warn-soft text-text-warning-label')}>
+    {cap === 'apply' ? t('capApplied') : cap === 'reference' ? t('referenceOnly') : t('notUsed')}
   </span>;
 }
 
 function ChipShell({ label, value, cap, empty, children, ...rest }: { label: ReactNode; value: ReactNode; cap: Capability; empty?: boolean; children?: ReactNode } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return <button type="button" {...rest}
-    className={cn('inline-flex h-8 max-w-[22rem] items-center gap-1.5 rounded-sm border px-2.5 text-[12px] hover:border-border-control',
+    className={cn('inline-flex h-8 max-w-[22rem] items-center gap-1.5 rounded-sm border px-2.5 whitespace-nowrap text-[12px] hover:border-border-control',
       cap === 'unsupported' ? 'border-dashed border-border-strong bg-transparent text-text-muted' : 'border-border-strong bg-surface-card text-text-primary',
       empty && 'text-text-muted')}>
     <span className="text-text-muted">{label}</span>
@@ -75,20 +76,24 @@ function ChipShell({ label, value, cap, empty, children, ...rest }: { label: Rea
 /** Preserved context the current page does not edit: never silently dropped (§6); removable explicitly. */
 function CarriedChip({ k, cap, value, onRemove }: { k: ContextKey; cap: Capability; value: string; onRemove: () => void }) {
   const { tx, t, lang } = useI18n();
-  return <span className={cn('inline-flex h-8 items-center gap-1.5 rounded-sm border pl-2.5 pr-1 text-[12px]',
+  const { global } = usePlatform();
+  const fullValue = k === 'time' ? (global.from ? `${global.from} – ${global.to}` : t('selectPeriod')) : value;
+  return <span role={k === 'time' ? 'group' : undefined} aria-label={k === 'time' ? `${tx(CONTEXT_LABELS[k])}: ${fullValue}` : undefined} className={cn('inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-sm border pl-2.5 pr-1 whitespace-nowrap text-[12px]',
     cap === 'unsupported' ? 'border-dashed border-border-strong text-text-muted' : 'border-border-strong bg-surface-card')}
     title={cap === 'unsupported' ? (lang === 'ko' ? 'URL에 보존되며 지원 메뉴로 이동하면 재검증 후 적용됩니다.' : 'Kept in the URL; re-validated and applied on a supporting page.') : undefined}>
     <span className="text-text-muted">{tx(CONTEXT_LABELS[k])}</span>
-    <span className="max-w-48 truncate font-medium tabular">{value}</span>
+    <span className="min-w-0 max-w-48 truncate font-medium tabular" title={fullValue}>{value}</span>
     <CapTag cap={cap} />
     <button type="button" onClick={onRemove} aria-label={`${t('clear')} ${tx(CONTEXT_LABELS[k])}`} className="grid size-6 place-items-center rounded-xs hover:bg-surface-sunken"><X className="size-3" aria-hidden /></button>
   </span>;
 }
 
-function PeriodControl({ cap }: { cap: Capability }) {
+function PeriodControl({ cap, compact = false }: { cap: Capability; compact?: boolean }) {
   const { global, setGlobal, defaultRangeTo } = usePlatform();
   const { t, lang } = useI18n();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useContextEditorState('open', false);
+  const preserveRelocationFocus = useContextEditorFocusRecovery();
+  const periodName = `${t('period')}: ${global.from ? `${global.from} – ${global.to}` : t('selectPeriod')}`;
   const h = hours(global);
   const preset = global.to === defaultRangeTo && h === 24 ? '1d' : global.to === defaultRangeTo && h === 168 ? '7d' : global.from ? 'custom' : null;
   const presets = [{ id: '1d', label: t('preset1d'), h: 24 }, { id: '7d', label: t('preset7d'), h: 168 }, { id: 'custom', label: t('presetCustom'), h: 0 }] as const;
@@ -97,29 +102,31 @@ function PeriodControl({ cap }: { cap: Capability }) {
     if (id === 'custom') { setOpen(true); return; }
     setGlobal({ from: shift(defaultRangeTo, -p.h), to: defaultRangeTo });
   };
-  return <div className="flex items-center gap-1">
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button type="button" className="inline-flex h-8 min-w-[204px] items-center gap-2 rounded-sm border border-border-strong bg-surface-card px-2.5 text-[12px] hover:border-border-control" aria-label={`${t('period')}: ${global.from ?? ''} – ${global.to ?? ''}`}>
-          <CalendarDays className="size-4 text-text-muted" aria-hidden />
-          {global.from ? <span className="font-medium tabular">{short(global.from)} → {short(global.to!)}</span> : <span className="text-text-muted">{t('selectPeriod')}</span>}
-          {h !== null && <span className="text-text-muted tabular">({h >= 48 ? `${Math.round(h / 24)}${lang === 'ko' ? '일' : 'd'}` : `${h}h`})</span>}
-          <CapTag cap={cap} />
-          <ChevronDown className="size-3.5 text-text-muted" aria-hidden />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-[22rem] rounded-md border border-border-strong bg-surface-card p-3 shadow-md">
-        <CustomRange onDone={() => setOpen(false)} />
-      </PopoverContent>
-    </Popover>
-    <SegmentedRadio
+  const presetsControl = <SegmentedRadio
       label={t('period')}
       value={preset}
       onChange={id => choose(id)}
       className="flex h-8 items-center gap-0.5 rounded-sm border border-border-subtle bg-surface-card p-0.5"
       optionClassName={selected => cn('h-full rounded-xs px-2.5 text-[12px] font-medium', selected ? 'bg-accent-primary text-text-on-accent' : 'text-text-secondary hover:bg-surface-sunken')}
       options={presets.map(p => ({ value: p.id, label: p.label }))}
-    />
+    />;
+  return <div className="flex min-w-0 items-center gap-1">
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" className={cn('inline-flex h-8 items-center gap-2 rounded-sm border border-border-strong bg-surface-card px-2.5 whitespace-nowrap text-[12px] hover:border-border-control', compact ? 'w-full min-w-0' : 'min-w-[204px]')} title={periodName} aria-label={periodName}>
+          <CalendarDays className="size-4 shrink-0 text-text-muted" aria-hidden />
+          {global.from ? <span className="min-w-0 truncate font-medium tabular">{short(global.from)} → {short(global.to!)}</span> : <span className="min-w-0 truncate text-text-muted">{t('selectPeriod')}</span>}
+          {!compact && h !== null && <span className="text-text-muted tabular">({h >= 48 ? `${Math.round(h / 24)}${lang === 'ko' ? '일' : 'd'}` : `${h}h`})</span>}
+          <CapTag cap={cap} />
+          <ChevronDown className="size-3.5 shrink-0 text-text-muted" aria-hidden />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent onFocusOutside={preserveRelocationFocus} align="start" className="w-[22rem] rounded-md border border-border-strong bg-surface-card p-3 shadow-md">
+        {compact && <div className="mb-3">{presetsControl}</div>}
+        <CustomRange onDone={() => setOpen(false)} />
+      </PopoverContent>
+    </Popover>
+    {!compact && presetsControl}
   </div>;
 }
 
@@ -127,11 +134,11 @@ function PeriodControl({ cap }: { cap: Capability }) {
 function CustomRange({ onDone }: { onDone: () => void }) {
   const { global, setGlobal, defaultRangeTo } = usePlatform();
   const { t, lang } = useI18n();
-  const [mode, setMode] = useState<'date' | 'time'>('date');
-  const [start, setStart] = useState((global.from ?? shift(defaultRangeTo, -24)).slice(0, 10));
-  const [end, setEnd] = useState(global.to ? shift(global.to, -24).slice(0, 10) : defaultRangeTo.slice(0, 10));
-  const [fromT, setFromT] = useState(global.from ?? shift(defaultRangeTo, -24));
-  const [toT, setToT] = useState(global.to ?? defaultRangeTo);
+  const [mode, setMode] = useContextEditorState<'date' | 'time'>('mode', 'date');
+  const [start, setStart] = useContextEditorState('start', (global.from ?? shift(defaultRangeTo, -24)).slice(0, 10));
+  const [end, setEnd] = useContextEditorState('end', global.to ? shift(global.to, -24).slice(0, 10) : defaultRangeTo.slice(0, 10));
+  const [fromT, setFromT] = useContextEditorState('fromT', global.from ?? shift(defaultRangeTo, -24));
+  const [toT, setToT] = useContextEditorState('toT', global.to ?? defaultRangeTo);
   let error: string | null = null;
   let result: { from: string; to: string } | null = null;
   try {
@@ -186,15 +193,16 @@ function SetEditor({ label, cap, value, options, absentLabel, onApply, note, sea
   absentLabel: string; onApply: (v: string[] | null) => void; note?: ReactNode; search?: boolean;
 }) {
   const { t, lang } = useI18n();
-  const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<SetMode>(modeOf(value));
-  const [picked, setPicked] = useState<string[]>(value ?? []);
-  const [q, setQ] = useState('');
+  const [open, setOpen] = useContextEditorState('open', false);
+  const preserveRelocationFocus = useContextEditorFocusRecovery();
+  const [mode, setMode] = useContextEditorState<SetMode>('mode', modeOf(value));
+  const [picked, setPicked] = useContextEditorState<string[]>('picked', value ?? []);
+  const [q, setQ] = useContextEditorState('q', '');
   const reset = (o: boolean) => { setOpen(o); if (o) { setMode(modeOf(value)); setPicked(value ?? []); setQ(''); } };
   const visible = options.filter(o => !q || o.id.toLowerCase().includes(q.toLowerCase()) || o.hint?.toLowerCase().includes(q.toLowerCase()));
   return <Popover open={open} onOpenChange={reset}>
     <PopoverTrigger asChild><ChipShell label={label} value={value === null ? absentLabel : value.length ? (value.length <= 2 ? value.join(', ') : `${value[0]} +${value.length - 1}`) : t('explicitEmpty')} cap={cap} empty={value === null}><ChevronDown className="size-3.5 text-text-muted" aria-hidden /></ChipShell></PopoverTrigger>
-    <PopoverContent align="start" className="w-80 rounded-md border border-border-strong bg-surface-card p-3 text-[12px] shadow-md">
+    <PopoverContent onFocusOutside={preserveRelocationFocus} align="start" className="w-80 rounded-md border border-border-strong bg-surface-card p-3 text-[12px] shadow-md">
       <SegmentedRadio
         label={label}
         value={mode}
@@ -240,11 +248,13 @@ function ConditionEditor({ cap }: { cap: Capability }) {
   const { global, setGlobal, adapter } = usePlatform();
   const { t, lang } = useI18n();
   const site = global.scopeId ?? '';
-  const [open, setOpen] = useState(false);
-  const [axis, setAxis] = useState<ConditionAxis>(global.condition?.axis ?? 'stgroup');
-  const [val, setVal] = useState<string>(global.condition ? conditionLabel(global.condition) : '');
+  const [open, setOpen] = useContextEditorState('open', false);
+  const preserveRelocationFocus = useContextEditorFocusRecovery();
+  const [axis, setAxis] = useContextEditorState<ConditionAxis>('axis', global.condition?.axis ?? 'stgroup');
+  const [val, setVal] = useContextEditorState<string>('val', global.condition ? conditionLabel(global.condition) : '');
   // Choices come from the server per site (platform-packages.md §4); fetched only while the editor is open.
-  const choices = useAdapterRequest(signal => adapter.contextOptions(site, signal), site, open);
+  const measuring = useContext(MeasuringContext);
+  const choices = useAdapterRequest(signal => adapter.contextOptions(site, signal), site, open && !measuring);
   const all = choices.data;
   const options = !all ? [] : axis === 'stgroup' ? all.stgroup : axis === 'team' ? all.team : all.makerModel.map(m => `${m.maker} / ${m.model}`);
   const build = (): Condition | null => {
@@ -256,7 +266,7 @@ function ConditionEditor({ cap }: { cap: Capability }) {
   return <Popover open={open} onOpenChange={o => { setOpen(o); if (o) { setAxis(global.condition?.axis ?? 'stgroup'); setVal(global.condition ? conditionLabel(global.condition) : ''); } }}>
     <PopoverTrigger asChild><ChipShell label={t('condition')} cap={cap} empty={!global.condition}
       value={global.condition ? `${axisLabel[global.condition.axis]}: ${conditionLabel(global.condition)}` : t('none')}><ChevronDown className="size-3.5 text-text-muted" aria-hidden /></ChipShell></PopoverTrigger>
-    <PopoverContent align="start" className="w-80 rounded-md border border-border-strong bg-surface-card p-3 text-[12px] shadow-md">
+    <PopoverContent onFocusOutside={preserveRelocationFocus} align="start" className="w-80 rounded-md border border-border-strong bg-surface-card p-3 text-[12px] shadow-md">
       <SegmentedRadio
         label={lang === 'ko' ? '조건 축 (하나만)' : 'Condition axis (one)'}
         value={axis}
@@ -284,12 +294,10 @@ function ConditionEditor({ cap }: { cap: Capability }) {
   </Popover>;
 }
 
-function SelectionEditor({ cap }: { cap: Capability }) {
-  const { global, setGlobal, scope, adapter } = usePlatform();
+function SelectionEditor({ cap, evaluation }: { cap: Capability; evaluation: RequestState<SelectionEvaluation> }) {
+  const { global, setGlobal } = usePlatform();
   const { t, lang } = useI18n();
-  // Condition matching and grants are the server's job (platform-packages.md §4); the shell only shows the result.
-  const input = { scopeId: global.scopeId, roomNames: global.roomNames, condition: global.condition, selection: global.selection };
-  const evaluation = useAdapterRequest(signal => adapter.evaluateSelection(input, signal), [input, scope.status], scope.status === 'valid');
+  // Condition matching and grants are the server's job; the same result also feeds inert measurement.
   const inCondition = evaluation.data?.inCondition ?? [];
   const outside = evaluation.data?.outOfCondition ?? [];
   const failed = evaluation.status === 'error';

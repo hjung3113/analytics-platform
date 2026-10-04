@@ -12,6 +12,51 @@ async function chooseFilterOption(page: Page, field: string, option: string) {
   await page.getByRole('combobox', { name: field }).click();
   await page.getByRole('option', { name: option, exact: true }).click();
 }
+// Wait for the period anchor before deciding whether a control is inline or portaled.
+async function contextEditor(page: Page, name: string) {
+  const bar = contextBar(page);
+  await expect(bar.getByRole('button', { name: /^기간:/ })).toBeVisible();
+  const inline = bar.getByRole('button', { name });
+  if (await inline.isVisible()) return { locator: inline, close: async () => {} };
+  const overflow = page.getByRole('dialog', { name: '추가 Context 조건' });
+  await bar.getByRole('button', { name: /^조건 \d+개 더/ }).click();
+  await expect(overflow).toBeVisible();
+  return { locator: overflow.getByRole('button', { name }), close: async () => {
+    if (await overflow.isVisible()) await page.keyboard.press('Escape');
+  } };
+}
+async function periodPreset(page: Page, name: string) {
+  const bar = contextBar(page);
+  const trigger = bar.getByRole('button', { name: /^기간:/ });
+  await expect(trigger).toBeVisible();
+  const inline = bar.getByRole('radio', { name, exact: true });
+  if (await inline.isVisible()) return { locator: inline, close: async () => {} };
+  await trigger.click();
+  const locator = page.getByRole('radio', { name, exact: true });
+  await expect(locator).toBeVisible();
+  return { locator, close: async () => {
+    if (await trigger.getAttribute('aria-expanded') === 'true') await page.keyboard.press('Escape');
+  } };
+}
+async function expectContextBounds(page: Page) {
+  const bar = contextBar(page);
+  await expect(bar.getByRole('button', { name: /^기간:/ })).toBeVisible();
+  const row = await bar.boundingBox();
+  expect(row).not.toBeNull();
+  // Actual buttons/radios must occupy the 48px baseline, independent of the container's fixed height.
+  for (const control of await bar.getByRole('button').or(bar.getByRole('radio')).all()) {
+    const box = await control.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.y).toBeGreaterThanOrEqual(row!.y);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(row!.y + 48);
+    expect(box!.x).toBeGreaterThanOrEqual(row!.x);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(row!.x + row!.width);
+  }
+}
+async function overflowCount(page: Page) {
+  const trigger = contextBar(page).getByRole('button', { name: /^조건 \d+개 더/ });
+  return await trigger.count() ? Number((await trigger.innerText()).match(/^조건 (\d+)개 더/)![1]) : 0;
+}
 
 test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
   test('FeedbackOps base 값이 theme보다 우선하고 플랫폼 control 경계는 label 대비를 유지한다', async ({ page }, testInfo) => {
@@ -128,6 +173,76 @@ test.describe('셸 sticky 계약 (06 §7)', () => {
   });
 });
 
+test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
+  test('상세 슬롯을 같은 1280px 뷰포트에서 열면 자체 폭 변화로 넘침이 늘어난다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto('/equipment?v=1&scopeId=ICH');
+    await expectScopeValid(page, 'ICH · Site A');
+    const row = page.getByRole('main').locator('[data-row-id]').first();
+    await expect(row).toBeVisible();
+    await expectContextBounds(page);
+    const before = { inline: await contextBar(page).getByRole('button').allTextContents(), overflow: await overflowCount(page) };
+    await evidence(page, testInfo, 'context-before-detail-1280');
+    await row.getByRole('button', { name: '보기', exact: true }).click();
+    await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog')).toBeVisible();
+    await expect.poll(() => overflowCount(page)).toBeGreaterThan(before.overflow);
+    expect(page.viewportSize()).toEqual({ width: 1280, height: 800 });
+    await expectContextBounds(page);
+    const after = { inline: await contextBar(page).getByRole('button').allTextContents(), overflow: await overflowCount(page) };
+    await testInfo.attach('context-own-width-before-after', { body: JSON.stringify({ before, after }, null, 2), contentType: 'application/json' });
+    await evidence(page, testInfo, 'context-after-detail-1280');
+  });
+
+  test('넓은 폭(1920px) 생산성 개요에서는 1일 프리셋과 모든 조건이 인라인이다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1920, height: 800 });
+    await page.goto(PRODUCTIVITY);
+    await expectScopeValid(page, 'ICH · Site A');
+    await expect(contextBar(page).getByRole('radio', { name: '1일', exact: true })).toBeVisible();
+    await expect(contextBar(page).getByRole('button', { name: /개 더/ })).toHaveCount(0);
+    await expectContextBounds(page);
+    await evidence(page, testInfo, 'context-wide-1920');
+  });
+
+  // 1440px(사이드바 펼침)은 전체 한 줄(약 1219px)이 가용 폭(1124px)보다 넓다. B안대로 프리셋이 먼저 기간 팝오버로 가고 조건은 넘치지 않는다.
+  test('1440px 생산성 개요는 프리셋만 기간 팝오버로 옮기고 모든 조건은 인라인이다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 800 });
+    await page.goto(PRODUCTIVITY);
+    await expectScopeValid(page, 'ICH · Site A');
+    await expect(contextBar(page).getByRole('button', { name: /개 더/ })).toHaveCount(0);
+    await expect(contextBar(page).getByRole('radio', { name: '1일', exact: true })).toHaveCount(0);
+    await contextBar(page).getByRole('button', { name: /^기간:/ }).click();
+    await expect(page.getByRole('radio', { name: '1일', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expectContextBounds(page);
+    await evidence(page, testInfo, 'context-1440-presets-in-popover');
+  });
+
+  for (const width of [1024, 1280]) {
+    test(`상세 슬롯이 열린 ${width}px에서도 한 줄이며 넘침에서 편집한다`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto('/equipment?v=1&scopeId=ICH&focus=ICH-PHOTO-0103');
+      await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog')).toBeVisible();
+      await expectScopeValid(page, 'ICH · Site A');
+      const bar = contextBar(page);
+      await expect(bar).toBeVisible();
+      await expectContextBounds(page);
+      await expect(bar.getByRole('button', { name: /^기간:/ })).toBeVisible();
+      await evidence(page, testInfo, `context-single-row-${width}`);
+      await bar.getByRole('button', { name: /^조건 \d+개 더/ }).click();
+      const overflow = page.getByRole('dialog', { name: '추가 Context 조건' });
+      await expect(overflow.getByRole('button', { name: /설비 선택/ })).toBeVisible();
+      await overflow.getByRole('button', { name: /설비 선택/ }).click();
+      await expect(page.getByRole('radio', { name: '명시적 빈 집합' })).toBeVisible();
+      await page.getByRole('radio', { name: '명시적 빈 집합' }).click();
+      await page.getByRole('button', { name: '적용', exact: true }).click();
+      await expect.poll(() => query(page).get('equipmentSelection')).toBe('none');
+      await expect(bar.getByRole('button', { name: /개 적용 중$/ })).toBeVisible();
+      await expectContextBounds(page);
+      await evidence(page, testInfo, `context-overflow-editor-${width}`);
+    });
+  }
+});
+
 test.describe('딥링크 복원 (06 §6.4)', () => {
   test('전역 Context와 page 소유 상태를 URL에서 그대로 복원한다', async ({ page }, testInfo) => {
     const url = `${PRODUCTIVITY}&granularity=day`;
@@ -151,7 +266,9 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
     await page.goto('/analytics/productivity?v=1&scopeId=ICH');
     await expect.poll(() => query(page).get('to')).toBe('2026-09-26T09:00:00');
     expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
-    await expect(contextBar(page).getByRole('radio', { name: '1일' })).toBeChecked();
+    const preset = await periodPreset(page, '1일');
+    await expect(preset.locator).toBeChecked();
+    await preset.close();
     await evidence(page, testInfo, 'default-period');
     await page.reload();
     expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
@@ -301,16 +418,21 @@ test.describe('메뉴 간 Context 보존과 미적용 표시 (06 §6, §22)', ()
 
     await page.goto(`/equipment?v=1&scopeId=ICH&${PERIOD}&lotIds=${lot}`);
     await expectScopeValid(page, 'ICH · Site A');
-    const lotChip = contextBar(page).locator('span', { has: page.getByRole('button', { name: '지우기 Lot' }) });
+    const lotEditor = await contextEditor(page, '지우기 Lot');
+    const lotChip = lotEditor.locator.locator('..');
     await expect(lotChip).toContainText(lot);
     await expect(lotChip).toContainText('이 화면에서 미사용');
     await evidence(page, testInfo, 'lot-not-used');
+    await lotEditor.close();
 
     await page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: '사이클타임 상세' }).click();
     await expect(mainHeading(page)).toHaveText('사이클타임 상세');
     expect(query(page).getAll('lotIds')).toEqual([lot]);
-    await expect(contextBar(page)).toContainText(lot);
-    await expect(contextBar(page)).not.toContainText('이 화면에서 미사용');
+    const appliedEditor = await contextEditor(page, '지우기 Lot');
+    const appliedLot = appliedEditor.locator.locator('..');
+    await expect(appliedLot).toContainText(lot);
+    await expect(appliedLot).not.toContainText('이 화면에서 미사용');
+    await appliedEditor.close();
     const filtered = await lotColumn(page);
     expect(filtered.length).toBeGreaterThan(0);
     expect(new Set(filtered)).toEqual(new Set([lot]));
@@ -470,7 +592,7 @@ test.describe('목적지 단건 조회 (06 §6.2, §22)', () => {
     // status/name block under the h1 (header query) and the active tabpanel (panel query) — and for no
     // aria-busy to remain in main. Otherwise a fast correct header plus a slower panel that later renders
     // a substituted Selection row or an unauthorized row would pass.
-    const header = page.getByRole('main').locator('[data-platform-page-content] > :first-child'); // PlatformPage body renders the header query result before the tabs
+    const header = page.getByRole('main').locator('[data-platform-page-content] > [aria-busy]'); // Header query boundary; the shared banner can precede it
     const panel = page.getByRole('tabpanel'); // Radix mounts only the active tab's content
 
     // 1. Granted room (PH-101): the URL id's own row renders on both surfaces, and the inherited Selection stays untouched in the URL.
@@ -498,6 +620,11 @@ test.describe('목적지 단건 조회 (06 §6.2, §22)', () => {
 
     // 3. Unknown id: a successful zero (empty) on both surfaces, never a denial and never another row's fields.
     await page.goto('/equipment/DOES-NOT-EXIST?v=1&scopeId=ICH');
+    const emptyBanner = page.getByRole('main').getByRole('group', { name: '위젯 상태 요약' });
+    await expect(page.getByRole('main').locator('[data-outcome-banner]')).toHaveCount(1);
+    await expect(emptyBanner).toContainText('위젯 2개');
+    await expect(page.getByRole('main').getByRole('group', { name: '설비 요약', exact: true })).toBeVisible();
+    await expect(panel.getByRole('group', { name: '설비 상세', exact: true })).toBeVisible();
     await expect(header.getByText('조건에 맞는 결과가 없습니다')).toBeVisible();
     await expect(panel.getByText('조건에 맞는 결과가 없습니다')).toBeVisible();
     await expect(page.getByRole('main').locator('[aria-busy="true"]')).toHaveCount(0);
@@ -537,7 +664,9 @@ test.describe('Scope·세션 전환 시 이전 결과 비노출 (06 §11, §19)'
     const card = kpis.getByRole('button', { name: /^물리 점유율/ });
     await expect(card).toBeVisible({ timeout: 10_000 });
 
-    await contextBar(page).getByRole('radio', { name: '7일' }).click();
+    const preset = await periodPreset(page, '7일');
+    await preset.locator.click();
+    await preset.close();
     await expect.poll(() => query(page).get('from')).toBe('2026-09-19T09:00:00');
     await expect(card).toHaveCount(0);
     await expect(kpis.locator('[aria-busy="true"]').first()).toBeVisible();
@@ -577,6 +706,49 @@ test.describe('공통 상태 화면 (06 §19)', () => {
       await evidence(page, testInfo, scenario);
     });
   }
+});
+
+test.describe('공유 위젯 응답 (06 §19, #55)', () => {
+  test('생산성의 같은 오류 네 개는 배너 하나와 이름 있는 간결 상태 네 개로 표시한다', async ({ page }, testInfo) => {
+    await page.goto('/analytics/productivity?v=1&scopeId=ICH');
+    await expect(page.getByRole('heading', { name: '네 지표 요약' })).toBeVisible();
+    await setScenario(page, '서버 오류 (error)');
+    const main = page.getByRole('main');
+    const banner = main.getByRole('group', { name: '위젯 상태 요약' });
+    await expect(main.locator('[data-outcome-banner]')).toHaveCount(1);
+    await expect(banner).toContainText('위젯 4개에서 같은 응답(서버 오류)이 확인되었습니다.');
+    await expect(banner.getByText('데이터를 불러오지 못했습니다')).toBeVisible();
+    await expect(banner.getByRole('button', { name: '다시 시도' })).toHaveCount(1);
+    await expect(banner).not.toContainText('Correlation ID');
+    await expect(main.locator('[data-widget-state]')).toHaveCount(4);
+    for (const name of ['네 지표 요약', 'Job 처리량 추세', '점유 구성', '확인할 항목']) {
+      const state = main.getByRole('group', { name, exact: true });
+      await expect(state).toBeVisible();
+      await expect(state.getByText('데이터를 불러오지 못했습니다')).toBeVisible();
+      await expect(state.getByRole('button', { name: '다시 시도' })).toHaveCount(1);
+      await expect(state).toContainText('corr-');
+    }
+    await expect(main.getByRole('alert')).toHaveCount(0);
+    await expect(main.locator('[data-outcome-announcer="assertive"]')).toContainText('위젯 4개에서 같은 응답');
+    await expect(main.getByText('네 지표 요약', { exact: true })).toHaveCount(1);
+    await evidence(page, testInfo, 'shared-error-banner');
+  });
+
+  test('일부 위젯 실패에서 단일 실패는 배너 없이 전체 상태를 유지한다', async ({ page }, testInfo) => {
+    // The scenario fails every other query. Equipment detail has two queries;
+    // productivity has four and therefore intentionally groups its two equal failures.
+    await page.goto('/equipment/ICH-PHOTO-0103?v=1&scopeId=ICH');
+    await expect(page.getByRole('main').getByText('PHOTO Lithius-Pro #1')).toHaveCount(2);
+    await setScenario(page, '일부 위젯 실패');
+    const main = page.getByRole('main');
+    await expect(main.getByRole('alert')).toHaveCount(1);
+    await expect(main.getByRole('alert')).toContainText('Widget query failed (partial scenario)');
+    await expect(main.locator('[aria-busy="true"]')).toHaveCount(0);
+    await expect(main.locator('[data-outcome-banner]')).toHaveCount(0);
+    await expect(main.locator('[data-widget-state]')).toHaveCount(0);
+    await expect(main.getByRole('button', { name: '다시 시도' })).toHaveCount(1);
+    await evidence(page, testInfo, 'single-widget-failure');
+  });
 });
 
 test.describe('화면 오류 격리 (06 §4 전역 Error Boundary)', () => {
