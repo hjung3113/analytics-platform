@@ -18,8 +18,18 @@ export type ChartSeries = {
 };
 
 type Selection = { from: string; to: string };
+type LinePattern = 'solid' | number[];
 const toMs = (v: string) => parseDateTime(v, 'x').getTime();
 const fmt = (v: string) => v.replace('T', ' ').slice(0, 16);
+
+function linePattern(series: ChartSeries, previous: boolean): LinePattern {
+  if (previous) return series.dashed ? [8, 3, 2, 3] : [2, 2];
+  return series.dashed ? [8, 4] : 'solid';
+}
+
+function svgDasharray(pattern: LinePattern): string | undefined {
+  return Array.isArray(pattern) ? pattern.join(' ') : undefined;
+}
 
 export type AnalysisChartFrameProps = {
   chartId: string;
@@ -55,10 +65,12 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const { t, lang } = useI18n();
   const { setGlobal, toast, global, adapter, route } = usePlatform();
   const features = route?.menu.features;
-  const canCompare = !!features?.compare && !!p.compareSeries;
+  const canCompare = !!features?.compare && !!p.compareSeries?.length;
   const canAnnotate = !!features?.annotate;
   const canExport = !!features?.export;
   const titleId = useId();
+  const currentPeriodId = useId();
+  const previousPeriodId = useId();
   const xType = p.xType ?? 'time';
   const chart = useRef<ECharts | null>(null);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
@@ -84,6 +96,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const closeNote = useCallback(() => { draftGen.current++; setNote(null); }, []);
 
   const allSeries = useMemo(() => [...p.series, ...(compare && canCompare ? p.compareSeries ?? [] : [])], [p.series, p.compareSeries, compare, canCompare]);
+  const previousIds = useMemo(() => new Set(compare && canCompare ? p.compareSeries?.map(s => s.id) ?? [] : []), [compare, canCompare, p.compareSeries]);
+  const showPeriodGroups = compare && canCompare;
+  const periodLegendColumnCount = Math.max(p.series.length, p.compareSeries?.length ?? 0);
+  const usePeriodLegendGrid = periodLegendColumnCount <= 4;
   const visible = allSeries.filter(s => !hidden.has(s.id));
   const categories = useMemo(() => (xType === 'category' ? p.series[0]?.points.map(([x]) => x) ?? [] : []), [xType, p.series]);
   const format = p.valueFormat ?? ((v: number) => v.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { maximumFractionDigits: 1 }));
@@ -118,10 +134,11 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         ...visible.map(s => {
           const kind = s.kind ?? 'line';
           const color = token(kind === 'line' ? strokeToken(s.color) : s.color);
+          const pattern = linePattern(s, previousIds.has(s.id));
           return {
             id: s.id, name: s.name, type: kind, stack: p.stacked && kind === 'bar' ? 'total' : undefined,
             showSymbol: false, symbolSize: 5, connectNulls: false, barMaxWidth: 18,
-            lineStyle: { ...(kind === 'line' ? { color } : {}), width: 2, type: s.dashed ? 'dashed' : 'solid' }, itemStyle: { color: token(s.color) },
+            lineStyle: { ...(kind === 'line' ? { color } : {}), width: 2, type: pattern }, itemStyle: { color: token(s.color) },
             emphasis: { focus: 'series' },
             data: s.points.map(([x, y]) => (xType === 'time' ? [toMs(x), y] : y)),
           };
@@ -129,12 +146,12 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         {
           id: '__overlay', type: 'line', data: [], silent: true, symbol: 'none',
           markArea: { silent: true, data: areas },
-          markLine: p.markLines?.length ? { silent: true, symbol: 'none', lineStyle: { color: token('accent-warn'), type: 'dashed' }, label: { formatter: '{b}', fontSize: 10 }, data: p.markLines.map(m => ({ name: m.label, yAxis: m.y })) } : undefined,
+          markLine: p.markLines?.length ? { silent: true, symbol: 'none', lineStyle: { color: token('text-secondary'), type: 'dashed' }, label: { formatter: '{b}', fontSize: 10, color: token('text-secondary'), position: 'insideEndTop' }, data: p.markLines.map(m => ({ name: m.label, yAxis: m.y })) } : undefined,
         },
       ],
     };
     // Deps intentionally restricted to the chart inputs below (would trip react-hooks/exhaustive-deps if that rule is enabled).
-  }, [visible, xType, categories, zoom, brushMode, selection, annotations, p.markLines, p.unit, lang, p.stacked]);
+  }, [visible, previousIds, xType, categories, zoom, brushMode, selection, annotations, p.markLines, p.unit, lang, p.stacked]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
@@ -172,6 +189,30 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     const values = inRange.map(([, y]) => y as number);
     return { s, n: values.length, avg: values.length ? values.reduce((a, b) => a + b, 0) / values.length : null, max: values.length ? Math.max(...values) : null };
   }) : [];
+
+  function renderLegendSeries(s: ChartSeries, previous: boolean) {
+    const kind = s.kind ?? 'line';
+    const stroke = token(kind === 'bar' && s.color === 'chart-remainder' ? 'border-control' : strokeToken(s.color));
+    return <label key={s.id} className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] text-text-secondary">
+      <input type="checkbox" className="size-3.5 accent-[rgb(var(--accent-primary))]" checked={!hidden.has(s.id)} onChange={() => setHidden(h => { const n = new Set(h); if (n.has(s.id)) n.delete(s.id); else n.add(s.id); return n; })} />
+      {kind === 'bar'
+        ? <span aria-hidden className="inline-block size-3 border-2" style={{ backgroundColor: token(s.color), borderColor: stroke }} />
+        : <svg aria-hidden width="32" height="14"><line x1="0" y1="7" x2="32" y2="7" stroke={stroke} strokeWidth="2" strokeDasharray={svgDasharray(linePattern(s, previous))} /></svg>}
+      {s.name}
+    </label>;
+  }
+
+  function renderPeriodLegendGroup(id: string, title: string, series: ChartSeries[], previous: boolean) {
+    if (!usePeriodLegendGrid) return <div role="group" aria-labelledby={id} className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      <strong id={id} className="min-w-20 text-[12px] font-medium text-text-secondary">{title}</strong>
+      {series.map(s => renderLegendSeries(s, previous))}
+    </div>;
+
+    return <div role="group" aria-labelledby={id} className="grid items-center gap-x-4" style={{ gridColumn: '1 / -1', gridTemplateColumns: 'subgrid' }}>
+      <strong id={id} className="min-w-20 text-[12px] font-medium text-text-secondary" style={{ gridColumn: 1 }}>{title}</strong>
+      {series.map((s, index) => <div key={s.id} data-legend-series-id={s.id} style={{ gridColumn: index + 2 }}>{renderLegendSeries(s, previous)}</div>)}
+    </div>;
+  }
 
   function exportCsv() {
     const xs = [...new Set(visible.flatMap(s => s.points.map(([x]) => x)))];
@@ -225,15 +266,14 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       </div>
     </header>
 
-    <div role="group" aria-label={lang === 'ko' ? '범례' : 'Legend'} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 pt-2">
-      {allSeries.map(s => {
-        const color = token((s.kind ?? 'line') === 'line' ? strokeToken(s.color) : s.color);
-        return <label key={s.id} className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] text-text-secondary">
-          <input type="checkbox" className="size-3.5 accent-[rgb(var(--accent-primary))]" checked={!hidden.has(s.id)} onChange={() => setHidden(h => { const n = new Set(h); if (n.has(s.id)) n.delete(s.id); else n.add(s.id); return n; })} />
-          <span aria-hidden className={cn('inline-block h-0.5 w-4', s.dashed && 'border-t-2 border-dashed bg-transparent')} style={{ backgroundColor: s.dashed ? undefined : color, borderColor: color }} />
-          {s.name}
-        </label>;
-      })}
+    <div role="group" aria-label={lang === 'ko' ? '범례' : 'Legend'} className={cn('px-4 pt-2', showPeriodGroups ? 'flex flex-col gap-2' : 'flex flex-wrap items-center gap-x-4 gap-y-1')}>
+      {showPeriodGroups ? usePeriodLegendGrid ? <div data-period-legend-grid className="grid items-center gap-x-4 gap-y-2" style={{ gridTemplateColumns: `repeat(${periodLegendColumnCount + 1}, max-content)` }}>
+        {renderPeriodLegendGroup(currentPeriodId, t('currentPeriod'), p.series, false)}
+        {renderPeriodLegendGroup(previousPeriodId, t('previousPeriod'), p.compareSeries ?? [], true)}
+      </div> : <>
+        {renderPeriodLegendGroup(currentPeriodId, t('currentPeriod'), p.series, false)}
+        {renderPeriodLegendGroup(previousPeriodId, t('previousPeriod'), p.compareSeries ?? [], true)}
+      </> : allSeries.map(s => renderLegendSeries(s, false))}
       {brushMode && <span className="text-[11px] text-accent-primary">{lang === 'ko' ? '차트를 드래그해 구간을 선택하세요' : 'Drag across the chart to select a range'}</span>}
       {p.onPointClick && !brushMode && p.pointClickHint && <span className="text-[11px] text-text-muted">{p.pointClickHint}</span>}
     </div>
