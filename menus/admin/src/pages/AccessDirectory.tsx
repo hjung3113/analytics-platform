@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { PERMISSIONS, type AccessPrincipal, type AccessSortField } from '@ap/contracts';
 import { useI18n, usePlatform } from '@ap/kernel';
-import { DetailDrawer, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort } from '@ap/components';
+import { DetailDrawer, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { grantTotals, menusForPermissions } from '../access-rows';
 import { ACCESS_PAGE_KEYS, parseAccessKeys } from '../access-query';
 
-const control = 'h-8 rounded-sm border border-border-control bg-surface-card px-2 text-[12px] focus-visible:outline-2 focus-visible:outline-focus-ring';
 const mono = (value: unknown) => <span className="t-mono">{String(value)}</span>;
 
 /**
@@ -41,21 +40,11 @@ export default function AccessDirectory() {
     setPage(Object.fromEntries(ACCESS_PAGE_KEYS.map(k => [k, null])));
   };
   const clear = <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{ko ? '필터 초기화' : 'Clear filters'}</Button>;
-  const filters = <form className="mb-3" onSubmit={applyDraft}>
-    <fieldset className="flex flex-wrap items-center gap-2 border-l-2 border-border-strong pl-3">
-      <legend className="t-caption text-text-muted">{ko ? '필터' : 'Filters'}</legend>
-      <label className="flex items-center gap-1 text-xs">{ko ? '권한' : 'Permission'}
-        <select className={control} value={raw.permission ?? ''} onChange={e => setFilter('permission', e.target.value || null)}>
-          <option value="">{ko ? '전체' : 'All'}</option>
-          {PERMISSIONS.map(permission => <option key={permission} value={permission}>{permission}</option>)}
-        </select>
-      </label>
-      <label className="flex items-center gap-1 text-xs">{ko ? '역할' : 'Role'}
-        <input className={control} aria-label={ko ? '역할 정확 일치' : 'Exact role'} value={draft} onChange={e => setDraft(e.target.value)} />
-      </label>
-      <Button type="submit" size="sm" variant="secondary">{ko ? '적용' : 'Apply'}</Button>
-      {parsed.ok && clear}
-    </fieldset>
+  const filters = <form onSubmit={applyDraft}>
+    <PageFilterBar label={ko ? '필터' : 'Filters'} fields={[
+      { kind: 'select', key: 'permission', label: ko ? '권한' : 'Permission', value: raw.permission ?? '', emptyOptionLabel: ko ? '전체' : 'All', options: PERMISSIONS.map(value => ({ value, label: value })), onValueChange: value => setFilter('permission', value || null) },
+      { kind: 'text', key: 'role', label: ko ? '역할 정확 일치' : 'Exact role', value: draft, onValueChange: setDraft },
+    ]} actions={<><Button type="submit" size="sm" variant="secondary">{ko ? '적용' : 'Apply'}</Button>{parsed.ok && clear}</>} />
   </form>;
   const columns = useMemo<PlatformColumn<AccessPrincipal>[]>(() => [
     { id: 'name', header: ko ? '이름' : 'Name', cell: row => <span className="t-mono">{String(row.name)}</span> },

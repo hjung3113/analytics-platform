@@ -9,6 +9,10 @@ export const SORT_COLUMNS = ['cycleMin', 'delta', 'anchor', 'equipmentId', 'room
 export type SortColumn = (typeof SORT_COLUMNS)[number];
 export const DEFAULT_SORT = 'cycleMin:desc';
 
+export function cycleTailFilterLabel(lang: 'ko' | 'en') {
+  return lang === 'ko' ? '느린 실행 기준' : 'Slow-execution predicate';
+}
+
 const ANCHOR = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/;
 
 export function resolveGranularity(raw: string | null, hours: number | null): { ok: true; value: Granularity; explicit: boolean } | { ok: false } {
