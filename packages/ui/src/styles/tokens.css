@@ -35,3 +35,16 @@
   --icon-blue-soft: 227 239 255;
   --icon-teal-soft: 220 248 239;
 }
+
+/* THROWAWAY #203: stroke-only candidates; never replace chart/category fills. */
+:root {
+  --proto-b1-chart-blue: 47 139 229; /* #2f8be5 */
+  --proto-b1-chart-teal: 0 147 163; /* #0093a3 */
+  --proto-b1-chart-purple: 147 103 226; /* #9367e2 */
+  --proto-b2-chart-blue: 37 119 204; /* #2577cc */
+  --proto-b2-chart-teal: 0 128 144; /* #008090 */
+  --proto-b2-chart-purple: 129 84 206; /* #8154ce */
+  --proto-b3-chart-blue: 29 100 179; /* #1d64b3 */
+  --proto-b3-chart-teal: 0 109 124; /* #006d7c */
+  --proto-b3-chart-purple: 110 66 184; /* #6e42b8 */
+}

@@ -1,8 +1,8 @@
 import { X } from 'lucide-react';
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useI18n } from '@ap/kernel';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
+import { PrototypeContext, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 
 function useMinWidth1440(): boolean {
   const query = '(min-width: 1440px)';
@@ -31,6 +31,12 @@ export function DetailDrawer({ title, subtitle, headerActions, context, tabs, on
   const asideRef = useRef<HTMLElement>(null);
   const id = useId();
   const wide = useMinWidth1440();
+  const prototype = useContext(PrototypeContext);
+  const docked = prototype.detail === 'B' || (prototype.detail === 'C' && wide);
+  useEffect(() => {
+    prototype.setDetailOpen(docked);
+    return () => prototype.setDetailOpen(false);
+  }, [docked, prototype.setDetailOpen]);
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     close.current?.focus({ preventScroll: true });
@@ -42,15 +48,16 @@ export function DetailDrawer({ title, subtitle, headerActions, context, tabs, on
   useEffect(() => {
     const main = document.getElementById('platform-main');
     const root = document.getElementById('root');
+    if (docked) return;
     if (wide) main?.classList.add('wide:pr-[32rem]');
     else root?.setAttribute('inert', '');
     return () => {
       root?.removeAttribute('inert');
       main?.classList.remove('wide:pr-[32rem]');
     };
-  }, [wide]);
+  }, [wide, docked]);
   useEffect(() => {
-    if (wide) return;
+    if (wide || docked) return;
     const aside = asideRef.current;
     if (!aside) return;
     const onKey = (event: KeyboardEvent) => {
@@ -73,12 +80,22 @@ export function DetailDrawer({ title, subtitle, headerActions, context, tabs, on
     };
     document.addEventListener('keydown', onKey, true);
     return () => document.removeEventListener('keydown', onKey, true);
-  }, [wide, onClose]);
+  }, [wide, docked, onClose]);
+  // Re-focus after a variant/viewport transition relocates the portal.
+  useEffect(() => { close.current?.focus({ preventScroll: true }); }, [docked, prototype.detailHost]);
+  useEffect(() => {
+    if (!docked) return;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); onClose(); }
+    };
+    document.addEventListener('keydown', escape);
+    return () => document.removeEventListener('keydown', escape);
+  }, [docked, onClose]);
   const tree = <>
-    {!wide && <div data-testid="drawer-scrim" className="fixed inset-0 z-30 bg-text-primary/45" onClick={onClose} aria-hidden />}
-    <aside ref={asideRef} role="dialog" aria-modal={wide ? 'false' : 'true'} aria-labelledby={`${id}-t`}
+    {!wide && !docked && <div data-testid="drawer-scrim" className="fixed inset-0 z-30 bg-text-primary/45" onClick={onClose} aria-hidden />}
+    <aside ref={asideRef} role="dialog" aria-modal={wide || docked ? 'false' : 'true'} aria-labelledby={`${id}-t`}
     onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}
-    className={`fixed bottom-0 right-0 top-[var(--toolbar-height)] ${wide ? 'z-30' : 'z-40'} flex w-detail-panel max-w-[95vw] flex-col border-l border-border-strong bg-surface-detail shadow-[-8px_0_24px_-12px_rgba(17,24,39,0.18)]`}>
+    className={docked ? 'flex h-full w-full flex-col bg-surface-detail' : `fixed bottom-0 right-0 top-[var(--toolbar-height)] ${wide ? 'z-30' : 'z-40'} flex w-detail-panel max-w-[95vw] flex-col border-l border-border-strong bg-surface-detail shadow-[-8px_0_24px_-12px_rgba(17,24,39,0.18)]`}>
     <header className="flex items-start justify-between gap-3 border-b border-border-subtle px-5 py-4">
       <div className="min-w-0">
         <h2 id={`${id}-t`} className="t-section-title truncate">{title}</h2>
@@ -98,6 +115,7 @@ export function DetailDrawer({ title, subtitle, headerActions, context, tabs, on
     </Tabs>
     </aside>
   </>;
+  if (docked) return prototype.detailHost ? createPortal(tree, prototype.detailHost) : null;
   return wide ? tree : createPortal(tree, document.body);
 }
 

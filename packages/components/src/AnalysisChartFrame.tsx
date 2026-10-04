@@ -1,9 +1,9 @@
 import { BrushIcon, Download, GitCompare, MessageSquarePlus, MoreHorizontal, RotateCcw, Table2, ZoomIn } from 'lucide-react';
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { formatDateTime, formatMetricVersion, parseDateTime } from '@ap/contracts';
-import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { PrototypeContext, Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { EChart, token } from './EChart';
 
 export type ChartSeries = {
@@ -52,6 +52,10 @@ export type AnalysisChartFrameProps = {
  * Compare/Annotate/Export follow the current menu's manifest `features`; a chart outside a routed menu offers none of them.
  */
 export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
+  const { chart: prototypeVariant, chartActive } = useContext(PrototypeContext);
+  // THROWAWAY: only thin series and their legends consume candidate aliases.
+  const seriesToken = (s: ChartSeries) => token(s.kind !== 'bar' && prototypeVariant !== 'A' && ['chart-blue', 'chart-teal', 'chart-purple'].includes(s.color) ? `proto-${prototypeVariant.toLowerCase()}-${s.color}` : s.color);
+  const seriesDashed = (s: ChartSeries) => s.dashed || (chartActive && /\bP95\b/.test(s.name));
   const { t, lang } = useI18n();
   const { setGlobal, toast, global, adapter, route } = usePlatform();
   const features = route?.menu.features;
@@ -118,7 +122,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         ...visible.map(s => ({
           id: s.id, name: s.name, type: s.kind ?? 'line', stack: p.stacked && s.kind === 'bar' ? 'total' : undefined,
           showSymbol: false, symbolSize: 5, connectNulls: false, barMaxWidth: 18,
-          lineStyle: { width: 2, type: s.dashed ? 'dashed' : 'solid' }, itemStyle: { color: token(s.color) },
+          lineStyle: { width: 2, color: seriesToken(s), type: seriesDashed(s) ? 'dashed' : 'solid' }, itemStyle: { color: token(s.color) },
           emphasis: { focus: 'series' },
           data: s.points.map(([x, y]) => (xType === 'time' ? [toMs(x), y] : y)),
         })),
@@ -130,7 +134,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       ],
     };
     // Deps intentionally restricted to the chart inputs below (would trip react-hooks/exhaustive-deps if that rule is enabled).
-  }, [visible, xType, categories, zoom, brushMode, selection, annotations, p.markLines, p.unit, lang, p.stacked]);
+  }, [visible, xType, categories, zoom, brushMode, selection, annotations, p.markLines, p.unit, lang, p.stacked, prototypeVariant, chartActive]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
@@ -224,7 +228,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     <div role="group" aria-label={lang === 'ko' ? '범례' : 'Legend'} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 pt-2">
       {allSeries.map(s => <label key={s.id} className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] text-text-secondary">
         <input type="checkbox" className="size-3.5 accent-[rgb(var(--accent-primary))]" checked={!hidden.has(s.id)} onChange={() => setHidden(h => { const n = new Set(h); if (n.has(s.id)) n.delete(s.id); else n.add(s.id); return n; })} />
-        <span aria-hidden className={cn('inline-block h-0.5 w-4', s.dashed && 'border-t-2 border-dashed bg-transparent')} style={{ backgroundColor: s.dashed ? undefined : token(s.color), borderColor: token(s.color) }} />
+        <span aria-hidden className={cn('inline-block h-0.5 w-4', seriesDashed(s) && 'border-t-2 border-dashed bg-transparent')} style={{ backgroundColor: seriesDashed(s) ? undefined : seriesToken(s), borderColor: seriesToken(s) }} />
         {s.name}
       </label>)}
       {brushMode && <span className="text-[11px] text-accent-primary">{lang === 'ko' ? '차트를 드래그해 구간을 선택하세요' : 'Drag across the chart to select a range'}</span>}

@@ -14,3 +14,6 @@ export * from './components/shadcn/tabs';
 export * from './components/shadcn/tooltip';
 export { cn } from '@fops/ui';
 export { isProductionEnv } from './utils/isProductionEnv';
+
+// Throwaway prototype exports (#203/#195).
+export { PrototypeContext, type ChartPrototypeVariant, type DetailPrototypeVariant } from './proto/context';

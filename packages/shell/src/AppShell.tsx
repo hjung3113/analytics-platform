@@ -1,8 +1,8 @@
 import { AlertTriangle, Info, X, XCircle } from 'lucide-react';
-import { Suspense, useEffect, useState, type ReactNode } from 'react';
+import { Suspense, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { LoadingBlock } from '@ap/components';
-import { cn } from '@ap/ui';
+import { PrototypeContext, cn } from '@ap/ui';
 import { CommandPalette } from './CommandPalette';
 import { AppSidebar } from './AppSidebar';
 import { AppRail } from './AppRail';
@@ -11,6 +11,10 @@ const COLLAPSE_KEY = 'platform:sidebar-collapsed';
 
 /** Application Shell (§7): 52px rail, 240/56px sidebar, page-owned 50px header; pages render only into the content slot. */
 export function AppShell({ children }: { children: ReactNode }) {
+  const prototype = useContext(PrototypeContext);
+  const [detailHost, setDetailHost] = useState<HTMLElement | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const dockEnabled = prototype.detail !== 'A';
   const [collapsed, setCollapsed] = useState(() => {
     try { const v = localStorage.getItem(COLLAPSE_KEY); return v === null ? window.innerWidth < 1440 : v === '1'; } catch { return false; }
   });
@@ -24,7 +28,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  return <div className="flex h-full overflow-hidden">
+  return <PrototypeContext.Provider value={{ ...prototype, detailHost, detailOpen, setDetailOpen }}><div className="flex h-full overflow-hidden">
     <a href="#platform-main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">Skip to content</a>
     <AppRail />
     <AppSidebar collapsed={collapsed} onToggle={toggle} />
@@ -33,9 +37,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}>{children}</Suspense>
       </main>
     </div>
+    <aside ref={setDetailHost} aria-label="상세 패널" data-testid="prototype-detail-slot" data-open={dockEnabled && detailOpen}
+      className="shrink-0 overflow-hidden border-border-subtle bg-surface-detail"
+      style={{ width: dockEnabled && detailOpen ? 'var(--detail-panel-width, 440px)' : 0, minWidth: dockEnabled && detailOpen ? 360 : 0, maxWidth: 520, borderLeftWidth: dockEnabled && detailOpen ? 1 : 0 }} />
     <CommandPalette />
     <Toasts />
-  </div>;
+  </div></PrototypeContext.Provider>;
 }
 
 function Toasts() {
