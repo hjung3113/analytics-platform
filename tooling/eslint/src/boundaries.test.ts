@@ -336,6 +336,35 @@ const rows: Row[] = [
   { file: 'menus/home/src/pages/Sample.tsx', code: `import { sampleMock } from '../mock';`, rule: 'ap/no-menu-mock-import' },
 ];
 
+// FeedbackOps primitives are a source dependency of @ap/ui only (ADR-0011).
+// Exercise the root entry and deep imports through both static and dynamic syntax in each platform layer.
+const FEEDBACKOPS_BOUNDARY_FILES = [
+  'packages/kernel/src/x.ts',
+  'packages/components/src/x.ts',
+  'packages/shell/src/x.ts',
+  MENU,
+  'apps/platform-web/src/menus.ts',
+  'apps/platform-web/src/main.tsx',
+];
+
+for (const file of FEEDBACKOPS_BOUNDARY_FILES) {
+  rows.push(
+    { file, code: `import { Button } from '@fops/ui';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+    { file, code: `import { Button } from '@fops/ui/src/button';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+    { file, code: `void import('@fops/ui');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
+    { file, code: `void import('@fops/ui/src/button');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
+  );
+}
+
+rows.push(
+  { file: 'packages/ui/src/x.ts', code: `import { Button } from '@fops/ui';`, rule: '' },
+  { file: 'packages/ui/src/x.ts', code: `void import('@fops/ui');`, rule: '' },
+  { file: 'packages/ui/src/x.ts', code: `import { x } from '@fops/shared';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  { file: 'packages/ui/src/x.ts', code: `void import('@fops/shared');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
+  { file: 'packages/ui/src/x.ts', code: `import { x } from '@fops/ui/src/button';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  { file: 'packages/ui/src/x.ts', code: `void import('@fops/ui/src/button');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
+);
+
 describe('boundary + contract fixtures', () => {
   it.each(rows)('$# $file $code', async ({ file, code, rule, token }) => {
     const messages = await lint(file, code);

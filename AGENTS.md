@@ -29,7 +29,7 @@
 
 ## 코드 작업 원칙
 
-- 플랫폼 코드는 루트 pnpm workspace(`apps/*`, `packages/*`, `menus/*`, `tooling/*`)다. 루트에서 `pnpm install`, `pnpm dev`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`(Node 26.7.0, pnpm 11.1.1).
+- 플랫폼 코드는 루트 pnpm workspace(`apps/*`, `packages/*`, `menus/*`, `tooling/*`, FeedbackOps `products/feedbackops/packages/ui`·`products/feedbackops/packages/shared`)다. FeedbackOps UI primitive는 `@ap/ui`를 통해서만 소비한다. 루트에서 `pnpm install`, `pnpm dev`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`(Node 26.7.0, pnpm 11.1.1).
 - 의존 방향은 `contracts → ui/kernel → components → shell → apps`이며 역방향 import는 금지다. 원본은 `docs/integration/platform-packages.md` §3.
 - Kernel·공통 컴포넌트·셸은 메뉴와 mock을 모른다. 메뉴 목록은 Registry로, 서버는 `PlatformAdapter`로 앱이 주입한다.
 - 작업하는 폴더에 `AGENTS.md`가 있으면 그 폴더 규칙을 추가로 따른다. 폴더 지침은 루트를 좁힐 수 있지만 루트 원칙과 충돌하면 루트를 따른다.

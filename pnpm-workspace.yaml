@@ -1,9 +1,16 @@
 # docs/integration/platform-packages.md §3, §7.
-# products/feedbackops keeps its own workspace; prototypes/* are standalone npm units.
+# Only FeedbackOps packages/ui and packages/shared join this workspace; the rest keeps its own workspace.
+# prototypes/* are standalone npm units.
 packages:
   - apps/*
   - packages/*
   - menus/*
   - tooling/*
+  - products/feedbackops/packages/ui
+  - products/feedbackops/packages/shared
+# FeedbackOps#748: align React declarations so the shared workspace sees one React type version.
+overrides:
+  '@types/react': ^19.3.0
+  '@types/react-dom': ^19.3.0
 allowBuilds:
   esbuild: true

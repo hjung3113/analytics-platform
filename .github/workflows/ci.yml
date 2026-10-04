@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 # 경로 필터 없이 매 push/PR마다 6개 Job을 모두 실행한다(레포가 작아 단순함 우선).
-# 체크아웃은 모두 submodules: false — 어느 프로토타입도 products/feedbackops를 런타임에 참조하지 않으므로(이식이지 참조가 아님) 서브모듈을 초기화하지 않는다.
+# 프로토타입 4개 Job은 submodules: false, 플랫폼 workspace·계약 E2E Job은 FeedbackOps workspace 패키지 때문에 true를 쓴다.
 
 jobs:
   python-codec:
@@ -115,7 +115,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          submodules: false
+          submodules: true
       # pnpm 버전은 루트 package.json의 packageManager를 따른다.
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
@@ -124,10 +124,12 @@ jobs:
           node-version: '26.7.0'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Guard FeedbackOps out of platform task graph
+        run: node .github/scripts/check-platform-turbo-scope.mjs
       - run: pnpm lint
       - run: pnpm typecheck
       # #166: vitest workers × parallel packages oversubscribe the runner → cap turbo concurrency
-      - run: pnpm exec turbo run test --concurrency=2
+      - run: pnpm test --concurrency=2
       - run: pnpm build
       # #153 (ADR-0009): the production module graph (assembly external) carries no mock-server, menu mock or src/dev
       - run: pnpm --filter @ap/platform-web check:prod-graph
@@ -150,7 +152,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          submodules: false
+          submodules: true
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:
