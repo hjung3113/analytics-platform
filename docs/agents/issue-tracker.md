@@ -46,4 +46,4 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 - **Claim**: `gh issue edit <n> --add-assignee @me`.
 - **Resolve**: comment the answer, close, and add a one-line pointer to the map.
 
-Milestones are the progress authority per track (`M1 플랫폼 기능 기반`, `M2 디자인 시스템`, `M3 FeedbackOps 1단계`, `M4 사내 적용`; FeedbackOps 2단계는 지도 이슈 #213). A wayfinder map lives inside a milestone. The at-a-glance board is `.planning/README.md`.
+Milestones are the progress authority per track (`M1 플랫폼 기능 기반`, `M2 디자인 시스템`, `M3 FeedbackOps 1단계`, `M4 사내 적용`, `M5 FeedbackOps 2단계`(지도 #213)). A wayfinder map lives inside a milestone. The at-a-glance board is `.planning/README.md`.

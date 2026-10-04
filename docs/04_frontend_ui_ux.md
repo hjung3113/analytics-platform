@@ -25,7 +25,7 @@
 | Toast | sonner | FeedbackOps와 동일 | **라이브러리 미도입** — 현재 Kernel 자체 구현(sonner 미사용): `usePlatform().toast`·`dismissToast`를 셸이 렌더하고 메뉴가 사용 중. 전환은 필요해질 때 검토 |
 | Command Palette | cmdk | FeedbackOps와 동일. §4 Kernel 책임의 Command Palette를 이 라이브러리로 구현 | **자체 구현**(`packages/shell/src/CommandPalette.tsx`, 메뉴 이동만). 실검색(Entity Search)을 넣을 때 cmdk 재검토 |
 | 테이블/가상화 | TanStack Table + TanStack Virtual | FeedbackOps에 선례 없음. 이 세션 Unit C(`prototypes/kernel-platform-table/`)에서 서버사이드 sort/filter·virtualization·column 선호 저장·multi-select를 Playwright/Chromium으로 실검증(23 tests) | 사용 중. 메뉴는 엔진 타입이 아니라 플랫폼 열 타입 `PlatformColumn`만 쓴다(#160, 메뉴가 표 엔진 패키지 `@tanstack/react-table`·`react-virtual`·`table-core`·`virtual-core`를 import하면 lint 에러) — 엔진 교체가 `@ap/components` 안에서 끝난다 |
-| 차트 | Apache ECharts(코드는 Canvas 렌더러 — SVG/Canvas 선택은 결정 대기) | FeedbackOps에 선례 없음. 이 세션 Unit B(`prototypes/kernel-chart-frame/`)에서 실제 SVG SSR 렌더링·4층 상태 분리·Toolbar 7종을 검증(23 tests) | 사용 중(ECharts 6.1, 별도 지연 청크 #48). 렌더러는 현재 canvas(`EChartImpl.tsx`)이며 프로토타입이 검증한 SVG와 다르다 |
+| 차트 | Apache ECharts(Canvas 렌더러, [ADR-0021](adr/0021-echarts-canvas-renderer.md)) | FeedbackOps에 선례 없음. 이 세션 Unit B(`prototypes/kernel-chart-frame/`)에서 실제 SVG SSR 렌더링·4층 상태 분리·Toolbar 7종을 검증(23 tests) | 사용 중(ECharts 6.1, 별도 지연 청크 #48). 렌더러는 Canvas(`EChartImpl.tsx`) — 프로토타입은 SVG로 검증했다 |
 | 테스트 | Playwright(e2e/visual) + Vitest(unit) | FeedbackOps와 동일, 이 세션 프로토타입도 동일 조합 사용 | 사용 중(Playwright 1.63, Vitest 3.2) |
 | 조회 레이아웃 | CSS Grid | 고정 화면은 react-grid-layout보다 단순·안정적 | 사용 중 |
 
