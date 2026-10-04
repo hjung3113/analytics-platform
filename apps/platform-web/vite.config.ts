@@ -2,7 +2,6 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 import tailwindcss from '@tailwindcss/vite';
 import { ASSEMBLY_SPECIFIER, prodGraphGuard } from './scripts/prod-graph.ts';
-import { feedbackOpsUiModuleSideEffects } from './scripts/feedbackops-ui-module-side-effects.ts';
 
 /** `#platform-assembly` (src/platform-assembly.d.ts) is resolved here by mode — #153, ADR-0009. */
 const MOCK_ASSEMBLY = fileURLToPath(new URL('./src/dev/mock-assembly.tsx', import.meta.url));
@@ -33,6 +32,5 @@ const guardGraph = (mode: string): boolean => !MOCK_MODES.has(mode);
 export default defineConfig(({ mode, isPreview = false }) => ({
   plugins: [tailwindcss(), ...(guardGraph(mode) ? [prodGraphGuard()] : [])],
   resolve: { alias: assemblyAlias(mode, isPreview) },
-  build: { rollupOptions: { treeshake: { moduleSideEffects: feedbackOpsUiModuleSideEffects } } },
   test: { environment: 'jsdom', setupFiles: ['./src/test-setup.ts'] },
 }));
