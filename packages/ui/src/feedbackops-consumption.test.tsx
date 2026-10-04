@@ -13,7 +13,7 @@ it('renders a primitive from the FeedbackOps UI package', () => {
 });
 
 it('preserves the platform primitive API as FeedbackOps re-exports', () => {
-  const platformOnly = new Set(['Dot', 'StatusBadge', 'cn', 'isProductionEnv']);
+  const platformOnly = new Set(['Dot', 'StatusBadge', 'isProductionEnv']);
   const upstream = feedbackOps as unknown as Record<string, unknown>;
   for (const [name, value] of Object.entries(platform)) {
     if (!platformOnly.has(name)) expect(value, name).toBe(upstream[name]);

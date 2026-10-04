@@ -12,5 +12,5 @@ export * from './components/shadcn/select';
 export * from './components/shadcn/skeleton';
 export * from './components/shadcn/tabs';
 export * from './components/shadcn/tooltip';
-export { cn } from './utils/cn';
+export { cn } from '@fops/ui';
 export { isProductionEnv } from './utils/isProductionEnv';

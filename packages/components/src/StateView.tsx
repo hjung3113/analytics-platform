@@ -9,13 +9,13 @@ type StateProps = { icon: ReactNode; title: string; body?: ReactNode; action?: R
 export function StateMessage({ icon, title, body, action, tone = 'neutral', correlationId, compact }: StateProps) {
   const { t } = useI18n();
   return <div role={tone === 'danger' ? 'alert' : 'status'} className={cn('flex flex-col items-start gap-2 rounded-md p-4',
-    tone === 'danger' ? 'bg-accent-danger-soft text-text-danger' : tone === 'warning' ? 'bg-accent-warn-soft text-text-warning' : 'bg-surface-sunken text-text-secondary',
+    tone === 'danger' ? 'bg-accent-danger-soft text-danger-label' : tone === 'warning' ? 'bg-accent-warn-soft text-warning-label' : 'bg-surface-sunken text-text-secondary',
     compact ? 'p-3' : 'min-h-24')}>
-    <div className="flex items-center gap-2 font-semibold text-[13px]">{icon}{title}</div>
-    {body && <div className="max-w-prose text-[12px] leading-4 opacity-90">{body}</div>}
+    <div className="flex items-center gap-2 font-semibold text-[13px]"><span className={cn(tone === 'danger' ? 'text-text-danger' : tone === 'warning' && 'text-text-warning')}>{icon}</span>{title}</div>
+    {body && <div className={cn('max-w-prose text-[12px] leading-4', tone === 'neutral' && 'opacity-90')}>{body}</div>}
     {(action || correlationId) && <div className="flex flex-wrap items-center gap-3">
       {action}
-      {correlationId && <span className="t-mono text-[11px] opacity-80">{t('correlationId')}: {correlationId}</span>}
+      {correlationId && <span className={cn('t-mono text-[11px]', tone === 'neutral' && 'opacity-80')}>{t('correlationId')}: {correlationId}</span>}
     </div>}
   </div>;
 }

@@ -6,7 +6,7 @@ import type { ECharts } from 'echarts/core';
 import type { PlatformAdapter, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { AnalysisChartFrame, type ChartSeries } from './AnalysisChartFrame';
-import type { EChartProps } from './EChart';
+import { baseTextStyle, type EChartProps } from './EChart';
 
 // Regression test for the #48 P1 finding: the echarts-dependent implementation is code-split,
 // so the chart instance can appear after the parent already handled a Brush click. This mocks
@@ -86,5 +86,27 @@ describe('EChart lazy chunk readiness (P1)', () => {
       type: 'takeGlobalCursor', key: 'brush',
       brushOption: { brushType: 'lineX', brushMode: 'single' },
     }), { timeout: 2000 });
+  });
+});
+
+describe('chart text tokens (#193)', () => {
+  it('uses the FeedbackOps font fallback without the removed Noto family', () => {
+    expect(baseTextStyle.fontFamily).toContain('Pretendard Variable');
+    expect(baseTextStyle.fontFamily).not.toContain('Noto');
+  });
+
+  it('reads the current font and muted colour from CSS at draw time', () => {
+    const root = document.documentElement;
+    const oldFont = root.style.getPropertyValue('--font-sans');
+    const oldColor = root.style.getPropertyValue('--text-muted');
+    try {
+      root.style.setProperty('--font-sans', "'Inter Variable', 'Pretendard Variable', sans-serif");
+      root.style.setProperty('--text-muted', '102 112 131');
+      expect(baseTextStyle.fontFamily).toBe("'Inter Variable', 'Pretendard Variable', sans-serif");
+      expect(baseTextStyle.color).toBe('rgb(102,112,131)');
+    } finally {
+      if (oldFont) root.style.setProperty('--font-sans', oldFont); else root.style.removeProperty('--font-sans');
+      if (oldColor) root.style.setProperty('--text-muted', oldColor); else root.style.removeProperty('--text-muted');
+    }
   });
 });

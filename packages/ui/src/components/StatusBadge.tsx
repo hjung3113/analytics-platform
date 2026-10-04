@@ -1,14 +1,14 @@
 import type { ReactNode } from 'react';
-import { cn } from '../utils/cn';
+import { cn } from '@fops/ui';
 
 export type Tone = 'success' | 'warning' | 'danger' | 'neutral' | 'info';
 
 const tones: Record<Tone, string> = {
-  success: 'bg-accent-success-soft text-text-success',
-  warning: 'bg-accent-warn-soft text-text-warning',
-  danger: 'bg-accent-danger-soft text-text-danger',
+  success: 'bg-accent-success-soft text-success-label',
+  warning: 'bg-accent-warn-soft text-warning-label',
+  danger: 'bg-accent-danger-soft text-danger-label',
   neutral: 'bg-accent-neutral-soft text-text-secondary',
-  info: 'bg-accent-primary-soft text-text-info',
+  info: 'bg-accent-primary-soft text-info-label',
 };
 const dots: Record<Tone, string> = {
   success: 'bg-accent-success', warning: 'bg-accent-warn', danger: 'bg-accent-danger', neutral: 'bg-accent-neutral', info: 'bg-accent-primary',

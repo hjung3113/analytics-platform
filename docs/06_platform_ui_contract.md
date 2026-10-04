@@ -13,7 +13,7 @@
 - **Open**: Scope 부모·자식 상속, 최초 기본 Δ, timeDomain assertion 공급 근거, 다중 Site의 같은 날짜·교대일/영업일 등 각 절에 명시한 미결 입력. URL 메커니즘과 Site→room_name→StGroup→Equipment 관계의 Decided 상태 및 공개 필드명·enum의 Candidate 상태와 구별한다.
 - **Deferred**: 저장된 뷰 등 후속 구현 범위. 이 설계가 기능 제공 시점을 확정하지 않는다.
 
-§5~6, §8~9, §11, §17, §19의 책임·행동 규칙은 Decided다. §7 셸 구조·치수는 2026-10-04 [ADR-0011](adr/0011-design-direction-feedbackops-shell.md)로 FeedbackOps AppFrame 구조(레일 52px·사이드바 240/56px·상단 바 없음·페이지 머리 50px)로 Decided됐다(이전 2026-09-21 기준 사이드바 270px·헤더 54px를 대체). 치수 값의 단일 원본은 FeedbackOps `packages/ui/src/styles/tokens.css`의 레이아웃 토큰이다. §15 테이블 밀도(최소 32px)는 2026-09-21 `DESIGN.md` canonical 값으로 Decided다. §23 토큰 스케일·§25 반응형 정책·§31은 아직 Candidate다. 구현 일정은 아직 확정하지 않았으며 `05_roadmap_and_open_questions.md`의 Phase 표는 non-authoritative 가설이다.
+§5~6, §8~9, §11, §17, §19의 책임·행동 규칙은 Decided다. §7 셸 구조·치수는 2026-10-04 [ADR-0011](adr/0011-design-direction-feedbackops-shell.md)로 FeedbackOps AppFrame 구조(레일 52px·사이드바 240/56px·상단 바 없음·페이지 머리 50px)로 Decided됐다(이전 2026-09-21 기준 사이드바 270px·헤더 54px를 대체). 치수 값의 단일 원본은 FeedbackOps `packages/ui/src/styles/tokens.css`의 레이아웃 토큰이다. §15 테이블 밀도(최소 32px)는 2026-09-21 `DESIGN.md` canonical 값으로 Decided다. §23 토큰 값의 원본은 ADR-0011로 Decided이며, 나머지 §23 정책·§25 반응형 정책·§31은 아직 Candidate다. 구현 일정은 아직 확정하지 않았으며 `05_roadmap_and_open_questions.md`의 Phase 표는 non-authoritative 가설이다.
 
 ## 1. 문서 목적
 
@@ -1013,7 +1013,7 @@ FeedbackOps로 나가는 외부 hop은 `linkTo`가 아니라 [FeedbackOps 딥링
 
 공유 색·반경·간격·폰트·본문 값은 FeedbackOps [tokens.css](../products/feedbackops/packages/ui/src/styles/tokens.css)와 [theme.css](../products/feedbackops/packages/ui/src/styles/theme.css)가 소유한다. 소비 순서·본문·레이어 없는 webfont 규칙은 [ADR-0058](../products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md) §2를 따른다. 플랫폼이 별도 값 스케일을 복제하지 않는다([ADR-0011](adr/0011-design-direction-feedbackops-shell.md)).
 
-FeedbackOps에 없는 플랫폼 전용 theme 키·차트/카테고리/아이콘 색·`t-*` 역할 클래스·반응형/detail-panel 확장은 `packages/ui/src/styles/`가 소유한다. 어두운 `nav-*`는 셸 이행(#194)까지 유지한다. DESIGN.md 본문 갱신은 #53에서 한다.
+FeedbackOps에 없는 플랫폼 전용 theme 키·차트/카테고리/아이콘 색·`t-*` 역할 클래스·반응형/detail-panel 확장은 `packages/ui/src/styles/`가 소유한다. 작은 의미 텍스트에는 플랫폼 `text-success-label`/`text-info-label`/`text-warning-label`/`text-danger-label`을 쓰며, 각각 FeedbackOps resolved/received/prep/reopened label 토큰을 참조한다. 생생한 공유 의미 색은 dot·icon·tint에 유지한다. 입력 경계 `border-control`은 storm-cloud를 참조하고 구조 구분선은 border-subtle을 유지한다. 어두운 `nav-*`는 셸 이행(#194)까지 유지한다. DESIGN.md 본문 갱신은 #53에서 한다.
 
 ### Semantic Colors
 

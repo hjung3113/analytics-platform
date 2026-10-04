@@ -17,6 +17,10 @@
   --color-nav-text: rgb(var(--nav-text));
   --color-nav-text-faint: rgb(var(--nav-text-faint));
   --color-nav-focus: rgb(var(--nav-focus));
+  --color-success-label: rgb(var(--text-success-label));
+  --color-info-label: rgb(var(--text-info-label));
+  --color-warning-label: rgb(var(--text-warning-label));
+  --color-danger-label: rgb(var(--text-danger-label));
   --color-border-control: rgb(var(--border-control));
   --color-accent-primary-hover: rgb(var(--accent-primary-hover));
   --color-accent-primary-soft: rgb(var(--accent-primary-soft));

@@ -8,6 +8,21 @@ import { contextBar, evidence, expectScopeValid, firstRowByColumn, lotColumn, ma
 const PERIOD = 'from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
 const PRODUCTIVITY = `/analytics/productivity?v=1&scopeId=ICH&${PERIOD}&roomNames=PH-101`;
 
+test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
+  test('FeedbackOps base 값이 theme보다 우선하고 플랫폼 control 경계는 label 대비를 유지한다', async ({ page }, testInfo) => {
+    await page.goto('/metrics?v=1&scopeId=ICH');
+    const search = page.getByTestId('metric-search');
+    await expect(search).toBeVisible();
+    await expect(page.locator('body')).toHaveCSS('font-size', '14px');
+    await expect(page.locator('body')).toHaveCSS('font-family', /Pretendard Variable/);
+    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(243, 247, 254)');
+    // Observe the real rounded-sm Input consumer, rather than injecting a synthetic CSS probe.
+    await expect(search).toHaveCSS('border-radius', '2px');
+    await expect(search).toHaveCSS('border-top-color', 'rgb(102, 112, 131)');
+    await evidence(page, testInfo, 'feedbackops-token-cascade');
+  });
+});
+
 test.describe('딥링크 복원 (06 §6.4)', () => {
   test('전역 Context와 page 소유 상태를 URL에서 그대로 복원한다', async ({ page }, testInfo) => {
     const url = `${PRODUCTIVITY}&granularity=day`;
