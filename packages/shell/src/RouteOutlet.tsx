@@ -51,7 +51,7 @@ function ContractErrorView() {
   const { contractError, resetContext, url } = usePlatform();
   const { t } = useI18n();
   return <div className="p-6"><StateMessage tone="danger" icon={<Link2Off className="size-4" aria-hidden />} title={`${t('contractError')}: ${contractError!.code}`}
-    body={<><p>{contractError!.message}</p><p className="mt-1">{t('contractErrorBody')}</p><p className="t-mono mt-2 break-all opacity-80">{url}</p></>}
+    body={<><p>{contractError!.message}</p><p className="mt-1">{t('contractErrorBody')}</p><p className="t-mono mt-2 break-all">{url}</p></>}
     action={<Button size="sm" variant="secondary" onClick={resetContext}>{t('resetContext')}</Button>} /></div>;
 }
 

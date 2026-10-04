@@ -160,3 +160,13 @@ describe('RouteOutlet error boundary (06 §4)', () => {
     }
   });
 });
+
+describe('RouteOutlet contract error view', () => {
+  it('shows the diagnostic URL at full strength — no opacity on danger-soft (AA, #193 UI/UX recheck)', async () => {
+    const { adapter } = fixture(async () => ({ accepted: true }));
+    mountAt('/home?v=99', adapter);
+    const urlText = await screen.findByText(/\/home\?v=99/);
+    expect(urlText.className).toContain('t-mono');
+    expect(urlText.className).not.toMatch(/(^|\s)opacity-/);
+  });
+});
