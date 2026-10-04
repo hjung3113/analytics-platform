@@ -8,10 +8,10 @@ export function TopBar() {
   const current = session.scopes.find(s => s.id === global.scopeId);
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
-  const scopeTone = scope.status === 'valid' ? 'bg-accent-success-soft text-text-success border-transparent'
+  const scopeTone = scope.status === 'valid' ? 'bg-accent-success-soft text-success-label border-transparent'
     : scope.status === 'validating' ? 'bg-surface-sunken text-text-secondary border-transparent'
       : scope.status === 'none' ? 'bg-surface-card text-text-secondary border-border-strong border-dashed'
-        : 'bg-accent-warn-soft text-text-warning border-transparent';
+        : 'bg-accent-warn-soft text-warning-label border-transparent';
 
   return <header className="flex h-[54px] shrink-0 items-center gap-3 border-b border-border-subtle bg-surface-card px-4">
     <button type="button" onClick={() => setPaletteOpen(true)} aria-haspopup="dialog" aria-keyshortcuts="Meta+K Control+K"
@@ -28,9 +28,9 @@ export function TopBar() {
             className={cn('flex h-8 items-center gap-2 rounded-pill border px-3 text-[13px] font-medium', scopeTone)}>
             {scope.status === 'validating' ? <Loader2 className="size-3.5 animate-spin" aria-hidden />
               : scope.status === 'valid' ? <span aria-hidden className="size-2 rounded-pill bg-accent-success" />
-                : scope.status === 'none' ? <MapPin className="size-3.5" aria-hidden /> : <ShieldAlert className="size-3.5" aria-hidden />}
+                : scope.status === 'none' ? <MapPin className="size-3.5" aria-hidden /> : <ShieldAlert className="size-3.5 text-text-warning" aria-hidden />}
             <span>{current?.label ?? global.scopeId ?? t('scopeNone')}</span>
-            {scope.status !== 'none' && <span className="text-[11px] font-normal opacity-80">· {scope.status === 'valid' ? t('scopeValid') : scope.status === 'validating' ? t('scopeValidating') : scope.status === 'unknown_scope' ? t('scopeUnknown') : scope.status === 'error' ? t('scopeCheckFailed') : t('scopeForbidden')}</span>}
+            {scope.status !== 'none' && <span className="text-[11px] font-normal">· {scope.status === 'valid' ? t('scopeValid') : scope.status === 'validating' ? t('scopeValidating') : scope.status === 'unknown_scope' ? t('scopeUnknown') : scope.status === 'error' ? t('scopeCheckFailed') : t('scopeForbidden')}</span>}
             <ChevronDown className="size-3.5 opacity-70" aria-hidden />
           </button>
         </DropdownMenuTrigger>

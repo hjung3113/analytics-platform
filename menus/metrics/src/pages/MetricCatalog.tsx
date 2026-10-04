@@ -49,7 +49,7 @@ export function MetricPairBanner({ viewedId = null, pageVersion = null }: { view
   return <QueryView query={query} compact skeletonRows={2}>
     {verdict => {
       const copy = pairText(verdict, lang, pageVersion);
-      const box = copy.tone === 'danger' ? 'border-border-strong bg-accent-danger-soft text-text-danger' : copy.tone === 'warning' ? 'border-border-strong bg-accent-warn-soft text-text-warning' : 'border-border-subtle bg-surface-card text-text-secondary';
+      const box = copy.tone === 'danger' ? 'border-border-strong bg-accent-danger-soft text-danger-label' : copy.tone === 'warning' ? 'border-border-strong bg-accent-warn-soft text-warning-label' : 'border-border-subtle bg-surface-card text-text-secondary';
       return <div role={copy.tone === 'danger' ? 'alert' : 'status'} className={`rounded-md border px-3 py-2 text-[12px] ${box}`}>
         <p className="font-semibold text-text-primary">{copy.title}</p>
         <p className="mt-0.5">{copy.body}</p>
@@ -101,12 +101,12 @@ export default function MetricCatalogPage(_: PageProps) {
     contextExtension={<div className="flex flex-wrap items-end gap-2">
       <label className="grid gap-1 text-[11px] text-text-muted">
         {lang === 'ko' ? '이름 또는 metricId' : 'Name or metricId'}
-        <Input data-testid="metric-search" value={q ?? ''} placeholder={lang === 'ko' ? '검색' : 'Search'} className="h-8 w-56 rounded-sm text-[12px]"
+        <Input data-testid="metric-search" value={q ?? ''} placeholder={lang === 'ko' ? '검색' : 'Search'} className="h-8 w-56 rounded-sm border-border-control text-[12px]"
           onChange={e => setPage({ q: e.target.value === '' ? null : e.target.value, page: null }, { replace: true })} />
       </label>
       <label className="grid gap-1 text-[11px] text-text-muted">
         {lang === 'ko' ? '상태' : 'Status'}
-        <select data-testid="metric-status-filter" value={status ?? ''} className="h-8 rounded-sm border border-border-strong bg-surface-card px-2 text-[12px] text-text-primary"
+        <select data-testid="metric-status-filter" value={status ?? ''} className="h-8 rounded-sm border border-border-control bg-surface-card px-2 text-[12px] text-text-primary"
           onChange={e => setPage({ status: e.target.value === '' ? null : e.target.value, page: null })}>
           <option value="">{lang === 'ko' ? '전체' : 'All'}</option>
           {STATUSES.map(s => <option key={s} value={s}>{tx(STATUS_LABEL[s])}</option>)}
@@ -115,7 +115,7 @@ export default function MetricCatalogPage(_: PageProps) {
       </label>
       <label className="grid gap-1 text-[11px] text-text-muted">
         domain
-        <select data-testid="metric-domain-filter" value={domain ?? ''} className="h-8 rounded-sm border border-border-strong bg-surface-card px-2 text-[12px] text-text-primary"
+        <select data-testid="metric-domain-filter" value={domain ?? ''} className="h-8 rounded-sm border border-border-control bg-surface-card px-2 text-[12px] text-text-primary"
           onChange={e => setPage({ domain: e.target.value === '' ? null : e.target.value, page: null })}>
           <option value="">{lang === 'ko' ? '전체' : 'All'}</option>
           {DOMAINS.map(d => <option key={d} value={d}>{tx(DOMAIN_LABEL[d])}</option>)}
@@ -132,12 +132,12 @@ export default function MetricCatalogPage(_: PageProps) {
           ? `설비 선택 ${global.selection.length}건은 참조만입니다. 명시적 빈 집합이어도 카탈로그를 0건으로 만들지 않습니다.`
           : `Equipment selection (${global.selection.length}) is reference only. An explicit empty set does not force the catalog to zero rows.`}
       </p>}
-      {(statusIllegal || domainIllegal) && <p role="alert" className="rounded-md bg-accent-warn-soft px-3 py-2 text-[12px] text-text-warning">
+      {(statusIllegal || domainIllegal) && <p role="alert" className="rounded-md bg-accent-warn-soft px-3 py-2 text-[12px] text-warning-label">
         {lang === 'ko'
           ? `등록되지 않은 페이지 필터입니다 (${statusIllegal ? `status=${status}` : `domain=${domain}`}). 전체로 바꾸지 않아 결과가 비었습니다.`
           : `Unregistered page filter (${statusIllegal ? `status=${status}` : `domain=${domain}`}). It is not coerced to All, so the result is empty.`}
       </p>}
-      {tableInvalid ? <p role="alert" className="rounded-md bg-accent-warn-soft px-3 py-2 text-[12px] text-text-warning">
+      {tableInvalid ? <p role="alert" className="rounded-md bg-accent-warn-soft px-3 py-2 text-[12px] text-warning-label">
         {lang === 'ko' ? '정렬·페이지 값이 잘못되었습니다.' : 'Invalid sort or page value.'}
         <Button variant="secondary" size="sm" className="ml-2 h-7 rounded-sm px-2 text-[12px]" onClick={() => setPage({ sort: null, page: null })}>{lang === 'ko' ? '초기화' : 'Reset'}</Button>
       </p> : <PlatformDataTable

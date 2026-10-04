@@ -19,6 +19,19 @@ describe('typecheckAssembly (#153)', () => {
     expect(leftovers().length).toBe(before);
   }, 60_000);
 
+  it('rejects browser assembly access to process.env keys other than NODE_ENV', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-env-assembly-'));
+    try {
+      const file = join(dir, 'env-assembly.ts');
+      writeFileSync(file, `export { createAssembly } from ${JSON.stringify(resolveAssemblyPath('src/dev/mock-assembly.tsx'))};\nexport const apiUrl = process.env.API_URL;\n`);
+      const errors = typecheckAssembly(file);
+      expect(errors).toContain('API_URL');
+      expect(errors).toContain('TS2339');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
   it('fails an assembly of the wrong shape with a tsc error naming the property', () => {
     const before = leftovers().length;
     const dir = mkdtempSync(join(tmpdir(), 'ap-bad-assembly-'));

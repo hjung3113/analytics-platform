@@ -76,7 +76,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
       id: 'delta', header: ko ? 'P95 대비' : 'vs P95', align: 'right',
       cell: row => {
         const value = row.delta;
-        return <span className={value !== null && value > 0 ? 'tabular text-text-danger' : 'tabular text-text-secondary'}>{formatDelta(value, lang)}</span>;
+        return <span className={value !== null && value > 0 ? 'tabular text-danger-label' : 'tabular text-text-secondary'}>{formatDelta(value, lang)}</span>;
       },
     },
     {

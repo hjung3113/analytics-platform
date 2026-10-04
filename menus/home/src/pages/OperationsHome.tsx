@@ -50,7 +50,7 @@ export default function OperationsHome() {
             // Open (08 §8): primary destination forbidden but siblings allowed — rendered disabled with the reason, never re-targeted.
             return allowed
               ? <PlatformLink key={g.id} href={linkTo(primary.id)} className="rounded-lg border border-border-subtle bg-surface-card p-4 transition-colors hover:border-accent-primary">{body}</PlatformLink>
-              : <div key={g.id} aria-disabled className="rounded-lg border border-dashed border-border-strong bg-surface-card p-4 opacity-70" title={lang === 'ko' ? '대표 목적지 권한 없음 (Open)' : 'No access to primary destination (Open)'}>{body}<span className="mt-1 flex items-center gap-1 text-[11px] text-text-warning"><Lock className="size-3" aria-hidden />{lang === 'ko' ? '대표 목적지 권한 없음' : 'Primary destination restricted'}</span></div>;
+              : <div key={g.id} aria-disabled className="rounded-lg border border-dashed border-border-strong bg-surface-card p-4" title={lang === 'ko' ? '대표 목적지 권한 없음 (Open)' : 'No access to primary destination (Open)'}><div className="opacity-70">{body}</div><span className="mt-1 flex items-center gap-1 text-[11px] text-warning-label"><Lock className="size-3 text-text-warning" aria-hidden />{lang === 'ko' ? '대표 목적지 권한 없음' : 'Primary destination restricted'}</span></div>;
           })}
         </div>
       </section>

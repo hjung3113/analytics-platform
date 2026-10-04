@@ -36,7 +36,7 @@ export function checkTsconfig(appRoot = APP_ROOT): string {
   return `${JSON.stringify({
     extends: join(appRoot, 'tsconfig.json'),
     include: [],
-    files: ['check.ts', join(appRoot, 'src/platform-assembly.d.ts')],
+    files: ['check.ts', 'browser-process.d.ts', join(appRoot, 'src/platform-assembly.d.ts')],
     compilerOptions: { noEmit: true, types: [] },
   }, null, 2)}\n`;
 }
@@ -45,6 +45,8 @@ export function checkTsconfig(appRoot = APP_ROOT): string {
 export function typecheckAssembly(assemblyPath: string, appRoot = APP_ROOT): string | null {
   const dir = mkdtempSync(join(tmpdir(), 'ap-assembly-check-'));
   try {
+    // Only NODE_ENV is replaced by Vite; other Node process APIs must remain type errors.
+    writeFileSync(join(dir, 'browser-process.d.ts'), 'declare const process: { env: { NODE_ENV?: string } };\n');
     writeFileSync(join(dir, 'check.ts'), checkSource(assemblyPath));
     writeFileSync(join(dir, 'tsconfig.json'), checkTsconfig(appRoot));
     const tsc = createRequire(join(appRoot, 'package.json')).resolve('typescript/bin/tsc');

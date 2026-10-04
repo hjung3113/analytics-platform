@@ -12,7 +12,15 @@ export function token(name: string): string {
   return raw ? `rgb(${raw.split(/\s+/).join(',')})` : '#000';
 }
 
-export const baseTextStyle = { fontFamily: 'Inter Variable, Inter, Noto Sans KR, system-ui, sans-serif', fontSize: 11, color: '#6b7280' };
+export const baseTextStyle = {
+  get fontFamily(): string {
+    // Dynamic-subset glyphs may arrive after the first canvas draw; the fallback is acceptable then.
+    return (typeof window !== 'undefined' && getComputedStyle(document.documentElement).getPropertyValue('--font-sans').trim())
+      || "'Inter Variable', 'Pretendard Variable', system-ui, sans-serif";
+  },
+  fontSize: 11,
+  get color(): string { return token('text-muted'); },
+};
 
 export type EChartProps = {
   option: EChartsCoreOption; height?: number; ariaLabel: string; className?: string;

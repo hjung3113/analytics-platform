@@ -1,4 +1,4 @@
-export { Button, buttonVariants, isProductionEnv, type ButtonProps } from './components/Button';
+export { Button, buttonVariants, type ButtonProps } from './components/Button';
 export { Dot, StatusBadge, type Tone } from './components/StatusBadge';
 export * from './components/shadcn/alert';
 export * from './components/shadcn/badge';
@@ -12,4 +12,5 @@ export * from './components/shadcn/select';
 export * from './components/shadcn/skeleton';
 export * from './components/shadcn/tabs';
 export * from './components/shadcn/tooltip';
-export { cn } from './utils/cn';
+export { cn } from '@fops/ui';
+export { isProductionEnv } from './utils/isProductionEnv';

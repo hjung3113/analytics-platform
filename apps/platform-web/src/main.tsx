@@ -1,7 +1,6 @@
 import '@fontsource-variable/inter';
-import '@fontsource/noto-sans-kr/400.css';
-import '@fontsource/noto-sans-kr/500.css';
-import '@fontsource/noto-sans-kr/600.css';
+import '@fontsource-variable/jetbrains-mono';
+import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import './style.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
