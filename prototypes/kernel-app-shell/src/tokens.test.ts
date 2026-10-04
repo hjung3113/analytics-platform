@@ -1,10 +1,8 @@
-import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { shellDimensions } from './App';
-it('consumes current canonical DESIGN and 06 dimensions, not a competing baseline', () => {
-  const design = readFileSync('../../DESIGN.md', 'utf8');
-  const contract = readFileSync('../../docs/06_platform_ui_contract.md', 'utf8');
-  expect(Number(design.match(/sidebar-shell:\n(?:[^\n]*\n)*?\s+width: (\d+)px/)?.[1])).toBe(shellDimensions.expanded);
-  expect(Number(design.match(/top-bar:\n(?:[^\n]*\n)*?\s+height: (\d+)px/)?.[1])).toBe(shellDimensions.header);
-  expect(Number(contract.match(/Sidebar collapsed\s+(\d+)px/)?.[1])).toBe(shellDimensions.collapsed);
+// This preserved prototype records the 2026-09-21 shell baseline (DESIGN.md sidebar-shell/top-bar, 06 §7 at the time).
+// 06 §7 moved to the FeedbackOps shell on 2026-10-04 (docs/adr/0011-design-direction-feedbackops-shell.md), so the
+// current docs are no longer this prototype's source — the test pins the recorded baseline instead of reading them.
+it('keeps the 2026-09-21 shell baseline it was built against', () => {
+  expect(shellDimensions).toEqual({ expanded: 270, collapsed: 64, header: 54 });
 });

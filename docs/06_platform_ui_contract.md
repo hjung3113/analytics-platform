@@ -13,7 +13,7 @@
 - **Open**: Scope 부모·자식 상속, 최초 기본 Δ, timeDomain assertion 공급 근거, 다중 Site의 같은 날짜·교대일/영업일 등 각 절에 명시한 미결 입력. URL 메커니즘과 Site→room_name→StGroup→Equipment 관계의 Decided 상태 및 공개 필드명·enum의 Candidate 상태와 구별한다.
 - **Deferred**: 저장된 뷰 등 후속 구현 범위. 이 설계가 기능 제공 시점을 확정하지 않는다.
 
-§5~6, §8~9, §11, §17, §19의 책임·행동 규칙은 Decided다. §7 셸 치수(사이드바 270px·헤더 54px)와 §15 테이블 밀도(최소 32px)는 2026-09-21에 `DESIGN.md` canonical 값으로 Decided됐다 — 이 문서는 그 값을 인용만 하고, 실제 값의 단일 원본은 `DESIGN.md`다. §23 토큰 스케일·§25 반응형 정책·§31은 아직 Candidate다. 구현 일정은 아직 확정하지 않았으며 `05_roadmap_and_open_questions.md`의 Phase 표는 non-authoritative 가설이다.
+§5~6, §8~9, §11, §17, §19의 책임·행동 규칙은 Decided다. §7 셸 구조·치수는 2026-10-04 [ADR-0011](adr/0011-design-direction-feedbackops-shell.md)로 FeedbackOps AppFrame 구조(레일 52px·사이드바 240/56px·상단 바 없음·페이지 머리 50px)로 Decided됐다(이전 2026-09-21 기준 사이드바 270px·헤더 54px를 대체). 치수 값의 단일 원본은 FeedbackOps `packages/ui/src/styles/tokens.css`의 레이아웃 토큰이다. §15 테이블 밀도(최소 32px)는 2026-09-21 `DESIGN.md` canonical 값으로 Decided다. §23 토큰 스케일·§25 반응형 정책·§31은 아직 Candidate다. 구현 일정은 아직 확정하지 않았으며 `05_roadmap_and_open_questions.md`의 Phase 표는 non-authoritative 가설이다.
 
 ## 1. 문서 목적
 
@@ -310,41 +310,47 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 Desktop-first를 기본으로 한다.
 
+구조는 FeedbackOps AppFrame을 따른다(Decided, 2026-10-04, [ADR-0011](adr/0011-design-direction-feedbackops-shell.md)). 셸은 플랫폼 `@ap/shell`이 그리며 FeedbackOps 앱 코드를 가져오지 않는다.
+
 ```text
-┌─────────────────────────────────────────────────────────────────────┐
-│ Product / Workspace     Scope ▼    Search ⌘K        Help   User      │
-├──────────────┬──────────────────────────────────────────────────────┤
-│              │ Breadcrumb                                           │
-│ Overview     │ Page Title                             Page Actions    │
-│              ├──────────────────────────────────────────────────────┤
-│ Equipment    │ Global Context Bar                                  │
-│ Master Data  │ [Date] [Equipment] [Lot]                            │
-│ Analytics    ├──────────────────────────────────────────────────────┤
-│ Metrics      │                                                      │
-│ Notice/VOC   │                   Page Content                       │
-│ Admin        │                                                      │
-│              │                                                      │
-├──────────────┴──────────────────────────────────────────────────────┤
-│ Data status / calculation basis / coverage                         │
-└─────────────────────────────────────────────────────────────────────┘
+┌────┬──────────────┬──────────────────────────────────────────────────┐
+│Rail│ 공간 이름  «  │ 부모 › 제목 ☆  설명…            Page Actions     │  ← 페이지 머리 50px
+│ A  ├──────────────┼──────────────────────────────────────────────────┤
+│    │ [Scope ▾]    │ Global Context Bar                               │
+│ 공간│ 검증 상태     │ [Date] [room_name] [Condition] [Selection]       │
+│ 공간├──────────────┼──────────────────────────────────────────────────┤
+│ ── │ 운영 개요     │                                                  │
+│ ⌘K │ 설비관리      │                   Page Content                   │
+│    │   설비 마스터 │                                                  │
+│    │ 생산성 분석   │                                                  │
+│ 도구│   …          │                                                  │
+│ ?  │ 즐겨찾기      │                                                  │
+│ 한 │ 최근 방문     │                                                  │
+│ 나 │              │                                                  │
+└────┴──────────────┴──────────────────────────────────────────────────┘
 ```
 
-Scope는 개념적으로 Global Context에 포함되지만 이 Candidate 배치에서는 헤더에만 선택기를 둔다. Context Bar에 두 번째 Scope 선택기를 만들지 않는다. 구체 셸 설계는 `07_app_shell_wireframe.md`를 따른다.
+- **레일**: 공간 전환(§9.1), 명령 팔레트(§10), 앱이 주입하는 도구 슬롯(`topBarTools`, ADR-0009 이름 유지), 도움말, 언어, 사용자 메뉴.
+- **사이드바**: 머리에 공간 이름과 접기. 그 아래 Scope 선택기와 검증 상태가 있고, 그룹 섹션과 메뉴, 즐겨찾기·최근이 이어진다(§9).
+- **상단 바는 없다.** 페이지 머리는 한 줄에 위치·제목·설명·동작을 둔다(§8 슬롯).
 
-### Baseline (Decided — `DESIGN.md` canonical과 일치)
+Scope는 개념적으로 Global Context에 포함되지만 선택기는 **사이드바 머리에 하나만** 둔다. Context Bar에 두 번째 Scope 선택기를 만들지 않는다. 구체 셸 배치는 `07_app_shell_wireframe.md`를 따른다.
+
+### Baseline (Decided, 2026-10-04 — FeedbackOps 레이아웃 토큰)
 
 ```text
-Sidebar expanded   270px
-Sidebar collapsed   64px
-Top header           54px
-Page header          56~64px
+Rail                 52px   (--rail-width)
+Sidebar expanded    240px   (--sidebar-width)
+Sidebar collapsed    56px   (--sidebar-width-collapsed)
+Top header           없음
+Page header          50px   (--toolbar-height)
 Global context bar   48px
-Content padding      24px
+Content padding      FeedbackOps PageShell 기준
 Section gap          24px
 Component gap        12~16px
 ```
 
-`DESIGN.md`의 `sidebar-shell`/`top-bar` 컴포넌트 토큰(270px/54px)이 canonical이며, 이 값이 셸 치수의 단일 기준이다.
+치수 값의 단일 원본은 FeedbackOps `packages/ui/src/styles/tokens.css`의 레이아웃 토큰이다. 이전 기준(사이드바 270/64px, 상단 바 54px, `DESIGN.md` `sidebar-shell`/`top-bar`)은 ADR-0011로 대체됐다.
 
 분석 페이지에는 임의의 좁은 `max-width`를 적용하지 않는다.
 
@@ -398,14 +404,14 @@ Administration
 
 이 7그룹을 navigation IA의 단일 기준으로 둔다(Decided). 표시명은 운영 개요 / 설비관리 / 기준정보관리 / 생산성 분석 / 지표관리 / 공지·VOC / 관리·감사다. **2026-09-26 개정:** 이 그룹들은 §9.1의 워크스페이스 층 아래에서 배치된다. 관리·감사는 운영 콘솔로 이동하고, 공지·VOC는 분석 공간에 사용자용 화면만 남긴다. `02_domain_menus.md`의 6개 도메인 중 공지와 VOC가 한 그룹을 공유하고, 운영 개요·관리·감사는 플랫폼 기능이다. 도메인 개수와 내비게이션 그룹 개수를 같게 맞출 필요는 없다. 하위 화면 배치와 표시명 변경은 별도 설계 결정이다.
 
-Sidebar 기능:
+Sidebar 기능(셸 구조는 §7, ADR-0011):
 
-- Collapse / Expand
-- Search Menu
+- Collapse / Expand(240px ↔ 56px, `[` 단축키)
+- 그룹은 섹션 제목, 메뉴는 그 아래 목록
 - Favorite
 - Recent
 - Permission-aware visibility
-- Command Palette
+- 메뉴 검색은 레일의 Command Palette(§10)로 한다. 사이드바 안에 별도 메뉴 필터를 두지 않는다.
 
 메뉴가 늘어날수록 평면적인 Sidebar 확장은 금지한다.
 
@@ -419,7 +425,7 @@ Sidebar 기능:
 | 운영 콘솔 | 개발자·운영자 | 시스템 모니터링, 개발자용 파이프라인 트레이스, 메뉴 활용률([05 계측](05_roadmap_and_open_questions.md#메뉴-활용률-계측-decided--v1-범위-포함-2026-09-22-grilling-round-2)), 관리·감사(권한/역할, 변경 감사), Menu Registry 조회 |
 | 피드백 | 내부 담당자 | FeedbackOps의 VOC 분류·Finding·Task Request/Task·Milestone(FeedbackOps FR-TASK-004) |
 
-- **노출:** 공간 전환기는 접근 가능한 공간이 2개 이상인 사용자에게만 좌상단 브랜드 영역에 표시한다. 일반 사용자는 분석 공간만 보며 전환기가 없다. 공간 진입 권한도 §17 규칙을 따른다(비노출 + 직접 URL은 서버 검증).
+- **노출:** 공간 전환은 레일의 공간 버튼으로 한다(2026-10-04, ADR-0011 — 이전에는 좌상단 브랜드 영역의 드롭다운). 접근 가능한 공간이 2개 이상인 사용자에게만 공간 버튼을 표시한다. 일반 사용자는 분석 공간만 보며 전환기가 없다. 공간 진입 권한도 §17 규칙을 따른다(비노출 + 직접 URL은 서버 검증).
 - **Context:** 공간 전환은 §6.4의 셸 내비게이션과 같은 규칙을 따른다. 등록된 전역 Context(Scope·기간·설비 선택 등)는 전부 보존하고, 대상 화면이 지원·검증한 값만 적용한다. 예: 사용자용 가공 상태 조회에서 본 설비·기간으로 개발자용 트레이스를 바로 연다.
 - **Registry:** 소속 공간은 메뉴가 아니라 **그룹이** 선언한다(`GroupDef.space`, **필드명 Decided, 2026-09-27**). 현재 공간은 매칭된 라우트의 메뉴에서 유도하며 공간용 URL 키는 없다(§6.4: 경로가 이미 공간이다). 위 표의 **공간별 배치**는 Decided다. **공간별 그룹 수 상한은 두지 않는다(Decided, 2026-09-27)** — 새 그룹은 공간 추가보다 먼저 기존 그룹에 흡수할 수 있는지 검토하고, 공간당 7개 이하를 권장한다. 표 항목 중 무엇이 그룹이고 무엇이 그 아래 화면인지는 각 공간을 구현할 때 정한다.
 - **운영 콘솔 권한(Decided, 2026-09-27):** '운영 콘솔 접근' 한 역할로 시작한다. 개발자·운영자 모두 운영 콘솔 전 화면에 들어간다. 메뉴 활용률 열람은 05 결정(개발자·운영자 기본 + 개별 부여)을 따른다. 역할 분리가 필요해지면 그때 나눈다. 권한/역할 화면(`/admin/roles`, #49)은 **조회 전용**이다 — 사용자별 보유 권한, 그 권한이 여는 메뉴(Registry `permission` 기준 클라이언트 조인이며 권한 증명이 아니다), 사이트별 부여 room_name을 보여 준다. 부여·회수(05의 개별 부여 포함)의 원천은 **분리(2026-09-29 Decided, 절반 확정, #98)**: room_name 부여와 메뉴 활용률 열람 개별 부여는 플랫폼 메타 DB가 소유하고, 역할 소속(누가 운영 콘솔 접근자인가)의 원천은 IdP 그룹 claim 사양이 나올 때까지 Open이다(claim을 주면 IdP, 안 주면 메타 DB). 쓰기 포트·화면은 아직 만들지 않는다.
