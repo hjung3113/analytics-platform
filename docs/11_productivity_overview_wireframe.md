@@ -51,7 +51,7 @@
 | --- | --- | --- | --- |
 | O | O | △ | O — 동일 metricId에 한해 적용 |
 
-- Time/Equipment는 메뉴 간 전달되는 직접 조회 조건. Equipment 선택지는 현재 Scope·권한으로 제한한다. Scope 선택기는 헤더 한 곳에만 둔다.
+- Time/Equipment는 메뉴 간 전달되는 직접 조회 조건. Equipment 선택지는 현재 Scope·권한으로 제한한다. Scope 선택기는 사이드바 머리 한 곳에만 둔다(06 §7).
 - Lot은 전달/참조만 하고 네 KPI에는 미적용이다. PPID와 Recipe는 분석 필터 축으로 받되 적용 가능한 지표와 조인 범위는 메뉴 정의 Candidate로 둔다. Recipe가 Job 전체를 포함할지 매칭 PRC 구간만 포함할지, 점유율 분모에 어떻게 적용할지는 이 화면의 분석 로직 담당자가 정하며 Kernel이 강제하지 않는다. 미지원 지표에는 미적용을 표시한다.
 - **room_name은 Global Context**다. 공개 키 후보 `roomNames`를 소비하며 별도 `processIds` Page Filter를 만들지 않는다. 현재 Site·room_name 권한 범위 안에서 설비를 좁히며 다른 메뉴로 보존·전달한다. Line은 독립 축이고 room_name의 상위 계층이 아니다(`06` §6.1–6.2).
 - **Equipment Group은 Global Context의 Condition/Selection 두 층**이다. StGroup / 분임조 / Maker+Model 중 한 축만 조건으로 사용한다. Condition(`equipmentGroup`)은 현재 결과를 재평가하고, 결과 안에서 사용자가 명시 선택한 설비만 Selection(`selectedEquipmentIds`, 기존 `equipmentIds` 대응)에 고정한다. 조건 적용과 설비 명시 선택을 구분하고 상세 열기만으로 선택을 바꾸지 않는다. [ADR-0002](adr/0002-stgroup-materializes-to-equipment-ids.md)를 모든 축에 동일 적용한다.
@@ -60,10 +60,10 @@
 
 ## 4. WIREFRAME (Candidate)
 
-한 장, 1440×900. 콘텐츠는 셸 본문에서 세로 스크롤하며 아래 영역을 축소하거나 겹치지 않는다. 헤더 54px·사이드바 270px·색/아이콘/검색/프로필은 08/09가 이미 확립한 셸 시각 스타일을 그대로 소비한다. 현재 메뉴 표시만 생산성 분석으로 옮긴다. 본문은 Overview의 6영역 순서다. 아래 숫자·버전·시각·statusSource는 모두 **합성 예시**이며 실제 계산 정의나 서비스 존재를 확정하지 않는다.
+한 장, 1440×900. 콘텐츠는 셸 본문에서 세로 스크롤하며 아래 영역을 축소하거나 겹치지 않는다. 셸 구조·치수·본문 여백은 현재 [06 §7](06_platform_ui_contract.md#7-application-shell)/[07](07_app_shell_wireframe.md)을 소비하고 공유 색·폰트·primitive는 FeedbackOps 원본, 플랫폼 시각 확장은 [DESIGN](../DESIGN.md)을 따른다. 현재 메뉴 표시만 생산성 분석으로 옮긴다. 본문은 Overview의 6영역 순서다. 아래 숫자·버전·시각·statusSource는 모두 **합성 예시**이며 실제 계산 정의나 서비스 존재를 확정하지 않는다.
 
 ```text
-[07 Header: Analytics Platform | Scope: Site A | 메뉴 검색 | 사용자]
+[07 셸: 레일 / 사이드바(Scope) / 페이지 머리 + Context]
 [07 Sidebar]  생산성 분석 > 개요
               생산성 분석 — 개요               [새로고침] [사이클타임 상세 보기 →]
               파서 기반 네 지표 요약 · 예시 데이터 / 정의 Candidate
@@ -163,7 +163,7 @@
 
 ## 9. UX REVIEW (문서 단계)
 
-2026-09-24 인터뷰 반영 검수는 이 Markdown의 계약·용어·왕복 규칙을 대상으로 했다. 아래의 기존 HTML/Step 2 검증 기록은 수정 전 산출물의 이력이며, 이번 작업에서 HTML을 갱신하거나 다시 검증한 결과가 아니다.
+2026-09-24 인터뷰 반영 검수는 이 Markdown의 계약·용어·왕복 규칙을 대상으로 했다. 현재 시각 기준은 위의 FeedbackOps 기반 참조를 따른다. 아래 기존 HTML/Step 2 검증의 셸 측정·검사 기록은 이전 산출물의 이력이며 #53에서 HTML을 변경하거나 재검증하지 않았다.
 
 검수 완료 — HTML 작성 전 이 초안을 [06](06_platform_ui_contract.md)/[01](01_architecture_and_data_contract.md)/[02](02_domain_menus.md)/[CONTEXT](../CONTEXT.md)와 대조했다.
 

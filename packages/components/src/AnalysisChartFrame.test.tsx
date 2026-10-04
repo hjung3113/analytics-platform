@@ -1,5 +1,5 @@
 import { type ReactElement } from 'react';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AnnotationInput, ApiResponse, AnnotationRef, ChartAnnotation, PlatformAdapter, Session } from '@ap/contracts';
@@ -93,6 +93,28 @@ describe('AnalysisChartFrame follows the menu manifest features (06 §16, issue 
     // Zoom, Brush, Reset are not manifest-gated.
     expect(screen.getByRole('button', { name: 'Brush' })).toBeTruthy();
     expect(f.list).not.toHaveBeenCalled();
+  });
+
+  it('the sunken selection summary keeps secondary text before any brush (DESIGN.md pairing)', async () => {
+    mount(fixture().adapter, off);
+    const summary = await screen.findByRole('region', { name: '선택 요약' });
+    expect(summary.className).toContain('bg-surface-sunken');
+    const hint = within(summary).getByText(/선택 구간 없음/);
+    expect(hint.className).toContain('text-text-secondary');
+    expect(hint.className).not.toContain('text-text-muted');
+  });
+
+  it('keeps same-data table column headers readable on sunken', async () => {
+    mount(fixture().adapter, off);
+    fireEvent.click(await screen.findByRole('button', { name: 'More' }));
+    fireEvent.click(await screen.findByRole('button', { name: '같은 데이터를 표로 보기' }));
+    const headers = within(await screen.findByRole('table')).getAllByRole('columnheader');
+    expect(headers).toHaveLength(2);
+    for (const header of headers) {
+      expect(header.closest('thead')?.className).toContain('bg-surface-sunken');
+      expect(header.className).toContain('text-text-secondary');
+      expect(header.className).not.toContain('text-text-muted');
+    }
   });
 
   it('offers all three when the menu declares them', async () => {

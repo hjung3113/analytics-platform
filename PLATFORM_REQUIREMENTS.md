@@ -25,7 +25,7 @@
 
 두 수치 충돌은 아래 날짜에 해결됐다. 체크는 문서 정렬 완료를 뜻하며 CSS·컴포넌트 구현이나 렌더 검증 완료가 아니다. 원본은 [DESIGN](DESIGN.md), 적용 의무는 [06 §7/§15](docs/06_platform_ui_contract.md)다.
 
-- [x] **셸 치수(사이드바/탑바) 확정** — 2026-09-21 결정: `DESIGN.md` canonical(사이드바 270px · 헤더 54px) 채택. `docs/06` §7을 Decided로 갱신 완료. **[3/3]**
+- [x] **셸 치수(사이드바/탑바) 확정** — 2026-09-21 결정: `DESIGN.md` canonical(사이드바 270px · 헤더 54px) 채택. **2026-10-04 대체:** [ADR-0011](docs/adr/0011-design-direction-feedbackops-shell.md)로 FeedbackOps 셸 구조가 됐다(레일·사이드바 240/56px·상단 바 없음·페이지 머리 50px). 현재 원본은 [`docs/06` §7](docs/06_platform_ui_contract.md#7-application-shell). **[3/3]**
 - [x] **테이블 행 밀도 확정** — 2026-09-21 결정: `DESIGN.md` table-density(최소 32px, 25px는 compact 시각 목표) 채택. `docs/06` §15를 Decided로 갱신 완료. **[3/3]**
 
 ---
@@ -39,10 +39,10 @@
 - [ ] **인터랙션 상태 전체 구현(hover/pressed/selected/focus/disabled/busy)과 중복 제출 차단** — 토큰만 있고 동작 미구현. **[3/3] Must** — Decided/디자인 요구.
 - [ ] **접근성 구현·렌더 검증(§26): 키보드 탐색, focus trap, 색 외 구분, 대비 4.5:1/3:1** — 토큰만으로 통과 주장 불가. **[3/3] Must** — Decided.
 - [ ] **한/영 UI 범위** — UI 문구·정적 본문만 번역하며 사용자 입력 본문·마스터 값·식별자는 번역하지 않는다. [06 §23](docs/06_platform_ui_contract.md#23-design-tokens) Decided, 언어 선호 저장은 Candidate. 구현 완료를 뜻하지 않는다.
-- [ ] **한글/CJK 타이포 검증** — 2026-09-22 grilling으로 폰트 스택 확정: Noto Sans KR + Inter 페어링. 사내망이 망분리(인터넷 차단)돼 있어 **CDN이 아니라 자체 호스팅**(폰트 파일 번들)으로 간다. 실제 CSS/토큰 반영은 아직. **[3/3] Should** — Decided(스택/호스팅 방식), 실제 물질화는 구현 시.
+- [ ] **한글/CJK 타이포 검증** — 공유 Inter + Pretendard stack과 자체 호스팅·소비 계약은 [FeedbackOps tokens.md](products/feedbackops/docs/frontend/tokens.md#tokens--typography), [ADR-0011](docs/adr/0011-design-direction-feedbackops-shell.md), [ADR-0058](products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md)을 따른다. **[3/3] Should** — Decided(공유 원본), 렌더 검증 완료는 별도 확인.
 - [ ] **Data Trust 시각 표준화(Updated/Data through/Coverage/Metric version/Provisional을 공통 vocabulary로)** — 숫자만큼 숫자의 상태를 보여줘야 함. **[3/3] Must** — Decided, `docs/06` §18.
 - [ ] **상태 배지 4종(success/warning/danger/neutral) + §19 매핑표를 임의색으로 확장 금지** — 매핑표 자체는 문서에 없어 공백. **[2/3 · Codex, Grok] Must** — Candidate + 신규 제안(공백 메움).
-- [ ] **다크모드는 지금 설계하지 않되 토큰 구조가 이후 확장을 막지 않게** — 사이드바가 이미 다크라 단순 invert 불가. **[3/3] Nice** — Deferred. [DESIGN Open Decisions](DESIGN.md#open-decisions-per-wireframe-skill-convention)와 아래 질문 8 참조.
+- [ ] **다크모드는 지금 설계하지 않되 토큰 구조가 이후 확장을 막지 않게** — 현재 light design을 단순 invert하지 않고 별도 설계로 다룬다. **[3/3] Nice** — Deferred. [DESIGN Open Decisions](DESIGN.md#remaining-decisions-and-reference-limits)와 아래 질문 8 참조.
 - [ ] **장식적 시각화 금지(Gauge/3D/장식 게이지) — donut은 분모 있는 비율에만** — 2026-09-22 grilling으로 경계 확정: 기본값은 분모 있는 비율에 한해 donut만 허용, gauge/3D/그라디언트는 기본 비허용이나 업무 근거 확인 시 케이스별 예외 가능(전면·영구 금지 아님). [06 시각화 경계](docs/06_platform_ui_contract.md#decorative-visualization) 참고. **[2/3 · Grok, omp] Must** — Decided.
 - [ ] **모션 토큰(120ms 전환, reduced-motion 0ms, live pulse는 freshness 근거 있을 때만)** — **[2/3 · Codex, Grok] Should**.
 - [ ] **KPI 타일 상한 5–6개** — KPI 행이 지표 화면을 대체하지 않게. **[2/3 · Grok, omp] Should**.
@@ -174,14 +174,14 @@
 
 질문 처리 경로: 인증·운영 입력은 [05](docs/05_roadmap_and_open_questions.md#open-questions), 시간은 [06 CTX-TIME](docs/06_platform_ui_contract.md#ctx-time), Scope·공개 계약·상태는 [06](docs/06_platform_ui_contract.md), 기술 후보는 [04](docs/04_frontend_ui_ux.md)를 먼저 확인한다. 후속 작업 담당은 필요한 입력·결정 주체·차단되는 동작·답변 전 가능한 일을 작업 기록에 적는다. 담당자가 미지정이면 지정 필요로 남기고 답을 만들어 넣지 않는다.
 
-1. ~~**셸 치수·테이블 밀도**~~ — 2026-09-21 결정 완료(§0, `docs/05` 참조). DESIGN.md canonical(270px/54px/32px) 채택.
+1. ~~**셸 치수·테이블 밀도**~~ — 2026-09-21 결정 완료(§0, `docs/05` 참조). DESIGN.md canonical(270px/54px/32px) 채택. 셸 치수는 2026-10-04 [ADR-0011](docs/adr/0011-design-direction-feedbackops-shell.md)로 대체됐다(현재 원본 [`docs/06` §7](docs/06_platform_ui_contract.md#7-application-shell)). 테이블 밀도 32px는 그대로 DESIGN.md가 소유한다.
 2. **Scope 도메인 — Decided / 상속 세부 Open** — Site→room_name→StGroup→Equipment 관계, room_name 기준 권한, 독립 Line 축을 따른다([ADR-0005](docs/adr/0005-scope-room-name-line-independent.md)). EquipmentID는 전 Site 유일하고 Site는 ID 사용 전 활성 Scope에서 확립한다([ADR-0004](docs/adr/0004-site-is-db-partition-not-column.md)). room_name은 드물게 변경 가능·ID 유지, EquipmentName 변경은 재등록·기존 ID 종료. StGroup·분임조는 외부 소속 정보다. v1 단일 Scope 및 [06 §6.2](docs/06_platform_ui_contract.md#62-scope와-권한-decided--open)의 상속 Open을 유지한다.
 3. **시간 의미** — 사업장별 실제 TZ 값은 2026-09-22 결정(한국/Asia-Seoul 단일값 우선, 해외 사업장 확장은 배제 안 함 — `docs/05` 참조). timeDomain assertion 공급자, 교대일/영업일, 다중 사업장의 "같은 날짜"는 여전히 Open. assertion 공급 근거는 국내 설비끼리라도 복수 시간축 병합을 제공하기 전에 필요하다([06 시간 계약](docs/06_platform_ui_contract.md#ctx-time)).
 4. **운영 수치** — `defaultRangeTo` 기본 길이, 실제 데이터 볼륨·조회 패턴, 최대 조회량·timeout은 Open. 지연완료 창 `H`=1시간, 클라이언트 폴링 주기=5분(300s)은 2026-09-22 결정(`docs/05` 참조). 폴링 중단 조건·워커 감지 주기는 여전히 Open(구현 시 운영 설정으로 정함).
 5. **인증·조직·배포 — 일부 Decided / 프로토콜 Open** — 2026-09-22 대부분 결정 완료(`docs/05` 참조): 백엔드 FastAPI, 온프렘, 동시 사용자 ~100명, 데이터 보존 기간 제한 없음, 멀티테넌시는 단일 사업장으로 시작(확장 가능). 남은 Open: 사내 SSO 프로토콜의 정확한 사양(존재는 확인, 스펙은 사내 확인 중), 브라우저 지원 범위(위 브라우저 지원 매트릭스 제안 참조). 실제 데이터 볼륨은 질문 4에서 추적한다.
 6. **상태 근거 서비스** — 수집/파서 지연/coverage 판정의 statusSource·observedAt 공급자가 없으면 모니터링 메뉴를 열 수 없다.
 7. **공개 계약 산출물 형식** — 필드명·공집합 표식·assessment enum, OpenAPI/JSON Schema/codegen 중 무엇으로 확정할지, URL `v` sunset 정책.
-8. **디자인 바인딩** — 아이콘(Lucide)·CJK 폰트(Noto Sans KR, 망분리라 자체 호스팅)·기간 프리셋(1일/7일/사용자 지정)은 2026-09-22 결정(`docs/05` 참조, 실제 물질화는 구현 시). 다크모드는 Deferred. UI 프리미티브 조합(shadcn/ui+Radix, FeedbackOps 이식)과 차트(ECharts)는 2026-09-25 Decided이며 이 세션 프로토타입(Unit B/C)으로 기본 동작을 검증했다. 실제 디자인 토큰 바인딩·대용량 성능·POC는 아직 없다.
+8. **디자인 바인딩** — 아이콘(Lucide)·CJK 폰트(Inter + Pretendard, [FeedbackOps tokens.md](products/feedbackops/docs/frontend/tokens.md#tokens--typography)·[ADR-0011](docs/adr/0011-design-direction-feedbackops-shell.md) 원본, 자체 호스팅)·기간 프리셋(1일/7일/사용자 지정)은 2026-09-22 결정(`docs/05` 참조, 실제 물질화는 구현 시). 다크모드는 [05](docs/05_roadmap_and_open_questions.md)의 Deferred 상태를 따른다. UI 프리미티브 조합(shadcn/ui+Radix, FeedbackOps 이식)과 차트(ECharts)는 2026-09-25 Decided이며 이 세션 프로토타입(Unit B/C)으로 기본 동작을 검증했다. 실제 디자인 토큰 바인딩·대용량 성능·POC는 아직 없다.
 9. **공지·알림** — 배너 위치·노출 조건, 알림 벨의 읽음/집계/권한 의미(벨 자체는 비필수).
 10. ~~**메뉴 활용률의 목적과 노출 범위**~~ — 2026-09-22 결정 완료(`docs/05` §메뉴 활용률 계측 참조): v1 범위 포함(커널 범위 기능), 수집은 조회조건·필터값까지, 보존기간 무제한(수동 삭제 가능), 열람권한은 개발자·운영자 + 운영자 개별 승인 계정.
 11. **업무 모델 세부** — 필드별 외부/플랫폼 소유권, VOC 담당 조직·상태 전이 예외, 마스터 필드 원천 소유권.

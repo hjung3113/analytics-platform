@@ -2,956 +2,335 @@
 version: alpha
 name: analytics-platform-design
 description: >
-  Light-canvas enterprise application shell for a data-heavy analytics platform
-  (equipment logs, processing pipelines, validation, alerts). Not a marketing
-  system — every token here targets in-product density: a fixed dark-icon
-  sidebar, a thin top bar, KPI stat tiles, a pipeline stepper, donut/gauge
-  widgets, an alerts list, and dense data tables with status badges. Extracted
-  from `.agents/references/design-md/` (linear.app, clickhouse, supabase,
-  mongodb) — principles only, no brand copied wholesale. See "Sources" below
-  for what was taken from where and what was rejected.
-
+  Platform visual extensions and data-workspace patterns on FeedbackOps.
+  Shared tokens, fonts and primitives remain owned by FeedbackOps;
+  shell structure and behavior remain owned by the platform UI contract.
+sources:
+  sharedTokens: products/feedbackops/packages/ui/src/styles/tokens.css
+  sharedTypography: products/feedbackops/docs/frontend/tokens.md
+  sharedPrimitives: products/feedbackops/docs/frontend/ui-design-system.md
+  consumptionContract: products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md
+  shellContract: docs/06_platform_ui_contract.md
+  extensionValues: packages/ui/src/styles/tokens.css
+  extensionMappings: packages/ui/src/styles/index.css
 colors:
-  # Brand / accent — single chromatic accent, scarce, per Linear + ClickHouse discipline
-  primary: "#2563eb"
-  primary-hover: "#1d4ed8"
-  primary-soft: "#eff6ff"
-  on-primary: "#ffffff"
-
-  # Ink ladder — near-black, never pure black (Supabase discipline)
-  ink: "#111827"
-  ink-secondary: "#374151"
-  ink-muted: "#6b7280"
-  ink-faint: "#9ca3af"
-
-  # Surface ladder — canvas → card → sunken, hairline borders carry hierarchy (Linear/ClickHouse: no drop-shadow stacking)
-  canvas: "#f7f8fa"
-  surface-card: "#ffffff"
-  surface-sunken: "#f1f3f6"
-  surface-dark-nav: "#0f1526"
-  surface-dark-nav-hover: "#1a2236"
-  hairline: "#e5e7eb"
-  hairline-strong: "#d1d5db"
-
-  # Semantic — status/data-quality vocabulary, mirrors docs/06 §19 confirmed/unconfirmed + quality states
-  success: "#16a34a"
-  success-soft: "#dcfce7"
-  warning: "#d97706"
-  warning-soft: "#fef3c7"
-  danger: "#dc2626"
-  danger-soft: "#fee2e2"
-  info: "#2563eb"
-  info-soft: "#eff6ff"
-  neutral: "#6b7280"
-  neutral-soft: "#f3f4f6"
-
-  # Category accents — for chart series / tag differentiation only, never for primary actions (MongoDB course-tag discipline)
-  accent-purple: "#7c3aed"
-  accent-teal: "#0d9488"
-  accent-amber: "#d97706"
-
-  # Reference-series identity, separate from success/failure semantics; solid approximations.
+  accent-primary: "var(--color-neon-lime)"
+  accent-primary-hover: "#102080"
+  accent-primary-soft: "#e4e8f6"
+  accent-info: "var(--color-cyan-spark)"
+  accent-success: "var(--color-emerald)"
+  accent-success-soft: "#e3f5ed"
+  accent-warn: "var(--color-amber)"
+  accent-warn-soft: "#f4ece0"
+  accent-danger: "var(--color-warning-red)"
+  accent-danger-soft: "#fae5e7"
+  accent-neutral: "var(--color-storm-cloud)"
+  accent-neutral-soft: "var(--color-deep-slate)"
+  border-control: "var(--color-storm-cloud)"
+  text-success-label: "var(--status-reporter-resolved-label)"
+  text-info-label: "var(--status-reporter-received-label)"
+  text-warning-label: "var(--status-reporter-prep-label)"
+  text-danger-label: "var(--status-reporter-reopened-label)"
+  surface-sunken: "var(--color-deep-slate)"
+  cat-purple: "#7c3aed"
+  cat-teal: "#0d9488"
+  cat-amber: "#d97706"
   chart-blue: "#3b9cff"
   chart-teal: "#00a3b5"
   chart-green: "#00bc8b"
   chart-purple: "#a174f5"
   chart-remainder: "#cbd2e3"
   chart-grid: "#edf1f7"
-  chart-queue-running: "#007bff"
-  chart-queue-pending: "#70b7ff"
   icon-blue-soft: "#e3efff"
   icon-teal-soft: "#dcf8ef"
-  surface-dark-nav-subtle: "#131d2f"
-  surface-dark-nav-raised: "#243149"
-  nav-divider: "#29354a"
-  nav-text: "#c3d1e4"
-  nav-focus: "#93c5fd"
-  success-text: "#166534"
-  warning-text: "#92400e"
-  danger-text: "#991b1b"
-  control-border: "#7b8799"
-  focus-visible: "#2563eb"
-
-  focus-ring: "rgba(37,99,235,0.45)"
-
 typography:
-  page-title:
-    fontFamily: Inter
-    fontSize: 24px
-    fontWeight: 600
-    lineHeight: 32px
-    letterSpacing: -0.3px
-  section-title:
-    fontFamily: Inter
-    fontSize: 18px
-    fontWeight: 600
-    lineHeight: 28px
-    letterSpacing: 0
-  card-title:
-    fontFamily: Inter
-    fontSize: 14px
-    fontWeight: 600
-    lineHeight: 20px
-    letterSpacing: 0
-  stat-value:
-    fontFamily: Inter
-    fontSize: 32px
-    fontWeight: 600
-    lineHeight: 1.1
-    letterSpacing: -0.5px
-  stat-value-secondary:
-    fontFamily: Inter
-    fontSize: 22px
-    fontWeight: 600
-    lineHeight: 1.2
-    letterSpacing: -0.3px
-  stat-delta:
-    fontFamily: Inter
-    fontSize: 12px
-    fontWeight: 600
-    lineHeight: 1.4
-    letterSpacing: 0
-  body-md:
-    fontFamily: Inter
-    fontSize: 14px
-    fontWeight: 400
-    lineHeight: 20px
-    letterSpacing: 0
-  body-sm:
-    fontFamily: Inter
-    fontSize: 13px
-    fontWeight: 400
-    lineHeight: 18px
-    letterSpacing: 0
-  caption:
-    fontFamily: Inter
-    fontSize: 12px
-    fontWeight: 400
-    lineHeight: 16px
-    letterSpacing: 0
-  table-header:
-    fontFamily: Inter
-    fontSize: 12px
-    fontWeight: 600
-    lineHeight: 1.3
-    letterSpacing: 0.3px
-    textTransform: uppercase
-  table-cell:
-    fontFamily: Inter
-    fontSize: 13px
-    fontWeight: 400
-    lineHeight: 1.4
-    letterSpacing: 0
-  nav-item:
-    fontFamily: Inter
-    fontSize: 13px
-    fontWeight: 500
-    lineHeight: 1.4
-    letterSpacing: 0
-  nav-group-label:
-    fontFamily: Inter
-    fontSize: 11px
-    fontWeight: 600
-    lineHeight: 1.3
-    letterSpacing: 0.5px
-    textTransform: uppercase
-  badge:
-    fontFamily: Inter
-    fontSize: 11px
-    fontWeight: 600
-    lineHeight: 1.3
-    letterSpacing: 0.2px
-  numeric:
-    fontVariantNumeric: "tabular-nums lining-nums"
-  chart-label:
-    fontFamily: Inter
-    fontSize: 11px
-    fontWeight: 400
-    lineHeight: 1.4
-  compact-table-header:
-    fontFamily: Inter
-    fontSize: 12px
-    fontWeight: 400
-    lineHeight: 1.3
-    textTransform: none
-
-  mono:
-    fontFamily: "JetBrains Mono, ui-monospace, monospace"
-    fontSize: 12px
-    fontWeight: 400
-    lineHeight: 1.4
-    letterSpacing: 0
-
+  t-page-title: { fontSize: 24px, lineHeight: 32px, fontWeight: 600, letterSpacing: -0.3px }
+  t-section-title: { fontSize: 18px, lineHeight: 28px, fontWeight: 600 }
+  t-card-title: { fontSize: 14px, lineHeight: 20px, fontWeight: 600 }
+  t-stat: { fontSize: 32px, lineHeight: 1.1, fontWeight: 600, letterSpacing: -0.5px, fontVariantNumeric: "tabular-nums lining-nums" }
+  t-stat-2: { fontSize: 22px, lineHeight: 1.2, fontWeight: 600, letterSpacing: -0.3px, fontVariantNumeric: "tabular-nums lining-nums" }
+  t-delta: { fontSize: 12px, lineHeight: 1.4, fontWeight: 600, fontVariantNumeric: "tabular-nums lining-nums" }
+  t-caption: { fontSize: 12px, lineHeight: 16px }
+  t-table-header: { fontSize: 12px, lineHeight: 1.3, fontWeight: 600, letterSpacing: 0.3px, textTransform: uppercase }
+  t-badge: { fontSize: 11px, lineHeight: 1.3, fontWeight: 600, letterSpacing: 0.2px }
+  t-nav-group: { fontSize: 11px, lineHeight: 1.3, fontWeight: 600, letterSpacing: 0.5px, textTransform: uppercase }
+  t-mono: { fontFamily: "var(--font-mono)", fontSize: 12px, lineHeight: 1.4 }
+  tabular: { fontVariantNumeric: "tabular-nums lining-nums" }
 rounded:
-  xs: 4px
-  sm: 4px
-  md: 6px
-  lg: 8px
-  pill: 9999px
-
-spacing:
-  xxs: 4px
-  xs: 8px
-  sm: 12px
-  md: 16px
-  lg: 20px
-  xl: 24px
-  xxl: 32px
-  xxxl: 40px
-  huge: 48px
-
-# Additive reference recipe; measurements are approximate CSS px at 1672 × 941.
-# sidebarWidth/topBarHeight are now the canonical shell defaults (see
-# sidebar-shell/top-bar below) — resolved, see Open Decisions.
+  xs: "var(--radius-sm)"
 layout:
-  reference-dashboard:
-    viewport: 1672px 941px
-    contentPadding: 20px
-    sectionGap: 12px
-    kpiColumns: 5
-    kpiGap: 10px
-    kpiMinHeight: 100px
-    pipelineOperationsColumns: "1.8fr 1fr"
-    lifecycleMetricsColumns: "0.9fr 1fr"
-    metricsColumns: 4
-    panelPadding: 12px 16px
-    tableRowMinHeight: 25px
-    tableHeaderMinHeight: 26px
-  dashboard:
-    sectionGap: 16px
-    contentPadding: 20px
-    focalRegion: pipeline-status
-    wideBreakpoint: 1440px
-    compactBreakpoint: 1024px
-interaction:
-  hover:
-    backgroundColor: "{colors.surface-sunken}"
-  pressed:
-    backgroundColor: "{colors.primary-soft}"
-  selected:
-    backgroundColor: "{colors.primary-soft}"
-    indicatorColor: "{colors.primary}"
-  focus-visible:
-    outline: "2px solid {colors.focus-visible}"
-    outlineOffset: 2px
-  disabled:
-    textColor: "{colors.ink-muted}"
-    backgroundColor: "{colors.surface-sunken}"
-  loading:
-    skeletonColor: "{colors.surface-sunken}"
-    minBlockHeight: 96px
-  empty:
-    textColor: "{colors.ink-secondary}"
-    padding: 16px
-  error:
-    textColor: "{colors.danger-text}"
-    backgroundColor: "{colors.danger-soft}"
-motion:
-  state-transition: 120ms
-  live-pulse-duration: 2000ms
-  live-pulse-opacity: "1 → 0.65 → 1"
-  reduced-motion-duration: 0ms
-
+  breakpoint-wide: 90rem
+  width-detail-panel: 32rem
 components:
-  sidebar-shell:
-    backgroundColor: "{colors.surface-dark-nav}"
-    textColor: "{colors.ink-faint}"
-    width: 270px
-  sidebar-group-label:
-    textColor: "{colors.ink-faint}"
-    typography: "{typography.nav-group-label}"
-    padding: 8px 16px 4px
-  sidebar-item:
-    textColor: "rgba(255,255,255,0.72)"
-    typography: "{typography.nav-item}"
-    rounded: "{rounded.sm}"
-    padding: 8px 12px
-  sidebar-item-active:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.on-primary}"
-    typography: "{typography.nav-item}"
-    rounded: "{rounded.sm}"
-    padding: 8px 12px
-  top-bar:
-    backgroundColor: "{colors.surface-card}"
-    textColor: "{colors.ink}"
-    height: 54px
-    border: "0 0 1px {colors.hairline} solid"
-  scope-pill:
-    backgroundColor: "{colors.success-soft}"
-    textColor: "{colors.success}"
-    typography: "{typography.body-sm}"
-    rounded: "{rounded.pill}"
-    padding: 4px 10px
-  stat-card:
-    backgroundColor: "{colors.surface-card}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.lg}"
-    padding: 16px
-    border: "1px solid {colors.hairline}"
-  pipeline-step-card:
-    backgroundColor: "{colors.surface-card}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.lg}"
-    padding: 16px
-    border: "1px solid {colors.hairline}"
-  panel-card:
-    backgroundColor: "{colors.surface-card}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.lg}"
-    padding: 20px
-    border: "1px solid {colors.hairline}"
-  progress-track:
-    backgroundColor: "{colors.surface-sunken}"
-    rounded: "{rounded.pill}"
-    height: 6px
-  progress-fill-success:
-    backgroundColor: "{colors.success}"
-    rounded: "{rounded.pill}"
-  progress-fill-danger:
-    backgroundColor: "{colors.danger}"
-    rounded: "{rounded.pill}"
-  donut-metric:
-    textColor: "{colors.ink}"
-    typography: "{typography.stat-value-secondary}"
-  alert-row-danger:
-    backgroundColor: "{colors.danger-soft}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.md}"
-    padding: 10px 12px
-  alert-row-warning:
-    backgroundColor: "{colors.warning-soft}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.md}"
-    padding: 10px 12px
-  status-badge-success:
-    backgroundColor: "{colors.success-soft}"
-    textColor: "{colors.success}"
-    typography: "{typography.badge}"
-    rounded: "{rounded.pill}"
-    padding: 2px 8px
-  status-badge-danger:
-    backgroundColor: "{colors.danger-soft}"
-    textColor: "{colors.danger}"
-    typography: "{typography.badge}"
-    rounded: "{rounded.pill}"
-    padding: 2px 8px
-  status-badge-warning:
-    backgroundColor: "{colors.warning-soft}"
-    textColor: "{colors.warning}"
-    typography: "{typography.badge}"
-    rounded: "{rounded.pill}"
-    padding: 2px 8px
-  status-badge-neutral:
-    backgroundColor: "{colors.neutral-soft}"
-    textColor: "{colors.neutral}"
-    typography: "{typography.badge}"
-    rounded: "{rounded.pill}"
-    padding: 2px 8px
-  live-indicator:
-    textColor: "{colors.success}"
-    typography: "{typography.badge}"
-  data-table:
-    backgroundColor: "{colors.surface-card}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.lg}"
-    border: "1px solid {colors.hairline}"
-  data-table-header-row:
-    backgroundColor: "{colors.surface-sunken}"
-    textColor: "{colors.ink-muted}"
-    typography: "{typography.table-header}"
-  data-table-row:
-    textColor: "{colors.ink}"
-    typography: "{typography.table-cell}"
-    border: "0 0 1px {colors.hairline} solid"
-  button-primary:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.on-primary}"
-    typography: "{typography.body-sm}"
-    rounded: "{rounded.sm}"
-    padding: 8px 14px
-  button-secondary:
-    backgroundColor: "{colors.surface-card}"
-    textColor: "{colors.ink}"
-    typography: "{typography.body-sm}"
-    rounded: "{rounded.sm}"
-    padding: 8px 14px
-    border: "1px solid {colors.hairline-strong}"
-  search-input:
-    backgroundColor: "{colors.surface-sunken}"
-    textColor: "{colors.ink-muted}"
-    typography: "{typography.body-sm}"
-    rounded: "{rounded.md}"
-    padding: 8px 12px
-  icon-chip:
-    size: 40px
-    iconSize: 24px
-    strokeWidth: 1.75px
-    rounded: "{rounded.md}"
-    backgroundColor: "{colors.icon-blue-soft}"
-    textColor: "{colors.primary}"
-  icon-chip-pipeline:
-    size: 32px
-    iconSize: 20px
-    rounded: "{rounded.sm}"
-  icon-chip-validation:
-    backgroundColor: "{colors.icon-teal-soft}"
-    textColor: "{colors.chart-green}"
-  sidebar-group-icon:
-    size: 16px
-    chipBackground: transparent
-    textColor: "{colors.nav-text}"
-  sidebar-sub-item:
-    backgroundColor: "{colors.surface-dark-nav-subtle}"
-    textColor: "{colors.nav-text}"
-    padding: 6px 12px 6px 32px
-    minHeight: 28px
-  sidebar-scroll-region:
-    overflowY: auto
-    minHeight: 0px
-    dividerColor: "{colors.nav-divider}"
-    scrollbarThumbColor: "{colors.surface-dark-nav-raised}"
-    scrollPadding: 8px
-  date-range-segments:
-    labels: [1일, 7일, 사용자 지정]
-    height: 36px
-    gap: 4px
-    padding: 0px 12px
-    rounded: "{rounded.sm}"
-    backgroundColor: "{colors.surface-card}"
-    selectedBackgroundColor: "{colors.primary}"
-    selectedTextColor: "{colors.on-primary}"
-    border: "1px solid {colors.hairline}"
-  date-range-trigger:
-    height: 36px
-    minWidth: 204px
-    iconSize: 16px
-    rounded: "{rounded.sm}"
-    border: "1px solid {colors.hairline}"
-  page-header:
-    gap: 12px
-    titleDescriptionGap: 4px
-    marginBottom: 16px
-    titleTypography: "{typography.page-title}"
-    descriptionTypography: "{typography.body-sm}"
-  breadcrumb:
-    typography: "{typography.body-sm}"
-    textColor: "{colors.ink-secondary}"
-    gap: 8px
-  profile-trigger:
-    avatarSize: 32px
-    gap: 8px
-    minHeight: 36px
-  dropdown-menu:
-    minWidth: 192px
-    padding: 4px
-    itemMinHeight: 32px
-    backgroundColor: "{colors.surface-card}"
-    border: "1px solid {colors.hairline-strong}"
-    rounded: "{rounded.md}"
-    zIndex: 40
-  top-bar-search:
-    maxWidth: 500px
-    height: 32px
-    iconSize: 16px
-  icon-button:
-    size: 32px
-    iconSize: 16px
-    rounded: "{rounded.xs}"
-  notification-count:
-    backgroundColor: "{colors.danger}"
-    textColor: "{colors.on-primary}"
-    typography: "{typography.badge}"
-    minSize: 16px
-    rounded: "{rounded.pill}"
-  table-toolbar:
-    minHeight: 44px
-    gap: 8px
-    padding: 12px
-    searchWidth: 176px
-    filterMinWidth: 112px
-    controlHeight: 32px
-  table-selection:
-    columnWidth: 36px
-    checkboxSize: 14px
-    targetMinSize: 24px
-    borderColor: "{colors.control-border}"
-    checkedColor: "{colors.primary}"
-  table-row-actions:
-    columnWidth: 128px
-    gap: 8px
-    viewMinWidth: 72px
-    menuTargetSize: 24px
-    iconSize: 14px
   table-density:
-    cellPadding: 4px 12px
     rowMinHeight: 32px
     headerMinHeight: 32px
-    numericTypography: "{typography.numeric}"
-  table-bulk-bar:
-    minHeight: 40px
-    padding: 8px 12px
-    backgroundColor: "{colors.primary-soft}"
-  pipeline-stage-progress:
-    height: 6px
-    fillColor: "{colors.chart-queue-running}"
-    trackColor: "{colors.chart-remainder}"
-    labelGap: 8px
-    typography: "{typography.chart-label}"
-  pipeline-connector:
-    width: 24px
-    iconSize: 20px
-    textColor: "{colors.primary}"
-  donut-chart:
-    diameter: 88px
-    ringWidth: 12px
-    startAngle: -90deg
-    strokeLinecap: butt
-    remainderColor: "{colors.chart-remainder}"
-    centerTypography: "{typography.body-sm}"
-    centerFontWeight: 600
-    legendGap: 8px
-    seriesColors:
-      coverage: "{colors.chart-blue}"
-      traceability: "{colors.chart-teal}"
-      consistency: "{colors.chart-green}"
-    inconsistentColor: "{colors.accent-amber}"
-  bar-chart:
-    plotMinHeight: 88px
-    seriesColor: "{colors.chart-purple}"
-    gridColor: "{colors.chart-grid}"
-    labelTypography: "{typography.chart-label}"
-    barWidth: 14px
-    barGap: 8px
-    yAxisMin: 0
-    unit: defects
-  scheduler-panel:
-    padding: 12px
-    gap: 8px
-    summaryColumns: 2
-    alertRowMinHeight: 28px
-  queue-status:
-    typography: "{typography.numeric}"
-    trackHeight: 12px
-    segmentGap: 2px
-    runningColor: "{colors.chart-queue-running}"
-    pendingColor: "{colors.chart-queue-pending}"
-    remainderColor: "{colors.chart-remainder}"
-  lifecycle-cell:
-    markerSize: 14px
-    markerBorder: "1px solid {colors.control-border}"
-    completeColor: "{colors.success-text}"
-    completeBackgroundColor: "{colors.icon-teal-soft}"
-    pendingColor: "{colors.ink-muted}"
-    textAlign: center
-  status-badge-accessible:
-    successTextColor: "{colors.success-text}"
-    warningTextColor: "{colors.warning-text}"
-    dangerTextColor: "{colors.danger-text}"
-  live-dot:
-    size: 8px
-    rounded: "{rounded.pill}"
-    backgroundColor: "{colors.success}"
-    animation: none
-
+    cellPadding: 4px 12px
+  stat-card:
+    valueTypography: t-stat
+    secondaryValueTypography: t-stat-2
+    deltaTypography: t-delta
+  data-table-header-row:
+    backgroundColor: "var(--surface-sunken)"
+    textColor: "var(--text-secondary)"
+    typography: t-table-header
+  table-selection:
+    targetMinSize: 24px
+    borderColor: "var(--border-control)"
+  current-position:
+    accentBarWidth: 2px
+    accentColor: "var(--accent-primary)"
 ---
-
-> **대체 안내 (2026-10-04, [ADR-0011](docs/adr/0011-design-direction-feedbackops-shell.md)):** 디자인 방향이 FeedbackOps 기반으로 바뀌었다. 이 문서의 **색 토큰 값**(`primary` `#2563eb`, 캔버스 `#f7f8fa`, 어두운 사이드바 `surface-dark-nav*`), **타이포 값**(본문 13px, Noto Sans KR), **셸 구성요소**(`sidebar-shell` 270px 어두운 사이드바, `top-bar` 54px, `top-bar-search`, `scope-pill` 상단 배치)는 대체됐다. #53에서 FeedbackOps 기반으로 다시 쓰기 전까지 원본은 이렇다.
-> - 토큰·타이포 값: FeedbackOps `packages/ui/src/styles/tokens.css`(ADR-0058 소비 계약).
-> - 셸 구조·치수: [06 §7](docs/06_platform_ui_contract.md#7-application-shell)과 [07](docs/07_app_shell_wireframe.md).
->
-> 플랫폼 확장(차트·카테고리 색, 표 밀도, 상태 표시 원칙)과 접근성 규칙은 #53 전까지 이 문서를 따른다.
-
 
 ## Overview
 
-This project is a platform, not a screen collection (`AGENTS.md` — 목적). This
-`DESIGN.md` is the **Design System** stage output of
-`.agents/skills/analysis-platform-wireframe/SKILL.md` step 5, produced because
-implementation was explicitly requested, not because a screen needed
-decoration. It is scoped to the App Shell + data-dashboard vocabulary that
-recurs across menus (`docs/06_platform_ui_contract.md`, `docs/07_app_shell_wireframe.md`),
-not to any single screen.
+이 문서는 **FeedbackOps 위에 얹는 플랫폼 디자인 확장**의 원본이다. 공유 디자인 시스템을 다시 정의하지 않는다. [ADR-0010](docs/adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)의 직접 소비 방식과 [ADR-0011](docs/adr/0011-design-direction-feedbackops-shell.md)의 승인된 프로토타입 C안을 따른다. #193의 토큰 이행과 #194의 밝은 셸 규칙을 반영한다. 이 문서 갱신은 새 프로토타입 승인이나 런타임 검증 기록이 아니다.
 
-The reference screenshot this system was built against is a light-canvas
-industrial log analytics dashboard: a fixed dark sidebar with grouped icon
-navigation, a thin top bar (scope switcher, search, notifications, profile),
-a KPI stat-tile row, a horizontal pipeline stepper with per-stage progress
-bars, a donut/gauge metrics panel, an alerts list, a lifecycle/status table,
-and a dense equipment-status data table with pill status badges. Every
-component below exists to serve that vocabulary — not a marketing site.
+메뉴 화면은 Kernel·공통 컴포넌트·차트 계약·Page Archetype·메뉴간 연결을 검증하는 Consumer다. 화면마다 새 팔레트나 부품 체계를 만들지 않는다. 행동·권한·Context·상태 의미는 [06](docs/06_platform_ui_contract.md)이 우선한다.
 
-**None of the source `DESIGN.md` references in `.agents/references/design-md/`
-document an in-product application UI** — they all capture marketing/landing
-pages for their respective brands. Nothing here was copied structurally
-(no hero bands, no pricing tiers, no CTA banners). What was extracted is
-listed in **Sources** below: narrow, load-bearing *principles* about how each
-brand disciplines color, radius, and elevation, re-applied to this platform's
-own component set.
+| 소유자 | 소유하는 규칙 | 이 문서의 관계 |
+| --- | --- | --- |
+| FeedbackOps [tokens.md](products/feedbackops/docs/frontend/tokens.md), [tokens.css](products/feedbackops/packages/ui/src/styles/tokens.css) | 공유 색·표면·간격·반경·폰트·본문 타이포 | 값 스케일을 복제하지 않고 semantic token을 소비 |
+| FeedbackOps [ui-design-system.md](products/feedbackops/docs/frontend/ui-design-system.md), [ADR-0058](products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md) | primitive의 모양·상태, CSS-first 소비·폰트 로딩 계약 | `@ap/ui`를 통한 공개 primitive·CSS 소비 |
+| [06 §7–9](docs/06_platform_ui_contract.md#7-application-shell), [07](docs/07_app_shell_wireframe.md) | 셸 구조·치수·슬롯·navigation IA·시나리오 | 구조를 복사하지 않고 플랫폼 시각 보완만 정의 |
+| DESIGN.md | 플랫폼 확장 token의 역할·값 출처, 허용 전경/표면, 분석·KPI·표·차트 시각 패턴 | 아래 정의가 원본 |
+| [플랫폼 CSS](packages/ui/src/styles/tokens.css), [매핑·역할 유틸리티](packages/ui/src/styles/index.css) | 확장 구현 | 문서와 대조; 불일치는 별도 보고 |
 
-## Sources (principle extraction, not brand copy)
+## Platform extension layer
 
-| Source | Principle taken | Why it applies here | Rejected |
-|---|---|---|---|
-| `linear.app` | Single chromatic accent (`{colors.primary}`) used only for the active-nav state, primary buttons, and focus rings; hierarchy otherwise carried by a neutral surface ladder + hairline borders, never by adding more color. | The reference screenshot uses blue this same way — nav active state, primary actions — while KPI/status color is semantic, not brand. | Near-black canvas, negative-tracked 80px display type, product-screenshot-led marketing layout — none of that is an application shell. |
-| `clickhouse` | Flat elevation: no drop-shadow stacking, hierarchy from surface-color contrast + 1px hairlines only; small, disciplined radius scale (buttons smaller-radius than cards). | Dense dashboards read as noisy fast if every card has a shadow; the platform's tables/cards should feel like an "engineering-grade dim panel," not a marketing tile. | The yellow-as-brand-voltage idea itself — this platform's brand color is blue, and no single accent should be as loud as ClickHouse's yellow inside a data-dense screen. |
-| `supabase` | Near-black ink (`#171717`-class, never pure `#000`), square-ish button radius (6–8px, not pill), calibrated grey ladder for text hierarchy instead of color. | Matches the reference screenshot's technical, non-playful tone — buttons and inputs in the screenshot are subtly rounded rectangles, not pills. | Pure-white-canvas-only doctrine — this platform's canvas is a very light warm-gray (`{colors.canvas}` `#f7f8fa`), matching the screenshot, not pure white. |
-| `mongodb` | Reserve category-accent colors (purple/teal/amber) strictly for tag/series differentiation, never for primary actions or large surface fills. | The reference dashboard uses colored icons (blue equipment glyph, teal/purple accents in small icon chips) purely as category markers, never as a second CTA color. | Pill-shaped buttons everywhere, dark-teal marketing hero bands, 3-tier pricing pattern — not applicable to an app shell. |
-| Supplied Industrial Log Analytics screenshot (`/Users/hyojung/.claude/uploads/00521d63-05d6-4f35-b771-a2b8bc1da6b7/0f3b051c-image.png`, 1672 × 941) | Five KPI tiles; five connected stages; queue/window + alerts; lifecycle table; three rings + one bar plot; equipment toolbar/checkboxes/actions. | Primary visual evidence for the additive reference recipe, not evidence of product behavior or exact source CSS. | Brand/logo/person data, screenshot nav IA, invented fourth donut, decorative chart gradients, inferred live animation. |
-| `interface-design` + local `ui-ux-pro-max` focus-state/focus-not-obscured guidance | Explicit focal region, numeric alignment, tokenized density, visible keyboard focus. | Completes implementer-facing states without changing the reference's industrial direction. | Generic same-color sidebar/mobile-first defaults; screenshot and platform desktop-first contract take precedence. |
-| `docs/06_platform_ui_contract.md` §§6, 9, 11, 18–19, 23–26 | Context/time ownership, canonical nav, evidence-backed states, accessibility, responsive boundaries. | Higher authority than visual references. | Treating screenshot data/status labels as backend contracts or menu-registration decisions. |
+아래 `--*`는 CSS 변수명이다. 공유 palette 참조는 FeedbackOps 원본을 따르며, literal은 플랫폼이 소유한다. raw palette를 컴포넌트에서 직접 쓰지 않는다. `tokens.css`는 RGB triple을 사용한다. front matter의 literal은 hex, 공유 참조는 FeedbackOps CSS 변수명이다.
 
-`posthog` and the `sentri` (Sentry-styled) reference were read and rejected outright: both are illustration/mascot-driven consumer-facing marketing systems with no analogue in an enterprise operations dashboard, and `docs/06_platform_ui_contract.md` explicitly asks that individual-menu style not diverge from the platform's shared, non-decorative contract.
+### Colours and surfaces
 
-**Key Characteristics:**
-- Light warm-gray canvas (`{colors.canvas}` `#f7f8fa`) with white cards (`{colors.surface-card}`) — never pure white-on-white, never dark mode by default.
-- One chromatic accent (`{colors.primary}` `#2563eb`) reserved for active nav state, primary buttons, focus rings, and the info-semantic color. Everything else is neutral ink or semantic status color.
-- Fixed dark sidebar (`{colors.surface-dark-nav}`) is the one deliberate polarity flip in the system — it exists to keep navigation visually separate from data content, not as a second brand mode.
-- Flat elevation: hairline borders (`{colors.hairline}`) carry card boundaries; no shadow stacking. A `panel-card` and a `stat-card` differ only in padding, not in elevation.
-- Small, square-ish radii (`{rounded.sm}` 4px buttons, `{rounded.md}` 6px inputs, `{rounded.lg}` 8px cards) — never pill-shaped except true status pills and the scope switcher chip. Aligned to `docs/06_platform_ui_contract.md` §23's `sm 4px / md 6px / lg 8px` scale.
-- Status vocabulary is semantic-color-driven (`success`/`warning`/`danger`/`neutral`) and must map to the data-state evidence rules owned by `docs/06_platform_ui_contract.md` §19 — a badge color is never invented ad hoc per screen.
+| 플랫폼 token | 역할·사용 시점 | 값 출처 |
+| --- | --- | --- |
+| `accent-primary` | 주요 동작·링크·현재 위치·focus 계열의 일관된 강조 | FeedbackOps `color-neon-lime` 참조 |
+| `accent-primary-hover` | primary 동작 hover | 플랫폼 literal `#102080` |
+| `accent-primary-soft` | 선택 요약·강조의 옅은 배경; 선택 표식 동반 | 플랫폼 literal `#e4e8f6` |
+| `accent-info` / `accent-success` / `accent-warn` / `accent-danger` | 의미 dot·icon·tint; 작은 의미 글자에 쓰지 않음 | FeedbackOps `color-cyan-spark` / `color-emerald` / `color-amber` / `color-warning-red` 참조 |
+| `accent-success-soft` | 긍정 의미 배경·delta/badge fill | 플랫폼 literal `#e3f5ed` |
+| `accent-warn-soft` | 경고 의미 배경 | 플랫폼 literal `#f4ece0` |
+| `accent-danger-soft` | 오류 의미 배경 | 플랫폼 literal `#fae5e7` |
+| `accent-neutral` / `accent-neutral-soft` | 미평가·보조 상태의 dot 및 배경 | FeedbackOps `color-storm-cloud` / `color-deep-slate` 참조 |
+| `text-success-label` | 작은 긍정 의미 텍스트 | FeedbackOps `status-reporter-resolved-label` 참조 |
+| `text-info-label` | 작은 정보 의미 텍스트 | FeedbackOps `status-reporter-received-label` 참조 |
+| `text-warning-label` | 작은 경고 의미 텍스트 | FeedbackOps `status-reporter-prep-label` 참조 |
+| `text-danger-label` | 작은 오류 의미 텍스트 | FeedbackOps `status-reporter-reopened-label` 참조 |
+| `border-control` | 입력·select·checkbox 등 식별에 필요한 interactive 경계 | FeedbackOps `color-storm-cloud` 참조 |
+| `surface-sunken` | 표 열 머리·검색 배경·progress track·recessed 보조 영역 | FeedbackOps `color-deep-slate` 참조 |
+| `cat-purple` / `cat-teal` / `cat-amber` | 범주 tag·series 구분; 성공·실패 판정이나 CTA에 쓰지 않음 | 플랫폼 literal `#7c3aed` / `#0d9488` / `#d97706` |
+| `chart-blue` / `chart-teal` / `chart-green` / `chart-purple` | series 정체성; 의미 있는 얇은 선 대비는 Chart stroke 결정 참고 | 플랫폼 literal `#3b9cff` / `#00a3b5` / `#00bc8b` / `#a174f5` |
+| `chart-remainder` | 이름과 분모가 확인된 나머지 범주 | 플랫폼 literal `#cbd2e3` |
+| `chart-grid` | 보조 grid; 의미 있는 데이터 선에 쓰지 않음 | 플랫폼 literal `#edf1f7` |
+| `icon-blue-soft` / `icon-teal-soft` | KPI·분석 범주 icon chip 배경; navigation 그룹에는 채운 chip을 만들지 않음 | 플랫폼 literal `#e3efff` / `#dcf8ef` |
 
-### Reference review and precedence
+`text-success-label` 변수의 Tailwind alias는 `--color-success-label`, 유틸리티는 `text-success-label`이다(info/warning/danger도 동일). `text-text-success` 같은 공유 vivid 의미 색과 구별한다. 표면·경계 유틸리티는 `bg-surface-sunken`, `border-border-control`; 구조 구분선은 공유 `border-border-subtle`이다.
 
-**Verdict:** the original tokens establish a recognizable visual family, but do
-not specify enough geometry, chart encoding, controls, or states for faithful
-reproduction. Additions below are an implementation recipe, not a claim of
-pixel-exact extraction. Existing tokens and sections are retained. All new
-`{components.*}` references use the YAML namespace; older `{component.*}` prose
-references mean the same namespace, not a second token collection.
+### Typography roles
 
-The operator's task is to identify where equipment logs stopped progressing,
-inspect validation/queue evidence, and drill into the affected equipment. The
-visual signature is the collection → conversion → parsing → raw data → validation
-chain tied to exact counts, lifecycle milestones, coverage, and queue state.
-Slate navigation, pale inspection surfaces, blue processing, teal coverage,
-green confirmed results, amber review and red failure provide the color world.
-Keep that density; do not replace it with hero-sized KPIs, decorative gauges,
-or a flat wall of equally prominent cards.
+공유 font family·본문·font loading은 [FeedbackOps 타이포 원본](products/feedbackops/docs/frontend/tokens.md#tokens--typography)과 [ADR-0058 §2](products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md#2-theme-inline-because-theme-namespaces-overlap-token-names)을 따른다. 라틴/한글은 공유 `--font-sans`(Inter + Pretendard), 기술 문자열은 공유 `--font-mono`를 상속한다. 플랫폼은 별도 body scale을 만들지 않는다.
 
-P0 items 2–4 are confirmed for stat/pipeline chips, period controls and table
-controls. P0 item 1 is **partially present**: category and semantic colors exist,
-but chart identities, geometry and bindings are missing. The image has **three
-donuts and one bar chart**, not four donuts. P1 item 5 is **incomplete, not absent**:
-active nav, primary-hover color, focus-ring color and table hover already exist;
-the additions provide the missing behavioral coverage. Item 6 needs navigation
-hierarchy/overflow, not extra decorative elevation. Items 7–8 are confirmed.
-P2 page-header/profile/nested-radius specifications are useful missing rules;
-breadcrumb and pulse cannot be established from this image (see Open Decisions).
+아래 역할 값은 플랫폼 literal이며 [index.css](packages/ui/src/styles/index.css)의 클래스와 일치한다. line-height는 px 표기 또는 unitless 배수다. 지정하지 않은 font family·weight·tracking은 공유/상위 값을 상속한다.
 
-Scope: these are visual recipes; pipeline, scheduler and lifecycle compositions
-remain menu-owned candidates until repeated use justifies promotion (§24).
-The explicit additions qualify earlier shorthand: soft fills also belong on
-icon chips, alerts, scope and selected rows; chart colors express category as
-well as status; not every stage/lifecycle label is a success/failure badge.
-Production navigation comes from the seven canonical §9 groups, **not** the
-screenshot's group names quoted in the original Navigation paragraph.
+| 역할 클래스 | 크기 / line-height / weight | 추가 속성 | 사용 |
+| --- | --- | --- | --- |
+| `t-page-title` | 24px / 32px / 600 | tracking -0.3px | 본문 수준의 큰 제목; 한 줄 셸 머리의 강제 기본값 아님 |
+| `t-section-title` | 18px / 28px / 600 | — | 분석·목록 section 제목 |
+| `t-card-title` | 14px / 20px / 600 | — | compact panel 제목 |
+| `t-stat` | 32px / 1.1 / 600 | tracking -0.5px, tabular lining numbers | primary KPI |
+| `t-stat-2` | 22px / 1.2 / 600 | tracking -0.3px, tabular lining numbers | secondary KPI·donut 값 |
+| `t-delta` | 12px / 1.4 / 600 | tabular lining numbers | 기준이 있는 delta |
+| `t-caption` | 12px / 16px / 상속 | — | 보조 설명·단위·출처; opacity 없이 허용 pairing 사용 |
+| `t-table-header` | 12px / 1.3 / 600 | tracking 0.3px, uppercase | 기술 열 머리 역할 |
+| `t-badge` | 11px / 1.3 / 600 | tracking 0.2px | 짧은 상태 label |
+| `t-nav-group` | 11px / 1.3 / 600 | tracking 0.5px, uppercase | 비인터랙티브 그룹 section label |
+| `t-mono` | 12px / 1.4 / 상속 | 공유 `--font-mono` | ID·기술 값·correlation ID |
+| `tabular` | 크기·weight 상속 | tabular-nums lining-nums | 수치 열·분모·비교 값 |
 
-## Colors
+표 header row는 승인된 프로토타입과 front matter binding대로 `t-table-header`를 사용한다(uppercase; 한국어 label은 대소문자 변환의 영향을 받지 않는다). PlatformDataTable의 sort button도 같은 uppercase 규칙을 따른다. 그룹 제목은 heading/disclosure가 아닌 section label이며 CSS uppercase가 navigation 동작을 뜻하지 않는다.
 
-### Brand & Accent
-- **Primary** (`{colors.primary}` `#2563eb`): active sidebar item, primary buttons, links, focus ring, "Info" semantic state. Scarce outside those four roles.
-- **Primary Soft** (`{colors.primary-soft}`): info-tinted banners, selected-row backgrounds.
+### Radius and layout extensions
 
-### Surface
-- **Canvas** (`{colors.canvas}` `#f7f8fa`): page background behind the content area only — the sidebar has its own dark surface.
-- **Surface Card** (`{colors.surface-card}` `#ffffff`): all cards, panels, the top bar, table backgrounds.
-- **Surface Sunken** (`{colors.surface-sunken}`): table header rows, progress track background, search input fill — anything that should read as "recessed" relative to a card.
-- **Surface Dark Nav** (`{colors.surface-dark-nav}` `#0f1526`): sidebar only. Do not reuse this surface for any content-area component.
-- **Hairline** (`{colors.hairline}`) / **Hairline Strong** (`{colors.hairline-strong}`): card borders, table row dividers, input borders.
+| token | 역할·사용 | 값 출처 |
+| --- | --- | --- |
+| `radius-xs` | 작은 inline chip/아이콘 버튼의 compact 반경 alias | `index.css`의 `var(--radius-sm)` → FeedbackOps 공유 반경; 별도 literal 아님 |
+| `breakpoint-wide` | 넓은 분석 grid를 전환하는 `wide:` 기준 | 플랫폼 literal `90rem` |
+| `width-detail-panel` | 플랫폼 DetailDrawer 폭 유틸리티(`w-detail-panel`) | 플랫폼 literal `32rem`; FeedbackOps `detail-panel-width`와 다른 플랫폼 overlay 역할 |
 
-### Text
-- **Ink** (`{colors.ink}`): headings, primary values, table cell text.
-- **Ink Secondary** / **Ink Muted** / **Ink Faint**: descending emphasis for subtitles, metadata, and sidebar item text on dark surfaces.
+`width-detail-panel`은 FeedbackOps 오른쪽 고정 상세 슬롯으로의 변경 승인이 아니다([ADR-0011](docs/adr/0011-design-direction-feedbackops-shell.md)). 반응형 정책의 상태·MVP 범위는 [06 §25](docs/06_platform_ui_contract.md#25-responsive-strategy)와 [05](docs/05_roadmap_and_open_questions.md#mvp-지원-환경--데스크톱-웹만-decided-2026-09-27)를 따른다. rem을 임의 px literal로 대체하지 않는다.
 
-### Semantic (status — see docs/06 §19 before wiring)
-- **Success** (`{colors.success}`): "Success", "Passed", validation-coverage-met, positive delta arrows.
-- **Warning** (`{colors.warning}`): "Needs Review", "Minor issue", stale-but-not-failed states.
-- **Danger** (`{colors.danger}`): "Failed", "Action Required", parser/validation errors.
-- **Neutral** (`{colors.neutral}`): "None" / no-issue / not-yet-evaluated — must not be confused with a confirmed-success green per the confirmed/unconfirmed distinction in the platform contract.
-- **Info** (`{colors.info}` = `{colors.primary}`): informational banners, "Live" processing-window context.
+## Accessibility pairing rules
 
-Semantic color is a **display concern only**. Which underlying data state (collected / delayed / zero-result / permission-hidden / quality-warning / oversized-query / server-error) maps to which badge is owned by `docs/06_platform_ui_contract.md` §19 and `docs/04_frontend_ui_ux.md`'s state breakdown — this file does not reinterpret that mapping, it only defines the palette those states render in.
+[06 §26](docs/06_platform_ui_contract.md#26-accessibility-baseline)의 색+shape/text, visible focus, 차트 대체 경로 의무를 소비한다. 아래는 플랫폼의 구체 token pairing 규칙이다. 작은 일반 글자는 최소 4.5:1, 의미 있는 control 경계는 최소 3:1을 확보한다. **필수 글자에 opacity fade를 적용하지 않는다.** `text-disabled`는 실제 비활성 표현에만 쓰고 그룹 제목·현재 Scope·도움말·상태·단위에 쓰지 않는다.
 
-## Typography
+### Allowed foreground/surface pairs
 
-Single family (**Inter**, system-sans fallback) across every role — no serif or display-face counterpart, matching the ClickHouse/Supabase "one geometric sans, weight-and-size does the hierarchy work" principle. Per `docs/06_platform_ui_contract.md` §23, no role exceeds weight 600 — `{typography.stat-value}` (Primary KPI) and `{typography.stat-value-secondary}` (Secondary KPI) carry the heaviest weight at 600; body and table cells stay at 400; table headers use 600.
+수치는 #193/#194 UI/UX 리뷰의 opaque sRGB token 계산이다. 렌더 검증을 대신하지 않는다. `surface-popover`는 sunken과 같은 공유 palette를 쓰므로 동일 제한을 받는다.
 
-| Token | Size | Weight | Use |
-|---|---|---|---|
-| `{typography.page-title}` | 24px / 600 | Page-level heading ("Dashboard") |
-| `{typography.section-title}` | 18px / 600 | Section headers ("Log Processing Pipeline") |
-| `{typography.card-title}` | 14px / 600 | Card/widget titles |
-| `{typography.stat-value}` | 32px / 600 | Primary KPI numbers (§23 range 30–36/600) |
-| `{typography.stat-value-secondary}` | 22px / 600 | Secondary KPI numbers, default donut center (§23 range 20–24/600) |
-| `{typography.caption}` | 12px / 400 | Plain caption text (§23 Caption 12/16/400) — distinct from the pill `{typography.badge}` |
-| `{typography.stat-delta}` | 12px / 600 | "↑ 12%" delta labels next to a stat |
-| `{typography.body-md}` / `{typography.body-sm}` | 14px / 13px, 400 | Default UI text, descriptions |
-| `{typography.table-header}` | 12px / 600, uppercase | Table column headers |
-| `{typography.table-cell}` | 13px / 400 | Table body cells |
-| `{typography.nav-item}` / `{typography.nav-group-label}` | 13px / 11px | Sidebar item and group-label text |
-| `{typography.badge}` | 11px / 600 | Status pill text |
-| `{typography.mono}` | 12px / 400 | IDs, query IDs, correlation IDs (`docs/04` error-state requirement) |
+| 전경 | 허용 표면 / 대비 | 제한·적용 예 |
+| --- | --- | --- |
+| `text-primary`, `text-secondary` | canvas/card/sidebar/sunken/hover/selected | 필수 제목·검색 입력·열 머리·popover 설명. secondary는 sunken 9.23:1, sidebar/hover/selected 9.310/8.909/8.218:1 |
+| `text-muted` | canvas 4.642:1, card 4.892:1, sidebar 4.505:1 | 원래 opaque 값으로 보조 문구·section label; sidebar에서도 여유가 작으므로 fade 금지 |
+| `text-muted` | sunken **4.469:1** (약 4.47), hover 4.311:1, selected 3.977:1 | **필수 작은 글자에 금지**. sunken 열 머리·검색 문구·popover, hover/selected 상태 label은 `text-secondary`로 |
+| `text-success-label` | card 5.922:1, success-soft 5.334:1; canvas/sunken/hover/selected 포함 최저 4.814:1 | 작은 성공 의미 글자; vivid success는 dot/icon/tint로 분리 |
+| `text-info-label` | card 5.976:1, primary-soft 4.983:1; 동일 표면 집합 최저 4.858:1 | 작은 정보 의미 글자 |
+| `text-warning-label` | card 5.971:1, warn-soft 5.195:1; 동일 표면 집합 최저 4.854:1 | 작은 경고 의미 글자 |
+| `text-danger-label` | card 6.094:1, danger-soft 5.156:1; 동일 표면 집합 최저 4.954:1 | 작은 오류 의미 글자 |
+| `text-secondary` (neutral label) | sunken/neutral-soft 9.23:1 | 중립 배지·필수 미평가 설명 |
+| `border-control` | card/canvas/sunken/hover/selected 4.892/4.642/4.469/4.311/3.977:1; sidebar 4.505:1 | interactive control 식별 경계로 모두 ≥3:1; text-muted와 같은 값이어도 비텍스트 기준은 다름 |
+| `border-subtle` | 구조 divider·card·행 구분 | 입력/checkbox의 유일한 식별 경계로 사용 금지 |
+| 공유 `focus-ring` / 플랫폼 `accent-primary` | sidebar/hover/selected 10.304/9.859/9.095:1 | opaque focus/current 막대; 색 외 형태 단서 동반 |
 
-Apply `{typography.numeric}` to KPI values/deltas, counts, percentages, chart
-labels, table numbers and timestamps; keep labels proportional. Right-align
-quantities in tables, align units/decimal precision within a column, and keep
-IDs left-aligned in `mono`. Do not convert every number to monospace. Use
-`Inter, system-ui, -apple-system, "Segoe UI", sans-serif`; font fallback and
-localization may increase row heights. `{typography.compact-table-header}` is
-the screenshot's sentence-case header variant; uppercase remains the existing
-base variant. Default `donut-metric` centers use `{typography.stat-value-secondary}`
-(22px/600). Compact reference donut centers instead use `donut-chart.centerTypography` (13px/600), not
-the full Primary-KPI-sized `{typography.stat-value}` when rendering this compact reference.
+허용 표에 없는 새 fill·opacity 조합은 자동 허용하지 않고 실제 전경/표면을 계산한다. vivid dot/icon 역시 의미를 단독 전달하면 비텍스트 대비를 확인해야 한다. 차트 palette의 알려진 부족과 후속 구현은 아래 Chart stroke 결정 및 #203에서 추적한다.
 
-## Layout
+## Shell visual rules
 
-- **Base spacing unit**: 4px, stepping `{spacing.xxs}` 4px → `{spacing.huge}` 48px. Card internal padding defaults to `{spacing.md}` (16px) for compact tiles, `{spacing.lg}`–`{spacing.xl}` (20–24px) for panel cards with headers.
-- **Sidebar**: fixed `{component.sidebar-shell}` width 270px, collapsible per `docs/07_app_shell_wireframe.md`; grouped sections with `{component.sidebar-group-label}` uppercase micro-labels, never unlabeled flat lists.
-- **Top bar**: fixed 54px `{component.top-bar}`, hairline bottom border only — no shadow.
-- **Content grid**: KPI stat row is a flex/grid of equal-width `{component.stat-card}` tiles (5–6 max per row per `docs/04`'s "limit KPI card count" rule) — do not let this row grow to substitute for a proper metrics screen.
-- **Density over whitespace**: per the wireframe skill's platform principles, tables beat cards when exact values matter; this file's `{component.data-table}` is the default for any list of ≥5 comparable records, not a card grid.
+셸 구조·치수·본문 여백·gap·sticky 배치의 원본은 [06 §7 Baseline](docs/06_platform_ui_contract.md#7-application-shell)과 [07 §4](docs/07_app_shell_wireframe.md)다. 이 문서는 아래 시각 보완만 소유하며 구조 값을 다시 정의하지 않는다.
+
+- 공유 `surface-sidebar` 위에 Registry 그룹을 **section label**로 표시한다. 활성 탐색 제목에 `text-disabled`를 쓰지 않는다. 주 메뉴 navigation과 즐겨찾기/최근 section을 구별한다.
+- 현재 메뉴/공간은 공유 selected 표면 + text weight + **2px accent 막대**로 구별한다. `aria-current`를 유지하고 hover가 막대를 지우지 않는다. 보조 즐겨찾기/최근 링크에 현재 위치 표식을 중복하지 않는다.
+- hover는 공유 row-hover, focus는 opaque 2px outline과 offset을 사용한다. hover/selected 안의 작은 필수 글자(‘예정’, Scope 상태·room, 언어)는 secondary 또는 허용 label로 유지한다.
+- collapsed에서는 Scope 선택·검증 상태와 주 메뉴를 남긴다. 아이콘은 이름 있는 동작이며 hover/focus Tooltip에 전체 이름을 제공한다. Scope Tooltip과 accessible description은 이름·상태·room을 보존하고 live announcement는 상태 문자열만 전달한다.
+- collapsed에서 즐겨찾기/최근은 숨겨 주 메뉴와 중복 아이콘이 섞이지 않게 한다. expanded에서는 두 section과 빈 안내를 유지한다. 빈 안내는 가짜 링크가 아니다.
+- 한 줄 머리에서는 설명이 먼저 폭을 양보한다. 제목·부모 링크가 축약되면 전체 문자열에 접근할 수 있어야 하고 동작·즐겨찾기는 가려지지 않는다. 고정 동작만으로 폭이 넘는 경우 header 내부 가로 스크롤로 접근한다. 제목을 키우려고 한 줄 계약을 바꾸지 않는다.
+- 언어 동작의 접근성 이름은 현재 언어와 다음 전환 목적을 함께 전달한다. 번역 범위와 Context 보존은 06 §23을 따른다.
+
+## Layout and analysis composition
+
+정보 밀도는 장식 여백보다 우선한다. 정확한 비교는 표, 변화·분포는 차트, 요약은 KPI로 나눈다. 카드마다 동일한 시각 강도를 주는 card soup를 피하고 공유 surface/border로 계층을 만든다. 공유 반경·primitive 모양은 FeedbackOps 원본을 따르며 버튼·input을 독자적으로 재설계하지 않는다. 카드 그림자를 겹치지 않고, floating surface의 공유 처리는 06 §23을 따른다.
 
 ### Dashboard composition and focal point
 
-`layout.reference-dashboard` records approximate image proportions beyond the
-shell itself (sidebar width and top-bar height are now the single canonical
-`sidebar-shell`/`top-bar` values above, not duplicated here). At reference width: header and
-period controls, five equal KPI tiles, then pipeline left / Scheduler & Operations
-right (~64/36), lifecycle left / four quality widgets right (~47/53), then a
-full-width equipment table. Rings occupy the first three quality cells; the
-fourth is the bar plot. Panel headers align on a shared baseline. Use 8px internal
-label/value gaps; do not stretch compact cards to fill the viewport vertically.
+플랫폼 Overview/Analysis Workspace의 시각 패턴은 [06 §12](docs/06_platform_ui_contract.md#12-canonical-page-archetypes)를 소비한다. 요약 → 주요 분석 → 예외 → 상세 근거로 읽을 수 있어야 한다. KPI는 5–6개 이하로 제한하고 모든 tile을 hero 크기로 만들지 않는다. 주요 과제 하나에 넓이·순서·제목의 우선순위를 준다.
 
-The **pipeline-status region** is the primary task focal point: first major
-content row, widest panel, five connected stages. KPIs summarize; operations
-exposes exceptions; tables provide evidence. This is a design judgment, not a
-fact extractable from pixels; do not enlarge all widgets to compete with it.
+산업 로그 분석 reference는 5개 KPI → pipeline 왼쪽/operations 오른쪽(약 64/36) → lifecycle 왼쪽/quality 오른쪽(약 47/53) → 전체 폭 equipment table의 구성이었다. quality는 **3개 ring + 1개 bar**이며 네 번째 donut을 만들지 않는다. pipeline-status가 첫 주요 행의 넓은 focal region이라는 판단은 **Candidate**다. 실제 사용자 과제가 예외 처리를 우선하면 재검토한다. 모든 메뉴의 필수 배치가 아니다.
 
-At ≥1440px use the two-column rows. At 1024–1439px collapse navigation, use three
-KPI columns and move secondary operations into an accessible drawer per §25;
-keep pipeline order with contained horizontal scrolling if needed. Below 1024px
-use stacked panels, two/one KPI columns as content allows, and a horizontally
-scrollable table with its toolbar outside the scroll region. Never shrink table
-text to fit. **MVP scope (Decided 2026-09-27, docs/05): desktop web only — the below-1024px and coarse-pointer rules in this paragraph are post-MVP and are not verified.** Use `table-density` for normal desktop (32px minimum rows); the 25px
-reference rows are a compact visual target only, growing for wrapping, focus and
-24px minimum desktop targets. Coarse-pointer controls/rows grow to 44px targets.
+넓은 화면은 비교 패널을 나란히 두고 좁은 desktop은 column 수를 줄이거나 보조 패널을 접근 가능한 drawer로 옮긴다(06 §25 Candidate). pipeline 순서는 유지하고 필요하면 영역 안에서 가로 스크롤한다. 표 글자를 줄여 맞추지 않는다. MVP는 desktop web이며 1024 미만/터치 전용 재구성은 이후 과제다.
 
-## Elevation & Depth
+### KPI tiles and supporting copy
 
-| Level | Treatment | Use |
-|---|---|---|
-| 0 — Flat | No border, no shadow | Canvas background, sidebar |
-| 1 — Hairline | 1px `{colors.hairline}` border, no shadow | `stat-card`, `panel-card`, `pipeline-step-card`, `data-table` |
-| 2 — Sunken | `{colors.surface-sunken}` fill, no border | Table header row, progress track, search input |
-| 3 — Active nav | `{colors.primary}` fill | `sidebar-item-active` only — the single filled-color surface outside semantic badges |
+- icon·label·값·단위·기준이 있는 delta·보조 caption으로 구성한다. 한 tile에 무관한 두 primary 값을 쌓지 않는다.
+- primary 값은 `t-stat`, 보조 값은 `t-stat-2`; 숫자는 tabular, 단위는 덜 강조하되 읽을 수 있게 한다. delta는 비교 기간·분모를 함께 설명하고 증가 자체를 성공으로 판단하지 않는다.
+- 값 → 원천 표/상세로 추적할 수 있어야 한다. 갱신 시각·coverage·정의 버전은 DataTrust 계약과 함께 표시한다. unknown을 0 또는 0%로 만들지 않는다.
+- 보조 문구는 현재 조건과 다음 행동을 짧게 설명한다. sunken/hover/selected의 필수 문구는 secondary, 의미 문구는 label alias를 사용한다. screenshot의 Live 표시는 실제 feed의 근거가 있을 때만 쓴다.
 
-No drop-shadow elevation anywhere in this system (ClickHouse/PostHog discipline) — depth comes from the canvas → card → sunken surface contrast plus hairline borders, matching a dense operational tool rather than a marketing surface.
+## Charts
 
-## Shapes
+[06 §16](docs/06_platform_ui_contract.md#16-analysis-chart-contract)과 [§26](docs/06_platform_ui_contract.md#26-accessibility-baseline)의 Chart Frame/interaction 계약을 따른다. 모든 차트에는 **title, unit, textual summary, 동일 데이터 table 접근 경로**가 있다. legend는 이름+선 모양/기호+색을 제공한다. Tooltip은 hover와 keyboard focus에 대응하고 label/value/unit을 포함한다. passive mark에 가짜 pressed 동작을 넣지 않는다.
 
-| Token | Value | Use |
-|---|---|---|
-| `{rounded.xs}` | 4px | Inline chips inside table cells |
-| `{rounded.sm}` | 4px | Buttons, sidebar item hover/active fill |
-| `{rounded.md}` | 6px | Inputs, alert rows, inline banners |
-| `{rounded.lg}` | 8px | Cards, panels, tables |
-| `{rounded.pill}` | 9999px | Status badges, the scope-switcher pill, progress bar fill/track |
+series 정체성은 `chart-*`, 범주 구분은 `cat-*`, 상태 판정은 별도 label vocabulary로 표현한다. P50 solid / P95 dashed처럼 색 이외의 구별을 유지한다. 선택/brush/drill-down이 전역 Context를 바꾸는지는 명시적으로 구분하고 단순 chart click으로 조용히 조건을 바꾸지 않는다.
 
-Nested surfaces follow `inner radius = max(0, outer radius − inset)` when
-corners track each other (e.g. an 8px card with a 2px inset → 6px inner surface).
-This is not a rule for every descendant: independent badges/progress tracks
-remain pills, inset alert rows keep their own radius. Do not give all children
-the parent's 8px radius or flatten a pill to satisfy concentric geometry.
+reference quality recipe는 coverage→blue, traceability→teal, consistency→green, missing/untraced→이름 있는 remainder, inconsistent→cat-amber다. 분자·분모를 detail/table에서 제공하며 donut/gauge의 기본 허용 범위는 [06 §24](docs/06_platform_ui_contract.md#decorative-visualization)를 따른다. defect bar는 zero baseline·정수 ticks·날짜·단위를 갖고 max는 데이터로 산정한다. queue/progress는 완료율과 성공률을 분리하고 분모 없는 회색 remainder를 만들어내지 않는다. pipeline/queue/lifecycle의 도메인 의미는 Consumer 후보이며 반복 확인 전 범용 플랫폼 컴포넌트로 승격하지 않는다.
 
-## Components
+## Tables
 
-### Navigation
-- **`sidebar-shell`** — dark, fixed-width, grouped by the seven canonical menu-registry groups in [06 §9](docs/06_platform_ui_contract.md#9-information-architecture). The reference screenshot uses Equipment, Data Management, Processing Pipeline, Monitoring & Operations, Quality & Analytics, and System; those six reference labels do not define production navigation.
-- **`sidebar-item`** / **`sidebar-item-active`** — active state is the system's only large filled-`{colors.primary}` surface; everything else on the sidebar is translucent white text on dark.
-- **`top-bar`** — global search, scope switcher (`scope-pill`), notification badge, profile menu. Owns Context display per `docs/06_platform_ui_contract.md` §11, not a decorative element.
+플랫폼 table 동작은 [06 §15](docs/06_platform_ui_contract.md#15-platform-data-table-contract)가 소유한다. 이 문서의 `components.table-density`가 기본 시각 밀도의 원본이다:
 
-### KPI & Metrics
-- **`stat-card`** — icon + label + `{typography.stat-value}` + `{typography.stat-delta}` + supporting caption. One primary number per card; never stack two unrelated metrics in one tile.
-- **`donut-metric`** — center value in `{typography.stat-value-secondary}`, ring drawn in `{colors.success}` / `{colors.warning}` / `{colors.hairline}` segments; a legend row underneath always pairs each ring color with its raw count (percentage alone is not sufficient per the platform's traceability principle).
-- **`progress-track`** + **`progress-fill-success`** / **`progress-fill-danger`** — used inside `pipeline-step-card` to show per-stage completion; track color is always `{colors.surface-sunken}`, fill color follows the semantic mapping above.
+```yaml
+rowMinHeight: 32px
+headerMinHeight: 32px
+cellPadding: 4px 12px
+```
 
-### Pipeline / Process
-- **`pipeline-step-card`** — icon, stage name, primary count, two-line success/failed breakdown. Cards connect left-to-right with a simple arrow glyph, not a decorative connector graphic.
+줄바꿈·font fallback·visible focus·최소 24px desktop target에 따라 행은 커질 수 있다. screenshot의 compact 밀도는 기본값을 낮추는 근거가 아니다. coarse pointer의 44px target은 MVP 이후 정책이다.
 
-### Alerts
-- **`alert-row-danger`** / **`alert-row-warning`** — left-aligned icon, message, right-aligned timestamp + action-required badge. Alerts list is capped and links to a full Alerts screen — it is a summary widget, not the system of record.
+- 헤더 sunken + secondary, 데이터 primary, 수치 우측 정렬+tabular, ID mono. 상태와 범주 label을 구별한다. 열 제목 case는 Typography roles를 따른다.
+- row divider는 border-subtle; checkbox·검색·filter 경계는 border-control. hover에서 focus와 selected checkbox/표식이 사라지지 않는다.
+- toolbar는 제목/설명과 검색·filter·동작을 분리해 정렬하고 폭이 부족하면 wrap한다. 가로 overflow는 표 영역에 가두고 toolbar 접근을 유지한다.
+- selection은 대상·선택 수·clear를 보여 준다. 현재 page 선택과 전체 결과 선택을 혼동하지 않는다. Context/Scope 변경 시 selection을 해제한다. nested 버튼이 있는 행을 통째 clickable wrapper로 만들지 않는다.
+- sort는 `aria-sort`, bulk action은 권한·대상이 명확해야 한다. copy/export 동작·고정 toolbar는 [ADR-0008](docs/adr/0008-table-owned-export-fixed-toolbar.md)의 현재 계약을 따른다. 이 문서가 새로운 backend 작업을 추가하지 않는다.
+- copy Tooltip과 표 column menu의 border-only 처리는 현재 table 패턴이다. 이 국소 처리를 공유 floating primitive 전체의 shadow 금지로 확대하지 않는다.
 
-### Tables
-- **`data-table`** with **`data-table-header-row`** (sunken, uppercase, sortable) and **`data-table-row`** (hairline bottom border, hover = `{colors.surface-sunken}` fill). Status column always renders one of the four `status-badge-*` variants — never raw text for a status value.
+## Status & Badges
 
-### Status & Badges
-- **`status-badge-success`** / **`-danger`** / **`-warning`** / **`-neutral`** — pill, soft-tint background, saturated text color. This is the only place `{colors.*-soft}` tokens are used as a fill.
-- **`live-indicator`** — small `{colors.success}` dot + "Live" label in `{typography.badge}`, used only when a widget is genuinely on a real-time/near-real-time feed — not decorative on static/cached panels (ties to the data-freshness disclosure rule in `docs/04_frontend_ui_ux.md`).
+`StatusBadge` vocabulary는 **success / warning / danger / neutral / info**다. 실제 데이터 판정은 [06 §19](docs/06_platform_ui_contract.md#19-loading--empty--error-taxonomy)의 원천·관측 시각에 근거한다. success는 확인된 긍정, warning은 확인된 주의, danger는 확인된 실패, neutral은 미평가/보조, info는 정보 전달의 시각 역할이다. unknown·permission 제한·미수집을 화면 임의로 success/failure로 바꾸지 않는다.
 
-### Forms & Actions
-- **`button-primary`** / **`button-secondary`** — 4px radius, never pill. Primary reserved for one action per view context (e.g. "Export"), matching the single-accent discipline above.
-- **`search-input`** — sunken fill, no visible border until focus, magnifier glyph left-aligned.
+작은 badge text는 `text-*-label`, neutral은 secondary이며 soft fill/dot은 별도 vivid accent를 쓴다. text+icon/shape로 의미를 함께 전달한다. 평범한 label에 새 상태 색을 만들지 않는다. 범주/제품 milestone label은 성공 판정과 다르다. 새로운 Tone은 플랫폼 디자인 결정으로 다룬다.
 
-### Reference component bindings
+## Reference component bindings
 
-- **Icons/navigation:** `icon-chip` is the stat-card blue chip; `icon-chip-pipeline`
-  overrides only size/radius (inherits base colors/stroke); `icon-chip-validation`
-  supplies teal colors to either size. Sidebar group glyphs use
-  `sidebar-group-icon` **without a filled chip**, as observed. Use one consistent
-  outline family, decorative glyphs hidden from assistive technology and named
-  icon-only actions. Brand artwork is outside this component contract.
-- **Sidebar hierarchy:** shell base → `sidebar-sub-item` subtle grouping →
-  existing hover → raised scroll/control affordances, with `nav-divider` between
-  groups. Group disclosure is a button with `aria-expanded`; links remain links,
-  current link uses `aria-current="page"`. Scroll the central menu independently
-  of the brand/footer, keep focused entries visible, never communicate depth
-  through color alone. Collapsed icon rail needs accessible names/tooltips and
-  keyboard-accessible group flyouts; no nested scroll trap.
-- **Page header/period:** title + description left, `date-range-trigger` and
-  `date-range-segments` right; wrap controls without hiding current Context.
-  Implement the segments as a labelled single-select radio group with arrow-key
-  selection and selected semantics. Custom opens the shared range picker; draft
-  dates commit on Apply, Escape/Cancel preserves the previous range. The trigger
-  exposes the exact applied interval. This is a rendering of the **same global
-  period control**, not a second page-owned filter. Materialize URL wall-clock
-  `[from,to)` values via §6.3; never derive defaults from browser now. Calendar
-  inclusive end dates convert to next-day exclusive midnight. Presets use the
-  decided rolling wall-clock mechanism in [06 §6.3](docs/06_platform_ui_contract.md#ctx-time)
-  (see Date preset meaning below); the initial automatic default duration and
-  shift/business-day semantics remain Open.
-- **Top bar/profile:** `top-bar-search` left, scope then notification and profile
-  right; use `icon-button` + `notification-count`, with a readable notification
-  count label. `profile-trigger` shows avatar, display name, role and chevron;
-  `dropdown-menu` anchors right, flips within viewport, overlays content without
-  reflow. Use an accessible menu primitive (Enter/Space opens, arrow/Home/End
-  navigates, Escape closes and restores trigger focus). Items follow actual
-  account capabilities; do not invent profile actions. The screenshot search
-  appearance does not authorize deferred entity/action search (§10).
-- **Tables:** toolbar title/subtitle left; equipment search, stage filter, status
-  filter, secondary Export right. Filters have persistent accessible labels;
-  wrap the toolbar rather than compress controls. These filters are page-owned
-  unless the registry contract declares otherwise; they preserve global Context.
-  Use `table-selection` first, data columns next, `table-row-actions` last with
-  visible View and named ellipsis menu using `dropdown-menu`. Header checkbox
-  selects eligible visible-page rows; mixed selection is indeterminate. Explicit
-  broader selection needs a separate action, never an implicit all-records scope.
-  Show selected count and Clear in `table-bulk-bar`; expose only permitted bulk
-  actions. Clear selection on Scope/Context change. Export scope is explicit
-  (filtered result or selected rows), permission-checked and uses applied filters.
-  Sort buttons expose `aria-sort`; focus/selection must survive row hover. No
-  clickable-row wrapper around nested buttons. Width overflow stays in the table.
-- **Charts:** `pipeline-stage-progress` is completion, not success share; show
-  denominator/percentage and independent success/failure counts. Five stage fills
-  are blue in the reference (with a teal terminal tint), not five unrelated
-  category colors. Use solid blue for production per §24's gradient restraint;
-  retain `progress-fill-success/danger` for genuinely semantic measures.
-  `donut-chart` binds coverage→blue, traceability→teal, consistency→green;
-  missing/untraced use remainder gray, inconsistent uses amber. Title, centered
-  percentage and two-row legend identify each measure; expose numerator and
-  denominator in an accessible detail/table even if the compact legend shows %.
-  `bar-chart` shows daily defect count with zero baseline, integer ticks and date
-  labels, not a fourth percentage widget. Autoscale its max; never hardcode the
-  image's counts into product logic. Tooltips also work on focus, show label/value/
-  unit; provide text summary and same-data table access. Chart clicks do not
-  silently mutate global Context. Missing values use an unknown state, not 0%.
-- **Scheduler/queue:** `scheduler-panel` contains equal queue-status and processing-
-  window subpanels above a full-width alerts list. Queue total + running/pending
-  text accompanies the stacked bar; segment widths need an explicit denominator.
-  A gray remainder must have a named category, never be inferred by subtraction
-  of inconsistent sample figures. Processing window uses a calendar chip, wall-
-  clock interval and next-run text from its source; alerts align icon/message,
-  time and issue badge. Use compact white rows with tinted badges here, not the
-  existing full-row danger/warning fills (those remain emphasis variants).
-- **Lifecycle:** `lifecycle-cell` centers a checked green disk for complete, hollow
-  circle for pending and labelled alternative for unknown; each marker has a
-  textual accessible state. Model names stay left-aligned; final lifecycle label
-  (Alpha/Beta/In Progress/Planned) is categorical, not evidence of validation
-  success. Product milestone/state mapping remains domain-owned.
+기존 time-control 소비자 링크를 유지하기 위한 절이다. reference recipe는 동작 원본을 재정의하지 않는다.
 
-### Shared interaction and data states
+### Filter bar
 
-All interactive components inherit `interaction.*` and `motion.state-transition`
-(color/opacity only); static text/cards/badges have no fake hover, pressed or
-focus behavior. The following is the binding contract, not just a color list:
+전역 기간은 Context bar의 동일한 control 하나다. page-owned 검색·stage/status filter는 content toolbar에 두고 전역 Context를 보존한다. 적용된 조건은 보이며 persistent accessible label을 제공한다. 폭이 부족하면 wrap하고 active filter를 숨기지 않는다. 입력/검색 문구가 sunken이면 secondary를 사용한다.
+
+기간 preset은 `1일 / 7일 / 사용자 지정`; rolling wall-clock Δ와 `[from,to)` 물질화는 [06 시간 계약](docs/06_platform_ui_contract.md#ctx-time)을 따른다. screenshot의 기간 preset을 제품 의미로 복사하지 않는다. segment는 이름 있는 single-select/radio+selected 표식, custom picker는 Apply 때 반영하고 Cancel/Escape는 기존 구간을 보존한다. 현재 적용 구간과 draft를 구별하고 browser now로 기본값을 새로 만들지 않는다. 최초 기본 Δ·shift/business-day는 원본의 Open 상태를 따른다.
+
+### Other reference recipes
+
+stat/pipeline icon은 compact soft chip, navigation 그룹 icon은 unboxed outline을 사용한다. outline family는 Lucide 결정이며 icon-only 동작에 이름을 붙이고 장식 icon은 숨긴다. scheduler recipe는 queue+processing-window 두 보조 영역과 전체 폭 alert list다. alert는 icon/message/time/action을 읽을 수 있게 배치하며 장식 full-row tint로 모든 항목을 강조하지 않는다. queue total/running/pending/remainder의 일관된 분모와 processing-window의 원천 시각이 필요하다. lifecycle complete/pending/unknown은 checked/hollow/label을 병행하며 제품 milestone의 의미는 도메인 소유다. 실제 profile/bulk action inventory는 계정 capability를 따르고 screenshot에서 발명하지 않는다.
+
+## Shared interaction and data states
+
+primitive 상태·keyboard 동작은 [FeedbackOps UI 계약](products/feedbackops/docs/frontend/ui-design-system.md)이 원본이다. 플랫폼 조합에서는 아래 역할을 연결한다.
 
 | Family | Hover / pressed / selected | Focus / disabled / busy |
-|---|---|---|
-| Buttons, toolbar actions, icon/profile/range triggers | Neutral hover/pressed; primary uses primary-hover; open trigger shows pressed | 2px solid focus-visible ring; disabled blocks pointer and keyboard activation with a visible reason; busy retains width + spinner/label and blocks duplicate submission |
-| Sidebar/disclosure/sub-items | dark-nav-hover; pressed dark-nav-raised; current item retains primary + current marker | nav-focus ring on dark; disable unavailable action with reason (permission visibility remains registry-owned) |
-| Range segments/checkboxes | neutral hover; selected fill plus radio/checked mark | shared ring; native disabled/checked/mixed semantics; no color-only selection |
-| Search/filter fields | hover control-border; typed value ink, placeholder ink-muted | ring and control-border; error text + aria-invalid; read-only distinct from disabled; retain input during query refresh |
-| Menu items | neutral hover and keyboard highlight; selected check where applicable | managed menu focus; disabled item cannot activate; restore trigger focus on close |
-| Table rows/links | existing sunken hover; selected primary-soft + checkbox; pressed only on actual actions | focus-within visible without obscuring cells; busy table keeps headers; no row focus unless row itself is an action |
-| Chart marks/linked metric cards | highlight relevant series/outline, without changing meaning | focusable drill-down only if actionable, equivalent tooltip/data access; passive marks have no pressed/disabled state |
+| --- | --- | --- |
+| Button·toolbar·icon trigger | 공유 neutral hover/pressed, primary는 primary-hover; open trigger의 상태 표시 | opaque focus, 실제 disabled와 이유, busy width+spinner/label 유지·중복 제출 방지 |
+| Navigation | 공유 hover/selected + 현재 위치 막대/weight | 이름·aria-current·focus 유지; 권한 visibility는 Registry 소유 |
+| Range·checkbox | 공유 hover + radio/checked/mixed shape | native semantics·focus 유지 |
+| Search/filter | border-control, 입력 secondary/primary; error label+aria-invalid | read-only/disabled 구별, refresh 때 draft 보존 |
+| Menu | hover/keyboard highlight + 선택 check | primitive managed focus·Escape·trigger 복귀 |
+| Table | hover + selected checkbox/shape | focus-within이 cell을 가리지 않음; busy도 헤더 유지 |
+| Chart·linked KPI | series/outline 강조; 의미 색 바꾸지 않음 | actionable mark만 focus/drill-down; 동일 tooltip/table 접근 |
 
-Use `interaction.loading` skeletons with reserved geometry for first load;
-`aria-busy` on the affected region, no fabricated values. Same-Context refresh
-keeps values with a Refreshing label. Context/Scope changes hide stale results
-and revalidate access (§11). Empty uses explanatory text + appropriate clear-filter
-or navigation action; error uses message, Retry and correlation ID. Partial widget
-failure stays local; retain healthy panels. These rules cover KPI, pipeline,
-queue, lifecycle, donut/bar and equipment-table regions. Never collapse §19's
-no-match, not-collected, delayed, coverage, forbidden, too-large and unknown
-states into one empty view; assert a cause only with source evidence.
+첫 load는 reserved geometry와 region `aria-busy`를 유지하며 fabricated 값을 만들지 않는다. 공유 Skeleton의 기본 fill은 FeedbackOps UI 계약이 소유한다. 플랫폼 PlatformDataTable/StateView는 현재 `bg-surface-sunken`으로 공유 기본 `surface-blocked`를 덮어쓴다. 이 플랫폼 override의 시각 규칙은 이 문서가 소유하며 #55에서 재검토할 수 있다. 동일 Context refresh는 값+Refreshing을 유지할 수 있다. Context/Scope가 바뀌면 이전 결과를 새 결과처럼 표시하지 않고 권한을 재검증한다(06 §11). 부분 실패는 해당 widget에 국한하고 정상 panel을 유지한다.
 
-`status-badge-accessible` overrides text colors of success/warning/danger badges
-(and corresponding small semantic text) while retaining existing soft fills;
-original bright semantic colors remain available for dots/charts. The opaque
-`focus-visible` ring replaces the translucent decorative ring for keyboard focus.
-Use `control-border` where a border is necessary to identify a control, not on
-every card. Verify 4.5:1 normal text and 3:1 meaningful control/focus contrast in
-the eventual render; faint text is not for essential labels on white.
+Empty/error는 원인 설명·허용된 다음 행동·Retry·correlation ID를 읽을 수 있게 표시한다. [06 §19](docs/06_platform_ui_contract.md#19-loading--empty--error-taxonomy)의 no-match/not-collected/delayed/coverage/forbidden/too-large/unknown을 하나로 합치지 않는다. 조회 0건에서 수집/파서 지연을 추론하지 않는다. 실제 비활성·busy도 필요한 이유를 opacity로 숨기지 않는다.
 
-`live-dot` defaults to static. The optional pulse tokens are Candidate only:
-opacity animation of the dot, never the label/layout, and only while a source
-confirms live freshness. Reduced-motion uses no animation; freshness loss stops
-pulse and displays Updated/Data through/Unknown as appropriate. Live is not proof
-of completeness. Breadcrumb is optional on nested pages, absent on this root
-Dashboard; link ancestors, mark the current page, preserve Context on navigation.
-
+`live-dot`은 기본 static이다. pulse는 **Candidate**로 실제 live freshness source가 확인될 때만 허용하며 label/layout을 움직이지 않는다. reduced-motion에서는 animation을 끄고 freshness가 사라지면 Updated/Data through/Unknown으로 전환한다. Live는 completeness의 증거가 아니다. optional breadcrumb는 nested page의 ancestor link와 current page를 구별하고 Context를 보존한다.
 
 ## Do's and Don'ts
 
-### Do
-- Keep `{colors.primary}` scarce: active nav, primary buttons, links, focus ring, info-semantic only.
-- Render every status as one of the four semantic badge variants — resolve which one via the data-state evidence rules in `docs/06_platform_ui_contract.md` §19, not by screen-local judgment.
-- Use hairline borders + surface contrast for all elevation. No shadows.
-- Cap KPI stat rows at 5–6 tiles; anything beyond belongs on a dedicated metrics screen.
-- Keep the sidebar dark surface exclusive to navigation — never reuse it as a content-area "dark mode" card.
+| Do | Don't |
+| --- | --- |
+| FeedbackOps semantic token/primitive를 `@ap/ui`로 소비 | 공유 palette·본문·반경을 이 문서나 메뉴에 다시 정의 |
+| primary 강조를 주요 동작·위치·focus에 집중 | 범주 palette로 두 번째 brand CTA 제작 |
+| 필수 sunken 문구 secondary, 의미 문구 label alias | muted-on-sunken을 4.5:1로 반올림하거나 opacity로 fade |
+| control 경계 border-control, 구조선 border-subtle | 모든 divider를 진하게 하거나 input 경계를 hairline만으로 식별 |
+| 색+shape/weight/text로 선택·상태 표시 | 색만으로 현재 위치·성공·실패 전달 |
+| KPI→차트→동일 데이터 표/근거로 추적 | unknown을 0으로 만들거나 screenshot 숫자·Live를 제품 사실로 사용 |
+| 공유 표면/반경·일관된 numeric alignment | 카드마다 그림자 스택·pill 버튼·hero KPI 추가 |
+| 플랫폼 공통 계약 우선, 반복된 Consumer 패턴만 승격 | 메뉴 화면을 목적으로 연속 제작하거나 도메인 queue/lifecycle을 조기 범용화 |
 
-- Apply numeric alignment, named chart-series bindings and shared state rules consistently across menus.
-- Treat the supplied image as visual evidence only; use platform Context, permissions and Data Trust contracts for behavior.
-- Use three compact rings + one bar plot in the reference quality panel; expose exact data and units.
+## Sources
 
-### Don't
-- Don't introduce a second saturated brand color alongside `{colors.primary}` — category-accent colors (`accent-purple`, `accent-teal`, `accent-amber`) are for chart-series/tag differentiation only.
-- Don't pill-round buttons or inputs — pills are reserved for status badges, the scope chip, and progress bars.
-- Don't stack drop shadows on cards to fake depth; add a hairline border instead.
-- Don't invent a new status color per screen — extend the four-variant `status-badge-*` set or raise it as an Open Decision, don't freelance a fifth color.
-- Don't treat this file as marketing-system guidance — it has no hero, pricing, or CTA-banner components on purpose.
+| Source | 보존한 원칙·증거 | 현재 권한 / 대체된 부분 |
+| --- | --- | --- |
+| FeedbackOps tokens.md / tokens.css / UI system / ADR-0058 | 제품 UI 기반·공유 typography·primitive·소비 계약 | **공유 디자인 원본**; 이전 플랫폼 공유 값/독자 font/primitive 설명을 대체 |
+| ADR-0010 / ADR-0011, 승인 prototype `prototype/52-fops-design` (`.agents/reports/design/shots/52-fops/`) | 직접 소비, 프로토타입 C안의 밝은 AppFrame | **Decided**; 이전 어두운 navigation·상단 구성·shell 측정값을 대체 |
+| 06 / 07 | 플랫폼 행동·상태·접근성 및 셸 구조 | **계약 원본**; reference navigation·시간·권한보다 우선 |
+| #193 UIUX-193-03/04/05, #194 P3-D1·수용된 shell 수정 | label/control pairing·sunken 제한·stroke 대비·현재 위치·collapsed 규칙 | 이 문서의 pairing 및 chart 결정 배경; 렌더/동작 통과를 새로 주장하지 않음 |
+| `.agents/references/design-md/`의 linear.app | 단일 강조·중립 hierarchy | 원칙만 보존; brand 값·독자 공유 token·marketing layout은 FeedbackOps로 대체/미채택 |
+| 같은 참고자료의 clickhouse | flat hierarchy·shadow stack 회피 | 원칙만; 독자 radius와 전역 shadow 금지는 공유 primitive/06 규칙으로 대체 |
+| 같은 참고자료의 supabase | ink hierarchy·기술 도구의 절제 | 원칙만; font·surface·radius literal은 FeedbackOps로 대체 |
+| 같은 참고자료의 mongodb | 범주색은 series/tag에 제한 | 원칙만; dark hero·pricing·pill CTA 미채택 |
+| Industrial Log Analytics screenshot, 1672×941, 기존 업로드 ID `00521d63-05d6-4f35-b771-a2b8bc1da6b7/0f3b051c-image.png` | KPI/pipeline/queue/lifecycle, 3 rings+bar, equipment table 구성의 provenance | 역사적 시각 입력; shell/폰트/색 측정값은 FeedbackOps로 대체. 원본은 저장소 밖이며 이번 작업에서 재검증하지 않음 |
+| interface-design / ui-ux-pro-max의 당시 review | focal region·numeric alignment·visible focus | 검토 provenance; 계약을 덮어쓰지 않음 |
 
-- Don't infer a live feed, animation, queue denominator, permission, or backend assessment from screenshot pixels.
-- Don't reuse screenshot navigation names as the platform menu registry or add a duplicate global date filter.
-- Don't force concentric rounding onto independent status pills or use semantic success color for every progress measure.
+posthog와 sentri(Sentry 스타일) 자료는 당시 illustration/mascot 중심 marketing 방향이라 미채택했다. 원본 raster에서 exact CSS·source font·animation·business priority를 확정하지 않는다. Reference 배치는 Consumer 후보이며 새로운 플랫폼 API나 도메인 화면 구현을 승인하지 않는다.
 
-## Open Decisions (per wireframe-skill convention)
+## Design Decisions
 
-- **Korean/English scope — Resolved (2026-09-24)**: translate UI copy and static body text only. Keep user-authored VOC/notice content, master values (EquipmentName/team names), and identifiers unchanged. The behavior contract and Candidate account-level language preference are owned by [06 §23](docs/06_platform_ui_contract.md#23-design-tokens). Validate both languages with the existing self-hosted Noto Sans KR + Inter stack; this note does not claim rendered verification.
+### Chart stroke contrast — Decided (B, 2026-10-04)
 
-- **Dark mode**: not designed. The reference screenshot and this system are light-canvas only; if dark mode is requested, it needs its own pass, not a naive token invert (the sidebar is already dark — inverting the whole app would collide with it).
-- **Chart library token mapping**: `docs/04_frontend_ui_ux.md` recommends Apache ECharts as a candidate; this file's semantic/category colors are the palette contract charts should consume, but the actual ECharts theme config is not authored here.
-- **Icon set — Resolved (2026-09-22)**: Lucide is decided (rounded-outline, matching the reference screenshot's style). Actual binding into components is implementation work, not done here.
-- **Component library binding**: token names above are design intent, not shadcn/ui or Radix component props. Binding these tokens to `docs/04_frontend_ui_ux.md`'s shadcn/ui candidate stack is implementation work for the Prototype stage, not this document.
+현재 카드 위 thin line mark의 `chart-blue`는 **2.79:1**, `chart-teal`은 **2.98:1**이며 `chart-purple` bar는 **3.25:1**이다(#193 리뷰). 2px 선에서 blue/teal은 의미 있는 비텍스트 mark의 3:1 기준에 부족하다. solid/dashed legend와 동일 데이터 table은 series 구분/대체 경로를 제공하지만 선 자체 대비를 높이지 않는다.
 
-- **Review correction — P0.1 / fourth donut**: the supplied image contains three rings plus the Parser Defects bar chart. No fourth ring token binding is invented; a fourth metric requires its own meaning/data contract.
-- **Review correction — P0.2 sidebar chips**: sidebar group glyphs are unboxed; stat and pipeline glyphs use soft chips. A filled sidebar-group chip is not adopted for reference fidelity.
-- **Review correction — P1.5 / P1.6**: interactive coverage was incomplete, not wholly absent (active nav/table hover existed). Navigation depth is hierarchy + scrolling; additional shadow/elevation tiers are not required by this image.
-- **P1.8 focal choice (Candidate)**: pipeline-status is the chosen task focal region; a static image cannot establish the operator's top business priority. Revisit only if the approved dashboard task makes an attention list primary.
-- **P2 breadcrumb / pulse**: no breadcrumb or observable animation in the static reference. Optional breadcrumb and reduced-motion-safe pulse recipes are specified, but neither is required for reproduction; pulse activation needs a confirmed live-source policy.
-- **Reference vs platform baseline — Resolved**: this file's radius and headline/KPI typography now match `docs/06_platform_ui_contract.md` §23 exactly: `rounded.sm/md/lg` corrected to 4px/6px/8px (scale is `sm 4 / md 6 / lg 8`, matching §23's `sm/md/lg`); `page-title` 24/600 (§23 Page Title 24/32/600); `section-title` 18/600 (§23 Section Title 18/28/600); `stat-value` (Primary KPI) 32/600 (§23's 30–36/600 range), with a new `stat-value-secondary` 22/600 added for §23's Secondary KPI (20–24/600); `page-title`/`section-title`/`card-title` line-heights are explicit 32px/28px/20px; `body-md`/`body-sm` line-heights are explicit 20px/18px; a plain `caption` (12/16/400) token was added to cover §23's Caption row, distinct from the pill-badge `badge` token. `spacing` already matched §23's 4px-based scale — `xxxl` (40px) and `huge` (48px) were added only to cover §23's full listed scale, not to change existing values. §23's abstract `--background`/`--surface`/`--text-primary`/etc. semantic-variable naming is satisfied conceptually by this file's `colors.canvas`/`colors.surface-card`/`colors.ink` tokens plus the `components:` layer that consumes them — no renaming was done, since §23 does not mandate the literal variable names, only that raw Tailwind primitives not be used directly in components (already the case here).
-- **Sidebar/top-bar width — Superseded (2026-10-04, ADR-0011; 셸 치수 원본은 06 §7)** — 이전 해결 기록: the duplicate-number issue was resolved using the screenshot's measured value (270px/54px). The current 06 §7 and 07 consume this DESIGN baseline; this resolution note does not define another width source. Resolved by adopting the measured 270px/54px as the single canonical `sidebar-shell.width` / `top-bar.height` — the separate `layout.reference-dashboard.sidebarWidth`/`topBarHeight` duplicates were removed so there is exactly one source of truth.
-- **Existing prose qualifications**: screenshot groups in Navigation do not match canonical §9 IA; category chip/series colors and soft fills are exceptions to earlier “only” wording, specified above. Exact source font, CSS colors, subtle gradients and sizing cannot be recovered with certainty from a raster; chosen solid colors are approximations, not sampled authoritative CSS. Full pixel fidelity remains unverified without a rendered implementation.
-- **Date preset meaning — Resolved (2026-09-22)**: actual usage is "usually 1 day, sometimes 7 days, rarely longer" — the reference screenshot's `7D/30D/90D` set doesn't match. Presets are now `1일/7일/사용자 지정` (1-day/7-day/custom), materialized as rolling wall-clock durations off the existing `defaultRangeTo` mechanism (§6.3, midnight-unaligned, naive duration arithmetic) — 1일=Δ24h, 7일=Δ168h. No calendar-day alignment. See [06 time contract](docs/06_platform_ui_contract.md#ctx-time).
-- **Queue/lifecycle semantics**: screenshot queue total (28) and running/pending counts (12/16) do not explain its visible gray segment. Do not manufacture a third category. Lifecycle marker meanings and categorical badge mappings likewise require domain definitions before production use.
-- **Profile/bulk action inventory**: visual controls are specified, but actual account items, permitted bulk operations and export limits depend on existing auth/menu capabilities; do not invent operational actions from the screenshot.
+| 선택지 | 효과·비용 |
+| --- | --- |
+| A. 현재 palette 유지 | 승인 palette/범주 identity 유지; 선 대비 부족은 남고 contrast-safe outline 또는 다른 표현의 별도 검증이 필요 |
+| B. thin line mark용 더 진한 stroke alias 추가, category fill 유지 | 범주 identity·soft fill을 보존하며 line/outline 대비를 조정; 새 alias와 표면별 ≥3:1 검증 필요 |
+| C. palette 자체 변경 | 모든 mark의 일관된 재조정 가능; 승인 palette·category fill·legend 소비자까지 영향과 prototype 재확인 필요 |
+
+**B 채택 — 사용자 결정, 2026-10-04.** [ADR-0012](docs/adr/0012-chart-thin-line-stroke-aliases.md)에 따라 thin line/outline용 진한 stroke alias를 추가하고 category fill·기존 palette는 유지한다. 새 stroke는 card/canvas/sunken에서 ≥3:1을 확보해야 한다. 위 세 선택지와 대비 수치는 결정 배경으로 보존한다. 별칭 이름·값과 실제 화면의 `?variant=` 프로토타입 확인 → 구현·검증은 [#203](https://github.com/hjung3113/analytics-platform/issues/203) 범위다. **#203 구현 전까지 코드의 차트 선은 기존 색을 사용한다.** 이 문서와 ADR은 런타임 색 변경을 뜻하지 않는다.
+
+## Open Decisions
+
+### Remaining decisions and reference limits
+
+- Dark mode는 [05 상태 추적](docs/05_roadmap_and_open_questions.md)의 **Deferred**, 현재 light design을 단순 invert하지 않는다.
+- ECharts renderer/stack와 현재 코드 차이는 [05 결정 상태](docs/05_roadmap_and_open_questions.md)의 **Open**을 따른다. 이 문서가 새로운 chart theme 구현을 뜻하지 않는다.
+- 언어 번역 범위는 06 §23의 **Decided**, 계정 저장 선호는 **Candidate**다. Lucide는 기존 **Decided**를 유지한다.
+- pipeline focal priority·live pulse·reference queue/lifecycle의 domain 의미는 **Candidate/Open**이며 원천이 확인되기 전 실제 운영 데이터로 주장하지 않는다.
+- DetailDrawer를 FeedbackOps 고정 상세 슬롯으로 바꾸는 결정은 ADR-0011 범위 밖이다. 현재 플랫폼 width extension을 그 승인으로 해석하지 않는다.

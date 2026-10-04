@@ -236,7 +236,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
 
     {showTable && <div className="mx-4 mb-2 max-h-56 overflow-auto rounded-md border border-border-subtle">
       <table className="w-full text-[12px] tabular">
-        <thead className="sticky top-0 bg-surface-sunken"><tr><th className="t-table-header px-3 py-1.5 text-left text-text-muted">x</th>{visible.map(s => <th key={s.id} className="t-table-header px-3 py-1.5 text-right text-text-muted">{s.name}</th>)}</tr></thead>
+        <thead className="sticky top-0 bg-surface-sunken"><tr><th className="t-table-header px-3 py-1.5 text-left text-text-secondary">x</th>{visible.map(s => <th key={s.id} className="t-table-header px-3 py-1.5 text-right text-text-secondary">{s.name}</th>)}</tr></thead>
         <tbody>{(visible[0]?.points ?? []).map(([x], i) => <tr key={x} className="border-t border-border-subtle">
           <td className="px-3 py-1">{xType === 'time' ? fmt(x) : x}</td>
           {visible.map(s => <td key={s.id} className="px-3 py-1 text-right">{s.points[i]?.[1] === null || s.points[i] === undefined ? '—' : format(s.points[i][1] as number)}</td>)}
@@ -245,7 +245,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     </div>}
 
     <section aria-label={lang === 'ko' ? '선택 요약' : 'Selection summary'} aria-live="polite" className="mx-4 mb-3 min-h-9 rounded-md bg-surface-sunken px-3 py-2 text-[12px]">
-      {!selection ? <span className="text-text-muted">{lang === 'ko' ? '선택 구간 없음 — Brush로 구간을 선택하면 요약·주석·구간 적용을 할 수 있습니다.' : 'No selection — brush a range to summarize, annotate or apply it.'}</span>
+      {!selection ? <span className="text-text-secondary">{lang === 'ko' ? '선택 구간 없음 — Brush로 구간을 선택하면 요약·주석·구간 적용을 할 수 있습니다.' : 'No selection — brush a range to summarize, annotate or apply it.'}</span>
         : <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <span className="font-semibold tabular">{t('selectedRange')}: {xType === 'time' ? `${fmt(selection.from)} – ${fmt(selection.to)}` : `${selection.from} – ${selection.to}`}</span>
           {selectionCounts.map(c => <span key={c.s.id} className="tabular text-text-secondary">{c.s.name}: n={c.n}{c.avg !== null && ` · avg ${format(c.avg)} · max ${format(c.max!)}`} {p.unit}</span>)}

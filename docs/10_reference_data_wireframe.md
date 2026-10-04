@@ -65,8 +65,8 @@
 
 ```text
 A — 목록
-┌─ 54px 공통 헤더: Logo / Scope: Site A / 메뉴 검색 / 사용자 ─────────┐
-│ 270px 공통 Sidebar │ 기준정보관리 > 마스터 데이터                  │
+┌─ 공통 셸: 레일 / 사이드바(Scope) / 페이지 머리 + Context ────────┐
+│ Registry Sidebar │ 기준정보관리 > 마스터 데이터                  │
 │ 기준정보관리 활성  │ 마스터 데이터                         [등록] │
 │                    │ 공정·레시피·자재의 기준정보와 필드 출처 확인   │
 │                    │ 전달 Context: Equipment EQP-013 · 미적용      │
@@ -192,7 +192,7 @@ A의 등록 버튼은 유형별 생성 모델 미확정 상태를 이유 텍스�
 - 1차 자기 검수 완료: `06`/`01`/`02`/`CONTEXT`와 대조했다. 기준정보 이름을 곧 유일키로 보지 않으며 room_name 변경 가능·ID 유지와 Recipe의 PRC 단계 귀속을 반영했다. `09`의 설비 이력·사용중지와 valid_to의 동치를 가져오지 않았다(설비의 동치 결정은 기준정보 유형의 삭제 의미를 정의하지 않음).
 - 모든 §6 항목과 §7 규칙에 근거를 붙이고, 원문에 없는 배치·필드·정책 제안을 Candidate로 구분했다. 실제 필드 소유권과 Recipe 매핑, 자재 스키마는 Open으로 남겼다.
 - 목록 1개와 Drawer로 고밀도 비교/관리 업무를 유지한다. 숫자 KPI, 카드 그리드, 타입 프레임워크가 없다. 유형 전환은 Domain이 소유하고 셸은 메뉴 선언만 소비한다.
-- `DESIGN.md` 270px Sidebar/54px Header/32px 최소 행·헤더/4px 12px 셀 padding을 사용한다. 본문 13/18, 제목 24/32/600, 경계 중심·floating Drawer만 별도 표면. 색상만으로 출처를 구분하지 않는다.
+- 현재 셸 구조·본문 여백은 [06 §7](06_platform_ui_contract.md#7-application-shell)/[07](07_app_shell_wireframe.md), 공유 본문·폰트·primitive는 [FeedbackOps 원본](../products/feedbackops/docs/frontend/tokens.md), 플랫폼 표 밀도·허용 pairing은 [DESIGN](../DESIGN.md#tables)을 따른다. 색상만으로 출처를 구분하지 않는다. 아래 과거 HTML 검증은 현재 디자인 일치 증거가 아니다.
 - 반응형 구현 기준은 `06` §25 Candidate에 맞춰 1024–1439 Sidebar 축약, 좁은 화면은 조회/간단 관리 중심. 컬럼 숨김/수평 스크롤과 Drawer 폭 조절을 제안한다. 이 정적 1440px 산출물은 반응형·focus trap의 런타임 검증이 아니다.
 - Step 1 문서 검수 후 Step 2를 작성한다. 정적 mockup은 §4 A/B만 그리며 API 연동·CRUD 실행·권한 검증 완료를 주장하지 않는다. 최종 compliance 승인은 후속 리뷰 소관이다.
 

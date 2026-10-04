@@ -350,7 +350,7 @@ Section gap          24px
 Component gap        12~16px
 ```
 
-치수 값의 단일 원본은 FeedbackOps `packages/ui/src/styles/tokens.css`의 레이아웃 토큰이다. 이전 기준(사이드바 270/64px, 상단 바 54px, `DESIGN.md` `sidebar-shell`/`top-bar`)은 ADR-0011로 대체됐다.
+치수 값의 단일 원본은 FeedbackOps `packages/ui/src/styles/tokens.css`의 레이아웃 토큰이다. DESIGN은 [셸 시각 보완](../DESIGN.md#shell-visual-rules)만 소유하며 이 Baseline을 재정의하지 않는다.
 
 50px 페이지 머리와 Context Bar는 스크롤되는 main 안에서 하나의 sticky 래퍼로 유지한다. Context Bar 자체에는 별도 sticky를 두지 않아 페이지 머리를 가리지 않는다. 본문은 FeedbackOps `PageShell`의 여백을 사용하며 분석 페이지에 폭 제한은 추가하지 않는다.
 
@@ -712,7 +712,7 @@ Header height    32px (최소)
 Cell padding     4px 12px
 ```
 
-`DESIGN.md`의 25px 레퍼런스 행은 compact 시각 목표일 뿐, 구현 기본값이 아니다. 줄바꿈·포커스·24px 최소 타겟에 따라 32px보다 늘어날 수 있으며, coarse-pointer(터치) 행은 44px 타겟까지 커진다.
+과거 screenshot의 compact 행 측정은 구현 기본값이 아니다. 줄바꿈·포커스·24px 최소 타겟에 따라 32px보다 늘어날 수 있으며, coarse-pointer(터치) 행은 44px 타겟까지 커진다.
 
 숫자는 오른쪽 정렬하고 `tabular-nums`를 사용한다.
 
@@ -1015,7 +1015,7 @@ FeedbackOps로 나가는 외부 hop은 `linkTo`가 아니라 [FeedbackOps 딥링
 
 공유 색·반경·간격·폰트·본문 값은 FeedbackOps [tokens.css](../products/feedbackops/packages/ui/src/styles/tokens.css)와 [theme.css](../products/feedbackops/packages/ui/src/styles/theme.css)가 소유한다. 소비 순서·본문·레이어 없는 webfont 규칙은 [ADR-0058](../products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md) §2를 따른다. 플랫폼이 별도 값 스케일을 복제하지 않는다([ADR-0011](adr/0011-design-direction-feedbackops-shell.md)).
 
-FeedbackOps에 없는 플랫폼 전용 theme 키·차트/카테고리/아이콘 색·`t-*` 역할 클래스·반응형/detail-panel 확장은 `packages/ui/src/styles/`가 소유한다. 작은 의미 텍스트에는 플랫폼 `text-success-label`/`text-info-label`/`text-warning-label`/`text-danger-label`을 쓰며, 각각 FeedbackOps resolved/received/prep/reopened label 토큰을 참조한다. 생생한 공유 의미 색은 dot·icon·tint에 유지한다. 입력 경계 `border-control`은 storm-cloud를 참조하고 구조 구분선은 border-subtle을 유지한다. 어두운 `nav-*`는 셸 이행(#194)까지 유지한다. DESIGN.md 본문 갱신은 #53에서 한다.
+플랫폼 전용 theme 키·차트/카테고리/아이콘 색·`t-*` 역할·반응형/detail-panel 확장과 label/control pairing의 설계 원본은 [DESIGN 플랫폼 확장](../DESIGN.md#platform-extension-layer) 및 [허용 전경/표면](../DESIGN.md#allowed-foregroundsurface-pairs)이다. `packages/ui/src/styles/`는 그 구현을 소유한다. 공유 값은 FeedbackOps 원본을 참조하고, 제거된 어두운 navigation 확장은 다시 도입하지 않는다.
 
 ### Semantic Colors
 

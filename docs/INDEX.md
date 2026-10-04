@@ -60,7 +60,7 @@
 - `12_cycle_time_drilldown_wireframe.md` — 사이클타임 상세→느린 실행→occurrence 상세, Analysis Workspace archetype. PLATFORM_REQUIREMENTS §3의 대표 드릴다운 왕복 검증 경로(occurrence 식별자·Context 분리·VOC 생성/복귀 링크 계약)를 구체화
 - `13_metric_catalog_wireframe.md` — 지표관리 카탈로그/상세, Catalog archetype. `metricId`+`metricVersion` 쌍(06 §6.1)의 등록·발행 원본이며, 11/12는 이 문서가 정의한 식별 쌍의 소비자로 명시 연결됨
 
-- [DESIGN](../DESIGN.md) — 시각 token/render 원본. 전역 행동·상태·접근성 의무와 최소 기준은 06을 따른다.
+- [DESIGN](../DESIGN.md) — FeedbackOps 기반 플랫폼 시각 확장·pairing 원본. 전역 행동·상태·접근성 의무와 최소 기준은 06을 따른다.
 - [PLATFORM_REQUIREMENTS](../PLATFORM_REQUIREMENTS.md) — 원본 계약에서 파생된 요구·작업·제안 목록. 결정 반영 체크가 구현 완료를 뜻하지 않는다.
 - [HANDOFF](../HANDOFF.md) — 현재 세션 배경과 후속 작업 안내. 역사 기록은 현재 계약·권한을 대체하지 않는다.
 - [CONTEXT](../CONTEXT.md) — 현행 도메인 용어와 관계. [ADR-0005](adr/0005-scope-room-name-line-independent.md)는 room_name 기준 Scope와 독립 Line 축([ADR-0001](adr/0001-scope-hierarchy-site-line-only.md)의 Scope 주장 대체), [ADR-0002](adr/0002-stgroup-materializes-to-equipment-ids.md)는 Equipment Group Condition/Selection 두 층, [ADR-0004](adr/0004-site-is-db-partition-not-column.md)는 Site DB 경계·전역 유일 EquipmentID의 근거다. 전역 소비 계약은 06을 따른다.
@@ -76,7 +76,7 @@
 
 ## 문서 소유권과 tooling 경계
 
-`06_platform_ui_contract.md`가 전역 계약과 navigation IA를 소유하고 `07_app_shell_wireframe.md`는 이를 소비한다. `02`는 도메인 catalog, `04`는 구현 후보/리서치, [05](05_roadmap_and_open_questions.md)는 결정 상태와 미결 질문을 추적한다. 폴링·파서 DB 접근·지연완료 R/H 상세 원본은 [01 데이터 운영 정책](01_architecture_and_data_contract.md#데이터-운영-정책)에 있다. [DESIGN](../DESIGN.md)은 시각 token/render 원본이며 06의 최소 기준·상태·접근성 의무를 변경하지 않는다. [PLATFORM_REQUIREMENTS](../PLATFORM_REQUIREMENTS.md)는 파생 목록, [HANDOFF](../HANDOFF.md)는 세션 배경이다. Phase 0~4는 Deferred/non-authoritative 가설이며 구현 일정·기술 도입·POC 착수를 확정하지 않는다. `.agents/`의 스킬·명령·외부 레퍼런스는 별도 tooling 자산이며 제품 설계를 확정하는 권한을 갖지 않는다. 에이전트 공통 사용법은 [`../.agents/README.md`](../.agents/README.md)를 참조한다.
+`06_platform_ui_contract.md`가 전역 계약과 navigation IA를 소유하고 `07_app_shell_wireframe.md`는 이를 소비한다. `02`는 도메인 catalog, `04`는 구현 후보/리서치, [05](05_roadmap_and_open_questions.md)는 결정 상태와 미결 질문을 추적한다. 폴링·파서 DB 접근·지연완료 R/H 상세 원본은 [01 데이터 운영 정책](01_architecture_and_data_contract.md#데이터-운영-정책)에 있다. [DESIGN](../DESIGN.md)은 FeedbackOps 기반 플랫폼 시각 확장·pairing 원본이며 06의 최소 기준·상태·접근성 의무를 변경하지 않는다. [PLATFORM_REQUIREMENTS](../PLATFORM_REQUIREMENTS.md)는 파생 목록, [HANDOFF](../HANDOFF.md)는 세션 배경이다. Phase 0~4는 Deferred/non-authoritative 가설이며 구현 일정·기술 도입·POC 착수를 확정하지 않는다. `.agents/`의 스킬·명령·외부 레퍼런스는 별도 tooling 자산이며 제품 설계를 확정하는 권한을 갖지 않는다. 에이전트 공통 사용법은 [`../.agents/README.md`](../.agents/README.md)를 참조한다.
 
 ## 외부 프로젝트 설계 레퍼런스
 

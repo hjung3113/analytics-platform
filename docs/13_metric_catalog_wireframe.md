@@ -53,7 +53,7 @@
 | --- | --- | --- | --- |
 | X | △ — 전달·참조, 정의 목록 필터 아님 | X | O — 같은 지표의 해당 버전 조회 |
 
-Scope는 헤더의 단일 `scopeId`로 서버가 재검증한다. Site→room_name→StGroup→Equipment 관계와 독립 Line 축을 따른다([06 §6.2](06_platform_ui_contract.md), [ADR-0005](adr/0005-scope-room-name-line-independent.md)). 카탈로그 정의를 Scope별로 복제할지/공유할지는 Open이며 Scope 접근 검증을 생략할 이유가 되지 않는다.
+Scope 선택기는 사이드바 머리 하나이며 서버는 단일 `scopeId`를 재검증한다(06 §7). Site→room_name→StGroup→Equipment 관계와 독립 Line 축을 따른다([06 §6.2](06_platform_ui_contract.md), [ADR-0005](adr/0005-scope-room-name-line-independent.md)). 카탈로그 정의를 Scope별로 복제할지/공유할지는 Open이며 Scope 접근 검증을 생략할 이유가 되지 않는다.
 
 전달된 Time/Lot/PPID/Recipe/room_name과 Equipment 선택은 URL에 보존하고 "이 페이지 미적용"으로 표시한다. Equipment는 참조만 가능하며 명시적 공집합도 카탈로그 결과를 0건으로 바꾸지 않는다. Equipment Group의 Condition과 고정 Selection을 사용한 축(StGroup / 분임조 / Maker+Model) 그대로 보존하며, 이 화면은 둘 다 정의 목록 필터로 적용하지 않는다([06 §6.1/§6.4](06_platform_ui_contract.md), [ADR-0002](adr/0002-stgroup-materializes-to-equipment-ids.md)). 검색/게시·초안 필터는 별도 Page Filter다. 목록 조건의 URL 키/직렬화는 Open; 전역 Context 칩으로 위장하지 않는다.
 
@@ -85,12 +85,12 @@ Candidate로 최초 등록은 서버 발급 `metricId`와 초안을 만들고, �
 
 ## 4. WIREFRAME (Candidate)
 
-정적 mockup은 **1440×900 두 artboard**, 세로 배치(전체 1440×1824, 간격 24). 각각 54px 헤더·270px 사이드바를 [07](07_app_shell_wireframe.md)의 셸 배치([DESIGN](../DESIGN.md) 토큰, 08/09/10/11/12가 이미 확립한 시각 스타일)로 재사용하며 활성 메뉴만 지표관리로 표시한다. 데이터는 합성 예시라고 각 화면에서 표시한다. App Shell 소유 컨트롤은 재설계하지 않는다.
+정적 mockup은 **1440×900 두 artboard**, 세로 배치(전체 1440×1824, 간격 24). 각각 현재 [07](07_app_shell_wireframe.md)의 셸 배치와 [06 §7](06_platform_ui_contract.md#7-application-shell)의 치수·여백, FeedbackOps 공유 토큰 및 [DESIGN](../DESIGN.md)의 플랫폼 확장·pairing을 소비하며 활성 메뉴만 지표관리로 표시한다. 데이터는 합성 예시라고 각 화면에서 표시한다. App Shell 소유 컨트롤은 재설계하지 않는다.
 
 ### A. Catalog List
 
 ```text
-07 Shell: Site A / room_name ETCH (Line은 독립 축)                         메뉴 검색 / 사용자
+[07 셸: 레일 / 사이드바(Scope) / 페이지 머리 + Context]
 지표관리 > 카탈로그
 지표 카탈로그                                             [정의 등록]
 정의·버전·분모 기준을 확인하고 분석 화면에서 참조합니다.
@@ -110,7 +110,7 @@ Page Filter  [이름 또는 metricId 검색] [상태: 전체 ▾] [초기화] [�
 ### B. Definition Detail — 게시 버전 읽기 모드
 
 ```text
-07 Shell: Site A / room_name ETCH (Line은 독립 축)                         메뉴 검색 / 사용자
+[07 셸: 레일 / 사이드바(Scope) / 페이지 머리 + Context]
 지표관리 > 카탈로그 > 물리 점유율
 [← 카탈로그] 물리 점유율                       [버전 링크 복사] [새 버전 초안]
 목적지 occupancy / v3 · 게시 · 예시
@@ -212,7 +212,7 @@ Page Filter  [이름 또는 metricId 검색] [상태: 전체 ▾] [초기화] [�
 
 ## 9. UX REVIEW (문서 단계)
 
-Step 1 검수 완료 후 Step 2 작성. 다음은 문서 대조 결과이며 런타임 테스트·최종 승인 결과가 아니다.
+Step 1 검수 완료 후 Step 2 작성. 현재 시각 기준은 위의 FeedbackOps 기반 참조를 따른다. 아래 기존 HTML/Step 2 검증의 셸 측정·검사 기록은 이전 산출물의 이력이며 #53에서 HTML을 변경하거나 재검증하지 않았다. 다음은 문서 대조 결과이며 런타임 테스트·최종 승인 결과가 아니다.
 
 | 검수 | 결과 |
 | --- | --- |

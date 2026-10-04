@@ -5,7 +5,7 @@ import { useI18n } from '@ap/kernel';
 import { Button, Skeleton } from '@ap/ui';
 import { StateMessage } from './StateView';
 
-/** Palette contract consumed by charts (DESIGN.md colors). Read from CSS variables so tokens stay single-sourced. */
+/** Palette contract consumed by charts (DESIGN.md platform chart/category extensions). Read from CSS variables so tokens stay single-sourced. */
 export function token(name: string): string {
   if (typeof window === 'undefined') return '#000';
   const raw = getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim();

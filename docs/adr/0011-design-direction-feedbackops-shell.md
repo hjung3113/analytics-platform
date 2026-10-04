@@ -25,6 +25,6 @@
 
 ## 결과
 
-- 셸 구조·치수가 바뀐다. [06 §7](../06_platform_ui_contract.md#7-application-shell)(구조·Baseline)·§9(사이드바 기능)·§9.1(공간 전환 위치)과 [07 앱 셸 와이어프레임](../07_app_shell_wireframe.md)은 이 결정과 함께 고쳤다. DESIGN.md에는 대체 안내를 달았고, 본문은 #53에서 FeedbackOps 기반으로 다시 쓴다. 코드는 #192 → #193 → #194에서 따라간다. 그 사이 문서가 코드보다 앞선다.
+- 셸 구조·치수가 바뀐다. [06 §7](../06_platform_ui_contract.md#7-application-shell)(구조·Baseline)·§9(사이드바 기능)·§9.1(공간 전환 위치)과 [07 앱 셸 와이어프레임](../07_app_shell_wireframe.md)은 이 결정과 함께 고쳤다. [DESIGN.md](../../DESIGN.md)는 #53에서 공유 원본 링크와 플랫폼 확장·pairing·셸 시각 보완 중심으로 개정했다. 코드 이행은 #192 → #193 → #194의 범위이며, 이 문서 갱신은 새 런타임 검증을 뜻하지 않는다.
 - 상단 바가 사라진다. 앱 주입 슬롯 `topBarTools`(ADR-0009 조립 계약)는 이름을 유지하고 레일 아래에 놓인다.
 - 공통 컴포넌트(`PlatformDataTable`·`DetailDrawer`·`StateView` 등)는 새 토큰 위에서 다시 그려진다. 계약(props·동작)은 그대로다. DetailDrawer를 FeedbackOps처럼 오른쪽에 고정된 상세 슬롯(440px)으로 바꿀지는 이 결정에 넣지 않았다(별도 이슈).

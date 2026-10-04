@@ -86,6 +86,14 @@ describe('PlatformDataTable controlled mode (urlState)', () => {
     expect(loadPage).toHaveBeenCalledWith({ page: 1, pageSize: 25, sorting: [{ id: 'status', desc: false }] }, expect.anything());
   });
 
+  it('column headers on the sunken header row use secondary text, not muted (DESIGN.md pairing: muted on sunken is 4.47:1)', async () => {
+    render(<Harness page={null} sorting={[]} onChange={vi.fn()} loadPage={makeLoadPage(3)} />);
+    const header = await screen.findByRole('columnheader', { name: /Status/ });
+    expect(header.className).toContain('bg-surface-sunken');
+    expect(header.className).toContain('text-text-secondary');
+    expect(header.className).not.toContain('text-text-muted');
+  });
+
   it('header click reports the next sorting with page reset to null, reason user', async () => {
     const onChange = vi.fn();
     render(<Harness page={2} sorting={[]} onChange={onChange} loadPage={makeLoadPage(30)} />);

@@ -202,3 +202,31 @@ describe('shell accessibility (#194 FIX2)', () => {
     expect(within(screen.getByRole('navigation', { name: '주 메뉴' })).getByRole('link', { name: '운영 홈' }).querySelector('[data-current-marker]')).toBeTruthy();
   });
 });
+
+
+describe('CommandPalette text pairings (DESIGN.md)', () => {
+  it('keeps the sunken navigation hint readable', async () => {
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: '메뉴 검색…' }));
+    const hint = await screen.findByText(/이동 시 전역 Context를 보존합니다/);
+    expect(hint.className).toContain('bg-surface-sunken');
+    expect(hint.className).toContain('text-text-secondary');
+    expect(hint.className).not.toContain('text-text-muted');
+  });
+
+  it('keeps active option metadata readable through keyboard selection', async () => {
+    mount(['platform:view', 'console:access']);
+    fireEvent.click(screen.getByRole('button', { name: '메뉴 검색…' }));
+    const input = await screen.findByRole('combobox');
+    const activeMetadata = () => {
+      const option = screen.getAllByRole('option').find(row => row.getAttribute('aria-selected') === 'true')!;
+      expect(option.className).toContain('bg-accent-primary-soft');
+      const metadata = within(option).getByText(/ · /);
+      expect(metadata.className).toContain('text-text-secondary');
+      expect(metadata.className).not.toContain('text-text-muted');
+    };
+    activeMetadata();
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    activeMetadata();
+  });
+});
