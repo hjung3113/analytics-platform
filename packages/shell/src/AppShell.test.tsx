@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { DetailDrawer } from '@ap/components';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GroupId, Permission, PlatformAdapter, Session } from '@ap/contracts';
@@ -14,7 +15,7 @@ const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupp
 const registry = createRegistry({
   spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' }, { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' }],
   groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics', hideLabelWhenSingle: true }, { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' }],
-  menus: [menu('ops', 'admin', '/ops', 'console:access'), { id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
+  menus: [menu('ops', 'admin', '/ops', 'console:access'), { id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['focus', 'tab'] }],
 });
 
 const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
@@ -276,4 +277,47 @@ describe('CommandPalette text pairings (DESIGN.md)', () => {
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     activeMetadata();
   });
+});
+
+function DetailPage() {
+  const { pageParam, setPage } = usePlatform();
+  return <><button onClick={() => setPage({ focus: 'entity' })}>open detail</button>
+    {pageParam('focus') && <DetailDrawer title="Detail" onClose={() => setPage({ focus: null })}
+      tab={pageParam('tab') ?? undefined} onTabChange={tab => setPage({ tab })}
+      tabs={[{ id: 'a', label: 'Attributes', content: 'content' }, { id: 'audit', label: 'Audit', content: 'audit content' }]} />}</>;
+}
+
+it('owns a full-height named aside beside main, with a clamped theme width and zero width when empty', () => {
+  render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={registry}>
+    <AppShell><DetailPage /></AppShell>
+  </PlatformProvider></I18nProvider>);
+  const slot = screen.getByRole('complementary', { name: '상세 패널' });
+  const main = screen.getByRole('main');
+  expect(slot.style.width).toBe('0px');
+  fireEvent.click(screen.getByRole('button', { name: 'open detail' }));
+  expect(slot.style.width).toBe('clamp(360px, var(--detail-panel-width, 440px), 520px)');
+  expect(slot.style.minWidth).toBe('360px');
+  expect(slot.style.maxWidth).toBe('520px');
+  expect(slot.classList.contains('h-full')).toBe(true);
+  expect(slot.classList.contains('shrink-0')).toBe(true);
+  expect(main.parentElement?.parentElement).toBe(slot.parentElement);
+  expect(slot.contains(screen.getByRole('dialog', { name: 'Detail' }))).toBe(true);
+  expect(main.contains(screen.getByRole('dialog'))).toBe(false);
+  fireEvent.click(screen.getByRole('button', { name: '상세 닫기' }));
+  expect(slot.style.width).toBe('0px');
+  expect(slot.style.borderLeftWidth).toBe('0px');
+  expect(slot.childElementCount).toBe(0);
+});
+
+it('opens the named slot and selected tab from URL focus/tab and clears focus on Esc', () => {
+  window.history.replaceState(null, '', '/?v=1&focus=entity&tab=audit');
+  render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={registry}>
+    <AppShell><DetailPage /></AppShell>
+  </PlatformProvider></I18nProvider>);
+  expect(screen.getByRole('tab', { name: 'Audit' }).getAttribute('aria-selected')).toBe('true');
+  expect(screen.getByRole('button', { name: '상세 닫기' })).toBe(document.activeElement);
+  fireEvent.keyDown(screen.getByRole('button', { name: '상세 닫기' }), { key: 'Escape' });
+  expect(new URLSearchParams(window.location.search).has('focus')).toBe(false);
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(screen.getByRole('main')).toBe(document.activeElement);
 });

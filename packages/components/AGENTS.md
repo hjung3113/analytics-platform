@@ -20,6 +20,8 @@ Platform Component 층(06 §13) + 차트 계약(§16) + 페이지 archetype 골�
 - 차트 클릭으로 전역 Context를 조용히 바꾸지 않는다. 명시적 콜백(`onPointClick`, "분석 구간 적용")만 제공한다.
 - 새 컴포넌트는 실제 메뉴 2~3곳 반복이 확인된 뒤 올린다(06 §24). 스타일은 `@ap/ui` 토큰 유틸리티만.
 
+- `DetailDrawer`는 `@ap/ui`의 등록 hook + portal로 셸 상세 슬롯에 내용을 넘긴다(06 §13, ADR-0013). AppShell 또는 같은 Provider·host 아래에서 사용한다. props·URL `focus`/`tab`·전체 화면 동작은 유지하고, overlay·scrim·inert·focus trap은 없다. 열릴 때 닫기 버튼, 닫힐 때 트리거(없으면 main)로 포커스를 이동하되 이미 목록으로 이동한 포커스는 유지한다. 패널 안 Esc만 `onClose`를 호출한다.
+
 ## 검증
 
 `pnpm --filter @ap/components test`로 먼저 좁혀 본 뒤 루트 네 명령(`pnpm lint && pnpm typecheck && pnpm test && pnpm build`, 루트 `AGENTS.md`). 소비 화면을 `pnpm dev`로 확인.

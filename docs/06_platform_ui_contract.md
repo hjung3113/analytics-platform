@@ -343,6 +343,7 @@ Scope는 개념적으로 Global Context에 포함되지만 선택기는 **사이
 Rail                 52px   (--rail-width)
 Sidebar expanded    240px   (--sidebar-width)
 Sidebar collapsed    56px   (--sidebar-width-collapsed)
+Detail slot         440px   (--detail-panel-width; 미제공 시 440px, 360–520px clamp; 비어 있으면 0)
 Top header           없음
 Page header          50px   (--toolbar-height)
 Global context bar   48px
@@ -371,10 +372,11 @@ Page
 ├─ secondaryActions
 ├─ contextExtension
 ├─ content
-└─ dataTrustSummary
+├─ dataTrustSummary
+└─ detail (셸 소유 오른쪽 고정 슬롯, §13)
 ```
 
-이 Slot 외의 위치에 페이지가 직접 전역 UI를 삽입하지 않는다.
+이 Slot 외의 위치에 페이지가 직접 전역 UI를 삽입하지 않는다. 상세 내용은 등록 경계로 넘기고, 셸이 main 옆의 전체 높이 오른쪽 aside 배치를 소유한다(§13).
 
 ### 이유
 
@@ -637,6 +639,16 @@ shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](04_frontend_ui_ux
 - SavedViewSelector
 
 `AuditTimeline`이 보이는 이벤트 타입은 `@ap/contracts`의 `AuditEvent`다. `at`은 실제 시점이라 `formatInstant`로 표시한다(§6.3). `target`은 목적지 참조(§22)이지 분석 Context가 아니다. 전역 감사 조회(`auditTrail`)와 설비 상세 감사 탭(`entityAudit`)은 어댑터 포트([패키지 경계](integration/platform-packages.md) §4)로 읽으며 셸 위젯이 아니다(#50). 지표 상세 이력은 아직 메뉴 안에서 만드는 이벤트이며 같은 저장소로 옮기는 일은 #90이다.
+
+### DetailDrawer — docked shell slot (Decided, ADR-0013)
+
+- 이름과 props는 유지하고 렌더 대상은 셸 소유 오른쪽 고정 상세 슬롯이다. 이름 있는 `aside` landmark 안에 제목으로 이름 붙인 비모달 상세 dialog를 둔다. 본문은 폭을 양보하며 목록을 계속 조작할 수 있다. scrim·본문 inert·overlay·페이지 머리 아래 fixed 배치는 쓰지 않는다.
+- 폭은 §7 Baseline을 따른다. 열림/닫힘은 페이지가 등록한 `focus` 키로 결정하고 `tab`으로 탭을 복원한다. close 버튼·패널 안 Esc는 페이지의 `onClose`를 호출해 `focus`를 지운다. 딥링크·새로고침·Back/Forward 복원과 `전체 화면` 이동 동작을 유지한다.
+- 열리면 닫기 버튼으로 포커스를 옮긴다. 닫힐 때 패널에 포커스가 남아 있으면 연결된 트리거로 복귀하고, 트리거가 없거나 제거됐으면 main으로 복귀한다. 사용자가 이미 목록으로 옮긴 포커스는 빼앗지 않는다. 포커스 trap은 없으며 패널 밖 Esc는 상세를 닫지 않는다.
+- 한 셸에 상세 슬롯은 하나다. 마지막 등록이 이기고 개발 환경에서 중복 등록을 경고한다. 등록자 unmount 시 해제하고, 이전 등록자가 살아 있으면 그 내용이 복원된다. 내용 갱신만으로 등록 우선순위를 바꾸지 않는다.
+- 등록 primitive는 `@ap/ui`에 둔다(도메인·URL과 무관한 DOM 슬롯). components와 shell이 함께 접근하고 components → shell 의존을 만들지 않는다. 셸별 Provider로 수명을 격리하며 portal로 등록 페이지의 React Context를 유지한다. DetailDrawer는 AppShell(또는 같은 슬롯 Provider·host) 아래에서 사용한다.
+
+결정과 비교 선택지는 [ADR-0013](adr/0013-detail-panel-shell-docked-slot.md), 배치는 [07](07_app_shell_wireframe.md), 시각 규칙은 [DESIGN](../DESIGN.md#shell-visual-rules)을 따른다.
 
 ### Domain Component
 
@@ -918,6 +930,8 @@ Unknown
 
 ### Drawer
 
+셸 고정 상세 슬롯과 상호작용은 §13 DetailDrawer 계약을 따른다.
+
 사용:
 
 - Table row 상세
@@ -1087,7 +1101,7 @@ Full experience.
 ### 1024–1439px
 
 - Sidebar collapse
-- Secondary panel Drawer 전환
+- Secondary panel Drawer 전환은 Candidate; DetailDrawer는 이 폭에서도 §13 고정 슬롯 유지
 - Grid column 축소
 
 ### < 1024px
@@ -1106,7 +1120,7 @@ Full experience.
 
 - 색만으로 상태 구분 금지
 - Keyboard focus visible
-- Dialog / Drawer focus trap
+- Modal Dialog는 focus trap; 비모달 DetailDrawer는 §13 포커스 진입·복귀와 목록 이동 허용
 - Chart title / unit / textual summary 제공
 - Chart와 동일 데이터의 Table 접근 경로 제공
 - icon-only action에는 accessible label

@@ -1,24 +1,12 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { I18nProvider } from '@ap/kernel';
 import { DetailDrawer } from './DetailDrawer';
 import { SegmentedRadio } from './RadioGroup';
 
-afterEach(cleanup);
-
-function mockWidth(wide: boolean) {
-  window.matchMedia = ((query: string) => ({
-    matches: wide && query.includes('1440'),
-    media: query,
-    onchange: null,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    addListener: () => {},
-    removeListener: () => {},
-    dispatchEvent: () => false,
-  })) as typeof window.matchMedia;
-}
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 function Radios() {
   const [value, setValue] = useState<'a' | 'b' | 'c'>('a');
@@ -62,45 +50,81 @@ describe('SegmentedRadio', () => {
   });
 });
 
-function DrawerHost({ onClose, title = 'Detail' }: { onClose: () => void; title?: string }) {
-  return <I18nProvider>
-    <div id="root">
-      <button type="button">behind</button>
-      <DetailDrawer title={title} onClose={onClose} tabs={[{ id: 'a', label: 'Attributes', content: <button type="button">inside</button> }]} />
-    </div>
-  </I18nProvider>;
+function SlotHost() {
+  const slot = useDetailPanelSlotHost();
+  return <aside ref={slot.ref} aria-label="상세 패널" />;
+}
+function DrawerHost({ deepLink = false, removeTrigger = false }: { deepLink?: boolean; removeTrigger?: boolean }) {
+  const [open, setOpen] = useState(deepLink);
+  return <I18nProvider><DetailPanelSlotProvider>
+    <div id="root"><main id="platform-main" tabIndex={-1}>
+      {!removeTrigger && <button onClick={() => setOpen(true)}>open</button>}
+      <button>behind</button>
+      {open && <DetailDrawer title="Detail" onClose={() => setOpen(false)} headerActions={<a href="/detail">전체 화면</a>}
+        tabs={[{ id: 'a', label: 'Attributes', content: <button>inside</button> }]} />}
+    </main></div><SlotHost />
+  </DetailPanelSlotProvider></I18nProvider>;
 }
 
-describe('DetailDrawer breakpoint', () => {
-  it('below 1440 is modal: scrim, inert app, Escape on document, Tab wraps', () => {
-    mockWidth(false);
-    const onClose = vi.fn();
-    render(<DrawerHost onClose={onClose} />);
-    const root = document.getElementById('root')!;
-    expect(root.hasAttribute('inert')).toBe(true);
-    expect(screen.getByTestId('drawer-scrim')).toBeInTheDocument();
+describe('DetailDrawer docked slot', () => {
+  beforeEach(() => {
+    vi.stubGlobal('innerWidth', 1440);
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: window.innerWidth >= 1440, media: query,
+      addEventListener: () => {}, removeEventListener: () => {},
+    }));
+  });
+  it.each([1280, 1440])('moves focus in, keeps the page usable, and closes via Esc with focus return (%spx)', width => {
+    vi.stubGlobal('innerWidth', width);
+    render(<DrawerHost />);
+    const trigger = screen.getByRole('button', { name: 'open' });
+    trigger.focus();
+    fireEvent.click(trigger);
     const close = screen.getByRole('button', { name: '상세 닫기' });
-    expect(document.activeElement).toBe(close);
-    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
-    expect(document.activeElement).not.toBe(screen.getByRole('button', { name: 'behind' }));
-    expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true);
+    expect(close).toHaveFocus();
+    const dialog = screen.getByRole('dialog', { name: 'Detail' });
+    expect(screen.getByRole('complementary', { name: '상세 패널' })).toContainElement(dialog);
+    expect(screen.getByRole('main')).not.toContainElement(dialog);
+    expect(dialog).toHaveAttribute('aria-modal', 'false');
+    expect(document.getElementById('root')).not.toHaveAttribute('inert');
+    expect(screen.queryByTestId('drawer-scrim')).toBeNull();
+    expect(dialog).not.toHaveClass('fixed');
+    expect(screen.getByRole('link', { name: '전체 화면' })).toHaveAttribute('href', '/detail');
+    fireEvent.keyDown(close, { key: 'Tab', shiftKey: true });
+    expect(close).toHaveFocus(); // No synthetic focus wrapping; native Tab can leave the panel.
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(dialog).toBeInTheDocument();
+    const inside = screen.getByRole('button', { name: 'inside' });
+    inside.focus();
+    expect(inside).toHaveFocus();
+    fireEvent.keyDown(inside, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(trigger).toHaveFocus();
   });
 
-  it('at 1440 or wider stays non-modal and ignores document Escape', () => {
-    mockWidth(true);
-    const onClose = vi.fn();
-    render(<DrawerHost onClose={onClose} title="Wide" />);
-    const root = document.getElementById('root')!;
-    expect(root.hasAttribute('inert')).toBe(false);
-    expect(screen.queryByTestId('drawer-scrim')).toBeNull();
-    expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'false');
-    expect(screen.getByRole('dialog')).toHaveClass('top-[var(--toolbar-height)]');
-    expect(screen.getByRole('dialog')).not.toHaveClass('top-[54px]');
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(onClose).not.toHaveBeenCalled();
-    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
-    expect(onClose).toHaveBeenCalledTimes(1);
+  it('restores deep-link content and falls back to main when no opener exists', () => {
+    render(<DrawerHost deepLink />);
+    expect(screen.getByRole('button', { name: '상세 닫기' })).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: '상세 닫기' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('main')).toHaveFocus();
+  });
+
+  it('falls back to main when the opener was removed', () => {
+    const view = render(<DrawerHost />);
+    const trigger = screen.getByRole('button', { name: 'open' });
+    trigger.focus();
+    fireEvent.click(trigger);
+    view.rerender(<DrawerHost removeTrigger />);
+    fireEvent.click(screen.getByRole('button', { name: '상세 닫기' }));
+    expect(screen.getByRole('main')).toHaveFocus();
+  });
+
+  it('does not steal focus after the user returns to the list', () => {
+    render(<DrawerHost deepLink />);
+    const behind = screen.getByRole('button', { name: 'behind' });
+    behind.focus();
+    fireEvent.click(screen.getByRole('button', { name: '상세 닫기' }));
+    expect(behind).toHaveFocus();
   });
 });

@@ -3,16 +3,9 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import type { AccessDirectoryPage, AccessDirectoryQuery, AccessPrincipal, ApiResponse, PlatformAdapter, Permission, Session } from '@ap/contracts';
 import { House, Wrench } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, type MenuEntry } from '@ap/kernel';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { manifests } from '../index';
 import AccessDirectory from './AccessDirectory';
-
-// jsdom has no matchMedia; DetailDrawer queries the 1440px breakpoint on mount (same stub as components a11y.test).
-window.matchMedia = ((query: string) => ({
-  matches: false, media: query, onchange: null,
-  addEventListener: () => {}, removeEventListener: () => {},
-  addListener: () => {}, removeListener: () => {},
-  dispatchEvent: () => false,
-})) as typeof window.matchMedia;
 
 // jsdom has no layout: the virtualizer's viewport measures 0 and calculateRange returns null, so zero
 // rows render. Report fixed dimensions so the loaded rows render (test-only; a browser has real layout).
@@ -97,10 +90,15 @@ function fixture(response: ApiResponse<AccessDirectoryPage> | ResponseForCall) {
   return { adapter, calls };
 }
 
+function DetailSlotHost() {
+  const slot = useDetailPanelSlotHost();
+  return <aside ref={slot.ref} aria-label="상세 패널" />;
+}
+
 function renderRoles(path: string, response: ApiResponse<AccessDirectoryPage> | ResponseForCall = okResponse()) {
   window.history.replaceState(null, '', path);
   const f = fixture(response);
-  render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><AccessDirectory /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><DetailPanelSlotProvider><AccessDirectory /><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
   return f;
 }
 
