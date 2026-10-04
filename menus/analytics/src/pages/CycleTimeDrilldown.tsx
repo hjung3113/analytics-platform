@@ -180,8 +180,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
                   { id: 'p95', name: 'P95', color: 'chart-teal', points: data.current.p95, dashed: true },
                 ]}
                 compareSeries={[
-                  { id: 'p50-prev', name: ko ? 'P50 이전 기간' : 'P50 previous period', color: 'chart-purple', points: data.previous.p50, dashed: true },
-                  { id: 'p95-prev', name: ko ? 'P95 이전 기간' : 'P95 previous period', color: 'accent-warn', points: data.previous.p95, dashed: true },
+                  { id: 'p50-prev', name: ko ? 'P50 이전 기간' : 'P50 previous period', color: 'chart-purple', points: data.previous.p50 },
+                  { id: 'p95-prev', name: ko ? 'P95 이전 기간' : 'P95 previous period', color: 'cat-amber', points: data.previous.p95, dashed: true },
                 ]}
                 markLines={data.populationP95 === null ? undefined : [{ y: data.populationP95, label: `P95 ${formatMin(data.populationP95, lang)}` }]}
                 trust={chartTrust(response.trust, unknown)}

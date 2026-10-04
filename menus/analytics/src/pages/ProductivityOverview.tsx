@@ -133,7 +133,7 @@ export default function ProductivityOverview(_: PageProps) {
   }
 
   // --- Main trend: AnalysisChartFrame for the selected KPI; Compare overlays the previous equal period (bucket-index aligned). ---
-  const trendMeta: Record<KpiKey, { title: string; names: string[]; colors: string[]; kind: 'line' | 'bar'; unit: string; decimals: 0 | 1 | 2; description: string }> = {
+  const trendMeta: Record<KpiKey, { title: string; names: string[]; colors: string[]; dashed?: boolean[]; kind: 'line' | 'bar'; unit: string; decimals: 0 | 1 | 2; description: string }> = {
     occupancy: {
       title: ko ? '물리 점유율 추세' : 'Physical occupancy trend', names: [ko ? '물리 점유율' : 'Physical occupancy'], colors: ['chart-blue'], kind: 'line', unit: '%', decimals: 1,
       description: ko ? '점유 시간 합 ÷ 관측 가능 시간 합 — 비율은 분자·분모를 각각 합산 (설비별 %의 평균 아님)' : 'sum(occupied) ÷ sum(observable); ratios sum numerator and denominator separately, never average per-equipment %',
@@ -143,7 +143,7 @@ export default function ProductivityOverview(_: PageProps) {
       description: ko ? '체류 시간 합 ÷ 완료 Job 수' : 'sum(dwell hours) ÷ completed jobs',
     },
     cycleTime: {
-      title: ko ? '사이클타임 추세 (P50·P95)' : 'Cycle time trend (P50·P95)', names: ['P50', 'P95'], colors: ['chart-blue', 'chart-purple'], kind: 'line', unit: ko ? '분' : 'min', decimals: 1,
+      title: ko ? '사이클타임 추세 (P50·P95)' : 'Cycle time trend (P50·P95)', names: ['P50', 'P95'], colors: ['chart-blue', 'chart-purple'], dashed: [false, true], kind: 'line', unit: ko ? '분' : 'min', decimals: 1,
       description: ko ? '완료 Job 풀링 모집단의 분위수 — 설비·버킷별 P95의 평균 아님' : 'quantiles over the pooled completed-job population, never averages of per-equipment/bucket P95s',
     },
     throughput: {
@@ -157,12 +157,13 @@ export default function ProductivityOverview(_: PageProps) {
   const fmtTrend = (v: number) => v.toLocaleString(locale, { minimumFractionDigits: meta.decimals, maximumFractionDigits: meta.decimals });
 
   function trendSeriesFor(data: TrendData): { series: ChartSeries[]; compareSeries: ChartSeries[]; total: number | null } {
-    const build = (source: TrendBucket[], dashed: boolean): ChartSeries[] => meta.names.map((name, i) => ({
-      id: `${selectedKpi}-${dashed ? 'prev' : 'cur'}-${i}`,
-      name: dashed ? `${name} (${ko ? '이전 동일 기간' : 'previous period'})` : name,
-      color: dashed ? 'cat-amber' : meta.colors[i],
+    const build = (source: TrendBucket[], previous: boolean): ChartSeries[] => meta.names.map((name, i) => ({
+      id: `${selectedKpi}-${previous ? 'prev' : 'cur'}-${i}`,
+      name: previous ? `${name} (${ko ? '이전 동일 기간' : 'previous period'})` : name,
+      color: previous ? 'cat-amber' : meta.colors[i],
       kind: meta.kind,
-      dashed,
+      // Previous-period series mirror their current counterpart; the Chart Frame derives the previous pattern (06 §16, ADR-0014).
+      dashed: meta.dashed?.[i] ?? false,
       // Compare is x-aligned by bucket index onto the current period's axis.
       points: data.current.map((c, idx) => [c.start, source[idx] ? trendValue(source[idx], i) : null] as [string, number | null]),
     }));

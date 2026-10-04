@@ -16,6 +16,7 @@ const strokeAliases: Record<string, string> = {
   'chart-blue': 'chart-blue-stroke',
   'chart-teal': 'chart-teal-stroke',
   'chart-purple': 'chart-purple-stroke',
+  'cat-amber': 'cat-amber-stroke',
 };
 
 /** Resolve a chart series identity token to its thin-line counterpart when one exists. */
