@@ -23,6 +23,35 @@ test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
   });
 });
 
+test.describe('셸 sticky 계약 (06 §7)', () => {
+  test('main 스크롤 뒤에도 페이지 제목·액션은 Context에 가리지 않는다', async ({ page }, testInfo) => {
+    await page.goto(PRODUCTIVITY);
+    await expect(mainHeading(page)).toHaveText('생산성 개요');
+    await expectScopeValid(page, 'ICH · Site A');
+    await expect(contextBar(page)).toBeVisible();
+    const main = page.locator('#platform-main');
+    // The real overview has KPI, trend and breakdown sections; no synthetic spacer is inserted.
+    await expect.poll(() => main.evaluate(el => el.scrollHeight - el.clientHeight)).toBeGreaterThan(100);
+    await main.evaluate(el => { el.scrollTop = 100; });
+    await expect.poll(() => main.evaluate(el => el.scrollTop)).toBeGreaterThanOrEqual(100);
+    const header = main.locator('header').filter({ has: page.getByRole('heading', { level: 1 }) });
+    for (const target of [mainHeading(page), header.getByRole('button', { name: '새로고침', exact: true })]) {
+      await expect(target).toBeVisible();
+      await expect.poll(() => target.evaluate(el => {
+        const rect = el.getBoundingClientRect();
+        const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+        return hit !== null && el.contains(hit);
+      })).toBe(true);
+    }
+    const headerBox = await header.boundingBox();
+    const contextBox = await contextBar(page).boundingBox();
+    expect(headerBox).not.toBeNull();
+    expect(contextBox).not.toBeNull();
+    expect(contextBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height);
+    await evidence(page, testInfo, 'page-header-context-after-scroll');
+  });
+});
+
 test.describe('딥링크 복원 (06 §6.4)', () => {
   test('전역 Context와 page 소유 상태를 URL에서 그대로 복원한다', async ({ page }, testInfo) => {
     const url = `${PRODUCTIVITY}&granularity=day`;

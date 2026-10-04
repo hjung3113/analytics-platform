@@ -26,18 +26,18 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
       <ScopeSelector collapsed={collapsed} />
       <div className="shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2">
         <nav aria-label={lang === 'ko' ? '주 메뉴' : 'Primary'}>
-          {grouped.map(({ group, items }, index) => <section key={group.id} aria-label={tx(group.label)}>
-            {!collapsed && !(group.id === 'overview' && items.length === 1) && <h2 className={cn('mx-2 mb-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted', index === 0 ? 'mt-1.5' : 'mt-3.5')}>{tx(group.label)}</h2>}
+          {grouped.map(({ group, items }, index) => <div key={group.id} role="group" aria-label={tx(group.label)}>
+            {!collapsed && !(group.id === 'overview' && items.length === 1) && <p className={cn('mx-2 mb-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted', index === 0 ? 'mt-1.5' : 'mt-3.5')}>{tx(group.label)}</p>}
             {collapsed && index > 0 && <div className="mx-3 my-1.5 border-t border-border-subtle" aria-hidden />}
             <ul className="space-y-0.5">{items.map(menu => <li key={menu.id}><NavItem menu={menu} active={menu.id === activeId} collapsed={collapsed} /></li>)}</ul>
-          </section>)}
+          </div>)}
         </nav>
-        {favoriteMenus.length > 0 && <section aria-label={t('favorites')}>
-          {!collapsed && <h2 className="mx-2 mb-1 mt-3.5 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted"><Star className="size-3" aria-hidden />{t('favorites')}</h2>}
-          <ul className="space-y-0.5">{favoriteMenus.map(menu => <li key={menu.id}><NavItem menu={menu} active={menu.id === activeId} collapsed={collapsed} /></li>)}</ul>
+        {!collapsed && favoriteMenus.length > 0 && <section aria-label={t('favorites')}>
+          {!collapsed && <p className="mx-2 mb-1 mt-3.5 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted"><Star className="size-3" aria-hidden />{t('favorites')}</p>}
+          <ul className="space-y-0.5">{favoriteMenus.map(menu => <li key={menu.id}><NavItem menu={menu} active={false} collapsed={collapsed} /></li>)}</ul>
         </section>}
-        {recentItems.length > 0 && <section aria-label={t('recent')}>
-          {!collapsed && <h2 className="mx-2 mb-1 mt-3.5 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted"><Clock3 className="size-3" aria-hidden />{t('recent')}</h2>}
+        {!collapsed && recentItems.length > 0 && <section aria-label={t('recent')}>
+          {!collapsed && <p className="mx-2 mb-1 mt-3.5 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted"><Clock3 className="size-3" aria-hidden />{t('recent')}</p>}
           <ul className="space-y-0.5">{recentItems.map(r => <li key={r.menuId}><NavItem menu={registry.menuById(r.menuId)} active={false} collapsed={collapsed} href={r.url} labelPrefix={t('recent')} /></li>)}</ul>
         </section>}
       </div>
@@ -51,9 +51,10 @@ function NavItem({ menu, active, collapsed, href, labelPrefix }: { menu: MenuEnt
   const { tx, t } = useI18n();
   const Icon = menu.icon;
   const link = <PlatformLink href={href ?? linkTo(menu.id)} aria-label={labelPrefix ? `${labelPrefix}: ${tx(menu.label)}` : tx(menu.label)} aria-current={active ? 'page' : undefined}
-    className={cn('flex min-h-8 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-row-hover hover:text-text-primary', collapsed && 'justify-center px-0', active && 'bg-surface-row-selected text-text-primary')}>
+    className={cn('relative flex min-h-8 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-row-hover hover:text-text-primary', collapsed && 'justify-center px-0', active && 'bg-surface-row-selected font-semibold text-text-primary')}>
+    {active && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
     <Icon className="size-4 shrink-0" aria-hidden />
-    {!collapsed && <><span className="min-w-0 flex-1 truncate">{tx(menu.label)}</span>{!menu.component && <span className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 text-[10px] font-semibold text-text-muted">{t('planned')}</span>}</>}
+    {!collapsed && <><span className="min-w-0 flex-1 truncate">{tx(menu.label)}</span>{!menu.component && <span className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 text-[10px] font-semibold text-text-secondary">{t('planned')}</span>}</>}
   </PlatformLink>;
   return collapsed ? <Tooltip><TooltipTrigger asChild>{link}</TooltipTrigger><TooltipContent side="right">{tx(menu.label)}{!menu.component && ` · ${t('planned')}`}</TooltipContent></Tooltip> : link;
 }

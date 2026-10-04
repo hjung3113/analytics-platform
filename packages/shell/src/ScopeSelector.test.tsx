@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useLayoutEffect, useRef } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -153,7 +153,7 @@ describe('ScopeSelector Scope retry menu item (#183)', () => {
     for (const [name, validateScope, pillText] of scenarios) {
       window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
       render(<I18nProvider><PlatformProvider adapter={adapterWith(validateScope, scopes)} registry={registry}><ScopeSelector /></PlatformProvider></I18nProvider>);
-      expect(await screen.findByText(pillText)).toBeTruthy();
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Scope: ICH · 청주' })).toHaveAccessibleDescription(pillText));
       openScopeMenu('ICH');
       expect(screen.queryByRole('menuitem', { name: 'Scope 다시 확인' })).toBeNull();
       cleanup();
@@ -168,8 +168,13 @@ describe('sidebar Scope selector (#194)', () => {
     const scopes = [{ id: 'ICH', label: 'ICH · 청주', grantedRooms: 3, totalRooms: 5 }];
     render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }), scopes)} registry={registry}><ScopeSelector collapsed /></PlatformProvider></I18nProvider>);
     const trigger = screen.getByRole('button', { name: 'Scope: ICH · 청주' });
-    expect(await screen.findByText('서버 검증됨 · room 3/5')).toBeTruthy();
-    expect(trigger.getAttribute('title')).toContain('서버 검증됨');
+    await waitFor(() => expect(trigger).toHaveAccessibleDescription('서버 검증됨 · room 3/5'));
+    fireEvent.focus(trigger);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('ICH · 청주 · 서버 검증됨 · room 3/5');
+    expect(trigger).toHaveAccessibleDescription('서버 검증됨 · room 3/5');
+    fireEvent.blur(trigger);
+    fireEvent.pointerMove(trigger);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('ICH · 청주 · 서버 검증됨 · room 3/5');
     expect(trigger.querySelector('.sr-only')?.textContent).toContain('room 3/5');
     act(() => { trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })); });
     expect(await screen.findByRole('menuitemradio', { name: 'ICH · 청주 room 3/5' })).toBeTruthy();
@@ -185,5 +190,34 @@ describe('sidebar Scope selector (#194)', () => {
     render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'unknown_scope', grantedRooms: [] }), scopes)} registry={registry}><ScopeSelector /></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('알 수 없는 Scope')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Scope: GHOST' })).toBeTruthy();
+  });
+});
+
+
+describe('Scope accessible status (#194 FIX2)', () => {
+  const scopes = [{ id: 'ICH', label: 'ICH · 청주', grantedRooms: 3, totalRooms: 5 }];
+  const scenarios: Array<[string, PlatformAdapter['validateScope'], string, string]> = [
+    ['valid', async () => ({ status: 'valid', grantedRooms: [] }), 'ICH', '서버 검증됨'],
+    ['validating', () => new Promise<ScopeCheck>(() => {}), 'ICH', '검증 중…'],
+    ['none', async () => ({ status: 'valid', grantedRooms: [] }), '', 'Scope 선택'],
+    ['error', async () => { throw new Error('down'); }, 'ICH', '확인 실패'],
+    ['forbidden', async () => ({ status: 'forbidden', grantedRooms: [] }), 'ICH', '접근 불가'],
+    ['unknown_scope', async () => ({ status: 'unknown_scope', grantedRooms: [] }), 'GHOST', '알 수 없는 Scope'],
+  ];
+  it.each(scenarios)('describes and politely announces %s in both modes', async (_state, validate, scopeId, status) => {
+    for (const collapsed of [false, true]) {
+      window.history.replaceState(null, '', `/?v=1${scopeId ? `&scopeId=${scopeId}` : ''}`);
+      render(<I18nProvider><PlatformProvider adapter={adapterWith(validate, scopes)} registry={registry}><ScopeSelector collapsed={collapsed} /></PlatformProvider></I18nProvider>);
+      const trigger = screen.getByRole('button', { name: `Scope: ${scopeId === 'ICH' ? 'ICH · 청주' : scopeId || 'Scope 선택'}` });
+      const descriptionId = trigger.getAttribute('aria-describedby');
+      await waitFor(() => expect(trigger).toHaveAccessibleDescription(`${status}${scopeId === 'ICH' ? ' · room 3/5' : ''}`));
+      expect(trigger.getAttribute('aria-describedby')).toBe(descriptionId);
+      expect(screen.getByRole('status')).toHaveTextContent(status);
+      expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite');
+      expect(screen.getByRole('status')).not.toHaveTextContent('room');
+      const description = document.getElementById(descriptionId!);
+      expect(description).toHaveClass(['error', 'forbidden', 'unknown_scope'].includes(_state) ? 'text-warning-label' : 'text-text-secondary');
+      cleanup();
+    }
   });
 });

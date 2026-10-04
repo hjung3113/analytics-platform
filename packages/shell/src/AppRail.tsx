@@ -6,6 +6,7 @@ import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLa
 export function AppRail() {
   const { sidebarSpace, accessibleSpaces, switchSpace, slots, user, setPaletteOpen, registry } = usePlatform();
   const { t, tx, lang, setLang } = useI18n();
+  const languageLabel = lang === 'ko' ? '언어: 한국어 — English로 전환' : 'Language: English — 한국어로 전환';
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
   return <TooltipProvider delayDuration={200}>
     <nav aria-label={lang === 'ko' ? '앱 레일' : 'App rail'} className="flex h-full shrink-0 flex-col items-center gap-2 overflow-y-auto border-r border-border-subtle bg-surface-sidebar py-3" style={{ width: 'var(--rail-width)' }}>
@@ -15,7 +16,8 @@ export function AppRail() {
         const active = sidebarSpace.id === space.id;
         return <Tooltip key={space.id}><TooltipTrigger asChild>
           <button type="button" aria-label={`${lang === 'ko' ? '공간' : 'Space'}: ${tx(space.label)}`} aria-current={active ? 'page' : undefined}
-            onClick={() => switchSpace(space.id)} className={cn('grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', active && 'bg-surface-row-selected text-accent-primary')}>
+            onClick={() => switchSpace(space.id)} className={cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', active && 'bg-surface-row-selected text-accent-primary')}>
+            {active && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
             <Icon className="size-4" aria-hidden />
           </button>
         </TooltipTrigger><TooltipContent side="right">{tx(space.label)}</TooltipContent></Tooltip>;
@@ -39,8 +41,10 @@ export function AppRail() {
         </PopoverContent>
       </Popover>
 
-      <button type="button" aria-label={t('language')} title={t('language')} onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}
-        className="grid size-8 place-items-center rounded-md text-[10px] font-semibold text-text-muted hover:bg-surface-row-hover">{lang === 'ko' ? '한' : 'EN'}</button>
+      <Tooltip><TooltipTrigger asChild>
+        <button type="button" aria-label={languageLabel} onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}
+          className="grid size-8 place-items-center rounded-md text-[10px] font-semibold text-text-secondary hover:bg-surface-row-hover">{lang === 'ko' ? '한' : 'EN'}</button>
+      </TooltipTrigger><TooltipContent side="right">{languageLabel}</TooltipContent></Tooltip>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

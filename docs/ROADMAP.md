@@ -18,7 +18,7 @@
 | 2. 프로토타입 | 완료 | Kernel 단위 프로토타입(`prototypes/`) → 통합 앱 |
 | 3. 코드 정리(모노레포) | 완료 | 패키지 분리, 메뉴 패키지, 경계 lint, 메뉴 생성기 — PR #16–#32 |
 | 4. 플랫폼 기능 추가 | 완료 | 공간(워크스페이스), 운영 콘솔, Kernel 잔여, 차트 번들 코드 분할(#48)까지 완료 — 마일스톤 M1 |
-| 5. 디자인 시스템 | **구현 중** | 방식(ADR-0010)·방향(ADR-0011, 2026-10-04 사용자: 프로토타입 C안 — FeedbackOps 토큰 + FeedbackOps 셸 구조) 결정 완료. 구현 순서: ~~`@fops/ui` 워크스페이스 편입(#192)~~ 완료 → ~~토큰·테마(#193)~~ 완료 → 셸(#194) → DESIGN.md(#53) — 마일스톤 M2 |
+| 5. 디자인 시스템 | **구현 중** | 방식(ADR-0010)·방향(ADR-0011, 2026-10-04 사용자: 프로토타입 C안 — FeedbackOps 토큰 + FeedbackOps 셸 구조) 결정 완료. 구현 순서: ~~`@fops/ui` 워크스페이스 편입(#192)~~ 완료 → ~~토큰·테마(#193)~~ 완료 → ~~셸(#194)~~ 완료 → DESIGN.md(#53) — 마일스톤 M2 |
 | 6. FeedbackOps 연결(1단계) | 결정 대기 | 딥링크·토큰 공유·읽기 전용 조회 — 마일스톤 M3 |
 | 7. 사내 적용 | **사내 입력 대기** | mock 어댑터를 실어댑터·실서버(FastAPI)로 바꾼다. 플랫폼 준비(#100·#145)는 끝났고 SSO 사양·배포 환경·백엔드 합의가 남았다 — 마일스톤 M4, 지도 [#157](https://github.com/hjung3113/analytics-platform/issues/157), 가이드 [`in-house-rollout.md`](integration/in-house-rollout.md) |
 
@@ -124,7 +124,7 @@ mock 어댑터 자리를 실어댑터로 바꾸는 트랙(2026-10-02 정리). Ke
 | ~~`@fops/ui` 워크스페이스 편입 — 소비 조건·CI 서브모듈·경계 lint, 화면 변화 없음 (#192)~~ 완료 — `@ap/ui`만 `@fops/ui`를 import(경계 lint), 루트 검사·CI는 `@fops/*` 작업 제외(dry-run 가드) | #52 |
 | ~~FeedbackOps 수정 반영 — 서브모듈 `073568d8`, `@types/react` overrides·Vite 부작용 우회 제거 (#199)~~ 완료 — FeedbackOps#746–#748(#751). #749·#750은 병합되면 다시 올린다 | #192 |
 | ~~토큰·테마를 FeedbackOps 계약 + 플랫폼 확장 층으로, 프리미티브는 `@fops/ui` 재수출 (#193)~~ 완료 — FeedbackOps ADR-0058 계약 + 플랫폼 확장 층(차트·카테고리 색, 역할 타이포, 문구용 label 토큰 — AA 대비, 사용자 OK), 폰트 Inter + Pretendard, shadcn·Button·cn은 `@fops/ui` 재수출 | #192 |
-| 셸을 FeedbackOps AppFrame 구조로 — 레일·밝은 사이드바·Scope 선택·50px 머리 (#194) | #193 |
+| ~~셸을 FeedbackOps AppFrame 구조로 — 레일·밝은 사이드바·Scope 선택·50px 머리 (#194)~~ 완료 — 상단 바 제거, 공간 전환은 레일 버튼(공간 ≥2), Scope는 사이드바 머리(동작·테스트 이전), 머리+Context 바 함께 sticky, 현재 위치 표시는 색+막대 | #193 |
 | [결정] DetailDrawer를 고정 상세 슬롯(440px)으로 바꿀지 (#195) | 사람 결정 |
 | DESIGN.md 개정 (#53) | #193, #194 |
 | 공통 필터 바 승격 (#54) | #53 |

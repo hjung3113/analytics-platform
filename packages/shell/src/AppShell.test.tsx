@@ -67,6 +67,8 @@ describe('rail space navigation', () => {
     mount(['platform:view', 'console:access']);
     const push = vi.spyOn(window.history, 'pushState');
     expect(screen.getByRole('button', { name: '공간: 분석' }).getAttribute('aria-current')).toBe('page');
+    expect(screen.getByRole('button', { name: '공간: 분석' }).querySelector('[data-current-marker]')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '공간: 운영 콘솔' }).querySelector('[data-current-marker]')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '공간: 운영 콘솔' }));
     expect(window.location.pathname).toBe('/ops');
     expect(new URLSearchParams(window.location.search).get('lotIds')).toBe('kept');
@@ -90,7 +92,7 @@ describe('light sidebar', () => {
     expect(sidebar.getAttribute('data-collapsed')).toBe('true');
     expect(localStorage.getItem('platform:sidebar-collapsed')).toBe('1');
     expect(screen.getByRole('button', { name: /^Scope:/ })).toBeTruthy();
-    expect(within(screen.getByRole('region', { name: '개요' })).getByRole('link', { name: '홈' })).toBeTruthy();
+    expect(within(screen.getByRole('group', { name: '개요' })).getByRole('link', { name: '홈' })).toBeTruthy();
     fireEvent.keyDown(window, { key: '[' });
     expect(sidebar.getAttribute('data-collapsed')).toBe('false');
     expect(localStorage.getItem('platform:sidebar-collapsed')).toBe('0');
@@ -115,7 +117,7 @@ describe('light sidebar', () => {
     mount();
     const nav = screen.getByRole('navigation', { name: '주 메뉴' });
     expect(within(nav).queryByRole('link', { name: /운영 홈/ })).toBeNull();
-    expect(within(nav).getByRole('region', { name: '개요' })).toBeTruthy();
+    expect(within(nav).getByRole('group', { name: '개요' })).toBeTruthy();
     expect(within(nav).getAllByText('예정').length).toBeGreaterThan(0);
     expect(within(nav).queryByRole('textbox')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'save favorite' }));
@@ -134,8 +136,19 @@ describe('primary navigation boundary (#194 FIX1)', () => {
     localStorage.setItem('platform:recent:u1', JSON.stringify([{ menuId: 'home', url: '/?v=1&scopeId=ICH&lotIds=previous' }, { menuId: 'ops', url: '/ops' }]));
     mount();
     const primary = screen.getByRole('navigation', { name: '주 메뉴' });
+    if (collapsed) {
+      expect(screen.queryByRole('region', { name: '즐겨찾기' })).toBeNull();
+      expect(screen.queryByRole('region', { name: '최근 방문' })).toBeNull();
+      expect(within(primary).getAllByRole('link', { name: /홈/ })).toHaveLength(1);
+      expect(within(primary).getAllByRole('link')).toHaveLength(1);
+      return;
+    }
     const favorites = screen.getByRole('region', { name: '즐겨찾기' });
     const recent = await screen.findByRole('region', { name: '최근 방문' });
+    expect(within(favorites).getByRole('link', { name: '홈' })).not.toHaveAttribute('aria-current');
+    expect(favorites.querySelector('[data-current-marker]')).toBeNull();
+    expect(recent.querySelector('[data-current-marker]')).toBeNull();
+    expect(document.querySelectorAll('a[aria-current=page]')).toHaveLength(1);
     // Match by substring, like Playwright's default name matching in the contract suite.
     expect(within(primary).getAllByRole('link', { name: /홈/ })).toHaveLength(1);
     expect(within(primary).getAllByRole('link')).toHaveLength(1);
@@ -146,5 +159,34 @@ describe('primary navigation boundary (#194 FIX1)', () => {
     expect(within(recent).getByRole('link', { name: '최근 방문: 홈' })).toBeTruthy();
     expect(within(favorites).queryByRole('link', { name: /운영 홈/ })).toBeNull();
     expect(within(recent).queryByRole('link', { name: /운영 홈/ })).toBeNull();
+  });
+});
+
+
+describe('shell accessibility (#194 FIX2)', () => {
+  it('names the language state and next action before and after a toggle', () => {
+    mount();
+    const toggle = screen.getByRole('button', { name: '언어: 한국어 — English로 전환' });
+    expect(toggle).toHaveClass('text-text-secondary');
+    fireEvent.click(toggle);
+    expect(screen.getByRole('button', { name: 'Language: English — 한국어로 전환' })).toBe(toggle);
+  });
+
+  it('marks only the current menu and space with a persistent shape, and keeps groups out of region/headings', () => {
+    localStorage.setItem('platform:sidebar-collapsed', '0');
+    mount(['platform:view', 'console:access']);
+    const primary = screen.getByRole('navigation', { name: '주 메뉴' });
+    const home = within(primary).getByRole('link', { name: '홈' });
+    expect(home.querySelector('[data-current-marker]')).toHaveAttribute('aria-hidden', 'true');
+    expect(home.querySelector('[data-current-marker]')).toHaveClass('w-0.5');
+    expect(within(primary).getByText('예정')).toHaveClass('text-text-secondary');
+    expect(within(primary).queryByRole('region')).toBeNull();
+    expect(within(primary).queryByRole('heading')).toBeNull();
+    expect(screen.getByRole('button', { name: '공간: 분석' }).querySelector('[data-current-marker]')).toHaveClass('w-0.5');
+    expect(screen.getByRole('button', { name: '공간: 운영 콘솔' }).querySelector('[data-current-marker]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '공간: 운영 콘솔' }));
+    expect(screen.getByRole('button', { name: '공간: 분석' }).querySelector('[data-current-marker]')).toBeNull();
+    expect(screen.getByRole('button', { name: '공간: 운영 콘솔' }).querySelector('[data-current-marker]')).toBeTruthy();
+    expect(within(screen.getByRole('navigation', { name: '주 메뉴' })).getByRole('link', { name: '운영 홈' }).querySelector('[data-current-marker]')).toBeTruthy();
   });
 });

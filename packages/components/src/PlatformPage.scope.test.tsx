@@ -101,7 +101,9 @@ describe('PlatformPage 50px header (#194)', () => {
     await screen.findByText('page body');
     const header = view.container.querySelector('header')!;
     expect(header.className).toContain('h-[50px]');
-    expect(header.className).toContain('sticky');
+    expect(header.parentElement).toHaveClass('sticky', 'top-0');
+    expect(header).not.toHaveClass('sticky');
+    expect(header.parentElement?.contains(screen.getByText('global context'))).toBe(true);
     expect(header.querySelector('h1')?.textContent).toBe('Custom title');
     expect(screen.getByText('A long full description').getAttribute('title')).toBe('A long full description');
     expect(header.textContent).toContain('trust');
@@ -131,4 +133,50 @@ describe('PlatformPage 50px header (#194)', () => {
     expect(view.container.querySelector('[data-platform-page-content]')?.textContent).toContain('이 Scope에 접근 권한이 없습니다');
     for (const text of ['trust', 'secondary', 'primary', 'extension', 'page body']) expect(screen.queryByText(text)).toBeNull();
   });
+});
+
+
+describe('page header width (#194 FIX2)', () => {
+  it('allows breadcrumb and rich title to shrink, yields description first and reserves favorite/actions', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}>
+      <PlatformPage title={<span>Long object ID</span>} description="Description" crumbs={[{ label: 'Long parent', href: '/' }]} primaryAction={<button>Save</button>}><p>body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByText('body');
+    const title = screen.getByRole('heading', { name: 'Long object ID' });
+    expect(title).toHaveClass('min-w-0', 'shrink', 'truncate');
+    expect(title).not.toHaveClass('shrink-0');
+    expect(title).toHaveAttribute('tabindex', '0');
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveClass('min-w-0');
+    expect(screen.getByRole('link', { name: 'Long parent' })).toHaveClass('truncate');
+    expect(screen.getByText('Description')).toHaveClass('min-w-0', 'basis-0');
+    expect(screen.getByRole('button', { name: '즐겨찾기에 추가' })).toHaveClass('shrink-0');
+    expect(screen.getByRole('button', { name: 'Save' }).parentElement).toHaveClass('shrink-0', 'flex-nowrap');
+    fireEvent.focus(title);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Long object ID');
+  });
+
+  it.each(['', '   '])('does not create an empty description tab stop (%j)', async description => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    const view = render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}>
+      <PlatformPage description={description}><p>body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByText('body');
+    expect(view.container.querySelector('header div[tabindex="0"]')).toBeNull();
+  });
+
+  it('keeps the actual parent link shrinkable and exposes its full label', async () => {
+    const detailRegistry = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [
+      ...registry.menus, { ...registry.menus[0], id: 'detail', path: '/detail', primary: false, navHidden: true, parent: 'home' },
+    ] });
+    window.history.replaceState(null, '', '/detail?v=1&scopeId=ICH');
+    render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={detailRegistry}>
+      <PlatformPage title="Detail"><p>body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByText('body');
+    const parent = screen.getByRole('link', { name: '홈' });
+    expect(parent).toHaveClass('min-w-0', 'truncate');
+    expect(parent).toHaveAttribute('title', '홈');
+  });
+
 });

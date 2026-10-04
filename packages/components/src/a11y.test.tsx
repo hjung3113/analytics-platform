@@ -96,6 +96,8 @@ describe('DetailDrawer breakpoint', () => {
     expect(root.hasAttribute('inert')).toBe(false);
     expect(screen.queryByTestId('drawer-scrim')).toBeNull();
     expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'false');
+    expect(screen.getByRole('dialog')).toHaveClass('top-[var(--toolbar-height)]');
+    expect(screen.getByRole('dialog')).not.toHaveClass('top-[54px]');
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });

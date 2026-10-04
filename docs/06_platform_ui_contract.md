@@ -352,7 +352,7 @@ Component gap        12~16px
 
 치수 값의 단일 원본은 FeedbackOps `packages/ui/src/styles/tokens.css`의 레이아웃 토큰이다. 이전 기준(사이드바 270/64px, 상단 바 54px, `DESIGN.md` `sidebar-shell`/`top-bar`)은 ADR-0011로 대체됐다.
 
-페이지 머리는 스크롤되는 main 안에서 sticky로 두어 위치·동작을 유지한다. 본문은 FeedbackOps `PageShell`의 여백을 사용하며 분석 페이지에 폭 제한은 추가하지 않는다.
+50px 페이지 머리와 Context Bar는 스크롤되는 main 안에서 하나의 sticky 래퍼로 유지한다. Context Bar 자체에는 별도 sticky를 두지 않아 페이지 머리를 가리지 않는다. 본문은 FeedbackOps `PageShell`의 여백을 사용하며 분석 페이지에 폭 제한은 추가하지 않는다.
 
 분석 페이지에는 임의의 좁은 `max-width`를 적용하지 않는다.
 
