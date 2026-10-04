@@ -69,7 +69,8 @@ test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
     await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(243, 247, 254)');
     // Confirmed B uses the shared Input/Select primitive radius and Select typography.
     await expect(search).toHaveCSS('border-radius', '6px');
-    await expect(page.getByTestId('metric-status-filter')).toHaveCSS('font-size', '14px');
+    // Shared Select primitive default (FeedbackOps SelectTrigger) is 13px.
+    await expect(page.getByTestId('metric-status-filter')).toHaveCSS('font-size', '13px');
     await expect(search).toHaveCSS('border-top-color', 'rgb(102, 112, 131)');
     await evidence(page, testInfo, 'feedbackops-token-cascade');
   });
@@ -92,8 +93,8 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
     await page.goto('/equipment?v=1&scopeId=ICH&maker=ZZZ&page=2');
     const maker = page.getByRole('combobox', { name: 'Maker' });
     await expect(maker).toHaveText('ZZZ');
-    await chooseFilterOption(page, 'Maker', 'ACME');
-    await expect.poll(() => query(page).get('maker')).toBe('ACME');
+    await chooseFilterOption(page, 'Maker', 'TEL');
+    await expect.poll(() => query(page).get('maker')).toBe('TEL');
     await expect.poll(() => query(page).has('page')).toBe(false);
 
     await page.goto('/equipment?v=1&scopeId=ICH&q=PHOTO&status=maintenance&maker=ZZZ&page=2');

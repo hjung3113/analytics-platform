@@ -62,7 +62,7 @@ function PageFilterFieldControl({ field, id }: { field: PageFilterField; id: str
     const value = field.value === '' && field.emptyOptionLabel ? emptyValue : field.value;
 
     return <div className="grid min-w-36 gap-1 text-xs text-text-secondary">
-      <label htmlFor={id} id={labelId} onClick={event => event.currentTarget.control?.focus()}>{field.label}</label>
+      <label htmlFor={id} id={labelId} onClick={event => { event.preventDefault(); event.currentTarget.control?.focus(); }}>{field.label}</label>
       <Select value={value} onValueChange={next => field.onValueChange(next === emptyValue ? '' : next)}>
         <SelectTrigger id={id} aria-labelledby={labelId} data-testid={field.testId} className="h-8 min-w-36 border-border-control bg-surface-card text-text-primary">
           <SelectValue placeholder={field.placeholder} />
@@ -76,7 +76,7 @@ function PageFilterFieldControl({ field, id }: { field: PageFilterField; id: str
   }
 
   return <div className="grid min-w-0 gap-1 text-xs text-text-secondary">
-    <label htmlFor={id} id={labelId} onClick={event => event.currentTarget.control?.focus()}>{field.label}</label>
+    <label htmlFor={id} id={labelId} onClick={event => { event.preventDefault(); event.currentTarget.control?.focus(); }}>{field.label}</label>
     <span className="relative block w-56 max-w-full">
       {field.kind === 'search' && <Search aria-hidden data-page-filter-search-icon className="pointer-events-none absolute left-2 top-2 size-4 text-text-secondary" />}
       <Input

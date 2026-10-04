@@ -83,6 +83,18 @@ describe('PageFilterBar', () => {
     expect(await screen.findByRole('option', { name: 'Active' })).toBeInTheDocument();
   });
 
+  it('a label click focuses the Select trigger without opening it (label activation is not forwarded)', () => {
+    render(<PageFilterBar label="Page filters" fields={[
+      { kind: 'select', key: 'status', label: 'Status', value: 'active', options: [{ value: 'active', label: 'Active' }], onValueChange: vi.fn() },
+    ]} />);
+    const status = screen.getByRole('combobox', { name: 'Status' });
+    const notPrevented = fireEvent.click(screen.getByText('Status'));
+    expect(notPrevented).toBe(false);
+    expect(status).toHaveFocus();
+    expect(status).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
   it('keeps a Select controlled when an empty value has no empty option label', async () => {
     function ControlledHarness() {
       const [value, setValue] = useState('');
