@@ -164,6 +164,18 @@ describe('primary navigation boundary (#194 FIX1)', () => {
 
 
 describe('shell accessibility (#194 FIX2)', () => {
+  it('keeps the empty-state guidance for favorites and recent in the expanded sidebar (07 §3)', () => {
+    window.history.replaceState(null, '', '/unregistered?v=1');
+    localStorage.setItem('platform:sidebar-collapsed', '0');
+    mount();
+    const favorites = screen.getByRole('region', { name: '즐겨찾기' });
+    expect(within(favorites).getByText('즐겨찾기가 없습니다. 화면 제목 옆 ☆로 추가하세요.')).toBeTruthy();
+    expect(within(favorites).queryByRole('link')).toBeNull();
+    const recent = screen.getByRole('region', { name: '최근 방문' });
+    expect(within(recent).getByText('최근 방문한 화면이 없습니다.')).toBeTruthy();
+    expect(within(recent).queryByRole('link')).toBeNull();
+  });
+
   it('names the language state and next action before and after a toggle', () => {
     mount();
     const toggle = screen.getByRole('button', { name: '언어: 한국어 — English로 전환' });

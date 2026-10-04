@@ -32,13 +32,18 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
             <ul className="space-y-0.5">{items.map(menu => <li key={menu.id}><NavItem menu={menu} active={menu.id === activeId} collapsed={collapsed} /></li>)}</ul>
           </div>)}
         </nav>
-        {!collapsed && favoriteMenus.length > 0 && <section aria-label={t('favorites')}>
-          {!collapsed && <p className="mx-2 mb-1 mt-3.5 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted"><Star className="size-3" aria-hidden />{t('favorites')}</p>}
-          <ul className="space-y-0.5">{favoriteMenus.map(menu => <li key={menu.id}><NavItem menu={menu} active={false} collapsed={collapsed} /></li>)}</ul>
+        {/* Expanded only (prototype C). An empty list keeps its guidance (07 §3 empty state). */}
+        {!collapsed && <section aria-label={t('favorites')}>
+          <p className="mx-2 mb-1 mt-3.5 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted"><Star className="size-3" aria-hidden />{t('favorites')}</p>
+          {favoriteMenus.length > 0
+            ? <ul className="space-y-0.5">{favoriteMenus.map(menu => <li key={menu.id}><NavItem menu={menu} active={false} collapsed={collapsed} /></li>)}</ul>
+            : <p className="px-3 py-1 text-xs leading-4 text-text-muted">{t('noFavorites')}</p>}
         </section>}
-        {!collapsed && recentItems.length > 0 && <section aria-label={t('recent')}>
-          {!collapsed && <p className="mx-2 mb-1 mt-3.5 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted"><Clock3 className="size-3" aria-hidden />{t('recent')}</p>}
-          <ul className="space-y-0.5">{recentItems.map(r => <li key={r.menuId}><NavItem menu={registry.menuById(r.menuId)} active={false} collapsed={collapsed} href={r.url} labelPrefix={t('recent')} /></li>)}</ul>
+        {!collapsed && <section aria-label={t('recent')}>
+          <p className="mx-2 mb-1 mt-3.5 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted"><Clock3 className="size-3" aria-hidden />{t('recent')}</p>
+          {recentItems.length > 0
+            ? <ul className="space-y-0.5">{recentItems.map(r => <li key={r.menuId}><NavItem menu={registry.menuById(r.menuId)} active={false} collapsed={collapsed} href={r.url} labelPrefix={t('recent')} /></li>)}</ul>
+            : <p className="px-3 py-1 text-xs leading-4 text-text-muted">{t('noRecent')}</p>}
         </section>}
       </div>
       {!collapsed && <div className="shrink-0 border-t border-border-subtle px-4 py-2.5 text-[10px] text-text-muted">{lang === 'ko' ? '통합 프로토타입 · 합성 데이터' : 'Integrated prototype · synthetic data'}</div>}
