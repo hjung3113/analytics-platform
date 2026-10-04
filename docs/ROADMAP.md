@@ -121,7 +121,8 @@ mock 어댑터 자리를 실어댑터로 바꾸는 트랙(2026-10-02 정리). Ke
 | 이슈 | 선행 |
 | --- | --- |
 | ~~디자인 방향 인터랙티브 프로토타입 → 컨펌 (#52)~~ 완료 — C안(ADR-0011) | — |
-| ~~`@fops/ui` 워크스페이스 편입 — 소비 조건·CI 서브모듈·경계 lint, 화면 변화 없음 (#192)~~ 완료 — `@ap/ui`만 `@fops/ui`를 import(경계 lint), 루트 검사·CI는 `@fops/*` 작업 제외(dry-run 가드), Vite 부작용 처리(FeedbackOps#747 전까지) | #52 |
+| ~~`@fops/ui` 워크스페이스 편입 — 소비 조건·CI 서브모듈·경계 lint, 화면 변화 없음 (#192)~~ 완료 — `@ap/ui`만 `@fops/ui`를 import(경계 lint), 루트 검사·CI는 `@fops/*` 작업 제외(dry-run 가드) | #52 |
+| ~~FeedbackOps 수정 반영 — 서브모듈 `073568d8`, `@types/react` overrides·Vite 부작용 우회 제거 (#199)~~ 완료 — FeedbackOps#746–#748(#751). #749·#750은 병합되면 다시 올린다 | #192 |
 | ~~토큰·테마를 FeedbackOps 계약 + 플랫폼 확장 층으로, 프리미티브는 `@fops/ui` 재수출 (#193)~~ 완료 — FeedbackOps ADR-0058 계약 + 플랫폼 확장 층(차트·카테고리 색, 역할 타이포, 문구용 label 토큰 — AA 대비, 사용자 OK), 폰트 Inter + Pretendard, shadcn·Button·cn은 `@fops/ui` 재수출 | #192 |
 | 셸을 FeedbackOps AppFrame 구조로 — 레일·밝은 사이드바·Scope 선택·50px 머리 (#194) | #193 |
 | [결정] DetailDrawer를 고정 상세 슬롯(440px)으로 바꿀지 (#195) | 사람 결정 |
