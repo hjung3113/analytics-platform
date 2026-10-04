@@ -1,12 +1,12 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { I18nProvider } from '@ap/kernel';
 import { DetailDrawer } from './DetailDrawer';
 import { SegmentedRadio } from './RadioGroup';
 
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(cleanup);
 
 function Radios() {
   const [value, setValue] = useState<'a' | 'b' | 'c'>('a');
@@ -67,15 +67,8 @@ function DrawerHost({ deepLink = false, removeTrigger = false }: { deepLink?: bo
 }
 
 describe('DetailDrawer docked slot', () => {
-  beforeEach(() => {
-    vi.stubGlobal('innerWidth', 1440);
-    vi.stubGlobal('matchMedia', (query: string) => ({
-      matches: window.innerWidth >= 1440, media: query,
-      addEventListener: () => {}, removeEventListener: () => {},
-    }));
-  });
-  it.each([1280, 1440])('moves focus in, keeps the page usable, and closes via Esc with focus return (%spx)', width => {
-    vi.stubGlobal('innerWidth', width);
+  // Viewport geometry is covered by the 1280/1440 E2E contract, not JSDOM.
+  it('moves focus in, keeps the page usable, and closes via Esc with focus return', () => {
     render(<DrawerHost />);
     const trigger = screen.getByRole('button', { name: 'open' });
     trigger.focus();
@@ -100,6 +93,34 @@ describe('DetailDrawer docked slot', () => {
     fireEvent.keyDown(inside, { key: 'Escape' });
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(trigger).toHaveFocus();
+  });
+
+  it('keeps the panel open when an inner control consumes Escape', () => {
+    const onClose = vi.fn();
+    render(<I18nProvider><DetailPanelSlotProvider>
+      <DetailDrawer title="Detail" onClose={onClose} tabs={[{
+        id: 'a', label: 'Attributes', content: <button onKeyDown={e => { if (e.key === 'Escape') e.preventDefault(); }}>inner control</button>,
+      }]} /><SlotHost />
+    </DetailPanelSlotProvider></I18nProvider>);
+    const inner = screen.getByRole('button', { name: 'inner control' });
+    inner.focus();
+    fireEvent.keyDown(inner, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Detail' })).toBeInTheDocument();
+    expect(inner).toHaveFocus();
+  });
+
+  it('uses readable inactive tab labels on sunken while preserving the selected-tab look', () => {
+    render(<I18nProvider><DetailPanelSlotProvider>
+      <DetailDrawer title="Detail" onClose={() => {}} tabs={[
+        { id: 'a', label: 'Attributes', content: 'attributes' }, { id: 'audit', label: 'Audit', content: 'audit' },
+      ]} /><SlotHost />
+    </DetailPanelSlotProvider></I18nProvider>);
+    const list = screen.getByRole('tablist');
+    expect(list).toHaveClass('bg-surface-sunken', 'text-text-secondary');
+    expect(list).not.toHaveClass('text-text-muted');
+    expect(screen.getByRole('tab', { name: 'Audit' })).toHaveAttribute('data-state', 'inactive');
+    expect(screen.getByRole('tab', { name: 'Attributes' })).toHaveClass('data-[state=active]:text-text-primary', 'data-[state=active]:bg-surface-card');
   });
 
   it('restores deep-link content and falls back to main when no opener exists', () => {

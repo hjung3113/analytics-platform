@@ -178,7 +178,8 @@ test.describe('셸 고정 상세 슬롯 (06 §13, ADR-0013)', () => {
       await dialog.getByRole('button', { name: '상세 닫기' }).click();
       await expect.poll(() => query(page).has('focus')).toBe(false);
       await expect(dialog).toHaveCount(0);
-      await expect(slot).toHaveCSS('width', '0px');
+      await expect(slot).toBeHidden();
+      await expect(page.getByRole('complementary', { name: '상세 패널' })).toHaveCount(0);
       await page.goBack();
       await expect.poll(() => query(page).get('focus')).toBe(focus);
       await expect(dialog).toBeVisible();

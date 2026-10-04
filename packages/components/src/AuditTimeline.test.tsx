@@ -52,3 +52,13 @@ describe('AuditTimeline (§6.3: at is a real instant)', () => {
     expect(screen.getByText('ET-B')).toBeInTheDocument();
   });
 });
+
+it('keeps change-field labels readable on tinted change blocks', () => {
+  render(<Timeline />);
+  for (const field of ['chamberType', 'validTo']) {
+    const label = screen.getByText(field);
+    expect(label.closest('dl')).toHaveClass('bg-surface-sunken');
+    expect(label).toHaveClass('text-text-secondary');
+    expect(label).not.toHaveClass('text-text-muted');
+  }
+});

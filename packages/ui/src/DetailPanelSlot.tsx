@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useLayoutEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { isProductionEnv } from './utils/isProductionEnv';
 
 interface DetailPanelSlot {
@@ -35,7 +35,8 @@ export function useDetailPanelSlot(): HTMLElement | null {
   const slot = useContext(DetailPanelSlotContext);
   const key = useId();
   const register = slot?.register;
-  useEffect(() => register?.(key), [register, key]);
+  // Register before paint so a deep link does not briefly show a full-width main without its detail.
+  useLayoutEffect(() => register?.(key), [register, key]);
   if (!slot) throw new Error('Detail panel requires DetailPanelSlotProvider (provided by AppShell).');
   return slot.activeKey === key ? slot.host : null;
 }

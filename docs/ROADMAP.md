@@ -125,7 +125,7 @@ mock 어댑터 자리를 실어댑터로 바꾸는 트랙(2026-10-02 정리). Ke
 | ~~FeedbackOps 수정 반영 — 서브모듈 `073568d8`, `@types/react` overrides·Vite 부작용 우회 제거 (#199)~~ 완료 — FeedbackOps#746–#748(#751). #749·#750은 병합되면 다시 올린다 | #192 |
 | ~~토큰·테마를 FeedbackOps 계약 + 플랫폼 확장 층으로, 프리미티브는 `@fops/ui` 재수출 (#193)~~ 완료 — FeedbackOps ADR-0058 계약 + 플랫폼 확장 층(차트·카테고리 색, 역할 타이포, 문구용 label 토큰 — AA 대비, 사용자 OK), 폰트 Inter + Pretendard, shadcn·Button·cn은 `@fops/ui` 재수출 | #192 |
 | ~~셸을 FeedbackOps AppFrame 구조로 — 레일·밝은 사이드바·Scope 선택·50px 머리 (#194)~~ 완료 — 상단 바 제거, 공간 전환은 레일 버튼(공간 ≥2), Scope는 사이드바 머리(동작·테스트 이전), 머리+Context 바 함께 sticky, 현재 위치 표시는 색+막대 | #193 |
-| [결정] DetailDrawer를 고정 상세 슬롯(440px)으로 바꿀지 (#195) | 사람 결정 |
+| ~~[결정] DetailDrawer를 고정 상세 슬롯(440px)으로 바꿀지 (#195)~~ 완료 — B(셸 고정 슬롯, ADR-0013, 2026-10-04 사용자) | — |
 | ~~DESIGN.md 개정 (#53)~~ 완료 — FeedbackOps 원본을 가리키고 플랫폼 확장 층·허용 전경/표면 조합·셸 시각 규칙·표 밀도만 소유(950→334줄), sunken 위 머리·팔레트 문구 정렬. 차트 선 대비는 사용자 결정 B(ADR-0012) → #203 | #193, #194 |
 | ~~셸 사이드바의 그룹 id 분기를 Registry 선언 플래그로 (#201)~~ 완료 — `GroupDef.hideLabelWhenSingle`(Candidate, 06 §5), 셸 id 리터럴 비교 lint | #194 |
 | 차트 얇은 선 전용 진한 stroke 별칭 — `?variant=` 프로토타입 컨펌 후 구현 (#203, ADR-0012) | #53 |
@@ -135,7 +135,7 @@ mock 어댑터 자리를 실어댑터로 바꾸는 트랙(2026-10-02 정리). Ke
 | ~~`@types/node` 부채 (#57)~~ 완료 | — |
 | ~~시각 회귀 검사 CI (#58)~~ 완료 — CSS selector 비교(`css-selectors` job), 픽셀 비교는 디자인 확정 뒤 | #39 |
 | ~~상세 패널을 셸 소유 오른쪽 고정 슬롯으로 (#205, ADR-0013 — #195 B안)~~ 완료 — `DetailDrawer` 계약 유지(focus·tab·딥링크), 오버레이 제거, 440px(360–520) aside, 마지막 등록 우선 | #195 |
-| 레이아웃 슬롯 컴포넌트 Management·Analysis (#156, #104 후속) | #194, #195, #53 |
+| 레이아웃 슬롯 컴포넌트 Management·Analysis (#156, #104 후속) | #194, #205(#195 B안 구현), #53 |
 
 ### M3 FeedbackOps 1단계
 

@@ -203,6 +203,20 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     expect(screen.queryByText(/조건에 맞는 결과가 없습니다|No matching result/)).toBeNull();
   });
 
+  it('keeps sunken-row metadata readable in permissions and site scope', async () => {
+    renderRoles('/admin/roles?focus=engineer');
+    const dialog = await screen.findByRole('dialog');
+    const secondary = (element: HTMLElement) => {
+      expect(element.closest('li')?.classList.contains('bg-surface-sunken')).toBe(true);
+      expect(element.classList.contains('text-text-secondary')).toBe(true);
+      expect(element.classList.contains('text-text-muted')).toBe(false);
+    };
+    secondary(within(dialog).getByText('fixture-master'));
+    secondary(within(dialog).getByText('/admin/fixture-master'));
+    fireEvent.mouseDown(within(dialog).getByRole('tab', { name: /사이트 범위|Site scope/ }));
+    secondary(within(dialog).getByText(/부여 없음|No rooms granted/));
+  });
+
   it('clears the drawer principal when the latest page result has no data', async () => {
     const empty: ApiResponse<AccessDirectoryPage> = { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'empty' };
     const f = renderRoles('/admin/roles', (_query, call) => call === 1 ? okResponse([ENGINEER]) : empty);

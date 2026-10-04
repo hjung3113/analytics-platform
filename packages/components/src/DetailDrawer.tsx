@@ -45,7 +45,7 @@ function DetailContent({ title, subtitle, headerActions, context, tabs, onClose,
     </header>
     {context && <div className="border-b border-border-subtle bg-surface-sunken px-5 py-2 text-[12px] text-text-secondary">{context}</div>}
     <Tabs value={tab} defaultValue={tab ? undefined : tabs[0].id} onValueChange={onTabChange} className="flex min-h-0 flex-1 flex-col">
-      <TabsList aria-label={lang === 'ko' ? '상세 탭' : 'Detail tabs'} className="mx-5 mt-3 w-fit bg-surface-sunken">
+      <TabsList aria-label={lang === 'ko' ? '상세 탭' : 'Detail tabs'} className="mx-5 mt-3 w-fit bg-surface-sunken text-text-secondary">
         {tabs.map(tb => <TabsTrigger key={tb.id} value={tb.id} className="text-[12px]">{tb.label}</TabsTrigger>)}
       </TabsList>
       {tabs.map(tb => <TabsContent key={tb.id} value={tb.id} className="min-h-0 flex-1 overflow-auto px-5 py-3">{tb.content}</TabsContent>)}

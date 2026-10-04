@@ -287,14 +287,18 @@ function DetailPage() {
       tabs={[{ id: 'a', label: 'Attributes', content: 'content' }, { id: 'audit', label: 'Audit', content: 'audit content' }]} />}</>;
 }
 
-it('owns a full-height named aside beside main, with a clamped theme width and zero width when empty', () => {
-  render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={registry}>
+it('owns a full-height named aside beside main, with a clamped theme width and hidden host when empty', () => {
+  const view = render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={registry}>
     <AppShell><DetailPage /></AppShell>
   </PlatformProvider></I18nProvider>);
-  const slot = screen.getByRole('complementary', { name: '상세 패널' });
+  const slot = view.container.querySelector<HTMLElement>('aside[aria-label="상세 패널"]')!;
+  expect(slot.hidden).toBe(true);
+  expect(screen.queryByRole('complementary', { name: '상세 패널' })).toBeNull();
   const main = screen.getByRole('main');
   expect(slot.style.width).toBe('0px');
   fireEvent.click(screen.getByRole('button', { name: 'open detail' }));
+  expect(slot.hidden).toBe(false);
+  expect(screen.getByRole('complementary', { name: '상세 패널' })).toBe(slot);
   expect(slot.style.width).toBe('clamp(360px, var(--detail-panel-width, 440px), 520px)');
   expect(slot.style.minWidth).toBe('360px');
   expect(slot.style.maxWidth).toBe('520px');
@@ -307,6 +311,8 @@ it('owns a full-height named aside beside main, with a clamped theme width and z
   expect(slot.style.width).toBe('0px');
   expect(slot.style.borderLeftWidth).toBe('0px');
   expect(slot.childElementCount).toBe(0);
+  expect(slot.hidden).toBe(true);
+  expect(screen.queryByRole('complementary', { name: '상세 패널' })).toBeNull();
 });
 
 it('opens the named slot and selected tab from URL focus/tab and clears focus on Esc', () => {
@@ -320,4 +326,7 @@ it('opens the named slot and selected tab from URL focus/tab and clears focus on
   expect(new URLSearchParams(window.location.search).has('focus')).toBe(false);
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(screen.getByRole('main')).toBe(document.activeElement);
+  for (const token of ['focus-visible:ring-2', 'focus-visible:ring-inset', 'focus-visible:ring-focus-ring']) {
+    expect(screen.getByRole('main').classList.contains(token)).toBe(true);
+  }
 });
