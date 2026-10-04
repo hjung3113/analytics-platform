@@ -4,7 +4,7 @@ import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { formatDateTime, formatMetricVersion, parseDateTime } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
-import { EChart, token } from './EChart';
+import { EChart, strokeToken, token } from './EChart';
 
 export type ChartSeries = {
   id: string;
@@ -112,16 +112,20 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         : { type: 'category', data: categories, axisLine: { lineStyle: { color: token('border-strong') } }, axisTick: { alignWithLabel: true } },
       yAxis: { type: 'value', min: 0, name: p.unit, nameTextStyle: { align: 'right' }, splitLine: { lineStyle: { color: token('chart-grid') } } },
       dataZoom: [{ type: 'inside', xAxisIndex: 0, start: zoom[0], end: zoom[1], zoomOnMouseWheel: 'shift', moveOnMouseMove: !brushMode }],
-      brush: { xAxisIndex: 0, brushType: 'lineX', brushMode: 'single', throttleType: 'debounce', throttleDelay: 120, brushStyle: { color: 'rgba(59,156,255,0.12)', borderColor: token('chart-blue') } },
+      brush: { xAxisIndex: 0, brushType: 'lineX', brushMode: 'single', throttleType: 'debounce', throttleDelay: 120, brushStyle: { color: 'rgba(59,156,255,0.12)', borderColor: token(strokeToken('chart-blue')) } },
       toolbox: { show: false, feature: { brush: { type: ['lineX', 'clear'] } } },
       series: [
-        ...visible.map(s => ({
-          id: s.id, name: s.name, type: s.kind ?? 'line', stack: p.stacked && s.kind === 'bar' ? 'total' : undefined,
-          showSymbol: false, symbolSize: 5, connectNulls: false, barMaxWidth: 18,
-          lineStyle: { width: 2, type: s.dashed ? 'dashed' : 'solid' }, itemStyle: { color: token(s.color) },
-          emphasis: { focus: 'series' },
-          data: s.points.map(([x, y]) => (xType === 'time' ? [toMs(x), y] : y)),
-        })),
+        ...visible.map(s => {
+          const kind = s.kind ?? 'line';
+          const color = token(kind === 'line' ? strokeToken(s.color) : s.color);
+          return {
+            id: s.id, name: s.name, type: kind, stack: p.stacked && kind === 'bar' ? 'total' : undefined,
+            showSymbol: false, symbolSize: 5, connectNulls: false, barMaxWidth: 18,
+            lineStyle: { ...(kind === 'line' ? { color } : {}), width: 2, type: s.dashed ? 'dashed' : 'solid' }, itemStyle: { color: token(s.color) },
+            emphasis: { focus: 'series' },
+            data: s.points.map(([x, y]) => (xType === 'time' ? [toMs(x), y] : y)),
+          };
+        }),
         {
           id: '__overlay', type: 'line', data: [], silent: true, symbol: 'none',
           markArea: { silent: true, data: areas },
@@ -222,11 +226,14 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     </header>
 
     <div role="group" aria-label={lang === 'ko' ? '범례' : 'Legend'} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 pt-2">
-      {allSeries.map(s => <label key={s.id} className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] text-text-secondary">
-        <input type="checkbox" className="size-3.5 accent-[rgb(var(--accent-primary))]" checked={!hidden.has(s.id)} onChange={() => setHidden(h => { const n = new Set(h); if (n.has(s.id)) n.delete(s.id); else n.add(s.id); return n; })} />
-        <span aria-hidden className={cn('inline-block h-0.5 w-4', s.dashed && 'border-t-2 border-dashed bg-transparent')} style={{ backgroundColor: s.dashed ? undefined : token(s.color), borderColor: token(s.color) }} />
-        {s.name}
-      </label>)}
+      {allSeries.map(s => {
+        const color = token((s.kind ?? 'line') === 'line' ? strokeToken(s.color) : s.color);
+        return <label key={s.id} className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] text-text-secondary">
+          <input type="checkbox" className="size-3.5 accent-[rgb(var(--accent-primary))]" checked={!hidden.has(s.id)} onChange={() => setHidden(h => { const n = new Set(h); if (n.has(s.id)) n.delete(s.id); else n.add(s.id); return n; })} />
+          <span aria-hidden className={cn('inline-block h-0.5 w-4', s.dashed && 'border-t-2 border-dashed bg-transparent')} style={{ backgroundColor: s.dashed ? undefined : color, borderColor: color }} />
+          {s.name}
+        </label>;
+      })}
       {brushMode && <span className="text-[11px] text-accent-primary">{lang === 'ko' ? '차트를 드래그해 구간을 선택하세요' : 'Drag across the chart to select a range'}</span>}
       {p.onPointClick && !brushMode && p.pointClickHint && <span className="text-[11px] text-text-muted">{p.pointClickHint}</span>}
     </div>
