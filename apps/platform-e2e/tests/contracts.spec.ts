@@ -118,14 +118,28 @@ test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
     await evidence(page, testInfo, 'context-after-detail-1280');
   });
 
-  test('1440px 생산성 개요에서는 1일 프리셋과 모든 조건이 인라인이다', async ({ page }, testInfo) => {
-    await page.setViewportSize({ width: 1440, height: 800 });
+  test('넓은 폭(1920px) 생산성 개요에서는 1일 프리셋과 모든 조건이 인라인이다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1920, height: 800 });
     await page.goto(PRODUCTIVITY);
     await expectScopeValid(page, 'ICH · Site A');
     await expect(contextBar(page).getByRole('radio', { name: '1일', exact: true })).toBeVisible();
     await expect(contextBar(page).getByRole('button', { name: /개 더/ })).toHaveCount(0);
     await expectContextBounds(page);
-    await evidence(page, testInfo, 'context-wide-1440');
+    await evidence(page, testInfo, 'context-wide-1920');
+  });
+
+  // 1440px(사이드바 펼침)은 전체 한 줄(약 1219px)이 가용 폭(1124px)보다 넓다. B안대로 프리셋이 먼저 기간 팝오버로 가고 조건은 넘치지 않는다.
+  test('1440px 생산성 개요는 프리셋만 기간 팝오버로 옮기고 모든 조건은 인라인이다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 800 });
+    await page.goto(PRODUCTIVITY);
+    await expectScopeValid(page, 'ICH · Site A');
+    await expect(contextBar(page).getByRole('button', { name: /개 더/ })).toHaveCount(0);
+    await expect(contextBar(page).getByRole('radio', { name: '1일', exact: true })).toHaveCount(0);
+    await contextBar(page).getByRole('button', { name: /^기간:/ }).click();
+    await expect(page.getByRole('radio', { name: '1일', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expectContextBounds(page);
+    await evidence(page, testInfo, 'context-1440-presets-in-popover');
   });
 
   for (const width of [1024, 1280]) {
