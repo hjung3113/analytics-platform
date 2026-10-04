@@ -12,6 +12,8 @@ const DEEP_SUBPATH_MESSAGE = `Import the package entry (${PACKAGE_PREFIX}name) o
 const LAYER_MESSAGE = 'Importing an internal workspace package outside this layer allowlist.';
 const MOCK_SERVER_MESSAGE = `${PACKAGE_PREFIX}mock-server is only legal in menu src/mock/**.`;
 const REACT_MESSAGE = 'react / react-dom are not allowed in this package.';
+const FEEDBACKOPS_MESSAGE = `Import FeedbackOps primitives through ${pkg('ui')} only (ADR-0011).`;
+const FEEDBACKOPS_UI_ENTRY = '@fops/ui';
 // #160: the table engine is components-internal; menus declare columns with the platform types.
 const TABLE_ENGINE_MESSAGE = `The table engine belongs to ${PACKAGE_PREFIX}components; menus use the platform column types (PlatformColumn).`;
 
@@ -65,11 +67,17 @@ const APP_CONFORMANCE_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true, dev
 // published-metrics.test.ts keeps the mock-server exemption but never the menu-subpath allowance.
 const APP_PUBLISHED_METRICS_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true };
 
-function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [] }) {
+function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [], allowFeedbackOpsUi = false }) {
   const negations = [
     ...(allow === null ? [] : allow.map((name) => `!${pkg(name)}`)),
     ...(mockAllowed ? [`!${pkg('mock-server')}`] : []),
   ];
+  const feedbackOpsPatterns = allowFeedbackOpsUi
+    ? [
+        { group: ['@fops/*', `!${FEEDBACKOPS_UI_ENTRY}`], message: FEEDBACKOPS_MESSAGE },
+        { group: ['@fops/*/*', '@fops/*/*/**'], message: FEEDBACKOPS_MESSAGE },
+      ]
+    : [{ group: ['@fops/*', '@fops/*/*', '@fops/*/*/**'], message: FEEDBACKOPS_MESSAGE }];
   return [
     'error',
     {
@@ -83,6 +91,7 @@ function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, al
         ...(denyTableEngine ? TABLE_ENGINE_PACKAGES.map((name) => ({ name, message: TABLE_ENGINE_MESSAGE })) : []),
       ],
       patterns: [
+        ...feedbackOpsPatterns,
         {
           group: [`${PACKAGE_PREFIX}*/*`, `${PACKAGE_PREFIX}*/*/**`, ...allowSubpaths.map((s) => `!${pkg(s)}`)],
           message: DEEP_SUBPATH_MESSAGE,
@@ -110,6 +119,8 @@ function importSourceOptions(restriction) {
     reactMessage: REACT_MESSAGE,
     tableEngineMessage: TABLE_ENGINE_MESSAGE,
     tableEnginePackages: TABLE_ENGINE_PACKAGES,
+    allowFeedbackOpsUi: restriction.allowFeedbackOpsUi === true,
+    feedbackOpsMessage: FEEDBACKOPS_MESSAGE,
   };
 }
 
@@ -221,7 +232,9 @@ export const contracts = [
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
-export const ui = [layerConfig({ restriction: { allow: [], denyReact: false, mockAllowed: false } })];
+export const ui = [
+  layerConfig({ restriction: { allow: [], denyReact: false, mockAllowed: false, allowFeedbackOpsUi: true } }),
+];
 
 /** @type {import('eslint').Linter.Config[]} */
 export const kernel = [

@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          submodules: false
+          submodules: true
           fetch-depth: 0
           # 합성 merge 커밋이 아니라 PR head 자체를 빌드한다(리뷰 P1-b).
           ref: ${{ github.event.pull_request.head.sha }}

@@ -10,7 +10,7 @@ UI Primitive 층(06 §13)과 디자인 시스템 CSS. 플랫폼 개념(Context, 
 
 ## 규칙
 
-- import 가능: 외부 라이브러리만. `@ap/*` import 금지.
+- import 가능: 외부 라이브러리와 FeedbackOps `@fops/ui` 공개 진입점만. FeedbackOps primitive를 다시 내보내는 유일한 플랫폼 패키지다(ADR-0011); `@fops/shared`와 `@ap/*`는 import하지 않는다.
 - 시각 기준의 원본은 루트 [DESIGN.md](../../DESIGN.md)다. 토큰을 추가·변경하기 전에 DESIGN을 먼저 고치거나 확인한다. 토큰 파일 밖에서 hex 값 금지.
 - 상태 색은 `StatusBadge`/`Tone`으로만 노출한다. 새 Tone은 DESIGN 변경이다.
 - 데이터 조회, 권한 판단, 라우팅, 도메인 문구를 넣지 않는다. 그런 조합은 `@ap/components`다.

@@ -2,7 +2,7 @@
 
 ## 현재 단계
 
-FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를 참고하고 플랫폼 설계를 구체화한다. 공통 계약과 책임 범위를 확정한 뒤 통합 구현을 시작한다. 플랫폼 프론트엔드는 루트 pnpm workspace다. 패키지 추출은 1–4d단계까지 끝났고 메뉴 패키지·lint는 남았다([패키지 경계](platform-packages.md) §7). FeedbackOps는 이 workspace에 포함하지 않으며, 서버·DB·배포 통합 여부는 아직 확정하지 않았다.
+FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를 참고하고 플랫폼 설계를 구체화한다. 공통 계약과 책임 범위를 확정한 뒤 통합 구현을 시작한다. 플랫폼 프론트엔드는 루트 pnpm workspace다. 패키지 추출은 완료됐다([패키지 경계](platform-packages.md) §7). `products/feedbackops/packages/ui`와 `packages/shared`만 플랫폼 workspace에 포함하며, 앱·백엔드 등 나머지 FeedbackOps workspace와 서버·DB·배포 통합 여부는 아직 확정하지 않았다.
 
 기존 플랫폼 문서는 링크와 소유권을 보존하기 위해 `docs/`에 유지한다. `docs/platform/` 이동이나 공통 코드 추출은 이번 연결에 포함하지 않는다.
 
@@ -14,7 +14,7 @@ FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를
 | `docs/integration/` | 저장소 연결 및 향후 통합 결정. 기존 제품 계약을 암묵적으로 덮어쓰지 않음 |
 | `DESIGN.md`, `PLATFORM_REQUIREMENTS.md` | 기존 플랫폼 디자인 및 요구사항 자료 |
 | `.agents/` | 플랫폼 에이전트 스킬·참고자료·보고서 |
-| `package.json`, `pnpm-workspace.yaml`, `turbo.json` | 플랫폼 pnpm workspace 루트(`apps/*`, `packages/*`, `menus/*`, `tooling/*`) |
+| `package.json`, `pnpm-workspace.yaml`, `turbo.json` | 플랫폼 pnpm workspace 루트(`apps/*`, `packages/*`, `menus/*`, `tooling/*`)와 FeedbackOps `packages/ui`, `packages/shared` |
 | `apps/platform-web/` | 플랫폼 앱(조립 지점): 메뉴 선언·화면, mock 서버, dev 도구. 통합 프로토타입 `prototypes/platform-app`을 옮긴 것 |
 | `packages/` | 플랫폼 패키지 `contracts`·`ui`·`kernel`·`components`·`shell`(`@ap/*`). 경계는 [패키지 경계](platform-packages.md) |
 | `tooling/` | 공유 tsconfig 등 개발 도구 설정 |
@@ -62,14 +62,14 @@ git -C products/feedbackops log --oneline HEAD..origin/develop
 git -C products/feedbackops diff --stat HEAD origin/develop
 ```
 
-반영할 커밋을 정한 뒤 해당 커밋으로 detached checkout하고, 부모 저장소에서 `git diff --submodule=log`로 변경을 검토한다. `git add products/feedbackops`는 부모 저장소의 참조 커밋만 스테이징한다. 커밋·푸시는 별도 작업 권한에 따른다. 단순 부모 저장소 `git pull`만으로 서브모듈 작업 트리 갱신까지 완료됐다고 가정하지 않는다.
+반영할 커밋을 정한 뒤 해당 커밋으로 detached checkout하고, 부모 저장소에서 `git diff --submodule=log`로 변경을 검토한다. gitlink를 갱신하면 플랫폼 `pnpm-lock.yaml`도 같은 PR에서 다시 생성해야 한다. workspace package 내용이 바뀌므로 lockfile이 함께 바뀌지 않으면 CI의 `pnpm install --frozen-lockfile`이 실패한다. `git add products/feedbackops`는 부모 저장소의 참조 커밋만 스테이징한다. 커밋·푸시는 별도 작업 권한에 따른다. 단순 부모 저장소 `git pull`만으로 서브모듈 작업 트리 갱신까지 완료됐다고 가정하지 않는다.
 
 ## 개발 및 에이전트 진입점
 
 - 플랫폼 설계: 저장소 루트에서 시작하고 `AGENTS.md` → `docs/INDEX.md`를 읽는다.
 - FeedbackOps 탐색: `products/feedbackops/`에서 시작하고 그 안의 `AGENTS.md` → `README.md`를 읽는다.
 - FeedbackOps 기능 개발: 기존 원본 체크아웃을 기본으로 사용한다. 참조용 서브모듈의 detached HEAD에서 바로 커밋하지 않는다.
-- 개발 서버·패키지 설치·테스트는 FeedbackOps 디렉터리와 자체 workspace 설정을 기준으로 실행한다. 플랫폼 앱은 루트에서 `pnpm install` 후 `pnpm dev`/`pnpm test`로 실행하며 FeedbackOps를 포함하지 않는다.
+- 개발 서버·패키지 설치·테스트는 FeedbackOps 앱·백엔드에서는 자체 workspace 설정을 기준으로 실행한다. 플랫폼 앱은 루트에서 `pnpm install` 후 `pnpm dev`/`pnpm test`로 실행하며, FeedbackOps `packages/ui`와 `packages/shared`만 공유한다.
 - DB 통합 테스트는 초기화·재시드 동작이 있으므로 기존 데이터를 가진 DB에 실행하지 않는다.
 
 ## FeedbackOps 통합 방식 (Decided, 2026-09-26)

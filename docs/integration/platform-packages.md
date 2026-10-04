@@ -41,7 +41,7 @@ D1–D8은 화면·런타임 코드, D9는 같은 폴더 안이라 폴더 구조
 | 패키지 | 06 갈래 | 내용(현재 파일 기준) | React | 의존 가능 |
 | --- | --- | --- | --- | --- |
 | `@ap/contracts` | Kernel 계약 | 순수 URL codec(`kernel/url.ts`에서 `safeReturnTo` 제외, D9), manifest **메타데이터** 타입(`MenuMeta`: `MenuEntry`에서 `icon`·`component`를 뺀 선언부, `ContextKey`, `Capability`, `PageType`, `Permission`), 응답·Trust envelope(`ApiResponse`, `Trust`, `Assessment`, `Outcome`), `AuditEvent`, `Text`(i18n 문자열 쌍), `PlatformAdapter` 포트와 그 입출력 타입(§4), 메뉴 조회 선언 `EndpointSpec`·`defineEndpoint`·`projectContext`·`MenuQuery`(§5), 서버 페이징 모양 `PageQuery`·`PageResult`·`sortAndPage`, wall-clock 기간 계산 `periodHours`·`bucketStart` | 없음(타입 포함) | 없음 |
-| `@ap/ui` | 공통 컴포넌트(UI Primitive) | `styles/tokens.css`, `ui/components/shadcn/*`, `Button`, `cn`, `StatusBadge`(`Tone`) | 있음 | 외부 라이브러리만 |
+| `@ap/ui` | 공통 컴포넌트(UI Primitive) | `styles/tokens.css`, `ui/components/shadcn/*`, `Button`, `cn`, `StatusBadge`(`Tone`) | 있음 | 외부 라이브러리, `@fops/ui`(FeedbackOps 외부 원본; 직접 소비는 여기만) |
 | `@ap/kernel` | Kernel 기능 | `PlatformProvider`/`usePlatform`/`PlatformLink`, `usePlatformQuery`, 메뉴 조회 `useMenuQuery`(렌더 시점)·`useMenuFetch`(표 `loadPage`·내보내기 같은 호출형), i18n Provider, Registry 런타임(`createRegistry`, `matchRoute`, `pathFor`, `safeReturnTo`), React binding 타입 `MenuEntry = MenuMeta & { icon: LucideIcon; component?: LazyExoticComponent<…> }`, 어댑터 주입(`PlatformProvider adapter={…}`)과 세션 revision, 슬롯 등록 | 있음 | `contracts` |
 | `@ap/components` | 공통 컴포넌트(Platform Component) + 차트 계약 + 레이아웃 | `PlatformPage`, `PlatformDataTable`, `DetailDrawer`, `AuditTimeline`, `DataTrustIndicator`, `StateView`, `StatCard`, `RadioGroup`, `AnalysisChartFrame`, `EChart` | 있음 | `contracts`, `kernel`, `ui` |
 | `@ap/shell` | Kernel 기능(App Shell) | `AppShell`, `Sidebar`, `TopBar`, `CommandPalette`, `GlobalContextBar`, 계약 오류/미구현 화면(`App.tsx`의 fallback) | 있음 | `contracts`, `kernel`, `components`, `ui` |
@@ -53,6 +53,8 @@ D1–D8은 화면·런타임 코드, D9는 같은 폴더 안이라 폴더 구조
 | `tooling/*` | 개발 환경 | 공유 tsconfig, lint 설정(경계·계약 규칙), 메뉴 생성기 | — | — |
 
 ### 의존 방향
+
+`@fops/ui`는 FeedbackOps에서 제공하는 외부 원본이며 `@ap/ui` 아래에 놓인다. primitive를 직접 import할 수 있는 곳은 `@ap/ui`뿐이다. 다른 플랫폼 패키지와 앱은 `@ap/ui`의 공개 export를 사용한다(ADR-0011).
 
 ```text
                  contracts
@@ -79,6 +81,7 @@ D1–D8은 화면·런타임 코드, D9는 같은 폴더 안이라 폴더 구조
 4. 각 패키지는 `package.json` `exports`로 공개 진입점만 연다. `@ap/components/src/...` 같은 깊은 경로 import 금지.
 5. `contracts`는 React·브라우저 API에 타입 수준으로도 의존하지 않는다(향후 백엔드와 공유할 수 있게). 아이콘·화면 컴포넌트처럼 React 타입이 필요한 manifest 필드는 `kernel`의 `MenuEntry`가 소유한다.
 6. 규칙 1–3은 테스트 파일에도 적용한다. 층을 넘는 검증은 그 위층(메뉴 또는 앱)의 통합 테스트로 둔다(D10).
+7. `@fops/*` 직접 import는 `@ap/ui`에서 공개 진입점 `@fops/ui`를 소비하는 경우만 허용한다. primitive는 나머지 모든 플랫폼 코드에서 `@ap/ui`를 통해 쓴다(ADR-0011).
 
 ## 4. Kernel 포트: `PlatformAdapter` (D2·D5 해소)
 
@@ -174,13 +177,13 @@ const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: [...hom
 ## 7. 폴더 배치와 이행 순서
 
 ```text
-/                        # 루트 package.json, pnpm-workspace.yaml (products/** 제외)
+/                        # 루트 package.json, pnpm-workspace.yaml (FeedbackOps packages/ui, packages/shared만 포함)
   apps/platform-web/
   packages/{contracts,ui,kernel,components,shell,mock-server}/
   menus/{home,equipment,master-data,analytics,metrics,notice-voc,admin}/
   tooling/{tsconfig,eslint,gen-menu}/
   prototypes/            # 기존 단위 프로토타입은 그대로 둠
-  products/feedbackops/  # 자체 workspace, 포함 안 함
+  products/feedbackops/  # 앱·백엔드 등 나머지는 자체 workspace
 ```
 
 각 단계는 별도 커밋(또는 PR)이며 매 단계 테스트 51개와 브라우저 동작이 그대로여야 한다.
