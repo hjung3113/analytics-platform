@@ -1007,38 +1007,13 @@ FeedbackOps로 나가는 외부 hop은 `linkTo`가 아니라 [FeedbackOps 딥링
 
 ## 23. Design Tokens
 
-**한/영 지원 범위(Decided, 2026-09-24):** UI 문구와 정적 본문만 번역한다. VOC·공지의 사용자 입력 본문, EquipmentName·분임조 이름 등 마스터 값과 식별자는 번역하지 않는다. 언어 설정 저장은 사용자 계정 선호값으로 보존하는 Candidate를 두며 저장소/API는 구현 시 확정한다. 언어 변경이 Context 값이나 URL 식별자를 바꾸지 않는다. CJK 폰트·렌더 기준은 [DESIGN](../DESIGN.md)을 따른다.
+**한/영 지원 범위(Decided, 2026-09-24):** UI 문구와 정적 본문만 번역한다. VOC·공지의 사용자 입력 본문, EquipmentName·분임조 이름 등 마스터 값과 식별자는 번역하지 않는다. 언어 설정 저장은 사용자 계정 선호값으로 보존하는 Candidate를 두며 저장소/API는 구현 시 확정한다. 언어 변경이 Context 값이나 URL 식별자를 바꾸지 않는다. CJK 폰트는 FeedbackOps ADR-0058의 Inter + Pretendard Variable 소비 계약을 따른다.
 
-### Radius
+### Token value source (Decided — ADR-0011)
 
-```text
-sm   4px
-md   6px
-lg   8px
-```
+공유 색·반경·간격·폰트·본문 값은 FeedbackOps [tokens.css](../products/feedbackops/packages/ui/src/styles/tokens.css)와 [theme.css](../products/feedbackops/packages/ui/src/styles/theme.css)가 소유한다. 소비 순서·본문·레이어 없는 webfont 규칙은 [ADR-0058](../products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md) §2를 따른다. 플랫폼이 별도 값 스케일을 복제하지 않는다([ADR-0011](adr/0011-design-direction-feedbackops-shell.md)).
 
-과도한 roundness를 사용하지 않는다.
-
-### Spacing
-
-4px 기반:
-
-```text
-4  8  12  16  20  24  32  40  48
-```
-
-### Typography
-
-```text
-Page Title       24 / 32 / 600
-Section Title    18 / 28 / 600
-Component Title  14 / 20 / 600
-Body             14 / 20 / 400
-Secondary        13 / 18 / 400
-Caption          12 / 16 / 400
-Primary KPI      30~36 / 600
-Secondary KPI    20~24 / 600
-```
+FeedbackOps에 없는 플랫폼 전용 theme 키·차트/카테고리/아이콘 색·`t-*` 역할 클래스·반응형/detail-panel 확장은 `packages/ui/src/styles/`가 소유한다. 어두운 `nav-*`는 셸 이행(#194)까지 유지한다. DESIGN.md 본문 갱신은 #53에서 한다.
 
 ### Semantic Colors
 

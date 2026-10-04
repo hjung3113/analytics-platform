@@ -82,13 +82,10 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ui
       '@fontsource-variable/inter':
-        specifier: ^5.3.0
+        specifier: 5.3.0
         version: 5.3.0
       '@fontsource-variable/jetbrains-mono':
         specifier: 5.3.0
-        version: 5.3.0
-      '@fontsource/noto-sans-kr':
-        specifier: ^5.3.0
         version: 5.3.0
       lucide-react:
         specifier: ^1.48.0
@@ -1517,9 +1514,6 @@ packages:
 
   '@fontsource-variable/jetbrains-mono@5.3.0':
     resolution: {integrity: sha512-F32xpS2NsGYoQi2ADSkKTgpJj7ozajsGgDJ8woTnqjmIB+dxDIqImjl4pXZVEExu8UFZ2ndhmX18EBS/hdz3Lw==}
-
-  '@fontsource/noto-sans-kr@5.3.0':
-    resolution: {integrity: sha512-/JnpTjaCOXW7xUoqOyCVYSr05VOkDy5Yla9O+WAEiS7u+yYLsmHoqj6v1W0bf91G8G3XA2+NnRS3CX2Tf/FVZg==}
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -4249,8 +4243,6 @@ snapshots:
   '@fontsource-variable/inter@5.3.0': {}
 
   '@fontsource-variable/jetbrains-mono@5.3.0': {}
-
-  '@fontsource/noto-sans-kr@5.3.0': {}
 
   '@humanfs/core@0.19.2':
     dependencies:

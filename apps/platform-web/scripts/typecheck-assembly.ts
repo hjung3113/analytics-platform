@@ -37,7 +37,9 @@ export function checkTsconfig(appRoot = APP_ROOT): string {
     extends: join(appRoot, 'tsconfig.json'),
     include: [],
     files: ['check.ts', join(appRoot, 'src/platform-assembly.d.ts')],
-    compilerOptions: { noEmit: true, types: [] },
+    // @fops/ui Button uses NODE_ENV; declarations are needed even in this browser assembly graph.
+    // The temporary project lives outside the workspace, so resolve types from the app explicitly.
+    compilerOptions: { noEmit: true, types: ['node'], typeRoots: [join(appRoot, 'node_modules/@types')] },
   }, null, 2)}\n`;
 }
 
