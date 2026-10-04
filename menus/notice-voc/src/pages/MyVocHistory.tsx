@@ -70,7 +70,7 @@ export default function MyVocHistory() {
   >
     {!cursorOk
       ? <p role="alert">{ko ? '커서 값이 잘못되었습니다.' : 'Invalid cursor value.'}</p>
-      : <QueryView query={vocQ} emptyAction={createControl}>{(data, response) => {
+      : <QueryView widgetName={ko ? '내 VOC' : 'Your VOCs'} query={vocQ} emptyAction={createControl}>{(data, response) => {
         // The adapter already returned one window: the table only wraps it (no sortAndPage, no urlState).
         const items = data.items;
         const next = data.nextCursor;
@@ -98,7 +98,7 @@ export default function MyVocHistory() {
     </div>}
 
     <Panel title={ko ? '설문 응답' : 'Survey responses'} className="mt-4">
-      <QueryView query={surveyQ}>{(_, response) => {
+      <QueryView widgetName={ko ? '설문 응답' : 'Survey responses'} hideWidgetName query={surveyQ}>{(_, response) => {
         // Branch on the assessment, never items.length: items are empty because the source is unknown,
         // not because the actor has no responses (issue #60 §2). No table, no submit control.
         const unknown = response.assessments.some(a => a.kind === 'respondent_history' && a.state === 'unknown');

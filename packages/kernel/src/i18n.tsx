@@ -64,6 +64,12 @@ const dict = {
   loading: { ko: '불러오는 중…', en: 'Loading…' },
   refreshing: { ko: '같은 조건으로 갱신 중', en: 'Refreshing same context' },
   correlationId: { ko: 'Correlation ID', en: 'Correlation ID' },
+  sharedOutcomeRegion: { ko: '위젯 상태 요약', en: 'Widget state summary' },
+  sharedOutcomeSummary: { ko: '위젯 {count}개에서 같은 응답({outcome})이 확인되었습니다.', en: '{count} widgets report the same response ({outcome}).' },
+  sharedOutcomeError: { ko: '서버 오류', en: 'server error' },
+  sharedOutcomeTimeout: { ko: '시간 초과', en: 'timeout' },
+  sharedOutcomeEmpty: { ko: '0건', en: 'zero rows' },
+  stateTimeoutBody: { ko: '기간을 줄이거나 집계 단위를 키워 다시 시도하세요.', en: 'Shorten the period or coarsen the granularity and retry.' },
   stateEmpty: { ko: '조건에 맞는 결과가 없습니다', en: 'No matching result' },
   stateEmptyBody: { ko: '조회는 성공했고 결과가 0건입니다. 수집 중단·지연을 뜻하지 않습니다.', en: 'The query succeeded with zero rows. This does not imply a collection stop or delay.' },
   stateForbidden: { ko: '이 Scope에 접근 권한이 없습니다', en: 'You do not have access to this scope' },
@@ -109,7 +115,7 @@ const dict = {
 } satisfies Record<string, Text>;
 
 export type Key = keyof typeof dict;
-type I18n = { lang: Lang; setLang: (lang: Lang) => void; t: (key: Key) => string; tx: (text: Text) => string };
+type I18n = { lang: Lang; setLang: (lang: Lang) => void; t: (key: Key, params?: Record<string, string | number>) => string; tx: (text: Text) => string };
 const I18nContext = createContext<I18n | null>(null);
 const STORAGE = 'platform:lang';
 
@@ -124,7 +130,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = next;
     try { localStorage.setItem(STORAGE, next); } catch { /* preference stays in memory */ }
   }, []);
-  const value = useMemo<I18n>(() => ({ lang, setLang, t: key => dict[key][lang], tx: text => text[lang] }), [lang, setLang]);
+  const value = useMemo<I18n>(() => ({ lang, setLang, t: (key, params) => dict[key][lang].replace(/\{(\w+)\}/g, (token, name: string) => params?.[name] === undefined ? token : String(params[name])), tx: text => text[lang] }), [lang, setLang]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 

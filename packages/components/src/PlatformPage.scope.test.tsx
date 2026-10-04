@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { PlatformAdapter, ScopeCheck, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { PlatformPage } from './PlatformPage';
+import { QueryView } from './StateView';
 
 const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const registry = createRegistry({
@@ -179,4 +180,28 @@ describe('page header width (#194 FIX2)', () => {
     expect(parent).toHaveAttribute('title', '홈');
   });
 
+});
+
+
+describe('PlatformPage shared outcome placement (#55)', () => {
+  it('provides the scope automatically and places one banner before the page body', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    const adapter = adapterWith(async () => ({ status: 'valid', grantedRooms: [] }));
+    const response = { ...forbidden, outcome: 'error' as const, message: 'Same response' };
+    const query = { response, status: 'done' as const, refetch: () => {} };
+    const view = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+      <PlatformPage><section data-testid="consumer-body">
+        <QueryView query={query} widgetName="First">{() => null}</QueryView>
+        <QueryView query={query} widgetName="Second">{() => null}</QueryView>
+      </section></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    expect(await screen.findByRole('group', { name: '위젯 상태 요약' })).toHaveTextContent('위젯 2개');
+    const content = view.container.querySelector('[data-platform-page-content]')!;
+    expect(content.querySelector('[data-outcome-banner]')?.nextElementSibling).toHaveAttribute('data-testid', 'consumer-body');
+    expect(content).toHaveAttribute('tabindex', '-1');
+    // No extra landmark around page content: chart/section regions stay the only regions inside <main>.
+    expect(content).not.toHaveAttribute('role');
+    expect(screen.queryByRole('region')).toBeNull();
+    expect(content.lastElementChild).toHaveAttribute('data-testid', 'consumer-body');
+  });
 });

@@ -1,8 +1,11 @@
+import { useSharedOutcome } from './OutcomeScope';
 import { AlertTriangle, Ban, Clock, HelpCircle, Inbox, Loader2, Maximize2, RotateCw, ServerCrash } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { type QueryState, useI18n } from '@ap/kernel';
 import type { ApiResponse } from '@ap/contracts';
 import { Button, cn, Skeleton } from '@ap/ui';
+
+type WidgetStateProps = { grouped?: boolean; widgetName?: string; hideWidgetName?: boolean };
 
 type StateProps = { icon: ReactNode; title: string; body?: ReactNode; action?: ReactNode; tone?: 'neutral' | 'danger' | 'warning'; correlationId?: string; compact?: boolean };
 
@@ -20,6 +23,24 @@ export function StateMessage({ icon, title, body, action, tone = 'neutral', corr
   </div>;
 }
 
+function GroupedStateMessage({ icon, title, body, action, tone = 'neutral', correlationId, widgetName, hideWidgetName }: StateProps & WidgetStateProps) {
+  const { t } = useI18n();
+  const nameId = useId();
+  return <div data-widget-state role="group" aria-labelledby={widgetName && !hideWidgetName ? nameId : undefined} aria-label={hideWidgetName ? widgetName : undefined} className="min-w-0 rounded-md bg-surface-sunken p-3 text-text-secondary">
+    {widgetName && !hideWidgetName && <p id={nameId} className="mb-1.5 text-[13px] font-semibold">{widgetName}</p>}
+    <div className={cn('flex items-center gap-2 text-[12px] font-semibold', tone === 'danger' && 'text-text-danger-label', tone === 'warning' && 'text-text-warning-label')}><span className="shrink-0">{icon}</span>{title}</div>
+    {body && <div className="mt-1.5 break-words text-[12px] leading-4">{body}</div>}
+    {(action || correlationId) && <div className="mt-2 flex flex-wrap items-center gap-3">
+      {action}
+      {correlationId && <span className="t-mono break-all text-[11px]">{t('correlationId')}: {correlationId}</span>}
+    </div>}
+  </div>;
+}
+
+function OutcomeStateMessage({ grouped, widgetName, hideWidgetName, ...props }: StateProps & WidgetStateProps) {
+  return grouped ? <GroupedStateMessage {...props} widgetName={widgetName} hideWidgetName={hideWidgetName} /> : <StateMessage {...props} />;
+}
+
 export function LoadingBlock({ rows = 3, height = 96 }: { rows?: number; height?: number }) {
   const { t } = useI18n();
   return <div role="status" aria-busy className="space-y-2" style={{ minHeight: height }}>
@@ -29,43 +50,52 @@ export function LoadingBlock({ rows = 3, height = 96 }: { rows?: number; height?
 }
 
 /** Maps the exclusive outcome to the §19 taxonomy. Only `ok` renders children. */
-export function OutcomeView<T>({ response, onRetry, emptyAction, compact, children }: {
-  response: ApiResponse<T>; onRetry: () => void; emptyAction?: ReactNode; compact?: boolean; children: (data: T) => ReactNode;
+function OutcomeContent<T>({ response, onRetry, emptyAction, compact, grouped, widgetName, hideWidgetName, children }: {
+  response: ApiResponse<T>; onRetry: () => void; emptyAction?: ReactNode; compact?: boolean; children: (data: T) => ReactNode; grouped?: boolean; widgetName?: string; hideWidgetName?: boolean;
 }) {
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
   const icon = 'size-4';
+  const widget = { grouped, widgetName, hideWidgetName };
   switch (response.outcome) {
     case 'ok': return <>{children(response.data as T)}</>;
     case 'empty': {
       const explained = response.assessments.filter(a => a.explainsEmpty && a.state === 'confirmed');
-      return <StateMessage compact={compact} icon={<Inbox className={icon} aria-hidden />} title={t('stateEmpty')}
-        body={explained.length ? explained.map(a => a.detail).join(' · ') : t('stateEmptyBody')} action={emptyAction} />;
+      return <OutcomeStateMessage {...widget} compact={compact} icon={<Inbox className={icon} aria-hidden />} title={t('stateEmpty')}
+        body={<>{grouped && response.message && <span className="mb-1 block">{response.message}</span>}{explained.length ? explained.map(a => a.detail).join(' · ') : t('stateEmptyBody')}</>} action={grouped ? <><Button size="sm" variant="secondary" onClick={onRetry}><RotateCw aria-hidden className="size-3.5" />{t('retry')}</Button>{emptyAction}</> : emptyAction} correlationId={grouped ? response.correlationId : undefined} />;
     }
-    case 'forbidden': return <StateMessage compact={compact} tone="warning" icon={<Ban className={icon} aria-hidden />} title={t('stateForbidden')}
+    case 'forbidden': return <OutcomeStateMessage {...widget} compact={compact} tone="warning" icon={<Ban className={icon} aria-hidden />} title={t('stateForbidden')}
       body={<>{t('stateForbiddenBody')}{response.message && <span className="t-mono mt-1 block">{response.message}</span>}</>} correlationId={response.correlationId} />;
-    case 'too_large': return <StateMessage compact={compact} tone="warning" icon={<Maximize2 className={icon} aria-hidden />} title={t('stateTooLarge')}
+    case 'too_large': return <OutcomeStateMessage {...widget} compact={compact} tone="warning" icon={<Maximize2 className={icon} aria-hidden />} title={t('stateTooLarge')}
       body={<>{t('stateTooLargeBody')}{response.message && <span className="t-mono mt-1 block">{response.message}</span>}</>} correlationId={response.correlationId} />;
-    case 'timeout': return <StateMessage compact={compact} tone="danger" icon={<Clock className={icon} aria-hidden />} title={t('stateTimeout')}
-      body={lang === 'ko' ? '기간을 줄이거나 집계 단위를 키워 다시 시도하세요.' : 'Shorten the period or coarsen the granularity and retry.'}
+    case 'timeout': return <OutcomeStateMessage {...widget} compact={compact} tone="danger" icon={<Clock className={icon} aria-hidden />} title={t('stateTimeout')}
+      body={<>{grouped && response.message && <span className="mb-1 block">{response.message}</span>}{t('stateTimeoutBody')}</>}
       action={<Button size="sm" variant="secondary" onClick={onRetry}><RotateCw className="size-3.5" />{t('retry')}</Button>} correlationId={response.correlationId} />;
-    case 'error': return <StateMessage compact={compact} tone="danger" icon={<ServerCrash className={icon} aria-hidden />} title={t('stateError')}
+    case 'error': return <OutcomeStateMessage {...widget} compact={compact} tone="danger" icon={<ServerCrash className={icon} aria-hidden />} title={t('stateError')}
       body={response.message} action={<Button size="sm" variant="secondary" onClick={onRetry}><RotateCw className="size-3.5" />{t('retry')}</Button>} correlationId={response.correlationId} />;
-    default: return <StateMessage compact={compact} icon={<HelpCircle className={icon} aria-hidden />} title={t('stateUnknown')} body={t('stateUnknownBody')} />;
+    default: return <OutcomeStateMessage {...widget} compact={compact} icon={<HelpCircle className={icon} aria-hidden />} title={t('stateUnknown')} body={t('stateUnknownBody')} />;
   }
 }
 
+/** Standalone outcome API; grouping is owned exclusively by QueryView's scope. */
+export function OutcomeView<T>({ response, onRetry, emptyAction, compact, children }: {
+  response: ApiResponse<T>; onRetry: () => void; emptyAction?: ReactNode; compact?: boolean; children: (data: T) => ReactNode;
+}) {
+  return <OutcomeContent response={response} onRetry={onRetry} emptyAction={emptyAction} compact={compact}>{children}</OutcomeContent>;
+}
+
 /** Query boundary: first load → skeleton; same-Context refresh → keep data + label; otherwise outcome taxonomy. */
-export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, emptyAction, compact }: {
-  query: QueryState<T>; children: (data: T, response: ApiResponse<T>) => ReactNode; skeletonRows?: number; skeletonHeight?: number; emptyAction?: ReactNode; compact?: boolean;
+export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, emptyAction, compact, widgetName, hideWidgetName }: {
+  query: QueryState<T>; children: (data: T, response: ApiResponse<T>) => ReactNode; skeletonRows?: number; skeletonHeight?: number; emptyAction?: ReactNode; compact?: boolean; widgetName?: string; hideWidgetName?: boolean;
 }) {
   const { t } = useI18n();
+  const grouped = useSharedOutcome(query.response, query.refetch, widgetName, query.status);
   if (!query.response) return <LoadingBlock rows={skeletonRows} height={skeletonHeight} />;
   const response = query.response;
   return <div aria-busy={query.status === 'refreshing'} className="relative">
-    {query.status === 'refreshing' && <span role="status" className="absolute right-0 -top-7 inline-flex items-center gap-1 text-[11px] text-text-muted">
+    {query.status === 'refreshing' && !grouped && <span role="status" className="absolute right-0 -top-7 inline-flex items-center gap-1 text-[11px] text-text-muted">
       <Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}
     </span>}
-    <OutcomeView response={response} onRetry={query.refetch} emptyAction={emptyAction} compact={compact}>{data => children(data, response)}</OutcomeView>
+    <OutcomeContent grouped={grouped} widgetName={widgetName} hideWidgetName={hideWidgetName} response={response} onRetry={query.refetch} emptyAction={emptyAction} compact={compact}>{data => children(data, response)}</OutcomeContent>
   </div>;
 }
 

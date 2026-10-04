@@ -276,6 +276,12 @@ Empty/error는 원인 설명·허용된 다음 행동·Retry·correlation ID를 
 
 `live-dot`은 기본 static이다. pulse는 **Candidate**로 실제 live freshness source가 확인될 때만 허용하며 label/layout을 움직이지 않는다. reduced-motion에서는 animation을 끄고 freshness가 사라지면 Updated/Data through/Unknown으로 전환한다. Live는 completeness의 증거가 아니다. optional breadcrumb는 nested page의 ancestor link와 current page를 구별하고 Context를 보존한다.
 
+### Shared outcome banner and compact widget state — Decided (B, 2026-10-04)
+
+[06 §19](docs/06_platform_ui_contract.md#19-loading--empty--error-taxonomy)의 공유 응답 계약을 B안으로 표시한다([ADR-0017](docs/adr/0017-shared-outcome-banner.md)). 본문 상단 배너는 Callout 구조(아이콘·상태 제목·관측한 동일 응답 요약·그룹 재시도)이며 error/timeout은 danger-soft + danger-label border/title, empty는 sunken + control border + secondary다. 대표 Correlation ID나 추론한 수집 원인을 배너에 두지 않는다. 배너는 non-live group이며 처음부터 마운트된 scope의 assertive/polite 채널이 요약·갱신을 안내한다. 갱신 중 재시도는 같은 폭·포커스를 유지하고 spinner·busy를 표시하며 중복 활성화를 막는다. 배너 제거 때 내부 포커스는 이름 있는 본문/상세 영역으로 이동한다.
+
+그룹 위젯은 중립 sunken 표면, 의미 아이콘·제목만 label token으로 표시한다. 이름·본문·timeout 조언·동작·ID를 직접 읽을 수 있게 배치한다. 작은 필수 본문은 sunken 위 secondary이며 opacity fade를 쓰지 않는다. 본문은 독립 행, 동작·ID는 다음 wrap 행으로 두어 좁은 카드에서 단어마다 줄이 갈라지지 않게 한다. 상위 heading과 같은 위젯 제목을 중복 표시하지 않되 접근 이름은 보존한다. chip/disclosure C안은 조언이 추가 클릭 뒤에 숨으므로 채택하지 않는다.
+
 ## Do's and Don'ts
 
 | Do | Don't |

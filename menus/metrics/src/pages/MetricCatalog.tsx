@@ -46,7 +46,7 @@ export function MetricPairBanner({ viewedId = null, pageVersion = null }: { view
   const { lang } = useI18n();
   const query = useMenuQuery(metricPairEndpoint, { viewedId, pageVersion });
 
-  return <QueryView query={query} compact skeletonRows={2}>
+  return <QueryView widgetName={lang === 'ko' ? '지표 쌍 검증' : 'Metric pair validation'} query={query} compact skeletonRows={2}>
     {verdict => {
       const copy = pairText(verdict, lang, pageVersion);
       const box = copy.tone === 'danger' ? 'border-border-strong bg-accent-danger-soft text-text-danger-label' : copy.tone === 'warning' ? 'border-border-strong bg-accent-warn-soft text-text-warning-label' : 'border-border-subtle bg-surface-card text-text-secondary';

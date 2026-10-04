@@ -516,7 +516,7 @@ test.describe('목적지 단건 조회 (06 §6.2, §22)', () => {
     // status/name block under the h1 (header query) and the active tabpanel (panel query) — and for no
     // aria-busy to remain in main. Otherwise a fast correct header plus a slower panel that later renders
     // a substituted Selection row or an unauthorized row would pass.
-    const header = page.getByRole('main').locator('[data-platform-page-content] > :first-child'); // PlatformPage body renders the header query result before the tabs
+    const header = page.getByRole('main').locator('[data-platform-page-content] > [aria-busy]'); // Header query boundary; the shared banner can precede it
     const panel = page.getByRole('tabpanel'); // Radix mounts only the active tab's content
 
     // 1. Granted room (PH-101): the URL id's own row renders on both surfaces, and the inherited Selection stays untouched in the URL.
@@ -544,6 +544,11 @@ test.describe('목적지 단건 조회 (06 §6.2, §22)', () => {
 
     // 3. Unknown id: a successful zero (empty) on both surfaces, never a denial and never another row's fields.
     await page.goto('/equipment/DOES-NOT-EXIST?v=1&scopeId=ICH');
+    const emptyBanner = page.getByRole('main').getByRole('group', { name: '위젯 상태 요약' });
+    await expect(page.getByRole('main').locator('[data-outcome-banner]')).toHaveCount(1);
+    await expect(emptyBanner).toContainText('위젯 2개');
+    await expect(page.getByRole('main').getByRole('group', { name: '설비 요약', exact: true })).toBeVisible();
+    await expect(panel.getByRole('group', { name: '설비 상세', exact: true })).toBeVisible();
     await expect(header.getByText('조건에 맞는 결과가 없습니다')).toBeVisible();
     await expect(panel.getByText('조건에 맞는 결과가 없습니다')).toBeVisible();
     await expect(page.getByRole('main').locator('[aria-busy="true"]')).toHaveCount(0);
@@ -625,6 +630,49 @@ test.describe('공통 상태 화면 (06 §19)', () => {
       await evidence(page, testInfo, scenario);
     });
   }
+});
+
+test.describe('공유 위젯 응답 (06 §19, #55)', () => {
+  test('생산성의 같은 오류 네 개는 배너 하나와 이름 있는 간결 상태 네 개로 표시한다', async ({ page }, testInfo) => {
+    await page.goto('/analytics/productivity?v=1&scopeId=ICH');
+    await expect(page.getByRole('heading', { name: '네 지표 요약' })).toBeVisible();
+    await setScenario(page, '서버 오류 (error)');
+    const main = page.getByRole('main');
+    const banner = main.getByRole('group', { name: '위젯 상태 요약' });
+    await expect(main.locator('[data-outcome-banner]')).toHaveCount(1);
+    await expect(banner).toContainText('위젯 4개에서 같은 응답(서버 오류)이 확인되었습니다.');
+    await expect(banner.getByText('데이터를 불러오지 못했습니다')).toBeVisible();
+    await expect(banner.getByRole('button', { name: '다시 시도' })).toHaveCount(1);
+    await expect(banner).not.toContainText('Correlation ID');
+    await expect(main.locator('[data-widget-state]')).toHaveCount(4);
+    for (const name of ['네 지표 요약', 'Job 처리량 추세', '점유 구성', '확인할 항목']) {
+      const state = main.getByRole('group', { name, exact: true });
+      await expect(state).toBeVisible();
+      await expect(state.getByText('데이터를 불러오지 못했습니다')).toBeVisible();
+      await expect(state.getByRole('button', { name: '다시 시도' })).toHaveCount(1);
+      await expect(state).toContainText('corr-');
+    }
+    await expect(main.getByRole('alert')).toHaveCount(0);
+    await expect(main.locator('[data-outcome-announcer="assertive"]')).toContainText('위젯 4개에서 같은 응답');
+    await expect(main.getByText('네 지표 요약', { exact: true })).toHaveCount(1);
+    await evidence(page, testInfo, 'shared-error-banner');
+  });
+
+  test('일부 위젯 실패에서 단일 실패는 배너 없이 전체 상태를 유지한다', async ({ page }, testInfo) => {
+    // The scenario fails every other query. Equipment detail has two queries;
+    // productivity has four and therefore intentionally groups its two equal failures.
+    await page.goto('/equipment/ICH-PHOTO-0103?v=1&scopeId=ICH');
+    await expect(page.getByRole('main').getByText('PHOTO Lithius-Pro #1')).toHaveCount(2);
+    await setScenario(page, '일부 위젯 실패');
+    const main = page.getByRole('main');
+    await expect(main.getByRole('alert')).toHaveCount(1);
+    await expect(main.getByRole('alert')).toContainText('Widget query failed (partial scenario)');
+    await expect(main.locator('[aria-busy="true"]')).toHaveCount(0);
+    await expect(main.locator('[data-outcome-banner]')).toHaveCount(0);
+    await expect(main.locator('[data-widget-state]')).toHaveCount(0);
+    await expect(main.getByRole('button', { name: '다시 시도' })).toHaveCount(1);
+    await evidence(page, testInfo, 'single-widget-failure');
+  });
 });
 
 test.describe('화면 오류 격리 (06 §4 전역 Error Boundary)', () => {
