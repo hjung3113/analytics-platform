@@ -31,6 +31,7 @@ colors:
   cat-purple: "#7c3aed"
   cat-teal: "#0d9488"
   cat-amber: "#d97706"
+  cat-amber-stroke: "#b45309"
   chart-blue: "#3b9cff"
   chart-teal: "#00a3b5"
   chart-green: "#00bc8b"
@@ -111,7 +112,7 @@ components:
 | `surface-sunken` | 표 열 머리·검색 배경·progress track·recessed 보조 영역 | FeedbackOps `color-deep-slate` 참조 |
 | `cat-purple` / `cat-teal` / `cat-amber` | 범주 tag·series 구분; 성공·실패 판정이나 CTA에 쓰지 않음 | 플랫폼 literal `#7c3aed` / `#0d9488` / `#d97706` |
 | `chart-blue` / `chart-teal` / `chart-green` / `chart-purple` | series 정체성; 의미 있는 얇은 선 대비는 Chart stroke 결정 참고 | 플랫폼 literal `#3b9cff` / `#00a3b5` / `#00bc8b` / `#a174f5` |
-| `chart-blue-stroke` / `chart-teal-stroke` / `chart-purple-stroke` | 얇은 line/outline mark와 해당 line legend 전용; fill에는 쓰지 않음 | B2 platform literal `#2577cc` / `#008090` / `#8154ce` |
+| `chart-blue-stroke` / `chart-teal-stroke` / `chart-purple-stroke` / `cat-amber-stroke` | 얇은 line/outline mark와 해당 line legend 전용; fill과 작은 글자에는 쓰지 않음 | B2 platform literal `#2577cc` / `#008090` / `#8154ce` / `#b45309` |
 | `chart-remainder` | 이름과 분모가 확인된 나머지 범주 | 플랫폼 literal `#cbd2e3` |
 | `chart-grid` | 보조 grid; 의미 있는 데이터 선에 쓰지 않음 | 플랫폼 literal `#edf1f7` |
 | `icon-blue-soft` / `icon-teal-soft` | KPI·분석 범주 icon chip 배경; navigation 그룹에는 채운 chip을 만들지 않음 | 플랫폼 literal `#e3efff` / `#dcf8ef` |
@@ -211,7 +212,7 @@ label 행은 #210(FeedbackOps 원본 값), 나머지 행은 #193/#194 UI/UX 리�
 
 [06 §16](docs/06_platform_ui_contract.md#16-analysis-chart-contract)과 [§26](docs/06_platform_ui_contract.md#26-accessibility-baseline)의 Chart Frame/interaction 계약을 따른다. 모든 차트에는 **title, unit, textual summary, 동일 데이터 table 접근 경로**가 있다. legend는 이름+선 모양/기호+색을 제공한다. Tooltip은 hover와 keyboard focus에 대응하고 label/value/unit을 포함한다. passive mark에 가짜 pressed 동작을 넣지 않는다.
 
-series fill 정체성은 `chart-*`, 범주 구분은 `cat-*`, 상태 판정은 별도 label vocabulary로 표현한다. 얇은 line/outline mark는 `chart-*-stroke` 별칭을 쓰고 legend도 같은 stroke 색을 사용한다. 막대와 영역, series symbol, 선택/annotation fill은 기존 fill token을 유지한다. P50 solid / P95 dashed처럼 색 이외의 구별을 유지한다. 선택/brush/drill-down이 전역 Context를 바꾸는지는 명시적으로 구분하고 단순 chart click으로 조용히 조건을 바꾸지 않는다.
+series fill 정체성은 `chart-*`, 범주 구분은 `cat-*`, 상태 판정은 별도 label vocabulary로 표현한다. 얇은 line/outline mark는 `chart-*-stroke` 별칭을 쓰고 legend도 같은 stroke 색을 사용한다. 이전 기간의 `cat-amber` 선·외곽선 마크는 `cat-amber-stroke` 별칭을 쓴다. 막대와 영역, series symbol, 선택/annotation fill은 기존 fill token을 유지한다. P50 solid / P95 dashed처럼 색 이외의 구별을 유지한다. 선택/brush/drill-down이 전역 Context를 바꾸는지는 명시적으로 구분하고 단순 chart click으로 조용히 조건을 바꾸지 않는다.
 
 reference quality recipe는 coverage→blue, traceability→teal, consistency→green, missing/untraced→이름 있는 remainder, inconsistent→cat-amber다. 분자·분모를 detail/table에서 제공하며 donut/gauge의 기본 허용 범위는 [06 §24](docs/06_platform_ui_contract.md#decorative-visualization)를 따른다. defect bar는 zero baseline·정수 ticks·날짜·단위를 갖고 max는 데이터로 산정한다. queue/progress는 완료율과 성공률을 분리하고 분모 없는 회색 remainder를 만들어내지 않는다. pipeline/queue/lifecycle의 도메인 의미는 Consumer 후보이며 반복 확인 전 범용 플랫폼 컴포넌트로 승격하지 않는다.
 
@@ -327,8 +328,19 @@ posthog와 sentri(Sentry 스타일) 자료는 당시 illustration/mascot 중심 
 | `chart-blue-stroke` | `#2577cc` | 4.49:1 | 4.26:1 | 4.10:1 |
 | `chart-teal-stroke` | `#008090` | 4.59:1 | 4.35:1 | 4.19:1 |
 | `chart-purple-stroke` | `#8154ce` | 5.03:1 | 4.78:1 | 4.60:1 |
+| `cat-amber-stroke` | `#b45309` | 4.93:1 | 4.67:1 | 4.50:1 |
 
-`AnalysisChartFrame`은 blue/teal/purple 시리즈의 선, 선 범례 견본, 브러시 외곽선에 이 stroke 별칭을 쓴다. 막대·영역 채움과 선 위 심볼은 원래 채움 색을 유지하고, 그래서 툴팁 마커(심볼 색을 따름)도 채움 색이다. `chart-green`은 얇은 선으로 쓰는 곳이 없어 stroke 값을 두지 않았다. 막대 범례 모양(지금은 선 모양 견본), 생산성 개요 P95 점선과 비교 시리즈 구분, `cat-amber` 비교 선의 표면별 대비는 후속 이슈에서 프로토타입으로 다룬다.
+`AnalysisChartFrame`은 blue/teal/purple/amber 시리즈 선, 선 범례 견본, 브러시 외곽선에 해당하는 stroke 별칭을 쓴다. 막대·영역 채움과 선 위 심볼은 원래 채움 색을 유지하고, 그래서 툴팁 마커(심볼 색을 따름)도 채움 색이다. `chart-green`은 얇은 선으로 쓰는 곳이 없어 stroke 값을 두지 않았다.
+
+### Chart legend and series encoding — Decided (B, 2026-10-04)
+
+사용자는 #207의 실제 차트 화면 `?variant=` 프로토타입에서 B를 선택했다. [ADR-0014](docs/adr/0014-chart-legend-period-grouping.md)에 기록한다.
+
+- Compare가 켜져 있고 현재 메뉴 manifest가 Compare를 제공할 때만 범례를 `현재 기간` / `이전 기간` 두 행으로 묶는다. 그 외에는 그룹 제목 없는 일반 범례다. 제목은 `@ap/kernel` i18n 사전을 사용한다.
+- 시리즈 소비자는 `dashed`와 색을 선언한다. 현재 기간의 실선은 `'solid'`, 대시는 `[8, 4]`를 쓴다. 이전 기간의 비점선은 `[2, 2]`, 대시는 `[8, 3, 2, 3]`으로 변환한다. ECharts 선과 SVG 선 견본은 같은 dash 배열을 쓴다.
+- 막대 범례는 12px 채운 사각형이며 2px 외곽선은 stroke alias를 쓴다. 이름 있는 나머지 `chart-remainder`는 `border-control`로 둘러싼다.
+- `cat-amber-stroke`는 이전 기간 amber 차트 선·외곽선에만 쓰며 작은 글자에는 쓰지 않는다. P95/reference `markLine`과 라벨은 모든 경우 `text-secondary`다.
+- 사이클타임 상세의 이전 P50/P95는 각각 현재 대응 시리즈의 `dashed` 선언을 따른다. 생산성 개요의 P95도 점선으로 맞추며 해당 manifest의 Compare 기능은 바꾸지 않는다.
 
 ## Open Decisions
 

@@ -10,7 +10,13 @@ import type { EChartProps } from './EChart';
 
 vi.mock('./EChartImpl', () => ({ default: FakePlot }));
 
-type CapturedSeries = { id?: string; type?: string; lineStyle?: { color?: string }; itemStyle?: { color?: string } };
+type CapturedSeries = {
+  id?: string;
+  type?: string;
+  lineStyle?: { color?: string; type?: string | number[] };
+  itemStyle?: { color?: string };
+  markLine?: { lineStyle?: { color?: string }; label?: { color?: string; position?: string } };
+};
 let plottedSeries: CapturedSeries[] = [];
 let plottedBrush: { brushStyle?: { borderColor?: string } } | undefined;
 
@@ -72,11 +78,16 @@ function SwitchScope() {
   const { setGlobal } = usePlatform();
   return <button type="button" onClick={() => setGlobal({ scopeId: 'CJU' })}>to-cju</button>;
 }
-function mount(adapter: PlatformAdapter, features: typeof off, url = '/?v=1&scopeId=ICH') {
+function mount(
+  adapter: PlatformAdapter,
+  features: typeof off,
+  url = '/?v=1&scopeId=ICH',
+  chart: { series?: ChartSeries[]; compareSeries?: ChartSeries[]; markLines?: { y: number; label: string }[] } = {},
+) {
   window.history.replaceState(null, '', url);
   return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registryWith(features)}>
     <SwitchScope />
-    <AnalysisChartFrame chartId="chart-1" title="Chart" series={series} compareSeries={compareSeries} unit="ea" />
+    <AnalysisChartFrame chartId="chart-1" title="Chart" series={chart.series ?? series} compareSeries={chart.compareSeries ?? compareSeries} markLines={chart.markLines} unit="ea" />
   </PlatformProvider></I18nProvider>);
 }
 const brushAndOpenNote = async () => {
@@ -153,12 +164,156 @@ describe('chart stroke aliases (#203)', () => {
       expect(plottedSeries.find(item => item.id === 'line')?.lineStyle?.color).toBe('rgb(37,119,204)');
       expect(plottedSeries.find(item => item.id === 'line')?.itemStyle?.color).toBe('rgb(59,156,255)');
       expect(plottedSeries.find(item => item.id === 'bar')?.itemStyle?.color).toBe('rgb(59,156,255)');
-      // Legend swatches follow what they label: the line's stroke, the bar's fill (#203 review P2-3).
-      const swatch = (name: string) => screen.getByText(name, { selector: 'label' }).querySelector('span[aria-hidden]') as HTMLElement;
-      expect(swatch('Line').style.borderColor).toBe('rgb(37, 119, 204)');
-      expect(swatch('Bar').style.borderColor).toBe('rgb(59, 156, 255)');
+      // Legend swatches follow their mark: a stroke-colored line or a filled bar square with stroke outline.
+      const swatch = (name: string) => screen.getByText(name, { selector: 'label' });
+      expect(swatch('Line').querySelector('svg line')?.getAttribute('stroke')).toBe('rgb(37,119,204)');
+      const barSwatch = swatch('Bar').querySelector('span[aria-hidden]') as HTMLElement;
+      expect(barSwatch.style.backgroundColor).toBe('rgb(59, 156, 255)');
+      expect(barSwatch.style.borderColor).toBe('rgb(37, 119, 204)');
       // The brush outline is a thin line mark too.
       expect(plottedBrush?.brushStyle?.borderColor).toBe('rgb(37,119,204)');
+    } finally {
+      for (const [name, value] of previous) {
+        if (value) root.style.setProperty(name, value); else root.style.removeProperty(name);
+      }
+    }
+  });
+});
+
+describe('chart legend and comparison encoding (#207)', () => {
+  it('keeps a plain legend with Compare off and groups current and previous series when Compare is on', async () => {
+    mount(fixture().adapter, on);
+    await screen.findByRole('button', { name: 'Compare' });
+
+    const legend = screen.getByRole('group', { name: '범례' });
+    expect(within(legend).queryByText('현재 기간')).toBeNull();
+    expect(within(legend).queryByText('이전 기간')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Compare' }));
+    const current = await screen.findByRole('group', { name: '현재 기간' });
+    const previous = screen.getByRole('group', { name: '이전 기간' });
+    const currentHeading = within(current).getByText('현재 기간');
+    const previousHeading = within(previous).getByText('이전 기간');
+    expect.soft(current.getAttribute('aria-label')).toBeNull();
+    expect.soft(current.getAttribute('aria-labelledby')).toBe(currentHeading.id);
+    expect.soft(previous.getAttribute('aria-label')).toBeNull();
+    expect.soft(previous.getAttribute('aria-labelledby')).toBe(previousHeading.id);
+    expect(within(current).getByText('S1', { selector: 'label' })).toBeTruthy();
+    expect(within(previous).getByText('S2', { selector: 'label' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Compare' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('group', { name: '현재 기간' })).toBeNull();
+      expect(screen.queryByRole('group', { name: '이전 기간' })).toBeNull();
+    });
+    expect(screen.getByText('S1', { selector: 'label' })).toBeTruthy();
+    expect(screen.queryByText('S2', { selector: 'label' })).toBeNull();
+  });
+
+  it('removes a previous-period series from the plot when its legend checkbox is cleared', async () => {
+    mount(fixture().adapter, on);
+    fireEvent.click(await screen.findByRole('button', { name: 'Compare' }));
+    await waitFor(() => expect(plottedSeries.some(item => item.id === 's2')).toBe(true));
+
+    fireEvent.click(within(screen.getByRole('group', { name: '이전 기간' })).getByRole('checkbox', { name: 'S2' }));
+    await waitFor(() => expect(plottedSeries.some(item => item.id === 's2')).toBe(false));
+  });
+
+  it('does not render period headings when Compare is unavailable or has no previous series', async () => {
+    mount(fixture().adapter, off);
+    await screen.findByRole('button', { name: 'Brush' });
+    expect(screen.queryByText('현재 기간')).toBeNull();
+    expect(screen.queryByText('이전 기간')).toBeNull();
+
+    cleanup();
+    mount(fixture().adapter, on, '/?v=1&scopeId=ICH', { compareSeries: [] });
+    await screen.findByRole('button', { name: 'Brush' });
+    expect(screen.queryByRole('button', { name: 'Compare' })).toBeNull();
+    expect(screen.queryByText('현재 기간')).toBeNull();
+    expect(screen.queryByText('이전 기간')).toBeNull();
+  });
+
+  it('keeps wrapping period rows when more than four corresponding series are present', async () => {
+    const many = Array.from({ length: 5 }, (_, index) => ({
+      id: `current-${index}`,
+      name: `Current ${index + 1}`,
+      color: 'chart-blue',
+      points: series[0].points,
+    }));
+    const previous = many.slice(0, 2).map((item, index) => ({ ...item, id: `previous-${index}`, name: `Previous ${index + 1}` }));
+    mount(fixture().adapter, on, '/?v=1&scopeId=ICH', { series: many, compareSeries: previous });
+    fireEvent.click(await screen.findByRole('button', { name: 'Compare' }));
+
+    const legend = screen.getByRole('group', { name: '범례' });
+    expect(legend.querySelector('[data-period-legend-grid]')).toBeNull();
+    const current = within(legend).getByRole('group', { name: '현재 기간' });
+    expect(current.className).toContain('flex-wrap');
+    for (const item of many) expect(within(current).getByText(item.name, { selector: 'label' })).toBeTruthy();
+  });
+
+  it('derives previous line patterns, matches their legend swatches, outlines bars, and neutralizes reference lines', async () => {
+    const root = document.documentElement;
+    const values = {
+      '--chart-blue': '59 156 255', '--chart-blue-stroke': '37 119 204',
+      '--chart-teal': '0 163 181', '--chart-teal-stroke': '0 128 144',
+      '--chart-purple': '161 116 245', '--chart-purple-stroke': '129 84 206',
+      '--cat-amber': '217 119 6', '--cat-amber-stroke': '180 83 9',
+      '--border-control': '95 105 115', '--text-secondary': '35 45 55',
+    };
+    const previous = new Map(Object.keys(values).map(name => [name, root.style.getPropertyValue(name)]));
+    for (const [name, value] of Object.entries(values)) root.style.setProperty(name, value);
+
+    try {
+      mount(fixture().adapter, on, '/?v=1&scopeId=ICH', {
+        series: [
+          { id: 'p50', name: 'P50', color: 'chart-blue', points: series[0].points },
+          { id: 'p95', name: 'P95', color: 'chart-teal', points: series[0].points, dashed: true },
+          { id: 'runs', name: 'Run count', color: 'chart-purple', kind: 'bar', points: series[0].points },
+        ],
+        compareSeries: [
+          { id: 'p50-prev', name: 'P50 previous', color: 'chart-purple', points: series[0].points },
+          { id: 'p95-prev', name: 'P95 previous', color: 'cat-amber', points: series[0].points, dashed: true },
+        ],
+        markLines: [{ y: 12, label: 'P95 reference' }],
+      });
+      fireEvent.click(await screen.findByRole('button', { name: 'Compare' }));
+      await screen.findByText('fake-brush');
+
+      const plotted = (id: string) => plottedSeries.find(item => item.id === id);
+      expect.soft(plotted('p50')?.lineStyle?.type).toBe('solid');
+      expect.soft(plotted('p95')?.lineStyle?.type).toEqual([8, 4]);
+      expect.soft(plotted('p50-prev')?.lineStyle?.type).toEqual([2, 2]);
+      expect.soft(plotted('p95-prev')?.lineStyle?.type).toEqual([8, 3, 2, 3]);
+      expect(plotted('p95-prev')?.lineStyle?.color).toBe('rgb(180,83,9)');
+
+      const legend = screen.getByRole('group', { name: '범례' });
+      const swatch = (name: string) => within(legend).getByText(name, { selector: 'label' });
+      expect.soft(swatch('P50').querySelector('svg line')?.getAttribute('stroke-dasharray')).toBeNull();
+      expect.soft(swatch('P95').querySelector('svg line')?.getAttribute('stroke-dasharray')).toBe('8 4');
+      expect.soft(swatch('P50 previous').querySelector('svg line')?.getAttribute('stroke-dasharray')).toBe('2 2');
+      expect.soft(swatch('P95 previous').querySelector('svg line')?.getAttribute('stroke-dasharray')).toBe('8 3 2 3');
+      expect(swatch('P95 previous').querySelector('svg line')?.getAttribute('stroke')).toBe('rgb(180,83,9)');
+
+      const grid = screen.getByRole('group', { name: '범례' }).querySelector('[data-period-legend-grid]') as HTMLElement | null;
+      expect.soft(grid?.style.gridTemplateColumns).toBe('repeat(4, max-content)');
+      if (grid) {
+        const gridColumn = (id: string) => (grid.querySelector(`[data-legend-series-id="${id}"]`) as HTMLElement).style.gridColumn;
+        expect.soft(gridColumn('p50')).toBe(gridColumn('p50-prev'));
+        expect.soft(gridColumn('p95')).toBe(gridColumn('p95-prev'));
+      }
+
+      const barSwatch = swatch('Run count').querySelector('[aria-hidden="true"]') as HTMLElement;
+      expect(barSwatch.tagName).toBe('SPAN');
+      expect(barSwatch.className).toContain('size-3');
+      expect(barSwatch.className).toContain('border-2');
+      expect(barSwatch.style.backgroundColor).toBe('rgb(161, 116, 245)');
+      expect(barSwatch.style.borderColor).toBe('rgb(129, 84, 206)');
+
+      const markLine = plotted('__overlay')?.markLine;
+      expect(markLine?.lineStyle?.color).toBe('rgb(35,45,55)');
+      expect(markLine?.label?.color).toBe('rgb(35,45,55)');
+      // The label sits inside the plot end so the right grid edge does not clip it.
+      expect(markLine?.label?.position).toBe('insideEndTop');
     } finally {
       for (const [name, value] of previous) {
         if (value) root.style.setProperty(name, value); else root.style.removeProperty(name);
