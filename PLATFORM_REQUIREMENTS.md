@@ -25,7 +25,7 @@
 
 두 수치 충돌은 아래 날짜에 해결됐다. 체크는 문서 정렬 완료를 뜻하며 CSS·컴포넌트 구현이나 렌더 검증 완료가 아니다. 원본은 [DESIGN](DESIGN.md), 적용 의무는 [06 §7/§15](docs/06_platform_ui_contract.md)다.
 
-- [x] **셸 치수(사이드바/탑바) 확정** — 2026-09-21 결정: `DESIGN.md` canonical(사이드바 270px · 헤더 54px) 채택. `docs/06` §7을 Decided로 갱신 완료. **[3/3]**
+- [x] **셸 치수(사이드바/탑바) 확정** — 2026-09-21 결정: `DESIGN.md` canonical(사이드바 270px · 헤더 54px) 채택. **2026-10-04 대체:** [ADR-0011](docs/adr/0011-design-direction-feedbackops-shell.md)로 FeedbackOps 셸 구조가 됐다(레일·사이드바 240/56px·상단 바 없음·페이지 머리 50px). 현재 원본은 [`docs/06` §7](docs/06_platform_ui_contract.md#7-application-shell). **[3/3]**
 - [x] **테이블 행 밀도 확정** — 2026-09-21 결정: `DESIGN.md` table-density(최소 32px, 25px는 compact 시각 목표) 채택. `docs/06` §15를 Decided로 갱신 완료. **[3/3]**
 
 ---
@@ -174,7 +174,7 @@
 
 질문 처리 경로: 인증·운영 입력은 [05](docs/05_roadmap_and_open_questions.md#open-questions), 시간은 [06 CTX-TIME](docs/06_platform_ui_contract.md#ctx-time), Scope·공개 계약·상태는 [06](docs/06_platform_ui_contract.md), 기술 후보는 [04](docs/04_frontend_ui_ux.md)를 먼저 확인한다. 후속 작업 담당은 필요한 입력·결정 주체·차단되는 동작·답변 전 가능한 일을 작업 기록에 적는다. 담당자가 미지정이면 지정 필요로 남기고 답을 만들어 넣지 않는다.
 
-1. ~~**셸 치수·테이블 밀도**~~ — 2026-09-21 결정 완료(§0, `docs/05` 참조). DESIGN.md canonical(270px/54px/32px) 채택.
+1. ~~**셸 치수·테이블 밀도**~~ — 2026-09-21 결정 완료(§0, `docs/05` 참조). DESIGN.md canonical(270px/54px/32px) 채택. 셸 치수는 2026-10-04 [ADR-0011](docs/adr/0011-design-direction-feedbackops-shell.md)로 대체됐다(현재 원본 [`docs/06` §7](docs/06_platform_ui_contract.md#7-application-shell)). 테이블 밀도 32px는 그대로 DESIGN.md가 소유한다.
 2. **Scope 도메인 — Decided / 상속 세부 Open** — Site→room_name→StGroup→Equipment 관계, room_name 기준 권한, 독립 Line 축을 따른다([ADR-0005](docs/adr/0005-scope-room-name-line-independent.md)). EquipmentID는 전 Site 유일하고 Site는 ID 사용 전 활성 Scope에서 확립한다([ADR-0004](docs/adr/0004-site-is-db-partition-not-column.md)). room_name은 드물게 변경 가능·ID 유지, EquipmentName 변경은 재등록·기존 ID 종료. StGroup·분임조는 외부 소속 정보다. v1 단일 Scope 및 [06 §6.2](docs/06_platform_ui_contract.md#62-scope와-권한-decided--open)의 상속 Open을 유지한다.
 3. **시간 의미** — 사업장별 실제 TZ 값은 2026-09-22 결정(한국/Asia-Seoul 단일값 우선, 해외 사업장 확장은 배제 안 함 — `docs/05` 참조). timeDomain assertion 공급자, 교대일/영업일, 다중 사업장의 "같은 날짜"는 여전히 Open. assertion 공급 근거는 국내 설비끼리라도 복수 시간축 병합을 제공하기 전에 필요하다([06 시간 계약](docs/06_platform_ui_contract.md#ctx-time)).
 4. **운영 수치** — `defaultRangeTo` 기본 길이, 실제 데이터 볼륨·조회 패턴, 최대 조회량·timeout은 Open. 지연완료 창 `H`=1시간, 클라이언트 폴링 주기=5분(300s)은 2026-09-22 결정(`docs/05` 참조). 폴링 중단 조건·워커 감지 주기는 여전히 Open(구현 시 운영 설정으로 정함).
