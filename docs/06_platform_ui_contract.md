@@ -553,7 +553,7 @@ Domain 메뉴는 가능하면 이 Archetype을 조합하고, 새로운 Page Type
 
 ### 12.6 pageType의 현재 계약과 레이아웃 슬롯 (#104, #156)
 
-**지금 pageType이 강제하는 것:** manifest의 `pageType`(5종 중 하나)과, 생성기(`pnpm gen:menu --page-type`)가 만드는 화면 뼈대의 콘텐츠 슬롯(위 12.1–12.5의 슬롯 이름, 읽는 순서 그대로)이다. Page Header·Global Context는 셸 슬롯(§8)이라 `PlatformPage`·셸이 이미 그리므로 뼈대에 다시 넣지 않는다. Data Trust는 12.1·12.2가 슬롯으로 적으므로 뼈대에 `trust` 슬롯으로 넣는다 — `PlatformPage`는 소비자가 넘긴 `dataTrustSummary`만 그리므로 신뢰 정보를 가진 화면이 그 슬롯을 채워야 한다. 슬롯 이름은 12.1–12.5의 영문 표기 그대로다. Management 공통 레이아웃은 `ManagementLayout`으로 제공한다. 생성되는 뼈대 화면은 슬롯의 점선 구획을 그리며, 소비자는 공통 레이아웃에 슬롯을 연결한다.
+**지금 pageType이 강제하는 것:** manifest의 `pageType`(5종 중 하나)과, 생성기(`pnpm gen:menu --page-type`)가 만드는 화면 뼈대의 콘텐츠 슬롯(위 12.1–12.5의 슬롯 이름, 읽는 순서 그대로)이다. Page Header·Global Context는 셸 슬롯(§8)이라 `PlatformPage`·셸이 이미 그리므로 뼈대에 다시 넣지 않는다. Data Trust는 12.1·12.2가 슬롯으로 적으므로 뼈대에 `trust` 슬롯으로 넣는다 — `PlatformPage`는 소비자가 넘긴 `dataTrustSummary`만 그리므로 신뢰 정보를 가진 화면이 그 슬롯을 채워야 한다. 슬롯 이름은 12.1–12.5의 영문 표기 그대로다. Management 공통 레이아웃은 `ManagementLayout`, Analysis 공통 레이아웃은 `AnalysisLayout`으로 제공한다. Management·Analysis 뼈대는 각 공통 레이아웃 슬롯 안에 해당 점선 자리표시를 렌더하고, 그 밖의 슬롯은 레이아웃 아래에 렌더한다. 나머지 archetype 뼈대는 점선 구획으로 렌더한다.
 
 **Management — Decided ([ADR-0022](adr/0022-management-filter-rail-analysis-two-column.md)):** `ManagementLayout`은 `filter`/`table`/`drawer` 슬롯을 제공한다. 자기 폭 960px 이상에서는 260px 왼쪽 필터 레일과 표를 16px 간격으로 나란히 둔다. 레일은 페이지 sticky 머리 아래에 머물고 본문만 스크롤한다. 접기·펼치기와 공통 접힘 기억을 제공하며, 접힘·좁음에서는 표 툴바의 `필터 · N` 버튼(적용 수 0이면 숫자 생략)으로 접근한다. 좁음에서는 팝오버로 필터를 편집하며 접힘 기억을 바꾸지 않는다. 필터 필드는 [PageFilterBar](adr/0016-page-filter-bar.md)의 column 배치로 소비하고, 상세는 셸 슬롯(ADR-0013)에 둔다. 드로어 열림은 URL page key(§6.1)다.
 

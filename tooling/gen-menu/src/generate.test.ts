@@ -4,7 +4,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import ts from 'typescript';
 import { PACKAGE_PREFIX } from './prefix.ts';
 import { APP_PKG, MOCK_ASSEMBLY_TSX, MENUS_TS, STYLE_CSS, editSummary } from './generate.ts';
-import { PAGE_TYPES, depLine, importLine, mockImportLine, mockSpreadLine, renderFiles, slotsLiteral, spreadLine, styleLine, type MenuInputs } from './templates.ts';
+import { PAGE_SLOTS, PAGE_TYPES, depLine, importLine, mockImportLine, mockSpreadLine, renderFiles, slotsLiteral, spreadLine, styleLine, type MenuInputs } from './templates.ts';
 import { FIXTURE_FOLDER, FIXTURE_GROUP, GEN_ARGS, appSnapshot, fixtureMockAssemblyTsx, makeFixture, menusTree, removeFixture, repoRoot, runCli } from './fixture.ts';
 
 const INPUTS: MenuInputs = {
@@ -152,7 +152,17 @@ describe('page archetype skeletons (06 §12, #104)', () => {
   it('each archetype has its own slot list, and the page renders every slot', () => {
     const blocks = new Set(PAGE_TYPES.map(t => slotBlock(pageOf(t))));
     expect(blocks.size).toBe(PAGE_TYPES.length);
-    for (const t of PAGE_TYPES) expect(pageOf(t)).toContain('SLOTS.map(slot => <section key={slot.id} data-slot={slot.id}');
+    for (const t of PAGE_TYPES) {
+      const page = pageOf(t);
+      if (t === 'management' || t === 'analysis') {
+        expect(page).toContain('data-slot={id}');
+        for (const { id } of PAGE_SLOTS[t]) expect(page).toContain(`slotPlaceholder('${id}')`);
+      } else {
+        expect(page).toContain('SLOTS.map(slot => <section key={slot.id} data-slot={slot.id}');
+      }
+    }
+    expect(pageOf('management')).toContain('<ManagementLayout');
+    expect(pageOf('analysis')).toContain('<AnalysisLayout');
   });
 
   it('a slot label with an apostrophe or backslash still yields a parseable string literal', () => {
