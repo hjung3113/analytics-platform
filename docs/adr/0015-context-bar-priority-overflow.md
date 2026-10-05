@@ -2,6 +2,7 @@
 
 상태: **Decided (2026-10-04)**.
 - 결정자: 사용자 — 실제 앱 위 `?variant=` 프로토타입에서 A(wrap) / B(priority overflow) / C(summary + disclosure) 중 B를 선택했다(#56, 브랜치 `hjung3113/proto-m2-batch2`).
+- 변경(2026-10-05, #218): 사용자 결정 B — `적용` 배지는 생략하고 예외(참조만·미지원)만 배지로 표시하며, 폭이 모자라면 "전역 Context" 라벨을 프리셋보다 먼저 숨긴다. 컨펌된 B 프로토타입 모양(모든 control 배지)에서 벗어나는 부분의 근거다.
 
 세부 동작·우선순위·접근성은 [06 §7](../06_platform_ui_contract.md#7-application-shell), 배치는 [07 앱 셸 와이어프레임](../07_app_shell_wireframe.md), 시각 보완은 [DESIGN.md](../../DESIGN.md#shell-visual-rules)가 소유한다. 이 ADR은 결정과 이유만 둔다.
 

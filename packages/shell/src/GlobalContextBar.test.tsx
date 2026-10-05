@@ -2,15 +2,16 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
-import type { PlatformAdapter, Session } from '@ap/contracts';
+import type { Capability, PlatformAdapter, Session } from '@ap/contracts';
 import { GlobalContextBar } from './GlobalContextBar';
 
 const caps = { time: 'reference', roomNames: 'apply', condition: 'apply', selection: 'apply', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
-const registry = createRegistry({
+const registryWith = (context: Record<keyof typeof caps, Capability>) => createRegistry({
   spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' }],
   groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: true, context: caps, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
+  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: true, context, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
+const registry = registryWith(caps);
 const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
 const evaluation = vi.fn(async () => ({ inCondition: [], outOfCondition: [] }));
 const session: Session = { user: { id: 'u', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view'] }, scopes: [{ id: 'ICH', label: 'ICH', grantedRooms: 1, totalRooms: 1 }] };
@@ -58,10 +59,12 @@ afterEach(() => {
   if (fontsDescriptor) Object.defineProperty(document, 'fonts', fontsDescriptor); else Reflect.deleteProperty(document, 'fonts');
 });
 const bar = () => screen.getByRole('region', { name: '전역 Context' });
-function mount(extra = '', lang: 'ko' | 'en' = 'ko', period = true) {
+const visibleContextLabel = () => Array.from(bar().querySelectorAll('span'))
+  .some(label => label.textContent === '전역 Context' && !label.closest('[data-context-measuring]'));
+function mount(extra = '', lang: 'ko' | 'en' = 'ko', period = true, menus = registry) {
   localStorage.setItem('platform:lang', lang);
   window.history.replaceState(null, '', `/?v=1&scopeId=ICH${period ? '&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00' : ''}${extra}`);
-  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><GlobalContextBar /></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={menus}><GlobalContextBar /></PlatformProvider></I18nProvider>);
 }
 function width(value: number) { act(() => { barWidth = value; resize?.(); }); }
 const inlineKeys = () => Array.from(bar().querySelectorAll('[data-context-key]'), el => el.getAttribute('data-context-key'));
@@ -73,11 +76,25 @@ describe('Global Context priority overflow (#56)', () => {
     expect(inlineKeys()).toEqual(['time', 'roomNames', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric']);
     expect(within(bar()).queryByRole('button', { name: /개 더/ })).toBeNull();
     expect(within(bar()).getByRole('radio', { name: '1일' })).toBeVisible();
-    await screen.findByRole('button', { name: '설비 선택 전체 적용' });
+    await screen.findByRole('button', { name: '설비 선택 전체' });
     await vi.waitFor(() => expect(evaluation).toHaveBeenCalledTimes(1)); // one owner; inert copies never query
   });
 
-  it('moves presets first, then removes trailing keys in the fixed priority order without remeasuring compressed controls', () => {
+  it('hides only the label at 1400px and keeps the label at wide widths', () => {
+    barWidth = 1400;
+    mount('&lotIds=L1&ppid=P1&recipeIds=R1&metricId=M1&metricVersion=1');
+    expect(visibleContextLabel()).toBe(false);
+    expect(within(bar()).getByRole('radio', { name: '1일' })).toBeVisible();
+    expect(inlineKeys()).toHaveLength(8);
+    for (const name of ['링크 복사', '초기화']) {
+      expect(within(bar()).getByRole('button', { name }).textContent).toContain(name);
+    }
+
+    width(2000);
+    expect(visibleContextLabel()).toBe(true);
+  });
+
+  it('hides the label before compacting presets and then removes trailing keys in fixed priority order', () => {
     mount('&lotIds=L1&ppid=P1&recipeIds=R1&metricId=M1&metricVersion=1');
     const initialReads = reads;
     const initialQueries = evaluation.mock.calls.length;
@@ -94,7 +111,8 @@ describe('Global Context priority overflow (#56)', () => {
     fireEvent.click(within(bar()).getByRole('button', { name: '조건 7개 더 · 4개 적용 중' }));
     const overflow = screen.getByRole('dialog', { name: '추가 Context 조건' });
     expect(within(overflow).getAllByText('이 화면에서 미사용')).toHaveLength(4);
-    expect(within(overflow).getAllByText('적용')).toHaveLength(3);
+    expect(within(overflow).queryByText('적용', { exact: true })).toBeNull();
+    expect(Array.from(bar().querySelectorAll('span')).some(tag => tag.textContent === '참조만' && !tag.closest('[data-context-measuring]'))).toBe(true);
     width(2000);
     expect(inlineKeys()).toHaveLength(8);
     expect(evaluation.mock.calls.length).toBe(initialQueries);
@@ -110,6 +128,7 @@ describe('Global Context priority overflow (#56)', () => {
     }
     const period = within(bar()).getByRole('button', { name: /^기간:/ });
     expect(period).toHaveAttribute('title', '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00');
+    expect(period).toHaveAccessibleName('기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00, 참조만');
     fireEvent.click(period);
     expect(screen.getByRole('radio', { name: '7일' })).toBeVisible();
   });
@@ -121,7 +140,7 @@ describe('Global Context priority overflow (#56)', () => {
     const popover = screen.getByRole('dialog', { name: '추가 Context 조건' });
     expect(Array.from(popover.querySelectorAll('[data-context-key]'), el => el.getAttribute('data-context-key'))).toEqual(['roomNames', 'condition', 'selection']);
     const initialReads = reads;
-    fireEvent.click(within(popover).getByRole('button', { name: '설비 선택 명시적 빈 집합 적용' }));
+    fireEvent.click(within(popover).getByRole('button', { name: '설비 선택 명시적 빈 집합' }));
     fireEvent.click(screen.getByRole('radio', { name: '전체' }));
     fireEvent.click(screen.getByRole('button', { name: '적용' }));
     await vi.waitFor(() => expect(new URLSearchParams(window.location.search).has('equipmentSelection')).toBe(false));
@@ -162,9 +181,9 @@ describe('Global Context priority overflow (#56)', () => {
     });
   }
 
-  it('uses Applied as an English capability status while keeping Apply as the editor action (P2-2)', () => {
+  it('omits the English applied capability tag while keeping Apply as the editor action (P2-2)', () => {
     mount('', 'en');
-    const editor = screen.getByRole('button', { name: 'room_name All Applied' });
+    const editor = screen.getByRole('button', { name: 'room_name All' });
     fireEvent.click(editor);
     expect(screen.getByRole('button', { name: 'Apply' })).toBeVisible();
   });
@@ -177,7 +196,7 @@ describe('Global Context priority overflow (#56)', () => {
 
   it('keeps unapplied room drafts through inline → overflow → inline and restores connected bar focus (UIUX-56-02)', async () => {
     mount();
-    fireEvent.click(within(bar()).getByRole('button', { name: 'room_name 전체 적용' }));
+    fireEvent.click(within(bar()).getByRole('button', { name: 'room_name 전체' }));
     fireEvent.click(screen.getByRole('radio', { name: '명시 선택' }));
     const checkbox = await screen.findByRole('checkbox', { name: 'PH-101' });
     fireEvent.click(checkbox);
@@ -204,7 +223,18 @@ describe('Global Context priority overflow (#56)', () => {
 
   it('gives an unset period the selection prompt as its accessible name and title (P3-1)', () => {
     mount('', 'ko', false);
-    expect(within(bar()).getByRole('button', { name: '기간: 기간을 선택하세요' })).toHaveAttribute('title', '기간: 기간을 선택하세요');
+    expect(within(bar()).getByRole('button', { name: '기간: 기간을 선택하세요, 참조만' })).toHaveAttribute('title', '기간: 기간을 선택하세요');
+  });
+
+  it('keeps the exception status in period names that replace the visible tag (#218 review)', () => {
+    mount();
+    expect(within(bar()).getByRole('button', { name: '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00, 참조만' })).toBeVisible();
+    cleanup();
+    mount('', 'ko', true, registryWith({ ...caps, time: 'unsupported' }));
+    expect(within(bar()).getByRole('group', { name: '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00, 이 화면에서 미사용' })).toBeVisible();
+    cleanup();
+    mount('', 'ko', true, registryWith({ ...caps, time: 'apply' }));
+    expect(within(bar()).getByRole('button', { name: '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00' })).toBeVisible();
   });
 
   it('measures once and responds to window resize when ResizeObserver is unavailable (P3-3)', () => {
@@ -216,7 +246,7 @@ describe('Global Context priority overflow (#56)', () => {
   });
 
   it('uses fractional available width at an exact fit boundary (P3-4)', () => {
-    barWidth = 1029.6; mount(); // Full controls need 1030px; rounded clientWidth would admit them.
+    barWidth = 941.6; mount(); // Label-free full controls need 942px; rounded clientWidth would admit them.
     expect(within(bar()).queryByRole('radio', { name: '1일' })).toBeNull();
   });
 

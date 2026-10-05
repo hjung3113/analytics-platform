@@ -110,7 +110,7 @@
 
 50px 페이지 머리와 Context Bar는 main 스크롤 영역 안에서 하나의 sticky 래퍼로 유지한다(Context Bar는 독립 sticky 아님). 콘텐츠 여백은 FeedbackOps `PageShell` 기준이며 치수 원본은 06 §7 Baseline이다. 접힌 사이드바에서도 Scope 선택·검증 상태는 아이콘·접근성 텍스트로 유지한다.
 
-Context 바는 [06 §7 우선순위 넘침](06_platform_ui_contract.md#7-application-shell)을 소비한다(ADR-0015). 상세 열림·사이드바 접기에도 한 줄을 유지하며 넘침 팝오버 안에서 기존 편집기와 적용/참조/미사용 배지에 접근한다.
+Context 바는 [06 §7 우선순위 넘침](06_platform_ui_contract.md#7-application-shell)을 소비한다(ADR-0015). 상세 열림·사이드바 접기에도 한 줄을 유지하며 넘침 팝오버 안에서 기존 편집기와 참조/미사용 배지에 접근한다.
 
 Scope의 포함 관계는 Site→room_name→StGroup→Equipment이며 실무 권한·조회 기준은 room_name이다. Line은 room_name과 교차하는 독립 축이고 v1의 요청 scopeId는 단일 선택이다(전역 계약 §6.2, [ADR-0005](adr/0005-scope-room-name-line-independent.md)). Site 선택은 DB 연결 대상을 정한다. Factory는 별도 레벨로 모델링하지 않는다. 부모·자식 상속 세부는 Open이며 고정 다단 선택기를 요구하지 않는다. Scope 선택기는 사이드바 머리 하나뿐이며 중복 배치하지 않고, Global Context의 room_name·Equipment Group 두 층은 같은 권한 경계 안의 조회 조건으로 표시한다.
 

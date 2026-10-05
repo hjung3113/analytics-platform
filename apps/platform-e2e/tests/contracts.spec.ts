@@ -57,6 +57,10 @@ async function overflowCount(page: Page) {
   const trigger = contextBar(page).getByRole('button', { name: /^조건 \d+개 더/ });
   return await trigger.count() ? Number((await trigger.innerText()).match(/^조건 (\d+)개 더/)![1]) : 0;
 }
+function visibleContextLabel(page: Page) {
+  // The inert measuring layer duplicates this text, so select only the visible bar label.
+  return contextBar(page).getByText('전역 Context', { exact: true }).filter({ visible: true });
+}
 
 test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
   test('FeedbackOps base 값이 theme보다 우선하고 플랫폼 control 경계는 label 대비를 유지한다', async ({ page }, testInfo) => {
@@ -175,18 +179,22 @@ test.describe('셸 sticky 계약 (06 §7)', () => {
 });
 
 test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
-  test('상세 슬롯을 같은 1280px 뷰포트에서 열면 자체 폭 변화로 넘침이 늘어난다', async ({ page }, testInfo) => {
+  // Measured 2026-10-05: the full row needs about 1018px; the bar has about 1148px before the detail slot opens and 708px after.
+  test('상세 슬롯을 같은 1280px 뷰포트에서 열면 자체 폭 변화로 라벨과 기간 프리셋이 접힌다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto('/equipment?v=1&scopeId=ICH');
     await expectScopeValid(page, 'ICH · Site A');
     const row = page.getByRole('main').locator('[data-row-id]').first();
     await expect(row).toBeVisible();
+    await expect(visibleContextLabel(page)).toBeVisible();
+    await expect(contextBar(page).getByRole('radio', { name: '1일', exact: true })).toBeVisible();
     await expectContextBounds(page);
     const before = { inline: await contextBar(page).getByRole('button').allTextContents(), overflow: await overflowCount(page) };
     await evidence(page, testInfo, 'context-before-detail-1280');
     await row.getByRole('button', { name: '보기', exact: true }).click();
     await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog')).toBeVisible();
-    await expect.poll(() => overflowCount(page)).toBeGreaterThan(before.overflow);
+    await expect(contextBar(page).getByRole('radio', { name: '1일', exact: true })).toHaveCount(0);
+    await expect(visibleContextLabel(page)).toHaveCount(0);
     expect(page.viewportSize()).toEqual({ width: 1280, height: 800 });
     await expectContextBounds(page);
     const after = { inline: await contextBar(page).getByRole('button').allTextContents(), overflow: await overflowCount(page) };
@@ -199,49 +207,48 @@ test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
     await page.goto(PRODUCTIVITY);
     await expectScopeValid(page, 'ICH · Site A');
     await expect(contextBar(page).getByRole('radio', { name: '1일', exact: true })).toBeVisible();
+    await expect(visibleContextLabel(page)).toBeVisible();
     await expect(contextBar(page).getByRole('button', { name: /개 더/ })).toHaveCount(0);
     await expectContextBounds(page);
     await evidence(page, testInfo, 'context-wide-1920');
   });
 
-  // 1440px(사이드바 펼침)은 전체 한 줄(약 1219px)이 가용 폭(1124px)보다 넓다. B안대로 프리셋이 먼저 기간 팝오버로 가고 조건은 넘치지 않는다.
-  test('1440px 생산성 개요는 프리셋만 기간 팝오버로 옮기고 모든 조건은 인라인이다', async ({ page }, testInfo) => {
+  // #218: without the applied tags the full row measured about 1092px of the 1124px available (2026-10-05).
+  // The label-first step at narrower bars is covered by the shell unit test.
+  test('1440px 생산성 개요는 라벨·기간 프리셋·모든 조건이 인라인이다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 800 });
     await page.goto(PRODUCTIVITY);
     await expectScopeValid(page, 'ICH · Site A');
     await expect(contextBar(page).getByRole('button', { name: /개 더/ })).toHaveCount(0);
-    await expect(contextBar(page).getByRole('radio', { name: '1일', exact: true })).toHaveCount(0);
-    await contextBar(page).getByRole('button', { name: /^기간:/ }).click();
-    await expect(page.getByRole('radio', { name: '1일', exact: true })).toBeVisible();
-    await page.keyboard.press('Escape');
+    await expect(contextBar(page).getByRole('radio', { name: '1일', exact: true })).toBeVisible();
+    await expect(visibleContextLabel(page)).toBeVisible();
     await expectContextBounds(page);
-    await evidence(page, testInfo, 'context-1440-presets-in-popover');
+    await evidence(page, testInfo, 'context-1440-presets-inline');
   });
 
-  for (const width of [1024, 1280]) {
-    test(`상세 슬롯이 열린 ${width}px에서도 한 줄이며 넘침에서 편집한다`, async ({ page }, testInfo) => {
-      await page.setViewportSize({ width, height: 800 });
-      await page.goto('/equipment?v=1&scopeId=ICH&focus=ICH-PHOTO-0103');
-      await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog')).toBeVisible();
-      await expectScopeValid(page, 'ICH · Site A');
-      const bar = contextBar(page);
-      await expect(bar).toBeVisible();
-      await expectContextBounds(page);
-      await expect(bar.getByRole('button', { name: /^기간:/ })).toBeVisible();
-      await evidence(page, testInfo, `context-single-row-${width}`);
-      await bar.getByRole('button', { name: /^조건 \d+개 더/ }).click();
-      const overflow = page.getByRole('dialog', { name: '추가 Context 조건' });
-      await expect(overflow.getByRole('button', { name: /설비 선택/ })).toBeVisible();
-      await overflow.getByRole('button', { name: /설비 선택/ }).click();
-      await expect(page.getByRole('radio', { name: '명시적 빈 집합' })).toBeVisible();
-      await page.getByRole('radio', { name: '명시적 빈 집합' }).click();
-      await page.getByRole('button', { name: '적용', exact: true }).click();
-      await expect.poll(() => query(page).get('equipmentSelection')).toBe('none');
-      await expect(bar.getByRole('button', { name: /개 적용 중$/ })).toBeVisible();
-      await expectContextBounds(page);
-      await evidence(page, testInfo, `context-overflow-editor-${width}`);
-    });
-  }
+  // At 1280px with the detail slot open the compact row fits without overflow (see the first test), so overflow editing is checked at 1024px.
+  test('상세 슬롯이 열린 1024px에서도 한 줄이며 넘침에서 편집한다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1024, height: 800 });
+    await page.goto('/equipment?v=1&scopeId=ICH&focus=ICH-PHOTO-0103');
+    await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog')).toBeVisible();
+    await expectScopeValid(page, 'ICH · Site A');
+    const bar = contextBar(page);
+    await expect(bar).toBeVisible();
+    await expectContextBounds(page);
+    await expect(bar.getByRole('button', { name: /^기간:/ })).toBeVisible();
+    await evidence(page, testInfo, 'context-single-row-1024');
+    await bar.getByRole('button', { name: /^조건 \d+개 더/ }).click();
+    const overflow = page.getByRole('dialog', { name: '추가 Context 조건' });
+    await expect(overflow.getByRole('button', { name: /설비 선택/ })).toBeVisible();
+    await overflow.getByRole('button', { name: /설비 선택/ }).click();
+    await expect(page.getByRole('radio', { name: '명시적 빈 집합' })).toBeVisible();
+    await page.getByRole('radio', { name: '명시적 빈 집합' }).click();
+    await page.getByRole('button', { name: '적용', exact: true }).click();
+    await expect.poll(() => query(page).get('equipmentSelection')).toBe('none');
+    await expect(bar.getByRole('button', { name: /개 적용 중$/ })).toBeVisible();
+    await expectContextBounds(page);
+    await evidence(page, testInfo, 'context-overflow-editor-1024');
+  });
 });
 
 test.describe('딥링크 복원 (06 §6.4)', () => {

@@ -92,10 +92,11 @@ export function ContextBarLayout({ controls, revision, actions }: {
   const gap = 8;
   const fullWidth = measurement ? measurement.controls.reduce((sum, width) => sum + width, 0)
     + measurement.actions + measurement.label + gap * (controls.length + 1) : Infinity;
-  const compact = !measurement || fullWidth > measurement.width;
+  const labelVisible = !!measurement && fullWidth <= measurement.width;
+  const compact = !measurement || fullWidth - measurement.label - gap > measurement.width;
   let inlineCount = others.length;
   if (compact && measurement) {
-    // Presets disappear first. Only then remove trailing keys; reserve the actual overflow label.
+    // Hide the label first, then presets, then trailing keys; reserve the actual overflow label.
     const widths = measurement.controls.slice(period ? 1 : 0);
     for (; inlineCount >= 0; inlineCount--) {
       const hiddenCount = others.length - inlineCount;
@@ -147,7 +148,7 @@ export function ContextBarLayout({ controls, revision, actions }: {
       </MeasuringContext.Provider>
     </div></div>
     <div className="flex h-full min-w-0 items-center gap-2 whitespace-nowrap">
-      {!compact && <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t('globalContext')}</span>}
+      {labelVisible && <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t('globalContext')}</span>}
       {period && item(period, compact)}
       {others.slice(0, inlineCount).map(control => item(control))}
       {hidden.length > 0 && <Popover open={overflowOpen || activeHidden} onOpenChange={setOverflowOpen}><PopoverTrigger asChild>
