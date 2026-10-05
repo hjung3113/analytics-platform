@@ -1,9 +1,10 @@
+// THROWAWAY #156 — never merge.
 import { useMemo, useState } from 'react';
 import { AlertTriangle, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
 import { periodHours, type Trust } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
-import { AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type Delta, type PlatformColumn, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage } from '@ap/components';
-import { Button, StatusBadge } from '@ap/ui';
+import { AnalysisLayout, AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type Delta, type PlatformColumn, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage } from '@ap/components';
+import { Button, StatusBadge, usePrototype } from '@ap/ui';
 import {
   CYCLE_VERSION_NOTE, PAGE_METRIC_ID, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint,
   cycleTrendEndpoint, cycleVersionOf, resolveMetric,
@@ -17,6 +18,7 @@ import {
 const NO_PARAMS = {};
 
 export default function CycleTimeDrilldown(_: PageProps) {
+  const variant = usePrototype().analysis;
   const { lang } = useI18n();
   const { global, pageParam, setPage, setGlobal, linkTo, toast } = usePlatform();
   const granularityRaw = pageParam('granularity');
@@ -140,6 +142,125 @@ export default function CycleTimeDrilldown(_: PageProps) {
           ? `${pageErrors.join(', ')} 은 이 화면의 등록 값이 아닙니다. hour|day|week, p50|p95|all, column:asc|desc, bucket=경계 시각, bin=구간|from..to, page=1 이상 정수 만 허용하며 다른 값으로 바꾸지 않습니다.`
         : `${pageErrors.join(', ')} is not a registered value. Allowed: hour|day|week, p50|p95|all, column:asc|desc, bucket=aligned timestamp, bin=id|from..to, page=integer ≥ 1. Nothing was substituted.`} />
       : !periodReady ? <p className="text-[13px] text-text-muted">{ko ? '전역 기간이 URL에 확정되면 조회합니다.' : 'The query starts once the global period is in the URL.'}</p>
+        : variant !== 'A' ? <AnalysisLayout kpi={<>
+
+          <div className="relative pt-6" data-testid="cycle-kpi">
+            <QueryView widgetName={ko ? '사이클타임 요약' : 'Cycle time summary'} query={kpi}>
+              {data => <div className={variant === 'C' ? 'grid grid-cols-2 gap-3 @min-[600px]/analysis:grid-cols-4 @min-[960px]/analysis:grid-cols-1' : 'grid grid-cols-2 gap-3 @min-[600px]/analysis:grid-cols-4'}>
+                <StatCard icon={Timer} chip="blue" label="P50" value={formatMin(data.p50, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p50, data.prevP50)} caption={ko ? '적용 모집단' : 'Applied population'} />
+                <StatCard icon={Gauge} chip="amber" label="P95" value={formatMin(data.p95, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p95, data.prevP95)} caption={ko ? '적용 모집단' : 'Applied population'} />
+                <StatCard icon={Hash} chip="teal" label={ko ? '실행 수' : 'Executions'} value={data.count.toLocaleString(ko ? 'ko-KR' : 'en-US')} caption={ko ? '완료된 합성 Job' : 'Completed synthetic jobs'} />
+                <StatCard icon={AlertTriangle} chip="purple" label={ko ? '느린 실행' : 'Slow executions'} value={data.slowCount.toLocaleString(ko ? 'ko-KR' : 'en-US')} caption={ko ? '≥ P95 (Candidate)' : '≥ P95 (Candidate)'} />
+              </div>}
+            </QueryView>
+          </div>
+          <p className="text-[12px] text-text-muted">{ko
+            ? 'Candidate: 선형 보간 후 0.1분 반올림, 미완료 Job은 생성하지 않음, 느린 실행은 표시된 P95 이상(동률 포함). 감소를 개선으로 칠한 증감은 직전 동일 길이 기간 대비입니다. 빈 버킷은 0이 아닙니다.'
+            : 'Candidate: linear interpolation rounded to 0.1 min, no in-progress jobs, slow means ≥ the displayed P95 (ties included). Deltas versus the previous equal-length period treat a decrease as an improvement. Empty buckets are not zero.'}</p>
+
+
+        </>} chart={[<div key="trend" className="min-w-0">
+          <div className="relative pt-6">
+            <QueryView widgetName={ko ? '사이클타임 추세' : 'Cycle time trend'} query={trend} skeletonHeight={280}>
+              {(data, response) => <AnalysisChartFrame
+                chartId="cycle-time-trend"
+                title={ko ? '사이클타임 추세' : 'Cycle time trend'}
+                description={ko ? `버킷별 P50/P95 · ${granularity === 'hour' ? '시간' : granularity === 'day' ? '일' : '주'} · 단위 분(Candidate)` : `P50/P95 by bucket · ${granularity} · minutes (Candidate)`}
+                metricVersion={metricLabel(metric)}
+                unit={ko ? '분' : 'min'}
+                valueFormat={value => formatMin(value, lang)}
+                series={[
+                  { id: 'p50', name: 'P50', color: 'chart-blue', points: data.current.p50 },
+                  { id: 'p95', name: 'P95', color: 'chart-teal', points: data.current.p95, dashed: true },
+                ]}
+                compareSeries={[
+                  { id: 'p50-prev', name: ko ? 'P50 이전 기간' : 'P50 previous period', color: 'chart-purple', points: data.previous.p50 },
+                  { id: 'p95-prev', name: ko ? 'P95 이전 기간' : 'P95 previous period', color: 'cat-amber', points: data.previous.p95, dashed: true },
+                ]}
+                markLines={data.populationP95 === null ? undefined : [{ y: data.populationP95, label: `P95 ${formatMin(data.populationP95, lang)}` }]}
+                trust={chartTrust(response.trust, unknown)}
+                pointClickHint={ko ? '점을 클릭하면 그 버킷만 목록에 남습니다. 전역 기간은 바뀌지 않습니다.' : 'Click a point to keep that bucket in the list. The global period does not change.'}
+                onPointClick={(x, seriesId) => {
+                  if (seriesId.endsWith('-prev')) {
+                    toast(ko ? '이전 기간 점은 비교용입니다. 목록은 현재 전역 기간의 버킷만 필터합니다.' : 'Previous-period points are for comparison. The list only filters buckets in the current global period.');
+                    return;
+                  }
+                  const start = bucketContaining(x, granularity);
+                  if (!start || !global.from || !global.to) return;
+                  const end = bucketEnd(start, granularity);
+                  if (end <= global.from || start >= global.to) return;
+                  setPage({ bucket: start, page: null });
+                }}
+              />}
+            </QueryView>
+          </div>
+
+
+        </div>, <div key="distribution" className="min-w-0">
+          <div className="relative pt-6">
+            <QueryView widgetName={ko ? '사이클타임 분포' : 'Cycle time distribution'} query={dist} skeletonHeight={220}>
+              {(data, response) => <AnalysisChartFrame
+                chartId="cycle-time-distribution"
+                title={ko ? '사이클타임 분포' : 'Cycle time distribution'}
+                description={ko ? 'Candidate 구간 [하한, 상한). Brush 후 “이 구간 실행 보기”만 목록을 줄입니다.' : 'Candidate bins [min, max). Only “Show executions in this range” filters the list.'}
+                metricVersion={metricLabel(metric)}
+                xType="category"
+                unit={ko ? '건' : 'jobs'}
+                valueFormat={value => Math.round(value).toLocaleString(ko ? 'ko-KR' : 'en-US')}
+                height={220}
+                series={[{ id: 'hist', name: ko ? '실행 수' : 'Executions', color: 'chart-blue', kind: 'bar', points: data.bins.map((item): [string, number] => [item.id, item.count]) }]}
+                trust={chartTrust(response.trust, unknown)}
+                selectionActions={selection => <Button size="sm" className="h-7 px-2 text-[12px]" onClick={() => setPage({ bin: selection.from === selection.to ? selection.from : `${selection.from}..${selection.to}`, page: null })}>{ko ? '이 구간 실행 보기' : 'Show executions in this range'}</Button>}
+              />}
+            </QueryView>
+          </div>
+
+
+        </div>]} breakdown={<div className="space-y-4">
+          <PlatformDataTable<SlowRow>
+            title={ko ? '느린 실행' : 'Slow executions'}
+            subtitle={ko
+              ? `페이지 필터 적용 목록입니다. 꼬리 ${tailMode === 'all' ? '전체' : `≥ ${tailMode.toUpperCase()}`} · 모집단 ${kpi.response?.outcome === 'ok' ? kpi.response.data!.count.toLocaleString('ko-KR') : '…'}건. 정렬은 URL sort 키입니다.`
+              : `Page-filtered list. Tail ${tailMode === 'all' ? 'all' : `≥ ${tailMode.toUpperCase()}`} · population ${kpi.response?.outcome === 'ok' ? kpi.response.data!.count.toLocaleString('en-US') : '…'}. Sort is the URL sort key.`}
+            ariaLabel={ko ? '느린 실행 목록' : 'Slow executions'}
+            columns={columns}
+            getRowId={executionKey}
+            preferenceKey="cycle-time-slow"
+            filterKey={filterKey}
+            pageSize={50}
+            height={420}
+            urlState={{
+              page: pageResult.ok && pageResult.page !== 1 ? pageResult.page : null,
+              sorting: [{ id: sortSpec.id, desc: sortSpec.desc }],
+              onChange: ({ page, sorting }) => {
+                const first = sorting[0];
+                const nextSort = first ? encodeSort(first.id, first.desc) : null;
+                if (nextSort === null) { setPage({ sort: null, page: null }); return; } // header removal toggle restores the absent default
+                if (nextSort === encodeSort(sortSpec.id, sortSpec.desc)) { setPage({ page: page === null ? null : String(page) }); return; } // pagination keeps the sort untouched
+                setPage({ sort: nextSort === DEFAULT_SORT ? null : nextSort, page: null }); // header sort gesture resets the page with the sort
+              },
+            }}
+            // Table-owned export (#173): the page only says how to read the rows; the table builds the file and toasts.
+            // No confirmed metric version → no export menu (D-9).
+            exportRows={exportRowsWhenConfirmed(cycleVersion, (request, signal) => exports.fetch(exportParams(listFilter, request), signal))}
+            exportFilterSummary={exportFilterSummary(listFilter, ko)} exportContext={cycleExportEndpoint.context}
+            exportNote={ko ? '페이지 필터가 적용된 목록이며 KPI 모집단 전체가 아닙니다' : 'Page filters apply; this is not the full KPI population'}
+            emptyAction={(bucketRange || bin || tailMode !== 'p95')
+              ? <Button size="sm" variant="secondary" onClick={() => setPage({ bucket: null, bin: null, percentile: 'all', page: null })}>{ko ? '목록 필터 해제' : 'Clear list filters'}</Button>
+              : undefined}
+            rowAction={row => <PlatformLink className="text-[12px] font-medium text-accent-primary hover:underline" href={linkTo('execution-detail', { params: { equipmentId: row.equipmentId }, page: { entityType: 'job', anchor: row.anchor }, returnTo: true })}>{ko ? '상세' : 'Detail'}</PlatformLink>}
+            bulkActions={ids => <Button size="sm" className="h-7 px-2 text-[12px]" onClick={() => {
+              const equipmentIds = [...new Set(ids.map(equipmentIdFromKey))];
+              setGlobal({ selection: equipmentIds });
+              toast(ko ? `설비 ${equipmentIds.length}대를 전역 Selection으로 적용했습니다. 다른 메뉴에도 유지됩니다.` : `Applied ${equipmentIds.length} equipment as the global selection. It carries across menus.`);
+            }}>{ko ? '선택 설비로 분석 좁히기' : 'Narrow analysis to selected equipment'}</Button>}
+            loadPage={(query, signal) => slowPages.fetch({ ...listFilter, ...query, sorting: [{ id: sortSpec.id, desc: sortSpec.desc }] }, signal)}
+          />
+          <p className="text-[12px] text-text-muted">{ko
+            ? '품질 배지는 Candidate입니다. unknown은 미확정이며 정상으로 채우지 않습니다. review는 합성 플래그이고 불량·수율이 아닙니다.'
+            : 'Quality badges are Candidate. unknown stays unconfirmed and is not filled in as pass. review is a synthetic flag, not a defect or yield.'}</p>
+          {kpi.response && kpi.response.outcome === 'ok' && <DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} />}
+        </div>} />
         : <div className="space-y-4">
           <div className="relative pt-6" data-testid="cycle-kpi">
             <QueryView widgetName={ko ? '사이클타임 요약' : 'Cycle time summary'} query={kpi}>

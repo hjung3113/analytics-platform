@@ -1,3 +1,4 @@
+// THROWAWAY #156 — never merge.
 import { useId, type ReactNode } from 'react';
 import { Search } from 'lucide-react';
 import { cn, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
@@ -34,6 +35,7 @@ export type PageFilterBarProps = {
   label: string;
   fields: readonly PageFilterField[];
   actions?: ReactNode;
+  orientation?: 'row' | 'column';
 };
 
 const EMPTY_OPTION_VALUE = '__page_filter_empty__';
@@ -94,12 +96,12 @@ function PageFilterFieldControl({ field, id }: { field: PageFilterField; id: str
 }
 
 /** A visible, wrapping row for page-owned filters. Values, URL keys, and actions stay with the consumer. */
-export function PageFilterBar({ label, fields, actions }: PageFilterBarProps) {
+export function PageFilterBar({ label, fields, actions, orientation = 'row' }: PageFilterBarProps) {
   const id = useId();
 
   return <fieldset data-testid="page-filter-bar" className="mb-3 rounded-md border border-border-subtle bg-surface-card p-3">
     <legend className="px-1 text-xs text-text-secondary">{label}</legend>
-    <div className="flex flex-wrap items-end gap-3">
+    <div className={orientation === 'column' ? 'flex flex-col items-stretch gap-3 [&>div]:min-w-0 [&_span.relative]:w-full [&>div:last-child]:mt-3' : 'flex flex-wrap items-end gap-3'}>
       {fields.map((field, index) => <PageFilterFieldControl key={field.key} field={field} id={`${id}-field-${index}`} />)}
       {actions != null && <div className="flex flex-wrap items-end gap-2">{actions}</div>}
     </div>

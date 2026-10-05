@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+// THROWAWAY #156 — never merge.
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { formatInstant, type AuditEvent, type AuditSortField } from '@ap/contracts';
 import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
-import { PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort } from '@ap/components';
-import { Button, StatusBadge } from '@ap/ui';
+import { ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort } from '@ap/components';
+import { Button, StatusBadge, usePrototype } from '@ap/ui';
 import { auditDestination } from '../audit-destination';
 import { ACTION_LABEL, AUDIT_PAGE_KEYS, parseAuditKeys } from '../audit-query';
 
@@ -15,6 +16,7 @@ const mono = (value: unknown) => <span className="t-mono">{String(value)}</span>
  * never re-sorts a page; the default sort is the server's newest-first and no URL key is written for it.
  */
 export default function AuditTrail() {
+  const variant = usePrototype().management;
   const { lang } = useI18n();
   const ko = lang === 'ko';
   const { adapter, global, linkTo, pageParam, setPage } = usePlatform();
@@ -51,7 +53,7 @@ export default function AuditTrail() {
   };
   const clear = <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{ko ? '필터 초기화' : 'Clear filters'}</Button>;
   const filters = <form onSubmit={applyDrafts}>
-    <PageFilterBar label={ko ? '감사 필터' : 'Audit filters'} fields={[
+    <PageFilterBar orientation={variant === 'C' ? 'column' : 'row'} label={ko ? '감사 필터' : 'Audit filters'} fields={[
       { kind: 'select', key: 'type', label: ko ? '대상 유형' : 'Type', value: raw.type ?? '', emptyOptionLabel: ko ? '전체' : 'All', options: [{ value: 'equipment', label: 'equipment' }, { value: 'metric', label: 'metric' }], onValueChange: value => setFilter('type', value || null) },
       { kind: 'select', key: 'action', label: ko ? '작업' : 'Action', value: raw.action ?? '', emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(ACTION_LABEL).map(([value, label]) => ({ value, label: label[lang] })), onValueChange: value => setFilter('action', value || null) },
       { kind: 'select', key: 'source', label: ko ? '출처' : 'Source', value: raw.source ?? '', emptyOptionLabel: ko ? '전체' : 'All', options: [{ value: 'user', label: 'user' }, { value: 'system', label: 'system' }], onValueChange: value => setFilter('source', value || null) },
@@ -71,6 +73,57 @@ export default function AuditTrail() {
     { id: 'scopeId', header: ko ? '사이트' : 'Site', sortable: false, size: 90, cell: row => row.target.scopeId ?? '—' },
     { id: 'changes', header: ko ? '변경 필드' : 'Changed fields', sortable: false, size: 220, cell: row => row.changes ? Object.keys(row.changes).sort().join(', ') : '—' },
   ], [ko, lang]);
+  if (variant !== 'A') return <PlatformPage description={ko ? '모든 사이트의 마스터 변경 로그입니다. 행의 링크는 각 상세 화면의 Audit 탭으로 이동합니다.' : 'The master-change log across all sites. A row link opens the destination detail\'s Audit tab.'}>
+    <ManagementLayout filter={filters} activeFilterCount={[raw.type, raw.actor, raw.action, raw.source, raw.fromAt, raw.toAt, raw.targetId].filter(Boolean).length} table={(filterInTable: ReactNode | undefined) => <>
+    {!parsed.ok && filterInTable}
+    {!parsed.ok && <p role="alert">{ko ? '필터 값이 잘못되었습니다.' : 'Invalid filter value.'} {clear}</p>}
+    {parsed.ok && <PlatformDataTable<AuditEvent>
+        filters={filterInTable}
+        title={ko ? '변경 감사' : 'Audit trail'}
+        ariaLabel={ko ? '변경 감사 목록' : 'Audit trail list'}
+        subtitle={ko ? '합성 감사 이벤트입니다. 기본 정렬은 최신순이며 room 필터를 적용하지 않습니다.' : 'Synthetic audit events. Default sort is newest first; no room filter is applied.'}
+        columns={columns} getRowId={row => row.id} filterKey={filterKey}
+        preferenceKey="admin-audit:columns:v1" pageSize={25} height={430}
+        urlState={{
+          page: parsed.page,
+          sorting: parsed.sorting,
+          onChange: ({ page, sorting }) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }),
+        }}
+        loadPage={async (pageQuery, signal) => {
+          const { filters } = parsed;
+          const sort = pageQuery.sorting[0];
+          // The port answers AuditTrailPage { items, total }; the table wants PageResult { rows, total }.
+          const response = await adapter.auditTrail({
+            ...(filters.type && { type: filters.type }),
+            ...(filters.actor && { actor: filters.actor }),
+            ...(filters.action && { action: filters.action }),
+            ...(filters.source && { source: filters.source }),
+            ...(filters.fromAt && { fromAt: filters.fromAt }),
+            ...(filters.toAt && { toAt: filters.toAt }),
+            ...(filters.targetId && { targetId: filters.targetId }),
+            ...(sort && { sort: { field: sort.id as AuditSortField, desc: sort.desc } }),
+            page: pageQuery.page + 1,
+            pageSize: 25,
+          }, signal);
+          return {
+            outcome: response.outcome,
+            data: response.data === null ? null : { rows: [...response.data.items], total: response.data.total },
+            assessments: response.assessments,
+            trust: response.trust,
+            correlationId: response.correlationId,
+            ...(response.message !== undefined && { message: response.message }),
+          };
+        }}
+        emptyAction={clear}
+        rowAction={row => {
+          const link = auditDestination(linkTo, row.target);
+          return link.ok
+            ? <Button asChild size="sm" variant="ghost"><PlatformLink href={link.href}>{ko ? '상세' : 'Detail'}</PlatformLink></Button>
+            : <Button size="sm" variant="ghost" disabled>{ko ? '이 대상의 상세 화면이 없습니다.' : 'No detail screen for this target.'}</Button>;
+        }}
+      />}
+    </>} />
+  </PlatformPage>;
   return <PlatformPage description={ko ? '모든 사이트의 마스터 변경 로그입니다. 행의 링크는 각 상세 화면의 Audit 탭으로 이동합니다.' : 'The master-change log across all sites. A row link opens the destination detail\'s Audit tab.'}>
     {filters}
     {!parsed.ok && <p role="alert">{ko ? '필터 값이 잘못되었습니다.' : 'Invalid filter value.'} {clear}</p>}
