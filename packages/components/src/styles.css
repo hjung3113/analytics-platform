@@ -8,7 +8,6 @@
   grid-template-rows: subgrid;
   row-gap: 0;
 }
-[data-analysis-kind="chart"] > div[aria-busy] { display: contents; }
 [data-analysis-chart-grid] [data-analysis-chart] {
   display: grid;
   grid-row: span 2;

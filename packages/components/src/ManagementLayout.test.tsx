@@ -38,6 +38,62 @@ const collapse = () => screen.getByRole('button', { name: '필터 접기' });
 const trigger = () => within(screen.getByRole('region', { name: '표' })).getByRole('button', { name: /^필터/ });
 
 describe('ManagementLayout', () => {
+  it('moves rail input focus to the narrow filter trigger on resize', () => {
+    mount();
+    screen.getByLabelText('상태 필터').focus();
+    setWidth(959);
+    expect(trigger()).toHaveFocus();
+  });
+
+  it('closes the narrow popover and moves its focus to the expanded rail on resize', async () => {
+    width = 959;
+    mount();
+    fireEvent.click(trigger());
+    const popover = await screen.findByRole('dialog', { name: '필터' });
+    within(popover).getByLabelText('상태 필터').focus();
+    setWidth(1200);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await waitFor(() => expect(collapse()).toHaveFocus());
+  });
+
+  it('moves narrow trigger focus to the expanded rail on resize', () => {
+    width = 959;
+    mount();
+    trigger().focus();
+    setWidth(1200);
+    expect(collapse()).toHaveFocus();
+  });
+
+  it('preserves table focus through both resize directions', () => {
+    render(<I18nProvider><ManagementLayout filter={<input aria-label="필터 입력" />} table={slot => <>{slot}<button>표 동작</button></>} /></I18nProvider>);
+    screen.getByRole('button', { name: '표 동작' }).focus();
+    setWidth(959);
+    expect(screen.getByRole('button', { name: '표 동작' })).toHaveFocus();
+    setWidth(1200);
+    expect(screen.getByRole('button', { name: '표 동작' })).toHaveFocus();
+  });
+
+  it('only controls targets present in expanded, collapsed and popover states', async () => {
+    mount();
+    const checkTargets = () => {
+      for (const control of document.querySelectorAll('[aria-controls]')) {
+        expect(document.getElementById(control.getAttribute('aria-controls')!)).not.toBeNull();
+      }
+    };
+    checkTargets();
+    fireEvent.click(collapse());
+    expect(trigger()).not.toHaveAttribute('aria-controls');
+    checkTargets();
+    setWidth(959);
+    checkTargets();
+    fireEvent.click(trigger());
+    await screen.findByRole('dialog', { name: '필터' });
+    checkTargets();
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    await waitFor(() => expect(trigger()).toHaveAttribute('aria-expanded', 'false'));
+    checkTargets();
+  });
+
   it('observes its own width and renders the expanded rail with an empty table filter slot', () => {
     const { container, table } = mount(2);
     expect(observed).toBe(container.firstElementChild);

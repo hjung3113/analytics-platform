@@ -58,21 +58,10 @@ function AnalysisLayoutBody({ kpi, charts, breakdown, storageKey }: AnalysisLayo
   useLayoutEffect(() => {
     const target = pendingFocus.current;
     if (!target) return;
-    const focus = () => {
-      const button = target.collapsed ? chips.current.get(target.id)
-        : sectionElements.current.get(target.id)?.querySelector<HTMLButtonElement>('[data-analysis-collapse]');
-      if (!button) return false;
-      button.focus();
-      pendingFocus.current = null;
-      return true;
-    };
-    if (focus()) return;
-    // QueryView may show loading before mounting the chart's header action.
-    const element = sectionElements.current.get(target.id);
-    if (!element) return;
-    const observer = new MutationObserver(() => { if (focus()) observer.disconnect(); });
-    observer.observe(element, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    const button = target.collapsed ? chips.current.get(target.id)
+      : sectionElements.current.get(target.id)?.querySelector<HTMLButtonElement>('[data-analysis-collapse]');
+    button?.focus();
+    pendingFocus.current = null;
   });
 
   function toggle(id: string, nextCollapsed: boolean) {
@@ -85,13 +74,14 @@ function AnalysisLayoutBody({ kpi, charts, breakdown, storageKey }: AnalysisLayo
   function renderSection(section: AnalysisSection, kind: 'kpi' | 'chart' | 'breakdown', index = 0) {
     if (collapsed.includes(section.id)) return null;
     const span = kind === 'chart' && twoColumns && visibleCharts.length % 2 === 1 && index === visibleCharts.length - 1;
-    return <AnalysisSectionContext.Provider key={section.id} value={{ title: section.title, collapse: () => toggle(section.id, true) }}>
+    return <AnalysisSectionContext.Provider key={section.id} value={{ title: section.title, kind, collapse: () => toggle(section.id, true) }}>
       <div ref={element => { if (element) sectionElements.current.set(section.id, element); else sectionElements.current.delete(section.id); }}
         data-analysis-section={section.id} data-analysis-kind={kind}
-        className={kind === 'chart' ? `relative min-w-0${span ? ' col-span-2' : ''}` : 'min-w-0 space-y-2'}>
+        className={kind === 'chart' ? `relative min-w-0${span ? ' col-span-2' : ''}` : 'relative min-w-0 space-y-2'}>
         {kind === 'kpi' && <div className="flex items-center justify-between gap-2 text-[12px] text-text-secondary">
           <h2 className="font-medium">{section.title}</h2><AnalysisCollapseButton />
         </div>}
+        {kind !== 'kpi' && <AnalysisCollapseButton className="absolute right-3 top-3 z-[1]" />}
         {section.node}
       </div>
     </AnalysisSectionContext.Provider>;
@@ -102,7 +92,7 @@ function AnalysisLayoutBody({ kpi, charts, breakdown, storageKey }: AnalysisLayo
       <span>{t('collapsedSections')}</span>
       {hidden.map(section => <Button key={section.id} ref={element => { if (element) chips.current.set(section.id, element); else chips.current.delete(section.id); }}
         type="button" variant="secondary" size="sm" className="h-7 gap-1 rounded-full px-2 text-[12px]"
-        aria-label={t('expandSection', { title: section.title })} title={t('expandSection', { title: section.title })} onClick={() => toggle(section.id, false)}>
+        aria-expanded="false" aria-label={t('expandSection', { title: section.title })} title={t('expandSection', { title: section.title })} onClick={() => toggle(section.id, false)}>
         {section.title}<ChevronDown className="size-3.5" aria-hidden />
       </Button>)}
     </div>}

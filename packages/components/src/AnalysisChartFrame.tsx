@@ -4,7 +4,7 @@ import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { formatDateTime, formatMetricVersion, parseDateTime } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
-import { AnalysisCollapseButton, AnalysisSectionContext } from './AnalysisSectionContext';
+import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { EChart, strokeToken, token } from './EChart';
 
 function AnalysisChartPart({ enabled, body, children }: { enabled: boolean; body?: boolean; children: ReactNode }) {
@@ -250,7 +250,6 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const tb = 'h-7 gap-1 px-2 text-[12px]';
   return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className="relative flex flex-col rounded-lg border border-border-subtle bg-surface-card">
     {/* Pinned to the card corner so a wrapping toolbar never strands it on its own line. */}
-    <AnalysisCollapseButton className="absolute right-3 top-3 z-[1]" />
     <AnalysisChartPart enabled={analysisSection !== null}>
     <header className={cn('flex flex-wrap items-start justify-between gap-2 px-4 pt-3', analysisSection && 'pr-12')}>
       <div className="min-w-0">

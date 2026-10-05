@@ -26,6 +26,9 @@ export function ManagementLayout({ filter, activeFilterCount = 0, table, drawer 
   const closeButton = useRef<HTMLButtonElement>(null);
   const filterButton = useRef<HTMLButtonElement>(null);
   const pendingFocus = useRef(false);
+  const rail = useRef<HTMLElement>(null);
+  const popover = useRef<HTMLDivElement>(null);
+  const measuredWide = useRef(false);
   const bodyId = useId();
   const titleId = useId();
   const [wide, setWide] = useState(false);
@@ -39,6 +42,13 @@ export function ManagementLayout({ filter, activeFilterCount = 0, table, drawer 
     if (!element) return;
     const measure = () => {
       const nextWide = element.getBoundingClientRect().width >= 960;
+      if (nextWide !== measuredWide.current) {
+        const active = document.activeElement;
+        if (active && (rail.current?.contains(active) || popover.current?.contains(active) || filterButton.current === active)) {
+          pendingFocus.current = true;
+        }
+        measuredWide.current = nextWide;
+      }
       setWide(nextWide);
       if (nextWide) setOpen(false);
     };
@@ -56,7 +66,7 @@ export function ManagementLayout({ filter, activeFilterCount = 0, table, drawer 
     if (!pendingFocus.current) return;
     pendingFocus.current = false;
     (railVisible ? closeButton : filterButton).current?.focus();
-  }, [railVisible]);
+  }, [railVisible, wide]);
 
   const setRailCollapsed = (next: boolean) => {
     pendingFocus.current = true;
@@ -67,21 +77,21 @@ export function ManagementLayout({ filter, activeFilterCount = 0, table, drawer 
     } catch { /* preference stays in memory */ }
   };
   const button = <Button ref={filterButton} type="button" variant="secondary" size="sm"
-    title={t('expandFilters')} aria-expanded={wide ? false : open} aria-controls={bodyId}
+    title={t('expandFilters')} aria-expanded={wide ? false : open} aria-controls={!wide && open ? bodyId : undefined}
     onClick={wide ? () => setRailCollapsed(false) : undefined}>
     <SlidersHorizontal className="size-3.5" aria-hidden />{t('filters')}{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ''}
   </Button>;
   const filterSlot = !hasFilter || railVisible ? undefined : wide ? button :
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{button}</PopoverTrigger>
-      <PopoverContent id={bodyId} aria-label={t('filters')} align="start" className="max-h-[70vh] w-80 overflow-y-auto bg-surface-card p-3">
+      <PopoverContent ref={popover} id={bodyId} onCloseAutoFocus={event => { if (measuredWide.current) event.preventDefault(); }} aria-label={t('filters')} align="start" className="max-h-[70vh] w-80 overflow-y-auto bg-surface-card p-3">
         {filter}
       </PopoverContent>
     </Popover>;
 
   return <div ref={root} className="min-w-0">
     <div className={railVisible ? 'grid grid-cols-[260px_minmax(0,1fr)] items-start gap-4' : 'min-w-0'}>
-      {railVisible && <section aria-labelledby={titleId}
+      {railVisible && <section ref={rail} aria-labelledby={titleId}
         className="sticky flex min-h-0 flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface-card"
         style={{ top: 'calc(var(--page-sticky-offset, 0px) + 12px)', maxHeight: 'calc(100dvh - var(--page-sticky-offset, 0px) - 24px)' }}>
         <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-4 py-3">

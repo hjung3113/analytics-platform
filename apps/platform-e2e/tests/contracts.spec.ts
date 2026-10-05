@@ -1318,7 +1318,7 @@ test.describe('분석 레이아웃 차트 2열·접기 (06 §12.6, ADR-0022)', (
     expect(pairedDistribution.x).toBeGreaterThanOrEqual(pairedTrend.x + pairedTrend.width);
     await evidence(page, testInfo, 'analysis-two-columns-aligned-plots');
 
-    await distribution.getByRole('button', { name: '사이클타임 분포 접기' }).click();
+    await page.getByRole('button', { name: '사이클타임 분포 접기' }).click();
     const collapsed = page.getByRole('group', { name: '접힌 항목' });
     const distributionChip = collapsed.getByRole('button', { name: '사이클타임 분포 펼치기' });
     await expect(distributionChip).toBeVisible();
@@ -1336,20 +1336,20 @@ test.describe('분석 레이아웃 차트 2열·접기 (06 §12.6, ADR-0022)', (
     await evidence(page, testInfo, 'analysis-collapse-persisted');
 
     await distributionChip.click();
-    await expect(distribution.getByRole('button', { name: '사이클타임 분포 접기' })).toBeFocused();
+    await expect(page.getByRole('button', { name: '사이클타임 분포 접기' })).toBeFocused();
     await expect(distributionPlot).toBeVisible();
     await expect.poll(async () => (await trend.boundingBox())!.width).toBeLessThan(fullTrend.width * 0.6);
     await expect(collapsed).toHaveCount(0);
     await evidence(page, testInfo, 'analysis-distribution-restored');
 
     const table = page.getByRole('region', { name: '느린 실행 목록', exact: true });
-    await table.getByRole('button', { name: '느린 실행 접기' }).click();
+    await page.getByRole('button', { name: '느린 실행 접기' }).click();
     const tableChip = collapsed.getByRole('button', { name: '느린 실행 펼치기' });
     await expect(tableChip).toBeFocused();
     await expect(table).toHaveCount(0);
     await evidence(page, testInfo, 'analysis-breakdown-collapsed');
     await tableChip.click();
-    await expect(table.getByRole('button', { name: '느린 실행 접기' })).toBeFocused();
+    await expect(page.getByRole('button', { name: '느린 실행 접기' })).toBeFocused();
     await expect(table).toBeVisible();
     await expect(collapsed).toHaveCount(0);
     await evidence(page, testInfo, 'analysis-breakdown-restored');

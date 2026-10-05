@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type ColumnSizingState, type RowSelectionState, type VisibilityState } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, Loader2 } from 'lucide-react';
 import { CONTEXT_LABELS, useI18n, usePlatform } from '@ap/kernel';
 import { conditionLabel, type ApiResponse, type Capability, type ContextKey, type GlobalContext, type PageQuery, type PageResult, type PageSort, serializeGlobal, type Trust } from '@ap/contracts';
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, isProductionEnv, Label, Popover, PopoverContent, PopoverTrigger, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
-import { AnalysisCollapseButton } from './AnalysisSectionContext';
+import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { toColumnDef } from './columnDef';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { OutcomeView } from './StateView';
@@ -184,6 +184,7 @@ export type PlatformDataTableProps<T> = {
 /** §15: platform owns interaction, loading/error, column preference, selection model, toolbar layout; domain owns columns/cells/actions/filters. */
 export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const { t, lang } = useI18n();
+  const analysisSection = useContext(AnalysisSectionContext);
   const { global, user, revision, route, toast } = usePlatform();
   // Registry declares export capability (§5); the table never offers Export on a menu that did not declare it.
   const canExport = !!p.exportRows && !!route?.menu.features.export;
@@ -556,7 +557,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   // No `ok` result yet (new Context loading, refused page): the count is unknown, so the group label says “필터 결과 전체” with no number.
   const filteredCount = shown?.outcome === 'ok' ? data.total : null;
   return <section aria-label={p.ariaLabel} onKeyDown={onShortcut} className="flex flex-col rounded-lg border border-border-subtle bg-surface-card">
-    <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 p-3">
+    <div className={cn('flex min-h-11 flex-wrap items-center justify-between gap-2 p-3', analysisSection && 'pr-12')}>
       <div className="min-w-0">
         <h2 className="t-card-title">{p.title}</h2>
         {p.subtitle && <p className="text-[12px] text-text-muted">{p.subtitle}</p>}
@@ -620,7 +621,6 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>}
-        <AnalysisCollapseButton />
         {/* Visually hidden (width-stable) so screen readers hear what the export is preparing (#173 UX P2-3). */}
         {/* Always mounted while export is available; only the text changes, so screen readers announce it (#173 review N-P3-2). */}
         {canExport && <span role="status" className="sr-only" data-testid="export-status">{[exportNote, copyNote].filter(Boolean).join(' · ')}</span>}

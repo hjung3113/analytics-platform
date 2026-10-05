@@ -256,12 +256,10 @@ function pageTsx(i: MenuInputs): string {
       </div>`
     : i.pageType === 'analysis' ? `      <AnalysisLayout
         kpi={{ id: 'kpi', title: slotLabel('kpi'), node: <>{slotPlaceholder('kpi')}{/* Replace KPI Summary with StatCard. */}</> }}
-        charts={[{ id: 'chart', title: slotLabel('chart'), node: <>{slotPlaceholder('chart')}{/* Replace Primary Chart with AnalysisChartFrame. */}</> }]}
+        charts={[{ id: 'chart', title: slotLabel('chart'), node: <>{slotPlaceholder('chart')}{/* Replace Primary Chart with AnalysisChartFrame. */}{slotPlaceholder('annotation')}{/* Replace Selection / Annotation with AnalysisChartFrame. */}</> }]}
         breakdown={{ id: 'breakdown', title: slotLabel('breakdown'), node: <>{slotPlaceholder('breakdown')}{/* Replace Breakdown Table with PlatformDataTable. */}</> }}
       />
       <div className="space-y-3">
-        {slotPlaceholder('annotation')}
-        {/* Replace Selection / Annotation with AnalysisChartFrame. */}
         {slotPlaceholder('trust')}
         {/* Replace Data Trust with DataTrustIndicator. */}
       </div>`

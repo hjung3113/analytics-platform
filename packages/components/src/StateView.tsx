@@ -1,6 +1,7 @@
+import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { useSharedOutcome } from './OutcomeScope';
 import { AlertTriangle, Ban, Clock, HelpCircle, Inbox, Loader2, Maximize2, RotateCw, ServerCrash } from 'lucide-react';
-import { useId, type ReactNode } from 'react';
+import { useContext, useId, type ReactNode } from 'react';
 import { type QueryState, useI18n } from '@ap/kernel';
 import type { ApiResponse } from '@ap/contracts';
 import { Button, cn, Skeleton } from '@ap/ui';
@@ -41,9 +42,9 @@ function OutcomeStateMessage({ grouped, widgetName, hideWidgetName, ...props }: 
   return grouped ? <GroupedStateMessage {...props} widgetName={widgetName} hideWidgetName={hideWidgetName} /> : <StateMessage {...props} />;
 }
 
-export function LoadingBlock({ rows = 3, height = 96 }: { rows?: number; height?: number }) {
+export function LoadingBlock({ rows = 3, height = 96, className }: { rows?: number; height?: number; className?: string }) {
   const { t } = useI18n();
-  return <div role="status" aria-busy className="space-y-2" style={{ minHeight: height }}>
+  return <div role="status" aria-busy className={cn('space-y-2', className)} style={{ minHeight: height }}>
     <span className="sr-only">{t('loading')}</span>
     {Array.from({ length: rows }, (_, i) => <Skeleton key={i} className="h-5 rounded-sm bg-surface-sunken" style={{ width: `${90 - i * 12}%` }} />)}
   </div>;
@@ -88,11 +89,13 @@ export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, em
   query: QueryState<T>; children: (data: T, response: ApiResponse<T>) => ReactNode; skeletonRows?: number; skeletonHeight?: number; emptyAction?: ReactNode; compact?: boolean; widgetName?: string; hideWidgetName?: boolean;
 }) {
   const { t } = useI18n();
+  const analysisSection = useContext(AnalysisSectionContext);
+  const chart = analysisSection?.kind === 'chart';
   const grouped = useSharedOutcome(query.response, query.refetch, widgetName, query.status);
-  if (!query.response) return <LoadingBlock rows={skeletonRows} height={skeletonHeight} />;
+  if (!query.response) return <LoadingBlock rows={skeletonRows} height={skeletonHeight} className={chart ? 'row-span-2 pr-12' : undefined} />;
   const response = query.response;
-  return <div aria-busy={query.status === 'refreshing'} className="relative">
-    {query.status === 'refreshing' && !grouped && <span role="status" className="absolute right-0 -top-7 inline-flex items-center gap-1 text-[11px] text-text-muted">
+  return <div aria-busy={query.status === 'refreshing'} className={cn('relative', chart && 'row-span-2', chart && response.outcome === 'ok' && 'grid grid-rows-subgrid gap-y-0', analysisSection && response.outcome !== 'ok' && 'pr-12')}>
+    {query.status === 'refreshing' && !grouped && <span role="status" className={cn('absolute inline-flex items-center gap-1 text-[11px] text-text-muted', analysisSection ? 'right-12 top-3 z-[1] rounded bg-surface-card px-1' : 'right-0 -top-7')}>
       <Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}
     </span>}
     <OutcomeContent grouped={grouped} widgetName={widgetName} hideWidgetName={hideWidgetName} response={response} onRetry={query.refetch} emptyAction={emptyAction} compact={compact}>{data => children(data, response)}</OutcomeContent>

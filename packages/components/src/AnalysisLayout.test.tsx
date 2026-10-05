@@ -2,8 +2,9 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { useEffect, useState } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PlatformAdapter, Session } from '@ap/contracts';
+import type { ApiResponse, PlatformAdapter, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { QueryView } from './StateView';
 import { AnalysisLayout } from './AnalysisLayout';
 import { AnalysisChartFrame } from './AnalysisChartFrame';
 import { PlatformDataTable } from './PlatformDataTable';
@@ -89,6 +90,72 @@ const expand = (title: string) => screen.getByRole('button', { name: `${title} �
 function setWidth(next: number) { act(() => { width = next; callbacks.forEach(callback => callback()); }); }
 
 describe('AnalysisLayout', () => {
+  function queryNode(outcome: 'loading' | 'error' | 'empty' | 'ok', refreshing = false) {
+    const response: ApiResponse<string> | null = outcome === 'loading' ? null : { outcome, data: outcome === 'ok' ? 'value' : null, assessments: [], trust: null, correlationId: 'fixture' };
+    return <QueryView query={{ status: outcome === 'loading' ? 'loading' : refreshing ? 'refreshing' : 'done', response, refetch: () => {} }} skeletonHeight={280}>{() => chart('상태 차트')}</QueryView>;
+  }
+  function mountNode(node: React.ReactNode, layout = true) {
+    return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+      {layout ? <AnalysisLayout charts={[{ id: 'state', title: '상태 차트', node }]} /> : node}
+    </PlatformProvider></I18nProvider>);
+  }
+
+  it.each(['loading', 'error', 'empty'] as const)('collapses a chart during %s independently of its query body', outcome => {
+    const { container } = mountNode(queryNode(outcome));
+    expect(collapse('상태 차트')).toHaveAttribute('aria-expanded', 'true');
+    expect(collapse('상태 차트').parentElement).toHaveAttribute('data-analysis-section', 'state');
+    if (outcome === 'loading') {
+      const loading = screen.getByRole('status');
+      expect(loading).toHaveStyle({ minHeight: '280px' });
+      expect(loading).toHaveClass('row-span-2');
+      expect(loading).not.toHaveClass('contents');
+      expect(getComputedStyle(loading).display).not.toBe('contents');
+    } else expect(container.querySelector('[aria-busy]')).toHaveClass('row-span-2');
+    fireEvent.click(collapse('상태 차트'));
+    expect(expand('상태 차트')).toHaveAttribute('aria-expanded', 'false');
+    expect(container.querySelector('[data-analysis-section="state"]')).toBeNull();
+  });
+
+  it('keeps one wrapper collapse control when a successful query becomes an error', () => {
+    const view = (outcome: 'ok' | 'error') => <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+      <AnalysisLayout charts={[{ id: 'state', title: '상태 차트', node: queryNode(outcome) }]} />
+    </PlatformProvider></I18nProvider>;
+    const result = render(view('ok'));
+    expect(screen.getAllByRole('button', { name: '상태 차트 접기' })).toHaveLength(1);
+    result.rerender(view('error'));
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    fireEvent.click(collapse('상태 차트'));
+    expect(expand('상태 차트')).toHaveFocus();
+  });
+
+  it('restores focus from saved collapse even when the expanded query is an error', () => {
+    storage.set(key, '["state"]');
+    mountNode(queryNode('error'));
+    fireEvent.click(expand('상태 차트'));
+    expect(collapse('상태 차트')).toHaveFocus();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+
+  it('collapses ordinary ReactNode placeholders', () => {
+    mountNode(<p>일반 자리표시</p>);
+    fireEvent.click(collapse('상태 차트'));
+    expect(screen.queryByText('일반 자리표시')).not.toBeInTheDocument();
+  });
+
+  it('gives successful chart queries subgrid rows and keeps refresh text inside the card', () => {
+    const { container } = mountNode(queryNode('ok', true));
+    expect(container.querySelector('[aria-busy]')).toHaveClass('relative', 'grid', 'row-span-2', 'grid-rows-subgrid');
+    expect(screen.getByText('같은 조건으로 갱신 중')).toHaveClass('top-3', 'right-12');
+    expect(screen.getByText('같은 조건으로 갱신 중')).not.toHaveClass('-top-7');
+    expect(screen.getByRole('region', { name: '상태 차트' }).querySelector('header')).toHaveClass('pr-12');
+  });
+
+  it('keeps standalone QueryView layout and refreshing placement unchanged', () => {
+    const { container } = mountNode(queryNode('ok', true), false);
+    expect(container.querySelector('[aria-busy]')).toHaveAttribute('class', 'relative');
+    expect(screen.getByText('같은 조건으로 갱신 중')).toHaveClass('-top-7', 'right-0');
+  });
+
   it('measures its own width and gives paired charts shared header/body rows', () => {
     const { container } = mount();
     expect(observed.has(container.firstElementChild!)).toBe(true);
@@ -139,6 +206,7 @@ describe('AnalysisLayout', () => {
     fireEvent.click(collapse('요약'));
     expect(expand('요약')).toHaveFocus();
     expect(screen.queryByText('KPI 내용')).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '표 목록' }).firstElementChild).toHaveClass('pr-12');
     fireEvent.click(collapse('표'));
     expect(expand('표')).toHaveFocus();
     expect(screen.queryByRole('region', { name: '표 목록' })).not.toBeInTheDocument();
@@ -184,6 +252,7 @@ describe('AnalysisLayout', () => {
     const { container } = mount(false, false);
     expect(screen.queryByRole('button', { name: /접기/ })).not.toBeInTheDocument();
     expect(container.querySelector('[data-analysis-chart-head]')).toBeNull();
+    expect(container.querySelectorAll('.pr-12')).toHaveLength(0);
     expect(screen.getByRole('region', { name: '추세' }).firstElementChild?.tagName).toBe('HEADER');
   });
 });
