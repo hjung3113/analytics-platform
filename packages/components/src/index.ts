@@ -9,3 +9,5 @@ export * from './PlatformPage';
 export * from './RadioGroup';
 export * from './StatCard';
 export * from './StateView';
+
+export { ManagementLayout, type ManagementLayoutProps } from './ManagementLayout';

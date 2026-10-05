@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useLayoutEffect, useRef } from 'react';
 import { House } from 'lucide-react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PlatformAdapter, ScopeCheck, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { PlatformPage } from './PlatformPage';
@@ -29,7 +29,7 @@ function adapterWith(validateScope: PlatformAdapter['validateScope']): PlatformA
   };
 }
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('PlatformPage Scope gate: validation failure (#167)', () => {
   it('shows the check-failed message with a retry that re-validates and then renders the page', async () => {
@@ -203,5 +203,39 @@ describe('PlatformPage shared outcome placement (#55)', () => {
     expect(content).not.toHaveAttribute('role');
     expect(screen.queryByRole('region')).toBeNull();
     expect(content.lastElementChild).toHaveAttribute('data-testid', 'consumer-body');
+  });
+});
+
+
+describe('PlatformPage sticky offset', () => {
+  it('publishes the entire sticky header height and updates it through ResizeObserver', () => {
+    let height = 98;
+    let resize: (() => void) | undefined;
+    let observed: Element | undefined;
+    const disconnect = vi.fn();
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: () => void) { resize = callback; }
+      observe(element: Element) { observed = element; }
+      disconnect = disconnect;
+    });
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({ width: 1200, height, x: 0, y: 0, top: 0, left: 0, right: 1200, bottom: height, toJSON() {} }));
+    window.history.replaceState(null, '', '/');
+    const { container, unmount } = render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry} slots={{ contextBar: <div>Context</div> }}><PlatformPage>body</PlatformPage></PlatformProvider></I18nProvider>);
+    const root = container.firstElementChild as HTMLElement;
+    expect(observed).toContainElement(screen.getByText('Context'));
+    expect(observed).toContainElement(screen.getByRole('heading', { level: 1 }));
+    expect(root.style.getPropertyValue('--page-sticky-offset')).toBe('98px');
+    act(() => { height = 128; resize?.(); });
+    expect(root.style.getPropertyValue('--page-sticky-offset')).toBe('128px');
+    unmount();
+    expect(disconnect).toHaveBeenCalledOnce();
+  });
+
+  it('measures once when ResizeObserver is unavailable', () => {
+    vi.stubGlobal('ResizeObserver', undefined);
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 1200, height: 98, x: 0, y: 0, top: 0, left: 0, right: 1200, bottom: 98, toJSON() {} });
+    window.history.replaceState(null, '', '/');
+    const { container } = render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}><PlatformPage>body</PlatformPage></PlatformProvider></I18nProvider>);
+    expect((container.firstElementChild as HTMLElement).style.getPropertyValue('--page-sticky-offset')).toBe('98px');
   });
 });

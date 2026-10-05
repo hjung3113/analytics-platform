@@ -119,8 +119,11 @@ const choosePermission = async (value: string) => {
 const url = () => new URLSearchParams(window.location.search);
 const dataRows = () => [...document.querySelectorAll('[data-row-id]')].map(el => el.textContent ?? '');
 
-beforeEach(() => { window.history.replaceState(null, '', '/admin/roles'); });
-afterEach(() => { cleanup(); window.history.replaceState(null, '', '/'); });
+beforeEach(() => {
+  window.history.replaceState(null, '', '/admin/roles');
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 1200, height: 98, x: 0, y: 0, top: 0, left: 0, right: 1200, bottom: 98, toJSON() {} });
+});
+afterEach(() => { cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
 
 describe('AccessDirectory (issue #49: /admin/roles)', () => {
   it('sends the mapped query only — no focus, no scopeId, no user id, no default sort — and lists server order', async () => {

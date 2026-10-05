@@ -1,6 +1,6 @@
 import { OutcomeBanners, OutcomeScope } from './OutcomeScope';
 import { ChevronRight, Loader2, MapPinOff, RotateCw, ServerCrash, Star } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { Button, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { StateMessage } from './StateView';
@@ -23,6 +23,18 @@ export type PlatformPageProps = {
 export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, dataTrustSummary, crumbs = [], children }: PlatformPageProps) {
   const { route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots } = usePlatform();
   const { t, tx } = useI18n();
+  const root = useRef<HTMLDivElement>(null);
+  const stickyHeader = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const header = stickyHeader.current;
+    if (!header) return;
+    const measure = () => root.current?.style.setProperty('--page-sticky-offset', `${header.getBoundingClientRect().height}px`);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
   const menu = route!.menu;
   const favoriteTarget = menu.navHidden ? null : menu;
   const isFavorite = favoriteTarget ? favorites.includes(favoriteTarget.id) : false;
@@ -50,8 +62,8 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const descriptionResolved = description ?? tx(menu.description);
   const hasDescription = typeof descriptionResolved === 'string' ? descriptionResolved.trim().length > 0 : descriptionResolved != null && descriptionResolved !== false;
 
-  return <div className="flex min-h-full flex-col">
-    <div className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
+  return <div ref={root} className="flex min-h-full flex-col">
+    <div ref={stickyHeader} className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
       <header className="flex h-[50px] shrink-0 overflow-x-auto items-center justify-between gap-3 border-b border-border-subtle bg-surface-canvas px-4">
         <div className="flex min-w-6 flex-1 items-center gap-2">
           {(parent || crumbs.length > 0) && <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1 text-xs text-text-muted">
