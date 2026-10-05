@@ -55,9 +55,10 @@ function setText(ids: string[] | null, t: (k: 'all' | 'explicitEmpty') => string
 
 function CapTag({ cap }: { cap: Capability }) {
   const { t } = useI18n();
+  if (cap === 'apply') return null;
 
   return <span className={cn('shrink-0 rounded-xs px-1 text-[10px] font-semibold', cap !== 'unsupported' ? 'bg-surface-sunken text-text-secondary' : 'bg-accent-warn-soft text-text-warning-label')}>
-    {cap === 'apply' ? t('capApplied') : cap === 'reference' ? t('referenceOnly') : t('notUsed')}
+    {cap === 'reference' ? t('referenceOnly') : t('notUsed')}
   </span>;
 }
 
