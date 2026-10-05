@@ -49,6 +49,8 @@
 
 - 기능·버그 작업은 GitHub 이슈에서 시작하고 PR 본문에 `Closes #n`을 적는다. 오타·문서 정리·작은 수정은 이슈 없이 해도 된다. 작업 중 발견한 별개의 일은 바로 하지 말고 이슈로 남긴다.
 - PR은 하나씩 병합한다. 동작 버그를 고칠 때는 고치기 전에 실패하는 회귀 테스트를 함께 넣는다.
+- 이슈별로 알려진 수정을 모두 반영한 뒤 최종 리뷰를 한 번 한다. 리뷰 지적과 코디네이터의 자체 관찰은 모두 모아 한 수정 라운드로 처리한다.
+- 재리뷰는 blocker 또는 major 동작 수정(특히 권한·데이터 누출 수정) 뒤에만 한다. 문구만 바꾸거나 기계적으로 수정한 뒤에는 리뷰를 추가하지 않는다.
 - 이슈가 닫히거나 상태가 바뀌면 `.planning/README.md`의 해당 줄을 같은 PR에서 고친다. 계약이 바뀌면 그 계약의 소유 문서를 고친다(소유권은 `docs/AGENTS.md`).
 - 사람이 답해야 하는 결정은 `ready-for-human` 이슈로 올리고, 답 전에는 그 결정에 기대는 구현을 하지 않는다. 실제 대안 중에서 고른 결정은 `docs/adr/`에 ADR로 남긴다.
 
@@ -80,4 +82,4 @@
 - 지침 원본은 각 폴더의 `AGENTS.md`이고, 같은 폴더의 `CLAUDE.md`는 그 상대 심링크다. 새 폴더 지침도 `ln -s AGENTS.md CLAUDE.md`로 연결한다.
 - 스킬·명령·외부 디자인 참고자료 원본은 `.agents/skills`·`.agents/commands`·`.agents/references`다(사용법 `.agents/README.md`). 외부 스킬과 참고자료는 제품 계약을 덮어쓰지 않는다.
 - 이슈 트래커 설정(GitHub Issues, `area:*` 라벨, 마일스톤): `docs/agents/issue-tracker.md`. Triage 라벨 5종: `docs/agents/triage-labels.md`. 도메인 문서 구성: `docs/agents/domain.md`.
-- 벤더링 스킬: `prototype`·`to-tickets`·`to-spec`·`triage`·`wayfinder`(mattpocock/skills 사본), `fastapi`·`supabase-postgres-best-practices`·`vercel-react-best-practices`(외부 공식 사본, 출처·우선순위는 각 `SOURCE.md`와 `.agents/README.md`).
+- 벤더링 스킬: `prototype`·`wayfinder`(mattpocock/skills 사본), `vercel-react-best-practices`(외부 공식 사본, 출처·우선순위는 각 `SOURCE.md`와 `.agents/README.md`). 꺼 둔 스킬(`to-tickets`·`to-spec`·`triage`·`ui-styling`, #155 전까지 `fastapi`·`supabase-postgres-best-practices`)은 `.agents/skills-off/`.
