@@ -146,7 +146,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
 
           <div className="relative pt-6" data-testid="cycle-kpi">
             <QueryView widgetName={ko ? '사이클타임 요약' : 'Cycle time summary'} query={kpi}>
-              {data => <div className={variant === 'C' ? 'grid grid-cols-2 gap-3 @min-[600px]/analysis:grid-cols-4 @min-[960px]/analysis:grid-cols-1' : 'grid grid-cols-2 gap-3 @min-[600px]/analysis:grid-cols-4'}>
+              {data => <div className={variant === 'C' ? 'grid grid-cols-2 gap-3 @min-[600px]/analysis:grid-cols-4 @min-[960px]/analysis:grid-cols-1 @min-[960px]/analysis:[&>div]:gap-2 @min-[960px]/analysis:[&>div]:p-3 @min-[960px]/analysis:[&>div>span:first-child]:size-8 @min-[960px]/analysis:[&>div>span:first-child>svg]:size-5 @min-[960px]/analysis:[&_.t-stat]:text-[22px] @min-[960px]/analysis:[&_.t-stat]:leading-[1.2] @min-[960px]/analysis:[&_.t-stat]:tracking-[-0.3px]' : 'grid grid-cols-2 gap-3 @min-[600px]/analysis:grid-cols-4'}>
                 <StatCard icon={Timer} chip="blue" label="P50" value={formatMin(data.p50, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p50, data.prevP50)} caption={ko ? '적용 모집단' : 'Applied population'} />
                 <StatCard icon={Gauge} chip="amber" label="P95" value={formatMin(data.p95, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p95, data.prevP95)} caption={ko ? '적용 모집단' : 'Applied population'} />
                 <StatCard icon={Hash} chip="teal" label={ko ? '실행 수' : 'Executions'} value={data.count.toLocaleString(ko ? 'ko-KR' : 'en-US')} caption={ko ? '완료된 합성 Job' : 'Completed synthetic jobs'} />
@@ -154,13 +154,13 @@ export default function CycleTimeDrilldown(_: PageProps) {
               </div>}
             </QueryView>
           </div>
-          <p className="text-[12px] text-text-muted">{ko
+          <p className="t-caption mt-3 text-text-muted">{ko
             ? 'Candidate: 선형 보간 후 0.1분 반올림, 미완료 Job은 생성하지 않음, 느린 실행은 표시된 P95 이상(동률 포함). 감소를 개선으로 칠한 증감은 직전 동일 길이 기간 대비입니다. 빈 버킷은 0이 아닙니다.'
             : 'Candidate: linear interpolation rounded to 0.1 min, no in-progress jobs, slow means ≥ the displayed P95 (ties included). Deltas versus the previous equal-length period treat a decrease as an improvement. Empty buckets are not zero.'}</p>
 
 
-        </>} chart={[<div key="trend" className="min-w-0">
-          <div className="relative pt-6">
+        </>} chart={[<div key="trend" className="flex min-w-0 flex-col">
+          <div className="relative flex flex-1 flex-col pt-6 [&>div]:flex [&>div]:flex-1 [&>div]:flex-col [&_section[role=region]]:flex-1">
             <QueryView widgetName={ko ? '사이클타임 추세' : 'Cycle time trend'} query={trend} skeletonHeight={280}>
               {(data, response) => <AnalysisChartFrame
                 chartId="cycle-time-trend"
@@ -196,8 +196,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
           </div>
 
 
-        </div>, <div key="distribution" className="min-w-0">
-          <div className="relative pt-6">
+        </div>, <div key="distribution" className="flex min-w-0 flex-col">
+          <div className="relative flex flex-1 flex-col pt-6 [&>div]:flex [&>div]:flex-1 [&>div]:flex-col [&_section[role=region]]:flex-1">
             <QueryView widgetName={ko ? '사이클타임 분포' : 'Cycle time distribution'} query={dist} skeletonHeight={220}>
               {(data, response) => <AnalysisChartFrame
                 chartId="cycle-time-distribution"
@@ -207,7 +207,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
                 xType="category"
                 unit={ko ? '건' : 'jobs'}
                 valueFormat={value => Math.round(value).toLocaleString(ko ? 'ko-KR' : 'en-US')}
-                height={220}
+                height={260}
                 series={[{ id: 'hist', name: ko ? '실행 수' : 'Executions', color: 'chart-blue', kind: 'bar', points: data.bins.map((item): [string, number] => [item.id, item.count]) }]}
                 trust={chartTrust(response.trust, unknown)}
                 selectionActions={selection => <Button size="sm" className="h-7 px-2 text-[12px]" onClick={() => setPage({ bin: selection.from === selection.to ? selection.from : `${selection.from}..${selection.to}`, page: null })}>{ko ? '이 구간 실행 보기' : 'Show executions in this range'}</Button>}

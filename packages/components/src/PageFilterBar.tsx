@@ -99,11 +99,11 @@ function PageFilterFieldControl({ field, id }: { field: PageFilterField; id: str
 export function PageFilterBar({ label, fields, actions, orientation = 'row' }: PageFilterBarProps) {
   const id = useId();
 
-  return <fieldset data-testid="page-filter-bar" className="mb-3 rounded-md border border-border-subtle bg-surface-card p-3">
-    <legend className="px-1 text-xs text-text-secondary">{label}</legend>
-    <div className={orientation === 'column' ? 'flex flex-col items-stretch gap-3 [&>div]:min-w-0 [&_span.relative]:w-full [&>div:last-child]:mt-3' : 'flex flex-wrap items-end gap-3'}>
+  return <fieldset data-testid="page-filter-bar" className={orientation === 'column' ? 'm-0 min-w-0 border-0 p-0' : 'mb-3 rounded-md border border-border-subtle bg-surface-card p-3'}>
+    <legend className={orientation === 'column' ? 'sr-only' : 'px-1 text-xs text-text-secondary'}>{label}</legend>
+    <div className={orientation === 'column' ? 'flex flex-col items-stretch gap-3 [&>div]:mx-3 [&>div]:min-w-0 [&>div:first-child]:mt-3 [&_span.relative]:w-full [&_[role=combobox]]:w-full' : 'flex flex-wrap items-end gap-3'}>
       {fields.map((field, index) => <PageFilterFieldControl key={field.key} field={field} id={`${id}-field-${index}`} />)}
-      {actions != null && <div className="flex flex-wrap items-end gap-2">{actions}</div>}
+      {actions != null && <div className={orientation === 'column' ? 'sticky bottom-0 !mx-0 mt-1 flex flex-wrap items-end gap-2 border-t border-border-subtle bg-surface-card p-3' : 'flex flex-wrap items-end gap-2'}>{actions}</div>}
     </div>
   </fieldset>;
 }
