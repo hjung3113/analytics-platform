@@ -145,15 +145,29 @@ describe('AnalysisLayout', () => {
   it('gives successful chart queries subgrid rows and keeps refresh text inside the card', () => {
     const { container } = mountNode(queryNode('ok', true));
     expect(container.querySelector('[aria-busy]')).toHaveClass('relative', 'grid', 'row-span-2', 'grid-rows-subgrid');
-    expect(screen.getByText('같은 조건으로 갱신 중')).toHaveClass('top-3', 'right-12');
-    expect(screen.getByText('같은 조건으로 갱신 중')).not.toHaveClass('-top-7');
+    // Icon-only status inside the header's reserved right column, under the corner collapse button (never over the toolbar).
+    const status = screen.getByText('같은 조건으로 갱신 중').closest('[role="status"]');
+    expect(status).toHaveClass('right-5', 'top-11');
+    expect(status).not.toHaveClass('-top-7', 'right-12');
+    expect(status).toHaveAttribute('title', '같은 조건으로 갱신 중');
+    expect(screen.getByText('같은 조건으로 갱신 중')).toHaveClass('sr-only');
     expect(screen.getByRole('region', { name: '상태 차트' }).querySelector('header')).toHaveClass('pr-12');
+  });
+
+  it('places KPI refresh text in the section header row, left of the collapse button', () => {
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+      <AnalysisLayout kpi={{ id: 'kpi', title: '요약', node: queryNode('ok', true) }} charts={[]} />
+    </PlatformProvider></I18nProvider>);
+    const status = screen.getByText('같은 조건으로 갱신 중').closest('[role="status"]');
+    expect(status).toHaveClass('right-9', '-top-7');
+    expect(screen.getByText('같은 조건으로 갱신 중')).not.toHaveClass('sr-only');
   });
 
   it('keeps standalone QueryView layout and refreshing placement unchanged', () => {
     const { container } = mountNode(queryNode('ok', true), false);
     expect(container.querySelector('[aria-busy]')).toHaveAttribute('class', 'relative');
-    expect(screen.getByText('같은 조건으로 갱신 중')).toHaveClass('-top-7', 'right-0');
+    expect(screen.getByText('같은 조건으로 갱신 중').closest('[role="status"]'))
+      .toHaveAttribute('class', 'absolute right-0 -top-7 inline-flex items-center gap-1 text-[11px] text-text-muted');
   });
 
   it('measures its own width and gives paired charts shared header/body rows', () => {

@@ -95,9 +95,14 @@ export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, em
   if (!query.response) return <LoadingBlock rows={skeletonRows} height={skeletonHeight} className={chart ? 'row-span-2 pr-12' : undefined} />;
   const response = query.response;
   return <div aria-busy={query.status === 'refreshing'} className={cn('relative', chart && 'row-span-2', chart && response.outcome === 'ok' && 'grid grid-rows-subgrid gap-y-0', analysisSection && response.outcome !== 'ok' && 'pr-12')}>
-    {query.status === 'refreshing' && !grouped && <span role="status" className={cn('absolute inline-flex items-center gap-1 text-[11px] text-text-muted', analysisSection ? 'right-12 top-3 z-[1] rounded bg-surface-card px-1' : 'right-0 -top-7')}>
-      <Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}
-    </span>}
+    {query.status === 'refreshing' && !grouped && (analysisSection && analysisSection.kind !== 'kpi'
+      // Icon only, in the header's reserved right column under the corner collapse button: never over the toolbar.
+      ? <span role="status" title={t('refreshing')} className="absolute right-5 top-11 z-[1] inline-flex text-text-muted">
+        <Loader2 className="size-3 animate-spin" aria-hidden /><span className="sr-only">{t('refreshing')}</span>
+      </span>
+      : <span role="status" className={analysisSection ? 'absolute right-9 -top-7 inline-flex items-center gap-1 text-[11px] text-text-muted' : 'absolute right-0 -top-7 inline-flex items-center gap-1 text-[11px] text-text-muted'}>
+        <Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}
+      </span>)}
     <OutcomeContent grouped={grouped} widgetName={widgetName} hideWidgetName={hideWidgetName} response={response} onRetry={query.refetch} emptyAction={emptyAction} compact={compact}>{data => children(data, response)}</OutcomeContent>
   </div>;
 }
