@@ -17,6 +17,7 @@
 - 선택자는 역할·접근 가능한 이름(한국어 UI)을 쓴다. 문구가 바뀌면 여기도 고친다.
 - 증거 스크린샷은 `evidence(page, testInfo, 이름)`으로 붙인다. 계약이 보이는 순간(전환 직후 등)을 찍는다.
 - 기본은 데스크톱 1440×900(05 Decided)이다. 폭에 따라 달라지는 계약(ADR-0013 상세 슬롯, ADR-0015 Context 바)만 해당 `test`가 `setViewportSize`로 1280·1920 등을 검사한다.
+- 임시 캡처는 `bash tooling/scripts/capture-page.sh <name> <route> [--variant <값>] [--ready <선택자>]`로 만들고, 출력된 Playwright 명령 실행 뒤 `bash tooling/scripts/capture-page.sh --clean <name>`으로 spec을 휴지통으로 옮긴다(스크린샷은 `.review/<name>-shots/`).
 
 ## 실행과 보고
 

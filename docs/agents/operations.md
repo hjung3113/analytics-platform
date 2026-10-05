@@ -14,6 +14,8 @@
 | `.agents/` 쓰기 | 코디네이터가 고친다 |
 
 - 작업자에게는 `pnpm --config.verify-deps-before-run=false --filter <pkg> run <script>`만 맡긴다. 작업자가 `.pnpm-store/`를 만들면 지운다.
+- 구현 브리프에는 [구현 작업자 규칙](templates/impl-rules.md)을 포함한다.
+- 리뷰 브리프에는 [최종 리뷰어 규칙](templates/review-rules.md)을 포함한다.
 - 작업자가 쓴 E2E는 실행해 보지 못하고 쓴 것이라 첫 실행에서 자주 깨진다(mock에 없는 값, primitive 기본값 추정, Radix 동작). 전체 E2E 전에 `cd apps/platform-e2e && pnpm exec playwright test -g "<describe 이름>"`으로 새 테스트만 먼저 돌린다.
 - 테스트를 고치는 라운드에는 `pnpm --filter <pkg> typecheck`도 넣는다 — vitest는 타입을 보지 않는다.
 - 스펙에 ADR 형식을 그대로 적어 준다(영어 예시를 주면 그대로 베낀다). 형식은 [`docs/adr/README.md`](../adr/README.md).
