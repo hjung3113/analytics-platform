@@ -7,7 +7,7 @@
 - `06_platform_ui_contract.md` — 전역 계약과 navigation IA. 다른 문서는 이를 소비한다.
 - `01` 데이터 계약·운영 정책, `02` 도메인 catalog, `03` 백엔드, `04` 프론트 기술 스택·검토, `05` ADR 없는 계약 결정 목록, `07`–`13` 화면 설계(셸과 견본 메뉴의 계약 메모).
 - `adr/` — 실제 대안 중에서 고른 결정과 그 이유. 목록·형식은 [adr/README.md](adr/README.md). 세부 규칙은 소유 문서에 두고 ADR은 링크한다.
-- 다음 ADR 번호는 `bash tooling/scripts/next-adr.sh`로 확인한다(현재 로컬 트리만 읽으므로 열린 브랜치·worktree는 보이지 않는다).
+- 다음 ADR 번호는 `bash tooling/scripts/next-adr.sh`로 확인한다. 현재 로컬 트리만 읽으므로 `origin/main`을 fetch해 비교하고 열린 브랜치·worktree도 별도로 확인한다.
 - `integration/` — 저장소 구조, 패키지 경계, 서버·FeedbackOps 연결 계약.
 - `agents/` — 이슈 트래커 설정과 에이전트 운영 메모.
 - `research/`, `reviews/` — 아직 쓸모 있는 조사·근거 기록. authoritative source가 아니다.

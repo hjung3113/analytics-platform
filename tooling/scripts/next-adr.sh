@@ -25,4 +25,4 @@ fi
 next=$((highest + 1))
 printf '다음 ADR 번호: %04d\n' "$next"
 printf '파일명 형식: %04d-<영문-요약>.md\n' "$next"
-printf '주의: 현재 로컬 docs/adr 트리만 확인했습니다. 열린 브랜치와 worktree는 보이지 않습니다.\n'
+printf '주의: 현재 로컬 docs/adr 트리만 확인했습니다. origin/main을 fetch해 비교하고 열린 브랜치와 worktree도 별도로 확인하세요.\n'
