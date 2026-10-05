@@ -239,7 +239,7 @@ function pageTsx(i: MenuInputs): string {
     return slot ? (lang === 'ko' ? slot.ko : slot.en) : id;
   };
   const slotPlaceholder = (id: (typeof SLOTS)[number]['id']) => <section key={id} data-slot={id} className="rounded-lg border border-dashed border-border-subtle p-4">
-    <h2 className="text-[13px] font-medium text-text-secondary">{slotLabel(id)}</h2>
+    <h2 className="t-caption font-medium text-text-secondary">{slotLabel(id)}</h2>
   </section>;
 ` : '';
   const slotsMarkup = i.pageType === 'management' ? `      <ManagementLayout
@@ -264,7 +264,7 @@ function pageTsx(i: MenuInputs): string {
         {/* Replace Data Trust with DataTrustIndicator. */}
       </div>`
       : `      {SLOTS.map(slot => <section key={slot.id} data-slot={slot.id} className="rounded-lg border border-dashed border-border-subtle p-4">
-        <h2 className="text-[13px] font-medium text-text-secondary">{lang === 'ko' ? slot.ko : slot.en}</h2>
+        <h2 className="t-caption font-medium text-text-secondary">{lang === 'ko' ? slot.ko : slot.en}</h2>
       </section>)}`;
   return `import { useI18n, useMenuQuery } from '${PACKAGE_PREFIX}kernel';
 import { PlatformPage, QueryView${layoutImport} } from '${PACKAGE_PREFIX}components';

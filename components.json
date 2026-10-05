@@ -1,0 +1,4 @@
+{
+  "tailwind": { "css": "apps/platform-web/src/style.css" },
+  "aliases": { "ui": "./packages/ui/src/components" }
+}

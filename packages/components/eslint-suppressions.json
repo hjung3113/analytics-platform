@@ -1,0 +1,110 @@
+{
+  "src/AnalysisChartFrame.tsx": {
+    "shadcn/no-arbitrary-values": {
+      "count": 22
+    },
+    "shadcn/no-inline-styles": {
+      "count": 7
+    },
+    "shadcn/no-restyle": {
+      "count": 46
+    }
+  },
+  "src/AnalysisLayout.tsx": {
+    "shadcn/no-arbitrary-values": {
+      "count": 4
+    },
+    "shadcn/no-restyle": {
+      "count": 4
+    }
+  },
+  "src/AnalysisSectionContext.tsx": {
+    "shadcn/no-restyle": {
+      "count": 1
+    }
+  },
+  "src/AuditTimeline.tsx": {
+    "shadcn/no-arbitrary-values": {
+      "count": 7
+    }
+  },
+  "src/DataTrustIndicator.tsx": {
+    "shadcn/no-arbitrary-values": {
+      "count": 5
+    },
+    "shadcn/no-restyle": {
+      "count": 7
+    }
+  },
+  "src/DetailDrawer.tsx": {
+    "shadcn/no-arbitrary-values": {
+      "count": 5
+    },
+    "shadcn/no-restyle": {
+      "count": 5
+    }
+  },
+  "src/EChart.tsx": {
+    "shadcn/no-inline-styles": {
+      "count": 4
+    }
+  },
+  "src/EChartImpl.tsx": {
+    "shadcn/no-inline-styles": {
+      "count": 2
+    }
+  },
+  "src/ManagementLayout.tsx": {
+    "shadcn/no-arbitrary-values": {
+      "count": 3
+    },
+    "shadcn/no-inline-styles": {
+      "count": 2
+    },
+    "shadcn/no-restyle": {
+      "count": 3
+    }
+  },
+  "src/OutcomeScope.tsx": {
+    "shadcn/no-arbitrary-values": {
+      "count": 1
+    }
+  },
+  "src/PageFilterBar.tsx": {
+    "shadcn/no-restyle": {
+      "count": 10
+    }
+  },
+  "src/PlatformDataTable.tsx": {
+    "shadcn/no-arbitrary-values": {
+      "count": 15
+    },
+    "shadcn/no-inline-styles": {
+      "count": 8
+    },
+    "shadcn/no-restyle": {
+      "count": 55
+    }
+  },
+  "src/PlatformPage.tsx": {
+    "shadcn/no-arbitrary-values": {
+      "count": 2
+    }
+  },
+  "src/StatCard.tsx": {
+    "shadcn/no-arbitrary-values": {
+      "count": 3
+    }
+  },
+  "src/StateView.tsx": {
+    "shadcn/no-arbitrary-values": {
+      "count": 10
+    },
+    "shadcn/no-inline-styles": {
+      "count": 2
+    },
+    "shadcn/no-restyle": {
+      "count": 2
+    }
+  }
+}

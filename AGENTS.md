@@ -42,6 +42,7 @@
 
 - 코드를 바꿨으면 커밋 전에 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`가 모두 0으로 끝나야 한다. 작업 중에는 `pnpm --filter <pkg> …`로 충분하다.
 - 화면이 바뀌면 브라우저로 확인한다. Kernel·셸·공통 컴포넌트·mock 서버를 바꾸면 관련 E2E를 돌린다(`pnpm e2e`, 좁히려면 `apps/platform-e2e`에서 `pnpm exec playwright test -g "<describe>"`). CI가 전체 E2E를 다시 돌리고 항목별 보고(`apps/platform-e2e/contract-report/`)를 남긴다.
+- `pnpm lint`는 디자인 시스템 규칙(`@shadcn/lint`, #228)도 검사한다. 오류 메시지가 대신 쓸 토큰·variant·컴포넌트를 알려 주니 그대로 고친다. 도입 전 위반은 패키지별 `eslint-suppressions.json`에 묶여 있다 — 고친 뒤 그 패키지에서 `eslint . --prune-suppressions`로 줄이고, 새 위반을 여기에 더하지 않는다.
 - 문서만 바꿨으면 `pnpm docs:links`(문서 링크 검사)만 돌린다.
 - 실행하지 않은 검증은 했다고 보고하지 않는다.
 

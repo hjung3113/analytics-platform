@@ -1,3 +1,4 @@
+import { plugin as shadcn } from '@shadcn/lint';
 import tsParser from '@typescript-eslint/parser';
 
 import { PACKAGE_PREFIX } from './prefix.js';
@@ -228,6 +229,31 @@ function layerConfig({ restriction, extraRules = {} }) {
   };
 }
 
+// #228: design-system rules (@shadcn/lint) for packages that render UI. The theme is the app's Tailwind entry,
+// named by the root components.json; components are the ui primitives and the shared components. Every rule is an
+// error; findings that predate #228 live in each package's eslint-suppressions.json until they are fixed.
+const DESIGN_SYSTEM_RULES = {
+  'shadcn/no-restyle': ['error', { allow: ['layout'] }],
+  'shadcn/no-raw-colors': 'error',
+  'shadcn/no-arbitrary-values': 'error',
+  'shadcn/no-inline-styles': 'error',
+  'shadcn/no-unknown-classes': 'error',
+  'shadcn/require-static-classes': 'error',
+};
+/** @param {{ restyle?: boolean }} [options] restyle: false where the components themselves are defined. */
+const designSystem = ({ restyle = true } = {}) => ({
+  files: ['**/*.tsx'],
+  ignores: ['**/*.test.tsx'],
+  plugins: { shadcn },
+  settings: {
+    shadcn: {
+      componentImports: [`^${pkg('ui')}(/|$)`, `^${pkg('components')}(/|$)`],
+      note: 'Visual rules: DESIGN.md. Shared components: docs/06_platform_ui_contract.md §13.',
+    },
+  },
+  rules: restyle ? DESIGN_SYSTEM_RULES : { ...DESIGN_SYSTEM_RULES, 'shadcn/no-restyle': 'off' },
+});
+
 /** @type {import('eslint').Linter.Config[]} */
 export const contracts = [
   layerConfig({ restriction: { allow: [], denyReact: true, mockAllowed: false } }),
@@ -236,6 +262,7 @@ export const contracts = [
 /** @type {import('eslint').Linter.Config[]} */
 export const ui = [
   layerConfig({ restriction: { allow: [], denyReact: false, mockAllowed: false, allowFeedbackOpsUi: true } }),
+  designSystem({ restyle: false }),
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -248,6 +275,7 @@ export const components = [
   layerConfig({
     restriction: { allow: ['contracts', 'kernel', 'ui'], denyReact: false, mockAllowed: false },
   }),
+  designSystem(),
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -260,6 +288,7 @@ export const shell = [
     },
     extraRules: { 'ap/no-shell-id-literal-comparison': 'error' },
   }),
+  designSystem(),
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -294,6 +323,7 @@ export const menu = [
       'ap/restricted-import-source': ['error', importSourceOptions(MENU_MOCK_RESTRICTION)],
     },
   },
+  designSystem(),
 ];
 
 // App: all package entries allowed, deep subpaths, mock-server and ./dev banned (#153). src/main.tsx keeps only
@@ -316,6 +346,7 @@ export const app = [
   appOverride([APP_CONFORMANCE_FILE], APP_CONFORMANCE_RESTRICTION),
   appOverride([APP_PUBLISHED_METRICS_FILE], APP_PUBLISHED_METRICS_RESTRICTION),
   appOverride([APP_DEV_FILES], APP_DEV_RESTRICTION),
+  designSystem(),
 ];
 
 /** @type {import('eslint').Linter.Config[]} */

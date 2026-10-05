@@ -1,0 +1,7 @@
+{
+  "src/pages/OperationsHome.tsx": {
+    "shadcn/no-arbitrary-values": {
+      "count": 12
+    }
+  }
+}
