@@ -53,6 +53,11 @@ function setText(ids: string[] | null, t: (k: 'all' | 'explicitEmpty') => string
   return ids.length <= 2 ? ids.join(', ') : `${ids[0]} +${ids.length - 1}`;
 }
 
+/** Exception status for names that replace the chip text (period button and group): applied adds nothing. */
+function capStatus(cap: Capability, t: (k: 'referenceOnly' | 'notUsed') => string): string {
+  return cap === 'reference' ? `, ${t('referenceOnly')}` : cap === 'unsupported' ? `, ${t('notUsed')}` : '';
+}
+
 function CapTag({ cap }: { cap: Capability }) {
   const { t } = useI18n();
   if (cap === 'apply') return null;
@@ -79,7 +84,7 @@ function CarriedChip({ k, cap, value, onRemove }: { k: ContextKey; cap: Capabili
   const { tx, t, lang } = useI18n();
   const { global } = usePlatform();
   const fullValue = k === 'time' ? (global.from ? `${global.from} – ${global.to}` : t('selectPeriod')) : value;
-  return <span role={k === 'time' ? 'group' : undefined} aria-label={k === 'time' ? `${tx(CONTEXT_LABELS[k])}: ${fullValue}` : undefined} className={cn('inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-sm border pl-2.5 pr-1 whitespace-nowrap text-[12px]',
+  return <span role={k === 'time' ? 'group' : undefined} aria-label={k === 'time' ? `${tx(CONTEXT_LABELS[k])}: ${fullValue}${capStatus(cap, t)}` : undefined} className={cn('inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-sm border pl-2.5 pr-1 whitespace-nowrap text-[12px]',
     cap === 'unsupported' ? 'border-dashed border-border-strong text-text-muted' : 'border-border-strong bg-surface-card')}
     title={cap === 'unsupported' ? (lang === 'ko' ? 'URL에 보존되며 지원 메뉴로 이동하면 재검증 후 적용됩니다.' : 'Kept in the URL; re-validated and applied on a supporting page.') : undefined}>
     <span className="text-text-muted">{tx(CONTEXT_LABELS[k])}</span>
@@ -114,7 +119,7 @@ function PeriodControl({ cap, compact = false }: { cap: Capability; compact?: bo
   return <div className="flex min-w-0 items-center gap-1">
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type="button" className={cn('inline-flex h-8 items-center gap-2 rounded-sm border border-border-strong bg-surface-card px-2.5 whitespace-nowrap text-[12px] hover:border-border-control', compact ? 'w-full min-w-0' : 'min-w-[204px]')} title={periodName} aria-label={periodName}>
+        <button type="button" className={cn('inline-flex h-8 items-center gap-2 rounded-sm border border-border-strong bg-surface-card px-2.5 whitespace-nowrap text-[12px] hover:border-border-control', compact ? 'w-full min-w-0' : 'min-w-[204px]')} title={periodName} aria-label={`${periodName}${capStatus(cap, t)}`}>
           <CalendarDays className="size-4 shrink-0 text-text-muted" aria-hidden />
           {global.from ? <span className="min-w-0 truncate font-medium tabular">{short(global.from)} → {short(global.to!)}</span> : <span className="min-w-0 truncate text-text-muted">{t('selectPeriod')}</span>}
           {!compact && h !== null && <span className="text-text-muted tabular">({h >= 48 ? `${Math.round(h / 24)}${lang === 'ko' ? '일' : 'd'}` : `${h}h`})</span>}

@@ -2,15 +2,16 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
-import type { PlatformAdapter, Session } from '@ap/contracts';
+import type { Capability, PlatformAdapter, Session } from '@ap/contracts';
 import { GlobalContextBar } from './GlobalContextBar';
 
 const caps = { time: 'reference', roomNames: 'apply', condition: 'apply', selection: 'apply', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
-const registry = createRegistry({
+const registryWith = (context: Record<keyof typeof caps, Capability>) => createRegistry({
   spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' }],
   groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: true, context: caps, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
+  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: true, context, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
+const registry = registryWith(caps);
 const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
 const evaluation = vi.fn(async () => ({ inCondition: [], outOfCondition: [] }));
 const session: Session = { user: { id: 'u', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view'] }, scopes: [{ id: 'ICH', label: 'ICH', grantedRooms: 1, totalRooms: 1 }] };
@@ -60,10 +61,10 @@ afterEach(() => {
 const bar = () => screen.getByRole('region', { name: '전역 Context' });
 const visibleContextLabel = () => Array.from(bar().querySelectorAll('span'))
   .some(label => label.textContent === '전역 Context' && !label.closest('[data-context-measuring]'));
-function mount(extra = '', lang: 'ko' | 'en' = 'ko', period = true) {
+function mount(extra = '', lang: 'ko' | 'en' = 'ko', period = true, menus = registry) {
   localStorage.setItem('platform:lang', lang);
   window.history.replaceState(null, '', `/?v=1&scopeId=ICH${period ? '&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00' : ''}${extra}`);
-  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><GlobalContextBar /></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={menus}><GlobalContextBar /></PlatformProvider></I18nProvider>);
 }
 function width(value: number) { act(() => { barWidth = value; resize?.(); }); }
 const inlineKeys = () => Array.from(bar().querySelectorAll('[data-context-key]'), el => el.getAttribute('data-context-key'));
@@ -127,6 +128,7 @@ describe('Global Context priority overflow (#56)', () => {
     }
     const period = within(bar()).getByRole('button', { name: /^기간:/ });
     expect(period).toHaveAttribute('title', '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00');
+    expect(period).toHaveAccessibleName('기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00, 참조만');
     fireEvent.click(period);
     expect(screen.getByRole('radio', { name: '7일' })).toBeVisible();
   });
@@ -221,7 +223,18 @@ describe('Global Context priority overflow (#56)', () => {
 
   it('gives an unset period the selection prompt as its accessible name and title (P3-1)', () => {
     mount('', 'ko', false);
-    expect(within(bar()).getByRole('button', { name: '기간: 기간을 선택하세요' })).toHaveAttribute('title', '기간: 기간을 선택하세요');
+    expect(within(bar()).getByRole('button', { name: '기간: 기간을 선택하세요, 참조만' })).toHaveAttribute('title', '기간: 기간을 선택하세요');
+  });
+
+  it('keeps the exception status in period names that replace the visible tag (#218 review)', () => {
+    mount();
+    expect(within(bar()).getByRole('button', { name: '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00, 참조만' })).toBeVisible();
+    cleanup();
+    mount('', 'ko', true, registryWith({ ...caps, time: 'unsupported' }));
+    expect(within(bar()).getByRole('group', { name: '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00, 이 화면에서 미사용' })).toBeVisible();
+    cleanup();
+    mount('', 'ko', true, registryWith({ ...caps, time: 'apply' }));
+    expect(within(bar()).getByRole('button', { name: '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00' })).toBeVisible();
   });
 
   it('measures once and responds to window resize when ResizeObserver is unavailable (P3-3)', () => {
