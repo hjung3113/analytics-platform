@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { AlertTriangle, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
 import { periodHours, type Trust } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
-import { AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type Delta, type PlatformColumn, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage } from '@ap/components';
+import { AnalysisLayout, AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type Delta, type PlatformColumn, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import {
   CYCLE_VERSION_NOTE, PAGE_METRIC_ID, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint,
@@ -140,10 +140,11 @@ export default function CycleTimeDrilldown(_: PageProps) {
           ? `${pageErrors.join(', ')} 은 이 화면의 등록 값이 아닙니다. hour|day|week, p50|p95|all, column:asc|desc, bucket=경계 시각, bin=구간|from..to, page=1 이상 정수 만 허용하며 다른 값으로 바꾸지 않습니다.`
         : `${pageErrors.join(', ')} is not a registered value. Allowed: hour|day|week, p50|p95|all, column:asc|desc, bucket=aligned timestamp, bin=id|from..to, page=integer ≥ 1. Nothing was substituted.`} />
       : !periodReady ? <p className="text-[13px] text-text-muted">{ko ? '전역 기간이 URL에 확정되면 조회합니다.' : 'The query starts once the global period is in the URL.'}</p>
-        : <div className="space-y-4">
-          <div className="relative pt-6" data-testid="cycle-kpi">
+        : <AnalysisLayout
+          kpi={{ id: 'summary', title: ko ? '사이클타임 요약' : 'Cycle time summary', node: <>
+          <div className="relative" data-testid="cycle-kpi">
             <QueryView widgetName={ko ? '사이클타임 요약' : 'Cycle time summary'} query={kpi}>
-              {data => <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {data => <div className="grid grid-cols-2 gap-3 @min-[960px]/analysis:grid-cols-4">
                 <StatCard icon={Timer} chip="blue" label="P50" value={formatMin(data.p50, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p50, data.prevP50)} caption={ko ? '적용 모집단' : 'Applied population'} />
                 <StatCard icon={Gauge} chip="amber" label="P95" value={formatMin(data.p95, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p95, data.prevP95)} caption={ko ? '적용 모집단' : 'Applied population'} />
                 <StatCard icon={Hash} chip="teal" label={ko ? '실행 수' : 'Executions'} value={data.count.toLocaleString(ko ? 'ko-KR' : 'en-US')} caption={ko ? '완료된 합성 Job' : 'Completed synthetic jobs'} />
@@ -155,7 +156,9 @@ export default function CycleTimeDrilldown(_: PageProps) {
             ? 'Candidate: 선형 보간 후 0.1분 반올림, 미완료 Job은 생성하지 않음, 느린 실행은 표시된 P95 이상(동률 포함). 감소를 개선으로 칠한 증감은 직전 동일 길이 기간 대비입니다. 빈 버킷은 0이 아닙니다.'
             : 'Candidate: linear interpolation rounded to 0.1 min, no in-progress jobs, slow means ≥ the displayed P95 (ties included). Deltas versus the previous equal-length period treat a decrease as an improvement. Empty buckets are not zero.'}</p>
 
-          <div className="relative pt-6">
+          </> }}
+          charts={[
+            { id: 'trend', title: ko ? '사이클타임 추세' : 'Cycle time trend', node:
             <QueryView widgetName={ko ? '사이클타임 추세' : 'Cycle time trend'} query={trend} skeletonHeight={280}>
               {(data, response) => <AnalysisChartFrame
                 chartId="cycle-time-trend"
@@ -188,9 +191,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
                 }}
               />}
             </QueryView>
-          </div>
-
-          <div className="relative pt-6">
+            },
+            { id: 'distribution', title: ko ? '사이클타임 분포' : 'Cycle time distribution', node:
             <QueryView widgetName={ko ? '사이클타임 분포' : 'Cycle time distribution'} query={dist} skeletonHeight={220}>
               {(data, response) => <AnalysisChartFrame
                 chartId="cycle-time-distribution"
@@ -206,8 +208,9 @@ export default function CycleTimeDrilldown(_: PageProps) {
                 selectionActions={selection => <Button size="sm" className="h-7 px-2 text-[12px]" onClick={() => setPage({ bin: selection.from === selection.to ? selection.from : `${selection.from}..${selection.to}`, page: null })}>{ko ? '이 구간 실행 보기' : 'Show executions in this range'}</Button>}
               />}
             </QueryView>
-          </div>
-
+            },
+          ]}
+          breakdown={{ id: 'slow', title: ko ? '느린 실행' : 'Slow executions', node: <>
           <PlatformDataTable<SlowRow>
             title={ko ? '느린 실행' : 'Slow executions'}
             subtitle={ko
@@ -251,7 +254,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
             ? '품질 배지는 Candidate입니다. unknown은 미확정이며 정상으로 채우지 않습니다. review는 합성 플래그이고 불량·수율이 아닙니다.'
             : 'Quality badges are Candidate. unknown stays unconfirmed and is not filled in as pass. review is a synthetic flag, not a defect or yield.'}</p>
           {kpi.response && kpi.response.outcome === 'ok' && <DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} />}
-        </div>}
+          </> }}
+        />}
   </PlatformPage>;
 }
 

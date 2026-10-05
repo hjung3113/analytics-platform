@@ -5,6 +5,7 @@ Platform Component 층(06 §13) + 차트 계약(§16) + 페이지 archetype 골�
 ## 파일
 
 - `PlatformPage.tsx` — 페이지 최상위. 제목·액션·`contextExtension`·`dataTrustSummary`·breadcrumb 슬롯, Scope 게이트, 전역 Context Bar는 `slots.contextBar`로 받아 렌더(셸을 import하지 않음). 본문 영역은 `data-platform-page-content` 속성으로 식별한다(헤더·전역 Context·페이지 extension 제외, Scope 게이트도 이 영역에 렌더). 계약 검사는 스타일 클래스 대신 이 안정된 hook을 사용한다.
+- `AnalysisLayout.tsx` — 분석 화면의 KPI 띠·차트 2열·전체 폭 분해 표, 단위별 접기와 접힌 항목 칩 복원·메뉴별 기억·포커스 이동을 소유한다(06 §12.6, ADR-0022).
 - `ManagementLayout.tsx` — 관리 화면의 filter/table/drawer 슬롯. 자기 폭에 따른 접을 수 있는 sticky 필터 레일과 좁은 폭 팝오버, 공통 접힘 기억·포커스 이동을 소유한다(06 §12.6, ADR-0022).
 - `PageFilterBar.tsx` — consumer가 정의한 검색·텍스트·Select·custom 필드와 actions를 표시한다. field value·URL key·변경·reset/apply 의미는 consumer가 소유하며, 현재 알 수 없는 Select 값은 표시 옵션으로 유지한다(#54, 06 §13·§15).
 - `StateView.tsx` — §19 상태 분류(`QueryView`), `OutcomeScope.tsx`는 PlatformPage 본문별 위젯 응답 배너(#55, ADR-0017). 세부는 `OutcomeScope.test.tsx`.

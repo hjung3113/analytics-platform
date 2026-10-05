@@ -27,7 +27,7 @@
 
 | 이슈 | 할 일 | 메모 |
 | --- | --- | --- |
-| #156 | 레이아웃 슬롯 컴포넌트 — Management `filter`/`table`/`drawer`, Analysis `kpi`/`chart`/`breakdown` | 관리 레이아웃 구현 중(ADR-0022). 다음: 분석 레이아웃(차트 2열 + 섹션 접기) |
+| #156 | 레이아웃 슬롯 컴포넌트 — Management `filter`/`table`/`drawer`, Analysis `kpi`/`chart`/`breakdown` | 관리·분석 레이아웃 구현(ADR-0022), 생성기 뼈대 남음 |
 | #122 | 목적지 단건 조회의 provisional을 대상 객체 시점으로 판정 | 선행 게이트(#100)는 통과 — 착수 가능 |
 | #90 | 지표 상세 이력을 감사 저장소(`entityAudit`)로 통합 | 낮은 우선순위 |
 

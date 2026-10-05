@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download,
 import { CONTEXT_LABELS, useI18n, usePlatform } from '@ap/kernel';
 import { conditionLabel, type ApiResponse, type Capability, type ContextKey, type GlobalContext, type PageQuery, type PageResult, type PageSort, serializeGlobal, type Trust } from '@ap/contracts';
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, isProductionEnv, Label, Popover, PopoverContent, PopoverTrigger, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { AnalysisCollapseButton } from './AnalysisSectionContext';
 import { toColumnDef } from './columnDef';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { OutcomeView } from './StateView';
@@ -619,6 +620,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>}
+        <AnalysisCollapseButton />
         {/* Visually hidden (width-stable) so screen readers hear what the export is preparing (#173 UX P2-3). */}
         {/* Always mounted while export is available; only the text changes, so screen readers announce it (#173 review N-P3-2). */}
         {canExport && <span role="status" className="sr-only" data-testid="export-status">{[exportNote, copyNote].filter(Boolean).join(' · ')}</span>}

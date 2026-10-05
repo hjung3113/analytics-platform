@@ -557,7 +557,7 @@ Domain 메뉴는 가능하면 이 Archetype을 조합하고, 새로운 Page Type
 
 **Management — Decided ([ADR-0022](adr/0022-management-filter-rail-analysis-two-column.md)):** `ManagementLayout`은 `filter`/`table`/`drawer` 슬롯을 제공한다. 자기 폭 960px 이상에서는 260px 왼쪽 필터 레일과 표를 16px 간격으로 나란히 둔다. 레일은 페이지 sticky 머리 아래에 머물고 본문만 스크롤한다. 접기·펼치기와 공통 접힘 기억을 제공하며, 접힘·좁음에서는 표 툴바의 `필터 · N` 버튼(적용 수 0이면 숫자 생략)으로 접근한다. 좁음에서는 팝오버로 필터를 편집하며 접힘 기억을 바꾸지 않는다. 필터 필드는 [PageFilterBar](adr/0016-page-filter-bar.md)의 column 배치로 소비하고, 상세는 셸 슬롯(ADR-0013)에 둔다. 드로어 열림은 URL page key(§6.1)다.
 
-**Analysis — Decided ([ADR-0022](adr/0022-management-filter-rail-analysis-two-column.md)):** `kpi`/`chart`/`breakdown` 슬롯은 KPI 띠 + 차트 2열 + 섹션별 접기로 배치하며 표는 전체 폭을 쓴다. 구현은 #156 다음 작업이다. 사내에서 분석 메뉴를 새로 만드는 플랫폼 목적에 따라 사용자 결정으로 §24의 반복 기준(소비자 2–3곳)보다 먼저 공통 레이아웃으로 올린다.
+**Analysis — Decided ([ADR-0022](adr/0022-management-filter-rail-analysis-two-column.md)):** `AnalysisLayout`은 `kpi`/`chart`/`breakdown` 슬롯을 KPI 띠·차트·분해 표 순서로 16px 간격으로 배치한다. 자기 폭 960px 이상이고 펼친 차트가 2개 이상이면 차트는 2열이며 홀수 개의 마지막 차트는 전체 폭을 쓴다. 좁거나 펼친 차트가 하나면 1열이다. 같은 행의 차트는 머리·범례 높이를 공유하여 그림 영역 윗변을 맞추고 카드가 행 높이를 채운다. KPI·분해 표는 전체 폭이다. KPI 띠·각 차트·분해 표를 각각 접을 수 있으며 접은 단위는 배치에서 빠지고 맨 위 “접힌 항목” 칩으로 원래 순서에 복원한다. 접으면 칩으로, 펼치면 접기 버튼으로 포커스가 이동한다. 접힌 단위 id는 메뉴별 localStorage `platform:analysis-collapsed:<menuId>`에 기억하고 모르는 id는 무시한다. 조회 중단은 보장하지 않으며 펼칠 때 차트·표 로컬 상태는 초기화될 수 있다. 사내에서 분석 메뉴를 새로 만드는 플랫폼 목적에 따라 사용자 결정으로 §24의 반복 기준(소비자 2–3곳)보다 먼저 공통 레이아웃으로 올린다.
 
 승격 판단은 §24(실제 소비자 2–3곳 반복)를 따르고, 패턴별 소비자 현황은 이슈 #104·#156에서 추적한다.
 
