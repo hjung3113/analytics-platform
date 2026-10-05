@@ -231,8 +231,43 @@ export const ${i.group}Mock: readonly AnyMockEndpoint[] = [
 }
 
 function pageTsx(i: MenuInputs): string {
+  const layoutImport = i.pageType === 'management' ? ', ManagementLayout'
+    : i.pageType === 'analysis' ? ', AnalysisLayout' : '';
+  const usesLayoutSlots = i.pageType === 'management' || i.pageType === 'analysis';
+  const slotHelpers = usesLayoutSlots ? `  const slotLabel = (id: typeof SLOTS[number]['id']) => {
+    const slot = SLOTS.find(candidate => candidate.id === id);
+    return slot ? (lang === 'ko' ? slot.ko : slot.en) : id;
+  };
+  const slotPlaceholder = (id: (typeof SLOTS)[number]['id']) => <section key={id} data-slot={id} className="rounded-lg border border-dashed border-border-subtle p-4">
+    <h2 className="text-[13px] font-medium text-text-secondary">{slotLabel(id)}</h2>
+  </section>;
+` : '';
+  const slotsMarkup = i.pageType === 'management' ? `      <ManagementLayout
+        filter={<>{slotPlaceholder('filter')}{/* Replace Search + Filter with PageFilterBar orientation="column". */}</>}
+        table={filterSlot => <>{filterSlot}{slotPlaceholder('table')}{/* Replace Data Table with PlatformDataTable. */}</>}
+      />
+      <div className="space-y-3">
+        {slotPlaceholder('actions')}
+        {/* Replace Selection Actions with PlatformDataTable selection actions. */}
+        {slotPlaceholder('drawer')}
+        {/* Replace Detail Drawer with DetailDrawer. */}
+        {slotPlaceholder('history')}
+        {/* Replace History / Audit with AuditTimeline. */}
+      </div>`
+    : i.pageType === 'analysis' ? `      <AnalysisLayout
+        kpi={{ id: 'kpi', title: slotLabel('kpi'), node: <>{slotPlaceholder('kpi')}{/* Replace KPI Summary with StatCard. */}</> }}
+        charts={[{ id: 'chart', title: slotLabel('chart'), node: <>{slotPlaceholder('chart')}{/* Replace Primary Chart with AnalysisChartFrame. */}{slotPlaceholder('annotation')}{/* Replace Selection / Annotation with AnalysisChartFrame. */}</> }]}
+        breakdown={{ id: 'breakdown', title: slotLabel('breakdown'), node: <>{slotPlaceholder('breakdown')}{/* Replace Breakdown Table with PlatformDataTable. */}</> }}
+      />
+      <div className="space-y-3">
+        {slotPlaceholder('trust')}
+        {/* Replace Data Trust with DataTrustIndicator. */}
+      </div>`
+      : `      {SLOTS.map(slot => <section key={slot.id} data-slot={slot.id} className="rounded-lg border border-dashed border-border-subtle p-4">
+        <h2 className="text-[13px] font-medium text-text-secondary">{lang === 'ko' ? slot.ko : slot.en}</h2>
+      </section>)}`;
   return `import { useI18n, useMenuQuery } from '${PACKAGE_PREFIX}kernel';
-import { PlatformPage, QueryView } from '${PACKAGE_PREFIX}components';
+import { PlatformPage, QueryView${layoutImport} } from '${PACKAGE_PREFIX}components';
 import { sampleEndpoint } from '../endpoints';
 
 // 06 §12 ${i.pageType} skeleton: content slots in reading order. Replace each section with the platform component it names.
@@ -245,12 +280,10 @@ export default function ${i.page}Screen() {
   const { lang } = useI18n();
   const query = useMenuQuery(sampleEndpoint, {});
   const caption = lang === 'ko' ? '${i.labelKo}' : '${i.labelEn}';
-  return <PlatformPage>
+${slotHelpers}  return <PlatformPage>
     <QueryView query={query}>{() => <div className="space-y-3">
       <p className="t-caption text-text-muted">{caption}</p>
-      {SLOTS.map(slot => <section key={slot.id} data-slot={slot.id} className="rounded-lg border border-dashed border-border-subtle p-4">
-        <h2 className="text-[13px] font-medium text-text-secondary">{lang === 'ko' ? slot.ko : slot.en}</h2>
-      </section>)}
+${slotsMarkup}
     </div>}</QueryView>
   </PlatformPage>;
 }

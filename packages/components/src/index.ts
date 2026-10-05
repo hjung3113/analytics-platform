@@ -9,3 +9,7 @@ export * from './PlatformPage';
 export * from './RadioGroup';
 export * from './StatCard';
 export * from './StateView';
+
+export { ManagementLayout, type ManagementLayoutProps } from './ManagementLayout';
+
+export { AnalysisLayout, type AnalysisLayoutProps, type AnalysisSection } from './AnalysisLayout';

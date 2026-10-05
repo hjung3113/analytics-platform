@@ -80,6 +80,62 @@ test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
   });
 });
 
+test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
+  test('1440 설비 마스터는 접기 기억과 펼치기 포커스를 제공한다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/equipment?v=1&scopeId=ICH');
+    const rail = page.getByRole('region', { name: '필터', exact: true });
+    const tableCard = page.getByRole('region', { name: '설비 마스터 목록' });
+    await expect(rail.getByRole('heading', { name: '필터', exact: true })).toBeVisible();
+    const collapse = rail.getByRole('button', { name: '필터 접기' });
+    await expect(collapse).toBeVisible();
+    await evidence(page, testInfo, 'management-rail-expanded');
+    await collapse.click();
+    await expect(rail).toHaveCount(0);
+    const expand = tableCard.getByRole('button', { name: '필터', exact: true });
+    await expect(expand).toBeVisible();
+    await expect(expand).toBeFocused();
+    await evidence(page, testInfo, 'management-rail-collapsed');
+    await page.reload();
+    await expect(expand).toBeVisible();
+    await expect(rail).toHaveCount(0);
+    await evidence(page, testInfo, 'management-rail-collapsed-reloaded');
+    await expand.click();
+    await expect(collapse).toBeVisible();
+    await expect(collapse).toBeFocused();
+  });
+
+  test('1280 상세 슬롯은 자기 폭에 맞춰 필터 팝오버로 전환하고 URL 필터를 편집한다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/equipment?v=1&scopeId=ICH&focus=ICH-PHOTO-0103');
+    await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog')).toBeVisible();
+    await expect(page.getByRole('region', { name: '필터', exact: true })).toHaveCount(0);
+    const button = page.getByRole('region', { name: '설비 마스터 목록' }).getByRole('button', { name: /^필터(?: · \d+)?$/ });
+    await expect(button).toBeVisible();
+    await button.click();
+    const popover = page.getByRole('dialog', { name: '필터', exact: true });
+    await expect(popover).toBeVisible();
+    await popover.getByRole('combobox', { name: '상태', exact: true }).click();
+    await page.getByRole('option', { name: '정비', exact: true }).click();
+    await expect.poll(() => query(page).get('status')).toBe('maintenance');
+    await expect(button).toHaveText('필터 · 1');
+    await expect(button).toHaveAttribute('aria-expanded', 'true');
+    await evidence(page, testInfo, 'management-detail-filter-popover');
+  });
+
+  test('1440 관리자 감사 레일은 일곱 필드와 초안 적용을 제공한다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/admin/audit?v=1');
+    const rail = page.getByRole('region', { name: '필터', exact: true });
+    await expect(rail.getByRole('button', { name: '필터 접기' })).toBeVisible();
+    await expect(rail.getByRole('combobox')).toHaveCount(3);
+    await expect(rail.getByRole('textbox')).toHaveCount(4);
+    await expect(rail.getByRole('button', { name: '적용', exact: true })).toBeVisible();
+    await evidence(page, testInfo, 'management-audit-seven-filters');
+  });
+});
+
 test.describe('PageFilterBar page-key 계약 (#54)', () => {
   test('설비 q/status/maker는 동일한 page key를 쓰고 page와 전체 필터를 초기화한다', async ({ page }, testInfo) => {
     await page.goto('/equipment?v=1&scopeId=ICH&page=2');
@@ -1234,5 +1290,68 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
     await expect(page.getByRole('button', { name: 'Annotate' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Compare' })).toHaveCount(0);
     await evidence(page, testInfo, 'features-productivity');
+  });
+});
+
+test.describe('분석 레이아웃 차트 2열·접기 (06 §12.6, ADR-0022)', () => {
+  test('그림 영역을 같은 행에 맞추고 접힌 차트·표를 기억하여 칩으로 복원한다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`/analytics/cycle-time?v=1&scopeId=ICH&${PERIOD}`);
+    const trend = page.getByRole('region', { name: '사이클타임 추세', exact: true });
+    const distribution = page.getByRole('region', { name: '사이클타임 분포', exact: true });
+    const trendPlot = trend.getByRole('img', { name: /^사이클타임 추세/ });
+    const distributionPlot = distribution.getByRole('img', { name: /^사이클타임 분포/ });
+    await expect(trendPlot).toBeVisible();
+    await expect(distributionPlot).toBeVisible();
+    await expect.poll(async () => {
+      const a = (await trend.boundingBox())!;
+      const b = (await distribution.boundingBox())!;
+      return Math.abs(a.y - b.y);
+    }).toBeLessThanOrEqual(2);
+    await expect.poll(async () => {
+      const a = (await trendPlot.boundingBox())!;
+      const b = (await distributionPlot.boundingBox())!;
+      return Math.abs(a.y - b.y);
+    }).toBeLessThanOrEqual(2);
+    const pairedTrend = (await trend.boundingBox())!;
+    const pairedDistribution = (await distribution.boundingBox())!;
+    expect(pairedDistribution.x).toBeGreaterThanOrEqual(pairedTrend.x + pairedTrend.width);
+    await evidence(page, testInfo, 'analysis-two-columns-aligned-plots');
+
+    await page.getByRole('button', { name: '사이클타임 분포 접기' }).click();
+    const collapsed = page.getByRole('group', { name: '접힌 항목' });
+    const distributionChip = collapsed.getByRole('button', { name: '사이클타임 분포 펼치기' });
+    await expect(distributionChip).toBeVisible();
+    await expect(distributionChip).toBeFocused();
+    await expect(distribution).toHaveCount(0);
+    await expect.poll(async () => (await trend.boundingBox())!.width).toBeGreaterThan(pairedTrend.width * 1.8);
+    const fullTrend = (await trend.boundingBox())!;
+    expect(Math.abs(fullTrend.width - (pairedDistribution.x + pairedDistribution.width - pairedTrend.x))).toBeLessThanOrEqual(2);
+    await evidence(page, testInfo, 'analysis-distribution-collapsed');
+    await page.reload();
+    await expect(distributionChip).toBeVisible();
+    await expect(distribution).toHaveCount(0);
+    await expect(trendPlot).toBeVisible();
+    await expect.poll(async () => (await trend.boundingBox())!.width).toBeGreaterThan(pairedTrend.width * 1.8);
+    await evidence(page, testInfo, 'analysis-collapse-persisted');
+
+    await distributionChip.click();
+    await expect(page.getByRole('button', { name: '사이클타임 분포 접기' })).toBeFocused();
+    await expect(distributionPlot).toBeVisible();
+    await expect.poll(async () => (await trend.boundingBox())!.width).toBeLessThan(fullTrend.width * 0.6);
+    await expect(collapsed).toHaveCount(0);
+    await evidence(page, testInfo, 'analysis-distribution-restored');
+
+    const table = page.getByRole('region', { name: '느린 실행 목록', exact: true });
+    await page.getByRole('button', { name: '느린 실행 접기' }).click();
+    const tableChip = collapsed.getByRole('button', { name: '느린 실행 펼치기' });
+    await expect(tableChip).toBeFocused();
+    await expect(table).toHaveCount(0);
+    await evidence(page, testInfo, 'analysis-breakdown-collapsed');
+    await tableChip.click();
+    await expect(page.getByRole('button', { name: '느린 실행 접기' })).toBeFocused();
+    await expect(table).toBeVisible();
+    await expect(collapsed).toHaveCount(0);
+    await evidence(page, testInfo, 'analysis-breakdown-restored');
   });
 });

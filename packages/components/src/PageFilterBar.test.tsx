@@ -12,6 +12,19 @@ afterAll(() => {
 afterEach(cleanup);
 
 describe('PageFilterBar', () => {
+  it('keeps the column legend accessible without fieldset borders and gives fields full width', () => {
+    render(<PageFilterBar orientation="column" label="Column filters" fields={[
+      { kind: 'text', key: 'actor', label: 'Actor', value: '', onValueChange: vi.fn() },
+      { kind: 'select', key: 'status', label: 'Status', value: '', options: [], onValueChange: vi.fn() },
+    ]} actions={<button>Apply</button>} />);
+    const bar = screen.getByRole('group', { name: 'Column filters' });
+    expect(bar).not.toHaveClass('border', 'border-border-subtle');
+    expect(screen.getByText('Column filters')).toHaveClass('sr-only');
+    expect(screen.getByRole('textbox', { name: 'Actor' }).parentElement).toHaveClass('w-full');
+    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveClass('w-full');
+    expect(screen.getByRole('button', { name: 'Apply' }).parentElement).toHaveClass('sticky', 'bottom-0', 'border-t', 'bg-surface-card');
+  });
+
   it('renders labeled search, exact-text, categorical, and custom fields with consumer actions', async () => {
     const onSearch = vi.fn();
     const onExactId = vi.fn();

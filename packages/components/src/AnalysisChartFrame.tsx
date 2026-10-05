@@ -1,10 +1,17 @@
 import { BrushIcon, Download, GitCompare, MessageSquarePlus, MoreHorizontal, RotateCcw, Table2, ZoomIn } from 'lucide-react';
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { formatDateTime, formatMetricVersion, parseDateTime } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { EChart, strokeToken, token } from './EChart';
+
+function AnalysisChartPart({ enabled, body, children }: { enabled: boolean; body?: boolean; children: ReactNode }) {
+  if (!enabled) return <>{children}</>;
+  return body ? <div data-analysis-chart-body className="flex flex-1 flex-col">{children}</div>
+    : <div data-analysis-chart-head>{children}</div>;
+}
 
 export type ChartSeries = {
   id: string;
@@ -63,6 +70,7 @@ export type AnalysisChartFrameProps = {
  */
 export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const { t, lang } = useI18n();
+  const analysisSection = useContext(AnalysisSectionContext);
   const { setGlobal, toast, global, adapter, route } = usePlatform();
   const features = route?.menu.features;
   const canCompare = !!features?.compare && !!p.compareSeries?.length;
@@ -240,8 +248,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   }
 
   const tb = 'h-7 gap-1 px-2 text-[12px]';
-  return <section role="region" aria-labelledby={titleId} className="flex flex-col rounded-lg border border-border-subtle bg-surface-card">
-    <header className="flex flex-wrap items-start justify-between gap-2 px-4 pt-3">
+  return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className="relative flex flex-col rounded-lg border border-border-subtle bg-surface-card">
+    {/* Pinned to the card corner so a wrapping toolbar never strands it on its own line. */}
+    <AnalysisChartPart enabled={analysisSection !== null}>
+    <header className={cn('flex flex-wrap items-start justify-between gap-2 px-4 pt-3', analysisSection && 'pr-12')}>
       <div className="min-w-0">
         <h2 id={titleId} className="t-card-title">{p.title}</h2>
         {(p.description || p.metricVersion) && <p className="text-[12px] text-text-muted">{p.description}{p.metricVersion && <> · <span className="tabular">{t('metricVersion')} {formatMetricVersion(p.metricVersion)}</span></>}</p>}
@@ -278,6 +288,8 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       {p.onPointClick && !brushMode && p.pointClickHint && <span className="text-[11px] text-text-muted">{p.pointClickHint}</span>}
     </div>
 
+    </AnalysisChartPart>
+    <AnalysisChartPart enabled={analysisSection !== null} body>
     <div className="px-2"><EChart option={option} height={p.height ?? 260} onEvents={onEvents} onReady={c => { chart.current = c; setInstanceReady(v => v + 1); }}
       ariaLabel={`${typeof p.title === 'string' ? p.title : p.chartId}: ${visible.map(s => s.name).join(', ')}`} /></div>
 
@@ -324,5 +336,6 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     {p.trust && <footer className="border-t border-border-subtle px-4 py-2 text-[11px] text-text-muted tabular">
       {t('source')}: <span className="t-mono text-[11px]">{p.trust.source}</span> · {t('updated')}: {p.trust.updated} · {t('coverage')}: {p.trust.coverage}
     </footer>}
+    </AnalysisChartPart>
   </section>;
 }

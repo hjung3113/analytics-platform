@@ -551,11 +551,13 @@ Related Context
 
 Domain 메뉴는 가능하면 이 Archetype을 조합하고, 새로운 Page Type을 만들 때는 기존 패턴으로 표현할 수 없는 이유를 기록한다.
 
-### 12.6 pageType의 현재 계약과 슬롯 후보 (#104)
+### 12.6 pageType의 현재 계약과 레이아웃 슬롯 (#104, #156)
 
-**지금 pageType이 강제하는 것:** manifest의 `pageType`(5종 중 하나)과, 생성기(`pnpm gen:menu --page-type`)가 만드는 화면 뼈대의 콘텐츠 슬롯(위 12.1–12.5의 슬롯 이름, 읽는 순서 그대로)이다. Page Header·Global Context는 셸 슬롯(§8)이라 `PlatformPage`·셸이 이미 그리므로 뼈대에 다시 넣지 않는다. Data Trust는 12.1·12.2가 슬롯으로 적으므로 뼈대에 `trust` 슬롯으로 넣는다 — `PlatformPage`는 소비자가 넘긴 `dataTrustSummary`만 그리므로 신뢰 정보를 가진 화면이 그 슬롯을 채워야 한다. 슬롯 이름은 12.1–12.5의 영문 표기 그대로다. 레이아웃 공통 컴포넌트는 아직 없고, 기존 화면·공통 컴포넌트의 시각 변화도 없다(새로 생성되는 뼈대 화면만 점선 구획을 그린다).
+**지금 pageType이 강제하는 것:** manifest의 `pageType`(5종 중 하나)과, 생성기(`pnpm gen:menu --page-type`)가 만드는 화면 뼈대의 콘텐츠 슬롯(위 12.1–12.5의 슬롯 이름, 읽는 순서 그대로)이다. Page Header·Global Context는 셸 슬롯(§8)이라 `PlatformPage`·셸이 이미 그리므로 뼈대에 다시 넣지 않는다. Data Trust는 12.1·12.2가 슬롯으로 적으므로 뼈대에 `trust` 슬롯으로 넣는다 — `PlatformPage`는 소비자가 넘긴 `dataTrustSummary`만 그리므로 신뢰 정보를 가진 화면이 그 슬롯을 채워야 한다. 슬롯 이름은 12.1–12.5의 영문 표기 그대로다. Management 공통 레이아웃은 `ManagementLayout`, Analysis 공통 레이아웃은 `AnalysisLayout`으로 제공한다. Management 뼈대는 filter·table 자리표시를 공통 레이아웃 안에, actions·drawer·history를 레이아웃 아래에 렌더한다. Analysis 뼈대는 kpi·chart·breakdown 자리표시를 공통 레이아웃 안에 렌더하며, annotation은 chart 노드 안에서 chart 자리표시 바로 뒤에, trust는 레이아웃 아래에 두어 kpi → chart → annotation → breakdown → trust 읽는 순서를 유지한다. 나머지 archetype 뼈대는 점선 구획으로 렌더한다.
 
-**슬롯 후보(구현하지 않음):** Management의 `table`/`drawer`(필터 행은 `PageFilterBar`로 승격 완료, [ADR-0016](adr/0016-page-filter-bar.md). 드로어 열림은 URL page key, §6.1)와 Analysis의 `kpi`/`chart`/`breakdown`. 레이아웃 슬롯 컴포넌트는 보이는 모양이 바뀌므로 #156에서 인터랙티브 프로토타입 컨펌을 거쳐 올린다(루트 `AGENTS.md`). 그 전에는 뼈대 슬롯이 후보 목록의 유일한 표현이다.
+**Management — Decided ([ADR-0022](adr/0022-management-filter-rail-analysis-two-column.md)):** `ManagementLayout`은 `filter`/`table`/`drawer` 슬롯을 제공한다. 자기 폭 960px 이상에서는 260px 왼쪽 필터 레일과 표를 16px 간격으로 나란히 둔다. 레일은 페이지 sticky 머리 아래에 머물고 본문만 스크롤한다. 접기·펼치기와 공통 접힘 기억을 제공하며, 접힘·좁음에서는 표 툴바의 `필터 · N` 버튼(적용 수 0이면 숫자 생략)으로 접근한다. 좁음에서는 팝오버로 필터를 편집하며 접힘 기억을 바꾸지 않는다. 필터 필드는 [PageFilterBar](adr/0016-page-filter-bar.md)의 column 배치로 소비하고, 상세는 셸 슬롯(ADR-0013)에 둔다. 드로어 열림은 URL page key(§6.1)다.
+
+**Analysis — Decided ([ADR-0022](adr/0022-management-filter-rail-analysis-two-column.md)):** `AnalysisLayout`은 `kpi`/`chart`/`breakdown` 슬롯을 KPI 띠·차트·분해 표 순서로 16px 간격으로 배치한다. 자기 폭 960px 이상이고 펼친 차트가 2개 이상이면 차트는 2열이며 홀수 개의 마지막 차트는 전체 폭을 쓴다. 좁거나 펼친 차트가 하나면 1열이다. 같은 행의 차트는 머리·범례 높이를 공유하여 그림 영역 윗변을 맞추고 카드가 행 높이를 채운다. KPI·분해 표는 전체 폭이다. KPI 띠·각 차트·분해 표를 각각 접을 수 있으며 접은 단위는 배치에서 빠지고 맨 위 “접힌 항목” 칩으로 원래 순서에 복원한다. 접으면 칩으로, 펼치면 접기 버튼으로 포커스가 이동한다. 접힌 단위 id는 메뉴별 localStorage `platform:analysis-collapsed:<menuId>`에 기억하고 모르는 id는 무시한다. 조회 중단은 보장하지 않으며 펼칠 때 차트·표 로컬 상태는 초기화될 수 있다. 사내에서 분석 메뉴를 새로 만드는 플랫폼 목적에 따라 사용자 결정으로 §24의 반복 기준(소비자 2–3곳)보다 먼저 공통 레이아웃으로 올린다.
 
 승격 판단은 §24(실제 소비자 2–3곳 반복)를 따르고, 패턴별 소비자 현황은 이슈 #104·#156에서 추적한다.
 

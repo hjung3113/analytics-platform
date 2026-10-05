@@ -71,8 +71,11 @@ const chooseType = async (value: string) => {
   fireEvent.click(await screen.findByRole('option', { name: value }));
 };
 
-beforeEach(() => { window.history.replaceState(null, '', '/admin/audit'); });
-afterEach(() => { cleanup(); window.history.replaceState(null, '', '/'); });
+beforeEach(() => {
+  window.history.replaceState(null, '', '/admin/audit');
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 1200, height: 98, x: 0, y: 0, top: 0, left: 0, right: 1200, bottom: 98, toJSON() {} });
+});
+afterEach(() => { cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
 
 describe('AuditTrail text filters (issue #50 review)', () => {
   it('keeps filter controls mounted while editing and applies the complete range together', async () => {

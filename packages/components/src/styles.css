@@ -1,2 +1,18 @@
 /* Tailwind scans this package's components (they live outside the consuming app's root). Import after @ap/ui/styles.css. */
 @source "./";
+
+/* Two shared rows per chart pair: all heading/legend content precedes the plot. */
+[data-analysis-chart-grid] > [data-analysis-kind="chart"] {
+  display: grid;
+  grid-row: span 2;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+}
+[data-analysis-chart-grid] [data-analysis-chart] {
+  display: grid;
+  grid-row: span 2;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+  min-width: 0;
+}
+[data-analysis-chart-body] > footer { margin-top: auto; }

@@ -34,6 +34,7 @@ export type PageFilterBarProps = {
   label: string;
   fields: readonly PageFilterField[];
   actions?: ReactNode;
+  orientation?: 'row' | 'column';
 };
 
 const EMPTY_OPTION_VALUE = '__page_filter_empty__';
@@ -44,7 +45,7 @@ function emptyOptionValue(options: readonly PageFilterOption[]) {
   return value;
 }
 
-function PageFilterFieldControl({ field, id }: { field: PageFilterField; id: string }) {
+function PageFilterFieldControl({ field, id, column }: { field: PageFilterField; id: string; column: boolean }) {
   const labelId = `${id}-label`;
 
   if (field.kind === 'custom') {
@@ -61,10 +62,10 @@ function PageFilterFieldControl({ field, id }: { field: PageFilterField; id: str
     const emptyValue = emptyOptionValue(options);
     const value = field.value === '' && field.emptyOptionLabel ? emptyValue : field.value;
 
-    return <div className="grid min-w-36 gap-1 text-xs text-text-secondary">
+    return <div className={cn('grid gap-1 text-xs text-text-secondary', column ? 'min-w-0 w-full' : 'min-w-36')}>
       <label htmlFor={id} id={labelId} onClick={event => { event.preventDefault(); event.currentTarget.control?.focus(); }}>{field.label}</label>
       <Select value={value} onValueChange={next => field.onValueChange(next === emptyValue ? '' : next)}>
-        <SelectTrigger id={id} aria-labelledby={labelId} data-testid={field.testId} className="h-8 min-w-36 border-border-control bg-surface-card text-text-primary">
+        <SelectTrigger id={id} aria-labelledby={labelId} data-testid={field.testId} className={cn('h-8 border-border-control bg-surface-card text-text-primary', column ? 'min-w-0 w-full' : 'min-w-36')}>
           <SelectValue placeholder={field.placeholder} />
         </SelectTrigger>
         <SelectContent className="text-text-secondary">
@@ -77,7 +78,7 @@ function PageFilterFieldControl({ field, id }: { field: PageFilterField; id: str
 
   return <div className="grid min-w-0 gap-1 text-xs text-text-secondary">
     <label htmlFor={id} id={labelId} onClick={event => { event.preventDefault(); event.currentTarget.control?.focus(); }}>{field.label}</label>
-    <span className="relative block w-56 max-w-full">
+    <span className={cn('relative block max-w-full', column ? 'w-full' : 'w-56')}>
       {field.kind === 'search' && <Search aria-hidden data-page-filter-search-icon className="pointer-events-none absolute left-2 top-2 size-4 text-text-secondary" />}
       <Input
         id={id}
@@ -94,14 +95,16 @@ function PageFilterFieldControl({ field, id }: { field: PageFilterField; id: str
 }
 
 /** A visible, wrapping row for page-owned filters. Values, URL keys, and actions stay with the consumer. */
-export function PageFilterBar({ label, fields, actions }: PageFilterBarProps) {
+export function PageFilterBar({ label, fields, actions, orientation = 'row' }: PageFilterBarProps) {
   const id = useId();
+  const column = orientation === 'column';
 
-  return <fieldset data-testid="page-filter-bar" className="mb-3 rounded-md border border-border-subtle bg-surface-card p-3">
-    <legend className="px-1 text-xs text-text-secondary">{label}</legend>
-    <div className="flex flex-wrap items-end gap-3">
-      {fields.map((field, index) => <PageFilterFieldControl key={field.key} field={field} id={`${id}-field-${index}`} />)}
-      {actions != null && <div className="flex flex-wrap items-end gap-2">{actions}</div>}
+  return <fieldset data-testid="page-filter-bar" className={column ? 'min-w-0 w-full' : 'mb-3 rounded-md border border-border-subtle bg-surface-card p-3'}>
+    <legend className={column ? 'sr-only' : 'px-1 text-xs text-text-secondary'}>{label}</legend>
+    <div className={column ? 'grid min-w-0 gap-3' : 'flex flex-wrap items-end gap-3'}>
+      {fields.map((field, index) => <PageFilterFieldControl key={field.key} field={field} column={column} id={`${id}-field-${index}`} />)}
+      {!column && actions != null && <div className="flex flex-wrap items-end gap-2">{actions}</div>}
     </div>
+    {column && actions != null && <div className="sticky bottom-0 mt-3 flex flex-wrap items-end gap-2 border-t border-border-subtle bg-surface-card py-3">{actions}</div>}
   </fieldset>;
 }

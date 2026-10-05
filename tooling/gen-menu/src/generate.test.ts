@@ -4,7 +4,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import ts from 'typescript';
 import { PACKAGE_PREFIX } from './prefix.ts';
 import { APP_PKG, MOCK_ASSEMBLY_TSX, MENUS_TS, STYLE_CSS, editSummary } from './generate.ts';
-import { PAGE_TYPES, depLine, importLine, mockImportLine, mockSpreadLine, renderFiles, slotsLiteral, spreadLine, styleLine, type MenuInputs } from './templates.ts';
+import { PAGE_SLOTS, PAGE_TYPES, depLine, importLine, mockImportLine, mockSpreadLine, renderFiles, slotsLiteral, spreadLine, styleLine, type MenuInputs } from './templates.ts';
 import { FIXTURE_FOLDER, FIXTURE_GROUP, GEN_ARGS, appSnapshot, fixtureMockAssemblyTsx, makeFixture, menusTree, removeFixture, repoRoot, runCli } from './fixture.ts';
 
 const INPUTS: MenuInputs = {
@@ -149,10 +149,53 @@ describe('page archetype skeletons (06 §12, #104)', () => {
     expect(enNames(pageOf(pageType))).toEqual(CONTRACT[pageType]);
   });
 
+  it.each(PAGE_TYPES)('%s: generated JSX renders placeholders in independent contract order', pageType => {
+    const expected: Record<MenuInputs['pageType'], string[]> = {
+      overview: ['summary', 'trend', 'attention', 'trust'],
+      analysis: ['kpi', 'chart', 'annotation', 'breakdown', 'trust'],
+      management: ['filter', 'table', 'actions', 'drawer', 'history'],
+      catalog: ['list', 'definition', 'version', 'ownership', 'coverage', 'usage', 'history'],
+      workflow: ['queue', 'filter', 'detail', 'timeline', 'comments', 'related'],
+    };
+    const source = ts.createSourceFile('page.tsx', pageOf(pageType), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const rendered: string[] = [];
+    const visit = (node: ts.Node) => {
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'slotPlaceholder') {
+        const id = node.arguments[0];
+        if (id && ts.isStringLiteral(id)) rendered.push(id.text);
+      }
+      if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.getText(source) === 'SLOTS.map') {
+        // Inspect the actual JSX mapping, not just the unused slot declaration.
+        expect(node.getText(source)).toContain('data-slot={slot.id}');
+        const declaration = source.statements.filter(ts.isVariableStatement).flatMap(statement => [...statement.declarationList.declarations])
+          .find(declaration => declaration.name.getText(source) === 'SLOTS');
+        expect(declaration?.initializer && ts.isArrayLiteralExpression(declaration.initializer)).toBe(true);
+        const slots = declaration!.initializer as ts.ArrayLiteralExpression;
+        for (const slot of slots.elements) {
+          const id = (slot as ts.ObjectLiteralExpression).properties.find(property => ts.isPropertyAssignment(property) && property.name.getText(source) === 'id') as ts.PropertyAssignment;
+          rendered.push((id.initializer as ts.StringLiteral).text);
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
+    expect(rendered).toEqual(expected[pageType]);
+  });
+
   it('each archetype has its own slot list, and the page renders every slot', () => {
     const blocks = new Set(PAGE_TYPES.map(t => slotBlock(pageOf(t))));
     expect(blocks.size).toBe(PAGE_TYPES.length);
-    for (const t of PAGE_TYPES) expect(pageOf(t)).toContain('SLOTS.map(slot => <section key={slot.id} data-slot={slot.id}');
+    for (const t of PAGE_TYPES) {
+      const page = pageOf(t);
+      if (t === 'management' || t === 'analysis') {
+        expect(page).toContain('data-slot={id}');
+        for (const { id } of PAGE_SLOTS[t]) expect(page).toContain(`slotPlaceholder('${id}')`);
+      } else {
+        expect(page).toContain('SLOTS.map(slot => <section key={slot.id} data-slot={slot.id}');
+      }
+    }
+    expect(pageOf('management')).toContain('<ManagementLayout');
+    expect(pageOf('analysis')).toContain('<AnalysisLayout');
   });
 
   it('a slot label with an apostrophe or backslash still yields a parseable string literal', () => {

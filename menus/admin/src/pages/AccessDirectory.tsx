@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { PERMISSIONS, type AccessPrincipal, type AccessSortField } from '@ap/contracts';
 import { useI18n, usePlatform } from '@ap/kernel';
-import { DetailDrawer, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort } from '@ap/components';
+import { DetailDrawer, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { grantTotals, menusForPermissions } from '../access-rows';
 import { ACCESS_PAGE_KEYS, parseAccessKeys } from '../access-query';
@@ -41,7 +41,7 @@ export default function AccessDirectory() {
   };
   const clear = <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{ko ? '필터 초기화' : 'Clear filters'}</Button>;
   const filters = <form onSubmit={applyDraft}>
-    <PageFilterBar label={ko ? '필터' : 'Filters'} fields={[
+    <PageFilterBar orientation="column" label={ko ? '필터' : 'Filters'} fields={[
       { kind: 'select', key: 'permission', label: ko ? '권한' : 'Permission', value: raw.permission ?? '', emptyOptionLabel: ko ? '전체' : 'All', options: PERMISSIONS.map(value => ({ value, label: value })), onValueChange: value => setFilter('permission', value || null) },
       { kind: 'text', key: 'role', label: ko ? '역할 정확 일치' : 'Exact role', value: draft, onValueChange: setDraft },
     ]} actions={<><Button type="submit" size="sm" variant="secondary">{ko ? '적용' : 'Apply'}</Button>{parsed.ok && clear}</>} />
@@ -120,12 +120,14 @@ export default function AccessDirectory() {
   return <PlatformPage description={ko
     ? '권한·역할 조회 화면입니다. 부여·회수는 이 화면에서 하지 않으며 역할 소속 원천은 이슈 #98에서 결정 대기입니다.'
     : 'Read-only directory of permissions and roles. Grant/revoke is not on this screen; the role-membership source is pending in issue #98.'}>
-    {filters}
-    {!parsed.ok && <p role="alert">{ko ? '필터 값이 잘못되었습니다.' : 'Invalid filter value.'} {clear}</p>}
+    <ManagementLayout filter={filters} activeFilterCount={[raw.role, raw.permission].filter(Boolean).length} drawer={drawer}
+      table={filterSlot => <>
+    {!parsed.ok && <p role="alert">{filterSlot}{ko ? '필터 값이 잘못되었습니다.' : 'Invalid filter value.'} {clear}</p>}
     {parsed.ok && <PlatformDataTable<AccessPrincipal>
         title={ko ? '권한/역할' : 'Roles & access'}
         ariaLabel={ko ? '권한/역할 목록' : 'Roles and access list'}
         subtitle={ko ? '권한·room 부여 조회 전용입니다. 메뉴 목록은 레지스트리 조합이며 지표 데이터가 아니므로 신뢰도 표시가 없습니다.' : 'Read-only permissions and room grants. The menu list joins the client registry; not mart data, so there is no trust indicator.'}
+        filters={filterSlot}
         columns={columns} getRowId={row => row.id} filterKey={filterKey}
         preferenceKey="admin-roles:columns:v1" pageSize={25} height={430} activeRowId={parsed.focus}
         urlState={{
@@ -163,6 +165,6 @@ export default function AccessDirectory() {
         emptyAction={clear}
         rowAction={row => <Button size="sm" variant="ghost" onClick={() => setPage({ focus: row.id })}>{ko ? '보기' : 'View'}</Button>}
       />}
-    {drawer}
+      </>} />
   </PlatformPage>;
 }
