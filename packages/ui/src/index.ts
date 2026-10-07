@@ -1,3 +1,4 @@
+// THROWAWAY #228 — never merge.
 export { Button, buttonVariants, type ButtonProps } from './components/Button';
 export { Dot, StatusBadge, type Tone } from './components/StatusBadge';
 export * from './components/shadcn/alert';
@@ -16,3 +17,5 @@ export { cn } from '@fops/ui';
 export { isProductionEnv } from './utils/isProductionEnv';
 
 export { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from './DetailPanelSlot';
+
+export { PrototypeContext, usePrototype, type ProtoVariant } from './proto/context';

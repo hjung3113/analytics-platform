@@ -1,3 +1,4 @@
+// THROWAWAY #228 — never merge.
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, expect, it } from 'vitest';
 import * as feedbackOps from '@fops/ui';
@@ -12,10 +13,19 @@ it('renders a primitive from the FeedbackOps UI package', () => {
   expect(screen.getByRole('button', { name: 'FeedbackOps primitive' }).textContent).toBe('FeedbackOps primitive');
 });
 
-it('preserves the platform primitive API as FeedbackOps re-exports', () => {
-  const platformOnly = new Set(['Dot', 'StatusBadge', 'isProductionEnv', 'DetailPanelSlotProvider', 'useDetailPanelSlot', 'useDetailPanelSlotHost']);
+it('preserves FeedbackOps re-exports except throwaway prototype wrappers', () => {
+  const platformOnly = new Set(['Dot', 'StatusBadge', 'isProductionEnv', 'DetailPanelSlotProvider', 'useDetailPanelSlot', 'useDetailPanelSlotHost', 'PrototypeContext', 'usePrototype']);
+  const prototypeWrappers = new Set([
+    'Button', 'PopoverContent', 'DropdownMenuContent', 'DropdownMenuItem',
+    'DropdownMenuRadioItem', 'DropdownMenuLabel', 'TabsList', 'TabsTrigger',
+    'TabsContent', 'Label', 'Checkbox', 'Skeleton', 'Input', 'TooltipContent',
+    'SelectTrigger', 'SelectContent',
+  ]);
   const upstream = feedbackOps as unknown as Record<string, unknown>;
   for (const [name, value] of Object.entries(platform)) {
-    if (!platformOnly.has(name)) expect(value, name).toBe(upstream[name]);
+    if (prototypeWrappers.has(name)) {
+      expect(value, name).not.toBe(upstream[name]);
+      expect((value as { displayName?: string }).displayName, name).toBe((upstream[name] as { displayName?: string }).displayName);
+    } else if (!platformOnly.has(name)) expect(value, name).toBe(upstream[name]);
   }
 });
