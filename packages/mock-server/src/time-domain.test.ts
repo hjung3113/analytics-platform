@@ -15,7 +15,7 @@ function ctx(over: Partial<GlobalContext> = {}): GlobalContext {
 }
 
 const coveredIch = EQUIPMENT
-  .filter(e => e.site === 'ICH' && e.room === 'PH-101' && !LATE_TIME_DOMAIN_EQUIPMENT_IDS.includes(e.equipmentId))
+  .filter(e => e.site === 'ICH' && e.room === 'PHOTO' && !LATE_TIME_DOMAIN_EQUIPMENT_IDS.includes(e.equipmentId))
   .map(e => e.equipmentId)
   .sort();
 
@@ -23,7 +23,7 @@ const row = (equipmentId: string, timeDomainId: string, validFrom: string, valid
   ({ equipmentId, timeDomainId, validFrom, validTo });
 
 describe('time-domain assertions (world)', () => {
-  it('pins two late ICH PH-101 tools and maps sites without using master validity', () => {
+  it('pins two late ICH PHOTO tools and maps sites without using master validity', () => {
     expect(LATE_TIME_DOMAIN_EQUIPMENT_IDS).toEqual(['ICH-PHOTO-0103', 'ICH-PHOTO-0105']);
     expect(TIME_DOMAIN_LATE_FROM >= WEEK_FROM && TIME_DOMAIN_LATE_FROM < DEFAULT_RANGE_TO).toBe(true);
     expect(TIME_DOMAIN_LATE_FROM <= DAY_FROM).toBe(true);

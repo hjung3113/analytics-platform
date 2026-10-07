@@ -6,7 +6,7 @@ import { contextBar, evidence, expectScopeValid, firstRowByColumn, lotColumn, ma
  * Menu screens are only the consumers the contract is observed through — assertions target kernel/shell behavior.
  */
 const PERIOD = 'from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
-const PRODUCTIVITY = `/analytics/productivity?v=1&scopeId=ICH&${PERIOD}&roomNames=PH-101`;
+const PRODUCTIVITY = `/analytics/productivity?v=1&scopeId=ICH&${PERIOD}&roomNames=PHOTO`;
 
 async function chooseFilterOption(page: Page, field: string, option: string) {
   await page.getByRole('combobox', { name: field }).click();
@@ -139,7 +139,7 @@ test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
 test.describe('PageFilterBar page-key 계약 (#54)', () => {
   test('설비 q/status/maker는 동일한 page key를 쓰고 page와 전체 필터를 초기화한다', async ({ page }, testInfo) => {
     await page.goto('/equipment?v=1&scopeId=ICH&page=2');
-    await page.getByRole('searchbox', { name: '설비 ID 또는 이름 검색' }).fill('PHOTO');
+    await page.getByRole('searchbox', { name: '설비 ID 검색' }).fill('PHOTO');
     await expect.poll(() => query(page).get('q')).toBe('PHOTO');
     await expect.poll(() => query(page).has('page')).toBe(false);
 
@@ -316,14 +316,14 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
     await expectScopeValid(page, 'ICH · Site A');
     const bar = contextBar(page);
     await expect(bar.getByRole('button', { name: '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00' })).toBeVisible();
-    await expect(bar.getByRole('button', { name: 'room_name PH-101' })).toBeVisible();
+    await expect(bar.getByRole('button', { name: 'room_name PHOTO' })).toBeVisible();
     await expect(page.getByRole('radiogroup', { name: '집계 단위 (페이지 소유)' }).getByRole('radio', { name: '일' })).toBeChecked();
     expect(query(page).toString()).toBe(new URL(url, 'http://x').searchParams.toString());
     await evidence(page, testInfo, 'restored');
 
     await page.reload();
     await expect(page.getByRole('radiogroup', { name: '집계 단위 (페이지 소유)' }).getByRole('radio', { name: '일' })).toBeChecked();
-    await expect(contextBar(page).getByRole('button', { name: 'room_name PH-101' })).toBeVisible();
+    await expect(contextBar(page).getByRole('button', { name: 'room_name PHOTO' })).toBeVisible();
   });
 
   test('기간이 빠진 시간 적용 메뉴는 서버 기준시각으로 기본 기간을 절대값으로 URL에 기록한다', async ({ page }, testInfo) => {
@@ -466,7 +466,7 @@ test.describe('메뉴 간 Context 보존과 미적용 표시 (06 §6, §22)', ()
     expect(q.get('scopeId')).toBe('ICH');
     expect(q.get('from')).toBe('2026-09-25T09:00:00');
     expect(q.get('to')).toBe('2026-09-26T09:00:00');
-    expect(q.getAll('roomNames')).toEqual(['PH-101']);
+    expect(q.getAll('roomNames')).toEqual(['PHOTO']);
     // page-owned state of the origin is never copied implicitly (§22).
     expect(q.has('granularity')).toBe(false);
     // time is 'reference' on equipment master: carried and labelled, not applied.
@@ -654,33 +654,37 @@ test.describe('목적지 단건 조회 (06 §6.2, §22)', () => {
   test('설비 상세 직접 URL은 그 설비의 room 권한을 다시 검증하고 Selection으로 대체하지 않는다', async ({ page }, testInfo) => {
     // The page header and the active EquipmentPanel tab fetch independently (two getEntity calls, 06 §22).
     // Before any negative assertion, wait for BOTH surfaces to reach their expected terminal state — the
-    // status/name block under the h1 (header query) and the active tabpanel (panel query) — and for no
+    // status/id block under the h1 (header query) and the active tabpanel (panel query) — and for no
     // aria-busy to remain in main. Otherwise a fast correct header plus a slower panel that later renders
     // a substituted Selection row or an unauthorized row would pass.
     const header = page.getByRole('main').locator('[data-platform-page-content] > [aria-busy]'); // Header query boundary; the shared banner can precede it
     const panel = page.getByRole('tabpanel'); // Radix mounts only the active tab's content
 
-    // 1. Granted room (PH-101): the URL id's own row renders on both surfaces, and the inherited Selection stays untouched in the URL.
+    // 1. Granted room (PHOTO): the URL id's own row renders on both surfaces, and the inherited Selection stays untouched in the URL.
+    // ICH-PHOTO-0105 (the inherited Selection) shares model Lithius-Pro; its stgroup STG-PHOTO-B is the row that must not render.
     await page.goto('/equipment/ICH-PHOTO-0103?v=1&scopeId=ICH&selectedEquipmentIds=ICH-PHOTO-0105');
-    await expect(header.getByText('PHOTO Lithius-Pro #1')).toBeVisible();
-    await expect(panel.getByText('PHOTO Lithius-Pro #1')).toBeVisible();
+    await expect(header.getByText('ICH-PHOTO-0103')).toBeVisible();
+    await expect(panel.getByText('ICH-PHOTO-0103')).toBeVisible();
+    await expect(panel.getByText('STG-PHOTO-A')).toBeVisible();
     await expect(page.getByRole('main').locator('[aria-busy="true"]')).toHaveCount(0);
     expect(query(page).get('selectedEquipmentIds')).toBe('ICH-PHOTO-0105');
-    await expect(page.getByRole('main')).not.toContainText('PHOTO Lithius-Pro #2');
+    await expect(page.getByRole('main')).not.toContainText('STG-PHOTO-B');
     await evidence(page, testInfo, 'entity-room-granted');
 
-    // 2. Same site, ungranted room (DIF-202): the site grant holds, but the row's room is re-checked server-side — on both surfaces.
+    // 2. Same site, ungranted room (DIFF): the site grant holds, but the row's room is re-checked server-side — on both surfaces.
+    // The heading shows the URL id, which contains DIFF, so the leak check uses model/stgroup/maker instead of the room token.
     await page.goto('/equipment/ICH-DIFF-0176?v=1&scopeId=ICH');
     await expectScopeValid(page, 'ICH · Site A');
-    await expect(mainHeading(page)).toHaveText('ICH-DIFF-0176'); // the URL id, not a fetched name
+    await expect(mainHeading(page)).toHaveText('ICH-DIFF-0176'); // the URL id, not a fetched field
     await expect(header.getByText('이 Scope에 접근 권한이 없습니다')).toBeVisible();
     await expect(header.getByText('No grant for equipment')).toBeVisible();
     await expect(panel.getByText('이 Scope에 접근 권한이 없습니다')).toBeVisible();
     await expect(panel.getByText('No grant for equipment')).toBeVisible();
     await expect(page.getByRole('main').locator('[aria-busy="true"]')).toHaveCount(0);
     const denied = await page.getByRole('main').innerText();
-    expect(denied).not.toContain('DIFF XP8 #5');
-    expect(denied).not.toContain('DIF-202');
+    expect(denied).not.toContain('XP8');
+    expect(denied).not.toContain('STG-DIFF-A');
+    expect(denied).not.toContain('ASM');
     await evidence(page, testInfo, 'entity-room-denied');
 
     // 3. Unknown id: a successful zero (empty) on both surfaces, never a denial and never another row's fields.
@@ -695,8 +699,10 @@ test.describe('목적지 단건 조회 (06 §6.2, §22)', () => {
     await expect(page.getByRole('main').locator('[aria-busy="true"]')).toHaveCount(0);
     const missing = await page.getByRole('main').innerText();
     expect(missing).not.toContain('이 Scope에 접근 권한이 없습니다');
-    expect(missing).not.toContain('PHOTO Lithius-Pro');
-    expect(missing).not.toContain('DIFF XP8 #5');
+    expect(missing).not.toContain('Lithius-Pro');
+    expect(missing).not.toContain('XP8');
+    expect(missing).not.toContain('STG-PHOTO-A');
+    expect(missing).not.toContain('STG-DIFF-A');
     await evidence(page, testInfo, 'entity-empty');
   });
 });
@@ -803,7 +809,10 @@ test.describe('공유 위젯 응답 (06 §19, #55)', () => {
     // The scenario fails every other query. Equipment detail has two queries;
     // productivity has four and therefore intentionally groups its two equal failures.
     await page.goto('/equipment/ICH-PHOTO-0103?v=1&scopeId=ICH');
-    await expect(page.getByRole('main').getByText('PHOTO Lithius-Pro #1')).toHaveCount(2);
+    const loadedHeader = page.getByRole('main').locator('[data-platform-page-content] > [aria-busy]');
+    const loadedPanel = page.getByRole('tabpanel');
+    await expect(loadedHeader.getByText('ICH-PHOTO-0103')).toBeVisible();
+    await expect(loadedPanel.getByText('ICH-PHOTO-0103')).toBeVisible();
     await setScenario(page, '일부 위젯 실패');
     const main = page.getByRole('main');
     await expect(main.getByRole('alert')).toHaveCount(1);
@@ -1187,7 +1196,8 @@ test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-
     expect(new URL(page.url()).searchParams.get('focus')).toBe('engineer');
     const drawer = page.getByRole('dialog');
     await drawer.getByRole('tab', { name: '사이트 범위' }).click();
-    await expect(drawer.getByText('PH-101')).toBeVisible();
+    const ichScope = drawer.getByRole('listitem').filter({ hasText: 'ICH' });
+    await expect(ichScope).toContainText('PHOTO, ETCH, CVD');
     const xiaRow = drawer.getByRole('listitem').filter({ hasText: 'XIA' });
     await expect(xiaRow).toContainText('부여 없음');
     // The sortable room-count column is also named "room 부여"; exclude that heading and catch action labels.

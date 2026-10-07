@@ -306,7 +306,7 @@ export async function getEntity(ref: EntityRef, signal?: AbortSignal, opts?: Get
   if (scope.status !== 'valid') return { ...base, outcome: 'forbidden', message: scope.status === 'forbidden' ? `No grant for scope ${ref.scopeId}` : `Unknown scope ${ref.scopeId}` };
   // 5. Lookup only inside the requested site: other sites are invisible, whatever the id says.
   const row = EQUIPMENT.find(e => e.site === ref.scopeId && e.equipmentId === ref.id);
-  // 6. Room gate. Beats scenario empty/too_large; the message must not leak id, name, room, maker, model, team, line, stgroup.
+  // 6. Room gate. Beats scenario empty/too_large; the message must not leak id, room, maker, model, team, line, stgroup.
   if (row && !scope.grantedRooms.includes(row.room)) return { ...base, outcome: 'forbidden', message: 'No grant for equipment' };
   // 7–8. Dev-tools scenarios (no period on this port, so too_large is reachable only by flipping the scenario).
   if (s === 'forbidden') return { ...base, outcome: 'forbidden', message: 'Permission revoked (scenario)' };

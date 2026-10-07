@@ -31,11 +31,8 @@ Model보다 더 세부적으로 설비를 분류하는 값. 외부 시스템에�
 _Avoid_: 챔버, Chamber — ChamberType으로 통일.
 
 **EquipmentID**:
-실제 설비 한 대를 가리키는 식별자. 모든 Site에 걸쳐 전역적으로 유일하다. Maker → Model → ChamberType → EquipmentID 설비 분류 계층의 최하위이며, 설비 내부 이벤트에는 이보다 세부적인 Module/Slot 단위가 있다.
-
-**EquipmentName**:
-설비의 사람이 읽는 이름. EquipmentID(식별 키)와는 별개 값이다. EquipmentName이 바뀌면 다른 설비로 취급하여 새 EquipmentID로 재등록하며, 기존 ID는 사용중지되고 다른 용도로 재사용하지 않는다.
-_Avoid_: 설비명을 EquipmentID와 같은 값으로 취급하지 않는다.
+실제 설비 한 대를 가리키는 식별자이자 사람이 부르는 이름이다. 모든 Site에 걸쳐 전역적으로 유일하며, 설비를 가리키는 키는 이것 하나다. Maker → Model → ChamberType → EquipmentID 설비 분류 계층의 최하위이며, 설비 내부 이벤트에는 이보다 세부적인 Module/Slot 단위가 있다.
+_Avoid_: 설비명, EquipmentName — EquipmentID와 별개인 설비 이름은 없다.
 
 **유효구간** (`validFrom` / `validTo`):
 설비 마스터 속성이 유효한 `[valid_from, valid_to)` 이력 구간. 설비 사용중지는 물리 삭제가 아니라 그 ID 이력의 `valid_to` 종료이며, 종료된 ID는 다른 용도로 재사용하지 않는다([ADR-0003](docs/adr/0003-equipment-master-platform-owned-target.md)).
@@ -46,7 +43,7 @@ _Avoid_: 설비명을 EquipmentID와 같은 값으로 취급하지 않는다.
 ### 공정 범위와 설비 그룹
 
 **room_name** (`room`, URL 키 `roomNames`):
-설비가 설치된 공정 구역이자 Site 내 권한·조회 범위의 기준 축. 하나의 room_name이 여러 Line에 걸칠 수 있으며 Maker/Model 계층과도 독립적이다. 보통 등록 시 정해진 값이 유지되지만 드물게 바뀔 수 있고, 이때도 같은 EquipmentID를 유지한다. 다른 설비로 취급하여 재등록하는 기준은 room_name 변경이 아니라 EquipmentName 변경이다.
+설비가 속한 공정의 이름(예: PHOTO, ETCH)이자 Site 내 권한·조회 범위의 기준 축. 같은 room_name이 여러 Site에 있을 수 있으며 Site 안에서 구분된다. 하나의 room_name이 여러 Line에 걸칠 수 있으며 Maker/Model 계층과도 독립적이다. 보통 등록 시 정해진 값이 유지되지만 드물게 바뀔 수 있고, 이때도 같은 EquipmentID를 유지한다.
 _Avoid_: Process, 공정 구역 — "Process"는 이 프로젝트에서 여러 의미로 겹쳐 쓰여 혼동되므로 room_name으로 통일한다.
 
 **StGroup** (`stgroup`):

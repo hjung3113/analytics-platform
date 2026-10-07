@@ -40,7 +40,7 @@ function grantedExecution(before?: string): Execution {
   const result = seededExecutions.find(execution => {
     const equipment = EQUIPMENT.find(row => row.equipmentId === execution.equipmentId);
     return equipment?.site === 'ICH'
-      && ['PH-101', 'ET-102', 'CVD-201'].includes(equipment.room)
+      && ['PHOTO', 'ETCH', 'CVD'].includes(equipment.room)
       && (before === undefined || execution.anchor < before);
   });
   if (!result) throw new Error('expected a seeded execution in an engineer-granted ICH room');
@@ -78,8 +78,8 @@ describe('execution-detail occurrence endpoint behavior', () => {
   it('rejects carried reference-only Context and accepts a request matching its projection', async () => {
     const from = '2026-06-28T09:00:00';
     const execution = grantedExecution(from);
-    const outsideGrant = EQUIPMENT.find(row => row.site === 'ICH' && row.room === 'DIF-202');
-    if (!outsideGrant) throw new Error('expected seeded equipment in ungranted ICH room DIF-202');
+    const outsideGrant = EQUIPMENT.find(row => row.site === 'ICH' && row.room === 'DIFF');
+    if (!outsideGrant) throw new Error('expected seeded equipment in ungranted ICH room DIFF');
 
     let seenContext: GlobalContext | undefined;
     const handler = executionOccurrence;
@@ -103,7 +103,7 @@ describe('execution-detail occurrence endpoint behavior', () => {
     };
     const withReferenceContext = await observedAdapter.menuQuery({
       endpoint: occurrenceEndpoint.id,
-      context: { scopeId: 'ICH', roomNames: ['DIF-202'], selection: [outsideGrant.equipmentId] },
+      context: { scopeId: 'ICH', roomNames: ['DIFF'], selection: [outsideGrant.equipmentId] },
       params,
     });
     expect(withReferenceContext.outcome).toBe('error');
@@ -124,8 +124,8 @@ describe('execution-detail occurrence endpoint behavior', () => {
 
   it('returns granted, forbidden, and missing access states and pins declared kinds', async () => {
     const execution = grantedExecution();
-    const outsideGrant = EQUIPMENT.find(row => row.site === 'ICH' && row.room === 'DIF-202');
-    if (!outsideGrant) throw new Error('expected seeded equipment in ungranted ICH room DIF-202');
+    const outsideGrant = EQUIPMENT.find(row => row.site === 'ICH' && row.room === 'DIFF');
+    if (!outsideGrant) throw new Error('expected seeded equipment in ungranted ICH room DIFF');
     const kinds = ['collection', 'processing_delay', 'coverage'];
     expect(occurrenceEndpoint.kinds).toEqual(kinds);
 

@@ -17,7 +17,7 @@ const evaluation = vi.fn(async () => ({ inCondition: [], outOfCondition: [] }));
 const session: Session = { user: { id: 'u', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view'] }, scopes: [{ id: 'ICH', label: 'ICH', grantedRooms: 1, totalRooms: 1 }] };
 const adapter: PlatformAdapter = {
   session: () => session,
-  validateScope: async () => ({ status: 'valid', scopeId: 'ICH', grantedRooms: ['PH-101'] }),
+  validateScope: async () => ({ status: 'valid', scopeId: 'ICH', grantedRooms: ['PHOTO'] }),
   defaultRangeTo: () => '2026-09-26T09:00:00', publishedMetrics: () => [],
   contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }), evaluateSelection: evaluation,
   menuQuery: async () => forbidden, getEntity: async () => forbidden, auditTrail: async () => forbidden, entityAudit: async () => forbidden,
@@ -220,12 +220,12 @@ describe('Global Context priority overflow (#56)', () => {
     mount();
     fireEvent.click(within(bar()).getByRole('button', { name: 'room_name 전체' }));
     fireEvent.click(screen.getByRole('radio', { name: '명시 선택' }));
-    const checkbox = await screen.findByRole('checkbox', { name: 'PH-101' });
+    const checkbox = await screen.findByRole('checkbox', { name: 'PHOTO' });
     fireEvent.click(checkbox);
     checkbox.focus();
     for (const nextWidth of [450, 2000]) {
       width(nextWidth);
-      await vi.waitFor(() => expect(screen.getByRole('checkbox', { name: 'PH-101' })).toBeChecked());
+      await vi.waitFor(() => expect(screen.getByRole('checkbox', { name: 'PHOTO' })).toBeChecked());
       await vi.waitFor(() => expect(bar().contains(document.activeElement)).toBe(true));
       expect(new URLSearchParams(window.location.search).has('roomNames')).toBe(false);
     }

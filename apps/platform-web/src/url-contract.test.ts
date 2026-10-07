@@ -9,10 +9,10 @@ const code = (fn: () => unknown) => { try { fn(); } catch (e) { return e instanc
 
 describe('URL contract (§6.1–6.4)', () => {
   it('round-trips the full global context with canonical ordering', () => {
-    const g = { ...emptyGlobal, scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', roomNames: ['PH-101', 'ET-102'], condition: { axis: 'makerModel' as const, maker: 'AMX', model: 'XP8' }, selection: ['B', 'A', 'A'], metricId: 'cycle_time', metricVersion: 'v3' };
+    const g = { ...emptyGlobal, scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', roomNames: ['PHOTO', 'ETCH'], condition: { axis: 'makerModel' as const, maker: 'AMX', model: 'XP8' }, selection: ['B', 'A', 'A'], metricId: 'cycle_time', metricVersion: 'v3' };
     const q = buildQuery(g);
     const back = parseQuery(q).global;
-    expect(back.roomNames).toEqual(['ET-102', 'PH-101']);
+    expect(back.roomNames).toEqual(['ETCH', 'PHOTO']);
     expect(back.selection).toEqual(['A', 'B']);
     expect(buildQuery(back)).toBe(q);
   });

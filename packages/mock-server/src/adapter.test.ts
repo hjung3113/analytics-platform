@@ -18,10 +18,10 @@ describe('mockAdapter.evaluateSelection', () => {
     const before = getRole();
     try {
       const stgroup = EQUIPMENT.find(e => e.site === 'ICH')!.stgroup;
-      const someId = EQUIPMENT.find(e => e.site === 'ICH' && e.room === 'DIF-202')!.equipmentId; // DIF-202 is granted to admin only
+      const someId = EQUIPMENT.find(e => e.site === 'ICH' && e.room === 'DIFF')!.equipmentId; // DIFF is granted to admin only
       for (const role of ['engineer', 'admin', 'viewer'] as const) {
         setRole(role);
-        for (const [roomNames, condition] of [[null, null], [['PH-101'], null], [null, { axis: 'stgroup' as const, id: stgroup }]] as const) {
+        for (const [roomNames, condition] of [[null, null], [['PHOTO'], null], [null, { axis: 'stgroup' as const, id: stgroup }]] as const) {
           const selection = [someId, 'NOPE-1'];
           const got = await mockAdapter.evaluateSelection({ scopeId: 'ICH', roomNames: roomNames ? [...roomNames] : null, condition, selection });
           const want = clientSide(role, 'ICH', roomNames ? [...roomNames] : null, condition, selection);

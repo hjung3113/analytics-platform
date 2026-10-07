@@ -671,7 +671,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
 
   it('조회 정보 carries the menu’s filter summary and the applied global Context keys, readably (P2-3)', async () => {
     const initial = {
-      roomNames: ['PH-101', 'ET-102'],
+      roomNames: ['PHOTO', 'ETCH'],
       condition: { axis: 'stgroup', id: 'Etch-A' } as GlobalContext['condition'],
       selection: Array.from({ length: 12 }, (_, i) => `EQ-${i}`),
       lotIds: ['LOT-1'],
@@ -712,7 +712,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
       exportContext={{}}
       loadPage={makeLoadPage(3)}
       exportRows={vi.fn(async () => ok([]))}
-      probe={<GlobalControls initial={{ roomNames: ['PH-101'], ppid: 'PP-9', metricId: 'cycle_time', metricVersion: '4' }} />}
+      probe={<GlobalControls initial={{ roomNames: ['PHOTO'], ppid: 'PP-9', metricId: 'cycle_time', metricVersion: '4' }} />}
     />);
     await screen.findByText(/1\/1/);
     await waitFor(() => expect(screen.getByRole('button', { name: 'bump-ppid' })).toBeTruthy());
@@ -731,7 +731,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     render(<ExportHarness
       loadPage={makeLoadPage(3)}
       exportRows={vi.fn(async () => ok([]))}
-      probe={<GlobalControls initial={{ roomNames: ['PH-101'], ppid: 'PP-9', metricId: 'cycle_time', metricVersion: '4' }} />}
+      probe={<GlobalControls initial={{ roomNames: ['PHOTO'], ppid: 'PP-9', metricId: 'cycle_time', metricVersion: '4' }} />}
     />);
     await screen.findByText(/1\/1/);
     await waitFor(() => expect(screen.getByRole('button', { name: 'bump-ppid' })).toBeTruthy());

@@ -304,7 +304,7 @@ describe('serveEndpoint declaration pipeline', () => {
   it('resolves declared applied keys and forbids a denied room', async () => {
     const spec = makeSpec('analytics.room-filter', { context: { time: 'apply', roomNames: 'apply' } });
     const endpoint = mockEndpoint(spec);
-    const result = await serveEndpoint(new Map([[spec.id, endpoint]]), request(spec.id, { scopeId: 'ICH', ...PERIOD, roomNames: ['DIF-202'] }), undefined, { role: 'engineer', latency: 0 });
+    const result = await serveEndpoint(new Map([[spec.id, endpoint]]), request(spec.id, { scopeId: 'ICH', ...PERIOD, roomNames: ['DIFF'] }), undefined, { role: 'engineer', latency: 0 });
     expect(result.outcome).toBe('forbidden');
   });
 
@@ -388,7 +388,7 @@ describe('serveEndpoint declaration pipeline', () => {
     const endpoint = mockEndpoint(spec);
     const result = await serveEndpoint(
       new Map([[spec.id, endpoint]]),
-      request(spec.id, { scopeId: 'ICH', ...PERIOD, roomNames: 'PH-101' }),
+      request(spec.id, { scopeId: 'ICH', ...PERIOD, roomNames: 'PHOTO' }),
       undefined,
       { role: 'engineer', latency: 0 },
     );

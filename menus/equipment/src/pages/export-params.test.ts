@@ -12,8 +12,8 @@ describe('equipment-master export params', () => {
   const filter: EquipmentFilter = { q: 'etch', status: 'active', maker: 'ACME' };
 
   it('carries the page filters, ids and the table sort for a selection export', () => {
-    expect(exportParams(filter, { scope: { kind: 'selected', ids: ['ICH-PHOTO-0103', 'ICH-ET-102'] }, sorting }))
-      .toEqual({ q: 'etch', status: 'active', maker: 'ACME', ids: ['ICH-PHOTO-0103', 'ICH-ET-102'], sorting });
+    expect(exportParams(filter, { scope: { kind: 'selected', ids: ['ICH-PHOTO-0103', 'ICH-ETCH-0102'] }, sorting }))
+      .toEqual({ q: 'etch', status: 'active', maker: 'ACME', ids: ['ICH-PHOTO-0103', 'ICH-ETCH-0102'], sorting });
   });
 
   it('uses ids: null for the all-filtered export so the server reads the whole filtered set', () => {

@@ -16,8 +16,8 @@ function ich(room?: string) {
 describe('screen 11 and 12 share one job population', () => {
   it('matches completed counts for several equipment sets and periods', () => {
     const cases = [
-      { equipment: ich('PH-101'), from: FROM, to: TO },
-      { equipment: ich('ET-102').slice(0, 1), from: FROM, to: TO },
+      { equipment: ich('PHOTO'), from: FROM, to: TO },
+      { equipment: ich('ETCH').slice(0, 1), from: FROM, to: TO },
       { equipment: ich(), from: DAY_FROM, to: DAY_TO },
     ];
     for (const { equipment, from, to } of cases) {
@@ -35,7 +35,7 @@ describe('screen 11 and 12 share one job population', () => {
   });
 
   it('matches v4 P50/P95 and keeps v3 minutes different', () => {
-    const equipment = ich('PH-101').slice(0, 2);
+    const equipment = ich('PHOTO').slice(0, 2);
     const kpi = computeKpis(equipment, FROM, TO);
     const v4 = population(equipment, { ...emptyGlobal, from: FROM, to: TO }, '4');
     const v3 = population(equipment, { ...emptyGlobal, from: FROM, to: TO }, '3');
@@ -46,7 +46,7 @@ describe('screen 11 and 12 share one job population', () => {
   });
 
   it('sums the same jobs at hour, day, and week', () => {
-    const equipment = ich('PH-101').slice(0, 3);
+    const equipment = ich('PHOTO').slice(0, 3);
     const kpi = computeKpis(equipment, FROM, TO);
     for (const grain of ['hour', 'day', 'week'] as const) {
       const total = trendBuckets(equipment, FROM, TO, grain).reduce((sum, bucket) => sum + (bucket.jobs ?? 0), 0);
