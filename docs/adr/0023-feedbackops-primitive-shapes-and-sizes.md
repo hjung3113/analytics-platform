@@ -27,6 +27,7 @@
 ## 결과
 
 - #228이 공통 컴포넌트·셸·메뉴의 덮어쓰기 83곳을 걷어 내고, `no-restyle` suppressions를 비운다.
+- Context 바 칩처럼 FeedbackOps에 없는 플랫폼 부품은 플랫폼 확장으로 둔다. 넘침 버튼은 FeedbackOps `Button`을 덮어쓰지 않고 이웃 칩과 같은 칩 모양을 쓴다(#240).
 - 팝오버·드롭다운이 흰 카드에서 FeedbackOps 팝오버 표면으로 바뀌므로, 그 안의 작은 보조 글자는 DESIGN 허용 쌍대로 `text-muted`(4.47:1) 대신 `text-secondary`를 쓴다.
 - 플랫폼이 FeedbackOps에 없는 모양이 필요하면 플랫폼에서 덮어쓰지 않고 FeedbackOps에 variant를 제안한다(서브모듈은 요청 범위에서만 고친다 — 루트 `AGENTS.md`).
 - 시안 코드는 본 코드에 넣지 않는다.

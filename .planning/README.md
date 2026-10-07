@@ -19,7 +19,7 @@
 
 다음 세션은 여기서 시작한다. 직전 세션(2026-10-05)에서 M2 후속(#218 Context 바, #156 레이아웃 슬롯)을 끝내고 v0.2.0을 릴리스했으며, 드릴다운(#225)을 이슈로 올렸다(아래 "끝난 것").
 
-1. **shadcn lint #228 — 위반 0으로 마무리(이 PR)**. FeedbackOps 서브모듈 `13a3c5a`·규칙 옵션(ADR-0062)·글자 크기 토큰(#236), inline style·accent(#238), 그리고 사용자 결정(2026-10-07, 시안 `hjung3113/proto-228-fops-shapes`, [ADR-0023](../docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md))대로 플랫폼 덮어쓰기 83곳을 걷어 내고 FeedbackOps 모양·크기를 쓴다. 접근성 하한(입력·select·체크박스 경계, `aria-disabled` 버튼, 메뉴 포커스 링)만 lint contract로 남고, 패키지 `eslint-suppressions.json`은 모두 없다. 후속: #239(표 너비 슬라이더 이름·값), #240(넘침 버튼 경계, UIUX-56-01 재발).
+1. **shadcn lint #228 — 위반 0으로 마무리(이 PR)**. FeedbackOps 서브모듈 `13a3c5a`·규칙 옵션(ADR-0062)·글자 크기 토큰(#236), inline style·accent(#238), 그리고 사용자 결정(2026-10-07, 시안 `hjung3113/proto-228-fops-shapes`, [ADR-0023](../docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md))대로 플랫폼 덮어쓰기 83곳을 걷어 내고 FeedbackOps 모양·크기를 쓴다. 접근성 하한(입력·select·체크박스 경계, `aria-disabled` 버튼, 메뉴 포커스 링)만 lint contract로 남고, 패키지 `eslint-suppressions.json`은 모두 없다. 후속: #239(표 너비 슬라이더 이름·값). #240(넘침 버튼 경계)은 넘침 버튼을 이웃 Context 칩과 같은 칩 모양으로 해서 닫았다.
 2. **드릴다운 #225** — 한 화면에서 단계별로 깊게 보기 / 다른 메뉴로 넘어가기를 플랫폼 기능 + 레이아웃으로. 설계 → `?variant=` 프로토타입 → 컨펌.
 3. 그 뒤 다음 슬라이스를 사용자에게 고르게 한다(후보: FeedbackOps 2단계 — 아래 "다음 슬라이스 후보"). 고른 슬라이스에 걸리는 "결정 대기"의 이슈 없는 항목(예: 사용자 설정 저장 위치)을 같이 묻는다.
 4. 작업 규칙은 루트 `AGENTS.md`(2026-10-05 간소화), 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 문서만 바꾸면 `pnpm docs:links`만 돌린다.
@@ -29,7 +29,6 @@
 | 이슈 | 할 일 | 메모 |
 | --- | --- | --- |
 | #239 | 표 컬럼 설정의 너비 슬라이더에 이름·값, 한국어 접근 이름(사용자가 필터로 읽음) | 시안 먼저(공통 부품 모양) |
-| #240 | Context 바 넘침 버튼 경계를 이웃 칩과 맞춤(UIUX-56-01 재발) | FeedbackOps variant 제안 또는 칩을 FeedbackOps로 — 범위 확인 필요 |
 | #230 | 분석 화면 페이지 필터 줄 접기(#156 후속, 사용자 "예") | 시안 먼저(보이는 모양이 바뀜) |
 | #225 | 드릴다운 — 화면 안 단계별 드릴과 메뉴 간 드릴을 플랫폼 기능 + 레이아웃으로 | 설계·프로토타입 컨펌 먼저(보이는 모양이 바뀜) |
 | #122 | 목적지 단건 조회의 provisional을 대상 객체 시점으로 판정 | 선행 게이트(#100)는 통과 — 착수 가능 |

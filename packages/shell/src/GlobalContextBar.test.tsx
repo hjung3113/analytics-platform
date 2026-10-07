@@ -202,8 +202,8 @@ describe('Global Context priority overflow (#56)', () => {
   });
 
   // Measurement parity: the inert copies must render exactly like the real trigger or the overflow math drifts.
-  // UIUX-56-01 (trigger border matching the neighbouring Context controls) is reopened as #240 under ADR-0023.
-  it('renders the overflow trigger and every measurement copy with the same Button size and variant', () => {
+  // UIUX-56-01 / #240: the trigger is one more Context chip, so it shares the neighbouring chips' border.
+  it('renders the overflow trigger and every measurement copy as a Context chip with the same classes', () => {
     barWidth = 450; mount();
     const trigger = within(bar()).getByRole('button', { name: '조건 3개 더' });
     const copies = Array.from(bar().querySelectorAll('[data-measure-overflow]'));
@@ -211,6 +211,9 @@ describe('Global Context priority overflow (#56)', () => {
     // shrink-0 only keeps the real trigger from shrinking in the row; it does not change the measured width.
     const classes = (el: Element) => el.className.split(/\s+/).filter(c => c !== 'shrink-0').sort().join(' ');
     for (const copy of copies) expect(classes(copy)).toBe(classes(trigger));
+    const chip = bar().querySelector('[data-measure-key="roomNames"] button');
+    expect(trigger).toHaveClass('border-border-strong', 'hover:border-border-control');
+    expect(chip).toHaveClass('border-border-strong', 'hover:border-border-control');
   });
 
   it('keeps unapplied room drafts through inline → overflow → inline and restores connected bar focus (UIUX-56-02)', async () => {

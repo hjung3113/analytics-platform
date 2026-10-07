@@ -1,7 +1,8 @@
 import { createContext, useContext, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction, type ReactNode } from 'react';
 import type { ContextKey } from '@ap/contracts';
 import { useI18n } from '@ap/kernel';
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { CONTEXT_CHIP, CONTEXT_CHIP_TONE } from './contextChip';
 
 /** Measuring copies are inert and must never make adapter requests. */
 export const MeasuringContext = createContext(false);
@@ -143,7 +144,7 @@ export function ContextBarLayout({ controls, revision, actions }: {
         <div data-measure="actions">{actions(false)}</div><div data-measure="icons">{actions(true)}</div>
         {others.map((_, index) => {
           const trailing = others.slice(others.length - index - 1);
-          return <Button key={index} data-measure-overflow size="sm" variant="secondary" className="whitespace-nowrap">{overflowLabel(trailing.length, trailing.filter(c => c.applied).length)}</Button>;
+          return <button key={index} type="button" data-measure-overflow className={cn(CONTEXT_CHIP, CONTEXT_CHIP_TONE)}>{overflowLabel(trailing.length, trailing.filter(c => c.applied).length)}</button>;
         })}
       </MeasuringContext.Provider>
     </div></div>
@@ -152,7 +153,7 @@ export function ContextBarLayout({ controls, revision, actions }: {
       {period && item(period, compact)}
       {others.slice(0, inlineCount).map(control => item(control))}
       {hidden.length > 0 && <Popover open={overflowOpen || activeHidden} onOpenChange={setOverflowOpen}><PopoverTrigger asChild>
-        <Button ref={overflowTrigger} data-context-overflow type="button" size="sm" variant="secondary" className="shrink-0 whitespace-nowrap" aria-label={label} title={label}>{label}</Button>
+        <button ref={overflowTrigger} data-context-overflow type="button" className={cn(CONTEXT_CHIP, CONTEXT_CHIP_TONE, 'shrink-0')} aria-label={label} title={label}>{label}</button>
       </PopoverTrigger><PopoverContent onFocusOutside={event => { if (recoveringFocus.current) event.preventDefault(); }} onCloseAutoFocus={event => { if (!overflowTrigger.current?.isConnected) { event.preventDefault(); focusBar(); } }} aria-label={lang === 'ko' ? '추가 Context 조건' : 'More Context conditions'} align="end" className="w-[28rem] max-w-[calc(100vw-2rem)]">
         <div className="grid gap-3">{hidden.map(control => item(control))}</div>
       </PopoverContent></Popover>}
