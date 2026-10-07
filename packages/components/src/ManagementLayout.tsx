@@ -84,7 +84,7 @@ export function ManagementLayout({ filter, activeFilterCount = 0, table, drawer 
   const filterSlot = !hasFilter || railVisible ? undefined : wide ? button :
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{button}</PopoverTrigger>
-      <PopoverContent ref={popover} id={bodyId} onCloseAutoFocus={event => { if (measuredWide.current) event.preventDefault(); }} aria-label={t('filters')} align="start" className="max-h-[70vh] w-80 overflow-y-auto bg-surface-card p-3">
+      <PopoverContent ref={popover} id={bodyId} onCloseAutoFocus={event => { if (measuredWide.current) event.preventDefault(); }} aria-label={t('filters')} align="start" className="max-h-[70vh] w-80 overflow-y-auto">
         {filter}
       </PopoverContent>
     </Popover>;
@@ -98,7 +98,7 @@ export function ManagementLayout({ filter, activeFilterCount = 0, table, drawer 
             <h2 id={titleId} className="t-card-title">{t('filters')}</h2>
             {activeFilterCount > 0 && <p className="text-xs text-text-muted">{t('appliedFilterCount', { count: activeFilterCount })}</p>}
           </div>
-          <Button ref={closeButton} type="button" variant="ghost" size="sm" className="size-8 shrink-0 p-0" aria-label={t('collapseFilters')}
+          <Button ref={closeButton} type="button" variant="ghost" size="icon-sm" className="shrink-0" aria-label={t('collapseFilters')}
             title={t('collapseFilters')} aria-expanded="true" aria-controls={bodyId} onClick={() => setRailCollapsed(true)}>
             <PanelLeftClose className="size-4" aria-hidden />
           </Button>

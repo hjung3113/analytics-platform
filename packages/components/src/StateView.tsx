@@ -48,7 +48,7 @@ export function LoadingBlock({ rows = 3, height = 96, className }: { rows?: numb
   return <div role="status" aria-busy className={cn('space-y-2', className)} style={{ minHeight: height }}>
     <span className="sr-only">{t('loading')}</span>
     {/* eslint-disable-next-line shadcn/no-inline-styles -- skeleton widths are per-row percentages computed at runtime */}
-    {Array.from({ length: rows }, (_, i) => <Skeleton key={i} className="h-5 rounded-sm bg-surface-sunken" style={{ width: `${90 - i * 12}%` }} />)}
+    {Array.from({ length: rows }, (_, i) => <Skeleton key={i} className="h-5" style={{ width: `${90 - i * 12}%` }} />)}
   </div>;
 }
 

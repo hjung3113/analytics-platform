@@ -110,17 +110,17 @@ describe('DetailDrawer docked slot', () => {
     expect(inner).toHaveFocus();
   });
 
-  it('uses readable inactive tab labels on sunken while preserving the selected-tab look', () => {
+  it('keeps drawer tabs on the shared FeedbackOps look with active state via data-state', () => {
     render(<I18nProvider><DetailPanelSlotProvider>
       <DetailDrawer title="Detail" onClose={() => {}} tabs={[
         { id: 'a', label: 'Attributes', content: 'attributes' }, { id: 'audit', label: 'Audit', content: 'audit' },
       ]} /><SlotHost />
     </DetailPanelSlotProvider></I18nProvider>);
     const list = screen.getByRole('tablist');
-    expect(list).toHaveClass('bg-surface-sunken', 'text-text-secondary');
-    expect(list).not.toHaveClass('text-text-muted');
+    // ADR-0023 C2: the drawer no longer restyles TabsList (was bg-surface-sunken + text-text-secondary).
+    expect(list).not.toHaveClass('bg-surface-sunken', 'text-text-secondary');
     expect(screen.getByRole('tab', { name: 'Audit' })).toHaveAttribute('data-state', 'inactive');
-    expect(screen.getByRole('tab', { name: 'Attributes' })).toHaveClass('data-[state=active]:text-text-primary', 'data-[state=active]:bg-surface-card');
+    expect(screen.getByRole('tab', { name: 'Attributes' })).toHaveAttribute('data-state', 'active');
   });
 
   it('restores deep-link content and falls back to main when no opener exists', () => {

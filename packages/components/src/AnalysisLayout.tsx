@@ -91,7 +91,7 @@ function AnalysisLayoutBody({ kpi, charts, breakdown, storageKey }: AnalysisLayo
     {hidden.length > 0 && <div role="group" aria-label={t('collapsedSections')} className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
       <span>{t('collapsedSections')}</span>
       {hidden.map(section => <Button key={section.id} ref={element => { if (element) chips.current.set(section.id, element); else chips.current.delete(section.id); }}
-        type="button" variant="secondary" size="sm" className="h-7 gap-1 rounded-full px-2 text-xs"
+        type="button" variant="secondary" size="toolbar"
         aria-expanded="false" aria-label={t('expandSection', { title: section.title })} title={t('expandSection', { title: section.title })} onClick={() => toggle(section.id, false)}>
         {section.title}<ChevronDown className="size-3.5" aria-hidden />
       </Button>)}

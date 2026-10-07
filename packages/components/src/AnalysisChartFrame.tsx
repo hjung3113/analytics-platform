@@ -253,7 +253,6 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     } catch { failed(); } finally { setSaving(false); }
   }
 
-  const tb = 'h-7 gap-1 px-2 text-xs';
   return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className="relative flex flex-col rounded-lg border border-border-subtle bg-surface-card">
     {/* Pinned to the card corner so a wrapping toolbar never strands it on its own line. */}
     <AnalysisChartPart enabled={analysisSection !== null}>
@@ -264,17 +263,17 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       </div>
       <div role="toolbar" aria-label={lang === 'ko' ? '차트 동작' : 'Chart actions'} className="flex flex-wrap items-center gap-1">
         {p.extraActions}
-        <Button variant="ghost" size="sm" className={tb} onClick={() => setZoom(([a, b]) => { const q = (b - a) / 4; return [a + q, b - q]; })} title={lang === 'ko' ? '확대 (Shift+휠도 가능)' : 'Zoom in (Shift+wheel)'}><ZoomIn className="size-3.5" aria-hidden />Zoom</Button>
-        <Button variant="ghost" size="sm" className={cn(tb, brushMode && 'bg-accent-primary-soft text-accent-primary')} aria-pressed={brushMode} onClick={() => setBrushMode(b => !b)}><BrushIcon className="size-3.5" aria-hidden />Brush</Button>
-        <Button variant="ghost" size="sm" className={tb} onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />Reset</Button>
-        {canCompare && <Button variant="ghost" size="sm" className={cn(tb, compare && 'bg-accent-primary-soft text-accent-primary')} aria-pressed={compare} onClick={() => setCompare(c => !c)}><GitCompare className="size-3.5" aria-hidden />Compare</Button>}
-        {canAnnotate && <Button variant="ghost" size="sm" className={tb} disabled={!selection || scopeId === null} title={scopeId === null ? (lang === 'ko' ? '주석은 사이트(Scope)를 선택한 뒤 남길 수 있습니다' : 'Pick a site (Scope) to annotate') : selection ? undefined : (lang === 'ko' ? 'Brush로 구간을 먼저 선택하세요' : 'Brush a range first')} onClick={openNote}><MessageSquarePlus className="size-3.5" aria-hidden />Annotate</Button>}
-        {canExport && <Button variant="ghost" size="sm" className={tb} onClick={exportCsv}><Download className="size-3.5" aria-hidden />Export</Button>}
+        <Button variant="ghost" size="toolbar" onClick={() => setZoom(([a, b]) => { const q = (b - a) / 4; return [a + q, b - q]; })} title={lang === 'ko' ? '확대 (Shift+휠도 가능)' : 'Zoom in (Shift+wheel)'}><ZoomIn className="size-3.5" aria-hidden />Zoom</Button>
+        <Button variant={brushMode ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={brushMode} onClick={() => setBrushMode(b => !b)}><BrushIcon className="size-3.5" aria-hidden />Brush</Button>
+        <Button variant="ghost" size="toolbar" onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />Reset</Button>
+        {canCompare && <Button variant={compare ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={compare} onClick={() => setCompare(c => !c)}><GitCompare className="size-3.5" aria-hidden />Compare</Button>}
+        {canAnnotate && <Button variant="ghost" size="toolbar" disabled={!selection || scopeId === null} title={scopeId === null ? (lang === 'ko' ? '주석은 사이트(Scope)를 선택한 뒤 남길 수 있습니다' : 'Pick a site (Scope) to annotate') : selection ? undefined : (lang === 'ko' ? 'Brush로 구간을 먼저 선택하세요' : 'Brush a range first')} onClick={openNote}><MessageSquarePlus className="size-3.5" aria-hidden />Annotate</Button>}
+        {canExport && <Button variant="ghost" size="toolbar" onClick={exportCsv}><Download className="size-3.5" aria-hidden />Export</Button>}
         <Popover>
-          <PopoverTrigger asChild><Button variant="ghost" size="sm" className={tb} aria-label="More"><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
-          <PopoverContent align="end" className="w-72 rounded-md border border-border-strong bg-surface-card p-3 text-xs shadow-md">
+          <PopoverTrigger asChild><Button variant="ghost" size="toolbar" aria-label="More"><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
+          <PopoverContent align="end" className="w-72">
             <button type="button" className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-surface-sunken" onClick={() => setShowTable(s => !s)}><Table2 className="size-3.5" aria-hidden />{showTable ? (lang === 'ko' ? '데이터 표 숨기기' : 'Hide data table') : (lang === 'ko' ? '같은 데이터를 표로 보기' : 'Show same data as table')}</button>
-            <p className="mt-2 border-t border-border-subtle pt-2 text-text-muted">{lang === 'ko'
+            <p className="mt-2 border-t border-border-subtle pt-2 text-text-secondary">{lang === 'ko'
               ? 'Zoom·Brush·시리즈 표시·Compare는 이 차트의 로컬 상태로 URL에 저장되지 않습니다. 구간을 전역 기간으로 올리려면 선택 요약의 “분석 구간 적용”을 명시적으로 눌러야 합니다. 주석은 서버에 사이트(Scope)별로 보관되어 Reset 후에도 유지됩니다.'
               : 'Zoom, brush, series visibility and compare are local chart state, never written to the URL. Promoting a range to the global period requires the explicit “Apply analysis range”. Annotations are stored on the server per site (Scope) and survive Reset.'}</p>
           </PopoverContent>
@@ -317,23 +316,23 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
           {selectionCounts.map(c => <span key={c.s.id} className="tabular text-text-secondary">{c.s.name}: n={c.n}{c.avg !== null && ` · avg ${format(c.avg)} · max ${format(c.max!)}`} {p.unit}</span>)}
           <span className="ml-auto flex flex-wrap gap-2">
             {p.selectionActions?.(selection)}
-            {xType === 'time' && p.canApplyRange !== false && <Button size="sm" className="h-7 px-2 text-xs" onClick={() => setPreview(selection)}>{lang === 'ko' ? '분석 구간 적용…' : 'Apply analysis range…'}</Button>}
-            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setSelection(null)}>{t('clear')}</Button>
+            {xType === 'time' && p.canApplyRange !== false && <Button size="toolbar" onClick={() => setPreview(selection)}>{lang === 'ko' ? '분석 구간 적용…' : 'Apply analysis range…'}</Button>}
+            <Button size="toolbar" variant="ghost" onClick={() => setSelection(null)}>{t('clear')}</Button>
           </span>
         </div>}
       {preview && <div role="alertdialog" aria-label={lang === 'ko' ? '구간 적용 확인' : 'Confirm range'} className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-accent-primary bg-surface-card p-2">
         <span className="tabular">{lang === 'ko' ? '전역 기간을 다음으로 변경합니다 (초 정렬, [from, to)):' : 'Change the global period to (second-aligned, [from, to)):'} <b>{preview.from.replace('T', ' ')} → {preview.to.replace('T', ' ')}</b></span>
-        <Button size="sm" className="h-7 px-2 text-xs" onClick={() => { setGlobal({ from: preview.from, to: preview.to }); toast(lang === 'ko' ? '선택 구간을 전역 기간으로 적용했습니다. 다른 메뉴로 이동해도 유지됩니다.' : 'Applied the selection as the global period; it carries across menus.'); }}>{t('apply')}</Button>
-        <Button size="sm" variant="secondary" className="h-7 px-2 text-xs" onClick={() => setPreview(null)}>{t('cancel')}</Button>
+        <Button size="toolbar" onClick={() => { setGlobal({ from: preview.from, to: preview.to }); toast(lang === 'ko' ? '선택 구간을 전역 기간으로 적용했습니다. 다른 메뉴로 이동해도 유지됩니다.' : 'Applied the selection as the global period; it carries across menus.'); }}>{t('apply')}</Button>
+        <Button size="toolbar" variant="secondary" onClick={() => setPreview(null)}>{t('cancel')}</Button>
       </div>}
       {canAnnotate && note !== null && selection && <form className="mt-2 flex flex-wrap items-center gap-2" onSubmit={e => { e.preventDefault(); void saveNote(selection); }}>
         <input autoFocus aria-label={lang === 'ko' ? '주석 내용' : 'Annotation text'} value={note} onChange={e => setNote(e.target.value)} placeholder={lang === 'ko' ? '예: PM 작업으로 인한 대기 증가' : 'e.g. queue spike due to PM'} className="h-7 min-w-64 flex-1 rounded-md border border-border-control bg-surface-card px-2" />
-        <Button size="sm" type="submit" disabled={saving} className="h-7 px-2 text-xs">{lang === 'ko' ? '저장' : 'Save'}</Button>
-        <Button size="sm" type="button" variant="ghost" className="h-7 px-2 text-xs" onClick={closeNote}>{t('cancel')}</Button>
+        <Button size="toolbar" type="submit" disabled={saving}>{lang === 'ko' ? '저장' : 'Save'}</Button>
+        <Button size="toolbar" type="button" variant="ghost" onClick={closeNote}>{t('cancel')}</Button>
       </form>}
       {canAnnotate && scopeId !== null && annotationQuery.response && !['ok', 'empty'].includes(annotationQuery.response.outcome) && <p role="alert" className="mt-2 flex items-center gap-2 border-t border-border-subtle pt-1.5 text-tiny text-text-secondary">
         {lang === 'ko' ? '주석을 불러오지 못했습니다. 차트는 그대로 사용할 수 있습니다.' : 'Could not load annotations. The chart is unaffected.'}
-        <Button size="sm" variant="ghost" className="h-6 px-2 text-tiny" onClick={refetchAnnotations}>{lang === 'ko' ? '다시 시도' : 'Retry'}</Button>
+        <Button size="toolbar" variant="ghost" onClick={refetchAnnotations}>{lang === 'ko' ? '다시 시도' : 'Retry'}</Button>
       </p>}
       {annotations.length > 0 && <ul className="mt-2 space-y-0.5 border-t border-border-subtle pt-1.5 text-tiny text-text-secondary">
         {annotations.map(a => <li key={a.id} className="tabular"><span className="mr-1 inline-block size-2 rounded-xs bg-chart-purple/60 align-middle" aria-hidden />{xType === 'time' ? `${fmt(a.from)}–${fmt(a.to)}` : `${a.from}–${a.to}`}: {a.text}</li>)}

@@ -45,26 +45,26 @@ export function DataTrustIndicator({ trust, assessments, className }: { trust: T
         <Info className="size-3.5 text-text-muted" aria-hidden />
       </button>
     </PopoverTrigger>
-    <PopoverContent align="end" className="w-80 rounded-md border border-border-strong bg-surface-card p-3 text-xs shadow-md">
+    <PopoverContent align="end" className="w-80">
       <p className="t-card-title mb-2">{t('dataTrust')}</p>
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 tabular">
-        <dt className="text-text-muted">{t('updated')}</dt><dd>{trust.updatedAt.replace('T', ' ')}</dd>
-        <dt className="text-text-muted">{t('dataThrough')}</dt><dd>{trust.dataThrough?.replace('T', ' ') ?? '—'}</dd>
-        <dt className="text-text-muted">{t('coverage')}</dt><dd>{trust.coverage === null ? t('stateUnknown') : `${(trust.coverage * 100).toFixed(1)}%`}</dd>
-        {trust.metricVersion && <><dt className="text-text-muted">{t('metricVersion')}</dt><dd>{/^\d+$/.test(trust.metricVersion) ? formatMetricVersion(trust.metricVersion) : trust.metricVersion}</dd></>}
-        <dt className="text-text-muted">{t('status')}</dt><dd>{trust.provisional ? t('provisional') : t('final')}</dd>
-        <dt className="text-text-muted">{t('source')}</dt><dd className="t-mono">{trust.source}</dd>
+        <dt className="text-text-secondary">{t('updated')}</dt><dd>{trust.updatedAt.replace('T', ' ')}</dd>
+        <dt className="text-text-secondary">{t('dataThrough')}</dt><dd>{trust.dataThrough?.replace('T', ' ') ?? '—'}</dd>
+        <dt className="text-text-secondary">{t('coverage')}</dt><dd>{trust.coverage === null ? t('stateUnknown') : `${(trust.coverage * 100).toFixed(1)}%`}</dd>
+        {trust.metricVersion && <><dt className="text-text-secondary">{t('metricVersion')}</dt><dd>{/^\d+$/.test(trust.metricVersion) ? formatMetricVersion(trust.metricVersion) : trust.metricVersion}</dd></>}
+        <dt className="text-text-secondary">{t('status')}</dt><dd>{trust.provisional ? t('provisional') : t('final')}</dd>
+        <dt className="text-text-secondary">{t('source')}</dt><dd className="t-mono">{trust.source}</dd>
       </dl>
       <ul className="mt-3 space-y-1.5 border-t border-border-subtle pt-2">
         {assessments.map(a => <li key={a.kind} className="flex items-start justify-between gap-2">
           <span>{tx(KIND[a.kind])}</span>
           <span className="text-right">
             <StatusBadge tone={assessmentTone(a)}>{a.state}</StatusBadge>
-            <span className="mt-0.5 block text-tiny text-text-muted">{a.state === 'unknown' ? a.reason : `${a.statusSource} · ${time(a.observedAt)}`}</span>
+            <span className="mt-0.5 block text-tiny text-text-secondary">{a.state === 'unknown' ? a.reason : `${a.statusSource} · ${time(a.observedAt)}`}</span>
           </span>
         </li>)}
       </ul>
-      <p className="mt-2 text-tiny text-text-muted">{lang === 'ko' ? 'clear는 해당 kind 문제가 없음을 원천이 확인했다는 제한적 주장입니다.' : '“clear” only means the source confirmed that kind of problem is absent.'}</p>
+      <p className="mt-2 text-tiny text-text-secondary">{lang === 'ko' ? 'clear는 해당 kind 문제가 없음을 원천이 확인했다는 제한적 주장입니다.' : '“clear” only means the source confirmed that kind of problem is absent.'}</p>
     </PopoverContent>
   </Popover>;
 }

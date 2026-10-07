@@ -236,7 +236,7 @@ cellPadding: 4px 12px
 - toolbar는 제목/설명과 검색·filter·동작을 분리해 정렬하고 폭이 부족하면 wrap한다. 가로 overflow는 표 영역에 가두고 toolbar 접근을 유지한다.
 - selection은 대상·선택 수·clear를 보여 준다. 현재 page 선택과 전체 결과 선택을 혼동하지 않는다. Context/Scope 변경 시 selection을 해제한다. nested 버튼이 있는 행을 통째 clickable wrapper로 만들지 않는다.
 - sort는 `aria-sort`, bulk action은 권한·대상이 명확해야 한다. copy/export 동작·고정 toolbar는 [ADR-0008](docs/adr/0008-table-owned-export-fixed-toolbar.md)의 현재 계약을 따른다. 이 문서가 새로운 backend 작업을 추가하지 않는다.
-- copy Tooltip과 표 column menu의 border-only 처리는 현재 table 패턴이다. 이 국소 처리를 공유 floating primitive 전체의 shadow 금지로 확대하지 않는다.
+- copy Tooltip과 표 column menu도 FeedbackOps floating 표면(그림자 포함)을 쓴다([ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md)). 표에 따로 둔 border-only 처리는 없다.
 
 ## Status & Badges
 
