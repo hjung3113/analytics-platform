@@ -9,7 +9,7 @@ export function AppRail() {
   const languageLabel = lang === 'ko' ? '언어: 한국어 — English로 전환' : 'Language: English — 한국어로 전환';
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
   return <TooltipProvider delayDuration={200}>
-    <nav aria-label={lang === 'ko' ? '앱 레일' : 'App rail'} className="flex h-full shrink-0 flex-col items-center gap-2 overflow-y-auto border-r border-border-subtle bg-surface-sidebar py-3" style={{ width: 'var(--rail-width)' }}>
+    <nav aria-label={lang === 'ko' ? '앱 레일' : 'App rail'} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-2 overflow-y-auto border-r border-border-subtle bg-surface-sidebar py-3">
       <div title={t('appName')} className="mb-1 grid size-8 shrink-0 place-items-center rounded-md bg-accent-primary text-text-on-accent"><span aria-hidden className="text-sm font-semibold">A</span><span className="sr-only">{t('appName')}</span></div>
       {accessibleSpaces.length >= 2 && accessibleSpaces.map(space => {
         const Icon = registry.groupById(registry.menuById(space.homeMenuId).group).icon;

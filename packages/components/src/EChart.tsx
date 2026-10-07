@@ -2,7 +2,7 @@ import { Component, Suspense, lazy, useCallback, useMemo, useState, type ReactNo
 import { RotateCw, ServerCrash } from 'lucide-react';
 import type { EChartsCoreOption, ECharts } from 'echarts/core';
 import { useI18n } from '@ap/kernel';
-import { Button, Skeleton } from '@ap/ui';
+import { Button, Skeleton, cn } from '@ap/ui';
 import { StateMessage } from './StateView';
 
 /** Palette contract consumed by charts (DESIGN.md platform chart/category extensions). Read from CSS variables so tokens stay single-sourced. */
@@ -58,7 +58,8 @@ export function EChart({ option, height = 280, onEvents, onReady, ariaLabel, cla
   const retry = useCallback(() => { setFailed(false); setAttempt(a => a + 1); }, []);
   if (failed) {
     // Same box as the plot (height · width: 100% · className) so the layout does not shift.
-    return <div className={className} style={{ height, width: '100%' }}>
+    // eslint-disable-next-line shadcn/no-inline-styles -- chart height comes from the height prop at runtime
+    return <div className={cn(className, 'w-full')} style={{ height }}>
       <StateMessage tone="danger" icon={<ServerCrash className="size-4" aria-hidden />} title={t('stateError')}
         action={<Button size="sm" variant="secondary" onClick={retry}><RotateCw className="size-3.5" aria-hidden />{t('retry')}</Button>} />
     </div>;
@@ -66,7 +67,8 @@ export function EChart({ option, height = 280, onEvents, onReady, ariaLabel, cla
   return (
     <ChunkLoadBoundary key={attempt} onError={() => setFailed(true)}>
       <Suspense fallback={
-        <div role="status" aria-busy className={className} style={{ height, width: '100%' }}>
+        // eslint-disable-next-line shadcn/no-inline-styles -- chart height comes from the height prop at runtime
+        <div role="status" aria-busy className={cn(className, 'w-full')} style={{ height }}>
           <Skeleton className="h-full w-full" />
         </div>
       }>

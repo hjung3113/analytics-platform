@@ -1,11 +1,5 @@
 {
   "src/AnalysisChartFrame.tsx": {
-    "shadcn/no-arbitrary-values": {
-      "count": 1
-    },
-    "shadcn/no-inline-styles": {
-      "count": 7
-    },
     "shadcn/no-restyle": {
       "count": 46
     }
@@ -30,20 +24,7 @@
       "count": 3
     }
   },
-  "src/EChart.tsx": {
-    "shadcn/no-inline-styles": {
-      "count": 4
-    }
-  },
-  "src/EChartImpl.tsx": {
-    "shadcn/no-inline-styles": {
-      "count": 2
-    }
-  },
   "src/ManagementLayout.tsx": {
-    "shadcn/no-inline-styles": {
-      "count": 2
-    },
     "shadcn/no-restyle": {
       "count": 3
     }
@@ -54,20 +35,11 @@
     }
   },
   "src/PlatformDataTable.tsx": {
-    "shadcn/no-arbitrary-values": {
-      "count": 1
-    },
-    "shadcn/no-inline-styles": {
-      "count": 8
-    },
     "shadcn/no-restyle": {
       "count": 55
     }
   },
   "src/StateView.tsx": {
-    "shadcn/no-inline-styles": {
-      "count": 2
-    },
     "shadcn/no-restyle": {
       "count": 2
     }

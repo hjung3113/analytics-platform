@@ -206,8 +206,9 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
     const stroke = token(kind === 'bar' && s.color === 'chart-remainder' ? 'border-control' : strokeToken(s.color));
     return <label key={s.id} className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text-secondary">
-      <input type="checkbox" className="size-3.5 accent-[rgb(var(--accent-primary))]" checked={!hidden.has(s.id)} onChange={() => setHidden(h => { const n = new Set(h); if (n.has(s.id)) n.delete(s.id); else n.add(s.id); return n; })} />
+      <input type="checkbox" className="size-3.5 accent-accent-primary" checked={!hidden.has(s.id)} onChange={() => setHidden(h => { const n = new Set(h); if (n.has(s.id)) n.delete(s.id); else n.add(s.id); return n; })} />
       {kind === 'bar'
+        // eslint-disable-next-line shadcn/no-inline-styles -- swatch color is the series token resolved at runtime
         ? <span aria-hidden className="inline-block size-3 border-2" style={{ backgroundColor: token(s.color), borderColor: stroke }} />
         : <svg aria-hidden width="32" height="14"><line x1="0" y1="7" x2="32" y2="7" stroke={stroke} strokeWidth="2" strokeDasharray={svgDasharray(linePattern(s, previous))} /></svg>}
       {s.name}
@@ -220,8 +221,9 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       {series.map(s => renderLegendSeries(s, previous))}
     </div>;
 
-    return <div role="group" aria-labelledby={id} className="grid items-center gap-x-4" style={{ gridColumn: '1 / -1', gridTemplateColumns: 'subgrid' }}>
-      <strong id={id} className="min-w-20 text-xs font-medium text-text-secondary" style={{ gridColumn: 1 }}>{title}</strong>
+    return <div role="group" aria-labelledby={id} className="col-span-full grid grid-cols-subgrid items-center gap-x-4">
+      <strong id={id} className="col-start-1 min-w-20 text-xs font-medium text-text-secondary">{title}</strong>
+      {/* eslint-disable-next-line shadcn/no-inline-styles -- legend column is the per-series index computed at runtime */}
       {series.map((s, index) => <div key={s.id} data-legend-series-id={s.id} style={{ gridColumn: index + 2 }}>{renderLegendSeries(s, previous)}</div>)}
     </div>;
   }
@@ -281,6 +283,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     </header>
 
     <div role="group" aria-label={lang === 'ko' ? '범례' : 'Legend'} className={cn('px-4 pt-2', showPeriodGroups ? 'flex flex-col gap-2' : 'flex flex-wrap items-center gap-x-4 gap-y-1')}>
+      {/* eslint-disable-next-line shadcn/no-inline-styles -- legend column count depends on the visible period groups at runtime */}
       {showPeriodGroups ? usePeriodLegendGrid ? <div data-period-legend-grid className="grid items-center gap-x-4 gap-y-2" style={{ gridTemplateColumns: `repeat(${periodLegendColumnCount + 1}, max-content)` }}>
         {renderPeriodLegendGroup(currentPeriodId, t('currentPeriod'), p.series, false)}
         {renderPeriodLegendGroup(previousPeriodId, t('previousPeriod'), p.compareSeries ?? [], true)}

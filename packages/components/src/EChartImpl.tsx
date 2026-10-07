@@ -4,6 +4,7 @@ import { BarChart, LineChart, PieChart, ScatterChart } from 'echarts/charts';
 import { BrushComponent, DataZoomComponent, GridComponent, MarkAreaComponent, MarkLineComponent, ToolboxComponent, TooltipComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import type { ECharts } from 'echarts/core';
+import { cn } from '@ap/ui';
 import { baseTextStyle, type EChartProps } from './EChart';
 
 echarts.use([LineChart, BarChart, PieChart, ScatterChart, GridComponent, TooltipComponent, DataZoomComponent, BrushComponent, ToolboxComponent, MarkAreaComponent, MarkLineComponent, CanvasRenderer]);
@@ -40,5 +41,6 @@ export default function EChartImpl({ option, height = 280, onEvents, onReady, ar
     return () => { for (const name of names) instance.off(name); };
   }, [onEvents ? Object.keys(onEvents).join(',') : '']);
 
-  return <div ref={el} role="img" aria-label={ariaLabel} className={className} style={{ height, width: '100%' }} />;
+  // eslint-disable-next-line shadcn/no-inline-styles -- chart height comes from the height prop at runtime
+  return <div ref={el} role="img" aria-label={ariaLabel} className={cn(className, 'w-full')} style={{ height }} />;
 }

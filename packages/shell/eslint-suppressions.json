@@ -1,20 +1,7 @@
 {
   "src/AppRail.tsx": {
-    "shadcn/no-inline-styles": {
-      "count": 1
-    },
     "shadcn/no-restyle": {
       "count": 14
-    }
-  },
-  "src/AppShell.tsx": {
-    "shadcn/no-inline-styles": {
-      "count": 4
-    }
-  },
-  "src/AppSidebar.tsx": {
-    "shadcn/no-inline-styles": {
-      "count": 1
     }
   },
   "src/ContextBarLayout.tsx": {
@@ -23,9 +10,6 @@
     }
   },
   "src/GlobalContextBar.tsx": {
-    "shadcn/no-arbitrary-values": {
-      "count": 1
-    },
     "shadcn/no-restyle": {
       "count": 51
     },

@@ -103,6 +103,7 @@ function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: 
         {segments.map(segment => {
           const left = (secondsBetween(execution.anchor, segment.start) / totalSec) * 100;
           const width = Math.max(0.8, (secondsBetween(segment.start, segment.end) / totalSec) * 100);
+          // eslint-disable-next-line shadcn/no-inline-styles -- segment left/width are per-segment percentages computed at runtime
           return <div key={`${segment.kind}-${segment.start}`} title={`${segment.kind} ${segment.module}/${segment.slot} ${segment.durationMin}`} className={`absolute top-1 bottom-1 ${SEGMENT_CLASS[segment.kind]}`} style={{ left: `${left}%`, width: `${width}%` }} />;
         })}
       </div>
