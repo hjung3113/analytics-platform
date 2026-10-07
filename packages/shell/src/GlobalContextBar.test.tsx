@@ -41,6 +41,7 @@ beforeEach(() => {
       if (element.getAttribute('role') === 'region') { observed = element; resize = this.callback; }
       if (element.hasAttribute('data-context-measuring')) probeResize = this.callback;
     }
+    unobserve() {}
     disconnect() {}
   });
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) { return this.getAttribute('role') === 'region' ? Math.round(barWidth) : 0; });

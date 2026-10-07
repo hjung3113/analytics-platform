@@ -51,8 +51,7 @@ export function DevTools() {
           label={t('scenario')}
           value={scenario}
           onChange={setScenario}
-          className="grid grid-cols-2 gap-1"
-          optionClassName={selected => cn('flex items-center gap-1.5 rounded-sm border px-2 py-1.5 text-left text-xs', selected ? 'border-accent-primary bg-accent-primary-soft text-accent-primary' : 'border-border-subtle hover:bg-surface-sunken')}
+          className="grid grid-cols-2"
           options={SCENARIOS.map(s => ({ value: s.id, label: <>{scenario === s.id && <Check className="size-3" aria-hidden />}{lang === 'ko' ? s.ko : s.en}</> }))}
         />
         <p className="mb-1 mt-3 text-tiny font-semibold uppercase tracking-wide text-text-muted">{lang === 'ko' ? '계약 검증 링크' : 'Contract test links'}</p>

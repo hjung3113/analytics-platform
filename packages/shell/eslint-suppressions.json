@@ -11,10 +11,7 @@
   },
   "src/GlobalContextBar.tsx": {
     "shadcn/no-restyle": {
-      "count": 51
-    },
-    "shadcn/require-static-classes": {
-      "count": 4
+      "count": 42
     }
   },
   "src/ScopeSelector.tsx": {

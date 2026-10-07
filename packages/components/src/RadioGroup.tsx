@@ -1,9 +1,9 @@
 import { useRef, type KeyboardEvent, type ReactNode } from 'react';
-import { cn } from '@ap/ui';
+import { RadioGroup, RadioGroupItem } from '@ap/ui';
 
 export type SegmentedRadioOption<T extends string> = { value: T; label: ReactNode };
 
-export function SegmentedRadio<T extends string>({ label, labelledBy, value, onChange, options, className, optionClassName }: {
+export function SegmentedRadio<T extends string>({ label, labelledBy, value, onChange, options, className }: {
   label: string;
   /** Visible label element id. When set, the group uses aria-labelledby instead of aria-label. */
   labelledBy?: string;
@@ -11,9 +11,12 @@ export function SegmentedRadio<T extends string>({ label, labelledBy, value, onC
   onChange: (next: T) => void;
   options: readonly SegmentedRadioOption<T>[];
   className?: string;
-  optionClassName?: (selected: boolean) => string;
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  // Radix roving focus defers item focus to a timer and parks the initial tab stop on the group
+  // wrapper; the keyboard contract (a11y.test.tsx) needs the selected item focused synchronously,
+  // so ←→↑↓/Home/End are handled here. Radix still paints the segmented look and click/focus
+  // checking (onValueChange covers selection via focus).
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const key = event.key;
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(key)) return;
@@ -29,26 +32,21 @@ export function SegmentedRadio<T extends string>({ label, labelledBy, value, onC
     onChange(options[next].value);
     refs.current[next]?.focus();
   };
-  return <div
-    role="radiogroup"
-    aria-orientation="horizontal"
+  return <RadioGroup
+    appearance="segmented"
+    value={value ?? ''}
+    // Radix also checks the item it focuses after an arrow key; the handler above already chose it.
+    onValueChange={next => { if (next !== value) onChange(next as T); }}
     {...(labelledBy ? { 'aria-labelledby': labelledBy } : { 'aria-label': label })}
     onKeyDown={onKeyDown}
     className={className}>
-    {options.map((option, index) => {
-      const selected = option.value === value;
-      const tabStop = value === null ? index === 0 : selected;
-      return <button
-        key={option.value}
-        ref={node => { refs.current[index] = node; }}
-        type="button"
-        role="radio"
-        aria-checked={selected}
-        tabIndex={tabStop ? 0 : -1}
-        onClick={() => onChange(option.value)}
-        className={cn(optionClassName?.(selected))}>
-        {option.label}
-      </button>;
-    })}
-  </div>;
+    {options.map((option, index) => <RadioGroupItem
+      key={option.value}
+      ref={node => { refs.current[index] = node; }}
+      appearance="segmented"
+      value={option.value}
+      tabIndex={value === null ? (index === 0 ? 0 : -1) : option.value === value ? 0 : -1}>
+      {option.label}
+    </RadioGroupItem>)}
+  </RadioGroup>;
 }

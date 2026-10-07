@@ -112,8 +112,7 @@ function PeriodControl({ cap, compact = false }: { cap: Capability; compact?: bo
       label={t('period')}
       value={preset}
       onChange={id => choose(id)}
-      className="flex h-8 items-center gap-0.5 rounded-sm border border-border-subtle bg-surface-card p-0.5"
-      optionClassName={selected => cn('h-full rounded-xs px-2.5 text-xs font-medium', selected ? 'bg-accent-primary text-text-on-accent' : 'text-text-secondary hover:bg-surface-sunken')}
+      className="flex h-8 items-center"
       options={presets.map(p => ({ value: p.id, label: p.label }))}
     />;
   return <div className="flex min-w-0 items-center gap-1">
@@ -166,8 +165,7 @@ function CustomRange({ onDone }: { onDone: () => void }) {
       label={lang === 'ko' ? '입력 방식' : 'Input mode'}
       value={mode}
       onChange={setMode}
-      className="flex gap-1"
-      optionClassName={selected => cn('rounded-sm border px-2 py-1', selected ? 'border-accent-primary bg-accent-primary-soft text-accent-primary' : 'border-border-subtle')}
+      className="flex"
       options={[
         { value: 'date', label: lang === 'ko' ? '날짜 (양끝 포함)' : 'Dates (inclusive)' },
         { value: 'time', label: lang === 'ko' ? '시각 (초 단위)' : 'Date-time (seconds)' },
@@ -213,8 +211,7 @@ function SetEditor({ label, cap, value, options, absentLabel, onApply, note, sea
         label={label}
         value={mode}
         onChange={setMode}
-        className="mb-2 flex flex-wrap gap-1"
-        optionClassName={selected => cn('rounded-sm border px-2 py-1', selected ? 'border-accent-primary bg-accent-primary-soft text-accent-primary' : 'border-border-subtle hover:bg-surface-sunken')}
+        className="mb-2 flex flex-wrap"
         options={[
           { value: 'absent', label: absentLabel },
           { value: 'some', label: lang === 'ko' ? '명시 선택' : 'Explicit' },
@@ -277,8 +274,7 @@ function ConditionEditor({ cap }: { cap: Capability }) {
         label={lang === 'ko' ? '조건 축 (하나만)' : 'Condition axis (one)'}
         value={axis}
         onChange={a => { setAxis(a); setVal(''); }}
-        className="mb-2 flex gap-1"
-        optionClassName={selected => cn('rounded-sm border px-2 py-1', selected ? 'border-accent-primary bg-accent-primary-soft text-accent-primary' : 'border-border-subtle hover:bg-surface-sunken')}
+        className="mb-2 flex"
         options={(['stgroup', 'team', 'makerModel'] as const).map(a => ({ value: a, label: axisLabel[a] }))}
       />
       {choices.status !== 'done' && <p role="status" className="px-2 py-1 text-text-muted">{choices.status === 'error'

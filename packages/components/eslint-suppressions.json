@@ -31,12 +31,12 @@
   },
   "src/PageFilterBar.tsx": {
     "shadcn/no-restyle": {
-      "count": 10
+      "count": 8
     }
   },
   "src/PlatformDataTable.tsx": {
     "shadcn/no-restyle": {
-      "count": 55
+      "count": 51
     }
   },
   "src/StateView.tsx": {
