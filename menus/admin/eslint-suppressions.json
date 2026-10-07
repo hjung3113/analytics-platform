@@ -6,7 +6,7 @@
   },
   "src/pages/RegistryCatalog.tsx": {
     "shadcn/no-arbitrary-values": {
-      "count": 3
+      "count": 2
     }
   }
 }

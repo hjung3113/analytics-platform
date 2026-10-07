@@ -232,26 +232,52 @@ function layerConfig({ restriction, extraRules = {} }) {
 // #228: design-system rules (@shadcn/lint) for packages that render UI. The theme is the app's Tailwind entry,
 // named by the root components.json; components are the ui primitives and the shared components. Every rule is an
 // error; findings that predate #228 live in each package's eslint-suppressions.json until they are fixed.
+// The options mirror FeedbackOps' .oxlintrc.json (FeedbackOps ADR-0062), the source of the shared design system:
+// screens may add layout to a component, containers also spacing, and the 50px headers never a height. The last
+// matching contract wins.
+const RESTYLE_CONTRACTS = [
+  {
+    pattern: '^(Card|EmptyState|PanelTitleBlock|ListToolbar)$|(Content|Header|Footer|Group|Panel|List|SectionTitle)$',
+    allow: ['layout', 'spacing'],
+  },
+  {
+    pattern:
+      '^(TabsList|ToggleGroup|RadioGroup|DialogFooter|AlertDialogFooter|TooltipContent|SelectContent|DropdownMenuContent|DropdownMenuSubContent|PopoverContent|HoverCardContent)$',
+    allow: ['layout'],
+  },
+  {
+    pattern: '^(DetailPanelHeader|ShellHeader|ListToolbar)$',
+    allow: ['layout', 'spacing'],
+    deny: ['h-*', 'min-h-*', 'max-h-*', 'size-*'],
+  },
+];
 const DESIGN_SYSTEM_RULES = {
-  'shadcn/no-restyle': ['error', { allow: ['layout'] }],
-  'shadcn/no-raw-colors': 'error',
-  'shadcn/no-arbitrary-values': 'error',
+  'shadcn/no-restyle': ['error', { allow: ['layout'], contracts: RESTYLE_CONTRACTS }],
+  'shadcn/no-raw-colors': ['error', { scanAllStrings: true }],
+  'shadcn/no-arbitrary-values': ['error', { allow: ['layout'], scanAllStrings: true }],
   'shadcn/no-inline-styles': 'error',
   'shadcn/no-unknown-classes': 'error',
   'shadcn/require-static-classes': 'error',
 };
-/** @param {{ restyle?: boolean }} [options] restyle: false where the components themselves are defined. */
-const designSystem = ({ restyle = true } = {}) => ({
+// Where the design-system components are defined (the ui and components packages) they style themselves, as in
+// FeedbackOps packages/ui: no restyle or static-class check; arbitrary layout values stay allowed.
+const COMPONENT_SOURCE_RULES = {
+  ...DESIGN_SYSTEM_RULES,
+  'shadcn/no-restyle': 'off',
+  'shadcn/require-static-classes': 'off',
+};
+/** @param {{ componentSource?: boolean }} [options] componentSource: true where the components themselves are defined. */
+const designSystem = ({ componentSource = false } = {}) => ({
   files: ['**/*.tsx'],
   ignores: ['**/*.test.tsx'],
   plugins: { shadcn },
   settings: {
     shadcn: {
       componentImports: [`^${pkg('ui')}(/|$)`, `^${pkg('components')}(/|$)`],
-      note: 'Visual rules: DESIGN.md. Shared components: docs/06_platform_ui_contract.md §13.',
+      note: 'Visual rules: DESIGN.md. Shared components: docs/06_platform_ui_contract.md §13. New tokens go in FeedbackOps packages/ui/src/styles (FeedbackOps ADR-0058) or the platform extension layer (DESIGN.md).',
     },
   },
-  rules: restyle ? DESIGN_SYSTEM_RULES : { ...DESIGN_SYSTEM_RULES, 'shadcn/no-restyle': 'off' },
+  rules: componentSource ? COMPONENT_SOURCE_RULES : DESIGN_SYSTEM_RULES,
 });
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -262,7 +288,7 @@ export const contracts = [
 /** @type {import('eslint').Linter.Config[]} */
 export const ui = [
   layerConfig({ restriction: { allow: [], denyReact: false, mockAllowed: false, allowFeedbackOpsUi: true } }),
-  designSystem({ restyle: false }),
+  designSystem({ componentSource: true }),
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -275,7 +301,7 @@ export const components = [
   layerConfig({
     restriction: { allow: ['contracts', 'kernel', 'ui'], denyReact: false, mockAllowed: false },
   }),
-  designSystem(),
+  designSystem({ componentSource: true }),
 ];
 
 /** @type {import('eslint').Linter.Config[]} */

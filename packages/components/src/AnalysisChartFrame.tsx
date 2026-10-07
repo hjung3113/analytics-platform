@@ -132,7 +132,9 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         valueFormatter: (v: number | null) => (v === null || v === undefined ? (lang === 'ko' ? '미확인' : 'unknown') : `${format(v)} ${p.unit}`),
       },
       xAxis: xType === 'time'
+        // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
         ? { type: 'time', axisLine: { lineStyle: { color: token('border-strong') } }, axisLabel: { hideOverlap: true }, splitLine: { show: false } }
+        // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
         : { type: 'category', data: categories, axisLine: { lineStyle: { color: token('border-strong') } }, axisTick: { alignWithLabel: true } },
       yAxis: { type: 'value', min: 0, name: p.unit, nameTextStyle: { align: 'right' }, splitLine: { lineStyle: { color: token('chart-grid') } } },
       dataZoom: [{ type: 'inside', xAxisIndex: 0, start: zoom[0], end: zoom[1], zoomOnMouseWheel: 'shift', moveOnMouseMove: !brushMode }],
@@ -154,6 +156,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         {
           id: '__overlay', type: 'line', data: [], silent: true, symbol: 'none',
           markArea: { silent: true, data: areas },
+          // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
           markLine: p.markLines?.length ? { silent: true, symbol: 'none', lineStyle: { color: token('text-secondary'), type: 'dashed' }, label: { formatter: '{b}', fontSize: 10, color: token('text-secondary'), position: 'insideEndTop' }, data: p.markLines.map(m => ({ name: m.label, yAxis: m.y })) } : undefined,
         },
       ],
@@ -200,6 +203,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
 
   function renderLegendSeries(s: ChartSeries, previous: boolean) {
     const kind = s.kind ?? 'line';
+    // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
     const stroke = token(kind === 'bar' && s.color === 'chart-remainder' ? 'border-control' : strokeToken(s.color));
     return <label key={s.id} className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] text-text-secondary">
       <input type="checkbox" className="size-3.5 accent-[rgb(var(--accent-primary))]" checked={!hidden.has(s.id)} onChange={() => setHidden(h => { const n = new Set(h); if (n.has(s.id)) n.delete(s.id); else n.add(s.id); return n; })} />

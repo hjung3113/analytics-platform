@@ -9,7 +9,7 @@
   },
   "src/pages/ExecutionDetail.tsx": {
     "shadcn/no-arbitrary-values": {
-      "count": 11
+      "count": 10
     },
     "shadcn/no-inline-styles": {
       "count": 2

@@ -1,7 +1,7 @@
 {
   "src/AppRail.tsx": {
     "shadcn/no-arbitrary-values": {
-      "count": 6
+      "count": 5
     },
     "shadcn/no-inline-styles": {
       "count": 1
@@ -12,7 +12,7 @@
   },
   "src/AppShell.tsx": {
     "shadcn/no-arbitrary-values": {
-      "count": 3
+      "count": 1
     },
     "shadcn/no-inline-styles": {
       "count": 4
@@ -20,7 +20,7 @@
   },
   "src/AppSidebar.tsx": {
     "shadcn/no-arbitrary-values": {
-      "count": 7
+      "count": 6
     },
     "shadcn/no-inline-styles": {
       "count": 1
@@ -28,12 +28,12 @@
   },
   "src/CommandPalette.tsx": {
     "shadcn/no-arbitrary-values": {
-      "count": 8
+      "count": 5
     }
   },
   "src/ContextBarLayout.tsx": {
     "shadcn/no-arbitrary-values": {
-      "count": 4
+      "count": 2
     },
     "shadcn/no-restyle": {
       "count": 7
@@ -41,7 +41,7 @@
   },
   "src/GlobalContextBar.tsx": {
     "shadcn/no-arbitrary-values": {
-      "count": 26
+      "count": 23
     },
     "shadcn/no-restyle": {
       "count": 51
@@ -52,7 +52,7 @@
   },
   "src/RouteOutlet.tsx": {
     "shadcn/no-arbitrary-values": {
-      "count": 4
+      "count": 2
     }
   },
   "src/ScopeSelector.tsx": {
