@@ -123,7 +123,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
           { value: 'anchor:asc', label: ko ? '시작 오래된' : 'Start oldest' },
           { value: 'equipmentId:asc', label: 'Equipment A→Z' },
         ], onValueChange: value => setPage({ sort: value === DEFAULT_SORT ? null : value, page: null }) },
-      ]} actions={<Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => setPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{ko ? '페이지 조건 기본값' : 'Reset page filters'}</Button>} />
+      ]} actions={<Button type="button" variant="ghost" size="toolbar" onClick={() => setPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{ko ? '페이지 조건 기본값' : 'Reset page filters'}</Button>} />
       <p className="text-xs text-text-muted">
         {ko
           ? `집계 기본값은 기간 ≤48h이면 hour, 아니면 day${!granularityResult.ok || granularityResult.explicit ? '' : ` (지금 ${granularity}, URL에 없음)`}. 꼬리 기본값은 ≥ P95 (Candidate, 동률 포함)이며 KPI 모집단을 다시 줄이지 않습니다. 버킷·분포 구간은 URL 키 bucket·bin에, 정렬·페이지는 sort·page에 남습니다.`
@@ -205,7 +205,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
                 height={220}
                 series={[{ id: 'hist', name: ko ? '실행 수' : 'Executions', color: 'chart-blue', kind: 'bar', points: data.bins.map((item): [string, number] => [item.id, item.count]) }]}
                 trust={chartTrust(response.trust, unknown)}
-                selectionActions={selection => <Button size="sm" className="h-7 px-2 text-xs" onClick={() => setPage({ bin: selection.from === selection.to ? selection.from : `${selection.from}..${selection.to}`, page: null })}>{ko ? '이 구간 실행 보기' : 'Show executions in this range'}</Button>}
+                selectionActions={selection => <Button size="toolbar" onClick={() => setPage({ bin: selection.from === selection.to ? selection.from : `${selection.from}..${selection.to}`, page: null })}>{ko ? '이 구간 실행 보기' : 'Show executions in this range'}</Button>}
               />}
             </QueryView>
             },
@@ -243,7 +243,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
               ? <Button size="sm" variant="secondary" onClick={() => setPage({ bucket: null, bin: null, percentile: 'all', page: null })}>{ko ? '목록 필터 해제' : 'Clear list filters'}</Button>
               : undefined}
             rowAction={row => <PlatformLink className="text-xs font-medium text-accent-primary hover:underline" href={linkTo('execution-detail', { params: { equipmentId: row.equipmentId }, page: { entityType: 'job', anchor: row.anchor }, returnTo: true })}>{ko ? '상세' : 'Detail'}</PlatformLink>}
-            bulkActions={ids => <Button size="sm" className="h-7 px-2 text-xs" onClick={() => {
+            bulkActions={ids => <Button size="toolbar" onClick={() => {
               const equipmentIds = [...new Set(ids.map(equipmentIdFromKey))];
               setGlobal({ selection: equipmentIds });
               toast(ko ? `설비 ${equipmentIds.length}대를 전역 Selection으로 적용했습니다. 다른 메뉴에도 유지됩니다.` : `Applied ${equipmentIds.length} equipment as the global selection. It carries across menus.`);

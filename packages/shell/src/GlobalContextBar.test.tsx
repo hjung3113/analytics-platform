@@ -189,10 +189,17 @@ describe('Global Context priority overflow (#56)', () => {
     expect(screen.getByRole('button', { name: 'Apply' })).toBeVisible();
   });
 
-  it('restores the control border on the overflow trigger and every measurement copy (UIUX-56-01)', () => {
+  it('gives the overflow trigger and every measurement copy the shared secondary surface (UIUX-56-01, ADR-0023 C3)', () => {
     barWidth = 450; mount();
-    expect(within(bar()).getByRole('button', { name: '조건 3개 더' })).toHaveClass('border-border-control');
-    for (const button of bar().querySelectorAll('[data-measure-overflow]')) expect(button).toHaveClass('border-border-control');
+    const trigger = within(bar()).getByRole('button', { name: '조건 3개 더' });
+    // ADR-0023 C3: Buttons take no platform border; trigger↔copy parity comes from the shared variant
+    // (same size+variant keeps the width measurement true).
+    expect(trigger).toHaveClass('bg-surface-raised');
+    expect(trigger).not.toHaveClass('border-border-control');
+    for (const button of bar().querySelectorAll('[data-measure-overflow]')) {
+      expect(button).toHaveClass('bg-surface-raised');
+      expect(button).not.toHaveClass('border-border-control');
+    }
   });
 
   it('keeps unapplied room drafts through inline → overflow → inline and restores connected bar focus (UIUX-56-02)', async () => {

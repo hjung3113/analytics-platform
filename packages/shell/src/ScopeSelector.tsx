@@ -33,23 +33,23 @@ export function ScopeSelector({ collapsed = false }: { collapsed?: boolean }) {
   return <TooltipProvider><div className="shrink-0 border-b border-border-subtle p-2">
     <DropdownMenu>
       {collapsed ? <Tooltip><TooltipTrigger asChild>{trigger}</TooltipTrigger><TooltipContent side="right">{name} · {status}{current && ` · room ${current.grantedRooms}/${current.totalRooms}`}</TooltipContent></Tooltip> : trigger}
-      <DropdownMenuContent align="start" className="w-72 rounded-md border border-border-strong bg-surface-card p-1 shadow-md">
-        <DropdownMenuLabel className="text-tiny font-semibold uppercase tracking-wide text-text-muted">{lang === 'ko' ? '요청 Scope (단일 선택, 서버 재검증)' : 'Requested scope (single, server re-validated)'}</DropdownMenuLabel>
+      <DropdownMenuContent align="start" className="w-72">
+        <DropdownMenuLabel>{lang === 'ko' ? '요청 Scope (단일 선택, 서버 재검증)' : 'Requested scope (single, server re-validated)'}</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={global.scopeId ?? ''} onValueChange={v => {
           // Re-picking the current Scope from a failed check retries the validation — setGlobal(same) is a
           // no-op and the check would never re-run (#183). Any other pick navigates as before.
           if (v === global.scopeId && scope.status === 'error') retryScope(); else setGlobal({ scopeId: v });
         }}>
-          {session.scopes.map(s => <DropdownMenuRadioItem key={s.id} value={s.id} className="text-sm">
+          {session.scopes.map(s => <DropdownMenuRadioItem key={s.id} value={s.id}>
             <span className="flex-1">{s.label}</span>
-            <span className="text-tiny text-text-muted">room {s.grantedRooms}/{s.totalRooms}</span>
+            <span className="text-tiny text-text-secondary">room {s.grantedRooms}/{s.totalRooms}</span>
           </DropdownMenuRadioItem>)}
         </DropdownMenuRadioGroup>
-        {scope.status === 'error' && <DropdownMenuItem className="text-sm" onSelect={() => retryScope()}>
+        {scope.status === 'error' && <DropdownMenuItem onSelect={() => retryScope()}>
           <RotateCw className="size-3.5" aria-hidden />{t('scopeRetryCheck')}
         </DropdownMenuItem>}
         <DropdownMenuSeparator />
-        <p className="px-2 py-1.5 text-tiny leading-4 text-text-muted">{lang === 'ko' ? '권한 축은 Site 안의 room_name입니다. Scope를 바꾸면 Site 경계를 넘는 room·설비 조건/선택은 초기화됩니다.' : 'Grants are room_name within a Site. Changing scope clears site-bound room/equipment context.'}</p>
+        <p className="px-2 py-1.5 text-tiny leading-4 text-text-secondary">{lang === 'ko' ? '권한 축은 Site 안의 room_name입니다. Scope를 바꾸면 Site 경계를 넘는 room·설비 조건/선택은 초기화됩니다.' : 'Grants are room_name within a Site. Changing scope clears site-bound room/equipment context.'}</p>
       </DropdownMenuContent>
     </DropdownMenu>
   </div></TooltipProvider>;
