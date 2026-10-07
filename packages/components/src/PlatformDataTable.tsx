@@ -2,14 +2,13 @@
 import { useContext, useEffect, useMemo, useRef, useState, useId, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type ColumnSizingState, type RowSelectionState, type VisibilityState } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, Loader2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, Loader2, MoreVertical, Pin, PinOff } from 'lucide-react';
 import { CONTEXT_LABELS, useI18n, usePlatform } from '@ap/kernel';
 import { conditionLabel, type ApiResponse, type Capability, type ContextKey, type GlobalContext, type PageQuery, type PageResult, type PageSort, serializeGlobal, type Trust } from '@ap/contracts';
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, isProductionEnv, Label, Popover, PopoverContent, PopoverTrigger, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, usePrototype } from '@ap/ui';
 import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { toColumnDef } from './columnDef';
 import { DataTrustIndicator } from './DataTrustIndicator';
-import { SegmentedRadio } from './RadioGroup';
 import { OutcomeView } from './StateView';
 import { exportCell, exportColumns, toClipboardHtml, toCsv, toTsv, toXlsx } from './tableExport';
 
@@ -306,6 +305,52 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const align = (column: Column<T>) => ((column.columnDef.meta as ColumnMeta | undefined)?.align === 'right' ? 'justify-end text-right tabular' : '');
   const cellBase = 'flex min-h-8 items-center px-3 py-1 [overflow-wrap:anywhere] pointer-coarse:min-h-11';
   const nameOf = (c: Column<T>) => (c.columnDef.meta as ColumnMeta | undefined)?.label ?? (typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id);
+  /** B·C·D "기본값으로": visibility, width, and pin back to the empty preference (column-def defaults). Sort and selection stay. */
+  function resetColumnPrefs() {
+    setPreferences({ sizing: {}, visibility: {}, pinning: { left: [], right: [] } });
+  }
+  const hideableColumns = table.getAllLeafColumns().filter(c => c.getCanHide());
+  function visibilityRow(c: Column<T>, withPin: boolean) {
+    const pinned = c.getIsPinned() === 'left';
+    return <li key={c.id} className="flex items-center gap-2">
+      <Checkbox id={`${columnPrefsId}-${c.id}-visible`} checked={c.getIsVisible()} onCheckedChange={v => c.toggleVisibility(v === true)} className="size-3.5 border-border-control" />
+      <div className="min-w-0 flex-1"><Label htmlFor={`${columnPrefsId}-${c.id}-visible`}>{nameOf(c)}</Label></div>
+      {withPin && <Button type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-pressed={pinned} aria-label={`${nameOf(c)} ${lang === 'ko' ? '왼쪽 고정' : 'pin left'}`} disabled={!c.getCanPin()} onClick={() => c.pin(pinned ? false : 'left')}>
+        {pinned ? <PinOff className="size-3.5" aria-hidden /> : <Pin className="size-3.5" aria-hidden />}
+      </Button>}
+    </li>;
+  }
+  function columnPinList() {
+    const pinned = hideableColumns.filter(c => c.getIsPinned() === 'left');
+    const rest = hideableColumns.filter(c => c.getIsPinned() !== 'left');
+    const showRestTitle = pinned.length > 0 && rest.length > 0;
+    return <div className="space-y-3">
+      {pinned.length > 0 && <div>
+        <p className="mb-1 text-xs text-text-secondary">{lang === 'ko' ? '고정됨' : 'Pinned'}</p>
+        <ul className="space-y-2">{pinned.map(c => visibilityRow(c, true))}</ul>
+      </div>}
+      {rest.length > 0 && <div>
+        {showRestTitle && <p className="mb-1 text-xs text-text-secondary">{lang === 'ko' ? '나머지' : 'Other'}</p>}
+        <ul className="space-y-2">{rest.map(c => visibilityRow(c, true))}</ul>
+      </div>}
+    </div>;
+  }
+  function headerMenu(column: Column<T>) {
+    const name = nameOf(column);
+    const canPin = column.getCanPin();
+    const pinned = column.getIsPinned() === 'left';
+    return <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-label={`${name} ${lang === 'ko' ? '메뉴' : 'menu'}`}>
+          <MoreVertical className="size-3.5" aria-hidden />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem className={exportItemClass} disabled={!canPin || pinned} onSelect={() => column.pin('left')}>{lang === 'ko' ? '왼쪽 고정' : 'Pin left'}</DropdownMenuItem>
+        <DropdownMenuItem className={exportItemClass} disabled={!canPin || !pinned} onSelect={() => column.pin(false)}>{lang === 'ko' ? '고정 해제' : 'Unpin'}</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>;
+  }
 
   function refusalText(outcome: keyof typeof EXPORT_REFUSAL, response: ApiResponse<unknown>): string {
     // 06 §26 원인/행동: the refusal names a next action; an `error` carries the correlationId for support.
@@ -572,39 +617,22 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
           <PopoverTrigger asChild><Button variant="secondary" size="toolbar"><Columns3 className="size-3.5" aria-hidden />{lang === 'ko' ? '컬럼' : 'Columns'}</Button></PopoverTrigger>
           <PopoverContent align="end" className="w-72">
             <p className="t-card-title mb-2">{lang === 'ko' ? '컬럼 설정 (브라우저에 저장)' : 'Column preferences (saved locally)'}</p>
-            <ul className="space-y-2">{table.getAllLeafColumns().filter(c => c.getCanHide()).map(c => <li key={c.id} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1">
-              <div className="flex items-center gap-2">
-                <Checkbox id={`${columnPrefsId}-${c.id}-visible`} checked={c.getIsVisible()} onCheckedChange={v => c.toggleVisibility(v === true)} className="size-3.5 border-border-control" />
-                <Label htmlFor={`${columnPrefsId}-${c.id}-visible`}>{nameOf(c)}</Label>
-              </div>
-              <div className="flex items-center gap-1">
-                <Checkbox id={`${columnPrefsId}-${c.id}-pin`} checked={c.getIsPinned() === 'left'} onCheckedChange={v => c.pin(v === true ? 'left' : false)} className="size-3.5 border-border-control" />
-                <Label htmlFor={`${columnPrefsId}-${c.id}-pin`}>{lang === 'ko' ? '고정' : 'Pin'}</Label>
-              </div>
-              {proto === 'A' ? (
+            {proto === 'A' ? (
+              <ul className="space-y-2">{table.getAllLeafColumns().filter(c => c.getCanHide()).map(c => <li key={c.id} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1">
+                <div className="flex items-center gap-2">
+                  <Checkbox id={`${columnPrefsId}-${c.id}-visible`} checked={c.getIsVisible()} onCheckedChange={v => c.toggleVisibility(v === true)} className="size-3.5 border-border-control" />
+                  <Label htmlFor={`${columnPrefsId}-${c.id}-visible`}>{nameOf(c)}</Label>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Checkbox id={`${columnPrefsId}-${c.id}-pin`} checked={c.getIsPinned() === 'left'} onCheckedChange={v => c.pin(v === true ? 'left' : false)} className="size-3.5 border-border-control" />
+                  <Label htmlFor={`${columnPrefsId}-${c.id}-pin`}>{lang === 'ko' ? '고정' : 'Pin'}</Label>
+                </div>
                 <input aria-label={`${nameOf(c)} width`} type="range" min="60" max="600" value={c.getSize()} className="col-span-2 accent-accent-primary" onChange={e => table.setColumnSizing(o => ({ ...o, [c.id]: Number(e.target.value) }))} />
-              ) : proto === 'B' ? (
-                <div className="col-span-2 flex items-center gap-2">
-                  <span className="shrink-0 text-xs text-text-secondary">{lang === 'ko' ? '너비' : 'Width'}</span>
-                  <input aria-label={`${nameOf(c)} ${lang === 'ko' ? '너비' : 'width'}`} aria-valuetext={`${c.getSize()}px`} type="range" min="60" max="600" value={c.getSize()} className="min-w-0 flex-1 accent-accent-primary" onChange={e => table.setColumnSizing(o => ({ ...o, [c.id]: Number(e.target.value) }))} />
-                  <span className="shrink-0 text-xs tabular text-text-secondary">{c.getSize()}px</span>
-                </div>
-              ) : (
-                <div className="col-span-2 flex items-center gap-2">
-                  <span className="shrink-0 text-xs text-text-secondary">{lang === 'ko' ? '너비' : 'Width'}</span>
-                  <SegmentedRadio
-                    label={`${nameOf(c)} ${lang === 'ko' ? '너비' : 'width'}`}
-                    value={c.getSize() === 120 ? '120' : c.getSize() === 180 ? '180' : c.getSize() === 280 ? '280' : null}
-                    onChange={next => table.setColumnSizing(o => ({ ...o, [c.id]: Number(next) }))}
-                    options={[
-                      { value: '120', label: lang === 'ko' ? '좁게' : 'Narrow' },
-                      { value: '180', label: lang === 'ko' ? '보통' : 'Normal' },
-                      { value: '280', label: lang === 'ko' ? '넓게' : 'Wide' },
-                    ]}
-                  />
-                </div>
-              )}
-            </li>)}</ul>
+              </li>)}</ul>
+            ) : <>
+              {proto === 'C' ? columnPinList() : <ul className="space-y-2">{hideableColumns.map(c => visibilityRow(c, false))}</ul>}
+              <div className="mt-3"><Button type="button" variant="secondary" size="toolbar" onClick={resetColumnPrefs}>{lang === 'ko' ? '기본값으로' : 'Reset to default'}</Button></div>
+            </>}
           </PopoverContent>
         </Popover>
         {/* Toolbar D (#172): fixed order [컬럼] [복사] [내보내기 ▾]. */}
@@ -690,7 +718,10 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                       {sorted === 'asc' ? <ArrowUp className="size-3" aria-hidden /> : sorted === 'desc' ? <ArrowDown className="size-3" aria-hidden /> : <ArrowUpDown className="size-3 opacity-40" aria-hidden />}
                     </button>
                   : flexRender(h.column.columnDef.header, h.getContext())}
-                {h.column.getCanResize() && <div aria-hidden onMouseDown={h.getResizeHandler()} onTouchStart={h.getResizeHandler()} className="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-accent-primary" />}
+                {proto === 'B' && <span className="ml-auto flex shrink-0">{headerMenu(h.column)}</span>}
+                {h.column.getCanResize() && (proto === 'A'
+                  ? <div aria-hidden onMouseDown={h.getResizeHandler()} onTouchStart={h.getResizeHandler()} className="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none hover:bg-accent-primary" />
+                  : <div aria-hidden onMouseDown={h.getResizeHandler()} onTouchStart={h.getResizeHandler()} onDoubleClick={event => { event.preventDefault(); h.column.resetSize(); }} className="group/resize absolute right-0 top-0 flex h-full w-2 cursor-col-resize touch-none justify-end"><span className={cn('h-full w-px', h.column.getIsResizing() ? 'bg-accent-primary' : 'bg-border-subtle group-hover/resize:bg-accent-primary')} /></div>)}
               </div>;
             })}</div>
           </div>

@@ -1,15 +1,15 @@
 // THROWAWAY #239 — never merge.
-// Three column-width controls in the table column popover, on every route, selected with ?variant=A|B|C.
+// Four column visibility, width, and pin controls, on every route, selected with ?variant=A|B|C|D.
 import { useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { usePlatform } from '@ap/kernel';
 import { isProductionEnv, PrototypeContext, type ProtoVariant } from '@ap/ui';
 
 const question = 'width';
-const title = '#239 · 표 너비 조절';
-const names = ['현재', '슬라이더 + 이름·값', '좁게·보통·넓게'];
-const choices: ProtoVariant[] = ['A', 'B', 'C'];
-const key = 'platform:proto-239:v1';
+const title = '#239 · 열 너비·보이기·고정';
+const names = ['현재', '고정은 헤더 메뉴', '목록 핀 아이콘', '체크박스만'];
+const choices: ProtoVariant[] = ['A', 'B', 'C', 'D'];
+const key = 'platform:proto-239:v2';
 const production = isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis);
 function read(): ProtoVariant {
   if (production) return 'A';
@@ -33,11 +33,11 @@ export function PrototypeVariants({ children }: { children: ReactNode }) {
     if (production) return;
     const onKey = (event: KeyboardEvent) => {
       const target = event.target;
-      // Variant C's segmented width control owns ArrowLeft/Right. A range input is already covered by `input`.
+      // Variant A's width slider is a range input, already covered by `input`.
       if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || (target instanceof Element && target.closest('input, textarea, select, [contenteditable], [role="menu"], [role="listbox"], [role="tablist"], [role="combobox"], [role="dialog"], [role="radiogroup"], [role="radio"]'))) return;
       if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
       event.preventDefault();
-      const value = choices[(choices.indexOf(current) + (event.key === 'ArrowLeft' ? -1 : 1) + 3) % 3];
+      const value = choices[(choices.indexOf(current) + (event.key === 'ArrowLeft' ? -1 : 1) + choices.length) % choices.length];
       localStorage.setItem(key, value);
       const next = new URL(url, window.location.origin);
       next.searchParams.set('protoQuestion', question);
@@ -49,7 +49,7 @@ export function PrototypeVariants({ children }: { children: ReactNode }) {
   }, [current, url, navigate]);
 
   const cycle = (delta: number) => {
-    const value = choices[(choices.indexOf(current) + delta + 3) % 3];
+    const value = choices[(choices.indexOf(current) + delta + choices.length) % choices.length];
     localStorage.setItem(key, value);
     const next = new URL(url, window.location.origin);
     next.searchParams.set('protoQuestion', question);
