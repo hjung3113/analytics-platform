@@ -194,7 +194,7 @@ label 행은 #210(FeedbackOps 원본 값), 나머지 행은 #193/#194 UI/UX 리�
 
 ## Layout and analysis composition
 
-정보 밀도는 장식 여백보다 우선한다. 정확한 비교는 표, 변화·분포는 차트, 요약은 KPI로 나눈다. 카드마다 동일한 시각 강도를 주는 card soup를 피하고 공유 surface/border로 계층을 만든다. 공유 반경·primitive 모양은 FeedbackOps 원본을 따르며 버튼·input을 독자적으로 재설계하지 않는다. 카드 그림자를 겹치지 않고, floating surface의 공유 처리는 06 §23을 따른다.
+정보 밀도는 장식 여백보다 우선한다. 정확한 비교는 표, 변화·분포는 차트, 요약은 KPI로 나눈다. 카드마다 동일한 시각 강도를 주는 card soup를 피하고 공유 surface/border로 계층을 만든다. 공유 반경·primitive 모양은 FeedbackOps 원본을 따르며 버튼·input을 독자적으로 재설계하지 않는다. 크기도 FeedbackOps variant로 고른다 — 작은 동작 버튼 `size="toolbar"`, 아이콘 버튼 `icon-xs`/`icon-sm`, 그 밖 `sm`; 팝오버·드롭다운·툴팁은 FeedbackOps 표면, segmented 선택은 FeedbackOps segmented `RadioGroup`([ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md)). FeedbackOps에 없는 모양은 플랫폼에서 덮어쓰지 않고 FeedbackOps variant로 제안한다. 예외는 접근성 하한 셋 — 입력·select·체크박스 경계의 `border-control`, `aria-disabled` 버튼의 비활성 모양, 메뉴 항목 키보드 포커스 링 — 뿐이다. 카드 그림자를 겹치지 않고, floating surface의 공유 처리는 06 §23을 따른다.
 
 ### Dashboard composition and focal point
 
@@ -252,7 +252,7 @@ cellPadding: 4px 12px
 
 전역 기간은 Context bar의 동일한 control 하나다. page-owned 검색·stage/status filter는 content toolbar에 두고 전역 Context를 보존한다. 적용된 조건은 보이며 persistent accessible label을 제공한다. page-owned toolbar는 폭이 부족하면 wrap하고 active filter를 숨기지 않는다. 전역 Context 바는 [06 §7](docs/06_platform_ui_contract.md#7-application-shell)의 우선순위 넘침을 소비하며 한 줄을 유지한다. 입력/검색 문구가 sunken이면 secondary를 사용한다.
 
-#54의 PageFilterBar B안은 card 표면과 `border-subtle` 경계를 쓰며, 보이는 label을 각 control 위에 둔다. 필드는 한 행에서 시작해 폭이 부족하면 모두 보이도록 줄바꿈한다. `@ap/ui` Input과 Select는 `border-control`·card 표면·primary 입력 문구를 사용하며, Input 모서리와 Select 타이포는 공통 primitive 기본값을 유지한다. Search 아이콘은 검색 필드에만 두며 정확 일치 텍스트와 시각 입력에는 붙이지 않는다. 초기화·적용은 소비 화면이 actions 슬롯에 제공한다.
+#54의 PageFilterBar B안은 card 표면과 `border-subtle` 경계를 쓰며, 보이는 label을 각 control 위에 둔다. 필드는 한 행에서 시작해 폭이 부족하면 모두 보이도록 줄바꿈한다. `@ap/ui` Input과 Select는 FeedbackOps 기본 표면·문구·크기를 쓰고 경계만 `border-control`로 둔다(접근성 예외, [ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md)). 검색 필드의 아이콘 자리 왼쪽 여백은 이유를 단 예외로 둔다(FeedbackOps와 같은 처리). Search 아이콘은 검색 필드에만 두며 정확 일치 텍스트와 시각 입력에는 붙이지 않는다. 초기화·적용은 소비 화면이 actions 슬롯에 제공한다.
 
 기간 preset은 `1일 / 7일 / 사용자 지정`; rolling wall-clock Δ와 `[from,to)` 물질화는 [06 시간 계약](docs/06_platform_ui_contract.md#ctx-time)을 따른다. screenshot의 기간 preset을 제품 의미로 복사하지 않는다. segment는 이름 있는 single-select/radio+selected 표식, custom picker는 Apply 때 반영하고 Cancel/Escape는 기존 구간을 보존한다. 현재 적용 구간과 draft를 구별하고 browser now로 기본값을 새로 만들지 않는다. 최초 기본 Δ·shift/business-day는 원본의 Open 상태를 따른다.
 

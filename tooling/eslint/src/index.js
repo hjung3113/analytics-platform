@@ -250,6 +250,13 @@ const RESTYLE_CONTRACTS = [
     allow: ['layout', 'spacing'],
     deny: ['h-*', 'min-h-*', 'max-h-*', 'size-*'],
   },
+  // Platform accessibility floor (ADR-0023), on top of the FeedbackOps contracts: control boundaries keep the
+  // >=3:1 border-control, and buttons that use aria-disabled (to keep focus for Radix) keep a disabled look.
+  { pattern: '^(Input|SelectTrigger|Checkbox)$', allow: ['layout', 'border-border-control'] },
+  {
+    pattern: '^Button$',
+    allow: ['layout', 'aria-disabled:opacity-50', 'aria-disabled:pointer-events-none', 'aria-disabled:cursor-not-allowed'],
+  },
 ];
 const DESIGN_SYSTEM_RULES = {
   'shadcn/no-restyle': ['error', { allow: ['layout'], contracts: RESTYLE_CONTRACTS }],
