@@ -1,13 +1,15 @@
+// THROWAWAY #239 — never merge.
 import { useContext, useEffect, useMemo, useRef, useState, useId, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type ColumnSizingState, type RowSelectionState, type VisibilityState } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, Loader2 } from 'lucide-react';
 import { CONTEXT_LABELS, useI18n, usePlatform } from '@ap/kernel';
 import { conditionLabel, type ApiResponse, type Capability, type ContextKey, type GlobalContext, type PageQuery, type PageResult, type PageSort, serializeGlobal, type Trust } from '@ap/contracts';
-import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, isProductionEnv, Label, Popover, PopoverContent, PopoverTrigger, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, isProductionEnv, Label, Popover, PopoverContent, PopoverTrigger, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, usePrototype } from '@ap/ui';
 import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { toColumnDef } from './columnDef';
 import { DataTrustIndicator } from './DataTrustIndicator';
+import { SegmentedRadio } from './RadioGroup';
 import { OutcomeView } from './StateView';
 import { exportCell, exportColumns, toClipboardHtml, toCsv, toTsv, toXlsx } from './tableExport';
 
@@ -184,6 +186,7 @@ export type PlatformDataTableProps<T> = {
 /** §15: platform owns interaction, loading/error, column preference, selection model, toolbar layout; domain owns columns/cells/actions/filters. */
 export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const { t, lang } = useI18n();
+  const proto = usePrototype();
   const analysisSection = useContext(AnalysisSectionContext);
   const { global, user, revision, route, toast } = usePlatform();
   // Registry declares export capability (§5); the table never offers Export on a menu that did not declare it.
@@ -578,7 +581,29 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                 <Checkbox id={`${columnPrefsId}-${c.id}-pin`} checked={c.getIsPinned() === 'left'} onCheckedChange={v => c.pin(v === true ? 'left' : false)} className="size-3.5 border-border-control" />
                 <Label htmlFor={`${columnPrefsId}-${c.id}-pin`}>{lang === 'ko' ? '고정' : 'Pin'}</Label>
               </div>
-              <input aria-label={`${nameOf(c)} width`} type="range" min="60" max="600" value={c.getSize()} className="col-span-2 accent-accent-primary" onChange={e => table.setColumnSizing(o => ({ ...o, [c.id]: Number(e.target.value) }))} />
+              {proto === 'A' ? (
+                <input aria-label={`${nameOf(c)} width`} type="range" min="60" max="600" value={c.getSize()} className="col-span-2 accent-accent-primary" onChange={e => table.setColumnSizing(o => ({ ...o, [c.id]: Number(e.target.value) }))} />
+              ) : proto === 'B' ? (
+                <div className="col-span-2 flex items-center gap-2">
+                  <span className="shrink-0 text-xs text-text-secondary">{lang === 'ko' ? '너비' : 'Width'}</span>
+                  <input aria-label={`${nameOf(c)} ${lang === 'ko' ? '너비' : 'width'}`} aria-valuetext={`${c.getSize()}px`} type="range" min="60" max="600" value={c.getSize()} className="min-w-0 flex-1 accent-accent-primary" onChange={e => table.setColumnSizing(o => ({ ...o, [c.id]: Number(e.target.value) }))} />
+                  <span className="shrink-0 text-xs tabular text-text-secondary">{c.getSize()}px</span>
+                </div>
+              ) : (
+                <div className="col-span-2 flex items-center gap-2">
+                  <span className="shrink-0 text-xs text-text-secondary">{lang === 'ko' ? '너비' : 'Width'}</span>
+                  <SegmentedRadio
+                    label={`${nameOf(c)} ${lang === 'ko' ? '너비' : 'width'}`}
+                    value={c.getSize() === 120 ? '120' : c.getSize() === 180 ? '180' : c.getSize() === 280 ? '280' : null}
+                    onChange={next => table.setColumnSizing(o => ({ ...o, [c.id]: Number(next) }))}
+                    options={[
+                      { value: '120', label: lang === 'ko' ? '좁게' : 'Narrow' },
+                      { value: '180', label: lang === 'ko' ? '보통' : 'Normal' },
+                      { value: '280', label: lang === 'ko' ? '넓게' : 'Wide' },
+                    ]}
+                  />
+                </div>
+              )}
             </li>)}</ul>
           </PopoverContent>
         </Popover>
