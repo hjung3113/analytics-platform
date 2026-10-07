@@ -5,6 +5,29 @@
     },
     "shadcn/no-inline-styles": {
       "count": 7
+    },
+    "shadcn/no-restyle": {
+      "count": 46
+    }
+  },
+  "src/AnalysisLayout.tsx": {
+    "shadcn/no-restyle": {
+      "count": 4
+    }
+  },
+  "src/AnalysisSectionContext.tsx": {
+    "shadcn/no-restyle": {
+      "count": 1
+    }
+  },
+  "src/DataTrustIndicator.tsx": {
+    "shadcn/no-restyle": {
+      "count": 7
+    }
+  },
+  "src/DetailDrawer.tsx": {
+    "shadcn/no-restyle": {
+      "count": 3
     }
   },
   "src/EChart.tsx": {
@@ -20,6 +43,14 @@
   "src/ManagementLayout.tsx": {
     "shadcn/no-inline-styles": {
       "count": 2
+    },
+    "shadcn/no-restyle": {
+      "count": 3
+    }
+  },
+  "src/PageFilterBar.tsx": {
+    "shadcn/no-restyle": {
+      "count": 10
     }
   },
   "src/PlatformDataTable.tsx": {
@@ -28,10 +59,16 @@
     },
     "shadcn/no-inline-styles": {
       "count": 8
+    },
+    "shadcn/no-restyle": {
+      "count": 55
     }
   },
   "src/StateView.tsx": {
     "shadcn/no-inline-styles": {
+      "count": 2
+    },
+    "shadcn/no-restyle": {
       "count": 2
     }
   }

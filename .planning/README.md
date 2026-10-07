@@ -19,7 +19,7 @@
 
 다음 세션은 여기서 시작한다. 직전 세션(2026-10-05)에서 M2 후속(#218 Context 바, #156 레이아웃 슬롯)을 끝내고 v0.2.0을 릴리스했으며, 드릴다운(#225)을 이슈로 올렸다(아래 "끝난 것").
 
-1. **shadcn lint #228** — 1단계(6개 규칙 error, 도입 전 위반 533건은 패키지별 suppressions)와 2단계(FeedbackOps 서브모듈 `13a3c5a`로 갱신, 규칙 옵션을 FeedbackOps ADR-0062 설정에 맞춤 — contracts·`scanAllStrings`·컴포넌트 정의 패키지 예외), 글자 크기 192건을 새 FeedbackOps 토큰으로 교체(`text-[12px]`→`text-xs`, `[11px]`→`text-tiny`, `[13px]`→`text-sm`, `[10px]`→`text-caption` — 크기만 바꾸는 토큰이라 값이 같다)까지 끝나 174건 남음. 다음: ① `no-restyle` 130건(셸 85) ② inline style 34건 ③ static 7·accent arbitrary 3.
+1. **shadcn lint #228** — 1단계(6개 규칙 error, 도입 전 위반 533건은 패키지별 suppressions)와 2단계(FeedbackOps 서브모듈 `13a3c5a`로 갱신, 규칙 옵션을 FeedbackOps ADR-0062 설정에 맞춤 — contracts·`scanAllStrings`·`@ap/ui` 정의 예외), 글자 크기 192건을 새 FeedbackOps 토큰으로 교체(`text-[12px]`→`text-xs`, `[11px]`→`text-tiny`, `[13px]`→`text-sm`, `[10px]`→`text-caption` — 크기만 바꾸는 토큰이라 값이 같다)까지 끝나 305건 남음. 다음: ① `no-restyle` 261건(공통 컴포넌트 131·셸 85 — 가져온 primitive를 덮어쓰는 곳이라 variant·wrapper로 푼다) ② inline style 34건 ③ static 7·accent arbitrary 3.
 2. **드릴다운 #225** — 한 화면에서 단계별로 깊게 보기 / 다른 메뉴로 넘어가기를 플랫폼 기능 + 레이아웃으로. 설계 → `?variant=` 프로토타입 → 컨펌.
 3. 그 뒤 다음 슬라이스를 사용자에게 고르게 한다(후보: FeedbackOps 2단계 — 아래 "다음 슬라이스 후보"). 고른 슬라이스에 걸리는 "결정 대기"의 이슈 없는 항목(예: 사용자 설정 저장 위치)을 같이 묻는다.
 4. 작업 규칙은 루트 `AGENTS.md`(2026-10-05 간소화), 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 문서만 바꾸면 `pnpm docs:links`만 돌린다.

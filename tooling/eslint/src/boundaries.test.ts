@@ -381,6 +381,19 @@ rows.push(
   { file: 'packages/ui/src/x.ts', code: `void import('@fops/ui/src/button');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
 );
 
+// #228 design-system rules (options mirror FeedbackOps .oxlintrc.json). Shared components may style their own markup
+// but not restyle a primitive they import (#236 review).
+const COMPONENT_FILE = 'packages/components/src/X.tsx';
+rows.push(
+  { file: COMPONENT_FILE, code: `import { Input } from '@ap/ui';\nexport const X = () => <Input className="rounded-pill bg-accent-primary" />;`, rule: 'shadcn/no-restyle' },
+  { file: COMPONENT_FILE, code: `export const X = () => <section className="rounded-md bg-surface-card p-3 text-xs" />;`, rule: '' },
+  { file: COMPONENT_FILE, code: `import { DialogHeader } from '@ap/ui';\nexport const X = () => <DialogHeader className="px-4" />;`, rule: '' },
+  { file: COMPONENT_FILE, code: `import { TabsList } from '@ap/ui';\nexport const X = () => <TabsList className="px-4" />;`, rule: 'shadcn/no-restyle' },
+  { file: MENU.replace('x.tsx', 'X.tsx'), code: `export const X = () => <div className="w-[320px]" />;`, rule: '' },
+  { file: MENU.replace('x.tsx', 'X.tsx'), code: `export const X = () => <div className="text-[12px]" />;`, rule: 'shadcn/no-arbitrary-values' },
+  { file: MENU.replace('x.tsx', 'X.tsx'), code: `const TONE = 'text-red-500';\nexport const X = () => <div className={TONE} />;`, rule: 'shadcn/no-raw-colors' },
+);
+
 describe('boundary + contract fixtures', () => {
   it.each(rows)('$# $file $code', async ({ file, code, rule, token }) => {
     const messages = await lint(file, code);

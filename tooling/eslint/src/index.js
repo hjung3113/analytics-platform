@@ -259,8 +259,8 @@ const DESIGN_SYSTEM_RULES = {
   'shadcn/no-unknown-classes': 'error',
   'shadcn/require-static-classes': 'error',
 };
-// Where the design-system components are defined (the ui and components packages) they style themselves, as in
-// FeedbackOps packages/ui: no restyle or static-class check; arbitrary layout values stay allowed.
+// Where the primitives are defined (the ui package) they style themselves, as in FeedbackOps packages/ui: no restyle
+// or static-class check; arbitrary layout values stay allowed.
 const COMPONENT_SOURCE_RULES = {
   ...DESIGN_SYSTEM_RULES,
   'shadcn/no-restyle': 'off',
@@ -301,7 +301,9 @@ export const components = [
   layerConfig({
     restriction: { allow: ['contracts', 'kernel', 'ui'], denyReact: false, mockAllowed: false },
   }),
-  designSystem({ componentSource: true }),
+  // Shared components are assembled from ui primitives (06 §13) and may not restyle them; their own markup is not a
+  // design-system component here (relative imports never match componentImports), so it styles freely with tokens.
+  designSystem(),
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
