@@ -97,7 +97,7 @@ export function ManagementLayout({ filter, activeFilterCount = 0, table, drawer 
         <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-4 py-3">
           <div>
             <h2 id={titleId} className="t-card-title">{t('filters')}</h2>
-            {activeFilterCount > 0 && <p className="text-[12px] text-text-muted">{t('appliedFilterCount', { count: activeFilterCount })}</p>}
+            {activeFilterCount > 0 && <p className="text-xs text-text-muted">{t('appliedFilterCount', { count: activeFilterCount })}</p>}
           </div>
           <Button ref={closeButton} type="button" variant="ghost" size="sm" className="size-8 shrink-0 p-0" aria-label={t('collapseFilters')}
             title={t('collapseFilters')} aria-expanded="true" aria-controls={bodyId} onClick={() => setRailCollapsed(true)}>

@@ -15,7 +15,7 @@ const LABEL = {
  *  values are text, not instants: a naive validTo prints digit-for-digit and never goes through formatInstant. */
 export function AuditTimeline({ events }: { events: AuditEvent[] }) {
   const { tx, lang } = useI18n();
-  if (!events.length) return <p className="rounded-md bg-surface-sunken p-3 text-[12px] text-text-secondary">{lang === 'ko' ? '변경 이력이 없습니다.' : 'No changes recorded.'}</p>;
+  if (!events.length) return <p className="rounded-md bg-surface-sunken p-3 text-xs text-text-secondary">{lang === 'ko' ? '변경 이력이 없습니다.' : 'No changes recorded.'}</p>;
   const sorted = [...events].sort((a, b) => {
     const byAt = instantEpochMs(b.at) - instantEpochMs(a.at);
     return byAt !== 0 ? byAt : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
@@ -26,19 +26,19 @@ export function AuditTimeline({ events }: { events: AuditEvent[] }) {
       return <li key={e.id} className="relative grid grid-cols-[24px_1fr] gap-3">
         <span className="z-[1] grid size-6 place-items-center rounded-pill border border-border-subtle bg-surface-card text-text-muted"><Icon className="size-3.5" aria-hidden /></span>
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2 text-[12px]">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="font-semibold text-text-primary">{tx(LABEL[e.action])}</span>
             <StatusBadge tone={e.source === 'system' ? 'neutral' : 'info'}>{e.source === 'system' ? 'system' : 'user'}</StatusBadge>
             <span className="t-mono text-text-secondary">{e.actor}</span>
             <time className="ml-auto tabular text-text-muted" dateTime={e.at}>{formatInstant(e.at, lang)}</time>
           </div>
-          {e.changes && <dl className="mt-1 space-y-0.5 rounded-md bg-surface-sunken px-2 py-1.5 text-[12px]">
+          {e.changes && <dl className="mt-1 space-y-0.5 rounded-md bg-surface-sunken px-2 py-1.5 text-xs">
             {Object.entries(e.changes).map(([field, [before, after]]) => <div key={field} className="flex flex-wrap gap-x-2">
               <dt className="t-mono text-text-secondary">{field}</dt>
               <dd className="tabular"><span className="text-text-danger-label line-through decoration-1">{before ?? '∅'}</span> → <span className="text-text-success-label">{after ?? '∅'}</span></dd>
             </div>)}
           </dl>}
-          {e.reason && <p className="mt-1 text-[12px] text-text-secondary">{e.reason}</p>}
+          {e.reason && <p className="mt-1 text-xs text-text-secondary">{e.reason}</p>}
         </div>
       </li>;
     })}

@@ -106,7 +106,7 @@ export function Panel({ title, subtitle, actions, children, className, bodyClass
     {(title || actions) && <header className="flex flex-wrap items-start justify-between gap-2 px-4 pb-2 pt-3">
       <div>
         {title && <h2 id={id} className="t-card-title">{title}</h2>}
-        {subtitle && <p className="text-[12px] text-text-muted">{subtitle}</p>}
+        {subtitle && <p className="text-xs text-text-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </header>}

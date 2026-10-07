@@ -80,10 +80,10 @@ export default function AccessDirectory() {
               {active.permissions.map(permission => {
                 const joined = menusForPermissions(registry, active.permissions).filter(m => m.permission === permission);
                 return <div key={permission} className="grid gap-1">
-                  <p className="t-mono text-[13px] font-medium">{permission}</p>
+                  <p className="t-mono text-sm font-medium">{permission}</p>
                   {joined.length
                     ? <ul className="grid gap-1">
-                        {joined.map(menu => <li key={menu.id} className="flex items-center justify-between gap-2 rounded-sm bg-surface-sunken px-2 py-1 text-[13px]">
+                        {joined.map(menu => <li key={menu.id} className="flex items-center justify-between gap-2 rounded-sm bg-surface-sunken px-2 py-1 text-sm">
                           <span>{menu.label[lang]} <span className="t-mono text-text-secondary">{menu.id}</span></span>
                           <span className="flex items-center gap-2">
                             <span className="t-mono text-text-secondary">{menu.path}</span>
@@ -91,7 +91,7 @@ export default function AccessDirectory() {
                           </span>
                         </li>)}
                       </ul>
-                    : <p className="text-[12px] text-text-muted">{ko ? '이 권한으로 열리는 메뉴가 레지스트리에 없습니다.' : 'No registry menu declares this permission.'}</p>}
+                    : <p className="text-xs text-text-muted">{ko ? '이 권한으로 열리는 메뉴가 레지스트리에 없습니다.' : 'No registry menu declares this permission.'}</p>}
                 </div>;
               })}
             </div>,
@@ -99,7 +99,7 @@ export default function AccessDirectory() {
           {
             id: 'sites',
             label: ko ? '사이트 범위' : 'Site scope',
-            content: <ul className="grid gap-1.5 text-[13px]">
+            content: <ul className="grid gap-1.5 text-sm">
               {active.sites.map(site => <li key={site.id} className="flex items-center justify-between gap-2 rounded-sm bg-surface-sunken px-2 py-1">
                 <span>{site.label}</span>
                 <span className="flex items-center gap-2">

@@ -44,7 +44,7 @@ export default function RegistryCatalog() {
     ? <DetailDrawer key={menu.id} title={<span className="t-mono">{menu.id}</span>} subtitle={menu.label[lang]}
         onClose={() => setPage({ focus: null })}
         tabs={[{ id: 'declaration', label: ko ? '선언' : 'Declaration', content: <div className="grid gap-3">
-          <dl className="grid grid-cols-[9rem_1fr] gap-y-1.5 text-[13px]">
+          <dl className="grid grid-cols-[9rem_1fr] gap-y-1.5 text-sm">
             <dt className="text-text-muted">{ko ? '메뉴' : 'Label'}</dt><dd>{menu.label[lang]}</dd>
             <dt className="text-text-muted">{ko ? '설명' : 'Description'}</dt><dd>{menu.description[lang]}</dd>
             <dt className="text-text-muted">requiresScope</dt><dd className="t-mono">{String(menu.requiresScope)}</dd>
@@ -57,7 +57,7 @@ export default function RegistryCatalog() {
             <dt className="text-text-muted">{ko ? '페이지 키' : 'Page keys'}</dt><dd className="t-mono">{menu.pageKeys.join(', ') || '—'}</dd>
             <dt className="text-text-muted">{ko ? '리셋 키' : 'Reset keys'}</dt><dd className="t-mono">{(menu.contextResetKeys ?? []).join(', ') || '—'}</dd>
           </dl>
-          <ul className="grid grid-cols-2 gap-1.5 text-[13px]">
+          <ul className="grid grid-cols-2 gap-1.5 text-sm">
             {(Object.keys(menu.context) as (keyof typeof menu.context)[]).map(k => <li key={k} className="flex items-center justify-between rounded-sm bg-surface-sunken px-2 py-1">
               <span>{CONTEXT_LABELS[k][lang]}</span><StatusBadge tone={tone[menu.context[k]]}>{menu.context[k]}</StatusBadge>
             </li>)}

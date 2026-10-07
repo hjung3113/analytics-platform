@@ -1,16 +1,10 @@
 {
   "src/pages/MetricCatalog.tsx": {
-    "shadcn/no-arbitrary-values": {
-      "count": 7
-    },
     "shadcn/no-restyle": {
       "count": 5
     }
   },
   "src/pages/MetricDetail.tsx": {
-    "shadcn/no-arbitrary-values": {
-      "count": 18
-    },
     "shadcn/no-restyle": {
       "count": 4
     }

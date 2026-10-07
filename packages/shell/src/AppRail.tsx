@@ -31,7 +31,7 @@ export function AppRail() {
       <div className="flex shrink-0 flex-col items-center gap-1">{slots.topBarTools}</div>
       <Popover>
         <PopoverTrigger asChild><button type="button" aria-label="Help" title="Help" className="grid size-8 place-items-center rounded-md text-text-secondary hover:bg-surface-sunken"><CircleHelp className="size-4" aria-hidden /></button></PopoverTrigger>
-        <PopoverContent side="right" align="end" className="w-72 rounded-md border border-border-strong bg-surface-card p-3 text-[12px] shadow-md">
+        <PopoverContent side="right" align="end" className="w-72 rounded-md border border-border-strong bg-surface-card p-3 text-xs shadow-md">
           <p className="t-card-title mb-2">{lang === 'ko' ? '단축키' : 'Shortcuts'}</p>
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
             <dt><kbd className="rounded-xs border border-border-strong px-1">{isMac ? '⌘' : 'Ctrl'} K</kbd></dt><dd>{lang === 'ko' ? '메뉴 이동 팔레트' : 'Menu palette'}</dd>
@@ -43,19 +43,19 @@ export function AppRail() {
 
       <Tooltip><TooltipTrigger asChild>
         <button type="button" aria-label={languageLabel} onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}
-          className="grid size-8 place-items-center rounded-md text-[10px] font-semibold text-text-secondary hover:bg-surface-row-hover">{lang === 'ko' ? '한' : 'EN'}</button>
+          className="grid size-8 place-items-center rounded-md text-caption font-semibold text-text-secondary hover:bg-surface-row-hover">{lang === 'ko' ? '한' : 'EN'}</button>
       </TooltipTrigger><TooltipContent side="right">{languageLabel}</TooltipContent></Tooltip>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button type="button" aria-label={t('profile')} title={user.name} className="grid size-8 place-items-center rounded-pill hover:bg-surface-row-hover">
-            <span aria-hidden className="grid size-8 place-items-center rounded-pill bg-accent-primary-soft text-[12px] font-semibold text-accent-primary">{user.name.split(' ').map(w => w[0]).join('')}</span>
+            <span aria-hidden className="grid size-8 place-items-center rounded-pill bg-accent-primary-soft text-xs font-semibold text-accent-primary">{user.name.split(' ').map(w => w[0]).join('')}</span>
 
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent side="right" align="end" className="w-64 rounded-md border border-border-strong bg-surface-card p-1 shadow-md">
           <DropdownMenuLabel>{user.name} · {tx(user.title)}</DropdownMenuLabel>
-          <DropdownMenuItem disabled className="text-[13px]"><LogOut className="size-3.5" aria-hidden />{t('signOut')} <span className="ml-auto text-[10px]">SSO Open</span></DropdownMenuItem>
+          <DropdownMenuItem disabled className="text-sm"><LogOut className="size-3.5" aria-hidden />{t('signOut')} <span className="ml-auto text-caption">SSO Open</span></DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </nav>
