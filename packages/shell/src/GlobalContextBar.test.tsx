@@ -41,6 +41,7 @@ beforeEach(() => {
       if (element.getAttribute('role') === 'region') { observed = element; resize = this.callback; }
       if (element.hasAttribute('data-context-measuring')) probeResize = this.callback;
     }
+    unobserve() {}
     disconnect() {}
   });
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) { return this.getAttribute('role') === 'region' ? Math.round(barWidth) : 0; });
@@ -188,10 +189,28 @@ describe('Global Context priority overflow (#56)', () => {
     expect(screen.getByRole('button', { name: 'Apply' })).toBeVisible();
   });
 
-  it('restores the control border on the overflow trigger and every measurement copy (UIUX-56-01)', () => {
+  it('reopens the custom range editor when the applied custom preset is pressed again (#228 review)', async () => {
+    mount('&from=2026-09-22T09:00:00&to=2026-09-24T09:00:00', 'ko', false);
+    const custom = within(bar()).getByRole('radio', { name: '사용자 지정' });
+    expect(custom).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(custom);
+    expect(await screen.findByText('시작일')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '취소' }));
+    await vi.waitFor(() => expect(screen.queryByText('시작일')).toBeNull());
+    fireEvent.click(within(bar()).getByRole('radio', { name: '사용자 지정' }));
+    expect(await screen.findByText('시작일')).toBeVisible();
+  });
+
+  // Measurement parity: the inert copies must render exactly like the real trigger or the overflow math drifts.
+  // UIUX-56-01 (trigger border matching the neighbouring Context controls) is reopened as #240 under ADR-0023.
+  it('renders the overflow trigger and every measurement copy with the same Button size and variant', () => {
     barWidth = 450; mount();
-    expect(within(bar()).getByRole('button', { name: '조건 3개 더' })).toHaveClass('border-border-control');
-    for (const button of bar().querySelectorAll('[data-measure-overflow]')) expect(button).toHaveClass('border-border-control');
+    const trigger = within(bar()).getByRole('button', { name: '조건 3개 더' });
+    const copies = Array.from(bar().querySelectorAll('[data-measure-overflow]'));
+    expect(copies.length).toBeGreaterThan(0);
+    // shrink-0 only keeps the real trigger from shrinking in the row; it does not change the measured width.
+    const classes = (el: Element) => el.className.split(/\s+/).filter(c => c !== 'shrink-0').sort().join(' ');
+    for (const copy of copies) expect(classes(copy)).toBe(classes(trigger));
   });
 
   it('keeps unapplied room drafts through inline → overflow → inline and restores connected bar focus (UIUX-56-02)', async () => {

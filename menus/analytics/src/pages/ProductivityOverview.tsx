@@ -200,9 +200,6 @@ export default function ProductivityOverview(_: PageProps) {
         label={ko ? '집계 단위 (페이지 소유)' : 'Granularity (page-owned)'}
         value={gran}
         onChange={g => setPage({ granularity: g })}
-        className="inline-flex overflow-hidden rounded-md border border-border-subtle bg-surface-card"
-        optionClassName={selected => cn('min-h-8 border-l border-border-subtle px-3 text-xs font-medium first:border-l-0 focus-visible:z-10',
-          selected ? 'bg-accent-primary text-text-on-accent' : 'text-text-secondary hover:bg-surface-sunken')}
         options={GRANS.map(g => ({ value: g, label: g === 'hour' ? (ko ? '시간' : 'Hour') : g === 'day' ? (ko ? '일' : 'Day') : (ko ? '주' : 'Week') }))}
       />
       <span className="t-caption text-text-muted">
@@ -288,9 +285,6 @@ export default function ProductivityOverview(_: PageProps) {
                     label={ko ? 'URL 키 axis' : 'URL key axis'}
                     value={axis}
                     onChange={a => setPage({ axis: a === 'room' ? null : a })}
-                    className="inline-flex overflow-hidden rounded-md border border-border-subtle"
-                    optionClassName={selected => cn('min-h-7 border-l border-border-subtle px-2 text-tiny font-medium first:border-l-0',
-                      selected ? 'bg-accent-primary text-text-on-accent' : 'text-text-secondary hover:bg-surface-sunken')}
                     options={[{ value: 'room', label: 'room_name' }, { value: 'stgroup', label: 'StGroup' }]}
                   />}
                   series={[

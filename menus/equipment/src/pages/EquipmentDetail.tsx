@@ -63,7 +63,7 @@ export default function EquipmentDetail({ params }: PageProps) {
     {!validTab ? <p role="alert">{ko ? '등록되지 않은 탭입니다.' : 'Unknown tab.'} <Button size="sm" variant="secondary" onClick={() => setPage({ tab: 'attributes' })}>{ko ? '속성 열기' : 'Open attributes'}</Button></p> :
       <Tabs value={requestedTab} onValueChange={tab => setPage({ tab })}>
         <TabsList aria-label={ko ? '설비 상세 탭' : 'Equipment detail tabs'}>{tabs.map(t => <TabsTrigger key={t.id} value={t.id}>{t.label}</TabsTrigger>)}</TabsList>
-        {tabs.map(t => <TabsContent key={t.id} value={t.id} className="mt-4 max-w-4xl rounded-lg border border-border-subtle bg-surface-card p-4"><EquipmentPanel id={id} kind={t.id} /></TabsContent>)}
+        {tabs.map(t => <TabsContent key={t.id} value={t.id} className="mt-4 max-w-4xl"><div className="rounded-lg border border-border-subtle bg-surface-card p-4"><EquipmentPanel id={id} kind={t.id} /></div></TabsContent>)}
       </Tabs>}
   </PlatformPage>;
 }

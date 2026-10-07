@@ -8,6 +8,7 @@ export * from './components/shadcn/dropdown-menu';
 export * from './components/shadcn/input';
 export * from './components/shadcn/label';
 export * from './components/shadcn/popover';
+export * from './components/shadcn/radio-group';
 export * from './components/shadcn/select';
 export * from './components/shadcn/skeleton';
 export * from './components/shadcn/tabs';

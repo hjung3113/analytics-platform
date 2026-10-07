@@ -55,7 +55,7 @@ export function MetricPairBanner({ viewedId = null, pageVersion = null }: { view
         <p className="font-semibold text-text-primary">{copy.title}</p>
         <p className="mt-0.5">{copy.body}</p>
         {verdict.kind === 'conflict' && <div className="mt-2">
-          <Button variant="secondary" size="sm" className="h-8 rounded-sm" onClick={() => setPage({ version: verdict.globalVersion })}>
+          <Button variant="secondary" size="sm" onClick={() => setPage({ version: verdict.globalVersion })}>
             {lang === 'ko' ? '전역 버전을 페이지에서 보기' : 'Show the global version on this page'}
           </Button>
         </div>}
@@ -99,7 +99,7 @@ export default function MetricCatalogPage(_: PageProps) {
     description={lang === 'ko'
       ? '정의·grain·분자/분모·게시 포인터를 탐색합니다. 초안은 분석 기본 버전이 아닙니다. 정의 등록·발행 화면은 Open이라 두지 않았습니다.'
       : 'Browse definitions, grain, numerator/denominator and the published pointer. Drafts are not analysis defaults. Registration and publish UI is Open and omitted.'}
-    contextExtension={<PageFilterBar label={lang === 'ko' ? '페이지 필터' : 'Page filters'} fields={metricCatalogPageFilterFields({ q, status, domain, lang, tx, setPage })} actions={metricCatalogHasActiveFilters(q, status, domain) ? <Button type="button" variant="secondary" size="sm" className="h-8 rounded-sm" onClick={() => resetMetricCatalogPageFilters(setPage)}>{lang === 'ko' ? '필터 초기화' : 'Reset filters'}</Button> : undefined} />}
+    contextExtension={<PageFilterBar label={lang === 'ko' ? '페이지 필터' : 'Page filters'} fields={metricCatalogPageFilterFields({ q, status, domain, lang, tx, setPage })} actions={metricCatalogHasActiveFilters(q, status, domain) ? <Button type="button" variant="secondary" size="sm" onClick={() => resetMetricCatalogPageFilters(setPage)}>{lang === 'ko' ? '필터 초기화' : 'Reset filters'}</Button> : undefined} />}
   >
     <div className="space-y-3">
       <MetricPairBanner />
@@ -115,7 +115,7 @@ export default function MetricCatalogPage(_: PageProps) {
       </p>}
       {tableInvalid ? <p role="alert" className="rounded-md bg-accent-warn-soft px-3 py-2 text-xs text-text-warning-label">
         {lang === 'ko' ? '정렬·페이지 값이 잘못되었습니다.' : 'Invalid sort or page value.'}
-        <Button variant="secondary" size="sm" className="ml-2 h-7 rounded-sm px-2 text-xs" onClick={() => setPage({ sort: null, page: null })}>{lang === 'ko' ? '초기화' : 'Reset'}</Button>
+        <Button variant="secondary" size="toolbar" className="ml-2" onClick={() => setPage({ sort: null, page: null })}>{lang === 'ko' ? '초기화' : 'Reset'}</Button>
       </p> : <PlatformDataTable
         title={lang === 'ko' ? '지표 카탈로그' : 'Metric catalog'}
         subtitle={lang === 'ko'

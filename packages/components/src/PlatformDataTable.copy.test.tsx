@@ -203,14 +203,16 @@ describe('PlatformDataTable row copy (#174) — button', () => {
     expect((await screen.findByRole('tooltip')).textContent).toBe('Ctrl+C / ⌘C로도 복사할 수 있습니다(표 안에서)');
   });
 
-  it('the tooltip has no drop shadow — border only (UX P3-2, DESIGN.md)', async () => {
+  it('the tooltip uses the shared FeedbackOps surface (shadow + border), size sm (ADR-0023 C2)', async () => {
     render(<Harness />);
     await ready();
     act(() => { copyButton().focus(); });
     await screen.findByRole('tooltip');
     const content = document.querySelector('[data-radix-popper-content-wrapper] > *');
-    expect(content?.className).toContain('shadow-none');
-    expect(content?.className).toContain('border');
+    // ADR-0023 C2: the platform no longer overrides the tooltip surface (was border + text-xs + shadow-none).
+    expect(content?.className).toContain('shadow-md');
+    expect(content?.className).toContain('text-xs');
+    expect(content?.className).not.toContain('shadow-none');
   });
 });
 

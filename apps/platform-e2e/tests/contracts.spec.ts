@@ -269,15 +269,16 @@ test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
     await evidence(page, testInfo, 'context-wide-1920');
   });
 
-  // #218: without the applied tags the full row measured about 1092px of the 1124px available (2026-10-05).
-  // The label-first step at narrower bars is covered by the shell unit test.
-  test('1440px 생산성 개요는 라벨·기간 프리셋·모든 조건이 인라인이다', async ({ page }, testInfo) => {
+  // #218: at the most common width the period presets and every condition stay inline. The "전역 CONTEXT" label is
+  // the first item to hide when the row is short; with FeedbackOps control sizes (ADR-0023) the 1440px productivity row
+  // measured about 20-40px over the 1148px bar (2026-10-07), so the label hides here. The label-first step is covered by
+  // the shell unit test.
+  test('1440px 생산성 개요는 기간 프리셋·모든 조건이 인라인이다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 800 });
     await page.goto(PRODUCTIVITY);
     await expectScopeValid(page, 'ICH · Site A');
     await expect(contextBar(page).getByRole('button', { name: /개 더/ })).toHaveCount(0);
     await expect(contextBar(page).getByRole('radio', { name: '1일', exact: true })).toBeVisible();
-    await expect(visibleContextLabel(page)).toBeVisible();
     await expectContextBounds(page);
     await evidence(page, testInfo, 'context-1440-presets-inline');
   });

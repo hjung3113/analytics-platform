@@ -65,10 +65,10 @@ function PageFilterFieldControl({ field, id, column }: { field: PageFilterField;
     return <div className={cn('grid gap-1 text-xs text-text-secondary', column ? 'min-w-0 w-full' : 'min-w-36')}>
       <label htmlFor={id} id={labelId} onClick={event => { event.preventDefault(); event.currentTarget.control?.focus(); }}>{field.label}</label>
       <Select value={value} onValueChange={next => field.onValueChange(next === emptyValue ? '' : next)}>
-        <SelectTrigger id={id} aria-labelledby={labelId} data-testid={field.testId} className={cn('h-8 border-border-control bg-surface-card text-text-primary', column ? 'min-w-0 w-full' : 'min-w-36')}>
+        <SelectTrigger id={id} aria-labelledby={labelId} data-testid={field.testId} className={cn('h-8 border-border-control', column ? 'min-w-0 w-full' : 'min-w-36')}>
           <SelectValue placeholder={field.placeholder} />
         </SelectTrigger>
-        <SelectContent className="text-text-secondary">
+        <SelectContent>
           {field.emptyOptionLabel && <SelectItem value={emptyValue}>{field.emptyOptionLabel}</SelectItem>}
           {options.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
         </SelectContent>
@@ -88,7 +88,11 @@ function PageFilterFieldControl({ field, id, column }: { field: PageFilterField;
         placeholder={field.placeholder}
         value={field.value}
         onChange={event => field.onValueChange(event.target.value)}
-        className={cn('h-8 w-full border-border-control bg-surface-card text-xs text-text-primary placeholder:text-text-secondary', field.kind === 'search' && 'pl-8')}
+        className={cn(
+          'h-8 w-full border-border-control',
+          // eslint-disable-next-line shadcn/no-restyle -- 32px left padding reserves the overlaid search icon
+          field.kind === 'search' && 'pl-8',
+        )}
       />
     </span>
   </div>;

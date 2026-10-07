@@ -389,6 +389,13 @@ rows.push(
   { file: COMPONENT_FILE, code: `export const X = () => <section className="rounded-md bg-surface-card p-3 text-xs" />;`, rule: '' },
   { file: COMPONENT_FILE, code: `import { DialogHeader } from '@ap/ui';\nexport const X = () => <DialogHeader className="px-4" />;`, rule: '' },
   { file: COMPONENT_FILE, code: `import { TabsList } from '@ap/ui';\nexport const X = () => <TabsList className="px-4" />;`, rule: 'shadcn/no-restyle' },
+  // ADR-0023 accessibility floor: the control boundary and the aria-disabled look are the only non-layout classes kept.
+  { file: COMPONENT_FILE, code: `import { Checkbox } from '@ap/ui';\nexport const X = () => <Checkbox className="border-border-control" />;`, rule: '' },
+  { file: COMPONENT_FILE, code: `import { Checkbox } from '@ap/ui';\nexport const X = () => <Checkbox className="border-border-strong" />;`, rule: 'shadcn/no-restyle' },
+  { file: COMPONENT_FILE, code: `import { Button } from '@ap/ui';\nexport const X = () => <Button className="aria-disabled:opacity-50 aria-disabled:pointer-events-none" />;`, rule: '' },
+  { file: COMPONENT_FILE, code: `import { Button } from '@ap/ui';\nexport const X = () => <Button className="text-xs" />;`, rule: 'shadcn/no-restyle' },
+  { file: COMPONENT_FILE, code: `import { DropdownMenuItem } from '@ap/ui';\nexport const X = () => <DropdownMenuItem className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring" />;`, rule: '' },
+  { file: COMPONENT_FILE, code: `import { DropdownMenuRadioItem } from '@ap/ui';\nexport const X = () => <DropdownMenuRadioItem value="a" className="focus:bg-accent-primary-soft" />;`, rule: 'shadcn/no-restyle' },
   { file: MENU.replace('x.tsx', 'X.tsx'), code: `export const X = () => <div className="w-[320px]" />;`, rule: '' },
   { file: MENU.replace('x.tsx', 'X.tsx'), code: `export const X = () => <div className="text-[12px]" />;`, rule: 'shadcn/no-arbitrary-values' },
   { file: MENU.replace('x.tsx', 'X.tsx'), code: `const TONE = 'text-red-500';\nexport const X = () => <div className={TONE} />;`, rule: 'shadcn/no-raw-colors' },

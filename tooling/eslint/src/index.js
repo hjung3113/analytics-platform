@@ -250,6 +250,18 @@ const RESTYLE_CONTRACTS = [
     allow: ['layout', 'spacing'],
     deny: ['h-*', 'min-h-*', 'max-h-*', 'size-*'],
   },
+  // Platform accessibility floor (ADR-0023), on top of the FeedbackOps contracts: control boundaries keep the
+  // >=3:1 border-control, buttons that use aria-disabled (to keep focus for Radix) keep a disabled look, and menu items
+  // keep a keyboard focus ring (the FeedbackOps focus tint is ~1.1:1 on the popover surface).
+  { pattern: '^(Input|SelectTrigger|Checkbox)$', allow: ['layout', 'border-border-control'] },
+  {
+    pattern: '^DropdownMenu(Item|RadioItem|CheckboxItem)$',
+    allow: ['layout', 'focus-visible:ring-2', 'focus-visible:ring-inset', 'focus-visible:ring-focus-ring'],
+  },
+  {
+    pattern: '^Button$',
+    allow: ['layout', 'aria-disabled:opacity-50', 'aria-disabled:pointer-events-none', 'aria-disabled:cursor-not-allowed'],
+  },
 ];
 const DESIGN_SYSTEM_RULES = {
   'shadcn/no-restyle': ['error', { allow: ['layout'], contracts: RESTYLE_CONTRACTS }],

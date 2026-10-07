@@ -53,21 +53,21 @@ export default function MetricDetailPage({ params }: PageProps) {
       ? <span><span className="t-mono">{metric.metricId}</span> · {tx(metric.description)}</span>
       : <span className="t-mono">{metricId}</span>}
     primaryAction={selected && (selected.state === 'draft'
-      ? <Button size="sm" className="h-8 rounded-sm" disabled>{lang === 'ko' ? '초안은 분석 Context로 쓰지 않습니다' : 'Drafts are not used as analysis context'}</Button>
-      : <Button size="sm" className="h-8 rounded-sm" data-testid="metric-apply-context" onClick={apply}
+      ? <Button size="sm" disabled>{lang === 'ko' ? '초안은 분석 Context로 쓰지 않습니다' : 'Drafts are not used as analysis context'}</Button>
+      : <Button size="sm" data-testid="metric-apply-context" onClick={apply}
           title={global.metricId && global.metricId !== metricId
             ? (lang === 'ko' ? `다른 지표 ${global.metricId} 쌍 전체를 ${metricId} @ ${selected.version} 으로 바꿉니다.` : `Replaces the whole ${global.metricId} pair with ${metricId} @ ${selected.version}.`)
             : undefined}>
           {lang === 'ko' ? '이 버전을 분석 Context로 사용' : 'Use this version as analysis context'}
         </Button>)}
     secondaryActions={<>
-      <Button variant="secondary" size="sm" className="h-8 rounded-sm" onClick={() => { void navigator.clipboard?.writeText(window.location.origin + url); toast(lang === 'ko' ? '이 버전의 링크를 복사했습니다.' : 'Copied the link to this version.'); }}>
+      <Button variant="secondary" size="sm" onClick={() => { void navigator.clipboard?.writeText(window.location.origin + url); toast(lang === 'ko' ? '이 버전의 링크를 복사했습니다.' : 'Copied the link to this version.'); }}>
         {lang === 'ko' ? '버전 링크 복사' : 'Copy version link'}
       </Button>
       <PlatformLink href={linkTo('metric-catalog')} className="inline-flex h-8 items-center rounded-sm border border-border-subtle bg-surface-raised px-3 text-xs font-medium hover:bg-surface-card">
         {lang === 'ko' ? '카탈로그' : 'Catalog'}
       </PlatformLink>
-      {returnTo !== null && <Button asChild variant="secondary" size="sm" className="h-8 rounded-sm"><PlatformLink href={returnTarget()}>{lang === 'ko' ? '이전 화면으로' : 'Back to previous view'}</PlatformLink></Button>}
+      {returnTo !== null && <Button asChild variant="secondary" size="sm"><PlatformLink href={returnTarget()}>{lang === 'ko' ? '이전 화면으로' : 'Back to previous view'}</PlatformLink></Button>}
     </>}
     contextExtension={<nav aria-label={lang === 'ko' ? '카탈로그 영역' : 'Catalog sections'} className="flex flex-wrap gap-1">
       {SECTIONS.map(s => <button key={s.id} type="button" aria-current={tab === s.id ? 'true' : undefined}

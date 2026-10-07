@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState, useId, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type ColumnSizingState, type RowSelectionState, type VisibilityState } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, Loader2 } from 'lucide-react';
@@ -81,8 +81,8 @@ class CopyStop extends Error {}
 type CopyPayload = { tsv: string; html: string; count: number };
 /** The clipboard write itself was rejected (not the row read): carries the browser's error. */
 class ClipboardRejected extends Error { constructor(readonly cause: unknown) { super('clipboard rejected'); } }
-/** Shared primitive's item focus is the card background (invisible on the popover); this menu-only class makes keyboard focus visible — an inset ring is never clipped by the content's `overflow-hidden`, and it stays on top of the soft focus background. */
-const exportItemClass = 'gap-2 focus:bg-accent-primary-soft focus:text-text-primary focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring';
+/** Keyboard focus ring only (ADR-0023): the FeedbackOps item focus tint is not distinguishable on the popover surface, so the menu keeps an inset ring — never clipped by the content's `overflow-hidden`, and it stays on top of the shared focus background. */
+const exportItemClass = 'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring';
 
 /** 조회 정보 (#173 review P2-3): id sets render as count + leading ids; the explicit empty set is shown, never folded into “all”. */
 const CONTEXT_ID_LIMIT = 10;
@@ -257,6 +257,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const loading = result?.identity !== requestIdentity;
   const data = shown?.outcome === 'ok' ? shown.data! : { rows: [] as T[], total: shown?.data?.total ?? 0 };
 
+  const columnPrefsId = useId();
   const allColumns = useMemo<ColumnDef<T>[]>(() => [
     {
       id: '_select', size: 40, enableSorting: false, enableHiding: false, enableResizing: false,
@@ -423,7 +424,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   }
   const exportItems = (kind: ExportScopeKind, count: number | null) => (['xlsx', 'csv'] as const).map(format =>
     <DropdownMenuItem key={format} className={exportItemClass} disabled={exporting} aria-label={exportItemName(kind, count, format, lang)} onSelect={() => { void runExport(format, kind); }}>
-      {format === 'xlsx' ? <FileSpreadsheet className="size-3.5" aria-hidden /> : <FileText className="size-3.5" aria-hidden />}{FORMAT_LABEL[format]}
+      {format === 'xlsx' ? <FileSpreadsheet className="mr-2 size-3.5" aria-hidden /> : <FileText className="mr-2 size-3.5" aria-hidden />}{FORMAT_LABEL[format]}
     </DropdownMenuItem>);
 
   // Row copy (#174, ADR-0008 toolbar D): copy is an export — same gate, same `exportRows` read, columns and values; TSV
@@ -565,12 +566,18 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       <div className="flex flex-wrap items-center gap-2">
         {p.filters}
         <Popover onOpenChange={open => setOverlayOpen(o => ({ ...o, columns: open }))}>
-          <PopoverTrigger asChild><Button variant="secondary" size="sm" className="h-8 gap-1.5 rounded-sm border-border-strong"><Columns3 className="size-3.5" aria-hidden />{lang === 'ko' ? '컬럼' : 'Columns'}</Button></PopoverTrigger>
-          <PopoverContent align="end" className="w-72 rounded-md border border-border-strong bg-surface-card p-3 shadow-md">
+          <PopoverTrigger asChild><Button variant="secondary" size="toolbar"><Columns3 className="size-3.5" aria-hidden />{lang === 'ko' ? '컬럼' : 'Columns'}</Button></PopoverTrigger>
+          <PopoverContent align="end" className="w-72">
             <p className="t-card-title mb-2">{lang === 'ko' ? '컬럼 설정 (브라우저에 저장)' : 'Column preferences (saved locally)'}</p>
             <ul className="space-y-2">{table.getAllLeafColumns().filter(c => c.getCanHide()).map(c => <li key={c.id} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1">
-              <Label className="flex items-center gap-2 text-xs font-normal"><Checkbox checked={c.getIsVisible()} onCheckedChange={v => c.toggleVisibility(v === true)} className="size-3.5" />{nameOf(c)}</Label>
-              <Label className="flex items-center gap-1 text-tiny font-normal text-text-muted"><Checkbox checked={c.getIsPinned() === 'left'} onCheckedChange={v => c.pin(v === true ? 'left' : false)} className="size-3.5" />{lang === 'ko' ? '고정' : 'Pin'}</Label>
+              <div className="flex items-center gap-2">
+                <Checkbox id={`${columnPrefsId}-${c.id}-visible`} checked={c.getIsVisible()} onCheckedChange={v => c.toggleVisibility(v === true)} className="size-3.5 border-border-control" />
+                <Label htmlFor={`${columnPrefsId}-${c.id}-visible`}>{nameOf(c)}</Label>
+              </div>
+              <div className="flex items-center gap-1">
+                <Checkbox id={`${columnPrefsId}-${c.id}-pin`} checked={c.getIsPinned() === 'left'} onCheckedChange={v => c.pin(v === true ? 'left' : false)} className="size-3.5 border-border-control" />
+                <Label htmlFor={`${columnPrefsId}-${c.id}-pin`}>{lang === 'ko' ? '고정' : 'Pin'}</Label>
+              </div>
               <input aria-label={`${nameOf(c)} width`} type="range" min="60" max="600" value={c.getSize()} className="col-span-2 accent-accent-primary" onChange={e => table.setColumnSizing(o => ({ ...o, [c.id]: Number(e.target.value) }))} />
             </li>)}</ul>
           </PopoverContent>
@@ -581,7 +588,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
           {/* Enabled: the tooltip and aria-keyshortcuts name the shortcut and where it works (UX P3-1). */}
           <Tooltip open={copyTip} onOpenChange={setCopyTip}>
             <TooltipTrigger asChild>
-              <Button variant="secondary" size="sm" className="h-8 gap-1.5 rounded-sm border-border-strong aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+              <Button variant="secondary" size="toolbar" className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
                 aria-disabled={selectedIds.length === 0 || copying || undefined} aria-busy={copying || undefined}
                 aria-keyshortcuts={selectedIds.length > 0 ? 'Control+C Meta+C' : undefined}
                 onClick={runCopy}>
@@ -589,8 +596,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                 {selectedIds.length === 0 ? (lang === 'ko' ? '복사' : 'Copy') : lang === 'ko' ? `${selectedIds.length}행 복사` : `Copy ${selectedIds.length} ${selectedIds.length === 1 ? 'row' : 'rows'}`}
               </Button>
             </TooltipTrigger>
-            {/* DESIGN.md: no drop shadows — this tooltip only; border separates it (UX P3-2). */}
-            <TooltipContent className="border border-border-strong text-xs shadow-none">{selectedIds.length === 0
+            <TooltipContent size="sm">{selectedIds.length === 0
               ? (lang === 'ko' ? '행을 선택하면 복사할 수 있습니다' : 'Select rows to copy')
               : (lang === 'ko' ? 'Ctrl+C / ⌘C로도 복사할 수 있습니다(표 안에서)' : 'You can also copy with Ctrl+C / ⌘C (inside the table)')}</TooltipContent>
           </Tooltip>
@@ -600,23 +606,22 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             {/* aria-disabled, not native disabled (#173 UX P2-2): the trigger stays focusable so Radix can return
                 focus here after an item runs. The keyboard can still open the menu while busy, so its items are disabled
                 then (#173 review N-P3-1); runExport also guards re-entry. The polite status is announced separately. */}
-            <Button variant="secondary" size="sm" className="h-8 gap-1.5 rounded-sm border-border-strong aria-disabled:pointer-events-none aria-disabled:opacity-50"
+            <Button variant="secondary" size="toolbar" className="aria-disabled:pointer-events-none aria-disabled:opacity-50"
               aria-disabled={exporting || undefined} aria-busy={exporting || undefined}>
               <Download className="size-3.5" aria-hidden />{t('export')}
               {exporting ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <ChevronDown className="size-3.5" aria-hidden />}
             </Button>
           </DropdownMenuTrigger>
-          {/* DESIGN.md: no drop shadows — this menu only; the shared primitive keeps its look for other menus. */}
-          <DropdownMenuContent align="end" className="min-w-56 border border-border-strong shadow-none">
+          <DropdownMenuContent align="end" className="min-w-56">
             {selectedIds.length > 0 && <>
               <DropdownMenuGroup>
-                <DropdownMenuLabel className="t-caption tabular text-text-muted">{exportTarget('selected', selectedIds.length, lang)}</DropdownMenuLabel>
+                <DropdownMenuLabel>{exportTarget('selected', selectedIds.length, lang)}</DropdownMenuLabel>
                 {exportItems('selected', selectedIds.length)}
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
             </>}
             <DropdownMenuGroup>
-              <DropdownMenuLabel className="t-caption tabular text-text-muted">{exportTarget('filtered', filteredCount, lang)}</DropdownMenuLabel>
+              <DropdownMenuLabel>{exportTarget('filtered', filteredCount, lang)}</DropdownMenuLabel>
               {exportItems('filtered', filteredCount)}
             </DropdownMenuGroup>
           </DropdownMenuContent>
@@ -630,7 +635,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     {selectedIds.length > 0 && <div className="flex min-h-10 flex-wrap items-center gap-3 border-t border-border-subtle bg-accent-primary-soft px-3 py-2 text-xs">
       <span className="font-semibold tabular" data-testid="selected-count">{lang === 'ko' ? `${selectedIds.length}행 선택` : `${selectedIds.length} selected`}</span>
       {p.bulkActions?.(selectedIds)}
-      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setSelection({})}>{lang === 'ko' ? '선택 해제' : 'Clear selection'}</Button>
+      <Button variant="ghost" size="toolbar" onClick={() => setSelection({})}>{lang === 'ko' ? '선택 해제' : 'Clear selection'}</Button>
       <span className="text-text-muted">{lang === 'ko' ? '선택은 현재 조회 결과 안에서만 유지되며 Context 변경 시 해제됩니다.' : 'Selection is kept within this result and cleared on context change.'}</span>
     </div>}
 
@@ -664,7 +669,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
               </div>;
             })}</div>
           </div>
-          {!shown ? <div className="space-y-2 p-3" aria-hidden>{Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="h-5 rounded-sm bg-surface-sunken" />)}</div> :
+          {!shown ? <div className="space-y-2 p-3" aria-hidden>{Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="h-5" />)}</div> :
             // eslint-disable-next-line shadcn/no-inline-styles -- total row height comes from the virtualizer at runtime
             <div role="rowgroup" className="relative" style={{ height: virtual.getTotalSize() }}>{virtual.getVirtualItems().map(item => {
               const row = rows[item.index];
@@ -684,14 +689,14 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       </div>}
 
     <div className="flex items-center justify-end gap-2 border-t border-border-subtle p-2">
-      <Button variant="secondary" size="sm" className="h-7 rounded-sm px-2 text-xs" disabled={loading || effectivePage === 0}
+      <Button variant="secondary" size="toolbar" disabled={loading || effectivePage === 0}
         onClick={() => {
           // zero-based target; controlled mode reports 1-based with null = page 1 (§6.1).
           if (p.urlState) p.urlState.onChange({ sorting: p.urlState.sorting, page: effectivePage === 1 ? null : effectivePage }, 'user');
           else setPage(effectivePage - 1);
           if (viewport.current) viewport.current.scrollTop = 0;
         }}>{lang === 'ko' ? '이전' : 'Previous'}</Button>
-      <Button variant="secondary" size="sm" className="h-7 rounded-sm px-2 text-xs" disabled={loading || effectivePage + 1 >= pageCount}
+      <Button variant="secondary" size="toolbar" disabled={loading || effectivePage + 1 >= pageCount}
         onClick={() => {
           if (p.urlState) p.urlState.onChange({ sorting: p.urlState.sorting, page: effectivePage + 2 }, 'user');
           else setPage(effectivePage + 1);

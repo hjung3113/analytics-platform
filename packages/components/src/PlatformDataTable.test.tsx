@@ -864,7 +864,8 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     for (const item of within(menu).getAllByRole('menuitem')) {
       expect(item.className).toContain('focus-visible:ring-focus-ring');
       expect(item.className).toContain('focus-visible:ring-inset');
-      expect(item.className).toContain('focus:bg-accent-primary-soft');
+      // ADR-0023 C2: the menu no longer overrides the item focus tint; the shared primitive's applies.
+      expect(item.className).not.toContain('focus:bg-accent-primary-soft');
     }
   });
 });

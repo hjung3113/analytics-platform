@@ -31,7 +31,7 @@ export function AppRail() {
       <div className="flex shrink-0 flex-col items-center gap-1">{slots.topBarTools}</div>
       <Popover>
         <PopoverTrigger asChild><button type="button" aria-label="Help" title="Help" className="grid size-8 place-items-center rounded-md text-text-secondary hover:bg-surface-sunken"><CircleHelp className="size-4" aria-hidden /></button></PopoverTrigger>
-        <PopoverContent side="right" align="end" className="w-72 rounded-md border border-border-strong bg-surface-card p-3 text-xs shadow-md">
+        <PopoverContent side="right" align="end" className="w-72">
           <p className="t-card-title mb-2">{lang === 'ko' ? '단축키' : 'Shortcuts'}</p>
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
             <dt><kbd className="rounded-xs border border-border-strong px-1">{isMac ? '⌘' : 'Ctrl'} K</kbd></dt><dd>{lang === 'ko' ? '메뉴 이동 팔레트' : 'Menu palette'}</dd>
@@ -53,9 +53,9 @@ export function AppRail() {
 
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent side="right" align="end" className="w-64 rounded-md border border-border-strong bg-surface-card p-1 shadow-md">
+        <DropdownMenuContent side="right" align="end" className="w-64">
           <DropdownMenuLabel>{user.name} · {tx(user.title)}</DropdownMenuLabel>
-          <DropdownMenuItem disabled className="text-sm"><LogOut className="size-3.5" aria-hidden />{t('signOut')} <span className="ml-auto text-caption">SSO Open</span></DropdownMenuItem>
+          <DropdownMenuItem disabled><LogOut className="mr-2 size-3.5" aria-hidden />{t('signOut')} <span className="ml-auto text-caption">SSO Open</span></DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </nav>

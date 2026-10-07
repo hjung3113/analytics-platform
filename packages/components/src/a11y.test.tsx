@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
@@ -47,6 +47,37 @@ describe('SegmentedRadio', () => {
     fireEvent.keyDown(c, { key: 'Home' });
     expect(a).toHaveAttribute('aria-checked', 'true');
     expect(document.activeElement).toBe(a);
+  });
+
+  it('reports each keyboard move once, also while the arrow key repeats (#228 review)', async () => {
+    const calls: string[] = [];
+    function Recorded() {
+      const [value, setValue] = useState<'a' | 'b' | 'c'>('a');
+      return <SegmentedRadio label="Grain" value={value} onChange={next => { calls.push(next); setValue(next); }}
+        options={[{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }, { value: 'c', label: 'C' }]} />;
+    }
+    render(<Recorded />);
+    const wait = () => act(() => new Promise(resolve => setTimeout(resolve, 10)));
+    const a = screen.getByRole('radio', { name: 'A' });
+    a.focus();
+    fireEvent.keyDown(a, { key: 'ArrowRight' });
+    await wait();
+    fireEvent.keyDown(screen.getByRole('radio', { name: 'B' }), { key: 'ArrowRight', repeat: true });
+    fireEvent.keyUp(screen.getByRole('radio', { name: 'C' }), { key: 'ArrowRight' });
+    await wait();
+    expect(calls).toEqual(['b', 'c']);
+    expect(document.activeElement).toBe(screen.getByRole('radio', { name: 'C' }));
+  });
+
+  it('is a horizontal radiogroup and activates the already selected option without a change', () => {
+    const onChange = vi.fn();
+    const onActivate = vi.fn();
+    render(<SegmentedRadio label="Grain" value="a" onChange={onChange} onActivate={onActivate}
+      options={[{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }]} />);
+    expect(screen.getByRole('radiogroup', { name: 'Grain' })).toHaveAttribute('aria-orientation', 'horizontal');
+    fireEvent.click(screen.getByRole('radio', { name: 'A' }));
+    expect(onActivate).toHaveBeenCalledWith('a');
+    expect(onChange).not.toHaveBeenCalled();
   });
 });
 
@@ -110,17 +141,17 @@ describe('DetailDrawer docked slot', () => {
     expect(inner).toHaveFocus();
   });
 
-  it('uses readable inactive tab labels on sunken while preserving the selected-tab look', () => {
+  it('keeps drawer tabs on the shared FeedbackOps look with active state via data-state', () => {
     render(<I18nProvider><DetailPanelSlotProvider>
       <DetailDrawer title="Detail" onClose={() => {}} tabs={[
         { id: 'a', label: 'Attributes', content: 'attributes' }, { id: 'audit', label: 'Audit', content: 'audit' },
       ]} /><SlotHost />
     </DetailPanelSlotProvider></I18nProvider>);
     const list = screen.getByRole('tablist');
-    expect(list).toHaveClass('bg-surface-sunken', 'text-text-secondary');
-    expect(list).not.toHaveClass('text-text-muted');
+    // ADR-0023 C2: the drawer no longer restyles TabsList (was bg-surface-sunken + text-text-secondary).
+    expect(list).not.toHaveClass('bg-surface-sunken', 'text-text-secondary');
     expect(screen.getByRole('tab', { name: 'Audit' })).toHaveAttribute('data-state', 'inactive');
-    expect(screen.getByRole('tab', { name: 'Attributes' })).toHaveClass('data-[state=active]:text-text-primary', 'data-[state=active]:bg-surface-card');
+    expect(screen.getByRole('tab', { name: 'Attributes' })).toHaveAttribute('data-state', 'active');
   });
 
   it('restores deep-link content and falls back to main when no opener exists', () => {

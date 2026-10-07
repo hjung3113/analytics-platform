@@ -143,7 +143,7 @@ export function ContextBarLayout({ controls, revision, actions }: {
         <div data-measure="actions">{actions(false)}</div><div data-measure="icons">{actions(true)}</div>
         {others.map((_, index) => {
           const trailing = others.slice(others.length - index - 1);
-          return <Button key={index} data-measure-overflow size="sm" variant="secondary" className="h-8 whitespace-nowrap border-border-control text-xs">{overflowLabel(trailing.length, trailing.filter(c => c.applied).length)}</Button>;
+          return <Button key={index} data-measure-overflow size="sm" variant="secondary" className="whitespace-nowrap">{overflowLabel(trailing.length, trailing.filter(c => c.applied).length)}</Button>;
         })}
       </MeasuringContext.Provider>
     </div></div>
@@ -152,8 +152,8 @@ export function ContextBarLayout({ controls, revision, actions }: {
       {period && item(period, compact)}
       {others.slice(0, inlineCount).map(control => item(control))}
       {hidden.length > 0 && <Popover open={overflowOpen || activeHidden} onOpenChange={setOverflowOpen}><PopoverTrigger asChild>
-        <Button ref={overflowTrigger} data-context-overflow type="button" size="sm" variant="secondary" className="h-8 shrink-0 whitespace-nowrap border-border-control text-xs" aria-label={label} title={label}>{label}</Button>
-      </PopoverTrigger><PopoverContent onFocusOutside={event => { if (recoveringFocus.current) event.preventDefault(); }} onCloseAutoFocus={event => { if (!overflowTrigger.current?.isConnected) { event.preventDefault(); focusBar(); } }} aria-label={lang === 'ko' ? '추가 Context 조건' : 'More Context conditions'} align="end" className="w-[28rem] max-w-[calc(100vw-2rem)] border-border-control bg-surface-card p-3">
+        <Button ref={overflowTrigger} data-context-overflow type="button" size="sm" variant="secondary" className="shrink-0 whitespace-nowrap" aria-label={label} title={label}>{label}</Button>
+      </PopoverTrigger><PopoverContent onFocusOutside={event => { if (recoveringFocus.current) event.preventDefault(); }} onCloseAutoFocus={event => { if (!overflowTrigger.current?.isConnected) { event.preventDefault(); focusBar(); } }} aria-label={lang === 'ko' ? '추가 Context 조건' : 'More Context conditions'} align="end" className="w-[28rem] max-w-[calc(100vw-2rem)]">
         <div className="grid gap-3">{hidden.map(control => item(control))}</div>
       </PopoverContent></Popover>}
       <div className="ml-auto shrink-0">{actions(compact)}</div>
