@@ -65,7 +65,7 @@ function PlannedPage() {
   return <PlatformPage>
     <div className="grid gap-3 wide:grid-cols-[1fr_1fr]">
       <Panel title={t('plannedTitle')} subtitle={t('plannedBody')}>
-        <dl className="grid grid-cols-[10rem_1fr] gap-y-1.5 text-[13px]">
+        <dl className="grid grid-cols-[10rem_1fr] gap-y-1.5 text-sm">
           <dt className="text-text-muted">id</dt><dd className="t-mono">{menu.id}</dd>
           <dt className="text-text-muted">{lang === 'ko' ? '그룹' : 'Group'}</dt><dd>{tx(registry.groupById(menu.group).label)}</dd>
           <dt className="text-text-muted">{t('pageType')}</dt><dd>{tx(PAGE_TYPE_LABELS[menu.pageType])}</dd>
@@ -75,7 +75,7 @@ function PlannedPage() {
         </dl>
       </Panel>
       <Panel title={t('capability')} subtitle={lang === 'ko' ? '지원하지 않는 Context도 URL에 보존되고 위 Context Bar에 “미사용”으로 표시됩니다.' : 'Unsupported context stays in the URL and shows as “not used” above.'}>
-        <ul className="grid grid-cols-2 gap-1.5 text-[13px]">
+        <ul className="grid grid-cols-2 gap-1.5 text-sm">
           {keys.map(k => <li key={k} className="flex items-center justify-between rounded-sm bg-surface-sunken px-2 py-1">
             <span>{tx(CONTEXT_LABELS[k])}</span><StatusBadge tone={tone[menu.context[k]]}>{menu.context[k]}</StatusBadge>
           </li>)}

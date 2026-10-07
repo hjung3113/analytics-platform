@@ -51,7 +51,7 @@ export function MetricPairBanner({ viewedId = null, pageVersion = null }: { view
     {verdict => {
       const copy = pairText(verdict, lang, pageVersion);
       const box = copy.tone === 'danger' ? 'border-border-strong bg-accent-danger-soft text-text-danger-label' : copy.tone === 'warning' ? 'border-border-strong bg-accent-warn-soft text-text-warning-label' : 'border-border-subtle bg-surface-card text-text-secondary';
-      return <div role={copy.tone === 'danger' ? 'alert' : 'status'} className={`rounded-md border px-3 py-2 text-[12px] ${box}`}>
+      return <div role={copy.tone === 'danger' ? 'alert' : 'status'} className={`rounded-md border px-3 py-2 text-xs ${box}`}>
         <p className="font-semibold text-text-primary">{copy.title}</p>
         <p className="mt-0.5">{copy.body}</p>
         {verdict.kind === 'conflict' && <div className="mt-2">
@@ -103,19 +103,19 @@ export default function MetricCatalogPage(_: PageProps) {
   >
     <div className="space-y-3">
       <MetricPairBanner />
-      {global.selection !== null && <p className="text-[12px] text-text-secondary">
+      {global.selection !== null && <p className="text-xs text-text-secondary">
         {lang === 'ko'
           ? `설비 선택 ${global.selection.length}건은 참조만입니다. 명시적 빈 집합이어도 카탈로그를 0건으로 만들지 않습니다.`
           : `Equipment selection (${global.selection.length}) is reference only. An explicit empty set does not force the catalog to zero rows.`}
       </p>}
-      {(statusIllegal || domainIllegal) && <p role="alert" className="rounded-md bg-accent-warn-soft px-3 py-2 text-[12px] text-text-warning-label">
+      {(statusIllegal || domainIllegal) && <p role="alert" className="rounded-md bg-accent-warn-soft px-3 py-2 text-xs text-text-warning-label">
         {lang === 'ko'
           ? `등록되지 않은 페이지 필터입니다 (${statusIllegal ? `status=${status}` : `domain=${domain}`}). 전체로 바꾸지 않아 결과가 비었습니다.`
           : `Unregistered page filter (${statusIllegal ? `status=${status}` : `domain=${domain}`}). It is not coerced to All, so the result is empty.`}
       </p>}
-      {tableInvalid ? <p role="alert" className="rounded-md bg-accent-warn-soft px-3 py-2 text-[12px] text-text-warning-label">
+      {tableInvalid ? <p role="alert" className="rounded-md bg-accent-warn-soft px-3 py-2 text-xs text-text-warning-label">
         {lang === 'ko' ? '정렬·페이지 값이 잘못되었습니다.' : 'Invalid sort or page value.'}
-        <Button variant="secondary" size="sm" className="ml-2 h-7 rounded-sm px-2 text-[12px]" onClick={() => setPage({ sort: null, page: null })}>{lang === 'ko' ? '초기화' : 'Reset'}</Button>
+        <Button variant="secondary" size="sm" className="ml-2 h-7 rounded-sm px-2 text-xs" onClick={() => setPage({ sort: null, page: null })}>{lang === 'ko' ? '초기화' : 'Reset'}</Button>
       </p> : <PlatformDataTable
         title={lang === 'ko' ? '지표 카탈로그' : 'Metric catalog'}
         subtitle={lang === 'ko'
@@ -136,10 +136,10 @@ export default function MetricCatalogPage(_: PageProps) {
         activeRowId={activeRowId}
         loadPage={(query, signal) => pages.fetch({ ...filter, ...query }, signal)}
         rowAction={row => <span className="flex flex-wrap gap-2">
-          <PlatformLink className="text-[12px] font-medium text-accent-primary hover:underline" href={linkTo('metric-detail', { params: { metricId: row.metricId }, page: detailPage(row) })}>
+          <PlatformLink className="text-xs font-medium text-accent-primary hover:underline" href={linkTo('metric-detail', { params: { metricId: row.metricId }, page: detailPage(row) })}>
             {lang === 'ko' ? '정의' : 'Definition'}
           </PlatformLink>
-          {row.draftVersion && <PlatformLink className="text-[12px] text-text-secondary hover:underline" href={linkTo('metric-detail', { params: { metricId: row.metricId }, page: { version: row.draftVersion } })}>
+          {row.draftVersion && <PlatformLink className="text-xs text-text-secondary hover:underline" href={linkTo('metric-detail', { params: { metricId: row.metricId }, page: { version: row.draftVersion } })}>
             {lang === 'ko' ? `초안 v${row.draftVersion}` : `Draft v${row.draftVersion}`}
           </PlatformLink>}
         </span>}

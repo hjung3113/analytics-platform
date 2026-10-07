@@ -34,7 +34,7 @@ export function DataTrustIndicator({ trust, assessments, className }: { trust: T
       : (lang === 'ko' ? '확인된 이슈 없음' : 'No confirmed issues');
   return <Popover>
     <PopoverTrigger asChild>
-      <button type="button" className={cn('inline-flex min-h-8 items-center gap-2 rounded-sm px-2 text-[12px] text-text-secondary hover:bg-surface-sunken', className)} aria-label={t('dataTrust')}>
+      <button type="button" className={cn('inline-flex min-h-8 items-center gap-2 rounded-sm px-2 text-xs text-text-secondary hover:bg-surface-sunken', className)} aria-label={t('dataTrust')}>
         <Dot tone={tone} />
         <span className="tabular">{headline}</span>
         <span className="text-text-disabled" aria-hidden>·</span>
@@ -45,7 +45,7 @@ export function DataTrustIndicator({ trust, assessments, className }: { trust: T
         <Info className="size-3.5 text-text-muted" aria-hidden />
       </button>
     </PopoverTrigger>
-    <PopoverContent align="end" className="w-80 rounded-md border border-border-strong bg-surface-card p-3 text-[12px] shadow-md">
+    <PopoverContent align="end" className="w-80 rounded-md border border-border-strong bg-surface-card p-3 text-xs shadow-md">
       <p className="t-card-title mb-2">{t('dataTrust')}</p>
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 tabular">
         <dt className="text-text-muted">{t('updated')}</dt><dd>{trust.updatedAt.replace('T', ' ')}</dd>
@@ -60,11 +60,11 @@ export function DataTrustIndicator({ trust, assessments, className }: { trust: T
           <span>{tx(KIND[a.kind])}</span>
           <span className="text-right">
             <StatusBadge tone={assessmentTone(a)}>{a.state}</StatusBadge>
-            <span className="mt-0.5 block text-[11px] text-text-muted">{a.state === 'unknown' ? a.reason : `${a.statusSource} · ${time(a.observedAt)}`}</span>
+            <span className="mt-0.5 block text-tiny text-text-muted">{a.state === 'unknown' ? a.reason : `${a.statusSource} · ${time(a.observedAt)}`}</span>
           </span>
         </li>)}
       </ul>
-      <p className="mt-2 text-[11px] text-text-muted">{lang === 'ko' ? 'clear는 해당 kind 문제가 없음을 원천이 확인했다는 제한적 주장입니다.' : '“clear” only means the source confirmed that kind of problem is absent.'}</p>
+      <p className="mt-2 text-tiny text-text-muted">{lang === 'ko' ? 'clear는 해당 kind 문제가 없음을 원천이 확인했다는 제한적 주장입니다.' : '“clear” only means the source confirmed that kind of problem is absent.'}</p>
     </PopoverContent>
   </Popover>;
 }

@@ -31,6 +31,7 @@ export const baseTextStyle = {
       || "'Inter Variable', 'Pretendard Variable', system-ui, sans-serif";
   },
   fontSize: 11,
+  // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
   get color(): string { return token('text-muted'); },
 };
 

@@ -38,10 +38,10 @@ export function GlobalContextBar() {
     ...(has.metric ? [{ key: 'metric' as const, applied: has.metric, node: <CarriedChip k="metric" cap={cap.metric} value={`${global.metricId}${global.metricVersion ? ` @ ${global.metricVersion}` : ` (${lang === 'ko' ? '버전 미정' : 'no version'})`}`} onRemove={() => setGlobal({ metricId: null, metricVersion: null })} /> }] : []),
   ];
   return <ContextBarLayout controls={controls} revision={JSON.stringify([global, cap, lang, shown, evaluation.status, evaluation.data?.inCondition.length])} actions={compact => <span className="flex items-center gap-1">
-        <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2 text-[12px] text-text-secondary" aria-label={lang === 'ko' ? '링크 복사' : 'Copy link'} title={lang === 'ko' ? '링크 복사' : 'Copy link'} onClick={() => { void navigator.clipboard?.writeText(window.location.origin + url); toast(lang === 'ko' ? '현재 Context가 담긴 링크를 복사했습니다. 받는 사람의 권한으로 서버가 다시 검증합니다.' : 'Copied a link with the current context. The server re-validates for the recipient.'); }}>
+        <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs text-text-secondary" aria-label={lang === 'ko' ? '링크 복사' : 'Copy link'} title={lang === 'ko' ? '링크 복사' : 'Copy link'} onClick={() => { void navigator.clipboard?.writeText(window.location.origin + url); toast(lang === 'ko' ? '현재 Context가 담긴 링크를 복사했습니다. 받는 사람의 권한으로 서버가 다시 검증합니다.' : 'Copied a link with the current context. The server re-validates for the recipient.'); }}>
           <Link2 className="size-3.5" aria-hidden />{!compact && (lang === 'ko' ? '링크 복사' : 'Copy link')}
         </Button>
-        <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2 text-[12px] text-text-secondary" aria-label={t('reset')} title={t('reset')} onClick={resetContext}>
+        <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs text-text-secondary" aria-label={t('reset')} title={t('reset')} onClick={resetContext}>
           <RotateCcw className="size-3.5" aria-hidden />{!compact && t('reset')}
         </Button>
   </span>} />;
@@ -62,14 +62,14 @@ function CapTag({ cap }: { cap: Capability }) {
   const { t } = useI18n();
   if (cap === 'apply') return null;
 
-  return <span className={cn('shrink-0 rounded-xs px-1 text-[10px] font-semibold', cap !== 'unsupported' ? 'bg-surface-sunken text-text-secondary' : 'bg-accent-warn-soft text-text-warning-label')}>
+  return <span className={cn('shrink-0 rounded-xs px-1 text-caption font-semibold', cap !== 'unsupported' ? 'bg-surface-sunken text-text-secondary' : 'bg-accent-warn-soft text-text-warning-label')}>
     {cap === 'reference' ? t('referenceOnly') : t('notUsed')}
   </span>;
 }
 
 function ChipShell({ label, value, cap, empty, children, ...rest }: { label: ReactNode; value: ReactNode; cap: Capability; empty?: boolean; children?: ReactNode } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return <button type="button" {...rest}
-    className={cn('inline-flex h-8 max-w-[22rem] items-center gap-1.5 rounded-sm border px-2.5 whitespace-nowrap text-[12px] hover:border-border-control',
+    className={cn('inline-flex h-8 max-w-[22rem] items-center gap-1.5 rounded-sm border px-2.5 whitespace-nowrap text-xs hover:border-border-control',
       cap === 'unsupported' ? 'border-dashed border-border-strong bg-transparent text-text-muted' : 'border-border-strong bg-surface-card text-text-primary',
       empty && 'text-text-muted')}>
     <span className="text-text-muted">{label}</span>
@@ -84,7 +84,7 @@ function CarriedChip({ k, cap, value, onRemove }: { k: ContextKey; cap: Capabili
   const { tx, t, lang } = useI18n();
   const { global } = usePlatform();
   const fullValue = k === 'time' ? (global.from ? `${global.from} – ${global.to}` : t('selectPeriod')) : value;
-  return <span role={k === 'time' ? 'group' : undefined} aria-label={k === 'time' ? `${tx(CONTEXT_LABELS[k])}: ${fullValue}${capStatus(cap, t)}` : undefined} className={cn('inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-sm border pl-2.5 pr-1 whitespace-nowrap text-[12px]',
+  return <span role={k === 'time' ? 'group' : undefined} aria-label={k === 'time' ? `${tx(CONTEXT_LABELS[k])}: ${fullValue}${capStatus(cap, t)}` : undefined} className={cn('inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-sm border pl-2.5 pr-1 whitespace-nowrap text-xs',
     cap === 'unsupported' ? 'border-dashed border-border-strong text-text-muted' : 'border-border-strong bg-surface-card')}
     title={cap === 'unsupported' ? (lang === 'ko' ? 'URL에 보존되며 지원 메뉴로 이동하면 재검증 후 적용됩니다.' : 'Kept in the URL; re-validated and applied on a supporting page.') : undefined}>
     <span className="text-text-muted">{tx(CONTEXT_LABELS[k])}</span>
@@ -113,13 +113,13 @@ function PeriodControl({ cap, compact = false }: { cap: Capability; compact?: bo
       value={preset}
       onChange={id => choose(id)}
       className="flex h-8 items-center gap-0.5 rounded-sm border border-border-subtle bg-surface-card p-0.5"
-      optionClassName={selected => cn('h-full rounded-xs px-2.5 text-[12px] font-medium', selected ? 'bg-accent-primary text-text-on-accent' : 'text-text-secondary hover:bg-surface-sunken')}
+      optionClassName={selected => cn('h-full rounded-xs px-2.5 text-xs font-medium', selected ? 'bg-accent-primary text-text-on-accent' : 'text-text-secondary hover:bg-surface-sunken')}
       options={presets.map(p => ({ value: p.id, label: p.label }))}
     />;
   return <div className="flex min-w-0 items-center gap-1">
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type="button" className={cn('inline-flex h-8 items-center gap-2 rounded-sm border border-border-strong bg-surface-card px-2.5 whitespace-nowrap text-[12px] hover:border-border-control', compact ? 'w-full min-w-0' : 'min-w-[204px]')} title={periodName} aria-label={`${periodName}${capStatus(cap, t)}`}>
+        <button type="button" className={cn('inline-flex h-8 items-center gap-2 rounded-sm border border-border-strong bg-surface-card px-2.5 whitespace-nowrap text-xs hover:border-border-control', compact ? 'w-full min-w-0' : 'min-w-[204px]')} title={periodName} aria-label={`${periodName}${capStatus(cap, t)}`}>
           <CalendarDays className="size-4 shrink-0 text-text-muted" aria-hidden />
           {global.from ? <span className="min-w-0 truncate font-medium tabular">{short(global.from)} → {short(global.to!)}</span> : <span className="min-w-0 truncate text-text-muted">{t('selectPeriod')}</span>}
           {!compact && h !== null && <span className="text-text-muted tabular">({h >= 48 ? `${Math.round(h / 24)}${lang === 'ko' ? '일' : 'd'}` : `${h}h`})</span>}
@@ -160,8 +160,8 @@ function CustomRange({ onDone }: { onDone: () => void }) {
       result = { from, to };
     }
   } catch (e) { error = e instanceof Error ? e.message : String(e); }
-  const input = 'h-8 w-full rounded-md border border-border-control bg-surface-card px-2 text-[12px] tabular';
-  return <form onSubmit={e => { e.preventDefault(); if (result) { setGlobal(result); onDone(); } }} onKeyDown={e => { if (e.key === 'Escape') onDone(); }} className="space-y-3 text-[12px]">
+  const input = 'h-8 w-full rounded-md border border-border-control bg-surface-card px-2 text-xs tabular';
+  return <form onSubmit={e => { e.preventDefault(); if (result) { setGlobal(result); onDone(); } }} onKeyDown={e => { if (e.key === 'Escape') onDone(); }} className="space-y-3 text-xs">
     <SegmentedRadio
       label={lang === 'ko' ? '입력 방식' : 'Input mode'}
       value={mode}
@@ -183,10 +183,10 @@ function CustomRange({ onDone }: { onDone: () => void }) {
     <p aria-live="polite" className={cn('rounded-md px-2 py-1.5 tabular', error ? 'bg-accent-danger-soft text-text-danger-label' : 'bg-surface-sunken text-text-secondary')}>
       {error ?? `URL: [${result!.from}, ${result!.to})`}
     </p>
-    <p className="text-[11px] text-text-muted">{lang === 'ko' ? '설비 wall-clock(naive) 기준이며 UTC로 변환하지 않습니다. 교대일/영업일 의미는 Open입니다.' : 'Equipment wall-clock (naive), never converted to UTC. Shift/business-day semantics are Open.'}</p>
+    <p className="text-tiny text-text-muted">{lang === 'ko' ? '설비 wall-clock(naive) 기준이며 UTC로 변환하지 않습니다. 교대일/영업일 의미는 Open입니다.' : 'Equipment wall-clock (naive), never converted to UTC. Shift/business-day semantics are Open.'}</p>
     <div className="flex justify-end gap-2">
-      <Button type="button" size="sm" variant="secondary" className="h-7 px-3 text-[12px]" onClick={onDone}>{t('cancel')}</Button>
-      <Button type="submit" size="sm" className="h-7 px-3 text-[12px]" disabled={!result}>{t('apply')}</Button>
+      <Button type="button" size="sm" variant="secondary" className="h-7 px-3 text-xs" onClick={onDone}>{t('cancel')}</Button>
+      <Button type="submit" size="sm" className="h-7 px-3 text-xs" disabled={!result}>{t('apply')}</Button>
     </div>
   </form>;
 }
@@ -208,7 +208,7 @@ function SetEditor({ label, cap, value, options, absentLabel, onApply, note, sea
   const visible = options.filter(o => !q || o.id.toLowerCase().includes(q.toLowerCase()) || o.hint?.toLowerCase().includes(q.toLowerCase()));
   return <Popover open={open} onOpenChange={reset}>
     <PopoverTrigger asChild><ChipShell label={label} value={value === null ? absentLabel : value.length ? (value.length <= 2 ? value.join(', ') : `${value[0]} +${value.length - 1}`) : t('explicitEmpty')} cap={cap} empty={value === null}><ChevronDown className="size-3.5 text-text-muted" aria-hidden /></ChipShell></PopoverTrigger>
-    <PopoverContent onFocusOutside={preserveRelocationFocus} align="start" className="w-80 rounded-md border border-border-strong bg-surface-card p-3 text-[12px] shadow-md">
+    <PopoverContent onFocusOutside={preserveRelocationFocus} align="start" className="w-80 rounded-md border border-border-strong bg-surface-card p-3 text-xs shadow-md">
       <SegmentedRadio
         label={label}
         value={mode}
@@ -228,14 +228,14 @@ function SetEditor({ label, cap, value, options, absentLabel, onApply, note, sea
             <input type="checkbox" className="size-3.5 accent-[rgb(var(--accent-primary))]" checked={picked.includes(o.id)} onChange={() => setPicked(p => (p.includes(o.id) ? p.filter(x => x !== o.id) : [...p, o.id]))} />
             <span className="t-mono">{o.id}</span>
             {o.hint && <span className="truncate text-text-muted">{o.hint}</span>}
-            {o.outside && <span className="ml-auto rounded-xs bg-accent-warn-soft px-1 text-[10px] text-text-warning-label">{lang === 'ko' ? '조건 밖' : 'outside'}</span>}
+            {o.outside && <span className="ml-auto rounded-xs bg-accent-warn-soft px-1 text-caption text-text-warning-label">{lang === 'ko' ? '조건 밖' : 'outside'}</span>}
           </label></li>)}
         </ul>
       </>}
-      {note && <div className="mt-2 rounded-md bg-surface-sunken px-2 py-1.5 text-[11px] text-text-secondary">{note}</div>}
+      {note && <div className="mt-2 rounded-md bg-surface-sunken px-2 py-1.5 text-tiny text-text-secondary">{note}</div>}
       <div className="mt-3 flex justify-end gap-2">
-        <Button size="sm" variant="secondary" className="h-7 px-3 text-[12px]" onClick={() => setOpen(false)}>{t('cancel')}</Button>
-        <Button size="sm" className="h-7 px-3 text-[12px]" disabled={mode === 'some' && !picked.length}
+        <Button size="sm" variant="secondary" className="h-7 px-3 text-xs" onClick={() => setOpen(false)}>{t('cancel')}</Button>
+        <Button size="sm" className="h-7 px-3 text-xs" disabled={mode === 'some' && !picked.length}
           onClick={() => { onApply(mode === 'absent' ? null : mode === 'empty' ? [] : picked); setOpen(false); }}>{t('apply')}</Button>
       </div>
     </PopoverContent>
@@ -272,7 +272,7 @@ function ConditionEditor({ cap }: { cap: Capability }) {
   return <Popover open={open} onOpenChange={o => { setOpen(o); if (o) { setAxis(global.condition?.axis ?? 'stgroup'); setVal(global.condition ? conditionLabel(global.condition) : ''); } }}>
     <PopoverTrigger asChild><ChipShell label={t('condition')} cap={cap} empty={!global.condition}
       value={global.condition ? `${axisLabel[global.condition.axis]}: ${conditionLabel(global.condition)}` : t('none')}><ChevronDown className="size-3.5 text-text-muted" aria-hidden /></ChipShell></PopoverTrigger>
-    <PopoverContent onFocusOutside={preserveRelocationFocus} align="start" className="w-80 rounded-md border border-border-strong bg-surface-card p-3 text-[12px] shadow-md">
+    <PopoverContent onFocusOutside={preserveRelocationFocus} align="start" className="w-80 rounded-md border border-border-strong bg-surface-card p-3 text-xs shadow-md">
       <SegmentedRadio
         label={lang === 'ko' ? '조건 축 (하나만)' : 'Condition axis (one)'}
         value={axis}
@@ -288,12 +288,12 @@ function ConditionEditor({ cap }: { cap: Capability }) {
         {options.map(o => <li key={o} role="option" aria-selected={val === o}><button type="button" onClick={() => setVal(o)}
           className={cn('w-full rounded-sm px-2 py-1 text-left t-mono', val === o ? 'bg-accent-primary-soft text-accent-primary' : 'hover:bg-surface-sunken')}>{o}</button></li>)}
       </ul>
-      <p className="mt-2 rounded-md bg-surface-sunken px-2 py-1.5 text-[11px] text-text-secondary">{lang === 'ko' ? 'live 조건: 재방문 시 현재 소속으로 다시 평가됩니다. 조건 변경은 고정 Selection을 바꾸지 않습니다.' : 'Live condition: membership is re-evaluated on revisit. Changing it never alters the fixed Selection.'}</p>
+      <p className="mt-2 rounded-md bg-surface-sunken px-2 py-1.5 text-tiny text-text-secondary">{lang === 'ko' ? 'live 조건: 재방문 시 현재 소속으로 다시 평가됩니다. 조건 변경은 고정 Selection을 바꾸지 않습니다.' : 'Live condition: membership is re-evaluated on revisit. Changing it never alters the fixed Selection.'}</p>
       <div className="mt-3 flex justify-between gap-2">
-        <Button size="sm" variant="ghost" className="h-7 px-2 text-[12px]" onClick={() => { setGlobal({ condition: null }); setOpen(false); }}>{t('clear')}</Button>
+        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => { setGlobal({ condition: null }); setOpen(false); }}>{t('clear')}</Button>
         <span className="flex gap-2">
-          <Button size="sm" variant="secondary" className="h-7 px-3 text-[12px]" onClick={() => setOpen(false)}>{t('cancel')}</Button>
-          <Button size="sm" className="h-7 px-3 text-[12px]" disabled={!val} onClick={() => { setGlobal({ condition: build() }); setOpen(false); }}>{t('apply')}</Button>
+          <Button size="sm" variant="secondary" className="h-7 px-3 text-xs" onClick={() => setOpen(false)}>{t('cancel')}</Button>
+          <Button size="sm" className="h-7 px-3 text-xs" disabled={!val} onClick={() => { setGlobal({ condition: build() }); setOpen(false); }}>{t('apply')}</Button>
         </span>
       </div>
     </PopoverContent>

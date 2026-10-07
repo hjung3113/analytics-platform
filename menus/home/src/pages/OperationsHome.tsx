@@ -24,10 +24,10 @@ export default function OperationsHome() {
   return <PlatformPage title={lang === 'ko' ? '운영 개요' : 'Operations overview'}>
     <div className="space-y-4">
       {notices.response && notices.response.outcome === 'ok' && notices.response.data!.filter(n => !dismissed.includes(n.id)).map(n =>
-        <div key={n.id} role="status" className="flex items-start gap-3 rounded-md border border-accent-primary/30 bg-accent-primary-soft px-4 py-2.5 text-[13px]">
+        <div key={n.id} role="status" className="flex items-start gap-3 rounded-md border border-accent-primary/30 bg-accent-primary-soft px-4 py-2.5 text-sm">
           <Megaphone className="mt-0.5 size-4 shrink-0 text-accent-primary" aria-hidden />
-          <span className="flex-1"><span className="t-mono mr-2 text-[11px] text-text-muted">{n.id}</span>{tx(n.title)}</span>
-          <PlatformLink href={linkTo('notices')} className="inline-flex items-center gap-1 whitespace-nowrap text-[12px] font-medium text-accent-primary hover:underline">{lang === 'ko' ? '전체 공지 보기' : 'All notices'}<ArrowRight className="size-3" aria-hidden /></PlatformLink>
+          <span className="flex-1"><span className="t-mono mr-2 text-tiny text-text-muted">{n.id}</span>{tx(n.title)}</span>
+          <PlatformLink href={linkTo('notices')} className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '전체 공지 보기' : 'All notices'}<ArrowRight className="size-3" aria-hidden /></PlatformLink>
           <button type="button" aria-label={lang === 'ko' ? '이번 세션 동안 닫기' : 'Dismiss for this session'} className="grid size-6 place-items-center rounded-xs text-text-muted hover:bg-surface-card"
             onClick={() => dismissNotice(n.id)}><X className="size-3.5" aria-hidden /></button>
         </div>)}
@@ -45,31 +45,31 @@ export default function OperationsHome() {
             const body = <>
               <span className="grid size-10 place-items-center rounded-md bg-icon-blue-soft text-accent-primary"><Icon className="size-6" strokeWidth={1.75} aria-hidden /></span>
               <span className="mt-3 block t-card-title">{tx(g.label)}</span>
-              <span className="mt-0.5 block text-[12px] text-text-muted">{lang === 'ko' ? `메뉴 ${inGroup.length}개 · ` : `${inGroup.length} menus · `}{tx(primary.label)}</span>
+              <span className="mt-0.5 block text-xs text-text-muted">{lang === 'ko' ? `메뉴 ${inGroup.length}개 · ` : `${inGroup.length} menus · `}{tx(primary.label)}</span>
             </>;
             // 08: primary destination forbidden but siblings allowed — rendered disabled with the reason, never re-targeted.
             return allowed
               ? <PlatformLink key={g.id} href={linkTo(primary.id)} className="rounded-lg border border-border-subtle bg-surface-card p-4 transition-colors hover:border-accent-primary">{body}</PlatformLink>
-              : <div key={g.id} aria-disabled className="rounded-lg border border-dashed border-border-strong bg-surface-card p-4" title={lang === 'ko' ? '대표 목적지 권한 없음' : 'No access to primary destination'}><div className="opacity-70">{body}</div><span className="mt-1 flex items-center gap-1 text-[11px] text-text-warning-label"><Lock className="size-3 text-text-warning" aria-hidden />{lang === 'ko' ? '대표 목적지 권한 없음' : 'Primary destination restricted'}</span></div>;
+              : <div key={g.id} aria-disabled className="rounded-lg border border-dashed border-border-strong bg-surface-card p-4" title={lang === 'ko' ? '대표 목적지 권한 없음' : 'No access to primary destination'}><div className="opacity-70">{body}</div><span className="mt-1 flex items-center gap-1 text-tiny text-text-warning-label"><Lock className="size-3 text-text-warning" aria-hidden />{lang === 'ko' ? '대표 목적지 권한 없음' : 'Primary destination restricted'}</span></div>;
           })}
         </div>
       </section>
 
       <div className="grid gap-3 lg:grid-cols-2">
         <Panel title={<span className="inline-flex items-center gap-2"><Star className="size-4 text-accent-warn" aria-hidden />{t('favorites')}</span>} subtitle={lang === 'ko' ? '목적지 ID만 저장합니다. 클릭 시 그 화면의 기본 상태로 진입하고, 지금 들고 있는 전역 Context는 보존됩니다.' : 'Stores destination IDs only; opens the default state while carrying the current global context.'}>
-          {favoriteMenus.length === 0 ? <p className="rounded-md bg-surface-sunken p-3 text-[12px] text-text-secondary">{t('noFavorites')}</p> :
+          {favoriteMenus.length === 0 ? <p className="rounded-md bg-surface-sunken p-3 text-xs text-text-secondary">{t('noFavorites')}</p> :
             <ul className="divide-y divide-border-subtle">{favoriteMenus.map(m => m && <li key={m.id} className="flex items-center gap-3 py-2">
               <m.icon className="size-4 text-text-muted" aria-hidden />
-              <PlatformLink href={linkTo(m.id)} className="flex-1 text-[13px] font-medium hover:text-accent-primary hover:underline">{tx(m.label)}</PlatformLink>
-              <span className="text-[11px] text-text-muted">{tx(PAGE_TYPE_LABELS[m.pageType])}</span>
-              <button type="button" onClick={() => toggleFavorite(m.id)} className="rounded-xs px-2 py-1 text-[12px] text-text-secondary hover:bg-surface-sunken">{t('removeFavorite')}</button>
+              <PlatformLink href={linkTo(m.id)} className="flex-1 text-sm font-medium hover:text-accent-primary hover:underline">{tx(m.label)}</PlatformLink>
+              <span className="text-tiny text-text-muted">{tx(PAGE_TYPE_LABELS[m.pageType])}</span>
+              <button type="button" onClick={() => toggleFavorite(m.id)} className="rounded-xs px-2 py-1 text-xs text-text-secondary hover:bg-surface-sunken">{t('removeFavorite')}</button>
             </li>)}</ul>}
         </Panel>
         <Panel title={<span className="inline-flex items-center gap-2"><Clock3 className="size-4 text-text-muted" aria-hidden />{t('recent')}</span>} subtitle={lang === 'ko' ? '방문 당시 URL(Context 포함)로 돌아갑니다. 진입 시 권한·Scope를 다시 검증합니다.' : 'Returns to the visited URL (with context); access is re-validated on entry.'}>
-          {recentRows.length === 0 ? <p className="rounded-md bg-surface-sunken p-3 text-[12px] text-text-secondary">{t('noRecent')}</p> :
+          {recentRows.length === 0 ? <p className="rounded-md bg-surface-sunken p-3 text-xs text-text-secondary">{t('noRecent')}</p> :
             <ul className="divide-y divide-border-subtle">{recentRows.map(r => { const m = registry.menuById(r.menuId); return <li key={r.menuId} className="flex items-center gap-3 py-2">
               <m.icon className="size-4 text-text-muted" aria-hidden />
-              <PlatformLink href={r.url} className="min-w-0 flex-1 text-[13px] font-medium hover:text-accent-primary hover:underline">{tx(m.label)}<span className="t-mono ml-2 hidden truncate text-[11px] font-normal text-text-muted wide:inline">{decodeURIComponent(r.url).slice(0, 72)}</span></PlatformLink>
+              <PlatformLink href={r.url} className="min-w-0 flex-1 text-sm font-medium hover:text-accent-primary hover:underline">{tx(m.label)}<span className="t-mono ml-2 hidden truncate text-tiny font-normal text-text-muted wide:inline">{decodeURIComponent(r.url).slice(0, 72)}</span></PlatformLink>
               <StatusBadge tone="neutral">{ago(r.at)}</StatusBadge>
             </li>; })}</ul>}
         </Panel>

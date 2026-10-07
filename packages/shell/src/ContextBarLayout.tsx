@@ -137,7 +137,7 @@ export function ContextBarLayout({ controls, revision, actions }: {
     <div inert aria-hidden className="pointer-events-none invisible absolute inset-0 overflow-hidden">
     <div ref={probe} data-context-measuring className="flex w-max items-center gap-2 whitespace-nowrap">
       <MeasuringContext.Provider value>
-        <span data-measure="label" className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t('globalContext')}</span>
+        <span data-measure="label" className="text-tiny font-semibold uppercase tracking-wide text-text-muted">{t('globalContext')}</span>
         {controls.map(control => <div key={control.key} data-measure-key={control.key}>{control.node}</div>)}
         {period && <div data-measure="period">{period.compactNode ?? period.node}</div>}
         <div data-measure="actions">{actions(false)}</div><div data-measure="icons">{actions(true)}</div>
@@ -148,7 +148,7 @@ export function ContextBarLayout({ controls, revision, actions }: {
       </MeasuringContext.Provider>
     </div></div>
     <div className="flex h-full min-w-0 items-center gap-2 whitespace-nowrap">
-      {labelVisible && <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t('globalContext')}</span>}
+      {labelVisible && <span className="shrink-0 text-tiny font-semibold uppercase tracking-wide text-text-muted">{t('globalContext')}</span>}
       {period && item(period, compact)}
       {others.slice(0, inlineCount).map(control => item(control))}
       {hidden.length > 0 && <Popover open={overflowOpen || activeHidden} onOpenChange={setOverflowOpen}><PopoverTrigger asChild>

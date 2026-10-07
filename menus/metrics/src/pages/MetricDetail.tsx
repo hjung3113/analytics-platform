@@ -64,23 +64,23 @@ export default function MetricDetailPage({ params }: PageProps) {
       <Button variant="secondary" size="sm" className="h-8 rounded-sm" onClick={() => { void navigator.clipboard?.writeText(window.location.origin + url); toast(lang === 'ko' ? '이 버전의 링크를 복사했습니다.' : 'Copied the link to this version.'); }}>
         {lang === 'ko' ? '버전 링크 복사' : 'Copy version link'}
       </Button>
-      <PlatformLink href={linkTo('metric-catalog')} className="inline-flex h-8 items-center rounded-sm border border-border-subtle bg-surface-raised px-3 text-[12px] font-medium hover:bg-surface-card">
+      <PlatformLink href={linkTo('metric-catalog')} className="inline-flex h-8 items-center rounded-sm border border-border-subtle bg-surface-raised px-3 text-xs font-medium hover:bg-surface-card">
         {lang === 'ko' ? '카탈로그' : 'Catalog'}
       </PlatformLink>
       {returnTo !== null && <Button asChild variant="secondary" size="sm" className="h-8 rounded-sm"><PlatformLink href={returnTarget()}>{lang === 'ko' ? '이전 화면으로' : 'Back to previous view'}</PlatformLink></Button>}
     </>}
     contextExtension={<nav aria-label={lang === 'ko' ? '카탈로그 영역' : 'Catalog sections'} className="flex flex-wrap gap-1">
       {SECTIONS.map(s => <button key={s.id} type="button" aria-current={tab === s.id ? 'true' : undefined}
-        className={cn('h-8 rounded-sm border px-2.5 text-[12px]', tab === s.id ? 'border-accent-primary bg-accent-primary-soft font-semibold text-text-primary' : 'border-border-subtle bg-surface-card text-text-secondary hover:border-border-strong')}
+        className={cn('h-8 rounded-sm border px-2.5 text-xs', tab === s.id ? 'border-accent-primary bg-accent-primary-soft font-semibold text-text-primary' : 'border-border-subtle bg-surface-card text-text-secondary hover:border-border-strong')}
         onClick={() => setPage({ tab: s.id })}>
         {lang === 'ko' ? s.ko : s.en}
       </button>)}
-      {tab && !tabKnown && <span role="alert" className="self-center text-[12px] text-text-warning-label">{lang === 'ko' ? `등록되지 않은 tab=${tab}. 섹션을 숨기거나 다른 탭으로 바꾸지 않습니다.` : `Unregistered tab=${tab}. Sections stay visible and the value is not rewritten.`}</span>}
+      {tab && !tabKnown && <span role="alert" className="self-center text-xs text-text-warning-label">{lang === 'ko' ? `등록되지 않은 tab=${tab}. 섹션을 숨기거나 다른 탭으로 바꾸지 않습니다.` : `Unregistered tab=${tab}. Sections stay visible and the value is not rewritten.`}</span>}
     </nav>}
   >
     <div className="space-y-3">
       <MetricPairBanner viewedId={metricId} pageVersion={versionParam} />
-      {global.selection !== null && <p className="text-[12px] text-text-secondary">
+      {global.selection !== null && <p className="text-xs text-text-secondary">
         {lang === 'ko' ? '설비 선택은 참조만이며 정의·커버리지 예시를 Selection으로 좁히지 않습니다.' : 'Equipment selection is reference only and does not narrow the definition or coverage examples.'}
       </p>}
 
@@ -90,7 +90,7 @@ export default function MetricDetailPage({ params }: PageProps) {
           {data.problem === 'unknown-metric' || !data.metric ? (
           <StateMessage tone="danger" icon={<span className="t-mono">!</span>} title={lang === 'ko' ? '지표를 찾을 수 없습니다' : 'Metric not found'}
             body={lang === 'ko' ? `${metricId} 는 카탈로그에 없습니다. 다른 지표로 대체하지 않습니다.` : `${metricId} is not in the catalog. No other metric is substituted.`}
-            action={<PlatformLink href={linkTo('metric-catalog')} className="text-[12px] font-medium text-accent-primary hover:underline">{lang === 'ko' ? '카탈로그로 돌아가기' : 'Back to the catalog'}</PlatformLink>} />
+            action={<PlatformLink href={linkTo('metric-catalog')} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '카탈로그로 돌아가기' : 'Back to the catalog'}</PlatformLink>} />
         ) : (
           <div className="space-y-3">
             {data.problem === 'version-not-member' && <StateMessage tone="danger" icon={<span className="t-mono">v{data.requestedVersion}</span>}
@@ -107,7 +107,7 @@ export default function MetricDetailPage({ params }: PageProps) {
                 <OwnershipSection metric={data.metric} />
               </div>
               <div className="space-y-3">
-                {data.version ? <DefinitionSection metric={data.metric} version={data.version} previous={data.previous} /> : <Panel title={lang === 'ko' ? '정의' : 'Definition'}><p id={sectionId('definition')} className="scroll-mt-24 text-[12px] text-text-secondary">{lang === 'ko' ? '버전을 고르기 전에는 정의를 보여 주지 않습니다.' : 'The definition stays hidden until a version is selected.'}</p></Panel>}
+                {data.version ? <DefinitionSection metric={data.metric} version={data.version} previous={data.previous} /> : <Panel title={lang === 'ko' ? '정의' : 'Definition'}><p id={sectionId('definition')} className="scroll-mt-24 text-xs text-text-secondary">{lang === 'ko' ? '버전을 고르기 전에는 정의를 보여 주지 않습니다.' : 'The definition stays hidden until a version is selected.'}</p></Panel>}
                 {data.version && <CoverageSection version={data.version} ids={data.exampleEquipmentIds} rooms={data.exampleRooms} />}
               </div>
             </div>
@@ -125,7 +125,7 @@ export default function MetricDetailPage({ params }: PageProps) {
             <StateMessage tone="danger" icon={<span className="t-mono">!</span>} title={lang === 'ko' ? '이 버전의 사용처를 조회하지 않습니다' : 'Usage was not queried for this version'}
               body={lang === 'ko' ? '소속되지 않은 버전을 최신 게시 쌍으로 바꿔 사용처를 채우지 않습니다.' : 'A version that does not belong here is not rewritten to the latest published pair.'} />
           ) : (
-            <table className="w-full text-[13px]">
+            <table className="w-full text-sm">
               <thead><tr className="t-table-header text-left text-text-muted">
                 <th className="py-1 pr-3 font-semibold">{lang === 'ko' ? '메뉴' : 'Menu'}</th>
                 <th className="py-1 pr-3 font-semibold">{lang === 'ko' ? '위치' : 'Place'}</th>
@@ -137,12 +137,12 @@ export default function MetricDetailPage({ params }: PageProps) {
                 <td className="py-2 pr-3">{tx(CONSUMER_LABEL[row.menuId])}<span className="mt-0.5 block t-mono text-text-muted">{row.menuId}</span></td>
                 <td className="py-2 pr-3">{tx(row.place)}</td>
                 <td className="py-2 pr-3 text-right tabular">v{row.version}</td>
-                <td className="py-2 pr-3 text-[12px] text-text-secondary">{row.evidenceSource}<span className="mt-0.5 block text-text-muted">{lang === 'ko' ? '확인 시각 미확인' : 'Observed time unknown'}</span></td>
+                <td className="py-2 pr-3 text-xs text-text-secondary">{row.evidenceSource}<span className="mt-0.5 block text-text-muted">{lang === 'ko' ? '확인 시각 미확인' : 'Observed time unknown'}</span></td>
                 <td className="py-2">{(() => {
                   const link = resolveLink(row.menuId, { global: { metricId, metricVersion: row.version } });
                   return link.allowed
                     ? <PlatformLink className="font-medium text-accent-primary hover:underline" href={link.href}>{lang === 'ko' ? '사용처 열기' : 'Open consumer'}</PlatformLink>
-                    : <span className="text-[12px] text-text-muted">{lang === 'ko' ? '열 권한이 없습니다' : 'No access to open'}</span>;
+                    : <span className="text-xs text-text-muted">{lang === 'ko' ? '열 권한이 없습니다' : 'No access to open'}</span>;
                 })()}</td>
               </tr>)}</tbody>
             </table>
@@ -174,7 +174,7 @@ function VersionSection({ metric, selected, onSelect }: { metric: MetricDef; sel
         const on = selected?.version === v.version;
         return <li key={v.version}>
           <button type="button" aria-pressed={on} onClick={() => onSelect(v.version)}
-            className={cn('flex min-h-8 w-full items-center justify-between gap-2 rounded-sm border px-2 py-1 text-left text-[12px]', on ? 'border-accent-primary bg-accent-primary-soft' : 'border-border-subtle hover:border-border-strong')}>
+            className={cn('flex min-h-8 w-full items-center justify-between gap-2 rounded-sm border px-2 py-1 text-left text-xs', on ? 'border-accent-primary bg-accent-primary-soft' : 'border-border-subtle hover:border-border-strong')}>
             <span className="tabular font-semibold">v{v.version}</span>
             <StatusBadge tone={STATUS_TONE[v.state]}>{tx(STATUS_LABEL[v.state])}</StatusBadge>
           </button>
@@ -182,9 +182,9 @@ function VersionSection({ metric, selected, onSelect }: { metric: MetricDef; sel
       })}
     </ul>
     {selected && <div className="mt-3 border-t border-border-subtle pt-2">
-      <p className="text-[12px] font-semibold text-text-primary">{previous ? (lang === 'ko' ? `v${selected.version} ↔ 이전 v${previous.version}` : `v${selected.version} ↔ previous v${previous.version}`) : (lang === 'ko' ? '이전 버전 없음' : 'No previous version')}</p>
-      {previous && diff.length === 0 && <p className="mt-1 text-[12px] text-text-secondary">{lang === 'ko' ? '비교한 필드에 변경이 없습니다.' : 'No change in the compared fields.'}</p>}
-      {diff.length > 0 && <dl className="mt-1 space-y-1 text-[12px]">
+      <p className="text-xs font-semibold text-text-primary">{previous ? (lang === 'ko' ? `v${selected.version} ↔ 이전 v${previous.version}` : `v${selected.version} ↔ previous v${previous.version}`) : (lang === 'ko' ? '이전 버전 없음' : 'No previous version')}</p>
+      {previous && diff.length === 0 && <p className="mt-1 text-xs text-text-secondary">{lang === 'ko' ? '비교한 필드에 변경이 없습니다.' : 'No change in the compared fields.'}</p>}
+      {diff.length > 0 && <dl className="mt-1 space-y-1 text-xs">
         {diff.map(row => <div key={row.field}>
           <dt className="t-mono text-text-muted">{row.field}</dt>
           <dd className="tabular"><span className="text-text-danger-label line-through decoration-1">{row.before}</span> → <span className="text-text-success-label">{row.after}</span></dd>
@@ -224,7 +224,7 @@ function DefinitionSection({ metric, version, previous }: { metric: MetricDef; v
       <Field label={lang === 'ko' ? '기간 기준' : 'Time basis'}>{tx(PERIOD_BASIS)}</Field>
       <Field label="sourceContractRef" mono>{version.sourceContractRef}</Field>
     </dl>
-    <p className="mt-3 text-[12px] text-text-muted">{previous ? (lang === 'ko' ? `이전 v${previous.version} 대비 변경 ${diff.length}개 필드는 왼쪽 버전 영역에 있습니다.` : `${diff.length} field(s) differ from previous v${previous.version}; see Version.`) : (lang === 'ko' ? '비교할 이전 버전이 없습니다.' : 'No previous version to diff.')}</p>
+    <p className="mt-3 text-xs text-text-muted">{previous ? (lang === 'ko' ? `이전 v${previous.version} 대비 변경 ${diff.length}개 필드는 왼쪽 버전 영역에 있습니다.` : `${diff.length} field(s) differ from previous v${previous.version}; see Version.`) : (lang === 'ko' ? '비교할 이전 버전이 없습니다.' : 'No previous version to diff.')}</p>
   </Panel>;
 }
 
@@ -239,15 +239,15 @@ function CoverageSection({ version, ids, rooms }: { version: MetricVersion; ids:
       <Field label={lang === 'ko' ? '분모 기준' : 'Denominator basis'}>{tx(c.denominatorBasis)}</Field>
       <Field label="sourceRef" mono>{c.sourceRef ?? (lang === 'ko' ? '미정' : 'Unset')}</Field>
     </dl>
-    <p className="mt-3 text-[12px] font-semibold text-text-primary">{lang === 'ko' ? '실행 Coverage 값 없음' : 'No runtime coverage value'}</p>
-    <p className="mt-1 text-[12px] text-text-secondary">
+    <p className="mt-3 text-xs font-semibold text-text-primary">{lang === 'ko' ? '실행 Coverage 값 없음' : 'No runtime coverage value'}</p>
+    <p className="mt-1 text-xs text-text-secondary">
       {lang === 'ko'
         ? '아래 설비 ID는 정의의 모집단 규칙에 맞는 합성 예시입니다. 건수·비율로 읽지 않습니다. Selection으로 좁히지 않습니다.'
         : 'The equipment IDs below are synthetic examples matching the definition’s population rule. Do not read them as a count or a rate. Selection does not narrow them.'}
     </p>
     {ids.length === 0
-      ? <p className="mt-2 text-[12px] text-text-secondary">{lang === 'ko' ? '예시 설비가 없습니다. 0%로 표시하지 않습니다.' : 'No example equipment. This is not shown as 0%.'}</p>
+      ? <p className="mt-2 text-xs text-text-secondary">{lang === 'ko' ? '예시 설비가 없습니다. 0%로 표시하지 않습니다.' : 'No example equipment. This is not shown as 0%.'}</p>
       : <ul className="mt-2 space-y-1">{ids.map(id => <li key={id} className="t-mono text-text-primary">{id}</li>)}</ul>}
-    {rooms.length > 0 && <p className="mt-2 text-[12px] text-text-muted">room_name: <span className="t-mono">{rooms.join(', ')}</span></p>}
+    {rooms.length > 0 && <p className="mt-2 text-xs text-text-muted">room_name: <span className="t-mono">{rooms.join(', ')}</span></p>}
   </Panel>;
 }

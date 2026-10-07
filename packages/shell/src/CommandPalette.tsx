@@ -45,7 +45,7 @@ export function CommandPalette() {
           <Search className="size-4 text-text-muted" aria-hidden />
           <input autoFocus value={q} onChange={e => { setQ(e.target.value); setActive(0); }} placeholder={t('palettePlaceholder')}
             role="combobox" aria-expanded aria-controls="palette-list" aria-activedescendant={items[active] ? `palette-${items[active].id}` : undefined}
-            className="h-12 flex-1 bg-transparent text-[14px] outline-none"
+            className="h-12 flex-1 bg-transparent text-base outline-none"
             onKeyDown={e => {
               if (e.key === 'ArrowDown') { e.preventDefault(); setActive(a => Math.min(items.length - 1, a + 1)); }
               if (e.key === 'ArrowUp') { e.preventDefault(); setActive(a => Math.max(0, a - 1)); }
@@ -53,7 +53,7 @@ export function CommandPalette() {
             }} />
         </div>
         <ul id="palette-list" role="listbox" className="max-h-[50vh] overflow-auto p-1.5">
-          {items.length === 0 && <li className="px-3 py-6 text-center text-[13px] text-text-muted">{t('paletteEmpty')}</li>}
+          {items.length === 0 && <li className="px-3 py-6 text-center text-sm text-text-muted">{t('paletteEmpty')}</li>}
           {items.map((m, i) => {
             const Icon = m.icon;
             const group = registry.groupById(m.group);
@@ -61,14 +61,14 @@ export function CommandPalette() {
               className={cn('flex cursor-pointer items-center gap-3 rounded-md px-3 py-2', i === active && 'bg-accent-primary-soft')}>
               <Icon className="size-4 text-text-muted" aria-hidden />
               <span className="flex-1">
-                <span className="block text-[13px] font-medium">{tx(m.label)}</span>
-                <span className="block text-[11px] text-text-secondary">{tx(registry.spaceOf(m).label)} · {tx(group.label)} · {tx(PAGE_TYPE_LABELS[m.pageType])}{!m.component && ` · ${t('planned')}`}</span>
+                <span className="block text-sm font-medium">{tx(m.label)}</span>
+                <span className="block text-tiny text-text-secondary">{tx(registry.spaceOf(m).label)} · {tx(group.label)} · {tx(PAGE_TYPE_LABELS[m.pageType])}{!m.component && ` · ${t('planned')}`}</span>
               </span>
               {i === active && <CornerDownLeft className="size-3.5 text-text-muted" aria-hidden />}
             </li>;
           })}
         </ul>
-        <p className="border-t border-border-subtle bg-surface-sunken px-4 py-2 text-[11px] text-text-secondary">{t('paletteHint')} · {lang === 'ko' ? '이동 시 전역 Context를 보존합니다.' : 'Global context is preserved on navigation.'}</p>
+        <p className="border-t border-border-subtle bg-surface-sunken px-4 py-2 text-tiny text-text-secondary">{t('paletteHint')} · {lang === 'ko' ? '이동 시 전역 Context를 보존합니다.' : 'Global context is preserved on navigation.'}</p>
       </Dialog.Content>
     </Dialog.Portal>
   </Dialog.Root>;

@@ -37,18 +37,18 @@ function DetailContent({ title, subtitle, headerActions, context, tabs, onClose,
     <header className="flex items-start justify-between gap-3 border-b border-border-subtle px-5 py-4">
       <div className="min-w-0">
         <h2 id={`${id}-t`} className="t-section-title truncate">{title}</h2>
-        {subtitle && <p className="text-[12px] text-text-muted">{subtitle}</p>}
+        {subtitle && <p className="text-xs text-text-muted">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-1">
         {headerActions}
         <button ref={close} type="button" onClick={onClose} aria-label={lang === 'ko' ? '상세 닫기' : 'Close details'} className="grid size-8 place-items-center rounded-sm text-text-muted hover:bg-surface-sunken hover:text-text-primary"><X className="size-4" aria-hidden /></button>
       </div>
     </header>
-    {context && <div className="border-b border-border-subtle bg-surface-sunken px-5 py-2 text-[12px] text-text-secondary">{context}</div>}
+    {context && <div className="border-b border-border-subtle bg-surface-sunken px-5 py-2 text-xs text-text-secondary">{context}</div>}
     <OutcomeBanners />
     <Tabs value={tab} defaultValue={tab ? undefined : tabs[0].id} onValueChange={onTabChange} className="flex min-h-0 flex-1 flex-col">
       <TabsList aria-label={lang === 'ko' ? '상세 탭' : 'Detail tabs'} className="mx-5 mt-3 w-fit bg-surface-sunken text-text-secondary">
-        {tabs.map(tb => <TabsTrigger key={tb.id} value={tb.id} className="text-[12px]">{tb.label}</TabsTrigger>)}
+        {tabs.map(tb => <TabsTrigger key={tb.id} value={tb.id} className="text-xs">{tb.label}</TabsTrigger>)}
       </TabsList>
       {tabs.map(tb => <TabsContent key={tb.id} value={tb.id} className="min-h-0 flex-1 overflow-auto px-5 py-3">{tb.content}</TabsContent>)}
     </Tabs>
@@ -56,7 +56,7 @@ function DetailContent({ title, subtitle, headerActions, context, tabs, onClose,
 }
 
 export function Field({ label, children, mono }: { label: ReactNode; children: ReactNode; mono?: boolean }) {
-  return <div className="grid grid-cols-[9rem_1fr] gap-3 border-b border-border-subtle py-1.5 text-[13px] last:border-0">
+  return <div className="grid grid-cols-[9rem_1fr] gap-3 border-b border-border-subtle py-1.5 text-sm last:border-0">
     <dt className="text-text-muted">{label}</dt>
     <dd className={mono ? 't-mono' : 'tabular'}>{children}</dd>
   </div>;

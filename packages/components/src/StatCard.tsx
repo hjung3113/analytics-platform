@@ -19,11 +19,11 @@ export function StatCard({ icon: Icon, label, value, unit, delta, caption, chip 
       onClick && 'transition-colors hover:border-border-strong')}>
     <span className={cn('grid size-10 shrink-0 place-items-center rounded-md', chipClass)}><Icon className="size-6" strokeWidth={1.75} aria-hidden /></span>
     <span className="min-w-0 flex-1">
-      <span className="block text-[13px] font-medium text-text-secondary">{label}</span>
+      <span className="block text-sm font-medium text-text-secondary">{label}</span>
       <span className="mt-1 flex flex-wrap items-baseline gap-x-2">
         <span className="t-stat">{value}</span>
         {secondary && <span className="t-stat-2 text-text-secondary">{secondary}</span>}
-        {unit && <span className="text-[13px] font-medium text-text-muted">{unit}</span>}
+        {unit && <span className="text-sm font-medium text-text-muted">{unit}</span>}
         {delta && <span className={cn('t-delta inline-flex items-center', delta.good ? 'text-text-success-label' : 'text-text-danger-label')}>
           {delta.direction === 'up' ? <ArrowUpRight className={cn('size-3.5', delta.good ? 'text-text-success' : 'text-text-danger')} aria-hidden /> : <ArrowDownRight className={cn('size-3.5', delta.good ? 'text-text-success' : 'text-text-danger')} aria-hidden />}{delta.value}
         </span>}

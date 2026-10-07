@@ -15,11 +15,11 @@ export function StateMessage({ icon, title, body, action, tone = 'neutral', corr
   return <div role={tone === 'danger' ? 'alert' : 'status'} className={cn('flex flex-col items-start gap-2 rounded-md p-4',
     tone === 'danger' ? 'bg-accent-danger-soft text-text-danger-label' : tone === 'warning' ? 'bg-accent-warn-soft text-text-warning-label' : 'bg-surface-sunken text-text-secondary',
     compact ? 'p-3' : 'min-h-24')}>
-    <div className="flex items-center gap-2 font-semibold text-[13px]"><span className={cn(tone === 'danger' ? 'text-text-danger' : tone === 'warning' && 'text-text-warning')}>{icon}</span>{title}</div>
-    {body && <div className={cn('max-w-prose text-[12px] leading-4', tone === 'neutral' && 'opacity-90')}>{body}</div>}
+    <div className="flex items-center gap-2 font-semibold text-sm"><span className={cn(tone === 'danger' ? 'text-text-danger' : tone === 'warning' && 'text-text-warning')}>{icon}</span>{title}</div>
+    {body && <div className={cn('max-w-prose text-xs leading-4', tone === 'neutral' && 'opacity-90')}>{body}</div>}
     {(action || correlationId) && <div className="flex flex-wrap items-center gap-3">
       {action}
-      {correlationId && <span className={cn('t-mono text-[11px]', tone === 'neutral' && 'opacity-80')}>{t('correlationId')}: {correlationId}</span>}
+      {correlationId && <span className={cn('t-mono text-tiny', tone === 'neutral' && 'opacity-80')}>{t('correlationId')}: {correlationId}</span>}
     </div>}
   </div>;
 }
@@ -28,12 +28,12 @@ function GroupedStateMessage({ icon, title, body, action, tone = 'neutral', corr
   const { t } = useI18n();
   const nameId = useId();
   return <div data-widget-state role="group" aria-labelledby={widgetName && !hideWidgetName ? nameId : undefined} aria-label={hideWidgetName ? widgetName : undefined} className="min-w-0 rounded-md bg-surface-sunken p-3 text-text-secondary">
-    {widgetName && !hideWidgetName && <p id={nameId} className="mb-1.5 text-[13px] font-semibold">{widgetName}</p>}
-    <div className={cn('flex items-center gap-2 text-[12px] font-semibold', tone === 'danger' && 'text-text-danger-label', tone === 'warning' && 'text-text-warning-label')}><span className="shrink-0">{icon}</span>{title}</div>
-    {body && <div className="mt-1.5 break-words text-[12px] leading-4">{body}</div>}
+    {widgetName && !hideWidgetName && <p id={nameId} className="mb-1.5 text-sm font-semibold">{widgetName}</p>}
+    <div className={cn('flex items-center gap-2 text-xs font-semibold', tone === 'danger' && 'text-text-danger-label', tone === 'warning' && 'text-text-warning-label')}><span className="shrink-0">{icon}</span>{title}</div>
+    {body && <div className="mt-1.5 break-words text-xs leading-4">{body}</div>}
     {(action || correlationId) && <div className="mt-2 flex flex-wrap items-center gap-3">
       {action}
-      {correlationId && <span className="t-mono break-all text-[11px]">{t('correlationId')}: {correlationId}</span>}
+      {correlationId && <span className="t-mono break-all text-tiny">{t('correlationId')}: {correlationId}</span>}
     </div>}
   </div>;
 }
@@ -100,7 +100,7 @@ export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, em
       ? <span role="status" title={t('refreshing')} className="absolute right-5 top-11 z-[1] inline-flex text-text-muted">
         <Loader2 className="size-3 animate-spin" aria-hidden /><span className="sr-only">{t('refreshing')}</span>
       </span>
-      : <span role="status" className={analysisSection ? 'absolute right-9 -top-7 inline-flex items-center gap-1 text-[11px] text-text-muted' : 'absolute right-0 -top-7 inline-flex items-center gap-1 text-[11px] text-text-muted'}>
+      : <span role="status" className={analysisSection ? 'absolute right-9 -top-7 inline-flex items-center gap-1 text-tiny text-text-muted' : 'absolute right-0 -top-7 inline-flex items-center gap-1 text-tiny text-text-muted'}>
         <Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}
       </span>)}
     <OutcomeContent grouped={grouped} widgetName={widgetName} hideWidgetName={hideWidgetName} response={response} onRetry={query.refetch} emptyAction={emptyAction} compact={compact}>{data => children(data, response)}</OutcomeContent>

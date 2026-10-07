@@ -1,7 +1,7 @@
 {
   "src/AnalysisChartFrame.tsx": {
     "shadcn/no-arbitrary-values": {
-      "count": 22
+      "count": 1
     },
     "shadcn/no-inline-styles": {
       "count": 7
@@ -11,9 +11,6 @@
     }
   },
   "src/AnalysisLayout.tsx": {
-    "shadcn/no-arbitrary-values": {
-      "count": 4
-    },
     "shadcn/no-restyle": {
       "count": 4
     }
@@ -23,25 +20,14 @@
       "count": 1
     }
   },
-  "src/AuditTimeline.tsx": {
-    "shadcn/no-arbitrary-values": {
-      "count": 7
-    }
-  },
   "src/DataTrustIndicator.tsx": {
-    "shadcn/no-arbitrary-values": {
-      "count": 5
-    },
     "shadcn/no-restyle": {
       "count": 7
     }
   },
   "src/DetailDrawer.tsx": {
-    "shadcn/no-arbitrary-values": {
-      "count": 5
-    },
     "shadcn/no-restyle": {
-      "count": 5
+      "count": 3
     }
   },
   "src/EChart.tsx": {
@@ -55,19 +41,11 @@
     }
   },
   "src/ManagementLayout.tsx": {
-    "shadcn/no-arbitrary-values": {
-      "count": 3
-    },
     "shadcn/no-inline-styles": {
       "count": 2
     },
     "shadcn/no-restyle": {
       "count": 3
-    }
-  },
-  "src/OutcomeScope.tsx": {
-    "shadcn/no-arbitrary-values": {
-      "count": 1
     }
   },
   "src/PageFilterBar.tsx": {
@@ -77,7 +55,7 @@
   },
   "src/PlatformDataTable.tsx": {
     "shadcn/no-arbitrary-values": {
-      "count": 15
+      "count": 1
     },
     "shadcn/no-inline-styles": {
       "count": 8
@@ -86,20 +64,7 @@
       "count": 55
     }
   },
-  "src/PlatformPage.tsx": {
-    "shadcn/no-arbitrary-values": {
-      "count": 2
-    }
-  },
-  "src/StatCard.tsx": {
-    "shadcn/no-arbitrary-values": {
-      "count": 3
-    }
-  },
   "src/StateView.tsx": {
-    "shadcn/no-arbitrary-values": {
-      "count": 10
-    },
     "shadcn/no-inline-styles": {
       "count": 2
     },

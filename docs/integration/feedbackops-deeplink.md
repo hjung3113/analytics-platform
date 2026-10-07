@@ -1,6 +1,6 @@
 # FeedbackOps ↔ 플랫폼 딥링크 계약
 
-상태: **Decided (phase-1 allowlist)**. 계약 버전: `contract: 1`. 설계 근거: 이슈 #61, 06 §6(URL 계약)·§22(Context Link), [저장소 구조](repository-layout.md). 관찰 기준: FeedbackOps 서브모듈 커밋 **`a777ad1`**(이 문서가 다루는 `/vocs`의 `view`·`action`·`selected`·`managedSystem`과 `/surveys/$surveyId`의 `builder` 검색 키는 `6a0c7f8`과 같음을 확인했고, 다른 라우트는 확인하지 않았다).
+상태: **Decided (phase-1 allowlist)**. 계약 버전: `contract: 1`. 설계 근거: 이슈 #61, 06 §6(URL 계약)·§22(Context Link), [저장소 구조](repository-layout.md). 관찰 기준: FeedbackOps 서브모듈 커밋 **`13a3c5a`**(이 문서가 다루는 `/vocs`의 `view`·`action`·`selected`·`managedSystem`과 `/surveys/$surveyId`의 `builder` 검색 키는 `a777ad1`·`6a0c7f8`과 같음을 확인했고, 다른 라우트는 확인하지 않았다).
 
 이 문서가 플랫폼 ↔ FeedbackOps 양방향 링크의 원본이다. 플랫폼 URL 규칙 자체(전역 Context 키, `v`, `returnTo`)는 06 §6이 원본이고, FeedbackOps 라우트·검색 스키마는 그쪽 `docs/frontend/routes-and-layout.md`가 원본이다. 여기는 **매핑, phase-1 허용 키(allowlist), 소유 경계, 변경 절차**만 다룬다.
 
@@ -12,7 +12,7 @@ FeedbackOps `validateSearch`가 `.strict()`라 알 수 없는 쿼리 키는 그�
 
 Base는 인자 `origin`이다. 정규형은 정규식이 아니라 URL 표준 파싱(`new URL(input)`)으로 정하고, 입력이 `new URL(input).origin`과 정확히 같아야 한다(끝의 단일 슬래시 `/` 1개는 허용). `https`만 허용하고 `http`는 `localhost`/`127.0.0.1`만 허용한다. 정규형에서 벗어난 입력 — 축약 IPv4(`https://127.1`의 브라우저 origin은 `https://127.0.0.1`), 대문자 호스트(`https://EXAMPLE.com`), trailing-dot 호스트(`https://example.com.`), userinfo·path·query·hash, 기본 포트 — 는 `feedbackops_origin` 오류로 거부한다 — 보정하지 않는다. 앱이 `VITE_FEEDBACKOPS_ORIGIN`을 읽어 helper에 넘긴다(`PlatformAdapter`·kernel에 넣지 않는다. 어댑터 origin은 플랫폼 서버 포트다). 앱이 시작할 때 `VITE_FEEDBACKOPS_ORIGIN`을 읽어 `@ap/menu-notice-voc/feedbackops-origin`에 넣고, 메뉴가 `buildFeedbackOpsLink`로 링크를 만든다(#60). 값이 없거나 정규형이 아니면 링크를 만들지 않고 비활성으로 보인다(보정하지 않음).
 
-| target | phase-1이 내는 URL | FeedbackOps가 이미 읽는 것 (`a777ad1`) |
+| target | phase-1이 내는 URL | FeedbackOps가 이미 읽는 것 (`13a3c5a`) |
 | --- | --- | --- |
 | `voc-create` | `{origin}/vocs?action=create` 또는 `&managedSystem={uuid}` | `action=create` → `CreateRoute` → `initialManagedSystemId`. 사이드바 href와 동일 |
 | `voc-detail` | `{origin}/vocs?view=inbox&selected={uuid}` (+ uuid면 `managedSystem`) | `selected`는 uuid. inbox ListShell |

@@ -46,17 +46,17 @@ export function DevTools() {
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 rounded-md border border-border-strong bg-surface-card p-3 shadow-md">
         <p className="t-card-title">{t('scenario')}</p>
-        <p className="mb-2 text-[11px] text-text-muted">{t('scenarioHint')}</p>
+        <p className="mb-2 text-tiny text-text-muted">{t('scenarioHint')}</p>
         <SegmentedRadio
           label={t('scenario')}
           value={scenario}
           onChange={setScenario}
           className="grid grid-cols-2 gap-1"
-          optionClassName={selected => cn('flex items-center gap-1.5 rounded-sm border px-2 py-1.5 text-left text-[12px]', selected ? 'border-accent-primary bg-accent-primary-soft text-accent-primary' : 'border-border-subtle hover:bg-surface-sunken')}
+          optionClassName={selected => cn('flex items-center gap-1.5 rounded-sm border px-2 py-1.5 text-left text-xs', selected ? 'border-accent-primary bg-accent-primary-soft text-accent-primary' : 'border-border-subtle hover:bg-surface-sunken')}
           options={SCENARIOS.map(s => ({ value: s.id, label: <>{scenario === s.id && <Check className="size-3" aria-hidden />}{lang === 'ko' ? s.ko : s.en}</> }))}
         />
-        <p className="mb-1 mt-3 text-[11px] font-semibold uppercase tracking-wide text-text-muted">{lang === 'ko' ? '계약 검증 링크' : 'Contract test links'}</p>
-        <ul className="space-y-0.5 text-[12px]">
+        <p className="mb-1 mt-3 text-tiny font-semibold uppercase tracking-wide text-text-muted">{lang === 'ko' ? '계약 검증 링크' : 'Contract test links'}</p>
+        <ul className="space-y-0.5 text-xs">
           {[
             { ko: '권한 없는 Scope (XIA)', en: 'Forbidden scope (XIA)', url: '/analytics/productivity?v=1&scopeId=XIA&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00' },
             { ko: '미지원 URL 버전 (v=2)', en: 'Unsupported version (v=2)', url: '/equipment?v=2&scopeId=ICH' },
@@ -76,11 +76,11 @@ export function DevTools() {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64 rounded-md border border-border-strong bg-surface-card p-1 shadow-md">
-        <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t('role')}</DropdownMenuLabel>
+        <DropdownMenuLabel className="text-tiny font-semibold uppercase tracking-wide text-text-muted">{t('role')}</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={role} onValueChange={v => switchRole(v as RoleId)}>
-          {(Object.keys(USERS) as RoleId[]).map(r => <DropdownMenuRadioItem key={r} value={r} className="text-[13px]">
+          {(Object.keys(USERS) as RoleId[]).map(r => <DropdownMenuRadioItem key={r} value={r} className="text-sm">
             <span className="flex-1">{tx(USERS[r].title)}</span>
-            <span className="text-[11px] text-text-muted">{USERS[r].permissions.length} perms</span>
+            <span className="text-tiny text-text-muted">{USERS[r].permissions.length} perms</span>
           </DropdownMenuRadioItem>)}
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>

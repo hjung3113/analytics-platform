@@ -132,7 +132,9 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         valueFormatter: (v: number | null) => (v === null || v === undefined ? (lang === 'ko' ? '미확인' : 'unknown') : `${format(v)} ${p.unit}`),
       },
       xAxis: xType === 'time'
+        // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
         ? { type: 'time', axisLine: { lineStyle: { color: token('border-strong') } }, axisLabel: { hideOverlap: true }, splitLine: { show: false } }
+        // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
         : { type: 'category', data: categories, axisLine: { lineStyle: { color: token('border-strong') } }, axisTick: { alignWithLabel: true } },
       yAxis: { type: 'value', min: 0, name: p.unit, nameTextStyle: { align: 'right' }, splitLine: { lineStyle: { color: token('chart-grid') } } },
       dataZoom: [{ type: 'inside', xAxisIndex: 0, start: zoom[0], end: zoom[1], zoomOnMouseWheel: 'shift', moveOnMouseMove: !brushMode }],
@@ -154,6 +156,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         {
           id: '__overlay', type: 'line', data: [], silent: true, symbol: 'none',
           markArea: { silent: true, data: areas },
+          // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
           markLine: p.markLines?.length ? { silent: true, symbol: 'none', lineStyle: { color: token('text-secondary'), type: 'dashed' }, label: { formatter: '{b}', fontSize: 10, color: token('text-secondary'), position: 'insideEndTop' }, data: p.markLines.map(m => ({ name: m.label, yAxis: m.y })) } : undefined,
         },
       ],
@@ -200,8 +203,9 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
 
   function renderLegendSeries(s: ChartSeries, previous: boolean) {
     const kind = s.kind ?? 'line';
+    // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
     const stroke = token(kind === 'bar' && s.color === 'chart-remainder' ? 'border-control' : strokeToken(s.color));
-    return <label key={s.id} className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] text-text-secondary">
+    return <label key={s.id} className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text-secondary">
       <input type="checkbox" className="size-3.5 accent-[rgb(var(--accent-primary))]" checked={!hidden.has(s.id)} onChange={() => setHidden(h => { const n = new Set(h); if (n.has(s.id)) n.delete(s.id); else n.add(s.id); return n; })} />
       {kind === 'bar'
         ? <span aria-hidden className="inline-block size-3 border-2" style={{ backgroundColor: token(s.color), borderColor: stroke }} />
@@ -212,12 +216,12 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
 
   function renderPeriodLegendGroup(id: string, title: string, series: ChartSeries[], previous: boolean) {
     if (!usePeriodLegendGrid) return <div role="group" aria-labelledby={id} className="flex flex-wrap items-center gap-x-4 gap-y-1">
-      <strong id={id} className="min-w-20 text-[12px] font-medium text-text-secondary">{title}</strong>
+      <strong id={id} className="min-w-20 text-xs font-medium text-text-secondary">{title}</strong>
       {series.map(s => renderLegendSeries(s, previous))}
     </div>;
 
     return <div role="group" aria-labelledby={id} className="grid items-center gap-x-4" style={{ gridColumn: '1 / -1', gridTemplateColumns: 'subgrid' }}>
-      <strong id={id} className="min-w-20 text-[12px] font-medium text-text-secondary" style={{ gridColumn: 1 }}>{title}</strong>
+      <strong id={id} className="min-w-20 text-xs font-medium text-text-secondary" style={{ gridColumn: 1 }}>{title}</strong>
       {series.map((s, index) => <div key={s.id} data-legend-series-id={s.id} style={{ gridColumn: index + 2 }}>{renderLegendSeries(s, previous)}</div>)}
     </div>;
   }
@@ -247,14 +251,14 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     } catch { failed(); } finally { setSaving(false); }
   }
 
-  const tb = 'h-7 gap-1 px-2 text-[12px]';
+  const tb = 'h-7 gap-1 px-2 text-xs';
   return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className="relative flex flex-col rounded-lg border border-border-subtle bg-surface-card">
     {/* Pinned to the card corner so a wrapping toolbar never strands it on its own line. */}
     <AnalysisChartPart enabled={analysisSection !== null}>
     <header className={cn('flex flex-wrap items-start justify-between gap-2 px-4 pt-3', analysisSection && 'pr-12')}>
       <div className="min-w-0">
         <h2 id={titleId} className="t-card-title">{p.title}</h2>
-        {(p.description || p.metricVersion) && <p className="text-[12px] text-text-muted">{p.description}{p.metricVersion && <> · <span className="tabular">{t('metricVersion')} {formatMetricVersion(p.metricVersion)}</span></>}</p>}
+        {(p.description || p.metricVersion) && <p className="text-xs text-text-muted">{p.description}{p.metricVersion && <> · <span className="tabular">{t('metricVersion')} {formatMetricVersion(p.metricVersion)}</span></>}</p>}
       </div>
       <div role="toolbar" aria-label={lang === 'ko' ? '차트 동작' : 'Chart actions'} className="flex flex-wrap items-center gap-1">
         {p.extraActions}
@@ -266,7 +270,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         {canExport && <Button variant="ghost" size="sm" className={tb} onClick={exportCsv}><Download className="size-3.5" aria-hidden />Export</Button>}
         <Popover>
           <PopoverTrigger asChild><Button variant="ghost" size="sm" className={tb} aria-label="More"><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
-          <PopoverContent align="end" className="w-72 rounded-md border border-border-strong bg-surface-card p-3 text-[12px] shadow-md">
+          <PopoverContent align="end" className="w-72 rounded-md border border-border-strong bg-surface-card p-3 text-xs shadow-md">
             <button type="button" className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-surface-sunken" onClick={() => setShowTable(s => !s)}><Table2 className="size-3.5" aria-hidden />{showTable ? (lang === 'ko' ? '데이터 표 숨기기' : 'Hide data table') : (lang === 'ko' ? '같은 데이터를 표로 보기' : 'Show same data as table')}</button>
             <p className="mt-2 border-t border-border-subtle pt-2 text-text-muted">{lang === 'ko'
               ? 'Zoom·Brush·시리즈 표시·Compare는 이 차트의 로컬 상태로 URL에 저장되지 않습니다. 구간을 전역 기간으로 올리려면 선택 요약의 “분석 구간 적용”을 명시적으로 눌러야 합니다. 주석은 서버에 사이트(Scope)별로 보관되어 Reset 후에도 유지됩니다.'
@@ -284,8 +288,8 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         {renderPeriodLegendGroup(currentPeriodId, t('currentPeriod'), p.series, false)}
         {renderPeriodLegendGroup(previousPeriodId, t('previousPeriod'), p.compareSeries ?? [], true)}
       </> : allSeries.map(s => renderLegendSeries(s, false))}
-      {brushMode && <span className="text-[11px] text-accent-primary">{lang === 'ko' ? '차트를 드래그해 구간을 선택하세요' : 'Drag across the chart to select a range'}</span>}
-      {p.onPointClick && !brushMode && p.pointClickHint && <span className="text-[11px] text-text-muted">{p.pointClickHint}</span>}
+      {brushMode && <span className="text-tiny text-accent-primary">{lang === 'ko' ? '차트를 드래그해 구간을 선택하세요' : 'Drag across the chart to select a range'}</span>}
+      {p.onPointClick && !brushMode && p.pointClickHint && <span className="text-tiny text-text-muted">{p.pointClickHint}</span>}
     </div>
 
     </AnalysisChartPart>
@@ -294,7 +298,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       ariaLabel={`${typeof p.title === 'string' ? p.title : p.chartId}: ${visible.map(s => s.name).join(', ')}`} /></div>
 
     {showTable && <div className="mx-4 mb-2 max-h-56 overflow-auto rounded-md border border-border-subtle">
-      <table className="w-full text-[12px] tabular">
+      <table className="w-full text-xs tabular">
         <thead className="sticky top-0 bg-surface-sunken"><tr><th className="t-table-header px-3 py-1.5 text-left text-text-secondary">x</th>{visible.map(s => <th key={s.id} className="t-table-header px-3 py-1.5 text-right text-text-secondary">{s.name}</th>)}</tr></thead>
         <tbody>{(visible[0]?.points ?? []).map(([x], i) => <tr key={x} className="border-t border-border-subtle">
           <td className="px-3 py-1">{xType === 'time' ? fmt(x) : x}</td>
@@ -303,38 +307,38 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       </table>
     </div>}
 
-    <section aria-label={lang === 'ko' ? '선택 요약' : 'Selection summary'} aria-live="polite" className="mx-4 mb-3 min-h-9 rounded-md bg-surface-sunken px-3 py-2 text-[12px]">
+    <section aria-label={lang === 'ko' ? '선택 요약' : 'Selection summary'} aria-live="polite" className="mx-4 mb-3 min-h-9 rounded-md bg-surface-sunken px-3 py-2 text-xs">
       {!selection ? <span className="text-text-secondary">{lang === 'ko' ? '선택 구간 없음 — Brush로 구간을 선택하면 요약·주석·구간 적용을 할 수 있습니다.' : 'No selection — brush a range to summarize, annotate or apply it.'}</span>
         : <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <span className="font-semibold tabular">{t('selectedRange')}: {xType === 'time' ? `${fmt(selection.from)} – ${fmt(selection.to)}` : `${selection.from} – ${selection.to}`}</span>
           {selectionCounts.map(c => <span key={c.s.id} className="tabular text-text-secondary">{c.s.name}: n={c.n}{c.avg !== null && ` · avg ${format(c.avg)} · max ${format(c.max!)}`} {p.unit}</span>)}
           <span className="ml-auto flex flex-wrap gap-2">
             {p.selectionActions?.(selection)}
-            {xType === 'time' && p.canApplyRange !== false && <Button size="sm" className="h-7 px-2 text-[12px]" onClick={() => setPreview(selection)}>{lang === 'ko' ? '분석 구간 적용…' : 'Apply analysis range…'}</Button>}
-            <Button size="sm" variant="ghost" className="h-7 px-2 text-[12px]" onClick={() => setSelection(null)}>{t('clear')}</Button>
+            {xType === 'time' && p.canApplyRange !== false && <Button size="sm" className="h-7 px-2 text-xs" onClick={() => setPreview(selection)}>{lang === 'ko' ? '분석 구간 적용…' : 'Apply analysis range…'}</Button>}
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setSelection(null)}>{t('clear')}</Button>
           </span>
         </div>}
       {preview && <div role="alertdialog" aria-label={lang === 'ko' ? '구간 적용 확인' : 'Confirm range'} className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-accent-primary bg-surface-card p-2">
         <span className="tabular">{lang === 'ko' ? '전역 기간을 다음으로 변경합니다 (초 정렬, [from, to)):' : 'Change the global period to (second-aligned, [from, to)):'} <b>{preview.from.replace('T', ' ')} → {preview.to.replace('T', ' ')}</b></span>
-        <Button size="sm" className="h-7 px-2 text-[12px]" onClick={() => { setGlobal({ from: preview.from, to: preview.to }); toast(lang === 'ko' ? '선택 구간을 전역 기간으로 적용했습니다. 다른 메뉴로 이동해도 유지됩니다.' : 'Applied the selection as the global period; it carries across menus.'); }}>{t('apply')}</Button>
-        <Button size="sm" variant="secondary" className="h-7 px-2 text-[12px]" onClick={() => setPreview(null)}>{t('cancel')}</Button>
+        <Button size="sm" className="h-7 px-2 text-xs" onClick={() => { setGlobal({ from: preview.from, to: preview.to }); toast(lang === 'ko' ? '선택 구간을 전역 기간으로 적용했습니다. 다른 메뉴로 이동해도 유지됩니다.' : 'Applied the selection as the global period; it carries across menus.'); }}>{t('apply')}</Button>
+        <Button size="sm" variant="secondary" className="h-7 px-2 text-xs" onClick={() => setPreview(null)}>{t('cancel')}</Button>
       </div>}
       {canAnnotate && note !== null && selection && <form className="mt-2 flex flex-wrap items-center gap-2" onSubmit={e => { e.preventDefault(); void saveNote(selection); }}>
         <input autoFocus aria-label={lang === 'ko' ? '주석 내용' : 'Annotation text'} value={note} onChange={e => setNote(e.target.value)} placeholder={lang === 'ko' ? '예: PM 작업으로 인한 대기 증가' : 'e.g. queue spike due to PM'} className="h-7 min-w-64 flex-1 rounded-md border border-border-control bg-surface-card px-2" />
-        <Button size="sm" type="submit" disabled={saving} className="h-7 px-2 text-[12px]">{lang === 'ko' ? '저장' : 'Save'}</Button>
-        <Button size="sm" type="button" variant="ghost" className="h-7 px-2 text-[12px]" onClick={closeNote}>{t('cancel')}</Button>
+        <Button size="sm" type="submit" disabled={saving} className="h-7 px-2 text-xs">{lang === 'ko' ? '저장' : 'Save'}</Button>
+        <Button size="sm" type="button" variant="ghost" className="h-7 px-2 text-xs" onClick={closeNote}>{t('cancel')}</Button>
       </form>}
-      {canAnnotate && scopeId !== null && annotationQuery.response && !['ok', 'empty'].includes(annotationQuery.response.outcome) && <p role="alert" className="mt-2 flex items-center gap-2 border-t border-border-subtle pt-1.5 text-[11px] text-text-secondary">
+      {canAnnotate && scopeId !== null && annotationQuery.response && !['ok', 'empty'].includes(annotationQuery.response.outcome) && <p role="alert" className="mt-2 flex items-center gap-2 border-t border-border-subtle pt-1.5 text-tiny text-text-secondary">
         {lang === 'ko' ? '주석을 불러오지 못했습니다. 차트는 그대로 사용할 수 있습니다.' : 'Could not load annotations. The chart is unaffected.'}
-        <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={refetchAnnotations}>{lang === 'ko' ? '다시 시도' : 'Retry'}</Button>
+        <Button size="sm" variant="ghost" className="h-6 px-2 text-tiny" onClick={refetchAnnotations}>{lang === 'ko' ? '다시 시도' : 'Retry'}</Button>
       </p>}
-      {annotations.length > 0 && <ul className="mt-2 space-y-0.5 border-t border-border-subtle pt-1.5 text-[11px] text-text-secondary">
+      {annotations.length > 0 && <ul className="mt-2 space-y-0.5 border-t border-border-subtle pt-1.5 text-tiny text-text-secondary">
         {annotations.map(a => <li key={a.id} className="tabular"><span className="mr-1 inline-block size-2 rounded-xs bg-chart-purple/60 align-middle" aria-hidden />{xType === 'time' ? `${fmt(a.from)}–${fmt(a.to)}` : `${a.from}–${a.to}`}: {a.text}</li>)}
       </ul>}
     </section>
 
-    {p.trust && <footer className="border-t border-border-subtle px-4 py-2 text-[11px] text-text-muted tabular">
-      {t('source')}: <span className="t-mono text-[11px]">{p.trust.source}</span> · {t('updated')}: {p.trust.updated} · {t('coverage')}: {p.trust.coverage}
+    {p.trust && <footer className="border-t border-border-subtle px-4 py-2 text-tiny text-text-muted tabular">
+      {t('source')}: <span className="t-mono text-tiny">{p.trust.source}</span> · {t('updated')}: {p.trust.updated} · {t('coverage')}: {p.trust.coverage}
     </footer>}
     </AnalysisChartPart>
   </section>;

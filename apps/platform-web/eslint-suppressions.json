@@ -1,8 +1,5 @@
 {
   "src/dev/DevTools.tsx": {
-    "shadcn/no-arbitrary-values": {
-      "count": 7
-    },
     "shadcn/no-restyle": {
       "count": 19
     },

@@ -167,7 +167,7 @@ describe('AnalysisLayout', () => {
     const { container } = mountNode(queryNode('ok', true), false);
     expect(container.querySelector('[aria-busy]')).toHaveAttribute('class', 'relative');
     expect(screen.getByText('같은 조건으로 갱신 중').closest('[role="status"]'))
-      .toHaveAttribute('class', 'absolute right-0 -top-7 inline-flex items-center gap-1 text-[11px] text-text-muted');
+      .toHaveAttribute('class', 'absolute right-0 -top-7 inline-flex items-center gap-1 text-tiny text-text-muted');
   });
 
   it('measures its own width and gives paired charts shared header/body rows', () => {

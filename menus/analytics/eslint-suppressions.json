@@ -1,24 +1,15 @@
 {
   "src/pages/CycleTimeDrilldown.tsx": {
-    "shadcn/no-arbitrary-values": {
-      "count": 15
-    },
     "shadcn/no-restyle": {
       "count": 6
     }
   },
   "src/pages/ExecutionDetail.tsx": {
-    "shadcn/no-arbitrary-values": {
-      "count": 11
-    },
     "shadcn/no-inline-styles": {
       "count": 2
     }
   },
   "src/pages/ProductivityOverview.tsx": {
-    "shadcn/no-arbitrary-values": {
-      "count": 9
-    },
     "shadcn/no-inline-styles": {
       "count": 1
     },

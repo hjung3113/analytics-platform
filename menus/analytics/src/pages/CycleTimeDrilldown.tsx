@@ -109,7 +109,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
       <PageFilterBar label={ko ? '페이지 필터' : 'Page filter'} fields={[
         { kind: 'custom', key: 'granularity', label: ko ? '집계' : 'Grain', content: <div className="flex flex-wrap items-center gap-1">
           {(['hour', 'day', 'week'] as const).map(value => <button key={value} type="button" aria-pressed={!granularityPending && granularityResult.ok && granularity === value}
-            className={!granularityPending && granularityResult.ok && granularity === value ? 'h-8 rounded-md bg-accent-primary-soft px-2 text-[12px] font-medium text-accent-primary' : 'h-8 rounded-md px-2 text-[12px] text-text-secondary hover:bg-surface-sunken'}
+            className={!granularityPending && granularityResult.ok && granularity === value ? 'h-8 rounded-md bg-accent-primary-soft px-2 text-xs font-medium text-accent-primary' : 'h-8 rounded-md px-2 text-xs text-text-secondary hover:bg-surface-sunken'}
             onClick={() => setPage({ granularity: value, bucket: null, page: null })}>{value === 'hour' ? (ko ? '시간' : 'Hour') : value === 'day' ? (ko ? '일' : 'Day') : (ko ? '주' : 'Week')}</button>)}
         </div> },
         { kind: 'select', key: 'percentile', label: cycleTailFilterLabel(ko ? 'ko' : 'en'), value: tailResult.ok ? tailMode : percentileRaw ?? '', options: [
@@ -123,8 +123,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
           { value: 'anchor:asc', label: ko ? '시작 오래된' : 'Start oldest' },
           { value: 'equipmentId:asc', label: 'Equipment A→Z' },
         ], onValueChange: value => setPage({ sort: value === DEFAULT_SORT ? null : value, page: null }) },
-      ]} actions={<Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-[12px]" onClick={() => setPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{ko ? '페이지 조건 기본값' : 'Reset page filters'}</Button>} />
-      <p className="text-[12px] text-text-muted">
+      ]} actions={<Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => setPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{ko ? '페이지 조건 기본값' : 'Reset page filters'}</Button>} />
+      <p className="text-xs text-text-muted">
         {ko
           ? `집계 기본값은 기간 ≤48h이면 hour, 아니면 day${!granularityResult.ok || granularityResult.explicit ? '' : ` (지금 ${granularity}, URL에 없음)`}. 꼬리 기본값은 ≥ P95 (Candidate, 동률 포함)이며 KPI 모집단을 다시 줄이지 않습니다. 버킷·분포 구간은 URL 키 bucket·bin에, 정렬·페이지는 sort·page에 남습니다.`
           : `Default grain is hour when the period is ≤48h, otherwise day${!granularityResult.ok || granularityResult.explicit ? '' : ` (now ${granularity}, not in the URL)`}. Default tail is ≥ P95 (Candidate, ties included) and does not shrink the KPI population. Bucket and histogram selections stay in the URL keys bucket and bin; sort and page are URL keys too.`}
@@ -139,7 +139,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
       body={ko
           ? `${pageErrors.join(', ')} 은 이 화면의 등록 값이 아닙니다. hour|day|week, p50|p95|all, column:asc|desc, bucket=경계 시각, bin=구간|from..to, page=1 이상 정수 만 허용하며 다른 값으로 바꾸지 않습니다.`
         : `${pageErrors.join(', ')} is not a registered value. Allowed: hour|day|week, p50|p95|all, column:asc|desc, bucket=aligned timestamp, bin=id|from..to, page=integer ≥ 1. Nothing was substituted.`} />
-      : !periodReady ? <p className="text-[13px] text-text-muted">{ko ? '전역 기간이 URL에 확정되면 조회합니다.' : 'The query starts once the global period is in the URL.'}</p>
+      : !periodReady ? <p className="text-sm text-text-muted">{ko ? '전역 기간이 URL에 확정되면 조회합니다.' : 'The query starts once the global period is in the URL.'}</p>
         : <AnalysisLayout
           kpi={{ id: 'summary', title: ko ? '사이클타임 요약' : 'Cycle time summary', node: <>
           <div className="relative" data-testid="cycle-kpi">
@@ -152,7 +152,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
               </div>}
             </QueryView>
           </div>
-          <p className="text-[12px] text-text-muted">{ko
+          <p className="text-xs text-text-muted">{ko
             ? 'Candidate: 선형 보간 후 0.1분 반올림, 미완료 Job은 생성하지 않음, 느린 실행은 표시된 P95 이상(동률 포함). 감소를 개선으로 칠한 증감은 직전 동일 길이 기간 대비입니다. 빈 버킷은 0이 아닙니다.'
             : 'Candidate: linear interpolation rounded to 0.1 min, no in-progress jobs, slow means ≥ the displayed P95 (ties included). Deltas versus the previous equal-length period treat a decrease as an improvement. Empty buckets are not zero.'}</p>
 
@@ -205,7 +205,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
                 height={220}
                 series={[{ id: 'hist', name: ko ? '실행 수' : 'Executions', color: 'chart-blue', kind: 'bar', points: data.bins.map((item): [string, number] => [item.id, item.count]) }]}
                 trust={chartTrust(response.trust, unknown)}
-                selectionActions={selection => <Button size="sm" className="h-7 px-2 text-[12px]" onClick={() => setPage({ bin: selection.from === selection.to ? selection.from : `${selection.from}..${selection.to}`, page: null })}>{ko ? '이 구간 실행 보기' : 'Show executions in this range'}</Button>}
+                selectionActions={selection => <Button size="sm" className="h-7 px-2 text-xs" onClick={() => setPage({ bin: selection.from === selection.to ? selection.from : `${selection.from}..${selection.to}`, page: null })}>{ko ? '이 구간 실행 보기' : 'Show executions in this range'}</Button>}
               />}
             </QueryView>
             },
@@ -242,15 +242,15 @@ export default function CycleTimeDrilldown(_: PageProps) {
             emptyAction={(bucketRange || bin || tailMode !== 'p95')
               ? <Button size="sm" variant="secondary" onClick={() => setPage({ bucket: null, bin: null, percentile: 'all', page: null })}>{ko ? '목록 필터 해제' : 'Clear list filters'}</Button>
               : undefined}
-            rowAction={row => <PlatformLink className="text-[12px] font-medium text-accent-primary hover:underline" href={linkTo('execution-detail', { params: { equipmentId: row.equipmentId }, page: { entityType: 'job', anchor: row.anchor }, returnTo: true })}>{ko ? '상세' : 'Detail'}</PlatformLink>}
-            bulkActions={ids => <Button size="sm" className="h-7 px-2 text-[12px]" onClick={() => {
+            rowAction={row => <PlatformLink className="text-xs font-medium text-accent-primary hover:underline" href={linkTo('execution-detail', { params: { equipmentId: row.equipmentId }, page: { entityType: 'job', anchor: row.anchor }, returnTo: true })}>{ko ? '상세' : 'Detail'}</PlatformLink>}
+            bulkActions={ids => <Button size="sm" className="h-7 px-2 text-xs" onClick={() => {
               const equipmentIds = [...new Set(ids.map(equipmentIdFromKey))];
               setGlobal({ selection: equipmentIds });
               toast(ko ? `설비 ${equipmentIds.length}대를 전역 Selection으로 적용했습니다. 다른 메뉴에도 유지됩니다.` : `Applied ${equipmentIds.length} equipment as the global selection. It carries across menus.`);
             }}>{ko ? '선택 설비로 분석 좁히기' : 'Narrow analysis to selected equipment'}</Button>}
             loadPage={(query, signal) => slowPages.fetch({ ...listFilter, ...query, sorting: [{ id: sortSpec.id, desc: sortSpec.desc }] }, signal)}
           />
-          <p className="text-[12px] text-text-muted">{ko
+          <p className="text-xs text-text-muted">{ko
             ? '품질 배지는 Candidate입니다. unknown은 미확정이며 정상으로 채우지 않습니다. review는 합성 플래그이고 불량·수율이 아닙니다.'
             : 'Quality badges are Candidate. unknown stays unconfirmed and is not filled in as pass. review is a synthetic flag, not a defect or yield.'}</p>
           {kpi.response && kpi.response.outcome === 'ok' && <DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} />}
@@ -263,13 +263,13 @@ function MetricBanner({ metric }: { metric: ResolvedMetric }) {
   const { lang } = useI18n();
   const ko = lang === 'ko';
   if (metric.kind === 'unconfirmed') {
-    return <p className="text-[12px] text-text-secondary" data-testid="metric-banner">{ko ? `${metric.metricId} 버전이 확인되지 않았습니다. 페이지 기본 버전으로 채우지 않습니다.` : `${metric.metricId} has no confirmed version. The page default is not filled in.`}</p>;
+    return <p className="text-xs text-text-secondary" data-testid="metric-banner">{ko ? `${metric.metricId} 버전이 확인되지 않았습니다. 페이지 기본 버전으로 채우지 않습니다.` : `${metric.metricId} has no confirmed version. The page default is not filled in.`}</p>;
   }
   const versionNote = metric.metricVersion === '4'
     ? (ko ? '분은 생산성 개요의 cycle_time v4와 같습니다.' : 'Minutes match productivity’s cycle_time v4.')
     : CYCLE_VERSION_NOTE[ko ? 'ko' : 'en'];
   if (metric.kind === 'page-default') {
-    return <p className="flex flex-wrap items-center gap-2 text-[12px] text-text-secondary" data-testid="metric-banner">
+    return <p className="flex flex-wrap items-center gap-2 text-xs text-text-secondary" data-testid="metric-banner">
       <StatusBadge tone="info">{ko ? '페이지 기본값' : 'Page default'}</StatusBadge>
       <span className="t-mono">{PAGE_METRIC_ID} v{metric.metricVersion}</span>
       <span>{ko ? '전역 metric 쌍이 없습니다. 이 값으로 계산하며 URL에는 쓰지 않습니다.' : 'No global metric pair. Calculations use this value and do not write it into the URL.'}</span>
@@ -277,7 +277,7 @@ function MetricBanner({ metric }: { metric: ResolvedMetric }) {
     </p>;
   }
   if (metric.kind === 'not-applied') {
-    return <p className="flex flex-wrap items-center gap-2 text-[12px] text-text-secondary" data-testid="metric-banner">
+    return <p className="flex flex-wrap items-center gap-2 text-xs text-text-secondary" data-testid="metric-banner">
       <StatusBadge tone="warning">{ko ? '미적용' : 'Not applied'}</StatusBadge>
       <span className="t-mono">{metric.globalMetricId}{metric.globalMetricVersion ? ` v${metric.globalMetricVersion}` : ''}</span>
       <span>{ko
@@ -286,7 +286,7 @@ function MetricBanner({ metric }: { metric: ResolvedMetric }) {
       <span>{versionNote}</span>
     </p>;
   }
-  return <p className="flex flex-wrap items-center gap-2 text-[12px] text-text-secondary" data-testid="metric-banner">
+  return <p className="flex flex-wrap items-center gap-2 text-xs text-text-secondary" data-testid="metric-banner">
     <StatusBadge tone="success">{ko ? '적용' : 'Applied'}</StatusBadge>
     <span className="t-mono">{metric.metricId} v{metric.metricVersion}</span>
     <span>{metric.versionIsPageDefault
@@ -297,7 +297,7 @@ function MetricBanner({ metric }: { metric: ResolvedMetric }) {
 }
 
 function FilterChip({ label, value, onClear, clearLabel }: { label: string; value: string; onClear: () => void; clearLabel: string }) {
-  return <span className="inline-flex items-center gap-1 rounded-sm border border-border-strong bg-surface-card px-2 py-1 text-[12px]">
+  return <span className="inline-flex items-center gap-1 rounded-sm border border-border-strong bg-surface-card px-2 py-1 text-xs">
     <span className="text-text-muted">{label}</span>
     <span className="tabular">{value}</span>
     <button type="button" aria-label={clearLabel} className="grid size-5 place-items-center rounded-xs text-text-muted hover:bg-surface-sunken" onClick={onClear}><X className="size-3" aria-hidden /></button>

@@ -193,14 +193,14 @@ export default function ProductivityOverview(_: PageProps) {
       ? <DataTrustIndicator trust={kpiQ.response.trust} assessments={kpiQ.response.assessments} />
       : null}
     contextExtension={<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <span id="granularity-label" className="text-[12px] font-medium text-text-secondary">{ko ? '집계 단위 (페이지 소유)' : 'Granularity (page-owned)'}</span>
+      <span id="granularity-label" className="text-xs font-medium text-text-secondary">{ko ? '집계 단위 (페이지 소유)' : 'Granularity (page-owned)'}</span>
       <SegmentedRadio
         labelledBy="granularity-label"
         label={ko ? '집계 단위 (페이지 소유)' : 'Granularity (page-owned)'}
         value={gran}
         onChange={g => setPage({ granularity: g })}
         className="inline-flex overflow-hidden rounded-md border border-border-subtle bg-surface-card"
-        optionClassName={selected => cn('min-h-8 border-l border-border-subtle px-3 text-[12px] font-medium first:border-l-0 focus-visible:z-10',
+        optionClassName={selected => cn('min-h-8 border-l border-border-subtle px-3 text-xs font-medium first:border-l-0 focus-visible:z-10',
           selected ? 'bg-accent-primary text-text-on-accent' : 'text-text-secondary hover:bg-surface-sunken')}
         options={GRANS.map(g => ({ value: g, label: g === 'hour' ? (ko ? '시간' : 'Hour') : g === 'day' ? (ko ? '일' : 'Day') : (ko ? '주' : 'Week') }))}
       />
@@ -288,7 +288,7 @@ export default function ProductivityOverview(_: PageProps) {
                     value={axis}
                     onChange={a => setPage({ axis: a === 'room' ? null : a })}
                     className="inline-flex overflow-hidden rounded-md border border-border-subtle"
-                    optionClassName={selected => cn('min-h-7 border-l border-border-subtle px-2 text-[11px] font-medium first:border-l-0',
+                    optionClassName={selected => cn('min-h-7 border-l border-border-subtle px-2 text-tiny font-medium first:border-l-0',
                       selected ? 'bg-accent-primary text-text-on-accent' : 'text-text-secondary hover:bg-surface-sunken')}
                     options={[{ value: 'room', label: 'room_name' }, { value: 'stgroup', label: 'StGroup' }]}
                   />}
@@ -299,7 +299,7 @@ export default function ProductivityOverview(_: PageProps) {
                   trust={t ? trustLine(t.updatedAt, t.coverage, t.source) : undefined}
                 />
                 <div className="mt-2 overflow-auto rounded-lg border border-border-subtle bg-surface-card">
-                  <table className="w-full text-[12px]">
+                  <table className="w-full text-xs">
                     <caption className="sr-only">{ko ? '점유 구성 분자·분모 표 — 차트와 같은 세대' : 'Occupancy numerator/denominator table — same generation as the chart'}</caption>
                     <thead className="bg-surface-sunken"><tr>
                       {columns.map(col => <th key={col.key} scope="col" aria-sort={sort.key === col.key ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'} className={cn('t-table-header px-3 py-1.5 text-text-muted', col.align === 'right' ? 'text-right' : 'text-left')}>
@@ -339,17 +339,17 @@ export default function ProductivityOverview(_: PageProps) {
                   {rows.map(r => <li key={`${r.kind}-${r.equipmentId}`} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2">
                     <StatusBadge tone="neutral">{r.kind === 'dwell' ? (ko ? '비Process 체류 상위' : 'Top dwell') : (ko ? 'P95 상위' : 'Slowest P95')}</StatusBadge>
                     <span className="t-mono">{r.equipmentId}</span>
-                    <span className="min-w-0 flex-1 truncate text-[12px] text-text-secondary" title={`${r.name} · ${r.room} · ${r.stgroup}`}>{r.name} · {r.room} · {r.stgroup}</span>
-                    <span className="tabular text-[13px] font-medium">
+                    <span className="min-w-0 flex-1 truncate text-xs text-text-secondary" title={`${r.name} · ${r.room} · ${r.stgroup}`}>{r.name} · {r.room} · {r.stgroup}</span>
+                    <span className="tabular text-sm font-medium">
                       {r.kind === 'dwell' ? `${n2(r.dwellPerJobH ?? 0)} ${ko ? '시간/Job' : 'h/Job'}` : `P95 ${n1(r.p95Min ?? 0)} ${ko ? '분' : 'min'}`}
-                      <span className="ml-1 text-[11px] font-normal text-text-muted">n={ni(r.jobs)}</span>
+                      <span className="ml-1 text-tiny font-normal text-text-muted">n={ni(r.jobs)}</span>
                     </span>
                     <PlatformLink href={linkTo('cycle-time', { global: { selection: [r.equipmentId] } })}
                       title={ko ? '전역 Selection을 이 설비로 명시 교체하고 사이클타임 상세로 이동합니다 (§22 Context Link).' : 'Overrides the global selection to this equipment and opens cycle time detail (§22 Context Link).'}
-                      className="text-[12px] font-medium text-accent-primary hover:underline">{ko ? '사이클타임 상세 →' : 'Cycle time →'}</PlatformLink>
+                      className="text-xs font-medium text-accent-primary hover:underline">{ko ? '사이클타임 상세 →' : 'Cycle time →'}</PlatformLink>
                     <PlatformLink href={linkTo('equipment-detail', { params: { equipmentId: r.equipmentId }, returnTo: true })}
                       title={ko ? '목적지 ID(params)로만 이동 — 분석 Selection을 바꾸지 않습니다.' : 'Carries the destination ID only; the analysis selection is untouched.'}
-                      className="text-[12px] text-text-secondary hover:text-accent-primary hover:underline">{ko ? '설비 상세' : 'Equipment'}</PlatformLink>
+                      className="text-xs text-text-secondary hover:text-accent-primary hover:underline">{ko ? '설비 상세' : 'Equipment'}</PlatformLink>
                   </li>)}
                 </ul>
                 <p className="t-caption mt-2 text-text-muted">
