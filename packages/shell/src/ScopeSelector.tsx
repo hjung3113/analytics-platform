@@ -40,13 +40,13 @@ export function ScopeSelector({ collapsed = false }: { collapsed?: boolean }) {
           // no-op and the check would never re-run (#183). Any other pick navigates as before.
           if (v === global.scopeId && scope.status === 'error') retryScope(); else setGlobal({ scopeId: v });
         }}>
-          {session.scopes.map(s => <DropdownMenuRadioItem key={s.id} value={s.id}>
+          {session.scopes.map(s => <DropdownMenuRadioItem key={s.id} value={s.id} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
             <span className="flex-1">{s.label}</span>
             <span className="text-tiny text-text-secondary">room {s.grantedRooms}/{s.totalRooms}</span>
           </DropdownMenuRadioItem>)}
         </DropdownMenuRadioGroup>
-        {scope.status === 'error' && <DropdownMenuItem onSelect={() => retryScope()}>
-          <RotateCw className="size-3.5" aria-hidden />{t('scopeRetryCheck')}
+        {scope.status === 'error' && <DropdownMenuItem onSelect={() => retryScope()} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
+          <RotateCw className="mr-2 size-3.5" aria-hidden />{t('scopeRetryCheck')}
         </DropdownMenuItem>}
         <DropdownMenuSeparator />
         <p className="px-2 py-1.5 text-tiny leading-4 text-text-secondary">{lang === 'ko' ? '권한 축은 Site 안의 room_name입니다. Scope를 바꾸면 Site 경계를 넘는 room·설비 조건/선택은 초기화됩니다.' : 'Grants are room_name within a Site. Changing scope clears site-bound room/equipment context.'}</p>

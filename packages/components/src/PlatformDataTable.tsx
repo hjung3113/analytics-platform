@@ -82,7 +82,6 @@ type CopyPayload = { tsv: string; html: string; count: number };
 /** The clipboard write itself was rejected (not the row read): carries the browser's error. */
 class ClipboardRejected extends Error { constructor(readonly cause: unknown) { super('clipboard rejected'); } }
 /** Keyboard focus ring only (ADR-0023): the FeedbackOps item focus tint is not distinguishable on the popover surface, so the menu keeps an inset ring — never clipped by the content's `overflow-hidden`, and it stays on top of the shared focus background. */
-// eslint-disable-next-line shadcn/no-restyle -- keyboard focus ring: the FeedbackOps item focus tint is not distinguishable on the popover surface (ADR-0023)
 const exportItemClass = 'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring';
 
 /** 조회 정보 (#173 review P2-3): id sets render as count + leading ids; the explicit empty set is shown, never folded into “all”. */
@@ -572,11 +571,11 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             <p className="t-card-title mb-2">{lang === 'ko' ? '컬럼 설정 (브라우저에 저장)' : 'Column preferences (saved locally)'}</p>
             <ul className="space-y-2">{table.getAllLeafColumns().filter(c => c.getCanHide()).map(c => <li key={c.id} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1">
               <div className="flex items-center gap-2">
-                <Checkbox id={`${columnPrefsId}-${c.id}-visible`} checked={c.getIsVisible()} onCheckedChange={v => c.toggleVisibility(v === true)} className="size-3.5" />
+                <Checkbox id={`${columnPrefsId}-${c.id}-visible`} checked={c.getIsVisible()} onCheckedChange={v => c.toggleVisibility(v === true)} className="size-3.5 border-border-control" />
                 <Label htmlFor={`${columnPrefsId}-${c.id}-visible`}>{nameOf(c)}</Label>
               </div>
               <div className="flex items-center gap-1">
-                <Checkbox id={`${columnPrefsId}-${c.id}-pin`} checked={c.getIsPinned() === 'left'} onCheckedChange={v => c.pin(v === true ? 'left' : false)} className="size-3.5" />
+                <Checkbox id={`${columnPrefsId}-${c.id}-pin`} checked={c.getIsPinned() === 'left'} onCheckedChange={v => c.pin(v === true ? 'left' : false)} className="size-3.5 border-border-control" />
                 <Label htmlFor={`${columnPrefsId}-${c.id}-pin`}>{lang === 'ko' ? '고정' : 'Pin'}</Label>
               </div>
               <input aria-label={`${nameOf(c)} width`} type="range" min="60" max="600" value={c.getSize()} className="col-span-2 accent-accent-primary" onChange={e => table.setColumnSizing(o => ({ ...o, [c.id]: Number(e.target.value) }))} />

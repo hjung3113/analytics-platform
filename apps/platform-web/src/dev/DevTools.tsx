@@ -77,7 +77,7 @@ export function DevTools() {
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel>{t('role')}</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={role} onValueChange={v => switchRole(v as RoleId)}>
-          {(Object.keys(USERS) as RoleId[]).map(r => <DropdownMenuRadioItem key={r} value={r}>
+          {(Object.keys(USERS) as RoleId[]).map(r => <DropdownMenuRadioItem key={r} value={r} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
             <span className="flex-1">{tx(USERS[r].title)}</span>
             <span className="text-tiny text-text-secondary">{USERS[r].permissions.length} perms</span>
           </DropdownMenuRadioItem>)}

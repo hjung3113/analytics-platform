@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
@@ -47,6 +47,37 @@ describe('SegmentedRadio', () => {
     fireEvent.keyDown(c, { key: 'Home' });
     expect(a).toHaveAttribute('aria-checked', 'true');
     expect(document.activeElement).toBe(a);
+  });
+
+  it('reports each keyboard move once, also while the arrow key repeats (#228 review)', async () => {
+    const calls: string[] = [];
+    function Recorded() {
+      const [value, setValue] = useState<'a' | 'b' | 'c'>('a');
+      return <SegmentedRadio label="Grain" value={value} onChange={next => { calls.push(next); setValue(next); }}
+        options={[{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }, { value: 'c', label: 'C' }]} />;
+    }
+    render(<Recorded />);
+    const wait = () => act(() => new Promise(resolve => setTimeout(resolve, 10)));
+    const a = screen.getByRole('radio', { name: 'A' });
+    a.focus();
+    fireEvent.keyDown(a, { key: 'ArrowRight' });
+    await wait();
+    fireEvent.keyDown(screen.getByRole('radio', { name: 'B' }), { key: 'ArrowRight', repeat: true });
+    fireEvent.keyUp(screen.getByRole('radio', { name: 'C' }), { key: 'ArrowRight' });
+    await wait();
+    expect(calls).toEqual(['b', 'c']);
+    expect(document.activeElement).toBe(screen.getByRole('radio', { name: 'C' }));
+  });
+
+  it('is a horizontal radiogroup and activates the already selected option without a change', () => {
+    const onChange = vi.fn();
+    const onActivate = vi.fn();
+    render(<SegmentedRadio label="Grain" value="a" onChange={onChange} onActivate={onActivate}
+      options={[{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }]} />);
+    expect(screen.getByRole('radiogroup', { name: 'Grain' })).toHaveAttribute('aria-orientation', 'horizontal');
+    fireEvent.click(screen.getByRole('radio', { name: 'A' }));
+    expect(onActivate).toHaveBeenCalledWith('a');
+    expect(onChange).not.toHaveBeenCalled();
   });
 });
 

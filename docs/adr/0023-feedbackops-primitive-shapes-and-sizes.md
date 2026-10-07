@@ -15,7 +15,7 @@
 - 접근성 하한은 스타일보다 먼저다. 그래서 세 가지만 FeedbackOps 기본값 위에 남긴다.
   - 입력·select·체크박스처럼 경계로 조작 요소를 알아보는 곳은 [DESIGN 접근성 쌍](../../DESIGN.md#accessibility-pairing-rules)대로 경계만 `border-control`이다. FeedbackOps 기본 경계는 카드 표면 대비 약 1.4:1(`border-subtle`)·1.7:1(`border-strong`)로 WCAG 1.4.11의 3:1에 못 미친다.
   - 포커스를 돌려받으려고 `disabled` 대신 `aria-disabled`를 쓰는 버튼(표 복사·내보내기)은 비활성 모양을 `aria-disabled:` 클래스로 준다. FeedbackOps 버튼은 `disabled`일 때만 흐려진다.
-  - FeedbackOps 메뉴 항목의 포커스 색은 팝오버 표면에서 거의 구별되지 않으므로, 키보드 포커스 링을 둔 항목은 링을 유지한다.
+  - FeedbackOps 메뉴 항목의 포커스 색은 팝오버 표면에서 거의 구별되지 않으므로(약 1.1:1), 키보드로 갈 수 있는 메뉴 항목에는 inset 포커스 링을 둔다.
   - 표면·글자·크기는 이때도 FeedbackOps를 따르고, 세 처리는 FeedbackOps variant로 제안한다.
 
 ## Considered Options

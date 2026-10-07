@@ -55,7 +55,7 @@ export function AppRail() {
         </DropdownMenuTrigger>
         <DropdownMenuContent side="right" align="end" className="w-64">
           <DropdownMenuLabel>{user.name} · {tx(user.title)}</DropdownMenuLabel>
-          <DropdownMenuItem disabled><LogOut className="size-3.5" aria-hidden />{t('signOut')} <span className="ml-auto text-caption">SSO Open</span></DropdownMenuItem>
+          <DropdownMenuItem disabled><LogOut className="mr-2 size-3.5" aria-hidden />{t('signOut')} <span className="ml-auto text-caption">SSO Open</span></DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </nav>

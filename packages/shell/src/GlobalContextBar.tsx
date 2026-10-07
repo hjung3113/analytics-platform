@@ -112,6 +112,8 @@ function PeriodControl({ cap, compact = false }: { cap: Capability; compact?: bo
       label={t('period')}
       value={preset}
       onChange={id => choose(id)}
+      // A custom period is already "selected" while it is applied; clicking it again reopens the editor.
+      onActivate={id => { if (id === 'custom') setOpen(true); }}
       className="flex h-8 items-center"
       options={presets.map(p => ({ value: p.id, label: p.label }))}
     />;
@@ -172,16 +174,16 @@ function CustomRange({ onDone }: { onDone: () => void }) {
       ]}
     />
     {mode === 'date' ? <div className="grid grid-cols-2 gap-2">
-      <label className="space-y-1"><span className="text-text-muted">{lang === 'ko' ? '시작일' : 'Start date'}</span><input type="date" className={input} value={start} onChange={e => setStart(e.target.value)} /></label>
-      <label className="space-y-1"><span className="text-text-muted">{lang === 'ko' ? '종료일 (포함)' : 'End date (inclusive)'}</span><input type="date" className={input} value={end} onChange={e => setEnd(e.target.value)} /></label>
+      <label className="space-y-1"><span className="text-text-secondary">{lang === 'ko' ? '시작일' : 'Start date'}</span><input type="date" className={input} value={start} onChange={e => setStart(e.target.value)} /></label>
+      <label className="space-y-1"><span className="text-text-secondary">{lang === 'ko' ? '종료일 (포함)' : 'End date (inclusive)'}</span><input type="date" className={input} value={end} onChange={e => setEnd(e.target.value)} /></label>
     </div> : <div className="grid grid-cols-1 gap-2">
-      <label className="space-y-1"><span className="text-text-muted">from</span><input type="datetime-local" step={1} className={input} value={fromT} onChange={e => setFromT(e.target.value)} /></label>
-      <label className="space-y-1"><span className="text-text-muted">to ({lang === 'ko' ? '미포함' : 'exclusive'})</span><input type="datetime-local" step={1} className={input} value={toT} onChange={e => setToT(e.target.value)} /></label>
+      <label className="space-y-1"><span className="text-text-secondary">from</span><input type="datetime-local" step={1} className={input} value={fromT} onChange={e => setFromT(e.target.value)} /></label>
+      <label className="space-y-1"><span className="text-text-secondary">to ({lang === 'ko' ? '미포함' : 'exclusive'})</span><input type="datetime-local" step={1} className={input} value={toT} onChange={e => setToT(e.target.value)} /></label>
     </div>}
     <p aria-live="polite" className={cn('rounded-md px-2 py-1.5 tabular', error ? 'bg-accent-danger-soft text-text-danger-label' : 'bg-surface-sunken text-text-secondary')}>
       {error ?? `URL: [${result!.from}, ${result!.to})`}
     </p>
-    <p className="text-tiny text-text-muted">{lang === 'ko' ? '설비 wall-clock(naive) 기준이며 UTC로 변환하지 않습니다. 교대일/영업일 의미는 Open입니다.' : 'Equipment wall-clock (naive), never converted to UTC. Shift/business-day semantics are Open.'}</p>
+    <p className="text-tiny text-text-secondary">{lang === 'ko' ? '설비 wall-clock(naive) 기준이며 UTC로 변환하지 않습니다. 교대일/영업일 의미는 Open입니다.' : 'Equipment wall-clock (naive), never converted to UTC. Shift/business-day semantics are Open.'}</p>
     <div className="flex justify-end gap-2">
       <Button type="button" size="sm" variant="secondary" onClick={onDone}>{t('cancel')}</Button>
       <Button type="submit" size="sm" disabled={!result}>{t('apply')}</Button>
