@@ -68,7 +68,7 @@ export type KpisData = { current: KpiSet; previous: KpiSet | null };
 export type BreakdownRow = { key: string; equipmentCount: number; occupiedHours: number; observableHours: number; jobs: number };
 
 export type AttentionRow = {
-  equipmentId: string; name: string; room: string; stgroup: string; jobs: number;
+  equipmentId: string; room: string; stgroup: string; jobs: number;
   kind: 'dwell' | 'p95'; dwellPerJobH: number | null; p95Min: number | null;
 };
 

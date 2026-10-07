@@ -29,7 +29,7 @@ const masterMenu: MenuMeta = {
 
 const adapter = createMockAdapter({ endpoints: [...equipmentMock], registry: { menus: [masterMenu] } });
 const context = { scopeId: 'ICH', roomNames: null, condition: null, selection: null };
-const engineerIch = EQUIPMENT.filter(e => e.site === 'ICH' && ['PH-101', 'ET-102', 'CVD-201'].includes(e.room));
+const engineerIch = EQUIPMENT.filter(e => e.site === 'ICH' && ['PHOTO', 'ETCH', 'CVD'].includes(e.room));
 const noFilter = { q: '', status: '', maker: '' };
 
 const previousRole: RoleId = getRole();

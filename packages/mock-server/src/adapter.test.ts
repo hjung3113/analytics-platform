@@ -18,10 +18,10 @@ describe('mockAdapter.evaluateSelection', () => {
     const before = getRole();
     try {
       const stgroup = EQUIPMENT.find(e => e.site === 'ICH')!.stgroup;
-      const someId = EQUIPMENT.find(e => e.site === 'ICH' && e.room === 'DIF-202')!.equipmentId; // DIF-202 is granted to admin only
+      const someId = EQUIPMENT.find(e => e.site === 'ICH' && e.room === 'DIFF')!.equipmentId; // DIFF is granted to admin only
       for (const role of ['engineer', 'admin', 'viewer'] as const) {
         setRole(role);
-        for (const [roomNames, condition] of [[null, null], [['PH-101'], null], [null, { axis: 'stgroup' as const, id: stgroup }]] as const) {
+        for (const [roomNames, condition] of [[null, null], [['PHOTO'], null], [null, { axis: 'stgroup' as const, id: stgroup }]] as const) {
           const selection = [someId, 'NOPE-1'];
           const got = await mockAdapter.evaluateSelection({ scopeId: 'ICH', roomNames: roomNames ? [...roomNames] : null, condition, selection });
           const want = clientSide(role, 'ICH', roomNames ? [...roomNames] : null, condition, selection);
@@ -47,6 +47,27 @@ describe('mockAdapter.evaluateSelection', () => {
       }
       setRole('viewer');
       expect(await mockAdapter.contextOptions('XIA')).toEqual({ stgroup: [], team: [], makerModel: [] }); // no grant
+    } finally {
+      setRole(before);
+    }
+  });
+
+  // #242: room names repeat across Sites (PHOTO is in every Site), so a second granted Site must use its own grants
+  // and rows. The engineer holds PHOTO/ETCH/CVD in ICH but only PHOTO in CJU.
+  it('keeps a second granted Site to its own room grants and rows', async () => {
+    const before = getRole();
+    try {
+      setRole('engineer');
+      expect(USERS.engineer.grants.CJU).toEqual(['PHOTO']);
+      const cjuPhoto = EQUIPMENT.filter(e => e.site === 'CJU' && e.room === 'PHOTO');
+      const cjuEtch = EQUIPMENT.find(e => e.site === 'CJU' && e.room === 'ETCH')!;
+      const ichPhoto = EQUIPMENT.find(e => e.site === 'ICH' && e.room === 'PHOTO')!;
+      const got = await mockAdapter.evaluateSelection({ scopeId: 'CJU', roomNames: null, condition: null, selection: [cjuEtch.equipmentId, ichPhoto.equipmentId] });
+      expect(got.inCondition.map(e => e.equipmentId).sort()).toEqual(cjuPhoto.map(e => e.equipmentId).sort());
+      expect(got.outOfCondition).toEqual([cjuEtch.equipmentId, ichPhoto.equipmentId]);
+      const options = await mockAdapter.contextOptions('CJU');
+      expect(options.stgroup).toEqual([...new Set(cjuPhoto.map(e => e.stgroup))].sort());
+      expect(options.stgroup).not.toContain(cjuEtch.stgroup);
     } finally {
       setRole(before);
     }

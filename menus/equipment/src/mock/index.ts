@@ -9,7 +9,7 @@ import { equipmentExportEndpoint, equipmentMakersEndpoint, equipmentPageEndpoint
 
 export function filterEquipment(rows: Equipment[], { q, status, maker }: EquipmentFilter): Equipment[] {
   const search = q.trim().toLowerCase();
-  return rows.filter(e => (!search || `${e.equipmentId} ${e.name}`.toLowerCase().includes(search)) && (!status || e.status === status) && (!maker || e.maker === maker));
+  return rows.filter(e => (!search || e.equipmentId.toLowerCase().includes(search)) && (!status || e.status === status) && (!maker || e.maker === maker));
 }
 
 

@@ -9,7 +9,7 @@ import { defineEndpoint, type PageQuery, type PageResult, type PageSort } from '
 export const EQUIPMENT_ENTITY_TYPE = 'equipment';
 
 export type Equipment = {
-  equipmentId: string; name: string; site: string; room: string; line: string;
+  equipmentId: string; site: string; room: string; line: string;
   stgroup: string; team: string; maker: string; model: string; chamberType: string;
   status: 'active' | 'idle' | 'maintenance' | 'retired';
   validFrom: string; validTo: string | null; updatedAt: string; updatedBy: string;

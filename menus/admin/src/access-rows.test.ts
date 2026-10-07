@@ -35,8 +35,8 @@ const principal = (permissions: Permission[], sites: AccessPrincipal['sites']): 
 describe('grantTotals (#49 Room grants column)', () => {
   it('sums granted rooms and known rooms across sites, zeros included', () => {
     const p = principal([], [
-      { id: 'ICH', label: 'ICH', grantedRooms: ['PH-101', 'ET-102', 'CVD-201'], totalRooms: 4 },
-      { id: 'CJU', label: 'CJU', grantedRooms: ['PH-301'], totalRooms: 3 },
+      { id: 'ICH', label: 'ICH', grantedRooms: ['PHOTO', 'ETCH', 'CVD'], totalRooms: 4 },
+      { id: 'CJU', label: 'CJU', grantedRooms: ['PHOTO'], totalRooms: 3 },
       { id: 'XIA', label: 'XIA', grantedRooms: [], totalRooms: 2 },
     ]);
     expect(grantTotals(p)).toEqual({ granted: 4, total: 9 });

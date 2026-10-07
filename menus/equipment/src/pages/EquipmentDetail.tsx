@@ -59,7 +59,7 @@ export default function EquipmentDetail({ params }: PageProps) {
   return <PlatformPage title={<span className="t-mono">{id}</span>}
     description={ko ? '목적지 ID는 위의 전달된 분석 Selection과 별개입니다. Scope와 설비 접근 권한은 다시 검증합니다.' : 'The destination ID is separate from the inherited analysis Selection above. Scope and equipment access are revalidated.'}
     secondaryActions={<Button asChild variant="secondary" size="sm"><PlatformLink href={returnTarget()}>{ko ? '이전 화면으로' : 'Back to previous view'}</PlatformLink></Button>}>
-    <QueryView widgetName={lang === 'ko' ? '설비 요약' : 'Equipment summary'} query={header}>{e => e && <div className="mb-4 flex items-center gap-3"><EquipmentStatus equipment={e} /><span className="text-sm text-text-secondary">{e.name}</span></div>}</QueryView>
+    <QueryView widgetName={lang === 'ko' ? '설비 요약' : 'Equipment summary'} query={header}>{e => e && <div className="mb-4 flex items-center gap-3"><EquipmentStatus equipment={e} /><span className="t-mono text-sm text-text-secondary">{e.equipmentId}</span></div>}</QueryView>
     {!validTab ? <p role="alert">{ko ? '등록되지 않은 탭입니다.' : 'Unknown tab.'} <Button size="sm" variant="secondary" onClick={() => setPage({ tab: 'attributes' })}>{ko ? '속성 열기' : 'Open attributes'}</Button></p> :
       <Tabs value={requestedTab} onValueChange={tab => setPage({ tab })}>
         <TabsList aria-label={ko ? '설비 상세 탭' : 'Equipment detail tabs'}>{tabs.map(t => <TabsTrigger key={t.id} value={t.id}>{t.label}</TabsTrigger>)}</TabsList>

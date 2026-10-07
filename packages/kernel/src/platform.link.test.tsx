@@ -32,7 +32,7 @@ const registry = createRegistry({
   ],
 });
 
-const URL_ICH = '/source?v=1&scopeId=ICH&roomNames=PH-101&selectedEquipmentIds=E1&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
+const URL_ICH = '/source?v=1&scopeId=ICH&roomNames=PHOTO&selectedEquipmentIds=E1&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
 const URL_FULL = URL_ICH + '&equipmentGroup=' + encodeURIComponent('{"axis":"team","id":"TEAM1"}') + '&lotIds=L1&recipeIds=R1&ppid=P1';
 const SITE_BOUND = ['roomNames', 'equipmentGroup', 'selectedEquipmentIds', 'lotIds', 'recipeIds', 'ppid'];
 const ANALYST: Session['user']['permissions'] = ['platform:view', 'analytics:view'];

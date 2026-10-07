@@ -137,7 +137,7 @@ describe('accessDirectory (issue #49: the console access directory)', () => {
     const res = await accessDirectory({}, undefined, { role: 'admin', latency: 0 });
     const viewer = page(res).items.find(p => p.id === 'viewer')!;
     expect(viewer.sites).toEqual([
-      { id: 'ICH', label: 'ICH · Site A', grantedRooms: ['PH-101'], totalRooms: 4 },
+      { id: 'ICH', label: 'ICH · Site A', grantedRooms: ['PHOTO'], totalRooms: 4 },
       { id: 'CJU', label: 'CJU · Site B', grantedRooms: [], totalRooms: 3 },
       { id: 'XIA', label: 'XIA · Site C', grantedRooms: [], totalRooms: 2 },
     ]);

@@ -6,7 +6,7 @@ export const statusText = {
 };
 export const statusTone = { active: 'success', idle: 'neutral', maintenance: 'warning', retired: 'neutral' } as const;
 export const fields: { key: keyof Equipment; ko: string; en: string }[] = [
-  { key: 'equipmentId', ko: '설비 ID', en: 'Equipment ID' }, { key: 'name', ko: '설비명', en: 'Name' },
+  { key: 'equipmentId', ko: '설비 ID', en: 'Equipment ID' },
   { key: 'room', ko: 'room_name', en: 'room_name' }, { key: 'line', ko: '라인', en: 'Line' },
   { key: 'stgroup', ko: 'StGroup', en: 'StGroup' }, { key: 'team', ko: '분임조', en: 'Team' },
   { key: 'maker', ko: 'Maker', en: 'Maker' }, { key: 'model', ko: 'Model', en: 'Model' },

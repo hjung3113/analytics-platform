@@ -55,13 +55,13 @@ const principal = (id: string, name: string, title: { ko: string; en: string }, 
   ({ id, name, title, role: id, permissions, sites: sites(rooms) });
 
 const VIEWER = principal('viewer', 'Field Requester', { ko: '현업 문의자', en: 'Field requester' },
-  ['platform:view', 'metrics:view', 'notice:view', 'voc:view'], { ICH: ['PH-101'] });
+  ['platform:view', 'metrics:view', 'notice:view', 'voc:view'], { ICH: ['PHOTO'] });
 const ENGINEER = principal('engineer', 'Process Engineer', { ko: '공정 엔지니어', en: 'Process engineer' },
   ['platform:view', 'equipment:view', 'master:view', 'analytics:view', 'metrics:view', 'notice:view', 'voc:view'],
-  { ICH: ['PH-101', 'ET-102', 'CVD-201'], CJU: ['PH-301'] });
+  { ICH: ['PHOTO', 'ETCH', 'CVD'], CJU: ['PHOTO'] });
 const ADMIN = principal('admin', 'Platform Admin', { ko: '플랫폼 관리자', en: 'Platform admin' },
   ['platform:view', 'equipment:view', 'master:view', 'analytics:view', 'metrics:view', 'notice:view', 'voc:view', 'console:access'],
-  { ICH: ['PH-101', 'ET-102', 'CVD-201', 'DIF-202'], CJU: ['PH-301', 'ET-302', 'CMP-303'], XIA: ['PH-501', 'ET-502'] });
+  { ICH: ['PHOTO', 'ETCH', 'CVD', 'DIFF'], CJU: ['PHOTO', 'ETCH', 'CMP'], XIA: ['PHOTO', 'ETCH'] });
 // Payload order is deliberately NOT the server default (role asc): the table must not re-sort a page.
 const ITEMS = [VIEWER, ADMIN, ENGINEER];
 
@@ -209,7 +209,7 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     const ichRow = within(drawer).getByText('ICH · Site A').closest('li')!;
     const cjuRow = within(drawer).getByText('CJU · Site B').closest('li')!;
     expect(ichRow.textContent).toContain('3/4');
-    expect(within(ichRow).getByText('PH-101, ET-102, CVD-201')).toBeTruthy();
+    expect(within(ichRow).getByText('PHOTO, ETCH, CVD')).toBeTruthy();
     expect(cjuRow.textContent).toContain('1/3');
     // Zero grants are the row copy on an ok page, not the page empty state.
     const xiaRow = within(drawer).getByText('XIA · Site C').closest('li')!;

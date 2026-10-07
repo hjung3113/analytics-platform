@@ -6,7 +6,7 @@ const period = { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' };
 
 describe('menu permission re-validation', () => {
   it('forbids a viewer from an analytics endpoint even with a valid ICH scope', async () => {
-    // viewer holds an ICH (PH-101) grant, so the rejection is the menu permission, not Scope.
+    // viewer holds an ICH (PHOTO) grant, so the rejection is the menu permission, not Scope.
     const res = await serve({
       role: 'viewer',
       permission: 'analytics:view',

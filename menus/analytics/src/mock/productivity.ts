@@ -128,7 +128,7 @@ export function attentionRows(equipment: Equipment[], from: string, to: string, 
     };
   });
   const base = (x: typeof per[number], kind: AttentionRow['kind']): AttentionRow => ({
-    equipmentId: x.e.equipmentId, name: x.e.name, room: x.e.room, stgroup: x.e.stgroup, jobs: x.jobs, kind,
+    equipmentId: x.e.equipmentId, room: x.e.room, stgroup: x.e.stgroup, jobs: x.jobs, kind,
     dwellPerJobH: x.dwellPerJobH, p95Min: x.p95Min,
   });
   const dwell = per.filter(x => x.dwellPerJobH !== null).sort((a, b) => (b.dwellPerJobH ?? 0) - (a.dwellPerJobH ?? 0)).slice(0, topN).map(x => base(x, 'dwell'));

@@ -33,15 +33,15 @@ const REF_EVENT: AuditEvent = {
   target: { type: 'equipment', id: 'ICH-PHOTO-0103', scopeId: 'ICH' }, changes: {},
 };
 
-// The granted actor holds only PH-101 in ICH; the room re-check sample (06 §22) sits in DIF-202.
-const GRANTED_ROOMS = ['PH-101'];
-const ROOM_OF: Record<string, string> = { 'ICH-PHOTO-0103': 'PH-101', 'ICH-DIFF-0176': 'DIF-202' };
-// The reference evaluator's world (the kit judges any adapter, so no mock import): two PH-101 rows and one
-// DIF-202 row the granted actor does not hold.
+// The granted actor holds only PHOTO in ICH; the room re-check sample (06 §22) sits in DIFF.
+const GRANTED_ROOMS = ['PHOTO'];
+const ROOM_OF: Record<string, string> = { 'ICH-PHOTO-0103': 'PHOTO', 'ICH-DIFF-0176': 'DIFF' };
+// The reference evaluator's world (the kit judges any adapter, so no mock import): two PHOTO rows and one
+// DIFF row the granted actor does not hold.
 const REF_EQUIPMENT = [
-  { equipmentId: 'ICH-PHOTO-0103', room: 'PH-101', model: 'HX-1' },
-  { equipmentId: 'ICH-PHOTO-0107', room: 'PH-101', model: 'HX-2' },
-  { equipmentId: 'ICH-DIFF-0176', room: 'DIF-202', model: 'DF-9' },
+  { equipmentId: 'ICH-PHOTO-0103', room: 'PHOTO', model: 'HX-1' },
+  { equipmentId: 'ICH-PHOTO-0107', room: 'PHOTO', model: 'HX-2' },
+  { equipmentId: 'ICH-DIFF-0176', room: 'DIFF', model: 'DF-9' },
 ];
 
 /** Granted actor: every case/entity permission, grants at ICH + CJU, no console:access; `console` flips under asConsole. */
@@ -89,16 +89,16 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
     },
     validateScope: async scopeId => {
       if (scopeId === 'ICH') {
-        return { status: 'valid', grantedRooms: breaks.has('validate-granted') ? [] : ['PH-101'] };
+        return { status: 'valid', grantedRooms: breaks.has('validate-granted') ? [] : ['PHOTO'] };
       }
       if (scopeId === 'CJU') {
         // 'validate-other' answers forbidden for the second granted site — the second-site check must catch it.
-        return { status: breaks.has('validate-other') ? 'forbidden' : 'valid', grantedRooms: ['PH-301'] };
+        return { status: breaks.has('validate-other') ? 'forbidden' : 'valid', grantedRooms: ['PHOTO'] };
       }
       if (scopeId === 'XIA') {
-        return { status: 'forbidden', grantedRooms: breaks.has('validate-foreign') ? ['ET-502'] : [] };
+        return { status: 'forbidden', grantedRooms: breaks.has('validate-foreign') ? ['ETCH'] : [] };
       }
-      return { status: breaks.has('validate-unknown') ? 'forbidden' : 'unknown_scope', grantedRooms: breaks.has('validate-unknown-rooms') ? ['PH-101'] : [] };
+      return { status: breaks.has('validate-unknown') ? 'forbidden' : 'unknown_scope', grantedRooms: breaks.has('validate-unknown-rooms') ? ['PHOTO'] : [] };
     },
     getEntity: async ref => {
       if (ref.type !== 'equipment') {
@@ -121,7 +121,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
           : { ...envelope, outcome: 'forbidden', message: `No grant for scope ${ref.scopeId}` };
       }
       // 06 §22 room re-check: the site is granted but this destination's room is not — 'entity-room' serves it anyway.
-      if (!GRANTED_ROOMS.includes(ROOM_OF[ref.id] ?? 'PH-101')) {
+      if (!GRANTED_ROOMS.includes(ROOM_OF[ref.id] ?? 'PHOTO')) {
         return breaks.has('entity-room')
           ? { ...envelope, outcome: 'ok', data: { equipmentId: ref.id }, assessments: REF_ASSESSMENTS, trust: REF_TRUST }
           : { ...envelope, outcome: 'forbidden', message: 'No grant for equipment' };
@@ -129,7 +129,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       return {
         ...envelope,
         outcome: 'ok',
-        data: breaks.has('entity-ok') ? null : { equipmentId: ref.id, room: 'PH-101' },
+        data: breaks.has('entity-ok') ? null : { equipmentId: ref.id, room: 'PHOTO' },
         assessments: breaks.has('entity-assessments')
           ? [{ kind: 'coverage', state: 'clear' }] // clear with no statusSource/observedAt — 06 §19 violation
           : REF_ASSESSMENTS,
@@ -224,7 +224,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
           : { ...envelope, outcome: 'forbidden', message: `No grant for scope ${ref.scopeId}` };
       }
       // Same room re-check on the audit read (adapter.ts: same gates as getEntity) — 'entity-audit-room' serves it anyway.
-      if (!GRANTED_ROOMS.includes(ROOM_OF[ref.id] ?? 'PH-101')) {
+      if (!GRANTED_ROOMS.includes(ROOM_OF[ref.id] ?? 'PHOTO')) {
         return breaks.has('entity-audit-room')
           ? { ...envelope, outcome: 'ok', data: { events: [REF_EVENT] } }
           : { ...envelope, outcome: 'forbidden', message: 'No grant for equipment' };
@@ -440,11 +440,11 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         : { stgroup: ['photo', 'etch'], team: ['shift-a', 'shift-b'], makerModel: [{ maker: 'Canon', model: 'HX-1' }] };
     },
     evaluateSelection: async input => {
-      // Grants come from the session (adapter.ts): ICH/PH-101 only. 'selection-ignores-grants' also serves
-      // the ungranted DIF-202 room; 'selection-foreign' lists equipment even at the ungranted site XIA.
+      // Grants come from the session (adapter.ts): ICH/PHOTO only. 'selection-ignores-grants' also serves
+      // the ungranted DIFF room; 'selection-foreign' lists equipment even at the ungranted site XIA.
       const grantedRooms = input.scopeId === 'ICH'
-        ? (breaks.has('selection-ignores-grants') ? ['PH-101', 'DIF-202'] : ['PH-101'])
-        : input.scopeId === 'XIA' && breaks.has('selection-foreign') ? ['DIF-202'] : [];
+        ? (breaks.has('selection-ignores-grants') ? ['PHOTO', 'DIFF'] : ['PHOTO'])
+        : input.scopeId === 'XIA' && breaks.has('selection-foreign') ? ['DIFF'] : [];
       const inCondition = REF_EQUIPMENT
         .filter(e => grantedRooms.includes(e.room) && (input.roomNames === null || input.roomNames.includes(e.room)))
         .map(e => ({ equipmentId: e.equipmentId, room: e.room, model: e.model }));
@@ -458,7 +458,7 @@ const PORTS: PortSamples = {
   entity: {
     ref: { type: 'equipment', id: 'ICH-PHOTO-0103', scopeId: 'ICH' },
     permission: 'equipment:view',
-    // DIF-202 is a real ICH room the granted actor does not hold — the room re-check sample (06 §22).
+    // DIFF is a real ICH room the granted actor does not hold — the room re-check sample (06 §22).
     ungrantedRoomRef: { type: 'equipment', id: 'ICH-DIFF-0176', scopeId: 'ICH' },
   },
   annotation: { chartId: 'fixture-chart', from: '2026-09-25T10:00:00', to: '2026-09-25T11:00:00', permission: 'analytics:view' },

@@ -69,8 +69,8 @@ describe('request identity', () => {
     const before = getRole();
     setRole('engineer');
     try {
-      // CVD-201 is granted to engineer, not to viewer.
-      const pending = serve({ permission: 'analytics:view', global: { ...emptyGlobal, scopeId: 'ICH', ...period, roomNames: ['CVD-201'] }, latency: 30, mergeTimeDomain: false, compute: () => 1 });
+      // CVD is granted to engineer, not to viewer.
+      const pending = serve({ permission: 'analytics:view', global: { ...emptyGlobal, scopeId: 'ICH', ...period, roomNames: ['CVD'] }, latency: 30, mergeTimeDomain: false, compute: () => 1 });
       setRole('viewer');
       const res = await pending;
       expect(res.outcome).toBe('ok');

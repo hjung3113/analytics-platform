@@ -81,7 +81,7 @@ describe('cycle-time endpoints', () => {
   });
 
   it('computes with the version the server resolves from the metric pair: page default v3, not-applied → v3', async () => {
-    const granted = EQUIPMENT.filter(e => e.site === 'ICH' && ['PH-101', 'ET-102', 'CVD-201'].includes(e.room));
+    const granted = EQUIPMENT.filter(e => e.site === 'ICH' && ['PHOTO', 'ETCH', 'CVD'].includes(e.room));
     const expectedP95 = percentile(population(granted, { ...emptyGlobal, ...context }, '3').map(r => r.cycleMin), 0.95);
     for (const pair of [{ metricId: null, metricVersion: null }, { metricId: 'occupancy', metricVersion: '3' }]) {
       const response = await adapter.menuQuery({ endpoint: cycleKpiEndpoint.id, context: { ...context, ...pair }, params: {} });

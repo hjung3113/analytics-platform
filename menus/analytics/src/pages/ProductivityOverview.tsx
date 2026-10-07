@@ -334,7 +334,7 @@ export default function ProductivityOverview(_: PageProps) {
                   {rows.map(r => <li key={`${r.kind}-${r.equipmentId}`} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2">
                     <StatusBadge tone="neutral">{r.kind === 'dwell' ? (ko ? '비Process 체류 상위' : 'Top dwell') : (ko ? 'P95 상위' : 'Slowest P95')}</StatusBadge>
                     <span className="t-mono">{r.equipmentId}</span>
-                    <span className="min-w-0 flex-1 truncate text-xs text-text-secondary" title={`${r.name} · ${r.room} · ${r.stgroup}`}>{r.name} · {r.room} · {r.stgroup}</span>
+                    <span className="min-w-0 flex-1 truncate text-xs text-text-secondary" title={`${r.room} · ${r.stgroup}`}>{r.room} · {r.stgroup}</span>
                     <span className="tabular text-sm font-medium">
                       {r.kind === 'dwell' ? `${n2(r.dwellPerJobH ?? 0)} ${ko ? '시간/Job' : 'h/Job'}` : `P95 ${n1(r.p95Min ?? 0)} ${ko ? '분' : 'min'}`}
                       <span className="ml-1 text-tiny font-normal text-text-muted">n={ni(r.jobs)}</span>

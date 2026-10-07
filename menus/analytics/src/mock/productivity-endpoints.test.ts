@@ -72,7 +72,7 @@ const FROM = '2026-09-25T09:00:00';
 const TO = '2026-09-26T09:00:00';
 /** All applied keys, like projectContext sends: scope, period, and the current filters. */
 const context = {
-  scopeId: 'ICH', from: FROM, to: TO, roomNames: ['PH-101'],
+  scopeId: 'ICH', from: FROM, to: TO, roomNames: ['PHOTO'],
   condition: null, selection: null, ppid: null, recipeIds: null,
 };
 
