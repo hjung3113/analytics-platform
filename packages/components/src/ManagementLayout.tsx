@@ -92,8 +92,7 @@ export function ManagementLayout({ filter, activeFilterCount = 0, table, drawer 
   return <div ref={root} className="min-w-0">
     <div className={railVisible ? 'grid grid-cols-[260px_minmax(0,1fr)] items-start gap-4' : 'min-w-0'}>
       {railVisible && <section ref={rail} aria-labelledby={titleId}
-        className="sticky flex min-h-0 flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface-card"
-        style={{ top: 'calc(var(--page-sticky-offset, 0px) + 12px)', maxHeight: 'calc(100dvh - var(--page-sticky-offset, 0px) - 24px)' }}>
+        className="sticky top-[calc(var(--page-sticky-offset,0px)_+_12px)] max-h-[calc(100dvh-var(--page-sticky-offset,0px)_-_24px)] flex min-h-0 flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface-card">
         <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-4 py-3">
           <div>
             <h2 id={titleId} className="t-card-title">{t('filters')}</h2>

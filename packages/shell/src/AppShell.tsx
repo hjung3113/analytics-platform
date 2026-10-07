@@ -40,8 +40,8 @@ function ShellLayout({ children }: { children: ReactNode }) {
       </main>
     </div>
     <aside ref={detail.ref} hidden={!detail.open} aria-label={lang === 'ko' ? '상세 패널' : 'Detail panel'} data-open={detail.open}
-      className="h-full shrink-0 overflow-hidden border-border-subtle bg-surface-detail"
-      style={{ width: detail.open ? 'clamp(360px, var(--detail-panel-width, 440px), 520px)' : 0, minWidth: detail.open ? 360 : 0, maxWidth: 520, borderLeftWidth: detail.open ? 1 : 0 }} />
+      className={cn('h-full max-w-[520px] shrink-0 overflow-hidden border-border-subtle bg-surface-detail',
+        detail.open ? 'w-[clamp(360px,var(--detail-panel-width,440px),520px)] min-w-[360px] border-l' : 'w-0 min-w-0 border-l-0')} />
     <CommandPalette />
     <Toasts />
   </div>;

@@ -225,7 +225,7 @@ function SetEditor({ label, cap, value, options, absentLabel, onApply, note, sea
         {search && <input value={q} onChange={e => setQ(e.target.value)} placeholder={lang === 'ko' ? '검색…' : 'Search…'} aria-label={lang === 'ko' ? '검색' : 'Search'} className="mb-2 h-7 w-full rounded-md border border-border-control px-2" />}
         <ul className="max-h-56 space-y-0.5 overflow-auto">
           {visible.map(o => <li key={o.id}><label className="flex cursor-pointer items-center gap-2 rounded-sm px-1.5 py-1 hover:bg-surface-sunken">
-            <input type="checkbox" className="size-3.5 accent-[rgb(var(--accent-primary))]" checked={picked.includes(o.id)} onChange={() => setPicked(p => (p.includes(o.id) ? p.filter(x => x !== o.id) : [...p, o.id]))} />
+            <input type="checkbox" className="size-3.5 accent-accent-primary" checked={picked.includes(o.id)} onChange={() => setPicked(p => (p.includes(o.id) ? p.filter(x => x !== o.id) : [...p, o.id]))} />
             <span className="t-mono">{o.id}</span>
             {o.hint && <span className="truncate text-text-muted">{o.hint}</span>}
             {o.outside && <span className="ml-auto rounded-xs bg-accent-warn-soft px-1 text-caption text-text-warning-label">{lang === 'ko' ? '조건 밖' : 'outside'}</span>}

@@ -13,7 +13,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
   const recentItems = recent.filter(r => visibleMenus.some(m => m.id === r.menuId)).slice(0, 5);
 
   return <TooltipProvider delayDuration={200}>
-    <aside data-collapsed={collapsed} className="flex h-full shrink-0 flex-col border-r border-border-subtle bg-surface-sidebar" style={{ width: collapsed ? 'var(--sidebar-width-collapsed)' : 'var(--sidebar-width)' }}>
+    <aside data-collapsed={collapsed} className={cn('flex h-full shrink-0 flex-col border-r border-border-subtle bg-surface-sidebar', collapsed ? 'w-(--sidebar-width-collapsed)' : 'w-(--sidebar-width)')}>
       <div className="flex h-[50px] shrink-0 items-center justify-between border-b border-border-subtle px-3">
         {!collapsed && <div className="min-w-0"><p className="truncate text-sm font-semibold">{tx(sidebarSpace.label)}</p><p className="truncate text-caption text-text-muted">{t('appName')}</p></div>}
         <Tooltip><TooltipTrigger asChild>

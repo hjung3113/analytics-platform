@@ -4,15 +4,7 @@
       "count": 6
     }
   },
-  "src/pages/ExecutionDetail.tsx": {
-    "shadcn/no-inline-styles": {
-      "count": 2
-    }
-  },
   "src/pages/ProductivityOverview.tsx": {
-    "shadcn/no-inline-styles": {
-      "count": 1
-    },
     "shadcn/no-restyle": {
       "count": 7
     },

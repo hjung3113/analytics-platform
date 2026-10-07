@@ -102,6 +102,7 @@ export default function ProductivityOverview(_: PageProps) {
         caption={o ? `${n1(o.num)}h / ${n1(o.den)}h · ${ver(METRIC_VERSIONS.occupancy)}` : (ko ? '분모 0 — 미확인 (0% 아님)' : 'denominator 0 — unknown, not 0%')}
         footnote={o && <span className="mt-1 block h-1.5 w-full overflow-hidden rounded-pill bg-surface-sunken" role="img"
           aria-label={ko ? `점유 ${n1(o.num)}시간 / 관측 가능 ${n1(o.den)}시간 = ${n1(o.pct)}%` : `occupied ${n1(o.num)}h of ${n1(o.den)}h observable = ${n1(o.pct)}%`}>
+          {/* eslint-disable-next-line shadcn/no-inline-styles -- bar width is the occupancy percentage computed at runtime */}
           <span className="block h-full rounded-pill bg-chart-blue" style={{ width: `${Math.min(100, Math.max(0, o.pct))}%` }} />
         </span>} />;
     }

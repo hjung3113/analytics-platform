@@ -571,7 +571,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             <ul className="space-y-2">{table.getAllLeafColumns().filter(c => c.getCanHide()).map(c => <li key={c.id} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1">
               <Label className="flex items-center gap-2 text-xs font-normal"><Checkbox checked={c.getIsVisible()} onCheckedChange={v => c.toggleVisibility(v === true)} className="size-3.5" />{nameOf(c)}</Label>
               <Label className="flex items-center gap-1 text-tiny font-normal text-text-muted"><Checkbox checked={c.getIsPinned() === 'left'} onCheckedChange={v => c.pin(v === true ? 'left' : false)} className="size-3.5" />{lang === 'ko' ? '고정' : 'Pin'}</Label>
-              <input aria-label={`${nameOf(c)} width`} type="range" min="60" max="600" value={c.getSize()} className="col-span-2 accent-[rgb(var(--accent-primary))]" onChange={e => table.setColumnSizing(o => ({ ...o, [c.id]: Number(e.target.value) }))} />
+              <input aria-label={`${nameOf(c)} width`} type="range" min="60" max="600" value={c.getSize()} className="col-span-2 accent-accent-primary" onChange={e => table.setColumnSizing(o => ({ ...o, [c.id]: Number(e.target.value) }))} />
             </li>)}</ul>
           </PopoverContent>
         </Popover>
@@ -643,11 +643,14 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     </div>
 
     {shown && shown.outcome !== 'ok' ? <div className="border-t border-border-subtle p-3"><OutcomeView response={shown} onRetry={() => setRetry(r => r + 1)} emptyAction={p.emptyAction}>{() => null}</OutcomeView></div> :
+      // eslint-disable-next-line shadcn/no-inline-styles -- viewport height comes from the height prop at runtime
       <div ref={viewport} tabIndex={0} aria-label={lang === 'ko' ? '스크롤 가능한 행 영역' : 'Scrollable rows'} className="overflow-auto overscroll-contain border-t border-border-subtle [overflow-anchor:none]" style={{ height: p.height ?? 420 }}>
-        <div role="table" aria-label={p.ariaLabel} aria-rowcount={data.total + 1} aria-busy={loading} style={{ width: table.getTotalSize(), minWidth: '100%' }}>
+        {/* eslint-disable-next-line shadcn/no-inline-styles -- table width is the total column size computed at runtime */}
+        <div role="table" aria-label={p.ariaLabel} aria-rowcount={data.total + 1} aria-busy={loading} className="min-w-full" style={{ width: table.getTotalSize() }}>
           <div role="rowgroup" className="sticky top-0 z-[5]">
             <div role="row" className="flex">{table.getHeaderGroups()[0].headers.map(h => {
               const sorted = h.column.getIsSorted();
+              // eslint-disable-next-line shadcn/no-inline-styles -- column width and pin offset come from column sizing at runtime
               return <div role="columnheader" key={h.id} data-column={h.column.id} style={cellStyle(h.column)}
                 aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : h.column.getCanSort() ? 'none' : undefined}
                 className={cn(cellBase, 't-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', align(h.column))}>
@@ -662,12 +665,15 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             })}</div>
           </div>
           {!shown ? <div className="space-y-2 p-3" aria-hidden>{Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="h-5 rounded-sm bg-surface-sunken" />)}</div> :
-            <div role="rowgroup" style={{ height: virtual.getTotalSize(), position: 'relative' }}>{virtual.getVirtualItems().map(item => {
+            // eslint-disable-next-line shadcn/no-inline-styles -- total row height comes from the virtualizer at runtime
+            <div role="rowgroup" className="relative" style={{ height: virtual.getTotalSize() }}>{virtual.getVirtualItems().map(item => {
               const row = rows[item.index];
               const active = p.activeRowId === row.id;
               return <div role="row" key={row.id} ref={virtual.measureElement} data-index={item.index} aria-rowindex={shownPage * pageSize + item.index + 2}
                 aria-selected={row.getIsSelected()} data-row-id={row.id}
+                // eslint-disable-next-line shadcn/no-inline-styles -- row offset is the virtual item position computed at runtime
                 className={cn('group absolute left-0 top-0 flex w-full', loading && 'opacity-60')} style={{ transform: `translateY(${item.start}px)` }}>
+                {/* eslint-disable-next-line shadcn/no-inline-styles -- cell width and pin offset come from column sizing at runtime */}
                 {row.getVisibleCells().map(cell => <div role="cell" key={cell.id} data-column={cell.column.id} style={cellStyle(cell.column)}
                   className={cn(cellBase, 'border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', align(cell.column))}>
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
