@@ -1,6 +1,7 @@
 import { CalendarDays, ChevronDown, Link2, RotateCcw, X } from 'lucide-react';
 import { useContext, type ReactNode } from 'react';
 import { ContextBarLayout, MeasuringContext, useContextEditorState, useContextEditorFocusRecovery } from './ContextBarLayout';
+import { CONTEXT_CHIP, CONTEXT_CHIP_TONE } from './contextChip';
 import { CONTEXT_LABELS, useAdapterRequest, useI18n, usePlatform, type RequestState } from '@ap/kernel';
 import { type Capability, type Condition, type ConditionAxis, conditionLabel, type ContextKey, formatDateTime, type GlobalContext, type SelectionEvaluation, parseDateTime, shift } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
@@ -69,8 +70,8 @@ function CapTag({ cap }: { cap: Capability }) {
 
 function ChipShell({ label, value, cap, empty, children, ...rest }: { label: ReactNode; value: ReactNode; cap: Capability; empty?: boolean; children?: ReactNode } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return <button type="button" {...rest}
-    className={cn('inline-flex h-8 max-w-[22rem] items-center gap-1.5 rounded-sm border px-2.5 whitespace-nowrap text-xs hover:border-border-control',
-      cap === 'unsupported' ? 'border-dashed border-border-strong bg-transparent text-text-muted' : 'border-border-strong bg-surface-card text-text-primary',
+    className={cn(CONTEXT_CHIP, 'max-w-[22rem]',
+      cap === 'unsupported' ? 'border-dashed border-border-strong bg-transparent text-text-muted' : CONTEXT_CHIP_TONE,
       empty && 'text-text-muted')}>
     <span className="text-text-muted">{label}</span>
     <span className="truncate font-medium tabular">{value}</span>
