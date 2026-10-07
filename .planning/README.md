@@ -1,6 +1,6 @@
 # 남은 일 한눈에 보기
 
-> 마지막 갱신 2026-10-07. 원본은 GitHub 이슈·마일스톤이고 이 보드는 그 요약이다. 이슈가 닫히거나 상태가 바뀌면 같은 PR에서 해당 줄을 고친다. 물어 와야 할 질문과 미결 범위는 [inputs.md](inputs.md), 이슈로 올리지 않은 아이디어는 [backlog.md](backlog.md).
+> 마지막 갱신 2026-10-08. 원본은 GitHub 이슈·마일스톤이고 이 보드는 그 요약이다. 이슈가 닫히거나 상태가 바뀌면 같은 PR에서 해당 줄을 고친다. 물어 와야 할 질문과 미결 범위는 [inputs.md](inputs.md), 이슈로 올리지 않은 아이디어는 [backlog.md](backlog.md).
 
 ## 지금 어디까지
 
@@ -10,19 +10,19 @@
 | 2. Kernel 프로토타입 | 완료 |
 | 3. 모노레포 정리 | 완료 |
 | 4. 플랫폼 기능 (M1) | 완료 |
-| 5. 디자인 시스템 (M2) | **완료** — v0.1.0, 후속 #218·#156 포함 v0.2.0 릴리스 |
+| 5. 디자인 시스템 (M2) | **완료** — v0.1.0, 후속 #218·#156 v0.2.0, FeedbackOps 모양·크기 정리와 디자인 lint 위반 0(#228) v0.3.0 |
 | 6. FeedbackOps 1단계 (M3) | 대부분 완료. 남은 4개는 FeedbackOps·사내 SSO 답 대기 |
 | 7. 사내 적용 (M4) | 플랫폼 쪽 준비 끝. 사내 답 대기 — 지도 #157 |
 | 8. FeedbackOps 2단계 (M5) | 방향 결정(ADR-0018). 착수 전 범위 확인 필요 — 마일스톤 M5, 지도 #213 |
 
 ## 다음 할 일
 
-다음 세션은 여기서 시작한다. 직전 세션(2026-10-05)에서 M2 후속(#218 Context 바, #156 레이아웃 슬롯)을 끝내고 v0.2.0을 릴리스했으며, 드릴다운(#225)을 이슈로 올렸다(아래 "끝난 것").
+다음 세션은 여기서 시작한다. 직전 세션(2026-10-07~08)에서 FeedbackOps 디자인 시스템·lint를 가져와 플랫폼 덮어쓰기를 걷어 내고(#228, ADR-0023), 넘침 버튼 경계(#240)와 설비 도메인 정정(#242)까지 끝내 v0.3.0을 릴리스했다(아래 "끝난 것").
 
-1. **shadcn lint #228 — 위반 0으로 마무리(이 PR)**. FeedbackOps 서브모듈 `13a3c5a`·규칙 옵션(ADR-0062)·글자 크기 토큰(#236), inline style·accent(#238), 그리고 사용자 결정(2026-10-07, 시안 `hjung3113/proto-228-fops-shapes`, [ADR-0023](../docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md))대로 플랫폼 덮어쓰기 83곳을 걷어 내고 FeedbackOps 모양·크기를 쓴다. 접근성 하한(입력·select·체크박스 경계, `aria-disabled` 버튼, 메뉴 포커스 링)만 lint contract로 남고, 패키지 `eslint-suppressions.json`은 모두 없다. 후속: #239(표 너비 슬라이더 이름·값). #240(넘침 버튼 경계)은 넘침 버튼을 이웃 Context 칩과 같은 칩 모양으로 해서 닫았다.
+1. **표 너비 슬라이더 #239** — 사용자가 필터로 읽었다. 이름·값을 보이게 한다. 공통 부품 모양이 바뀌므로 시안 먼저.
 2. **드릴다운 #225** — 한 화면에서 단계별로 깊게 보기 / 다른 메뉴로 넘어가기를 플랫폼 기능 + 레이아웃으로. 설계 → `?variant=` 프로토타입 → 컨펌.
 3. 그 뒤 다음 슬라이스를 사용자에게 고르게 한다(후보: FeedbackOps 2단계 — 아래 "다음 슬라이스 후보"). 고른 슬라이스에 걸리는 "결정 대기"의 이슈 없는 항목(예: 사용자 설정 저장 위치)을 같이 묻는다.
-4. 작업 규칙은 루트 `AGENTS.md`(2026-10-05 간소화), 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 문서만 바꾸면 `pnpm docs:links`만 돌린다.
+4. 작업 규칙은 루트 `AGENTS.md`(2026-10-05 간소화), 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 문서만 바꾸면 `pnpm docs:links`만 돌린다. 구현 작업자 배정(복잡한 일은 Grok 4.7 high, 2026-10-08)은 코디네이터 메모리에 있다.
 
 ## 바로 할 수 있는 일 (에이전트)
 
@@ -102,5 +102,7 @@
 v0.1.0(2026-10-04): Kernel(Registry·전역 Context·URL 계약·권한·Scope·감사·활용률 계측·화면 오류 격리), 공통 컴포넌트(서버 페이징 표·내보내기·복사, 셸 상세 슬롯, 감사 타임라인, 신뢰 표시, 상태 화면, 필터 바, 같은 응답 배너), 차트 계약(Brush·Compare·Annotate·Export, 범례), FeedbackOps 디자인 시스템 기반 셸, 플랫폼 계약 E2E, 메뉴 조회 포트와 서버 적합성 묶음, 운영 빌드 조립 분리. 세부는 닫힌 이슈와 [v0.1.0 릴리스](https://github.com/hjung3113/analytics-platform/releases/tag/v0.1.0).
 
 v0.2.0(2026-10-05): M2 후속 — Context 바 1440px에서 기간 프리셋 다시 인라인(#218), 레이아웃 슬롯 `ManagementLayout`·`AnalysisLayout`(#156, ADR-0022). 세부는 [v0.2.0 릴리스](https://github.com/hjung3113/analytics-platform/releases/tag/v0.2.0).
+
+v0.3.0(2026-10-08): FeedbackOps 서브모듈 `13a3c5a`와 디자인 lint 설정(FeedbackOps ADR-0062)을 가져오고(#236), inline style 정리(#238), 플랫폼이 FeedbackOps 부품을 덮어쓰던 83곳을 걷어 내 FeedbackOps 모양·크기로(#241, 시안 C·[ADR-0023](../docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md)) — 디자인 lint 위반 0, 접근성 하한 셋만 lint contract. Context 바 넘침 버튼을 이웃 칩 모양으로(#240). 설비 도메인 정정 — 설비명 없음(EquipmentID가 유일 키), room_name은 PHOTO·ETCH 같은 공정명(#242). 세부는 [v0.3.0 릴리스](https://github.com/hjung3113/analytics-platform/releases/tag/v0.3.0).
 
 2026-10-05: 문서·작업 규칙 정리와 이 보드 도입(#220). 결정 — 활용률 이벤트는 식별 필드만(#75, ADR-0020), 차트는 Canvas 렌더러(ADR-0021), 운영 조립 주입 승인(ADR-0009), 전역 감사도 room 권한 적용(#91, 구현은 해당 역할이 생길 때). GitHub 정리 — #33·#63 닫음, M5 마일스톤 생성, #81·#84·#85를 M3에, #218을 M2에. #218 Context 바 적용 배지 생략·라벨 먼저 숨김. #156 레이아웃 슬롯 — 관리 화면은 접을 수 있는 왼쪽 필터 레일, 분석 화면은 KPI 띠 + 차트 2열 + 카드별 접기, 생성기 뼈대 반영(ADR-0022).
