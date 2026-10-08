@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | 프로젝트 지침 | `/AGENTS.md` | `/CLAUDE.md → AGENTS.md` |
 | 스킬 | `.agents/skills/` | `.claude/skills`, `.omp/skills`, `.grok/skills`, `.opencode/skills → ../.agents/skills` |
+| 리뷰어 에이전트 | `.agents/agents/` | `.claude/agents → ../.agents/agents` |
 | 명령 텍스트 | `.agents/commands/` | `.claude/commands → ../.agents/commands` |
 | 외부 디자인 자료 | `.agents/references/` | `.claude/references → ../.agents/references` |
 
@@ -33,6 +34,7 @@
     - **권한:** RLS 정책·`auth.uid()` 같은 Supabase 인증 패턴을 쓰지 않는다. 권한·Scope는 FastAPI가 매 요청 서버 판정(체크리스트 §3, room 부여는 메타 DB — #98).
     - **FastAPI 기본값:** 요청 모델은 모르는 키를 거부(`extra='forbid'`)하고, 검증 실패를 FastAPI 기본 422 본문 그대로 두지 않는다 — 어댑터가 받는 결과는 envelope `error`다(체크리스트 §2). HTTP 상태 코드와 `outcome`의 대응은 #149에서 정한다. 판정 순서는 체크리스트 §3가 우선.
     - **React:** 데이터 조회는 Kernel 조회 수명주기(`useMenuQuery`·`useMenuFetch`)가 우선 — SWR 등 일반 fetching 조언은 해당 없음. `@ap/*`는 공개 진입점만 import(barrel 회피 조언보다 패키지 경계 규칙이 우선, lint 강제).
+- 이슈 처리 흐름(작업자 구현 → 코디네이터 호스트 검증 → 역할별 리뷰 → 병합)은 `skills/issue-wave-conductor/SKILL.md`다(FeedbackOps에서 옮김, #255). 리뷰어 역할 `review-ux`·`review-quality`의 지침은 `agents/`, 코드 리뷰어·구현 작업자 규칙은 `docs/agents/templates/`. 모델은 전역 `orca-dispatch-recipes/routing.tsv`가 정한다.
 - 화면 설계 진입점은 `skills/analysis-platform-wireframe/SKILL.md`다. 기본 종료점은 Wireframe + Open Decisions이며 구현 요청이 있을 때 후속 단계를 진행한다.
 - 스킬 안의 `scripts/`, `references/`는 그 `SKILL.md`가 있는 디렉터리를 기준으로 해석한다. `ui-ux-pro-max`의 검색 예제는 해당 디렉터리에서 실행한다: `python3 scripts/search.py "analytics dashboard" --domain product`.
 - 도구 이름·이미지 생성·외부 요청·자격 증명은 실행 환경에 따라 다르다. 현재 사용 가능한 도구로 대응하고, 필요한 의존성이 없으면 해당 작업의 제한을 보고한다. 경로 공유가 모든 외부 기능의 실행 검증을 뜻하지 않는다.
