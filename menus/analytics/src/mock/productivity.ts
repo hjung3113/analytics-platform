@@ -1,3 +1,4 @@
+// THROWAWAY #225 — never merge.
 /**
  * Synthetic productivity metrics for the Overview screen (wireframe 11) — server-side half.
  * Moved out of the client bundle with the menuQuery port (#114); the page consumes the same
@@ -10,7 +11,7 @@ import {
   bucketStart, jobPercentile, jobsInPeriod, observableHours,
   type Equipment, type Job,
 } from '@ap/mock-server';
-import type { AttentionRow, BreakdownRow, Granularity, KpiSet, TrendBucket } from '../endpoints';
+import type { AttentionRow, BreakdownRow, DrillEquipmentRow, DrillStgroupRow, Granularity, KpiSet, TrendBucket } from '../endpoints';
 
 const HOUR = 3_600_000;
 
@@ -113,6 +114,48 @@ export function occupancyBreakdown(equipment: Equipment[], from: string, to: str
       jobs: group.jobs,
     }))
     .sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+}
+
+/** StGroups present on the received equipment. Composition rows supply job counts; groups with no jobs stay, at zero. */
+export function drillStgroupRows(equipment: Equipment[], from: string, to: string): DrillStgroupRow[] {
+  const composed = new Map(occupancyBreakdown(equipment, from, to, 'stgroup').map(row => [row.key, row]));
+  const groups = new Map<string, Equipment[]>();
+  for (const item of equipment) {
+    const list = groups.get(item.stgroup) ?? [];
+    list.push(item);
+    groups.set(item.stgroup, list);
+  }
+  return [...groups.entries()]
+    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+    .map(([stgroup, rows]) => {
+      const kpi = computeKpis(rows, from, to);
+      const composition = composed.get(stgroup);
+      const occupancyPct = composition && composition.observableHours > 0
+        ? (composition.occupiedHours / composition.observableHours) * 100
+        : kpi.occupancy?.pct ?? null;
+      return {
+        stgroup,
+        equipmentCount: rows.length,
+        occupancyPct,
+        jobs: composition?.jobs ?? kpi.throughput.jobs,
+      };
+    });
+}
+
+/** One row per received equipment. No ids are invented. P95 is the pooled cycle of that equipment's jobs. */
+export function drillEquipmentRows(equipment: Equipment[], from: string, to: string): DrillEquipmentRow[] {
+  return [...equipment]
+    .sort((a, b) => (a.equipmentId < b.equipmentId ? -1 : a.equipmentId > b.equipmentId ? 1 : 0))
+    .map(item => {
+      const jobs = jobsInPeriod([item], from, to);
+      const kpi = computeKpis([item], from, to);
+      return {
+        equipmentId: item.equipmentId,
+        occupancyPct: kpi.occupancy?.pct ?? null,
+        jobs: jobs.length,
+        p95Min: kpi.cycle.p95,
+      };
+    });
 }
 
 /** Top equipment by non-process dwell per job and by slowest pooled P95. Ranking only. */

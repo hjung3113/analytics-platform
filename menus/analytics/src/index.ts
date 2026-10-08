@@ -1,3 +1,4 @@
+// THROWAWAY #225 — never merge.
 /**
  * @ap/menu-analytics — analytics group manifests (docs/06 §5, §9).
  * Menus declare, the kernel's createRegistry validates and the shell consumes.
@@ -16,7 +17,9 @@ export const manifests: MenuEntry[] = [
     description: { ko: '물리 점유율, 비Process 체류, 사이클타임 P50·P95, Job 처리량을 요약합니다.', en: 'Occupancy, non-process dwell, cycle time P50/P95 and job throughput.' },
     path: '/analytics/productivity', icon: Activity, permission: 'analytics:view', requiresScope: true, pageType: 'overview',
     context: { ...none, time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', ppid: 'apply', recipe: 'apply', metric: 'reference', lot: 'unsupported' },
-    features: { ...noFeatures, export: true }, pageKeys: ['granularity', 'kpi', 'axis', 'sort'],
+    features: { ...noFeatures, export: true },
+    pageKeys: ['granularity', 'kpi', 'axis', 'sort', 'drillRoom', 'drillStgroup', 'drillEquipment'],
+    contextResetKeys: ['drillRoom', 'drillStgroup', 'drillEquipment'],
     component: lazy(() => import('./pages/ProductivityOverview')),
   },
   {

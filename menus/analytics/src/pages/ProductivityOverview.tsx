@@ -1,3 +1,5 @@
+// THROWAWAY #225 — never merge.
+// Drill layouts A/B/C on this route via ?variant=. Step keys are shared; each layout is a separate tree.
 import { formatMetricVersion, periodHours } from '@ap/contracts';
 /**
  * 생산성 분석 — 개요 (wireframe 11, Overview archetype §12.1).
@@ -8,14 +10,15 @@ import { formatMetricVersion, periodHours } from '@ap/contracts';
  * Synthetic values come from the declared endpoints (../endpoints), computed by the
  * mock server half. Definitions are Candidates per wireframe 11 §6.
  */
-import { AlertTriangle, ArrowRight, BarChart3, Hourglass, Percent, RotateCw, Timer } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BarChart3, ChevronRight, Hourglass, Percent, RotateCw, Timer } from 'lucide-react';
 import { type PageProps, PlatformLink, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
 import { AnalysisChartFrame, type ChartSeries, DataTrustIndicator, type Delta, Panel, PlatformPage, QueryView, SegmentedRadio, StatCard, StateMessage } from '@ap/components';
-import { Button, cn, StatusBadge } from '@ap/ui';
+import { Button, cn, StatusBadge, usePrototype } from '@ap/ui';
 import {
-  CYCLE_VERSION_NOTE, METRIC_VERSIONS, attentionEndpoint, breakdownEndpoint, kpisEndpoint, trendEndpoint,
+  CYCLE_VERSION_NOTE, METRIC_VERSIONS, attentionEndpoint, breakdownEndpoint, drillEndpoint, kpisEndpoint, trendEndpoint,
   type AttentionRow, type Granularity, type KpiKey, type KpiSet, type TrendBucket, type TrendData,
 } from '../endpoints';
+import { DrillEquipmentSlot, DrillPath, VariantA, VariantB, VariantC, type DrillActions, type DrillStep } from './drill-layout';
 
 const GRANS: readonly Granularity[] = ['hour', 'day', 'week'];
 const KPI_KEYS = ['occupancy', 'dwell', 'cycleTime', 'throughput'] as const;
@@ -34,19 +37,32 @@ function resolveBreakdownSort(raw: string | null): { ok: true; key: typeof SORT_
   return { ok: true, key: match[1] as typeof SORT_KEYS[number], dir: match[2] === 'asc' ? 1 : -1 };
 }
 
+function pageValue(raw: string | null): string | null {
+  return raw === null || raw === '' ? null : raw;
+}
+
 export default function ProductivityOverview(_: PageProps) {
   const { global, pageParam, setPage, setGlobal, linkTo } = usePlatform();
   const { lang } = useI18n();
   const ko = lang === 'ko';
+  const prototype = usePrototype();
+  const layout = prototype === 'B' || prototype === 'C' ? prototype : 'A';
 
   const hours = periodHours(global);
   const rawKpi = pageParam('kpi');
   const rawAxis = pageParam('axis');
   const rawSort = pageParam('sort');
+  const room = pageValue(pageParam('drillRoom'));
+  const stgroup = pageValue(pageParam('drillStgroup'));
+  const equipment = pageValue(pageParam('drillEquipment'));
   const kpiResult = resolveChoice(rawKpi, KPI_KEYS, 'throughput');
   const axisResult = resolveChoice(rawAxis, AXES, 'room');
   const sortResult = resolveBreakdownSort(rawSort);
-  const invalidPage = !kpiResult.ok || !axisResult.ok || !sortResult.ok;
+  const drillProblems = [
+    stgroup !== null && room === null ? `drillStgroup=${stgroup}` : null,
+    equipment !== null && (room === null || stgroup === null) ? `drillEquipment=${equipment}` : null,
+  ].filter((item): item is string => item !== null);
+  const invalidPage = !kpiResult.ok || !axisResult.ok || !sortResult.ok || drillProblems.length > 0;
   const selectedKpi = kpiResult.ok ? kpiResult.value : 'throughput';
   const axis = axisResult.ok ? axisResult.value : 'room';
   const sort = sortResult.ok ? { key: sortResult.key, dir: sortResult.dir } : { key: 'key' as const, dir: 1 as const };
@@ -54,7 +70,9 @@ export default function ProductivityOverview(_: PageProps) {
     !kpiResult.ok ? `kpi=${rawKpi}` : null,
     !axisResult.ok ? `axis=${rawAxis}` : null,
     !sortResult.ok ? `sort=${rawSort}` : null,
+    ...drillProblems,
   ].filter((item): item is string => item !== null).join(', ');
+  const step: DrillStep = room === null ? 0 : stgroup === null ? 1 : equipment === null ? 2 : 3;
 
   // Page-owned URL key `granularity` (wireframe 11 §3.1). Unset → hour for ≤48h, else day (Candidate).
   const rawGran = pageParam('granularity');
@@ -66,6 +84,9 @@ export default function ProductivityOverview(_: PageProps) {
   const trendQ = useMenuQuery(trendEndpoint, { kpi: selectedKpi, granularity: gran }, !invalidPage);
   const breakdownQ = useMenuQuery(breakdownEndpoint, { axis }, !invalidPage);
   const attentionQ = useMenuQuery(attentionEndpoint, {}, !invalidPage);
+  const roomsQ = useMenuQuery(breakdownEndpoint, { axis: 'room' }, !invalidPage && axis !== 'room' && step > 0);
+  const stgroupQ = useMenuQuery(drillEndpoint, { level: 'stgroup', room: room ?? '', stgroup: '' }, !invalidPage && room !== null);
+  const equipmentQ = useMenuQuery(drillEndpoint, { level: 'equipment', room: room ?? '', stgroup: stgroup ?? '' }, !invalidPage && room !== null && stgroup !== null);
 
   const locale = ko ? 'ko-KR' : 'en-US';
   const n1 = (v: number) => v.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -88,6 +109,30 @@ export default function ProductivityOverview(_: PageProps) {
   function selectKpi(kpi: KpiKey) {
     setPage({ kpi: kpi === 'throughput' ? null : kpi });
   }
+
+  // Step changes push a history entry. setPage already pushes unless replace is set; sort and axis stay on that default.
+  const drillActions: DrillActions = {
+    enterRoom: value => setPage({ drillRoom: value, drillStgroup: null, drillEquipment: null }),
+    enterStgroup: value => setPage({ drillStgroup: value, drillEquipment: null }),
+    enterEquipment: value => setPage({ drillEquipment: value }),
+    goTo: target => {
+      if (target === 0) setPage({ drillRoom: null, drillStgroup: null, drillEquipment: null });
+      else if (target === 1) setPage({ drillStgroup: null, drillEquipment: null });
+      else setPage({ drillEquipment: null });
+    },
+    switchRoom: value => setPage({ drillRoom: value, drillStgroup: null, drillEquipment: null }),
+    switchStgroup: value => setPage({ drillStgroup: value, drillEquipment: null }),
+  };
+  const roomRows = (axis === 'room' ? breakdownQ : roomsQ).response?.outcome === 'ok'
+    ? (axis === 'room' ? breakdownQ : roomsQ).response?.data ?? []
+    : [];
+  const stgroupData = stgroupQ.response?.outcome === 'ok' ? stgroupQ.response.data : null;
+  const stgroupRows = stgroupData?.stgroups ?? [];
+  const siblings = layout === 'A' ? {
+    rooms: roomRows.map(row => ({ value: row.key, occupancyPct: row.observableHours > 0 ? (row.occupiedHours / row.observableHours) * 100 : null })),
+    stgroups: stgroupRows.map(row => ({ value: row.stgroup, occupancyPct: row.occupancyPct })),
+  } : null;
+  const equipmentHref = equipment === null ? null : linkTo('equipment-detail', { params: { equipmentId: equipment }, returnTo: true });
 
   function kpiCard(kpi: KpiKey, data: { current: KpiSet; previous: KpiSet | null }) {
     const c = data.current; const p = data.previous;
@@ -187,7 +232,7 @@ export default function ProductivityOverview(_: PageProps) {
     primaryAction={<Button size="sm" asChild>
       <PlatformLink href={linkTo('cycle-time')}>{ko ? '사이클타임 상세 보기' : 'Cycle time detail'}<ArrowRight className="size-3.5" aria-hidden /></PlatformLink>
     </Button>}
-    secondaryActions={<Button size="sm" variant="secondary" onClick={() => { kpiQ.refetch(); trendQ.refetch(); breakdownQ.refetch(); attentionQ.refetch(); }}>
+    secondaryActions={<Button size="sm" variant="secondary" onClick={() => { kpiQ.refetch(); trendQ.refetch(); breakdownQ.refetch(); attentionQ.refetch(); roomsQ.refetch(); stgroupQ.refetch(); equipmentQ.refetch(); }}>
       <RotateCw className="size-3.5" aria-hidden />{ko ? '새로고침' : 'Refresh'}
     </Button>}
     dataTrustSummary={kpiQ.response?.trust
@@ -212,9 +257,11 @@ export default function ProductivityOverview(_: PageProps) {
   >
     {invalidPage ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '페이지 키 값이 올바르지 않습니다' : 'Invalid page key'}
       body={ko
-        ? `${errors} 은 이 화면의 등록 값이 아닙니다. kpi=occupancy|dwell|cycleTime|throughput, axis=room|stgroup, sort=key|occ|obs|pct|jobs:asc|desc 만 허용하며 다른 값으로 바꾸지 않습니다.`
-        : `${errors} is not a registered value. Allowed: kpi=occupancy|dwell|cycleTime|throughput, axis=room|stgroup, sort=key|occ|obs|pct|jobs:asc|desc. Nothing was substituted.`} />
+        ? `${errors} 은 이 화면의 등록 값이 아닙니다. kpi=occupancy|dwell|cycleTime|throughput, axis=room|stgroup, sort=key|occ|obs|pct|jobs:asc|desc 만 허용하며 다른 값으로 바꾸지 않습니다.${drillProblems.length > 0 ? ' drillStgroup은 drillRoom이 있을 때만, drillEquipment은 drillRoom과 drillStgroup이 있을 때만 둘 수 있습니다.' : ''}`
+        : `${errors} is not a registered value. Allowed: kpi=occupancy|dwell|cycleTime|throughput, axis=room|stgroup, sort=key|occ|obs|pct|jobs:asc|desc. Nothing was substituted.${drillProblems.length > 0 ? ' drillStgroup requires drillRoom, and drillEquipment requires both earlier keys.' : ''}`} />
       : <div className="space-y-4">
+      {step > 0 && room !== null && <DrillPath ko={ko} step={step} room={room} stgroup={stgroup} equipment={equipment} actions={drillActions} siblings={siblings} n1={n1} />}
+      {(step === 0 || layout === 'C') && <>
       {/* Primary KPI / Summary */}
       <section aria-labelledby="kpi-heading">
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
@@ -307,14 +354,21 @@ export default function ProductivityOverview(_: PageProps) {
                         }}
                           className="inline-flex items-center gap-1 hover:text-text-primary">{col.label}{sort.key === col.key ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}</button>
                       </th>)}
+                      {axis === 'room' && <th scope="col" className="w-10 px-2 py-1.5"><span className="sr-only">{ko ? '들어가기' : 'Enter'}</span></th>}
                     </tr></thead>
-                    <tbody className="tabular">
+                    <tbody className="tabular tabular-nums">
                       {sorted.map(r => <tr key={r.key} className="border-t border-border-subtle">
                         <td className="t-mono px-3 py-1.5">{r.key}</td>
                         <td className="px-3 py-1.5 text-right">{n1(r.occupiedHours)} h</td>
                         <td className="px-3 py-1.5 text-right">{n1(r.observableHours)} h</td>
                         <td className="px-3 py-1.5 text-right">{pct(r) !== null ? `${n1(pct(r)!)}%` : (ko ? '미확인' : 'unknown')}</td>
                         <td className="px-3 py-1.5 text-right">{ni(r.jobs)}</td>
+                        {axis === 'room' && <td className="px-2 py-1.5 text-right">
+                          <button type="button" aria-label={ko ? `${r.key} 들어가기` : `Enter ${r.key}`} onClick={() => drillActions.enterRoom(r.key)}
+                            className="inline-flex size-6 items-center justify-center rounded-sm text-text-secondary hover:bg-surface-sunken hover:text-text-primary">
+                            <ChevronRight className="size-3.5" aria-hidden />
+                          </button>
+                        </td>}
                       </tr>)}
                     </tbody>
                   </table>
@@ -357,6 +411,11 @@ export default function ProductivityOverview(_: PageProps) {
           </Panel>
         </section>
       </div>
+      </>}
+      {step > 0 && room !== null && layout === 'A' && <VariantA ko={ko} step={step} room={room} stgroup={stgroup} equipment={equipment} stgroupQuery={stgroupQ} equipmentQuery={equipmentQ} actions={drillActions} n1={n1} ni={ni} />}
+      {step > 0 && room !== null && layout === 'B' && <VariantB ko={ko} step={step} room={room} stgroup={stgroup} equipment={equipment} roomsQuery={axis === 'room' ? breakdownQ : roomsQ} stgroupQuery={stgroupQ} equipmentQuery={equipmentQ} actions={drillActions} n1={n1} ni={ni} />}
+      {step > 0 && room !== null && layout === 'C' && <VariantC ko={ko} step={step} room={room} stgroup={stgroup} equipment={equipment} stgroupQuery={stgroupQ} equipmentQuery={equipmentQ} actions={drillActions} n1={n1} ni={ni} />}
+      {step === 3 && equipment !== null && equipmentHref !== null && <DrillEquipmentSlot ko={ko} equipmentId={equipment} query={equipmentQ} href={equipmentHref} onClose={() => drillActions.goTo(2)} n1={n1} ni={ni} />}
     </div>}
   </PlatformPage>;
 }

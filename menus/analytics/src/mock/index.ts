@@ -1,3 +1,4 @@
+// THROWAWAY #225 — never merge.
 /**
  * Mock server half of the productivity-overview endpoints (#114). The app composition root
  * registers this list via `@ap/menu-analytics/mock` → `createMockAdapter({ endpoints, registry })`;
@@ -7,10 +8,10 @@
 import { shift } from '@ap/contracts';
 import { defineMockEndpoint, periodHours, type AnyMockEndpoint } from '@ap/mock-server';
 import {
-  METRIC_VERSIONS, attentionEndpoint, breakdownEndpoint, kpisEndpoint, trendEndpoint,
-  type KpisData, type TrendData,
+  METRIC_VERSIONS, attentionEndpoint, breakdownEndpoint, drillEndpoint, kpisEndpoint, trendEndpoint,
+  type DrillData, type KpisData, type TrendData,
 } from '../endpoints';
-import { attentionRows, computeKpis, occupancyBreakdown, trendBuckets } from './productivity';
+import { attentionRows, computeKpis, drillEquipmentRows, drillStgroupRows, occupancyBreakdown, trendBuckets } from './productivity';
 import { executionOccurrence } from './execution';
 import { cycleMock } from './cycle';
 
@@ -56,6 +57,43 @@ export const analyticsMock: readonly AnyMockEndpoint[] = [
     },
     isEmpty: rows => rows.length === 0,
     metricVersion: () => METRIC_VERSIONS.occupancy,
+  }),
+  defineMockEndpoint(drillEndpoint, {
+    handle: ({ equipment, context, params }): DrillData => {
+      const inRoom = equipment.filter(row => row.room === params.room);
+      const { from, to } = context;
+      if (from === null || to === null || inRoom.length === 0) {
+        return { roomFound: inRoom.length > 0, stgroupFound: false, kpi: EMPTY_KPIS.current, stgroups: [], equipment: [] };
+      }
+      if (params.level === 'stgroup') {
+        return {
+          roomFound: true,
+          stgroupFound: false,
+          kpi: computeKpis(inRoom, from, to),
+          stgroups: drillStgroupRows(inRoom, from, to),
+          equipment: [],
+        };
+      }
+      const inGroup = inRoom.filter(row => row.stgroup === params.stgroup);
+      if (inGroup.length === 0) {
+        return { roomFound: true, stgroupFound: false, kpi: EMPTY_KPIS.current, stgroups: [], equipment: [] };
+      }
+      return {
+        roomFound: true,
+        stgroupFound: true,
+        kpi: computeKpis(inGroup, from, to),
+        stgroups: [],
+        equipment: drillEquipmentRows(inGroup, from, to),
+      };
+    },
+    // A miss stays `ok` so the page can show "없는 값" instead of the generic empty state. The dev empty scenario still forces empty.
+    isEmpty: () => false,
+    metricVersion: () => METRIC_VERSIONS.occupancy,
+    validate: ({ params }) => {
+      if (params.level !== 'stgroup' && params.level !== 'equipment') return 'level must be stgroup or equipment';
+      if (typeof params.room !== 'string' || typeof params.stgroup !== 'string') return 'room and stgroup must be strings';
+      return null;
+    },
   }),
   defineMockEndpoint(attentionEndpoint, {
     handle: ({ equipment, context }) => {
