@@ -29,4 +29,4 @@
 
 ### 정보구조 그룹과의 관계
 
-이 표는 6개 도메인 capability를 분류한다. navigation IA의 단일 기준은 `06_platform_ui_contract.md` §9다. 공지와 VOC는 별개 도메인이지만 하나의 내비게이션 그룹을 공유하며, 운영 개요·관리·감사는 플랫폼 기능 그룹이다. 도메인 표와 navigation IA를 동일한 목록으로 맞추지 않는다.
+이 표는 6개 도메인 capability를 분류한다. navigation IA의 단일 기준은 `06_platform_ui_contract.md` §9다. 기존 Registry에서 공지와 VOC는 하나의 내비게이션 그룹을 공유하고 운영 개요·관리·감사는 플랫폼 기능 그룹이다. **2026-10-08 이후 목표 IA는 4개 독립 업무 워크스페이스 + 운영 콘솔 + 권한자용 전체 협업 허브**이며([15](15_multi_workspace_ui.md), [ADR-0026](adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)), 이전 전까지 기존 그룹은 유지한다. 도메인 capability 표와 navigation 그룹 수를 동일하게 맞추지 않는다.

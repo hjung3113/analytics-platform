@@ -31,6 +31,7 @@
 | [0023](0023-feedbackops-primitive-shapes-and-sizes.md) | 플랫폼은 FeedbackOps 부품의 모양과 크기를 덮어쓰지 않는다(C안) | Decided(2026-10-07) |
 | [0024](0024-table-column-controls-drag-width-pin-in-list.md) | 표 열 너비는 머리 끝 끌기로만, 컬럼 목록은 보이기 체크박스와 줄 끝 핀(C안) | Decided(2026-10-08) |
 | [0025](0025-drilldown-level-page-keys-path-bar-layout.md) | 드릴다운은 단계마다 page key, Context가 바뀌면 지우고, 경로 바 + 단계마다 본문 교체 | Decided(2026-10-08) |
+| [0026](0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md) | 공통 셸 안에서 업무 시스템별 독립 워크스페이스를 제공하고 FeedbackOps는 시스템별 협업 + 권한자용 전체 허브로 노출 | Decided(2026-10-08, UI 방향) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

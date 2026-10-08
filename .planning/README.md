@@ -22,6 +22,12 @@
 1. 다음 슬라이스를 사용자에게 고르게 한다(후보: FeedbackOps 2단계 — 아래 "다음 슬라이스 후보"). 고른 슬라이스에 걸리는 "결정 대기"의 이슈 없는 항목(예: 사용자 설정 저장 위치)을 같이 묻는다.
 2. 작업 규칙은 루트 `AGENTS.md`(2026-10-05 간소화), 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 문서만 바꾸면 `pnpm docs:links`만 돌린다. 구현 작업자 배정(복잡한 일은 Grok 4.7 high, 2026-10-08)은 코디네이터 메모리에 있다.
 
+## 신규 설계 승인 — 멀티 워크스페이스 v2 (2026-10-08)
+
+- **[지도 #249](https://github.com/hjung3113/analytics-platform/issues/249):** 4개 업무 시스템(분석·지표·로그 개발·개선 실행) + 운영 콘솔의 독립 Sidebar/워크스페이스, 시스템별 VOC·Task·설문과 전역 FeedbackOps 허브의 UI 방향 승인. [15 설계](../docs/15_multi_workspace_ui.md)·[시안](../docs/prototypes/multi-workspace-v2/index.html)·[ADR-0026](../docs/adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md).
+- **현재 단계:** 설계/시안 커밋, 실제 AppShell/Registry·FeedbackOps 통합 코드는 **미착수**. #213/#81/#150 의존성은 유지하며 기존 분석 메뉴가 새 업무 워크스페이스로 이전되기 전까지 경로를 보존한다.
+- **구현 단위:** Registry/Portal/Workspace Sidebar → 도메인별 공간 이행 → 시스템별 FeedbackOps 진입·통합 허브 → 교차 링크 UX 및 E2E. 메인 로드맵 M5 FeedbackOps 2단계와 순서 조정 필요.
+
 ## 바로 할 수 있는 일 (에이전트)
 
 | 이슈 | 할 일 | 메모 |

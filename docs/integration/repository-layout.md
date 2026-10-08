@@ -78,10 +78,10 @@ git -C products/feedbackops diff --stat HEAD origin/develop
 
 ## FeedbackOps 통합 방식 (Decided, 2026-09-26)
 
-FeedbackOps는 플랫폼의 **피드백 공간**([06 §9.1](../06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26))이 되며 단계적으로 통합한다.
+FeedbackOps는 플랫폼의 공통 협업 서비스로 단계적으로 통합한다. 이전의 '피드백 공간' 단독 UI 계획은 [ADR-0026](../adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)의 **시스템별 VOC·Task·설문 진입 + 전체 협업 허브** 목표 IA로 확장되었다. 단계적 API/화면 이전의 기술 경계는 그대로다.
 
 1. **1단계 — 연결:** 원본 앱은 독립 실행을 유지한다. 공유 SSO·디자인 토큰, 서로의 Context를 넘기는 딥링크로 연결한다. 분석 공간의 사용자용 화면은 VOC 상태와 설문 응답 이력을 FeedbackOps API에서 **읽기 전용**으로 조회한다. **VOC 등록과 설문 응답 제출(쓰기)은 1단계에서 FeedbackOps 원본 화면으로 딥링크한다(Decided, 2026-09-27)** — 플랫폼 화면 안의 쓰기는 2단계 셸 편입 이후로 미룬다. 사용자에게 보이는 상태와 내부 처리 상태를 자동으로 연결하지 않는 FeedbackOps 원칙(ADR-0005)을 그대로 따른다.
-2. **2단계 — 셸 편입:** 인증 프로토콜과 Scope↔Managed System 관계가 결정된 뒤 같은 셸 안의 피드백 공간으로 옮긴다. 이 결정 전에는 FeedbackOps 코드를 플랫폼 계약에 맞춰 소급 수정하지 않는다. **통합 깊이는 A — FeedbackOps 화면을 플랫폼 메뉴 패키지로 옮기고 FeedbackOps 백엔드는 도메인 API 서비스로 유지한다(Decided, 2026-10-04, [ADR-0018](../adr/0018-feedbackops-stage2-screens-into-platform-menus.md)).** 진행 계획은 [#213](https://github.com/hjung3113/analytics-platform/issues/213).
+2. **2단계 — 셸 편입:** 인증 프로토콜과 Scope↔Managed System 관계가 결정된 뒤, FeedbackOps 업무 화면을 같은 셸 안의 **시스템별 협업 메뉴와 전체 허브**로 옮긴다. 이 결정 전에는 FeedbackOps 코드를 플랫폼 계약에 맞춰 소급 수정하지 않는다. **통합 깊이는 A — FeedbackOps 화면을 플랫폼 메뉴 패키지로 옮기고 FeedbackOps 백엔드는 도메인 API 서비스로 유지한다(Decided, 2026-10-04, [ADR-0018](../adr/0018-feedbackops-stage2-screens-into-platform-menus.md)).** 진행 계획은 [#213](https://github.com/hjung3113/analytics-platform/issues/213).
 
 **Milestone:** 정의와 구현 상태는 FeedbackOps 저장소가 소유하며(`products/feedbackops/docs/design/06-task-project-system.md` FR-TASK-004), 플랫폼 쪽에서 별도 마일스톤 기능을 만들지 않는다.
 
