@@ -233,11 +233,18 @@ describe('PlatformColumn conversion defaults (#160)', () => {
     const pin = within(popover).getByRole('button', { name: 'Status 왼쪽 고정' });
     expect(pin).toHaveAttribute('aria-pressed', 'false');
     expect(within(popover).queryByText('고정됨')).toBeNull();
+    pin.focus();
     fireEvent.click(pin);
+    // the row moved to the pinned group; focus follows the same column's toggle
     expect(within(popover).getByRole('button', { name: 'Status 왼쪽 고정' })).toHaveAttribute('aria-pressed', 'true');
+    expect(document.activeElement).toBe(within(popover).getByRole('button', { name: 'Status 왼쪽 고정' }));
     const pinnedGroup = within(popover).getByText('고정됨').parentElement!;
     expect(within(pinnedGroup).getByText('Status')).toBeTruthy();
     expect(within(popover).getByText('나머지')).toBeTruthy();
+    fireEvent.click(within(popover).getByRole('button', { name: 'Status 왼쪽 고정' }));
+    expect(document.activeElement).toBe(within(popover).getByRole('button', { name: 'Status 왼쪽 고정' }));
+    expect(within(popover).getByRole('button', { name: 'Status 왼쪽 고정' })).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(within(popover).getByRole('button', { name: 'Status 왼쪽 고정' }));
     fireEvent.click(within(popover).getByRole('checkbox', { name: 'Visits' }));
     expect(within(popover).getByRole('checkbox', { name: 'Visits' })).toHaveAttribute('data-state', 'unchecked');
     fireEvent.click(within(popover).getByRole('button', { name: '기본값으로' }));

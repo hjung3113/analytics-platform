@@ -306,12 +306,19 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   // #239 (ADR-0024): the Columns popover lists each hideable column with a visibility checkbox and a pin toggle at the
   // row end; pinned columns sit in their own group on top. Width is set by dragging the header edge only.
   const hideableColumns = table.getAllLeafColumns().filter(c => c.getCanHide());
+  // A pin toggle moves its row between the groups, which remounts the button; give focus back to the same column's toggle.
+  const refocusPin = useRef<string | null>(null);
+  useEffect(() => {
+    if (refocusPin.current === null) return;
+    document.getElementById(`${columnPrefsId}-${refocusPin.current}-pin`)?.focus();
+    refocusPin.current = null;
+  });
   function columnPrefRow(c: Column<T>) {
     const pinned = c.getIsPinned() === 'left';
     return <li key={c.id} className="flex items-center gap-2">
       <Checkbox id={`${columnPrefsId}-${c.id}-visible`} checked={c.getIsVisible()} onCheckedChange={v => c.toggleVisibility(v === true)} className="size-3.5 border-border-control" />
       <div className="min-w-0 flex-1"><Label htmlFor={`${columnPrefsId}-${c.id}-visible`}>{nameOf(c)}</Label></div>
-      <Button type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-pressed={pinned} aria-label={`${nameOf(c)} ${lang === 'ko' ? '왼쪽 고정' : 'pin left'}`} disabled={!c.getCanPin()} onClick={() => c.pin(pinned ? false : 'left')}>
+      <Button id={`${columnPrefsId}-${c.id}-pin`} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-pressed={pinned} aria-label={`${nameOf(c)} ${lang === 'ko' ? '왼쪽 고정' : 'pin left'}`} disabled={!c.getCanPin()} onClick={() => { refocusPin.current = c.id; c.pin(pinned ? false : 'left'); }}>
         {pinned ? <PinOff className="size-3.5" aria-hidden /> : <Pin className="size-3.5" aria-hidden />}
       </Button>
     </li>;

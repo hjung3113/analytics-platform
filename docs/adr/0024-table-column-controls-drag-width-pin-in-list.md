@@ -3,7 +3,7 @@
 상태: **Decided (2026-10-08)**.
 - 결정자: 사용자 — 표 컬럼 설정의 너비 슬라이더를 필터로 읽은 지적(#239)에서 "컬럼 드래그엔 드랍으로 넓이 조절하고 보이고안보일거만 체크박스로 안되나?", "마우스는 다쓰니까 일단 마우스도쓴다가정하고해"를 거쳐, 리서치 바탕의 실제 앱 위 `?variant=` 시안(브랜치 `hjung3113/proto-239-width-slider`) A/B/C/D 중 C를 골랐다("c").
 
-`PlatformDataTable`의 "컬럼" 팝오버에는 열마다 보이기 체크박스, "고정" 체크박스, 너비 슬라이더(60–600px)가 있었다. 이름·값이 없는 슬라이더는 필터처럼 읽혔다. 리서치(shadcn·MUI·AG Grid·React Aria·TanStack·Mantine·Ant·PatternFly·Carbon)로는 너비는 헤더 오른쪽 끝 끌기가 표준이고 메뉴 안 너비 슬라이더는 쓰는 곳이 없었다. 보이기는 툴바 버튼 아래 체크박스 목록이 가장 흔하고, 고정은 헤더 메뉴나 목록 줄 끝 핀 아이콘으로 둔다. 표 세부 규칙은 [06 §27](../06_platform_ui_contract.md#27-performance-ux-baseline)과 [DESIGN.md](../../DESIGN.md)가 소유한다.
+`PlatformDataTable`의 "컬럼" 팝오버에는 열마다 보이기 체크박스, "고정" 체크박스, 너비 슬라이더(60–600px)가 있었다. 이름·값이 없는 슬라이더는 필터처럼 읽혔다. 리서치(shadcn·MUI·AG Grid·React Aria·TanStack·Mantine·Ant·PatternFly·Carbon)로는 너비는 헤더 오른쪽 끝 끌기가 표준이고 메뉴 안 너비 슬라이더는 쓰는 곳이 없었다. 보이기는 툴바 버튼 아래 체크박스 목록이 가장 흔하고, 고정은 헤더 메뉴나 목록 줄 끝 핀 아이콘으로 둔다. 표의 시각·조작 규칙은 [DESIGN.md](../../DESIGN.md)의 표 규칙이 소유한다([06 §27](../06_platform_ui_contract.md#27-performance-ux-baseline)은 열 너비·보이기·고정을 표 기본 기능으로만 둔다).
 
 ## 결정
 
