@@ -1,6 +1,6 @@
 # FeedbackOps 2단계 편입은 화면을 플랫폼 메뉴로 옮기고 백엔드는 도메인 API로 유지한다 (A안)
 
-상태: **Decided (2026-10-04)**.
+상태: **Decided (2026-10-04)**. 화면을 놓는 자리("피드백 공간")는 [ADR-0026](0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)(2026-10-08)이 대체했다 — 각 업무 공간 안의 협업 진입 + 권한자용 전체 협업 허브. 깊이(화면 이전 + 백엔드 유지)는 그대로다.
 - 결정자: 사용자 — FeedbackOps를 피드백 공간으로 완전 편입하는 깊이를 A(화면 이전 + 백엔드 유지) / B(앱 통째로 셸 안에 마운트) / C(백엔드까지 플랫폼 백엔드로 재작성) 중 A로 정했다(#213). 착수는 M2 마무리·main 릴리스 뒤다.
 
 단계 계획(1단계 연결 → 2단계 셸 편입)과 피드백 공간의 범위는 [저장소 연결 — 통합 방식](../integration/repository-layout.md#feedbackops-통합-방식-decided-2026-09-26)과 [06 §9.1](../06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26)이 소유한다. 진행 계획과 남은 결정은 [#213](https://github.com/hjung3113/analytics-platform/issues/213)에 있다. 이 ADR은 결정과 이유만 둔다.
