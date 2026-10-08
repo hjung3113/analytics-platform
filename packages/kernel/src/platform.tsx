@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { classifyMetricInit, type MetricInit } from './metric-init';
 import { pathFor, type MenuEntry, type Registry } from './registry';
 import { useI18n } from './i18n';
-import { buildQuery, ContractError, emptyGlobal, type GlobalContext, incompleteMetricPair, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type UsageEvent } from '@ap/contracts';
+import { buildQuery, ContractError, emptyGlobal, type GlobalContext, incompleteMetricPair, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent } from '@ap/contracts';
 
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope' | 'error'; validatedFor: Session | null; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
@@ -48,6 +48,8 @@ type Platform = {
    */
   reportError: (error: unknown) => string;
   returnTarget: () => string;
+  /** Accepted `returnTo`: that menu's label and its leading drill values. Otherwise the parent (or home) and an empty trail. `href` equals `returnTarget()` (06 §22, ADR-0025). */
+  returnOrigin: () => ReturnOrigin;
   session: Session;
   user: SessionUser;
   /** Bumps whenever the adapter announces a change; part of every query identity. */
@@ -82,6 +84,29 @@ type Platform = {
 };
 
 const PlatformContext = createContext<Platform | null>(null);
+
+/** Where a destination's return control goes, including the origin menu name and drill trail (06 §22, ADR-0025). */
+export type ReturnOrigin = {
+  href: string;
+  menuLabel: Text;
+  trail: { label: Text; value: string }[];
+};
+
+/** Leading drill values on `search`, stopping at the first missing step. A menu without `drill` contributes nothing. */
+function consecutiveDrillTrail(menu: MenuEntry, search: string): { label: Text; value: string }[] {
+  const levels = menu.drill?.levels ?? [];
+  if (levels.length === 0) return [];
+  let page: Pair[];
+  try { page = parseQuery(search, menu.pageKeys).page; } catch { return []; }
+  const values = new Map(page);
+  const trail: { label: Text; value: string }[] = [];
+  for (const level of levels) {
+    const value = values.get(level.key);
+    if (value === undefined || value === '') break;
+    trail.push({ label: level.label, value });
+  }
+  return trail;
+}
 
 function read<T>(key: string, fallback: T): T {
   try { const raw = localStorage.getItem(key); return raw ? (JSON.parse(raw) as T) : fallback; } catch { return fallback; }
@@ -405,6 +430,19 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     return linkTo(route?.menu.parent ?? 'home');
   }, [pageParam, route, linkTo, safeReturnTo]);
 
+  const returnOrigin = useCallback((): ReturnOrigin => {
+    const href = returnTarget();
+    const safe = safeReturnTo(pageParam('returnTo'));
+    if (safe) {
+      const q = safe.indexOf('?');
+      const path = q === -1 ? safe : safe.slice(0, q);
+      const search = q === -1 ? '' : safe.slice(q);
+      const matched = matchRoute(path);
+      if (matched) return { href, menuLabel: matched.menu.label, trail: consecutiveDrillTrail(matched.menu, search) };
+    }
+    return { href, menuLabel: menuById(route?.menu.parent ?? 'home').label, trail: [] };
+  }, [returnTarget, pageParam, safeReturnTo, matchRoute, route, menuById]);
+
   const reportError = useCallback((error: unknown): string => {
     const correlationId = `client-${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 6)}`;
     if (!route) return correlationId;
@@ -420,7 +458,7 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   }, [adapter, registry, route]);
 
   const value: Platform = {
-    registry, adapter, url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget,
+    registry, adapter, url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
     session, user, revision, can, visibleMenus, menusInSpace, accessibleSpaces, currentSpace, sidebarSpace, switchSpace, scope: scopeView, retryScope, lastScope, favorites, toggleFavorite, recent,
     toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen,
   };

@@ -8,14 +8,15 @@ import { formatMetricVersion, periodHours } from '@ap/contracts';
  * Synthetic values come from the declared endpoints (../endpoints), computed by the
  * mock server half. Definitions are Candidates per wireframe 11 §6.
  */
-import { AlertTriangle, ArrowRight, BarChart3, Hourglass, Percent, RotateCw, Timer } from 'lucide-react';
-import { type PageProps, PlatformLink, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
-import { AnalysisChartFrame, type ChartSeries, DataTrustIndicator, type Delta, Panel, PlatformPage, QueryView, SegmentedRadio, StatCard, StateMessage } from '@ap/components';
+import { AlertTriangle, ArrowRight, BarChart3, ChevronRight, Hourglass, Percent, RotateCw, Timer } from 'lucide-react';
+import { type PageProps, PlatformLink, useDrill, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
+import { AnalysisChartFrame, type ChartSeries, DataTrustIndicator, type Delta, DrillLayout, Panel, PlatformPage, QueryView, SegmentedRadio, StatCard, StateMessage } from '@ap/components';
 import { Button, cn, StatusBadge } from '@ap/ui';
 import {
-  CYCLE_VERSION_NOTE, METRIC_VERSIONS, attentionEndpoint, breakdownEndpoint, kpisEndpoint, trendEndpoint,
+  CYCLE_VERSION_NOTE, METRIC_VERSIONS, attentionEndpoint, breakdownEndpoint, drillEndpoint, kpisEndpoint, trendEndpoint,
   type AttentionRow, type Granularity, type KpiKey, type KpiSet, type TrendBucket, type TrendData,
 } from '../endpoints';
+import { pctHint, ProductivityDrillBody } from './productivity-drill';
 
 const GRANS: readonly Granularity[] = ['hour', 'day', 'week'];
 const KPI_KEYS = ['occupancy', 'dwell', 'cycleTime', 'throughput'] as const;
@@ -46,7 +47,13 @@ export default function ProductivityOverview(_: PageProps) {
   const kpiResult = resolveChoice(rawKpi, KPI_KEYS, 'throughput');
   const axisResult = resolveChoice(rawAxis, AXES, 'room');
   const sortResult = resolveBreakdownSort(rawSort);
-  const invalidPage = !kpiResult.ok || !axisResult.ok || !sortResult.ok;
+  const drill = useDrill();
+  const room = drill.levels.find(level => level.key === 'drillRoom')?.value ?? null;
+  const stgroup = drill.levels.find(level => level.key === 'drillStgroup')?.value ?? null;
+  const equipment = drill.levels.find(level => level.key === 'drillEquipment')?.value ?? null;
+  const pageInvalid = !kpiResult.ok || !axisResult.ok || !sortResult.ok;
+  const canQuery = !pageInvalid && drill.invalid === null;
+  const summary = canQuery && drill.depth === 0;
   const selectedKpi = kpiResult.ok ? kpiResult.value : 'throughput';
   const axis = axisResult.ok ? axisResult.value : 'room';
   const sort = sortResult.ok ? { key: sortResult.key, dir: sortResult.dir } : { key: 'key' as const, dir: 1 as const };
@@ -62,10 +69,13 @@ export default function ProductivityOverview(_: PageProps) {
   const gran: Granularity = granKnown ? (rawGran as Granularity) : ((hours ?? 24) <= 48 ? 'hour' : 'day');
   const granLabel = gran === 'hour' ? (ko ? '시간' : 'hourly') : gran === 'day' ? (ko ? '일별' : 'daily') : (ko ? '주별' : 'weekly');
 
-  const kpiQ = useMenuQuery(kpisEndpoint, {}, !invalidPage);
-  const trendQ = useMenuQuery(trendEndpoint, { kpi: selectedKpi, granularity: gran }, !invalidPage);
-  const breakdownQ = useMenuQuery(breakdownEndpoint, { axis }, !invalidPage);
-  const attentionQ = useMenuQuery(attentionEndpoint, {}, !invalidPage);
+  const kpiQ = useMenuQuery(kpisEndpoint, {}, summary);
+  const trendQ = useMenuQuery(trendEndpoint, { kpi: selectedKpi, granularity: gran }, summary);
+  const breakdownQ = useMenuQuery(breakdownEndpoint, { axis }, canQuery && (drill.depth === 0 || axis === 'room'));
+  const attentionQ = useMenuQuery(attentionEndpoint, {}, summary);
+  const roomsQ = useMenuQuery(breakdownEndpoint, { axis: 'room' }, canQuery && drill.depth > 0 && axis !== 'room');
+  const stgroupQ = useMenuQuery(drillEndpoint, { level: 'stgroup', room: room ?? '', stgroup: '' }, canQuery && room !== null);
+  const equipmentQ = useMenuQuery(drillEndpoint, { level: 'equipment', room: room ?? '', stgroup: stgroup ?? '' }, canQuery && room !== null && stgroup !== null);
 
   const locale = ko ? 'ko-KR' : 'en-US';
   const n1 = (v: number) => v.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -180,6 +190,31 @@ export default function ProductivityOverview(_: PageProps) {
     updated: updatedAt.replace('T', ' ').slice(5, 16), coverage: coverageText(coverage), source,
   });
 
+  const stgroupData = stgroupQ.response?.outcome === 'ok' ? stgroupQ.response.data : null;
+  const equipmentData = equipmentQ.response?.outcome === 'ok' ? equipmentQ.response.data : null;
+  const notFound = stgroupData && !stgroupData.roomFound && room
+    ? { key: 'drillRoom', value: room }
+    : equipmentData && !equipmentData.roomFound && room
+      ? { key: 'drillRoom', value: room }
+      : drill.depth >= 2 && equipmentData && !equipmentData.stgroupFound && stgroup
+        ? { key: 'drillStgroup', value: stgroup }
+        : undefined;
+  const roomSource = axis === 'room' ? breakdownQ : roomsQ;
+  const roomRows = roomSource.response?.outcome === 'ok' ? roomSource.response.data ?? [] : [];
+  const drillSiblings = drill.depth === 0 ? undefined : {
+    ...(roomRows.length > 0 ? { drillRoom: roomRows.map(row => ({
+      value: row.key,
+      hint: pctHint(ko, row.observableHours > 0 ? (row.occupiedHours / row.observableHours) * 100 : null, n1),
+    })) } : {}),
+    ...(stgroupData && stgroupData.stgroups.length > 0 ? { drillStgroup: stgroupData.stgroups.map(row => ({
+      value: row.stgroup,
+      hint: pctHint(ko, row.occupancyPct, n1),
+    })) } : {}),
+  };
+  const trustResponse = drill.depth === 0
+    ? kpiQ.response
+    : drill.depth >= 2 && equipmentQ.response?.outcome === 'ok' ? equipmentQ.response : stgroupQ.response;
+
   return <PlatformPage
     description={ko
       ? '물리 점유율 · 비Process 체류 · 사이클타임 P50/P95 · Job 처리량 요약. 정의는 Candidate, 수치는 합성 예시입니다.'
@@ -187,11 +222,11 @@ export default function ProductivityOverview(_: PageProps) {
     primaryAction={<Button size="sm" asChild>
       <PlatformLink href={linkTo('cycle-time')}>{ko ? '사이클타임 상세 보기' : 'Cycle time detail'}<ArrowRight className="size-3.5" aria-hidden /></PlatformLink>
     </Button>}
-    secondaryActions={<Button size="sm" variant="secondary" onClick={() => { kpiQ.refetch(); trendQ.refetch(); breakdownQ.refetch(); attentionQ.refetch(); }}>
+    secondaryActions={<Button size="sm" variant="secondary" onClick={() => { kpiQ.refetch(); trendQ.refetch(); breakdownQ.refetch(); attentionQ.refetch(); roomsQ.refetch(); stgroupQ.refetch(); equipmentQ.refetch(); }}>
       <RotateCw className="size-3.5" aria-hidden />{ko ? '새로고침' : 'Refresh'}
     </Button>}
-    dataTrustSummary={kpiQ.response?.trust
-      ? <DataTrustIndicator trust={kpiQ.response.trust} assessments={kpiQ.response.assessments} />
+    dataTrustSummary={trustResponse?.trust
+      ? <DataTrustIndicator trust={trustResponse.trust} assessments={trustResponse.assessments} />
       : null}
     contextExtension={<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
       <span id="granularity-label" className="text-xs font-medium text-text-secondary">{ko ? '집계 단위 (페이지 소유)' : 'Granularity (page-owned)'}</span>
@@ -210,11 +245,11 @@ export default function ProductivityOverview(_: PageProps) {
       {rawGran !== null && !granKnown && <StatusBadge tone="warning">{`granularity=${rawGran} — ${ko ? '알 수 없는 값, 기본 정책 적용' : 'unknown value, default policy applied'}`}</StatusBadge>}
     </div>}
   >
-    {invalidPage ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '페이지 키 값이 올바르지 않습니다' : 'Invalid page key'}
+    {pageInvalid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '페이지 키 값이 올바르지 않습니다' : 'Invalid page key'}
       body={ko
         ? `${errors} 은 이 화면의 등록 값이 아닙니다. kpi=occupancy|dwell|cycleTime|throughput, axis=room|stgroup, sort=key|occ|obs|pct|jobs:asc|desc 만 허용하며 다른 값으로 바꾸지 않습니다.`
         : `${errors} is not a registered value. Allowed: kpi=occupancy|dwell|cycleTime|throughput, axis=room|stgroup, sort=key|occ|obs|pct|jobs:asc|desc. Nothing was substituted.`} />
-      : <div className="space-y-4">
+      : <DrillLayout siblings={drillSiblings} notFound={notFound}>{drill.depth === 0 ? <div className="space-y-4">
       {/* Primary KPI / Summary */}
       <section aria-labelledby="kpi-heading">
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
@@ -307,6 +342,7 @@ export default function ProductivityOverview(_: PageProps) {
                         }}
                           className="inline-flex items-center gap-1 hover:text-text-primary">{col.label}{sort.key === col.key ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}</button>
                       </th>)}
+                      {axis === 'room' && <th scope="col" className="t-table-header px-2 py-1.5"><span className="sr-only">{ko ? '들어가기' : 'Enter'}</span></th>}
                     </tr></thead>
                     <tbody className="tabular">
                       {sorted.map(r => <tr key={r.key} className="border-t border-border-subtle">
@@ -315,6 +351,12 @@ export default function ProductivityOverview(_: PageProps) {
                         <td className="px-3 py-1.5 text-right">{n1(r.observableHours)} h</td>
                         <td className="px-3 py-1.5 text-right">{pct(r) !== null ? `${n1(pct(r)!)}%` : (ko ? '미확인' : 'unknown')}</td>
                         <td className="px-3 py-1.5 text-right">{ni(r.jobs)}</td>
+                        {axis === 'room' && <td className="px-2 py-1.5 text-right">
+                          <button type="button" aria-label={ko ? `${r.key} 들어가기` : `Enter ${r.key}`} onClick={() => drill.enter('drillRoom', r.key)}
+                            className="inline-flex size-6 items-center justify-center rounded-sm text-text-secondary hover:bg-surface-sunken hover:text-text-primary">
+                            <ChevronRight className="size-3.5" aria-hidden />
+                          </button>
+                        </td>}
                       </tr>)}
                     </tbody>
                   </table>
@@ -357,6 +399,15 @@ export default function ProductivityOverview(_: PageProps) {
           </Panel>
         </section>
       </div>
-    </div>}
+    </div> : <ProductivityDrillBody
+      ko={ko} room={room ?? ''} stgroup={stgroup} equipment={equipment}
+      stgroupQuery={stgroupQ} equipmentQuery={equipmentQ}
+      onEnterStgroup={value => drill.enter('drillStgroup', value)}
+      onEnterEquipment={value => drill.enter('drillEquipment', value)}
+      onCloseEquipment={() => drill.goTo(2)}
+      equipmentHref={equipment ? linkTo('equipment-detail', { params: { equipmentId: equipment }, returnTo: true }) : ''}
+      n1={n1} ni={ni}
+    />}
+    </DrillLayout>}
   </PlatformPage>;
 }

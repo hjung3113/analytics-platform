@@ -67,6 +67,19 @@ export type KpisData = { current: KpiSet; previous: KpiSet | null };
 
 export type BreakdownRow = { key: string; equipmentCount: number; occupiedHours: number; observableHours: number; jobs: number };
 
+export type DrillParams = { level: 'stgroup' | 'equipment'; room: string; stgroup: string };
+export type DrillStgroupRow = { stgroup: string; equipmentCount: number; occupancyPct: number | null; jobs: number };
+export type DrillEquipmentRow = { equipmentId: string; occupancyPct: number | null; jobs: number; p95Min: number | null };
+export type DrillData = {
+  /** False when the already-filtered equipment list has no row with this room. */
+  roomFound: boolean;
+  /** Meaningful at equipment level: false when that room has no row with this stgroup. */
+  stgroupFound: boolean;
+  kpi: KpiSet;
+  stgroups: DrillStgroupRow[];
+  equipment: DrillEquipmentRow[];
+};
+
 export type AttentionRow = {
   equipmentId: string; room: string; stgroup: string; jobs: number;
   kind: 'dwell' | 'p95'; dwellPerJobH: number | null; p95Min: number | null;
@@ -106,6 +119,18 @@ export const breakdownEndpoint = defineEndpoint<{ axis: 'room' | 'stgroup' }, Br
   id: 'analytics.productivity.breakdown',
   menuId: 'productivity-overview',
   paramKeys: { axis: true },
+  permission: 'analytics:view',
+  requiresScope: true,
+  context,
+  kinds: ['collection', 'processing_delay', 'coverage'],
+  limits: { maxHours: MAX_QUERY_HOURS },
+  mergeTimeDomain: true,
+});
+
+export const drillEndpoint = defineEndpoint<DrillParams, DrillData>({
+  id: 'analytics.productivity.drill',
+  menuId: 'productivity-overview',
+  paramKeys: { level: true, room: true, stgroup: true },
   permission: 'analytics:view',
   requiresScope: true,
   context,
