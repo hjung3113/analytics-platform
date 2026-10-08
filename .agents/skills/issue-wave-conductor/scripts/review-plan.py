@@ -82,7 +82,7 @@ def main():
 
     diff_range = f'{args.base}...{args.head}'
     files = [f for f in git(args.checkout, 'diff', '--name-only', diff_range).splitlines() if f]
-    changed = []  # (file, text) for added and removed lines in non-test files; import reshuffles skipped
+    changed = []  # (file, text): added/removed lines in non-test product code (apps, packages, menus); imports skipped
     current = None
     for line in git(args.checkout, 'diff', '--unified=0', diff_range).splitlines():
         if line.startswith('--- '):
@@ -92,7 +92,8 @@ def main():
             if line.startswith('+++ b/'):
                 current = line[6:]
             continue
-        if line[:1] in '+-' and current is not None and not is_test(current) and not current.endswith('.md'):
+        if (line[:1] in '+-' and current is not None and not is_test(current)
+                and current.startswith(('apps/', 'packages/', 'menus/'))):
             text = line[1:].strip()
             if text.startswith('import ') or re.match(r"^[\w{},\s]*\}?\s*from\s+['\"]", text) or re.fullmatch(r'\w+,?', text):
                 continue
