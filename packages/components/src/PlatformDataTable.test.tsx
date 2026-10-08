@@ -215,6 +215,56 @@ describe('PlatformColumn conversion defaults (#160)', () => {
     expect(within(menu).getByText('Status')).toBeTruthy();
   });
 
+  // #239 (ADR-0024): width is set by dragging the header edge only; the Columns popover has a visibility checkbox and a
+  // pin toggle per column, pinned columns grouped on top, and a reset.
+  // The table keeps column preferences in localStorage; this environment has none, so these tests stub it.
+  function stubStorage(initial: Record<string, string> = {}) {
+    const store = new Map(Object.entries(initial));
+    vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => { store.set(k, v); }, removeItem: (k: string) => { store.delete(k); } });
+  }
+
+  it('column popover: no width slider, a pin toggle per column, pinned group on top, and reset to defaults', async () => {
+    stubStorage();
+    render(<PlainHarness />);
+    await screen.findByText('s1');
+    fireEvent.click(screen.getByRole('button', { name: '컬럼' }));
+    const popover = await screen.findByRole('dialog');
+    expect(within(popover).queryByRole('slider')).toBeNull();
+    const pin = within(popover).getByRole('button', { name: 'Status 왼쪽 고정' });
+    expect(pin).toHaveAttribute('aria-pressed', 'false');
+    expect(within(popover).queryByText('고정됨')).toBeNull();
+    pin.focus();
+    fireEvent.click(pin);
+    // the row moved to the pinned group; focus follows the same column's toggle
+    expect(within(popover).getByRole('button', { name: 'Status 왼쪽 고정' })).toHaveAttribute('aria-pressed', 'true');
+    expect(document.activeElement).toBe(within(popover).getByRole('button', { name: 'Status 왼쪽 고정' }));
+    const pinnedGroup = within(popover).getByText('고정됨').parentElement!;
+    expect(within(pinnedGroup).getByText('Status')).toBeTruthy();
+    expect(within(popover).getByText('나머지')).toBeTruthy();
+    fireEvent.click(within(popover).getByRole('button', { name: 'Status 왼쪽 고정' }));
+    expect(document.activeElement).toBe(within(popover).getByRole('button', { name: 'Status 왼쪽 고정' }));
+    expect(within(popover).getByRole('button', { name: 'Status 왼쪽 고정' })).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(within(popover).getByRole('button', { name: 'Status 왼쪽 고정' }));
+    fireEvent.click(within(popover).getByRole('checkbox', { name: 'Visits' }));
+    expect(within(popover).getByRole('checkbox', { name: 'Visits' })).toHaveAttribute('data-state', 'unchecked');
+    fireEvent.click(within(popover).getByRole('button', { name: '기본값으로' }));
+    expect(within(popover).getByRole('checkbox', { name: 'Visits' })).toHaveAttribute('data-state', 'checked');
+    expect(within(popover).getByRole('button', { name: 'Status 왼쪽 고정' })).toHaveAttribute('aria-pressed', 'false');
+    expect(within(popover).queryByText('고정됨')).toBeNull();
+    vi.unstubAllGlobals();
+  });
+
+  it('double-clicking a header resize handle restores that column to its default width', async () => {
+    stubStorage({ 'plain-table': JSON.stringify({ sizing: { status: 320 }, visibility: {}, pinning: { left: [], right: [] } }) });
+    render(<PlainHarness />);
+    await screen.findByText('s1');
+    const header = () => document.querySelector<HTMLElement>('[role="columnheader"][data-column="status"]')!;
+    expect(header().style.width).toBe('320px');
+    fireEvent.doubleClick(header().querySelector('[data-column-resizer]')!);
+    expect(header().style.width).not.toBe('320px');
+    vi.unstubAllGlobals();
+  });
+
   it('a header sort gesture reports the column id as PageSort[]', async () => {
     const onChange = vi.fn();
     render(<PlainHarness onChange={onChange} />);

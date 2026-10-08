@@ -443,14 +443,21 @@ describe('PlatformDataTable row copy (#174) — Ctrl/⌘+C interception', () => 
     render(<Harness />);
     await ready();
     select('r1');
-    // input inside the table section (the column popover's width slider)
+    // an input inside the table section
+    const section = screen.getByRole('checkbox', { name: '선택 r1' }).closest('section')!;
+    const input = section.appendChild(document.createElement('input'));
+    expect(fireEvent.keyDown(input, { key: 'c', ctrlKey: true })).toBe(true);
+    input.remove();
+    expect(clipboard.write).not.toHaveBeenCalled();
+
+    // the column popover open
     fireEvent.click(screen.getByRole('button', { name: '컬럼' }));
-    const slider = await screen.findByRole('slider', { name: 'Code width' });
-    expect(fireEvent.keyDown(slider, { key: 'c', ctrlKey: true })).toBe(true);
+    const pin = await screen.findByRole('button', { name: 'Code 왼쪽 고정' });
+    expect(fireEvent.keyDown(pin, { key: 'c', ctrlKey: true })).toBe(true);
     fireEvent.keyDown(screen.getByRole('checkbox', { name: '선택 r1' }), { key: 'c', ctrlKey: true }); // popover still open
     expect(clipboard.write).not.toHaveBeenCalled();
-    fireEvent.keyDown(slider, { key: 'Escape' });
-    await waitFor(() => expect(screen.queryByRole('slider', { name: 'Code width' })).toBeNull());
+    fireEvent.keyDown(pin, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Code 왼쪽 고정' })).toBeNull());
 
     // user dragged over cell text
     const selection = vi.spyOn(window, 'getSelection').mockReturnValue({ toString: () => '00123' } as Selection);
