@@ -83,6 +83,19 @@ export function createRegistry({ spaces, groups, menus }: { spaces: readonly Spa
     if (clash) fail(`Menu "${m.id}" page key "${clash}" collides with a global Context key`);
     const foreignReset = (m.contextResetKeys ?? []).find(k => !m.pageKeys.includes(k));
     if (foreignReset) fail(`Menu "${m.id}" contextResetKey "${foreignReset}" is not a declared pageKeys entry`);
+    // Drill levels are page keys and contextResetKeys, 1–4, never returnTo (06 §6.4, ADR-0025).
+    if (m.drill) {
+      const levels = m.drill.levels;
+      if (levels.length < 1 || levels.length > 4) fail(`Menu "${m.id}" drill needs 1 to 4 levels, found ${levels.length}`);
+      const seen = new Set<string>();
+      for (const level of levels) {
+        if (seen.has(level.key)) fail(`Menu "${m.id}" drill level key "${level.key}" is duplicated`);
+        seen.add(level.key);
+        if (!m.pageKeys.includes(level.key)) fail(`Menu "${m.id}" drill level key "${level.key}" is not a declared pageKeys entry`);
+        if (!(m.contextResetKeys ?? []).includes(level.key)) fail(`Menu "${m.id}" drill level key "${level.key}" is not a declared contextResetKeys entry`);
+        if (level.key === 'returnTo') fail(`Menu "${m.id}" drill level key "returnTo" cannot be a drill level`);
+      }
+    }
     // Same shape once parameter names are erased (/a/:x vs /a/:y) is ambiguous; static-vs-param overlaps are resolved below.
     const shape = '/' + segments(m.path).map(s => (isParam(s) ? ':' : s)).join('/');
     const other = shapes.get(shape);

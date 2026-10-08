@@ -306,6 +306,8 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 **뒤로가기 복원 범위와 셸 내비게이션 (Decided):** 플랫폼이 보장하는 복원 범위는 **URL이 소유한 상태**(전역 Context + 그 페이지가 URL에 쓰기로 한 탭/뷰 id + 선언됐지만 미적용인 등록 Context + §6.1 공집합 표식)로 한정한다. 줌/브러시/시리즈 가시성은 보장 밖이다(로컬 저장 자체가 금지되는 것은 아니나 제품 복원 계약에는 넣지 않는다). **셸의 사이드바/메뉴 레지스트리를 통한 메뉴 전환도 Context Link helper와 같은 규칙을 따른다**: 전달 집합은 등록된 전역 Context뿐이며 대상의 지원 여부와 무관하게 보존한다. 적용은 대상이 지원하고 검증한 값에만 한다. page-owned 상태와 미등록 키는 자동 복사하지 않는다. helper는 **보존할 Context**와 **적용할 Context**를 구분해야 하며, "지원 키만 골라 쓴다"는 동작이 URL에서 나머지를 지운다는 뜻이면 안 된다(보존 약속과 충돌). **Context 변경 시 초기화할 page 키 (Candidate 필드명 `contextResetKeys`, #45):** 결과 집합에 묶인 page 키(표 페이지 번호, 선택 구간 등)는 메뉴 manifest가 `pageKeys`의 부분집합으로 선언하고, Kernel이 사용자의 전역 Context 변경(`setGlobal`·초기화)과 **같은 내비게이션 안에서** 지운다. 뒤로/앞으로 가기와 URL 진입은 아무 키도 지우지 않는다(복원은 정확해야 한다). 페이지가 Context 변경을 감지해 뒤따르는 replace로 지우는 방식은 뒤로가기에서도 발동해 복원을 깨므로 쓰지 않는다.
 
+**드릴다운 단계 (Decided, [ADR-0025](adr/0025-drilldown-level-page-keys-path-bar-layout.md); 필드명 Candidate):** 화면 안에서 단계별로 좁혀 들어가는 메뉴는 manifest `drill.levels`에 단계 순서(page key와 표시 이름)를 선언한다. 단계 키는 `pageKeys`와 `contextResetKeys`에 함께 등록해야 하고(Registry가 검사) 단계는 최대 4개다. 단계 값은 page 소유 ID·마스터 값이며 전역 Context로 승격하지 않는다(공정으로 들어가도 Context 바의 room_name은 그대로다). 앞 단계 키 없이 뒤 단계 키만 있는 URL은 형식 오류로 거부하고 조회하지 않는다. 형식이 맞지만 지금 범위의 결과에 없는 값은 그 단계에서 거부를 보이고 다른 값으로 바꾸지 않는다. 새 단계 진입·앞 단계로 올라가기·같은 단계의 다른 값으로 바꾸기는 history push이며, 바꾼 단계 뒤의 키를 같은 내비게이션에서 지운다. 사용자의 전역 Context 변경은 위 `contextResetKeys` 규칙으로 단계 키를 모두 지우고, 뒤로/앞으로 가기와 URL 진입은 지우지 않는다. 단계 안의 다른 page key(정렬·축 등)의 기록 방식은 이 계약이 바꾸지 않는다. 화면 모양은 §12.7, 다른 메뉴로 넘어갔다 돌아오는 복귀는 §22.
+
 **복수 Scope와 시간 계약이 해결되기 전 허용할 조회 범위 (Decided):** §6.2의 `scopeId` 단일 원칙과 §6.3의 시간역 병합 가드로 닫힌다. TZ 매핑이 끝날 때까지 분석을 전면 금지하지는 않는다(단일 설비 naive 조회는 계속 허용). 프로토타입에서 무제한 조회를 허용하는 것은 거부한다.
 
 완성된 URL API나 프로토타입 검증을 이 결정만으로 주장하지 않는다 — 구현·필드명 확정은 별도다.
@@ -561,6 +563,16 @@ Domain 메뉴는 가능하면 이 Archetype을 조합하고, 새로운 Page Type
 
 승격 판단은 §24(실제 소비자 2–3곳 반복)를 따르고, 패턴별 소비자 현황은 이슈 #104·#156에서 추적한다.
 
+### 12.7 드릴다운 레이아웃 (Decided, [ADR-0025](adr/0025-drilldown-level-page-keys-path-bar-layout.md))
+
+`DrillLayout`은 페이지 본문 맨 위에 경로 바(`DrillPath`)를 두고 그 아래에 현재 단계의 본문을 그린다. 단계가 바뀌면 본문을 통째로 바꾸며, 앞 단계 본문을 아래로 쌓거나 옆 열로 남기지 않는다. 0단계(단계 키 없음)에서는 경로 바를 숨기고 메뉴의 요약 본문을 그대로 둔다. 형식 오류(§6.4)와 결과에 없는 값은 `DrillLayout`이 본문 자리에 명시적 상태로 그린다.
+
+- 경로 바는 `전체 › <단계 이름>: <값> › …` 칩이고 마지막 칩이 현재 단계(`aria-current="step"`)다. 앞 칩을 누르면 그 단계로 올라간다. 칩이 5개(깊이 4)가 되면 `전체`와 마지막 2개만 두고 가운데를 `…` 메뉴로 접는다.
+- 메뉴가 같은 단계의 다른 값 목록을 주면 그 칩 옆 ▾ 메뉴로 바로 바꾼다(형제 비교).
+- 경로 바는 `PlatformPage`의 고정 breadcrumb(메뉴 위치)과도, 다른 메뉴로 돌아가는 복귀 버튼(§22)과도 다른 요소다.
+- 단계 진입은 행 끝 들어가기 버튼(접근 이름 `<값> 들어가기`)처럼 눈에 보이는 동작으로만 한다. 행 전체 클릭이나 차트 클릭으로 들어가지 않는다(교차 필터와 구분).
+- 객체 하나인 마지막 단계는 오른쪽 상세 슬롯(ADR-0013)으로 연다. 슬롯을 닫으면 바로 앞 단계로 올라간다.
+
 ---
 
 ## 13. Shared Component Layers
@@ -615,6 +627,8 @@ shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](04_frontend_ui_ux
 - AuditTimeline
 - QueryView / OutcomeView / StateMessage (응답 상태, EmptyState 역할), PlatformPage-provided shared outcome scope / banner (§19)
 - StatCard / Panel
+- DrillPath / DrillLayout (드릴다운 경로 바와 단계 본문, §12.7)
+- ReturnLink (다른 메뉴에서 출발 화면으로 돌아가는 버튼, §22)
 
 후보(미구현): `PermissionGuard`(현재는 셸 `RouteOutlet`의 권한 게이트), `SavedViewSelector`(Deferred, §21).
 
@@ -1018,6 +1032,8 @@ Create VOC with current context
 - `droppedPageKeys`: 목적지가 받지 않아 버려진 page key.
 
 상세에서 분석으로 복귀할 때는 §6.4에 따라 진입 전 Context를 그대로 복원하며, 목적지 ID로 출발 설비 선택을 변경하지 않는다. **CFG의 다른 메뉴와의 Context Link 연계는 Deferred**다. CFG 자체의 시각화·분석 범위와는 구분하며 이번 예시 경로에 CFG hop을 추가하지 않는다.
+
+**복귀 버튼 (Decided, [ADR-0025](adr/0025-drilldown-level-page-keys-path-bar-layout.md); 이름 Candidate):** `returnTo`를 받는 목적지는 공통 `ReturnLink`로 돌아가는 버튼을 그린다. Kernel이 채택한 `returnTo`(§6.4)에서 출발 메뉴 이름과 그 메뉴의 드릴 단계 값을 읽어 `← 생산성 개요 (PHOTO › STG-PHOTO-A)`처럼 보이고, 누르면 출발 URL(단계 키 포함)로 돌아간다. `returnTo`가 없거나 거부되면 `parent` 메뉴(없으면 홈)의 이름으로 돌아간다. 메뉴 이름은 manifest `label`이고 단계 값은 URL 값 그대로다(번역하지 않음, §23). 다른 메뉴로 넘길 때 단계 키는 목적지가 그 page key를 선언했을 때만 싣는다(`linkTo`의 기존 규칙).
 
 FeedbackOps로 나가는 외부 hop은 `linkTo`가 아니라 [FeedbackOps 딥링크 계약](integration/feedbackops-deeplink.md)을 따른다(절대 URL · 새 탭 · phase-1 allowlist).
 

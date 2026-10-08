@@ -3,8 +3,8 @@ import type { ApiResponse, Capability, ContextKey, MenuMeta } from '@ap/contract
 import { createMockAdapter, getRole, setRole, type AnyMockEndpoint } from '@ap/mock-server';
 import { analyticsMock } from './index';
 import {
-  METRIC_VERSIONS, attentionEndpoint, breakdownEndpoint, kpisEndpoint, trendEndpoint,
-  type AttentionRow, type BreakdownRow, type KpisData, type TrendData,
+  METRIC_VERSIONS, attentionEndpoint, breakdownEndpoint, drillEndpoint, kpisEndpoint, trendEndpoint,
+  type AttentionRow, type BreakdownRow, type DrillData, type KpisData, type TrendData,
 } from '../endpoints';
 
 /**
@@ -28,7 +28,13 @@ const productivityMenu: MenuMeta = {
   context: { ...none, time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', ppid: 'apply', recipe: 'apply', metric: 'reference' },
   pageType: 'overview',
   features: { export: true, savedView: false, annotate: false, compare: false },
-  pageKeys: ['granularity', 'kpi', 'axis', 'sort'],
+  pageKeys: ['granularity', 'kpi', 'axis', 'sort', 'drillRoom', 'drillStgroup', 'drillEquipment'],
+  contextResetKeys: ['drillRoom', 'drillStgroup', 'drillEquipment'],
+  drill: { levels: [
+    { key: 'drillRoom', label: { ko: '공정', en: 'Process' } },
+    { key: 'drillStgroup', label: { ko: 'StGroup', en: 'StGroup' } },
+    { key: 'drillEquipment', label: { ko: '설비', en: 'Equipment' } },
+  ] },
 };
 
 /** Inline mirror for the second endpoint owner registered by analyticsMock (#115). */
@@ -87,6 +93,7 @@ describe('productivity-overview endpoint registration', () => {
       'analytics.productivity.kpis',
       'analytics.productivity.trend',
       'analytics.productivity.breakdown',
+      'analytics.productivity.drill',
       'analytics.productivity.attention',
       'analytics.execution.occurrence',
       'analytics.cycle.kpi',
@@ -161,6 +168,42 @@ describe('productivity-overview endpoint smoke', () => {
     const wide = { ...context, from: '2026-06-01T00:00:00', to: '2026-09-26T09:00:00' };
     const result = await adapter.menuQuery({ endpoint: kpisEndpoint.id, context: wide, params: {} });
     expect(result.outcome).toBe('too_large');
+  });
+
+  it('drills only through equipment already in the filtered list', async () => {
+    const rooms = await adapter.menuQuery({ endpoint: drillEndpoint.id, context, params: { level: 'stgroup', room: 'PHOTO', stgroup: '' } });
+    expect(rooms.outcome).toBe('ok');
+    const roomData = rooms.data as DrillData;
+    expect(roomData.roomFound).toBe(true);
+    expect(roomData.equipment).toEqual([]);
+    expect(roomData.stgroups.length).toBeGreaterThan(0);
+    expect(roomData.kpi.equipmentCount).toBeGreaterThan(0);
+    const stgroup = roomData.stgroups[0].stgroup;
+    const tools = await adapter.menuQuery({ endpoint: drillEndpoint.id, context, params: { level: 'equipment', room: 'PHOTO', stgroup } });
+    expect(tools.outcome).toBe('ok');
+    const toolData = tools.data as DrillData;
+    expect(toolData.stgroupFound).toBe(true);
+    expect(toolData.stgroups).toEqual([]);
+    expect(toolData.equipment.length).toBeGreaterThan(0);
+    expect(toolData.equipment.every(row => row.equipmentId.startsWith('ICH-PHOTO-'))).toBe(true);
+    expect(toolData.equipment.reduce((sum, row) => sum + row.jobs, 0)).toBe(roomData.stgroups[0].jobs);
+
+    const missingRoom = await adapter.menuQuery({ endpoint: drillEndpoint.id, context, params: { level: 'stgroup', room: 'ETCH', stgroup: '' } });
+    expect(missingRoom.outcome).toBe('ok');
+    const missingRoomData = missingRoom.data as DrillData;
+    expect(missingRoomData.roomFound).toBe(false);
+    expect(missingRoomData.stgroups).toEqual([]);
+    expect(missingRoomData.equipment).toEqual([]);
+
+    const missingGroup = await adapter.menuQuery({ endpoint: drillEndpoint.id, context, params: { level: 'equipment', room: 'PHOTO', stgroup: 'NO-SUCH' } });
+    expect(missingGroup.outcome).toBe('ok');
+    const missingGroupData = missingGroup.data as DrillData;
+    expect(missingGroupData.roomFound).toBe(true);
+    expect(missingGroupData.stgroupFound).toBe(false);
+    expect(missingGroupData.equipment).toEqual([]);
+
+    const badLevel = await adapter.menuQuery({ endpoint: drillEndpoint.id, context, params: { level: 'room', room: 'PHOTO', stgroup: '' } });
+    expect(badLevel.outcome).toBe('error');
   });
 
   it('resolves the trend metricVersion from the requested kpi', async () => {

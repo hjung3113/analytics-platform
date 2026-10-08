@@ -16,7 +16,14 @@ export const manifests: MenuEntry[] = [
     description: { ko: '물리 점유율, 비Process 체류, 사이클타임 P50·P95, Job 처리량을 요약합니다.', en: 'Occupancy, non-process dwell, cycle time P50/P95 and job throughput.' },
     path: '/analytics/productivity', icon: Activity, permission: 'analytics:view', requiresScope: true, pageType: 'overview',
     context: { ...none, time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', ppid: 'apply', recipe: 'apply', metric: 'reference', lot: 'unsupported' },
-    features: { ...noFeatures, export: true }, pageKeys: ['granularity', 'kpi', 'axis', 'sort'],
+    features: { ...noFeatures, export: true },
+    pageKeys: ['granularity', 'kpi', 'axis', 'sort', 'drillRoom', 'drillStgroup', 'drillEquipment'],
+    contextResetKeys: ['drillRoom', 'drillStgroup', 'drillEquipment'],
+    drill: { levels: [
+      { key: 'drillRoom', label: { ko: '공정', en: 'Process' } },
+      { key: 'drillStgroup', label: { ko: 'StGroup', en: 'StGroup' } },
+      { key: 'drillEquipment', label: { ko: '설비', en: 'Equipment' } },
+    ] },
     component: lazy(() => import('./pages/ProductivityOverview')),
   },
   {

@@ -1,5 +1,5 @@
 import { type PageProps, PlatformLink, useEntityQuery, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { AuditTimeline, DataTrustIndicator, Field, PlatformPage, QueryView } from '@ap/components';
+import { AuditTimeline, DataTrustIndicator, Field, PlatformPage, QueryView, ReturnLink } from '@ap/components';
 import { Button, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 import { EQUIPMENT_ENTITY_TYPE, type Equipment } from '../endpoints';
 import { fields, statusText, statusTone, validity } from './data';
@@ -50,7 +50,7 @@ export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 
 export default function EquipmentDetail({ params }: PageProps) {
   const id = params.equipmentId;
   const { lang } = useI18n();
-  const { global, scope, pageParam, setPage, returnTarget } = usePlatform();
+  const { global, scope, pageParam, setPage } = usePlatform();
   const ko = lang === 'ko';
   const requestedTab = pageParam('tab') ?? 'attributes';
   const tabs = [{ id: 'attributes', label: ko ? '속성' : 'Attributes' }, { id: 'validity', label: ko ? '유효구간' : 'Validity' }, { id: 'audit', label: 'Audit' }, { id: 'analysis', label: ko ? '관련 분석' : 'Related analysis' }] as const;
@@ -58,7 +58,7 @@ export default function EquipmentDetail({ params }: PageProps) {
   const header = useEntityQuery<Equipment>({ type: EQUIPMENT_ENTITY_TYPE, id, scopeId: global.scopeId }, 'header', scope.status === 'valid');
   return <PlatformPage title={<span className="t-mono">{id}</span>}
     description={ko ? '목적지 ID는 위의 전달된 분석 Selection과 별개입니다. Scope와 설비 접근 권한은 다시 검증합니다.' : 'The destination ID is separate from the inherited analysis Selection above. Scope and equipment access are revalidated.'}
-    secondaryActions={<Button asChild variant="secondary" size="sm"><PlatformLink href={returnTarget()}>{ko ? '이전 화면으로' : 'Back to previous view'}</PlatformLink></Button>}>
+    secondaryActions={<ReturnLink />}>
     <QueryView widgetName={lang === 'ko' ? '설비 요약' : 'Equipment summary'} query={header}>{e => e && <div className="mb-4 flex items-center gap-3"><EquipmentStatus equipment={e} /><span className="t-mono text-sm text-text-secondary">{e.equipmentId}</span></div>}</QueryView>
     {!validTab ? <p role="alert">{ko ? '등록되지 않은 탭입니다.' : 'Unknown tab.'} <Button size="sm" variant="secondary" onClick={() => setPage({ tab: 'attributes' })}>{ko ? '속성 열기' : 'Open attributes'}</Button></p> :
       <Tabs value={requestedTab} onValueChange={tab => setPage({ tab })}>

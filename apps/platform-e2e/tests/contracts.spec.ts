@@ -885,7 +885,7 @@ test.describe('메뉴 간 링크 허용 여부 (06 §22 — 목적지 권한을 
 });
 
 test.describe('returnTo 복귀 (06 §22)', () => {
-  test('상세로 갔다가 "이전 화면으로"를 누르면 떠난 URL로 정확히 돌아온다', async ({ page }, testInfo) => {
+  test('상세로 갔다가 복귀 버튼을 누르면 떠난 URL로 정확히 돌아온다', async ({ page }, testInfo) => {
     await page.goto(`/equipment?v=1&scopeId=ICH&${PERIOD}&status=active`);
     await expect(page.getByRole('table')).toBeVisible();
     await page.getByRole('table').getByRole('button', { name: '보기' }).first().click();
@@ -897,7 +897,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     expect(query(page).get('returnTo')).toBe(origin);
     await evidence(page, testInfo, 'detail');
 
-    await page.getByRole('link', { name: '이전 화면으로' }).click();
+    await page.getByRole('link', { name: '← 설비 마스터' }).click();
     await expect.poll(() => page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(origin);
     await expect(page.getByRole('table')).toBeVisible();
     await evidence(page, testInfo, 'returned');
@@ -958,8 +958,8 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     await expect(page).toHaveURL(/\/analytics\/executions\/[^?]+\?/);
     expect(query(page).get('returnTo')).toBe(origin);
 
-    // execution-detail's back button follows returnTarget() (same contract as 이전 화면으로).
-    await page.getByRole('link', { name: '← 사이클타임 분석으로 돌아가기' }).click();
+    // execution-detail's back button follows returnOrigin() (same href as returnTarget()).
+    await page.getByRole('link', { name: '← 사이클타임 상세' }).click();
     await expect.poll(() => page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(origin);
     await expect(page.getByRole('button', { name: '버킷 필터 해제' })).toBeVisible();
     await expect(page.getByRole('button', { name: '분포 필터 해제' })).toBeVisible();
@@ -971,7 +971,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
 
   test('앱 밖을 가리키는 returnTo는 따르지 않고 상위 메뉴로 돌아간다', async ({ page }, testInfo) => {
     await page.goto(`/equipment/EQ-X?v=1&scopeId=ICH&returnTo=${encodeURIComponent('https://example.com/phish')}`);
-    const back = page.getByRole('link', { name: '이전 화면으로' });
+    const back = page.getByRole('link', { name: '← 설비 마스터' });
     await expect(back).toBeVisible();
     const href = await back.getAttribute('href');
     expect(href).toMatch(/^\/equipment\?/);
@@ -1364,5 +1364,110 @@ test.describe('분석 레이아웃 차트 2열·접기 (06 §12.6, ADR-0022)', (
     await expect(table).toBeVisible();
     await expect(collapsed).toHaveCount(0);
     await evidence(page, testInfo, 'analysis-breakdown-restored');
+  });
+});
+
+test.describe('드릴다운 (06 §6.4, §12.7, §22, ADR-0025)', () => {
+  const STEP = `${PRODUCTIVITY}&drillRoom=PHOTO&drillStgroup=STG-PHOTO-A&drillEquipment=ICH-PHOTO-0103`;
+
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+  });
+
+  test('단계마다 기록 하나 — Back 한 번에 한 단계', async ({ page }, testInfo) => {
+    await page.goto(PRODUCTIVITY);
+    await expectScopeValid(page, 'ICH · Site A');
+    expect(page.viewportSize()).toEqual({ width: 1440, height: 900 });
+    await page.getByRole('button', { name: 'PHOTO 들어가기' }).click();
+    await expect.poll(() => query(page).get('drillRoom')).toBe('PHOTO');
+    expect(query(page).has('drillStgroup')).toBe(false);
+    await page.goBack();
+    await expect.poll(() => query(page).has('drillRoom')).toBe(false);
+
+    await page.getByRole('button', { name: 'PHOTO 들어가기' }).click();
+    await page.getByRole('button', { name: 'STG-PHOTO-A 들어가기' }).click();
+    await expect.poll(() => query(page).get('drillStgroup')).toBe('STG-PHOTO-A');
+    await page.goBack();
+    await expect.poll(() => query(page).has('drillStgroup')).toBe(false);
+    expect(query(page).get('drillRoom')).toBe('PHOTO');
+
+    await page.getByRole('button', { name: 'STG-PHOTO-A 들어가기' }).click();
+    await page.getByRole('button', { name: 'ICH-PHOTO-0103 들어가기' }).click();
+    await expect.poll(() => query(page).get('drillEquipment')).toBe('ICH-PHOTO-0103');
+    await evidence(page, testInfo, 'drill-step-3');
+    await page.goBack();
+    await expect.poll(() => query(page).has('drillEquipment')).toBe(false);
+    expect(query(page).get('drillStgroup')).toBe('STG-PHOTO-A');
+    expect(query(page).get('drillRoom')).toBe('PHOTO');
+  });
+
+  test('경로 칩으로 올라가면 뒤 단계 키가 URL에서 사라진다', async ({ page }, testInfo) => {
+    await page.goto(STEP);
+    await expectScopeValid(page, 'ICH · Site A');
+    await page.getByRole('button', { name: '공정: PHOTO', exact: true }).click();
+    await expect.poll(() => query(page).get('drillRoom')).toBe('PHOTO');
+    expect(query(page).has('drillStgroup')).toBe(false);
+    expect(query(page).has('drillEquipment')).toBe(false);
+    await page.getByRole('button', { name: '전체', exact: true }).click();
+    await expect.poll(() => query(page).has('drillRoom')).toBe(false);
+    expect(query(page).has('drillStgroup')).toBe(false);
+    expect(query(page).has('drillEquipment')).toBe(false);
+    await evidence(page, testInfo, 'drill-path-up');
+  });
+
+  test('전역 Context 기간 변경이 단계 키를 지우고 Back이 복원한다', async ({ page }, testInfo) => {
+    const origin = `${PRODUCTIVITY}&drillRoom=PHOTO&drillStgroup=STG-PHOTO-A`;
+    await page.goto(origin);
+    await expect(page.getByRole('navigation', { name: '드릴 경로' })).toBeVisible();
+    expect(query(page).get('drillRoom')).toBe('PHOTO');
+    const preset = await periodPreset(page, '7일');
+    await preset.locator.click();
+    await preset.close();
+    await expect.poll(() => query(page).has('drillRoom')).toBe(false);
+    expect(query(page).has('drillStgroup')).toBe(false);
+    await evidence(page, testInfo, 'drill-context-cleared');
+    await page.goBack();
+    await expect.poll(() => page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(origin);
+    expect(query(page).get('drillStgroup')).toBe('STG-PHOTO-A');
+  });
+
+  test('앞 단계 없이 drillStgroup만 있는 URL은 형식 오류이고 값을 바꾸지 않는다', async ({ page }, testInfo) => {
+    const broken = `${PRODUCTIVITY}&drillStgroup=STG-PHOTO-A`;
+    await page.goto(broken);
+    const alert = page.getByRole('alert');
+    await expect(alert).toContainText('drillStgroup=STG-PHOTO-A');
+    await expect(alert).toContainText('앞 단계');
+    expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(broken);
+    expect(query(page).has('drillRoom')).toBe(false);
+    await expect(page.getByRole('region', { name: '네 지표 요약' })).toHaveCount(0);
+    await evidence(page, testInfo, 'drill-invalid');
+  });
+
+  test('3단계에서 설비 상세로 갔다가 단계 키와 상세 슬롯이 복원된다', async ({ page }, testInfo) => {
+    await page.goto(STEP);
+    await expectScopeValid(page, 'ICH · Site A');
+    await page.getByRole('link', { name: '설비 상세로' }).click();
+    await expect(page).toHaveURL(/\/equipment\/ICH-PHOTO-0103/);
+    const back = page.getByRole('link', { name: '← 생산성 개요 (PHOTO › STG-PHOTO-A › ICH-PHOTO-0103)' });
+    await expect(back).toBeVisible();
+    await evidence(page, testInfo, 'drill-equipment-return');
+    await back.click();
+    await expect.poll(() => query(page).get('drillRoom')).toBe('PHOTO');
+    expect(query(page).get('drillStgroup')).toBe('STG-PHOTO-A');
+    expect(query(page).get('drillEquipment')).toBe('ICH-PHOTO-0103');
+    await expect(page.getByRole('dialog')).toContainText('ICH-PHOTO-0103');
+    await evidence(page, testInfo, 'drill-slot-restored');
+  });
+
+  test('결과에 없는 설비로 직접 들어오면 URL을 유지하고 공통 상태가 본문과 상세 슬롯을 가린다', async ({ page }, testInfo) => {
+    const missing = `${PRODUCTIVITY}&drillRoom=PHOTO&drillStgroup=STG-PHOTO-A&drillEquipment=NO-SUCH`;
+    await page.goto(missing);
+    await expectScopeValid(page, 'ICH · Site A');
+    await expect(page.getByRole('status').filter({ hasText: '이 조건에서 없는 값: NO-SUCH' })).toBeVisible();
+    expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(missing);
+    await expect(page.getByRole('table', { name: '설비 점유' })).toHaveCount(0);
+    await expect(page.getByRole('columnheader', { name: 'EquipmentID' })).toHaveCount(0);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await evidence(page, testInfo, 'drill-equipment-missing');
   });
 });

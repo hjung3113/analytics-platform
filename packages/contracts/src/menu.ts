@@ -23,6 +23,9 @@ export type SpaceDef = {
 export const PERMISSIONS = ['platform:view', 'equipment:view', 'master:view', 'analytics:view', 'metrics:view', 'notice:view', 'voc:view', 'console:access'] as const;
 export type Permission = typeof PERMISSIONS[number];
 
+/** One drill step: a page key plus the name the path bar shows (06 §6.4, ADR-0025). */
+export type DrillLevel = { key: string; label: Text };
+
 export type MenuMeta = {
   id: string;
   group: GroupId;
@@ -52,4 +55,9 @@ export type MenuMeta = {
   parent?: string;
   /** Group's representative destination for the home group cards (08; field name Candidate, 06 §5). Exactly one per group. */
   primary?: boolean;
+  /**
+   * Ordered in-page drill (06 §6.4, ADR-0025). Each level key must also be a `pageKey` and a `contextResetKey`.
+   * One to four levels. `returnTo` is not a level key. Values stay page-owned and are not promoted to global Context.
+   */
+  drill?: { levels: readonly DrillLevel[] };
 };

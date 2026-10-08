@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { type PageProps, PlatformLink, useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
-import { AuditTimeline, DataTrustIndicator, Field, Panel, PlatformPage, QueryView, StateMessage } from '@ap/components';
+import { AuditTimeline, DataTrustIndicator, Field, Panel, PlatformPage, QueryView, ReturnLink, StateMessage } from '@ap/components';
 import { Button, cn, StatusBadge } from '@ap/ui';
 import { MetricPairBanner } from './MetricCatalog';
 import {
@@ -22,7 +22,7 @@ function sectionId(id: string) { return `metric-section-${id}`; }
 
 export default function MetricDetailPage({ params }: PageProps) {
   const metricId = params.metricId;
-  const { pageParam, setPage, setGlobal, linkTo, resolveLink, global, url, toast, returnTarget } = usePlatform();
+  const { pageParam, setPage, setGlobal, linkTo, resolveLink, global, url, toast } = usePlatform();
   const { lang, tx } = useI18n();
   const versionParam = pageParam('version');
   const tab = pageParam('tab');
@@ -67,7 +67,7 @@ export default function MetricDetailPage({ params }: PageProps) {
       <PlatformLink href={linkTo('metric-catalog')} className="inline-flex h-8 items-center rounded-sm border border-border-subtle bg-surface-raised px-3 text-xs font-medium hover:bg-surface-card">
         {lang === 'ko' ? '카탈로그' : 'Catalog'}
       </PlatformLink>
-      {returnTo !== null && <Button asChild variant="secondary" size="sm"><PlatformLink href={returnTarget()}>{lang === 'ko' ? '이전 화면으로' : 'Back to previous view'}</PlatformLink></Button>}
+      {returnTo !== null && <ReturnLink />}
     </>}
     contextExtension={<nav aria-label={lang === 'ko' ? '카탈로그 영역' : 'Catalog sections'} className="flex flex-wrap gap-1">
       {SECTIONS.map(s => <button key={s.id} type="button" aria-current={tab === s.id ? 'true' : undefined}

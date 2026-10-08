@@ -1,7 +1,7 @@
 import { AlertTriangle, Ban } from 'lucide-react';
 import { parseDateTime } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
-import { DataTrustIndicator, Panel, PlatformPage, QueryView, StateMessage } from '@ap/components';
+import { DataTrustIndicator, Panel, PlatformPage, QueryView, ReturnLink, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { isAnchor, OCCURRENCE_ENTITY_TYPES, occurrenceEndpoint, resolveMetric, type Segment, type SegmentKind } from '../endpoints';
 
@@ -13,7 +13,7 @@ const SEGMENT_CLASS: Record<SegmentKind, string> = {
 
 export default function ExecutionDetail({ params }: PageProps) {
   const { lang } = useI18n();
-  const { global, pageParam, linkTo, returnTarget, registry } = usePlatform();
+  const { global, pageParam, linkTo, registry } = usePlatform();
   const ko = lang === 'ko';
   const equipmentId = params.equipmentId;
   const entityType = pageParam('entityType');
@@ -22,7 +22,6 @@ export default function ExecutionDetail({ params }: PageProps) {
   const valid = errors.length === 0;
   const metric = resolveMetric(global);
   const metricVersion = metric.kind === 'unconfirmed' ? null : metric.metricVersion;
-  const backHref = returnTarget();
   const restored = registry.safeReturnTo(pageParam('returnTo')) !== null;
 
   const query = useMenuQuery(
@@ -31,7 +30,7 @@ export default function ExecutionDetail({ params }: PageProps) {
     valid && metricVersion !== null,
   );
 
-  const back = <Button asChild variant="secondary" size="sm"><PlatformLink href={backHref}>{ko ? '← 사이클타임 분석으로 돌아가기' : '← Back to cycle time'}</PlatformLink></Button>;
+  const back = <ReturnLink />;
   const equipmentLink = <Button asChild variant="secondary" size="sm"><PlatformLink href={linkTo('equipment-detail', { params: { equipmentId }, returnTo: true })}>{ko ? '설비 상세' : 'Equipment detail'}</PlatformLink></Button>;
   const voc = <Button asChild size="sm"><PlatformLink href={linkTo('voc')}>{ko ? 'VOC 생성(예정)' : 'Create VOC (planned)'}</PlatformLink></Button>;
 

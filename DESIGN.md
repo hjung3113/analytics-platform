@@ -183,6 +183,7 @@ label 행은 #210(FeedbackOps 원본 값), 나머지 행은 #193/#194 UI/UX 리�
 - B안 Context 바는 적용 배지를 생략하고 참조/미지원 capability만 배지로 표시한다. control 표면은 유지한다. 넘침 버튼은 숨은 조건을 대신하는 Context 칩이라 이웃 칩과 같은 칩 모양(플랫폼 확장, `packages/shell/src/contextChip.ts`)을 쓰며 숨은 조건 수와 적용 수를 표시하고, 축약된 기간·아이콘 동작은 전체 접근 이름과 title을 제공한다(06 §7, ADR-0015).
 - 상세 슬롯은 공유 `surface-detail` 표면과 왼쪽 1px `border-subtle` 구분선으로 본문과 나눈다. 셸 전체 높이를 쓰고 그림자·scrim은 없다. 내부 상세 탭 내용은 독립 스크롤하며 폭은 06 §7 Baseline을 소비한다(ADR-0013).
 - 분석 레이아웃은 KPI 띠 위에 보조 글꼴의 얇은 제목·접기 머리 줄을 두며, “접힌 항목” 줄과 작은 보조 칩은 펼쳐진 카드보다 낮은 시각 위계를 쓴다(ADR-0022).
+- 드릴다운 경로 바(`DrillPath`)는 본문 맨 위의 `text-xs` 칩 줄이다. 앞 단계 칩은 `text-secondary`에 hover 때 `surface-sunken`, 현재 단계 칩만 `accent-primary-soft` 바탕에 `font-medium`이고, 칩 사이는 `text-muted` ChevronRight 아이콘이다. 형제 바꾸기 ▾와 행 끝 들어가기 버튼은 24px 아이콘 버튼이다. 메뉴 위치 breadcrumb·복귀 버튼(secondary `sm`)과 모양을 섞지 않는다(06 §12.7, ADR-0025).
 - 관리 필터 레일은 표 카드와 같은 표면·테두리·제목 위계를 쓰며, 동작은 레일 아래에 고정하고 적용 수를 표시한다([ADR-0022](docs/adr/0022-management-filter-rail-analysis-two-column.md)).
 - 공유 `surface-sidebar` 위에 Registry 그룹을 **section label**로 표시한다. 활성 탐색 제목에 `text-disabled`를 쓰지 않는다. 주 메뉴 navigation과 즐겨찾기/최근 section을 구별한다.
 - 현재 메뉴/공간은 공유 selected 표면 + text weight + **2px accent 막대**로 구별한다. `aria-current`를 유지하고 hover가 막대를 지우지 않는다. 보조 즐겨찾기/최근 링크에 현재 위치 표식을 중복하지 않는다.

@@ -19,6 +19,7 @@ const slowFilter = { tail: 'p95', granularity: 'hour', bucket: null, bin: null }
 const PARAMS: Record<string, Record<string, unknown>> = {
   'analytics.productivity.trend': { kpi: 'occupancy', granularity: 'hour' },
   'analytics.productivity.breakdown': { axis: 'room' },
+  'analytics.productivity.drill': { level: 'stgroup', room: 'PHOTO', stgroup: '' },
   'analytics.execution.occurrence': { equipmentId: 'ICH-PHOTO-0103', entityType: 'job', anchor: '2026-09-25T10:00:00', metricVersion: '3' },
   'analytics.cycle.trend': { granularity: 'hour' },
   'analytics.cycle.slow': { ...slowFilter, ...page },

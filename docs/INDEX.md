@@ -56,7 +56,7 @@
 - [05 결정 상태](05_roadmap_and_open_questions.md) — ADR 없는 계약 결정 목록, MVP 지원 환경, 메뉴 활용률 계측 정책.
 - [06 플랫폼 UI 계약](06_platform_ui_contract.md) — Platform Kernel, Menu Registry, Context Capability, Shell Slot, Page Archetype, 공통 컴포넌트 승격 기준, Data Trust·권한·상태 UX, navigation IA. **전역 계약의 원본.**
 - [07 App Shell](07_app_shell_wireframe.md) — 셸 구조(ADR-0011·0013·0015로 Decided)와 IA.
-- 견본 메뉴 화면의 계약 메모(사내에서 새로 만들 메뉴라 계약에 닿는 부분만 둔다): [08 운영 개요](08_operations_overview_wireframe.md), [09 설비 마스터](09_equipment_master_wireframe.md), [11 생산성 개요](11_productivity_overview_wireframe.md), [12 사이클타임 드릴다운](12_cycle_time_drilldown_wireframe.md)(대표 드릴다운 왕복 계약), [13 지표 카탈로그](13_metric_catalog_wireframe.md)(`metricId`+`metricVersion` 쌍의 원본).
+- 견본 메뉴 화면의 계약 메모(사내에서 새로 만들 메뉴라 계약에 닿는 부분만 둔다): [08 운영 개요](08_operations_overview_wireframe.md), [09 설비 마스터](09_equipment_master_wireframe.md), [11 생산성 개요](11_productivity_overview_wireframe.md), [12 사이클타임 드릴다운](12_cycle_time_drilldown_wireframe.md)(대표 드릴다운 왕복 계약), [13 지표 카탈로그](13_metric_catalog_wireframe.md)(`metricId`+`metricVersion` 쌍의 원본). 드릴다운 플랫폼 기능: [14 드릴다운 — 플랫폼 기능과 레이아웃](14_drilldown_platform.md)(#225, ADR-0025).
 
 통합 계약(`docs/integration/`):
 
