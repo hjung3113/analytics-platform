@@ -885,7 +885,7 @@ test.describe('메뉴 간 링크 허용 여부 (06 §22 — 목적지 권한을 
 });
 
 test.describe('returnTo 복귀 (06 §22)', () => {
-  test('상세로 갔다가 "이전 화면으로"를 누르면 떠난 URL로 정확히 돌아온다', async ({ page }, testInfo) => {
+  test('상세로 갔다가 복귀 버튼을 누르면 떠난 URL로 정확히 돌아온다', async ({ page }, testInfo) => {
     await page.goto(`/equipment?v=1&scopeId=ICH&${PERIOD}&status=active`);
     await expect(page.getByRole('table')).toBeVisible();
     await page.getByRole('table').getByRole('button', { name: '보기' }).first().click();
@@ -1457,5 +1457,17 @@ test.describe('드릴다운 (06 §6.4, §12.7, §22, ADR-0025)', () => {
     expect(query(page).get('drillEquipment')).toBe('ICH-PHOTO-0103');
     await expect(page.getByRole('dialog')).toContainText('ICH-PHOTO-0103');
     await evidence(page, testInfo, 'drill-slot-restored');
+  });
+
+  test('결과에 없는 설비로 직접 들어오면 URL을 유지하고 공통 상태가 본문과 상세 슬롯을 가린다', async ({ page }, testInfo) => {
+    const missing = `${PRODUCTIVITY}&drillRoom=PHOTO&drillStgroup=STG-PHOTO-A&drillEquipment=NO-SUCH`;
+    await page.goto(missing);
+    await expectScopeValid(page, 'ICH · Site A');
+    await expect(page.getByRole('status').filter({ hasText: '이 조건에서 없는 값: NO-SUCH' })).toBeVisible();
+    expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(missing);
+    await expect(page.getByRole('table', { name: '설비 점유' })).toHaveCount(0);
+    await expect(page.getByRole('columnheader', { name: 'EquipmentID' })).toHaveCount(0);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await evidence(page, testInfo, 'drill-equipment-missing');
   });
 });

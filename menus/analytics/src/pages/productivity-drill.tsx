@@ -1,8 +1,8 @@
-import { AlertTriangle, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { QueryState } from '@ap/kernel';
 import { PlatformLink } from '@ap/kernel';
-import { DetailDrawer, Field, QueryView, StateMessage } from '@ap/components';
+import { DetailDrawer, Field, QueryView } from '@ap/components';
 import { Button, cn } from '@ap/ui';
 import type { DrillData, DrillEquipmentRow, DrillStgroupRow, KpiSet } from '../endpoints';
 
@@ -111,30 +111,26 @@ export function ProductivityDrillBody({ ko, room, stgroup, equipment, stgroupQue
             <Stage ko={ko} n1={n1} ni={ni} kpi={eq.kpi} title={stgroup}>
               <EquipmentTable ko={ko} rows={eq.equipment} current={equipment} onEnter={onEnterEquipment} n1={n1} ni={ni} />
             </Stage>
-            {equipment !== null && <DetailDrawer
-              title={<span className="t-mono">{equipment}</span>}
+            {row && <DetailDrawer
+              title={<span className="t-mono">{row.equipmentId}</span>}
               subtitle={ko ? '설비 요약' : 'Equipment summary'}
               onClose={onCloseEquipment}
               tabs={[{
                 id: 'summary',
                 label: ko ? '요약' : 'Summary',
-                content: row
-                  ? <>
-                    <dl>
-                      <Field label="EquipmentID" mono>{row.equipmentId}</Field>
-                      <Field label={ko ? '점유율' : 'Occupancy'}>{pctHint(ko, row.occupancyPct, n1)}</Field>
-                      <Field label={ko ? '완료 Job' : 'Jobs'}>{ni(row.jobs)}</Field>
-                      <Field label={ko ? 'P95 사이클타임' : 'P95 cycle time'}>{row.p95Min === null ? (ko ? '미확인' : 'unknown') : `${n1(row.p95Min)} ${ko ? '분' : 'min'}`}</Field>
-                    </dl>
-                    <div className="mt-3">
-                      <Button size="sm" asChild>
-                        <PlatformLink href={equipmentHref}>{ko ? '설비 상세로' : 'Equipment detail'}</PlatformLink>
-                      </Button>
-                    </div>
-                  </>
-                  : <StateMessage tone="warning" icon={<AlertTriangle className="size-4" aria-hidden />}
-                    title={ko ? `이 조건에서 없는 값: ${equipment}` : `No value in this context: ${equipment}`}
-                    body={ko ? '다른 값으로 바꾸지 않습니다.' : 'Nothing was substituted.'} />,
+                content: <>
+                  <dl>
+                    <Field label="EquipmentID" mono>{row.equipmentId}</Field>
+                    <Field label={ko ? '점유율' : 'Occupancy'}>{pctHint(ko, row.occupancyPct, n1)}</Field>
+                    <Field label={ko ? '완료 Job' : 'Jobs'}>{ni(row.jobs)}</Field>
+                    <Field label={ko ? 'P95 사이클타임' : 'P95 cycle time'}>{row.p95Min === null ? (ko ? '미확인' : 'unknown') : `${n1(row.p95Min)} ${ko ? '분' : 'min'}`}</Field>
+                  </dl>
+                  <div className="mt-3">
+                    <Button size="sm" asChild>
+                      <PlatformLink href={equipmentHref}>{ko ? '설비 상세로' : 'Equipment detail'}</PlatformLink>
+                    </Button>
+                  </div>
+                </>,
               }]}
             />}
           </>;

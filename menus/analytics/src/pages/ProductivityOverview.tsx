@@ -198,7 +198,10 @@ export default function ProductivityOverview(_: PageProps) {
       ? { key: 'drillRoom', value: room }
       : drill.depth >= 2 && equipmentData && !equipmentData.stgroupFound && stgroup
         ? { key: 'drillStgroup', value: stgroup }
-        : undefined;
+        : equipmentData?.roomFound && equipmentData.stgroupFound && equipment
+          && !equipmentData.equipment.some(row => row.equipmentId === equipment)
+          ? { key: 'drillEquipment', value: equipment }
+          : undefined;
   const roomSource = axis === 'room' ? breakdownQ : roomsQ;
   const roomRows = roomSource.response?.outcome === 'ok' ? roomSource.response.data ?? [] : [];
   const drillSiblings = drill.depth === 0 ? undefined : {
