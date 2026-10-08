@@ -26,6 +26,7 @@ Decided는 계약의 상태이며 구현 완료를 뜻하지 않는다. 각 행�
 | 실제 시점(epoch·timestamptz)은 wall-clock이 아니다 — `formatInstant`로 보는 사람의 시간대에 맞춰 표시, `formatDateTime`은 naive wall-clock 전용 | 2026-09-28 | [06 §6.3](06_platform_ui_contract.md#ctx-time) |
 | 권한 부여·회수의 원천: room_name 부여·활용률 열람 개별 부여는 플랫폼 메타 DB 소유. 역할 소속 원천은 IdP 그룹 claim 사양까지 결정 대기(#98). 쓰기 포트·화면은 아직 만들지 않는다 | 2026-09-29 | [06 §9.1](06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26) |
 | 전역 감사 조회(`auditTrail`)에도 room 권한을 적용한다 — 권한 없는 room 설비의 변경 내용은 보이지 않는다(06 §17 서버 재검증과 같은 원칙). 지금은 콘솔 역할이 하나(모든 room)라 필터를 두지 않고, 일부 room만 가진 콘솔 역할이 생길 때 서버에서 구현한다(#91). 결정자: 사용자 — 에이전트 추천을 따름 | 2026-10-05 | [06 §17](06_platform_ui_contract.md#17-permission-aware-ux-contract) |
+| 표 열 너비 조절은 마우스 사용을 가정한다 — 키보드만으로 너비를 바꾸는 대체 수단은 지금 요구하지 않는다(#239, [ADR-0024](adr/0024-table-column-controls-drag-width-pin-in-list.md)). 결정자: 사용자 — "마우스는 다쓰니까 일단 마우스도쓴다가정하고해" | 2026-10-08 | [06 §27](06_platform_ui_contract.md#27-performance-ux-baseline) |
 | 그 밖의 결정(메뉴 조회 포트, 그리드·표·디자인, 활용률 이벤트, 차트 렌더러 등) | 2026-10-01~05 | [ADR 목록](adr/README.md) |
 
 ## MVP 지원 환경 — 데스크톱 웹만 (Decided, 2026-09-27)

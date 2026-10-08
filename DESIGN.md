@@ -233,6 +233,7 @@ cellPadding: 4px 12px
 
 - 헤더 sunken + secondary, 데이터 primary, 수치 우측 정렬+tabular, ID mono. 상태와 범주 label을 구별한다. 열 제목 case는 Typography roles를 따른다.
 - row divider는 border-subtle; checkbox·검색·filter 경계는 border-control. hover에서 focus와 selected checkbox/표식이 사라지지 않는다.
+- 열 너비는 머리 오른쪽 끝을 끌어서만 바꾼다 — 늘 보이는 1px `border-subtle` 구분선, hover·끄는 동안 `accent-primary`, 더블클릭은 기본 너비. "컬럼" 팝오버는 보이기 체크박스와 줄 끝 핀 토글, 고정 묶음을 위에, 맨 아래 "기본값으로"([ADR-0024](docs/adr/0024-table-column-controls-drag-width-pin-in-list.md)).
 - toolbar는 제목/설명과 검색·filter·동작을 분리해 정렬하고 폭이 부족하면 wrap한다. 가로 overflow는 표 영역에 가두고 toolbar 접근을 유지한다.
 - selection은 대상·선택 수·clear를 보여 준다. 현재 page 선택과 전체 결과 선택을 혼동하지 않는다. Context/Scope 변경 시 selection을 해제한다. nested 버튼이 있는 행을 통째 clickable wrapper로 만들지 않는다.
 - sort는 `aria-sort`, bulk action은 권한·대상이 명확해야 한다. copy/export 동작·고정 toolbar는 [ADR-0008](docs/adr/0008-table-owned-export-fixed-toolbar.md)의 현재 계약을 따른다. 이 문서가 새로운 backend 작업을 추가하지 않는다.
