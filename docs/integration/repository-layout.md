@@ -68,6 +68,8 @@ git -C products/feedbackops diff --stat HEAD origin/develop
 
 반영할 커밋을 정한 뒤 해당 커밋으로 detached checkout하고, 부모 저장소에서 `git diff --submodule=log`로 변경을 검토한다. gitlink를 갱신하면 플랫폼 `pnpm-lock.yaml`도 같은 PR에서 다시 생성해야 한다. workspace package 내용이 바뀌므로 lockfile이 함께 바뀌지 않으면 CI의 `pnpm install --frozen-lockfile`이 실패한다. `git add products/feedbackops`는 부모 저장소의 참조 커밋만 스테이징한다. 커밋·푸시는 별도 작업 권한에 따른다. 단순 부모 저장소 `git pull`만으로 서브모듈 작업 트리 갱신까지 완료됐다고 가정하지 않는다.
 
+루트 검사는 `@fops/*` 작업을 그래프에서 빼므로(`--filter='!@fops/*' --only`), `turbo.json`의 `globalDependencies`가 `products/feedbackops/packages/{ui,shared}` 파일(생성물 `.turbo`·`dist`·`coverage`·`*.tsbuildinfo` 제외)을 모든 작업의 전역 해시에 넣는다(#237). 그래서 gitlink를 올리거나 서브모듈 파일이 바뀌면 플랫폼 작업 캐시가 모두 무효화되고, `--force` 없이도 실제 검사가 돈다. 두 패키지 안에 새 생성물이 생기면 같은 배열에서 제외한다.
+
 ## 개발 및 에이전트 진입점
 
 - 플랫폼 설계: 저장소 루트에서 시작하고 `AGENTS.md` → `docs/INDEX.md`를 읽는다.
