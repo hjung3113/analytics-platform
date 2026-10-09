@@ -3,10 +3,11 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 import type { ECharts } from 'echarts/core';
-import type { PlatformAdapter, Session } from '@ap/contracts';
+import type { Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { AnalysisChartFrame, type ChartSeries } from './AnalysisChartFrame';
 import { baseTextStyle, type EChartProps } from './EChart';
+import { noContext, testAdapter, testSpace } from './test-support';
 
 // Regression test for the #48 P1 finding: the echarts-dependent implementation is code-split,
 // so the chart instance can appear after the parent already handled a Brush click. This mocks
@@ -39,34 +40,15 @@ afterEach(() => {
   implState.instances.length = 0;
 });
 
-const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const registry = createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home' }],
+  spaces: [testSpace()],
   groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
+  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
 const session: Session = {
   user: { id: 'user-a', name: 'a', title: { ko: 'a', en: 'a' }, permissions: ['platform:view'] }, scopes: [],
 };
-const adapter: PlatformAdapter = {
-  menuQuery: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-  session: () => session,
-  validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
-  publishedMetrics: () => [],
-  defaultRangeTo: () => '2026-09-26T09:00:00',
-  contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-  evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
-  getEntity: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'c' }),
-  auditTrail: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'c' }),
-  entityAudit: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'c' }),
-  accessDirectory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'c' }),
-  recordUsage: async () => ({ accepted: 0 }),
-  usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'c' }),
-  listAnnotations: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-  saveAnnotation: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-  reportClientError: async () => ({ accepted: true }),
-  subscribe: () => () => {},
-};
+const adapter = testAdapter({ session: () => session });
 
 const series: ChartSeries[] = [{ id: 's1', name: 'S1', color: 'chart-blue', points: [['2026-09-01T00:00:00', 1], ['2026-09-02T00:00:00', 2]] }];
 

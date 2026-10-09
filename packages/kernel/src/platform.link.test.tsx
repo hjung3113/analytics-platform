@@ -1,21 +1,21 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { PlatformAdapter, Session, SpaceDef } from '@ap/contracts';
+import type { Session, SpaceDef } from '@ap/contracts';
 import type { LinkOptions, LinkResolution } from './platform';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { createRegistry } from './registry';
+import { noContext, testAdapter, testSpace } from './test-support';
 
-const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const entry = (id: string, group: 'equipment' | 'admin', path: string, permission: 'platform:view' | 'analytics:view' | 'console:access', pageKeys: string[]) => ({
-  id, group, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission, requiresScope: false, context: none, pageType: 'analysis' as const, features: noFeatures, pageKeys,
+  id, group, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission, requiresScope: false, context: noContext, pageType: 'analysis' as const, features: noFeatures, pageKeys,
 });
 
 const spaces: SpaceDef[] = [
-  { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'source' },
-  { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'ops-home' },
+  testSpace({ homeMenuId: 'source' }),
+  testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'ops-home' }),
 ];
 const registry = createRegistry({
   spaces,
@@ -41,25 +41,7 @@ const VIEWER: Session['user']['permissions'] = ['platform:view'];
 function fixture(permissions: Session['user']['permissions']) {
   // One stable snapshot object: useSyncExternalStore compares by identity on every render.
   const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions }, scopes: [] };
-  const adapter: PlatformAdapter = {
-    menuQuery: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    session: () => session,
-    validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
-    publishedMetrics: () => [],
-    defaultRangeTo: () => '2026-09-26T09:00:00',
-    contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-    evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
-    getEntity: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    auditTrail: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    entityAudit: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    accessDirectory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    recordUsage: async () => ({ accepted: 0 }),
-    usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    listAnnotations: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    saveAnnotation: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    reportClientError: async () => ({ accepted: true }),
-    subscribe: () => () => {},
-  };
+  const adapter = testAdapter({ session: () => session });
   return adapter;
 }
 

@@ -6,13 +6,13 @@ import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { useAdapterRequest, useEntityQuery, usePlatformQuery } from './query';
 import { createRegistry } from './registry';
+import { noContext, testAdapter, testSpace } from './test-support';
 import { House } from 'lucide-react';
 
-const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const registry = createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home' }],
+  spaces: [testSpace()],
   groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
+  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
 
 /** Fixture adapter: no mock server, so these tests pin the kernel side of the port (platform-packages.md §4). */
@@ -21,25 +21,11 @@ function fixture(getEntity?: PlatformAdapter['getEntity']) {
   const sessions = { a: make('user-a'), b: make('user-b') };
   let current: Session = sessions.a;
   const listeners = new Set<() => void>();
-  const adapter: PlatformAdapter = {
-    menuQuery: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+  const adapter = testAdapter({
     session: () => current,
-    validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
-    publishedMetrics: () => [],
-    defaultRangeTo: () => '2026-09-26T09:00:00',
-    contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-    evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
     getEntity: getEntity ?? (async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' })),
-    auditTrail: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    entityAudit: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    accessDirectory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    recordUsage: async () => ({ accepted: 0 }),
-    usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    listAnnotations: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    saveAnnotation: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    reportClientError: async () => ({ accepted: true }),
     subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
-  };
+  });
   return {
     adapter,
     switchTo: (key: keyof typeof sessions) => { current = sessions[key]; listeners.forEach(l => l()); },
@@ -234,9 +220,9 @@ describe('useEntityQuery (session identity)', () => {
 
 describe('setGlobal drops contextResetKeys in the same navigation (06 §6.4)', () => {
   const stateful = createRegistry({
-    spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home' }],
+    spaces: [testSpace()],
     groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-    menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['sort', 'page', 'bucket'], contextResetKeys: ['page', 'bucket'] }],
+    menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['sort', 'page', 'bucket'], contextResetKeys: ['page', 'bucket'] }],
   });
 
   function UrlProbe() {

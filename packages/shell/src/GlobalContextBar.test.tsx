@@ -2,12 +2,13 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
-import type { Capability, PlatformAdapter, Session } from '@ap/contracts';
+import type { Capability, Session } from '@ap/contracts';
 import { GlobalContextBar } from './GlobalContextBar';
+import { testAdapter, testSpace } from './test-setup';
 
 const caps = { time: 'reference', roomNames: 'apply', condition: 'apply', selection: 'apply', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const registryWith = (context: Record<keyof typeof caps, Capability>) => createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home' }],
+  spaces: [testSpace()],
   groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
   menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: true, context, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
@@ -15,15 +16,13 @@ const registry = registryWith(caps);
 const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
 const evaluation = vi.fn(async () => ({ inCondition: [], outOfCondition: [] }));
 const session: Session = { user: { id: 'u', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view'] }, scopes: [{ id: 'ICH', label: 'ICH', grantedRooms: 1, totalRooms: 1 }] };
-const adapter: PlatformAdapter = {
+const adapter = testAdapter({
   session: () => session,
   validateScope: async () => ({ status: 'valid', scopeId: 'ICH', grantedRooms: ['PHOTO'] }),
-  defaultRangeTo: () => '2026-09-26T09:00:00', publishedMetrics: () => [],
-  contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }), evaluateSelection: evaluation,
-  menuQuery: async () => forbidden, getEntity: async () => forbidden, auditTrail: async () => forbidden, entityAudit: async () => forbidden,
-  accessDirectory: async () => forbidden, recordUsage: async () => ({ accepted: 0 }), usageSummary: async () => forbidden,
-  listAnnotations: async () => forbidden, saveAnnotation: async () => forbidden, reportClientError: async () => ({ accepted: true }), subscribe: () => () => {},
-};
+  evaluateSelection: evaluation,
+  getEntity: async () => forbidden,
+  listAnnotations: async () => forbidden,
+});
 let barWidth = 2000;
 let resize: (() => void) | undefined;
 let observed: Element | undefined;

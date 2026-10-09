@@ -6,39 +6,20 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import type { ApiResponse, PageQuery, PageResult, PageSort, PlatformAdapter, Session } from '@ap/contracts';
+import type { ApiResponse, PageQuery, PageResult, PageSort, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { PlatformDataTable, type PlatformDataTableProps } from './PlatformDataTable';
+import { noContext, testAdapter, testSpace } from './test-support';
 
-const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const registryWith = (exportFeature: boolean) => createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'copy-menu' }],
+  spaces: [testSpace({ homeMenuId: 'copy-menu' })],
   groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-  menus: [{ id: 'copy-menu', group: 'overview', primary: true, label: { ko: '복사', en: 'Copy' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'management', features: { export: exportFeature, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
+  menus: [{ id: 'copy-menu', group: 'overview', primary: true, label: { ko: '복사', en: 'Copy' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: exportFeature, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
 const exportRegistry = registryWith(true);
 
 const session: Session = { user: { id: 'user-a', name: 'a', title: { ko: 'a', en: 'a' }, permissions: ['platform:view'] }, scopes: [] };
-const refusedEnvelope = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'c' };
-const adapter: PlatformAdapter = {
-  menuQuery: async () => refusedEnvelope,
-  session: () => session,
-  validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
-  publishedMetrics: () => [],
-  defaultRangeTo: () => '2026-09-26T09:00:00',
-  contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-  evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
-  getEntity: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'c' }),
-  auditTrail: async () => refusedEnvelope,
-  entityAudit: async () => refusedEnvelope,
-  accessDirectory: async () => refusedEnvelope,
-  recordUsage: async () => ({ accepted: 0 }),
-  usageSummary: async () => refusedEnvelope,
-  listAnnotations: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'c' }),
-  saveAnnotation: async () => refusedEnvelope,
-  reportClientError: async () => ({ accepted: true }),
-  subscribe: () => () => {},
-};
+const adapter = testAdapter({ session: () => session });
 
 type Row = { id: string; code: string; note: string };
 const columns: PlatformDataTableProps<Row>['columns'] = [

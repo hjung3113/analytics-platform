@@ -2,22 +2,22 @@ import { lazy } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PlatformAdapter, Session } from '@ap/contracts';
+import type { Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { CommandPalette } from './CommandPalette';
+import { noContext, testAdapter, testSpace } from './test-setup';
 
-const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const page = lazy(async () => ({ default: () => null }));
 const menu = (id: string, group: 'overview' | 'equipment' | 'admin' | 'noticeVoc', path: string, label: { ko: string; en: string }, over: object = {}) => ({
   id, group, path, label, description: { ko: '', en: '' }, icon: House, permission: 'platform:view' as const,
-  requiresScope: false, context: none, pageType: 'overview' as const, features: noFeatures, pageKeys: [], ...over,
+  requiresScope: false, context: noContext, pageType: 'overview' as const, features: noFeatures, pageKeys: [], ...over,
 });
 
 const registry = createRegistry({
   spaces: [
-    { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home' },
-    { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'roles' },
+    testSpace({ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' }),
+    testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'roles' }),
   ],
   groups: [
     { id: 'overview', label: { ko: '분석', en: 'Analytics' }, icon: House, space: 'analytics' },
@@ -60,16 +60,11 @@ function Open() {
 function mount() {
   const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view', 'console:access', 'notice:view'] }, scopes: [] };
   const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
-  const adapter: PlatformAdapter = {
-    menuQuery: async () => forbidden, session: () => session, validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
-    publishedMetrics: () => [], defaultRangeTo: () => '2026-09-26T09:00:00',
-    contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-    evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
-    getEntity: async () => forbidden, auditTrail: async () => forbidden, entityAudit: async () => forbidden, accessDirectory: async () => forbidden,
-    recordUsage: async () => ({ accepted: 0 }), usageSummary: async () => forbidden,
-    listAnnotations: async () => forbidden, saveAnnotation: async () => forbidden,
-    reportClientError: async () => ({ accepted: true }), subscribe: () => () => {},
-  };
+  const adapter = testAdapter({
+    session: () => session,
+    getEntity: async () => forbidden,
+    listAnnotations: async () => forbidden,
+  });
   render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Open /><CommandPalette /></PlatformProvider></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
 }
