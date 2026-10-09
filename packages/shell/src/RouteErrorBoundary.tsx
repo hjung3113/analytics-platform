@@ -1,8 +1,9 @@
 import { Component, type ReactNode } from 'react';
 import { ServerCrash } from 'lucide-react';
-import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
+import { useI18n } from '@ap/kernel';
 import { StateMessage } from '@ap/components';
 import { Button } from '@ap/ui';
+import { HomeLink } from './HomeLink';
 import { reloadApp } from './reload';
 
 type Props = {
@@ -41,7 +42,6 @@ export class RouteErrorBoundary extends Component<Props, State> {
 }
 
 function RouteErrorView({ correlationId, onRetry }: { correlationId?: string; onRetry: () => void }) {
-  const { linkTo, sidebarSpace } = usePlatform();
   const { t, lang } = useI18n();
   return <div className="p-6"><StateMessage tone="danger" icon={<ServerCrash className="size-4" aria-hidden />}
     title={lang === 'ko' ? '이 화면에서 오류가 발생했습니다' : 'Something went wrong on this screen'}
@@ -49,6 +49,6 @@ function RouteErrorView({ correlationId, onRetry }: { correlationId?: string; on
     correlationId={correlationId}
     action={<span className="flex items-center gap-2">
       <Button size="sm" variant="secondary" onClick={onRetry}>{t('retry')}</Button>
-      <Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo(sidebarSpace.homeMenuId)}>{t('home')}</PlatformLink></Button>
+      <HomeLink />
     </span>} /></div>;
 }

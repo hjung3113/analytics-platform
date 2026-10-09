@@ -101,7 +101,7 @@ describe('spaces (06 §9.1)', () => {
   });
 
   it('rejects groups whose space is not declared', () => {
-    expect(() => createRegistry({ spaces: [analyticsSpace], groups: [...groups, { ...adminGroups[0], space: 'feedback' }], menus: [roles] })).toThrow(/Group "admin" uses undeclared space "feedback"/);
+    expect(() => createRegistry({ spaces: [analyticsSpace], groups: [...groups, { ...adminGroups[0], space: 'metrics' }], menus: [roles] })).toThrow(/Group "admin" uses undeclared space "metrics"/);
   });
 
   it('rejects an unknown home menu id', () => {
@@ -125,6 +125,51 @@ describe('spaces (06 §9.1)', () => {
   it('rejects a parent menu in another space', () => {
     const detail = menu('detail', '/metrics/:metricId', { parent: 'admin-roles' });
     expect(() => createRegistry({ spaces: [analyticsSpace, operations], groups: [...groups, ...adminGroups], menus: [roles, detail] })).toThrow(/Menu "detail" parent "admin-roles" is in another space/);
+  });
+
+  it('requires an explicit space (omitting it is a type error, not a global group)', () => {
+    // @ts-expect-error space is required; null is the only way to declare a global utility
+    const group: GroupDef = { id: 'metrics', label: { ko: '지표', en: 'Metrics' }, icon: House };
+    expect(group.id).toBe('metrics');
+  });
+
+  it('allows a global utility group and a parent in another global group', () => {
+    const notice: GroupDef = { id: 'noticeVoc', label: { ko: '공지', en: 'Notice' }, icon: House, space: null };
+    const overview: GroupDef = { id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: null };
+    const notices = menu('notices', '/notices', { group: 'noticeVoc', permission: 'notice:view', primary: true });
+    const home = menu('home', '/', { group: 'overview', permission: 'platform:view', primary: true });
+    const detail = menu('notices-detail', '/notices/:id', { group: 'noticeVoc', parent: 'home', permission: 'notice:view' });
+    const registry = createRegistry({ spaces, groups: [...groups, notice, overview], menus: [catalog, notices, home, detail] });
+    expect(registry.spaceOf(notices)).toBeNull();
+    expect(registry.spaceOf(home)).toBeNull();
+    expect(registry.spaceOf(catalog)?.id).toBe('analytics');
+  });
+
+  it('rejects a space whose home menu is a global utility', () => {
+    const notice: GroupDef = { id: 'noticeVoc', label: { ko: '공지', en: 'Notice' }, icon: House, space: null };
+    const notices = menu('notices', '/notices', { group: 'noticeVoc', permission: 'notice:view', primary: true });
+    expect(() => createRegistry({
+      spaces: [{ ...analyticsSpace, homeMenuId: 'notices' }],
+      groups: [...groups, notice],
+      menus: [catalog, notices],
+    })).toThrow(/Space "analytics" homeMenuId "notices" is not in that space/);
+  });
+
+  it.each(['global-of-space', 'space-of-global'] as const)('rejects a parent across a global group and a space (%s)', direction => {
+    const notice: GroupDef = { id: 'noticeVoc', label: { ko: '공지', en: 'Notice' }, icon: House, space: null };
+    const notices = menu('notices', '/notices', { group: 'noticeVoc', permission: 'notice:view', primary: true });
+    const detail = direction === 'global-of-space'
+      ? menu('detail', '/notices/:id', { group: 'noticeVoc', parent: 'catalog', permission: 'notice:view' })
+      : menu('detail', '/metrics/:id', { parent: 'notices' });
+    expect(() => createRegistry({ spaces, groups: [...groups, notice], menus: [catalog, notices, detail] })).toThrow(/another space/);
+  });
+
+  it.each([0, 2])('a global group still needs exactly one primary (found %s)', found => {
+    const notice: GroupDef = { id: 'noticeVoc', label: { ko: '공지', en: 'Notice' }, icon: House, space: null };
+    const menus = found === 0
+      ? [catalog, menu('notices', '/notices', { group: 'noticeVoc', permission: 'notice:view' })]
+      : [catalog, menu('notices', '/notices', { group: 'noticeVoc', permission: 'notice:view', primary: true }), menu('voc', '/voc', { group: 'noticeVoc', permission: 'voc:view', primary: true })];
+    expect(() => createRegistry({ spaces, groups: [...groups, notice], menus })).toThrow(new RegExp(`needs exactly one primary menu, found ${found}`));
   });
 
   it('allows eight groups in one space (no per-space group cap)', () => {

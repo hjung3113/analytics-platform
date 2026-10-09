@@ -44,7 +44,8 @@ describe('toRegistryRow', () => {
       const row = toRegistryRow(menu, registry);
       expect(row).toEqual({
         id: menu.id,
-        spaceId: registry.spaceOf(menu).id,
+        spaceId: registry.spaceOf(menu)!.id,
+        spaceLabel: { ko: registry.spaceOf(menu)!.id, en: registry.spaceOf(menu)!.id },
         groupId: menu.group,
         path: menu.path,
         permission: menu.permission,
@@ -63,6 +64,26 @@ describe('toRegistryRow', () => {
     expect(row.pageKeys).toBe('q');
     expect(row.contextResetKeys).toBe('q');
     expect(row.capabilities).toBe('time:apply, lot:reference');
+  });
+
+  it('labels a global utility menu 전역 and keeps a space menu on its space id', () => {
+    const globalRegistry = createRegistry({
+      spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' }],
+      groups: [
+        { id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' },
+        { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
+      ],
+      menus: [
+        menu({ id: 'admin-roles', primary: true, path: '/admin/roles', permission: 'console:access' }),
+        menu({ id: 'notices', group: 'noticeVoc', primary: true, path: '/notices', permission: 'notice:view' }),
+      ],
+    });
+    expect(toRegistryRow(globalRegistry.menuById('notices'), globalRegistry)).toMatchObject({
+      spaceId: null, spaceLabel: { ko: '전역', en: 'Global' },
+    });
+    expect(toRegistryRow(globalRegistry.menuById('admin-roles'), globalRegistry)).toMatchObject({
+      spaceId: 'operations', spaceLabel: { ko: 'operations', en: 'operations' },
+    });
   });
 
   it('marks the menu with a component implemented and contextResetKeys empty when undeclared', () => {

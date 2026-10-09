@@ -15,7 +15,7 @@ export type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode };
 export type LinkOptions = { params?: Record<string, string>; page?: Record<string, string>; global?: Partial<GlobalContext>; returnTo?: boolean };
 export type LinkResolution = {
   href: string;
-  /** False when the signed-in user lacks the target's permission or space entry. Display only — never a permission proof. */
+  /** False when the signed-in user lacks the target's permission or, for a space menu, space entry. A global utility menu is permission only. Display only — never a permission proof. */
   allowed: boolean;
   /** Requested page keys the target menu does not register; they are not in `href`. */
   droppedPageKeys: string[];
@@ -55,16 +55,18 @@ type Platform = {
   /** Bumps whenever the adapter announces a change; part of every query identity. */
   revision: number;
   can: (permission: Permission) => boolean;
-  /** Menus of the sidebar space the user may enter: menu permission ∧ space entry (06 §9.1). */
+  /** Menus of the sidebar space the user may enter: menu permission ∧ space entry (06 §9.1). Empty when sidebarSpace is null. */
   visibleMenus: MenuEntry[];
+  /** Permission-granted menus of global utility groups. Includes navHidden, the same inclusion as visibleMenus. */
+  globalMenus: MenuEntry[];
   /** Menus of one space with granted permission; [] when the space is unknown or entry is denied. */
   menusInSpace: (spaceId: SpaceId) => MenuEntry[];
-  /** Registration order; enterable and with at least one permission-visible menu. */
+  /** Registration order; enterable and with at least one permission-visible menu. Global menus are not included. */
   accessibleSpaces: readonly SpaceDef[];
-  /** The matched route's space — even when entry is denied; null on unmatched routes. */
+  /** The matched route's space — even when entry is denied; null on unmatched routes and on global-utility menus. */
   currentSpace: SpaceDef | null;
-  /** currentSpace when accessible, else the first accessible space; route-derived only, never stored. */
-  sidebarSpace: SpaceDef;
+  /** currentSpace when accessible, else the first accessible space, else null. Throws only when the registry declares no spaces. */
+  sidebarSpace: SpaceDef | null;
   /** No-op when spaceId is the current space or not accessible; else push to the space home keeping globals only. */
   switchSpace: (spaceId: SpaceId) => void;
   scope: ScopeState;
@@ -252,12 +254,17 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   const can = useCallback((p: Permission) => user.permissions.includes(p), [user]);
   // Space entry gate (06 §9.1): a space without permission is open to every signed-in user.
   const canEnter = useCallback((space: SpaceDef) => !space.permission || can(space.permission), [can]);
+  // A global utility menu skips space entry; a space menu still has to pass it.
+  const enters = useCallback((menu: MenuEntry) => {
+    const space = registry.spaceOf(menu);
+    return space === null || canEnter(space);
+  }, [registry, canEnter]);
 
   // Context Link helper (§22/§6.4): every registered global is preserved regardless of target support;
   // page-owned state and unregistered extras are never copied implicitly. Changing the site applies the same
   // site boundary as setGlobal (ADR-0004) to the values carried over from the current URL — values the caller
-  // passes explicitly are meant for the destination and stay. `allowed` is a display hint (permission + space
-  // entry, like the sidebar); the server re-checks on arrival.
+  // passes explicitly are meant for the destination and stay. `allowed` is a display hint (permission, plus
+  // space entry for a space menu — a global utility menu is permission only, 06 §9.1); the server re-checks on arrival.
   const resolveLink = useCallback((menuId: string, options: LinkOptions = {}): LinkResolution => {
     const target = menuById(menuId);
     const carried: GlobalContext = options.global && 'scopeId' in options.global && options.global.scopeId !== global.scopeId
@@ -269,10 +276,10 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     if (options.returnTo && target.pageKeys.includes('returnTo')) pagePairs.push(['returnTo', url]);
     return {
       href: pathFor(target, options.params) + buildQuery(g, pagePairs),
-      allowed: can(target.permission) && canEnter(registry.spaceOf(target)),
+      allowed: can(target.permission) && enters(target),
       droppedPageKeys: requested.map(([k]) => k).filter(k => !target.pageKeys.includes(k)),
     };
-  }, [global, url, menuById, can, canEnter, registry]);
+  }, [global, url, menuById, can, enters]);
   const linkTo = useCallback((menuId: string, options: LinkOptions = {}) => resolveLink(menuId, options).href, [resolveLink]);
   // Permission-visible menus grouped by their space; membership lives on the group, never the menu.
   const spaceMenus = useMemo(() => {
@@ -280,7 +287,9 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     for (const space of registry.spaces) map.set(space.id, []);
     for (const m of registry.menus) {
       if (!can(m.permission)) continue;
-      const list = map.get(registry.spaceOf(m).id);
+      const space = registry.spaceOf(m);
+      if (space === null) continue;
+      const list = map.get(space.id);
       if (list) list.push(m);
     }
     return map;
@@ -294,13 +303,16 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     [registry, canEnter, spaceMenus],
   );
   const currentSpace = useMemo(() => (route ? registry.spaceOf(route.menu) : null), [registry, route]);
-  const sidebarSpace = useMemo((): SpaceDef => {
+  const sidebarSpace = useMemo((): SpaceDef | null => {
+    if (registry.spaces.length === 0) throw new Error('registry declares no spaces');
     if (currentSpace !== null && accessibleSpaces.some(s => s.id === currentSpace.id)) return currentSpace;
-    const fallback = accessibleSpaces[0] ?? registry.spaces[0];
-    if (fallback === undefined) throw new Error('registry declares no spaces');
-    return fallback;
+    return accessibleSpaces[0] ?? null;
   }, [currentSpace, accessibleSpaces, registry]);
-  const visibleMenus = useMemo(() => menusInSpace(sidebarSpace.id), [menusInSpace, sidebarSpace]);
+  const visibleMenus = useMemo(() => (sidebarSpace === null ? [] : menusInSpace(sidebarSpace.id)), [menusInSpace, sidebarSpace]);
+  const globalMenus = useMemo(
+    () => registry.menus.filter(m => registry.spaceOf(m) === null && can(m.permission)),
+    [registry, can],
+  );
   // Reselecting the current space never sends the user home; non-accessible targets keep the URL.
   const switchSpace = useCallback((spaceId: SpaceId) => {
     if (currentSpace?.id === spaceId) return;
@@ -364,32 +376,33 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   // Recent visits + usage instrumentation (kernel observability of its own registry).
   useEffect(() => {
     if (!route || routeContractError || !can(route.menu.permission)) return;
-    if (!canEnter(registry.spaceOf(route.menu))) return;
+    if (!enters(route.menu)) return;
     const menuId = route.menu.id;
     setRecent(list => {
       const next = [{ menuId, url, at: Date.now() }, ...list.filter(r => r.menuId !== menuId)].slice(0, 12);
       write(`platform:recent:${userId}`, next);
       return next;
     });
-  }, [url, route, routeContractError, userId, can, canEnter, registry]);
+  }, [url, route, routeContractError, userId, can, enters]);
   // Usage events (docs/05 메뉴 활용률 계측): one `entry` per admitted stay and a `dwell` on leave, sent
   // fire-and-forget through the adapter — no await, no abort signal, failures are silent, navigation never
-  // blocks. Admission is `${userId}\0${menu.id}\0${pathname}` and requires the route to clear the space and
-  // menu gates, so query-only changes (setGlobal/setPage, default-period replace) never re-admit. `path` is
-  // the manifest route pattern, never the concrete pathname, search or Context values.
+  // blocks. Admission is `${userId}\0${menu.id}\0${pathname}` and requires the menu gate; a space menu also
+  // needs space entry, while a global utility menu does not (06 §9.1). Query-only changes (setGlobal/setPage,
+  // default-period replace) never re-admit. `path` is the manifest route pattern, never the concrete pathname,
+  // search or Context values.
   // Latest session user id, readable from the usage effect's cleanup at call time: a role switch
   // re-renders before the previous effect's cleanup runs, so the closure's own userId is stale there.
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
   const lastAdmitted = useRef<string | null>(null);
   useEffect(() => {
-    if (!route || routeContractError || !can(route.menu.permission) || !canEnter(registry.spaceOf(route.menu))) return;
+    if (!route || routeContractError || !can(route.menu.permission) || !enters(route.menu)) return;
     const admitKey = `${userId}\0${route.menu.id}\0${pathname}`;
     if (lastAdmitted.current === admitKey) return;
     lastAdmitted.current = admitKey;
     const admitUser = userId;
     const menu = route.menu;
-    const spaceId = registry.spaceOf(menu).id;
+    const spaceId = registry.spaceOf(menu)?.id ?? null;
     let enteredAt: number | null = null;
     // Fire-and-forget twice over: a rejected promise and a sync throw both die here — telemetry never
     // surfaces an unhandled rejection and never breaks the navigation that triggered it (docs/05).
@@ -421,7 +434,7 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
       lastAdmitted.current = null;
       sendDwell();
     };
-  }, [route, routeContractError, pathname, userId, can, canEnter, registry, adapter, usageSessionId]);
+  }, [route, routeContractError, pathname, userId, can, enters, registry, adapter, usageSessionId]);
 
   const pageParam = useCallback((key: string) => page.find(([k]) => k === key)?.[1] ?? null, [page]);
   const returnTarget = useCallback(() => {
@@ -451,7 +464,7 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
       const rawName = error instanceof Error ? error.name : '';
       const name = typeof rawName === 'string' && /^[A-Za-z_$][\w$]{0,79}$/.test(rawName) ? rawName : 'Error';
       void adapter.reportClientError({
-        correlationId, menuId: route.menu.id, spaceId: registry.spaceOf(route.menu).id, path: route.menu.path, name,
+        correlationId, menuId: route.menu.id, spaceId: registry.spaceOf(route.menu)?.id ?? null, path: route.menu.path, name,
       }).catch(() => { /* silent */ });
     } catch { /* silent */ }
     return correlationId;
@@ -459,7 +472,7 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
 
   const value: Platform = {
     registry, adapter, url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
-    session, user, revision, can, visibleMenus, menusInSpace, accessibleSpaces, currentSpace, sidebarSpace, switchSpace, scope: scopeView, retryScope, lastScope, favorites, toggleFavorite, recent,
+    session, user, revision, can, visibleMenus, globalMenus, menusInSpace, accessibleSpaces, currentSpace, sidebarSpace, switchSpace, scope: scopeView, retryScope, lastScope, favorites, toggleFavorite, recent,
     toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen,
   };
   return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>;

@@ -13,7 +13,7 @@ export function AppRail() {
       <div title={t('appName')} className="mb-1 grid size-8 shrink-0 place-items-center rounded-md bg-accent-primary text-text-on-accent"><span aria-hidden className="text-sm font-semibold">A</span><span className="sr-only">{t('appName')}</span></div>
       {accessibleSpaces.length >= 2 && accessibleSpaces.map(space => {
         const Icon = registry.groupById(registry.menuById(space.homeMenuId).group).icon;
-        const active = sidebarSpace.id === space.id;
+        const active = sidebarSpace?.id === space.id;
         return <Tooltip key={space.id}><TooltipTrigger asChild>
           <button type="button" aria-label={`${lang === 'ko' ? '공간' : 'Space'}: ${tx(space.label)}`} aria-current={active ? 'page' : undefined}
             onClick={() => switchSpace(space.id)} className={cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', active && 'bg-surface-row-selected text-accent-primary')}>

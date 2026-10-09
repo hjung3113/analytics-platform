@@ -29,7 +29,7 @@ export default function RegistryCatalog() {
   const tone = { apply: 'success', reference: 'info', unsupported: 'neutral' } as const;
   const columns = useMemo<PlatformColumn<RegistryRow>[]>(() => [
     { id: 'id', header: 'ID', cell: row => <span className="t-mono">{String(row.id)}</span> },
-    { id: 'spaceId', header: ko ? '공간' : 'Space', cell: row => <span className="t-mono">{String(row.spaceId)}</span> },
+    { id: 'spaceId', header: ko ? '공간' : 'Space', cell: row => <span className="t-mono">{row.spaceLabel[lang]}</span> },
     { id: 'groupId', header: ko ? '그룹' : 'Group', cell: row => <span className="t-mono">{String(row.groupId)}</span> },
     { id: 'path', header: 'Path', cell: row => <span className="t-mono">{String(row.path)}</span> },
     { id: 'permission', header: ko ? '권한' : 'Permission', cell: row => <span className="t-mono">{String(row.permission)}</span> },

@@ -14,6 +14,7 @@ export default function OperationsHome() {
   // Notice targeting is by the current requested scopeId (08 §6, Decided).
   const notices = useMenuQuery(noticesEndpoint, { targetScopeId: global.scopeId });
 
+  const sidebarId = sidebarSpace?.id;
   const favoriteMenus = favorites.map(id => registry.menus.find(m => m.id === id)).filter(m => m && visibleMenus.includes(m));
   const recentRows = recent.filter(r => visibleMenus.some(m => m.id === r.menuId));
   const ago = (at: number) => {
@@ -33,10 +34,10 @@ export default function OperationsHome() {
         </div>)}
       {notices.response && !['ok', 'empty'].includes(notices.response.outcome) && <QueryView widgetName={lang === 'ko' ? '공지' : 'Notices'} query={notices} compact>{() => null}</QueryView>}
 
-      <section aria-labelledby="home-groups">
+      {sidebarId !== undefined && <section aria-labelledby="home-groups">
         <h2 id="home-groups" className="t-section-title mb-2">{lang === 'ko' ? '내 메뉴 바로가기' : 'My menus'}</h2>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 wide:grid-cols-6">
-          {registry.groups.filter(g => g.space === sidebarSpace.id && g.id !== 'overview').map(g => {
+          {registry.groups.filter(g => g.space === sidebarId && g.id !== 'overview').map(g => {
             const inGroup = visibleMenus.filter(m => m.group === g.id && !m.navHidden);
             if (!inGroup.length) return null;
             const primary = registry.menus.find(m => m.group === g.id && m.primary)!;
@@ -53,7 +54,7 @@ export default function OperationsHome() {
               : <div key={g.id} aria-disabled className="rounded-lg border border-dashed border-border-strong bg-surface-card p-4" title={lang === 'ko' ? '대표 목적지 권한 없음' : 'No access to primary destination'}><div className="opacity-70">{body}</div><span className="mt-1 flex items-center gap-1 text-tiny text-text-warning-label"><Lock className="size-3 text-text-warning" aria-hidden />{lang === 'ko' ? '대표 목적지 권한 없음' : 'Primary destination restricted'}</span></div>;
           })}
         </div>
-      </section>
+      </section>}
 
       <div className="grid gap-3 lg:grid-cols-2">
         <Panel title={<span className="inline-flex items-center gap-2"><Star className="size-4 text-accent-warn" aria-hidden />{t('favorites')}</span>} subtitle={lang === 'ko' ? '목적지 ID만 저장합니다. 클릭 시 그 화면의 기본 상태로 진입하고, 지금 들고 있는 전역 Context는 보존됩니다.' : 'Stores destination IDs only; opens the default state while carrying the current global context.'}>

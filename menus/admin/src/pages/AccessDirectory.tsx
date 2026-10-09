@@ -87,6 +87,7 @@ export default function AccessDirectory() {
                           <span>{menu.label[lang]} <span className="t-mono text-text-secondary">{menu.id}</span></span>
                           <span className="flex items-center gap-2">
                             <span className="t-mono text-text-secondary">{menu.path}</span>
+                            {menu.spaceId === null && <StatusBadge tone="neutral">{menu.spaceLabel[lang]}</StatusBadge>}
                             {menu.spaceGated && <StatusBadge tone="neutral">{ko ? '공간' : 'space'}</StatusBadge>}
                           </span>
                         </li>)}

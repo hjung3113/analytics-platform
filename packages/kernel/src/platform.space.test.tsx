@@ -66,7 +66,7 @@ function SpaceProbe() {
     <button type="button" data-testid="to-analytics" onClick={() => switchSpace('analytics')}>ana</button>
     <p data-testid="pathname">{pathname}</p>
     <p data-testid="current">{currentSpace?.id ?? '-'}</p>
-    <p data-testid="sidebar">{sidebarSpace.id}</p>
+    <p data-testid="sidebar">{sidebarSpace?.id}</p>
     <p data-testid="accessible">{accessibleSpaces.map(s => s.id).join(',')}</p>
     <p data-testid="visible">{visibleMenus.map(m => m.id).join(',')}</p>
     <p data-testid="ana-menus">{menusInSpace('analytics').map(m => m.id).join(',')}</p>

@@ -326,7 +326,11 @@ export type StoredUsageEvent = UsageEvent & { userId: string; receivedAt: number
 
 const usageEvents: StoredUsageEvent[] = [];
 
-const SPACE_IDS = ['analytics', 'operations', 'feedback'] as const satisfies readonly SpaceId[];
+const SPACE_IDS = ['analytics', 'metrics', 'operations'] as const satisfies readonly SpaceId[];
+
+function validSpaceId(spaceId: unknown): spaceId is SpaceId | null {
+  return spaceId === null || (typeof spaceId === 'string' && (SPACE_IDS as readonly string[]).includes(spaceId));
+}
 
 /** True when the id is not a string, or carries anything the manifest route pattern must not: empty, `?`, `#`, `&`, whitespace, too long. */
 function invalidUsageId(value: string, max: number): boolean {
@@ -358,7 +362,7 @@ export async function recordUsage(events: readonly UsageEvent[], opts?: { role?:
     || invalidUsageId(e.menuId, 80)
     || invalidUsageId(e.path, 200)
     || typeof e.sessionId !== 'string'
-    || typeof e.spaceId !== 'string' || !SPACE_IDS.includes(e.spaceId)
+    || !validSpaceId(e.spaceId)
     || typeof e.name !== 'string' || (e.name !== 'entry' && e.name !== 'dwell')
     || typeof e.at !== 'number' || !Number.isFinite(e.at)
     || (e.name === 'dwell' && (typeof e.enteredAt !== 'number' || !Number.isFinite(e.enteredAt)
@@ -423,7 +427,7 @@ export async function reportClientError(report: ClientErrorReport, opts?: { role
   const invalid = keys.length !== CLIENT_ERROR_KEYS.length || keys.some(k => !(CLIENT_ERROR_KEYS as readonly string[]).includes(k))
     || !text(report.correlationId, 80) || !report.correlationId.startsWith('client-')
     || invalidUsageId(report.menuId, 80) || invalidUsageId(report.path, 200) || !/^\/(?!\/)/.test(report.path)
-    || typeof report.spaceId !== 'string' || !SPACE_IDS.includes(report.spaceId)
+    || !validSpaceId(report.spaceId)
     || typeof report.name !== 'string' || !/^[A-Za-z_$][\w$]{0,79}$/.test(report.name);
   if (invalid) return { accepted: false };
   clientErrors.push({ ...report, userId: USERS[opts?.role ?? role].role, receivedAt: Date.now() });

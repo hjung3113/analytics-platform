@@ -101,7 +101,7 @@ describe('Menu Registry', () => {
     });
     expect(audit.pageKeys).toEqual(['type', 'actor', 'action', 'source', 'fromAt', 'toAt', 'targetId', 'sort', 'page']);
     expect(audit.contextResetKeys).toBeUndefined();
-    expect(registry.spaceOf(audit).id).toBe('operations');
+    expect(registry.spaceOf(audit)?.id).toBe('operations');
   });
 
   it('declares returnTo on metric-detail so cross-menu links can offer the way back', () => {

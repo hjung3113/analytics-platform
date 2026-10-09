@@ -7,7 +7,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
   const { visibleMenus, route, favorites, recent, registry, sidebarSpace } = usePlatform();
   const { t, tx, lang } = useI18n();
   const activeId = route?.menu.navHidden && route.menu.parent ? route.menu.parent : route?.menu.id;
-  const grouped = registry.groups.filter(g => g.space === sidebarSpace.id)
+  const grouped = (sidebarSpace === null ? [] : registry.groups.filter(g => g.space === sidebarSpace.id))
     .map(group => ({ group, items: visibleMenus.filter(m => !m.navHidden && m.group === group.id) })).filter(g => g.items.length);
   const favoriteMenus = favorites.map(id => visibleMenus.find(m => m.id === id)).filter((m): m is MenuEntry => !!m);
   const recentItems = recent.filter(r => visibleMenus.some(m => m.id === r.menuId)).slice(0, 5);
@@ -15,7 +15,9 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
   return <TooltipProvider delayDuration={200}>
     <aside data-collapsed={collapsed} className={cn('flex h-full shrink-0 flex-col border-r border-border-subtle bg-surface-sidebar', collapsed ? 'w-(--sidebar-width-collapsed)' : 'w-(--sidebar-width)')}>
       <div className="flex h-[50px] shrink-0 items-center justify-between border-b border-border-subtle px-3">
-        {!collapsed && <div className="min-w-0"><p className="truncate text-sm font-semibold">{tx(sidebarSpace.label)}</p><p className="truncate text-caption text-text-muted">{t('appName')}</p></div>}
+        {!collapsed && (sidebarSpace === null
+          ? <p className="min-w-0 truncate text-sm font-semibold">{t('appName')}</p>
+          : <div className="min-w-0"><p className="truncate text-sm font-semibold">{tx(sidebarSpace.label)}</p><p className="truncate text-caption text-text-muted">{t('appName')}</p></div>)}
         <Tooltip><TooltipTrigger asChild>
           <button type="button" onClick={onToggle} aria-label={collapsed ? t('expand') : t('collapse')} aria-keyshortcuts="["
             className="ml-auto grid size-7 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover hover:text-text-primary">

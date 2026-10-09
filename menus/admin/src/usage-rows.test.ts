@@ -25,15 +25,32 @@ const summary: UsageMenuSummary[] = [{ menuId: 'admin-roles', visits: 7, distinc
 describe('joinUsageRows', () => {
   it('keeps registry order, carries summary numbers and zero-fills missing menus', () => {
     expect(joinUsageRows(registry, summary)).toEqual([
-      { id: 'admin-roles', label: { ko: '권한/역할 관리', en: 'Roles & access' }, spaceId: 'operations', visits: 7, distinctUsers: 2, lastUsedAt: 1_760_000_000_000 },
-      { id: 'admin-usage', label: { ko: '메뉴 활용률', en: 'Menu usage' }, spaceId: 'operations', visits: 0, distinctUsers: 0, lastUsedAt: null },
+      { id: 'admin-roles', label: { ko: '권한/역할 관리', en: 'Roles & access' }, spaceId: 'operations', spaceLabel: { ko: 'operations', en: 'operations' }, visits: 7, distinctUsers: 2, lastUsedAt: 1_760_000_000_000 },
+      { id: 'admin-usage', label: { ko: '메뉴 활용률', en: 'Menu usage' }, spaceId: 'operations', spaceLabel: { ko: 'operations', en: 'operations' }, visits: 0, distinctUsers: 0, lastUsedAt: null },
     ]);
+  });
+
+  it('labels a global utility menu 전역', () => {
+    const globalRegistry = createRegistry({
+      spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' }],
+      groups: [
+        { id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' },
+        { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
+      ],
+      menus: [
+        menu({ id: 'admin-roles', primary: true, path: '/admin/roles', permission: 'console:access' }),
+        menu({ id: 'notices', group: 'noticeVoc', primary: true, label: { ko: '공지', en: 'Notices' }, path: '/notices', permission: 'notice:view' }),
+      ],
+    });
+    expect(joinUsageRows(globalRegistry, []).find(row => row.id === 'notices')).toMatchObject({
+      spaceId: null, spaceLabel: { ko: '전역', en: 'Global' },
+    });
   });
 
   it('renders a successful zero when the summary is empty', () => {
     expect(joinUsageRows(registry, [])).toEqual([
-      { id: 'admin-roles', label: { ko: '권한/역할 관리', en: 'Roles & access' }, spaceId: 'operations', visits: 0, distinctUsers: 0, lastUsedAt: null },
-      { id: 'admin-usage', label: { ko: '메뉴 활용률', en: 'Menu usage' }, spaceId: 'operations', visits: 0, distinctUsers: 0, lastUsedAt: null },
+      { id: 'admin-roles', label: { ko: '권한/역할 관리', en: 'Roles & access' }, spaceId: 'operations', spaceLabel: { ko: 'operations', en: 'operations' }, visits: 0, distinctUsers: 0, lastUsedAt: null },
+      { id: 'admin-usage', label: { ko: '메뉴 활용률', en: 'Menu usage' }, spaceId: 'operations', spaceLabel: { ko: 'operations', en: 'operations' }, visits: 0, distinctUsers: 0, lastUsedAt: null },
     ]);
   });
 });

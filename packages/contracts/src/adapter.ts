@@ -47,7 +47,8 @@ export type UsageEventName = 'entry' | 'dwell';
 export type UsageEvent = {
   name: UsageEventName;
   menuId: string;
-  spaceId: SpaceId;
+  /** The menu's space, or null when its group is a global utility (06 §9.1). */
+  spaceId: SpaceId | null;
   /** Manifest route pattern (`menu.path`, app-relative), never the concrete pathname or search. */
   path: string;
   /** Client epoch ms. */
@@ -69,7 +70,8 @@ export type ClientErrorReport = {
   /** Client-generated `client-…`, the same id the person sees on the error screen. */
   correlationId: string;
   menuId: string;
-  spaceId: SpaceId;
+  /** The menu's space, or null when its group is a global utility (06 §9.1). */
+  spaceId: SpaceId | null;
   /** Manifest route pattern (`menu.path`), never the concrete pathname or search. */
   path: string;
   /** `Error.name` when it is identifier-shaped (`/^[A-Za-z_$][\w$]{0,79}$/`), else `Error`. */

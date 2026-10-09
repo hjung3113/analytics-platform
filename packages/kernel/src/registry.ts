@@ -14,7 +14,8 @@ export type GroupDef = {
   id: GroupId;
   label: Text;
   icon: LucideIcon;
-  space: SpaceId;
+  /** `null` is a global utility. Required, not optional, so omission cannot skip the space check (06 §9.1). */
+  space: SpaceId | null;
   /** In the expanded sidebar, omit the section label when only one visible menu remains. */
   hideLabelWhenSingle?: boolean;
 };
@@ -27,8 +28,8 @@ export type Registry = {
   spaces: readonly SpaceDef[];
   groupById: (id: GroupId) => GroupDef;
   spaceById: (id: SpaceId) => SpaceDef;
-  /** Space of the menu's group — membership lives on the group, never on the menu (06 §9.1). */
-  spaceOf: (menu: MenuEntry) => SpaceDef;
+  /** Space of the menu's group — membership lives on the group, never on the menu. Null when the group is a global utility (06 §9.1). */
+  spaceOf: (menu: MenuEntry) => SpaceDef | null;
   menuById: (id: string) => MenuEntry;
   matchRoute: (pathname: string) => RouteMatch | null;
   /**
@@ -61,10 +62,10 @@ export function createRegistry({ spaces, groups, menus }: { spaces: readonly Spa
     byId.set(m.id, m);
   }
   const groupIds = new Set<string>();
-  const groupSpace = new Map<GroupId, SpaceId>();
+  const groupSpace = new Map<GroupId, SpaceId | null>();
   for (const g of groups) {
     if (groupIds.has(g.id)) fail(`Duplicate group id "${g.id}"`);
-    if (!spaceByIdMap.has(g.space)) fail(`Group "${g.id}" uses undeclared space "${g.space}"`);
+    if (g.space !== null && !spaceByIdMap.has(g.space)) fail(`Group "${g.id}" uses undeclared space "${g.space}"`);
     groupIds.add(g.id);
     groupSpace.set(g.id, g.space);
   }
@@ -117,7 +118,10 @@ export function createRegistry({ spaces, groups, menus }: { spaces: readonly Spa
 
   const groupById = (id: GroupId) => groups.find(g => g.id === id) ?? fail(`Unknown group ${id}`);
   const spaceById = (id: SpaceId) => spaceByIdMap.get(id) ?? fail(`Unknown space ${id}`);
-  const spaceOf = (menu: MenuEntry) => spaceById(groupById(menu.group).space);
+  const spaceOf = (menu: MenuEntry): SpaceDef | null => {
+    const space = groupById(menu.group).space;
+    return space === null ? null : spaceById(space);
+  };
   const menuById = (id: string) => byId.get(id) ?? fail(`Unknown menu ${id}`);
 
   // Static segments win over parameters, compared left to right, whatever the declaration order.
