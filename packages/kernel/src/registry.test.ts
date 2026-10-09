@@ -5,7 +5,7 @@ import { createRegistry, RegistryError, type GroupDef, type MenuEntry } from './
 
 const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const groups: GroupDef[] = [{ id: 'metrics', label: { ko: '지표', en: 'Metrics' }, icon: House, space: 'analytics' }];
-const analyticsSpace: SpaceDef = { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'catalog' };
+const analyticsSpace: SpaceDef = { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'catalog' };
 const spaces: SpaceDef[] = [analyticsSpace];
 const homeA: SpaceDef[] = [{ ...analyticsSpace, homeMenuId: 'a' }];
 const menu = (id: string, path: string, extra: Partial<MenuEntry> = {}): MenuEntry => ({
@@ -93,7 +93,7 @@ describe('createRegistry validation (platform-packages.md §5)', () => {
 
 describe('spaces (06 §9.1)', () => {
   const adminGroups: GroupDef[] = [{ id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' }];
-  const operations: SpaceDef = { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' };
+  const operations: SpaceDef = { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' };
   const roles = menu('admin-roles', '/admin/roles', { group: 'admin', permission: 'console:access', primary: true });
 
   it('rejects duplicate space ids', () => {
@@ -115,6 +115,13 @@ describe('spaces (06 §9.1)', () => {
   it('rejects a home route that needs parameters', () => {
     const detail = menu('detail', '/metrics/:metricId', { parent: 'catalog' });
     expect(() => createRegistry({ spaces: [{ ...analyticsSpace, homeMenuId: 'detail' }], groups, menus: [catalog, detail] })).toThrow(/Space "analytics" homeMenuId "detail" home route must not need parameters/);
+  });
+
+  it.each([
+    { ko: '', en: 'Purpose' },
+    { ko: '목적', en: '   ' },
+  ])('rejects an empty space description (%j)', description => {
+    expect(() => createRegistry({ spaces: [{ ...analyticsSpace, description }], groups, menus: [catalog] })).toThrow(/Space "analytics" description must not be empty/);
   });
 
   it('rejects a home menu whose permission differs from the space permission', () => {

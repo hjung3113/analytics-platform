@@ -14,6 +14,8 @@ export type SpaceId = 'analytics' | 'metrics' | 'operations';
 export type SpaceDef = {
   id: SpaceId;
   label: Text;
+  /** One-line purpose on the platform-home card (ADR-0028). Registry rejects an empty ko or en string. */
+  description: Text;
   /** Entry permission; absent means every signed-in user (analytics). */
   permission?: Permission;
   /** Landing menu inside this space whose path has no `:param`. */

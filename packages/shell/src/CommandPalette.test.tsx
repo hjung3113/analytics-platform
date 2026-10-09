@@ -16,8 +16,8 @@ const menu = (id: string, group: 'overview' | 'equipment' | 'admin' | 'noticeVoc
 
 const registry = createRegistry({
   spaces: [
-    { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' },
-    { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'roles' },
+    { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home' },
+    { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'roles' },
   ],
   groups: [
     { id: 'overview', label: { ko: '분석', en: 'Analytics' }, icon: House, space: 'analytics' },

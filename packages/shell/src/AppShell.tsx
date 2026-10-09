@@ -17,6 +17,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 function ShellLayout({ children }: { children: ReactNode }) {
   const detail = useDetailPanelSlotHost();
   const { lang } = useI18n();
+  const { route, registry, sidebarSpace } = usePlatform();
+  const globalScreen = route !== null && registry.spaceOf(route.menu) === null;
+  const showSidebar = sidebarSpace !== null && !globalScreen;
   const [collapsed, setCollapsed] = useState(() => {
     try { const v = localStorage.getItem(COLLAPSE_KEY); return v === null ? window.innerWidth < 1440 : v === '1'; } catch { return false; }
   });
@@ -33,7 +36,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
   return <div className="flex h-full overflow-hidden">
     <a href="#platform-main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">Skip to content</a>
     <AppRail />
-    <AppSidebar collapsed={collapsed} onToggle={toggle} />
+    {showSidebar && <AppSidebar collapsed={collapsed} onToggle={toggle} />}
     <div className="flex min-w-0 flex-1 flex-col">
       <main id="platform-main" tabIndex={-1} className="min-h-0 min-w-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
         <Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}>{children}</Suspense>

@@ -1,7 +1,14 @@
-import { ChevronLeft, ChevronRight, Clock3, Star } from 'lucide-react';
-import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
+import { ChevronLeft, ChevronRight, ClipboardList, Clock3, ExternalLink, ListTodo, MessageSquarePlus, MessagesSquare, Star } from 'lucide-react';
+import { type FeedbackOpsEntryId, type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { ScopeSelector } from './ScopeSelector';
+
+const FEEDBACK_ICONS: Record<FeedbackOpsEntryId, typeof Star> = {
+  'voc-create': MessageSquarePlus,
+  voc: MessagesSquare,
+  task: ListTodo,
+  survey: ClipboardList,
+};
 
 export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   const { visibleMenus, route, favorites, recent, registry, sidebarSpace } = usePlatform();
@@ -48,9 +55,36 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
             : <p className="px-3 py-1 text-xs leading-4 text-text-muted">{t('noRecent')}</p>}
         </section>}
       </div>
+      <FeedbackOpsBlock collapsed={collapsed} />
       {!collapsed && <div className="shrink-0 border-t border-border-subtle px-4 py-2.5 text-caption text-text-muted">{lang === 'ko' ? '통합 프로토타입 · 합성 데이터' : 'Integrated prototype · synthetic data'}</div>}
     </aside>
   </TooltipProvider>;
+}
+
+function FeedbackOpsBlock({ collapsed }: { collapsed: boolean }) {
+  const { slots, currentSpace } = usePlatform();
+  const { tx, lang } = useI18n();
+  const slot = slots.feedbackOps;
+  if (!slot || currentSpace === null) return null;
+  const entries = slot.entriesFor(currentSpace.id);
+  if (!entries || entries.length === 0) return null;
+  const spaceName = tx(currentSpace.label);
+  const heading = `FeedbackOps · ${spaceName}`;
+  return <nav aria-label={heading} className="shrink-0 border-t border-border-subtle px-2 py-2">
+    {!collapsed && <p className="mx-2 mb-1 text-caption font-semibold text-text-muted">{heading}</p>}
+    <ul className="space-y-0.5">{entries.map(entry => {
+      const Icon = FEEDBACK_ICONS[entry.id];
+      const label = tx(entry.label);
+      const name = lang === 'ko' ? `${label} — ${spaceName}, FeedbackOps, 새 탭` : `${label} — ${spaceName}, FeedbackOps, new tab`;
+      const link = <a href={entry.href} target="_blank" rel="noopener noreferrer" aria-label={name}
+        className={cn('flex min-h-8 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-row-hover hover:text-text-primary', collapsed && 'justify-center px-0')}>
+        <Icon className="size-4 shrink-0" aria-hidden />
+        {!collapsed && <><span className="min-w-0 flex-1 truncate">{label}</span><ExternalLink className="size-3.5 shrink-0" aria-hidden /></>}
+      </a>;
+      return <li key={entry.id}><Tooltip><TooltipTrigger asChild>{link}</TooltipTrigger><TooltipContent side="right">{name}</TooltipContent></Tooltip></li>;
+    })}</ul>
+    {!collapsed && <p className="px-3 pt-1 text-caption text-text-muted">{lang === 'ko' ? '새 탭에서 열립니다' : 'Opens in a new tab'}</p>}
+  </nav>;
 }
 
 function NavItem({ menu, active, collapsed, href, labelPrefix }: { menu: MenuEntry; active: boolean; collapsed: boolean; href?: string; labelPrefix?: string }) {

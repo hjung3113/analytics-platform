@@ -19,20 +19,21 @@ import { manifests as admin } from '@ap/menu-admin';
 // </gen:menu-imports>
 
 export const GROUPS: GroupDef[] = [
-  { id: 'overview', label: { ko: '운영 개요', en: 'Overview' }, icon: LayoutDashboard, space: 'analytics', hideLabelWhenSingle: true },
+  { id: 'overview', label: { ko: '운영 개요', en: 'Overview' }, icon: LayoutDashboard, space: null, hideLabelWhenSingle: true },
+  { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: Megaphone, space: null },
+  { id: 'analytics', label: { ko: '생산성 분석', en: 'Analytics' }, icon: BarChart3, space: 'analytics' },
   { id: 'equipment', label: { ko: '설비관리', en: 'Equipment' }, icon: Cpu, space: 'analytics' },
   { id: 'masterData', label: { ko: '기준정보관리', en: 'Master Data' }, icon: Database, space: 'analytics' },
-  { id: 'analytics', label: { ko: '생산성 분석', en: 'Analytics' }, icon: BarChart3, space: 'analytics' },
-  { id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge, space: 'analytics' },
-  { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: Megaphone, space: 'analytics' },
+  { id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, icon: Gauge, space: 'metrics' },
   { id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: ShieldCheck, space: 'operations' },
   // </gen:menu-groups>
 ];
 
 /** Below the groups end marker on purpose: the gen-menu wiring lock counts `id: '<group>'` lines above it. */
 export const SPACES: SpaceDef[] = [
-  { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' },
-  { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' },
+  { id: 'analytics', label: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비·기간별 생산성과 사이클타임을 분석합니다.', en: 'Analyze productivity and cycle time by equipment and period.' }, homeMenuId: 'productivity-overview' },
+  { id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, description: { ko: '지표 정의·버전·발행을 관리합니다.', en: 'Manage metric definitions, versions, and releases.' }, homeMenuId: 'metric-catalog' },
+  { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '권한·감사·메뉴 활용률을 운영합니다.', en: 'Operate permissions, audit, and menu usage.' }, permission: 'console:access', homeMenuId: 'admin-roles' },
 ];
 
 export const MENUS: MenuEntry[] = [

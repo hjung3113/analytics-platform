@@ -305,7 +305,7 @@ describe('manifest', () => {
     expect(menu.pageKeys).toEqual([]);
     expect(menu.pageType).toBe('${i.pageType}');
     expect(menu.group).toBe('${i.group}');
-    const spaces: SpaceDef[] = [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: menu.id }];
+    const spaces: SpaceDef[] = [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: menu.id }];
     const groups: GroupDef[] = [{ id: menu.group, label: { ko: 'g', en: 'g' }, icon: menu.icon, space: 'analytics' }];
     const registry = createRegistry({ spaces, groups, menus: manifests });
     expect(registry.menuById('${i.menuId}').path).toBe('${i.path}');

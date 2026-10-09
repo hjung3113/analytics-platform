@@ -13,7 +13,7 @@ const menu = (over: Partial<MenuEntry> & Pick<MenuEntry, 'id' | 'permission'>): 
 });
 
 const registry = createRegistry({
-  spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'roles' }],
+  spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'roles' }],
   groups: [
     { id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' },
     { id: 'equipment', label: { ko: '설비', en: 'Equipment' }, icon: Wrench, space: 'operations' },
@@ -64,7 +64,7 @@ describe('menusForPermissions (#49 drawer join)', () => {
 
   it('does not space-gate a global utility menu and labels it 전역', () => {
     const globalRegistry = createRegistry({
-      spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'roles' }],
+      spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'roles' }],
       groups: [
         { id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' },
         { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },

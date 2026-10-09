@@ -377,7 +377,7 @@ Page
 
 이 Slot 외의 위치에 페이지가 직접 전역 UI를 삽입하지 않는다. 상세 내용은 등록 경계로 넘기고, 셸이 main 옆의 전체 높이 오른쪽 aside 배치를 소유한다(§13).
 
-앱이 조립 때 주입하는 셸 슬롯은 `PlatformSlots`의 `contextBar`(PlatformPage가 페이지 머리 아래에 그린다)와 `topBarTools`(레일 아래 도구)뿐이다. 페이지는 `crumbs`로 현재 위치(부모 메뉴 뒤 추가 경로)를 확장할 수 있다. 새 슬롯은 이 절에 근거를 먼저 적는다.
+앱이 조립 때 주입하는 셸 슬롯은 `PlatformSlots`의 `contextBar`(PlatformPage가 페이지 머리 아래에 그린다), `topBarTools`(레일 아래 도구), `feedbackOps`(공간별 FeedbackOps 진입과 전체 링크, [ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md)·[ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md))다. 앱이 `feedbackOps`를 넘기지 않으면 셸은 블록과 레일 링크를 그리지 않는다. 페이지는 `crumbs`로 현재 위치(부모 메뉴 뒤 추가 경로)를 확장할 수 있다. 새 슬롯은 이 절에 근거를 먼저 적는다.
 
 ### 이유
 
@@ -408,7 +408,7 @@ Notice & VOC
 Administration
 ```
 
-이 7그룹을 navigation IA의 단일 기준으로 둔다(Decided). 표시명은 운영 개요 / 설비관리 / 기준정보관리 / 생산성 분석 / 지표관리 / 공지·VOC / 관리·감사다. 이 그룹들은 §9.1의 워크스페이스 층 아래에서 배치된다. 관리·감사는 운영 콘솔로 이동한다. 나머지 그룹이 §9.1의 어느 업무 공간에 놓일지는 Candidate다. `02_domain_menus.md`의 6개 도메인 중 공지와 VOC가 한 그룹을 공유하고, 운영 개요·관리·감사는 플랫폼 기능이다. 도메인 개수와 내비게이션 그룹 개수를 같게 맞출 필요는 없다. 하위 화면 배치와 표시명 변경은 별도 설계 결정이다.
+이 7그룹을 navigation IA의 단일 기준으로 둔다(Decided). 표시명은 운영 개요 / 설비관리 / 기준정보관리 / 생산성 분석 / 지표관리 / 공지·VOC / 관리·감사다. 이 그룹들은 §9.1의 워크스페이스 층 아래에서 배치된다. 관리·감사는 운영 콘솔로 이동한다. 나머지 그룹의 업무 공간 귀속은 §9.1에서 Decided다([ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)). `02_domain_menus.md`의 6개 도메인 중 공지와 VOC가 한 그룹을 공유하고, 운영 개요·관리·감사는 플랫폼 기능이다. 도메인 개수와 내비게이션 그룹 개수를 같게 맞출 필요는 없다. 하위 화면 배치와 표시명 변경은 별도 설계 결정이다.
 
 Sidebar 기능(셸 구조는 §7, ADR-0011):
 
@@ -444,7 +444,7 @@ Sidebar 기능(셸 구조는 §7, ADR-0011):
 - **Registry:** 소속 공간은 메뉴가 아니라 **그룹이** 선언한다(`GroupDef.space`, **필드명 Decided, 2026-09-27**). 현재 공간은 매칭된 라우트의 메뉴에서 유도하며 공간용 URL 키는 없다(§6.4: 경로가 이미 공간이다). 위 표의 **공간별 배치**는 Decided다. **공간별 그룹 수 상한은 두지 않는다(Decided, 2026-09-27)** — 새 그룹은 공간 추가보다 먼저 기존 그룹에 흡수할 수 있는지 검토하고, 공간당 7개 이하를 권장한다. 표 항목 중 무엇이 그룹이고 무엇이 그 아래 화면인지는 각 공간을 구현할 때 정한다.
 - **운영 콘솔 권한(Decided, 2026-09-27):** '운영 콘솔 접근' 한 역할로 시작한다. 개발자·운영자 모두 운영 콘솔 전 화면에 들어간다. 메뉴 활용률 열람은 05 결정(개발자·운영자 기본 + 개별 부여)을 따른다. 역할 분리가 필요해지면 그때 나눈다. 권한/역할 화면(`/admin/roles`, #49)은 **조회 전용**이다 — 사용자별 보유 권한, 그 권한이 여는 메뉴(Registry `permission` 기준 클라이언트 조인이며 권한 증명이 아니다), 사이트별 부여 room_name을 보여 준다. 부여·회수(05의 개별 부여 포함)의 원천은 **분리(2026-09-29 Decided, 절반 확정, #98)**: room_name 부여와 메뉴 활용률 열람 개별 부여는 플랫폼 메타 DB가 소유하고, 역할 소속(누가 운영 콘솔 접근자인가)의 원천은 IdP 그룹 claim 사양이 나올 때까지 Open이다(claim을 주면 IdP, 안 주면 메타 DB). 쓰기 포트·화면은 아직 만들지 않는다.
 - **Command Palette:** 사용자가 접근 가능한 모든 공간의 메뉴와 전역 유틸리티를 검색한다. 결과는 공간별로 묶고(레일 순서, 전역 유틸리티는 별도 묶음), 행 보조줄은 공간명·그룹명이며 같으면 한 번만 쓴다. FeedbackOps 외부 링크는 넣지 않는다.
-- **범위 밖:** 공간별 테마·별도 로그인·공간별 Scope는 두지 않는다. FeedbackOps 화면은 플랫폼으로 옮기지 않는다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md), 단계는 [저장소 연결 문서](integration/repository-layout.md)). 공간 `id`, FeedbackOps `Managed System`, 데이터 Scope(Site·room_name)는 서로 다른 식별 층이며 1:1을 가정하지 않는다(매핑은 #81·#213 Open). 현재 Registry에는 분석·운영 콘솔 두 공간만 있고, v2 구성(위 결정 포함)으로의 이전은 [#249](https://github.com/hjung3113/analytics-platform/issues/249)가 추적한다.
+- **범위 밖:** 공간별 테마·별도 로그인·공간별 Scope는 두지 않는다. FeedbackOps 화면은 플랫폼으로 옮기지 않는다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md), 단계는 [저장소 연결 문서](integration/repository-layout.md)). 공간 `id`, FeedbackOps `Managed System`, 데이터 Scope(Site·room_name)는 서로 다른 식별 층이며 1:1을 가정하지 않는다(매핑은 #81·#213 Open). 현재 Registry에는 생산성 분석·지표관리·운영 콘솔 세 공간이 있다. 운영 개요·공지·VOC는 전역 유틸리티다. 표준 로그 개발·개선 실행 공간은 메뉴가 생길 때 등록한다([#252](https://github.com/hjung3113/analytics-platform/issues/252)). 멀티 워크스페이스 이전은 [#249](https://github.com/hjung3113/analytics-platform/issues/249)가 추적한다.
 
 ---
 

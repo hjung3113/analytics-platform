@@ -11,8 +11,8 @@ const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupp
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 
 const spaces: SpaceDef[] = [
-  { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'equipment' },
-  { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' },
+  { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'equipment' },
+  { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' },
 ];
 const registry = createRegistry({
   spaces,
