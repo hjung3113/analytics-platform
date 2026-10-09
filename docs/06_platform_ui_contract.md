@@ -197,7 +197,7 @@ Domain logic이 Kernel로 역류하지 않도록 한다.
 
 코드 어휘(이름 Candidate): Context 키 8종 `time`·`roomNames`·`condition`·`selection`·`lot`·`ppid`·`recipe`·`metric`(`scopeId`는 별도 키), 지원 값 `apply`(O)·`reference`(△)·`unsupported`(X).
 
-VOC 행: FeedbackOps 1단계의 `/voc`(내 VOC)는 세션 사용자 기준 읽기라 전역 Context를 모두 `unsupported`로 선언한다(#60). 플랫폼 안에서 VOC를 처리하는 워크플로가 생기면 다시 정한다([ADR-0018](adr/0018-feedbackops-stage2-screens-into-platform-menus.md)).
+VOC 행: FeedbackOps 1단계의 `/voc`(내 VOC)는 세션 사용자 기준 읽기라 전역 Context를 모두 `unsupported`로 선언한다(#60). VOC 처리 워크플로는 FeedbackOps가 전담한다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md)).
 
 ### 규칙
 
@@ -434,7 +434,7 @@ Sidebar 기능(셸 구조는 §7, ADR-0011):
 | 운영 콘솔 (지원) | 개발자·운영자 | 시스템 모니터링, 개발자용 파이프라인 트레이스, 메뉴 활용률([05 계측](05_roadmap_and_open_questions.md#메뉴-활용률-계측-decided--v1-범위-포함-2026-09-22-grilling-round-2)), 관리·감사(권한/역할, 변경 감사), Menu Registry 조회 |
 
 - **플랫폼 홈:** 접근 가능한 공간을 고르는 시스템 런처다. 모든 메뉴를 중복 나열하지 않는다(15 §8).
-- **FeedbackOps(협업):** 별도 공간이 아니다. 각 공간 사이드바에 그 시스템의 VOC·Task·설문 진입을 두고, 진입하면 현재 시스템으로 범위를 좁힌다. 권한이 있는 담당자에게만 전 시스템 **전체 협업 허브**를 연다. 허브가 독립 공간인지 전역 경로인지는 Candidate다. 사이드바 협업 진입의 고정 위치는 화면 높이·메뉴 밀도 검증 대상이다(15 §3·§6).
+- **FeedbackOps(협업):** 별도 공간이 아니고, 화면을 플랫폼으로 옮기지도 않는다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md)). 각 공간 사이드바에 그 시스템의 Managed System으로 좁힌 FeedbackOps 진입(VOC 등록·VOC·Task·설문)을 두고 새 탭으로 연다. 공간에 대응하는 매핑이 없으면 진입을 그리지 않는다. 전체 협업 허브는 FeedbackOps 자체 화면이며 플랫폼은 시스템 범위 없는 진입 링크만 둔다(링크 노출 권한은 Candidate, 내용 판정은 FeedbackOps). 사이드바 안 진입 위치는 #250 시안 컨펌 대상이다(15 §3·§6).
 - **기존 메뉴 귀속(Candidate):** 운영 개요·설비관리·기준정보관리·공지·내 VOC·가공 상태 조회가 어느 공간에 놓일지는 정하지 않았다. 전환기에는 기존 라우트·메뉴를 유지하고 제거하지 않는다. 사용자용 VOC·설문의 1단계 읽기·원본 화면 쓰기 규칙은 [저장소 연결 문서](integration/repository-layout.md#feedbackops-통합-방식-decided-2026-09-26)를 따른다.
 - **시스템별 마지막 메뉴 복원(Candidate):** 같은 공간으로 돌아오면 마지막 메뉴로 복귀하는 UX를 목표로 한다. 저장 위치·보존 기한은 정하지 않았고, 복원할 URL과 권한은 다시 검증한다.
 
@@ -443,7 +443,7 @@ Sidebar 기능(셸 구조는 §7, ADR-0011):
 - **Registry:** 소속 공간은 메뉴가 아니라 **그룹이** 선언한다(`GroupDef.space`, **필드명 Decided, 2026-09-27**). 현재 공간은 매칭된 라우트의 메뉴에서 유도하며 공간용 URL 키는 없다(§6.4: 경로가 이미 공간이다). 위 표의 **공간별 배치**는 Decided다. **공간별 그룹 수 상한은 두지 않는다(Decided, 2026-09-27)** — 새 그룹은 공간 추가보다 먼저 기존 그룹에 흡수할 수 있는지 검토하고, 공간당 7개 이하를 권장한다. 표 항목 중 무엇이 그룹이고 무엇이 그 아래 화면인지는 각 공간을 구현할 때 정한다.
 - **운영 콘솔 권한(Decided, 2026-09-27):** '운영 콘솔 접근' 한 역할로 시작한다. 개발자·운영자 모두 운영 콘솔 전 화면에 들어간다. 메뉴 활용률 열람은 05 결정(개발자·운영자 기본 + 개별 부여)을 따른다. 역할 분리가 필요해지면 그때 나눈다. 권한/역할 화면(`/admin/roles`, #49)은 **조회 전용**이다 — 사용자별 보유 권한, 그 권한이 여는 메뉴(Registry `permission` 기준 클라이언트 조인이며 권한 증명이 아니다), 사이트별 부여 room_name을 보여 준다. 부여·회수(05의 개별 부여 포함)의 원천은 **분리(2026-09-29 Decided, 절반 확정, #98)**: room_name 부여와 메뉴 활용률 열람 개별 부여는 플랫폼 메타 DB가 소유하고, 역할 소속(누가 운영 콘솔 접근자인가)의 원천은 IdP 그룹 claim 사양이 나올 때까지 Open이다(claim을 주면 IdP, 안 주면 메타 DB). 쓰기 포트·화면은 아직 만들지 않는다.
 - **Command Palette:** 사용자가 접근 가능한 모든 공간의 메뉴를 검색한다. 결과에 공간명을 표시한다.
-- **범위 밖:** 공간별 테마·별도 로그인·공간별 Scope는 두지 않는다. FeedbackOps의 셸 편입 시점은 [저장소 연결 문서](integration/repository-layout.md)의 단계를 따른다. 깊이는 [ADR-0018](adr/0018-feedbackops-stage2-screens-into-platform-menus.md)이 정했다(화면은 플랫폼 메뉴로 이전, 백엔드는 도메인 API 유지). 공간 `id`, FeedbackOps `Managed System`, 데이터 Scope(Site·room_name)는 서로 다른 식별 층이며 1:1을 가정하지 않는다(매핑은 #81·#213 Open). 현재 Registry에는 분석·운영 콘솔 두 공간만 있고, v2 구성으로의 이전은 [#249](https://github.com/hjung3113/analytics-platform/issues/249)가 추적한다.
+- **범위 밖:** 공간별 테마·별도 로그인·공간별 Scope는 두지 않는다. FeedbackOps 화면은 플랫폼으로 옮기지 않는다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md), 단계는 [저장소 연결 문서](integration/repository-layout.md)). 공간 `id`, FeedbackOps `Managed System`, 데이터 Scope(Site·room_name)는 서로 다른 식별 층이며 1:1을 가정하지 않는다(매핑은 #81·#213 Open). 현재 Registry에는 분석·운영 콘솔 두 공간만 있고, v2 구성으로의 이전은 [#249](https://github.com/hjung3113/analytics-platform/issues/249)가 추적한다.
 
 ---
 
