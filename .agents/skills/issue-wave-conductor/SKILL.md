@@ -88,7 +88,7 @@ codex 역할은 Orca 터미널에서, claude 역할은 백그라운드 `claude -
 
 - `scripts/launch-worker.sh <n> <slug>`: Orca worktree(`~/orca/workspaces/analytics-platform/<n>-<slug>`, 브랜치 `feat/<n>-<slug>`), 서브모듈 + `pnpm install`, 설정 셸 닫기, `.review/W-<n>-TASK.md` 작성, 공유 실행기 호출. 필요: `WAVE_STATE`·`WAVE_BRIEFS`·`AP_MAIN`.
 - `scripts/review-plan.py <checkout> [--base origin/main] [--head HEAD]`: 7a. 규칙표는 `scripts/test-review-plan.py`(12개 사례)가 고정한다. 과거 병합 대조: #247(드릴다운) → code+ux+perf, permission·e2e·contract / #246(표 컬럼) → code+ux, e2e / #248·#253(문서) → 리뷰 없음.
-- `scripts/app-preview.py start <checkout> [--name <label>]` / `stop <label>|--all` / `status`: mock 조립 vite를 5180–5199의 빈 포트에 띄운다(백엔드·DB 없음). `status`는 추적 중인 미리보기와 남의 vite(`untracked`, 건드리지 않음)를 보인다.
+- `scripts/app-preview.py start <checkout> [--name <label>]` / `stop <label>|--all` / `status`: mock 조립 vite를 5180–5199의 빈 포트에 띄운다(백엔드·DB 없음). `status`는 추적 중인 미리보기와 남의 vite(`untracked`, 건드리지 않음)를 보인다. `stop`은 신호 전에 기록된 pgid·부모 시작 시각·명령(부모가 없으면 그룹 안의 vite 포트 서명)으로 소유를 확인하고, 불명확하면 상태 파일을 남긴 채 `ownership unclear`로 건너뛴다. 규칙 표는 `scripts/test-app-preview.py`가 고정한다.
 
 ## 함정(측정된 것)
 
