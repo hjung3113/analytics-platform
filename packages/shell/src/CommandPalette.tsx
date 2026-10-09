@@ -77,27 +77,25 @@ export function CommandPalette() {
           {sections.map(section => {
             const headingId = `palette-heading-${section.key}`;
             return <li key={section.key} role="presentation">
-              <div role="group" aria-labelledby={headingId}>
-                <p id={headingId} className="px-3 pb-1 pt-2 text-caption font-semibold text-text-muted">{tx(section.label)}</p>
-                <ul>
-                  {section.items.map(m => {
-                    const i = index++;
-                    const Icon = m.icon;
-                    const groupName = tx(registry.groupById(m.group).label);
-                    const spaceName = tx(section.label);
-                    const base = spaceName === groupName ? spaceName : `${spaceName} · ${groupName}`;
-                    return <li key={m.id} id={`palette-${m.id}`} role="option" aria-selected={i === active} onMouseEnter={() => setActive(i)} onClick={() => go(i)}
-                      className={cn('flex cursor-pointer items-center gap-3 rounded-md px-3 py-2', i === active && 'bg-accent-primary-soft')}>
-                      <Icon className="size-4 text-text-muted" aria-hidden />
-                      <span className="flex-1">
-                        <span className="block text-sm font-medium">{tx(m.label)}</span>
-                        <span className="block text-tiny text-text-secondary">{!m.component ? `${base} · ${t('planned')}` : base}</span>
-                      </span>
-                      {i === active && <CornerDownLeft className="size-3.5 text-text-muted" aria-hidden />}
-                    </li>;
-                  })}
-                </ul>
-              </div>
+              <p id={headingId} role="presentation" className="px-3 pb-1 pt-2 text-caption font-semibold text-text-muted">{tx(section.label)}</p>
+              <ul role="group" aria-labelledby={headingId}>
+                {section.items.map(m => {
+                  const i = index++;
+                  const Icon = m.icon;
+                  const groupName = tx(registry.groupById(m.group).label);
+                  const spaceName = tx(section.label);
+                  const base = spaceName === groupName ? spaceName : `${spaceName} · ${groupName}`;
+                  return <li key={m.id} id={`palette-${m.id}`} role="option" aria-selected={i === active} onMouseEnter={() => setActive(i)} onClick={() => go(i)}
+                    className={cn('flex cursor-pointer items-center gap-3 rounded-md px-3 py-2', i === active && 'bg-accent-primary-soft')}>
+                    <Icon className="size-4 text-text-muted" aria-hidden />
+                    <span className="flex-1">
+                      <span className="block text-sm font-medium">{tx(m.label)}</span>
+                      <span className="block text-tiny text-text-secondary">{!m.component ? `${base} · ${t('planned')}` : base}</span>
+                    </span>
+                    {i === active && <CornerDownLeft className="size-3.5 text-text-muted" aria-hidden />}
+                  </li>;
+                })}
+              </ul>
             </li>;
           })}
         </ul>

@@ -311,7 +311,8 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         return Object.keys(e).some(k => !allowed.includes(k) && !(breaks.has('usage-client-user') && k === 'userId'))
           || !token(e.menuId, 80) || !token(e.path, 200)
           || typeof e.sessionId !== 'string'
-          || !(e.spaceId === null || (typeof e.spaceId === 'string' && ['analytics', 'metrics', 'operations'].includes(e.spaceId)))
+          || (breaks.has('usage-rejects-null') && e.spaceId === null)
+          || !(e.spaceId === null || (typeof e.spaceId === 'string' && (['analytics', 'metrics', 'operations'].includes(e.spaceId) || (breaks.has('usage-accepts-feedback') && (e.spaceId as string) === 'feedback'))))
           || (e.name !== 'entry' && e.name !== 'dwell')
           || (!breaks.has('usage-allows-any-at') && (typeof e.at !== 'number' || !Number.isFinite(e.at)))
           || (e.name === 'dwell' && (!breaks.has('usage-allows-any-entered-at') && (typeof e.enteredAt !== 'number' || !Number.isFinite(e.enteredAt))
@@ -353,7 +354,8 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         || typeof report.correlationId !== 'string' || !report.correlationId.startsWith('client-')
         || !token(report.menuId, 80)
         || typeof report.path !== 'string' || !token(report.path, 200) || !appRelative(report.path)
-        || !(report.spaceId === null || (typeof report.spaceId === 'string' && ['analytics', 'metrics', 'operations'].includes(report.spaceId)))
+        || (breaks.has('client-error-rejects-null') && report.spaceId === null)
+        || !(report.spaceId === null || (typeof report.spaceId === 'string' && (['analytics', 'metrics', 'operations'].includes(report.spaceId) || (breaks.has('client-error-accepts-feedback') && (report.spaceId as string) === 'feedback'))))
         || typeof name !== 'string' || (!breaks.has('client-error-allows-any-name') && !/^[A-Za-z_$][\w$]{0,79}$/.test(name));
       return invalidReport ? { accepted: false } : { accepted: true };
     },
@@ -560,6 +562,9 @@ describe('server conformance kit (#145)', () => {
       'port · listAnnotations without analytics:view → forbidden',
       'port · saveAnnotation without analytics:view → forbidden',
       'port · recordUsage accepts a valid entry and dwell',
+      'port · recordUsage accepts a global menu (spaceId null)',
+      'port · recordUsage: spaceId feedback is rejected',
+      'port · recordUsage: an unknown spaceId is rejected',
       'port · recordUsage: one bad event rejects the whole call',
       'port · recordUsage: a client userId is rejected',
       'port · recordUsage: a concrete path with a query is rejected',
@@ -568,6 +573,9 @@ describe('server conformance kit (#145)', () => {
       'port · recordUsage: a negative dwellMs is rejected',
       'port · usageSummary counts by receive time, not the client at',
       'port · reportClientError accepts the sample',
+      'port · reportClientError accepts a global menu (spaceId null)',
+      'port · reportClientError: spaceId feedback is rejected',
+      'port · reportClientError: an unknown spaceId is rejected',
       'port · reportClientError: an unknown key (free-text message) is rejected',
       'port · reportClientError: an absolute URL path is rejected',
       'port · reportClientError: a path with a query is rejected',
@@ -684,7 +692,7 @@ describe('server conformance kit (#145)', () => {
     ['usage-allows-any-entered-at', 'port · recordUsage: a non-numeric enteredAt is rejected'],
     ['usage-allows-negative-dwell', 'port · recordUsage: a negative dwellMs is rejected'],
     ['usage-aggregates-by-client-at', 'port · usageSummary counts by receive time, not the client at'],
-    ['client-error-rejects-all', 'port · reportClientError accepts the sample'],
+    // client-error-rejects-all fails every positive report, including the global-menu sample — asserted below.
     ['client-error-ignores-unknown', 'port · reportClientError: an unknown key (free-text message) is rejected'],
     ['client-error-allows-absolute-path', 'port · reportClientError: an absolute URL path is rejected'],
     ['client-error-allows-query', 'port · reportClientError: a path with a query is rejected'],
@@ -707,6 +715,15 @@ describe('server conformance kit (#145)', () => {
   ])('fails exactly the matching check when the server drops the %s rule', async (broken, check) => {
     expect(await failing([broken])).toEqual([check]);
   });
+
+  // Rejecting every report fails both positive controls: the harness sample and the cloned global menu.
+  it('fails both positive reportClientError checks when the server rejects every report', async () => {
+    expect(await failing(['client-error-rejects-all'])).toEqual([
+      'port · reportClientError accepts the sample',
+      'port · reportClientError accepts a global menu (spaceId null)',
+    ]);
+  });
+
   // A console actor the usageSummary read refuses cannot run the receive-time sequence either — both fail.
   it('fails the console read and the receive-time check when usageSummary refuses the console actor', async () => {
     expect(await failing(['console-usageSummary-ok'])).toEqual([
@@ -975,5 +992,19 @@ describe('global utility spaceId (06 §9.1)', () => {
   ] as const)('reportClientError accepts %s as %s', async (_label, spaceId, accepted) => {
     const h = harness();
     expect((await h.adapter.reportClientError({ ...report, spaceId } as ClientErrorReport)).accepted).toBe(accepted);
+  });
+
+  it.each([
+    ['usage-rejects-null', 'port · recordUsage accepts a global menu (spaceId null)'],
+    ['client-error-rejects-null', 'port · reportClientError accepts a global menu (spaceId null)'],
+  ])('the public plan fails %s when the adapter rejects spaceId null', async (broken, id) => {
+    expect(await failing([broken])).toEqual([id]);
+  });
+
+  it.each([
+    ['usage-accepts-feedback', 'port · recordUsage: spaceId feedback is rejected'],
+    ['client-error-accepts-feedback', 'port · reportClientError: spaceId feedback is rejected'],
+  ])('the public plan fails %s when the adapter accepts feedback', async (broken, id) => {
+    expect(await failing([broken])).toEqual([id]);
   });
 });

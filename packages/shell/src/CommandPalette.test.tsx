@@ -76,6 +76,27 @@ function mount() {
 
 const subtitle = (id: string) => document.querySelector(`#${id} .text-tiny`)!.textContent;
 
+/** Explicit role, or the implicit list/listitem of a role-less ul/ol/li. presentation and none are not roles. */
+function ariaRole(el: Element): string | null {
+  const explicit = el.getAttribute('role');
+  if (explicit === 'presentation' || explicit === 'none') return null;
+  if (explicit) return explicit;
+  const tag = el.tagName.toLowerCase();
+  if (tag === 'ul' || tag === 'ol') return 'list';
+  if (tag === 'li') return 'listitem';
+  return null;
+}
+
+function nearestRole(el: Element): { el: Element; role: string } | null {
+  let current = el.parentElement;
+  while (current) {
+    const role = ariaRole(current);
+    if (role) return { el: current, role };
+    current = current.parentElement;
+  }
+  return null;
+}
+
 describe('CommandPalette space bundles (06 §9.1)', () => {
   it('groups accessible spaces in registry order, then 플랫폼, and drops page type from the subtitle', () => {
     mount();
@@ -112,6 +133,21 @@ describe('CommandPalette space bundles (06 §9.1)', () => {
     fireEvent.change(screen.getByRole('combobox', { name: 'Search menus' }), { target: { value: 'Platform' } });
     expect(screen.getAllByRole('option').map(option => option.id)).toEqual(['palette-notices']);
     expect(subtitle('palette-notices')).toBe('Platform · Notice & VOC · Planned');
+  });
+
+  it('exposes each option as group inside listbox, with no list or listitem between them', () => {
+    mount();
+    const options = screen.getAllByRole('option');
+    expect(options.length).toBeGreaterThan(0);
+    for (const option of options) {
+      const group = nearestRole(option);
+      expect(group?.role).toBe('group');
+      expect(group && nearestRole(group.el)?.role).toBe('listbox');
+    }
+    const heading = document.getElementById('palette-heading-analytics');
+    expect(heading).toBeTruthy();
+    expect(ariaRole(heading!)).toBeNull();
+    expect(heading!.closest('[role="option"]')).toBeNull();
   });
 
   it('moves across bundles with the arrow keys and scrolls the active option into view', () => {

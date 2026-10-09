@@ -40,9 +40,12 @@ export type PortSamples = {
   entity: { ref: EntityRef; permission: Permission; ungrantedRoomRef?: EntityRef };
   /** A chart the granted actor may annotate, the permission it needs, and a valid range on that chart's axis — naive wall-clock on a time axis, category labels on a category axis (06 §16). */
   annotation: { chartId: string; from: string; to: string; permission: Permission };
-  /** Identity fields (menuId·spaceId·path·sessionId) of a usage event the granted account may record; `name`, `at` and dwell fields are ignored — the kit builds its own entry/dwell. */
+  /**
+   * Identity fields (menuId·spaceId·path·sessionId) of a usage event the granted account may record; `name`, `at` and dwell fields are ignored — the kit builds its own entry/dwell.
+   * The global-menu check clones this sample with `spaceId: null` (null is always valid on this port, so a missing separate global sample does not skip it).
+   */
   usage: UsageEvent;
-  /** A valid client error report. */
+  /** A valid client error report. The global-menu check clones it with `spaceId: null` rather than skipping. */
   clientError: ClientErrorReport;
   /** A second site the granted actor holds a grant in (annotation isolation). */
   otherGrantedScopeId: string;
@@ -853,6 +856,27 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
     nonEnvelope: true,
     run: expectAccepted([usageEntry, usageDwell], 2, 'a valid entry and dwell'),
   });
+  // Global utility menus send spaceId null (06 §9.1). Null is always valid on this port, so the check clones
+  // the harness sample instead of skipping when no separate global sample was given. 'feedback' is a removed
+  // space id; any other string outside the declared SpaceId union is unknown.
+  checks.push({
+    id: 'port · recordUsage accepts a global menu (spaceId null)',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted([{ ...usageEntry, spaceId: null }], 1, 'a global menu (spaceId null)'),
+  });
+  checks.push({
+    id: 'port · recordUsage: spaceId feedback is rejected',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted([badUsageEvent({ spaceId: 'feedback' })], 0, 'the removed feedback space id'),
+  });
+  checks.push({
+    id: 'port · recordUsage: an unknown spaceId is rejected',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted([badUsageEvent({ spaceId: 'nope' })], 0, 'an unknown space id'),
+  });
   checks.push({
     id: 'port · recordUsage: one bad event rejects the whole call',
     mode: 'granted',
@@ -942,6 +966,25 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
     mode: 'granted',
     nonEnvelope: true,
     run: expectReported(ports.clientError, true, 'the sample report is the declared wire shape'),
+  });
+  // Same space rule as recordUsage: clone the sample with spaceId null, and reject the removed id and any unknown string.
+  checks.push({
+    id: 'port · reportClientError accepts a global menu (spaceId null)',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectReported({ ...ports.clientError, spaceId: null }, true, 'a global menu (spaceId null)'),
+  });
+  checks.push({
+    id: 'port · reportClientError: spaceId feedback is rejected',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectReported(badErrorReport({ spaceId: 'feedback' }), false, 'the removed feedback space id'),
+  });
+  checks.push({
+    id: 'port · reportClientError: an unknown spaceId is rejected',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectReported(badErrorReport({ spaceId: 'nope' }), false, 'an unknown space id'),
   });
   checks.push({
     id: 'port · reportClientError: an unknown key (free-text message) is rejected',

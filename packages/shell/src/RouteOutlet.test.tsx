@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ClientErrorReport, PlatformAdapter, Session } from '@ap/contracts';
-import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { RouteOutlet } from './RouteOutlet';
 import { reloadApp } from './reload';
 
@@ -230,6 +230,73 @@ describe('global utility routes and the null-sidebar home link (06 §9.1)', () =
     expect(await screen.findByText('이 화면에서 오류가 발생했습니다')).toBeTruthy();
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
     expect(screen.queryByRole('link', { name: '홈' })).toBeNull();
+  });
+});
+
+describe('global query admission under RouteOutlet (06 §9.1)', () => {
+  // usePlatformQuery, not useMenuQuery: this menu declares requiresScope false and the hook has no Scope or period gate.
+  function querying(label: string) {
+    return function QueryingPage() {
+      const { adapter } = usePlatform();
+      usePlatformQuery(signal => adapter.menuQuery({ endpoint: 'fixture.query', context: {}, params: {} }, signal));
+      return <p>{label}</p>;
+    };
+  }
+  function queryRegistry() {
+    const item = (id: string, group: 'admin' | 'noticeVoc', path: string, over: object = {}) => ({
+      id, group, path, label: { ko: id, en: id }, description: { ko: '', en: '' }, icon: House,
+      permission: 'notice:view' as const, requiresScope: false, context: none, pageType: 'catalog' as const,
+      features: noFeatures, pageKeys: [], ...over,
+    });
+    return createRegistry({
+      spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'roles' }],
+      groups: [
+        { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' },
+        { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice' }, icon: House, space: null },
+      ],
+      menus: [
+        item('roles', 'admin', '/admin/roles', { primary: true, permission: 'console:access', component: querying('roles page') }),
+        item('child', 'admin', '/admin/child', { component: querying('space page') }),
+        item('notices', 'noticeVoc', '/notices', { primary: true, component: querying('notice page') }),
+        item('secret', 'noticeVoc', '/secret', { permission: 'voc:view', component: querying('secret page') }),
+      ],
+    });
+  }
+  function mountQuery(url: string) {
+    const menuQuery = vi.fn(async () => ({ outcome: 'ok' as const, data: null, assessments: [], trust: null, correlationId: 'query' }));
+    const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['notice:view'] }, scopes: [] };
+    const { adapter } = fixture(async () => ({ accepted: true }));
+    adapter.session = () => session;
+    adapter.menuQuery = menuQuery;
+    window.history.replaceState(null, '', url);
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={queryRegistry()}><RouteOutlet /></PlatformProvider></I18nProvider>);
+    return menuQuery;
+  }
+  const settled = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+
+  it('queries a global menu the user may open even without space entry', async () => {
+    const menuQuery = mountQuery('/notices');
+    expect(await screen.findByText('notice page')).toBeTruthy();
+    await settled();
+    expect(menuQuery.mock.calls.length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText('이 공간에 들어갈 수 없습니다')).toBeNull();
+  });
+
+  it('does not query a space menu when space entry is denied', async () => {
+    const menuQuery = mountQuery('/admin/child');
+    expect(await screen.findByText('이 공간에 들어갈 수 없습니다')).toBeTruthy();
+    await settled();
+    expect(menuQuery).not.toHaveBeenCalled();
+    expect(screen.queryByText('space page')).toBeNull();
+  });
+
+  it('does not query a global menu the user has no permission for', async () => {
+    const menuQuery = mountQuery('/secret');
+    expect(await screen.findByText('이 메뉴에 대한 권한이 없습니다')).toBeTruthy();
+    await settled();
+    expect(menuQuery).not.toHaveBeenCalled();
+    expect(screen.queryByText('secret page')).toBeNull();
+    expect(screen.queryByText('이 공간에 들어갈 수 없습니다')).toBeNull();
   });
 });
 
