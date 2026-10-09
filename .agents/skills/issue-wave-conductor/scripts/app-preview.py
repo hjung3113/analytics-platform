@@ -12,10 +12,13 @@ are separate from every other preview.
 
 Each process starts in its own session. `stop` kills the whole process group (pnpm → vite children) only after an
 ownership check: the recorded pgid plus the parent's recorded start time and command line (null/empty recorded or
-looked-up values mean unclear), or — when the parent is gone (or the state file predates pgid recording) — a
-token-exact vite signature (`vite`/`vite.js` binary, `--port` exactly the recorded port, `--strictPort`) inside the
-group. Unclear ownership (a reused PID, a failed ps lookup) gets no signal; the state file stays and the stop
-reports `ownership unclear`. Before SIGKILL the ownership check runs again, and a failed ps sweep during the
+looked-up values mean unclear), or — when the parent is gone — a vite server provably started from the recorded
+checkout: `node` running a `…/vite/bin/vite.js` inside that checkout (relative paths resolve against the process
+cwd via lsof) or the checkout's `node_modules/.bin/vite`, plus `--port` exactly the recorded port and `--strictPort`.
+A `vite`/`vite.js` name in argument position proves nothing, and state files from before pgid recording carry no
+proof at all — both stay unclear. Unclear ownership (a reused PID, a failed ps/lsof lookup, an unprovable
+command line) gets no signal; the state file stays and the stop reports `ownership unclear`. Before SIGKILL the
+ownership check runs again, and a failed ps sweep during the
 termination check keeps the state and reports failure instead of assuming the group is gone. State is
 `$WAVE_STATE/preview-<label>.json` (default `~/.cache/worker-ops/previews/`). `status` lists tracked previews with
 liveness and reports untracked vite servers on the preview port range as `untracked` — they belong to someone
@@ -80,21 +83,52 @@ def ps_value(pid, field):
     return r.stdout.strip() if r.returncode == 0 else None
 
 
+def proc_cwd(pid):
+    """Working directory of pid, from lsof; None when it cannot be read."""
+    r = subprocess.run(['lsof', '-a', '-p', str(pid), '-d', 'cwd', '-Fn'], capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
+    for line in r.stdout.splitlines():
+        if line.startswith('n/'):
+            return line[1:]
+    return None
+
+
 def group_members(pgid):
     """Live pids still inside the process group; None when the ps sweep fails."""
     rows = ps_rows()
     return None if rows is None else [pid for pid, g, _cmd in rows if g == pgid]
 
 
-def vite_signature(cmd, port):
-    """Token-exact vite server signature: the vite binary (basename `vite` or `vite.js`), a `--port` token
-    whose value is exactly the recorded port, and a plain `--strictPort` token."""
+def vite_signature(cmd, port, pid, checkout):
+    """Provable vite server signature for the recorded checkout. The executed file must be vite inside
+    that checkout — either `node <…/vite/bin/vite.js>` (a relative path resolves against the process cwd;
+    an unreadable cwd proves nothing) or the checkout's `node_modules/.bin/vite` launcher. A `vite`/`vite.js`
+    name in argument position never counts. Then `--port` exactly the recorded port and a plain
+    `--strictPort` token."""
     try:
         tokens = shlex.split(cmd)
     except ValueError:
         return False
-    if not any(os.path.basename(t) in ('vite', 'vite.js') for t in tokens):
+    if not tokens:
         return False
+    root = os.path.realpath(checkout)
+
+    def real(p):
+        if not os.path.isabs(p):
+            cwd = proc_cwd(pid)
+            if cwd is None:
+                return None
+            p = os.path.join(cwd, p)
+        return os.path.realpath(p)
+
+    if os.path.basename(tokens[0]) == 'node' and len(tokens) > 1:
+        exe = real(tokens[1])
+        if not (exe and exe.startswith(root + os.sep) and exe.endswith('/vite/bin/vite.js')):
+            return False
+    else:
+        if real(tokens[0]) != os.path.join(root, 'node_modules/.bin/vite'):
+            return False
     for i, tok in enumerate(tokens):
         if tok == '--port' and i + 1 < len(tokens) and tokens[i + 1] == str(port):
             break
@@ -105,12 +139,12 @@ def vite_signature(cmd, port):
     return '--strictPort' in tokens
 
 
-def vite_in_group(pgid, port):
+def vite_in_group(pgid, port, checkout):
     """A vite server with the recorded port and --strictPort inside the process group; None when the ps sweep fails."""
     rows = ps_rows()
     if rows is None:
         return None
-    return any(vite_signature(cmd, port) for _pid, g, cmd in rows if g == pgid)
+    return any(vite_signature(cmd, port, pid, checkout) for pid, g, cmd in rows if g == pgid)
 
 
 def identified(value):
@@ -120,14 +154,17 @@ def identified(value):
 
 def owns(s):
     """True when the recorded preview may be signalled safely; False = ownership unclear."""
-    if 'pgid' not in s:  # state file from before pgid recording: vite signature only
-        return bool(vite_in_group(s['pid'], s['port']))
+    if 'pgid' not in s:  # state file from before pgid recording: nothing proves the group is ours
+        return False
     if alive(s['pid']):
         if not (identified(s.get('lstart')) and identified(s.get('command'))):
             return False
         current = (ps_value(s['pid'], 'lstart='), ps_value(s['pid'], 'command='))
         return all(identified(v) for v in current) and current == (s['lstart'], s['command'])
-    return bool(vite_in_group(s['pgid'], s['port']))
+    checkout = s.get('checkout')
+    if not identified(checkout):  # without the recorded checkout a vite lookalike cannot be ruled out
+        return False
+    return bool(vite_in_group(s['pgid'], s['port'], checkout))
 
 
 def tracked():
