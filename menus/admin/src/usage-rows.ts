@@ -4,7 +4,8 @@
  * join contract is unit-testable; the page only sorts and pages the result.
  */
 import { formatInstant, type SpaceId, type Text, type UsageMenuSummary } from '@ap/contracts';
-import type { MenuEntry, Registry } from '@ap/kernel';
+import type { Registry } from '@ap/kernel';
+import { spaceFields } from './space-fields';
 
 /** lastUsedAt is an epoch-ms instant (#88): format in the viewer's time zone, not the stored UTC digits. */
 export function formatLastUsed(ms: number | null, lang: keyof Text, timeZone?: string): string {
@@ -20,13 +21,6 @@ export type UsageRow = {
   distinctUsers: number;
   lastUsedAt: number | null;
 };
-
-function spaceFields(menu: MenuEntry, registry: Registry): { spaceId: SpaceId | null; spaceLabel: Text } {
-  const space = registry.spaceOf(menu);
-  return space === null
-    ? { spaceId: null, spaceLabel: { ko: '전역', en: 'Global' } }
-    : { spaceId: space.id, spaceLabel: { ko: space.id, en: space.id } };
-}
 
 export function joinUsageRows(registry: Registry, summary: readonly UsageMenuSummary[]): UsageRow[] {
   const byMenu = new Map(summary.map(m => [m.menuId, m]));

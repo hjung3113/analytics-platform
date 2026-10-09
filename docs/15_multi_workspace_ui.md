@@ -1,6 +1,6 @@
 # 15. 멀티 워크스페이스 v2 — UI·IA·화면 설계
 
-상태: **Decided — UX 구성 원칙(2026-10-08 사용자 승인)** / **Candidate — 세부 메뉴 귀속·복원 저장·기술 구현** / **Open — 인증·Managed System 매핑**. FeedbackOps 진입은 링크다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md), 2026-10-09 — 화면을 옮기지 않는다).
+상태: **Decided — UX 구성 원칙(2026-10-08 사용자 승인). 공간 마지막 화면 복원은 사용자+공간별 탭 세션([ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26))** / **Candidate — 표 열 등 다른 사용자 설정 저장, 아직 없는 공간의 메뉴 귀속·기술 구현** / **Open — 인증·Managed System 매핑**. FeedbackOps 진입은 링크다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md), 2026-10-09 — 화면을 옮기지 않는다).
 
 > 이 문서는 **업무 시스템별 독립 워크스페이스**의 화면 설계·도입 계획이다. 플랫폼 전체 Navigation/Context/Permission의 단일 계약은 [06 §9·9.1](06_platform_ui_contract.md#9-information-architecture)이고, 이 문서는 이를 소비하는 상세 설계다. 기존 백엔드/DB의 소유권이나 구현 완료를 선언하지 않는다.
 
@@ -151,7 +151,7 @@ Equipment Platform
 - 딥링크는 **대상 식별자 + 발신 화면의 안전한 복귀 참조 + 지원 가능한 컨텍스트**로 구성한다. 목적지 객체 ID를 전역 필터인 것처럼 사용하지 않는다(06 §6·§22).
 - **다른 시스템으로 넘어갔다고 사용자의 전역 Scope·권한이 바뀌지 않는다.** 대상 화면은 지원·권한 검증된 컨텍스트만 적용한다.
 - 지원하지 않는 필터는 조용히 사용하지 않고 '이 화면에서 미사용' 등 구분하여 표시한다. 임의로 기존 범위의 데이터를 보여주는 것처럼 속이지 않는다.
-- 각 워크스페이스의 로컬 페이지 상태(탭, 정렬, 테이블 열, 검색어 등)는 전역 Scope와 분리한다. **복원 범위와 저장 위치는 Candidate**다.
+- 각 워크스페이스의 로컬 페이지 상태(탭, 정렬, 테이블 열, 검색어 등)는 전역 Scope와 분리한다. 공간의 마지막 화면 복원은 사용자+공간별 탭 세션으로 Decided다([ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26)). 표 열 같은 다른 사용자 설정의 저장 위치는 아직 정하지 않았다.
 - 안전한 딥링크·Back/Forward·새로고침·직접 진입은 기존 플랫폼 URL/Context 계약을 유지한다.
 
 ## 6. FeedbackOps UX 통합
@@ -238,7 +238,7 @@ FeedbackOps 화면과 백엔드는 모두 독립 앱으로 남는다([ADR-0027](
 | 협업 데이터 | 샘플 배열·브라우저 임시 등록 | FeedbackOps API·서버권한·SSO |
 | 로그인·접근 가능성 | 모두 접근 가능한 샘플 사용자 | 공간/메뉴/객체별 권한 재검증 |
 | 협력사 검토 파일 | 예시 CSV 생성 | 업무 요구 기준 XLSX 내보내기, 보안메일 연동 제외 |
-| 작업 복귀/최근 | 브라우저 메모리 상태 | URL 계약·권한·저장 위치 정책 결정 후 구현 |
+| 작업 복귀/최근 | 브라우저 메모리 상태 | 마지막 화면 복원은 사용자+공간별 탭 세션(Decided, ADR-0028). 표 열 등 다른 사용자 설정 저장은 미정 |
 | 설비/모델/지표 예시 | 가상 값 | 실제 도메인에서 제공 |
 
 `main`의 앱 셸을 바꾸는 코드 작업은 **별도 이슈·실제 앱 `?variant=` 비교 프로토타입 승인·회귀 검증**을 거친다(루트 AGENTS.md). 이 문서는 해당 작업의 제품 방향이며 기능 완료 증거가 아니다.

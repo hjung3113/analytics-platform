@@ -14,12 +14,13 @@
 | 6. FeedbackOps 1단계 (M3) | 대부분 완료. 남은 4개는 FeedbackOps·사내 SSO 답 대기 |
 | 7. 사내 적용 (M4) | 플랫폼 쪽 준비 끝. 사내 답 대기 — 지도 #157 |
 | 8. FeedbackOps 2단계 (M5) | 화면은 옮기지 않고 공간별 진입 링크만 둔다(ADR-0027, 2026-10-09). 매핑(#81)과 셸·Registry 확장(#250) 뒤 — 지도 #213 |
+| 9. 멀티 워크스페이스 셸 | **완료** — v0.5.0 예정 |
 
 ## 다음 할 일
 
 다음 세션은 여기서 시작한다. 직전 세션(2026-10-07~08)에서 v0.3.0을 릴리스한 뒤 표 컬럼 설정(#239, ADR-0024)과 드릴다운(#225, ADR-0025)을 끝내 v0.4.0을 릴리스했다(아래 "끝난 것").
 
-1. 다음 슬라이스를 사용자에게 고르게 한다. 권고는 멀티 워크스페이스 v2의 셸·Registry 확장(#249 2단계 — 아래 "다음 슬라이스 후보"). FeedbackOps 화면을 옮길 자리가 이 구조에 달려 있어 FeedbackOps 2단계보다 먼저다. 고른 슬라이스에 걸리는 "결정 대기"의 이슈 없는 항목(예: 사용자 설정 저장 위치)을 같이 묻는다.
+1. 다음 슬라이스를 사용자에게 고르게 한다(후보: #251 FeedbackOps 링크 계약·매핑 — #81 대기, #252 표준 로그·개선 실행 공간, 바로 할 수 있는 일 표).
 2. 작업 규칙은 루트 `AGENTS.md`(2026-10-05 간소화), 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 문서만 바꾸면 `pnpm docs:links`만 돌린다. 구현 작업자 배정(복잡한 일은 Grok 4.7 xhigh, 2026-10-08)은 코디네이터 메모리에 있다.
 
 ## 바로 할 수 있는 일 (에이전트)
@@ -30,18 +31,22 @@
 | #122 | 목적지 단건 조회의 provisional을 대상 객체 시점으로 판정 | 선행 게이트(#100)는 통과 — 착수 가능 |
 | #90 | 지표 상세 이력을 감사 저장소(`entityAudit`)로 통합 | 낮은 우선순위 |
 | #237 | turbo 캐시가 FeedbackOps 서브모듈 변경을 못 봄 — 입력 해시에 서브모듈 포함 | 고치기 전까지 gitlink를 올린 PR은 `--force`로 검사 |
+| #262 | productivity-drill-query의 `calls menuQuery for drillRoom=PHOTO`가 루트 test 부하에서 5초를 넘김 | 테스트 |
+| #264 | 홈 카드·공간 진입 목적지와 메뉴 허용 판정을 Kernel로 모으기 | 부분 권한 공간의 홈. 임의 fallback은 여기서 정하지 않음 |
+| #265 | 패키지별 최소 SpaceDef·어댑터 fixture builder | test-support. 공개 테스트 API는 아님 |
+| #266 | `app-preview.py` 종료 때 프로세스 소유를 확인 | 소유가 불명확하면 신호를 보내지 않음 |
 
 ## 다음 슬라이스 후보 — 멀티 워크스페이스 v2 (지도 #249)
 
-공간을 업무 시스템 단위(생산성 분석 · 지표관리 · 표준 로그 개발 · 개선 실행 + 운영 콘솔)로 나누고, FeedbackOps는 각 공간 사이드바의 진입 링크와 권한자용 전체 허브 링크로 붙인다([ADR-0026](../docs/adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md), [ADR-0027](../docs/adr/0027-feedbackops-stays-standalone-entry-links.md), 설계 [15](../docs/15_multi_workspace_ui.md)). 사용자가 HTML 시안을 승인했다(방향). 셸 코드는 실제 앱 위 `?variant=` 시안으로 다시 컨펌받는다.
+공간을 업무 시스템 단위(생산성 분석 · 지표관리 · 표준 로그 개발 · 개선 실행 + 운영 콘솔)로 나누고, FeedbackOps는 각 공간 사이드바의 진입 링크와 권한자용 전체 허브 링크로 붙인다([ADR-0026](../docs/adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md), [ADR-0027](../docs/adr/0027-feedbackops-stays-standalone-entry-links.md), 설계 [15](../docs/15_multi_workspace_ui.md)). 이번 슬라이스(셸·Registry·귀속)는 완료다([ADR-0028](../docs/adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)). 남은 4·5행은 후속이다.
 
 | 순서 | 할 일 | 상태 |
 | --- | --- | --- |
 | 1 | 설계·ADR·시안을 저장소에 반영, 06 §9.1 개정 | 완료(이 문서 PR) |
 | 2 | 셸·Registry 확장(#250): 플랫폼 홈(런처), 공간별 사이드바, 사이드바의 FeedbackOps 진입 자리, 권한별 레일, 기존 라우트 호환 → `?variant=` 시안 컨펌 | 완료 — ADR-0028, #259(Kernel·Registry·팔레트), #260(카드 런처 홈·전역 화면·공간 분리·마지막 화면 복원·FeedbackOps 자리) |
 | 3 | 기존 분석 메뉴를 생산성 분석·지표관리 공간으로 나눔. 귀속은 ADR-0028(운영 개요 → 홈, 설비·기준정보 → 생산성 분석, 공지·내 VOC → 전역 유틸리티) | 완료(#260) |
-| 4 | 표준 로그 개발·개선 실행을 공간으로 등록하는 인터페이스(도메인 구현은 별도 제품) | 2 뒤 |
-| 5 | 시스템 간 링크 회귀: 복귀, 무권한, 미지원 필터 표시, 새로고침·Back/Forward, 공간 0개·많음 | 2 뒤 |
+| 4 | 표준 로그 개발·개선 실행 공간(#252). 도메인 구현은 별도 제품 | 후속 |
+| 5 | FeedbackOps 링크 계약·매핑(#251 — #81 대기)과 시스템 간 링크 회귀(복귀, 무권한, 미지원 필터, 새로고침·Back/Forward, 공간 0개·많음) | 후속 |
 
 ## 그 다음 — FeedbackOps 2단계 (M5, 지도 #213)
 

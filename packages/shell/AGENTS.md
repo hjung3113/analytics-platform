@@ -5,7 +5,7 @@ App Shell(06 §8–9, 화면 설계 [07](../../docs/07_app_shell_wireframe.md)).
 ## 파일
 
 - `AppShell.tsx` — 레일(52px)·밝은 사이드바(240/56px)·스크롤 main·전체 높이 오른쪽 상세 aside 배치(06 §13, ADR-0013). `[` 단축키와 `platform:sidebar-collapsed` 저장 키·1440px 미만 기본 접힘 유지. 상단 바 없음.
-- `AppRail.tsx` — 로고 자리의 플랫폼 홈 링크(`/` 메뉴가 있을 때), 접근 가능한 공간이 2개 이상일 때만 공간 버튼(활성 표식은 `currentSpace`), Kernel `switchSpace`, 명령 팔레트, `feedbackOps.overall`이 있을 때만 새 탭 링크, 레일 아래 `slots.topBarTools`·도움말·언어·사용자 메뉴.
+- `AppRail.tsx` — 로고 자리의 플랫폼 홈 링크(`/` 메뉴를 `resolveLink`로 열 수 있을 때만. 없거나 금지면 비링크 로고이고, 현재 위치 표시는 링크일 때만), 접근 가능한 공간이 2개 이상일 때만 공간 버튼(활성 표식은 `currentSpace`), Kernel `switchSpace`, 명령 팔레트, `feedbackOps.overall`이 있을 때만 새 탭 링크, 레일 아래 `slots.topBarTools`·도움말·언어·사용자 메뉴. 공간 마지막 화면 복원 규칙은 여기 복사하지 않는다 — [06 §9.1](../../docs/06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26), 검증은 Kernel `src/platform.space-resume.test.tsx`.
 - `AppSidebar.tsx` — 전역 화면과 접근 가능한 공간이 0개일 때는 그리지 않는다. 공간 머리(50px)·접기, Scope 선택기, 그룹 섹션과 권한 기반 메뉴, 즐겨찾기·최근(펼친 모드만), 그 아래 스크롤 밖 FeedbackOps 블록(그려지는 `sidebarSpace`가 `accessibleSpaces`에 있고 라우트가 그 공간 메뉴일 때만 `entriesFor(sidebarSpace.id)`. 비어 있거나 진입 거부·미등록 경로면 그리지 않음. 접힘이면 아이콘만). 그룹 표시는 Registry `GroupDef`(`hideLabelWhenSingle`)만 따른다 — 그룹·메뉴 id를 코드에 쓰지 않는다(lint `ap/no-shell-id-literal-comparison`, `no-group-id-literals.test.ts`). 접근성 이름·landmark 구조는 `AppShell.test.tsx`가 고정한다. 메뉴 검색은 팔레트만.
 - `ScopeSelector.tsx` — Scope 선택(`session.scopes`)과 검증 상태·room 부여 수, `error`에서 현재 Scope를 다시 고르면 `retryScope()`(다른 상태에서는 Kernel 동작 없음, #183), `error`일 때 'Scope 다시 확인'(목록에 없는 Scope도). 접힌 사이드바에서도 이름과 상태·room 설명(aria-describedby) 및 Tooltip을 유지. status만 polite live region으로 알린다.
 - `CommandPalette.tsx` — 메뉴 검색 이동.

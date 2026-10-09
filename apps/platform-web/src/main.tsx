@@ -9,7 +9,8 @@ import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';
 import { createAssembly } from '#platform-assembly';
 import { readFeedbackOpsOrigin } from './feedbackops-origin';
 import { registry } from './menus';
-import { AppShell, GlobalContextBar, RouteOutlet } from '@ap/shell';
+import { appSlots } from './slots';
+import { AppShell, RouteOutlet } from '@ap/shell';
 
 // Composition root owns the FeedbackOps origin (issue #60 §4): menus never read the env, the adapter
 // never carries it. Missing env → null → the /voc links render disabled and the data still loads.
@@ -21,7 +22,7 @@ const assembly = createAssembly({ registry });
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <I18nProvider>
-      <PlatformProvider adapter={assembly.adapter} registry={registry} slots={{ contextBar: <GlobalContextBar />, topBarTools: assembly.topBarTools }}>
+      <PlatformProvider adapter={assembly.adapter} registry={registry} slots={appSlots(assembly)}>
         <AppShell><RouteOutlet /></AppShell>
       </PlatformProvider>
     </I18nProvider>
