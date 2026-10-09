@@ -147,8 +147,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
       ]} actions={resetFilters} />
       <p className="text-xs text-text-muted">
         {ko
-          ? `집계 기본값은 기간 ≤48h이면 hour, 아니면 day${!granularityResult.ok || granularityResult.explicit ? '' : ` (지금 ${granularity}, URL에 없음)`}. 꼬리 기본값은 ≥ P95 (Candidate, 동률 포함)이며 KPI 모집단을 다시 줄이지 않습니다. 버킷·분포 구간은 URL 키 bucket·bin에, 정렬·페이지는 sort·page에 남습니다.`
-          : `Default grain is hour when the period is ≤48h, otherwise day${!granularityResult.ok || granularityResult.explicit ? '' : ` (now ${granularity}, not in the URL)`}. Default tail is ≥ P95 (Candidate, ties included) and does not shrink the KPI population. Bucket and histogram selections stay in the URL keys bucket and bin; sort and page are URL keys too.`}
+          ? `집계 기본값은 기간 ≤48h이면 hour, 아니면 day${!granularityResult.ok || granularityResult.explicit ? '' : ` (지금 ${granularity}, URL에 없음)`}. 느린 실행 기준 기본값은 ≥ P95 (Candidate, 동률 포함)이며 KPI 모집단을 다시 줄이지 않습니다. 버킷·분포 구간은 URL 키 bucket·bin에, 정렬·페이지는 sort·page에 남습니다.`
+          : `Default grain is hour when the period is ≤48h, otherwise day${!granularityResult.ok || granularityResult.explicit ? '' : ` (now ${granularity}, not in the URL)`}. The default slow-execution predicate is ≥ P95 (Candidate, ties included) and does not shrink the KPI population. Bucket and histogram selections stay in the URL keys bucket and bin; sort and page are URL keys too.`}
       </p>
       {(bucketRange || bin) && <div className="flex flex-wrap items-center gap-2">
         {bucketRange && <FilterChip label={ko ? '버킷' : 'Bucket'} value={`${bucketRange.from.replace('T', ' ')} → ${bucketRange.to.replace('T', ' ')}`} onClear={() => setPage({ bucket: null })} clearLabel={ko ? '버킷 필터 해제' : 'Clear bucket filter'} />}
@@ -235,8 +235,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
           <PlatformDataTable<SlowRow>
             title={ko ? '느린 실행' : 'Slow executions'}
             subtitle={ko
-              ? `페이지 필터 적용 목록입니다. 꼬리 ${tailMode === 'all' ? '전체' : `≥ ${tailMode.toUpperCase()}`} · 모집단 ${kpi.response?.outcome === 'ok' ? kpi.response.data!.count.toLocaleString('ko-KR') : '…'}건. 정렬은 URL sort 키입니다.`
-              : `Page-filtered list. Tail ${tailMode === 'all' ? 'all' : `≥ ${tailMode.toUpperCase()}`} · population ${kpi.response?.outcome === 'ok' ? kpi.response.data!.count.toLocaleString('en-US') : '…'}. Sort is the URL sort key.`}
+              ? `페이지 필터 적용 목록입니다. 느린 실행 기준 ${tailMode === 'all' ? '전체' : `≥ ${tailMode.toUpperCase()}`} · 모집단 ${kpi.response?.outcome === 'ok' ? kpi.response.data!.count.toLocaleString('ko-KR') : '…'}건. 정렬은 URL sort 키입니다.`
+              : `Page-filtered list. Slow-execution predicate ${tailMode === 'all' ? 'all' : `≥ ${tailMode.toUpperCase()}`} · population ${kpi.response?.outcome === 'ok' ? kpi.response.data!.count.toLocaleString('en-US') : '…'}. Sort is the URL sort key.`}
             ariaLabel={ko ? '느린 실행 목록' : 'Slow executions'}
             columns={columns}
             getRowId={executionKey}
