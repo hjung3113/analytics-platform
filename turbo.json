@@ -1,6 +1,12 @@
 {
   "$schema": "./node_modules/turbo/schema.json",
   "globalPassThroughEnv": ["GEN_MENU_PROBE"],
+  "globalDependencies": [
+    "products/feedbackops/packages/ui/**",
+    "products/feedbackops/packages/shared/**",
+    "!products/feedbackops/packages/*/.turbo/**",
+    "!products/feedbackops/packages/*/dist/**"
+  ],
   "tasks": {
     "typecheck": { "dependsOn": ["^typecheck"] },
     "lint": { "dependsOn": ["^lint"], "outputs": [] },
