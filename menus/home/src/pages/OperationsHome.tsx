@@ -7,7 +7,7 @@ import { StatusBadge } from '@ap/ui';
 
 /** Platform home (ADR-0028, 15 §3.1): space cards, then recent and favorites, then notices. */
 export default function OperationsHome() {
-  const { favorites, toggleFavorite, recent, linkTo, global, registry, accessibleSpaces, globalMenus, menusInSpace, resolveLink, spaceResume } = usePlatform();
+  const { favorites, toggleFavorite, recent, linkTo, global, registry, accessibleSpaces, canOpen, resolveLink, spaceEntry } = usePlatform();
   const { t, tx, lang } = useI18n();
   const dismissed = useDismissedNotices();
   const notices = useMenuQuery(noticesEndpoint, { targetScopeId: global.scopeId });
@@ -15,15 +15,10 @@ export default function OperationsHome() {
   const noticesLink = resolveLink('notices');
   const homeId = registry.matchRoute('/')?.menu.id;
 
-  const openable = (menu: MenuEntry) => {
-    const space = registry.spaceOf(menu);
-    if (space === null) return globalMenus.some(item => item.id === menu.id);
-    return accessibleSpaces.some(item => item.id === space.id) && menusInSpace(space.id).some(item => item.id === menu.id);
-  };
-  const favoriteMenus = favorites.map(id => registry.menus.find(menu => menu.id === id)).filter((menu): menu is MenuEntry => !!menu && openable(menu));
+  const favoriteMenus = favorites.map(id => registry.menus.find(menu => menu.id === id)).filter((menu): menu is MenuEntry => !!menu && canOpen(menu.id));
   const recentRows = recent.filter(row => row.menuId !== homeId).map(row => {
     const menu = registry.menus.find(item => item.id === row.menuId);
-    return menu && openable(menu) ? { ...row, menu } : null;
+    return menu && canOpen(menu.id) ? { ...row, menu } : null;
   }).filter((row): row is { menuId: string; url: string; at: number; menu: MenuEntry } => row !== null).slice(0, 5);
   const ago = (at: number) => {
     const mins = Math.max(0, Math.round((Date.now() - at) / 60000));
@@ -34,7 +29,7 @@ export default function OperationsHome() {
     return space ? tx(space.label) : (lang === 'ko' ? '플랫폼' : 'Platform');
   };
 
-  return <PlatformPage secondaryActions={voc.allowed ? <PlatformLink href={voc.href} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '내 VOC' : 'My VOC'}</PlatformLink> : undefined}>
+  return <PlatformPage secondaryActions={canOpen('voc') ? <PlatformLink href={voc.href} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '내 VOC' : 'My VOC'}</PlatformLink> : undefined}>
     <div className="space-y-4">
       <section aria-label={lang === 'ko' ? '업무 시스템' : 'Work systems'}>
         {accessibleSpaces.length === 0
@@ -46,9 +41,10 @@ export default function OperationsHome() {
               {accessibleSpaces.map(space => {
                 const home = registry.menuById(space.homeMenuId);
                 const Icon = registry.groupById(home.group).icon;
-                const resume = spaceResume(space.id);
-                const href = resume?.href ?? linkTo(space.homeMenuId);
-                const resumeMenu = resume ? registry.menus.find(menu => menu.id === resume.menuId) : undefined;
+                const entry = spaceEntry(space.id);
+                if (!entry) return null;
+                const href = entry.href;
+                const resumeMenu = entry.resumed ? registry.menus.find(menu => menu.id === entry.menuId) : undefined;
                 return <PlatformLink key={space.id} href={href} className="rounded-lg border border-border-subtle bg-surface-card p-4 hover:border-accent-primary">
                   <span className="grid size-10 place-items-center rounded-md bg-icon-blue-soft text-accent-primary"><Icon className="size-6" strokeWidth={1.75} aria-hidden /></span>
                   <span className="mt-3 block t-card-title">{tx(space.label)}</span>
@@ -81,7 +77,7 @@ export default function OperationsHome() {
       </div>
 
       <section aria-label={lang === 'ko' ? '공지' : 'Notices'} className="space-y-2">
-        {noticesLink.allowed && <PlatformLink href={noticesLink.href} className="inline-flex items-center gap-1 text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '공지 목록' : 'Notice list'}</PlatformLink>}
+        {canOpen('notices') && <PlatformLink href={noticesLink.href} className="inline-flex items-center gap-1 text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '공지 목록' : 'Notice list'}</PlatformLink>}
         {notices.response && notices.response.outcome === 'ok' && notices.response.data!.filter(notice => !dismissed.includes(notice.id)).map(notice =>
           <div key={notice.id} role="status" className="flex items-start gap-3 rounded-md border border-accent-primary/30 bg-accent-primary-soft px-4 py-2.5 text-sm">
             <Megaphone className="mt-0.5 size-4 shrink-0 text-accent-primary" aria-hidden />

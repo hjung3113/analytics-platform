@@ -7,6 +7,26 @@ import { GROUPS, SPACES, registry } from './menus';
 import { appSlots } from './slots';
 
 describe('workspace assembly (#260)', () => {
+  it('enters productivity analysis at equipment-master for a partial-permission session (#264)', () => {
+    const assembly = createAssembly({ registry });
+    const session: Session = {
+      user: { id: 'partial', name: 'partial', title: { ko: '부분 권한', en: 'Partial access' }, permissions: ['platform:view', 'equipment:view'] },
+      scopes: [],
+    };
+    const adapter: PlatformAdapter = { ...assembly.adapter, session: () => session };
+    function Probe() {
+      const { spaceEntry } = usePlatform();
+      return <p data-testid="entry">{JSON.stringify(spaceEntry('analytics'))}</p>;
+    }
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {} });
+    vi.stubGlobal('sessionStorage', { getItem: () => null, setItem: () => {} });
+    window.history.replaceState(null, '', '/?v=1');
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Probe /></PlatformProvider></I18nProvider>);
+    expect(JSON.parse(screen.getByTestId('entry').textContent!)).toEqual({ menuId: 'equipment-master', href: '/equipment?v=1', resumed: false });
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
   it('registers three spaces and the decided group order', () => {
     expect(GROUPS.map(group => [group.id, group.space])).toEqual([
       ['overview', null],

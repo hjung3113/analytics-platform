@@ -67,6 +67,8 @@ type Platform = {
   /** Bumps whenever the adapter announces a change; part of every query identity. */
   revision: number;
   can: (permission: Permission) => boolean;
+  /** Menu permission ∧ space entry, independent of URL generation and route parameters. */
+  canOpen: (menuId: string) => boolean;
   /** Menus of the sidebar space the user may enter: menu permission ∧ space entry (06 §9.1). Empty when sidebarSpace is null. */
   visibleMenus: MenuEntry[];
   /** Permission-granted menus of global utility groups. Includes navHidden, the same inclusion as visibleMenus. */
@@ -81,7 +83,9 @@ type Platform = {
   sidebarSpace: SpaceDef | null;
   /** Last admitted URL in this tab for a space, re-validated on every read. Null when missing or rejected. */
   spaceResume: (spaceId: SpaceId) => { menuId: string; href: string } | null;
-  /** No-op when spaceId is the current space or not accessible; else push the resumed URL or the space home. */
+  /** Last screen, then openable home, then first openable sidebar menu (06 §9.1). */
+  spaceEntry: (spaceId: SpaceId) => { menuId: string; href: string; resumed: boolean } | null;
+  /** No-op when spaceId is the current space or has no entry; else push spaceEntry. */
   switchSpace: (spaceId: SpaceId) => void;
   scope: ScopeState;
   /** Re-runs Scope validation for the requested scope after an `error` (no automatic retry in the Kernel, #167). */
@@ -318,6 +322,10 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     const space = registry.spaceOf(menu);
     return space === null || canEnter(space);
   }, [registry, canEnter]);
+  const canOpen = useCallback((menuId: string) => {
+    const menu = menuById(menuId);
+    return can(menu.permission) && enters(menu);
+  }, [menuById, can, enters]);
 
   // Context Link helper (§22/§6.4): every registered global is preserved regardless of target support;
   // page-owned state and unregistered extras are never copied implicitly. Changing the site applies the same
@@ -335,10 +343,10 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     if (options.returnTo && target.pageKeys.includes('returnTo')) pagePairs.push(['returnTo', url]);
     return {
       href: pathFor(target, options.params) + buildQuery(g, pagePairs),
-      allowed: can(target.permission) && enters(target),
+      allowed: canOpen(menuId),
       droppedPageKeys: requested.map(([k]) => k).filter(k => !target.pageKeys.includes(k)),
     };
-  }, [global, url, menuById, can, enters]);
+  }, [global, url, menuById, canOpen]);
   const linkTo = useCallback((menuId: string, options: LinkOptions = {}) => resolveLink(menuId, options).href, [resolveLink]);
   // Permission-visible menus grouped by their space; membership lives on the group, never the menu.
   const spaceMenus = useMemo(() => {
@@ -384,7 +392,7 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     const matched = matchRoute(path);
     if (!matched) return null;
     if (registry.spaceOf(matched.menu)?.id !== spaceId) return null;
-    if (!can(matched.menu.permission) || !enters(matched.menu)) return null;
+    if (!canOpen(matched.menu.id)) return null;
     let parsed: ParsedQuery;
     try { parsed = parseQuery(search, matched.menu.pageKeys); } catch { return null; }
     if (incompleteMetricPair(matched.menu, parsed.global.metricId, parsed.global.metricVersion)) return null;
@@ -396,14 +404,26 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     const again = matchRoute(normalized);
     if (!again || again.menu.id !== matched.menu.id || !sameParams(again.params, matched.params)) return null;
     return { menuId: matched.menu.id, href };
-  }, [userId, matchRoute, registry, can, enters, resolveLink]);
-  // Reselecting the current space never sends the user home; non-accessible targets keep the URL.
+  }, [userId, matchRoute, registry, canOpen, resolveLink]);
+  const spaceEntry = useCallback((spaceId: SpaceId): { menuId: string; href: string; resumed: boolean } | null => {
+    const space = accessibleSpaces.find(s => s.id === spaceId);
+    if (!space) return null;
+    const resume = spaceResume(spaceId);
+    if (resume) return { ...resume, resumed: true };
+    if (canOpen(space.homeMenuId)) return { menuId: space.homeMenuId, href: resolveLink(space.homeMenuId).href, resumed: false };
+    for (const group of registry.groups) {
+      if (group.space !== spaceId) continue;
+      const menu = registry.menus.find(m => m.group === group.id && !m.navHidden && !m.path.split('/').some(segment => segment.startsWith(':')) && canOpen(m.id));
+      if (menu) return { menuId: menu.id, href: resolveLink(menu.id).href, resumed: false };
+    }
+    return null;
+  }, [accessibleSpaces, spaceResume, canOpen, resolveLink, registry]);
+  // Reselecting the current space never sends the user home; targets without an entry keep the URL.
   const switchSpace = useCallback((spaceId: SpaceId) => {
     if (currentSpace?.id === spaceId) return;
-    const target = accessibleSpaces.find(s => s.id === spaceId);
-    if (!target) return;
-    navigate(spaceResume(spaceId)?.href ?? linkTo(target.homeMenuId));
-  }, [currentSpace, accessibleSpaces, spaceResume, linkTo, navigate]);
+    const entry = spaceEntry(spaceId);
+    if (entry) navigate(entry.href);
+  }, [currentSpace, spaceEntry, navigate]);
 
   const toggleFavorite = useCallback((menuId: string) => {
     setFavorites(list => {
@@ -558,7 +578,7 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
 
   const value: Platform = {
     registry, adapter, url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
-    session, user, revision, can, visibleMenus, globalMenus, menusInSpace, accessibleSpaces, currentSpace, sidebarSpace, spaceResume, switchSpace, scope: scopeView, retryScope, lastScope, favorites, toggleFavorite, recent,
+    session, user, revision, can, canOpen, visibleMenus, globalMenus, menusInSpace, accessibleSpaces, currentSpace, sidebarSpace, spaceResume, spaceEntry, switchSpace, scope: scopeView, retryScope, lastScope, favorites, toggleFavorite, recent,
     toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen,
   };
   return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>;
