@@ -205,6 +205,104 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
   });
 });
 
+// 접힘 요약 시각 계약(06 §13, DESIGN.md Filter bar): 접어도 조건을 잘라내지 않는다. ADR-0029.
+test.describe('PageFilterBar 접힘 요약 (ADR-0029)', () => {
+  test('접힌 요약은 조건을 자르지 않고 항목 단위로 왼쪽 정렬 줄바꿈하며 Enter로 펼친다', async ({ page }, testInfo) => {
+    const longRaw = 'x'.repeat(60);
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.goto(`/analytics/cycle-time?v=1&scopeId=ICH&${PERIOD}&percentile=${longRaw}&sort=equipmentId:asc`);
+    const bar = page.getByTestId('page-filter-bar');
+    await expect(bar).toBeVisible();
+    // 등록되지 않은 percentile은 페이지 키 오류이지만 필터 바는 원문을 요약에 그대로 남긴다.
+    await expect(page.getByRole('alert')).toContainText(`percentile=${longRaw}`);
+
+    const collapse = bar.getByRole('button', { name: '페이지 필터 접기' });
+    await collapse.click();
+    const expand = bar.getByRole('button', { name: '페이지 필터 펼치기' });
+    await expect(expand).toBeFocused();
+    await evidence(page, testInfo, 'page-filter-collapsed-summary');
+
+    type Rect = { left: number; top: number; right: number; bottom: number };
+    await page.evaluate(() => document.fonts.ready);
+    const m = await page.evaluate(() => {
+      const button = [...document.querySelectorAll('button')].find(el => el.getAttribute('aria-label') === '페이지 필터 펼치기');
+      const summaryId = button?.getAttribute('aria-describedby');
+      const summary = summaryId ? document.getElementById(summaryId) : null;
+      if (!button || !summary) throw new Error('접힘 요약 버튼이나 요약 span을 찾지 못했다');
+      const box = button.getBoundingClientRect();
+      const range = document.createRange();
+      range.selectNodeContents(summary);
+      const rects: Rect[] = [...range.getClientRects()]
+        .filter(r => r.width > 0 && r.height > 0)
+        .map(r => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }));
+      // 세로로 겹치는 조각을 한 시각 줄로 묶는다(줄바꿈된 항목의 내부 조각 포함).
+      const lines: { left: number; top: number; bottom: number }[] = [];
+      for (const r of [...rects].sort((a, b) => a.top - b.top)) {
+        const line = lines.find(l => r.top < l.bottom - 0.5 && r.bottom > l.top + 0.5);
+        if (line) {
+          line.left = Math.min(line.left, r.left);
+          line.top = Math.min(line.top, r.top);
+          line.bottom = Math.max(line.bottom, r.bottom);
+        } else lines.push({ ...r });
+      }
+      lines.sort((a, b) => a.top - b.top);
+      // 요약을 자르는 조합(overflow hidden + 말줄임/line-clamp)은 버튼과 그 조상에 없어야 한다.
+      const cutting: string[] = [];
+      for (let el: HTMLElement | null = button; el; el = el.parentElement) {
+        const s = getComputedStyle(el);
+        const hidden = ['hidden', 'clip'].includes(s.overflowX) || ['hidden', 'clip'].includes(s.overflowY);
+        if (hidden && (s.textOverflow === 'ellipsis' || s.webkitLineClamp !== 'none')) cutting.push(`${el.tagName.toLowerCase()}.${el.className}`);
+      }
+      const separators = [...summary.querySelectorAll('span[aria-hidden]')]
+        .filter(el => el.textContent === '·')
+        .map(el => {
+          const r = el.getBoundingClientRect();
+          return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+        });
+      return {
+        button: { left: box.left, top: box.top, right: box.right, bottom: box.bottom },
+        rects, lines, cutting, separators,
+        scrollWidth: button.scrollWidth, clientWidth: button.clientWidth,
+        docScrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth,
+        summaryText: summary.textContent ?? '',
+      };
+    });
+
+    // (a) 요약의 모든 조각이 버튼 박스 안(1px 허용) — 잘린 글자가 없다.
+    expect(m.rects.length).toBeGreaterThan(0);
+    for (const r of m.rects) {
+      expect(r.left).toBeGreaterThanOrEqual(m.button.left - 1);
+      expect(r.right).toBeLessThanOrEqual(m.button.right + 1);
+      expect(r.top).toBeGreaterThanOrEqual(m.button.top - 1);
+      expect(r.bottom).toBeLessThanOrEqual(m.button.bottom + 1);
+    }
+    // (b) 요약이 버튼 폭을 넘지 않고 페이지에도 수평 넘침이 없다.
+    expect(m.scrollWidth).toBeLessThanOrEqual(m.clientWidth);
+    expect(m.docScrollWidth).toBeLessThanOrEqual(m.innerWidth);
+    // (c) 말줄임·line-clamp로 요약을 자르는 조합이 없다.
+    expect(m.cutting).toEqual([]);
+    // (d) 요약이 두 줄 이상이면 모든 줄의 시작 x가 같다(왼쪽 정렬, 1px 허용).
+    expect(m.lines.length).toBeGreaterThanOrEqual(2);
+    for (const line of m.lines) expect(Math.abs(line.left - m.lines[0]!.left)).toBeLessThanOrEqual(1);
+    // (e) 어떤 줄도 구분점 `·`으로 시작하지 않는다(구분점은 앞 항목 끝에 붙는다).
+    expect(m.separators.filter(sep => m.lines.some(line =>
+      sep.top < line.bottom && sep.bottom > line.top && Math.abs(sep.left - line.left) <= 2))).toEqual([]);
+    // (f) 긴 원문 전체가 라벨과 함께 요약 텍스트에 있다.
+    expect(m.summaryText).toContain(`느린 실행 기준 알 수 없는 값: ${longRaw}`);
+
+    // 키보드: 요약 버튼에서 Enter → 펼쳐지고 포커스는 접기 토글로 이동한다.
+    await expand.press('Enter');
+    await expect(collapse).toBeVisible();
+    await expect(collapse).toHaveAttribute('aria-expanded', 'true');
+    await expect(bar.getByRole('combobox', { name: '느린 실행 기준' })).toBeVisible();
+    await expect(bar.getByRole('combobox', { name: '정렬' })).toBeVisible();
+    await expect(collapse).toBeFocused();
+
+    // 접힘 기억은 context마다 격리되지만(storage state 없음), 테스트가 남긴 키를 지워 기본(펼침)으로 끝낸다.
+    await page.evaluate(() => localStorage.removeItem('platform:page-filter-collapsed:cycle-time'));
+  });
+});
+
 test.describe('셸 sticky 계약 (06 §7)', () => {
   test('main 스크롤 뒤에도 페이지 제목·액션은 Context에 가리지 않는다', async ({ page }, testInfo) => {
     await page.goto(PRODUCTIVITY);
