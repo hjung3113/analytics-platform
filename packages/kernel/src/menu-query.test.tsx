@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { useLayoutEffect, useState } from 'react';
 import { defineEndpoint, type ApiResponse, type AssessmentKind, type EndpointSpec, type MenuQuery, type PlatformAdapter, type ScopeCheck, type Session } from '@ap/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -720,7 +720,7 @@ describe('Session-only change mask equals the next effect state (#186)', () => {
     }
     render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><SessionProbe /></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('valid:ICH:')).toBeTruthy();
-    expect(entities).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(entities).toHaveBeenCalledTimes(1));
 
     // Role switch with the same scopeId: the frame before revalidation must not present the previous
     // session's `valid` (no stale rooms either) and the status-gated request must wait.
@@ -730,7 +730,7 @@ describe('Session-only change mask equals the next effect state (#186)', () => {
     expect(frames).toEqual(['validating|ICH|']);
     expect(entities).not.toHaveBeenCalled();
     expect(await screen.findByText('valid:ICH:')).toBeTruthy(); // revalidated for the new session
-    expect(entities).toHaveBeenCalledTimes(1); // exactly one request, after revalidation
+    await waitFor(() => expect(entities).toHaveBeenCalledTimes(1)); // exactly one request, after revalidation
   });
 
   it('after a session switch with no Scope the mask stays the select-Scope state', async () => {
@@ -772,7 +772,7 @@ describe('Session-only change mask equals the next effect state (#186)', () => {
     }
     render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><ReLoginProbe /></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('valid:ICH:')).toBeTruthy();
-    expect(entities).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(entities).toHaveBeenCalledTimes(1));
 
     // Re-login (the case the docs name): scopeId, user.id and the query key are unchanged, so only
     // `validatedFor !== session` can mask the frame — the old session's `valid` must not leak and the
@@ -783,6 +783,6 @@ describe('Session-only change mask equals the next effect state (#186)', () => {
     expect(frames).toEqual(['validating|ICH|']);
     expect(entities).not.toHaveBeenCalled();
     expect(await screen.findByText('valid:ICH:')).toBeTruthy(); // revalidated for the new session object
-    expect(entities).toHaveBeenCalledTimes(1); // exactly one request, after revalidation
+    await waitFor(() => expect(entities).toHaveBeenCalledTimes(1)); // exactly one request, after revalidation
   });
 });
