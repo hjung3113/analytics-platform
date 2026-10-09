@@ -14,11 +14,11 @@
 | 6. FeedbackOps 1단계 (M3) | 대부분 완료. 남은 4개는 FeedbackOps·사내 SSO 답 대기 |
 | 7. 사내 적용 (M4) | 플랫폼 쪽 준비 끝. 사내 답 대기 — 지도 #157 |
 | 8. FeedbackOps 2단계 (M5) | 화면은 옮기지 않고 공간별 진입 링크만 둔다(ADR-0027, 2026-10-09). 매핑(#81)과 셸·Registry 확장(#250) 뒤 — 지도 #213 |
-| 9. 멀티 워크스페이스 셸 | **완료** — v0.5.0 예정 |
+| 9. 멀티 워크스페이스 셸 | **완료** — v0.5.0(#250, ADR-0026·0027·0028) |
 
 ## 다음 할 일
 
-다음 세션은 여기서 시작한다. 직전 세션(2026-10-07~08)에서 v0.3.0을 릴리스한 뒤 표 컬럼 설정(#239, ADR-0024)과 드릴다운(#225, ADR-0025)을 끝내 v0.4.0을 릴리스했다(아래 "끝난 것").
+다음 세션은 여기서 시작한다. 직전 세션(2026-10-09)에서 멀티 워크스페이스 셸 슬라이스(#250)를 끝내 v0.5.0을 릴리스했다(아래 "끝난 것").
 
 1. 다음 슬라이스를 사용자에게 고르게 한다(후보: #251 FeedbackOps 링크 계약·매핑 — #81 대기, #252 표준 로그·개선 실행 공간, 바로 할 수 있는 일 표).
 2. 작업 규칙은 루트 `AGENTS.md`(2026-10-05 간소화), 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 문서만 바꾸면 `pnpm docs:links`만 돌린다. 구현 작업자 배정(복잡한 일은 Grok 4.7 xhigh, 2026-10-08)은 코디네이터 메모리에 있다.
@@ -119,5 +119,7 @@ v0.2.0(2026-10-05): M2 후속 — Context 바 1440px에서 기간 프리셋 다�
 v0.3.0(2026-10-08): FeedbackOps 서브모듈 `13a3c5a`와 디자인 lint 설정(FeedbackOps ADR-0062)을 가져오고(#236), inline style 정리(#238), 플랫폼이 FeedbackOps 부품을 덮어쓰던 83곳을 걷어 내 FeedbackOps 모양·크기로(#241, 시안 C·[ADR-0023](../docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md)) — 디자인 lint 위반 0, 접근성 하한 셋만 lint contract. Context 바 넘침 버튼을 이웃 칩 모양으로(#240). 설비 도메인 정정 — 설비명 없음(EquipmentID가 유일 키), room_name은 PHOTO·ETCH 같은 공정명(#242). 세부는 [v0.3.0 릴리스](https://github.com/hjung3113/analytics-platform/releases/tag/v0.3.0).
 
 v0.4.0(2026-10-08): 표 열 너비는 머리 끝 끌기로만, 컬럼 목록은 보이기 체크박스와 줄 끝 핀(#239, 시안 C·[ADR-0024](../docs/adr/0024-table-column-controls-drag-width-pin-in-list.md)). 드릴다운 — 단계마다 page key, Context가 바뀌면 단계를 지우고, 경로 바 + 단계마다 본문 교체, 출발 메뉴와 단계를 보이는 복귀 버튼(#225, 시안 A·[ADR-0025](../docs/adr/0025-drilldown-level-page-keys-path-bar-layout.md), 06 §6.4·§12.7·§22). 세부는 [v0.4.0 릴리스](https://github.com/hjung3113/analytics-platform/releases/tag/v0.4.0).
+
+v0.5.0(2026-10-09): 멀티 워크스페이스 셸 — 공간은 업무 시스템 단위(생산성 분석 · 지표관리 · 운영 콘솔 등록, [ADR-0026](../docs/adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)). FeedbackOps 화면은 옮기지 않고 공간별 진입 링크만 둔다([ADR-0027](../docs/adr/0027-feedbackops-stays-standalone-entry-links.md), ADR-0018 대체). 실제 앱 위 시안 A/B/C를 사용자가 위임한 UX 판정(GPT-6-Astra high)으로 골라 [ADR-0028](../docs/adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md): 홈 = 업무 시스템 카드 런처, 홈·공지·내 VOC = 공간 밖 전역 유틸리티(`GroupDef.space: null`, #259), 공간별 마지막 화면 복원, 레일 로고 = 홈, FeedbackOps 바닥 고정 블록·전체 링크 자리(슬롯, 앱 미주입 — #251·#81 대기), 팔레트 공간 묶음(#260). 슬라이스 품질 리뷰 반영(#267). 세부는 [v0.5.0 릴리스](https://github.com/hjung3113/analytics-platform/releases/tag/v0.5.0).
 
 2026-10-05: 문서·작업 규칙 정리와 이 보드 도입(#220). 결정 — 활용률 이벤트는 식별 필드만(#75, ADR-0020), 차트는 Canvas 렌더러(ADR-0021), 운영 조립 주입 승인(ADR-0009), 전역 감사도 room 권한 적용(#91, 구현은 해당 역할이 생길 때). GitHub 정리 — #33·#63 닫음, M5 마일스톤 생성, #81·#84·#85를 M3에, #218을 M2에. #218 Context 바 적용 배지 생략·라벨 먼저 숨김. #156 레이아웃 슬롯 — 관리 화면은 접을 수 있는 왼쪽 필터 레일, 분석 화면은 KPI 띠 + 차트 2열 + 카드별 접기, 생성기 뼈대 반영(ADR-0022).
