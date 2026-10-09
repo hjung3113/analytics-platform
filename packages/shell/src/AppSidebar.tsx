@@ -4,30 +4,31 @@ import { useEffect, useState } from 'react';
 import type { SpaceDef, SpaceId } from '@ap/contracts';
 import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { cn, Popover, PopoverContent, PopoverTrigger, Tabs, TabsList, TabsTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, usePrototype } from '@ap/ui';
-import { hubOf, isProtoRegistry, useOpenSpace, useShownSpace, workSpacesOf } from './protoChrome';
+import { FeedbackOpsBlock, FeedbackOpsHubLink, useProtoFeedback } from './feedbackOpsNav';
+import { isProtoRegistry, useOpenSpace, useShownSpace } from './protoChrome';
 import { ScopeSelector } from './ScopeSelector';
 
 export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
-  const { route, favorites, recent, registry, menusInSpace, accessibleSpaces, can, linkTo, currentSpace } = usePlatform();
+  const { route, favorites, recent, registry, menusInSpace, accessibleSpaces, can, slots } = usePlatform();
   const { t, tx, lang } = useI18n();
   const variant = usePrototype();
-  const proto = isProtoRegistry(registry);
+  const proto = isProtoRegistry(slots);
   const shown = useShownSpace();
   const openSpace = useOpenSpace();
+  const feedback = useProtoFeedback(shown.id);
   const [switchOpen, setSwitchOpen] = useState(false);
-  const collabRoute = !!route && (route.menu.protoSlot === 'my-voc' || registry.groupById(route.menu.group).protoPlacement === 'collab' || currentSpace?.protoKind === 'hub');
+  const collabRoute = !!route && route.menu.protoSlot === 'my-voc';
   const [tab, setTab] = useState<'work' | 'collab'>(collabRoute ? 'collab' : 'work');
   useEffect(() => { if (proto && variant === 'C') setTab(collabRoute ? 'collab' : 'work'); }, [proto, variant, collabRoute, route?.menu.id]);
   const visibleMenus = menusInSpace(shown.id);
   const activeId = route?.menu.navHidden && route.menu.parent ? route.menu.parent : route?.menu.id;
-  const inScroll = (placement: 'collab' | 'hidden' | undefined) => placement !== 'hidden' && !(placement === 'collab' && proto && (variant === 'A' || variant === 'C'));
-  const grouped = registry.groups.filter(g => g.space === shown.id && inScroll(g.protoPlacement))
+  const grouped = registry.groups.filter(g => g.space === shown.id && g.protoPlacement !== 'hidden')
     .map(group => ({ group, items: visibleMenus.filter(m => !m.navHidden && m.group === group.id) })).filter(g => g.items.length);
-  const collabMenus = registry.groups.filter(g => g.space === shown.id && g.protoPlacement === 'collab')
-    .flatMap(group => visibleMenus.filter(m => !m.navHidden && m.group === group.id));
   const mine = registry.menus.filter(m => m.protoSlot === 'my-voc' && can(m.permission));
-  const hub = hubOf(accessibleSpaces);
-  const works = workSpacesOf(accessibleSpaces);
+  const works = accessibleSpaces;
+  const feedbackBlock = feedback.links
+    ? <FeedbackOpsBlock links={feedback.links} systemName={shown.label} draftOrigin={feedback.draftOrigin} collapsed={collapsed} />
+    : null;
   const favoriteMenus = favorites.map(id => visibleMenus.find(m => m.id === id)).filter((m): m is MenuEntry => !!m);
   const recentItems = recent.filter(r => visibleMenus.some(m => m.id === r.menuId)).slice(0, 5);
   const showCollabTab = proto && variant === 'C' && tab === 'collab';
@@ -68,9 +69,11 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
       {showCollabTab ? <nav aria-label={lang === 'ko' ? '이 시스템의 협업' : 'Collaboration in this system'} className="shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2">
         <ul className="space-y-0.5">
           {mine.map(menu => <li key={menu.id}><NavItem menu={menu} active={menu.id === activeId} collapsed={collapsed} /></li>)}
-          {collabMenus.map(menu => <li key={menu.id}><NavItem menu={menu} active={menu.id === activeId} collapsed={collapsed} /></li>)}
         </ul>
-        {hub && <PlatformLink href={linkTo(hub.homeMenuId)} className="mt-3 block rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-row-hover">{lang === 'ko' ? '전체 허브로' : 'All-systems hub'}</PlatformLink>}
+        {feedbackBlock
+          ? <div className={mine.length > 0 ? 'mt-3' : undefined}>{feedbackBlock}</div>
+          : (!collapsed && <p className="px-3 py-2 text-sm text-text-secondary">{lang === 'ko' ? '이 시스템은 FeedbackOps에 연결되지 않았습니다' : 'This system is not connected to FeedbackOps.'}</p>)}
+        {feedback.hubHref && <div className="mt-3"><FeedbackOpsHubLink href={feedback.hubHref} collapsed={collapsed} /></div>}
       </nav> : <div className="shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2">
         <nav aria-label={lang === 'ko' ? '주 메뉴' : 'Primary'}>
           {grouped.map(({ group, items }, index) => <div key={group.id} role="group" aria-label={tx(group.label)}>
@@ -79,6 +82,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
             <ul className="space-y-0.5">{items.map(menu => <li key={menu.id}><NavItem menu={menu} active={menu.id === activeId} collapsed={collapsed} /></li>)}</ul>
           </div>)}
         </nav>
+        {proto && variant === 'B' && feedbackBlock && <nav aria-label={lang === 'ko' ? '이 시스템의 협업' : 'Collaboration in this system'} className={cn('mt-3', collapsed && 'mt-1.5 border-t border-border-subtle pt-1.5')}>{feedbackBlock}</nav>}
         {/* Expanded only (prototype C). An empty list keeps its guidance (07 §3 empty state). */}
         {!collapsed && <section aria-label={t('favorites')}>
           <p className="mx-2 mb-1 mt-3.5 flex items-center gap-1 text-caption font-semibold uppercase tracking-wide text-text-muted"><Star className="size-3" aria-hidden />{t('favorites')}</p>
@@ -93,10 +97,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
             : <p className="px-3 py-1 text-xs leading-4 text-text-muted">{t('noRecent')}</p>}
         </section>}
       </div>}
-      {proto && variant === 'A' && collabMenus.length > 0 && <nav aria-label={lang === 'ko' ? '이 시스템의 협업' : 'Collaboration in this system'} className="shrink-0 border-t border-border-subtle px-2 py-2">
-        {!collapsed && <p className="mx-2 mb-1 text-caption font-semibold text-text-secondary">{lang === 'ko' ? '이 시스템의 협업' : 'Collaboration'}</p>}
-        <ul className="space-y-0.5">{collabMenus.map(menu => <li key={menu.id}><NavItem menu={menu} active={menu.id === activeId} collapsed={collapsed} /></li>)}</ul>
-      </nav>}
+      {proto && variant === 'A' && feedbackBlock && <nav aria-label={lang === 'ko' ? '이 시스템의 협업' : 'Collaboration in this system'} className="shrink-0 border-t border-border-subtle px-2 py-2">{feedbackBlock}</nav>}
       {!collapsed && <div className="shrink-0 border-t border-border-subtle px-4 py-2.5 text-caption text-text-muted">{lang === 'ko' ? '통합 프로토타입 · 합성 데이터' : 'Integrated prototype · synthetic data'}</div>}
     </aside>
   </TooltipProvider>;

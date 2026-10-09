@@ -1,9 +1,10 @@
 // THROWAWAY #250 — never merge.
-import { Clock3, MessagesSquare, Star } from 'lucide-react';
+import { Clock3, Star } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { SpaceDef, SpaceId, Text } from '@ap/contracts';
-import { PlatformLink, useI18n, usePlatform, type MenuEntry, type Registry } from '@ap/kernel';
+import { PlatformLink, useI18n, usePlatform, type MenuEntry, type PlatformSlots, type Registry } from '@ap/kernel';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, type ProtoVariant, usePrototype } from '@ap/ui';
+import { PopoverFeedbackOpsHub, useProtoHubHref } from './feedbackOpsNav';
 import { readLastSpaceId, readLastUrls, restoreHref } from './spaceMemory';
 
 const BLURB: Partial<Record<SpaceId, Text>> = {
@@ -15,16 +16,9 @@ const BLURB: Partial<Record<SpaceId, Text>> = {
   common: { ko: '설비, 기준정보, 공지를 함께 둡니다.', en: 'Equipment, master data and notices.' },
 };
 
-export function isProtoRegistry(registry: Registry) {
-  return registry.spaces.some(s => s.protoKind === 'hub');
-}
-
-export function workSpacesOf(spaces: readonly SpaceDef[]) {
-  return spaces.filter(s => s.protoKind !== 'hub');
-}
-
-export function hubOf(spaces: readonly SpaceDef[]) {
-  return spaces.find(s => s.protoKind === 'hub');
+/** The app passes `protoFeedbackOps` only for this prototype. Shell tests omit it and keep the shipped chrome. */
+export function isProtoRegistry(slots: PlatformSlots) {
+  return typeof slots.protoFeedbackOps === 'function';
 }
 
 export function displaySpace(opts: {
@@ -32,25 +26,19 @@ export function displaySpace(opts: {
   variant: ProtoVariant;
   pathname: string;
   sidebarSpace: SpaceDef;
-  current: SpaceDef | null;
   accessible: readonly SpaceDef[];
   lastId: string | null;
 }): SpaceDef {
-  const { proto, variant, pathname, sidebarSpace, current, accessible, lastId } = opts;
+  const { proto, variant, pathname, sidebarSpace, accessible, lastId } = opts;
   if (!proto) return sidebarSpace;
-  const works = workSpacesOf(accessible);
-  const onPortal = pathname === '/';
-  const onHub = current?.protoKind === 'hub' || sidebarSpace.protoKind === 'hub';
-  if (variant === 'A' && onHub && !onPortal) return sidebarSpace.protoKind === 'hub' ? sidebarSpace : (hubOf(accessible) ?? sidebarSpace);
-  if ((variant === 'B' || variant === 'C') && (onPortal || onHub)) return works.find(s => s.id === lastId) ?? works[0] ?? sidebarSpace;
-  if (sidebarSpace.protoKind === 'hub') return works.find(s => s.id === lastId) ?? works[0] ?? sidebarSpace;
+  if ((variant === 'B' || variant === 'C') && pathname === '/') return accessible.find(s => s.id === lastId) ?? accessible[0] ?? sidebarSpace;
   return sidebarSpace;
 }
 
 export function useOpenSpace() {
   const { registry, can, linkTo, navigate, currentSpace, pathname } = usePlatform();
   return (spaceId: SpaceId) => {
-    if (pathname !== '/' && currentSpace?.id === spaceId && currentSpace.protoKind !== 'hub') return;
+    if (pathname !== '/' && currentSpace?.id === spaceId) return;
     navigate(restoreHref(registry, spaceId, can, linkTo));
   };
 }
@@ -82,8 +70,7 @@ export function WorkspaceHome() {
   const { accessibleSpaces, favorites, recent, registry, menusInSpace, linkTo, can } = usePlatform();
   const { tx, lang } = useI18n();
   const openSpace = useOpenSpace();
-  const works = workSpacesOf(accessibleSpaces);
-  const hub = hubOf(accessibleSpaces);
+  const works = accessibleSpaces;
   const saved = readLastUrls();
   const favoriteMenus = favorites.map(id => registry.menus.find(m => m.id === id)).filter((m): m is MenuEntry => !!m && can(m.permission));
   const recentRows = recent.filter(r => registry.menus.some(m => m.id === r.menuId)).slice(0, variant === 'C' ? 8 : 12);
@@ -95,7 +82,7 @@ export function WorkspaceHome() {
       {variant === 'C'
         ? <RecentFirst rows={recentRows} />
         : variant === 'B'
-          ? <LauncherBody works={works} hub={hub} limit={5} />
+          ? <LauncherBody works={works} limit={5} />
           : <CardGrid works={works} saved={saved} onOpen={openSpace} />}
       {variant === 'C' && <SystemRows works={works} onOpen={openSpace} />}
       {variant === 'A' && <NoticeBlock />}
@@ -117,7 +104,6 @@ export function WorkspaceHome() {
         </section>
       </div>}
       {variant === 'A' && works.length === 1 && <Button type="button" onClick={() => openSpace(works[0].id)}>{lang === 'ko' ? '바로 들어가기' : 'Enter now'}</Button>}
-      {hub && variant === 'A' && <p className="text-sm text-text-secondary">{lang === 'ko' ? '전체 협업 허브는 레일 아래 버튼으로 엽니다.' : 'Open the collaboration hub from the rail.'}</p>}
     </div>
   </div>;
 }
@@ -132,7 +118,7 @@ function HomeLink({ menu, href, when }: { menu: MenuEntry; href: string; when?: 
   </PlatformLink>;
 }
 
-function CardGrid({ works, saved, onOpen }: { works: SpaceDef[]; saved: Partial<Record<SpaceId, string>>; onOpen: (id: SpaceId) => void }) {
+function CardGrid({ works, saved, onOpen }: { works: readonly SpaceDef[]; saved: Partial<Record<SpaceId, string>>; onOpen: (id: SpaceId) => void }) {
   const { registry } = usePlatform();
   const { tx, lang } = useI18n();
   return <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -151,7 +137,7 @@ function CardGrid({ works, saved, onOpen }: { works: SpaceDef[]; saved: Partial<
   </ul>;
 }
 
-function SystemRows({ works, onOpen }: { works: SpaceDef[]; onOpen: (id: SpaceId) => void }) {
+function SystemRows({ works, onOpen }: { works: readonly SpaceDef[]; onOpen: (id: SpaceId) => void }) {
   const { registry, menusInSpace } = usePlatform();
   const { tx, lang } = useI18n();
   return <section aria-label={lang === 'ko' ? '업무 시스템' : 'Work systems'}>
@@ -216,8 +202,8 @@ function NoticeBlock() {
   </section>;
 }
 
-export function LauncherBody({ works, hub, limit }: { works: readonly SpaceDef[]; hub: SpaceDef | undefined; limit: number }) {
-  const { recent, registry, menusInSpace, linkTo, navigate } = usePlatform();
+export function LauncherBody({ works, limit }: { works: readonly SpaceDef[]; limit: number }) {
+  const { recent, registry, menusInSpace, navigate } = usePlatform();
   const { tx, lang } = useI18n();
   const openSpace = useOpenSpace();
   const [q, setQ] = useState('');
@@ -250,18 +236,13 @@ export function LauncherBody({ works, hub, limit }: { works: readonly SpaceDef[]
         </button></li>;
       })}</ul>
     </section>
-    {hub && <button type="button" onClick={() => navigate(linkTo(hub.homeMenuId))} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-surface-row-hover">
-      <MessagesSquare className="size-4 text-text-secondary" aria-hidden />
-      <span>{tx(hub.label)}</span>
-    </button>}
   </div>;
 }
 
 export function RailLogoLauncher() {
   const { accessibleSpaces } = usePlatform();
   const { t, lang } = useI18n();
-  const works = workSpacesOf(accessibleSpaces);
-  const hub = hubOf(accessibleSpaces);
+  const hubHref = useProtoHubHref();
   return <Popover>
     <PopoverTrigger asChild>
       <button type="button" aria-label={lang === 'ko' ? '업무 시스템 런처' : 'Work system launcher'} title={t('appName')} className="mb-1 grid size-8 shrink-0 place-items-center rounded-md bg-accent-primary text-sm font-semibold text-text-on-accent">
@@ -269,19 +250,20 @@ export function RailLogoLauncher() {
       </button>
     </PopoverTrigger>
     <PopoverContent side="right" align="start" className="w-80">
-      <LauncherBody works={works} hub={hub} limit={5} />
+      <LauncherBody works={accessibleSpaces} limit={5} />
+      {hubHref && <PopoverFeedbackOpsHub href={hubHref} />}
     </PopoverContent>
   </Popover>;
 }
 
 export function useShownSpace() {
   const variant = usePrototype();
-  const { registry, sidebarSpace, currentSpace, accessibleSpaces, pathname } = usePlatform();
-  const proto = isProtoRegistry(registry);
+  const { slots, sidebarSpace, accessibleSpaces, pathname } = usePlatform();
+  const proto = isProtoRegistry(slots);
   const lastId = proto ? readLastSpaceId() : null;
   return useMemo(() => displaySpace({
-    proto, variant, pathname, sidebarSpace, current: currentSpace, accessible: accessibleSpaces, lastId,
-  }), [proto, variant, pathname, sidebarSpace, currentSpace, accessibleSpaces, lastId]);
+    proto, variant, pathname, sidebarSpace, accessible: accessibleSpaces, lastId,
+  }), [proto, variant, pathname, sidebarSpace, accessibleSpaces, lastId]);
 }
 
 function formatWhen(at: number, lang: 'ko' | 'en') {

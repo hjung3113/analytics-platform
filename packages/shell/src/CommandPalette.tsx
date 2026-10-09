@@ -62,9 +62,7 @@ export function CommandPalette() {
             const space = registry.spaceOf(m);
             const previous = i > 0 ? registry.spaceOf(items[i - 1]) : null;
             const head = previous?.id !== space.id;
-            const meta = group.protoPlacement === 'collab'
-              ? `${tx(space.label)} · ${lang === 'ko' ? '협업' : 'Collaboration'}`
-              : `${tx(space.label)} · ${tx(group.label)} · ${tx(PAGE_TYPE_LABELS[m.pageType])}${!m.component ? ` · ${t('planned')}` : ''}`;
+            const meta = `${tx(space.label)} · ${tx(group.label)} · ${tx(PAGE_TYPE_LABELS[m.pageType])}${!m.component ? ` · ${t('planned')}` : ''}`;
             return <li key={m.id} role="presentation">
               {head && <p className="px-3 pb-1 pt-2 text-caption font-semibold text-text-secondary">{tx(space.label)}</p>}
               <div id={`palette-${m.id}`} role="option" aria-selected={i === active} onMouseEnter={() => setActive(i)} onClick={() => go(i)}

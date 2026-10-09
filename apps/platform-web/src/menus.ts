@@ -49,7 +49,7 @@ export const MENUS: MenuEntry[] = adjustMenus(variant, [
   ...noticeVoc,
   ...admin,
   // </gen:menu-spreads>
-  ...prototypeMenus(variant),
+  ...prototypeMenus(),
 ]);
 
 export const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: MENUS });

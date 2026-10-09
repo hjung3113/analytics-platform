@@ -20,14 +20,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 function ShellLayout({ children }: { children: ReactNode }) {
   const detail = useDetailPanelSlotHost();
   const { lang } = useI18n();
-  const { registry, pathname, currentSpace, accessibleSpaces, url } = usePlatform();
+  const { pathname, currentSpace, accessibleSpaces, url, slots } = usePlatform();
   const variant = usePrototype();
-  const proto = isProtoRegistry(registry);
-  const noWork = proto && accessibleSpaces.every(s => s.protoKind === 'hub');
+  const proto = isProtoRegistry(slots);
+  const noWork = proto && accessibleSpaces.length === 0;
   const portal = proto && pathname === '/' && !noWork;
   const hideSidebar = noWork || (portal && variant !== 'B');
   useEffect(() => {
-    if (!proto || !currentSpace || currentSpace.protoKind === 'hub' || pathname === '/') return;
+    if (!proto || !currentSpace || pathname === '/') return;
     if (!accessibleSpaces.some(s => s.id === currentSpace.id)) return;
     writeLastUrl(currentSpace.id, url);
   }, [proto, currentSpace, pathname, accessibleSpaces, url]);

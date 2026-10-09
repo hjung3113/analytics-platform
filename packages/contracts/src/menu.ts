@@ -9,9 +9,9 @@ export type ContextKey = 'time' | 'roomNames' | 'condition' | 'selection' | 'lot
 /** apply = direct query filter · reference = carried/visible, not a query filter · unsupported = preserved, not applied */
 export type Capability = 'apply' | 'reference' | 'unsupported';
 export type PageType = 'overview' | 'analysis' | 'management' | 'catalog' | 'workflow';
-export type GroupId = 'overview' | 'equipment' | 'masterData' | 'analytics' | 'metrics' | 'noticeVoc' | 'admin' | 'logdevStatus' | 'logdevModels' | 'logdevValidation' | 'logdevPartner' | 'improveTasks' | 'improveField' | 'collabProductivity' | 'collabMetrics' | 'collabLogdev' | 'collabImprovement' | 'collabOperations' | 'collabCommon' | 'collabHub' | 'myVoc';
+export type GroupId = 'overview' | 'equipment' | 'masterData' | 'analytics' | 'metrics' | 'noticeVoc' | 'admin' | 'logdevStatus' | 'logdevModels' | 'logdevValidation' | 'logdevPartner' | 'improveTasks' | 'improveField' | 'myVoc';
 /** Prototype registries use the workspace ids. `analytics` and `feedback` stay so existing fixtures still typecheck. */
-export type SpaceId = 'productivity' | 'metrics' | 'logdev' | 'improvement' | 'operations' | 'common' | 'collab-hub' | 'analytics' | 'feedback';
+export type SpaceId = 'productivity' | 'metrics' | 'logdev' | 'improvement' | 'operations' | 'common' | 'analytics' | 'feedback';
 /** Sidebar-visible group set + entry permission (06 §9.1). Groups declare membership via GroupDef.space, menus never do. */
 export type SpaceDef = {
   id: SpaceId;
@@ -20,8 +20,6 @@ export type SpaceDef = {
   permission?: Permission;
   /** Landing menu inside this space whose path has no `:param`. */
   homeMenuId: string;
-  /** THROWAWAY #250. `hub` is a collaboration hub, not a workspace button. */
-  protoKind?: 'hub';
 };
 /** The permission vocabulary in canonical order — one runtime list for validators and selects (mock server, console filters). */
 export const PERMISSIONS = ['platform:view', 'equipment:view', 'master:view', 'analytics:view', 'metrics:view', 'notice:view', 'voc:view', 'console:access', 'logdev:view', 'improve:view', 'collab:hub'] as const;

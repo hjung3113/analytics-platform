@@ -1,23 +1,23 @@
 // THROWAWAY #250 — never merge.
-import { CircleHelp, LogOut, MessagesSquare, Search } from 'lucide-react';
+import { CircleHelp, LogOut, Search } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, usePrototype } from '@ap/ui';
-import { hubOf, isProtoRegistry, RailLogoLauncher, railButtonClass, useOpenSpace, useShownSpace, workSpacesOf } from './protoChrome';
+import { RailFeedbackOpsHub, useProtoHubHref } from './feedbackOpsNav';
+import { isProtoRegistry, RailLogoLauncher, railButtonClass, useOpenSpace, useShownSpace } from './protoChrome';
 
 /** Space navigation and global tools; the app keeps ownership of topBarTools. */
 export function AppRail() {
-  const { accessibleSpaces, switchSpace, slots, user, setPaletteOpen, registry, pathname, currentSpace, linkTo, navigate } = usePlatform();
+  const { accessibleSpaces, switchSpace, slots, user, setPaletteOpen, registry, pathname } = usePlatform();
   const { t, tx, lang, setLang } = useI18n();
   const variant = usePrototype();
-  const proto = isProtoRegistry(registry);
+  const proto = isProtoRegistry(slots);
   const openSpace = useOpenSpace();
   const shown = useShownSpace();
-  const railSpaces = proto ? workSpacesOf(accessibleSpaces) : accessibleSpaces;
-  const hub = proto ? hubOf(accessibleSpaces) : undefined;
+  const railSpaces = accessibleSpaces;
+  const hubHref = useProtoHubHref();
   const languageLabel = lang === 'ko' ? '언어: 한국어 — English로 전환' : 'Language: English — 한국어로 전환';
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
   const mark = (id: string) => proto && pathname === '/' && variant !== 'B' ? false : shown.id === id;
-  const openHub = () => { if (hub && currentSpace?.protoKind !== 'hub') navigate(linkTo(hub.homeMenuId)); };
   return <TooltipProvider delayDuration={200}>
     <nav aria-label={lang === 'ko' ? '앱 레일' : 'App rail'} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-2 overflow-y-auto border-r border-border-subtle bg-surface-sidebar py-3">
       {proto && variant === 'B'
@@ -34,25 +34,15 @@ export function AppRail() {
           </button>
         </TooltipTrigger><TooltipContent side="right">{tx(space.label)}</TooltipContent></Tooltip>;
       })}
-      {proto && variant === 'A' && hub && <div className="my-1 w-6 border-t border-border-subtle" aria-hidden />}
-      {proto && variant === 'A' && hub && <Tooltip><TooltipTrigger asChild>
-        <button type="button" aria-label={tx(hub.label)} aria-current={currentSpace?.protoKind === 'hub' ? 'page' : undefined} onClick={openHub} className={railButtonClass(currentSpace?.protoKind === 'hub')}>
-          {currentSpace?.protoKind === 'hub' && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
-          <MessagesSquare className="size-4" aria-hidden />
-        </button>
-      </TooltipTrigger><TooltipContent side="right">{tx(hub.label)}</TooltipContent></Tooltip>}
+      {proto && variant === 'A' && hubHref && <div className="my-1 w-6 border-t border-border-subtle" aria-hidden />}
+      {proto && variant === 'A' && hubHref && <RailFeedbackOpsHub href={hubHref} />}
       <div className="my-1 w-6 border-t border-border-subtle" aria-hidden />
       <Tooltip><TooltipTrigger asChild>
         <button type="button" onClick={() => setPaletteOpen(true)} aria-label={t('searchPlaceholder')} aria-haspopup="dialog" aria-keyshortcuts="Meta+K Control+K"
           className="grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover"><Search className="size-4" aria-hidden /></button>
       </TooltipTrigger><TooltipContent side="right">{t('searchPlaceholder')} · {isMac ? '⌘' : 'Ctrl'} K</TooltipContent></Tooltip>
       <div className="min-h-3 flex-1" />
-      {proto && variant === 'C' && hub && <Tooltip><TooltipTrigger asChild>
-        <button type="button" aria-label={tx(hub.label)} aria-current={currentSpace?.protoKind === 'hub' ? 'page' : undefined} onClick={openHub} className={railButtonClass(currentSpace?.protoKind === 'hub')}>
-          {currentSpace?.protoKind === 'hub' && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
-          <MessagesSquare className="size-4" aria-hidden />
-        </button>
-      </TooltipTrigger><TooltipContent side="right">{tx(hub.label)}</TooltipContent></Tooltip>}
+      {proto && variant === 'C' && hubHref && <RailFeedbackOpsHub href={hubHref} />}
       <div className="flex shrink-0 flex-col items-center gap-1">{slots.topBarTools}</div>
       <Popover>
         <PopoverTrigger asChild><button type="button" aria-label="Help" title="Help" className="grid size-8 place-items-center rounded-md text-text-secondary hover:bg-surface-sunken"><CircleHelp className="size-4" aria-hidden /></button></PopoverTrigger>

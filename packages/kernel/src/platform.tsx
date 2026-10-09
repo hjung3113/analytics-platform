@@ -8,11 +8,23 @@ import { buildQuery, ContractError, emptyGlobal, type GlobalContext, incompleteM
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope' | 'error'; validatedFor: Session | null; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
 export type Toast = { id: number; text: string; tone: 'info' | 'warning' | 'danger' };
+/** THROWAWAY #250. One external FeedbackOps entry. The app builds the href; the shell only renders it. */
+export type ProtoFeedbackOpsLink = { id: 'voc-create' | 'voc' | 'task' | 'survey'; label: Text; href: string };
+/**
+ * THROWAWAY #250. `links` is null when the workspace has no managed system.
+ * `hubHref` is the FeedbackOps home. `draftOrigin` is true when the app substituted the prototype origin.
+ */
+export type ProtoFeedbackOpsView = { links: readonly ProtoFeedbackOpsLink[] | null; hubHref: string; draftOrigin: boolean };
 /**
  * Shell slots (docs/06 §8) the app fills at composition time, so platform components never import the shell.
  * contextBar: rendered by PlatformPage above page content. topBarTools: extra controls at the bottom of the app rail (today the mock dev tools).
  */
-export type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode };
+export type PlatformSlots = {
+  contextBar?: ReactNode;
+  topBarTools?: ReactNode;
+  /** THROWAWAY #250. Absent outside the prototype. The shell must not import a menu package to learn these links. */
+  protoFeedbackOps?: (spaceId: SpaceId) => ProtoFeedbackOpsView;
+};
 export type LinkOptions = { params?: Record<string, string>; page?: Record<string, string>; global?: Partial<GlobalContext>; returnTo?: boolean };
 export type LinkResolution = {
   href: string;

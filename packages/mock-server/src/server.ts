@@ -327,7 +327,7 @@ export type StoredUsageEvent = UsageEvent & { userId: string; receivedAt: number
 
 const usageEvents: StoredUsageEvent[] = [];
 
-const SPACE_IDS: readonly SpaceId[] = ['productivity', 'metrics', 'logdev', 'improvement', 'operations', 'common', 'collab-hub', 'analytics', 'feedback'];
+const SPACE_IDS: readonly SpaceId[] = ['productivity', 'metrics', 'logdev', 'improvement', 'operations', 'common', 'analytics', 'feedback'];
 
 /** True when the id is not a string, or carries anything the manifest route pattern must not: empty, `?`, `#`, `&`, whitespace, too long. */
 function invalidUsageId(value: string, max: number): boolean {

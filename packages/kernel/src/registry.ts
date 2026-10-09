@@ -18,8 +18,8 @@ export type GroupDef = {
   space: SpaceId;
   /** In the expanded sidebar, omit the section label when only one visible menu remains. */
   hideLabelWhenSingle?: boolean;
-  /** THROWAWAY #250. Shell placement. Absent means a normal sidebar group. */
-  protoPlacement?: 'collab' | 'hidden';
+  /** THROWAWAY #250. `hidden` keeps the group out of the sidebar. Absent means a normal group. */
+  protoPlacement?: 'hidden';
 };
 
 export type RouteMatch = { menu: MenuEntry; params: Record<string, string> };
