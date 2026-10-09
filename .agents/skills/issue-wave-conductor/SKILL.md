@@ -18,8 +18,8 @@ FeedbackOps와 다른 점: PR 기준 브랜치는 `main` 하나(develop 없음),
 | 역할 | 하는 일 | 실행 |
 | --- | --- | --- |
 | `impl` | 일반 구현 | 이 스킬의 `scripts/launch-worker.sh`(worktree 준비 + 공유 실행기) |
-| `impl-complex` | 복잡한 구현과 그 수정 라운드(아래 기준) | `WORKER_ROLE=impl-complex scripts/launch-worker.sh`, 수정 라운드는 공유 `worker-launch.sh --role impl-complex` |
-| `fix` | 일반 수정 라운드 | 공유 `worker-launch.sh --role fix` |
+| `impl-complex` | 복잡한 구현(아래 기준), 그리고 수정 자체가 어려운 수정 라운드 | `WORKER_ROLE=impl-complex scripts/launch-worker.sh`, 어려운 수정은 공유 `worker-launch.sh --role impl-complex` |
+| `fix` | 모든 수정 라운드의 기본(복잡한 이슈도) | 공유 `worker-launch.sh --role fix` |
 | `review-final` | 코드: 정확성·계약·테스트·diff 안의 아키텍처 | 규칙 `docs/agents/templates/review-rules.md` |
 | `review-ux` | 실행 중인 앱의 디자인·UX | 에이전트 `.claude/agents/review-ux.md`(`--agent`) |
 | `review-quality` | 슬라이스 전체의 코드 품질(11단계) | 에이전트 `.claude/agents/review-quality.md` |
@@ -41,7 +41,7 @@ codex 역할은 Orca 터미널에서, claude 역할은 백그라운드 `claude -
    - 이벤트가 동작을 결정하면("닫으면 접힌다") 호출부가 쓰는 표현을 모두 `rg`로 찾는다(prop 없음 vs `null`).
    - DOM 소유를 옮기는 수정이면 그 요소를 찾는 E2E·단위 테스트 선택자 갱신을 명시한다(작업자는 E2E를 못 돌린다).
    - 보이는 모양이 바뀌는 일이면 컨펌된 `?variant=` 안을 스펙으로 적는다. 컨펌 전이면 구현하지 않고 시안부터(루트 `AGENTS.md`).
-2. **실행**: `scripts/launch-worker.sh <n> <slug>`. 16GB 머신이라 동시에 1–2개, 파일이 겹치지 않는 이슈만 병렬로 한다(`docs/agents/operations.md` 메모리). 기본은 `impl`(GLM). 다음 중 하나면 **`WORKER_ROLE=impl-complex`**(Grok, 사용자 결정 2026-10-08)이고 수정 라운드도 `--role impl-complex`다:
+2. **실행**: `scripts/launch-worker.sh <n> <slug>`. 16GB 머신이라 동시에 1–2개, 파일이 겹치지 않는 이슈만 병렬로 한다(`docs/agents/operations.md` 메모리). 기본은 `impl`(GLM). 다음 중 하나면 **`WORKER_ROLE=impl-complex`**(Grok, 사용자 결정 2026-10-08)다. 수정 라운드는 이슈가 복잡해도 기본 `--role fix`(GLM)이고, 수정 자체가 어려울 때만 `impl-complex`다(사용자 결정 2026-10-09):
    - Kernel 계약과 그 소비자(컴포넌트·셸·메뉴)를 함께 바꾸거나, 패키지 세 곳 이상을 건드린다;
    - 권한·Scope·URL 보안 경계(`safeReturnTo`, 목적지 ID와 Context 분리), 데이터 누출 규칙을 건드린다;
    - 상태·순서 로직: 조회 수명주기(취소·세대·`ready` 게이트), history push/replace, Context 변경 시 page 키 정리;
@@ -54,7 +54,7 @@ codex 역할은 Orca 터미널에서, claude 역할은 백그라운드 `claude -
    - Kernel·셸·공통 컴포넌트·mock 서버가 바뀌었으면 새 E2E describe만 먼저(`cd apps/platform-e2e && pnpm exec playwright test -g "<describe>"`), 그다음 관련 E2E 또는 전체 `pnpm e2e`.
    - 새 테스트는 한 번 변이 검사한다(고친 곳을 되돌려 그 테스트가 실패하는지 보고 복원).
    - 디자인 lint 오류는 메시지가 알려 주는 토큰·variant·부품으로 고친다. suppressions에 새 위반을 더하지 않는다.
-5. **직접 고치는 것은 기계적인 것만**: import 경로·순서, lint 자동 수정, 없어진 동작을 고정하던 기대값, 빠진 mock 등록(`MOCK_ENDPOINTS`·`server-conformance.test.ts`의 `PARAMS`). 각각 `W-<n>-VERIFY.md`에 적는다. 판단이 드는 것은 호스트 출력을 인용한 수정 브리프(`W-<n>-FIX<k>-TASK.md`)로 `worker-launch.sh --role fix`(복잡한 이슈는 `impl-complex`) `--cwd <worktree> --task <절대 경로> --report <절대 경로> --sentinel '<수정 작업의 sentinel>' --name W-<n>-FIX<k> --state-dir "$WAVE_STATE"`.
+5. **직접 고치는 것은 기계적인 것만**: import 경로·순서, lint 자동 수정, 없어진 동작을 고정하던 기대값, 빠진 mock 등록(`MOCK_ENDPOINTS`·`server-conformance.test.ts`의 `PARAMS`). 각각 `W-<n>-VERIFY.md`에 적는다. 판단이 드는 것은 호스트 출력을 인용한 수정 브리프(`W-<n>-FIX<k>-TASK.md`)로 `worker-launch.sh --role fix`(수정 자체가 어려우면 `impl-complex`) `--cwd <worktree> --task <절대 경로> --report <절대 경로> --sentinel '<수정 작업의 sentinel>' --name W-<n>-FIX<k> --state-dir "$WAVE_STATE"`.
 6. **화면 증거**: 화면이 바뀌면 브라우저로 확인한다(`ego-browser`, 막히면 `apps/platform-e2e`의 Playwright 캡처로 대신한다고 말한다). 미리보기는 `scripts/app-preview.py start <worktree> --name <n>-branch`. 캡처는 차트 canvas와 표 행을 기다린 뒤 찍고, 올리기 전에 이미지를 직접 연다. 같은 턴에 `stop`한다.
 7. **역할별 리뷰, 트리거로 고른다**(이슈당 리뷰 한 라운드, 루트 `AGENTS.md`). 호스트 검증과 화면 증거를 **먼저** 끝낸다.
    **a. 계획**: 커밋된 브랜치에서 `python3 scripts/review-plan.py <worktree>`(커밋하지 않은 변경이 있으면 거부). 출력을 VERIFY에 적는다.

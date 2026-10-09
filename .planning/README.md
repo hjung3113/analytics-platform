@@ -21,7 +21,7 @@
 다음 세션은 여기서 시작한다. 직전 세션(2026-10-09)에서 멀티 워크스페이스 셸 슬라이스(#250)를 끝내 v0.5.0을 릴리스했다(아래 "끝난 것").
 
 1. 다음 슬라이스를 사용자에게 고르게 한다(후보: #251 FeedbackOps 링크 계약·매핑 — #81 대기, #252 표준 로그·개선 실행 공간, 바로 할 수 있는 일 표).
-2. 작업 규칙은 루트 `AGENTS.md`(2026-10-05 간소화), 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 문서만 바꾸면 `pnpm docs:links`만 돌린다. 구현 작업자 배정(복잡한 일은 Grok 4.7 xhigh, 2026-10-08)은 코디네이터 메모리에 있다.
+2. 작업 규칙은 루트 `AGENTS.md`(2026-10-05 간소화), 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 문서만 바꾸면 `pnpm docs:links`만 돌린다. 작업자 배정은 전역 `routing.tsv`가 원본이다(2026-10-09: 수정은 기본 GLM 5.3 flash max, 어려운 구현·어려운 수정은 Grok 4.7 high).
 
 ## 바로 할 수 있는 일 (에이전트)
 
