@@ -80,7 +80,7 @@ ${extraRows}
 
 /** Below the groups marker: the wiring lock counts id: lines above it. */
 export const SPACES: SpaceDef[] = [
-  { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' },
+  { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home' },
 ];
 
 export const MENUS: MenuEntry[] = [

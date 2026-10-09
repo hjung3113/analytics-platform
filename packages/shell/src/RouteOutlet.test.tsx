@@ -25,7 +25,7 @@ const lazyMissing = lazy(() => Promise.reject(new TypeError('Failed to fetch dyn
 function Flaky() { if (broken) throw new TypeError('flaky'); return <p>flaky ok</p>; }
 
 const registry = createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' }],
+  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home' }],
   groups: [{ id: 'equipment', label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: 'analytics' }],
   menus: [
     menu('home', '/home', { primary: true, component: () => <p>home page</p> }),
@@ -170,7 +170,7 @@ describe('global utility routes and the null-sidebar home link (06 §9.1)', () =
   });
   function globalRegistry(withRoot: boolean) {
     return createRegistry({
-      spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'roles' }],
+      spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'roles' }],
       groups: [
         { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' },
         { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice' }, icon: House, space: null },
@@ -186,7 +186,8 @@ describe('global utility routes and the null-sidebar home link (06 §9.1)', () =
     });
   }
   function mountGlobal(url: string, withRoot: boolean) {
-    const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['notice:view'] }, scopes: [] };
+    // platform:view opens the menu at `/`. HomeLink no longer points at a home the user cannot open.
+    const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['notice:view', 'platform:view'] }, scopes: [] };
     const { adapter } = fixture(async () => ({ accepted: true }));
     adapter.session = () => session;
     window.history.replaceState(null, '', url);
@@ -249,7 +250,7 @@ describe('global query admission under RouteOutlet (06 §9.1)', () => {
       features: noFeatures, pageKeys: [], ...over,
     });
     return createRegistry({
-      spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'roles' }],
+      spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'roles' }],
       groups: [
         { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' },
         { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice' }, icon: House, space: null },

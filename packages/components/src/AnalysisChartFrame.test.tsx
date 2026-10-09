@@ -34,7 +34,7 @@ const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupp
 const off = { export: false, savedView: false, annotate: false, compare: false };
 const on = { export: true, savedView: false, annotate: true, compare: true };
 const registryWith = (features: typeof off) => createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' }],
+  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home' }],
   groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
   menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'analysis', features, pageKeys: [] }],
 });

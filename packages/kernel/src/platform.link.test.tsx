@@ -14,8 +14,8 @@ const entry = (id: string, group: 'equipment' | 'admin', path: string, permissio
 });
 
 const spaces: SpaceDef[] = [
-  { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'source' },
-  { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'ops-home' },
+  { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'source' },
+  { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'ops-home' },
 ];
 const registry = createRegistry({
   spaces,

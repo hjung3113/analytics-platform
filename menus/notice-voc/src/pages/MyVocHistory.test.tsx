@@ -9,7 +9,7 @@ import { myVocHistoryEndpoint, type MyVocItem, type MyVocPage, type MySurveyPage
 
 // Real manifests so /voc keeps its declared pageKeys (cursor); only the group/space wiring is added.
 const registry = createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'notices' }],
+  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'notices' }],
   groups: [{ id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice·VOC' }, icon: Megaphone, space: 'analytics' }],
   menus: manifests,
 });

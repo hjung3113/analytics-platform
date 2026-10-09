@@ -508,7 +508,7 @@ test.describe('메뉴 간 Context 보존과 미적용 표시 (06 §6, §22)', ()
 test.describe('권한 — 메뉴 비노출·직접 URL 거부 (06 §6.2, §17)', () => {
   test('권한 없는 메뉴는 내비게이션에 보이지 않는다', async ({ page }, testInfo) => {
     await signInAs(page, 'viewer');
-    await page.goto('/');
+    await page.goto('/metrics');
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
     await expect(nav.getByRole('link', { name: '지표 카탈로그' })).toBeVisible();
     for (const hidden of ['설비 마스터', '생산성 개요', '사이클타임 상세', '공정 마스터 예정']) {
@@ -557,17 +557,28 @@ test.describe('워크스페이스 (06 §9.1)', () => {
   const EQUIPMENT_URL = `/equipment?v=1&scopeId=ICH&${PERIOD}&selectedEquipmentIds=ICH-PHOTO-0103&page=2`;
 
   test('진입 가능한 공간이 하나뿐인 역할에는 전환기가 없고 운영 콘솔 메뉴가 보이지 않는다', async ({ page }, testInfo) => {
-    for (const role of ['engineer', 'viewer'] as const) {
-      await signInAs(page, role);
-      await page.goto('/');
-      await expect(page.getByRole('button', { name: /^공간:/ })).toHaveCount(0);
-      const nav = page.getByRole('navigation', { name: '주 메뉴' });
-      await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toHaveCount(0);
-      await page.getByRole('button', { name: '메뉴 검색…' }).click();
-      await expect(page.getByRole('option', { name: /권한\/역할 관리/ })).toHaveCount(0);
-      await page.keyboard.press('Escape');
-      await evidence(page, testInfo, `no-switcher-${role}`);
-    }
+    await signInAs(page, 'viewer');
+    await page.goto('/metrics');
+    await expect(page.getByRole('button', { name: /^공간:/ })).toHaveCount(0);
+    const nav = page.getByRole('navigation', { name: '주 메뉴' });
+    await expect(nav.getByRole('link', { name: '지표 카탈로그' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toHaveCount(0);
+    await page.getByRole('button', { name: '메뉴 검색…' }).click();
+    await expect(page.getByRole('option', { name: /권한\/역할 관리/ })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await evidence(page, testInfo, 'no-switcher-viewer');
+  });
+
+  test('engineer는 생산성 분석과 지표관리 버튼을 갖고 운영 콘솔 메뉴는 보이지 않는다', async ({ page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    await page.goto('/equipment?v=1&scopeId=ICH');
+    await expect(page.getByRole('button', { name: '공간: 생산성 분석' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '공간: 지표관리' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '공간: 운영 콘솔' })).toHaveCount(0);
+    const nav = page.getByRole('navigation', { name: '주 메뉴' });
+    await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toHaveCount(0);
+    await evidence(page, testInfo, 'engineer-two-spaces');
   });
 
   test('진입 권한이 없는 공간의 직접 URL은 메뉴 권한 검사 전에 공간 거부를 보인다', async ({ page }, testInfo) => {
@@ -592,7 +603,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
   test('관리자는 레일 공간 버튼으로 운영 콘솔을 오가며 전역 Context를 보존한다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(EQUIPMENT_URL);
-    const switcher = page.getByRole('button', { name: '공간: 분석' });
+    const switcher = page.getByRole('button', { name: '공간: 생산성 분석' });
     await expect(switcher).toBeVisible();
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
     await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
@@ -600,7 +611,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await page.getByRole('button', { name: '메뉴 검색…' }).click();
     // Palette spans every accessible space; the secondary line names the space first.
     await expect(page.getByRole('option', { name: /권한\/역할 관리/ })).toContainText('운영 콘솔');
-    await expect(page.getByRole('option', { name: /설비 마스터/ })).toContainText('분석');
+    await expect(page.getByRole('option', { name: /설비 마스터/ })).toContainText('생산성 분석');
     await page.keyboard.press('Escape');
     await evidence(page, testInfo, 'admin-analytics');
 
@@ -623,7 +634,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await page.goBack();
     await expect.poll(() => page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(EQUIPMENT_URL);
     await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '공간: 분석' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('button', { name: '공간: 생산성 분석' })).toHaveAttribute('aria-current', 'page');
     await evidence(page, testInfo, 'admin-history-back');
 
     await page.goForward();
@@ -639,14 +650,46 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toBeVisible();
     await evidence(page, testInfo, 'admin-history-forward');
 
-    await page.getByRole('button', { name: '공간: 분석' }).click();
-    expect(new URL(page.url()).pathname).toBe('/');
+    await page.getByRole('button', { name: '공간: 생산성 분석' }).click();
+    expect(new URL(page.url()).pathname).toBe('/equipment');
     const back = query(page);
     expect(back.get('scopeId')).toBe('ICH');
     expect(back.get('from')).toBe('2026-09-25T09:00:00');
     expect(back.get('to')).toBe('2026-09-26T09:00:00');
     expect(back.get('selectedEquipmentIds')).toBe('ICH-PHOTO-0103');
+    expect(back.get('page')).toBe('2');
     await evidence(page, testInfo, 'admin-back');
+  });
+});
+
+test.describe('플랫폼 홈 · 전역 화면 (ADR-0028)', () => {
+  test('viewer는 홈에서 공지와 내 VOC를 열고, 전역 화면에는 사이드바가 없다', async ({ page }, testInfo) => {
+    await signInAs(page, 'viewer');
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: '플랫폼 홈' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: '주 메뉴' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^공간:/ })).toHaveCount(0);
+    await page.getByRole('link', { name: '내 VOC' }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/voc');
+    await expect(page.getByRole('navigation', { name: '주 메뉴' })).toHaveCount(0);
+    await page.goto('/');
+    await page.getByRole('link', { name: '공지 목록' }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/notices');
+    await expect(page.getByRole('navigation', { name: '주 메뉴' })).toHaveCount(0);
+    await evidence(page, testInfo, 'viewer-home-global');
+  });
+
+  test('여러 공간이 있는 역할도 전역 화면에서는 레일 표식이 없고, 공간 화면에서만 현재 공간을 표시한다', async ({ page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    await page.goto('/notices');
+    await expect(page.getByRole('navigation', { name: '주 메뉴' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '공간: 생산성 분석' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '공간: 지표관리' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '공간: 생산성 분석' })).not.toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('button', { name: '공간: 지표관리' })).not.toHaveAttribute('aria-current', 'page');
+    await page.goto('/equipment?v=1&scopeId=ICH');
+    await expect(page.getByRole('button', { name: '공간: 생산성 분석' })).toHaveAttribute('aria-current', 'page');
+    await evidence(page, testInfo, 'global-rail-marker');
   });
 });
 
@@ -985,8 +1028,9 @@ test.describe('메뉴 활용률 (06 §4, docs/05 — kernel이 recordUsage로 �
 
   test('권한 없는 역할(engineer)은 메뉴가 비노출이고 직접 URL은 공간 거부다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
-    await page.goto('/');
+    await page.goto('/equipment?v=1&scopeId=ICH');
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
+    await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
     await expect(nav.getByRole('link', { name: '메뉴 활용률' })).toHaveCount(0);
 
     await page.goto(DIRECT_URL);
@@ -1000,8 +1044,9 @@ test.describe('메뉴 활용률 (06 §4, docs/05 — kernel이 recordUsage로 �
 
   test('viewer도 메뉴가 비노출이고 직접 URL은 공간 거부다', async ({ page }, testInfo) => {
     await signInAs(page, 'viewer');
-    await page.goto('/');
+    await page.goto('/metrics');
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
+    await expect(nav.getByRole('link', { name: '지표 카탈로그' })).toBeVisible();
     await expect(nav.getByRole('link', { name: '메뉴 활용률' })).toHaveCount(0);
 
     await page.goto(DIRECT_URL);
@@ -1061,7 +1106,7 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
   test('권한 없는 역할(engineer)은 메뉴가 비노출이고 직접 URL은 공간 거부다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
     await seedRecent(page, 'engineer', { menuId: 'equipment-master', url: '/equipment' });
-    await page.goto('/');
+    await page.goto('/equipment?v=1&scopeId=ICH');
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
     // Absence proves nothing before the shell has rendered: wait for a link this role does own.
     await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
@@ -1099,7 +1144,7 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
   test('viewer도 메뉴가 비노출이고 직접 URL은 공간 거부다', async ({ page }, testInfo) => {
     await signInAs(page, 'viewer');
     await seedRecent(page, 'viewer', { menuId: 'metric-catalog', url: '/metrics' });
-    await page.goto('/');
+    await page.goto('/metrics');
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
     await expect(nav.getByRole('link', { name: '지표 카탈로그' })).toBeVisible();
     await expect(nav.getByRole('link', { name: '메뉴 레지스트리' })).toHaveCount(0);
@@ -1130,7 +1175,7 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
 
   test('관리자: 팔레트 검색으로 메뉴 레지스트리(운영 콘솔)에 도달한다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
-    await page.goto('/');
+    await page.goto('/equipment?v=1&scopeId=ICH');
     // Positive control for the non-exposure checks above: the same search finds the menu for admin.
     await expect(page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: '설비 마스터' })).toBeVisible();
     await searchPalette(page, '레지스트리');
@@ -1139,8 +1184,8 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
     await expect(option).toContainText('운영 콘솔');
     await option.click();
     await expect(page.getByRole('main').getByRole('table').first()).toBeVisible({ timeout: 10_000 });
-    // The palette navigates through linkTo: the target is the menu's v=1 deep link (§6.1).
-    expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(`${DIRECT_URL}?v=1`);
+    // The palette navigates through linkTo: the target is the menu's v=1 deep link and keeps the current global scope (§6.1).
+    expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(`${DIRECT_URL}?v=1&scopeId=ICH`);
     await evidence(page, testInfo, 'registry-admin-palette');
   });
 
@@ -1164,7 +1209,7 @@ test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-
   test('engineer는 메뉴가 비노출이고 직접 URL에서 공간 거부를 본다', async ({ page }, testInfo) => {
     const directUrl = '/admin/roles?v=1&focus=admin';
     await signInAs(page, 'engineer');
-    await page.goto('/');
+    await page.goto('/equipment?v=1&scopeId=ICH');
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
     await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
     await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toHaveCount(0);

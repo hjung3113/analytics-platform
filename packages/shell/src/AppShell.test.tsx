@@ -1,8 +1,9 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { DetailDrawer } from '@ap/components';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GroupId, Permission, PlatformAdapter, Session } from '@ap/contracts';
+import type { FeedbackOpsSlot, PlatformSlots } from '@ap/kernel';
 import { I18nProvider, PlatformProvider, usePlatform, createRegistry } from '@ap/kernel';
 import { AppShell } from './AppShell';
 import { AppRail } from './AppRail';
@@ -13,7 +14,7 @@ function menu(id: string, group: GroupId, path: string, permission: Permission) 
 }
 const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const registry = createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' }, { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' }],
+  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home' }, { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'ops', permission: 'console:access' }],
   groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics', hideLabelWhenSingle: true }, { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' }],
   menus: [menu('ops', 'admin', '/ops', 'console:access'), { id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['focus', 'tab'] }],
 });
@@ -40,7 +41,7 @@ function sidebarRegistry(groupId: GroupId, groupLabel: string, menuIds: string[]
     primary: index === 0,
   }));
   return createRegistry({
-    spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: menuIds[0] }],
+    spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: menuIds[0] }],
     groups: [{
       id: groupId,
       label: { ko: groupLabel, en: groupLabel },
@@ -55,8 +56,12 @@ function sidebarRegistry(groupId: GroupId, groupLabel: string, menuIds: string[]
 
 beforeEach(() => {
   const values = new Map<string, string>();
+  const session = new Map<string, string>();
   Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
   vi.stubGlobal('localStorage', { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key), clear: () => values.clear() });
+  // Admitted space routes now write platform:space-last. A shared jsdom sessionStorage would make a later
+  // switchSpace resume that URL instead of the space home these tests assert.
+  vi.stubGlobal('sessionStorage', { getItem: (key: string) => session.get(key) ?? null, setItem: (key: string, value: string) => session.set(key, value), removeItem: (key: string) => session.delete(key), clear: () => session.clear() });
   window.history.replaceState(null, '', '/?v=1&scopeId=ICH&lotIds=kept');
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -66,8 +71,8 @@ function FavoriteControl() {
   return <button onClick={() => toggleFavorite('home')}>save favorite</button>;
 }
 
-function mount(permissions: Session['user']['permissions'] = ['platform:view'], shell = true, registryForRender = registry) {
-  return render(<I18nProvider><PlatformProvider adapter={adapterWith(permissions)} registry={registryForRender} slots={{ topBarTools: <button>injected tool</button> }}>
+function mount(permissions: Session['user']['permissions'] = ['platform:view'], shell = true, registryForRender = registry, slots: PlatformSlots = {}) {
+  return render(<I18nProvider><PlatformProvider adapter={adapterWith(permissions)} registry={registryForRender} slots={{ topBarTools: <button>injected tool</button>, ...slots }}>
     {shell ? <AppShell><input aria-label="editor" /><FavoriteControl /></AppShell> : <><AppRail /><AppSidebar collapsed={false} onToggle={() => {}} /></>}
   </PlatformProvider></I18nProvider>);
 }
@@ -196,7 +201,8 @@ describe('primary navigation boundary (#194 FIX1)', () => {
     expect(within(favorites).getByRole('link', { name: '홈' })).not.toHaveAttribute('aria-current');
     expect(favorites.querySelector('[data-current-marker]')).toBeNull();
     expect(recent.querySelector('[data-current-marker]')).toBeNull();
-    expect(document.querySelectorAll('a[aria-current=page]')).toHaveLength(1);
+    // Primary nav and the logo both mark the home menu; favorites and recent still do not.
+    expect(document.querySelectorAll('a[aria-current=page]')).toHaveLength(2);
     // Match by substring, like Playwright's default name matching in the contract suite.
     expect(within(primary).getAllByRole('link', { name: /홈/ })).toHaveLength(1);
     expect(within(primary).getAllByRole('link')).toHaveLength(1);
@@ -330,4 +336,209 @@ it('opens the named slot and selected tab from URL focus/tab and clears focus on
   for (const token of ['focus-visible:ring-2', 'focus-visible:ring-inset', 'focus-visible:ring-focus-ring']) {
     expect(screen.getByRole('main').classList.contains(token)).toBe(true);
   }
+});
+
+const feedbackSlot: FeedbackOpsSlot = {
+  entriesFor: spaceId => spaceId === 'analytics' ? [
+    { id: 'task', label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' },
+    { id: 'voc-create', label: { ko: 'VOC 등록', en: 'File a VOC' }, href: 'https://example.test/new' },
+  ] : spaceId === 'operations' ? [] : null,
+  overall: { href: 'https://example.test/all' },
+};
+
+function globalShellRegistry(equipmentPermission: Permission = 'platform:view') {
+  return createRegistry({
+    spaces: [
+      { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'equipment' },
+      { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'ops', permission: 'console:access' },
+    ],
+    groups: [
+      { id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
+      { id: 'equipment', label: { ko: '설비', en: 'Equipment' }, icon: House, space: 'analytics' },
+      { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' },
+    ],
+    menus: [
+      { id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] },
+      menu('equipment', 'equipment', '/equipment', equipmentPermission),
+      menu('ops', 'admin', '/ops', 'console:access'),
+    ],
+  });
+}
+
+function logoRegistry() {
+  return createRegistry({
+    spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'equipment' }],
+    groups: [
+      { id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
+      { id: 'noticeVoc', label: { ko: '공지', en: 'Notices' }, icon: House, space: null },
+      { id: 'equipment', label: { ko: '설비', en: 'Equipment' }, icon: House, space: 'analytics' },
+    ],
+    menus: [
+      { id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] },
+      { id: 'notices', group: 'noticeVoc', primary: true, label: { ko: '공지', en: 'Notices' }, description: { ko: '', en: '' }, path: '/notices', icon: House, permission: 'notice:view', requiresScope: false, context: none, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] },
+      menu('equipment', 'equipment', '/equipment', 'platform:view'),
+    ],
+  });
+}
+
+describe('workspace shell layout (15 §3.1)', () => {
+  it('marks the logo as the current page on the home menu, and keeps the plain logo when / is unregistered', () => {
+    mount();
+    const rail = screen.getByRole('navigation', { name: '앱 레일' });
+    const home = within(rail).getByRole('link', { name: '플랫폼 홈' });
+    expect(home.getAttribute('href')).toMatch(/^\//);
+    expect(home.getAttribute('aria-current')).toBe('page');
+    expect(home).toHaveClass('bg-surface-row-selected', 'text-accent-primary');
+    expect(home.querySelector('[data-current-marker]')).toHaveClass('absolute', 'inset-y-2', 'left-0', 'w-0.5', 'rounded-pill', 'bg-accent-primary');
+    cleanup();
+    mount(['platform:view'], false, sidebarRegistry('equipment', '설비관리', ['equipment-home']));
+    const plain = screen.getByRole('navigation', { name: '앱 레일' });
+    expect(within(plain).queryByRole('link', { name: '플랫폼 홈' })).toBeNull();
+    expect(within(plain).getByText('Analytics Platform')).toBeTruthy();
+  });
+
+  it.each([
+    ['home', '/?v=1', true],
+    ['notices', '/notices?v=1', false],
+    ['space', '/equipment?v=1', false],
+  ])('marks the logo current only on the home menu (%s)', (_label, url, current) => {
+    window.history.replaceState(null, '', url);
+    mount(['platform:view', 'notice:view'], true, logoRegistry());
+    const logo = within(screen.getByRole('navigation', { name: '앱 레일' })).getByRole('link', { name: '플랫폼 홈' });
+    if (current) {
+      expect(logo.getAttribute('aria-current')).toBe('page');
+      expect(logo).toHaveClass('bg-surface-row-selected', 'text-accent-primary');
+      expect(logo.querySelector('[data-current-marker]')).toHaveClass('absolute', 'inset-y-2', 'left-0', 'w-0.5', 'rounded-pill', 'bg-accent-primary');
+    } else {
+      expect(logo.hasAttribute('aria-current')).toBe(false);
+      expect(logo.className).not.toContain('bg-surface-row-selected');
+      expect(logo.querySelector('[data-current-marker]')).toBeNull();
+    }
+  });
+
+  it('renders FeedbackOps entries in slot order outside the scroll region, and the overall rail link', () => {
+    mount(['platform:view'], true, registry, { feedbackOps: feedbackSlot });
+    const block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
+    const scroll = document.querySelector('.shell-scroll');
+    expect(scroll?.contains(block)).toBe(false);
+    const links = within(block).getAllByRole('link');
+    expect(links.map(link => link.getAttribute('aria-label'))).toEqual([
+      'Task — 분석, FeedbackOps, 새 탭',
+      'VOC 등록 — 분석, FeedbackOps, 새 탭',
+    ]);
+    for (const link of links) {
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+      expect(link.hasAttribute('aria-current')).toBe(false);
+      expect(link.querySelectorAll('svg')).toHaveLength(2);
+    }
+    expect(within(block).getByText('새 탭에서 열립니다')).toBeTruthy();
+    const rail = screen.getByRole('navigation', { name: '앱 레일' });
+    const overall = within(rail).getByRole('link', { name: 'FeedbackOps 전체 — 새 탭' });
+    expect(overall).toHaveAttribute('href', 'https://example.test/all');
+    expect(overall).toHaveAttribute('target', '_blank');
+    expect(overall).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(overall.hasAttribute('aria-current')).toBe(false);
+    expect(overall.compareDocumentPosition(within(rail).getByRole('button', { name: 'injected tool' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('shows only entry icons, in the same order, when the sidebar is collapsed', () => {
+    localStorage.setItem('platform:sidebar-collapsed', '1');
+    mount(['platform:view'], true, registry, { feedbackOps: feedbackSlot });
+    const block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
+    expect(within(block).queryByText('새 탭에서 열립니다')).toBeNull();
+    expect(block.textContent).not.toContain('FeedbackOps · 분석');
+    const links = within(block).getAllByRole('link');
+    expect(links.map(link => link.getAttribute('aria-label'))).toEqual([
+      'Task — 분석, FeedbackOps, 새 탭',
+      'VOC 등록 — 분석, FeedbackOps, 새 탭',
+    ]);
+    for (const link of links) expect(link.querySelectorAll('svg')).toHaveLength(1);
+  });
+
+  it.each([
+    ['null', null],
+    ['empty', [] as const],
+  ])('omits the block when entriesFor returns %s', (_label, entries) => {
+    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: () => entries, overall: null } });
+    expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
+    expect(within(screen.getByRole('navigation', { name: '앱 레일' })).queryByRole('link', { name: /FeedbackOps 전체/ })).toBeNull();
+  });
+
+  it('keeps the overall rail link when the block is empty', () => {
+    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: () => [], overall: { href: 'https://example.test/all' } } });
+    expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
+    expect(within(screen.getByRole('navigation', { name: '앱 레일' })).getByRole('link', { name: 'FeedbackOps 전체 — 새 탭' })).toBeTruthy();
+  });
+
+  it('hides the sidebar and the rail marker on a global screen', () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    mount(['platform:view', 'console:access'], true, globalShellRegistry());
+    expect(screen.queryByRole('navigation', { name: '주 메뉴' })).toBeNull();
+    expect(screen.getByRole('button', { name: '공간: 분석' }).hasAttribute('aria-current')).toBe(false);
+    expect(screen.getByRole('button', { name: '공간: 운영 콘솔' }).hasAttribute('aria-current')).toBe(false);
+  });
+
+  it('hides the sidebar when no space is accessible', () => {
+    window.history.replaceState(null, '', '/?v=1');
+    mount(['platform:view'], true, globalShellRegistry('equipment:view'));
+    expect(screen.queryByRole('navigation', { name: '주 메뉴' })).toBeNull();
+    expect(screen.queryByRole('complementary')).toBeNull();
+  });
+
+  it('keeps the fallback sidebar on an unmatched path and still withholds the rail marker and FeedbackOps block', () => {
+    window.history.replaceState(null, '', '/unregistered?v=1');
+    mount(['platform:view', 'console:access'], true, globalShellRegistry(), { feedbackOps: feedbackSlot });
+    expect(screen.getByRole('navigation', { name: '주 메뉴' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '공간: 분석' }).hasAttribute('aria-current')).toBe(false);
+    expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
+  });
+
+  it('omits FeedbackOps on a space-denied direct URL and does not query that space', () => {
+    const seen: string[] = [];
+    window.history.replaceState(null, '', '/ops?v=1');
+    mount(['platform:view'], true, registry, { feedbackOps: {
+      entriesFor: spaceId => { seen.push(spaceId); return [{ id: 'task', label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' }]; },
+      overall: null,
+    } });
+    expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
+    expect(seen).not.toContain('operations');
+  });
+
+  it('drops the FeedbackOps block when space entry is revoked on the same route', () => {
+    const listeners = new Set<() => void>();
+    const seen: string[] = [];
+    let session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view', 'console:access'] }, scopes: [] };
+    const adapter: PlatformAdapter = {
+      ...adapterWith(['platform:view', 'console:access']),
+      session: () => session,
+      subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
+    };
+    window.history.replaceState(null, '', '/ops?v=1');
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ feedbackOps: {
+      entriesFor: spaceId => { seen.push(spaceId); return [{ id: 'task', label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' }]; },
+      overall: null,
+    } }}>
+      <AppShell><input aria-label="editor" /></AppShell>
+    </PlatformProvider></I18nProvider>);
+    expect(screen.getByRole('navigation', { name: 'FeedbackOps · 운영 콘솔' })).toBeTruthy();
+    seen.length = 0;
+    act(() => {
+      session = { ...session, user: { ...session.user, permissions: ['platform:view'] } };
+      for (const listener of listeners) listener();
+    });
+    expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
+    expect(seen).not.toContain('operations');
+  });
+
+  it('omits FeedbackOps on an unregistered path even when the fallback space has entries', () => {
+    const seen: string[] = [];
+    window.history.replaceState(null, '', '/unregistered?v=1');
+    mount(['platform:view', 'console:access'], true, registry, { feedbackOps: {
+      entriesFor: spaceId => { seen.push(spaceId); return [{ id: 'task', label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' }]; },
+      overall: null,
+    } });
+    expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
+    expect(seen).toEqual([]);
+  });
 });

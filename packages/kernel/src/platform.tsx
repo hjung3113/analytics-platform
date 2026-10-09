@@ -7,11 +7,23 @@ import { buildQuery, ContractError, emptyGlobal, type GlobalContext, incompleteM
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope' | 'error'; validatedFor: Session | null; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
 export type Toast = { id: number; text: string; tone: 'info' | 'warning' | 'danger' };
+/** FeedbackOps entry the shell draws for one space. The shell picks the icon from `id` (ADR-0028). */
+export type FeedbackOpsEntryId = 'voc-create' | 'voc' | 'task' | 'survey';
+export type FeedbackOpsEntry = { id: FeedbackOpsEntryId; label: Text; href: string };
+/**
+ * Space-scoped FeedbackOps links. Absent until the app supplies a Managed System mapping
+ * (ADR-0027, ADR-0028, #81, #251) — the shell then draws neither the block nor the rail link.
+ */
+export type FeedbackOpsSlot = {
+  entriesFor: (spaceId: SpaceId) => readonly FeedbackOpsEntry[] | null;
+  overall: { href: string } | null;
+};
 /**
  * Shell slots (docs/06 §8) the app fills at composition time, so platform components never import the shell.
  * contextBar: rendered by PlatformPage above page content. topBarTools: extra controls at the bottom of the app rail (today the mock dev tools).
+ * feedbackOps: space-scoped entries and the overall link (ADR-0027, ADR-0028).
  */
-export type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode };
+export type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode; feedbackOps?: FeedbackOpsSlot };
 export type LinkOptions = { params?: Record<string, string>; page?: Record<string, string>; global?: Partial<GlobalContext>; returnTo?: boolean };
 export type LinkResolution = {
   href: string;
@@ -67,7 +79,9 @@ type Platform = {
   currentSpace: SpaceDef | null;
   /** currentSpace when accessible, else the first accessible space, else null. Throws only when the registry declares no spaces. */
   sidebarSpace: SpaceDef | null;
-  /** No-op when spaceId is the current space or not accessible; else push to the space home keeping globals only. */
+  /** Last admitted URL in this tab for a space, re-validated on every read. Null when missing or rejected. */
+  spaceResume: (spaceId: SpaceId) => { menuId: string; href: string } | null;
+  /** No-op when spaceId is the current space or not accessible; else push the resumed URL or the space home. */
   switchSpace: (spaceId: SpaceId) => void;
   scope: ScopeState;
   /** Re-runs Scope validation for the requested scope after an `error` (no automatic retry in the Kernel, #167). */
@@ -115,6 +129,51 @@ function read<T>(key: string, fallback: T): T {
 }
 function write(key: string, value: unknown) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* memory-only */ }
+}
+
+function spaceLastKey(userId: string) {
+  return `platform:space-last:${userId}`;
+}
+
+/** String entries only. Bad JSON or a non-object starts from {}. Never throws. */
+function readSpaceLast(userId: string): Record<string, string> {
+  try {
+    const raw = sessionStorage.getItem(spaceLastKey(userId));
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const out: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof value === 'string') out[key] = value;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/** A path segment that is `.` or `..` after one decode (`%2e`, `%2E`, `.%2e`, and the literal forms). */
+function hasDotSegment(pathname: string): boolean {
+  for (const segment of pathname.split('/')) {
+    if (segment === '') continue;
+    let decoded: string;
+    try { decoded = decodeURIComponent(segment); } catch { return true; }
+    if (decoded === '.' || decoded === '..') return true;
+  }
+  return false;
+}
+
+function sameParams(a: Record<string, string>, b: Record<string, string>): boolean {
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every(key => a[key] === b[key]);
+}
+
+function writeSpaceLast(userId: string, spaceId: string, url: string) {
+  try {
+    const next = readSpaceLast(userId);
+    next[spaceId] = url;
+    sessionStorage.setItem(spaceLastKey(userId), JSON.stringify(next));
+  } catch { /* memory-only */ }
 }
 
 function currentUrl() { return window.location.pathname + window.location.search; }
@@ -313,13 +372,38 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     () => registry.menus.filter(m => registry.spaceOf(m) === null && can(m.permission)),
     [registry, can],
   );
+  // Read at call time. Stored globals are not restored: resolveLink carries the current global and the menu's page keys only.
+  const spaceResume = useCallback((spaceId: SpaceId): { menuId: string; href: string } | null => {
+    const stored = readSpaceLast(userId)[spaceId];
+    if (typeof stored !== 'string' || !isAppRelativePath(stored)) return null;
+    const q = stored.indexOf('?');
+    const path = q === -1 ? stored : stored.slice(0, q);
+    const search = q === -1 ? '' : stored.slice(q);
+    // A stored `..` (including `%2e%2e`) matches a param route, then the browser normalizes it to a different path.
+    if (hasDotSegment(path)) return null;
+    const matched = matchRoute(path);
+    if (!matched) return null;
+    if (registry.spaceOf(matched.menu)?.id !== spaceId) return null;
+    if (!can(matched.menu.permission) || !enters(matched.menu)) return null;
+    let parsed: ParsedQuery;
+    try { parsed = parseQuery(search, matched.menu.pageKeys); } catch { return null; }
+    if (incompleteMetricPair(matched.menu, parsed.global.metricId, parsed.global.metricVersion)) return null;
+    const page: Record<string, string> = {};
+    for (const [key, value] of parsed.page) page[key] = value;
+    const href = resolveLink(matched.menu.id, { params: matched.params, page }).href;
+    let normalized: string;
+    try { normalized = new URL(href, 'http://x').pathname; } catch { return null; }
+    const again = matchRoute(normalized);
+    if (!again || again.menu.id !== matched.menu.id || !sameParams(again.params, matched.params)) return null;
+    return { menuId: matched.menu.id, href };
+  }, [userId, matchRoute, registry, can, enters, resolveLink]);
   // Reselecting the current space never sends the user home; non-accessible targets keep the URL.
   const switchSpace = useCallback((spaceId: SpaceId) => {
     if (currentSpace?.id === spaceId) return;
     const target = accessibleSpaces.find(s => s.id === spaceId);
     if (!target) return;
-    navigate(linkTo(target.homeMenuId));
-  }, [currentSpace, accessibleSpaces, linkTo, navigate]);
+    navigate(spaceResume(spaceId)?.href ?? linkTo(target.homeMenuId));
+  }, [currentSpace, accessibleSpaces, spaceResume, linkTo, navigate]);
 
   const toggleFavorite = useCallback((menuId: string) => {
     setFavorites(list => {
@@ -378,12 +462,14 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     if (!route || routeContractError || !can(route.menu.permission)) return;
     if (!enters(route.menu)) return;
     const menuId = route.menu.id;
+    const space = registry.spaceOf(route.menu);
+    if (space !== null) writeSpaceLast(userId, space.id, url);
     setRecent(list => {
       const next = [{ menuId, url, at: Date.now() }, ...list.filter(r => r.menuId !== menuId)].slice(0, 12);
       write(`platform:recent:${userId}`, next);
       return next;
     });
-  }, [url, route, routeContractError, userId, can, enters]);
+  }, [url, route, routeContractError, userId, can, enters, registry]);
   // Usage events (docs/05 메뉴 활용률 계측): one `entry` per admitted stay and a `dwell` on leave, sent
   // fire-and-forget through the adapter — no await, no abort signal, failures are silent, navigation never
   // blocks. Admission is `${userId}\0${menu.id}\0${pathname}` and requires the menu gate; a space menu also
@@ -472,7 +558,7 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
 
   const value: Platform = {
     registry, adapter, url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
-    session, user, revision, can, visibleMenus, globalMenus, menusInSpace, accessibleSpaces, currentSpace, sidebarSpace, switchSpace, scope: scopeView, retryScope, lastScope, favorites, toggleFavorite, recent,
+    session, user, revision, can, visibleMenus, globalMenus, menusInSpace, accessibleSpaces, currentSpace, sidebarSpace, spaceResume, switchSpace, scope: scopeView, retryScope, lastScope, favorites, toggleFavorite, recent,
     toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen,
   };
   return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>;

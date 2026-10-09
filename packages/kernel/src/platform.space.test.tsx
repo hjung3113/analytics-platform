@@ -14,8 +14,8 @@ const noFeatures = { export: false, savedView: false, annotate: false, compare: 
 // admin-child is a non-home console menu whose permission ('platform:view') is weaker than its space's
 // gate ('console:access') — so a space denial on it cannot be masked by the menu-permission guard.
 const spaces: SpaceDef[] = [
-  { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'equipment' },
-  { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' },
+  { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'equipment' },
+  { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' },
 ];
 const registry = createRegistry({
   spaces,
@@ -83,9 +83,16 @@ function mountAt(url: string, permissions: Session['user']['permissions']) {
 // Node's own (file-less) localStorage shadows jsdom's here, so give each test an in-memory store.
 beforeEach(() => {
   const data = new Map<string, string>();
+  const session = new Map<string, string>();
   vi.stubGlobal('localStorage', {
     getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); },
     removeItem: (k: string) => { data.delete(k); }, clear: () => data.clear(), key: () => null, get length() { return data.size; },
+  });
+  // The provider now writes platform:space-last on an admitted space route. Isolate it so a later switchSpace
+  // in this file does not resume a URL recorded by an earlier test.
+  vi.stubGlobal('sessionStorage', {
+    getItem: (k: string) => session.get(k) ?? null, setItem: (k: string, v: string) => { session.set(k, v); },
+    removeItem: (k: string) => { session.delete(k); }, clear: () => session.clear(), key: () => null, get length() { return session.size; },
   });
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
