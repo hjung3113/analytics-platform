@@ -11,7 +11,7 @@ import { noContext, testAdapter, testSpace } from './test-support';
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 
 const spaces: SpaceDef[] = [
-  testSpace({ homeMenuId: 'equipment' }),
+  testSpace({ id: 'analytics', homeMenuId: 'equipment' }),
   testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' }),
 ];
 const registry = createRegistry({

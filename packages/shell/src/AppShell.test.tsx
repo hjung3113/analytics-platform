@@ -14,7 +14,7 @@ function menu(id: string, group: GroupId, path: string, permission: Permission) 
   return { id, group, path, permission, primary: true, label: { ko: '운영 홈', en: 'Operations home' }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] };
 }
 const registry = createRegistry({
-  spaces: [testSpace(), testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' })],
+  spaces: [testSpace({ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' }), testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' })],
   groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics', hideLabelWhenSingle: true }, { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' }],
   menus: [menu('ops', 'admin', '/ops', 'console:access'), { id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['focus', 'tab'] }],
 });
@@ -344,7 +344,7 @@ const feedbackSlot: FeedbackOpsSlot = {
 function globalShellRegistry(equipmentPermission: Permission = 'platform:view') {
   return createRegistry({
     spaces: [
-      testSpace({ homeMenuId: 'equipment' }),
+      testSpace({ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'equipment' }),
       testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' }),
     ],
     groups: [

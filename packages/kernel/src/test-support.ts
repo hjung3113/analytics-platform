@@ -25,8 +25,10 @@ const empty: ApiResponse<never> = { outcome: 'empty', data: null, assessments: [
 
 /** Adapter fixture: every method denied/empty and `subscribe` a no-op. Pass only the methods the test means. */
 export function testAdapter(over: Partial<PlatformAdapter> = {}): PlatformAdapter {
+  // session() is a store snapshot (adapter.ts): one default session per adapter, not per read.
+  const session = testSession([]);
   return {
-    session: () => testSession([]),
+    session: () => session,
     validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
     publishedMetrics: () => [],
     contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),

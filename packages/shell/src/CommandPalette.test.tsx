@@ -16,7 +16,7 @@ const menu = (id: string, group: 'overview' | 'equipment' | 'admin' | 'noticeVoc
 
 const registry = createRegistry({
   spaces: [
-    testSpace(),
+    testSpace({ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' }),
     testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'roles' }),
   ],
   groups: [

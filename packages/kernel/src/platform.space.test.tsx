@@ -14,7 +14,7 @@ const noFeatures = { export: false, savedView: false, annotate: false, compare: 
 // admin-child is a non-home console menu whose permission ('platform:view') is weaker than its space's
 // gate ('console:access') — so a space denial on it cannot be masked by the menu-permission guard.
 const spaces: SpaceDef[] = [
-  testSpace({ homeMenuId: 'equipment' }),
+  testSpace({ id: 'analytics', homeMenuId: 'equipment' }),
   testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' }),
 ];
 const registry = createRegistry({

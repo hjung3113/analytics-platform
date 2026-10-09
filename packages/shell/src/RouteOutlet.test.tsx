@@ -25,7 +25,7 @@ const lazyMissing = lazy(() => Promise.reject(new TypeError('Failed to fetch dyn
 function Flaky() { if (broken) throw new TypeError('flaky'); return <p>flaky ok</p>; }
 
 const registry = createRegistry({
-  spaces: [testSpace()],
+  spaces: [testSpace({ id: 'analytics' })],
   groups: [{ id: 'equipment', label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: 'analytics' }],
   menus: [
     menu('home', '/home', { primary: true, component: () => <p>home page</p> }),
