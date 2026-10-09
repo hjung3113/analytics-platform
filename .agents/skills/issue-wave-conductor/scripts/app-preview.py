@@ -11,10 +11,12 @@ Each preview gets its own port, so its origin and localStorage (role `platform:r
 are separate from every other preview.
 
 Each process starts in its own session. `stop` kills the whole process group (pnpm → vite children) only after an
-ownership check: the recorded pgid plus the parent's recorded start time and command line, or — when the parent is
-gone (or the state file predates pgid recording) — a vite command with the recorded port and `--strictPort` inside
-the group. Unclear ownership (e.g. a reused PID) gets no signal; the state file stays and the stop reports
-`ownership unclear`. State is
+ownership check: the recorded pgid plus the parent's recorded start time and command line (null/empty recorded or
+looked-up values mean unclear), or — when the parent is gone (or the state file predates pgid recording) — a
+token-exact vite signature (`vite`/`vite.js` binary, `--port` exactly the recorded port, `--strictPort`) inside the
+group. Unclear ownership (a reused PID, a failed ps lookup) gets no signal; the state file stays and the stop
+reports `ownership unclear`. Before SIGKILL the ownership check runs again, and a failed ps sweep during the
+termination check keeps the state and reports failure instead of assuming the group is gone. State is
 `$WAVE_STATE/preview-<label>.json` (default `~/.cache/worker-ops/previews/`). `status` lists tracked previews with
 liveness and reports untracked vite servers on the preview port range as `untracked` — they belong to someone
 else, so neither `stop --all` nor this script touches them. Before a handoff, `status` must show no tracked preview.
@@ -23,6 +25,7 @@ Prints one JSON line.
 import argparse
 import json
 import os
+import shlex
 import signal
 import socket
 import subprocess
@@ -59,10 +62,12 @@ def port_free(port):
 
 
 def ps_rows():
-    """(pid, pgid, command) of every process, from one ps sweep."""
-    out = subprocess.run(['ps', '-axo', 'pid=,pgid=,command='], capture_output=True, text=True).stdout
+    """(pid, pgid, command) of every process, from one ps sweep; None when the sweep fails."""
+    r = subprocess.run(['ps', '-axo', 'pid=,pgid=,command='], capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
     rows = []
-    for line in out.splitlines():
+    for line in r.stdout.splitlines():
         parts = line.strip().split(None, 2)
         if len(parts) == 3 and parts[0].isdigit() and parts[1].isdigit():
             rows.append((int(parts[0]), int(parts[1]), parts[2]))
@@ -76,24 +81,53 @@ def ps_value(pid, field):
 
 
 def group_members(pgid):
-    """Live pids still inside the process group."""
-    return [pid for pid, g, _cmd in ps_rows() if g == pgid]
+    """Live pids still inside the process group; None when the ps sweep fails."""
+    rows = ps_rows()
+    return None if rows is None else [pid for pid, g, _cmd in rows if g == pgid]
+
+
+def vite_signature(cmd, port):
+    """Token-exact vite server signature: the vite binary (basename `vite` or `vite.js`), a `--port` token
+    whose value is exactly the recorded port, and a plain `--strictPort` token."""
+    try:
+        tokens = shlex.split(cmd)
+    except ValueError:
+        return False
+    if not any(os.path.basename(t) in ('vite', 'vite.js') for t in tokens):
+        return False
+    for i, tok in enumerate(tokens):
+        if tok == '--port' and i + 1 < len(tokens) and tokens[i + 1] == str(port):
+            break
+        if tok == f'--port={port}':
+            break
+    else:
+        return False
+    return '--strictPort' in tokens
 
 
 def vite_in_group(pgid, port):
-    """A vite server with the recorded port and --strictPort inside the process group."""
-    return any('vite' in cmd and '--strictPort' in cmd and f'--port {port}' in cmd
-               for _pid, g, cmd in ps_rows() if g == pgid)
+    """A vite server with the recorded port and --strictPort inside the process group; None when the ps sweep fails."""
+    rows = ps_rows()
+    if rows is None:
+        return None
+    return any(vite_signature(cmd, port) for _pid, g, cmd in rows if g == pgid)
+
+
+def identified(value):
+    """A usable identification value: a non-empty string. null (ps failed at start), missing, and '' are not."""
+    return isinstance(value, str) and value != ''
 
 
 def owns(s):
     """True when the recorded preview may be signalled safely; False = ownership unclear."""
     if 'pgid' not in s:  # state file from before pgid recording: vite signature only
-        return vite_in_group(s['pid'], s['port'])
+        return bool(vite_in_group(s['pid'], s['port']))
     if alive(s['pid']):
-        return ps_value(s['pid'], 'lstart=') == s.get('lstart') \
-            and ps_value(s['pid'], 'command=') == s.get('command')
-    return vite_in_group(s['pgid'], s['port'])
+        if not (identified(s.get('lstart')) and identified(s.get('command'))):
+            return False
+        current = (ps_value(s['pid'], 'lstart='), ps_value(s['pid'], 'command='))
+        return all(identified(v) for v in current) and current == (s['lstart'], s['command'])
+    return bool(vite_in_group(s['pgid'], s['port']))
 
 
 def tracked():
@@ -122,19 +156,28 @@ def untracked(known_ports):
 
 
 def stop_one(s):
-    if not owns(s):
-        return {'ok': False, 'error': 'ownership unclear', 'label': s['label'], 'pid': s['pid'], 'port': s['port'],
+    def fail(error):
+        return {'ok': False, 'error': error, 'label': s['label'], 'pid': s['pid'], 'port': s['port'],
                 'file': s['file']}
+
+    if not owns(s):
+        return fail('ownership unclear')
     pgid = s.get('pgid', s['pid'])
     try:
         os.killpg(pgid, signal.SIGTERM)
     except OSError:
         pass
     for _ in range(20):
-        if not group_members(pgid):
+        members = group_members(pgid)
+        if members == []:
             break
         time.sleep(0.25)
-    if group_members(pgid):
+    members = group_members(pgid)
+    if members is None:  # a failed sweep is not a confirmed exit: keep the state file
+        return fail('ps sweep failed; termination unconfirmed')
+    if members:
+        if not owns(s):  # re-check before escalating: the pgid may now belong to someone else
+            return fail('ownership unclear after TERM')
         try:
             os.killpg(pgid, signal.SIGKILL)
         except OSError:

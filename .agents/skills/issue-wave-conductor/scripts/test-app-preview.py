@@ -27,12 +27,15 @@ def vite(port):
 class FakePs:
     """Stands in for subprocess.run on every ps call app-preview.py makes."""
 
-    def __init__(self, rows=()):
+    def __init__(self, rows=(), sweep_fail=False):
         self.rows = list(rows)
         self.fields = {}
+        self.sweep_fail = sweep_fail
 
     def run(self, cmd, capture_output=False, text=False):
         if cmd[:2] == ['ps', '-axo']:
+            if self.sweep_fail and cmd[2] == 'pid=,pgid=,command=':
+                return mock.Mock(returncode=1, stdout='')
             out = ''.join(f'{pid} {pgid} {command}\n' for pid, pgid, command in self.rows) \
                 if cmd[2] == 'pid=,pgid=,command=' else ''
             return mock.Mock(returncode=0, stdout=out)
@@ -45,18 +48,24 @@ class FakePs:
 
 
 class StopTest(unittest.TestCase):
-    def stop(self, state_extra, rows, fields, dead_pids=(), dies_on_term=True):
-        ps = FakePs(rows)
+    def stop(self, state_extra, rows, fields, dead_pids=(), dies_on_term=True,
+             sweep_fail=False, rows_after_term=None, dead_after_term=()):
+        ps = FakePs(rows, sweep_fail=sweep_fail)
         ps.fields.update(fields)
+        dead = set(dead_pids)
         calls = []
 
         def killpg(pgid, sig):
             calls.append((pgid, sig))
-            if sig == signal.SIGTERM and dies_on_term:
-                ps.rows = []
+            if sig == signal.SIGTERM:
+                if rows_after_term is not None:
+                    ps.rows = list(rows_after_term)
+                    dead.update(dead_after_term)
+                elif dies_on_term:
+                    ps.rows = []
 
         def kill(pid, sig):
-            if pid in dead_pids:
+            if pid in dead:
                 raise OSError(3, 'No such process')
 
         with tempfile.TemporaryDirectory() as tmp, \
@@ -115,6 +124,96 @@ class StopTest(unittest.TestCase):
                                   ('foreign group', [(205, 100, vite(5190))], False)]:
             with self.subTest(case=name):
                 result, calls, exists = self.stop({}, rows=rows, fields={}, dead_pids={100})
+                self.assertEqual(result['ok'], owned)
+                self.assertEqual(calls, [(100, signal.SIGTERM)] if owned else [])
+                self.assertEqual(exists, not owned)
+
+
+    def test_parent_identification_failures_get_no_signal(self):
+        cases = [
+            ('recorded lstart null', {'pgid': 100, 'lstart': None, 'command': CMD},
+             {(100, 'lstart='): LS, (100, 'command='): CMD}),
+            ('recorded command null', {'pgid': 100, 'lstart': LS, 'command': None},
+             {(100, 'lstart='): LS, (100, 'command='): CMD}),
+            ('recorded both null', {'pgid': 100, 'lstart': None, 'command': None}, {}),
+            ('field missing', {'pgid': 100, 'command': CMD}, {(100, 'command='): CMD}),
+            ('recorded empty', {'pgid': 100, 'lstart': '', 'command': CMD},
+             {(100, 'lstart='): LS, (100, 'command='): CMD}),
+            ('lstart lookup fails', {'pgid': 100, **RECORD}, {(100, 'command='): CMD}),
+            ('command lookup fails', {'pgid': 100, **RECORD}, {(100, 'lstart='): LS}),
+            ('both lookups fail', {'pgid': 100, **RECORD}, {}),
+            ('current empty', {'pgid': 100, **RECORD}, {(100, 'lstart='): LS, (100, 'command='): ''}),
+        ]
+        for name, extra, fields in cases:
+            with self.subTest(case=name):
+                result, calls, exists = self.stop(extra, rows=[(100, 100, CMD)], fields=fields)
+                self.assertFalse(result['ok'])
+                self.assertEqual(result['error'], 'ownership unclear')
+                self.assertEqual(calls, [])
+                self.assertTrue(exists)
+
+    def test_group_replaced_after_term_gets_no_kill(self):
+        result, calls, exists = self.stop(
+            {'pgid': 100, **RECORD},
+            rows=[(100, 100, CMD), (205, 100, vite(5180))],
+            fields={(100, 'lstart='): LS, (100, 'command='): CMD},
+            rows_after_term=[(400, 100, OTHER_CMD)],
+            dead_after_term={100})
+        self.assertFalse(result['ok'])
+        self.assertEqual(calls, [(100, signal.SIGTERM)])
+        self.assertTrue(exists)
+
+    def test_vite_signature_is_token_exact(self):
+        cases = [
+            ('pnpm exec form', CMD, True),
+            ('vite.js child form',
+             'node /checkouts/w/node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5180 --strictPort', True),
+            ('port equals form',
+             'node /checkouts/w/node_modules/.bin/vite --host 127.0.0.1 --port=5180 --strictPort', True),
+            ('port prefix 51800', vite(51800), False),
+            ('port equals 51800',
+             'node /checkouts/w/node_modules/.bin/vite --host 127.0.0.1 --port=51800 --strictPort', False),
+            ('strictPortX',
+             'node /checkouts/w/node_modules/.bin/vite --host 127.0.0.1 --port 5180 --strictPortX', False),
+            ('vite only inside a longer name',
+             'node /checkouts/w/node_modules/.bin/notavite --host 127.0.0.1 --port 5180 --strictPort', False),
+            ('unclosed quote', 'node /checkouts/w/node_modules/.bin/vite --port 5180 --strictPort "unclosed', False),
+        ]
+        for name, cmd, owned in cases:
+            with self.subTest(case=name):
+                result, calls, exists = self.stop(
+                    {'pgid': 100, **RECORD}, rows=[(205, 100, cmd)], fields={}, dead_pids={100})
+                self.assertEqual(result['ok'], owned)
+                self.assertEqual(calls, [(100, signal.SIGTERM)] if owned else [])
+                self.assertEqual(exists, not owned)
+
+    def test_sweep_failure_after_term_keeps_state(self):
+        result, calls, exists = self.stop(
+            {'pgid': 100, **RECORD},
+            rows=[(100, 100, CMD), (205, 100, vite(5180))],
+            fields={(100, 'lstart='): LS, (100, 'command='): CMD},
+            sweep_fail=True)
+        self.assertFalse(result['ok'])
+        self.assertEqual(calls, [(100, signal.SIGTERM)])
+        self.assertTrue(exists)
+
+    def test_sweep_failure_makes_orphan_unclear(self):
+        result, calls, exists = self.stop(
+            {'pgid': 100, **RECORD}, rows=[(205, 100, vite(5180))], fields={}, dead_pids={100},
+            sweep_fail=True)
+        self.assertFalse(result['ok'])
+        self.assertEqual(result['error'], 'ownership unclear')
+        self.assertEqual(calls, [])
+        self.assertTrue(exists)
+
+    def test_empty_and_partial_sweeps(self):
+        for name, rows, owned in [
+            ('empty group', [], False),
+            ('partial output with bad row', [(998, 'junk', 'garbage'), (205, 100, vite(5180))], True),
+        ]:
+            with self.subTest(case=name):
+                result, calls, exists = self.stop(
+                    {'pgid': 100, **RECORD}, rows=rows, fields={}, dead_pids={100})
                 self.assertEqual(result['ok'], owned)
                 self.assertEqual(calls, [(100, signal.SIGTERM)] if owned else [])
                 self.assertEqual(exists, not owned)
@@ -182,19 +281,24 @@ class StopAllTest(unittest.TestCase):
                 mock.patch.object(ap, 'emit', side_effect=fake_emit), \
                 mock.patch.object(ap.sys, 'argv', ['app-preview.py', 'stop', '--all']):
             sub.run.side_effect = ps.run
-            Path(tmp, 'preview-reused.json').write_text(json.dumps(
-                {'label': 'reused', 'pid': 200, 'pgid': 200, 'port': 5181, 'lstart': LS, 'command': CMD}))
-            Path(tmp, 'preview-orphan.json').write_text(json.dumps(
-                {'label': 'orphan', 'pid': 300, 'pgid': 300, 'port': 5182, **RECORD}))
+            # 'a' sorts before 'z': the unclear entry must not end the --all loop.
+            Path(tmp, 'preview-a-unclear.json').write_text(json.dumps(
+                {'label': 'unclear', 'pid': 200, 'pgid': 200, 'port': 5181, 'lstart': LS, 'command': CMD}))
+            Path(tmp, 'preview-z-owned.json').write_text(json.dumps(
+                {'label': 'owned', 'pid': 300, 'pgid': 300, 'port': 5182, **RECORD}))
             with self.assertRaises(SystemExit) as cm:
                 ap.main()
+            unclear_kept = Path(tmp, 'preview-a-unclear.json').exists()
+            owned_removed = Path(tmp, 'preview-z-owned.json').exists()
         self.assertEqual(cm.exception.code, 0)
         obj, code = captured[0]
         self.assertEqual(code, 0)
         self.assertTrue(obj['ok'])
-        self.assertEqual(obj['stopped'], ['orphan'])
-        self.assertEqual(obj['skipped'], [{'label': 'reused', 'error': 'ownership unclear'}])
+        self.assertEqual(obj['stopped'], ['owned'])
+        self.assertEqual(obj['skipped'], [{'label': 'unclear', 'error': 'ownership unclear'}])
         self.assertEqual(calls, [(300, signal.SIGTERM)])
+        self.assertTrue(unclear_kept)
+        self.assertFalse(owned_removed)
 
 
 if __name__ == '__main__':
