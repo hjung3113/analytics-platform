@@ -397,6 +397,15 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(within(plain).getByText('Analytics Platform')).toBeTruthy();
   });
 
+  it('keeps the plain logo when / is registered but cannot be opened, and does not mark it current', () => {
+    window.history.replaceState(null, '', '/?v=1');
+    mount(['notice:view'], true, logoRegistry());
+    const rail = screen.getByRole('navigation', { name: '앱 레일' });
+    expect(within(rail).queryByRole('link', { name: '플랫폼 홈' })).toBeNull();
+    expect(within(rail).getByText('Analytics Platform')).toBeTruthy();
+    expect(rail.querySelector('[data-current-marker]')).toBeNull();
+  });
+
   it.each([
     ['home', '/?v=1', true],
     ['notices', '/notices?v=1', false],

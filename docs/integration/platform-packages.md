@@ -111,7 +111,7 @@ const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: [...hom
 - **route 충돌 없음:** 파라미터 이름을 지운 정규형(`/metrics/:metricId` → `/metrics/:`)이 같은 두 패턴은 거부한다. 정적 세그먼트와 파라미터가 같은 위치에서 겹치는 경우(`/metrics/new` vs `/metrics/:metricId`)는 허용하되, `matchRoute`가 등록 순서가 아니라 **정적 세그먼트 우선**(앞 세그먼트부터 정적 > 파라미터)으로 고른다. 현재 `matchRoute`는 선언 순서 first-match라 메뉴 패키지로 나누면 등록 순서가 결과를 바꿀 수 있다
 - 그룹마다 `primary` 정확히 하나(06 §5)
 - `pageKeys`가 전역 Context 키와 겹치지 않음(06 §6.1)
-- **공간(06 §9.1):** 그룹의 `space`는 등록된 `SpaceDef`여야 하고, 공간별 `homeMenuId`는 그 공간 소속·파라미터 없는 경로·공간 `permission`과 같은 메뉴여야 하며, 부모 메뉴는 자식과 같은 공간에 있다
+- **공간:** 검증 규칙은 [06 §9.1](../06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26)과 [`packages/kernel/src/registry.ts`](../../packages/kernel/src/registry.ts)가 소유한다. 전역 유틸리티 그룹은 `space: null`이고, 그 외에는 등록된 공간만 허용한다.
 
 생성기는 manifest 뼈대, `pageType`별 06 §12 슬롯 뼈대(화면 슬롯은 12.6), 조회 선언·mock 핸들러, 테스트를 만들고 앱 등록 목록에 연결한다. 메뉴 템플릿이 Sidebar·Breadcrumb·권한 숨김을 직접 구현하지 못하게 하는 것은 06 §5 "금지" 목록을 lint로 옮겨 막는다(§6).
 

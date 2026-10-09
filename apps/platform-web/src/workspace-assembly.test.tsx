@@ -1,10 +1,10 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PlatformAdapter, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, usePlatform } from '@ap/kernel';
+import { createAssembly } from '#platform-assembly';
 import { GROUPS, SPACES, registry } from './menus';
+import { appSlots } from './slots';
 
 describe('workspace assembly (#260)', () => {
   it('registers three spaces and the decided group order', () => {
@@ -43,8 +43,12 @@ describe('workspace assembly (#260)', () => {
   });
 
   it('gives a viewer one space and the global utilities, and the app does not pass feedbackOps', () => {
-    // jsdom does not give import.meta.url a file: scheme; the package script runs from the app root.
-    expect(readFileSync(join(process.cwd(), 'src/main.tsx'), 'utf8')).not.toContain('feedbackOps');
+    const assembly = createAssembly({ registry });
+    const slots = appSlots(assembly);
+    // The real composition: adding a feedbackOps test slot to appSlots fails this.
+    expect(slots.topBarTools).toBe(assembly.topBarTools);
+    expect(slots.feedbackOps).toBeUndefined();
+    expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools']);
     const session: Session = {
       user: { id: 'viewer', name: 'viewer', title: { ko: '현업 문의자', en: 'Field requester' }, permissions: ['platform:view', 'metrics:view', 'notice:view', 'voc:view'] },
       scopes: [],
@@ -69,20 +73,18 @@ describe('workspace assembly (#260)', () => {
       subscribe: () => () => {},
     };
     function Probe() {
-      const { accessibleSpaces, resolveLink, slots } = usePlatform();
+      const { accessibleSpaces, resolveLink } = usePlatform();
       return <div>
         <p data-testid="spaces">{accessibleSpaces.map(space => `${space.id}:${space.label.ko}`).join(',')}</p>
         <p data-testid="allowed">{['home', 'notices', 'voc'].map(id => `${id}:${resolveLink(id).allowed}`).join(',')}</p>
-        <p data-testid="slot">{slots.feedbackOps === undefined ? 'absent' : 'present'}</p>
       </div>;
     }
     vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {}, clear: () => {} });
     vi.stubGlobal('sessionStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {}, clear: () => {} });
     window.history.replaceState(null, '', '/');
-    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Probe /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={slots}><Probe /></PlatformProvider></I18nProvider>);
     expect(screen.getByTestId('spaces').textContent).toBe('metrics:지표관리');
     expect(screen.getByTestId('allowed').textContent).toBe('home:true,notices:true,voc:true');
-    expect(screen.getByTestId('slot').textContent).toBe('absent');
     cleanup();
     vi.unstubAllGlobals();
   });

@@ -5,6 +5,7 @@
  */
 import type { Capability, ContextKey, GroupId, Permission, SpaceId, Text } from '@ap/contracts';
 import type { MenuEntry, Registry } from '@ap/kernel';
+import { spaceFields } from './space-fields';
 
 export type RegistryRow = {
   id: string; spaceId: SpaceId | null; spaceLabel: Text; groupId: GroupId; path: string;
@@ -18,13 +19,6 @@ const ORDER = ['time', 'roomNames', 'condition', 'selection', 'lot', 'ppid', 're
 /** Table cell only. `time:apply, lot:reference`. None → ''. */
 export function formatCapabilities(context: Record<ContextKey, Capability>): string {
   return ORDER.filter(k => context[k] !== 'unsupported').map(k => `${k}:${context[k]}`).join(', ');
-}
-
-function spaceFields(menu: MenuEntry, registry: Registry): { spaceId: SpaceId | null; spaceLabel: Text } {
-  const space = registry.spaceOf(menu);
-  return space === null
-    ? { spaceId: null, spaceLabel: { ko: '전역', en: 'Global' } }
-    : { spaceId: space.id, spaceLabel: { ko: space.id, en: space.id } };
 }
 
 export function toRegistryRow(menu: MenuEntry, registry: Registry): RegistryRow {

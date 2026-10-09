@@ -48,8 +48,8 @@ codex 역할은 Orca 터미널에서, claude 역할은 백그라운드 `claude -
    - 같은 이슈의 이전 GLM 라운드가 실패했거나 두 번째 수정 라운드가 필요했다.
    선택과 이유를 `W-<n>-VERIFY.md`에 적는다. GLM이 quota로 멈추면(`worker-wait` exit 11) 같은 worktree에서 공유 `worker-launch.sh --role impl-luna`로 다시 띄우고, worktree에 부분 수정이 있다고 작업에 적는다.
 3. **대기**: `worker-wait.sh --state "$WAVE_STATE/W-<n>.json" --timeout 3600 --poll 30`(여러 개면 `--state` 반복 + `--any`). 종료 코드: `0` 완료 → 호스트 검증, 터미널 닫기 / `10` 실패 → 보고서·로그를 읽고 수정 브리프 / `11` quota → 위 대체 / `12` 시간 초과 → 진행을 확인하고 완료로 보지 않으며 중복 실행하지 않는다 / `2` 인자 오류. 작업자가 멈추기 전에 쓴 보고서나 sentinel은 쓰지 않는다.
-4. **호스트 검증**(작업자는 패키지 범위 검사만 했다):
-   - 작업자 diff를 읽고 커밋한다(작업자는 git을 안 쓴다).
+4. **호스트 검증**(작업자는 패키지 범위 검사만 했다). 순서: diff 확인 → 검사(바뀐 패키지 → 루트 순서대로) → 모두 0이면 커밋.
+   - 작업자 diff를 읽는다(작업자는 git을 안 쓴다). 검사가 끝나기 전에 커밋하지 않는다.
    - 바뀐 패키지 검사 → 루트 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`를 **순서대로 한 번** — 모두 0이어야 커밋·push한다. 파이프로 종료 코드를 가리지 않는다. FeedbackOps gitlink를 올렸으면 `--force`(#237).
    - Kernel·셸·공통 컴포넌트·mock 서버가 바뀌었으면 새 E2E describe만 먼저(`cd apps/platform-e2e && pnpm exec playwright test -g "<describe>"`), 그다음 관련 E2E 또는 전체 `pnpm e2e`.
    - 새 테스트는 한 번 변이 검사한다(고친 곳을 되돌려 그 테스트가 실패하는지 보고 복원).
