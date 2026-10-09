@@ -5,7 +5,9 @@
     "products/feedbackops/packages/ui/**",
     "products/feedbackops/packages/shared/**",
     "!products/feedbackops/packages/*/.turbo/**",
-    "!products/feedbackops/packages/*/dist/**"
+    "!products/feedbackops/packages/*/dist/**",
+    "!products/feedbackops/packages/*/coverage/**",
+    "!products/feedbackops/packages/*/**/*.tsbuildinfo"
   ],
   "tasks": {
     "typecheck": { "dependsOn": ["^typecheck"] },
