@@ -21,12 +21,13 @@ FeedbackOps와 다른 점: PR 기준 브랜치는 `main` 하나(develop 없음),
 | `impl-complex` | 복잡한 구현(아래 기준), 그리고 수정 자체가 어려운 수정 라운드 | `WORKER_ROLE=impl-complex scripts/launch-worker.sh`, 어려운 수정은 공유 `worker-launch.sh --role impl-complex` |
 | `impl-mid` | 판단이 조금 필요한 작은 구현(아래 기준), 그런 수정 라운드 | `WORKER_ROLE=impl-mid scripts/launch-worker.sh`, 수정은 공유 `worker-launch.sh --role impl-mid` |
 | `fix` | 모든 수정 라운드의 기본(복잡한 이슈도) | 공유 `worker-launch.sh --role fix` |
+| `research` | 코디네이터가 직접 하지 않을 단순 일: 캡처·스크린샷, 간단 조사, 문서·보고서 정리, 읽기 전용 gh·DB 조회(제품 코드 수정·DB 쓰기 금지) | 공유 `worker-launch.sh --role research`, 모델은 `routing.tsv` |
 | `review-final` | 코드: 정확성·계약·테스트·diff 안의 아키텍처 | 규칙 `docs/agents/templates/review-rules.md` |
 | `review-ux` | 실행 중인 앱의 디자인·UX | 에이전트 `.claude/agents/review-ux.md`(`--agent`) |
 | `review-quality` | 슬라이스 전체의 코드 품질(11단계) | 에이전트 `.claude/agents/review-quality.md` |
-| `review-check` | 중간 확인(blocker 수정이 리뷰어가 본 파일 밖으로 번졌을 때) | 별도 CHECK 이름 |
+| `review-check` | 중간 확인(blocker 수정이 리뷰어가 본 파일 밖으로 번졌을 때), 브리프 사전 점검, `impl-complex` FIX1의 수정 diff 점검 | 별도 CHECK 이름 |
 
-codex 역할은 Orca 터미널에서, claude 역할은 백그라운드 `claude -p`(프롬프트는 stdin, `.claude/agents/<role>.md`가 있으면 `--agent`)로, grok은 백그라운드 headless로 돈다. 보고서 sentinel만으로 끝났다고 보지 않는다. `worker-wait.sh`가 신선도·마지막 줄·프로세스 종료나 터미널 idle을 함께 본다. 끝난 작업자의 터미널은 바로 닫고 상태 JSON은 남긴다.
+codex 역할은 Orca 터미널에서, claude 역할은 백그라운드 `claude -p`(프롬프트는 stdin, `.claude/agents/<role>.md`가 있으면 `--agent`)로, grok은 백그라운드 headless로 돈다. codex 샌드박스가 브라우저를 막으면(캡처·스크린샷) 코디네이터가 호스트에서 `apps/platform-e2e`의 Playwright 일회용 스크립트로 대신한다. 보고서 sentinel만으로 끝났다고 보지 않는다. `worker-wait.sh`가 신선도·마지막 줄·프로세스 종료나 터미널 idle을 함께 본다. 끝난 작업자의 터미널은 바로 닫고 상태 JSON은 남긴다.
 
 ## 상태
 
@@ -98,7 +99,7 @@ codex 역할은 Orca 터미널에서, claude 역할은 백그라운드 `claude -
    - **File** — (3)·(4)를 넘거나 위 review-plan 점검에 걸리거나 사용자 결정·계약 변경·모듈 넘는 리팩터가 필요하면 이슈로 남긴다. 관련 지적은 하나의 이슈로 묶는다 — nit마다 이슈를 만들지 않는다.
    - **Note** — touched area 밖의 `minor`·`nit`은 이슈 없이 PR 본문 **Noted, not filed**에 한 줄씩. touched area는 UX 작업에 코디네이터가 적은, 바뀐 파일을 렌더링하는 경로다.
    재확인(`review-check`)·fix-diff 점검은 지명된 지적이 고쳐졌는지와 수정 전 head 대비 회귀만 본다. 거기서 나온 `pre-existing`은 note로만 적는다 — `blocker`가 아니면 이슈로 만들지 않는다.
-   남긴 지적은 역할 태그를 붙여 **수정 브리프 하나**(`W-<n>-FIX1-TASK.md`)로 모으고, 코디네이터의 자체 관찰도 같은 라운드에 넣는다. 코디네이터가 검증하고 올린다. 재리뷰는 blocker·major 동작 수정(특히 권한·데이터 누출) 뒤에만, 그 수정 diff만 `review-check`로 본다.
+   남긴 지적은 역할 태그를 붙여 **수정 브리프 하나**(`W-<n>-FIX1-TASK.md`)로 모으고, 코디네이터의 자체 관찰도 같은 라운드에 넣는다. 코디네이터가 검증하고 올린다. 재리뷰는 blocker·major 동작 수정(특히 권한·데이터 누출) 뒤에만, 그 수정 diff만 `review-check`로 본다 — 단, `impl-complex` 이슈의 FIX1은 항상 수정 diff 점검 한 번을 받는다(아래).
    **`impl-complex` 이슈의 fix-diff 점검**: 이 이슈의 FIX1(fold 포함)은 수정 diff로 `review-check` 한 번을 받는다. 지적은 FIX2 하나로만 모은다. FIX2는 코디네이터가 직접 본다(diff 읽기, 변이 검사, 포커스면 실제 브라우저 확인) — 리뷰어를 더 띄우지 않고 fold도 없다.
    고친 UX `blocker`·`major`는 새 미리보기에서 그 시나리오와 이웃 흐름을 다시 확인한다.
    **g. 계속 지키는 것**: 문서·문구만 바뀐 diff는 리뷰가 없다(계획이 역할을 내지 않는다). 강화된 불변식을 리팩터하면 코드 리뷰어에게 그 이력과 `origin/main` 대비 모든 분기를 따라가라고 적는다. 같은 슬라이스에서 앞서 병합된 이슈가 같은 컴포넌트·훅·mock 엔드포인트를 건드렸으면 코드 리뷰어 작업에 그 PR을 적고 합쳐진 동작을 보게 한다(같은 슬라이스 안 재귀 결함을 잡는다).

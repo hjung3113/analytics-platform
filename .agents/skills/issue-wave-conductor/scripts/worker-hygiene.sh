@@ -11,27 +11,55 @@ base=${HYGIENE_BASE:-origin/main}; limit=${HYGIENE_WS_LINES:-6}
 mb=$(git merge-base "$base" HEAD) || exit 2
 found=0
 
-disables=$(git diff -U0 "$mb" -- apps packages menus | awk '
+# A reasoned disable carries `--` and a non-blank reason after the eslint directive. `--` in code
+# (before the directive, or with only blanks after it) is not a reason.
+reasoned='--[[:space:]]*[^[:space:]]'
+disables=$(git diff -U0 "$mb" -- apps packages menus | awk -v reasoned="$reasoned" '
   /^\+\+\+ b\// { file = substr($0, 7); next }
-  /^\+/ && /eslint-disable/ && !/--/ { print file ": " substr($0, 2) }')
-untracked_disables=$(git ls-files --others --exclude-standard -z -- apps packages menus | xargs -0 grep -Hn 'eslint-disable' 2>/dev/null | grep -v -- '--')
+  /^\+/ && /eslint-disable/ {
+    line = substr($0, 2); rest = substr(line, index(line, "eslint-disable"))
+    if (rest !~ reasoned) print file ": " line }')
+untracked_disables=$(git ls-files --others --exclude-standard -z -- apps packages menus \
+  | xargs -0 grep -Hn 'eslint-disable' 2>/dev/null \
+  | awk -v reasoned="$reasoned" '
+    { line = $0; sub(/^[^:]*:[0-9]+:/, "", line)
+      rest = substr(line, index(line, "eslint-disable"))
+      if (rest !~ reasoned) print }')
 if [ -n "$disables$untracked_disables" ]; then
   found=1
   echo "NEW eslint-disable without a reason (forbidden; fix the code or use the token the lint error suggests):"
   printf '%s\n' "$disables" "$untracked_disables" | sed '/^$/d; s/^/  /'
 fi
 
-count_sum() { awk 'match($0, /"count"[[:space:]]*:[[:space:]]*[0-9]+/) { n = substr($0, RSTART, RLENGTH); sub(/.*:[[:space:]]*/, "", n); s += n } END { print s + 0 }' "${1:--}" 2>/dev/null; }
+# Sum every rule's count with the stdlib JSON parser (ESLint bulk suppressions: file -> rule -> {count}):
+# line-oriented matching under-counted multi-rule files and read compact single-line JSON as
+# one count. A read or parse failure fails the check instead of guessing a total.
+count_sum() { python3 -c '
+import json, sys
+try:
+    if sys.argv[1] == "-":
+        data = json.load(sys.stdin)
+    else:
+        with open(sys.argv[1], encoding="utf-8") as src:
+            data = json.load(src)
+    total = sum(int(rule["count"]) for rules in data.values() for rule in rules.values())
+except Exception as err:
+    sys.exit(f"worker-hygiene: cannot parse eslint-suppressions.json ({sys.argv[1]}): {err}")
+print(total)' "$1"; }
 for f in $(git diff --name-only "$mb" -- '*eslint-suppressions.json'); do
-  before=$(git show "$mb:$f" 2>/dev/null | count_sum)
-  after=$(count_sum "$f")
+  if git cat-file -e "$mb:$f" 2>/dev/null; then
+    before=$(git show "$mb:$f" 2>/dev/null | count_sum -) || { found=1; echo "unreadable eslint-suppressions.json at $base: $f"; continue; }
+  else
+    before=0
+  fi
+  if ! after=$(count_sum "$f"); then found=1; echo "unreadable eslint-suppressions.json: $f"; continue; fi
   if [ "$after" -gt "$before" ]; then
     found=1
     echo "eslint-suppressions.json grew (forbidden; fix the code and prune instead): $f ($before -> $after)"
   fi
 done
 for f in $(git ls-files --others --exclude-standard -- '*eslint-suppressions.json'); do
-  after=$(count_sum "$f")
+  if ! after=$(count_sum "$f"); then found=1; echo "unreadable eslint-suppressions.json: $f"; continue; fi
   if [ "$after" -gt 0 ]; then
     found=1
     echo "new eslint-suppressions.json (forbidden; fix the code instead): $f ($after)"

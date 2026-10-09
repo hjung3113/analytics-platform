@@ -69,7 +69,7 @@ maxTurns: 120
 
 ## 보고 기준
 
-- touched flow 밖에서는 `blocker`와 `major`만 보고한다. 거기서 본 `minor`·`nit`은 findings 끝의 **한 줄** `Noticed:`에 적는다 — 스크린샷도 develop 재확인도 없이.
+- touched flow 밖에서는 `blocker`와 `major`만 보고한다. 거기서 본 `minor`·`nit`은 findings 끝의 **한 줄** `Noticed:`에 적는다 — 스크린샷도 main 재확인도 없이.
 - `pre-existing` finding에는 판정 대신 사실을 적는다: `fix size: <파일>, ≈<줄>`과 `사용자 결정 필요: 예/아니오`. fold·file·note는 코디네이터가 정한다.
 - 지적 없는 `PASS`도 유효한 결과다. 채우지 않는다.
 - 재확인 작업(지정된 finding이 고쳐졌는지)에서는 그 여부와 회귀만 보고한다. 나머지는 `blocker`가 아니면 `Noticed:` 줄로.

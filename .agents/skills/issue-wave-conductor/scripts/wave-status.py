@@ -18,6 +18,21 @@ RECENT = 3 * 3600
 REPO = Path(__file__).resolve().parents[4]
 
 
+def _app_preview():
+    """app-preview.py를 불러온다 — 미리보기 소유 판정을 이 도구가 따로 두지 않고 같은 규칙으로 읽기만 한다."""
+    import importlib.util
+    path = Path(__file__).resolve().parent / 'app-preview.py'
+    spec = importlib.util.spec_from_file_location('app_preview', path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f'app-preview.py not found next to wave-status.py: {path}')
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+APP_PREVIEW = _app_preview()
+
+
 def run(args, timeout=10):
     try:
         r = subprocess.run(args, capture_output=True, text=True, timeout=timeout, cwd=REPO)
@@ -82,16 +97,38 @@ def worker(path, now):
 
 
 def preview(path):
+    """app-preview.py와 같은 읽기 전용 소유 판정으로 상태 파일을 분류한다.
+
+    'live' = 소유가 증명됨(부모 생존 + 시작 시각·명령 일치, 또는 죽은 부모의 pgid 그룹에 기록 checkout의 vite 생존).
+    'unclear' = 판정 불명(ps 실패, 신원·checkout·pgid 기록 없음) — 숨기지 않고 표시한다.
+    None = 소유 아님을 입증(부모 pid 재사용, 그룹에 우리 vite 없음) — 숨긴다.
+    """
     try:
         p = json.loads(path.read_text())
     except ValueError:
         return None
-    # app-preview.py 상태 파일은 `pid` 하나(또는 pgid)를 기록한다. `pids` 목록은 구형·외부 형식.
-    pids = [p['pid']] if p.get('pid') else list(p.get('pids', []))
-    live = [pid for pid in pids if alive(pid)]
-    if not live:
+    ap = APP_PREVIEW
+    try:
+        pid = p.get('pid')
+        if isinstance(pid, int) and ap.alive(pid):
+            if ap.identified(p.get('lstart')) and ap.identified(p.get('command')):
+                current = (ap.ps_value(pid, 'lstart='), ap.ps_value(pid, 'command='))
+                if not all(ap.identified(v) for v in current):
+                    state = 'unclear'
+                else:
+                    state = 'live' if current == (p['lstart'], p['command']) else None
+            else:
+                state = 'unclear'  # 살아 있어도 신원이 없으면 pid 재사용을 배제할 증거가 없다
+        elif isinstance(p.get('pgid'), int) and ap.identified(p.get('checkout')) and isinstance(p.get('port'), int):
+            found = ap.vite_in_group(p['pgid'], p['port'], p['checkout'])
+            state = 'live' if found else 'unclear' if found is None else None
+        else:
+            state = 'unclear'
+    except OSError:  # ps를 못 찾는 등 조회 실패는 소유 부정이 아니라 불명확이다
+        state = 'unclear'
+    if state is None:
         return None
-    return dict(name=p.get('label') or p.get('name', path.stem), url=p.get('url'), pids=len(live))
+    return dict(name=p.get('label') or p.get('name', path.stem), url=p.get('url'), state=state)
 
 
 def snapshot(dirs, with_prs):
@@ -148,7 +185,8 @@ def text(s):
         quiet = f", log quiet {w['log_quiet_minutes']}m" if w['log_quiet_minutes'] is not None else ''
         lines.append(f"  {w['status']:8} {w['name']:18} {w['role'] or '-':14} {w['model'] or '-'} {w['effort'] or ''}"
                      f" ({w['minutes']}m{quiet})")
-    lines.append(f"Previews: {', '.join(p['name'] for p in s['previews']) or 'none'}")
+    lines.append('Previews: ' + (', '.join(
+        p['name'] if p['state'] == 'live' else f"{p['name']} (unclear)" for p in s['previews']) or 'none'))
     lines.append(f"Worktrees: {', '.join(w['path'] for w in s['worktrees']) or 'none'}")
     if s['prs'] is not None:
         lines.append('Open PRs: ' + (', '.join(f"#{p['number']}→{p['base']} {p['ci']}" for p in s['prs']) or 'none'))
