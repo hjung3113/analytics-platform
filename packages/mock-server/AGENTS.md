@@ -20,6 +20,7 @@
 - mock과 화면 계산을 함께 보는 테스트는 이 패키지에 두지 않는다. 지표 발행 버전은 `menus/metrics/src/mock/published-pointers.test.ts`(카탈로그 포인터 비교)·`menus/analytics/src/resolve-metric.test.ts`(페이지 기본 버전)·`apps/platform-web/src/published-metrics.test.ts`(kernel `classifyMetricInit` + mock)가 나눠 본다. 패키지가 앱·메뉴를 import하게 만들지 않는다.
 - 각 메뉴의 `src/mock/**` handler는 이 패키지를 import할 수 있다. `serve()`는 엔진 내부 단계라 공개 export하지 않는다. 앱에서는 `src/dev/**`(mock 조립·`DevTools.tsx`)와 앱 통합 테스트 `src/server-conformance.test.ts`·`src/published-metrics.test.ts`만 import한다 — `main.tsx`는 lint가 막는다(#153). 메뉴 페이지는 mock handler를 상대 import하지 않고 앱이 메뉴의 `/mock` 서브패스로 등록한다. 생산성·사이클 집계는 메뉴 쪽에 둔다.
 - 메뉴 데이터 접점은 각 메뉴의 엔드포인트 선언(`menus/<group>/src/endpoints.ts`)과 그 mock 핸들러(`src/mock/`)다. 이 패키지는 메뉴를 모른다.
+- `MockEndpoint.provisional`은 메뉴가 대상 데이터 시점으로 Trust를 판정하는 선택 훅이다. 정상·비어 있지 않은 mart 응답에서만 기간 길이 판정을 대체하며, 미지정·빈 응답·오류·malformed는 기존 판정을 유지한다. execution occurrence는 `anchor >= DATA_THROUGH − 24h`로 판정한다(참조 기간 미적용).
 
 ## 검증
 

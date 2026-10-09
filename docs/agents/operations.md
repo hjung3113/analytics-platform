@@ -29,7 +29,7 @@
 
 - `orca worktree create --setup run|skip`은 의존성을 설치하지 않는다 → `git submodule update --init --depth 1 -q -- products/feedbackops && pnpm install --frozen-lockfile --config.optimistic-repeat-install=false`. 기본으로 생기는 셸 탭은 닫는다.
 - pnpm 11은 설정(`pnpm-workspace.yaml`)만 바뀌면 "Already up to date"로 건너뛴다 → `pnpm install --config.optimistic-repeat-install=false`.
-- 서브모듈 gitlink를 올리면 플랫폼 lockfile도 같은 PR에서 고친다([저장소 구조](../integration/repository-layout.md)). 루트 검사는 `@fops/*` 작업을 돌리지 않는다(가드 `.github/scripts/check-platform-turbo-scope.mjs`).
+- 서브모듈 gitlink를 올리면 플랫폼 lockfile도 같은 PR에서 고친다([저장소 구조](../integration/repository-layout.md)). 루트 검사는 `@fops/*` 작업을 돌리지 않는다(가드 `.github/scripts/check-platform-turbo-scope.mjs`). 서브모듈 파일은 turbo 전역 해시에 들어가므로 gitlink를 올린 뒤 `--force`가 필요 없다(#237, 저장소 구조 문서).
 
 ## git·PR
 

@@ -125,6 +125,8 @@ export type ServeOptions<T> = {
   /** `role` is the request's pinned session actor, for sources keyed by who asks (my VOCs). */
   compute: (ctx: { equipment: Equipment[]; role: RoleId }) => T;
   isEmpty?: (data: T) => boolean;
+  /** @internal Menu-owned Data Trust verdict, after successful non-empty computation. */
+  provisionalOf?: (data: T) => boolean;
 };
 
 export type TimeDomainMergeResult =
@@ -276,7 +278,9 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
     kinds: o.kinds,
     metricVersion,
     source: o.source,
-    provisional: hours !== null && hours <= 24,
+    provisional: mart && !empty && s !== 'malformed' && o.provisionalOf
+      ? o.provisionalOf(data)
+      : hours !== null && hours <= 24,
   });
 }
 

@@ -205,6 +205,151 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
   });
 });
 
+// 접힘 요약 시각 계약(06 §13, DESIGN.md Filter bar): 접어도 조건을 잘라내지 않는다. ADR-0029.
+test.describe('PageFilterBar 접힘 요약 (ADR-0029)', () => {
+  test('접힌 요약은 조건을 자르지 않고 항목 단위로 왼쪽 정렬 줄바꿈하며 Enter로 펼친다', async ({ page }, testInfo) => {
+    const longRaw = 'x'.repeat(60);
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.goto(`/analytics/cycle-time?v=1&scopeId=ICH&${PERIOD}&percentile=${longRaw}&sort=equipmentId:asc`);
+    const bar = page.getByTestId('page-filter-bar');
+    await expect(bar).toBeVisible();
+    // 등록되지 않은 percentile은 페이지 키 오류이지만 필터 바는 원문을 요약에 그대로 남긴다.
+    await expect(page.getByRole('alert')).toContainText(`percentile=${longRaw}`);
+
+    // 1024×900 기본값은 사이드바가 접힌다(AppShell innerWidth < 1440). 접근 가능한 토글로 펼친 것을 확인한 뒤 필터를 접는다.
+    const sidebarExpand = page.getByRole('button', { name: '사이드바 펼치기' });
+    await expect(sidebarExpand).toBeVisible();
+    await sidebarExpand.click();
+    await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
+
+    const collapse = bar.getByRole('button', { name: '페이지 필터 접기' });
+    await collapse.click();
+    const expand = bar.getByRole('button', { name: '페이지 필터 펼치기' });
+    await expect(expand).toBeFocused();
+    await evidence(page, testInfo, 'page-filter-collapsed-summary');
+
+    type Rect = { left: number; top: number; right: number; bottom: number };
+    await page.evaluate(() => document.fonts.ready);
+    const m = await page.evaluate((raw: string) => {
+      const button = [...document.querySelectorAll('button')].find(el => el.getAttribute('aria-label') === '페이지 필터 펼치기');
+      const summaryId = button?.getAttribute('aria-describedby');
+      const summary = summaryId ? document.getElementById(summaryId) : null;
+      if (!button || !summary) throw new Error('접힘 요약 버튼이나 요약 span을 찾지 못했다');
+      const box = button.getBoundingClientRect();
+      const rectsOf = (node: Node): Rect[] => {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        return [...range.getClientRects()]
+          .filter(r => r.width > 0 && r.height > 0)
+          .map(r => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }));
+      };
+      // 세로로 겹치는 rect를 한 밴드로 묶어 시각 줄 수를 센다.
+      const bandCount = (rects: Rect[]) => {
+        const bands: Rect[] = [];
+        for (const r of [...rects].sort((a, b) => a.top - b.top)) {
+          const band = bands.find(x => r.top < x.bottom - 0.5 && r.bottom > x.top + 0.5);
+          if (band) {
+            band.top = Math.min(band.top, r.top);
+            band.bottom = Math.max(band.bottom, r.bottom);
+          } else bands.push({ ...r });
+        }
+        return bands.length;
+      };
+      // (a)용 자료: 요약 전체 rect(텍스트 조각 + 항목 inline-block 박스). 줄 계산에는 쓰지 않는다(F1).
+      const elementRects = rectsOf(summary);
+      // (d)·(e)용 자료: 요약 안 텍스트 노드만 글자 단위 Range로 측정한다 — 항목 박스가 줄에 섞이지 않는다.
+      const chars: { char: string; left: number; top: number; bottom: number }[] = [];
+      let valueLines = 0;
+      const walker = document.createTreeWalker(summary, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const text = node.textContent ?? '';
+        if (text.includes(raw)) valueLines = bandCount(rectsOf(node));
+        let offset = 0;
+        for (const ch of text) {
+          const range = document.createRange();
+          range.setStart(node, offset);
+          range.setEnd(node, offset + ch.length);
+          for (const rect of range.getClientRects()) {
+            if (rect.width > 0 && rect.height > 0) chars.push({ char: ch, left: rect.left, top: rect.top, bottom: rect.bottom });
+          }
+          offset += ch.length;
+        }
+      }
+      // 글자 rect를 y 겹침으로 시각 줄로 묶는다. 줄 시작 x = 그 줄 글자 rect의 최소 left.
+      const lines: { left: number; top: number; bottom: number; chars: { char: string; left: number }[] }[] = [];
+      for (const c of [...chars].sort((a, b) => a.top - b.top)) {
+        let line = lines.find(l => c.top < l.bottom - 0.5 && c.bottom > l.top + 0.5);
+        if (!line) {
+          line = { left: c.left, top: c.top, bottom: c.bottom, chars: [] };
+          lines.push(line);
+        }
+        line.left = Math.min(line.left, c.left);
+        line.chars.push({ char: c.char, left: c.left });
+      }
+      lines.sort((a, b) => a.top - b.top);
+      for (const line of lines) line.chars.sort((a, b) => a.left - b.left);
+      // 요약을 자를 수 있는 범위: 요약 span과 그 자손 전부 + 버튼과 그 조상(F2).
+      const scoped = new Set<HTMLElement>([summary, ...summary.querySelectorAll<HTMLElement>('*')]);
+      for (let el: HTMLElement | null = button; el; el = el.parentElement) scoped.add(el);
+      const cutting: string[] = [];
+      for (const el of scoped) {
+        const s = getComputedStyle(el);
+        const clipped = (['hidden', 'clip'].includes(s.overflowX) || ['hidden', 'clip'].includes(s.overflowY))
+          && (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1);
+        if (s.textOverflow === 'ellipsis' || s.webkitLineClamp !== 'none' || clipped) cutting.push(`${el.tagName.toLowerCase()}.${el.className}`);
+      }
+      return {
+        button: { left: box.left, top: box.top, right: box.right, bottom: box.bottom },
+        elementRects, lines, cutting, valueLines,
+        scrollWidth: button.scrollWidth, clientWidth: button.clientWidth,
+        docScrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth,
+        summaryText: summary.textContent ?? '',
+      };
+    }, longRaw);
+
+    // (a) 요약의 모든 조각(텍스트·항목 박스)이 버튼 박스 안(1px 허용) — 밖으로 나간 글자가 없다.
+    expect(m.elementRects.length).toBeGreaterThan(0);
+    for (const r of m.elementRects) {
+      expect(r.left).toBeGreaterThanOrEqual(m.button.left - 1);
+      expect(r.right).toBeLessThanOrEqual(m.button.right + 1);
+      expect(r.top).toBeGreaterThanOrEqual(m.button.top - 1);
+      expect(r.bottom).toBeLessThanOrEqual(m.button.bottom + 1);
+    }
+    // (b) 요약이 버튼 폭을 넘지 않고 페이지에도 수평 넘침이 없다.
+    expect(m.scrollWidth).toBeLessThanOrEqual(m.clientWidth);
+    expect(m.docScrollWidth).toBeLessThanOrEqual(m.innerWidth);
+    // (c) 요약·자손·버튼·조상 어디에도 말줄임·line-clamp·실제 잘림(hidden/clip에서 scroll이 client를 넘음)이 없다.
+    expect(m.cutting).toEqual([]);
+    // (d) 요약이 두 줄 이상이고, 모든 시각 줄(텍스트 기준)의 시작 x가 같다(왼쪽 정렬, 1px 허용).
+    expect(m.lines.length).toBeGreaterThanOrEqual(2);
+    for (const line of m.lines) expect(Math.abs(line.left - m.lines[0]!.left)).toBeLessThanOrEqual(1);
+    // (e) 각 줄의 첫 비공백 글자(그 줄에서 가장 왼쪽 글자 rect의 문자)는 구분점이 아니다 — 구분점은 앞 항목 끝에 붙는다.
+    for (const line of m.lines) {
+      const first = line.chars.find(c => /\S/.test(c.char));
+      expect(first, `줄의 첫 글자를 찾지 못했다: ${line.chars.slice(0, 8).map(c => c.char).join('')}`).toBeDefined();
+      expect(first!.char).not.toBe('·');
+    }
+    // 긴 원문 값 자체도 요약 폭 안에서 감긴다(그 값 텍스트 노드의 시각 줄 2개 이상).
+    expect(m.valueLines).toBeGreaterThanOrEqual(2);
+    // (f) 긴 원문 전체가 라벨과 함께 요약 텍스트에 있다.
+    expect(m.summaryText).toContain(`느린 실행 기준 알 수 없는 값: ${longRaw}`);
+
+    // 키보드: 요약 버튼에서 Enter → 펼쳐지고 포커스는 접기 토글로 이동한다.
+    await expand.press('Enter');
+    await expect(collapse).toBeVisible();
+    await expect(collapse).toHaveAttribute('aria-expanded', 'true');
+    await expect(bar.getByRole('combobox', { name: '느린 실행 기준' })).toBeVisible();
+    await expect(bar.getByRole('combobox', { name: '정렬' })).toBeVisible();
+    await expect(collapse).toBeFocused();
+
+    // 접힘 기억과 사이드바 상태는 storage state 없이 context마다 격리되지만, 테스트가 남긴 키를 지워 기본값으로 끝낸다.
+    await page.evaluate(() => {
+      localStorage.removeItem('platform:page-filter-collapsed:cycle-time');
+      localStorage.removeItem('platform:sidebar-collapsed');
+    });
+  });
+});
+
 test.describe('셸 sticky 계약 (06 §7)', () => {
   test('main 스크롤 뒤에도 페이지 제목·액션은 Context에 가리지 않는다', async ({ page }, testInfo) => {
     await page.goto(PRODUCTIVITY);
