@@ -9,6 +9,9 @@ import { registry } from './menus';
 // guard (canQuery requires drill.invalid === null, 06 §6.4) and not an unvalidated Scope.
 const BASE = '/analytics/productivity?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&roomNames=PHOTO';
 
+// Per-test timeout must exceed the waitFor readiness cap (10s), or vitest (default 5s) ends the test before waitFor leaves its diagnosis.
+const DRILL_TEST_TIMEOUT_MS = 15_000;
+
 const session: Session = {
   user: {
     id: 'analyst',
@@ -52,7 +55,7 @@ function productivityPage() {
 }
 
 /** Renders the real productivity page. `ready` is UI behind the Scope gate, so the count is after validation. */
-async function mount(drill: string, ready: () => boolean): Promise<MenuQuery[]> {
+async function mount(drill: string, ready: (calls: MenuQuery[]) => boolean): Promise<MenuQuery[]> {
   const Page = productivityPage();
   const calls: MenuQuery[] = [];
   window.history.replaceState(null, '', `${BASE}${drill}`);
@@ -61,7 +64,7 @@ async function mount(drill: string, ready: () => boolean): Promise<MenuQuery[]> 
       <Suspense fallback={null}><Page params={{}} /></Suspense>
     </PlatformProvider>
   </I18nProvider>);
-  await waitFor(() => { expect(ready()).toBe(true); }, { timeout: 10_000 });
+  await waitFor(() => { expect(ready(calls)).toBe(true); }, { timeout: 10_000 });
   await act(async () => { await Promise.resolve(); });
   return calls;
 }
@@ -72,13 +75,14 @@ afterEach(() => {
 });
 
 describe('productivity drill menuQuery (06 §6.4)', () => {
-  it('calls menuQuery for drillRoom=PHOTO after Scope is valid', async () => {
-    const calls = await mount('&drillRoom=PHOTO', () => screen.queryByRole('button', { name: '공정: PHOTO' }) !== null);
+  it('calls menuQuery for drillRoom=PHOTO after Scope is valid', { timeout: DRILL_TEST_TIMEOUT_MS }, async () => {
+    const calls = await mount('&drillRoom=PHOTO',
+      readyCalls => readyCalls.length > 0 && screen.queryByRole('button', { name: '공정: PHOTO' }) !== null);
     expect(calls.length).toBeGreaterThan(0);
     expect(calls.every(call => call.endpoint.startsWith('analytics.productivity.'))).toBe(true);
   });
 
-  it('does not call menuQuery when the URL has only drillStgroup', async () => {
+  it('does not call menuQuery when the URL has only drillStgroup', { timeout: DRILL_TEST_TIMEOUT_MS }, async () => {
     const calls = await mount('&drillStgroup=STG-PHOTO-A', () => screen.queryAllByRole('alert')
       .some(node => node.textContent?.includes('drillStgroup=STG-PHOTO-A') === true));
     expect(calls).toHaveLength(0);
