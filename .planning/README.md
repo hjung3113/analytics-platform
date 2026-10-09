@@ -31,7 +31,6 @@
 | #122 | 목적지 단건 조회의 provisional을 대상 객체 시점으로 판정 | 선행 게이트(#100)는 통과 — 착수 가능 |
 | #90 | 지표 상세 이력을 감사 저장소(`entityAudit`)로 통합 | 낮은 우선순위 |
 | #237 | turbo 캐시가 FeedbackOps 서브모듈 변경을 못 봄 — 입력 해시에 서브모듈 포함 | 고치기 전까지 gitlink를 올린 PR은 `--force`로 검사 |
-| #262 | productivity-drill-query의 `calls menuQuery for drillRoom=PHOTO`가 루트 test 부하에서 5초를 넘김 | 테스트 |
 | #265 | 패키지별 최소 SpaceDef·어댑터 fixture builder | test-support. 공개 테스트 API는 아님 |
 | #266 | `app-preview.py` 종료 때 프로세스 소유를 확인 | 소유가 불명확하면 신호를 보내지 않음 |
 
