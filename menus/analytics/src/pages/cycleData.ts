@@ -88,7 +88,7 @@ export function exportParams(
 /** Readable page filters for the XLSX 조회 정보 sheet (#173 review P2-3), labeled as the screen labels them. */
 export function exportFilterSummary({ tail, granularity, bucket, bin }: SlowFilter, ko: boolean): [string, string][] {
   const rows: [string, string][] = [];
-  rows.push([ko ? '꼬리' : 'Tail', tail === 'p95' ? '≥ P95' : tail === 'p50' ? '≥ P50' : (ko ? '전체 실행' : 'All executions')]);
+  rows.push([cycleTailFilterLabel(ko ? 'ko' : 'en'), tail === 'p95' ? '≥ P95' : tail === 'p50' ? '≥ P50' : (ko ? '전체 실행' : 'All executions')]);
   rows.push([ko ? '집계' : 'Grain', granularity === 'hour' ? (ko ? '시간' : 'Hour') : granularity === 'day' ? (ko ? '일' : 'Day') : (ko ? '주' : 'Week')]);
   if (bucket !== null) rows.push([ko ? '버킷' : 'Bucket', `${bucket.replace('T', ' ')} → ${bucketEnd(bucket, granularity).replace('T', ' ')}`]);
   if (bin !== null) rows.push([ko ? '분포 구간' : 'Histogram', bin.from === bin.to ? bin.from : `${bin.from} – ${bin.to}`]);
