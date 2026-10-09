@@ -1,3 +1,4 @@
+// THROWAWAY #250 — never merge.
 import type { Text } from './i18n';
 
 /**
@@ -8,8 +9,9 @@ export type ContextKey = 'time' | 'roomNames' | 'condition' | 'selection' | 'lot
 /** apply = direct query filter · reference = carried/visible, not a query filter · unsupported = preserved, not applied */
 export type Capability = 'apply' | 'reference' | 'unsupported';
 export type PageType = 'overview' | 'analysis' | 'management' | 'catalog' | 'workflow';
-export type GroupId = 'overview' | 'equipment' | 'masterData' | 'analytics' | 'metrics' | 'noticeVoc' | 'admin';
-export type SpaceId = 'analytics' | 'operations' | 'feedback';
+export type GroupId = 'overview' | 'equipment' | 'masterData' | 'analytics' | 'metrics' | 'noticeVoc' | 'admin' | 'logdevStatus' | 'logdevModels' | 'logdevValidation' | 'logdevPartner' | 'improveTasks' | 'improveField' | 'collabProductivity' | 'collabMetrics' | 'collabLogdev' | 'collabImprovement' | 'collabOperations' | 'collabCommon' | 'collabHub' | 'myVoc';
+/** Prototype registries use the workspace ids. `analytics` and `feedback` stay so existing fixtures still typecheck. */
+export type SpaceId = 'productivity' | 'metrics' | 'logdev' | 'improvement' | 'operations' | 'common' | 'collab-hub' | 'analytics' | 'feedback';
 /** Sidebar-visible group set + entry permission (06 §9.1). Groups declare membership via GroupDef.space, menus never do. */
 export type SpaceDef = {
   id: SpaceId;
@@ -18,9 +20,11 @@ export type SpaceDef = {
   permission?: Permission;
   /** Landing menu inside this space whose path has no `:param`. */
   homeMenuId: string;
+  /** THROWAWAY #250. `hub` is a collaboration hub, not a workspace button. */
+  protoKind?: 'hub';
 };
 /** The permission vocabulary in canonical order — one runtime list for validators and selects (mock server, console filters). */
-export const PERMISSIONS = ['platform:view', 'equipment:view', 'master:view', 'analytics:view', 'metrics:view', 'notice:view', 'voc:view', 'console:access'] as const;
+export const PERMISSIONS = ['platform:view', 'equipment:view', 'master:view', 'analytics:view', 'metrics:view', 'notice:view', 'voc:view', 'console:access', 'logdev:view', 'improve:view', 'collab:hub'] as const;
 export type Permission = typeof PERMISSIONS[number];
 
 /** One drill step: a page key plus the name the path bar shows (06 §6.4, ADR-0025). */
@@ -55,6 +59,8 @@ export type MenuMeta = {
   parent?: string;
   /** Group's representative destination for the home group cards (08; field name Candidate, 06 §5). Exactly one per group. */
   primary?: boolean;
+  /** THROWAWAY #250. The shell shows this menu as the first row of a workspace collaboration tab. */
+  protoSlot?: 'my-voc';
   /**
    * Ordered in-page drill (06 §6.4, ADR-0025). Each level key must also be a `pageKey` and a `contextResetKey`.
    * One to four levels. `returnTo` is not a level key. Values stay page-owned and are not promoted to global Context.

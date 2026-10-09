@@ -1,33 +1,58 @@
-import { CircleHelp, LogOut, Search } from 'lucide-react';
+// THROWAWAY #250 — never merge.
+import { CircleHelp, LogOut, MessagesSquare, Search } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
-import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, usePrototype } from '@ap/ui';
+import { hubOf, isProtoRegistry, RailLogoLauncher, railButtonClass, useOpenSpace, useShownSpace, workSpacesOf } from './protoChrome';
 
 /** Space navigation and global tools; the app keeps ownership of topBarTools. */
 export function AppRail() {
-  const { sidebarSpace, accessibleSpaces, switchSpace, slots, user, setPaletteOpen, registry } = usePlatform();
+  const { accessibleSpaces, switchSpace, slots, user, setPaletteOpen, registry, pathname, currentSpace, linkTo, navigate } = usePlatform();
   const { t, tx, lang, setLang } = useI18n();
+  const variant = usePrototype();
+  const proto = isProtoRegistry(registry);
+  const openSpace = useOpenSpace();
+  const shown = useShownSpace();
+  const railSpaces = proto ? workSpacesOf(accessibleSpaces) : accessibleSpaces;
+  const hub = proto ? hubOf(accessibleSpaces) : undefined;
   const languageLabel = lang === 'ko' ? '언어: 한국어 — English로 전환' : 'Language: English — 한국어로 전환';
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+  const mark = (id: string) => proto && pathname === '/' && variant !== 'B' ? false : shown.id === id;
+  const openHub = () => { if (hub && currentSpace?.protoKind !== 'hub') navigate(linkTo(hub.homeMenuId)); };
   return <TooltipProvider delayDuration={200}>
     <nav aria-label={lang === 'ko' ? '앱 레일' : 'App rail'} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-2 overflow-y-auto border-r border-border-subtle bg-surface-sidebar py-3">
-      <div title={t('appName')} className="mb-1 grid size-8 shrink-0 place-items-center rounded-md bg-accent-primary text-text-on-accent"><span aria-hidden className="text-sm font-semibold">A</span><span className="sr-only">{t('appName')}</span></div>
-      {accessibleSpaces.length >= 2 && accessibleSpaces.map(space => {
+      {proto && variant === 'B'
+        ? <RailLogoLauncher />
+        : <div title={t('appName')} className="mb-1 grid size-8 shrink-0 place-items-center rounded-md bg-accent-primary text-text-on-accent"><span aria-hidden className="text-sm font-semibold">A</span><span className="sr-only">{t('appName')}</span></div>}
+      {railSpaces.length >= 2 && railSpaces.map(space => {
         const Icon = registry.groupById(registry.menuById(space.homeMenuId).group).icon;
-        const active = sidebarSpace.id === space.id;
+        const active = mark(space.id);
         return <Tooltip key={space.id}><TooltipTrigger asChild>
           <button type="button" aria-label={`${lang === 'ko' ? '공간' : 'Space'}: ${tx(space.label)}`} aria-current={active ? 'page' : undefined}
-            onClick={() => switchSpace(space.id)} className={cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', active && 'bg-surface-row-selected text-accent-primary')}>
+            onClick={() => (proto ? openSpace(space.id) : switchSpace(space.id))} className={railButtonClass(active)}>
             {active && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
             <Icon className="size-4" aria-hidden />
           </button>
         </TooltipTrigger><TooltipContent side="right">{tx(space.label)}</TooltipContent></Tooltip>;
       })}
+      {proto && variant === 'A' && hub && <div className="my-1 w-6 border-t border-border-subtle" aria-hidden />}
+      {proto && variant === 'A' && hub && <Tooltip><TooltipTrigger asChild>
+        <button type="button" aria-label={tx(hub.label)} aria-current={currentSpace?.protoKind === 'hub' ? 'page' : undefined} onClick={openHub} className={railButtonClass(currentSpace?.protoKind === 'hub')}>
+          {currentSpace?.protoKind === 'hub' && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
+          <MessagesSquare className="size-4" aria-hidden />
+        </button>
+      </TooltipTrigger><TooltipContent side="right">{tx(hub.label)}</TooltipContent></Tooltip>}
       <div className="my-1 w-6 border-t border-border-subtle" aria-hidden />
       <Tooltip><TooltipTrigger asChild>
         <button type="button" onClick={() => setPaletteOpen(true)} aria-label={t('searchPlaceholder')} aria-haspopup="dialog" aria-keyshortcuts="Meta+K Control+K"
           className="grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover"><Search className="size-4" aria-hidden /></button>
       </TooltipTrigger><TooltipContent side="right">{t('searchPlaceholder')} · {isMac ? '⌘' : 'Ctrl'} K</TooltipContent></Tooltip>
       <div className="min-h-3 flex-1" />
+      {proto && variant === 'C' && hub && <Tooltip><TooltipTrigger asChild>
+        <button type="button" aria-label={tx(hub.label)} aria-current={currentSpace?.protoKind === 'hub' ? 'page' : undefined} onClick={openHub} className={railButtonClass(currentSpace?.protoKind === 'hub')}>
+          {currentSpace?.protoKind === 'hub' && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
+          <MessagesSquare className="size-4" aria-hidden />
+        </button>
+      </TooltipTrigger><TooltipContent side="right">{tx(hub.label)}</TooltipContent></Tooltip>}
       <div className="flex shrink-0 flex-col items-center gap-1">{slots.topBarTools}</div>
       <Popover>
         <PopoverTrigger asChild><button type="button" aria-label="Help" title="Help" className="grid size-8 place-items-center rounded-md text-text-secondary hover:bg-surface-sunken"><CircleHelp className="size-4" aria-hidden /></button></PopoverTrigger>

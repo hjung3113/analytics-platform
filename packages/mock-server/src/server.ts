@@ -1,3 +1,4 @@
+// THROWAWAY #250 — never merge.
 /**
  * Mock request validation + response envelope (docs/06 §19): exclusive `outcome` plus declared `assessments[]`.
  * Every page query goes through `serve()` so Scope/room grants are re-validated per request (§6.2).
@@ -326,7 +327,7 @@ export type StoredUsageEvent = UsageEvent & { userId: string; receivedAt: number
 
 const usageEvents: StoredUsageEvent[] = [];
 
-const SPACE_IDS = ['analytics', 'operations', 'feedback'] as const satisfies readonly SpaceId[];
+const SPACE_IDS: readonly SpaceId[] = ['productivity', 'metrics', 'logdev', 'improvement', 'operations', 'common', 'collab-hub', 'analytics', 'feedback'];
 
 /** True when the id is not a string, or carries anything the manifest route pattern must not: empty, `?`, `#`, `&`, whitespace, too long. */
 function invalidUsageId(value: string, max: number): boolean {

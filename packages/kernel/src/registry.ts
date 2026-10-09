@@ -1,3 +1,4 @@
+// THROWAWAY #250 — never merge.
 import type { ComponentType, LazyExoticComponent } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { GLOBAL_KEYS, isAppRelativePath, parseQuery, type ContextKey, type GroupId, type MenuMeta, type PageType, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
@@ -17,6 +18,8 @@ export type GroupDef = {
   space: SpaceId;
   /** In the expanded sidebar, omit the section label when only one visible menu remains. */
   hideLabelWhenSingle?: boolean;
+  /** THROWAWAY #250. Shell placement. Absent means a normal sidebar group. */
+  protoPlacement?: 'collab' | 'hidden';
 };
 
 export type RouteMatch = { menu: MenuEntry; params: Record<string, string> };

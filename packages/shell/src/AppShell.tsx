@@ -1,11 +1,14 @@
+// THROWAWAY #250 — never merge.
 import { AlertTriangle, Info, X, XCircle } from 'lucide-react';
 import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { LoadingBlock } from '@ap/components';
-import { cn, DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
+import { cn, DetailPanelSlotProvider, useDetailPanelSlotHost, usePrototype } from '@ap/ui';
 import { CommandPalette } from './CommandPalette';
 import { AppSidebar } from './AppSidebar';
 import { AppRail } from './AppRail';
+import { EmptyWork, isProtoRegistry, WorkspaceHome } from './protoChrome';
+import { writeLastUrl } from './spaceMemory';
 
 const COLLAPSE_KEY = 'platform:sidebar-collapsed';
 
@@ -17,6 +20,17 @@ export function AppShell({ children }: { children: ReactNode }) {
 function ShellLayout({ children }: { children: ReactNode }) {
   const detail = useDetailPanelSlotHost();
   const { lang } = useI18n();
+  const { registry, pathname, currentSpace, accessibleSpaces, url } = usePlatform();
+  const variant = usePrototype();
+  const proto = isProtoRegistry(registry);
+  const noWork = proto && accessibleSpaces.every(s => s.protoKind === 'hub');
+  const portal = proto && pathname === '/' && !noWork;
+  const hideSidebar = noWork || (portal && variant !== 'B');
+  useEffect(() => {
+    if (!proto || !currentSpace || currentSpace.protoKind === 'hub' || pathname === '/') return;
+    if (!accessibleSpaces.some(s => s.id === currentSpace.id)) return;
+    writeLastUrl(currentSpace.id, url);
+  }, [proto, currentSpace, pathname, accessibleSpaces, url]);
   const [collapsed, setCollapsed] = useState(() => {
     try { const v = localStorage.getItem(COLLAPSE_KEY); return v === null ? window.innerWidth < 1440 : v === '1'; } catch { return false; }
   });
@@ -33,10 +47,10 @@ function ShellLayout({ children }: { children: ReactNode }) {
   return <div className="flex h-full overflow-hidden">
     <a href="#platform-main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">Skip to content</a>
     <AppRail />
-    <AppSidebar collapsed={collapsed} onToggle={toggle} />
+    {!hideSidebar && <AppSidebar collapsed={collapsed} onToggle={toggle} />}
     <div className="flex min-w-0 flex-1 flex-col">
       <main id="platform-main" tabIndex={-1} className="min-h-0 min-w-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
-        <Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}>{children}</Suspense>
+        {noWork ? <EmptyWork /> : portal ? <WorkspaceHome /> : <Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}>{children}</Suspense>}
       </main>
     </div>
     <aside ref={detail.ref} hidden={!detail.open} aria-label={lang === 'ko' ? '상세 패널' : 'Detail panel'} data-open={detail.open}

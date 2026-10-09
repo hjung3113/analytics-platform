@@ -1,3 +1,4 @@
+// THROWAWAY #250 — never merge.
 /**
  * Synthetic "my VOC" rows (issue #60). Not the FeedbackOps seed and not parser data. UUIDs so a row id is a
  * valid deep-link vocId. Per-actor buckets, because FeedbackOps `view=my` is `reporter_id = actor` — an admin
@@ -23,4 +24,5 @@ export const MY_VOC_ROWS: Record<RoleId, readonly MyVocItem[]> = {
     { id: 'a4444444-4444-4444-8444-444444444444', displayId: 'VOC-M-2001', title: 'Admin-only ticket (mock)', status: 'closed', openedAt: '2026-09-22T02:00:00.000Z', updatedAt: '2026-09-22T02:00:00.000Z', managedSystemId: MANAGED_SYSTEM_ID },
   ],
   viewer: [],
+  none: [],
 };

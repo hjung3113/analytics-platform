@@ -1,3 +1,4 @@
+// THROWAWAY #250 — never merge.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { classifyMetricInit, type MetricInit } from './metric-init';
 import { pathFor, type MenuEntry, type Registry } from './registry';
@@ -296,6 +297,8 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   const currentSpace = useMemo(() => (route ? registry.spaceOf(route.menu) : null), [registry, route]);
   const sidebarSpace = useMemo((): SpaceDef => {
     if (currentSpace !== null && accessibleSpaces.some(s => s.id === currentSpace.id)) return currentSpace;
+    // Zero accessible workspaces must not throw: fall back to the first declared space. The shell
+    // shows the empty-home guidance; an empty registry is still a programmer error.
     const fallback = accessibleSpaces[0] ?? registry.spaces[0];
     if (fallback === undefined) throw new Error('registry declares no spaces');
     return fallback;

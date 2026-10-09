@@ -1,3 +1,4 @@
+// THROWAWAY #250 — never merge.
 import * as Dialog from '@radix-ui/react-dialog';
 import { CornerDownLeft, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -22,11 +23,12 @@ export function CommandPalette() {
 
   const items = useMemo(() => {
     const rank = (id: string) => { const i = recent.findIndex(r => r.menuId === id); return i < 0 ? 99 : i; };
+    const spaceOrder = new Map(accessibleSpaces.map((s, i) => [s.id, i]));
     const needle = q.trim().toLowerCase();
     return accessibleSpaces.flatMap(s => menusInSpace(s.id))
       .filter(m => !m.navHidden)
       .filter(m => !needle || [m.label.ko, m.label.en, registry.spaceOf(m).label.ko, registry.spaceOf(m).label.en, registry.groupById(m.group).label.ko, registry.groupById(m.group).label.en].some(s2 => s2.toLowerCase().includes(needle)))
-      .sort((a, b) => rank(a.id) - rank(b.id));
+      .sort((a, b) => (spaceOrder.get(registry.spaceOf(a).id) ?? 99) - (spaceOrder.get(registry.spaceOf(b).id) ?? 99) || rank(a.id) - rank(b.id));
   }, [accessibleSpaces, menusInSpace, recent, q, registry]);
 
   const go = (index: number) => {
@@ -57,14 +59,23 @@ export function CommandPalette() {
           {items.map((m, i) => {
             const Icon = m.icon;
             const group = registry.groupById(m.group);
-            return <li key={m.id} id={`palette-${m.id}`} role="option" aria-selected={i === active} onMouseEnter={() => setActive(i)} onClick={() => go(i)}
-              className={cn('flex cursor-pointer items-center gap-3 rounded-md px-3 py-2', i === active && 'bg-accent-primary-soft')}>
-              <Icon className="size-4 text-text-muted" aria-hidden />
-              <span className="flex-1">
-                <span className="block text-sm font-medium">{tx(m.label)}</span>
-                <span className="block text-tiny text-text-secondary">{tx(registry.spaceOf(m).label)} · {tx(group.label)} · {tx(PAGE_TYPE_LABELS[m.pageType])}{!m.component && ` · ${t('planned')}`}</span>
-              </span>
-              {i === active && <CornerDownLeft className="size-3.5 text-text-muted" aria-hidden />}
+            const space = registry.spaceOf(m);
+            const previous = i > 0 ? registry.spaceOf(items[i - 1]) : null;
+            const head = previous?.id !== space.id;
+            const meta = group.protoPlacement === 'collab'
+              ? `${tx(space.label)} · ${lang === 'ko' ? '협업' : 'Collaboration'}`
+              : `${tx(space.label)} · ${tx(group.label)} · ${tx(PAGE_TYPE_LABELS[m.pageType])}${!m.component ? ` · ${t('planned')}` : ''}`;
+            return <li key={m.id} role="presentation">
+              {head && <p className="px-3 pb-1 pt-2 text-caption font-semibold text-text-secondary">{tx(space.label)}</p>}
+              <div id={`palette-${m.id}`} role="option" aria-selected={i === active} onMouseEnter={() => setActive(i)} onClick={() => go(i)}
+                className={cn('flex cursor-pointer items-center gap-3 rounded-md px-3 py-2', i === active && 'bg-accent-primary-soft')}>
+                <Icon className="size-4 text-text-muted" aria-hidden />
+                <span className="flex-1">
+                  <span className="block text-sm font-medium">{tx(m.label)}</span>
+                  <span className="block text-tiny text-text-secondary">{meta}</span>
+                </span>
+                {i === active && <CornerDownLeft className="size-3.5 text-text-muted" aria-hidden />}
+              </div>
             </li>;
           })}
         </ul>

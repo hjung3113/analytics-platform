@@ -1,3 +1,4 @@
+// THROWAWAY #250 — never merge.
 /**
  * Synthetic server world. Values are fabricated for the prototype; they are not parser data,
  * real Site names, grants or equipment. Master values (IDs, team names) are never translated.
@@ -11,13 +12,13 @@ export const SITES: Site[] = [
   { id: 'XIA', label: 'XIA · Site C', rooms: ['PHOTO', 'ETCH'] },
 ];
 
-export type RoleId = 'engineer' | 'admin' | 'viewer';
+export type RoleId = 'engineer' | 'admin' | 'viewer' | 'none';
 export type User = { role: RoleId; name: string; title: { ko: string; en: string }; permissions: Permission[]; grants: Record<string, string[]> };
 const ALL: Permission[] = [...PERMISSIONS];
 export const USERS: Record<RoleId, User> = {
   engineer: {
     role: 'engineer', name: 'Process Engineer', title: { ko: '공정 엔지니어', en: 'Process engineer' },
-    permissions: ALL.filter(p => p !== 'console:access'),
+    permissions: ALL.filter(p => p !== 'console:access' && p !== 'logdev:view' && p !== 'collab:hub'),
     grants: { ICH: ['PHOTO', 'ETCH', 'CVD'], CJU: ['PHOTO'] },
   },
   admin: {
@@ -28,6 +29,11 @@ export const USERS: Record<RoleId, User> = {
     role: 'viewer', name: 'Field Requester', title: { ko: '현업 문의자', en: 'Field requester' },
     permissions: ['platform:view', 'metrics:view', 'notice:view', 'voc:view'],
     grants: { ICH: ['PHOTO'] },
+  },
+  none: {
+    role: 'none', name: 'New Hire', title: { ko: '신규 입사자', en: 'New hire' },
+    permissions: ['platform:view'],
+    grants: {},
   },
 };
 
