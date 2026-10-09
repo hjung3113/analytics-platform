@@ -32,7 +32,6 @@
 | #90 | 지표 상세 이력을 감사 저장소(`entityAudit`)로 통합 | 낮은 우선순위 |
 | #237 | turbo 캐시가 FeedbackOps 서브모듈 변경을 못 봄 — 입력 해시에 서브모듈 포함 | 고치기 전까지 gitlink를 올린 PR은 `--force`로 검사 |
 | #262 | productivity-drill-query의 `calls menuQuery for drillRoom=PHOTO`가 루트 test 부하에서 5초를 넘김 | 테스트 |
-| #264 | 홈 카드·공간 진입 목적지와 메뉴 허용 판정을 Kernel로 모으기 | 부분 권한 공간의 홈. 임의 fallback은 여기서 정하지 않음 |
 | #265 | 패키지별 최소 SpaceDef·어댑터 fixture builder | test-support. 공개 테스트 API는 아님 |
 | #266 | `app-preview.py` 종료 때 프로세스 소유를 확인 | 소유가 불명확하면 신호를 보내지 않음 |
 
