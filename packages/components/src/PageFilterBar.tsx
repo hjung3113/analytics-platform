@@ -44,6 +44,7 @@ export type PageFilterBarProps =
   | (PageFilterBarShared & {
       /** Row orientation only: the collapsed summary line replaces the always-visible field row. */
       collapsible: true;
+      orientation?: 'row';
       /** Stable per-menu preference id; the collapse preference is stored per key. */
       preferenceKey: string;
       /** Consumer-provided label/value summary of every field; conditions are never dropped. */
@@ -170,38 +171,61 @@ function CollapsiblePageFilterBar({ label, fields, actions, summaryItems, collap
     try { localStorage.setItem(storageKey, JSON.stringify(nextCollapsed)); } catch { /* preference stays in memory */ }
   }
 
-  const liveText = `${summaryItems.map(item => `${item.label} ${item.value}`).join(' · ')}${hasPendingChanges ? ` · ${t('pageFilterPendingChanges')}` : ''}`;
+  const summaryText = `${summaryItems.map(item => `${item.label} ${item.value}`).join(' · ')}${hasPendingChanges ? ` · ${t('pageFilterPendingChanges')}` : ''}`;
+  const [liveText, setLiveText] = useState('');
+  // Last summary string the live region was based on. The collapse/expand toggle itself never becomes an announcement;
+  // only a summary/pending change that happens while already collapsed is announced.
+  const announcedSummary = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    if (!collapsed) {
+      announcedSummary.current = null;
+      setLiveText('');
+      return;
+    }
+    if (announcedSummary.current === null) {
+      // First collapsed render (initial mount or a fresh collapse): record the baseline, announce nothing.
+      announcedSummary.current = summaryText;
+      return;
+    }
+    if (announcedSummary.current !== summaryText) {
+      announcedSummary.current = summaryText;
+      setLiveText(summaryText);
+    }
+  }, [collapsed, summaryText]);
 
   return <fieldset data-testid="page-filter-bar" className="mb-3 rounded-md border border-border-subtle bg-surface-card p-3">
     <legend className={collapsed ? 'sr-only' : 'px-1 text-xs text-text-secondary'}>{label}</legend>
-    {collapsed ? <div className="flex flex-wrap items-center gap-2">
+    {collapsed && <div className="flex flex-wrap items-center gap-2">
       <Button ref={expandRef} type="button" variant="secondary" size="toolbar" wrapText onClick={() => toggle(false)}
         aria-expanded="false" aria-controls={panelId} aria-describedby={summaryId} aria-label={t('expandPageFilter', { label })}
-        className="min-w-0 flex-1 basis-56 justify-start">
-        <ChevronDown className="size-3.5 shrink-0" aria-hidden />
+        className="min-w-0 flex-1 basis-56 items-start justify-start text-left">
+        <ChevronDown className="mt-0.5 size-3.5 shrink-0" aria-hidden />
         <span className="shrink-0">{t('filters')}</span>
         <span id={summaryId} className="min-w-0">
           {summaryItems.map((item, index) => <span key={item.key} className="inline-block max-w-full [overflow-wrap:anywhere]">
-            {index > 0 && <span aria-hidden className="mx-1.5 text-text-muted">·</span>}
-            <span className="text-text-secondary">{item.label}</span> <span>{item.value}</span>
+            <span className="font-normal text-text-secondary">{item.label}</span> <span className="font-medium">{item.value}</span>
+            {(index < summaryItems.length - 1 || hasPendingChanges) && <span aria-hidden className="mx-1.5 text-text-muted">·</span>}
           </span>)}
-          {hasPendingChanges && <span className="inline-block">
-            {summaryItems.length > 0 && <span aria-hidden className="mr-1.5 text-text-muted">·</span>}{t('pageFilterPendingChanges')}
-          </span>}
+          {hasPendingChanges && <span className="inline-block">{t('pageFilterPendingChanges')}</span>}
         </span>
       </Button>
       {collapsedActions != null && <div className="flex flex-wrap items-center gap-2">{collapsedActions}</div>}
-    </div> : <div id={panelId} className="flex flex-wrap items-end gap-3">
-      {fields.map((field, index) => <PageFilterFieldControl key={field.key} field={field} column={false} id={`${id}-field-${index}`} />)}
-      <div className="flex flex-wrap items-end gap-2">
-        {actions}
-        <Button ref={collapseRef} type="button" variant="ghost" size="toolbar" onClick={() => toggle(true)}
-          aria-expanded="true" aria-controls={panelId} aria-label={t('collapsePageFilter', { label })}>
-          <ChevronUp className="size-3.5" aria-hidden />{t('collapseShort')}
-        </Button>
-      </div>
     </div>}
-    {/* Always mounted so summary changes (e.g. reset while collapsed) are announced without re-mount churn. */}
-    <div aria-live="polite" className="sr-only">{collapsed ? liveText : ''}</div>
+    {/* Shell stays mounted with the same id in both states so aria-controls never points at a missing element. */}
+    <div id={panelId} hidden={collapsed} className={collapsed ? undefined : 'flex flex-wrap items-end gap-3'}>
+      {!collapsed && <>
+        {fields.map((field, index) => <PageFilterFieldControl key={field.key} field={field} column={false} id={`${id}-field-${index}`} />)}
+        <div className="flex flex-wrap items-end gap-2">
+          {actions}
+          <Button ref={collapseRef} type="button" variant="ghost" size="toolbar" onClick={() => toggle(true)}
+            aria-expanded="true" aria-controls={panelId} aria-label={t('collapsePageFilter', { label })}>
+            <ChevronUp className="size-3.5" aria-hidden />{t('collapseShort')}
+          </Button>
+        </div>
+      </>}
+    </div>
+    {/* Always mounted; carries only real summary changes that happened while collapsed (see the baseline effect above). */}
+    <div aria-live="polite" className="sr-only">{liveText}</div>
   </fieldset>;
 }

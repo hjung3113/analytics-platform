@@ -219,11 +219,15 @@ describe('PageFilterBar collapsible', () => {
     const panelId = toggle.getAttribute('aria-controls');
     expect(panelId).toBeTruthy();
     if (collapsed) {
-      expect(document.getElementById(panelId!)).toBeNull();
+      const panel = document.getElementById(panelId!);
+      expect(panel).not.toBeNull();
+      expect(panel).toHaveAttribute('hidden');
       expect(screen.queryByRole('combobox', { name: '느린 실행 기준' })).toBeNull();
+      expect(screen.queryByRole('searchbox', { name: '검색' })).toBeNull();
     } else {
       const panel = document.getElementById(panelId!);
       expect(panel).not.toBeNull();
+      expect(panel).not.toHaveAttribute('hidden');
       expect(panel!.contains(screen.getByRole('combobox', { name: '느린 실행 기준' }))).toBe(true);
     }
   });
@@ -270,15 +274,21 @@ describe('PageFilterBar collapsible', () => {
     expect(screen.getByRole('button', { name: '페이지 필터 펼치기' })).toHaveFocus();
   });
 
-  it('runs the collapsible row when a column orientation is wrongly passed (the union rejects the combination at type level)', () => {
-    render(<I18nProvider><PageFilterBar
-      {...collapsibleProps}
-      // @ts-expect-error — column rails own their own collapse; collapsible is row-only
-      orientation="column"
-    /></I18nProvider>);
+  it('rejects column orientation at type level (assignment, spread, and direct prop) and still runs the collapsible row', () => {
+    const forced = { ...collapsibleProps, collapsible: true as const, orientation: 'column' as const };
+    // @ts-expect-error — column rails own their own collapse; collapsible is row-only
+    const rejected: PageFilterBarProps = forced;
 
-    expect(screen.getByTestId('page-filter-bar')).not.toHaveClass('w-full');
-    expect(screen.getByRole('combobox', { name: '느린 실행 기준' })).toBeInTheDocument();
+    // @ts-expect-error — column rails own their own collapse; collapsible is row-only
+    render(<I18nProvider><PageFilterBar {...forced} /></I18nProvider>);
+    // @ts-expect-error — column rails own their own collapse; collapsible is row-only
+    render(<I18nProvider><PageFilterBar {...collapsibleProps} orientation="column" /></I18nProvider>);
+    expect(rejected.orientation).toBe('column');
+    expect(screen.getAllByRole('button', { name: '페이지 필터 접기' })).toHaveLength(2);
+    expect(screen.getAllByRole('combobox', { name: '느린 실행 기준' })).toHaveLength(2);
+
+    render(<I18nProvider><PageFilterBar {...collapsibleProps} orientation="row" /></I18nProvider>);
+    expect(screen.getAllByRole('combobox', { name: '느린 실행 기준' })).toHaveLength(3);
   });
 
   it('never truncates: a long value keeps its full text and the toggle stays a plain button', () => {
@@ -297,16 +307,25 @@ describe('PageFilterBar collapsible', () => {
 
     const summary = document.getElementById(screen.getByRole('button', { name: '페이지 필터 펼치기' }).getAttribute('aria-describedby')!);
     expect(summary).toHaveTextContent('미적용 변경 있음');
-    expect(screen.getByTestId('page-filter-bar').querySelector('[aria-live="polite"]')!.textContent).toContain('미적용 변경 있음');
   });
 
-  it('announces collapsed-summary changes through an always mounted polite live region', () => {
-    mountBar();
-    const live = screen.getByTestId('page-filter-bar').querySelector('[aria-live="polite"]');
-    expect(live).not.toBeNull();
-    expect(live!.textContent).toBe('');
+  it('keeps the live region silent on toggles and announces only real summary changes while collapsed', () => {
+    const view = mountBar();
+    const live = () => screen.getByTestId('page-filter-bar').querySelector('[aria-live="polite"]')!;
+    expect(live().textContent).toBe('');
 
     fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
-    expect(live!.textContent).toContain('느린 실행 기준 ≥ P95');
+    expect(live().textContent).toBe('');
+
+    view.rerender(<I18nProvider><PageFilterBar {...collapsibleProps} summaryItems={[{ key: 'percentile', label: '느린 실행 기준', value: '≥ P50' }]} /></I18nProvider>);
+    expect(live().textContent).toContain('느린 실행 기준 ≥ P50');
+
+    view.rerender(<I18nProvider><PageFilterBar {...collapsibleProps} summaryItems={[{ key: 'percentile', label: '느린 실행 기준', value: '≥ P50' }]} /></I18nProvider>);
+    expect(live().textContent).toContain('느린 실행 기준 ≥ P50');
+
+    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 펼치기' }));
+    expect(live().textContent).toBe('');
+    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
+    expect(live().textContent).toBe('');
   });
 });
