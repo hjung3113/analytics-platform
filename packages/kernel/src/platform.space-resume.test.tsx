@@ -198,3 +198,68 @@ describe('spaceResume (06 §9.1)', () => {
     expect(screen.getByTestId('path').textContent).toBe('/admin/roles');
   });
 });
+
+// Deliberately interleaved menus: sidebar group order wins over global menu order.
+const entryRegistry = createRegistry({
+  spaces,
+  groups: [...registry.groups, { id: 'analytics', label: { ko: '분석', en: 'Analysis' }, icon: House, space: 'analytics' }],
+  menus: [
+    registry.menuById('admin-roles'),
+    { ...registry.menuById('admin-child'), id: 'later-group', group: 'analytics', primary: true, path: '/analysis/later' },
+    registry.menuById('admin-child'),
+    { ...registry.menuById('equipment'), permission: 'analytics:view' },
+    { ...registry.menuById('equipment-detail'), navHidden: false },
+    { ...registry.menuById('equipment'), id: 'hidden', primary: false, path: '/hidden', navHidden: true },
+    { ...registry.menuById('equipment'), id: 'first', primary: false, path: '/first' },
+    { ...registry.menuById('equipment'), id: 'second', primary: false, path: '/second' },
+    registry.menuById('notices'),
+  ],
+});
+let entryPlatform!: ReturnType<typeof usePlatform>;
+function EntryProbe() {
+  entryPlatform = usePlatform();
+  return null;
+}
+function mountEntry(permissions: Session['user']['permissions']) {
+  window.history.replaceState(null, '', '/notices?v=1&scopeId=ICH&page=9');
+  render(<I18nProvider><PlatformProvider adapter={fixture(permissions)} registry={entryRegistry}><EntryProbe /></PlatformProvider></I18nProvider>);
+}
+
+describe('spaceEntry and canOpen (#264)', () => {
+  it.each([
+    ['partial permission', ANALYST, null, { menuId: 'first', href: '/first?v=1&scopeId=ICH', resumed: false }],
+    ['openable home', [...ANALYST, 'analytics:view'] as Session['user']['permissions'], null, { menuId: 'equipment', href: '/equipment?v=1&scopeId=ICH', resumed: false }],
+    ['last screen before home', [...ANALYST, 'analytics:view'] as Session['user']['permissions'], '/second?v=1&page=2', { menuId: 'second', href: '/second?v=1&scopeId=ICH&page=2', resumed: true }],
+    ['rejected last screen', ANALYST, '/equipment?v=1', { menuId: 'first', href: '/first?v=1&scopeId=ICH', resumed: false }],
+    ['no openable menu', NOTICES_ONLY, null, null],
+  ])('chooses %s', (_label, permissions, stored, expected) => {
+    if (stored) sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ analytics: stored }));
+    mountEntry(permissions);
+    expect(entryPlatform.spaceEntry('analytics')).toEqual(expected);
+  });
+
+  it('pushes the first openable menu and keeps current-space and denied-space switches inert', () => {
+    mountEntry(ANALYST);
+    const push = vi.spyOn(window.history, 'pushState');
+    act(() => entryPlatform.switchSpace('analytics'));
+    expect(push).toHaveBeenCalledWith(null, '', '/first?v=1&scopeId=ICH');
+    act(() => entryPlatform.switchSpace('analytics'));
+    act(() => entryPlatform.switchSpace('operations'));
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(entryPlatform.spaceEntry('operations')).toBeNull();
+    push.mockRestore();
+  });
+
+  it.each([
+    ['notices', ANALYST, undefined, true],
+    ['notices', ['platform:view'] as Session['user']['permissions'], undefined, false],
+    ['admin-child', ANALYST, undefined, false],
+    ['admin-child', ADMIN, undefined, true],
+    ['equipment', ANALYST, undefined, false],
+    ['equipment-detail', ANALYST, { equipmentId: 'E1' }, true],
+  ])('canOpen %s agrees with resolveLink without requiring route params', (id, permissions, params, allowed) => {
+    mountEntry(permissions);
+    expect(entryPlatform.canOpen(id)).toBe(allowed);
+    expect(entryPlatform.resolveLink(id, { params }).allowed).toBe(allowed);
+  });
+});

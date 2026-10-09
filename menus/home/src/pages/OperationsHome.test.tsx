@@ -103,6 +103,26 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 const BOTH = ['platform:view', 'equipment:view', 'metrics:view', 'notice:view', 'voc:view'] as Session['user']['permissions'];
 
 describe('platform home launcher', () => {
+  it('links a partial-permission space card to its first openable menu without a continue line', async () => {
+    const partialRegistry = createRegistry({
+      spaces: registry.spaces,
+      groups: registry.groups,
+      menus: [
+        ...registry.menus,
+        menu('analysis-home', 'equipment', '/analysis-home', 'analytics:view', { ko: '분석 홈', en: 'Analysis home' }),
+      ],
+    });
+    const partialSpaces = partialRegistry.spaces.map(space => space.id === 'analytics' ? { ...space, homeMenuId: 'analysis-home' } : space);
+    const withDeniedHome = createRegistry({ spaces: partialSpaces, groups: partialRegistry.groups, menus: partialRegistry.menus });
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&page=9');
+    render(<I18nProvider><PlatformProvider adapter={adapter(['platform:view', 'equipment:view'])} registry={withDeniedHome}><OperationsHome /></PlatformProvider></I18nProvider>);
+    await settled();
+    const cards = within(screen.getByRole('region', { name: '업무 시스템' })).getAllByRole('link');
+    expect(cards).toHaveLength(1);
+    expect(cards[0].getAttribute('href')).toBe('/equipment?v=1&scopeId=ICH');
+    expect(cards[0].textContent).not.toContain('이어서');
+  });
+
   it('lists accessible spaces in registration order and continues a stored screen', async () => {
     tabStore.setItem('platform:space-last:u1', JSON.stringify({ metrics: '/metrics?v=1&scopeId=OLD&page=2&extra=1' }));
     mount(BOTH);
