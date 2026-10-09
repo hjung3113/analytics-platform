@@ -132,6 +132,8 @@ jobs:
       # so `pnpm test` never runs them (v0.6.0 slice review F1).
       - run: python3 .agents/skills/issue-wave-conductor/scripts/test-app-preview.py
       - run: python3 .agents/skills/issue-wave-conductor/scripts/test-review-plan.py
+      - run: python3 .agents/skills/issue-wave-conductor/scripts/test-wave-status.py
+      - run: python3 .agents/skills/issue-wave-conductor/scripts/test-worker-hygiene.py
       - run: pnpm lint
       - run: pnpm typecheck
       # #166: vitest workers × parallel packages oversubscribe the runner → cap turbo concurrency
