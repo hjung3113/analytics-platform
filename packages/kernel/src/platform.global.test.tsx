@@ -1,23 +1,23 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ClientErrorReport, PlatformAdapter, Session, SpaceDef, UsageEvent } from '@ap/contracts';
+import type { ClientErrorReport, Session, SpaceDef, UsageEvent } from '@ap/contracts';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { createRegistry, type MenuEntry } from './registry';
+import { noContext, testAdapter, testSpace } from './test-support';
 
-const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 
 const spaces: SpaceDef[] = [
-  { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'equipment' },
-  { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' },
+  testSpace({ homeMenuId: 'equipment' }),
+  testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' }),
 ];
 
 function menu(over: Partial<MenuEntry> & Pick<MenuEntry, 'id' | 'group' | 'path' | 'permission'>): MenuEntry {
   return {
     label: { ko: over.id, en: over.id }, description: { ko: '', en: '' }, icon: House, requiresScope: false,
-    context: none, pageType: 'catalog', features: noFeatures, pageKeys: [], ...over,
+    context: noContext, pageType: 'catalog', features: noFeatures, pageKeys: [], ...over,
   };
 }
 
@@ -45,25 +45,11 @@ function fixture(permissions: Session['user']['permissions']) {
   const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions }, scopes: [] };
   const events: UsageEvent[] = [];
   const reports: ClientErrorReport[] = [];
-  const adapter: PlatformAdapter = {
-    menuQuery: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+  const adapter = testAdapter({
     session: () => session,
-    validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
-    publishedMetrics: () => [],
-    defaultRangeTo: () => '2026-09-26T09:00:00',
-    contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-    evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
-    getEntity: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    auditTrail: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    entityAudit: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    accessDirectory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     recordUsage: async batch => { events.push(...batch); return { accepted: batch.length }; },
-    usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    listAnnotations: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    saveAnnotation: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     reportClientError: async report => { reports.push(report); return { accepted: true }; },
-    subscribe: () => () => {},
-  };
+  });
   return { adapter, events, reports };
 }
 

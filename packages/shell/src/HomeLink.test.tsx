@@ -4,18 +4,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GroupId, Permission, PlatformAdapter, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { HomeLink } from './HomeLink';
+import { noContext, testAdapter, testSpace } from './test-setup';
 
-const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 
 function menu(id: string, group: GroupId, path: string, permission: Permission, primary = false) {
-  return { id, group, path, permission, ...(primary ? { primary: true } : {}), label: { ko: id, en: id }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: none, pageType: 'overview' as const, features: noFeatures, pageKeys: [] };
+  return { id, group, path, permission, ...(primary ? { primary: true } : {}), label: { ko: id, en: id }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, pageType: 'overview' as const, features: noFeatures, pageKeys: [] };
 }
 
 /** `/` is a global utility; the analytics home is a different menu, so the two destinations are distinguishable. */
 function withPlatformHome(homePermission: Permission) {
   return createRegistry({
-    spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'overview' }],
+    spaces: [testSpace({ homeMenuId: 'overview' })],
     groups: [
       { id: 'overview', label: { ko: '플랫폼', en: 'Platform' }, icon: House, space: null },
       { id: 'equipment', label: { ko: '업무', en: 'Work' }, icon: House, space: 'analytics' },
@@ -28,14 +28,14 @@ function withPlatformHome(homePermission: Permission) {
 }
 
 const spaceOnly = createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'overview' }],
+  spaces: [testSpace({ homeMenuId: 'overview' })],
   groups: [{ id: 'equipment', label: { ko: '업무', en: 'Work' }, icon: House, space: 'analytics' }],
   menus: [menu('overview', 'equipment', '/overview', 'platform:view', true)],
 });
 
 /** The space stays reachable through another menu, but neither `/` nor the space home can be opened. */
 const spaceWithoutHome = createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'equipment' }],
+  spaces: [testSpace({ homeMenuId: 'equipment' })],
   groups: [
     { id: 'overview', label: { ko: '플랫폼', en: 'Platform' }, icon: House, space: null },
     { id: 'equipment', label: { ko: '업무', en: 'Work' }, icon: House, space: 'analytics' },
@@ -49,7 +49,7 @@ const spaceWithoutHome = createRegistry({
 
 /** Neither `/` nor the space can be opened, so there is no sidebar home to fall back to. */
 const neither = createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'overview' }],
+  spaces: [testSpace({ permission: 'console:access', homeMenuId: 'overview' })],
   groups: [
     { id: 'overview', label: { ko: '플랫폼', en: 'Platform' }, icon: House, space: null },
     { id: 'equipment', label: { ko: '업무', en: 'Work' }, icon: House, space: 'analytics' },
@@ -63,16 +63,11 @@ const neither = createRegistry({
 const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
 function adapterWith(permissions: Session['user']['permissions']): PlatformAdapter {
   const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions }, scopes: [] };
-  return {
-    menuQuery: async () => forbidden, session: () => session, validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
-    publishedMetrics: () => [], defaultRangeTo: () => '2026-09-26T09:00:00',
-    contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-    evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
-    getEntity: async () => forbidden, auditTrail: async () => forbidden, entityAudit: async () => forbidden, accessDirectory: async () => forbidden,
-    recordUsage: async () => ({ accepted: 0 }), usageSummary: async () => forbidden,
-    listAnnotations: async () => forbidden, saveAnnotation: async () => forbidden,
-    reportClientError: async () => ({ accepted: true }), subscribe: () => () => {},
-  };
+  return testAdapter({
+    session: () => session,
+    getEntity: async () => forbidden,
+    listAnnotations: async () => forbidden,
+  });
 }
 
 function mount(registry: ReturnType<typeof createRegistry>, permissions: Session['user']['permissions'], url: string) {

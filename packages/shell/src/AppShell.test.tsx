@@ -8,30 +8,25 @@ import { I18nProvider, PlatformProvider, usePlatform, createRegistry } from '@ap
 import { AppShell } from './AppShell';
 import { AppRail } from './AppRail';
 import { AppSidebar } from './AppSidebar';
+import { noContext, testAdapter, testSpace } from './test-setup';
 
 function menu(id: string, group: GroupId, path: string, permission: Permission) {
-  return { id, group, path, permission, primary: true, label: { ko: '운영 홈', en: 'Operations home' }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: none, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] };
+  return { id, group, path, permission, primary: true, label: { ko: '운영 홈', en: 'Operations home' }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] };
 }
-const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const registry = createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home' }, { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'ops', permission: 'console:access' }],
+  spaces: [testSpace(), testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' })],
   groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics', hideLabelWhenSingle: true }, { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' }],
-  menus: [menu('ops', 'admin', '/ops', 'console:access'), { id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['focus', 'tab'] }],
+  menus: [menu('ops', 'admin', '/ops', 'console:access'), { id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['focus', 'tab'] }],
 });
 
 const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
 function adapterWith(permissions: Session['user']['permissions'] = ['platform:view']): PlatformAdapter {
   const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions }, scopes: [] };
-  return {
-    menuQuery: async () => forbidden, session: () => session, validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
-    publishedMetrics: () => [], defaultRangeTo: () => '2026-09-26T09:00:00',
-    contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-    evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
-    getEntity: async () => forbidden, auditTrail: async () => forbidden, entityAudit: async () => forbidden, accessDirectory: async () => forbidden,
-    recordUsage: async () => ({ accepted: 0 }), usageSummary: async () => forbidden,
-    listAnnotations: async () => forbidden, saveAnnotation: async () => forbidden,
-    reportClientError: async () => ({ accepted: true }), subscribe: () => () => {},
-  };
+  return testAdapter({
+    session: () => session,
+    getEntity: async () => forbidden,
+    listAnnotations: async () => forbidden,
+  });
 }
 
 function sidebarRegistry(groupId: GroupId, groupLabel: string, menuIds: string[], hideLabelWhenSingle = false) {
@@ -41,7 +36,7 @@ function sidebarRegistry(groupId: GroupId, groupLabel: string, menuIds: string[]
     primary: index === 0,
   }));
   return createRegistry({
-    spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: menuIds[0] }],
+    spaces: [testSpace({ homeMenuId: menuIds[0] })],
     groups: [{
       id: groupId,
       label: { ko: groupLabel, en: groupLabel },
@@ -349,8 +344,8 @@ const feedbackSlot: FeedbackOpsSlot = {
 function globalShellRegistry(equipmentPermission: Permission = 'platform:view') {
   return createRegistry({
     spaces: [
-      { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'equipment' },
-      { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'ops', permission: 'console:access' },
+      testSpace({ homeMenuId: 'equipment' }),
+      testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' }),
     ],
     groups: [
       { id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
@@ -358,7 +353,7 @@ function globalShellRegistry(equipmentPermission: Permission = 'platform:view') 
       { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' },
     ],
     menus: [
-      { id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] },
+      { id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] },
       menu('equipment', 'equipment', '/equipment', equipmentPermission),
       menu('ops', 'admin', '/ops', 'console:access'),
     ],
@@ -367,15 +362,15 @@ function globalShellRegistry(equipmentPermission: Permission = 'platform:view') 
 
 function logoRegistry() {
   return createRegistry({
-    spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'equipment' }],
+    spaces: [testSpace({ homeMenuId: 'equipment' })],
     groups: [
       { id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
       { id: 'noticeVoc', label: { ko: '공지', en: 'Notices' }, icon: House, space: null },
       { id: 'equipment', label: { ko: '설비', en: 'Equipment' }, icon: House, space: 'analytics' },
     ],
     menus: [
-      { id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] },
-      { id: 'notices', group: 'noticeVoc', primary: true, label: { ko: '공지', en: 'Notices' }, description: { ko: '', en: '' }, path: '/notices', icon: House, permission: 'notice:view', requiresScope: false, context: none, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] },
+      { id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] },
+      { id: 'notices', group: 'noticeVoc', primary: true, label: { ko: '공지', en: 'Notices' }, description: { ko: '', en: '' }, path: '/notices', icon: House, permission: 'notice:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] },
       menu('equipment', 'equipment', '/equipment', 'platform:view'),
     ],
   });

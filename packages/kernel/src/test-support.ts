@@ -1,9 +1,5 @@
-import '@testing-library/jest-dom/vitest';
+// Package-internal test fixtures (#265). Not exported from src/index.ts — tests import it by relative path only.
 import type { ApiResponse, Capability, ContextKey, Permission, PlatformAdapter, ScopeOption, Session, SessionUser, SpaceDef } from '@ap/contracts';
-
-// Package-internal test fixtures (#265). They live in test-setup.ts because the shell boundary scan
-// (no-group-id-literals.test.ts) treats this file name as test tooling, not shell source; the shell
-// must not ship space/group id literals in production code.
 
 /** Every Context key 'unsupported': the no-op Global Context capability record (06 §6). */
 export const noContext: Record<ContextKey, Capability> = {

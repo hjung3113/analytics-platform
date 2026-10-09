@@ -6,14 +6,14 @@ import type { ClientErrorReport, PlatformAdapter, Session } from '@ap/contracts'
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { RouteOutlet } from './RouteOutlet';
 import { reloadApp } from './reload';
+import { noContext, testAdapter, testSpace } from './test-setup';
 
 vi.mock('./reload', () => ({ reloadApp: vi.fn() }));
 
-const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const menu = (id: string, path: string, over: object = {}) => ({
   id, group: 'equipment' as const, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
-  requiresScope: false, context: none, pageType: 'analysis' as const, features: noFeatures, pageKeys: [], ...over,
+  requiresScope: false, context: noContext, pageType: 'analysis' as const, features: noFeatures, pageKeys: [], ...over,
 });
 
 let broken = true;
@@ -25,7 +25,7 @@ const lazyMissing = lazy(() => Promise.reject(new TypeError('Failed to fetch dyn
 function Flaky() { if (broken) throw new TypeError('flaky'); return <p>flaky ok</p>; }
 
 const registry = createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home' }],
+  spaces: [testSpace()],
   groups: [{ id: 'equipment', label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: 'analytics' }],
   menus: [
     menu('home', '/home', { primary: true, component: () => <p>home page</p> }),
@@ -38,27 +38,14 @@ const registry = createRegistry({
   ],
 });
 
-const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
 function fixture(reportClientError: PlatformAdapter['reportClientError']) {
   const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view'] }, scopes: [] };
   const listeners = new Set<() => void>();
-  const adapter: PlatformAdapter = {
-    menuQuery: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+  const adapter = testAdapter({
     session: () => session,
-    validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
-    publishedMetrics: () => [],
-    defaultRangeTo: () => '2026-09-26T09:00:00',
-    contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-    evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
-    getEntity: async () => ({ ...forbidden, outcome: 'empty' }),
-    auditTrail: async () => forbidden, entityAudit: async () => forbidden, accessDirectory: async () => forbidden,
-    recordUsage: async () => ({ accepted: 0 }),
-    listAnnotations: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    saveAnnotation: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     reportClientError,
-    usageSummary: async () => forbidden,
     subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; },
-  };
+  });
   return { adapter, announce: () => listeners.forEach(l => l()) };
 }
 
@@ -166,11 +153,11 @@ describe('global utility routes and the null-sidebar home link (06 §9.1)', () =
   function SecretPage() { return <p>secret page</p>; }
   const globalMenu = (id: string, path: string, over: object = {}) => ({
     id, group: 'noticeVoc' as const, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House,
-    permission: 'notice:view' as const, requiresScope: false, context: none, pageType: 'catalog' as const, features: noFeatures, pageKeys: [], ...over,
+    permission: 'notice:view' as const, requiresScope: false, context: noContext, pageType: 'catalog' as const, features: noFeatures, pageKeys: [], ...over,
   });
   function globalRegistry(withRoot: boolean) {
     return createRegistry({
-      spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'roles' }],
+      spaces: [testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'roles' })],
       groups: [
         { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' },
         { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice' }, icon: House, space: null },
@@ -246,11 +233,11 @@ describe('global query admission under RouteOutlet (06 §9.1)', () => {
   function queryRegistry() {
     const item = (id: string, group: 'admin' | 'noticeVoc', path: string, over: object = {}) => ({
       id, group, path, label: { ko: id, en: id }, description: { ko: '', en: '' }, icon: House,
-      permission: 'notice:view' as const, requiresScope: false, context: none, pageType: 'catalog' as const,
+      permission: 'notice:view' as const, requiresScope: false, context: noContext, pageType: 'catalog' as const,
       features: noFeatures, pageKeys: [], ...over,
     });
     return createRegistry({
-      spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'roles' }],
+      spaces: [testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'roles' })],
       groups: [
         { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' },
         { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice' }, icon: House, space: null },

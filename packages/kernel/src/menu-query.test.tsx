@@ -7,6 +7,7 @@ import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { type MenuFetch, type QueryState, useEntityQuery, useMenuFetch, useMenuQuery } from './query';
 import { createRegistry } from './registry';
+import { testAdapter, testSpace } from './test-support';
 
 type Params = { page: number; sort?: string };
 type QueryData = { call: number; context: MenuQuery['context']; params: Params };
@@ -25,7 +26,7 @@ const endpoint: EndpointSpec<Params, QueryData> = defineEndpoint<Params, QueryDa
 
 function makeRegistry(time: 'apply' | 'unsupported') {
   return createRegistry({
-    spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home' }],
+    spaces: [testSpace()],
     groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
     menus: [{
       id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' },
@@ -61,28 +62,15 @@ function fixture(options: FixtureOptions = {}) {
     trust: null,
     correlationId: `fixture-${call}`,
   }));
-  const adapter: PlatformAdapter = {
+  const adapter = testAdapter({
     menuQuery: vi.fn(async (request: MenuQuery, _signal?: AbortSignal) => {
       requests.push(request);
       return answer(request, requests.length);
     }),
     session: () => current,
     validateScope: options.validateScope ?? (async () => ({ status: 'valid', grantedRooms: [] })),
-    publishedMetrics: () => [],
-    defaultRangeTo: () => '2026-09-26T09:00:00',
-    contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-    evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
-    getEntity: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    auditTrail: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    entityAudit: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    accessDirectory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    recordUsage: async () => ({ accepted: 0 }),
-    usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    listAnnotations: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    saveAnnotation: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    reportClientError: async () => ({ accepted: true }),
     subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
-  };
+  });
   return {
     adapter,
     requests,

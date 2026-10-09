@@ -7,6 +7,7 @@ import { parseDateTime } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { AnalysisChartFrame, type ChartSeries } from './AnalysisChartFrame';
 import type { EChartProps } from './EChart';
+import { noContext, testAdapter, testSpace } from './test-support';
 
 vi.mock('./EChartImpl', () => ({ default: FakePlot }));
 
@@ -30,13 +31,12 @@ function FakePlot(props: EChartProps): ReactElement {
   </div>;
 }
 
-const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const off = { export: false, savedView: false, annotate: false, compare: false };
 const on = { export: true, savedView: false, annotate: true, compare: true };
 const registryWith = (features: typeof off) => createRegistry({
-  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home' }],
+  spaces: [testSpace()],
   groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
-  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'analysis', features, pageKeys: [] }],
+  menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features, pageKeys: [] }],
 });
 
 const envelope = { data: null, assessments: [], trust: null, correlationId: 'fixture' };
@@ -53,21 +53,12 @@ function fixture() {
     rows.push(row);
     return { ...envelope, outcome: 'ok', data: row };
   });
-  const adapter: PlatformAdapter = {
-    menuQuery: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+  const adapter = testAdapter({
     session: () => session,
-    validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
-    publishedMetrics: () => [],
-    defaultRangeTo: () => '2026-09-26T09:00:00',
-    contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-    evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
     getEntity: async () => none_('empty'),
-    auditTrail: async () => none_('forbidden'), entityAudit: async () => none_('forbidden'),
-    accessDirectory: async () => none_('forbidden'), usageSummary: async () => none_('forbidden'),
-    recordUsage: async () => ({ accepted: 0 }), reportClientError: async () => ({ accepted: true }),
-    listAnnotations: list, saveAnnotation: save,
-    subscribe: () => () => {},
-  };
+    listAnnotations: list,
+    saveAnnotation: save,
+  });
   return { adapter, rows, list, save };
 }
 
