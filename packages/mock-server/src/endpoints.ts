@@ -13,6 +13,8 @@ export type MockEndpoint<P, T> = {
    */
   handle: (input: { equipment: Equipment[]; context: GlobalContext; params: P; actor: RoleId }) => T;
   isEmpty?: (data: T) => boolean;
+  /** Overrides period-based Data Trust for non-empty, well-formed mart responses. */
+  provisional?: (input: { data: T; params: P; context: GlobalContext }) => boolean;
   /** Trust source shown in Data Trust; defaults like serve(). */
   source?: string;
   /** False for a non-mart source: no Data Trust and no mart dev scenarios (ServeOptions.mart). Default true. */
@@ -145,6 +147,7 @@ export async function serveEndpoint(
       mart: endpoint.mart,
       metricVersionOf: endpoint.metricVersion ? () => endpoint.metricVersion!({ context: global, params: req.params }) : undefined,
       isEmpty: endpoint.isEmpty,
+      provisionalOf: endpoint.provisional ? data => endpoint.provisional!({ data, params: req.params, context: global }) : undefined,
       compute: ({ equipment, role }) => endpoint.handle({ equipment, context: global, params: req.params, actor: role }),
     });
   } catch (error) {
