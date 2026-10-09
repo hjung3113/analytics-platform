@@ -108,6 +108,8 @@ const dict = {
   source: { ko: '원천', en: 'Source' },
   export: { ko: '내보내기', en: 'Export' },
   palettePlaceholder: { ko: '이동할 메뉴를 입력하세요…', en: 'Type a menu to go to…' },
+  paletteName: { ko: '메뉴 검색', en: 'Search menus' },
+  palettePlatform: { ko: '플랫폼', en: 'Platform' },
   paletteEmpty: { ko: '일치하는 메뉴가 없습니다.', en: 'No matching menus.' },
   paletteHint: { ko: '메뉴 이동 전용 — 객체/액션 검색은 Deferred', en: 'Menu navigation only — entity/action search deferred' },
   goTo: { ko: '이동', en: 'Go to' },
@@ -119,7 +121,7 @@ const dict = {
 } satisfies Record<string, Text>;
 
 export type Key = keyof typeof dict;
-type I18n = { lang: Lang; setLang: (lang: Lang) => void; t: (key: Key, params?: Record<string, string | number>) => string; tx: (text: Text) => string };
+type I18n = { lang: Lang; setLang: (lang: Lang) => void; t: (key: Key, params?: Record<string, string | number>) => string; tx: (text: Text) => string; text: (key: Key) => Text };
 const I18nContext = createContext<I18n | null>(null);
 const STORAGE = 'platform:lang';
 
@@ -134,7 +136,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = next;
     try { localStorage.setItem(STORAGE, next); } catch { /* preference stays in memory */ }
   }, []);
-  const value = useMemo<I18n>(() => ({ lang, setLang, t: (key, params) => dict[key][lang].replace(/\{(\w+)\}/g, (token, name: string) => params?.[name] === undefined ? token : String(params[name])), tx: text => text[lang] }), [lang, setLang]);
+  const value = useMemo<I18n>(() => ({ lang, setLang, t: (key, params) => dict[key][lang].replace(/\{(\w+)\}/g, (token, name: string) => params?.[name] === undefined ? token : String(params[name])), tx: text => text[lang], text: key => dict[key] }), [lang, setLang]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 

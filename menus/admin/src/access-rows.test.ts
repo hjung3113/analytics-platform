@@ -62,6 +62,24 @@ describe('menusForPermissions (#49 drawer join)', () => {
     expect(admin[0].spaceGated).toBe(false);
   });
 
+  it('does not space-gate a global utility menu and labels it 전역', () => {
+    const globalRegistry = createRegistry({
+      spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'roles' }],
+      groups: [
+        { id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' },
+        { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice & VOC' }, icon: House, space: null },
+      ],
+      menus: [
+        menu({ id: 'roles', permission: 'console:access', path: '/admin/roles', primary: true }),
+        menu({ id: 'notices', permission: 'notice:view', path: '/notices', group: 'noticeVoc', primary: true, label: { ko: '공지', en: 'Notices' } }),
+      ],
+    });
+    expect(menusForPermissions(globalRegistry, ['notice:view'])).toEqual([{
+      id: 'notices', label: { ko: '공지', en: 'Notices' }, path: '/notices', permission: 'notice:view',
+      spaceGated: false, spaceId: null, spaceLabel: { ko: '전역', en: 'Global' },
+    }]);
+  });
+
   it('joins nothing for permissions no menu declares', () => {
     expect(menusForPermissions(registry, ['platform:view', 'voc:view'])).toEqual([]);
   });

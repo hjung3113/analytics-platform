@@ -311,7 +311,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         return Object.keys(e).some(k => !allowed.includes(k) && !(breaks.has('usage-client-user') && k === 'userId'))
           || !token(e.menuId, 80) || !token(e.path, 200)
           || typeof e.sessionId !== 'string'
-          || typeof e.spaceId !== 'string' || !['analytics', 'operations', 'feedback'].includes(e.spaceId)
+          || !(e.spaceId === null || (typeof e.spaceId === 'string' && ['analytics', 'metrics', 'operations'].includes(e.spaceId)))
           || (e.name !== 'entry' && e.name !== 'dwell')
           || (!breaks.has('usage-allows-any-at') && (typeof e.at !== 'number' || !Number.isFinite(e.at)))
           || (e.name === 'dwell' && (!breaks.has('usage-allows-any-entered-at') && (typeof e.enteredAt !== 'number' || !Number.isFinite(e.enteredAt))
@@ -353,7 +353,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         || typeof report.correlationId !== 'string' || !report.correlationId.startsWith('client-')
         || !token(report.menuId, 80)
         || typeof report.path !== 'string' || !token(report.path, 200) || !appRelative(report.path)
-        || typeof report.spaceId !== 'string' || !['analytics', 'operations', 'feedback'].includes(report.spaceId)
+        || !(report.spaceId === null || (typeof report.spaceId === 'string' && ['analytics', 'metrics', 'operations'].includes(report.spaceId)))
         || typeof name !== 'string' || (!breaks.has('client-error-allows-any-name') && !/^[A-Za-z_$][\w$]{0,79}$/.test(name));
       return invalidReport ? { accepted: false } : { accepted: true };
     },
@@ -950,5 +950,30 @@ describe('declared maxRows oversize check (#175)', () => {
     const h = oversizeHarness('too_large with data');
     const check = planServerConformance(h).find(c => c.id === CHECK_ID)!;
     expect(await h.asGranted(check.run)).toContain('carries no data');
+  });
+});
+
+describe('global utility spaceId (06 §9.1)', () => {
+  const entry = { name: 'entry' as const, menuId: 'notices', path: '/notices', at: 1, sessionId: 'tab' };
+  const report = { correlationId: 'client-1', menuId: 'notices', path: '/notices', name: 'Error' };
+
+  it.each([
+    ['null', null, 1],
+    ['metrics', 'metrics', 1],
+    ['feedback', 'feedback', 0],
+    ['nope', 'nope', 0],
+  ] as const)('recordUsage accepts %s as %s', async (_label, spaceId, accepted) => {
+    const h = harness();
+    expect((await h.adapter.recordUsage([{ ...entry, spaceId } as UsageEvent])).accepted).toBe(accepted);
+  });
+
+  it.each([
+    ['null', null, true],
+    ['metrics', 'metrics', true],
+    ['feedback', 'feedback', false],
+    ['nope', 'nope', false],
+  ] as const)('reportClientError accepts %s as %s', async (_label, spaceId, accepted) => {
+    const h = harness();
+    expect((await h.adapter.reportClientError({ ...report, spaceId } as ClientErrorReport)).accepted).toBe(accepted);
   });
 });

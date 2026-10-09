@@ -161,6 +161,78 @@ describe('RouteOutlet error boundary (06 §4)', () => {
   });
 });
 
+describe('global utility routes and the null-sidebar home link (06 §9.1)', () => {
+  function NoticePage() { return <p>notice page</p>; }
+  function SecretPage() { return <p>secret page</p>; }
+  const globalMenu = (id: string, path: string, over: object = {}) => ({
+    id, group: 'noticeVoc' as const, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House,
+    permission: 'notice:view' as const, requiresScope: false, context: none, pageType: 'catalog' as const, features: noFeatures, pageKeys: [], ...over,
+  });
+  function globalRegistry(withRoot: boolean) {
+    return createRegistry({
+      spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'roles' }],
+      groups: [
+        { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' },
+        { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice' }, icon: House, space: null },
+        ...(withRoot ? [{ id: 'overview' as const, label: { ko: '개요', en: 'Overview' }, icon: House, space: null }] : []),
+      ],
+      menus: [
+        globalMenu('roles', '/admin/roles', { group: 'admin', permission: 'console:access', primary: true }),
+        globalMenu('notices', '/notices', { primary: true, component: NoticePage }),
+        globalMenu('secret', '/secret', { permission: 'voc:view', component: SecretPage }),
+        globalMenu('crash', '/crash', { component: Crash }),
+        ...(withRoot ? [globalMenu('root', '/', { group: 'overview', permission: 'platform:view', primary: true })] : []),
+      ],
+    });
+  }
+  function mountGlobal(url: string, withRoot: boolean) {
+    const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['notice:view'] }, scopes: [] };
+    const { adapter } = fixture(async () => ({ accepted: true }));
+    adapter.session = () => session;
+    window.history.replaceState(null, '', url);
+    return render(<I18nProvider><PlatformProvider adapter={adapter} registry={globalRegistry(withRoot)}><RouteOutlet /></PlatformProvider></I18nProvider>);
+  }
+
+  it('renders a global menu without the space-denial screen', async () => {
+    mountGlobal('/notices', true);
+    expect(await screen.findByText('notice page')).toBeTruthy();
+    expect(screen.queryByText('이 공간에 들어갈 수 없습니다')).toBeNull();
+  });
+
+  it('still denies a global menu the user has no permission for', async () => {
+    mountGlobal('/secret', true);
+    expect(await screen.findByText('이 메뉴에 대한 권한이 없습니다')).toBeTruthy();
+    expect(screen.getByText(/permission=voc:view/)).toBeTruthy();
+    expect(screen.queryByText('이 공간에 들어갈 수 없습니다')).toBeNull();
+  });
+
+  it('links home to the menu at / when the sidebar space is null', async () => {
+    mountGlobal('/missing', true);
+    const home = await screen.findByRole('link', { name: '홈' });
+    expect(home).toHaveAttribute('href', '/?v=1');
+  });
+
+  it('omits the home link when no menu is registered at /', async () => {
+    mountGlobal('/missing', false);
+    expect(await screen.findByText(/\/missing/)).toBeTruthy();
+    expect(screen.queryByRole('link', { name: '홈' })).toBeNull();
+  });
+
+  it('shows home next to retry when a global screen throws and a menu exists at /', async () => {
+    mountGlobal('/crash', true);
+    expect(await screen.findByText('이 화면에서 오류가 발생했습니다')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: '홈' })).toHaveAttribute('href', '/?v=1');
+  });
+
+  it('omits the home link on the error screen when no menu is registered at /', async () => {
+    mountGlobal('/crash', false);
+    expect(await screen.findByText('이 화면에서 오류가 발생했습니다')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: '홈' })).toBeNull();
+  });
+});
+
 describe('RouteOutlet contract error view', () => {
   it('shows the diagnostic URL at full strength — no opacity on danger-soft (AA, #193 UI/UX recheck)', async () => {
     const { adapter } = fixture(async () => ({ accepted: true }));

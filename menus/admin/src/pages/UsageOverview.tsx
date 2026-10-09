@@ -24,7 +24,7 @@ export default function UsageOverview() {
   const columns = useMemo<PlatformColumn<UsageRow>[]>(() => [
     { id: 'id', header: ko ? '메뉴 ID' : 'Menu ID', cell: row => <span className="t-mono">{String(row.id)}</span> },
     { id: 'label', header: ko ? '메뉴' : 'Menu', sortable: false, cell: row => row.label[lang] },
-    { id: 'spaceId', header: ko ? '공간' : 'Space' },
+    { id: 'spaceId', header: ko ? '공간' : 'Space', cell: row => row.spaceLabel[lang] },
     { id: 'visits', header: ko ? '방문' : 'Visits', align: 'right' },
     { id: 'distinctUsers', header: ko ? '방문 사용자' : 'Distinct users', align: 'right' },
     {

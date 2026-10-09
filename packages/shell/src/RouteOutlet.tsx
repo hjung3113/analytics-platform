@@ -1,8 +1,9 @@
 import { Ban, FileQuestion, Link2Off } from 'lucide-react';
-import { CONTEXT_LABELS, PAGE_TYPE_LABELS, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
+import { CONTEXT_LABELS, PAGE_TYPE_LABELS, useI18n, usePlatform } from '@ap/kernel';
 import { Panel, PlatformPage, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import type { ContextKey } from '@ap/contracts';
+import { HomeLink } from './HomeLink';
 import { RouteErrorBoundary } from './RouteErrorBoundary';
 
 /** Renders the matched menu page, or the kernel's not-found / contract-error / permission / planned states (docs/06 §17, §19). */
@@ -41,10 +42,7 @@ export function RouteOutlet() {
 }
 
 function KernelMessage({ icon, title, body, tone }: { icon: React.ReactNode; title: string; body: React.ReactNode; tone?: 'warning' | 'danger' }) {
-  const { linkTo, sidebarSpace } = usePlatform();
-  const { t } = useI18n();
-  return <div className="p-6"><StateMessage tone={tone} icon={icon} title={title} body={body}
-    action={<Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo(sidebarSpace.homeMenuId)}>{t('home')}</PlatformLink></Button>} /></div>;
+  return <div className="p-6"><StateMessage tone={tone} icon={icon} title={title} body={body} action={<HomeLink />} /></div>;
 }
 
 function ContractErrorView() {

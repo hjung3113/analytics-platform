@@ -28,6 +28,17 @@ describe('client error reports (issue #101)', () => {
     expect(await reportClientError(withMessage)).toEqual({ accepted: false });
   });
 
+  it('accepts a null spaceId for a global utility menu', async () => {
+    expect(await reportClientError(report({ spaceId: null }))).toEqual({ accepted: true });
+    expect(storedClientErrors()[0].spaceId).toBeNull();
+  });
+
+  it('accepts metrics and rejects the removed feedback space id', async () => {
+    expect(await reportClientError(report({ spaceId: 'metrics' }))).toEqual({ accepted: true });
+    expect(await reportClientError(report({ correlationId: 'client-feedback', spaceId: 'feedback' as never }))).toEqual({ accepted: false });
+    expect(storedClientErrors().map(row => row.spaceId)).toEqual(['metrics']);
+  });
+
   it.each([
     ['correlation id without the client- prefix', { correlationId: 'corr-1' }],
     ['menu id with a query string', { menuId: 'equipment?x=1' }],

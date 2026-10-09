@@ -9,7 +9,7 @@ export type ContextKey = 'time' | 'roomNames' | 'condition' | 'selection' | 'lot
 export type Capability = 'apply' | 'reference' | 'unsupported';
 export type PageType = 'overview' | 'analysis' | 'management' | 'catalog' | 'workflow';
 export type GroupId = 'overview' | 'equipment' | 'masterData' | 'analytics' | 'metrics' | 'noticeVoc' | 'admin';
-export type SpaceId = 'analytics' | 'operations' | 'feedback';
+export type SpaceId = 'analytics' | 'metrics' | 'operations';
 /** Sidebar-visible group set + entry permission (06 §9.1). Groups declare membership via GroupDef.space, menus never do. */
 export type SpaceDef = {
   id: SpaceId;

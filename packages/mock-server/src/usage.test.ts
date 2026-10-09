@@ -113,6 +113,21 @@ describe('menu usage (docs/05 메뉴 활용률 계측)', () => {
     expect(storedUsage()).toHaveLength(0);
   });
 
+  it('accepts a null spaceId for a global utility menu and stores it', async () => {
+    expect((await recordUsage([entry({ spaceId: null })])).accepted).toBe(1);
+    expect(storedUsage()[0].spaceId).toBeNull();
+  });
+
+  it('accepts the metrics space id', async () => {
+    expect((await recordUsage([entry({ spaceId: 'metrics' })])).accepted).toBe(1);
+    expect(storedUsage()[0].spaceId).toBe('metrics');
+  });
+
+  it('rejects the removed feedback space id', async () => {
+    expect((await recordUsage([entry({ spaceId: 'feedback' as SpaceId })])).accepted).toBe(0);
+    expect(storedUsage()).toHaveLength(0);
+  });
+
   it('rejects the whole batch when any event is invalid', async () => {
     const good = entry();
     expect((await recordUsage([good, entry({ menuId: 'bad id' })])).accepted).toBe(0);
