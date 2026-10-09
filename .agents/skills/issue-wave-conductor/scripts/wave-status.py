@@ -135,7 +135,8 @@ def snapshot(dirs, with_prs):
     now = time.time()
     workers, previews = [], []
     for d in dirs:
-        for path in d.glob('*.json'):
+        # glob order is filesystem order (differs on Linux CI); sort so previews list by label.
+        for path in sorted(d.glob('*.json')):
             if path.name.startswith('preview-'):
                 p = preview(path)
                 if p:
