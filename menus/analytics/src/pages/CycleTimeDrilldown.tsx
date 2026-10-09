@@ -2,8 +2,9 @@ import { useMemo, useState } from 'react';
 import { AlertTriangle, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
 import { periodHours, type Trust } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
-import { AnalysisLayout, AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type Delta, type PlatformColumn, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage } from '@ap/components';
+import { AnalysisLayout, AnalysisChartFrame, DataTrustIndicator, type Delta, type PlatformColumn, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
+import { FilterCollapsePrototype, FilterCollapsePrototypeChrome } from './prototype/FilterCollapseVariants';
 import {
   CYCLE_VERSION_NOTE, PAGE_METRIC_ID, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint,
   cycleTrendEndpoint, cycleVersionOf, resolveMetric,
@@ -106,7 +107,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
     dataTrustSummary={kpi.response?.trust ? <DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} /> : undefined}
     contextExtension={<div className="space-y-2">
       <MetricBanner metric={metric} />
-      <PageFilterBar label={ko ? '페이지 필터' : 'Page filter'} fields={[
+      {/* W-230 PROTOTYPE: the same fields/action as before, wrapped in the ?variant=A|B|C collapse study. */}
+      <FilterCollapsePrototype label={ko ? '페이지 필터' : 'Page filter'} fields={[
         { kind: 'custom', key: 'granularity', label: ko ? '집계' : 'Grain', content: <div className="flex flex-wrap items-center gap-1">
           {(['hour', 'day', 'week'] as const).map(value => <button key={value} type="button" aria-pressed={!granularityPending && granularityResult.ok && granularity === value}
             className={!granularityPending && granularityResult.ok && granularity === value ? 'h-8 rounded-md bg-accent-primary-soft px-2 text-xs font-medium text-accent-primary' : 'h-8 rounded-md px-2 text-xs text-text-secondary hover:bg-surface-sunken'}
@@ -123,7 +125,10 @@ export default function CycleTimeDrilldown(_: PageProps) {
           { value: 'anchor:asc', label: ko ? '시작 오래된' : 'Start oldest' },
           { value: 'equipmentId:asc', label: 'Equipment A→Z' },
         ], onValueChange: value => setPage({ sort: value === DEFAULT_SORT ? null : value, page: null }) },
-      ]} actions={<Button type="button" variant="ghost" size="toolbar" onClick={() => setPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{ko ? '페이지 조건 기본값' : 'Reset page filters'}</Button>} />
+      ]} actions={<Button type="button" variant="ghost" size="toolbar" onClick={() => setPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{ko ? '페이지 조건 기본값' : 'Reset page filters'}</Button>}
+        granularity={granularity} grainExplicit={granularityResult.ok && granularityResult.explicit}
+        tailMode={tailMode} tailExplicit={tailResult.ok && tailResult.explicit}
+        sortSpec={sortSpec} sortExplicit={sortResult.ok && sortResult.explicit} />
       <p className="text-xs text-text-muted">
         {ko
           ? `집계 기본값은 기간 ≤48h이면 hour, 아니면 day${!granularityResult.ok || granularityResult.explicit ? '' : ` (지금 ${granularity}, URL에 없음)`}. 꼬리 기본값은 ≥ P95 (Candidate, 동률 포함)이며 KPI 모집단을 다시 줄이지 않습니다. 버킷·분포 구간은 URL 키 bucket·bin에, 정렬·페이지는 sort·page에 남습니다.`
@@ -256,6 +261,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
           {kpi.response && kpi.response.outcome === 'ok' && <DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} />}
           </> }}
         />}
+    {/* W-230 PROTOTYPE: dev-only variant switcher + bottom spacer so it never covers the table's last row. */}
+    <FilterCollapsePrototypeChrome />
   </PlatformPage>;
 }
 

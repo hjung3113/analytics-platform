@@ -11,6 +11,7 @@ export * from './StatCard';
 export * from './StateView';
 
 export { ManagementLayout, type ManagementLayoutProps } from './ManagementLayout';
+export { useStoredBoolean } from './useStoredBoolean';
 
 export { AnalysisLayout, type AnalysisLayoutProps, type AnalysisSection } from './AnalysisLayout';
 export { DrillLayout, DrillPath, ReturnLink, type DrillLayoutProps, type DrillPathProps, type DrillSibling, type DrillSiblings } from './DrillLayout';
