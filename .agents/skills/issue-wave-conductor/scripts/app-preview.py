@@ -10,7 +10,16 @@ free port in 5180–5199 and waits until it answers. Ports 4190 (E2E) and 5173 (
 Each preview gets its own port, so its origin and localStorage (role `platform:role`, favourites, table columns)
 are separate from every other preview.
 
-Each process starts in its own session and `stop` kills the whole process group (pnpm → vite children). State is
+Each process starts in its own session. `stop` kills the whole process group (pnpm → vite children) only after an
+ownership check: the recorded pgid plus the parent's recorded start time and command line (null/empty recorded or
+looked-up values mean unclear), or — when the parent is gone — a vite server provably started from the recorded
+checkout: `node` running a `…/vite/bin/vite.js` inside that checkout (relative paths resolve against the process
+cwd via lsof) or the checkout's `node_modules/.bin/vite`, plus `--port` exactly the recorded port and `--strictPort`.
+A `vite`/`vite.js` name in argument position proves nothing, and state files from before pgid recording carry no
+proof at all — both stay unclear. Unclear ownership (a reused PID, a failed ps/lsof lookup, an unprovable
+command line) gets no signal; the state file stays and the stop reports `ownership unclear`. Before SIGKILL the
+ownership check runs again, and a failed ps sweep during the
+termination check keeps the state and reports failure instead of assuming the group is gone. State is
 `$WAVE_STATE/preview-<label>.json` (default `~/.cache/worker-ops/previews/`). `status` lists tracked previews with
 liveness and reports untracked vite servers on the preview port range as `untracked` — they belong to someone
 else, so neither `stop --all` nor this script touches them. Before a handoff, `status` must show no tracked preview.
@@ -19,6 +28,7 @@ Prints one JSON line.
 import argparse
 import json
 import os
+import shlex
 import signal
 import socket
 import subprocess
@@ -54,6 +64,109 @@ def port_free(port):
         return s.connect_ex(('127.0.0.1', port)) != 0
 
 
+def ps_rows():
+    """(pid, pgid, command) of every process, from one ps sweep; None when the sweep fails."""
+    r = subprocess.run(['ps', '-axo', 'pid=,pgid=,command='], capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
+    rows = []
+    for line in r.stdout.splitlines():
+        parts = line.strip().split(None, 2)
+        if len(parts) == 3 and parts[0].isdigit() and parts[1].isdigit():
+            rows.append((int(parts[0]), int(parts[1]), parts[2]))
+    return rows
+
+
+def ps_value(pid, field):
+    """One ps field of pid (`lstart=`, `command=`), or None when the process is gone."""
+    r = subprocess.run(['ps', '-o', field, '-p', str(pid)], capture_output=True, text=True)
+    return r.stdout.strip() if r.returncode == 0 else None
+
+
+def proc_cwd(pid):
+    """Working directory of pid, from lsof; None when it cannot be read."""
+    r = subprocess.run(['lsof', '-a', '-p', str(pid), '-d', 'cwd', '-Fn'], capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
+    for line in r.stdout.splitlines():
+        if line.startswith('n/'):
+            return line[1:]
+    return None
+
+
+def group_members(pgid):
+    """Live pids still inside the process group; None when the ps sweep fails."""
+    rows = ps_rows()
+    return None if rows is None else [pid for pid, g, _cmd in rows if g == pgid]
+
+
+def vite_signature(cmd, port, pid, checkout):
+    """Provable vite server signature for the recorded checkout. The executed file must be vite inside
+    that checkout — either `node <…/vite/bin/vite.js>` (a relative path resolves against the process cwd;
+    an unreadable cwd proves nothing) or the checkout's `node_modules/.bin/vite` launcher. A `vite`/`vite.js`
+    name in argument position never counts. Then `--port` exactly the recorded port and a plain
+    `--strictPort` token."""
+    try:
+        tokens = shlex.split(cmd)
+    except ValueError:
+        return False
+    if not tokens:
+        return False
+    root = os.path.realpath(checkout)
+
+    def real(p):
+        if not os.path.isabs(p):
+            cwd = proc_cwd(pid)
+            if cwd is None:
+                return None
+            p = os.path.join(cwd, p)
+        return os.path.realpath(p)
+
+    if os.path.basename(tokens[0]) == 'node' and len(tokens) > 1:
+        exe = real(tokens[1])
+        if not (exe and exe.startswith(root + os.sep) and exe.endswith('/vite/bin/vite.js')):
+            return False
+    else:
+        if real(tokens[0]) != os.path.join(root, 'node_modules/.bin/vite'):
+            return False
+    for i, tok in enumerate(tokens):
+        if tok == '--port' and i + 1 < len(tokens) and tokens[i + 1] == str(port):
+            break
+        if tok == f'--port={port}':
+            break
+    else:
+        return False
+    return '--strictPort' in tokens
+
+
+def vite_in_group(pgid, port, checkout):
+    """A vite server with the recorded port and --strictPort inside the process group; None when the ps sweep fails."""
+    rows = ps_rows()
+    if rows is None:
+        return None
+    return any(vite_signature(cmd, port, pid, checkout) for pid, g, cmd in rows if g == pgid)
+
+
+def identified(value):
+    """A usable identification value: a non-empty string. null (ps failed at start), missing, and '' are not."""
+    return isinstance(value, str) and value != ''
+
+
+def owns(s):
+    """True when the recorded preview may be signalled safely; False = ownership unclear."""
+    if 'pgid' not in s:  # state file from before pgid recording: nothing proves the group is ours
+        return False
+    if alive(s['pid']):
+        if not (identified(s.get('lstart')) and identified(s.get('command'))):
+            return False
+        current = (ps_value(s['pid'], 'lstart='), ps_value(s['pid'], 'command='))
+        return all(identified(v) for v in current) and current == (s['lstart'], s['command'])
+    checkout = s.get('checkout')
+    if not identified(checkout):  # without the recorded checkout a vite lookalike cannot be ruled out
+        return False
+    return bool(vite_in_group(s['pgid'], s['port'], checkout))
+
+
 def tracked():
     out = []
     for f in sorted(state_dir().glob('preview-*.json')):
@@ -61,7 +174,7 @@ def tracked():
             s = json.loads(f.read_text())
         except ValueError:
             continue
-        s['alive'] = alive(s['pid'])
+        s['alive'] = owns(s)
         s['file'] = str(f)
         out.append(s)
     return out
@@ -80,21 +193,34 @@ def untracked(known_ports):
 
 
 def stop_one(s):
-    if alive(s['pid']):
+    def fail(error):
+        return {'ok': False, 'error': error, 'label': s['label'], 'pid': s['pid'], 'port': s['port'],
+                'file': s['file']}
+
+    if not owns(s):
+        return fail('ownership unclear')
+    pgid = s.get('pgid', s['pid'])
+    try:
+        os.killpg(pgid, signal.SIGTERM)
+    except OSError:
+        pass
+    for _ in range(20):
+        members = group_members(pgid)
+        if members == []:
+            break
+        time.sleep(0.25)
+    members = group_members(pgid)
+    if members is None:  # a failed sweep is not a confirmed exit: keep the state file
+        return fail('ps sweep failed; termination unconfirmed')
+    if members:
+        if not owns(s):  # re-check before escalating: the pgid may now belong to someone else
+            return fail('ownership unclear after TERM')
         try:
-            os.killpg(s['pid'], signal.SIGTERM)
+            os.killpg(pgid, signal.SIGKILL)
         except OSError:
             pass
-        for _ in range(20):
-            if not alive(s['pid']):
-                break
-            time.sleep(0.25)
-        if alive(s['pid']):
-            try:
-                os.killpg(s['pid'], signal.SIGKILL)
-            except OSError:
-                pass
     Path(s['file']).unlink(missing_ok=True)
+    return {'ok': True, 'label': s['label']}
 
 
 def start(args):
@@ -116,7 +242,9 @@ def start(args):
         proc = subprocess.Popen(cmd, cwd=checkout, stdin=null, stdout=out, stderr=subprocess.STDOUT,
                                 start_new_session=True)
     url = f'http://127.0.0.1:{port}'
-    state = {'label': label, 'checkout': str(checkout), 'pid': proc.pid, 'port': port, 'url': url, 'log': str(log),
+    state = {'label': label, 'checkout': str(checkout), 'pid': proc.pid, 'pgid': os.getpgid(proc.pid),
+             'lstart': ps_value(proc.pid, 'lstart='), 'command': ps_value(proc.pid, 'command='),
+             'port': port, 'url': url, 'log': str(log),
              'head': subprocess.run(['git', '-C', str(checkout), 'rev-parse', '--short', 'HEAD'],
                                     capture_output=True, text=True).stdout.strip()}
     (state_dir() / f'preview-{label}.json').write_text(json.dumps(state))
@@ -152,9 +280,16 @@ def main():
         targets = [s for s in tracked() if args.all or s['label'] == args.label]
         if not targets and not args.all:
             emit({'ok': False, 'error': f'no tracked preview {args.label}'}, 1)
+        stopped, skipped = [], []
         for s in targets:
-            stop_one(s)
-        emit({'ok': True, 'stopped': [s['label'] for s in targets]})
+            r = stop_one(s)
+            if r['ok']:
+                stopped.append(r['label'])
+            else:
+                skipped.append({'label': r['label'], 'error': r['error']})
+        if skipped and not args.all:
+            emit({'ok': False, 'error': skipped[0]['error'], 'label': skipped[0]['label']}, 1)
+        emit({'ok': True, 'stopped': stopped, 'skipped': skipped})
     previews = tracked()
     emit({'ok': True, 'previews': [{k: s[k] for k in ('label', 'url', 'pid', 'alive', 'head')} for s in previews],
           'untracked': untracked({s['port'] for s in previews})})
