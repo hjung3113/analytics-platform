@@ -12,7 +12,7 @@ App Shell(06 §8–9, 화면 설계 [07](../../docs/07_app_shell_wireframe.md)).
 - `GlobalContextBar.tsx` — 기간·room_name·Condition·Selection·전달 Context 표시/편집. 선택지는 `useAdapterRequest`로 조회하고 실패 시 오류와 재시도를 제공한다. Selection 평가(`evaluateSelection`)는 바 수준의 한 조회 소유자가 실제·측정·인라인/넘침 편집기에 결과를 공유한다.
 - `ContextBarLayout.tsx` — 06 §7·ADR-0015의 한 줄 우선순위 넘침. 바 자체·intrinsic probe의 ResizeObserver, 요청 없는 inert 측정 레이어(`MeasuringContext`), 고정 키 우선순위와 인라인/넘침 위의 편집 초안·포커스 복귀를 소유한다.
 - `RouteOutlet.tsx` — 현재 경로의 메뉴 화면 또는 미등록·계약 오류·권한 없음·미구현 상태.
-- `RouteErrorBoundary.tsx` — 메뉴 화면의 렌더 실패를 콘텐츠 슬롯 안에 가두고 Correlation ID(`usePlatform().reportError`)와 다시 시도·홈을 보인다(06 §4). 홈은 열 수 있는 `/` 메뉴이고, 없거나 못 열면 사이드바 공간 홈, 그것도 없으면 그리지 않는다(`HomeLink`). 메뉴·params·서버 revision이 바뀌면 풀리고, lazy 청크 로드 실패의 다시 시도는 페이지 새로고침이다. 이벤트 핸들러·비동기 오류는 대상이 아니다.
+- `RouteErrorBoundary.tsx` — 메뉴 화면의 렌더 실패를 콘텐츠 슬롯 안에 가두고 Correlation ID(`usePlatform().reportError`)와 다시 시도·홈을 보인다(06 §4). 홈은 열 수 있는 `/` 메뉴이고, 없거나 못 열면 열 수 있는 사이드바 공간 홈, 그것도 없으면 그리지 않는다(`HomeLink`). 메뉴·params·서버 revision이 바뀌면 풀리고, lazy 청크 로드 실패의 다시 시도는 페이지 새로고침이다. 이벤트 핸들러·비동기 오류는 대상이 아니다.
 
 ## 규칙
 

@@ -33,6 +33,20 @@ const spaceOnly = createRegistry({
   menus: [menu('overview', 'equipment', '/overview', 'platform:view', true)],
 });
 
+/** The space stays reachable through another menu, but neither `/` nor the space home can be opened. */
+const spaceWithoutHome = createRegistry({
+  spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'equipment' }],
+  groups: [
+    { id: 'overview', label: { ko: '플랫폼', en: 'Platform' }, icon: House, space: null },
+    { id: 'equipment', label: { ko: '업무', en: 'Work' }, icon: House, space: 'analytics' },
+  ],
+  menus: [
+    menu('launcher', 'overview', '/', 'notice:view', true),
+    menu('equipment', 'equipment', '/equipment', 'equipment:view', true),
+    menu('detail', 'equipment', '/detail', 'platform:view'),
+  ],
+});
+
 /** Neither `/` nor the space can be opened, so there is no sidebar home to fall back to. */
 const neither = createRegistry({
   spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'overview' }],
@@ -96,6 +110,11 @@ describe('HomeLink (platform home, ADR-0028)', () => {
 
   it('draws nothing when the platform home cannot be opened and there is no sidebar home', () => {
     mount(neither, ['platform:view'], '/?v=1');
+    expect(screen.queryByRole('link', { name: '홈' })).toBeNull();
+  });
+
+  it('draws nothing when the space can be entered but neither home can be opened', () => {
+    mount(spaceWithoutHome, ['platform:view'], '/detail?v=1');
     expect(screen.queryByRole('link', { name: '홈' })).toBeNull();
   });
 });

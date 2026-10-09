@@ -60,7 +60,7 @@ export default function OperationsHome() {
       </section>
 
       <div className="grid gap-3 lg:grid-cols-2">
-        <Panel title={<span className="inline-flex items-center gap-2"><Star className="size-4 text-accent-warn" aria-hidden />{t('favorites')}</span>} subtitle={lang === 'ko' ? '목적지 ID만 저장합니다. 클릭 시 그 화면의 기본 상태로 진입하고, 지금 들고 있는 전역 Context는 보존됩니다.' : 'Stores destination IDs only; opens the default state while carrying the current global context.'}>
+        <Panel title={<span className="inline-flex items-center gap-2"><Star className="size-4 text-accent-warn" aria-hidden />{t('favorites')}</span>} subtitle={lang === 'ko' ? '지금 조회 조건을 유지하고 그 화면의 기본 보기로 이동합니다.' : "Opens the screen's default view with your current filters."}>
           {favoriteMenus.length === 0 ? <p className="rounded-md bg-surface-sunken p-3 text-xs text-text-secondary">{t('noFavorites')}</p> :
             <ul className="divide-y divide-border-subtle">{favoriteMenus.map(menu => <li key={menu.id} className="flex items-center gap-3 py-2">
               <menu.icon className="size-4 text-text-muted" aria-hidden />
@@ -69,7 +69,7 @@ export default function OperationsHome() {
               <button type="button" onClick={() => toggleFavorite(menu.id)} className="rounded-xs px-2 py-1 text-xs text-text-secondary hover:bg-surface-sunken">{t('removeFavorite')}</button>
             </li>)}</ul>}
         </Panel>
-        <Panel title={<span className="inline-flex items-center gap-2"><Clock3 className="size-4 text-text-muted" aria-hidden />{t('recent')}</span>} subtitle={lang === 'ko' ? '방문 당시 URL(Context 포함)로 돌아갑니다. 진입 시 권한·Scope를 다시 검증합니다.' : 'Returns to the visited URL (with context); access is re-validated on entry.'}>
+        <Panel title={<span className="inline-flex items-center gap-2"><Clock3 className="size-4 text-text-muted" aria-hidden />{t('recent')}</span>} subtitle={lang === 'ko' ? '방문했던 조회 조건으로 돌아갑니다. 권한은 다시 확인합니다.' : 'Returns with the filters you used. Access is checked again.'}>
           {recentRows.length === 0 ? <p className="rounded-md bg-surface-sunken p-3 text-xs text-text-secondary">{t('noRecent')}</p> :
             <ul className="divide-y divide-border-subtle">{recentRows.map(row => <li key={row.menuId} className="flex items-center gap-3 py-2">
               <row.menu.icon className="size-4 text-text-muted" aria-hidden />

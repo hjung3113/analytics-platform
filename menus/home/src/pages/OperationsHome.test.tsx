@@ -191,6 +191,17 @@ describe('platform home launcher', () => {
   });
 
   it.each([
+    ['ko', '즐겨찾기', '최근 방문', '지금 조회 조건을 유지하고 그 화면의 기본 보기로 이동합니다.', '방문했던 조회 조건으로 돌아갑니다. 권한은 다시 확인합니다.', '플랫폼 홈'],
+    ['en', 'Favorites', 'Recent', "Opens the screen's default view with your current filters.", 'Returns with the filters you used. Access is checked again.', 'Platform home'],
+  ])('describes favorites and recent as actions (%s)', async (lang, favoritesHeading, recentHeading, favoritesCopy, recentCopy, pageHeading) => {
+    if (lang === 'en') persisted.setItem('platform:lang', 'en');
+    mount(['platform:view']);
+    await screen.findByRole('heading', { name: pageHeading });
+    expect(screen.getByRole('heading', { name: favoritesHeading }).closest('section')?.textContent).toContain(favoritesCopy);
+    expect(screen.getByRole('heading', { name: recentHeading }).closest('section')?.textContent).toContain(recentCopy);
+  });
+
+  it.each([
     [true, ['platform:view', 'voc:view'] as Session['user']['permissions']],
     [false, ['platform:view'] as Session['user']['permissions']],
   ])('shows 내 VOC only when voc is allowed (%s)', async (allowed, permissions) => {

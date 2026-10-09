@@ -201,7 +201,8 @@ describe('primary navigation boundary (#194 FIX1)', () => {
     expect(within(favorites).getByRole('link', { name: '홈' })).not.toHaveAttribute('aria-current');
     expect(favorites.querySelector('[data-current-marker]')).toBeNull();
     expect(recent.querySelector('[data-current-marker]')).toBeNull();
-    expect(document.querySelectorAll('a[aria-current=page]')).toHaveLength(1);
+    // Primary nav and the logo both mark the home menu; favorites and recent still do not.
+    expect(document.querySelectorAll('a[aria-current=page]')).toHaveLength(2);
     // Match by substring, like Playwright's default name matching in the contract suite.
     expect(within(primary).getAllByRole('link', { name: /홈/ })).toHaveLength(1);
     expect(within(primary).getAllByRole('link')).toHaveLength(1);
@@ -364,18 +365,55 @@ function globalShellRegistry(equipmentPermission: Permission = 'platform:view') 
   });
 }
 
+function logoRegistry() {
+  return createRegistry({
+    spaces: [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'equipment' }],
+    groups: [
+      { id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: null },
+      { id: 'noticeVoc', label: { ko: '공지', en: 'Notices' }, icon: House, space: null },
+      { id: 'equipment', label: { ko: '설비', en: 'Equipment' }, icon: House, space: 'analytics' },
+    ],
+    menus: [
+      { id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] },
+      { id: 'notices', group: 'noticeVoc', primary: true, label: { ko: '공지', en: 'Notices' }, description: { ko: '', en: '' }, path: '/notices', icon: House, permission: 'notice:view', requiresScope: false, context: none, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] },
+      menu('equipment', 'equipment', '/equipment', 'platform:view'),
+    ],
+  });
+}
+
 describe('workspace shell layout (15 §3.1)', () => {
-  it('puts a home link in the logo slot without aria-current, and keeps the plain logo when / is unregistered', () => {
+  it('marks the logo as the current page on the home menu, and keeps the plain logo when / is unregistered', () => {
     mount();
     const rail = screen.getByRole('navigation', { name: '앱 레일' });
     const home = within(rail).getByRole('link', { name: '플랫폼 홈' });
     expect(home.getAttribute('href')).toMatch(/^\//);
-    expect(home.hasAttribute('aria-current')).toBe(false);
+    expect(home.getAttribute('aria-current')).toBe('page');
+    expect(home).toHaveClass('bg-surface-row-selected', 'text-accent-primary');
+    expect(home.querySelector('[data-current-marker]')).toHaveClass('absolute', 'inset-y-2', 'left-0', 'w-0.5', 'rounded-pill', 'bg-accent-primary');
     cleanup();
     mount(['platform:view'], false, sidebarRegistry('equipment', '설비관리', ['equipment-home']));
     const plain = screen.getByRole('navigation', { name: '앱 레일' });
     expect(within(plain).queryByRole('link', { name: '플랫폼 홈' })).toBeNull();
     expect(within(plain).getByText('Analytics Platform')).toBeTruthy();
+  });
+
+  it.each([
+    ['home', '/?v=1', true],
+    ['notices', '/notices?v=1', false],
+    ['space', '/equipment?v=1', false],
+  ])('marks the logo current only on the home menu (%s)', (_label, url, current) => {
+    window.history.replaceState(null, '', url);
+    mount(['platform:view', 'notice:view'], true, logoRegistry());
+    const logo = within(screen.getByRole('navigation', { name: '앱 레일' })).getByRole('link', { name: '플랫폼 홈' });
+    if (current) {
+      expect(logo.getAttribute('aria-current')).toBe('page');
+      expect(logo).toHaveClass('bg-surface-row-selected', 'text-accent-primary');
+      expect(logo.querySelector('[data-current-marker]')).toHaveClass('absolute', 'inset-y-2', 'left-0', 'w-0.5', 'rounded-pill', 'bg-accent-primary');
+    } else {
+      expect(logo.hasAttribute('aria-current')).toBe(false);
+      expect(logo.className).not.toContain('bg-surface-row-selected');
+      expect(logo.querySelector('[data-current-marker]')).toBeNull();
+    }
   });
 
   it('renders FeedbackOps entries in slot order outside the scroll region, and the overall rail link', () => {

@@ -4,18 +4,21 @@ import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLa
 
 /** Space navigation and global tools; the app keeps ownership of topBarTools. */
 export function AppRail() {
-  const { currentSpace, accessibleSpaces, switchSpace, slots, user, setPaletteOpen, registry, linkTo } = usePlatform();
+  const { currentSpace, accessibleSpaces, switchSpace, slots, user, setPaletteOpen, registry, linkTo, route } = usePlatform();
   const { t, tx, lang, setLang } = useI18n();
   const languageLabel = lang === 'ko' ? '언어: 한국어 — English로 전환' : 'Language: English — 한국어로 전환';
   const homeLabel = lang === 'ko' ? '플랫폼 홈' : 'Platform home';
   const overallLabel = lang === 'ko' ? 'FeedbackOps 전체 — 새 탭' : 'FeedbackOps overall — new tab';
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
   const homeMenu = registry.matchRoute('/')?.menu;
+  const homeCurrent = homeMenu !== undefined && route?.menu.id === homeMenu.id;
   const overall = slots.feedbackOps?.overall ?? null;
   return <TooltipProvider delayDuration={200}>
     <nav aria-label={lang === 'ko' ? '앱 레일' : 'App rail'} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-2 overflow-y-auto border-r border-border-subtle bg-surface-sidebar py-3">
       {homeMenu ? <Tooltip><TooltipTrigger asChild>
-        <PlatformLink href={linkTo(homeMenu.id)} aria-label={homeLabel} className="mb-1 grid size-8 shrink-0 place-items-center rounded-md bg-accent-primary text-text-on-accent">
+        <PlatformLink href={linkTo(homeMenu.id)} aria-label={homeLabel} aria-current={homeCurrent ? 'page' : undefined}
+          className={cn('relative mb-1 grid size-8 shrink-0 place-items-center rounded-md', homeCurrent ? 'bg-surface-row-selected text-accent-primary' : 'bg-accent-primary text-text-on-accent')}>
+          {homeCurrent && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
           <span aria-hidden className="text-sm font-semibold">A</span><span className="sr-only">{homeLabel}</span>
         </PlatformLink>
       </TooltipTrigger><TooltipContent side="right">{homeLabel}</TooltipContent></Tooltip>
