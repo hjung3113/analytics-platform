@@ -748,3 +748,55 @@ describe('createMockAdapter registration', () => {
     expect(result.data).toEqual({ term: 'smoke', count: expect.any(Number) });
   });
 });
+
+
+describe('endpoint provisional ownership', () => {
+  it.each([
+    { from: PERIOD.from, to: PERIOD.to, provisional: false },
+    { from: '2026-09-01T09:00:00', to: PERIOD.to, provisional: true },
+  ])('uses the hook instead of the period verdict: $provisional', async ({ from, to, provisional }) => {
+    const spec = makeSpec('analytics.provisional');
+    const data = { total: 7 };
+    const hook = vi.fn(() => provisional);
+    const endpoint = defineMockEndpoint(spec, { handle: () => data, provisional: hook });
+    const result = await serveEndpoint(new Map([[spec.id, endpoint]]), request(spec.id, { scopeId: 'ICH', from, to }), undefined, { latency: 0 });
+    expect(result.outcome).toBe('ok');
+    expect(result.trust?.provisional).toBe(provisional);
+    expect(hook).toHaveBeenCalledExactlyOnceWith({ data, params: { term: 'probe' }, context: expect.objectContaining({ scopeId: 'ICH', from, to, selection: null }) });
+  });
+
+  it.each([
+    { context: { scopeId: 'ICH', ...PERIOD }, applied: true, expected: true },
+    { context: { scopeId: 'ICH', from: '2026-09-01T09:00:00', to: PERIOD.to }, applied: true, expected: false },
+    { context: { scopeId: 'ICH' }, applied: false, expected: false },
+  ])('keeps the period verdict without a hook: $expected ($applied)', async ({ context, applied, expected }) => {
+    const spec = makeSpec('analytics.default-provisional', { context: applied ? { time: 'apply' } : {} });
+    const endpoint = mockEndpoint(spec);
+    const result = await serveEndpoint(new Map([[spec.id, endpoint]]), request(spec.id, context), undefined, { latency: 0 });
+    expect(result.outcome).toBe('ok');
+    expect(result.trust?.provisional).toBe(expected);
+  });
+
+  it.each(['predicate-empty', 'empty', 'error', 'malformed'] as const)('does not call the hook for %s', async scenario => {
+    const spec = makeSpec('analytics.skipped-provisional');
+    const hook = vi.fn(() => false);
+    const endpoint = defineMockEndpoint(spec, { handle: () => ({ total: 0 }), isEmpty: () => scenario === 'predicate-empty', provisional: hook });
+    if (scenario !== 'predicate-empty') setScenario(scenario);
+    const result = await serveEndpoint(new Map([[spec.id, endpoint]]), request(spec.id), undefined, { latency: 0 });
+    expect(result.outcome).toBe(scenario === 'predicate-empty' ? 'empty' : scenario === 'malformed' ? 'ok' : scenario);
+    expect(hook).not.toHaveBeenCalled();
+    expect(result.trust?.provisional).toBe(scenario === 'error' ? undefined : true);
+  });
+
+  it('does not call the hook on a non-mart endpoint, even with the mart empty scenario on', async () => {
+    const spec = makeSpec('analytics.nonmart-provisional', { requiresScope: false, context: {}, kinds: [] });
+    const hook = vi.fn(() => false);
+    const endpoint = defineMockEndpoint(spec, { mart: false, handle: () => ({ total: 7 }), provisional: hook });
+    setScenario('empty');
+    const result = await serveEndpoint(new Map([[spec.id, endpoint]]), request(spec.id, {}, {}), undefined, { latency: 0 });
+    expect(result.outcome).toBe('ok');
+    expect(result.data).toEqual({ total: 7 });
+    expect(result.trust).toBeNull();
+    expect(hook).not.toHaveBeenCalled();
+  });
+});
