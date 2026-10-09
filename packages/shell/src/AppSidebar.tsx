@@ -62,13 +62,16 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
 }
 
 function FeedbackOpsBlock({ collapsed }: { collapsed: boolean }) {
-  const { slots, currentSpace } = usePlatform();
+  const { slots, route, currentSpace, sidebarSpace, accessibleSpaces } = usePlatform();
   const { tx, lang } = useI18n();
   const slot = slots.feedbackOps;
-  if (!slot || currentSpace === null) return null;
-  const entries = slot.entriesFor(currentSpace.id);
+  // Only the space this sidebar is drawing, and only when the route is that space's menu.
+  // A denied-space URL and an unmatched path keep a fallback sidebar but must not query another space.
+  if (!slot || sidebarSpace === null || !accessibleSpaces.some(space => space.id === sidebarSpace.id)) return null;
+  if (route === null || currentSpace?.id !== sidebarSpace.id) return null;
+  const entries = slot.entriesFor(sidebarSpace.id);
   if (!entries || entries.length === 0) return null;
-  const spaceName = tx(currentSpace.label);
+  const spaceName = tx(sidebarSpace.label);
   const heading = `FeedbackOps · ${spaceName}`;
   return <nav aria-label={heading} className="shrink-0 border-t border-border-subtle px-2 py-2">
     {!collapsed && <p className="mx-2 mb-1 text-caption font-semibold text-text-muted">{heading}</p>}

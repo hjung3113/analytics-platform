@@ -1184,8 +1184,8 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
     await expect(option).toContainText('운영 콘솔');
     await option.click();
     await expect(page.getByRole('main').getByRole('table').first()).toBeVisible({ timeout: 10_000 });
-    // The palette navigates through linkTo: the target is the menu's v=1 deep link (§6.1).
-    expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(`${DIRECT_URL}?v=1`);
+    // The palette navigates through linkTo: the target is the menu's v=1 deep link and keeps the current global scope (§6.1).
+    expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(`${DIRECT_URL}?v=1&scopeId=ICH`);
     await evidence(page, testInfo, 'registry-admin-palette');
   });
 

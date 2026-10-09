@@ -186,7 +186,8 @@ describe('global utility routes and the null-sidebar home link (06 §9.1)', () =
     });
   }
   function mountGlobal(url: string, withRoot: boolean) {
-    const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['notice:view'] }, scopes: [] };
+    // platform:view opens the menu at `/`. HomeLink no longer points at a home the user cannot open.
+    const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['notice:view', 'platform:view'] }, scopes: [] };
     const { adapter } = fixture(async () => ({ accepted: true }));
     adapter.session = () => session;
     window.history.replaceState(null, '', url);

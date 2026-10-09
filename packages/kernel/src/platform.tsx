@@ -152,6 +152,22 @@ function readSpaceLast(userId: string): Record<string, string> {
   }
 }
 
+/** A path segment that is `.` or `..` after one decode (`%2e`, `%2E`, `.%2e`, and the literal forms). */
+function hasDotSegment(pathname: string): boolean {
+  for (const segment of pathname.split('/')) {
+    if (segment === '') continue;
+    let decoded: string;
+    try { decoded = decodeURIComponent(segment); } catch { return true; }
+    if (decoded === '.' || decoded === '..') return true;
+  }
+  return false;
+}
+
+function sameParams(a: Record<string, string>, b: Record<string, string>): boolean {
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every(key => a[key] === b[key]);
+}
+
 function writeSpaceLast(userId: string, spaceId: string, url: string) {
   try {
     const next = readSpaceLast(userId);
@@ -363,6 +379,8 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     const q = stored.indexOf('?');
     const path = q === -1 ? stored : stored.slice(0, q);
     const search = q === -1 ? '' : stored.slice(q);
+    // A stored `..` (including `%2e%2e`) matches a param route, then the browser normalizes it to a different path.
+    if (hasDotSegment(path)) return null;
     const matched = matchRoute(path);
     if (!matched) return null;
     if (registry.spaceOf(matched.menu)?.id !== spaceId) return null;
@@ -372,7 +390,12 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     if (incompleteMetricPair(matched.menu, parsed.global.metricId, parsed.global.metricVersion)) return null;
     const page: Record<string, string> = {};
     for (const [key, value] of parsed.page) page[key] = value;
-    return { menuId: matched.menu.id, href: resolveLink(matched.menu.id, { params: matched.params, page }).href };
+    const href = resolveLink(matched.menu.id, { params: matched.params, page }).href;
+    let normalized: string;
+    try { normalized = new URL(href, 'http://x').pathname; } catch { return null; }
+    const again = matchRoute(normalized);
+    if (!again || again.menu.id !== matched.menu.id || !sameParams(again.params, matched.params)) return null;
+    return { menuId: matched.menu.id, href };
   }, [userId, matchRoute, registry, can, enters, resolveLink]);
   // Reselecting the current space never sends the user home; non-accessible targets keep the URL.
   const switchSpace = useCallback((spaceId: SpaceId) => {

@@ -21,6 +21,7 @@ const registry = createRegistry({
   ],
   menus: [
     { id: 'equipment', group: 'equipment', primary: true, label: { ko: '설비', en: 'Equipment' }, description: { ko: '', en: '' }, path: '/equipment', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'analysis', features: noFeatures, pageKeys: ['page'] },
+    { id: 'equipment-detail', group: 'equipment', label: { ko: '설비 상세', en: 'Equipment detail' }, description: { ko: '', en: '' }, path: '/equipment/:equipmentId', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'analysis', features: noFeatures, pageKeys: [], navHidden: true, parent: 'equipment' },
     { id: 'admin-roles', group: 'admin', primary: true, label: { ko: '권한/역할 관리', en: 'Roles' }, description: { ko: '', en: '' }, path: '/admin/roles', icon: House, permission: 'console:access', requiresScope: false, context: none, pageType: 'management', features: noFeatures, pageKeys: [] },
     { id: 'admin-child', group: 'admin', label: { ko: '콘솔 하위', en: 'Console child' }, description: { ko: '', en: '' }, path: '/admin/child', icon: House, permission: 'platform:view', requiresScope: false, context: none, pageType: 'management', features: noFeatures, pageKeys: [] },
     { id: 'notices', group: 'noticeVoc', primary: true, label: { ko: '공지', en: 'Notices' }, description: { ko: '', en: '' }, path: '/notices', icon: House, permission: 'notice:view', requiresScope: false, context: none, pageType: 'management', features: noFeatures, pageKeys: [] },
@@ -140,6 +141,29 @@ describe('spaceResume (06 §9.1)', () => {
   ])('returns null for %s', (_label, raw) => {
     sessionStorage.setItem('platform:space-last:u1', raw);
     mountAt('/notices?v=1', ADMIN);
+    expect(screen.getByTestId('ana').textContent).toBe('null');
+  });
+
+  it.each([
+    ['a plain id', '/equipment/ICH-PHOTO-0103', 'equipment-detail|/equipment/ICH-PHOTO-0103?v=1&scopeId=ICH'],
+    ['an encoded ordinary id', '/equipment/ICH%2DPHOTO%2D0103', 'equipment-detail|/equipment/ICH-PHOTO-0103?v=1&scopeId=ICH'],
+    ['an id with an encoded space', '/equipment/ICH%20PHOTO', 'equipment-detail|/equipment/ICH%20PHOTO?v=1&scopeId=ICH'],
+  ])('restores %s', (_label, stored, expected) => {
+    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ analytics: stored }));
+    mountAt('/notices?v=1&scopeId=ICH', ADMIN);
+    expect(screen.getByTestId('ana').textContent).toBe(expected);
+  });
+
+  it.each([
+    ['encoded dots', '/equipment/%2e%2e'],
+    ['encoded dots, uppercase', '/equipment/%2E%2E'],
+    ['a dot segment', '/equipment/.'],
+    ['a dot-dot segment', '/equipment/..'],
+    ['a mixed dot encoding', '/equipment/.%2e'],
+    ['a double slash', '/equipment//ICH-PHOTO-0103'],
+  ])('returns null for %s', (_label, stored) => {
+    sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ analytics: stored }));
+    mountAt('/notices?v=1&scopeId=ICH', ADMIN);
     expect(screen.getByTestId('ana').textContent).toBe('null');
   });
 

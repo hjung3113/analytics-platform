@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { DetailDrawer } from '@ap/components';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -454,5 +454,53 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(screen.getByRole('navigation', { name: '주 메뉴' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '공간: 분석' }).hasAttribute('aria-current')).toBe(false);
     expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
+  });
+
+  it('omits FeedbackOps on a space-denied direct URL and does not query that space', () => {
+    const seen: string[] = [];
+    window.history.replaceState(null, '', '/ops?v=1');
+    mount(['platform:view'], true, registry, { feedbackOps: {
+      entriesFor: spaceId => { seen.push(spaceId); return [{ id: 'task', label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' }]; },
+      overall: null,
+    } });
+    expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
+    expect(seen).not.toContain('operations');
+  });
+
+  it('drops the FeedbackOps block when space entry is revoked on the same route', () => {
+    const listeners = new Set<() => void>();
+    const seen: string[] = [];
+    let session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view', 'console:access'] }, scopes: [] };
+    const adapter: PlatformAdapter = {
+      ...adapterWith(['platform:view', 'console:access']),
+      session: () => session,
+      subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
+    };
+    window.history.replaceState(null, '', '/ops?v=1');
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ feedbackOps: {
+      entriesFor: spaceId => { seen.push(spaceId); return [{ id: 'task', label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' }]; },
+      overall: null,
+    } }}>
+      <AppShell><input aria-label="editor" /></AppShell>
+    </PlatformProvider></I18nProvider>);
+    expect(screen.getByRole('navigation', { name: 'FeedbackOps · 운영 콘솔' })).toBeTruthy();
+    seen.length = 0;
+    act(() => {
+      session = { ...session, user: { ...session.user, permissions: ['platform:view'] } };
+      for (const listener of listeners) listener();
+    });
+    expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
+    expect(seen).not.toContain('operations');
+  });
+
+  it('omits FeedbackOps on an unregistered path even when the fallback space has entries', () => {
+    const seen: string[] = [];
+    window.history.replaceState(null, '', '/unregistered?v=1');
+    mount(['platform:view', 'console:access'], true, registry, { feedbackOps: {
+      entriesFor: spaceId => { seen.push(spaceId); return [{ id: 'task', label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' }]; },
+      overall: null,
+    } });
+    expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
+    expect(seen).toEqual([]);
   });
 });
