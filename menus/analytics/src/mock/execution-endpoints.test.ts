@@ -254,6 +254,20 @@ describe('execution occurrence provisional follows the object anchor', () => {
     expect(carried.trust).toBeNull();
   });
 
+  // Seeded jobs straddle the boundary but never land on the exact second; pin the instant directly on the hook.
+  it.each([
+    { offsetSeconds: -1, expected: false },
+    { offsetSeconds: 0, expected: true },
+    { offsetSeconds: 1, expected: true },
+  ])('anchors the occurrence $offsetSeconds s around the 24h boundary: provisional=$expected', ({ offsetSeconds, expected }) => {
+    const hook = executionOccurrence.provisional;
+    if (!hook) throw new Error('expected executionOccurrence to declare a provisional hook');
+    const boundary = shift(DATA_THROUGH, -24);
+    const anchor = new Date(Date.parse(`${boundary}Z`) + offsetSeconds * 1000).toISOString().slice(0, 19);
+    const data: OccurrenceResult = { access: 'ok', execution: { ...grantedExecution(boundary), anchor }, segments: [] };
+    expect(hook({ data, params: occurrenceParams({ anchor }), context: emptyGlobal })).toBe(expected);
+  });
+
   it('returns false for a missing occurrence even with a recent identity anchor', async () => {
     const response = await adapter.menuQuery({
       endpoint: occurrenceEndpoint.id, context: { scopeId: 'ICH' },

@@ -787,4 +787,16 @@ describe('endpoint provisional ownership', () => {
     expect(hook).not.toHaveBeenCalled();
     expect(result.trust?.provisional).toBe(scenario === 'error' ? undefined : true);
   });
+
+  it('does not call the hook on a non-mart endpoint, even with the mart empty scenario on', async () => {
+    const spec = makeSpec('analytics.nonmart-provisional', { requiresScope: false, context: {}, kinds: [] });
+    const hook = vi.fn(() => false);
+    const endpoint = defineMockEndpoint(spec, { mart: false, handle: () => ({ total: 7 }), provisional: hook });
+    setScenario('empty');
+    const result = await serveEndpoint(new Map([[spec.id, endpoint]]), request(spec.id, {}, {}), undefined, { latency: 0 });
+    expect(result.outcome).toBe('ok');
+    expect(result.data).toEqual({ total: 7 });
+    expect(result.trust).toBeNull();
+    expect(hook).not.toHaveBeenCalled();
+  });
 });
