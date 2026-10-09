@@ -2,6 +2,7 @@
 
 상태: **Decided (2026-10-04)**.
 - 결정자: 사용자 — 실제 앱 위 `?variant=` 프로토타입에서 A(화면별 네이티브) / B(공통 필터 행) / C(팝오버 + 칩) 중 B를 선택했다(#54, 브랜치 `hjung3113/proto-m2-batch2`).
+- 보강: [ADR-0029](0029-page-filter-bar-collapse-summary.md) — #230의 입력 영역 접기와 값 요약(2026-10-10). “항상 보이는 필터”는 조건값이 항상 보인다는 뜻까지 포함한다.
 
 세부 컴포넌트 계약은 [06 §13·§15](../06_platform_ui_contract.md#13-shared-component-layers), 시각 규칙은 [DESIGN.md Filter bar](../../DESIGN.md#filter-bar), 구현 범위는 [#54](https://github.com/hjung3113/analytics-platform/issues/54)가 소유한다. 이 ADR은 결정과 이유를 기록한다.
 
