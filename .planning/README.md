@@ -32,7 +32,6 @@
 | #90 | 지표 상세 이력을 감사 저장소(`entityAudit`)로 통합 | 낮은 우선순위 |
 | #237 | turbo 캐시가 FeedbackOps 서브모듈 변경을 못 봄 — 입력 해시에 서브모듈 포함 | 고치기 전까지 gitlink를 올린 PR은 `--force`로 검사 |
 | #265 | 패키지별 최소 SpaceDef·어댑터 fixture builder | test-support. 공개 테스트 API는 아님 |
-| #266 | `app-preview.py` 종료 때 프로세스 소유를 확인 | 소유가 불명확하면 신호를 보내지 않음 |
 
 ## 다음 슬라이스 후보 — 멀티 워크스페이스 v2 (지도 #249)
 
