@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { defineEndpoint, type Capability, type ContextKey, type GlobalContext, type MenuMeta } from '@ap/contracts';
-import { createMockAdapter, cycleMinutes, defineMockEndpoint, EQUIPMENT, getRole, jobsForEquipmentDay, setRole, type AnyMockEndpoint, type RoleId } from '@ap/mock-server';
+import { defineEndpoint, emptyGlobal, projectContext, shift, type Capability, type ContextKey, type GlobalContext, type MenuMeta } from '@ap/contracts';
+import { createMockAdapter, cycleMinutes, DATA_THROUGH, defineMockEndpoint, EQUIPMENT, getRole, jobsForEquipmentDay, setRole, type AnyMockEndpoint, type RoleId } from '@ap/mock-server';
 import { executionOccurrence } from './execution';
 import { occurrenceEndpoint, type Execution, type OccurrenceParams, type OccurrenceResult } from '../endpoints';
 import { allExecutions } from './cycle';
@@ -217,5 +217,63 @@ describe('execution-detail occurrence endpoint behavior', () => {
     });
     expect(malformedAnchor.outcome).toBe('empty');
     expect((malformedAnchor.data as OccurrenceResult | null)?.access).toBe('missing');
+  });
+});
+
+
+describe('execution occurrence provisional follows the object anchor', () => {
+  it.each([
+    { recent: true, expected: true },
+    { recent: false, expected: false },
+  ])('returns provisional=$expected for recent=$recent with reference periods', async ({ recent, expected }) => {
+    const equipment = EQUIPMENT.find(row => row.site === 'ICH' && row.room === 'PHOTO');
+    if (!equipment) throw new Error('expected engineer-granted equipment');
+    const boundary = shift(DATA_THROUGH, -24);
+    const job = jobsForEquipmentDay(equipment, boundary.slice(0, 10)).find(row => recent ? row.anchor >= boundary : row.anchor < boundary);
+    if (!job) throw new Error('expected job on the requested side of the provisional boundary');
+    for (const period of [
+      { from: shift(DATA_THROUGH, -1), to: DATA_THROUGH },
+      { from: shift(DATA_THROUGH, -168), to: DATA_THROUGH },
+    ]) {
+      const context = projectContext(occurrenceEndpoint, { ...emptyGlobal, scopeId: 'ICH', ...period });
+      expect(context).toEqual({ scopeId: 'ICH' });
+      const response = await adapter.menuQuery({
+        endpoint: occurrenceEndpoint.id, context,
+        params: occurrenceParams({ equipmentId: equipment.equipmentId, anchor: job.anchor }),
+      });
+      expect(response.outcome).toBe('ok');
+      expect((response.data as OccurrenceResult).access).toBe('ok');
+      expect(response.trust?.provisional).toBe(expected);
+    }
+    const carried = await adapter.menuQuery({
+      endpoint: occurrenceEndpoint.id,
+      context: { scopeId: 'ICH', from: shift(DATA_THROUGH, -1), to: DATA_THROUGH },
+      params: occurrenceParams({ equipmentId: equipment.equipmentId, anchor: job.anchor }),
+    });
+    expect(carried.outcome).toBe('error');
+    expect(carried.trust).toBeNull();
+  });
+
+  // Seeded jobs straddle the boundary but never land on the exact second; pin the instant directly on the hook.
+  it.each([
+    { offsetSeconds: -1, expected: false },
+    { offsetSeconds: 0, expected: true },
+    { offsetSeconds: 1, expected: true },
+  ])('anchors the occurrence $offsetSeconds s around the 24h boundary: provisional=$expected', ({ offsetSeconds, expected }) => {
+    const hook = executionOccurrence.provisional;
+    if (!hook) throw new Error('expected executionOccurrence to declare a provisional hook');
+    const boundary = shift(DATA_THROUGH, -24);
+    const anchor = new Date(Date.parse(`${boundary}Z`) + offsetSeconds * 1000).toISOString().slice(0, 19);
+    const data: OccurrenceResult = { access: 'ok', execution: { ...grantedExecution(boundary), anchor }, segments: [] };
+    expect(hook({ data, params: occurrenceParams({ anchor }), context: emptyGlobal })).toBe(expected);
+  });
+
+  it('returns false for a missing occurrence even with a recent identity anchor', async () => {
+    const response = await adapter.menuQuery({
+      endpoint: occurrenceEndpoint.id, context: { scopeId: 'ICH' },
+      params: occurrenceParams({ equipmentId: 'UNKNOWN-EQUIPMENT', anchor: DATA_THROUGH }),
+    });
+    expect(response.outcome).toBe('empty');
+    expect(response.trust?.provisional).toBe(false);
   });
 });
