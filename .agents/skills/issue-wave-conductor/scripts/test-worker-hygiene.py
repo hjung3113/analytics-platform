@@ -57,19 +57,44 @@ with tempfile.TemporaryDirectory(prefix='hygiene-test-') as tmp:
          'apps/a.ts:'),
         ('reasoned disable passes', None, SOURCE + '// eslint-disable-next-line @shadcn/lint/x -- crash on empty scope\n',
          None, None, None, 0, 'no new eslint-disable'),
+        # The reason must sit inside the comment holding the directive: a block comment ends
+        # before `*/` (the closer is not reason text) and `--` in code after it is not a reason.
+        ('tracked block empty reason', None, SOURCE + '/* eslint-disable-next-line @shadcn/lint/x -- */\n',
+         None, None, None, 1, 'apps/a.ts:'),
+        ('tracked block dash in code', None, SOURCE + "/* eslint-disable-line @shadcn/lint/x */ const sep = '--';\n",
+         None, None, None, 1, 'apps/a.ts:'),
+        ('tracked block reasoned passes', None, SOURCE + '/* eslint-disable @shadcn/lint/x -- crash on empty scope */\n',
+         None, None, None, 0, 'no new eslint-disable'),
+        ('tracked jsx reasoned passes', None,
+         SOURCE + '{/* eslint-disable-next-line @shadcn/lint/x -- crash on empty scope */}\n',
+         None, None, None, 0, 'no new eslint-disable'),
         ('untracked suppression', None, None, '// eslint-disable @shadcn/lint/z\n', None, None, 1, 'apps/c.ts:1:'),
         ('untracked empty reason', None, None, '// eslint-disable @shadcn/lint/z -- \n', None, None, 1, 'apps/c.ts:1:'),
         ('untracked dash in code', None, None, "const sep = '--'; // eslint-disable @shadcn/lint/z\n", None, None, 1,
          'apps/c.ts:1:'),
+        ('untracked block empty reason', None, None, '/* eslint-disable @shadcn/lint/z -- */\n', None, None, 1,
+         'apps/c.ts:1:'),
+        ('untracked block dash in code', None, None, "/* eslint-disable-line @shadcn/lint/z */ const sep = '--';\n",
+         None, None, 1, 'apps/c.ts:1:'),
+        ('untracked block reasoned passes', None, None,
+         '/* eslint-disable @shadcn/lint/z -- crash on empty scope */\n', None, None, 0, 'no new eslint-disable'),
+        ('untracked reasoned passes', None, None,
+         '// eslint-disable-next-line @shadcn/lint/z -- crash on empty scope\n', None, None, 0,
+         'no new eslint-disable'),
+        ('untracked jsx reasoned passes', None, None,
+         '{/* eslint-disable-next-line @shadcn/lint/z -- crash on empty scope */}\n', None, None, 0,
+         'no new eslint-disable'),
         # Second rule grows while the first stays at 2: sum 9 -> 10 must fail (pretty and compact alike).
         ('second rule grows', None, None, None, sup(2, 8), None, 1, 'eslint-suppressions.json grew'),
         ('second rule grows compact', None, None, None, sup(2, 8, compact=True), None, 1, 'eslint-suppressions.json grew'),
         ('same sum compact passes', None, None, None, sup(2, 7, compact=True), None, 0, 'no new eslint-disable'),
         ('suppressions prune', None, None, None, sup(1, 0), None, 0, 'no new eslint-disable'),
+        # Deleting the tracked suppression file is a decrease to 0 and must pass.
+        ('tracked suppression deleted', None, None, None, None, None, 0, 'no new eslint-disable', True),
         # A new untracked file with counts 0 and 1 sums to 1 and must fail.
         ('untracked new json', None, None, None, None, sup(0, 1, compact=True), 1, 'new eslint-suppressions.json'),
     ]
-    for label, b, a, c, pkg, u, code, needle in cases:
+    for label, b, a, c, pkg, u, code, needle, *extra in cases:
         git(repo, 'checkout', '-q', '--', '.')
         (repo / 'apps' / 'c.ts').unlink(missing_ok=True)
         (repo / 'apps' / 'eslint-suppressions.json').unlink(missing_ok=True)
@@ -79,7 +104,9 @@ with tempfile.TemporaryDirectory(prefix='hygiene-test-') as tmp:
             (repo / 'apps' / 'a.ts').write_text(a)
         if c is not None:
             (repo / 'apps' / 'c.ts').write_text(c)
-        if pkg is not None:
+        if extra and extra[0]:
+            (repo / 'packages' / 'eslint-suppressions.json').unlink(missing_ok=True)
+        elif pkg is not None:
             (repo / 'packages' / 'eslint-suppressions.json').write_text(pkg)
         if u is not None:
             (repo / 'apps' / 'eslint-suppressions.json').write_text(u)

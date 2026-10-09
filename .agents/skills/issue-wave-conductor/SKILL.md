@@ -27,7 +27,7 @@ FeedbackOps와 다른 점: PR 기준 브랜치는 `main` 하나(develop 없음),
 | `review-quality` | 슬라이스 전체의 코드 품질(11단계) | 에이전트 `.claude/agents/review-quality.md` |
 | `review-check` | 중간 확인(blocker 수정이 리뷰어가 본 파일 밖으로 번졌을 때), 브리프 사전 점검, `impl-complex` FIX1의 수정 diff 점검 | 별도 CHECK 이름 |
 
-codex 역할은 Orca 터미널에서, claude 역할은 백그라운드 `claude -p`(프롬프트는 stdin, `.claude/agents/<role>.md`가 있으면 `--agent`)로, grok은 백그라운드 headless로 돈다. codex 샌드박스가 브라우저를 막으면(캡처·스크린샷) 코디네이터가 호스트에서 `apps/platform-e2e`의 Playwright 일회용 스크립트로 대신한다. 보고서 sentinel만으로 끝났다고 보지 않는다. `worker-wait.sh`가 신선도·마지막 줄·프로세스 종료나 터미널 idle을 함께 본다. 끝난 작업자의 터미널은 바로 닫고 상태 JSON은 남긴다.
+codex 역할은 Orca 터미널에서, claude 역할은 백그라운드 `claude -p`(프롬프트는 stdin, `.claude/agents/<role>.md`가 있으면 `--agent`)로, grok은 백그라운드 headless로 돈다. 캡처·브라우저 조작은 먼저 호스트의 `ego-browser` 스킬로 하고, 그것이 응답하지 않을 때만 코디네이터가 `apps/platform-e2e`의 Playwright 일회용 스크립트로 대신하며 대체했다고 사용자에게 말한다 — codex 작업자 샌드박스가 막힌 것은 호스트 ego-browser 불가를 뜻하지 않는다. 보고서 sentinel만으로 끝났다고 보지 않는다. `worker-wait.sh`가 신선도·마지막 줄·프로세스 종료나 터미널 idle을 함께 본다. 끝난 작업자의 터미널은 바로 닫고 상태 JSON은 남긴다.
 
 ## 상태
 
