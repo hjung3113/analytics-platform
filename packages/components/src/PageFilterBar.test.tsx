@@ -291,7 +291,7 @@ describe('PageFilterBar collapsible', () => {
     expect(screen.getAllByRole('combobox', { name: '느린 실행 기준' })).toHaveLength(3);
   });
 
-  it('never truncates: a long value keeps its full text and the toggle stays a plain button', () => {
+  it('keeps every summary value as DOM text (no truncate class or title); layout clipping is covered by E2E (#278)', () => {
     const longValue = 'VERY-LONG-EQUIPMENT-IDENTIFIER-'.repeat(5);
     storage.set('platform:page-filter-collapsed:cycle-time', 'true');
     mountBar({ ...collapsibleProps, summaryItems: [{ key: 'q', label: '검색', value: longValue }] });
