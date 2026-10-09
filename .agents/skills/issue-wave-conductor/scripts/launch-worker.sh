@@ -2,7 +2,7 @@
 # launch-worker.sh <issue> <slug> — Orca worktree from origin/main → branch feat/<issue>-<slug>, FeedbackOps submodule +
 # pnpm install, close the setup shells, write the task (implementation rules + $WAVE_BRIEFS/<issue>-task.md) into
 # .review/, then delegate launch and worker state to the shared worker-ops script.
-# WORKER_ROLE defaults to impl (GLM); impl-complex (grok) for complex issues; impl-fallback when Orca hangs.
+# WORKER_ROLE defaults to impl; impl-mid, impl-complex and impl-fallback select the routing.tsv rows of those names.
 # Optional WORKER_MODEL / WORKER_EFFORT override the shared routing.tsv for this session.
 # Needs: WAVE_STATE, WAVE_BRIEFS, AP_MAIN (main checkout path).
 : "${WAVE_STATE:?}"; : "${WAVE_BRIEFS:?}"; : "${AP_MAIN:?}"; set -u

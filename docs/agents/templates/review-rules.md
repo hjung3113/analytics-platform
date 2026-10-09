@@ -21,6 +21,8 @@
 - **아키텍처**: 루트와 해당 폴더의 `AGENTS.md`, 의존 방향(`contracts → ui/kernel → components → shell → apps`), Kernel·공통 컴포넌트가 메뉴와 mock을 모르는지, 공통화 기준(06 §24 — 소비자 2–3곳), FeedbackOps primitive는 `@ap/ui`로만.
 - **UI(UX 리뷰가 없을 때만)**: VERIFY의 전후 캡처로 레이아웃·위계·한국어 화면 문구·접근성(이름, 포커스, 키보드)·`DESIGN.md`와 이웃 화면과의 일관성. 화면 증거가 없으면 지어내지 말고 없다고 적는다.
 
+보고 기준: touched flow 밖의 범위 밖 `pre-existing` 지적은 `major` 이상만 보고하고, `fix size: <파일>, ≈<줄>`과 `사용자 결정 필요: 예/아니오`를 적는다 — diff 밖의 `minor`·`nit`은 보고하지 않는다. fix-diff 점검 작업에서는 지명된 지적의 수정 여부와 수정 전 head 대비 회귀만 보고한다. 지적 없는 `PASS`도 유효한 결과다. 채우지 않는다.
+
 ## 보고서
 
 먼저 뼈대(판정 `PENDING`)를 쓰고 검토하면서 채운다.
