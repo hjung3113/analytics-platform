@@ -1,13 +1,13 @@
 # 15. 멀티 워크스페이스 v2 — UI·IA·화면 설계
 
-상태: **Decided — UX 구성 원칙(2026-10-08 사용자 승인)** / **Candidate — 세부 메뉴 귀속·복원 저장·기술 구현** / **Open — 인증·Managed System 매핑**.
+상태: **Decided — UX 구성 원칙(2026-10-08 사용자 승인)** / **Candidate — 세부 메뉴 귀속·복원 저장·기술 구현** / **Open — 인증·Managed System 매핑**. FeedbackOps 진입은 링크다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md), 2026-10-09 — 화면을 옮기지 않는다).
 
 > 이 문서는 **업무 시스템별 독립 워크스페이스**의 화면 설계·도입 계획이다. 플랫폼 전체 Navigation/Context/Permission의 단일 계약은 [06 §9·9.1](06_platform_ui_contract.md#9-information-architecture)이고, 이 문서는 이를 소비하는 상세 설계다. 기존 백엔드/DB의 소유권이나 구현 완료를 선언하지 않는다.
 
 - [승인된 클릭형 v2 프로토타입](prototypes/multi-workspace-v2/index.html)
 - [프로토타입 사용법 및 구현 차이](prototypes/multi-workspace-v2/README.md)
 - [결정 근거 ADR-0026](adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)
-- [FeedbackOps 2단계 ADR-0018](adr/0018-feedbackops-stage2-screens-into-platform-menus.md)
+- [FeedbackOps 진입 링크 ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md)(ADR-0018 대체)
 - [구현 추적 이슈 #249](https://github.com/hjung3113/analytics-platform/issues/249)
 
 ## 1. 요구사항과 사용자 작업
@@ -50,14 +50,12 @@ Equipment Platform
 │   ├── 서버 앱 / 적재·파서 파이프라인 / 배치·작업 이력
 │   ├── 시스템 설정 · 권한 · Audit / 메뉴 활용률
 │   └── [이 시스템의 협업] VOC · Task · 설문 (운영 콘솔 업무 관련)
-└── 전체 협업 허브 (권한자 전용 진입, 기능 원천 = FeedbackOps)
-    ├── 시스템별 VOC 통합 목록 · 분류
-    ├── Finding · Task Request · Task / Milestone
-    └── 설문 · 통합 결과
+└── 전체 협업 허브 = FeedbackOps 자체 화면 (권한자에게 진입 링크)
+    └── VOC · Evidence · Finding · Task Request · Task / Milestone · 설문 (FeedbackOps 소유)
 ~~~
 
 - 4개 업무 워크스페이스와 운영 콘솔은 **독립적 시스템 메뉴 집합**이다. 모든 팀원이 모두 접근하는 구조를 가정하지 않는다.
-- 전체 협업 허브는 **새 데이터 저장소나 별개 FeedbackOps 인스턴스가 아니다**. 담당자의 권한으로 여러 시스템을 조회하는 전역 진입이다.
+- `[이 시스템의 협업]`은 플랫폼 화면이 아니라 FeedbackOps를 새 탭으로 여는 링크다(ADR-0027). 전체 협업 허브는 FeedbackOps의 시스템 범위 없는 화면이고, 플랫폼은 진입 링크만 둔다.
 - 기존 제품의 설비관리·기준정보·공지·내 VOC 메뉴는 새 구조에서 소실되지 않는다. 어느 업무 워크스페이스의 메뉴로 둘지/공통 유틸리티로 둘지는 **Candidate**이고, 전환기에는 기존 라우트·메뉴를 유지한다.
 - FeedbackOps의 `Managed System`과 플랫폼의 `SpaceDef`는 서로 다른 식별 개념이다. 1:1 관계를 보장하지 않는다.
 
@@ -83,7 +81,7 @@ Equipment Platform
 
 1. Rail은 플랫폼 레벨: 포털·접근 가능한 워크스페이스·통합 검색·프로필. 모든 워크스페이스에서 같은 위치다.
 2. Sidebar는 *현재 워크스페이스*의 그룹·메뉴만 표시한다. 그룹 접기, 최근/즐겨찾기, 검색은 [기존 셸](07_app_shell_wireframe.md) 계약을 활용한다.
-3. Sidebar의 VOC·Task·설문은 시스템별 **공통 협업 진입점**이고, 기능 내용은 FeedbackOps가 소유한다. 메뉴 수가 많아도 쉽게 접근할 수 있는 구역에 둔다. 실제 상시 고정 위치는 화면 높이·권한·메뉴 밀도 검증 대상이다.
+3. Sidebar의 VOC·Task·설문은 시스템별 **공통 협업 진입점**이고, 기능 내용은 FeedbackOps가 소유한다. 진입은 FeedbackOps를 새 탭으로 여는 링크다(ADR-0027). 메뉴 수가 많아도 쉽게 접근할 수 있는 구역에 둔다. 실제 상시 고정 위치는 화면 높이·권한·메뉴 밀도 검증 대상이다.
 4. Main은 업무 유형에 따라 자유롭게 다르다. 분석 차트, 지표 카탈로그, 로그 검증 표, Task 보드·성과 폼을 하나의 보편적 레이아웃에 억지로 맞추지 않는다.
 5. Right detail은 문맥이 필요한 조회·수정에서 재사용한다. 대용량 검증·원문 로그는 전체폭 Workbench/Drill로 예외 허용.
 6. 색·서체·입력/버튼/배지·테이블 기본 규칙은 [FeedbackOps 디자인 시스템](../DESIGN.md) 및 `@ap/ui`로 재사용한다. **워크스페이스마다 별도의 테마를 만들지 않는다.**
@@ -100,8 +98,8 @@ Equipment Platform
 | 로그 검증 워크벤치 | Workbench | 규칙 오류·원문 위치·재검증·결함 | 결함 상세, 협력사 검토 내보내기 |
 | 개선 실행 현황 | Workflow/Overview | 적용 대상·진척·개선 전후 실적 | 적용 상세·성과 검증 |
 | 운영 콘솔 | Management/Ops | 서버·배치·파서 실행·오류 상태 | 트레이스·상세 |
-| 워크스페이스별 VOC·Task·설문 | Workflow | 현재 시스템의 협업 객체 조회·요청 | 상세·관련 시스템 화면 |
-| 전체 FeedbackOps 허브 | Workflow | 권한 내 모든 시스템의 요청 탐색·분류 | 시스템 선택·Task/Finding/설문 |
+| 워크스페이스별 FeedbackOps 진입 | 외부 링크 | 현재 시스템으로 좁힌 FeedbackOps VOC·Task·설문을 새 탭으로 연다 | FeedbackOps |
+| 전체 협업 허브 | 외부 링크 | FeedbackOps 자체 화면(시스템 범위 없음) | FeedbackOps |
 
 이 표는 **화면 유형**을 정의하며 구현 완료나 구체 도메인 구현 일정을 선언하지 않는다. 개별 메뉴는 앞으로 독립적으로 추가된다.
 
@@ -144,21 +142,19 @@ Equipment Platform
 
 ### 6.1 시스템 안의 FeedbackOps
 
-현재 시스템 Sidebar에서 `VOC`, `Task`, `설문` 진입 시 상단에 **'관리 대상: 현재 시스템'**을 표시한다. 해당 시스템의 요청만 기본 조회한다. 바깥 시스템의 데이터로 임의 확장하지 않는다.
+FeedbackOps 화면은 플랫폼으로 옮기지 않는다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md)). VOC → Evidence → Finding → Task Request/Task로 이어지는 흐름과 그 권한·상태 규칙은 FeedbackOps가 전담한다.
 
-- 피드백 생성/요청 화면은 현재 시스템을 기본 대상으로 삼는다. 실제 식별자 및 변경 허용 정책은 FeedbackOps 권한·API 계약이 결정한다.
-- 사용자용 메뉴는 **VOC 접수/내 문의, 내 Task 관계, 설문 응답** 등 필요한 기능만 노출한다.
-- 개발자·관리자용 메뉴는 **triage, Finding, Task Request, Task/Milestone, 설문 빌더·결과**까지 역할에 맞게 확장할 수 있다.
-- VOC 보고자 상태와 내부 Task 상태는 자동 매핑하지 않는다(FeedbackOps ADR-0005). 해결 알림은 별도 확인 절차로 처리한다.
+- 현재 시스템 Sidebar의 진입(VOC 등록, VOC, Task, 설문)은 FeedbackOps를 **새 탭**으로 연다. 링크에는 그 시스템의 Managed System(`managedSystem`)을 실어 FeedbackOps가 그 시스템의 요청만 기본으로 보이게 한다.
+- 공간에 대응하는 Managed System 매핑이 없으면 진입을 그리지 않는다. 시스템 범위 없이 열면 다른 시스템의 요청이 보이기 때문이다.
+- 사용자용·담당자용 메뉴 구분, triage·Finding·Task Request·설문 빌더 같은 역할별 기능은 FeedbackOps 안에서 FeedbackOps 권한으로 갈린다. 플랫폼은 진입 링크만 고른다.
+- VOC 보고자 상태와 내부 Task 상태는 자동 매핑하지 않는다(FeedbackOps ADR-0005).
+- FeedbackOps에서 플랫폼으로 돌아오는 복귀는 FeedbackOps가 복귀 파라미터를 열기 전까지 새 탭 닫기로 대신한다(#81).
 
 ### 6.2 전체 협업 허브
 
-권한이 있는 사용자에게만 전역 '전체 협업 관리' 진입을 제공한다.
+전체 협업 허브는 FeedbackOps의 시스템 범위 없는 화면이다. 플랫폼은 허브 화면을 만들지 않고 진입 링크 하나만 둔다.
 
-- VOC / Task / 설문을 시스템별 필터와 함께 조회한다. 허브는 **다른 DB나 새로운 권한의 우회 경로가 아니다**.
-- 업무 항목에는 식별자·대상 시스템·담당자/상태가 명시돼야 한다.
-- 허브에서 시스템별 항목을 열면 관련 시스템의 원래 화면으로 돌아갈 수 있어야 한다.
-- 권한 부여가 없으면 일부 시스템의 내용은 비표시 또는 요약·접근 요청 상태로 처리한다. 범위를 우회한 통합 검색·숫자 합산은 금지한다.
+- 링크를 누구에게 보일지는 플랫폼 권한으로 정한다(Candidate). 실제로 어느 시스템의 무엇을 볼 수 있는지는 FeedbackOps가 판정한다. 링크가 보인다고 다른 시스템의 내용을 볼 권한이 생기지 않는다.
 
 ### 6.3 도메인 경계
 
@@ -173,7 +169,7 @@ Equipment Platform
 
 플랫폼의 `SpaceDef.id`(UI 탐색), FeedbackOps의 `Managed System`(협업 스코프), 설비의 `Site/room_name/EquipmentID`(데이터 스코프)는 **서로 다른 식별 계층**이다. `workspaceId → managedSystemId`는 기본적으로 1:1이라고 가정하지 않는다. 명시적 매핑 모델, 호출 시 범위 검증, SSO/세션 위임/권한 설명을 #81·#150·#213에서 해결한다.
 
-기존 [ADR-0018](adr/0018-feedbackops-stage2-screens-into-platform-menus.md)의 **화면을 플랫폼 메뉴로 이전, FeedbackOps 백엔드는 독립 유지** 원칙은 그대로다.
+FeedbackOps 화면과 백엔드는 모두 독립 앱으로 남는다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md)). 플랫폼은 매핑 표와 진입 링크만 소유한다.
 
 ## 7. 컴포넌트 맵(소유권)
 
@@ -183,7 +179,7 @@ Equipment Platform
 | `@ap/kernel` | SpaceDef/GroupDef/MenuEntry, Registry, 권한·Context·URL·전환 | 기존 계약 확장 |
 | `@ap/shell` | AppRail·AppSidebar·Portal·CommandPalette·복귀 UX | 기존 셸 확장 |
 | `menus/*` | 각 워크스페이스의 고유 업무 메뉴/화면 | 메뉴 그룹별 Consumer 유지 |
-| `menus/feedback-*`(후보) | FeedbackOps API를 소비하는 시스템별 협업 화면 | 기존 ADR-0018 단계적 이전 |
+| FeedbackOps(독립 앱) | VOC·Evidence·Finding·Task·설문 화면과 API | 그대로 둔다. 플랫폼은 공간 → Managed System 매핑과 진입 링크만(ADR-0027) |
 | 각 독립 백엔드 | 로그·분석·지표·개선·운영 도메인 규칙/DB | 합치지 않음 |
 
 워크스페이스별로 새로운 FE를 복제하지 않는다. **동일한 FE shell/runtime이 등록된 도메인 메뉴를 조립**한다. 서로 다른 서버·DB를 합치거나 도메인 테이블을 공유 DB로 이동시키지 않는다.
@@ -198,21 +194,20 @@ Equipment Platform
 - 오류·빈 상태: 공간 0개면 권한 확인/접근 요청을 명시; 로딩 시 업무 카드 자체를 재배치하지 않는다.
 - 금지: 도메인 원천 없이 시스템별 건강 상태·성과 수치 집계.
 
-### 업무 시스템 안의 협업
+### 업무 시스템 안의 FeedbackOps 진입
 
-- 목적: 현재 업무 Context에서 관련 VOC·Task·설문을 처리.
-- 입력: 현재 시스템의 협업 스코프, 요청자 권한, 정렬/검색.
-- 출력: 현재 시스템 한정 결과·상세·업무 복귀 링크.
-- 오류·빈 상태: 권한 부족, 데이터 없음, 조회 실패를 다르게 표시.
-- 금지: 화면의 시스템명 텍스트만 바꿔놓고 API는 전체 시스템을 읽는 것.
+- 목적: 현재 업무 시스템의 VOC·Task·설문을 FeedbackOps에서 바로 열기.
+- 입력: 현재 공간, 공간 → Managed System 매핑, FeedbackOps origin.
+- 출력: 그 시스템으로 좁힌 FeedbackOps 화면(새 탭).
+- 오류·빈 상태: 매핑이 없으면 진입을 그리지 않는다. origin이 없거나 잘못되면 링크를 비활성으로 보이고 화면은 그대로 둔다(1단계 딥링크와 같은 규칙).
+- 금지: 시스템 범위 없이 FeedbackOps를 열면서 "이 시스템의 협업"이라고 표시하는 것.
 
-### 전체 협업 허브
+### 전체 협업 허브 진입
 
-- 목적: 여러 시스템의 요청을 통합해서 업무 담당자가 관리.
-- 입력: 접근 가능한 시스템 집합, 종류(VOC/Task/설문), 상태, 담당자.
-- 출력: 권한 내 합계/목록/상세/관련 시스템 링크.
-- 오류·빈 상태: 권한 없음/전체 중 일부 권한/조회 실패를 구분.
-- 금지: 다른 시스템 접근권을 허브 권한만으로 암묵 부여.
+- 목적: 권한자가 FeedbackOps의 전체 화면으로 가기.
+- 입력: 링크 노출 권한(Candidate), FeedbackOps origin.
+- 출력: FeedbackOps의 시스템 범위 없는 화면(새 탭).
+- 금지: 링크 노출을 다른 시스템 내용의 열람 권한처럼 다루는 것.
 
 ## 9. 프로토타입과 실제 구현의 차이
 
@@ -237,7 +232,7 @@ Equipment Platform
 1. **설계 기준 고정:** UX·IA·예외·Open 문서/ADR/HTML 승인안 저장. 이 단계에서는 서비스 코드·서브모듈을 수정하지 않는다.
 2. **셸/Registry 확장:** 포털·워크스페이스 메뉴·전용 Sidebar·통합 검색/탐색·권한 기반 노출·기존 라우트 호환.
 3. **업무 워크스페이스 등록:** 분석/지표 분리, 로그 개발·개선 실행·운영 콘솔 추가; 기존 설비/기준정보 귀속 확정.
-4. **FeedbackOps 노출:** #213 기존 일정·ADR-0018 유지하면서 1단계 링크→2단계 메뉴 이전. 시스템별 범위/역할/전체 허브는 #81 및 SSO 계약 확인 후 적용.
+4. **FeedbackOps 진입:** 공간 → Managed System 매핑(#81)과 링크 계약 확장 뒤 공간별 진입과 허브 링크를 단다. 화면은 옮기지 않는다(ADR-0027, #213).
 5. **시스템 간 링크 UX/회귀:** 출발 화면 복귀, 무권한, 필터 미지원, 새로고침·Back/Forward·직접 URL, 시스템 0개/많음, 좁은 데스크톱 폭 검사.
 
 ## 11. 구현 수용 기준
@@ -245,8 +240,8 @@ Equipment Platform
 - [ ] 4개 핵심 + 운영 콘솔이 각자 **메뉴 그룹·전용 Sidebar·독립 기본 화면**을 가진다.
 - [ ] 포털과 rail은 도메인 메뉴 수가 늘어도 1층 탐색으로 유지된다.
 - [ ] 권한 없는 워크스페이스는 rail/검색/URL에서 접근이 거부된다.
-- [ ] Sidebar 하단 협업은 **현재 시스템**을 대상으로만 조회/등록한다.
-- [ ] 전역 협업 허브는 별도 권한이 있는 사람만 보며, 서버가 허용한 시스템만 집계한다.
+- [ ] 공간의 FeedbackOps 진입은 **현재 시스템**의 Managed System으로 좁혀 열고, 매핑이 없으면 그리지 않는다.
+- [ ] 전체 허브 링크는 노출 권한자에게만 보이고, 내용 판정은 FeedbackOps가 한다.
 - [ ] FeedbackOps 백엔드/객체를 복제하거나 로그 결함·개선 실적을 강제 통합하지 않는다.
 - [ ] 교차 링크는 대상+발신 맥락을 보존하고, 대상이 지원하지 않거나 권한 없는 필터를 적용하지 않는다.
 - [ ] 이전 분석·지표·설비·기준정보 라우트/딥링크를 단계적으로 호환 처리한다.
@@ -256,9 +251,8 @@ Equipment Platform
 ## 12. Open / Risk
 
 - **Open:** FeedbackOps `Managed System` 매핑 모델/필터 불변식 및 여러 시스템 매핑 정책(#81, #213).
-- **Open:** SSO, 세션 공유, 권한 합성, 전체 협업 허브 접근 정책(#150, #213).
+- **Open:** SSO·세션 공유(#150). 세션 공유 전에는 FeedbackOps에서 로그인을 한 번 더 거칠 수 있다.
+- **Candidate:** 전체 허브 링크를 보일 플랫폼 권한.
 - **Open:** 기존 운영 개요·설비관리·기준정보·공지의 최종 메뉴 귀속. 기존 기능을 제거하지 않는다.
 - **Open:** 시스템별 최근 페이지·필터의 저장 및 충돌/만료 규칙.
-- **Candidate:** 전체 협업 허브가 독립 `SpaceDef`인지 전역 유틸리티 전용 route인지(권한/메뉴 Registry 계약 충족이 우선).
-- **Risk:** 독립 제품을 FE 패키지로 이전할 때 반복된 헤더/라우터/로그인/Context가 생길 수 있음. v2의 핵심 UX가 유지되도록 플랫폼 Shell은 한 번만 렌더.
 - **Risk:** 한 화면에서 시스템을 바꾸는 동안 이전 시스템의 캐시·상세 패널이 보일 수 있음. 현재 Scope/permission이 변경되면 이전 결과를 새 결과처럼 보여주지 않는 06 §11 계약 준수.
