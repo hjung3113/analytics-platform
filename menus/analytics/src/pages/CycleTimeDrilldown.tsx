@@ -18,7 +18,7 @@ const NO_PARAMS = {};
 
 export default function CycleTimeDrilldown(_: PageProps) {
   const { lang } = useI18n();
-  const { global, pageParam, setPage, setGlobal, linkTo, toast } = usePlatform();
+  const { global, pageParam, setPage, setGlobal, linkTo, toast, route } = usePlatform();
   const granularityRaw = pageParam('granularity');
   const percentileRaw = pageParam('percentile');
   const sortRaw = pageParam('sort');
@@ -98,6 +98,32 @@ export default function CycleTimeDrilldown(_: PageProps) {
     !pageResult.ok ? `page=${pageRaw}` : null,
   ].filter((item): item is string => item !== null);
 
+  // Field labels and option labels shared by the edit controls and the collapsed summary. The summary states
+  // facts: pending stays pending and unknown raw values are shown as unknown, never as a default value label.
+  const grainFieldLabel = ko ? '집계' : 'Grain';
+  const grainLabel = { hour: ko ? '시간' : 'Hour', day: ko ? '일' : 'Day', week: ko ? '주' : 'Week' } as const;
+  const tailFieldLabel = cycleTailFilterLabel(ko ? 'ko' : 'en');
+  const tailOptions = [
+    { value: 'p95', label: '≥ P95' }, { value: 'p50', label: '≥ P50' }, { value: 'all', label: ko ? '전체 실행' : 'All executions' },
+  ];
+  const sortFieldLabel = ko ? '정렬' : 'Sort';
+  const sortOptions = [
+    { value: 'cycleMin:desc', label: ko ? '사이클타임 내림차순' : 'Cycle time descending' },
+    { value: 'cycleMin:asc', label: ko ? '사이클타임 오름차순' : 'Cycle time ascending' },
+    { value: 'delta:desc', label: ko ? 'P95 대비 내림차순' : 'vs P95 descending' },
+    { value: 'anchor:desc', label: ko ? '시작 최신' : 'Start newest' },
+    { value: 'anchor:asc', label: ko ? '시작 오래된' : 'Start oldest' },
+    { value: 'equipmentId:asc', label: 'Equipment A→Z' },
+  ];
+  const unknownRaw = (raw: string | null) => ko ? `알 수 없는 값: ${raw ?? ''}` : `Unknown value: ${raw ?? ''}`;
+  const grainSummary = !granularityResult.ok ? unknownRaw(granularityRaw)
+    : granularityPending ? (ko ? '확인 중' : 'Checking') : grainLabel[granularity];
+  const tailSummary = tailResult.ok ? tailOptions.find(option => option.value === tailMode)?.label ?? tailMode : unknownRaw(percentileRaw);
+  const sortSummary = sortResult.ok
+    ? sortOptions.find(option => option.value === encodeSort(sortSpec.id, sortSpec.desc))?.label ?? encodeSort(sortSpec.id, sortSpec.desc)
+    : unknownRaw(sortRaw);
+  const resetFilters = <Button type="button" variant="ghost" size="toolbar" onClick={() => setPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{ko ? '페이지 조건 기본값' : 'Reset page filters'}</Button>;
+
   return <PlatformPage
     description={ko
       ? '적용된 전역 기간·설비의 사이클타임입니다. 분위수·느린 실행 기준은 Candidate이고, 점·분포 선택은 목록만 줄입니다.'
@@ -106,24 +132,19 @@ export default function CycleTimeDrilldown(_: PageProps) {
     dataTrustSummary={kpi.response?.trust ? <DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} /> : undefined}
     contextExtension={<div className="space-y-2">
       <MetricBanner metric={metric} />
-      <PageFilterBar label={ko ? '페이지 필터' : 'Page filter'} fields={[
-        { kind: 'custom', key: 'granularity', label: ko ? '집계' : 'Grain', content: <div className="flex flex-wrap items-center gap-1">
+      <PageFilterBar label={ko ? '페이지 필터' : 'Page filter'} collapsible preferenceKey={route?.menu.id ?? ''} summaryItems={[
+        { key: 'granularity', label: grainFieldLabel, value: grainSummary },
+        { key: 'percentile', label: tailFieldLabel, value: tailSummary },
+        { key: 'sort', label: sortFieldLabel, value: sortSummary },
+      ]} collapsedActions={resetFilters} fields={[
+        { kind: 'custom', key: 'granularity', label: grainFieldLabel, content: <div className="flex flex-wrap items-center gap-1">
           {(['hour', 'day', 'week'] as const).map(value => <button key={value} type="button" aria-pressed={!granularityPending && granularityResult.ok && granularity === value}
             className={!granularityPending && granularityResult.ok && granularity === value ? 'h-8 rounded-md bg-accent-primary-soft px-2 text-xs font-medium text-accent-primary' : 'h-8 rounded-md px-2 text-xs text-text-secondary hover:bg-surface-sunken'}
-            onClick={() => setPage({ granularity: value, bucket: null, page: null })}>{value === 'hour' ? (ko ? '시간' : 'Hour') : value === 'day' ? (ko ? '일' : 'Day') : (ko ? '주' : 'Week')}</button>)}
+            onClick={() => setPage({ granularity: value, bucket: null, page: null })}>{grainLabel[value]}</button>)}
         </div> },
-        { kind: 'select', key: 'percentile', label: cycleTailFilterLabel(ko ? 'ko' : 'en'), value: tailResult.ok ? tailMode : percentileRaw ?? '', options: [
-          { value: 'p95', label: '≥ P95' }, { value: 'p50', label: '≥ P50' }, { value: 'all', label: ko ? '전체 실행' : 'All executions' },
-        ], onValueChange: value => setPage({ percentile: value, page: null }) },
-        { kind: 'select', key: 'sort', label: ko ? '정렬' : 'Sort', value: sortResult.ok ? encodeSort(sortSpec.id, sortSpec.desc) : sortRaw ?? '', options: [
-          { value: 'cycleMin:desc', label: ko ? '사이클타임 내림차순' : 'Cycle time descending' },
-          { value: 'cycleMin:asc', label: ko ? '사이클타임 오름차순' : 'Cycle time ascending' },
-          { value: 'delta:desc', label: ko ? 'P95 대비 내림차순' : 'vs P95 descending' },
-          { value: 'anchor:desc', label: ko ? '시작 최신' : 'Start newest' },
-          { value: 'anchor:asc', label: ko ? '시작 오래된' : 'Start oldest' },
-          { value: 'equipmentId:asc', label: 'Equipment A→Z' },
-        ], onValueChange: value => setPage({ sort: value === DEFAULT_SORT ? null : value, page: null }) },
-      ]} actions={<Button type="button" variant="ghost" size="toolbar" onClick={() => setPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{ko ? '페이지 조건 기본값' : 'Reset page filters'}</Button>} />
+        { kind: 'select', key: 'percentile', label: tailFieldLabel, value: tailResult.ok ? tailMode : percentileRaw ?? '', options: tailOptions, onValueChange: value => setPage({ percentile: value, page: null }) },
+        { kind: 'select', key: 'sort', label: sortFieldLabel, value: sortResult.ok ? encodeSort(sortSpec.id, sortSpec.desc) : sortRaw ?? '', options: sortOptions, onValueChange: value => setPage({ sort: value === DEFAULT_SORT ? null : value, page: null }) },
+      ]} actions={resetFilters} />
       <p className="text-xs text-text-muted">
         {ko
           ? `집계 기본값은 기간 ≤48h이면 hour, 아니면 day${!granularityResult.ok || granularityResult.explicit ? '' : ` (지금 ${granularity}, URL에 없음)`}. 꼬리 기본값은 ≥ P95 (Candidate, 동률 포함)이며 KPI 모집단을 다시 줄이지 않습니다. 버킷·분포 구간은 URL 키 bucket·bin에, 정렬·페이지는 sort·page에 남습니다.`

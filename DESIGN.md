@@ -256,6 +256,8 @@ cellPadding: 4px 12px
 
 #54의 PageFilterBar B안은 card 표면과 `border-subtle` 경계를 쓰며, 보이는 label을 각 control 위에 둔다. 필드는 한 행에서 시작해 폭이 부족하면 모두 보이도록 줄바꿈한다. `@ap/ui` Input과 Select는 FeedbackOps 기본 표면·문구·크기를 쓰고 경계만 `border-control`로 둔다(접근성 예외, [ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md)). 검색 필드의 아이콘 자리 왼쪽 여백은 이유를 단 예외로 둔다(FeedbackOps와 같은 처리). Search 아이콘은 검색 필드에만 두며 정확 일치 텍스트와 시각 입력에는 붙이지 않는다. 초기화·적용은 소비 화면이 actions 슬롯에 제공한다.
 
+접기(ADR-0029)는 opt-in이며, 접힌 줄은 chevron·`필터`·필드명/값 요약을 담은 secondary 버튼 하나와 오른쪽 독립 초기화다. 요약은 한 줄이 기본이지만 폭이 부족하면 `필드명 값` 항목 단위로 줄바꿈하고 긴 값은 단어 내부에서라도 줄바꿈한다 — 말줄임·`+n`·title 전용 치환으로 조건을 숨기지 않는다. 펼친 입력 줄 끝의 `⌃ 접기`는 그 줄 actions 버튼과 같은 크기·variant를 쓰며, 미적용 변경이 있으면 요약 끝에 `미적용 변경 있음`을 함께 보인다.
+
 기간 preset은 `1일 / 7일 / 사용자 지정`; rolling wall-clock Δ와 `[from,to)` 물질화는 [06 시간 계약](docs/06_platform_ui_contract.md#ctx-time)을 따른다. screenshot의 기간 preset을 제품 의미로 복사하지 않는다. segment는 이름 있는 single-select/radio+selected 표식, custom picker는 Apply 때 반영하고 Cancel/Escape는 기존 구간을 보존한다. 현재 적용 구간과 draft를 구별하고 browser now로 기본값을 새로 만들지 않는다. 최초 기본 Δ·shift/business-day는 원본의 Open 상태를 따른다.
 
 ### Other reference recipes

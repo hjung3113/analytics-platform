@@ -1,7 +1,8 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useState } from 'react';
-import { PageFilterBar } from './index';
+import { I18nProvider } from '@ap/kernel';
+import { PageFilterBar, type PageFilterBarProps } from './index';
 
 const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
 beforeAll(() => { HTMLElement.prototype.scrollIntoView = vi.fn(); });
@@ -128,5 +129,184 @@ describe('PageFilterBar', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Reset selection' }));
     expect(percentile).toHaveTextContent('Choose percentile');
+  });
+});
+
+const collapsibleProps = {
+  label: '페이지 필터',
+  collapsible: true,
+  preferenceKey: 'cycle-time',
+  fields: [
+    { kind: 'select', key: 'percentile', label: '느린 실행 기준', value: 'p95', options: [{ value: 'p95', label: '≥ P95' }], onValueChange: vi.fn() },
+    { kind: 'search', key: 'q', label: '검색', value: '', onValueChange: vi.fn() },
+  ],
+  summaryItems: [
+    { key: 'granularity', label: '집계', value: '시간' },
+    { key: 'percentile', label: '느린 실행 기준', value: '≥ P95' },
+    { key: 'sort', label: '정렬', value: '사이클타임 내림차순' },
+  ],
+  actions: <button type="button">페이지 조건 기본값</button>,
+  collapsedActions: <button type="button">페이지 조건 기본값</button>,
+} satisfies PageFilterBarProps;
+
+function Harness({ preferenceKey }: { preferenceKey: string }) {
+  return <PageFilterBar {...collapsibleProps} preferenceKey={preferenceKey} />;
+}
+
+describe('PageFilterBar collapsible', () => {
+  let storage: Map<string, string>;
+  const mountBar = (props: PageFilterBarProps = collapsibleProps) =>
+    render(<I18nProvider><PageFilterBar {...props} /></I18nProvider>);
+
+  beforeEach(() => {
+    storage = new Map();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => { storage.set(key, value); },
+      removeItem: (key: string) => storage.delete(key),
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('stays expanded by default and keeps the page-filter-bar testid and fieldset group', () => {
+    mountBar();
+    const bar = screen.getByTestId('page-filter-bar');
+    expect(bar).toBeVisible();
+    expect(screen.getByRole('group', { name: '페이지 필터' })).toBe(bar);
+    expect(screen.getByText('페이지 필터')).not.toHaveClass('sr-only');
+    expect(screen.getByRole('combobox', { name: '느린 실행 기준' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '페이지 조건 기본값' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '페이지 필터 접기' })).toBeInTheDocument();
+    expect(document.activeElement).toBe(document.body);
+
+    render(<PageFilterBar label="레일 필터" orientation="column" fields={[{ kind: 'text', key: 'actor', label: 'Actor', value: '', onValueChange: vi.fn() }]} />);
+    expect(screen.getAllByTestId('page-filter-bar')).toHaveLength(2);
+  });
+
+  it('collapses to the full summary, removes the inputs, and hands focus to the expand button', () => {
+    mountBar();
+    const bar = screen.getByTestId('page-filter-bar');
+    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
+
+    const expand = screen.getByRole('button', { name: '페이지 필터 펼치기' });
+    expect(expand).toHaveFocus();
+    expect(screen.getByTestId('page-filter-bar')).toBe(bar);
+    expect(screen.getByText('페이지 필터')).toHaveClass('sr-only');
+    expect(screen.queryByRole('combobox', { name: '느린 실행 기준' })).toBeNull();
+    expect(screen.queryByRole('searchbox', { name: '검색' })).toBeNull();
+    const summary = document.getElementById(expand.getAttribute('aria-describedby')!);
+    expect(summary).toHaveTextContent('집계');
+    expect(summary).toHaveTextContent('시간');
+    expect(summary).toHaveTextContent('느린 실행 기준');
+    expect(summary).toHaveTextContent('≥ P95');
+    expect(summary).toHaveTextContent('정렬');
+    expect(summary).toHaveTextContent('사이클타임 내림차순');
+    expect(storage.get('platform:page-filter-collapsed:cycle-time')).toBe('true');
+
+    fireEvent.click(expand);
+    expect(screen.getByRole('button', { name: '페이지 필터 접기' })).toHaveFocus();
+    expect(screen.getByRole('combobox', { name: '느린 실행 기준' })).toBeInTheDocument();
+  });
+
+  it.each([
+    { collapsed: false, toggleName: '페이지 필터 접기', expanded: 'true' },
+    { collapsed: true, toggleName: '페이지 필터 펼치기', expanded: 'false' },
+  ])('declares aria-expanded="$expanded" on "$toggleName" and points aria-controls at the input panel', ({ collapsed, toggleName, expanded }) => {
+    if (collapsed) storage.set('platform:page-filter-collapsed:cycle-time', 'true');
+    mountBar();
+    const toggle = screen.getByRole('button', { name: toggleName });
+    expect(toggle).toHaveAttribute('aria-expanded', expanded);
+    const panelId = toggle.getAttribute('aria-controls');
+    expect(panelId).toBeTruthy();
+    if (collapsed) {
+      expect(document.getElementById(panelId!)).toBeNull();
+      expect(screen.queryByRole('combobox', { name: '느린 실행 기준' })).toBeNull();
+    } else {
+      const panel = document.getElementById(panelId!);
+      expect(panel).not.toBeNull();
+      expect(panel!.contains(screen.getByRole('combobox', { name: '느린 실행 기준' }))).toBe(true);
+    }
+  });
+
+  it('restores the collapsed preference across remount', () => {
+    const view = mountBar();
+    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
+    view.unmount();
+
+    mountBar();
+    expect(screen.getByRole('button', { name: '페이지 필터 펼치기' })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: '느린 실행 기준' })).toBeNull();
+  });
+
+  it('re-reads the stored preference when preferenceKey changes', () => {
+    const view = render(<I18nProvider><Harness preferenceKey="cycle-time" /></I18nProvider>);
+    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
+    view.rerender(<I18nProvider><Harness preferenceKey="other-menu" /></I18nProvider>);
+
+    expect(screen.getByRole('button', { name: '페이지 필터 접기' })).toBeInTheDocument();
+    expect(storage.get('platform:page-filter-collapsed:cycle-time')).toBe('true');
+    expect(storage.has('platform:page-filter-collapsed:other-menu')).toBe(false);
+  });
+
+  it('keeps the collapsed state when a collapsedAction fires', () => {
+    const onReset = vi.fn();
+    storage.set('platform:page-filter-collapsed:cycle-time', 'true');
+    mountBar({ ...collapsibleProps, collapsedActions: <button type="button" onClick={onReset}>페이지 조건 기본값</button> });
+
+    fireEvent.click(screen.getByRole('button', { name: '페이지 조건 기본값' }));
+    expect(onReset).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: '페이지 필터 펼치기' })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: '느린 실행 기준' })).toBeNull();
+  });
+
+  it.each(['getItem', 'setItem'] as const)('stays usable when localStorage.%s throws', method => {
+    vi.stubGlobal('localStorage', {
+      getItem: method === 'getItem' ? () => { throw new DOMException('blocked'); } : (key: string) => storage.get(key) ?? null,
+      setItem: method === 'setItem' ? () => { throw new DOMException('blocked'); } : (key: string, value: string) => { storage.set(key, value); },
+      removeItem: (key: string) => storage.delete(key),
+    });
+    mountBar();
+    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
+    expect(screen.getByRole('button', { name: '페이지 필터 펼치기' })).toHaveFocus();
+  });
+
+  it('runs the collapsible row when a column orientation is wrongly passed (the union rejects the combination at type level)', () => {
+    render(<I18nProvider><PageFilterBar
+      {...collapsibleProps}
+      // @ts-expect-error — column rails own their own collapse; collapsible is row-only
+      orientation="column"
+    /></I18nProvider>);
+
+    expect(screen.getByTestId('page-filter-bar')).not.toHaveClass('w-full');
+    expect(screen.getByRole('combobox', { name: '느린 실행 기준' })).toBeInTheDocument();
+  });
+
+  it('never truncates: a long value keeps its full text and the toggle stays a plain button', () => {
+    const longValue = 'VERY-LONG-EQUIPMENT-IDENTIFIER-'.repeat(5);
+    storage.set('platform:page-filter-collapsed:cycle-time', 'true');
+    mountBar({ ...collapsibleProps, summaryItems: [{ key: 'q', label: '검색', value: longValue }] });
+
+    expect(screen.getByText(longValue)).toBeInTheDocument();
+    expect(screen.getByText(longValue)).not.toHaveClass('truncate');
+    expect(screen.getByRole('button', { name: '페이지 필터 펼치기' })).not.toHaveAttribute('title');
+  });
+
+  it('marks unapplied changes at the end of the collapsed summary', () => {
+    storage.set('platform:page-filter-collapsed:cycle-time', 'true');
+    mountBar({ ...collapsibleProps, hasPendingChanges: true });
+
+    const summary = document.getElementById(screen.getByRole('button', { name: '페이지 필터 펼치기' }).getAttribute('aria-describedby')!);
+    expect(summary).toHaveTextContent('미적용 변경 있음');
+    expect(screen.getByTestId('page-filter-bar').querySelector('[aria-live="polite"]')!.textContent).toContain('미적용 변경 있음');
+  });
+
+  it('announces collapsed-summary changes through an always mounted polite live region', () => {
+    mountBar();
+    const live = screen.getByTestId('page-filter-bar').querySelector('[aria-live="polite"]');
+    expect(live).not.toBeNull();
+    expect(live!.textContent).toBe('');
+
+    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
+    expect(live!.textContent).toContain('느린 실행 기준 ≥ P95');
   });
 });
