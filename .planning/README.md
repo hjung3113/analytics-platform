@@ -1,6 +1,6 @@
 # 남은 일 한눈에 보기
 
-> 마지막 갱신 2026-10-10. 원본은 GitHub 이슈·마일스톤이고 이 보드는 그 요약이다. 이슈가 닫히거나 상태가 바뀌면 같은 PR에서 해당 줄을 고친다. 물어 와야 할 질문과 미결 범위는 [inputs.md](inputs.md), 이슈로 올리지 않은 아이디어는 [backlog.md](backlog.md).
+> 마지막 갱신 2026-10-12. 원본은 GitHub 이슈·마일스톤이고 이 보드는 그 요약이다. 이슈가 닫히거나 상태가 바뀌면 같은 PR에서 해당 줄을 고친다. 물어 와야 할 질문과 미결 범위는 [inputs.md](inputs.md), 이슈로 올리지 않은 아이디어는 [backlog.md](backlog.md).
 
 ## 지금 어디까지
 
@@ -18,10 +18,11 @@
 
 ## 다음 할 일
 
-다음 세션은 여기서 시작한다. 직전 세션(2026-10-09~10)에서 v0.5.0 후속(#264·#262·#266·#265·#273)과 페이지 필터 줄 접기(#230)를 끝내 v0.6.0을 릴리스했다(아래 "끝난 것").
+다음 세션은 여기서 시작한다. v0.6.0 뒤 후속(#122·#237·#277·#278·#283)을 v0.6.1로 릴리스했다(아래 "끝난 것").
 
-1. 다음 슬라이스를 사용자에게 고르게 한다(후보: 바로 할 수 있는 일 표. #251 FeedbackOps 링크 계약·매핑은 #81 대기, #252 표준 로그·개선 실행 공간은 도메인 소유자 합의·#249 미결 대기).
-2. 작업 규칙은 루트 `AGENTS.md`(2026-10-05 간소화), 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 문서만 바꾸면 `pnpm docs:links`만 돌린다. 작업자 배정은 전역 `routing.tsv`가 원본이다(역할 `impl`·`impl-mid`·`impl-complex`·`impl-luna` — 모델·effort를 여기에 복제하지 않는다, #283).
+1. 진행 중인 슬라이스(2026-10-12 사용자 선택): FeedbackOps 서브모듈을 develop 최신으로 올리고(모션 기반 포함) conductor 후속을 가져온 뒤, 코드 품질·UX 워크스루·컴포넌트 일관성 세 갈래로 전체 점검해 지적을 묶음 이슈로 만들고 정비 범위를 정한다.
+2. 그 밖의 후보: 바로 할 수 있는 일 표. #251 FeedbackOps 링크 계약·매핑은 #81 대기, #252 표준 로그·개선 실행 공간은 도메인 소유자 합의·#249 미결 대기.
+3. 작업 규칙은 루트 `AGENTS.md`(2026-10-05 간소화), 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 문서만 바꾸면 `pnpm docs:links`만 돌린다. 작업자 배정은 전역 `routing.tsv`가 원본이다(역할 `impl`·`impl-mid`·`impl-complex`·`impl-luna` — 모델·effort를 여기에 복제하지 않는다, #283).
 
 ## 바로 할 수 있는 일 (에이전트)
 
@@ -116,5 +117,7 @@ v0.4.0(2026-10-08): 표 열 너비는 머리 끝 끌기로만, 컬럼 목록은 
 v0.5.0(2026-10-09): 멀티 워크스페이스 셸 — 공간은 업무 시스템 단위(생산성 분석 · 지표관리 · 운영 콘솔 등록, [ADR-0026](../docs/adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)). FeedbackOps 화면은 옮기지 않고 공간별 진입 링크만 둔다([ADR-0027](../docs/adr/0027-feedbackops-stays-standalone-entry-links.md), ADR-0018 대체). 실제 앱 위 시안 A/B/C를 사용자가 위임한 UX 판정(GPT-6-Astra high)으로 골라 [ADR-0028](../docs/adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md): 홈 = 업무 시스템 카드 런처, 홈·공지·내 VOC = 공간 밖 전역 유틸리티(`GroupDef.space: null`, #259), 공간별 마지막 화면 복원, 레일 로고 = 홈, FeedbackOps 바닥 고정 블록·전체 링크 자리(슬롯, 앱 미주입 — #251·#81 대기), 팔레트 공간 묶음(#260). 슬라이스 품질 리뷰 반영(#267). 세부는 [v0.5.0 릴리스](https://github.com/hjung3113/analytics-platform/releases/tag/v0.5.0).
 
 v0.6.0(2026-10-10): 페이지 필터 줄 접기 — `PageFilterBar` opt-in 접기, 접힌 상태는 필드명·값을 모두 담은 펼치기 버튼(말줄임 없이 항목 단위 줄바꿈), 메뉴별 접힘 기억, 첫 소비자 사이클타임 상세(#230, 시안 A+C 혼합을 사용자가 위임한 판정(GPT-6-Astra high)으로 골라 [ADR-0029](../docs/adr/0029-page-filter-bar-collapse-summary.md)). 공간 진입 목적지와 메뉴 열기 판정을 Kernel `canOpen`·`spaceEntry`로 — 부분 권한 공간은 마지막 화면 → 열 수 있는 홈 → 첫 열 수 있는 메뉴(#264). 테스트 결정성(#262·#273), app-preview 종료 전 소유 확인(#266, 규칙표 테스트를 CI에 연결 #279), 내부 fixture builder(#265). 세부는 [v0.6.0 릴리스](https://github.com/hjung3113/analytics-platform/releases/tag/v0.6.0).
+
+v0.6.1(2026-10-12): 후속 정리 — 목적지 단건 조회의 provisional을 대상 객체 시점으로 판정(#122, `MockEndpoint.provisional` 훅), FeedbackOps 서브모듈 변경이 turbo 캐시에 가려지지 않게 `globalDependencies`(#237), 사이클타임 도움말 용어를 필드명 '느린 실행 기준'으로(#277), 접힘 요약 잘림·정렬 계약 E2E(#278), FeedbackOps conductor 후속과 스킬 5종·에이전트 4개(#283). 세부는 [v0.6.1 릴리스](https://github.com/hjung3113/analytics-platform/releases/tag/v0.6.1).
 
 2026-10-05: 문서·작업 규칙 정리와 이 보드 도입(#220). 결정 — 활용률 이벤트는 식별 필드만(#75, ADR-0020), 차트는 Canvas 렌더러(ADR-0021), 운영 조립 주입 승인(ADR-0009), 전역 감사도 room 권한 적용(#91, 구현은 해당 역할이 생길 때). GitHub 정리 — #33·#63 닫음, M5 마일스톤 생성, #81·#84·#85를 M3에, #218을 M2에. #218 Context 바 적용 배지 생략·라벨 먼저 숨김. #156 레이아웃 슬롯 — 관리 화면은 접을 수 있는 왼쪽 필터 레일, 분석 화면은 KPI 띠 + 차트 2열 + 카드별 접기, 생성기 뼈대 반영(ADR-0022).
