@@ -229,6 +229,8 @@ type LocalAnalysisSelection = {
 | **M4** | Builder/Workspace/교차 필터/개인 저장·복원, 공유 범위 설계 | AnalysisDefinition v1, migration, permission-aware save/load, e2e | 06 §14/§21 Deferred 해제, 디자인 컨펌, 사용 요구 2–3곳 |
 | **M5** | 셀 편집·고급 엑셀 편의, 또는 WebGL 고밀도 전용 상용 도입 | #164 평가/구매판정과 비교 보고 | 실업무 사용 빈도·가격·라이선스 승인, 쓰기/감사 계약 |
 
+기존 1차 후속: [M1 내부 Recipe Adapter #292](https://github.com/hjung3113/analytics-platform/issues/292), [M2 Lightweight Charts 시계열 PoC #293](https://github.com/hjung3113/analytics-platform/issues/293), [M4 사용자 정의 Workspace 결정 #294](https://github.com/hjung3113/analytics-platform/issues/294). M3는 기존 [Perspective #163](https://github.com/hjung3113/analytics-platform/issues/163), M5는 기존 [AG Grid #164](https://github.com/hjung3113/analytics-platform/issues/164)를 재사용한다. 보류가 해제되기 전에는 구현하지 않는다.
+
 M1–M5 각 Wave는 **별도 구현 Issue/PR**로 분리한다. 먼저 M0 검토·실제 데이터 fixture와 사용자 업무 시나리오를 확정한 다음 #163/#164 보류 변경을 요청한다. 이전 단계에서 성능/의미/권한 Gate 불합격이면 다음 엔진 도입을 진행하지 않는다. UI 변경은 루트 `AGENTS.md`의 `?variant=` 앱 실행 시안 2~3개 비교 → 사용자 승인 이후 코드 반영.
 
 ## 8. 릴리스 게이트 / 자동 계약 테스트
