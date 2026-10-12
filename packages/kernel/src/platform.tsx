@@ -571,24 +571,28 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   }, [route, routeContractError, pathname, userId, can, enters, registry, adapter, usageSessionId]);
 
   const pageParam = useCallback((key: string) => page.find(([k]) => k === key)?.[1] ?? null, [page]);
-  const returnTarget = useCallback(() => {
-    const safe = safeReturnTo(pageParam('returnTo'));
-    if (safe) return safe;
-    return linkTo(route?.menu.parent ?? 'home');
-  }, [pageParam, route, linkTo, safeReturnTo]);
-
-  const returnOrigin = useCallback((): ReturnOrigin => {
-    const href = returnTarget();
+  const resolveReturnOrigin = useCallback((): ReturnOrigin => {
     const safe = safeReturnTo(pageParam('returnTo'));
     if (safe) {
       const q = safe.indexOf('?');
       const path = q === -1 ? safe : safe.slice(0, q);
       const search = q === -1 ? '' : safe.slice(q);
       const matched = matchRoute(path);
-      if (matched) return { href, menuLabel: matched.menu.label, trail: consecutiveDrillTrail(matched.menu, search) };
+      if (matched) return { href: safe, menuLabel: matched.menu.label, trail: consecutiveDrillTrail(matched.menu, search) };
     }
-    return { href, menuLabel: menuById(route?.menu.parent ?? 'home').label, trail: [] };
-  }, [returnTarget, pageParam, safeReturnTo, matchRoute, route, menuById]);
+    if (route?.menu.parent) {
+      return { href: linkTo(route.menu.parent), menuLabel: menuById(route.menu.parent).label, trail: [] };
+    }
+    const platformHome = matchRoute('/')?.menu;
+    const spaceHome = sidebarSpace ? menuById(sidebarSpace.homeMenuId) : null;
+    const home = platformHome && canOpen(platformHome.id) ? platformHome
+      : spaceHome && canOpen(spaceHome.id) ? spaceHome : null;
+    if (home) return { href: linkTo(home.id), menuLabel: home.label, trail: [] };
+    // Emergency exception-prevention fallback only; '/' is not guaranteed to be a valid or accessible home.
+    return { href: '/', menuLabel: { ko: '홈', en: 'Home' }, trail: [] };
+  }, [pageParam, safeReturnTo, matchRoute, route, linkTo, menuById, sidebarSpace, canOpen]);
+  const returnTarget = useCallback(() => resolveReturnOrigin().href, [resolveReturnOrigin]);
+  const returnOrigin = useCallback((): ReturnOrigin => resolveReturnOrigin(), [resolveReturnOrigin]);
 
   const reportError = useCallback((error: unknown): string => {
     pageNavigation.cancel();

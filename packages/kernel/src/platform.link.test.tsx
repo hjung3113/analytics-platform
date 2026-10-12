@@ -106,3 +106,31 @@ describe('resolveLink (06 §22, issue #102)', () => {
     expect(query(link.href).has('nope')).toBe(false);
   });
 });
+
+
+describe('return fallback without a fixed home ID (#298)', () => {
+  function ReturnProbe() {
+    const platform = usePlatform();
+    return <output>{JSON.stringify({ target: platform.returnTarget(), origin: platform.returnOrigin() })}</output>;
+  }
+
+  it.each([
+    { name: 'platform home first', url: '/analysis?v=1', root: true, permissions: ANALYST, id: 'platform-start', href: '/?v=1' },
+    { name: 'space home after denied platform home', url: '/analysis?v=1', root: true, permissions: VIEWER, id: 'source', href: '/source?v=1' },
+    { name: 'sidebar space home outside registered routes', url: '/outside?v=1', root: false, permissions: VIEWER, id: 'source', href: '/source?v=1' },
+    { name: 'exact emergency fallback when all homes denied', url: '/analysis?v=1', root: true, permissions: [] as Session['user']['permissions'], id: null, href: '/' },
+    { name: 'emergency fallback with an accessible space but denied space home', url: '/analysis?v=1', root: false, permissions: ['analytics:view'] as Session['user']['permissions'], id: null, href: '/' },
+    { name: 'space home when platform home absent', url: '/analysis?v=1', root: false, permissions: VIEWER, id: 'source', href: '/source?v=1' },
+  ])('$name', ({ url, root, permissions, id, href }) => {
+    const fallbackRegistry = createRegistry({
+      spaces, groups: registry.groups,
+      menus: [...registry.menus, ...(root ? [entry('platform-start', 'equipment', '/', 'analytics:view', [])] : [])],
+    });
+    window.history.replaceState(null, '', url);
+    render(<I18nProvider><PlatformProvider adapter={fixture(permissions)} registry={fallbackRegistry}><ReturnProbe /></PlatformProvider></I18nProvider>);
+    expect(JSON.parse(screen.getByRole('status').textContent!)).toEqual({
+      target: href,
+      origin: { href, menuLabel: id ? { ko: id, en: id } : { ko: '홈', en: 'Home' }, trail: [] },
+    });
+  });
+});

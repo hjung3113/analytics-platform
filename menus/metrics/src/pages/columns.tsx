@@ -9,6 +9,7 @@ import { PlatformLink } from '@ap/kernel';
 import type { CatalogRow, Lang, Text } from '../endpoints';
 import { DOMAIN_LABEL, STATUS_LABEL, STATUS_TONE } from './data';
 import { StatusBadge } from '@ap/ui';
+import { metricDetailHref } from './detail-link';
 
 type Deps = {
   lang: Lang;
@@ -18,15 +19,11 @@ type Deps = {
   tx: (text: Text) => string;
 };
 
-function detailPage(row: CatalogRow): Record<string, string> {
-  return { version: row.publishedPointer ?? row.catalogVersion };
-}
-
 export function catalogColumns({ lang, linkTo, tx }: Deps): PlatformColumn<CatalogRow>[] {
   return [
     {
       id: 'metricId', header: 'metricId', size: 200,
-      cell: row => <PlatformLink className="t-mono text-accent-primary hover:underline" href={linkTo('metric-detail', { params: { metricId: row.metricId }, page: detailPage(row) })}>{row.metricId}</PlatformLink>,
+      cell: row => <PlatformLink className="t-mono text-accent-primary hover:underline" href={metricDetailHref(linkTo, row)}>{row.metricId}</PlatformLink>,
     },
     {
       id: 'nameSort', header: lang === 'ko' ? '이름' : 'Name', size: 180,

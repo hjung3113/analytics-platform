@@ -1701,3 +1701,28 @@ test.describe('키보드 상세 포커스 복귀 (06 §13·§26)', () => {
     }
   });
 });
+
+test.describe('지표 목록→상세 복귀 (06 §22)', () => {
+  test('검색·정렬 복원과 진입 방식별 상세 머리 복귀 링크', async ({ page }, testInfo) => {
+    await page.goto('/metrics?v=1&q=time&sort=nameSort:asc');
+    await page.getByRole('table', { name: '지표 카탈로그', exact: true }).getByRole('link', { name: 'cycle_time', exact: true }).click();
+    await expect(page).toHaveURL(/\/metrics\/cycle_time\?/);
+    const header = page.getByRole('main').locator('header').filter({ has: page.getByRole('heading', { level: 1 }) });
+    const back = header.getByRole('link', { name: '← 지표 카탈로그', exact: true });
+    await expect(back).toHaveCount(1);
+    await expect(header.getByRole('link', { name: '카탈로그', exact: true })).toHaveCount(0);
+    await header.getByRole('button', { name: '이 버전을 분석 Context로 사용', exact: true }).click();
+    await expect.poll(() => query(page).get('metricId')).toBe('cycle_time');
+    await evidence(page, testInfo, 'metric-detail-return');
+    await back.click();
+    await expect.poll(() => query(page).get('q')).toBe('time');
+    expect(query(page).get('sort')).toBe('nameSort:asc');
+    expect(query(page).has('metricId')).toBe(false);
+    expect(query(page).has('metricVersion')).toBe(false);
+
+    await page.goto('/metrics/cycle_time?v=1&version=3');
+    await expect(header.getByRole('link', { name: '카탈로그', exact: true })).toHaveCount(1);
+    await expect(header.getByRole('link', { name: '← 지표 카탈로그', exact: true })).toHaveCount(0);
+    await evidence(page, testInfo, 'metric-detail-direct');
+  });
+});
