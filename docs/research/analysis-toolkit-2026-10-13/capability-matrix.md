@@ -9,7 +9,7 @@
 | 질문/조건 | 데이터 최소 요건 | 1순위 표현/엔진 | 보완 후보 | 금지·주의 |
 | --- | --- | --- | --- | --- |
 | 시간별 CT 평균/P95가 어떻게 변했나? | timestamp, 같은 metricVersion, 단위, 버킷, sample count | Time line/ECharts + 표 | 다중 Pane 고밀도라면 Lightweight Charts | 데이터 품질 없는 구간 연결 금지, 평균과 P95 혼합 축 금지 |
-| 수십~수백 설비별 장기 추세를 확대·갱신 | 시간 버킷, 단조 시간, gap/coverage, 충분한 기간 | ECharts → LWC PoC 게이트 통과 시 전문 엔진 | uPlot 성능 기준선 | LWC는 초 Timestamp·동시각 중복 이벤트 순서 보존 불가 |
+| 수십~수백 설비별 장기 추세를 확대·갱신 | 시간 버킷, 단조 시간, gap/coverage, 충분한 기간 | ECharts → LWC PoC 게이트 통과 시 전문 엔진 | uPlot 성능 기준선 | LWC 초 단위 수치 time; 소수 초 정밀도는 PoC, 동일 time 값 중복 보존 불가 |
 | 1초 내 발생한 센서/이벤트를 순서대로 조사 | epoch-ms/sequence, stable eventId, 값/상태 | ECharts time+scatter 또는 이벤트 목록 | 도메인 event timeline | 원본 ms 타임스탬프를 정수 초로 깎아 series에 삽입 금지 |
 | 두 지표를 같은 시간축에서 비교 | 공통 time domain, 양쪽 unit, 버킷/보간 규칙 | 동기화 time panes, ECharts | Lightweight Charts 여러 Pane | 단위 다른 축을 동일하게 정규화해 실제 변화량 감추지 말 것 |
 | 이상 구간의 전후 이벤트는 무엇인가? | time span + event timestamps + IDs | 브러시된 시계열 + 이벤트 마커 + 상세 표 | vis-timeline | 점 자체를 클릭했다고 전역 Context 자동 변경 금지 |
@@ -67,7 +67,7 @@
 | 엔진 | 켜는 조건 | 반드시 측정할 것 |
 | --- | --- | --- |
 | ECharts Canvas | 기본 유형, 인터랙션, 현재 UX와 일치 | 신규 series의 bundle 증가, 여러 차트 동시 업데이트, 표·키보드 대체 |
-| Lightweight Charts | 고밀도 추세, 가벼운 갱신, 여러 Pane가 분석 목적일 때 | series별 unique monotonic seconds; ms/동일 시점 loss; naive wall-clock 변환; licensing NOTICE/링크 |
+| Lightweight Charts | 고밀도 추세, 가벼운 갱신, 여러 Pane가 분석 목적일 때 | series별 오름차순 unique time; epoch-ms/1000 소수 초 정밀도/축 라벨 시험; 완전 동일 time 중복 이벤트 폴백; timezone/NOTICE |
 | uPlot | LWC/ECharts가 부하를 못 견디고 선형 시계열만 필요 | 입력 수 × series 수 × chart 수, 메모리, pointer/brush UX |
 | Perspective v5 | 자유 피벗 수요 #163 해제, 데이터셋 row cap 내 결과 | `menuQuery`와 일치하는 데이터/Trust; worker/WASM 자체 호스팅; WebGL fallback; workspace save format v5 검증 |
 | Graphic Walker | 직접 chart composing UX가 별도 가치를 증명 | 필드 역할/계산 DSL 검증, 임의 서버 통신 차단/adapter 경계, 라이선스 |
