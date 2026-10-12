@@ -43,7 +43,7 @@
 | --- | --- | --- | --- |
 | **Apache ECharts** | 기본 차트(라인/막대/히트맵/상자/산점도/Sankey/treemap/parallel) | **Decided/구현 중** | Canvas 유지. 렌더되지 않은 고급 series는 등록+lazy chunk 테스트 필요 |
 | **TanStack Table+Virtual** | 기본 데이터 테이블 | **Decided/구현 중** | 플랫폼 `PlatformColumn` API 유지 |
-| **Lightweight Charts (TradingView)** | 고빈도·복수 패널 시계열/차트 마커/실시간 | **Candidate PoC** | 초 단위 `UTCTimestamp`, 동일 시점 중복·ms 이벤트·범주 축/Attribution 검사 필수 |
+| **Lightweight Charts (TradingView)** | 고빈도·복수 패널 시계열/차트 마커/실시간 | **Candidate PoC** | `UTCTimestamp`는 초 단위 수치. 소수 초 입력의 정밀도·정렬, 동일 timestamp 중복·Attribution 검사 필수 |
 | **uPlot** | 대량 선형 시계열 성능 대조군 | Candidate | 좁은 차트 유형, UI 직접 구현 부담 |
 | **Perspective v5** | 자유 피벗·드래그 탐색·다중 패널·Cross-filter | **Deferred #163, 무료 우선** | 현 `menuQuery`의 제한된 데이터만 브라우저 WASM/Worker에; Virtual Server/원격 DB 직결 금지(ADR-0007) |
 | **Graphic Walker** | 사용자가 축/집계/색상으로 직접 차트를 만드는 UX 평가 | Candidate | 서버 계산 연결 시 임의 DSL이 `menuQuery` 권한/선언을 우회하지 않도록 설계 필요 |
@@ -82,7 +82,7 @@ OSS/라이선스는 상위 저장소와 **채택하려는 배포 패키지별** 
 - 편집형 워크스페이스 → 별도 승인된 Builder. 현재 `AnalysisLayout`의 읽기형 구조를 자동 치환하지 않음.
 - 불명확한 분석 목적, 모호한 단위/비율, 표본 부족 → 차트 자동 생성 전 메타데이터/필터 선택 요구.
 
-**정밀 데이터 유의:** Lightweight Charts의 `UTCTimestamp`는 **초**이고 time은 시리즈별 유일·오름차순이어야 한다. 설비 로그에 ms/동일 시각 이벤트가 있으면 값 손실 가능성; 원시 이벤트 뷰를 그 엔진에 그대로 얹지 않고 시간 버킷(집계)이나 ECharts/타임라인 전용 표현을 검증한다.
+**정밀 데이터 유의:** Lightweight Charts의 `UTCTimestamp`는 **초 단위 수치**이고 각 시리즈의 time 값은 유일·오름차순이어야 한다. 밀리초 epoch를 **정수 초로 반올림/절삭**하면 충돌하지만, `epochMs / 1000` 형태의 소수 초 값은 실제 버전에서 정렬·표시 정밀도를 PoC로 확인해야 한다. **동일한 timestamp가 여러 이벤트에 존재하는 경우** 단일 시리즈로 lossless 표현할 수 없으므로 stable eventId/sequence가 있는 표·타임라인을 제공한다.
 
 ## 7. 판정과 검증
 
