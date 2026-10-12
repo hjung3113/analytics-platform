@@ -36,7 +36,7 @@ codex 역할은 Orca 터미널에서, claude 역할은 백그라운드 `claude -
 
 ## 슬라이스 시작
 
-첫 브리프 전에 후보 이슈를 모두 읽고, 소유자만 정할 수 있는 결정(제품 동작, 문구 의미, 테스트 삭제, 범위)을 모은다. 한 번의 `AskUserQuestion`으로 추천안을 넣어 묻고 답을 이슈에 기록한다. 중간에 드러난 결정도 그 자리에서 모아 묻되, 물어볼 일이 없게 브리프를 쓰는 것이 목표다.
+첫 브리프 전에 후보 이슈를 모두 읽고, 소유자만 정할 수 있는 결정(제품 동작, 문구 의미, 테스트 삭제, 범위)을 모은다. 한 번의 `AskUserQuestion`으로 추천안을 넣어 묻고 답을 이슈에 기록한다. 중간에 드러난 결정도 그 자리에서 모아 묻되, 물어볼 일이 없게 브리프를 쓰는 것이 목표다. **웨이브 도중에는 `AskUserQuestion`이 아니라 일반 문장으로 묻는다** — 답이 올 때까지 코디네이터가 멈춘다(FeedbackOps s70: 5.5시간 동안 끝난 결과를 못 읽고 독립 이슈도 놀았다). 그 질문에 걸리지 않는 이슈는 계속 진행하고, 답이 오면 반영한다.
 
 **가치 게이트**(사용자 결정 2026-10-10). 이슈가 슬라이스에 들기 전에, 그리고 지적을 fold하거나 이슈로 남기기 전에, 사용자 이득과 유지 비용(새 상태, 타이밍 우회, 소유 분산, 테스트 추가)을 저울질한다. 비용이 이득을 넘는 일은 하지 않는다. 치명 버그(틀린 데이터, 유출, 수행자가 일을 끝내지 못함)나 UX 이득이 확실히 더 크면 진행한다. 어느 쪽인지 브리프 첫 줄에 적는다.
 
@@ -45,17 +45,7 @@ codex 역할은 Orca 터미널에서, claude 역할은 백그라운드 `claude -
 ## 이슈마다
 
 1. **브리프**(`$WAVE_BRIEFS/<n>-task.md`): 사실은 모두 현재 `origin/main`에서 다시 확인한다(경로, 줄 번호, 기존 헬퍼, 소유 계약 절). 이슈 글은 낡는다. 절은 *Facts (verified on main)* / *Do* / *Acceptance (tests)* / sentinel 줄. 재사용할 공통 부품, 지킬 계약(06 절·ADR), 범위 밖, 코디네이터 결정("final — do not re-litigate")을 적는다. 만질 곳의 과거 메모를 병합된 PR 본문에서 찾는다(`gh pr list --state merged --search '"Noted, not filed" <컴포넌트나 경로>'`) — 나온 것은 *Do*에 옮겨 적는다(아래 7f 규칙으로 fold된다). 같은 note가 두 번 보이면 이슈로 남긴다. 끝 줄은 `Sentinel (last line of .review/W-<n>-REPORT.md): <!-- W-<n>-DONE -->`. ADR 번호를 주기 전에 `bash tooling/scripts/next-adr.sh`와 열린 브랜치를 확인한다.
-   **실행 전 자체 점검**(FeedbackOps에서 리뷰 라운드를 하나씩 잡아먹은 것들):
-   - 존재하는 헬퍼·타입·컴포넌트만 적는다. 하나씩 `rg`로 확인한다. 없는 것을 "공통 X로"라고 쓰면 작업자가 지어낸다.
-   - 계약 규칙(키 개수, 필수 여부, 순서)은 기억이 아니라 06·ADR·검증 코드(`registry.ts` 등)에서 복사한다.
-   - 이벤트가 동작을 결정하면("닫으면 접힌다") 호출부가 쓰는 표현을 모두 `rg`로 찾는다(prop 없음 vs `null`).
-   - DOM 소유를 옮기는 수정이면 그 요소를 찾는 E2E·단위 테스트 선택자 갱신을 명시한다(작업자는 E2E를 못 돌린다).
-   - 브리프가 정한 회귀 테스트 순서를 코드에서 추적해 버그 분기에 닿는지 본다. 닿지 않으면 수정을 빼도 통과한다.
-   - 클라이언트가 결정하는 계약의 통합 테스트는 프런트가 실제로 보내는 본문을 보낸다(호출부에서 확인).
-   - Context 변경에 컴포넌트를 마운트한 채 두는 변경은 그 컴포넌트의 로컬 상태를 나열하고 각각의 수명을 정한다.
-   - 이벤트를 기다리는 guard는 이벤트가 없는 경로의 유계 해제를 두고, 0이 아닌 origin에서 테스트한다.
-   - 역할·test id·라벨을 지우는 브리프는 그것을 찾는 테스트 목록을 모두 적는다.
-   - 보이는 모양이 바뀌는 일이면 컨펌된 `?variant=` 안을 스펙으로 적는다. 컨펌 전이면 구현하지 않고 시안부터(루트 `AGENTS.md`).
+   **실행 전 자체 점검**: `templates/brief-check.md` 항목(적힌 것의 존재, 복사한 규칙, 버그에 닿는 회귀 테스트, 실제 클라이언트 본문, 수명주기 표현, 마운트 수명, 유계 대기, 지운 마크업의 테스트, 정확 일치, 같은 슬라이스 겹침, 명령·플래그, 수명주기 코드 사실)을 직접 훑는다. 하나하나가 리뷰 라운드를 잡아먹은 것이다. DOM 소유를 옮기는 수정이면 그 요소를 찾는 E2E·단위 테스트 선택자 갱신을 명시한다(작업자는 E2E를 못 돌린다). 보이는 모양이 바뀌는 일이면 컨펌된 `?variant=` 안을 스펙으로 적는다. 컨펌 전이면 구현하지 않고 시안부터(루트 `AGENTS.md`).
    **브리프 사전 점검.** `impl-complex`·`impl-mid` 브리프는 실행 전에 `templates/brief-check.md`로 검사한다. 브리프·템플릿·보고서 경로·sentinel(`<!-- W-<n>-BRIEFCHECK-DONE -->`)을 적은 `$WAVE_BRIEFS/<n>-BRIEFCHECK-TASK.md`를 `worker-launch.sh --role review-check --cwd "$AP_MAIN"`으로 띄운다(메인 체크아웃이 `origin/main`에서 깨끗할 때). Orca가 그 체크아웃을 거부하면 `--role impl-fallback --model gpt-6.1-sol --effort medium`(백그라운드, 터미널 없음). 지적을 브리프에 반영한 뒤 실행한다. 기계적 `impl` 브리프는 건너뛴다.
 2. **실행**: `scripts/launch-worker.sh <n> <slug>`. 16GB 머신이라 동시에 1–2개, 파일이 겹치지 않는 이슈만 병렬로 한다(`docs/agents/operations.md` 메모리). 기본은 `impl`. 다음 중 하나면 **`WORKER_ROLE=impl-complex`**(모델·effort는 `routing.tsv` 역할; 사용자 결정 2026-10-08)다. 수정 라운드는 이슈가 복잡해도 기본 `--role fix`이고, 수정 자체가 어려울 때만 `impl-complex`다(사용자 결정 2026-10-09):
    - Kernel 계약과 그 소비자(컴포넌트·셸·메뉴)를 함께 바꾸거나, 패키지 세 곳 이상을 건드린다;
@@ -63,6 +53,7 @@ codex 역할은 Orca 터미널에서, claude 역할은 백그라운드 `claude -
    - 상태·순서 로직: 조회 수명주기(취소·세대·`ready` 게이트), history push/replace, Context 변경 시 page 키 정리;
    - 같은 이슈의 이전 라운드가 실패했거나 두 번째 수정 라운드가 필요했다.
    **판단이 조금 필요한 작은 이슈는 `impl-mid`로, 수정 라운드도 같다**: 한 부품의 동작 수정, 접근성·레이아웃 수정, 문서와 코드 대조처럼 브리프가 모든 줄을 못 적는 것이다(기계적 브리프는 `impl`).
+   작업자는 네트워크가 없다. 브리프가 의존성을 더하면 `PRE_ADD='<pnpm filter> <pkg@exact> [...]'`로 실행기가 작업자 시작 전에 설치하게 하고(lockfile 포함) 브리프에 그렇게 적는다.
    선택과 이유를 `W-<n>-VERIFY.md`에 적는다. `impl`이 quota로 멈추면(`worker-wait` exit 11) 같은 worktree에서 공유 `worker-launch.sh --role impl-luna`로 다시 띄우고, worktree에 부분 수정이 있다고 작업에 적는다.
 3. **대기**: `worker-wait.sh --state "$WAVE_STATE/W-<n>.json" --timeout 3600 --poll 30`(여러 개면 `--state` 반복 + `--any`) — **항상 Bash 도구의 `run_in_background`로 띄운다**: 끝나면 하네스가 깨운다. foreground나 `until`·`sleep` 루프로 기다리지 않는다. 기다리는 동안 진행이 궁금하면 `scripts/wave-status.py`를 본다. 종료 코드: `0` 완료 → 호스트 검증, 터미널 닫기 / `10` 실패 → 결과의 `log_tail`을 먼저 읽고, 그다음 보고서·로그를 읽어 수정 브리프 / `11` quota → 위 대체 / `12` 시간 초과 → 진행을 확인하고 완료로 보지 않으며 중복 실행하지 않는다 / `2` 인자 오류. 작업자가 멈추기 전에 쓴 보고서나 sentinel은 쓰지 않는다.
 4. **호스트 검증**(작업자는 패키지 범위 검사만 했다). 순서: diff 확인 → 검사(바뀐 패키지 → 루트 순서대로) → 모두 0이면 커밋.
@@ -101,14 +92,14 @@ codex 역할은 Orca 터미널에서, claude 역할은 백그라운드 `claude -
    재확인(`review-check`)·fix-diff 점검은 지명된 지적이 고쳐졌는지와 수정 전 head 대비 회귀만 본다. 거기서 나온 `pre-existing`은 note로만 적는다 — `blocker`가 아니면 이슈로 만들지 않는다.
    남긴 지적은 역할 태그를 붙여 **수정 브리프 하나**(`W-<n>-FIX1-TASK.md`)로 모으고, 코디네이터의 자체 관찰도 같은 라운드에 넣는다. 코디네이터가 검증하고 올린다. 재리뷰는 blocker·major 동작 수정(특히 권한·데이터 누출) 뒤에만, 그 수정 diff만 `review-check`로 본다 — 단, `impl-complex` 이슈의 FIX1은 항상 수정 diff 점검 한 번을 받는다(아래).
    **`impl-complex` 이슈의 fix-diff 점검**: 이 이슈의 FIX1(fold 포함)은 수정 diff로 `review-check` 한 번을 받는다. 지적은 FIX2 하나로만 모은다. FIX2는 코디네이터가 직접 본다(diff 읽기, 변이 검사, 포커스면 실제 브라우저 확인) — 리뷰어를 더 띄우지 않고 fold도 없다.
-   고친 UX `blocker`·`major`는 새 미리보기에서 그 시나리오와 이웃 흐름을 다시 확인한다.
-   **g. 계속 지키는 것**: 문서·문구만 바뀐 diff는 리뷰가 없다(계획이 역할을 내지 않는다). 강화된 불변식을 리팩터하면 코드 리뷰어에게 그 이력과 `origin/main` 대비 모든 분기를 따라가라고 적는다. 같은 슬라이스에서 앞서 병합된 이슈가 같은 컴포넌트·훅·mock 엔드포인트를 건드렸으면 코드 리뷰어 작업에 그 PR을 적고 합쳐진 동작을 보게 한다(같은 슬라이스 안 재귀 결함을 잡는다).
+   고친 UX `blocker`·`major`는 새 미리보기에서 그 시나리오와 이웃 흐름을 다시 확인한다. 결함에 알려진 동작 순서(포커스 복귀, 끌기)가 있으면 브랜치 미리보기에 대한 코디네이터 Playwright 스크립트가 UX 재실행을 대신한다(FeedbackOps s70: 1분 대 20분).
+   **g. 계속 지키는 것**: 문서·문구만 바뀐 diff는 리뷰가 없다(계획이 역할을 내지 않는다). 강화된 불변식을 리팩터하면 코드 리뷰어에게 그 이력과 `origin/main` 대비 모든 분기를 따라가라고 적는다. 같은 슬라이스에서 앞서 병합된 이슈가 같은 컴포넌트·훅·mock 엔드포인트·문서 절을 건드렸으면 코드 리뷰어 작업에 그 PR을 적고 합쳐진 동작을 보게 한다(같은 슬라이스 안 재귀 결함을 잡는다).
 8. **배포**: 루트 검사를 다시 0으로 확인한 뒤 PR(`main` 기준, 본문: 변경, 리뷰 판정과 반영·미룬 지적 — fold한 것은 **Also fixed (pre-existing)**로, note는 **Noted, not filed**로, 검증 수치, `Closes #<n>`). 공유 `ship-pr.sh --branch <branch> --base main --title '<제목>' --body-file <파일> --ci --ci-timeout 3600`을 쓰면 이 클론에서 한 번 `git config workerops.protectedBases none`이 필요하다(PR 기준이 main이다). `ship-pr.sh`는 검증된 병합 뒤에만 자원을 정리한다(그 전에는 JSON에 `cleanup_skipped`로 남는다) — 그 명령에 `orca worktree rm`을 잇지 않는다. 병합은 이 세션에서 권한을 받았을 때만, squash로 한다. 고정한 head가 검증 뒤 바뀌었으면 그 head를 다시 검증한다. 끝난 터미널은 닫고 끝난 worktree는 지운다. `.planning/README.md`의 해당 줄을 같은 PR에서 고친다.
 9. 병합 몇 번마다 루트 `HANDOFF.md`를 갱신한다(로컬 전용, 제자리 갱신). 후속은 위의 fold·file·note 분류를 따른다 — 이슈로 남기는 것은 사용자 결정과 file 항목뿐이고, flake는 두 번째 발생 때 이슈로 하며, 미룬 nit은 note로 남긴다.
 10. **슬라이스 마감**(마지막 이슈가 병합되면, 릴리스 문서 PR 전):
     - `review-quality`(codex, Orca 터미널이므로 일회용 worktree는 `orca worktree create --base-branch origin/main`으로 만든다 — `git worktree add` 체크아웃에는 codex를 띄울 수 없다). 작업 파일의 첫 줄은 "`.claude/agents/review-quality.md`를 읽고 역할 정의로 따른다." 그다음: `worker-launch.sh --role review-quality --cwd <일회용> --task <절대 SLICE-<m>-QUALITY-TASK.md> --report <절대> --sentinel '<!-- SLICE-<m>-QUALITY-DONE -->' --name SLICE-<m>-QUALITY --state-dir "$WAVE_STATE"`. 범위는 `<직전 태그>...origin/main`. `release-blocker` → 릴리스 전 일반 이슈 루프 / `fix-in-slice` → chore PR 하나 / `follow-up` → 위 7f 분류(chore에 fold하거나 묶은 이슈 하나 또는 note). 마감 fold는 문구·a11y 속성·죽은 코드·문서만이다 — 워크스루의 동작 `major`는 chore에 fold하지 않고 별도 이슈 루프로 한다.
     - **delta 품질 리뷰**: 품질 리뷰 뒤 그 지적이 슬라이스에 이슈를 더했으면, 릴리스 게이트 전에 그 파일들로 짧은 `review-quality`를 한 번 더 돌린다.
-    - 화면이 바뀐 슬라이스면 `origin/main` 미리보기로 슬라이스의 사용자 흐름을 `review-ux` 한 번(한 diff에서는 안 보이고 써 봐야 보이는 결함).
+    - 화면이 바뀐 슬라이스면 `origin/main` 미리보기로 슬라이스의 사용자 흐름을 `review-ux`로 본다(한 diff에서는 안 보이고 써 봐야 보이는 결함). 한 실행에 이슈 크기 흐름 최대 3개, 넘으면 나눠 돌린다(FeedbackOps s70: 세 흐름 실행이 한 흐름 반에서 턴 한도).
     - 그다음 릴리스: 보드 문서 PR → 태그 + GitHub Release → 다음 슬라이스를 사용자에게 묻는다.
     - **세션당 슬라이스 하나.** 릴리스 PR이 열리면 인계 문서를 마쳐 두고 새 세션을 권한다.
     - 인계 전 `app-preview.py status`에 추적 중인 미리보기가 없어야 한다.
