@@ -1,6 +1,6 @@
 # 남은 일 한눈에 보기
 
-> 마지막 갱신 2026-10-12. 원본은 GitHub 이슈·마일스톤이고 이 보드는 그 요약이다. 이슈가 닫히거나 상태가 바뀌면 같은 PR에서 해당 줄을 고친다. 물어 와야 할 질문과 미결 범위는 [inputs.md](inputs.md), 이슈로 올리지 않은 아이디어는 [backlog.md](backlog.md).
+> 마지막 갱신 2026-10-13. 원본은 GitHub 이슈·마일스톤이고 이 보드는 그 요약이다. 이슈가 닫히거나 상태가 바뀌면 같은 PR에서 해당 줄을 고친다. 물어 와야 할 질문과 미결 범위는 [inputs.md](inputs.md), 이슈로 올리지 않은 아이디어는 [backlog.md](backlog.md).
 
 ## 지금 어디까지
 
@@ -23,6 +23,8 @@
 1. 진행 중인 슬라이스(2026-10-12 사용자 선택): FeedbackOps 서브모듈 develop 최신화와 conductor 후속은 끝났다(#289 — 모션 기반, 06 §26 입력 기준). 코드 품질·UX 워크스루·컴포넌트 일관성 세 갈래 전체 점검의 지적을 묶음 이슈로 만들고 정비 범위를 정한다.
 2. 그 밖의 후보: 바로 할 수 있는 일 표. #251 FeedbackOps 링크 계약·매핑은 #81 대기, #252 표준 로그·개선 실행 공간은 도메인 소유자 합의·#249 미결 대기.
 3. 작업 규칙은 루트 `AGENTS.md`(2026-10-05 간소화), 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 문서만 바꾸면 `pnpm docs:links`만 돌린다. 작업자 배정은 전역 `routing.tsv`가 원본이다(역할 `impl`·`impl-mid`·`impl-complex`·`impl-luna` — 모델·effort를 여기에 복제하지 않는다, #283).
+
+새 설계 트랙: [#291 Analysis Toolkit](https://github.com/hjung3113/analytics-platform/issues/291) (후속: [#292 내부 어댑터](https://github.com/hjung3113/analytics-platform/issues/292), [#293 시계열 PoC](https://github.com/hjung3113/analytics-platform/issues/293), [#294 사용자 워크스페이스 결정](https://github.com/hjung3113/analytics-platform/issues/294)) — 분석 기능/엔진 선택 기준과 사용자 정의 워크스페이스 프레임워크 **Candidate 설계 문서**. [코드 실사·기능 탐색기·로드맵](../docs/research/analysis-toolkit-2026-10-13/README.md) 참조. 구현은 #163/#164의 보류 상태와 06 §14/§21 결정을 유지한 채 별도 Wave로 분리한다. 현재 진행 중인 UX 정비 슬라이스를 대체하지 않는다.
 
 ## 바로 할 수 있는 일 (에이전트)
 
