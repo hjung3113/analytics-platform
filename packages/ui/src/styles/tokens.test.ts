@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, it } from 'vitest';
 
 function properties(path: string): Set<string> {
@@ -84,4 +85,12 @@ it('keeps chart stroke aliases identifiable on every chart surface (#203, #207)'
 
 it('keeps the previous-period amber stroke at the confirmed opaque value (#207)', () => {
   expect(rgb('cat-amber-stroke')).toEqual([180, 83, 9]);
+});
+
+it('leaves reduced motion to the shared FeedbackOps compat rule (06 §26, #289)', () => {
+  const repo = join(process.cwd(), '../..');
+  const platform = readFileSync(join(repo, 'packages/ui/src/styles/index.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const shared = readFileSync(join(repo, 'products/feedbackops/packages/ui/src/styles/compat.css'), 'utf8');
+  expect(shared).toMatch(/prefers-reduced-motion: reduce[\s\S]*animation-duration: 0\.01ms !important/);
+  expect(platform).not.toMatch(/prefers-reduced-motion/);
 });
