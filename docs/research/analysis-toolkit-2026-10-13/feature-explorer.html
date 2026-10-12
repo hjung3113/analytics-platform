@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Analysis Toolkit — 기능 선택 가이드</title>
+<style>
+:root{font-family:Inter,Pretendard,system-ui,-apple-system,sans-serif;color:#eaf1fb;background:#0b1424;font-synthesis:none}
+*{box-sizing:border-box}body{margin:0;line-height:1.52;background:radial-gradient(ellipse at 80% -5%,#283f70 0,transparent 480px),#0b1424}
+button,input,select{font:inherit}button{cursor:pointer}a{color:#9accff}button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #96ccff;outline-offset:2px}
+main{max-width:1400px;margin:auto;padding:28px 22px 56px}header{display:flex;align-items:flex-start;justify-content:space-between;gap:22px;margin-bottom:22px}
+.kicker{font-size:11px;letter-spacing:2px;font-weight:750;color:#75d5c1}h1{font-size:clamp(29px,4vw,46px);letter-spacing:-1px;line-height:1.1;margin:7px 0 11px}
+h2{font-size:20px;margin:0 0 13px}h3{font-size:15px;margin:0 0 8px}p{margin:8px 0;color:#b7c9df}
+.subtitle{max-width:760px}.disclaimer{font-size:12px;border-left:3px solid #65cfbb;background:#19283e;color:#d4e2f1;padding:12px;max-width:340px;border-radius:8px}
+nav{display:flex;flex-wrap:wrap;gap:6px;margin:18px 0}nav button{background:#192942;color:#d5e7fb;border:1px solid #304762;border-radius:9px;padding:9px 13px}
+nav button[aria-selected=true]{background:#2d5386;border-color:#8abcf5;color:white}
+.panel{background:#142138;border:1px solid #2b405a;border-radius:16px;padding:19px;min-width:0}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;align-items:start}
+.searches{display:grid;grid-template-columns:minmax(180px,2fr) minmax(150px,1fr) minmax(150px,1fr);gap:8px;margin:15px 0}
+input,select{min-height:40px;border-radius:8px;border:1px solid #3e5474;background:#0d1a2c;color:#f0f5fd;padding:9px}
+.cardgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.card{display:flex;flex-direction:column;gap:7px;text-align:left;color:#ecf4fb;background:#101c30;border:1px solid #344966;border-radius:12px;padding:14px;min-height:125px}
+.card:hover,.card[aria-pressed=true]{border-color:#80b8f4;background:#193050}
+.card strong{font-size:14px}.card p{font-size:12px;line-height:1.4;margin:0}.pill{font-size:10px;color:#c4d8f0;background:#243651;border-radius:99px;padding:3px 8px;display:inline-block}
+.pill.current{background:#164637;color:#99efcb}.pill.deferred{background:#574322;color:#f2d79c}
+.details{position:sticky;top:15px}dl{margin:12px 0}dt{font-size:12px;color:#8cc6fc;font-weight:700;margin-top:15px;margin-bottom:5px}
+dd{margin:0;color:#deebf7;font-size:13px}
+.warn,.good{padding:10px;border-radius:9px;border:1px solid #765465;background:#392534}
+.good{background:#18362f;border-color:#377367}
+.stack{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.step{background:#10253b;border:1px solid #34516c;border-radius:12px;padding:14px}
+.step b{display:block;font-size:14px}.step span{font-size:11px;color:#80d8c0}
+.step p{font-size:12px}.flow{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;margin:20px 0}
+.flow span{background:#1b3150;border:1px solid #496c93;border-radius:9px;padding:12px;text-align:center;font-size:12px}
+.flow .arrow{color:#6bd6c2;background:none;border:0}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid #294768;background:#08182a;padding:15px;border-radius:10px;font-size:12px}
+.controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.control{display:flex;flex-direction:column;gap:5px;font-size:12px;color:#b8cbe3}
+.result{background:#10253d;border:1px solid #4d729a;border-radius:12px;padding:16px;margin-top:16px}
+.result strong{font-size:18px}.result small{color:#a4bbd9}.result ul{padding-left:18px}
+td,th{text-align:left;border-bottom:1px solid #30445f;padding:12px;font-size:13px;vertical-align:top}table{width:100%;border-collapse:collapse}
+footer{font-size:12px;color:#94a9c5;margin-top:20px}
+.hidden{display:none!important}
+@media(max-width:1020px){.grid{grid-template-columns:1fr}.details{position:static}.stack{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){main{padding:16px 10px}header{flex-direction:column}.cardgrid,.stack,.controls{grid-template-columns:1fr}.searches{grid-template-columns:1fr}}
+</style></head><body><main>
+<header><div><div class="kicker">ANALYTICS PLATFORM / DEVELOPER TOOLKIT</div><h1>Analysis Toolkit</h1>
+<p class="subtitle">분석 목적에 맞는 차트·표·도식·피벗 기능을 선택하고, 사용자 커스터마이징 범위와 엔진의 한계를 확인하는 인터랙티브 기술 가이드.</p>
+<div><span class="pill current">ECharts / TanStack 기반 유지</span> <span class="pill">Lightweight Charts 비교 포함</span> <span class="pill">무료 우선 · 필요 시 유료</span></div></div>
+<div class="disclaimer"><b>설계용 가이드 · 2026-10-13</b><p>제품 UI 승인용 시안도 구현된 기능 목록도 아닙니다. Candidate/Deferred는 별도 PoC와 기존 계약 승인이 필요합니다.</p></div></header>
+<nav role="tablist"><button role="tab" aria-selected="true" data-page-btn="catalog">분석 기능 카탈로그</button><button role="tab" aria-selected="false" data-page-btn="recommend">추천 규칙 실험</button><button role="tab" aria-selected="false" data-page-btn="framework">개발자 프레임워크</button><button role="tab" aria-selected="false" data-page-btn="customization">사용자 커스터마이징</button><button role="tab" aria-selected="false" data-page-btn="roadmap">도입 계획</button></nav>
+<section data-page="catalog" class="grid">
+<div class="panel"><h2>분석 목적 → 추천 표현</h2><div class="searches">
+<input id="q" type="search" aria-label="기능 검색" placeholder="Cycle Time, wafer, 이상치, 피벗 등">
+<select id="cat" aria-label="기능 분류"><option value="all">모든 분류</option></select>
+<select id="tier" aria-label="상태"><option value="all">모든 상태</option><option value="current">기존 구현 기반</option><option value="candidate">후보 / PoC</option><option value="deferred">보류 / 선결정</option></select></div>
+<p id="count" style="font-size:12px" aria-live="polite"></p><div class="cardgrid" id="list"></div></div>
+<aside class="panel details" aria-label="기능 선택 상세"><div class="kicker">CAPABILITY DETAILS</div><h2 id="title" style="margin-top:12px">기능을 선택하세요</h2>
+<span class="pill" id="status"></span><p id="intro"></p>
+<dl><dt>추천 엔진</dt><dd id="engine"></dd><dt>대안</dt><dd id="alt"></dd><dt>필요한 데이터</dt><dd class="good" id="needs"></dd><dt>피해야 할 상황</dt><dd class="warn" id="avoid"></dd><dt>사용자 편집·탐색</dt><dd id="custom"></dd></dl>
+<p style="font-size:12px">모든 결과는 Scope·권한·Trust·공식 지표 정의와 서버 최대 조회 행수를 우선합니다.</p><a href="capability-matrix.md">상세 매핑 MD →</a></aside>
+</section>
+<section data-page="recommend" class="panel hidden"><h2>상황별 자동 선택 정책 (규칙 시연)</h2><p>입력 조합으로 초기 후보와 거부 사유를 보여주는 **예시**입니다. 실제 메타데이터 검증이나 서버 조회를 실행하지 않습니다.</p>
+<div class="controls">
+<label class="control">분석 목적<select id="goal"><option value="trend">시간에 따른 값 변화</option><option value="compare">설비/그룹 비교</option><option value="distribution">분포 및 이상치</option><option value="relationship">두 변수의 관계</option><option value="matrix">두 차원의 교차집계</option><option value="flow">순서·단계 이동 흐름</option><option value="pivot">사용자 자유 피벗</option><option value="event">원시 이벤트 조사</option><option value="wafer">Wafer Die 공간 분석</option></select></label>
+<label class="control">시간 정밀도<select id="precision"><option value="s">초 단위 이상</option><option value="ms">밀리초 / 동일 초 복수 이벤트</option></select></label>
+<label class="control">분석 데이터 규모<select id="volume"><option value="normal">집계 결과 / 제한된 데이터</option><option value="huge">서버 행 제한 초과 가능</option></select></label>
+</div><div class="result" aria-live="polite" id="rec"></div></section>
+<section data-page="framework" class="panel hidden"><h2>개발자는 엔진 대신 분석 의도를 선언</h2>
+<div class="flow"><span>menus/analytics<br>분석의도 + Dataset</span><span class="arrow">→</span><span>Capability Registry<br>타입·의미·권한 검증</span><span class="arrow">→</span><span>Analysis Frame<br>공통 인터랙션</span><span class="arrow">→</span><span>Lazy Engine Adapter<br>ECharts / LWC / Pivot</span></div>
+<div class="flow"><span>PlatformAdapter.menuQuery</span><span class="arrow">→</span><span>Server Scope + maxRows + Trust</span><span class="arrow">→</span><span>DatasetSnapshot + Table fallback</span></div>
+<p>다음은 개념적인 입력 명세이며 실제 공개 API가 아닙니다.</p>
+<pre>const spec = {
+  datasetRef: { datasetId: "cycle-execution", endpointId: "analytics.cycle.explore" },
+  intent: "distribution",
+  axes: { x: "equipmentId", y: "cycleTimeMs", color: "recipeId" },
+  aggregations: [{ field: "cycleTimeMs", operation: "p95" }],
+  metric: { metricId: "CT_P95", version: "3" },
+  view: { title: "Equipment CT P95" }
+};
+// EChartsCoreOption·ISeriesApi 등의 엔진 타입은 메뉴로 노출하지 않음
+// 서버 공식 Metric은 클라이언트에서 재계산하지 않음</pre>
+<div class="stack">
+<div class="step"><span>01 · FIELD</span><b>데이터 의미</b><p>그레인, 수치/차원, 단위, 누락, metricVersion</p></div>
+<div class="step"><span>02 · SECURE</span><b>서버 판정</b><p>EndpointSpec, Scope, Permission, maxRows, Trust</p></div>
+<div class="step"><span>03 · MATCH</span><b>기법 적합성</b><p>추세/분포/관계/흐름/매트릭스 중 선택</p></div>
+<div class="step"><span>04 · ACTION</span><b>공통 상호작용</b><p>Brush, Compare, explicit Apply, drill, a11y table</p></div>
+<div class="step"><span>05 · COST</span><b>엔진 게이트</b><p>기존 OSS 우선, optional lazy, 상용은 후순위</p></div>
+<div class="step"><span>06 · EXPLAIN</span><b>거부 이유와 대안</b><p>정밀도 미지원, 비율 오용, 너무 큰 데이터, 권한 등</p></div></div>
+<p><a href="architecture-rollout.md">구체적인 계약안 · 코드 위치 · 테스트 설계 →</a></p>
+</section>
+<section data-page="customization" class="panel hidden"><h2>사용자 자유도 확장 — 현재/후보/보류 구분</h2>
+<table><thead><tr><th>단계</th><th>할 수 있는 일</th><th>제약</th></tr></thead><tbody>
+<tr><td>U0 · 현행</td><td>Zoom/Brush/Legend/Compare, 표 열/내보내기</td><td>Chart Local / Global Context 분리</td></tr>
+<tr><td>U1 · 탐색</td><td>축·집계·필터·그룹·차트 종류 바꾸기</td><td>허용된 필드만, 비공식 탐색 표시</td></tr>
+<tr><td>U2 · 연결</td><td>차트→다른 차트/표 Cross-filter, 패널 배치</td><td>자유 위젯 배치는 06 §14 Deferred</td></tr>
+<tr><td>U3 · 저장</td><td>개인 분석 구성 저장·템플릿·복원</td><td>Saved View는 §21 Deferred, 서버 저장 계약 필요</td></tr>
+<tr><td>U4 · 공유</td><td>팀과 분석 정의 공유·버전·감사</td><td>SSO·권한·Scope 재검증 선행</td></tr></tbody></table>
+<div class="stack" style="margin-top:20px"><div class="step"><span>안전한 자유도</span><b>표현을 바꾼다</b><p>필드 선택, 차트·피벗, 위치, 표시 단위, 개인 필터</p></div>
+<div class="step"><span>안전하지 않은 자유도</span><b>공식 정의는 못 바꾼다</b><p>공식 분모/버전, 미승인 데이터 필드, 임의 SQL/JS 실행</p></div>
+<div class="step"><span>저장형 분석</span><b>플랫폼 포맷으로만 저장</b><p>schemaVersion + 의미/필드/레이아웃. 결과 행·토큰·엔진 JSON 금지</p></div></div>
+</section>
+<section data-page="roadmap" class="panel hidden"><h2>순차적 구현 Roadmap</h2><div class="stack">
+<div class="step"><span>M0 · 이번 브랜치</span><b>기능 지도/적용 계획</b><p>기존 코드 분석, 매핑, 계약 후보, HTML 가이드. 런타임 수정 없음</p></div>
+<div class="step"><span>M1</span><b>기존 엔진 재사용</b><p>ECharts/TanStack 내부 recipe adapter PoC, 2~3 메뉴 재사용 검증</p></div>
+<div class="step"><span>M2</span><b>고밀도 시계열</b><p>LWC vs ECharts/uPlot, ms·중복 시점·성능·attribution</p></div>
+<div class="step"><span>M3</span><b>자유 탐색</b><p>#163 보류 변경 후 Perspective Worker/WASM + row cap/Trust</p></div>
+<div class="step"><span>M4</span><b>편집·저장 워크스페이스</b><p>06 §14/21 승인·제품 앱 ?variant= 컨펌 후 구현</p></div>
+<div class="step"><span>M5</span><b>상용 도입 게이트</b><p>#164 사내 요구·예산·사내망 license 검증 이후</p></div></div>
+<p><a href="architecture-rollout.md">성능·품질·권한·릴리스 게이트 →</a></p></section>
+<footer>정적 HTML — 외부 CDN·외부 네트워크 요청 없음 · 출처: <a href="README.md">리서치 요약</a> · <a href="https://github.com/hjung3113/analytics-platform/issues/291">Issue #291</a> · 기능 채택과 제품 디자인 승인은 별도입니다.</footer>
+</main><script id="catalog-data" type="application/json">[["Cycle Time·P95 추세","시계열","current","ECharts Canvas","Lightweight Charts (고밀도 PoC)","시간 버킷·단위·지표 버전·표본 수·Trust","P95와 평균 또는 서로 다른 지표 버전을 같은 값으로 비교","Zoom · Brush · Compare · 상세 표","trend cycle time wafer"],["고밀도·실시간 시계열","시계열","candidate","TradingView Lightweight Charts","uPlot / ECharts","고유한 오름차순 초 단위 시점·gap 정책·기간","동일 초 여러 원본 이벤트를 손실 없이 시리즈에 넣어야 하는 경우","다중 Pane · synchronized hover · 시간 탐색","time sensor many points"],["밀리초 장비 이벤트","시계열","candidate","ECharts Scatter + 이벤트 타임라인","vis-timeline / 데이터 표","epoch-ms, eventId/sequence, timestamp semantics","millisecond를 초로 내림하여 이벤트 충돌·순서 소실","이벤트 클릭 · 근거 행으로 이동","timestamp event robot log"],["State/Job 구간 타임라인","시계열","candidate","ECharts custom range","vis-timeline","start/end, open interval, module, state","종료 누락과 중복 구간을 임의로 정상화","기간 Brush · 설비 필터 · 실행 상세","gantt interval state"],["다중 설비 추세 비교","시계열","current","ECharts","Lightweight Charts Pane (PoC)","동일 시간역·단위·지표 버전·샘플 수","서로 다른 Time Domain을 설명 없이 중첩","Legend · Compare · 기간 선택","equipment timeseries comparison"],["주기·요일별 패턴","시계열","candidate","ECharts Heatmap","Perspective Crosstab","time zone·시간/요일 버킷·count/denominator","교대일/작업일을 단순 날짜로 치환","시간 버킷·공정 필터","calendar day shift time"],["설비별 처리량 순위","비교","current","ECharts Bar","Dot plot / 표","같은 집계 기간, 단위, 모집단","표본이 다른 결과를 같은 모집단인 것처럼 순위화","정렬 · 그룹 · 클릭 드릴","equipment ranked bar"],["그룹별 구성 비율","비교","candidate","ECharts 100% Stacked Bar","Donut (분모 명확한 소수 분류)","서로 배타적인 그룹·전체 분모","겹치는 범주를 합계 100%로 강제","분류·기간 변경","share composition percentage"],["전후 기간 차이","비교","current","ECharts Compare Line/Bar","Small multiples","현재/기준 기간·unit·metricVersion·coverage","기준 시점이 달라진 결과를 동질로 표현","Compare · 기준선 · 기간 선택","before after baseline"],["개선 원인 Pareto","비교","candidate","ECharts Bar+누적 Line","정렬·집계 표","카테고리별 count/weight와 분모","추정 상관 요인을 확정 원인으로 표시","Top-N · 장비군 필터","pareto downtime cause"],["Box Plot·이상치","분포·통계","candidate","ECharts Boxplot","Plotly Violin","원본 관측값 또는 quartiles·n·이상치 정책","평균만으로 분위수와 수염을 추정","Outlier 클릭 · Recipe 비교","box quartile distribution"],["Histogram 분포","분포·통계","candidate","ECharts Histogram","Plotly ECDF/Violin","수치 관측값, bin 기준, sample count","그룹마다 달라진 bin 폭을 미표시","Bin 폭 · 그룹 · 필터","histogram skew density"],["Violin·다봉 분포","분포·통계","candidate","Plotly","ECharts histogram","충분한 원본 관측치·대역폭 정책","표본이 너무 적은 그룹에서 분포 형상을 단정","Group별 분포 비교","violin density multimodal"],["산점도·상관관계","상관·다변량","candidate","ECharts Scatter","Plotly","동일 grain의 수치 쌍·n·식별자","상관을 인과로 선언, 장비군 교란변수 무시","Brush · 색상 그룹 · Row drill","scatter regression relationship"],["상관 행렬","상관·다변량","candidate","ECharts Heatmap","Plotly","여러 수치 필드·상관 척도·결측 정책","서로 다른 표본으로 만든 계수를 무표시","필드 선택 · Drill","correlation matrix"],["고밀도 2D 산점 분포","상관·다변량","candidate","서버 2D-bin + ECharts Heatmap","Plotly density","XY pair, 집계 bin, 규모 정보","편향된 샘플 추출을 전체 분포로 표기","Bin·필터 · 이상 구역 drill","scatter hexbin density"],["Recipe×Module 성능","매트릭스·피벗","candidate","ECharts Heatmap","Perspective / AntV S2","두 차원·집계 값·샘플 수·null","null을 0으로 매핑, grain 불명확","행/열·색상 척도 · 셀 드릴","recipe module heatmap"],["자유 피벗 분석","매트릭스·피벗","deferred","Perspective v5 Worker/WASM","AntV S2 / AG Grid Enterprise","허용된 원 값·필드 메타·서버 maxRows·Trust","브라우저에서 DB 직결/공식 비율 재집계","축 드래그 · 피벗 · 그룹 집계","pivot selfservice exploration"],["엑셀형 원본 표","매트릭스·피벗","current","TanStack Table + Virtual","AG Grid Enterprise (기능 확인 뒤)","서버 페이지 조회·Stable ID·정렬/열 정의","수백만 행 전체를 브라우저에 로드","정렬 · 필터 · 컬럼 · Export XLSX","table raw data grid"],["셀 범위 복사·채우기","매트릭스·피벗","deferred","AG Grid Enterprise 평가","현행 행 단위 복사","사내 필수 워크플로·라이선스·쓰기 계약","읽기용 그리드 변경만으로 대량 편집이 가능하다고 판단","셀 선택 · 복붙 · 채우기","excel grid fill handle"],["Wafer 이동 경로","흐름·도식","candidate","ECharts Graph","React Flow / 단계 표","이동 node/edge, wafer, step order","실제 사양과 다른 물리 이동 경로 임의 생성","Wafer drill · Node selection","wafer transfer robot"],["공정 병목 Sankey","흐름·도식","candidate","ECharts Sankey","React Flow (편집 도식)","유효한 단계 간 edge와 유량/시간","가중치 없는 edge에 임의 너비 부여","단계 선택 · 전후 Drill","sankey throughput stage"],["설비 상태 전이","흐름·도식","candidate","ECharts Sankey/Graph","전이행렬","상태 from/to, 전이 빈도, 시간 범위","순서 없는 단순 범주를 흐름으로 표현","상태 필터 · 점프","state transition flow"],["지표 계층 Treemap","흐름·도식","candidate","ECharts Treemap","계층형 표","중복 없는 계층·additive measure","부모·자식 값 중복 합산","Hierarchy drill","treemap hierarchy"],["분석 파이프라인 DAG","흐름·도식","candidate","React Flow","정적 그래프/표","Node/Edge ID, 의존성, 실행 상태","정적 구조와 실시간 실행 상태 혼동","Node inspect · DAG navigation","data pipeline graph"],["Wafer Die Map","반도체 전용","candidate","Wafer-map 전용 렌더러 PoC","측정좌표 표","die x/y, bin/value, edge/missing mask","Wafer flow 로그만으로 Die Map 표시","Die 클릭 · Bin filter","wafer spatial die bin"],["로봇·챔버 구조도","반도체 전용","candidate","React Flow / ECharts Graph","도메인 텍스트 도식","검증된 topology와 장비 모델·version","장비 실제 배치인 것처럼 가짜 좌표 생성","Chamber drill · Recipe filter","robot module chamber"],["SPC 관리도","반도체 전용","candidate","ECharts + 검증된 계산","수치·이상 이벤트 표","subgroup·관리한계·rule·baseline","임의 ±3sigma 공식 관리도라고 표기","Rule marker · 이상 구간 확인","spc ewma cusum"],["데이터 품질·가공 현황","반도체 전용","candidate","ECharts Status Matrix","상태·대상 행 표","assessment·updatedAt·coverage·원인 구분","미수집과 필터 0건·권한 없음을 동일시","가공 단계 · 원천 누락 조회","data trust processing"],["사용자 차트 빌더","사용자 워크스페이스","deferred","Guided ECharts Builder","Graphic Walker UX PoC","field role·허용 집계·dataset schema","임의 JS/SQL·공식 지표 조작 허용","X/Y·color·aggregation 교체","builder customize"],["교차 필터 분석","사용자 워크스페이스","deferred","Page-local Selection Bus","Perspective v5 내부 기능 참고","공통 grain·field mapping·scope","묵시적 Global Context 변경","셀/차트 선택 시 다른 패널 연계","cross filter link"],["자유 배치 분석 화면","사용자 워크스페이스","deferred","Dockview 또는 React Grid Layout","현재 고정 AnalysisLayout","패널 ID·platform-owned layout schema","엔진 고유 레이아웃 JSON을 저장 계약으로 사용","패널 이동·크기·탭","dock dashboard"],["개인 분석 저장·공유","사용자 워크스페이스","deferred","AnalysisDefinition + 승인된 서버 포트","현재 메뉴별 localStorage 표현 설정","scope, owner, metricVersion, permissions, schemaVersion","조회 결과 행·비밀값을 저장·공유","템플릿·복제·버전·복원","saved view report"],["CSV/Parquet 재분석","사용자 워크스페이스","candidate","DuckDB-Wasm","서버 import 파이프라인","승인 파일·스키마·메모리 제한","운영 PostgreSQL을 브라우저에서 직접 연결","파일 기반 SQL 탐색","duckdb parquet"]]</script>
+<script>
+(function(){
+"use strict";
+var items=JSON.parse(document.getElementById("catalog-data").textContent).map(function(v){return {name:v[0],cat:v[1],tier:v[2],engine:v[3],alt:v[4],need:v[5],avoid:v[6],custom:v[7],tags:v[8]};});
+var labels={current:"현재 기반",candidate:"후보 / PoC",deferred:"보류 / 선결정"};
+function el(id){return document.getElementById(id)}
+function showPage(target){document.querySelectorAll("[data-page]").forEach(function(n){n.classList.toggle("hidden",n.getAttribute("data-page")!==target)});
+ document.querySelectorAll("[data-page-btn]").forEach(function(n){n.setAttribute("aria-selected",String(n.getAttribute("data-page-btn")===target));});}
+document.querySelectorAll("[data-page-btn]").forEach(function(n){n.addEventListener("click",function(){showPage(n.getAttribute("data-page-btn"));});});
+Array.from(new Set(items.map(function(x){return x.cat}))).forEach(function(v){var o=document.createElement("option");o.value=v;o.textContent=v;el("cat").append(o)});
+var selected=0;
+function detail(idx){selected=idx;var x=items[idx];el("title").textContent=x.name;el("status").textContent=labels[x.tier];el("status").className="pill "+(x.tier==="current"?"current":x.tier==="deferred"?"deferred":"");
+el("intro").textContent=x.cat+" · 목적과 데이터 의미에 따라 적합성을 확인합니다.";
+el("engine").textContent=x.engine;el("alt").textContent=x.alt;el("needs").textContent=x.need;el("avoid").textContent=x.avoid;el("custom").textContent=x.custom;
+document.querySelectorAll("[data-idx]").forEach(function(n){n.setAttribute("aria-pressed",String(Number(n.getAttribute("data-idx"))===idx));});}
+function render(){var q=el("q").value.toLowerCase().trim(),cat=el("cat").value,tier=el("tier").value,found=items.map(function(x,i){return [x,i]}).filter(function(pair){
+ var x=pair[0];return (cat==="all"||cat===x.cat)&&(tier==="all"||tier===x.tier)&&(!q||(x.name+" "+x.cat+" "+x.engine+" "+x.alt+" "+x.tags+" "+x.need).toLowerCase().includes(q));});
+el("count").textContent=found.length+"개 기능 표시 / 총 "+items.length+"개";el("list").replaceChildren();
+found.forEach(function(pair){var x=pair[0],i=pair[1],btn=document.createElement("button");btn.className="card";btn.type="button";btn.setAttribute("data-idx",String(i));btn.setAttribute("aria-pressed",String(i===selected));
+var meta=document.createElement("span");meta.className="pill "+(x.tier==="current"?"current":x.tier==="deferred"?"deferred":"");meta.textContent=x.cat+" · "+labels[x.tier];
+var title=document.createElement("strong");title.textContent=x.name;var p=document.createElement("p");p.textContent=x.engine+" / "+x.alt;
+btn.append(meta,title,p);btn.addEventListener("click",function(){detail(i)});el("list").append(btn);});}
+["q","cat","tier"].forEach(function(id){el(id).addEventListener("input",render)});
+function recommend(){
+var goal=el("goal").value,precision=el("precision").value,volume=el("volume").value;
+var rules={
+ trend:["ECharts Time Series","Lightweight Charts는 고밀도, 다중 Pane·실시간 갱신에서 PoC로 비교","Metric 버전·time domain·결측·sample count 검증"],
+ compare:["ECharts Grouped Bar/Box","표와 함께 기준 기간·모집단 수치를 표시","같은 단위/지표 버전/분모 필수"],
+ distribution:["ECharts Boxplot/Histogram","Violin이 꼭 필요하면 Plotly","원본 관측값·분위수·표본 수 확인, 평균만으로 Box 금지"],
+ relationship:["ECharts Scatter","대규모 밀도는 서버 2D-bin Heatmap 또는 Plotly","짝지어진 수치 샘플, 상관≠인과"],
+ matrix:["ECharts Heatmap","자유 피벗 수요는 Perspective PoC #163","null과 0 구별, 두 Dimension과 집계치 검증"],
+ flow:["ECharts Sankey/Graph","편집 Node Diagram 필요하면 React Flow","실제 Node/Edge와 유량·시간이 없으면 Flow 금지"],
+ pivot:["Perspective v5 (Deferred #163)","기본 TanStack Table 유지 또는 AntV S2 비교","서버 허용 Raw Dataset + maxRows + Trust; 브라우저 DB 직결 금지"],
+ event:["ECharts Event Timeline + 상세 행 표","vis-timeline 영역별 PoC","eventId/sequence와 실제 밀리초 정밀도 보존"],
+ wafer:["전용 Wafer-map PoC","die 데이터 없으면 wafer-flow timeline","die x/y/bin/mask 미보유 시 기능 비활성"]
+};
+var r=rules[goal],messages=[],blockers=[];
+if(precision==="ms"&&goal==="trend"){messages.push("동일 초 내 복수 관측값이 있으면 LWC 단독 raw series 부적합: 원본 이벤트는 timeline/표로 폴백");}
+if(precision==="ms"&&goal==="event"){messages.push("이벤트 순서 보존을 위해 epoch-ms와 stable eventId를 함께 사용");}
+if(volume==="huge"){blockers.push("too_large 가능: 기간 축소·서버 선집계·다운샘플 또는 페이지 조회가 먼저입니다.");}
+if(goal==="pivot"){blockers.push("Perspective 도입은 #163 보류 해제와 데이터셋 row cap·브라우저 WASM 검증이 필요합니다.");}
+if(goal==="wafer"){blockers.push("die 공간 데이터가 없으면 Wafer Map 제공 불가");}
+var root=el("rec");root.replaceChildren();
+function p(tag,txt){var n=document.createElement(tag);n.textContent=txt;root.append(n);}
+p("small","추천 초안 · 정적 규칙 · 실제 데이터 검사 전");p("strong",r[0]);p("p",r[1]);p("p","필수 조건: "+r[2]);
+messages.concat(blockers).forEach(function(s){p("p","• "+s)});
+p("p","항상 동일 데이터의 표/텍스트 요약과 Trust 정보를 제공해야 합니다.");}
+["goal","precision","volume"].forEach(function(id){el(id).addEventListener("change",recommend)});
+detail(0);render();recommend();
+})();
+</script></body></html>
