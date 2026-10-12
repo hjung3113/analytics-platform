@@ -73,6 +73,7 @@
 조사·근거 기록(authoritative 아님):
 
 - [URL·시간·상태 계약 grilling](reviews/2026-09-18-url-time-status-contract-grilling.md) — 06 §6.1·§6.3·§6.4·§19의 세부 판정 근거와 반례.
+- [Analysis Toolkit: 개발자 기능 선택·사용자 커스터마이징 프레임워크](research/analysis-toolkit-2026-10-13/README.md) — Candidate. 코드 실사, 34개 기능 선택 HTML, 기술별 매핑 및 도입 계획(Issue #291).
 - [플랫폼 구축 리서치 종합](research/platform-build-2026-09-22/SYNTHESIS.md) — #165(폴링·계산 세대)·#155(서버) 착수 때 설계 입력.
 - [반도체 도메인 외부 조사](research/semiconductor-domain-2026-09-24/README.md) — SEMI 표준·제품 자료를 우리 용어에 대 본 조사(Operation 이름·CFG 형식은 아직 Open).
 
