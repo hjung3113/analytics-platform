@@ -1,6 +1,7 @@
 # Analysis Toolkit — 개발자용 선택 프레임워크 및 사용자 정의 분석 (Candidate)
 
 - 조사 기준: **2026-10-13**. 이 문서는 **설계·PoC 입력**이며 새 UI·패키지·라이선스 채택 결정이나 구현 완료 기록이 아니다.
+- 구현 추적: [M1 내부 어댑터 #292](https://github.com/hjung3113/analytics-platform/issues/292), [M2 Lightweight Charts PoC #293](https://github.com/hjung3113/analytics-platform/issues/293), [M4 사용자 워크스페이스 결정 #294](https://github.com/hjung3113/analytics-platform/issues/294).
 - 추적: [설계 Issue #291](https://github.com/hjung3113/analytics-platform/issues/291) · [기존 Perspective #163](https://github.com/hjung3113/analytics-platform/issues/163) · [AG Grid Enterprise #164](https://github.com/hjung3113/analytics-platform/issues/164)
 - 상세: [기능 매핑](capability-matrix.md) · [아키텍처·도입 단계](architecture-rollout.md) · [독립 인터랙티브 기능 선택기](feature-explorer.html)
 - **계약 원본**: [06 플랫폼 UI 계약](../../06_platform_ui_contract.md) §5·6·12·14·15·16·18·19·21·22·26·27, [04 스택/기존 후보 검토](../../04_frontend_ui_ux.md), [ADR-0006](../../adr/0006-grid-free-first-engine-hidden-from-menus.md), [ADR-0007](../../adr/0007-perspective-browser-engine-only.md), [ADR-0021](../../adr/0021-echarts-canvas-renderer.md).
