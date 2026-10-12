@@ -212,7 +212,7 @@ type LocalAnalysisSelection = {
 공식 [v5 소개](https://tradingview.github.io/lightweight-charts/docs/5.0), [v5 release note](https://tradingview.github.io/lightweight-charts/docs/release-notes), [현재 타임 타입/uniqueness 안내](https://github.com/tradingview/lightweight-charts/blob/master/.github/skills/lightweight-charts/SKILL.md)를 검증 참고.
 
 - 검증 입력 A: 장비별 초 단위 CT/P95 추세 1·10·50 series, **샘플 수/차트 동시 수** 증분.
-- 입력 B: 동일 초에 수십 건 event가 있는 epoch-ms 데이터 — LWC 정규화 시 여러 값이 사라지거나 시간축이 거짓이 되지 않는지. **실제 event는 timeline/표**로 폴백.
+- 입력 B: 동일 초에 수십 건 발생하되 epoch-ms는 다른 데이터 + epoch-ms까지 완전히 같은 데이터. `epochMs / 1000` 소수 초를 **절삭하지 않고** 변환하는 경로의 순서/정밀도·축 label·hover를 확인한다. 동일한 time key가 겹치는 원본 이벤트는 stable eventId/sequence가 있는 timeline/표로 폴백.
 - 입력 C: 복수 Pane/동기화 hover, 줌/브러시 UX를 06 §16 Chart Frame 액션과 정합; 캔버스 외 표/텍스트 요약.
 - 입력 D: wall-clock vs instant, time zone format, gap과 null 표시, compare 기간 정렬.
 - 입력 E: 라이선스 **NOTICE와 TradingView attribution link**를 사내 화면에서 충족하는지, 외부 네트워크 호출 없는 번들인지.
