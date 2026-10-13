@@ -1,5 +1,8 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useState } from 'react';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
+import { DetailDrawer } from './DetailDrawer';
 import { I18nProvider } from '@ap/kernel';
 import { ManagementLayout } from './ManagementLayout';
 
@@ -178,4 +181,26 @@ describe('ManagementLayout', () => {
     fireEvent.click(trigger());
     expect(collapse()).toHaveFocus();
   });
+});
+
+
+it('keeps the focused detail and returns to the same table opener after the rail disappears', () => {
+  function Host() { const host = useDetailPanelSlotHost(); return <aside ref={host.ref} />; }
+  function Fixture() {
+    const [open, setOpen] = useState(false);
+    return <ManagementLayout filter={<input aria-label="필터 입력" />}
+      table={slot => <>{slot}<button onClick={() => setOpen(true)}>보기</button></>}
+      drawer={open && <DetailDrawer title="상세" onClose={() => setOpen(false)} tabs={[{ id: 'a', label: '속성', content: '내용' }]} />} />;
+  }
+  render(<I18nProvider><DetailPanelSlotProvider><Fixture /><Host /></DetailPanelSlotProvider></I18nProvider>);
+  const opener = screen.getByRole('button', { name: '보기' });
+  opener.focus();
+  fireEvent.click(opener);
+  const close = screen.getByRole('button', { name: '상세 닫기' });
+  expect(close).toHaveFocus();
+  setWidth(959);
+  expect(close).toHaveFocus();
+  expect(screen.getByRole('button', { name: '보기' })).toBe(opener);
+  fireEvent.keyDown(close, { key: 'Escape' });
+  expect(opener).toHaveFocus();
 });

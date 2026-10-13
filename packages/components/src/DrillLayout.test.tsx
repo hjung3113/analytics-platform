@@ -3,7 +3,8 @@ import type { ReactNode } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Session } from '@ap/contracts';
-import { I18nProvider, PlatformProvider, createRegistry, type MenuEntry } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, useDrill, usePlatform, type MenuEntry } from '@ap/kernel';
+import { PlatformPage } from './PlatformPage';
 import { DrillLayout, ReturnLink } from './DrillLayout';
 import { noContext, testAdapter, testSpace } from './test-support';
 
@@ -149,4 +150,62 @@ describe('ReturnLink (06 §22, ADR-0025)', () => {
     expect(link.getAttribute('href')).toBe('/source?v=1');
     expect(link.textContent).not.toContain('›');
   });
+});
+
+
+const settleFocus = () => act(() => new Promise(resolve => setTimeout(resolve, 30)));
+function FocusFixture() {
+  const drill = useDrill();
+  return <PlatformPage><DrillLayout siblings={siblings}>
+    <button onClick={() => drill.enter('drillRoom', 'PHOTO')}>enter</button><button>unrelated</button>
+  </DrillLayout></PlatformPage>;
+}
+it.each(['enter', 'parent', 'all', 'sibling', 'middle'])('focuses the exact drill destination after %s', async action => {
+  const url = action === 'enter' ? '/source?v=1' : action === 'middle'
+    ? '/source?v=1&drillRoom=PHOTO&drillStgroup=A&drillLine=L1&drillEquipment=E1'
+    : '/source?v=1&drillRoom=PHOTO&drillStgroup=A';
+  mount(url, <FocusFixture />);
+  if (action === 'enter') fireEvent.click(screen.getByRole('button', { name: 'enter' }));
+  if (action === 'parent') fireEvent.click(screen.getByRole('button', { name: '공정: PHOTO' }));
+  if (action === 'all') fireEvent.click(screen.getByRole('button', { name: '전체' }));
+  if (action === 'sibling') { openMenu('공정 바꾸기'); fireEvent.click(await screen.findByRole('menuitemradio', { name: /ETCH/ })); }
+  if (action === 'middle') { openMenu('가운데 단계'); fireEvent.click(await screen.findByRole('menuitem', { name: '공정: PHOTO' })); }
+  await settleFocus();
+  const destination = action === 'all' ? screen.getByRole('heading', { name: '생산성 개요' })
+    : screen.getByRole('button', { name: action === 'sibling' ? '공정: ETCH' : '공정: PHOTO' });
+  expect(destination).toHaveFocus();
+  const unrelated = screen.getByRole('button', { name: 'unrelated' });
+  unrelated.focus();
+  fireEvent.click(screen.getByRole('button', { name: action === 'all' ? 'enter' : action === 'sibling' ? '공정: ETCH' : '공정: PHOTO' }));
+  if (action !== 'all') { await settleFocus(); expect(unrelated).toHaveFocus(); }
+});
+it('focuses the destination page title when ReturnLink unmounts on navigation', async () => {
+  function Routes() {
+    const { route } = usePlatform();
+    return route?.menu.id === 'detail'
+      ? <PlatformPage key="detail"><ReturnLink /></PlatformPage>
+      : <PlatformPage key="source"><p>destination</p></PlatformPage>;
+  }
+  mount('/detail?v=1', <Routes />);
+  const link = screen.getByRole('link', { name: '← 생산성 개요' });
+  link.focus();
+  fireEvent.click(link);
+  await settleFocus();
+  expect(link.isConnected).toBe(false);
+  expect(screen.getByRole('heading', { name: '생산성 개요' })).toHaveFocus();
+});
+
+it.each(['loading', 'failure'])('uses the persistent page title when the drill body has no path during %s', async state => {
+  function Fixture() {
+    const drill = useDrill();
+    return <PlatformPage>{drill.depth === 0
+      ? <button onClick={() => drill.enter('drillRoom', 'PHOTO')}>enter</button>
+      : <p role="status">{state}</p>}</PlatformPage>;
+  }
+  mount('/source?v=1', <Fixture />);
+  screen.getByRole('button', { name: 'enter' }).focus();
+  fireEvent.click(screen.getByRole('button', { name: 'enter' }));
+  await settleFocus();
+  expect(screen.getByRole('heading', { name: '생산성 개요' })).toHaveFocus();
+  expect(screen.getByRole('status')).toHaveTextContent(state);
 });

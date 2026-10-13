@@ -1,9 +1,12 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { House } from 'lucide-react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ApiResponse, GlobalContext, PageSort, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, useI18n, usePlatform } from '@ap/kernel';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
+import { DetailDrawer } from './DetailDrawer';
+import { ManagementLayout } from './ManagementLayout';
 import { toColumnDef } from './columnDef';
 import * as publicApi from './index';
 import { readXlsx } from './xlsxTestReader';
@@ -952,4 +955,78 @@ describe('An AbortError the table did not cause is an error, not a cancellation 
     expect(await screen.findByText('a')).toBeTruthy(); // the replacement request's rows render
     expect(screen.queryByText('데이터를 불러오지 못했습니다')).toBeNull(); // the superseded request stays silent
   });
+});
+
+
+
+describe('Action DOM identity (#296)', () => {
+  const originalHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+  const originalWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
+  beforeAll(() => {
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get: () => 420 });
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get: () => 800 });
+  });
+  afterAll(() => {
+    if (originalHeight) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', originalHeight);
+    if (originalWidth) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalWidth);
+  });
+
+  it('preserves the action button node when a parent supplies a fresh rowAction', async () => {
+    const loadPage = makeLoadPage(1);
+    function Parent({ label }: { label: string }) {
+      return <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+        <PlatformDataTable title="T" ariaLabel="table" preferenceKey="test-table" columns={columns} getRowId={r => r.id} loadPage={loadPage} filterKey="f" height={200}
+          rowAction={row => <button>{label} {row.id}</button>} />
+      </PlatformProvider></I18nProvider>;
+    }
+    const view = render(<Parent label="보기" />);
+    const opener = await screen.findByRole('button', { name: '보기 r1' });
+    opener.focus();
+    view.rerender(<Parent label="새 보기" />);
+    expect(screen.getByRole('button', { name: '새 보기 r1' })).toBe(opener);
+    expect(opener).toHaveFocus();
+  });
+  it('preserves the actual action opener through detail entry, rail resize and Escape', async () => {
+    let width = 1200;
+    let resize: (() => void) | undefined;
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(private callback: () => void) {}
+      observe(element: Element) {
+        if (element.parentElement?.getAttribute('aria-label') === 'management fixture') resize = this.callback;
+      }
+      unobserve() {}
+      disconnect() {}
+    });
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const height = this.getAttribute('role') === 'row' ? 32 : 420;
+      return { width, height, top: 0, left: 0, right: width, bottom: height, x: 0, y: 0, toJSON() {} };
+    });
+    const loadPage = makeLoadPage(1);
+    function Host() { const { ref } = useDetailPanelSlotHost(); return <aside ref={ref} />; }
+    function Fixture() {
+      const [open, setOpen] = useState(false);
+      return <section aria-label="management fixture"><ManagementLayout filter={<input aria-label="filter" />}
+        table={slot => <PlatformDataTable title="T" ariaLabel="table" preferenceKey="test-table" filters={slot}
+          columns={columns} getRowId={row => row.id} loadPage={loadPage} filterKey="f" height={200}
+          rowAction={row => <button onClick={() => setOpen(true)}>보기 {row.id}</button>} />}
+        drawer={open && <DetailDrawer title="상세" onClose={() => setOpen(false)} tabs={[{ id: 'a', label: '속성', content: '내용' }]} />} /></section>;
+    }
+    const view = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+      <DetailPanelSlotProvider><Fixture /><Host /></DetailPanelSlotProvider>
+    </PlatformProvider></I18nProvider>);
+    const opener = await screen.findByRole('button', { name: '보기 r1' });
+    opener.focus();
+    fireEvent.click(opener);
+    const close = screen.getByRole('button', { name: '상세 닫기' });
+    expect(close).toHaveFocus();
+    act(() => { width = 959; resize?.(); });
+    expect(close).toHaveFocus();
+    expect(screen.getByRole('button', { name: '보기 r1' })).toBe(opener);
+    fireEvent.keyDown(close, { key: 'Escape' });
+    expect(opener).toHaveFocus();
+    view.unmount();
+    rect.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
 });

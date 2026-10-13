@@ -7,6 +7,7 @@ export type { Text };
 
 // UI copy only (docs/06 §23): master values and identifiers are never translated.
 const dict = {
+  close: { ko: '닫기', en: 'Close' },
   appName: { ko: 'Analytics Platform', en: 'Analytics Platform' },
   appTagline: { ko: '설비 로그 분석 플랫폼', en: 'Equipment log analytics' },
   searchPlaceholder: { ko: '메뉴 검색…', en: 'Search menus…' },

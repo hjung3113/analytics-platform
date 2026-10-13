@@ -707,7 +707,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                 {/* eslint-disable-next-line shadcn/no-inline-styles -- cell width and pin offset come from column sizing at runtime */}
                 {row.getVisibleCells().map(cell => <div role="cell" key={cell.id} data-column={cell.column.id} style={cellStyle(cell.column)}
                   className={cn(cellBase, 'border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', align(cell.column))}>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  {cell.column.id === '_action' ? p.rowAction?.(row.original) : flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </div>)}
               </div>;
             })}</div>}

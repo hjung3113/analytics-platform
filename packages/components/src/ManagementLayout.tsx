@@ -105,7 +105,7 @@ export function ManagementLayout({ filter, activeFilterCount = 0, table, drawer 
         </header>
         <div id={bodyId} className="min-h-0 overflow-y-auto p-3">{filter}</div>
       </section>}
-      <div className="min-w-0">{table(filterSlot)}</div>
+      <div key="table" className="min-w-0">{table(filterSlot)}</div>
     </div>
     {drawer}
   </div>;

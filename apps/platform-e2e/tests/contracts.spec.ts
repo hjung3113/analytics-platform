@@ -1661,3 +1661,22 @@ test.describe('드릴다운 (06 §6.4, §12.7, §22, ADR-0025)', () => {
     await evidence(page, testInfo, 'drill-equipment-missing');
   });
 });
+
+
+test.describe('키보드 상세 포커스 복귀 (06 §13·§26)', () => {
+  test('권한 목록에서 키보드로 상세를 닫으면 같은 행의 보기로 돌아온다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto('/admin/roles?v=1');
+    const opener = page.getByRole('row').filter({ has: page.getByRole('button', { name: '보기', exact: true }) }).first().getByRole('button', { name: '보기', exact: true });
+    await expect(opener).toBeVisible();
+    // Reach the action through the keyboard, then activate it without a pointer click.
+    for (let attempt = 0; attempt < 100 && !(await opener.evaluate(node => node === document.activeElement)); attempt++) await page.keyboard.press('Tab');
+    await expect(opener).toBeFocused();
+    await opener.evaluate(node => node.setAttribute('data-focus-return-opener', 'true'));
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('button', { name: '상세 닫기' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-focus-return-opener]')).toBeFocused();
+    await evidence(page, testInfo, 'roles-keyboard-focus-return');
+  });
+});

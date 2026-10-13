@@ -1,5 +1,5 @@
-import { lazy } from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { lazy, useLayoutEffect, useRef, type ReactNode } from 'react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Session } from '@ap/contracts';
@@ -57,7 +57,7 @@ function Open() {
   return <button type="button" onClick={() => setPaletteOpen(true)}>open palette</button>;
 }
 
-function mount() {
+function mount(extra?: ReactNode) {
   const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view', 'console:access', 'notice:view'] }, scopes: [] };
   const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
   const adapter = testAdapter({
@@ -65,7 +65,7 @@ function mount() {
     getEntity: async () => forbidden,
     listAnnotations: async () => forbidden,
   });
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Open /><CommandPalette /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Open />{extra}<CommandPalette /></PlatformProvider></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
 }
 
@@ -156,4 +156,90 @@ describe('CommandPalette space bundles (06 §9.1)', () => {
     expect(scroll).toHaveBeenLastCalledWith({ block: 'nearest' });
     expect(scroll.mock.instances.at(-1)).toBe(document.getElementById('palette-roles'));
   });
+});
+
+
+const settleClose = () => act(() => new Promise(resolve => setTimeout(resolve, 30)));
+
+it.each(['Escape', 'X', 'shortcut', 'outside'])('returns to the rail opener after %s cancellation', async close => {
+  mount();
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  await settleClose();
+  const opener = screen.getByRole('button', { name: 'open palette' });
+  opener.focus();
+  fireEvent.click(opener);
+  await settleClose();
+  if (close === 'Escape') fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  if (close === 'X') fireEvent.click(screen.getByRole('button', { name: '닫기' }));
+  if (close === 'shortcut') fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+  if (close === 'outside') {
+    fireEvent.pointerDown(document.querySelector('.fixed.inset-0[data-state="open"]')!, { button: 0 });
+  }
+  await settleClose();
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(opener).toHaveFocus();
+});
+
+it.each(['Escape', 'X', 'shortcut', 'outside'])('returns to the pre-shortcut element after %s cancellation', async close => {
+  mount(<input aria-label="before shortcut" />);
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  await settleClose();
+  const opener = screen.getByRole('textbox', { name: 'before shortcut' });
+  opener.focus();
+  fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+  await settleClose();
+  if (close === 'Escape') fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  if (close === 'X') fireEvent.click(screen.getByRole('button', { name: '닫기' }));
+  if (close === 'shortcut') fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+  if (close === 'outside') fireEvent.pointerDown(document.querySelector('.fixed.inset-0[data-state="open"]')!, { button: 0 });
+  await settleClose();
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(opener).toHaveFocus();
+});
+
+function Destination() {
+  const { route } = usePlatform();
+  const heading = useRef<HTMLHeadingElement>(null);
+  useLayoutEffect(() => {
+    if (route?.menu.path !== '/home') return;
+    const timer = setTimeout(() => heading.current?.focus(), 0);
+    return () => clearTimeout(timer);
+  }, [route?.menu.path]);
+  return <h1 ref={heading} tabIndex={-1}>destination title</h1>;
+}
+it('does not restore the opener after Enter navigation', async () => {
+  mount(<Destination />);
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  await settleClose();
+  const opener = screen.getByRole('button', { name: 'open palette' });
+  opener.focus();
+  fireEvent.click(opener);
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' });
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Enter' });
+  await settleClose();
+  expect(window.location.pathname).toBe('/home');
+  expect(opener).not.toHaveFocus();
+  expect(screen.getByRole('heading', { name: 'destination title' })).toHaveFocus();
+});
+
+it('leaves composition Enter in the palette', () => {
+  mount();
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Enter', isComposing: true });
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+  expect(window.location.pathname).toBe('/no-such-page');
+});
+it('falls back to platform main when the saved opener is removed', async () => {
+  mount(<main id="platform-main" tabIndex={-1} />);
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  await settleClose();
+  const opener = screen.getByRole('button', { name: 'open palette' });
+  opener.focus();
+  fireEvent.click(opener);
+  const parent = opener.parentNode!;
+  const sibling = opener.nextSibling;
+  opener.remove();
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  await settleClose();
+  expect(screen.getByRole('main')).toHaveFocus();
+  parent.insertBefore(opener, sibling);
 });
