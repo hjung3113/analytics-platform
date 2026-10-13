@@ -40,7 +40,7 @@ function tableShell(caption: string, head: ReactNode, body: ReactNode) {
 }
 
 function Th({ children, align = 'left' }: { children: ReactNode; align?: 'left' | 'right' }) {
-  return <th scope="col" className={cn('t-table-header px-3 py-1.5 text-text-muted', align === 'right' ? 'text-right' : 'text-left')}>{children}</th>;
+  return <th scope="col" className={cn('t-table-header px-3 py-1.5 text-text-secondary', align === 'right' ? 'text-right' : 'text-left')}>{children}</th>;
 }
 
 function StgroupTable({ ko, rows, onEnter, n1, ni }: { ko: boolean; rows: DrillStgroupRow[]; onEnter: (stgroup: string) => void } & Fmt) {
@@ -68,13 +68,20 @@ function EquipmentTable({ ko, rows, current, onEnter, n1, ni }: {
     <Th align="right">{ko ? 'Job 수' : 'Jobs'}</Th>
     <Th align="right">{ko ? 'P95 사이클타임' : 'P95 cycle time'}</Th>
     <Th><span className="sr-only">{ko ? '들어가기' : 'Enter'}</span></Th>
-  </>, rows.map(row => <tr key={row.equipmentId} className={cn('border-t border-border-subtle', current === row.equipmentId && 'bg-accent-primary-soft')}>
-    <td className="t-mono px-3 py-1.5">{row.equipmentId}</td>
-    <td className="px-3 py-1.5 text-right">{pctHint(ko, row.occupancyPct, n1)}</td>
-    <td className="px-3 py-1.5 text-right">{ni(row.jobs)}</td>
-    <td className="px-3 py-1.5 text-right">{row.p95Min === null ? (ko ? '미확인' : 'unknown') : `${n1(row.p95Min)} ${ko ? '분' : 'min'}`}</td>
-    <td className="px-2 py-1.5 text-right"><EnterButton ko={ko} value={row.equipmentId} onClick={() => onEnter(row.equipmentId)} /></td>
-  </tr>));
+  </>, rows.map(row => {
+    const isCurrent = current === row.equipmentId;
+    return <tr key={row.equipmentId} aria-current={isCurrent ? 'true' : undefined} className={cn('border-t border-border-subtle', isCurrent && 'bg-accent-primary-soft')}>
+      {/* Shape + weight accompany the selected surface (06 §26, DESIGN Shell visual rules): 2px accent bar. */}
+      <td className={cn('t-mono px-3 py-1.5', isCurrent && 'font-medium')}>
+        {isCurrent && <span aria-hidden className="mr-2 inline-block h-4 w-0.5 rounded-full bg-accent-primary" />}
+        {row.equipmentId}
+      </td>
+      <td className="px-3 py-1.5 text-right">{pctHint(ko, row.occupancyPct, n1)}</td>
+      <td className="px-3 py-1.5 text-right">{ni(row.jobs)}</td>
+      <td className="px-3 py-1.5 text-right">{row.p95Min === null ? (ko ? '미확인' : 'unknown') : `${n1(row.p95Min)} ${ko ? '분' : 'min'}`}</td>
+      <td className="px-2 py-1.5 text-right"><EnterButton ko={ko} value={row.equipmentId} onClick={() => onEnter(row.equipmentId)} /></td>
+    </tr>;
+  }));
 }
 
 function Stage({ title, kpi, ko, n1, ni, children }: { title: string; kpi: KpiSet; ko: boolean; children: ReactNode } & Fmt) {

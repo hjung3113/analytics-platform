@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 import { type PageProps, PlatformLink, useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
 import { AuditTimeline, Field, Panel, PlatformPage, QueryView, ReturnLink, StateMessage, useCopyLink } from '@ap/components';
 import { Button, cn, StatusBadge } from '@ap/ui';
@@ -43,6 +43,8 @@ export default function MetricDetailPage({ params }: PageProps) {
   const selected = ready?.version ?? null;
   const metric = ready?.metric ?? null;
 
+  const draftNoteId = useId();
+
   const apply = () => {
     if (!selected) return;
     setGlobal({ metricId, metricVersion: selected.version });
@@ -54,7 +56,17 @@ export default function MetricDetailPage({ params }: PageProps) {
       ? <span><span className="t-mono">{metric.metricId}</span> · {tx(metric.description)}</span>
       : <span className="t-mono">{metricId}</span>}
     primaryAction={selected && (selected.state === 'draft'
-      ? <Button size="sm" disabled>{lang === 'ko' ? '초안은 분석 Context로 쓰지 않습니다' : 'Drafts are not used as analysis context'}</Button>
+      // B-13: aria-disabled, not native disabled — the primary stays focusable and the reason is text,
+      // not a tooltip (DESIGN Shared interaction: 실제 비활성과 이유를 opacity로 숨기지 않는다).
+      ? <span className="flex items-center gap-2">
+          <Button size="sm" aria-disabled className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+            aria-describedby={draftNoteId}>
+            {lang === 'ko' ? '이 버전을 분석 Context로 사용' : 'Use this version as analysis context'}
+          </Button>
+          <span id={draftNoteId} className="text-xs text-text-secondary">
+            {lang === 'ko' ? '초안은 분석 Context로 쓰지 않습니다' : 'Drafts are not used as analysis context'}
+          </span>
+        </span>
       : <Button size="sm" data-testid="metric-apply-context" onClick={apply}
           title={global.metricId && global.metricId !== metricId
             ? (lang === 'ko' ? `다른 지표 ${global.metricId} 쌍 전체를 ${metricId} @ ${selected.version} 으로 바꿉니다.` : `Replaces the whole ${global.metricId} pair with ${metricId} @ ${selected.version}.`)

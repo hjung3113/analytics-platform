@@ -47,7 +47,7 @@ export default function AccessDirectory() {
     ]} actions={<><Button type="submit" size="sm" variant="secondary">{ko ? '적용' : 'Apply'}</Button>{parsed.ok && clear}</>} />
   </form>;
   const columns = useMemo<PlatformColumn<AccessPrincipal>[]>(() => [
-    { id: 'name', header: ko ? '이름' : 'Name', cell: row => <span className="t-mono">{String(row.name)}</span> },
+    { id: 'name', header: ko ? '이름' : 'Name' },
     { id: 'role', header: ko ? '역할' : 'Role', cell: row => mono(row.role) },
     { id: 'title', header: ko ? '직책' : 'Title', sortable: false, value: row => row.title[lang] },
     { id: 'permissionCount', header: ko ? '권한 수' : 'Permissions', value: row => row.permissions.length },
@@ -164,7 +164,7 @@ export default function AccessDirectory() {
           };
         }}
         emptyAction={clear}
-        rowAction={row => <Button size="sm" variant="ghost" onClick={() => setPage({ focus: row.id })}>{ko ? '보기' : 'View'}</Button>}
+        rowAction={row => <Button size="sm" variant="ghost" aria-label={ko ? `${row.id} 보기` : `View ${row.id}`} onClick={() => setPage({ focus: row.id })}>{ko ? '보기' : 'View'}</Button>}
       />}
       </>} />
   </PlatformPage>;

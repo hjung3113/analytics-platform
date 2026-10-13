@@ -16,10 +16,10 @@ export function StateMessage({ icon, title, body, action, tone = 'neutral', corr
     tone === 'danger' ? 'bg-accent-danger-soft text-text-danger-label' : tone === 'warning' ? 'bg-accent-warn-soft text-text-warning-label' : 'bg-surface-sunken text-text-secondary',
     compact ? 'p-3' : 'min-h-24')}>
     <div className="flex items-center gap-2 font-semibold text-sm"><span className={cn(tone === 'danger' ? 'text-text-danger' : tone === 'warning' && 'text-text-warning')}>{icon}</span>{title}</div>
-    {body && <div className={cn('max-w-prose text-xs leading-4', tone === 'neutral' && 'opacity-90')}>{body}</div>}
+    {body && <div className="max-w-prose text-xs leading-4">{body}</div>}
     {(action || correlationId) && <div className="flex flex-wrap items-center gap-3">
       {action}
-      {correlationId && <span className={cn('t-mono text-tiny', tone === 'neutral' && 'opacity-80')}>{t('correlationId')}: {correlationId}</span>}
+      {correlationId && <span className="t-mono text-tiny">{t('correlationId')}: {correlationId}</span>}
     </div>}
   </div>;
 }

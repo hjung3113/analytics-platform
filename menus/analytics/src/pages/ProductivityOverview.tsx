@@ -335,7 +335,7 @@ export default function ProductivityOverview(_: PageProps) {
                   <table className="w-full text-xs">
                     <caption className="sr-only">{ko ? '점유 구성 분자·분모 표 — 차트와 같은 세대' : 'Occupancy numerator/denominator table — same generation as the chart'}</caption>
                     <thead className="bg-surface-sunken"><tr>
-                      {columns.map(col => <th key={col.key} scope="col" aria-sort={sort.key === col.key ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'} className={cn('t-table-header px-3 py-1.5 text-text-muted', col.align === 'right' ? 'text-right' : 'text-left')}>
+                      {columns.map(col => <th key={col.key} scope="col" aria-sort={sort.key === col.key ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'} className={cn('t-table-header px-3 py-1.5 text-text-secondary', col.align === 'right' ? 'text-right' : 'text-left')}>
                         <button type="button" onClick={() => {
                           const next = sort.key === col.key
                             ? { key: sort.key, dir: sort.dir === 1 ? -1 as const : 1 as const }

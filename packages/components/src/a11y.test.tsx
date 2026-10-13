@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { I18nProvider } from '@ap/kernel';
-import { DetailDrawer } from './DetailDrawer';
+import { DetailDrawer, Field } from './DetailDrawer';
 import { SegmentedRadio } from './RadioGroup';
 
 afterEach(cleanup);
@@ -178,5 +178,20 @@ describe('DetailDrawer docked slot', () => {
     behind.focus();
     fireEvent.click(screen.getByRole('button', { name: '상세 닫기' }));
     expect(behind).toHaveFocus();
+  });
+
+  // B-12: a label longer than the fixed 9rem column (e.g. averageOfQuantilesAllowed, 171px) must wrap,
+  // not overlap the value column; the track widths themselves stay unchanged.
+  it('wraps long Field labels inside the fixed label column', () => {
+    render(<I18nProvider><DetailPanelSlotProvider>
+      <DetailDrawer title="Detail" onClose={() => {}} tabs={[{ id: 'a', label: 'Attributes', content: (
+        <dl>
+          <Field label="averageOfQuantilesAllowed">p95 · 3.2s</Field>
+        </dl>
+      ) }]} /><SlotHost />
+    </DetailPanelSlotProvider></I18nProvider>);
+    const row = screen.getByText('averageOfQuantilesAllowed').closest('div');
+    expect(row).toHaveClass('grid-cols-[9rem_1fr]'); // column width unchanged
+    expect(screen.getByText('averageOfQuantilesAllowed')).toHaveClass('min-w-0', 'break-words');
   });
 });

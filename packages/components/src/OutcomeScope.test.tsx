@@ -303,3 +303,19 @@ describe('Fix round 1 peer lookup', () => {
     expect(decisions[0]).toBe(true);
   });
 });
+
+describe('required text keeps the allowed foreground without opacity fade (#301)', () => {
+  const hasFade = (el: Element, prefix: 'opacity-' | 'text-text-') => Array.from(el.classList).some(c => c.startsWith(prefix));
+  it('renders a standalone neutral StateMessage body and Correlation ID unfaded, inheriting secondary', () => {
+    render(<I18nProvider><StateMessage icon={null} title="상태" body="본문 설명" correlationId="corr-standalone" /></I18nProvider>);
+    const root = screen.getByRole('status');
+    expect(root).toHaveClass('text-text-secondary'); // sunken surface pairing: the required text inherits secondary
+    const body = within(root).getByText('본문 설명');
+    const correlation = within(root).getByText(/corr-standalone/).closest('span');
+    expect(correlation).not.toBeNull();
+    for (const el of [body, correlation!]) {
+      expect(hasFade(el, 'opacity-')).toBe(false);
+      expect(hasFade(el, 'text-text-')).toBe(false); // no per-node override; the root's secondary applies
+    }
+  });
+});

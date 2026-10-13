@@ -57,7 +57,7 @@ function DetailContent({ title, subtitle, headerActions, context, tabs, onClose,
 
 export function Field({ label, children, mono }: { label: ReactNode; children: ReactNode; mono?: boolean }) {
   return <div className="grid grid-cols-[9rem_1fr] gap-3 border-b border-border-subtle py-1.5 text-sm last:border-0">
-    <dt className="text-text-muted">{label}</dt>
+    <dt className="min-w-0 break-words text-text-muted">{label}</dt>
     <dd className={mono ? 't-mono' : 'tabular'}>{children}</dd>
   </div>;
 }
