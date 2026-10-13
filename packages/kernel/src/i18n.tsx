@@ -69,6 +69,7 @@ const dict = {
   globalContext: { ko: '전역 Context', en: 'Global context' },
   home: { ko: '홈', en: 'Home' },
   back: { ko: '뒤로', en: 'Back' },
+  returnContextReverted: { ko: '출발 화면의 Context로 돌아왔습니다. 상세에서 바꾼 {items}을(를) 되돌렸습니다.', en: 'Returned to the starting context. Reverted: {items}.' },
   retry: { ko: '다시 시도', en: 'Retry' },
   loading: { ko: '불러오는 중…', en: 'Loading…' },
   refreshing: { ko: '같은 조건으로 갱신 중', en: 'Refreshing same context' },

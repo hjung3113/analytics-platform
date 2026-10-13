@@ -3,7 +3,7 @@ import { createPageNavigation, type PageFocus, type PageNavigation } from './pag
 import { classifyMetricInit, type MetricInit } from './metric-init';
 import { pathFor, type MenuEntry, type Registry } from './registry';
 import { useI18n } from './i18n';
-import { buildQuery, ContractError, emptyGlobal, type GlobalContext, incompleteMetricPair, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent } from '@ap/contracts';
+import { buildQuery, ContractError, emptyGlobal, type ContextKey, type GlobalContext, incompleteMetricPair, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent } from '@ap/contracts';
 
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope' | 'error'; validatedFor: Session | null; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
@@ -64,7 +64,7 @@ type Platform = {
    */
   reportError: (error: unknown) => string;
   returnTarget: () => string;
-  /** Accepted `returnTo`: that menu's label and its leading drill values. Otherwise the parent (or home) and an empty trail. `href` equals `returnTarget()` (06 §22, ADR-0025). */
+  /** Accepted `returnTo`: that menu's label and its leading drill values. Otherwise an openable parent (or home), an empty trail and no reverted Context. Accepted origins report changed global Context keys. `href` equals `returnTarget()` (06 §22, ADR-0025). */
   returnOrigin: () => ReturnOrigin;
   session: Session;
   user: SessionUser;
@@ -116,6 +116,7 @@ export type ReturnOrigin = {
   href: string;
   menuLabel: Text;
   trail: { label: Text; value: string }[];
+  revertedContext: ContextKey[];
 };
 
 /** Leading drill values on `search`, stopping at the first missing step. A menu without `drill` contributes nothing. */
@@ -578,19 +579,30 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
       const path = q === -1 ? safe : safe.slice(0, q);
       const search = q === -1 ? '' : safe.slice(q);
       const matched = matchRoute(path);
-      if (matched) return { href: safe, menuLabel: matched.menu.label, trail: consecutiveDrillTrail(matched.menu, search) };
+      if (matched && canOpen(matched.menu.id)) {
+        const starting = parseQuery(search, matched.menu.pageKeys).global;
+        const fields: Record<ContextKey, (keyof GlobalContext)[]> = {
+          time: ['from', 'to'], roomNames: ['roomNames'], condition: ['condition'], selection: ['selection'],
+          lot: ['lotIds'], ppid: ['ppid'], recipe: ['recipeIds'], metric: ['metricId', 'metricVersion'],
+        };
+        const revertedContext = (Object.keys(fields) as ContextKey[]).filter(key => {
+          const pick = (context: GlobalContext): GlobalContext => ({ ...emptyGlobal, ...Object.fromEntries(fields[key].map(field => [field, context[field]])) });
+          return !sameGlobal(pick(global), pick(starting));
+        });
+        return { href: safe, menuLabel: matched.menu.label, trail: consecutiveDrillTrail(matched.menu, search), revertedContext };
+      }
     }
-    if (route?.menu.parent) {
-      return { href: linkTo(route.menu.parent), menuLabel: menuById(route.menu.parent).label, trail: [] };
+    if (route?.menu.parent && canOpen(route.menu.parent)) {
+      return { href: linkTo(route.menu.parent), menuLabel: menuById(route.menu.parent).label, trail: [], revertedContext: [] };
     }
     const platformHome = matchRoute('/')?.menu;
     const spaceHome = sidebarSpace ? menuById(sidebarSpace.homeMenuId) : null;
     const home = platformHome && canOpen(platformHome.id) ? platformHome
       : spaceHome && canOpen(spaceHome.id) ? spaceHome : null;
-    if (home) return { href: linkTo(home.id), menuLabel: home.label, trail: [] };
+    if (home) return { href: linkTo(home.id), menuLabel: home.label, trail: [], revertedContext: [] };
     // Emergency exception-prevention fallback only; '/' is not guaranteed to be a valid or accessible home.
-    return { href: '/', menuLabel: { ko: '홈', en: 'Home' }, trail: [] };
-  }, [pageParam, safeReturnTo, matchRoute, route, linkTo, menuById, sidebarSpace, canOpen]);
+    return { href: '/', menuLabel: { ko: '홈', en: 'Home' }, trail: [], revertedContext: [] };
+  }, [pageParam, safeReturnTo, matchRoute, route, linkTo, menuById, sidebarSpace, canOpen, global]);
   const returnTarget = useCallback(() => resolveReturnOrigin().href, [resolveReturnOrigin]);
   const returnOrigin = useCallback((): ReturnOrigin => resolveReturnOrigin(), [resolveReturnOrigin]);
 

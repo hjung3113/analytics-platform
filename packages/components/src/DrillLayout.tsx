@@ -1,6 +1,6 @@
 import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { useRef, type ReactNode } from 'react';
-import { PlatformLink, useDrill, useI18n, usePlatform } from '@ap/kernel';
+import { CONTEXT_LABELS, PlatformLink, useDrill, useI18n, usePlatform } from '@ap/kernel';
 import {
   Button, cn,
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger,
@@ -129,10 +129,13 @@ export function DrillLayout({ siblings, notFound, children }: DrillLayoutProps) 
 
 /** Return control (06 §22). The accessible name is the visible label, trail values included. */
 export function ReturnLink() {
-  const { returnOrigin, pageNavigation } = usePlatform();
-  const { tx } = useI18n();
+  const { returnOrigin, pageNavigation, toast } = usePlatform();
+  const { tx, t } = useI18n();
   const origin = returnOrigin();
   const trail = origin.trail.map(step => step.value).join(' › ');
   const text = trail ? `← ${tx(origin.menuLabel)} (${trail})` : `← ${tx(origin.menuLabel)}`;
-  return <Button asChild variant="secondary" size="sm"><PlatformLink href={origin.href} onNavigate={() => requestReturnFocus(pageNavigation, origin.href)}>{text}</PlatformLink></Button>;
+  return <Button asChild variant="secondary" size="sm"><PlatformLink href={origin.href} onNavigate={() => {
+    requestReturnFocus(pageNavigation, origin.href);
+    if (origin.revertedContext.length) toast(t('returnContextReverted', { items: origin.revertedContext.map(key => tx(CONTEXT_LABELS[key])).join(', ') }));
+  }}>{text}</PlatformLink></Button>;
 }
