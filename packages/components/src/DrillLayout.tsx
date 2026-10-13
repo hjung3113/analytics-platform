@@ -129,10 +129,10 @@ export function DrillLayout({ siblings, notFound, children }: DrillLayoutProps) 
 
 /** Return control (06 §22). The accessible name is the visible label, trail values included. */
 export function ReturnLink() {
-  const { returnOrigin } = usePlatform();
+  const { returnOrigin, pageNavigation } = usePlatform();
   const { tx } = useI18n();
   const origin = returnOrigin();
   const trail = origin.trail.map(step => step.value).join(' › ');
   const text = trail ? `← ${tx(origin.menuLabel)} (${trail})` : `← ${tx(origin.menuLabel)}`;
-  return <Button asChild variant="secondary" size="sm"><PlatformLink href={origin.href} onNavigate={() => requestReturnFocus(document, origin.href)}>{text}</PlatformLink></Button>;
+  return <Button asChild variant="secondary" size="sm"><PlatformLink href={origin.href} onNavigate={() => requestReturnFocus(pageNavigation, origin.href)}>{text}</PlatformLink></Button>;
 }

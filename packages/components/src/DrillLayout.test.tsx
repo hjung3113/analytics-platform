@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Session } from '@ap/contracts';
@@ -208,4 +208,83 @@ it.each(['loading', 'failure'])('uses the persistent page title when the drill b
   await settleFocus();
   expect(screen.getByRole('heading', { name: '생산성 개요' })).toHaveFocus();
   expect(screen.getByRole('status')).toHaveTextContent(state);
+});
+
+
+it.each(['preset', 'reset', 'history', 'setPage', 'navigate'])('preserves Context control focus after %s changes drill keys', async action => {
+  function ContextControls() {
+    const { setGlobal, resetContext, setPage, navigate } = usePlatform();
+    return <button aria-label="7일" onClick={() => {
+      if (action === 'preset') setGlobal({ from: '2026-10-01T00:00:00', to: '2026-10-08T00:00:00' });
+      if (action === 'reset') resetContext();
+      if (action === 'setPage') setPage({ drillRoom: null, drillStgroup: null });
+      if (action === 'navigate') navigate('/source?v=1');
+      if (action === 'history') {
+        window.history.replaceState(null, '', '/source?v=1&drillRoom=ETCH');
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      }
+    }}>7일</button>;
+  }
+  window.history.replaceState(null, '', '/source?v=1&drillRoom=PHOTO&drillStgroup=A&from=2026-09-01T00:00:00&to=2026-09-08T00:00:00');
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ contextBar: <ContextControls /> }}><PlatformPage><DrillLayout /></PlatformPage></PlatformProvider></I18nProvider>);
+  const preset = screen.getByRole('button', { name: '7일' });
+  preset.focus();
+  fireEvent.click(preset);
+  await settleFocus();
+  expect(preset).toHaveFocus();
+  expect(new URLSearchParams(window.location.search).get('drillStgroup')).toBeNull();
+});
+
+
+it.each(['defaults', 'metric defaults', 'other navigation', 'history', 'denied'])('binds cold ReturnLink focus to its navigation with %s', async action => {
+  const coldRegistry = createRegistry({
+    spaces: [testSpace()],
+    groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
+    menus: [
+      entry({ id: 'home', path: '/', primary: true }),
+      entry({ id: 'source', path: '/source', context: { ...noContext, time: 'apply' }, initializesMetric: action === 'metric defaults' }),
+      entry({ id: 'plain', path: '/plain' }),
+      entry({ id: 'detail', path: '/detail', parent: 'source', navHidden: true, pageKeys: ['returnTo'] }),
+    ],
+  });
+  const target = action === 'metric defaults' ? '/source?v=1&metricId=CT' : action === 'defaults' ? '/source?v=1' : '/source?v=1&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
+  function Routes() {
+    const { route, navigate, can } = usePlatform();
+    const [ready, setReady] = useState(false);
+    return <><button onClick={() => setReady(true)}>resolve destination</button>
+      <button onClick={() => navigate('/plain?v=1')}>other navigation</button>
+      <button onClick={() => navigate(target)}>revisit</button>
+      {route?.menu.id === 'detail' ? <PlatformPage key="detail"><ReturnLink /></PlatformPage>
+        : ready && can(route!.menu.permission) ? <PlatformPage key={route!.menu.id}>destination</PlatformPage> : null}</>;
+  }
+  // A denied route must cancel even while no PlatformPage can consume the request.
+  const deniedSession: Session = { ...session, user: { ...session.user, permissions: [] } };
+  let denied = action === 'denied';
+  const listeners = new Set<() => void>();
+  const coldAdapter = testAdapter({ publishedMetrics: () => [{ metricId: 'CT', publishedVersion: '7' }], session: () => denied ? deniedSession : session, subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); } });
+  window.history.replaceState(null, '', `/detail?v=1&returnTo=${encodeURIComponent(target)}`);
+  render(<I18nProvider><PlatformProvider adapter={coldAdapter} registry={coldRegistry}><Routes /></PlatformProvider></I18nProvider>);
+  const link = screen.getByRole('link', { name: /^←/ });
+  link.focus();
+  fireEvent.click(link);
+  expect(window.location.pathname).toBe('/source');
+  expect(new URLSearchParams(window.location.search).get('from')).not.toBeNull();
+  if (action === 'other navigation') {
+    fireEvent.click(screen.getByRole('button', { name: 'other navigation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'revisit' }));
+  }
+  if (action === 'history') {
+    act(() => {
+      window.history.replaceState(null, '', target);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+  }
+  act(() => { denied = false; for (const listener of listeners) listener(); });
+  const resolve = screen.getByRole('button', { name: 'resolve destination' });
+  resolve.focus();
+  fireEvent.click(resolve);
+  await settleFocus();
+  if (action === 'metric defaults') expect(new URLSearchParams(window.location.search).get('metricVersion')).toBe('7');
+  if (action === 'defaults' || action === 'metric defaults') expect(screen.getByRole('heading', { name: 'source' })).toHaveFocus();
+  else expect(resolve).toHaveFocus();
 });

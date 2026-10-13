@@ -1,9 +1,9 @@
 import { OutcomeBanners, OutcomeScope } from './OutcomeScope';
 import { ChevronRight, Loader2, MapPinOff, RotateCw, ServerCrash, Star } from 'lucide-react';
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
-import { type MenuEntry, PlatformLink, useDrill, useI18n, usePlatform } from '@ap/kernel';
+import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { Button, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
-import { consumeReturnFocus } from './pageFocus';
+import { consumePageFocus } from './pageFocus';
 import { StateMessage } from './StateView';
 
 export type PlatformPageProps = {
@@ -22,11 +22,8 @@ export type PlatformPageProps = {
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
 export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, dataTrustSummary, crumbs = [], children }: PlatformPageProps) {
-  const { route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots } = usePlatform();
+  const { route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation } = usePlatform();
   const { t, tx } = useI18n();
-  const drill = useDrill();
-  const stepIdentity = JSON.stringify(drill.levels.map(level => level.value));
-  const previousStep = useRef(stepIdentity);
   const heading = useRef<HTMLHeadingElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const stickyHeader = useRef<HTMLDivElement>(null);
@@ -41,14 +38,12 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
     return () => observer.disconnect();
   }, []);
   useLayoutEffect(() => {
-    const changed = previousStep.current !== stepIdentity;
-    previousStep.current = stepIdentity;
-    const returning = consumeReturnFocus(document);
-    if (changed || returning) {
+    const request = consumePageFocus(pageNavigation, pathname);
+    if (request) {
       const currentStep = root.current?.querySelector<HTMLElement>('[aria-current="step"]');
-      (changed ? currentStep ?? heading.current : heading.current)?.focus({ preventScroll: true });
+      (request === 'drill' ? currentStep ?? heading.current : heading.current)?.focus({ preventScroll: true });
     }
-  }, [stepIdentity, route?.menu.id]);
+  }, [url, pathname, pageNavigation]);
   const menu = route!.menu;
   const favoriteTarget = menu.navHidden ? null : menu;
   const isFavorite = favoriteTarget ? favorites.includes(favoriteTarget.id) : false;

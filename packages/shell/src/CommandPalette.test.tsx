@@ -243,3 +243,77 @@ it('falls back to platform main when the saved opener is removed', async () => {
   expect(screen.getByRole('main')).toHaveFocus();
   parent.insertBefore(opener, sibling);
 });
+
+
+it('restores the opener when the chosen result has the current URL', async () => {
+  mount();
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  await settleClose();
+  window.history.replaceState(null, '', '/home?v=1');
+  act(() => window.dispatchEvent(new PopStateEvent('popstate')));
+  const opener = screen.getByRole('button', { name: 'open palette' });
+  opener.focus();
+  fireEvent.click(opener);
+  fireEvent.click(screen.getByRole('option', { name: /홈/ }));
+  await settleClose();
+  expect(opener).toHaveFocus();
+});
+
+it.each(['shortcut', 'rail'])('records a fresh opener after selection and %s reopen during Presence exit', async via => {
+  const originalStyle = window.getComputedStyle.bind(window);
+  const animationStyle = (element: Element) => {
+    const style = originalStyle(element);
+    if (element.getAttribute('role') === 'dialog') return new Proxy(style, {
+      get: (target, key) => key === 'animationName' ? (element.getAttribute('data-state') === 'closed' ? 'exit' : 'enter')
+        : key === 'display' ? 'block' : Reflect.get(target, key),
+    });
+    return style;
+  };
+  vi.stubGlobal('getComputedStyle', animationStyle);
+  try {
+    mount(<input aria-label="new opener" />);
+    const content = screen.getByRole('dialog');
+    const reopenedAutofocus = vi.fn();
+    content.addEventListener('focusScope.autoFocusOnMount', reopenedAutofocus);
+    fireEvent.click(screen.getByRole('option', { name: /홈/ }));
+    expect(content).toBeInTheDocument();
+    expect(content).toHaveAttribute('data-state', 'closed');
+    const opener = via === 'rail' ? screen.getByRole('button', { name: 'open palette', hidden: true }) : screen.getByRole('textbox', { name: 'new opener', hidden: true });
+    opener.focus();
+    if (via === 'rail') fireEvent.click(opener);
+    else fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    expect(screen.getByRole('dialog')).toBe(content);
+    expect(reopenedAutofocus).not.toHaveBeenCalled();
+    screen.getByRole('combobox').focus();
+    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+    const end = new Event('animationend', { bubbles: true });
+    Object.defineProperty(end, 'animationName', { value: 'exit' });
+    fireEvent(content, end);
+    await settleClose();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(opener).toHaveFocus();
+  } finally { vi.restoreAllMocks(); }
+});
+
+
+it('ignores delayed close autofocus from an older opening generation', async () => {
+  mount(<input aria-label="new opener" />);
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  await settleClose();
+  const oldOpener = screen.getByRole('button', { name: 'open palette' });
+  oldOpener.focus();
+  fireEvent.click(oldOpener);
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  const newOpener = screen.getByRole('textbox', { name: 'new opener' });
+  newOpener.focus();
+  const oldFocus = vi.spyOn(oldOpener, 'focus');
+  try {
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    await settleClose();
+    expect(oldFocus).not.toHaveBeenCalled();
+    expect(screen.getByRole('combobox')).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+    await settleClose();
+    expect(newOpener).toHaveFocus();
+  } finally { oldFocus.mockRestore(); }
+});

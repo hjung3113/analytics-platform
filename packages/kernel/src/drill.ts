@@ -65,16 +65,17 @@ export function useDrill(): DrillState {
     if (index > depth) throw new Error(`drill enter "${key}" is past the next level`);
     const patch: Record<string, string | null> = { [key]: value };
     for (let i = index + 1; i < list.length; i += 1) patch[list[i]!.key] = null;
-    setPage(patch);
-  }, [declared, depth, setPage]);
+    const changed = levels.some(level => level.key in patch && level.value !== (patch[level.key] || null));
+    setPage(patch, changed ? { focus: 'drill' } : undefined);
+  }, [declared, depth, levels, setPage]);
 
   const goTo = useCallback((n: number) => {
     const list = declared ?? [];
     if (!Number.isInteger(n) || n < 0 || n > list.length) throw new Error(`drill goTo ${n} is outside 0..${list.length}`);
     const patch: Record<string, string | null> = {};
     for (let i = n; i < list.length; i += 1) patch[list[i]!.key] = null;
-    setPage(patch);
-  }, [declared, setPage]);
+    setPage(patch, levels.slice(n).some(level => level.value !== null) ? { focus: 'drill' } : undefined);
+  }, [declared, levels, setPage]);
 
   return { levels, depth, trail, invalid, enter, goTo };
 }

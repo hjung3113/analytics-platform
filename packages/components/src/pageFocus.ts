@@ -1,14 +1,10 @@
-// Internal handoff across ReturnLink unmount and the destination PlatformPage mount.
-// Document ownership keeps independent browser documents isolated.
-const returns = new WeakMap<Document, string>();
+import type { PageNavigation } from '@ap/kernel';
 
-export function requestReturnFocus(document: Document, href: string) {
-  returns.set(document, new URL(href, document.location.href).href);
+// ReturnLink calls this after its synchronous Kernel navigation, before the destination commits.
+export function requestReturnFocus(navigation: PageNavigation, href: string) {
+  navigation.requestReturn(href);
 }
 
-export function consumeReturnFocus(document: Document): boolean {
-  const destination = returns.get(document);
-  if (!destination) return false;
-  returns.delete(document);
-  return destination === document.location.href;
+export function consumePageFocus(navigation: PageNavigation, path: string) {
+  return navigation.consume(path);
 }

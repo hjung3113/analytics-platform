@@ -1,17 +1,15 @@
 import { CornerDownLeft, Search } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { type MenuEntry, useI18n, usePlatform } from '@ap/kernel';
 import type { Text } from '@ap/contracts';
 import { cn, Dialog, DialogContent, DialogTitle } from '@ap/ui';
 
 /** §10: menu navigation is the palette's base responsibility; entity search/action commands are Deferred. */
 export function CommandPalette() {
-  const { paletteOpen, setPaletteOpen, menusInSpace, accessibleSpaces, globalMenus, recent, navigate, linkTo, registry } = usePlatform();
+  const { paletteOpen, setPaletteOpen, paletteSession, isCurrentPaletteSession, menusInSpace, accessibleSpaces, globalMenus, recent, navigate, linkTo, registry } = usePlatform();
   const { t, tx, text, lang } = useI18n();
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
-  const opener = useRef<HTMLElement | null>(null);
-  const selecting = useRef(false);
   const platformLabel = text('palettePlatform');
 
   useEffect(() => {
@@ -52,25 +50,19 @@ export function CommandPalette() {
   const go = (index: number) => {
     const m = items[index];
     if (!m) return;
-    selecting.current = true;
+    if (navigate(linkTo(m.id))) paletteSession?.select();
     setPaletteOpen(false);
-    navigate(linkTo(m.id));
   };
 
   let index = 0;
   return <Dialog open={paletteOpen} onOpenChange={setPaletteOpen}>
       <DialogContent closeLabel={t('close')} aria-describedby={undefined}
         className="top-[12vh] w-[min(640px,92vw)] max-w-none translate-y-0 gap-0 overflow-hidden p-0"
-        onOpenAutoFocus={() => {
-          // This event precedes FocusScope's default input autofocus, including triggerless openings.
-          opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-          selecting.current = false;
-        }}
         onCloseAutoFocus={event => {
           event.preventDefault();
-          if (selecting.current) return;
-          const target = opener.current?.isConnected && opener.current !== document.body
-            ? opener.current : document.getElementById('platform-main');
+          if (!paletteSession || !isCurrentPaletteSession(paletteSession.generation) || paletteSession.isSelecting()) return;
+          const target = paletteSession.opener?.isConnected && paletteSession.opener !== document.body
+            ? paletteSession.opener : document.getElementById('platform-main');
           target?.focus({ preventScroll: true });
         }}>
         <DialogTitle className="sr-only">{t('goTo')}</DialogTitle>

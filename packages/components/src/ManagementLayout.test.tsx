@@ -204,3 +204,23 @@ it('keeps the focused detail and returns to the same table opener after the rail
   fireEvent.keyDown(close, { key: 'Escape' });
   expect(opener).toHaveFocus();
 });
+
+
+it.each(['rail', 'trigger', 'popover'])('does not consume pending %s focus after the user moves to the table', async source => {
+  if (source !== 'rail') width = 959;
+  render(<I18nProvider><ManagementLayout filter={<input aria-label="필터 입력" />}
+    table={slot => <>{slot}<button>표 동작</button></>} /></I18nProvider>);
+  if (source === 'popover') {
+    fireEvent.click(screen.getByRole('button', { name: '필터' }));
+    await screen.findByRole('dialog');
+  }
+  (source === 'trigger' ? screen.getByRole('button', { name: '필터' }) : screen.getByLabelText('필터 입력')).focus();
+  const table = screen.getByRole('button', { name: '표 동작' });
+  act(() => {
+    width = source === 'rail' ? 959 : 1200;
+    resize?.();
+    table.focus();
+  });
+  await act(() => new Promise(resolve => setTimeout(resolve, 30)));
+  expect(table).toHaveFocus();
+});
