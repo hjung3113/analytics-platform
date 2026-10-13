@@ -3,7 +3,8 @@ import { useI18n, usePlatform } from '@ap/kernel';
 /**
  * Clipboard text copy for link buttons (#300), chosen by feature detection — never by `.catch`: in an insecure
  * context (in-house HTTP) `navigator.clipboard` is undefined and touching it throws synchronously (06 §15).
- * Secure context: `navigator.clipboard.writeText`, called synchronously inside the gesture and awaited.
+ * Secure context: `navigator.clipboard.writeText`, called synchronously inside the gesture and awaited (a
+ * synchronous throw still resolves `false` — #300 Do 1: exceptions resolve false).
  * Otherwise a one-shot document capture `copy` listener fills `text/plain` and `execCommand('copy')` runs —
  * still synchronously inside the click, before any await, so the user gesture is not lost. The listener counts
  * as handled only when it actually set the data and cancelled the event; a command that copies nothing, a
@@ -12,7 +13,11 @@ import { useI18n, usePlatform } from '@ap/kernel';
  */
 export function copyText(text: string): Promise<boolean> {
   if (typeof window !== 'undefined' && window.isSecureContext && typeof navigator.clipboard?.writeText === 'function') {
-    return navigator.clipboard.writeText(text).then(() => true, () => false);
+    try {
+      return navigator.clipboard.writeText(text).then(() => true, () => false);
+    } catch {
+      return Promise.resolve(false); // the write threw synchronously before returning a promise
+    }
   }
   let handled = false;
   const onDocumentCopy = (e: ClipboardEvent) => {

@@ -23,19 +23,25 @@ function insecure() {
 }
 /**
  * `document.execCommand('copy')` as real Chromium runs it: the copy event is dispatched on `<body>` (bubbling,
- * cancelable), so a document-level capture listener receives it and fills `clipboardData`.
+ * cancelable), so a document-level capture listener receives it and fills `clipboardData`. The command's return
+ * value (`returns`) and whether the event fires are configured independently — a command can report success while
+ * dispatching nothing, exactly the case copyText must treat as failure.
  */
-function fakeExecCommand({ fires = true, clipboardData = true }: { fires?: boolean; clipboardData?: boolean } = {}) {
+function fakeExecCommand({ returns = true, fires = true, clipboardData = true }: { returns?: boolean; fires?: boolean; clipboardData?: boolean } = {}) {
   const data = new Map<string, string>();
+  const events: (Event & { clipboardData?: { setData: (t: string, v: string) => void } })[] = [];
   const execCommand = vi.fn((command: string) => {
-    if (command !== 'copy' || !fires) return false;
-    const event = new Event('copy', { bubbles: true, cancelable: true }) as Event & { clipboardData?: { setData: (t: string, v: string) => void } };
-    if (clipboardData) event.clipboardData = { setData: (t, v) => { data.set(t, v); } };
-    document.body.dispatchEvent(event);
-    return true;
+    if (command !== 'copy') return false;
+    if (fires) {
+      const event = new Event('copy', { bubbles: true, cancelable: true }) as Event & { clipboardData?: { setData: (t: string, v: string) => void } };
+      if (clipboardData) event.clipboardData = { setData: (t, v) => { data.set(t, v); } };
+      events.push(event);
+      document.body.dispatchEvent(event);
+    }
+    return returns;
   });
   Object.defineProperty(document, 'execCommand', { configurable: true, value: execCommand });
-  return { data, execCommand };
+  return { data, events, execCommand };
 }
 function throwingExecCommand() {
   const execCommand = vi.fn(() => { throw new Error('execCommand blew up'); });
@@ -69,15 +75,18 @@ describe('copyText (#300)', () => {
 
   it('(c) insecure context: execCommand that fires a copy event carrying the exact text/plain resolves true', async () => {
     insecure();
-    const { data } = fakeExecCommand();
+    const { data, events } = fakeExecCommand();
     await expect(copyText('link-text')).resolves.toBe(true);
     expect(data.get('text/plain')).toBe('link-text');
+    expect(events).toHaveLength(1);
+    expect(events[0]?.defaultPrevented).toBe(true); // the listener must cancel the event, not only fill it
   });
 
   it('(d) insecure context: execCommand true without a copy event — or an event without clipboardData — resolves false', async () => {
     insecure();
-    const silent = fakeExecCommand({ fires: false });
+    const silent = fakeExecCommand({ fires: false }); // command succeeds but dispatches no copy event
     await expect(copyText('x')).resolves.toBe(false);
+    expect(silent.execCommand).toHaveReturnedWith(true);
     expect(silent.data.size).toBe(0);
     const bare = fakeExecCommand({ clipboardData: false });
     await expect(copyText('x')).resolves.toBe(false);
@@ -94,13 +103,21 @@ describe('copyText (#300)', () => {
     await copyText('x'); // success
     expect(copyListeners(removeSpy)).toEqual(copyListeners(addSpy));
 
-    fakeExecCommand({ fires: false });
+    fakeExecCommand({ returns: false, fires: false });
     await copyText('x'); // refusal
     expect(copyListeners(removeSpy)).toEqual(copyListeners(addSpy));
 
     throwingExecCommand();
     await expect(copyText('x')).resolves.toBe(false); // exception
     expect(copyListeners(removeSpy)).toEqual(copyListeners(addSpy));
+  });
+
+  it('(f) secure context: a writeText that throws synchronously resolves false, not a thrown exception', async () => {
+    const writeText = vi.fn(() => { throw new Error('writeText blew up'); });
+    Object.defineProperty(window, 'isSecureContext', { configurable: true, value: true });
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    await expect(copyText('x')).resolves.toBe(false);
+    expect(writeText).toHaveBeenCalledWith('x');
   });
 });
 
@@ -165,6 +182,17 @@ describe('useCopyLink (#300)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'copy-link' }));
     await waitFor(() => expect(screen.getByTestId("toast-probe")).toHaveTextContent(`warning:${FAILURE}`));
     expect(screen.getByTestId("toast-probe")).not.toHaveTextContent(SUCCESS);
+  });
+
+  it('a writeText that throws synchronously shows only the warning — no success toast, no escaping error', async () => {
+    const writeText = vi.fn(() => { throw new Error('writeText blew up'); });
+    Object.defineProperty(window, 'isSecureContext', { configurable: true, value: true });
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    mountHook();
+    expect(() => fireEvent.click(screen.getByRole('button', { name: 'copy-link' }))).not.toThrow();
+    await waitFor(() => expect(screen.getByTestId("toast-probe")).toHaveTextContent(`warning:${FAILURE}`));
+    expect(screen.getByTestId("toast-probe")).not.toHaveTextContent(SUCCESS);
+    await act(async () => {}); // let the promise chain settle; vitest fails the run on any unhandled rejection
   });
 
   it('an unsupported environment (no clipboard, execCommand refuses) shows only the warning', async () => {
