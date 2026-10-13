@@ -295,6 +295,9 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const virtual = useVirtualizer({ count: rows.length, getScrollElement: () => viewport.current, estimateSize: () => 32, overscan: 8, getItemKey: i => rows[i].id });
   const selectedIds = Object.keys(selection).filter(k => selection[k]);
   const pageCount = Math.max(1, Math.ceil(data.total / pageSize));
+  // 06 §19: a failed lookup (error·timeout·forbidden·too_large) is not a zero — only a successful
+  // response (ok, or empty which IS a successful zero) may state a count or offer pages.
+  const success = shown !== null && (shown.outcome === 'ok' || shown.outcome === 'empty');
 
   function cellStyle(column: Column<T>): CSSProperties {
     const pinned = column.getIsPinned();
@@ -663,7 +666,9 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     </div>}
 
     <div className="flex min-h-7 items-center justify-between gap-2 border-t border-border-subtle px-3 py-1 text-xs text-text-muted" aria-live="polite">
-      <span className="tabular">{shown ? (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${shownPage + 1}/${pageCount} 페이지` : `${data.total.toLocaleString()} results · page ${shownPage + 1}/${pageCount}`) : t('loading')}</span>
+      <span className="tabular">{shown ? (success
+        ? (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${shownPage + 1}/${pageCount} 페이지` : `${data.total.toLocaleString()} results · page ${shownPage + 1}/${pageCount}`)
+        : '—') : t('loading')}</span>
       <span className="flex items-center gap-2">
         {loading && shown && <span role="status" className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}</span>}
         {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} className="min-h-6" />}
@@ -715,14 +720,14 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       </div>}
 
     <div className="flex items-center justify-end gap-2 border-t border-border-subtle p-2">
-      <Button variant="secondary" size="toolbar" disabled={loading || effectivePage === 0}
+      <Button variant="secondary" size="toolbar" disabled={loading || !success || effectivePage === 0}
         onClick={() => {
           // zero-based target; controlled mode reports 1-based with null = page 1 (§6.1).
           if (p.urlState) p.urlState.onChange({ sorting: p.urlState.sorting, page: effectivePage === 1 ? null : effectivePage }, 'user');
           else setPage(effectivePage - 1);
           if (viewport.current) viewport.current.scrollTop = 0;
         }}>{lang === 'ko' ? '이전' : 'Previous'}</Button>
-      <Button variant="secondary" size="toolbar" disabled={loading || effectivePage + 1 >= pageCount}
+      <Button variant="secondary" size="toolbar" disabled={loading || !success || effectivePage + 1 >= pageCount}
         onClick={() => {
           if (p.urlState) p.urlState.onChange({ sorting: p.urlState.sorting, page: effectivePage + 2 }, 'user');
           else setPage(effectivePage + 1);

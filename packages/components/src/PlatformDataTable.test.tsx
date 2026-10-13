@@ -1030,3 +1030,36 @@ describe('Action DOM identity (#296)', () => {
   });
 
 });
+
+describe('Failed responses claim neither a count nor a page (#299 B-07, 06 §19)', () => {
+  const fail = (outcome: 'error' | 'timeout' | 'forbidden' | 'too_large') =>
+    vi.fn(async (_q: PageQuery): Promise<ApiResponse<PageResult<Row>>> =>
+      ({ outcome, data: null, assessments: [], trust: null, correlationId: 'c', message: 'fixture failure' }));
+
+  // page={2}: on page 1 Previous is disabled anyway, so only page 2 catches a missing pager fix.
+  it.each([
+    ['error', '데이터를 불러오지 못했습니다'],
+    ['timeout', '조회 시간이 초과되었습니다'],
+    ['forbidden', '이 Scope에 접근 권한이 없습니다'],
+    ['too_large', '조회 범위가 너무 큽니다'],
+  ] as const)('%s hides the count/page phrase and keeps both pager buttons from reporting a page', async (outcome, title) => {
+    const onChange = vi.fn();
+    render(<Harness page={2} sorting={[]} onChange={onChange} loadPage={fail(outcome)} />);
+    expect(await screen.findByText(title)).toBeTruthy(); // the failure state replaced the viewport
+    expect(screen.queryByText(/건 · \d+\/\d+ 페이지/)).toBeNull();
+    expect(screen.queryByText(/results · page \d+\/\d+/)).toBeNull();
+    const prev = screen.getByRole('button', { name: '이전' });
+    expect(prev).toBeDisabled();
+    fireEvent.click(prev);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '다음' })).toBeDisabled();
+  });
+
+  it.each<[string, ApiResponse<PageResult<Row>>]>([
+    ['empty', { outcome: 'empty', data: { rows: [], total: 0 }, assessments: [], trust: null, correlationId: 'c' }],
+    ['ok total 0', { outcome: 'ok', data: { rows: [], total: 0 }, assessments: [], trust: null, correlationId: 'c' }],
+  ])('a successful zero (%s) keeps 0건 · 1/1 페이지', async (_kind, response) => {
+    render(<Harness page={null} sorting={[]} onChange={vi.fn()} loadPage={async () => response} />);
+    expect(await screen.findByText('0건 · 1/1 페이지')).toBeTruthy();
+  });
+});

@@ -599,6 +599,35 @@ test.describe('셸 고정 상세 슬롯 (06 §13, ADR-0013)', () => {
       await evidence(page, testInfo, `docked-detail-closed-${width}`);
     });
   }
+
+  test('상세를 닫으면 상세 전용 tab도 같이 지워지고 목록 필터·전역 Context는 유지된다 (#299 B-05)', async ({ page }) => {
+    await page.goto('/equipment?v=1&scopeId=ICH');
+    const row = page.getByRole('main').locator('[data-row-id]').first();
+    await expect(row).toBeVisible();
+    const focus = await row.getAttribute('data-row-id');
+
+    await page.goto(`/equipment?v=1&scopeId=ICH&q=PHOTO&focus=${focus}&tab=validity`);
+    const dialog = page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('tab', { name: '유효구간 이력' })).toHaveAttribute('aria-selected', 'true');
+
+    // 닫기 버튼 경로.
+    await dialog.getByRole('button', { name: '상세 닫기' }).click();
+    await expect.poll(() => query(page).has('focus')).toBe(false);
+    await expect.poll(() => query(page).has('tab')).toBe(false);
+    expect(query(page).get('q')).toBe('PHOTO');
+    expect(query(page).get('scopeId')).toBe('ICH');
+
+    // 패널 Esc 경로: 같은 딥링크로 다시 열어 패널 안에서 닫는다.
+    await page.goto(`/equipment?v=1&scopeId=ICH&q=PHOTO&focus=${focus}&tab=validity`);
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: '상세 닫기' }).focus();
+    await page.keyboard.press('Escape');
+    await expect.poll(() => query(page).has('focus')).toBe(false);
+    await expect.poll(() => query(page).has('tab')).toBe(false);
+    expect(query(page).get('q')).toBe('PHOTO');
+    expect(query(page).get('scopeId')).toBe('ICH');
+  });
 });
 
 test.describe('메뉴 간 Context 보존과 미적용 표시 (06 §6, §22)', () => {
