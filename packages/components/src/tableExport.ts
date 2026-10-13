@@ -52,7 +52,13 @@ function guardFormula(text: string): string {
 
 /** UTF-8 BOM + CRLF + RFC 4180. The BOM keeps Korean readable in Excel. */
 export function toCsv(headers: string[], rows: (string | number)[][]): string {
-  return '\uFEFF' + [headers, ...rows].map(row => row.map(cell => csvField(cell, ',')).join(',')).join('\r\n') + '\r\n';
+  return toCsvDocument(null, headers, rows);
+}
+
+/** Chart CSV (#297): the same framing with one leading `#` meta line before the header. The meta line is quoted like any field, so a title holding a comma stays one cell. */
+export function toCsvDocument(meta: string | null, headers: string[], rows: (string | number)[][]): string {
+  return '\uFEFF' + (meta === null ? '' : csvField(meta, ',') + '\r\n')
+    + [headers, ...rows].map(row => row.map(cell => csvField(cell, ',')).join(',')).join('\r\n') + '\r\n';
 }
 
 /** Clipboard TSV (#174): same coercion and guard; quote a value only when it holds a quote, tab or newline. */

@@ -19,7 +19,7 @@ type CapturedSeries = {
   markLine?: { lineStyle?: { color?: string }; label?: { color?: string; position?: string } };
 };
 let plottedSeries: CapturedSeries[] = [];
-let plottedBrush: { brushStyle?: { borderColor?: string } } | undefined;
+let plottedBrush: { brushStyle?: { color?: string; borderColor?: string } } | undefined;
 
 /** Stand-in plot: one button plays a Brush selection over the whole series. */
 function FakePlot(props: EChartProps): ReactElement {
@@ -83,7 +83,7 @@ function mount(
 }
 const brushAndOpenNote = async () => {
   fireEvent.click(await screen.findByText('fake-brush'));
-  fireEvent.click(await screen.findByRole('button', { name: 'Annotate' }));
+  fireEvent.click(await screen.findByRole('button', { name: '주석' }));
 };
 
 let errorSpy: ReturnType<typeof vi.spyOn>;
@@ -94,12 +94,12 @@ describe('AnalysisChartFrame follows the menu manifest features (06 §16, issue 
   it('offers no Compare, Annotate or Export when the menu declares none, and never reads annotations', async () => {
     const f = fixture();
     mount(f.adapter, off);
-    await screen.findByRole('button', { name: 'Brush' });
-    expect(screen.queryByRole('button', { name: 'Compare' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Annotate' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Export' })).toBeNull();
-    // Zoom, Brush, Reset are not manifest-gated.
-    expect(screen.getByRole('button', { name: 'Brush' })).toBeTruthy();
+    await screen.findByRole('button', { name: '구간 선택' });
+    expect(screen.queryByRole('button', { name: '비교' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '주석' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
+    // 확대·구간 선택·초기화는 manifest 게이트가 아니다.
+    expect(screen.getByRole('button', { name: '구간 선택' })).toBeTruthy();
     expect(f.list).not.toHaveBeenCalled();
   });
 
@@ -114,7 +114,7 @@ describe('AnalysisChartFrame follows the menu manifest features (06 §16, issue 
 
   it('keeps same-data table column headers readable on sunken', async () => {
     mount(fixture().adapter, off);
-    fireEvent.click(await screen.findByRole('button', { name: 'More' }));
+    fireEvent.click(await screen.findByRole('button', { name: '더보기' }));
     fireEvent.click(await screen.findByRole('button', { name: '같은 데이터를 표로 보기' }));
     const headers = within(await screen.findByRole('table')).getAllByRole('columnheader');
     expect(headers).toHaveLength(2);
@@ -127,9 +127,9 @@ describe('AnalysisChartFrame follows the menu manifest features (06 §16, issue 
 
   it('offers all three when the menu declares them', async () => {
     mount(fixture().adapter, on);
-    expect(await screen.findByRole('button', { name: 'Compare' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Annotate' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Export' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: '비교' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '주석' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '내보내기' })).toBeTruthy();
   });
 });
 
@@ -169,18 +169,149 @@ describe('chart stroke aliases (#203)', () => {
       }
     }
   });
+
+  it('derives the brush fill from the chart-blue token and keeps the border on the stroke alias (#297)', async () => {
+    const root = document.documentElement;
+    const names = ['--chart-blue', '--chart-blue-stroke'];
+    const previous = new Map(names.map(name => [name, root.style.getPropertyValue(name)]));
+    root.style.setProperty('--chart-blue', '59 156 255');
+    root.style.setProperty('--chart-blue-stroke', '37 119 204');
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    try {
+      render(<I18nProvider><PlatformProvider adapter={fixture().adapter} registry={registryWith(off)}>
+        <AnalysisChartFrame chartId="chart-brush-fill" title="Brush fill" unit="ea" series={series} />
+      </PlatformProvider></I18nProvider>);
+      await screen.findByText('fake-brush');
+      expect(plottedBrush?.brushStyle?.color).toBe('rgba(59,156,255,0.12)');
+      expect(plottedBrush?.brushStyle?.borderColor).toBe('rgb(37,119,204)');
+    } finally {
+      for (const [name, value] of previous) {
+        if (value) root.style.setProperty(name, value); else root.style.removeProperty(name);
+      }
+    }
+  });
+});
+
+describe('data table and CSV share one x-union row projection (#297)', () => {
+  const spread: ChartSeries[] = [
+    { id: 'a', name: 'rate, %', color: 'chart-blue', points: [['2026-10-02T00:00:00', 10]] },
+    { id: 'b', name: 'say "hi"', color: 'chart-teal', points: [['2026-10-01T00:00:00', 20]] },
+    { id: 'c', name: '행\n분리', color: 'chart-purple', points: [['2026-10-03T00:00:00', null]] },
+  ];
+  // jsdom Blob has no .text(); readAsText goes through the UTF-8 decoder and consumes the BOM, so the BOM is
+  // asserted from raw leading bytes — same approach as PlatformDataTable.test.tsx.
+  const blobText = (blob: Blob) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(blob);
+  });
+  const blobStartsWithBom = (blob: Blob) => new Promise<boolean>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer).slice(0, 3).toString() === '239,187,191');
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(blob);
+  });
+
+  it('shows each series under its own date instead of the first series indexes', async () => {
+    mount(fixture().adapter, off, '/?v=1&scopeId=ICH', { series: spread });
+    fireEvent.click(await screen.findByRole('button', { name: '더보기' }));
+    fireEvent.click(await screen.findByRole('button', { name: '같은 데이터를 표로 보기' }));
+    const rows = within(await screen.findByRole('table')).getAllByRole('row');
+    expect(rows).toHaveLength(4);
+    const cells = (row: HTMLElement) => within(row).getAllByRole('cell').map(cell => cell.textContent);
+    expect(cells(rows[1])).toEqual(['2026-10-01 00:00', '—', '20', '—']);
+    expect(cells(rows[2])).toEqual(['2026-10-02 00:00', '10', '—', '—']);
+    // A null point is unknown, never 0.
+    expect(cells(rows[3])).toEqual(['2026-10-03 00:00', '—', '—', '—']);
+  });
+
+  it('exports the same projection with RFC 4180 cells and bare numbers', async () => {
+    const blobs: Blob[] = [];
+    const create = URL.createObjectURL;
+    const revoke = URL.revokeObjectURL;
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    URL.createObjectURL = (blob: Blob) => { blobs.push(blob); return 'blob:test'; };
+    URL.revokeObjectURL = () => {};
+    try {
+      mount(fixture().adapter, on, '/?v=1&scopeId=ICH', { series: spread });
+      fireEvent.click(await screen.findByRole('button', { name: '내보내기' }));
+      expect(blobs).toHaveLength(1);
+      await expect(blobStartsWithBom(blobs[0])).resolves.toBe(true);
+      await expect(blobText(blobs[0])).resolves.toBe(
+        '# Chart · scopeId=ICH · from= · to=\r\n'
+        + 'x,"rate, %","say ""hi""","행\n분리"\r\n'
+        + '2026-10-01T00:00:00,,20,\r\n'
+        + '2026-10-02T00:00:00,10,,\r\n'
+        + '2026-10-03T00:00:00,,,\r\n',
+      );
+    } finally {
+      URL.createObjectURL = create;
+      URL.revokeObjectURL = revoke;
+      click.mockRestore();
+    }
+  });
+
+  it('follows series visibility: hidden series lose their column and their x joins the union', async () => {
+    const sparse: ChartSeries[] = [
+      { id: 'a', name: 'A', color: 'chart-blue', points: [['2026-10-01T00:00:00', 0]] },
+      { id: 'b', name: 'B', color: 'chart-teal', points: [['2026-10-01T00:00:00', null], ['2026-10-02T00:00:00', 3]] },
+    ];
+    mount(fixture().adapter, off, '/?v=1&scopeId=ICH', { series: sparse });
+    fireEvent.click(await screen.findByRole('button', { name: '더보기' }));
+    fireEvent.click(await screen.findByRole('button', { name: '같은 데이터를 표로 보기' }));
+    const table = await screen.findByRole('table');
+    expect(within(table).getAllByRole('columnheader').map(h => h.textContent)).toEqual(['x', 'A', 'B']);
+    // 0 is a value; only null renders as —.
+    expect(within(table).getAllByRole('row')[1].textContent).toContain('0');
+    fireEvent.click(within(screen.getByRole('group', { name: '범례' })).getByRole('checkbox', { name: 'A' }));
+    await waitFor(() => expect(within(screen.getByRole('table')).getAllByRole('columnheader').map(h => h.textContent)).toEqual(['x', 'B']));
+    const rows = within(screen.getByRole('table')).getAllByRole('row');
+    expect(rows).toHaveLength(3);
+    expect(within(rows[1]).getAllByRole('cell').map(cell => cell.textContent)).toEqual(['2026-10-01 00:00', '—']);
+    expect(within(rows[2]).getAllByRole('cell').map(cell => cell.textContent)).toEqual(['2026-10-02 00:00', '3']);
+  });
+});
+
+describe('range apply confirmation stays an inline named group (#297)', () => {
+  it('opens as a named group, never an alertdialog, and cancels in place', async () => {
+    mount(fixture().adapter, off);
+    fireEvent.click(await screen.findByText('fake-brush'));
+    const summary = screen.getByRole('region', { name: '선택 요약' });
+    fireEvent.click(within(summary).getByRole('button', { name: '분석 구간 적용…' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    const confirmRow = within(summary).getByRole('group', { name: '구간 적용 확인' });
+    expect(confirmRow).toBeTruthy();
+    fireEvent.click(within(confirmRow).getByRole('button', { name: '취소' }));
+    expect(within(summary).queryByRole('group', { name: '구간 적용 확인' })).toBeNull();
+  });
+});
+
+describe('toolbar speaks the UI language (#302, #297)', () => {
+  it('labels the chart actions and the popover terms in Korean in Korean mode', async () => {
+    mount(fixture().adapter, on);
+    const toolbar = await screen.findByRole('toolbar', { name: '차트 동작' });
+    for (const name of ['확대', '구간 선택', '초기화', '비교', '주석', '내보내기', '더보기']) {
+      expect(within(toolbar).getByRole('button', { name })).toBeTruthy();
+    }
+    // No selection yet: the annotate hint names the Brush action in Korean too.
+    expect(within(toolbar).getByRole('button', { name: '주석' })).toHaveAttribute('title', '구간 선택으로 구간을 먼저 선택하세요');
+    fireEvent.click(within(toolbar).getByRole('button', { name: '더보기' }));
+    expect(await screen.findByText(/확대·구간 선택·시리즈 표시·비교는/)).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: '선택 요약' })).getByText(/구간 선택으로 구간을 선택하면/)).toBeTruthy();
+  });
 });
 
 describe('chart legend and comparison encoding (#207)', () => {
   it('keeps a plain legend with Compare off and groups current and previous series when Compare is on', async () => {
     mount(fixture().adapter, on);
-    await screen.findByRole('button', { name: 'Compare' });
+    await screen.findByRole('button', { name: '비교' });
 
     const legend = screen.getByRole('group', { name: '범례' });
     expect(within(legend).queryByText('현재 기간')).toBeNull();
     expect(within(legend).queryByText('이전 기간')).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Compare' }));
+    fireEvent.click(screen.getByRole('button', { name: '비교' }));
     const current = await screen.findByRole('group', { name: '현재 기간' });
     const previous = screen.getByRole('group', { name: '이전 기간' });
     const currentHeading = within(current).getByText('현재 기간');
@@ -192,7 +323,7 @@ describe('chart legend and comparison encoding (#207)', () => {
     expect(within(current).getByText('S1', { selector: 'label' })).toBeTruthy();
     expect(within(previous).getByText('S2', { selector: 'label' })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Compare' }));
+    fireEvent.click(screen.getByRole('button', { name: '비교' }));
     await waitFor(() => {
       expect(screen.queryByRole('group', { name: '현재 기간' })).toBeNull();
       expect(screen.queryByRole('group', { name: '이전 기간' })).toBeNull();
@@ -203,7 +334,7 @@ describe('chart legend and comparison encoding (#207)', () => {
 
   it('removes a previous-period series from the plot when its legend checkbox is cleared', async () => {
     mount(fixture().adapter, on);
-    fireEvent.click(await screen.findByRole('button', { name: 'Compare' }));
+    fireEvent.click(await screen.findByRole('button', { name: '비교' }));
     await waitFor(() => expect(plottedSeries.some(item => item.id === 's2')).toBe(true));
 
     fireEvent.click(within(screen.getByRole('group', { name: '이전 기간' })).getByRole('checkbox', { name: 'S2' }));
@@ -212,14 +343,14 @@ describe('chart legend and comparison encoding (#207)', () => {
 
   it('does not render period headings when Compare is unavailable or has no previous series', async () => {
     mount(fixture().adapter, off);
-    await screen.findByRole('button', { name: 'Brush' });
+    await screen.findByRole('button', { name: '구간 선택' });
     expect(screen.queryByText('현재 기간')).toBeNull();
     expect(screen.queryByText('이전 기간')).toBeNull();
 
     cleanup();
     mount(fixture().adapter, on, '/?v=1&scopeId=ICH', { compareSeries: [] });
-    await screen.findByRole('button', { name: 'Brush' });
-    expect(screen.queryByRole('button', { name: 'Compare' })).toBeNull();
+    await screen.findByRole('button', { name: '구간 선택' });
+    expect(screen.queryByRole('button', { name: '비교' })).toBeNull();
     expect(screen.queryByText('현재 기간')).toBeNull();
     expect(screen.queryByText('이전 기간')).toBeNull();
   });
@@ -233,7 +364,7 @@ describe('chart legend and comparison encoding (#207)', () => {
     }));
     const previous = many.slice(0, 2).map((item, index) => ({ ...item, id: `previous-${index}`, name: `Previous ${index + 1}` }));
     mount(fixture().adapter, on, '/?v=1&scopeId=ICH', { series: many, compareSeries: previous });
-    fireEvent.click(await screen.findByRole('button', { name: 'Compare' }));
+    fireEvent.click(await screen.findByRole('button', { name: '비교' }));
 
     const legend = screen.getByRole('group', { name: '범례' });
     expect(legend.querySelector('[data-period-legend-grid]')).toBeNull();
@@ -267,7 +398,7 @@ describe('chart legend and comparison encoding (#207)', () => {
         ],
         markLines: [{ y: 12, label: 'P95 reference' }],
       });
-      fireEvent.click(await screen.findByRole('button', { name: 'Compare' }));
+      fireEvent.click(await screen.findByRole('button', { name: '비교' }));
       await screen.findByText('fake-brush');
 
       const plotted = (id: string) => plottedSeries.find(item => item.id === id);
@@ -340,7 +471,7 @@ describe('chart annotations are keyed by chart and Scope (06 §16 layer 4)', () 
     const f = fixture();
     mount(f.adapter, on, '/?v=1');
     fireEvent.click(await screen.findByText('fake-brush'));
-    expect((await screen.findByRole('button', { name: 'Annotate' })).hasAttribute('disabled')).toBe(true);
+    expect((await screen.findByRole('button', { name: '주석' })).hasAttribute('disabled')).toBe(true);
     expect(f.list).not.toHaveBeenCalled();
     expect(f.save).not.toHaveBeenCalled();
   });
@@ -368,7 +499,7 @@ describe('chart annotations are keyed by chart and Scope (06 §16 layer 4)', () 
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
     await waitFor(() => expect(f.save).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole('button', { name: '취소' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Annotate' }));
+    fireEvent.click(screen.getByRole('button', { name: '주석' }));
     fireEvent.change(screen.getByLabelText('주석 내용'), { target: { value: '메모 B' } });
     await act(async () => { release(); });
     await waitFor(() => expect(f.list.mock.calls.length).toBeGreaterThan(1));

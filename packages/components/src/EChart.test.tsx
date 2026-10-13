@@ -60,8 +60,8 @@ describe('EChart lazy chunk readiness (P1)', () => {
     </PlatformProvider></I18nProvider>);
     expect(screen.queryByTestId('chart-plot')).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Brush' }));
-    expect(screen.getByRole('button', { name: 'Brush' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
+    expect(screen.getByRole('button', { name: '구간 선택' })).toHaveAttribute('aria-pressed', 'true');
 
     await screen.findByTestId('chart-plot', {}, { timeout: 2000 });
     await waitFor(() => expect(implState.instances[0].dispatchAction).toHaveBeenCalledWith({

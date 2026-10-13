@@ -3,8 +3,8 @@ import * as echarts from 'echarts/core';
 import { BarChart, LineChart, PieChart, ScatterChart } from 'echarts/charts';
 import { BrushComponent, DataZoomComponent, GridComponent, MarkAreaComponent, MarkLineComponent, ToolboxComponent, TooltipComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
-import type { ECharts } from 'echarts/core';
-import { cn } from '@ap/ui';
+import type { ECharts, EChartsCoreOption } from 'echarts/core';
+import { cn, prefersReducedMotion } from '@ap/ui';
 import { baseTextStyle, type EChartProps } from './EChart';
 
 echarts.use([LineChart, BarChart, PieChart, ScatterChart, GridComponent, TooltipComponent, DataZoomComponent, BrushComponent, ToolboxComponent, MarkAreaComponent, MarkLineComponent, CanvasRenderer]);
@@ -30,7 +30,15 @@ export default function EChartImpl({ option, height = 280, onEvents, onReady, ar
   useEffect(() => {
     const instance = chart.current;
     if (!instance) return;
-    instance.setOption({ textStyle: baseTextStyle, animationDuration: 120, useUTC: true, ...option }, { notMerge: true });
+    const merged: EChartsCoreOption = { textStyle: baseTextStyle, animationDuration: 120, useUTC: true, ...option };
+    // Canvas never sees the CSS reduced-motion rules (06 §26), so the OS preference is enforced here, re-read on
+    // every setOption and applied after the consumer merge: a series-level `animation` beats the global flag
+    // (echarts 6.1 Series.js), so both are forced off. With motion allowed the consumer settings pass through.
+    if (prefersReducedMotion()) {
+      merged.animation = false;
+      if (Array.isArray(merged.series)) merged.series = merged.series.map((series: { animation?: boolean }) => ({ ...series, animation: false }));
+    }
+    instance.setOption(merged, { notMerge: true });
   }, [option]);
 
   useEffect(() => {

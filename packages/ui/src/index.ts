@@ -14,6 +14,8 @@ export * from './components/shadcn/skeleton';
 export * from './components/shadcn/tabs';
 export * from './components/shadcn/tooltip';
 export { cn } from '@fops/ui';
+// First consumer: EChartImpl forces echarts canvas animation off under the OS preference (#297, 06 §26).
+export { prefersReducedMotion } from '@fops/ui';
 export { isProductionEnv } from './utils/isProductionEnv';
 
 export { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from './DetailPanelSlot';
