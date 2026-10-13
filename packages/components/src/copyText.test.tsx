@@ -7,7 +7,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Session } from '@ap/contracts';
-import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
+import { createBasePathLocation, I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { copyText, useCopyLink } from './copyText';
 import { noContext, testAdapter, testSpace } from './test-support';
 
@@ -202,5 +202,12 @@ describe('useCopyLink (#300)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'copy-link' }));
     await waitFor(() => expect(screen.getByTestId("toast-probe")).toHaveTextContent(`warning:${FAILURE}`));
     expect(screen.getByTestId("toast-probe")).not.toHaveTextContent(SUCCESS);
+  });
+
+  it('copies an absolute link with the injected deployment base', async () => {
+    const clipboard = secureClipboard();
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} location={createBasePathLocation('/analytics-platform/demo/')}><HookHarness /></PlatformProvider></I18nProvider>);
+    fireEvent.click(screen.getByRole('button', { name: 'copy-link' }));
+    await waitFor(() => expect(clipboard.writeText).toHaveBeenCalledWith(window.location.origin + '/analytics-platform/demo/metrics/m1'));
   });
 });

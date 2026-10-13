@@ -30,6 +30,7 @@ function assemblyAlias(mode: string, isPreview: boolean): Record<string, string>
 const guardGraph = (mode: string): boolean => !MOCK_MODES.has(mode);
 
 export default defineConfig(({ mode, isPreview = false }) => ({
+  base: process.env.AP_BASE_PATH ?? '/',
   plugins: [tailwindcss(), ...(guardGraph(mode) ? [prodGraphGuard()] : [])],
   resolve: { alias: assemblyAlias(mode, isPreview) },
   test: { environment: 'jsdom', setupFiles: ['./src/test-setup.ts'] },

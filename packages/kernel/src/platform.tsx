@@ -1,3 +1,4 @@
+import { createBrowserLocation, type PlatformLocation } from './location';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createPageNavigation, type PageFocus, type PageNavigation } from './pageNavigation';
 import { classifyMetricInit, type MetricInit } from './metric-init';
@@ -40,6 +41,8 @@ type Platform = {
   registry: Registry;
   /** For platform layers (shell) that query the server directly; pages go through their own api seam. */
   adapter: PlatformAdapter;
+  location: PlatformLocation;
+  absoluteUrl: (url: string) => string;
   url: string;
   pathname: string;
   route: { menu: MenuEntry; params: Record<string, string> } | null;
@@ -187,7 +190,7 @@ function writeSpaceLast(userId: string, spaceId: string, url: string) {
   } catch { /* memory-only */ }
 }
 
-function currentUrl() { return window.location.pathname + window.location.search; }
+const browserLocation = createBrowserLocation();
 
 function counterStore(adapter: PlatformAdapter) {
   let n = 0;
@@ -197,7 +200,7 @@ function counterStore(adapter: PlatformAdapter) {
 /** Fallback tab-session id when sessionStorage is unavailable (privacy mode, tests). One per JS runtime. */
 let fallbackUsageSession: string | null = null;
 
-export function PlatformProvider({ adapter, registry, slots = {}, children }: { adapter: PlatformAdapter; registry: Registry; slots?: PlatformSlots; children: ReactNode }) {
+export function PlatformProvider({ adapter, registry, location = browserLocation, slots = {}, children }: { location?: PlatformLocation; adapter: PlatformAdapter; registry: Registry; slots?: PlatformSlots; children: ReactNode }) {
   const { matchRoute, menuById, safeReturnTo } = registry;
   // Bound here so class-based adapters keep their receiver when React calls these.
   const sessionStore = useMemo(() => ({ subscribe: (l: () => void) => adapter.subscribe(l), get: () => adapter.session() }), [adapter]);
@@ -206,7 +209,7 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   const revision = useSyncExternalStore(revisions.subscribe, revisions.get);
   const user = session.user;
   const userId = user.id;
-  const [url, setUrl] = useState(currentUrl);
+  const [url, setUrl] = useState(() => location.read() ?? '');
   const [pageNavigation] = useState(() => createPageNavigation(url));
   const [favorites, setFavorites] = useState<string[]>(() => read(`platform:favorites:${userId}`, [] as string[]));
   const [recent, setRecent] = useState<Recent[]>(() => read(`platform:recent:${userId}`, [] as Recent[]));
@@ -234,7 +237,7 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   }
   const [scope, setScope] = useState<ScopeState>(() => {
     try {
-      const id = new URLSearchParams(window.location.search).get('scopeId');
+      const id = new URLSearchParams(url.includes('?') ? url.slice(url.indexOf('?')) : '').get('scopeId');
       if (id) return { scopeId: id, status: 'validating', validatedFor: session, grantedRooms: [] };
     } catch { /* keep none */ }
     return { scopeId: null, status: 'none', validatedFor: session, grantedRooms: [] };
@@ -259,14 +262,15 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   const { lang } = useI18n();
 
   useEffect(() => {
-    const onPop = () => { pageNavigation.advance(currentUrl()); setUrl(currentUrl()); };
+    const onPop = () => { const next = location.read() ?? ''; pageNavigation.advance(next); setUrl(next); };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-  }, [pageNavigation]);
+  }, [pageNavigation, location]);
 
   const pathname = url.split('?')[0] || '/';
   const search = url.includes('?') ? url.slice(url.indexOf('?')) : '';
-  const route = useMemo(() => matchRoute(pathname), [matchRoute, pathname]);
+  const outsideDeployment = url === '';
+  const route = useMemo(() => outsideDeployment ? null : matchRoute(pathname), [matchRoute, pathname, outsideDeployment]);
   const { parsed, contractError } = useMemo((): { parsed: ParsedQuery | null; contractError: ContractError | null } => {
     try { return { parsed: parseQuery(search, route?.menu.pageKeys ?? []), contractError: null }; } catch (e) {
       if (e instanceof ContractError) return { parsed: null, contractError: e };
@@ -281,14 +285,14 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   const extras = parsed?.extras ?? [];
 
   const navigateTo = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus }, materialize = false) => {
-    if (!isAppRelativePath(next) || next === currentUrl()) { if (!materialize) pageNavigation.cancel(); return false; }
+    if (!isAppRelativePath(next) || next === (location.read() ?? '')) { if (!materialize) pageNavigation.cancel(); return false; }
     if (materialize) pageNavigation.materialize(next);
     else pageNavigation.advance(next, options?.focus);
-    if (options?.replace) window.history.replaceState(null, '', next); else window.history.pushState(null, '', next);
-    setUrl(currentUrl());
+    if (options?.replace) location.replace(next); else location.push(next);
+    setUrl(location.read() ?? '');
     if (!options?.replace) document.getElementById('platform-main')?.scrollTo({ top: 0 });
     return true;
-  }, [pageNavigation]);
+  }, [pageNavigation, location]);
   const navigate = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus }) => navigateTo(next, options), [navigateTo]);
 
   // An auto-dismiss timer can outlive the provider (an unmount, a torn-down test DOM); it must not set state then.
@@ -621,8 +625,10 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     return correlationId;
   }, [adapter, registry, route, pageNavigation]);
 
+  const absoluteUrl = useCallback((next: string) => location.absoluteUrl(next), [location]);
+
   const value: Platform = {
-    registry, adapter, url, pathname, route, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
+    registry, adapter, location, absoluteUrl, url, pathname, route, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
     session, user, revision, can, canOpen, visibleMenus, globalMenus, menusInSpace, accessibleSpaces, currentSpace, sidebarSpace, spaceResume, spaceEntry, switchSpace, scope: scopeView, retryScope, lastScope, favorites, toggleFavorite, recent,
     toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen, paletteSession, isCurrentPaletteSession,
   };
@@ -637,8 +643,8 @@ export function usePlatform(): Platform {
 
 /** Anchor that navigates through the kernel (keeps modifier-click/open-in-new-tab behavior). */
 export function PlatformLink({ href, children, className, onNavigate, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string; onNavigate?: () => void }) {
-  const { navigate } = usePlatform();
-  return <a href={href} className={className} {...rest} onClick={e => {
+  const { navigate, location } = usePlatform();
+  return <a href={location.href(href)} className={className} {...rest} onClick={e => {
     rest.onClick?.(e);
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();

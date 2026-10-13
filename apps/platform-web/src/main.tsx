@@ -4,7 +4,7 @@ import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import './style.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { I18nProvider, PlatformProvider } from '@ap/kernel';
+import { createBasePathLocation, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';
 import { createAssembly } from '#platform-assembly';
 import { readFeedbackOpsOrigin } from './feedbackops-origin';
@@ -18,11 +18,12 @@ setFeedbackOpsOrigin(readFeedbackOpsOrigin(import.meta.env.VITE_FEEDBACKOPS_ORIG
 
 // The build picks the assembly (#153, ADR-0009): mock + DevTools in dev/--mode mock, the real adapter in production.
 const assembly = createAssembly({ registry });
+const location = import.meta.env.BASE_URL === '/' ? undefined : createBasePathLocation(import.meta.env.BASE_URL);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <I18nProvider>
-      <PlatformProvider adapter={assembly.adapter} registry={registry} slots={appSlots(assembly)}>
+      <PlatformProvider adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly)}>
         <AppShell><RouteOutlet /></AppShell>
       </PlatformProvider>
     </I18nProvider>

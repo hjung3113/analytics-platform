@@ -169,6 +169,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @ap/platform-e2e exec playwright install --with-deps chromium
       - run: pnpm e2e
+      # 하위 경로 배포(#318, ADR-0030): 별도 mock 빌드·preview(4191)에서 base 유지 계약을 확인한다.
+      - run: pnpm e2e:base-path
       # 항목별 통과/실패 표를 Job 요약에 싣고, 증거 스크린샷은 아티팩트로 남긴다(#44). 실패해도 보고는 남긴다.
       - name: Contract report → job summary
         if: ${{ !cancelled() }}
