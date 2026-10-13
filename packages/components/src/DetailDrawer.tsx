@@ -1,6 +1,6 @@
 import { OutcomeBanners, OutcomeScope } from './OutcomeScope';
 import { X } from 'lucide-react';
-import { useId, useLayoutEffect, useRef, type ReactNode } from 'react';
+import { Fragment, useId, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useI18n } from '@ap/kernel';
 import { Tabs, TabsContent, TabsList, TabsTrigger, useDetailPanelSlot } from '@ap/ui';
@@ -55,9 +55,18 @@ function DetailContent({ title, subtitle, headerActions, context, tabs, onClose,
     </div>;
 }
 
+// B-12 follow-up: a long technical key folds at camelCase word boundaries instead of dropping its
+// last character. <wbr> is a break opportunity only — textContent and the accessible name stay the
+// original string. Labels that are not plain strings render as-is.
+function foldedLabel(label: string): ReactNode {
+  return label.split(/(?<=[a-z])(?=[A-Z])/).map((part, i) => (
+    <Fragment key={i}>{i > 0 && <wbr />}{part}</Fragment>
+  ));
+}
+
 export function Field({ label, children, mono }: { label: ReactNode; children: ReactNode; mono?: boolean }) {
   return <div className="grid grid-cols-[9rem_1fr] gap-3 border-b border-border-subtle py-1.5 text-sm last:border-0">
-    <dt className="text-text-muted">{label}</dt>
+    <dt className="min-w-0 break-words text-text-muted">{typeof label === 'string' ? foldedLabel(label) : label}</dt>
     <dd className={mono ? 't-mono' : 'tabular'}>{children}</dd>
   </div>;
 }

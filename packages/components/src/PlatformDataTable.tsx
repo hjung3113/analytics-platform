@@ -662,7 +662,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       <span className="font-semibold tabular" data-testid="selected-count">{lang === 'ko' ? `${selectedIds.length}행 선택` : `${selectedIds.length} selected`}</span>
       {p.bulkActions?.(selectedIds)}
       <Button variant="ghost" size="toolbar" onClick={() => setSelection({})}>{lang === 'ko' ? '선택 해제' : 'Clear selection'}</Button>
-      <span className="text-text-muted">{lang === 'ko' ? '선택은 현재 조회 결과 안에서만 유지되며 Context 변경 시 해제됩니다.' : 'Selection is kept within this result and cleared on context change.'}</span>
+      <span className="text-text-secondary">{lang === 'ko' ? '선택은 현재 조회 결과 안에서만 유지되며 Context 변경 시 해제됩니다.' : 'Selection is kept within this result and cleared on context change.'}</span>
     </div>}
 
     <div className="flex min-h-7 items-center justify-between gap-2 border-t border-border-subtle px-3 py-1 text-xs text-text-muted" aria-live="polite">
@@ -708,7 +708,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
               return <div role="row" key={row.id} ref={virtual.measureElement} data-index={item.index} aria-rowindex={shownPage * pageSize + item.index + 2}
                 aria-selected={row.getIsSelected()} data-row-id={row.id}
                 // eslint-disable-next-line shadcn/no-inline-styles -- row offset is the virtual item position computed at runtime
-                className={cn('group absolute left-0 top-0 flex w-full', loading && 'opacity-60')} style={{ transform: `translateY(${item.start}px)` }}>
+                className="group absolute left-0 top-0 flex w-full" style={{ transform: `translateY(${item.start}px)` }}>
                 {/* eslint-disable-next-line shadcn/no-inline-styles -- cell width and pin offset come from column sizing at runtime */}
                 {row.getVisibleCells().map(cell => <div role="cell" key={cell.id} data-column={cell.column.id} style={cellStyle(cell.column)}
                   className={cn(cellBase, 'border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', align(cell.column))}>

@@ -392,7 +392,7 @@ test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
     await expectContextBounds(page);
     const before = { inline: await contextBar(page).getByRole('button').allTextContents(), overflow: await overflowCount(page) };
     await evidence(page, testInfo, 'context-before-detail-1280');
-    await row.getByRole('button', { name: '보기', exact: true }).click();
+    await row.getByRole('button', { name: /보기$/ }).click();
     await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog')).toBeVisible();
     await expect(contextBar(page).getByRole('radio', { name: '1일', exact: true })).toHaveCount(0);
     await expect(visibleContextLabel(page)).toHaveCount(0);
@@ -553,7 +553,7 @@ test.describe('셸 고정 상세 슬롯 (06 §13, ADR-0013)', () => {
       const focus = await row.getAttribute('data-row-id');
       const closedWidth = (await main.boundingBox())!.width;
       // The row action writes the registered focus key; no direct DOM or Kernel access.
-      const trigger = row.getByRole('button', { name: '보기', exact: true });
+      const trigger = row.getByRole('button', { name: /보기$/ });
       await trigger.click();
       await expect.poll(() => query(page).get('focus')).toBe(focus);
       const slot = page.getByRole('complementary', { name: '상세 패널' });
@@ -1371,7 +1371,7 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
     await expect(row).toContainText('/equipment');
     await expect(row).toContainText('equipment:view');
 
-    await row.getByRole('button', { name: '보기' }).click();
+    await row.getByRole('button', { name: 'equipment-master 보기' }).click();
     await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog')).toContainText('requiresScope');
     // The drawer is opened by writing the focus page key (§6.1): the URL carries it.
     expect(page.url()).toContain('focus=equipment-master');
@@ -1410,7 +1410,7 @@ test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-
 
     const engineerRow = table.getByRole('row').filter({ hasText: 'Process Engineer' });
     await expect(engineerRow).toContainText('4/9');
-    await engineerRow.getByRole('button', { name: '보기' }).click();
+    await engineerRow.getByRole('button', { name: 'engineer 보기' }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
     expect(new URL(page.url()).searchParams.get('focus')).toBe('engineer');
     const drawer = page.getByRole('dialog');
@@ -1697,7 +1697,7 @@ test.describe('키보드 상세 포커스 복귀 (06 §13·§26)', () => {
     await signInAs(page, 'admin');
     await page.goto('/admin/roles?v=1');
     try {
-      const opener = page.getByRole('row').filter({ has: page.getByRole('button', { name: '보기', exact: true }) }).first().getByRole('button', { name: '보기', exact: true });
+      const opener = page.getByRole('row').filter({ has: page.getByRole('button', { name: /보기$/ }) }).first().getByRole('button', { name: /보기$/ });
       await expect(opener).toBeVisible();
       // Reach the action through the keyboard, then activate it without a pointer click.
       for (let attempt = 0; attempt < 100 && !(await opener.evaluate(node => node === document.activeElement)); attempt++) await page.keyboard.press('Tab');
@@ -1752,7 +1752,7 @@ test.describe('키보드 상세 포커스 복귀 (06 §13·§26)', () => {
     test(`${overlay} 닫힌 직후의 Escape도 상세를 닫는다`, async ({ page }) => {
       await signInAs(page, 'admin');
       await page.goto('/admin/roles?v=1');
-      const opener = page.getByRole('row').filter({ has: page.getByRole('button', { name: '보기', exact: true }) }).first().getByRole('button', { name: '보기', exact: true });
+      const opener = page.getByRole('row').filter({ has: page.getByRole('button', { name: /보기$/ }) }).first().getByRole('button', { name: /보기$/ });
       await expect(opener).toBeVisible();
       await close(page);
       await opener.focus();

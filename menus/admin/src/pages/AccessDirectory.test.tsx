@@ -323,4 +323,17 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     expect(f.calls[1]).toMatchObject({ permission: 'console:access', page: 1 });
     expect(url().has('page')).toBe(false);
   });
+
+  // UX B-06 / #301: every row shared the name 보기/View — a screen reader on the list cannot tell rows apart.
+  it('names each row action after its actual principal id, keeping the short visible label', async () => {
+    renderRoles('/admin/roles');
+    await waitFor(() => expect(document.querySelectorAll('[data-row-id]')).toHaveLength(ITEMS.length));
+    for (const row of document.querySelectorAll('[data-row-id]')) {
+      const id = row.getAttribute('data-row-id');
+      const button = [...row.querySelectorAll('button')].find(b => b.textContent === '보기');
+      expect(button).toBeTruthy();
+      expect(button?.getAttribute('aria-label')).toBe(`${id} 보기`);
+      expect(button?.textContent).toBe('보기');
+    }
+  });
 });
