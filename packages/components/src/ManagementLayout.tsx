@@ -25,7 +25,7 @@ export function ManagementLayout({ filter, activeFilterCount = 0, table, drawer 
   const root = useRef<HTMLDivElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const filterButton = useRef<HTMLButtonElement>(null);
-  const pendingFocus = useRef(false);
+  const pendingFocus = useRef<Element | null>(null);
   const rail = useRef<HTMLElement>(null);
   const popover = useRef<HTMLDivElement>(null);
   const measuredWide = useRef(false);
@@ -45,7 +45,7 @@ export function ManagementLayout({ filter, activeFilterCount = 0, table, drawer 
       if (nextWide !== measuredWide.current) {
         const active = document.activeElement;
         if (active && (rail.current?.contains(active) || popover.current?.contains(active) || filterButton.current === active)) {
-          pendingFocus.current = true;
+          pendingFocus.current = active;
         }
         measuredWide.current = nextWide;
       }
@@ -64,12 +64,15 @@ export function ManagementLayout({ filter, activeFilterCount = 0, table, drawer 
 
   useLayoutEffect(() => {
     if (!pendingFocus.current) return;
-    pendingFocus.current = false;
+    const previous = pendingFocus.current;
+    pendingFocus.current = null;
+    const active = document.activeElement;
+    if (active !== previous && active !== document.body) return;
     (railVisible ? closeButton : filterButton).current?.focus();
   }, [railVisible, wide]);
 
   const setRailCollapsed = (next: boolean) => {
-    pendingFocus.current = true;
+    pendingFocus.current = document.activeElement;
     setCollapsed(next);
     try {
       if (next) localStorage.setItem(COLLAPSE_KEY, '1');
@@ -105,7 +108,7 @@ export function ManagementLayout({ filter, activeFilterCount = 0, table, drawer 
         </header>
         <div id={bodyId} className="min-h-0 overflow-y-auto p-3">{filter}</div>
       </section>}
-      <div className="min-w-0">{table(filterSlot)}</div>
+      <div key="table" className="min-w-0">{table(filterSlot)}</div>
     </div>
     {drawer}
   </div>;

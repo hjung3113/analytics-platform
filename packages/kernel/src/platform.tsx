@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { createPageNavigation, type PageFocus, type PageNavigation } from './pageNavigation';
 import { classifyMetricInit, type MetricInit } from './metric-init';
 import { pathFor, type MenuEntry, type Registry } from './registry';
 import { useI18n } from './i18n';
@@ -33,6 +34,8 @@ export type LinkResolution = {
   droppedPageKeys: string[];
 };
 
+type PaletteSession = { generation: number; opener: HTMLElement | null; select: () => void; isSelecting: () => boolean };
+
 type Platform = {
   registry: Registry;
   /** For platform layers (shell) that query the server directly; pages go through their own api seam. */
@@ -46,9 +49,10 @@ type Platform = {
   page: Pair[];
   extras: Pair[];
   pageParam: (key: string) => string | null;
-  navigate: (url: string, options?: { replace?: boolean }) => void;
+  pageNavigation: PageNavigation;
+  navigate: (url: string, options?: { replace?: boolean; focus?: PageFocus }) => boolean;
   setGlobal: (patch: Partial<GlobalContext>, options?: { replace?: boolean; silent?: boolean }) => void;
-  setPage: (patch: Record<string, string | null>, options?: { replace?: boolean }) => void;
+  setPage: (patch: Record<string, string | null>, options?: { replace?: boolean; focus?: PageFocus }) => void;
   resetContext: () => void;
   linkTo: (menuId: string, options?: LinkOptions) => string;
   /** `linkTo` plus what a menu needs to draw the link honestly: whether the user may open it and which page keys were dropped. */
@@ -99,6 +103,8 @@ type Platform = {
   dismissToast: (id: number) => void;
   defaultRangeTo: string;
   slots: PlatformSlots;
+  paletteSession: PaletteSession | null;
+  isCurrentPaletteSession: (generation: number) => boolean;
   paletteOpen: boolean;
   setPaletteOpen: (open: boolean) => void;
 };
@@ -200,6 +206,7 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   const user = session.user;
   const userId = user.id;
   const [url, setUrl] = useState(currentUrl);
+  const [pageNavigation] = useState(() => createPageNavigation(url));
   const [favorites, setFavorites] = useState<string[]>(() => read(`platform:favorites:${userId}`, [] as string[]));
   const [recent, setRecent] = useState<Recent[]>(() => read(`platform:recent:${userId}`, [] as Recent[]));
   const [lastScope, setLastScope] = useState<string | null>(() => read<string | null>(`platform:lastScope:${userId}`, null));
@@ -232,15 +239,29 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     return { scopeId: null, status: 'none', validatedFor: session, grantedRooms: [] };
   });
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteOpen, updatePaletteOpen] = useState(false);
+  const [paletteSession, updatePaletteSession] = useState<PaletteSession | null>(null);
+  const paletteLifecycle = useRef({ open: false, generation: 0 });
+  const setPaletteOpen = useCallback((open: boolean) => {
+    if (open && !paletteLifecycle.current.open) {
+      const generation = ++paletteLifecycle.current.generation;
+      const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      let selecting = false;
+      updatePaletteSession({ generation, opener, select: () => { selecting = true; }, isSelecting: () => selecting });
+    }
+    paletteLifecycle.current.open = open;
+    updatePaletteOpen(open);
+  }, []);
+  const isCurrentPaletteSession = useCallback((generation: number) =>
+    paletteLifecycle.current.generation === generation && !paletteLifecycle.current.open, []);
   const toastId = useRef(1);
   const { lang } = useI18n();
 
   useEffect(() => {
-    const onPop = () => setUrl(currentUrl());
+    const onPop = () => { pageNavigation.advance(currentUrl()); setUrl(currentUrl()); };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-  }, []);
+  }, [pageNavigation]);
 
   const pathname = url.split('?')[0] || '/';
   const search = url.includes('?') ? url.slice(url.indexOf('?')) : '';
@@ -258,13 +279,16 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   const page = parsed?.page ?? [];
   const extras = parsed?.extras ?? [];
 
-  const navigate = useCallback((next: string, options?: { replace?: boolean }) => {
-    if (!isAppRelativePath(next)) return;
-    if (next === currentUrl()) return;
+  const navigateTo = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus }, materialize = false) => {
+    if (!isAppRelativePath(next) || next === currentUrl()) { if (!materialize) pageNavigation.cancel(); return false; }
+    if (materialize) pageNavigation.materialize(next);
+    else pageNavigation.advance(next, options?.focus);
     if (options?.replace) window.history.replaceState(null, '', next); else window.history.pushState(null, '', next);
     setUrl(currentUrl());
     if (!options?.replace) document.getElementById('platform-main')?.scrollTo({ top: 0 });
-  }, []);
+    return true;
+  }, [pageNavigation]);
+  const navigate = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus }) => navigateTo(next, options), [navigateTo]);
 
   // An auto-dismiss timer can outlive the provider (an unmount, a torn-down test DOM); it must not set state then.
   // A mounted flag, not clearTimeout in the cleanup: StrictMode's fake unmount would cancel the dismissal of a
@@ -301,7 +325,7 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
     navigate(pathname + buildQuery(next, dropContextResetKeys(page, next), extras), options);
   }, [global, page, extras, pathname, navigate, toast, lang, dropContextResetKeys]);
 
-  const setPage = useCallback((patch: Record<string, string | null>, options?: { replace?: boolean }) => {
+  const setPage = useCallback((patch: Record<string, string | null>, options?: { replace?: boolean; focus?: PageFocus }) => {
     const keys = Object.keys(patch);
     const kept = page.filter(([k]) => !keys.includes(k));
     const added = Object.entries(patch).filter((e): e is [string, string] => e[1] !== null && e[1] !== '');
@@ -469,13 +493,17 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   const defaultRangeTo = adapter.defaultRangeTo();
   useEffect(() => {
     if (!route || routeContractError || route.menu.context.time !== 'apply' || global.from !== null) return;
-    navigate(pathname + buildQuery({ ...global, from: shift(defaultRangeTo, -24), to: defaultRangeTo }, page, extras), { replace: true });
-  }, [route, routeContractError, global, page, extras, pathname, navigate, defaultRangeTo]);
+    navigateTo(pathname + buildQuery({ ...global, from: shift(defaultRangeTo, -24), to: defaultRangeTo }, page, extras), { replace: true }, true);
+  }, [route, routeContractError, global, page, extras, pathname, navigateTo, defaultRangeTo]);
 
   useEffect(() => {
     if (!route || routeContractError || metricInit.phase !== 'confirm') return;
-    navigate(pathname + buildQuery({ ...global, metricVersion: metricInit.metricVersion }, page, extras), { replace: true });
-  }, [route, routeContractError, metricInit, global, page, extras, pathname, navigate]);
+    navigateTo(pathname + buildQuery({ ...global, metricVersion: metricInit.metricVersion }, page, extras), { replace: true }, true);
+  }, [route, routeContractError, metricInit, global, page, extras, pathname, navigateTo]);
+
+  useLayoutEffect(() => {
+    if (!route || routeContractError || !can(route.menu.permission) || !enters(route.menu) || metricInit.phase === 'blocked') pageNavigation.cancel();
+  }, [route, routeContractError, can, enters, metricInit.phase, pageNavigation]);
 
   // Recent visits + usage instrumentation (kernel observability of its own registry).
   useEffect(() => {
@@ -563,6 +591,7 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
   }, [returnTarget, pageParam, safeReturnTo, matchRoute, route, menuById]);
 
   const reportError = useCallback((error: unknown): string => {
+    pageNavigation.cancel();
     const correlationId = `client-${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 6)}`;
     if (!route) return correlationId;
     try {
@@ -574,12 +603,12 @@ export function PlatformProvider({ adapter, registry, slots = {}, children }: { 
       }).catch(() => { /* silent */ });
     } catch { /* silent */ }
     return correlationId;
-  }, [adapter, registry, route]);
+  }, [adapter, registry, route, pageNavigation]);
 
   const value: Platform = {
-    registry, adapter, url, pathname, route, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
+    registry, adapter, url, pathname, route, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
     session, user, revision, can, canOpen, visibleMenus, globalMenus, menusInSpace, accessibleSpaces, currentSpace, sidebarSpace, spaceResume, spaceEntry, switchSpace, scope: scopeView, retryScope, lastScope, favorites, toggleFavorite, recent,
-    toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen,
+    toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen, paletteSession, isCurrentPaletteSession,
   };
   return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>;
 }
@@ -597,7 +626,6 @@ export function PlatformLink({ href, children, className, onNavigate, ...rest }:
     rest.onClick?.(e);
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
-    navigate(href);
-    onNavigate?.();
+    if (navigate(href)) onNavigate?.();
   }}>{children}</a>;
 }

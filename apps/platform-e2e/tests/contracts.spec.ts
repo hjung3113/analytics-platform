@@ -1661,3 +1661,43 @@ test.describe('드릴다운 (06 §6.4, §12.7, §22, ADR-0025)', () => {
     await evidence(page, testInfo, 'drill-equipment-missing');
   });
 });
+
+
+test.describe('키보드 상세 포커스 복귀 (06 §13·§26)', () => {
+  test('권한 목록에서 키보드로 상세를 닫으면 같은 행의 보기로 돌아온다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto('/admin/roles?v=1');
+    try {
+      const opener = page.getByRole('row').filter({ has: page.getByRole('button', { name: '보기', exact: true }) }).first().getByRole('button', { name: '보기', exact: true });
+      await expect(opener).toBeVisible();
+      // Reach the action through the keyboard, then activate it without a pointer click.
+      for (let attempt = 0; attempt < 100 && !(await opener.evaluate(node => node === document.activeElement)); attempt++) await page.keyboard.press('Tab');
+      await expect(opener).toBeFocused();
+      await opener.evaluate(node => node.setAttribute('data-focus-return-opener', 'true'));
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('button', { name: '상세 닫기' })).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(page).toHaveURL(url => !url.searchParams.has('focus'));
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      const sameOpener = page.locator('[data-focus-return-opener]');
+      await expect(sameOpener).toHaveCount(1);
+      expect(await sameOpener.evaluate(node => node.isConnected)).toBe(true);
+      await expect(sameOpener).toBeFocused();
+      await evidence(page, testInfo, 'roles-keyboard-focus-return');
+    } catch (error) {
+      const focusState = await page.evaluate(() => {
+        const active = document.activeElement;
+        return {
+          activeElement: active ? { tag: active.tagName, id: active.id, role: active.getAttribute('role'), label: active.getAttribute('aria-label'), text: active.textContent?.slice(0, 200), connected: active.isConnected } : null,
+          hasFocus: document.hasFocus(),
+          url: location.href,
+          focusKey: new URLSearchParams(location.search).get('focus'),
+          detailSlots: Array.from(document.querySelectorAll('aside[aria-label]')).map(slot => ({ label: slot.getAttribute('aria-label'), open: slot.getAttribute('data-open'), hidden: slot.hasAttribute('hidden'), dialogs: slot.querySelectorAll('[role="dialog"]').length })),
+          marker: Array.from(document.querySelectorAll('[data-focus-return-opener]')).map(node => ({ connected: node.isConnected, focused: node === active })),
+        };
+      });
+      await testInfo.attach('roles-keyboard-focus-state', { body: JSON.stringify(focusState, null, 2), contentType: 'application/json' });
+      throw error;
+    }
+  });
+});

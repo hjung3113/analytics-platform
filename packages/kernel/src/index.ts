@@ -7,3 +7,4 @@ export {
   CONTEXT_LABELS, createRegistry, PAGE_TYPE_LABELS, pathFor, RegistryError,
   type GroupDef, type MenuEntry, type PageProps, type Registry, type RouteMatch,
 } from './registry';
+export { type PageNavigation } from './pageNavigation';

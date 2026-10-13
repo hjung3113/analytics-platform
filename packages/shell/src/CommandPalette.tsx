@@ -1,13 +1,12 @@
-import * as Dialog from '@radix-ui/react-dialog';
 import { CornerDownLeft, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { type MenuEntry, useI18n, usePlatform } from '@ap/kernel';
 import type { Text } from '@ap/contracts';
-import { cn } from '@ap/ui';
+import { cn, Dialog, DialogContent, DialogTitle } from '@ap/ui';
 
 /** §10: menu navigation is the palette's base responsibility; entity search/action commands are Deferred. */
 export function CommandPalette() {
-  const { paletteOpen, setPaletteOpen, menusInSpace, accessibleSpaces, globalMenus, recent, navigate, linkTo, registry } = usePlatform();
+  const { paletteOpen, setPaletteOpen, paletteSession, isCurrentPaletteSession, menusInSpace, accessibleSpaces, globalMenus, recent, navigate, linkTo, registry } = usePlatform();
   const { t, tx, text, lang } = useI18n();
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
@@ -51,25 +50,31 @@ export function CommandPalette() {
   const go = (index: number) => {
     const m = items[index];
     if (!m) return;
+    if (navigate(linkTo(m.id))) paletteSession?.select();
     setPaletteOpen(false);
-    navigate(linkTo(m.id));
   };
 
   let index = 0;
-  return <Dialog.Root open={paletteOpen} onOpenChange={setPaletteOpen}>
-    <Dialog.Portal>
-      <Dialog.Overlay className="fixed inset-0 z-50 bg-text-primary/30" />
-      <Dialog.Content aria-describedby={undefined} className="fixed left-1/2 top-[12vh] z-50 w-[min(640px,92vw)] -translate-x-1/2 overflow-hidden rounded-lg border border-border-strong bg-surface-card shadow-2xl">
-        <Dialog.Title className="sr-only">{t('goTo')}</Dialog.Title>
-        <div className="flex items-center gap-2 border-b border-border-subtle px-4">
+  return <Dialog open={paletteOpen} onOpenChange={setPaletteOpen}>
+      <DialogContent closeLabel={t('close')} aria-describedby={undefined}
+        className="top-[12vh] w-[min(640px,92vw)] max-w-none translate-y-0 gap-0 overflow-hidden p-0"
+        onCloseAutoFocus={event => {
+          event.preventDefault();
+          if (!paletteSession || !isCurrentPaletteSession(paletteSession.generation) || paletteSession.isSelecting()) return;
+          const target = paletteSession.opener?.isConnected && paletteSession.opener !== document.body
+            ? paletteSession.opener : document.getElementById('platform-main');
+          target?.focus({ preventScroll: true });
+        }}>
+        <DialogTitle className="sr-only">{t('goTo')}</DialogTitle>
+        <div className="flex items-center gap-2 border-b border-border-subtle px-4 pr-12 focus-within:ring-2 focus-within:ring-inset focus-within:ring-focus-ring">
           <Search className="size-4 text-text-muted" aria-hidden />
-          <input autoFocus value={q} onChange={e => { setQ(e.target.value); setActive(0); }} placeholder={t('palettePlaceholder')} aria-label={t('paletteName')}
+          <input value={q} onChange={e => { setQ(e.target.value); setActive(0); }} placeholder={t('palettePlaceholder')} aria-label={t('paletteName')}
             role="combobox" aria-expanded aria-controls="palette-list" aria-activedescendant={items[active] ? `palette-${items[active].id}` : undefined}
             className="h-12 flex-1 bg-transparent text-base outline-none"
             onKeyDown={e => {
               if (e.key === 'ArrowDown') { e.preventDefault(); setActive(a => Math.min(items.length - 1, a + 1)); }
               if (e.key === 'ArrowUp') { e.preventDefault(); setActive(a => Math.max(0, a - 1)); }
-              if (e.key === 'Enter') { e.preventDefault(); go(active); }
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); go(active); }
             }} />
         </div>
         <ul id="palette-list" role="listbox" className="max-h-[50vh] overflow-auto p-1.5">
@@ -100,7 +105,6 @@ export function CommandPalette() {
           })}
         </ul>
         <p className="border-t border-border-subtle bg-surface-sunken px-4 py-2 text-tiny text-text-secondary">{t('paletteHint')} · {lang === 'ko' ? '이동 시 전역 Context를 보존합니다.' : 'Global context is preserved on navigation.'}</p>
-      </Dialog.Content>
-    </Dialog.Portal>
-  </Dialog.Root>;
+      </DialogContent>
+  </Dialog>;
 }

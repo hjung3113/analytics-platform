@@ -1,10 +1,11 @@
 import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { PlatformLink, useDrill, useI18n, usePlatform } from '@ap/kernel';
 import {
   Button, cn,
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger,
 } from '@ap/ui';
+import { requestReturnFocus } from './pageFocus';
 import { StateMessage } from './StateView';
 
 /** One sibling choice. `hint` is already display text; this layer does not know the domain. */
@@ -19,6 +20,12 @@ export type DrillLayoutProps = DrillPathProps & {
   children?: ReactNode;
 };
 
+function focusDrillDestination() {
+  const target = document.querySelector<HTMLElement>('[aria-current="step"]')
+    ?? document.querySelector<HTMLElement>('[data-platform-page] h1');
+  target?.focus({ preventScroll: true });
+}
+
 const focusRing = 'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring';
 
 function SiblingMenu({ label, value, items, onSwitch }: {
@@ -26,6 +33,7 @@ function SiblingMenu({ label, value, items, onSwitch }: {
 }) {
   const { lang } = useI18n();
   const ko = lang === 'ko';
+  const switched = useRef(false);
   return <DropdownMenu>
     <DropdownMenuTrigger asChild>
       <button type="button" aria-label={ko ? `${label} 바꾸기` : `Change ${label}`}
@@ -33,8 +41,8 @@ function SiblingMenu({ label, value, items, onSwitch }: {
         <ChevronDown className="size-3.5" aria-hidden />
       </button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="start" className="w-56">
-      <DropdownMenuRadioGroup value={value} onValueChange={onSwitch}>
+    <DropdownMenuContent onCloseAutoFocus={event => { if (switched.current) { event.preventDefault(); switched.current = false; focusDrillDestination(); } }} align="start" className="w-56">
+      <DropdownMenuRadioGroup value={value} onValueChange={next => { switched.current = next !== value; onSwitch(next); }}>
         {items.map(item => <DropdownMenuRadioItem key={item.value} value={item.value} className={focusRing}>
           <span className="t-mono">{item.value}</span>
           {item.hint !== undefined && <span className="ml-2 text-text-secondary tabular">{item.hint}</span>}
@@ -52,6 +60,7 @@ export function DrillPath({ siblings }: DrillPathProps) {
   const drill = useDrill();
   const { lang, tx } = useI18n();
   const ko = lang === 'ko';
+  const wentUp = useRef(false);
   if (drill.depth === 0) return null;
 
   const collapsed = drill.trail.length === 4;
@@ -81,8 +90,8 @@ export function DrillPath({ siblings }: DrillPathProps) {
         <DropdownMenuTrigger asChild>
           <button type="button" aria-label={ko ? '가운데 단계' : 'Middle steps'} className="rounded-md px-2 py-1 text-text-secondary hover:bg-surface-sunken">…</button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56">
-          {hidden.map((step, index) => <DropdownMenuItem key={step.key} className={focusRing} onSelect={() => drill.goTo(index + 1)}>
+        <DropdownMenuContent onCloseAutoFocus={event => { if (wentUp.current) { event.preventDefault(); wentUp.current = false; focusDrillDestination(); } }} align="start" className="w-56">
+          {hidden.map((step, index) => <DropdownMenuItem key={step.key} className={focusRing} onSelect={() => { wentUp.current = true; drill.goTo(index + 1); }}>
             {tx(step.label)}: {step.value}
           </DropdownMenuItem>)}
         </DropdownMenuContent>
@@ -120,10 +129,10 @@ export function DrillLayout({ siblings, notFound, children }: DrillLayoutProps) 
 
 /** Return control (06 §22). The accessible name is the visible label, trail values included. */
 export function ReturnLink() {
-  const { returnOrigin } = usePlatform();
+  const { returnOrigin, pageNavigation } = usePlatform();
   const { tx } = useI18n();
   const origin = returnOrigin();
   const trail = origin.trail.map(step => step.value).join(' › ');
   const text = trail ? `← ${tx(origin.menuLabel)} (${trail})` : `← ${tx(origin.menuLabel)}`;
-  return <Button asChild variant="secondary" size="sm"><PlatformLink href={origin.href}>{text}</PlatformLink></Button>;
+  return <Button asChild variant="secondary" size="sm"><PlatformLink href={origin.href} onNavigate={() => requestReturnFocus(pageNavigation, origin.href)}>{text}</PlatformLink></Button>;
 }

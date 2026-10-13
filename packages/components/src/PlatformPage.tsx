@@ -3,6 +3,7 @@ import { ChevronRight, Loader2, MapPinOff, RotateCw, ServerCrash, Star } from 'l
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { Button, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { consumePageFocus } from './pageFocus';
 import { StateMessage } from './StateView';
 
 export type PlatformPageProps = {
@@ -21,8 +22,9 @@ export type PlatformPageProps = {
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
 export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, dataTrustSummary, crumbs = [], children }: PlatformPageProps) {
-  const { route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots } = usePlatform();
+  const { route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation } = usePlatform();
   const { t, tx } = useI18n();
+  const heading = useRef<HTMLHeadingElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const stickyHeader = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -35,6 +37,13 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
     observer.observe(header);
     return () => observer.disconnect();
   }, []);
+  useLayoutEffect(() => {
+    const request = consumePageFocus(pageNavigation, pathname);
+    if (request) {
+      const currentStep = root.current?.querySelector<HTMLElement>('[aria-current="step"]');
+      (request === 'drill' ? currentStep ?? heading.current : heading.current)?.focus({ preventScroll: true });
+    }
+  }, [url, pathname, pageNavigation]);
   const menu = route!.menu;
   const favoriteTarget = menu.navHidden ? null : menu;
   const isFavorite = favoriteTarget ? favorites.includes(favoriteTarget.id) : false;
@@ -62,7 +71,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const descriptionResolved = description ?? tx(menu.description);
   const hasDescription = typeof descriptionResolved === 'string' ? descriptionResolved.trim().length > 0 : descriptionResolved != null && descriptionResolved !== false;
 
-  return <div ref={root} className="flex min-h-full flex-col">
+  return <div ref={root} data-platform-page className="flex min-h-full flex-col">
     <div ref={stickyHeader} className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
       <header className="flex h-[50px] shrink-0 overflow-x-auto items-center justify-between gap-3 border-b border-border-subtle bg-surface-canvas px-4">
         <div className="flex min-w-6 flex-1 items-center gap-2">
@@ -74,7 +83,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
             </span>)}
           </nav>}
           <TooltipProvider><Tooltip><TooltipTrigger asChild>
-            <h1 tabIndex={0} title={typeof titleResolved === 'string' ? titleResolved : undefined} className="min-w-0 shrink truncate text-sm font-semibold text-text-primary">{titleResolved}</h1>
+            <h1 ref={heading} tabIndex={0} title={typeof titleResolved === 'string' ? titleResolved : undefined} className="min-w-0 shrink truncate text-sm font-semibold text-text-primary">{titleResolved}</h1>
           </TooltipTrigger><TooltipContent>{titleResolved}</TooltipContent></Tooltip></TooltipProvider>
           {favoriteTarget && <button type="button" onClick={() => toggleFavorite(favoriteTarget.id)} aria-pressed={isFavorite}
             aria-label={isFavorite ? t('removeFavorite') : t('addFavorite')} title={isFavorite ? t('removeFavorite') : t('addFavorite')}
