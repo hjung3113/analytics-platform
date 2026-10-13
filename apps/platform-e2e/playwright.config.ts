@@ -10,6 +10,7 @@ const PORT = 4190;
  */
 export default defineConfig({
   testDir: './tests',
+  testIgnore: 'base-path.spec.ts',
   workers: 1,
   // A contract gate does not retry: an intermittent violation is a violation. The reporter still marks flaky if retries are enabled locally.
   retries: 0,

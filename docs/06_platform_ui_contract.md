@@ -290,6 +290,8 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 ### 6.4 URL 계약 (Decided; 필드명·enum 문자열은 Candidate)
 
+배포 하위 경로는 주입된 위치 어댑터의 브라우저 경계에서만 붙고 떼며, 앱 내부 URL·`returnTo`·저장 URL은 base 없는 앱 상대 경로다([ADR-0030](adr/0030-location-adapter-base-path.md)).
+
 **Equipment Group / Context Capability (Decided; 공개 표현 Candidate):** 메뉴는 Condition과 Selection의 적용/참조/미지원 범위를 선언하고 두 층을 전달·보존한다. StGroup·분임조·Maker+Model 중 사용한 축을 그대로 유지하며 다른 축으로 역추정하지 않는다. Condition만 있으면 현재 결과를 조회하고, 명시 Selection이 있으면 그 고정 ID 집합을 분석 대상으로 사용한다. 재평가된 Condition에서 빠졌다는 이유로 선택을 자동 교집합·확장·대체하지 않는다. 권한/Scope 검증 실패는 명시적으로 처리한다. 조건 편집 시 기존 선택의 처리 UI는 Candidate이며 조용한 선택 변경은 허용하지 않는다.
 
 기존 `equipmentIds` 목록 필터와 `selectedEquipmentIds`는 같은 EquipmentID 명시 집합을 나타내는 공개 표현이다. 새 이름은 Selection의 역할을 드러내는 후보이며 두 개의 독립 필터가 아니다. 기존 이름의 동등 별칭/버전 이행은 아래 `v` 규칙으로 등록한다. 동시 입력은 후보 스키마에서 거부하여 우선순위 추정을 피한다. 상세의 단일 `equipment_id`도 **같은 식별자 개념**이며, 집합 조회와 객체 목적지라는 사용 역할만 다르다.

@@ -1,3 +1,4 @@
+export { createBrowserLocation, createBasePathLocation, type PlatformLocation } from './location';
 export { useDrill, type DrillInvalid, type DrillLevelState, type DrillState, type DrillTrailStep } from './drill';
 export { I18nProvider, useI18n, type Key, type Lang, type Text } from './i18n';
 export { classifyMetricInit, type MetricInit } from './metric-init';

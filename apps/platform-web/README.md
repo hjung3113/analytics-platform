@@ -62,3 +62,5 @@ pnpm --filter @ap/platform-web check:prod-graph  # 운영 모듈 그래프에 mo
 - 최초 진입 기본 기간 Δ=24h(1일) — 결정 문서상 Open, 여기서는 Candidate.
 - 대표 목적지 권한 없음 그룹 카드: 비활성 + 사유 표시(08).
 - 주석 저장소는 메모리(새로고침 시 소멸), Export는 CSV 다운로드만.
+
+하위 경로 배포는 `AP_BASE_PATH=/analytics-platform/demo/ pnpm --filter @ap/platform-web build`로 지정한다(기본 `/`, 앱이 Vite `BASE_URL`을 위치 어댑터에 주입, [ADR-0030](../../docs/adr/0030-location-adapter-base-path.md)).
