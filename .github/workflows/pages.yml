@@ -1,0 +1,65 @@
+name: Pages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: '배포할 ref (기본 main)'
+        default: main
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.event.release.tag_name || 'main' }}
+          submodules: true
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '26.7.0'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build demo (mock, sub-path)
+        if: ${{ vars.PAGES_DEMO == 'true' }}
+        env:
+          AP_BASE_PATH: /analytics-platform/demo/
+        run: pnpm --filter @ap/platform-web build
+      - name: Assemble site
+        env:
+          SITE_REF: ${{ inputs.ref || github.event.release.tag_name || 'main' }}
+          SITE_DEMO: ${{ vars.PAGES_DEMO }}
+          SITE_ASSUMPTION: ${{ vars.PAGES_ASSUMPTION }}
+        run: |
+          args=(--out _site --site-base /analytics-platform/ --ref "$SITE_REF" --commit "$(git rev-parse --short HEAD)")
+          if [ "$SITE_DEMO" = true ]; then args+=(--demo apps/platform-web/dist); fi
+          if [ "$SITE_ASSUMPTION" = true ]; then args+=(--assumption); fi
+          node site/scripts/assemble.mjs "${args[@]}"
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+          include-hidden-files: true
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

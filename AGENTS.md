@@ -76,6 +76,7 @@
 | [`menus/`](menus/AGENTS.md) | 메뉴 Consumer 패키지(`@ap/menu-<group>`, 그룹별 manifest·화면) |
 | [`packages/`](packages/AGENTS.md) | 플랫폼 패키지 공통 규칙과 의존 방향 → 각 패키지 `AGENTS.md` |
 | [`tooling/`](tooling/AGENTS.md) | 공유 tsconfig·경계 lint·메뉴 생성기(`pnpm gen:menu`)·CSS selector 비교 |
+| [`site/`](site/AGENTS.md) | 도입 소개 페이지(정적, workspace 밖)와 Pages 조립 |
 | [`prototypes/`](prototypes/AGENTS.md) | 통합 전 Kernel 단위 프로토타입(보존, 새 기능 금지) |
 | [`products/feedbackops/`](products/feedbackops/AGENTS.md) | 독립 제품 서브모듈(위 경계 참조) |
 

@@ -30,8 +30,8 @@
 
 | 이슈 | 할 일 | 상태 |
 | --- | --- | --- |
-| #317 | 소개 사이트와 실제 앱 mock 데모 | 진행 중 |
-| #318 | Kernel 하위 경로 배포 — 위치 어댑터 주입 | 진행 중 |
+| #317 | 소개 사이트(`site/`)와 실제 앱 mock 데모 — GitHub Pages `https://hjung3113.github.io/analytics-platform/` | 완료(이 PR). 데모 실사 제품 결함은 #320 |
+| #318 | Kernel 하위 경로 배포 — 위치 어댑터 주입(ADR-0030) | 완료(#319) |
 | #296 | 키보드 포커스 복귀 — 상세 닫기·명령 팔레트(공유 Dialog)·드릴 단계 | 완료(#309). 팔레트 scrim은 FeedbackOps variant 제안 #310 |
 | #297 | 차트 프레임 — 데이터 표·CSV 같은 x 투영, CSV RFC 4180, Canvas reduced-motion, 툴바 한국어 | 완료(#308) |
 | #298 | 지표 목록→상세 복귀, Kernel 홈 fallback, 열 수 없는 복귀 대상·되돌린 Context 알림(사용자 위임 결정) | 완료(#311) |

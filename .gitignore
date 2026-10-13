@@ -8,3 +8,6 @@ contract-report/
 .browsers/
 # Temporary capture specs (apps/platform-e2e)
 apps/platform-e2e/tests/zz-*.spec.ts
+
+# Pages assembly output
+_site/
