@@ -67,7 +67,7 @@ export function MetricPairBanner({ viewedId = null, pageVersion = null }: { view
 
 export default function MetricCatalogPage(_: PageProps) {
   const { pageParam, setPage, linkTo, global } = usePlatform();
-  const { lang, tx } = useI18n();
+  const { lang, tx, t } = useI18n();
   const q = pageParam('q');
   const status = pageParam('status');
   const domain = pageParam('domain');
@@ -96,7 +96,7 @@ export default function MetricCatalogPage(_: PageProps) {
     description={lang === 'ko'
       ? '정의·grain·분자/분모·게시 포인터를 탐색합니다. 초안은 분석 기본 버전이 아닙니다. 정의 등록·발행 화면은 Open이라 두지 않았습니다.'
       : 'Browse definitions, grain, numerator/denominator and the published pointer. Drafts are not analysis defaults. Registration and publish UI is Open and omitted.'}
-    contextExtension={<PageFilterBar label={lang === 'ko' ? '페이지 필터' : 'Page filters'} fields={metricCatalogPageFilterFields({ q, status, domain, lang, tx, setPage })} actions={metricCatalogHasActiveFilters(q, status, domain) ? <Button type="button" variant="secondary" size="sm" onClick={() => resetMetricCatalogPageFilters(setPage)}>{lang === 'ko' ? '필터 초기화' : 'Reset filters'}</Button> : undefined} />}
+    contextExtension={<PageFilterBar label={t('pageFilter')} fields={metricCatalogPageFilterFields({ q, status, domain, lang, tx, setPage })} actions={metricCatalogHasActiveFilters(q, status, domain) ? <Button type="button" variant="secondary" size="sm" onClick={() => resetMetricCatalogPageFilters(setPage)}>{t('clearFilters')}</Button> : undefined} />}
   >
     <div className="space-y-3">
       <MetricPairBanner />

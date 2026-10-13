@@ -32,7 +32,7 @@ export default function UsageOverview() {
       cell: row => formatLastUsed(row.lastUsedAt, lang),
     },
   ], [ko, lang]);
-  return <PlatformPage description={ko ? '메뉴 진입·체류 이벤트의 집계입니다. v1은 식별 필드만 수집합니다(#75 결정 대기).' : 'Aggregates of menu entry and dwell events. v1 collects identity fields only (#75 pending).'}>
+  return <PlatformPage description={ko ? '메뉴 진입·체류 이벤트의 집계입니다. v1은 식별 필드만 수집합니다.' : 'Aggregates of menu entry and dwell events. v1 collects identity fields only.'}>
     {tableInvalid ? <p role="alert">{ko ? '정렬·페이지 값이 잘못되었습니다.' : 'Invalid sort or page value.'} <Button size="sm" variant="secondary" onClick={() => setPage({ sort: null, page: null })}>{ko ? '초기화' : 'Reset'}</Button></p>
       : <QueryView widgetName={ko ? '메뉴 활용률' : 'Menu usage'} query={q}>{data => {
         const rows = joinUsageRows(registry, data.menus);
@@ -40,7 +40,7 @@ export default function UsageOverview() {
         return <PlatformDataTable<UsageRow>
           title={ko ? '메뉴 활용률' : 'Menu usage'}
           ariaLabel={ko ? '메뉴 활용률 목록' : 'Menu usage list'}
-          subtitle={ko ? '사용자는 세션 사용자 id다. 이 mock에서는 역할(admin/engineer/viewer)이라 사람 수가 아니다.' : 'A user is a session user id. In this mock it is a role (admin/engineer/viewer), not a person count.'}
+          subtitle={ko ? '방문 사용자는 세션 사용자 기준으로 집계합니다.' : 'Distinct users are counted per session user.'}
           columns={columns} getRowId={row => row.id} filterKey=""
           preferenceKey="admin-usage:columns:v1" pageSize={25}
           urlState={parsedSort.ok && parsedPage.ok ? {

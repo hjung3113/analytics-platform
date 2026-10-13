@@ -4,7 +4,7 @@ import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { auditDestination } from '../audit-destination';
-import { ACTION_LABEL, AUDIT_PAGE_KEYS, parseAuditKeys } from '../audit-query';
+import { ACTION_LABEL, AUDIT_PAGE_KEYS, SOURCE_LABEL, TYPE_LABEL, parseAuditKeys } from '../audit-query';
 
 const mono = (value: unknown) => <span className="t-mono">{String(value)}</span>;
 
@@ -15,7 +15,7 @@ const mono = (value: unknown) => <span className="t-mono">{String(value)}</span>
  * never re-sorts a page; the default sort is the server's newest-first and no URL key is written for it.
  */
 export default function AuditTrail() {
-  const { lang } = useI18n();
+  const { t, lang } = useI18n();
   const ko = lang === 'ko';
   const { adapter, global, linkTo, pageParam, setPage } = usePlatform();
   const raw = {
@@ -49,12 +49,12 @@ export default function AuditTrail() {
     setDrafts({ actor: '', targetId: '', fromAt: '', toAt: '' });
     setPage(Object.fromEntries(AUDIT_PAGE_KEYS.map(k => [k, null])));
   };
-  const clear = <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{ko ? '필터 초기화' : 'Clear filters'}</Button>;
+  const clear = <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{t('clearFilters')}</Button>;
   const filters = <form onSubmit={applyDrafts}>
     <PageFilterBar orientation="column" label={ko ? '감사 필터' : 'Audit filters'} fields={[
-      { kind: 'select', key: 'type', label: ko ? '대상 유형' : 'Type', value: raw.type ?? '', emptyOptionLabel: ko ? '전체' : 'All', options: [{ value: 'equipment', label: 'equipment' }, { value: 'metric', label: 'metric' }], onValueChange: value => setFilter('type', value || null) },
+      { kind: 'select', key: 'type', label: ko ? '대상 유형' : 'Type', value: raw.type ?? '', emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(TYPE_LABEL).map(([value, label]) => ({ value, label: label[lang] })), onValueChange: value => setFilter('type', value || null) },
       { kind: 'select', key: 'action', label: ko ? '작업' : 'Action', value: raw.action ?? '', emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(ACTION_LABEL).map(([value, label]) => ({ value, label: label[lang] })), onValueChange: value => setFilter('action', value || null) },
-      { kind: 'select', key: 'source', label: ko ? '출처' : 'Source', value: raw.source ?? '', emptyOptionLabel: ko ? '전체' : 'All', options: [{ value: 'user', label: 'user' }, { value: 'system', label: 'system' }], onValueChange: value => setFilter('source', value || null) },
+      { kind: 'select', key: 'source', label: ko ? '출처' : 'Source', value: raw.source ?? '', emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(SOURCE_LABEL).map(([value, label]) => ({ value, label: label[lang] })), onValueChange: value => setFilter('source', value || null) },
       { kind: 'text', key: 'actor', label: ko ? '행위자 정확 일치' : 'Exact actor', value: drafts.actor, onValueChange: value => setDraft('actor', value) },
       { kind: 'text', key: 'targetId', label: ko ? '대상 ID 정확 일치' : 'Exact target id', value: drafts.targetId, onValueChange: value => setDraft('targetId', value) },
       { kind: 'text', key: 'fromAt', label: ko ? '시각 이상 (ISO 시점)' : 'From instant', value: drafts.fromAt, placeholder: '2026-09-26T02:00:00.000Z', onValueChange: value => setDraft('fromAt', value) },
@@ -65,13 +65,13 @@ export default function AuditTrail() {
     { id: 'at', header: ko ? '시각' : 'At', size: 150, cell: row => <span className="tabular">{formatInstant(row.at, lang)}</span> },
     { id: 'actor', header: ko ? '행위자' : 'Actor', size: 130, cell: row => mono(row.actor) },
     { id: 'action', header: ko ? '작업' : 'Action', size: 110, cell: row => ACTION_LABEL[row.action][lang] },
-    { id: 'source', header: ko ? '출처' : 'Source', size: 100, cell: row => <StatusBadge tone={row.source === 'system' ? 'neutral' : 'info'}>{row.source}</StatusBadge> },
-    { id: 'targetType', header: ko ? '대상 유형' : 'Target type', value: row => row.target.type, size: 110, cell: row => mono(row.target.type) },
-    { id: 'targetId', header: 'target id', sortable: false, value: row => row.target.id, size: 170, cell: row => mono(row.target.id) },
+    { id: 'source', header: ko ? '출처' : 'Source', size: 100, cell: row => <StatusBadge tone={row.source === 'system' ? 'neutral' : 'info'}>{SOURCE_LABEL[row.source][lang]}</StatusBadge> },
+    { id: 'targetType', header: ko ? '대상 유형' : 'Target type', value: row => row.target.type, size: 110, cell: row => { const label = TYPE_LABEL[row.target.type as 'equipment' | 'metric']; return label ? label[lang] : mono(row.target.type); } },
+    { id: 'targetId', header: ko ? '대상 ID' : 'Target ID', sortable: false, value: row => row.target.id, size: 170, cell: row => mono(row.target.id) },
     { id: 'scopeId', header: ko ? '사이트' : 'Site', sortable: false, size: 90, cell: row => row.target.scopeId ?? '—' },
     { id: 'changes', header: ko ? '변경 필드' : 'Changed fields', sortable: false, size: 220, cell: row => row.changes ? Object.keys(row.changes).sort().join(', ') : '—' },
   ], [ko, lang]);
-  return <PlatformPage description={ko ? '모든 사이트의 마스터 변경 로그입니다. 행의 링크는 각 상세 화면의 Audit 탭으로 이동합니다.' : 'The master-change log across all sites. A row link opens the destination detail\'s Audit tab.'}>
+  return <PlatformPage description={ko ? '모든 사이트의 마스터 변경 로그입니다. 행의 링크는 각 상세 화면의 변경 이력 탭으로 이동합니다.' : 'The master-change log across all sites. A row link opens the destination detail\'s change-history tab.'}>
     <ManagementLayout filter={filters} activeFilterCount={[raw.type, raw.actor, raw.action, raw.source, raw.fromAt, raw.toAt, raw.targetId].filter(Boolean).length}
       table={filterSlot => <>
     {!parsed.ok && <p role="alert">{filterSlot}{ko ? '필터 값이 잘못되었습니다.' : 'Invalid filter value.'} {clear}</p>}

@@ -45,7 +45,7 @@ describe('toRegistryRow', () => {
       expect(row).toEqual({
         id: menu.id,
         spaceId: registry.spaceOf(menu)!.id,
-        spaceLabel: { ko: registry.spaceOf(menu)!.id, en: registry.spaceOf(menu)!.id },
+        spaceLabel: registry.spaceOf(menu)!.label,
         groupId: menu.group,
         path: menu.path,
         permission: menu.permission,
@@ -66,7 +66,7 @@ describe('toRegistryRow', () => {
     expect(row.capabilities).toBe('time:apply, lot:reference');
   });
 
-  it('labels a global utility menu 전역 and keeps a space menu on its space id', () => {
+  it('labels a global utility menu 전역 and shows a space menu with its space label', () => {
     const globalRegistry = createRegistry({
       spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' }],
       groups: [
@@ -82,7 +82,7 @@ describe('toRegistryRow', () => {
       spaceId: null, spaceLabel: { ko: '전역', en: 'Global' },
     });
     expect(toRegistryRow(globalRegistry.menuById('admin-roles'), globalRegistry)).toMatchObject({
-      spaceId: 'operations', spaceLabel: { ko: 'operations', en: 'operations' },
+      spaceId: 'operations', spaceLabel: { ko: '운영 콘솔', en: 'Operations console' },
     });
   });
 

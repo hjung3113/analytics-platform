@@ -25,8 +25,8 @@ const summary: UsageMenuSummary[] = [{ menuId: 'admin-roles', visits: 7, distinc
 describe('joinUsageRows', () => {
   it('keeps registry order, carries summary numbers and zero-fills missing menus', () => {
     expect(joinUsageRows(registry, summary)).toEqual([
-      { id: 'admin-roles', label: { ko: '권한/역할 관리', en: 'Roles & access' }, spaceId: 'operations', spaceLabel: { ko: 'operations', en: 'operations' }, visits: 7, distinctUsers: 2, lastUsedAt: 1_760_000_000_000 },
-      { id: 'admin-usage', label: { ko: '메뉴 활용률', en: 'Menu usage' }, spaceId: 'operations', spaceLabel: { ko: 'operations', en: 'operations' }, visits: 0, distinctUsers: 0, lastUsedAt: null },
+      { id: 'admin-roles', label: { ko: '권한/역할 관리', en: 'Roles & access' }, spaceId: 'operations', spaceLabel: { ko: '운영 콘솔', en: 'Operations console' }, visits: 7, distinctUsers: 2, lastUsedAt: 1_760_000_000_000 },
+      { id: 'admin-usage', label: { ko: '메뉴 활용률', en: 'Menu usage' }, spaceId: 'operations', spaceLabel: { ko: '운영 콘솔', en: 'Operations console' }, visits: 0, distinctUsers: 0, lastUsedAt: null },
     ]);
   });
 
@@ -49,8 +49,8 @@ describe('joinUsageRows', () => {
 
   it('renders a successful zero when the summary is empty', () => {
     expect(joinUsageRows(registry, [])).toEqual([
-      { id: 'admin-roles', label: { ko: '권한/역할 관리', en: 'Roles & access' }, spaceId: 'operations', spaceLabel: { ko: 'operations', en: 'operations' }, visits: 0, distinctUsers: 0, lastUsedAt: null },
-      { id: 'admin-usage', label: { ko: '메뉴 활용률', en: 'Menu usage' }, spaceId: 'operations', spaceLabel: { ko: 'operations', en: 'operations' }, visits: 0, distinctUsers: 0, lastUsedAt: null },
+      { id: 'admin-roles', label: { ko: '권한/역할 관리', en: 'Roles & access' }, spaceId: 'operations', spaceLabel: { ko: '운영 콘솔', en: 'Operations console' }, visits: 0, distinctUsers: 0, lastUsedAt: null },
+      { id: 'admin-usage', label: { ko: '메뉴 활용률', en: 'Menu usage' }, spaceId: 'operations', spaceLabel: { ko: '운영 콘솔', en: 'Operations console' }, visits: 0, distinctUsers: 0, lastUsedAt: null },
     ]);
   });
 });

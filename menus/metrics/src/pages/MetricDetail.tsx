@@ -15,7 +15,7 @@ const SECTIONS = [
   { id: 'ownership', ko: '소유', en: 'Ownership' },
   { id: 'coverage', ko: '커버리지', en: 'Coverage' },
   { id: 'usage', ko: '사용처', en: 'Usage' },
-  { id: 'history', ko: '이력', en: 'History' },
+  { id: 'history', ko: '변경 이력', en: 'Change history' },
 ] as const;
 
 function sectionId(id: string) { return `metric-section-${id}`; }
@@ -166,8 +166,8 @@ export default function MetricDetailPage({ params }: PageProps) {
         </QueryView> : null}
       </Panel>
 
-      <Panel id={sectionId('history')} title={lang === 'ko' ? '이력' : 'History'} subtitle={lang === 'ko' ? '정의의 등록·게시·폐기입니다. mart 계산 세대가 아닙니다.' : 'Registration, publication and deprecation of the definition. Not a mart generation.'}>
-        <QueryView widgetName={lang === 'ko' ? '이력' : 'History'} hideWidgetName query={history} compact skeletonRows={4}>
+      <Panel id={sectionId('history')} title={lang === 'ko' ? '변경 이력' : 'Change history'} subtitle={lang === 'ko' ? '정의의 등록·게시·폐기입니다. mart 계산 세대가 아닙니다.' : 'Registration, publication and deprecation of the definition. Not a mart generation.'}>
+        <QueryView widgetName={lang === 'ko' ? '변경 이력' : 'Change history'} hideWidgetName query={history} compact skeletonRows={4}>
           {data => data.problem ? <StateMessage tone="danger" icon={<span className="t-mono">!</span>} title={lang === 'ko' ? '이력을 조회할 지표가 없습니다' : 'No metric to load history for'} body={metricId} /> : <AuditTimeline events={data.events} />}
         </QueryView>
       </Panel>

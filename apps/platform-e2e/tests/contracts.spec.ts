@@ -158,7 +158,7 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
     await expect.poll(() => query(page).has('page')).toBe(false);
 
     await page.goto('/equipment?v=1&scopeId=ICH&q=PHOTO&status=maintenance&maker=ZZZ&page=2');
-    await page.getByRole('button', { name: '페이지 필터 초기화' }).click();
+    await page.getByRole('button', { name: '필터 초기화' }).click();
     await expect.poll(() => query(page).has('q')).toBe(false);
     expect(query(page).has('status')).toBe(false);
     expect(query(page).has('maker')).toBe(false);
@@ -509,7 +509,7 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
     const statusHeader = page.locator('[role="columnheader"][data-column="status"]');
     await expect(statusHeader).toHaveAttribute('aria-sort', 'descending');
     await expect(tableStatusLine(page)).toContainText(/2\/\d+/);
-    await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog').getByRole('tab', { name: 'Audit' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog').getByRole('tab', { name: '변경 이력' })).toHaveAttribute('aria-selected', 'true');
     await evidence(page, testInfo, 'equipment-page-keys');
 
     await page.reload();
@@ -519,7 +519,7 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
     expect(query(page).get('tab')).toBe('audit');
     await expect(statusHeader).toHaveAttribute('aria-sort', 'descending');
     await expect(tableStatusLine(page)).toContainText(/2\/\d+/);
-    await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog').getByRole('tab', { name: 'Audit' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog').getByRole('tab', { name: '변경 이력' })).toHaveAttribute('aria-selected', 'true');
   });
 
   test('Scope 전환은 manifest가 선언한 page 키만 지우고, 뒤로 가면 이전 URL을 그대로 복원한다', async ({ page }, testInfo) => {

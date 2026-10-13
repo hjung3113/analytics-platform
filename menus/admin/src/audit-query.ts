@@ -24,6 +24,14 @@ export const ACTION_LABEL: Record<AuditAction, { ko: string; en: string }> = {
   retire: { ko: '유효 종료', en: 'Retired' }, sync: { ko: '동기화', en: 'Synced' },
 };
 
+/** Display words for the wire values; the URL and adapter keep the raw `user`/`system`·`equipment`/`metric`. */
+export const SOURCE_LABEL: Record<AuditSource, { ko: string; en: string }> = {
+  user: { ko: '사용자', en: 'User' }, system: { ko: '시스템', en: 'System' },
+};
+export const TYPE_LABEL: Record<'equipment' | 'metric', { ko: string; en: string }> = {
+  equipment: { ko: '설비', en: 'Equipment' }, metric: { ko: '지표', en: 'Metric' },
+};
+
 export type AuditFilters = {
   type: 'equipment' | 'metric' | null;
   actor: string | null;

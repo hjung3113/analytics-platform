@@ -21,7 +21,7 @@ export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 
     [id, global.scopeId],
     kind === 'audit' && scope.status === 'valid',
   );
-  if (kind === 'audit') return <QueryView widgetName={ko ? '감사 이력' : 'Audit history'} query={auditQuery}>{events => <div className="space-y-4">
+  if (kind === 'audit') return <QueryView widgetName={ko ? '변경 이력' : 'Change history'} query={auditQuery}>{events => <div className="space-y-4">
     <p className="t-caption text-text-muted">{ko ? '합성 감사 이벤트 · 실제 변경 기록이 아닙니다.' : 'Synthetic audit events · not real change records.'}</p>
     <AuditTimeline events={[...events.events]} />
   </div>}</QueryView>;
@@ -53,7 +53,7 @@ export default function EquipmentDetail({ params }: PageProps) {
   const { global, scope, pageParam, setPage } = usePlatform();
   const ko = lang === 'ko';
   const requestedTab = pageParam('tab') ?? 'attributes';
-  const tabs = [{ id: 'attributes', label: ko ? '속성' : 'Attributes' }, { id: 'validity', label: ko ? '유효구간' : 'Validity' }, { id: 'audit', label: 'Audit' }, { id: 'analysis', label: ko ? '관련 분석' : 'Related analysis' }] as const;
+  const tabs = [{ id: 'attributes', label: ko ? '속성' : 'Attributes' }, { id: 'validity', label: ko ? '유효구간' : 'Validity' }, { id: 'audit', label: ko ? '변경 이력' : 'Change history' }, { id: 'analysis', label: ko ? '관련 분석' : 'Related analysis' }] as const;
   const validTab = tabs.some(t => t.id === requestedTab);
   const header = useEntityQuery<Equipment>({ type: EQUIPMENT_ENTITY_TYPE, id, scopeId: global.scopeId }, 'header', scope.status === 'valid');
   return <PlatformPage title={<span className="t-mono">{id}</span>}
