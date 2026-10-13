@@ -1700,6 +1700,40 @@ test.describe('키보드 상세 포커스 복귀 (06 §13·§26)', () => {
       throw error;
     }
   });
+
+  // #312: a closing overlay kept mounted by its exit motion stayed the topmost Radix layer and took the next Escape.
+  const closeOverlay: Record<string, (page: Page) => Promise<void>> = {
+    '툴팁이': async page => {
+      await page.getByRole('heading', { level: 1 }).focus();
+      await expect(page.getByRole('tooltip')).toHaveCount(1);
+    },
+    '팝오버가': async page => {
+      const trigger = page.getByRole('button', { name: /컬럼|열 설정/ }).first();
+      await trigger.click();
+      await expect(page.locator('[data-radix-popper-content-wrapper]').first()).toBeVisible();
+      await trigger.click();
+    },
+    '대화상자가': async page => {
+      await page.getByRole('button', { name: '메뉴 검색…' }).click();
+      await expect(page.getByRole('combobox')).toBeFocused();
+      await page.getByRole('button', { name: '닫기' }).click();
+    },
+  };
+  for (const [overlay, close] of Object.entries(closeOverlay)) {
+    test(`${overlay} 닫힌 직후의 Escape도 상세를 닫는다`, async ({ page }) => {
+      await signInAs(page, 'admin');
+      await page.goto('/admin/roles?v=1');
+      const opener = page.getByRole('row').filter({ has: page.getByRole('button', { name: '보기', exact: true }) }).first().getByRole('button', { name: '보기', exact: true });
+      await expect(opener).toBeVisible();
+      await close(page);
+      await opener.focus();
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('button', { name: '상세 닫기' })).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(page).toHaveURL(url => !url.searchParams.has('focus'), { timeout: 2000 });
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+    });
+  }
 });
 
 test.describe('지표 목록→상세 복귀 (06 §22)', () => {
