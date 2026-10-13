@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { type PageProps, PlatformLink, useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
-import { AuditTimeline, Field, Panel, PlatformPage, QueryView, ReturnLink, StateMessage } from '@ap/components';
+import { AuditTimeline, Field, Panel, PlatformPage, QueryView, ReturnLink, StateMessage, useCopyLink } from '@ap/components';
 import { Button, cn, StatusBadge } from '@ap/ui';
 import { MetricPairBanner } from './MetricCatalog';
 import {
@@ -22,8 +22,9 @@ function sectionId(id: string) { return `metric-section-${id}`; }
 
 export default function MetricDetailPage({ params }: PageProps) {
   const metricId = params.metricId;
-  const { pageParam, setPage, setGlobal, linkTo, resolveLink, global, url, toast } = usePlatform();
+  const { pageParam, setPage, setGlobal, linkTo, resolveLink, global, url } = usePlatform();
   const { lang, tx } = useI18n();
+  const copyVersionLink = useCopyLink(lang === 'ko' ? '이 버전의 링크를 복사했습니다.' : 'Copied the link to this version.');
   const versionParam = pageParam('version');
   const tab = pageParam('tab');
   const returnTo = pageParam('returnTo');
@@ -61,7 +62,7 @@ export default function MetricDetailPage({ params }: PageProps) {
           {lang === 'ko' ? '이 버전을 분석 Context로 사용' : 'Use this version as analysis context'}
         </Button>)}
     secondaryActions={<>
-      <Button variant="secondary" size="sm" onClick={() => { void navigator.clipboard?.writeText(window.location.origin + url); toast(lang === 'ko' ? '이 버전의 링크를 복사했습니다.' : 'Copied the link to this version.'); }}>
+      <Button variant="secondary" size="sm" onClick={() => copyVersionLink(url)}>
         {lang === 'ko' ? '버전 링크 복사' : 'Copy version link'}
       </Button>
       {returnTo !== null ? <ReturnLink /> : <Button asChild size="sm" variant="secondary">
