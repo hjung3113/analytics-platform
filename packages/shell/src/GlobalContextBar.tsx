@@ -4,7 +4,7 @@ import { ContextBarLayout, MeasuringContext, useContextEditorState, useContextEd
 import { CONTEXT_CHIP, CONTEXT_CHIP_TONE } from './contextChip';
 import { CONTEXT_LABELS, useAdapterRequest, useI18n, usePlatform, type RequestState } from '@ap/kernel';
 import { type Capability, type Condition, type ConditionAxis, conditionLabel, type ContextKey, formatDateTime, type GlobalContext, type SelectionEvaluation, parseDateTime, shift } from '@ap/contracts';
-import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { Button, cn, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem } from '@ap/ui';
 import { SegmentedRadio, useCopyLink } from '@ap/components';
 
 const hours = (g: GlobalContext) => (g.from && g.to ? (parseDateTime(g.to, 'to').getTime() - parseDateTime(g.from, 'from').getTime()) / 3_600_000 : null);
@@ -284,10 +284,15 @@ function ConditionEditor({ cap }: { cap: Capability }) {
       {choices.status !== 'done' && <p role="status" className="px-2 py-1 text-text-secondary">{choices.status === 'error'
         ? <>{lang === 'ko' ? '선택지를 불러오지 못했습니다.' : 'Could not load choices.'} <button type="button" className="text-accent-primary underline" onClick={choices.retry}>{lang === 'ko' ? '다시 시도' : 'Retry'}</button></>
         : (lang === 'ko' ? '선택지를 불러오는 중…' : 'Loading choices…')}</p>}
-      <ul role="listbox" aria-label={axisLabel[axis]} className="max-h-48 space-y-0.5 overflow-auto">
-        {options.map(o => <li key={o} role="option" aria-selected={val === o}><button type="button" onClick={() => setVal(o)}
-          className={cn('w-full rounded-sm px-2 py-1 text-left t-mono', val === o ? 'bg-accent-primary-soft text-accent-primary' : 'hover:bg-surface-sunken')}>{o}</button></li>)}
-      </ul>
+      {/* Selection shape + text, not colour alone (06 §26): radio marker per option, arrow-key roving focus. */}
+      <RadioGroup orientation="vertical" aria-label={axisLabel[axis]} value={val} onValueChange={setVal}
+        className="max-h-48 overflow-auto">
+        {options.map(o => <label key={o}
+          className={cn('flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-left t-mono', val === o ? 'bg-accent-primary-soft text-accent-primary' : 'hover:bg-surface-sunken')}>
+          <RadioGroupItem value={o} />
+          <span className="min-w-0">{o}</span>
+        </label>)}
+      </RadioGroup>
       <p className="mt-2 rounded-md bg-surface-sunken px-2 py-1.5 text-tiny text-text-secondary">{lang === 'ko' ? 'live 조건: 재방문 시 현재 소속으로 다시 평가됩니다. 조건 변경은 고정 Selection을 바꾸지 않습니다.' : 'Live condition: membership is re-evaluated on revisit. Changing it never alters the fixed Selection.'}</p>
       <div className="mt-3 flex justify-between gap-2">
         <Button size="toolbar" variant="ghost" onClick={() => { setGlobal({ condition: null }); setOpen(false); }}>{t('clear')}</Button>

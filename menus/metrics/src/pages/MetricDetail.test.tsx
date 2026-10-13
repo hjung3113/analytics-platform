@@ -231,3 +231,24 @@ describe('MetricDetail definition draws no Data Trust (#299 B-10, 06 §18)', () 
     await expectNoDefinitionTrust(path, metricId, badge);
   });
 });
+
+// B-13 / #301: a native disabled primary cannot take focus, so keyboard users never hear the reason.
+describe('MetricDetail draft primary (B-13, #301)', () => {
+  it('is aria-disabled and focusable with the reason as visible, described text', async () => {
+    renderDetail('/metrics/queue_time?v=1&version=1', 'queue_time');
+    expect((await screen.findAllByText('초안')).length).toBeGreaterThan(0);
+    const button = screen.getByRole('button', { name: '이 버전을 분석 Context로 사용' });
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    // FIX1: the dim must not fade the focus ring (DESIGN Shared interaction: opaque focus);
+    // jsdom cannot compute styled opacity, so this is pinned as a class contract.
+    expect(button.classList.contains('aria-disabled:opacity-50')).toBe(true);
+    expect(button.classList.contains('aria-disabled:focus-visible:opacity-100')).toBe(true);
+    expect(button.getAttribute('disabled')).toBeNull(); // stays in the tab order
+    const describedBy = button.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy!)?.textContent).toContain('초안은 분석 Context로 쓰지 않습니다');
+    // Click is ignored: the draft must never enter the analysis context.
+    fireEvent.click(button);
+    expect(new URLSearchParams(window.location.search).has('metricId')).toBe(false);
+  });
+});

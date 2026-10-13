@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { House } from 'lucide-react';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import type { ApiResponse, GlobalContext, PageSort, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, useI18n, usePlatform } from '@ap/kernel';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
@@ -1061,5 +1061,54 @@ describe('Failed responses claim neither a count nor a page (#299 B-07, 06 §19)
   ])('a successful zero (%s) keeps 0건 · 1/1 페이지', async (_kind, response) => {
     render(<Harness page={null} sorting={[]} onChange={vi.fn()} loadPage={async () => response} />);
     expect(await screen.findByText('0건 · 1/1 페이지')).toBeTruthy();
+  });
+});
+
+describe('same-Context refresh keeps rows unfaded (#301)', () => {
+  // jsdom zero layout empties the virtual range (#160 block): the same fixed metrics let rows render here.
+  let rectSpy: MockInstance | undefined;
+  const originalOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+  const originalOffsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
+  beforeAll(() => {
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return (this as Element).getAttribute('role') === 'row' ? 32 : 420; } });
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return 800; } });
+    rectSpy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const height = this.getAttribute('role') === 'row' ? 32 : 420;
+      return { height, width: 800, top: 0, left: 0, right: 800, bottom: height, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+    });
+  });
+  afterAll(() => {
+    rectSpy?.mockRestore();
+    if (originalOffsetHeight) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', originalOffsetHeight);
+    if (originalOffsetWidth) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalOffsetWidth);
+  });
+
+  const okPage = (page: number): ApiResponse<PageResult<Row>> => ({
+    outcome: 'ok',
+    data: { rows: Array.from({ length: 3 }, (_, i) => ({ id: `r${page * 25 + i + 1}`, status: `s${page}-${i}` })), total: 50 },
+    assessments: [], trust: null, correlationId: 'c',
+  });
+
+  it('keeps values, exposes Refreshing and aria-busy while pending, and no row fade; settles to aria-busy=false', async () => {
+    let release!: (r: ApiResponse<PageResult<Row>>) => void;
+    const pending = new Promise<ApiResponse<PageResult<Row>>>(resolve => { release = resolve; });
+    const loadPage = vi.fn(async (q: PageQuery): Promise<ApiResponse<PageResult<Row>>> =>
+      q.page === 0 ? okPage(0) : pending);
+    const view = render(<Harness page={1} sorting={[]} onChange={vi.fn()} loadPage={loadPage} />);
+    await screen.findByText('s0-0'); // first query settled: real rows on screen
+
+    // A page move inside the same Context requeries; the previous rows must stay readable, not fade out.
+    view.rerender(<Harness page={2} sorting={[]} onChange={vi.fn()} loadPage={loadPage} />);
+    const row = screen.getByText('s0-0').closest('[role="row"]');
+    expect(row).not.toBeNull();
+    expect(row!.className).not.toContain('opacity-');
+    const refreshing = screen.getByRole('status'); // role="status" is name-from-author; assert its text instead
+    expect(refreshing).toBeVisible();
+    expect(refreshing).toHaveTextContent('같은 조건으로 갱신 중');
+    expect(screen.getByRole('table', { name: 'table' })).toHaveAttribute('aria-busy', 'true');
+
+    await act(async () => { release(okPage(1)); });
+    await waitFor(() => expect(screen.getByRole('table', { name: 'table' })).toHaveAttribute('aria-busy', 'false'));
+    expect(screen.getByText('s1-0')).toBeTruthy();
   });
 });

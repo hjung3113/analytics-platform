@@ -325,3 +325,69 @@ describe('링크 복사 reports success only after the clipboard write (#300)', 
   });
 
 });
+
+describe('Condition editor exposes choices as a radio group (#301)', () => {
+  // Two distinct StGroups so the keyboard branch and checked state have something to land on.
+  const conditionAdapter = testAdapter({
+    session: () => session,
+    validateScope: async () => ({ status: 'valid', scopeId: 'ICH', grantedRooms: ['PHOTO'] }),
+    contextOptions: async () => ({ stgroup: ['st-01', 'st-02'], team: [], makerModel: [] }),
+    evaluateSelection: evaluation,
+    getEntity: async () => forbidden,
+    listAnnotations: async () => forbidden,
+  });
+  const mountCondition = (condition: string | null) => {
+    localStorage.setItem('platform:lang', 'ko');
+    window.history.replaceState(null, '', `/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&selectedEquipmentIds=E1${condition ? `&equipmentGroup=${encodeURIComponent(condition)}` : ''}`);
+    return render(<I18nProvider><PlatformProvider adapter={conditionAdapter} registry={registry}><GlobalContextBar /></PlatformProvider></I18nProvider>);
+  };
+  const openConditionEditor = async () => {
+    fireEvent.click(within(bar()).getByRole('button', { name: /설비 그룹 조건/ }));
+    return await screen.findByRole('radiogroup', { name: 'StGroup' });
+  };
+  const url = () => new URLSearchParams(window.location.search);
+
+  // Radix timing (react-radio-group 1.4.7): document keydown marks the arrow key, roving focus moves focus in a
+  // setTimeout, and the item's focus handler clicks it only while the arrow key is still held. Assert after the
+  // async settle, then send keyup — no synchronous focus bypass.
+  it('ArrowDown moves focus and checked to the second option; 적용 commits while the fixed Selection survives', async () => {
+    mountCondition(null);
+    await openConditionEditor();
+    const first = screen.getByRole('radio', { name: 'st-01' });
+    const second = screen.getByRole('radio', { name: 'st-02' });
+    expect(first).not.toBeChecked();
+    expect(second).not.toBeChecked();
+    first.focus();
+    fireEvent.keyDown(first, { key: 'ArrowDown' });
+    await vi.waitFor(() => expect(second).toHaveFocus());
+    await vi.waitFor(() => expect(second).toBeChecked());
+    fireEvent.keyUp(second, { key: 'ArrowDown' });
+    // Draft only: the applied chip and URL still carry no condition.
+    expect(within(bar()).getByRole('button', { name: '설비 그룹 조건 없음' })).toBeVisible();
+    expect(url().has('equipmentGroup')).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: '적용' }));
+    await vi.waitFor(() => expect(url().get('equipmentGroup')).toBe('{"axis":"stgroup","id":"st-02"}'));
+    expect(within(bar()).getByRole('button', { name: '설비 그룹 조건 StGroup: st-02' })).toBeVisible();
+    expect(url().get('selectedEquipmentIds')).toBe('E1');
+  });
+
+  it('marks the applied condition checked and keeps it on 취소', async () => {
+    mountCondition('{"axis":"stgroup","id":"st-01"}');
+    await openConditionEditor();
+    expect(screen.getByRole('radio', { name: 'st-01' })).toBeChecked();
+    fireEvent.click(screen.getByRole('radio', { name: 'st-02' }));
+    expect(screen.getByRole('radio', { name: 'st-01' })).not.toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: '취소' }));
+    await vi.waitFor(() => expect(screen.queryByRole('radiogroup', { name: 'StGroup' })).toBeNull());
+    expect(url().get('equipmentGroup')).toBe('{"axis":"stgroup","id":"st-01"}');
+  });
+
+  it('지우기 removes the condition and keeps the fixed Selection', async () => {
+    mountCondition('{"axis":"stgroup","id":"st-01"}');
+    await openConditionEditor();
+    fireEvent.click(screen.getByRole('button', { name: '지우기' }));
+    await vi.waitFor(() => expect(url().has('equipmentGroup')).toBe(false));
+    expect(url().get('selectedEquipmentIds')).toBe('E1');
+    expect(within(bar()).getByRole('button', { name: '설비 그룹 조건 없음' })).toBeVisible();
+  });
+});

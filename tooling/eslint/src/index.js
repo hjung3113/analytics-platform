@@ -260,7 +260,9 @@ const RESTYLE_CONTRACTS = [
   },
   {
     pattern: '^Button$',
-    allow: ['layout', 'aria-disabled:opacity-50', 'aria-disabled:pointer-events-none', 'aria-disabled:cursor-not-allowed'],
+    allow: ['layout', 'aria-disabled:opacity-50', 'aria-disabled:pointer-events-none', 'aria-disabled:cursor-not-allowed',
+      // The dim must not fade the focus ring itself (DESIGN Shared interaction: opaque focus, #301 FIX1).
+      'aria-disabled:focus-visible:opacity-100'],
   },
 ];
 const DESIGN_SYSTEM_RULES = {
