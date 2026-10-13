@@ -82,6 +82,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const previousPeriodId = useId();
   const xType = p.xType ?? 'time';
   const chart = useRef<ECharts | null>(null);
+  // Focus anchors for the confirm row (#297 UX): it unmounts on both outcomes, so its handlers hand focus back —
+  // cancel to the "Apply analysis range…" button, apply (selection cleared by the Context change) to the brush toggle.
+  const brushToggle = useRef<HTMLButtonElement | null>(null);
+  const applyRangeButton = useRef<HTMLButtonElement | null>(null);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [compare, setCompare] = useState(false);
   const [brushMode, setBrushMode] = useState(false);
@@ -114,12 +118,13 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const format = p.valueFormat ?? ((v: number) => v.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { maximumFractionDigits: 1 }));
   // One row per distinct x across the visible series (#297): Compare series carry different dates, so the
   // old array-index join put one series' values under another's dates. Rows run in x order (time: ascending
-  // ISO strings sort chronologically; category: the axis order). null = the series has no point at that x.
+  // ISO strings sort chronologically; category: the axis order), each x once — duplicate categories collapse
+  // to their first occurrence instead of doubling the row (F2). null = the series has no point at that x.
   const rows = useMemo(() => {
     const xs = new Set(visible.flatMap(s => s.points.map(([x]) => x)));
     const order = xType === 'time'
       ? [...xs].sort()
-      : [...categories.filter(x => xs.has(x)), ...[...xs].filter(x => !categories.includes(x))];
+      : [...new Set(categories.filter(x => xs.has(x))), ...[...xs].filter(x => !categories.includes(x))];
     return order.map(x => [x, visible.map(s => s.points.find(([px]) => px === x)?.[1] ?? null)] as const);
   }, [visible, xType, categories]);
 
@@ -268,7 +273,9 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     } catch { failed(); } finally { setSaving(false); }
   }
 
-  return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className="relative flex flex-col rounded-lg border border-border-subtle bg-surface-card">
+  // min-w-0: the plot canvas owns a fixed px width; without it that width becomes the card's min-content and a
+  // grid cell can never shrink the card (the ResizeObserver then never sees a smaller width on column switch).
+  return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className="relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card">
     {/* Pinned to the card corner so a wrapping toolbar never strands it on its own line. */}
     <AnalysisChartPart enabled={analysisSection !== null}>
     <header className={cn('flex flex-wrap items-start justify-between gap-2 px-4 pt-3', analysisSection && 'pr-12')}>
@@ -276,25 +283,30 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         <h2 id={titleId} className="t-card-title">{p.title}</h2>
         {(p.description || p.metricVersion) && <p className="text-xs text-text-muted">{p.description}{p.metricVersion && <> · <span className="tabular">{t('metricVersion')} {formatMetricVersion(p.metricVersion)}</span></>}</p>}
       </div>
-      {/* One right-aligned bundle (#297 A-07): the toolbar never wraps internally, so a narrow card drops it below
-        the title as a whole instead of stranding the tail buttons on their own line. Wide cards look unchanged. */}
-      <div role="toolbar" aria-label={lang === 'ko' ? '차트 동작' : 'Chart actions'} className="ml-auto flex items-center gap-1">
-        {p.extraActions}
-        <Button variant="ghost" size="toolbar" onClick={() => setZoom(([a, b]) => { const q = (b - a) / 4; return [a + q, b - q]; })} title={lang === 'ko' ? '확대 (Shift+휠도 가능)' : 'Zoom in (Shift+wheel)'}><ZoomIn className="size-3.5" aria-hidden />{lang === 'ko' ? '확대' : 'Zoom'}</Button>
-        <Button variant={brushMode ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={brushMode} onClick={() => setBrushMode(b => !b)}><BrushIcon className="size-3.5" aria-hidden />{lang === 'ko' ? '구간 선택' : 'Brush'}</Button>
-        <Button variant="ghost" size="toolbar" onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />{lang === 'ko' ? '초기화' : 'Reset'}</Button>
-        {canCompare && <Button variant={compare ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={compare} onClick={() => setCompare(c => !c)}><GitCompare className="size-3.5" aria-hidden />{lang === 'ko' ? '비교' : 'Compare'}</Button>}
-        {canAnnotate && <Button variant="ghost" size="toolbar" disabled={!selection || scopeId === null} title={scopeId === null ? (lang === 'ko' ? '주석은 사이트(Scope)를 선택한 뒤 남길 수 있습니다' : 'Pick a site (Scope) to annotate') : selection ? undefined : (lang === 'ko' ? '구간 선택으로 구간을 먼저 선택하세요' : 'Brush a range first')} onClick={openNote}><MessageSquarePlus className="size-3.5" aria-hidden />{lang === 'ko' ? '주석' : 'Annotate'}</Button>}
-        {canExport && <Button variant="ghost" size="toolbar" onClick={exportCsv}><Download className="size-3.5" aria-hidden />{lang === 'ko' ? '내보내기' : 'Export'}</Button>}
-        <Popover>
-          <PopoverTrigger asChild><Button variant="ghost" size="toolbar" aria-label={lang === 'ko' ? '더보기' : 'More'}><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
-          <PopoverContent align="end" className="w-72">
-            <button type="button" className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-surface-sunken" onClick={() => setShowTable(s => !s)}><Table2 className="size-3.5" aria-hidden />{showTable ? (lang === 'ko' ? '데이터 표 숨기기' : 'Hide data table') : (lang === 'ko' ? '같은 데이터를 표로 보기' : 'Show same data as table')}</button>
-            <p className="mt-2 border-t border-border-subtle pt-2 text-text-secondary">{lang === 'ko'
-              ? '확대·구간 선택·시리즈 표시·비교는 이 차트의 로컬 상태로 URL에 저장되지 않습니다. 구간을 전역 기간으로 올리려면 선택 요약의 “분석 구간 적용”을 명시적으로 눌러야 합니다. 주석은 서버에 사이트(Scope)별로 보관되어 Reset 후에도 유지됩니다.'
-              : 'Zoom, brush, series visibility and compare are local chart state, never written to the URL. Promoting a range to the global period requires the explicit “Apply analysis range”. Annotations are stored on the server per site (Scope) and survive Reset.'}</p>
-          </PopoverContent>
-        </Popover>
+      {/* Line-based wrapping (#297 FIX1, supersedes the A-07 single bundle): bundles collapse as whole lines, so a
+        narrow card drops them below the title and the Export/More tail is never stranded alone; wide cards still
+        get one right-aligned row. extraActions keeps its own bundle. */}
+      <div role="toolbar" aria-label={lang === 'ko' ? '차트 동작' : 'Chart actions'} className="ml-auto flex flex-wrap items-center justify-end gap-1">
+        {p.extraActions != null && <div className="flex items-center gap-1">{p.extraActions}</div>}
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="toolbar" onClick={() => setZoom(([a, b]) => { const q = (b - a) / 4; return [a + q, b - q]; })} title={lang === 'ko' ? '확대 (Shift+휠도 가능)' : 'Zoom in (Shift+wheel)'}><ZoomIn className="size-3.5" aria-hidden />{lang === 'ko' ? '확대' : 'Zoom'}</Button>
+          <Button ref={brushToggle} variant={brushMode ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={brushMode} onClick={() => setBrushMode(b => !b)}><BrushIcon className="size-3.5" aria-hidden />{lang === 'ko' ? '구간 선택' : 'Brush'}</Button>
+          <Button variant="ghost" size="toolbar" onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />{lang === 'ko' ? '초기화' : 'Reset'}</Button>
+          {canCompare && <Button variant={compare ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={compare} onClick={() => setCompare(c => !c)}><GitCompare className="size-3.5" aria-hidden />{lang === 'ko' ? '비교' : 'Compare'}</Button>}
+          {canAnnotate && <Button variant="ghost" size="toolbar" disabled={!selection || scopeId === null} title={scopeId === null ? (lang === 'ko' ? '주석은 사이트(Scope)를 선택한 뒤 남길 수 있습니다' : 'Pick a site (Scope) to annotate') : selection ? undefined : (lang === 'ko' ? '구간 선택으로 구간을 먼저 선택하세요' : 'Brush a range first')} onClick={openNote}><MessageSquarePlus className="size-3.5" aria-hidden />{lang === 'ko' ? '주석' : 'Annotate'}</Button>}
+        </div>
+        <div className="flex items-center gap-1" data-chart-toolbar-tail>
+          {canExport && <Button variant="ghost" size="toolbar" onClick={exportCsv}><Download className="size-3.5" aria-hidden />{lang === 'ko' ? '내보내기' : 'Export'}</Button>}
+          <Popover>
+            <PopoverTrigger asChild><Button variant="ghost" size="toolbar" aria-label={lang === 'ko' ? '더보기' : 'More'}><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
+            <PopoverContent align="end" className="w-72">
+              <button type="button" className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-surface-sunken" onClick={() => setShowTable(s => !s)}><Table2 className="size-3.5" aria-hidden />{showTable ? (lang === 'ko' ? '데이터 표 숨기기' : 'Hide data table') : (lang === 'ko' ? '같은 데이터를 표로 보기' : 'Show same data as table')}</button>
+              <p className="mt-2 border-t border-border-subtle pt-2 text-text-secondary">{lang === 'ko'
+                ? '확대·구간 선택·시리즈 표시·비교는 이 차트의 로컬 상태로 URL에 저장되지 않습니다. 구간을 전역 기간으로 올리려면 선택 요약의 “분석 구간 적용”을 명시적으로 눌러야 합니다. 주석은 서버에 사이트(Scope)별로 보관되어 초기화 후에도 유지됩니다.'
+                : 'Zoom, brush, series visibility and compare are local chart state, never written to the URL. Promoting a range to the global period requires the explicit “Apply analysis range”. Annotations are stored on the server per site (Scope) and survive Reset.'}</p>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
     </header>
 
@@ -333,14 +345,15 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
           {selectionCounts.map(c => <span key={c.s.id} className="tabular text-text-secondary">{c.s.name}: n={c.n}{c.avg !== null && ` · avg ${format(c.avg)} · max ${format(c.max!)}`} {p.unit}</span>)}
           <span className="ml-auto flex flex-wrap gap-2">
             {p.selectionActions?.(selection)}
-            {xType === 'time' && p.canApplyRange !== false && <Button size="toolbar" onClick={() => setPreview(selection)}>{lang === 'ko' ? '분석 구간 적용…' : 'Apply analysis range…'}</Button>}
+            {xType === 'time' && p.canApplyRange !== false && <Button ref={applyRangeButton} size="toolbar" onClick={() => setPreview(selection)}>{lang === 'ko' ? '분석 구간 적용…' : 'Apply analysis range…'}</Button>}
             <Button size="toolbar" variant="ghost" onClick={() => setSelection(null)}>{t('clear')}</Button>
           </span>
         </div>}
       {preview && <div role="group" aria-label={lang === 'ko' ? '구간 적용 확인' : 'Confirm range'} className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-accent-primary bg-surface-card p-2">
         <span className="tabular">{lang === 'ko' ? '전역 기간을 다음으로 변경합니다 (초 정렬, [from, to)):' : 'Change the global period to (second-aligned, [from, to)):'} <b>{preview.from.replace('T', ' ')} → {preview.to.replace('T', ' ')}</b></span>
-        <Button size="toolbar" onClick={() => { setGlobal({ from: preview.from, to: preview.to }); toast(lang === 'ko' ? '선택 구간을 전역 기간으로 적용했습니다. 다른 메뉴로 이동해도 유지됩니다.' : 'Applied the selection as the global period; it carries across menus.'); }}>{t('apply')}</Button>
-        <Button size="toolbar" variant="secondary" onClick={() => setPreview(null)}>{t('cancel')}</Button>
+        {/* The row unmounts on either button; hand keyboard focus back instead of dropping it to body (#297 UX). */}
+        <Button size="toolbar" onClick={() => { setGlobal({ from: preview.from, to: preview.to }); toast(lang === 'ko' ? '선택 구간을 전역 기간으로 적용했습니다. 다른 메뉴로 이동해도 유지됩니다.' : 'Applied the selection as the global period; it carries across menus.'); brushToggle.current?.focus({ preventScroll: true }); }}>{t('apply')}</Button>
+        <Button size="toolbar" variant="secondary" onClick={() => { setPreview(null); applyRangeButton.current?.focus({ preventScroll: true }); }}>{t('cancel')}</Button>
       </div>}
       {canAnnotate && note !== null && selection && <form className="mt-2 flex flex-wrap items-center gap-2" onSubmit={e => { e.preventDefault(); void saveNote(selection); }}>
         <input autoFocus aria-label={lang === 'ko' ? '주석 내용' : 'Annotation text'} value={note} onChange={e => setNote(e.target.value)} placeholder={lang === 'ko' ? '예: PM 작업으로 인한 대기 증가' : 'e.g. queue spike due to PM'} className="h-7 min-w-64 flex-1 rounded-md border border-border-control bg-surface-card px-2" />

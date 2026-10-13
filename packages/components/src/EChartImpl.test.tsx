@@ -79,3 +79,84 @@ describe('EChartImpl reduced-motion (#297, 06 §26)', () => {
     expect(state.setOption.mock.calls[2][0].animationDuration).toBe(200);
   });
 });
+
+describe('reduced motion holds in every accepted option shape (#297 F1, 06 §26)', () => {
+  it('forces a single series object off, not just a top-level series array', () => {
+    stubReducedMotion(true);
+    render(<EChartImpl option={{
+      animation: true, animationDuration: 400,
+      series: { id: 'a', type: 'line', animation: true, data: [1, 2] },
+    }} ariaLabel="plot" height={120} />);
+    const merged = state.setOption.mock.calls[0][0];
+    expect(merged.animation).toBe(false);
+    expect(merged.series.animation).toBe(false);
+    // Consumer content survives the override.
+    expect(merged.series.data).toEqual([1, 2]);
+    expect(merged.animationDuration).toBe(400);
+  });
+
+  it('forces the global and series animation off inside baseOption (echarts makes it the effective option)', () => {
+    stubReducedMotion(true);
+    render(<EChartImpl option={{
+      baseOption: { animation: true, series: [{ id: 'a', type: 'line', animation: true, data: [1] }] },
+    }} ariaLabel="plot" height={120} />);
+    const merged = state.setOption.mock.calls[0][0];
+    expect(merged.animation).toBe(false);
+    expect(merged.baseOption.animation).toBe(false);
+    expect(merged.baseOption.series[0].animation).toBe(false);
+    expect(merged.baseOption.series[0].data).toEqual([1]);
+  });
+
+  it('forces global and series animation off inside every media[].option override', () => {
+    stubReducedMotion(true);
+    render(<EChartImpl option={{
+      animation: true,
+      series: [{ id: 'a', type: 'line', animation: true, data: [1] }],
+      media: [
+        { query: { maxWidth: 500 }, option: { animation: true, series: [{ id: 'a', type: 'line', animation: true, data: [2] }] } },
+        { option: { animation: true } },
+      ],
+    }} ariaLabel="plot" height={120} />);
+    const merged = state.setOption.mock.calls[0][0];
+    expect(merged.animation).toBe(false);
+    expect(merged.series.map((s: { animation?: boolean }) => s.animation)).toEqual([false]);
+    expect(merged.media[0].option.animation).toBe(false);
+    expect(merged.media[0].option.series[0].animation).toBe(false);
+    expect(merged.media[0].option.series[0].data).toEqual([2]);
+    expect(merged.media[1].option.animation).toBe(false);
+  });
+
+  it('keeps consumer single-object, baseOption and media animation when motion is allowed', () => {
+    stubReducedMotion(false);
+    render(<EChartImpl option={{
+      animation: true,
+      series: { id: 'a', type: 'line', animation: true, data: [1] },
+      baseOption: { animation: true, series: [{ id: 'b', type: 'bar', animation: true }] },
+      media: [{ option: { animation: true, series: { animation: true } } }],
+    }} ariaLabel="plot" height={120} />);
+    const merged = state.setOption.mock.calls[0][0];
+    expect(merged.animation).toBe(true);
+    expect(merged.series.animation).toBe(true);
+    expect(merged.baseOption.animation).toBe(true);
+    expect(merged.baseOption.series[0].animation).toBe(true);
+    expect(merged.media[0].option.animation).toBe(true);
+    expect(merged.media[0].option.series.animation).toBe(true);
+  });
+
+  it('never mutates the consumer option object', () => {
+    stubReducedMotion(true);
+    const input: EChartsCore.EChartsCoreOption = {
+      animation: true,
+      series: [{ id: 'a', type: 'line', animation: true, data: [1] }],
+      baseOption: { animation: true, series: { type: 'line', animation: true } },
+      media: [{ option: { animation: true, series: { animation: true } } }],
+    };
+    const snapshot = JSON.stringify(input);
+    render(<EChartImpl option={input} ariaLabel="plot" height={120} />);
+    expect(JSON.stringify(input)).toBe(snapshot);
+    expect(input.animation).toBe(true);
+    expect((input.series as { animation?: boolean }[])[0].animation).toBe(true);
+    expect(input.baseOption && 'animation' in input.baseOption && input.baseOption.animation).toBe(true);
+    expect(input.media && input.media[0].option.animation).toBe(true);
+  });
+});

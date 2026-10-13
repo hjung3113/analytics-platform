@@ -174,7 +174,8 @@ describe('chart stroke aliases (#203)', () => {
     const root = document.documentElement;
     const names = ['--chart-blue', '--chart-blue-stroke'];
     const previous = new Map(names.map(name => [name, root.style.getPropertyValue(name)]));
-    root.style.setProperty('--chart-blue', '59 156 255');
+    // Channels off the historical rgba(59,156,255,…) literal: reverting the fill to that literal must fail here.
+    root.style.setProperty('--chart-blue', '10 20 30');
     root.style.setProperty('--chart-blue-stroke', '37 119 204');
     window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
     try {
@@ -182,7 +183,7 @@ describe('chart stroke aliases (#203)', () => {
         <AnalysisChartFrame chartId="chart-brush-fill" title="Brush fill" unit="ea" series={series} />
       </PlatformProvider></I18nProvider>);
       await screen.findByText('fake-brush');
-      expect(plottedBrush?.brushStyle?.color).toBe('rgba(59,156,255,0.12)');
+      expect(plottedBrush?.brushStyle?.color).toBe('rgba(10,20,30,0.12)');
       expect(plottedBrush?.brushStyle?.borderColor).toBe('rgb(37,119,204)');
     } finally {
       for (const [name, value] of previous) {
@@ -271,6 +272,21 @@ describe('data table and CSV share one x-union row projection (#297)', () => {
     expect(within(rows[1]).getAllByRole('cell').map(cell => cell.textContent)).toEqual(['2026-10-01 00:00', '—']);
     expect(within(rows[2]).getAllByRole('cell').map(cell => cell.textContent)).toEqual(['2026-10-02 00:00', '3']);
   });
+
+  it('collapses duplicate axis categories to one row in categories order (F2)', async () => {
+    const dupes: ChartSeries[] = [{ id: 'h', name: 'H', color: 'chart-blue', points: [['b', 3], ['a', 2], ['a', 1]] }];
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    render(<I18nProvider><PlatformProvider adapter={fixture().adapter} registry={registryWith(off)}>
+      <AnalysisChartFrame chartId="chart-cat" title="Categories" unit="ea" xType="category" series={dupes} />
+    </PlatformProvider></I18nProvider>);
+    fireEvent.click(await screen.findByRole('button', { name: '더보기' }));
+    fireEvent.click(await screen.findByRole('button', { name: '같은 데이터를 표로 보기' }));
+    const rows = within(await screen.findByRole('table')).getAllByRole('row');
+    expect(rows).toHaveLength(3);
+    // Each distinct x once, in categories order; the repeated 'a' keeps its first-seen value.
+    expect(within(rows[1]).getAllByRole('cell').map(cell => cell.textContent)).toEqual(['b', '3']);
+    expect(within(rows[2]).getAllByRole('cell').map(cell => cell.textContent)).toEqual(['a', '2']);
+  });
 });
 
 describe('range apply confirmation stays an inline named group (#297)', () => {
@@ -285,6 +301,23 @@ describe('range apply confirmation stays an inline named group (#297)', () => {
     fireEvent.click(within(confirmRow).getByRole('button', { name: '취소' }));
     expect(within(summary).queryByRole('group', { name: '구간 적용 확인' })).toBeNull();
   });
+
+  it('returns keyboard focus when the confirm row closes: cancel to the apply button, apply to the brush toggle', async () => {
+    mount(fixture().adapter, off);
+    fireEvent.click(await screen.findByText('fake-brush'));
+    const summary = screen.getByRole('region', { name: '선택 요약' });
+    const openConfirm = async () => {
+      fireEvent.click(within(summary).getByRole('button', { name: '분석 구간 적용…' }));
+      return within(summary).getByRole('group', { name: '구간 적용 확인' });
+    };
+    fireEvent.click(within(await openConfirm()).getByRole('button', { name: '취소' }));
+    expect(document.activeElement).toBe(within(summary).getByRole('button', { name: '분석 구간 적용…' }));
+    // Apply rewrites the global period, so the selection (and with it this row) disappears; the toolbar's
+    // brush toggle is the stable anchor then.
+    fireEvent.click(within(await openConfirm()).getByRole('button', { name: '적용' }));
+    expect(within(summary).queryByRole('group', { name: '구간 적용 확인' })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: '구간 선택' }));
+  });
 });
 
 describe('toolbar speaks the UI language (#302, #297)', () => {
@@ -298,7 +331,32 @@ describe('toolbar speaks the UI language (#302, #297)', () => {
     expect(within(toolbar).getByRole('button', { name: '주석' })).toHaveAttribute('title', '구간 선택으로 구간을 먼저 선택하세요');
     fireEvent.click(within(toolbar).getByRole('button', { name: '더보기' }));
     expect(await screen.findByText(/확대·구간 선택·시리즈 표시·비교는/)).toBeTruthy();
+    // The last sentence follows the same vocabulary as the toolbar (초기화), never the English term.
+    expect(await screen.findByText(/초기화 후에도 유지됩니다/)).toBeTruthy();
+    expect(screen.queryByText(/Reset/)).toBeNull();
     expect(within(screen.getByRole('region', { name: '선택 요약' })).getByText(/구간 선택으로 구간을 선택하면/)).toBeTruthy();
+  });
+});
+
+describe('chart card sizing and toolbar wrapping (#297 FIX1 UX)', () => {
+  it('lets the card shrink in its cell and wraps the toolbar line-by-line with the tail buttons bundled', async () => {
+    mount(fixture().adapter, on);
+    const card = await screen.findByRole('region', { name: 'Chart' });
+    // The plot canvas owns a fixed px width; min-w-0 keeps it from becoming the card's min-content, so a
+    // one-column → two-column switch can shrink the card and the ResizeObserver sees the new width.
+    expect(card.className).toContain('min-w-0');
+    const toolbar = within(card).getByRole('toolbar', { name: '차트 동작' });
+    expect(toolbar.className).toContain('flex-wrap');
+    // The tail (Export + More) is one wrap unit, so it never strands alone on its own line.
+    const tail = toolbar.querySelector('[data-chart-toolbar-tail]') as HTMLElement;
+    expect(tail).toBeTruthy();
+    expect(within(tail).getByRole('button', { name: '내보내기' })).toBeTruthy();
+    expect(within(tail).getByRole('button', { name: '더보기' })).toBeTruthy();
+    // The front buttons are their own bundle ahead of the tail.
+    const front = tail.previousElementSibling as HTMLElement;
+    expect(within(front).getByRole('button', { name: '구간 선택' })).toBeTruthy();
+    expect(within(front).getByRole('button', { name: '초기화' })).toBeTruthy();
+    expect(within(front).getByRole('button', { name: '비교' })).toBeTruthy();
   });
 });
 
