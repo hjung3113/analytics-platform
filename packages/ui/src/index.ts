@@ -17,6 +17,6 @@ export { cn } from '@fops/ui';
 // First consumer: EChartImpl forces echarts canvas animation off under the OS preference (#297, 06 §26).
 export { prefersReducedMotion } from '@fops/ui';
 export { isProductionEnv } from './utils/isProductionEnv';
-export { isMacPlatform } from './utils/platform';
+export { isMacPlatform, shortcutLabel } from './utils/platform';
 
 export { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from './DetailPanelSlot';

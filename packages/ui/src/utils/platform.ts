@@ -5,3 +5,8 @@
 export function isMacPlatform(): boolean {
   return typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 }
+
+/** One notation for a Ctrl/⌘ shortcut: `⌘K` on Apple platforms, `Ctrl+K` elsewhere (Windows convention). */
+export function shortcutLabel(key: string): string {
+  return isMacPlatform() ? `⌘${key}` : `Ctrl+${key}`;
+}

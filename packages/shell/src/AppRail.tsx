@@ -1,6 +1,6 @@
 import { CircleHelp, ExternalLink, LogOut, Search } from 'lucide-react';
 import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
-import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, isMacPlatform, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 
 /** Space navigation and global tools; the app keeps ownership of topBarTools. */
 export function AppRail() {
@@ -9,7 +9,6 @@ export function AppRail() {
   const languageLabel = lang === 'ko' ? '언어: 한국어 — English로 전환' : 'Language: English — 한국어로 전환';
   const homeLabel = lang === 'ko' ? '플랫폼 홈' : 'Platform home';
   const overallLabel = lang === 'ko' ? 'FeedbackOps 전체 — 새 탭' : 'FeedbackOps overall — new tab';
-  const isMac = isMacPlatform();
   const homeMenu = registry.matchRoute('/')?.menu;
   const homeOpened = homeMenu !== undefined ? resolveLink(homeMenu.id) : null;
   const homeLink = homeOpened?.allowed === true ? homeOpened : null;
@@ -40,7 +39,7 @@ export function AppRail() {
       <Tooltip><TooltipTrigger asChild>
         <button type="button" onClick={() => setPaletteOpen(true)} aria-label={t('searchPlaceholder')} aria-haspopup="dialog" aria-keyshortcuts="Meta+K Control+K"
           className="grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover"><Search className="size-4" aria-hidden /></button>
-      </TooltipTrigger><TooltipContent side="right">{t('searchPlaceholder')} · {isMac ? '⌘' : 'Ctrl'} K</TooltipContent></Tooltip>
+      </TooltipTrigger><TooltipContent side="right">{t('searchPlaceholder')} · {shortcutLabel('K')}</TooltipContent></Tooltip>
       <div className="min-h-3 flex-1" />
       {overall && <Tooltip><TooltipTrigger asChild>
         <a href={overall.href} target="_blank" rel="noopener noreferrer" aria-label={overallLabel}
@@ -52,7 +51,7 @@ export function AppRail() {
         <PopoverContent side="right" align="end" className="w-72">
           <p className="t-card-title mb-2">{lang === 'ko' ? '단축키' : 'Shortcuts'}</p>
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-            <dt><kbd className="rounded-xs border border-border-strong px-1">{isMac ? '⌘' : 'Ctrl'} K</kbd></dt><dd>{lang === 'ko' ? '메뉴 이동 팔레트' : 'Menu palette'}</dd>
+            <dt><kbd className="rounded-xs border border-border-strong px-1">{shortcutLabel('K')}</kbd></dt><dd>{lang === 'ko' ? '메뉴 이동 팔레트' : 'Menu palette'}</dd>
             <dt><kbd className="rounded-xs border border-border-strong px-1">[</kbd></dt><dd>{lang === 'ko' ? '사이드바 접기/펼치기' : 'Toggle sidebar'}</dd>
             <dt><kbd className="rounded-xs border border-border-strong px-1">Esc</kbd></dt><dd>{lang === 'ko' ? '상세·팝오버 닫기' : 'Close detail/popover'}</dd>
           </dl>
