@@ -90,6 +90,13 @@ const CYCLE_TIME: MetricDef = {
   ],
   versions: [
     version({
+      version: '1', state: 'deprecated', unit: 's', numerator: null,
+      formula: { ko: '초기 분포 정의. 폐기됨.', en: 'Initial distribution definition. Deprecated.' },
+      filters: [{ ko: '완료 Job', en: 'Completed jobs' }], sourceContractRef: 'cycle-time-basis-v1',
+      changeReason: { ko: '최초 등록', en: 'Initial registration' },
+      registeredAt: '2026-06-02T09:00:00', publishedAt: '2026-06-03T09:00:00', updatedAt: '2026-08-01T09:00:00', updatedBy: 'kim.hana',
+    }),
+    version({
       version: '4', state: 'published', unit: 's', numerator: null,
       formula: { ko: '분포 재계산. 공정 구간만. averageOfQuantilesAllowed=false.', en: 'Recompute from the distribution, process interval only. averageOfQuantilesAllowed=false.' },
       filters: [{ ko: '완료 Job', en: 'Completed jobs' }, { ko: '공정 구간', en: 'Process interval' }], sourceContractRef: 'cycle-time-basis-v3',
@@ -188,15 +195,11 @@ function renderDetail(path: string, metricId: string) {
   render(<I18nProvider><PlatformProvider adapter={fixtureAdapter()} registry={registry}><MetricDetailPage params={{ metricId }} /></PlatformProvider></I18nProvider>);
 }
 
-/** Waits for the definition response, then: an omitted indicator passes; a kept one must not claim 확정. */
-async function expectDraftNeverClaimsFinal(path: string, metricId: string) {
+/** Waits for the version badge (the definition response arrived), then: no Data Trust beside the definition. */
+async function expectNoDefinitionTrust(path: string, metricId: string, badge: string) {
   renderDetail(path, metricId);
-  expect((await screen.findAllByText('초안')).length).toBeGreaterThan(0); // definition response arrived
-  const trigger = screen.queryByRole('button', { name: '데이터 신뢰' });
-  if (trigger === null) return; // omitted: no trust to claim for a version with no computed numbers
-  fireEvent.click(trigger);
-  await screen.findByText('상태'); // the Popover mounts its content only when open
-  expect(screen.queryByText('확정')).toBeNull();
+  expect((await screen.findAllByText(badge)).length).toBeGreaterThan(0);
+  expect(screen.queryByRole('button', { name: '데이터 신뢰' })).toBeNull();
 }
 
 beforeEach(() => {
@@ -215,20 +218,16 @@ beforeEach(() => {
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
-describe('MetricDetail Data Trust next to a draft version (#299 B-10, 06 §18)', () => {
-  it('queue_time@1 (draft, no published pointer) does not show the final-state trust popover', async () => {
-    await expectDraftNeverClaimsFinal('/metrics/queue_time?v=1&version=1', 'queue_time');
-  });
-
-  it('cycle_time@5 (draft beside a published v4) does not show the final-state trust popover', async () => {
-    await expectDraftNeverClaimsFinal('/metrics/cycle_time?v=1&version=5', 'cycle_time');
-  });
-
-  it('cycle_time@4 (published) keeps the existing trust indicator with its Status field', async () => {
-    renderDetail('/metrics/cycle_time?v=1&version=4', 'cycle_time');
-    expect((await screen.findAllByText('게시')).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole('button', { name: '데이터 신뢰' }));
-    await screen.findByText('상태');
-    expect(screen.getByText('확정')).toBeTruthy();
+// 06 §18: Data Trust states a displayed number's status. The definition section shows no numbers, and the envelope
+// trust describes the catalog mart read — so no version state (draft, published, deprecated) gets a trust claim there
+// (user decision 2026-10-13, #299 UX review).
+describe('MetricDetail definition draws no Data Trust (#299 B-10, 06 §18)', () => {
+  it.each([
+    ['queue_time@1 (draft, no published pointer)', '/metrics/queue_time?v=1&version=1', 'queue_time', '초안'],
+    ['cycle_time@5 (draft beside a published v4)', '/metrics/cycle_time?v=1&version=5', 'cycle_time', '초안'],
+    ['cycle_time@4 (published)', '/metrics/cycle_time?v=1&version=4', 'cycle_time', '게시'],
+    ['cycle_time@1 (deprecated)', '/metrics/cycle_time?v=1&version=1', 'cycle_time', '폐기'],
+  ])('%s', async (_name, path, metricId, badge) => {
+    await expectNoDefinitionTrust(path, metricId, badge);
   });
 });

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { type PageProps, PlatformLink, useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
-import { AuditTimeline, DataTrustIndicator, Field, Panel, PlatformPage, QueryView, ReturnLink, StateMessage } from '@ap/components';
+import { AuditTimeline, Field, Panel, PlatformPage, QueryView, ReturnLink, StateMessage } from '@ap/components';
 import { Button, cn, StatusBadge } from '@ap/ui';
 import { MetricPairBanner } from './MetricCatalog';
 import {
@@ -86,12 +86,10 @@ export default function MetricDetailPage({ params }: PageProps) {
       </p>}
 
       <QueryView widgetName={lang === 'ko' ? '지표 정의' : 'Metric definition'} query={definition} skeletonRows={6} skeletonHeight={220}>
-        {(data, response) => <>
-          {/* 06 §18: Data Trust states the displayed number's status. The envelope trust describes the catalog
-              mart read, and a draft version has no computed numbers of its own — showing it would dress the
-              publication lifecycle up as data completeness. No status source covers the draft's numbers, so
-              nothing is drawn rather than an invented status (§19: 원인 상태는 원천이 확인한 때만). */}
-          {data.version?.state !== 'draft' && <div className="mb-2 flex justify-end"><DataTrustIndicator trust={response.trust} assessments={response.assessments} /></div>}
+        {data => <>
+          {/* 06 §18: Data Trust states a displayed number's status. The definition shows no numbers and the envelope
+              trust only describes the catalog mart read, so no trust is drawn here for any version state (user
+              decision 2026-10-13, #299). */}
           {data.problem === 'unknown-metric' || !data.metric ? (
           <StateMessage tone="danger" icon={<span className="t-mono">!</span>} title={lang === 'ko' ? '지표를 찾을 수 없습니다' : 'Metric not found'}
             body={lang === 'ko' ? `${metricId} 는 카탈로그에 없습니다. 다른 지표로 대체하지 않습니다.` : `${metricId} is not in the catalog. No other metric is substituted.`}

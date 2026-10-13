@@ -31,6 +31,7 @@ Decided는 계약의 상태이며 구현 완료를 뜻하지 않는다. 각 행�
 | 공간 진입 목적지는 마지막 화면 → 열 수 있는 공간 홈 → 그 공간에서 열 수 있는 첫 메뉴(사이드바 순서) | 2026-10-09 | [06 §9.1](06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26) |
 | 상세 복귀는 출발 Context를 복원하고 되돌린 Context 항목을 알린다. 현재 Context를 유지하는 이동은 breadcrumb·사이드바다. 결정자: 사용자 — Opus 5.5 high 결정 리뷰에 위임 | 2026-10-13 | [06 §6.4](06_platform_ui_contract.md#64-url-계약-decided-필드명enum-문자열은-candidate) |
 | 열 수 없는 returnTo·parent는 다음 열 수 있는 후보(parent → 플랫폼 홈 → 공간 홈 → 비상 `/`)로 넘어가며 숨긴 메뉴 이름을 보이지 않는다. 결정자: 사용자 — Opus 5.5 high 결정 리뷰에 위임 | 2026-10-13 | [06 §22](06_platform_ui_contract.md#22-cross-menu-context-link) |
+| 숫자를 보이지 않는 절(지표 상세 정의 등)에는 버전 상태(게시·초안·폐기)와 관계없이 Data Trust를 그리지 않는다. 응답 봉투의 trust는 조회의 신뢰이지 그 절이 말하는 대상의 상태가 아니다. 결정자: 사용자(#299 UX 리뷰) | 2026-10-13 | [06 §18](06_platform_ui_contract.md#18-data-trust-contract) |
 | 그 밖의 결정(메뉴 조회 포트, 그리드·표·디자인, 활용률 이벤트, 차트 렌더러 등) | 2026-10-01~05 | [ADR 목록](adr/README.md) |
 
 ## MVP 지원 환경 — 데스크톱 웹만 (Decided, 2026-09-27)
