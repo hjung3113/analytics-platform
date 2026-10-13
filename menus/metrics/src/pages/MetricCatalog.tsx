@@ -8,6 +8,7 @@ import {
 } from '../endpoints';
 import { exportFilterSummary, exportParams } from './data';
 import { catalogColumns } from './columns';
+import { metricDetailHref } from './detail-link';
 import { metricCatalogHasActiveFilters, metricCatalogPageFilterFields, resetMetricCatalogPageFilters } from './filter-fields';
 
 const NO_DESTINATION = { viewedId: null, pageVersion: null };
@@ -62,10 +63,6 @@ export function MetricPairBanner({ viewedId = null, pageVersion = null }: { view
       </div>;
     }}
   </QueryView>;
-}
-
-function detailPage(row: CatalogRow): Record<string, string> {
-  return { version: row.publishedPointer ?? row.catalogVersion };
 }
 
 export default function MetricCatalogPage(_: PageProps) {
@@ -136,10 +133,10 @@ export default function MetricCatalogPage(_: PageProps) {
         activeRowId={activeRowId}
         loadPage={(query, signal) => pages.fetch({ ...filter, ...query }, signal)}
         rowAction={row => <span className="flex flex-wrap gap-2">
-          <PlatformLink className="text-xs font-medium text-accent-primary hover:underline" href={linkTo('metric-detail', { params: { metricId: row.metricId }, page: detailPage(row) })}>
+          <PlatformLink className="text-xs font-medium text-accent-primary hover:underline" href={metricDetailHref(linkTo, row)}>
             {lang === 'ko' ? '정의' : 'Definition'}
           </PlatformLink>
-          {row.draftVersion && <PlatformLink className="text-xs text-text-secondary hover:underline" href={linkTo('metric-detail', { params: { metricId: row.metricId }, page: { version: row.draftVersion } })}>
+          {row.draftVersion && <PlatformLink className="text-xs text-text-secondary hover:underline" href={metricDetailHref(linkTo, row, row.draftVersion)}>
             {lang === 'ko' ? `초안 v${row.draftVersion}` : `Draft v${row.draftVersion}`}
           </PlatformLink>}
         </span>}

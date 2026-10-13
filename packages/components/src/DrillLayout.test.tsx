@@ -267,8 +267,8 @@ it.each(['defaults', 'metric defaults', 'other navigation', 'history', 'denied']
   const link = screen.getByRole('link', { name: /^←/ });
   link.focus();
   fireEvent.click(link);
-  expect(window.location.pathname).toBe('/source');
-  expect(new URLSearchParams(window.location.search).get('from')).not.toBeNull();
+  expect(window.location.pathname).toBe(action === 'denied' ? '/' : '/source');
+  if (action !== 'denied') expect(new URLSearchParams(window.location.search).get('from')).not.toBeNull();
   if (action === 'other navigation') {
     fireEvent.click(screen.getByRole('button', { name: 'other navigation' }));
     fireEvent.click(screen.getByRole('button', { name: 'revisit' }));
@@ -287,4 +287,20 @@ it.each(['defaults', 'metric defaults', 'other navigation', 'history', 'denied']
   if (action === 'metric defaults') expect(new URLSearchParams(window.location.search).get('metricVersion')).toBe('7');
   if (action === 'defaults' || action === 'metric defaults') expect(screen.getByRole('heading', { name: 'source' })).toHaveFocus();
   else expect(resolve).toHaveFocus();
+});
+
+
+it.each([true, false])('announces reverted Context exactly once after return: %s', changed => {
+  function Fixture() {
+    const { toasts, url } = usePlatform();
+    return <><ReturnLink /><output>{JSON.stringify({ toasts, url })}</output></>;
+  }
+  const origin = '/source?v=1';
+  mount(`/detail?v=1${changed ? '&metricId=cycle_time&metricVersion=4' : ''}&returnTo=${encodeURIComponent(origin)}`, <Fixture />);
+  expect(JSON.parse(screen.getByRole('status').textContent!).toasts).toHaveLength(0);
+  fireEvent.click(screen.getByRole('link', { name: '← 생산성 개요' }));
+  const result = JSON.parse(screen.getByRole('status').textContent!);
+  expect(result.url).toBe(origin);
+  expect(result.toasts).toHaveLength(changed ? 1 : 0);
+  if (changed) expect(result.toasts[0].text).toBe('출발 화면의 Context로 돌아왔습니다. 상세에서 바꾼 지표·버전을(를) 되돌렸습니다.');
 });

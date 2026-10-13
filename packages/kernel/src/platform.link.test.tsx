@@ -106,3 +106,73 @@ describe('resolveLink (06 §22, issue #102)', () => {
     expect(query(link.href).has('nope')).toBe(false);
   });
 });
+
+
+describe('return fallback without a fixed home ID (#298)', () => {
+  function ReturnProbe() {
+    const platform = usePlatform();
+    return <output>{JSON.stringify({ target: platform.returnTarget(), origin: platform.returnOrigin() })}</output>;
+  }
+
+  it.each([
+    { name: 'platform home first', url: '/analysis?v=1', root: true, permissions: ANALYST, id: 'platform-start', href: '/?v=1' },
+    { name: 'space home after denied platform home', url: '/analysis?v=1', root: true, permissions: VIEWER, id: 'source', href: '/source?v=1' },
+    { name: 'sidebar space home outside registered routes', url: '/outside?v=1', root: false, permissions: VIEWER, id: 'source', href: '/source?v=1' },
+    { name: 'exact emergency fallback when all homes denied', url: '/analysis?v=1', root: true, permissions: [] as Session['user']['permissions'], id: null, href: '/' },
+    { name: 'emergency fallback with an accessible space but denied space home', url: '/analysis?v=1', root: false, permissions: ['analytics:view'] as Session['user']['permissions'], id: null, href: '/' },
+    { name: 'space home when platform home absent', url: '/analysis?v=1', root: false, permissions: VIEWER, id: 'source', href: '/source?v=1' },
+  ])('$name', ({ url, root, permissions, id, href }) => {
+    const fallbackRegistry = createRegistry({
+      spaces, groups: registry.groups,
+      menus: [...registry.menus, ...(root ? [entry('platform-start', 'equipment', '/', 'analytics:view', [])] : [])],
+    });
+    window.history.replaceState(null, '', url);
+    render(<I18nProvider><PlatformProvider adapter={fixture(permissions)} registry={fallbackRegistry}><ReturnProbe /></PlatformProvider></I18nProvider>);
+    expect(JSON.parse(screen.getByRole('status').textContent!)).toEqual({
+      target: href,
+      origin: { href, menuLabel: id ? { ko: id, en: id } : { ko: '홈', en: 'Home' }, trail: [], revertedContext: [] },
+    });
+  });
+});
+
+
+describe('return permission and reverted Context (#298 FIX1)', () => {
+  function ReturnProbe() {
+    const platform = usePlatform();
+    return <output>{JSON.stringify({ target: platform.returnTarget(), origin: platform.returnOrigin() })}</output>;
+  }
+  function mountReturn(current: string, origin: string, permissions = VIEWER, parent = 'source') {
+    const returnRegistry = createRegistry({
+      spaces, groups: registry.groups,
+      menus: [...registry.menus,
+        entry('platform-start', 'equipment', '/', 'console:access', []),
+        { ...entry('detail', 'equipment', '/detail', 'platform:view', ['returnTo', 'version']), parent, navHidden: true },
+      ],
+    });
+    window.history.replaceState(null, '', `/detail?v=1${current}&returnTo=${encodeURIComponent(origin)}`);
+    render(<I18nProvider><PlatformProvider adapter={fixture(permissions)} registry={returnRegistry}><ReturnProbe /></PlatformProvider></I18nProvider>);
+    return JSON.parse(screen.getByRole('status').textContent!);
+  }
+
+  it.each([
+    { name: 'denied menu', origin: '/analysis?v=1', permissions: VIEWER, parent: 'source', id: 'source', href: '/source?v=1' },
+    { name: 'denied space with granted menu', origin: '/ops/child?v=1', permissions: VIEWER, parent: 'source', id: 'source', href: '/source?v=1' },
+    { name: 'denied parent then platform home', origin: '/analysis?v=1', permissions: [...VIEWER, 'console:access'] as Session['user']['permissions'], parent: 'analysis', id: 'platform-start', href: '/?v=1' },
+    { name: 'denied parent and platform home then space home', origin: '/ops?v=1', permissions: VIEWER, parent: 'analysis', id: 'source', href: '/source?v=1' },
+  ])('$name', ({ origin, permissions, parent, id, href }) => {
+    expect(mountReturn('', origin, permissions, parent)).toEqual({
+      target: href, origin: { href, menuLabel: { ko: id, en: id }, trail: [], revertedContext: [] },
+    });
+  });
+
+  it.each([
+    { name: 'current metric pair only', current: '&metricId=cycle_time&metricVersion=4', origin: '/source?v=1', keys: ['metric'] },
+    { name: 'equal metric pairs', current: '&metricId=cycle_time&metricVersion=4', origin: '/source?v=1&metricId=cycle_time&metricVersion=4', keys: [] },
+    { name: 'page version only', current: '&version=4', origin: '/source?v=1', keys: [] },
+    { name: 'rejected returnTo', current: '&metricId=cycle_time&metricVersion=4', origin: '/analysis?v=1', keys: [] },
+    { name: 'metric version materialized in current URL', current: '&metricId=cycle_time&metricVersion=4', origin: '/source?v=1&metricId=cycle_time', keys: ['metric'] },
+    { name: 'codec normalizes selection sets', current: '&selectedEquipmentIds=E2&selectedEquipmentIds=E1', origin: '/source?v=1&selectedEquipmentIds=E1&selectedEquipmentIds=E2', keys: [] },
+  ])('$name', ({ current, origin, keys }) => {
+    expect(mountReturn(current, origin).origin.revertedContext).toEqual(keys);
+  });
+});
