@@ -1420,7 +1420,7 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
 
   async function brush(page: Page) {
     const frame = trend(page);
-    await frame.getByRole('button', { name: 'Brush' }).click();
+    await frame.getByRole('button', { name: '구간 선택' }).click();
     const plot = frame.getByRole('img', { name: /^사이클타임 추세/ });
     await expect(plot).toBeVisible();
     const box = (await plot.boundingBox())!;
@@ -1440,17 +1440,17 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
 
     const frame = trend(page);
     await frame.getByRole('button', { name: '분석 구간 적용…' }).click();
-    const dialog = frame.getByRole('alertdialog', { name: '구간 적용 확인' });
-    await expect(dialog).toBeVisible();
+    const confirmRow = frame.getByRole('group', { name: '구간 적용 확인' });
+    await expect(confirmRow).toBeVisible();
     // Nothing is applied while the confirmation is open, and cancelling leaves the period alone.
     expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
-    await dialog.getByRole('button', { name: '취소' }).click();
-    await expect(dialog).toBeHidden();
+    await confirmRow.getByRole('button', { name: '취소' }).click();
+    await expect(confirmRow).toBeHidden();
     expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
     await evidence(page, testInfo, 'apply-confirm');
 
     await frame.getByRole('button', { name: '분석 구간 적용…' }).click();
-    await frame.getByRole('alertdialog', { name: '구간 적용 확인' }).getByRole('button', { name: '적용' }).click();
+    await frame.getByRole('group', { name: '구간 적용 확인' }).getByRole('button', { name: '적용' }).click();
     await expect.poll(() => query(page).get('from')).not.toBe('2026-09-25T09:00:00');
     expect(query(page).get('from')! < query(page).get('to')!).toBe(true);
     expect(query(page).get('from')).toMatch(/^2026-09-25T\d\d:\d\d:\d\d$/);
@@ -1460,7 +1460,7 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
     await page.goto(CYCLE);
     await brush(page);
     const frame = trend(page);
-    await frame.getByRole('button', { name: 'Annotate' }).click();
+    await frame.getByRole('button', { name: '주석' }).click();
     await frame.getByRole('textbox', { name: '주석 내용' }).fill('ICH 전용 PM 작업');
     await frame.getByRole('button', { name: '저장' }).click();
     const note = frame.getByText(/ICH 전용 PM 작업/);
@@ -1469,7 +1469,7 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
 
     await switchScope(page, 'CJU');
     await expectScopeValid(page, 'CJU · Site B');
-    await expect(trend(page).getByRole('button', { name: 'Brush' })).toBeVisible();
+    await expect(trend(page).getByRole('button', { name: '구간 선택' })).toBeVisible();
     await expect(trend(page).getByText(/ICH 전용 PM 작업/)).toHaveCount(0);
     await evidence(page, testInfo, 'annotation-cju-isolated');
 
@@ -1478,18 +1478,18 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
     await expect(trend(page).getByText(/ICH 전용 PM 작업/)).toBeVisible();
   });
 
-  test('차트 동작은 메뉴 manifest features를 따른다: 사이클타임은 Compare·Annotate·Export, 생산성 개요는 Export만', async ({ page }, testInfo) => {
+  test('차트 동작은 메뉴 manifest features를 따른다: 사이클타임은 비교·주석·내보내기, 생산성 개요는 내보내기만', async ({ page }, testInfo) => {
     await page.goto(CYCLE);
     const frame = trend(page);
-    for (const name of ['Compare', 'Annotate', 'Export']) await expect(frame.getByRole('button', { name })).toBeVisible();
+    for (const name of ['비교', '주석', '내보내기']) await expect(frame.getByRole('button', { name })).toBeVisible();
 
     await page.goto(PRODUCTIVITY);
     await expect(mainHeading(page)).toHaveText('생산성 개요');
     const charts = page.getByRole('region').filter({ has: page.getByRole('toolbar', { name: '차트 동작' }) });
-    await expect(charts.first().getByRole('button', { name: 'Brush' })).toBeVisible();
-    await expect(page.getByRole('toolbar', { name: '차트 동작' }).first().getByRole('button', { name: 'Export' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Annotate' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Compare' })).toHaveCount(0);
+    await expect(charts.first().getByRole('button', { name: '구간 선택' })).toBeVisible();
+    await expect(page.getByRole('toolbar', { name: '차트 동작' }).first().getByRole('button', { name: '내보내기' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '주석' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '비교' })).toHaveCount(0);
     await evidence(page, testInfo, 'features-productivity');
   });
 });

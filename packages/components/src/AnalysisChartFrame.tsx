@@ -3,9 +3,10 @@ import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, t
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { formatDateTime, formatMetricVersion, parseDateTime } from '@ap/contracts';
-import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { Button, cn, Popover, PopoverContent, PopoverTrigger, prefersReducedMotion } from '@ap/ui';
 import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { EChart, strokeToken, token } from './EChart';
+import { toCsvDocument } from './tableExport';
 
 function AnalysisChartPart({ enabled, body, children }: { enabled: boolean; body?: boolean; children: ReactNode }) {
   if (!enabled) return <>{children}</>;
@@ -81,6 +82,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const previousPeriodId = useId();
   const xType = p.xType ?? 'time';
   const chart = useRef<ECharts | null>(null);
+  // Focus anchors for the confirm row (#297 UX): it unmounts on both outcomes, so its handlers hand focus back —
+  // cancel to the "Apply analysis range…" button, apply (selection cleared by the Context change) to the brush toggle.
+  const brushToggle = useRef<HTMLButtonElement | null>(null);
+  const applyRangeButton = useRef<HTMLButtonElement | null>(null);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [compare, setCompare] = useState(false);
   const [brushMode, setBrushMode] = useState(false);
@@ -111,6 +116,17 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const visible = allSeries.filter(s => !hidden.has(s.id));
   const categories = useMemo(() => (xType === 'category' ? p.series[0]?.points.map(([x]) => x) ?? [] : []), [xType, p.series]);
   const format = p.valueFormat ?? ((v: number) => v.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { maximumFractionDigits: 1 }));
+  // One row per distinct x across the visible series (#297): Compare series carry different dates, so the
+  // old array-index join put one series' values under another's dates. Rows run in x order (time: ascending
+  // ISO strings sort chronologically; category: the axis order), each x once — duplicate categories collapse
+  // to their first occurrence instead of doubling the row (F2). null = the series has no point at that x.
+  const rows = useMemo(() => {
+    const xs = new Set(visible.flatMap(s => s.points.map(([x]) => x)));
+    const order = xType === 'time'
+      ? [...xs].sort()
+      : [...new Set(categories.filter(x => xs.has(x))), ...[...xs].filter(x => !categories.includes(x))];
+    return order.map(x => [x, visible.map(s => s.points.find(([px]) => px === x)?.[1] ?? null)] as const);
+  }, [visible, xType, categories]);
 
   const resetLocal = useCallback(() => {
     setHidden(new Set()); setCompare(false); setBrushMode(false); setZoom([0, 100]); setSelection(null); setPreview(null); closeNote();
@@ -138,7 +154,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         : { type: 'category', data: categories, axisLine: { lineStyle: { color: token('border-strong') } }, axisTick: { alignWithLabel: true } },
       yAxis: { type: 'value', min: 0, name: p.unit, nameTextStyle: { align: 'right' }, splitLine: { lineStyle: { color: token('chart-grid') } } },
       dataZoom: [{ type: 'inside', xAxisIndex: 0, start: zoom[0], end: zoom[1], zoomOnMouseWheel: 'shift', moveOnMouseMove: !brushMode }],
-      brush: { xAxisIndex: 0, brushType: 'lineX', brushMode: 'single', throttleType: 'debounce', throttleDelay: 120, brushStyle: { color: 'rgba(59,156,255,0.12)', borderColor: token(strokeToken('chart-blue')) } },
+      // Fill derives rgba from the resolved chart-blue token (#297): copying stroke channels would shift the hue,
+      // and a literal rgba copies the token's values. Selection and annotation fills keep echarts-native opacity.
+      brush: { xAxisIndex: 0, brushType: 'lineX', brushMode: 'single', throttleType: 'debounce', throttleDelay: 120,
+        brushStyle: { color: token('chart-blue').replace(/^rgb\((.+)\)$/, (_, rgb: string) => `rgba(${rgb},0.12)`), borderColor: token(strokeToken('chart-blue')) } },
       toolbox: { show: false, feature: { brush: { type: ['lineX', 'clear'] } } },
       series: [
         ...visible.map(s => {
@@ -229,10 +248,11 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   }
 
   function exportCsv() {
-    const xs = [...new Set(visible.flatMap(s => s.points.map(([x]) => x)))];
-    const rows = [['x', ...visible.map(s => s.name)], ...xs.map(x => [x, ...visible.map(s => { const pt = s.points.find(([px]) => px === x); return pt?.[1] === null || pt === undefined ? '' : String(pt[1]); })])];
+    const header = ['x', ...visible.map(s => s.name)];
+    // The table projection verbatim: numbers stay numbers so the formula guard never prefixes them (#297).
+    const body = rows.map(([x, values]) => [x, ...values.map(v => (v === null ? '' : v))]);
     const meta = `# ${String(typeof p.title === 'string' ? p.title : p.chartId)} · scopeId=${global.scopeId ?? ''} · from=${global.from ?? ''} · to=${global.to ?? ''}${p.metricVersion ? ` · metricVersion=${p.metricVersion}` : ''}`;
-    const blob = new Blob([meta + '\n' + rows.map(r => r.join(',')).join('\n')], { type: 'text/csv' });
+    const blob = new Blob([toCsvDocument(meta, header, body)], { type: 'text/csv' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${p.chartId}.csv`; a.click(); URL.revokeObjectURL(a.href);
     toast(lang === 'ko' ? `${p.chartId}.csv 내보냄 (보이는 시리즈, 현재 적용 Context 기준)` : `Exported ${p.chartId}.csv (visible series, applied context)`);
   }
@@ -253,7 +273,9 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     } catch { failed(); } finally { setSaving(false); }
   }
 
-  return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className="relative flex flex-col rounded-lg border border-border-subtle bg-surface-card">
+  // min-w-0: the plot canvas owns a fixed px width; without it that width becomes the card's min-content and a
+  // grid cell can never shrink the card (the ResizeObserver then never sees a smaller width on column switch).
+  return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className="relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card">
     {/* Pinned to the card corner so a wrapping toolbar never strands it on its own line. */}
     <AnalysisChartPart enabled={analysisSection !== null}>
     <header className={cn('flex flex-wrap items-start justify-between gap-2 px-4 pt-3', analysisSection && 'pr-12')}>
@@ -261,23 +283,30 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         <h2 id={titleId} className="t-card-title">{p.title}</h2>
         {(p.description || p.metricVersion) && <p className="text-xs text-text-muted">{p.description}{p.metricVersion && <> · <span className="tabular">{t('metricVersion')} {formatMetricVersion(p.metricVersion)}</span></>}</p>}
       </div>
-      <div role="toolbar" aria-label={lang === 'ko' ? '차트 동작' : 'Chart actions'} className="flex flex-wrap items-center gap-1">
-        {p.extraActions}
-        <Button variant="ghost" size="toolbar" onClick={() => setZoom(([a, b]) => { const q = (b - a) / 4; return [a + q, b - q]; })} title={lang === 'ko' ? '확대 (Shift+휠도 가능)' : 'Zoom in (Shift+wheel)'}><ZoomIn className="size-3.5" aria-hidden />Zoom</Button>
-        <Button variant={brushMode ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={brushMode} onClick={() => setBrushMode(b => !b)}><BrushIcon className="size-3.5" aria-hidden />Brush</Button>
-        <Button variant="ghost" size="toolbar" onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />Reset</Button>
-        {canCompare && <Button variant={compare ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={compare} onClick={() => setCompare(c => !c)}><GitCompare className="size-3.5" aria-hidden />Compare</Button>}
-        {canAnnotate && <Button variant="ghost" size="toolbar" disabled={!selection || scopeId === null} title={scopeId === null ? (lang === 'ko' ? '주석은 사이트(Scope)를 선택한 뒤 남길 수 있습니다' : 'Pick a site (Scope) to annotate') : selection ? undefined : (lang === 'ko' ? 'Brush로 구간을 먼저 선택하세요' : 'Brush a range first')} onClick={openNote}><MessageSquarePlus className="size-3.5" aria-hidden />Annotate</Button>}
-        {canExport && <Button variant="ghost" size="toolbar" onClick={exportCsv}><Download className="size-3.5" aria-hidden />Export</Button>}
-        <Popover>
-          <PopoverTrigger asChild><Button variant="ghost" size="toolbar" aria-label="More"><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
-          <PopoverContent align="end" className="w-72">
-            <button type="button" className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-surface-sunken" onClick={() => setShowTable(s => !s)}><Table2 className="size-3.5" aria-hidden />{showTable ? (lang === 'ko' ? '데이터 표 숨기기' : 'Hide data table') : (lang === 'ko' ? '같은 데이터를 표로 보기' : 'Show same data as table')}</button>
-            <p className="mt-2 border-t border-border-subtle pt-2 text-text-secondary">{lang === 'ko'
-              ? 'Zoom·Brush·시리즈 표시·Compare는 이 차트의 로컬 상태로 URL에 저장되지 않습니다. 구간을 전역 기간으로 올리려면 선택 요약의 “분석 구간 적용”을 명시적으로 눌러야 합니다. 주석은 서버에 사이트(Scope)별로 보관되어 Reset 후에도 유지됩니다.'
-              : 'Zoom, brush, series visibility and compare are local chart state, never written to the URL. Promoting a range to the global period requires the explicit “Apply analysis range”. Annotations are stored on the server per site (Scope) and survive Reset.'}</p>
-          </PopoverContent>
-        </Popover>
+      {/* Line-based wrapping (#297 FIX1, supersedes the A-07 single bundle): bundles collapse as whole lines, so a
+        narrow card drops them below the title and the Export/More tail is never stranded alone; wide cards still
+        get one right-aligned row. extraActions keeps its own bundle. */}
+      <div role="toolbar" aria-label={lang === 'ko' ? '차트 동작' : 'Chart actions'} className="ml-auto flex flex-wrap items-center justify-end gap-1">
+        {p.extraActions != null && <div className="flex items-center gap-1">{p.extraActions}</div>}
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="toolbar" onClick={() => setZoom(([a, b]) => { const q = (b - a) / 4; return [a + q, b - q]; })} title={lang === 'ko' ? '확대 (Shift+휠도 가능)' : 'Zoom in (Shift+wheel)'}><ZoomIn className="size-3.5" aria-hidden />{lang === 'ko' ? '확대' : 'Zoom'}</Button>
+          <Button ref={brushToggle} variant={brushMode ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={brushMode} onClick={() => setBrushMode(b => !b)}><BrushIcon className="size-3.5" aria-hidden />{lang === 'ko' ? '구간 선택' : 'Brush'}</Button>
+          <Button variant="ghost" size="toolbar" onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />{lang === 'ko' ? '초기화' : 'Reset'}</Button>
+          {canCompare && <Button variant={compare ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={compare} onClick={() => setCompare(c => !c)}><GitCompare className="size-3.5" aria-hidden />{lang === 'ko' ? '비교' : 'Compare'}</Button>}
+          {canAnnotate && <Button variant="ghost" size="toolbar" disabled={!selection || scopeId === null} title={scopeId === null ? (lang === 'ko' ? '주석은 사이트(Scope)를 선택한 뒤 남길 수 있습니다' : 'Pick a site (Scope) to annotate') : selection ? undefined : (lang === 'ko' ? '구간 선택으로 구간을 먼저 선택하세요' : 'Brush a range first')} onClick={openNote}><MessageSquarePlus className="size-3.5" aria-hidden />{lang === 'ko' ? '주석' : 'Annotate'}</Button>}
+        </div>
+        <div className="flex items-center gap-1" data-chart-toolbar-tail>
+          {canExport && <Button variant="ghost" size="toolbar" onClick={exportCsv}><Download className="size-3.5" aria-hidden />{lang === 'ko' ? '내보내기' : 'Export'}</Button>}
+          <Popover>
+            <PopoverTrigger asChild><Button variant="ghost" size="toolbar" aria-label={lang === 'ko' ? '더보기' : 'More'}><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
+            <PopoverContent align="end" className="w-72">
+              <button type="button" className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-surface-sunken" onClick={() => setShowTable(s => !s)}><Table2 className="size-3.5" aria-hidden />{showTable ? (lang === 'ko' ? '데이터 표 숨기기' : 'Hide data table') : (lang === 'ko' ? '같은 데이터를 표로 보기' : 'Show same data as table')}</button>
+              <p className="mt-2 border-t border-border-subtle pt-2 text-text-secondary">{lang === 'ko'
+                ? '확대·구간 선택·시리즈 표시·비교는 이 차트의 로컬 상태로 URL에 저장되지 않습니다. 구간을 전역 기간으로 올리려면 선택 요약의 “분석 구간 적용”을 명시적으로 눌러야 합니다. 주석은 서버에 사이트(Scope)별로 보관되어 초기화 후에도 유지됩니다.'
+                : 'Zoom, brush, series visibility and compare are local chart state, never written to the URL. Promoting a range to the global period requires the explicit “Apply analysis range”. Annotations are stored on the server per site (Scope) and survive Reset.'}</p>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
     </header>
 
@@ -302,28 +331,29 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     {showTable && <div className="mx-4 mb-2 max-h-56 overflow-auto rounded-md border border-border-subtle">
       <table className="w-full text-xs tabular">
         <thead className="sticky top-0 bg-surface-sunken"><tr><th className="t-table-header px-3 py-1.5 text-left text-text-secondary">x</th>{visible.map(s => <th key={s.id} className="t-table-header px-3 py-1.5 text-right text-text-secondary">{s.name}</th>)}</tr></thead>
-        <tbody>{(visible[0]?.points ?? []).map(([x], i) => <tr key={x} className="border-t border-border-subtle">
+        <tbody>{rows.map(([x, values]) => <tr key={x} className="border-t border-border-subtle">
           <td className="px-3 py-1">{xType === 'time' ? fmt(x) : x}</td>
-          {visible.map(s => <td key={s.id} className="px-3 py-1 text-right">{s.points[i]?.[1] === null || s.points[i] === undefined ? '—' : format(s.points[i][1] as number)}</td>)}
+          {values.map((v, i) => <td key={visible[i].id} className="px-3 py-1 text-right">{v === null ? '—' : format(v)}</td>)}
         </tr>)}</tbody>
       </table>
     </div>}
 
     <section aria-label={lang === 'ko' ? '선택 요약' : 'Selection summary'} aria-live="polite" className="mx-4 mb-3 min-h-9 rounded-md bg-surface-sunken px-3 py-2 text-xs">
-      {!selection ? <span className="text-text-secondary">{lang === 'ko' ? '선택 구간 없음 — Brush로 구간을 선택하면 요약·주석·구간 적용을 할 수 있습니다.' : 'No selection — brush a range to summarize, annotate or apply it.'}</span>
+      {!selection ? <span className="text-text-secondary">{lang === 'ko' ? '선택 구간 없음 — 구간 선택으로 구간을 선택하면 요약·주석·구간 적용을 할 수 있습니다.' : 'No selection — brush a range to summarize, annotate or apply it.'}</span>
         : <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <span className="font-semibold tabular">{t('selectedRange')}: {xType === 'time' ? `${fmt(selection.from)} – ${fmt(selection.to)}` : `${selection.from} – ${selection.to}`}</span>
           {selectionCounts.map(c => <span key={c.s.id} className="tabular text-text-secondary">{c.s.name}: n={c.n}{c.avg !== null && ` · avg ${format(c.avg)} · max ${format(c.max!)}`} {p.unit}</span>)}
           <span className="ml-auto flex flex-wrap gap-2">
             {p.selectionActions?.(selection)}
-            {xType === 'time' && p.canApplyRange !== false && <Button size="toolbar" onClick={() => setPreview(selection)}>{lang === 'ko' ? '분석 구간 적용…' : 'Apply analysis range…'}</Button>}
+            {xType === 'time' && p.canApplyRange !== false && <Button ref={applyRangeButton} size="toolbar" onClick={() => setPreview(selection)}>{lang === 'ko' ? '분석 구간 적용…' : 'Apply analysis range…'}</Button>}
             <Button size="toolbar" variant="ghost" onClick={() => setSelection(null)}>{t('clear')}</Button>
           </span>
         </div>}
-      {preview && <div role="alertdialog" aria-label={lang === 'ko' ? '구간 적용 확인' : 'Confirm range'} className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-accent-primary bg-surface-card p-2">
+      {preview && <div role="group" aria-label={lang === 'ko' ? '구간 적용 확인' : 'Confirm range'} className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-accent-primary bg-surface-card p-2">
         <span className="tabular">{lang === 'ko' ? '전역 기간을 다음으로 변경합니다 (초 정렬, [from, to)):' : 'Change the global period to (second-aligned, [from, to)):'} <b>{preview.from.replace('T', ' ')} → {preview.to.replace('T', ' ')}</b></span>
-        <Button size="toolbar" onClick={() => { setGlobal({ from: preview.from, to: preview.to }); toast(lang === 'ko' ? '선택 구간을 전역 기간으로 적용했습니다. 다른 메뉴로 이동해도 유지됩니다.' : 'Applied the selection as the global period; it carries across menus.'); }}>{t('apply')}</Button>
-        <Button size="toolbar" variant="secondary" onClick={() => setPreview(null)}>{t('cancel')}</Button>
+        {/* The row unmounts on either button; hand keyboard focus back instead of dropping it to body (#297 UX). */}
+        <Button size="toolbar" onClick={() => { setGlobal({ from: preview.from, to: preview.to }); toast(lang === 'ko' ? '선택 구간을 전역 기간으로 적용했습니다. 다른 메뉴로 이동해도 유지됩니다.' : 'Applied the selection as the global period; it carries across menus.'); brushToggle.current?.focus({ preventScroll: true }); }}>{t('apply')}</Button>
+        <Button size="toolbar" variant="secondary" onClick={() => { setPreview(null); applyRangeButton.current?.focus({ preventScroll: true }); }}>{t('cancel')}</Button>
       </div>}
       {canAnnotate && note !== null && selection && <form className="mt-2 flex flex-wrap items-center gap-2" onSubmit={e => { e.preventDefault(); void saveNote(selection); }}>
         <input autoFocus aria-label={lang === 'ko' ? '주석 내용' : 'Annotation text'} value={note} onChange={e => setNote(e.target.value)} placeholder={lang === 'ko' ? '예: PM 작업으로 인한 대기 증가' : 'e.g. queue spike due to PM'} className="h-7 min-w-64 flex-1 rounded-md border border-border-control bg-surface-card px-2" />

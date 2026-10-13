@@ -218,7 +218,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
               {(data, response) => <AnalysisChartFrame
                 chartId="cycle-time-distribution"
                 title={ko ? '사이클타임 분포' : 'Cycle time distribution'}
-                description={ko ? 'Candidate 구간 [하한, 상한). Brush 후 “이 구간 실행 보기”만 목록을 줄입니다.' : 'Candidate bins [min, max). Only “Show executions in this range” filters the list.'}
+                description={ko ? 'Candidate 구간 [하한, 상한). 구간 선택 후 “이 구간 실행 보기”만 목록을 줄입니다.' : 'Candidate bins [min, max). Only “Show executions in this range” filters the list.'}
                 metricVersion={metricLabel(metric)}
                 xType="category"
                 unit={ko ? '건' : 'jobs'}
