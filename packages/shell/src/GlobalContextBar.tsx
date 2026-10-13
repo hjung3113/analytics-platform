@@ -5,14 +5,15 @@ import { CONTEXT_CHIP, CONTEXT_CHIP_TONE } from './contextChip';
 import { CONTEXT_LABELS, useAdapterRequest, useI18n, usePlatform, type RequestState } from '@ap/kernel';
 import { type Capability, type Condition, type ConditionAxis, conditionLabel, type ContextKey, formatDateTime, type GlobalContext, type SelectionEvaluation, parseDateTime, shift } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
-import { SegmentedRadio } from '@ap/components';
+import { SegmentedRadio, useCopyLink } from '@ap/components';
 
 const hours = (g: GlobalContext) => (g.from && g.to ? (parseDateTime(g.to, 'to').getTime() - parseDateTime(g.from, 'from').getTime()) / 3_600_000 : null);
 const short = (v: string) => v.replace('T', ' ').slice(5, 16);
 
 export function GlobalContextBar() {
-  const { route, global, setGlobal, resetContext, toast, url, scope, adapter } = usePlatform();
+  const { route, global, setGlobal, resetContext, url, scope, adapter } = usePlatform();
   const { t, lang } = useI18n();
+  const copyLink = useCopyLink(lang === 'ko' ? '현재 Context가 담긴 링크를 복사했습니다. 받는 사람의 권한으로 서버가 다시 검증합니다.' : 'Copied a link with the current context. The server re-validates for the recipient.');
   // Keep one request owner while the Selection editor moves between inline and overflow.
   const input = { scopeId: global.scopeId, roomNames: global.roomNames, condition: global.condition, selection: global.selection };
   const evaluation = useAdapterRequest(signal => adapter.evaluateSelection(input, signal), [input, scope.status],
@@ -39,7 +40,7 @@ export function GlobalContextBar() {
     ...(has.metric ? [{ key: 'metric' as const, applied: has.metric, node: <CarriedChip k="metric" cap={cap.metric} value={`${global.metricId}${global.metricVersion ? ` @ ${global.metricVersion}` : ` (${lang === 'ko' ? '버전 미정' : 'no version'})`}`} onRemove={() => setGlobal({ metricId: null, metricVersion: null })} /> }] : []),
   ];
   return <ContextBarLayout controls={controls} revision={JSON.stringify([global, cap, lang, shown, evaluation.status, evaluation.data?.inCondition.length])} actions={compact => <span className="flex items-center gap-1">
-        <Button type="button" variant="ghost" size="toolbar" aria-label={lang === 'ko' ? '링크 복사' : 'Copy link'} title={lang === 'ko' ? '링크 복사' : 'Copy link'} onClick={() => { void navigator.clipboard?.writeText(window.location.origin + url); toast(lang === 'ko' ? '현재 Context가 담긴 링크를 복사했습니다. 받는 사람의 권한으로 서버가 다시 검증합니다.' : 'Copied a link with the current context. The server re-validates for the recipient.'); }}>
+        <Button type="button" variant="ghost" size="toolbar" aria-label={lang === 'ko' ? '링크 복사' : 'Copy link'} title={lang === 'ko' ? '링크 복사' : 'Copy link'} onClick={() => copyLink(url)}>
           <Link2 className="size-3.5" aria-hidden />{!compact && (lang === 'ko' ? '링크 복사' : 'Copy link')}
         </Button>
         <Button type="button" variant="ghost" size="toolbar" aria-label={t('reset')} title={t('reset')} onClick={resetContext}>

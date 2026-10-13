@@ -1,5 +1,6 @@
 export * from './AnalysisChartFrame';
 export * from './AuditTimeline';
+export { copyText, useCopyLink } from './copyText';
 export * from './DataTrustIndicator';
 export * from './DetailDrawer';
 export * from './EChart';

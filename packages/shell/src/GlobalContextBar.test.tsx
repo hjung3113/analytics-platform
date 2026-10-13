@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import type { Capability, Session } from '@ap/contracts';
 import { GlobalContextBar } from './GlobalContextBar';
 import { testAdapter, testSpace } from './test-setup';
@@ -269,6 +269,59 @@ describe('Global Context priority overflow (#56)', () => {
   it('uses fractional available width at an exact fit boundary (P3-4)', () => {
     barWidth = 941.6; mount(); // Label-free full controls need 942px; rounded clientWidth would admit them.
     expect(within(bar()).queryByRole('radio', { name: '1일' })).toBeNull();
+  });
+
+});
+
+describe('링크 복사 reports success only after the clipboard write (#300)', () => {
+  const SUCCESS = '현재 Context가 담긴 링크를 복사했습니다. 받는 사람의 권한으로 서버가 다시 검증합니다.';
+  const FAILURE = '링크를 복사하지 못했습니다. 주소창의 주소를 직접 복사하세요.';
+
+  afterEach(() => {
+    Reflect.deleteProperty(window, 'isSecureContext');
+    Reflect.deleteProperty(navigator, 'clipboard');
+    Reflect.deleteProperty(document, 'execCommand');
+  });
+
+  function ToastProbe() {
+    const { toasts } = usePlatform();
+    return <div data-testid="toast-probe">{toasts.map(toast => <p key={toast.id}>{toast.tone}:{toast.text}</p>)}</div>;
+  }
+
+  function mountWithToasts() {
+    localStorage.setItem('platform:lang', 'ko');
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><GlobalContextBar /><ToastProbe /></PlatformProvider></I18nProvider>);
+  }
+
+  const copyLink = () => within(bar()).getByRole('button', { name: '링크 복사' });
+  const toasts = () => screen.getByTestId('toast-probe').textContent ?? '';
+
+  it('insecure environment (no clipboard, execCommand refuses): warning with cause and action, never the success toast', async () => {
+    Object.defineProperty(window, 'isSecureContext', { configurable: true, value: false });
+    Reflect.deleteProperty(navigator, 'clipboard');
+    Object.defineProperty(document, 'execCommand', { configurable: true, value: () => false });
+    mountWithToasts();
+    fireEvent.click(copyLink());
+    await vi.waitFor(() => expect(toasts()).toContain(FAILURE));
+    expect(toasts()).not.toContain(SUCCESS);
+  });
+
+  it('success toast only after writeText resolves; the copy carries origin + the platform url', async () => {
+    let release: (() => void) | undefined;
+    const writeText = vi.fn((_text: string) => new Promise<void>(resolve => { release = () => resolve(); }));
+    Object.defineProperty(window, 'isSecureContext', { configurable: true, value: true });
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    mountWithToasts();
+    fireEvent.click(copyLink());
+    expect(writeText).toHaveBeenCalledTimes(1);
+    const written = String(writeText.mock.calls[0]?.[0]);
+    expect(written.startsWith(window.location.origin)).toBe(true);
+    expect(written).toContain('scopeId=ICH');
+    expect(toasts()).toBe(''); // quiet while the write is pending
+    act(() => { release?.(); });
+    await vi.waitFor(() => expect(toasts()).toContain(SUCCESS));
+    expect(toasts()).not.toContain(FAILURE);
   });
 
 });

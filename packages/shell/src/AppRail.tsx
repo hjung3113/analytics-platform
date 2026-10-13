@@ -1,6 +1,6 @@
 import { CircleHelp, ExternalLink, LogOut, Search } from 'lucide-react';
 import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
-import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, isMacPlatform, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 
 /** Space navigation and global tools; the app keeps ownership of topBarTools. */
 export function AppRail() {
@@ -9,7 +9,7 @@ export function AppRail() {
   const languageLabel = lang === 'ko' ? '언어: 한국어 — English로 전환' : 'Language: English — 한국어로 전환';
   const homeLabel = lang === 'ko' ? '플랫폼 홈' : 'Platform home';
   const overallLabel = lang === 'ko' ? 'FeedbackOps 전체 — 새 탭' : 'FeedbackOps overall — new tab';
-  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+  const isMac = isMacPlatform();
   const homeMenu = registry.matchRoute('/')?.menu;
   const homeOpened = homeMenu !== undefined ? resolveLink(homeMenu.id) : null;
   const homeLink = homeOpened?.allowed === true ? homeOpened : null;

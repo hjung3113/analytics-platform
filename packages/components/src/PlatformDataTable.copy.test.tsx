@@ -172,7 +172,7 @@ describe('PlatformDataTable row copy (#174) — button', () => {
   });
 
   it('with a selection: "3행 복사", enabled, the tooltip and aria-keyshortcuts name the shortcut (UX P3-1)', async () => {
-    render(<Harness />);
+    const view = render(<Harness />);
     await ready();
     expect(copyButton().getAttribute('aria-keyshortcuts')).toBeNull(); // disabled: no shortcut advertised
     select('r1', 'r2', 'r3');
@@ -181,7 +181,16 @@ describe('PlatformDataTable row copy (#174) — button', () => {
     expect(button.getAttribute('aria-disabled')).toBeNull();
     expect(button.getAttribute('aria-keyshortcuts')).toBe('Control+C Meta+C');
     act(() => { button.focus(); });
-    expect((await screen.findByRole('tooltip')).textContent).toBe('Ctrl+C / ⌘C로도 복사할 수 있습니다(표 안에서)');
+    // Notation follows the OS (#300, 06 §26): jsdom's platform is '' → Windows/Linux wording; a Mac stub shows ⌘C.
+    expect((await screen.findByRole('tooltip')).textContent).toBe('Ctrl+C로도 복사할 수 있습니다(표 안에서)');
+    view.unmount();
+    Object.defineProperty(navigator, 'platform', { configurable: true, value: 'MacIntel' });
+    render(<Harness />);
+    await ready();
+    select('r1', 'r2', 'r3');
+    act(() => { copyButton().focus(); });
+    expect((await screen.findByRole('tooltip')).textContent).toBe('⌘C로도 복사할 수 있습니다(표 안에서)');
+    Reflect.deleteProperty(navigator, 'platform');
   });
 
   it('the tooltip uses the shared FeedbackOps surface (shadow + border), size sm (ADR-0023 C2)', async () => {
