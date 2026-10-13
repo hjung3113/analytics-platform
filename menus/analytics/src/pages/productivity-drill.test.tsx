@@ -90,6 +90,11 @@ describe('equipment drill current row (#301)', () => {
     expect(other.getAttribute('aria-current')).toBeNull();
     // Shape cue: an unfaded accent bar precedes the id; weight accompanies the selected surface.
     expect(current.querySelector('span.bg-accent-primary')).not.toBeNull();
+    // FIX1: the bar is drawn out of the text flow (absolute) inside a relative first cell, so the
+    // current row's EquipmentID aligns with every other row instead of being pushed aside.
+    const bar = current.querySelector('span.bg-accent-primary')!;
+    expect(bar.classList.contains('absolute')).toBe(true);
+    expect(bar.closest('td')!.classList.contains('relative')).toBe(true);
   });
 
   it('leaves ordinary rows unmarked when nothing is current', () => {

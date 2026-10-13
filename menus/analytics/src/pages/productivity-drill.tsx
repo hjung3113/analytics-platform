@@ -71,9 +71,10 @@ function EquipmentTable({ ko, rows, current, onEnter, n1, ni }: {
   </>, rows.map(row => {
     const isCurrent = current === row.equipmentId;
     return <tr key={row.equipmentId} aria-current={isCurrent ? 'true' : undefined} className={cn('border-t border-border-subtle', isCurrent && 'bg-accent-primary-soft')}>
-      {/* Shape + weight accompany the selected surface (06 §26, DESIGN Shell visual rules): 2px accent bar. */}
-      <td className={cn('t-mono px-3 py-1.5', isCurrent && 'font-medium')}>
-        {isCurrent && <span aria-hidden className="mr-2 inline-block h-4 w-0.5 rounded-full bg-accent-primary" />}
+      {/* Shape + weight accompany the selected surface (06 §26, DESIGN Shell visual rules): 2px accent bar,
+          drawn out of the text flow so the current row's ID keeps its column alignment. */}
+      <td className={cn('t-mono relative px-3 py-1.5', isCurrent && 'font-medium')}>
+        {isCurrent && <span aria-hidden className="absolute left-0 inset-y-1 w-0.5 rounded-full bg-accent-primary" />}
         {row.equipmentId}
       </td>
       <td className="px-3 py-1.5 text-right">{pctHint(ko, row.occupancyPct, n1)}</td>

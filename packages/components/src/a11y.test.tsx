@@ -194,4 +194,23 @@ describe('DetailDrawer docked slot', () => {
     expect(row).toHaveClass('grid-cols-[9rem_1fr]'); // column width unchanged
     expect(screen.getByText('averageOfQuantilesAllowed')).toHaveClass('min-w-0', 'break-words');
   });
+
+  // FIX1 (review): camelCase keys fold at word boundaries instead of dropping a single trailing
+  // character; <wbr> adds no text, so textContent and the accessible name stay unchanged.
+  it('offers fold points at camelCase word boundaries without changing the label text', () => {
+    render(<I18nProvider><DetailPanelSlotProvider>
+      <DetailDrawer title="Detail" onClose={() => {}} tabs={[{ id: 'a', label: 'Attributes', content: (
+        <dl>
+          <Field label="averageOfQuantilesAllowed">—</Field>
+          <Field label="owed">false</Field>
+          <Field label={<span>Coverage</span>}>12 rooms</Field>
+        </dl>
+      ) }]} /><SlotHost />
+    </DetailPanelSlotProvider></I18nProvider>);
+    const camel = screen.getByText('averageOfQuantilesAllowed');
+    expect(camel.querySelectorAll('wbr')).toHaveLength(3); // average|Of|Quantiles|Allowed
+    expect(camel.textContent).toBe('averageOfQuantilesAllowed');
+    expect(screen.getByText('owed').querySelectorAll('wbr')).toHaveLength(0); // no case boundary
+    expect(screen.getByText('Coverage').closest('dt')!.querySelectorAll('wbr')).toHaveLength(0); // ReactNode label
+  });
 });

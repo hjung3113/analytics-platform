@@ -239,6 +239,10 @@ describe('MetricDetail draft primary (B-13, #301)', () => {
     expect((await screen.findAllByText('초안')).length).toBeGreaterThan(0);
     const button = screen.getByRole('button', { name: '이 버전을 분석 Context로 사용' });
     expect(button.getAttribute('aria-disabled')).toBe('true');
+    // FIX1: the dim must not fade the focus ring (DESIGN Shared interaction: opaque focus);
+    // jsdom cannot compute styled opacity, so this is pinned as a class contract.
+    expect(button.classList.contains('aria-disabled:opacity-50')).toBe(true);
+    expect(button.classList.contains('aria-disabled:focus-visible:opacity-100')).toBe(true);
     expect(button.getAttribute('disabled')).toBeNull(); // stays in the tab order
     const describedBy = button.getAttribute('aria-describedby');
     expect(describedBy).toBeTruthy();

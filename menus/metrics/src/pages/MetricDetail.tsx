@@ -59,7 +59,7 @@ export default function MetricDetailPage({ params }: PageProps) {
       // B-13: aria-disabled, not native disabled — the primary stays focusable and the reason is text,
       // not a tooltip (DESIGN Shared interaction: 실제 비활성과 이유를 opacity로 숨기지 않는다).
       ? <span className="flex items-center gap-2">
-          <Button size="sm" aria-disabled className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+          <Button size="sm" aria-disabled className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:focus-visible:opacity-100"
             aria-describedby={draftNoteId}>
             {lang === 'ko' ? '이 버전을 분석 Context로 사용' : 'Use this version as analysis context'}
           </Button>
