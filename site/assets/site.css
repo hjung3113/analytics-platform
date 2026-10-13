@@ -451,6 +451,23 @@ tbody th {
 #tech-table td:nth-child(2) {
   white-space: nowrap;
 }
+#tech-table .badge,
+#tech-table details summary {
+  white-space: nowrap;
+}
+#tech-table th:nth-child(2),
+#tech-table td:nth-child(2) {
+  width: 1%;
+}
+#tech-empty-row td {
+  color: rgb(var(--text-secondary));
+}
+#tech-table tbody tr:target > * {
+  background: rgb(var(--accent-primary-soft));
+}
+#tech-table tbody tr:target > th {
+  box-shadow: inset 3px 0 0 rgb(var(--accent-primary));
+}
 .badge.dashed {
   border: 1px dashed rgb(var(--border-control));
 }
@@ -916,10 +933,34 @@ td code {
   background: rgb(var(--chart-purple));
 }
 .mock-segments {
-  padding: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  margin: 12px 0;
   border: 1px solid rgb(var(--border-control));
   border-radius: var(--radius-md);
+  width: fit-content;
+  background: rgb(var(--surface-sunken));
+  color: rgb(var(--text-secondary));
+}
+.mock-segments > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+.mock-segments > .mock-segment-label {
+  min-height: 0;
+  color: rgb(var(--text-muted));
+  font-size: var(--text-xs);
+}
+.mock-segments > .is-selected {
   background: rgb(var(--surface-field-filled));
+  color: rgb(var(--text-primary));
+  font-weight: 600;
 }
 .mock-popover {
   background: rgb(var(--surface-popover));
@@ -1497,7 +1538,7 @@ footer summary {
   height: 16px;
 }
 
-/* 08 roadmap: one-line track with status badges and connectors. */
+/* 09 roadmap: one-line track with status badges and connectors. */
 .roadmap .tab-buttons.track {
   display: flex;
   flex-wrap: nowrap;
@@ -1603,5 +1644,122 @@ footer summary {
     background: transparent;
     padding: 4px 0;
     text-align: left;
+  }
+}
+
+/* The three steps sit below the full-width hero grid; the small title names the group. */
+.strip-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  line-height: 1.3;
+  color: rgb(var(--text-muted));
+  margin: 24px 0 8px;
+}
+.strip-more {
+  margin: 12px 0 0;
+  font-size: var(--text-sm);
+}
+.vision-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  word-break: keep-all;
+}
+.vision-strip > a {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  min-width: 0;
+  border-left: 2px solid rgb(var(--border-control));
+  background: rgb(var(--surface-sunken));
+  color: rgb(var(--text-secondary));
+  text-decoration: none;
+  font-size: var(--text-sm);
+}
+.vision-strip strong {
+  color: rgb(var(--text-primary));
+}
+.vision-strip .badge {
+  white-space: normal;
+}
+.vision-model {
+  padding: 16px;
+  min-width: 0;
+}
+.vision-model .caption {
+  text-align: left;
+}
+.vision-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.vision-slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.vision-slots .wire-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.vision-model .chart {
+  height: 84px;
+  margin-top: 4px;
+}
+.vision-model .two-col {
+  margin-top: 16px;
+}
+.vision-model .button {
+  cursor: default;
+}
+.vision-safety {
+  margin-top: 24px;
+}
+/* Risks read as body text; the badge next to each dt carries the status. */
+.vision-safety .node-detail dt {
+  font-size: var(--text-body);
+  color: rgb(var(--text-primary));
+}
+/* Step titles exist for no-JS readers; with JS the selected tab already names the step. */
+.panel-step {
+  margin: 0 0 12px;
+  font-weight: 600;
+  word-break: keep-all;
+}
+.js .panel-step {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+#vision h3 {
+  margin-top: 24px;
+}
+#vision h3:first-child,
+#vision .panel-step + h3 {
+  margin-top: 0;
+}
+#vision pre code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#tech-table tbody tr {
+  scroll-margin-top: 100px;
+}
+@media (max-width: 639px) {
+  .vision-strip,
+  .vision-slots {
+    grid-template-columns: 1fr;
   }
 }

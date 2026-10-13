@@ -54,9 +54,10 @@
           <a href="#components"><span class="mono">06</span> 컴포넌트</a
           ><a href="#compare"><span class="mono">07</span> 비교와 코드</a>
           <p class="nav-group">도입</p>
-          <a href="#roadmap"><span class="mono">08</span> 로드맵</a
-          ><a href="#tech"><span class="mono">09</span> 기술 후보</a
-          ><a href="#ask"><span class="mono">10</span> 리스크와 요청</a>
+          <a href="#vision"><span class="mono">08</span> 가는 방향</a>
+          <a href="#roadmap"><span class="mono">09</span> 로드맵</a
+          ><a href="#tech"><span class="mono">10</span> 기술 후보</a
+          ><a href="#ask"><span class="mono">11</span> 리스크와 요청</a>
           <a class="toc-github" href="https://github.com/hjung3113/analytics-platform">GitHub</a>
         </nav>
       </details>
@@ -103,9 +104,10 @@
         <a href="#components"><span class="mono">06</span> 컴포넌트</a
         ><a href="#compare"><span class="mono">07</span> 비교와 코드</a>
         <p class="nav-group">도입</p>
-        <a href="#roadmap"><span class="mono">08</span> 로드맵</a
-        ><a href="#tech"><span class="mono">09</span> 기술 후보</a
-        ><a href="#ask"><span class="mono">10</span> 리스크와 요청</a>
+        <a href="#vision"><span class="mono">08</span> 가는 방향</a>
+        <a href="#roadmap"><span class="mono">09</span> 로드맵</a
+        ><a href="#tech"><span class="mono">10</span> 기술 후보</a
+        ><a href="#ask"><span class="mono">11</span> 리스크와 요청</a>
       </nav>
     </aside>
     <main>
@@ -117,8 +119,10 @@
             <p class="lead">
               메뉴 등록과 검색, 조회 조건과 공유 링크, 권한·Scope·감사, 표와 차트, 화면 배치, 메뉴 사이 이동을 플랫폼이
               한 번 만들고 모든 메뉴가 같이 씁니다. 그래서 설비·생산성·지표 메뉴가 같은 방식으로 동작하고 서로
-              이어집니다.
+              이어집니다. 목표는 개발자가 데이터만으로 화면을 구성하고, 나아가 사용자가 직접 비정형 분석을 하는
+              것입니다.
             </p>
+
             <fieldset class="segments">
               <legend class="sr-only">읽는 사람</legend>
               <label><input type="radio" name="audience" value="lead" checked /><span>결정권자</span></label
@@ -136,7 +140,8 @@
                 </li>
                 <li>
                   플랫폼 기반은 릴리스 7개(v0.1.0–v0.6.1)로 준비됐고, 사내 SSO·인프라·백엔드 답을 받으면 화면 코드를
-                  고치지 않고 어댑터를 바꿔 실제 서버에 연결합니다. 효과는 파일럿에서 기준선부터 잽니다.
+                  고치지 않고 어댑터를 바꿔 실제 서버에 연결합니다. 목표는 사용자가 스스로 분석 화면을 만드는 것입니다.
+                  그 전제인 권한·신뢰·공식 지표 계약을 먼저 깝니다.
                 </li>
               </ol>
               <p class="hero-cta">
@@ -147,7 +152,7 @@
               </p>
               <p class="caption">
                 추천 순서 — <a href="#flow">04 합치면</a> · <a href="#status">05 지금 어디까지</a> ·
-                <a href="#roadmap">08 로드맵</a> · <a href="#ask">10 요청</a>
+                <a href="#vision">08 가는 방향</a> · <a href="#roadmap">09 로드맵</a> · <a href="#ask">11 요청</a>
               </p>
             </div>
             <div data-audience="dev">
@@ -162,7 +167,8 @@
                 </li>
                 <li>
                   <code>pnpm gen:menu</code>가 패키지 뼈대와 앱 배선을 만들고, mock 어댑터로 서버 없이 개발하며,
-                  경계·디자인 lint와 계약 E2E가 실수를 잡습니다.
+                  경계·디자인 lint와 계약 E2E가 실수를 잡습니다. ② 선언형(데이터셋·필드 역할만 선언해 화면 구성)은 PoC
+                  후보입니다.
                 </li>
               </ol>
               <p class="hero-cta">
@@ -173,7 +179,7 @@
               </p>
               <p class="caption">
                 추천 순서 — <a href="#components">06 컴포넌트</a> · <a href="#compare">07 비교와 코드</a> ·
-                <a href="#structure">03 구조</a
+                <a href="#vision">08 가는 방향</a> · <a href="#structure">03 구조</a
                 ><span data-demo hidden> · <a href="demo/" target="_blank" rel="noopener">데모 (새 탭)</a></span>
               </p>
             </div>
@@ -290,6 +296,25 @@
             </div>
           </div>
         </div>
+        <p class="strip-title" id="vision-strip-title">가는 길</p>
+        <div class="vision-strip" role="group" aria-labelledby="vision-strip-title">
+          <a href="#vision" data-vision-step="0">
+            <span class="badge success">① 지금 · 완료</span>
+            <strong>개발자가 공통 컴포넌트로 조립</strong>
+            <span>조회 선언과 업무 화면만 쓰면, 표·차트·권한·링크는 플랫폼이 맡습니다.</span>
+          </a>
+          <a href="#vision" data-vision-step="1">
+            <span class="badge neutral dashed">② 선언형 · PoC 후보</span>
+            <strong>데이터·필드만 선언하면 화면</strong>
+            <span>데이터셋과 필드 역할을 적으면 플랫폼이 맞는 차트·표를 고르는 방향입니다.</span>
+          </a>
+          <a href="#vision" data-vision-step="2">
+            <span class="badge neutral dashed">③ 목표 · 결정 대기</span>
+            <strong>사용자가 직접 조합하는 비정형 분석</strong>
+            <span>열어 둔 데이터 안에서 축·필터·패널을 바꿔 자기 분석 화면을 저장·공유하는 목표입니다.</span>
+          </a>
+        </div>
+        <p class="strip-more"><a href="#vision">가는 방향 보기 →</a></p>
         <p class="caption">
           원본:
           <a href="https://github.com/hjung3113/analytics-platform/blob/main/.planning/README.md"
@@ -3428,9 +3453,248 @@
           <a href="#source-L37" class="source-ref">L37</a> · <a href="#source-L38" class="source-ref">L38</a>
         </p>
       </section>
+
+      <section id="vision" aria-labelledby="vision-heading">
+        <p class="section-label">08 · 가는 방향</p>
+        <h2 id="vision-heading">목표는 사용자가 직접 만드는 분석 — 그 전제를 플랫폼이 먼저 깝니다</h2>
+        <p class="lead">
+          지금은 개발자가 공통 컴포넌트로 업무 화면을 조립합니다. 다음은 데이터·필드 선언으로 화면을 구성하고, 나아가
+          사용자가 직접 조합하는 비정형 분석이 목표입니다. 처음부터 범용 빌더를 만들지 않고, 실제 메뉴 2–3곳에서 반복
+          수요가 확인된 기능부터 단계적으로 엽니다.
+        </p>
+        <div class="tabs" data-tabs="vision">
+          <div class="tab-buttons" role="tablist" aria-label="분석 화면 구성 단계">
+            <button type="button" role="tab" id="vision-tab-0" aria-controls="vision-panel-0" aria-selected="true">
+              ① 지금 · 개발자 조립
+            </button>
+            <button type="button" role="tab" id="vision-tab-1" aria-controls="vision-panel-1" aria-selected="false">
+              ② 선언형 · PoC 후보
+            </button>
+            <button type="button" role="tab" id="vision-tab-2" aria-controls="vision-panel-2" aria-selected="false">
+              ③ 목표 · 사용자 조합
+            </button>
+          </div>
+          <div class="tab-panel" role="tabpanel" id="vision-panel-0" aria-labelledby="vision-tab-0">
+            <p class="panel-step">① 지금 · 개발자 조립</p>
+            <h3>누가 무엇을 하나</h3>
+            <dl class="node-detail">
+              <dt>개발자 몫</dt>
+              <dd>manifest와 조회 선언, 업무 화면을 씁니다.</dd>
+              <dt>사용자 몫</dt>
+              <dd>제공된 화면에서 기간·필터를 고르고 표·차트를 읽습니다.</dd>
+              <dt>플랫폼 몫</dt>
+              <dd>URL 복원·권한 게이트·조회 상태·표·차트의 공통 계약을 맡습니다.</dd>
+            </dl>
+            <h3>예시</h3>
+            <p>
+              manifest로 경로·권한을 등록하고, <code>defineEndpoint</code>로 조회를 선언한 뒤
+              <code>PlatformDataTable</code>과 <code>AnalysisChartFrame</code>을 조합합니다.
+              <a href="#compare">07 비교와 코드에서 실제 조합 보기 →</a>
+            </p>
+            <h3>받쳐 주는 기술</h3>
+            <p>
+              <a href="#tech-echarts" data-tech-link>ECharts</a> ·
+              <a href="#tech-tanstack" data-tech-link>TanStack Table</a>(사용 중)
+            </p>
+            <h3>상태와 다음 결정</h3>
+            <p>
+              <span class="badge success">완료 · v0.1–v0.6.1</span> 공통 기반은 준비됐습니다. 사내 서버 연결은 별도
+              입력과 검증이 남아 있습니다.
+            </p>
+          </div>
+          <div class="tab-panel" role="tabpanel" id="vision-panel-1" aria-labelledby="vision-tab-1">
+            <p class="panel-step">② 선언형 · PoC 후보</p>
+            <h3>누가 무엇을 하나</h3>
+            <dl class="node-detail">
+              <dt>개발자 몫</dt>
+              <dd>데이터셋·질문·필드 역할을 선언하는 방식을 실험합니다.</dd>
+              <dt>사용자 몫</dt>
+              <dd>선택된 화면에서 데이터를 읽고 조건을 조정하는 방향입니다.</dd>
+              <dt>플랫폼 몫</dt>
+              <dd>맞는 차트·표를 고르고, 선택 이유와 지원 불가 조건을 설명하는 경계를 검증합니다.</dd>
+            </dl>
+            <h3>예시</h3>
+            <p><span class="badge neutral dashed">구상 · 타입 미정 (#292)</span></p>
+            <div class="code-grid">
+              <pre><code>// 예시 형태 · 실제 API 아님
+// CapabilityRecipe / SemanticField 후보 타입은 실험 단계
+// 다른 메뉴에 공개하기 전 재사용 확인
+데이터셋: 사이클타임 조회 결과
+질문: 기간에 따른 사이클타임 변화
+필드 역할:
+  기간: 시간 축
+  사이클타임: 값 (분)
+  설비: 비교 그룹
+대체 경로: 같은 데이터 표</code></pre>
+              <p>
+                엔진의 option·column 타입을 메뉴에 넘기지 않는 내부
+                <strong>기능 선택 규칙(Capability Registry)·차트 연결 어댑터</strong> PoC입니다. 선언 형식과 공개 타입은
+                아직 정해지지 않았습니다.
+              </p>
+            </div>
+            <h3>받쳐 주는 기술</h3>
+            <p>
+              <a href="#tech-registry" data-tech-link>기능 선택 규칙(Capability Registry)·차트 연결 어댑터</a>(<a
+                href="https://github.com/hjung3113/analytics-platform/issues/292"
+                >#292</a
+              >)는 <a href="#tech-echarts" data-tech-link>ECharts</a>·<a href="#tech-tanstack" data-tech-link
+                >TanStack Table</a
+              >
+              기반입니다. 고밀도 시계열은 <a href="#tech-lightweight" data-tech-link>Lightweight Charts</a>·<a
+                href="#tech-uplot"
+                data-tech-link
+                >uPlot</a
+              >
+              성능 비교(<a href="https://github.com/hjung3113/analytics-platform/issues/293">#293</a>) 뒤, 필요할 때만
+              검토합니다.
+            </p>
+            <h3>상태와 다음 결정</h3>
+            <p>
+              <span class="badge neutral dashed">PoC 후보 · #292</span> 기존 화면을 일괄 교체하지 않습니다. 공통
+              경계·수치 일치·성능·접근성을 먼저 검증합니다.
+            </p>
+          </div>
+          <div class="tab-panel" role="tabpanel" id="vision-panel-2" aria-labelledby="vision-tab-2">
+            <p class="panel-step">③ 목표 · 사용자 조합</p>
+            <h3>누가 무엇을 하나</h3>
+            <dl class="node-detail">
+              <dt>개발자 몫</dt>
+              <dd>사용자가 열 수 있는 데이터와 분석 기능의 범위를 정하는 목표입니다.</dd>
+              <dt>사용자 몫</dt>
+              <dd>축·필터·패널을 조합해 내 분석을 저장하고 팀과 공유하는 목표입니다.</dd>
+              <dt>플랫폼 몫</dt>
+              <dd>공유·복원 권한, 지표 버전, 저장 형식과 한도를 지키는 계약을 구체화합니다.</dd>
+            </dl>
+            <h3>예시</h3>
+            <p><span class="badge neutral dashed">구상 · 결정 대기 (#294)</span></p>
+            <div
+              class="miniature vision-model"
+              role="img"
+              aria-label="화면 모형. 예시 필드 설비·Recipe·기간·사이클타임을 시간 축·값·필터 칸에 놓고, 차트 종류 선을 골라 선 추이 차트와 설비별 표 두 패널을 구성합니다. 저장·공유는 모형이며 동작하지 않습니다."
+            >
+              <p class="caption">화면 모형 · 예시 데이터</p>
+              <div class="vision-fields">
+                <span class="badge neutral">설비</span><span class="badge neutral">Recipe</span
+                ><span class="badge neutral">기간</span><span class="badge neutral">사이클타임</span>
+              </div>
+              <p>필드 → 축·필터 → 분석 패널</p>
+              <div class="vision-slots">
+                <div class="wire-box">시간 축<span class="badge neutral">기간</span></div>
+                <div class="wire-box">값<span class="badge neutral">사이클타임</span></div>
+                <div class="wire-box">
+                  필터<span class="badge neutral">설비</span><span class="badge neutral">Recipe</span>
+                </div>
+              </div>
+              <div class="mock-segments">
+                <span class="mock-segment-label">차트 종류</span>
+                <span class="is-selected">선</span><span>막대</span><span>표</span>
+              </div>
+              <div class="two-col">
+                <div class="wire-box">
+                  <strong>패널 1 · 기간별 추이</strong>
+                  <svg class="chart" viewBox="0 0 600 130" aria-hidden="true">
+                    <path class="grid-line" d="M0 25H600M0 65H600M0 105H600" />
+                    <path
+                      class="p50"
+                      d="M0 90L50 84L100 92L150 72L200 80L250 58L300 66L350 44L400 58L450 50L500 68L550 54L600 62"
+                    />
+                  </svg>
+                </div>
+                <div class="wire-box">
+                  <strong>패널 2 · 설비별 비교</strong>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>설비</th>
+                        <th>사이클타임</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>설비 A</td>
+                        <td class="number">38.4 분</td>
+                      </tr>
+                      <tr>
+                        <td>설비 B</td>
+                        <td class="number">41.2 분</td>
+                      </tr>
+                      <tr>
+                        <td>설비 C</td>
+                        <td class="number">47.9 분</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <p class="caption">같은 데이터 표</p>
+                </div>
+              </div>
+              <p class="mock-buttons">
+                <span class="button secondary">내 분석으로 저장</span><span class="button secondary">팀과 공유</span>
+              </p>
+            </div>
+            <h3>받쳐 주는 기술</h3>
+            <p>
+              <a href="#tech-walker" data-tech-link>Graphic Walker(필드·축)</a> ·
+              <a href="#tech-perspective" data-tech-link>Perspective(자유 피벗, #163)</a> ·
+              <a href="#tech-layout" data-tech-link>Dockview·React Grid Layout(패널 배치)</a> ·
+              <a href="#tech-aggrid" data-tech-link>AG Grid Enterprise 피벗(상용, #164)</a>.
+              <a href="#tech-saved-view" data-tech-link>Saved View</a>는
+              <a href="#source-L54" class="source-ref">설계 계약 문서 §21의 보류 계약</a>을 따릅니다.
+            </p>
+            <h3>상태와 다음 결정</h3>
+            <p>
+              <span class="badge neutral dashed">목표 · 결정 대기</span> 자유 배치·Dashboard Builder(설계 계약 문서
+              §14)와 Saved View(설계 계약 문서 §21)는 보류입니다.
+              <a href="https://github.com/hjung3113/analytics-platform/issues/294">#294</a>에서 허용
+              범위·저장·공유·권한을 결정하고, 실제 앱 위 시안을 승인받은 뒤 구현합니다.
+            </p>
+          </div>
+        </div>
+        <div class="panel vision-safety">
+          <h3>사용자가 만들어도 안전한 이유 — 이미 플랫폼에 있는 것</h3>
+          <p>
+            자유도를 주기 전에 지켜야 할 것을 플랫폼이 먼저 깔았습니다. 아래는 확정 계약이며, 실서버 연결 검증과 저장
+            기능 구현은 별도입니다.
+          </p>
+          <dl class="node-detail">
+            <dt>권한 우회 → 재검증 <span class="badge success">있음</span></dt>
+            <dd>
+              링크는 받는 사람 권한으로 서버가 다시 검증하고, 저장 화면도 복원 시 서버 Scope를 다시 검증해야 합니다.
+              <a href="#source-L11" class="source-ref">L11</a> · <a href="#source-L12" class="source-ref">L12</a> ·
+              <a href="#source-L54" class="source-ref">L54</a>
+            </dd>
+            <dt>숫자 불일치 → 지표 버전 <span class="badge success">있음</span></dt>
+            <dd>
+              지표 번호와 버전을 서버가 함께 확인하고, 최신 버전으로 바꿔치기하지 않습니다
+              (<code>metricId</code>+<code>metricVersion</code>). <a href="#source-L55" class="source-ref">L55</a>
+            </dd>
+            <dt>브라우저 과부하 → 행 상한 <span class="badge success">있음</span></dt>
+            <dd>
+              서버가 행 상한을 판정하고 한도를 넘으면 조회 과대로 구분합니다
+              (<code>limits.maxRows</code>·<code>too_large</code>). <a href="#source-L56" class="source-ref">L56</a>
+            </dd>
+            <dt>출처 모름 → 데이터 신뢰 표시 <span class="badge success">있음</span></dt>
+            <dd>
+              원천·갱신 시각·미확인·잠정 상태를 화면에 드러내고, 모르는 값을 정상이나 0으로 바꾸지 않습니다
+              (<code>DataTrustIndicator</code>). <a href="#source-L15" class="source-ref">L15</a>
+            </dd>
+            <dt>탐색치와 공식 지표 혼동 <span class="badge neutral dashed">계획 · 미채택</span></dt>
+            <dd>
+              사용자가 만든 탐색 집계는 공식 지표와 구분해 표시하는 제안입니다.
+              <a href="#source-L57" class="source-ref">#291 · L57</a>
+            </dd>
+          </dl>
+        </div>
+        <p class="caption">
+          원본: <a href="#source-L52" class="source-ref">L52</a> · <a href="#source-L53" class="source-ref">L53</a> ·
+          <a href="#source-L54" class="source-ref">L54</a> · <a href="#source-L55" class="source-ref">L55</a> ·
+          <a href="#source-L56" class="source-ref">L56</a> · <a href="#source-L57" class="source-ref">L57</a> ·
+          <a href="#source-L58" class="source-ref">L58</a> · <a href="#source-L59" class="source-ref">L59</a> ·
+          <a href="#source-L60" class="source-ref">L60</a> · <a href="#source-L61" class="source-ref">L61</a>
+        </p>
+      </section>
       <section id="roadmap" aria-labelledby="roadmap-heading">
-        <p class="section-label">08 · 로드맵</p>
-        <h2 id="roadmap-heading">MVP는 사내 적용, 그 다음은 업무 공간을 넓히는 일</h2>
+        <p class="section-label">09 · 로드맵</p>
+        <h2 id="roadmap-heading">MVP는 사내 적용, 그 다음은 사용자 조합 분석까지</h2>
         <p class="lead">
           플랫폼 쪽 준비는 끝났습니다. 사내 SSO·인프라·백엔드 답이 오면 조립 모듈을 실어댑터로 바꿔 꽂고, Kernel·셸·공통
           컴포넌트·메뉴 화면은 고치지 않습니다.
@@ -3480,7 +3744,7 @@
               <span class="badge neutral"
                 ><svg aria-hidden="true"><use href="#i-arrow" /></svg>다음</span
               >
-              <span class="node-name">① 멀티 워크스페이스 v2</span></button
+              <span class="node-name">멀티 워크스페이스 v2</span></button
             ><button
               type="button"
               role="tab"
@@ -3491,7 +3755,7 @@
               <span class="badge neutral"
                 ><svg aria-hidden="true"><use href="#i-arrow" /></svg>다음</span
               >
-              <span class="node-name">② FeedbackOps 2단계(M5)</span></button
+              <span class="node-name">FeedbackOps 2단계(M5)</span></button
             ><button
               type="button"
               role="tab"
@@ -3502,7 +3766,7 @@
               <span class="badge neutral dashed"
                 ><svg aria-hidden="true"><use href="#i-dotted-circle" /></svg>후보</span
               >
-              <span class="node-name">③ 분석 도구 확장</span>
+              <span class="node-name">사용자 조합 분석</span>
             </button>
           </div>
           <div role="tabpanel" class="tab-panel" id="roadmap-nodes-panel-0" aria-labelledby="roadmap-nodes-tab-0">
@@ -3655,8 +3919,14 @@
               ><svg aria-hidden="true"><use href="#i-dotted-circle" /></svg>후보</span
             >
             <p>
-              단계 표 M0–M5(아래 09 절 띠와 같음). 조사 문서(PR
-              <a href="https://github.com/hjung3113/analytics-platform/issues/295">#295</a>, 미채택)에서 나온 제안이며
+              <a href="#vision" data-vision-step="1">08 가는 방향 ② 선언형(PoC 후보)</a>에서
+              <a href="#vision" data-vision-step="2">③ 사용자 조합 분석(결정 대기)</a>까지 가는 후보입니다.
+              <a href="https://github.com/hjung3113/analytics-platform/issues/291">#291 설계</a> ·
+              <a href="https://github.com/hjung3113/analytics-platform/issues/292">#292 M1</a> ·
+              <a href="https://github.com/hjung3113/analytics-platform/issues/293">#293 M2</a> ·
+              <a href="https://github.com/hjung3113/analytics-platform/issues/294">#294 결정</a>으로 이어집니다. 단계는
+              10 기술 후보 절의 단계 띠와 같습니다. 조사
+              <a href="https://github.com/hjung3113/analytics-platform/pull/295">PR #295(미채택)</a>의 제안이며
               구매·도입 결정이 아닙니다.
             </p>
             <p class="caption">
@@ -3680,12 +3950,12 @@
         </p>
       </section>
       <section id="tech" aria-labelledby="tech-heading">
-        <p class="section-label">09 · 기술 후보</p>
+        <p class="section-label">10 · 기술 후보</p>
         <h2 id="tech-heading">붙이면 좋아지는 기술 — 조건을 통과할 때만</h2>
         <p class="lead">
           지금은 Apache ECharts와 TanStack Table로 차트·표 계약을 지킵니다. 아래 후보는 실제 수요가 확인되고
           성능·라이선스·사내망 검증을 통과할 때만 붙입니다. 성능·접근성·표 대체 경로·신뢰 표시가 지금보다 나빠지면
-          도입하지 않습니다.
+          도입하지 않습니다. 이 후보들은 대부분 ② 선언형·③ 사용자 조합 단계를 위한 것입니다.
         </p>
         <fieldset class="segments">
           <legend class="sr-only">상태 필터</legend>
@@ -3694,12 +3964,21 @@
           ><label><input type="radio" name="tech-filter" value="candidate" /><span>후보·보류</span></label
           ><label><input type="radio" name="tech-filter" value="commercial" /><span>상용</span></label>
         </fieldset>
-        <p id="filter-count" role="status" aria-live="polite">13개 표시</p>
+        <fieldset class="segments">
+          <legend class="sr-only">단계 필터</legend>
+          <label><input type="radio" name="stage-filter" value="all" checked /><span>전체 단계</span></label>
+          <label><input type="radio" name="stage-filter" value="1" /><span>① 지금</span></label>
+          <label><input type="radio" name="stage-filter" value="2" /><span>② 선언형</span></label>
+          <label><input type="radio" name="stage-filter" value="3" /><span>③ 사용자 조합</span></label>
+          <label><input type="radio" name="stage-filter" value="performance" /><span>성능</span></label>
+        </fieldset>
+        <p id="filter-count" role="status" aria-live="polite">전체 상태 · 전체 단계 · 15개 표시</p>
         <div class="table-scroll">
           <table id="tech-table">
             <thead>
               <tr>
                 <th>기술</th>
+                <th>단계</th>
                 <th>상태</th>
                 <th>좋아지는 것</th>
                 <th>라이선스·비용</th>
@@ -3708,8 +3987,11 @@
               </tr>
             </thead>
             <tbody>
-              <tr data-tech="current" data-commercial="false">
+              <tr id="tech-echarts" data-stage="1" data-tech="current" data-commercial="false">
                 <th scope="row">Apache ECharts(Canvas)</th>
+                <td>
+                  <span class="badge neutral" title="① 지금">①<span class="sr-only"> 지금</span></span>
+                </td>
                 <td>
                   <span class="badge neutral"
                     ><svg aria-hidden="true"><use href="#i-circle" /></svg>사용 중</span
@@ -3729,8 +4011,11 @@
                   >
                 </td>
               </tr>
-              <tr data-tech="current" data-commercial="false">
+              <tr id="tech-tanstack" data-stage="1" data-tech="current" data-commercial="false">
                 <th scope="row">TanStack Table + Virtual</th>
+                <td>
+                  <span class="badge neutral" title="① 지금">①<span class="sr-only"> 지금</span></span>
+                </td>
                 <td>
                   <span class="badge neutral"
                     ><svg aria-hidden="true"><use href="#i-circle" /></svg>사용 중</span
@@ -3750,8 +4035,11 @@
                   >
                 </td>
               </tr>
-              <tr data-tech="current" data-commercial="false">
+              <tr id="tech-ui" data-stage="1" data-tech="current" data-commercial="false">
                 <th scope="row">shadcn/Radix 기반 <code>@ap/ui</code></th>
+                <td>
+                  <span class="badge neutral" title="① 지금">①<span class="sr-only"> 지금</span></span>
+                </td>
                 <td>
                   <span class="badge neutral"
                     ><svg aria-hidden="true"><use href="#i-circle" /></svg>사용 중</span
@@ -3771,8 +4059,12 @@
                   >
                 </td>
               </tr>
-              <tr data-tech="candidate" data-commercial="false">
+              <tr id="tech-query" data-stage="1" data-tech="candidate" data-commercial="false">
                 <th scope="row">TanStack Query</th>
+                <td>
+                  <span class="badge neutral" title="① 지금">①<span class="sr-only"> 지금</span></span>
+                  <small>(수명주기)</small>
+                </td>
                 <td>
                   <span class="badge neutral dashed"
                     ><svg aria-hidden="true"><use href="#i-dotted-circle" /></svg>후보</span
@@ -3788,8 +4080,9 @@
                 </td>
                 <td><a href="https://github.com/hjung3113/analytics-platform/issues/165">#165</a></td>
               </tr>
-              <tr data-tech="candidate" data-commercial="false">
+              <tr id="tech-lightweight" data-stage="performance" data-tech="candidate" data-commercial="false">
                 <th scope="row">Lightweight Charts</th>
+                <td><span class="badge neutral">성능</span></td>
                 <td>
                   <span class="badge neutral dashed"
                     ><svg aria-hidden="true"><use href="#i-dotted-circle" /></svg>후보</span
@@ -3805,8 +4098,9 @@
                 </td>
                 <td><a href="https://github.com/hjung3113/analytics-platform/issues/293">#293</a></td>
               </tr>
-              <tr data-tech="candidate" data-commercial="false">
+              <tr id="tech-uplot" data-stage="performance" data-tech="candidate" data-commercial="false">
                 <th scope="row">uPlot</th>
+                <td><span class="badge neutral">성능</span></td>
                 <td>
                   <span class="badge neutral dashed"
                     ><svg aria-hidden="true"><use href="#i-dotted-circle" /></svg>보류</span
@@ -3826,8 +4120,11 @@
                   >
                 </td>
               </tr>
-              <tr data-tech="candidate" data-commercial="false">
+              <tr id="tech-perspective" data-stage="3" data-tech="candidate" data-commercial="false">
                 <th scope="row">Perspective v5</th>
+                <td>
+                  <span class="badge neutral" title="③ 사용자 조합">③<span class="sr-only"> 사용자 조합</span></span>
+                </td>
                 <td>
                   <span class="badge neutral dashed"
                     ><svg aria-hidden="true"><use href="#i-dotted-circle" /></svg>보류</span
@@ -3843,8 +4140,11 @@
                 </td>
                 <td><a href="https://github.com/hjung3113/analytics-platform/issues/163">#163</a>, ADR-0007</td>
               </tr>
-              <tr data-tech="candidate" data-commercial="false">
+              <tr id="tech-walker" data-stage="3" data-tech="candidate" data-commercial="false">
                 <th scope="row">Graphic Walker</th>
+                <td>
+                  <span class="badge neutral" title="③ 사용자 조합">③<span class="sr-only"> 사용자 조합</span></span>
+                </td>
                 <td>
                   <span class="badge neutral dashed"
                     ><svg aria-hidden="true"><use href="#i-dotted-circle" /></svg>후보</span
@@ -3860,8 +4160,11 @@
                 </td>
                 <td><a href="https://github.com/hjung3113/analytics-platform/pull/295">조사 PR #295 (미채택)</a></td>
               </tr>
-              <tr data-tech="candidate" data-commercial="false">
+              <tr id="tech-layout" data-stage="3" data-tech="candidate" data-commercial="false">
                 <th scope="row">Dockview / React Grid Layout</th>
+                <td>
+                  <span class="badge neutral" title="③ 사용자 조합">③<span class="sr-only"> 사용자 조합</span></span>
+                </td>
                 <td>
                   <span class="badge neutral dashed"
                     ><svg aria-hidden="true"><use href="#i-dotted-circle" /></svg>보류</span
@@ -3877,8 +4180,11 @@
                 </td>
                 <td><a href="https://github.com/hjung3113/analytics-platform/pull/295">조사 PR #295 (미채택)</a></td>
               </tr>
-              <tr data-tech="candidate" data-commercial="true">
+              <tr id="tech-aggrid" data-stage="3" data-tech="candidate" data-commercial="true">
                 <th scope="row">AG Grid Enterprise</th>
+                <td>
+                  <span class="badge neutral" title="③ 사용자 조합">③<span class="sr-only"> 사용자 조합</span></span>
+                </td>
                 <td>
                   <span class="badge neutral dashed"
                     ><svg aria-hidden="true"><use href="#i-dotted-circle" /></svg>보류 · 상용</span
@@ -3894,8 +4200,9 @@
                 </td>
                 <td><a href="https://github.com/hjung3113/analytics-platform/issues/164">#164</a>, ADR-0006</td>
               </tr>
-              <tr data-tech="candidate" data-commercial="true">
+              <tr id="tech-scichart" data-stage="performance" data-tech="candidate" data-commercial="true">
                 <th scope="row">SciChart.js</th>
+                <td><span class="badge neutral">성능</span></td>
                 <td>
                   <span class="badge neutral dashed"
                     ><svg aria-hidden="true"><use href="#i-dotted-circle" /></svg>후보 · 상용</span
@@ -3911,8 +4218,12 @@
                 </td>
                 <td><a href="https://github.com/hjung3113/analytics-platform/pull/295">조사 PR #295 (미채택)</a></td>
               </tr>
-              <tr data-tech="candidate" data-commercial="false">
+              <tr id="tech-declarative" data-stage="2 3" data-tech="candidate" data-commercial="false">
                 <th scope="row">Plotly.js / Vega-Lite / AntV S2</th>
+                <td>
+                  <span class="badge neutral" title="② 선언형">②<span class="sr-only"> 선언형</span></span>
+                  <span class="badge neutral" title="③ 사용자 조합">③<span class="sr-only"> 사용자 조합</span></span>
+                </td>
                 <td>
                   <span class="badge neutral dashed"
                     ><svg aria-hidden="true"><use href="#i-dotted-circle" /></svg>후보</span
@@ -3928,8 +4239,12 @@
                 </td>
                 <td><a href="https://github.com/hjung3113/analytics-platform/pull/295">조사 PR #295 (미채택)</a></td>
               </tr>
-              <tr data-tech="candidate" data-commercial="false">
+              <tr id="tech-exploration" data-stage="3" data-tech="candidate" data-commercial="false">
                 <th scope="row">DuckDB-Wasm / vis-timeline / React Flow</th>
+                <td>
+                  <span class="badge neutral" title="③ 사용자 조합">③<span class="sr-only"> 사용자 조합</span></span>
+                  <small>(탐색)</small>
+                </td>
                 <td>
                   <span class="badge neutral dashed"
                     ><svg aria-hidden="true"><use href="#i-dotted-circle" /></svg>후보</span
@@ -3945,16 +4260,59 @@
                 </td>
                 <td><a href="https://github.com/hjung3113/analytics-platform/pull/295">조사 PR #295 (미채택)</a></td>
               </tr>
+
+              <tr id="tech-registry" data-stage="2" data-tech="candidate" data-commercial="false">
+                <th scope="row">Capability Registry / Recipe Adapter</th>
+                <td>
+                  <span class="badge neutral" title="② 선언형">②<span class="sr-only"> 선언형</span></span>
+                </td>
+                <td><span class="badge neutral dashed">PoC 후보</span></td>
+                <td>데이터셋·필드 역할로 화면 구성을 고르는 내부 경계</td>
+                <td>플랫폼 내부 설계 · 비용 미산정</td>
+                <td>
+                  <details>
+                    <summary>조건</summary>
+                    <p>후보 타입 실험, 다른 메뉴에 공개하기 전 재사용 확인, 기존 화면 일괄 교체 없음</p>
+                  </details>
+                </td>
+                <td>
+                  <a href="https://github.com/hjung3113/analytics-platform/issues/292">#292</a> ·
+                  <a href="#source-L58" class="source-ref">L58</a>
+                </td>
+              </tr>
+              <tr id="tech-saved-view" data-stage="3" data-tech="candidate" data-commercial="false">
+                <th scope="row">Saved View</th>
+                <td>
+                  <span class="badge neutral" title="③ 사용자 조합">③<span class="sr-only"> 사용자 조합</span></span>
+                </td>
+                <td><span class="badge neutral dashed">보류 · 결정 대기</span></td>
+                <td>분석 화면의 저장·복원·공유 계약</td>
+                <td>플랫폼 소유 계약 · 비용 미산정</td>
+                <td>
+                  <details>
+                    <summary>조건</summary>
+                    <p>설계 계약 문서 §21 보류, #294 권한·저장·공유 결정과 실제 앱 시안 승인 먼저</p>
+                  </details>
+                </td>
+                <td>
+                  <a href="https://github.com/hjung3113/analytics-platform/issues/294">#294</a> ·
+                  <a href="#source-L54" class="source-ref">L54</a>
+                </td>
+              </tr>
+              <tr id="tech-empty-row" hidden>
+                <td colspan="7">이 조합에 맞는 기술이 없습니다. 상태나 단계를 ‘전체’로 바꾸세요.</td>
+              </tr>
             </tbody>
           </table>
         </div>
         <div class="stage-strip">
-          M0 조사 → M1 내부 Adapter(ECharts+TanStack) → M2 고밀도 시계열 PoC → M3 피벗 UX 비교 → M4 Saved
-          View·cross-filter → M5 상용 기능 평가
+          조사 → 내부 Adapter(ECharts+TanStack) ② → 고밀도 시계열 비교 (성능) → 피벗 UX 비교 ③ → Saved View·cross-filter
+          ③ → 상용 기능 평가
         </div>
         <p class="caption">
-          모두 후보. 조사 문서(<a href="https://github.com/hjung3113/analytics-platform/pull/295">PR #295, 미채택</a>)의
-          제안입니다. 성능 실측·법무 검토·디자인 승인 전입니다.
+          모두 후보. 띠 순서는 조사 문서(<a href="https://github.com/hjung3113/analytics-platform/pull/295"
+            >PR #295, 미채택</a
+          >)의 M0–M5 단계 순서입니다. 성능 실측·법무 검토·디자인 승인 전입니다.
         </p>
         <p class="caption">
           원본:
@@ -3962,11 +4320,12 @@
             >docs/04_frontend_ui_ux.md</a
           >
           · <a href="#source-L32" class="source-ref">L32</a> · <a href="#source-L33" class="source-ref">L33</a> ·
-          <a href="#source-L47" class="source-ref">L47</a> · <a href="#source-L48" class="source-ref">L48</a>
+          <a href="#source-L47" class="source-ref">L47</a> · <a href="#source-L48" class="source-ref">L48</a> ·
+          <a href="#source-L61" class="source-ref">L61</a>
         </p>
       </section>
       <section id="ask" aria-labelledby="ask-heading">
-        <p class="section-label">10 · 리스크와 요청</p>
+        <p class="section-label">11 · 리스크와 요청</p>
         <h2 id="ask-heading">남은 위험과 부탁드리는 것</h2>
         <p class="lead">
           아래 위험은 이슈로 추적 중이고 대응 방향이 문서에 있습니다. 인력·기간·목표 수치는 승인된 값이 생기면 채웁니다.
@@ -4712,6 +5071,84 @@
             <p class="caption">
               <code>menus/*/src/index.ts</code> · 공정·레시피 마스터·<code>/notices</code>는 화면이 없으므로 기능으로
               소개하지 않음
+            </p>
+          </div>
+          <div id="source-L52">
+            <h3>L52</h3>
+            <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/06_platform_ui_contract.md"
+              >공개 원본 보기</a
+            >
+            <p>처음부터 범용 빌더를 만들지 않고 메뉴 2–3곳의 반복 수요 확인 뒤 공통 기능으로 승격한다</p>
+            <p class="caption">docs/06_platform_ui_contract.md §1 · 확정 원칙</p>
+          </div>
+          <div id="source-L53">
+            <h3>L53</h3>
+            <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/06_platform_ui_contract.md"
+              >공개 원본 보기</a
+            >
+            <p>자유 배치 Widget Framework·Dashboard Builder는 반복 수요 검증 전 Deferred다</p>
+            <p class="caption">docs/06_platform_ui_contract.md §14 · 구현 완료 아님</p>
+          </div>
+          <div id="source-L54">
+            <h3>L54</h3>
+            <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/06_platform_ui_contract.md"
+              >공개 원본 보기</a
+            >
+            <p>Saved View 제공 순서는 Deferred이며 복원 시 서버 Scope 재검증 계약을 따른다</p>
+            <p class="caption">docs/06_platform_ui_contract.md §21 · 저장 기능 구현 완료 아님</p>
+          </div>
+          <div id="source-L55">
+            <h3>L55</h3>
+            <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/06_platform_ui_contract.md"
+              >공개 원본 보기</a
+            >
+            <p>지표 Context는 metricId·metricVersion 쌍이며 서버 검증 실패 시 최신 버전으로 대체하지 않는다</p>
+            <p class="caption">docs/06_platform_ui_contract.md §5 · 확정 계약, 실서버 연결 별도</p>
+          </div>
+          <div id="source-L56">
+            <h3>L56</h3>
+            <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/06_platform_ui_contract.md"
+              >공개 원본 보기</a
+            >
+            <p>서버가 limits.maxRows로 행 상한을 판정하고 한도를 넘으면 too_large로 구분한다</p>
+            <p class="caption">docs/06_platform_ui_contract.md §15·§19 · 확정 계약, 실서버 연결 별도</p>
+          </div>
+          <div id="source-L57">
+            <h3>L57</h3>
+            <a href="https://github.com/hjung3113/analytics-platform/issues/291">공개 원본 보기</a>
+            <p>분석 기능 선택·시각화 어댑터·사용자 조합 분석 설계와 M0–M5 순서, 탐색 집계와 공식 지표 구분 제안</p>
+            <p class="caption">GitHub #291 · 2026-10-14 OPEN, Candidate·미채택</p>
+          </div>
+          <div id="source-L58">
+            <h3>L58</h3>
+            <a href="https://github.com/hjung3113/analytics-platform/issues/292">공개 원본 보기</a>
+            <p>
+              Capability Registry·Recipe Adapter M1 PoC: 데이터셋·질문·필드 역할 선언, 후보 타입 실험, 공개 export 금지,
+              기존 화면 일괄 교체 없음
+            </p>
+            <p class="caption">GitHub #292 · 2026-10-14 OPEN, 일정 미정 제안</p>
+          </div>
+          <div id="source-L59">
+            <h3>L59</h3>
+            <a href="https://github.com/hjung3113/analytics-platform/issues/293">공개 원본 보기</a>
+            <p>M2 PoC는 기본 ECharts를 유지하고 Lightweight Charts·uPlot의 고밀도 시계열 성능·정밀도를 비교한다</p>
+            <p class="caption">GitHub #293 · 2026-10-14 OPEN, 실증 이점이 있을 때만</p>
+          </div>
+          <div id="source-L60">
+            <h3>L60</h3>
+            <a href="https://github.com/hjung3113/analytics-platform/issues/294">공개 원본 보기</a>
+            <p>
+              축·필터·패널 조합과 저장·공유는 #294의 미결 계약·UX 결정이며 실제 앱 variant 시안 승인 뒤 별도 구현한다
+            </p>
+            <p class="caption">GitHub #294 · 2026-10-14 OPEN, 결정 대기</p>
+          </div>
+          <div id="source-L61">
+            <h3>L61</h3>
+            <a href="https://github.com/hjung3113/analytics-platform/issues/291">공개 원본 보기</a>
+            <p>기술 후보 단계 연결: 현행 공통 부품 ①, 선언형 선택 ②, 자유 탐색·배치 ③, 고밀도 시계열 성능 평가</p>
+            <p class="caption">
+              GitHub #291–#294, site 소개 구성 · 설명용 분류, 채택 결정 아님 · 띠 순서는 조사 문서(PR #295)의 M0–M5 단계
+              순서
             </p>
           </div>
         </details>

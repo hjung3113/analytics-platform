@@ -201,25 +201,53 @@
     });
     expand.textContent = next ? "모두 접기" : "모두 펼치기";
   });
-  function filter(value) {
+  function filter() {
+    var statusInput = document.querySelector('input[name="tech-filter"]:checked');
+    var stageInput = document.querySelector('input[name="stage-filter"]:checked');
+    var status = statusInput.value;
+    var stage = stageInput.value;
     var count = 0;
     all("[data-tech]").forEach(function (row) {
-      row.hidden = !(
-        value === "all" ||
-        value === row.dataset.tech ||
-        (value === "commercial" && row.dataset.commercial === "true")
-      );
+      var matchesStatus =
+        status === "all" ||
+        status === row.dataset.tech ||
+        (status === "commercial" && row.dataset.commercial === "true");
+      var matchesStage = stage === "all" || row.dataset.stage.split(" ").includes(stage);
+      row.hidden = !(matchesStatus && matchesStage);
       if (!row.hidden) count++;
     });
-    document.getElementById("filter-count").textContent = count + "개 표시";
+    var statusLabel = status === "all" ? "전체 상태" : statusInput.nextElementSibling.textContent;
+    // Same guidance as #tech-empty-row, so the status line alone explains a 0-result combination.
+    var emptyGuide = " 이 조합에 맞는 기술이 없습니다. 상태나 단계를 ‘전체’로 바꾸세요.";
+    document.getElementById("tech-empty-row").hidden = count > 0;
+    document.getElementById("filter-count").textContent =
+      statusLabel +
+      " · " +
+      stageInput.nextElementSibling.textContent +
+      " · " +
+      count +
+      "개 표시" +
+      (count === 0 ? " —" + emptyGuide : "");
     radioStyle("tech-filter");
+    radioStyle("stage-filter");
   }
-  all('input[name="tech-filter"]').forEach(function (input) {
-    input.addEventListener("change", function () {
-      filter(input.value);
+  all('input[name="tech-filter"], input[name="stage-filter"]').forEach(function (input) {
+    input.addEventListener("change", filter);
+  });
+  filter();
+  all("[data-vision-step]").forEach(function (link) {
+    link.addEventListener("click", function () {
+      tabs.get("vision").select(Number(link.dataset.visionStep), false);
     });
   });
-  filter("all");
+  // A linked candidate must remain visible even after filtering the table.
+  all("[data-tech-link]").forEach(function (link) {
+    link.addEventListener("click", function () {
+      document.querySelector('input[name="tech-filter"][value="all"]').checked = true;
+      document.querySelector('input[name="stage-filter"][value="all"]').checked = true;
+      filter();
+    });
+  });
   // Explicit links between explanatory notes, key tokens, and comparison rows.
   var comparisonRows = [[[0, 2], [9], [1], [6], [0]], [[2, 5], [9], [9], [6]], [[8]], [[11], [11], [11], [11]]];
   function annotation(value, on) {
