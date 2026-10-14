@@ -1,6 +1,6 @@
 import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { useSharedOutcome } from './OutcomeScope';
-import { AlertTriangle, Ban, Clock, HelpCircle, Inbox, Loader2, Maximize2, RotateCw, ServerCrash } from 'lucide-react';
+import { Ban, Clock, HelpCircle, Inbox, Loader2, Maximize2, RotateCw, ServerCrash } from 'lucide-react';
 import { useContext, useId, type ReactNode } from 'react';
 import { type QueryState, useI18n } from '@ap/kernel';
 import type { ApiResponse } from '@ap/contracts';
@@ -107,10 +107,4 @@ export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, em
       </span>)}
     <OutcomeContent grouped={grouped} widgetName={widgetName} hideWidgetName={hideWidgetName} response={response} onRetry={query.refetch} emptyAction={emptyAction} compact={compact}>{data => children(data, response)}</OutcomeContent>
   </div>;
-}
-
-export function PartialFailureNote({ count }: { count: number }) {
-  const { t } = useI18n();
-  if (!count) return null;
-  return <StateMessage compact tone="warning" icon={<AlertTriangle className="size-4" aria-hidden />} title={`${t('statePartial')} (${count})`} />;
 }

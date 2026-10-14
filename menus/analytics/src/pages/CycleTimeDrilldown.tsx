@@ -17,7 +17,7 @@ import {
 const NO_PARAMS = {};
 
 export default function CycleTimeDrilldown(_: PageProps) {
-  const { lang } = useI18n();
+  const { t, lang } = useI18n();
   const { global, pageParam, setPage, setGlobal, linkTo, toast, route } = usePlatform();
   const granularityRaw = pageParam('granularity');
   const percentileRaw = pageParam('percentile');
@@ -132,7 +132,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
     dataTrustSummary={kpi.response?.trust ? <DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} /> : undefined}
     contextExtension={<div className="space-y-2">
       <MetricBanner metric={metric} />
-      <PageFilterBar label={ko ? '페이지 필터' : 'Page filter'} collapsible preferenceKey={route?.menu.id ?? ''} summaryItems={[
+      <PageFilterBar label={t('pageFilter')} collapsible preferenceKey={route?.menu.id ?? ''} summaryItems={[
         { key: 'granularity', label: grainFieldLabel, value: grainSummary },
         { key: 'percentile', label: tailFieldLabel, value: tailSummary },
         { key: 'sort', label: sortFieldLabel, value: sortSummary },

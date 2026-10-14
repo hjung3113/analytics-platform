@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { HelpCircle } from 'lucide-react';
+import { useId, useMemo } from 'react';
+import { AlertTriangle, HelpCircle } from 'lucide-react';
 import { formatInstant } from '@ap/contracts';
 import { useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
 import { type PlatformColumn, Panel, PlatformDataTable, PlatformPage, QueryView, StateMessage } from '@ap/components';
@@ -37,12 +37,18 @@ export default function MyVocHistory() {
   const origin = feedbackOpsOrigin();
   const create = feedbackOpsHref(origin, { kind: 'voc-create' });
   // Fail closed: a disabled button, never an <a href="#"> — a bad origin is not a data error.
+  // Buttons keep short labels; the long guidance renders once above the table (StateMessage), not per control.
   const noLink = ko
     ? 'FeedbackOps 주소가 없거나 올바르지 않아 링크를 만들지 않습니다.'
     : 'No FeedbackOps link — the origin is missing or not a canonical origin.';
+  const createLabel = ko ? 'VOC 등록' : 'New VOC';
+  // W-302 FIX1: 행 버튼의 보이는 글자는 `보기`, 접근 이름은 행의 displayId를 포함한다(#301 `<ID> 보기` 패턴).
+  const openLabel = ko ? '보기' : 'View';
+  // Disabled controls reference the one guidance above the table as their accessible description.
+  const descId = useId();
   const createControl = create.ok
-    ? <Button asChild size="sm"><a href={create.href} target="_blank" rel="noopener noreferrer">{ko ? 'VOC 등록' : 'New VOC'}</a></Button>
-    : <Button size="sm" disabled>{noLink}</Button>;
+    ? <Button asChild size="sm"><a href={create.href} target="_blank" rel="noopener noreferrer">{createLabel}</a></Button>
+    : <Button size="sm" disabled aria-describedby={descId}>{createLabel}</Button>;
 
   const columns = useMemo<PlatformColumn<MyVocItem>[]>(() => [
     { id: 'displayId', header: ko ? 'VOC 번호' : 'VOC ID', sortable: false, cell: row => <span className="t-mono">{String(row.displayId)}</span> },
@@ -57,9 +63,10 @@ export default function MyVocHistory() {
 
   const openInFeedbackOps = (row: MyVocItem) => {
     const link = feedbackOpsHref(origin, { kind: 'voc-detail', vocId: row.id });
+    const name = ko ? `${row.displayId} FeedbackOps에서 보기` : `Open ${row.displayId} in FeedbackOps`;
     return link.ok
-      ? <Button asChild size="sm" variant="secondary"><a href={link.href} target="_blank" rel="noopener noreferrer">{ko ? 'FeedbackOps에서 보기' : 'Open in FeedbackOps'}</a></Button>
-      : <Button size="sm" variant="secondary" disabled>{noLink}</Button>;
+      ? <Button asChild size="sm" variant="secondary"><a href={link.href} target="_blank" rel="noopener noreferrer" aria-label={name}>{openLabel}</a></Button>
+      : <Button size="sm" variant="secondary" disabled aria-label={name} aria-describedby={create.ok ? undefined : descId}>{openLabel}</Button>;
   };
 
   return <PlatformPage
@@ -68,6 +75,12 @@ export default function MyVocHistory() {
       : 'Status of the VOCs you filed. Read-only; filing and survey submit happen in FeedbackOps.'}
     primaryAction={createControl}
   >
+    {!create.ok && <div id={descId} className="mb-4">
+      <StateMessage compact tone="warning" icon={<AlertTriangle className="size-4" aria-hidden />}
+        title={ko ? 'FeedbackOps 연결 없음' : 'No FeedbackOps connection'}
+        body={noLink}
+      />
+    </div>}
     {!cursorOk
       ? <p role="alert">{ko ? '커서 값이 잘못되었습니다.' : 'Invalid cursor value.'}</p>
       : <QueryView widgetName={ko ? '내 VOC' : 'Your VOCs'} query={vocQ} emptyAction={createControl}>{(data, response) => {

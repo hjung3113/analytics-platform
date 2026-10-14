@@ -16,7 +16,7 @@ const row: CatalogRow = {
 
 vi.mock('@ap/kernel', () => ({
   PlatformLink: ({ href, children }: { href: string; children: ReactNode }) => <a href={href}>{children}</a>,
-  useI18n: () => ({ lang: 'ko', tx: (text: { ko: string }) => text.ko }),
+  useI18n: () => ({ lang: 'ko', tx: (text: { ko: string }) => text.ko, t: (key: string) => key }),
   usePlatform: () => ({
     global: { selection: null }, pageParam: () => null, setPage: vi.fn(),
     linkTo: (_id: string, options: LinkOptions = {}) => {
