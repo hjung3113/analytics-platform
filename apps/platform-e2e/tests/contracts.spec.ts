@@ -1755,6 +1755,9 @@ test.describe('키보드 상세 포커스 복귀 (06 §13·§26)', () => {
       const opener = page.getByRole('row').filter({ has: page.getByRole('button', { name: /보기$/ }) }).first().getByRole('button', { name: /보기$/ });
       await expect(opener).toBeVisible();
       await close(page);
+      // Radix hands focus back to the closed overlay's trigger in a deferred task (FocusScope unmount, setTimeout 0).
+      // Let that task run first; under load it otherwise lands after opener.focus() and Enter reopens the overlay.
+      await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 0)));
       await opener.focus();
       await page.keyboard.press('Enter');
       await expect(page.getByRole('button', { name: '상세 닫기' })).toBeFocused();
