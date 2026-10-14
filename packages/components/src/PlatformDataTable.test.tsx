@@ -117,6 +117,171 @@ describe('PlatformDataTable controlled mode (urlState)', () => {
   });
 });
 
+describe('PlatformDataTable pager focus', () => {
+  const ok = (page = 0): ApiResponse<PageResult<Row>> => ({
+    outcome: 'ok', data: { rows: [{ id: `r${page}`, status: 'ready' }], total: 30 },
+    assessments: [], trust: null, correlationId: 'pager',
+  });
+
+  async function setup(startPage = 1) {
+    let resolve!: (response: ApiResponse<PageResult<Row>>) => void;
+    const loadPage = vi.fn<PlatformDataTableProps<Row>['loadPage']>()
+      .mockResolvedValueOnce(ok(startPage - 1))
+      .mockImplementation(() => new Promise(done => { resolve = done; }));
+    const onChange = vi.fn();
+    function Controlled() {
+      const [page, setPage] = useState<number | null>(startPage);
+      return <><input aria-label="elsewhere" /><Harness page={page} sorting={[]} loadPage={loadPage}
+        onChange={(next, reason) => { onChange(next, reason); setPage(next.page); }} /></>;
+    }
+    render(<Controlled />);
+    await screen.findByText(new RegExp(`${startPage}/2`));
+    const button = screen.getByRole('button', { name: startPage === 1 ? '다음' : '이전' });
+    act(() => button.focus());
+    fireEvent.click(button);
+    await waitFor(() => expect(loadPage).toHaveBeenCalledTimes(2));
+    return { button, onChange, finish: async (response: ApiResponse<PageResult<Row>>) => {
+      await act(async () => resolve(response));
+    } };
+  }
+
+  it.each([1, 2])('keeps page %i request enabled with aria-disabled until settled', async startPage => {
+    const { button, finish } = await setup(startPage);
+    expect(button).not.toBeDisabled();
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).toHaveFocus();
+    await finish(ok(startPage === 1 ? 1 : 0));
+    expect(button).toBeDisabled();
+    expect(button).not.toHaveAttribute('aria-disabled');
+  });
+
+  it.each([1, 2])('moves owned focus to the opposite pager at the boundary from page %i', async startPage => {
+    const { finish } = await setup(startPage);
+    await finish(ok(startPage === 1 ? 1 : 0));
+    expect(screen.getByRole('button', { name: startPage === 1 ? '이전' : '다음' })).toHaveFocus();
+  });
+
+  it.each(['error', 'timeout', 'forbidden', 'too_large', 'empty'] as const)('moves owned focus after %s', async outcome => {
+    const { finish } = await setup(outcome === 'empty' ? 2 : 1);
+    await finish({ outcome, data: null, assessments: [], trust: null, correlationId: 'failed' });
+    const section = screen.getByRole('region', { name: 'table' });
+    if (outcome === 'error' || outcome === 'timeout') {
+      expect(within(section).getByRole('button', { name: '다시 시도' })).toHaveFocus();
+    } else {
+      expect(section).toHaveFocus();
+      expect(section).toHaveAttribute('tabindex', '-1');
+    }
+    if (outcome !== 'empty') {
+      expect(within(section).queryByText(/\d+건/)).toBeNull();
+      expect(within(section).queryByText(/\d+\/\d+ 페이지/)).toBeNull();
+    }
+  });
+
+  it.each(['error', 'timeout', 'forbidden', 'too_large'] as const)('preserves #299 count omission after delayed %s', async outcome => {
+    const { finish } = await setup();
+    await finish({ outcome, data: null, assessments: [], trust: null, correlationId: 'failed' });
+    const section = screen.getByRole('region', { name: 'table' });
+    expect(within(section).queryByText(/\d+건/)).toBeNull();
+    expect(within(section).queryByText(/\d+\/\d+ 페이지/)).toBeNull();
+    expect(within(section).getByRole('button', { name: '이전' })).toBeDisabled();
+    expect(within(section).getByRole('button', { name: '다음' })).toBeDisabled();
+  });
+
+  it('ignores repeat activation while loading', async () => {
+    const { button, onChange, finish } = await setup();
+    fireEvent.click(button);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    await finish(ok(1));
+  });
+
+  it.each(['ok', 'error', 'forbidden'] as const)('does not steal focus moved elsewhere before %s', async outcome => {
+    const { finish } = await setup();
+    const input = screen.getByRole('textbox', { name: 'elsewhere' });
+    act(() => input.focus());
+    await finish(outcome === 'ok' ? ok(1) : { outcome, data: null, assessments: [], trust: null, correlationId: 'failed' });
+    expect(input).toHaveFocus();
+  });
+
+  // #338 UX fold: Enter on "다시 시도" succeeds → OutcomeView becomes the viewport and the button is gone;
+  // focus must follow to the row viewport, not drop to body.
+  it('moves owned focus to the row viewport when a successful retry removes the button', async () => {
+    const { finish } = await setup();
+    await finish({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'failed' });
+    const retry = screen.getByRole('button', { name: '다시 시도' });
+    expect(retry).toHaveFocus();
+    fireEvent.click(retry);
+    await finish(ok(1));
+    expect(screen.getByLabelText('스크롤 가능한 행 영역')).toHaveFocus();
+  });
+
+  // #338 UX fold: Enter on "다시 시도" that settles on `empty` succeeds without rows — the OutcomeView
+  // stays (no viewport), so the owned focus must land on the section, not drop to body.
+  it('moves owned focus to the section when a retry settles on empty', async () => {
+    const { finish } = await setup();
+    await finish({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'failed' });
+    const retry = screen.getByRole('button', { name: '다시 시도' });
+    expect(retry).toHaveFocus();
+    fireEvent.click(retry);
+    await finish({ outcome: 'empty', data: { rows: [], total: 0 }, assessments: [], trust: null, correlationId: 'empty' });
+    const section = screen.getByRole('region', { name: 'table' });
+    expect(section).toHaveFocus();
+    expect(section).toHaveAttribute('tabindex', '-1');
+    expect(screen.queryByLabelText('스크롤 가능한 행 영역')).toBeNull(); // empty renders the OutcomeView, not the viewport
+  });
+
+  // #338 UX fold: while a request is in flight an identity change empties `shown`; the failure is not
+  // decided yet, so the focused button must stay natively enabled (aria-disabled only) until settle.
+  it('keeps the focused pager natively enabled while an identity change request is in flight, then recovers focus after a failure', async () => {
+    let resolve!: (response: ApiResponse<PageResult<Row>>) => void;
+    const loadPage = vi.fn<PlatformDataTableProps<Row>['loadPage']>()
+      .mockResolvedValueOnce(ok(1))
+      // Repo lib is ES2022 (tooling/tsconfig/base.json): no Promise.withResolvers typing — same executor
+      // shape as the setup() helper above, which rebinds `resolve` per call.
+      .mockImplementation(() => new Promise<ApiResponse<PageResult<Row>>>(done => { resolve = done; }));
+    const view = render(<Harness page={2} sorting={[]} onChange={vi.fn()} loadPage={loadPage} filterKey="f" />);
+    await screen.findByText(/2\/2/);
+    const previous = screen.getByRole('button', { name: '이전' });
+    act(() => previous.focus());
+    view.rerender(<Harness page={2} sorting={[]} onChange={vi.fn()} loadPage={loadPage} filterKey="g" />);
+    await waitFor(() => expect(loadPage).toHaveBeenCalledTimes(2));
+    expect(previous).not.toBeDisabled();
+    expect(previous).toHaveAttribute('aria-disabled', 'true');
+    await act(async () => resolve({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'failed' }));
+    expect(screen.getByRole('button', { name: '다시 시도' })).toHaveFocus();
+    expect(previous).toBeDisabled();
+  });
+
+  // #338 UX fold, the original repro: 이전 from page 2 (page 0 request in flight) → a Context change
+  // empties `shown` and collapses shownPage to effectivePage 0. The failure is not decided, so the
+  // focused button must stay natively enabled until the response settles; a failure then recovers
+  // focus onto the retry button.
+  it('keeps the focused 이전 natively enabled when a Context change lands while its page request is in flight', async () => {
+    let resolve!: (response: ApiResponse<PageResult<Row>>) => void;
+    const loadPage = vi.fn<PlatformDataTableProps<Row>['loadPage']>()
+      .mockResolvedValueOnce(ok(1))
+      .mockImplementation(() => new Promise<ApiResponse<PageResult<Row>>>(done => { resolve = done; }));
+    function Host({ filterKey }: { filterKey: string }) {
+      const [page, setPage] = useState<number | null>(2);
+      return <Harness page={page} sorting={[]} loadPage={loadPage} filterKey={filterKey}
+        onChange={next => setPage(next.page)} />;
+    }
+    const view = render(<Host filterKey="f" />);
+    await screen.findByText(/2\/2/);
+    const previous = screen.getByRole('button', { name: '이전' });
+    act(() => previous.focus());
+    fireEvent.click(previous); // reports page null → the page 0 request is in flight
+    await waitFor(() => expect(loadPage).toHaveBeenCalledTimes(2));
+    view.rerender(<Host filterKey="g" />); // Context change while that request is unsettled
+    await waitFor(() => expect(loadPage).toHaveBeenCalledTimes(3));
+    expect(previous).not.toBeDisabled();
+    expect(previous).toHaveAttribute('aria-disabled', 'true');
+    expect(previous).toHaveFocus();
+    await act(async () => resolve({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'failed' }));
+    expect(screen.getByRole('button', { name: '다시 시도' })).toHaveFocus();
+    expect(previous).toBeDisabled();
+  });
+});
+
 describe('PlatformDataTable active row marker (06 §26: never color alone)', () => {
   // jsdom reports zero layout; the same fixed metrics as the #160 block keep the virtual rows rendered.
   const originalOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
@@ -179,7 +344,7 @@ describe('PlatformDataTable uncontrolled (no urlState) keeps internal state', ()
     expect(header).toHaveAttribute('aria-sort', 'none');
     fireEvent.click(screen.getByRole('button', { name: 'Status' }));
     expect(header).toHaveAttribute('aria-sort', 'ascending');
-    await waitFor(() => expect(screen.getByRole('button', { name: '다음' })).toBeEnabled()); // sort refetch settles
+    await waitFor(() => expect(screen.getByRole('button', { name: '다음' })).not.toHaveAttribute('aria-disabled')); // sort refetch settles
     fireEvent.click(screen.getByRole('button', { name: '다음' }));
     expect(await screen.findByText(/2\/2/)).toBeTruthy();
     expect(loadPage).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }), expect.anything());
