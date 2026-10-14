@@ -135,12 +135,16 @@ describe('PlatformDataTable active row marker (06 §26: never color alone)', () 
     if (originalOffsetWidth) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalOffsetWidth);
   });
 
-  it('marks the active row with aria-current, weight and an accent bar on the first cell; other rows stay unmarked', async () => {
+  it.each([
+    ['without an action column', false],
+    ['with a trailing action column', true],
+  ])('marks the active row with aria-current, one scroll-pinned bar and weight on the first data cell (%s)', async (_name, withAction) => {
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
       <PlatformDataTable
         title="T" ariaLabel="table" columns={columns} getRowId={r => r.id}
-        loadPage={makeLoadPage(3)} filterKey="f" preferenceKey="test-table-active" pageSize={25} height={200}
+        loadPage={makeLoadPage(3)} filterKey="f" preferenceKey={withAction ? 'test-table-active-action' : 'test-table-active'} pageSize={25} height={200}
         activeRowId="r2"
+        rowAction={withAction ? row => <button type="button">{row.id} 열기</button> : undefined}
       />
     </PlatformProvider></I18nProvider>);
     await screen.findByText('s1'); // r2's status: the first page has rendered, not just the header row
@@ -149,14 +153,19 @@ describe('PlatformDataTable active row marker (06 §26: never color alone)', () 
     const active = rows.find(row => row.getAttribute('data-row-id') === 'r2');
     if (!active) throw new Error('active row not rendered');
     expect(active).toHaveAttribute('aria-current', 'true');
-    // The first visible cell is the selection checkbox column; the bar accompanies that cell (task F2).
-    const firstCell = active.querySelector('[role="cell"]');
-    expect(firstCell?.getAttribute('data-column')).toBe('_select');
-    expect(firstCell?.className).toContain('font-medium');
-    expect(firstCell?.querySelector('span[aria-hidden]')).toBeTruthy();
+    // Exactly one bar, on the zero-width marker pinned to the scrollport's left edge — not inside a cell (UXA-5).
+    const markers = active.querySelectorAll('[data-active-row-marker]');
+    expect(markers).toHaveLength(1);
+    expect(markers[0].className).toContain('sticky');
+    // The selection checkbox cell is neither weighted nor marked; the first data cell carries the weight.
+    const selectCell = active.querySelector('[data-column="_select"]');
+    expect(selectCell?.className).not.toContain('font-medium');
+    expect(selectCell?.querySelector('[data-active-row-marker]')).toBeNull();
+    const statusCell = active.querySelector('[data-column="status"]');
+    expect(statusCell?.className).toContain('font-medium');
     for (const other of rows.filter(row => row.getAttribute('data-row-id') !== 'r2')) {
       expect(other.getAttribute('aria-current')).toBeNull();
-      expect(other.querySelector('[role="cell"] span[aria-hidden]')).toBeNull();
+      expect(other.querySelector('[data-active-row-marker]')).toBeNull();
     }
   });
 });

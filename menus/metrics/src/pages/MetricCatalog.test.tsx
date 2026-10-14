@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { act, cleanup, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
 import { Gauge } from 'lucide-react';
 import type { ApiResponse, MenuQuery, PlatformAdapter, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { manifests } from '../index';
 import MetricCatalogPage from './MetricCatalog';
+
+afterEach(cleanup);
 
 // Real manifests so /metrics keeps its declared pageKeys; only the group/space wiring is added.
 const registry = createRegistry({
@@ -43,10 +45,42 @@ function fixture(): PlatformAdapter {
 }
 
 describe('metric catalog count under a failed list query (UXA-4)', () => {
+  /** Same as `fixture()`, but the `metrics.catalog.list` response is held until the test releases it. */
+  function deferredFixture(): { adapter: PlatformAdapter; release: (response: ApiResponse<unknown>) => void } {
+    let release!: (response: ApiResponse<unknown>) => void;
+    const pending = new Promise<ApiResponse<unknown>>(resolve => { release = resolve; });
+    const base = fixture();
+    return {
+      release,
+      adapter: {
+        ...base,
+        menuQuery: (request: MenuQuery) =>
+          request.endpoint === 'metrics.catalog.list' ? pending : base.menuQuery(request),
+      },
+    };
+  }
+
+  it('shows the pending count (…) until the failing response lands, then drops the number', async () => {
+    window.history.replaceState(null, '', '/metrics');
+    const { adapter, release } = deferredFixture();
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
+    // No response yet: the count stays pending, it is neither a number nor a failure statement.
+    const pending = await screen.findByText(/게시 포인터는 레코드에 저장된 값/);
+    expect(pending.textContent).toContain('합성 …건');
+    expect(pending.textContent).not.toContain('합성 지표입니다');
+    await act(async () => {
+      release({ outcome: 'error', data: null, message: 'catalog unavailable', assessments: [], trust: null, correlationId: 'fixture' });
+    });
+    expect(await screen.findByText(/합성 지표입니다/)).toBeTruthy();
+    expect(screen.getByText(/게시 포인터는 레코드에 저장된 값/).textContent).not.toContain('…');
+  });
+
   it('drops the numeric count (no …) once the count query failed', async () => {
     window.history.replaceState(null, '', '/metrics');
     render(<I18nProvider><PlatformProvider adapter={fixture()} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
-    const subtitle = await screen.findByText(/게시 포인터는 레코드에 저장된 값/);
+    // The count line first paints as pending (…) — wait for the failure itself, not the first paint.
+    await screen.findByText(/합성 지표입니다/);
+    const subtitle = screen.getByText(/게시 포인터는 레코드에 저장된 값/);
     expect(subtitle.textContent).toContain('합성 지표입니다');
     expect(subtitle.textContent).not.toContain('…');
   });

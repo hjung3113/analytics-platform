@@ -18,6 +18,7 @@ function View({ hide = false }: { hide?: boolean }) {
 describe('non-grouped compact state names its widget (UXA-3)', () => {
   it('draws the widget name line above a compact error StateMessage', () => {
     render(<View />);
+    expect(screen.getByRole('group', { name: '지표 쌍 검증' })).toBeInTheDocument();
     expect(screen.getByText('지표 쌍 검증')).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent('데이터를 불러오지 못했습니다');
     expect(screen.getByRole('alert')).toHaveTextContent('boom');

@@ -705,16 +705,21 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             <div role="rowgroup" className="relative" style={{ height: virtual.getTotalSize() }}>{virtual.getVirtualItems().map(item => {
               const row = rows[item.index];
               const active = p.activeRowId === row.id;
+              // Weight goes to the first cell with content — the selection checkbox and the trailing action stay unweighted (UXA-5).
+              const cells = row.getVisibleCells();
+              const firstDataCell = cells.findIndex(cell => cell.column.id !== '_select' && cell.column.id !== '_action');
               return <div role="row" key={row.id} ref={virtual.measureElement} data-index={item.index} aria-rowindex={shownPage * pageSize + item.index + 2}
                 aria-selected={row.getIsSelected()} aria-current={active ? 'true' : undefined} data-row-id={row.id}
                 // eslint-disable-next-line shadcn/no-inline-styles -- row offset is the virtual item position computed at runtime
                 className="group absolute left-0 top-0 flex w-full" style={{ transform: `translateY(${item.start}px)` }}>
+                {/* The active bar rides a zero-width element pinned to the scrollport's left edge, so it stays visible at
+                    any horizontal scroll — the same sticky mechanism as the fixed columns (zIndex 2) beside it (UXA-5). */}
+                {active && <div aria-hidden data-active-row-marker className="sticky left-0 z-[3] w-0">
+                  <span aria-hidden className="absolute left-0 inset-y-1 w-0.5 rounded-full bg-accent-primary" />
+                </div>}
                 {/* eslint-disable-next-line shadcn/no-inline-styles -- cell width and pin offset come from column sizing at runtime */}
-                {row.getVisibleCells().map((cell, cellIndex) => <div role="cell" key={cell.id} data-column={cell.column.id} style={cellStyle(cell.column)}
-                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cellIndex === 0 && 'font-medium', align(cell.column))}>
-                  {/* The selected surface is accompanied by shape + weight (06 §26, DESIGN Shell visual rules): an accent
-                      bar on the first visible cell, drawn out of the text flow so the first column keeps its alignment. */}
-                  {active && cellIndex === 0 && <span aria-hidden className="absolute left-0 inset-y-1 w-0.5 rounded-full bg-accent-primary" />}
+                {cells.map((cell, cellIndex) => <div role="cell" key={cell.id} data-column={cell.column.id} style={cellStyle(cell.column)}
+                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cellIndex === firstDataCell && 'font-medium', align(cell.column))}>
                   {/* The _action column cell is not used — rowAction renders directly to preserve DOM identity (#296). */}
                   {cell.column.id === '_action' ? p.rowAction?.(row.original) : flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </div>)}

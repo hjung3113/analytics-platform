@@ -87,7 +87,7 @@ export default function MetricCatalogPage(_: PageProps) {
   // UXA-4: `…` only while the count is pending; a failed count query says nothing numeric.
   const metricCountText = metricCount !== null
     ? (lang === 'ko' ? `합성 ${metricCount}건` : `${metricCount} synthetic metrics`)
-    : all.response === undefined
+    : all.response === null
       ? (lang === 'ko' ? '합성 …건' : '… synthetic metrics')
       : (lang === 'ko' ? '합성 지표입니다' : 'Synthetic metrics');
   const pages = useMenuFetch(catalogPageEndpoint);
