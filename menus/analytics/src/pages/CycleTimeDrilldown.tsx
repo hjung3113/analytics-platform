@@ -185,7 +185,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
                 chartId="cycle-time-trend"
                 title={ko ? '사이클타임 추세' : 'Cycle time trend'}
                 description={ko ? `버킷별 P50/P95 · ${granularity === 'hour' ? '시간' : granularity === 'day' ? '일' : '주'} · 단위 분(Candidate)` : `P50/P95 by bucket · ${granularity} · minutes (Candidate)`}
-                metricVersion={metricLabel(metric)}
+                metricVersion={metricLabel(metric, ko)}
                 unit={ko ? '분' : 'min'}
                 valueFormat={value => formatMin(value, lang)}
                 series={[
@@ -219,7 +219,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
                 chartId="cycle-time-distribution"
                 title={ko ? '사이클타임 분포' : 'Cycle time distribution'}
                 description={ko ? 'Candidate 구간 [하한, 상한). 구간 선택 후 “이 구간 실행 보기”만 목록을 줄입니다.' : 'Candidate bins [min, max). Only “Show executions in this range” filters the list.'}
-                metricVersion={metricLabel(metric)}
+                metricVersion={metricLabel(metric, ko)}
                 xType="category"
                 unit={ko ? '건' : 'jobs'}
                 valueFormat={value => Math.round(value).toLocaleString(ko ? 'ko-KR' : 'en-US')}
@@ -263,7 +263,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
             emptyAction={(bucketRange || bin || tailMode !== 'p95')
               ? <Button size="sm" variant="secondary" onClick={() => setPage({ bucket: null, bin: null, percentile: 'all', page: null })}>{ko ? '목록 필터 해제' : 'Clear list filters'}</Button>
               : undefined}
-            rowAction={row => <PlatformLink className="text-xs font-medium text-accent-primary hover:underline" href={linkTo('execution-detail', { params: { equipmentId: row.equipmentId }, page: { entityType: 'job', anchor: row.anchor }, returnTo: true })}>{ko ? '상세' : 'Detail'}</PlatformLink>}
+            rowAction={row => <PlatformLink className="text-xs font-medium text-accent-primary hover:underline" href={linkTo('execution-detail', { params: { equipmentId: row.equipmentId }, page: { entityType: 'job', anchor: row.anchor }, returnTo: true })} aria-label={ko ? `${row.equipmentId} · ${row.anchor.replace('T', ' ')} 상세` : `Detail ${row.equipmentId} · ${row.anchor.replace('T', ' ')}`}>{ko ? '상세' : 'Detail'}</PlatformLink>}
             bulkActions={ids => <Button size="toolbar" onClick={() => {
               const equipmentIds = [...new Set(ids.map(equipmentIdFromKey))];
               setGlobal({ selection: equipmentIds });
@@ -350,9 +350,14 @@ function cycleDelta(current: number | null, previous: number | null): Delta | un
   return { value: `${Math.abs(pct).toFixed(1)}%`, direction, good: direction === 'down' };
 }
 
-function metricLabel(metric: ResolvedMetric): string {
-  if (metric.kind === 'unconfirmed') return `${metric.metricId} unconfirmed`;
-  return `${metric.metricId} v${metric.metricVersion}${metric.kind === 'page-default' ? ' page default' : metric.kind === 'not-applied' ? ' page default, global not applied' : ''}`;
+function metricLabel(metric: ResolvedMetric, ko: boolean): string {
+  if (metric.kind === 'unconfirmed') return ko ? `${metric.metricId} 버전 미확인` : `${metric.metricId} unconfirmed`;
+  const suffix = metric.kind === 'page-default'
+    ? (ko ? ' · 페이지 기본' : ' page default')
+    : metric.kind === 'not-applied'
+      ? (ko ? ' · 페이지 기본(전역 지표 미적용)' : ' page default, global not applied')
+      : '';
+  return `${metric.metricId} v${metric.metricVersion}${suffix}`;
 }
 
 function chartTrust(trust: Trust | null, unknown: string) {

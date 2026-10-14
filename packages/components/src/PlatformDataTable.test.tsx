@@ -117,6 +117,59 @@ describe('PlatformDataTable controlled mode (urlState)', () => {
   });
 });
 
+describe('PlatformDataTable active row marker (06 §26: never color alone)', () => {
+  // jsdom reports zero layout; the same fixed metrics as the #160 block keep the virtual rows rendered.
+  const originalOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+  const originalOffsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
+  beforeAll(() => {
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return (this as Element).getAttribute('role') === 'row' ? 32 : 420; } });
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return 800; } });
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const height = this.getAttribute('role') === 'row' ? 32 : 420;
+      return { height, width: 800, top: 0, left: 0, right: 800, bottom: height, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+    });
+  });
+  afterAll(() => {
+    vi.restoreAllMocks();
+    if (originalOffsetHeight) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', originalOffsetHeight);
+    if (originalOffsetWidth) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalOffsetWidth);
+  });
+
+  it.each([
+    ['without an action column', false],
+    ['with a trailing action column', true],
+  ])('marks the active row with aria-current, one scroll-pinned bar and weight on the first data cell (%s)', async (_name, withAction) => {
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+      <PlatformDataTable
+        title="T" ariaLabel="table" columns={columns} getRowId={r => r.id}
+        loadPage={makeLoadPage(3)} filterKey="f" preferenceKey={withAction ? 'test-table-active-action' : 'test-table-active'} pageSize={25} height={200}
+        activeRowId="r2"
+        rowAction={withAction ? row => <button type="button">{row.id} 열기</button> : undefined}
+      />
+    </PlatformProvider></I18nProvider>);
+    await screen.findByText('s1'); // r2's status: the first page has rendered, not just the header row
+    const rows = screen.getAllByRole('row').filter(row => row.getAttribute('data-row-id'));
+    expect(rows).toHaveLength(3);
+    const active = rows.find(row => row.getAttribute('data-row-id') === 'r2');
+    if (!active) throw new Error('active row not rendered');
+    expect(active).toHaveAttribute('aria-current', 'true');
+    // Exactly one bar, on the zero-width marker pinned to the scrollport's left edge — not inside a cell (UXA-5).
+    const markers = active.querySelectorAll('[data-active-row-marker]');
+    expect(markers).toHaveLength(1);
+    expect(markers[0].className).toContain('sticky');
+    // The selection checkbox cell is neither weighted nor marked; the first data cell carries the weight.
+    const selectCell = active.querySelector('[data-column="_select"]');
+    expect(selectCell?.className).not.toContain('font-medium');
+    expect(selectCell?.querySelector('[data-active-row-marker]')).toBeNull();
+    const statusCell = active.querySelector('[data-column="status"]');
+    expect(statusCell?.className).toContain('font-medium');
+    for (const other of rows.filter(row => row.getAttribute('data-row-id') !== 'r2')) {
+      expect(other.getAttribute('aria-current')).toBeNull();
+      expect(other.querySelector('[data-active-row-marker]')).toBeNull();
+    }
+  });
+});
+
 describe('PlatformDataTable uncontrolled (no urlState) keeps internal state', () => {
   it('sort and page changes stay internal and loadPage is refetched', async () => {
     const loadPage = makeLoadPage(30);

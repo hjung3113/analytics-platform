@@ -84,6 +84,12 @@ export default function MetricCatalogPage(_: PageProps) {
   const filter = { q, status, domain, lang: lang as Lang };
   const all = useMenuQuery(catalogListEndpoint, { q: null, status: null, domain: null, lang: lang as Lang });
   const metricCount = all.response?.outcome === 'ok' ? all.response.data!.rows.length : null;
+  // UXA-4: `…` only while the count is pending; a failed count query says nothing numeric.
+  const metricCountText = metricCount !== null
+    ? (lang === 'ko' ? `합성 ${metricCount}건` : `${metricCount} synthetic metrics`)
+    : all.response === null
+      ? (lang === 'ko' ? '합성 …건' : '… synthetic metrics')
+      : (lang === 'ko' ? '합성 지표입니다' : 'Synthetic metrics');
   const pages = useMenuFetch(catalogPageEndpoint);
   const exports = useMenuFetch(catalogExportEndpoint);
 
@@ -116,8 +122,8 @@ export default function MetricCatalogPage(_: PageProps) {
       </p> : <PlatformDataTable
         title={lang === 'ko' ? '지표 카탈로그' : 'Metric catalog'}
         subtitle={lang === 'ko'
-          ? `합성 ${metricCount ?? '…'}건. 게시 포인터는 레코드에 저장된 값이며 최대 버전 번호가 아닙니다. 초안 열기는 동작 열.`
-          : `${metricCount ?? '…'} synthetic metrics. The published pointer is stored on the record, not max(version). Open a draft from the action column.`}
+          ? `${metricCountText}. 게시 포인터는 레코드에 저장된 값이며 최대 버전 번호가 아닙니다. 초안 열기는 동작 열.`
+          : `${metricCountText}. The published pointer is stored on the record, not max(version). Open a draft from the action column.`}
         ariaLabel={lang === 'ko' ? '지표 카탈로그' : 'Metric catalog'}
         preferenceKey="platform:table:metric-catalog"
         columns={columns}
@@ -146,8 +152,8 @@ export default function MetricCatalogPage(_: PageProps) {
       />}
       <p className="t-caption text-text-muted">
         {lang === 'ko'
-          ? 'Time·Lot·room_name·Condition·Selection은 이 목록의 필터가 아닙니다. 검색·상태·domain만 페이지 필터이며 URL 키 q, status, domain에 있습니다. 예시 데이터입니다.'
-          : 'Time, lot, room_name, condition and selection do not filter this list. Search, status and domain are the page filters (URL keys q, status, domain). Synthetic data.'}
+          ? 'Time·Lot·room_name·Condition·Selection은 이 목록의 필터가 아닙니다. 검색·상태·도메인으로 거릅니다. 예시 데이터입니다.'
+          : 'Time, lot, room_name, condition and selection do not filter this list. It is filtered by search, status and domain. Synthetic data.'}
       </p>
     </div>
   </PlatformPage>;

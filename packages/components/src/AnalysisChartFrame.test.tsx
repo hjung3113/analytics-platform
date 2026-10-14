@@ -262,11 +262,12 @@ describe('data table and CSV share one x-union row projection (#297)', () => {
     fireEvent.click(await screen.findByRole('button', { name: '더보기' }));
     fireEvent.click(await screen.findByRole('button', { name: '같은 데이터를 표로 보기' }));
     const table = await screen.findByRole('table');
-    expect(within(table).getAllByRole('columnheader').map(h => h.textContent)).toEqual(['x', 'A', 'B']);
+    expect(table).toHaveAccessibleName('Chart'); // aria-labelledby → the chart title id (06 §26 table access path)
+    expect(within(table).getAllByRole('columnheader').map(h => h.textContent)).toEqual(['시각', 'A', 'B']);
     // 0 is a value; only null renders as —.
     expect(within(table).getAllByRole('row')[1].textContent).toContain('0');
     fireEvent.click(within(screen.getByRole('group', { name: '범례' })).getByRole('checkbox', { name: 'A' }));
-    await waitFor(() => expect(within(screen.getByRole('table')).getAllByRole('columnheader').map(h => h.textContent)).toEqual(['x', 'B']));
+    await waitFor(() => expect(within(screen.getByRole('table')).getAllByRole('columnheader').map(h => h.textContent)).toEqual(['시각', 'B']));
     const rows = within(screen.getByRole('table')).getAllByRole('row');
     expect(rows).toHaveLength(3);
     expect(within(rows[1]).getAllByRole('cell').map(cell => cell.textContent)).toEqual(['2026-10-01 00:00', '—']);

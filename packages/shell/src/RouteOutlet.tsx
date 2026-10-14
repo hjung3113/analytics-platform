@@ -14,8 +14,9 @@ export function RouteOutlet() {
   if (contractError) return <ContractErrorView />;
   // Space entry is checked before the menu permission (06 §9.1/§2): the route still matches, but the page never mounts and nothing redirects.
   if (currentSpace !== null && currentSpace.permission !== undefined && !can(currentSpace.permission)) {
+    // The name of an entry-denied space is hidden from the rail (§9.1); the body must not leak it either.
     return <KernelMessage tone="warning" icon={<Ban className="size-4" aria-hidden />} title={lang === 'ko' ? '이 공간에 들어갈 수 없습니다' : 'You cannot enter this space'}
-      body={<>{lang === 'ko' ? '이 공간에는 진입 권한이 없습니다.' : 'You do not have permission to enter this space.'} <span className="t-mono">space={currentSpace.id}</span></>} />;
+      body={lang === 'ko' ? '이 공간에는 진입 권한이 없습니다. 권한이 필요하면 관리자에게 문의하세요.' : 'You do not have permission to enter this space. Ask an administrator if you need access.'} />;
   }
   if (metricInit.phase === 'confirm') {
     return <KernelMessage icon={<Link2Off className="size-4" aria-hidden />} title={lang === 'ko' ? '게시 버전 확인 중' : 'Confirming the published version'}

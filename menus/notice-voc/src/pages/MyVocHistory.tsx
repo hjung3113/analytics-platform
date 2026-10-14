@@ -83,7 +83,7 @@ export default function MyVocHistory() {
     </div>}
     {!cursorOk
       ? <p role="alert">{ko ? '커서 값이 잘못되었습니다.' : 'Invalid cursor value.'}</p>
-      : <QueryView widgetName={ko ? '내 VOC' : 'Your VOCs'} query={vocQ} emptyAction={createControl}>{(data, response) => {
+      : <QueryView widgetName={ko ? '내 VOC' : 'Your VOCs'} query={vocQ}>{(data, response) => {
         // The adapter already returned one window: the table only wraps it (no sortAndPage, no urlState).
         const items = data.items;
         const next = data.nextCursor;

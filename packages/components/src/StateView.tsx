@@ -39,6 +39,12 @@ function GroupedStateMessage({ icon, title, body, action, tone = 'neutral', corr
 }
 
 function OutcomeStateMessage({ grouped, widgetName, hideWidgetName, ...props }: StateProps & WidgetStateProps) {
+  const nameId = useId();
+  // Non-grouped compact states otherwise look identical to every sibling's error box; draw the same
+  // name line the grouped path draws (UXA-3). Grouping decision and alert/status roles stay untouched.
+  if (!grouped && props.compact && widgetName && !hideWidgetName) {
+    return <div role="group" aria-labelledby={nameId} className="min-w-0"><p id={nameId} className="mb-1.5 text-sm font-semibold">{widgetName}</p><StateMessage {...props} /></div>;
+  }
   return grouped ? <GroupedStateMessage {...props} widgetName={widgetName} hideWidgetName={hideWidgetName} /> : <StateMessage {...props} />;
 }
 
