@@ -11,3 +11,6 @@ apps/platform-e2e/tests/zz-*.spec.ts
 
 # Pages assembly output
 _site/
+
+# Pages demo captures
+_shots/

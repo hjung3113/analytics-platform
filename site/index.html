@@ -149,6 +149,7 @@
                   >데모 열기 (새 탭)</a
                 ><a class="button primary" data-demo-fallback href="#flow">업무 흐름 보기 →</a>
                 <a class="button secondary" href="#ask">도입 요청 보기 →</a>
+                <!-- LEAD_SHOTS_LINK -->
               </p>
               <p class="caption">
                 추천 순서 — <a href="#flow">04 합치면</a> · <a href="#status">05 지금 어디까지</a> ·
@@ -176,6 +177,7 @@
                   >데모 열기 (새 탭)</a
                 ><a class="button primary" data-demo-fallback href="#flow">업무 흐름 보기 →</a>
                 <a class="button secondary" href="#components">제공 컴포넌트 보기 →</a>
+                <!-- CHART_SHOTS_LINK -->
               </p>
               <p class="caption">
                 추천 순서 — <a href="#components">06 컴포넌트</a> · <a href="#compare">07 비교와 코드</a> ·
@@ -598,6 +600,7 @@
                 <p data-demo-step="D4"></p>
                 <small>합성 데이터 · mock 어댑터</small>
               </div>
+              <p class="caption"><!-- CHART_BRANCH_SHOTS_LINK --></p>
               <p class="caption">
                 <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/06_platform_ui_contract.md"
                   >원본: §16</a
@@ -1411,7 +1414,8 @@
           공통 컴포넌트 22개, FeedbackOps와 같은 UI primitive, 셸과 Kernel이 이미 있습니다. 메뉴는 이 부품을 조합하고
           업무 데이터와 문구를 채웁니다. 카드를 누르면 메뉴가 쓰는 것과 공짜로 얻는 것이 열립니다.
         </p>
-        <p class="caption">
+        <!-- ACTUAL_SHOTS -->
+        <p class="caption" id="component-preview-caption">
           미리보기는 제품 토큰으로 그린 모형이고 값은 예시입니다. 실물은 각 카드의 ‘실물 보기’에서 데모로 확인하세요.
         </p>
         <div class="gallery">
@@ -5150,6 +5154,19 @@
               GitHub #291–#294, site 소개 구성 · 설명용 분류, 채택 결정 아님 · 띠 순서는 조사 문서(PR #295)의 M0–M5 단계
               순서
             </p>
+          </div>
+          <div id="source-L62">
+            <h3>L62 · 실제 화면 캡처</h3>
+            <p>Pages 경로의 mock 데모 빌드를 UI 상호작용으로 캡처합니다. 합성 데이터입니다.</p>
+            <p class="caption">site/scripts/shots.mjs · apps/platform-web/README.md</p>
+          </div>
+          <div id="source-L63">
+            <h3>L63 · 차트 등록 유형</h3>
+            <p>
+              선·막대·파이·산점도와 Brush·DataZoom·MarkArea·MarkLine·Toolbox·Tooltip을 등록합니다. 메뉴는 선·막대를
+              사용합니다.
+            </p>
+            <p class="caption">packages/components/src/EChartImpl.tsx · ProductivityOverview.tsx</p>
           </div>
         </details>
       </footer>

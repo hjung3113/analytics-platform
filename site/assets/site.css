@@ -1,6 +1,6 @@
 :root {
   color-scheme: light;
-  --site-content-max: 1040px;
+  --site-content-max: 100%;
   --site-gutter: 16px;
   --site-pad: 32px;
   --site-panel: 400px;
@@ -287,6 +287,7 @@ h4 {
   margin: 24px 0 8px;
 }
 p {
+  max-width: 72ch;
   margin: 12px 0;
 }
 .lead {
@@ -530,6 +531,8 @@ td code {
   margin-top: 16px;
   padding-top: 12px;
   border-top: 1px solid rgb(var(--border-subtle));
+  /* 넓은 화면에서 글자는 읽기 폭을 유지하고 오른쪽이 빈 상자가 되지 않게 한다. */
+  max-width: 960px;
 }
 .demo-link p {
   font-size: var(--text-sm);
@@ -1073,6 +1076,19 @@ td code {
   height: auto;
   min-height: 130px;
 }
+/* 넓은 화면에서 S1–S5 패널은 왼쪽 설명·오른쪽 미리보기 2열로 쓴다. */
+@media (min-width: 1280px) {
+  .tab-panel:has(> .flow-preview) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 32px;
+    align-items: start;
+  }
+  .tab-panel:has(> .flow-preview) > .flow-preview {
+    grid-column: 2;
+    grid-row: 1 / span 7;
+  }
+}
 blockquote {
   border-left: 2px solid rgb(var(--accent-primary));
   margin: 24px 0;
@@ -1573,6 +1589,7 @@ footer summary {
 }
 .node-detail {
   margin: 12px 0 0;
+  max-width: 960px;
 }
 .node-detail dt {
   font-size: var(--text-xs);
@@ -1760,6 +1777,117 @@ footer summary {
 @media (max-width: 639px) {
   .vision-strip,
   .vision-slots {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Desktop space belongs to visual grids; prose keeps its reading measure. */
+@media (min-width: 1280px) {
+  .card-grid,
+  .gallery.has-detail .card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+  .stats {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+}
+.shot-gallery {
+  margin: 32px 0 48px;
+  scroll-margin-top: 90px;
+}
+.shot-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+.shot-filters button[aria-pressed="true"] {
+  background: rgb(var(--accent-primary-soft));
+  border-color: rgb(var(--accent-primary));
+}
+.shot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 16px;
+}
+.shot-tile {
+  min-width: 0;
+  border: 1px solid rgb(var(--border-subtle));
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: rgb(var(--surface-card));
+}
+.shot-open {
+  display: block;
+  padding: 0;
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  background: rgb(var(--surface-sunken));
+}
+.shot-open img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+}
+/* 세로·가로로 긴 캡처는 위쪽을 기준으로 잘라 16:9 타일을 채운다. */
+.shot-open img[data-fit="cover-top"] {
+  object-fit: cover;
+  object-position: top left;
+}
+.shot-copy {
+  padding: 16px;
+}
+.shot-copy h4 {
+  margin: 0;
+}
+.shot-copy p {
+  margin: 8px 0;
+}
+.preview.shot-thumb {
+  padding: 0;
+  object-fit: contain;
+}
+.shot-dialog {
+  width: min(1280px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 20px;
+  border: 1px solid rgb(var(--border-control));
+  border-radius: var(--radius-lg);
+  color: rgb(var(--text-primary));
+  background: rgb(var(--surface-card));
+}
+.shot-dialog::backdrop {
+  background: rgb(var(--text-primary) / 0.6);
+}
+.shot-dialog img {
+  display: block;
+  /* 원본 크기 속성을 기준으로 하되 dialog와 화면 높이 안에 담는다. */
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: calc(100dvh - 200px);
+  margin: 0 auto;
+  object-fit: contain;
+  background: rgb(var(--surface-sunken));
+}
+.shot-dialog-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+@media (min-width: 1920px) {
+  .shot-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .shot-grid {
     grid-template-columns: 1fr;
   }
 }

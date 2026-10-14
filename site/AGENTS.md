@@ -9,3 +9,5 @@
 - 데모 링크 D1–D10은 공개 전 배포된 데모에서 브라우저로 하나씩 확인한다. 데모가 없으면 링크를 렌더하지 않는다.
 - D1–D10 지시문 문장은 `index.html` 끝 `<template id="demo-step-copy">` 한 곳에만 있고, 조립이 각 `demo-link`의 `<p data-demo-step="D#">` 빈 자리에 같은 문장을 심는다. 사본을 손으로 고치지 않는다.
 - 정비 이슈 해결 전에 공개하면 --assumption을 켠다. 실행 통과 수와 테스트 선언 수를 구분한다.
+
+- 캡처 스크립트 `scripts/shots.mjs`만 e2e 패키지의 Playwright 런타임을 빌린다(사이트 런타임 의존성 아님).

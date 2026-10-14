@@ -7,7 +7,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const site = join(root, "site");
 const args = process.argv.slice(2);
 const options = { "site-base": "/analytics-platform/", ref: "main", commit: "", assumption: false };
-const values = new Set(["out", "demo", "site-base", "ref", "commit"]);
+const values = new Set(["out", "demo", "site-base", "ref", "commit", "shots"]);
 for (let i = 0; i < args.length; i++) {
   const key = args[i].replace(/^--/, "");
   if (args[i] === "--assumption") options.assumption = true;
@@ -67,6 +67,48 @@ const tokens = [
 ];
 for (const [source] of tokens) await access(source); // Missing submodule is a hard failure.
 if (demo) await access(join(demo, "index.html"));
+const shotsDir = options.shots ? resolve(options.shots) : null;
+let shots = [];
+if (shotsDir) {
+  if (within(shotsDir, out) || within(out, shotsDir)) throw new Error("캡처와 출력 경로가 겹칩니다.");
+  shots = JSON.parse(await readFile(join(shotsDir, "shots.json"), "utf8"));
+  if (!Array.isArray(shots) || !shots.length) throw new Error("shots.json은 비어 있지 않은 배열이어야 합니다.");
+  const ids = new Set(),
+    cards = new Set();
+  for (const shot of shots) {
+    if (!/^[a-z][a-z0-9-]*$/.test(shot.id) || ids.has(shot.id)) throw new Error("잘못되거나 중복된 캡처 id");
+    ids.add(shot.id);
+    if (
+      !["charts", "tables", "shell", "states"].includes(shot.group) ||
+      typeof shot.title !== "string" ||
+      typeof shot.description !== "string" ||
+      typeof shot.path !== "string" ||
+      !/^\/(?!\/)/.test(shot.path) ||
+      /[\\<>]/.test(shot.path) ||
+      !Number.isInteger(shot.width) ||
+      !Number.isInteger(shot.height) ||
+      shot.width < 1 ||
+      shot.height < 1 ||
+      !(shot.scale === undefined ? true : Number.isInteger(shot.scale) && shot.scale >= 1) ||
+      !(shot.fit === undefined || shot.fit === "cover-top") ||
+      !Array.isArray(shot.cards)
+    )
+      throw new Error(`잘못된 캡처 메타데이터: ${shot.id}`);
+    for (const card of shot.cards) {
+      if (!/^(C(?:[1-9]|1[0-4])|U[1-9]|K(?:[1-9]|10))$/.test(card) || cards.has(card))
+        throw new Error(`잘못되거나 중복된 카드 대응: ${card}`);
+      cards.add(card);
+    }
+    const png = await readFile(join(shotsDir, `${shot.id}.png`));
+    const pixelScale = shot.scale || 1;
+    if (
+      png.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a" ||
+      png.readUInt32BE(16) !== shot.width * pixelScale ||
+      png.readUInt32BE(20) !== shot.height * pixelScale
+    )
+      throw new Error(`PNG 크기가 원장과 다릅니다: ${shot.id}`);
+  }
+}
 // Delete only the validated output contents. Do not follow nested symlinks.
 async function empty(dir) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -147,8 +189,7 @@ if (!stepTemplate) throw new Error('index.html에 <template id="demo-step-copy">
 const stepCopy = new Map();
 for (const [, id, text] of stepTemplate[1].matchAll(/<p data-demo-step="(D\d+)">([\s\S]*?)<\/p>/g))
   stepCopy.set(id, text.replace(/\s+/g, " ").trim());
-if (stepCopy.size !== 10)
-  throw new Error(`demo-step-copy 템플릿에 D 문장이 ${stepCopy.size}개 있습니다(10개 필요).`);
+if (stepCopy.size !== 10) throw new Error(`demo-step-copy 템플릿에 D 문장이 ${stepCopy.size}개 있습니다(10개 필요).`);
 let filled = 0;
 html = html.replace(/<p data-demo-step="(D\d+)"><\/p>/g, (m, id) => {
   const sentence = stepCopy.get(id);
@@ -158,6 +199,75 @@ html = html.replace(/<p data-demo-step="(D\d+)"><\/p>/g, (m, id) => {
 });
 if (filled === 0) throw new Error("index.html에 채울 <p data-demo-step> 자리가 없습니다.");
 html = html.replace(stepTemplate[0], "");
+const escapeHtml = (value) =>
+  String(value).replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+  );
+if (shots.length) {
+  await mkdir(join(out, "assets/shots"), { recursive: true });
+  for (const shot of shots) await cp(join(shotsDir, `${shot.id}.png`), join(out, "assets/shots", `${shot.id}.png`));
+  await cp(join(shotsDir, "shots.json"), join(out, "assets/shots/shots.json"));
+  const image = (shot) =>
+    `<img src="assets/shots/${shot.id}.png" loading="lazy" width="${shot.width}" height="${shot.height}"${shot.fit === "cover-top" ? ' data-fit="cover-top"' : ""} alt="${escapeHtml(shot.title + ". " + shot.description)}">`;
+  const groups = [
+    ["all", "전체"],
+    ["charts", "차트"],
+    ["tables", "표와 상세"],
+    ["shell", "셸과 탐색"],
+    ["states", "상태 화면"],
+  ];
+  const filters = groups
+    .map(
+      ([id, label]) =>
+        `<button type="button" data-shot-filter="${id}" aria-pressed="${id === "all"}">${label}</button>`,
+    )
+    .join("");
+  const tiles = shots
+    .map((shot) => {
+      // 상태 화면은 응답 시나리오를 링크로 재현할 수 없으므로 데모 링크 대신
+      // 재현 방법을 한 줄로 안내한다.
+      const demoLink =
+        shot.group === "states"
+          ? `<p class="caption">데모의 개발 도구 응답 시나리오로 재현</p>`
+          : `<a data-demo hidden href="demo${escapeHtml(shot.path)}" target="_blank" rel="noopener">데모에서 열기</a>`;
+      return `<article class="shot-tile" data-shot-group="${shot.group}"><button type="button" class="shot-open" data-shot-open="${shot.id}" aria-haspopup="dialog" aria-label="${escapeHtml(shot.title)} 크게 보기">${image(shot)}</button><div class="shot-copy"><h4>${escapeHtml(shot.title)}</h4><p>${escapeHtml(shot.description)}</p>${demoLink}</div></article>`;
+    })
+    .join("");
+  const gallery = `<div class="shot-gallery" id="actual-shots" aria-labelledby="actual-shots-heading"><h3 id="actual-shots-heading">실제 화면</h3><p class="lead">아래는 데모 앱을 배포 때마다 자동으로 찍은 실제 화면입니다(mock 합성 데이터).</p><p class="caption">등록 유형: 선·막대(메뉴 사용 중)·파이·산점도(등록됨, 메뉴 미사용). <a class="source-ref" href="#source-L62">L62</a> · <a class="source-ref" href="#source-L63">L63</a></p><div class="shot-filters" role="group" aria-label="실제 화면 분류">${filters}</div><p id="shot-count" class="caption" role="status" aria-live="polite">${shots.length}개 화면</p><div class="shot-grid">${tiles}</div></div>
+  <dialog class="shot-dialog" id="shot-dialog" aria-modal="true" aria-labelledby="shot-dialog-title" aria-describedby="shot-dialog-description"><div class="shot-dialog-controls"><h3 id="shot-dialog-title"></h3><button type="button" data-shot-close autofocus>닫기</button></div><img id="shot-dialog-image" alt=""><p id="shot-dialog-description"></p><div class="shot-dialog-controls"><button type="button" data-shot-prev>이전</button><span id="shot-dialog-position" role="status"></span><button type="button" data-shot-next>다음</button><a class="button secondary" data-demo hidden id="shot-dialog-demo" target="_blank" rel="noopener">데모에서 열기</a></div></dialog>`;
+  const shotsLink = '<a class="button secondary" href="#actual-shots" data-chart-shots-link>실제 화면 보기 →</a>';
+  html = html
+    .replace("<!-- ACTUAL_SHOTS -->", gallery)
+    .replace(
+      "<!-- CHART_SHOTS_LINK -->",
+      '<a class="button secondary" href="#actual-shots" data-chart-shots-link>실제 차트 보기 →</a>',
+    )
+    .replace("<!-- LEAD_SHOTS_LINK -->", shotsLink)
+    .replace(
+      "<!-- CHART_BRANCH_SHOTS_LINK -->",
+      '<a href="#actual-shots" data-chart-shots-link>갤러리에서 실제 차트 보기 →</a>',
+    );
+  html = html.replace(
+    /(<p class="caption" id="component-preview-caption">)[\s\S]*?<\/p>/,
+    "$1캡처가 있는 카드는 실제 화면을 보여 줍니다. 나머지는 제품 토큰으로 그린 모형이며 값은 예시입니다.</p>",
+  );
+  for (const shot of shots)
+    for (const card of shot.cards) {
+      const cardStart = html.indexOf(`data-card="${card}"`);
+      const previewStart = html.indexOf('<span class="preview"', cardStart);
+      const nameStart = html.indexOf('<span class="card-name">', previewStart);
+      if (cardStart < 0 || previewStart < 0 || nameStart < 0) throw new Error(`카드 미리보기 없음: ${card}`);
+      const thumbnail = image(shot).replace("<img ", '<img class="preview shot-thumb" ');
+      html = html.slice(0, previewStart) + thumbnail + html.slice(nameStart);
+    }
+} else {
+  html = html
+    .replace("<!-- ACTUAL_SHOTS -->", "")
+    .replace("<!-- CHART_SHOTS_LINK -->", "")
+    .replace("<!-- LEAD_SHOTS_LINK -->", "")
+    .replace('<p class="caption"><!-- CHART_BRANCH_SHOTS_LINK --></p>', "");
+}
 await writeFile(join(out, "index.html"), html);
 const noindex = (html) =>
   /<meta\b[^>]*name=["']robots["']/i.test(html)
