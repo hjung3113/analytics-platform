@@ -1,9 +1,10 @@
-import { lazy, useLayoutEffect, useRef, type ReactNode } from 'react';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { Suspense, lazy, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Session } from '@ap/contracts';
-import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, PlatformLink, usePlatform, type PageNavigation } from '@ap/kernel';
+import { PlatformPage } from '@ap/components';
 import { CommandPalette } from './CommandPalette';
 import { noContext, testAdapter, testSpace } from './test-setup';
 
@@ -279,4 +280,256 @@ it('ignores delayed close autofocus from an older opening generation', async () 
     await settleClose();
     expect(newOpener).toHaveFocus();
   } finally { oldFocus.mockRestore(); }
+});
+
+
+// Real page focus handoff; unlike Destination above, this fixture never focuses itself.
+function NavigationPage() {
+  return <PlatformPage>destination body</PlatformPage>;
+}
+function mountNavigation({ delayed = false, denied = false, url = '/home?v=1', cold = false } = {}) {
+  sessionStorage.clear();
+  window.history.replaceState(null, '', url);
+  let resolvePage!: (value: { default: typeof NavigationPage }) => void;
+  const DelayedPage = lazy(() => new Promise<{ default: typeof NavigationPage }>(resolve => { resolvePage = resolve; }));
+  const equipmentPath = '/equipment';
+  const focusRegistry = createRegistry({
+    spaces: registry.spaces, groups: registry.groups,
+    menus: registry.menus.map(m => m.path === equipmentPath
+      ? { ...m, pageKeys: ['filter'], context: cold ? { ...noContext, time: 'apply' as const } : noContext, initializesMetric: cold }
+      : m),
+  });
+  const allowed: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view', 'console:access', 'notice:view'] }, scopes: [] };
+  const refused: Session = { ...allowed, user: { ...allowed.user, permissions: ['platform:view', 'notice:view'] } };
+  const listeners = new Set<() => void>();
+  let currentSession = allowed;
+  let blocked = denied;
+  const adapter = testAdapter({
+    session: () => blocked ? refused : currentSession,
+    subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
+    publishedMetrics: () => [{ metricId: 'CT', publishedVersion: '7' }],
+  });
+  let navigation!: PageNavigation;
+  function Routes() {
+    const platform = usePlatform();
+    useLayoutEffect(() => { navigation = platform.pageNavigation; }, [platform.pageNavigation]);
+    const { route, can, setPage, navigate, switchSpace, setPaletteOpen } = usePlatform();
+    const [showPalette, setShowPalette] = useState(true);
+    const Page = delayed && route?.menu.path === equipmentPath ? DelayedPage : NavigationPage;
+    return <>
+      <button onClick={() => { setPaletteOpen(true); setPaletteOpen(false); }}>batch palette</button>
+      <button onClick={() => setShowPalette(false)}>remove palette</button>
+      <button onClick={() => setShowPalette(true)}>mount palette</button>
+      <button onClick={() => setPaletteOpen(false)}>close absent palette</button>
+      {showPalette && <CommandPalette />}
+      <input aria-label="filter" onChange={e => setPage({ filter: e.target.value })} />
+      <PlatformLink href={cold ? '/equipment?v=1&metricId=CT' : '/equipment?v=1'}>equipment link</PlatformLink>
+      <PlatformLink href="/admin/roles?v=1">denied link</PlatformLink>
+      <button onClick={() => switchSpace('operations')}>switch operations</button>
+      <button onClick={() => switchSpace('analytics')}>switch analytics</button>
+      <button onClick={() => navigate('/home?v=1')}>another navigation</button>
+      <button onClick={() => navigate('/equipment?v=1', { replace: true })}>replace navigation</button>
+      <button onClick={() => setPaletteOpen(true)}>reopen palette</button>
+      {route && can(route.menu.permission) && <Suspense fallback={<p>loading destination</p>}><Page key={route.menu.id} /></Suspense>}
+    </>;
+  }
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={focusRegistry}><Open /><Routes /></PlatformProvider></I18nProvider>);
+  return {
+    navigation,
+    resolve: async () => { await act(async () => { resolvePage({ default: NavigationPage }); }); },
+    allow: () => act(() => { blocked = false; listeners.forEach(listener => listener()); }),
+    changeSession: () => act(() => { currentSession = { ...allowed, user: { ...allowed.user, id: 'u2' } }; listeners.forEach(listener => listener()); }),
+  };
+}
+function selectEquipment() {
+  fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
+  fireEvent.change(screen.getByRole('combobox'), { target: { value: '설비' } });
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Enter' });
+}
+
+describe('menu navigation page focus (06 §26)', () => {
+  it.each(['unmount', 'unmount then close', 'batch link', 'batch space'])('releases discarded palette blocking for %s', async action => {
+    mountNavigation();
+    if (action.startsWith('unmount')) {
+      fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
+      fireEvent.click(screen.getByText('remove palette'));
+      await settleClose();
+      if (action === 'unmount then close') fireEvent.click(screen.getByRole('button', { name: 'close absent palette' }));
+    } else fireEvent.click(screen.getByRole('button', { name: 'batch palette' }));
+    fireEvent.click(screen.getByRole(action === 'batch space' ? 'button' : 'link', { name: action === 'batch space' ? 'switch operations' : 'equipment link' }));
+    await settleClose();
+    expect(screen.getByRole('heading', { name: action === 'batch space' ? '권한' : '설비' })).toHaveFocus();
+  });
+
+  it.each([false, true])('reclaims an open remounted palette before selection (cleanup settled=%s)', async settled => {
+    const fixture = mountNavigation();
+    fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
+    fireEvent.click(screen.getByText('remove palette'));
+    if (settled) await settleClose();
+    fireEvent.click(screen.getByText('mount palette'));
+    // Let the old instance's timer run while the new instance is still open.
+    await settleClose();
+    const consume = vi.spyOn(fixture.navigation, 'consume');
+    try {
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: '설비' } });
+      fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Enter' });
+      expect(consume).toHaveBeenCalled();
+      expect(consume.mock.results.every(result => result.value === null)).toBe(true);
+      await settleClose();
+      expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus();
+    } finally { consume.mockRestore(); }
+  });
+
+  it('disposes palette blocking on a Provider session change', async () => {
+    const fixture = mountNavigation();
+    fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
+    fixture.changeSession();
+    await settleClose();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(screen.getByRole('link', { name: 'equipment link' }));
+    await settleClose();
+    expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus();
+  });
+
+  it('keeps a new palette generation blocked after an old delayed close', async () => {
+    mountNavigation();
+    fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
+    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'reopen palette' }));
+    fireEvent.click(screen.getByText('equipment link'));
+    await settleClose();
+    expect(document.querySelector('h1')).not.toHaveFocus();
+    expect(screen.getByRole('combobox')).toHaveFocus();
+  });
+
+  it('suppresses the tooltip only for navigation focus and preserves keyboard heading focus', async () => {
+    mountNavigation();
+    fireEvent.click(screen.getByRole('link', { name: 'equipment link' }));
+    await settleClose();
+    const heading = screen.getByRole('heading', { name: '설비' });
+    expect(heading).toHaveFocus();
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    expect(heading).not.toHaveAttribute('aria-describedby');
+    // jsdom has no native Tab traversal: dispatch Tab then focus its next target.
+    screen.getByRole('textbox', { name: 'filter' }).focus();
+    fireEvent.keyDown(document.activeElement!, { key: 'Tab' });
+    act(() => heading.focus());
+    await waitFor(() => expect(screen.getByRole('tooltip')).toBeInTheDocument());
+    act(() => screen.getByRole('textbox', { name: 'filter' }).focus());
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
+    fireEvent.pointerMove(heading, { pointerType: 'mouse' });
+    await waitFor(() => expect(screen.getByRole('tooltip')).toBeInTheDocument());
+  });
+
+  it('focuses the new h1 after a PlatformLink pathname push', async () => {
+    mountNavigation();
+    fireEvent.click(screen.getByRole('link', { name: 'equipment link' }));
+    await settleClose();
+    expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus();
+  });
+
+  it.each([false, true])('keeps palette focus on the real h1 after cleanup (lazy=%s)', async delayed => {
+    const fixture = mountNavigation({ delayed });
+    selectEquipment();
+    await settleClose();
+    if (delayed) await fixture.resolve();
+    await waitFor(() => expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus());
+    await settleClose();
+    expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus();
+  });
+
+  it.each([false, true])('focuses space entry h1 (saved last screen=%s)', async saved => {
+    mountNavigation();
+    if (saved) sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ operations: '/admin/roles?v=1', analytics: '/equipment?v=1&filter=stored' }));
+    fireEvent.click(screen.getByRole('button', { name: 'switch operations' }));
+    await settleClose();
+    expect(screen.getByRole('heading', { name: '권한' })).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: 'switch analytics' }));
+    await settleClose();
+    expect(screen.getByRole('heading', { name: saved ? '설비' : '홈' })).toHaveFocus();
+    const input = screen.getByRole('textbox', { name: 'filter' });
+    input.focus();
+    fireEvent.click(screen.getByRole('button', { name: 'switch analytics' }));
+    await settleClose();
+    expect(input).toHaveFocus();
+  });
+
+  it('keeps filter focus for setPage on the same pathname', async () => {
+    mountNavigation({ url: '/equipment?v=1' });
+    const input = screen.getByRole('textbox', { name: 'filter' });
+    input.focus();
+    fireEvent.change(input, { target: { value: 'changed' } });
+    await settleClose();
+    expect(input).toHaveFocus();
+    expect(new URLSearchParams(window.location.search).get('filter')).toBe('changed');
+  });
+
+  it.each([false, true])('does not focus h1 for palette same pathname (same URL=%s)', async same => {
+    mountNavigation({ url: same ? '/equipment?v=1' : '/equipment?v=1&filter=old' });
+    const opener = screen.getByRole('button', { name: 'open palette' });
+    opener.focus();
+    selectEquipment();
+    await settleClose();
+    expect(screen.getByRole('heading', { name: '설비' })).not.toHaveFocus();
+    expect(new URLSearchParams(window.location.search).get('filter')).toBeNull();
+    expect(opener).toHaveFocus();
+  });
+
+  it.each([false, true])('preserves page focus across cold period and metric materialization (lazy=%s)', async delayed => {
+    const fixture = mountNavigation({ cold: true, delayed });
+    fireEvent.click(screen.getByRole('link', { name: 'equipment link' }));
+    await settleClose();
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get('from')).not.toBeNull();
+    expect(params.get('metricVersion')).toBe('7');
+    if (delayed) await fixture.resolve();
+    expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus();
+  });
+
+  it('cancels denied page focus before permission-only recovery without another navigation', async () => {
+    const fixture = mountNavigation({ denied: true });
+    fireEvent.click(screen.getByRole('link', { name: 'denied link' }));
+    expect(screen.queryByRole('heading', { name: '권한' })).toBeNull();
+    const input = screen.getByRole('textbox', { name: 'filter' });
+    input.focus();
+    fixture.allow();
+    await settleClose();
+    expect(screen.getByRole('heading', { name: '권한' })).not.toHaveFocus();
+    expect(input).toHaveFocus();
+  });
+
+  it.each(['navigation', 'history', 'reopen', 'denied'])('cancels a lazy palette request on %s', async action => {
+    const fixture = mountNavigation({ delayed: true, denied: action === 'denied' });
+    selectEquipment();
+    if (action === 'navigation') fireEvent.click(screen.getByRole('button', { name: 'another navigation' }));
+    if (action === 'history') act(() => {
+      window.history.replaceState(null, '', '/home?v=1');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    if (action === 'reopen') fireEvent.click(screen.getByRole('button', { name: 'reopen palette' }));
+    if (action === 'denied') fireEvent.click(screen.getByRole('link', { name: 'denied link' }));
+    await settleClose();
+    await fixture.resolve();
+    if (action === 'reopen') {
+      expect(screen.getByRole('combobox')).toHaveFocus();
+      fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+      await settleClose();
+      expect(screen.getByRole('heading', { name: '설비' })).not.toHaveFocus();
+    } else if (action === 'denied') {
+      const input = screen.getByRole('textbox', { name: 'filter' });
+      input.focus();
+      fixture.allow();
+      await settleClose();
+      expect(input).toHaveFocus();
+    } else expect(screen.getByRole('heading', { name: '홈' })).not.toHaveFocus();
+  });
+
+  it('does not focus h1 on replace navigation', async () => {
+    mountNavigation();
+    const input = screen.getByRole('textbox', { name: 'filter' });
+    input.focus();
+    fireEvent.click(screen.getByRole('button', { name: 'replace navigation' }));
+    await settleClose();
+    expect(input).toHaveFocus();
+  });
 });

@@ -1,16 +1,29 @@
 import { CornerDownLeft, Search } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { type MenuEntry, useI18n, usePlatform } from '@ap/kernel';
 import type { Text } from '@ap/contracts';
 import { cn, Dialog, DialogContent, DialogTitle } from '@ap/ui';
 
 /** §10: menu navigation is the palette's base responsibility; entity search/action commands are Deferred. */
 export function CommandPalette() {
-  const { paletteOpen, setPaletteOpen, paletteSession, isCurrentPaletteSession, menusInSpace, accessibleSpaces, globalMenus, recent, navigate, linkTo, registry } = usePlatform();
+  const { paletteOpen, setPaletteOpen, paletteSession, isCurrentPaletteSession, menusInSpace, accessibleSpaces, globalMenus, recent, navigate, linkTo, registry, pathname, pageNavigation } = usePlatform();
   const { t, tx, text, lang } = useI18n();
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
   const platformLabel = text('palettePlatform');
+  const generation = paletteSession?.generation;
+  const paletteOwner = useRef(Symbol('CommandPalette'));
+  const disposalTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => {
+    const owner = paletteOwner.current;
+    clearTimeout(disposalTimer.current);
+    return () => {
+      // Component disposal may happen while Provider still considers the palette open.
+      // Defer until FocusScope's passive cleanup has removed its trap listeners.
+      if (generation !== undefined) disposalTimer.current = setTimeout(() => pageNavigation.releasePageFocus(generation, owner), 0);
+    };
+  }, [generation, pageNavigation]);
+
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -50,7 +63,9 @@ export function CommandPalette() {
   const go = (index: number) => {
     const m = items[index];
     if (!m) return;
-    if (navigate(linkTo(m.id))) paletteSession?.select();
+    const href = linkTo(m.id);
+    const changesPage = href.split('?')[0] !== pathname;
+    if (navigate(href, changesPage ? { focus: 'page' } : undefined) && changesPage) paletteSession?.select();
     setPaletteOpen(false);
   };
 
@@ -58,9 +73,16 @@ export function CommandPalette() {
   return <Dialog open={paletteOpen} onOpenChange={setPaletteOpen}>
       <DialogContent closeLabel={t('close')} aria-describedby={undefined}
         className="top-[12vh] w-[min(640px,92vw)] max-w-none translate-y-0 gap-0 overflow-hidden p-0"
+        onOpenAutoFocus={() => {
+          if (generation !== undefined) pageNavigation.claimPaletteFocus(generation, paletteOwner.current);
+        }}
         onCloseAutoFocus={event => {
           event.preventDefault();
-          if (!paletteSession || !isCurrentPaletteSession(paletteSession.generation) || paletteSession.isSelecting()) return;
+          if (!paletteSession) return;
+          // Only this instance may release its rendered palette block.
+          pageNavigation.releasePageFocus(paletteSession.generation, paletteOwner.current);
+          if (!isCurrentPaletteSession(paletteSession.generation)) return;
+          if (paletteSession.isSelecting()) return;
           const target = paletteSession.opener?.isConnected && paletteSession.opener !== document.body
             ? paletteSession.opener : document.getElementById('platform-main');
           target?.focus({ preventScroll: true });
