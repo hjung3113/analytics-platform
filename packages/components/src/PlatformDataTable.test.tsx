@@ -201,6 +201,40 @@ describe('PlatformDataTable pager focus', () => {
     await finish(outcome === 'ok' ? ok(1) : { outcome, data: null, assessments: [], trust: null, correlationId: 'failed' });
     expect(input).toHaveFocus();
   });
+
+  // #338 UX fold: Enter on "다시 시도" succeeds → OutcomeView becomes the viewport and the button is gone;
+  // focus must follow to the row viewport, not drop to body.
+  it('moves owned focus to the row viewport when a successful retry removes the button', async () => {
+    const { finish } = await setup();
+    await finish({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'failed' });
+    const retry = screen.getByRole('button', { name: '다시 시도' });
+    expect(retry).toHaveFocus();
+    fireEvent.click(retry);
+    await finish(ok(1));
+    expect(screen.getByLabelText('스크롤 가능한 행 영역')).toHaveFocus();
+  });
+
+  // #338 UX fold: while a request is in flight an identity change empties `shown`; the failure is not
+  // decided yet, so the focused button must stay natively enabled (aria-disabled only) until settle.
+  it('keeps the focused pager natively enabled while an identity change request is in flight, then recovers focus after a failure', async () => {
+    let resolve!: (response: ApiResponse<PageResult<Row>>) => void;
+    const loadPage = vi.fn<PlatformDataTableProps<Row>['loadPage']>()
+      .mockResolvedValueOnce(ok(1))
+      // Repo lib is ES2022 (tooling/tsconfig/base.json): no Promise.withResolvers typing — same executor
+      // shape as the setup() helper above, which rebinds `resolve` per call.
+      .mockImplementation(() => new Promise<ApiResponse<PageResult<Row>>>(done => { resolve = done; }));
+    const view = render(<Harness page={2} sorting={[]} onChange={vi.fn()} loadPage={loadPage} filterKey="f" />);
+    await screen.findByText(/2\/2/);
+    const previous = screen.getByRole('button', { name: '이전' });
+    act(() => previous.focus());
+    view.rerender(<Harness page={2} sorting={[]} onChange={vi.fn()} loadPage={loadPage} filterKey="g" />);
+    await waitFor(() => expect(loadPage).toHaveBeenCalledTimes(2));
+    expect(previous).not.toBeDisabled();
+    expect(previous).toHaveAttribute('aria-disabled', 'true');
+    await act(async () => resolve({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'failed' }));
+    expect(screen.getByRole('button', { name: '다시 시도' })).toHaveFocus();
+    expect(previous).toBeDisabled();
+  });
 });
 
 describe('PlatformDataTable active row marker (06 §26: never color alone)', () => {

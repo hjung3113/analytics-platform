@@ -213,6 +213,9 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const previousButton = useRef<HTMLButtonElement>(null);
   const nextButton = useRef<HTMLButtonElement>(null);
   const focusedPager = useRef<'previous' | 'next' | null>(null);
+  /** The "다시 시도" button owned focus (outcome container onFocus/onBlur, recorded before any mutation):
+   * consumed by the settle effect to hand focus onward when the response removes or keeps the button (#338 UX fold). */
+  const focusedRetry = useRef(false);
   // urlState (§6.1): controlled sort/page. The page writes the URL via onChange; the table never touches keys.
   const activeSorting = p.urlState ? p.urlState.sorting : sorting;
 
@@ -305,10 +308,26 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const success = shown !== null && (shown.outcome === 'ok' || shown.outcome === 'empty');
 
   const boundaryPage = loading ? shownPage : effectivePage;
-  const previousDisabled = !success || boundaryPage === 0;
-  const nextDisabled = !success || boundaryPage + 1 >= pageCount;
+  // #338 UX fold: while loading the failure is not decided yet — a Context/identity change empties `shown`
+  // before the response settles, and a native disable would then drop a focused button (its blur clears the
+  // ownership refs, so the settle move could not recover). `aria-disabled` already marks the group busy.
+  const failed = !loading && !success;
+  const previousDisabled = failed || boundaryPage === 0;
+  const nextDisabled = failed || boundaryPage + 1 >= pageCount;
   useLayoutEffect(() => {
     if (loading) return;
+    // Retry-button ownership (recorded by the outcome container's onFocus/onBlur before any mutation): when
+    // the settled response removed the button, focus follows where it went — success → row viewport; still
+    // retryable → the button itself (a no-op while it kept focus, restores it if the remount dropped it);
+    // otherwise (forbidden·too_large·empty) → the section. A user blur before the settle cleared the ref,
+    // so nothing is stolen from a focus that moved away.
+    if (focusedRetry.current) {
+      if (success) { focusedRetry.current = false; viewport.current?.focus(); return; }
+      if (shown?.outcome === 'error' || shown?.outcome === 'timeout') { outcome.current?.querySelector('button')?.focus(); return; }
+      focusedRetry.current = false;
+      section.current?.focus();
+      return;
+    }
     // Focus/blur events record ownership before the mutation phase can disable the button.
     // Do not infer ownership from activeElement here: native disabled may already have cleared it.
     const owned = focusedPager.current;
@@ -697,7 +716,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       </span>
     </div>
 
-    {shown && shown.outcome !== 'ok' ? <div ref={outcome} className="border-t border-border-subtle p-3"><OutcomeView response={shown} onRetry={() => setRetry(r => r + 1)} emptyAction={p.emptyAction}>{() => null}</OutcomeView></div> :
+    {shown && shown.outcome !== 'ok' ? <div ref={outcome} onFocus={() => { focusedRetry.current = true; }} onBlur={() => { focusedRetry.current = false; }} className="border-t border-border-subtle p-3"><OutcomeView response={shown} onRetry={() => setRetry(r => r + 1)} emptyAction={p.emptyAction}>{() => null}</OutcomeView></div> :
       // eslint-disable-next-line shadcn/no-inline-styles -- viewport height comes from the height prop at runtime
       <div ref={viewport} tabIndex={0} aria-label={lang === 'ko' ? '스크롤 가능한 행 영역' : 'Scrollable rows'} className="overflow-auto overscroll-contain border-t border-border-subtle [overflow-anchor:none]" style={{ height: p.height ?? 420 }}>
         {/* eslint-disable-next-line shadcn/no-inline-styles -- table width is the total column size computed at runtime */}
