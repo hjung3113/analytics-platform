@@ -278,7 +278,7 @@ primitive 상태·keyboard 동작은 [FeedbackOps UI 계약](products/feedbackop
 | Table | hover + selected checkbox/shape | focus-within이 cell을 가리지 않음; busy도 헤더 유지 |
 | Chart·linked KPI | series/outline 강조; 의미 색 바꾸지 않음 | actionable mark만 focus/drill-down; 동일 tooltip/table 접근 |
 
-첫 load는 reserved geometry와 region `aria-busy`를 유지하며 fabricated 값을 만들지 않는다. 공유 Skeleton의 기본 fill은 FeedbackOps UI 계약이 소유한다. 플랫폼 PlatformDataTable/StateView는 현재 `bg-surface-sunken`으로 공유 기본 `surface-blocked`를 덮어쓴다. 이 플랫폼 override의 시각 규칙은 이 문서가 소유하며 #55에서 재검토할 수 있다. 동일 Context refresh는 값+Refreshing을 유지할 수 있다. Context/Scope가 바뀌면 이전 결과를 새 결과처럼 표시하지 않고 권한을 재검증한다(06 §11). 부분 실패는 해당 widget에 국한하고 정상 panel을 유지한다.
+첫 load는 reserved geometry와 region `aria-busy`를 유지하며 fabricated 값을 만들지 않는다. 공유 Skeleton의 기본 fill은 FeedbackOps UI 계약이 소유하며, 플랫폼 호출부(PlatformDataTable·StateView·EChart lazy)는 크기만 지정하고 fill을 덮어쓰지 않는다(ADR-0023). 동일 Context refresh는 값+Refreshing을 유지할 수 있다. Context/Scope가 바뀌면 이전 결과를 새 결과처럼 표시하지 않고 권한을 재검증한다(06 §11). 부분 실패는 해당 widget에 국한하고 정상 panel을 유지한다.
 
 Empty/error는 원인 설명·허용된 다음 행동·Retry·correlation ID를 읽을 수 있게 표시한다. [06 §19](docs/06_platform_ui_contract.md#19-loading--empty--error-taxonomy)의 no-match/not-collected/delayed/coverage/forbidden/too-large/unknown을 하나로 합치지 않는다. 조회 0건에서 수집/파서 지연을 추론하지 않는다. 실제 비활성·busy도 필요한 이유를 opacity로 숨기지 않는다.
 
@@ -362,6 +362,6 @@ posthog와 sentry(Sentry 스타일) 자료는 당시 illustration/mascot 중심 
 ### Remaining decisions and reference limits
 
 - Dark mode는 [05 상태 추적](docs/05_roadmap_and_open_questions.md)의 **Deferred**, 현재 light design을 단순 invert하지 않는다.
-- ECharts renderer/stack와 현재 코드 차이는 [05 결정 상태](docs/05_roadmap_and_open_questions.md)의 **Open**을 따른다. 이 문서가 새로운 chart theme 구현을 뜻하지 않는다.
+- 차트 렌더러는 ECharts Canvas로 Decided([ADR-0021](docs/adr/0021-echarts-canvas-renderer.md), 04 기술 스택·[05 결정 상태](docs/05_roadmap_and_open_questions.md)와 같다). 이 문서가 새로운 chart theme 구현을 뜻하지 않는다.
 - 언어 번역 범위는 06 §23의 **Decided**, 계정 저장 선호는 **Candidate**다. Lucide는 기존 **Decided**를 유지한다.
 - pipeline focal priority·live pulse·reference queue/lifecycle의 domain 의미는 **Candidate/Open**이며 원천이 확인되기 전 실제 운영 데이터로 주장하지 않는다.

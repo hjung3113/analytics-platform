@@ -10,7 +10,7 @@ import { equipmentPageFilterFields, resetEquipmentPageFilters } from './filter-f
 const NO_PARAMS = {} as const;
 
 export default function EquipmentMaster() {
-  const { lang } = useI18n();
+  const { t, lang } = useI18n();
   const ko = lang === 'ko';
   const { pageParam, setPage, linkTo } = usePlatform();
   const q = pageParam('q') ?? '', status = pageParam('status') ?? '', maker = pageParam('maker') ?? '', focus = pageParam('focus');
@@ -38,14 +38,14 @@ export default function EquipmentMaster() {
     // The status cell shows a label badge; the export shows the same text (06 §15).
     exportValue: f.key === 'status' ? (row: Equipment) => statusText[row.status][lang] : undefined,
   })), [lang]);
-  const clear = <Button type="button" size="sm" variant="secondary" onClick={() => resetEquipmentPageFilters(setPage)}>{ko ? '페이지 필터 초기화' : 'Clear page filters'}</Button>;
-  return <PlatformPage description={ko ? '설비 속성 → 유효구간 → Audit. 합성 데이터 · 조회 전용 Candidate.' : 'Equipment attributes → validity → audit. Synthetic data · read-only Candidate.'}>
-    <ManagementLayout filter={<PageFilterBar orientation="column" label={ko ? '페이지 필터' : 'Page filters'} fields={equipmentPageFilterFields({ q, status, maker, makers: makerOptions, lang, setPage })} actions={clear} />} activeFilterCount={[q, status, maker].filter(Boolean).length}
+  const clear = <Button type="button" size="sm" variant="secondary" onClick={() => resetEquipmentPageFilters(setPage)}>{t('clearFilters')}</Button>;
+  return <PlatformPage description={ko ? '설비 속성 → 유효구간 → 변경 이력. 합성 데이터 · 조회 전용.' : 'Equipment attributes → validity → change history. Synthetic data · read-only.'}>
+    <ManagementLayout filter={<PageFilterBar orientation="column" label={t('pageFilter')} fields={equipmentPageFilterFields({ q, status, maker, makers: makerOptions, lang, setPage })} actions={clear} />} activeFilterCount={[q, status, maker].filter(Boolean).length}
       drawer={focus && <DetailDrawer key={focus} title={<span className="t-mono">{focus}</span>} subtitle={ko ? '설비 상세 · 합성 데이터' : 'Equipment details · synthetic data'}
       onClose={() => setPage({ focus: null, tab: null })} tab={validTab ? drawerTab : undefined} onTabChange={tab => setPage({ tab: tab === 'attributes' ? null : tab })}
       context={ko ? '목적지 ID만 열었습니다. 전역 Selection과 목록 필터는 유지됩니다.' : 'Only the destination ID is opened. Global Selection and list filters are preserved.'}
       headerActions={<Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('equipment-detail', { params: { equipmentId: focus }, returnTo: true })}>{ko ? '전체 화면' : 'Full page'}</PlatformLink></Button>}
-      tabs={validTab ? [{ id: 'attributes', label: ko ? '속성' : 'Attributes', content: <EquipmentPanel id={focus} kind="attributes" /> }, { id: 'validity', label: ko ? '유효구간 이력' : 'Validity history', content: <EquipmentPanel id={focus} kind="validity" /> }, { id: 'audit', label: 'Audit', content: <EquipmentPanel id={focus} kind="audit" /> }]
+      tabs={validTab ? [{ id: 'attributes', label: ko ? '속성' : 'Attributes', content: <EquipmentPanel id={focus} kind="attributes" /> }, { id: 'validity', label: ko ? '유효구간 이력' : 'Validity history', content: <EquipmentPanel id={focus} kind="validity" /> }, { id: 'audit', label: ko ? '변경 이력' : 'Change history', content: <EquipmentPanel id={focus} kind="audit" /> }]
         : [{ id: 'invalid', label: ko ? '알 수 없는 탭' : 'Unknown tab', content: <p role="alert">{ko ? '등록되지 않은 탭입니다.' : 'Unknown tab.'} <Button size="sm" variant="secondary" onClick={() => setPage({ tab: null })}>{ko ? '속성 열기' : 'Open attributes'}</Button></p> }]} />}
       table={filterSlot => tableInvalid ? <p role="alert">{filterSlot}{ko ? '정렬·페이지 값이 잘못되었습니다.' : 'Invalid sort or page value.'} <Button size="sm" variant="secondary" onClick={() => setPage({ sort: null, page: null })}>{ko ? '초기화' : 'Reset'}</Button></p> :
     <PlatformDataTable<Equipment>

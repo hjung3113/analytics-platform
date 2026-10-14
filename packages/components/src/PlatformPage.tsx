@@ -75,7 +75,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
     <div ref={stickyHeader} className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
       <header className="flex h-[50px] shrink-0 overflow-x-auto items-center justify-between gap-3 border-b border-border-subtle bg-surface-canvas px-4">
         <div className="flex min-w-6 flex-1 items-center gap-2">
-          {(parent || crumbs.length > 0) && <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1 text-xs text-text-muted">
+          {(parent || crumbs.length > 0) && <nav aria-label={t('breadcrumb')} className="flex min-w-0 items-center gap-1 text-xs text-text-muted">
             {parent && <><PlatformLink className="min-w-0 truncate hover:text-accent-primary" title={tx(parent.label)} href={linkTo(parent.id)}>{tx(parent.label)}</PlatformLink><ChevronRight className="size-3 shrink-0" aria-hidden /></>}
             {crumbs.map((crumb, index) => <span key={index} className="flex min-w-0 items-center gap-1">
               {crumb.href ? <PlatformLink className="min-w-0 truncate hover:text-accent-primary" title={typeof crumb.label === 'string' ? crumb.label : undefined} href={crumb.href}>{crumb.label}</PlatformLink> : <span className="truncate">{crumb.label}</span>}

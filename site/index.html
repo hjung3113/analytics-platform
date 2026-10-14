@@ -164,7 +164,7 @@
                 </li>
                 <li>
                   URL 복원·권한 게이트·로딩/빈/오류 상태·서버 페이징 표·차트 상호작용·감사 타임라인은 공통 컴포넌트
-                  22개와 Kernel이 맡습니다.
+                  21개와 Kernel이 맡습니다.
                 </li>
                 <li>
                   <code>pnpm gen:menu</code>가 패키지 뼈대와 앱 배선을 만들고, mock 어댑터로 서버 없이 개발하며,
@@ -554,7 +554,7 @@
             <div role="tabpanel" class="tab-panel" id="branches-panel-1" aria-labelledby="branches-tab-1">
               <h3>표·상세·감사·신뢰 표시·상태 화면을 메뉴마다 다시 만들지 않습니다.</h3>
               <p>
-                공개 컴포넌트 22개가 서버 페이징 표, 고정 상세 슬롯, 감사 타임라인, 데이터 신뢰 표시, 0건·권한·오류 상태
+                공개 컴포넌트 21개가 서버 페이징 표, 고정 상세 슬롯, 감사 타임라인, 데이터 신뢰 표시, 0건·권한·오류 상태
                 화면을 제공합니다. 전체 목록은 06 절.
               </p>
               <p>이 화면에서: KPI 카드·표·신뢰 표시</p>
@@ -1411,7 +1411,7 @@
         <p class="section-label">06 · 컴포넌트</p>
         <h2 id="components-heading">새 메뉴가 처음부터 받는 것</h2>
         <p class="lead">
-          공통 컴포넌트 22개, FeedbackOps와 같은 UI primitive, 셸과 Kernel이 이미 있습니다. 메뉴는 이 부품을 조합하고
+          공통 컴포넌트 21개, FeedbackOps와 같은 UI primitive, 셸과 Kernel이 이미 있습니다. 메뉴는 이 부품을 조합하고
           업무 데이터와 문구를 채웁니다. 카드를 누르면 메뉴가 쓰는 것과 공짜로 얻는 것이 열립니다.
         </p>
         <!-- ACTUAL_SHOTS -->
@@ -1465,10 +1465,10 @@
                 >
                   <span class="preview" aria-hidden="true"
                     ><span class="preview-div bars"><i></i><i></i><i></i></span></span
-                  ><span class="card-name"><code>EChart</code> <span class="more">+4</span></span
+                  ><span class="card-name"><code>EChart</code> <span class="more">+2</span></span
                   ><span class="caption">@ap/components</span
                   ><span class="card-gain"
-                    >ECharts lazy chunk, 토큰 색 helper(<code>token</code>·<code>strokeToken</code>), 공통 글꼴
+                    >ECharts lazy chunk, 토큰 색 helper(<code>token</code>), 공통 글꼴
                     스타일</span
                   ></button
                 ><button
@@ -1619,7 +1619,7 @@
                   <span class="preview" aria-hidden="true"
                     ><span class="preview-p">조건에 맞는 결과가 없습니다</span
                     ><small>조회는 성공했고 결과가 0건입니다.</small></span
-                  ><span class="card-name"><code>QueryView</code> <span class="more">+4</span></span
+                  ><span class="card-name"><code>QueryView</code> <span class="more">+3</span></span
                   ><span class="caption">@ap/components</span
                   ><span class="card-gain"
                     >상태 구분, 재시도, Correlation ID, 위젯별 부분 실패 격리, 자리를 유지하는 로딩</span
@@ -2023,17 +2023,16 @@
             </article>
             <article id="detail-C2" class="component-detail" data-detail="C2">
               <h3 tabindex="-1">
-                <code>EChart</code> · <code>token</code> · <code>strokeToken</code> · <code>baseTextStyle</code> ·
-                <code>EChartProps</code>
+                <code>EChart</code> · <code>token</code> · <code>EChartProps</code>
               </h3>
-              <p>ECharts lazy chunk, 토큰 색 helper(<code>token</code>·<code>strokeToken</code>), 공통 글꼴 스타일</p>
+              <p>ECharts lazy chunk, 토큰 색 helper(<code>token</code>), 공통 글꼴 스타일은 차트가 내장해 적용</p>
               <h4>메뉴가 쓰는 것</h4>
               <p>메뉴는 차트 옵션을 ECharts 형식으로 작성해 넘깁니다.</p>
               <h4>공짜로 얻는 것</h4>
               <ul>
                 <li>ECharts lazy chunk</li>
-                <li>토큰 색 helper(<code>token</code>·<code>strokeToken</code>)</li>
-                <li>공통 글꼴 스타일</li>
+                <li>토큰 색 helper(<code>token</code>)</li>
+                <li>공통 글꼴 스타일(차트에 내장 적용)</li>
               </ul>
               <h4>메뉴가 여전히 할 일</h4>
               <ul>
@@ -2353,7 +2352,7 @@
             <article id="detail-C11" class="component-detail" data-detail="C11">
               <h3 tabindex="-1">
                 <code>QueryView</code> · <code>OutcomeView</code> · <code>StateMessage</code> ·
-                <code>LoadingBlock</code> · <code>PartialFailureNote</code>
+                <code>LoadingBlock</code>
               </h3>
               <p>상태 구분, 재시도, Correlation ID, 위젯별 부분 실패 격리, 자리를 유지하는 로딩</p>
               <h4>메뉴가 쓰는 것</h4>
@@ -4522,9 +4521,9 @@
               >공개 원본 보기</a
             >
             <p>
-              <code>@ap/components</code> 공개 React 컴포넌트 22개: AnalysisChartFrame, EChart, PlatformDataTable,
+              <code>@ap/components</code> 공개 React 컴포넌트 21개: AnalysisChartFrame, EChart, PlatformDataTable,
               PageFilterBar, SegmentedRadio, DetailDrawer, Field, AuditTimeline, DataTrustIndicator, PlatformPage,
-              Panel, StatCard, QueryView, OutcomeView, StateMessage, LoadingBlock, PartialFailureNote, ManagementLayout,
+              Panel, StatCard, QueryView, OutcomeView, StateMessage, LoadingBlock, ManagementLayout,
               AnalysisLayout, DrillLayout, DrillPath, ReturnLink
             </p>
             <p class="caption">

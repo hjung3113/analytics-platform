@@ -144,7 +144,7 @@ describe('page header width (#194 FIX2)', () => {
     expect(title).toHaveClass('min-w-0', 'shrink', 'truncate');
     expect(title).not.toHaveClass('shrink-0');
     expect(title).toHaveAttribute('tabindex', '0');
-    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveClass('min-w-0');
+    expect(screen.getByRole('navigation', { name: '이동 경로' })).toHaveClass('min-w-0');
     expect(screen.getByRole('link', { name: 'Long parent' })).toHaveClass('truncate');
     expect(screen.getByText('Description')).toHaveClass('min-w-0', 'basis-0');
     expect(screen.getByRole('button', { name: '즐겨찾기에 추가' })).toHaveClass('shrink-0');

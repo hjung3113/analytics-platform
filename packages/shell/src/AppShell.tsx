@@ -16,7 +16,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 function ShellLayout({ children }: { children: ReactNode }) {
   const detail = useDetailPanelSlotHost();
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const { route, registry, sidebarSpace } = usePlatform();
   const globalScreen = route !== null && registry.spaceOf(route.menu) === null;
   const showSidebar = sidebarSpace !== null && !globalScreen;
@@ -34,7 +34,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
   }, []);
 
   return <div className="flex h-full overflow-hidden">
-    <a href="#platform-main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">Skip to content</a>
+    <a href="#platform-main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">{t('skipToContent')}</a>
     <AppRail />
     {showSidebar && <AppSidebar collapsed={collapsed} onToggle={toggle} />}
     <div className="flex min-w-0 flex-1 flex-col">

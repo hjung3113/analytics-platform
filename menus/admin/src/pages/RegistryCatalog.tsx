@@ -29,7 +29,7 @@ export default function RegistryCatalog() {
   const tone = { apply: 'success', reference: 'info', unsupported: 'neutral' } as const;
   const columns = useMemo<PlatformColumn<RegistryRow>[]>(() => [
     { id: 'id', header: 'ID', cell: row => <span className="t-mono">{String(row.id)}</span> },
-    { id: 'spaceId', header: ko ? '공간' : 'Space', cell: row => <span className="t-mono">{row.spaceLabel[lang]}</span> },
+    { id: 'spaceId', header: ko ? '공간' : 'Space', cell: row => row.spaceLabel[lang] },
     { id: 'groupId', header: ko ? '그룹' : 'Group', cell: row => <span className="t-mono">{String(row.groupId)}</span> },
     { id: 'path', header: 'Path', cell: row => <span className="t-mono">{String(row.path)}</span> },
     { id: 'permission', header: ko ? '권한' : 'Permission', cell: row => <span className="t-mono">{String(row.permission)}</span> },
@@ -67,7 +67,7 @@ export default function RegistryCatalog() {
         <p>{ko ? '등록되지 않은 메뉴입니다.' : 'Unknown menu.'} <span className="t-mono">{focus}</span></p>
         <Button size="sm" variant="secondary" className="mt-2" onClick={() => setPage({ focus: null })}>{ko ? '닫기' : 'Close'}</Button>
       </div>) : null;
-  return <PlatformPage description={ko ? '등록된 메뉴 선언을 조회합니다. 조회 전용이며 레지스트리는 클라이언트 선언입니다.' : 'Read-only view of registered menu declarations. The registry is a client-side declaration.'}>
+  return <PlatformPage description={ko ? '등록된 메뉴 선언의 조회 전용 화면입니다.' : 'Read-only view of the registered menu declarations.'}>
     {tableInvalid ? <p role="alert">{ko ? '정렬·페이지 값이 잘못되었습니다.' : 'Invalid sort or page value.'} <Button size="sm" variant="secondary" onClick={() => setPage({ sort: null, page: null })}>{ko ? '초기화' : 'Reset'}</Button></p>
       : <PlatformDataTable<RegistryRow>
           title={ko ? '메뉴 레지스트리' : 'Menu registry'}

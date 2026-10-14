@@ -11,7 +11,7 @@
 | ID | 주장·숫자 | 출처 | 비고 |
 | --- | --- | --- | --- |
 | L01 | 릴리스 7개 v0.1.0(2026-10-04) – v0.6.1(2026-10-12), 각 릴리스 내용 | `.planning/README.md` 「끝난 것」, GitHub Releases | 공개 시 새 릴리스가 있으면 갱신 |
-| L02 | `@ap/components` 공개 React 컴포넌트 22개: AnalysisChartFrame, EChart, PlatformDataTable, PageFilterBar, SegmentedRadio, DetailDrawer, Field, AuditTimeline, DataTrustIndicator, PlatformPage, Panel, StatCard, QueryView, OutcomeView, StateMessage, LoadingBlock, PartialFailureNote, ManagementLayout, AnalysisLayout, DrillLayout, DrillPath, ReturnLink | `packages/components/src/index.ts` + 각 파일의 `export function [A-Z]…`(D1이 셈) | 재측정. `OutcomeScope`는 공개 export 아님 |
+| L02 | `@ap/components` 공개 React 컴포넌트 21개: AnalysisChartFrame, EChart, PlatformDataTable, PageFilterBar, SegmentedRadio, DetailDrawer, Field, AuditTimeline, DataTrustIndicator, PlatformPage, Panel, StatCard, QueryView, OutcomeView, StateMessage, LoadingBlock, ManagementLayout, AnalysisLayout, DrillLayout, DrillPath, ReturnLink | `packages/components/src/index.ts` + 각 파일의 `export function [A-Z]…`(D1이 셈) | 재측정. `OutcomeScope`는 공개 export 아님 |
 | L03 | `@ap/ui`: 환경 helper isProductionEnv·isMacPlatform·shortcutLabel 포함. Button·buttonVariants, StatusBadge·Dot(Tone 5종), shadcn 13계열(Alert·Badge·Checkbox·Dialog·DropdownMenu·Input·Label·Popover·RadioGroup·Select·Skeleton·Tabs·Tooltip), DetailPanelSlot 3종, cn, prefersReducedMotion | `packages/ui/src/index.ts` | — |
 | L04 | `@ap/shell` 7개: AppShell, AppRail, AppSidebar, ScopeSelector, CommandPalette, GlobalContextBar, RouteOutlet | `packages/shell/src/index.ts` | — |
 | L05 | Kernel·contracts 공개 API(createRegistry, pathFor, PlatformProvider, usePlatform, PlatformLink, useMenuQuery, useMenuFetch, usePlatformQuery, useEntityQuery, useDrill, I18nProvider, defineEndpoint, PlatformAdapter 메서드 목록) | `packages/kernel/src/index.ts`, `packages/contracts/src/menu-query.ts`, `packages/contracts/src/adapter.ts` | `linkTo`·`can`·`canOpen`은 `usePlatform()` 반환값 |
@@ -121,7 +121,7 @@ PYCOUNT
 rg '^export function [A-Z]' packages/components/src/{AnalysisChartFrame,AuditTimeline,DataTrustIndicator,DetailDrawer,EChart,PageFilterBar,PlatformDataTable,PlatformPage,RadioGroup,StatCard,StateView,ManagementLayout,AnalysisLayout,DrillLayout}.tsx
 ```
 
-L02는 index.ts가 공개한 모듈에서 React 컴포넌트 22개를 확인했다. 타입과 helper는 22개에 더하지 않는다. EChart의 token/strokeToken/baseTextStyle, 표의 sortAndPage/parsePageIndex/parseTableSort/encodeTableSort, copyText/useCopyLink도 갤러리에 노출한다. L03은 모든 shadcn 계열 개별 export 및 환경 helper를 실제 index.ts 기준으로 표시한다. L05 PlatformAdapter 메서드는 adapter.ts의 실제 전체 목록을 쓴다.
+L02는 index.ts가 공개한 모듈에서 React 컴포넌트 21개를 확인했다. 타입과 helper는 21개에 더하지 않는다. EChart의 token, 표의 sortAndPage/parsePageIndex/parseTableSort/encodeTableSort, copyText/useCopyLink도 갤러리에 노출한다(EChart의 strokeToken·baseTextStyle은 패키지 내부로 좁혀졌다). L03은 모든 shadcn 계열 개별 export 및 환경 helper를 실제 index.ts 기준으로 표시한다. L05 PlatformAdapter 메서드는 adapter.ts의 실제 전체 목록을 쓴다.
 
 L01·L41은 2026-10-13 설계 조사값이며 공개 직전 코디네이터 갱신 대상이다. L41은 --assumption으로 명시적으로 표기한다. 데모 주소(E05)는 2026-10-13 로컬 데모에서 D1–D10을 확인했다.
 

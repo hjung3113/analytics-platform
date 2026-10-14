@@ -282,7 +282,7 @@ function ConditionEditor({ cap }: { cap: Capability }) {
         options={(['stgroup', 'team', 'makerModel'] as const).map(a => ({ value: a, label: axisLabel[a] }))}
       />
       {choices.status !== 'done' && <p role="status" className="px-2 py-1 text-text-secondary">{choices.status === 'error'
-        ? <>{lang === 'ko' ? '선택지를 불러오지 못했습니다.' : 'Could not load choices.'} <button type="button" className="text-accent-primary underline" onClick={choices.retry}>{lang === 'ko' ? '다시 시도' : 'Retry'}</button></>
+        ? <>{lang === 'ko' ? '선택지를 불러오지 못했습니다.' : 'Could not load choices.'} <button type="button" className="text-accent-primary underline" onClick={choices.retry}>{t('retry')}</button></>
         : (lang === 'ko' ? '선택지를 불러오는 중…' : 'Loading choices…')}</p>}
       {/* Selection shape + text, not colour alone (06 §26): radio marker per option, arrow-key roving focus. */}
       <RadioGroup orientation="vertical" aria-label={axisLabel[axis]} value={val} onValueChange={setVal}
@@ -317,5 +317,5 @@ function SelectionEditor({ cap, evaluation }: { cap: Capability; evaluation: Req
   return <SetEditor label={t('selection')} cap={cap} value={global.selection} search
     absentLabel={global.condition ? (lang === 'ko' ? `조건 결과 전체 (${count})` : `All condition results (${count})`) : t('all')}
     onApply={v => setGlobal({ selection: v })} options={options}
-    note={<>{lang === 'ko' ? 'Selection은 고정 EquipmentID 집합입니다.' : 'Selection is a fixed EquipmentID set.'}{failed && <span role="alert" className="mt-1 block text-text-danger-label">{lang === 'ko' ? '조건 결과를 확인하지 못했습니다.' : 'Could not evaluate the condition.'} <button type="button" className="text-accent-primary underline" onClick={evaluation.retry}>{lang === 'ko' ? '다시 시도' : 'Retry'}</button></span>}{outside.length > 0 && <b className="mt-1 block text-text-warning-label">{lang === 'ko' ? `현재 조건 결과 밖 ${outside.length}대 — 자동 제거하지 않습니다.` : `${outside.length} outside the current condition — not removed automatically.`}</b>}</>} />;
+    note={<>{lang === 'ko' ? 'Selection은 고정 EquipmentID 집합입니다.' : 'Selection is a fixed EquipmentID set.'}{failed && <span role="alert" className="mt-1 block text-text-danger-label">{lang === 'ko' ? '조건 결과를 확인하지 못했습니다.' : 'Could not evaluate the condition.'} <button type="button" className="text-accent-primary underline" onClick={evaluation.retry}>{t('retry')}</button></span>}{outside.length > 0 && <b className="mt-1 block text-text-warning-label">{lang === 'ko' ? `현재 조건 결과 밖 ${outside.length}대 — 자동 제거하지 않습니다.` : `${outside.length} outside the current condition — not removed automatically.`}</b>}</>} />;
 }
