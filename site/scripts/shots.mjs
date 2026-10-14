@@ -434,11 +434,11 @@ try {
   await capture(
     "audit",
     "AuditTimeline · 변경 이력",
-    "상세 패널의 Audit 탭에서 변경을 봅니다.",
+    "상세 패널의 변경 이력 탭에서 변경을 봅니다.",
     "tables",
     async () => {
       await openDrawer();
-      await drawer().getByRole("tab", { name: "Audit" }).click();
+      await drawer().getByRole("tab", { name: "변경 이력" }).click();
       await expect(drawer().getByRole("tabpanel")).toBeVisible();
       await expect(drawer().locator('[aria-busy="true"]')).toHaveCount(0);
     },

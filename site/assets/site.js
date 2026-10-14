@@ -218,7 +218,10 @@
     });
     shotDialog.addEventListener("keydown", function (event) {
       if (event.key === "Tab") {
-        var controls = all("button, a[href]", shotDialog);
+        // 상태 화면에서는 데모 링크가 hidden이 되므로 보이는 컨트롤만 순환한다.
+        var controls = all("button, a[href]", shotDialog).filter(function (el) {
+          return !el.hidden;
+        });
         var first = controls[0];
         var last = controls[controls.length - 1];
         var active = document.activeElement;
