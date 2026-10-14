@@ -148,6 +148,100 @@
     (config.commit || "미지정") +
     " · 조립일 " +
     (config.builtAt || "미지정");
+  var shotDialog = document.getElementById("shot-dialog");
+  if (shotDialog) {
+    var shotButtons = all("[data-shot-open]");
+    var shownShots = shotButtons.slice();
+    var shotIndex = 0;
+    var shotReturn = null;
+    function showShot(index) {
+      shotIndex = (index + shownShots.length) % shownShots.length;
+      var trigger = shownShots[shotIndex];
+      var tile = trigger.closest(".shot-tile");
+      var source = trigger.querySelector("img");
+      var target = document.getElementById("shot-dialog-image");
+      target.src = source.src;
+      target.alt = source.alt;
+      // 타일의 렌더 크기가 아니라 shots.json의 원본 크기(width/height 속성)를 쓴다.
+      target.width = Number(source.getAttribute("width"));
+      target.height = Number(source.getAttribute("height"));
+      document.getElementById("shot-dialog-title").textContent = tile.querySelector("h4").textContent;
+      document.getElementById("shot-dialog-description").textContent = tile.querySelector(".shot-copy p").textContent;
+      document.getElementById("shot-dialog-position").textContent = shotIndex + 1 + " / " + shownShots.length;
+      var demoLink = document.getElementById("shot-dialog-demo");
+      var tileDemo = tile.querySelector("a[data-demo]");
+      if (config.demo === true && tileDemo && !tileDemo.hidden) {
+        demoLink.href = tileDemo.href;
+        demoLink.hidden = false;
+      } else {
+        demoLink.hidden = true;
+      }
+    }
+    function filterShots(group) {
+      all("[data-shot-filter]").forEach(function (button) {
+        button.setAttribute("aria-pressed", String(button.dataset.shotFilter === group));
+      });
+      all("[data-shot-group]").forEach(function (tile) {
+        tile.hidden = group !== "all" && tile.dataset.shotGroup !== group;
+      });
+      shownShots = shotButtons.filter(function (button) {
+        return !button.closest(".shot-tile").hidden;
+      });
+      document.getElementById("shot-count").textContent = shownShots.length + "개 화면";
+    }
+    all("[data-shot-filter]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        filterShots(button.dataset.shotFilter);
+      });
+    });
+    all("[data-chart-shots-link]").forEach(function (link) {
+      link.addEventListener("click", function () {
+        filterShots("charts");
+      });
+    });
+    shotButtons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        shotReturn = button;
+        showShot(shownShots.indexOf(button));
+        shotDialog.showModal();
+        shotDialog.querySelector("[data-shot-close]").focus();
+      });
+    });
+    shotDialog.querySelector("[data-shot-close]").addEventListener("click", function () {
+      shotDialog.close();
+    });
+    shotDialog.querySelector("[data-shot-prev]").addEventListener("click", function () {
+      showShot(shotIndex - 1);
+    });
+    shotDialog.querySelector("[data-shot-next]").addEventListener("click", function () {
+      showShot(shotIndex + 1);
+    });
+    shotDialog.addEventListener("keydown", function (event) {
+      if (event.key === "Tab") {
+        // 상태 화면에서는 데모 링크가 hidden이 되므로 보이는 컨트롤만 순환한다.
+        var controls = all("button, a[href]", shotDialog).filter(function (el) {
+          return !el.hidden;
+        });
+        var first = controls[0];
+        var last = controls[controls.length - 1];
+        var active = document.activeElement;
+        if (event.shiftKey && (active === first || !shotDialog.contains(active))) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && (active === last || !shotDialog.contains(active))) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        event.preventDefault();
+        showShot(shotIndex + (event.key === "ArrowLeft" ? -1 : 1));
+      }
+    });
+    shotDialog.addEventListener("close", function () {
+      if (shotReturn) shotReturn.focus();
+    });
+  }
   var lastCard = null;
   var gallery = document.querySelector(".gallery");
   var detailSlot = document.querySelector(".detail-slot");
@@ -273,7 +367,7 @@
   });
   function resizeMini(element) {
     var shell = element.querySelector(".mini-shell");
-    var scale = Math.min(1, element.clientWidth / 960);
+    var scale = element.clientWidth / 960;
     shell.style.transform = "scale(" + scale + ")";
     element.style.height = 600 * scale + 2 + "px";
     element.style.overflow = "hidden";

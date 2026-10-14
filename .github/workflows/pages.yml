@@ -39,6 +39,11 @@ jobs:
         env:
           AP_BASE_PATH: /analytics-platform/demo/
         run: pnpm --filter @ap/platform-web build
+      - name: Capture demo screens
+        if: ${{ vars.PAGES_DEMO == 'true' }}
+        run: |
+          pnpm --filter @ap/platform-e2e exec playwright install --with-deps chromium
+          node site/scripts/shots.mjs --demo apps/platform-web/dist --out _shots
       - name: Assemble site
         env:
           SITE_REF: ${{ inputs.ref || github.event.release.tag_name || 'main' }}
@@ -46,7 +51,7 @@ jobs:
           SITE_ASSUMPTION: ${{ vars.PAGES_ASSUMPTION }}
         run: |
           args=(--out _site --site-base /analytics-platform/ --ref "$SITE_REF" --commit "$(git rev-parse --short HEAD)")
-          if [ "$SITE_DEMO" = true ]; then args+=(--demo apps/platform-web/dist); fi
+          if [ "$SITE_DEMO" = true ]; then args+=(--demo apps/platform-web/dist --shots _shots); fi
           if [ "$SITE_ASSUMPTION" = true ]; then args+=(--assumption); fi
           node site/scripts/assemble.mjs "${args[@]}"
       - uses: actions/configure-pages@v6

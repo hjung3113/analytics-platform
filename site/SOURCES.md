@@ -73,6 +73,9 @@
 | L60 | 축·필터·패널 조합과 저장·공유는 #294의 미결 계약·UX 결정이며 실제 앱 variant 시안 승인 뒤 별도 구현한다 | GitHub #294 | 2026-10-14 OPEN, 결정 대기 |
 | L61 | 기술 후보 단계 연결: 현행 공통 부품 ①, 선언형 선택 ②, 자유 탐색·배치 ③, 고밀도 시계열 성능 평가 | GitHub #291–#294, site 소개 구성 | 설명용 분류, 채택 결정 아님. 띠 순서는 조사 문서(PR #295)의 M0–M5 단계 순서 |
 
+| L62 | 실제 화면 갤러리는 Pages 경로의 mock 데모 빌드를 UI 상호작용으로 캡처한다. DPR2로 저장하고 shots.json의 width·height는 CSS px이다. 차트·표는 구성요소 영역만, 상태 화면은 설비 목록 패널만, 세로·가로로 긴 것은 위쪽 중심 영역을 찍고 타일에서 cover-top으로 잘라 보여 준다. 합성 데이터이며 운영 데이터가 아니다 | `apps/platform-web/dist` (`AP_BASE_PATH=/analytics-platform/demo/`), `site/scripts/shots.mjs`, `apps/platform-web/README.md` | 배포 시 자동 캡처, 실패 시 배포 중단 |
+| L63 | ECharts 등록 유형은 선·막대·파이·산점도이고 Brush·DataZoom·MarkArea·MarkLine·Toolbox·Tooltip을 등록한다. 메뉴는 선·막대를 사용한다 | `packages/components/src/EChartImpl.tsx`, `menus/analytics/src/pages/ProductivityOverview.tsx` | 파이·산점도는 메뉴 미사용, 화면을 생성하지 않음 |
+
 ### 7.2 예시(합성) 데이터 — 화면에서 반드시 `예시`로 표시
 
 | ID | 내용 | 표시 위치 |
