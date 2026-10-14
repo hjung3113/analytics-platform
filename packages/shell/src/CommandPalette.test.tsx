@@ -1,4 +1,4 @@
-import { Suspense, lazy, useLayoutEffect, useRef, type ReactNode } from 'react';
+import { Suspense, lazy, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -302,16 +302,22 @@ function mountNavigation({ delayed = false, denied = false, url = '/home?v=1', c
   const allowed: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view', 'console:access', 'notice:view'] }, scopes: [] };
   const refused: Session = { ...allowed, user: { ...allowed.user, permissions: ['platform:view', 'notice:view'] } };
   const listeners = new Set<() => void>();
+  let currentSession = allowed;
   let blocked = denied;
   const adapter = testAdapter({
-    session: () => blocked ? refused : allowed,
+    session: () => blocked ? refused : currentSession,
     subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
     publishedMetrics: () => [{ metricId: 'CT', publishedVersion: '7' }],
   });
   function Routes() {
     const { route, can, setPage, navigate, switchSpace, setPaletteOpen } = usePlatform();
+    const [showPalette, setShowPalette] = useState(true);
     const Page = delayed && route?.menu.path === equipmentPath ? DelayedPage : NavigationPage;
     return <>
+      <button onClick={() => { setPaletteOpen(true); setPaletteOpen(false); }}>batch palette</button>
+      <button onClick={() => setShowPalette(false)}>remove palette</button>
+      <button onClick={() => setPaletteOpen(false)}>close absent palette</button>
+      {showPalette && <CommandPalette />}
       <input aria-label="filter" onChange={e => setPage({ filter: e.target.value })} />
       <PlatformLink href={cold ? '/equipment?v=1&metricId=CT' : '/equipment?v=1'}>equipment link</PlatformLink>
       <PlatformLink href="/admin/roles?v=1">denied link</PlatformLink>
@@ -323,10 +329,11 @@ function mountNavigation({ delayed = false, denied = false, url = '/home?v=1', c
       {route && can(route.menu.permission) && <Suspense fallback={<p>loading destination</p>}><Page key={route.menu.id} /></Suspense>}
     </>;
   }
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={focusRegistry}><Open /><Routes /><CommandPalette /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={focusRegistry}><Open /><Routes /></PlatformProvider></I18nProvider>);
   return {
     resolve: async () => { await act(async () => { resolvePage({ default: NavigationPage }); }); },
     allow: () => act(() => { blocked = false; listeners.forEach(listener => listener()); }),
+    changeSession: () => act(() => { currentSession = { ...allowed, user: { ...allowed.user, id: 'u2' } }; listeners.forEach(listener => listener()); }),
   };
 }
 function selectEquipment() {
@@ -336,6 +343,60 @@ function selectEquipment() {
 }
 
 describe('menu navigation page focus (06 §26)', () => {
+  it.each(['unmount', 'unmount then close', 'batch link', 'batch space'])('releases discarded palette blocking for %s', async action => {
+    mountNavigation();
+    if (action.startsWith('unmount')) {
+      fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
+      fireEvent.click(screen.getByText('remove palette'));
+      await settleClose();
+      if (action === 'unmount then close') fireEvent.click(screen.getByRole('button', { name: 'close absent palette' }));
+    } else fireEvent.click(screen.getByRole('button', { name: 'batch palette' }));
+    fireEvent.click(screen.getByRole(action === 'batch space' ? 'button' : 'link', { name: action === 'batch space' ? 'switch operations' : 'equipment link' }));
+    await settleClose();
+    expect(screen.getByRole('heading', { name: action === 'batch space' ? '권한' : '설비' })).toHaveFocus();
+  });
+
+  it('disposes palette blocking on a Provider session change', async () => {
+    const fixture = mountNavigation();
+    fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
+    fixture.changeSession();
+    await settleClose();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(screen.getByRole('link', { name: 'equipment link' }));
+    await settleClose();
+    expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus();
+  });
+
+  it('keeps a new palette generation blocked after an old delayed close', async () => {
+    mountNavigation();
+    fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
+    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'reopen palette' }));
+    fireEvent.click(screen.getByText('equipment link'));
+    await settleClose();
+    expect(document.querySelector('h1')).not.toHaveFocus();
+    expect(screen.getByRole('combobox')).toHaveFocus();
+  });
+
+  it('suppresses the tooltip only for navigation focus and preserves keyboard heading focus', async () => {
+    mountNavigation();
+    fireEvent.click(screen.getByRole('link', { name: 'equipment link' }));
+    await settleClose();
+    const heading = screen.getByRole('heading', { name: '설비' });
+    expect(heading).toHaveFocus();
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    expect(heading).not.toHaveAttribute('aria-describedby');
+    // jsdom has no native Tab traversal: dispatch Tab then focus its next target.
+    screen.getByRole('textbox', { name: 'filter' }).focus();
+    fireEvent.keyDown(document.activeElement!, { key: 'Tab' });
+    act(() => heading.focus());
+    await waitFor(() => expect(screen.getByRole('tooltip')).toBeInTheDocument());
+    act(() => screen.getByRole('textbox', { name: 'filter' }).focus());
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
+    fireEvent.pointerMove(heading, { pointerType: 'mouse' });
+    await waitFor(() => expect(screen.getByRole('tooltip')).toBeInTheDocument());
+  });
+
   it('focuses the new h1 after a PlatformLink pathname push', async () => {
     mountNavigation();
     fireEvent.click(screen.getByRole('link', { name: 'equipment link' }));
@@ -387,8 +448,7 @@ describe('menu navigation page focus (06 §26)', () => {
     await settleClose();
     expect(screen.getByRole('heading', { name: '설비' })).not.toHaveFocus();
     expect(new URLSearchParams(window.location.search).get('filter')).toBeNull();
-    if (same) expect(opener).toHaveFocus();
-    else expect(opener).not.toHaveFocus();
+    expect(opener).toHaveFocus();
   });
 
   it.each([false, true])('preserves page focus across cold period and metric materialization (lazy=%s)', async delayed => {

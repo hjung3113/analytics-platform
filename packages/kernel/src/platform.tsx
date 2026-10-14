@@ -255,8 +255,8 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const paletteLifecycle = useRef({ open: false, generation: 0 });
   const setPaletteOpen = useCallback((open: boolean) => {
     if (open && !paletteLifecycle.current.open) {
-      pageNavigation.blockPageFocus();
       const generation = ++paletteLifecycle.current.generation;
+      pageNavigation.blockPageFocus(generation);
       const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       let selecting = false;
       updatePaletteSession({ generation, opener, select: () => { selecting = true; }, isSelecting: () => selecting });
@@ -266,6 +266,21 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   }, [pageNavigation]);
   const isCurrentPaletteSession = useCallback((generation: number) =>
     paletteLifecycle.current.generation === generation && !paletteLifecycle.current.open, []);
+  useEffect(() => {
+    // A batched open/close can finish without ever mounting Dialog's FocusScope.
+    if (!paletteOpen && paletteSession) pageNavigation.releaseUnrenderedPageFocus(paletteSession.generation);
+  }, [paletteOpen, paletteSession, pageNavigation]);
+  const paletteSessionOwner = useRef(session);
+  useLayoutEffect(() => {
+    if (paletteSessionOwner.current === session) return;
+    paletteSessionOwner.current = session;
+    pageNavigation.cancel();
+    pageNavigation.releasePageFocus(paletteLifecycle.current.generation);
+    paletteLifecycle.current.open = false;
+    paletteLifecycle.current.generation += 1;
+    updatePaletteOpen(false);
+    updatePaletteSession(null);
+  }, [session, pageNavigation]);
   const toastId = useRef(1);
   const { lang } = useI18n();
 

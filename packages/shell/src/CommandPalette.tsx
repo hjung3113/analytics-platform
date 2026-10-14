@@ -1,5 +1,5 @@
 import { CornerDownLeft, Search } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { type MenuEntry, useI18n, usePlatform } from '@ap/kernel';
 import type { Text } from '@ap/contracts';
 import { cn, Dialog, DialogContent, DialogTitle } from '@ap/ui';
@@ -11,6 +11,17 @@ export function CommandPalette() {
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
   const platformLabel = text('palettePlatform');
+  const generation = paletteSession?.generation;
+  const disposalTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => {
+    clearTimeout(disposalTimer.current);
+    return () => {
+      // Component disposal may happen while Provider still considers the palette open.
+      // Defer until FocusScope's passive cleanup has removed its trap listeners.
+      if (generation !== undefined) disposalTimer.current = setTimeout(() => pageNavigation.releasePageFocus(generation), 0);
+    };
+  }, [generation, pageNavigation]);
+
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -51,7 +62,8 @@ export function CommandPalette() {
     const m = items[index];
     if (!m) return;
     const href = linkTo(m.id);
-    if (navigate(href, href.split('?')[0] !== pathname ? { focus: 'page' } : undefined)) paletteSession?.select();
+    const changesPage = href.split('?')[0] !== pathname;
+    if (navigate(href, changesPage ? { focus: 'page' } : undefined) && changesPage) paletteSession?.select();
     setPaletteOpen(false);
   };
 
@@ -59,11 +71,15 @@ export function CommandPalette() {
   return <Dialog open={paletteOpen} onOpenChange={setPaletteOpen}>
       <DialogContent closeLabel={t('close')} aria-describedby={undefined}
         className="top-[12vh] w-[min(640px,92vw)] max-w-none translate-y-0 gap-0 overflow-hidden p-0"
+        onOpenAutoFocus={() => {
+          if (generation !== undefined) pageNavigation.markPaletteRendered(generation);
+        }}
         onCloseAutoFocus={event => {
           event.preventDefault();
-          if (!paletteSession || !isCurrentPaletteSession(paletteSession.generation)) return;
-          // FocusScope has removed its trap listeners before this deferred unmount callback.
-          pageNavigation.releasePageFocus();
+          if (!paletteSession) return;
+          // Generation ownership also permits cleanup of an open, discarded palette.
+          pageNavigation.releasePageFocus(paletteSession.generation);
+          if (!isCurrentPaletteSession(paletteSession.generation)) return;
           if (paletteSession.isSelecting()) return;
           const target = paletteSession.opener?.isConnected && paletteSession.opener !== document.body
             ? paletteSession.opener : document.getElementById('platform-main');

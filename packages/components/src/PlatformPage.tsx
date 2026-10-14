@@ -1,6 +1,6 @@
 import { OutcomeBanners, OutcomeScope } from './OutcomeScope';
 import { ChevronRight, Loader2, MapPinOff, RotateCw, ServerCrash, Star } from 'lucide-react';
-import { useLayoutEffect, useRef, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { Button, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { consumePageFocus } from './pageFocus';
@@ -25,6 +25,8 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const { route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation } = usePlatform();
   const { t, tx } = useI18n();
   const heading = useRef<HTMLHeadingElement>(null);
+  const programmaticHeadingFocus = useRef(false);
+  const [headingTooltipOpen, setHeadingTooltipOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const stickyHeader = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -42,7 +44,11 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
       const request = consumePageFocus(pageNavigation, pathname);
       if (!request) return;
       const currentStep = request === 'drill' ? root.current?.querySelector<HTMLElement>('[aria-current="step"]') : null;
-      (currentStep ?? heading.current)?.focus({ preventScroll: true });
+      const target = currentStep ?? heading.current;
+      programmaticHeadingFocus.current = target === heading.current;
+      if (programmaticHeadingFocus.current) setHeadingTooltipOpen(false);
+      try { target?.focus({ preventScroll: true }); }
+      finally { programmaticHeadingFocus.current = false; }
     };
     focusDestination();
     // A palette selection remains pending until Dialog's close autofocus completes.
@@ -86,7 +92,9 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
               <ChevronRight className="size-3 shrink-0" aria-hidden />
             </span>)}
           </nav>}
-          <TooltipProvider><Tooltip><TooltipTrigger asChild>
+          <TooltipProvider><Tooltip open={headingTooltipOpen} onOpenChange={open => {
+            if (!open || !programmaticHeadingFocus.current) setHeadingTooltipOpen(open);
+          }}><TooltipTrigger asChild>
             <h1 ref={heading} tabIndex={0} title={typeof titleResolved === 'string' ? titleResolved : undefined} className="min-w-0 shrink truncate text-sm font-semibold text-text-primary">{titleResolved}</h1>
           </TooltipTrigger><TooltipContent>{titleResolved}</TooltipContent></Tooltip></TooltipProvider>
           {favoriteTarget && <button type="button" onClick={() => toggleFavorite(favoriteTarget.id)} aria-pressed={isFavorite}

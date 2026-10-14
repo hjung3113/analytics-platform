@@ -7,7 +7,7 @@ export function createPageNavigation(initialUrl: string) {
   let generation = 0;
   let url = initialUrl;
   let pending: { generation: number; path: string; focus: PageFocus } | null = null;
-  let pageFocusBlocked = false;
+  let pageFocusBlock: { generation: number; rendered: boolean } | null = null;
   const listeners = new Set<() => void>();
   const pathOf = (href: string) => href.split('?')[0];
   return {
@@ -25,13 +25,20 @@ export function createPageNavigation(initialUrl: string) {
     },
     cancel() { pending = null; },
     // Reopening the palette cancels a previous selection, including a lazy destination.
-    blockPageFocus() {
+    blockPageFocus(paletteGeneration: number) {
       pending = null;
-      pageFocusBlocked = true;
+      pageFocusBlock = { generation: paletteGeneration, rendered: false };
     },
     // The current Dialog session releases only after FocusScope unmount cleanup.
-    releasePageFocus() {
-      pageFocusBlocked = false;
+    markPaletteRendered(paletteGeneration: number) {
+      if (pageFocusBlock?.generation === paletteGeneration) pageFocusBlock.rendered = true;
+    },
+    releaseUnrenderedPageFocus(paletteGeneration: number) {
+      if (pageFocusBlock?.generation === paletteGeneration && !pageFocusBlock.rendered) this.releasePageFocus(paletteGeneration);
+    },
+    releasePageFocus(paletteGeneration: number) {
+      if (pageFocusBlock?.generation !== paletteGeneration) return;
+      pageFocusBlock = null;
       listeners.forEach(listener => listener());
     },
     subscribe(listener: () => void) {
@@ -39,11 +46,11 @@ export function createPageNavigation(initialUrl: string) {
       return () => { listeners.delete(listener); };
     },
     consume(path: string): PageFocus | null {
-      if (pending?.focus === 'page' && pageFocusBlocked) return null;
+      if (pending?.focus === 'page' && pageFocusBlock) return null;
       const request = pending;
       pending = null;
       return request?.generation === generation && request.path === path ? request.focus : null;
     },
   };
 }
-export type PageNavigation = Pick<ReturnType<typeof createPageNavigation>, 'requestReturn' | 'consume' | 'releasePageFocus' | 'subscribe'>;
+export type PageNavigation = Pick<ReturnType<typeof createPageNavigation>, 'requestReturn' | 'consume' | 'releasePageFocus' | 'markPaletteRendered' | 'subscribe'>;
