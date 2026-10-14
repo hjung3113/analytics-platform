@@ -302,5 +302,20 @@ it.each([true, false])('announces reverted Context exactly once after return: %s
   const result = JSON.parse(screen.getByRole('status').textContent!);
   expect(result.url).toBe(origin);
   expect(result.toasts).toHaveLength(changed ? 1 : 0);
-  if (changed) expect(result.toasts[0].text).toBe('출발 화면의 Context로 돌아왔습니다. 상세에서 바꾼 지표·버전을(를) 되돌렸습니다.');
+  if (changed) expect(result.toasts[0].text).toBe('출발 화면의 Context로 돌아왔습니다. 상세에서 바꾼 항목을 되돌렸습니다: 지표·버전');
+});
+
+it('announces reverted Scope exactly once after return', () => {
+  function Fixture() {
+    const { toasts, url } = usePlatform();
+    return <><ReturnLink /><output>{JSON.stringify({ toasts, url })}</output></>;
+  }
+  const origin = '/source?v=1&scopeId=ICH';
+  mount(`/detail?v=1&scopeId=CJU&returnTo=${encodeURIComponent(origin)}`, <Fixture />);
+  expect(JSON.parse(screen.getByRole('status').textContent!).toasts).toHaveLength(0);
+  fireEvent.click(screen.getByRole('link', { name: '← 생산성 개요' }));
+  const result = JSON.parse(screen.getByRole('status').textContent!);
+  expect(result.url).toBe(origin);
+  expect(result.toasts).toHaveLength(1);
+  expect(result.toasts[0].text).toBe('출발 화면의 Context로 돌아왔습니다. 상세에서 바꾼 항목을 되돌렸습니다: Scope');
 });

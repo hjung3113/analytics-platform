@@ -1,6 +1,6 @@
 import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { useRef, type ReactNode } from 'react';
-import { CONTEXT_LABELS, PlatformLink, useDrill, useI18n, usePlatform } from '@ap/kernel';
+import { RETURN_CONTEXT_LABELS, PlatformLink, useDrill, useI18n, usePlatform } from '@ap/kernel';
 import {
   Button, cn,
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger,
@@ -136,6 +136,6 @@ export function ReturnLink() {
   const text = trail ? `← ${tx(origin.menuLabel)} (${trail})` : `← ${tx(origin.menuLabel)}`;
   return <Button asChild variant="secondary" size="sm"><PlatformLink href={origin.href} onNavigate={() => {
     requestReturnFocus(pageNavigation, origin.href);
-    if (origin.revertedContext.length) toast(t('returnContextReverted', { items: origin.revertedContext.map(key => tx(CONTEXT_LABELS[key])).join(', ') }));
+    if (origin.revertedContext.length) toast(t('returnContextReverted', { items: origin.revertedContext.map(key => tx(RETURN_CONTEXT_LABELS[key])).join(', ') }));
   }}>{text}</PlatformLink></Button>;
 }
