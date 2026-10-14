@@ -114,15 +114,22 @@ describe('MyVocHistory FeedbackOps origin (#302 review)', () => {
       render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><MyVocHistory /></PlatformProvider></I18nProvider>);
       expect(await screen.findByText('VOC-M-1001')).toBeTruthy();
       // The long guidance sentence appears exactly once (StateMessage above the table), never as a button label.
-      expect(screen.getAllByText('FeedbackOps 주소가 없거나 올바르지 않아 링크를 만들지 않습니다.')).toHaveLength(1);
+      const guidance = 'FeedbackOps 주소가 없거나 올바르지 않아 링크를 만들지 않습니다.';
+      expect(screen.getAllByText(guidance)).toHaveLength(1);
       // Primary and row controls keep short names and stay disabled (fail closed).
-      expect((screen.getByRole('button', { name: 'VOC 등록' }) as HTMLButtonElement).disabled).toBe(true);
-      for (const button of screen.getAllByRole('button', { name: 'FeedbackOps에서 보기' })) {
+      const createButton = screen.getByRole('button', { name: 'VOC 등록' }) as HTMLButtonElement;
+      expect(createButton.disabled).toBe(true);
+      // W-302 FIX1: both disabled controls reference the guidance element as their accessible description.
+      expect(document.getElementById(createButton.getAttribute('aria-describedby') ?? '')?.textContent).toContain(guidance);
+      // W-302 FIX1: the visible text is the short 보기; the accessible name carries the row's displayId (#301 pattern).
+      for (const button of screen.getAllByRole('button', { name: 'VOC-M-1001 FeedbackOps에서 보기' })) {
         expect((button as HTMLButtonElement).disabled).toBe(true);
+        expect(button.textContent).toBe('보기');
+        expect(document.getElementById(button.getAttribute('aria-describedby') ?? '')?.textContent).toContain(guidance);
       }
       // No external anchor is rendered for either control.
       expect(screen.queryByRole('link', { name: 'VOC 등록' })).toBeNull();
-      expect(screen.queryByRole('link', { name: 'FeedbackOps에서 보기' })).toBeNull();
+      expect(screen.queryByRole('link', { name: 'VOC-M-1001 FeedbackOps에서 보기' })).toBeNull();
     } finally {
       if (originalOffsetHeight) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', originalOffsetHeight);
       if (originalOffsetWidth) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalOffsetWidth);
@@ -142,7 +149,9 @@ describe('MyVocHistory FeedbackOps origin (#302 review)', () => {
     });
     try {
       render(<I18nProvider><PlatformProvider adapter={fixture().adapter} registry={registry}><MyVocHistory /></PlatformProvider></I18nProvider>);
-      const rowLink = await screen.findByRole('link', { name: 'FeedbackOps에서 보기' });
+      const rowLink = await screen.findByRole('link', { name: 'VOC-M-1001 FeedbackOps에서 보기' });
+      // The visible text stays the short 보기; the accessible name carries the row's displayId (#301 pattern).
+      expect(rowLink.textContent).toBe('보기');
       expect(rowLink.getAttribute('href')).toContain('feedback.example.com');
       expect(screen.queryByText('FeedbackOps 연결 없음')).toBeNull();
       expect(screen.queryByRole('button', { name: 'VOC 등록' })).toBeNull();

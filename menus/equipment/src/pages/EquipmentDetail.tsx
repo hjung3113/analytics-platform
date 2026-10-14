@@ -29,7 +29,7 @@ export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 
     <DataTrustIndicator trust={response.trust} assessments={response.assessments} />
     {kind === 'attributes' && <>
       <dl>{fields.map(f => <Field key={f.key} label={f[lang]} mono={f.key === 'equipmentId'}>{f.key === 'status' ? <EquipmentStatus equipment={e} /> : e[f.key] ?? '—'}</Field>)}</dl>
-      <p className="t-caption text-text-muted">{ko ? 'StGroup·분임조: 현재 외부 공급값. 그 외 필드 원천 소유권은 Open이며 편집은 제공하지 않습니다.' : 'StGroup and team: current external values. Other field ownership is Open; editing is not provided.'}</p>
+      <p className="t-caption text-text-muted">{ko ? 'StGroup·분임조: 현재 외부 공급값. 그 외 필드는 편집을 제공하지 않습니다.' : 'StGroup and team: current external values. Other fields are not editable.'}</p>
     </>}
     {kind === 'validity' && <>
       <p className="t-caption text-text-muted">{ko ? '합성 속성 버전 · 구간은 [시작, 종료). StGroup·분임조의 과거 소속을 추정하지 않습니다.' : 'Synthetic attribute versions · intervals are [from, to). Historical StGroup/team membership is not inferred.'}</p>
@@ -53,7 +53,7 @@ export default function EquipmentDetail({ params }: PageProps) {
   const { global, scope, pageParam, setPage } = usePlatform();
   const ko = lang === 'ko';
   const requestedTab = pageParam('tab') ?? 'attributes';
-  const tabs = [{ id: 'attributes', label: ko ? '속성' : 'Attributes' }, { id: 'validity', label: ko ? '유효구간' : 'Validity' }, { id: 'audit', label: ko ? '변경 이력' : 'Change history' }, { id: 'analysis', label: ko ? '관련 분석' : 'Related analysis' }] as const;
+  const tabs = [{ id: 'attributes', label: ko ? '속성' : 'Attributes' }, { id: 'validity', label: ko ? '유효구간 이력' : 'Validity history' }, { id: 'audit', label: ko ? '변경 이력' : 'Change history' }, { id: 'analysis', label: ko ? '관련 분석' : 'Related analysis' }] as const;
   const validTab = tabs.some(t => t.id === requestedTab);
   const header = useEntityQuery<Equipment>({ type: EQUIPMENT_ENTITY_TYPE, id, scopeId: global.scopeId }, 'header', scope.status === 'valid');
   return <PlatformPage title={<span className="t-mono">{id}</span>}

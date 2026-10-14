@@ -127,7 +127,7 @@ export default function AccessDirectory() {
     {parsed.ok && <PlatformDataTable<AccessPrincipal>
         title={ko ? '권한/역할' : 'Roles & access'}
         ariaLabel={ko ? '권한/역할 목록' : 'Roles and access list'}
-        subtitle={ko ? '권한·room 부여 조회 전용입니다. 메뉴 목록은 레지스트리 조합이며 지표 데이터가 아니므로 신뢰도 표시가 없습니다.' : 'Read-only permissions and room grants. The menu list joins the client registry; not mart data, so there is no trust indicator.'}
+        subtitle={ko ? '권한·room 부여 조회 전용입니다.' : 'Read-only permissions and room grants.'}
         filters={filterSlot}
         columns={columns} getRowId={row => row.id} filterKey={filterKey}
         preferenceKey="admin-roles:columns:v1" pageSize={25} height={430} activeRowId={parsed.focus}

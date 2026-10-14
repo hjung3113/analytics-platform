@@ -32,7 +32,7 @@ export default function UsageOverview() {
       cell: row => formatLastUsed(row.lastUsedAt, lang),
     },
   ], [ko, lang]);
-  return <PlatformPage description={ko ? '메뉴 진입·체류 이벤트의 집계입니다. v1은 식별 필드만 수집합니다.' : 'Aggregates of menu entry and dwell events. v1 collects identity fields only.'}>
+  return <PlatformPage description={ko ? '메뉴 진입·체류 이벤트의 집계입니다. 식별 필드만 수집합니다.' : 'Aggregates of menu entry and dwell events. Collects identity fields only.'}>
     {tableInvalid ? <p role="alert">{ko ? '정렬·페이지 값이 잘못되었습니다.' : 'Invalid sort or page value.'} <Button size="sm" variant="secondary" onClick={() => setPage({ sort: null, page: null })}>{ko ? '초기화' : 'Reset'}</Button></p>
       : <QueryView widgetName={ko ? '메뉴 활용률' : 'Menu usage'} query={q}>{data => {
         const rows = joinUsageRows(registry, data.menus);

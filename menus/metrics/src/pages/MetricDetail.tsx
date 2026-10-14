@@ -173,8 +173,8 @@ export default function MetricDetailPage({ params }: PageProps) {
       </Panel>
       <p className="t-caption text-text-muted">
         {lang === 'ko'
-          ? 'Candidate: 섹션 키 tab은 앵커입니다. 정의·커버리지·사용처·이력을 숨기지 않습니다. 정의 등록·발행 워크플로는 Open이라 구현하지 않았습니다. 예시 데이터입니다.'
-          : 'Candidate: the tab key is an anchor. Definition, coverage, usage and history stay visible. Registration and publish workflow is Open and not implemented. Synthetic data.'}
+          ? '섹션 이동은 앵커이며 정의·커버리지·사용처·변경 이력을 숨기지 않습니다. 예시 데이터입니다.'
+          : 'Section navigation is an anchor; definition, coverage, usage and change history stay visible. Example data.'}
       </p>
     </div>
   </PlatformPage>;
@@ -212,7 +212,7 @@ function VersionSection({ metric, selected, onSelect }: { metric: MetricDef; sel
 
 function OwnershipSection({ metric }: { metric: MetricDef }) {
   const { lang } = useI18n();
-  return <Panel id={sectionId('ownership')} title={lang === 'ko' ? '소유' : 'Ownership'} subtitle={lang === 'ko' ? '정의 책임과 발행 권한은 별개입니다 (Open).' : 'Definition ownership and publish permission are separate (Open).'}>
+  return <Panel id={sectionId('ownership')} title={lang === 'ko' ? '소유' : 'Ownership'} subtitle={lang === 'ko' ? '정의 책임과 발행 권한은 별개입니다.' : 'Definition ownership and publish permission are separate.'}>
     <dl>
       <Field label={lang === 'ko' ? '정의 책임' : 'Owner'}>{lang === 'ko' ? metric.owner.ko : metric.owner.en}</Field>
       <Field label="ownerId" mono>{metric.ownerId}</Field>

@@ -39,7 +39,7 @@ export default function EquipmentMaster() {
     exportValue: f.key === 'status' ? (row: Equipment) => statusText[row.status][lang] : undefined,
   })), [lang]);
   const clear = <Button type="button" size="sm" variant="secondary" onClick={() => resetEquipmentPageFilters(setPage)}>{t('clearFilters')}</Button>;
-  return <PlatformPage description={ko ? '설비 속성 → 유효구간 → 변경 이력. 합성 데이터 · 조회 전용 Candidate.' : 'Equipment attributes → validity → change history. Synthetic data · read-only Candidate.'}>
+  return <PlatformPage description={ko ? '설비 속성 → 유효구간 → 변경 이력. 합성 데이터 · 조회 전용.' : 'Equipment attributes → validity → change history. Synthetic data · read-only.'}>
     <ManagementLayout filter={<PageFilterBar orientation="column" label={t('pageFilter')} fields={equipmentPageFilterFields({ q, status, maker, makers: makerOptions, lang, setPage })} actions={clear} />} activeFilterCount={[q, status, maker].filter(Boolean).length}
       drawer={focus && <DetailDrawer key={focus} title={<span className="t-mono">{focus}</span>} subtitle={ko ? '설비 상세 · 합성 데이터' : 'Equipment details · synthetic data'}
       onClose={() => setPage({ focus: null, tab: null })} tab={validTab ? drawerTab : undefined} onTabChange={tab => setPage({ tab: tab === 'attributes' ? null : tab })}
