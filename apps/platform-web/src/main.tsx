@@ -1,3 +1,4 @@
+// THROWAWAY #340 — never merge.
 import '@fontsource-variable/inter';
 import '@fontsource-variable/jetbrains-mono';
 import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
@@ -8,6 +9,7 @@ import { createBasePathLocation, I18nProvider, PlatformProvider } from '@ap/kern
 import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';
 import { createAssembly } from '#platform-assembly';
 import { readFeedbackOpsOrigin } from './feedbackops-origin';
+import { PrototypeVariants } from './proto/PrototypeVariants';
 import { registry } from './menus';
 import { appSlots } from './slots';
 import { AppShell, RouteOutlet } from '@ap/shell';
@@ -24,7 +26,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <I18nProvider>
       <PlatformProvider adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly)}>
-        <AppShell><RouteOutlet /></AppShell>
+        <PrototypeVariants><AppShell><RouteOutlet /></AppShell></PrototypeVariants>
       </PlatformProvider>
     </I18nProvider>
   </StrictMode>,

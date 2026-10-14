@@ -1,9 +1,10 @@
+// THROWAWAY #340 — never merge.
 import { OutcomeBanners, OutcomeScope } from './OutcomeScope';
 import { X } from 'lucide-react';
 import { Fragment, useId, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useI18n } from '@ap/kernel';
-import { Tabs, TabsContent, TabsList, TabsTrigger, useDetailPanelSlot } from '@ap/ui';
+import { Tabs, TabsContent, TabsList, TabsTrigger, useDetailPanelSlot, usePrototype, type ProtoVariant } from '@ap/ui';
 
 /** §13: URL-controlled detail content rendered into the shell-owned docked slot. */
 export function DetailDrawer({ title, subtitle, headerActions, context, tabs, onClose, tab, onTabChange }: {
@@ -15,8 +16,34 @@ export function DetailDrawer({ title, subtitle, headerActions, context, tabs, on
   return host ? createPortal(<OutcomeScope><DetailContent title={title} subtitle={subtitle} headerActions={headerActions} context={context} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} /></OutcomeScope>, host) : null;
 }
 
+// THROWAWAY #340 — never merge. Tab-row selection-marker variants compared on /equipment (?variant=).
+// Radix roles, aria-selected, arrow keys, data flow, and tab/onTabChange are untouched; only the
+// rendered classes of TabsList/TabsTrigger and the marker spans differ per variant. `cn` in the
+// FeedbackOps primitive is tailwind-merge, so these classes override the pill defaults on conflict.
+const LIST_CLASS: Record<ProtoVariant, string> = {
+  A: 'mx-5 mt-3 w-fit',
+  C: 'mx-5 mt-3 w-fit',
+  // B·D: flat row (no pill background/padding/radius) with a 1px baseline, spanning the panel
+  // width. Narrow panels scroll horizontally instead of wrapping.
+  B: 'mx-5 mt-3 flex h-auto w-auto justify-start overflow-x-auto rounded-none border-b border-border-subtle bg-transparent p-0',
+  // D aligns triggers to the baseline so the active face's -mb-px covers it.
+  D: 'mx-5 mt-3 flex h-auto w-auto items-end justify-start overflow-x-auto rounded-none border-b border-border-subtle bg-transparent p-0',
+};
+const TRIGGER_CLASS: Record<ProtoVariant, string> = {
+  A: '',
+  // B: underline bar + weight. Offset-0 focus ring so the ring does not hide the marker bar.
+  B: 'group relative shrink-0 rounded-none text-text-secondary hover:text-text-primary focus-visible:ring-offset-0 data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:shadow-none',
+  // C: FeedbackOps pill kept; only a 1px border and weight mark the selection (transparent border
+  // on unselected keeps the size constant).
+  C: 'border border-transparent data-[state=active]:border-border-control data-[state=active]:font-semibold data-[state=active]:forced-colors:border-[CanvasText]',
+  // D: contained — active tab gets side+top borders, card surface, and a top accent bar, covering
+  // the list baseline (-mb-px, no bottom border) to read as one face with the panel body.
+  D: 'group relative -mb-px shrink-0 rounded-b-none rounded-t-md border-x border-t border-transparent text-text-secondary hover:text-text-primary focus-visible:ring-offset-0 data-[state=active]:border-x-border-subtle data-[state=active]:border-t-border-subtle data-[state=active]:font-semibold data-[state=active]:forced-colors:border-x-[CanvasText] data-[state=active]:forced-colors:border-t-[CanvasText]',
+};
+
 function DetailContent({ title, subtitle, headerActions, context, tabs, onClose, tab, onTabChange }: Parameters<typeof DetailDrawer>[0]) {
   const { lang } = useI18n();
+  const variant = usePrototype();
   const close = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const id = useId();
@@ -47,8 +74,21 @@ function DetailContent({ title, subtitle, headerActions, context, tabs, onClose,
     {context && <div className="border-b border-border-subtle bg-surface-sunken px-5 py-2 text-xs text-text-secondary">{context}</div>}
     <OutcomeBanners />
     <Tabs value={tab} defaultValue={tab ? undefined : tabs[0].id} onValueChange={onTabChange} className="flex min-h-0 flex-1 flex-col">
-      <TabsList aria-label={lang === 'ko' ? '상세 탭' : 'Detail tabs'} className="mx-5 mt-3 w-fit">
-        {tabs.map(tb => <TabsTrigger key={tb.id} value={tb.id}>{tb.label}</TabsTrigger>)}
+      <TabsList aria-label={lang === 'ko' ? '상세 탭' : 'Detail tabs'} className={LIST_CLASS[variant]}>
+        {tabs.map(tb => (
+          <TabsTrigger key={tb.id} value={tb.id} className={TRIGGER_CLASS[variant]}>
+            {/* B·C·D: an invisible semibold copy of a plain-string label reserves the bold width so
+                selection does not shift neighbouring tabs. Non-string labels render as-is. */}
+            {variant === 'A' || typeof tb.label !== 'string' ? tb.label : (
+              <span className="grid">
+                <span aria-hidden className="invisible col-start-1 row-start-1 whitespace-nowrap font-semibold">{tb.label}</span>
+                <span className="col-start-1 row-start-1">{tb.label}</span>
+              </span>
+            )}
+            {variant === 'B' && <span data-current-marker aria-hidden className="absolute inset-x-3 -bottom-px hidden h-0.5 rounded-pill bg-accent-primary forced-colors:bg-[CanvasText] group-data-[state=active]:block" />}
+            {variant === 'D' && <span data-current-marker aria-hidden className="absolute inset-x-0 top-0 hidden h-0.5 bg-accent-primary forced-colors:bg-[CanvasText] group-data-[state=active]:block" />}
+          </TabsTrigger>
+        ))}
       </TabsList>
       {tabs.map(tb => <TabsContent key={tb.id} value={tb.id} className="min-h-0 flex-1 overflow-auto px-5 py-3">{tb.content}</TabsContent>)}
     </Tabs>
