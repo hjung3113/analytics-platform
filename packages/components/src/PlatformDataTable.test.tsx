@@ -117,6 +117,50 @@ describe('PlatformDataTable controlled mode (urlState)', () => {
   });
 });
 
+describe('PlatformDataTable active row marker (06 §26: never color alone)', () => {
+  // jsdom reports zero layout; the same fixed metrics as the #160 block keep the virtual rows rendered.
+  const originalOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+  const originalOffsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
+  beforeAll(() => {
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return (this as Element).getAttribute('role') === 'row' ? 32 : 420; } });
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return 800; } });
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const height = this.getAttribute('role') === 'row' ? 32 : 420;
+      return { height, width: 800, top: 0, left: 0, right: 800, bottom: height, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+    });
+  });
+  afterAll(() => {
+    vi.restoreAllMocks();
+    if (originalOffsetHeight) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', originalOffsetHeight);
+    if (originalOffsetWidth) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalOffsetWidth);
+  });
+
+  it('marks the active row with aria-current, weight and an accent bar on the first cell; other rows stay unmarked', async () => {
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+      <PlatformDataTable
+        title="T" ariaLabel="table" columns={columns} getRowId={r => r.id}
+        loadPage={makeLoadPage(3)} filterKey="f" preferenceKey="test-table-active" pageSize={25} height={200}
+        activeRowId="r2"
+      />
+    </PlatformProvider></I18nProvider>);
+    await screen.findByText('s1'); // r2's status: the first page has rendered, not just the header row
+    const rows = screen.getAllByRole('row').filter(row => row.getAttribute('data-row-id'));
+    expect(rows).toHaveLength(3);
+    const active = rows.find(row => row.getAttribute('data-row-id') === 'r2');
+    if (!active) throw new Error('active row not rendered');
+    expect(active).toHaveAttribute('aria-current', 'true');
+    // The first visible cell is the selection checkbox column; the bar accompanies that cell (task F2).
+    const firstCell = active.querySelector('[role="cell"]');
+    expect(firstCell?.getAttribute('data-column')).toBe('_select');
+    expect(firstCell?.className).toContain('font-medium');
+    expect(firstCell?.querySelector('span[aria-hidden]')).toBeTruthy();
+    for (const other of rows.filter(row => row.getAttribute('data-row-id') !== 'r2')) {
+      expect(other.getAttribute('aria-current')).toBeNull();
+      expect(other.querySelector('[role="cell"] span[aria-hidden]')).toBeNull();
+    }
+  });
+});
+
 describe('PlatformDataTable uncontrolled (no urlState) keeps internal state', () => {
   it('sort and page changes stay internal and loadPage is refetched', async () => {
     const loadPage = makeLoadPage(30);

@@ -30,7 +30,7 @@
 | L18 | 드릴 단계 공정 → StGroup → 설비, 단계마다 page key, 경로 칩, 복귀 | `menus/analytics/src/index.ts:22-27`, `.planning` v0.4.0 | — |
 | L19 | Page Archetype 5종, 전용 레이아웃 컴포넌트는 Management·Analysis 2종, 나머지는 공통 부품 조립 + 생성기 뼈대 | 플랫폼 UI 계약 §12 | 06 절 각주로만 |
 | L20 | 셸 치수 레일 52px · 사이드바 240/56px · 머리 50px · 상세 슬롯 440px | FeedbackOps `tokens.css:169-174` | — |
-| L21 | `linkTo`/`PlatformLink`가 목적지 객체 ID와 분석 Context 분리, 목적지 권한·공간 확인, `returnTo` 복귀(출발 URL·드릴 단계), 열 수 없는 복귀 대상은 홈으로 보내고 알림(#298) | 플랫폼 UI 계약 §22, `.planning` #298 행 | — |
+| L21 | `linkTo`/`PlatformLink`가 목적지 객체 ID와 분석 Context 분리, 목적지 권한·공간 확인, `returnTo` 복귀(출발 URL·드릴 단계), 열 수 없는 복귀 대상은 열 수 있는 상위 메뉴나 홈으로 돌아감(#298) | 플랫폼 UI 계약 §22, `.planning` #298 행 | — |
 | L22 | 설비 마스터의 '선택 설비로 분석' 버튼 코드 | `menus/equipment/src/pages/EquipmentMaster.tsx:63` | — |
 | L23 | FeedbackOps는 독립 앱, 화면·API·권한·감사를 플랫폼에 합치지 않음, `/voc` 링크는 origin 설정·검증 시 새 탭, 셸의 공간별 링크 슬롯은 미주입 | ADR-0027, `apps/platform-web/src/slots.ts:5-8` | 데모에서는 비활성 |
 | L24 | FeedbackOps 링크는 분석 기간·Site·returnTo를 자동 전달하지 않음, 확장은 #81·#251, 개선 실행 공간 #252 | `docs/integration/feedbackops-deeplink.md` | — |

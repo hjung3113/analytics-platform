@@ -79,7 +79,7 @@ describe('rail space navigation', () => {
     const rail = screen.getByRole('navigation', { name: '앱 레일' });
     expect(within(rail).getByRole('button', { name: '메뉴 검색…' })).toBeTruthy();
     expect(within(rail).getByRole('button', { name: 'injected tool' })).toBeTruthy();
-    expect(within(rail).getByRole('button', { name: 'Help' })).toBeTruthy();
+    expect(within(rail).getByRole('button', { name: '도움말' })).toBeTruthy();
     expect(within(rail).getByRole('button', { name: '사용자 메뉴' })).toBeTruthy();
   });
 

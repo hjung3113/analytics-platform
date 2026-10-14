@@ -17,7 +17,7 @@ export const manifests: MenuEntry[] = [
     path: '/notices', icon: Megaphone, permission: 'notice:view', requiresScope: false, pageType: 'management', context: none, features: noFeatures, pageKeys: [],
   },
   {
-    id: 'voc', group: 'noticeVoc', label: { ko: 'VOC', en: 'VOC' },
+    id: 'voc', group: 'noticeVoc', label: { ko: '내 VOC', en: 'VOC' },
     description: { ko: '내가 접수한 VOC 상태. 등록은 FeedbackOps로 이동합니다.', en: 'Status of VOCs you filed. Filing opens FeedbackOps.' },
     path: '/voc', icon: MessageSquareWarning, permission: 'voc:view', requiresScope: false, pageType: 'management', context: none,
     features: noFeatures, pageKeys: ['cursor'],

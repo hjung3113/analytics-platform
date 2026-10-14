@@ -267,7 +267,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       cell: ({ row }) => <Checkbox aria-label={`${lang === 'ko' ? '선택' : 'Select'} ${row.id}`} checked={row.getIsSelected()} onCheckedChange={v => row.toggleSelected(v === true)} className="size-3.5 border-border-control" />,
     },
     ...p.columns.map(toColumnDef),
-    ...(p.rowAction ? [{ id: '_action', size: 128, enableSorting: false, enableHiding: false, enableResizing: false, header: lang === 'ko' ? '동작' : 'Actions', cell: ({ row }: { row: { original: T } }) => p.rowAction!(row.original) } as ColumnDef<T>] : []),
+    ...(p.rowAction ? [{ id: '_action', size: 128, enableSorting: false, enableHiding: false, enableResizing: false, header: lang === 'ko' ? '동작' : 'Actions' } as ColumnDef<T>] : []),
   ], [p.columns, p.rowAction, lang]);
 
   const table = useReactTable({
@@ -706,12 +706,16 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
               const row = rows[item.index];
               const active = p.activeRowId === row.id;
               return <div role="row" key={row.id} ref={virtual.measureElement} data-index={item.index} aria-rowindex={shownPage * pageSize + item.index + 2}
-                aria-selected={row.getIsSelected()} data-row-id={row.id}
+                aria-selected={row.getIsSelected()} aria-current={active ? 'true' : undefined} data-row-id={row.id}
                 // eslint-disable-next-line shadcn/no-inline-styles -- row offset is the virtual item position computed at runtime
                 className="group absolute left-0 top-0 flex w-full" style={{ transform: `translateY(${item.start}px)` }}>
                 {/* eslint-disable-next-line shadcn/no-inline-styles -- cell width and pin offset come from column sizing at runtime */}
-                {row.getVisibleCells().map(cell => <div role="cell" key={cell.id} data-column={cell.column.id} style={cellStyle(cell.column)}
-                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', align(cell.column))}>
+                {row.getVisibleCells().map((cell, cellIndex) => <div role="cell" key={cell.id} data-column={cell.column.id} style={cellStyle(cell.column)}
+                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cellIndex === 0 && 'font-medium', align(cell.column))}>
+                  {/* The selected surface is accompanied by shape + weight (06 §26, DESIGN Shell visual rules): an accent
+                      bar on the first visible cell, drawn out of the text flow so the first column keeps its alignment. */}
+                  {active && cellIndex === 0 && <span aria-hidden className="absolute left-0 inset-y-1 w-0.5 rounded-full bg-accent-primary" />}
+                  {/* The _action column cell is not used — rowAction renders directly to preserve DOM identity (#296). */}
                   {cell.column.id === '_action' ? p.rowAction?.(row.original) : flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </div>)}
               </div>;

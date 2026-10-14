@@ -7,6 +7,8 @@ const ICONS = { create: FilePlus2, update: FilePen, retire: FileX2, sync: Refres
 const LABEL = {
   create: { ko: '생성', en: 'Created' }, update: { ko: '변경', en: 'Updated' }, retire: { ko: '유효 종료', en: 'Retired' }, sync: { ko: '동기화', en: 'Synced' },
 };
+// Same words as the admin audit table's source column (W-336 F3); kept local — components never import menu helpers.
+const SOURCE = { user: { ko: '사용자', en: 'User' }, system: { ko: '시스템', en: 'System' } };
 
 /** Platform AuditTimeline (§13): who/when/what changed with before→after, newest first. Domain supplies events.
  *  `at` is a real instant (§6.3): sorted by instantEpochMs desc (string compare is wrong once `Z` and `+09:00`
@@ -28,7 +30,7 @@ export function AuditTimeline({ events }: { events: AuditEvent[] }) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="font-semibold text-text-primary">{tx(LABEL[e.action])}</span>
-            <StatusBadge tone={e.source === 'system' ? 'neutral' : 'info'}>{e.source === 'system' ? 'system' : 'user'}</StatusBadge>
+            <StatusBadge tone={e.source === 'system' ? 'neutral' : 'info'}>{tx(SOURCE[e.source])}</StatusBadge>
             <span className="t-mono text-text-secondary">{e.actor}</span>
             <time className="ml-auto tabular text-text-muted" dateTime={e.at}>{formatInstant(e.at, lang)}</time>
           </div>

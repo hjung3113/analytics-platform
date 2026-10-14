@@ -15,9 +15,9 @@ export function metricCatalogPageFilterFields({
   setPage: SetPage;
 }): PageFilterField[] {
   return [
-    { kind: 'search', key: 'q', testId: 'metric-search', label: lang === 'ko' ? '이름 또는 metricId' : 'Name or metricId', value: q ?? '', placeholder: lang === 'ko' ? '검색' : 'Search', onValueChange: value => setPage({ q: value === '' ? null : value, page: null }, { replace: true }) },
+    { kind: 'search', key: 'q', testId: 'metric-search', label: lang === 'ko' ? '이름 또는 지표 ID' : 'Name or metricId', value: q ?? '', placeholder: lang === 'ko' ? '검색' : 'Search', onValueChange: value => setPage({ q: value === '' ? null : value, page: null }, { replace: true }) },
     { kind: 'select', key: 'status', testId: 'metric-status-filter', label: lang === 'ko' ? '상태' : 'Status', value: status ?? '', emptyOptionLabel: lang === 'ko' ? '전체' : 'All', options: STATUSES.map(value => ({ value, label: tx(STATUS_LABEL[value]) })), onValueChange: value => setPage({ status: value === '' ? null : value, page: null }) },
-    { kind: 'select', key: 'domain', testId: 'metric-domain-filter', label: 'domain', value: domain ?? '', emptyOptionLabel: lang === 'ko' ? '전체' : 'All', options: DOMAINS.map(value => ({ value, label: tx(DOMAIN_LABEL[value]) })), onValueChange: value => setPage({ domain: value === '' ? null : value, page: null }) },
+    { kind: 'select', key: 'domain', testId: 'metric-domain-filter', label: lang === 'ko' ? '도메인' : 'domain', value: domain ?? '', emptyOptionLabel: lang === 'ko' ? '전체' : 'All', options: DOMAINS.map(value => ({ value, label: tx(DOMAIN_LABEL[value]) })), onValueChange: value => setPage({ domain: value === '' ? null : value, page: null }) },
   ];
 }
 

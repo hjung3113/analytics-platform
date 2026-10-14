@@ -9,13 +9,13 @@ import { RouteErrorBoundary } from './RouteErrorBoundary';
 /** Renders the matched menu page, or the kernel's not-found / contract-error / permission / planned states (docs/06 §17, §19). */
 export function RouteOutlet() {
   const { route, contractError, can, url, global, metricInit, setGlobal, currentSpace, reportError, revision } = usePlatform();
-  const { t, lang } = useI18n();
+  const { t, tx, lang } = useI18n();
   if (!route) return <KernelMessage icon={<FileQuestion className="size-4" aria-hidden />} title={t('notFound')} body={<span className="t-mono">{url}</span>} />;
   if (contractError) return <ContractErrorView />;
   // Space entry is checked before the menu permission (06 §9.1/§2): the route still matches, but the page never mounts and nothing redirects.
   if (currentSpace !== null && currentSpace.permission !== undefined && !can(currentSpace.permission)) {
     return <KernelMessage tone="warning" icon={<Ban className="size-4" aria-hidden />} title={lang === 'ko' ? '이 공간에 들어갈 수 없습니다' : 'You cannot enter this space'}
-      body={<>{lang === 'ko' ? '이 공간에는 진입 권한이 없습니다.' : 'You do not have permission to enter this space.'} <span className="t-mono">space={currentSpace.id}</span></>} />;
+      body={<>{lang === 'ko' ? '이 공간에는 진입 권한이 없습니다. 공간: ' : 'You do not have permission to enter this space. Space: '}{tx(currentSpace.label)}</>} />;
   }
   if (metricInit.phase === 'confirm') {
     return <KernelMessage icon={<Link2Off className="size-4" aria-hidden />} title={lang === 'ko' ? '게시 버전 확인 중' : 'Confirming the published version'}
