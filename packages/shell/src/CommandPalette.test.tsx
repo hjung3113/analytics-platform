@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Session } from '@ap/contracts';
-import { I18nProvider, PlatformProvider, createRegistry, PlatformLink, usePlatform } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, PlatformLink, usePlatform, type PageNavigation } from '@ap/kernel';
 import { PlatformPage } from '@ap/components';
 import { CommandPalette } from './CommandPalette';
 import { noContext, testAdapter, testSpace } from './test-setup';
@@ -309,13 +309,17 @@ function mountNavigation({ delayed = false, denied = false, url = '/home?v=1', c
     subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
     publishedMetrics: () => [{ metricId: 'CT', publishedVersion: '7' }],
   });
+  let navigation!: PageNavigation;
   function Routes() {
+    const platform = usePlatform();
+    useLayoutEffect(() => { navigation = platform.pageNavigation; }, [platform.pageNavigation]);
     const { route, can, setPage, navigate, switchSpace, setPaletteOpen } = usePlatform();
     const [showPalette, setShowPalette] = useState(true);
     const Page = delayed && route?.menu.path === equipmentPath ? DelayedPage : NavigationPage;
     return <>
       <button onClick={() => { setPaletteOpen(true); setPaletteOpen(false); }}>batch palette</button>
       <button onClick={() => setShowPalette(false)}>remove palette</button>
+      <button onClick={() => setShowPalette(true)}>mount palette</button>
       <button onClick={() => setPaletteOpen(false)}>close absent palette</button>
       {showPalette && <CommandPalette />}
       <input aria-label="filter" onChange={e => setPage({ filter: e.target.value })} />
@@ -331,6 +335,7 @@ function mountNavigation({ delayed = false, denied = false, url = '/home?v=1', c
   }
   render(<I18nProvider><PlatformProvider adapter={adapter} registry={focusRegistry}><Open /><Routes /></PlatformProvider></I18nProvider>);
   return {
+    navigation,
     resolve: async () => { await act(async () => { resolvePage({ default: NavigationPage }); }); },
     allow: () => act(() => { blocked = false; listeners.forEach(listener => listener()); }),
     changeSession: () => act(() => { currentSession = { ...allowed, user: { ...allowed.user, id: 'u2' } }; listeners.forEach(listener => listener()); }),
@@ -354,6 +359,25 @@ describe('menu navigation page focus (06 §26)', () => {
     fireEvent.click(screen.getByRole(action === 'batch space' ? 'button' : 'link', { name: action === 'batch space' ? 'switch operations' : 'equipment link' }));
     await settleClose();
     expect(screen.getByRole('heading', { name: action === 'batch space' ? '권한' : '설비' })).toHaveFocus();
+  });
+
+  it.each([false, true])('reclaims an open remounted palette before selection (cleanup settled=%s)', async settled => {
+    const fixture = mountNavigation();
+    fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
+    fireEvent.click(screen.getByText('remove palette'));
+    if (settled) await settleClose();
+    fireEvent.click(screen.getByText('mount palette'));
+    // Let the old instance's timer run while the new instance is still open.
+    await settleClose();
+    const consume = vi.spyOn(fixture.navigation, 'consume');
+    try {
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: '설비' } });
+      fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Enter' });
+      expect(consume).toHaveBeenCalled();
+      expect(consume.mock.results.every(result => result.value === null)).toBe(true);
+      await settleClose();
+      expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus();
+    } finally { consume.mockRestore(); }
   });
 
   it('disposes palette blocking on a Provider session change', async () => {

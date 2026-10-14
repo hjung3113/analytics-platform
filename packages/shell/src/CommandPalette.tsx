@@ -12,13 +12,15 @@ export function CommandPalette() {
   const [active, setActive] = useState(0);
   const platformLabel = text('palettePlatform');
   const generation = paletteSession?.generation;
+  const paletteOwner = useRef(Symbol('CommandPalette'));
   const disposalTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
+    const owner = paletteOwner.current;
     clearTimeout(disposalTimer.current);
     return () => {
       // Component disposal may happen while Provider still considers the palette open.
       // Defer until FocusScope's passive cleanup has removed its trap listeners.
-      if (generation !== undefined) disposalTimer.current = setTimeout(() => pageNavigation.releasePageFocus(generation), 0);
+      if (generation !== undefined) disposalTimer.current = setTimeout(() => pageNavigation.releasePageFocus(generation, owner), 0);
     };
   }, [generation, pageNavigation]);
 
@@ -72,13 +74,13 @@ export function CommandPalette() {
       <DialogContent closeLabel={t('close')} aria-describedby={undefined}
         className="top-[12vh] w-[min(640px,92vw)] max-w-none translate-y-0 gap-0 overflow-hidden p-0"
         onOpenAutoFocus={() => {
-          if (generation !== undefined) pageNavigation.markPaletteRendered(generation);
+          if (generation !== undefined) pageNavigation.claimPaletteFocus(generation, paletteOwner.current);
         }}
         onCloseAutoFocus={event => {
           event.preventDefault();
           if (!paletteSession) return;
-          // Generation ownership also permits cleanup of an open, discarded palette.
-          pageNavigation.releasePageFocus(paletteSession.generation);
+          // Only this instance may release its rendered palette block.
+          pageNavigation.releasePageFocus(paletteSession.generation, paletteOwner.current);
           if (!isCurrentPaletteSession(paletteSession.generation)) return;
           if (paletteSession.isSelecting()) return;
           const target = paletteSession.opener?.isConnected && paletteSession.opener !== document.body

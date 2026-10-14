@@ -211,6 +211,39 @@ it.each(['loading', 'failure'])('uses the persistent page title when the drill b
 });
 
 
+it.each(['drill', 'return'])('preserves pending %s focus across a same-user session snapshot refresh', async kind => {
+  let currentSession = session;
+  const listeners = new Set<() => void>();
+  const refreshAdapter = testAdapter({
+    session: () => currentSession,
+    subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
+  });
+  function Routes() {
+    const { route } = usePlatform();
+    const drill = useDrill();
+    const [ready, setReady] = useState(false);
+    return <>
+      <button onClick={() => drill.enter('drillRoom', 'PHOTO')}>pending drill</button>
+      <button onClick={() => setReady(true)}>resolve destination</button>
+      {route?.menu.id === 'detail' ? <ReturnLink /> : ready && <PlatformPage>
+        {kind === 'drill' ? <DrillLayout siblings={siblings}>destination</DrillLayout> : 'destination'}
+      </PlatformPage>}
+    </>;
+  }
+  window.history.replaceState(null, '', kind === 'return' ? '/detail?v=1' : '/source?v=1');
+  render(<I18nProvider><PlatformProvider adapter={refreshAdapter} registry={registry}><Routes /></PlatformProvider></I18nProvider>);
+  fireEvent.click(screen.getByRole(kind === 'return' ? 'link' : 'button', { name: kind === 'return' ? '← 생산성 개요' : 'pending drill' }));
+  act(() => {
+    currentSession = { ...session, user: { ...session.user } };
+    listeners.forEach(listener => listener());
+  });
+  const resolve = screen.getByRole('button', { name: 'resolve destination' });
+  resolve.focus();
+  fireEvent.click(resolve);
+  await settleFocus();
+  expect(screen.getByRole(kind === 'drill' ? 'button' : 'heading', { name: kind === 'drill' ? '공정: PHOTO' : '생산성 개요' })).toHaveFocus();
+});
+
 it.each(['preset', 'reset', 'history', 'setPage', 'navigate'])('preserves Context control focus after %s changes drill keys', async action => {
   function ContextControls() {
     const { setGlobal, resetContext, setPage, navigate } = usePlatform();

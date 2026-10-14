@@ -274,8 +274,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   useLayoutEffect(() => {
     if (paletteSessionOwner.current === session) return;
     paletteSessionOwner.current = session;
-    pageNavigation.cancel();
-    pageNavigation.releasePageFocus(paletteLifecycle.current.generation);
+    pageNavigation.resetPaletteFocus(paletteLifecycle.current.generation);
     paletteLifecycle.current.open = false;
     paletteLifecycle.current.generation += 1;
     updatePaletteOpen(false);

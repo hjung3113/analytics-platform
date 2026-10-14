@@ -7,7 +7,8 @@ export function createPageNavigation(initialUrl: string) {
   let generation = 0;
   let url = initialUrl;
   let pending: { generation: number; path: string; focus: PageFocus } | null = null;
-  let pageFocusBlock: { generation: number; rendered: boolean } | null = null;
+  let paletteGeneration = 0;
+  let pageFocusBlock: { generation: number; owner: symbol | null; rendered: boolean } | null = null;
   const listeners = new Set<() => void>();
   const pathOf = (href: string) => href.split('?')[0];
   return {
@@ -25,21 +26,29 @@ export function createPageNavigation(initialUrl: string) {
     },
     cancel() { pending = null; },
     // Reopening the palette cancels a previous selection, including a lazy destination.
-    blockPageFocus(paletteGeneration: number) {
+    blockPageFocus(nextPaletteGeneration: number) {
       pending = null;
-      pageFocusBlock = { generation: paletteGeneration, rendered: false };
+      paletteGeneration = nextPaletteGeneration;
+      pageFocusBlock = { generation: paletteGeneration, owner: null, rendered: false };
     },
     // The current Dialog session releases only after FocusScope unmount cleanup.
-    markPaletteRendered(paletteGeneration: number) {
-      if (pageFocusBlock?.generation === paletteGeneration) pageFocusBlock.rendered = true;
+    claimPaletteFocus(generation: number, owner: symbol) {
+      if (generation !== paletteGeneration) return;
+      pageFocusBlock = { generation, owner, rendered: true };
     },
     releaseUnrenderedPageFocus(paletteGeneration: number) {
-      if (pageFocusBlock?.generation === paletteGeneration && !pageFocusBlock.rendered) this.releasePageFocus(paletteGeneration);
+      if (pageFocusBlock?.generation === paletteGeneration && pageFocusBlock.owner === null && !pageFocusBlock.rendered) this.releasePageFocus(paletteGeneration, null);
     },
-    releasePageFocus(paletteGeneration: number) {
-      if (pageFocusBlock?.generation !== paletteGeneration) return;
+    releasePageFocus(paletteGeneration: number, owner: symbol | null) {
+      if (pageFocusBlock?.generation !== paletteGeneration || (pageFocusBlock.owner !== null && pageFocusBlock.owner !== owner)) return;
       pageFocusBlock = null;
       listeners.forEach(listener => listener());
+    },
+    // Provider session disposal owns every instance in the invalidated generation.
+    resetPaletteFocus(generation: number) {
+      if (generation !== paletteGeneration) return;
+      if (pageFocusBlock) this.releasePageFocus(generation, pageFocusBlock.owner);
+      paletteGeneration += 1;
     },
     subscribe(listener: () => void) {
       listeners.add(listener);
@@ -53,4 +62,4 @@ export function createPageNavigation(initialUrl: string) {
     },
   };
 }
-export type PageNavigation = Pick<ReturnType<typeof createPageNavigation>, 'requestReturn' | 'consume' | 'releasePageFocus' | 'markPaletteRendered' | 'subscribe'>;
+export type PageNavigation = Pick<ReturnType<typeof createPageNavigation>, 'requestReturn' | 'consume' | 'releasePageFocus' | 'claimPaletteFocus' | 'subscribe'>;
