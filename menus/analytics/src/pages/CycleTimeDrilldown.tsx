@@ -263,7 +263,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
             emptyAction={(bucketRange || bin || tailMode !== 'p95')
               ? <Button size="sm" variant="secondary" onClick={() => setPage({ bucket: null, bin: null, percentile: 'all', page: null })}>{ko ? '목록 필터 해제' : 'Clear list filters'}</Button>
               : undefined}
-            rowAction={row => <PlatformLink className="text-xs font-medium text-accent-primary hover:underline" href={linkTo('execution-detail', { params: { equipmentId: row.equipmentId }, page: { entityType: 'job', anchor: row.anchor }, returnTo: true })} aria-label={ko ? `${executionKey(row)} 상세` : `Detail ${executionKey(row)}`}>{ko ? '상세' : 'Detail'}</PlatformLink>}
+            rowAction={row => <PlatformLink className="text-xs font-medium text-accent-primary hover:underline" href={linkTo('execution-detail', { params: { equipmentId: row.equipmentId }, page: { entityType: 'job', anchor: row.anchor }, returnTo: true })} aria-label={ko ? `${row.equipmentId} · ${row.anchor.replace('T', ' ')} 상세` : `Detail ${row.equipmentId} · ${row.anchor.replace('T', ' ')}`}>{ko ? '상세' : 'Detail'}</PlatformLink>}
             bulkActions={ids => <Button size="toolbar" onClick={() => {
               const equipmentIds = [...new Set(ids.map(equipmentIdFromKey))];
               setGlobal({ selection: equipmentIds });

@@ -1168,10 +1168,10 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     // The first unfiltered row is inside bucket+bin by construction, so the filter must still show a row.
     const filteredCount = await expectRowsFiltered();
     expect(filteredCount).toBeGreaterThanOrEqual(1);
-    await expect(page.getByRole('link', { name: /상세$/ }).first()).toBeVisible();
+    await expect(page.getByRole('row').getByRole('link', { name: /상세$/ }).first()).toBeVisible();
     await evidence(page, testInfo, 'cycle-page-keys');
 
-    await page.getByRole('link', { name: /상세$/ }).first().click();
+    await page.getByRole('row').getByRole('link', { name: /상세$/ }).first().click();
     await expect(page).toHaveURL(/\/analytics\/executions\/[^?]+\?/);
     expect(query(page).get('returnTo')).toBe(origin);
 
