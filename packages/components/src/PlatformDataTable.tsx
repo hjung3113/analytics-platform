@@ -307,22 +307,23 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   // response (ok, or empty which IS a successful zero) may state a count or offer pages.
   const success = shown !== null && (shown.outcome === 'ok' || shown.outcome === 'empty');
 
-  const boundaryPage = loading ? shownPage : effectivePage;
   // #338 UX fold: while loading the failure is not decided yet — a Context/identity change empties `shown`
   // before the response settles, and a native disable would then drop a focused button (its blur clears the
   // ownership refs, so the settle move could not recover). `aria-disabled` already marks the group busy.
-  const failed = !loading && !success;
-  const previousDisabled = failed || boundaryPage === 0;
-  const nextDisabled = failed || boundaryPage + 1 >= pageCount;
+  // Boundary targets come from `effectivePage` alone: during a Context change `shownPage` collapses to it
+  // (이전 from page 2 → page 0 request in flight), which would natively disable the focused button mid-flight.
+  const previousDisabled = !loading && (!success || effectivePage === 0);
+  const nextDisabled = !loading && (!success || effectivePage + 1 >= pageCount);
   useLayoutEffect(() => {
     if (loading) return;
     // Retry-button ownership (recorded by the outcome container's onFocus/onBlur before any mutation): when
-    // the settled response removed the button, focus follows where it went — success → row viewport; still
+    // the settled response removed the button, focus follows where it went — ok → row viewport; still
     // retryable → the button itself (a no-op while it kept focus, restores it if the remount dropped it);
-    // otherwise (forbidden·too_large·empty) → the section. A user blur before the settle cleared the ref,
+    // otherwise (forbidden·too_large·empty — a successful empty renders the OutcomeView, no viewport) →
+    // the section. A user blur before the settle cleared the ref,
     // so nothing is stolen from a focus that moved away.
     if (focusedRetry.current) {
-      if (success) { focusedRetry.current = false; viewport.current?.focus(); return; }
+      if (success && shown?.outcome === 'ok') { focusedRetry.current = false; viewport.current?.focus(); return; }
       if (shown?.outcome === 'error' || shown?.outcome === 'timeout') { outcome.current?.querySelector('button')?.focus(); return; }
       focusedRetry.current = false;
       section.current?.focus();

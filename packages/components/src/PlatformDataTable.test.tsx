@@ -214,6 +214,21 @@ describe('PlatformDataTable pager focus', () => {
     expect(screen.getByLabelText('스크롤 가능한 행 영역')).toHaveFocus();
   });
 
+  // #338 UX fold: Enter on "다시 시도" that settles on `empty` succeeds without rows — the OutcomeView
+  // stays (no viewport), so the owned focus must land on the section, not drop to body.
+  it('moves owned focus to the section when a retry settles on empty', async () => {
+    const { finish } = await setup();
+    await finish({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'failed' });
+    const retry = screen.getByRole('button', { name: '다시 시도' });
+    expect(retry).toHaveFocus();
+    fireEvent.click(retry);
+    await finish({ outcome: 'empty', data: { rows: [], total: 0 }, assessments: [], trust: null, correlationId: 'empty' });
+    const section = screen.getByRole('region', { name: 'table' });
+    expect(section).toHaveFocus();
+    expect(section).toHaveAttribute('tabindex', '-1');
+    expect(screen.queryByLabelText('스크롤 가능한 행 영역')).toBeNull(); // empty renders the OutcomeView, not the viewport
+  });
+
   // #338 UX fold: while a request is in flight an identity change empties `shown`; the failure is not
   // decided yet, so the focused button must stay natively enabled (aria-disabled only) until settle.
   it('keeps the focused pager natively enabled while an identity change request is in flight, then recovers focus after a failure', async () => {
@@ -231,6 +246,36 @@ describe('PlatformDataTable pager focus', () => {
     await waitFor(() => expect(loadPage).toHaveBeenCalledTimes(2));
     expect(previous).not.toBeDisabled();
     expect(previous).toHaveAttribute('aria-disabled', 'true');
+    await act(async () => resolve({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'failed' }));
+    expect(screen.getByRole('button', { name: '다시 시도' })).toHaveFocus();
+    expect(previous).toBeDisabled();
+  });
+
+  // #338 UX fold, the original repro: 이전 from page 2 (page 0 request in flight) → a Context change
+  // empties `shown` and collapses shownPage to effectivePage 0. The failure is not decided, so the
+  // focused button must stay natively enabled until the response settles; a failure then recovers
+  // focus onto the retry button.
+  it('keeps the focused 이전 natively enabled when a Context change lands while its page request is in flight', async () => {
+    let resolve!: (response: ApiResponse<PageResult<Row>>) => void;
+    const loadPage = vi.fn<PlatformDataTableProps<Row>['loadPage']>()
+      .mockResolvedValueOnce(ok(1))
+      .mockImplementation(() => new Promise<ApiResponse<PageResult<Row>>>(done => { resolve = done; }));
+    function Host({ filterKey }: { filterKey: string }) {
+      const [page, setPage] = useState<number | null>(2);
+      return <Harness page={page} sorting={[]} loadPage={loadPage} filterKey={filterKey}
+        onChange={next => setPage(next.page)} />;
+    }
+    const view = render(<Host filterKey="f" />);
+    await screen.findByText(/2\/2/);
+    const previous = screen.getByRole('button', { name: '이전' });
+    act(() => previous.focus());
+    fireEvent.click(previous); // reports page null → the page 0 request is in flight
+    await waitFor(() => expect(loadPage).toHaveBeenCalledTimes(2));
+    view.rerender(<Host filterKey="g" />); // Context change while that request is unsettled
+    await waitFor(() => expect(loadPage).toHaveBeenCalledTimes(3));
+    expect(previous).not.toBeDisabled();
+    expect(previous).toHaveAttribute('aria-disabled', 'true');
+    expect(previous).toHaveFocus();
     await act(async () => resolve({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'failed' }));
     expect(screen.getByRole('button', { name: '다시 시도' })).toHaveFocus();
     expect(previous).toBeDisabled();
