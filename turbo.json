@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/turbo/schema.json",
-  "globalPassThroughEnv": ["GEN_MENU_PROBE"],
+  "globalPassThroughEnv": ["GEN_MENU_PROBE", "VITEST_MAX_WORKERS", "VITEST_MAX_FORKS", "VITEST_MAX_THREADS", "VITEST_MIN_FORKS", "VITEST_MIN_THREADS"],
   "globalDependencies": [
     "products/feedbackops/packages/ui/**",
     "products/feedbackops/packages/shared/**",
