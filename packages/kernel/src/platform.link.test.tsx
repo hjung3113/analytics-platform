@@ -166,6 +166,11 @@ describe('return permission and reverted Context (#298 FIX1)', () => {
   });
 
   it.each([
+    { name: 'different Scope only', current: '&scopeId=CJU', origin: '/source?v=1&scopeId=ICH', keys: ['scope'] },
+    { name: 'equal Scope', current: '&scopeId=ICH', origin: '/source?v=1&scopeId=ICH', keys: [] },
+    { name: 'different Scope and metric pair', current: '&scopeId=CJU&metricId=cycle_time&metricVersion=4', origin: '/source?v=1&scopeId=ICH', keys: ['scope', 'metric'] },
+    { name: 'origin without Scope', current: '&scopeId=CJU', origin: '/source?v=1', keys: ['scope'] },
+    { name: 'rejected returnTo with different Scope', current: '&scopeId=CJU', origin: '/analysis?v=1&scopeId=ICH', keys: [] },
     { name: 'current metric pair only', current: '&metricId=cycle_time&metricVersion=4', origin: '/source?v=1', keys: ['metric'] },
     { name: 'equal metric pairs', current: '&metricId=cycle_time&metricVersion=4', origin: '/source?v=1&metricId=cycle_time&metricVersion=4', keys: [] },
     { name: 'page version only', current: '&version=4', origin: '/source?v=1', keys: [] },

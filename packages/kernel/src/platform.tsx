@@ -2,7 +2,7 @@ import { createBrowserLocation, type PlatformLocation } from './location';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createPageNavigation, type PageFocus, type PageNavigation } from './pageNavigation';
 import { classifyMetricInit, type MetricInit } from './metric-init';
-import { pathFor, type MenuEntry, type Registry } from './registry';
+import { CONTEXT_LABELS, pathFor, type MenuEntry, type Registry } from './registry';
 import { useI18n } from './i18n';
 import { buildQuery, ContractError, emptyGlobal, type ContextKey, type GlobalContext, incompleteMetricPair, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent } from '@ap/contracts';
 
@@ -114,12 +114,19 @@ type Platform = {
 
 const PlatformContext = createContext<Platform | null>(null);
 
+/** Context items named by return notifications, separate from menu capabilities. */
+export type ReturnContextKey = ContextKey | 'scope';
+export const RETURN_CONTEXT_LABELS: Record<ReturnContextKey, Text> = {
+  ...CONTEXT_LABELS,
+  scope: { ko: 'Scope', en: 'Scope' },
+};
+
 /** Where a destination's return control goes, including the origin menu name and drill trail (06 §22, ADR-0025). */
 export type ReturnOrigin = {
   href: string;
   menuLabel: Text;
   trail: { label: Text; value: string }[];
-  revertedContext: ContextKey[];
+  revertedContext: ReturnContextKey[];
 };
 
 /** Leading drill values on `search`, stopping at the first missing step. A menu without `drill` contributes nothing. */
@@ -585,11 +592,12 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
       const matched = matchRoute(path);
       if (matched && canOpen(matched.menu.id)) {
         const starting = parseQuery(search, matched.menu.pageKeys).global;
-        const fields: Record<ContextKey, (keyof GlobalContext)[]> = {
+        const fields: Record<ReturnContextKey, (keyof GlobalContext)[]> = {
+          scope: ['scopeId'],
           time: ['from', 'to'], roomNames: ['roomNames'], condition: ['condition'], selection: ['selection'],
           lot: ['lotIds'], ppid: ['ppid'], recipe: ['recipeIds'], metric: ['metricId', 'metricVersion'],
         };
-        const revertedContext = (Object.keys(fields) as ContextKey[]).filter(key => {
+        const revertedContext = (Object.keys(fields) as ReturnContextKey[]).filter(key => {
           const pick = (context: GlobalContext): GlobalContext => ({ ...emptyGlobal, ...Object.fromEntries(fields[key].map(field => [field, context[field]])) });
           return !sameGlobal(pick(global), pick(starting));
         });

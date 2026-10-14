@@ -296,7 +296,7 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 기존 `equipmentIds` 목록 필터와 `selectedEquipmentIds`는 같은 EquipmentID 명시 집합을 나타내는 공개 표현이다. 새 이름은 Selection의 역할을 드러내는 후보이며 두 개의 독립 필터가 아니다. 기존 이름의 동등 별칭/버전 이행은 아래 `v` 규칙으로 등록한다. 동시 입력은 후보 스키마에서 거부하여 우선순위 추정을 피한다. 상세의 단일 `equipment_id`도 **같은 식별자 개념**이며, 집합 조회와 객체 목적지라는 사용 역할만 다르다.
 
-**분석으로 돌아가기 (Decided):** 상세/드릴인 진입 직전의 분석 Context(Condition·Selection·미적용 값 포함)를 그대로 복원한다. 목록 `equipmentIds=[A,B]`에서 목적지 C를 보았어도 복귀는 `[A,B]`이며 C를 합치거나 C 하나로 바꾸지 않는다. 상세에서 본 객체나 상세의 변경된 조건으로 출발 Context를 덮어쓰지 않는다. 복귀 시 권한·Scope는 재검증하며 실패해도 원래 선택을 조용히 축소하지 않는다. 복원은 원래 조건의 복원이지 live Condition 결과나 계산 숫자의 동결이 아니다. 출발 페이지의 등록된 URL 상태도 보존하되 로컬 줌/brush의 복원 보장은 추가하지 않는다. 상세에서 사용자가 전역 Context를 바꾼 뒤 복귀하면 출발 Context로 돌아가며, 되돌린 Context 항목을 화면에 알린다(조용히 되돌리지 않는다). 상세에서 바꾼 Context를 유지한 채 이동하는 길은 메뉴 위치(breadcrumb·사이드바)다.
+**분석으로 돌아가기 (Decided):** 상세/드릴인 진입 직전의 분석 Context(Condition·Selection·미적용 값 포함)를 그대로 복원한다. 목록 `equipmentIds=[A,B]`에서 목적지 C를 보았어도 복귀는 `[A,B]`이며 C를 합치거나 C 하나로 바꾸지 않는다. 상세에서 본 객체나 상세의 변경된 조건으로 출발 Context를 덮어쓰지 않는다. 복귀 시 권한·Scope는 재검증하며 실패해도 원래 선택을 조용히 축소하지 않는다. 복원은 원래 조건의 복원이지 live Condition 결과나 계산 숫자의 동결이 아니다. 출발 페이지의 등록된 URL 상태도 보존하되 로컬 줌/brush의 복원 보장은 추가하지 않는다. 상세에서 사용자가 전역 Context를 바꾼 뒤 복귀하면 출발 Context로 돌아가며, 되돌린 Context 항목을 화면에 알린다(조용히 되돌리지 않는다). 되돌린 항목에는 Scope도 포함한다. 상세에서 바꾼 Context를 유지한 채 이동하는 길은 메뉴 위치(breadcrumb·사이드바)다.
 
 **`returnTo`(page key; 메커니즘 Decided, 필드명 Candidate):** 상세 목적지 메뉴는 `pageKeys`에 `returnTo`를 선언해 출발 화면의 전체 URL을 받는다. 값은 앱 내 상대경로여야 하며(`//`·`\`·`#`·제어문자·경로 안 `:`은 거부, 절대 URL은 항상 거부) 등록된 비상세 메뉴 경로로 매칭되고 그 메뉴의 `pageKeys`로 파싱될 때만 채택한다. 아니면 `parent` 메뉴(없으면 홈)로 복귀한다.
 

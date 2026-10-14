@@ -1785,7 +1785,7 @@ test.describe('지표 목록→상세 복귀 (06 §22)', () => {
     expect(query(page).get('sort')).toBe('nameSort:asc');
     expect(query(page).has('metricId')).toBe(false);
     expect(query(page).has('metricVersion')).toBe(false);
-    await expect(page.getByText('출발 화면의 Context로 돌아왔습니다. 상세에서 바꾼 지표·버전을(를) 되돌렸습니다.', { exact: true })).toBeVisible();
+    await expect(page.getByText('출발 화면의 Context로 돌아왔습니다. 상세에서 바꾼 항목을 되돌렸습니다: 지표·버전', { exact: true })).toBeVisible();
 
     await page.goto('/metrics/cycle_time?v=1&version=3');
     await expect(header.getByRole('link', { name: '카탈로그', exact: true })).toHaveCount(1);
