@@ -255,6 +255,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const paletteLifecycle = useRef({ open: false, generation: 0 });
   const setPaletteOpen = useCallback((open: boolean) => {
     if (open && !paletteLifecycle.current.open) {
+      pageNavigation.blockPageFocus();
       const generation = ++paletteLifecycle.current.generation;
       const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       let selecting = false;
@@ -262,7 +263,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     }
     paletteLifecycle.current.open = open;
     updatePaletteOpen(open);
-  }, []);
+  }, [pageNavigation]);
   const isCurrentPaletteSession = useCallback((generation: number) =>
     paletteLifecycle.current.generation === generation && !paletteLifecycle.current.open, []);
   const toastId = useRef(1);
@@ -458,7 +459,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const switchSpace = useCallback((spaceId: SpaceId) => {
     if (currentSpace?.id === spaceId) return;
     const entry = spaceEntry(spaceId);
-    if (entry) navigate(entry.href);
+    if (entry) navigate(entry.href, { focus: 'page' });
   }, [currentSpace, spaceEntry, navigate]);
 
   const toggleFavorite = useCallback((menuId: string) => {
@@ -651,11 +652,11 @@ export function usePlatform(): Platform {
 
 /** Anchor that navigates through the kernel (keeps modifier-click/open-in-new-tab behavior). */
 export function PlatformLink({ href, children, className, onNavigate, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string; onNavigate?: () => void }) {
-  const { navigate, location } = usePlatform();
+  const { navigate, location, pathname } = usePlatform();
   return <a href={location.href(href)} className={className} {...rest} onClick={e => {
     rest.onClick?.(e);
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
-    if (navigate(href)) onNavigate?.();
+    if (navigate(href, href.split('?')[0] !== pathname ? { focus: 'page' } : undefined)) onNavigate?.();
   }}>{children}</a>;
 }

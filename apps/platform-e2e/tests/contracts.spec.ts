@@ -1698,6 +1698,31 @@ test.describe('드릴다운 (06 §6.4, §12.7, §22, ADR-0025)', () => {
 });
 
 
+test.describe('메뉴 이동 포커스 (06 §26)', () => {
+  test('팔레트와 사이드바 키보드 이동 뒤 새 화면 제목에 포커스가 남는다', async ({ page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    await page.goto('/equipment?v=1&scopeId=ICH');
+    await expect(mainHeading(page)).toHaveText('설비 마스터');
+    await page.keyboard.press('ControlOrMeta+k');
+    await page.getByRole('combobox', { name: '메뉴 검색' }).fill('생산성');
+    // Space labels also match the query; select the intended menu through the keyboard.
+    const targetIndex = (await page.getByRole('option').allTextContents()).findIndex(label => label.includes('생산성 개요'));
+    expect(targetIndex).toBeGreaterThanOrEqual(0);
+    for (let index = 0; index < targetIndex; index++) await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await expect(mainHeading(page)).toHaveText('생산성 개요');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(mainHeading(page)).toBeFocused();
+    await evidence(page, testInfo, 'palette-menu-heading-focus');
+    const link = page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: '설비 마스터', exact: true });
+    await link.focus();
+    await page.keyboard.press('Enter');
+    await expect(mainHeading(page)).toHaveText('설비 마스터');
+    await expect(mainHeading(page)).toBeFocused();
+    await evidence(page, testInfo, 'sidebar-menu-heading-focus');
+  });
+});
+
 test.describe('키보드 상세 포커스 복귀 (06 §13·§26)', () => {
   test('권한 목록에서 키보드로 상세를 닫으면 같은 행의 보기로 돌아온다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');

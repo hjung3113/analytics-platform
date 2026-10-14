@@ -6,7 +6,7 @@ import { cn, Dialog, DialogContent, DialogTitle } from '@ap/ui';
 
 /** §10: menu navigation is the palette's base responsibility; entity search/action commands are Deferred. */
 export function CommandPalette() {
-  const { paletteOpen, setPaletteOpen, paletteSession, isCurrentPaletteSession, menusInSpace, accessibleSpaces, globalMenus, recent, navigate, linkTo, registry } = usePlatform();
+  const { paletteOpen, setPaletteOpen, paletteSession, isCurrentPaletteSession, menusInSpace, accessibleSpaces, globalMenus, recent, navigate, linkTo, registry, pathname, pageNavigation } = usePlatform();
   const { t, tx, text, lang } = useI18n();
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
@@ -50,7 +50,8 @@ export function CommandPalette() {
   const go = (index: number) => {
     const m = items[index];
     if (!m) return;
-    if (navigate(linkTo(m.id))) paletteSession?.select();
+    const href = linkTo(m.id);
+    if (navigate(href, href.split('?')[0] !== pathname ? { focus: 'page' } : undefined)) paletteSession?.select();
     setPaletteOpen(false);
   };
 
@@ -60,7 +61,10 @@ export function CommandPalette() {
         className="top-[12vh] w-[min(640px,92vw)] max-w-none translate-y-0 gap-0 overflow-hidden p-0"
         onCloseAutoFocus={event => {
           event.preventDefault();
-          if (!paletteSession || !isCurrentPaletteSession(paletteSession.generation) || paletteSession.isSelecting()) return;
+          if (!paletteSession || !isCurrentPaletteSession(paletteSession.generation)) return;
+          // FocusScope has removed its trap listeners before this deferred unmount callback.
+          pageNavigation.releasePageFocus();
+          if (paletteSession.isSelecting()) return;
           const target = paletteSession.opener?.isConnected && paletteSession.opener !== document.body
             ? paletteSession.opener : document.getElementById('platform-main');
           target?.focus({ preventScroll: true });

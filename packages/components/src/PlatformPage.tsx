@@ -38,11 +38,15 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
     return () => observer.disconnect();
   }, []);
   useLayoutEffect(() => {
-    const request = consumePageFocus(pageNavigation, pathname);
-    if (request) {
-      const currentStep = root.current?.querySelector<HTMLElement>('[aria-current="step"]');
-      (request === 'drill' ? currentStep ?? heading.current : heading.current)?.focus({ preventScroll: true });
-    }
+    const focusDestination = () => {
+      const request = consumePageFocus(pageNavigation, pathname);
+      if (!request) return;
+      const currentStep = request === 'drill' ? root.current?.querySelector<HTMLElement>('[aria-current="step"]') : null;
+      (currentStep ?? heading.current)?.focus({ preventScroll: true });
+    };
+    focusDestination();
+    // A palette selection remains pending until Dialog's close autofocus completes.
+    return pageNavigation.subscribe(focusDestination);
   }, [url, pathname, pageNavigation]);
   const menu = route!.menu;
   const favoriteTarget = menu.navHidden ? null : menu;

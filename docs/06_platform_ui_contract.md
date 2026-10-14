@@ -1135,6 +1135,7 @@ Full experience.
 
 - 색만으로 상태 구분 금지
 - Keyboard focus visible
+- 메뉴 사이 이동(링크·팔레트·공간 전환) 뒤 포커스는 새 화면 제목으로 간다. 같은 화면 안 상태 변경은 포커스를 옮기지 않는다
 - Modal Dialog는 focus trap; 비모달 DetailDrawer는 §13 포커스 진입·복귀와 목록 이동 허용
 - Chart title / unit / textual summary 제공
 - Chart와 동일 데이터의 Table 접근 경로 제공
