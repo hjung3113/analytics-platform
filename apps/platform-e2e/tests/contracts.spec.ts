@@ -1846,3 +1846,23 @@ test.describe('지표 목록→상세 복귀 (06 §22)', () => {
     await evidence(page, testInfo, 'metric-return-denied-origin');
   });
 });
+
+
+test.describe('표 쪽 이동 포커스 (06 §26)', () => {
+  test('마지막 쪽과 첫 쪽에 도달하면 반대쪽 버튼으로 포커스를 옮긴다', async ({ page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    await page.goto('/equipment?v=1&scopeId=ICH');
+    await expect(page.getByText(/1\/2 페이지/)).toBeVisible();
+    const next = page.getByRole('button', { name: '다음', exact: true });
+    const previous = page.getByRole('button', { name: '이전', exact: true });
+    await expect(next).not.toHaveAttribute('aria-disabled');
+    await next.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByText(/2\/2 페이지/)).toBeVisible();
+    await expect(previous).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.getByText(/1\/2 페이지/)).toBeVisible();
+    await expect(next).toBeFocused();
+    await evidence(page, testInfo, 'pager-focus-return');
+  });
+});

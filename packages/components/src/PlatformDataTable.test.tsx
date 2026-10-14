@@ -117,6 +117,92 @@ describe('PlatformDataTable controlled mode (urlState)', () => {
   });
 });
 
+describe('PlatformDataTable pager focus', () => {
+  const ok = (page = 0): ApiResponse<PageResult<Row>> => ({
+    outcome: 'ok', data: { rows: [{ id: `r${page}`, status: 'ready' }], total: 30 },
+    assessments: [], trust: null, correlationId: 'pager',
+  });
+
+  async function setup(startPage = 1) {
+    let resolve!: (response: ApiResponse<PageResult<Row>>) => void;
+    const loadPage = vi.fn<PlatformDataTableProps<Row>['loadPage']>()
+      .mockResolvedValueOnce(ok(startPage - 1))
+      .mockImplementation(() => new Promise(done => { resolve = done; }));
+    const onChange = vi.fn();
+    function Controlled() {
+      const [page, setPage] = useState<number | null>(startPage);
+      return <><input aria-label="elsewhere" /><Harness page={page} sorting={[]} loadPage={loadPage}
+        onChange={(next, reason) => { onChange(next, reason); setPage(next.page); }} /></>;
+    }
+    render(<Controlled />);
+    await screen.findByText(new RegExp(`${startPage}/2`));
+    const button = screen.getByRole('button', { name: startPage === 1 ? '다음' : '이전' });
+    act(() => button.focus());
+    fireEvent.click(button);
+    await waitFor(() => expect(loadPage).toHaveBeenCalledTimes(2));
+    return { button, onChange, finish: async (response: ApiResponse<PageResult<Row>>) => {
+      await act(async () => resolve(response));
+    } };
+  }
+
+  it.each([1, 2])('keeps page %i request enabled with aria-disabled until settled', async startPage => {
+    const { button, finish } = await setup(startPage);
+    expect(button).not.toBeDisabled();
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).toHaveFocus();
+    await finish(ok(startPage === 1 ? 1 : 0));
+    expect(button).toBeDisabled();
+    expect(button).not.toHaveAttribute('aria-disabled');
+  });
+
+  it.each([1, 2])('moves owned focus to the opposite pager at the boundary from page %i', async startPage => {
+    const { finish } = await setup(startPage);
+    await finish(ok(startPage === 1 ? 1 : 0));
+    expect(screen.getByRole('button', { name: startPage === 1 ? '이전' : '다음' })).toHaveFocus();
+  });
+
+  it.each(['error', 'timeout', 'forbidden', 'too_large', 'empty'] as const)('moves owned focus after %s', async outcome => {
+    const { finish } = await setup(outcome === 'empty' ? 2 : 1);
+    await finish({ outcome, data: null, assessments: [], trust: null, correlationId: 'failed' });
+    const section = screen.getByRole('region', { name: 'table' });
+    if (outcome === 'error' || outcome === 'timeout') {
+      expect(within(section).getByRole('button', { name: '다시 시도' })).toHaveFocus();
+    } else {
+      expect(section).toHaveFocus();
+      expect(section).toHaveAttribute('tabindex', '-1');
+    }
+    if (outcome !== 'empty') {
+      expect(within(section).queryByText(/\d+건/)).toBeNull();
+      expect(within(section).queryByText(/\d+\/\d+ 페이지/)).toBeNull();
+    }
+  });
+
+  it.each(['error', 'timeout', 'forbidden', 'too_large'] as const)('preserves #299 count omission after delayed %s', async outcome => {
+    const { finish } = await setup();
+    await finish({ outcome, data: null, assessments: [], trust: null, correlationId: 'failed' });
+    const section = screen.getByRole('region', { name: 'table' });
+    expect(within(section).queryByText(/\d+건/)).toBeNull();
+    expect(within(section).queryByText(/\d+\/\d+ 페이지/)).toBeNull();
+    expect(within(section).getByRole('button', { name: '이전' })).toBeDisabled();
+    expect(within(section).getByRole('button', { name: '다음' })).toBeDisabled();
+  });
+
+  it('ignores repeat activation while loading', async () => {
+    const { button, onChange, finish } = await setup();
+    fireEvent.click(button);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    await finish(ok(1));
+  });
+
+  it.each(['ok', 'error', 'forbidden'] as const)('does not steal focus moved elsewhere before %s', async outcome => {
+    const { finish } = await setup();
+    const input = screen.getByRole('textbox', { name: 'elsewhere' });
+    act(() => input.focus());
+    await finish(outcome === 'ok' ? ok(1) : { outcome, data: null, assessments: [], trust: null, correlationId: 'failed' });
+    expect(input).toHaveFocus();
+  });
+});
+
 describe('PlatformDataTable active row marker (06 §26: never color alone)', () => {
   // jsdom reports zero layout; the same fixed metrics as the #160 block keep the virtual rows rendered.
   const originalOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
@@ -179,7 +265,7 @@ describe('PlatformDataTable uncontrolled (no urlState) keeps internal state', ()
     expect(header).toHaveAttribute('aria-sort', 'none');
     fireEvent.click(screen.getByRole('button', { name: 'Status' }));
     expect(header).toHaveAttribute('aria-sort', 'ascending');
-    await waitFor(() => expect(screen.getByRole('button', { name: '다음' })).toBeEnabled()); // sort refetch settles
+    await waitFor(() => expect(screen.getByRole('button', { name: '다음' })).not.toHaveAttribute('aria-disabled')); // sort refetch settles
     fireEvent.click(screen.getByRole('button', { name: '다음' }));
     expect(await screen.findByText(/2\/2/)).toBeTruthy();
     expect(loadPage).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }), expect.anything());

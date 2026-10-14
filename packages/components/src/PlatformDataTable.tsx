@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useRef, useState, useId, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useId, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type ColumnSizingState, type RowSelectionState, type VisibilityState } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, Loader2, Pin, PinOff } from 'lucide-react';
@@ -208,6 +208,11 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   /** Column popover / export menu open: the Ctrl/⌘+C shortcut stays native while either is open. */
   const [overlayOpen, setOverlayOpen] = useState({ columns: false, export: false });
   const viewport = useRef<HTMLDivElement>(null);
+  const section = useRef<HTMLElement>(null);
+  const outcome = useRef<HTMLDivElement>(null);
+  const previousButton = useRef<HTMLButtonElement>(null);
+  const nextButton = useRef<HTMLButtonElement>(null);
+  const focusedPager = useRef<'previous' | 'next' | null>(null);
   // urlState (§6.1): controlled sort/page. The page writes the URL via onChange; the table never touches keys.
   const activeSorting = p.urlState ? p.urlState.sorting : sorting;
 
@@ -298,6 +303,23 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   // 06 §19: a failed lookup (error·timeout·forbidden·too_large) is not a zero — only a successful
   // response (ok, or empty which IS a successful zero) may state a count or offer pages.
   const success = shown !== null && (shown.outcome === 'ok' || shown.outcome === 'empty');
+
+  const boundaryPage = loading ? shownPage : effectivePage;
+  const previousDisabled = !success || boundaryPage === 0;
+  const nextDisabled = !success || boundaryPage + 1 >= pageCount;
+  useLayoutEffect(() => {
+    if (loading) return;
+    // Focus/blur events record ownership before the mutation phase can disable the button.
+    // Do not infer ownership from activeElement here: native disabled may already have cleared it.
+    const owned = focusedPager.current;
+    if (!owned || !(owned === 'previous' ? previousDisabled : nextDisabled)) return;
+    focusedPager.current = null;
+    const opposite = owned === 'previous' ? nextButton.current : previousButton.current;
+    const retryButton = shown?.outcome === 'error' || shown?.outcome === 'timeout'
+      ? outcome.current?.querySelector('button') : null;
+    const target = opposite && !opposite.disabled ? opposite : retryButton ?? section.current;
+    target?.focus();
+  }, [loading, previousDisabled, nextDisabled, shown]);
 
   function cellStyle(column: Column<T>): CSSProperties {
     const pinned = column.getIsPinned();
@@ -582,7 +604,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   }
   // No `ok` result yet (new Context loading, refused page): the count is unknown, so the group label says “필터 결과 전체” with no number.
   const filteredCount = shown?.outcome === 'ok' ? data.total : null;
-  return <section aria-label={p.ariaLabel} onKeyDown={onShortcut} className="flex flex-col rounded-lg border border-border-subtle bg-surface-card">
+  return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} onKeyDown={onShortcut} className="flex flex-col rounded-lg border border-border-subtle bg-surface-card">
     <div className={cn('flex min-h-11 flex-wrap items-center justify-between gap-2 p-3', analysisSection && 'pr-12')}>
       <div className="min-w-0">
         <h2 className="t-card-title">{p.title}</h2>
@@ -675,7 +697,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       </span>
     </div>
 
-    {shown && shown.outcome !== 'ok' ? <div className="border-t border-border-subtle p-3"><OutcomeView response={shown} onRetry={() => setRetry(r => r + 1)} emptyAction={p.emptyAction}>{() => null}</OutcomeView></div> :
+    {shown && shown.outcome !== 'ok' ? <div ref={outcome} className="border-t border-border-subtle p-3"><OutcomeView response={shown} onRetry={() => setRetry(r => r + 1)} emptyAction={p.emptyAction}>{() => null}</OutcomeView></div> :
       // eslint-disable-next-line shadcn/no-inline-styles -- viewport height comes from the height prop at runtime
       <div ref={viewport} tabIndex={0} aria-label={lang === 'ko' ? '스크롤 가능한 행 영역' : 'Scrollable rows'} className="overflow-auto overscroll-contain border-t border-border-subtle [overflow-anchor:none]" style={{ height: p.height ?? 420 }}>
         {/* eslint-disable-next-line shadcn/no-inline-styles -- table width is the total column size computed at runtime */}
@@ -729,15 +751,21 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       </div>}
 
     <div className="flex items-center justify-end gap-2 border-t border-border-subtle p-2">
-      <Button variant="secondary" size="toolbar" disabled={loading || !success || effectivePage === 0}
+      <Button ref={previousButton} variant="secondary" size="toolbar" disabled={previousDisabled}
+        aria-disabled={loading || undefined} className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+        onFocus={() => { focusedPager.current = 'previous'; }} onBlur={() => { focusedPager.current = null; }}
         onClick={() => {
+          if (loading) return;
           // zero-based target; controlled mode reports 1-based with null = page 1 (§6.1).
           if (p.urlState) p.urlState.onChange({ sorting: p.urlState.sorting, page: effectivePage === 1 ? null : effectivePage }, 'user');
           else setPage(effectivePage - 1);
           if (viewport.current) viewport.current.scrollTop = 0;
         }}>{lang === 'ko' ? '이전' : 'Previous'}</Button>
-      <Button variant="secondary" size="toolbar" disabled={loading || !success || effectivePage + 1 >= pageCount}
+      <Button ref={nextButton} variant="secondary" size="toolbar" disabled={nextDisabled}
+        aria-disabled={loading || undefined} className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+        onFocus={() => { focusedPager.current = 'next'; }} onBlur={() => { focusedPager.current = null; }}
         onClick={() => {
+          if (loading) return;
           if (p.urlState) p.urlState.onChange({ sorting: p.urlState.sorting, page: effectivePage + 2 }, 'user');
           else setPage(effectivePage + 1);
           if (viewport.current) viewport.current.scrollTop = 0;
