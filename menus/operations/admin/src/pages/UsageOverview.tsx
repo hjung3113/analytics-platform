@@ -19,9 +19,17 @@ export default function UsageOverview() {
   // Session identity: period·room changes must not hide the counts.
   const q = usePlatformQuery<UsageSummary>(signal => adapter.usageSummary({ preset: 'all' }, signal), null, true, 'session');
   // §6.1 page keys (sort/page): invalid wire values alert instead of substituting — same as EquipmentMaster.
-  const parsedSort = parseTableSort(pageParam('sort'), SORT_FIELDS);
-  const parsedPage = parsePageIndex(pageParam('page'));
+  // #304 FIX1 (06 §19): the warning keeps each field's user name and the raw value as entered (quoted,
+  // untruncated), one sentence per field — never `key=value`.
+  const sortRaw = pageParam('sort');
+  const pageRaw = pageParam('page');
+  const parsedSort = parseTableSort(sortRaw, SORT_FIELDS);
+  const parsedPage = parsePageIndex(pageRaw);
   const tableInvalid = !parsedSort.ok || !parsedPage.ok;
+  const invalidTableSentences = [
+    !parsedSort.ok ? (ko ? `정렬 “${sortRaw}”은 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.` : `Sort “${sortRaw}” is not a value this page can use. Reset the conditions.`) : null,
+    !parsedPage.ok ? (ko ? `페이지 “${pageRaw}”는 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.` : `Page “${pageRaw}” is not a value this page can use. Reset the conditions.`) : null,
+  ].filter((sentence): sentence is string => sentence !== null);
   const columns = useMemo<PlatformColumn<UsageRow>[]>(() => [
     { id: 'id', header: ko ? '메뉴 ID' : 'Menu ID', cell: row => <span className="t-mono">{String(row.id)}</span> },
     { id: 'label', header: ko ? '메뉴' : 'Menu', sortable: false, cell: row => row.label[lang] },
@@ -34,7 +42,7 @@ export default function UsageOverview() {
     },
   ], [ko, lang]);
   return <PlatformPage description={ko ? '메뉴 진입·체류 이벤트의 집계입니다. 식별 필드만 수집합니다.' : 'Aggregates of menu entry and dwell events. Collects identity fields only.'}>
-    {tableInvalid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '정렬·페이지 값이 올바르지 않습니다' : 'The sort or page value cannot be used'} body={ko ? '이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.' : 'This page cannot use that value. Reset the conditions.'} action={<Button size="sm" variant="secondary" onClick={() => setPage({ sort: null, page: null })}>{ko ? '초기화' : 'Reset'}</Button>} />
+    {tableInvalid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '정렬·페이지 값이 올바르지 않습니다' : 'The sort or page value cannot be used'} body={invalidTableSentences.map((sentence, index) => <p key={index}>{sentence}</p>)} action={<Button size="sm" variant="secondary" onClick={() => setPage({ sort: null, page: null })}>{ko ? '초기화' : 'Reset'}</Button>} />
       : <QueryView widgetName={ko ? '메뉴 활용률' : 'Menu usage'} query={q}>{data => {
         const rows = joinUsageRows(registry, data.menus);
         // Client envelope: the rows are the registry join, not mart data — trust is null and paging stays client-side.

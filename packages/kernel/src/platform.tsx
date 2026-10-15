@@ -9,7 +9,7 @@ import { buildQuery, ContractError, emptyGlobal, type ContextKey, type GlobalCon
 
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope' | 'error'; validatedFor: Session | null; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
-export type Toast = { id: number; text: string; tone: 'info' | 'warning' | 'danger' };
+export type Toast = { id: number; text: string; tone: 'info' | 'warning' | 'danger'; detail?: string };
 /** FeedbackOps entry the shell draws for one space. The shell picks the icon from `id` (ADR-0028). */
 export type FeedbackOpsEntryId = 'voc-create' | 'voc' | 'task' | 'survey';
 export type FeedbackOpsEntry = { id: FeedbackOpsEntryId; label: Text; href: string };
@@ -102,7 +102,7 @@ type Platform = {
   toggleFavorite: (menuId: string) => void;
   recent: Recent[];
   toasts: Toast[];
-  toast: (text: string, tone?: Toast['tone']) => void;
+  toast: (text: string, tone?: Toast['tone'], detail?: string) => void;
   dismissToast: (id: number) => void;
   defaultRangeTo: string;
   slots: PlatformSlots;
@@ -323,9 +323,9 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     mounted.current = true;
     return () => { mounted.current = false; };
   }, []);
-  const toast = useCallback((text: string, tone: Toast['tone'] = 'info') => {
+  const toast = useCallback((text: string, tone: Toast['tone'] = 'info', detail?: string) => {
     const id = toastId.current++;
-    setToasts(list => [...list.slice(-3), { id, text, tone }]);
+    setToasts(list => [...list.slice(-3), { id, text, tone, ...(detail === undefined ? {} : { detail }) }]);
     setTimeout(() => { if (mounted.current) setToasts(list => list.filter(t => t.id !== id)); }, 5000);
   }, []);
   const dismissToast = useCallback((id: number) => setToasts(list => list.filter(t => t.id !== id)), []);

@@ -196,7 +196,10 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
     await expect.poll(() => query(page).has('page')).toBe(false);
 
     await page.goto('/metrics?v=1&scopeId=ICH&domain=bogus');
-    await expect(page.getByRole('alert')).toContainText('domain=bogus');
+    // #304 FIX1: the alert keeps the field's user name and the raw value as entered — never `key=value`.
+    await expect(page.getByRole('alert')).toContainText('도메인');
+    await expect(page.getByRole('alert')).toContainText('bogus');
+    await expect(page.getByRole('alert')).not.toContainText('domain=');
     await expect(page.getByRole('combobox', { name: '도메인' })).toHaveText('bogus');
 
     await page.goto('/metrics?v=1&scopeId=ICH&q=yield&status=draft&domain=quality&page=2');
@@ -218,7 +221,10 @@ test.describe('PageFilterBar 접힘 요약 (ADR-0029)', () => {
     const bar = page.getByTestId('page-filter-bar');
     await expect(bar).toBeVisible();
     // 등록되지 않은 percentile은 페이지 키 오류이지만 필터 바는 원문을 요약에 그대로 남긴다.
-    await expect(page.getByRole('alert')).toContainText(`percentile=${longRaw}`);
+    // #304 FIX1: the alert keeps the field's user name and the full raw value — untruncation is ADR-0029's point.
+    await expect(page.getByRole('alert')).toContainText('느린 실행');
+    await expect(page.getByRole('alert')).toContainText(longRaw);
+    await expect(page.getByRole('alert')).not.toContainText('percentile=');
 
     // 1024×900 기본값은 사이드바가 접힌다(AppShell innerWidth < 1440). 접근 가능한 토글로 펼친 것을 확인한 뒤 필터를 접는다.
     const sidebarExpand = page.getByRole('button', { name: '사이드바 펼치기' });
@@ -335,8 +341,8 @@ test.describe('PageFilterBar 접힘 요약 (ADR-0029)', () => {
     }
     // 긴 원문 값 자체도 요약 폭 안에서 감긴다(그 값 텍스트 노드의 시각 줄 2개 이상).
     expect(m.valueLines).toBeGreaterThanOrEqual(2);
-    // (f) 긴 원문 전체가 라벨과 함께 요약 텍스트에 있다.
-    expect(m.summaryText).toContain(`느린 실행 기준 알 수 없는 값: ${longRaw}`);
+    // (f) 긴 원문 전체가 라벨과 함께 요약 텍스트에 있다. (원문 보존 문구는 #304에서 '이 화면에서 쓸 수 없는 값'으로 바뀌었다.)
+    expect(m.summaryText).toContain(`느린 실행 기준 이 화면에서 쓸 수 없는 값: ${longRaw}`);
 
     // 키보드: 요약 버튼에서 Enter → 펼쳐지고 포커스는 접기 토글로 이동한다.
     await expand.press('Enter');
@@ -466,12 +472,12 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
     const bar = contextBar(page);
     await expect(bar.getByRole('button', { name: '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00' })).toBeVisible();
     await expect(bar.getByRole('button', { name: 'room_name PHOTO' })).toBeVisible();
-    await expect(page.getByRole('radiogroup', { name: '집계 단위 (페이지 소유)' }).getByRole('radio', { name: '일' })).toBeChecked();
+    await expect(page.getByRole('radiogroup', { name: '집계 단위' }).getByRole('radio', { name: '일' })).toBeChecked();
     expect(query(page).toString()).toBe(new URL(url, 'http://x').searchParams.toString());
     await evidence(page, testInfo, 'restored');
 
     await page.reload();
-    await expect(page.getByRole('radiogroup', { name: '집계 단위 (페이지 소유)' }).getByRole('radio', { name: '일' })).toBeChecked();
+    await expect(page.getByRole('radiogroup', { name: '집계 단위' }).getByRole('radio', { name: '일' })).toBeChecked();
     await expect(contextBar(page).getByRole('button', { name: 'room_name PHOTO' })).toBeVisible();
   });
 

@@ -77,7 +77,7 @@ function asyncClipboard(): boolean {
   return typeof window !== 'undefined' && window.isSecureContext && typeof navigator.clipboard?.write === 'function' && typeof ClipboardItem !== 'undefined';
 }
 /** A copy that stops with a message for the user (refusal, reconciliation to zero rows, cap, serializer bug). */
-class CopyStop extends Error {}
+class CopyStop extends Error { constructor(message: string, readonly detail?: string) { super(message); } }
 type CopyPayload = { tsv: string; html: string; count: number };
 /** The clipboard write itself was rejected (not the row read): carries the browser's error. */
 class ClipboardRejected extends Error { constructor(readonly cause: unknown) { super('clipboard rejected'); } }
@@ -385,12 +385,13 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const pinnedPrefs = hideableColumns.filter(c => c.getIsPinned() === 'left');
   const otherPrefs = hideableColumns.filter(c => c.getIsPinned() !== 'left');
 
-  function refusalText(outcome: keyof typeof EXPORT_REFUSAL, response: ApiResponse<unknown>): string {
-    // 06 §26 원인/행동: the refusal names a next action; an `error` carries the correlationId for support.
-    const correlation = outcome === 'error' && response.correlationId ? ` (correlationId: ${response.correlationId})` : '';
-    // The next action always stays; a server message is added as detail, never in its place (#173 review R-P3-1).
-    const detail = outcome === 'error' && response.message ? ` — ${response.message}` : '';
-    return EXPORT_REFUSAL[outcome][lang] + detail + correlation;
+  function refusal(outcome: keyof typeof EXPORT_REFUSAL, response: ApiResponse<unknown>): { text: string; detail?: string } {
+    // 06 §26 원인/행동 + #304 F2: the toast body names the cause and next action only; the server message and
+    // correlationId stay as named detail (the shell draws it like StateMessage's 서버 세부) — never deleted.
+    const correlation = outcome === 'error' && response.correlationId ? `correlationId: ${response.correlationId}` : null;
+    const message = outcome === 'error' && response.message ? response.message : null;
+    const detail = message !== null && correlation !== null ? `${message} (${correlation})` : message ?? correlation ?? undefined;
+    return { text: EXPORT_REFUSAL[outcome][lang], detail };
   }
   /** Export serializer for rows already read: header + cells of the visible exportable columns. Throws on a column bug. */
   function serialize(rows: T[]): { headers: string[]; cells: (string | number)[][] } {
@@ -417,7 +418,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       const response = await p.exportRows!({ scope, sorting: activeSorting }, controller.signal);
       if (controller.signal.aborted) return;
       if (response.outcome !== 'ok' && response.outcome !== 'empty') {
-        toast(refusalText(response.outcome, response), 'warning');
+        const refusalOf = refusal(response.outcome, response);
+        toast(refusalOf.text, 'warning', refusalOf.detail);
         return;
       }
       let rows: T[] = response.outcome === 'empty' ? [] : response.data ?? [];
@@ -531,7 +533,10 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     const response = await p.exportRows!({ scope: { kind: 'selected', ids }, sorting: activeSorting }, signal);
     // Same controller whose catch checks `signal.aborted` (#186): this throw is the table's own cancel there.
     if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
-    if (response.outcome !== 'ok' && response.outcome !== 'empty') throw new CopyStop(refusalText(response.outcome, response));
+    if (response.outcome !== 'ok' && response.outcome !== 'empty') {
+      const refusalOf = refusal(response.outcome, response);
+      throw new CopyStop(refusalOf.text, refusalOf.detail);
+    }
     const wanted = new Set(ids);
     const rows = (response.outcome === 'empty' ? [] : response.data ?? []).filter(row => wanted.has(p.getRowId(row)));
     const missing = ids.length - rows.length;
@@ -560,7 +565,13 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     const controller = new AbortController();
     const content = readSelection(ids, controller.signal);
     content.catch(() => {}); // observed below; avoids an unhandled rejection while the clipboard write is pending
-    const blob = (pick: (c: CopyPayload) => string, type: string) => content.then(c => new Blob([pick(c)], { type }));
+    // A refusal rejects `content` and both derived blobs with it: mark the blobs handled so the failure surfaces
+    // only as the CopyStop toast, never as an unhandled rejection (ClipboardItem still sees the real rejection).
+    const blob = (pick: (c: CopyPayload) => string, type: string) => {
+      const item = content.then(c => new Blob([pick(c)], { type }));
+      item.catch(() => {});
+      return item;
+    };
     const blobs = { 'text/plain': blob(c => c.tsv, 'text/plain'), 'text/html': blob(c => c.html, 'text/html') };
     let write: Promise<void>;
     try {
@@ -588,7 +599,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
         // Only the copy's own controller cancels (#186, like the Kernel #183). The internal throw in
         // `readSelection` uses this same controller's signal, so it still lands here as a cancellation.
         if (controller.signal.aborted) return;
-        if (error instanceof CopyStop) toast(error.message, 'warning');
+        if (error instanceof CopyStop) toast(error.message, 'warning', error.detail);
         // A late TypeError (promised values refused after the gesture): this browser cannot copy here.
         else if (error instanceof ClipboardRejected) toast(error.cause instanceof TypeError ? copyUnavailable() : clipboardFailure(error.cause), 'warning');
         else toast(EXPORT_REFUSAL.error[lang], 'warning'); // the row read threw (network…)

@@ -549,3 +549,21 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(seen).toEqual([]);
   });
 });
+
+// #304 F2: a toast can carry the server original as named detail; the shell draws it like StateMessage's 서버 세부.
+describe('toast detail', () => {
+  it('renders the toast detail as a note named 서버 세부, beneath the body text', () => {
+    function DetailToastProbe() {
+      const { toast } = usePlatform();
+      return <button type="button" onClick={() => toast('내보내기를 수행하지 못했습니다. 다시 시도하고, 반복되면 관리자에게 문의하세요.', 'warning', '시간 도메인이 다른 실행을 함께 내보낼 수 없습니다 (correlationId: corr-7)')}>fire toast</button>;
+    }
+    render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={registry}>
+      <AppShell><DetailToastProbe /></AppShell>
+    </PlatformProvider></I18nProvider>);
+    fireEvent.click(screen.getByRole('button', { name: 'fire toast' }));
+    const note = screen.getByRole('note', { name: '서버 세부' });
+    expect(note.textContent).toContain('시간 도메인이 다른 실행을 함께 내보낼 수 없습니다');
+    expect(note.textContent).toContain('correlationId: corr-7');
+    expect(note.textContent).not.toContain('내보내기를 수행하지 못했습니다');
+  });
+});

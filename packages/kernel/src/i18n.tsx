@@ -96,7 +96,7 @@ const dict = {
   stateTimeout: { ko: '조회 시간이 초과되었습니다', en: 'Query timed out' },
   stateError: { ko: '데이터를 불러오지 못했습니다', en: 'Unable to load data' },
   stateErrorCause: { ko: '서버가 데이터를 보내지 못했습니다.', en: 'The server could not return the data.' },
-  stateErrorAction: { ko: '다시 시도하세요. 반복되면 아래 식별자를 전달하세요.', en: 'Retry. If it happens again, share the identifier below.' },
+  stateErrorAction: { ko: '다시 시도하세요. 문제가 계속되면 시스템 담당자에게 아래 Correlation ID를 전달하세요.', en: 'Retry. If the problem persists, share the Correlation ID below with your system administrator.' },
   timeDomainUnverifiedCause: { ko: '시간 기준이 확인되지 않아 함께 집계할 수 없습니다.', en: 'The time reference is unconfirmed, so these cannot be aggregated together.' },
   timeDomainUnverifiedAction: { ko: '설비를 좁히거나 기간을 줄이세요.', en: 'Narrow the equipment or shorten the period.' },
   timeDomainMismatchCause: { ko: '시간 기준이 서로 달라 함께 집계할 수 없습니다.', en: 'The time references differ, so these cannot be aggregated together.' },

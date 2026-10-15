@@ -77,8 +77,20 @@ export default function MetricCatalogPage(_: PageProps) {
   const statusIllegal = status !== null && !STATUSES.includes(status as PublicationState);
   const domainIllegal = domain !== null && !DOMAINS.includes(domain as typeof DOMAINS[number]);
   // §6.1 page keys: sort/page are URL-owned; invalid wire values alert instead of substituting (never "empty rows").
-  const parsedSort = parseTableSort(pageParam('sort'), sortColumns);
-  const parsedPage = parsePageIndex(pageParam('page'));
+  const sortRaw = pageParam('sort');
+  const pageRaw = pageParam('page');
+  const parsedSort = parseTableSort(sortRaw, sortColumns);
+  const parsedPage = parsePageIndex(pageRaw);
+  // #304 FIX1 (06 §19): each invalid field keeps its user name and the raw value as entered (quoted, untruncated),
+  // one sentence per field — never `key=value`.
+  const invalidFilterSentences = [
+    statusIllegal ? (lang === 'ko' ? `상태 “${status}”는 이 화면에서 쓸 수 없는 필터입니다. 조건을 초기화하세요.` : `Status “${status}” is not available on this screen. Reset the filters.`) : null,
+    domainIllegal ? (lang === 'ko' ? `도메인 “${domain}”은 이 화면에서 쓸 수 없는 필터입니다. 조건을 초기화하세요.` : `Domain “${domain}” is not available on this screen. Reset the filters.`) : null,
+  ].filter((sentence): sentence is string => sentence !== null);
+  const invalidTableSentences = [
+    !parsedSort.ok ? (lang === 'ko' ? `정렬 “${sortRaw}”은 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.` : `Sort “${sortRaw}” is not a value this screen can use. Reset the conditions.`) : null,
+    !parsedPage.ok ? (lang === 'ko' ? `페이지 “${pageRaw}”는 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.` : `Page “${pageRaw}” is not a value this screen can use. Reset the conditions.`) : null,
+  ].filter((sentence): sentence is string => sentence !== null);
   const tableInvalid = !parsedSort.ok || !parsedPage.ok;
   // A global-Context change clears `page` in the kernel (manifest contextResetKeys); pages write no reset effect.
   const pair = useMenuQuery(metricPairEndpoint, NO_DESTINATION);
@@ -116,11 +128,11 @@ export default function MetricCatalogPage(_: PageProps) {
       </p>}
       {(statusIllegal || domainIllegal) && <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />}
         title={lang === 'ko' ? '등록되지 않은 필터입니다' : 'This filter is not registered'}
-        body={lang === 'ko' ? '이 화면에서 쓸 수 없는 필터입니다. 조건을 초기화하세요.' : 'This page cannot use that filter. Reset the conditions.'}
+        body={invalidFilterSentences.map((sentence, index) => <p key={index}>{sentence}</p>)}
         action={<Button size="sm" variant="secondary" onClick={() => setPage({ ...(statusIllegal ? { status: null } : {}), ...(domainIllegal ? { domain: null } : {}) })}>{lang === 'ko' ? '초기화' : 'Reset'}</Button>} />}
       {tableInvalid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />}
         title={lang === 'ko' ? '정렬·페이지 값이 올바르지 않습니다' : 'The sort or page value cannot be used'}
-        body={lang === 'ko' ? '이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.' : 'This page cannot use that value. Reset the conditions.'}
+        body={invalidTableSentences.map((sentence, index) => <p key={index}>{sentence}</p>)}
         action={<Button variant="secondary" size="sm" onClick={() => setPage({ sort: null, page: null })}>{lang === 'ko' ? '초기화' : 'Reset'}</Button>} /> : <PlatformDataTable
         title={lang === 'ko' ? '지표 카탈로그' : 'Metric catalog'}
         subtitle={lang === 'ko'

@@ -89,14 +89,16 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const unknown = ko ? '미확인' : 'Not confirmed';
   const granularityPending = granularityRaw === null && hours === null;
 
-  const pageErrors = [
-    !granularityResult.ok ? (ko ? '집계' : 'grain') : null,
-    !tailResult.ok ? (ko ? '느린 실행' : 'slow executions') : null,
-    !sortResult.ok ? (ko ? '정렬' : 'sort') : null,
-    !bucketResult.ok ? (ko ? '버킷' : 'bucket') : null,
-    !binResult.ok ? (ko ? '분포 구간' : 'histogram') : null,
-    !pageResult.ok ? (ko ? '페이지' : 'page') : null,
-  ].filter((item): item is string => item !== null);
+  // #304 FIX1 (06 §19): each invalid field keeps its user name and the raw value as entered (quoted,
+  // untruncated), one sentence per field — never `key=value`.
+  const pageRefusals = [
+    !granularityResult.ok ? (ko ? `집계 “${granularityRaw}”는 이 화면에서 쓸 수 없습니다.` : `Grain “${granularityRaw}” cannot be used on this page.`) : null,
+    !tailResult.ok ? (ko ? `느린 실행 기준 “${percentileRaw}”은 이 화면에서 쓸 수 없습니다.` : `Slow executions “${percentileRaw}” cannot be used on this page.`) : null,
+    !sortResult.ok ? (ko ? `정렬 “${sortRaw}”은 이 화면에서 쓸 수 없습니다.` : `Sort “${sortRaw}” cannot be used on this page.`) : null,
+    !bucketResult.ok ? (ko ? `버킷 “${bucketRaw}”은 이 화면에서 쓸 수 없습니다.` : `Bucket “${bucketRaw}” cannot be used on this page.`) : null,
+    !binResult.ok ? (ko ? `분포 구간 “${binRaw}”은 이 화면에서 쓸 수 없습니다.` : `Histogram “${binRaw}” cannot be used on this page.`) : null,
+    !pageResult.ok ? (ko ? `페이지 “${pageRaw}”는 이 화면에서 쓸 수 없습니다.` : `Page “${pageRaw}” cannot be used on this page.`) : null,
+  ].filter((sentence): sentence is string => sentence !== null);
 
   // Field labels and option labels shared by the edit controls and the collapsed summary. The summary states
   // facts: pending stays pending and unknown raw values are shown as unknown, never as a default value label.
@@ -157,9 +159,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
     </div>}
   >
     {invalidPage ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '페이지 키 값이 올바르지 않습니다' : 'Invalid page key'}
-      body={ko
-          ? `${pageErrors.join(', ')} 값을 이 화면에서 쓸 수 없습니다. 페이지 조건을 기본값으로 되돌리세요.`
-        : `${pageErrors.join(', ')} cannot be used on this page. Reset the page conditions.`} />
+      body={pageRefusals.map((sentence, index) => <p key={index}>{sentence} {ko ? '페이지 조건을 기본값으로 되돌리세요.' : 'Reset the page conditions.'}</p>)} />
       : !periodReady ? <p className="text-sm text-text-muted">{ko ? '전역 기간이 URL에 확정되면 조회합니다.' : 'The query starts once the global period is in the URL.'}</p>
         : <AnalysisLayout
           kpi={{ id: 'summary', title: ko ? '사이클타임 요약' : 'Cycle time summary', node: <>

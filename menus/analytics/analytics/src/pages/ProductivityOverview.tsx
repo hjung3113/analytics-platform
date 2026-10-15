@@ -57,11 +57,13 @@ export default function ProductivityOverview(_: PageProps) {
   const selectedKpi = kpiResult.ok ? kpiResult.value : 'throughput';
   const axis = axisResult.ok ? axisResult.value : 'room';
   const sort = sortResult.ok ? { key: sortResult.key, dir: sortResult.dir } : { key: 'key' as const, dir: 1 as const };
-  const errors = [
-    !kpiResult.ok ? (ko ? '지표' : 'metric') : null,
-    !axisResult.ok ? (ko ? '축' : 'axis') : null,
-    !sortResult.ok ? (ko ? '정렬' : 'sort') : null,
-  ].filter((item): item is string => item !== null).join(', ');
+  // #304 FIX1 (06 §19): each invalid field keeps its user name and the raw value as entered (quoted,
+  // untruncated), one sentence per field — never `key=value`.
+  const pageRefusals = [
+    !kpiResult.ok ? (ko ? `지표 “${rawKpi}”는 이 화면에서 쓸 수 없습니다.` : `Metric “${rawKpi}” cannot be used on this page.`) : null,
+    !axisResult.ok ? (ko ? `축 “${rawAxis}”은 이 화면에서 쓸 수 없습니다.` : `Axis “${rawAxis}” cannot be used on this page.`) : null,
+    !sortResult.ok ? (ko ? `정렬 “${rawSort}”은 이 화면에서 쓸 수 없습니다.` : `Sort “${rawSort}” cannot be used on this page.`) : null,
+  ].filter((sentence): sentence is string => sentence !== null);
 
   // Page-owned URL key `granularity` (wireframe 11 §3.1). Unset → hour for ≤48h, else day (Candidate).
   const rawGran = pageParam('granularity');
@@ -232,10 +234,10 @@ export default function ProductivityOverview(_: PageProps) {
       ? <DataTrustIndicator trust={trustResponse.trust} assessments={trustResponse.assessments} />
       : null}
     contextExtension={<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <span id="granularity-label" className="text-xs font-medium text-text-secondary">{ko ? '집계 단위 (페이지 소유)' : 'Granularity (page-owned)'}</span>
+      <span id="granularity-label" className="text-xs font-medium text-text-secondary">{ko ? '집계 단위' : 'Granularity'}</span>
       <SegmentedRadio
         labelledBy="granularity-label"
-        label={ko ? '집계 단위 (페이지 소유)' : 'Granularity (page-owned)'}
+        label={ko ? '집계 단위' : 'Granularity'}
         value={gran}
         onChange={g => setPage({ granularity: g })}
         options={GRANS.map(g => ({ value: g, label: g === 'hour' ? (ko ? '시간' : 'Hour') : g === 'day' ? (ko ? '일' : 'Day') : (ko ? '주' : 'Week') }))}
@@ -245,20 +247,19 @@ export default function ProductivityOverview(_: PageProps) {
           ? '이 화면의 집계 단위입니다. 기간과 따로 고릅니다. 고르지 않으면 기간이 48시간 이하일 때 시간, 그보다 길면 일입니다.'
           : 'This page’s grain. It is chosen separately from the period. When unset, a period of 48 hours or less uses hours; a longer period uses days.'}
       </span>
-      {rawGran !== null && !granKnown && <StatusBadge tone="warning">{ko ? '이 화면에서 쓸 수 없는 집계 단위입니다. 시간·일·주 중에서 고르세요.' : 'This page cannot use that grain. Choose hour, day, or week.'}</StatusBadge>}
+      {/* #304 FIX1 (06 §19): the unknown raw value stays visible, and the default-grain fact is stated truthfully. */}
+      {rawGran !== null && !granKnown && <StatusBadge tone="warning">{ko ? `집계 단위 “${rawGran}”는 이 화면에서 쓸 수 없습니다. 지금은 기본 집계 단위(${granLabel})로 조회합니다. 시간·일·주 중에서 고르세요.` : `Grain “${rawGran}” is not a value this page can use; the default grain (${granLabel}) is used until you choose one. Choose hour, day, or week.`}</StatusBadge>}
     </div>}
   >
     {pageInvalid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '페이지 키 값이 올바르지 않습니다' : 'Invalid page key'}
-      body={ko
-        ? `${errors} 값은 이 화면에서 쓸 수 없습니다. 주소를 고치거나 조건을 초기화하세요.`
-        : `${errors} is not a value this page can use. Fix the address or reset the conditions.`} />
+      body={pageRefusals.map((sentence, index) => <p key={index}>{sentence} {ko ? '주소를 고치거나 조건을 초기화하세요.' : 'Fix the address or reset the conditions.'}</p>)} />
       : <DrillLayout siblings={drillSiblings} notFound={notFound}>{drill.depth === 0 ? <div className="space-y-4">
       {/* Primary KPI / Summary */}
       <section aria-labelledby="kpi-heading">
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="kpi-heading" className="t-section-title">{ko ? '네 지표 요약' : 'Four-metric summary'}</h2>
           <div>
-            <p className="t-caption text-text-muted">{ko ? '카드 클릭은 URL 키 kpi, 구성 축은 axis, 표 정렬은 sort에 기록됩니다. 증감은 직전 동일 길이 기간과 비교합니다.' : 'Card clicks write kpi to the URL, the axis writes axis, and table sorting writes sort. Deltas compare the previous equal-length period.'}</p>
+            <p className="t-caption text-text-muted">{ko ? '카드를 선택하면 그 지표의 추이를 볼 수 있습니다. 증감은 바로 앞의 같은 길이 기간과 비교합니다.' : 'Select a card to see that metric’s trend. Deltas compare the previous equal-length period.'}</p>
             <p className="t-caption text-text-muted">{CYCLE_VERSION_NOTE[ko ? 'ko' : 'en']}</p>
           </div>
         </div>
@@ -320,7 +321,7 @@ export default function ProductivityOverview(_: PageProps) {
                   xType="category" stacked unit="h" height={240} canApplyRange={false}
                   valueFormat={v => n1(v)}
                   extraActions={<SegmentedRadio
-                    label={ko ? 'URL 키 axis' : 'URL key axis'}
+                    label={ko ? '그룹 기준' : 'Group by'}
                     value={axis}
                     onChange={a => setPage({ axis: a === 'room' ? null : a })}
                     options={[{ value: 'room', label: 'room_name' }, { value: 'stgroup', label: 'StGroup' }]}

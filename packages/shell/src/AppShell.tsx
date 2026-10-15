@@ -52,14 +52,17 @@ function ShellLayout({ children }: { children: ReactNode }) {
 
 function Toasts() {
   const { toasts, dismissToast } = usePlatform();
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   return <div aria-live="polite" className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-[min(420px,90vw)] flex-col gap-2">
     {toasts.map(tst => {
       const Icon = tst.tone === 'danger' ? XCircle : tst.tone === 'warning' ? AlertTriangle : Info;
       return <div key={tst.id} role={tst.tone === 'danger' ? 'alert' : 'status'} className={cn('pointer-events-auto flex items-start gap-2 rounded-md border bg-surface-card px-3 py-2.5 text-xs shadow-lg',
         tst.tone === 'danger' ? 'border-accent-danger' : tst.tone === 'warning' ? 'border-accent-warn' : 'border-border-strong')}>
         <Icon className={cn('mt-0.5 size-4 shrink-0', tst.tone === 'danger' ? 'text-accent-danger' : tst.tone === 'warning' ? 'text-accent-warn' : 'text-accent-primary')} aria-hidden />
-        <span className="flex-1">{tst.text}</span>
+        <span className="flex-1">{tst.text}
+          {/* Same named detail as StateMessage's server detail (#304 F2): the original stays visible, outside the body. */}
+          {tst.detail && <span role="note" aria-label={t('serverDetail')} className="mt-0.5 block max-w-full break-all text-tiny">{tst.detail}</span>}
+        </span>
         <button type="button" aria-label={lang === 'ko' ? '닫기' : 'Dismiss'} onClick={() => dismissToast(tst.id)} className="text-text-muted hover:text-text-primary"><X className="size-3.5" aria-hidden /></button>
       </div>;
     })}

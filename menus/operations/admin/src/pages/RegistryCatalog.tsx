@@ -21,9 +21,17 @@ export default function RegistryCatalog() {
   const { registry, pageParam, setPage } = usePlatform();
   // §6.1 page keys (sort/page/focus): invalid wire values alert instead of substituting — same as EquipmentMaster.
   const focus = pageParam('focus');
-  const parsedSort = parseTableSort(pageParam('sort'), SORT_FIELDS);
-  const parsedPage = parsePageIndex(pageParam('page'));
+  // #304 FIX1 (06 §19): the warning keeps each field's user name and the raw value as entered (quoted,
+  // untruncated), one sentence per field — never `key=value`.
+  const sortRaw = pageParam('sort');
+  const pageRaw = pageParam('page');
+  const parsedSort = parseTableSort(sortRaw, SORT_FIELDS);
+  const parsedPage = parsePageIndex(pageRaw);
   const tableInvalid = !parsedSort.ok || !parsedPage.ok;
+  const invalidTableSentences = [
+    !parsedSort.ok ? (ko ? `정렬 “${sortRaw}”은 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.` : `Sort “${sortRaw}” is not a value this page can use. Reset the conditions.`) : null,
+    !parsedPage.ok ? (ko ? `페이지 “${pageRaw}”는 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.` : `Page “${pageRaw}” is not a value this page can use. Reset the conditions.`) : null,
+  ].filter((sentence): sentence is string => sentence !== null);
   // Every registered menu stays: planned, navHidden and other-permission rows included (design §1).
   const rows = useMemo(() => registry.menus.map(menu => toRegistryRow(menu, registry)), [registry]);
   // Full 8-key context, one badge per value — the PlannedPage capability list, copied inline (do not extract).
@@ -69,7 +77,7 @@ export default function RegistryCatalog() {
         body={ko ? `${focus} 메뉴는 등록되어 있지 않습니다. 목록에서 다시 고르세요.` : `${focus} is not a registered menu. Pick another from the list.`}
         action={<Button size="sm" variant="secondary" onClick={() => setPage({ focus: null })}>{ko ? '닫기' : 'Close'}</Button>} />) : null;
   return <PlatformPage description={ko ? '등록된 메뉴 선언의 조회 전용 화면입니다.' : 'Read-only view of the registered menu declarations.'}>
-    {tableInvalid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '정렬·페이지 값이 올바르지 않습니다' : 'The sort or page value cannot be used'} body={ko ? '이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.' : 'This page cannot use that value. Reset the conditions.'} action={<Button size="sm" variant="secondary" onClick={() => setPage({ sort: null, page: null })}>{ko ? '초기화' : 'Reset'}</Button>} />
+    {tableInvalid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '정렬·페이지 값이 올바르지 않습니다' : 'The sort or page value cannot be used'} body={invalidTableSentences.map((sentence, index) => <p key={index}>{sentence}</p>)} action={<Button size="sm" variant="secondary" onClick={() => setPage({ sort: null, page: null })}>{ko ? '초기화' : 'Reset'}</Button>} />
       : <PlatformDataTable<RegistryRow>
           title={ko ? '메뉴 레지스트리' : 'Menu registry'}
           ariaLabel={ko ? '메뉴 레지스트리 목록' : 'Menu registry list'}

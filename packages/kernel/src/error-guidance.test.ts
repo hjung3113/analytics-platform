@@ -34,4 +34,13 @@ describe('contract error copy (#304)', () => {
     expect(action?.ko).toContain('설비를 좁히거나 기간을 줄이세요');
     expect(action?.en.toLowerCase()).toContain('narrow');
   });
+
+  it('names the recipient of the Correlation ID for the general error action, ko and en (UX-304-02)', () => {
+    const action = userFacingEntries().find(entry => entry.key === 'stateErrorAction');
+    expect(action?.ko).toContain('다시 시도하세요');
+    expect(action?.ko).toContain('시스템 담당자에게');
+    expect(action?.ko).toContain('Correlation ID');
+    expect(action?.en).toContain('system administrator');
+    expect(action?.en).toContain('Correlation ID');
+  });
 });

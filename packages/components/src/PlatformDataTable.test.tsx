@@ -692,9 +692,13 @@ const downloads: Download[] = [];
 const originalCreateObjectURL = URL.createObjectURL;
 const originalRevokeObjectURL = URL.revokeObjectURL;
 
+/** Stands in for the shell's Toasts: body text plus the named detail note (F2, like StateMessage's 서버 세부). */
 function ToastProbe() {
   const { toasts } = usePlatform();
-  return <div data-testid="toast-probe">{toasts.map(toast => <p key={toast.id}>{toast.text}</p>)}</div>;
+  const { t } = useI18n();
+  return <div data-testid="toast-probe">{toasts.map(toast => <p key={toast.id}>{toast.text}
+    {toast.detail && <span role="note" aria-label={t('serverDetail')}>{toast.detail}</span>}
+  </p>)}</div>;
 }
 
 function ExportHarness(props: {
@@ -1226,22 +1230,59 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     expect(Object.values(rows).filter(value => /[가-힣]/.test(String(value)))).toEqual([]);
   });
 
-  it('an error refusal keeps the next action and adds the server message as detail (N-P3-3, R-P3-1)', async () => {
+  it('an error refusal keeps the next action and puts the server message in the named detail (N-P3-3, R-P3-1, #304 F2)', async () => {
     const withMessage: ApiResponse<Row[]> = { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'corr-7', message: '시간 도메인이 다른 실행을 함께 내보낼 수 없습니다' };
     render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={vi.fn(async () => withMessage)} />);
     await screen.findByText(/1\/1/);
     await exportVia(FILTERED_CSV);
-    await waitFor(() => expect(screen.getByTestId('toast-probe').textContent).toContain('— 시간 도메인이 다른 실행을 함께 내보낼 수 없습니다 (correlationId: corr-7)'));
-    expect(screen.getByTestId('toast-probe').textContent).toContain('관리자에게 문의하세요');
+    // The body names cause and action only; the server original stays as the named detail, never deleted (#304 F2).
+    await waitFor(() => expect(screen.getByTestId('toast-probe').textContent).toContain('관리자에게 문의하세요'));
+    const note = within(screen.getByTestId('toast-probe')).getByRole('note', { name: '서버 세부' });
+    // The body is the text node beside the note (textContent would include the note itself).
+    const body = note.previousSibling?.textContent ?? '';
+    expect(body).toContain('관리자에게 문의하세요');
+    expect(body).not.toContain('시간 도메인이 다른 실행을 함께 내보낼 수 없습니다');
+    expect(note.textContent).toContain('시간 도메인이 다른 실행을 함께 내보낼 수 없습니다');
+    expect(note.textContent).toContain('correlationId: corr-7');
   });
 
-  it('an error refusal appends the response correlationId and names the next action', async () => {
+  it('an error refusal appends the response correlationId as named detail and names the next action', async () => {
     const withCorrelation: ApiResponse<Row[]> = { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'corr-9x' };
     render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={vi.fn(async () => withCorrelation)} />);
     await screen.findByText(/1\/1/);
     await exportVia(FILTERED_CSV);
     await waitFor(() => expect(screen.getByTestId('toast-probe').textContent).toContain('관리자에게 문의하세요'));
-    expect(screen.getByTestId('toast-probe').textContent).toContain('(correlationId: corr-9x)');
+    expect(within(screen.getByTestId('toast-probe')).getByRole('note', { name: '서버 세부' }).textContent).toContain('correlationId: corr-9x');
+  });
+
+  it('a copy of refused rows keeps the server message out of the body and in the named detail (#304 F2)', async () => {
+    // The async-clipboard gesture needs a secure context, ClipboardItem and clipboard.write; the write rejects
+    // after the row read refused, so the refusal (not the clipboard error) must surface.
+    const secure = Object.getOwnPropertyDescriptor(window, 'isSecureContext');
+    const clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    const ClipboardItemDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'ClipboardItem');
+    class FakeClipboardItem { constructor(readonly entries: Record<string, Promise<Blob>>) {} }
+    Object.defineProperty(window, 'isSecureContext', { configurable: true, value: true });
+    Object.defineProperty(globalThis, 'ClipboardItem', { configurable: true, value: FakeClipboardItem });
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { write: vi.fn(() => Promise.reject(new DOMException('denied', 'NotAllowedError'))) } });
+    try {
+      const withMessage: ApiResponse<Row[]> = { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'corr-11', message: '시간 도메인이 다른 실행을 함께 내보낼 수 없습니다' };
+      render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={vi.fn(async () => withMessage)} />);
+      await screen.findByText(/1\/1/);
+      fireEvent.click(screen.getByRole('checkbox', { name: '선택 r1' }));
+      fireEvent.click(screen.getByRole('button', { name: '1행 복사' }));
+      await waitFor(() => expect(screen.getByTestId('toast-probe').textContent).toContain('관리자에게 문의하세요'));
+      const note = within(screen.getByTestId('toast-probe')).getByRole('note', { name: '서버 세부' });
+      const body = note.previousSibling?.textContent ?? '';
+      expect(body).toContain('관리자에게 문의하세요');
+      expect(body).not.toContain('시간 도메인이 다른 실행을 함께 내보낼 수 없습니다');
+      expect(note.textContent).toContain('시간 도메인이 다른 실행을 함께 내보낼 수 없습니다');
+      expect(note.textContent).toContain('correlationId: corr-11');
+    } finally {
+      if (clipboard) Object.defineProperty(navigator, 'clipboard', clipboard); else Reflect.deleteProperty(navigator, 'clipboard');
+      if (ClipboardItemDescriptor) Object.defineProperty(globalThis, 'ClipboardItem', ClipboardItemDescriptor); else Reflect.deleteProperty(globalThis, 'ClipboardItem');
+      if (secure) Object.defineProperty(window, 'isSecureContext', secure); else Reflect.deleteProperty(window, 'isSecureContext');
+    }
   });
 
   it('English refusal texts also name the next action (forbidden does not claim a cause)', async () => {

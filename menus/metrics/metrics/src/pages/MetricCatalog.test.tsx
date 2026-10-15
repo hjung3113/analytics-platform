@@ -85,3 +85,29 @@ describe('metric catalog count under a failed list query (UXA-4)', () => {
     expect(subtitle.textContent).not.toContain('…');
   });
 });
+
+// #304 FIX1: the warning keeps the field's user name and the raw value as entered (quoted, untruncated),
+// one sentence per invalid field — never `key=value`.
+describe('invalid URL value warnings keep field name and raw value (#304 FIX1)', () => {
+  it('domain=bogus names the 도메인 field and the entered value, without key=value', async () => {
+    window.history.replaceState(null, '', '/metrics?v=1&scopeId=ICH&domain=bogus');
+    render(<I18nProvider><PlatformProvider adapter={fixture()} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('도메인');
+    expect(alert.textContent).toContain('bogus');
+    expect(alert.textContent).not.toContain('domain=');
+    expect(alert.textContent).toContain('초기화');
+  });
+
+  it('invalid sort and page values each name their own field and raw value', async () => {
+    window.history.replaceState(null, '', '/metrics?v=1&scopeId=ICH&sort=bogus&page=zzz');
+    render(<I18nProvider><PlatformProvider adapter={fixture()} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('정렬');
+    expect(alert.textContent).toContain('bogus');
+    expect(alert.textContent).toContain('페이지');
+    expect(alert.textContent).toContain('zzz');
+    expect(alert.textContent).not.toContain('sort=');
+    expect(alert.textContent).not.toContain('page=');
+  });
+});
