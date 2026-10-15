@@ -13,7 +13,7 @@
 
 ## 규칙
 
-- 메뉴 화면 작성법은 [README "페이지 작성 가이드"](README.md#페이지-작성-가이드-consumer-규칙)가 원본이다. 요약: 최상위 `PlatformPage`, 조회는 `usePlatformQuery` + `QueryView`, 이동은 `linkTo()`, page 상태는 등록된 `pageKeys`만.
+- 메뉴 화면 작성법은 [README "페이지 작성 가이드"](README.md#페이지-작성-가이드-consumer-규칙)가 원본이다. 요약: 최상위 `PlatformPage`, 메뉴 데이터 조회는 `useMenuQuery(endpoint, params)` + `QueryView`(운영 콘솔의 Kernel 저장소 조회만 `usePlatformQuery` 예외, ADR-0019), 이동은 `linkTo()`, page 상태는 등록된 `pageKeys`만.
 - 페이지는 `packages/*`를 수정하지 않는다. 공통 부품이 부족하면 필요 사항을 보고하고 플랫폼 작업으로 올린다.
 - 메뉴를 추가하면 해당 그룹 패키지(`menus/<group>/src/index.ts`)의 `manifests`에 선언하고 06 §5(Menu Extension Contract)·§29(Platform Done)를 확인한다. 메뉴 화면 3개 이상 연속 제작은 사용자에게 범위를 먼저 확인한다.
 - `@ap/mock-server`는 화면이 직접 import하지 않는다 — 규칙은 [menus/AGENTS.md](../../menus/AGENTS.md). 운영 빌드 제외는 `check:prod-graph`.
