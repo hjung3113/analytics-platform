@@ -4,7 +4,7 @@ Platform Component 층(06 §13) + 차트 계약(§16) + 페이지 archetype 골�
 
 ## 파일
 
-- `PlatformPage.tsx` — 페이지 최상위. 제목·액션·`contextExtension`·`dataTrustSummary`·breadcrumb 슬롯, Scope 게이트, 전역 Context Bar는 `slots.contextBar`로 받아 렌더(셸을 import하지 않음). 본문 영역은 `data-platform-page-content` 속성으로 식별한다(헤더·전역 Context·페이지 extension 제외, Scope 게이트도 이 영역에 렌더). 계약 검사는 스타일 클래스 대신 이 안정된 hook을 사용한다. Kernel `pageNavigation`의 포커스 요청을 소비해 `drill`이면 현재 단계, 그 밖이면 제목(h1)에 포커스하고, 프로그램이 준 제목 포커스로는 제목 툴팁을 열지 않는다(06 §26). Scope 게이트의 동작 버튼이 상태 변경으로 사라지면 포커스를 main 랜드마크(셸 밖에서는 본문 요소)로 옮긴다(06 §26, #353).
+- `PlatformPage.tsx` — 페이지 최상위. 제목·액션·`contextExtension`·`dataTrustSummary`·breadcrumb 슬롯, Scope 게이트, 전역 Context Bar는 `slots.contextBar`로 받아 렌더(셸을 import하지 않음). 본문 영역은 `data-platform-page-content` 속성으로 식별한다(헤더·전역 Context·페이지 extension 제외, Scope 게이트도 이 영역에 렌더). 계약 검사는 스타일 클래스 대신 이 안정된 hook을 사용한다. Kernel `pageNavigation`의 포커스 요청을 소비해 `drill`이면 현재 단계, 그 밖이면 제목(h1)에 포커스하고, 프로그램이 준 제목 포커스로는 제목 툴팁을 열지 않는다(06 §26). 도착으로 열린 `focus=` 상세 패널은 그 제목 포커스를 가져가지 않는다(ADR-0032). Scope 게이트의 동작 버튼이 상태 변경으로 사라지면 포커스를 main 랜드마크(셸 밖에서는 본문 요소)로 옮긴다(06 §26, #353).
 - `AnalysisLayout.tsx` — 분석 화면의 KPI 띠·차트 2열·전체 폭 분해 표, 단위별 접기와 접힌 항목 칩 복원·메뉴별 기억·포커스 이동을 소유한다(06 §12.6, ADR-0022).
 - `DrillLayout.tsx` — `DrillPath`·`DrillLayout`·`ReturnLink`(06 §12.7·§13·§22, ADR-0025). 경로 바는 `useDrill()`을 읽고, 형식 오류와 결과에 없는 값은 본문 자리에 상태를 그린다. 복귀 버튼은 `returnOrigin()`의 메뉴 이름과 단계 값을 쓴다.
 - `ManagementLayout.tsx` — 관리 화면의 filter/table/drawer 슬롯. 자기 폭에 따른 접을 수 있는 sticky 필터 레일과 좁은 폭 팝오버, 공통 접힘 기억·포커스 이동을 소유한다(06 §12.6, ADR-0022).
@@ -23,7 +23,7 @@ Platform Component 층(06 §13) + 차트 계약(§16) + 페이지 archetype 골�
 - 06 §19 상태, §18 Data Trust, 접근성(키보드·포커스 복귀·레이블) 의무를 컴포넌트가 소유한다. 페이지가 따로 구현하게 두지 않는다.
 - 차트 클릭으로 전역 Context를 조용히 바꾸지 않는다. 명시적 콜백(`onPointClick`, "분석 구간 적용")만 제공한다.
 - 새 컴포넌트는 실제 메뉴 2~3곳 반복이 확인된 뒤 올린다(06 §24). 스타일은 `@ap/ui` 토큰 유틸리티만.
-- `DetailDrawer`는 셸 상세 슬롯에 portal로 내용을 넘긴다(ADR-0013, 06 §13). AppShell 또는 같은 `DetailPanelSlotProvider` 아래에서만 쓴다. 탭 전환으로 포커스된 컨트롤이 사라지면 선택된 탭 트리거(없으면 패널)로 옮긴다(06 §26, #353).
+- `DetailDrawer`는 셸 상세 슬롯에 portal로 내용을 넘긴다(ADR-0013, 06 §13). AppShell 또는 같은 `DetailPanelSlotProvider` 아래에서만 쓴다. URL 도착으로 `focus=`와 함께 열린 패널은 포커스를 가져가지 않고, 같은 화면에서 연 패널만 닫기 버튼으로 포커스한다(ADR-0032). 포커스를 가져가지 않은 패널은 언마운트 때 포커스가 패널 안에 있을 때만 복귀한다. 탭 전환으로 포커스된 컨트롤이 사라지면 선택된 탭 트리거(없으면 패널)로 옮긴다(06 §26, #353).
 
 ## 검증
 

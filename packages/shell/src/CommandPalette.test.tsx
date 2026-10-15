@@ -516,6 +516,11 @@ describe('menu navigation page focus (06 §26)', () => {
       fixture.allow();
       await waitForClose();
       await waitFor(() => expect(input).toHaveFocus());
+    } else if (action === 'history') {
+      // Back across menus is itself a menu arrival (06 §26, #356 FIX1): the stale palette request is
+      // cancelled — its destination never mounts — and the destination title takes focus.
+      expect(screen.queryByRole('heading', { name: '설비' })).toBeNull();
+      await waitFor(() => expect(screen.getByRole('heading', { name: '홈' })).toHaveFocus());
     } else expect(screen.getByRole('heading', { name: '홈' })).not.toHaveFocus();
   });
 
