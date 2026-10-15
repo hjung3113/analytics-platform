@@ -32,13 +32,13 @@ const LIST_CLASS: Record<ProtoVariant, string> = {
 const TRIGGER_CLASS: Record<ProtoVariant, string> = {
   A: '',
   // B: underline bar + weight. Offset-0 focus ring so the ring does not hide the marker bar.
-  B: 'group relative shrink-0 rounded-none text-text-secondary hover:text-text-primary focus-visible:ring-offset-0 data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:shadow-none',
+  B: 'group relative shrink-0 rounded-none text-text-secondary hover:text-text-primary focus-visible:ring-inset focus-visible:ring-offset-0 data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:shadow-none',
   // C: FeedbackOps pill kept; only a 1px border and weight mark the selection (transparent border
   // on unselected keeps the size constant).
   C: 'border border-transparent data-[state=active]:border-border-control data-[state=active]:font-semibold data-[state=active]:forced-colors:border-[CanvasText]',
   // D: contained — active tab gets side+top borders, card surface, and a top accent bar, covering
   // the list baseline (-mb-px, no bottom border) to read as one face with the panel body.
-  D: 'group relative shrink-0 rounded-b-none rounded-t-md border-x border-t border-transparent text-text-secondary hover:text-text-primary focus-visible:ring-offset-0 data-[state=active]:border-x-border-subtle data-[state=active]:border-t-border-subtle data-[state=active]:font-semibold data-[state=active]:forced-colors:border-x-[CanvasText] data-[state=active]:forced-colors:border-t-[CanvasText]',
+  D: 'group relative shrink-0 rounded-b-none rounded-t-md border-x border-t border-transparent text-text-secondary hover:text-text-primary focus-visible:ring-inset focus-visible:ring-offset-0 data-[state=active]:border-x-border-subtle data-[state=active]:border-t-border-subtle data-[state=active]:font-semibold data-[state=active]:forced-colors:border-x-[CanvasText] data-[state=active]:forced-colors:border-t-[CanvasText]',
 };
 
 function DetailContent({ title, subtitle, headerActions, context, tabs, onClose, tab, onTabChange }: Parameters<typeof DetailDrawer>[0]) {
