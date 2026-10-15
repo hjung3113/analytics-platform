@@ -14,7 +14,7 @@
 | 바뀌는 것 | 그대로인 것 |
 | --- | --- |
 | 운영 조립 모듈(`createAssembly` → 실어댑터, `AP_PLATFORM_ASSEMBLY`, #154) | Kernel(`@ap/kernel`)·셸·공통 컴포넌트·`@ap/contracts` 타입 |
-| 운영 빌드에서 mock 핸들러·dev 도구 제외(#153 완료 — CI `check:prod-graph`) | 메뉴 화면(`menus/*/src/pages`)과 엔드포인트 선언(`menus/*/src/endpoints.ts`) |
+| 운영 빌드에서 mock 핸들러·dev 도구 제외(#153 완료 — CI `check:prod-graph`) | 메뉴 화면(`menus/*/*/src/pages`)과 엔드포인트 선언(`menus/*/*/src/endpoints.ts`) |
 | 서버: 메뉴 `src/mock/` 계산 → 사내 FastAPI 핸들러(파서 Postgres·mart SQL, #155) | 판정 규칙(체크리스트 §3 순서), 06 §19 응답 envelope, URL·딥링크 계약 |
 | 인증: Mock 역할 전환 → 사내 SSO 세션(#150) | 개발·E2E는 계속 mock으로 돈다(`pnpm dev`·`pnpm e2e`) |
 
@@ -96,9 +96,9 @@
 
 1. **시작 전:** [06](../06_platform_ui_contract.md) §5 Menu Extension Contract와 §29 Platform-first Definition of Done을 읽고, Page Archetype(§12)·쓸 공통 컴포넌트·연결할 메뉴(§22)를 먼저 적는다. 화면 설계는 [설계 스킬](../../.agents/skills/analysis-platform-wireframe/SKILL.md) 절차(Requirements → IA → Screen Spec → Wireframe → Open Decisions).
 2. **그룹·패키지:** 기존 그룹에 manifest를 추가한다. 새 그룹은 사람이 `GroupId`·`GROUPS` 행을 먼저 추가한 뒤 `pnpm gen:menu`로 만든다. 패키지 규칙은 [menus/AGENTS.md](../../menus/AGENTS.md).
-3. **조회 선언:** `menus/<g>/src/endpoints.ts`에 `defineEndpoint`로 권한(데이터 접근 권한 — 메뉴 권한과 다를 수 있음)·적용 Context·params 키·assessment kind·한도를 선언한다. 서버 판정 규칙은 [체크리스트 §3](real-server-checklist.md), 결정은 [ADR-0019](../adr/0019-menu-query-endpoint-declaration.md).
+3. **조회 선언:** `menus/<space>/<g>/src/endpoints.ts`에 `defineEndpoint`로 권한(데이터 접근 권한 — 메뉴 권한과 다를 수 있음)·적용 Context·params 키·assessment kind·한도를 선언한다. 서버 판정 규칙은 [체크리스트 §3](real-server-checklist.md), 결정은 [ADR-0019](../adr/0019-menu-query-endpoint-declaration.md).
 4. **화면:** [페이지 작성 가이드](../../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙).
-5. **서버 쪽:** 개발 중에는 `menus/<g>/src/mock/`에 핸들러를 둔다(생성기가 앱 mock 조립에 등록하고 운영 빌드에는 실리지 않는다). 실서버에는 같은 엔드포인트 id로 FastAPI 핸들러를 만든다(선언 사본 공유 방식은 #148).
+5. **서버 쪽:** 개발 중에는 `menus/<space>/<g>/src/mock/`에 핸들러를 둔다(생성기가 앱 mock 조립에 등록하고 운영 빌드에는 실리지 않는다). 실서버에는 같은 엔드포인트 id로 FastAPI 핸들러를 만든다(선언 사본 공유 방식은 #148).
 6. **적합성 묶음 등록:** [`apps/platform-web/src/server-conformance.test.ts`](../../apps/platform-web/src/server-conformance.test.ts)는 mock 조립의 `MOCK_ENDPOINTS`(생성기가 등록)를 그대로 쓰므로 mock은 따로 넣지 않는다. 엔드포인트가 params를 선언하면 `PARAMS` 표에 표본 params를 넣는다(빠지면 테스트가 실패한다). 표본 params는 하네스의 권한 있는 역할(`engineer` — `console:access` 없음), site `ICH`, 하네스 기간으로 `ok` 또는 `empty`가 나와야 한다. 엔드포인트가 `console:access`를 요구하면 그 하네스로는 성공 요청을 만들 수 없으니 먼저 묻는다.
 7. **검증:** `pnpm lint && pnpm typecheck && pnpm test && pnpm build`, 화면이 바뀌면 `pnpm dev`(역할 전환·응답 시나리오로 empty/forbidden/too_large/timeout/error 확인), Kernel·셸·공통 컴포넌트·mock 서버를 건드렸으면 `pnpm e2e`.
 

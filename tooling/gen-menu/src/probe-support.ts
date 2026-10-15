@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { GROUPS_END, MOCK_ASSEMBLY_TSX, MENUS_TS, GenMenuError, checkInsideRoot, splitLines } from './generate.ts';
 
 export const PROBE_FOLDER = 'gen-probe';
+export const PROBE_SPACE = 'analytics';
+export const PROBE_PACKAGE_REL = `menus/${PROBE_SPACE}/${PROBE_FOLDER}`;
 export const PROBE_TEST_REL = 'apps/platform-web/src/gen-probe.test.ts';
 export const PROBE_GROUP_ID_MEMBER = " | 'genProbe';";
 export const PROBE_GROUPS_ROW = `  { id: 'genProbe', label: { ko: '생성 확인', en: 'Gen probe' }, icon: LayoutDashboard, space: 'analytics' },`;
@@ -33,7 +35,7 @@ export function preflightReservedPaths(root: string): void {
   const realRoot = realpathSync(root);
   const writeTargets = ['packages/contracts/src/menu.ts', MENUS_TS, MOCK_ASSEMBLY_TSX, PROBE_TEST_REL];
   for (const rel of writeTargets) checkInsideRoot(realRoot, join(root, rel), rel);
-  for (const rel of [PROBE_TEST_REL, `menus/${PROBE_FOLDER}`]) {
+  for (const rel of [PROBE_TEST_REL, PROBE_PACKAGE_REL]) {
     try {
       lstatSync(join(root, rel));
     } catch {

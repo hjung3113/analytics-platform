@@ -16,11 +16,11 @@ FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를
 | `DESIGN.md`, `CONTEXT.md` | 플랫폼 디자인 방향, 도메인 용어 |
 | `.planning/` | 남은 일·결정 대기(원본은 GitHub 이슈) |
 | `.agents/` | 플랫폼 에이전트 스킬·참고자료·보고서 |
-| `package.json`, `pnpm-workspace.yaml`, `turbo.json` | 플랫폼 pnpm workspace 루트(`apps/*`, `packages/*`, `menus/*`, `tooling/*`)와 FeedbackOps `packages/ui`, `packages/shared` |
+| `package.json`, `pnpm-workspace.yaml`, `turbo.json` | 플랫폼 pnpm workspace 루트(`apps/*`, `packages/*`, `menus/*/*`, `tooling/*`)와 FeedbackOps `packages/ui`, `packages/shared` |
 | `apps/platform-web/` | 플랫폼 앱(조립 지점, dev 도구) |
 | `apps/platform-e2e/` | 플랫폼 계약 E2E(Playwright 블랙박스) |
 | `packages/` | 플랫폼 패키지 `contracts`·`ui`·`kernel`·`components`·`shell`·`mock-server`·`server-conformance`(`@ap/*`). 경계는 [패키지 경계](platform-packages.md) |
-| `menus/` | 메뉴 Consumer 패키지(`@ap/menu-<group>`) |
+| `menus/` | 공간별 `menus/<space>/<group>/` 메뉴 Consumer 패키지(`@ap/menu-<group>`, 전역은 `_global`) |
 | `tooling/` | 공유 도구: tsconfig, eslint 경계 규칙, `gen-menu`, `css-selectors` |
 | `prototypes/` | 통합 전 Kernel 단위 프로토타입(개별 npm 프로젝트, workspace 밖). 보존 |
 | `products/feedbackops/` | FeedbackOps 원본 Git 저장소의 고정 커밋 |

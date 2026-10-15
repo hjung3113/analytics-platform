@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { FIXTURE_FOLDER, FIXTURE_GROUP, GEN_ARGS, appSnapshot, makeFixture, menusTree, removeFixture, runCli } from './fixture.ts';
@@ -12,6 +12,57 @@ describe('remove', () => {
     expect(runCli([FIXTURE_GROUP, ...GEN_ARGS], root).status).toBe(0);
   };
 
+  it.each([null, 'analytics'])('generates and removes in space %s while preserving siblings and files', space => {
+    const root = fresh();
+    const menusPath = join(root, 'apps/platform-web/src/menus.ts');
+    const text = readFileSync(menusPath, 'utf8');
+    writeFileSync(menusPath, text.replace("icon: LayoutDashboard, space: 'analytics'", `icon: LayoutDashboard, space: ${space === null ? 'null' : "'analytics'"}`));
+    const spaceFolder = space ?? '_global';
+    const parent = join(root, 'menus', spaceFolder);
+    mkdirSync(parent, { recursive: true });
+    writeFileSync(join(parent, 'OWNER'), 'keep');
+    const before = appSnapshot(root);
+    generate(root);
+    const pkg = join(parent, FIXTURE_FOLDER);
+    expect(existsSync(join(pkg, 'src/index.ts'))).toBe(true);
+    expect(JSON.parse(readFileSync(join(pkg, '.gen-menu.json'), 'utf8')).space).toBe(space);
+    expect(runCli(['--remove', FIXTURE_GROUP], root).status).toBe(0);
+    expect(existsSync(pkg)).toBe(false);
+    expect(readFileSync(join(parent, 'OWNER'), 'utf8')).toBe('keep');
+    expect(readFileSync(join(root, 'menus/analytics/metric-catalog/src/index.ts'), 'utf8')).toContain("group: 'metrics'");
+    expect(appSnapshot(root)).toEqual(before);
+  });
+
+  it('removes an empty global space directory', () => {
+    const root = fresh();
+    const path = join(root, 'apps/platform-web/src/menus.ts');
+    writeFileSync(path, readFileSync(path, 'utf8').replace("icon: LayoutDashboard, space: 'analytics'", 'icon: LayoutDashboard, space: null'));
+    generate(root);
+    expect(runCli(['--remove', FIXTURE_GROUP], root).status).toBe(0);
+    expect(existsSync(join(root, 'menus/_global'))).toBe(false);
+  });
+
+  it.each(['duplicate', 'space', 'folder'])('refuses %s metadata ownership without writes', mode => {
+    const root = fresh();
+    generate(root);
+    const pkg = join(root, 'menus/analytics', FIXTURE_FOLDER);
+    const metaPath = join(pkg, '.gen-menu.json');
+    if (mode === 'duplicate') {
+      cpSync(pkg, join(root, 'menus/_global', FIXTURE_FOLDER), { recursive: true });
+    } else {
+      const meta = JSON.parse(readFileSync(metaPath, 'utf8'));
+      meta[mode] = 'wrong';
+      writeFileSync(metaPath, JSON.stringify(meta));
+    }
+    const before = appSnapshot(root);
+    const tree = menusTree(root);
+    const result = runCli(['--remove', FIXTURE_GROUP], root);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/exactly one|metadata.*mismatch/);
+    expect(appSnapshot(root)).toEqual(before);
+    expect(menusTree(root)).toEqual(tree);
+  });
+
   it('restores the four app files and deletes the folder', () => {
     const root = fresh();
     const before = appSnapshot(root);
@@ -20,22 +71,22 @@ describe('remove', () => {
     expect(res.status).toBe(0);
     expect(res.stderr).toBe('');
     expect(appSnapshot(root)).toEqual(before);
-    expect(existsSync(join(root, 'menus', FIXTURE_FOLDER))).toBe(false);
-    expect(menusTree(root)).toEqual(['menus/metric-catalog/src/index.ts']);
+    expect(existsSync(join(root, 'menus', 'analytics', FIXTURE_FOLDER))).toBe(false);
+    expect(menusTree(root)).toEqual(['menus/analytics/metric-catalog/src/index.ts']);
     expect(res.stdout.endsWith('next: pnpm install\n')).toBe(true);
   });
 
   it('refuses a one-byte page edit and leaves the tree', () => {
     const root = fresh();
     generate(root);
-    const pagePath = join(root, 'menus', FIXTURE_FOLDER, 'src/pages/GenProbe.tsx');
+    const pagePath = join(root, 'menus', 'analytics', FIXTURE_FOLDER, 'src/pages/GenProbe.tsx');
     writeFileSync(pagePath, `${readFileSync(pagePath, 'utf8')} `);
     const afterEdit = appSnapshot(root);
     const res = runCli(['--remove', FIXTURE_GROUP], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/was edited/);
     expect(appSnapshot(root)).toEqual(afterEdit);
-    expect(existsSync(join(root, 'menus', FIXTURE_FOLDER))).toBe(true);
+    expect(existsSync(join(root, 'menus', 'analytics', FIXTURE_FOLDER))).toBe(true);
   });
 
   it('dry-run --remove writes nothing', () => {
@@ -63,7 +114,7 @@ describe('remove', () => {
     const root = fresh();
     const before = appSnapshot(root);
     generate(root);
-    const pkgDir = join(root, 'menus', FIXTURE_FOLDER);
+    const pkgDir = join(root, 'menus', 'analytics', FIXTURE_FOLDER);
     mkdirSync(join(pkgDir, '.turbo'), { recursive: true });
     writeFileSync(join(pkgDir, '.turbo/turbo-lint.log'), 'log\n');
     mkdirSync(join(pkgDir, 'node_modules'), { recursive: true });
@@ -72,27 +123,27 @@ describe('remove', () => {
     expect(res.status).toBe(0);
     expect(existsSync(pkgDir)).toBe(false);
     expect(appSnapshot(root)).toEqual(before);
-    expect(menusTree(root)).toEqual(['menus/metric-catalog/src/index.ts']);
+    expect(menusTree(root)).toEqual(['menus/analytics/metric-catalog/src/index.ts']);
   });
 
   it('still refuses an unexpected src file and a nested artifact dir', () => {
     const root = fresh();
     generate(root);
-    writeFileSync(join(root, 'menus', FIXTURE_FOLDER, 'src/extra.ts'), 'export {};\n');
+    writeFileSync(join(root, 'menus', 'analytics', FIXTURE_FOLDER, 'src/extra.ts'), 'export {};\n');
     const afterEdit = appSnapshot(root);
     const res = runCli(['--remove', FIXTURE_GROUP], root);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/unexpected file/);
-    expect(existsSync(join(root, 'menus', FIXTURE_FOLDER))).toBe(true);
+    expect(existsSync(join(root, 'menus', 'analytics', FIXTURE_FOLDER))).toBe(true);
     expect(appSnapshot(root)).toEqual(afterEdit);
 
     const nested = fresh();
     generate(nested);
-    mkdirSync(join(nested, 'menus', FIXTURE_FOLDER, 'src/.turbo'), { recursive: true });
-    writeFileSync(join(nested, 'menus', FIXTURE_FOLDER, 'src/.turbo/x'), 'x\n');
+    mkdirSync(join(nested, 'menus', 'analytics', FIXTURE_FOLDER, 'src/.turbo'), { recursive: true });
+    writeFileSync(join(nested, 'menus', 'analytics', FIXTURE_FOLDER, 'src/.turbo/x'), 'x\n');
     const nestedRes = runCli(['--remove', FIXTURE_GROUP], nested);
     expect(nestedRes.status).toBe(1);
     expect(nestedRes.stderr).toMatch(/unexpected file.*\.turbo/);
-    expect(existsSync(join(nested, 'menus', FIXTURE_FOLDER))).toBe(true);
+    expect(existsSync(join(nested, 'menus', 'analytics', FIXTURE_FOLDER))).toBe(true);
   });
 });

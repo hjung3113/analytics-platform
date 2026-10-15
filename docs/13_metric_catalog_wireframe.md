@@ -1,6 +1,6 @@
 # 13. 지표관리 — 카탈로그/상세 요구사항·와이어프레임
 
-상태: 화면 계약 노트 / Catalog. 구현은 `menus/metrics`(읽기 전용, 합성 데이터)이다. 공개 필드명·버전 수명주기 세부는 Candidate이며 승인을 뜻하지 않는다.
+상태: 화면 계약 노트 / Catalog. 구현은 `menus/metrics/metrics`(읽기 전용, 합성 데이터)이다. 공개 필드명·버전 수명주기 세부는 Candidate이며 승인을 뜻하지 않는다.
 
 범위 원본: [02 도메인 capability catalog](02_domain_menus.md#도메인-capability-catalog)의 지표관리. 전역 계약은 [06](06_platform_ui_contract.md), 셸은 [07](07_app_shell_wireframe.md), 스타일은 [DESIGN](../DESIGN.md)이 소유한다. 이 문서는 **지표 정의와 버전의 등록·발행 원본**을 설계한다. [11](11_productivity_overview_wireframe.md)과 [12](12_cycle_time_drilldown_wireframe.md)는 그 식별 쌍의 소비자이며 여기서 재설계하지 않는다.
 
@@ -32,7 +32,7 @@
 
 로딩·빈 상태·오류는 영역별 상태(§7)와 `06` §17/§19가 기준이다. 아래 §3.1–3.3이 이 화면의 Context·진입·수명주기 계약이다.
 
-### 3.1 Context Capability / 상태 소유 (매니페스트 `menus/metrics`)
+### 3.1 Context Capability / 상태 소유 (매니페스트 `menus/metrics/metrics`)
 
 [06 §6](06_platform_ui_contract.md#6-context-capability-contract)의 Metric Catalog 예시와 같은 선언이다. 목록(`metric-catalog`)과 상세(`metric-detail`) 모두 같다.
 
@@ -74,7 +74,7 @@ Candidate로 최초 등록은 서버 발급 `metricId`와 초안을 만들고, �
 
 ## 4. LAYOUT BOUNDARY
 
-배치는 구현(`menus/metrics/src/pages`)이 기준이다. 셸은 현재 [07](07_app_shell_wireframe.md)의 배치와 [06 §7](06_platform_ui_contract.md#7-application-shell)의 치수·여백, FeedbackOps 공유 토큰 및 [DESIGN](../DESIGN.md)의 플랫폼 확장·pairing을 소비한다. 카탈로그 목록은 게시 버전과 초안을 별개로 보이고 초안은 분석의 기본 버전으로 쓰이지 않는다. 표는 모든 게시 버전을 나열하지 않고 확인된 대표 게시 버전을 보이며(대표 선택 규칙 Open) 행이 최신 버전을 보장한다고 표기하지 않는다. 버전 전체는 상세 Version 영역에서 확인한다.
+배치는 구현(`menus/metrics/metrics/src/pages`)이 기준이다. 셸은 현재 [07](07_app_shell_wireframe.md)의 배치와 [06 §7](06_platform_ui_contract.md#7-application-shell)의 치수·여백, FeedbackOps 공유 토큰 및 [DESIGN](../DESIGN.md)의 플랫폼 확장·pairing을 소비한다. 카탈로그 목록은 게시 버전과 초안을 별개로 보이고 초안은 분석의 기본 버전으로 쓰이지 않는다. 표는 모든 게시 버전을 나열하지 않고 확인된 대표 게시 버전을 보이며(대표 선택 규칙 Open) 행이 최신 버전을 보장한다고 표기하지 않는다. 버전 전체는 상세 Version 영역에서 확인한다.
 
 상세는 Definition/Coverage/Usage/History를 숨은 탭으로 감추지 않고 한 Full Page에 두며 `tab`은 영역 이동일 뿐이다. 좌열의 Version/Ownership은 관리용 Drawer가 아니다. History는 지표 전체 흐름을 버전 라벨과 함께 보여주며 Usage는 **선택 쌍**만 조회한다.
 

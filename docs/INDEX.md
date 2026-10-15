@@ -1,6 +1,6 @@
 # 문서 인덱스
 
-이 레포는 `context_recognized_parser`(별도 레포)가 적재한 데이터를 소비하는 분석 플랫폼의 설계와 프론트엔드 플랫폼 코드를 담는다. 코드는 루트 pnpm workspace(`packages/*` 플랫폼 패키지, `menus/*` 견본 메뉴, `apps/platform-web` 조립 앱, 서버는 mock)이고, FeedbackOps는 `products/feedbackops/` 서브모듈로 연결돼 있다.
+이 레포는 `context_recognized_parser`(별도 레포)가 적재한 데이터를 소비하는 분석 플랫폼의 설계와 프론트엔드 플랫폼 코드를 담는다. 코드는 루트 pnpm workspace(`packages/*` 플랫폼 패키지, `menus/*/*` 견본 메뉴, `apps/platform-web` 조립 앱, 서버는 mock)이고, FeedbackOps는 `products/feedbackops/` 서브모듈로 연결돼 있다.
 
 | 알고 싶은 것 | 어디 |
 | --- | --- |
@@ -31,10 +31,10 @@
 
 | 작업 | 1. 계약 | 2. 폴더 지침 | 3. 코드 |
 | --- | --- | --- | --- |
-| 메뉴 화면 추가·수정 | [06](06_platform_ui_contract.md) §5 Menu Extension·§29 Platform Done → 해당 화면 설계(`08`·`09`·`11`–`13`) | [menus](../menus/AGENTS.md) → [페이지 작성 가이드](../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙) | `menus/<group>/src/index.ts`(선언) → `menus/<group>/src/pages/` → 필요한 부품은 [components](../packages/components/AGENTS.md) |
+| 메뉴 화면 추가·수정 | [06](06_platform_ui_contract.md) §5 Menu Extension·§29 Platform Done → 해당 화면 설계(`08`·`09`·`11`–`13`) | [menus](../menus/AGENTS.md) → [페이지 작성 가이드](../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙) | `menus/<space>/<group>/src/index.ts`(선언) → `menus/<space>/<group>/src/pages/` → 필요한 부품은 [components](../packages/components/AGENTS.md) |
 | Kernel 동작(Registry·전역 Context·URL·Scope·조회 수명주기) | 06 §4–6 | [packages](../packages/AGENTS.md) → [kernel](../packages/kernel/AGENTS.md) → 타입이 바뀌면 [contracts](../packages/contracts/AGENTS.md) | `packages/kernel/src/registry.ts`·`platform.tsx`·`query.ts` → 테스트 → 앱 `url-contract.test.ts` |
 | 서버 계약·어댑터(실서버 전환 포함) | [사내 적용 가이드](integration/in-house-rollout.md)(순서) → [실서버 연결 체크리스트](integration/real-server-checklist.md)(규칙) → [전송 형식 초안](integration/http-adapter-contract.md)(HTTP 경계), [ADR-0019](adr/0019-menu-query-endpoint-declaration.md), 06 §18–19 | [contracts](../packages/contracts/AGENTS.md) → [mock-server](../packages/mock-server/AGENTS.md) → [server-conformance](../packages/server-conformance/AGENTS.md) → [apps/platform-web](../apps/platform-web/AGENTS.md)(주입·dev 도구) | `packages/contracts/src/adapter.ts`·`menu-query.ts` → `packages/mock-server/src/adapter.ts` |
-| 공통 컴포넌트·차트·상태 화면 | 06 §13·§15·§16·§18–19·§24 | [packages](../packages/AGENTS.md) → [components](../packages/components/AGENTS.md) → primitive가 필요하면 [ui](../packages/ui/AGENTS.md) | `packages/components/src/` → 소비 화면(`menus/*/src/pages`) |
+| 공통 컴포넌트·차트·상태 화면 | 06 §13·§15·§16·§18–19·§24 | [packages](../packages/AGENTS.md) → [components](../packages/components/AGENTS.md) → primitive가 필요하면 [ui](../packages/ui/AGENTS.md) | `packages/components/src/` → 소비 화면(`menus/*/*/src/pages`) |
 | 셸(레일·사이드바·페이지 머리·Context 바·상세 슬롯·라우트 상태·공간) | [07 셸](07_app_shell_wireframe.md), 06 §7–9 | [shell](../packages/shell/AGENTS.md) → 슬롯·Registry는 [kernel](../packages/kernel/AGENTS.md) | `packages/shell/src/` → 앱 `src/main.tsx`(조립) |
 | 디자인 토큰·시각 규칙 | [DESIGN](../DESIGN.md), [ADR-0011](adr/0011-design-direction-feedbackops-shell.md) → [FeedbackOps ADR-0058](../products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md), [06 §23](06_platform_ui_contract.md#23-design-tokens) | [ui](../packages/ui/AGENTS.md) | `packages/ui/src/styles/` |
 | 플랫폼 계약 자동 검사(E2E) | 06 §6·§11·§17·§19·§22 | [apps/platform-e2e](../apps/platform-e2e/AGENTS.md) | `apps/platform-e2e/tests/contracts.spec.ts` → `support.ts` → 보고 `contract-reporter.ts` |

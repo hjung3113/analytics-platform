@@ -2,15 +2,15 @@
 
 Registry 7개 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가 `manifests`를 선언하고, 앱(`apps/platform-web/src/menus.ts`)이 이어 붙여 Kernel에 등록한다. 메뉴 화면은 플랫폼 다섯 갈래(루트 `AGENTS.md`)를 검증하는 Consumer다.
 
-| 패키지 | 그룹 | 화면 |
-| --- | --- | --- |
-| `@ap/menu-home` | `overview` | OperationsHome |
-| `@ap/menu-equipment` | `equipment` | EquipmentMaster, EquipmentDetail |
-| `@ap/menu-master-data` | `masterData` | 없음(계획 메뉴 manifest만) |
-| `@ap/menu-analytics` | `analytics` | ProductivityOverview, CycleTimeDrilldown, ExecutionDetail + Wafer Journey(계획) |
-| `@ap/menu-metrics` | `metrics` | MetricCatalog, MetricDetail |
-| `@ap/menu-notice-voc` | `noticeVoc` | MyVocHistory(내 VOC, #60 — 조회는 메뉴 엔드포인트 `noticeVoc.myVocHistory`·`mySurveyHistory`, #131) + 공지(계획) |
-| `@ap/menu-admin` | `admin` | AccessDirectory(권한/역할 조회 전용, #49), AuditTrail(변경 감사, #50), UsageOverview, RegistryCatalog |
+| 패키지 | 폴더 | 그룹 | 화면 |
+| --- | --- | --- | --- |
+| `@ap/menu-home` | `menus/_global/home` | `overview` | OperationsHome |
+| `@ap/menu-equipment` | `menus/analytics/equipment` | `equipment` | EquipmentMaster, EquipmentDetail |
+| `@ap/menu-master-data` | `menus/analytics/master-data` | `masterData` | 없음(계획 메뉴 manifest만) |
+| `@ap/menu-analytics` | `menus/analytics/analytics` | `analytics` | ProductivityOverview, CycleTimeDrilldown, ExecutionDetail + Wafer Journey(계획) |
+| `@ap/menu-metrics` | `menus/metrics/metrics` | `metrics` | MetricCatalog, MetricDetail |
+| `@ap/menu-notice-voc` | `menus/_global/notice-voc` | `noticeVoc` | MyVocHistory(내 VOC, #60 — 조회는 메뉴 엔드포인트 `noticeVoc.myVocHistory`·`mySurveyHistory`, #131) + 공지(계획) |
+| `@ap/menu-admin` | `menus/operations/admin` | `admin` | AccessDirectory(권한/역할 조회 전용, #49), AuditTrail(변경 감사, #50), UsageOverview, RegistryCatalog |
 
 ## 규칙
 
@@ -25,7 +25,7 @@ Registry 7개 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가
 
 ## 새 그룹 패키지
 
-새 그룹은 사람이 먼저 `GroupId`(`packages/contracts/src/menu.ts`)와 `GROUPS` 행(`apps/platform-web/src/menus.ts`)을 추가한 뒤 `pnpm gen:menu <group> --label-ko … --label-en …`, `pnpm install` 순으로 만든다(생성물·배선은 [tooling/AGENTS.md](../tooling/AGENTS.md)). 결과는 스켈레톤이지 Domain Done이 아니며 메뉴를 여러 개 한 번에 생성하지 않는다. `overview`는 `menus/home`이 소유한다.
+새 그룹은 사람이 먼저 `GroupId`(`packages/contracts/src/menu.ts`)와 `GROUPS` 행(`apps/platform-web/src/menus.ts`)을 추가한 뒤 `pnpm gen:menu <group> --label-ko … --label-en …`, `pnpm install` 순으로 만든다(생성물·배선은 [tooling/AGENTS.md](../tooling/AGENTS.md)). 생성기는 `GROUPS` 행의 `space`에 따라 `menus/<space>/<group>/`에 만들고, `space: null`은 `menus/_global/`에 둔다. 그룹 소속의 원본은 폴더이며 `repo-invariants`가 선언과 일치하는지 검사한다([ADR-0031](../docs/adr/0031-menu-folders-by-space.md)). `SPACES` 목록은 앱 조립 지점에서 관리한다. 결과는 스켈레톤이지 Domain Done이 아니며 메뉴를 여러 개 한 번에 생성하지 않는다. `overview`는 `menus/_global/home`이 소유한다.
 
 ## 검증
 

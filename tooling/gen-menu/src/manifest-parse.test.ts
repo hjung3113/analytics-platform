@@ -39,34 +39,34 @@ describe('manifest parsing and route shapes (F6)', () => {
     const root = fresh(DOUBLE_QUOTED_INDEX);
     const res = runCli([FIXTURE_GROUP, ...GEN_ARGS, '--menu', 'metric-catalog'], root);
     expect(res.status).toBe(1);
-    expect(res.stderr).toMatch(/already used by menus\/metric-catalog/);
+    expect(res.stderr).toMatch(/already used by menus\/analytics\/metric-catalog/);
   });
 
   it('sees path shapes in double-quoted index files', () => {
     const root = fresh(DOUBLE_QUOTED_INDEX);
     const res = runCli([FIXTURE_GROUP, ...GEN_ARGS, '--path', '/metrics/:other'], root);
     expect(res.status).toBe(1);
-    expect(res.stderr).toMatch(/collides with menus\/metric-catalog/);
+    expect(res.stderr).toMatch(/collides with menus\/analytics\/metric-catalog/);
   });
 
   it('normalizes underscore parameter names like the kernel', () => {
     const root = fresh(UNDERSCORE_INDEX);
     const res = runCli([FIXTURE_GROUP, ...GEN_ARGS, '--path', '/metrics/:other'], root);
     expect(res.status).toBe(1);
-    expect(res.stderr).toMatch(/collides with menus\/metric-catalog/);
+    expect(res.stderr).toMatch(/collides with menus\/analytics\/metric-catalog/);
   });
 
   it('normalizes trailing slashes like the kernel', () => {
     const root = fresh(TRAILING_SLASH_INDEX);
     const res = runCli([FIXTURE_GROUP, ...GEN_ARGS, '--path', '/metrics'], root);
     expect(res.status).toBe(1);
-    expect(res.stderr).toMatch(/collides with menus\/metric-catalog/);
+    expect(res.stderr).toMatch(/collides with menus\/analytics\/metric-catalog/);
   });
 
   it('refuses manifest forms it cannot parse instead of skipping them', () => {
     const root = fresh(SPREAD_INDEX);
     const res = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
     expect(res.status).toBe(1);
-    expect(res.stderr).toMatch(/unsupported manifest form in menus\/metric-catalog\/src\/index\.ts/);
+    expect(res.stderr).toMatch(/unsupported manifest form in menus\/analytics\/metric-catalog\/src\/index\.ts/);
   });
 });

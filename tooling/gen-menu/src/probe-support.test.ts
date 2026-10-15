@@ -42,10 +42,10 @@ describe('probe support helpers (F8)', () => {
 
   it('preflight counts a dangling package-dir symlink as present (R5)', () => {
     const root = mkdtempSync(join(tmpdir(), 'gen-menu-preflight-'));
-    mkdirSync(join(root, 'menus'), { recursive: true });
+    mkdirSync(join(root, 'menus', 'analytics'), { recursive: true });
     const outsideBase = mkdtempSync(join(tmpdir(), 'gen-menu-preflight-out-'));
     const target = join(outsideBase, 'menus-dir');
-    symlinkSync(target, join(root, 'menus', 'gen-probe'), 'dir');
+    symlinkSync(target, join(root, 'menus', 'analytics', 'gen-probe'), 'dir');
     expect(() => preflightReservedPaths(root)).toThrow(/gen-probe/);
     expect(existsSync(target)).toBe(false);
   });

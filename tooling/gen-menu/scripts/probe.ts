@@ -8,7 +8,7 @@ import {
 import { PACKAGE_PREFIX } from '../src/prefix.ts';
 import { mockImportLine, mockSpreadLine, type MenuInputs, type PageType } from '../src/templates.ts';
 import {
-  PROBE_FOLDER, PROBE_TEST_REL, assertCleanTree, gitPorcelain, insertGroupIdMember,
+  PROBE_FOLDER, PROBE_PACKAGE_REL, PROBE_SPACE, PROBE_TEST_REL, assertCleanTree, gitPorcelain, insertGroupIdMember,
   insertGroupsRow, preflightReservedPaths, runRevert, writeRegistryTest,
   type RevertOutcome, type RevertSteps,
 } from '../src/probe-support.ts';
@@ -25,7 +25,7 @@ const MENUS = join(ROOT, MENUS_TS);
 const MAIN = join(ROOT, MOCK_ASSEMBLY_TSX);
 const STYLE = join(ROOT, STYLE_CSS);
 const APP_PKG_PATH = join(ROOT, APP_PKG);
-const PACKAGE_DIR = join(ROOT, 'menus', PROBE_FOLDER);
+const PACKAGE_DIR = join(ROOT, PROBE_PACKAGE_REL);
 
 /** One source for the probe CLI call and every derived value the wiring checks restate (review nit-5). */
 const PROBE_ARGS = {
@@ -40,6 +40,7 @@ const PROBE_ARGS = {
 const PROBE_INPUTS: MenuInputs = {
   group: PROBE_ARGS.group,
   folder: PROBE_FOLDER,
+  space: PROBE_SPACE,
   menuId: PROBE_FOLDER,
   page: pageName(PROBE_FOLDER),
   path: PROBE_ARGS.path,
@@ -109,7 +110,7 @@ function buildRevertSteps(snapshots: { contracts: string; menus: string; main: s
       try {
         rmSync(PACKAGE_DIR, { recursive: true, force: true });
       } catch (err) {
-        failures.push(`menus/${PROBE_FOLDER}: ${message(err)}`);
+        failures.push(`${PROBE_PACKAGE_REL}: ${message(err)}`);
       }
       if (failures.length > 0) throw new GenMenuError(`fallback restore incomplete: ${failures.join('; ')}`);
     },
@@ -174,9 +175,9 @@ function main(): { fallback: boolean; failures: { step: string; message: string 
  */
 function verifyGeneratedScaffold(): void {
   for (const rel of ['src/endpoints.ts', 'src/mock/index.ts', 'src/mock/index.test.ts']) {
-    if (!existsSync(join(PACKAGE_DIR, rel))) throw new GenMenuError(`probe: menus/${PROBE_FOLDER}/${rel} was not generated`);
+    if (!existsSync(join(PACKAGE_DIR, rel))) throw new GenMenuError(`probe: ${PROBE_PACKAGE_REL}/${rel} was not generated`);
   }
-  if (existsSync(join(PACKAGE_DIR, 'src/api.ts'))) throw new GenMenuError(`probe: menus/${PROBE_FOLDER}/src/api.ts must not be generated anymore`);
+  if (existsSync(join(PACKAGE_DIR, 'src/api.ts'))) throw new GenMenuError(`probe: ${PROBE_PACKAGE_REL}/src/api.ts must not be generated anymore`);
 
   const mainText = readFileSync(MAIN, 'utf8');
   checkAppMarkers(readFileSync(MENUS, 'utf8'), readFileSync(STYLE, 'utf8'), mainText);

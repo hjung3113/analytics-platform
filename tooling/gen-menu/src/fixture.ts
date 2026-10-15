@@ -78,7 +78,7 @@ ${extraRows}
   // </gen:menu-groups>
 ];
 
-/** Below the groups marker: the wiring lock counts id: lines above it. */
+/** The folder-space invariant reads GROUPS and SPACES independently. */
 export const SPACES: SpaceDef[] = [
   { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home' },
 ];
@@ -135,7 +135,7 @@ const existingMenuIndex = `export const manifests = [
 /** Temp workspace with genProbe already in GroupId and GROUPS, markers, and one existing menu. */
 export function makeFixture(variants: { menusTs?: string; appPkg?: string; extraGroups?: string[]; existingMenuIndex?: string; mockAssemblyTsx?: string } = {}): string {
   const root = mkdtempSync(join(tmpdir(), 'gen-menu-test-'));
-  writeFileSync(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - apps/*\n  - packages/*\n  - menus/*\n  - tooling/*\n');
+  writeFileSync(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - apps/*\n  - packages/*\n  - menus/*/*\n  - tooling/*\n');
   mkdirSync(join(root, 'packages/contracts/src'), { recursive: true });
   writeFileSync(join(root, 'packages/contracts/src/menu.ts'), `${fixtureGroupIdLine(variants.extraGroups ?? [])}\n`);
   mkdirSync(join(root, 'apps/platform-web/src/dev'), { recursive: true });
@@ -143,8 +143,8 @@ export function makeFixture(variants: { menusTs?: string; appPkg?: string; extra
   writeFileSync(join(root, 'apps/platform-web/src/dev/mock-assembly.tsx'), variants.mockAssemblyTsx ?? mockAssemblyTsx);
   writeFileSync(join(root, 'apps/platform-web/src/style.css'), styleCss);
   writeFileSync(join(root, 'apps/platform-web/package.json'), variants.appPkg ?? appPkg);
-  mkdirSync(join(root, 'menus/metric-catalog/src'), { recursive: true });
-  writeFileSync(join(root, 'menus/metric-catalog/src/index.ts'), variants.existingMenuIndex ?? existingMenuIndex);
+  mkdirSync(join(root, 'menus/analytics/metric-catalog/src'), { recursive: true });
+  writeFileSync(join(root, 'menus/analytics/metric-catalog/src/index.ts'), variants.existingMenuIndex ?? existingMenuIndex);
   return root;
 }
 

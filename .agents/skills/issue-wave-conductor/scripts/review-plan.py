@@ -10,7 +10,7 @@ Rules (conductor skill step 7, ported from FeedbackOps and adapted to this repo'
   under `docs/` or `.planning/`; a test-only diff still gets a code review. Docs-only diffs get no review (root
   AGENTS.md: docs run docs:links only).
 - **ux** (`review-ux`):
-  - `required`: a non-test `.tsx` or `.css` under `packages/{ui,components,shell}/src`, `menus/*/src` or
+  - `required`: a non-test `.tsx` or `.css` under `packages/{ui,components,shell}/src`, `menus/*/*/src` or
     `apps/platform-web/src`, or the FeedbackOps gitlink (`products/feedbackops`), whose primitives `@ap/ui` re-exports.
   - `optional`: the conductor decides with a one-line reason. Non-test `.ts` in those folders, `packages/kernel/src`,
     `packages/contracts/src` and `packages/mock-server/src`: they change what a user sees without touching a component.
@@ -51,7 +51,7 @@ def is_test(path):
     return bool(re.search(r'(__tests__/|\.test\.|\.spec\.|^apps/platform-e2e/|test-support/|/fixtures/)', path))
 
 
-SCREEN_DIR = re.compile(r'^(packages/(ui|components|shell)/src|menus/[^/]+/src|apps/platform-web/src)/')
+SCREEN_DIR = re.compile(r'^(packages/(ui|components|shell)/src|menus/[^/]+/[^/]+/src|apps/platform-web/src)/')
 DATA_DIR = re.compile(r'^packages/(kernel|contracts|mock-server)/src/')
 PERF_PATH = re.compile(r'^packages/kernel/src/(query|platform|drill|registry)[\w.-]*\.tsx?$')
 USE_FILE = re.compile(r'(^|/)use[A-Z][\w-]*\.tsx?$')

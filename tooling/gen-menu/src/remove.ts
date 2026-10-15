@@ -1,5 +1,6 @@
-import { existsSync, readFileSync, realpathSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { menuFolders, spaceFolder } from './menu-layout.ts';
+import { existsSync, readFileSync, realpathSync, readdirSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { depLine, importLine, mockImportLine, mockSpreadLine, renderFiles, spreadLine, styleLine, type MenuInputs } from './templates.ts';
 import {
   APP_PKG, GROUP_RE, GenMenuError, MOCK_ASSEMBLY_TSX, MENUS_TS, STYLE_CSS,
@@ -25,34 +26,38 @@ export function planRemove(root: string, group: string): RemovePlan {
   if (!GROUP_RE.test(group)) {
     throw new GenMenuError(`invalid group id '${group}'`);
   }
-  const folder = kebab(group);
-  const packageDir = join(root, 'menus', folder);
-  if (!existsSync(packageDir)) {
-    throw new GenMenuError(`--remove: menus/${folder} does not exist`);
-  }
-  // F9: the deletion target and every edited file must resolve inside the real root.
   const realRoot = realpathSync(root);
-  checkInsideRoot(realRoot, packageDir, `--remove: menus/${folder}`);
+  checkInsideRoot(realRoot, join(root, 'menus'), '--remove: menus/');
+  const candidates: { location: string; inputs: MenuInputs }[] = [];
+  for (const location of menuFolders(root)) {
+    const dir = join(root, 'menus', location);
+    checkInsideRoot(realRoot, dir, `--remove: menus/${location}`);
+    const meta = join(dir, '.gen-menu.json');
+    if (!existsSync(meta)) continue;
+    checkInsideRoot(realRoot, meta, `--remove: menus/${location}/.gen-menu.json`);
+    let inputs: MenuInputs;
+    try {
+      inputs = JSON.parse(readFileSync(meta, 'utf8')) as MenuInputs;
+    } catch {
+      throw new GenMenuError(`--remove: menus/${location}/.gen-menu.json: not a generated package`);
+    }
+    if (inputs?.group === group) candidates.push({ location, inputs });
+  }
+  if (candidates.length !== 1) {
+    throw new GenMenuError(`--remove: expected exactly one generated package for '${group}', found ${candidates.length}${candidates.length === 0 ? ' (does not exist or not a generated package)' : ''}`);
+  }
+  const { location, inputs } = candidates[0] as { location: string; inputs: MenuInputs };
+  if ((inputs.space !== null && (typeof inputs.space !== 'string' || !/^[a-z][a-z0-9-]*$/.test(inputs.space))) ||
+      inputs.folder !== kebab(group) || location !== `${spaceFolder(inputs.space)}/${inputs.folder}`) {
+    throw new GenMenuError(`--remove: metadata path mismatch: menus/${location}/.gen-menu.json`);
+  }
+  const packageDir = join(root, 'menus', location);
   for (const rel of [MENUS_TS, MOCK_ASSEMBLY_TSX, STYLE_CSS, APP_PKG]) checkInsideRoot(realRoot, join(root, rel), `--remove: ${rel}`);
-
-  const metaPath = join(packageDir, '.gen-menu.json');
-  const failNotGenerated = (): GenMenuError =>
-    new GenMenuError(`--remove: menus/${folder}/.gen-menu.json: not a generated package`);
-  if (!existsSync(metaPath)) throw failNotGenerated();
-  let inputs: MenuInputs;
-  try {
-    inputs = JSON.parse(readFileSync(metaPath, 'utf8')) as MenuInputs;
-  } catch {
-    throw failNotGenerated();
-  }
-  if (inputs.group !== group) {
-    throw new GenMenuError(`--remove: menus/${folder}/.gen-menu.json: not a generated package (group '${inputs.group}')`);
-  }
 
   for (const f of renderFiles(inputs)) {
     const path = join(packageDir, f.relPath);
     if (!existsSync(path) || readFileSync(path, 'utf8') !== f.content) {
-      throw new GenMenuError(`--remove: menus/${folder}/${f.relPath} was edited`);
+      throw new GenMenuError(`--remove: menus/${location}/${f.relPath} was edited`);
     }
   }
 
@@ -84,9 +89,9 @@ export function planRemove(root: string, group: string): RemovePlan {
   }
 
   const known = new Set([...renderFiles(inputs).map(f => f.relPath), '.gen-menu.json']);
-  checkEntries(packageDir, `menus/${folder}`, '', known);
+  checkEntries(packageDir, `menus/${location}`, '', known);
 
-  return { root, inputs, packageDir, inserts, deleteDir: `menus/${folder}` };
+  return { root, inputs, packageDir, inserts, deleteDir: `menus/${location}` };
 }
 
 /** F4: the dep line is owned only when it appears exactly once inside the contiguous menu-dependency block. */
@@ -214,7 +219,7 @@ export function applyRemove(plan: RemovePlan): void {
         // reported below via the residual check
       }
       if (existsSync(plan.packageDir)) {
-        failures.push(`menus/${plan.inputs.folder}: could not be fully deleted — package directory remains`);
+        failures.push(`menus/${spaceFolder(plan.inputs.space)}/${plan.inputs.folder}: could not be fully deleted — package directory remains`);
       }
     }
     const original = originalError instanceof Error ? originalError : new GenMenuError(String(originalError));
@@ -223,4 +228,6 @@ export function applyRemove(plan: RemovePlan): void {
     }
     throw original;
   }
+  const parent = dirname(plan.packageDir);
+  if (readdirSync(parent).length === 0) rmdirSync(parent);
 }

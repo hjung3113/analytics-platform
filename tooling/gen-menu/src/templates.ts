@@ -9,6 +9,7 @@ export const PAGE_TYPES = ['overview', 'analysis', 'management', 'catalog', 'wor
 export type MenuInputs = {
   group: string;
   folder: string;
+  space: string | null;
   menuId: string;
   page: string;
   path: string;
@@ -47,7 +48,7 @@ export const styleLine = (i: MenuInputs): string => `@import "${menuPackage(i.fo
 /** apps/platform-web/package.json dependency insert. */
 export const depLine = (i: MenuInputs): string => `    "${menuPackage(i.folder)}": "workspace:*",`;
 
-/** The eleven generated files, paths relative to `menus/<folder>/`. LF, trailing newline, UTF-8. */
+/** The eleven generated files, paths relative to `menus/<space>/<folder>/`. LF, trailing newline, UTF-8. */
 export const renderFiles = (i: MenuInputs): { relPath: string; content: string }[] => [
   { relPath: 'package.json', content: packageJson(i) },
   {
@@ -69,7 +70,7 @@ export const renderFiles = (i: MenuInputs): { relPath: string; content: string }
 ];
 
 const SAMPLE_PAGE_INPUTS: MenuInputs = {
-  group: 'sample', folder: 'sample', menuId: 'sample', page: 'Sample',
+  group: 'sample', folder: 'sample', space: 'analytics', menuId: 'sample', page: 'Sample',
   path: '/sample', pageType: 'overview', labelKo: 'x', labelEn: 'x', binding: 'sample',
 };
 

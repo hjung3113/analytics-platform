@@ -19,6 +19,12 @@ describe('committed wiring locks (real repo, read-only)', () => {
     expect(() => checkAppMarkers(shape.menusTs, shape.styleCss, shape.mockAssemblyTsx)).not.toThrow();
   });
 
+  it('discovers package indexes under two-segment menu paths', () => {
+    expect(shape.folders.length).toBeGreaterThan(0);
+    expect(Object.keys(shape.indexes).sort()).toEqual([...shape.folders].sort());
+    for (const folder of shape.folders) expect(folder.split('/')).toHaveLength(2);
+  });
+
   it('gives every GroupId member exactly one GROUPS row and one package owner', () => {
     expect(() => checkGroups(shape)).not.toThrow();
   });

@@ -15,7 +15,7 @@
 
 메뉴가 어느 공간에 속하는지는 [06 §9.1](06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26)이 소유한다. 레일·사이드바·홈 배치는 [15 §3.1](15_multi_workspace_ui.md#31-셸-배치-decided-2026-10-09)이 소유한다. 분석/운영/피드백 세 공간과 분석 공간 안 홈·지표·공지 트리는 ADR-0028로 대체됐다.
 
-구현 상태는 `menus/*/src/index.ts`의 manifest와 `.planning/README.md`가 원본이다. 공지와 VOC는 별개 도메인이다.
+구현 상태는 `menus/*/*/src/index.ts`의 manifest와 `.planning/README.md`가 원본이다. 공지와 VOC는 별개 도메인이다.
 
 "메뉴 레지스트리 관리" UI와 수집 상태 판정 화면은 Deferred다. 데이터 상태 표시는 전역 계약 §19의 근거 규칙을 따른다. 성공한 조회가 0건이면 `No matching result`, 원인을 확인할 수 없으면 `Unknown`을 사용한다.
 
