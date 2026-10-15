@@ -6,6 +6,10 @@ import { createAssembly } from '#platform-assembly';
 import { GROUPS, SPACES, registry } from './menus';
 import { appSlots } from './slots';
 
+// The gen-menu probe (tooling/gen-menu/scripts/probe.ts) adds a `genProbe` group in the analytics space and runs the
+// whole suite with GEN_MENU_PROBE=1; the two tests that pin the exact decided IA skip during that run only.
+const probeRun = process.env.GEN_MENU_PROBE === '1';
+
 describe('workspace assembly (#260)', () => {
   it('enters productivity analysis at equipment-master for a partial-permission session (#264)', () => {
     const assembly = createAssembly({ registry });
@@ -27,7 +31,7 @@ describe('workspace assembly (#260)', () => {
     vi.unstubAllGlobals();
   });
 
-  it('registers three spaces and the decided group order', () => {
+  it.skipIf(probeRun)('registers three spaces and the decided group order', () => {
     expect(GROUPS.map(group => [group.id, group.space])).toEqual([
       ['overview', null],
       ['noticeVoc', null],
@@ -62,7 +66,7 @@ describe('workspace assembly (#260)', () => {
     expect(registry.menuById('voc').path).toBe('/voc');
   });
 
-  it('gives a viewer one space and the global utilities, and the app does not pass feedbackOps', () => {
+  it.skipIf(probeRun)('gives a viewer one space and the global utilities, and the app does not pass feedbackOps', () => {
     const assembly = createAssembly({ registry });
     const slots = appSlots(assembly);
     // The real composition: adding a feedbackOps test slot to appSlots fails this.
