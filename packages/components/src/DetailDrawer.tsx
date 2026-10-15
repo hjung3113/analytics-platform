@@ -25,9 +25,9 @@ const LIST_CLASS: Record<ProtoVariant, string> = {
   C: 'mx-5 mt-3 w-fit',
   // B·D: flat row (no pill background/padding/radius) with a 1px baseline, spanning the panel
   // width. Narrow panels scroll horizontally instead of wrapping.
-  B: 'mx-5 mt-3 flex h-auto w-auto justify-start overflow-x-auto rounded-none border-b border-border-subtle bg-transparent p-0',
-  // D aligns triggers to the baseline so the active face's -mb-px covers it.
-  D: 'mx-5 mt-3 flex h-auto w-auto items-end justify-start overflow-x-auto rounded-none border-b border-border-subtle bg-transparent p-0',
+  B: 'mx-5 mt-3 flex h-auto w-auto justify-start overflow-x-auto rounded-none bg-transparent p-0 shadow-[inset_0_-1px_0_var(--color-border-subtle)]',
+  // D: the baseline is an inset shadow, so the active face's card background paints over it.
+  D: 'mx-5 mt-3 flex h-auto w-auto items-end justify-start overflow-x-auto rounded-none bg-transparent p-0 shadow-[inset_0_-1px_0_var(--color-border-subtle)]',
 };
 const TRIGGER_CLASS: Record<ProtoVariant, string> = {
   A: '',
@@ -38,7 +38,7 @@ const TRIGGER_CLASS: Record<ProtoVariant, string> = {
   C: 'border border-transparent data-[state=active]:border-border-control data-[state=active]:font-semibold data-[state=active]:forced-colors:border-[CanvasText]',
   // D: contained — active tab gets side+top borders, card surface, and a top accent bar, covering
   // the list baseline (-mb-px, no bottom border) to read as one face with the panel body.
-  D: 'group relative -mb-px shrink-0 rounded-b-none rounded-t-md border-x border-t border-transparent text-text-secondary hover:text-text-primary focus-visible:ring-offset-0 data-[state=active]:border-x-border-subtle data-[state=active]:border-t-border-subtle data-[state=active]:font-semibold data-[state=active]:forced-colors:border-x-[CanvasText] data-[state=active]:forced-colors:border-t-[CanvasText]',
+  D: 'group relative shrink-0 rounded-b-none rounded-t-md border-x border-t border-transparent text-text-secondary hover:text-text-primary focus-visible:ring-offset-0 data-[state=active]:border-x-border-subtle data-[state=active]:border-t-border-subtle data-[state=active]:font-semibold data-[state=active]:forced-colors:border-x-[CanvasText] data-[state=active]:forced-colors:border-t-[CanvasText]',
 };
 
 function DetailContent({ title, subtitle, headerActions, context, tabs, onClose, tab, onTabChange }: Parameters<typeof DetailDrawer>[0]) {
@@ -85,7 +85,7 @@ function DetailContent({ title, subtitle, headerActions, context, tabs, onClose,
                 <span className="col-start-1 row-start-1">{tb.label}</span>
               </span>
             )}
-            {variant === 'B' && <span data-current-marker aria-hidden className="absolute inset-x-3 -bottom-px hidden h-0.5 rounded-pill bg-accent-primary forced-colors:bg-[CanvasText] group-data-[state=active]:block" />}
+            {variant === 'B' && <span data-current-marker aria-hidden className="absolute inset-x-3 bottom-0 hidden h-0.5 rounded-pill bg-accent-primary forced-colors:bg-[CanvasText] group-data-[state=active]:block" />}
             {variant === 'D' && <span data-current-marker aria-hidden className="absolute inset-x-0 top-0 hidden h-0.5 bg-accent-primary forced-colors:bg-[CanvasText] group-data-[state=active]:block" />}
           </TabsTrigger>
         ))}
