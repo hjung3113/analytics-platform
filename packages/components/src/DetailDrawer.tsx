@@ -19,7 +19,11 @@ function DetailContent({ title, subtitle, headerActions, context, tabs, onClose,
   const { lang } = useI18n();
   const close = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
+  // #353: whether focus lives inside the panel. Unmount blur has no relatedTarget, so it must not
+  // clear this; only a real move to an outside element or an outside pointerdown does (06 §13, §26).
+  const focusInside = useRef(false);
   const id = useId();
+  const tabIds = tabs.map(tb => tb.id).join('\u0000');
   useLayoutEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     close.current?.focus({ preventScroll: true });
@@ -31,7 +35,22 @@ function DetailContent({ title, subtitle, headerActions, context, tabs, onClose,
       }
     };
   }, []);
+  useLayoutEffect(() => {
+    // A pointerdown outside the panel is the user choosing a focus destination (often body).
+    const onPointerDown = (e: PointerEvent) => { if (!panel.current?.contains(e.target as Node)) focusInside.current = false; };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+  }, []);
+  useLayoutEffect(() => {
+    // Radix writes aria-selected in the same commit as the controlled value, so the new selected
+    // trigger is already in the DOM here.
+    if (!focusInside.current || document.activeElement !== document.body) return;
+    const target = panel.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]') ?? panel.current;
+    target?.focus({ preventScroll: true });
+  }, [tab, tabIds]);
   return <div ref={panel} role="dialog" tabIndex={-1} aria-modal="false" aria-labelledby={`${id}-t`}
+    onFocus={() => { focusInside.current = true; }}
+    onBlur={e => { const to = e.relatedTarget as Node | null; if (to && !panel.current?.contains(to)) focusInside.current = false; }}
     onKeyDown={e => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); e.stopPropagation(); onClose(); } }}
     className="flex h-full min-h-0 w-full flex-col bg-surface-detail">
     <header className="flex items-start justify-between gap-3 border-b border-border-subtle px-5 py-4">

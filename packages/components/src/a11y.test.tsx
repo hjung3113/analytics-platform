@@ -97,6 +97,25 @@ function DrawerHost({ deepLink = false, removeTrigger = false }: { deepLink?: bo
   </DetailPanelSlotProvider></I18nProvider>;
 }
 
+/** #353: controlled tabs that start on the unknown-tab fallback; the recovery button swaps the parent
+ * to the attributes tab and removes the invalid tab in the same commit, unmounting the button. */
+function RecoveryDrawerHost({ title = 'Detail', initialTab = 'invalid' }: { title?: string; initialTab?: string }) {
+  const [tab, setTab] = useState(initialTab);
+  const [unknown, setUnknown] = useState(true);
+  return <I18nProvider><DetailPanelSlotProvider>
+    <div id="root"><main id="platform-main" tabIndex={-1}>
+      <button>behind</button>
+      <DetailDrawer title={title} onClose={() => {}} tab={tab} onTabChange={setTab}
+        tabs={[
+          { id: 'attributes', label: 'Attributes', content: <button>속성 내용</button> },
+          ...(unknown ? [{ id: 'invalid', label: '알 수 없는 탭', content: (
+            <p role="alert">등록되지 않은 탭입니다. <button onClick={() => { setTab('attributes'); setUnknown(false); }}>속성 열기</button></p>
+          ) }] : []),
+        ]} />
+    </main></div><SlotHost />
+  </DetailPanelSlotProvider></I18nProvider>;
+}
+
 describe('DetailDrawer docked slot', () => {
   // Viewport geometry is covered by the 1280/1440 E2E contract, not JSDOM.
   it('moves focus in, keeps the page usable, and closes via Esc with focus return', () => {
@@ -212,5 +231,53 @@ describe('DetailDrawer docked slot', () => {
     expect(camel.textContent).toBe('averageOfQuantilesAllowed');
     expect(screen.getByText('owed').querySelectorAll('wbr')).toHaveLength(0); // no case boundary
     expect(screen.getByText('Coverage').closest('dt')!.querySelectorAll('wbr')).toHaveLength(0); // ReactNode label
+  });
+
+  // #353: the focused recovery control unmounts with the tab switch; focus must land on the selected
+  // tab trigger instead of falling to body (06 §26 keyboard floor).
+  it('moves focus to the selected tab trigger when the focused control disappears with a tab switch', () => {
+    render(<RecoveryDrawerHost />);
+    const recover = screen.getByRole('button', { name: '속성 열기' });
+    recover.focus();
+    expect(recover).toHaveFocus();
+    fireEvent.click(recover);
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Attributes' })).toHaveFocus();
+  });
+
+  it('does not steal focus the user already moved outside the panel when tabs switch', () => {
+    render(<RecoveryDrawerHost initialTab="attributes" />);
+    const behind = screen.getByRole('button', { name: 'behind' });
+    behind.focus();
+    expect(behind).toHaveFocus();
+    // Radix tabs activate on mousedown; the controlled value changes while focus stays outside.
+    fireEvent.mouseDown(screen.getByRole('tab', { name: '알 수 없는 탭' }));
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(behind).toHaveFocus();
+  });
+
+  it('does not move body focus on a re-render that switches no tab', () => {
+    const view = render(<RecoveryDrawerHost title="First" initialTab="attributes" />);
+    const inside = screen.getByRole('button', { name: '속성 내용' });
+    inside.focus();
+    // A click outside the panel leaves focus on body in jsdom only via an explicit blur.
+    fireEvent.pointerDown(document.body);
+    inside.blur();
+    expect(document.activeElement).toBe(document.body);
+    view.rerender(<RecoveryDrawerHost title="Second" initialTab="attributes" />);
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it('keeps focus on body after an outside pointerdown clears the panel, even when tabs then switch', () => {
+    render(<RecoveryDrawerHost />);
+    const recover = screen.getByRole('button', { name: '속성 열기' });
+    recover.focus();
+    expect(recover).toHaveFocus();
+    fireEvent.pointerDown(document.body);
+    recover.blur();
+    expect(document.activeElement).toBe(document.body);
+    fireEvent.click(recover); // same instance: tab value and tab list change together
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(document.activeElement).toBe(document.body);
   });
 });

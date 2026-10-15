@@ -656,6 +656,28 @@ test.describe('셸 고정 상세 슬롯 (06 §13, ADR-0013)', () => {
     await expect(dialog.getByRole('alert')).toContainText('등록되지 않은 탭입니다.');
     await evidence(page, testInfo, 'equipment-unknown-tab-back-restore');
   });
+
+  test('알 수 없는 탭 복구 버튼을 키보드로 누르면 선택된 탭으로 포커스가 간다 (#353)', async ({ page }, testInfo) => {
+    await page.goto('/equipment?v=1&scopeId=ICH');
+    const row = page.getByRole('main').locator('[data-row-id]').first();
+    await expect(row).toBeVisible();
+    const focus = await row.getAttribute('data-row-id');
+
+    // W-350과 같이 유효 탭으로 마운트한 뒤 히스토리 순회로 알 수 없는 탭에 닿는다.
+    await page.goto(`/equipment?v=1&scopeId=ICH&focus=${focus}&tab=validity`);
+    const dialog = page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog');
+    await expect(dialog.getByRole('tab', { name: '유효구간 이력' })).toHaveAttribute('aria-selected', 'true');
+    await page.evaluate(href => {
+      window.history.pushState(null, '', href);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }, `/equipment?v=1&scopeId=ICH&focus=${focus}&tab=bogus`);
+    await expect.poll(() => query(page).get('tab')).toBe('bogus');
+    await expect(dialog.getByRole('alert')).toContainText('등록되지 않은 탭입니다.');
+    await dialog.getByRole('button', { name: '속성 열기' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(dialog.getByRole('tab', { name: '속성' })).toBeFocused();
+    await evidence(page, testInfo, 'equipment-unknown-tab-recovery-focus');
+  });
 });
 
 test.describe('메뉴 간 Context 보존과 미적용 표시 (06 §6, §22)', () => {
@@ -988,6 +1010,19 @@ test.describe('Scope·세션 전환 시 이전 결과 비노출 (06 §11, §19)'
     await expect(card).toHaveCount(0);
     await expect(kpis.locator('[aria-busy="true"]').first()).toBeVisible();
     await evidence(page, testInfo, 'during-period-change');
+  });
+
+  test('최근 Scope 적용을 키보드로 누르면 포커스가 main으로 간다 (#353)', async ({ page }, testInfo) => {
+    // E2E fixture에는 platform:lastScope가 없어 유효 Scope로 한 번 진입해 Kernel이 저장하게 한다.
+    await page.goto('/equipment?v=1&scopeId=ICH');
+    await expect(page.getByRole('main').locator('[data-row-id]').first()).toBeVisible({ timeout: 10_000 });
+    await page.goto('/equipment?v=1');
+    const apply = page.getByRole('button', { name: /^최근 Scope 적용/ });
+    await expect(apply).toBeVisible();
+    await apply.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#platform-main')).toBeFocused();
+    await evidence(page, testInfo, 'scope-apply-focus-main');
   });
 
   test('역할(세션)을 바꾸면 이전 사용자의 결과를 보이지 않는다', async ({ page }, testInfo) => {
