@@ -58,6 +58,12 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const favoriteTarget = menu.navHidden ? null : menu;
   const isFavorite = favoriteTarget ? favorites.includes(favoriteTarget.id) : false;
   const parent: MenuEntry | null = menu.parent ? registry.menuById(menu.parent) : null;
+  // #353: a gate action button disappears with the state change it triggers, so keyboard focus must
+  // move before that — §19 banner dismissal rule: main landmark, page content element outside a shell.
+  const focusPageFallback = () => {
+    const target = root.current?.closest<HTMLElement>('main[tabindex]') ?? root.current?.querySelector<HTMLElement>('[data-platform-page-content]');
+    target?.focus({ preventScroll: true });
+  };
 
   let gate: ReactNode = null;
   if (menu.requiresScope && scope.status !== 'valid') {
@@ -65,11 +71,11 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
       ? <StateMessage icon={<Loader2 className="size-4 animate-spin" aria-hidden />} title={t('scopeValidating')} />
       : scope.status === 'none'
         ? <StateMessage icon={<MapPinOff className="size-4" aria-hidden />} title={t('selectScope')} body={t('selectScopeBody')}
-            action={lastScope && <Button size="sm" onClick={() => setGlobal({ scopeId: lastScope })}>{t('applySuggested')}: {lastScope}</Button>} />
+            action={lastScope && <Button size="sm" onClick={() => { focusPageFallback(); setGlobal({ scopeId: lastScope }); }}>{t('applySuggested')}: {lastScope}</Button>} />
         : scope.status === 'error'
           ? <StateMessage tone="danger" icon={<ServerCrash className="size-4" aria-hidden />} title={t('scopeErrorTitle')}
               body={<>{t('scopeErrorBody')} <span className="t-mono">scopeId={scope.scopeId}</span></>}
-              action={<Button size="sm" variant="secondary" onClick={retryScope}><RotateCw className="size-3.5" />{t('retry')}</Button>} />
+              action={<Button size="sm" variant="secondary" onClick={() => { focusPageFallback(); retryScope(); }}><RotateCw className="size-3.5" />{t('retry')}</Button>} />
         : scope.status === 'unknown_scope'
           ? <StateMessage icon={<MapPinOff className="size-4" aria-hidden />} title={t('scopeUnknownTitle')}
               body={<>{t('scopeUnknownBody')} <span className="t-mono">scopeId={scope.scopeId}</span></>} />

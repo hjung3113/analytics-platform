@@ -203,6 +203,58 @@ describe('PlatformPage shared outcome placement (#55)', () => {
 });
 
 
+describe('Scope gate action focus (#353)', () => {
+  /** Node's file-less localStorage shadows jsdom's here, so give the test an in-memory store. */
+  function stubLocalStorage() {
+    const data = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); },
+      removeItem: (k: string) => { data.delete(k); }, clear: () => data.clear(), key: () => null, get length() { return data.size; },
+    });
+    return data;
+  }
+
+  it('sends focus to the page content element when the suggested-scope button disappears', async () => {
+    stubLocalStorage().set('platform:lastScope:u1', JSON.stringify('ICH'));
+    window.history.replaceState(null, '', '/?v=1');
+    const view = render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}>
+      <PlatformPage><p>page body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    const apply = await screen.findByRole('button', { name: '최근 Scope 적용: ICH' });
+    apply.focus();
+    expect(apply).toHaveFocus();
+    fireEvent.click(apply);
+    expect(view.container.querySelector<HTMLElement>('[data-platform-page-content]')).toHaveFocus();
+  });
+
+  it('sends focus to the main landmark when the gate sits inside a shell main', async () => {
+    // jsdom has no element.scrollTo; the kernel scrolls platform-main on push navigation (AppShell.test.tsx does the same).
+    Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
+    stubLocalStorage().set('platform:lastScope:u1', JSON.stringify('ICH'));
+    window.history.replaceState(null, '', '/?v=1');
+    const view = render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}>
+      <main id="platform-main" tabIndex={-1}><PlatformPage><p>page body</p></PlatformPage></main>
+    </PlatformProvider></I18nProvider>);
+    const apply = await screen.findByRole('button', { name: '최근 Scope 적용: ICH' });
+    apply.focus();
+    fireEvent.click(apply);
+    expect(view.container.querySelector('main')).toHaveFocus();
+  });
+
+  it('sends focus to the page content element when the retry button disappears', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    const view = render(<I18nProvider><PlatformProvider adapter={adapterWith(async (): Promise<ScopeCheck> => { throw new Error('down'); })} registry={registry}>
+      <PlatformPage><p>page body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('Scope를 확인하지 못했습니다')).toBeTruthy();
+    const retry = screen.getByRole('button', { name: '다시 시도' });
+    retry.focus();
+    expect(retry).toHaveFocus();
+    fireEvent.click(retry);
+    expect(view.container.querySelector<HTMLElement>('[data-platform-page-content]')).toHaveFocus();
+  });
+});
+
 describe('PlatformPage sticky offset', () => {
   it('publishes the entire sticky header height and updates it through ResizeObserver', () => {
     let height = 98;
