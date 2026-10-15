@@ -1,10 +1,16 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import type { ApiResponse, AuditEvent, AuditTrailPage, AuditTrailQuery, PlatformAdapter, Session } from '@ap/contracts';
+import { instantEpochMs, type ApiResponse, type AuditEvent, type AuditTrailPage, type AuditTrailQuery, type PlatformAdapter, type Session } from '@ap/contracts';
 import { House } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { manifests } from '../index';
 import AuditTrail from './AuditTrail';
+
+const viewerTz = vi.hoisted(() => ({ value: 'Asia/Seoul' }));
+vi.mock('../audit-window', async () => {
+  const actual = await vi.importActual<typeof import('../audit-window')>('../audit-window');
+  return { ...actual, viewerTimeZone: () => viewerTz.value };
+});
 
 const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
 beforeAll(() => { HTMLElement.prototype.scrollIntoView = vi.fn(); });
@@ -32,10 +38,16 @@ const session: Session = {
 const FROM = '2026-09-26T02:00:00.000Z';
 const TO = '2026-09-26T03:00:00.000Z';
 
-function fixture(items: AuditEvent[] = []) {
+function fixture(items: AuditEvent[] = [], options?: { filterWindow?: boolean }) {
   const calls: AuditTrailQuery[] = [];
-  const response: ApiResponse<AuditTrailPage> = {
-    outcome: 'ok', data: { items, total: items.length }, assessments: [], trust: null, correlationId: 'fixture',
+  const rowsFor = (query: AuditTrailQuery): AuditEvent[] => {
+    if (!options?.filterWindow) return items;
+    return items.filter(row => {
+      const at = instantEpochMs(row.at);
+      if (query.fromAt !== undefined && at < instantEpochMs(query.fromAt)) return false;
+      if (query.toAt !== undefined && at >= instantEpochMs(query.toAt)) return false;
+      return true;
+    });
   };
   const adapter: PlatformAdapter = {
     menuQuery: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
@@ -51,7 +63,14 @@ function fixture(items: AuditEvent[] = []) {
     saveAnnotation: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     reportClientError: async () => ({ accepted: true }),
     usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    auditTrail: async (query: AuditTrailQuery) => { calls.push(query); return response; },
+    auditTrail: async (query: AuditTrailQuery) => {
+      calls.push(query);
+      const rows = rowsFor(query);
+      const response: ApiResponse<AuditTrailPage> = {
+        outcome: 'ok', data: { items: rows, total: rows.length }, assessments: [], trust: null, correlationId: 'fixture',
+      };
+      return response;
+    },
     entityAudit: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     accessDirectory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     subscribe: () => () => undefined,
@@ -59,9 +78,9 @@ function fixture(items: AuditEvent[] = []) {
   return { adapter, calls };
 }
 
-function renderAudit(path: string, items: AuditEvent[] = []) {
+function renderAudit(path: string, items: AuditEvent[] = [], options?: { filterWindow?: boolean }) {
   window.history.replaceState(null, '', path);
-  const f = fixture(items);
+  const f = fixture(items, options);
   render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><AuditTrail /></PlatformProvider></I18nProvider>);
   return f;
 }
@@ -71,8 +90,9 @@ const EVENT: AuditEvent = {
   target: { type: 'equipment', id: 'ICH-ETCH-0101', scopeId: 'ICH' }, changes: { status: ['idle', 'maintenance'] },
 };
 
-const fromInput = () => screen.getByRole('textbox', { name: /From instant|시각 이상/ });
-const toInput = () => screen.getByRole('textbox', { name: /To instant|시각 미만/ });
+const fromInput = () => screen.getByRole('textbox', { name: /^(At or after|시각 이후)$/ });
+const toInput = () => screen.getByRole('textbox', { name: /^(Before|시각 미만)$/ });
+const actorInput = () => screen.getByRole('textbox', { name: /Exact actor|행위자 정확 일치/ });
 const targetIdInput = () => screen.getByRole('textbox', { name: /Exact target id|대상 ID 정확/ });
 const typeSelect = () => screen.getByRole('combobox', { name: /Type|대상 유형/ });
 const applyButton = () => screen.getByRole('button', { name: /Apply|적용/ });
@@ -86,7 +106,13 @@ beforeEach(() => {
   window.history.replaceState(null, '', '/admin/audit');
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 1200, height: 98, x: 0, y: 0, top: 0, left: 0, right: 1200, bottom: 98, toJSON() {} });
 });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  viewerTz.value = 'Asia/Seoul';
+  window.history.replaceState(null, '', '/');
+});
 
 describe('AuditTrail text filters (issue #50 review)', () => {
   it('keeps filter controls mounted while editing and applies the complete range together', async () => {
@@ -104,13 +130,13 @@ describe('AuditTrail text filters (issue #50 review)', () => {
     expect(new URLSearchParams(window.location.search).has('targetId')).toBe(false);
     f.calls.length = 0;
 
-    fireEvent.change(fromInput(), { target: { value: FROM } });
+    fireEvent.change(fromInput(), { target: { value: '2026-09-26 11:00:00' } });
     expect(fromInput()).toBeTruthy();
     expect(toInput()).toBeTruthy();
     expect(typeSelect()).toBeTruthy();
     expect(new URLSearchParams(window.location.search).has('fromAt')).toBe(false);
 
-    fireEvent.change(toInput(), { target: { value: TO } });
+    fireEvent.change(toInput(), { target: { value: '2026-09-26 12:00:00' } });
     fireEvent.click(applyButton());
 
     await waitFor(() => expect(f.calls).toHaveLength(1));
@@ -118,19 +144,45 @@ describe('AuditTrail text filters (issue #50 review)', () => {
     expect(new URLSearchParams(window.location.search).has('page')).toBe(false);
   });
 
-  it('keeps an invalid one-sided URL editable and queries after the missing bound is applied', async () => {
+  it('treats a one-sided URL as an open range shown in viewer-local time', async () => {
     const f = renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: FROM })}`);
-    expect(screen.getByRole('alert').textContent).toMatch(/Invalid filter value|필터 값이 잘못되었습니다/);
+    expect(screen.queryByRole('alert')).toBeNull();
     expect(clearButton()).toBeTruthy();
-    expect((fromInput() as HTMLInputElement).value).toBe(FROM);
+    expect((fromInput() as HTMLInputElement).value).toBe('2026-09-26 11:00:00');
     expect((toInput() as HTMLInputElement).value).toBe('');
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    expect(f.calls[0]).toMatchObject({ fromAt: FROM, page: 1, pageSize: 25 });
+    expect(f.calls[0].toAt).toBeUndefined();
+  });
+
+  it('names a calendar-invalid deeplink and queries after that field is corrected', async () => {
+    const f = renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: '2026-02-30T00:00:00.000Z', toAt: TO })}`);
+    expect(screen.getByRole('alert').textContent).toMatch(/필터 값이 잘못되었습니다/);
+    expect(screen.getByRole('alert').textContent).toMatch(/시각 이후/);
+    expect((fromInput() as HTMLInputElement).value).toBe('2026-02-30T00:00:00.000Z');
+    expect((toInput() as HTMLInputElement).value).toBe('2026-09-26 12:00:00');
     expect(f.calls).toHaveLength(0);
 
-    fireEvent.change(toInput(), { target: { value: TO } });
+    fireEvent.change(fromInput(), { target: { value: '2026-09-26 11:00:00' } });
     fireEvent.click(applyButton());
 
     await waitFor(() => expect(f.calls).toHaveLength(1));
     expect(f.calls[0]).toMatchObject({ fromAt: FROM, toAt: TO, page: 1, pageSize: 25 });
+  });
+
+  it('keeps a reversed deeplink editable until the end is later than the start', async () => {
+    const f = renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: TO, toAt: FROM })}`);
+    expect(screen.getByRole('alert').textContent).toMatch(/시각 미만은 시각 이후보다 뒤여야/);
+    expect((fromInput() as HTMLInputElement).value).toBe('2026-09-26 12:00:00');
+    expect((toInput() as HTMLInputElement).value).toBe('2026-09-26 11:00:00');
+    expect(f.calls).toHaveLength(0);
+
+    fireEvent.change(toInput(), { target: { value: '2026-09-26 13:00:00' } });
+    fireEvent.click(applyButton());
+
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    expect(instantEpochMs(f.calls[0]?.fromAt ?? '')).toBe(instantEpochMs(TO));
+    expect(f.calls[0]?.toAt).toBe('2026-09-26T04:00:00.000Z');
   });
 
   // #302 C-07: 출처·대상 유형은 표시 라벨로, URL과 adapter 인자는 원문 값으로 유지한다.
@@ -175,5 +227,118 @@ describe('AuditTrail text filters (issue #50 review)', () => {
       if (originalOffsetHeight) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', originalOffsetHeight);
       if (originalOffsetWidth) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalOffsetWidth);
     }
+  });
+
+  function withRowLayout() {
+    const originalOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+    const originalOffsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return (this as Element).getAttribute('role') === 'row' ? 32 : 420; } });
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return 800; } });
+    return () => {
+      if (originalOffsetHeight) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', originalOffsetHeight);
+      if (originalOffsetWidth) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalOffsetWidth);
+    };
+  }
+
+  it('applies the viewer-local time of a shown row as that row instant and excludes the row at the end bound', async () => {
+    const restore = withRowLayout();
+    try {
+      const local = '2026-09-26 11:10:00';
+      const f = renderAudit('/admin/audit', [EVENT], { filterWindow: true });
+      const table = await screen.findByRole('table', { name: '변경 감사 목록' });
+      expect(within(table).getByText(/11:10/)).toBeTruthy();
+      expect(within(table).queryByText(/02:10/)).toBeNull();
+      expect(within(table).getByText('ICH-ETCH-0101')).toBeTruthy();
+
+      fireEvent.change(fromInput(), { target: { value: local } });
+      fireEvent.click(applyButton());
+      await waitFor(() => expect(f.calls.some(call => call.fromAt !== undefined)).toBe(true));
+      const fromCall = f.calls.at(-1);
+      expect(instantEpochMs(fromCall?.fromAt ?? '')).toBe(instantEpochMs(EVENT.at));
+      expect(instantEpochMs(new URLSearchParams(window.location.search).get('fromAt') ?? '')).toBe(instantEpochMs(EVENT.at));
+      expect(await screen.findByText('ICH-ETCH-0101')).toBeTruthy();
+
+      fireEvent.change(fromInput(), { target: { value: '' } });
+      fireEvent.change(toInput(), { target: { value: local } });
+      fireEvent.click(applyButton());
+      await waitFor(() => expect(f.calls.at(-1)?.toAt).toBe(EVENT.at));
+      const toCall = f.calls.at(-1);
+      expect(toCall?.fromAt).toBeUndefined();
+      expect(instantEpochMs(new URLSearchParams(window.location.search).get('toAt') ?? '')).toBe(instantEpochMs(EVENT.at));
+      expect(new URLSearchParams(window.location.search).has('fromAt')).toBe(false);
+      await waitFor(() => expect(screen.queryByText('ICH-ETCH-0101')).toBeNull());
+    } finally {
+      restore();
+    }
+  });
+
+  it('writes the original instant back when only the actor draft changes', async () => {
+    const from = '2026-09-26T02:00:00.500Z';
+    const to = '2026-09-26T05:00:00.500Z';
+    renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: from, toAt: to })}`);
+    expect((fromInput() as HTMLInputElement).value).toBe('2026-09-26 11:00:00');
+    expect((toInput() as HTMLInputElement).value).toBe('2026-09-26 14:00:00');
+    fireEvent.change(actorInput(), { target: { value: 'park.seo' } });
+    fireEvent.click(applyButton());
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get('actor')).toBe('park.seo'));
+    expect(new URLSearchParams(window.location.search).get('fromAt')).toBe(from);
+    expect(new URLSearchParams(window.location.search).get('toAt')).toBe(to);
+  });
+
+  it('keeps each New York fold instant when the time fields are not edited', async () => {
+    viewerTz.value = 'America/New_York';
+    const to = '2026-11-01T12:00:00.000Z';
+    for (const from of ['2026-11-01T05:30:00.000Z', '2026-11-01T06:30:00.000Z']) {
+      cleanup();
+      renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: from, toAt: to })}`);
+      expect((fromInput() as HTMLInputElement).value).toBe('2026-11-01 01:30:00');
+      expect(fromInput().hasAttribute('aria-invalid')).toBe(false);
+      fireEvent.change(actorInput(), { target: { value: 'park.seo' } });
+      fireEvent.click(applyButton());
+      await waitFor(() => expect(new URLSearchParams(window.location.search).get('actor')).toBe('park.seo'));
+      expect(new URLSearchParams(window.location.search).get('fromAt')).toBe(from);
+      expect(new URLSearchParams(window.location.search).get('toAt')).toBe(to);
+      expect(screen.queryByRole('alert')).toBeNull();
+    }
+  });
+
+  it('marks a bad time field and does not change the URL', async () => {
+    const f = renderAudit('/admin/audit?type=equipment');
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    fireEvent.change(fromInput(), { target: { value: '2026-02-30 10:00:00' } });
+    fireEvent.click(applyButton());
+    expect(fromInput().getAttribute('aria-invalid')).toBe('true');
+    const describedBy = fromInput().getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy ?? '')?.textContent).toMatch(/없는 날짜/);
+    expect(new URLSearchParams(window.location.search).has('fromAt')).toBe(false);
+    expect(new URLSearchParams(window.location.search).get('type')).toBe('equipment');
+    expect(f.calls).toHaveLength(1);
+
+    fireEvent.change(fromInput(), { target: { value: '2026-09-26 12:00:00' } });
+    fireEvent.change(toInput(), { target: { value: '2026-09-26 11:00:00' } });
+    fireEvent.click(applyButton());
+    expect(toInput().getAttribute('aria-invalid')).toBe('true');
+    expect(fromInput().hasAttribute('aria-invalid')).toBe(false);
+    expect(document.getElementById(toInput().getAttribute('aria-describedby') ?? '')?.textContent).toMatch(/뒤여야/);
+    expect(new URLSearchParams(window.location.search).has('toAt')).toBe(false);
+    expect(new URLSearchParams(window.location.search).get('type')).toBe('equipment');
+  });
+
+  it('labels the time fields in English without contract words', () => {
+    const store = new Map<string, string>([['platform:lang', 'en']]);
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => { store.set(key, value); },
+      removeItem: (key: string) => { store.delete(key); },
+      clear: () => { store.clear(); },
+      key: (index: number) => [...store.keys()][index] ?? null,
+      get length() { return store.size; },
+    });
+    renderAudit('/admin/audit');
+    const bar = screen.getByTestId('page-filter-bar');
+    expect(bar.textContent).not.toMatch(/ISO|instant/i);
+    expect(screen.getByRole('textbox', { name: 'At or after' })).toBeTruthy();
+    expect(screen.getByRole('textbox', { name: 'Before' })).toBeTruthy();
   });
 });

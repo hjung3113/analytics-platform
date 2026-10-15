@@ -1,9 +1,11 @@
 /**
- * Page-key vocabulary and parser for the console audit screen (#50, 06 §6.1). Pure and node-runnable:
+ * Page-key vocabulary and parser for the console audit screen (#50, #305, 06 §6.1). Pure and node-runnable:
  * the screen calls it before loadPage, and an invalid wire value alerts instead of substituting (same
  * pattern as UsageOverview). Absent = unset. The value domains mirror the server's `Invalid audit filter`
- * list (§2 step 4): an id is only unique inside a type, and the instant window is half-open [fromAt, toAt)
- * compared as epochs — a one-sided pair, a naive digit string or fromAt >= toAt is invalid, never clamped.
+ * list (§2 step 4): an id is only unique inside a type. The time window is compared as epochs — one side
+ * alone is an open bound, both sides are half-open [fromAt, toAt), and fromAt >= toAt, a string without a
+ * zone, or a calendar error is invalid, never clamped. This is the audit page key, not the global from/to
+ * rule in 06 §6.4.
  */
 import type { AuditAction, AuditSource, PageSort } from '@ap/contracts';
 import { instantEpochMs } from '@ap/contracts';
@@ -46,33 +48,53 @@ export type ParsedAuditKeys =
   | { ok: true; filters: AuditFilters; sorting: PageSort[]; page: number | null }
   | { ok: false };
 
+/** Which URL key failed, for the table-slot line. `order` is the end bound not after the start. */
+export type AuditKeyProblem =
+  | { key: 'sort' | 'page' | 'type' | 'action' | 'source' | 'actor'; reason: 'invalid' }
+  | { key: 'targetId'; reason: 'invalid' | 'needs-type' }
+  | { key: 'fromAt'; reason: 'invalid' }
+  | { key: 'toAt'; reason: 'invalid' | 'order' };
+
+type AuditRaw = {
+  type: string | null; actor: string | null; action: string | null; source: string | null;
+  fromAt: string | null; toAt: string | null; targetId: string | null; sort: string | null; page: string | null;
+};
+
 /** True when the operator text is not a plain token: empty, over 80 chars, or URL/whitespace-bearing. */
 const invalidText = (value: string): boolean => !value || value.length > 80 || /[?#&\s]/.test(value);
 
+/** The first key the server would reject, or null when the URL is a query the adapter may see. */
+export function auditKeyProblem(raw: AuditRaw): AuditKeyProblem | null {
+  if (!parseTableSort(raw.sort, SORT_FIELDS).ok) return { key: 'sort', reason: 'invalid' };
+  if (!parsePageIndex(raw.page).ok) return { key: 'page', reason: 'invalid' };
+  if (raw.type !== null && !AUDIT_TYPES.includes(raw.type)) return { key: 'type', reason: 'invalid' };
+  if (raw.action !== null && !AUDIT_ACTIONS.includes(raw.action)) return { key: 'action', reason: 'invalid' };
+  if (raw.source !== null && !AUDIT_SOURCES.includes(raw.source)) return { key: 'source', reason: 'invalid' };
+  if (raw.actor !== null && invalidText(raw.actor)) return { key: 'actor', reason: 'invalid' };
+  if (raw.targetId !== null && invalidText(raw.targetId)) return { key: 'targetId', reason: 'invalid' };
+  if (raw.targetId !== null && raw.type === null) return { key: 'targetId', reason: 'needs-type' };
+  try {
+    if (raw.fromAt !== null) instantEpochMs(raw.fromAt);
+  } catch {
+    return { key: 'fromAt', reason: 'invalid' };
+  }
+  try {
+    if (raw.toAt !== null) instantEpochMs(raw.toAt);
+  } catch {
+    return { key: 'toAt', reason: 'invalid' };
+  }
+  if (raw.fromAt !== null && raw.toAt !== null && instantEpochMs(raw.fromAt) >= instantEpochMs(raw.toAt)) {
+    return { key: 'toAt', reason: 'order' };
+  }
+  return null;
+}
+
 /** The screen's URL keys, validated without coercion. Anything the server would reject with
  *  `Invalid audit filter` is already invalid here, so a bad value never reaches the adapter. */
-export function parseAuditKeys(raw: {
-  type: string | null; actor: string | null; action: string | null; source: string | null;
-  fromAt: string | null; toAt: string | null; targetId: string | null; sort: string | null; page: string | null;
-}): ParsedAuditKeys {
+export function parseAuditKeys(raw: AuditRaw): ParsedAuditKeys {
   const parsedSort = parseTableSort(raw.sort, SORT_FIELDS);
   const parsedPage = parsePageIndex(raw.page);
-  if (!parsedSort.ok || !parsedPage.ok) return { ok: false };
-  if (raw.type !== null && !AUDIT_TYPES.includes(raw.type)) return { ok: false };
-  if (raw.action !== null && !AUDIT_ACTIONS.includes(raw.action)) return { ok: false };
-  if (raw.source !== null && !AUDIT_SOURCES.includes(raw.source)) return { ok: false };
-  if (raw.actor !== null && invalidText(raw.actor)) return { ok: false };
-  if (raw.targetId !== null && (invalidText(raw.targetId) || raw.type === null)) return { ok: false };
-  let fromMs: number | null = null;
-  let toMs: number | null = null;
-  try {
-    if (raw.fromAt !== null) fromMs = instantEpochMs(raw.fromAt);
-    if (raw.toAt !== null) toMs = instantEpochMs(raw.toAt);
-  } catch {
-    return { ok: false };
-  }
-  if ((raw.fromAt !== null) !== (raw.toAt !== null)) return { ok: false };
-  if (fromMs !== null && toMs !== null && fromMs >= toMs) return { ok: false };
+  if (!parsedSort.ok || !parsedPage.ok || auditKeyProblem(raw)) return { ok: false };
   return {
     ok: true,
     filters: {

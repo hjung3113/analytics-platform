@@ -85,11 +85,31 @@ describe('auditTrail (issue #50: the console audit log)', () => {
     expect(ids(page(res).items)).toEqual(['metric:cycle_time:create']);
   });
 
+  async function matchingIds(query: AuditTrailQuery): Promise<string[]> {
+    const found: string[] = [];
+    for (let pageNo = 1; pageNo < 20; pageNo++) {
+      const res = await auditTrail({ ...query, page: pageNo, pageSize: 100 }, undefined, { role: 'admin', latency: 0 });
+      expect(res.outcome).toBe('ok');
+      const items = page(res).items;
+      found.push(...ids(items));
+      if (items.length < 100) break;
+    }
+    return found;
+  }
+
+  it('filters an open fromAt inclusively and an open toAt exclusively', async () => {
+    // The update sits on 2026-09-26T02:00:00.000Z; the create is earlier the same month.
+    const fromOnly = await matchingIds({ fromAt: '2026-09-26T02:00:00.000Z' });
+    expect(fromOnly).toEqual(['metric:cycle_time:update']);
+    const toOnly = await matchingIds({ toAt: '2026-09-26T02:00:00.000Z' });
+    expect(toOnly).not.toContain('metric:cycle_time:update');
+    expect(toOnly).toContain('metric:cycle_time:create');
+  });
+
   it.each([
-    ['one-sided fromAt', { fromAt: '2026-09-20T02:00:00.000Z' }],
-    ['one-sided toAt', { toAt: '2026-09-26T02:00:00.000Z' }],
     ['naive fromAt', { fromAt: '2026-09-20T02:00:00', toAt: '2026-09-26T02:00:00.000Z' }],
     ['fromAt at or after toAt', { fromAt: '2026-09-26T02:00:00.000Z', toAt: '2026-09-20T02:00:00.000Z' }],
+    ['fromAt equal to toAt', { fromAt: '2026-09-26T02:00:00.000Z', toAt: '2026-09-26T02:00:00.000Z' }],
     ['unknown type', { type: 'nope' }],
     ['targetId without type', { targetId: 'cycle_time' }],
     ['empty actor', { actor: '' }],

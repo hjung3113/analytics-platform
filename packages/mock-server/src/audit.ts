@@ -48,8 +48,9 @@ function invalidAuditQuery(query: AuditTrailQuery): boolean {
     if (Object.keys(query.sort).some(key => key !== 'field' && key !== 'desc')) return true;
     if (!AUDIT_SORT_FIELDS.includes(query.sort.field) || typeof query.sort.desc !== 'boolean') return true;
   }
-  // The window is half-open [fromAt, toAt) compared as epochs. One side only, a naive string, or
-  // fromAt >= toAt is a format error (§6.4's one-sided rule), never a clamped range.
+  // Compared as epochs. Both sides are half-open [fromAt, toAt) and fromAt >= toAt is a format
+  // error. One side alone is an open bound (fromAt inclusive, toAt exclusive). A naive string is a
+  // format error, never a clamped range. Not the global from/to rule (06 §6.4).
   let fromMs: number | null = null;
   let toMs: number | null = null;
   try {
@@ -58,7 +59,6 @@ function invalidAuditQuery(query: AuditTrailQuery): boolean {
   } catch {
     return true;
   }
-  if ((query.fromAt !== undefined) !== (query.toAt !== undefined)) return true;
   if (fromMs !== null && toMs !== null && fromMs >= toMs) return true;
   if (query.page !== undefined && (typeof query.page !== 'number' || !Number.isInteger(query.page) || query.page < 1)) return true;
   if (query.pageSize !== undefined && (typeof query.pageSize !== 'number' || !Number.isInteger(query.pageSize) || query.pageSize < 1 || query.pageSize > 100)) return true;

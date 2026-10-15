@@ -21,11 +21,21 @@ describe('parseAuditKeys (#50 page keys)', () => {
     });
   });
 
+  it.each<[string, { fromAt?: string; toAt?: string }, 'fromAt' | 'toAt']>([
+    ['fromAt only', { fromAt: '2026-09-20T02:00:00.000Z' }, 'fromAt'],
+    ['toAt only', { toAt: '2026-09-26T02:00:00.000Z' }, 'toAt'],
+  ])('accepts an open %s and keeps that value', (_name, over, key) => {
+    const parsed = parseAuditKeys(keys(over));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.filters[key]).toBe(over[key]);
+    expect(parsed.filters[key === 'fromAt' ? 'toAt' : 'fromAt']).toBeNull();
+  });
+
   it.each([
-    ['one-sided fromAt', keys({ fromAt: '2026-09-20T02:00:00.000Z' })],
-    ['one-sided toAt', keys({ toAt: '2026-09-26T02:00:00.000Z' })],
     ['naive instant', keys({ fromAt: '2026-09-20T02:00:00', toAt: '2026-09-26T02:00:00.000Z' })],
     ['fromAt at or after toAt', keys({ fromAt: '2026-09-26T02:00:00.000Z', toAt: '2026-09-20T02:00:00.000Z' })],
+    ['fromAt equal to toAt', keys({ fromAt: '2026-09-26T02:00:00.000Z', toAt: '2026-09-26T02:00:00.000Z' })],
     ['unknown type', keys({ type: 'nope' })],
     ['unknown action', keys({ action: 'delete' })],
     ['unknown source', keys({ source: 'cron' })],
