@@ -1224,9 +1224,10 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     await expect(heading).toBeFocused();
     await expect(dialog.getByRole('button', { name: '상세 닫기' })).not.toBeFocused();
     // The return click leaves the pointer on the title; Radix opens its tooltip after 700 ms.
+    // Every table row has tab stops before the panel, so the bound is generous.
     await heading.hover();
     await page.waitForTimeout(800);
-    for (let i = 0; i < 40 && (await dialog.locator(':focus').count()) === 0; i++) await page.keyboard.press('Tab');
+    for (let i = 0; i < 300 && (await dialog.locator(':focus').count()) === 0; i++) await page.keyboard.press('Tab');
     await expect(dialog.locator(':focus')).toHaveCount(1);
     await expect(page.getByRole('tooltip')).toHaveCount(0);
     await evidence(page, testInfo, 'returned-panel-title-focus');
