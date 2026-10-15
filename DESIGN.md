@@ -187,6 +187,7 @@ label 행은 #210(FeedbackOps 원본 값), 나머지 행은 #193/#194 UI/UX 리�
 - 관리 필터 레일은 표 카드와 같은 표면·테두리·제목 위계를 쓰며, 동작은 레일 아래에 고정하고 적용 수를 표시한다([ADR-0022](docs/adr/0022-management-filter-rail-analysis-two-column.md)).
 - 공유 `surface-sidebar` 위에 Registry 그룹을 **section label**로 표시한다. 활성 탐색 제목에 `text-disabled`를 쓰지 않는다. 주 메뉴 navigation과 즐겨찾기/최근 section을 구별한다.
 - 현재 메뉴/공간은 공유 selected 표면 + text weight + **2px accent 막대**로 구별한다. `aria-current`를 유지하고 hover가 막대를 지우지 않는다. 보조 즐겨찾기/최근 링크에 현재 위치 표식을 중복하지 않는다.
+- 탭 선택은 2px `accent-primary` 아래 막대 + `font-semibold`, 비선택은 `text-secondary`, 목록 기준선은 1px `border-subtle`로 표시한다(ADR-0023 개정, #340).
 - hover는 공유 row-hover, focus는 opaque 2px outline과 offset을 사용한다. hover/selected 안의 작은 필수 글자(‘예정’, Scope 상태·room, 언어)는 secondary 또는 허용 label로 유지한다.
 - collapsed에서는 Scope 선택·검증 상태와 주 메뉴를 남긴다. 아이콘은 이름 있는 동작이며 hover/focus Tooltip에 전체 이름을 제공한다. Scope Tooltip과 accessible description은 이름·상태·room을 보존하고 live announcement는 상태 문자열만 전달한다.
 - collapsed에서 즐겨찾기/최근은 숨겨 주 메뉴와 중복 아이콘이 섞이지 않게 한다. expanded에서는 두 section과 빈 안내를 유지한다. 빈 안내는 가짜 링크가 아니다.
@@ -195,7 +196,7 @@ label 행은 #210(FeedbackOps 원본 값), 나머지 행은 #193/#194 UI/UX 리�
 
 ## Layout and analysis composition
 
-정보 밀도는 장식 여백보다 우선한다. 정확한 비교는 표, 변화·분포는 차트, 요약은 KPI로 나눈다. 카드마다 동일한 시각 강도를 주는 card soup를 피하고 공유 surface/border로 계층을 만든다. 공유 반경·primitive 모양은 FeedbackOps 원본을 따르며 버튼·input을 독자적으로 재설계하지 않는다. 크기도 FeedbackOps variant로 고른다 — 작은 동작 버튼 `size="toolbar"`, 아이콘 버튼 `icon-xs`/`icon-sm`, 그 밖 `sm`; 팝오버·드롭다운·툴팁은 FeedbackOps 표면, segmented 선택은 FeedbackOps segmented `RadioGroup`([ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md)). FeedbackOps에 없는 모양은 플랫폼에서 덮어쓰지 않고 FeedbackOps variant로 제안한다. 예외는 접근성 하한 셋 — 입력·select·체크박스 경계의 `border-control`, `aria-disabled` 버튼의 비활성 모양, 메뉴 항목 키보드 포커스 링 — 뿐이다. 카드 그림자를 겹치지 않고, floating surface의 공유 처리는 06 §23을 따른다.
+정보 밀도는 장식 여백보다 우선한다. 정확한 비교는 표, 변화·분포는 차트, 요약은 KPI로 나눈다. 카드마다 동일한 시각 강도를 주는 card soup를 피하고 공유 surface/border로 계층을 만든다. 공유 반경·primitive 모양은 FeedbackOps 원본을 따르며 버튼·input을 독자적으로 재설계하지 않는다. 크기도 FeedbackOps variant로 고른다 — 작은 동작 버튼 `size="toolbar"`, 아이콘 버튼 `icon-xs`/`icon-sm`, 그 밖 `sm`; 팝오버·드롭다운·툴팁은 FeedbackOps 표면, segmented 선택은 FeedbackOps segmented `RadioGroup`([ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md)). FeedbackOps에 없는 모양은 아래 접근성 예외를 제외하면 플랫폼에서 덮어쓰지 않고 FeedbackOps variant로 제안한다. 예외는 접근성 하한 넷 — 입력·select·체크박스 경계의 `border-control`, `aria-disabled` 버튼의 비활성 모양, 메뉴 항목 키보드 포커스 링, `@ap/ui`가 정의하는 탭 선택 표식(ADR-0023 개정) — 뿐이다. 소비자는 primitive 모양을 덮어쓰지 않는다. 카드 그림자를 겹치지 않고, floating surface의 공유 처리는 06 §23을 따른다.
 
 ### Dashboard composition and focal point
 

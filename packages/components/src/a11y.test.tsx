@@ -141,14 +141,14 @@ describe('DetailDrawer docked slot', () => {
     expect(inner).toHaveFocus();
   });
 
-  it('keeps drawer tabs on the shared FeedbackOps look with active state via data-state', () => {
+  it('uses platform tabs with active state via data-state without consumer restyling', () => {
     render(<I18nProvider><DetailPanelSlotProvider>
       <DetailDrawer title="Detail" onClose={() => {}} tabs={[
         { id: 'a', label: 'Attributes', content: 'attributes' }, { id: 'audit', label: 'Audit', content: 'audit' },
       ]} /><SlotHost />
     </DetailPanelSlotProvider></I18nProvider>);
     const list = screen.getByRole('tablist');
-    // ADR-0023 C2: the drawer no longer restyles TabsList (was bg-surface-sunken + text-text-secondary).
+    // ADR-0023 개정(#340): @ap/ui가 선택 표식을 정의하며 드로어는 모양을 덮어쓰지 않는다.
     expect(list).not.toHaveClass('bg-surface-sunken', 'text-text-secondary');
     expect(screen.getByRole('tab', { name: 'Audit' })).toHaveAttribute('data-state', 'inactive');
     expect(screen.getByRole('tab', { name: 'Attributes' })).toHaveAttribute('data-state', 'active');

@@ -6,6 +6,7 @@ UI Primitive 층(06 §13)과 디자인 시스템 CSS. 플랫폼 개념(Context, 
 
 - `src/styles/` — `tokens.css`(플랫폼 확장 값만), FeedbackOps CSS 소비·확장 Tailwind 테마 매핑, base, 타이포 유틸리티(`t-page-title` 등). 진입점 `index.css` = `@ap/ui/styles.css`.
 - `src/components/shadcn/*` — `@fops/ui` 공개 primitive의 명시적 재수출(플랫폼 공개 export 목록 유지).
+- `src/components/shadcn/tabs.tsx` — 예외: `TabsList`·`TabsTrigger`는 FeedbackOps 부품을 감싼 플랫폼 선택 표식 구현(ADR-0023 개정, #340). `Tabs`·`TabsContent`는 재수출한다.
 - `src/components/Button.tsx`(`@fops/ui` 재수출), `src/utils/isProductionEnv.ts`(플랫폼 환경 판단), `src/utils/platform.ts`(`isMacPlatform`·`shortcutLabel` — 단축키 표기의 OS 판정과 한 가지 표기 `⌘K`/`Ctrl+K`, #300), `StatusBadge.tsx`(`Tone`: success/warning/danger/neutral/info), `cn`(`@fops/ui` 재수출).
 
 ## 규칙
