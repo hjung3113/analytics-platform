@@ -306,7 +306,9 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   // 06 §19: a failed lookup (error·timeout·forbidden·too_large) is not a zero — only a successful
   // response (ok, or empty which IS a successful zero) may state a count or offer pages.
   const success = shown !== null && (shown.outcome === 'ok' || shown.outcome === 'empty');
-  // #314: a successful page past the end. The status line stays on the loading text until the clamped request settles — never "9/3".
+  // #314: a successful page past the end. While the clamped refetch is in flight the status line keeps the
+  // loading text; once that response has settled and the clamp was already notified (a consumer may ignore it),
+  // it falls back to count + total pages only — never "9/3", never a page number that was not received.
   const outOfRange = success && shownPage >= pageCount;
   // `result.identity` repeats for the same page (9 → 3 → 9). Remember the result object so this effect
   // re-running on that same object does not clamp twice; a later response is a new object and clamps again.
@@ -720,9 +722,11 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     </div>}
 
     <div className="flex min-h-7 items-center justify-between gap-2 border-t border-border-subtle px-3 py-1 text-xs text-text-muted" aria-live="polite">
-      <span className="tabular">{shown && !outOfRange ? (success
-        ? (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${shownPage + 1}/${pageCount} 페이지` : `${data.total.toLocaleString()} results · page ${shownPage + 1}/${pageCount}`)
-        : '—') : t('loading')}</span>
+      <span className="tabular">{!shown || (loading && outOfRange) ? t('loading')
+        : !success ? '—'
+        : outOfRange
+          ? (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${pageCount}페이지` : `${data.total.toLocaleString()} results · ${pageCount} pages`)
+          : (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${shownPage + 1}/${pageCount} 페이지` : `${data.total.toLocaleString()} results · page ${shownPage + 1}/${pageCount}`)}</span>
       <span className="flex items-center gap-2">
         {loading && shown && <span role="status" className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}</span>}
         {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} className="min-h-6" />}

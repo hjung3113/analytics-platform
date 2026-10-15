@@ -141,7 +141,41 @@ describe('PlatformDataTable out-of-range page clamp (#314)', () => {
     await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
     expect(onChange).toHaveBeenCalledWith({ sorting: keptSort, page: 3 }, 'clamp');
     expect(screen.queryByText(/9\/3/)).toBeNull();
+    expect(screen.getByText('54건 · 3페이지')).toBeTruthy();
+  });
+
+  it('a settled out-of-range response the consumer ignored stops loading and shows count and total pages only', async () => {
+    const loadPage = makeLoadPage(54);
+    const onChange = vi.fn();
+    const view = render(<ClampHarness page={9} onChange={onChange} loadPage={loadPage} />);
+    await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+    expect(onChange).toHaveBeenCalledWith({ sorting: keptSort, page: 3 }, 'clamp');
+    expect(screen.queryByText('불러오는 중…')).toBeNull();
+    expect(screen.queryByText(/9\/3/)).toBeNull();
+    expect(screen.getByText('54건 · 3페이지')).toBeTruthy();
+    // A fresh urlState object with the same values must not re-notify the clamp or refetch.
+    view.rerender(<ClampHarness page={9} onChange={onChange} loadPage={loadPage} />);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(loadPage).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('불러오는 중…')).toBeNull();
+    expect(screen.getByText('54건 · 3페이지')).toBeTruthy();
+  });
+
+  it('keeps the loading text while a reflected clamp refetch is in flight, then shows the clamped page', async () => {
+    const settle: ((response: ApiResponse<PageResult<Row>>) => void)[] = [];
+    const loadPage = vi.fn(() => new Promise<ApiResponse<PageResult<Row>>>(done => { settle.push(done); }));
+    const onChange = vi.fn();
+    function Host() {
+      const [page, setPage] = useState<number | null>(9);
+      return <ClampHarness page={page} loadPage={loadPage} onChange={(next, reason) => { onChange(next, reason); setPage(next.page); }} />;
+    }
+    render(<Host />);
+    await act(async () => { settle[0]({ outcome: 'ok', data: { rows: [{ id: 'r9', status: 's' }], total: 54 }, assessments: [], trust: null, correlationId: 'p9' }); });
+    expect(onChange).toHaveBeenCalledWith({ sorting: keptSort, page: 3 }, 'clamp');
     expect(screen.getByText('불러오는 중…')).toBeTruthy();
+    expect(screen.queryByText(/9\/3/)).toBeNull();
+    await act(async () => { settle[1]({ outcome: 'ok', data: { rows: [{ id: 'r3', status: 's' }], total: 54 }, assessments: [], trust: null, correlationId: 'p3' }); });
+    expect(await screen.findByText(/3\/3/)).toBeTruthy();
   });
 
   it('clamps each page-9 response once when the controlled page returns to 9 after 3', async () => {
