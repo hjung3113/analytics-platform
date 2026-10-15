@@ -247,12 +247,13 @@ export default function CycleTimeDrilldown(_: PageProps) {
             urlState={{
               page: pageResult.ok && pageResult.page !== 1 ? pageResult.page : null,
               sorting: [{ id: sortSpec.id, desc: sortSpec.desc }],
-              onChange: ({ page, sorting }) => {
+              onChange: ({ page, sorting }, reason) => {
                 const first = sorting[0];
                 const nextSort = first ? encodeSort(first.id, first.desc) : null;
-                if (nextSort === null) { setPage({ sort: null, page: null }); return; } // header removal toggle restores the absent default
-                if (nextSort === encodeSort(sortSpec.id, sortSpec.desc)) { setPage({ page: page === null ? null : String(page) }); return; } // pagination keeps the sort untouched
-                setPage({ sort: nextSort === DEFAULT_SORT ? null : nextSort, page: null }); // header sort gesture resets the page with the sort
+                const history = { replace: reason === 'clamp' };
+                if (nextSort === null) { setPage({ sort: null, page: null }, history); return; } // header removal toggle restores the absent default
+                if (nextSort === encodeSort(sortSpec.id, sortSpec.desc)) { setPage({ page: page === null ? null : String(page) }, history); return; } // pagination keeps the sort untouched
+                setPage({ sort: nextSort === DEFAULT_SORT ? null : nextSort, page: null }, history); // header sort gesture resets the page with the sort
               },
             }}
             // Table-owned export (#173): the page only says how to read the rows; the table builds the file and toasts.

@@ -78,7 +78,7 @@ export default function RegistryCatalog() {
           urlState={parsedSort.ok && parsedPage.ok ? {
             page: parsedPage.page === 1 ? null : parsedPage.page,
             sorting: parsedSort.sorting,
-            onChange: ({ page, sorting }) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }),
+            onChange: ({ page, sorting }, reason) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }, { replace: reason === 'clamp' }),
           } : undefined}
           rowAction={row => <Button size="sm" variant="ghost" aria-label={ko ? `${row.id} 보기` : `View ${row.id}`} onClick={() => setPage({ focus: row.id })}>{ko ? '보기' : 'View'}</Button>}
           loadPage={async page => {

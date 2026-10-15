@@ -202,7 +202,7 @@ export default function AuditTrail() {
         urlState={{
           page: parsed.page,
           sorting: parsed.sorting,
-          onChange: ({ page, sorting }) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }),
+          onChange: ({ page, sorting }, reason) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }, { replace: reason === 'clamp' }),
         }}
         loadPage={async (pageQuery, signal) => {
           const { filters } = parsed;
