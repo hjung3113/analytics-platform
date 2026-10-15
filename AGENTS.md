@@ -25,7 +25,7 @@
 | --- | --- |
 | 남은 일, 다음 할 일, 결정 대기 | [`.planning/README.md`](.planning/README.md) |
 | 설계·계약 문서와 작업별 읽기 경로 | [`docs/INDEX.md`](docs/INDEX.md) |
-| 도메인 용어 | [`CONTEXT.md`](CONTEXT.md) |
+| 도메인 용어 | [`GLOSSARY.md`](GLOSSARY.md) |
 | 시각 규칙 | [`DESIGN.md`](DESIGN.md) |
 | 결정과 그 이유 | [`docs/adr/`](docs/adr/) |
 | 에이전트 운영 메모(작업자 샌드박스, worktree, 캡처 함정) | [`docs/agents/operations.md`](docs/agents/operations.md) |
@@ -58,7 +58,7 @@
 
 ## UI는 프로토타입 컨펌 뒤 구현
 
-보이는 모양이 바뀌는 작업(공통 부품, 셸, 레이아웃, 디자인 토큰, DESIGN.md 방향)은 실제 앱 위 `?variant=` 2–3안 인터랙티브 프로토타입(`.agents/skills/prototype/UI.md`)으로 사용자 컨펌을 받은 뒤 구현한다. 정적 이미지나 문장 설명으로 컨펌을 대신하지 않는다. 컨펌된 안이 스펙이고, 벗어나야 하면 사용자 OK를 PR 본문에 적는다. 프로토타입 코드는 버리고 결정은 이슈·ADR에 남긴다. 버그 수정과 이미 컨펌된 모양을 그대로 옮기는 작업은 해당하지 않는다.
+보이는 모양이 바뀌는 작업(공통 부품, 셸, 레이아웃, 디자인 토큰, DESIGN.md 방향)은 실제 앱 위 `?variant=` 2–3안 인터랙티브 프로토타입(전역 `prototype` 스킬의 `UI.md`)으로 사용자 컨펌을 받은 뒤 구현한다. 정적 이미지나 문장 설명으로 컨펌을 대신하지 않는다. 컨펌된 안이 스펙이고, 벗어나야 하면 사용자 OK를 PR 본문에 적는다. 프로토타입 코드는 버리고 결정은 이슈·ADR에 남긴다. 버그 수정과 이미 컨펌된 모양을 그대로 옮기는 작업은 해당하지 않는다.
 
 새 화면 설계 절차(Requirements → IA → Screen Spec → Wireframe → Open Decisions)는 `.agents/skills/analysis-platform-wireframe/SKILL.md`.
 
@@ -85,4 +85,4 @@
 - 지침 원본은 각 폴더의 `AGENTS.md`이고, 같은 폴더의 `CLAUDE.md`는 그 상대 심링크다. 새 폴더 지침도 `ln -s AGENTS.md CLAUDE.md`로 연결한다.
 - 스킬·명령·외부 디자인 참고자료 원본은 `.agents/skills`·`.agents/commands`·`.agents/references`다(사용법 `.agents/README.md`). 외부 스킬과 참고자료는 제품 계약을 덮어쓰지 않는다.
 - 이슈 트래커 설정(GitHub Issues, `area:*` 라벨, 마일스톤): `docs/agents/issue-tracker.md`. Triage 라벨 5종: `docs/agents/triage-labels.md`. 도메인 문서 구성: `docs/agents/domain.md`.
-- 벤더링 스킬: `prototype`·`wayfinder`(mattpocock/skills 사본), `vercel-react-best-practices`(외부 공식 사본, 출처·우선순위는 각 `SOURCE.md`와 `.agents/README.md`). 꺼 둔 스킬(`to-tickets`·`to-spec`·`triage`·`ui-styling`, #155 전까지 `fastapi`·`supabase-postgres-best-practices`)은 `.agents/skills-off/`.
+- 벤더링 스킬: `vercel-react-best-practices`(외부 공식 사본, 출처·우선순위는 각 `SOURCE.md`와 `.agents/README.md`). 꺼 둔 스킬(#155 전까지 `fastapi`·`supabase-postgres-best-practices`)은 `.agents/skills-off/`. `prototype`·`diagnosing-bugs` 같은 일반 스킬은 전역(`~/.agents/skills`)이다.

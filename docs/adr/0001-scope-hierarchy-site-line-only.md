@@ -6,5 +6,5 @@
 
 ## Consequences
 
-- StGroup은 원래 하나의 Factory 안에서 여러 Line에 걸쳐 구성될 수 있는데, Factory 개념이 없으므로 이 경우 StGroup이 여러 Line Scope 값에 걸치는 것으로 나타난다. 이는 버그가 아니라 이 결정의 직접적인 결과다. (2026-09-24 정정: StGroup은 분임조와 별개 값이다 — `CONTEXT.md` 참고. 이 문단 작성 당시에는 둘을 같은 것으로 잘못 알고 있었다.)
+- StGroup은 원래 하나의 Factory 안에서 여러 Line에 걸쳐 구성될 수 있는데, Factory 개념이 없으므로 이 경우 StGroup이 여러 Line Scope 값에 걸치는 것으로 나타난다. 이는 버그가 아니라 이 결정의 직접적인 결과다. (2026-09-24 정정: StGroup은 분임조와 별개 값이다 — `GLOSSARY.md` 참고. 이 문단 작성 당시에는 둘을 같은 것으로 잘못 알고 있었다.)
 - 나중에 Factory 단위 집계·조회가 실제로 필요해지면, 사내 어디에도 없는 Factory-Line 매핑을 새로 소싱해야 한다 — 기존 데이터에서 유도할 수 없다.

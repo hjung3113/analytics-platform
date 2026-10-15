@@ -8,7 +8,7 @@
 | 작업 규칙 | 루트 [AGENTS.md](../AGENTS.md), 이 폴더 [AGENTS.md](AGENTS.md)(문서 소유권·상태 표기) |
 | 저장소 구조와 FeedbackOps 연결 | [저장소 구조](integration/repository-layout.md) |
 | 결정과 그 이유 | [ADR 목록](adr/README.md), ADR 없는 계약 결정은 [05](05_roadmap_and_open_questions.md) |
-| 도메인 용어 | [CONTEXT](../CONTEXT.md) |
+| 도메인 용어 | [GLOSSARY](../GLOSSARY.md) |
 | 시각 규칙 | [DESIGN](../DESIGN.md) |
 | 이슈 관리·에이전트 운영 메모 | [이슈 트래커](agents/issue-tracker.md), [운영 메모](agents/operations.md) |
 
@@ -17,7 +17,7 @@
 | 역할 | 먼저 볼 문서 | 같이 볼 문서 |
 | --- | --- | --- |
 | 신규 합류자 | [00 개요](00_overview.md) → [06 플랫폼 계약](06_platform_ui_contract.md) | 자기 역할 행 |
-| 기획(PM) — 도메인 | [02 도메인 catalog](02_domain_menus.md) | [CONTEXT](../CONTEXT.md), [05](05_roadmap_and_open_questions.md) |
+| 기획(PM) — 도메인 | [02 도메인 catalog](02_domain_menus.md) | [GLOSSARY](../GLOSSARY.md), [05](05_roadmap_and_open_questions.md) |
 | 백엔드·인프라 | [01 아키텍처·데이터 계약](01_architecture_and_data_contract.md) | [03 백엔드](03_backend_stack.md), [실서버 연결 체크리스트](integration/real-server-checklist.md) |
 | 플랫폼·프론트엔드 | [06 플랫폼 계약](06_platform_ui_contract.md) | [04 프론트 기술 스택](04_frontend_ui_ux.md), [07 셸](07_app_shell_wireframe.md) |
 | 사내 적용(백엔드·인프라·사내 메뉴 개발자) | [사내 적용 가이드](integration/in-house-rollout.md) | [실서버 연결 체크리스트](integration/real-server-checklist.md), [전송 형식 초안](integration/http-adapter-contract.md) |
@@ -68,7 +68,7 @@
 - [적재 워커 상태 기록 스키마](integration/ingest-status-schema.md) — 가공 상태 원천의 기록 구조와 평가 규칙. Candidate(#37 파서 담당 합의 대기).
 - [FeedbackOps 딥링크 계약](integration/feedbackops-deeplink.md) — 양방향 딥링크 1단계(확장은 #81).
 
-루트 문서: [DESIGN](../DESIGN.md)(FeedbackOps 기반 플랫폼 시각 확장 — 06의 최소 기준·상태·접근성 의무는 바꾸지 않는다), [CONTEXT](../CONTEXT.md)(현행 도메인 용어와 관계).
+루트 문서: [DESIGN](../DESIGN.md)(FeedbackOps 기반 플랫폼 시각 확장 — 06의 최소 기준·상태·접근성 의무는 바꾸지 않는다), [GLOSSARY](../GLOSSARY.md)(현행 도메인 용어와 관계).
 
 조사·근거 기록(authoritative 아님):
 

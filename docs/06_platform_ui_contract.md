@@ -258,7 +258,7 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 - 세션·최근방문 값은 미검증 후보이며, 재적용 전에 현재 Scope에서 설비·Lot 선택과 권한의 유효성을 다시 검증한다.
 - **요청 `scopeId`는 하나다(Decided).** 부재는 명시적 선택 상태이며 임의 Scope로 대체하지 않는다. Scope 선택지 조회와 분석 데이터 조회는 구분한다. 사용자가 명시한 무단 ID는 조용히 제거하지 않으며, 전체 권한 실패는 `outcome=forbidden`이다(§19).
 - **권한·조회 범위는 Site → room_name → StGroup → Equipment 관계를 따른다(Decided, 2026-09-24).** 실무 권한 부여 축은 Site 내 room_name이다. room_name과 StGroup은 여러 Line에 걸칠 수 있으며 Line은 독립 생산·조회 축이다. Factory는 별도 Scope 레벨로 모델링하지 않는다. [ADR-0005](adr/0005-scope-room-name-line-independent.md)가 ADR-0001의 Line 중심 Scope 주장을 대체한다.
-- 설비 분류(Maker → Model → ChamberType → EquipmentID)는 위 접근 범위와 별개다. StGroup은 room_name·Site 경계를 넘지 않는 설비 능력 묶음이며 분임조는 엔지니어 조직 묶음이다. 둘의 소속은 외부 공급값이다. Group 조건이나 Line 선택이 room_name 권한을 대신하거나 넓히지 않는다. 근거: [CONTEXT](../CONTEXT.md).
+- 설비 분류(Maker → Model → ChamberType → EquipmentID)는 위 접근 범위와 별개다. StGroup은 room_name·Site 경계를 넘지 않는 설비 능력 묶음이며 분임조는 엔지니어 조직 묶음이다. 둘의 소속은 외부 공급값이다. Group 조건이나 Line 선택이 room_name 권한을 대신하거나 넓히지 않는다. 근거: [GLOSSARY](../GLOSSARY.md).
 - **요청 `scopeId`는 v1에서 단일 선택만 허용한다(Decided, 2026-09-22).** 복수 Scope 선택은 이후 확장 후보로 남기되 v1 범위 밖이다.
 - **부모·자식 권한 상속 및 조회 필터 자동 포함의 세부 규칙은 Open domain decision이다.** room_name이 실무 권한 축이라는 결정과 구별한다. Site 선택만으로 모든 room_name에 대한 접근이 허용된다고 해석하지 않으며, 셸에 고정 다단 선택기를 요구하지 않는다.
 - **Site는 물리 DB 경계다(Decided).** Site 선택은 컬럼 필터가 아니라 연결 대상을 정한다. 설비 ID 사용 전에 활성 Scope의 Site가 확립돼 있어야 한다. URL에 없는 `scopeId`를 세션에서 몰래 채우거나 EquipmentID로 Site를 역산하지 않는다([ADR-0004](adr/0004-site-is-db-partition-not-column.md)).

@@ -7,7 +7,7 @@
 ## 1. USER TASK
 
 - 사용자: 공정/설비 엔지니어. 기간과 설비를 확인하고 네 지표의 요약·추세·신뢰도를 읽어 상세 분석에 들어갈지 판단한다.
-- 대상: Scope 내 EquipmentID 집합에 대한 물리 점유율, 비Process 체류, 사이클타임 P50/P95, **Job 처리량**. Lot은 논리적 묶음이고 Job은 실행 인스턴스이므로 처리량의 표기·단위도 Job으로 구분한다([CONTEXT](../CONTEXT.md)).
+- 대상: Scope 내 EquipmentID 집합에 대한 물리 점유율, 비Process 체류, 사이클타임 P50/P95, **Job 처리량**. Lot은 논리적 묶음이고 Job은 실행 인스턴스이므로 처리량의 표기·단위도 Job으로 구분한다([GLOSSARY](../GLOSSARY.md)).
 - 주 결정: 해당 기간의 수치를 해석할 수 있는지, 사이클타임 상세를 더 확인할지. 임계값 기반 이상 판정·원인 진단은 이 화면에서 만들지 않는다.
 - 반복 조회용 Desktop-first 화면. 실제 데이터량·조회 상한·이용 빈도는 미확정([열린 입력 질문 4](../.planning/inputs.md#q4)).
 - 이 화면에 Wafer Journey, 실행 목록, occurrence 상세, 편집/CRUD, 수집 파이프라인 모니터링을 추가하지 않는다. SEMI E10 가동률·수율은 제외이며 대체 지표를 만들지 않는다(관련 개념을 논할 때도 **제한된 정의**임을 명시해야 함).
@@ -52,7 +52,7 @@
 
 ## 6. DATA REQUIREMENTS
 
-- **허용 지표/정의(Open)**: 지표별 ID·grain·단위·분자/분모·기간 경계·null 의미·버전·coverage 정의가 필요하다. 점유 interval의 중복 제거/기간 clipping과 유효 관측시간 분모, 비Process 분류/체류 집계 통계, Job 사이클타임 시작·끝/미완료 제외, Job 처리량의 시작 또는 완료 귀속·중복 집계 방지는 원문에 없다. 구현의 수치는 합성 mock 값이고 이 세부 정의는 승인되지 않았다. 근거: [02](02_domain_menus.md) 생산성 분석/지표관리, [01](01_architecture_and_data_contract.md) 「대응」「집계 가능성 계약」, [CONTEXT](../CONTEXT.md) Lot/Job/Recipe.
+- **허용 지표/정의(Open)**: 지표별 ID·grain·단위·분자/분모·기간 경계·null 의미·버전·coverage 정의가 필요하다. 점유 interval의 중복 제거/기간 clipping과 유효 관측시간 분모, 비Process 분류/체류 집계 통계, Job 사이클타임 시작·끝/미완료 제외, Job 처리량의 시작 또는 완료 귀속·중복 집계 방지는 원문에 없다. 구현의 수치는 합성 mock 값이고 이 세부 정의는 승인되지 않았다. 근거: [02](02_domain_menus.md) 생산성 분석/지표관리, [01](01_architecture_and_data_contract.md) 「대응」「집계 가능성 계약」, [GLOSSARY](../GLOSSARY.md) Lot/Job/Recipe.
 - **소비 경계(Decided)**: API는 호환 view/mart를 소비하며 파서 원본 직접 조회를 하지 않는다. 조인/원천 정밀도·분류·품질은 서버가 소유한다. 여러 설비/날짜의 P95를 평균하지 않으며 비율은 분자·분모 각각 합산한다. 표시용 downsampling을 지표 계산으로 사용하지 않는다. 근거: [01](01_architecture_and_data_contract.md) 「전체 아키텍처」「집계 가능성 계약」.
 - **Scope/Equipment(Decided)**: 단일 scopeId 필수, Site·room_name 기준으로 서버가 조회/옵션/링크마다 권한을 재검증한다. Site→room_name→StGroup→Equipment 관계와 독립 Line 축을 따르며 권한 상속 세부는 Open이다. 고정 Selection은 조용히 제거/대체하지 않는다. 명시적 공집합은 유효한 나머지 요청에 대해 empty이며 무제약과 다르다. 근거: [06](06_platform_ui_contract.md) §6.1–6.2/§17, [ADR-0005](adr/0005-scope-room-name-line-independent.md).
 - **페이지 조회 계약(Candidate)**: page-owned 키는 `granularity`·`kpi`·`axis`·`sort`이며 Kernel에 등록돼 있다(지표별 버전 키 등록 여부는 결정 대기). roomNames/ppid/recipeIds 및 Equipment Group Condition/Selection은 전역 계약을 소비한다. 그룹 현재 결과와 평가 기준시각이 필요하다. 현재 조건의 결과 0건은 live Condition을 유지한 empty이며 고정 공집합으로 자동 바꾸지 않는다. 사용자가 명시한 선택 0건만 Selection 공집합 표식으로 표현한다. 근거: [06](06_platform_ui_contract.md) §6.1/§6.4, [ADR-0002](adr/0002-stgroup-materializes-to-equipment-ids.md).
