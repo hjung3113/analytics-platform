@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { contextBar, evidence, expectScopeValid, firstRowByColumn, lotColumn, mainHeading, query, rowMapsByColumn, setScenario, signInAs, switchScope, tableStatusLine, usageVisits } from './support';
 
 /**
@@ -1908,23 +1908,53 @@ test.describe('지표 목록→상세 복귀 (06 §22)', () => {
   });
 
   // #325-2: the tab=history deep link lands with the section heading below the sticky page header, not under it.
+  // The arrival scroll runs only after pair·definition answered, and the mock delays every request randomly —
+  // so the test waits for the gate's rendered evidence first (success banner + definition content), then
+  // re-measures heading and offset until the landing holds. No single early read, no fixed sleep: the poll
+  // retried until it passes is what survives the randomized latency (W-s9 F2).
   test('tab=history 딥링크는 변경 이력 헤딩을 sticky 머리 아래에 내려앉는다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
+    const landingBelowStickyHeader = (heading: Locator) => expect(async () => {
+      // PlatformPage measures the sticky header (breadcrumb/title row + Context bar) into this custom property.
+      const offset = Number.parseFloat(await page.evaluate(
+        () => getComputedStyle(document.querySelector('[data-platform-page]')!).getPropertyValue('--page-sticky-offset'),
+      )) || 0;
+      // Fresh navigation starts the scroll container (shell `#platform-main`) at 0; only the arrival
+      // scrollIntoView moves it. Requiring scrollTop > 0 means the judged frame is after the scroll ran,
+      // never a pre-scroll snapshot of the not-yet-grown page.
+      const scrolled = await page.evaluate(() => (document.getElementById('platform-main') as HTMLElement | null)?.scrollTop ?? 0);
+      const box = await heading.boundingBox();
+      expect(box, '도착한 헤딩이 사각형을 가진다').not.toBeNull();
+      expect(scrolled).toBeGreaterThan(0);
+      expect(box!.y).toBeGreaterThanOrEqual(offset);
+      expect(box!.y).toBeLessThan(900);
+    }).toPass();
+    // The pair verdict (success reply, not an error state) and the definition answer render only after both
+    // queries above every anchor have answered — the same gate the arrival scroll waits on.
+    const gateEvidenceVisible = () => {
+      const banner = expect(page.getByText('전역 지표 쌍 없음', { exact: true })).toBeVisible();
+      const definition = expect(page.getByText('버전을 고르기 전에는 정의를 보여 주지 않습니다.', { exact: true })).toBeVisible();
+      return Promise.all([banner, definition]);
+    };
+
     await page.goto('/metrics/cycle_time?v=1&tab=history');
     const historyHeading = page.getByRole('heading', { name: '변경 이력', level: 2 });
     await expect(historyHeading).toBeVisible();
     // The history query answered: the AuditTimeline rendered its list (no compact skeleton above the scroll).
     const historyPanel = page.locator('section').filter({ has: page.locator('#metric-section-history') });
     await expect(historyPanel.locator('ol')).toBeVisible();
-    // PlatformPage measures the sticky header (breadcrumb/title row + Context bar) into this custom property.
-    const stickyOffset = await page.evaluate(() => {
-      const offset = getComputedStyle(document.querySelector('[data-platform-page]')!).getPropertyValue('--page-sticky-offset');
-      return Number.parseFloat(offset) || 0;
-    });
-    const box = (await historyHeading.boundingBox())!;
-    expect(box.y).toBeGreaterThanOrEqual(stickyOffset);
-    expect(box.y).toBeLessThan(900);
+    await gateEvidenceVisible();
+    await landingBelowStickyHeader(historyHeading);
     await evidence(page, testInfo, 'metric-history-anchor-below-sticky-header');
+
+    // U1: the version-less tab=definition arrival obeys the same landing contract — the anchor id sits on
+    // the Panel h2, so the heading itself (not the placeholder sentence under it) clears the sticky header.
+    await page.goto('/metrics/cycle_time?v=1&tab=definition');
+    const definitionHeading = page.getByRole('heading', { name: '정의', exact: true, level: 2 });
+    await expect(definitionHeading).toBeVisible();
+    await gateEvidenceVisible();
+    await landingBelowStickyHeader(definitionHeading);
+    await evidence(page, testInfo, 'metric-definition-anchor-below-sticky-header');
   });
 });
 

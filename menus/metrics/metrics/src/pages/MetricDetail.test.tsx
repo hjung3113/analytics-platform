@@ -153,9 +153,15 @@ function fixtureAdapter(): PlatformAdapter {
     if (req.endpoint === 'metrics.definition') {
       const { metricId, version } = req.params as { metricId: string; version: string | null };
       const metric = metricId === 'queue_time' ? QUEUE_TIME : metricId === 'cycle_time' ? CYCLE_TIME : null;
-      if (!metric || version === null || !metric.versions.some(v => v.version === version)) {
-        return asFixtureResponse({ outcome: 'ok', data: { problem: metric ? 'version-not-member' : 'unknown-metric', requestedVersion: version, metric: null, version: null, previous: null, exampleEquipmentIds: [], exampleRooms: [] }, assessments: [], trust: null, correlationId: 'corr-fixture' });
-      }
+      // The problem payloads mirror buildDefinition (src/mock/catalog.ts): ok envelopes carry the declared
+      // assessment even for problems — the Kernel rewrites kinds-mismatched ok/empty replies into errors
+      // (W-s9 F1) — and a known metric travels with need-version/version-not-member, or the page would show
+      // "metric not found" instead of the no-version definition state.
+      const problemResponse = (problem: 'unknown-metric' | 'need-version' | 'version-not-member', requestedVersion: string | null, withMetric: boolean): ApiResponse<never> =>
+        asFixtureResponse({ outcome: 'ok', data: { problem, requestedVersion, metric: withMetric ? metric : null, version: null, previous: null, exampleEquipmentIds: [], exampleRooms: [] }, assessments: [...MART_ASSESSMENTS], trust: null, correlationId: 'corr-fixture' });
+      if (!metric) return problemResponse('unknown-metric', version, false);
+      if (version === null) return problemResponse('need-version', version, true);
+      if (!metric.versions.some(v => v.version === version)) return problemResponse('version-not-member', version, true);
       return asFixtureResponse(definitionResponse(metric, version));
     }
     if (req.endpoint === 'metrics.usage') {
@@ -165,8 +171,8 @@ function fixtureAdapter(): PlatformAdapter {
         .map(u => ({ menuId: u.menuId, place: u.place, version, evidenceSource: 'declared-dependency' as const, observedAt: null }));
       return asFixtureResponse(usageResponse({ problem: null, rows }));
     }
-    if (req.endpoint === 'metrics.history') return asFixtureResponse({ outcome: 'ok', data: { problem: null, events: [] }, assessments: [], trust: null, correlationId: 'corr-fixture' });
-    if (req.endpoint === 'metrics.pair') return asFixtureResponse({ outcome: 'ok', data: { kind: 'absent' }, assessments: [], trust: null, correlationId: 'corr-fixture' });
+    if (req.endpoint === 'metrics.history') return asFixtureResponse({ outcome: 'ok', data: { problem: null, events: [] }, assessments: [...MART_ASSESSMENTS], trust: null, correlationId: 'corr-fixture' });
+    if (req.endpoint === 'metrics.pair') return asFixtureResponse({ outcome: 'ok', data: { kind: 'absent' }, assessments: [...MART_ASSESSMENTS], trust: null, correlationId: 'corr-fixture' });
     return empty;
   };
   return {
@@ -285,7 +291,7 @@ describe('MetricDetail tab anchor scroll timing (#325-2)', () => {
     return { ...base, menuQuery: req => (req.endpoint === 'metrics.definition' ? definition : base.menuQuery(req)) };
   }
 
-  const pairAbsent: ApiResponse<never> = asFixtureResponse({ outcome: 'ok', data: { kind: 'absent' }, assessments: [], trust: null, correlationId: 'corr-fixture' });
+  const pairAbsent: ApiResponse<never> = asFixtureResponse({ outcome: 'ok', data: { kind: 'absent' }, assessments: [...MART_ASSESSMENTS], trust: null, correlationId: 'corr-fixture' });
 
   /** fixtureAdapter with the pair-banner reply (metrics.pair, above every anchor) held. */
   function delayedPairAdapter(pair: Promise<ApiResponse<never>>): PlatformAdapter {
@@ -336,6 +342,11 @@ describe('MetricDetail tab anchor scroll timing (#325-2)', () => {
     expect(scrollTargets()).toEqual([]); // the pair skeleton still sits above the anchor — no scroll yet
     await act(async () => { pair.resolve(pairAbsent); });
     expect(scrollTargets()).toEqual(['metric-section-history']); // exactly one, after the banner loads
+    // The released banner must be the success reply, not a Kernel contract_violation rewrite: an ok
+    // envelope without the declared processing_delay assessment is turned into an error, and the gate
+    // opens on errors too — scroll assertions alone used to pass through the error UI (W-s9 F1).
+    expect(screen.getByText('전역 지표 쌍 없음')).toBeTruthy();
+    expect(screen.queryAllByText('데이터를 불러오지 못했습니다')).toEqual([]);
   });
 
   it('e. scrolls to an upper section without waiting for the usage query below it', async () => {
@@ -380,5 +391,29 @@ describe('MetricDetail tab anchor scroll timing (#325-2)', () => {
     expect(scrollTargets()).toEqual([]); // the gate stayed closed through both arrivals — nothing scrolled
     await act(async () => { definition.resolve(asFixtureResponse(definitionResponse(CYCLE_TIME, '4'))); });
     expect(scrollTargets()).toEqual(['metric-section-history']); // exactly one — the stale arrivals do not scroll
+  });
+
+  it('h. opens the gate on an explicit error response above the anchor', async () => {
+    // "Any outcome counts as landed" (#325-2) is the gate's real contract, so it is pinned with an
+    // honest outcome:'error' reply — not with an ok envelope the Kernel rewrites into an error (W-s9 F1).
+    const pair = deferred<ApiResponse<never>>();
+    renderDetail('/metrics/cycle_time?version=4&tab=history', 'cycle_time', delayedPairAdapter(pair.promise));
+    await screen.findAllByText('게시'); // definition answered; usage·history answer in the same flush
+    await act(async () => {});
+    expect(scrollTargets()).toEqual([]);
+    const pairError: ApiResponse<never> = { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'corr-fixture', message: 'Upstream mart query failed' };
+    await act(async () => { pair.resolve(pairError); });
+    expect(scrollTargets()).toEqual(['metric-section-history']); // the error response opens the gate
+    expect(screen.getAllByText('데이터를 불러오지 못했습니다').length).toBeGreaterThan(0); // the banner shows that error
+  });
+
+  it('i. anchors the version-less tab=definition arrival on the 정의 heading (U1)', async () => {
+    renderDetail('/metrics/cycle_time?tab=definition', 'cycle_time');
+    await screen.findByText('버전을 고르기 전에는 정의를 보여 주지 않습니다.'); // definition answered; no version selected
+    const anchor = document.getElementById('metric-section-definition');
+    expect(anchor?.tagName).toBe('H2'); // the id sits on the Panel h2, like every other section — not the sentence
+    expect(anchor?.textContent).toBe('정의');
+    await act(async () => {}); // flush the one arrival scroll
+    expect(scrollTargets()).toEqual(['metric-section-definition']); // the heading itself is the scroll target
   });
 });
