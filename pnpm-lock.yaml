@@ -49,25 +49,25 @@ importers:
         version: link:../../packages/kernel
       '@ap/menu-admin':
         specifier: workspace:*
-        version: link:../../menus/admin
+        version: link:../../menus/operations/admin
       '@ap/menu-analytics':
         specifier: workspace:*
-        version: link:../../menus/analytics
+        version: link:../../menus/analytics/analytics
       '@ap/menu-equipment':
         specifier: workspace:*
-        version: link:../../menus/equipment
+        version: link:../../menus/analytics/equipment
       '@ap/menu-home':
         specifier: workspace:*
-        version: link:../../menus/home
+        version: link:../../menus/_global/home
       '@ap/menu-master-data':
         specifier: workspace:*
-        version: link:../../menus/master-data
+        version: link:../../menus/analytics/master-data
       '@ap/menu-metrics':
         specifier: workspace:*
-        version: link:../../menus/metrics
+        version: link:../../menus/metrics/metrics
       '@ap/menu-notice-voc':
         specifier: workspace:*
-        version: link:../../menus/notice-voc
+        version: link:../../menus/_global/notice-voc
       '@ap/mock-server':
         specifier: workspace:*
         version: link:../../packages/mock-server
@@ -148,189 +148,33 @@ importers:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.5)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
 
-  menus/admin:
+  menus/_global/home:
     dependencies:
       '@ap/components':
         specifier: workspace:*
-        version: link:../../packages/components
+        version: link:../../../packages/components
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../packages/contracts
+        version: link:../../../packages/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../packages/kernel
-      '@ap/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
-      lucide-react:
-        specifier: ^1.48.0
-        version: 1.48.0(react@19.3.0)
-    devDependencies:
-      '@ap/eslint-config':
-        specifier: workspace:*
-        version: link:../../tooling/eslint
-      '@ap/tsconfig':
-        specifier: workspace:*
-        version: link:../../tooling/tsconfig
-      '@testing-library/react':
-        specifier: ^16.3.3
-        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@types/react':
-        specifier: ^19.3.0
-        version: 19.3.0
-      '@types/react-dom':
-        specifier: ^19.3.0
-        version: 19.3.0(@types/react@19.3.0)
-      eslint:
-        specifier: ^10.11.0
-        version: 10.11.0(jiti@2.7.0)
-      jsdom:
-        specifier: ^26.1.0
-        version: 26.1.0
-      react:
-        specifier: ^19.3.0
-        version: 19.3.0
-      react-dom:
-        specifier: ^19.3.0
-        version: 19.3.0(react@19.3.0)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^3.2.7
-        version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.5)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
-
-  menus/analytics:
-    dependencies:
-      '@ap/components':
-        specifier: workspace:*
-        version: link:../../packages/components
-      '@ap/contracts':
-        specifier: workspace:*
-        version: link:../../packages/contracts
-      '@ap/kernel':
-        specifier: workspace:*
-        version: link:../../packages/kernel
+        version: link:../../../packages/kernel
       '@ap/mock-server':
         specifier: workspace:*
-        version: link:../../packages/mock-server
+        version: link:../../../packages/mock-server
       '@ap/ui':
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../../packages/ui
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
     devDependencies:
       '@ap/eslint-config':
         specifier: workspace:*
-        version: link:../../tooling/eslint
+        version: link:../../../tooling/eslint
       '@ap/tsconfig':
         specifier: workspace:*
-        version: link:../../tooling/tsconfig
-      '@testing-library/react':
-        specifier: ^16.3.3
-        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@types/react':
-        specifier: ^19.3.0
-        version: 19.3.0
-      '@types/react-dom':
-        specifier: ^19.3.0
-        version: 19.3.0(@types/react@19.3.0)
-      eslint:
-        specifier: ^10.11.0
-        version: 10.11.0(jiti@2.7.0)
-      jsdom:
-        specifier: ^26.1.0
-        version: 26.1.0
-      react:
-        specifier: ^19.3.0
-        version: 19.3.0
-      react-dom:
-        specifier: ^19.3.0
-        version: 19.3.0(react@19.3.0)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^3.2.7
-        version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.5)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
-
-  menus/equipment:
-    dependencies:
-      '@ap/components':
-        specifier: workspace:*
-        version: link:../../packages/components
-      '@ap/contracts':
-        specifier: workspace:*
-        version: link:../../packages/contracts
-      '@ap/kernel':
-        specifier: workspace:*
-        version: link:../../packages/kernel
-      '@ap/mock-server':
-        specifier: workspace:*
-        version: link:../../packages/mock-server
-      '@ap/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
-      lucide-react:
-        specifier: ^1.48.0
-        version: 1.48.0(react@19.3.0)
-    devDependencies:
-      '@ap/eslint-config':
-        specifier: workspace:*
-        version: link:../../tooling/eslint
-      '@ap/tsconfig':
-        specifier: workspace:*
-        version: link:../../tooling/tsconfig
-      '@types/react':
-        specifier: ^19.3.0
-        version: 19.3.0
-      '@types/react-dom':
-        specifier: ^19.3.0
-        version: 19.3.0(@types/react@19.3.0)
-      eslint:
-        specifier: ^10.11.0
-        version: 10.11.0(jiti@2.7.0)
-      react:
-        specifier: ^19.3.0
-        version: 19.3.0
-      react-dom:
-        specifier: ^19.3.0
-        version: 19.3.0(react@19.3.0)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^3.2.7
-        version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.5)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
-
-  menus/home:
-    dependencies:
-      '@ap/components':
-        specifier: workspace:*
-        version: link:../../packages/components
-      '@ap/contracts':
-        specifier: workspace:*
-        version: link:../../packages/contracts
-      '@ap/kernel':
-        specifier: workspace:*
-        version: link:../../packages/kernel
-      '@ap/mock-server':
-        specifier: workspace:*
-        version: link:../../packages/mock-server
-      '@ap/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
-      lucide-react:
-        specifier: ^1.48.0
-        version: 1.48.0(react@19.3.0)
-    devDependencies:
-      '@ap/eslint-config':
-        specifier: workspace:*
-        version: link:../../tooling/eslint
-      '@ap/tsconfig':
-        specifier: workspace:*
-        version: link:../../tooling/tsconfig
+        version: link:../../../tooling/tsconfig
       '@testing-library/dom':
         specifier: ^10.4.2
         version: 10.4.2
@@ -362,24 +206,186 @@ importers:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.5)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
 
-  menus/master-data:
+  menus/_global/notice-voc:
     dependencies:
+      '@ap/components':
+        specifier: workspace:*
+        version: link:../../../packages/components
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../packages/contracts
+        version: link:../../../packages/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../packages/kernel
+        version: link:../../../packages/kernel
+      '@ap/mock-server':
+        specifier: workspace:*
+        version: link:../../../packages/mock-server
+      '@ap/ui':
+        specifier: workspace:*
+        version: link:../../../packages/ui
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
     devDependencies:
       '@ap/eslint-config':
         specifier: workspace:*
-        version: link:../../tooling/eslint
+        version: link:../../../tooling/eslint
       '@ap/tsconfig':
         specifier: workspace:*
-        version: link:../../tooling/tsconfig
+        version: link:../../../tooling/tsconfig
+      '@testing-library/dom':
+        specifier: ^10.4.2
+        version: 10.4.2
+      '@testing-library/react':
+        specifier: ^16.3.3
+        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.3.0)
+      eslint:
+        specifier: ^10.11.0
+        version: 10.11.0(jiti@2.7.0)
+      jsdom:
+        specifier: ^26.1.0
+        version: 26.1.0
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: ^19.3.0
+        version: 19.3.0(react@19.3.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.5)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
+
+  menus/analytics/analytics:
+    dependencies:
+      '@ap/components':
+        specifier: workspace:*
+        version: link:../../../packages/components
+      '@ap/contracts':
+        specifier: workspace:*
+        version: link:../../../packages/contracts
+      '@ap/kernel':
+        specifier: workspace:*
+        version: link:../../../packages/kernel
+      '@ap/mock-server':
+        specifier: workspace:*
+        version: link:../../../packages/mock-server
+      '@ap/ui':
+        specifier: workspace:*
+        version: link:../../../packages/ui
+      lucide-react:
+        specifier: ^1.48.0
+        version: 1.48.0(react@19.3.0)
+    devDependencies:
+      '@ap/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint
+      '@ap/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/tsconfig
+      '@testing-library/react':
+        specifier: ^16.3.3
+        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.3.0)
+      eslint:
+        specifier: ^10.11.0
+        version: 10.11.0(jiti@2.7.0)
+      jsdom:
+        specifier: ^26.1.0
+        version: 26.1.0
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: ^19.3.0
+        version: 19.3.0(react@19.3.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.5)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
+
+  menus/analytics/equipment:
+    dependencies:
+      '@ap/components':
+        specifier: workspace:*
+        version: link:../../../packages/components
+      '@ap/contracts':
+        specifier: workspace:*
+        version: link:../../../packages/contracts
+      '@ap/kernel':
+        specifier: workspace:*
+        version: link:../../../packages/kernel
+      '@ap/mock-server':
+        specifier: workspace:*
+        version: link:../../../packages/mock-server
+      '@ap/ui':
+        specifier: workspace:*
+        version: link:../../../packages/ui
+      lucide-react:
+        specifier: ^1.48.0
+        version: 1.48.0(react@19.3.0)
+    devDependencies:
+      '@ap/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint
+      '@ap/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/tsconfig
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.3.0)
+      eslint:
+        specifier: ^10.11.0
+        version: 10.11.0(jiti@2.7.0)
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: ^19.3.0
+        version: 19.3.0(react@19.3.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.5)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
+
+  menus/analytics/master-data:
+    dependencies:
+      '@ap/contracts':
+        specifier: workspace:*
+        version: link:../../../packages/contracts
+      '@ap/kernel':
+        specifier: workspace:*
+        version: link:../../../packages/kernel
+      lucide-react:
+        specifier: ^1.48.0
+        version: 1.48.0(react@19.3.0)
+    devDependencies:
+      '@ap/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint
+      '@ap/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/tsconfig
       '@types/react':
         specifier: ^19.3.0
         version: 19.3.0
@@ -399,33 +405,33 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  menus/metrics:
+  menus/metrics/metrics:
     dependencies:
       '@ap/components':
         specifier: workspace:*
-        version: link:../../packages/components
+        version: link:../../../packages/components
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../packages/contracts
+        version: link:../../../packages/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../packages/kernel
+        version: link:../../../packages/kernel
       '@ap/mock-server':
         specifier: workspace:*
-        version: link:../../packages/mock-server
+        version: link:../../../packages/mock-server
       '@ap/ui':
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../../packages/ui
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
     devDependencies:
       '@ap/eslint-config':
         specifier: workspace:*
-        version: link:../../tooling/eslint
+        version: link:../../../tooling/eslint
       '@ap/tsconfig':
         specifier: workspace:*
-        version: link:../../tooling/tsconfig
+        version: link:../../../tooling/tsconfig
       '@testing-library/dom':
         specifier: 10.4.2
         version: 10.4.2
@@ -457,36 +463,30 @@ importers:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@26.6.3)(happy-dom@20.14.5)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)
 
-  menus/notice-voc:
+  menus/operations/admin:
     dependencies:
       '@ap/components':
         specifier: workspace:*
-        version: link:../../packages/components
+        version: link:../../../packages/components
       '@ap/contracts':
         specifier: workspace:*
-        version: link:../../packages/contracts
+        version: link:../../../packages/contracts
       '@ap/kernel':
         specifier: workspace:*
-        version: link:../../packages/kernel
-      '@ap/mock-server':
-        specifier: workspace:*
-        version: link:../../packages/mock-server
+        version: link:../../../packages/kernel
       '@ap/ui':
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../../packages/ui
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
     devDependencies:
       '@ap/eslint-config':
         specifier: workspace:*
-        version: link:../../tooling/eslint
+        version: link:../../../tooling/eslint
       '@ap/tsconfig':
         specifier: workspace:*
-        version: link:../../tooling/tsconfig
-      '@testing-library/dom':
-        specifier: ^10.4.2
-        version: 10.4.2
+        version: link:../../../tooling/tsconfig
       '@testing-library/react':
         specifier: ^16.3.3
         version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)

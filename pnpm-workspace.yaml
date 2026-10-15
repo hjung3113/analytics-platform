@@ -4,7 +4,7 @@
 packages:
   - apps/*
   - packages/*
-  - menus/*
+  - menus/*/*
   - tooling/*
   - products/feedbackops/packages/ui
   - products/feedbackops/packages/shared
