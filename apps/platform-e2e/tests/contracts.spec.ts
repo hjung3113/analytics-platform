@@ -2070,8 +2070,10 @@ test.describe('표 쪽 이동 포커스 (06 §26)', () => {
     expect(query(page).get('sort')).toBe('status:desc');
     await expect(tableStatusLine(page)).toContainText('54건 · 3/3 페이지');
     await expect(page.getByRole('main').locator('[data-row-id]').first()).toBeVisible();
-    expect(await page.evaluate(() => history.length)).toBe(1);
     await evidence(page, testInfo, 'table-page-clamped');
+    // replace, not push: one Back leaves the app instead of returning to page=9.
+    await page.goBack();
+    await expect(page).toHaveURL('about:blank');
   });
 
   test('마지막 쪽과 첫 쪽에 도달하면 반대쪽 버튼으로 포커스를 옮긴다', async ({ page }, testInfo) => {
