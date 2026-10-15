@@ -6,12 +6,11 @@ import { cn, Dialog, DialogContent, DialogTitle } from '@ap/ui';
 
 /** §10: menu navigation is the palette's base responsibility; entity search/action commands are Deferred. */
 export function CommandPalette() {
-  const { paletteOpen, setPaletteOpen, paletteSession, isCurrentPaletteSession, menusInSpace, accessibleSpaces, globalMenus, recent, navigate, linkTo, registry, pathname, pageNavigation } = usePlatform();
+  const { paletteOpen, setPaletteOpen, paletteSession, menusInSpace, accessibleSpaces, globalMenus, recent, navigate, linkTo, registry, pathname } = usePlatform();
   const { t, tx, text, lang } = useI18n();
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
   const platformLabel = text('palettePlatform');
-  const generation = paletteSession?.generation;
   const paletteOwner = useRef(Symbol('CommandPalette'));
   const disposalTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
@@ -20,9 +19,9 @@ export function CommandPalette() {
     return () => {
       // Component disposal may happen while Provider still considers the palette open.
       // Defer until FocusScope's passive cleanup has removed its trap listeners.
-      if (generation !== undefined) disposalTimer.current = setTimeout(() => pageNavigation.releasePageFocus(generation, owner), 0);
+      if (paletteSession) disposalTimer.current = setTimeout(() => paletteSession.release(owner), 0);
     };
-  }, [generation, pageNavigation]);
+  }, [paletteSession]);
 
 
   useEffect(() => {
@@ -74,14 +73,14 @@ export function CommandPalette() {
       <DialogContent closeLabel={t('close')} aria-describedby={undefined}
         className="top-[12vh] w-[min(640px,92vw)] max-w-none translate-y-0 gap-0 overflow-hidden p-0"
         onOpenAutoFocus={() => {
-          if (generation !== undefined) pageNavigation.claimPaletteFocus(generation, paletteOwner.current);
+          paletteSession?.claim(paletteOwner.current);
         }}
         onCloseAutoFocus={event => {
           event.preventDefault();
           if (!paletteSession) return;
           // Only this instance may release its rendered palette block.
-          pageNavigation.releasePageFocus(paletteSession.generation, paletteOwner.current);
-          if (!isCurrentPaletteSession(paletteSession.generation)) return;
+          paletteSession.release(paletteOwner.current);
+          if (!paletteSession.isCurrent()) return;
           if (paletteSession.isSelecting()) return;
           const target = paletteSession.opener?.isConnected && paletteSession.opener !== document.body
             ? paletteSession.opener : document.getElementById('platform-main');
