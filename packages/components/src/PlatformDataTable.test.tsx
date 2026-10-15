@@ -117,6 +117,115 @@ describe('PlatformDataTable controlled mode (urlState)', () => {
   });
 });
 
+describe('PlatformDataTable out-of-range page clamp (#314)', () => {
+  const keptSort: PageSort[] = [{ id: 'status', desc: true }];
+
+  function ClampHarness(props: { page: number | null; onChange: TableUrlState['onChange']; loadPage: PlatformDataTableProps<Row>['loadPage'] }) {
+    return <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+      <PlatformDataTable
+        title="T" ariaLabel="table" columns={columns} getRowId={r => r.id}
+        loadPage={props.loadPage} filterKey="f" preferenceKey="test-table-clamp"
+        pageSize={20} height={200}
+        urlState={{ page: props.page, sorting: keptSort, onChange: props.onChange }}
+      />
+    </PlatformProvider></I18nProvider>;
+  }
+
+  it('clamps a page-9 deeplink after a normal page 1 to the last page once, keeping the sort', async () => {
+    const loadPage = makeLoadPage(54);
+    const onChange = vi.fn();
+    const view = render(<ClampHarness page={1} onChange={onChange} loadPage={loadPage} />);
+    expect(await screen.findByText(/1\/3/)).toBeTruthy();
+    expect(onChange).not.toHaveBeenCalled();
+    view.rerender(<ClampHarness page={9} onChange={onChange} loadPage={loadPage} />);
+    await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+    expect(onChange).toHaveBeenCalledWith({ sorting: keptSort, page: 3 }, 'clamp');
+    expect(screen.queryByText(/9\/3/)).toBeNull();
+    expect(screen.getByText('불러오는 중…')).toBeTruthy();
+  });
+
+  it('clamps each page-9 response once when the controlled page returns to 9 after 3', async () => {
+    const loadPage = makeLoadPage(54);
+    const clamps: { page: number | null; sorting: PageSort[] }[] = [];
+    function Host() {
+      const [page, setPage] = useState<number | null>(1);
+      return <>
+        <button type="button" onClick={() => setPage(9)}>deeplink</button>
+        <ClampHarness page={page} loadPage={loadPage} onChange={(next, reason) => {
+          if (reason === 'clamp') clamps.push(next);
+          setPage(next.page);
+        }} />
+      </>;
+    }
+    render(<Host />);
+    expect(await screen.findByText(/1\/3/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'deeplink' }));
+    await waitFor(() => expect(clamps).toEqual([{ sorting: keptSort, page: 3 }]));
+    expect(await screen.findByText(/3\/3/)).toBeTruthy();
+    expect(screen.queryByText(/9\/3/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'deeplink' }));
+    await waitFor(() => expect(clamps).toEqual([{ sorting: keptSort, page: 3 }, { sorting: keptSort, page: 3 }]));
+    expect(await screen.findByText(/3\/3/)).toBeTruthy();
+    expect(loadPage.mock.calls.map(call => call[0].page)).toEqual([0, 8, 2, 8, 2]);
+  });
+
+  it.each([
+    ['ok', makeLoadPage(0)],
+    ['empty', vi.fn(async (): Promise<ApiResponse<PageResult<Row>>> => ({ outcome: 'empty', data: { rows: [], total: 0 }, assessments: [], trust: null, correlationId: 'empty' }))],
+  ])('clamps a %s response with total 0 on page 2 to the first page', async (_name, loadPage) => {
+    const onChange = vi.fn();
+    render(<ClampHarness page={2} onChange={onChange} loadPage={loadPage} />);
+    await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+    expect(onChange).toHaveBeenCalledWith({ sorting: keptSort, page: null }, 'clamp');
+  });
+
+  it.each(['error', 'timeout', 'forbidden', 'too_large'] as const)('does not clamp a %s response on page 9', async outcome => {
+    const onChange = vi.fn();
+    const loadPage = vi.fn(async () => ({ outcome, data: null, assessments: [], trust: null, correlationId: 'e' }));
+    render(<ClampHarness page={9} onChange={onChange} loadPage={loadPage} />);
+    await waitFor(() => expect(loadPage).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByText('불러오는 중…')).toBeNull());
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.queryByText(/9\/3/)).toBeNull();
+  });
+
+  it('clamps an uncontrolled page to the last page the response still covers and keeps the sort', async () => {
+    let total = 40;
+    const loadPage = vi.fn(async (q: PageQuery): Promise<ApiResponse<PageResult<Row>>> => {
+      if (q.page > 0) total = 10;
+      return { outcome: 'ok', data: { rows: [{ id: `r${q.page}`, status: 's' }], total }, assessments: [], trust: null, correlationId: 'c' };
+    });
+    render(<UncontrolledHarness loadPage={loadPage} />);
+    expect(await screen.findByText(/1\/2/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Status' }));
+    await waitFor(() => expect(screen.getByRole('columnheader', { name: /Status/ })).toHaveAttribute('aria-sort', 'ascending'));
+    await waitFor(() => expect(screen.getByRole('button', { name: '다음' })).not.toHaveAttribute('aria-disabled'));
+    fireEvent.click(screen.getByRole('button', { name: '다음' }));
+    expect(await screen.findByText(/1\/1/)).toBeTruthy();
+    expect(screen.queryByText(/2\/1/)).toBeNull();
+    expect(screen.getByRole('columnheader', { name: /Status/ })).toHaveAttribute('aria-sort', 'ascending');
+    expect(loadPage).toHaveBeenLastCalledWith(expect.objectContaining({ page: 0, sorting: [{ id: 'status', desc: false }] }), expect.anything());
+  });
+
+  it('moves focus to the opposite pager when the out-of-range response disables the focused one', async () => {
+    let resolve!: (response: ApiResponse<PageResult<Row>>) => void;
+    const loadPage = vi.fn(() => new Promise<ApiResponse<PageResult<Row>>>(done => { resolve = done; }));
+    const onChange = vi.fn();
+    function Host() {
+      const [page, setPage] = useState<number | null>(9);
+      return <ClampHarness page={page} loadPage={loadPage} onChange={(next, reason) => { onChange(next, reason); setPage(next.page); }} />;
+    }
+    render(<Host />);
+    const next = screen.getByRole('button', { name: '다음' });
+    act(() => next.focus());
+    expect(next).toHaveFocus();
+    const response = await makeLoadPage(54)({ page: 8, pageSize: 20, sorting: keptSort });
+    await act(async () => { resolve(response); });
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith({ sorting: keptSort, page: 3 }, 'clamp'));
+    expect(screen.getByRole('button', { name: '이전' })).toHaveFocus();
+  });
+});
+
 describe('PlatformDataTable pager focus', () => {
   const ok = (page = 0): ApiResponse<PageResult<Row>> => ({
     outcome: 'ok', data: { rows: [{ id: `r${page}`, status: 'ready' }], total: 30 },

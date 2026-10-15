@@ -142,7 +142,10 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
 
   it('maps role, permission and page onto the query and never sends focus', async () => {
     const path = `/admin/roles?${new URLSearchParams({ role: 'engineer', permission: 'console:access', page: '2', focus: 'admin' })}`;
-    const f = renderRoles(path);
+    // Page 2 of a 3-row directory is past the end and would clamp (#314). This test is the page-key mapping, so the total keeps page 2 in range.
+    const response = okResponse();
+    if (response.data) response.data.total = 50;
+    const f = renderRoles(path, response);
     await waitFor(() => expect(f.calls).toHaveLength(1));
     expect(f.calls[0]).toEqual({ role: 'engineer', permission: 'console:access', page: 2, pageSize: 25 });
   });
@@ -366,7 +369,10 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
   });
 
   it('clears page when a filter is applied in the same setPage', async () => {
-    const f = renderRoles('/admin/roles?page=2');
+    // Same as the page-key mapping test: total 50 keeps page 2 in range so the filter, not a clamp, clears it (#314).
+    const response = okResponse();
+    if (response.data) response.data.total = 50;
+    const f = renderRoles('/admin/roles?page=2', response);
     await waitFor(() => expect(f.calls).toHaveLength(1));
     expect(f.calls[0].page).toBe(2);
     await choosePermission('console:access');

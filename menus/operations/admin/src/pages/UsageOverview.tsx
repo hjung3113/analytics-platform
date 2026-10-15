@@ -46,7 +46,7 @@ export default function UsageOverview() {
           urlState={parsedSort.ok && parsedPage.ok ? {
             page: parsedPage.page === 1 ? null : parsedPage.page,
             sorting: parsedSort.sorting,
-            onChange: ({ page, sorting }) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }),
+            onChange: ({ page, sorting }, reason) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }, { replace: reason === 'clamp' }),
           } : undefined}
           loadPage={async page => ({ outcome: 'ok', data: sortAndPage(rows, page), assessments: [], trust: null, correlationId: 'client-usage' })}
         />;

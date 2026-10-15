@@ -365,3 +365,20 @@ describe('AuditTrail text filters (issue #50 review)', () => {
     expect(screen.getByRole('textbox', { name: 'Before' })).toBeTruthy();
   });
 });
+
+describe('AuditTrail out-of-range page (#314)', () => {
+  it('replaces page with the last page, keeps the sort, and does not push history', async () => {
+    const items = Array.from({ length: 26 }, (_, i) => ({ ...EVENT, id: `a${i}` }));
+    const start = window.history.length;
+    const push = vi.spyOn(window.history, 'pushState');
+    const replace = vi.spyOn(window.history, 'replaceState');
+    const f = renderAudit('/admin/audit?sort=actor:desc&page=9', items);
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get('page')).toBe('2'));
+    expect(new URLSearchParams(window.location.search).get('sort')).toBe('actor:desc');
+    expect(window.history.length).toBe(start);
+    expect(push).not.toHaveBeenCalled();
+    expect(replace.mock.calls.some(call => String(call[2]).includes('page=2'))).toBe(true);
+    expect(f.calls.map(call => call.page)).toEqual([9, 2]);
+    expect(f.calls.every(call => call.sort?.field === 'actor' && call.sort.desc === true)).toBe(true);
+  });
+});

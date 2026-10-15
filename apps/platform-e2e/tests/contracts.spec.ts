@@ -2063,6 +2063,17 @@ test.describe('지표 목록→상세 복귀 (06 §22)', () => {
 
 
 test.describe('표 쪽 이동 포커스 (06 §26)', () => {
+  test('범위 밖 page 딥링크는 마지막 쪽으로 맞추고 히스토리를 늘리지 않는다 (06 §15, #314)', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto('/equipment?v=1&scopeId=ICH&sort=status:desc&page=9');
+    await expect.poll(() => query(page).get('page')).toBe('3');
+    expect(query(page).get('sort')).toBe('status:desc');
+    await expect(tableStatusLine(page)).toContainText('54건 · 3/3 페이지');
+    await expect(page.getByRole('main').locator('[data-row-id]').first()).toBeVisible();
+    expect(await page.evaluate(() => history.length)).toBe(1);
+    await evidence(page, testInfo, 'table-page-clamped');
+  });
+
   test('마지막 쪽과 첫 쪽에 도달하면 반대쪽 버튼으로 포커스를 옮긴다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
     await page.goto('/equipment?v=1&scopeId=ICH');

@@ -144,7 +144,7 @@ export default function AccessDirectory() {
           page: parsed.page,
           sorting: parsed.sorting,
           // A user sort/page change moves rows between pages, so the focused row leaves with them (bot review P2).
-          onChange: ({ page, sorting }, reason) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page), ...(reason === 'user' && { focus: null, tab: null }) }),
+          onChange: ({ page, sorting }, reason) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page), ...(reason === 'user' && { focus: null, tab: null }) }, { replace: reason === 'clamp' }),
         }}
         loadPage={async (pageQuery, signal) => {
           const { filters } = parsed;

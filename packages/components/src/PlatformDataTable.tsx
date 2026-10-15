@@ -135,8 +135,8 @@ export type TableUrlState = {
   page: number | null;
   /** What the header shows; empty = unsorted. */
   sorting: PageSort[];
-  /** One callback for user sort/page gestures; the page owns the URL keys and its own resets (§6.1). */
-  onChange: (next: { page: number | null; sorting: PageSort[] }, reason: 'user' | 'reset') => void;
+  /** User sort/page gestures, and `clamp` when a successful response is past the last page (#314). The page owns the URL keys and its own resets (§6.1). */
+  onChange: (next: { page: number | null; sorting: PageSort[] }, reason: 'user' | 'reset' | 'clamp') => void;
 };
 
 export type PlatformDataTableProps<T> = {
@@ -306,6 +306,18 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   // 06 §19: a failed lookup (error·timeout·forbidden·too_large) is not a zero — only a successful
   // response (ok, or empty which IS a successful zero) may state a count or offer pages.
   const success = shown !== null && (shown.outcome === 'ok' || shown.outcome === 'empty');
+  // #314: a successful page past the end. The status line stays on the loading text until the clamped request settles — never "9/3".
+  const outOfRange = success && shownPage >= pageCount;
+  // `result.identity` repeats for the same page (9 → 3 → 9). Remember the result object so this effect
+  // re-running on that same object does not clamp twice; a later response is a new object and clamps again.
+  const clampedFor = useRef<typeof result>(null);
+  useEffect(() => {
+    if (loading || !outOfRange || result === null) return;
+    if (clampedFor.current === result) return;
+    clampedFor.current = result;
+    if (p.urlState) p.urlState.onChange({ sorting: activeSorting, page: pageCount === 1 ? null : pageCount }, 'clamp');
+    else setPage(pageCount - 1);
+  }, [loading, outOfRange, result, pageCount, activeSorting, p.urlState]);
 
   // #338 UX fold: while loading the failure is not decided yet — a Context/identity change empties `shown`
   // before the response settles, and a native disable would then drop a focused button (its blur clears the
@@ -708,7 +720,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     </div>}
 
     <div className="flex min-h-7 items-center justify-between gap-2 border-t border-border-subtle px-3 py-1 text-xs text-text-muted" aria-live="polite">
-      <span className="tabular">{shown ? (success
+      <span className="tabular">{shown && !outOfRange ? (success
         ? (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${shownPage + 1}/${pageCount} 페이지` : `${data.total.toLocaleString()} results · page ${shownPage + 1}/${pageCount}`)
         : '—') : t('loading')}</span>
       <span className="flex items-center gap-2">
