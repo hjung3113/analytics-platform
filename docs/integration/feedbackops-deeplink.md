@@ -33,7 +33,7 @@ https://feedbackops.example/surveys/33333333-3333-4333-8333-333333333333
 - **Scope → 보내지 않음.** 플랫폼 `scopeId`(예: `ICH`)는 Site 이름이고 FeedbackOps `managedSystem`은 Managed System uuid(`createVocRequestSchema.primary_managed_system_id`)다. 장비 ID로 Site/MS를 역산하지 않는다(ADR-0004와 같은 금지). 명시적 표의 uuid만 `managedSystem`으로 넘기고, 행이 없으면 생략한다(사용자가 FeedbackOps에서 고름).
 - **기간 `from`/`to`, 설비 Selection → 보내지 않음.** VOC create body에 그 필드가 없고 strict search가 거부한다.
 - **플랫폼 `returnTo` → 보내지 않음.** FeedbackOps `sanitizeLoginReturnTo`는 same-origin 상대경로만 받고 `redirectTo`는 로그인 전용이라 재사용할 수 없다. phase-1 복귀는 새 탭이다.
-- **설문 응답 화면은 있지만 딥링크 타입은 아직 두지 않는다.** FeedbackOps에는 로그인 사용자용 설문 참여 목록 `/surveys/participate`와 응답 폼 `/surveys/$surveyId/respond`가 있다(서브모듈 `dc7638f`에서 확인, FeedbackOps #726). 공개 링크 ADR-0036은 Proposed·미구현이다. `survey-respond` 딥링크를 둘지와 그 검색 키는 #81에서 정한다 — 그 전에는 이 경로로 링크하지 않는다.
+- **설문 응답 화면은 있지만 딥링크 타입은 아직 두지 않는다.** FeedbackOps에는 로그인 사용자용 설문 참여 목록 `/surveys/participate`와 응답 폼 `/surveys/$surveyId/respond`가 있다(서브모듈 `dc7638f`에서 확인, FeedbackOps #726). 공개 링크는 FeedbackOps [ADR-0036](../../products/feedbackops/docs/adr/0036-survey-link-distribution-and-respondent-model.md)에서 Rejected(2026-10-13)다 — MVP 응답자는 AD 인증 내부 사용자이고, 외부 응답이 필요해지면 새 ADR로 시작한다. `survey-respond` 딥링크를 둘지와 그 검색 키는 #81에서 정한다 — 그 전에는 이 경로로 링크하지 않는다.
 
 호출은 `<a href target="_blank" rel="noopener noreferrer">`다. `navigate`/`linkTo`/플랫폼 `returnTo`에 절대 URL을 넣지 않는다. 플랫폼 `returnTo`는 `isAppRelativePath` + `safeReturnTo`(등록 라우트, `pageKeys`로 `parseQuery`)만 사용한다.
 
