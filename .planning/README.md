@@ -115,6 +115,8 @@ FeedbackOps 화면은 플랫폼으로 옮기지 않는다. FeedbackOps가 VOC �
 
 2026-10-15: #340 상세·설비 상세 탭 선택 표식(밑줄 막대+굵기, ADR-0023 개정).
 
+2026-10-15: #235·#231 문서 표류 — FeedbackOps 설문 응답 화면 사실, platform-web 조회 안내(`useMenuQuery`), 주석·내보내기 계약.
+
 2026-10-15: #331 메뉴 폴더를 시스템 단계로(`menus/<space>/<group>/`, ADR-0031).
 
 작업 흐름(2026-10-09, #255): FeedbackOps의 이슈 처리 흐름과 역할별 리뷰어(`issue-wave-conductor`, `review-ux`·`review-quality`)를 옮겼다. conductor 후속(2026-10-10, #283): FeedbackOps conductor 4커밋 반영 — `impl-mid` 단계, 브리프 사전 점검(`templates/brief-check.md`), 웨이브 스냅숏(`wave-status.py`), 작업자 위생(`worker-hygiene.sh`), 지적 fold·file·note 분류와 가치 게이트. 스킬 5종·에이전트 4개 추가(`.agents/README.md`).
