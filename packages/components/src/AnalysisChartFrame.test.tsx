@@ -17,6 +17,7 @@ type CapturedSeries = {
   lineStyle?: { color?: string; type?: string | number[] };
   itemStyle?: { color?: string };
   markLine?: { lineStyle?: { color?: string }; label?: { color?: string; position?: string } };
+  markArea?: { data?: [{ name?: string; label?: { position?: string } }, unknown][] };
 };
 let plottedSeries: CapturedSeries[] = [];
 let plottedBrush: { brushStyle?: { color?: string; borderColor?: string } } | undefined;
@@ -514,6 +515,20 @@ describe('chart annotations are keyed by chart and Scope (06 §16 layer 4)', () 
     await waitFor(() => expect(f.save).toHaveBeenCalledTimes(1));
     expect(f.save.mock.calls[0][0]).toEqual({ chartId: 'chart-1', scopeId: 'ICH', from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00', text: 'PM 작업' });
     expect(await screen.findByText(/PM 작업/)).toBeTruthy();
+  });
+
+  it('keeps the selection label clear of a note saved over the same range (#320)', async () => {
+    const f = fixture();
+    mount(f.adapter, on);
+    await brushAndOpenNote();
+    fireEvent.change(screen.getByLabelText('주석 내용'), { target: { value: 'PM 작업' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await screen.findByText(/PM 작업/);
+    const areas = plottedSeries.find(s => s.id === '__overlay')?.markArea?.data ?? [];
+    // markArea labels default to `top`: same range + same position = the two labels draw on top of each other.
+    const position = (name: string) => areas.find(([start]) => start.name === name)?.[0].label?.position ?? 'top';
+    expect(areas.map(([start]) => start.name)).toEqual(['선택', 'PM 작업']);
+    expect(position('선택')).not.toBe(position('PM 작업'));
   });
 
   it('a site switch hides the previous site’s notes and reads the new site’s', async () => {
