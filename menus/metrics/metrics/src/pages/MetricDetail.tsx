@@ -152,7 +152,7 @@ export default function MetricDetailPage({ params }: PageProps) {
                 <OwnershipSection metric={data.metric} />
               </div>
               <div className="space-y-3">
-                {data.version ? <DefinitionSection metric={data.metric} version={data.version} previous={data.previous} /> : <Panel title={lang === 'ko' ? '정의' : 'Definition'}><p id={sectionId('definition')} className="text-xs text-text-secondary">{lang === 'ko' ? '버전을 고르기 전에는 정의를 보여 주지 않습니다.' : 'The definition stays hidden until a version is selected.'}</p></Panel>}
+                {data.version ? <DefinitionSection metric={data.metric} version={data.version} previous={data.previous} /> : <Panel id={sectionId('definition')} title={lang === 'ko' ? '정의' : 'Definition'}><p className="text-xs text-text-secondary">{lang === 'ko' ? '버전을 고르기 전에는 정의를 보여 주지 않습니다.' : 'The definition stays hidden until a version is selected.'}</p></Panel>}
                 {data.version && <CoverageSection version={data.version} ids={data.exampleEquipmentIds} rooms={data.exampleRooms} />}
               </div>
             </div>
