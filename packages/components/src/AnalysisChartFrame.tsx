@@ -138,7 +138,8 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const xValue = (x: string) => (xType === 'time' ? toMs(x) : x);
   const option = useMemo<EChartsCoreOption>(() => {
     const areas = [
-      ...(selection ? [[{ name: lang === 'ko' ? '선택' : 'Selection', xAxis: xValue(selection.from), itemStyle: { color: token('chart-blue'), opacity: 0.12 } }, { xAxis: xValue(selection.to) }]] : []),
+      // Notes keep the default top label; the selection labels its bottom so a note saved over it never collides (#320).
+      ...(selection ? [[{ name: lang === 'ko' ? '선택' : 'Selection', xAxis: xValue(selection.from), itemStyle: { color: token('chart-blue'), opacity: 0.12 }, label: { position: 'insideBottom' } }, { xAxis: xValue(selection.to) }]] : []),
       ...annotations.map(a => [{ name: a.text, xAxis: xValue(a.from), itemStyle: { color: token('chart-purple'), opacity: 0.14 }, label: { color: token('cat-purple'), fontSize: 10 } }, { xAxis: xValue(a.to) }]),
     ];
     return {
