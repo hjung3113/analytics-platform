@@ -1,5 +1,6 @@
 import { createBrowserLocation, type PlatformLocation } from './location';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { createPaletteFocus, type PaletteSession } from './paletteFocus';
 import { createPageNavigation, type PageFocus, type PageNavigation } from './pageNavigation';
 import { classifyMetricInit, type MetricInit } from './metric-init';
 import { CONTEXT_LABELS, pathFor, type MenuEntry, type Registry } from './registry';
@@ -35,7 +36,6 @@ export type LinkResolution = {
   droppedPageKeys: string[];
 };
 
-type PaletteSession = { generation: number; opener: HTMLElement | null; select: () => void; isSelecting: () => boolean };
 
 type Platform = {
   registry: Registry;
@@ -107,7 +107,6 @@ type Platform = {
   defaultRangeTo: string;
   slots: PlatformSlots;
   paletteSession: PaletteSession | null;
-  isCurrentPaletteSession: (generation: number) => boolean;
   paletteOpen: boolean;
   setPaletteOpen: (open: boolean) => void;
 };
@@ -217,7 +216,11 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const user = session.user;
   const userId = user.id;
   const [url, setUrl] = useState(() => location.read() ?? '');
-  const [pageNavigation] = useState(() => createPageNavigation(url));
+  const [{ pageNavigation, paletteFocus }] = useState(() => {
+    const paletteFocus = createPaletteFocus({ cancel: () => pageNavigation.cancel(), notify: () => pageNavigation.notify() });
+    const pageNavigation = createPageNavigation(url, paletteFocus.isBlocked);
+    return { pageNavigation, paletteFocus };
+  });
   const [favorites, setFavorites] = useState<string[]>(() => read(`platform:favorites:${userId}`, [] as string[]));
   const [recent, setRecent] = useState<Recent[]>(() => read(`platform:recent:${userId}`, [] as Recent[]));
   const [lastScope, setLastScope] = useState<string | null>(() => read<string | null>(`platform:lastScope:${userId}`, null));
@@ -252,34 +255,22 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [paletteOpen, updatePaletteOpen] = useState(false);
   const [paletteSession, updatePaletteSession] = useState<PaletteSession | null>(null);
-  const paletteLifecycle = useRef({ open: false, generation: 0 });
   const setPaletteOpen = useCallback((open: boolean) => {
-    if (open && !paletteLifecycle.current.open) {
-      const generation = ++paletteLifecycle.current.generation;
-      pageNavigation.blockPageFocus(generation);
-      const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      let selecting = false;
-      updatePaletteSession({ generation, opener, select: () => { selecting = true; }, isSelecting: () => selecting });
-    }
-    paletteLifecycle.current.open = open;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    updatePaletteSession(paletteFocus.setOpen(open, opener));
     updatePaletteOpen(open);
-  }, [pageNavigation]);
-  const isCurrentPaletteSession = useCallback((generation: number) =>
-    paletteLifecycle.current.generation === generation && !paletteLifecycle.current.open, []);
+  }, [paletteFocus]);
   useEffect(() => {
-    // A batched open/close can finish without ever mounting Dialog's FocusScope.
-    if (!paletteOpen && paletteSession) pageNavigation.releaseUnrenderedPageFocus(paletteSession.generation);
-  }, [paletteOpen, paletteSession, pageNavigation]);
+    if (!paletteOpen) paletteFocus.releaseUnrendered();
+  }, [paletteOpen, paletteSession, paletteFocus]);
   const paletteSessionOwner = useRef(session);
   useLayoutEffect(() => {
     if (paletteSessionOwner.current === session) return;
     paletteSessionOwner.current = session;
-    pageNavigation.resetPaletteFocus(paletteLifecycle.current.generation);
-    paletteLifecycle.current.open = false;
-    paletteLifecycle.current.generation += 1;
+    paletteFocus.reset();
     updatePaletteOpen(false);
     updatePaletteSession(null);
-  }, [session, pageNavigation]);
+  }, [session, paletteFocus]);
   const toastId = useRef(1);
   const { lang } = useI18n();
 
@@ -653,7 +644,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const value: Platform = {
     registry, adapter, location, absoluteUrl, url, pathname, route, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
     session, user, revision, can, canOpen, visibleMenus, globalMenus, menusInSpace, accessibleSpaces, currentSpace, sidebarSpace, spaceResume, spaceEntry, switchSpace, scope: scopeView, retryScope, lastScope, favorites, toggleFavorite, recent,
-    toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen, paletteSession, isCurrentPaletteSession,
+    toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen, paletteSession,
   };
   return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>;
 }

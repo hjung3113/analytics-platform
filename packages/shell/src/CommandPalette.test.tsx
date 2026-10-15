@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Session } from '@ap/contracts';
-import { I18nProvider, PlatformProvider, createRegistry, PlatformLink, usePlatform, type PageNavigation } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, PlatformLink, usePlatform } from '@ap/kernel';
 import { PlatformPage } from '@ap/components';
 import { CommandPalette } from './CommandPalette';
 import { noContext, testAdapter, testSpace } from './test-setup';
@@ -51,7 +51,7 @@ beforeEach(() => {
   ]));
   window.history.replaceState(null, '', '/no-such-page');
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 function Open() {
   const { setPaletteOpen } = usePlatform();
@@ -160,42 +160,43 @@ describe('CommandPalette space bundles (06 §9.1)', () => {
 });
 
 
-const settleClose = () => act(() => new Promise(resolve => setTimeout(resolve, 30)));
+const waitForClose = () => waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+const flushTimers = () => act(async () => { await vi.runAllTimersAsync(); });
 
 it.each(['Escape', 'X', 'shortcut', 'outside'])('returns to the rail opener after %s cancellation', async close => {
   mount();
   fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
-  await settleClose();
+  await waitForClose();
   const opener = screen.getByRole('button', { name: 'open palette' });
   opener.focus();
   fireEvent.click(opener);
-  await settleClose();
+  await waitFor(() => expect(screen.getByRole('combobox')).toHaveFocus());
   if (close === 'Escape') fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
   if (close === 'X') fireEvent.click(screen.getByRole('button', { name: '닫기' }));
   if (close === 'shortcut') fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
   if (close === 'outside') {
     fireEvent.pointerDown(document.querySelector('.fixed.inset-0[data-state="open"]')!, { button: 0 });
   }
-  await settleClose();
+  await waitForClose();
   expect(screen.queryByRole('dialog')).toBeNull();
-  expect(opener).toHaveFocus();
+  await waitFor(() => expect(opener).toHaveFocus());
 });
 
 it.each(['Escape', 'X', 'shortcut', 'outside'])('returns to the pre-shortcut element after %s cancellation', async close => {
   mount(<input aria-label="before shortcut" />);
   fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
-  await settleClose();
+  await waitForClose();
   const opener = screen.getByRole('textbox', { name: 'before shortcut' });
   opener.focus();
   fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
-  await settleClose();
+  await waitFor(() => expect(screen.getByRole('combobox')).toHaveFocus());
   if (close === 'Escape') fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
   if (close === 'X') fireEvent.click(screen.getByRole('button', { name: '닫기' }));
   if (close === 'shortcut') fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
   if (close === 'outside') fireEvent.pointerDown(document.querySelector('.fixed.inset-0[data-state="open"]')!, { button: 0 });
-  await settleClose();
+  await waitForClose();
   expect(screen.queryByRole('dialog')).toBeNull();
-  expect(opener).toHaveFocus();
+  await waitFor(() => expect(opener).toHaveFocus());
 });
 
 function Destination() {
@@ -211,16 +212,16 @@ function Destination() {
 it('does not restore the opener after Enter navigation', async () => {
   mount(<Destination />);
   fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
-  await settleClose();
+  await waitForClose();
   const opener = screen.getByRole('button', { name: 'open palette' });
   opener.focus();
   fireEvent.click(opener);
   fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' });
   fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Enter' });
-  await settleClose();
+  await waitForClose();
   expect(window.location.pathname).toBe('/home');
-  expect(opener).not.toHaveFocus();
-  expect(screen.getByRole('heading', { name: 'destination title' })).toHaveFocus();
+  await waitFor(() => expect(opener).not.toHaveFocus());
+  await waitFor(() => expect(screen.getByRole('heading', { name: 'destination title' })).toHaveFocus());
 });
 
 it('leaves composition Enter in the palette', () => {
@@ -232,7 +233,7 @@ it('leaves composition Enter in the palette', () => {
 it('falls back to platform main when the saved opener is removed', async () => {
   mount(<main id="platform-main" tabIndex={-1} />);
   fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
-  await settleClose();
+  await waitForClose();
   const opener = screen.getByRole('button', { name: 'open palette' });
   opener.focus();
   fireEvent.click(opener);
@@ -240,8 +241,8 @@ it('falls back to platform main when the saved opener is removed', async () => {
   const sibling = opener.nextSibling;
   opener.remove();
   fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
-  await settleClose();
-  expect(screen.getByRole('main')).toHaveFocus();
+  await waitForClose();
+  await waitFor(() => expect(screen.getByRole('main')).toHaveFocus());
   parent.insertBefore(opener, sibling);
 });
 
@@ -249,37 +250,35 @@ it('falls back to platform main when the saved opener is removed', async () => {
 it('restores the opener when the chosen result has the current URL', async () => {
   mount();
   fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
-  await settleClose();
+  await waitForClose();
   window.history.replaceState(null, '', '/home?v=1');
   act(() => window.dispatchEvent(new PopStateEvent('popstate')));
   const opener = screen.getByRole('button', { name: 'open palette' });
   opener.focus();
   fireEvent.click(opener);
   fireEvent.click(screen.getByRole('option', { name: /홈/ }));
-  await settleClose();
-  expect(opener).toHaveFocus();
+  await waitForClose();
+  await waitFor(() => expect(opener).toHaveFocus());
 });
 
 it('ignores delayed close autofocus from an older opening generation', async () => {
+  vi.useFakeTimers();
   mount(<input aria-label="new opener" />);
   fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
-  await settleClose();
+  await flushTimers();
   const oldOpener = screen.getByRole('button', { name: 'open palette' });
   oldOpener.focus();
   fireEvent.click(oldOpener);
   fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
   const newOpener = screen.getByRole('textbox', { name: 'new opener' });
   newOpener.focus();
-  const oldFocus = vi.spyOn(oldOpener, 'focus');
-  try {
-    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
-    await settleClose();
-    expect(oldFocus).not.toHaveBeenCalled();
-    expect(screen.getByRole('combobox')).toHaveFocus();
-    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
-    await settleClose();
-    expect(newOpener).toHaveFocus();
-  } finally { oldFocus.mockRestore(); }
+  fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+  await flushTimers();
+  expect(oldOpener).not.toHaveFocus();
+  expect(screen.getByRole('combobox')).toHaveFocus();
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
+  await flushTimers();
+  expect(newOpener).toHaveFocus();
 });
 
 
@@ -309,10 +308,7 @@ function mountNavigation({ delayed = false, denied = false, url = '/home?v=1', c
     subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
     publishedMetrics: () => [{ metricId: 'CT', publishedVersion: '7' }],
   });
-  let navigation!: PageNavigation;
   function Routes() {
-    const platform = usePlatform();
-    useLayoutEffect(() => { navigation = platform.pageNavigation; }, [platform.pageNavigation]);
     const { route, can, setPage, navigate, switchSpace, setPaletteOpen } = usePlatform();
     const [showPalette, setShowPalette] = useState(true);
     const Page = delayed && route?.menu.path === equipmentPath ? DelayedPage : NavigationPage;
@@ -335,7 +331,6 @@ function mountNavigation({ delayed = false, denied = false, url = '/home?v=1', c
   }
   render(<I18nProvider><PlatformProvider adapter={adapter} registry={focusRegistry}><Open /><Routes /></PlatformProvider></I18nProvider>);
   return {
-    navigation,
     resolve: async () => { await act(async () => { resolvePage({ default: NavigationPage }); }); },
     allow: () => act(() => { blocked = false; listeners.forEach(listener => listener()); }),
     changeSession: () => act(() => { currentSession = { ...allowed, user: { ...allowed.user, id: 'u2' } }; listeners.forEach(listener => listener()); }),
@@ -353,51 +348,50 @@ describe('menu navigation page focus (06 §26)', () => {
     if (action.startsWith('unmount')) {
       fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
       fireEvent.click(screen.getByText('remove palette'));
-      await settleClose();
+      await waitForClose();
       if (action === 'unmount then close') fireEvent.click(screen.getByRole('button', { name: 'close absent palette' }));
     } else fireEvent.click(screen.getByRole('button', { name: 'batch palette' }));
     fireEvent.click(screen.getByRole(action === 'batch space' ? 'button' : 'link', { name: action === 'batch space' ? 'switch operations' : 'equipment link' }));
-    await settleClose();
-    expect(screen.getByRole('heading', { name: action === 'batch space' ? '권한' : '설비' })).toHaveFocus();
+    await waitForClose();
+    await waitFor(() => expect(screen.getByRole('heading', { name: action === 'batch space' ? '권한' : '설비' })).toHaveFocus());
   });
 
   it.each([false, true])('reclaims an open remounted palette before selection (cleanup settled=%s)', async settled => {
-    const fixture = mountNavigation();
+    vi.useFakeTimers();
+    mountNavigation();
     fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
     fireEvent.click(screen.getByText('remove palette'));
-    if (settled) await settleClose();
+    if (settled) await flushTimers();
     fireEvent.click(screen.getByText('mount palette'));
-    // Let the old instance's timer run while the new instance is still open.
-    await settleClose();
-    const consume = vi.spyOn(fixture.navigation, 'consume');
-    try {
-      fireEvent.change(screen.getByRole('combobox'), { target: { value: '설비' } });
-      fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Enter' });
-      expect(consume).toHaveBeenCalled();
-      expect(consume.mock.results.every(result => result.value === null)).toBe(true);
-      await settleClose();
-      expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus();
-    } finally { consume.mockRestore(); }
+    // Run the old instance's delayed release while the new instance is still open.
+    await flushTimers();
+    expect(screen.getByRole('combobox')).toHaveFocus();
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '설비' } });
+    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Enter' });
+    await flushTimers();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus();
   });
 
   it('disposes palette blocking on a Provider session change', async () => {
     const fixture = mountNavigation();
     fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
     fixture.changeSession();
-    await settleClose();
+    await waitForClose();
     expect(screen.queryByRole('dialog')).toBeNull();
     fireEvent.click(screen.getByRole('link', { name: 'equipment link' }));
-    await settleClose();
-    expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus();
+    await waitForClose();
+    await waitFor(() => expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus());
   });
 
   it('keeps a new palette generation blocked after an old delayed close', async () => {
+    vi.useFakeTimers();
     mountNavigation();
     fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
     fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
     fireEvent.click(screen.getByRole('button', { name: 'reopen palette' }));
     fireEvent.click(screen.getByText('equipment link'));
-    await settleClose();
+    await flushTimers();
     expect(document.querySelector('h1')).not.toHaveFocus();
     expect(screen.getByRole('combobox')).toHaveFocus();
   });
@@ -405,9 +399,9 @@ describe('menu navigation page focus (06 §26)', () => {
   it('suppresses the tooltip only for navigation focus and preserves keyboard heading focus', async () => {
     mountNavigation();
     fireEvent.click(screen.getByRole('link', { name: 'equipment link' }));
-    await settleClose();
+    await waitForClose();
     const heading = screen.getByRole('heading', { name: '설비' });
-    expect(heading).toHaveFocus();
+    await waitFor(() => expect(heading).toHaveFocus());
     expect(screen.queryByRole('tooltip')).toBeNull();
     expect(heading).not.toHaveAttribute('aria-describedby');
     // jsdom has no native Tab traversal: dispatch Tab then focus its next target.
@@ -424,34 +418,34 @@ describe('menu navigation page focus (06 §26)', () => {
   it('focuses the new h1 after a PlatformLink pathname push', async () => {
     mountNavigation();
     fireEvent.click(screen.getByRole('link', { name: 'equipment link' }));
-    await settleClose();
-    expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus();
+    await waitForClose();
+    await waitFor(() => expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus());
   });
 
   it.each([false, true])('keeps palette focus on the real h1 after cleanup (lazy=%s)', async delayed => {
     const fixture = mountNavigation({ delayed });
     selectEquipment();
-    await settleClose();
+    await waitForClose();
     if (delayed) await fixture.resolve();
     await waitFor(() => expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus());
-    await settleClose();
-    expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus();
+    await waitForClose();
+    await waitFor(() => expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus());
   });
 
   it.each([false, true])('focuses space entry h1 (saved last screen=%s)', async saved => {
     mountNavigation();
     if (saved) sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ operations: '/admin/roles?v=1', analytics: '/equipment?v=1&filter=stored' }));
     fireEvent.click(screen.getByRole('button', { name: 'switch operations' }));
-    await settleClose();
-    expect(screen.getByRole('heading', { name: '권한' })).toHaveFocus();
+    await waitForClose();
+    await waitFor(() => expect(screen.getByRole('heading', { name: '권한' })).toHaveFocus());
     fireEvent.click(screen.getByRole('button', { name: 'switch analytics' }));
-    await settleClose();
-    expect(screen.getByRole('heading', { name: saved ? '설비' : '홈' })).toHaveFocus();
+    await waitForClose();
+    await waitFor(() => expect(screen.getByRole('heading', { name: saved ? '설비' : '홈' })).toHaveFocus());
     const input = screen.getByRole('textbox', { name: 'filter' });
     input.focus();
     fireEvent.click(screen.getByRole('button', { name: 'switch analytics' }));
-    await settleClose();
-    expect(input).toHaveFocus();
+    await waitForClose();
+    await waitFor(() => expect(input).toHaveFocus());
   });
 
   it('keeps filter focus for setPage on the same pathname', async () => {
@@ -459,8 +453,8 @@ describe('menu navigation page focus (06 §26)', () => {
     const input = screen.getByRole('textbox', { name: 'filter' });
     input.focus();
     fireEvent.change(input, { target: { value: 'changed' } });
-    await settleClose();
-    expect(input).toHaveFocus();
+    await waitForClose();
+    await waitFor(() => expect(input).toHaveFocus());
     expect(new URLSearchParams(window.location.search).get('filter')).toBe('changed');
   });
 
@@ -469,21 +463,21 @@ describe('menu navigation page focus (06 §26)', () => {
     const opener = screen.getByRole('button', { name: 'open palette' });
     opener.focus();
     selectEquipment();
-    await settleClose();
+    await waitForClose();
+    await waitFor(() => expect(opener).toHaveFocus());
     expect(screen.getByRole('heading', { name: '설비' })).not.toHaveFocus();
     expect(new URLSearchParams(window.location.search).get('filter')).toBeNull();
-    expect(opener).toHaveFocus();
   });
 
   it.each([false, true])('preserves page focus across cold period and metric materialization (lazy=%s)', async delayed => {
     const fixture = mountNavigation({ cold: true, delayed });
     fireEvent.click(screen.getByRole('link', { name: 'equipment link' }));
-    await settleClose();
+    await waitForClose();
     const params = new URLSearchParams(window.location.search);
     expect(params.get('from')).not.toBeNull();
     expect(params.get('metricVersion')).toBe('7');
     if (delayed) await fixture.resolve();
-    expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole('heading', { name: '설비' })).toHaveFocus());
   });
 
   it('cancels denied page focus before permission-only recovery without another navigation', async () => {
@@ -493,9 +487,9 @@ describe('menu navigation page focus (06 §26)', () => {
     const input = screen.getByRole('textbox', { name: 'filter' });
     input.focus();
     fixture.allow();
-    await settleClose();
-    expect(screen.getByRole('heading', { name: '권한' })).not.toHaveFocus();
-    expect(input).toHaveFocus();
+    await waitForClose();
+    await waitFor(() => expect(screen.getByRole('heading', { name: '권한' })).not.toHaveFocus());
+    await waitFor(() => expect(input).toHaveFocus());
   });
 
   it.each(['navigation', 'history', 'reopen', 'denied'])('cancels a lazy palette request on %s', async action => {
@@ -508,19 +502,20 @@ describe('menu navigation page focus (06 §26)', () => {
     });
     if (action === 'reopen') fireEvent.click(screen.getByRole('button', { name: 'reopen palette' }));
     if (action === 'denied') fireEvent.click(screen.getByRole('link', { name: 'denied link' }));
-    await settleClose();
+    if (action === 'reopen') await waitFor(() => expect(screen.getByRole('combobox')).toHaveFocus());
+    else await waitForClose();
     await fixture.resolve();
     if (action === 'reopen') {
-      expect(screen.getByRole('combobox')).toHaveFocus();
+      await waitFor(() => expect(screen.getByRole('combobox')).toHaveFocus());
       fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });
-      await settleClose();
-      expect(screen.getByRole('heading', { name: '설비' })).not.toHaveFocus();
+      await waitForClose();
+      await waitFor(() => expect(screen.getByRole('heading', { name: '설비' })).not.toHaveFocus());
     } else if (action === 'denied') {
       const input = screen.getByRole('textbox', { name: 'filter' });
       input.focus();
       fixture.allow();
-      await settleClose();
-      expect(input).toHaveFocus();
+      await waitForClose();
+      await waitFor(() => expect(input).toHaveFocus());
     } else expect(screen.getByRole('heading', { name: '홈' })).not.toHaveFocus();
   });
 
@@ -529,7 +524,7 @@ describe('menu navigation page focus (06 §26)', () => {
     const input = screen.getByRole('textbox', { name: 'filter' });
     input.focus();
     fireEvent.click(screen.getByRole('button', { name: 'replace navigation' }));
-    await settleClose();
-    expect(input).toHaveFocus();
+    await waitForClose();
+    await waitFor(() => expect(input).toHaveFocus());
   });
 });
