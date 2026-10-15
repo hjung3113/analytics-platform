@@ -274,15 +274,22 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const toastId = useRef(1);
   const { lang } = useI18n();
 
-  useEffect(() => {
-    const onPop = () => { const next = location.read() ?? ''; pageNavigation.advance(next); setUrl(next); };
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, [pageNavigation, location]);
-
   const pathname = url.split('?')[0] || '/';
   const search = url.includes('?') ? url.slice(url.indexOf('?')) : '';
   const outsideDeployment = url === '';
+
+  useEffect(() => {
+    const onPop = () => {
+      const next = location.read() ?? '';
+      // Back/Forward across menus arrives like a link (06 §26): the title takes focus and a carried
+      // `focus=` does not claim the detail panel (ADR-0032). Same-screen history keeps the close-button claim.
+      pageNavigation.advance(next, next.split('?')[0] !== pathname ? 'page' : undefined);
+      setUrl(next);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [pageNavigation, location, pathname]);
+
   const route = useMemo(() => outsideDeployment ? null : matchRoute(pathname), [matchRoute, pathname, outsideDeployment]);
   const { parsed, contractError } = useMemo((): { parsed: ParsedQuery | null; contractError: ContractError | null } => {
     try { return { parsed: parseQuery(search, route?.menu.pageKeys ?? []), contractError: null }; } catch (e) {

@@ -122,6 +122,21 @@ describe('arrival focus wins over a restored detail panel (#356)', () => {
     expect(screen.getByRole('button', { name: '상세 닫기' })).toHaveFocus();
   });
 
+  it('keeps the title when Back from another menu restores the panel on a later commit', () => {
+    const view = mount('/equipment?v=1');
+    fireEvent.click(screen.getByRole('button', { name: '보기' }));
+    fireEvent.click(screen.getByRole('link', { name: '전체 화면' }));
+    expect(screen.getByRole('heading', { name: '설비 상세' })).toHaveFocus();
+    // Back across menus: real popstate traversal onto the panel's URL.
+    act(() => {
+      window.history.replaceState(null, '', '/equipment?v=1&focus=EQ-1');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    expect(screen.getByRole('heading', { name: '설비 마스터' })).toHaveFocus();
+    view.settlePanel();
+    expectArrivalFocus();
+  });
+
   it('closes an arrival panel on one Escape after Tab, without a title tooltip', async () => {
     const view = mount('/?v=1');
     fireEvent.click(screen.getByRole('link', { name: '설비로' }));
