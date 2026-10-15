@@ -105,8 +105,8 @@ export type AuditTrailQuery = {
   actor?: string; // exact, case-sensitive.
   action?: AuditAction;
   source?: AuditSource;
-  fromAt?: string; // inclusive instant. Half-open with toAt.
-  toAt?: string; // exclusive instant.
+  fromAt?: string; // inclusive instant. Absent = no lower bound. With toAt, half-open [fromAt, toAt).
+  toAt?: string; // exclusive instant. Absent = no upper bound.
   targetId?: string; // exact destination id. Requires type.
   page?: number; // 1-based. Absent = 1.
   pageSize?: number; // integer 1..100. Absent = 25.

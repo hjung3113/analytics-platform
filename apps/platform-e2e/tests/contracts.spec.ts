@@ -131,6 +131,10 @@ test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
     await expect(rail.getByRole('button', { name: '필터 접기' })).toBeVisible();
     await expect(rail.getByRole('combobox')).toHaveCount(3);
     await expect(rail.getByRole('textbox')).toHaveCount(4);
+    // #305: viewer-local time fields, no contract words in the labels.
+    await expect(rail.getByRole('textbox', { name: '시각 이후' })).toBeVisible();
+    await expect(rail.getByRole('textbox', { name: '시각 미만' })).toBeVisible();
+    await expect(rail).not.toContainText('ISO');
     await expect(rail.getByRole('button', { name: '적용', exact: true })).toBeVisible();
     await evidence(page, testInfo, 'management-audit-seven-filters');
   });

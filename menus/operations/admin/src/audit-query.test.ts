@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACTION_LABEL, parseAuditKeys } from './audit-query';
+import { ACTION_LABEL, auditKeyProblem, parseAuditKeys } from './audit-query';
 
 const keys = (over: Partial<Record<string, string | null>> = {}) => ({
   type: null, actor: null, action: null, source: null, fromAt: null, toAt: null, targetId: null, sort: null, page: null,
@@ -21,11 +21,21 @@ describe('parseAuditKeys (#50 page keys)', () => {
     });
   });
 
+  it.each<[string, { fromAt?: string; toAt?: string }, 'fromAt' | 'toAt']>([
+    ['fromAt only', { fromAt: '2026-09-20T02:00:00.000Z' }, 'fromAt'],
+    ['toAt only', { toAt: '2026-09-26T02:00:00.000Z' }, 'toAt'],
+  ])('accepts an open %s and keeps that value', (_name, over, key) => {
+    const parsed = parseAuditKeys(keys(over));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.filters[key]).toBe(over[key]);
+    expect(parsed.filters[key === 'fromAt' ? 'toAt' : 'fromAt']).toBeNull();
+  });
+
   it.each([
-    ['one-sided fromAt', keys({ fromAt: '2026-09-20T02:00:00.000Z' })],
-    ['one-sided toAt', keys({ toAt: '2026-09-26T02:00:00.000Z' })],
     ['naive instant', keys({ fromAt: '2026-09-20T02:00:00', toAt: '2026-09-26T02:00:00.000Z' })],
     ['fromAt at or after toAt', keys({ fromAt: '2026-09-26T02:00:00.000Z', toAt: '2026-09-20T02:00:00.000Z' })],
+    ['fromAt equal to toAt', keys({ fromAt: '2026-09-26T02:00:00.000Z', toAt: '2026-09-26T02:00:00.000Z' })],
     ['unknown type', keys({ type: 'nope' })],
     ['unknown action', keys({ action: 'delete' })],
     ['unknown source', keys({ source: 'cron' })],
@@ -39,6 +49,21 @@ describe('parseAuditKeys (#50 page keys)', () => {
     ['non-numeric page', keys({ page: 'abc' })],
   ])('rejects %s instead of coercing', (_name, raw) => {
     expect(parseAuditKeys(raw)).toEqual({ ok: false });
+  });
+});
+
+// UX-01: a time key's failure says why — malformed wire form vs a date that does not exist.
+describe('auditKeyProblem time reasons (#305)', () => {
+  it('splits a nonexistent calendar value from an unreadable format', () => {
+    expect(auditKeyProblem(keys({ fromAt: '2026-02-30T00:00:00Z' }))).toEqual({ key: 'fromAt', reason: 'calendar' });
+    expect(auditKeyProblem(keys({ toAt: '2026-13-01T00:00:00Z' }))).toEqual({ key: 'toAt', reason: 'calendar' });
+    expect(auditKeyProblem(keys({ fromAt: '2026-02-30T00:00:00' }))).toEqual({ key: 'fromAt', reason: 'invalid' });
+    expect(auditKeyProblem(keys({ toAt: '2026-02-30' }))).toEqual({ key: 'toAt', reason: 'invalid' });
+  });
+
+  it('keeps valid and out-of-order values outside the new reasons', () => {
+    expect(auditKeyProblem(keys({ fromAt: '2026-09-20T02:00:00.000Z', toAt: '2026-09-26T02:00:00.000Z' }))).toBeNull();
+    expect(auditKeyProblem(keys({ fromAt: '2026-09-26T02:00:00.000Z', toAt: '2026-09-20T02:00:00.000Z' }))).toEqual({ key: 'toAt', reason: 'order' });
   });
 });
 
