@@ -18,10 +18,10 @@
 
 ## 다음 할 일
 
-다음 세션은 여기서 시작한다. 전체 점검 정비 슬라이스를 v0.7.0으로 릴리스했다(아래 "끝난 것").
+다음 세션은 여기서 시작한다. 탭 선택 표식·메뉴 폴더 슬라이스를 v0.8.0으로 릴리스했다(아래 "끝난 것").
 
 1. 다음 슬라이스 고르기(사용자에게 묻는다). 후보:
-   - #345 팔레트→제목 포커스 인계 정리·포커스 테스트 시간 의존(v0.7.0 delta 품질 리뷰 follow-up), #325 변경 이력 이름·스크롤·행 링크, #320 데모 실사 결함.
+   - #350 상세 패널 탭이 URL·전체 화면으로 이어지지 않음(v0.8.0 마감 UX 워크스루, 06 §13 위반 포함), #345 팔레트→제목 포커스 인계 정리·포커스 테스트 시간 의존, #325 변경 이력 이름·스크롤·행 링크, #320 데모 실사 결함.
    - 결정 대기 #303–#307·#314·#310(아래 "결정 대기"), 멀티 워크스페이스 v2(지도 #249).
 2. 그 밖의 후보: 바로 할 수 있는 일 표. #251 FeedbackOps 링크 계약·매핑은 #81 대기, #252 표준 로그·개선 실행 공간은 도메인 소유자 합의·#249 미결 대기.
 3. 작업 규칙은 루트 `AGENTS.md`(2026-10-05 간소화), 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 문서만 바꾸면 `pnpm docs:links`만 돌린다. 작업자 배정은 전역 `routing.tsv`가 원본이다(역할 `impl`·`impl-mid`·`impl-complex`·`impl-luna` — 모델·effort를 여기에 복제하지 않는다, #283).
@@ -113,12 +113,6 @@ FeedbackOps 화면은 플랫폼으로 옮기지 않는다. FeedbackOps가 VOC �
 
 ## 끝난 것
 
-2026-10-15: #340 상세·설비 상세 탭 선택 표식(밑줄 막대+굵기, ADR-0023 개정).
-
-2026-10-15: #235·#231 문서 표류 — FeedbackOps 설문 응답 화면 사실, platform-web 조회 안내(`useMenuQuery`), 주석·내보내기 계약.
-
-2026-10-15: #331 메뉴 폴더를 시스템 단계로(`menus/<space>/<group>/`, ADR-0031).
-
 작업 흐름(2026-10-09, #255): FeedbackOps의 이슈 처리 흐름과 역할별 리뷰어(`issue-wave-conductor`, `review-ux`·`review-quality`)를 옮겼다. conductor 후속(2026-10-10, #283): FeedbackOps conductor 4커밋 반영 — `impl-mid` 단계, 브리프 사전 점검(`templates/brief-check.md`), 웨이브 스냅숏(`wave-status.py`), 작업자 위생(`worker-hygiene.sh`), 지적 fold·file·note 분류와 가치 게이트. 스킬 5종·에이전트 4개 추가(`.agents/README.md`).
 
 v0.1.0(2026-10-04): Kernel(Registry·전역 Context·URL 계약·권한·Scope·감사·활용률 계측·화면 오류 격리), 공통 컴포넌트(서버 페이징 표·내보내기·복사, 셸 상세 슬롯, 감사 타임라인, 신뢰 표시, 상태 화면, 필터 바, 같은 응답 배너), 차트 계약(Brush·Compare·Annotate·Export, 범례), FeedbackOps 디자인 시스템 기반 셸, 플랫폼 계약 E2E, 메뉴 조회 포트와 서버 적합성 묶음, 운영 빌드 조립 분리. 세부는 닫힌 이슈와 [v0.1.0 릴리스](https://github.com/hjung3113/analytics-platform/releases/tag/v0.1.0).
@@ -136,5 +130,7 @@ v0.6.0(2026-10-10): 페이지 필터 줄 접기 — `PageFilterBar` opt-in 접�
 v0.6.1(2026-10-12): 후속 정리 — 목적지 단건 조회의 provisional을 대상 객체 시점으로 판정(#122, `MockEndpoint.provisional` 훅), FeedbackOps 서브모듈 변경이 turbo 캐시에 가려지지 않게 `globalDependencies`(#237), 사이클타임 도움말 용어를 필드명 '느린 실행 기준'으로(#277), 접힘 요약 잘림·정렬 계약 E2E(#278), FeedbackOps conductor 후속과 스킬 5종·에이전트 4개(#283). 세부는 [v0.6.1 릴리스](https://github.com/hjung3113/analytics-platform/releases/tag/v0.6.1).
 
 v0.7.0(2026-10-15): 전체 점검 정비 — 코드 품질·컴포넌트·UX 워크스루 지적 7묶음과 마감 리뷰 4건. 키보드 포커스 복귀(상세 닫기·명령 팔레트·드릴, #296), 닫히는 오버레이가 다음 Escape를 가로채지 않음(#312, FeedbackOps 닫힘 모션 제거), 차트 데이터 표·CSV 같은 x 투영과 reduced-motion(#297), 지표 목록→상세 복귀와 Kernel 홈 fallback·되돌린 Context 알림(#298, Scope 포함 #337), 상태 표시(실패 조회 건수·정의 절 신뢰 표시, #299), 링크 복사는 쓰기가 끝난 뒤에만 성공(#300), 접근성 하한(#301), 화면 문구 정리(#302, 마감 묶음 #336), 표 쪽 이동 포커스(#338), 메뉴 이동 뒤 포커스를 새 화면 제목으로(#339, 사용자 결정). 하위 경로 배포 위치 어댑터([ADR-0030](../docs/adr/0030-location-adapter-base-path.md), #318), 소개 사이트 `site/`와 GitHub Pages(#317·#322·#327), 테스트 워커 상한 turbo 통과(#328), E2E 오버레이 포커스 settle(#326). 세부는 [v0.7.0 릴리스](https://github.com/hjung3113/analytics-platform/releases/tag/v0.7.0).
+
+v0.8.0(2026-10-15): 탭 선택 표식과 메뉴 폴더 시스템 단계 — 상세 패널·설비 상세 탭 선택을 색 대신 2px 아래 막대+굵기로, `@ap/ui` `TabsList`·`TabsTrigger` 플랫폼 구현(#340, 실제 앱 시안 B 사용자 컨펌, [ADR-0023](../docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md) 개정). 메뉴 폴더 `menus/<space>/<group>/`, 생성기 위치·폴더-space 일치 검사, probe 복구(#331, [ADR-0031](../docs/adr/0031-menu-folders-by-space.md)). 문서 표류(#235·#231), 마감 리뷰 문서 2건. 세부는 [v0.8.0 릴리스](https://github.com/hjung3113/analytics-platform/releases/tag/v0.8.0).
 
 2026-10-05: 문서·작업 규칙 정리와 이 보드 도입(#220). 결정 — 활용률 이벤트는 식별 필드만(#75, ADR-0020), 차트는 Canvas 렌더러(ADR-0021), 운영 조립 주입 승인(ADR-0009), 전역 감사도 room 권한 적용(#91, 구현은 해당 역할이 생길 때). GitHub 정리 — #33·#63 닫음, M5 마일스톤 생성, #81·#84·#85를 M3에, #218을 M2에. #218 Context 바 적용 배지 생략·라벨 먼저 숨김. #156 레이아웃 슬롯 — 관리 화면은 접을 수 있는 왼쪽 필터 레일, 분석 화면은 KPI 띠 + 차트 2열 + 카드별 접기, 생성기 뼈대 반영(ADR-0022).

@@ -609,7 +609,7 @@ EquipmentDeactivateButton
 
 ### UI Primitive
 
-shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](04_frontend_ui_ux.md#프론트엔드-기술-스택-decided-2026-09-25)에서 Decided(2026-09-25)다. 구현은 FeedbackOps `@fops/ui` 원본을 `@ap/ui`가 재수출한다(복사·이식하지 않는다, [ADR-0010](adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](adr/0011-design-direction-feedbackops-shell.md)). 아래 primitive 역할 예시는 그 구체 컴포넌트 매핑까지 확정하는 것은 아니다.
+shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](04_frontend_ui_ux.md#프론트엔드-기술-스택-decided-2026-09-25)에서 Decided(2026-09-25)다. 구현은 FeedbackOps `@fops/ui` 원본을 `@ap/ui`가 재수출한다(복사·이식하지 않는다, [ADR-0010](adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](adr/0011-design-direction-feedbackops-shell.md)). 예외: 탭 선택 표식을 위해 `TabsList`·`TabsTrigger`만 `@ap/ui`가 FeedbackOps 부품을 감싸 정의한다([ADR-0023 개정](adr/0023-feedbackops-primitive-shapes-and-sizes.md#개정--탭-선택-표식-2026-10-15)). 아래 primitive 역할 예시는 그 구체 컴포넌트 매핑까지 확정하는 것은 아니다.
 
 예:
 
