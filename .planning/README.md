@@ -114,7 +114,7 @@ FeedbackOps 화면은 플랫폼으로 옮기지 않는다. FeedbackOps가 VOC �
 
 ## 끝난 것
 
-작업 흐름(2026-10-09, #255): FeedbackOps의 이슈 처리 흐름과 역할별 리뷰어(`issue-wave-conductor`, `review-ux`·`review-quality`)를 옮겼다. conductor 후속(2026-10-10, #283): FeedbackOps conductor 4커밋 반영 — `impl-mid` 단계, 브리프 사전 점검(`templates/brief-check.md`), 웨이브 스냅숏(`wave-status.py`), 작업자 위생(`worker-hygiene.sh`), 지적 fold·file·note 분류와 가치 게이트. 스킬 5종·에이전트 4개 추가(`.agents/README.md`).
+작업 흐름(2026-10-09, #255): FeedbackOps의 이슈 처리 흐름과 역할별 리뷰어(`issue-wave-conductor`, `review-ux`·`review-quality`)를 옮겼다. conductor 후속(2026-10-10, #283): FeedbackOps conductor 4커밋 반영 — `impl-mid` 단계, 브리프 사전 점검(`templates/brief-check.md`), 웨이브 스냅숏(`wave-status.py`), 작업자 위생(`worker-hygiene.sh`), 지적 fold·file·note 분류와 가치 게이트. 스킬 5종·에이전트 4개 추가(`.agents/README.md`). 전역으로 합침(2026-10-15, #361): conductor 공통 절차는 전역 `issue-wave-conductor` 스킬로, 이 레포의 부분은 `.agents/conductor/PROFILE.md`로.
 
 v0.1.0(2026-10-04): Kernel(Registry·전역 Context·URL 계약·권한·Scope·감사·활용률 계측·화면 오류 격리), 공통 컴포넌트(서버 페이징 표·내보내기·복사, 셸 상세 슬롯, 감사 타임라인, 신뢰 표시, 상태 화면, 필터 바, 같은 응답 배너), 차트 계약(Brush·Compare·Annotate·Export, 범례), FeedbackOps 디자인 시스템 기반 셸, 플랫폼 계약 E2E, 메뉴 조회 포트와 서버 적합성 묶음, 운영 빌드 조립 분리. 세부는 닫힌 이슈와 [v0.1.0 릴리스](https://github.com/hjung3113/analytics-platform/releases/tag/v0.1.0).
 
