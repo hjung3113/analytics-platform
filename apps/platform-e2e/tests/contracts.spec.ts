@@ -803,7 +803,10 @@ test.describe('권한 — 메뉴 비노출·직접 URL 거부 (06 §6.2, §17)',
 
 test.describe('워크스페이스 (06 §9.1)', () => {
   const ADMIN_URL = `/admin/roles?v=1&scopeId=ICH&${PERIOD}&selectedEquipmentIds=ICH-PHOTO-0103&page=2`;
-  const EQUIPMENT_URL = `/equipment?v=1&scopeId=ICH&${PERIOD}&selectedEquipmentIds=ICH-PHOTO-0103&page=2`;
+  // #314: the equipment table applies selectedEquipmentIds (1 row), so page=2 there is out of range and is
+  // clamped away. lotIds is a registered global the equipment master does not apply — it stays in the URL
+  // without narrowing the 54 rows, so page=2 is a real page and Back can restore it exactly.
+  const EQUIPMENT_URL = `/equipment?v=1&scopeId=ICH&${PERIOD}&lotIds=LOT-0001&page=2`;
 
   test('진입 가능한 공간이 하나뿐인 역할에는 전환기가 없고 운영 콘솔 메뉴가 보이지 않는다', async ({ page }, testInfo) => {
     await signInAs(page, 'viewer');
@@ -871,7 +874,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     expect(q.get('scopeId')).toBe('ICH');
     expect(q.get('from')).toBe('2026-09-25T09:00:00');
     expect(q.get('to')).toBe('2026-09-26T09:00:00');
-    expect(q.get('selectedEquipmentIds')).toBe('ICH-PHOTO-0103');
+    expect(q.get('lotIds')).toBe('LOT-0001');
     // Globals survive the switch; page-owned state does not.
     expect(q.get('page')).toBeNull();
     await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toBeVisible();
@@ -895,7 +898,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     expect(fwd.get('scopeId')).toBe('ICH');
     expect(fwd.get('from')).toBe('2026-09-25T09:00:00');
     expect(fwd.get('to')).toBe('2026-09-26T09:00:00');
-    expect(fwd.get('selectedEquipmentIds')).toBe('ICH-PHOTO-0103');
+    expect(fwd.get('lotIds')).toBe('LOT-0001');
     expect(fwd.get('page')).toBeNull();
     await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toBeVisible();
     await evidence(page, testInfo, 'admin-history-forward');
@@ -906,7 +909,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     expect(back.get('scopeId')).toBe('ICH');
     expect(back.get('from')).toBe('2026-09-25T09:00:00');
     expect(back.get('to')).toBe('2026-09-26T09:00:00');
-    expect(back.get('selectedEquipmentIds')).toBe('ICH-PHOTO-0103');
+    expect(back.get('lotIds')).toBe('LOT-0001');
     expect(back.get('page')).toBe('2');
     await evidence(page, testInfo, 'admin-back');
   });
