@@ -1,4 +1,4 @@
-import { useEffect, useId } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { type PageProps, PlatformLink, useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
 import { AuditTimeline, Field, Panel, PlatformPage, QueryView, ReturnLink, StateMessage, useCopyLink } from '@ap/components';
 import { Button, cn, StatusBadge } from '@ap/ui';
@@ -34,10 +34,22 @@ export default function MetricDetailPage({ params }: PageProps) {
   const usage = useMenuQuery(usageEndpoint, { metricId, version: versionParam ?? '' }, versionParam !== null);
   const history = useMenuQuery(historyEndpoint, { metricId, lang: lang as Lang });
 
+  // #325-2: the anchor scroll waits until the queries rendering at or above the target have answered — any
+  // outcome counts as landed (an error section holds its place too). Scrolling at mount, while the sections
+  // above are skeletons, lets their late data push the arrived-at section out of the viewport. Once per tab
+  // value: a refetch must not yank the viewport back; a tab change (chip click, Back/Forward) scrolls again.
+  const scrollGate = definition.response !== null
+    && (versionParam === null || usage.response !== null)
+    && (tab !== 'history' || history.response !== null);
+  const scrolledTab = useRef<string | null>(null);
+
   useEffect(() => {
     if (!tab || !tabKnown) return;
+    if (scrolledTab.current === tab) return;
+    if (!scrollGate) return;
+    scrolledTab.current = tab;
     document.getElementById(sectionId(tab))?.scrollIntoView({ block: 'start' });
-  }, [tab, tabKnown]);
+  }, [tab, tabKnown, scrollGate]);
 
   const ready = definition.response?.outcome === 'ok' ? definition.response.data : null;
   const selected = ready?.version ?? null;
