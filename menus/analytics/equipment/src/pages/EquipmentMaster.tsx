@@ -48,7 +48,7 @@ export default function EquipmentMaster() {
       context={ko ? '목적지 ID만 열었습니다. 전역 Selection과 목록 필터는 유지됩니다.' : 'Only the destination ID is opened. Global Selection and list filters are preserved.'}
       headerActions={<Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('equipment-detail', { params: { equipmentId: focus }, page: detailPage, returnTo: true })}>{ko ? '전체 화면' : 'Full page'}</PlatformLink></Button>}
       tabs={validTab ? [{ id: 'attributes', label: ko ? '속성' : 'Attributes', content: <EquipmentPanel id={focus} kind="attributes" /> }, { id: 'validity', label: ko ? '유효구간 이력' : 'Validity history', content: <EquipmentPanel id={focus} kind="validity" /> }, { id: 'audit', label: ko ? '변경 이력' : 'Change history', content: <EquipmentPanel id={focus} kind="audit" /> }]
-        : [{ id: 'invalid', label: ko ? '알 수 없는 탭' : 'Unknown tab', content: <p role="alert">{ko ? '등록되지 않은 탭입니다.' : 'Unknown tab.'} <Button size="sm" variant="secondary" onClick={() => setPage({ tab: null })}>{ko ? '속성 열기' : 'Open attributes'}</Button></p> }]} />}
+        : [{ id: 'invalid', label: ko ? '알 수 없는 탭' : 'Unregistered tab', content: <p role="alert">{ko ? '등록되지 않은 탭입니다.' : 'This tab is not registered.'} <Button size="sm" variant="secondary" onClick={() => setPage({ tab: null })}>{ko ? '속성 열기' : 'Open attributes'}</Button></p> }]} />}
       table={filterSlot => tableInvalid ? <p role="alert">{filterSlot}{ko ? '정렬·페이지 값이 잘못되었습니다.' : 'Invalid sort or page value.'} <Button size="sm" variant="secondary" onClick={() => setPage({ sort: null, page: null })}>{ko ? '초기화' : 'Reset'}</Button></p> :
     <PlatformDataTable<Equipment>
       title={ko ? '설비 목록' : 'Equipment list'} ariaLabel={ko ? '설비 마스터 목록' : 'Equipment master list'}

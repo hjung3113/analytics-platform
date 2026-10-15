@@ -1,5 +1,6 @@
+import { AlertTriangle } from 'lucide-react';
 import { type PageProps, PlatformLink, useEntityQuery, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { AuditTimeline, DataTrustIndicator, Field, PlatformPage, QueryView, ReturnLink } from '@ap/components';
+import { AuditTimeline, DataTrustIndicator, Field, PlatformPage, QueryView, ReturnLink, StateMessage } from '@ap/components';
 import { Button, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 import { EQUIPMENT_ENTITY_TYPE, type Equipment } from '../endpoints';
 import { fields, statusText, statusTone, validity } from './data';
@@ -32,7 +33,7 @@ export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 
       <p className="t-caption text-text-muted">{ko ? 'StGroup·분임조: 현재 외부 공급값. 그 외 필드는 편집을 제공하지 않습니다.' : 'StGroup and team: current external values. Other fields are not editable.'}</p>
     </>}
     {kind === 'validity' && <>
-      <p className="t-caption text-text-muted">{ko ? '합성 속성 버전 · 구간은 [시작, 종료). StGroup·분임조의 과거 소속을 추정하지 않습니다.' : 'Synthetic attribute versions · intervals are [from, to). Historical StGroup/team membership is not inferred.'}</p>
+      <p className="t-caption text-text-muted">{ko ? '합성 속성 버전입니다. 시작 시각부터 종료 시각 전까지이며, 과거 소속은 추정하지 않습니다.' : 'Synthetic attribute versions. Each interval runs from its start up to, but not including, its end. Past membership is not inferred.'}</p>
       <ol className="space-y-3 border-l-2 border-border-strong pl-4">{validity(e).map((v, i) => <li key={v.from} className="rounded-md border border-border-subtle bg-surface-card p-3">
         <h3 className="t-card-title">{ko ? '속성 버전' : 'Attribute version'} {i + 1}</h3>
         <p className="t-mono mt-1 text-text-secondary">{v.from} → {v.to ?? (ko ? '현재 (종료 없음)' : 'Current (open end)')}</p>
@@ -60,7 +61,7 @@ export default function EquipmentDetail({ params }: PageProps) {
     description={ko ? '목적지 ID는 위의 전달된 분석 Selection과 별개입니다. Scope와 설비 접근 권한은 다시 검증합니다.' : 'The destination ID is separate from the inherited analysis Selection above. Scope and equipment access are revalidated.'}
     secondaryActions={<ReturnLink />}>
     <QueryView widgetName={lang === 'ko' ? '설비 요약' : 'Equipment summary'} query={header}>{e => e && <div className="mb-4 flex items-center gap-3"><EquipmentStatus equipment={e} /><span className="t-mono text-sm text-text-secondary">{e.equipmentId}</span></div>}</QueryView>
-    {!validTab ? <p role="alert">{ko ? '등록되지 않은 탭입니다.' : 'Unknown tab.'} <Button size="sm" variant="secondary" onClick={() => setPage({ tab: 'attributes' })}>{ko ? '속성 열기' : 'Open attributes'}</Button></p> :
+    {!validTab ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '등록되지 않은 탭입니다' : 'This tab is not registered'} body={ko ? '이 화면의 탭이 아닙니다. 속성으로 돌아가세요.' : 'This is not a tab on this page. Go back to attributes.'} action={<Button size="sm" variant="secondary" onClick={() => setPage({ tab: 'attributes' })}>{ko ? '속성 열기' : 'Open attributes'}</Button>} /> :
       <Tabs value={requestedTab} onValueChange={tab => setPage({ tab })}>
         <TabsList aria-label={ko ? '설비 상세 탭' : 'Equipment detail tabs'} className="max-w-4xl">{tabs.map(t => <TabsTrigger key={t.id} value={t.id}>{t.label}</TabsTrigger>)}</TabsList>
         {tabs.map(t => <TabsContent key={t.id} value={t.id} className="mt-4 max-w-4xl"><div className="rounded-lg border border-border-subtle bg-surface-card p-4"><EquipmentPanel id={id} kind={t.id} /></div></TabsContent>)}

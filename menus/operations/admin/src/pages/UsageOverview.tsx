@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { type UsageSummary } from '@ap/contracts';
 import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { type PlatformColumn, encodeTableSort, parsePageIndex, parseTableSort, PlatformDataTable, PlatformPage, QueryView, sortAndPage } from '@ap/components';
+import { type PlatformColumn, encodeTableSort, parsePageIndex, parseTableSort, PlatformDataTable, PlatformPage, QueryView, sortAndPage, StateMessage } from '@ap/components';
 import { Button } from '@ap/ui';
 import { formatLastUsed, joinUsageRows, type UsageRow } from '../usage-rows';
 
@@ -33,7 +34,7 @@ export default function UsageOverview() {
     },
   ], [ko, lang]);
   return <PlatformPage description={ko ? '메뉴 진입·체류 이벤트의 집계입니다. 식별 필드만 수집합니다.' : 'Aggregates of menu entry and dwell events. Collects identity fields only.'}>
-    {tableInvalid ? <p role="alert">{ko ? '정렬·페이지 값이 잘못되었습니다.' : 'Invalid sort or page value.'} <Button size="sm" variant="secondary" onClick={() => setPage({ sort: null, page: null })}>{ko ? '초기화' : 'Reset'}</Button></p>
+    {tableInvalid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '정렬·페이지 값이 올바르지 않습니다' : 'The sort or page value cannot be used'} body={ko ? '이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.' : 'This page cannot use that value. Reset the conditions.'} action={<Button size="sm" variant="secondary" onClick={() => setPage({ sort: null, page: null })}>{ko ? '초기화' : 'Reset'}</Button>} />
       : <QueryView widgetName={ko ? '메뉴 활용률' : 'Menu usage'} query={q}>{data => {
         const rows = joinUsageRows(registry, data.menus);
         // Client envelope: the rows are the registry join, not mart data — trust is null and paging stays client-side.

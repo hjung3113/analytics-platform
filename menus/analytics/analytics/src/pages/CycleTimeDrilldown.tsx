@@ -86,16 +86,16 @@ export default function CycleTimeDrilldown(_: PageProps) {
   ], [ko, lang]);
 
   const filterKey = JSON.stringify({ tail: tailMode, bucket: bucketRange, bin, sort: sortRaw, reload });
-  const unknown = ko ? '미확인' : 'Unknown';
+  const unknown = ko ? '미확인' : 'Not confirmed';
   const granularityPending = granularityRaw === null && hours === null;
 
   const pageErrors = [
-    !granularityResult.ok ? `granularity=${granularityRaw}` : null,
-    !tailResult.ok ? `percentile=${percentileRaw}` : null,
-    !sortResult.ok ? `sort=${sortRaw}` : null,
-    !bucketResult.ok ? `bucket=${bucketRaw}` : null,
-    !binResult.ok ? `bin=${binRaw}` : null,
-    !pageResult.ok ? `page=${pageRaw}` : null,
+    !granularityResult.ok ? (ko ? '집계' : 'grain') : null,
+    !tailResult.ok ? (ko ? '느린 실행' : 'slow executions') : null,
+    !sortResult.ok ? (ko ? '정렬' : 'sort') : null,
+    !bucketResult.ok ? (ko ? '버킷' : 'bucket') : null,
+    !binResult.ok ? (ko ? '분포 구간' : 'histogram') : null,
+    !pageResult.ok ? (ko ? '페이지' : 'page') : null,
   ].filter((item): item is string => item !== null);
 
   // Field labels and option labels shared by the edit controls and the collapsed summary. The summary states
@@ -115,7 +115,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
     { value: 'anchor:asc', label: ko ? '시작 오래된' : 'Start oldest' },
     { value: 'equipmentId:asc', label: 'Equipment A→Z' },
   ];
-  const unknownRaw = (raw: string | null) => ko ? `알 수 없는 값: ${raw ?? ''}` : `Unknown value: ${raw ?? ''}`;
+  const unknownRaw = (raw: string | null) => ko ? `이 화면에서 쓸 수 없는 값: ${raw ?? ''}` : `Not a value this page can use: ${raw ?? ''}`;
   const grainSummary = !granularityResult.ok ? unknownRaw(granularityRaw)
     : granularityPending ? (ko ? '확인 중' : 'Checking') : grainLabel[granularity];
   const tailSummary = tailResult.ok ? tailOptions.find(option => option.value === tailMode)?.label ?? tailMode : unknownRaw(percentileRaw);
@@ -126,8 +126,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
 
   return <PlatformPage
     description={ko
-      ? '적용된 전역 기간·설비의 사이클타임입니다. 분위수·느린 실행 기준은 Candidate이고, 점·분포 선택은 목록만 줄입니다.'
-      : 'Cycle time for the applied global period and equipment. Percentiles are Candidate; point and histogram choices filter only the list.'}
+      ? '적용된 기간·설비의 사이클타임입니다. 점·분포 선택은 목록만 줄입니다.'
+      : 'Cycle time for the applied period and equipment. Point and histogram choices filter only the list.'}
     secondaryActions={<Button variant="secondary" size="sm" onClick={() => { kpi.refetch(); trend.refetch(); dist.refetch(); setReload(n => n + 1); if (pageRaw !== null) setPage({ page: null }, { replace: true }); }}><RotateCw className="size-3.5" aria-hidden />{ko ? '새로고침' : 'Refresh'}</Button>}
     dataTrustSummary={kpi.response?.trust ? <DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} /> : undefined}
     contextExtension={<div className="space-y-2">
@@ -147,8 +147,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
       ]} actions={resetFilters} />
       <p className="text-xs text-text-muted">
         {ko
-          ? `집계 기본값은 기간 ≤48h이면 hour, 아니면 day${!granularityResult.ok || granularityResult.explicit ? '' : ` (지금 ${granularity}, URL에 없음)`}. 느린 실행 기준 기본값은 ≥ P95 (Candidate, 동률 포함)이며 KPI 모집단을 다시 줄이지 않습니다. 버킷·분포 구간은 URL 키 bucket·bin에, 정렬·페이지는 sort·page에 남습니다.`
-          : `Default grain is hour when the period is ≤48h, otherwise day${!granularityResult.ok || granularityResult.explicit ? '' : ` (now ${granularity}, not in the URL)`}. The default slow-execution predicate is ≥ P95 (Candidate, ties included) and does not shrink the KPI population. Bucket and histogram selections stay in the URL keys bucket and bin; sort and page are URL keys too.`}
+          ? `집계 기본값은 기간이 48시간 이하면 시간, 그보다 길면 일입니다${!granularityResult.ok || granularityResult.explicit ? '' : ` (지금 ${granularity === 'hour' ? '시간' : granularity === 'day' ? '일' : '주'})`}. 느린 실행은 표시된 P95 이상(같은 값 포함)이며 요약 모집단은 줄이지 않습니다.`
+          : `The default grain is hours when the period is 48 hours or less, otherwise days${!granularityResult.ok || granularityResult.explicit ? '' : ` (now ${granularity})`}. Slow means at or above the displayed P95, including ties, and does not shrink the summary population.`}
       </p>
       {(bucketRange || bin) && <div className="flex flex-wrap items-center gap-2">
         {bucketRange && <FilterChip label={ko ? '버킷' : 'Bucket'} value={`${bucketRange.from.replace('T', ' ')} → ${bucketRange.to.replace('T', ' ')}`} onClear={() => setPage({ bucket: null })} clearLabel={ko ? '버킷 필터 해제' : 'Clear bucket filter'} />}
@@ -158,8 +158,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
   >
     {invalidPage ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '페이지 키 값이 올바르지 않습니다' : 'Invalid page key'}
       body={ko
-          ? `${pageErrors.join(', ')} 은 이 화면의 등록 값이 아닙니다. hour|day|week, p50|p95|all, column:asc|desc, bucket=경계 시각, bin=구간|from..to, page=1 이상 정수 만 허용하며 다른 값으로 바꾸지 않습니다.`
-        : `${pageErrors.join(', ')} is not a registered value. Allowed: hour|day|week, p50|p95|all, column:asc|desc, bucket=aligned timestamp, bin=id|from..to, page=integer ≥ 1. Nothing was substituted.`} />
+          ? `${pageErrors.join(', ')} 값을 이 화면에서 쓸 수 없습니다. 페이지 조건을 기본값으로 되돌리세요.`
+        : `${pageErrors.join(', ')} cannot be used on this page. Reset the page conditions.`} />
       : !periodReady ? <p className="text-sm text-text-muted">{ko ? '전역 기간이 URL에 확정되면 조회합니다.' : 'The query starts once the global period is in the URL.'}</p>
         : <AnalysisLayout
           kpi={{ id: 'summary', title: ko ? '사이클타임 요약' : 'Cycle time summary', node: <>
@@ -169,13 +169,13 @@ export default function CycleTimeDrilldown(_: PageProps) {
                 <StatCard icon={Timer} chip="blue" label="P50" value={formatMin(data.p50, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p50, data.prevP50)} caption={ko ? '적용 모집단' : 'Applied population'} />
                 <StatCard icon={Gauge} chip="amber" label="P95" value={formatMin(data.p95, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p95, data.prevP95)} caption={ko ? '적용 모집단' : 'Applied population'} />
                 <StatCard icon={Hash} chip="teal" label={ko ? '실행 수' : 'Executions'} value={data.count.toLocaleString(ko ? 'ko-KR' : 'en-US')} caption={ko ? '완료된 합성 Job' : 'Completed synthetic jobs'} />
-                <StatCard icon={AlertTriangle} chip="purple" label={ko ? '느린 실행' : 'Slow executions'} value={data.slowCount.toLocaleString(ko ? 'ko-KR' : 'en-US')} caption={ko ? '≥ P95 (Candidate)' : '≥ P95 (Candidate)'} />
+                <StatCard icon={AlertTriangle} chip="purple" label={ko ? '느린 실행' : 'Slow executions'} value={data.slowCount.toLocaleString(ko ? 'ko-KR' : 'en-US')} caption={ko ? '표시된 P95 이상' : 'At or above the displayed P95'} />
               </div>}
             </QueryView>
           </div>
           <p className="text-xs text-text-muted">{ko
-            ? 'Candidate: 선형 보간 후 0.1분 반올림, 미완료 Job은 생성하지 않음, 느린 실행은 표시된 P95 이상(동률 포함). 감소를 개선으로 칠한 증감은 직전 동일 길이 기간 대비입니다. 빈 버킷은 0이 아닙니다.'
-            : 'Candidate: linear interpolation rounded to 0.1 min, no in-progress jobs, slow means ≥ the displayed P95 (ties included). Deltas versus the previous equal-length period treat a decrease as an improvement. Empty buckets are not zero.'}</p>
+            ? '0.1분 단위로 반올림합니다. 진행 중인 Job은 넣지 않습니다. 느린 실행은 표시된 P95 이상(같은 값 포함)입니다. 증감은 직전 같은 길이의 기간과 비교하며, 줄어든 것을 개선으로 칠합니다. 빈 구간은 0이 아닙니다.'
+            : 'Rounded to 0.1 min. In-progress jobs are not included. Slow means at or above the displayed P95, including ties. Deltas compare with the previous period of the same length and treat a decrease as an improvement. An empty bucket is not zero.'}</p>
 
           </> }}
           charts={[
@@ -184,7 +184,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
               {(data, response) => <AnalysisChartFrame
                 chartId="cycle-time-trend"
                 title={ko ? '사이클타임 추세' : 'Cycle time trend'}
-                description={ko ? `버킷별 P50/P95 · ${granularity === 'hour' ? '시간' : granularity === 'day' ? '일' : '주'} · 단위 분(Candidate)` : `P50/P95 by bucket · ${granularity} · minutes (Candidate)`}
+                description={ko ? `버킷별 P50/P95 · ${granularity === 'hour' ? '시간' : granularity === 'day' ? '일' : '주'} · 단위 분` : `P50/P95 by bucket · ${granularity === 'hour' ? 'hour' : granularity === 'day' ? 'day' : 'week'} · minutes`}
                 metricVersion={metricLabel(metric, ko)}
                 unit={ko ? '분' : 'min'}
                 valueFormat={value => formatMin(value, lang)}
@@ -218,7 +218,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
               {(data, response) => <AnalysisChartFrame
                 chartId="cycle-time-distribution"
                 title={ko ? '사이클타임 분포' : 'Cycle time distribution'}
-                description={ko ? 'Candidate 구간 [하한, 상한). 구간 선택 후 “이 구간 실행 보기”만 목록을 줄입니다.' : 'Candidate bins [min, max). Only “Show executions in this range” filters the list.'}
+                description={ko ? '구간으로 나눕니다. “이 구간 실행 보기”만 목록을 줄입니다.' : 'Split into bins. Only “Show executions in this range” filters the list.'}
                 metricVersion={metricLabel(metric, ko)}
                 xType="category"
                 unit={ko ? '건' : 'jobs'}
@@ -273,8 +273,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
             loadPage={(query, signal) => slowPages.fetch({ ...listFilter, ...query, sorting: [{ id: sortSpec.id, desc: sortSpec.desc }] }, signal)}
           />
           <p className="text-xs text-text-muted">{ko
-            ? '품질 배지는 Candidate입니다. unknown은 미확정이며 정상으로 채우지 않습니다. review는 합성 플래그이고 불량·수율이 아닙니다.'
-            : 'Quality badges are Candidate. unknown stays unconfirmed and is not filled in as pass. review is a synthetic flag, not a defect or yield.'}</p>
+            ? '미확정은 정상으로 채우지 않습니다. 검토 표시는 불량·수율이 아닙니다.'
+            : 'Unconfirmed is not filled in as pass. A review flag is not a defect or a yield.'}</p>
           {kpi.response && kpi.response.outcome === 'ok' && <DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} />}
           </> }}
         />}
@@ -285,7 +285,7 @@ function MetricBanner({ metric }: { metric: ResolvedMetric }) {
   const { lang } = useI18n();
   const ko = lang === 'ko';
   if (metric.kind === 'unconfirmed') {
-    return <p className="text-xs text-text-secondary" data-testid="metric-banner">{ko ? `${metric.metricId} 버전이 확인되지 않았습니다. 페이지 기본 버전으로 채우지 않습니다.` : `${metric.metricId} has no confirmed version. The page default is not filled in.`}</p>;
+    return <p className="text-xs text-text-secondary" data-testid="metric-banner">{ko ? `${metric.metricId} 버전이 확인되지 않았습니다. 버전을 고르세요.` : `${metric.metricId} has no confirmed version. Pick a version.`}</p>;
   }
   const versionNote = metric.metricVersion === '4'
     ? (ko ? '분은 생산성 개요의 cycle_time v4와 같습니다.' : 'Minutes match productivity’s cycle_time v4.')
@@ -294,7 +294,7 @@ function MetricBanner({ metric }: { metric: ResolvedMetric }) {
     return <p className="flex flex-wrap items-center gap-2 text-xs text-text-secondary" data-testid="metric-banner">
       <StatusBadge tone="info">{ko ? '페이지 기본값' : 'Page default'}</StatusBadge>
       <span className="t-mono">{PAGE_METRIC_ID} v{metric.metricVersion}</span>
-      <span>{ko ? '전역 metric 쌍이 없습니다. 이 값으로 계산하며 URL에는 쓰지 않습니다.' : 'No global metric pair. Calculations use this value and do not write it into the URL.'}</span>
+      <span>{ko ? '전역 지표 쌍이 없습니다. 계산은 이 값을 사용합니다.' : 'No global metric pair. Calculations use this value.'}</span>
       <span>{versionNote}</span>
     </p>;
   }
@@ -313,7 +313,7 @@ function MetricBanner({ metric }: { metric: ResolvedMetric }) {
     <span className="t-mono">{metric.metricId} v{metric.metricVersion}</span>
     <span>{metric.versionIsPageDefault
       ? (ko ? '전역 cycle_time 쌍을 적용했습니다.' : 'The global cycle_time pair is applied.')
-      : (ko ? '요청한 버전 라벨을 표시합니다. 합성 데이터는 v3 시계열 하나뿐이라 다른 세대 숫자로 바꾸지 않습니다. (Open)' : 'The requested version label is shown. Synthetic data has only the v3 series, so figures are not rewritten as another generation. (Open)')}</span>
+      : (ko ? '요청한 버전 라벨을 표시합니다. 합성 데이터는 v3 시계열만 있습니다.' : 'The requested version label is shown. Synthetic data has only the v3 series.')}</span>
     <span>{versionNote}</span>
   </p>;
 }

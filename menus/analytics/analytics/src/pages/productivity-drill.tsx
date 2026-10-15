@@ -9,12 +9,12 @@ import type { DrillData, DrillEquipmentRow, DrillStgroupRow, KpiSet } from '../e
 type Fmt = { n1: (value: number) => string; ni: (value: number) => string };
 
 export function pctHint(ko: boolean, value: number | null, n1: Fmt['n1']): string {
-  return value === null ? (ko ? '미확인' : 'unknown') : `${n1(value)}%`;
+  return value === null ? (ko ? '미확인' : 'Not confirmed') : `${n1(value)}%`;
 }
 
 function KpiLine({ ko, kpi, n1, ni }: { ko: boolean; kpi: KpiSet } & Fmt) {
   const occ = pctHint(ko, kpi.occupancy?.pct ?? null, n1);
-  const p95 = kpi.cycle.p95 === null ? (ko ? '미확인' : 'unknown') : `${n1(kpi.cycle.p95)}${ko ? '분' : 'min'}`;
+  const p95 = kpi.cycle.p95 === null ? (ko ? '미확인' : 'Not confirmed') : `${n1(kpi.cycle.p95)}${ko ? '분' : 'min'}`;
   return <p className="text-xs text-text-secondary tabular">
     {ko
       ? `점유율 ${occ} · 완료 Job ${ni(kpi.throughput.jobs)} · 설비 ${ni(kpi.equipmentCount)} · P95 ${p95}`
@@ -79,7 +79,7 @@ function EquipmentTable({ ko, rows, current, onEnter, n1, ni }: {
       </td>
       <td className="px-3 py-1.5 text-right">{pctHint(ko, row.occupancyPct, n1)}</td>
       <td className="px-3 py-1.5 text-right">{ni(row.jobs)}</td>
-      <td className="px-3 py-1.5 text-right">{row.p95Min === null ? (ko ? '미확인' : 'unknown') : `${n1(row.p95Min)} ${ko ? '분' : 'min'}`}</td>
+      <td className="px-3 py-1.5 text-right">{row.p95Min === null ? (ko ? '미확인' : 'Not confirmed') : `${n1(row.p95Min)} ${ko ? '분' : 'min'}`}</td>
       <td className="px-2 py-1.5 text-right"><EnterButton ko={ko} value={row.equipmentId} onClick={() => onEnter(row.equipmentId)} /></td>
     </tr>;
   }));
@@ -131,7 +131,7 @@ export function ProductivityDrillBody({ ko, room, stgroup, equipment, stgroupQue
                     <Field label="EquipmentID" mono>{row.equipmentId}</Field>
                     <Field label={ko ? '점유율' : 'Occupancy'}>{pctHint(ko, row.occupancyPct, n1)}</Field>
                     <Field label={ko ? '완료 Job' : 'Jobs'}>{ni(row.jobs)}</Field>
-                    <Field label={ko ? 'P95 사이클타임' : 'P95 cycle time'}>{row.p95Min === null ? (ko ? '미확인' : 'unknown') : `${n1(row.p95Min)} ${ko ? '분' : 'min'}`}</Field>
+                    <Field label={ko ? 'P95 사이클타임' : 'P95 cycle time'}>{row.p95Min === null ? (ko ? '미확인' : 'Not confirmed') : `${n1(row.p95Min)} ${ko ? '분' : 'min'}`}</Field>
                   </dl>
                   <div className="mt-3">
                     <Button size="sm" asChild>

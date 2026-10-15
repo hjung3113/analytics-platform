@@ -119,8 +119,8 @@ export default function AccessDirectory() {
           },
         ] : [{
           id: 'invalid',
-          label: ko ? '알 수 없는 탭' : 'Unknown tab',
-          content: <p role="alert">{ko ? '등록되지 않은 탭입니다.' : 'Unknown tab.'} <Button size="sm" variant="secondary" onClick={() => setPage({ tab: null })}>{ko ? '권한 열기' : 'Open permissions'}</Button></p>,
+          label: ko ? '알 수 없는 탭' : 'Unregistered tab',
+          content: <p role="alert">{ko ? '등록되지 않은 탭입니다.' : 'This tab is not registered.'} <Button size="sm" variant="secondary" onClick={() => setPage({ tab: null })}>{ko ? '권한 열기' : 'Open permissions'}</Button></p>,
         }]} />
     : <div role="alert" className="p-3">
         {/* Only the loaded page is known here: absence from it is not proof the principal does not exist. */}

@@ -41,11 +41,12 @@ const dict = {
   scopeErrorTitle: { ko: 'Scope를 확인하지 못했습니다', en: "Couldn't verify the scope" },
   scopeErrorBody: { ko: '서버에 닿지 못했습니다. 잠시 뒤 다시 시도하세요.', en: 'The server could not be reached. Try again in a moment.' },
   scopeUnknownTitle: { ko: '등록되지 않은 Scope입니다', en: 'This scope is not registered' },
-  scopeUnknownBody: { ko: '이 scopeId는 권한 거부가 아닙니다. 서버가 Scope를 확인하지 못했으며 다른 Scope로 바꾸지 않습니다.', en: 'This is not a permission denial. The server does not recognize this scopeId, and no other scope is substituted.' },
+  scopeUnknownBody: { ko: '등록된 범위가 아닙니다. 목록에서 다시 고르세요.', en: 'This scope is not registered. Pick another from the list.' },
   profile: { ko: '사용자 메뉴', en: 'User menu' },
   role: { ko: '역할(데모 전환)', en: 'Role (demo switch)' },
   language: { ko: '언어', en: 'Language' },
   signOut: { ko: '로그아웃', en: 'Sign out' },
+  signOutUnavailable: { ko: '준비 중', en: 'Not available yet' },
   scenario: { ko: '응답 시나리오', en: 'Response scenario' },
   scenarioHint: { ko: '프로토타입 전용: 모의 서버 응답을 강제합니다.', en: 'Prototype only: forces mock server outcomes.' },
   period: { ko: '기간', en: 'Period' },
@@ -65,7 +66,7 @@ const dict = {
   selection: { ko: '설비 선택', en: 'Equipment selection' },
   all: { ko: '전체', en: 'All' },
   none: { ko: '없음', en: 'None' },
-  explicitEmpty: { ko: '명시적 빈 집합', en: 'Explicit empty set' },
+  explicitEmpty: { ko: '빈 선택', en: 'Empty selection' },
   notUsed: { ko: '이 화면에서 미사용', en: 'Not used on this page' },
   referenceOnly: { ko: '참조만', en: 'Reference only' },
   applied: { ko: '적용', en: 'Applied' },
@@ -78,28 +79,36 @@ const dict = {
   loading: { ko: '불러오는 중…', en: 'Loading…' },
   refreshing: { ko: '같은 조건으로 갱신 중', en: 'Refreshing same context' },
   correlationId: { ko: 'Correlation ID', en: 'Correlation ID' },
+  serverDetail: { ko: '서버 세부', en: 'Server detail' },
+  askAccessOwner: { ko: '권한 담당자에게 요청하세요.', en: 'Ask the person who grants access.' },
   sharedOutcomeRegion: { ko: '위젯 상태 요약', en: 'Widget state summary' },
   sharedOutcomeSummary: { ko: '위젯 {count}개에서 같은 응답({outcome})이 확인되었습니다.', en: '{count} widgets report the same response ({outcome}).' },
   sharedOutcomeError: { ko: '서버 오류', en: 'server error' },
   sharedOutcomeTimeout: { ko: '시간 초과', en: 'timeout' },
   sharedOutcomeEmpty: { ko: '0건', en: 'zero rows' },
-  stateTimeoutBody: { ko: '기간을 줄이거나 집계 단위를 키워 다시 시도하세요.', en: 'Shorten the period or coarsen the granularity and retry.' },
+  stateTimeoutBody: { ko: '조회가 제한 시간 안에 끝나지 않았습니다. 기간을 줄이거나 집계 단위를 키워 다시 시도하세요.', en: 'The query did not finish in time. Shorten the period or coarsen the granularity and retry.' },
   stateEmpty: { ko: '조건에 맞는 결과가 없습니다', en: 'No matching result' },
   stateEmptyBody: { ko: '조회는 성공했고 결과가 0건입니다. 수집 중단·지연을 뜻하지 않습니다.', en: 'The query succeeded with zero rows. This does not imply a collection stop or delay.' },
   stateForbidden: { ko: '이 Scope에 접근 권한이 없습니다', en: 'You do not have access to this scope' },
-  stateForbiddenBody: { ko: '서버가 현재 사용자 권한으로 요청을 거부했습니다. 다른 Scope로 조용히 대체하지 않습니다.', en: 'The server rejected the request for your current permissions. No other scope is substituted.' },
+  stateForbiddenBody: { ko: '현재 권한으로는 이 범위를 볼 수 없습니다. 권한 담당자에게 요청하세요.', en: 'Your current permissions cannot view this range. Ask the person who grants access.' },
   stateTooLarge: { ko: '조회 범위가 너무 큽니다', en: 'Query too large' },
-  stateTooLargeBody: { ko: '기간을 줄이거나 설비 선택을 좁히세요.', en: 'Shorten the period or narrow the equipment selection.' },
+  stateTooLargeBody: { ko: '한 번에 가져오기에는 범위가 큽니다. 기간을 줄이거나 설비 선택을 좁히세요.', en: 'The range is too large to load at once. Shorten the period or narrow the equipment selection.' },
   stateTimeout: { ko: '조회 시간이 초과되었습니다', en: 'Query timed out' },
   stateError: { ko: '데이터를 불러오지 못했습니다', en: 'Unable to load data' },
-  stateUnknown: { ko: '상태를 확인할 수 없습니다', en: 'Status unknown' },
-  stateUnknownBody: { ko: '원인 상태 원천이 확인되지 않아 원인을 단정하지 않습니다.', en: 'No status source confirmed a cause.' },
+  stateErrorCause: { ko: '서버가 데이터를 보내지 못했습니다.', en: 'The server could not return the data.' },
+  stateErrorAction: { ko: '다시 시도하세요. 반복되면 아래 식별자를 전달하세요.', en: 'Retry. If it happens again, share the identifier below.' },
+  timeDomainUnverifiedCause: { ko: '시간 기준이 확인되지 않아 함께 집계할 수 없습니다.', en: 'The time reference is unconfirmed, so these cannot be aggregated together.' },
+  timeDomainUnverifiedAction: { ko: '설비를 좁히거나 기간을 줄이세요.', en: 'Narrow the equipment or shorten the period.' },
+  timeDomainMismatchCause: { ko: '시간 기준이 서로 달라 함께 집계할 수 없습니다.', en: 'The time references differ, so these cannot be aggregated together.' },
+  timeDomainMismatchAction: { ko: '같은 시간 기준의 설비를 고르거나 나눠 조회하세요.', en: 'Choose equipment that share a time reference, or query them separately.' },
+  stateUnknown: { ko: '상태를 확인할 수 없습니다', en: 'Status could not be confirmed' },
+  stateUnknownBody: { ko: '왜 이런 상태인지 확인하지 못했습니다. 잠시 뒤 다시 시도하세요.', en: 'The cause could not be confirmed. Try again in a moment.' },
   selectScope: { ko: 'Scope를 선택하세요', en: 'Select a scope' },
-  selectScopeBody: { ko: 'Scope가 없으면 데이터를 조회하지 않습니다. 세션값을 자동 적용하지 않습니다.', en: 'No data is queried without a scope. Session values are not applied automatically.' },
+  selectScopeBody: { ko: '범위를 고르면 그 범위의 데이터를 조회합니다.', en: 'Pick a scope to load its data.' },
   applySuggested: { ko: '최근 Scope 적용', en: 'Apply recent scope' },
   selectPeriod: { ko: '기간을 선택하세요', en: 'Select a period' },
   contractError: { ko: 'URL 계약 오류', en: 'URL contract error' },
-  contractErrorBody: { ko: '잘못된 값을 자동 보정하지 않습니다. URL을 수정하거나 Context를 초기화하세요.', en: 'Invalid values are not auto-corrected. Fix the URL or reset the context.' },
+  contractErrorBody: { ko: '주소의 값이 올바르지 않아 조회하지 않았습니다. 주소를 고치거나 조건을 초기화하세요.', en: 'The address has a value this page cannot use. Fix the address or reset the conditions.' },
   resetContext: { ko: 'Context 초기화', en: 'Reset context' },
   notFound: { ko: '등록되지 않은 경로입니다', en: 'Unregistered route' },
   plannedTitle: { ko: '레지스트리에 선언된 메뉴 (화면 미구현)', en: 'Registered menu (screen not built)' },
@@ -120,7 +129,7 @@ const dict = {
   paletteName: { ko: '메뉴 검색', en: 'Search menus' },
   palettePlatform: { ko: '플랫폼', en: 'Platform' },
   paletteEmpty: { ko: '일치하는 메뉴가 없습니다.', en: 'No matching menus.' },
-  paletteHint: { ko: '메뉴 이동 전용 — 객체/액션 검색은 Deferred', en: 'Menu navigation only — entity/action search deferred' },
+  paletteHint: { ko: '메뉴 이동만 할 수 있습니다.', en: 'Menu navigation only.' },
   goTo: { ko: '이동', en: 'Go to' },
   planned: { ko: '예정', en: 'Planned' },
   restricted: { ko: '권한 필요', en: 'Restricted' },
@@ -153,4 +162,25 @@ export function useI18n(): I18n {
   const value = useContext(I18nContext);
   if (!value) throw new Error('useI18n outside I18nProvider');
   return value;
+}
+
+const ERROR_GUIDANCE = {
+  time_domain_unverified: { cause: 'timeDomainUnverifiedCause', action: 'timeDomainUnverifiedAction' },
+  time_domain_mismatch: { cause: 'timeDomainMismatchCause', action: 'timeDomainMismatchAction' },
+} as const satisfies Record<string, { cause: Key; action: Key }>;
+
+export type ErrorGuidance = { code: string | null; cause: Key; action: Key };
+
+/** Classify a server `message` by the prefix before the first colon. Unmapped text uses the general error copy. */
+export function errorGuidance(message: string | undefined): ErrorGuidance {
+  const code = message?.split(':', 1)[0]?.trim() ?? '';
+  if (code && Object.prototype.hasOwnProperty.call(ERROR_GUIDANCE, code)) {
+    const guide = ERROR_GUIDANCE[code as keyof typeof ERROR_GUIDANCE];
+    return { code, cause: guide.cause, action: guide.action };
+  }
+  return { code: null, cause: 'stateErrorCause', action: 'stateErrorAction' };
+}
+
+export function userFacingEntries(): readonly { key: string; ko: string; en: string }[] {
+  return Object.entries(dict).map(([key, text]) => ({ key, ko: text.ko, en: text.en }));
 }

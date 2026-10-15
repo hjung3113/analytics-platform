@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { CONTEXT_LABELS, PAGE_TYPE_LABELS, useI18n, usePlatform } from '@ap/kernel';
 import type { Text } from '@ap/contracts';
-import { DetailDrawer, type PlatformColumn, encodeTableSort, parsePageIndex, parseTableSort, PlatformDataTable, PlatformPage, sortAndPage } from '@ap/components';
+import { DetailDrawer, type PlatformColumn, encodeTableSort, parsePageIndex, parseTableSort, PlatformDataTable, PlatformPage, sortAndPage, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { toRegistryRow, type RegistryRow } from '../registry-rows';
 
@@ -63,12 +64,12 @@ export default function RegistryCatalog() {
             </li>)}
           </ul>
         </div> }]} />
-    : <div role="alert" className="p-3">
-        <p>{ko ? '등록되지 않은 메뉴입니다.' : 'Unknown menu.'} <span className="t-mono">{focus}</span></p>
-        <Button size="sm" variant="secondary" className="mt-2" onClick={() => setPage({ focus: null })}>{ko ? '닫기' : 'Close'}</Button>
-      </div>) : null;
+    : <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />}
+        title={ko ? '등록되지 않은 메뉴입니다' : 'This menu is not registered'}
+        body={ko ? `${focus} 메뉴는 등록되어 있지 않습니다. 목록에서 다시 고르세요.` : `${focus} is not a registered menu. Pick another from the list.`}
+        action={<Button size="sm" variant="secondary" onClick={() => setPage({ focus: null })}>{ko ? '닫기' : 'Close'}</Button>} />) : null;
   return <PlatformPage description={ko ? '등록된 메뉴 선언의 조회 전용 화면입니다.' : 'Read-only view of the registered menu declarations.'}>
-    {tableInvalid ? <p role="alert">{ko ? '정렬·페이지 값이 잘못되었습니다.' : 'Invalid sort or page value.'} <Button size="sm" variant="secondary" onClick={() => setPage({ sort: null, page: null })}>{ko ? '초기화' : 'Reset'}</Button></p>
+    {tableInvalid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '정렬·페이지 값이 올바르지 않습니다' : 'The sort or page value cannot be used'} body={ko ? '이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.' : 'This page cannot use that value. Reset the conditions.'} action={<Button size="sm" variant="secondary" onClick={() => setPage({ sort: null, page: null })}>{ko ? '초기화' : 'Reset'}</Button>} />
       : <PlatformDataTable<RegistryRow>
           title={ko ? '메뉴 레지스트리' : 'Menu registry'}
           ariaLabel={ko ? '메뉴 레지스트리 목록' : 'Menu registry list'}

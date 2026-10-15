@@ -69,7 +69,7 @@ describe('CycleTimeDrilldown page filter summary', () => {
     const expand = screen.getByRole('button', { name: '페이지 필터 펼치기' });
     // 9h period → hour grain; the summary repeats the edit fields, and the invalid tail shows the raw value.
     expect(expand.textContent).toContain('집계 시간');
-    expect(expand.textContent).toContain('느린 실행 기준 알 수 없는 값: zzz');
+    expect(expand.textContent).toContain('느린 실행 기준 이 화면에서 쓸 수 없는 값: zzz');
     expect(expand.textContent).not.toContain('≥ P95');
     expect(expand.textContent).toContain('정렬 사이클타임 내림차순');
   });

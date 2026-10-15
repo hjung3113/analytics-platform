@@ -351,7 +351,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
           </span>
         </div>}
       {preview && <div role="group" aria-label={lang === 'ko' ? '구간 적용 확인' : 'Confirm range'} className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-accent-primary bg-surface-card p-2">
-        <span className="tabular">{lang === 'ko' ? '전역 기간을 다음으로 변경합니다 (초 정렬, [from, to)):' : 'Change the global period to (second-aligned, [from, to)):'} <b>{preview.from.replace('T', ' ')} → {preview.to.replace('T', ' ')}</b></span>
+        <span className="tabular">{lang === 'ko' ? '전역 기간을 다음으로 바꿉니다:' : 'Change the global period to:'} <b>{preview.from.replace('T', ' ')} → {preview.to.replace('T', ' ')}</b></span>
         {/* The row unmounts on either button; hand keyboard focus back instead of dropping it to body (#297 UX). */}
         <Button size="toolbar" onClick={() => { setGlobal({ from: preview.from, to: preview.to }); toast(lang === 'ko' ? '선택 구간을 전역 기간으로 적용했습니다. 다른 메뉴로 이동해도 유지됩니다.' : 'Applied the selection as the global period; it carries across menus.'); brushToggle.current?.focus({ preventScroll: true }); }}>{t('apply')}</Button>
         <Button size="toolbar" variant="secondary" onClick={() => { setPreview(null); applyRangeButton.current?.focus({ preventScroll: true }); }}>{t('cancel')}</Button>

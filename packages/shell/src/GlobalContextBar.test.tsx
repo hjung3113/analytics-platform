@@ -140,7 +140,7 @@ describe('Global Context priority overflow (#56)', () => {
     const popover = screen.getByRole('dialog', { name: '추가 Context 조건' });
     expect(Array.from(popover.querySelectorAll('[data-context-key]'), el => el.getAttribute('data-context-key'))).toEqual(['roomNames', 'condition', 'selection']);
     const initialReads = reads;
-    fireEvent.click(within(popover).getByRole('button', { name: '설비 선택 명시적 빈 집합' }));
+    fireEvent.click(within(popover).getByRole('button', { name: '설비 선택 빈 선택' }));
     fireEvent.click(screen.getByRole('radio', { name: '전체' }));
     fireEvent.click(screen.getByRole('button', { name: '적용' }));
     await vi.waitFor(() => expect(new URLSearchParams(window.location.search).has('equipmentSelection')).toBe(false));

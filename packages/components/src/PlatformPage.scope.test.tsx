@@ -36,7 +36,7 @@ describe('PlatformPage Scope gate: validation failure (#167)', () => {
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><PlatformPage><p>page body</p></PlatformPage></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('Scope를 확인하지 못했습니다')).toBeTruthy();
     expect(screen.getByText(/서버에 닿지 못했습니다/)).toBeTruthy();
-    expect(screen.getByText('scopeId=ICH')).toBeTruthy();
+    expect(screen.queryByText(/scopeId=/)).toBeNull();
     expect(screen.queryByText('page body')).toBeNull();
 
     fail = false;

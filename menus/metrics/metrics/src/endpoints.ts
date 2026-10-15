@@ -67,7 +67,7 @@ export type MetricDef = {
 };
 
 /** Period basis shown on every definition (wall-clock, 06 §6.3). */
-export const PERIOD_BASIS: Text = { ko: '[from, to) wall-clock. 이 화면의 전역 Time 필터가 아닙니다.', en: '[from, to) wall-clock. Not this screen’s global time filter.' };
+export const PERIOD_BASIS: Text = { ko: '설비에 기록된 시각입니다. 이 화면의 기간 필터는 아닙니다.', en: "The equipment's recorded clock. Not this screen's period filter." };
 
 export type CatalogRow = {
   metricId: string;

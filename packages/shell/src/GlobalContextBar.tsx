@@ -9,6 +9,20 @@ import { SegmentedRadio, useCopyLink } from '@ap/components';
 
 const hours = (g: GlobalContext) => (g.from && g.to ? (parseDateTime(g.to, 'to').getTime() - parseDateTime(g.from, 'from').getTime()) / 3_600_000 : null);
 const short = (v: string) => v.replace('T', ' ').slice(5, 16);
+const CONTEXT_KEYS: ContextKey[] = ['time', 'roomNames', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric'];
+
+export function contextHasValue(global: GlobalContext): Record<ContextKey, boolean> {
+  return {
+    time: global.from !== null, roomNames: global.roomNames !== null, condition: global.condition !== null, selection: global.selection !== null,
+    lot: global.lotIds !== null, ppid: global.ppid !== null, recipe: global.recipeIds !== null, metric: global.metricId !== null,
+  };
+}
+
+/** A context bar is drawn when any key is usable on this screen or already has a value (06 §11). */
+export function contextBarVisible(context: Record<ContextKey, Capability>, global: GlobalContext): boolean {
+  const has = contextHasValue(global);
+  return CONTEXT_KEYS.some(k => context[k] !== 'unsupported' || has[k]);
+}
 
 export function GlobalContextBar() {
   const { route, global, setGlobal, resetContext, url, scope, adapter } = usePlatform();
@@ -20,12 +34,8 @@ export function GlobalContextBar() {
     scope.status === 'valid' && !!route && route.menu.context.selection !== 'unsupported');
   if (!route) return null;
   const cap = route.menu.context;
-  const has: Record<ContextKey, boolean> = {
-    time: global.from !== null, roomNames: global.roomNames !== null, condition: global.condition !== null, selection: global.selection !== null,
-    lot: global.lotIds !== null, ppid: global.ppid !== null, recipe: global.recipeIds !== null, metric: global.metricId !== null,
-  };
-  const keys: ContextKey[] = ['time', 'roomNames', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric'];
-  const shown = keys.filter(k => cap[k] !== 'unsupported' || has[k]);
+  const has = contextHasValue(global);
+  const shown = CONTEXT_KEYS.filter(k => cap[k] !== 'unsupported' || has[k]);
   if (!shown.length) return null;
   const editable = (k: ContextKey) => cap[k] !== 'unsupported';
 
@@ -159,7 +169,7 @@ function CustomRange({ onDone }: { onDone: () => void }) {
     } else {
       const from = fromT.length === 16 ? `${fromT}:00` : fromT; const to = toT.length === 16 ? `${toT}:00` : toT;
       parseDateTime(from, 'from'); parseDateTime(to, 'to');
-      if (from >= to) throw new Error(lang === 'ko' ? 'from < to 이어야 합니다.' : 'from must be before to.');
+      if (from >= to) throw new Error(lang === 'ko' ? '시작이 끝보다 앞서야 합니다.' : 'The start must be before the end.');
       result = { from, to };
     }
   } catch (e) { error = e instanceof Error ? e.message : String(e); }
@@ -179,13 +189,13 @@ function CustomRange({ onDone }: { onDone: () => void }) {
       <label className="space-y-1"><span className="text-text-secondary">{lang === 'ko' ? '시작일' : 'Start date'}</span><input type="date" className={input} value={start} onChange={e => setStart(e.target.value)} /></label>
       <label className="space-y-1"><span className="text-text-secondary">{lang === 'ko' ? '종료일 (포함)' : 'End date (inclusive)'}</span><input type="date" className={input} value={end} onChange={e => setEnd(e.target.value)} /></label>
     </div> : <div className="grid grid-cols-1 gap-2">
-      <label className="space-y-1"><span className="text-text-secondary">from</span><input type="datetime-local" step={1} className={input} value={fromT} onChange={e => setFromT(e.target.value)} /></label>
-      <label className="space-y-1"><span className="text-text-secondary">to ({lang === 'ko' ? '미포함' : 'exclusive'})</span><input type="datetime-local" step={1} className={input} value={toT} onChange={e => setToT(e.target.value)} /></label>
+      <label className="space-y-1"><span className="text-text-secondary">{lang === 'ko' ? '시작 시각' : 'Start time'}</span><input type="datetime-local" step={1} className={input} value={fromT} onChange={e => setFromT(e.target.value)} /></label>
+      <label className="space-y-1"><span className="text-text-secondary">{lang === 'ko' ? '끝 시각 (포함하지 않음)' : 'End time (not included)'}</span><input type="datetime-local" step={1} className={input} value={toT} onChange={e => setToT(e.target.value)} /></label>
     </div>}
     <p aria-live="polite" className={cn('rounded-md px-2 py-1.5 tabular', error ? 'bg-accent-danger-soft text-text-danger-label' : 'bg-surface-sunken text-text-secondary')}>
-      {error ?? `URL: [${result!.from}, ${result!.to})`}
+      {error ?? (lang === 'ko' ? `조회: ${result!.from} ~ ${result!.to} (끝 시각은 포함하지 않음)` : `Range: ${result!.from} ~ ${result!.to} (end time is not included)`)}
     </p>
-    <p className="text-tiny text-text-secondary">{lang === 'ko' ? '설비 wall-clock(naive) 기준이며 UTC로 변환하지 않습니다. 교대일/영업일 의미는 Open입니다.' : 'Equipment wall-clock (naive), never converted to UTC. Shift/business-day semantics are Open.'}</p>
+    <p className="text-tiny text-text-secondary">{lang === 'ko' ? '설비에 기록된 시각 기준이며, 시간대를 바꾸지 않습니다.' : "Times are the equipment's recorded clock and are not converted."}</p>
     <div className="flex justify-end gap-2">
       <Button type="button" size="sm" variant="secondary" onClick={onDone}>{t('cancel')}</Button>
       <Button type="submit" size="sm" disabled={!result}>{t('apply')}</Button>

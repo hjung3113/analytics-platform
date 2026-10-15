@@ -39,6 +39,7 @@
 | [0031](0031-menu-folders-by-space.md) | 메뉴 폴더는 시스템(공간) 아래 그룹으로 나누고 전역 그룹은 `_global`에 둔다 | Decided(2026-10-14) |
 | [0032](0032-arrival-focus-wins-over-restored-detail-panel.md) | URL 도착으로 함께 열린 상세 패널은 포커스를 가져가지 않고 화면 제목을 따른다 | Decided(2026-10-15) |
 | [0033](0033-audit-window-open-ended-viewer-time-input.md) | 감사 화면의 시각 범위는 한쪽만 열 수 있고 입력은 보는 사람 시간대다 | Decided(2026-10-15) |
+| [0034](0034-user-facing-copy-no-contract-vocabulary.md) | 사용자 문구는 계약 어휘를 쓰지 않고 서버 message는 세부다 | Decided(2026-10-15) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

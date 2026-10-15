@@ -44,7 +44,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'wafer-journey', group: 'analytics', label: { ko: 'Wafer Journey', en: 'Wafer journey' },
-    description: { ko: '이송 분포 (07 IA Candidate)', en: 'Transfer distribution (07 IA candidate)' },
+    description: { ko: '이송 분포', en: 'Transfer distribution' },
     path: '/analytics/wafer-journey', icon: Route, permission: 'analytics:view', requiresScope: true, pageType: 'analysis',
     context: { ...none, time: 'apply', roomNames: 'apply', selection: 'apply', lot: 'apply', metric: 'reference' }, features: noFeatures, pageKeys: [],
   },

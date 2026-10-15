@@ -17,6 +17,17 @@ function assessmentTone(a: Assessment): Tone {
   return a.state === 'confirmed' ? 'warning' : a.state === 'clear' ? 'success' : 'neutral';
 }
 
+const STATE_LABEL: Record<Assessment['state'], { ko: string; en: string }> = {
+  confirmed: { ko: '확인됨', en: 'Confirmed' },
+  clear: { ko: '문제 없음', en: 'No issue' },
+  unknown: { ko: '미확인', en: 'Not confirmed' },
+};
+
+const REASON_LABEL: Record<NonNullable<Assessment['reason']>, { ko: string; en: string }> = {
+  source_unavailable: { ko: '원천을 확인하지 못했습니다', en: 'The source could not be checked' },
+  check_failed: { ko: '확인에 실패했습니다', en: 'The check failed' },
+};
+
 /**
  * Data Trust vocabulary (§18): one compressed line, details in a popover.
  * `clear` is a narrow, source-backed claim; `unknown` is always shown, never folded into healthy.
@@ -30,7 +41,7 @@ export function DataTrustIndicator({ trust, assessments, className }: { trust: T
   const headline = confirmed.length
     ? (lang === 'ko' ? `확인된 이슈 ${confirmed.length}건` : `${confirmed.length} confirmed issue(s)`)
     : unknown.length
-      ? (lang === 'ko' ? `일부 상태 미확인 (${unknown.length})` : `Some status unknown (${unknown.length})`)
+      ? (lang === 'ko' ? `일부 상태를 확인하지 못했습니다 (${unknown.length})` : `Some status could not be confirmed (${unknown.length})`)
       : (lang === 'ko' ? '확인된 이슈 없음' : 'No confirmed issues');
   return <Popover>
     <PopoverTrigger asChild>
@@ -59,12 +70,12 @@ export function DataTrustIndicator({ trust, assessments, className }: { trust: T
         {assessments.map(a => <li key={a.kind} className="flex items-start justify-between gap-2">
           <span>{tx(KIND[a.kind])}</span>
           <span className="text-right">
-            <StatusBadge tone={assessmentTone(a)}>{a.state}</StatusBadge>
-            <span className="mt-0.5 block text-tiny text-text-secondary">{a.state === 'unknown' ? a.reason : `${a.statusSource} · ${time(a.observedAt)}`}</span>
+            <StatusBadge tone={assessmentTone(a)}>{tx(STATE_LABEL[a.state])}</StatusBadge>
+            <span className="mt-0.5 block text-tiny text-text-secondary">{a.state === 'unknown' ? (a.reason ? tx(REASON_LABEL[a.reason]) : (lang === 'ko' ? '이유를 확인하지 못했습니다' : 'The reason could not be confirmed')) : `${a.statusSource} · ${time(a.observedAt)}`}</span>
           </span>
         </li>)}
       </ul>
-      <p className="mt-2 text-tiny text-text-secondary">{lang === 'ko' ? 'clear는 해당 kind 문제가 없음을 원천이 확인했다는 제한적 주장입니다.' : '“clear” only means the source confirmed that kind of problem is absent.'}</p>
+      <p className="mt-2 text-tiny text-text-secondary">{lang === 'ko' ? '문제 없음은 그 항목의 문제가 없음을 원천이 확인했다는 뜻입니다.' : 'No issue means the source confirmed that kind of problem is absent.'}</p>
     </PopoverContent>
   </Popover>;
 }

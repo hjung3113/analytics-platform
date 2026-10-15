@@ -91,7 +91,7 @@ const INFO_LABELS = {
   en: { menu: 'Menu', target: 'Target', exportedAt: 'Exported at', period: 'Period', updatedAt: 'Updated at', dataThrough: 'Data through', coverage: 'Coverage', metricVersion: 'Metric version', provisional: 'Provisional', provisionalYes: 'Provisional', provisionalNo: 'Final', source: 'Source' },
 } as const;
 // Global id sets count ids (“N개” / “N ids”), not exported rows — “행” stays for table rows (#173 review N-P3-6).
-const EXPLICIT_EMPTY = { ko: '(명시적 빈 집합)', en: '(explicit empty set)' } as const;
+const EXPLICIT_EMPTY = { ko: '(빈 선택)', en: '(empty selection)' } as const;
 function idSetValue(ids: string[], lang: 'ko' | 'en'): string {
   const count = lang === 'ko' ? `${ids.length}개` : `${ids.length} ${ids.length === 1 ? 'id' : 'ids'}`;
   if (ids.length === 0) return `${count} ${EXPLICIT_EMPTY[lang]}`;
