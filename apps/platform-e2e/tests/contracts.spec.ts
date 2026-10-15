@@ -1906,6 +1906,26 @@ test.describe('지표 목록→상세 복귀 (06 §22)', () => {
     await expect(main.getByText('권한/역할 관리', { exact: false })).toHaveCount(0);
     await evidence(page, testInfo, 'metric-return-denied-origin');
   });
+
+  // #325-2: the tab=history deep link lands with the section heading below the sticky page header, not under it.
+  test('tab=history 딥링크는 변경 이력 헤딩을 sticky 머리 아래에 내려앉는다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/metrics/cycle_time?v=1&tab=history');
+    const historyHeading = page.getByRole('heading', { name: '변경 이력', level: 2 });
+    await expect(historyHeading).toBeVisible();
+    // The history query answered: the AuditTimeline rendered its list (no compact skeleton above the scroll).
+    const historyPanel = page.locator('section').filter({ has: page.locator('#metric-section-history') });
+    await expect(historyPanel.locator('ol')).toBeVisible();
+    // PlatformPage measures the sticky header (breadcrumb/title row + Context bar) into this custom property.
+    const stickyOffset = await page.evaluate(() => {
+      const offset = getComputedStyle(document.querySelector('[data-platform-page]')!).getPropertyValue('--page-sticky-offset');
+      return Number.parseFloat(offset) || 0;
+    });
+    const box = (await historyHeading.boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(stickyOffset);
+    expect(box.y).toBeLessThan(900);
+    await evidence(page, testInfo, 'metric-history-anchor-below-sticky-header');
+  });
 });
 
 

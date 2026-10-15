@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { ApiResponse, Capability, ContextKey, MenuQuery, PlatformAdapter, Session } from '@ap/contracts';
 import { Activity, Gauge, Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, type MenuEntry } from '@ap/kernel';
@@ -190,9 +190,9 @@ function fixtureAdapter(): PlatformAdapter {
   };
 }
 
-function renderDetail(path: string, metricId: string) {
+function renderDetail(path: string, metricId: string, adapter: PlatformAdapter = fixtureAdapter()) {
   window.history.replaceState(null, '', path);
-  render(<I18nProvider><PlatformProvider adapter={fixtureAdapter()} registry={registry}><MetricDetailPage params={{ metricId }} /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><MetricDetailPage params={{ metricId }} /></PlatformProvider></I18nProvider>);
 }
 
 /** Waits for the version badge (the definition response arrived), then: no Data Trust beside the definition. */
@@ -250,5 +250,135 @@ describe('MetricDetail draft primary (B-13, #301)', () => {
     // Click is ignored: the draft must never enter the analysis context.
     fireEvent.click(button);
     expect(new URLSearchParams(window.location.search).has('metricId')).toBe(false);
+  });
+});
+
+// #325-2: a `tab=history` deep link must land on the arrived-at section. The anchor scroll waits until the
+// queries rendering at or above the target have answered (any outcome counts; the pair banner above every
+// anchor and, below usage, usage itself count too) — otherwise late data above grows the page and pushes the
+// target out of the viewport. Once per arrival (every change of `tab` to a known value): a refetch must not
+// yank the viewport back; re-entering a tab (chip, Back/Forward) must scroll again. jsdom has no
+// scrollIntoView, so the describe carries a per-test stub (CommandPalette.test.tsx pattern) and assertions
+// read which section ids it was called on.
+describe('MetricDetail tab anchor scroll timing (#325-2)', () => {
+  const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+  beforeEach(() => { HTMLElement.prototype.scrollIntoView = vi.fn(); });
+  afterEach(() => {
+    if (originalScrollIntoView) HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+    else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+  });
+
+  function scrollTargets(): string[] {
+    const stub = HTMLElement.prototype.scrollIntoView as unknown as { mock: { contexts: unknown[] } };
+    return stub.mock.contexts.map(element => (element as HTMLElement).id);
+  }
+
+  function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+    let resolve: (value: T) => void = () => undefined;
+    const promise = new Promise<T>(res => { resolve = res; });
+    return { promise, resolve };
+  }
+
+  /** fixtureAdapter with the definition reply held behind a caller-resolved promise. */
+  function delayedDefinitionAdapter(definition: Promise<ApiResponse<never>>): PlatformAdapter {
+    const base = fixtureAdapter();
+    return { ...base, menuQuery: req => (req.endpoint === 'metrics.definition' ? definition : base.menuQuery(req)) };
+  }
+
+  const pairAbsent: ApiResponse<never> = asFixtureResponse({ outcome: 'ok', data: { kind: 'absent' }, assessments: [], trust: null, correlationId: 'corr-fixture' });
+
+  /** fixtureAdapter with the pair-banner reply (metrics.pair, above every anchor) held. */
+  function delayedPairAdapter(pair: Promise<ApiResponse<never>>): PlatformAdapter {
+    const base = fixtureAdapter();
+    return { ...base, menuQuery: req => (req.endpoint === 'metrics.pair' ? pair : base.menuQuery(req)) };
+  }
+
+  /** fixtureAdapter with the usage reply held. */
+  function delayedUsageAdapter(usage: Promise<ApiResponse<never>>): PlatformAdapter {
+    const base = fixtureAdapter();
+    return { ...base, menuQuery: req => (req.endpoint === 'metrics.usage' ? usage : base.menuQuery(req)) };
+  }
+
+  it('a. scrolls to metric-section-history only after the queries above it have answered', async () => {
+    const definition = deferred<ApiResponse<never>>();
+    renderDetail('/metrics/cycle_time?version=4&tab=history', 'cycle_time', delayedDefinitionAdapter(definition.promise));
+    await act(async () => {}); // usage·usage-less history land immediately; the definition reply is held back
+    expect(scrollTargets()).toEqual([]);
+    await act(async () => { definition.resolve(asFixtureResponse(definitionResponse(CYCLE_TIME, '4'))); });
+    expect(scrollTargets()).toEqual(['metric-section-history']);
+  });
+
+  it('b. does not scroll again when the same queries answer after a refetch', async () => {
+    renderDetail('/metrics/cycle_time?version=4&tab=history', 'cycle_time');
+    await screen.findAllByText('게시'); // the definition response arrived
+    await act(async () => {}); // passive effects (the one anchor scroll) flushed
+    expect(scrollTargets()).toEqual(['metric-section-history']);
+    fireEvent.click(screen.getByRole('button', { name: /v5/ })); // re-query: version=5 refetches the definition
+    await screen.findAllByText('초안'); // the refetched definition response arrived
+    await act(async () => {});
+    expect(scrollTargets()).toEqual(['metric-section-history']); // still the single scroll from arrival
+  });
+
+  it('c. keeps the immediate section-chip scroll on 버전', async () => {
+    renderDetail('/metrics/cycle_time?version=4', 'cycle_time');
+    await screen.findAllByText('게시');
+    await act(async () => {});
+    expect(scrollTargets()).toEqual([]); // no tab param — no anchor scroll on arrival
+    fireEvent.click(screen.getByRole('button', { name: '버전' }));
+    expect(scrollTargets()).toEqual(['metric-section-version']);
+  });
+
+  it('d. holds the history scroll while the pair banner above every anchor is still loading', async () => {
+    const pair = deferred<ApiResponse<never>>();
+    renderDetail('/metrics/cycle_time?version=4&tab=history', 'cycle_time', delayedPairAdapter(pair.promise));
+    await screen.findAllByText('게시'); // definition answered; usage·history answer in the same flush
+    await act(async () => {});
+    expect(scrollTargets()).toEqual([]); // the pair skeleton still sits above the anchor — no scroll yet
+    await act(async () => { pair.resolve(pairAbsent); });
+    expect(scrollTargets()).toEqual(['metric-section-history']); // exactly one, after the banner loads
+  });
+
+  it('e. scrolls to an upper section without waiting for the usage query below it', async () => {
+    const usage = deferred<ApiResponse<never>>();
+    renderDetail('/metrics/cycle_time?version=4&tab=version', 'cycle_time', delayedUsageAdapter(usage.promise));
+    await screen.findAllByText('게시'); // definition + pair answered; usage is held below the target
+    await act(async () => {});
+    expect(scrollTargets()).toEqual(['metric-section-version']); // an upper target never waits for usage
+    await act(async () => { usage.resolve(asFixtureResponse(usageResponse({ problem: null, rows: [] }))); });
+    expect(scrollTargets()).toEqual(['metric-section-version']); // still exactly one scroll
+  });
+
+  it('f. scrolls again when history traversal re-enters the same tab', async () => {
+    renderDetail('/metrics/cycle_time?version=4&tab=history', 'cycle_time');
+    await screen.findAllByText('게시');
+    await act(async () => {});
+    expect(scrollTargets()).toEqual(['metric-section-history']); // arrival 1
+    await act(async () => {
+      window.history.pushState(null, '', '/metrics/cycle_time?version=4');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    expect(scrollTargets()).toEqual(['metric-section-history']); // no tab — no scroll
+    await act(async () => {
+      window.history.pushState(null, '', '/metrics/cycle_time?version=4&tab=history');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    expect(scrollTargets()).toEqual(['metric-section-history', 'metric-section-history']); // arrival 2 scrolls again
+  });
+
+  it('g. keeps exactly one pending history scroll across known→known moves while the gate is closed', async () => {
+    const definition = deferred<ApiResponse<never>>();
+    renderDetail('/metrics/cycle_time?tab=history', 'cycle_time', delayedDefinitionAdapter(definition.promise));
+    await act(async () => {}); // pair·history answered; the definition reply is held back
+    await act(async () => {
+      window.history.pushState(null, '', '/metrics/cycle_time?tab=version');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    await act(async () => {
+      window.history.pushState(null, '', '/metrics/cycle_time?tab=history');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    expect(scrollTargets()).toEqual([]); // the gate stayed closed through both arrivals — nothing scrolled
+    await act(async () => { definition.resolve(asFixtureResponse(definitionResponse(CYCLE_TIME, '4'))); });
+    expect(scrollTargets()).toEqual(['metric-section-history']); // exactly one — the stale arrivals do not scroll
   });
 });
