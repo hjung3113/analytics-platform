@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { AccessDirectoryPage, AccessDirectoryQuery, AccessPrincipal, ApiResponse, PlatformAdapter, Permission, Session } from '@ap/contracts';
 import { House, Wrench } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, type MenuEntry } from '@ap/kernel';
@@ -312,6 +312,57 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     await screen.findByText('Field Requester'); // the table still lists the page
     fireEvent.click(screen.getByRole('button', { name: /닫기|Close/ }));
     expect(url().has('focus')).toBe(false);
+  });
+
+  // W-350: the drawer tab is URL-owned (06 §13) — set, cleared on the default tab, restored on deep link.
+  it('restores the drawer tab from the URL and clears it when the default tab is chosen', async () => {
+    renderRoles('/admin/roles?focus=engineer');
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.mouseDown(within(dialog).getByRole('tab', { name: /사이트 범위|Site scope/ }));
+    expect(url().get('tab')).toBe('sites');
+    fireEvent.mouseDown(within(dialog).getByRole('tab', { name: /권한|Permissions/ }));
+    expect(url().has('tab')).toBe(false);
+  });
+
+  it('selects the URL tab on a drawer deep link', async () => {
+    renderRoles('/admin/roles?v=1&focus=engineer&tab=sites');
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('tab', { name: /사이트 범위|Site scope/ }).getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('alerts inside the drawer for an unknown tab while the table stays, and clears the tab from the alert button', async () => {
+    const f = renderRoles('/admin/roles?v=1&focus=engineer&tab=bogus');
+    // An unknown tab is a drawer alert, not a page parse failure: the adapter still answers.
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    await screen.findByText('Field Requester');
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('alert').textContent).toMatch(/등록되지 않은 탭입니다|Unknown tab\./);
+    fireEvent.click(within(dialog).getByRole('button', { name: /권한 열기|Open permissions/ }));
+    expect(url().has('tab')).toBe(false);
+    expect(within(dialog).getByRole('tab', { name: /권한|Permissions/ }).getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('keeps the alert tab selected across history traversal while the same drawer stays mounted', async () => {
+    renderRoles('/admin/roles?v=1&focus=engineer&tab=sites');
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('tab', { name: /사이트 범위|Site scope/ }).getAttribute('aria-selected')).toBe('true');
+    const visit = (tab: string) => act(() => {
+      window.history.pushState(null, '', `/admin/roles?v=1&focus=engineer&tab=${tab}`);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    visit('bogus');
+    expect(within(dialog).getByRole('alert').textContent).toMatch(/등록되지 않은 탭입니다|Unknown tab\./);
+    expect(within(dialog).getByRole('button', { name: /권한 열기|Open permissions/ })).toBeTruthy();
+    visit('sites');
+    expect(within(dialog).getByRole('tab', { name: /사이트 범위|Site scope/ }).getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('clears focus and tab together when the drawer closes', async () => {
+    renderRoles('/admin/roles?focus=engineer&tab=sites');
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: /상세 닫기|Close details/ }));
+    expect(url().has('focus')).toBe(false);
+    expect(url().has('tab')).toBe(false);
   });
 
   it('clears page when a filter is applied in the same setPage', async () => {

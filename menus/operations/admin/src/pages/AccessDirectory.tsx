@@ -23,6 +23,10 @@ export default function AccessDirectory() {
     role: pageParam('role'), permission: pageParam('permission'), sort: pageParam('sort'),
     page: pageParam('page'), focus: pageParam('focus'),
   };
+  // §13 drawer tab is URL-owned like the other page keys (W-350): the default stays off the URL and an
+  // unknown value is the drawer alert — always controlled, so history traversal reselects the alert tab.
+  const drawerTab = pageParam('tab') ?? 'permissions';
+  const validTab = ['permissions', 'sites'].includes(drawerTab);
   // §6.1 page keys: an invalid wire value alerts instead of substituting, and no adapter call is made.
   const parsed = parseAccessKeys(raw);
   // Adapter filter JSON (role + permission only): a focus change must not refetch the table.
@@ -71,8 +75,9 @@ export default function AccessDirectory() {
   const drawer = parsed.ok && parsed.focus && rows ? (active
     ? <DetailDrawer key={active.id} title={active.name} subtitle={active.title[lang]}
         context={<span className="flex items-center gap-2"><span className="t-mono">{active.role}</span><StatusBadge tone="neutral">{ko ? '조회 전용' : 'Read-only'}</StatusBadge></span>}
-        onClose={() => setPage({ focus: null })}
-        tabs={[
+        onClose={() => setPage({ focus: null, tab: null })}
+        tab={validTab ? drawerTab : 'invalid'} onTabChange={tab => setPage({ tab: tab === 'permissions' ? null : tab })}
+        tabs={validTab ? [
           {
             id: 'permissions',
             label: ko ? '권한' : 'Permissions',
@@ -112,11 +117,15 @@ export default function AccessDirectory() {
               </li>)}
             </ul>,
           },
-        ]} />
+        ] : [{
+          id: 'invalid',
+          label: ko ? '알 수 없는 탭' : 'Unknown tab',
+          content: <p role="alert">{ko ? '등록되지 않은 탭입니다.' : 'Unknown tab.'} <Button size="sm" variant="secondary" onClick={() => setPage({ tab: null })}>{ko ? '권한 열기' : 'Open permissions'}</Button></p>,
+        }]} />
     : <div role="alert" className="p-3">
         {/* Only the loaded page is known here: absence from it is not proof the principal does not exist. */}
         <p>{ko ? '이 페이지에 없는 주체입니다.' : 'Principal not on this page.'} <span className="t-mono">{parsed.focus}</span></p>
-        <Button size="sm" variant="secondary" className="mt-2" onClick={() => setPage({ focus: null })}>{ko ? '닫기' : 'Close'}</Button>
+        <Button size="sm" variant="secondary" className="mt-2" onClick={() => setPage({ focus: null, tab: null })}>{ko ? '닫기' : 'Close'}</Button>
       </div>) : null;
   return <PlatformPage description={ko
     ? '조회 전용 화면입니다. 권한 부여·회수는 하지 않습니다.'
@@ -135,7 +144,7 @@ export default function AccessDirectory() {
           page: parsed.page,
           sorting: parsed.sorting,
           // A user sort/page change moves rows between pages, so the focused row leaves with them (bot review P2).
-          onChange: ({ page, sorting }, reason) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page), ...(reason === 'user' && { focus: null }) }),
+          onChange: ({ page, sorting }, reason) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page), ...(reason === 'user' && { focus: null, tab: null }) }),
         }}
         loadPage={async (pageQuery, signal) => {
           const { filters } = parsed;
@@ -164,7 +173,7 @@ export default function AccessDirectory() {
           };
         }}
         emptyAction={clear}
-        rowAction={row => <Button size="sm" variant="ghost" aria-label={ko ? `${row.id} 보기` : `View ${row.id}`} onClick={() => setPage({ focus: row.id })}>{ko ? '보기' : 'View'}</Button>}
+        rowAction={row => <Button size="sm" variant="ghost" aria-label={ko ? `${row.id} 보기` : `View ${row.id}`} onClick={() => setPage({ focus: row.id, tab: null })}>{ko ? '보기' : 'View'}</Button>}
       />}
       </>} />
   </PlatformPage>;
