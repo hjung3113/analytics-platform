@@ -48,12 +48,13 @@ export type ParsedAuditKeys =
   | { ok: true; filters: AuditFilters; sorting: PageSort[]; page: number | null }
   | { ok: false };
 
-/** Which URL key failed, for the table-slot line. `order` is the end bound not after the start. */
+/** Which URL key failed, for the table-slot line. `order` is the end bound not after the start;
+ *  `calendar` is a well-formed instant that names no real date/time, `invalid` the rest. */
 export type AuditKeyProblem =
   | { key: 'sort' | 'page' | 'type' | 'action' | 'source' | 'actor'; reason: 'invalid' }
   | { key: 'targetId'; reason: 'invalid' | 'needs-type' }
-  | { key: 'fromAt'; reason: 'invalid' }
-  | { key: 'toAt'; reason: 'invalid' | 'order' };
+  | { key: 'fromAt'; reason: 'invalid' | 'calendar' }
+  | { key: 'toAt'; reason: 'invalid' | 'calendar' | 'order' };
 
 type AuditRaw = {
   type: string | null; actor: string | null; action: string | null; source: string | null;
@@ -62,6 +63,11 @@ type AuditRaw = {
 
 /** True when the operator text is not a plain token: empty, over 80 chars, or URL/whitespace-bearing. */
 const invalidText = (value: string): boolean => !value || value.length > 80 || /[?#&\s]/.test(value);
+
+/** The time keys' wire form (ISO-8601 instant with a required zone), matching the anchored grammar
+ *  `instantEpochMs` accepts. Tested first because `instantEpochMs` throws one error for both a format
+ *  miss and a calendar miss, and @ap/contracts is not the menu's to change. Keep in lockstep. */
+const AT_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|z|[+-]\d{2}:?\d{2})$/;
 
 /** The first key the server would reject, or null when the URL is a query the adapter may see. */
 export function auditKeyProblem(raw: AuditRaw): AuditKeyProblem | null {
@@ -73,15 +79,15 @@ export function auditKeyProblem(raw: AuditRaw): AuditKeyProblem | null {
   if (raw.actor !== null && invalidText(raw.actor)) return { key: 'actor', reason: 'invalid' };
   if (raw.targetId !== null && invalidText(raw.targetId)) return { key: 'targetId', reason: 'invalid' };
   if (raw.targetId !== null && raw.type === null) return { key: 'targetId', reason: 'needs-type' };
-  try {
-    if (raw.fromAt !== null) instantEpochMs(raw.fromAt);
-  } catch {
-    return { key: 'fromAt', reason: 'invalid' };
-  }
-  try {
-    if (raw.toAt !== null) instantEpochMs(raw.toAt);
-  } catch {
-    return { key: 'toAt', reason: 'invalid' };
+  for (const key of ['fromAt', 'toAt'] as const) {
+    const value = raw[key];
+    if (value === null) continue;
+    if (!AT_INSTANT.test(value)) return { key, reason: 'invalid' };
+    try {
+      instantEpochMs(value);
+    } catch {
+      return { key, reason: 'calendar' };
+    }
   }
   if (raw.fromAt !== null && raw.toAt !== null && instantEpochMs(raw.fromAt) >= instantEpochMs(raw.toAt)) {
     return { key: 'toAt', reason: 'order' };

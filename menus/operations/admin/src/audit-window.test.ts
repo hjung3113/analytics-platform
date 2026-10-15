@@ -29,4 +29,10 @@ describe('audit window local field (#305)', () => {
   it('shows a fractional instant in the same local second, without rounding up', () => {
     expect(instantToLocalField('2026-09-26T02:00:00.500Z', 'Asia/Seoul')).toBe('2026-09-26 11:00:00');
   });
+
+  it('round-trips years below 100 without the Date.UTC 1900 shift and pads the year to four digits', () => {
+    expect(localFieldToInstant('0001-01-01 00:00:00', 'UTC')).toEqual({ ok: true, instant: '0001-01-01T00:00:00.000Z' });
+    expect(instantToLocalField('0001-01-01T00:00:00.000Z', 'UTC')).toBe('0001-01-01 00:00:00');
+    expect(instantToLocalField('0999-01-01T00:00:00Z', 'UTC')).toBe('0999-01-01 00:00:00');
+  });
 });

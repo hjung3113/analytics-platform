@@ -170,6 +170,29 @@ describe('AuditTrail text filters (issue #50 review)', () => {
     expect(f.calls[0]).toMatchObject({ fromAt: FROM, toAt: TO, page: 1, pageSize: 25 });
   });
 
+  it('tells a nonexistent date deeplink from an unreadable format, ko and en', () => {
+    renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: '2026-02-30T00:00:00Z' })}`);
+    expect(screen.getByRole('alert').textContent).toContain('시각 이후에 없는 날짜가 있습니다. 날짜를 고치거나 필터를 초기화하세요.');
+    cleanup();
+    renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: '2026-02-30T00:00:00' })}`);
+    expect(screen.getByRole('alert').textContent).toContain('시각 이후 값의 형식을 읽을 수 없습니다.');
+    cleanup();
+    const store = new Map<string, string>([['platform:lang', 'en']]);
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => { store.set(key, value); },
+      removeItem: (key: string) => { store.delete(key); },
+      clear: () => { store.clear(); },
+      key: (index: number) => [...store.keys()][index] ?? null,
+      get length() { return store.size; },
+    });
+    renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: '2026-02-30T00:00:00Z' })}`);
+    expect(screen.getByRole('alert').textContent).toContain('The At or after value is a date that does not exist.');
+    cleanup();
+    renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: '2026-02-30T00:00:00' })}`);
+    expect(screen.getByRole('alert').textContent).toContain('The At or after value is not in a readable format.');
+  });
+
   it('keeps a reversed deeplink editable until the end is later than the start', async () => {
     const f = renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: TO, toAt: FROM })}`);
     expect(screen.getByRole('alert').textContent).toMatch(/시각 미만은 시각 이후보다 뒤여야/);

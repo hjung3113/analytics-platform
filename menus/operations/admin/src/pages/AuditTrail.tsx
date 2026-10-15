@@ -48,6 +48,16 @@ function urlProblemLine(problem: AuditKeyProblem, lang: Lang): string {
       : `${head} A target id needs a type.`;
   }
   const name = URL_KEY[problem.key][lang];
+  if (problem.reason === 'calendar') {
+    return lang === 'ko'
+      ? `${head} ${name}에 없는 날짜가 있습니다. 날짜를 고치거나 필터를 초기화하세요.`
+      : `${head} The ${name} value is a date that does not exist. Fix the date or reset the filters.`;
+  }
+  if ((problem.key === 'fromAt' || problem.key === 'toAt') && problem.reason === 'invalid') {
+    return lang === 'ko'
+      ? `${head} ${name} 값의 형식을 읽을 수 없습니다. 값을 고치거나 필터를 초기화하세요.`
+      : `${head} The ${name} value is not in a readable format. Fix the value or reset the filters.`;
+  }
   return lang === 'ko' ? `${head} ${name} 값을 읽을 수 없습니다.` : `${head} The ${name} value cannot be read.`;
 }
 

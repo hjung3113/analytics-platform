@@ -27,6 +27,14 @@ function pad(value: number): string {
   return String(value).padStart(2, '0');
 }
 
+/** Date.UTC remaps years 0–99 to 1900+y, so the year is set back explicitly after the fact. */
+function epochMs(y: number, mo: number, d: number, h: number, mi: number, s: number): number {
+  const date = new Date(0);
+  date.setUTCFullYear(y, mo - 1, d);
+  date.setUTCHours(h, mi, s, 0);
+  return date.getTime();
+}
+
 /** Wall clock of an epoch instant in `timeZone`. Fractional seconds are read and then dropped, not rounded. */
 function wallOf(utcMs: number, timeZone: string): Wall | null {
   let parts: Intl.DateTimeFormatPart[];
@@ -54,7 +62,7 @@ function wallOf(utcMs: number, timeZone: string): Wall | null {
   // Some engines report midnight as 24:00 on the previous date.
   if (wall.h === 24) {
     wall.h = 0;
-    const next = new Date(Date.UTC(wall.y, wall.mo - 1, wall.d) + 86_400_000);
+    const next = new Date(epochMs(wall.y, wall.mo, wall.d, 0, 0, 0) + 86_400_000);
     wall.y = next.getUTCFullYear();
     wall.mo = next.getUTCMonth() + 1;
     wall.d = next.getUTCDate();
@@ -65,7 +73,7 @@ function wallOf(utcMs: number, timeZone: string): Wall | null {
 function offsetMs(utcMs: number, timeZone: string): number | null {
   const wall = wallOf(utcMs, timeZone);
   if (!wall) return null;
-  return Date.UTC(wall.y, wall.mo - 1, wall.d, wall.h, wall.mi, wall.s) - utcMs;
+  return epochMs(wall.y, wall.mo, wall.d, wall.h, wall.mi, wall.s) - utcMs;
 }
 
 function sameWall(wall: Wall, y: number, mo: number, d: number, h: number, mi: number, s: number): boolean {
@@ -82,7 +90,7 @@ export function instantToLocalField(instant: string, timeZone: string): string |
   }
   const wall = wallOf(utcMs, timeZone);
   if (!wall) return null;
-  return `${wall.y}-${pad(wall.mo)}-${pad(wall.d)} ${pad(wall.h)}:${pad(wall.mi)}:${pad(wall.s)}`;
+  return `${String(wall.y).padStart(4, '0')}-${pad(wall.mo)}-${pad(wall.d)} ${pad(wall.h)}:${pad(wall.mi)}:${pad(wall.s)}`;
 }
 
 /**
@@ -103,7 +111,7 @@ export function localFieldToInstant(field: string, timeZone: string): LocalField
   } catch {
     return { ok: false, reason: 'calendar' };
   }
-  const desired = Date.UTC(y, mo - 1, d, h, mi, s);
+  const desired = epochMs(y, mo, d, h, mi, s);
   const offsets = new Set<number>();
   for (let step = -16 * 4; step <= 16 * 4; step++) {
     const offset = offsetMs(desired + step * 15 * 60 * 1000, timeZone);
