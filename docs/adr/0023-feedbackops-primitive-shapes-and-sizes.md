@@ -40,7 +40,7 @@
 - 결정자: 사용자 — 실제 앱 `?variant=` 시안(브랜치 `hjung3113/proto-340-tab-marker`)에서 A(현재)/B(밑줄 막대+굵기)/C(pill 유지+선택 테두리)/D(패널에 붙은 탭)를 보고 B를 선택했다. 권장안도 B였다. 상세 패널과 설비 상세 전체 화면에 함께 적용한다.
 - 문제: 플랫폼 테마에서 FeedbackOps 탭의 `surface-raised`와 `surface-card`가 같아 선택 탭이 글자색만으로 구별된다. 색 외 표식과 비텍스트 대비를 요구하는 WCAG 1.4.1·1.4.11을 충족하는 선택 표식이 필요하다.
 - 결정: `@ap/ui`의 `TabsList`·`TabsTrigger`만 FeedbackOps 부품을 감싼 플랫폼 구현으로 둔다. `Tabs`·`TabsContent`와 역할·`aria-selected`·화살표 키·포커스 이동은 FeedbackOps를 유지한다. 소비자는 모양을 덮어쓰지 않는다.
-- 표식: 평평한 가로 스크롤 목록의 1px `border-subtle` 기준선 위에 선택 탭의 2px `accent-primary` 아래 막대와 `font-semibold`를 쓰고, 비선택은 `text-secondary`로 둔다. 기준선은 inset shadow, 막대는 `bottom-0`, 포커스 링은 inset이며 고대비에서는 막대를 전경색 2px 아래 테두리로 그린다. 문자열·숫자 라벨은 숨은 굵은 복사본으로 폭을 예약하되 접근 이름에는 포함하지 않는다.
+- 표식: 평평한 가로 스크롤 목록의 1px `border-subtle` 기준선 위에 선택 탭의 2px `accent-primary` 아래 막대와 `font-semibold`를 쓰고, 비선택은 `text-secondary`로 둔다. 기준선은 inset shadow이고 고대비에서는 1px 전경색 아래 테두리로 남는다. 막대는 형제 자식이 아니라 트리거 자신의 `::after`(`bottom-0`)로 그려 `asChild` 슬롯도 단일 요소 자식을 유지하며, 고대비에서는 전경색 2px 아래 테두리로 그린다. 포커스 외곽선은 -2px offset으로 탭 안쪽에 그린다. 문자열·숫자 라벨은 숨은 굵은 복사본으로 폭을 예약하되 접근 이름에는 포함하지 않는다.
 - FeedbackOps 저장소는 수정하지 않고 이 선택 표식을 variant로 제안한다.
 - C를 고르지 않은 이유: 선택 탭이 외곽선 버튼처럼 보이고 고대비에서 비선택에도 테두리가 생긴다.
 - D를 고르지 않은 이유: 좁은 패널에서 선이 많고 포커스 때 겹친다.
