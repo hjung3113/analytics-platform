@@ -1235,6 +1235,23 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     await expect(dialog).toHaveCount(0);
   });
 
+  test('메뉴 사이 Back으로 다시 열린 상세 패널도 제목 포커스를 빼앗지 않는다 (#356, ADR-0032)', async ({ page }, testInfo) => {
+    await page.goto(`/equipment?v=1&scopeId=ICH&${PERIOD}`);
+    await expect(page.getByRole('table')).toBeVisible();
+    await page.getByRole('table').getByRole('button', { name: '보기' }).first().click();
+    const dialog = page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog');
+    // Same-screen open still claims the close button (06 §13).
+    await expect(dialog.getByRole('button', { name: '상세 닫기' })).toBeFocused();
+    await page.getByRole('link', { name: '전체 화면' }).click();
+    await expect(page).toHaveURL(/\/equipment\/[^?]+\?/);
+    await page.goBack();
+    await expect.poll(() => query(page).get('focus')).not.toBeNull();
+    await expect(dialog).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: '설비 마스터' })).toBeFocused();
+    await expect(dialog.getByRole('button', { name: '상세 닫기' })).not.toBeFocused();
+    await evidence(page, testInfo, 'history-back-panel-title-focus');
+  });
+
   test('전체 화면 링크는 보던 탭을 목적지 tab으로 넘긴다 (06 §13)', async ({ page }, testInfo) => {
     await page.goto('/equipment?v=1&scopeId=ICH');
     await expect(page.getByRole('table')).toBeVisible();
