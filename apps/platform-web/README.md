@@ -56,11 +56,12 @@ pnpm --filter @ap/platform-web check:prod-graph  # 운영 모듈 그래프에 mo
 - URL 계약 오류(`v=2`, 한쪽 기간, 공집합 표식 충돌 등)는 보정 없이 오류 화면.
 - 응답 시나리오 시뮬레이터(플라스크 아이콘, 같은 개발 도구)로 §19 taxonomy 전 상태 재현 + 계약 검증 링크. "응답 형식 오류"는 화면이 렌더 중 예외를 던지게 해 Error Boundary(§4)를 확인한다.
 - Registry `primary`(그룹 대표 목적지): 그룹당 정확히 하나를 `createRegistry`가 강제한다.
+- 차트 주석은 서버가 소유하고 `(chartId, scopeId)`로 키한다. 화면은 `adapter.listAnnotations`·`saveAnnotation`으로만 읽고 쓴다([06 §16](../../docs/06_platform_ui_contract.md#16-analysis-chart-contract)). 이 앱의 mock 어댑터는 메모리에 둔다(새로고침 시 소멸).
+- 표 내보내기(CSV·XLSX)는 표 부품이 소유한다([06 §15](../../docs/06_platform_ui_contract.md#15-platform-data-table-contract), [ADR-0008](../../docs/adr/0008-table-owned-export-fixed-toolbar.md)).
 
 ## Candidate / Open으로 남긴 것
 
 - 최초 진입 기본 기간 Δ=24h(1일) — 결정 문서상 Open, 여기서는 Candidate.
 - 대표 목적지 권한 없음 그룹 카드: 비활성 + 사유 표시(08).
-- 주석 저장소는 메모리(새로고침 시 소멸), Export는 CSV 다운로드만.
 
 하위 경로 배포는 `AP_BASE_PATH=/analytics-platform/demo/ pnpm --filter @ap/platform-web build`로 지정한다(기본 `/`, 앱이 Vite `BASE_URL`을 위치 어댑터에 주입, [ADR-0030](../../docs/adr/0030-location-adapter-base-path.md)).
