@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
@@ -111,6 +111,22 @@ function RecoveryDrawerHost({ title = 'Detail', initialTab = 'invalid' }: { titl
           ...(unknown ? [{ id: 'invalid', label: '알 수 없는 탭', content: (
             <p role="alert">등록되지 않은 탭입니다. <button onClick={() => { setTab('attributes'); setUnknown(false); }}>속성 열기</button></p>
           ) }] : []),
+        ]} />
+    </main></div><SlotHost />
+  </DetailPanelSlotProvider></I18nProvider>;
+}
+
+/** #353 FIX1: two real tabs, both with a control; the parent-controlled tab value changes from outside
+ * the panel (history Back path) while the tab list itself stays, so only the focused control unmounts
+ * — and Radix Presence drops the inactive content one commit after the value change. */
+function TwoTabDrawerHost({ tab }: { tab: string }) {
+  return <I18nProvider><DetailPanelSlotProvider>
+    <div id="root"><main id="platform-main" tabIndex={-1}>
+      <button>behind</button>
+      <DetailDrawer title="Detail" onClose={() => {}} tab={tab} onTabChange={() => {}}
+        tabs={[
+          { id: 'attributes', label: 'Attributes', content: <button>속성 내용</button> },
+          { id: 'validity', label: 'Validity', content: <button>유효구간 내용</button> },
         ]} />
     </main></div><SlotHost />
   </DetailPanelSlotProvider></I18nProvider>;
@@ -235,14 +251,29 @@ describe('DetailDrawer docked slot', () => {
 
   // #353: the focused recovery control unmounts with the tab switch; focus must land on the selected
   // tab trigger instead of falling to body (06 §26 keyboard floor).
-  it('moves focus to the selected tab trigger when the focused control disappears with a tab switch', () => {
+  it('moves focus to the selected tab trigger when the focused control disappears with a tab switch', async () => {
     render(<RecoveryDrawerHost />);
     const recover = screen.getByRole('button', { name: '속성 열기' });
     recover.focus();
     expect(recover).toHaveFocus();
     fireEvent.click(recover);
     expect(screen.queryByRole('alert')).toBeNull();
-    expect(screen.getByRole('tab', { name: 'Attributes' })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Attributes' })).toHaveFocus());
+  });
+
+  // #353 FIX1: history Back can change the controlled tab while the tab list itself stays; the focused
+  // content control disappears a commit later (Radix Presence), and focus must land on the selected
+  // tab trigger instead of staying on body (06 §13, §26).
+  it('moves focus to the selected tab trigger when the tab value changes while the list stays', async () => {
+    const view = render(<TwoTabDrawerHost tab="validity" />);
+    const inner = screen.getByRole('button', { name: '유효구간 내용' });
+    inner.focus();
+    expect(inner).toHaveFocus();
+    // Back-like path: only the parent-controlled value changes, from outside the panel.
+    view.rerender(<TwoTabDrawerHost tab="attributes" />);
+    // The restore runs in the MutationObserver microtask after Presence removes the inactive content,
+    // not synchronously in the value-change commit.
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Attributes' })).toHaveFocus());
   });
 
   it('does not steal focus the user already moved outside the panel when tabs switch', () => {
@@ -268,7 +299,7 @@ describe('DetailDrawer docked slot', () => {
     expect(document.activeElement).toBe(document.body);
   });
 
-  it('keeps focus on body after an outside pointerdown clears the panel, even when tabs then switch', () => {
+  it('keeps focus on body after an outside pointerdown clears the panel, even when tabs then switch', async () => {
     render(<RecoveryDrawerHost />);
     const recover = screen.getByRole('button', { name: '속성 열기' });
     recover.focus();
@@ -278,6 +309,9 @@ describe('DetailDrawer docked slot', () => {
     expect(document.activeElement).toBe(document.body);
     fireEvent.click(recover); // same instance: tab value and tab list change together
     expect(screen.queryByRole('alert')).toBeNull();
+    // Restoration is a MutationObserver microtask: yield so a restore that ignored the non-steal
+    // guard would be observable here instead of the test passing before it runs.
+    await act(() => new Promise(resolve => { setTimeout(resolve, 0); }));
     expect(document.activeElement).toBe(document.body);
   });
 });

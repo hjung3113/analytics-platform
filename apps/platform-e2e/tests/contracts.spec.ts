@@ -678,6 +678,27 @@ test.describe('셸 고정 상세 슬롯 (06 §13, ADR-0013)', () => {
     await expect(dialog.getByRole('tab', { name: '속성' })).toBeFocused();
     await evidence(page, testInfo, 'equipment-unknown-tab-recovery-focus');
   });
+
+  test('탭 내용 안에 포커스가 있을 때 history로 탭이 바뀌면 선택된 탭으로 포커스가 간다 (#353)', async ({ page }, testInfo) => {
+    await page.goto('/equipment?v=1&scopeId=ICH');
+    const row = page.getByRole('main').locator('[data-row-id]').first();
+    await expect(row).toBeVisible();
+    const focus = await row.getAttribute('data-row-id');
+
+    // The tab list itself stays; only the controlled tab value changes (Back with `tab` dropped).
+    await page.goto(`/equipment?v=1&scopeId=ICH&focus=${focus}&tab=validity`);
+    const dialog = page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog');
+    await expect(dialog.getByRole('tab', { name: '유효구간 이력' })).toHaveAttribute('aria-selected', 'true');
+    const inner = dialog.getByRole('tabpanel').getByRole('button').first();
+    await inner.focus();
+    await expect(inner).toBeFocused();
+    await page.evaluate(href => {
+      window.history.pushState(null, '', href);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }, `/equipment?v=1&scopeId=ICH&focus=${focus}`);
+    await expect(dialog.getByRole('tab', { name: '속성' })).toBeFocused();
+    await evidence(page, testInfo, 'equipment-tab-content-focus-history');
+  });
 });
 
 test.describe('메뉴 간 Context 보존과 미적용 표시 (06 §6, §22)', () => {
