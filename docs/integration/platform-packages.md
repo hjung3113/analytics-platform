@@ -15,7 +15,7 @@
 
 ## 3. 패키지 구성
 
-루트에 pnpm workspace를 두고 세 갈래로 나눈다: `packages/`(플랫폼), `menus/`(Consumer), `apps/`(조립 지점). 이름 접두사는 Candidate `@ap/`.
+루트에 pnpm workspace를 두고 세 갈래로 나눈다: `packages/`(플랫폼), `menus/<space>/<group>/`(Consumer, `null` 소속은 `_global`), `apps/`(조립 지점). 이름 접두사는 Candidate `@ap/`.
 
 | 패키지 | 06 갈래 | 내용(현재 파일 기준) | React | 의존 가능 |
 | --- | --- | --- | --- | --- |
@@ -79,7 +79,7 @@
 메뉴 패키지 하나의 모양(생성기 `pnpm gen:menu <group>`이 만드는 것):
 
 ```text
-menus/<group>/
+menus/<space>/<group>/
   package.json          # name: @ap/menu-<group>, exports: "." (+ 클래스를 쓰면 "./styles.css")
   tsconfig.json         # @ap/tsconfig/base.json extends
   eslint.config.js      # @ap/eslint-config menu 프리셋 한 줄
@@ -136,7 +136,7 @@ const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: [...hom
 | 2 | 메뉴 패키지 단위 | **그룹 단위** (`menu-analytics`에 생산성 개요·사이클타임·실행 상세) | 같은 그룹 안 목록→상세 import가 자연스럽고, 사이드바 그룹(06 §9)·소유 단위와 일치. 커지면 그때 분할 |
 | 3 | 프로토타입 처리 | `prototypes/platform-app` → `apps/platform-web`으로 **`git mv`** | 이력·리뷰 보고서 연결 유지, 코드 두 벌 방지 |
 | 4 | lint 도구 | **ESLint** | 경계·URL 조립 금지 같은 커스텀 규칙이 목적. FeedbackOps는 Biome을 쓰지만 루트 lint는 `@fops/*` 태스크를 제외한다. 앱·백엔드 등 나머지는 별도 workspace다 |
-| 5 | 이름 | 접두사 `@ap/`, 메뉴 폴더 `menus/` | `menus/`는 "메뉴는 Consumer" 원칙을 구조로 드러냄 |
+| 5 | 이름 | 접두사 `@ap/`, 메뉴 폴더 `menus/<space>/<group>/` | 공간별 소속은 폴더가 원본이며 선언과 일치하는지 검사([ADR-0031](../adr/0031-menu-folders-by-space.md)) |
 
 **`@ap/`는 임시 접두사다.** 회사 시스템 이름이 정해지면 일괄 변경한다. 변경 비용을 낮게 유지하려고 다음을 지킨다.
 

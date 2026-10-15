@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import ts from 'typescript';
@@ -10,6 +10,7 @@ import { FIXTURE_FOLDER, FIXTURE_GROUP, GEN_ARGS, appSnapshot, fixtureMockAssemb
 const INPUTS: MenuInputs = {
   group: FIXTURE_GROUP,
   folder: FIXTURE_FOLDER,
+  space: 'analytics',
   menuId: 'gen-probe',
   page: 'GenProbe',
   path: '/gen-probe',
@@ -209,6 +210,18 @@ describe('generate in a temp workspace', () => {
   const keep: string[] = [];
   afterAll(() => { for (const root of keep) removeFixture(root); });
 
+  it.each([null, 'analytics'])('creates a package in the declared space %s', space => {
+    const root = makeFixture();
+    keep.push(root);
+    const path = join(root, MENUS_TS);
+    writeFileSync(path, readFileSync(path, 'utf8').replace("icon: LayoutDashboard, space: 'analytics'", `icon: LayoutDashboard, space: ${space === null ? 'null' : "'analytics'"}`));
+    const result = runCli([FIXTURE_GROUP, ...GEN_ARGS], root);
+    expect(result.status, result.stderr).toBe(0);
+    const location = `menus/${space ?? '_global'}/${FIXTURE_FOLDER}`;
+    expect(result.stdout).toContain(`${location}/src/index.ts`);
+    expect(JSON.parse(readFileSync(join(root, location, '.gen-menu.json'), 'utf8')).space).toBe(space);
+  });
+
   it('writes the file set and the six edits, bytes equal the templates', () => {
     const root = makeFixture();
     keep.push(root);
@@ -217,15 +230,15 @@ describe('generate in a temp workspace', () => {
     expect(res.stdout.endsWith('next: pnpm install\n')).toBe(true);
 
     const files = renderFiles(INPUTS);
-    const pkgDir = join(root, 'menus', INPUTS.folder);
+    const pkgDir = join(root, 'menus', 'analytics', INPUTS.folder);
     for (const f of files) {
       expect(readFileSync(join(pkgDir, f.relPath), 'utf8'), f.relPath).toBe(f.content);
     }
     expect(readFileSync(join(pkgDir, '.gen-menu.json'), 'utf8')).toBe(`${JSON.stringify(INPUTS, null, 2)}\n`);
     expect(menusTree(root)).toEqual([
-      ...files.map(f => `menus/${INPUTS.folder}/${f.relPath}`),
-      `menus/${INPUTS.folder}/.gen-menu.json`,
-      'menus/metric-catalog/src/index.ts',
+      ...files.map(f => `menus/analytics/${INPUTS.folder}/${f.relPath}`),
+      `menus/analytics/${INPUTS.folder}/.gen-menu.json`,
+      'menus/analytics/metric-catalog/src/index.ts',
     ].sort());
 
     const menusLines = readFileSync(join(root, MENUS_TS), 'utf8').split('\n');
@@ -285,12 +298,12 @@ describe('generate in a temp workspace', () => {
     expect(res.stdout).toContain('dry run');
     expect(res.stdout.endsWith('next: pnpm install\n')).toBe(true);
     for (const f of renderFiles(INPUTS)) {
-      expect(res.stdout).toContain(`menus/${INPUTS.folder}/${f.relPath}`);
+      expect(res.stdout).toContain(`menus/analytics/${INPUTS.folder}/${f.relPath}`);
     }
     for (const line of editSummary({ root, inputs: INPUTS, files: [], packageDir: '', edits: [] })) {
       expect(res.stdout).toContain(line);
     }
     expect(appSnapshot(root)).toEqual(snapshot);
-    expect(menusTree(root)).toEqual(['menus/metric-catalog/src/index.ts']);
+    expect(menusTree(root)).toEqual(['menus/analytics/metric-catalog/src/index.ts']);
   });
 });

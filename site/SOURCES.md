@@ -27,11 +27,11 @@
 | L15 | DataTrustIndicator: 이슈·미확인·coverage·갱신 시각·원천·잠정 상태, unknown을 정상·0으로 바꾸지 않음 | 플랫폼 UI 계약 §18 | — |
 | L16 | 조회 상태 loading·empty·forbidden·too_large·timeout·error 구분, 위젯별 부분 실패 격리. 데모 DevTools 응답 시나리오 11종(정상·느린 응답·0건·상태 원천 미확인·일부 위젯 실패·권한 거부·조회 과대·시간 초과·서버 오류·응답 형식 오류·Scope 확인 실패) | `packages/components/src/StateView.tsx`, `apps/platform-web/src/dev/DevTools.tsx:14-26`, `docs/integration/in-house-rollout.md` §5-7 | — |
 | L17 | ManagementLayout: 자기 폭 960px 이상 260px 필터 레일, 좁으면 팝오버. AnalysisLayout: KPI 띠·차트(960px 이상·펼친 차트 2개 이상이면 2열)·분해 표, 단위별 접기 | 플랫폼 UI 계약 §12.6, ADR-0022 | — |
-| L18 | 드릴 단계 공정 → StGroup → 설비, 단계마다 page key, 경로 칩, 복귀 | `menus/analytics/src/index.ts:22-27`, `.planning` v0.4.0 | — |
+| L18 | 드릴 단계 공정 → StGroup → 설비, 단계마다 page key, 경로 칩, 복귀 | `menus/analytics/analytics/src/index.ts:22-27`, `.planning` v0.4.0 | — |
 | L19 | Page Archetype 5종, 전용 레이아웃 컴포넌트는 Management·Analysis 2종, 나머지는 공통 부품 조립 + 생성기 뼈대 | 플랫폼 UI 계약 §12 | 06 절 각주로만 |
 | L20 | 셸 치수 레일 52px · 사이드바 240/56px · 머리 50px · 상세 슬롯 440px | FeedbackOps `tokens.css:169-174` | — |
 | L21 | `linkTo`/`PlatformLink`가 목적지 객체 ID와 분석 Context 분리, 목적지 권한·공간 확인, `returnTo` 복귀(출발 URL·드릴 단계), 열 수 없는 복귀 대상은 열 수 있는 상위 메뉴나 홈으로 돌아감(#298) | 플랫폼 UI 계약 §22, `.planning` #298 행 | — |
-| L22 | 설비 마스터의 '선택 설비로 분석' 버튼 코드 | `menus/equipment/src/pages/EquipmentMaster.tsx:63` | — |
+| L22 | 설비 마스터의 '선택 설비로 분석' 버튼 코드 | `menus/analytics/equipment/src/pages/EquipmentMaster.tsx:63` | — |
 | L23 | FeedbackOps는 독립 앱, 화면·API·권한·감사를 플랫폼에 합치지 않음, `/voc` 링크는 origin 설정·검증 시 새 탭, 셸의 공간별 링크 슬롯은 미주입 | ADR-0027, `apps/platform-web/src/slots.ts:5-8` | 데모에서는 비활성 |
 | L24 | FeedbackOps 링크는 분석 기간·Site·returnTo를 자동 전달하지 않음, 확장은 #81·#251, 개선 실행 공간 #252 | `docs/integration/feedbackops-deeplink.md` | — |
 | L25 | 업무 시스템별 백엔드·DB는 합치지 않음 | `docs/15_multi_workspace_ui.md` | — |
@@ -60,7 +60,7 @@
 | L48 | ECharts Canvas 렌더러 결정 | ADR-0021 | — |
 | L49 | "플랫폼 쪽 준비는 끝났다" | `docs/integration/in-house-rollout.md` §0, `.planning` 「지금 어디까지」 7단계 | — |
 | L50 | UI primitive는 FeedbackOps 원본을 `@ap/ui`로 소비 | ADR-0011, `packages/ui/AGENTS.md`, DESIGN.md Overview | — |
-| L51 | 메뉴 라벨·경로: 생산성 개요 `/analytics/productivity`, 사이클타임 상세 `/analytics/cycle-time`, 실행 상세 `/analytics/executions/:equipmentId`, Wafer Journey, 설비 마스터 `/equipment`, 지표 카탈로그 `/metrics`, VOC `/voc`, 운영 콘솔 `/admin/*`(권한/역할 관리·변경 감사·메뉴 활용률·메뉴 레지스트리) | `menus/*/src/index.ts` | 공정·레시피 마스터·`/notices`는 화면이 없으므로 기능으로 소개하지 않음 |
+| L51 | 메뉴 라벨·경로: 생산성 개요 `/analytics/productivity`, 사이클타임 상세 `/analytics/cycle-time`, 실행 상세 `/analytics/executions/:equipmentId`, Wafer Journey, 설비 마스터 `/equipment`, 지표 카탈로그 `/metrics`, VOC `/voc`, 운영 콘솔 `/admin/*`(권한/역할 관리·변경 감사·메뉴 활용률·메뉴 레지스트리) | `menus/*/*/src/index.ts` | 공정·레시피 마스터·`/notices`는 화면이 없으므로 기능으로 소개하지 않음 |
 
 | L52 | 처음부터 범용 빌더를 만들지 않고 메뉴 2–3곳의 반복 수요 확인 뒤 공통 기능으로 승격한다 | docs/06_platform_ui_contract.md §1 | 확정 원칙 |
 | L53 | 자유 배치 Widget Framework·Dashboard Builder는 반복 수요 검증 전 Deferred다 | docs/06_platform_ui_contract.md §14 | 구현 완료 아님 |
@@ -74,7 +74,7 @@
 | L61 | 기술 후보 단계 연결: 현행 공통 부품 ①, 선언형 선택 ②, 자유 탐색·배치 ③, 고밀도 시계열 성능 평가 | GitHub #291–#294, site 소개 구성 | 설명용 분류, 채택 결정 아님. 띠 순서는 조사 문서(PR #295)의 M0–M5 단계 순서 |
 
 | L62 | 실제 화면 갤러리는 Pages 경로의 mock 데모 빌드를 UI 상호작용으로 캡처한다. DPR2로 저장하고 shots.json의 width·height는 CSS px이다. 차트·표는 구성요소 영역만, 상태 화면은 설비 목록 패널만, 세로·가로로 긴 것은 위쪽 중심 영역을 찍고 타일에서 cover-top으로 잘라 보여 준다. 합성 데이터이며 운영 데이터가 아니다 | `apps/platform-web/dist` (`AP_BASE_PATH=/analytics-platform/demo/`), `site/scripts/shots.mjs`, `apps/platform-web/README.md` | 배포 시 자동 캡처, 실패 시 배포 중단 |
-| L63 | ECharts 등록 유형은 선·막대·파이·산점도이고 Brush·DataZoom·MarkArea·MarkLine·Toolbox·Tooltip을 등록한다. 메뉴는 선·막대를 사용한다 | `packages/components/src/EChartImpl.tsx`, `menus/analytics/src/pages/ProductivityOverview.tsx` | 파이·산점도는 메뉴 미사용, 화면을 생성하지 않음 |
+| L63 | ECharts 등록 유형은 선·막대·파이·산점도이고 Brush·DataZoom·MarkArea·MarkLine·Toolbox·Tooltip을 등록한다. 메뉴는 선·막대를 사용한다 | `packages/components/src/EChartImpl.tsx`, `menus/analytics/analytics/src/pages/ProductivityOverview.tsx` | 파이·산점도는 메뉴 미사용, 화면을 생성하지 않음 |
 
 ### 7.2 예시(합성) 데이터 — 화면에서 반드시 `예시`로 표시
 
@@ -141,10 +141,10 @@ L35도 현재 git 추적 파일 기준으로 재측정했다: 23개·1,966줄, M
 python3 - <<'PYMETRICS'
 from pathlib import Path
 import subprocess
-files = subprocess.check_output(['git', 'ls-files', 'menus/metrics'], text=True).splitlines()
+files = subprocess.check_output(['git', 'ls-files', 'menus/metrics/metrics'], text=True).splitlines()
 print(len(files), sum(len(Path(p).read_text().splitlines()) for p in files))
-for p in ['menus/metrics/src/pages/MetricCatalog.tsx',
-          'menus/metrics/src/pages/MetricDetail.tsx', 'menus/metrics/src/index.ts']:
+for p in ['menus/metrics/metrics/src/pages/MetricCatalog.tsx',
+          'menus/metrics/metrics/src/pages/MetricDetail.tsx', 'menus/metrics/metrics/src/index.ts']:
     print(p, len(Path(p).read_text().splitlines()))
 PYMETRICS
 ```

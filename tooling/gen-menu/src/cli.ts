@@ -1,3 +1,4 @@
+import { spaceFolder } from './menu-layout.ts';
 import { parseArgs } from 'node:util';
 import {
   GenMenuError, applyGenerate, editSummary, planGenerate, resolveRoot,
@@ -93,7 +94,7 @@ function run(argv: string[]): void {
     path: values.path,
     pageType: values['page-type'],
   });
-  const pkgDir = `menus/${plan.inputs.folder}`;
+  const pkgDir = `menus/${spaceFolder(plan.inputs.space)}/${plan.inputs.folder}`;
   if (dryRun) {
     console.log('gen:menu: dry run — nothing written');
     for (const f of plan.files) console.log(`  create ${pkgDir}/${f.relPath}`);

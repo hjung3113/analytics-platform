@@ -194,7 +194,7 @@ FeedbackOps 화면과 백엔드는 모두 독립 앱으로 남는다([ADR-0027](
 | `@fops/ui` → `@ap/ui` | 토큰·Button·Badge·Shell형 primitives 등 | 기존 재사용, 도메인 코드 의존 금지 |
 | `@ap/kernel` | SpaceDef/GroupDef/MenuEntry, Registry, 권한·Context·URL·전환 | 기존 계약 확장 |
 | `@ap/shell` | AppRail·AppSidebar·Portal·CommandPalette·복귀 UX | 기존 셸 확장 |
-| `menus/*` | 각 워크스페이스의 고유 업무 메뉴/화면 | 메뉴 그룹별 Consumer 유지 |
+| `menus/*/*` | 각 워크스페이스의 고유 업무 메뉴/화면 | 메뉴 그룹별 Consumer 유지 |
 | FeedbackOps(독립 앱) | VOC·Evidence·Finding·Task·설문 화면과 API | 그대로 둔다. 플랫폼은 공간 → Managed System 매핑과 진입 링크만(ADR-0027) |
 | 각 독립 백엔드 | 로그·분석·지표·개선·운영 도메인 규칙/DB | 합치지 않음 |
 

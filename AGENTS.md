@@ -34,7 +34,7 @@
 
 ## 코드
 
-- 루트 pnpm workspace: `apps/*`, `packages/*`, `menus/*`, `tooling/*`, FeedbackOps `products/feedbackops/packages/{ui,shared}`. Node 26.7.0, pnpm 11.1.1. 명령은 루트에서 `pnpm install|dev|lint|typecheck|test|build|e2e`.
+- 루트 pnpm workspace: `apps/*`, `packages/*`, `menus/*/*`, `tooling/*`, FeedbackOps `products/feedbackops/packages/{ui,shared}`. Node 26.7.0, pnpm 11.1.1. 명령은 루트에서 `pnpm install|dev|lint|typecheck|test|build|e2e`.
 - 의존 방향은 `contracts → ui/kernel → components → shell → apps`, 역방향 import 금지(경계 lint가 강제, 원본 `docs/integration/platform-packages.md` §3). FeedbackOps primitive는 `@ap/ui`로만 소비한다.
 - Kernel·공통 컴포넌트·셸은 메뉴와 mock을 모른다. 메뉴 목록은 Registry로, 서버는 `PlatformAdapter`로 앱이 주입한다.
 

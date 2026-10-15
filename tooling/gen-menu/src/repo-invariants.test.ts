@@ -37,14 +37,14 @@ ${deps.join('\n')}
 
 function makeWiredRepo(): string {
   const root = mkdtempSync(join(tmpdir(), 'gen-menu-repo-'));
-  writeFileSync(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - menus/*\n');
+  writeFileSync(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - menus/*/*\n');
   mkdirSync(join(root, 'packages/contracts/src'), { recursive: true });
   const union = GROUPS.map(g => `'${g.group}'`).join(' | ');
   writeFileSync(join(root, 'packages/contracts/src/menu.ts'), `export type GroupId = ${union};\n`);
   mkdirSync(join(root, 'apps/platform-web/src/dev'), { recursive: true });
 
   const imports = GROUPS.map(g => `import { manifests as ${binding(g.folder)} } from '${PACKAGE_PREFIX}menu-${g.folder}';`).join('\n');
-  const rows = GROUPS.map(g => `  { id: '${g.group}', label: { ko: 'g', en: 'g' }, icon: I, space: 'analytics' },`).join('\n');
+  const rows = GROUPS.map(g => `  { id: '${g.group}', label: { ko: 'g', en: 'g' }, icon: I, space: ${g.folder === 'home' ? 'null' : "'analytics'"} },`).join('\n');
   const spreads = GROUPS.map(g => `  ...${binding(g.folder)},`).join('\n');
   writeFileSync(join(root, 'apps/platform-web/src/menus.ts'), `// <gen:menu-imports>
 ${imports}
@@ -53,6 +53,10 @@ ${imports}
 export const GROUPS: GroupDef[] = [
 ${rows}
   // </gen:menu-groups>
+];
+
+export const SPACES: SpaceDef[] = [
+  { id: 'analytics', label: { ko: 'a', en: 'a' } },
 ];
 
 export const MENUS: MenuEntry[] = [
@@ -82,14 +86,14 @@ ${cssImports}
 `);
   writeFileSync(join(root, 'apps/platform-web/package.json'), wiredAppPkg());
   for (const g of GROUPS) {
-    mkdirSync(join(root, 'menus', g.folder, 'src'), { recursive: true });
-    writeFileSync(join(root, 'menus', g.folder, 'src/index.ts'), `export const manifests = [{ id: '${g.folder}-x', group: '${g.group}', path: '/${g.folder}' }];\n`);
-    writeFileSync(join(root, 'menus', g.folder, 'src/styles.css'), '@source "./";\n');
+    mkdirSync(join(root, 'menus', g.folder === 'home' ? '_global' : 'analytics', g.folder, 'src'), { recursive: true });
+    writeFileSync(join(root, 'menus', g.folder === 'home' ? '_global' : 'analytics', g.folder, 'src/index.ts'), `export const manifests = [{ id: '${g.folder}-x', group: '${g.group}', path: '/${g.folder}' }];\n`);
+    writeFileSync(join(root, 'menus', g.folder === 'home' ? '_global' : 'analytics', g.folder, 'src/styles.css'), '@source "./";\n');
   }
   // Only analytics and quality ship a mock half; the other folders must not need registration.
   for (const folder of ['analytics', 'quality']) {
-    mkdirSync(join(root, 'menus', folder, 'src/mock'), { recursive: true });
-    writeFileSync(join(root, 'menus', folder, 'src/mock/index.ts'), `export const ${binding(folder)}Mock = [];\n`);
+    mkdirSync(join(root, 'menus', 'analytics', folder, 'src/mock'), { recursive: true });
+    writeFileSync(join(root, 'menus', 'analytics', folder, 'src/mock/index.ts'), `export const ${binding(folder)}Mock = [];\n`);
   }
   return root;
 }
@@ -99,7 +103,64 @@ describe('wiring invariants against a fixture repo', () => {
   const fresh = (): string => { const root = makeWiredRepo(); keep.push(root); return root; };
   afterAll(() => { for (const root of keep) removeFixture(root); });
 
-  it('accepts a fully wired eighth group', () => {
+
+  it('discovers indexes, CSS and mock halves under global and named spaces', () => {
+    const root = fresh();
+    mkdirSync(join(root, 'menus/_global/home/src/mock'), { recursive: true });
+    writeFileSync(join(root, 'menus/_global/home/src/mock/index.ts'), 'export const homeMock = [];');
+    const shape = loadShape(root);
+    for (const folder of ['_global/home', 'analytics/analytics']) {
+      expect(shape.folders).toContain(folder);
+      expect(shape.indexes[folder]).toContain('export const manifests');
+      expect(shape.cssFolders).toContain(folder);
+      expect(shape.mockFolders).toContain(folder);
+    }
+  });
+
+  it('rejects only the space mismatch when a valid owner moves to another registered space', () => {
+    const shape = loadShape(fresh());
+    shape.menusTs = shape.menusTs.replace("{ id: 'analytics', label: { ko: 'a', en: 'a' } },", "{ id: 'analytics', label: { ko: 'a', en: 'a' } },\n  { id: 'other', label: { ko: 'o', en: 'o' } },");
+    expect(() => checkGroups(shape)).not.toThrow();
+    shape.folders = shape.folders.map(f => f === 'analytics/quality' ? 'other/quality' : f);
+    shape.indexes['other/quality'] = shape.indexes['analytics/quality'];
+    delete shape.indexes['analytics/quality'];
+    expect(() => checkMarkers(shape)).not.toThrow();
+    expect(() => checkWiring(shape)).not.toThrow();
+    expect(() => checkGroups(shape)).toThrow(/space mismatch/);
+    // Change only this row's space: every other ownership/wiring condition stays identical.
+    shape.menusTs = shape.menusTs.replace("{ id: 'quality', label: { ko: 'g', en: 'g' }, icon: I, space: 'analytics'", "{ id: 'quality', label: { ko: 'g', en: 'g' }, icon: I, space: 'other'");
+    expect(() => checkGroups(shape)).not.toThrow();
+  });
+
+  it('rejects a package without a manifest owner', () => {
+    const shape = loadShape(fresh());
+    delete shape.indexes['analytics/quality'];
+    expect(() => checkGroups(shape)).toThrow(/missing manifest/);
+  });
+
+  it('rejects a one-level package even beside correctly nested packages', () => {
+    const root = fresh();
+    mkdirSync(join(root, 'menus/legacy'), { recursive: true });
+    writeFileSync(join(root, 'menus/legacy/package.json'), '{}');
+    expect(() => checkGroups(loadShape(root))).toThrow(/one-level/);
+  });
+
+  it.each([
+    ['unregistered space', "space: 'analytics'", "space: 'unknown'", /unregistered space/],
+    ['missing space', ", space: 'analytics'", '', /space/],
+    ['unreadable space', "space: 'analytics'", 'space: selected', /space/],
+    ['spread can override space', "space: 'analytics'", "space: 'analytics', ...override", /GROUPS/],
+    ['computed space field', "space: 'analytics'", "['space']: 'analytics'", /GROUPS/],
+    ['duplicate space field', "space: 'analytics'", "space: 'analytics', space: null", /space/],
+    ['duplicate GROUPS row', "  { id: 'quality',", "  { id: 'quality', space: 'analytics' },\n  { id: 'quality',", /GROUPS/],
+    ['duplicate SPACES id', "  { id: 'analytics', label: { ko: 'a', en: 'a' } },", "  { id: 'analytics' },\n  { id: 'analytics' },", /SPACES/],
+  ])('rejects %s without guessing', (_label, from, to, error) => {
+    const shape = loadShape(fresh());
+    shape.menusTs = shape.menusTs.replace(from, to);
+    expect(() => checkGroups(shape)).toThrow(error);
+  });
+
+  it('accepts a fully wired eighth group (including identical GROUPS/SPACES ids)', () => {
     const shape: RepoShape = loadShape(fresh());
     expect(() => checkMarkers(shape)).not.toThrow();
     expect(() => checkGroups(shape)).not.toThrow();

@@ -1,4 +1,5 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { groupSpaces, menuFolders, spaceFolder } from './menu-layout.ts';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   APP_PKG, GROUPS_END, IMPORT_END, IMPORT_START, MOCK_ASSEMBLY_TSX, MENUS_TS, MOCK_IMPORTS_END, MOCK_IMPORTS_START,
@@ -18,20 +19,18 @@ export type RepoShape = {
   styleCss: string;
   contracts: string;
   appPkg: string;
-  /** Folder names under menus/. */
+  /** Space/leaf folder paths under menus/. */
   folders: string[];
   /** Folders that ship a src/styles.css and therefore need an app-side @import. */
   cssFolders: string[];
   /** Folders that ship a src/mock/index.ts (`./mock` export) and therefore need a mock-assembly.tsx mock registration. */
   mockFolders: string[];
-  /** menus/<folder>/src/index.ts text by folder. */
+  /** menus/<space>/<folder>/src/index.ts text by folder. */
   indexes: Record<string, string>;
 };
 
 export function loadShape(root: string): RepoShape {
-  const folders = existsSync(join(root, 'menus'))
-    ? readdirSync(join(root, 'menus'), { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name)
-    : [];
+  const folders = menuFolders(root);
   const indexes: Record<string, string> = {};
   const cssFolders: string[] = [];
   const mockFolders: string[] = [];
@@ -112,19 +111,33 @@ export function checkMarkers(shape: RepoShape): void {
 /** Every GroupId union member owns exactly one GROUPS row and exactly one menu index owner. */
 export function checkGroups(shape: RepoShape): void {
   const union = groupUnion(shape.contracts);
-  const menusLines = shape.menusTs.split('\n');
-  const groupsSection = menusLines.slice(0, markerIndex(menusLines, GROUPS_END)).join('\n');
+  const rows = groupSpaces(shape.menusTs);
+  for (const folder of shape.folders) {
+    if (folder.split('/').length !== 2) throw new Error(`one-level menu package: menus/${folder}`);
+    if (!Object.hasOwn(shape.indexes, folder)) throw new Error(`missing manifest owner: menus/${folder}/src/index.ts`);
+  }
+  for (const group of rows.keys()) {
+    if (!union.includes(group)) throw new Error(`GROUPS '${group}' is not in GroupId`);
+  }
   const owners = Object.entries(shape.indexes).map(([folder, text]) => ({
     folder,
     entries: manifestEntries(text, `menus/${folder}/src/index.ts`),
   }));
+  for (const owner of owners) {
+    const groups = new Set(owner.entries.map(entry => entry.group));
+    if (groups.size !== 1) throw new Error(`menus/${owner.folder} must own exactly one group`);
+    for (const group of groups) {
+      if (!rows.has(group)) throw new Error(`menus/${owner.folder} owns unknown group '${group}'`);
+      if (owner.folder.split('/')[0] !== spaceFolder(rows.get(group) as string | null)) {
+        throw new Error(`space mismatch: menus/${owner.folder} and GROUPS '${group}'`);
+      }
+    }
+  }
   for (const group of union) {
-    const rowRe = new RegExp(`(?<![\\w$])id: '${group}'`);
-    const rows = groupsSection.split('\n').filter(l => rowRe.test(l)).length;
-    if (rows !== 1) throw new Error(`group '${group}' must have exactly one GROUPS row, found ${rows}`);
+    if (!rows.has(group)) throw new Error(`group '${group}' must have exactly one GROUPS row, found 0`);
     const owned = owners.filter(o => o.entries.some(e => e.group === group));
     if (owned.length !== 1) {
-      throw new Error(`group '${group}' must be owned by exactly one menus/*/src/index.ts, found ${owned.length === 0 ? 'none' : owned.map(o => o.folder).join(',')}`);
+      throw new Error(`group '${group}' must be owned by exactly one menus/*/*/src/index.ts, found ${owned.length === 0 ? 'none' : owned.map(o => o.folder).join(',')}`);
     }
   }
 }
@@ -158,7 +171,7 @@ export function checkWiring(shape: RepoShape): void {
     }
   }
   for (const folder of shape.cssFolders) {
-    const cssImport = `@import "${PACKAGE_PREFIX}menu-${folder}/styles.css";`;
+    const cssImport = `@import "${PACKAGE_PREFIX}menu-${folder.split('/').at(-1)}/styles.css";`;
     if (!styleLines.includes(cssImport)) {
       throw new Error(`menus/${folder}/src/styles.css has no @import inside the style markers`);
     }
@@ -167,8 +180,8 @@ export function checkWiring(shape: RepoShape): void {
   const mockImportLines = linesOf(section(mainLines, MOCK_IMPORTS_START, MOCK_IMPORTS_END));
   const mockSpreadLines = linesOf(section(mainLines, MOCK_SPREADS_START, MOCK_SPREADS_END));
   for (const folder of shape.mockFolders) {
-    const binding = `${toBinding(folder)}Mock`;
-    const mockImport = `import { ${binding} } from '${PACKAGE_PREFIX}menu-${folder}/mock';`;
+    const binding = `${toBinding(folder.split('/').at(-1) as string)}Mock`;
+    const mockImport = `import { ${binding} } from '${PACKAGE_PREFIX}menu-${folder.split('/').at(-1)}/mock';`;
     if (!mockImportLines.includes(mockImport)) {
       throw new Error(`menus/${folder}/src/mock has no import inside the mock-assembly.tsx mock import markers`);
     }
@@ -189,6 +202,6 @@ export function checkNoProbe(shape: RepoShape, skip: boolean): void {
     for (const [label, text] of surfaces) {
       if (text.includes(name)) throw new Error(`probe leftover '${name}' found in ${label}`);
     }
-    if (shape.folders.includes(name)) throw new Error(`probe leftover: menus/${name} exists`);
+    if (shape.folders.some(folder => folder.split('/').at(-1) === name)) throw new Error(`probe leftover: menus/${name} exists`);
   }
 }

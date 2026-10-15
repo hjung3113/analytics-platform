@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, realpathSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { groupSpaces, menuFolders, spaceFolder } from './menu-layout.ts';
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
@@ -137,17 +138,14 @@ function unsupportedEntry(rel: string): never {
   throw new GenMenuError(`unsupported manifest form in ${rel}`);
 }
 
-/** Every `menus/<folder>/src/index.ts` that exists, parsed into manifest literals. */
+/** Every `menus/<space>/<folder>/src/index.ts` that exists, parsed into manifest literals. */
 function menuManifests(root: string): { folder: string; entries: ManifestEntry[] }[] {
-  const menusDir = join(root, 'menus');
-  if (!existsSync(menusDir)) return [];
   const result: { folder: string; entries: ManifestEntry[] }[] = [];
-  for (const e of readdirSync(menusDir, { withFileTypes: true })) {
-    if (!e.isDirectory()) continue;
-    const rel = `menus/${e.name}/src/index.ts`;
-    const path = join(menusDir, e.name, 'src', 'index.ts');
+  for (const folder of menuFolders(root)) {
+    const rel = `menus/${folder}/src/index.ts`;
+    const path = join(root, rel);
     if (!existsSync(path)) continue;
-    result.push({ folder: e.name, entries: manifestEntries(readFileSync(path, 'utf8'), rel) });
+    result.push({ folder, entries: manifestEntries(readFileSync(path, 'utf8'), rel) });
   }
   return result;
 }
@@ -517,7 +515,7 @@ export type FileEdit = { relPath: string; after: string };
 export type GeneratePlan = {
   root: string;
   inputs: MenuInputs;
-  /** Files relative to `menus/<folder>/`. */
+  /** Files relative to `menus/<space>/<folder>/`. */
   files: { relPath: string; content: string }[];
   packageDir: string;
   edits: FileEdit[];
@@ -582,10 +580,7 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
   // F9: every path this generator reads or writes must resolve inside the real root.
   const realRoot = realpathSync(root);
   checkInsideRoot(realRoot, join(root, 'menus'), 'menus/');
-  checkInsideRoot(realRoot, join(root, 'menus', folder), `menus/${folder}`);
   for (const rel of [MENUS_TS, MOCK_ASSEMBLY_TSX, STYLE_CSS, APP_PKG]) checkInsideRoot(realRoot, join(root, rel), rel);
-
-  const inputs: MenuInputs = { group, folder, menuId, page, path, pageType: pageType as PageType, labelKo, labelEn, binding };
 
   const menusText = readText(root, MENUS_TS);
   const stylesText = readText(root, STYLE_CSS);
@@ -602,10 +597,15 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
   if (!groupIdLine.includes(`'${group}'`)) {
     throw new GenMenuError(`unknown group '${group}' — it is not in the GroupId union (${CONTRACTS_MENU}); edit GroupId and GROUPS by hand first, the generator does not add sidebar groups`);
   }
-  const groupsSection = menusText.slice(0, menusText.indexOf(GROUPS_END));
-  if (!new RegExp(`(?<![\\w$])id: '${group}'`).test(groupsSection)) {
-    throw new GenMenuError(`unknown group '${group}' — no GROUPS row in ${MENUS_TS}; add { id: '${group}', … } by hand first, the generator does not add sidebar groups`);
+  const groups = groupSpaces(menusText);
+  if (!groups.has(group)) {
+    throw new GenMenuError(`unknown group '${group}' — no GROUPS row in ${MENUS_TS}; add it by hand first`);
   }
+  const space = groups.get(group) as string | null;
+  const location = `${spaceFolder(space)}/${folder}`;
+  checkInsideRoot(realRoot, join(root, 'menus', spaceFolder(space)), `menus/${spaceFolder(space)}`);
+  checkInsideRoot(realRoot, join(root, 'menus', location), `menus/${location}`);
+  const inputs: MenuInputs = { group, folder, space, menuId, page, path, pageType: pageType as PageType, labelKo, labelEn, binding };
 
   // F6: ownership and id/path collisions are computed from parsed manifest literals, not text regexes.
   const manifests = menuManifests(root);
@@ -615,8 +615,8 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
     }
   }
 
-  const packageDir = join(root, 'menus', folder);
-  if (existsSync(packageDir)) throw new GenMenuError(`menus/${folder} already exists`);
+  const packageDir = join(root, 'menus', location);
+  if (existsSync(packageDir)) throw new GenMenuError(`menus/${location} already exists`);
 
   const shape = pathShape(path);
   for (const { folder: owner, entries } of manifests) {
@@ -740,7 +740,7 @@ export function applyGenerate(plan: GeneratePlan): void {
   try {
     rmSync(plan.packageDir, { recursive: true, force: true });
   } catch (rmErr) {
-    failures.push(`menus/${plan.inputs.folder}: ${rmErr instanceof Error ? rmErr.message : String(rmErr)}`);
+    failures.push(`menus/${spaceFolder(plan.inputs.space)}/${plan.inputs.folder}: ${rmErr instanceof Error ? rmErr.message : String(rmErr)}`);
   }
   const original = originalError instanceof Error ? originalError : new GenMenuError(String(originalError));
   if (failures.length > 0) {

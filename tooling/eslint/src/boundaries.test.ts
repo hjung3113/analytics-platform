@@ -29,14 +29,14 @@ const PRESETS: Record<string, Linter.Config[]> = {
   'packages/shell': shell,
   'packages/mock-server': mockServer,
   'packages/server-conformance': serverConformance,
-  'menus/home': menu,
-  'menus/analytics': menu,
-  'menus/metrics': menu,
+  'menus/_global/home': menu,
+  'menus/analytics/analytics': menu,
+  'menus/metrics/metrics': menu,
   'apps/platform-web': app,
 };
 
 async function lint(relFile: string, code: string): Promise<Linter.LintMessage[]> {
-  const pkgDir = relFile.split('/').slice(0, 2).join('/');
+  const pkgDir = relFile.split('/').slice(0, relFile.startsWith('menus/') ? 3 : 2).join('/');
   const preset = PRESETS[pkgDir];
   if (!preset) throw new Error(`no preset mapped for ${pkgDir}`);
   const eslint = new ESLint({
@@ -49,7 +49,7 @@ async function lint(relFile: string, code: string): Promise<Linter.LintMessage[]
 }
 
 interface Row {
-  /** Repo-relative file path; first two segments pick the package under lint. */
+  /** Repo-relative file path; space and group segments pick menu packages; other packages use two segments. */
   file: string;
   code: string;
   /** Expected rule id; '' means the code must lint clean. */
@@ -58,7 +58,7 @@ interface Row {
   token?: string;
 }
 
-const MENU = 'menus/home/src/pages/x.tsx';
+const MENU = 'menus/_global/home/src/pages/x.tsx';
 
 const rows: Row[] = [
   // --- layer allowlists (1-19) ---
@@ -102,9 +102,9 @@ const rows: Row[] = [
   { file: MENU, code: `import { x } from '@ap/menu-equipment';`, rule: 'no-restricted-imports' },
   { file: MENU, code: `import { x } from '@ap/shell';`, rule: 'no-restricted-imports' },
   { file: MENU, code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
-  { file: 'menus/home/src/api.test.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
+  { file: 'menus/_global/home/src/api.test.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
   // #132 removed the src/api.ts migration carve-out: mock-server is legal only under src/mock/**.
-  { file: 'menus/home/src/api.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
+  { file: 'menus/_global/home/src/api.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
   { file: MENU, code: `import { x } from '@ap/components';`, rule: '' },
   { file: MENU, code: `import '@ap/ui/styles.css';`, rule: 'no-restricted-imports' },
 
@@ -117,7 +117,7 @@ const rows: Row[] = [
   { file: MENU, code: `const m = await import('@tanstack/table-core');`, rule: 'ap/restricted-import-source' },
   { file: MENU, code: `import { x } from '@tanstack/react-table/dist/cjs';`, rule: 'no-restricted-imports', token: 'table engine' },
   { file: MENU, code: `const m = await import('@tanstack/react-table');`, rule: 'ap/restricted-import-source' },
-  { file: 'menus/home/src/mock/handlers.ts', code: `import { x } from '@tanstack/react-table';`, rule: 'no-restricted-imports', token: 'table engine' },
+  { file: 'menus/_global/home/src/mock/handlers.ts', code: `import { x } from '@tanstack/react-table';`, rule: 'no-restricted-imports', token: 'table engine' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@tanstack/react-table';`, rule: '' },
   { file: 'packages/components/src/x.ts', code: `import { x } from '@tanstack/react-table';`, rule: '' },
   { file: 'packages/shell/src/x.ts', code: `import { x } from '@tanstack/react-table';`, rule: '' },
@@ -185,11 +185,11 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/published-metrics.test.ts', code: `import('@ap/menu-notice-voc/feedbackops-origin');`, rule: 'ap/restricted-import-source' },
 
   // --- relative package escape (37-41) ---
-  { file: MENU, code: `import { x } from '../../../../packages/contracts/src/url';`, rule: 'ap/no-relative-package-escape' },
-  { file: 'menus/home/src/index.ts', code: `import { x } from '../../equipment/src/index';`, rule: 'ap/no-relative-package-escape' },
+  { file: MENU, code: `import { x } from '../../../../../packages/contracts/src/url';`, rule: 'ap/no-relative-package-escape' },
+  { file: 'menus/_global/home/src/index.ts', code: `import { x } from '../../../analytics/equipment/src/index';`, rule: 'ap/no-relative-package-escape' },
   { file: MENU, code: `import { x } from '../api';`, rule: '' },
   { file: 'packages/kernel/src/platform.tsx', code: `import { x } from './registry';`, rule: '' },
-  { file: 'packages/kernel/src/platform.tsx', code: `import('../../menus/home/src/index');`, rule: 'ap/no-relative-package-escape' },
+  { file: 'packages/kernel/src/platform.tsx', code: `import('../../menus/_global/home/src/index');`, rule: 'ap/no-relative-package-escape' },
 
   // --- hand-built query strings in menus (42-55) ---
   { file: MENU, code: `<a href="/equipment?v=1" />`, rule: 'ap/no-hand-built-url', token: 'query string' },
@@ -230,15 +230,15 @@ const rows: Row[] = [
   { file: MENU, code: `window?.location?.assign('/x');`, rule: '' },
 
   // --- F1: dynamic import / import() type / require must obey boundaries ---
-  { file: 'menus/home/src/api.test.ts', code: `const m = await import('@ap/mock-server');`, rule: 'ap/restricted-import-source' },
+  { file: 'menus/_global/home/src/api.test.ts', code: `const m = await import('@ap/mock-server');`, rule: 'ap/restricted-import-source' },
   { file: 'packages/kernel/src/x.ts', code: `await import('@ap/shell');`, rule: 'ap/restricted-import-source' },
   { file: 'packages/contracts/src/x.ts', code: `type X = import('react').ReactNode;`, rule: 'ap/restricted-import-source' },
   { file: MENU, code: `require('@ap/mock-server');`, rule: 'ap/restricted-import-source' },
-  { file: MENU, code: `require('../../../../packages/contracts/src/url');`, rule: 'ap/no-relative-package-escape' },
+  { file: MENU, code: `require('../../../../../packages/contracts/src/url');`, rule: 'ap/no-relative-package-escape' },
   { file: 'apps/platform-web/src/main.tsx', code: `import('@ap/mock-server/src/server');`, rule: 'ap/restricted-import-source' },
   { file: 'apps/platform-web/src/main.tsx', code: `await import('@ap/mock-server');`, rule: 'ap/restricted-import-source' },
-  { file: 'menus/home/src/api.ts', code: `import('@ap/mock-server/src/server');`, rule: 'ap/restricted-import-source' },
-  { file: 'menus/home/src/api.ts', code: `await import('@ap/mock-server');`, rule: 'ap/restricted-import-source' },
+  { file: 'menus/_global/home/src/api.ts', code: `import('@ap/mock-server/src/server');`, rule: 'ap/restricted-import-source' },
+  { file: 'menus/_global/home/src/api.ts', code: `await import('@ap/mock-server');`, rule: 'ap/restricted-import-source' },
   { file: 'apps/platform-web/src/dev/DevTools.tsx', code: `await import('@ap/mock-server');`, rule: '' },
   { file: MENU, code: `lazy(() => import('./pages/X'));`, rule: '' },
   { file: 'packages/kernel/src/x.ts', code: `await import('@ap/contracts');`, rule: '' },
@@ -264,32 +264,32 @@ const rows: Row[] = [
   { file: MENU, code: `navigate(linkTo('home') ?? linkTo('equipment'));`, rule: '' },
 
   // --- N2: relative sources in TS import type / import-equals escape ---
-  { file: MENU, code: `type X = typeof import('../../../../packages/mock-server/src/index');`, rule: 'ap/no-relative-package-escape' },
-  { file: MENU, code: `import x = require('../../../../packages/mock-server/src/index');`, rule: 'ap/no-relative-package-escape' },
+  { file: MENU, code: `type X = typeof import('../../../../../packages/mock-server/src/index');`, rule: 'ap/no-relative-package-escape' },
+  { file: MENU, code: `import x = require('../../../../../packages/mock-server/src/index');`, rule: 'ap/no-relative-package-escape' },
   { file: MENU, code: `type X = typeof import('../api');`, rule: '' },
 
   // --- menu mock handlers and composition-root registration (#113) ---
-  { file: 'menus/home/src/mock/handlers.ts', code: `import { x } from '@ap/mock-server';`, rule: '' },
-  { file: 'menus/home/src/mock/handlers.ts', code: `await import('@ap/mock-server');`, rule: '' },
-  { file: 'menus/home/src/mock/handlers.ts', code: `import type { X } from '@ap/contracts';`, rule: '' },
-  { file: 'menus/home/src/mock/handlers.ts', code: `import { x } from '../endpoints';`, rule: '' },
-  { file: 'menus/home/src/mock/handlers.ts', code: `import { x } from './sibling';`, rule: '' },
-  { file: 'menus/home/src/mock/handlers.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
-  { file: 'menus/home/src/mock/handlers.ts', code: `import { x } from '@ap/mock-server/src/x';`, rule: 'no-restricted-imports' },
-  { file: 'menus/home/src/mock/handlers.ts', code: `await import('@ap/mock-server/src/x');`, rule: 'ap/restricted-import-source' },
+  { file: 'menus/_global/home/src/mock/handlers.ts', code: `import { x } from '@ap/mock-server';`, rule: '' },
+  { file: 'menus/_global/home/src/mock/handlers.ts', code: `await import('@ap/mock-server');`, rule: '' },
+  { file: 'menus/_global/home/src/mock/handlers.ts', code: `import type { X } from '@ap/contracts';`, rule: '' },
+  { file: 'menus/_global/home/src/mock/handlers.ts', code: `import { x } from '../endpoints';`, rule: '' },
+  { file: 'menus/_global/home/src/mock/handlers.ts', code: `import { x } from './sibling';`, rule: '' },
+  { file: 'menus/_global/home/src/mock/handlers.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
+  { file: 'menus/_global/home/src/mock/handlers.ts', code: `import { x } from '@ap/mock-server/src/x';`, rule: 'no-restricted-imports' },
+  { file: 'menus/_global/home/src/mock/handlers.ts', code: `await import('@ap/mock-server/src/x');`, rule: 'ap/restricted-import-source' },
   { file: MENU, code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports', token: 'src/mock/**' },
   { file: MENU, code: `await import('@ap/mock-server');`, rule: 'ap/restricted-import-source', token: 'src/mock/**' },
 
   { file: MENU, code: `import { x } from '../mock/handlers';`, rule: 'ap/no-menu-mock-import', token: '@ap/menu-home/mock' },
   { file: MENU, code: `import { x } from '../mock';`, rule: 'ap/no-menu-mock-import' },
   { file: MENU, code: `await import('../mock/handlers');`, rule: 'ap/no-menu-mock-import' },
-  { file: 'menus/home/src/index.ts', code: `export { x } from './mock';`, rule: 'ap/no-menu-mock-import' },
-  { file: 'menus/home/src/pages/deep/New.tsx', code: `import { x } from '../../mock/y';`, rule: 'ap/no-menu-mock-import' },
+  { file: 'menus/_global/home/src/index.ts', code: `export { x } from './mock';`, rule: 'ap/no-menu-mock-import' },
+  { file: 'menus/_global/home/src/pages/deep/New.tsx', code: `import { x } from '../../mock/y';`, rule: 'ap/no-menu-mock-import' },
   { file: MENU, code: `require('../mock/x');`, rule: 'ap/no-menu-mock-import' },
   { file: MENU, code: `type X = typeof import('../mock/x');`, rule: 'ap/no-menu-mock-import' },
   // src/mock/** cannot import react (denyReact), and relative imports there are
   // allowlisted (fix round 2): `../api` is rejected wholesale.
-  { file: 'menus/home/src/mock/a.ts', code: `import React from 'react';`, rule: 'no-restricted-imports', token: 'react' },
+  { file: 'menus/_global/home/src/mock/a.ts', code: `import React from 'react';`, rule: 'no-restricted-imports', token: 'react' },
 
   { file: 'apps/platform-web/src/main.tsx', code: `import { mock } from '@ap/menu-home/mock';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/main.tsx', code: `await import('@ap/menu-home/mock');`, rule: 'ap/restricted-import-source' },
@@ -308,30 +308,30 @@ const rows: Row[] = [
 
   // --- fix round 2 / P2: mock handler relative-import allowlist ---
   // A file under src/mock/** may relatively import only src/mock/** and this menu's src/endpoints.
-  { file: 'menus/home/src/mock/a.ts', code: `import { x } from '../api';`, rule: 'ap/no-menu-mock-import' },
-  { file: 'menus/home/src/mock/a.ts', code: `import { x } from '../index';`, rule: 'ap/no-menu-mock-import' },
-  { file: 'menus/home/src/mock/a.ts', code: `export { x } from '../api';`, rule: 'ap/no-menu-mock-import' },
-  { file: 'menus/home/src/mock/a.ts', code: `export * from '../index';`, rule: 'ap/no-menu-mock-import' },
-  { file: 'menus/home/src/mock/a.ts', code: `await import('../index');`, rule: 'ap/no-menu-mock-import' },
-  { file: 'menus/home/src/mock/a.ts', code: `require('../index');`, rule: 'ap/no-menu-mock-import' },
-  { file: 'menus/home/src/mock/a.ts', code: `type X = typeof import('../api');`, rule: 'ap/no-menu-mock-import' },
-  { file: 'menus/home/src/mock/a.ts', code: `import x = require('../api');`, rule: 'ap/no-menu-mock-import' },
-  { file: 'menus/home/src/mock/a.ts', code: `import { x } from '../../package.json';`, rule: 'ap/no-menu-mock-import' },
-  { file: 'menus/home/src/mock/a.ts', code: `import { x } from '../styles.css';`, rule: 'ap/no-menu-mock-import' },
-  { file: 'menus/home/src/mock/a.ts', code: `import { x } from './b';`, rule: '' },
-  { file: 'menus/home/src/mock/a.ts', code: `import { x } from '../endpoints';`, rule: '' },
+  { file: 'menus/_global/home/src/mock/a.ts', code: `import { x } from '../api';`, rule: 'ap/no-menu-mock-import' },
+  { file: 'menus/_global/home/src/mock/a.ts', code: `import { x } from '../index';`, rule: 'ap/no-menu-mock-import' },
+  { file: 'menus/_global/home/src/mock/a.ts', code: `export { x } from '../api';`, rule: 'ap/no-menu-mock-import' },
+  { file: 'menus/_global/home/src/mock/a.ts', code: `export * from '../index';`, rule: 'ap/no-menu-mock-import' },
+  { file: 'menus/_global/home/src/mock/a.ts', code: `await import('../index');`, rule: 'ap/no-menu-mock-import' },
+  { file: 'menus/_global/home/src/mock/a.ts', code: `require('../index');`, rule: 'ap/no-menu-mock-import' },
+  { file: 'menus/_global/home/src/mock/a.ts', code: `type X = typeof import('../api');`, rule: 'ap/no-menu-mock-import' },
+  { file: 'menus/_global/home/src/mock/a.ts', code: `import x = require('../api');`, rule: 'ap/no-menu-mock-import' },
+  { file: 'menus/_global/home/src/mock/a.ts', code: `import { x } from '../../package.json';`, rule: 'ap/no-menu-mock-import' },
+  { file: 'menus/_global/home/src/mock/a.ts', code: `import { x } from '../styles.css';`, rule: 'ap/no-menu-mock-import' },
+  { file: 'menus/_global/home/src/mock/a.ts', code: `import { x } from './b';`, rule: '' },
+  { file: 'menus/_global/home/src/mock/a.ts', code: `import { x } from '../endpoints';`, rule: '' },
   // #127 closed the temporary step-5 allowance: mock handlers no longer reach into pages.
-  { file: 'menus/home/src/mock/a.ts', code: `import { x } from '../pages/x';`, rule: 'ap/no-menu-mock-import' },
-  { file: 'menus/home/src/mock/deep/b.ts', code: `import { x } from '../../endpoints';`, rule: '' },
+  { file: 'menus/_global/home/src/mock/a.ts', code: `import { x } from '../pages/x';`, rule: 'ap/no-menu-mock-import' },
+  { file: 'menus/_global/home/src/mock/deep/b.ts', code: `import { x } from '../../endpoints';`, rule: '' },
 
   // --- generated menu-query scaffold is lint-clean as generated (#126) ---
   // The exact import surface gen-menu emits: endpoints.ts → contracts only;
   // src/mock/index.ts → mock-server + own ../endpoints; page → kernel/components + own
   // ../endpoints (never mock). The generator test pins the same set textually.
-  { file: 'menus/home/src/endpoints.ts', code: `import { defineEndpoint } from '@ap/contracts';`, rule: '' },
-  { file: 'menus/home/src/endpoints.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
+  { file: 'menus/_global/home/src/endpoints.ts', code: `import { defineEndpoint } from '@ap/contracts';`, rule: '' },
+  { file: 'menus/_global/home/src/endpoints.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
   {
-    file: 'menus/home/src/mock/index.ts',
+    file: 'menus/_global/home/src/mock/index.ts',
     code: [
       `import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';`,
       `import { sampleEndpoint } from '../endpoints';`,
@@ -340,7 +340,7 @@ const rows: Row[] = [
     rule: '',
   },
   {
-    file: 'menus/home/src/pages/Sample.tsx',
+    file: 'menus/_global/home/src/pages/Sample.tsx',
     code: [
       `import { useI18n, useMenuQuery } from '@ap/kernel';`,
       `import { PlatformPage, QueryView } from '@ap/components';`,
@@ -349,7 +349,7 @@ const rows: Row[] = [
     ].join('\n'),
     rule: '',
   },
-  { file: 'menus/home/src/pages/Sample.tsx', code: `import { sampleMock } from '../mock';`, rule: 'ap/no-menu-mock-import' },
+  { file: 'menus/_global/home/src/pages/Sample.tsx', code: `import { sampleMock } from '../mock';`, rule: 'ap/no-menu-mock-import' },
 ];
 
 // FeedbackOps primitives are a source dependency of @ap/ui only (ADR-0011).

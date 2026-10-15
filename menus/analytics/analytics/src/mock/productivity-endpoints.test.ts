@@ -11,7 +11,7 @@ import {
  * Minimal inline MenuMeta mirroring the `productivity-overview` manifest in `src/index.ts`
  * (context, permission, requiresScope). Importing `../index` from `src/mock/**` is lint-banned,
  * so the test restates the registration-relevant fields the adapter validates against.
- * manifest(`menus/analytics/src/index.ts`)를 바꾸면 여기도 같이 바꾼다.
+ * manifest(`menus/analytics/analytics/src/index.ts`)를 바꾸면 여기도 같이 바꾼다.
  */
 const none: Record<ContextKey, Capability> = {
   time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
