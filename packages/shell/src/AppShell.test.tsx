@@ -323,8 +323,11 @@ it('opens the named slot and selected tab from URL focus/tab and clears focus on
     <AppShell><DetailPage /></AppShell>
   </PlatformProvider></I18nProvider>);
   expect(screen.getByRole('tab', { name: 'Audit' }).getAttribute('aria-selected')).toBe('true');
-  expect(screen.getByRole('button', { name: '상세 닫기' })).toBe(document.activeElement);
-  fireEvent.keyDown(screen.getByRole('button', { name: '상세 닫기' }), { key: 'Escape' });
+  const close = screen.getByRole('button', { name: '상세 닫기' });
+  // First load restores the panel and leaves focus where the browser put it (ADR-0032).
+  expect(close).not.toBe(document.activeElement);
+  close.focus();
+  fireEvent.keyDown(close, { key: 'Escape' });
   expect(new URLSearchParams(window.location.search).has('focus')).toBe(false);
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(screen.getByRole('main')).toBe(document.activeElement);

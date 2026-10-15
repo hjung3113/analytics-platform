@@ -1209,6 +1209,31 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     await evidence(page, testInfo, 'returned');
   });
 
+  test('복귀로 다시 열린 상세 패널은 제목 포커스를 빼앗지 않고, 첫 Escape가 패널을 닫는다 (#356, ADR-0032)', async ({ page }, testInfo) => {
+    await page.goto(`/equipment?v=1&scopeId=ICH&${PERIOD}`);
+    await expect(page.getByRole('table')).toBeVisible();
+    await page.getByRole('table').getByRole('button', { name: '보기' }).first().click();
+    await expect.poll(() => query(page).get('focus')).not.toBeNull();
+    await page.getByRole('link', { name: '전체 화면' }).click();
+    await expect(page).toHaveURL(/\/equipment\/[^?]+\?/);
+    await page.getByRole('link', { name: '← 설비 마스터' }).click();
+
+    const heading = page.getByRole('heading', { level: 1, name: '설비 마스터' });
+    const dialog = page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(heading).toBeFocused();
+    await expect(dialog.getByRole('button', { name: '상세 닫기' })).not.toBeFocused();
+    // The return click leaves the pointer on the title; Radix opens its tooltip after 700 ms.
+    await heading.hover();
+    await page.waitForTimeout(800);
+    for (let i = 0; i < 40 && (await dialog.locator(':focus').count()) === 0; i++) await page.keyboard.press('Tab');
+    await expect(dialog.locator(':focus')).toHaveCount(1);
+    await expect(page.getByRole('tooltip')).toHaveCount(0);
+    await evidence(page, testInfo, 'returned-panel-title-focus');
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+  });
+
   test('전체 화면 링크는 보던 탭을 목적지 tab으로 넘긴다 (06 §13)', async ({ page }, testInfo) => {
     await page.goto('/equipment?v=1&scopeId=ICH');
     await expect(page.getByRole('table')).toBeVisible();

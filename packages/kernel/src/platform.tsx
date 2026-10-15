@@ -655,6 +655,11 @@ export function usePlatform(): Platform {
   return value;
 }
 
+/** Provider value, or null where there is no provider. Always a hook call — never try/catch. */
+export function usePlatformOptional(): Platform | null {
+  return useContext(PlatformContext);
+}
+
 /** Anchor that navigates through the kernel (keeps modifier-click/open-in-new-tab behavior). */
 export function PlatformLink({ href, children, className, onNavigate, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string; onNavigate?: () => void }) {
   const { navigate, location, pathname } = usePlatform();

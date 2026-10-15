@@ -2,7 +2,7 @@ import { OutcomeBanners, OutcomeScope } from './OutcomeScope';
 import { X } from 'lucide-react';
 import { Fragment, useId, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { useI18n } from '@ap/kernel';
+import { useI18n, usePlatformOptional } from '@ap/kernel';
 import { Tabs, TabsContent, TabsList, TabsTrigger, useDetailPanelSlot } from '@ap/ui';
 
 /** §13: URL-controlled detail content rendered into the shell-owned docked slot. */
@@ -23,17 +23,22 @@ function DetailContent({ title, subtitle, headerActions, context, tabs, onClose,
   // clear this; only a real move to an outside element or an outside pointerdown does (06 §13, §26).
   const focusInside = useRef(false);
   const id = useId();
+  const pageNavigation = usePlatformOptional()?.pageNavigation;
   useLayoutEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
-    close.current?.focus({ preventScroll: true });
+    // Arrival with focus= leaves the title focused (§26). Same-screen open still moves here.
+    // No provider means a locally mounted drawer, which still claims the close button.
+    const claim = pageNavigation?.claimsDetailFocus() ?? true;
+    if (claim) close.current?.focus({ preventScroll: true });
     return () => {
-      // Do not steal focus from a user who has already returned to the list.
-      if (panel.current?.contains(document.activeElement) || document.activeElement === document.body) {
-        const target = opener?.isConnected && opener !== document.body ? opener : document.getElementById('platform-main');
-        target?.focus({ preventScroll: true });
-      }
+      const inside = panel.current?.contains(document.activeElement) ?? false;
+      // A panel that never took focus must not treat the untouched body as its own.
+      const restore = claim ? inside || document.activeElement === document.body : inside || (document.activeElement === document.body && focusInside.current);
+      if (!restore) return;
+      const target = opener?.isConnected && opener !== document.body ? opener : document.getElementById('platform-main');
+      target?.focus({ preventScroll: true });
     };
-  }, []);
+  }, [pageNavigation]);
   useLayoutEffect(() => {
     // A pointerdown outside the panel is the user choosing a focus destination (often body).
     const onPointerDown = (e: PointerEvent) => { if (!panel.current?.contains(e.target as Node)) focusInside.current = false; };
