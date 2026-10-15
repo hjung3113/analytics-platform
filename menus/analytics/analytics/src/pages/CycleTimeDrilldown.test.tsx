@@ -69,7 +69,7 @@ describe('CycleTimeDrilldown page filter summary', () => {
     const expand = screen.getByRole('button', { name: '페이지 필터 펼치기' });
     // 9h period → hour grain; the summary repeats the edit fields, and the invalid tail shows the raw value.
     expect(expand.textContent).toContain('집계 시간');
-    expect(expand.textContent).toContain('느린 실행 기준 알 수 없는 값: zzz');
+    expect(expand.textContent).toContain('느린 실행 기준 이 화면에서 쓸 수 없는 값: zzz');
     expect(expand.textContent).not.toContain('≥ P95');
     expect(expand.textContent).toContain('정렬 사이클타임 내림차순');
   });
@@ -86,5 +86,34 @@ describe('CycleTimeDrilldown page filter summary', () => {
     expect(screen.getByRole('button', { name: '페이지 필터 펼치기' })).toBeTruthy();
     const live = screen.getByTestId('page-filter-bar').querySelector('[aria-live="polite"]');
     expect(live!.textContent).toContain('느린 실행 기준 ≥ P95');
+  });
+});
+
+// #304 FIX1: the invalid-page-key alert names each field's user name and the raw value as entered,
+// one sentence per field — never `key=value`.
+describe('CycleTimeDrilldown invalid page key warnings (#304 FIX1)', () => {
+  afterEach(cleanup);
+
+  it('percentile=zzz names the 느린 실행 기준 field and the raw value, without key=value', async () => {
+    renderPage('/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00&percentile=zzz');
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('느린 실행 기준');
+    expect(alert.textContent).toContain('zzz');
+    expect(alert.textContent).not.toContain('percentile=');
+    expect(alert.textContent).toContain('되돌리세요');
+  });
+
+  it('each invalid field keeps its own name and raw value', async () => {
+    renderPage('/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00&granularity=zzz&bin=bogus&page=0');
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('집계');
+    expect(alert.textContent).toContain('zzz');
+    expect(alert.textContent).toContain('분포 구간');
+    expect(alert.textContent).toContain('bogus');
+    expect(alert.textContent).toContain('페이지');
+    expect(alert.textContent).toContain('“0”');
+    expect(alert.textContent).not.toContain('granularity=');
+    expect(alert.textContent).not.toContain('bin=');
+    expect(alert.textContent).not.toContain('page=');
   });
 });

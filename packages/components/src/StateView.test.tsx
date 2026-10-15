@@ -1,10 +1,16 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, type QueryState } from '@ap/kernel';
 import type { ApiResponse } from '@ap/contracts';
 import { QueryView } from './StateView';
 
 afterEach(cleanup);
+
+function textWithoutDetail(node: HTMLElement) {
+  const clone = node.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll('[role="note"]').forEach(note => note.remove());
+  return clone.textContent ?? '';
+}
 
 const errorResponse = (): ApiResponse<unknown> =>
   ({ outcome: 'error', message: 'boom', data: null, assessments: [], trust: null, correlationId: 'c1' });
@@ -21,7 +27,26 @@ describe('non-grouped compact state names its widget (UXA-3)', () => {
     expect(screen.getByRole('group', { name: '지표 쌍 검증' })).toBeInTheDocument();
     expect(screen.getByText('지표 쌍 검증')).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent('데이터를 불러오지 못했습니다');
-    expect(screen.getByRole('alert')).toHaveTextContent('boom');
+    const alert = screen.getByRole('alert');
+    expect(within(alert).getByRole('note', { name: '서버 세부' })).toHaveTextContent('boom');
+    expect(textWithoutDetail(alert)).not.toContain('boom');
+  });
+
+  it.each([
+    ['error', 'time_domain_unverified: ICH-PHOTO-0103, ICH-PHOTO-0105', 'alert', ['함께 집계할 수 없습니다', '설비를 좁히거나 기간을 줄이세요'], true],
+    ['forbidden', 'no grant', 'status', ['권한 담당자에게 요청하세요'], false],
+    ['too_large', 'row cap', 'status', ['설비 선택을 좁히세요'], false],
+    ['timeout', 'Upstream mart query failed', 'alert', ['조회가 제한 시간 안에 끝나지 않았습니다', '기간을 줄이거나 집계 단위를 키워 다시 시도하세요'], true],
+  ] as const)('standalone %s keeps the server message in the named detail', (outcome, message, role, phrases, retry) => {
+    const response: ApiResponse<unknown> = { outcome, message, data: null, assessments: [], trust: null, correlationId: 'c-stand' };
+    const q: QueryState<unknown> = { response, refetch: vi.fn(), status: 'done' };
+    render(<I18nProvider><QueryView query={q}>{() => null}</QueryView></I18nProvider>);
+    const region = screen.getByRole(role);
+    for (const phrase of phrases) expect(textWithoutDetail(region)).toContain(phrase);
+    expect(textWithoutDetail(region)).not.toContain(message);
+    expect(within(region).getByRole('note', { name: '서버 세부' })).toHaveTextContent(message);
+    expect(region).toHaveTextContent('c-stand');
+    if (retry) expect(within(region).getByRole('button', { name: '다시 시도' })).toBeTruthy();
   });
 
   it('hideWidgetName keeps the name out', () => {

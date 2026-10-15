@@ -196,7 +196,10 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
     await expect.poll(() => query(page).has('page')).toBe(false);
 
     await page.goto('/metrics?v=1&scopeId=ICH&domain=bogus');
-    await expect(page.getByRole('alert')).toContainText('domain=bogus');
+    // #304 FIX1: the alert keeps the field's user name and the raw value as entered — never `key=value`.
+    await expect(page.getByRole('alert')).toContainText('도메인');
+    await expect(page.getByRole('alert')).toContainText('bogus');
+    await expect(page.getByRole('alert')).not.toContainText('domain=');
     await expect(page.getByRole('combobox', { name: '도메인' })).toHaveText('bogus');
 
     await page.goto('/metrics?v=1&scopeId=ICH&q=yield&status=draft&domain=quality&page=2');
@@ -218,7 +221,10 @@ test.describe('PageFilterBar 접힘 요약 (ADR-0029)', () => {
     const bar = page.getByTestId('page-filter-bar');
     await expect(bar).toBeVisible();
     // 등록되지 않은 percentile은 페이지 키 오류이지만 필터 바는 원문을 요약에 그대로 남긴다.
-    await expect(page.getByRole('alert')).toContainText(`percentile=${longRaw}`);
+    // #304 FIX1: the alert keeps the field's user name and the full raw value — untruncation is ADR-0029's point.
+    await expect(page.getByRole('alert')).toContainText('느린 실행');
+    await expect(page.getByRole('alert')).toContainText(longRaw);
+    await expect(page.getByRole('alert')).not.toContainText('percentile=');
 
     // 1024×900 기본값은 사이드바가 접힌다(AppShell innerWidth < 1440). 접근 가능한 토글로 펼친 것을 확인한 뒤 필터를 접는다.
     const sidebarExpand = page.getByRole('button', { name: '사이드바 펼치기' });
@@ -335,8 +341,8 @@ test.describe('PageFilterBar 접힘 요약 (ADR-0029)', () => {
     }
     // 긴 원문 값 자체도 요약 폭 안에서 감긴다(그 값 텍스트 노드의 시각 줄 2개 이상).
     expect(m.valueLines).toBeGreaterThanOrEqual(2);
-    // (f) 긴 원문 전체가 라벨과 함께 요약 텍스트에 있다.
-    expect(m.summaryText).toContain(`느린 실행 기준 알 수 없는 값: ${longRaw}`);
+    // (f) 긴 원문 전체가 라벨과 함께 요약 텍스트에 있다. (원문 보존 문구는 #304에서 '이 화면에서 쓸 수 없는 값'으로 바뀌었다.)
+    expect(m.summaryText).toContain(`느린 실행 기준 이 화면에서 쓸 수 없는 값: ${longRaw}`);
 
     // 키보드: 요약 버튼에서 Enter → 펼쳐지고 포커스는 접기 토글로 이동한다.
     await expand.press('Enter');
@@ -447,8 +453,8 @@ test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
     const overflow = page.getByRole('dialog', { name: '추가 Context 조건' });
     await expect(overflow.getByRole('button', { name: /설비 선택/ })).toBeVisible();
     await overflow.getByRole('button', { name: /설비 선택/ }).click();
-    await expect(page.getByRole('radio', { name: '명시적 빈 집합' })).toBeVisible();
-    await page.getByRole('radio', { name: '명시적 빈 집합' }).click();
+    await expect(page.getByRole('radio', { name: '빈 선택' })).toBeVisible();
+    await page.getByRole('radio', { name: '빈 선택' }).click();
     await page.getByRole('button', { name: '적용', exact: true }).click();
     await expect.poll(() => query(page).get('equipmentSelection')).toBe('none');
     await expect(bar.getByRole('button', { name: /개 적용 중$/ })).toBeVisible();
@@ -466,12 +472,12 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
     const bar = contextBar(page);
     await expect(bar.getByRole('button', { name: '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00' })).toBeVisible();
     await expect(bar.getByRole('button', { name: 'room_name PHOTO' })).toBeVisible();
-    await expect(page.getByRole('radiogroup', { name: '집계 단위 (페이지 소유)' }).getByRole('radio', { name: '일' })).toBeChecked();
+    await expect(page.getByRole('radiogroup', { name: '집계 단위' }).getByRole('radio', { name: '일' })).toBeChecked();
     expect(query(page).toString()).toBe(new URL(url, 'http://x').searchParams.toString());
     await evidence(page, testInfo, 'restored');
 
     await page.reload();
-    await expect(page.getByRole('radiogroup', { name: '집계 단위 (페이지 소유)' }).getByRole('radio', { name: '일' })).toBeChecked();
+    await expect(page.getByRole('radiogroup', { name: '집계 단위' }).getByRole('radio', { name: '일' })).toBeChecked();
     await expect(contextBar(page).getByRole('button', { name: 'room_name PHOTO' })).toBeVisible();
   });
 
@@ -770,7 +776,9 @@ test.describe('권한 — 메뉴 비노출·직접 URL 거부 (06 §6.2, §17)',
     await signInAs(page, 'viewer');
     await page.goto('/equipment?v=1&scopeId=ICH');
     await expect(page.getByRole('status').filter({ hasText: '이 메뉴에 대한 권한이 없습니다' })).toBeVisible();
-    await expect(page.getByText('permission=equipment:view')).toBeVisible();
+    await expect(page.getByText('permission=equipment:view')).toHaveCount(0);
+    await expect(page.getByText('설비 마스터')).toBeVisible();
+    await expect(page.getByText('권한 담당자에게 요청하세요')).toBeVisible();
     await expect(page.getByRole('table')).toHaveCount(0);
     await evidence(page, testInfo, 'viewer-direct-url');
   });
@@ -838,9 +846,9 @@ test.describe('워크스페이스 (06 §9.1)', () => {
       await signInAs(page, role);
       await page.goto(ADMIN_URL);
       await expect(page.getByRole('status').filter({ hasText: '이 공간에 들어갈 수 없습니다' })).toBeVisible();
-      // 본문은 공간 이름을 드러내지 않는다(진입 권한 없는 공간은 레일에도 없다).
-      await expect(page.getByText('이 공간에는 진입 권한이 없습니다. 권한이 필요하면 관리자에게 문의하세요.')).toBeVisible();
-      await expect(page.getByRole('main')).not.toContainText('운영 콘솔');
+      // 본문은 Registry 공간 라벨과 요청 문장이다. 레일에는 이 공간이 없다.
+      await expect(page.getByRole('main')).toContainText('운영 콘솔');
+      await expect(page.getByRole('main')).toContainText('권한 담당자에게 요청하세요');
       await expect(page.getByRole('heading', { name: '권한/역할 관리' })).toHaveCount(0);
       // Denial never rewrites the address: pathname and the four global keys stay exactly as entered.
       expect(new URL(page.url()).pathname).toBe('/admin/roles');
@@ -1363,8 +1371,8 @@ test.describe('메뉴 활용률 (06 §4, docs/05 — kernel이 recordUsage로 �
     await page.goto(DIRECT_URL);
     const main = page.getByRole('main');
     await expect(main).toContainText('이 공간에 들어갈 수 없습니다');
-    await expect(main).toContainText('이 공간에는 진입 권한이 없습니다. 권한이 필요하면 관리자에게 문의하세요.');
-    await expect(main).not.toContainText('운영 콘솔');
+    await expect(main).toContainText('운영 콘솔');
+    await expect(main).toContainText('권한 담당자에게 요청하세요');
     // The client gate refuses without redirecting: the URL the user typed stays exact.
     expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(DIRECT_URL);
     await evidence(page, testInfo, 'usage-engineer-space-denied');
@@ -1380,8 +1388,8 @@ test.describe('메뉴 활용률 (06 §4, docs/05 — kernel이 recordUsage로 �
     await page.goto(DIRECT_URL);
     const main = page.getByRole('main');
     await expect(main).toContainText('이 공간에 들어갈 수 없습니다');
-    await expect(main).toContainText('이 공간에는 진입 권한이 없습니다. 권한이 필요하면 관리자에게 문의하세요.');
-    await expect(main).not.toContainText('운영 콘솔');
+    await expect(main).toContainText('운영 콘솔');
+    await expect(main).toContainText('권한 담당자에게 요청하세요');
     expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(DIRECT_URL);
     await evidence(page, testInfo, 'usage-viewer-space-denied');
   });
@@ -1460,8 +1468,8 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
     await page.goto(DIRECT_FOCUS_URL);
     const main = page.getByRole('main');
     await expect(main).toContainText('이 공간에 들어갈 수 없습니다');
-    await expect(main).toContainText('이 공간에는 진입 권한이 없습니다. 권한이 필요하면 관리자에게 문의하세요.');
-    await expect(main).not.toContainText('운영 콘솔');
+    await expect(main).toContainText('운영 콘솔');
+    await expect(main).toContainText('권한 담당자에게 요청하세요');
     // The space gate replaces the page: no registry table and no declaration drawer/dialog content.
     await expect(main.getByRole('table')).toHaveCount(0);
     await expect(main.getByText('requiresScope')).toHaveCount(0);
@@ -1495,8 +1503,8 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
     await page.goto(DIRECT_FOCUS_URL);
     const main = page.getByRole('main');
     await expect(main).toContainText('이 공간에 들어갈 수 없습니다');
-    await expect(main).toContainText('이 공간에는 진입 권한이 없습니다. 권한이 필요하면 관리자에게 문의하세요.');
-    await expect(main).not.toContainText('운영 콘솔');
+    await expect(main).toContainText('운영 콘솔');
+    await expect(main).toContainText('권한 담당자에게 요청하세요');
     await expect(main.getByRole('table')).toHaveCount(0);
     await expect(main.getByText('requiresScope')).toHaveCount(0);
     await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -1548,8 +1556,8 @@ test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-
     await page.goto(directUrl);
     const main = page.getByRole('main');
     await expect(main).toContainText('이 공간에 들어갈 수 없습니다');
-    await expect(main).toContainText('이 공간에는 진입 권한이 없습니다. 권한이 필요하면 관리자에게 문의하세요.');
-    await expect(main).not.toContainText('운영 콘솔');
+    await expect(main).toContainText('운영 콘솔');
+    await expect(main).toContainText('권한 담당자에게 요청하세요');
     await expect(main.getByRole('table')).toHaveCount(0);
     await expect(page.getByRole('dialog')).toHaveCount(0);
     expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(directUrl);

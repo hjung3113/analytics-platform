@@ -919,6 +919,8 @@ Unknown
 - 성공한 조회가 0건이라는 사실만 확인되면 `No matching result`를 표시한다. 원인/가용성 상태를 확인할 수 없으면 `Unknown`으로 표시한다. **0건 ≠ 수집 중단·미수집·파서 지연**이다. 권한 제한 역시 서버가 확인한 경우에만 그 사유를 표시한다.
 - 상태 원천이 아직 없거나 원천 조회에 실패했다면 원인을 단정하지 않는다. taxonomy의 존재가 해당 상태 판정 기능의 구현을 뜻하지 않는다.
 
+**사용자 문구 (Decided, 사용자 2026-10-15, #304, [ADR-0034](adr/0034-user-facing-copy-no-contract-vocabulary.md)):** 사용자에게 보이는 문구에는 계약 상태어(Candidate·Open·Deferred), 상태 enum 원문(`unknown`·`source_unavailable`·`clear`·`unsupported`·`apply`), 수식 표기(`[from, to)`, 초 정렬), 계약 문장(세션값을 자동 적용하지 않는다, 다른 Scope로 조용히 대체하지 않는다)을 쓰지 않는다. 이미 있는 번역 라벨(참조만, 이 화면에서 미사용)을 쓴다. 서버 `message`는 본문에 넣지 않고 Correlation ID 옆 세부(접근 가능한 이름)로만 보인다. 본문은 계약 오류 코드별 원인과 행동이며, 매핑되지 않는 코드는 일반 오류 문구다. 이 문단은 문구 원칙이고 §19 상태 분류와 `outcome` 분기는 바꾸지 않는다.
+
 ### 공유 위젯 응답 (Decided, 사용자 2026-10-04, #55 B안)
 
 - 페이지에서 `outcome ∈ {error, timeout, empty}`·`message`·확정된 empty 설명(`explainsEmpty && state === confirmed`)의 근거 전체가 같은 위젯이 두 개 이상이면 한 그룹으로 묶는다. 평가 순서는 무관하며 원천·관측시각·설명이 다르면 묶지 않는다. `forbidden`, `too_large`, `ok`, 알 수 없는 상태는 묶지 않는다. 같은 응답에서 수집·상위 시스템 원인을 추론하지 않는다.

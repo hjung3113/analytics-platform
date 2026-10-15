@@ -11,6 +11,12 @@ import { noContext, testAdapter, testSpace } from './test-setup';
 vi.mock('./reload', () => ({ reloadApp: vi.fn() }));
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
+
+/** Innermost element whose text contains `needle` (sibling text nodes, not one element). */
+function hasTextWithoutChild(node: Element | null, needle: string) {
+  if (!node?.textContent?.includes(needle)) return false;
+  return Array.from(node.children).every(child => !child.textContent?.includes(needle));
+}
 const menu = (id: string, path: string, over: object = {}) => ({
   id, group: 'equipment' as const, label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
   requiresScope: false, context: noContext, pageType: 'analysis' as const, features: noFeatures, pageKeys: [], ...over,
@@ -190,7 +196,11 @@ describe('global utility routes and the null-sidebar home link (06 §9.1)', () =
   it('still denies a global menu the user has no permission for', async () => {
     mountGlobal('/secret', true);
     expect(await screen.findByText('이 메뉴에 대한 권한이 없습니다')).toBeTruthy();
-    expect(screen.getByText(/permission=voc:view/)).toBeTruthy();
+    expect(screen.queryByText(/permission=/)).toBeNull();
+    expect(screen.getByText(/secret/)).toBeTruthy();
+    // Label and sentence are sibling text nodes inside one body, so no element’s text is the sentence alone.
+    expect(screen.getByText((_, node) => hasTextWithoutChild(node, '권한 담당자에게 요청하세요.'))).toBeTruthy();
+    expect(screen.getByRole('link', { name: '홈' })).toBeTruthy();
     expect(screen.queryByText('이 공간에 들어갈 수 없습니다')).toBeNull();
   });
 
@@ -273,6 +283,9 @@ describe('global query admission under RouteOutlet (06 §9.1)', () => {
   it('does not query a space menu when space entry is denied', async () => {
     const menuQuery = mountQuery('/admin/child');
     expect(await screen.findByText('이 공간에 들어갈 수 없습니다')).toBeTruthy();
+    expect(screen.getByText(/운영 콘솔/)).toBeTruthy();
+    expect(screen.getByText((_, node) => hasTextWithoutChild(node, '권한 담당자에게 요청하세요.'))).toBeTruthy();
+    expect(screen.queryByText(/space=/)).toBeNull();
     await settled();
     expect(menuQuery).not.toHaveBeenCalled();
     expect(screen.queryByText('space page')).toBeNull();
@@ -285,6 +298,30 @@ describe('global query admission under RouteOutlet (06 §9.1)', () => {
     expect(menuQuery).not.toHaveBeenCalled();
     expect(screen.queryByText('secret page')).toBeNull();
     expect(screen.queryByText('이 공간에 들어갈 수 없습니다')).toBeNull();
+  });
+});
+
+describe('planned menu without a context bar (#304)', () => {
+  it('does not mention the context bar or show id, path, or permission', async () => {
+    const planned = createRegistry({
+      spaces: [testSpace({ id: 'analytics', homeMenuId: 'planned' })],
+      groups: [{ id: 'equipment', label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: 'analytics' }],
+      menus: [menu('planned', '/planned', { primary: true, label: { ko: '예정 메뉴', en: 'Planned menu' } })],
+    });
+    const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view'] }, scopes: [] };
+    const { adapter } = fixture(async () => ({ accepted: true }));
+    adapter.session = () => session;
+    window.history.replaceState(null, '', '/planned?v=1');
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={planned}><RouteOutlet /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('레지스트리에 선언된 메뉴 (화면 미구현)')).toBeTruthy();
+    expect(screen.queryByText(/Context Bar/)).toBeNull();
+    expect(screen.queryByText('path')).toBeNull();
+    expect(screen.queryByText('permission')).toBeNull();
+    expect(screen.queryByText('requiresScope')).toBeNull();
+    expect(screen.queryByText('/planned')).toBeNull();
+    expect(screen.queryByText('unsupported')).toBeNull();
+    expect(screen.queryByText('apply')).toBeNull();
+    expect(screen.getAllByText('이 화면에서 미사용').length).toBeGreaterThan(0);
   });
 });
 

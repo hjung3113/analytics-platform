@@ -2,38 +2,46 @@ import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { useSharedOutcome } from './OutcomeScope';
 import { Ban, Clock, HelpCircle, Inbox, Loader2, Maximize2, RotateCw, ServerCrash } from 'lucide-react';
 import { useContext, useId, type ReactNode } from 'react';
-import { type QueryState, useI18n } from '@ap/kernel';
+import { errorGuidance, type QueryState, useI18n } from '@ap/kernel';
 import type { ApiResponse } from '@ap/contracts';
 import { Button, cn, Skeleton } from '@ap/ui';
 
 type WidgetStateProps = { grouped?: boolean; widgetName?: string; hideWidgetName?: boolean };
 
-type StateProps = { icon: ReactNode; title: string; body?: ReactNode; action?: ReactNode; tone?: 'neutral' | 'danger' | 'warning'; correlationId?: string; compact?: boolean };
+type StateProps = { icon: ReactNode; title: string; body?: ReactNode; action?: ReactNode; tone?: 'neutral' | 'danger' | 'warning'; correlationId?: string; compact?: boolean; detail?: string };
 
-export function StateMessage({ icon, title, body, action, tone = 'neutral', correlationId, compact }: StateProps) {
+function ServerDetail({ detail }: { detail?: string }) {
+  const { t } = useI18n();
+  if (!detail) return null;
+  return <span className="max-w-full break-all text-tiny" role="note" aria-label={t('serverDetail')}>{detail}</span>;
+}
+
+export function StateMessage({ icon, title, body, action, tone = 'neutral', correlationId, compact, detail }: StateProps) {
   const { t } = useI18n();
   return <div role={tone === 'danger' ? 'alert' : 'status'} className={cn('flex flex-col items-start gap-2 rounded-md p-4',
     tone === 'danger' ? 'bg-accent-danger-soft text-text-danger-label' : tone === 'warning' ? 'bg-accent-warn-soft text-text-warning-label' : 'bg-surface-sunken text-text-secondary',
     compact ? 'p-3' : 'min-h-24')}>
     <div className="flex items-center gap-2 font-semibold text-sm"><span className={cn(tone === 'danger' ? 'text-text-danger' : tone === 'warning' && 'text-text-warning')}>{icon}</span>{title}</div>
     {body && <div className="max-w-prose text-xs leading-4">{body}</div>}
-    {(action || correlationId) && <div className="flex flex-wrap items-center gap-3">
+    {(action || correlationId || detail) && <div className="flex flex-wrap items-center gap-3">
       {action}
       {correlationId && <span className="t-mono text-tiny">{t('correlationId')}: {correlationId}</span>}
+      <ServerDetail detail={detail} />
     </div>}
   </div>;
 }
 
-function GroupedStateMessage({ icon, title, body, action, tone = 'neutral', correlationId, widgetName, hideWidgetName }: StateProps & WidgetStateProps) {
+function GroupedStateMessage({ icon, title, body, action, tone = 'neutral', correlationId, detail, widgetName, hideWidgetName }: StateProps & WidgetStateProps) {
   const { t } = useI18n();
   const nameId = useId();
   return <div data-widget-state role="group" aria-labelledby={widgetName && !hideWidgetName ? nameId : undefined} aria-label={hideWidgetName ? widgetName : undefined} className="min-w-0 rounded-md bg-surface-sunken p-3 text-text-secondary">
     {widgetName && !hideWidgetName && <p id={nameId} className="mb-1.5 text-sm font-semibold">{widgetName}</p>}
     <div className={cn('flex items-center gap-2 text-xs font-semibold', tone === 'danger' && 'text-text-danger-label', tone === 'warning' && 'text-text-warning-label')}><span className="shrink-0">{icon}</span>{title}</div>
     {body && <div className="mt-1.5 break-words text-xs leading-4">{body}</div>}
-    {(action || correlationId) && <div className="mt-2 flex flex-wrap items-center gap-3">
+    {(action || correlationId || detail) && <div className="mt-2 flex flex-wrap items-center gap-3">
       {action}
       {correlationId && <span className="t-mono break-all text-tiny">{t('correlationId')}: {correlationId}</span>}
+      <ServerDetail detail={detail} />
     </div>}
   </div>;
 }
@@ -65,23 +73,27 @@ function OutcomeContent<T>({ response, onRetry, emptyAction, compact, grouped, w
   const { t } = useI18n();
   const icon = 'size-4';
   const widget = { grouped, widgetName, hideWidgetName };
+  const detail = response.message || undefined;
   switch (response.outcome) {
     case 'ok': return <>{children(response.data as T)}</>;
     case 'empty': {
       const explained = response.assessments.filter(a => a.explainsEmpty && a.state === 'confirmed');
       return <OutcomeStateMessage {...widget} compact={compact} icon={<Inbox className={icon} aria-hidden />} title={t('stateEmpty')}
-        body={<>{grouped && response.message && <span className="mb-1 block">{response.message}</span>}{explained.length ? explained.map(a => a.detail).join(' · ') : t('stateEmptyBody')}</>} action={grouped ? <><Button size="sm" variant="secondary" onClick={onRetry}><RotateCw aria-hidden className="size-3.5" />{t('retry')}</Button>{emptyAction}</> : emptyAction} correlationId={grouped ? response.correlationId : undefined} />;
+        body={explained.length ? explained.map(a => a.detail).join(' · ') : t('stateEmptyBody')} action={grouped ? <><Button size="sm" variant="secondary" onClick={onRetry}><RotateCw aria-hidden className="size-3.5" />{t('retry')}</Button>{emptyAction}</> : emptyAction} correlationId={grouped ? response.correlationId : undefined} detail={grouped ? detail : undefined} />;
     }
     case 'forbidden': return <OutcomeStateMessage {...widget} compact={compact} tone="warning" icon={<Ban className={icon} aria-hidden />} title={t('stateForbidden')}
-      body={<>{t('stateForbiddenBody')}{response.message && <span className="t-mono mt-1 block">{response.message}</span>}</>} correlationId={response.correlationId} />;
+      body={t('stateForbiddenBody')} detail={detail} correlationId={response.correlationId} />;
     case 'too_large': return <OutcomeStateMessage {...widget} compact={compact} tone="warning" icon={<Maximize2 className={icon} aria-hidden />} title={t('stateTooLarge')}
-      body={<>{t('stateTooLargeBody')}{response.message && <span className="t-mono mt-1 block">{response.message}</span>}</>} correlationId={response.correlationId} />;
+      body={t('stateTooLargeBody')} detail={detail} correlationId={response.correlationId} />;
     case 'timeout': return <OutcomeStateMessage {...widget} compact={compact} tone="danger" icon={<Clock className={icon} aria-hidden />} title={t('stateTimeout')}
-      body={<>{grouped && response.message && <span className="mb-1 block">{response.message}</span>}{t('stateTimeoutBody')}</>}
+      body={t('stateTimeoutBody')} detail={detail}
       action={<Button size="sm" variant="secondary" onClick={onRetry}><RotateCw className="size-3.5" />{t('retry')}</Button>} correlationId={response.correlationId} />;
-    case 'error': return <OutcomeStateMessage {...widget} compact={compact} tone="danger" icon={<ServerCrash className={icon} aria-hidden />} title={t('stateError')}
-      body={response.message} action={<Button size="sm" variant="secondary" onClick={onRetry}><RotateCw className="size-3.5" />{t('retry')}</Button>} correlationId={response.correlationId} />;
-    default: return <OutcomeStateMessage {...widget} compact={compact} icon={<HelpCircle className={icon} aria-hidden />} title={t('stateUnknown')} body={t('stateUnknownBody')} />;
+    case 'error': {
+      const guide = errorGuidance(response.message);
+      return <OutcomeStateMessage {...widget} compact={compact} tone="danger" icon={<ServerCrash className={icon} aria-hidden />} title={t('stateError')}
+        body={<>{t(guide.cause)} {t(guide.action)}</>} detail={detail} action={<Button size="sm" variant="secondary" onClick={onRetry}><RotateCw className="size-3.5" />{t('retry')}</Button>} correlationId={response.correlationId} />;
+    }
+    default: return <OutcomeStateMessage {...widget} compact={compact} icon={<HelpCircle className={icon} aria-hidden />} title={t('stateUnknown')} body={t('stateUnknownBody')} detail={detail} correlationId={detail ? response.correlationId : undefined} />;
   }
 }
 

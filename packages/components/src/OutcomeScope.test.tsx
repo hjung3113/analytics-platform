@@ -15,6 +15,11 @@ const query = (r = response(), retry = vi.fn()): QueryState<unknown> => ({ respo
 const Widget = ({ q, name = 'Widget A', hide = false }: { q: QueryState<unknown>; name?: string; hide?: boolean }) =>
   <QueryView query={q} widgetName={name} hideWidgetName={hide}>{() => <p>Success</p>}</QueryView>;
 const Page = ({ children }: { children: ReactNode }) => <I18nProvider><div data-outcome-focus-target role="region" aria-label="Page content" tabIndex={-1}><OutcomeScope><OutcomeBanners />{children}</OutcomeScope></div></I18nProvider>;
+function textWithoutDetail(node: HTMLElement) {
+  const clone = node.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll('[role="note"]').forEach(note => note.remove());
+  return clone.textContent ?? '';
+}
 afterEach(cleanup);
 
 describe('shared outcome contract #55', () => {
@@ -28,7 +33,8 @@ describe('shared outcome contract #55', () => {
     for (const name of ['Widget A', 'Widget B']) {
       const state = screen.getByRole('group', { name });
       expect(state).toHaveTextContent(name);
-      expect(state).toHaveTextContent('Same response');
+      expect(within(state).getByRole('note', { name: '서버 세부' })).toHaveTextContent('Same response');
+      expect(textWithoutDetail(state)).not.toContain('Same response');
       expect(state).toHaveTextContent('corr-widget');
       expect(within(state).queryByRole('alert')).toBeNull();
     }
@@ -78,7 +84,8 @@ describe('shared outcome contract #55', () => {
     render(<Page><h2>Widget A</h2><Widget q={query(response('timeout'))} hide /><Widget q={query(response('timeout'))} name="Widget B" /></Page>);
     expect(screen.getAllByText('Widget A')).toHaveLength(1);
     expect(screen.getByRole('group', { name: 'Widget A' })).toHaveTextContent('기간을 줄이거나 집계 단위를 키워 다시 시도하세요.');
-    expect(screen.getByRole('group', { name: 'Widget A' })).toHaveTextContent('Same response');
+    expect(within(screen.getByRole('group', { name: 'Widget A' })).getByRole('note', { name: '서버 세부' })).toHaveTextContent('Same response');
+    expect(textWithoutDetail(screen.getByRole('group', { name: 'Widget A' }))).not.toContain('Same response');
     expect(screen.queryByRole('alert')).toBeNull();
   });
   it('orders every qualifying group largest first and updates on response changes', () => {
@@ -301,6 +308,42 @@ describe('Fix round 1 peer lookup', () => {
     const view = render(<Page><Widget q={a} /><Arrival q={{ ...b, response: null, status: 'loading' }} /></Page>);
     view.rerender(<Page><Widget q={a} /><Arrival q={b} /></Page>);
     expect(decisions[0]).toBe(true);
+  });
+});
+
+describe('server message is detail, not the body (#304)', () => {
+  it.each([
+    ['error', 'time_domain_unverified: ICH-PHOTO-0103, ICH-PHOTO-0105', ['함께 집계할 수 없습니다', '설비를 좁히거나 기간을 줄이세요']],
+    ['timeout', 'Upstream mart query failed', ['조회가 제한 시간 안에 끝나지 않았습니다', '기간을 줄이거나 집계 단위를 키워 다시 시도하세요']],
+    ['empty', 'same empty message', ['조건에 맞는 결과가 없습니다', '조회는 성공했고 결과가 0건입니다']],
+  ] as const)('groups two %s widgets and keeps the server message in each named detail', (outcome, message, phrases) => {
+    const q = () => query(response(outcome, message));
+    render(<Page><Widget q={q()} /><Widget q={q()} name="Widget B" /></Page>);
+    const summary = screen.getByRole('group', { name: '위젯 상태 요약' });
+    expect(summary).toBeTruthy();
+    expect(within(summary).queryByRole('alert')).toBeNull();
+    expect(within(summary).queryByRole('status')).toBeNull();
+    for (const name of ['Widget A', 'Widget B']) {
+      const state = screen.getByRole('group', { name });
+      expect(within(state).queryByRole('alert')).toBeNull();
+      expect(within(state).queryByRole('status')).toBeNull();
+      const body = textWithoutDetail(state);
+      for (const phrase of phrases) expect(body).toContain(phrase);
+      expect(body).not.toContain(message);
+      expect(within(state).getByRole('note', { name: '서버 세부' })).toHaveTextContent(message);
+      expect(state).toHaveTextContent('corr-widget');
+      expect(within(state).getByRole('button', { name: '다시 시도' })).toBeTruthy();
+    }
+  });
+
+  it('keeps a confirmed empty explanation in the body and the server message in the detail', () => {
+    const assessments: Assessment[] = [{ kind: 'collection', state: 'confirmed', explainsEmpty: true, detail: 'Confirmed explanation', statusSource: 'worker', observedAt: '2026-10-04' }];
+    const message = 'same empty message';
+    render(<Page><Widget q={query(response('empty', message, assessments))} /><Widget q={query(response('empty', message, assessments))} name="Widget B" /></Page>);
+    const state = screen.getByRole('group', { name: 'Widget A' });
+    expect(textWithoutDetail(state)).toContain('Confirmed explanation');
+    expect(textWithoutDetail(state)).not.toContain(message);
+    expect(within(state).getByRole('note', { name: '서버 세부' })).toHaveTextContent(message);
   });
 });
 

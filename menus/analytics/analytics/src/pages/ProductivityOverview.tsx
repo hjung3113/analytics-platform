@@ -57,11 +57,13 @@ export default function ProductivityOverview(_: PageProps) {
   const selectedKpi = kpiResult.ok ? kpiResult.value : 'throughput';
   const axis = axisResult.ok ? axisResult.value : 'room';
   const sort = sortResult.ok ? { key: sortResult.key, dir: sortResult.dir } : { key: 'key' as const, dir: 1 as const };
-  const errors = [
-    !kpiResult.ok ? `kpi=${rawKpi}` : null,
-    !axisResult.ok ? `axis=${rawAxis}` : null,
-    !sortResult.ok ? `sort=${rawSort}` : null,
-  ].filter((item): item is string => item !== null).join(', ');
+  // #304 FIX1 (06 §19): each invalid field keeps its user name and the raw value as entered (quoted,
+  // untruncated), one sentence per field — never `key=value`.
+  const pageRefusals = [
+    !kpiResult.ok ? (ko ? `지표 “${rawKpi}”는 이 화면에서 쓸 수 없습니다.` : `Metric “${rawKpi}” cannot be used on this page.`) : null,
+    !axisResult.ok ? (ko ? `축 “${rawAxis}”은 이 화면에서 쓸 수 없습니다.` : `Axis “${rawAxis}” cannot be used on this page.`) : null,
+    !sortResult.ok ? (ko ? `정렬 “${rawSort}”은 이 화면에서 쓸 수 없습니다.` : `Sort “${rawSort}” cannot be used on this page.`) : null,
+  ].filter((sentence): sentence is string => sentence !== null);
 
   // Page-owned URL key `granularity` (wireframe 11 §3.1). Unset → hour for ≤48h, else day (Candidate).
   const rawGran = pageParam('granularity');
@@ -91,7 +93,7 @@ export default function ProductivityOverview(_: PageProps) {
 
   /** Explicit-empty-selection escape hatch: outcome `empty` is valid, but the user can restore the unconstrained query in one action. */
   const clearEmptySelection = global.selection !== null && global.selection.length === 0
-    ? <Button size="sm" variant="secondary" onClick={() => setGlobal({ selection: null })}>{ko ? '명시적 빈 Selection 지우기' : 'Clear explicit empty selection'}</Button>
+    ? <Button size="sm" variant="secondary" onClick={() => setGlobal({ selection: null })}>{ko ? '빈 선택 지우기' : 'Clear empty selection'}</Button>
     : undefined;
 
   // --- KPI cards (the selected trend is a registered page URL key) ---
@@ -109,7 +111,7 @@ export default function ProductivityOverview(_: PageProps) {
         onClick={() => selectKpi(kpi)} active={active}
         value={o ? n1(o.pct) : '—'} unit="%"
         delta={o && po ? deltaOf(o.pct, po.pct, true, v => `${v.toFixed(1)}pp`) : undefined}
-        caption={o ? `${n1(o.num)}h / ${n1(o.den)}h · ${ver(METRIC_VERSIONS.occupancy)}` : (ko ? '분모 0 — 미확인 (0% 아님)' : 'denominator 0 — unknown, not 0%')}
+        caption={o ? `${n1(o.num)}h / ${n1(o.den)}h · ${ver(METRIC_VERSIONS.occupancy)}` : (ko ? '분모 0 — 미확인 (0% 아님)' : 'denominator 0 — not confirmed, not 0%')}
         footnote={o && <span className="mt-1 block h-1.5 w-full overflow-hidden rounded-pill bg-surface-sunken" role="img"
           aria-label={ko ? `점유 ${n1(o.num)}시간 / 관측 가능 ${n1(o.den)}시간 = ${n1(o.pct)}%` : `occupied ${n1(o.num)}h of ${n1(o.den)}h observable = ${n1(o.pct)}%`}>
           {/* eslint-disable-next-line shadcn/no-inline-styles -- bar width is the occupancy percentage computed at runtime */}
@@ -122,7 +124,7 @@ export default function ProductivityOverview(_: PageProps) {
         onClick={() => selectKpi(kpi)} active={active}
         value={d ? n2(d.perJobH) : '—'} unit={ko ? '시간 / Job' : 'h / Job'}
         delta={d && pd ? deltaOf(d.perJobH, pd.perJobH, false, v => `${v.toFixed(3)}h`) : undefined}
-        caption={d ? `${n1(d.hours)}h ÷ ${ni(d.jobs)} Job · ${ver(METRIC_VERSIONS.dwell)}` : (ko ? '완료 Job 없음 — 미확인' : 'no completed job — unknown')} />;
+        caption={d ? `${n1(d.hours)}h ÷ ${ni(d.jobs)} Job · ${ver(METRIC_VERSIONS.dwell)}` : (ko ? '완료 Job 없음 — 미확인' : 'no completed job — not confirmed')} />;
     }
     if (kpi === 'cycleTime') {
       const cy = c.cycle; const pc = p?.cycle ?? null;
@@ -185,7 +187,7 @@ export default function ProductivityOverview(_: PageProps) {
     };
   }
 
-  const coverageText = (c: number | null) => (c === null ? (ko ? '미확인' : 'unknown') : `${(c * 100).toFixed(1)}%`);
+  const coverageText = (c: number | null) => (c === null ? (ko ? '미확인' : 'Not confirmed') : `${(c * 100).toFixed(1)}%`);
   const trustLine = (updatedAt: string, coverage: number | null, source: string) => ({
     updated: updatedAt.replace('T', ' ').slice(5, 16), coverage: coverageText(coverage), source,
   });
@@ -220,8 +222,8 @@ export default function ProductivityOverview(_: PageProps) {
 
   return <PlatformPage
     description={ko
-      ? '물리 점유율 · 비Process 체류 · 사이클타임 P50/P95 · Job 처리량 요약. 정의는 Candidate, 수치는 합성 예시입니다.'
-      : 'Physical occupancy, non-process dwell, cycle time P50/P95 and job throughput. Definitions are Candidates; values are synthetic.'}
+      ? '물리 점유율 · 비Process 체류 · 사이클타임 P50/P95 · Job 처리량 요약. 수치는 합성 예시입니다.'
+      : 'Physical occupancy, non-process dwell, cycle time P50/P95 and job throughput. Values are synthetic.'}
     primaryAction={<Button size="sm" asChild>
       <PlatformLink href={linkTo('cycle-time')}>{ko ? '사이클타임 상세 보기' : 'Cycle time detail'}<ArrowRight className="size-3.5" aria-hidden /></PlatformLink>
     </Button>}
@@ -232,33 +234,32 @@ export default function ProductivityOverview(_: PageProps) {
       ? <DataTrustIndicator trust={trustResponse.trust} assessments={trustResponse.assessments} />
       : null}
     contextExtension={<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <span id="granularity-label" className="text-xs font-medium text-text-secondary">{ko ? '집계 단위 (페이지 소유)' : 'Granularity (page-owned)'}</span>
+      <span id="granularity-label" className="text-xs font-medium text-text-secondary">{ko ? '집계 단위' : 'Granularity'}</span>
       <SegmentedRadio
         labelledBy="granularity-label"
-        label={ko ? '집계 단위 (페이지 소유)' : 'Granularity (page-owned)'}
+        label={ko ? '집계 단위' : 'Granularity'}
         value={gran}
         onChange={g => setPage({ granularity: g })}
         options={GRANS.map(g => ({ value: g, label: g === 'hour' ? (ko ? '시간' : 'Hour') : g === 'day' ? (ko ? '일' : 'Day') : (ko ? '주' : 'Week') }))}
       />
       <span className="t-caption text-text-muted">
         {ko
-          ? 'URL 키 granularity — 전역 필터가 아니라 이 화면 소유이며 기간과 독립입니다. 미지정 시 기본: 기간 ≤48시간이면 시간, 아니면 일 (Candidate).'
-          : 'URL key granularity — owned by this page, not a global filter, independent of the period. Default when unset: hour for ≤48h, else day (Candidate).'}
+          ? '이 화면의 집계 단위입니다. 기간과 따로 고릅니다. 고르지 않으면 기간이 48시간 이하일 때 시간, 그보다 길면 일입니다.'
+          : 'This page’s grain. It is chosen separately from the period. When unset, a period of 48 hours or less uses hours; a longer period uses days.'}
       </span>
-      {rawGran !== null && !granKnown && <StatusBadge tone="warning">{`granularity=${rawGran} — ${ko ? '알 수 없는 값, 기본 정책 적용' : 'unknown value, default policy applied'}`}</StatusBadge>}
+      {/* #304 FIX1 (06 §19): the unknown raw value stays visible, and the default-grain fact is stated truthfully. */}
+      {rawGran !== null && !granKnown && <StatusBadge tone="warning">{ko ? `집계 단위 “${rawGran}”는 이 화면에서 쓸 수 없습니다. 지금은 기본 집계 단위(${granLabel})로 조회합니다. 시간·일·주 중에서 고르세요.` : `Grain “${rawGran}” is not a value this page can use; the default grain (${granLabel}) is used until you choose one. Choose hour, day, or week.`}</StatusBadge>}
     </div>}
   >
     {pageInvalid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '페이지 키 값이 올바르지 않습니다' : 'Invalid page key'}
-      body={ko
-        ? `${errors} 은 이 화면의 등록 값이 아닙니다. kpi=occupancy|dwell|cycleTime|throughput, axis=room|stgroup, sort=key|occ|obs|pct|jobs:asc|desc 만 허용하며 다른 값으로 바꾸지 않습니다.`
-        : `${errors} is not a registered value. Allowed: kpi=occupancy|dwell|cycleTime|throughput, axis=room|stgroup, sort=key|occ|obs|pct|jobs:asc|desc. Nothing was substituted.`} />
+      body={pageRefusals.map((sentence, index) => <p key={index}>{sentence} {ko ? '주소를 고치거나 조건을 초기화하세요.' : 'Fix the address or reset the conditions.'}</p>)} />
       : <DrillLayout siblings={drillSiblings} notFound={notFound}>{drill.depth === 0 ? <div className="space-y-4">
       {/* Primary KPI / Summary */}
       <section aria-labelledby="kpi-heading">
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="kpi-heading" className="t-section-title">{ko ? '네 지표 요약' : 'Four-metric summary'}</h2>
           <div>
-            <p className="t-caption text-text-muted">{ko ? '카드 클릭은 URL 키 kpi, 구성 축은 axis, 표 정렬은 sort에 기록됩니다. 증감은 직전 동일 길이 기간과 비교합니다.' : 'Card clicks write kpi to the URL, the axis writes axis, and table sorting writes sort. Deltas compare the previous equal-length period.'}</p>
+            <p className="t-caption text-text-muted">{ko ? '카드를 선택하면 그 지표의 추이를 볼 수 있습니다. 증감은 바로 앞의 같은 길이 기간과 비교합니다.' : 'Select a card to see that metric’s trend. Deltas compare the previous equal-length period.'}</p>
             <p className="t-caption text-text-muted">{CYCLE_VERSION_NOTE[ko ? 'ko' : 'en']}</p>
           </div>
         </div>
@@ -320,7 +321,7 @@ export default function ProductivityOverview(_: PageProps) {
                   xType="category" stacked unit="h" height={240} canApplyRange={false}
                   valueFormat={v => n1(v)}
                   extraActions={<SegmentedRadio
-                    label={ko ? 'URL 키 axis' : 'URL key axis'}
+                    label={ko ? '그룹 기준' : 'Group by'}
                     value={axis}
                     onChange={a => setPage({ axis: a === 'room' ? null : a })}
                     options={[{ value: 'room', label: 'room_name' }, { value: 'stgroup', label: 'StGroup' }]}
@@ -352,7 +353,7 @@ export default function ProductivityOverview(_: PageProps) {
                         <td className="t-mono px-3 py-1.5">{r.key}</td>
                         <td className="px-3 py-1.5 text-right">{n1(r.occupiedHours)} h</td>
                         <td className="px-3 py-1.5 text-right">{n1(r.observableHours)} h</td>
-                        <td className="px-3 py-1.5 text-right">{pct(r) !== null ? `${n1(pct(r)!)}%` : (ko ? '미확인' : 'unknown')}</td>
+                        <td className="px-3 py-1.5 text-right">{pct(r) !== null ? `${n1(pct(r)!)}%` : (ko ? '미확인' : 'Not confirmed')}</td>
                         <td className="px-3 py-1.5 text-right">{ni(r.jobs)}</td>
                         {axis === 'room' && <td className="px-2 py-1.5 text-right">
                           <button type="button" aria-label={ko ? `${r.key} 들어가기` : `Enter ${r.key}`} onClick={() => drill.enter('drillRoom', r.key)}
@@ -372,7 +373,7 @@ export default function ProductivityOverview(_: PageProps) {
         {/* Attention List: ranking only, no threshold verdicts (wireframe 11 §1) */}
         <section aria-label={ko ? '확인할 항목' : 'Attention list'}>
           <Panel title={ko ? '확인할 항목' : 'Attention'}
-            subtitle={ko ? '비Process 체류·P95 상위 설비 (랭킹만, 임계값 이상 판정 아님 — Candidate).' : 'Top equipment by dwell and P95 (ranking only, no threshold verdicts — Candidate).'}>
+            subtitle={ko ? '비Process 체류·P95 상위 설비입니다. 순위만 보여 주며 기준을 넘었는지는 판정하지 않습니다.' : 'Top equipment by dwell and P95. Ranking only; this is not a threshold verdict.'}>
             <QueryView widgetName={ko ? '확인할 항목' : 'Attention'} hideWidgetName query={attentionQ} skeletonRows={4} emptyAction={clearEmptySelection}>
               {(rows: AttentionRow[]) => <>
                 <ul className="divide-y divide-border-subtle">

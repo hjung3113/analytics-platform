@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { type PageProps, PlatformLink, type QueryState, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
-import { PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
+import { PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, StateMessage, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
 import { Button } from '@ap/ui';
 import {
   DOMAINS, STATUSES, catalogExportEndpoint, catalogListEndpoint, catalogPageEndpoint, metricPairEndpoint, sortColumns,
@@ -17,26 +18,26 @@ function pairText(verdict: PairVerdict, lang: 'ko' | 'en', pageVersion: string |
   const ko = lang === 'ko';
   switch (verdict.kind) {
     case 'absent':
-      return { tone: 'neutral', title: ko ? '전역 지표 쌍 없음' : 'No global metric pair', body: ko ? 'metricId와 metricVersion이 모두 없습니다. 버전 숫자만으로 지표를 추정하지 않습니다.' : 'Both metricId and metricVersion are absent. A version number alone is not treated as a metric.' };
+      return { tone: 'neutral', title: ko ? '전역 지표 쌍 없음' : 'No global metric pair', body: ko ? '지표와 버전이 모두 없습니다. 정의를 보려면 지표를 고르세요.' : 'Both the metric and the version are missing. Pick a metric to see its definition.' };
     case 'id-only':
-      return { tone: 'warning', title: ko ? '미완성 쌍' : 'Incomplete pair', body: ko ? `${verdict.metricId}만 있고 버전은 없습니다. 버전만 채워 넣지 않으며, 게시 포인터로 자동 완성하지 않습니다.` : `${verdict.metricId} is present without a version. The version is not filled in, and the published pointer is not written automatically.` };
+      return { tone: 'warning', title: ko ? '미완성 쌍' : 'Incomplete pair', body: ko ? `${verdict.metricId}만 있고 버전은 없습니다. 버전도 함께 고르세요.` : `${verdict.metricId} is present without a version. Pick a version too.` };
     case 'valid': {
       const matched = pageVersion !== null && pageVersion === verdict.metricVersion;
       const body = pageVersion === null
-        ? (ko ? `${verdict.metricId} @ ${verdict.metricVersion}. 목록에서는 행 표시만 합니다. 상세에서는 이 값으로 페이지 버전을 자동 선택하지 않습니다.` : `${verdict.metricId} @ ${verdict.metricVersion}. The list only marks the row. Detail does not auto-select this as the page version.`)
+        ? (ko ? `${verdict.metricId} @ ${verdict.metricVersion}. 목록에서는 그 행만 표시합니다.` : `${verdict.metricId} @ ${verdict.metricVersion}. The list only marks that row.`)
         : matched
           ? (ko ? `${verdict.metricId} @ ${verdict.metricVersion}. 페이지에서 보는 버전과 같습니다.` : `${verdict.metricId} @ ${verdict.metricVersion}. It matches the version open on this page.`)
-          : (ko ? `${verdict.metricId} @ ${verdict.metricVersion}. 목록 필터로 쓰지 않고 해당 행만 표시합니다.` : `${verdict.metricId} @ ${verdict.metricVersion}. It is not a list filter; only that row is marked.`);
+          : (ko ? `${verdict.metricId} @ ${verdict.metricVersion}. 목록에서는 그 행만 표시합니다.` : `${verdict.metricId} @ ${verdict.metricVersion}. The list only marks that row.`);
       return { tone: 'neutral', title: ko ? '전역 쌍' : 'Global pair', body };
     }
     case 'unknown-metric':
-      return { tone: 'danger', title: ko ? '전역 metricId를 찾을 수 없습니다' : 'Global metricId was not found', body: ko ? `${verdict.metricId}${verdict.metricVersion ? ` @ ${verdict.metricVersion}` : ''} 은 카탈로그에 없습니다. 다른 지표나 최신 버전으로 대체하지 않습니다.` : `${verdict.metricId}${verdict.metricVersion ? ` @ ${verdict.metricVersion}` : ''} is not in the catalog. Nothing is substituted.` };
+      return { tone: 'danger', title: ko ? '지표를 찾을 수 없습니다' : 'Metric was not found', body: ko ? `${verdict.metricId}${verdict.metricVersion ? ` @ ${verdict.metricVersion}` : ''} 은 카탈로그에 없습니다. 목록에서 다시 고르세요.` : `${verdict.metricId}${verdict.metricVersion ? ` @ ${verdict.metricVersion}` : ''} is not in the catalog. Pick another from the list.` };
     case 'version-not-member':
-      return { tone: 'danger', title: ko ? '전역 버전이 그 지표에 속하지 않습니다' : 'Global version does not belong to that metric', body: ko ? `${verdict.metricId || '—'} @ ${verdict.metricVersion} 은 소속 검증에 실패했습니다. 최신 게시 버전으로 바꾸지 않습니다.` : `${verdict.metricId || '—'} @ ${verdict.metricVersion} failed membership. It is not replaced with the latest published version.` };
+      return { tone: 'danger', title: ko ? '그 버전이 이 지표의 버전이 아닙니다' : 'That version is not one of this metric', body: ko ? `${verdict.metricId || '—'} @ ${verdict.metricVersion} 은 이 지표의 버전이 아닙니다. 목록에서 버전을 고르세요.` : `${verdict.metricId || '—'} @ ${verdict.metricVersion} is not a version of this metric. Pick a version from the list.` };
     case 'other-metric':
-      return { tone: 'warning', title: ko ? '다른 지표 Context가 보존되어 있습니다' : 'A different metric context is preserved', body: ko ? `전역 ${verdict.metricId}${verdict.metricVersion ? ` @ ${verdict.metricVersion}` : ' (버전 없음)'} 을 목적지 ${verdict.viewedId}로 덮어쓰지 않습니다.` : `Global ${verdict.metricId}${verdict.metricVersion ? ` @ ${verdict.metricVersion}` : ' (no version)'} is not overwritten with destination ${verdict.viewedId}.` };
+      return { tone: 'warning', title: ko ? '다른 지표가 선택되어 있습니다' : 'A different metric is selected', body: ko ? `고른 지표는 ${verdict.metricId}${verdict.metricVersion ? ` @ ${verdict.metricVersion}` : ''} 입니다. 이 목록의 ${verdict.viewedId}와 다릅니다.` : `The selected metric is ${verdict.metricId}${verdict.metricVersion ? ` @ ${verdict.metricVersion}` : ''}. It differs from ${verdict.viewedId} on this list.` };
     case 'conflict':
-      return { tone: 'danger', title: ko ? '같은 지표의 버전이 서로 다릅니다' : 'Same metric, conflicting versions', body: ko ? `${verdict.metricId}: 전역 ${verdict.globalVersion}, 페이지 ${verdict.pageVersion}. 어느 쪽으로도 자동 보정하지 않습니다.` : `${verdict.metricId}: global ${verdict.globalVersion}, page ${verdict.pageVersion}. Neither side is applied over the other.` };
+      return { tone: 'danger', title: ko ? '같은 지표의 버전이 서로 다릅니다' : 'Same metric, conflicting versions', body: ko ? `${verdict.metricId}: 전역 ${verdict.globalVersion}, 이 화면 ${verdict.pageVersion}. 하나를 고르세요.` : `${verdict.metricId}: global ${verdict.globalVersion}, this page ${verdict.pageVersion}. Pick one.` };
     default:
       return { tone: 'neutral', title: '', body: '' };
   }
@@ -76,8 +77,20 @@ export default function MetricCatalogPage(_: PageProps) {
   const statusIllegal = status !== null && !STATUSES.includes(status as PublicationState);
   const domainIllegal = domain !== null && !DOMAINS.includes(domain as typeof DOMAINS[number]);
   // §6.1 page keys: sort/page are URL-owned; invalid wire values alert instead of substituting (never "empty rows").
-  const parsedSort = parseTableSort(pageParam('sort'), sortColumns);
-  const parsedPage = parsePageIndex(pageParam('page'));
+  const sortRaw = pageParam('sort');
+  const pageRaw = pageParam('page');
+  const parsedSort = parseTableSort(sortRaw, sortColumns);
+  const parsedPage = parsePageIndex(pageRaw);
+  // #304 FIX1 (06 §19): each invalid field keeps its user name and the raw value as entered (quoted, untruncated),
+  // one sentence per field — never `key=value`.
+  const invalidFilterSentences = [
+    statusIllegal ? (lang === 'ko' ? `상태 “${status}”는 이 화면에서 쓸 수 없는 필터입니다. 조건을 초기화하세요.` : `Status “${status}” is not available on this screen. Reset the filters.`) : null,
+    domainIllegal ? (lang === 'ko' ? `도메인 “${domain}”은 이 화면에서 쓸 수 없는 필터입니다. 조건을 초기화하세요.` : `Domain “${domain}” is not available on this screen. Reset the filters.`) : null,
+  ].filter((sentence): sentence is string => sentence !== null);
+  const invalidTableSentences = [
+    !parsedSort.ok ? (lang === 'ko' ? `정렬 “${sortRaw}”은 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.` : `Sort “${sortRaw}” is not a value this screen can use. Reset the conditions.`) : null,
+    !parsedPage.ok ? (lang === 'ko' ? `페이지 “${pageRaw}”는 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.` : `Page “${pageRaw}” is not a value this screen can use. Reset the conditions.`) : null,
+  ].filter((sentence): sentence is string => sentence !== null);
   const tableInvalid = !parsedSort.ok || !parsedPage.ok;
   // A global-Context change clears `page` in the kernel (manifest contextResetKeys); pages write no reset effect.
   const pair = useMenuQuery(metricPairEndpoint, NO_DESTINATION);
@@ -110,18 +123,17 @@ export default function MetricCatalogPage(_: PageProps) {
       <MetricPairBanner query={pair} />
       {global.selection !== null && <p className="text-xs text-text-secondary">
         {lang === 'ko'
-          ? `설비 선택 ${global.selection.length}건은 참조만입니다. 명시적 빈 집합이어도 카탈로그를 0건으로 만들지 않습니다.`
-          : `Equipment selection (${global.selection.length}) is reference only. An explicit empty set does not force the catalog to zero rows.`}
+          ? `설비 선택 ${global.selection.length}건은 이 화면에서 참조만입니다.`
+          : `Equipment selection (${global.selection.length}) is reference only on this page.`}
       </p>}
-      {(statusIllegal || domainIllegal) && <p role="alert" className="rounded-md bg-accent-warn-soft px-3 py-2 text-xs text-text-warning-label">
-        {lang === 'ko'
-          ? `등록되지 않은 페이지 필터입니다 (${statusIllegal ? `status=${status}` : `domain=${domain}`}). 전체로 바꾸지 않아 결과가 비었습니다.`
-          : `Unregistered page filter (${statusIllegal ? `status=${status}` : `domain=${domain}`}). It is not coerced to All, so the result is empty.`}
-      </p>}
-      {tableInvalid ? <p role="alert" className="rounded-md bg-accent-warn-soft px-3 py-2 text-xs text-text-warning-label">
-        {lang === 'ko' ? '정렬·페이지 값이 잘못되었습니다.' : 'Invalid sort or page value.'}
-        <Button variant="secondary" size="toolbar" className="ml-2" onClick={() => setPage({ sort: null, page: null })}>{lang === 'ko' ? '초기화' : 'Reset'}</Button>
-      </p> : <PlatformDataTable
+      {(statusIllegal || domainIllegal) && <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />}
+        title={lang === 'ko' ? '등록되지 않은 필터입니다' : 'This filter is not registered'}
+        body={invalidFilterSentences.map((sentence, index) => <p key={index}>{sentence}</p>)}
+        action={<Button size="sm" variant="secondary" onClick={() => setPage({ ...(statusIllegal ? { status: null } : {}), ...(domainIllegal ? { domain: null } : {}) })}>{lang === 'ko' ? '초기화' : 'Reset'}</Button>} />}
+      {tableInvalid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />}
+        title={lang === 'ko' ? '정렬·페이지 값이 올바르지 않습니다' : 'The sort or page value cannot be used'}
+        body={invalidTableSentences.map((sentence, index) => <p key={index}>{sentence}</p>)}
+        action={<Button variant="secondary" size="sm" onClick={() => setPage({ sort: null, page: null })}>{lang === 'ko' ? '초기화' : 'Reset'}</Button>} /> : <PlatformDataTable
         title={lang === 'ko' ? '지표 카탈로그' : 'Metric catalog'}
         subtitle={lang === 'ko'
           ? `${metricCountText}. 게시 포인터는 레코드에 저장된 값이며 최대 버전 번호가 아닙니다. 초안 열기는 동작 열.`

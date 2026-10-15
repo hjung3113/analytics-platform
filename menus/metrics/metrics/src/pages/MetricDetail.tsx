@@ -118,13 +118,13 @@ export default function MetricDetailPage({ params }: PageProps) {
         onClick={() => setPage({ tab: s.id })}>
         {lang === 'ko' ? s.ko : s.en}
       </button>)}
-      {tab && !tabKnown && <span role="alert" className="self-center text-xs text-text-warning-label">{lang === 'ko' ? `등록되지 않은 tab=${tab}. 섹션을 숨기거나 다른 탭으로 바꾸지 않습니다.` : `Unregistered tab=${tab}. Sections stay visible and the value is not rewritten.`}</span>}
+      {tab && !tabKnown && <span role="alert" className="self-center text-xs text-text-warning-label">{lang === 'ko' ? '등록되지 않은 탭입니다. 아래 섹션에서 다시 고르세요.' : 'This tab is not registered. Pick a section below.'}</span>}
     </nav>}
   >
     <div className="space-y-3">
       <MetricPairBanner query={pair} pageVersion={versionParam} />
       {global.selection !== null && <p className="text-xs text-text-secondary">
-        {lang === 'ko' ? '설비 선택은 참조만이며 정의·커버리지 예시를 Selection으로 좁히지 않습니다.' : 'Equipment selection is reference only and does not narrow the definition or coverage examples.'}
+        {lang === 'ko' ? '설비 선택은 이 화면에서 참조만입니다.' : 'Equipment selection is reference only on this page.'}
       </p>}
 
       <QueryView widgetName={lang === 'ko' ? '지표 정의' : 'Metric definition'} query={definition} skeletonRows={6} skeletonHeight={220}>
@@ -134,17 +134,17 @@ export default function MetricDetailPage({ params }: PageProps) {
               decision 2026-10-13, #299). */}
           {data.problem === 'unknown-metric' || !data.metric ? (
           <StateMessage tone="danger" icon={<span className="t-mono">!</span>} title={lang === 'ko' ? '지표를 찾을 수 없습니다' : 'Metric not found'}
-            body={lang === 'ko' ? `${metricId} 는 카탈로그에 없습니다. 다른 지표로 대체하지 않습니다.` : `${metricId} is not in the catalog. No other metric is substituted.`}
+            body={lang === 'ko' ? `${metricId} 는 카탈로그에 없습니다. 카탈로그로 돌아가 다시 고르세요.` : `${metricId} is not in the catalog. Go back to the catalog and pick another.`}
             action={<PlatformLink href={linkTo('metric-catalog')} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '카탈로그로 돌아가기' : 'Back to the catalog'}</PlatformLink>} />
         ) : (
           <div className="space-y-3">
             {data.problem === 'version-not-member' && <StateMessage tone="danger" icon={<span className="t-mono">v{data.requestedVersion}</span>}
               title={lang === 'ko' ? '요청한 버전이 이 지표에 속하지 않습니다' : 'The requested version does not belong to this metric'}
-              body={lang === 'ko' ? `${metricId} @ ${data.requestedVersion} 은 없습니다. 게시 포인터나 최신 버전으로 바꾸지 않습니다. 아래 버전을 명시적으로 고르세요.` : `${metricId} @ ${data.requestedVersion} does not exist. It is not replaced with the pointer or the latest version. Pick a version explicitly below.`} />}
+              body={lang === 'ko' ? `${metricId} @ ${data.requestedVersion} 은 이 지표의 버전이 아닙니다. 아래에서 버전을 고르세요.` : `${metricId} @ ${data.requestedVersion} is not a version of this metric. Pick a version below.`} />}
             {data.problem === 'need-version' && <StateMessage icon={<span className="t-mono">v?</span>}
               title={lang === 'ko' ? '버전을 선택하세요' : 'Select a version'}
               body={data.metric.publishedPointer
-                ? (lang === 'ko' ? `게시 포인터는 v${data.metric.publishedPointer} 입니다. 자동으로 페이지 버전이나 전역 쌍에 기록하지 않습니다.` : `The published pointer is v${data.metric.publishedPointer}. It is not written into the page version or the global pair automatically.`)
+                ? (lang === 'ko' ? `게시 포인터는 v${data.metric.publishedPointer} 입니다. 아래에서 버전을 고르세요.` : `The published pointer is v${data.metric.publishedPointer}. Pick a version below.`)
                 : (lang === 'ko' ? '게시된 버전이 없습니다. 초안·폐기 버전을 직접 고르세요. 초안은 분석 기본값이 아닙니다.' : 'There is no published version. Choose a draft or deprecated version explicitly. Drafts are not analysis defaults.')} />}
             <div className="grid items-start gap-3 lg:grid-cols-[18rem_minmax(0,1fr)]">
               <div className="space-y-3">
@@ -182,7 +182,7 @@ export default function MetricDetailPage({ params }: PageProps) {
                 <td className="py-2 pr-3">{tx(CONSUMER_LABEL[row.menuId])}<span className="mt-0.5 block t-mono text-text-muted">{row.menuId}</span></td>
                 <td className="py-2 pr-3">{tx(row.place)}</td>
                 <td className="py-2 pr-3 text-right tabular">v{row.version}</td>
-                <td className="py-2 pr-3 text-xs text-text-secondary">{row.evidenceSource}<span className="mt-0.5 block text-text-muted">{lang === 'ko' ? '확인 시각 미확인' : 'Observed time unknown'}</span></td>
+                <td className="py-2 pr-3 text-xs text-text-secondary">{row.evidenceSource}<span className="mt-0.5 block text-text-muted">{lang === 'ko' ? '확인 시각 미확인' : 'Observed time not confirmed'}</span></td>
                 <td className="py-2">{(() => {
                   const link = resolveLink(row.menuId, { global: { metricId, metricVersion: row.version } });
                   return link.allowed

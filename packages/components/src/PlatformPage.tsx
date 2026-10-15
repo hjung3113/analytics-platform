@@ -74,13 +74,13 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
             action={lastScope && <Button size="sm" onClick={() => { focusPageFallback(); setGlobal({ scopeId: lastScope }); }}>{t('applySuggested')}: {lastScope}</Button>} />
         : scope.status === 'error'
           ? <StateMessage tone="danger" icon={<ServerCrash className="size-4" aria-hidden />} title={t('scopeErrorTitle')}
-              body={<>{t('scopeErrorBody')} <span className="t-mono">scopeId={scope.scopeId}</span></>}
+              body={t('scopeErrorBody')}
               action={<Button size="sm" variant="secondary" onClick={() => { focusPageFallback(); retryScope(); }}><RotateCw className="size-3.5" />{t('retry')}</Button>} />
         : scope.status === 'unknown_scope'
           ? <StateMessage icon={<MapPinOff className="size-4" aria-hidden />} title={t('scopeUnknownTitle')}
-              body={<>{t('scopeUnknownBody')} <span className="t-mono">scopeId={scope.scopeId}</span></>} />
+              body={t('scopeUnknownBody')} />
           : <StateMessage tone="warning" icon={<MapPinOff className="size-4" aria-hidden />} title={t('stateForbidden')}
-            body={<>{t('stateForbiddenBody')} <span className="t-mono">scopeId={scope.scopeId}</span></>} />;
+            body={t('stateForbiddenBody')} />;
   }
 
   const titleResolved = title ?? tx(menu.label);

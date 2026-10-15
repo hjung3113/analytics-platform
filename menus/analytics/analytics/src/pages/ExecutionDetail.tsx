@@ -66,8 +66,8 @@ export default function ExecutionDetail({ params }: PageProps) {
             {data => data.access === 'forbidden'
               ? <StateMessage tone="warning" icon={<Ban className="size-4" aria-hidden />} title={ko ? '이 설비는 현재 Scope 권한 밖에 있습니다' : 'This equipment is outside the current scope grant'}
                 body={ko
-                  ? '서버 권한 집합에 없는 EquipmentID입니다. 다른 실행으로 대체하지 않았고, Selection을 권한처럼 쓰지 않습니다.'
-                  : 'This EquipmentID is not in the granted set. No other execution was substituted, and Selection was not treated as permission.'}
+                  ? '이 설비는 현재 범위에서 볼 수 없습니다. 권한 담당자에게 요청하세요.'
+                  : 'You cannot view this equipment in the current range. Ask the person who grants access.'}
                 correlationId={query.response?.correlationId} />
               : data.access === 'ok' ? <OccurrenceBody execution={data.execution} segments={data.segments} ko={ko} lang={lang} /> : null}
           </QueryView>
@@ -92,8 +92,8 @@ function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: 
     </Panel>
 
     <Panel title={ko ? '공정 타임라인' : 'Process timeline'} subtitle={ko
-      ? 'Candidate. XFR/FNC/PRC만 막대로 표시합니다. 빈 구간은 미분류이며 대기·불량으로 해석하지 않습니다. Module/Slot과 Wafer Journey의 관계는 Open입니다.'
-      : 'Candidate. Only XFR/FNC/PRC are bars. Gaps are unclassified — not wait and not scrap. How Module/Slot relates to Wafer Journey is Open.'}>
+      ? 'XFR/FNC/PRC만 막대로 표시합니다. 빈 구간은 미분류이며 대기·불량으로 해석하지 않습니다.'
+      : 'Only XFR/FNC/PRC are bars. Gaps are unclassified — not wait and not scrap.'}>
       <div className="mb-2 flex flex-wrap gap-3 text-xs text-text-secondary">
         {(['XFR', 'FNC', 'PRC'] as const).map(kind => <span key={kind} className="inline-flex items-center gap-1.5"><span aria-hidden className={`inline-block h-2 w-4 ${SEGMENT_CLASS[kind]}`} />{kind}</span>)}
         <span className="inline-flex items-center gap-1.5"><span aria-hidden className="inline-block h-2 w-4 bg-surface-sunken" />{ko ? '미분류' : 'Unclassified'}</span>
@@ -137,16 +137,16 @@ function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: 
       </div>
     </Panel>
 
-    <Panel title={ko ? '품질 표시' : 'Quality'} subtitle={ko ? 'Data Trust와 다릅니다. 품질 원천은 Open이라 정상/불량으로 해석하지 않습니다.' : 'Distinct from Data Trust. The quality source is Open, so this is not a pass/fail judgment.'}>
+    <Panel title={ko ? '품질 표시' : 'Quality'} subtitle={ko ? '데이터 신뢰와 다릅니다. 정상이나 불량으로 읽지 않습니다.' : 'Distinct from data trust. Do not read this as pass or fail.'}>
       {execution.quality === 'review'
-        ? <StatusBadge tone="warning">{ko ? '검토 표시 (Candidate)' : 'Review flag (Candidate)'}</StatusBadge>
+        ? <StatusBadge tone="warning">{ko ? '검토 표시' : 'Review flag'}</StatusBadge>
         : <StatusBadge tone="neutral">{ko ? '미확정' : 'Unconfirmed'}</StatusBadge>}
       <p className="mt-2 text-xs text-text-muted">{ko
-        ? 'unknown은 값이 없다는 뜻이 아니라 판정 원천이 없다는 뜻입니다. review는 합성 플래그이며 수율·결함 수가 아닙니다.'
-        : 'unknown means no judgment source, not a zero. review is a synthetic flag, not a yield or defect count.'}</p>
+        ? '미확정은 값이 없다는 뜻이 아니라 판정 근거가 없다는 뜻입니다. 검토 표시는 수율·결함 수가 아닙니다.'
+        : 'Unconfirmed means there is no judgment source, not a zero. A review flag is not a yield or defect count.'}</p>
     </Panel>
 
-    <Panel title={ko ? '리니지 (Candidate)' : 'Lineage (Candidate)'} subtitle={ko ? '논리 경로 예시입니다. 원천 계약 버전을 지표 버전과 섞지 않습니다.' : 'An example logical path. The source contract version is not mixed with the metric version.'}>
+    <Panel title={ko ? '리니지' : 'Lineage'} subtitle={ko ? '논리 경로 예시입니다. 원천 경로와 지표 버전을 섞지 않습니다.' : 'An example logical path. The source path is not mixed with the metric version.'}>
       <p className="t-mono text-xs text-text-secondary">occurrence_directory → mart.productivity_hourly → execution-detail</p>
       <p className="mt-2 text-xs text-text-muted">{ko
         ? `anchor ${execution.anchor} 를 그대로 보존합니다. 서버 envelope의 source는 프로토타입이 모든 조회에 찍는 값입니다.`
@@ -164,10 +164,10 @@ function Identity({ label, value }: { label: string; value: string }) {
 
 function identityErrors(entityType: string | null, anchor: string | null, ko: boolean): string[] {
   const errors: string[] = [];
-  if (!entityType) errors.push(ko ? 'entityType이 없습니다. job으로 추정하지 않습니다.' : 'entityType is missing. It is not assumed to be job.');
-  else if (!OCCURRENCE_ENTITY_TYPES.includes(entityType)) errors.push(ko ? `entityType “${entityType}”은 열 수 없습니다. Candidate로 job만 지원하며 다른 값으로 바꾸지 않습니다.` : `entityType “${entityType}” cannot be opened. Only job is supported (Candidate); it was not rewritten.`);
-  if (!anchor) errors.push(ko ? 'anchor가 없습니다. Lot이나 가까운 시각으로 복원하지 않습니다.' : 'anchor is missing. It is not recovered from a lot or a nearby time.');
-  else if (!isAnchor(anchor)) errors.push(ko ? `anchor “${anchor}”이 YYYY-MM-DDTHH:mm:ss가 아닙니다. 반올림하거나 잘라서 조회하지 않습니다.` : `anchor “${anchor}” is not YYYY-MM-DDTHH:mm:ss. It was not rounded or trimmed into a query.`);
+  if (!entityType) errors.push(ko ? '실행 종류가 주소에 없습니다. 목록에서 실행을 다시 여세요.' : 'The execution kind is missing from the address. Open the execution again from the list.');
+  else if (!OCCURRENCE_ENTITY_TYPES.includes(entityType)) errors.push(ko ? '이 종류의 상세는 열 수 없습니다. 실행(job)만 열 수 있습니다.' : 'This kind of detail cannot be opened. Only an execution (job) can be opened.');
+  if (!anchor) errors.push(ko ? '시작 시각 키가 없습니다. 목록에서 실행을 다시 여세요.' : 'The start-time key is missing. Open the execution again from the list.');
+  else if (!isAnchor(anchor)) errors.push(ko ? '시작 시각 키의 형식이 올바르지 않습니다. 목록에서 실행을 다시 여세요.' : 'The start-time key is not in the expected form. Open the execution again from the list.');
   return errors;
 }
 
