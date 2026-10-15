@@ -20,3 +20,6 @@ export { isProductionEnv } from './utils/isProductionEnv';
 export { isMacPlatform, shortcutLabel } from './utils/platform';
 
 export { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from './DetailPanelSlot';
+
+// THROWAWAY #303/#307 — never merge.
+export { PrototypeContext, usePrototype, type ProtoQuestion, type ProtoVariant, type PrototypeState } from './proto/context';

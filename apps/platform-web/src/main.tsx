@@ -2,6 +2,8 @@ import '@fontsource-variable/inter';
 import '@fontsource-variable/jetbrains-mono';
 import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import './style.css';
+// THROWAWAY #303/#307 — never merge.
+import { PrototypeVariants } from './proto/PrototypeVariants';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBasePathLocation, I18nProvider, PlatformProvider } from '@ap/kernel';
@@ -24,7 +26,8 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <I18nProvider>
       <PlatformProvider adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly)}>
-        <AppShell><RouteOutlet /></AppShell>
+        {/* THROWAWAY #303/#307 — never merge. */}
+        <PrototypeVariants><AppShell><RouteOutlet /></AppShell></PrototypeVariants>
       </PlatformProvider>
     </I18nProvider>
   </StrictMode>,

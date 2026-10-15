@@ -1,3 +1,4 @@
+// THROWAWAY #303/#307 — never merge.
 import { Info } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
 import { type Assessment, formatMetricVersion, type Trust } from '@ap/contracts';
@@ -34,14 +35,17 @@ export function DataTrustIndicator({ trust, assessments, className }: { trust: T
       : (lang === 'ko' ? '확인된 이슈 없음' : 'No confirmed issues');
   return <Popover>
     <PopoverTrigger asChild>
-      <button type="button" className={cn('inline-flex min-h-8 items-center gap-2 rounded-sm px-2 text-xs text-text-secondary hover:bg-surface-sunken', className)} aria-label={t('dataTrust')}>
+      <button type="button" className={cn('inline-flex min-h-8 items-center gap-2 rounded-sm px-2 text-xs text-text-secondary hover:bg-surface-sunken', className)} aria-label={t('dataTrust')} title={t('dataTrust')}>
         <Dot tone={tone} />
-        <span className="tabular">{headline}</span>
-        <span className="text-text-disabled" aria-hidden>·</span>
-        <span className="tabular">{t('coverage')} {trust.coverage === null ? '—' : `${(trust.coverage * 100).toFixed(1)}%`}</span>
-        <span className="text-text-disabled" aria-hidden>·</span>
-        <span className="tabular">{t('updated')} {time(trust.updatedAt)}</span>
-        {trust.provisional && <StatusBadge tone="warning">{t('provisional')}</StatusBadge>}
+        {/* THROWAWAY #303/#307 — never merge. */}
+        <span data-trust-summary-details className="inline-flex items-center gap-2">
+          <span className="tabular">{headline}</span>
+          <span className="text-text-disabled" aria-hidden>·</span>
+          <span className="tabular">{t('coverage')} {trust.coverage === null ? '—' : `${(trust.coverage * 100).toFixed(1)}%`}</span>
+          <span className="text-text-disabled" aria-hidden>·</span>
+          <span className="tabular">{t('updated')} {time(trust.updatedAt)}</span>
+        </span>
+        {trust.provisional && <span data-trust-provisional><StatusBadge tone="warning">{t('provisional')}</StatusBadge></span>}
         <Info className="size-3.5 text-text-muted" aria-hidden />
       </button>
     </PopoverTrigger>
