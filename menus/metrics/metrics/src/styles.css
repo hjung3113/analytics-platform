@@ -1,1 +1,9 @@
 @source "./";
+
+/* #325-2: every `metric-section-*` anchor (the Panel `h2` targets and the no-version definition `p`) lands
+   below the sticky page header (breadcrumb/title row + Context bar), with a 12px gap to breathe — the same
+   offset+12 idiom ManagementLayout uses for its sticky rail. PlatformPage measures the header into
+   `--page-sticky-offset` on the page root, so the targets track the real header height. */
+[data-platform-page] [id^='metric-section-'] {
+  scroll-margin-top: calc(var(--page-sticky-offset, 0px) + 12px);
+}

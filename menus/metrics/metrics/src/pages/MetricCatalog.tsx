@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
+import { type PageProps, PlatformLink, type QueryState, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
 import { Button } from '@ap/ui';
 import {
@@ -42,11 +42,13 @@ function pairText(verdict: PairVerdict, lang: 'ko' | 'en', pageVersion: string |
   }
 }
 
-/** The server validates the global metricId+metricVersion pair against the catalog (§6.1). Does not write the URL. */
-export function MetricPairBanner({ viewedId = null, pageVersion = null }: { viewedId?: string | null; pageVersion?: string | null }) {
+/** The server validates the global metricId+metricVersion pair against the catalog (§6.1). Does not write the URL.
+ *  The page owns the `metrics.pair` query and passes it in (#325-2): the banner is the first section of both
+ *  pages, so the same single request also gates the detail page's anchor scroll — and the catalog, which reads
+ *  the verdict for its active row, no longer sends the request twice. */
+export function MetricPairBanner({ query, pageVersion = null }: { query: QueryState<PairVerdict>; pageVersion?: string | null }) {
   const { setPage } = usePlatform();
   const { lang } = useI18n();
-  const query = useMenuQuery(metricPairEndpoint, { viewedId, pageVersion });
 
   return <QueryView widgetName={lang === 'ko' ? '지표 쌍 검증' : 'Metric pair validation'} query={query} compact skeletonRows={2}>
     {verdict => {
@@ -105,7 +107,7 @@ export default function MetricCatalogPage(_: PageProps) {
     contextExtension={<PageFilterBar label={t('pageFilter')} fields={metricCatalogPageFilterFields({ q, status, domain, lang, tx, setPage })} actions={metricCatalogHasActiveFilters(q, status, domain) ? <Button type="button" variant="secondary" size="sm" onClick={() => resetMetricCatalogPageFilters(setPage)}>{t('clearFilters')}</Button> : undefined} />}
   >
     <div className="space-y-3">
-      <MetricPairBanner />
+      <MetricPairBanner query={pair} />
       {global.selection !== null && <p className="text-xs text-text-secondary">
         {lang === 'ko'
           ? `설비 선택 ${global.selection.length}건은 참조만입니다. 명시적 빈 집합이어도 카탈로그를 0건으로 만들지 않습니다.`

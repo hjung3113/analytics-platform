@@ -1,10 +1,10 @@
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { type PageProps, PlatformLink, useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
 import { AuditTimeline, Field, Panel, PlatformPage, QueryView, ReturnLink, StateMessage, useCopyLink } from '@ap/components';
 import { Button, cn, StatusBadge } from '@ap/ui';
 import { MetricPairBanner } from './MetricCatalog';
 import {
-  PERIOD_BASIS, definitionEndpoint, historyEndpoint, usageEndpoint, versionDiff,
+  PERIOD_BASIS, definitionEndpoint, historyEndpoint, metricPairEndpoint, usageEndpoint, versionDiff,
   type Lang, type MetricDef, type MetricVersion,
 } from '../endpoints';
 import { CONSUMER_LABEL, KIND_LABEL, STATUS_LABEL, STATUS_TONE } from './data';
@@ -30,26 +30,43 @@ export default function MetricDetailPage({ params }: PageProps) {
   const returnTo = pageParam('returnTo');
   const tabKnown = SECTIONS.some(s => s.id === tab);
 
+  const pair = useMenuQuery(metricPairEndpoint, { viewedId: metricId, pageVersion: versionParam });
   const definition = useMenuQuery(definitionEndpoint, { metricId, version: versionParam });
   const usage = useMenuQuery(usageEndpoint, { metricId, version: versionParam ?? '' }, versionParam !== null);
   const history = useMenuQuery(historyEndpoint, { metricId, lang: lang as Lang });
 
-  // #325-2: the anchor scroll waits until the queries rendering at or above the target have answered — any
-  // outcome counts as landed (an error section holds its place too). Scrolling at mount, while the sections
-  // above are skeletons, lets their late data push the arrived-at section out of the viewport. Once per tab
-  // value: a refetch must not yank the viewport back; a tab change (chip click, Back/Forward) scrolls again.
-  const scrollGate = definition.response !== null
-    && (versionParam === null || usage.response !== null)
+  // #325-2: the anchor scroll waits until every query rendering at or above the target has answered — any
+  // outcome counts as landed (an error section holds its place too), and the pair banner sits above every
+  // anchor. A target never waits for a query below it: usage gates only the usage·history targets, and only
+  // when it is enabled (a page version is set). Scrolling while the sections above are skeletons lets their
+  // late data push the arrived-at section out of the viewport. An arrival starts whenever `tab` changes to a
+  // known value (chip click, Back/Forward through no tab or an unknown tab, known→known while queries load)
+  // and scrolls exactly once when its gate opens; same-tab response changes (refetch, version/Context change
+  // after the scroll) never scroll again. "The arrival I am waiting for" (state) stays separate from "the
+  // arrival that already scrolled" (effect-owned ref) — no ref reads or writes during render, no timers.
+  const upperReady = pair.response !== null && definition.response !== null;
+  const usageReady = versionParam === null || usage.response !== null;
+  const scrollGate = upperReady
+    && ((tab !== 'usage' && tab !== 'history') || usageReady)
     && (tab !== 'history' || history.response !== null);
-  const scrolledTab = useRef<string | null>(null);
+
+  const [arrival, setArrival] = useState<{ tab: string; token: number } | null>(null);
+  const nextArrival = useRef(0); // effect-owned: tokens stay monotonic even when arrival resets through null
+  const scrolledArrival = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!tab || !tabKnown) return;
-    if (scrolledTab.current === tab) return;
+    if (!tab || !tabKnown) { setArrival(null); return; }
+    nextArrival.current += 1;
+    setArrival({ tab, token: nextArrival.current });
+  }, [tab, tabKnown]);
+
+  useEffect(() => {
+    if (!arrival || arrival.tab !== tab) return; // an older arrival never scrolls for a newer tab
+    if (scrolledArrival.current === arrival.token) return;
     if (!scrollGate) return;
-    scrolledTab.current = tab;
+    scrolledArrival.current = arrival.token;
     document.getElementById(sectionId(tab))?.scrollIntoView({ block: 'start' });
-  }, [tab, tabKnown, scrollGate]);
+  }, [arrival, tab, scrollGate]);
 
   const ready = definition.response?.outcome === 'ok' ? definition.response.data : null;
   const selected = ready?.version ?? null;
@@ -105,7 +122,7 @@ export default function MetricDetailPage({ params }: PageProps) {
     </nav>}
   >
     <div className="space-y-3">
-      <MetricPairBanner viewedId={metricId} pageVersion={versionParam} />
+      <MetricPairBanner query={pair} pageVersion={versionParam} />
       {global.selection !== null && <p className="text-xs text-text-secondary">
         {lang === 'ko' ? '설비 선택은 참조만이며 정의·커버리지 예시를 Selection으로 좁히지 않습니다.' : 'Equipment selection is reference only and does not narrow the definition or coverage examples.'}
       </p>}
@@ -135,7 +152,7 @@ export default function MetricDetailPage({ params }: PageProps) {
                 <OwnershipSection metric={data.metric} />
               </div>
               <div className="space-y-3">
-                {data.version ? <DefinitionSection metric={data.metric} version={data.version} previous={data.previous} /> : <Panel title={lang === 'ko' ? '정의' : 'Definition'}><p id={sectionId('definition')} className="scroll-mt-24 text-xs text-text-secondary">{lang === 'ko' ? '버전을 고르기 전에는 정의를 보여 주지 않습니다.' : 'The definition stays hidden until a version is selected.'}</p></Panel>}
+                {data.version ? <DefinitionSection metric={data.metric} version={data.version} previous={data.previous} /> : <Panel title={lang === 'ko' ? '정의' : 'Definition'}><p id={sectionId('definition')} className="text-xs text-text-secondary">{lang === 'ko' ? '버전을 고르기 전에는 정의를 보여 주지 않습니다.' : 'The definition stays hidden until a version is selected.'}</p></Panel>}
                 {data.version && <CoverageSection version={data.version} ids={data.exampleEquipmentIds} rooms={data.exampleRooms} />}
               </div>
             </div>
