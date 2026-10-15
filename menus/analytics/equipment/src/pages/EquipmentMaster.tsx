@@ -17,6 +17,8 @@ export default function EquipmentMaster() {
   // §6.1 page keys: sort/page/tab are URL-owned; invalid wire values alert instead of substituting.
   const drawerTab = pageParam('tab') ?? 'attributes';
   const validTab = ['attributes', 'validity', 'audit'].includes(drawerTab);
+  // §13: the fullscreen link carries the viewed tab when the destination knows it; the default tab stays off the URL.
+  const detailPage = validTab && drawerTab !== 'attributes' ? { tab: drawerTab } : undefined;
   const parsedSort = parseTableSort(pageParam('sort'), sortFields);
   const parsedPage = parsePageIndex(pageParam('page'));
   const tableInvalid = !parsedSort.ok || !parsedPage.ok;
@@ -42,9 +44,9 @@ export default function EquipmentMaster() {
   return <PlatformPage description={ko ? '설비 속성 → 유효구간 → 변경 이력. 합성 데이터 · 조회 전용.' : 'Equipment attributes → validity → change history. Synthetic data · read-only.'}>
     <ManagementLayout filter={<PageFilterBar orientation="column" label={t('pageFilter')} fields={equipmentPageFilterFields({ q, status, maker, makers: makerOptions, lang, setPage })} actions={clear} />} activeFilterCount={[q, status, maker].filter(Boolean).length}
       drawer={focus && <DetailDrawer key={focus} title={<span className="t-mono">{focus}</span>} subtitle={ko ? '설비 상세 · 합성 데이터' : 'Equipment details · synthetic data'}
-      onClose={() => setPage({ focus: null, tab: null })} tab={validTab ? drawerTab : undefined} onTabChange={tab => setPage({ tab: tab === 'attributes' ? null : tab })}
+      onClose={() => setPage({ focus: null, tab: null })} tab={validTab ? drawerTab : 'invalid'} onTabChange={tab => setPage({ tab: tab === 'attributes' ? null : tab })}
       context={ko ? '목적지 ID만 열었습니다. 전역 Selection과 목록 필터는 유지됩니다.' : 'Only the destination ID is opened. Global Selection and list filters are preserved.'}
-      headerActions={<Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('equipment-detail', { params: { equipmentId: focus }, returnTo: true })}>{ko ? '전체 화면' : 'Full page'}</PlatformLink></Button>}
+      headerActions={<Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('equipment-detail', { params: { equipmentId: focus }, page: detailPage, returnTo: true })}>{ko ? '전체 화면' : 'Full page'}</PlatformLink></Button>}
       tabs={validTab ? [{ id: 'attributes', label: ko ? '속성' : 'Attributes', content: <EquipmentPanel id={focus} kind="attributes" /> }, { id: 'validity', label: ko ? '유효구간 이력' : 'Validity history', content: <EquipmentPanel id={focus} kind="validity" /> }, { id: 'audit', label: ko ? '변경 이력' : 'Change history', content: <EquipmentPanel id={focus} kind="audit" /> }]
         : [{ id: 'invalid', label: ko ? '알 수 없는 탭' : 'Unknown tab', content: <p role="alert">{ko ? '등록되지 않은 탭입니다.' : 'Unknown tab.'} <Button size="sm" variant="secondary" onClick={() => setPage({ tab: null })}>{ko ? '속성 열기' : 'Open attributes'}</Button></p> }]} />}
       table={filterSlot => tableInvalid ? <p role="alert">{filterSlot}{ko ? '정렬·페이지 값이 잘못되었습니다.' : 'Invalid sort or page value.'} <Button size="sm" variant="secondary" onClick={() => setPage({ sort: null, page: null })}>{ko ? '초기화' : 'Reset'}</Button></p> :

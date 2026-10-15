@@ -651,7 +651,7 @@ row 방향 소비자는 opt-in `collapsible`로 입력 영역만 접을 수 있�
 ### DetailDrawer — docked shell slot (Decided, ADR-0013)
 
 - 이름과 props는 유지하고 렌더 대상은 셸 소유 오른쪽 고정 상세 슬롯이다. 이름 있는 `aside` landmark 안에 제목으로 이름 붙인 비모달 상세 dialog를 둔다. 본문은 폭을 양보하며 목록을 계속 조작할 수 있다. scrim·본문 inert·overlay·페이지 머리 아래 fixed 배치는 쓰지 않는다.
-- 폭은 §7 Baseline을 따른다. 열림/닫힘은 페이지가 등록한 `focus` 키로 결정하고 `tab`으로 탭을 복원한다. close 버튼·패널 안 Esc는 페이지의 `onClose`를 호출해 `focus`를 지운다. 딥링크·새로고침·Back/Forward 복원과 `전체 화면` 이동 동작을 유지한다.
+- 폭은 §7 Baseline을 따른다. 열림/닫힘은 페이지가 등록한 `focus` 키로 결정하고 `tab`으로 탭을 복원한다. close 버튼·패널 안 Esc는 페이지의 `onClose`를 호출해 `focus`를 지운다. 딥링크·새로고침·Back/Forward 복원과 `전체 화면` 이동 동작을 유지한다. `전체 화면`은 보던 탭을 목적지에 같은 탭이 있으면 `tab`으로 넘긴다.
 - 열리면 닫기 버튼으로 포커스를 옮긴다. 닫힐 때 패널에 포커스가 남아 있으면 연결된 트리거로 복귀하고, 트리거가 없거나 제거됐으면 main으로 복귀한다. 사용자가 이미 목록으로 옮긴 포커스는 빼앗지 않는다. 포커스 trap은 없으며 패널 밖 Esc는 상세를 닫지 않는다.
 - 한 셸에 상세 슬롯은 하나이며 마지막 등록이 이기고 개발 환경에서 중복 등록을 경고한다. 등록자가 unmount되면 해제하고, 이전 등록자가 살아 있으면 그 내용이 다시 보인다. 내용 갱신만으로 등록 우선순위를 바꾸지 않는다. 등록 primitive는 `@ap/ui`에 있으며 DetailDrawer는 AppShell(또는 같은 슬롯 Provider·host) 아래에서 사용한다.
 

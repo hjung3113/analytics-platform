@@ -9,8 +9,8 @@
 import { PERMISSIONS, type AccessSortField, type PageSort, type Permission } from '@ap/contracts';
 import { parsePageIndex, parseTableSort } from '@ap/components';
 
-/** The five page keys of `admin-roles`; the reset button clears exactly these. */
-export const ACCESS_PAGE_KEYS = ['role', 'permission', 'sort', 'page', 'focus'] as const;
+/** The six page keys of `admin-roles`; the reset button clears exactly these. */
+export const ACCESS_PAGE_KEYS = ['role', 'permission', 'sort', 'page', 'focus', 'tab'] as const;
 
 /** Sortable columns only — the server sorts, the client never re-sorts a page. */
 const SORT_FIELDS = ['name', 'role', 'permissionCount', 'grantCount'] satisfies readonly AccessSortField[];

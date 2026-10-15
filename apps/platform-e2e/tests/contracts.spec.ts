@@ -628,6 +628,34 @@ test.describe('셸 고정 상세 슬롯 (06 §13, ADR-0013)', () => {
     expect(query(page).get('q')).toBe('PHOTO');
     expect(query(page).get('scopeId')).toBe('ICH');
   });
+
+  test('알 수 없는 drawer tab은 경고 탭으로 보이고 Back 복원 뒤에도 경고가 보인다 (W-350)', async ({ page }, testInfo) => {
+    await page.goto('/equipment?v=1&scopeId=ICH');
+    const row = page.getByRole('main').locator('[data-row-id]').first();
+    await expect(row).toBeVisible();
+    const focus = await row.getAttribute('data-row-id');
+
+    // Start on a valid tab: Radix Tabs seeds its internal state once at mount, so the regression needs the
+    // drawer mounted on a real tab first and then reaching the unknown tab by history traversal.
+    await page.goto(`/equipment?v=1&scopeId=ICH&focus=${focus}&tab=validity`);
+    const dialog = page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog');
+    await expect(dialog.getByRole('tab', { name: '유효구간 이력' })).toHaveAttribute('aria-selected', 'true');
+    await page.evaluate(href => {
+      window.history.pushState(null, '', href);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }, `/equipment?v=1&scopeId=ICH&focus=${focus}&tab=bogus`);
+    await expect.poll(() => query(page).get('tab')).toBe('bogus');
+    await expect(dialog.getByRole('alert')).toContainText('등록되지 않은 탭입니다.');
+    await dialog.getByRole('button', { name: '속성 열기' }).click();
+    await expect.poll(() => query(page).has('tab')).toBe(false);
+    await expect(dialog.getByRole('tab', { name: '속성' })).toHaveAttribute('aria-selected', 'true');
+
+    // Back to the unknown tab with the same drawer mounted: the alert tab is selected again.
+    await page.goBack();
+    await expect.poll(() => query(page).get('tab')).toBe('bogus');
+    await expect(dialog.getByRole('alert')).toContainText('등록되지 않은 탭입니다.');
+    await evidence(page, testInfo, 'equipment-unknown-tab-back-restore');
+  });
 });
 
 test.describe('메뉴 간 Context 보존과 미적용 표시 (06 §6, §22)', () => {
@@ -1121,6 +1149,24 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     await evidence(page, testInfo, 'returned');
   });
 
+  test('전체 화면 링크는 보던 탭을 목적지 tab으로 넘긴다 (06 §13)', async ({ page }, testInfo) => {
+    await page.goto('/equipment?v=1&scopeId=ICH');
+    await expect(page.getByRole('table')).toBeVisible();
+    await page.getByRole('table').getByRole('button', { name: '보기' }).first().click();
+    await expect.poll(() => query(page).get('focus')).not.toBeNull();
+    const drawerTab = page.getByRole('dialog').getByRole('tab', { name: '유효구간 이력' });
+    await drawerTab.click();
+    await expect.poll(() => query(page).get('tab')).toBe('validity');
+
+    const link = page.getByRole('dialog').getByRole('link', { name: '전체 화면' });
+    const href = await link.getAttribute('href');
+    expect(new URL(href!, 'http://localhost').searchParams.get('tab')).toBe('validity');
+    await link.click();
+    await expect(page).toHaveURL(/\/equipment\/[^?]+\?/);
+    await expect(page.getByRole('main').getByRole('tablist', { name: '설비 상세 탭' }).getByRole('tab', { name: '유효구간 이력' })).toHaveAttribute('aria-selected', 'true');
+    await evidence(page, testInfo, 'fullscreen-carries-tab');
+  });
+
   test('사이클타임 bucket·bin·정렬을 returnTo에 그대로 남기고 복귀 후에도 유지한다', async ({ page }, testInfo) => {
     const base = '/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
     // Read a bucket and bin that really contain the first slow execution, so the filter keeps a row (deterministic fixture).
@@ -1428,6 +1474,21 @@ test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-
     // The sortable room-count column is also named "room 부여"; exclude that heading and catch action labels.
     await expect(page.getByRole('button', { name: /^(?!room 부여$).*(?:부여|회수)$/ })).toHaveCount(0);
     await evidence(page, testInfo, 'roles-admin-engineer-site-scope');
+  });
+
+  test('드로어 탭 선택이 URL tab에 남고 새로고침 뒤에도 복원된다 (06 §13)', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto('/admin/roles');
+    const table = page.getByRole('main').getByRole('table', { name: '권한/역할 목록' });
+    await expect(table).toBeVisible({ timeout: 10_000 });
+    await table.getByRole('row').filter({ hasText: 'Process Engineer' }).getByRole('button', { name: 'engineer 보기' }).click();
+    const drawer = page.getByRole('dialog');
+    await expect(drawer).toBeVisible();
+    await drawer.getByRole('tab', { name: '사이트 범위' }).click();
+    await expect.poll(() => query(page).get('tab')).toBe('sites');
+    await page.reload();
+    await expect(page.getByRole('dialog').getByRole('tab', { name: '사이트 범위' })).toHaveAttribute('aria-selected', 'true');
+    await evidence(page, testInfo, 'roles-drawer-tab-survives-reload');
   });
 
   test('permission page key는 목록을 필터링하고 잘못된 값은 경고한다', async ({ page }, testInfo) => {

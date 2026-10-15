@@ -7,8 +7,8 @@ const keys = (over: Partial<Record<string, string | null>> = {}) => ({
 }) as Parameters<typeof parseAccessKeys>[0];
 
 describe('parseAccessKeys (#49 page keys)', () => {
-  it('declares exactly the five keys of admin-roles', () => {
-    expect(ACCESS_PAGE_KEYS).toEqual(['role', 'permission', 'sort', 'page', 'focus']);
+  it('declares exactly the six page keys of admin-roles (W-350: the drawer tab is URL-owned)', () => {
+    expect(ACCESS_PAGE_KEYS).toEqual(['role', 'permission', 'sort', 'page', 'focus', 'tab']);
   });
 
   it('accepts every key absent: filters unset, default page and sort, no focus', () => {
