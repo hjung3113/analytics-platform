@@ -15,7 +15,7 @@ from pathlib import Path
 
 DAY = 24 * 3600
 RECENT = 3 * 3600
-REPO = Path(__file__).resolve().parents[4]
+REPO = Path(__file__).resolve().parents[3]
 
 
 def _app_preview():
