@@ -53,7 +53,7 @@ API가 파서 원본 테이블을 직접 참조하지 않고 소비 계층(view/
 
 여러 mart를 읽는 화면의 차트·표·CSV가 서로 다른 갱신 세대를 섞지 않도록 계산 기준시각을 함께 관리해야 한다. `pg_cron`은 실행 스케줄일 뿐 이 정합성을 대신 보장하지 않는다 — watermark 감지(열린 anchor 해소 감지) → 대상 구간 재집계 메커니즘이 별도로 필요하다.
 
-**CFG 관련 Open / 경계(2026-09-24):** CFG는 설비 단위 기록이며 Module 대상은 값 내부 속성이지 CFG 테이블의 분할 키가 아니다. 분석에 필요한 유효값은 Job 시작 시점 값으로 충분하다([CONTEXT](../CONTEXT.md)). CFG 의존 지표가 정해지면 설정 변경/정정이 어떤 mart 재계산을 요구하는지 별도로 명세한다. 이번 결정으로 새 자동 재계산 트리거를 채택하지 않으며, CFG cross-menu 연계는 [06 §22](06_platform_ui_contract.md#22-cross-menu-context-link)의 Deferred를 유지한다.
+**CFG 관련 Open / 경계(2026-09-24):** CFG는 설비 단위 기록이며 Module 대상은 값 내부 속성이지 CFG 테이블의 분할 키가 아니다. 분석에 필요한 유효값은 Job 시작 시점 값으로 충분하다([GLOSSARY](../GLOSSARY.md)). CFG 의존 지표가 정해지면 설정 변경/정정이 어떤 mart 재계산을 요구하는지 별도로 명세한다. 이번 결정으로 새 자동 재계산 트리거를 채택하지 않으며, CFG cross-menu 연계는 [06 §22](06_platform_ui_contract.md#22-cross-menu-context-link)의 Deferred를 유지한다.
 
 ### 집계 가능성 계약
 
@@ -61,7 +61,7 @@ API가 파서 원본 테이블을 직접 참조하지 않고 소비 계층(view/
 
 ### 마스터 데이터 수정 권한의 원천
 
-아키텍처에는 외부 마스터(room/maker/model)가 있고, `02_domain_menus.md`의 설비관리 메뉴에는 플랫폼 속성 수정이 있다. 같은 필드를 양쪽이 수정하면 다음 import가 운영자의 변경을 덮어쓸 수 있다. 필드별 원천 소유자(외부 동기화 전용 / 플랫폼 직접관리)를 구현 전에 명확히 구분해야 한다. 설비의 사용중지는 해당 ID 이력의 `valid_to` 종료와 같은 사건이다(2026-09-24 정정). 사용중지된 ID는 이후 다른 용도로 재사용하지 않는다. 설비를 가리키는 키는 EquipmentID 하나이며 별도 설비명은 없다. room_name(공정명)의 드문 변경은 같은 ID를 유지한다([CONTEXT](../CONTEXT.md), [09](09_equipment_master_wireframe.md)).
+아키텍처에는 외부 마스터(room/maker/model)가 있고, `02_domain_menus.md`의 설비관리 메뉴에는 플랫폼 속성 수정이 있다. 같은 필드를 양쪽이 수정하면 다음 import가 운영자의 변경을 덮어쓸 수 있다. 필드별 원천 소유자(외부 동기화 전용 / 플랫폼 직접관리)를 구현 전에 명확히 구분해야 한다. 설비의 사용중지는 해당 ID 이력의 `valid_to` 종료와 같은 사건이다(2026-09-24 정정). 사용중지된 ID는 이후 다른 용도로 재사용하지 않는다. 설비를 가리키는 키는 EquipmentID 하나이며 별도 설비명은 없다. room_name(공정명)의 드문 변경은 같은 ID를 유지한다([GLOSSARY](../GLOSSARY.md), [09](09_equipment_master_wireframe.md)).
 
 ## 데이터 운영 정책
 

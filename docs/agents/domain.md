@@ -4,7 +4,7 @@ How the engineering skills should consume this repo's domain documentation when 
 
 ## Before exploring, read these
 
-- **`CONTEXT.md`** at the repo root — domain glossary.
+- **`GLOSSARY.md`** at the repo root — domain glossary.
 - **`docs/INDEX.md`** — role- and task-based reading paths into the design contracts (`docs/00`–`13`). Platform/frontend work starts at `docs/06_platform_ui_contract.md`.
 - **`docs/adr/`** — architectural decisions touching the area.
 - The relevant per-directory **`AGENTS.md`** — technical-layer rules (`apps/platform-web`, `packages/*`, `menus`, `tooling`, `docs`).

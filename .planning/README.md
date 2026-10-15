@@ -81,7 +81,7 @@ FeedbackOps 화면은 플랫폼으로 옮기지 않는다. FeedbackOps가 VOC �
 | `defaultRangeTo`를 서버가 산출하지 못할 때 | 06 §6.3은 Decided인데 포트는 항상 값을 준다. 실서버 전에 포트를 `string \| null`로 넓힐지 | #154 |
 | 사용자 설정(즐겨찾기·최근·언어·표 열) 저장 위치 | 브라우저 localStorage에만 있다(기기 간 동기 없음). v1을 이대로 둘지, 서버 보존 포트를 둘지 | 사내 적용 |
 | 접근 가능한 메뉴가 0개일 때 안내 화면 | 07이 요구하지만 미구현. 만들지, 요구를 지울지 | — |
-| Line·Site를 Context 키로 둘지 | CONTEXT·ADR-0005는 Line을 독립 축이라 하지만 코드에 키가 없다 | — |
+| Line·Site를 Context 키로 둘지 | GLOSSARY·ADR-0005는 Line을 독립 축이라 하지만 코드에 키가 없다 | — |
 | 생산성 개요의 지표별 버전 page key | 11 설계는 지표별 버전 키, 구현은 미등록 | — |
 | 프로토타입 컨펌 캡처 보관 | ADR-0011·0013·0015·0017이 원격 프로토타입 브랜치에만 있는 캡처를 근거로 든다. 레포로 가져올지, 브랜치를 남겨 둘지 | 그 브랜치 삭제 |
 
@@ -114,7 +114,7 @@ FeedbackOps 화면은 플랫폼으로 옮기지 않는다. FeedbackOps가 VOC �
 
 ## 끝난 것
 
-작업 흐름(2026-10-09, #255): FeedbackOps의 이슈 처리 흐름과 역할별 리뷰어(`issue-wave-conductor`, `review-ux`·`review-quality`)를 옮겼다. conductor 후속(2026-10-10, #283): FeedbackOps conductor 4커밋 반영 — `impl-mid` 단계, 브리프 사전 점검(`templates/brief-check.md`), 웨이브 스냅숏(`wave-status.py`), 작업자 위생(`worker-hygiene.sh`), 지적 fold·file·note 분류와 가치 게이트. 스킬 5종·에이전트 4개 추가(`.agents/README.md`). 전역으로 합침(2026-10-15, #361): conductor 공통 절차는 전역 `issue-wave-conductor` 스킬로, 이 레포의 부분은 `.agents/conductor/PROFILE.md`로.
+작업 흐름(2026-10-09, #255): FeedbackOps의 이슈 처리 흐름과 역할별 리뷰어(`issue-wave-conductor`, `review-ux`·`review-quality`)를 옮겼다. conductor 후속(2026-10-10, #283): FeedbackOps conductor 4커밋 반영 — `impl-mid` 단계, 브리프 사전 점검(`templates/brief-check.md`), 웨이브 스냅숏(`wave-status.py`), 작업자 위생(`worker-hygiene.sh`), 지적 fold·file·note 분류와 가치 게이트. 스킬 5종·에이전트 4개 추가(`.agents/README.md`). 전역으로 합침(2026-10-15, #361): conductor 공통 절차는 전역 `issue-wave-conductor` 스킬로, 이 레포의 부분은 `.agents/conductor/PROFILE.md`로. 스킬 정리(2026-10-15, #363): 일반 스킬은 전역 `~/.agents/skills`로, 쓰지 않는 스킬(`shadcn`·`impeccable`·`wayfinder`·`ui-styling`) 삭제, 용어 문서는 `GLOSSARY.md`.
 
 v0.1.0(2026-10-04): Kernel(Registry·전역 Context·URL 계약·권한·Scope·감사·활용률 계측·화면 오류 격리), 공통 컴포넌트(서버 페이징 표·내보내기·복사, 셸 상세 슬롯, 감사 타임라인, 신뢰 표시, 상태 화면, 필터 바, 같은 응답 배너), 차트 계약(Brush·Compare·Annotate·Export, 범례), FeedbackOps 디자인 시스템 기반 셸, 플랫폼 계약 E2E, 메뉴 조회 포트와 서버 적합성 묶음, 운영 빌드 조립 분리. 세부는 닫힌 이슈와 [v0.1.0 릴리스](https://github.com/hjung3113/analytics-platform/releases/tag/v0.1.0).
 

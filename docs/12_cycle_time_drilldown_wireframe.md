@@ -1,6 +1,6 @@
 # 12. 생산성 분석 — 사이클타임 상세 → 느린 실행 목록 → occurrence 상세
 
-상태: 화면 계약 노트. 구현은 `menus/analytics/analytics`의 `cycle-time`·`execution-detail`(합성 데이터)이고 배치·시각은 구현과 [DESIGN](../DESIGN.md)이 기준이다. 전역 결정의 원본은 [06](06_platform_ui_contract.md), 데이터 원본은 [01](01_architecture_and_data_contract.md), 용어는 [CONTEXT](../CONTEXT.md)다. 이 문서는 식별자·왕복 계약, Context 선언, 소유 경계, 남은 결정만 소유한다.
+상태: 화면 계약 노트. 구현은 `menus/analytics/analytics`의 `cycle-time`·`execution-detail`(합성 데이터)이고 배치·시각은 구현과 [DESIGN](../DESIGN.md)이 기준이다. 전역 결정의 원본은 [06](06_platform_ui_contract.md), 데이터 원본은 [01](01_architecture_and_data_contract.md), 용어는 [GLOSSARY](../GLOSSARY.md)다. 이 문서는 식별자·왕복 계약, Context 선언, 소유 경계, 남은 결정만 소유한다.
 
 ## 1. USER TASK
 
@@ -147,6 +147,6 @@ KPI는 전체 기간 통계, 일별 값은 각 bucket 통계로 서로 단순 �
 ## OPEN QUESTIONS / RISKS
 
 - **비교 모집단(Open — 이 화면 분석 로직 담당)**: "P95 이상 느린 실행"이 Recipe/PPID가 다른 Job을 어떤 비교 기준으로 묶는지 명시해야 한다. 혼합 Recipe 합성 행은 통계적 비교 가능성의 승인 근거가 아니다. 모집단 구성·분리/포함 기준은 이 메뉴가 정하며 Kernel 규칙으로 올리지 않는다.
-- **Module/Slot 타임라인(Open — 이 화면 데이터/표현 계약)**: XFR/FNC/PRC 로그의 grain은 EquipmentID 하위 Module/Slot으로 확정됐다([CONTEXT](../CONTEXT.md)). 상세 구간과 데이터 표에 Module/Slot 참조 및 부모 Job occurrence 관계를 어떻게 표시·연결할지 정해야 한다. 현재 PRC 구간 중심 표현은 이 세부 단위를 표현하지 못하므로 완성된 타임라인 계약으로 보지 않는다. 화면 전체 재설계는 이번 범위에 포함하지 않는다.
+- **Module/Slot 타임라인(Open — 이 화면 데이터/표현 계약)**: XFR/FNC/PRC 로그의 grain은 EquipmentID 하위 Module/Slot으로 확정됐다([GLOSSARY](../GLOSSARY.md)). 상세 구간과 데이터 표에 Module/Slot 참조 및 부모 Job occurrence 관계를 어떻게 표시·연결할지 정해야 한다. 현재 PRC 구간 중심 표현은 이 세부 단위를 표현하지 못하므로 완성된 타임라인 계약으로 보지 않는다. 화면 전체 재설계는 이번 범위에 포함하지 않는다.
 - CFG는 설비 단위 기록이며 Module 대상 정보는 개별 값의 속성이다. 분석 설정은 Job 시작 시점 값으로 충분하다. CFG cross-menu 이동은 Deferred이며 이 화면에 신규 이동을 추가하지 않는다(`06` §22).
 - anchor 전체 정밀도 보존은 계약이다. 현재 구현은 초 단위 anchor(`YYYY-MM-DDTHH:mm:ss`)만 열며 반올림·절단하지 않고 거부한다. 소수초 anchor의 무손실 왕복은 구현으로 확인하지 않았다.

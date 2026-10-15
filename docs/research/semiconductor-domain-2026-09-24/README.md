@@ -2,11 +2,11 @@
 
 작성일: 2026-09-24. 상태: **Research / Candidate**.
 
-후속 도메인 확인(같은 날 2차 도메인 인터뷰, 결과는 [CONTEXT.md](../../../CONTEXT.md)·[01](../../01_architecture_and_data_contract.md)에 반영): XFR/FNC/PRC는 Module/Slot grain, CFG 기록은 설비 단위이며 Module 대상은 값 내부 속성(테이블 분할 키 아님)이다. 분석의 유효값 기준은 Job 시작 시점 하나로 충분하다. 아래 외부 조사·형식 제안의 Candidate 상태는 유지한다.
+후속 도메인 확인(같은 날 2차 도메인 인터뷰, 결과는 [GLOSSARY.md](../../../GLOSSARY.md)·[01](../../01_architecture_and_data_contract.md)에 반영): XFR/FNC/PRC는 Module/Slot grain, CFG 기록은 설비 단위이며 Module 대상은 값 내부 속성(테이블 분할 키 아님)이다. 분석의 유효값 기준은 Job 시작 시점 하나로 충분하다. 아래 외부 조사·형식 제안의 Candidate 상태는 유지한다.
 
-이 문서는 외부 표준·특허·제품 자료를 이번 세션의 열린 질문에만 비춘 조사다. [CONTEXT.md](../../../CONTEXT.md)와 `docs/adr/`, [06](../../06_platform_ui_contract.md)의 Decided를 덮지 않는다. 용어를 바꾸거나 CFG 형식을 확정하는 문서가 아니다. 다음 리뷰의 입력이다.
+이 문서는 외부 표준·특허·제품 자료를 이번 세션의 열린 질문에만 비춘 조사다. [GLOSSARY.md](../../../GLOSSARY.md)와 `docs/adr/`, [06](../../06_platform_ui_contract.md)의 Decided를 덮지 않는다. 용어를 바꾸거나 CFG 형식을 확정하는 문서가 아니다. 다음 리뷰의 입력이다.
 
-범위는 세 가지다. Operation이라는 임시 이름이 업계 용어와 맞는지, CFG를 어떤 데이터 형태로 봐야 하는지, 생산성·연계 분석이 이미 있는 제품 패턴을 벗어나는지. `CONTEXT.md`에 이미 있는 Carrier/Lot/Recipe 정의는 반복하지 않는다.
+범위는 세 가지다. Operation이라는 임시 이름이 업계 용어와 맞는지, CFG를 어떤 데이터 형태로 봐야 하는지, 생산성·연계 분석이 이미 있는 제품 패턴을 벗어나는지. `GLOSSARY.md`에 이미 있는 Carrier/Lot/Recipe 정의는 반복하지 않는다.
 
 한/영 UI에 대해서는, 이번 결정(UI 문구·정적 본문만 번역, 마스터 값·식별자는 그대로)을 뒤집을 자료를 찾지 못했다. SEMI의 PPID·ECID는 표시용 번역 문자열이 아니라 호스트와 설비가 주고받는 식별자다.
 

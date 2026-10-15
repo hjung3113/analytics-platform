@@ -53,7 +53,7 @@ React 컴포넌트 이름이나 API 선언이 아니다. Platform/Domain 경계�
 - **Context capability 선언(매니페스트 `menus/analytics/equipment`)**: 둘 다 `requiresScope: true`, `pageType: management`, 권한 `equipment:view`이다. 목록(`equipment-master`)은 Time `reference`, room_name·Equipment Group Condition·Selection `apply`, Lot·PPID·Recipe·metric `unsupported`다. 상세(`equipment-detail`)는 Time·room_name·Condition·Selection을 모두 `reference`로 두어 출발 Context를 보존만 하고 목적지 ID와 역할을 구분한다. Scope는 항상 적용·재검증된다.
 - **page-owned 키(등록: `06` §6.1 page-key registration)**: 목록 `q`(검색어)·`status`·`maker`·`focus`(열린 Drawer의 설비 ID)·`sort`·`page`·`tab`. Global Context가 바뀌면 `page`를 지운다(`contextResetKeys`). 상세 전체 화면은 `tab`·`returnTo`. room_name(`roomNames`)·Equipment Group Condition(`equipmentGroup`)·Selection(`selectedEquipmentIds`, 기존 `equipmentIds` 대응)은 `06` §6.1의 전역 키를 소비한다. 조건 축을 조합하거나 별도 page-owned 그룹 키를 만들지 않는다. 정렬 허용 열은 데이터 필드뿐이며 미등록 값은 다른 값으로 바꾸지 않고 오류로 보인다.
 - **Scope 필터링**: 목록은 현재 요청 `scopeId`(Site 내 room_name 기준 단일 Scope, v1)에 속한 설비만 반환한다. Scope 선택지 조회와 데이터 조회는 구분한다(`06` §6.2).
-- **room_name/StGroup의 성격 차이**: room_name(PHOTO·ETCH 같은 공정명)은 보통 등록 후 유지되지만 드물게 바뀔 수 있고 같은 EquipmentID를 유지한다. 설비를 가리키는 키는 EquipmentID 하나이며 별도 설비명은 없다. StGroup·분임조 소속은 외부 공급값이며 StGroup v1 조회는 현재 소속 기준이다. 현재 소속을 유효구간의 과거 값으로 투영하지 않는다([CONTEXT](../CONTEXT.md)).
+- **room_name/StGroup의 성격 차이**: room_name(PHOTO·ETCH 같은 공정명)은 보통 등록 후 유지되지만 드물게 바뀔 수 있고 같은 EquipmentID를 유지한다. 설비를 가리키는 키는 EquipmentID 하나이며 별도 설비명은 없다. StGroup·분임조 소속은 외부 공급값이며 StGroup v1 조회는 현재 소속 기준이다. 현재 소속을 유효구간의 과거 값으로 투영하지 않는다([GLOSSARY](../GLOSSARY.md)).
 - **필드 원천 소유권(Decided/Open)**: As-Is 설비 마스터는 외부/사내 DB에 존재하며 로그에서 발견하는 속성이 아니다. To-Be는 플랫폼의 설비 등록·관리 소유이며 필드별 전환 순서·동기화/수동 수정 경계는 Open이다([ADR-0003](adr/0003-equipment-master-platform-owned-target.md), [01 마스터 데이터 수정 권한의 원천](01_architecture_and_data_contract.md#마스터-데이터-수정-권한의-원천)). StGroup·분임조 소속은 외부 시스템에서 공급받아 소비하며 플랫폼 직접 편집 대상으로 표시하지 않는다. 나머지 속성의 편집 가능성은 실제 소유권에 따라 결정하며, 소유권이 정해지기 전에는 쓰기를 열지 않는다.
 - **사용중지/복원**: 물리 삭제가 아니라 유효기간 종료(`valid_to`)로 이력을 보존한다(`02_domain_menus.md`). 사용중지된 ID는 이후 다른 용도로 재사용하지 않는다. 복원 허용 조건은 Open이다. room_name 변경은 사용중지의 사유가 아니다. 사용중지 액션은 확인 없이 즉시 실행하지 않는다(`06` §20 Modal 용도: Confirmation).
 - **설비 상태 값**: 구현은 `active`·`idle`·`maintenance`·`retired` 네 값을 쓴다. 이 값들의 도메인 의미와 소유자는 정해지지 않았다.
@@ -81,7 +81,7 @@ React 컴포넌트 이름이나 API 선언이 아니다. Platform/Domain 경계�
 | Decided | 사용중지는 물리 삭제가 아니라 유효기간 종료 | `02_domain_menus.md` |
 | Decided | 전역 Context 지원: 목록은 Time `reference` / room_name·Condition·Selection `apply` / Lot·PPID·Recipe·metric `unsupported` | 이 문서 §6, `menus/analytics/equipment` 매니페스트 |
 | Decided | 목록의 `q`·`status`·`maker`·`focus`·`sort`·`page`·`tab`은 page-owned URL 키로 등록한다 | `06` §6.1 |
-| Decided | room_name은 공정명(PHOTO·ETCH 등)이며 드물게 변경 가능·ID 유지. 설비 키는 EquipmentID 하나(별도 설비명 없음, 2026-10-07 사용자). StGroup은 현재 외부 소속 사용 | `CONTEXT.md` |
+| Decided | room_name은 공정명(PHOTO·ETCH 등)이며 드물게 변경 가능·ID 유지. 설비 키는 EquipmentID 하나(별도 설비명 없음, 2026-10-07 사용자). StGroup은 현재 외부 소속 사용 | `GLOSSARY.md` |
 | Open | StGroup·분임조 소속을 제외한 미배정 필드별 원천 소유자 배정. 속성 편집·사용중지/복원 쓰기 구현의 선행 조건 | `01_architecture_and_data_contract.md` 「마스터 데이터 수정 권한의 원천」 |
 | Open | 설비 등록 UI의 필수 필드·외부 마스터에서의 전환 절차 | 이 문서 |
 | Open | 일괄 사용중지 등 다중 선택 기반의 상태 변경 액션 지원 여부(현재 다중 선택 액션은 내보내기와 "선택 설비로 분석") | 이 문서 |

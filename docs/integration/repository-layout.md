@@ -13,7 +13,7 @@ FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를
 | `docs/00_*.md` ~ `docs/13_*.md` | 기존 플랫폼 설계. 전역 계약은 `06_platform_ui_contract.md`가 소유 |
 | `docs/adr/` | 결정 기록(ADR). 목록·형식은 `docs/adr/README.md` |
 | `docs/integration/` | 저장소 연결 및 향후 통합 결정. 기존 제품 계약을 암묵적으로 덮어쓰지 않음 |
-| `DESIGN.md`, `CONTEXT.md` | 플랫폼 디자인 방향, 도메인 용어 |
+| `DESIGN.md`, `GLOSSARY.md` | 플랫폼 디자인 방향, 도메인 용어 |
 | `.planning/` | 남은 일·결정 대기(원본은 GitHub 이슈) |
 | `.agents/` | 플랫폼 에이전트 스킬·참고자료·보고서 |
 | `package.json`, `pnpm-workspace.yaml`, `turbo.json` | 플랫폼 pnpm workspace 루트(`apps/*`, `packages/*`, `menus/*/*`, `tooling/*`)와 FeedbackOps `packages/ui`, `packages/shared` |

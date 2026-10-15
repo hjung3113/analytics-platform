@@ -35,15 +35,6 @@ Create a GitHub issue.
 
 Run `gh issue view <number> --comments`.
 
-## Wayfinding operations
+## Milestones
 
-Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
-
-- **Map**: a single issue labelled `wayfinder:map`. `gh issue create --label wayfinder:map`.
-- **Child ticket**: linked to the map as a GitHub sub-issue (`gh api --method POST repos/hjung3113/analytics-platform/issues/<map>/sub_issues -F sub_issue_id=<child-db-id>`). Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`).
-- **Blocking**: GitHub native issue dependencies — `gh api --method POST repos/hjung3113/analytics-platform/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, where `<blocker-db-id>` is `gh api repos/hjung3113/analytics-platform/issues/<n> --jq .id` (not the `#number`). Also write `Blocked by: #n` in the body so it is readable without the API.
-- **Frontier query**: open children with no open blocker (`issue_dependencies_summary.blocked_by == 0`) and no assignee; first in map order wins.
-- **Claim**: `gh issue edit <n> --add-assignee @me`.
-- **Resolve**: comment the answer, close, and add a one-line pointer to the map.
-
-Milestones are the progress authority per track (`M1 플랫폼 기능 기반`, `M2 디자인 시스템`, `M3 FeedbackOps 1단계`, `M4 사내 적용`, `M5 FeedbackOps 2단계`(지도 #213)). A wayfinder map lives inside a milestone. The at-a-glance board is `.planning/README.md`.
+Milestones are the progress authority per track (`M1 플랫폼 기능 기반`, `M2 디자인 시스템`, `M3 FeedbackOps 1단계`, `M4 사내 적용`, `M5 FeedbackOps 2단계`(지도 #213)). The at-a-glance board is `.planning/README.md`.
