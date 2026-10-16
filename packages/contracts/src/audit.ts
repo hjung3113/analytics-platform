@@ -1,7 +1,7 @@
 /** Audit event (docs/06 §13) shown by the platform AuditTimeline and read by the audit-trail ports (issue
  *  #50). One type for the timeline and the global list — no second DTO. The domain supplies events. */
 
-export type AuditAction = 'create' | 'update' | 'retire' | 'sync';
+export type AuditAction = 'create' | 'update' | 'retire' | 'sync' | 'delete';
 export type AuditSource = 'user' | 'system';
 
 /** Destination of the change (06 §22). Not an analysis Context. */

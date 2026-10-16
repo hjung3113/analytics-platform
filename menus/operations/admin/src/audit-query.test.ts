@@ -21,6 +21,10 @@ describe('parseAuditKeys (#50 page keys)', () => {
     });
   });
 
+  it('accepts the annotation type and the delete action a chart-note deletion writes (#399)', () => {
+    expect(parseAuditKeys(keys({ type: 'annotation', action: 'delete' }))).toMatchObject({ ok: true, filters: { type: 'annotation', action: 'delete' } });
+  });
+
   it.each<[string, { fromAt?: string; toAt?: string }, 'fromAt' | 'toAt']>([
     ['fromAt only', { fromAt: '2026-09-20T02:00:00.000Z' }, 'fromAt'],
     ['toAt only', { toAt: '2026-09-26T02:00:00.000Z' }, 'toAt'],
@@ -37,7 +41,7 @@ describe('parseAuditKeys (#50 page keys)', () => {
     ['fromAt at or after toAt', keys({ fromAt: '2026-09-26T02:00:00.000Z', toAt: '2026-09-20T02:00:00.000Z' })],
     ['fromAt equal to toAt', keys({ fromAt: '2026-09-26T02:00:00.000Z', toAt: '2026-09-26T02:00:00.000Z' })],
     ['unknown type', keys({ type: 'nope' })],
-    ['unknown action', keys({ action: 'delete' })],
+    ['unknown action', keys({ action: 'purge' })],
     ['unknown source', keys({ source: 'cron' })],
     ['empty actor', keys({ actor: '' })],
     ['actor bearing a query mark', keys({ actor: 'a?b' })],
@@ -70,12 +74,13 @@ describe('auditKeyProblem time reasons (#305)', () => {
 // §6: the words are copied from AuditTimeline, not exported from components. A new AuditAction must fail
 // this table until a reviewer copies its word here too.
 describe('ACTION_LABEL', () => {
-  it('carries exactly the four timeline words, ko and en', () => {
+  it('carries exactly the five timeline words, ko and en', () => {
     expect(ACTION_LABEL).toEqual({
       create: { ko: '생성', en: 'Created' },
       update: { ko: '변경', en: 'Updated' },
       retire: { ko: '유효 종료', en: 'Retired' },
       sync: { ko: '동기화', en: 'Synced' },
+      delete: { ko: '삭제', en: 'Deleted' },
     });
   });
 });

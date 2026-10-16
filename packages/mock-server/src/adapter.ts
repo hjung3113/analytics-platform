@@ -7,7 +7,7 @@ import type { ContextKey, MenuMeta, PlatformAdapter, Session } from '@ap/contrac
 import { checkScope, getEntity, getRole, matchesCondition, recordUsage, reportClientError, subscribeServer, usageSummary, validateScope } from './server';
 import { auditTrail, entityAudit } from './audit';
 import { accessDirectory } from './access';
-import { listAnnotations, saveAnnotation } from './annotations';
+import { deleteAnnotation, listAnnotations, saveAnnotation } from './annotations';
 import { DEFAULT_RANGE_TO, EQUIPMENT, PUBLISHED_METRICS, SITES, USERS, type RoleId } from './world';
 import { MockRegistrationError, serveEndpoint, type AnyMockEndpoint } from './endpoints';
 
@@ -121,6 +121,7 @@ export function createMockAdapter(o: {
     accessDirectory: (query, signal) => accessDirectory(query, signal),
     listAnnotations: (ref, signal) => listAnnotations(ref, signal),
     saveAnnotation: (input, signal) => saveAnnotation(input, signal),
+    deleteAnnotation: (ref, signal) => deleteAnnotation(ref, signal),
     // Fire-and-forget telemetry: the kernel never awaits these and passes no AbortSignal.
     recordUsage: events => recordUsage(events),
     reportClientError: report => reportClientError(report),

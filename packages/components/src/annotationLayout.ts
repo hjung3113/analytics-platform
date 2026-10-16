@@ -1,0 +1,23 @@
+/** One note's range in axis units: epoch ms on a time axis, a category index on a category axis. */
+export type NoteSpan = { from: number; to: number };
+export type NoteLabelLayout = { /** 0 = top row; a note overlapping an earlier one sits one row lower per overlap level. */ level: number; /** Pixel budget before the label is truncated. */ width: number };
+
+const MIN_LABEL_WIDTH = 24;
+
+/**
+ * Where each note's label goes (#399 AC-2): notes whose ranges overlap take successive rows so two notes over the
+ * same range no longer draw on top of each other, and a label never exceeds its area (clamped to the plot) so a
+ * long text truncates with an ellipsis instead of running past the chart edge. The full text stays in the list.
+ */
+export function layoutNoteLabels(spans: readonly NoteSpan[], pxPerUnit: number, plotWidth: number): NoteLabelLayout[] {
+  const placed: { from: number; to: number; level: number }[] = [];
+  return spans.map(span => {
+    const from = Math.min(span.from, span.to);
+    const to = Math.max(span.from, span.to);
+    const taken = new Set(placed.filter(o => o.from <= to && from <= o.to).map(o => o.level));
+    let level = 0;
+    while (taken.has(level)) level++;
+    placed.push({ from, to, level });
+    return { level, width: Math.min(Math.max(plotWidth, MIN_LABEL_WIDTH), Math.max(MIN_LABEL_WIDTH, Math.round((to - from) * pxPerUnit))) };
+  });
+}

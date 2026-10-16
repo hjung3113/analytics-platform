@@ -5,21 +5,26 @@
  * data: trust is null and assessments are empty on every branch, so this does not go through finish().
  * The server stamps the author and `at`; the wire input has no field for either and an unknown key rejects the call.
  */
-import type { AnnotationInput, AnnotationRef, ApiResponse, Assessment, ChartAnnotation } from '@ap/contracts';
+import type { AnnotationInput, AnnotationRef, ApiResponse, Assessment, AuditEvent, ChartAnnotation } from '@ap/contracts';
 import { checkScope, getRole, getScenario, nextCorrelation, sleep } from './server';
 import { USERS, type RoleId } from './world';
 
 export type AnnotationOptions = { role?: RoleId; latency?: number };
-type StoredAnnotation = ChartAnnotation & { authorId: string };
+/** `mine` is computed per response from the requesting role and never stored. */
+type StoredAnnotation = Omit<ChartAnnotation, 'mine'> & { authorId: string };
 
 /** The chart menus' permission. A server-side constant like getEntity's type map, never a client argument. */
 const ANNOTATION_PERMISSION = 'analytics:view' as const;
 const REF_KEYS = ['chartId', 'scopeId'] as const;
 const INPUT_KEYS = [...REF_KEYS, 'from', 'to', 'text'] as const;
+const DELETE_KEYS = [...REF_KEYS, 'id'] as const;
 
 const rows: StoredAnnotation[] = [];
 let nextId = 1;
-export function resetAnnotations() { rows.length = 0; nextId = 1; }
+/** Deletions recorded for the console: `auditTrail` concatenates these with the fixture events. */
+const deletions: AuditEvent[] = [];
+export function resetAnnotations() { rows.length = 0; nextId = 1; deletions.length = 0; }
+export function runtimeAuditEvents(): readonly AuditEvent[] { return deletions; }
 export function storedAnnotations(): readonly StoredAnnotation[] { return rows; }
 
 const hasOnly = (value: object, keys: readonly string[]) => {
@@ -38,6 +43,11 @@ function invalidInput(input: AnnotationInput): boolean {
   const text = typeof input.text === 'string' ? input.text.trim() : '';
   return !validLabel(input.from) || !validLabel(input.to) || text.length === 0 || text.length > 200;
 }
+
+function invalidDelete(ref: AnnotationRef & { id: string }): boolean {
+  return invalidRef(ref, DELETE_KEYS) || !validToken(ref.id, 40);
+}
+const toWire = ({ authorId, ...row }: StoredAnnotation, requestRole: RoleId): ChartAnnotation => ({ ...row, mine: authorId === USERS[requestRole].role });
 
 type Base = { correlationId: string; data: null; trust: null; assessments: Assessment[] };
 type Gated = { fail: ApiResponse<never> } | { fail?: undefined; requestRole: RoleId; scenario: ReturnType<typeof getScenario>; base: Base };
@@ -62,7 +72,7 @@ async function gate(ref: AnnotationRef, signal: AbortSignal | undefined, opts: A
 export async function listAnnotations(ref: AnnotationRef, signal?: AbortSignal, opts?: AnnotationOptions): Promise<ApiResponse<{ items: readonly ChartAnnotation[] }>> {
   const g = await gate(ref, signal, opts, invalidRef(ref));
   if (g.fail) return g.fail;
-  const items = g.scenario === 'empty' ? [] : rows.filter(r => r.scopeId === ref.scopeId && r.chartId === ref.chartId).map(({ authorId: _author, ...row }) => row);
+  const items = g.scenario === 'empty' ? [] : rows.filter(r => r.scopeId === ref.scopeId && r.chartId === ref.chartId).map(r => toWire(r, g.requestRole));
   if (items.length === 0) return { ...g.base, outcome: 'empty' };
   return { ...g.base, outcome: 'ok', data: { items } };
 }
@@ -75,6 +85,26 @@ export async function saveAnnotation(input: AnnotationInput, signal?: AbortSigna
     at: new Date().toISOString().slice(0, 16), authorId: USERS[g.requestRole].role,
   };
   rows.push(stored);
-  const { authorId: _author, ...row } = stored;
-  return { ...g.base, outcome: 'ok', data: row };
+  return { ...g.base, outcome: 'ok', data: toWire(stored, g.requestRole) };
+}
+
+/**
+ * Author-only delete (#399, ADR-0041). Same gates as list/save, so a null, unknown or ungranted site is
+ * `forbidden` before any lookup. Then the lookup is inside `(chartId, scopeId)` only: an id of another site or
+ * chart is `empty`, a note of another author is `forbidden`. A successful delete leaves an audit row.
+ */
+export async function deleteAnnotation(ref: AnnotationRef & { id: string }, signal?: AbortSignal, opts?: AnnotationOptions): Promise<ApiResponse<{ id: string }>> {
+  const g = await gate(ref, signal, opts, invalidDelete(ref));
+  if (g.fail) return g.fail;
+  const index = rows.findIndex(r => r.id === ref.id && r.scopeId === ref.scopeId && r.chartId === ref.chartId);
+  if (index < 0) return { ...g.base, outcome: 'empty' };
+  const row = rows[index];
+  const actor = USERS[g.requestRole].role;
+  if (row.authorId !== actor) return { ...g.base, outcome: 'forbidden', message: 'Only the author can delete a note' };
+  rows.splice(index, 1);
+  deletions.push({
+    id: `annotation:${row.id}:delete`, at: new Date().toISOString(), actor, action: 'delete', source: 'user',
+    target: { type: 'annotation', id: row.id, scopeId: row.scopeId }, changes: { chartId: [row.chartId, null] }, reason: row.text,
+  });
+  return { ...g.base, outcome: 'ok', data: { id: row.id } };
 }

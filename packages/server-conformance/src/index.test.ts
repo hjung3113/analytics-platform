@@ -61,8 +61,10 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
   let session: Session | null = null;
   // Server-owned in-memory stores (06 §16, checklist §5): annotations keyed by (chartId, scopeId), usage rows
   // stamped with the receive time — both live as long as this reference adapter instance.
-  const annotationRows: (ChartAnnotation & { authorId: string })[] = [];
+  const annotationRows: (Omit<ChartAnnotation, 'mine'> & { authorId: string })[] = [];
   let annotationSeq = 0;
+  // The reference stamps the actual actor: the console account is a different user from the granted one (#399).
+  const actor = () => (state.console ? 'admin' : 'engineer');
   const usageRows: (UsageEvent & { userId: string; receivedAt: number })[] = [];
   return {
     session: () => {
@@ -378,7 +380,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       // 'annotation-keyed-by-chart' selects by chartId alone — a note crosses the site boundary.
       const items = annotationRows
         .filter(r => r.chartId === ref.chartId && (breaks.has('annotation-keyed-by-chart') || r.scopeId === ref.scopeId))
-        .map(({ authorId: _author, ...row }) => row);
+        .map(({ authorId, ...row }) => ({ ...row, mine: authorId === actor() }));
       if (items.length === 0) return { ...envelope, outcome: 'empty' };
       // 'annotation-list-mart' taints only the list — 'annotation-mart' taints save and list together.
       return breaks.has('annotation-mart') || breaks.has('annotation-list-mart')
@@ -388,7 +390,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
     saveAnnotation: async (input) => {
       if (!state.permissions.has('analytics:view')) {
         return breaks.has('annotation-save-permission')
-          ? { ...envelope, outcome: 'ok', data: { id: 'ann-0', chartId: input.chartId, scopeId: input.scopeId ?? 'ICH', from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00' } }
+          ? { ...envelope, outcome: 'ok', data: { id: 'ann-0', chartId: input.chartId, scopeId: input.scopeId ?? 'ICH', from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00', mine: true } }
           : { ...envelope, outcome: 'forbidden', message: 'No permission analytics:view' };
       }
       // A user/at/id in the input is an unknown key and rejects the call (adapter.ts) — 'annotation-accepts-at'
@@ -399,26 +401,27 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         (breaks.has('annotation-accepts-at') && k === 'at') || (breaks.has('annotation-accepts-id-user') && (k === 'id' || k === 'user')));
       if (extraInputKeys.length > 0 && !acceptsExtraKeys) {
         if (breaks.has('annotation-error-stores')) {
-          annotationRows.push({ id: `ann-${++annotationSeq}`, chartId: input.chartId, scopeId: input.scopeId ?? 'ICH', from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00', authorId: 'engineer' });
+          annotationRows.push({ id: `ann-${++annotationSeq}`, chartId: input.chartId, scopeId: input.scopeId ?? 'ICH', from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00', authorId: actor() });
         }
         return err('Invalid annotation input');
       }
       if (input.scopeId === null) {
         return breaks.has('annotation-save-null')
-          ? { ...envelope, outcome: 'ok', data: { id: 'ann-0', chartId: input.chartId, scopeId: 'ICH', from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00' } }
+          ? { ...envelope, outcome: 'ok', data: { id: 'ann-0', chartId: input.chartId, scopeId: 'ICH', from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00', mine: true } }
           : { ...envelope, outcome: 'forbidden', message: 'No grant for scope null' };
       }
       if (input.scopeId !== 'ICH' && input.scopeId !== 'CJU') {
         return breaks.has('annotation-save-foreign')
-          ? { ...envelope, outcome: 'ok', data: { id: 'ann-0', chartId: input.chartId, scopeId: input.scopeId, from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00' } }
+          ? { ...envelope, outcome: 'ok', data: { id: 'ann-0', chartId: input.chartId, scopeId: input.scopeId, from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00', mine: true } }
           : { ...envelope, outcome: 'forbidden', message: `No grant for scope ${input.scopeId}` };
       }
       // 'annotation-echo' saves a different text than the input — the saved row must echo it. 'annotation-
       // row-author' leaks the stamped author into the returned row (adapter.ts: never sent, never returned).
-      const stored = { id: `ann-${++annotationSeq}`, chartId: input.chartId, scopeId: input.scopeId, from: input.from, to: input.to, text: breaks.has('annotation-echo') ? `${input.text} (edited)` : input.text, at: '2026-09-26T09:00:00', authorId: 'engineer' };
+      const stored = { id: `ann-${++annotationSeq}`, chartId: input.chartId, scopeId: input.scopeId, from: input.from, to: input.to, text: breaks.has('annotation-echo') ? `${input.text} (edited)` : input.text, at: '2026-09-26T09:00:00', authorId: actor() };
       // 'annotation-not-stored' answers ok without persisting — the same-site list must notice.
       if (!breaks.has('annotation-not-stored')) annotationRows.push(stored);
-      const { authorId: _author, ...row } = stored;
+      const { authorId: _author, ...rest } = stored;
+      const row = { ...rest, mine: !breaks.has('annotation-save-not-mine') };
       if (breaks.has('annotation-row-author')) return { ...envelope, outcome: 'ok', data: { ...row, authorId: 'engineer' } };
       const okRow: ApiResponse<ChartAnnotation> = breaks.has('annotation-mart')
         ? { ...envelope, outcome: 'ok', data: row, assessments: REF_ASSESSMENTS, trust: REF_TRUST }
@@ -427,6 +430,28 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       const omittable = okRow as { trust?: Trust | null };
       if (breaks.has('annotation-save-missing-trust')) delete omittable.trust;
       return okRow;
+    },
+    deleteAnnotation: async ref => {
+      if (!state.permissions.has('analytics:view')) {
+        return breaks.has('annotation-delete-permission')
+          ? { ...envelope, outcome: 'ok', data: { id: ref.id } }
+          : { ...envelope, outcome: 'forbidden', message: 'No permission analytics:view' };
+      }
+      if (ref.scopeId === null || (ref.scopeId !== 'ICH' && ref.scopeId !== 'CJU')) {
+        return breaks.has(ref.scopeId === null ? 'annotation-delete-null' : 'annotation-delete-foreign')
+          ? { ...envelope, outcome: 'ok', data: { id: ref.id } }
+          : { ...envelope, outcome: 'forbidden', message: `No grant for scope ${ref.scopeId}` };
+      }
+      const index = annotationRows.findIndex(r => r.id === ref.id && r.chartId === ref.chartId && r.scopeId === ref.scopeId);
+      if (index < 0) {
+        return breaks.has('annotation-delete-unknown-ok')
+          ? { ...envelope, outcome: 'ok', data: { id: ref.id } }
+          : { ...envelope, outcome: 'empty' };
+      }
+      // 'annotation-delete-any-author' lets anyone delete; 'annotation-delete-not-removed' answers ok but keeps the row.
+      if (annotationRows[index].authorId !== actor() && !breaks.has('annotation-delete-any-author')) return { ...envelope, outcome: 'forbidden', message: 'Only the author can delete a note' };
+      if (!breaks.has('annotation-delete-not-removed')) annotationRows.splice(index, 1);
+      return { ...envelope, outcome: 'ok', data: { id: ref.id } };
     },
     // The ports round D exercises (#152): contract-shaped answers, one break each.
     publishedMetrics: () => breaks.has('published-metrics')
@@ -561,6 +586,12 @@ describe('server conformance kit (#145)', () => {
       'port · annotations are not mart data: no assessments, null trust',
       'port · listAnnotations without analytics:view → forbidden',
       'port · saveAnnotation without analytics:view → forbidden',
+      'port · deleteAnnotation by the author removes the note',
+      'port · deleteAnnotation by another user → forbidden and the note stays',
+      'port · deleteAnnotation of an id not at this site → empty',
+      'port · deleteAnnotation at a site without a grant → forbidden',
+      'port · deleteAnnotation with a null Scope → forbidden',
+      'port · deleteAnnotation without analytics:view → forbidden',
       'port · recordUsage accepts a valid entry and dwell',
       'port · recordUsage accepts a global menu (spaceId null)',
       'port · recordUsage: spaceId feedback is rejected',
@@ -682,6 +713,13 @@ describe('server conformance kit (#145)', () => {
     // 'annotation-mart' taints save and list; 'annotation-list-mart' taints the list only.
     ['annotation-mart', 'port · annotations are not mart data: no assessments, null trust'],
     ['annotation-list-mart', 'port · annotations are not mart data: no assessments, null trust'],
+    ['annotation-save-not-mine', 'port · saveAnnotation then listAnnotations at the same site returns the note'],
+    ['annotation-delete-any-author', 'port · deleteAnnotation by another user → forbidden and the note stays'],
+    ['annotation-delete-not-removed', 'port · deleteAnnotation by the author removes the note'],
+    ['annotation-delete-unknown-ok', 'port · deleteAnnotation of an id not at this site → empty'],
+    ['annotation-delete-foreign', 'port · deleteAnnotation at a site without a grant → forbidden'],
+    ['annotation-delete-null', 'port · deleteAnnotation with a null Scope → forbidden'],
+    ['annotation-delete-permission', 'port · deleteAnnotation without analytics:view → forbidden'],
     ['annotation-list-permission', 'port · listAnnotations without analytics:view → forbidden'],
     ['annotation-save-permission', 'port · saveAnnotation without analytics:view → forbidden'],
     ['usage-drops-dwell', 'port · recordUsage accepts a valid entry and dwell'],

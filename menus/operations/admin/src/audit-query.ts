@@ -16,26 +16,26 @@ export const AUDIT_PAGE_KEYS = ['type', 'actor', 'action', 'source', 'fromAt', '
 
 /** Sortable columns only — `targetType` sorts `target.type`; the destination columns never sort. */
 const SORT_FIELDS = ['at', 'actor', 'action', 'source', 'targetType'];
-const AUDIT_TYPES = ['equipment', 'metric'];
-const AUDIT_ACTIONS = ['create', 'update', 'retire', 'sync'];
+const AUDIT_TYPES = ['equipment', 'metric', 'annotation'];
+const AUDIT_ACTIONS = ['create', 'update', 'retire', 'sync', 'delete'];
 const AUDIT_SOURCES = ['user', 'system'];
 
-/** The four timeline words, copied from AuditTimeline (§6: do not export a label helper from components). */
+/** The timeline words, copied from AuditTimeline (§6: do not export a label helper from components). */
 export const ACTION_LABEL: Record<AuditAction, { ko: string; en: string }> = {
   create: { ko: '생성', en: 'Created' }, update: { ko: '변경', en: 'Updated' },
-  retire: { ko: '유효 종료', en: 'Retired' }, sync: { ko: '동기화', en: 'Synced' },
+  retire: { ko: '유효 종료', en: 'Retired' }, sync: { ko: '동기화', en: 'Synced' }, delete: { ko: '삭제', en: 'Deleted' },
 };
 
 /** Display words for the wire values; the URL and adapter keep the raw `user`/`system`·`equipment`/`metric`. */
 export const SOURCE_LABEL: Record<AuditSource, { ko: string; en: string }> = {
   user: { ko: '사용자', en: 'User' }, system: { ko: '시스템', en: 'System' },
 };
-export const TYPE_LABEL: Record<'equipment' | 'metric', { ko: string; en: string }> = {
-  equipment: { ko: '설비', en: 'Equipment' }, metric: { ko: '지표', en: 'Metric' },
+export const TYPE_LABEL: Record<'equipment' | 'metric' | 'annotation', { ko: string; en: string }> = {
+  equipment: { ko: '설비', en: 'Equipment' }, metric: { ko: '지표', en: 'Metric' }, annotation: { ko: '차트 주석', en: 'Chart annotation' },
 };
 
 export type AuditFilters = {
-  type: 'equipment' | 'metric' | null;
+  type: 'equipment' | 'metric' | 'annotation' | null;
   actor: string | null;
   action: AuditAction | null;
   source: AuditSource | null;

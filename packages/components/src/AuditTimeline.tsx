@@ -1,11 +1,11 @@
-import { FilePen, FilePlus2, FileX2, RefreshCw } from 'lucide-react';
+import { FilePen, FilePlus2, FileX2, RefreshCw, Trash2 } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
 import { StatusBadge } from '@ap/ui';
 import { formatInstant, instantEpochMs, type AuditEvent } from '@ap/contracts';
 
-const ICONS = { create: FilePlus2, update: FilePen, retire: FileX2, sync: RefreshCw };
+const ICONS = { create: FilePlus2, update: FilePen, retire: FileX2, sync: RefreshCw, delete: Trash2 };
 const LABEL = {
-  create: { ko: '생성', en: 'Created' }, update: { ko: '변경', en: 'Updated' }, retire: { ko: '유효 종료', en: 'Retired' }, sync: { ko: '동기화', en: 'Synced' },
+  create: { ko: '생성', en: 'Created' }, update: { ko: '변경', en: 'Updated' }, retire: { ko: '유효 종료', en: 'Retired' }, sync: { ko: '동기화', en: 'Synced' }, delete: { ko: '삭제', en: 'Deleted' },
 };
 // Same words as the admin audit table's source column (W-336 F3); kept local — components never import menu helpers.
 const SOURCE = { user: { ko: '사용자', en: 'User' }, system: { ko: '시스템', en: 'System' } };

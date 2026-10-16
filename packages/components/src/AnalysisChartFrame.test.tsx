@@ -54,22 +54,33 @@ function fixture() {
     return items.length ? { ...envelope, outcome: 'ok', data: { items } } : none_('empty');
   });
   const save = vi.fn(async (input: AnnotationInput): Promise<ApiResponse<ChartAnnotation>> => {
-    const row: ChartAnnotation = { id: `a${rows.length + 1}`, chartId: input.chartId, scopeId: input.scopeId as string, from: input.from, to: input.to, text: input.text, at: '2026-09-29T10:00' };
+    const row: ChartAnnotation = { id: `a${rows.length + 1}`, chartId: input.chartId, scopeId: input.scopeId as string, from: input.from, to: input.to, text: input.text, at: '2026-09-29T10:00', mine: true };
     rows.push(row);
     return { ...envelope, outcome: 'ok', data: row };
+  });
+  const del = vi.fn(async (ref: AnnotationRef & { id: string }): Promise<ApiResponse<{ id: string }>> => {
+    const index = rows.findIndex(r => r.id === ref.id);
+    if (index < 0) return none_('empty');
+    rows.splice(index, 1);
+    return { ...envelope, outcome: 'ok', data: { id: ref.id } };
   });
   const adapter = testAdapter({
     session: () => session,
     getEntity: async () => none_('empty'),
     listAnnotations: list,
     saveAnnotation: save,
+    deleteAnnotation: del,
   });
-  return { adapter, rows, list, save };
+  return { adapter, rows, list, save, del };
 }
 
 const series: ChartSeries[] = [{ id: 's1', name: 'S1', color: 'chart-blue', points: [['2026-09-01T00:00:00', 1], ['2026-09-02T00:00:00', 2]] }];
 const compareSeries: ChartSeries[] = [{ id: 's2', name: 'S2', color: 'chart-purple', points: series[0].points }];
 
+function ToastProbe() {
+  const { toasts } = usePlatform();
+  return <output aria-label="토스트">{toasts.map(t => <span key={t.id}>{t.text}</span>)}</output>;
+}
 function SwitchScope() {
   const { setGlobal } = usePlatform();
   return <button type="button" onClick={() => setGlobal({ scopeId: 'CJU' })}>to-cju</button>;
@@ -83,6 +94,7 @@ function mount(
   window.history.replaceState(null, '', url);
   return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registryWith(features)}>
     <SwitchScope />
+    <ToastProbe />
     <AnalysisChartFrame chartId="chart-1" title="Chart" series={chart.series ?? series} compareSeries={chart.compareSeries ?? compareSeries} markLines={chart.markLines} unit="ea" />
   </PlatformProvider></I18nProvider>);
 }
@@ -537,7 +549,7 @@ describe('chart annotations are keyed by chart and Scope (06 §16 layer 4)', () 
 
   it('a site switch hides the previous site’s notes and reads the new site’s', async () => {
     const f = fixture();
-    f.rows.push({ id: 'x1', chartId: 'chart-1', scopeId: 'ICH', from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00', text: 'ICH 전용 메모', at: '2026-09-29T09:00' });
+    f.rows.push({ id: 'x1', chartId: 'chart-1', scopeId: 'ICH', from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00', text: 'ICH 전용 메모', at: '2026-09-29T09:00', mine: false });
     mount(f.adapter, on);
     expect(await screen.findByText(/ICH 전용 메모/)).toBeTruthy();
     fireEvent.click(screen.getByText('to-cju'));
@@ -589,7 +601,7 @@ describe('chart annotations are keyed by chart and Scope (06 §16 layer 4)', () 
     f.list.mockResolvedValueOnce(none_('forbidden'));
     mount(f.adapter, on);
     expect(await screen.findByRole('alert')).toHaveTextContent('주석을 불러오지 못했습니다');
-    f.rows.push({ id: 'r1', chartId: 'chart-1', scopeId: 'ICH', from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00', text: '재시도 후 보이는 메모', at: '2026-09-29T09:00' });
+    f.rows.push({ id: 'r1', chartId: 'chart-1', scopeId: 'ICH', from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00', text: '재시도 후 보이는 메모', at: '2026-09-29T09:00', mine: false });
     fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
     expect(await screen.findByText(/재시도 후 보이는 메모/)).toBeTruthy();
     expect(screen.queryByRole('alert')).toBeNull();
@@ -766,5 +778,93 @@ describe('keyboard range, bar snap, and compare clip (06 §16, #307)', () => {
     expect(query.get('from')).toBe('2026-10-16T16:00:00');
     expect(query.get('to')).toBe('2026-10-16T19:00:00');
     expect(window.location.search).not.toContain('2026-10-15');
+  });
+});
+
+describe('author-only annotation delete (#399, ADR-0041)', () => {
+  const note = (id: string, text: string, mine: boolean, over: Partial<ChartAnnotation> = {}): ChartAnnotation =>
+    ({ id, chartId: 'chart-1', scopeId: 'ICH', from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00', text, at: '2026-09-29T09:00', mine, ...over });
+
+  it('draws a delete button only on the viewer’s own notes, named after the note without the Annotate word', async () => {
+    const f = fixture();
+    f.rows.push(note('x1', '내 메모', true), note('x2', '남의 메모', false));
+    mount(f.adapter, on);
+    const mineButton = await screen.findByRole('button', { name: '삭제: 내 메모' });
+    expect(mineButton).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /삭제: 남의 메모/ })).toBeNull();
+    // The annotate control keeps its exact name: a substring query for it must still resolve to one button.
+    expect(screen.getAllByRole('button', { name: '주석' })).toHaveLength(1);
+  });
+
+  it('asks once in the page, then deletes, refetches and says so; cancel keeps the note and its button focused', async () => {
+    const f = fixture();
+    f.rows.push(note('x1', '내 메모', true));
+    mount(f.adapter, on);
+    fireEvent.click(await screen.findByRole('button', { name: '삭제: 내 메모' }));
+    expect(f.del).not.toHaveBeenCalled();
+    const group = screen.getByRole('group', { name: '삭제 확인: 내 메모' });
+    fireEvent.click(within(group).getByRole('button', { name: '취소' }));
+    expect(f.del).not.toHaveBeenCalled();
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: '삭제: 내 메모' })));
+    fireEvent.click(screen.getByRole('button', { name: '삭제: 내 메모' }));
+    fireEvent.click(within(screen.getByRole('group', { name: '삭제 확인: 내 메모' })).getByRole('button', { name: '삭제 확정' }));
+    await waitFor(() => expect(f.del).toHaveBeenCalledWith({ chartId: 'chart-1', scopeId: 'ICH', id: 'x1' }));
+    await waitFor(() => expect(screen.queryByText(/내 메모/)).toBeNull());
+  });
+
+  it('moves focus to the next own note’s delete button after a delete, else to the chart toolbar', async () => {
+    const f = fixture();
+    f.rows.push(note('x1', '첫째', true), note('x2', '남의', false), note('x3', '셋째', true));
+    mount(f.adapter, on);
+    fireEvent.click(await screen.findByRole('button', { name: '삭제: 첫째' }));
+    const confirm = within(screen.getByRole('group', { name: '삭제 확인: 첫째' })).getByRole('button', { name: '삭제 확정' });
+    confirm.focus();
+    fireEvent.click(confirm);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: '삭제: 셋째' })));
+    fireEvent.click(screen.getByRole('button', { name: '삭제: 셋째' }));
+    fireEvent.click(await screen.findByText('삭제 확정'));
+    await screen.findByText('주석을 삭제했습니다.');
+    await waitFor(() => expect(screen.queryByText(/셋째/)).toBeNull());
+    // Annotate is disabled without a brushed range, so the chart's next control (Brush) takes focus.
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: '구간 선택' })));
+  });
+
+  it('does not steal focus the user already moved away from the confirm row', async () => {
+    const f = fixture();
+    f.rows.push(note('x1', '첫째', true), note('x3', '셋째', true));
+    mount(f.adapter, on);
+    fireEvent.click(await screen.findByRole('button', { name: '삭제: 첫째' }));
+    const confirm = within(screen.getByRole('group', { name: '삭제 확인: 첫째' })).getByRole('button', { name: '삭제 확정' });
+    confirm.focus();
+    fireEvent.click(confirm);
+    const elsewhere = screen.getByRole('button', { name: '내보내기' });
+    elsewhere.focus();
+    await waitFor(() => expect(f.del).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByText(/첫째/)).toBeNull());
+    expect(document.activeElement).toBe(elsewhere);
+  });
+
+  it('keeps the note and says so when the server refuses the delete', async () => {
+    const f = fixture();
+    f.rows.push(note('x1', '내 메모', true));
+    f.del.mockResolvedValueOnce({ ...envelope, outcome: 'forbidden', message: 'Only the author can delete a note' });
+    mount(f.adapter, on);
+    fireEvent.click(await screen.findByRole('button', { name: '삭제: 내 메모' }));
+    fireEvent.click(within(screen.getByRole('group', { name: '삭제 확인: 내 메모' })).getByRole('button', { name: '삭제 확정' }));
+    expect(await screen.findByText('주석을 삭제하지 못했습니다.')).toBeTruthy();
+    expect(screen.queryByText(/Only the author/)).toBeNull();
+    expect(await screen.findByRole('button', { name: '삭제: 내 메모' })).toBeTruthy();
+    expect(screen.getByText(/내 메모/)).toBeTruthy();
+  });
+
+  it('staggers the labels of notes over the same range and truncates them to their area', async () => {
+    const f = fixture();
+    f.rows.push(note('x1', '첫 메모', true), note('x2', '둘째 메모는 아주 길다'.repeat(8), false), note('x3', '떨어진 메모', false, { from: '2026-09-01T00:00:00', to: '2026-09-01T00:00:00' }));
+    mount(f.adapter, on);
+    await screen.findByText(/첫 메모/);
+    const areas = (plottedSeries.find(s => s.id === '__overlay')?.markArea?.data ?? []) as unknown as [{ label?: { offset?: [number, number]; width?: number; overflow?: string } }, unknown][];
+    const labels = areas.map(([start]) => start.label);
+    expect(labels.map(l => l?.offset?.[1])).toEqual([0, 12, 24]);
+    for (const l of labels) { expect(l?.overflow).toBe('truncate'); expect(l?.width).toBeGreaterThan(0); }
   });
 });

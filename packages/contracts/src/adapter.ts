@@ -81,9 +81,11 @@ export type ClientErrorReport = {
  * Persistent chart annotation (06 §16 layer 4, issue #103): a domain object owned by the server, keyed by the
  * site (Scope) it was written under — never by chartId alone, so a note written at one site can not appear at
  * another (ADR-0004 site boundary). `from`/`to` are the brushed range: naive wall-clock on a time axis, category
- * labels on a category axis. The server stamps author and `at`; the client never sends either.
+ * labels on a category axis. The server stamps author and `at`; the client never sends either. `mine` is the
+ * server-computed display hint "the requesting user wrote this note" (never the author id; #399): it only decides
+ * whether the delete control is drawn, and `deleteAnnotation` re-checks authorship.
  */
-export type ChartAnnotation = { id: string; chartId: string; scopeId: string; from: string; to: string; text: string; at: string };
+export type ChartAnnotation = { id: string; chartId: string; scopeId: string; from: string; to: string; text: string; at: string; mine: boolean };
 /** Which chart's notes at which site. A null scope is not a request the server answers (forbidden), never "all sites". */
 export type AnnotationRef = { chartId: string; scopeId: string | null };
 export type AnnotationInput = AnnotationRef & { from: string; to: string; text: string };
@@ -225,6 +227,14 @@ export type PlatformAdapter = {
    * and answers the stored row. A user/at/id in the input is an unknown key and rejects the call.
    */
   saveAnnotation(input: AnnotationInput, signal?: AbortSignal): Promise<ApiResponse<ChartAnnotation>>;
+  /**
+   * Deletes one note (06 §16, issue #399, ADR-0041): only its author may, and the server records the deletion in
+   * the audit trail. Same gates as `listAnnotations` (a null, unknown or ungranted scope is `forbidden`); then a
+   * note written by someone else is `forbidden`, and an id that is not in this `(chartId, scopeId)` is `empty`,
+   * so the answer never reveals a row of another site or author. An unknown key in the input rejects the call.
+   * Answers the deleted id. Not mart data: trust stays null, assessments stay empty.
+   */
+  deleteAnnotation(ref: AnnotationRef & { id: string }, signal?: AbortSignal): Promise<ApiResponse<{ id: string }>>;
   /**
    * Announces that the session or server-side state changed. The kernel then re-reads the session,
    * re-validates the scope when the session changed, and hides every earlier query result.

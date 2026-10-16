@@ -813,6 +813,8 @@ Source · Updated · Coverage
 ### Persistent Annotation과 선택 기능 (Decided, #103)
 
 - **주석은 서버 소유이고 `(chartId, scopeId)`로 키한다.** Chart Frame은 `adapter.listAnnotations({ chartId, scopeId })`·`saveAnnotation({ chartId, scopeId, from, to, text })`로만 읽고 쓴다(모듈 전역 저장소·`chartId`만으로 행을 고르는 조회 금지). 서버는 요청 시점의 세션으로 권한(`analytics:view`)과 Site 경계(§6.2, ADR-0004)를 판정하고, 작성자·시각은 서버가 찍는다(입력에 두 필드가 없다). Scope가 없으면(`null`) 읽지도 쓰지도 않는다 — `null`은 "전체 사이트"가 아니다.
+- **삭제는 작성자만 한다(Decided, #399, [ADR-0041](adr/0041-annotation-author-delete-audit.md)).** `adapter.deleteAnnotation({ chartId, scopeId, id })`는 목록·저장과 같은 관문을 지난 뒤 `(chartId, scopeId)` 안에서만 id를 찾는다 — 없으면 `empty`, 남이 쓴 주석이면 `forbidden`이고 다른 사이트·작성자의 행은 드러내지 않는다. 화면은 서버가 계산해 목록·저장 응답에 싣는 `mine`(작성자 id는 내보내지 않는다)이 true인 주석에만 "삭제: <문구>" 버튼을 그리고, 서버는 삭제 때 작성자를 다시 확인한다. 인라인 확인 한 단계(`window.confirm` 없음) 뒤 삭제하고 다시 조회하며, 실패하면 주석을 그대로 두고 고정 문구로 알린다. 성공한 삭제는 감사 행(`action: delete`, 대상 유형 `annotation`, 문구는 `reason`)을 남기고 콘솔 감사 화면에서 읽는다.
+- **겹치는 범위의 주석 라벨은 줄을 나눠 그리고 영역 폭으로 줄여 그린다.** 같은 범위를 덮는 주석은 겹친 순서대로 한 줄씩 아래로 내려 서로 덮지 않고, 긴 문구는 영역 폭에서 말줄임표로 줄인다. 전문은 차트 아래 목록에 있다.
 - **Scope는 조회 식별자에 들어간다.** 사이트를 바꾸면 이전 사이트의 주석은 즉시 숨겨지고 새 사이트의 주석을 읽는다. 저장이 거부·실패하면 입력 문구를 유지하고 행을 추가하지 않는다. 늦게 끝난 저장은 그 사이 취소·재열기·Scope 변경으로 바뀐 새 입력을 지우지 않는다. 주석 조회가 실패하면(error·timeout·forbidden) "없음"처럼 보이지 않고 차트는 그대로 둔 채 로컬 실패 문구와 다시 시도를 보인다(§19).
 - **Compare·Annotate·Export는 현재 메뉴 manifest의 `features`(§5)를 따른다.** 선언하지 않은 메뉴의 차트는 그 버튼을 그리지 않고, Annotate가 꺼져 있으면 주석을 조회하지도 않는다. 라우트가 없는 곳에 놓인 차트는 세 기능 모두 제공하지 않는다. Zoom·Brush·Reset은 manifest와 무관한 Chart Local State다.
 - Brush로 잡은 구간은 URL·전역 기간을 바꾸지 않는다. "분석 구간 적용…"의 확인을 거쳐야만 전역 기간이 바뀐다.
@@ -1143,6 +1145,7 @@ Full experience.
 - Keyboard focus visible
 - 메뉴 사이 이동(링크·팔레트·공간 전환·메뉴 사이 Back/Forward) 뒤 포커스는 새 화면 제목으로 간다. 같은 화면 안 상태 변경은 포커스를 옮기지 않는다. 그 도착(복귀 포함) URL에 `focus=`가 있어 상세 패널이 함께 열려도 패널은 포커스를 가져가지 않는다(§13)
 - 같은 화면 안 상태 변경으로 포커스된 컨트롤이 사라질 때: 관리 필터의 `필터 초기화` 버튼이면 같은 컨테이너의 첫 필드로, 상세 패널 안(탭 전환 포함)이면 §13에 따라 선택된 탭(없으면 패널)으로, Scope 게이트 동작 버튼이나 표 URL 경고의 `초기화` 버튼이면 main 랜드마크(셸 밖에서는 페이지 본문 요소)로 간다. 그룹 배너가 사라질 때는 §19를 따른다(상세 패널 안이면 패널, 아니면 main). 어느 경우든 사용자가 이미 옮긴 포커스는 빼앗지 않는다 (#353)
+- 차트 주석 삭제 확인 행(§16)은 삭제가 끝나 다시 조회한 뒤 사라진다. 그때 포커스가 아직 그 확인 행에 있을 때만 다음 본인 주석의 삭제 버튼으로, 없으면 차트의 주석 컨트롤(꺼져 있으면 구간 선택)로 옮긴다. 사용자가 이미 다른 곳으로 옮겼으면 빼앗지 않는다 (#399)
 - Modal Dialog는 focus trap; 비모달 DetailDrawer는 §13 포커스 진입·복귀와 목록 이동 허용
 - Chart title / unit / textual summary 제공
 - Chart와 동일 데이터의 Table 접근 경로 제공

@@ -11,7 +11,7 @@ import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testi
 // Regression test for the #48 P1 finding: the echarts-dependent implementation is code-split,
 // so the chart instance can appear after the parent already handled a Brush click. This mocks
 // the './EChartImpl' chunk import with a delayed resolution.
-type FakeInstance = { dispatchAction: Mock; setOption: Mock; on: Mock; off: Mock; resize: Mock; dispose: Mock };
+type FakeInstance = { dispatchAction: Mock; setOption: Mock; on: Mock; off: Mock; resize: Mock; dispose: Mock; getWidth: Mock };
 const implState = vi.hoisted(() => ({
   delayMs: 0,
   instances: [] as FakeInstance[],
@@ -25,7 +25,7 @@ vi.mock('./EChartImpl', () => {
 /** Stand-in for the real EChartImpl: creates a fake echarts instance and reports it via onReady. */
 function MockImpl(props: EChartProps) {
   useEffect(() => {
-    const instance: FakeInstance = { dispatchAction: vi.fn(), setOption: vi.fn(), on: vi.fn(), off: vi.fn(), resize: vi.fn(), dispose: vi.fn() };
+    const instance: FakeInstance = { dispatchAction: vi.fn(), setOption: vi.fn(), on: vi.fn(), off: vi.fn(), resize: vi.fn(), dispose: vi.fn(), getWidth: vi.fn(() => 640) };
     implState.instances.push(instance);
     props.onReady?.(instance as unknown as ECharts);
     return () => { instance.dispose(); };

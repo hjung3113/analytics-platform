@@ -27,11 +27,11 @@
 | `accessDirectory` | 권한/역할 조회 전용(`console:access`). 부여·회수 쓰기는 원천 결정(#98) 전에는 없다. 조건에 맞는 것이 없으면 `empty`(빈 목록의 `ok`가 아니다). 결과가 있는데 범위를 넘은 페이지는 `ok`에 `items: []`와 실제 `total` — 1페이지로 바꿔 답하지 않는다. |
 | `recordUsage`·`usageSummary` | 활용률 이벤트 적재(userId 없음 — 서버가 세션 사용자로 기록)와 집계 읽기(`console:access`). `usageSummary`는 해당 메뉴가 없어도 `ok`에 `menus: []`다 — `empty`가 아니라(콘솔은 방문 0 메뉴를 left-join해서 보여준다; `empty`면 그 메뉴들이 숨겨진다). 보존 기간 밖 범위도 `ok`·`menus: []`로 답한다. 조회조건 수집 여부는 #75 결정 대기. |
 | `reportClientError` | 렌더 실패 보고. 식별 필드만 정확한 모양으로 받고, 알 수 없는 키·URL·자유 문장은 통째 거부. 서버가 세션 사용자·시각을 기록한다. |
-| `listAnnotations`·`saveAnnotation` | 차트 주석은 서버 소유, `(chartId, scopeId)` 키. 차트 권한과 그 site 부여를 검증한다(06 §16). |
+| `listAnnotations`·`saveAnnotation`·`deleteAnnotation` | 차트 주석은 서버 소유, `(chartId, scopeId)` 키. 차트 권한과 그 site 부여를 검증한다(06 §16). 목록·저장 응답의 `mine`은 요청 사용자가 쓴 주석인지의 표시 힌트이고 작성자 id는 내보내지 않는다. 삭제는 작성자만 할 수 있고(남의 주석 `forbidden`), 그 `(chartId, scopeId)`에 없는 id는 `empty`이며 다른 site·다른 작성자의 행을 드러내지 않는다. 삭제는 감사 기록을 남긴다(ADR-0041). |
 
 메서드는 반환 모양에 따라 네 묶음이다. 이 분류의 원본은 여기다.
 
-- **envelope 메서드** — `menuQuery`·`getEntity`·`auditTrail`·`entityAudit`·`accessDirectory`·`usageSummary`·`listAnnotations`·`saveAnnotation`. 06 §19 envelope(`outcome` 하나 + 선언한 `assessments` + `trust`)로 답한다. 예외를 던지지 않는다 — 전송 실패도 `error` envelope다. 예외: Kernel이 넘긴 `signal`로 중단된 경우는 reject해도 된다(`AbortError` — Kernel이 그 결과를 버린다).
+- **envelope 메서드** — `menuQuery`·`getEntity`·`auditTrail`·`entityAudit`·`accessDirectory`·`usageSummary`·`listAnnotations`·`saveAnnotation`·`deleteAnnotation`. 06 §19 envelope(`outcome` 하나 + 선언한 `assessments` + `trust`)로 답한다. 예외를 던지지 않는다 — 전송 실패도 `error` envelope다. 예외: Kernel이 넘긴 `signal`로 중단된 경우는 reject해도 된다(`AbortError` — Kernel이 그 결과를 버린다).
 - **동기 스냅샷** — `session`·`publishedMetrics`·`defaultRangeTo`. 부트스트랩에서 받아 둔 값을 돌려준다(던지지 않음).
 - **비 envelope 비동기** — `validateScope`·`contextOptions`·`evaluateSelection`. 자기 반환 타입 그대로다. `contextOptions`·`evaluateSelection`은 전송 실패 때 reject해도 된다(Kernel이 오류·재시도를 보인다). `validateScope`는 실어댑터가 전송 실패를 내부에서 재시도해도 되고, 끝내 실패하면 reject한다 — Kernel은 Scope를 `error`로 두고 "Scope를 확인하지 못했습니다 + 다시 시도"를 보이며, 그동안 Scope가 필요한 요청은 보내지 않는다(#167). Kernel은 자동 재시도하지 않는다. 취소로 보는 것은 Kernel이 넘긴 `signal`이 중단된 경우뿐이다 — 어댑터 내부 타임아웃·중단으로 호출이 끝나면 오류 이름(`AbortError` 포함)과 무관하게 실패로 reject한다.
 - **fire-and-forget** — `recordUsage`·`reportClientError`는 `{ accepted }`를 돌려준다(거부는 `accepted: 0`/`false`). 전송 실패로 reject해도 Kernel이 조용히 무시한다.
@@ -85,7 +85,7 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 - 세션 identity·부여 site 목록, `subscribe` 해제 함수(한 번만 호출 — 해제 함수의 멱등성은 계약이 요구하지 않는다), `validateScope` 네 상태(부여·두 번째 부여·미부여·알 수 없음 site), `publishedMetrics` 포인터 모양(`metricId` 비지 않은 문자열, `publishedVersion` 문자열 또는 null), `defaultRangeTo` naive wall-clock(`YYYY-MM-DDTHH:mm:ss`, 지역·오프셋 없음 — 06 §6.3), `contextOptions` 선택지 목록(`stgroup`·`team` 문자열 배열, `makerModel` `{maker, model}`), `evaluateSelection` 부여 room 필터·미부여 site 0건(거부 응답도 통과)
 - `getEntity`·`entityAudit` 권한·site·room 재검증(`ungrantedRoomRef` 표본 있을 때)·null Scope·미등록 type
 - 콘솔 조회 권한(`auditTrail`·`accessDirectory`·`usageSummary`의 `console:access`)과 0건 outcome(`auditTrail`·`accessDirectory`는 `empty`, `usageSummary`는 `ok`·`menus: []`)
-- 주석: 저장·같은 site 재조회, site 격리(다른 부여 site에 보이지 않음), 부여 없는 site·null Scope `forbidden`, 클라이언트 `at`·`id`·`user` 거부(거부한 주석은 저장 안 됨), 비 mart 응답(assessments 없음·trust null), 차트 권한 재검증
+- 주석: 저장·같은 site 재조회(저장자에게 `mine: true`), site 격리(다른 부여 site에 보이지 않음), 부여 없는 site·null Scope `forbidden`, 클라이언트 `at`·`id`·`user` 거부(거부한 주석은 저장 안 됨), 비 mart 응답(assessments 없음·trust null), 차트 권한 재검증, 삭제(작성자는 삭제되어 목록에서 사라짐·다른 사용자는 `forbidden`이고 주석이 남음·이 site에 없는 id는 `empty`·부여 없는 site, null Scope와 권한 없음은 `forbidden`). 작성자 검사는 부여 계정과 콘솔 계정을 번갈아 쓰므로 혼자 차례로 돈다
 - 활용률: 유효 entry·dwell 적재, 하나라도 어긋나면 전체 거부(unknown key·클라이언트 userId·query 붙은 path·비숫자 `at`·비숫자 `enteredAt`·음수 `dwellMs`), `spaceId: null`(전역 메뉴) 수락, 제거된 `feedback`과 그 밖 알 수 없는 공간 id 거부, 수신 시각 집계(클라이언트 `at`이 아니라 서버 수신 시각으로 집계) — 이 수신 시각 검사는 **부여 계정으로 기록하고 콘솔 계정으로 집계를 읽는다**(하네스가 보장하는 건 부여 계정의 기록 권한뿐이라 콘솔 전용 계정이 기록하지 못하는 것은 적합하다). 혼자 차례로 돌므로 검사 안에서 actor를 전환한다
 - 오류 보고: 유효 표본 적재(positive), `spaceId: null` 수락, 거부(자유 문장 message·절대 URL path·query 붙은 path·자유 문장 name·누락 필드·제거된 `feedback`과 알 수 없는 공간 id)
 - 응답 모양 — 거부에 데이터 없음, 누락된 envelope 키 지적(`assessments`·`trust`), 평가 항목 06 §19, Trust 06 §18

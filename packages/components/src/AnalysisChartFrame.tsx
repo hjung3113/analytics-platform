@@ -7,6 +7,7 @@ import { Button, cn, Popover, PopoverContent, PopoverTrigger, Select, SelectCont
 import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { EChart, strokeToken, token } from './EChart';
 import { toCsvDocument } from './tableExport';
+import { layoutNoteLabels } from './annotationLayout';
 
 function AnalysisChartPart({ enabled, body, children }: { enabled: boolean; body?: boolean; children: ReactNode }) {
   if (!enabled) return <>{children}</>;
@@ -29,6 +30,11 @@ type Selection = { from: string; to: string };
 type ClipNotice = 'partial' | 'outside';
 type LinePattern = 'solid' | number[];
 const toMs = (v: string) => parseDateTime(v, 'x').getTime();
+/** The plot's horizontal margin (grid left 52 + right 20) and the width assumed before the chart instance exists. */
+const PLOT_MARGIN = 72;
+const NOTE_FALLBACK_WIDTH = 640;
+/** One note-label row at fontSize 10. */
+const NOTE_LABEL_ROW = 12;
 const fmt = (v: string) => v.replace('T', ' ').slice(0, 16);
 const HOUR_MS = 3_600_000;
 
@@ -140,6 +146,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   // cancel to the "Apply analysis range…" button, apply (selection cleared by the Context change) to the brush toggle.
   const brushToggle = useRef<HTMLButtonElement | null>(null);
   const applyRangeButton = useRef<HTMLButtonElement | null>(null);
+  const annotateButton = useRef<HTMLButtonElement | null>(null);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [compare, setCompare] = useState(false);
   const [brushMode, setBrushMode] = useState(false);
@@ -161,6 +168,16 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const [saving, setSaving] = useState(false);
   // Each editor session gets a generation; a save that finishes after cancel/reopen/Scope change must not touch the newer draft.
   const draftGen = useRef(0);
+  // Delete (#399): one inline confirm per note. `pendingDelete` is the note being confirmed, `deleting` the in-flight call,
+  // `settled` a delete the server accepted whose refetch has not removed the row yet.
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [settled, setSettled] = useState<{ id: string; nextId: string | null } | null>(null);
+  const [restoreFocus, setRestoreFocus] = useState<string | null>(null);
+  const deleteButtons = useRef(new Map<string, HTMLButtonElement>());
+  // Whether keyboard focus is still on the confirm row: set by focus in, cleared when focus moves to another element
+  // (removal of the focused row fires no such move, so it stays set until the row is gone).
+  const focusOnConfirm = useRef(false);
   const openNote = () => { draftGen.current++; setNote(''); };
   const closeNote = useCallback(() => { draftGen.current++; setNote(null); }, []);
 
@@ -189,16 +206,48 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   }, [closeNote]);
   // Global Context changes invalidate local selection (it described the previous result).
   const contextKey = JSON.stringify(global);
-  useEffect(() => { setSelection(null); setPreview(null); closeNote(); setZoom([0, 100]); setClipNotice(null); setRangeDraft(null); }, [contextKey, closeNote]);
+  useEffect(() => { setSelection(null); setPreview(null); closeNote(); setZoom([0, 100]); setClipNotice(null); setRangeDraft(null); setPendingDelete(null); setSettled(null); }, [contextKey, closeNote]);
+  // 06 §26: the confirm row unmounts, so focus moves only if it is still on that row — the next note's delete button, else Annotate.
+  useEffect(() => {
+    if (!settled || annotations.some(a => a.id === settled.id)) return;
+    const onConfirm = focusOnConfirm.current;
+    focusOnConfirm.current = false;
+    setSettled(null); setPendingDelete(null); setDeleting(false);
+    if (!onConfirm) return;
+    const next = settled.nextId ? deleteButtons.current.get(settled.nextId) : undefined;
+    const fallback = annotateButton.current && !annotateButton.current.disabled ? annotateButton.current : brushToggle.current;
+    (next ?? fallback)?.focus({ preventScroll: true });
+  }, [annotations, settled]);
+  // Cancel and failure keep the note: focus goes back to the button that opened the confirm.
+  useEffect(() => {
+    if (restoreFocus === null) return;
+    deleteButtons.current.get(restoreFocus)?.focus({ preventScroll: true });
+    setRestoreFocus(null);
+  }, [restoreFocus]);
 
   const timeBounds = useMemo(() => (xType === 'time' ? timeBoundaries(p.series, global.from, global.to) : []), [xType, p.series, global.from, global.to]);
   const showKeyboard = xType === 'time' && global.to !== null && timeBounds.length >= 2;
   const xValue = (x: string) => (xType === 'time' ? toMs(x) : x);
   const option = useMemo<EChartsCoreOption>(() => {
+    // Pixels per axis unit from the plot width and the zoom window, so a label can be cut to its own area (#399 AC-2).
+    const plotWidth = Math.max(0, (chart.current?.getWidth() ?? NOTE_FALLBACK_WIDTH) - PLOT_MARGIN);
+    const zoomed = Math.max((zoom[1] - zoom[0]) / 100, 0.01);
+    let spans: { from: number; to: number }[];
+    let pxPerUnit: number;
+    if (xType === 'time') {
+      const times = allSeries.flatMap(s => s.points.map(([x]) => toMs(x)));
+      const extent = times.length ? Math.max(...times) - Math.min(...times) : 0;
+      pxPerUnit = extent > 0 ? plotWidth / (extent * zoomed) : 0;
+      spans = annotations.map(a => ({ from: toMs(a.from), to: toMs(a.to) }));
+    } else {
+      pxPerUnit = categories.length ? plotWidth / (categories.length * zoomed) : 0;
+      spans = annotations.map(a => ({ from: categories.indexOf(a.from), to: categories.indexOf(a.to) }));
+    }
+    const noteLayout = layoutNoteLabels(spans, pxPerUnit, plotWidth);
     const areas = [
       // Notes keep the default top label; the selection labels its bottom so a note saved over it never collides (#320).
       ...(selection ? [[{ name: lang === 'ko' ? '선택' : 'Selection', xAxis: xValue(selection.from), itemStyle: { color: token('chart-blue'), opacity: 0.12 }, label: { position: 'insideBottom' } }, { xAxis: xValue(selection.to) }]] : []),
-      ...annotations.map(a => [{ name: a.text, xAxis: xValue(a.from), itemStyle: { color: token('chart-purple'), opacity: 0.14 }, label: { color: token('cat-purple'), fontSize: 10 } }, { xAxis: xValue(a.to) }]),
+      ...annotations.map((a, i) => [{ name: a.text, xAxis: xValue(a.from), itemStyle: { color: token('chart-purple'), opacity: 0.14 }, label: { color: token('cat-purple'), fontSize: 10, offset: [0, noteLayout[i].level * NOTE_LABEL_ROW], width: noteLayout[i].width, overflow: 'truncate', ellipsis: '…' } }, { xAxis: xValue(a.to) }]),
     ];
     return {
       grid: { left: 52, right: 20, top: 16, bottom: 44 },
@@ -240,7 +289,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       ],
     };
     // Deps intentionally restricted to the chart inputs below (would trip react-hooks/exhaustive-deps if that rule is enabled).
-  }, [visible, previousIds, xType, categories, zoom, brushMode, selection, annotations, p.markLines, p.unit, lang, p.stacked]);
+  }, [visible, allSeries, previousIds, xType, categories, zoom, brushMode, selection, annotations, p.markLines, p.unit, lang, p.stacked, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
@@ -339,6 +388,26 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     } catch { failed(); } finally { setSaving(false); }
   }
 
+  async function deleteNote(id: string) {
+    if (scopeId === null || deleting) return;
+    const mineIds = annotations.filter(a => a.mine).map(a => a.id);
+    const nextId = mineIds[mineIds.indexOf(id) + 1] ?? null;
+    const failed = () => {
+      toast(lang === 'ko' ? '주석을 삭제하지 못했습니다.' : 'Could not delete the annotation.');
+      setPendingDelete(null); setDeleting(false);
+      if (focusOnConfirm.current) setRestoreFocus(id);
+      focusOnConfirm.current = false;
+    };
+    setDeleting(true);
+    try {
+      const res = await adapter.deleteAnnotation({ chartId: p.chartId, scopeId, id });
+      if (res.outcome !== 'ok') { failed(); return; }
+      toast(lang === 'ko' ? '주석을 삭제했습니다.' : 'Annotation deleted.');
+      setSettled({ id, nextId });
+      refetchAnnotations();
+    } catch { failed(); }
+  }
+
   const oneHour = global.to ? presetWindow(1, timeBounds, global.to) : null;
   const fourHour = global.to ? presetWindow(4, timeBounds, global.to) : null;
   const fallbackRange: Selection | null = timeBounds.length >= 2 ? { from: timeBounds[0], to: timeBounds[timeBounds.length - 1] } : null;
@@ -405,7 +474,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
             }
             setCompare(next);
           }}><GitCompare className="size-3.5" aria-hidden />{lang === 'ko' ? '비교' : 'Compare'}</Button>}
-          {canAnnotate && <Button variant="ghost" size="toolbar" disabled={!selection || scopeId === null} title={scopeId === null ? (lang === 'ko' ? '주석은 사이트(Scope)를 선택한 뒤 남길 수 있습니다' : 'Pick a site (Scope) to annotate') : selection ? undefined : (lang === 'ko' ? '구간 선택으로 구간을 먼저 선택하세요' : 'Brush a range first')} onClick={openNote}><MessageSquarePlus className="size-3.5" aria-hidden />{lang === 'ko' ? '주석' : 'Annotate'}</Button>}
+          {canAnnotate && <Button ref={annotateButton} variant="ghost" size="toolbar" disabled={!selection || scopeId === null} title={scopeId === null ? (lang === 'ko' ? '주석은 사이트(Scope)를 선택한 뒤 남길 수 있습니다' : 'Pick a site (Scope) to annotate') : selection ? undefined : (lang === 'ko' ? '구간 선택으로 구간을 먼저 선택하세요' : 'Brush a range first')} onClick={openNote}><MessageSquarePlus className="size-3.5" aria-hidden />{lang === 'ko' ? '주석' : 'Annotate'}</Button>}
         </div>
         <div className="flex items-center gap-1" data-chart-toolbar-tail>
           {canExport && <Button variant="ghost" size="toolbar" onClick={exportCsv}><Download className="size-3.5" aria-hidden />{lang === 'ko' ? '내보내기' : 'Export'}</Button>}
@@ -506,7 +575,15 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         <Button size="toolbar" variant="ghost" onClick={refetchAnnotations}>{lang === 'ko' ? '다시 시도' : 'Retry'}</Button>
       </p>}
       {annotations.length > 0 && <ul className="mt-2 space-y-0.5 border-t border-border-subtle pt-1.5 text-tiny text-text-secondary">
-        {annotations.map(a => <li key={a.id} className="tabular"><span className="mr-1 inline-block size-2 rounded-xs bg-chart-purple/60 align-middle" aria-hidden />{xType === 'time' ? `${fmt(a.from)}–${fmt(a.to)}` : `${a.from}–${a.to}`}: {a.text}</li>)}
+        {annotations.map(a => <li key={a.id} className="tabular flex flex-wrap items-center gap-x-1"><span className="mr-1 inline-block size-2 rounded-xs bg-chart-purple/60 align-middle" aria-hidden />{xType === 'time' ? `${fmt(a.from)}–${fmt(a.to)}` : `${a.from}–${a.to}`}: {a.text}
+          {a.mine && (pendingDelete === a.id
+            ? <div role="group" aria-label={lang === 'ko' ? `삭제 확인: ${a.text}` : `Confirm delete: ${a.text}`} className="ml-2 inline-flex items-center gap-1" onFocus={() => { focusOnConfirm.current = true; }} onBlur={e => { if (e.relatedTarget) focusOnConfirm.current = false; }}>
+              <span>{lang === 'ko' ? '이 주석을 삭제할까요?' : 'Delete this note?'}</span>
+              <Button size="toolbar" variant="destructive" autoFocus aria-disabled={deleting} onClick={() => void deleteNote(a.id)}>{lang === 'ko' ? '삭제 확정' : 'Confirm delete'}</Button>
+              <Button size="toolbar" variant="ghost" aria-disabled={deleting} onClick={() => { if (deleting) return; setPendingDelete(null); setRestoreFocus(a.id); }}>{t('cancel')}</Button>
+            </div>
+            : <Button ref={el => { if (el) deleteButtons.current.set(a.id, el); else deleteButtons.current.delete(a.id); }} size="toolbar" variant="ghost" className="ml-2" aria-label={lang === 'ko' ? `삭제: ${a.text}` : `Delete note: ${a.text}`} onClick={() => setPendingDelete(a.id)}>{lang === 'ko' ? '삭제' : 'Delete'}</Button>)}
+        </li>)}
       </ul>}
     </section>
 
