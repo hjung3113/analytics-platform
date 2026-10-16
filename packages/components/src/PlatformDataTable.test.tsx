@@ -465,10 +465,9 @@ describe('PlatformDataTable active row marker (06 §26: never color alone)', () 
     const markers = active.querySelectorAll('[data-active-row-marker]');
     expect(markers).toHaveLength(1);
     expect(markers[0].className).toContain('sticky');
-    // The selection checkbox cell is neither weighted nor marked; the first data cell carries the weight.
-    const selectCell = active.querySelector('[data-column="_select"]');
-    expect(selectCell?.className).not.toContain('font-medium');
-    expect(selectCell?.querySelector('[data-active-row-marker]')).toBeNull();
+    // No selection consumer (export off, no bulk actions): no checkbox column; the first data cell carries the weight.
+    expect(active.querySelector('[data-column="_select"]')).toBeNull();
+    expect(active.querySelector('[role="cell"]')).toHaveAttribute('data-column', 'status');
     const statusCell = active.querySelector('[data-column="status"]');
     expect(statusCell?.className).toContain('font-medium');
     for (const other of rows.filter(row => row.getAttribute('data-row-id') !== 'r2')) {

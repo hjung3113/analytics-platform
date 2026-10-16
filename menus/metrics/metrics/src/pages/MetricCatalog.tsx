@@ -144,7 +144,6 @@ export default function MetricCatalogPage(_: PageProps) {
         getRowId={row => row.metricId}
         filterKey={JSON.stringify([q, status, domain, lang])}
         pageSize={8}
-        height={360}
         urlState={parsedSort.ok && parsedPage.ok ? {
           page: parsedPage.page === 1 ? null : parsedPage.page,
           sorting: parsedSort.sorting,

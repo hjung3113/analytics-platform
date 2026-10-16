@@ -198,7 +198,7 @@ export default function AuditTrail() {
         subtitle={ko ? '합성 감사 이벤트입니다. 기본 정렬은 최신순이며 room 필터를 적용하지 않습니다.' : 'Synthetic audit events. Default sort is newest first; no room filter is applied.'}
         filters={filterSlot}
         columns={columns} getRowId={row => row.id} filterKey={filterKey}
-        preferenceKey="admin-audit:columns:v1" pageSize={25} height={430}
+        preferenceKey="admin-audit:columns:v1" pageSize={25}
         urlState={{
           page: parsed.page,
           sorting: parsed.sorting,
@@ -233,8 +233,8 @@ export default function AuditTrail() {
         rowAction={row => {
           const link = auditDestination(linkTo, row.target);
           return link.ok
-            ? <Button asChild size="sm" variant="ghost"><PlatformLink href={link.href} aria-label={ko ? `${row.target.id} 상세` : `Detail ${row.target.id}`}>{ko ? '상세' : 'Detail'}</PlatformLink></Button>
-            : <Button size="sm" variant="ghost" disabled>{ko ? '이 대상의 상세 화면이 없습니다.' : 'No detail screen for this target.'}</Button>;
+            ? <Button asChild size="toolbar" variant="ghost"><PlatformLink href={link.href} aria-label={ko ? `${row.target.id} 상세` : `Detail ${row.target.id}`}>{ko ? '상세' : 'Detail'}</PlatformLink></Button>
+            : <span className="text-xs text-text-muted" title={ko ? '이 대상의 상세 화면이 없습니다.' : 'No detail screen for this target.'}>{ko ? '상세 화면 없음' : 'No detail page'}</span>;
         }}
       />}
       </>} />

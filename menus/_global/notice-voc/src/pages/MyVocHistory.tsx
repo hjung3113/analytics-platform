@@ -65,8 +65,8 @@ export default function MyVocHistory() {
     const link = feedbackOpsHref(origin, { kind: 'voc-detail', vocId: row.id });
     const name = ko ? `${row.displayId} FeedbackOps에서 보기` : `Open ${row.displayId} in FeedbackOps`;
     return link.ok
-      ? <Button asChild size="sm" variant="secondary"><a href={link.href} target="_blank" rel="noopener noreferrer" aria-label={name}>{openLabel}</a></Button>
-      : <Button size="sm" variant="secondary" disabled aria-label={name} aria-describedby={create.ok ? undefined : descId}>{openLabel}</Button>;
+      ? <Button asChild size="toolbar" variant="secondary"><a href={link.href} target="_blank" rel="noopener noreferrer" aria-label={name}>{openLabel}</a></Button>
+      : <Button size="toolbar" variant="secondary" disabled aria-label={name} aria-describedby={create.ok ? undefined : descId}>{openLabel}</Button>;
   };
 
   return <PlatformPage

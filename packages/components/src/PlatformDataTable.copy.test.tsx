@@ -465,8 +465,9 @@ describe('PlatformDataTable row copy (#174) — Ctrl/⌘+C interception', () => 
     const clipboard = secureClipboard();
     render(<Harness registry={registryWith(false)} />);
     await ready();
-    select('r1');
-    expect(fireEvent.keyDown(screen.getByRole('checkbox', { name: '선택 r1' }), { key: 'c', ctrlKey: true })).toBe(true);
+    // Without a selection consumer there is no checkbox column (ADR-0037), so nothing can be selected to copy.
+    expect(screen.queryByRole('checkbox', { name: '선택 r1' })).toBeNull();
+    expect(fireEvent.keyDown(document.querySelector('[data-row-id="r1"]')!, { key: 'c', ctrlKey: true })).toBe(true);
     expect(clipboard.write).not.toHaveBeenCalled();
   });
 });

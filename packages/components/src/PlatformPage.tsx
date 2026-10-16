@@ -180,7 +180,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
     : (lang === 'ko' ? '설명' : 'Description');
 
   return <div ref={root} data-platform-page className="flex min-h-full flex-col">
-    <div ref={stickyHeader} className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
+    <div ref={stickyHeader} data-page-sticky-header className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
       <header ref={pageHeader} onFocus={event => {
         const header = event.currentTarget;
         // Popover portals bubble through React but are outside this scroll container.
