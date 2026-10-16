@@ -44,27 +44,46 @@ type Fit = { cap: number; width: number };
 /** Reads the geometry (layout effects and observer callbacks only) and normalizes element/window scrolling to one frame. */
 function measure(viewport: HTMLElement): Fit {
   const container = scrollContainerOf(viewport);
-  const root = document.documentElement;
   const containerHeight = container ? container.clientHeight : window.innerHeight;
   const containerTop = container ? container.getBoundingClientRect().top + container.clientTop : 0;
   const scrollTop = container ? container.scrollTop : window.scrollY;
-  const scrollHeight = container ? container.scrollHeight : root.scrollHeight;
   const view = viewport.getBoundingClientRect();
   const sticky = viewport.closest('[data-platform-page]')?.querySelector<HTMLElement>('[data-page-sticky-header]');
   const pageContent = viewport.closest<HTMLElement>('[data-platform-page-content]');
-  let contentBottom = containerTop - scrollTop + scrollHeight;
+  const boundary = pageContent ?? container ?? document.body;
+  let contentBottom: number;
   if (pageContent) {
     contentBottom = pageContent.getBoundingClientRect().bottom;
     // The page content stretches (`flex-1`) to fill a short page; the natural end is its last child plus the bottom padding.
     const last = pageContent.lastElementChild;
     if (last) contentBottom = Math.min(contentBottom, last.getBoundingClientRect().bottom + (parseFloat(getComputedStyle(pageContent).paddingBottom) || 0));
+  } else {
+    // Walk the natural flow end instead of scrollHeight, which includes empty scrollport/flex slack.
+    contentBottom = view.bottom;
+    for (let child: Element = viewport; child !== boundary && child.parentElement; child = child.parentElement) {
+      const parent = child.parentElement;
+      for (let sibling = child.nextElementSibling; sibling; sibling = sibling.nextElementSibling) {
+        contentBottom = Math.max(contentBottom, sibling.getBoundingClientRect().bottom);
+      }
+      contentBottom += parseFloat(getComputedStyle(parent).paddingBottom) || 0;
+    }
+  }
+  // Other auto-fit viewports contribute a stable floor, on either side of this table. Keeping their
+  // current heights here would couple the caps (A = C - B, B = C - A) and allow batched resizes to oscillate.
+  let aboveAdjustment = 0, belowAdjustment = 0;
+  for (const peer of boundary.querySelectorAll<HTMLElement>('[data-table-auto-fit]')) {
+    if (peer === viewport || scrollContainerOf(peer) !== container) continue;
+    const peerBox = peer.getBoundingClientRect();
+    const adjustment = peerBox.height - ROW_AREA_FLOOR;
+    if (peerBox.bottom <= view.top) aboveAdjustment += adjustment;
+    else if (peerBox.top >= view.bottom) belowAdjustment += adjustment;
   }
   return {
     cap: availableRowHeight({
       containerHeight,
       stickyTop: sticky ? sticky.getBoundingClientRect().height : 0,
-      viewportTopInContent: view.top - containerTop + scrollTop,
-      below: Math.max(0, contentBottom - view.bottom),
+      viewportTopInContent: view.top - containerTop + scrollTop - aboveAdjustment,
+      below: Math.max(0, contentBottom - view.bottom - belowAdjustment),
     }),
     width: viewport.clientWidth,
   };
@@ -89,19 +108,31 @@ export function useTableFit(section: { current: HTMLElement | null }): {
       const next = measure(node);
       setFit(prev => prev && prev.cap === next.cap && prev.width === next.width ? prev : next);
     };
-    update();
+    const boundary = node.closest('[data-platform-page-content]') ?? scrollContainerOf(node) ?? document.body;
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
-    if (observer) {
-      const targets = new Set<Element>([node, scrollContainerOf(node) ?? document.documentElement]);
-      const pageContent = node.closest('[data-platform-page-content]');
+    let targets = new Set<Element>();
+    const rebind = () => {
+      const next = new Set<Element>([node, scrollContainerOf(node) ?? document.documentElement]);
       const sticky = node.closest('[data-platform-page]')?.querySelector('[data-page-sticky-header]');
-      if (pageContent) targets.add(pageContent);
-      if (sticky) targets.add(sticky);
-      if (section.current) targets.add(section.current);
-      targets.forEach(target => observer.observe(target));
-    }
+      if (sticky) next.add(sticky);
+      if (section.current) next.add(section.current);
+      // A flex-filled page can keep its size while nested flow wrappers/siblings move the table.
+      for (let child: Element = node; child !== boundary && child.parentElement; child = child.parentElement) {
+        next.add(child.parentElement);
+        for (const sibling of child.parentElement.children) next.add(sibling);
+      }
+      targets.forEach(target => { if (!next.has(target)) observer?.unobserve(target); });
+      next.forEach(target => { if (!targets.has(target)) observer?.observe(target); });
+      targets = next;
+      update();
+    };
+    rebind();
+    // Virtual rows mount/unmount inside the viewport on every scroll; only structure outside it changes the flow.
+    const mutations = typeof MutationObserver === 'undefined' ? null
+      : new MutationObserver(records => { if (records.some(record => !node.contains(record.target))) rebind(); });
+    mutations?.observe(boundary, { childList: true, subtree: true });
     window.addEventListener('resize', update);
-    return () => { observer?.disconnect(); window.removeEventListener('resize', update); };
+    return () => { mutations?.disconnect(); observer?.disconnect(); window.removeEventListener('resize', update); };
   }, [node, section]);
   return { viewportRef, cap: fit?.cap ?? null, width: fit?.width ?? null };
 }

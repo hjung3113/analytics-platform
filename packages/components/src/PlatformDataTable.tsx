@@ -196,6 +196,10 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const [preferences, setPreferences] = useState(() => readPreferences(p.preferenceKey));
   const [sorting, setSorting] = useState<PageSort[]>([]);
   const [selection, setSelection] = useState<RowSelectionState>({});
+  const effectiveSelection = selectable ? selection : {};
+  useEffect(() => {
+    if (!selectable) setSelection(previous => Object.keys(previous).length ? {} : previous);
+  }, [selectable]);
   const [page, setPage] = useState(0);
   const [retry, setRetry] = useState(0);
   const [result, setResult] = useState<{ identity: string; response: ApiResponse<PageResult<T>> } | null>(null);
@@ -295,7 +299,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     manualSorting: true, manualPagination: true, enableRowSelection: selectable, columnResizeMode: 'onChange',
     enableMultiSort: !p.urlState,
     defaultColumn: { size: 150, minSize: 60, maxSize: 600 },
-    state: { sorting: activeSorting, rowSelection: selection, columnSizing: preferences.sizing, columnVisibility: preferences.visibility, columnPinning: pinningState },
+    state: { sorting: activeSorting, rowSelection: effectiveSelection, columnSizing: preferences.sizing, columnVisibility: preferences.visibility, columnPinning: pinningState },
     onSortingChange: u => {
       const next = typeof u === 'function' ? u(p.urlState ? p.urlState.sorting : sorting) : u;
       if (p.urlState) {
@@ -317,7 +321,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   });
   const rows = table.getRowModel().rows;
   const virtual = useVirtualizer({ count: rows.length, getScrollElement: () => viewport.current, estimateSize: () => 32, overscan: 8, getItemKey: i => rows[i].id });
-  const selectedIds = Object.keys(selection).filter(k => selection[k]);
+  const selectedIds = Object.keys(effectiveSelection).filter(k => effectiveSelection[k]);
   const pageCount = Math.max(1, Math.ceil(data.total / pageSize));
   // 06 §19: a failed lookup (error·timeout·forbidden·too_large) is not a zero — only a successful
   // response (ok, or empty which IS a successful zero) may state a count or offer pages.
@@ -762,7 +766,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
 
     {shown && shown.outcome !== 'ok' ? <div ref={outcome} onFocus={() => { focusedRetry.current = true; }} onBlur={() => { focusedRetry.current = false; }} className="border-t border-border-subtle p-3"><OutcomeView response={shown} onRetry={() => setRetry(r => r + 1)} emptyAction={p.emptyAction}>{() => null}</OutcomeView></div> :
       // eslint-disable-next-line shadcn/no-inline-styles -- viewport max height comes from the height prop or the measured page fit at runtime
-      <div ref={viewportRef} tabIndex={0} aria-label={lang === 'ko' ? '스크롤 가능한 행 영역' : 'Scrollable rows'} className="overflow-auto overscroll-contain border-t border-border-subtle [overflow-anchor:none]" style={{ maxHeight: p.height ?? fit.cap ?? ROW_AREA_FALLBACK }}>
+      <div ref={viewportRef} data-table-auto-fit={p.height === undefined ? '' : undefined} tabIndex={0} aria-label={lang === 'ko' ? '스크롤 가능한 행 영역' : 'Scrollable rows'} className="overflow-auto overscroll-contain border-t border-border-subtle [overflow-anchor:none]" style={{ maxHeight: p.height ?? fit.cap ?? ROW_AREA_FALLBACK }}>
         {/* eslint-disable-next-line shadcn/no-inline-styles -- table width is the total column size computed at runtime */}
         <div role="table" aria-label={p.ariaLabel} aria-rowcount={data.total + 1} aria-busy={loading} className="min-w-full" style={{ width: table.getTotalSize() }}>
           <div role="rowgroup" className="sticky top-0 z-[5]">

@@ -128,6 +128,14 @@ describe('page-fit row area cap (ADR-0037)', () => {
     expect(maxHeight()).toBe(`${expected()}px`); // 1000 − 188 − 102 = 710
   });
 
+  it('identifies auto-fit peer viewports and excludes explicit height viewports', async () => {
+    const view = render(<Page />);
+    await screen.findByText('s0');
+    expect(viewportEl()).toHaveAttribute('data-table-auto-fit');
+    view.rerender(<Page height={200} />);
+    expect(viewportEl()).not.toHaveAttribute('data-table-auto-fit');
+  });
+
   it('a trailing sibling of known height + gap lowers the cap after its observer fires', async () => {
     render(<Page />);
     await screen.findByText('s0');
@@ -209,6 +217,20 @@ describe('selection column only with a consumer (ADR-0037)', () => {
     render(<Page height={200} exportOn exportRows={async () => ({ outcome: 'ok', data: [], assessments: [], trust: null, correlationId: 'c' })} />);
     await screen.findByText('s0');
     expect(document.querySelector('[data-column="_select"]')).not.toBeNull();
+  });
+
+  it('clears selection when its last consumer disappears and does not resurrect it', async () => {
+    const bulkActions = (ids: string[]) => <span>{ids.length} 대상</span>;
+    const view = render(<Page height={200} bulkActions={bulkActions} />);
+    await screen.findByText('s0');
+    fireEvent.click(screen.getByRole('checkbox', { name: '선택 r1' }));
+    expect(screen.getByTestId('selected-count')).toHaveTextContent('1행 선택');
+    view.rerender(<Page height={200} />);
+    expect(screen.queryByTestId('selected-count')).toBeNull();
+    expect(screen.getByText('s0').closest('[role="row"]')).toHaveAttribute('aria-selected', 'false');
+    view.rerender(<Page height={200} bulkActions={bulkActions} />);
+    expect(screen.queryByTestId('selected-count')).toBeNull();
+    expect(screen.getByRole('checkbox', { name: '선택 r1' })).not.toBeChecked();
   });
 
   it('keeps it for bulkActions alone and shows the band', async () => {
