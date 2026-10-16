@@ -237,8 +237,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
           <PlatformDataTable<SlowRow>
             title={ko ? '느린 실행' : 'Slow executions'}
             subtitle={ko
-              ? `페이지 필터 적용 목록입니다. 느린 실행 기준 ${tailMode === 'all' ? '전체' : `≥ ${tailMode.toUpperCase()}`} · 모집단 ${kpi.response?.outcome === 'ok' ? kpi.response.data!.count.toLocaleString('ko-KR') : '…'}건. 정렬은 URL sort 키입니다.`
-              : `Page-filtered list. Slow-execution predicate ${tailMode === 'all' ? 'all' : `≥ ${tailMode.toUpperCase()}`} · population ${kpi.response?.outcome === 'ok' ? kpi.response.data!.count.toLocaleString('en-US') : '…'}. Sort is the URL sort key.`}
+              ? `페이지 필터 적용 목록입니다. 느린 실행 기준 ${tailMode === 'all' ? '전체' : `≥ ${tailMode.toUpperCase()}`} · 모집단 ${kpi.response === null ? '…건' : kpi.response.outcome === 'ok' ? `${kpi.response.data!.count.toLocaleString('ko-KR')}건` : '확인할 수 없음'}.`
+              : `Page-filtered list. Slow-execution predicate ${tailMode === 'all' ? 'all' : `≥ ${tailMode.toUpperCase()}`} · population ${kpi.response === null ? '…' : kpi.response.outcome === 'ok' ? kpi.response.data!.count.toLocaleString('en-US') : 'unavailable'}.`}
             ariaLabel={ko ? '느린 실행 목록' : 'Slow executions'}
             columns={columns}
             getRowId={executionKey}
@@ -270,7 +270,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
             bulkActions={ids => <Button size="toolbar" onClick={() => {
               const equipmentIds = [...new Set(ids.map(equipmentIdFromKey))];
               setGlobal({ selection: equipmentIds });
-              toast(ko ? `설비 ${equipmentIds.length}대를 전역 Selection으로 적용했습니다. 다른 메뉴에도 유지됩니다.` : `Applied ${equipmentIds.length} equipment as the global selection. It carries across menus.`);
+              toast(ko ? `설비 ${equipmentIds.length}대를 설비 선택으로 적용했습니다. 다른 메뉴에도 유지됩니다.` : `Applied ${equipmentIds.length} equipment as the equipment selection. It carries across menus.`);
             }}>{ko ? '선택 설비로 분석 좁히기' : 'Narrow analysis to selected equipment'}</Button>}
             loadPage={(query, signal) => slowPages.fetch({ ...listFilter, ...query, sorting: [{ id: sortSpec.id, desc: sortSpec.desc }] }, signal)}
           />

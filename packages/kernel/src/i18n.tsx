@@ -92,11 +92,11 @@ const dict = {
   sharedOutcomeEmpty: { ko: '0건', en: 'zero rows' },
   stateTimeoutBody: { ko: '조회가 제한 시간 안에 끝나지 않았습니다. 기간을 줄이거나 집계 단위를 키워 다시 시도하세요.', en: 'The query did not finish in time. Shorten the period or coarsen the granularity and retry.' },
   stateEmpty: { ko: '조건에 맞는 결과가 없습니다', en: 'No matching result' },
-  stateEmptyBody: { ko: '조회는 성공했고 결과가 0건입니다. 수집 중단·지연을 뜻하지 않습니다.', en: 'The query succeeded with zero rows. This does not imply a collection stop or delay.' },
+  stateEmptyBody: { ko: '조회는 성공했고 결과가 0건입니다. 조건을 바꿔 다시 조회하세요.', en: 'The query succeeded with zero rows. Change the conditions and query again.' },
   stateForbidden: { ko: '이 Scope에 접근 권한이 없습니다', en: 'You do not have access to this scope' },
   stateForbiddenBody: { ko: '현재 권한으로는 이 범위를 볼 수 없습니다. 권한 담당자에게 요청하세요.', en: 'Your current permissions cannot view this range. Ask the person who grants access.' },
   stateTooLarge: { ko: '조회 범위가 너무 큽니다', en: 'Query too large' },
-  stateTooLargeBody: { ko: '한 번에 가져오기에는 범위가 큽니다. 기간을 줄이거나 설비 선택을 좁히세요.', en: 'The range is too large to load at once. Shorten the period or narrow the equipment selection.' },
+  stateTooLargeBody: { ko: '한 번에 가져오기에는 범위가 큽니다. 조회 조건을 좁혀 다시 시도하세요.', en: 'The range is too large to load at once. Narrow the conditions and retry.' },
   stateTimeout: { ko: '조회 시간이 초과되었습니다', en: 'Query timed out' },
   stateError: { ko: '데이터를 불러오지 못했습니다', en: 'Unable to load data' },
   stateErrorCause: { ko: '서버가 데이터를 보내지 못했습니다.', en: 'The server could not return the data.' },
@@ -111,12 +111,20 @@ const dict = {
   selectScopeBody: { ko: '범위를 고르면 그 범위의 데이터를 조회합니다.', en: 'Pick a scope to load its data.' },
   applySuggested: { ko: '최근 Scope 적용', en: 'Apply recent scope' },
   selectPeriod: { ko: '기간을 선택하세요', en: 'Select a period' },
-  contractError: { ko: 'URL 계약 오류', en: 'URL contract error' },
+  contractError: { ko: '주소에 쓸 수 없는 값이 있습니다', en: 'The address has a value this page cannot use' },
   contractErrorBody: { ko: '주소의 값이 올바르지 않아 조회하지 않았습니다. 주소를 고치거나 조건을 초기화하세요.', en: 'The address has a value this page cannot use. Fix the address or reset the conditions.' },
-  resetContext: { ko: 'Context 초기화', en: 'Reset context' },
+  contractErrorAction: { ko: '주소를 고치거나 조건을 초기화하세요.', en: 'Fix the address or reset the conditions.' },
+  contractCausePartialPeriod: { ko: '기간의 시작과 끝 중 하나만 있습니다.', en: 'Only one end of the period is in the address.' },
+  contractCauseInvalidPeriod: { ko: '기간의 시작이 끝보다 늦습니다.', en: 'The period starts after it ends.' },
+  contractCauseDuplicateKey: { ko: '같은 키가 주소에 두 번 있습니다.', en: 'The same key is written twice in the address.' },
+  contractCauseAliasConflict: { ko: '설비 선택을 두 이름으로 같이 적었습니다.', en: 'The equipment selection is written under both names.' },
+  contractCauseMetricPair: { ko: '지표 버전만 있고 어느 지표인지 없습니다.', en: 'A metric version is present without the metric.' },
+  contractCauseMetricPairIncomplete: { ko: '지표만 있고 버전이 없습니다.', en: 'A metric is present without its version.' },
+  contractCauseEmptySetWithList: { ko: '빈 선택 표시와 목록을 주소에 같이 적었습니다.', en: 'An empty-selection mark and a list are both written in the address.' },
+  resetContext: { ko: '조건 초기화', en: 'Reset conditions' },
   notFound: { ko: '등록되지 않은 경로입니다', en: 'Unregistered route' },
   plannedTitle: { ko: '레지스트리에 선언된 메뉴 (화면 미구현)', en: 'Registered menu (screen not built)' },
-  plannedBody: { ko: '이 메뉴는 Menu Registry 선언과 Context Capability만 존재합니다. 셸·Context 전달·권한 계약이 화면 구현 없이도 동작함을 보여줍니다.', en: 'Only the registry declaration exists. Shell, context transfer and permission contracts work without the screen.' },
+  plannedBody: { ko: '이 메뉴는 등록만 되어 있고 화면은 아직 없습니다. 이동, 조건 전달, 권한 확인은 화면 없이도 동작합니다.', en: 'This menu is registered but its screen is not built yet. Navigation, carried conditions and access checks already work.' },
   dataTrust: { ko: '데이터 신뢰', en: 'Data trust' },
   updated: { ko: '갱신', en: 'Updated' },
   dataThrough: { ko: '데이터 기준', en: 'Data through' },
@@ -209,4 +217,42 @@ function topicParticle(name: string): '은' | '는' {
 export function invalidValueSentence(lang: Lang, kind: 'value' | 'filter' | 'plain' | 'drillGap', field: Text, raw: string): string {
   const fill: Record<string, string> = { field: field[lang], raw, particle: lang === 'ko' ? topicParticle(field.ko) : '' };
   return dict[INVALID_URL_KEY[kind]][lang].replace(/\{(field|raw|particle)\}/g, (_token, name: string) => fill[name] ?? '');
+}
+
+const IDENTIFIER_NAMES = {
+  roomNames: dict.roomNames, selectedEquipmentIds: dict.selection,
+  lotIds: { ko: 'Lot', en: 'Lot' }, recipeIds: { ko: 'Recipe', en: 'Recipe' }, ppid: { ko: 'PPID', en: 'PPID' },
+} as const satisfies Record<string, Text>;
+
+/** User names of the URL keys a `ContractError` can blame (`field`); the set markers share their set's name. */
+export const URL_FIELD_NAMES: Readonly<Record<string, Text>> = {
+  from: { ko: '시작 시각', en: 'Start time' },
+  to: { ko: '끝 시각', en: 'End time' },
+  scopeId: dict.scope,
+  v: { ko: '주소 버전', en: 'Address version' },
+  ...IDENTIFIER_NAMES,
+  roomSelection: IDENTIFIER_NAMES.roomNames, equipmentSelection: IDENTIFIER_NAMES.selectedEquipmentIds,
+  lotSelection: IDENTIFIER_NAMES.lotIds, recipeSelection: IDENTIFIER_NAMES.recipeIds,
+  metricId: { ko: '지표', en: 'Metric' },
+  metricVersion: dict.metricVersion,
+  equipmentGroup: dict.condition,
+};
+
+const CONTRACT_CAUSE = {
+  partial_period: 'contractCausePartialPeriod',
+  invalid_period: 'contractCauseInvalidPeriod',
+  duplicate_singleton: 'contractCauseDuplicateKey',
+  duplicate_page_key: 'contractCauseDuplicateKey',
+  alias_conflict: 'contractCauseAliasConflict',
+  metric_pair: 'contractCauseMetricPair',
+  metric_pair_incomplete: 'contractCauseMetricPairIncomplete',
+  invalid_set: 'contractCauseEmptySetWithList',
+} as const satisfies Record<string, Key>;
+
+/** Body copy of the URL error screen: the blamed field + quoted raw value (ADR-0034), else a per-code cause, then the action. Parser text never appears here. */
+export function contractErrorSentence(lang: Lang, error: { code: string; field?: string; raw?: string }): string {
+  const name = error.field === undefined ? undefined : URL_FIELD_NAMES[error.field];
+  if (name && error.raw !== undefined) return `${invalidValueSentence(lang, 'plain', name, error.raw)} ${dict.contractErrorAction[lang]}`;
+  if (Object.prototype.hasOwnProperty.call(CONTRACT_CAUSE, error.code)) return `${dict[CONTRACT_CAUSE[error.code as keyof typeof CONTRACT_CAUSE]][lang]} ${dict.contractErrorAction[lang]}`;
+  return dict.contractErrorBody[lang];
 }

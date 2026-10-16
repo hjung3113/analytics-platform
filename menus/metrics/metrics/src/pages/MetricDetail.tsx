@@ -276,7 +276,7 @@ function DefinitionSection({ metric, version, previous }: { metric: MetricDef; v
 function CoverageSection({ version, ids, rooms }: { version: MetricVersion; ids: string[]; rooms: string[] }) {
   const { lang, tx } = useI18n();
   const c = version.coverage;
-  return <Panel id={sectionId('coverage')} title={lang === 'ko' ? '커버리지 기준' : 'Coverage basis'} subtitle={lang === 'ko' ? '정의 속성입니다. 실행 비율이 아니며 응답 envelope의 coverage %와 연결하지 않습니다.' : 'A definition attribute. Not a runtime rate, and not the response envelope’s coverage percent.'}>
+  return <Panel id={sectionId('coverage')} title={lang === 'ko' ? '커버리지 기준' : 'Coverage basis'} subtitle={lang === 'ko' ? '지표 정의에 적힌 기준입니다. 조회 결과에 보이는 커버리지 비율과는 다른 값입니다.' : 'The basis written in the metric definition. It is not the coverage rate shown with query results.'}>
     <dl>
       <Field label={lang === 'ko' ? '모집단' : 'Population'}>{tx(c.populationRef)}</Field>
       <Field label={lang === 'ko' ? '포함' : 'Included'}>{tx(c.includedBasis)}</Field>
@@ -287,8 +287,8 @@ function CoverageSection({ version, ids, rooms }: { version: MetricVersion; ids:
     <p className="mt-3 text-xs font-semibold text-text-primary">{lang === 'ko' ? '실행 Coverage 값 없음' : 'No runtime coverage value'}</p>
     <p className="mt-1 text-xs text-text-secondary">
       {lang === 'ko'
-        ? '아래 설비 ID는 정의의 모집단 규칙에 맞는 합성 예시입니다. 건수·비율로 읽지 않습니다. Selection으로 좁히지 않습니다.'
-        : 'The equipment IDs below are synthetic examples matching the definition’s population rule. Do not read them as a count or a rate. Selection does not narrow them.'}
+        ? '아래 설비 ID는 정의의 모집단 규칙에 맞는 합성 예시입니다. 건수·비율로 읽지 않습니다. 설비 선택으로 좁히지 않습니다.'
+        : 'The equipment IDs below are synthetic examples matching the definition’s population rule. Do not read them as a count or a rate. The equipment selection does not narrow them.'}
     </p>
     {ids.length === 0
       ? <p className="mt-2 text-xs text-text-secondary">{lang === 'ko' ? '예시 설비가 없습니다. 0%로 표시하지 않습니다.' : 'No example equipment. This is not shown as 0%.'}</p>

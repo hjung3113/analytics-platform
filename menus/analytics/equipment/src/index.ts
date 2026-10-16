@@ -21,7 +21,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'equipment-detail', group: 'equipment', parent: 'equipment-master', navHidden: true, label: { ko: '설비 상세', en: 'Equipment detail' },
-    description: { ko: '목적지 설비 ID는 분석 Selection과 분리해 전달됩니다.', en: 'The destination ID is carried separately from the analysis Selection.' },
+    description: { ko: '열어 본 설비는 설비 선택과 별개입니다.', en: 'The equipment you open is separate from the equipment selection.' },
     path: '/equipment/:equipmentId', icon: Cpu, permission: 'equipment:view', requiresScope: true, pageType: 'management',
     context: { ...none, time: 'reference', roomNames: 'reference', condition: 'reference', selection: 'reference' },
     features: noFeatures, pageKeys: ['tab', 'returnTo'],

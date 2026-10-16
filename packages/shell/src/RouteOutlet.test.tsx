@@ -326,6 +326,17 @@ describe('planned menu without a context bar (#304)', () => {
 });
 
 describe('RouteOutlet contract error view', () => {
+  it('names the bad value in user words; the parser text stays in the detail note (ADR-0034, #397)', async () => {
+    const { adapter } = fixture(async () => ({ accepted: true }));
+    mountAt('/home?from=garbage&to=2026-09-26T09:00:00', adapter);
+    expect(await screen.findByText('주소에 쓸 수 없는 값이 있습니다')).toBeTruthy();
+    const sentence = await screen.findByText(/“garbage”/, { selector: 'p:not(.t-mono)' });
+    expect(sentence.textContent).toBe('시작 시각 “garbage”은 이 화면에서 쓸 수 없습니다. 주소를 고치거나 조건을 초기화하세요.');
+    expect(sentence.textContent).not.toMatch(/from=|계약|URL/);
+    expect(screen.getByRole('note', { name: '서버 세부' }).textContent).toContain('from: use YYYY-MM-DDTHH:mm:ss');
+    expect(screen.getByRole('button', { name: '조건 초기화' })).toBeTruthy();
+  });
+
   it('shows the diagnostic URL at full strength — no opacity on danger-soft (AA, #193 UI/UX recheck)', async () => {
     const { adapter } = fixture(async () => ({ accepted: true }));
     mountAt('/home?v=99', adapter);

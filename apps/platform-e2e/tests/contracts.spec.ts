@@ -581,8 +581,8 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
 
   test('지원하지 않는 URL 버전은 자동 보정하지 않고 계약 오류로 보인다', async ({ page }, testInfo) => {
     await page.goto('/equipment?v=2&scopeId=ICH');
-    await expect(page.getByRole('alert')).toContainText('URL 계약 오류');
-    await expect(page.getByRole('button', { name: 'Context 초기화' })).toBeVisible();
+    await expect(page.getByRole('alert')).toContainText('주소에 쓸 수 없는 값이 있습니다');
+    await expect(page.getByRole('button', { name: '조건 초기화' })).toBeVisible();
     expect(query(page).get('v')).toBe('2');
     await evidence(page, testInfo, 'contract-error');
   });
