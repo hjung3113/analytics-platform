@@ -90,6 +90,11 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const root = useRef<HTMLDivElement>(null);
   const stickyHeader = useRef<HTMLDivElement>(null);
   const pageHeader = useRef<HTMLElement>(null);
+  const descriptionText = useRef<HTMLDivElement>(null);
+  const descriptionButton = useRef<HTMLButtonElement>(null);
+  const restoreDescriptionFocus = useRef(false);
+  const programmaticDescriptionFocus = useRef(false);
+  const [descriptionTooltipOpen, setDescriptionTooltipOpen] = useState(false);
   const yieldRef = useRef<HeaderYield>(openHeader);
   const [headerYield, setHeaderYield] = useState<HeaderYield>(openHeader);
   useLayoutEffect(() => {
@@ -101,6 +106,10 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
       if (width <= 0) return;
       const next = nextHeaderYield(width, yieldRef.current);
       if (next.description === yieldRef.current.description && next.trust === yieldRef.current.trust && next.badge === yieldRef.current.badge) return;
+      if (next.description !== yieldRef.current.description) {
+        const trigger = yieldRef.current.description ? descriptionButton.current : descriptionText.current;
+        restoreDescriptionFocus.current = trigger != null && document.activeElement === trigger;
+      }
       yieldRef.current = next;
       setHeaderYield(next);
     };
@@ -110,6 +119,15 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
     observer.observe(header);
     return () => observer.disconnect();
   }, []);
+  useLayoutEffect(() => {
+    if (!restoreDescriptionFocus.current) return;
+    restoreDescriptionFocus.current = false;
+    const target = headerYield.description ? descriptionButton.current : descriptionText.current;
+    setDescriptionTooltipOpen(false);
+    programmaticDescriptionFocus.current = true;
+    try { target?.focus({ preventScroll: true }); }
+    finally { programmaticDescriptionFocus.current = false; }
+  }, [headerYield.description]);
   useLayoutEffect(() => {
     const focusDestination = () => {
       const request = consumePageFocus(pageNavigation, pathname);
@@ -193,13 +211,12 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
             className="grid size-6 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover hover:text-accent-warn">
             <Star className={cn('size-3.5', isFavorite && 'fill-accent-warn text-accent-warn')} aria-hidden />
           </button>}
-          {hasDescription && !headerYield.description && <TooltipProvider><Tooltip><TooltipTrigger asChild>
-            <div tabIndex={0} className="min-w-0 flex-1 basis-0 truncate text-xs text-text-muted" title={typeof descriptionResolved === 'string' ? descriptionResolved : undefined}>{descriptionResolved}</div>
-          </TooltipTrigger><TooltipContent>{descriptionResolved}</TooltipContent></Tooltip></TooltipProvider>}
-          {hasDescription && headerYield.description && <TooltipProvider><Tooltip><TooltipTrigger asChild>
-            <button type="button" aria-label={descriptionName} title={typeof descriptionResolved === 'string' ? descriptionResolved : undefined} className="grid size-6 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover">
+          {hasDescription && <TooltipProvider><Tooltip open={descriptionTooltipOpen} onOpenChange={open => {
+            if (!open || !programmaticDescriptionFocus.current) setDescriptionTooltipOpen(open);
+          }}><TooltipTrigger asChild>
+            {headerYield.description ? <button ref={descriptionButton} type="button" aria-label={descriptionName} title={typeof descriptionResolved === 'string' ? descriptionResolved : undefined} className="grid size-6 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover">
               <Info className="size-3.5" aria-hidden />
-            </button>
+            </button> : <div ref={descriptionText} tabIndex={0} className="min-w-0 flex-1 basis-0 truncate text-xs text-text-muted" title={typeof descriptionResolved === 'string' ? descriptionResolved : undefined}>{descriptionResolved}</div>}
           </TooltipTrigger><TooltipContent>{descriptionResolved}</TooltipContent></Tooltip></TooltipProvider>}
         </div>
         <div className="flex shrink-0 flex-nowrap items-center gap-2 whitespace-nowrap">
