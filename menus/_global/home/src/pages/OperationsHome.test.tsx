@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlatformAdapter, Session } from '@ap/contracts';
@@ -227,6 +227,13 @@ describe('platform home launcher', () => {
   ])('shows 내 VOC only when voc is allowed (%s)', async (allowed, permissions) => {
     mount(permissions);
     await settled();
-    expect(screen.queryByRole('link', { name: '내 VOC' }) !== null).toBe(allowed);
+    // The header link is a secondary action, so it is inside ⋯ and not mounted until the menu opens (#303).
+    if (!allowed) {
+      expect(screen.queryByRole('button', { name: '더보기' })).toBeNull();
+      expect(screen.queryByRole('link', { name: '내 VOC' })).toBeNull();
+      return;
+    }
+    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
+    expect(await screen.findByRole('link', { name: '내 VOC' })).toBeTruthy();
   });
 });

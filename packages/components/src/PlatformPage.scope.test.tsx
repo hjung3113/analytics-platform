@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { useLayoutEffect, useRef } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -104,8 +105,13 @@ describe('PlatformPage 50px header (#194)', () => {
     expect(header.querySelector('h1')?.textContent).toBe('Custom title');
     expect(screen.getByText('A long full description').getAttribute('title')).toBe('A long full description');
     expect(header.textContent).toContain('trust');
-    expect(header.contains(screen.getByRole('button', { name: 'secondary' }))).toBe(true);
     expect(header.contains(screen.getByRole('button', { name: 'primary' }))).toBe(true);
+    expect(screen.queryByRole('button', { name: 'secondary' })).toBeNull();
+    const more = screen.getByRole('button', { name: '더보기' });
+    expect(header.contains(more)).toBe(true);
+    await userEvent.setup().click(more);
+    expect(header.contains(await screen.findByRole('button', { name: 'secondary' }))).toBe(false);
+    fireEvent.keyDown(screen.getByRole('group', { name: '기타 페이지 동작' }), { key: 'Escape' });
     expect(header.nextElementSibling?.textContent).toBe('global context');
     const content = view.container.querySelector('[data-platform-page-content]');
     expect(content).toBe(screen.getByText('page body').parentElement);
@@ -128,6 +134,7 @@ describe('PlatformPage 50px header (#194)', () => {
     expect(screen.getByRole('heading', { name: 'Gated title' })).toBeTruthy();
     expect(screen.getByText('global context')).toBeTruthy();
     expect(view.container.querySelector('[data-platform-page-content]')?.textContent).toContain('이 Scope에 접근 권한이 없습니다');
+    expect(screen.queryByRole('button', { name: '더보기' })).toBeNull();
     for (const text of ['trust', 'secondary', 'primary', 'extension', 'page body']) expect(screen.queryByText(text)).toBeNull();
   });
 });
@@ -141,7 +148,7 @@ describe('page header width (#194 FIX2)', () => {
     </PlatformProvider></I18nProvider>);
     await screen.findByText('body');
     const title = screen.getByRole('heading', { name: 'Long object ID' });
-    expect(title).toHaveClass('min-w-0', 'shrink', 'truncate');
+    expect(title).toHaveClass('min-w-28', 'shrink', 'truncate');
     expect(title).not.toHaveClass('shrink-0');
     expect(title).toHaveAttribute('tabindex', '0');
     expect(screen.getByRole('navigation', { name: '이동 경로' })).toHaveClass('min-w-0');

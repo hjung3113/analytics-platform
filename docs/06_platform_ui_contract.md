@@ -355,7 +355,7 @@ Component gap        12~16px
 
 치수 값의 단일 원본은 FeedbackOps `packages/ui/src/styles/tokens.css`의 레이아웃 토큰이다. 셸은 이 토큰과 같은 값을 쓴다(페이지 머리 50px·Context 바 48px는 코드 리터럴). DESIGN은 [셸 시각 보완](../DESIGN.md#shell-visual-rules)만 소유하며 이 Baseline을 재정의하지 않는다.
 
-50px 페이지 머리와 Context Bar는 스크롤되는 main 안에서 하나의 sticky 래퍼로 유지한다. Context Bar 자체에는 별도 sticky를 두지 않아 페이지 머리를 가리지 않는다. 본문은 FeedbackOps `PageShell`의 여백을 사용하며 분석 페이지에 폭 제한은 추가하지 않는다.
+50px 페이지 머리와 Context Bar는 스크롤되는 main 안에서 하나의 sticky 래퍼로 유지한다. Context Bar 자체에는 별도 sticky를 두지 않아 페이지 머리를 가리지 않는다. 본문은 FeedbackOps `PageShell`의 여백을 사용하며 분석 페이지에 폭 제한은 추가하지 않는다. 페이지 머리는 한 줄을 유지하고, 머리 자신 폭이 줄면 설명·Data Trust 요약·잠정 배지·제목 말줄임 순으로 양보하며 주 동작은 남긴다. 보조 동작은 ⋯ 팝오버의 이름 있는 동작 그룹에 둔다. 모든 양보 뒤에도 들어가지 않을 때(예: 1024px + 펼친 사이드바 + 상세 패널)만 머리가 가로로 스크롤된다. 주 동작은 Tab 포커스나 스크롤로 닿으며, 포커스한 컨트롤은 머리의 보이는 범위로 스크롤된다. 시각 스크롤바는 감추지 않는다. 정상 폭(1280px 이상 + 상세 패널)에서는 스크롤이 생기지 않는다(시각 순서는 [DESIGN 셸 시각 보완](../DESIGN.md#shell-visual-rules), [ADR-0035](adr/0035-page-header-yield-order.md)).
 
 분석 페이지에는 임의의 좁은 `max-width`를 적용하지 않는다.
 

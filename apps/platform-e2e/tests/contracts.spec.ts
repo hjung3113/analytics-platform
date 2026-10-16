@@ -25,6 +25,14 @@ async function contextEditor(page: Page, name: string) {
     if (await overflow.isVisible()) await page.keyboard.press('Escape');
   } };
 }
+/** Secondary page actions live in the header ⋯ menu at every width (#303, ADR-0035). */
+async function headerMore(page: Page) {
+  const header = page.getByRole('main').locator('header').filter({ has: page.getByRole('heading', { level: 1 }) });
+  await header.getByRole('button', { name: '더보기', exact: true }).click();
+  const menu = page.getByRole('group', { name: '기타 페이지 동작' });
+  await expect(menu).toBeVisible();
+  return menu;
+}
 async function periodPreset(page: Page, name: string) {
   const bar = contextBar(page);
   const trigger = bar.getByRole('button', { name: /^기간:/ });
@@ -372,7 +380,8 @@ test.describe('셸 sticky 계약 (06 §7)', () => {
     await main.evaluate(el => { el.scrollTop = 100; });
     await expect.poll(() => main.evaluate(el => el.scrollTop)).toBeGreaterThanOrEqual(100);
     const header = main.locator('header').filter({ has: page.getByRole('heading', { level: 1 }) });
-    for (const target of [mainHeading(page), header.getByRole('button', { name: '새로고침', exact: true })]) {
+    // Refresh is a secondary action, so it lives in ⋯. The controls that stay in the header are the title, the primary action, and the ⋯ trigger.
+    for (const target of [mainHeading(page), header.getByRole('link', { name: '사이클타임 상세 보기', exact: true }), header.getByRole('button', { name: '더보기', exact: true })]) {
       await expect(target).toBeVisible();
       await expect.poll(() => target.evaluate(el => {
         const rect = el.getBoundingClientRect();
@@ -387,6 +396,58 @@ test.describe('셸 sticky 계약 (06 §7)', () => {
     expect(contextBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height);
     await evidence(page, testInfo, 'page-header-context-after-scroll');
   });
+
+  test('1024px 펼친 사이드바와 상세 패널에서도 Tab으로 주 동작에 닿는다 (#303)', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.addInitScript(() => localStorage.setItem('platform:sidebar-collapsed', '0'));
+    await page.goto(PRODUCTIVITY.replace('&roomNames=PHOTO', ''));
+    await expectScopeValid(page, 'ICH · Site A');
+    await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
+    await page.getByRole('button', { name: 'CVD 들어가기' }).click();
+    await page.getByRole('button', { name: 'STG-CVD-A 들어가기' }).click();
+    await page.getByRole('button', { name: 'ICH-CVD-0149 들어가기' }).click();
+    await expect.poll(() => query(page).get('drillEquipment')).toBe('ICH-CVD-0149');
+    await expect(page.getByText('설비 요약', { exact: true }).first()).toBeVisible();
+    const header = page.locator('#platform-main header').filter({ has: page.getByRole('heading', { level: 1 }) });
+    const primary = header.getByRole('link', { name: '사이클타임 상세 보기', exact: true });
+    for (let i = 0; i < 150 && !await primary.evaluate(el => el === document.activeElement); i++) {
+      await page.keyboard.press('Tab');
+    }
+    await expect(primary).toBeFocused();
+    await expect.poll(() => primary.evaluate(el => {
+      const link = el.getBoundingClientRect();
+      const band = el.closest('header')!.getBoundingClientRect();
+      return link.left >= band.left && link.right <= band.right && link.top >= band.top && link.bottom <= band.bottom;
+    })).toBe(true);
+    await expect.poll(() => header.evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
+    await evidence(page, testInfo, 'page-header-primary-focus-1024');
+  });
+
+  // #303: the open detail panel narrows the page, and the header yields description → trust → badge instead of
+  // hiding the title or pushing the primary action off screen behind a horizontal scroll.
+  for (const width of [1440, 1280]) {
+    test(`상세 패널이 열린 ${width}px에서도 제목은 보이고 주 동작은 화면 안, 머리는 가로로 넘치지 않는다 (#303)`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${PRODUCTIVITY.replace('&roomNames=PHOTO', '')}`);
+      await expectScopeValid(page, 'ICH · Site A');
+      await page.getByRole('button', { name: 'CVD 들어가기' }).click();
+      await page.getByRole('button', { name: 'STG-CVD-A 들어가기' }).click();
+      await page.getByRole('button', { name: 'ICH-CVD-0149 들어가기' }).click();
+      await expect.poll(() => query(page).get('drillEquipment')).toBe('ICH-CVD-0149');
+      await expect(page.getByText('설비 요약', { exact: true }).first()).toBeVisible();
+      const header = page.locator('#platform-main header').filter({ has: page.getByRole('heading', { level: 1 }) });
+      const metrics = await header.evaluate(el => {
+        const h1 = el.querySelector('h1')!.getBoundingClientRect();
+        // The right-hand group ends with the primary action.
+        const primary = el.lastElementChild!.lastElementChild!.getBoundingClientRect();
+        return { titleWidth: h1.width, lastRight: primary.right, viewport: window.innerWidth, scroll: el.scrollWidth, client: el.clientWidth };
+      });
+      expect(metrics.titleWidth).toBeGreaterThan(0);
+      expect(metrics.lastRight).toBeLessThanOrEqual(metrics.viewport);
+      expect(metrics.scroll).toBeLessThanOrEqual(metrics.client);
+      await evidence(page, testInfo, `page-header-yield-${width}`);
+    });
+  }
 });
 
 test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
@@ -930,7 +991,7 @@ test.describe('플랫폼 홈 · 전역 화면 (ADR-0028)', () => {
     await expect(page.getByRole('heading', { name: '플랫폼 홈' })).toBeVisible();
     await expect(page.getByRole('navigation', { name: '주 메뉴' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^공간:/ })).toHaveCount(0);
-    await page.getByRole('link', { name: '내 VOC' }).click();
+    await (await headerMore(page)).getByRole('link', { name: '내 VOC' }).click();
     await expect.poll(() => new URL(page.url()).pathname).toBe('/voc');
     await expect(page.getByRole('navigation', { name: '주 메뉴' })).toHaveCount(0);
     await page.goto('/');
@@ -1214,7 +1275,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     expect(query(page).get('returnTo')).toBe(origin);
     await evidence(page, testInfo, 'detail');
 
-    await page.getByRole('link', { name: '← 설비 마스터' }).click();
+    await (await headerMore(page)).getByRole('link', { name: '← 설비 마스터' }).click();
     await expect.poll(() => page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(origin);
     await expect(page.getByRole('table')).toBeVisible();
     await evidence(page, testInfo, 'returned');
@@ -1227,7 +1288,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     await expect.poll(() => query(page).get('focus')).not.toBeNull();
     await page.getByRole('link', { name: '전체 화면' }).click();
     await expect(page).toHaveURL(/\/equipment\/[^?]+\?/);
-    await page.getByRole('link', { name: '← 설비 마스터' }).click();
+    await (await headerMore(page)).getByRole('link', { name: '← 설비 마스터' }).click();
 
     const heading = page.getByRole('heading', { level: 1, name: '설비 마스터' });
     const dialog = page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog');
@@ -1337,7 +1398,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     expect(query(page).get('returnTo')).toBe(origin);
 
     // execution-detail's back button follows returnOrigin() (same href as returnTarget()).
-    await page.getByRole('link', { name: '← 사이클타임 상세' }).click();
+    await (await headerMore(page)).getByRole('link', { name: '← 사이클타임 상세' }).click();
     await expect.poll(() => page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(origin);
     await expect(page.getByRole('button', { name: '버킷 필터 해제' })).toBeVisible();
     await expect(page.getByRole('button', { name: '분포 필터 해제' })).toBeVisible();
@@ -1349,7 +1410,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
 
   test('앱 밖을 가리키는 returnTo는 따르지 않고 상위 메뉴로 돌아간다', async ({ page }, testInfo) => {
     await page.goto(`/equipment/EQ-X?v=1&scopeId=ICH&returnTo=${encodeURIComponent('https://example.com/phish')}`);
-    const back = page.getByRole('link', { name: '← 설비 마스터' });
+    const back = (await headerMore(page)).getByRole('link', { name: '← 설비 마스터' });
     await expect(back).toBeVisible();
     const href = await back.getAttribute('href');
     expect(href).toMatch(/^\/equipment\?/);
@@ -1848,7 +1909,7 @@ test.describe('드릴다운 (06 §6.4, §12.7, §22, ADR-0025)', () => {
     await expectScopeValid(page, 'ICH · Site A');
     await page.getByRole('link', { name: '설비 상세로' }).click();
     await expect(page).toHaveURL(/\/equipment\/ICH-PHOTO-0103/);
-    const back = page.getByRole('link', { name: '← 생산성 개요 (PHOTO › STG-PHOTO-A › ICH-PHOTO-0103)' });
+    const back = (await headerMore(page)).getByRole('link', { name: '← 생산성 개요 (PHOTO › STG-PHOTO-A › ICH-PHOTO-0103)' });
     await expect(back).toBeVisible();
     await evidence(page, testInfo, 'drill-equipment-return');
     await back.click();
@@ -1980,12 +2041,13 @@ test.describe('지표 목록→상세 복귀 (06 §22)', () => {
     await page.getByRole('table', { name: '지표 카탈로그', exact: true }).getByRole('link', { name: 'cycle_time', exact: true }).click();
     await expect(page).toHaveURL(/\/metrics\/cycle_time\?/);
     const header = page.getByRole('main').locator('header').filter({ has: page.getByRole('heading', { level: 1 }) });
-    const back = header.getByRole('link', { name: '← 지표 카탈로그', exact: true });
-    await expect(back).toHaveCount(1);
-    await expect(header.getByRole('link', { name: '카탈로그', exact: true })).toHaveCount(0);
     await header.getByRole('button', { name: '이 버전을 분석 Context로 사용', exact: true }).click();
     await expect.poll(() => query(page).get('metricId')).toBe('cycle_time');
     await evidence(page, testInfo, 'metric-detail-return');
+    const menu = await headerMore(page);
+    const back = menu.getByRole('link', { name: '← 지표 카탈로그', exact: true });
+    await expect(back).toHaveCount(1);
+    await expect(menu.getByRole('link', { name: '카탈로그', exact: true })).toHaveCount(0);
     await back.click();
     await expect.poll(() => query(page).get('q')).toBe('time');
     expect(query(page).get('sort')).toBe('nameSort:asc');
@@ -1994,16 +2056,16 @@ test.describe('지표 목록→상세 복귀 (06 §22)', () => {
     await expect(page.getByText('출발 화면의 Context로 돌아왔습니다. 상세에서 바꾼 항목을 되돌렸습니다: 지표·버전', { exact: true })).toBeVisible();
 
     await page.goto('/metrics/cycle_time?v=1&version=3');
-    await expect(header.getByRole('link', { name: '카탈로그', exact: true })).toHaveCount(1);
-    await expect(header.getByRole('link', { name: '← 지표 카탈로그', exact: true })).toHaveCount(0);
+    const direct = await headerMore(page);
+    await expect(direct.getByRole('link', { name: '카탈로그', exact: true })).toHaveCount(1);
+    await expect(direct.getByRole('link', { name: '← 지표 카탈로그', exact: true })).toHaveCount(0);
     await evidence(page, testInfo, 'metric-detail-direct');
   });
 
   test('Context 적용 없이 복귀하면 되돌림 알림이 없다', async ({ page }, testInfo) => {
     await page.goto('/metrics?v=1&q=time&sort=nameSort:asc');
     await page.getByRole('table', { name: '지표 카탈로그', exact: true }).getByRole('link', { name: 'cycle_time', exact: true }).click();
-    const header = page.getByRole('main').locator('header').filter({ has: page.getByRole('heading', { level: 1 }) });
-    await header.getByRole('link', { name: '← 지표 카탈로그', exact: true }).click();
+    await (await headerMore(page)).getByRole('link', { name: '← 지표 카탈로그', exact: true }).click();
     await expect(page.getByRole('heading', { level: 1, name: '지표 카탈로그', exact: true })).toBeVisible();
     expect(query(page).get('q')).toBe('time');
     expect(query(page).get('sort')).toBe('nameSort:asc');
@@ -2015,8 +2077,7 @@ test.describe('지표 목록→상세 복귀 (06 §22)', () => {
     await signInAs(page, 'viewer');
     await page.goto('/metrics/cycle_time?v=1&version=4&returnTo=%2Fadmin%2Froles%3Fv%3D1');
     const main = page.getByRole('main');
-    const header = main.locator('header').filter({ has: page.getByRole('heading', { level: 1 }) });
-    await expect(header.getByRole('link', { name: '← 지표 카탈로그', exact: true })).toHaveAttribute('href', '/metrics?v=1');
+    await expect((await headerMore(page)).getByRole('link', { name: '← 지표 카탈로그', exact: true })).toHaveAttribute('href', '/metrics?v=1');
     await expect(main.getByText('권한/역할 관리', { exact: false })).toHaveCount(0);
     await evidence(page, testInfo, 'metric-return-denied-origin');
   });
