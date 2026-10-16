@@ -567,7 +567,7 @@ Domain 메뉴는 가능하면 이 Archetype을 조합하고, 새로운 Page Type
 
 **지금 pageType이 강제하는 것:** manifest의 `pageType`(5종 중 하나)과, 생성기(`pnpm gen:menu --page-type`)가 만드는 화면 뼈대의 콘텐츠 슬롯(위 12.1–12.5의 슬롯 이름, 읽는 순서 그대로)이다. Page Header·Global Context는 셸 슬롯(§8)이라 `PlatformPage`·셸이 이미 그리므로 뼈대에 다시 넣지 않는다. Data Trust는 12.1·12.2가 슬롯으로 적으므로 뼈대에 `trust` 슬롯으로 넣는다 — `PlatformPage`는 소비자가 넘긴 `dataTrustSummary`만 그리므로 신뢰 정보를 가진 화면이 그 슬롯을 채워야 한다. 슬롯 이름은 12.1–12.5의 영문 표기 그대로다. Management 공통 레이아웃은 `ManagementLayout`, Analysis 공통 레이아웃은 `AnalysisLayout`으로 제공한다. Management 뼈대는 filter·table 자리표시를 공통 레이아웃 안에, actions·drawer·history를 레이아웃 아래에 렌더한다. Analysis 뼈대는 kpi·chart·breakdown 자리표시를 공통 레이아웃 안에 렌더하며, annotation은 chart 노드 안에서 chart 자리표시 바로 뒤에, trust는 레이아웃 아래에 두어 kpi → chart → annotation → breakdown → trust 읽는 순서를 유지한다. 나머지 archetype 뼈대는 점선 구획으로 렌더한다.
 
-**Management — Decided ([ADR-0022](adr/0022-management-filter-rail-analysis-two-column.md)):** `ManagementLayout`은 `filter`/`table`/`drawer` 슬롯을 제공한다. 자기 폭 960px 이상에서는 260px 왼쪽 필터 레일과 표를 16px 간격으로 나란히 둔다. 레일은 페이지 sticky 머리 아래에 머물고 본문만 스크롤한다. 접기·펼치기와 공통 접힘 기억을 제공하며, 접힘·좁음에서는 표 툴바의 `필터 · N` 버튼(적용 수 0이면 숫자 생략)으로 접근한다. 좁음에서는 팝오버로 필터를 편집하며 접힘 기억을 바꾸지 않는다. 필터 필드는 [PageFilterBar](adr/0016-page-filter-bar.md)의 column 배치로 소비하고, 상세는 셸 슬롯(ADR-0013)에 둔다. 드로어 열림은 URL page key(§6.1)다.
+**Management — Decided ([ADR-0022](adr/0022-management-filter-rail-analysis-two-column.md)):** `ManagementLayout`은 `filter`/`table`/`drawer` 슬롯을 제공한다. 자기 폭 960px 이상에서는 260px 왼쪽 필터 레일과 표를 16px 간격으로 나란히 둔다. 레일은 페이지 sticky 머리 아래에 머물고 본문만 스크롤한다. 접기·펼치기와 공통 접힘 기억을 제공하며, 접힘·좁음에서는 표 툴바의 `필터 · N` 버튼(적용 수 0이면 숫자 생략)으로 접근한다. 좁음에서는 팝오버로 필터를 편집하며 접힘 기억을 바꾸지 않는다. 필터 필드는 [PageFilterBar](adr/0016-page-filter-bar.md)의 column 배치로 소비하고, 상세는 셸 슬롯(ADR-0013)에 둔다. 드로어 열림은 URL page key(§6.1)다. **필터 적용 (Decided, [ADR-0037](adr/0037-table-filter-consistency.md)):** 관리 화면 필터는 텍스트와 Select 모두 초안이고 `적용`(`적용 (n)`: 적용된 값과 다른 필드 수, 바뀐 것이 없으면 꺼짐)으로 `setPage` 한 번에 반영한다. 초안은 `ManagementLayout` 위의 화면이 소유해 레일·팝오버 이동과 접힘에서도 남고, 적용된 URL 값이 바뀌면(이동·뒤로/앞으로·초기화) 초안을 다시 맞춘다. 접힌·좁은 `필터 · N` 버튼에는 `미적용 n` 글 표식과 "적용된 필터 N개, 미적용 변경 n개" 설명이 붙고, 레일 머리에는 `· 미적용 변경 n개`가 붙는다. `필터 초기화`는 적용된 필터가 있을 때만 보인다. 카탈로그·분석 막대의 필터는 즉시 반영을 유지한다.
 
 **Analysis — Decided ([ADR-0022](adr/0022-management-filter-rail-analysis-two-column.md)):** `AnalysisLayout`은 `kpi`/`chart`/`breakdown` 슬롯을 KPI 띠·차트·분해 표 순서로 16px 간격으로 배치한다. 자기 폭 960px 이상이고 펼친 차트가 2개 이상이면 차트는 2열이며 홀수 개의 마지막 차트는 전체 폭을 쓴다. 좁거나 펼친 차트가 하나면 1열이다. 같은 행의 차트는 머리·범례 높이를 공유하여 그림 영역 윗변을 맞추고 카드가 행 높이를 채운다. KPI·분해 표는 전체 폭이다. KPI 띠·각 차트·분해 표를 각각 접을 수 있으며 접은 단위는 배치에서 빠지고 맨 위 “접힌 항목” 칩으로 원래 순서에 복원한다. 접으면 칩으로, 펼치면 접기 버튼으로 포커스가 이동한다. 접힌 단위 id는 메뉴별 localStorage `platform:analysis-collapsed:<menuId>`에 기억하고 모르는 id는 무시한다. 조회 중단은 보장하지 않으며 펼칠 때 차트·표 로컬 상태는 초기화될 수 있다. 사내에서 분석 메뉴를 새로 만드는 플랫폼 목적에 따라 사용자 결정으로 §24의 반복 기준(소비자 2–3곳)보다 먼저 공통 레이아웃으로 올린다.
 
@@ -642,7 +642,7 @@ shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](04_frontend_ui_ux
 
 후보(미구현): `PermissionGuard`(현재는 셸 `RouteOutlet`의 권한 게이트), `SavedViewSelector`(Deferred, §21).
 
-`PageFilterBar`는 메뉴가 전달한 검색·정확 일치 텍스트·분류 선택·맞춤형 필드를 라벨과 함께 한 줄에 배치하고 공간이 부족하면 줄바꿈한다. 입력은 `@ap/ui` `Input`, 분류 값은 `Select`를 사용한다. 필드 의미·URL page key·값 변경·초기화·draft 적용은 소비 화면이 소유하며, 알 수 없는 현재 Select 값은 선택 가능한 표시값으로 남긴다(ADR-0016).
+`PageFilterBar`는 메뉴가 전달한 검색·정확 일치 텍스트·분류 선택·맞춤형 필드를 라벨과 함께 한 줄에 배치하고 공간이 부족하면 줄바꿈한다. 입력은 `@ap/ui` `Input`(40px), 분류 값은 `Select`를 사용하며 높이를 덮어쓰지 않는다. `onApply`를 주면 막대가 `<form>`이 되어 submit(적용 버튼·텍스트 입력의 Enter)만 적용으로 보낸다. 한글 조합 중 Enter는 적용하지 않는다. 필드 의미·URL page key·값 변경·초기화·draft 적용은 소비 화면이 소유하며, 알 수 없는 현재 Select 값은 선택 가능한 표시값으로 남긴다(ADR-0016).
 
 row 방향 소비자는 opt-in `collapsible`로 입력 영역만 접을 수 있다(ADR-0029). 접힘 줄은 소비자가 제공한 `summaryItems`(필드명+현재값) 전체를 담은 펼치기 버튼 하나와 독립된 접힘 액션이며, 공통 부품은 조건을 생략·요약하지 않는다(말줄임·`+n` 금지, 폭이 부족하면 항목 단위 줄바꿈). 요약값은 펼친 입력과 같은 표시 모델에서 만들고 잘못된 값·미확정 상태도 사실대로 보인다. 접힘 기억(`preferenceKey`별 저장)·펼침/접힘 포커스 이동·disclosure aria는 공통 부품이 소유하고, column 레일 소비자는 이 접기를 켜지 않는다.
 
@@ -768,7 +768,7 @@ Domain이 소유:
 - row actions
 - domain filter
 
-페이지 필터 행과 입력 primitive는 `PageFilterBar`가 공통화하지만, 메뉴는 필터 의미·URL page key·변경 시 `page` 초기화·초기화 및 draft 적용 동작을 소유한다. 이 경계는 표 툴바의 컬럼·복사·내보내기 동작을 바꾸지 않는다(ADR-0016).
+페이지 필터 행과 입력 primitive는 `PageFilterBar`가 공통화하고 초안 값·변경 수는 `useFilterDraft`가 맡지만, 메뉴는 필터 의미·URL page key·변경 시 `page` 초기화·초기화 및 적용 시 patch 구성(검증 포함)을 소유한다. 이 경계는 표 툴바의 컬럼·복사·내보내기 동작을 바꾸지 않는다(ADR-0016).
 
 ---
 

@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState } from 'react';
 import { PERMISSIONS, type AccessPrincipal, type AccessSortField } from '@ap/contracts';
 import { useI18n, usePlatform } from '@ap/kernel';
-import { DetailDrawer, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort } from '@ap/components';
+import { DetailDrawer, FilterApplyButton, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort, useFilterDraft } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { grantTotals, menusForPermissions } from '../access-rows';
 import { ACCESS_PAGE_KEYS, parseAccessKeys } from '../access-query';
@@ -31,25 +31,21 @@ export default function AccessDirectory() {
   const parsed = parseAccessKeys(raw);
   // Adapter filter JSON (role + permission only): a focus change must not refetch the table.
   const filterKey = JSON.stringify(parsed.ok ? parsed.filters : null);
-  // Every filter change returns to page 1 in the same setPage call — the table does not reset a controlled page.
-  const setFilter = (key: string, value: string | null) => setPage({ [key]: value, page: null });
-  const [draft, setDraft] = useState(raw.role ?? '');
-  useEffect(() => { setDraft(raw.role ?? ''); }, [raw.role]);
-  const applyDraft = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setPage({ role: draft || null, page: null });
-  };
+  // Draft + apply (ADR-0037): both fields are drafts held above ManagementLayout; apply is one setPage that also returns to page 1.
+  const draft = useFilterDraft({ permission: raw.permission ?? '', role: raw.role ?? '' });
+  const activeFilterCount = [raw.role, raw.permission].filter(Boolean).length;
+  const applyDraft = () => setPage({ ...draft.patch(), page: null });
   const clearFilters = () => {
-    setDraft('');
+    draft.reset({});
     setPage(Object.fromEntries(ACCESS_PAGE_KEYS.map(k => [k, null])));
   };
-  const clear = <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{t('clearFilters')}</Button>;
-  const filters = <form onSubmit={applyDraft}>
-    <PageFilterBar orientation="column" label={ko ? '필터' : 'Filters'} fields={[
-      { kind: 'select', key: 'permission', label: ko ? '권한' : 'Permission', value: raw.permission ?? '', emptyOptionLabel: ko ? '전체' : 'All', options: PERMISSIONS.map(value => ({ value, label: value })), onValueChange: value => setFilter('permission', value || null) },
-      { kind: 'text', key: 'role', label: ko ? '역할 정확 일치' : 'Exact role', value: draft, onValueChange: setDraft },
-    ]} actions={<><Button type="submit" size="sm" variant="secondary">{ko ? '적용' : 'Apply'}</Button>{parsed.ok && clear}</>} />
-  </form>;
+  // Recovery from an invalid URL always offers the reset; the filter footer and the empty state only when a filter is applied.
+  const recover = <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{t('clearFilters')}</Button>;
+  const clear = activeFilterCount > 0 ? recover : null;
+  const filters = <PageFilterBar orientation="column" label={ko ? '필터' : 'Filters'} onApply={applyDraft} fields={[
+      { kind: 'select', key: 'permission', label: ko ? '권한' : 'Permission', value: draft.values.permission!, emptyOptionLabel: ko ? '전체' : 'All', options: PERMISSIONS.map(value => ({ value, label: value })), onValueChange: value => draft.set('permission', value) },
+      { kind: 'text', key: 'role', label: ko ? '역할 정확 일치' : 'Exact role', value: draft.values.role!, onValueChange: value => draft.set('role', value) },
+    ]} actions={<><FilterApplyButton changedCount={draft.changedCount} />{clear}</>} />;
   const columns = useMemo<PlatformColumn<AccessPrincipal>[]>(() => [
     { id: 'name', header: ko ? '이름' : 'Name' },
     { id: 'role', header: ko ? '역할' : 'Role', cell: row => mono(row.role) },
@@ -130,9 +126,9 @@ export default function AccessDirectory() {
   return <PlatformPage description={ko
     ? '조회 전용 화면입니다. 권한 부여·회수는 하지 않습니다.'
     : 'Read-only view. Grants and revocations are not made here.'}>
-    <ManagementLayout filter={filters} activeFilterCount={[raw.role, raw.permission].filter(Boolean).length} drawer={drawer}
+    <ManagementLayout filter={filters} activeFilterCount={activeFilterCount} pendingFilterCount={draft.changedCount} drawer={drawer}
       table={filterSlot => <>
-    {!parsed.ok && <p role="alert">{filterSlot}{ko ? '필터 값이 잘못되었습니다.' : 'Invalid filter value.'} {clear}</p>}
+    {!parsed.ok && <p role="alert">{filterSlot}{ko ? '필터 값이 잘못되었습니다.' : 'Invalid filter value.'} {recover}</p>}
     {parsed.ok && <PlatformDataTable<AccessPrincipal>
         title={ko ? '권한/역할' : 'Roles & access'}
         ariaLabel={ko ? '권한/역할 목록' : 'Roles and access list'}

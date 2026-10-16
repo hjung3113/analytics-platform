@@ -255,7 +255,7 @@ cellPadding: 4px 12px
 
 전역 기간은 Context bar의 동일한 control 하나다. page-owned 검색·stage/status filter는 content toolbar에 두고 전역 Context를 보존한다. 적용된 조건은 보이며 persistent accessible label을 제공한다. page-owned toolbar는 폭이 부족하면 wrap하고 active filter를 숨기지 않는다. 전역 Context 바는 [06 §7](docs/06_platform_ui_contract.md#7-application-shell)의 우선순위 넘침을 소비하며 한 줄을 유지한다. 입력/검색 문구가 sunken이면 secondary를 사용한다.
 
-#54의 PageFilterBar B안은 card 표면과 `border-subtle` 경계를 쓰며, 보이는 label을 각 control 위에 둔다. 필드는 한 행에서 시작해 폭이 부족하면 모두 보이도록 줄바꿈한다. `@ap/ui` Input과 Select는 FeedbackOps 기본 표면·문구·크기를 쓰고 경계만 `border-control`로 둔다(접근성 예외, [ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md)). 검색 필드의 아이콘 자리 왼쪽 여백은 이유를 단 예외로 둔다(FeedbackOps와 같은 처리). Search 아이콘은 검색 필드에만 두며 정확 일치 텍스트와 시각 입력에는 붙이지 않는다. 초기화·적용은 소비 화면이 actions 슬롯에 제공한다.
+#54의 PageFilterBar B안은 card 표면과 `border-subtle` 경계를 쓰며, 보이는 label을 각 control 위에 둔다. 필드는 한 행에서 시작해 폭이 부족하면 모두 보이도록 줄바꿈한다. `@ap/ui` Input과 Select는 FeedbackOps 기본 표면·문구·크기(40px)를 쓰고 높이를 덮어쓰지 않으며 경계만 `border-control`로 둔다(접근성 예외, [ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md), [ADR-0037](docs/adr/0037-table-filter-consistency.md)). 검색 필드의 아이콘 자리 왼쪽 여백은 이유를 단 예외로 둔다(FeedbackOps와 같은 처리). Search 아이콘은 검색 필드에만 두며 정확 일치 텍스트와 시각 입력에는 붙이지 않는다. 초기화·적용은 소비 화면이 actions 슬롯에 제공한다. 관리 화면의 `적용`은 바뀐 필드 수를 `적용 (n)`으로 보이고 변경이 없으면 꺼지며, 접힌 필터 버튼은 미적용 변경을 `미적용 n` 글로 표시한다.
 
 접기(ADR-0029)는 opt-in이며, 접힌 줄은 chevron·`필터`·필드명/값 요약을 담은 secondary 버튼 하나와 오른쪽 독립 초기화다. 요약은 한 줄이 기본이지만 폭이 부족하면 `필드명 값` 항목 단위로 줄바꿈하되 요약은 왼쪽 정렬을 유지하고 구분점 `·`은 다음 항목 앞이 아니라 앞 항목 끝에 붙이며, 긴 값은 단어 내부에서라도 줄바꿈한다 — 말줄임·`+n`·title 전용 치환으로 조건을 숨기지 않는다. 펼친 입력 줄 끝의 `⌃ 접기`는 그 줄 actions 버튼과 같은 크기·variant를 쓰며, 미적용 변경이 있으면 요약 끝에 `미적용 변경 있음`을 함께 보인다.
 

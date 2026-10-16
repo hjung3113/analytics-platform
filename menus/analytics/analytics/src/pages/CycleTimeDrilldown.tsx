@@ -140,9 +140,11 @@ export default function CycleTimeDrilldown(_: PageProps) {
         { key: 'sort', label: sortFieldLabel, value: sortSummary },
       ]} collapsedActions={resetFilters} fields={[
         { kind: 'custom', key: 'granularity', label: grainFieldLabel, content: <div className="flex flex-wrap items-center gap-1">
-          {(['hour', 'day', 'week'] as const).map(value => <button key={value} type="button" aria-pressed={!granularityPending && granularityResult.ok && granularity === value}
-            className={!granularityPending && granularityResult.ok && granularity === value ? 'h-8 rounded-md bg-accent-primary-soft px-2 text-xs font-medium text-accent-primary' : 'h-8 rounded-md px-2 text-xs text-text-secondary hover:bg-surface-sunken'}
-            onClick={() => setPage({ granularity: value, bucket: null, page: null })}>{grainLabel[value]}</button>)}
+          {(['hour', 'day', 'week'] as const).map(value => {
+            const pressed = !granularityPending && granularityResult.ok && granularity === value;
+            return <Button key={value} type="button" size="md" variant={pressed ? 'secondary' : 'ghost'} aria-pressed={pressed}
+              onClick={() => setPage({ granularity: value, bucket: null, page: null })}>{grainLabel[value]}</Button>;
+          })}
         </div> },
         { kind: 'select', key: 'percentile', label: tailFieldLabel, value: tailResult.ok ? tailMode : percentileRaw ?? '', options: tailOptions, onValueChange: value => setPage({ percentile: value, page: null }) },
         { kind: 'select', key: 'sort', label: sortFieldLabel, value: sortResult.ok ? encodeSort(sortSpec.id, sortSpec.desc) : sortRaw ?? '', options: sortOptions, onValueChange: value => setPage({ sort: value === DEFAULT_SORT ? null : value, page: null }) },

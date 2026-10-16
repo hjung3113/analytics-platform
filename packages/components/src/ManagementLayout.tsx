@@ -8,6 +8,8 @@ export type ManagementLayoutProps = {
   filter?: ReactNode;
   /** Number of filter page keys with URL values, excluding sort/page/focus/tab. */
   activeFilterCount?: number;
+  /** Draft changes not yet applied (draft + apply screens, ADR-0037); shown beside the applied count even when the filter is collapsed. */
+  pendingFilterCount?: number;
   /** The table consumes the collapsed/narrow filter button in its filters slot. */
   table: (filterSlot: ReactNode | undefined) => ReactNode;
   /** Detail content continues to use the shell's detail slot (ADR-0013). */
@@ -20,7 +22,7 @@ function initialCollapsed() {
 }
 
 /** Management slots (06 §12.6): respond to available content width, including a docked detail. */
-export function ManagementLayout({ filter, activeFilterCount = 0, table, drawer }: ManagementLayoutProps) {
+export function ManagementLayout({ filter, activeFilterCount = 0, pendingFilterCount = 0, table, drawer }: ManagementLayoutProps) {
   const { t } = useI18n();
   const root = useRef<HTMLDivElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
@@ -31,6 +33,7 @@ export function ManagementLayout({ filter, activeFilterCount = 0, table, drawer 
   const measuredWide = useRef(false);
   const bodyId = useId();
   const titleId = useId();
+  const stateId = useId();
   const [wide, setWide] = useState(false);
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [open, setOpen] = useState(false);
@@ -79,14 +82,20 @@ export function ManagementLayout({ filter, activeFilterCount = 0, table, drawer 
       else localStorage.removeItem(COLLAPSE_KEY);
     } catch { /* preference stays in memory */ }
   };
+  const pending = pendingFilterCount > 0;
+  // The marker is visible text but aria-hidden so the accessible name stays `필터 · N`; a hidden sentence describes the state.
   const button = <Button ref={filterButton} type="button" variant="secondary" size="sm"
     title={t('expandFilters')} aria-expanded={wide ? false : open} aria-controls={!wide && open ? bodyId : undefined}
+    aria-describedby={pending ? stateId : undefined}
     onClick={wide ? () => setRailCollapsed(false) : undefined}>
     <SlidersHorizontal className="size-3.5" aria-hidden />{t('filters')}{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ''}
+    {pending && <span aria-hidden className="rounded-sm border border-border-subtle bg-surface-sunken px-1 text-xs font-medium text-text-primary">{t('unappliedFilterMarker', { count: pendingFilterCount })}</span>}
   </Button>;
-  const filterSlot = !hasFilter || railVisible ? undefined : wide ? button :
+  const stateNote = pending && <span id={stateId} hidden>{t('filterStateDescription', { applied: activeFilterCount, count: pendingFilterCount })}</span>;
+  const filterSlot = !hasFilter || railVisible ? undefined : wide ? <>{button}{stateNote}</> :
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{button}</PopoverTrigger>
+      {stateNote}
       <PopoverContent ref={popover} id={bodyId} onCloseAutoFocus={event => { if (measuredWide.current) event.preventDefault(); }} aria-label={t('filters')} align="start" className="max-h-[70vh] w-80 overflow-y-auto">
         {filter}
       </PopoverContent>
@@ -99,7 +108,10 @@ export function ManagementLayout({ filter, activeFilterCount = 0, table, drawer 
         <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-4 py-3">
           <div>
             <h2 id={titleId} className="t-card-title">{t('filters')}</h2>
-            {activeFilterCount > 0 && <p className="text-xs text-text-muted">{t('appliedFilterCount', { count: activeFilterCount })}</p>}
+            {(activeFilterCount > 0 || pending) && <p className="text-xs text-text-muted">
+              {activeFilterCount > 0 && t('appliedFilterCount', { count: activeFilterCount })}
+              {pending && `${activeFilterCount > 0 ? ' · ' : ''}${t('unappliedFilterRail', { count: pendingFilterCount })}`}
+            </p>}
           </div>
           <Button ref={closeButton} type="button" variant="ghost" size="icon-sm" className="shrink-0" aria-label={t('collapseFilters')}
             title={t('collapseFilters')} aria-expanded="true" aria-controls={bodyId} onClick={() => setRailCollapsed(true)}>

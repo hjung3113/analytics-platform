@@ -125,6 +125,12 @@ test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
     await expect(popover).toBeVisible();
     await popover.getByRole('combobox', { name: '상태', exact: true }).click();
     await page.getByRole('option', { name: '정비', exact: true }).click();
+    // ADR-0037: a management filter is a draft until 적용; the trigger shows the pending change meanwhile.
+    await expect(popover.getByRole('button', { name: '적용 (1)', exact: true })).toBeEnabled();
+    expect(query(page).has('status')).toBe(false);
+    await expect(button).toHaveAccessibleName('필터');
+    await expect(button).toContainText('미적용 1');
+    await popover.getByRole('button', { name: '적용 (1)', exact: true }).click();
     await expect.poll(() => query(page).get('status')).toBe('maintenance');
     await expect(button).toHaveText('필터 · 1');
     await expect(button).toHaveAttribute('aria-expanded', 'true');
@@ -143,7 +149,11 @@ test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
     await expect(rail.getByRole('textbox', { name: '시각 이후' })).toBeVisible();
     await expect(rail.getByRole('textbox', { name: '시각 미만' })).toBeVisible();
     await expect(rail).not.toContainText('ISO');
-    await expect(rail.getByRole('button', { name: '적용', exact: true })).toBeVisible();
+    await expect(rail.getByRole('button', { name: '적용', exact: true })).toBeDisabled();
+    await rail.getByRole('textbox', { name: '행위자 정확 일치' }).fill('kim');
+    await expect(rail.getByRole('button', { name: '적용 (1)', exact: true })).toBeEnabled();
+    await expect(rail).toContainText('미적용 변경 1개');
+    expect(query(page).has('actor')).toBe(false);
     await evidence(page, testInfo, 'management-audit-seven-filters');
   });
 });
@@ -151,21 +161,34 @@ test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
 test.describe('PageFilterBar page-key 계약 (#54)', () => {
   test('설비 q/status/maker는 동일한 page key를 쓰고 page와 전체 필터를 초기화한다', async ({ page }, testInfo) => {
     await page.goto('/equipment?v=1&scopeId=ICH&page=2');
-    await page.getByRole('searchbox', { name: '설비 ID 검색' }).fill('PHOTO');
+    // ADR-0037: drafts until 적용 (Enter in the search field submits), then one navigation that drops page.
+    await expect(page.getByRole('button', { name: '필터 초기화' })).toHaveCount(0);
+    const search = page.getByRole('searchbox', { name: '설비 ID 검색' });
+    await search.fill('PHOTO');
+    expect(query(page).has('q')).toBe(false);
+    expect(query(page).get('page')).toBe('2');
+    await search.press('Enter');
     await expect.poll(() => query(page).get('q')).toBe('PHOTO');
     await expect.poll(() => query(page).has('page')).toBe(false);
+    await expect(search).toBeFocused();
 
     await page.goto('/equipment?v=1&scopeId=ICH&page=2');
     await chooseFilterOption(page, '상태', '정비');
+    expect(query(page).has('status')).toBe(false);
+    await page.getByRole('button', { name: '적용 (1)', exact: true }).click();
     await expect.poll(() => query(page).get('status')).toBe('maintenance');
     await expect.poll(() => query(page).has('page')).toBe(false);
     await chooseFilterOption(page, '상태', '전체');
+    expect(query(page).get('status')).toBe('maintenance');
+    await page.getByRole('button', { name: '적용 (1)', exact: true }).click();
     await expect.poll(() => query(page).has('status')).toBe(false);
 
     await page.goto('/equipment?v=1&scopeId=ICH&maker=ZZZ&page=2');
     const maker = page.getByRole('combobox', { name: 'Maker' });
     await expect(maker).toHaveText('ZZZ');
     await chooseFilterOption(page, 'Maker', 'TEL');
+    expect(query(page).get('maker')).toBe('ZZZ');
+    await page.getByRole('button', { name: '적용 (1)', exact: true }).click();
     await expect.poll(() => query(page).get('maker')).toBe('TEL');
     await expect.poll(() => query(page).has('page')).toBe(false);
 
