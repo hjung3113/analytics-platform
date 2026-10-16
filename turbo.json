@@ -10,10 +10,11 @@
     "!products/feedbackops/packages/*/**/*.tsbuildinfo"
   ],
   "tasks": {
-    "typecheck": { "dependsOn": ["^typecheck"] },
-    "lint": { "dependsOn": ["^lint"], "outputs": [] },
-    "test": { "dependsOn": ["^typecheck"] },
-    "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
+    "transit": { "dependsOn": ["^transit"] },
+    "typecheck": { "dependsOn": ["transit"] },
+    "lint": { "dependsOn": ["transit"], "outputs": [] },
+    "test": { "dependsOn": ["transit"] },
+    "build": { "dependsOn": ["transit"], "outputs": ["dist/**"] },
     "dev": { "cache": false, "persistent": true }
   }
 }

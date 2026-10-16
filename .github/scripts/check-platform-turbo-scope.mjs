@@ -15,15 +15,20 @@ for (const taskName of taskNames) {
   const jsonStart = output.indexOf('{');
   if (jsonStart === -1) throw new Error(`${taskName}: Turbo dry run did not emit JSON`);
   const plan = JSON.parse(output.slice(jsonStart));
+  // #390: `transit` tasks have no script in any package, so turbo plans them as <NONEXISTENT>
+  // and never executes them. Only a @fops/* task with a real command would run FeedbackOps code.
   const feedbackOpsTasks = plan.tasks
-    .filter(({ package: packageName }) => packageName?.startsWith('@fops/'))
+    .filter(
+      ({ package: packageName, command }) =>
+        packageName?.startsWith('@fops/') && command !== '<NONEXISTENT>'
+    )
     .map(({ taskId }) => taskId);
 
   if (feedbackOpsTasks.length > 0) {
     console.error(`${taskName}: unexpected FeedbackOps tasks: ${feedbackOpsTasks.join(', ')}`);
     failed = true;
   } else {
-    console.log(`${taskName}: ${plan.tasks.length} tasks; no @fops/* tasks`);
+    console.log(`${taskName}: ${plan.tasks.length} tasks; no @fops/* tasks with commands`);
   }
 
   if (taskName === 'typecheck' && !plan.tasks.some(({ taskId }) => taskId === '@ap/ui#typecheck')) {
