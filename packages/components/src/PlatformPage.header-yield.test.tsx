@@ -58,6 +58,32 @@ function page(onSecondary: () => void) {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('page header yield order (#303)', () => {
+  it.each([
+    { name: 'partly hidden on the right', scrollWidth: 404, scrollLeft: 0, actionLeft: 526, expectedScrollLeft: 96 },
+    { name: 'not overflowing', scrollWidth: 292, scrollLeft: 0, actionLeft: 526, expectedScrollLeft: 0 },
+    { name: 'partly hidden on the left', scrollWidth: 404, scrollLeft: 96, actionLeft: 260, expectedScrollLeft: 64 },
+    { name: 'already visible', scrollWidth: 404, scrollLeft: 96, actionLeft: 310, expectedScrollLeft: 96 },
+  ])('reveals the focused primary action only as needed: $name', async ({ scrollWidth, scrollLeft, actionLeft, expectedScrollLeft }) => {
+    headerWidths();
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    const view = render(page(vi.fn()));
+    await screen.findByText('page body');
+    const header = view.container.querySelector('header')!;
+    const primary = screen.getByRole('button', { name: '주 동작' });
+    Object.defineProperties(header, {
+      scrollWidth: { value: scrollWidth },
+      clientWidth: { value: 292 },
+    });
+    header.scrollLeft = scrollLeft;
+    vi.spyOn(header, 'getBoundingClientRect').mockReturnValue(new DOMRect(292, 0, 292, 50));
+    vi.spyOn(primary, 'getBoundingClientRect').mockReturnValue(new DOMRect(actionLeft, 0, 154, 30));
+
+    act(() => primary.focus());
+
+    expect(primary).toHaveFocus();
+    expect(header.scrollLeft).toBe(expectedScrollLeft);
+  });
+
   it('drops description, then the trust summary, then the provisional badge, and brings them back with slack', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
     const widths = headerWidths();

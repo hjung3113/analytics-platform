@@ -163,7 +163,17 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
 
   return <div ref={root} data-platform-page className="flex min-h-full flex-col">
     <div ref={stickyHeader} className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
-      <header ref={pageHeader} className="flex h-[50px] shrink-0 overflow-x-auto items-center justify-between gap-3 border-b border-border-subtle bg-surface-canvas px-4">
+      <header ref={pageHeader} onFocus={event => {
+        const header = event.currentTarget;
+        // Popover portals bubble through React but are outside this scroll container.
+        if (!header.contains(event.target) || header.scrollWidth <= header.clientWidth) return;
+        const headerRect = header.getBoundingClientRect();
+        const targetRect = event.target.getBoundingClientRect();
+        const left = headerRect.left + header.clientLeft;
+        const right = left + header.clientWidth;
+        if (targetRect.left < left) header.scrollLeft += targetRect.left - left;
+        else if (targetRect.right > right) header.scrollLeft += targetRect.right - right;
+      }} className="flex h-[50px] shrink-0 overflow-x-auto items-center justify-between gap-3 border-b border-border-subtle bg-surface-canvas px-4">
         <div className="flex min-w-28 flex-1 items-center gap-2">
           {(parent || crumbs.length > 0) && <nav aria-label={t('breadcrumb')} className="flex min-w-0 items-center gap-1 text-xs text-text-muted">
             {parent && <><PlatformLink className="min-w-0 truncate hover:text-accent-primary" title={tx(parent.label)} href={linkTo(parent.id)}>{tx(parent.label)}</PlatformLink><ChevronRight className="size-3 shrink-0" aria-hidden /></>}
