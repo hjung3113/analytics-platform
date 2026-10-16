@@ -1,9 +1,10 @@
+// THROWAWAY #306 — never merge.
 import { useId, useMemo } from 'react';
-import { AlertTriangle, HelpCircle } from 'lucide-react';
+import { AlertTriangle, ChevronRight, HelpCircle } from 'lucide-react';
 import { formatInstant } from '@ap/contracts';
 import { useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
 import { type PlatformColumn, Panel, PlatformDataTable, PlatformPage, QueryView, StateMessage } from '@ap/components';
-import { Button, StatusBadge } from '@ap/ui';
+import { Button, StatusBadge, usePrototype } from '@ap/ui';
 import { feedbackOpsHref } from '../feedbackops-href';
 import { feedbackOpsOrigin } from '../feedbackops-origin';
 import { VOC_STATUS } from '../voc-status';
@@ -23,6 +24,7 @@ const NO_PARAMS = {};
 const CURSOR = /^[^?#&\s]{1,512}$/;
 
 export default function MyVocHistory() {
+  const variant = usePrototype();
   const { t, lang } = useI18n();
   const ko = lang === 'ko';
   const { pageParam, setPage } = usePlatform();
@@ -64,9 +66,13 @@ export default function MyVocHistory() {
   const openInFeedbackOps = (row: MyVocItem) => {
     const link = feedbackOpsHref(origin, { kind: 'voc-detail', vocId: row.id });
     const name = ko ? `${row.displayId} FeedbackOps에서 보기` : `Open ${row.displayId} in FeedbackOps`;
+    // #306 variant B: the row leaves the app, so it keeps an explicit link-styled chevron instead of whole-row activation.
+    if (variant === 'B') return link.ok
+      ? <Button asChild size="icon-sm" variant="ghost"><a href={link.href} target="_blank" rel="noopener noreferrer" aria-label={name}><ChevronRight className="size-4" aria-hidden /></a></Button>
+      : <Button size="icon-sm" variant="ghost" disabled aria-label={name} aria-describedby={create.ok ? undefined : descId}><ChevronRight className="size-4" aria-hidden /></Button>;
     return link.ok
-      ? <Button asChild size="sm" variant="secondary"><a href={link.href} target="_blank" rel="noopener noreferrer" aria-label={name}>{openLabel}</a></Button>
-      : <Button size="sm" variant="secondary" disabled aria-label={name} aria-describedby={create.ok ? undefined : descId}>{openLabel}</Button>;
+      ? <Button asChild size="toolbar" variant="secondary"><a href={link.href} target="_blank" rel="noopener noreferrer" aria-label={name}>{openLabel}</a></Button>
+      : <Button size="toolbar" variant="secondary" disabled aria-label={name} aria-describedby={create.ok ? undefined : descId}>{openLabel}</Button>;
   };
 
   return <PlatformPage

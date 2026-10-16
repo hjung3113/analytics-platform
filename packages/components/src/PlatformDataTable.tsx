@@ -1,10 +1,11 @@
+// THROWAWAY #306 — never merge.
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useId, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type ColumnSizingState, type RowSelectionState, type VisibilityState } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, Loader2, Pin, PinOff } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Columns3, Copy, Download, FileSpreadsheet, FileText, Loader2, Pin, PinOff } from 'lucide-react';
 import { CONTEXT_LABELS, useI18n, usePlatform } from '@ap/kernel';
 import { conditionLabel, type ApiResponse, type Capability, type ContextKey, type GlobalContext, type PageQuery, type PageResult, type PageSort, serializeGlobal, type Trust } from '@ap/contracts';
-import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, isProductionEnv, Label, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, isProductionEnv, Label, Popover, PopoverContent, PopoverTrigger, shortcutLabel, usePrototype, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { toColumnDef } from './columnDef';
 import { DataTrustIndicator } from './DataTrustIndicator';
@@ -151,6 +152,10 @@ export type PlatformDataTableProps<T> = {
   filterKey: string;
   filters?: ReactNode;
   rowAction?: (row: T) => ReactNode;
+  /** #306 prototype seam: whole-row activation (variant B). Hosts supply their existing detail semantics. */
+  onRowActivate?: (row: T) => void;
+  rowActivateDisabled?: (row: T) => boolean;
+  rowActivateLabel?: (row: T) => string;
   bulkActions?: (selectedIds: string[]) => ReactNode;
   /**
    * Table-owned export (#173, 06 §15): the menu only says how to read the rows to export from the server — permission/
@@ -185,6 +190,13 @@ export type PlatformDataTableProps<T> = {
 export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const { t, lang } = useI18n();
   const analysisSection = useContext(AnalysisSectionContext);
+  // #306 prototype: management tables follow the variant; tables inside an analysis section keep the legacy fixed height.
+  const protoVariant = usePrototype();
+  const proto = !analysisSection;
+  const sticky = proto && protoVariant !== 'B';
+  const byRow = proto && protoVariant === 'B' && !!p.onRowActivate;
+  const pageScroll = proto && protoVariant === 'B';
+  const [fill, setFill] = useState(420);
   const { global, user, revision, route, toast } = usePlatform();
   // Registry declares export capability (§5); the table never offers Export on a menu that did not declare it.
   const canExport = !!p.exportRows && !!route?.menu.features.export;
@@ -267,16 +279,17 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
 
   const columnPrefsId = useId();
   const allColumns = useMemo<ColumnDef<T>[]>(() => [
-    {
+    ...(proto && !canExport ? [] : [{
       id: '_select', size: 40, enableSorting: false, enableHiding: false, enableResizing: false,
       header: ({ table }) => <Checkbox aria-label={lang === 'ko' ? '현재 페이지 전체 선택' : 'Select all rows on this page'}
         checked={table.getIsAllPageRowsSelected() ? true : table.getIsSomePageRowsSelected() ? 'indeterminate' : false}
         onCheckedChange={v => table.toggleAllPageRowsSelected(v === true)} className="size-3.5 border-border-control" />,
       cell: ({ row }) => <Checkbox aria-label={`${lang === 'ko' ? '선택' : 'Select'} ${row.id}`} checked={row.getIsSelected()} onCheckedChange={v => row.toggleSelected(v === true)} className="size-3.5 border-border-control" />,
-    },
+    } as ColumnDef<T>]),
     ...p.columns.map(toColumnDef),
-    ...(p.rowAction ? [{ id: '_action', size: 128, enableSorting: false, enableHiding: false, enableResizing: false, header: lang === 'ko' ? '동작' : 'Actions' } as ColumnDef<T>] : []),
-  ], [p.columns, p.rowAction, lang]);
+    ...(byRow ? [{ id: '_action', size: 48, enableSorting: false, enableHiding: false, enableResizing: false, header: lang === 'ko' ? '열기' : 'Open' } as ColumnDef<T>]
+      : p.rowAction ? [{ id: '_action', size: 128, enableSorting: false, enableHiding: false, enableResizing: false, header: lang === 'ko' ? '동작' : 'Actions' } as ColumnDef<T>] : []),
+  ], [p.columns, p.rowAction, lang, proto, canExport, byRow]);
 
   const table = useReactTable({
     data: data.rows, columns: allColumns, getRowId: p.getRowId, getCoreRowModel: getCoreRowModel(),
@@ -302,6 +315,30 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const rows = table.getRowModel().rows;
   const virtual = useVirtualizer({ count: rows.length, getScrollElement: () => viewport.current, estimateSize: () => 32, overscan: 8, getItemKey: i => rows[i].id });
   const selectedIds = Object.keys(selection).filter(k => selection[k]);
+  const batch = proto && protoVariant === 'C' && selectedIds.length > 0;
+  const toolbarSize = proto && protoVariant !== 'C' ? 'md' : 'toolbar';
+  const pager = useRef<HTMLDivElement>(null);
+  const measure = useRef<() => void>(() => {});
+  // #306 prototype: remaining height below the table toolbar inside the shell's scroll container (floor 240px).
+  useLayoutEffect(() => {
+    measure.current = () => {
+      const el = viewport.current;
+      if (!el || !proto || protoVariant === 'B') return;
+      const main = el.closest('main');
+      const rect = el.getBoundingClientRect();
+      const pagerHeight = pager.current?.offsetHeight ?? 49;
+      const room = main
+        ? main.clientHeight - (rect.top - main.getBoundingClientRect().top + main.scrollTop)
+        : window.innerHeight - (rect.top + window.scrollY);
+      setFill(Math.max(240, Math.floor(room - pagerHeight - 24)));
+    };
+    measure.current();
+  });
+  useEffect(() => {
+    const onResize = () => measure.current();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   const pageCount = Math.max(1, Math.ceil(data.total / pageSize));
   // 06 §19: a failed lookup (error·timeout·forbidden·too_large) is not a zero — only a successful
   // response (ok, or empty which IS a successful zero) may state a count or offer pages.
@@ -357,9 +394,17 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
 
   function cellStyle(column: Column<T>): CSSProperties {
     const pinned = column.getIsPinned();
+    if (proto && column.id === '_action') return { width: column.getSize(), flexShrink: 0, position: 'sticky', right: 0, zIndex: 4 };
     return { width: column.getSize(), flexShrink: 0, position: pinned ? 'sticky' : 'relative', left: pinned === 'left' ? column.getStart('left') : undefined, zIndex: pinned ? 2 : undefined };
   }
   const align = (column: Column<T>) => ((column.columnDef.meta as ColumnMeta | undefined)?.align === 'right' ? 'justify-end text-right tabular' : '');
+  // eslint-disable-next-line shadcn/no-arbitrary-values -- #306 throwaway: left edge shadow for the sticky action column
+  const edge = (column: Column<T>) => (proto && column.id === '_action' ? 'shadow-[-6px_0_6px_-6px_rgba(0,0,0,0.25)]' : '');
+  const nested = (target: EventTarget | null, row: Element) => {
+    const hit = target instanceof Element ? target.closest('button, a, input, select, textarea, label, [role="checkbox"], [role="button"]') : null;
+    return hit !== null && row.contains(hit);
+  };
+  const activate = (row: T) => { if (!p.rowActivateDisabled?.(row)) p.onRowActivate?.(row); };
   const cellBase = 'flex min-h-8 items-center px-3 py-1 [overflow-wrap:anywhere] pointer-coarse:min-h-11';
   const nameOf = (c: Column<T>) => (c.columnDef.meta as ColumnMeta | undefined)?.label ?? (typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id);
   // #239 (ADR-0024): the Columns popover lists each hideable column with a visibility checkbox and a pin toggle at the
@@ -656,9 +701,13 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
         {p.subtitle && <p className="text-xs text-text-muted">{p.subtitle}</p>}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        {p.filters}
+        {batch && <>
+          <span className="whitespace-nowrap text-xs font-semibold tabular" data-testid="selected-count">{lang === 'ko' ? `${selectedIds.length}개 선택` : `${selectedIds.length} selected`}</span>
+          {p.bulkActions?.(selectedIds)}
+        </>}
+        <div className={batch ? 'hidden' : 'contents'}>{p.filters}
         <Popover onOpenChange={open => setOverlayOpen(o => ({ ...o, columns: open }))}>
-          <PopoverTrigger asChild><Button variant="secondary" size="toolbar"><Columns3 className="size-3.5" aria-hidden />{lang === 'ko' ? '컬럼' : 'Columns'}</Button></PopoverTrigger>
+          <PopoverTrigger asChild><Button variant="secondary" size={toolbarSize}><Columns3 className="size-3.5" aria-hidden />{lang === 'ko' ? '컬럼' : 'Columns'}</Button></PopoverTrigger>
           <PopoverContent align="end" className="w-72">
             <p className="t-card-title mb-2">{lang === 'ko' ? '컬럼 설정 (브라우저에 저장)' : 'Column preferences (saved locally)'}</p>
             <div className="space-y-3">
@@ -674,14 +723,14 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             {/* Visibility, width and pin back to the column defaults; sort, page and selection stay. */}
             <div className="mt-3"><Button type="button" variant="secondary" size="toolbar" onClick={() => setPreferences({ sizing: {}, visibility: {}, pinning: { left: [], right: [] } })}>{lang === 'ko' ? '기본값으로' : 'Reset to default'}</Button></div>
           </PopoverContent>
-        </Popover>
+        </Popover></div>
         {/* Toolbar D (#172): fixed order [컬럼] [복사] [내보내기 ▾]. */}
         {canExport && <TooltipProvider delayDuration={200}>
           {/* No selection: aria-disabled (focusable, not native disabled) so the tooltip says why on hover and keyboard focus. */}
           {/* Enabled: the tooltip and aria-keyshortcuts name the shortcut and where it works (UX P3-1). */}
           <Tooltip open={copyTip} onOpenChange={setCopyTip}>
             <TooltipTrigger asChild>
-              <Button variant="secondary" size="toolbar" className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+              <Button variant="secondary" size={toolbarSize} className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
                 aria-disabled={selectedIds.length === 0 || copying || undefined} aria-busy={copying || undefined}
                 aria-keyshortcuts={selectedIds.length > 0 ? 'Control+C Meta+C' : undefined}
                 onClick={runCopy}>
@@ -699,7 +748,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
             {/* aria-disabled, not native disabled (#173 UX P2-2): the trigger stays focusable so Radix can return
                 focus here after an item runs. The keyboard can still open the menu while busy, so its items are disabled
                 then (#173 review N-P3-1); runExport also guards re-entry. The polite status is announced separately. */}
-            <Button variant="secondary" size="toolbar" className="aria-disabled:pointer-events-none aria-disabled:opacity-50"
+            <Button variant="secondary" size={toolbarSize} className="aria-disabled:pointer-events-none aria-disabled:opacity-50"
               aria-disabled={exporting || undefined} aria-busy={exporting || undefined}>
               <Download className="size-3.5" aria-hidden />{t('export')}
               {exporting ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <ChevronDown className="size-3.5" aria-hidden />}
@@ -722,10 +771,11 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
         {/* Visually hidden (width-stable) so screen readers hear what the export is preparing (#173 UX P2-3). */}
         {/* Always mounted while export is available; only the text changes, so screen readers announce it (#173 review N-P3-2). */}
         {canExport && <span role="status" className="sr-only" data-testid="export-status">{[exportNote, copyNote].filter(Boolean).join(' · ')}</span>}
+        {batch && <Button variant="ghost" size={toolbarSize} onClick={() => setSelection({})}>{lang === 'ko' ? '선택 해제' : 'Clear selection'}</Button>}
       </div>
     </div>
 
-    {selectedIds.length > 0 && <div className="flex min-h-10 flex-wrap items-center gap-3 border-t border-border-subtle bg-accent-primary-soft px-3 py-2 text-xs">
+    {selectedIds.length > 0 && !batch && <div className="flex min-h-10 flex-wrap items-center gap-3 border-t border-border-subtle bg-accent-primary-soft px-3 py-2 text-xs">
       <span className="font-semibold tabular" data-testid="selected-count">{lang === 'ko' ? `${selectedIds.length}행 선택` : `${selectedIds.length} selected`}</span>
       {p.bulkActions?.(selectedIds)}
       <Button variant="ghost" size="toolbar" onClick={() => setSelection({})}>{lang === 'ko' ? '선택 해제' : 'Clear selection'}</Button>
@@ -733,12 +783,12 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     </div>}
 
     <div className="flex min-h-7 items-center justify-between gap-2 border-t border-border-subtle px-3 py-1 text-xs text-text-muted" aria-live="polite">
-      <span className="tabular">{!shown || (loading && outOfRange) ? t('loading')
+      <span className="whitespace-nowrap tabular">{!shown || (loading && outOfRange) ? t('loading')
         : !success ? '—'
         : outOfRange
           ? (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${pageCount}페이지` : `${data.total.toLocaleString()} results · ${pageCount} pages`)
           : (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${shownPage + 1}/${pageCount} 페이지` : `${data.total.toLocaleString()} results · page ${shownPage + 1}/${pageCount}`)}</span>
-      <span className="flex items-center gap-2">
+      <span className="flex items-center gap-2 whitespace-nowrap">
         {loading && shown && <span role="status" className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}</span>}
         {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} className="min-h-6" />}
       </span>
@@ -746,7 +796,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
 
     {shown && shown.outcome !== 'ok' ? <div ref={outcome} onFocus={() => { focusedRetry.current = true; }} onBlur={() => { focusedRetry.current = false; }} className="border-t border-border-subtle p-3"><OutcomeView response={shown} onRetry={() => setRetry(r => r + 1)} emptyAction={p.emptyAction}>{() => null}</OutcomeView></div> :
       // eslint-disable-next-line shadcn/no-inline-styles -- viewport height comes from the height prop at runtime
-      <div ref={viewport} tabIndex={0} aria-label={lang === 'ko' ? '스크롤 가능한 행 영역' : 'Scrollable rows'} className="overflow-auto overscroll-contain border-t border-border-subtle [overflow-anchor:none]" style={{ height: p.height ?? 420 }}>
+      <div ref={viewport} tabIndex={0} aria-label={lang === 'ko' ? '스크롤 가능한 행 영역' : 'Scrollable rows'} className={cn('border-t border-border-subtle [overflow-anchor:none]', pageScroll ? 'overflow-x-auto' : 'overflow-auto overscroll-contain')} style={!proto ? { height: p.height ?? 420 } : protoVariant === 'A' ? { height: fill } : protoVariant === 'C' ? { maxHeight: fill } : undefined}>
         {/* eslint-disable-next-line shadcn/no-inline-styles -- table width is the total column size computed at runtime */}
         <div role="table" aria-label={p.ariaLabel} aria-rowcount={data.total + 1} aria-busy={loading} className="min-w-full" style={{ width: table.getTotalSize() }}>
           <div role="rowgroup" className="sticky top-0 z-[5]">
@@ -755,7 +805,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
               // eslint-disable-next-line shadcn/no-inline-styles -- column width and pin offset come from column sizing at runtime
               return <div role="columnheader" key={h.id} data-column={h.column.id} style={cellStyle(h.column)}
                 aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : h.column.getCanSort() ? 'none' : undefined}
-                className={cn(cellBase, 't-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', align(h.column))}>
+                className={cn(cellBase, 't-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', edge(h.column), align(h.column))}>
                 {h.column.getCanSort()
                   ? <button type="button" onClick={h.column.getToggleSortingHandler()} className="-mx-1 inline-flex items-center gap-1 rounded-xs px-1 uppercase hover:text-text-primary">
                       {flexRender(h.column.columnDef.header, h.getContext())}
@@ -771,16 +821,20 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
           </div>
           {!shown ? <div className="space-y-2 p-3" aria-hidden>{Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="h-5" />)}</div> :
             // eslint-disable-next-line shadcn/no-inline-styles -- total row height comes from the virtualizer at runtime
-            <div role="rowgroup" className="relative" style={{ height: virtual.getTotalSize() }}>{virtual.getVirtualItems().map(item => {
+            <div role="rowgroup" className="relative" style={pageScroll ? undefined : { height: virtual.getTotalSize() }}>{(pageScroll ? rows.map((_, index) => ({ index, start: 0 })) : virtual.getVirtualItems()).map(item => {
               const row = rows[item.index];
               const active = p.activeRowId === row.id;
               // Weight goes to the first cell with content — the selection checkbox and the trailing action stay unweighted (UXA-5).
               const cells = row.getVisibleCells();
               const firstDataCell = cells.findIndex(cell => cell.column.id !== '_select' && cell.column.id !== '_action');
-              return <div role="row" key={row.id} ref={virtual.measureElement} data-index={item.index} aria-rowindex={shownPage * pageSize + item.index + 2}
+              return <div role="row" key={row.id} ref={pageScroll ? undefined : virtual.measureElement} data-index={item.index} aria-rowindex={shownPage * pageSize + item.index + 2}
                 aria-selected={row.getIsSelected()} aria-current={active ? 'true' : undefined} data-row-id={row.id}
+                tabIndex={byRow ? 0 : undefined}
+                onClick={byRow ? event => { if (!nested(event.target, event.currentTarget)) activate(row.original); } : undefined}
+                onKeyDown={byRow ? event => { if (event.key === 'Enter' && event.target === event.currentTarget) { event.preventDefault(); activate(row.original); } } : undefined}
+                className={cn('group flex w-full', pageScroll ? 'relative' : 'absolute left-0 top-0', byRow && !p.rowActivateDisabled?.(row.original) && 'cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-ring')}
                 // eslint-disable-next-line shadcn/no-inline-styles -- row offset is the virtual item position computed at runtime
-                className="group absolute left-0 top-0 flex w-full" style={{ transform: `translateY(${item.start}px)` }}>
+                style={pageScroll ? undefined : { transform: `translateY(${item.start}px)` }}>
                 {/* The active bar rides a zero-width element pinned to the scrollport's left edge, so it stays visible at
                     any horizontal scroll — the same sticky mechanism as the fixed columns (zIndex 2) beside it (UXA-5). */}
                 {active && <div aria-hidden data-active-row-marker className="sticky left-0 z-[3] w-0">
@@ -788,16 +842,20 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                 </div>}
                 {/* eslint-disable-next-line shadcn/no-inline-styles -- cell width and pin offset come from column sizing at runtime */}
                 {cells.map((cell, cellIndex) => <div role="cell" key={cell.id} data-column={cell.column.id} style={cellStyle(cell.column)}
-                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cellIndex === firstDataCell && 'font-medium', align(cell.column))}>
+                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cellIndex === firstDataCell && 'font-medium', edge(cell.column), align(cell.column))}>
                   {/* The _action column cell is not used — rowAction renders directly to preserve DOM identity (#296). */}
-                  {cell.column.id === '_action' ? p.rowAction?.(row.original) : flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  {cell.column.id === '_action'
+                    ? byRow
+                      ? <Button type="button" variant="ghost" size="icon-sm" aria-label={p.rowActivateLabel?.(row.original) ?? row.id} disabled={p.rowActivateDisabled?.(row.original)} onClick={() => activate(row.original)}><ChevronRight className="size-4" aria-hidden /></Button>
+                      : p.rowAction?.(row.original)
+                    : flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </div>)}
               </div>;
             })}</div>}
         </div>
       </div>}
 
-    <div className="flex items-center justify-end gap-2 border-t border-border-subtle p-2">
+    <div ref={pager} className="flex items-center justify-end gap-2 border-t border-border-subtle p-2">
       <Button ref={previousButton} variant="secondary" size="toolbar" disabled={previousDisabled}
         aria-disabled={loading || undefined} className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
         onFocus={() => { focusedPager.current = 'previous'; }} onBlur={() => { focusedPager.current = null; }}

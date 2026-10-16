@@ -1,8 +1,9 @@
+// THROWAWAY #306 — never merge.
 import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
 import { formatInstant, instantEpochMs, type AuditEvent, type AuditSortField, type Text } from '@ap/contracts';
 import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort } from '@ap/components';
-import { Button, Input, StatusBadge } from '@ap/ui';
+import { Button, cn, Input, StatusBadge, usePrototype } from '@ap/ui';
 import { auditDestination } from '../audit-destination';
 import { ACTION_LABEL, AUDIT_PAGE_KEYS, SOURCE_LABEL, TYPE_LABEL, auditKeyProblem, parseAuditKeys, type AuditKeyProblem } from '../audit-query';
 import { AUDIT_TIME_FIELD_EXAMPLE, instantToLocalField, localFieldToInstant, viewerTimeZone, type LocalFieldFailure } from '../audit-window';
@@ -80,6 +81,7 @@ function resolveTime(text: string, touched: boolean, origin: string | null, time
 
 function AuditTimeInput({ label, value, error, onValueChange }: { label: string; value: string; error: string | null; onValueChange: (value: string) => void }) {
   const errorId = useId();
+  const live = usePrototype() === 'C';
   return <>
     <Input
       aria-label={label}
@@ -88,7 +90,7 @@ function AuditTimeInput({ label, value, error, onValueChange }: { label: string;
       aria-invalid={error ? true : undefined}
       aria-describedby={error ? errorId : undefined}
       onChange={event => onValueChange(event.target.value)}
-      className="h-8 w-full border-border-control"
+      className={cn(live && 'h-8', 'w-full border-border-control')}
     />
     {error ? <p id={errorId} className="text-xs text-text-danger-label">{error}</p> : null}
   </>;
@@ -106,7 +108,9 @@ export default function AuditTrail() {
   const { t, lang } = useI18n();
   const ko = lang === 'ko';
   const timeZone = viewerTimeZone();
-  const { adapter, global, linkTo, pageParam, setPage } = usePlatform();
+  const { adapter, global, linkTo, navigate, pageParam, setPage } = usePlatform();
+  const variant = usePrototype();
+  const live = variant === 'C';
   const raw = {
     type: pageParam('type'), actor: pageParam('actor'), action: pageParam('action'), source: pageParam('source'),
     fromAt: pageParam('fromAt'), toAt: pageParam('toAt'), targetId: pageParam('targetId'),
@@ -116,8 +120,13 @@ export default function AuditTrail() {
   const parsed = parseAuditKeys(raw);
   const filterKey = JSON.stringify(parsed.ok ? parsed.filters : null);
   // Every filter change returns to page 1 in the same setPage call — the table does not reset a controlled page.
-  const setFilter = (key: string, value: string | null) => setPage({ [key]: value, page: null });
+  // #306 prototype: selects are drafts too (A/B apply them with the text fields; C applies them at once).
+  const setFilter = (key: 'type' | 'action' | 'source', value: string | null) => {
+    setDrafts(current => ({ ...current, [key]: value ?? '' }));
+    if (live) setPage({ [key]: value, page: null });
+  };
   const [drafts, setDrafts] = useState(() => ({
+    type: raw.type ?? '', action: raw.action ?? '', source: raw.source ?? '',
     actor: raw.actor ?? '', targetId: raw.targetId ?? '',
     fromAt: shownTime(raw.fromAt, timeZone), toAt: shownTime(raw.toAt, timeZone),
   }));
@@ -125,20 +134,25 @@ export default function AuditTrail() {
   const [timeError, setTimeError] = useState<{ fromAt: string | null; toAt: string | null }>({ fromAt: null, toAt: null });
   useEffect(() => {
     setDrafts({
+      type: raw.type ?? '', action: raw.action ?? '', source: raw.source ?? '',
       actor: raw.actor ?? '', targetId: raw.targetId ?? '',
       fromAt: shownTime(raw.fromAt, timeZone), toAt: shownTime(raw.toAt, timeZone),
     });
     setTimeTouched({ fromAt: false, toAt: false });
     setTimeError({ fromAt: null, toAt: null });
-  }, [raw.actor, raw.targetId, raw.fromAt, raw.toAt, timeZone]);
+  }, [raw.type, raw.action, raw.source, raw.actor, raw.targetId, raw.fromAt, raw.toAt, timeZone]);
   const setDraft = (key: 'actor' | 'targetId', value: string) => setDrafts(current => ({ ...current, [key]: value }));
   const setTimeDraft = (key: 'fromAt' | 'toAt', value: string) => {
     setDrafts(current => ({ ...current, [key]: value }));
     setTimeTouched(current => ({ ...current, [key]: true }));
     setTimeError(current => ({ ...current, [key]: null }));
   };
-  const applyDrafts = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const applied = {
+    type: raw.type ?? '', action: raw.action ?? '', source: raw.source ?? '', actor: raw.actor ?? '', targetId: raw.targetId ?? '',
+    fromAt: shownTime(raw.fromAt, timeZone), toAt: shownTime(raw.toAt, timeZone),
+  };
+  const pending = (Object.keys(applied) as (keyof typeof applied)[]).filter(key => drafts[key] !== applied[key]).length;
+  const commitDrafts = () => {
     const from = resolveTime(drafts.fromAt, timeTouched.fromAt, raw.fromAt, timeZone);
     const to = resolveTime(drafts.toAt, timeTouched.toAt, raw.toAt, timeZone);
     let fromMessage = from.ok ? null : FIELD_ERROR[from.reason][lang];
@@ -153,6 +167,9 @@ export default function AuditTrail() {
     setTimeError({ fromAt: fromMessage, toAt: toMessage });
     if (fromMessage || toMessage || !from.ok || !to.ok) return;
     setPage({
+      type: drafts.type || null,
+      action: drafts.action || null,
+      source: drafts.source || null,
       actor: drafts.actor || null,
       targetId: drafts.targetId || null,
       fromAt: from.value,
@@ -160,23 +177,31 @@ export default function AuditTrail() {
       page: null,
     });
   };
+  const applyDrafts = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); if (live || pending > 0) commitDrafts(); };
+  // C: text and time fields commit 300 ms after the last keystroke; navigation or a variant change cancels it.
+  useEffect(() => {
+    if (!live || pending === 0) return;
+    const timer = setTimeout(commitDrafts, 300);
+    return () => clearTimeout(timer);
+  }, [live, drafts]);
   const clearFilters = () => {
-    setDrafts({ actor: '', targetId: '', fromAt: '', toAt: '' });
+    setDrafts({ type: '', action: '', source: '', actor: '', targetId: '', fromAt: '', toAt: '' });
     setTimeTouched({ fromAt: false, toAt: false });
     setTimeError({ fromAt: null, toAt: null });
     setPage(Object.fromEntries(AUDIT_PAGE_KEYS.map(k => [k, null])));
   };
-  const clear = <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{t('clearFilters')}</Button>;
+  const clear = <Button type="button" size={live ? 'sm' : 'md'} variant="secondary" onClick={clearFilters}>{live ? (ko ? '초기화' : 'Reset') : t('clearFilters')}</Button>;
+  const filtersApplied = Object.values(raw).slice(0, 7).some(Boolean);
   const filters = <form onSubmit={applyDrafts}>
     <PageFilterBar orientation="column" label={ko ? '감사 필터' : 'Audit filters'} fields={[
-      { kind: 'select', key: 'type', label: ko ? '대상 유형' : 'Type', value: raw.type ?? '', emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(TYPE_LABEL).map(([value, label]) => ({ value, label: label[lang] })), onValueChange: value => setFilter('type', value || null) },
-      { kind: 'select', key: 'action', label: ko ? '작업' : 'Action', value: raw.action ?? '', emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(ACTION_LABEL).map(([value, label]) => ({ value, label: label[lang] })), onValueChange: value => setFilter('action', value || null) },
-      { kind: 'select', key: 'source', label: ko ? '출처' : 'Source', value: raw.source ?? '', emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(SOURCE_LABEL).map(([value, label]) => ({ value, label: label[lang] })), onValueChange: value => setFilter('source', value || null) },
+      { kind: 'select', key: 'type', label: ko ? '대상 유형' : 'Type', value: drafts.type, emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(TYPE_LABEL).map(([value, label]) => ({ value, label: label[lang] })), onValueChange: value => setFilter('type', value || null) },
+      { kind: 'select', key: 'action', label: ko ? '작업' : 'Action', value: drafts.action, emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(ACTION_LABEL).map(([value, label]) => ({ value, label: label[lang] })), onValueChange: value => setFilter('action', value || null) },
+      { kind: 'select', key: 'source', label: ko ? '출처' : 'Source', value: drafts.source, emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(SOURCE_LABEL).map(([value, label]) => ({ value, label: label[lang] })), onValueChange: value => setFilter('source', value || null) },
       { kind: 'text', key: 'actor', label: ko ? '행위자 정확 일치' : 'Exact actor', value: drafts.actor, onValueChange: value => setDraft('actor', value) },
       { kind: 'text', key: 'targetId', label: ko ? '대상 ID 정확 일치' : 'Exact target id', value: drafts.targetId, onValueChange: value => setDraft('targetId', value) },
       { kind: 'custom', key: 'fromAt', label: TIME_LABEL.fromAt[lang], content: <AuditTimeInput label={TIME_LABEL.fromAt[lang]} value={drafts.fromAt} error={timeError.fromAt} onValueChange={value => setTimeDraft('fromAt', value)} /> },
       { kind: 'custom', key: 'toAt', label: TIME_LABEL.toAt[lang], content: <AuditTimeInput label={TIME_LABEL.toAt[lang]} value={drafts.toAt} error={timeError.toAt} onValueChange={value => setTimeDraft('toAt', value)} /> },
-    ]} actions={<><Button type="submit" size="sm" variant="secondary">{ko ? '적용' : 'Apply'}</Button>{parsed.ok && clear}</>} />
+    ]} actions={<>{!live && <Button type="submit" size="md" variant="secondary" disabled={pending === 0}>{variant === 'B' && pending > 0 ? `${ko ? '적용' : 'Apply'} (${pending})` : ko ? '적용' : 'Apply'}</Button>}{parsed.ok && filtersApplied && clear}</>} />
   </form>;
   const columns = useMemo<PlatformColumn<AuditEvent>[]>(() => [
     { id: 'at', header: ko ? '시각' : 'At', size: 150, cell: row => <span className="tabular">{formatInstant(row.at, lang, timeZone)}</span> },
@@ -189,7 +214,7 @@ export default function AuditTrail() {
     { id: 'changes', header: ko ? '변경 필드' : 'Changed fields', sortable: false, size: 220, cell: row => row.changes ? Object.keys(row.changes).sort().join(', ') : '—' },
   ], [ko, lang, timeZone]);
   return <PlatformPage description={ko ? '모든 사이트의 마스터 변경 로그입니다. 행의 링크는 각 상세 화면의 변경 이력 탭으로 이동합니다.' : 'The master-change log across all sites. A row link opens the destination detail\'s change-history tab.'}>
-    <ManagementLayout filter={filters} activeFilterCount={[raw.type, raw.actor, raw.action, raw.source, raw.fromAt, raw.toAt, raw.targetId].filter(Boolean).length}
+    <ManagementLayout filter={filters} activeFilterCount={[raw.type, raw.actor, raw.action, raw.source, raw.fromAt, raw.toAt, raw.targetId].filter(Boolean).length} pendingFilterCount={pending}
       table={filterSlot => <>
     {!parsed.ok && <p role="alert">{filterSlot}{urlProblemLine(auditKeyProblem(raw) ?? { key: 'sort', reason: 'invalid' }, lang)} {clear}</p>}
     {parsed.ok && <PlatformDataTable<AuditEvent>
@@ -198,7 +223,7 @@ export default function AuditTrail() {
         subtitle={ko ? '합성 감사 이벤트입니다. 기본 정렬은 최신순이며 room 필터를 적용하지 않습니다.' : 'Synthetic audit events. Default sort is newest first; no room filter is applied.'}
         filters={filterSlot}
         columns={columns} getRowId={row => row.id} filterKey={filterKey}
-        preferenceKey="admin-audit:columns:v1" pageSize={25} height={430}
+        preferenceKey="admin-audit:columns:v1" pageSize={25}
         urlState={{
           page: parsed.page,
           sorting: parsed.sorting,
@@ -230,6 +255,9 @@ export default function AuditTrail() {
           };
         }}
         emptyAction={clear}
+        onRowActivate={row => { const link = auditDestination(linkTo, row.target); if (link.ok) navigate(link.href); }}
+        rowActivateDisabled={row => !auditDestination(linkTo, row.target).ok}
+        rowActivateLabel={row => ko ? `${row.target.id} 상세 열기` : `Open ${row.target.id} details`}
         rowAction={row => {
           const link = auditDestination(linkTo, row.target);
           return link.ok

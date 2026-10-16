@@ -1,13 +1,16 @@
+// THROWAWAY #306 — never merge.
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { PanelLeftClose, SlidersHorizontal } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { Button, Popover, PopoverContent, PopoverTrigger, usePrototype } from '@ap/ui';
 
 export type ManagementLayoutProps = {
   /** Page-owned filters, usually a column PageFilterBar or its form. */
   filter?: ReactNode;
   /** Number of filter page keys with URL values, excluding sort/page/focus/tab. */
   activeFilterCount?: number;
+  /** #306 prototype (variant B): unapplied draft changes, shown next to the applied count on the collapsed trigger. */
+  pendingFilterCount?: number;
   /** The table consumes the collapsed/narrow filter button in its filters slot. */
   table: (filterSlot: ReactNode | undefined) => ReactNode;
   /** Detail content continues to use the shell's detail slot (ADR-0013). */
@@ -20,7 +23,8 @@ function initialCollapsed() {
 }
 
 /** Management slots (06 §12.6): respond to available content width, including a docked detail. */
-export function ManagementLayout({ filter, activeFilterCount = 0, table, drawer }: ManagementLayoutProps) {
+export function ManagementLayout({ filter, activeFilterCount = 0, pendingFilterCount = 0, table, drawer }: ManagementLayoutProps) {
+  const variant = usePrototype();
   const { t } = useI18n();
   const root = useRef<HTMLDivElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
@@ -79,10 +83,15 @@ export function ManagementLayout({ filter, activeFilterCount = 0, table, drawer 
       else localStorage.removeItem(COLLAPSE_KEY);
     } catch { /* preference stays in memory */ }
   };
-  const button = <Button ref={filterButton} type="button" variant="secondary" size="sm"
+  const button = <Button ref={filterButton} type="button" variant="secondary" size={variant === 'C' ? 'sm' : 'md'}
     title={t('expandFilters')} aria-expanded={wide ? false : open} aria-controls={!wide && open ? bodyId : undefined}
     onClick={wide ? () => setRailCollapsed(false) : undefined}>
-    <SlidersHorizontal className="size-3.5" aria-hidden />{t('filters')}{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ''}
+    <SlidersHorizontal className="size-3.5" aria-hidden />{t('filters')}{variant === 'B'
+      ? <>
+        {activeFilterCount > 0 && <span className="rounded-full bg-accent-primary-soft px-1.5 text-xs font-semibold tabular">{activeFilterCount}</span>}
+        {pendingFilterCount > 0 && <span className="text-xs text-text-secondary">{`+${pendingFilterCount}`}</span>}
+      </>
+      : activeFilterCount > 0 ? ` · ${activeFilterCount}` : ''}
   </Button>;
   const filterSlot = !hasFilter || railVisible ? undefined : wide ? button :
     <Popover open={open} onOpenChange={setOpen}>

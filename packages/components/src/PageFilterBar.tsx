@@ -1,7 +1,8 @@
+// THROWAWAY #306 — never merge.
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, ChevronUp, Search } from 'lucide-react';
+import { ChevronDown, ChevronUp, Search, X } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
-import { Button, cn, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
+import { Button, cn, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, usePrototype } from '@ap/ui';
 
 export type PageFilterOption = { value: string; label: string };
 
@@ -65,6 +66,8 @@ function emptyOptionValue(options: readonly PageFilterOption[]) {
 
 function PageFilterFieldControl({ field, id, column }: { field: PageFilterField; id: string; column: boolean }) {
   const labelId = `${id}-label`;
+  // #306 prototype: C packs the bar to 32px; A and B use the FeedbackOps default 40px.
+  const compact = usePrototype() === 'C';
 
   if (field.kind === 'custom') {
     return <div data-testid={field.testId} className="grid min-w-0 gap-1 text-xs text-text-secondary">
@@ -83,7 +86,7 @@ function PageFilterFieldControl({ field, id, column }: { field: PageFilterField;
     return <div className={cn('grid gap-1 text-xs text-text-secondary', column ? 'min-w-0 w-full' : 'min-w-36')}>
       <label htmlFor={id} id={labelId} onClick={event => { event.preventDefault(); event.currentTarget.control?.focus(); }}>{field.label}</label>
       <Select value={value} onValueChange={next => field.onValueChange(next === emptyValue ? '' : next)}>
-        <SelectTrigger id={id} aria-labelledby={labelId} data-testid={field.testId} className={cn('h-8 border-border-control', column ? 'min-w-0 w-full' : 'min-w-36')}>
+        <SelectTrigger id={id} aria-labelledby={labelId} data-testid={field.testId} className={cn(compact && 'h-8', 'border-border-control', column ? 'min-w-0 w-full' : 'min-w-36')}>
           <SelectValue placeholder={field.placeholder} />
         </SelectTrigger>
         <SelectContent>
@@ -97,7 +100,7 @@ function PageFilterFieldControl({ field, id, column }: { field: PageFilterField;
   return <div className="grid min-w-0 gap-1 text-xs text-text-secondary">
     <label htmlFor={id} id={labelId} onClick={event => { event.preventDefault(); event.currentTarget.control?.focus(); }}>{field.label}</label>
     <span className={cn('relative block max-w-full', column ? 'w-full' : 'w-56')}>
-      {field.kind === 'search' && <Search aria-hidden data-page-filter-search-icon className="pointer-events-none absolute left-2 top-2 size-4 text-text-secondary" />}
+      {field.kind === 'search' && <Search aria-hidden data-page-filter-search-icon className={cn('pointer-events-none absolute left-2 size-4 text-text-secondary', compact ? 'top-2' : 'top-3')} />}
       <Input
         id={id}
         type={field.kind === 'search' ? 'search' : 'text'}
@@ -107,11 +110,18 @@ function PageFilterFieldControl({ field, id, column }: { field: PageFilterField;
         value={field.value}
         onChange={event => field.onValueChange(event.target.value)}
         className={cn(
-          'h-8 w-full border-border-control',
+          compact && 'h-8',
+          'w-full border-border-control [&::-webkit-search-cancel-button]:appearance-none',
           // eslint-disable-next-line shadcn/no-restyle -- 32px left padding reserves the overlaid search icon
           field.kind === 'search' && 'pl-8',
+          // eslint-disable-next-line shadcn/no-restyle -- #306 throwaway: room for the clear button
+          field.kind === 'search' && field.value !== '' && 'pr-8',
         )}
       />
+      {field.kind === 'search' && field.value !== '' && <button type="button" aria-label={`${field.label} 지우기`} onClick={() => field.onValueChange('')}
+        className={cn('absolute right-1 flex size-6 items-center justify-center rounded-xs text-text-secondary hover:text-text-primary focus-visible:outline-2 focus-visible:outline-focus-ring', compact ? 'top-1' : 'top-2')}>
+        <X className="size-3.5" aria-hidden />
+      </button>}
     </span>
   </div>;
 }
