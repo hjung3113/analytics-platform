@@ -176,6 +176,8 @@ function fixtureAdapter(): PlatformAdapter {
   return testAdapter({
     menuQuery,
     session: () => session,
+    getEntity: async () => empty,
+    listAnnotations: async () => empty,
     saveAnnotation: async () => empty,
     usageSummary: async () => empty,
     auditTrail: async () => empty,

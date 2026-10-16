@@ -18,7 +18,7 @@ const registry = createRegistry({
   menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
 
-const session = testSession(['platform:view'], { user: { id: 'user-a' } });
+const session = testSession(['platform:view'], { user: { id: 'user-a', name: 'a', title: { ko: 'a', en: 'a' } } });
 const adapter = testAdapter({ session: () => session });
 
 let width = 1200;

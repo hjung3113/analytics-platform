@@ -23,4 +23,4 @@
 
 - 세 벌의 본문을 `packages/kernel/src/testing.ts` 한 벌로 합쳤다. kernel 테스트는 상대 경로 `./testing`, components·shell·메뉴·앱 테스트는 `@ap/kernel/testing`을 쓴다. 기본 세션 동일성 테스트는 kernel에 하나만 남는다.
 - 경계 lint 규칙과 회귀 행은 `tooling/eslint/src/index.js`·`boundaries.test.ts`에 있다.
-- `packages/AGENTS.md`(공개 진입점 규칙의 예외)와 `packages/contracts/AGENTS.md`(포트 메서드 추가 시 고칠 fixture)를 같은 변경에서 고쳤다. 포트 변경 시 `testAdapter`, `packages/mock-server/src/adapter.ts`, `referenceAdapter`만 고치면 된다.
+- `packages/AGENTS.md`(공개 진입점 규칙의 예외)와 `packages/contracts/AGENTS.md`(포트 메서드 추가 시 고칠 fixture)를 같은 변경에서 고쳤다. 포트 변경 시 `testAdapter`, `packages/mock-server/src/adapter.ts`, `referenceAdapter`, `packages/kernel/src/adapter.test.tsx`의 `class ServerAdapter`만 고치면 된다.

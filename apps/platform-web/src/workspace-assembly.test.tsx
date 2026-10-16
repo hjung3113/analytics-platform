@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { PlatformAdapter, Session } from '@ap/contracts';
+import type { PlatformAdapter } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, usePlatform } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { createAssembly } from '#platform-assembly';
@@ -14,10 +14,7 @@ const probeRun = process.env.GEN_MENU_PROBE === '1';
 describe('workspace assembly (#260)', () => {
   it('enters productivity analysis at equipment-master for a partial-permission session (#264)', () => {
     const assembly = createAssembly({ registry });
-    const session: Session = {
-      user: { id: 'partial', name: 'partial', title: { ko: '부분 권한', en: 'Partial access' }, permissions: ['platform:view', 'equipment:view'] },
-      scopes: [],
-    };
+    const session = testSession(['platform:view', 'equipment:view'], { user: { id: 'partial', name: 'partial', title: { ko: '부분 권한', en: 'Partial access' } } });
     const adapter: PlatformAdapter = { ...assembly.adapter, session: () => session };
     function Probe() {
       const { spaceEntry } = usePlatform();
