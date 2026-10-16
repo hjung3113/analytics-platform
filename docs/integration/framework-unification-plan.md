@@ -261,6 +261,8 @@ EV가 이미 결정한 것: 독립 패키지가 정본·플랫폼은 얇은 소�
 | Q7 | FO 셸·AuthProvider를 SDK 후보로 비교하는 시점 | **단계 5** | 두 번째 소비자 전에는 비교할 근거가 없다(#396 §3·§8). 지금 하면 ADR-0027과 충돌 |
 | Q8 | 브라우저 세션 공유(플랫폼 ↔ FO 로그인 한 번) | **#150 질문지에 이미 있음 — 사내 SSO 답을 기다림.** 플랫폼 쪽은 쿠키 도메인·IdP 클라이언트 공유 둘 다 가능하도록 전송 초안 §6을 유지 | 셋 중 누구도 결정하지 않은 유일한 교차 항목(§3 "인증·세션") |
 
+후속(2026-10-17): 단계 5와 Q4·Q7의 호스트 인터페이스·FeedbackOps 탑재 재검토는 [플랫폼 탑재 설계](platform-hosting-design.md)(Proposed, ADR-0038·0039 초안)가 이어받는다.
+
 ## 9. 출처
 
 analytics-platform 파일: [AGENTS.md](../../AGENTS.md), [docs/AGENTS.md](../AGENTS.md), [INDEX](../INDEX.md), [06](../06_platform_ui_contract.md) §5·§6.1·§6.4·§14·§19·§23·§24·§29, [15](../15_multi_workspace_ui.md), [DESIGN.md](../../DESIGN.md), [패키지 경계](platform-packages.md), [저장소 구조](repository-layout.md), [사내 적용 가이드](in-house-rollout.md), [실서버 체크리스트](real-server-checklist.md), [전송 형식 초안](http-adapter-contract.md), [딥링크 계약](feedbackops-deeplink.md), [packages/AGENTS.md](../../packages/AGENTS.md), [contracts/AGENTS.md](../../packages/contracts/AGENTS.md), [ui/AGENTS.md](../../packages/ui/AGENTS.md), [menus/AGENTS.md](../../menus/AGENTS.md), [tooling/AGENTS.md](../../tooling/AGENTS.md), [.agents/README.md](../../.agents/README.md), [.agents/conductor/PROFILE.md](../../.agents/conductor/PROFILE.md), `packages/*/package.json`, `packages/contracts/src/{index,adapter}.ts`, `packages/kernel/src/index.ts`, `packages/ui/src/index.ts`, `apps/platform-web/src/platform-assembly.d.ts`, `pnpm-workspace.yaml`, `.planning/{README,backlog,inputs}.md`.

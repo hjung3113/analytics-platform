@@ -41,7 +41,7 @@
 | 모노레포 구조·빌드·CI·접두사 변경 | [패키지 경계](integration/platform-packages.md), [저장소 구조](integration/repository-layout.md) | [tooling](../tooling/AGENTS.md) → [packages](../packages/AGENTS.md) | 루트 `package.json`·`pnpm-workspace.yaml`·`turbo.json` → `.github/workflows/ci.yml` |
 | 설계 문서·결정 갱신 | 해당 소유 문서 → [ADR 목록](adr/README.md) 또는 [05](05_roadmap_and_open_questions.md) | [docs](AGENTS.md) | 바꾼 뒤 `pnpm docs:links` |
 | 적재 워커 상태·가공 상태 조회·운영 콘솔 모니터링 | [01 가공 상태 보고](01_architecture_and_data_contract.md#processing-status-report), 06 §19, [상태 기록 스키마 초안](integration/ingest-status-schema.md) | [docs](AGENTS.md) | 파서 저장소 `context_recognized_parser` |
-| FeedbackOps 연결 | [저장소 구조](integration/repository-layout.md), [딥링크 계약](integration/feedbackops-deeplink.md), [ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md) | [products/feedbackops](../products/feedbackops/AGENTS.md) | 서브모듈 하위 `AGENTS.md` |
+| FeedbackOps 연결 | [저장소 구조](integration/repository-layout.md), [딥링크 계약](integration/feedbackops-deeplink.md), [ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md), 탑재안 [플랫폼 탑재 설계](integration/platform-hosting-design.md)(Proposed) | [products/feedbackops](../products/feedbackops/AGENTS.md) | 서브모듈 하위 `AGENTS.md` |
 | 통합 전 단위 프로토타입 | — | [prototypes](../prototypes/AGENTS.md) | 각 프로토타입 README |
 
 ## 문서 목록
@@ -68,6 +68,7 @@
 - [적재 워커 상태 기록 스키마](integration/ingest-status-schema.md) — 가공 상태 원천의 기록 구조와 평가 규칙. Candidate(#37 파서 담당 합의 대기).
 - [FeedbackOps 딥링크 계약](integration/feedbackops-deeplink.md) — 양방향 딥링크 1단계(확장은 #81).
 - [프레임워크 통합 계획](integration/framework-unification-plan.md) — FeedbackOps·equipment-visualization 프레임워크 조각을 플랫폼 프레임워크로 합치는 지도(현황·중복·목표·단계·SDK 준비 메모). Proposed(#396의 입력).
+- [플랫폼 탑재 설계](integration/platform-hosting-design.md) — 다른 저장소 업무 모듈(EV·FeedbackOps)의 호스트 → 모듈 계약, 두 호스트 실행, 패키지 배치, FeedbackOps 탑재안. Proposed(선행 조사, ADR-0038·0039 초안).
 
 루트 문서: [DESIGN](../DESIGN.md)(FeedbackOps 기반 플랫폼 시각 확장 — 06의 최소 기준·상태·접근성 의무는 바꾸지 않는다), [GLOSSARY](../GLOSSARY.md)(현행 도메인 용어와 관계).
 
