@@ -138,8 +138,8 @@ export default function AuditTrail() {
     setTimeError(current => ({ ...current, [key]: null }));
   };
   const applyDrafts = () => {
-    const from = resolveTime(draft.values.fromAt!, timeTouched.fromAt, raw.fromAt, timeZone);
-    const to = resolveTime(draft.values.toAt!, timeTouched.toAt, raw.toAt, timeZone);
+    const from = resolveTime(draft.values.fromAt, timeTouched.fromAt, raw.fromAt, timeZone);
+    const to = resolveTime(draft.values.toAt, timeTouched.toAt, raw.toAt, timeZone);
     let fromMessage = from.ok ? null : FIELD_ERROR[from.reason][lang];
     let toMessage = to.ok ? null : FIELD_ERROR[to.reason][lang];
     if (from.ok && to.ok && from.value !== null && to.value !== null && fromMessage === null && toMessage === null) {
@@ -164,15 +164,15 @@ export default function AuditTrail() {
   const recover = <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{t('clearFilters')}</Button>;
   const clear = activeFilterCount > 0 ? recover : null;
   const select = (key: 'type' | 'action' | 'source', label: string, labels: Record<string, Text>) =>
-    ({ kind: 'select', key, label, value: draft.values[key]!, emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(labels).map(([value, text]) => ({ value, label: text[lang] })), onValueChange: (value: string) => draft.set(key, value) }) as const;
+    ({ kind: 'select', key, label, value: draft.values[key], emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(labels).map(([value, text]) => ({ value, label: text[lang] })), onValueChange: (value: string) => draft.set(key, value) }) as const;
   const filters = <PageFilterBar orientation="column" label={ko ? '감사 필터' : 'Audit filters'} onApply={applyDrafts} fields={[
       select('type', ko ? '대상 유형' : 'Type', TYPE_LABEL),
       select('action', ko ? '작업' : 'Action', ACTION_LABEL),
       select('source', ko ? '출처' : 'Source', SOURCE_LABEL),
-      { kind: 'text', key: 'actor', label: ko ? '행위자 정확 일치' : 'Exact actor', value: draft.values.actor!, onValueChange: value => draft.set('actor', value) },
-      { kind: 'text', key: 'targetId', label: ko ? '대상 ID 정확 일치' : 'Exact target id', value: draft.values.targetId!, onValueChange: value => draft.set('targetId', value) },
-      { kind: 'custom', key: 'fromAt', label: TIME_LABEL.fromAt[lang], content: <AuditTimeInput label={TIME_LABEL.fromAt[lang]} value={draft.values.fromAt!} error={timeError.fromAt} onValueChange={value => setTimeDraft('fromAt', value)} /> },
-      { kind: 'custom', key: 'toAt', label: TIME_LABEL.toAt[lang], content: <AuditTimeInput label={TIME_LABEL.toAt[lang]} value={draft.values.toAt!} error={timeError.toAt} onValueChange={value => setTimeDraft('toAt', value)} /> },
+      { kind: 'text', key: 'actor', label: ko ? '행위자 정확 일치' : 'Exact actor', value: draft.values.actor, onValueChange: value => draft.set('actor', value) },
+      { kind: 'text', key: 'targetId', label: ko ? '대상 ID 정확 일치' : 'Exact target id', value: draft.values.targetId, onValueChange: value => draft.set('targetId', value) },
+      { kind: 'custom', key: 'fromAt', label: TIME_LABEL.fromAt[lang], content: <AuditTimeInput label={TIME_LABEL.fromAt[lang]} value={draft.values.fromAt} error={timeError.fromAt} onValueChange={value => setTimeDraft('fromAt', value)} /> },
+      { kind: 'custom', key: 'toAt', label: TIME_LABEL.toAt[lang], content: <AuditTimeInput label={TIME_LABEL.toAt[lang]} value={draft.values.toAt} error={timeError.toAt} onValueChange={value => setTimeDraft('toAt', value)} /> },
     ]} actions={<><FilterApplyButton changedCount={draft.changedCount} />{clear}</>} />;
   const columns = useMemo<PlatformColumn<AuditEvent>[]>(() => [
     { id: 'at', header: ko ? '시각' : 'At', size: 150, cell: row => <span className="tabular">{formatInstant(row.at, lang, timeZone)}</span> },

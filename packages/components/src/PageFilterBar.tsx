@@ -84,12 +84,12 @@ function ApplyForm({ onApply, children }: { onApply: () => void; children: React
 
   useEffect(() => () => cancelAnimationFrame(releaseFrame.current), []);
 
-  // A successful apply disables the focused submit button; hand focus to the first field of this same container.
+  // Apply can disable its button and clear can remove its button; focus the first field of this same container.
   // A field that submitted with Enter keeps its focus, and an unchanged (enabled) button keeps its own.
   useLayoutEffect(() => {
     const from = submitter.current;
     submitter.current = null;
-    if (!(from instanceof HTMLButtonElement) || !from.disabled) return;
+    if (!(from instanceof HTMLButtonElement) || (!from.disabled && from.isConnected)) return;
     const active = document.activeElement;
     if (active !== from && active !== document.body) return;
     form.current?.querySelector<HTMLElement>(FIRST_FIELD)?.focus();
@@ -112,6 +112,10 @@ function ApplyForm({ onApply, children }: { onApply: () => void; children: React
   };
 
   return <form ref={form} className="min-w-0" onSubmit={onSubmit} onKeyDown={onKeyDown}
+    onClickCapture={event => {
+      const button = event.target instanceof Element ? event.target.closest('button') : null;
+      submitter.current = button && event.currentTarget.contains(button) ? button : null;
+    }}
     onCompositionStart={release}
     onCompositionEnd={event => {
       if (!isTextInput(event.target as EventTarget)) return;

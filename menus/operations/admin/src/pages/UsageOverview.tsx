@@ -13,7 +13,7 @@ const SORT_FIELDS = ['id', 'spaceId', 'visits', 'distinctUsers', 'lastUsedAt'] a
 export default function UsageOverview() {
   const { lang } = useI18n();
   const ko = lang === 'ko';
-  const { adapter, registry, pageParam, setPage } = usePlatform();
+  const { adapter, registry, setPage } = usePlatform();
   // Session identity: period·room changes must not hide the counts.
   const q = usePlatformQuery<UsageSummary>(signal => adapter.usageSummary({ preset: 'all' }, signal), null, true, 'session');
   // §6.1 page keys (sort/page): invalid wire values alert instead of substituting — same as EquipmentMaster.

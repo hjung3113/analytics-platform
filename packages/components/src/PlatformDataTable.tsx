@@ -51,6 +51,8 @@ const EXPORT_REFUSAL: Record<'forbidden' | 'too_large' | 'error' | 'timeout', { 
   error: { ko: '내보내기를 수행하지 못했습니다. 다시 시도하고, 반복되면 관리자에게 문의하세요.', en: 'The export could not be completed. Try again, and contact the administrator if it keeps failing.' },
 };
 /** Defensive client cap only: the server's declared `limits.maxRows` (#175) is the real guard — this one fires after the rows already arrived. */
+const ACTION_COLUMN_WIDTH = 128;
+const DEFAULT_COLUMN_WIDTH = 150;
 const EXPORT_ROW_CAP = 100_000;
 type ExportFormat = 'xlsx' | 'csv';
 type ExportScopeKind = 'selected' | 'filtered';
@@ -279,8 +281,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const columnPrefsId = useId();
   // ADR-0037: the action column is pinned right whenever the scrollport keeps room beside the user's left pins; narrower
   // it scrolls with the rest so pinned regions never overlap. Never user-pinnable, never stored (`_action` stays out of preferences).
-  const leftPinnedWidth = (preferences.pinning.left ?? []).reduce((sum, id) => preferences.visibility[id] === false ? sum : sum + (preferences.sizing[id] ?? p.columns.find(c => c.id === id)?.size ?? 150), 0);
-  const actionPinned = !!p.rowAction && (fit.width === null || fit.width === 0 || fit.width >= leftPinnedWidth + 128 + ACTION_PIN_MIN_SCROLL);
+  const leftPinnedWidth = (preferences.pinning.left ?? []).reduce((sum, id) => preferences.visibility[id] === false ? sum : sum + (preferences.sizing[id] ?? p.columns.find(c => c.id === id)?.size ?? DEFAULT_COLUMN_WIDTH), 0);
+  const actionPinned = !!p.rowAction && (fit.width === null || fit.width === 0 || fit.width >= leftPinnedWidth + ACTION_COLUMN_WIDTH + ACTION_PIN_MIN_SCROLL);
   const pinningState: ColumnPinningState = { left: preferences.pinning.left ?? [], right: actionPinned ? ['_action'] : [] };
   const allColumns = useMemo<ColumnDef<T>[]>(() => [
     ...(selectable ? [{
@@ -291,14 +293,14 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       cell: ({ row }) => <Checkbox aria-label={`${lang === 'ko' ? '선택' : 'Select'} ${row.id}`} checked={row.getIsSelected()} onCheckedChange={v => row.toggleSelected(v === true)} className="size-3.5 border-border-control" />,
     } as ColumnDef<T>] : []),
     ...p.columns.map(toColumnDef),
-    ...(p.rowAction ? [{ id: '_action', size: 128, enableSorting: false, enableHiding: false, enableResizing: false, header: lang === 'ko' ? '동작' : 'Actions' } as ColumnDef<T>] : []),
+    ...(p.rowAction ? [{ id: '_action', size: ACTION_COLUMN_WIDTH, enableSorting: false, enableHiding: false, enableResizing: false, header: lang === 'ko' ? '동작' : 'Actions' } as ColumnDef<T>] : []),
   ], [p.columns, p.rowAction, lang, selectable]);
 
   const table = useReactTable({
     data: data.rows, columns: allColumns, getRowId: p.getRowId, getCoreRowModel: getCoreRowModel(),
     manualSorting: true, manualPagination: true, enableRowSelection: selectable, columnResizeMode: 'onChange',
     enableMultiSort: !p.urlState,
-    defaultColumn: { size: 150, minSize: 60, maxSize: 600 },
+    defaultColumn: { size: DEFAULT_COLUMN_WIDTH, minSize: 60, maxSize: 600 },
     state: { sorting: activeSorting, rowSelection: effectiveSelection, columnSizing: preferences.sizing, columnVisibility: preferences.visibility, columnPinning: pinningState },
     onSortingChange: u => {
       const next = typeof u === 'function' ? u(p.urlState ? p.urlState.sorting : sorting) : u;

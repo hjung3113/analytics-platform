@@ -10,10 +10,10 @@ const mount = (applied: Record<string, string>, identity?: string) =>
 describe('useFilterDraft', () => {
   it('starts clean and counts a field once however many keystrokes it took', () => {
     const view = mount({ q: '', status: 'active' });
-    expect(view.result.current).toMatchObject({ changedCount: 0, dirty: false, values: { q: '', status: 'active' } });
+    expect(view.result.current).toMatchObject({ changedCount: 0, values: { q: '', status: 'active' } });
     act(() => view.result.current.set('q', 'a'));
     act(() => view.result.current.set('q', 'ab'));
-    expect(view.result.current).toMatchObject({ changedCount: 1, dirty: true });
+    expect(view.result.current).toMatchObject({ changedCount: 1 });
     act(() => view.result.current.set('q', ''));
     expect(view.result.current.changedCount).toBe(0);
   });

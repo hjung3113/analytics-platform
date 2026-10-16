@@ -225,6 +225,29 @@ describe('ManagementLayout pending filter changes (ADR-0037)', () => {
       table={slot => <section aria-label="표">{slot}</section>} /></I18nProvider>;
   }
 
+  it.each([['rail', 1200], ['popover', 700]])('focuses the first field after keyboard clear removes its button in the %s', async (source, nextWidth) => {
+    function Clearable() {
+      const [value, setValue] = useState('applied');
+      return <PageFilterBar orientation="column" label="필터" onApply={() => {}}
+        fields={[{ kind: 'text', key: 'q', label: '검색어', value, onValueChange: setValue }]}
+        actions={value && <button type="button" onClick={() => setValue('')}>필터 초기화</button>} />;
+    }
+    width = nextWidth;
+    mount(1, <Clearable />);
+    const user = userEvent.setup();
+    if (source === 'popover') {
+      await user.click(trigger());
+      await screen.findByRole('dialog', { name: '필터' });
+    }
+    screen.getByRole('textbox', { name: '검색어' }).focus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: '필터 초기화' })).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(screen.queryByRole('button', { name: '필터 초기화' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '검색어' })).toHaveValue('');
+    expect(screen.getByRole('textbox', { name: '검색어' })).toHaveFocus();
+  });
+
   it.each([['rail', 1200], ['popover', 700]])('keeps the draft and moves focus to the first field after Apply in the %s', async (source, nextWidth) => {
     width = nextWidth;
     const apply = vi.fn();

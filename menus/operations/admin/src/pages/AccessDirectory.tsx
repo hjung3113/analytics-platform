@@ -43,8 +43,8 @@ export default function AccessDirectory() {
   const recover = <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{t('clearFilters')}</Button>;
   const clear = activeFilterCount > 0 ? recover : null;
   const filters = <PageFilterBar orientation="column" label={ko ? '필터' : 'Filters'} onApply={applyDraft} fields={[
-      { kind: 'select', key: 'permission', label: ko ? '권한' : 'Permission', value: draft.values.permission!, emptyOptionLabel: ko ? '전체' : 'All', options: PERMISSIONS.map(value => ({ value, label: value })), onValueChange: value => draft.set('permission', value) },
-      { kind: 'text', key: 'role', label: ko ? '역할 정확 일치' : 'Exact role', value: draft.values.role!, onValueChange: value => draft.set('role', value) },
+      { kind: 'select', key: 'permission', label: ko ? '권한' : 'Permission', value: draft.values.permission, emptyOptionLabel: ko ? '전체' : 'All', options: PERMISSIONS.map(value => ({ value, label: value })), onValueChange: value => draft.set('permission', value) },
+      { kind: 'text', key: 'role', label: ko ? '역할 정확 일치' : 'Exact role', value: draft.values.role, onValueChange: value => draft.set('role', value) },
     ]} actions={<><FilterApplyButton changedCount={draft.changedCount} />{clear}</>} />;
   const columns = useMemo<PlatformColumn<AccessPrincipal>[]>(() => [
     { id: 'name', header: ko ? '이름' : 'Name' },

@@ -2,17 +2,16 @@ import { useCallback, useState } from 'react';
 import { useI18n } from '@ap/kernel';
 import { Button } from '@ap/ui';
 
-export type FilterDraft = {
-  /** Draft text of every field; keys the applied record does not carry read as ''. */
-  values: Record<string, string>;
-  set: (key: string, value: string) => void;
+export type FilterDraft<K extends string> = {
+  /** Draft text of every applied field; fields omitted by reset read as ''. */
+  values: Record<K, string>;
+  set: (key: K, value: string) => void;
   /** Fields whose draft differs from the applied value (clearing an applied field counts; keystrokes do not). */
   changedCount: number;
-  dirty: boolean;
   /** Drops the edits: back to the applied values, or to `next` (e.g. all-empty after a clear). */
-  reset: (next?: Record<string, string>) => void;
+  reset: (next?: Partial<Record<K, string>>) => void;
   /** Every field as a page-key patch; empty drafts become `null`. The consumer adds `page: null` and calls `setPage` once. */
-  patch: () => Record<string, string | null>;
+  patch: () => Record<K, string | null>;
 };
 
 const keyOf = (applied: Record<string, string>) => JSON.stringify(Object.entries(applied).sort(([a], [b]) => (a < b ? -1 : 1)));
@@ -23,9 +22,9 @@ const keyOf = (applied: Record<string, string>) => JSON.stringify(Object.entries
  * user edits an unchanged applied value. Pass `identity` when the applied values are display text derived from richer
  * state (raw instants, time zone): a change of identity rebases even if the displayed text stays equal.
  */
-export function useFilterDraft(applied: Record<string, string>, identity?: string): FilterDraft {
+export function useFilterDraft<K extends string>(applied: Record<K, string>, identity?: string): FilterDraft<K> {
   const appliedKey = identity ?? keyOf(applied);
-  const [draft, setDraft] = useState(applied);
+  const [draft, setDraft] = useState<Partial<Record<K, string>>>(applied);
   const [syncedKey, setSyncedKey] = useState(appliedKey);
   let current = draft;
   if (syncedKey !== appliedKey) {
@@ -35,15 +34,15 @@ export function useFilterDraft(applied: Record<string, string>, identity?: strin
     current = applied;
   }
 
-  const keys = [...new Set([...Object.keys(applied), ...Object.keys(current)])];
-  const values = Object.fromEntries(keys.map(key => [key, current[key] ?? '']));
+  const keys = [...new Set([...Object.keys(applied), ...Object.keys(current)])] as K[];
+  const values = Object.fromEntries(keys.map(key => [key, current[key] ?? ''])) as Record<K, string>;
   const changedCount = keys.filter(key => values[key] !== (applied[key] ?? '')).length;
 
-  const set = useCallback((key: string, value: string) => setDraft(previous => ({ ...previous, [key]: value })), []);
-  const reset = (next?: Record<string, string>) => setDraft(next ?? applied);
-  const patch = () => Object.fromEntries(keys.map(key => [key, values[key] === '' ? null : values[key]!]));
+  const set = useCallback((key: K, value: string) => setDraft(previous => ({ ...previous, [key]: value })), []);
+  const reset = (next?: Partial<Record<K, string>>) => setDraft(next ?? applied);
+  const patch = () => Object.fromEntries(keys.map(key => [key, values[key] === '' ? null : values[key]])) as Record<K, string | null>;
 
-  return { values, set, changedCount, dirty: changedCount > 0, reset, patch };
+  return { values, set, changedCount, reset, patch };
 }
 
 /** The apply submit of a draft filter form: disabled without changes, `적용 (n)` with them. Place it in the bar's `actions`. */
