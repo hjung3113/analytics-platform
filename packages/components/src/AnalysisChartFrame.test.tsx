@@ -628,6 +628,22 @@ describe('keyboard range, bar snap, and compare clip (06 §16, #307)', () => {
     expect(within(summary()).getByRole('button', { name: '분석 구간 적용…' })).toBeTruthy();
   });
 
+  it('says there are no values to summarize when the selection covers only empty bars', async () => {
+    const withEmptyLast: ChartSeries = { id: 's1', name: 'S1', color: 'chart-blue', points: currentDay.points.map(([x], i, all) => [x, i === all.length - 1 ? null : 1]) };
+    mount(fixture().adapter, off, period, { series: [withEmptyLast], compareSeries: [] });
+    fireEvent.click(await screen.findByRole('button', { name: '1시간' }));
+    expect(summary().textContent).toContain('선택 구간에 요약할 값이 없습니다. 시작·끝을 바꾸거나 더 넓은 구간을 선택하세요.');
+    // 기존 n=0 표기는 그대로 둔다.
+    expect(summary().textContent).toContain('n=0');
+  });
+
+  it('does not show the empty-range note while the selection has values', async () => {
+    mount(fixture().adapter, off, period, { series: [currentDay], compareSeries: [] });
+    fireEvent.click(await screen.findByRole('button', { name: '1시간' }));
+    expect(summary().textContent).toContain('n=1');
+    expect(summary().textContent).not.toContain('선택 구간에 요약할 값이 없습니다');
+  });
+
   it('start and end plus 선택 produce the same summary as the matching quick range', async () => {
     mount(fixture().adapter, off, period, { series: [currentDay], compareSeries: [] });
     fireEvent.click(await screen.findByRole('button', { name: '4시간' }));
@@ -686,6 +702,17 @@ describe('keyboard range, bar snap, and compare clip (06 §16, #307)', () => {
     expect(screen.queryByRole('combobox', { name: '구간 시작' })).toBeNull();
     expect(screen.queryByRole('button', { name: '1시간' })).toBeNull();
     expect(screen.queryByRole('button', { name: '전체' })).toBeNull();
+  });
+
+  it('keeps the raw second-precision brush when the query has no end', async () => {
+    const bars: ChartSeries = { id: 's1', name: 'S1', color: 'chart-blue', points: [['2026-10-16T16:00:00', 1], ['2026-10-16T17:00:00', 1], ['2026-10-16T18:00:00', 1]] };
+    brushRangeOverride = [atMs('2026-10-16T16:14:48'), atMs('2026-10-16T17:41:39')];
+    mount(fixture().adapter, off, undefined, { series: [bars], compareSeries: [] });
+    fireEvent.click(await screen.findByText('fake-brush'));
+    // 06 §16: 조회 끝이 없으면 막대 경계로 맞추지 않고 초 단위 원래 구간을 쓴다.
+    expect(summary().textContent).toContain('선택 구간: 2026-10-16 16:14 – 2026-10-16 17:41');
+    expect(screen.queryByRole('combobox', { name: '구간 시작' })).toBeNull();
+    expect(screen.queryByRole('group', { name: '빠른 구간 선택' })).toBeNull();
   });
 
   it('snaps a time brush outward onto hourly bar boundaries', async () => {

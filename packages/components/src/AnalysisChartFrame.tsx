@@ -32,8 +32,9 @@ const toMs = (v: string) => parseDateTime(v, 'x').getTime();
 const fmt = (v: string) => v.replace('T', ' ').slice(0, 16);
 const HOUR_MS = 3_600_000;
 
-/** Current-period bar starts, plus the query end, plus a query start that precedes the first bar. No invented spacing. */
+/** Current-period bar starts, plus the query end, plus a query start that precedes the first bar. No invented spacing. Without a query end there are no boundaries: snapping falls back to raw seconds (06 §16). */
 function timeBoundaries(series: ChartSeries[], periodFrom: string | null, periodTo: string | null): string[] {
+  if (periodTo === null) return [];
   const starts = [...new Set(series.flatMap(s => s.points.map(([x]) => x)))].sort();
   if (starts.length === 0) return [];
   const bounds = [...starts];
@@ -483,6 +484,9 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
             <Button size="toolbar" variant="ghost" onClick={() => { setSelection(null); setClipNotice(null); setRangeDraft(null); }}>{t('clear')}</Button>
           </span>
         </div>}
+      {selection && selectionCounts.length > 0 && selectionCounts.every(c => c.n === 0) && <p className="mt-1 text-text-secondary">
+        {lang === 'ko' ? '선택 구간에 요약할 값이 없습니다. 시작·끝을 바꾸거나 더 넓은 구간을 선택하세요.' : 'No values to summarize in this range. Change the start and end or choose a wider range.'}
+      </p>}
       {clipNotice && <p className="mt-1 text-text-secondary">{clipNotice === 'partial'
         ? (lang === 'ko' ? '비교 중인 이전 기간에 걸친 부분을 현재 기간으로 잘랐습니다.' : 'The part in the previous period was cut back to the current period.')
         : (lang === 'ko' ? '고른 구간이 모두 이전 기간이라 선택하지 않았습니다.' : 'The range is entirely in the previous period, so nothing was selected.')}</p>}
