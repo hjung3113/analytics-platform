@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { equipmentExportEndpoint, equipmentMakersEndpoint, equipmentPageEndpoint, type Equipment } from '../endpoints';
-import { DetailDrawer, FilterApplyButton, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort, parsePageIndex, parseTableSort, useFilterDraft } from '@ap/components';
+import { DetailDrawer, FilterApplyButton, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, encodeTableSort, useFilterDraft, useTableUrlWarning } from '@ap/components';
 import { Button } from '@ap/ui';
 import { EquipmentPanel, EquipmentStatus } from './EquipmentDetail';
 import { exportFilterSummary, exportParams, fields, sortFields, statusText } from './data';
@@ -19,9 +19,7 @@ export default function EquipmentMaster() {
   const validTab = ['attributes', 'validity', 'audit'].includes(drawerTab);
   // §13: the fullscreen link carries the viewed tab when the destination knows it; the default tab stays off the URL.
   const detailPage = validTab && drawerTab !== 'attributes' ? { tab: drawerTab } : undefined;
-  const parsedSort = parseTableSort(pageParam('sort'), sortFields);
-  const parsedPage = parsePageIndex(pageParam('page'));
-  const tableInvalid = !parsedSort.ok || !parsedPage.ok;
+  const { parsedSort, parsedPage, invalid: tableInvalid, sentences: invalidTableSentences } = useTableUrlWarning(sortFields);
   const filterKey = JSON.stringify([q, status, maker]);
   // #173 review P2-4: the full list is no longer the render gate. Maker options come from a small distinct-values
   // endpoint; the table renders its own outcomes.
@@ -54,7 +52,7 @@ export default function EquipmentMaster() {
       headerActions={<Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('equipment-detail', { params: { equipmentId: focus }, page: detailPage, returnTo: true })}>{ko ? '전체 화면' : 'Full page'}</PlatformLink></Button>}
       tabs={validTab ? [{ id: 'attributes', label: ko ? '속성' : 'Attributes', content: <EquipmentPanel id={focus} kind="attributes" /> }, { id: 'validity', label: ko ? '유효구간 이력' : 'Validity history', content: <EquipmentPanel id={focus} kind="validity" /> }, { id: 'audit', label: ko ? '변경 이력' : 'Change history', content: <EquipmentPanel id={focus} kind="audit" /> }]
         : [{ id: 'invalid', label: ko ? '알 수 없는 탭' : 'Unregistered tab', content: <p role="alert">{ko ? '등록되지 않은 탭입니다.' : 'This tab is not registered.'} <Button size="sm" variant="secondary" onClick={() => setPage({ tab: null })}>{ko ? '속성 열기' : 'Open attributes'}</Button></p> }]} />}
-      table={filterSlot => tableInvalid ? <p role="alert">{filterSlot}{ko ? '정렬·페이지 값이 잘못되었습니다.' : 'Invalid sort or page value.'} <Button size="sm" variant="secondary" onClick={() => setPage({ sort: null, page: null })}>{ko ? '초기화' : 'Reset'}</Button></p> :
+      table={filterSlot => tableInvalid ? <>{filterSlot}<TableUrlWarning sentences={invalidTableSentences} /></> :
     <PlatformDataTable<Equipment>
       title={ko ? '설비 목록' : 'Equipment list'} ariaLabel={ko ? '설비 마스터 목록' : 'Equipment master list'}
       subtitle={ko ? '행 체크는 내보내기용입니다. 분석 이동을 클릭할 때만 전역 Selection을 교체합니다.' : 'Row checks are for export. Only the explicit analysis link replaces global Selection.'}

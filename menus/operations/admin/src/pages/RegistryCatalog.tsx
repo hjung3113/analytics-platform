@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { CONTEXT_LABELS, PAGE_TYPE_LABELS, invalidValueSentence, useI18n, usePlatform } from '@ap/kernel';
+import { CONTEXT_LABELS, PAGE_TYPE_LABELS, useI18n, usePlatform } from '@ap/kernel';
 import type { Text } from '@ap/contracts';
-import { DetailDrawer, type PlatformColumn, encodeTableSort, parsePageIndex, parseTableSort, PlatformDataTable, PlatformPage, sortAndPage, StateMessage } from '@ap/components';
+import { DetailDrawer, type PlatformColumn, encodeTableSort, PlatformDataTable, PlatformPage, sortAndPage, StateMessage, TableUrlWarning, useTableUrlWarning } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { toRegistryRow, type RegistryRow } from '../registry-rows';
 
@@ -23,15 +23,7 @@ export default function RegistryCatalog() {
   const focus = pageParam('focus');
   // #304 FIX1 (06 §19): the warning keeps each field's user name and the raw value as entered (quoted,
   // untruncated), one sentence per field — never `key=value`.
-  const sortRaw = pageParam('sort');
-  const pageRaw = pageParam('page');
-  const parsedSort = parseTableSort(sortRaw, SORT_FIELDS);
-  const parsedPage = parsePageIndex(pageRaw);
-  const tableInvalid = !parsedSort.ok || !parsedPage.ok;
-  const invalidTableSentences = [
-    !parsedSort.ok ? invalidValueSentence(lang, 'value', { ko: '정렬', en: 'Sort' }, sortRaw ?? '') : null,
-    !parsedPage.ok ? invalidValueSentence(lang, 'value', { ko: '페이지', en: 'Page' }, pageRaw ?? '') : null,
-  ].filter((sentence): sentence is string => sentence !== null);
+  const { parsedSort, parsedPage, invalid: tableInvalid, sentences: invalidTableSentences } = useTableUrlWarning(SORT_FIELDS);
   // Every registered menu stays: planned, navHidden and other-permission rows included (design §1).
   const rows = useMemo(() => registry.menus.map(menu => toRegistryRow(menu, registry)), [registry]);
   // Full 8-key context, one badge per value — the PlannedPage capability list, copied inline (do not extract).
@@ -77,7 +69,7 @@ export default function RegistryCatalog() {
         body={ko ? `${focus} 메뉴는 등록되어 있지 않습니다. 목록에서 다시 고르세요.` : `${focus} is not a registered menu. Pick another from the list.`}
         action={<Button size="sm" variant="secondary" onClick={() => setPage({ focus: null })}>{ko ? '닫기' : 'Close'}</Button>} />) : null;
   return <PlatformPage description={ko ? '등록된 메뉴 선언의 조회 전용 화면입니다.' : 'Read-only view of the registered menu declarations.'}>
-    {tableInvalid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '정렬·페이지 값이 올바르지 않습니다' : 'The sort or page value cannot be used'} body={invalidTableSentences.map((sentence, index) => <p key={index}>{sentence}</p>)} action={<Button size="sm" variant="secondary" onClick={() => setPage({ sort: null, page: null })}>{ko ? '초기화' : 'Reset'}</Button>} />
+    {tableInvalid ? <TableUrlWarning sentences={invalidTableSentences} />
       : <PlatformDataTable<RegistryRow>
           title={ko ? '메뉴 레지스트리' : 'Menu registry'}
           ariaLabel={ko ? '메뉴 레지스트리 목록' : 'Menu registry list'}

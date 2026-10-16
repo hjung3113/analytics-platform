@@ -81,19 +81,19 @@ describe('useDrill (06 §6.4, ADR-0025)', () => {
     mount('/source?v=1&drillStgroup=A&drillEquipment=E');
     expect(drill!.depth).toBe(0);
     expect(drill!.trail).toEqual([]);
-    expect(drill!.invalid).toEqual({ key: 'drillStgroup', value: 'A' });
+    expect(drill!.invalid).toEqual({ key: 'drillStgroup', label: { ko: 'StGroup', en: 'StGroup' }, value: 'A' });
 
     cleanup();
     mount('/source?v=1&drillRoom=PHOTO&drillEquipment=E');
     expect(drill!.depth).toBe(1);
     expect(drill!.trail.map(step => step.value)).toEqual(['PHOTO']);
-    expect(drill!.invalid).toEqual({ key: 'drillEquipment', value: 'E' });
+    expect(drill!.invalid).toEqual({ key: 'drillEquipment', label: { ko: '설비', en: 'Equipment' }, value: 'E' });
 
     cleanup();
     mount('/source?v=1&drillRoom=&drillStgroup=A');
     expect(drill!.levels[0]?.value).toBeNull();
     expect(drill!.depth).toBe(0);
-    expect(drill!.invalid).toEqual({ key: 'drillStgroup', value: 'A' });
+    expect(drill!.invalid).toEqual({ key: 'drillStgroup', label: { ko: 'StGroup', en: 'StGroup' }, value: 'A' });
   });
 
   it('enter pushes once, writes the step and clears later keys', () => {

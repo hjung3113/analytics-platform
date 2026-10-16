@@ -1,6 +1,6 @@
 import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { useRef, type ReactNode } from 'react';
-import { RETURN_CONTEXT_LABELS, PlatformLink, useDrill, useI18n, usePlatform } from '@ap/kernel';
+import { RETURN_CONTEXT_LABELS, PlatformLink, invalidValueSentence, useDrill, useI18n, usePlatform } from '@ap/kernel';
 import {
   Button, cn,
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger,
@@ -114,7 +114,7 @@ export function DrillLayout({ siblings, notFound, children }: DrillLayoutProps) 
   const ko = lang === 'ko';
   const body = invalid
     ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />}
-      title={ko ? `${invalid.key}=${invalid.value}는 앞 단계 없이 쓸 수 없습니다` : `${invalid.key}=${invalid.value} cannot be used without the earlier steps`}
+      title={invalidValueSentence(lang, 'drillGap', invalid.label, invalid.value)}
       body={ko ? '다른 값으로 바꾸지 않습니다.' : 'Nothing was substituted.'} />
     : notFound
       ? <StateMessage tone="warning" icon={<AlertTriangle className="size-4" aria-hidden />}
