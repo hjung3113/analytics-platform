@@ -55,7 +55,7 @@ export default function EquipmentMaster() {
       table={filterSlot => tableInvalid ? <>{filterSlot}<TableUrlWarning sentences={invalidTableSentences} /></> :
     <PlatformDataTable<Equipment>
       title={ko ? '설비 목록' : 'Equipment list'} ariaLabel={ko ? '설비 마스터 목록' : 'Equipment master list'}
-      subtitle={ko ? '체크한 행은 내보내기에 씁니다. 분석 대상 설비는 행의 분석 링크를 눌러 바꿉니다.' : 'Checked rows are for export. Use a row\'s analysis link to change the analysed equipment.'}
+      subtitle={ko ? '행을 체크하면 내보내거나, ‘선택 설비로 분석’으로 그 설비들을 분석할 수 있습니다.' : 'Check rows to export them, or to analyse them with ‘Analyze selected equipment’.'}
       columns={columns} getRowId={e => e.equipmentId} filterKey={filterKey} preferenceKey="equipment-master:columns:v1" activeRowId={focus} pageSize={25}
       urlState={parsedSort.ok && parsedPage.ok ? {
         page: parsedPage.page === 1 ? null : parsedPage.page,
