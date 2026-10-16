@@ -1,5 +1,5 @@
 import { Ban, FileQuestion, Link2Off } from 'lucide-react';
-import { CONTEXT_LABELS, PAGE_TYPE_LABELS, useI18n, usePlatform } from '@ap/kernel';
+import { CONTEXT_LABELS, PAGE_TYPE_LABELS, contractErrorSentence, useI18n, usePlatform } from '@ap/kernel';
 import { Panel, PlatformPage, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import type { Capability, ContextKey } from '@ap/contracts';
@@ -53,9 +53,9 @@ function KernelMessage({ icon, title, body, tone }: { icon: React.ReactNode; tit
 
 function ContractErrorView() {
   const { contractError, resetContext, url } = usePlatform();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   return <div className="p-6"><StateMessage tone="danger" icon={<Link2Off className="size-4" aria-hidden />} title={t('contractError')}
-    body={<><p>{t('contractErrorBody')}</p><p className="t-mono mt-2 break-all">{url}</p></>}
+    body={<><p>{contractErrorSentence(lang, contractError!)}</p><p className="t-mono mt-2 break-all">{url}</p></>}
     detail={contractError!.message}
     action={<Button size="sm" variant="secondary" onClick={resetContext}>{t('resetContext')}</Button>} /></div>;
 }

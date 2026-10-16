@@ -42,7 +42,7 @@ export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 
       {e.validTo && <p className="text-sm">{ko ? '유효 종료된 ID입니다. 레코드와 이력은 보존됩니다.' : 'This ID is retired. The record and history are retained.'}</p>}
     </>}
     {kind === 'analysis' && <>
-      <p className="text-sm">{ko ? '아래 링크를 클릭하면 분석 Selection을 이 설비 한 대로 명시적으로 교체합니다. 현재 상세를 여는 것만으로는 Selection이 바뀌지 않습니다.' : 'Clicking this link explicitly replaces the analysis Selection with this equipment. Opening details alone does not change Selection.'}</p>
+      <p className="text-sm">{ko ? '아래 링크를 누르면 설비 선택이 이 설비 한 대로 바뀝니다. 상세를 여는 것만으로는 바뀌지 않습니다.' : 'This link changes the equipment selection to this one equipment. Opening details alone does not change it.'}</p>
       <Button asChild size="sm"><PlatformLink href={linkTo('cycle-time', { global: { selection: [id] } })}>{ko ? '이 설비로 사이클타임 상세' : 'Cycle time for this equipment'}</PlatformLink></Button>
     </>}
   </div>}</QueryView>;
@@ -58,7 +58,7 @@ export default function EquipmentDetail({ params }: PageProps) {
   const validTab = tabs.some(t => t.id === requestedTab);
   const header = useEntityQuery<Equipment>({ type: EQUIPMENT_ENTITY_TYPE, id, scopeId: global.scopeId }, 'header', scope.status === 'valid');
   return <PlatformPage title={<span className="t-mono">{id}</span>}
-    description={ko ? '목적지 ID는 위의 전달된 분석 Selection과 별개입니다. Scope와 설비 접근 권한은 다시 검증합니다.' : 'The destination ID is separate from the inherited analysis Selection above. Scope and equipment access are revalidated.'}
+    description={ko ? '이 설비는 위에 전달된 설비 선택과 별개입니다. Scope와 설비 접근 권한은 다시 확인합니다.' : 'This equipment is separate from the equipment selection above. Scope and equipment access are checked again.'}
     secondaryActions={<ReturnLink />}>
     <QueryView widgetName={lang === 'ko' ? '설비 요약' : 'Equipment summary'} query={header}>{e => e && <div className="mb-4 flex items-center gap-3"><EquipmentStatus equipment={e} /><span className="t-mono text-sm text-text-secondary">{e.equipmentId}</span></div>}</QueryView>
     {!validTab ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '등록되지 않은 탭입니다' : 'This tab is not registered'} body={ko ? '이 화면의 탭이 아닙니다. 속성으로 돌아가세요.' : 'This is not a tab on this page. Go back to attributes.'} action={<Button size="sm" variant="secondary" onClick={() => setPage({ tab: 'attributes' })}>{ko ? '속성 열기' : 'Open attributes'}</Button>} /> :

@@ -386,17 +386,17 @@ export default function ProductivityOverview(_: PageProps) {
                       <span className="ml-1 text-tiny font-normal text-text-muted">n={ni(r.jobs)}</span>
                     </span>
                     <PlatformLink href={linkTo('cycle-time', { global: { selection: [r.equipmentId] } })}
-                      title={ko ? '전역 Selection을 이 설비로 명시 교체하고 사이클타임 상세로 이동합니다 (§22 Context Link).' : 'Overrides the global selection to this equipment and opens cycle time detail (§22 Context Link).'}
+                      title={ko ? '설비 선택을 이 설비로 바꾸고 사이클타임 상세로 이동합니다.' : 'Changes the equipment selection to this equipment and opens cycle time detail.'}
                       className="text-xs font-medium text-accent-primary hover:underline">{ko ? '사이클타임 상세 →' : 'Cycle time →'}</PlatformLink>
                     <PlatformLink href={linkTo('equipment-detail', { params: { equipmentId: r.equipmentId }, returnTo: true })}
-                      title={ko ? '목적지 ID(params)로만 이동 — 분석 Selection을 바꾸지 않습니다.' : 'Carries the destination ID only; the analysis selection is untouched.'}
+                      title={ko ? '이 설비의 상세만 엽니다. 설비 선택은 바뀌지 않습니다.' : 'Opens this equipment only. The equipment selection does not change.'}
                       className="text-xs text-text-secondary hover:text-accent-primary hover:underline">{ko ? '설비 상세' : 'Equipment'}</PlatformLink>
                   </li>)}
                 </ul>
                 <p className="t-caption mt-2 text-text-muted">
                   {ko
-                    ? '사이클타임 상세 링크는 전역 Selection을 해당 설비로 명시 교체하고 나머지 Context를 보존합니다. 설비 상세 링크는 목적지 ID(params)로만 이동하며 Selection을 바꾸지 않습니다 (§22).'
-                    : 'The cycle-time link explicitly overrides the global selection to that equipment while preserving other context; the equipment link carries a destination ID only and never changes the selection (§22).'}
+                    ? '사이클타임 상세 링크는 설비 선택을 해당 설비로 바꾸고 나머지 조건은 그대로 둡니다. 설비 상세 링크는 그 설비만 열며 설비 선택을 바꾸지 않습니다.'
+                    : 'The cycle-time link changes the equipment selection to that equipment and keeps the other conditions. The equipment link opens that equipment only and does not change the equipment selection.'}
                 </p>
               </>}
             </QueryView>

@@ -136,3 +136,23 @@ describe('CycleTimeDrilldown slow-execution KPI name (#307)', () => {
     expect(screen.getByTestId('cycle-kpi').textContent).toContain('표시된 P95 이상');
   });
 });
+
+describe('CycleTimeDrilldown population caption (#397)', () => {
+  afterEach(cleanup);
+  const url = '/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00';
+
+  it('shows … only while the KPI query is loading', async () => {
+    const pending: PlatformAdapter = { ...adapter, menuQuery: () => new Promise<never>(() => undefined) };
+    window.history.replaceState(null, '', url);
+    render(<I18nProvider><PlatformProvider adapter={pending} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
+    expect((await screen.findByText(/페이지 필터 적용 목록입니다/)).textContent).toContain('모집단 …건.');
+  });
+
+  it('says 확인할 수 없음 once the KPI query completed with an empty response', async () => {
+    window.history.replaceState(null, '', url);
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
+    const caption = await screen.findByText(/페이지 필터 적용 목록입니다.*모집단 확인할 수 없음/);
+    expect(caption.textContent).not.toMatch(/모집단 …|건\./);
+    expect(caption.textContent).not.toContain('URL sort');
+  });
+});

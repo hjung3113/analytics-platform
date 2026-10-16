@@ -7,6 +7,43 @@ import { buildQuery, ContractError, emptyGlobal, incompleteMetricPair, parseQuer
 
 const code = (fn: () => unknown) => { try { fn(); } catch (e) { return e instanceof ContractError ? e.code : 'other'; } return 'ok'; };
 
+const cause = (search: string) => { try { parseQuery(search); } catch (e) { if (e instanceof ContractError) return { code: e.code, field: e.field, raw: e.raw }; } return null; };
+
+describe('ContractError structured cause (#397)', () => {
+  it.each([
+    ['?from=garbage&to=2026-09-26T09:00:00', 'invalid_time', 'from', 'garbage'],
+    ['?from=2026-09-25T09:00:00&to=2026-09-26T25:00:00', 'invalid_time', 'to', '2026-09-26T25:00:00'],
+    ['?scopeId=%20', 'invalid_id', 'scopeId', ' '],
+    ['?scopeId=', 'invalid_id', 'scopeId', ''],
+    ['?v=2', 'unsupported_version', 'v', '2'],
+    ['?v=abc', 'invalid_version', 'v', 'abc'],
+    ['?equipmentIds=%20', 'invalid_id', 'selectedEquipmentIds', ' '],
+    ['?roomNames=A&roomNames=%20', 'invalid_id', 'roomNames', ' '],
+    ['?lotIds=%20', 'invalid_id', 'lotIds', ' '],
+    ['?ppid=%20', 'invalid_id', 'ppid', ' '],
+    ['?metricId=%20', 'invalid_id', 'metricId', ' '],
+    ['?metricId=m&metricVersion=%20', 'invalid_id', 'metricVersion', ' '],
+    ['?equipmentGroup=nope', 'invalid_condition', 'equipmentGroup', 'nope'],
+    ['?lotSelection=all', 'invalid_set', 'lotSelection', 'all'],
+  ])('%s', (search, c, field, raw) => {
+    expect(cause(search)).toEqual({ code: c, field, raw });
+  });
+  it.each([
+    ['?from=garbage', 'partial_period'],
+    ['?from=2026-09-26T09:00:00&to=2026-09-26T09:00:00', 'invalid_period'],
+    ['?equipmentSelection=none&selectedEquipmentIds=A', 'invalid_set'],
+    ['?equipmentIds=A&selectedEquipmentIds=B', 'alias_conflict'],
+    ['?metricVersion=3', 'metric_pair'],
+    ['?scopeId=A&scopeId=B', 'duplicate_singleton'],
+    ['?equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A1%7D', 'invalid_condition'],
+  ])('%s blames no single value', (search, c) => {
+    expect(cause(search)).toEqual({ code: c, field: undefined, raw: undefined });
+  });
+  it('keeps the English diagnostic message', () => {
+    expect(() => parseQuery('?from=garbage&to=2026-09-26T09:00:00')).toThrow('from: use YYYY-MM-DDTHH:mm:ss (no Z/offset/fraction)');
+  });
+});
+
 describe('URL contract (§6.1–6.4)', () => {
   it('round-trips the full global context with canonical ordering', () => {
     const g = { ...emptyGlobal, scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', roomNames: ['PHOTO', 'ETCH'], condition: { axis: 'makerModel' as const, maker: 'AMX', model: 'XP8' }, selection: ['B', 'A', 'A'], metricId: 'cycle_time', metricVersion: 'v3' };
