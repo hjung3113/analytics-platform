@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { type UsageSummary } from '@ap/contracts';
-import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
+import { invalidValueSentence, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { type PlatformColumn, encodeTableSort, parsePageIndex, parseTableSort, PlatformDataTable, PlatformPage, QueryView, sortAndPage, StateMessage } from '@ap/components';
 import { Button } from '@ap/ui';
 import { formatLastUsed, joinUsageRows, type UsageRow } from '../usage-rows';
@@ -27,8 +27,8 @@ export default function UsageOverview() {
   const parsedPage = parsePageIndex(pageRaw);
   const tableInvalid = !parsedSort.ok || !parsedPage.ok;
   const invalidTableSentences = [
-    !parsedSort.ok ? (ko ? `정렬 “${sortRaw}”은 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.` : `Sort “${sortRaw}” is not a value this page can use. Reset the conditions.`) : null,
-    !parsedPage.ok ? (ko ? `페이지 “${pageRaw}”는 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.` : `Page “${pageRaw}” is not a value this page can use. Reset the conditions.`) : null,
+    !parsedSort.ok ? invalidValueSentence(lang, 'value', { ko: '정렬', en: 'Sort' }, sortRaw ?? '') : null,
+    !parsedPage.ok ? invalidValueSentence(lang, 'value', { ko: '페이지', en: 'Page' }, pageRaw ?? '') : null,
   ].filter((sentence): sentence is string => sentence !== null);
   const columns = useMemo<PlatformColumn<UsageRow>[]>(() => [
     { id: 'id', header: ko ? '메뉴 ID' : 'Menu ID', cell: row => <span className="t-mono">{String(row.id)}</span> },

@@ -70,6 +70,16 @@ describe('ProductivityOverview invalid page key warnings (#304 FIX1)', () => {
     expect(alert.textContent).not.toContain('axis=');
     expect(alert.textContent).not.toContain('sort=');
   });
+
+  it('states each refusal as the exact ADR-0034 sentence plus the page own action (one paragraph per field)', async () => {
+    renderPage('/analytics/productivity?v=1&scopeId=ICH&kpi=bogus&axis=zzz&sort=nope');
+    const alert = await screen.findByRole('alert');
+    expect([...alert.querySelectorAll('p')].map(p => p.textContent)).toEqual([
+      '지표 “bogus”는 이 화면에서 쓸 수 없습니다. 주소를 고치거나 조건을 초기화하세요.',
+      '축 “zzz”은 이 화면에서 쓸 수 없습니다. 주소를 고치거나 조건을 초기화하세요.',
+      '정렬 “nope”은 이 화면에서 쓸 수 없습니다. 주소를 고치거나 조건을 초기화하세요.',
+    ]);
+  });
 });
 
 // UX-304-01: the overview guidance speaks in user operations and meanings — no URL keys, no page ownership.

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
 import { periodHours, type Trust } from '@ap/contracts';
-import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
+import { type PageProps, PlatformLink, invalidValueSentence, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { AnalysisLayout, AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type Delta, type PlatformColumn, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import {
@@ -92,12 +92,12 @@ export default function CycleTimeDrilldown(_: PageProps) {
   // #304 FIX1 (06 §19): each invalid field keeps its user name and the raw value as entered (quoted,
   // untruncated), one sentence per field — never `key=value`.
   const pageRefusals = [
-    !granularityResult.ok ? (ko ? `집계 “${granularityRaw}”는 이 화면에서 쓸 수 없습니다.` : `Grain “${granularityRaw}” cannot be used on this page.`) : null,
-    !tailResult.ok ? (ko ? `느린 실행 기준 “${percentileRaw}”은 이 화면에서 쓸 수 없습니다.` : `Slow executions “${percentileRaw}” cannot be used on this page.`) : null,
-    !sortResult.ok ? (ko ? `정렬 “${sortRaw}”은 이 화면에서 쓸 수 없습니다.` : `Sort “${sortRaw}” cannot be used on this page.`) : null,
-    !bucketResult.ok ? (ko ? `버킷 “${bucketRaw}”은 이 화면에서 쓸 수 없습니다.` : `Bucket “${bucketRaw}” cannot be used on this page.`) : null,
-    !binResult.ok ? (ko ? `분포 구간 “${binRaw}”은 이 화면에서 쓸 수 없습니다.` : `Histogram “${binRaw}” cannot be used on this page.`) : null,
-    !pageResult.ok ? (ko ? `페이지 “${pageRaw}”는 이 화면에서 쓸 수 없습니다.` : `Page “${pageRaw}” cannot be used on this page.`) : null,
+    !granularityResult.ok ? invalidValueSentence(lang, 'plain', { ko: '집계', en: 'Grain' }, granularityRaw ?? '') : null,
+    !tailResult.ok ? invalidValueSentence(lang, 'plain', { ko: '느린 실행 기준', en: 'Slow executions' }, percentileRaw ?? '') : null,
+    !sortResult.ok ? invalidValueSentence(lang, 'plain', { ko: '정렬', en: 'Sort' }, sortRaw ?? '') : null,
+    !bucketResult.ok ? invalidValueSentence(lang, 'plain', { ko: '버킷', en: 'Bucket' }, bucketRaw ?? '') : null,
+    !binResult.ok ? invalidValueSentence(lang, 'plain', { ko: '분포 구간', en: 'Histogram' }, binRaw ?? '') : null,
+    !pageResult.ok ? invalidValueSentence(lang, 'plain', { ko: '페이지', en: 'Page' }, pageRaw ?? '') : null,
   ].filter((sentence): sentence is string => sentence !== null);
 
   // Field labels and option labels shared by the edit controls and the collapsed summary. The summary states
