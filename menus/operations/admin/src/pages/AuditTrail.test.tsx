@@ -101,6 +101,15 @@ const chooseType = async (value: string) => {
   fireEvent.keyDown(typeSelect(), { key: 'ArrowDown' });
   fireEvent.click(await screen.findByRole('option', { name: value }));
 };
+const pressEnter = (input: HTMLElement) => {
+  const key = { key: 'Enter', code: 'Enter', charCode: 13, keyCode: 13 };
+  // jsdom has no keyboard default actions: emulate implicit submission only for an uncancelled Enter.
+  if (fireEvent.keyDown(input, key) && fireEvent.keyPress(input, key)) {
+    const form = input.closest('form')!;
+    act(() => form.requestSubmit(form.querySelector<HTMLButtonElement>('button[type="submit"]')!));
+  }
+  fireEvent.keyUp(input, key);
+};
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/admin/audit');
@@ -406,7 +415,7 @@ describe('AuditTrail draft + apply (ADR-0037)', () => {
     expect(screen.queryByRole('button', { name: /Clear filters|필터 초기화/ })).toBeNull();
   });
 
-  it('moves focus to the first field when Apply, focused, disables itself; an Enter in a field keeps its focus', async () => {
+  it('moves focus to the first field when Apply, focused, disables itself; an unfocused Apply keeps field focus', async () => {
     const f = renderAudit('/admin/audit');
     await waitFor(() => expect(f.calls).toHaveLength(1));
     fireEvent.change(actorInput(), { target: { value: 'park.seo' } });
@@ -420,6 +429,30 @@ describe('AuditTrail draft + apply (ADR-0037)', () => {
     fireEvent.click(applyButton());
     await waitFor(() => expect((applyButton() as HTMLButtonElement).disabled).toBe(true));
     expect(document.activeElement).toBe(targetIdInput());
+  });
+
+  it.each([
+    ['fromAt', fromInput, FROM],
+    ['toAt', toInput, FROM],
+  ] as const)('applies a changed custom %s time once on Enter and keeps input focus', async (key, getInput, instant) => {
+    const f = renderAudit('/admin/audit?page=1');
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    const push = vi.spyOn(window.history, 'pushState');
+    const input = getInput();
+    fireEvent.change(input, { target: { value: '2026-09-26 11:00:00' } });
+    input.focus();
+    expect(push).not.toHaveBeenCalled();
+    expect(f.calls).toHaveLength(1);
+
+    pressEnter(input);
+
+    await waitFor(() => expect(f.calls).toHaveLength(2));
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(new URLSearchParams(window.location.search).get(key)).toBe(instant);
+    expect(new URLSearchParams(window.location.search).has('page')).toBe(false);
+    expect(f.calls[1]).toMatchObject({ [key]: instant, page: 1 });
+    expect((applyButton() as HTMLButtonElement).disabled).toBe(true);
+    expect(document.activeElement).toBe(input);
   });
 
   it('keeps focus on Apply when validation fails', () => {
@@ -457,14 +490,18 @@ describe('AuditTrail draft + apply (ADR-0037)', () => {
       expect(new URLSearchParams(window.location.search).get('fromAt')).toBe(B);
     });
 
-    it('clears the time metadata (touched, error) when the identity changes', () => {
-      renderAudit('/admin/audit');
+    it('clears the time metadata (touched, error) on navigation and preserves the new raw instant on actor-only apply', async () => {
+      const f = renderAudit('/admin/audit');
       fireEvent.change(fromInput(), { target: { value: '2026-02-30 10:00:00' } });
       fireEvent.click(applyButton());
       expect(fromInput().getAttribute('aria-invalid')).toBe('true');
       visit({ fromAt: A });
       expect(fromInput().hasAttribute('aria-invalid')).toBe(false);
       expect((fromInput() as HTMLInputElement).value).toBe('2026-09-26 11:00:00');
+      fireEvent.change(actorInput(), { target: { value: 'park.seo' } });
+      fireEvent.click(applyButton());
+      await waitFor(() => expect(f.calls.at(-1)).toMatchObject({ actor: 'park.seo', fromAt: A }));
+      expect(new URLSearchParams(window.location.search).get('fromAt')).toBe(A);
     });
 
     it('rebases the displayed time when the viewer time zone changes', () => {
