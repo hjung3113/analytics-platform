@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { useLayoutEffect, useRef } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -108,9 +109,9 @@ describe('PlatformPage 50px header (#194)', () => {
     expect(screen.queryByRole('button', { name: 'secondary' })).toBeNull();
     const more = screen.getByRole('button', { name: '더보기' });
     expect(header.contains(more)).toBe(true);
-    fireEvent.keyDown(more, { key: 'Enter' });
+    await userEvent.setup().click(more);
     expect(header.contains(await screen.findByRole('button', { name: 'secondary' }))).toBe(false);
-    fireEvent.keyDown(screen.getByRole('menu', { name: '더보기' }), { key: 'Escape' });
+    fireEvent.keyDown(screen.getByRole('group', { name: '기타 페이지 동작' }), { key: 'Escape' });
     expect(header.nextElementSibling?.textContent).toBe('global context');
     const content = view.container.querySelector('[data-platform-page-content]');
     expect(content).toBe(screen.getByText('page body').parentElement);

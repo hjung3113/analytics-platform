@@ -29,7 +29,7 @@ async function contextEditor(page: Page, name: string) {
 async function headerMore(page: Page) {
   const header = page.getByRole('main').locator('header').filter({ has: page.getByRole('heading', { level: 1 }) });
   await header.getByRole('button', { name: '더보기', exact: true }).click();
-  const menu = page.getByRole('menu', { name: '더보기' });
+  const menu = page.getByRole('group', { name: '기타 페이지 동작' });
   await expect(menu).toBeVisible();
   return menu;
 }
@@ -395,6 +395,32 @@ test.describe('셸 sticky 계약 (06 §7)', () => {
     expect(contextBox).not.toBeNull();
     expect(contextBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height);
     await evidence(page, testInfo, 'page-header-context-after-scroll');
+  });
+
+  test('1024px 펼친 사이드바와 상세 패널에서도 Tab으로 주 동작에 닿는다 (#303)', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.addInitScript(() => localStorage.setItem('platform:sidebar-collapsed', '0'));
+    await page.goto(PRODUCTIVITY.replace('&roomNames=PHOTO', ''));
+    await expectScopeValid(page, 'ICH · Site A');
+    await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
+    await page.getByRole('button', { name: 'CVD 들어가기' }).click();
+    await page.getByRole('button', { name: 'STG-CVD-A 들어가기' }).click();
+    await page.getByRole('button', { name: 'ICH-CVD-0149 들어가기' }).click();
+    await expect.poll(() => query(page).get('drillEquipment')).toBe('ICH-CVD-0149');
+    await expect(page.getByText('설비 요약', { exact: true }).first()).toBeVisible();
+    const header = page.locator('#platform-main header').filter({ has: page.getByRole('heading', { level: 1 }) });
+    const primary = header.getByRole('link', { name: '사이클타임 상세 보기', exact: true });
+    for (let i = 0; i < 150 && !await primary.evaluate(el => el === document.activeElement); i++) {
+      await page.keyboard.press('Tab');
+    }
+    await expect(primary).toBeFocused();
+    await expect.poll(() => primary.evaluate(el => {
+      const link = el.getBoundingClientRect();
+      const band = el.closest('header')!.getBoundingClientRect();
+      return link.left >= band.left && link.right <= band.right && link.top >= band.top && link.bottom <= band.bottom;
+    })).toBe(true);
+    await expect.poll(() => header.evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
+    await evidence(page, testInfo, 'page-header-primary-focus-1024');
   });
 
   // #303: the open detail panel narrows the page, and the header yields description → trust → badge instead of

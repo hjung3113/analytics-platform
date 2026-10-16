@@ -1,8 +1,9 @@
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PlatformAdapter, Session, Trust } from '@ap/contracts';
-import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, PlatformLink, createRegistry, usePlatform } from '@ap/kernel';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { PlatformPage } from './PlatformPage';
 import { noContext, testAdapter, testSpace } from './test-support';
@@ -69,7 +70,8 @@ describe('page header yield order (#303)', () => {
     const title = screen.getByRole('heading', { name: '아주 긴 생산성 개요 제목' });
 
     expect(header.className).toContain('h-[50px]');
-    expect(header.className).not.toContain('overflow-x-auto');
+    expect(header.className).toContain('overflow-x-auto');
+    expect(header.className).not.toContain('overflow-x-hidden');
     expect(header.className).not.toContain('flex-wrap');
     expect(title).toHaveClass('min-w-28', 'truncate');
     expect(title).toHaveAttribute('title', '아주 긴 생산성 개요 제목');
@@ -121,19 +123,79 @@ describe('page header yield order (#303)', () => {
 
     const more = screen.getByRole('button', { name: '더보기' });
     expect(header.contains(more)).toBe(true);
-    more.focus();
-    fireEvent.keyDown(more, { key: 'Enter' });
-    const menu = await screen.findByRole('menu', { name: '더보기' });
-    expect(within(menu).getByRole('group', { name: '기타 페이지 동작' })).toBeTruthy();
-    const action = within(menu).getByRole('button', { name: '보조 동작' });
-    action.focus();
+  });
+
+  it.each(['{Enter}', ' '])('selects a secondary action with %s and returns focus; Escape also returns focus', async key => {
+    const user = userEvent.setup();
+    headerWidths();
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    const onSecondary = vi.fn();
+    render(page(onSecondary));
+    await screen.findByText('page body');
+    const more = screen.getByRole('button', { name: '더보기' });
+    for (let i = 0; i < 10 && document.activeElement !== more; i++) await user.tab();
+    expect(more).toHaveFocus();
+    await user.keyboard('{Enter}');
+    const action = await screen.findByRole('button', { name: '보조 동작' });
     expect(action).toHaveFocus();
-    // jsdom does not turn Enter into a click; the browser does. Dispatch both.
-    fireEvent.keyDown(action, { key: 'Enter' });
-    fireEvent.click(action);
+    expect(screen.getByRole('group', { name: '기타 페이지 동작' })).toContainElement(action);
+    await user.keyboard(key);
     expect(onSecondary).toHaveBeenCalledOnce();
-    // Radix returns focus from a menu on a timeout, after the closed content unmounts.
+    await waitFor(() => expect(screen.queryByRole('group', { name: '기타 페이지 동작' })).toBeNull());
     await waitFor(() => expect(more).toHaveFocus());
+    await user.keyboard('{Enter}');
+    expect(await screen.findByRole('button', { name: '보조 동작' })).toHaveFocus();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('group', { name: '기타 페이지 동작' })).toBeNull());
+    await waitFor(() => expect(more).toHaveFocus());
+    expect(onSecondary).toHaveBeenCalledOnce();
+  });
+
+  it('tabs between ordinary controls and closes after a pointer selection', async () => {
+    const user = userEvent.setup();
+    headerWidths();
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    const onAction = vi.fn();
+    render(<I18nProvider><PlatformProvider adapter={adapter()} registry={registry}>
+      <PlatformPage secondaryActions={<><button onClick={onAction}>첫 동작</button><a href="#same-page" onClick={e => { e.preventDefault(); onAction(); }}>다음 동작</a></>}><p>page body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByText('page body');
+    const more = screen.getByRole('button', { name: '더보기' });
+    await user.click(more);
+    const first = screen.getByRole('button', { name: '첫 동작' });
+    const next = screen.getByRole('link', { name: '다음 동작' });
+    expect(first).toHaveFocus();
+    await user.tab();
+    expect(next).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(first).toHaveFocus();
+    await user.click(next);
+    expect(onAction).toHaveBeenCalledOnce();
+    await waitFor(() => expect(screen.queryByRole('group', { name: '기타 페이지 동작' })).toBeNull());
+    await waitFor(() => expect(more).toHaveFocus());
+  });
+
+  it('leaves focus on the destination heading after a secondary link navigates', async () => {
+    const user = userEvent.setup();
+    headerWidths();
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    const navigationRegistry = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [
+      ...registry.menus, { ...registry.menus[0], id: 'destination', path: '/destination', primary: false, navHidden: true },
+    ] });
+    function Pages() {
+      const { pathname } = usePlatform();
+      return <PlatformPage title={pathname === '/' ? '출발' : '도착'}
+        secondaryActions={<PlatformLink href="/destination?v=1&scopeId=ICH">다른 페이지</PlatformLink>}><p>page body</p></PlatformPage>;
+    }
+    render(<I18nProvider><PlatformProvider adapter={adapter()} registry={navigationRegistry}><Pages /></PlatformProvider></I18nProvider>);
+    await screen.findByText('page body');
+    const more = screen.getByRole('button', { name: '더보기' });
+    await user.click(more);
+    expect(screen.getByRole('link', { name: '다른 페이지' })).toHaveFocus();
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.queryByRole('group', { name: '기타 페이지 동작' })).toBeNull());
+    await waitFor(() => expect(screen.getByRole('heading', { name: '도착' })).toHaveFocus());
+    expect(more).not.toHaveFocus();
   });
 
   it('has no more menu when there is no secondary action', async () => {

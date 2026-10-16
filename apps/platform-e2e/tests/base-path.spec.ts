@@ -7,7 +7,7 @@ const DETAIL = `${BASE}/metrics/cycle_time?v=1&version=3`;
 async function headerMore(page: Page) {
   const header = page.getByRole('main').locator('header').filter({ has: page.getByRole('heading', { level: 1 }) });
   await header.getByRole('button', { name: '더보기', exact: true }).click();
-  const menu = page.getByRole('menu', { name: '더보기' });
+  const menu = page.getByRole('group', { name: '기타 페이지 동작' });
   await expect(menu).toBeVisible();
   return menu;
 }

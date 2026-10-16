@@ -233,7 +233,7 @@ describe('platform home launcher', () => {
       expect(screen.queryByRole('link', { name: '내 VOC' })).toBeNull();
       return;
     }
-    fireEvent.keyDown(screen.getByRole('button', { name: '더보기' }), { key: 'Enter' });
+    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
     expect(await screen.findByRole('link', { name: '내 VOC' })).toBeTruthy();
   });
 });

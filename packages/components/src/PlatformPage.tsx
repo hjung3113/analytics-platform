@@ -2,7 +2,7 @@ import { OutcomeBanners, OutcomeScope } from './OutcomeScope';
 import { ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
 import { cloneElement, isValidElement, useLayoutEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
-import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { Button, cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { consumePageFocus } from './pageFocus';
 import { StateMessage } from './StateView';
@@ -39,15 +39,31 @@ function HeaderOverflow({ actions }: { actions: ReactNode }) {
   const label = ko ? '더보기' : 'More';
   const group = ko ? '기타 페이지 동작' : 'Other page actions';
   const [open, setOpen] = useState(false);
-  return <DropdownMenu open={open} onOpenChange={setOpen}>
-    <DropdownMenuTrigger asChild>
+  const { location } = usePlatform();
+  const openingPath = useRef<string | null>(null);
+  const content = useRef<HTMLDivElement>(null);
+  return <Popover open={open} onOpenChange={next => {
+    if (next) openingPath.current = location.read()?.split('?')[0] ?? null;
+    setOpen(next);
+  }}>
+    <PopoverTrigger asChild>
       <Button type="button" variant="ghost" size="icon-sm" aria-label={label} title={label}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="end" aria-label={group} className="min-w-56">
-      {/* Not menu items: consumers pass a button, link, or fragment. Closing returns focus to the trigger. */}
-      <div role="group" aria-label={group} className="grid gap-2 p-1" onClick={() => setOpen(false)}>{actions}</div>
-    </DropdownMenuContent>
-  </DropdownMenu>;
+    </PopoverTrigger>
+    <PopoverContent ref={content} align="end" role="group" aria-label={group} className="min-w-56" padding="compact"
+      onOpenAutoFocus={event => {
+        // Radix's default autofocus skips anchors; secondary actions can be links.
+        const first = Array.from(content.current?.querySelectorAll<HTMLElement>('a[href], button, input, select, textarea, [tabindex]') ?? [])
+          .find(control => control.tabIndex >= 0 && !control.matches(':disabled, input[type="hidden"]')
+            && !control.closest('[hidden], [inert]') && getComputedStyle(control).display !== 'none' && getComputedStyle(control).visibility !== 'hidden');
+        if (first) { event.preventDefault(); first.focus(); }
+      }}
+      onCloseAutoFocus={event => {
+        // A destination page owns focus after navigation (06 §26).
+        if ((location.read()?.split('?')[0] ?? null) !== openingPath.current) event.preventDefault();
+      }}>
+      <div className="grid gap-2 p-1" onClick={() => setOpen(false)}>{actions}</div>
+    </PopoverContent>
+  </Popover>;
 }
 
 export type PlatformPageProps = {
@@ -147,7 +163,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
 
   return <div ref={root} data-platform-page className="flex min-h-full flex-col">
     <div ref={stickyHeader} className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
-      <header ref={pageHeader} className="flex h-[50px] shrink-0 overflow-x-hidden items-center justify-between gap-3 border-b border-border-subtle bg-surface-canvas px-4">
+      <header ref={pageHeader} className="flex h-[50px] shrink-0 overflow-x-auto items-center justify-between gap-3 border-b border-border-subtle bg-surface-canvas px-4">
         <div className="flex min-w-28 flex-1 items-center gap-2">
           {(parent || crumbs.length > 0) && <nav aria-label={t('breadcrumb')} className="flex min-w-0 items-center gap-1 text-xs text-text-muted">
             {parent && <><PlatformLink className="min-w-0 truncate hover:text-accent-primary" title={tx(parent.label)} href={linkTo(parent.id)}>{tx(parent.label)}</PlatformLink><ChevronRight className="size-3 shrink-0" aria-hidden /></>}
