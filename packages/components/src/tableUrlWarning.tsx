@@ -3,6 +3,7 @@ import { invalidValueSentence, useI18n, usePlatform } from '@ap/kernel';
 import { Button } from '@ap/ui';
 import { parsePageIndex, parseTableSort } from './PlatformDataTable';
 import { StateMessage } from './StateView';
+import { focusPageFallback } from './pageFocus';
 
 /**
  * §6.1 `sort`/`page` raw values parsed against the page's allowed sort columns, plus the ADR-0034 sentences
@@ -29,5 +30,5 @@ export function TableUrlWarning({ sentences }: { sentences: readonly string[] })
   return <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />}
     title={t('invalidTableTitle')}
     body={sentences.map((sentence, index) => <p key={index}>{sentence}</p>)}
-    action={<Button size="sm" variant="secondary" onClick={() => setPage({ sort: null, page: null })}>{t('reset')}</Button>} />;
+    action={<Button size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); setPage({ sort: null, page: null }); }}>{t('reset')}</Button>} />;
 }

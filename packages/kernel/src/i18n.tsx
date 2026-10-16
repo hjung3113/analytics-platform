@@ -143,10 +143,10 @@ const dict = {
   invalidUrlValue: { ko: '{field} “{raw}”{particle} 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.', en: '{field} “{raw}” is not a value this page can use. Reset the conditions.' },
   invalidUrlFilter: { ko: '{field} “{raw}”{particle} 이 화면에서 쓸 수 없는 필터입니다. 조건을 초기화하세요.', en: '{field} “{raw}” is not available on this screen. Reset the filters.' },
   invalidUrlDrillGap: { ko: '{field} “{raw}”{particle} 앞 단계 없이 쓸 수 없습니다.', en: '{field} “{raw}” cannot be used without the earlier steps.' },
+  invalidUrlPlain: { ko: '{field} “{raw}”{particle} 이 화면에서 쓸 수 없습니다.', en: '{field} “{raw}” cannot be used on this page.' },
   invalidTableTitle: { ko: '정렬·페이지 값이 올바르지 않습니다', en: 'The sort or page value cannot be used' },
   invalidTableSort: { ko: '정렬', en: 'Sort' },
   invalidTablePage: { ko: '페이지', en: 'Page' },
-  invalidUrlPlain: { ko: '{field} “{raw}”{particle} 이 화면에서 쓸 수 없습니다.', en: '{field} “{raw}” cannot be used on this page.' },
 } satisfies Record<string, Text>;
 
 export type Key = keyof typeof dict;

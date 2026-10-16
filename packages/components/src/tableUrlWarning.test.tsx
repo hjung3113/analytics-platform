@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import type { Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, type MenuEntry } from '@ap/kernel';
@@ -64,5 +65,22 @@ describe('useTableUrlWarning + TableUrlWarning (06 §15, ADR-0034)', () => {
     expect(params.get('q')).toBe('abc');
     expect(window.history.length - before).toBeLessThanOrEqual(1);
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it.each(['click', 'keyboard'] as const)('Reset restores focus to main before disappearing (%s)', async method => {
+    const user = userEvent.setup();
+    window.history.replaceState(null, '', '/list?v=1&sort=nope&page=0');
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}>
+      <main tabIndex={-1}><Probe /></main>
+    </PlatformProvider></I18nProvider>);
+    const button = screen.getByRole('button', { name: '초기화' });
+    button.focus();
+    expect(document.activeElement).toBe(button);
+
+    if (method === 'click') await user.click(button);
+    else await user.keyboard('{Enter}');
+
+    expect(screen.queryByRole('button', { name: '초기화' })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('main'));
   });
 });
