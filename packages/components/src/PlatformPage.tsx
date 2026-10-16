@@ -4,26 +4,9 @@ import { cloneElement, isValidElement, useLayoutEffect, useRef, useState, type C
 import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { DataTrustIndicator } from './DataTrustIndicator';
+import { type HeaderYield, nextHeaderYield, openHeaderYield } from './headerYield';
 import { consumePageFocus, focusPageFallback } from './pageFocus';
 import { StateMessage } from './StateView';
-
-// Header's own width, not the viewport (#303, ADR-0035). Collapsing frees no container width, so the
-// slack is what stops a width sitting on the boundary from opening and closing on every measure.
-const YIELD_DESCRIPTION_AT = 1000;
-const YIELD_TRUST_AT = 840;
-const YIELD_BADGE_AT = 760;
-const YIELD_SLACK = 32;
-type HeaderYield = { description: boolean; trust: boolean; badge: boolean };
-const openHeader: HeaderYield = { description: false, trust: false, badge: false };
-
-function nextHeaderYield(width: number, prev: HeaderYield): HeaderYield {
-  const step = (on: boolean, at: number) => (on ? width < at + YIELD_SLACK : width < at);
-  return {
-    description: step(prev.description, YIELD_DESCRIPTION_AT),
-    trust: step(prev.trust, YIELD_TRUST_AT),
-    badge: step(prev.badge, YIELD_BADGE_AT),
-  };
-}
 
 function withTrustYield(node: ReactNode, yieldState: HeaderYield): ReactNode {
   if (!isValidElement(node) || node.type !== DataTrustIndicator) return node;
@@ -95,27 +78,34 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const restoreDescriptionFocus = useRef(false);
   const programmaticDescriptionFocus = useRef(false);
   const [descriptionTooltipOpen, setDescriptionTooltipOpen] = useState(false);
-  const yieldRef = useRef<HeaderYield>(openHeader);
-  const [headerYield, setHeaderYield] = useState<HeaderYield>(openHeader);
+  const yieldRef = useRef(openHeaderYield);
+  const measureRef = useRef<() => void>(() => {});
+  const [headerYield, setHeaderYield] = useState<HeaderYield>(openHeaderYield.yielded);
   useLayoutEffect(() => {
     const header = stickyHeader.current;
     if (!header) return;
     const measure = () => {
       root.current?.style.setProperty('--page-sticky-offset', `${header.getBoundingClientRect().height}px`);
-      const width = pageHeader.current?.getBoundingClientRect().width ?? 0;
-      if (width <= 0) return;
-      const next = nextHeaderYield(width, yieldRef.current);
-      if (next.description === yieldRef.current.description && next.trust === yieldRef.current.trust && next.badge === yieldRef.current.badge) return;
-      if (next.description !== yieldRef.current.description) {
-        const trigger = yieldRef.current.description ? descriptionButton.current : descriptionText.current;
+      const band = pageHeader.current;
+      const width = band?.getBoundingClientRect().width ?? 0;
+      if (!band || width <= 0) return;
+      const prev = yieldRef.current;
+      // The measured overflow, not the width alone, decides a stage the fixed widths missed (#398 UX-1).
+      const next = nextHeaderYield(width, prev, band.scrollWidth > band.clientWidth);
+      yieldRef.current = next;
+      if (next.yielded.description === prev.yielded.description && next.yielded.trust === prev.yielded.trust && next.yielded.badge === prev.yielded.badge) return;
+      if (next.yielded.description !== prev.yielded.description) {
+        const trigger = prev.yielded.description ? descriptionButton.current : descriptionText.current;
         restoreDescriptionFocus.current = trigger != null && document.activeElement === trigger;
       }
-      yieldRef.current = next;
-      setHeaderYield(next);
+      setHeaderYield(next.yielded);
     };
+    measureRef.current = measure;
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
+    // Data Trust text or actions arriving later widen the content without resizing the header.
+    for (const child of Array.from(pageHeader.current?.children ?? [])) observer.observe(child);
     observer.observe(header);
     return () => observer.disconnect();
   }, []);
@@ -128,6 +118,9 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
     try { target?.focus({ preventScroll: true }); }
     finally { programmaticDescriptionFocus.current = false; }
   }, [headerYield.description]);
+  // A closed stage changes the content width but not the header's: measure again so the next stage can close
+  // before paint. Each pass closes one of three stages, so this ends.
+  useLayoutEffect(() => { measureRef.current(); }, [headerYield]);
   useLayoutEffect(() => {
     const focusDestination = () => {
       const request = consumePageFocus(pageNavigation, pathname);

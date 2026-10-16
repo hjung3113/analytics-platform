@@ -482,6 +482,23 @@ test.describe('셸 sticky 계약 (06 §7)', () => {
     await evidence(page, testInfo, 'page-header-star-hit-1024');
   });
 
+  // UX-1 (#398): the yield widths predate the left group's rem minimum, so 1024 collapsed (overview) and 1440
+  // collapsed (drill + detail) scrolled the header while Data Trust's summary and the badge were still shown.
+  for (const { width, drill } of [{ width: 1024, drill: false }, { width: 1440, drill: true }]) {
+    test(`사이드바를 접은 ${width}px ${drill ? '설비 상세' : '개요'}에서 머리는 모든 양보 전에 가로로 넘치지 않는다 (#398)`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.addInitScript(() => localStorage.setItem('platform:sidebar-collapsed', '1'));
+      await page.goto(`${PRODUCTIVITY}${drill ? '&drillRoom=PHOTO&drillStgroup=STG-PHOTO-A&drillEquipment=ICH-PHOTO-0103' : ''}`);
+      await expectScopeValid(page, 'ICH · Site A');
+      await expect(page.getByRole('button', { name: '사이드바 펼치기' })).toBeVisible();
+      if (drill) await expect(page.getByText('설비 요약', { exact: true }).first()).toBeVisible();
+      const header = page.locator('#platform-main header').filter({ has: page.getByRole('heading', { level: 1 }) });
+      await expect(header.getByRole('button', { name: '데이터 신뢰' })).toBeVisible();
+      await expect.poll(() => header.evaluate(el => el.scrollWidth - el.clientWidth)).toBe(0);
+      await evidence(page, testInfo, `page-header-collapsed-no-scroll-${width}`);
+    });
+  }
+
   // #303: the open detail panel narrows the page, and the header yields description → trust → badge instead of
   // hiding the title or pushing the primary action off screen behind a horizontal scroll.
   for (const width of [1440, 1280]) {
