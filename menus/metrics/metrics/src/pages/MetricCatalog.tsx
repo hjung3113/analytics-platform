@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { type PageProps, PlatformLink, type QueryState, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
+import { type PageProps, PlatformLink, type QueryState, invalidValueSentence, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, StateMessage, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
 import { Button } from '@ap/ui';
 import {
@@ -84,12 +84,12 @@ export default function MetricCatalogPage(_: PageProps) {
   // #304 FIX1 (06 §19): each invalid field keeps its user name and the raw value as entered (quoted, untruncated),
   // one sentence per field — never `key=value`.
   const invalidFilterSentences = [
-    statusIllegal ? (lang === 'ko' ? `상태 “${status}”는 이 화면에서 쓸 수 없는 필터입니다. 조건을 초기화하세요.` : `Status “${status}” is not available on this screen. Reset the filters.`) : null,
-    domainIllegal ? (lang === 'ko' ? `도메인 “${domain}”은 이 화면에서 쓸 수 없는 필터입니다. 조건을 초기화하세요.` : `Domain “${domain}” is not available on this screen. Reset the filters.`) : null,
+    statusIllegal ? invalidValueSentence(lang, 'filter', { ko: '상태', en: 'Status' }, status) : null,
+    domainIllegal ? invalidValueSentence(lang, 'filter', { ko: '도메인', en: 'Domain' }, domain) : null,
   ].filter((sentence): sentence is string => sentence !== null);
   const invalidTableSentences = [
-    !parsedSort.ok ? (lang === 'ko' ? `정렬 “${sortRaw}”은 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.` : `Sort “${sortRaw}” is not a value this screen can use. Reset the conditions.`) : null,
-    !parsedPage.ok ? (lang === 'ko' ? `페이지 “${pageRaw}”는 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.` : `Page “${pageRaw}” is not a value this screen can use. Reset the conditions.`) : null,
+    !parsedSort.ok ? invalidValueSentence(lang, 'value', { ko: '정렬', en: 'Sort' }, sortRaw ?? '') : null,
+    !parsedPage.ok ? invalidValueSentence(lang, 'value', { ko: '페이지', en: 'Page' }, pageRaw ?? '') : null,
   ].filter((sentence): sentence is string => sentence !== null);
   const tableInvalid = !parsedSort.ok || !parsedPage.ok;
   // A global-Context change clears `page` in the kernel (manifest contextResetKeys); pages write no reset effect.

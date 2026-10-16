@@ -117,6 +117,17 @@ describe('CycleTimeDrilldown invalid page key warnings (#304 FIX1)', () => {
     expect(alert.textContent).not.toContain('bin=');
     expect(alert.textContent).not.toContain('page=');
   });
+
+  it('states each refusal as the exact ADR-0034 sentence plus the page own action (one paragraph per field)', async () => {
+    renderPage('/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00&granularity=zzz&percentile=q&bin=bogus&page=0');
+    const alert = await screen.findByRole('alert');
+    expect([...alert.querySelectorAll('p')].map(p => p.textContent)).toEqual([
+      '집계 “zzz”는 이 화면에서 쓸 수 없습니다. 페이지 조건을 기본값으로 되돌리세요.',
+      '느린 실행 기준 “q”은 이 화면에서 쓸 수 없습니다. 페이지 조건을 기본값으로 되돌리세요.',
+      '분포 구간 “bogus”은 이 화면에서 쓸 수 없습니다. 페이지 조건을 기본값으로 되돌리세요.',
+      '페이지 “0”는 이 화면에서 쓸 수 없습니다. 페이지 조건을 기본값으로 되돌리세요.',
+    ]);
+  });
 });
 
 describe('CycleTimeDrilldown slow-execution KPI name (#307)', () => {

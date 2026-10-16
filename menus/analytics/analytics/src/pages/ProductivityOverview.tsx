@@ -9,7 +9,7 @@ import { formatMetricVersion, periodHours } from '@ap/contracts';
  * mock server half. Definitions are Candidates per wireframe 11 §6.
  */
 import { AlertTriangle, ArrowRight, BarChart3, ChevronRight, Hourglass, Percent, RotateCw, Timer } from 'lucide-react';
-import { type PageProps, PlatformLink, useDrill, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
+import { type PageProps, PlatformLink, useDrill, invalidValueSentence, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
 import { AnalysisChartFrame, type ChartSeries, DataTrustIndicator, type Delta, DrillLayout, Panel, PlatformPage, QueryView, SegmentedRadio, StatCard, StateMessage } from '@ap/components';
 import { Button, cn, StatusBadge } from '@ap/ui';
 import {
@@ -60,9 +60,9 @@ export default function ProductivityOverview(_: PageProps) {
   // #304 FIX1 (06 §19): each invalid field keeps its user name and the raw value as entered (quoted,
   // untruncated), one sentence per field — never `key=value`.
   const pageRefusals = [
-    !kpiResult.ok ? (ko ? `지표 “${rawKpi}”는 이 화면에서 쓸 수 없습니다.` : `Metric “${rawKpi}” cannot be used on this page.`) : null,
-    !axisResult.ok ? (ko ? `축 “${rawAxis}”은 이 화면에서 쓸 수 없습니다.` : `Axis “${rawAxis}” cannot be used on this page.`) : null,
-    !sortResult.ok ? (ko ? `정렬 “${rawSort}”은 이 화면에서 쓸 수 없습니다.` : `Sort “${rawSort}” cannot be used on this page.`) : null,
+    !kpiResult.ok ? invalidValueSentence(lang, 'plain', { ko: '지표', en: 'Metric' }, rawKpi ?? '') : null,
+    !axisResult.ok ? invalidValueSentence(lang, 'plain', { ko: '축', en: 'Axis' }, rawAxis ?? '') : null,
+    !sortResult.ok ? invalidValueSentence(lang, 'plain', { ko: '정렬', en: 'Sort' }, rawSort ?? '') : null,
   ].filter((sentence): sentence is string => sentence !== null);
 
   // Page-owned URL key `granularity` (wireframe 11 §3.1). Unset → hour for ≤48h, else day (Candidate).

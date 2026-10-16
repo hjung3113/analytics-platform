@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Gauge } from 'lucide-react';
 import type { ApiResponse, MenuQuery, PlatformAdapter, Session } from '@ap/contracts';
@@ -109,5 +109,37 @@ describe('invalid URL value warnings keep field name and raw value (#304 FIX1)',
     expect(alert.textContent).toContain('zzz');
     expect(alert.textContent).not.toContain('sort=');
     expect(alert.textContent).not.toContain('page=');
+  });
+});
+
+describe('metric catalog invalid URL values (ADR-0034 sentences)', () => {
+  const renderAt = (path: string) => {
+    window.history.replaceState(null, '', path);
+    render(<I18nProvider><PlatformProvider adapter={fixture()} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
+  };
+  const alertParagraphs = (alert: HTMLElement) => [...alert.querySelectorAll('p')].map(p => p.textContent);
+
+  it('an invalid status states the exact filter sentence and Reset clears only that key', async () => {
+    renderAt('/metrics?status=bogus&domain=quality');
+    const alert = await screen.findByRole('alert');
+    expect(alertParagraphs(alert)).toEqual(['상태 “bogus”는 이 화면에서 쓸 수 없는 필터입니다. 조건을 초기화하세요.']);
+    fireEvent.click(within(alert).getByRole('button', { name: '초기화' }));
+    const params = new URLSearchParams(window.location.search);
+    expect(params.has('status')).toBe(false);
+    expect(params.get('domain')).toBe('quality');
+  });
+
+  it('invalid sort and page state the exact value sentences and Reset clears both', async () => {
+    renderAt('/metrics?sort=bogus&page=0&q=abc');
+    const alert = await screen.findByRole('alert');
+    expect(alertParagraphs(alert)).toEqual([
+      '정렬 “bogus”은 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.',
+      '페이지 “0”는 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.',
+    ]);
+    fireEvent.click(within(alert).getByRole('button', { name: '초기화' }));
+    const params = new URLSearchParams(window.location.search);
+    expect(params.has('sort')).toBe(false);
+    expect(params.has('page')).toBe(false);
+    expect(params.get('q')).toBe('abc');
   });
 });
