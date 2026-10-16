@@ -1879,6 +1879,39 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
     await expect(trend(page).getByText(/ICH 전용 PM 작업/)).toBeVisible();
   });
 
+  test('주석 삭제를 키보드로 확정하면 포커스가 남은 주석의 삭제 버튼으로 옮겨진다 (06 §26)', async ({ page }) => {
+    const tag = `삭제포커스${Date.now()}`;
+    await page.goto(CYCLE);
+    const frame = trend(page);
+    await brush(page);
+    for (const suffix of ['가', '나']) {
+      const annotate = frame.getByRole('button', { name: '주석', exact: true });
+      if (await annotate.isDisabled()) await brush(page);
+      await annotate.click();
+      await frame.getByRole('textbox', { name: '주석 내용' }).fill(`${tag}-${suffix}`);
+      await frame.getByRole('button', { name: '저장' }).click();
+      await expect(frame.getByText(`${tag}-${suffix}`)).toBeVisible();
+    }
+    const mine = frame.getByRole('button', { name: new RegExp(`^삭제: ${tag}-`) });
+    await expect(mine).toHaveCount(2);
+    const firstName = (await mine.first().getAttribute('aria-label'))!;
+    const secondName = (await mine.nth(1).getAttribute('aria-label'))!;
+
+    const first = frame.getByRole('button', { name: firstName, exact: true });
+    await first.focus();
+    await expect(first).toBeFocused();
+    await page.keyboard.press('Enter');
+    const confirmRow = frame.getByRole('group', { name: `삭제 확인: ${firstName.replace('삭제: ', '')}` });
+    const confirm = confirmRow.getByRole('button', { name: '삭제 확정' });
+    await expect(confirm).toBeFocused();
+    await page.keyboard.press('Enter');
+
+    await expect(frame.getByRole('button', { name: firstName, exact: true })).toHaveCount(0);
+    // Chromium blurs the removed button; focus must still land on the remaining note, not body.
+    await expect(frame.getByRole('button', { name: secondName, exact: true })).toBeFocused();
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))).toBe(secondName);
+  });
+
   test('차트 동작은 메뉴 manifest features를 따른다: 사이클타임은 비교·주석·내보내기, 생산성 개요는 내보내기만', async ({ page }, testInfo) => {
     await page.goto(CYCLE);
     const frame = trend(page);

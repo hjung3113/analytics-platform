@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { AnnotationInput } from '@ap/contracts';
-import { listAnnotations, resetAnnotations, saveAnnotation, storedAnnotations } from './annotations';
+import { auditTrail } from './audit';
+import { deleteAnnotation, listAnnotations, resetAnnotations, saveAnnotation, storedAnnotations } from './annotations';
 import { getRole, setRole, setScenario } from './server';
 import type { RoleId } from './world';
 
@@ -17,7 +18,7 @@ describe('chart annotations (issue #103)', () => {
     setRole('engineer');
     const saved = await saveAnnotation(input(), undefined, fast);
     expect(saved.outcome).toBe('ok');
-    expect(saved.data).toEqual({ id: 'ann-1', chartId: 'cycle-time', scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-25T12:00:00', text: 'PM 작업', at: expect.any(String) });
+    expect(saved.data).toEqual({ id: 'ann-1', chartId: 'cycle-time', scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-25T12:00:00', text: 'PM 작업', at: expect.any(String), mine: true });
     expect(storedAnnotations()[0].authorId).toBe('engineer');
     const read = await listAnnotations({ chartId: 'cycle-time', scopeId: 'ICH' }, undefined, fast);
     expect(read.outcome).toBe('ok');
@@ -108,5 +109,83 @@ describe('chart annotations (issue #103)', () => {
     setScenario('empty');
     expect((await listAnnotations({ chartId: 'cycle-time', scopeId: 'ICH' }, undefined, fast)).outcome).toBe('empty');
     expect((await saveAnnotation(input(), undefined, fast)).outcome).toBe('ok');
+  });
+});
+
+describe('author-only delete with audit (#399, ADR-0041)', () => {
+  const ref = (id: string, over: Partial<{ chartId: string; scopeId: string | null }> = {}) => ({ chartId: 'cycle-time', scopeId: 'ICH' as string | null, id, ...over });
+
+  it('marks mine per requesting role on list and save, and never stores it', async () => {
+    setRole('engineer');
+    const saved = await saveAnnotation(input(), undefined, fast);
+    expect(saved.data?.mine).toBe(true);
+    expect(storedAnnotations()[0]).not.toHaveProperty('mine');
+    expect((await listAnnotations({ chartId: 'cycle-time', scopeId: 'ICH' }, undefined, fast)).data?.items[0].mine).toBe(true);
+    setRole('admin');
+    expect((await listAnnotations({ chartId: 'cycle-time', scopeId: 'ICH' }, undefined, fast)).data?.items[0].mine).toBe(false);
+  });
+
+  it('lets the author delete: the note is gone and the answer carries only the id', async () => {
+    setRole('engineer');
+    await saveAnnotation(input(), undefined, fast);
+    const res = await deleteAnnotation(ref('ann-1'), undefined, fast);
+    expect(res).toMatchObject({ outcome: 'ok', data: { id: 'ann-1' }, trust: null, assessments: [] });
+    expect(storedAnnotations()).toHaveLength(0);
+    expect((await listAnnotations({ chartId: 'cycle-time', scopeId: 'ICH' }, undefined, fast)).outcome).toBe('empty');
+  });
+
+  it('refuses a non-author with forbidden and keeps the note', async () => {
+    setRole('engineer');
+    await saveAnnotation(input(), undefined, fast);
+    setRole('admin');
+    expect(await deleteAnnotation(ref('ann-1'), undefined, fast)).toMatchObject({ outcome: 'forbidden' });
+    expect(storedAnnotations()).toHaveLength(1);
+    expect((await auditTrail({ type: 'annotation' }, undefined, fast)).outcome).toBe('empty');
+  });
+
+  it('answers empty for an unknown id, another chart and another site without revealing the row', async () => {
+    setRole('admin');
+    await saveAnnotation(input({ scopeId: 'ICH' }), undefined, fast);
+    expect((await deleteAnnotation(ref('ann-99'), undefined, fast)).outcome).toBe('empty');
+    expect((await deleteAnnotation(ref('ann-1', { scopeId: 'CJU' }), undefined, fast)).outcome).toBe('empty');
+    expect((await deleteAnnotation(ref('ann-1', { chartId: 'productivity' }), undefined, fast)).outcome).toBe('empty');
+    expect(storedAnnotations()).toHaveLength(1);
+  });
+
+  it.each([
+    ['null scope', { scopeId: null }],
+    ['unknown scope', { scopeId: 'NOPE' }],
+    ['ungranted scope', { scopeId: 'XIA' }],
+  ])('%s is forbidden before any lookup', async (_name, over) => {
+    setRole('engineer');
+    await saveAnnotation(input(), undefined, fast);
+    expect((await deleteAnnotation(ref('ann-1', over), undefined, fast)).outcome).toBe('forbidden');
+    expect(storedAnnotations()).toHaveLength(1);
+  });
+
+  it('answers forbidden without the chart permission and rejects unknown keys', async () => {
+    setRole('viewer');
+    expect(await deleteAnnotation(ref('ann-1'), undefined, fast)).toMatchObject({ outcome: 'forbidden', message: 'No permission analytics:view' });
+    setRole('engineer');
+    await saveAnnotation(input(), undefined, fast);
+    for (const extra of [{ authorId: 'engineer' }, { text: 'x' }]) {
+      expect(await deleteAnnotation({ ...ref('ann-1'), ...extra } as never, undefined, fast)).toMatchObject({ outcome: 'error', message: 'Invalid annotation request' });
+    }
+    expect(storedAnnotations()).toHaveLength(1);
+  });
+
+  it('records a successful delete in the audit trail the console reads, with the note as the reason', async () => {
+    setRole('engineer');
+    await saveAnnotation(input(), undefined, fast);
+    await deleteAnnotation(ref('ann-1'), undefined, fast);
+    setRole('admin');
+    const trail = await auditTrail({ type: 'annotation', action: 'delete' }, undefined, fast);
+    expect(trail.outcome).toBe('ok');
+    expect(trail.data?.items).toEqual([{
+      id: 'annotation:ann-1:delete', at: expect.stringMatching(/Z$/), actor: 'engineer', action: 'delete', source: 'user',
+      target: { type: 'annotation', id: 'ann-1', scopeId: 'ICH' }, changes: { chartId: ['cycle-time', null] }, reason: 'PM 작업',
+    }]);
+    setRole('engineer');
+    expect((await auditTrail({ type: 'annotation' }, undefined, fast)).outcome).toBe('forbidden');
   });
 });

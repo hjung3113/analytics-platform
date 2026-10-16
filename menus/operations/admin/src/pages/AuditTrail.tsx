@@ -179,10 +179,11 @@ export default function AuditTrail() {
     { id: 'actor', header: ko ? '행위자' : 'Actor', size: 130, cell: row => mono(row.actor) },
     { id: 'action', header: ko ? '작업' : 'Action', size: 110, cell: row => ACTION_LABEL[row.action][lang] },
     { id: 'source', header: ko ? '출처' : 'Source', size: 100, cell: row => <StatusBadge tone={row.source === 'system' ? 'neutral' : 'info'}>{SOURCE_LABEL[row.source][lang]}</StatusBadge> },
-    { id: 'targetType', header: ko ? '대상 유형' : 'Target type', value: row => row.target.type, size: 110, cell: row => Object.hasOwn(TYPE_LABEL, row.target.type) ? TYPE_LABEL[row.target.type as 'equipment' | 'metric'][lang] : mono(row.target.type) },
+    { id: 'targetType', header: ko ? '대상 유형' : 'Target type', value: row => row.target.type, size: 110, cell: row => Object.hasOwn(TYPE_LABEL, row.target.type) ? TYPE_LABEL[row.target.type as 'equipment' | 'metric' | 'annotation'][lang] : mono(row.target.type) },
     { id: 'targetId', header: ko ? '대상 ID' : 'Target ID', sortable: false, value: row => row.target.id, size: 170, cell: row => mono(row.target.id) },
     { id: 'scopeId', header: ko ? '사이트' : 'Site', sortable: false, size: 90, cell: row => row.target.scopeId ?? '—' },
     { id: 'changes', header: ko ? '변경 필드' : 'Changed fields', sortable: false, size: 220, cell: row => row.changes ? Object.keys(row.changes).sort().join(', ') : '—' },
+    { id: 'reason', header: ko ? '사유' : 'Reason', sortable: false, size: 200, cell: row => row.reason ? <span className="block truncate" title={row.reason}>{row.reason}</span> : '—' },
   ], [ko, lang, timeZone]);
   return <PlatformPage description={ko ? '모든 사이트의 마스터 변경 로그입니다. 행의 링크는 각 상세 화면의 변경 이력 탭으로 이동합니다.' : 'The master-change log across all sites. A row link opens the destination detail\'s change-history tab.'}>
     <ManagementLayout filter={filters} activeFilterCount={activeFilterCount} pendingFilterCount={draft.changedCount}

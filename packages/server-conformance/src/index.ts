@@ -74,6 +74,12 @@ export type ServerConformanceHarness = {
   withoutPermission<T>(permission: Permission, fn: () => Promise<T>): Promise<T>;
   /** Run `fn` as an actor holding `console:access` (the console reads) — a different account from the granted one in practice. */
   asConsole<T>(fn: () => Promise<T>): Promise<T>;
+  /**
+   * Run `fn` as a second user, distinct from the granted one, who can annotate: `ports.annotation.permission` and a
+   * grant at `context.scopeId`. The author-only delete check uses it as "another user" — a refusal only proves
+   * authorship when this account is allowed to annotate, so the kit first proves it can (#399).
+   */
+  asOtherAnnotator<T>(fn: () => Promise<T>): Promise<T>;
 };
 
 /** One check: `run` resolves to null when the adapter conforms, otherwise to the reason it does not. */
@@ -110,8 +116,8 @@ const UNKNOWN_KEY = '__conformance_unknown';
 const UNKNOWN_SITE = '__conformance_unknown_site';
 /** Console reads are `console:access` (adapter.ts) — a contract constant, named so the kit never hardcodes it inline. */
 const CONSOLE_ACCESS: Permission = 'console:access';
-/** adapter.ts `ChartAnnotation`: the only row fields a client ever sees — the server stamps the author, never sent, never returned. */
-const ANNOTATION_ROW_KEYS = ['id', 'chartId', 'scopeId', 'from', 'to', 'text', 'at'] as const;
+/** adapter.ts `ChartAnnotation`: the only row fields a client ever sees — the server stamps the author, never sent, never returned; `mine` is the computed hint (#399). */
+const ANNOTATION_ROW_KEYS = ['id', 'chartId', 'scopeId', 'from', 'to', 'text', 'at', 'mine'] as const;
 /** Outcomes that answer nothing — checklist §2 getEntity: a rejection never carries row fields. */
 const REJECTIONS: readonly ApiResponse<unknown>['outcome'][] = ['forbidden', 'error', 'too_large', 'timeout'];
 
@@ -714,6 +720,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
         return 'the saved row must echo the input chartId·scopeId·from·to';
       }
       if (row.text !== input.text) return 'the saved row must echo the input text';
+      if (row.mine !== true) return 'the saved row must carry mine: true for the user who just saved it (adapter.ts, #399)';
       const extra = Object.keys(row).filter(k => !(ANNOTATION_ROW_KEYS as readonly string[]).includes(k));
       if (extra.length > 0) {
         return `the saved row carries ${extra.join(', ')} — the server stamps the author and the client never sees or sends it (adapter.ts)`;
@@ -834,6 +841,91 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
     run: () => harness.withoutPermission(
       annotationPermission,
       expectOutcome(() => adapter.saveAnnotation(annotationInput(harness.context.scopeId)), 'forbidden', 'the annotation write re-checks the chart permission per request'),
+    ),
+  });
+  // Author-only delete (#399, ADR-0041). The two actors are the granted account and a second annotating account (`asOtherAnnotator`), so
+  // these run sequentially and switch actors themselves (the mock's role is global).
+  const deleteRef = (id: string, scopeId: string | null = harness.context.scopeId) => ({ chartId, scopeId, id });
+  const saveAsGranted = async (): Promise<{ id: string } | string> => {
+    const saved = await harness.asGranted(() => adapter.saveAnnotation(annotationInput(harness.context.scopeId)));
+    return saved.outcome === 'ok' && saved.data ? { id: saved.data.id } : `saving the note to delete: expected ok, got ${describeResponse(saved)}`;
+  };
+  // A server that does not keep a saved note already fails the save-then-list check; the delete cases do not repeat that failure.
+  const savedAndListed = async (): Promise<{ id: string } | string | null> => {
+    const saved = await saveAsGranted();
+    if (typeof saved === 'string') return saved;
+    const ids = await listIds(harness.asGranted);
+    if (typeof ids === 'string') return ids;
+    return ids.includes(saved.id) ? saved : null;
+  };
+  const listIds = async (actor: <T>(fn: () => Promise<T>) => Promise<T>): Promise<string[] | string> => {
+    const list = await actor(() => adapter.listAnnotations({ chartId, scopeId: harness.context.scopeId }));
+    if (list.outcome === 'empty') return [];
+    return list.outcome === 'ok' && list.data ? list.data.items.map(i => i.id) : `listing: expected ok or empty, got ${describeResponse(list)}`;
+  };
+  checks.push({
+    id: 'port · deleteAnnotation by the author removes the note',
+    mode: 'sequential',
+    run: async () => {
+      const saved = await savedAndListed();
+      if (saved === null) return null;
+      if (typeof saved === 'string') return saved;
+      const deleted = await harness.asGranted(() => adapter.deleteAnnotation(deleteRef(saved.id)));
+      if (deleted.outcome !== 'ok') return `the author deleting their own note: expected ok, got ${describeResponse(deleted)}`;
+      if (deleted.data?.id !== saved.id) return 'the ok answer must carry the deleted id';
+      const missing = missingEnvelopeKey(deleted, 'assessments') ?? missingEnvelopeKey(deleted, 'trust');
+      if (missing) return `deleteAnnotation: ${missing}`;
+      const problem = assessmentProblem(deleted.assessments, deleted.outcome) ?? trustProblem(deleted.trust);
+      if (problem) return `deleteAnnotation: ${problem}`;
+      const ids = await listIds(harness.asGranted);
+      if (typeof ids === 'string') return ids;
+      return ids.includes(saved.id) ? 'the deleted note is still listed' : null;
+    },
+  });
+  checks.push({
+    id: 'port · deleteAnnotation by another user → forbidden and the note stays',
+    mode: 'sequential',
+    run: async () => {
+      const saved = await savedAndListed();
+      if (saved === null) return null;
+      if (typeof saved === 'string') return saved;
+      // The second actor must be able to annotate, or a refusal could be the permission/site gate rather than authorship.
+      const own = await harness.asOtherAnnotator(() => adapter.saveAnnotation(annotationInput(harness.context.scopeId)));
+      if (own.outcome !== 'ok' || !own.data) {
+        await harness.asGranted(() => adapter.deleteAnnotation(deleteRef(saved.id)));
+        return `the second actor cannot annotate (saving its own note: expected ok, got ${describeResponse(own)}) — asOtherAnnotator needs ${annotationPermission} and a grant at ${harness.context.scopeId}, so a refusal would not prove authorship`;
+      }
+      const other = await harness.asOtherAnnotator(() => adapter.deleteAnnotation(deleteRef(saved.id)));
+      const ids = await listIds(harness.asGranted);
+      await harness.asGranted(() => adapter.deleteAnnotation(deleteRef(saved.id)));
+      const ownDeleted = await harness.asOtherAnnotator(() => adapter.deleteAnnotation(deleteRef(own.data!.id)));
+      if (ownDeleted.outcome !== 'ok') return `the second actor deleting its own note: expected ok, got ${describeResponse(ownDeleted)}`;
+      if (other.outcome !== 'forbidden') return `a user who is not the author: expected forbidden, got ${describeResponse(other)}`;
+      if (typeof ids === 'string') return ids;
+      return ids.includes(saved.id) ? null : 'the note was removed by a user who is not its author';
+    },
+  });
+  checks.push({
+    id: 'port · deleteAnnotation of an id not at this site → empty',
+    mode: 'granted',
+    run: expectOutcome(() => adapter.deleteAnnotation(deleteRef(`ann-missing-${crypto.randomUUID().slice(0, 8)}`)), 'empty', 'an id that is not in this chart·site answers empty, never revealing a row elsewhere'),
+  });
+  checks.push({
+    id: 'port · deleteAnnotation at a site without a grant → forbidden',
+    mode: 'granted',
+    run: expectOutcome(() => adapter.deleteAnnotation(deleteRef('ann-1', harness.foreignScopeId)), 'forbidden', 'a site the granted actor holds no grant for'),
+  });
+  checks.push({
+    id: 'port · deleteAnnotation with a null Scope → forbidden',
+    mode: 'granted',
+    run: expectOutcome(() => adapter.deleteAnnotation(deleteRef('ann-1', null)), 'forbidden', 'a null scope is not a request the server answers, never "all sites"'),
+  });
+  checks.push({
+    id: `port · deleteAnnotation without ${annotationPermission} → forbidden`,
+    mode: 'permission',
+    run: () => harness.withoutPermission(
+      annotationPermission,
+      expectOutcome(() => adapter.deleteAnnotation(deleteRef('ann-1')), 'forbidden', 'the annotation delete re-checks the chart permission per request'),
     ),
   });
   // Usage telemetry (checklist §2 fire-and-forget, §5): the server stamps the session user and the receive

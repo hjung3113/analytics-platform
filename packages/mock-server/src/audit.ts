@@ -15,12 +15,13 @@ import type { ApiResponse, Assessment, AuditAction, AuditEvent, AuditSortField, 
 import { instantEpochMs } from '@ap/contracts';
 import { checkScope, getRole, getScenario, nextCorrelation, partialFails, sleep } from './server';
 import { AUDIT_EVENTS } from './audit-fixtures';
+import { runtimeAuditEvents } from './annotations';
 import { EQUIPMENT, USERS, type RoleId } from './world';
 
 export type AuditOptions = { role?: RoleId; latency?: number };
 
-const AUDIT_TYPES = ['equipment', 'metric'];
-const AUDIT_ACTIONS = ['create', 'update', 'retire', 'sync'] as const satisfies readonly AuditAction[];
+const AUDIT_TYPES = ['equipment', 'metric', 'annotation'];
+const AUDIT_ACTIONS = ['create', 'update', 'retire', 'sync', 'delete'] as const satisfies readonly AuditAction[];
 const AUDIT_SOURCES = ['user', 'system'] as const satisfies readonly AuditSource[];
 const AUDIT_SORT_FIELDS = ['at', 'actor', 'action', 'source', 'targetType'] as const satisfies readonly AuditSortField[];
 /** Declared wire keys (issue #50) — anything else a client sends is an unknown key, not a silent no-op. */
@@ -109,7 +110,7 @@ export async function auditTrail(query: AuditTrailQuery, signal?: AbortSignal, o
   if (s === 'empty') return { ...base, outcome: 'empty' };
   const fromMs = query.fromAt !== undefined ? instantEpochMs(query.fromAt) : null;
   const toMs = query.toAt !== undefined ? instantEpochMs(query.toAt) : null;
-  const filtered = AUDIT_EVENTS.filter(event =>
+  const filtered = [...AUDIT_EVENTS, ...runtimeAuditEvents()].filter(event =>
     (query.type === undefined || event.target.type === query.type)
     && (query.actor === undefined || event.actor === query.actor)
     && (query.action === undefined || event.action === query.action)

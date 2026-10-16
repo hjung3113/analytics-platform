@@ -6,13 +6,13 @@ import EChartImpl from './EChartImpl';
 type EChartsModule = typeof EChartsCore;
 
 // The real EChartImpl runs, but the echarts instance is fake: init is mocked, setOption calls are recorded.
-const state = vi.hoisted(() => ({ setOption: vi.fn() }));
+const state = vi.hoisted(() => ({ setOption: vi.fn(), width: 640 }));
 
 vi.mock('echarts/core', async importOriginal => {
   const actual = await importOriginal<EChartsModule>();
   return {
     ...actual,
-    init: vi.fn(() => ({ setOption: state.setOption, on: vi.fn(), off: vi.fn(), resize: vi.fn(), dispose: vi.fn(), dispatchAction: vi.fn() })),
+    init: vi.fn(() => ({ setOption: state.setOption, on: vi.fn(), off: vi.fn(), resize: vi.fn(), dispose: vi.fn(), dispatchAction: vi.fn(), getWidth: () => state.width })),
   };
 });
 
@@ -158,5 +158,20 @@ describe('reduced motion holds in every accepted option shape (#297 F1, 06 §26)
     expect((input.series as { animation?: boolean }[])[0].animation).toBe(true);
     expect(input.baseOption && 'animation' in input.baseOption && input.baseOption.animation).toBe(true);
     expect(input.media && input.media[0].option.animation).toBe(true);
+  });
+});
+
+describe('EChartImpl resize (#399 F3)', () => {
+  it('reports the new plot width after its container resizes', () => {
+    stubReducedMotion(false);
+    let notify: () => void = () => {};
+    vi.stubGlobal('ResizeObserver', class { constructor(cb: () => void) { notify = cb; } observe() {} disconnect() {} });
+    const onResize = vi.fn();
+    render(<EChartImpl option={option} ariaLabel="plot" height={120} onResize={onResize} />);
+    expect(onResize).not.toHaveBeenCalled();
+    state.width = 320;
+    notify();
+    expect(onResize).toHaveBeenCalledWith(320);
+    state.width = 640;
   });
 });

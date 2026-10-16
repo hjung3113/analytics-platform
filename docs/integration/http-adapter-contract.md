@@ -39,6 +39,7 @@
 | `accessDirectory(query)` | `POST /api/v1/platform/access-directory/search` | `AccessDirectoryQuery` | `ApiResponse<AccessDirectoryPage>` |
 | `listAnnotations(ref)` | `GET /api/v1/platform/annotations?chartId=…&scopeId=…` | 쿼리(`scopeId` 없으면 빼고 보냄 → 서버 `forbidden`) | `ApiResponse<{ items: ChartAnnotation[] }>` |
 | `saveAnnotation(input)` | `POST /api/v1/platform/annotations` | `AnnotationInput`(작성자·`at`·`id` 없음 — 있으면 거부) | `ApiResponse<ChartAnnotation>` |
+| `deleteAnnotation(ref)` | `POST /api/v1/platform/annotations/delete` | `{ chartId, scopeId, id }`(그 밖의 키는 `saveAnnotation`과 같이 거부) | `ApiResponse<{ id: string }>` |
 
 `recordUsage`의 본문을 배열이 아닌 `{ events }`로 감싸는 이유: 최상위 JSON 배열은 나중에 필드(예: 배치 id)를 더할 수 없다.
 
@@ -151,7 +152,7 @@ GET /api/v1/platform/bootstrap
 
 - **같은 출처 배포**를 기본 가정으로 둔다: 정적 산출물과 `/api`를 같은 호스트에서 리버스 프록시로 나눈다 [#151 확인]. 그러면 CORS가 없고 쿠키가 그대로 간다. 어댑터는 상대 경로(`/api/v1/...`)만 쓰고 `credentials: 'same-origin'`.
 - 세션: 서버 저장 세션 + **httpOnly·Secure·SameSite=Lax** 쿠키(03 인증 행, FeedbackOps ADR-0006과 같은 구조). 어댑터는 쿠키를 읽지 않는다. HTTPS가 아니면 `Secure`를 못 쓴다 — [#151] 사내 HTTPS 여부.
-- **CSRF**: SameSite=Lax가 기본 방어지만, SameSite는 같은 **사이트**(등록 도메인) 단위라 같은 사이트의 다른 출처(`*.corp.example`의 형제 서브도메인 — 다른 사내 앱이나 그 앱의 XSS)에서 오는 POST에는 쿠키가 실린다. 그래서 **[제안] 서버는 모든 POST에서 `Content-Type: application/json`을 요구한다**(FastAPI 기본 동작과 같다) — JSON 본문과 커스텀 헤더가 교차 출처 preflight를 강제한다. 상태를 바꾸는 호출(`saveAnnotation`·`recordUsage`·`reportClientError`)은 추가로 헤더 토큰 `X-CSRF-Token`을 보낸다 [제안] — 값은 부트스트랩 응답의 `csrfToken`(세션에 묶인 값, 이중 제출 쿠키가 아니라 세션 저장). 서버는 상태 변경 경로에서 토큰이 없거나 다르면 403. 토큰 갱신·403 뒤 처리는 §3 identity 규칙 2. 읽기 `POST`(§1)는 토큰 검사 대상이 아니다 — 응답을 공격자가 읽을 수 없다(같은 출처, CORS 없음). FeedbackOps ADR-0006/0015는 SameSite=Lax 쿠키와 보안 헤더를 정했고 별도 CSRF 토큰은 명시하지 않는다 — 두 앱이 SSO를 공유하게 되면 정책을 맞춘다 [백엔드].
+- **CSRF**: SameSite=Lax가 기본 방어지만, SameSite는 같은 **사이트**(등록 도메인) 단위라 같은 사이트의 다른 출처(`*.corp.example`의 형제 서브도메인 — 다른 사내 앱이나 그 앱의 XSS)에서 오는 POST에는 쿠키가 실린다. 그래서 **[제안] 서버는 모든 POST에서 `Content-Type: application/json`을 요구한다**(FastAPI 기본 동작과 같다) — JSON 본문과 커스텀 헤더가 교차 출처 preflight를 강제한다. 상태를 바꾸는 호출(`saveAnnotation`·`deleteAnnotation`·`recordUsage`·`reportClientError`)은 추가로 헤더 토큰 `X-CSRF-Token`을 보낸다 [제안] — 값은 부트스트랩 응답의 `csrfToken`(세션에 묶인 값, 이중 제출 쿠키가 아니라 세션 저장). 서버는 상태 변경 경로에서 토큰이 없거나 다르면 403. 토큰 갱신·403 뒤 처리는 §3 identity 규칙 2. 읽기 `POST`(§1)는 토큰 검사 대상이 아니다 — 응답을 공격자가 읽을 수 없다(같은 출처, CORS 없음). FeedbackOps ADR-0006/0015는 SameSite=Lax 쿠키와 보안 헤더를 정했고 별도 CSRF 토큰은 명시하지 않는다 — 두 앱이 SSO를 공유하게 되면 정책을 맞춘다 [백엔드].
 - 멱등성: `saveAnnotation`에 FeedbackOps ADR-0015의 선택적 `Idempotency-Key`를 쓸지는 [백엔드] — 이 초안은 요구하지 않는다(재시도하지 않으므로). 근거로 볼 경우: `saveAnnotation`이 클라이언트 30초 타임아웃이나 네트워크 실패를 만나도 서버에는 저장됐을 수 있는데 화면은 실패로 보여, 사용자가 다시 저장하면 중복이 생긴다. 키가 있으면 403(CSRF) 뒤 1회 재전송도 안전해진다(§3).
 - **[제안] `/api/**`는 미인증이면 302가 아니라 401을 답한다**(SSO 게이트웨이·OIDC 미들웨어 설정 포함) [#150]·[#151]. 헤더 주입형 리버스 프록시나 일부 OIDC 미들웨어는 만료 세션의 API 호출에 302(IdP 로그인)로 답하는데, `fetch`가 리다이렉트를 따라가면 교차 출처 IdP는 CORS 실패(`network_error`), 같은 출처 로그인 페이지는 200 HTML(`invalid_response`)이 되어 §4의 재확인이 일어나지 않는다. 어댑터는 `redirect: 'manual'`을 쓰고 `opaqueredirect`·3xx를 401과 같이 처리한다(§2.1).
 - **401·세션 만료 동작 — Open([#150])**: 후보 (a) 어댑터가 `onChange` + 재부트스트랩, 부트스트랩도 401이면 로그인 경로(예: `/auth/login?return_to=<현재 경로>`, FeedbackOps ADR-0006 모양)로 이동; (b) 화면에 "세션이 만료되었습니다 + 다시 로그인" 배너만. 에이전트 선호는 (a)지만 `return_to`가 URL Context를 운반하므로 URL 보안 경계(06)와 함께 #150 답 뒤 정한다.

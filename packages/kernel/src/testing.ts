@@ -46,6 +46,7 @@ export function testAdapter(over: Partial<PlatformAdapter> = {}): PlatformAdapte
     accessDirectory: async () => refused,
     listAnnotations: async () => empty,
     saveAnnotation: async () => refused,
+    deleteAnnotation: async () => refused,
     subscribe: () => () => {},
     ...over,
   };

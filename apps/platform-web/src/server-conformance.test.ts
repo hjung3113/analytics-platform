@@ -89,4 +89,10 @@ describeServerConformance('server boundary conformance — mock adapter', {
     setRole(CONSOLE);
     try { return await fn(); } finally { setRole(previous); }
   },
+  // admin: a different user from the granted engineer, with the chart permission and the ICH grant.
+  asOtherAnnotator: async fn => {
+    const previous = getRole();
+    setRole(CONSOLE);
+    try { return await fn(); } finally { setRole(previous); }
+  },
 });
