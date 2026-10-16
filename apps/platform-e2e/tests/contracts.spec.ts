@@ -396,6 +396,32 @@ test.describe('셸 sticky 계약 (06 §7)', () => {
     expect(contextBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height);
     await evidence(page, testInfo, 'page-header-context-after-scroll');
   });
+
+  // #303: the open detail panel narrows the page, and the header yields description → trust → badge instead of
+  // hiding the title or pushing the primary action off screen behind a horizontal scroll.
+  for (const width of [1440, 1280]) {
+    test(`상세 패널이 열린 ${width}px에서도 제목은 보이고 주 동작은 화면 안, 머리는 가로로 넘치지 않는다 (#303)`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${PRODUCTIVITY.replace('&roomNames=PHOTO', '')}`);
+      await expectScopeValid(page, 'ICH · Site A');
+      await page.getByRole('button', { name: 'CVD 들어가기' }).click();
+      await page.getByRole('button', { name: 'STG-CVD-A 들어가기' }).click();
+      await page.getByRole('button', { name: 'ICH-CVD-0149 들어가기' }).click();
+      await expect.poll(() => query(page).get('drillEquipment')).toBe('ICH-CVD-0149');
+      await expect(page.getByText('설비 요약', { exact: true }).first()).toBeVisible();
+      const header = page.locator('#platform-main header').filter({ has: page.getByRole('heading', { level: 1 }) });
+      const metrics = await header.evaluate(el => {
+        const h1 = el.querySelector('h1')!.getBoundingClientRect();
+        // The right-hand group ends with the primary action.
+        const primary = el.lastElementChild!.lastElementChild!.getBoundingClientRect();
+        return { titleWidth: h1.width, lastRight: primary.right, viewport: window.innerWidth, scroll: el.scrollWidth, client: el.clientWidth };
+      });
+      expect(metrics.titleWidth).toBeGreaterThan(0);
+      expect(metrics.lastRight).toBeLessThanOrEqual(metrics.viewport);
+      expect(metrics.scroll).toBeLessThanOrEqual(metrics.client);
+      await evidence(page, testInfo, `page-header-yield-${width}`);
+    });
+  }
 });
 
 test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
