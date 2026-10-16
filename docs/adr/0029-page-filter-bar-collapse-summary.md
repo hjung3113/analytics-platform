@@ -19,7 +19,7 @@
 
 ## 결과
 
-- `PageFilterBar`에 opt-in 접기를 추가한다(`collapsible`, `preferenceKey`, `summaryItems`, `collapsedActions`, `hasPendingChanges`). 기본은 펼침이며 기존 소비자의 fieldset·testid 계약은 그대로다. CycleTimeDrilldown이 첫 소비자이고, 요약은 편집 필드와 같은 label·표시값을 쓰며 잘못된 URL 값은 `알 수 없는 값: <원문>`, 미확정은 `확인 중`으로 사실대로 표시한다.
+- `PageFilterBar`에 opt-in 접기를 추가한다(`collapsible`, `preferenceKey`, `summaryItems`, `collapsedActions`, `hasPendingChanges`). 기본은 펼침이며 기존 소비자의 fieldset·testid 계약은 그대로다. CycleTimeDrilldown이 첫 소비자이고, 요약은 편집 필드와 같은 label·표시값을 쓰며 잘못된 URL 값은 `알 수 없는 값: <원문>`(#304 이후 문구는 `이 화면에서 쓸 수 없는 값: <원문>`, ADR-0034), 미확정은 `확인 중`으로 사실대로 표시한다.
 - #230의 페이지 필터 접기는 입력 영역만 접으며, 현재 조건의 필드명과 값을 표시하는 요약 버튼과 초기화 접근을 남긴다. 기본은 한 줄이고 폭이 부족하면 조건을 생략하지 않고 줄바꿈한다.
 - 요약은 조건 편집 UI가 아니며, 누르면 기존 라벨과 입력을 인라인으로 다시 펼친다. ADR-0016이 기각한 popover+선택 칩 편집안과 필터 값·URL·초기화·draft 적용의 소비자 소유권은 유지한다.
 - 접힘 기억·포커스·접근성 동작은 PageFilterBar가 제공한다. 구체 계약은 06 §13·§15, 시각 규칙은 DESIGN의 Filter bar 절이 소유한다. ADR-0016의 “항상 보이는 필터”는 조건값이 항상 보인다는 뜻까지 포함하며([ADR-0016](0016-page-filter-bar.md) 보강 줄), ManagementLayout 레일 접기(ADR-0022)와는 별개다.
