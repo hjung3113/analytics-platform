@@ -89,7 +89,7 @@ export default function RegistryCatalog() {
             sorting: parsedSort.sorting,
             onChange: ({ page, sorting }, reason) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }, { replace: reason === 'clamp' }),
           } : undefined}
-          rowAction={row => <Button size="sm" variant="ghost" aria-label={ko ? `${row.id} 보기` : `View ${row.id}`} onClick={() => setPage({ focus: row.id })}>{ko ? '보기' : 'View'}</Button>}
+          rowAction={row => <Button size="toolbar" variant="ghost" aria-label={ko ? `${row.id} 보기` : `View ${row.id}`} onClick={() => setPage({ focus: row.id })}>{ko ? '보기' : 'View'}</Button>}
           loadPage={async page => {
             // Client envelope: the rows are the registry projection, not a server result — trust is null.
             const paged = sortAndPage(rows, page);

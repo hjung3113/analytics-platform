@@ -1,4 +1,4 @@
-import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useId, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useId, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type ColumnSizingState, type RowSelectionState, type VisibilityState } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, Loader2, Pin, PinOff } from 'lucide-react';
@@ -10,6 +10,7 @@ import { toColumnDef } from './columnDef';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { OutcomeView } from './StateView';
 import { exportCell, exportColumns, toClipboardHtml, toCsv, toTsv, toXlsx } from './tableExport';
+import { ACTION_PIN_MIN_SCROLL, ROW_AREA_FALLBACK, useTableFit } from './tableFit';
 
 export type { PageQuery, PageResult } from '@ap/contracts';
 export { sortAndPage } from '@ap/contracts';
@@ -175,6 +176,7 @@ export type PlatformDataTableProps<T> = {
   activeRowId?: string | null;
   preferenceKey: string;
   pageSize?: number;
+  /** Maximum row-area height; default fits the page (content height, up to the room left on the page, never under 240px). */
   height?: number;
   emptyAction?: ReactNode;
   /** Controlled sort/page (§6.1 page keys). Omit to keep today's internal state. The table never knows URL key names. */
@@ -188,10 +190,16 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const { global, user, revision, route, toast } = usePlatform();
   // Registry declares export capability (§5); the table never offers Export on a menu that did not declare it.
   const canExport = !!p.exportRows && !!route?.menu.features.export;
+  // Selection exists only for features that read it (export/copy, bulk actions); ADR-0037.
+  const selectable = canExport || !!p.bulkActions;
   const pageSize = p.pageSize ?? 100;
   const [preferences, setPreferences] = useState(() => readPreferences(p.preferenceKey));
   const [sorting, setSorting] = useState<PageSort[]>([]);
   const [selection, setSelection] = useState<RowSelectionState>({});
+  const effectiveSelection = selectable ? selection : {};
+  useEffect(() => {
+    if (!selectable) setSelection(previous => Object.keys(previous).length ? {} : previous);
+  }, [selectable]);
   const [page, setPage] = useState(0);
   const [retry, setRetry] = useState(0);
   const [result, setResult] = useState<{ identity: string; response: ApiResponse<PageResult<T>> } | null>(null);
@@ -207,8 +215,11 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const [copyTip, setCopyTip] = useState(false);
   /** Column popover / export menu open: the Ctrl/⌘+C shortcut stays native while either is open. */
   const [overlayOpen, setOverlayOpen] = useState({ columns: false, export: false });
-  const viewport = useRef<HTMLDivElement>(null);
+  const viewport = useRef<HTMLDivElement | null>(null);
   const section = useRef<HTMLElement>(null);
+  const fit = useTableFit(section);
+  const bindViewport = fit.viewportRef;
+  const viewportRef = useCallback((node: HTMLDivElement | null) => { viewport.current = node; bindViewport(node); }, [bindViewport]);
   const outcome = useRef<HTMLDivElement>(null);
   const previousButton = useRef<HTMLButtonElement>(null);
   const nextButton = useRef<HTMLButtonElement>(null);
@@ -266,24 +277,29 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const data = shown?.outcome === 'ok' ? shown.data! : { rows: [] as T[], total: shown?.data?.total ?? 0 };
 
   const columnPrefsId = useId();
+  // ADR-0037: the action column is pinned right whenever the scrollport keeps room beside the user's left pins; narrower
+  // it scrolls with the rest so pinned regions never overlap. Never user-pinnable, never stored (`_action` stays out of preferences).
+  const leftPinnedWidth = (preferences.pinning.left ?? []).reduce((sum, id) => preferences.visibility[id] === false ? sum : sum + (preferences.sizing[id] ?? p.columns.find(c => c.id === id)?.size ?? 150), 0);
+  const actionPinned = !!p.rowAction && (fit.width === null || fit.width === 0 || fit.width >= leftPinnedWidth + 128 + ACTION_PIN_MIN_SCROLL);
+  const pinningState: ColumnPinningState = { left: preferences.pinning.left ?? [], right: actionPinned ? ['_action'] : [] };
   const allColumns = useMemo<ColumnDef<T>[]>(() => [
-    {
+    ...(selectable ? [{
       id: '_select', size: 40, enableSorting: false, enableHiding: false, enableResizing: false,
       header: ({ table }) => <Checkbox aria-label={lang === 'ko' ? '현재 페이지 전체 선택' : 'Select all rows on this page'}
         checked={table.getIsAllPageRowsSelected() ? true : table.getIsSomePageRowsSelected() ? 'indeterminate' : false}
         onCheckedChange={v => table.toggleAllPageRowsSelected(v === true)} className="size-3.5 border-border-control" />,
       cell: ({ row }) => <Checkbox aria-label={`${lang === 'ko' ? '선택' : 'Select'} ${row.id}`} checked={row.getIsSelected()} onCheckedChange={v => row.toggleSelected(v === true)} className="size-3.5 border-border-control" />,
-    },
+    } as ColumnDef<T>] : []),
     ...p.columns.map(toColumnDef),
     ...(p.rowAction ? [{ id: '_action', size: 128, enableSorting: false, enableHiding: false, enableResizing: false, header: lang === 'ko' ? '동작' : 'Actions' } as ColumnDef<T>] : []),
-  ], [p.columns, p.rowAction, lang]);
+  ], [p.columns, p.rowAction, lang, selectable]);
 
   const table = useReactTable({
     data: data.rows, columns: allColumns, getRowId: p.getRowId, getCoreRowModel: getCoreRowModel(),
-    manualSorting: true, manualPagination: true, enableRowSelection: true, columnResizeMode: 'onChange',
+    manualSorting: true, manualPagination: true, enableRowSelection: selectable, columnResizeMode: 'onChange',
     enableMultiSort: !p.urlState,
     defaultColumn: { size: 150, minSize: 60, maxSize: 600 },
-    state: { sorting: activeSorting, rowSelection: selection, columnSizing: preferences.sizing, columnVisibility: preferences.visibility, columnPinning: preferences.pinning },
+    state: { sorting: activeSorting, rowSelection: effectiveSelection, columnSizing: preferences.sizing, columnVisibility: preferences.visibility, columnPinning: pinningState },
     onSortingChange: u => {
       const next = typeof u === 'function' ? u(p.urlState ? p.urlState.sorting : sorting) : u;
       if (p.urlState) {
@@ -297,11 +313,15 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
     onRowSelectionChange: setSelection,
     onColumnSizingChange: u => setPreferences(pr => ({ ...pr, sizing: typeof u === 'function' ? u(pr.sizing) : u })),
     onColumnVisibilityChange: u => setPreferences(pr => ({ ...pr, visibility: typeof u === 'function' ? u(pr.visibility) : u })),
-    onColumnPinningChange: u => setPreferences(pr => ({ ...pr, pinning: typeof u === 'function' ? u(pr.pinning) : u })),
+    // Only the user's left pins are stored: the merged state carries the derived right pin of `_action`.
+    onColumnPinningChange: u => setPreferences(pr => {
+      const next = typeof u === 'function' ? u({ left: pr.pinning.left ?? [], right: actionPinned ? ['_action'] : [] }) : u;
+      return { ...pr, pinning: { left: (next.left ?? []).filter(id => id !== '_action'), right: [] } };
+    }),
   });
   const rows = table.getRowModel().rows;
   const virtual = useVirtualizer({ count: rows.length, getScrollElement: () => viewport.current, estimateSize: () => 32, overscan: 8, getItemKey: i => rows[i].id });
-  const selectedIds = Object.keys(selection).filter(k => selection[k]);
+  const selectedIds = Object.keys(effectiveSelection).filter(k => effectiveSelection[k]);
   const pageCount = Math.max(1, Math.ceil(data.total / pageSize));
   // 06 §19: a failed lookup (error·timeout·forbidden·too_large) is not a zero — only a successful
   // response (ok, or empty which IS a successful zero) may state a count or offer pages.
@@ -357,7 +377,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
 
   function cellStyle(column: Column<T>): CSSProperties {
     const pinned = column.getIsPinned();
-    return { width: column.getSize(), flexShrink: 0, position: pinned ? 'sticky' : 'relative', left: pinned === 'left' ? column.getStart('left') : undefined, zIndex: pinned ? 2 : undefined };
+    return { width: column.getSize(), flexShrink: 0, position: pinned ? 'sticky' : 'relative', left: pinned === 'left' ? column.getStart('left') : undefined, right: pinned === 'right' ? column.getAfter('right') : undefined, zIndex: pinned ? 2 : undefined };
   }
   const align = (column: Column<T>) => ((column.columnDef.meta as ColumnMeta | undefined)?.align === 'right' ? 'justify-end text-right tabular' : '');
   const cellBase = 'flex min-h-8 items-center px-3 py-1 [overflow-wrap:anywhere] pointer-coarse:min-h-11';
@@ -732,21 +752,21 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       <span className="text-text-secondary">{lang === 'ko' ? '선택은 현재 조회 결과 안에서만 유지되며 Context 변경 시 해제됩니다.' : 'Selection is kept within this result and cleared on context change.'}</span>
     </div>}
 
-    <div className="flex min-h-7 items-center justify-between gap-2 border-t border-border-subtle px-3 py-1 text-xs text-text-muted" aria-live="polite">
-      <span className="tabular">{!shown || (loading && outOfRange) ? t('loading')
+    <div className="flex min-h-7 min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-border-subtle px-3 py-1 text-xs text-text-muted" aria-live="polite">
+      <span className="tabular whitespace-nowrap">{!shown || (loading && outOfRange) ? t('loading')
         : !success ? '—'
         : outOfRange
           ? (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${pageCount}페이지` : `${data.total.toLocaleString()} results · ${pageCount} pages`)
           : (lang === 'ko' ? `${data.total.toLocaleString()}건 · ${shownPage + 1}/${pageCount} 페이지` : `${data.total.toLocaleString()} results · page ${shownPage + 1}/${pageCount}`)}</span>
-      <span className="flex items-center gap-2">
+      <span className="flex min-w-0 flex-wrap items-center gap-2">
         {loading && shown && <span role="status" className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin" aria-hidden />{t('refreshing')}</span>}
-        {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} className="min-h-6" />}
+        {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} className="min-h-6" wrap />}
       </span>
     </div>
 
     {shown && shown.outcome !== 'ok' ? <div ref={outcome} onFocus={() => { focusedRetry.current = true; }} onBlur={() => { focusedRetry.current = false; }} className="border-t border-border-subtle p-3"><OutcomeView response={shown} onRetry={() => setRetry(r => r + 1)} emptyAction={p.emptyAction}>{() => null}</OutcomeView></div> :
-      // eslint-disable-next-line shadcn/no-inline-styles -- viewport height comes from the height prop at runtime
-      <div ref={viewport} tabIndex={0} aria-label={lang === 'ko' ? '스크롤 가능한 행 영역' : 'Scrollable rows'} className="overflow-auto overscroll-contain border-t border-border-subtle [overflow-anchor:none]" style={{ height: p.height ?? 420 }}>
+      // eslint-disable-next-line shadcn/no-inline-styles -- viewport max height comes from the height prop or the measured page fit at runtime
+      <div ref={viewportRef} data-table-auto-fit={p.height === undefined ? '' : undefined} tabIndex={0} aria-label={lang === 'ko' ? '스크롤 가능한 행 영역' : 'Scrollable rows'} className="overflow-auto overscroll-contain border-t border-border-subtle [overflow-anchor:none]" style={{ maxHeight: p.height ?? fit.cap ?? ROW_AREA_FALLBACK }}>
         {/* eslint-disable-next-line shadcn/no-inline-styles -- table width is the total column size computed at runtime */}
         <div role="table" aria-label={p.ariaLabel} aria-rowcount={data.total + 1} aria-busy={loading} className="min-w-full" style={{ width: table.getTotalSize() }}>
           <div role="rowgroup" className="sticky top-0 z-[5]">
@@ -755,7 +775,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
               // eslint-disable-next-line shadcn/no-inline-styles -- column width and pin offset come from column sizing at runtime
               return <div role="columnheader" key={h.id} data-column={h.column.id} style={cellStyle(h.column)}
                 aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : h.column.getCanSort() ? 'none' : undefined}
-                className={cn(cellBase, 't-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', align(h.column))}>
+                className={cn(cellBase, 't-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', h.column.getIsPinned() === 'right' && 'border-l', align(h.column))}>
                 {h.column.getCanSort()
                   ? <button type="button" onClick={h.column.getToggleSortingHandler()} className="-mx-1 inline-flex items-center gap-1 rounded-xs px-1 uppercase hover:text-text-primary">
                       {flexRender(h.column.columnDef.header, h.getContext())}
@@ -788,7 +808,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                 </div>}
                 {/* eslint-disable-next-line shadcn/no-inline-styles -- cell width and pin offset come from column sizing at runtime */}
                 {cells.map((cell, cellIndex) => <div role="cell" key={cell.id} data-column={cell.column.id} style={cellStyle(cell.column)}
-                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cellIndex === firstDataCell && 'font-medium', align(cell.column))}>
+                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cellIndex === firstDataCell && 'font-medium', cell.column.id === '_action' && 'py-0', cell.column.getIsPinned() === 'right' && 'border-l', align(cell.column))}>
                   {/* The _action column cell is not used — rowAction renders directly to preserve DOM identity (#296). */}
                   {cell.column.id === '_action' ? p.rowAction?.(row.original) : flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </div>)}

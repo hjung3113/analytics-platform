@@ -2272,3 +2272,72 @@ test.describe('표 쪽 이동 포커스 (06 §26)', () => {
     await evidence(page, testInfo, 'pager-focus-return');
   });
 });
+
+test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
+  test('짧은 VOC 결과는 240px보다 작고 행 영역에 빈 스크롤이 없다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/voc?v=1');
+    const rows = page.getByLabel('스크롤 가능한 행 영역', { exact: true });
+    await expect(rows.getByRole('button', { name: /보기$/ }).first()).toBeVisible();
+    await expect.poll(() => rows.evaluate(el => el.clientHeight)).toBeGreaterThan(0);
+    await expect.poll(() => rows.evaluate(el => el.getBoundingClientRect().height)).toBeLessThan(240);
+    await expect.poll(() => rows.evaluate(el => el.scrollHeight - el.clientHeight)).toBe(0);
+    await evidence(page, testInfo, 'voc-content-height');
+  });
+
+  test('긴 설비 결과는 안쪽에서 스크롤하고 쪽 넘김은 화면 안에 있다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/equipment?v=1&scopeId=ICH');
+    const rows = page.getByLabel('스크롤 가능한 행 영역', { exact: true });
+    await expect(rows.getByRole('button', { name: /보기$/ }).first()).toBeVisible();
+    await expect.poll(() => rows.evaluate(el => el.scrollHeight - el.clientHeight)).toBeGreaterThan(0);
+    const next = page.getByRole('button', { name: '다음', exact: true });
+    await expect.poll(() => next.evaluate(el => {
+      const box = el.getBoundingClientRect();
+      return box.top >= 0 && box.bottom <= window.innerHeight;
+    })).toBe(true);
+    await evidence(page, testInfo, 'equipment-cap-pager');
+  });
+
+  test('1280px에서 상세를 열어도 본문은 넘치지 않고 건수는 한 줄이다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/equipment?v=1&scopeId=ICH');
+    const rows = page.getByLabel('스크롤 가능한 행 영역', { exact: true });
+    await rows.getByRole('button', { name: /보기$/ }).first().click();
+    await expect(page.getByRole('button', { name: '상세 닫기', exact: true })).toBeVisible();
+    await expect.poll(() => page.locator('#platform-main').evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
+    const count = page.getByText(/^\d+건 · \d+\/\d+ 페이지$/);
+    await expect(count).toBeVisible();
+    await expect.poll(() => count.evaluate(el => {
+      const range = document.createRange(); range.selectNodeContents(el);
+      return new Set([...range.getClientRects()].map(box => box.top)).size;
+    })).toBe(1);
+    await evidence(page, testInfo, 'equipment-detail-1280');
+  });
+
+  test('감사 표는 선택 열 없이 양쪽 스크롤 끝에서도 첫 상세 링크가 보인다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInAs(page, 'admin');
+    await page.goto('/admin/audit?v=1');
+    const rows = page.getByLabel('스크롤 가능한 행 영역', { exact: true });
+    const table = rows.getByRole('table');
+    const detail = table.getByRole('row').filter({ has: page.getByRole('link', { name: /상세$/ }) }).first().getByRole('link', { name: /상세$/ });
+    await expect(detail).toBeVisible();
+    await expect(table.getByRole('checkbox')).toHaveCount(0);
+    await expect.poll(() => rows.evaluate(el => el.scrollWidth - el.clientWidth)).toBeGreaterThan(0);
+    for (const end of ['right', 'left'] as const) {
+      await rows.evaluate((el, side) => { el.scrollLeft = side === 'right' ? el.scrollWidth : 0; }, end);
+      await expect.poll(() => rows.evaluate((el, side) => side === 'right'
+        ? Math.abs(el.scrollWidth - el.clientWidth - el.scrollLeft) <= 1 : el.scrollLeft === 0, end)).toBe(true);
+      await expect.poll(() => detail.evaluate(el => {
+        const viewport = el.closest('[aria-label="스크롤 가능한 행 영역"]');
+        if (!viewport) return false;
+        const frame = viewport.getBoundingClientRect();
+        const box = el.getBoundingClientRect();
+        const left = frame.left + viewport.clientLeft, top = frame.top + viewport.clientTop;
+        return box.left >= left && box.right <= left + viewport.clientWidth && box.top >= top && box.bottom <= top + viewport.clientHeight;
+      })).toBe(true);
+      await evidence(page, testInfo, `audit-action-${end}`);
+    }
+  });
+});

@@ -139,7 +139,7 @@ export default function AccessDirectory() {
         subtitle={ko ? '권한·room 부여 조회 전용입니다.' : 'Read-only permissions and room grants.'}
         filters={filterSlot}
         columns={columns} getRowId={row => row.id} filterKey={filterKey}
-        preferenceKey="admin-roles:columns:v1" pageSize={25} height={430} activeRowId={parsed.focus}
+        preferenceKey="admin-roles:columns:v1" pageSize={25} activeRowId={parsed.focus}
         urlState={{
           page: parsed.page,
           sorting: parsed.sorting,
@@ -173,7 +173,7 @@ export default function AccessDirectory() {
           };
         }}
         emptyAction={clear}
-        rowAction={row => <Button size="sm" variant="ghost" aria-label={ko ? `${row.id} 보기` : `View ${row.id}`} onClick={() => setPage({ focus: row.id, tab: null })}>{ko ? '보기' : 'View'}</Button>}
+        rowAction={row => <Button size="toolbar" variant="ghost" aria-label={ko ? `${row.id} 보기` : `View ${row.id}`} onClick={() => setPage({ focus: row.id, tab: null })}>{ko ? '보기' : 'View'}</Button>}
       />}
       </>} />
   </PlatformPage>;

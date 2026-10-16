@@ -32,12 +32,14 @@ const REASON_LABEL: Record<NonNullable<Assessment['reason']>, { ko: string; en: 
  * Data Trust vocabulary (§18): one compressed line, details in a popover.
  * `clear` is a narrow, source-backed claim; `unknown` is always shown, never folded into healthy.
  */
-export function DataTrustIndicator({ trust, assessments, className, compact = false, hideProvisional = false }: {
+export function DataTrustIndicator({ trust, assessments, className, compact = false, hideProvisional = false, wrap = false }: {
   trust: Trust | null; assessments: Assessment[]; className?: string;
   /** Header yield (#303): keep the summary name on title/aria and show the dot. */
   compact?: boolean;
   /** Header yield (#303): drop the provisional badge once the summary is already compact. */
   hideProvisional?: boolean;
+  /** Table status line: let headline · coverage · updated wrap inside the button instead of widening the line. */
+  wrap?: boolean;
 }) {
   const { t, tx, lang } = useI18n();
   if (!trust) return null;
@@ -54,9 +56,9 @@ export function DataTrustIndicator({ trust, assessments, className, compact = fa
   const summaryName = `${headline} · ${coverageText} · ${updatedText}`;
   return <Popover>
     <PopoverTrigger asChild>
-      <button type="button" className={cn('inline-flex min-h-8 items-center gap-2 rounded-sm px-2 text-xs text-text-secondary hover:bg-surface-sunken', className)} aria-label={t('dataTrust')} title={summaryName}>
+      <button type="button" className={cn('inline-flex min-h-8 items-center gap-2 rounded-sm px-2 text-xs text-text-secondary hover:bg-surface-sunken', wrap && 'min-w-0 max-w-full text-left', className)} aria-label={t('dataTrust')} title={summaryName}>
         <Dot tone={tone} />
-        <span data-trust-summary-details className={cn('inline-flex items-center gap-2', compact && 'sr-only')}>
+        <span data-trust-summary-details className={cn('inline-flex items-center gap-2', wrap && 'min-w-0 flex-wrap gap-y-0', compact && 'sr-only')}>
           <span className="tabular">{headline}</span>
           <span className="text-text-disabled" aria-hidden>·</span>
           <span className="tabular">{coverageText}</span>

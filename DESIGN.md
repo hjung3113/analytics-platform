@@ -231,7 +231,7 @@ headerMinHeight: 32px
 cellPadding: 4px 12px
 ```
 
-줄바꿈·font fallback·visible focus·최소 24px desktop target에 따라 행은 커질 수 있다. screenshot의 compact 밀도는 기본값을 낮추는 근거가 아니다. 표 셀은 이미 coarse pointer에서 44px target(`pointer-coarse:min-h-11`)을 쓰며, 나머지 화면의 44px target은 MVP 이후 정책이다.
+줄바꿈·font fallback·visible focus·최소 24px desktop target에 따라 행은 커질 수 있다. 행 영역 높이는 내용만큼이고 페이지에 남은 높이(최소 240px)까지만 커진다. 동작 열은 오른쪽에 고정하고 `toolbar`(32px) 버튼을 쓰며, 선택 열은 선택을 쓰는 기능이 있는 표에만 둔다([ADR-0037](docs/adr/0037-table-filter-consistency.md)). screenshot의 compact 밀도는 기본값을 낮추는 근거가 아니다. 표 셀은 이미 coarse pointer에서 44px target(`pointer-coarse:min-h-11`)을 쓰며, 나머지 화면의 44px target은 MVP 이후 정책이다.
 
 - 헤더 sunken + secondary, 데이터 primary, 수치 우측 정렬+tabular, ID mono. 상태와 범주 label을 구별한다. 열 제목 case는 Typography roles를 따른다.
 - row divider는 border-subtle; checkbox·검색·filter 경계는 border-control. hover에서 focus와 selected checkbox/표식이 사라지지 않는다.

@@ -53,7 +53,7 @@ export default function EquipmentMaster() {
     <PlatformDataTable<Equipment>
       title={ko ? '설비 목록' : 'Equipment list'} ariaLabel={ko ? '설비 마스터 목록' : 'Equipment master list'}
       subtitle={ko ? '행 체크는 내보내기용입니다. 분석 이동을 클릭할 때만 전역 Selection을 교체합니다.' : 'Row checks are for export. Only the explicit analysis link replaces global Selection.'}
-      columns={columns} getRowId={e => e.equipmentId} filterKey={filterKey} preferenceKey="equipment-master:columns:v1" activeRowId={focus} pageSize={25} height={430}
+      columns={columns} getRowId={e => e.equipmentId} filterKey={filterKey} preferenceKey="equipment-master:columns:v1" activeRowId={focus} pageSize={25}
       urlState={parsedSort.ok && parsedPage.ok ? {
         page: parsedPage.page === 1 ? null : parsedPage.page,
         sorting: parsedSort.sorting,
@@ -61,7 +61,7 @@ export default function EquipmentMaster() {
       } : undefined}
       loadPage={(page, signal) => pages.fetch({ q, status, maker, ...page }, signal)}
       filters={filterSlot}
-      rowAction={e => <Button size="sm" variant="ghost" aria-label={ko ? `${e.equipmentId} 보기` : `View ${e.equipmentId}`} onClick={() => setPage({ focus: e.equipmentId, tab: null })}>{ko ? '보기' : 'View'}</Button>}
+      rowAction={e => <Button size="toolbar" variant="ghost" aria-label={ko ? `${e.equipmentId} 보기` : `View ${e.equipmentId}`} onClick={() => setPage({ focus: e.equipmentId, tab: null })}>{ko ? '보기' : 'View'}</Button>}
       bulkActions={ids => <Button asChild size="sm"><PlatformLink href={linkTo('productivity-overview', { global: { selection: ids } })}>{ko ? '선택 설비로 분석' : 'Analyze selected equipment'}</PlatformLink></Button>}
       // Table-owned export (#173): the page only says how to read the rows; the table builds the file.
       exportRows={(request, signal) => exports.fetch(exportParams({ q, status, maker }, request), signal)}
