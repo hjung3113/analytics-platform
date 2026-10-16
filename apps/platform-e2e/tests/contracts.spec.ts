@@ -1727,6 +1727,19 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
     expect(query(page).get('from')).toMatch(/^2026-09-25T\d\d:\d\d:\d\d$/);
   });
 
+  test('선택 요약과 시작·끝 조작은 차트 카드 안에 머문다 (#307)', async ({ page }) => {
+    await page.goto(CYCLE);
+    const frame = trend(page);
+    await expect(frame.getByRole('img', { name: /^사이클타임 추세/ })).toBeVisible();
+    await frame.getByRole('button', { name: '1시간', exact: true }).click();
+    const summary = frame.getByRole('region', { name: '선택 요약' });
+    await expect(summary).toContainText('선택 구간');
+    await expect.poll(async () => {
+      const [card, inner] = await Promise.all([frame.boundingBox(), summary.boundingBox()]);
+      return card !== null && inner !== null && inner.x + inner.width <= card.x + card.width;
+    }).toBe(true);
+  });
+
   test('키보드만으로 빠른 구간을 골라 분석 구간을 적용한다 (#307)', async ({ page }, testInfo) => {
     await page.goto(CYCLE);
     await expect(mainHeading(page)).toHaveText('사이클타임 상세');
