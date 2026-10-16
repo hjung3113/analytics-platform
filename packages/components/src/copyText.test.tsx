@@ -6,10 +6,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Session } from '@ap/contracts';
 import { createBasePathLocation, I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { copyText, useCopyLink } from './copyText';
-import { noContext, testAdapter, testSpace } from './test-support';
+import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 function secureClipboard() {
   const clipboard = { writeText: vi.fn(async () => {}) };
@@ -139,7 +138,7 @@ function HookHarness() {
   </>;
 }
 
-const session: Session = { user: { id: 'u', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view'] }, scopes: [] };
+const session = testSession(['platform:view'], { user: { id: 'u' } });
 const adapter = testAdapter({ session: () => session });
 const registry = createRegistry({
   spaces: [testSpace()],

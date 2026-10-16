@@ -6,7 +6,7 @@ import type { PlatformAdapter, Session, SpaceDef, UsageEvent } from '@ap/contrac
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { createRegistry } from './registry';
-import { noContext, testAdapter, testSpace } from './test-support';
+import { noContext, testAdapter, testSession, testSpace } from './testing';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 
@@ -34,7 +34,7 @@ const ANALYST: Session['user']['permissions'] = ['platform:view'];
 /** Fixture adapter that records every usage event the kernel sends, in order. */
 function recordingFixture(permissions: Session['user']['permissions'], userId = 'u1', recordUsage?: PlatformAdapter['recordUsage']) {
   const events: (UsageEvent & { userId: string })[] = [];
-  let session: Session = { user: { id: userId, name: 'u', title: { ko: 'u', en: 'u' }, permissions }, scopes: [] };
+  let session = testSession(permissions, { user: { id: userId } });
   const listeners = new Set<() => void>();
   const adapter = testAdapter({
     session: () => session,

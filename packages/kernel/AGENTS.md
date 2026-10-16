@@ -10,6 +10,7 @@ Platform Kernel 런타임(06 §4). 메뉴 목록도, 서버 구현도 모른다.
 - `pageNavigation.ts` — Provider가 가진 이동 뒤 포커스 요청(`PageFocus`: `drill`·`return`·`page`, 06 §26). 명시적 이동만 요청을 만들고(`PlatformLink`·팔레트는 pathname이 바뀔 때, 메뉴 사이 Back/Forward popstate도 pathname이 바뀔 때 `page`, `switchSpace`), 세대·pathname이 맞을 때만 `PlatformPage`가 소비한다. 페이지 소비용 `PageNavigation`은 `requestReturn`·`consume`·`subscribe`·`claimsDetailFocus`를 제공한다. `claimsDetailFocus`는 URL 도착(`page`·`return`, 첫 로드의 `focus=`)이면 false이고, 같은 화면에서 `focus`가 생기거나 `drill`이면 true다(ADR-0032). 팔레트는 주입된 `isBlocked()`와 해제 알림 `notify()` 경계로만 연결하며 차단 중 `page` 요청을 보존한다.
 - `paletteFocus.ts` — 팔레트 열기·닫기, 세대·Dialog 인스턴스 소유·렌더 여부·Provider 세션 교체 정리를 소유한다. 열기는 이전 이동 요청을 취소하고, 셸에는 세션에 묶인 `claim(owner)`·`release(owner)`·`isCurrent()` 핸들을 준다. Dialog close autofocus 또는 FocusScope cleanup 뒤 지연 해제에서 현재 소유자만 차단을 푼다. 상태 전이는 `paletteFocus.test.ts`, 포커스 결과는 `packages/shell/src/CommandPalette.test.tsx`·`packages/components/src/DrillLayout.test.tsx`·E2E `메뉴 이동 포커스 (06 §26)`이 고정한다.
 - `query.ts` — `usePlatformQuery`(식별자 `[revision, user.id, global, pageInputs]`, `identity: 'session'`이면 전역 Context 제외), `useEntityQuery`(§22 목적지 `adapter.getEntity`), `useMenuQuery`/`useMenuFetch`(메뉴 `EndpointSpec` → `adapter.menuQuery`; Scope·기간 게이트와 assessments kind 검사 포함, `ready` 전 호출은 `not_ready` error), `useAdapterRequest`(셸 조회, 식별자 `[revision, user.id, key]` — 의존 값은 호출자가 `key`에 전부 넣는다). 취소는 Kernel 자신의 `signal.aborted`로만 판정하고 어댑터 타임아웃 `AbortError`는 오류다. 판정 규칙의 원본은 06 §19·[체크리스트 §3](../../docs/integration/real-server-checklist.md)이고 `menu-query.test.tsx`가 고정한다.
+- `testing.ts` — 테스트 전용 공개 진입점 `@ap/kernel/testing`(어댑터·세션·공간 fixture, ADR-0040). `index.ts`에서 내보내지 않는다.
 - `i18n.tsx` — `I18nProvider`, `useI18n()`(`tx`, `lang`), `invalidValueSentence()`(잘못된 URL 값 경고 문장 한 곳 — `value`·`filter`·`plain`·`drillGap`). `metric-init.ts` — 지표 쌍 초기화 분류.
 
 ## 규칙
@@ -18,6 +19,7 @@ Platform Kernel 런타임(06 §4). 메뉴 목록도, 서버 구현도 모른다.
 - 서버·세션 접근은 `adapter`로만. 세션은 동기 snapshot + `subscribe`; 변경 알림을 받으면 revision을 올려 이전 결과를 숨긴다. 이 무효화 계약은 `adapter.test.tsx`가 고정하므로 바꾸면 테스트부터 고친다.
 - Registry 검증 규칙을 바꾸면 `registry.test.ts`에 실패 사례를 추가한다. 테스트는 fixture Registry만 쓰고 실제 메뉴를 import하지 않는다(실제 메뉴가 필요한 테스트는 앱 통합 테스트).
 - 전역 Context 키·URL 규칙은 06 §6 계약이다. 메뉴 요구 때문에 바꾸지 말고 플랫폼 결정으로 올린다.
+- 테스트의 어댑터·세션·공간 fixture(`testAdapter`·`testSession`·`testSpace`·`noContext`)는 `src/testing.ts` 한 벌이고 `@ap/kernel/testing`으로 공개한다(ADR-0040). 테스트 파일에서만 import하며, 포트 메서드를 더하면 여기 기본값을 같은 PR에서 고친다.
 - 새 슬롯은 06 §8 Shell Slot에 근거가 있을 때만 `PlatformSlots`에 추가한다.
 
 ## 검증

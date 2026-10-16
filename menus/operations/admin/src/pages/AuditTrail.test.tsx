@@ -1,8 +1,9 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { instantEpochMs, type ApiResponse, type AuditEvent, type AuditTrailPage, type AuditTrailQuery, type PlatformAdapter, type Session } from '@ap/contracts';
+import { instantEpochMs, type ApiResponse, type AuditEvent, type AuditTrailPage, type AuditTrailQuery } from '@ap/contracts';
 import { House } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import AuditTrail from './AuditTrail';
 
@@ -31,10 +32,7 @@ const registry = createRegistry({
   }],
 });
 
-const session: Session = {
-  user: { id: 'admin-a', name: 'admin-a', title: { ko: '관리자', en: 'Administrator' }, permissions: ['console:access', 'platform:view'] },
-  scopes: [],
-};
+const session = testSession(['console:access', 'platform:view'], { user: { id: 'admin-a', name: 'admin-a', title: { ko: '관리자', en: 'Administrator' } } });
 const FROM = '2026-09-26T02:00:00.000Z';
 const TO = '2026-09-26T03:00:00.000Z';
 
@@ -49,20 +47,8 @@ function fixture(items: AuditEvent[] = [], options?: { filterWindow?: boolean })
       return true;
     });
   };
-  const adapter: PlatformAdapter = {
-    menuQuery: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+  const adapter = testAdapter({
     session: () => session,
-    validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
-    publishedMetrics: () => [],
-    defaultRangeTo: () => '2026-09-26T09:00:00',
-    contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-    evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
-    getEntity: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    recordUsage: async () => ({ accepted: 0 }),
-    listAnnotations: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    saveAnnotation: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    reportClientError: async () => ({ accepted: true }),
-    usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     auditTrail: async (query: AuditTrailQuery) => {
       calls.push(query);
       const rows = rowsFor(query);
@@ -71,10 +57,7 @@ function fixture(items: AuditEvent[] = [], options?: { filterWindow?: boolean })
       };
       return response;
     },
-    entityAudit: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    accessDirectory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    subscribe: () => () => undefined,
-  };
+  });
   return { adapter, calls };
 }
 

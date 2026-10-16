@@ -2,11 +2,11 @@ import { lazy } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ClientErrorReport, PlatformAdapter, Session } from '@ap/contracts';
+import type { ClientErrorReport, PlatformAdapter } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { RouteOutlet } from './RouteOutlet';
 import { reloadApp } from './reload';
-import { noContext, testAdapter, testSpace } from './test-setup';
+import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 vi.mock('./reload', () => ({ reloadApp: vi.fn() }));
 
@@ -45,7 +45,7 @@ const registry = createRegistry({
 });
 
 function fixture(reportClientError: PlatformAdapter['reportClientError']) {
-  const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view'] }, scopes: [] };
+  const session = testSession(['platform:view']);
   const listeners = new Set<() => void>();
   const adapter = testAdapter({
     session: () => session,
@@ -180,7 +180,7 @@ describe('global utility routes and the null-sidebar home link (06 §9.1)', () =
   }
   function mountGlobal(url: string, withRoot: boolean) {
     // platform:view opens the menu at `/`. HomeLink no longer points at a home the user cannot open.
-    const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['notice:view', 'platform:view'] }, scopes: [] };
+    const session = testSession(['notice:view', 'platform:view']);
     const { adapter } = fixture(async () => ({ accepted: true }));
     adapter.session = () => session;
     window.history.replaceState(null, '', url);
@@ -262,7 +262,7 @@ describe('global query admission under RouteOutlet (06 §9.1)', () => {
   }
   function mountQuery(url: string) {
     const menuQuery = vi.fn(async () => ({ outcome: 'ok' as const, data: null, assessments: [], trust: null, correlationId: 'query' }));
-    const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['notice:view'] }, scopes: [] };
+    const session = testSession(['notice:view']);
     const { adapter } = fixture(async () => ({ accepted: true }));
     adapter.session = () => session;
     adapter.menuQuery = menuQuery;
@@ -308,7 +308,7 @@ describe('planned menu without a context bar (#304)', () => {
       groups: [{ id: 'equipment', label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: 'analytics' }],
       menus: [menu('planned', '/planned', { primary: true, label: { ko: '예정 메뉴', en: 'Planned menu' } })],
     });
-    const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view'] }, scopes: [] };
+    const session = testSession(['platform:view']);
     const { adapter } = fixture(async () => ({ accepted: true }));
     adapter.session = () => session;
     window.history.replaceState(null, '', '/planned?v=1');

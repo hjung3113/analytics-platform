@@ -3,11 +3,11 @@ import userEvent from '@testing-library/user-event';
 import { useLayoutEffect, useRef } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { PlatformAdapter, ScopeCheck, Session } from '@ap/contracts';
+import type { PlatformAdapter, ScopeCheck } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { PlatformPage } from './PlatformPage';
 import { QueryView } from './StateView';
-import { noContext, testAdapter, testSpace } from './test-support';
+import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 const registry = createRegistry({
   spaces: [testSpace()],
@@ -17,7 +17,7 @@ const registry = createRegistry({
 
 const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
 function adapterWith(validateScope: PlatformAdapter['validateScope']): PlatformAdapter {
-  const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view'] }, scopes: [] };
+  const session = testSession(['platform:view']);
   return testAdapter({
     session: () => session,
     validateScope,

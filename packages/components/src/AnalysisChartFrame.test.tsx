@@ -2,12 +2,12 @@ import { type ReactElement } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AnnotationInput, ApiResponse, AnnotationRef, ChartAnnotation, PlatformAdapter, Session } from '@ap/contracts';
+import type { AnnotationInput, ApiResponse, AnnotationRef, ChartAnnotation, PlatformAdapter } from '@ap/contracts';
 import { parseDateTime } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { AnalysisChartFrame, type ChartSeries } from './AnalysisChartFrame';
 import type { EChartProps } from './EChart';
-import { noContext, testAdapter, testSpace } from './test-support';
+import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 vi.mock('./EChartImpl', () => ({ default: FakePlot }));
 
@@ -47,7 +47,7 @@ const registryWith = (features: typeof off) => createRegistry({
 const envelope = { data: null, assessments: [], trust: null, correlationId: 'fixture' };
 function none_<T>(outcome: 'empty' | 'forbidden'): ApiResponse<T> { return { ...envelope, outcome }; }
 function fixture() {
-  const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view'] }, scopes: [] };
+  const session = testSession(['platform:view']);
   const rows: ChartAnnotation[] = [];
   const list = vi.fn(async (ref: AnnotationRef): Promise<ApiResponse<{ items: readonly ChartAnnotation[] }>> => {
     const items = rows.filter(r => r.chartId === ref.chartId && r.scopeId === ref.scopeId);

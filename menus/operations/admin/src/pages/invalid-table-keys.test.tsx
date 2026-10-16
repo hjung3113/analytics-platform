@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import type { PlatformAdapter, Session } from '@ap/contracts';
 import { House } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import RegistryCatalog from './RegistryCatalog';
 import UsageOverview from './UsageOverview';
@@ -15,28 +15,8 @@ const registry = createRegistry({
   groups: [{ id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' }],
   menus: manifests,
 });
-const session: Session = { user: { id: 'admin-a', name: 'admin-a', title: { ko: '관리자', en: 'Administrator' }, permissions: ['console:access', 'platform:view'] }, scopes: [] };
-const forbidden = async () => ({ outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' });
-const empty = async () => ({ outcome: 'empty' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' });
-const adapter: PlatformAdapter = {
-  menuQuery: forbidden,
-  session: () => session,
-  validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
-  publishedMetrics: () => [],
-  defaultRangeTo: () => '2026-09-26T09:00:00',
-  contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-  evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
-  getEntity: empty,
-  recordUsage: async () => ({ accepted: 0 }),
-  listAnnotations: empty,
-  saveAnnotation: forbidden,
-  reportClientError: async () => ({ accepted: true }),
-  usageSummary: forbidden,
-  auditTrail: forbidden,
-  entityAudit: forbidden,
-  accessDirectory: forbidden,
-  subscribe: () => () => undefined,
-};
+const session = testSession(['console:access', 'platform:view'], { user: { id: 'admin-a', name: 'admin-a', title: { ko: '관리자', en: 'Administrator' } } });
+const adapter = testAdapter({ session: () => session });
 
 describe.each([
   ['UsageOverview', '/admin/usage', UsageOverview],

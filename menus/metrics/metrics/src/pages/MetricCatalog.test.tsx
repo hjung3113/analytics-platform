@@ -2,8 +2,9 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Gauge } from 'lucide-react';
-import type { ApiResponse, MenuQuery, PlatformAdapter, Session } from '@ap/contracts';
+import type { ApiResponse, MenuQuery, PlatformAdapter } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import MetricCatalogPage from './MetricCatalog';
 
@@ -16,32 +17,17 @@ const registry = createRegistry({
   menus: manifests,
 });
 
-const session: Session = { user: { id: 'user-a', name: 'user-a', title: { ko: 'a', en: 'a' }, permissions: ['platform:view', 'metrics:view'] }, scopes: [] };
+const session = testSession(['platform:view', 'metrics:view'], { user: { id: 'user-a', name: 'user-a', title: { ko: 'a', en: 'a' } } });
 
 /** The catalog count query (`metrics.catalog.list`) fails; every other menu query answers empty. */
 function fixture(): PlatformAdapter {
-  return {
+  return testAdapter({
     menuQuery: async (request: MenuQuery): Promise<ApiResponse<unknown>> =>
       request.endpoint === 'metrics.catalog.list'
         ? { outcome: 'error', data: null, message: 'catalog unavailable', assessments: [], trust: null, correlationId: 'fixture' }
         : { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' },
     session: () => session,
-    validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
-    publishedMetrics: () => [],
-    defaultRangeTo: () => '2026-09-26T09:00:00',
-    contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-    evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
-    getEntity: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    auditTrail: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    entityAudit: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    accessDirectory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    recordUsage: async () => ({ accepted: 0 }),
-    listAnnotations: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    saveAnnotation: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    reportClientError: async () => ({ accepted: true }),
-    usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    subscribe: () => () => undefined,
-  };
+  });
 }
 
 describe('metric catalog count under a failed list query (UXA-4)', () => {

@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createBrowserLocation, createBasePathLocation, type PlatformLocation, I18nProvider, PlatformProvider, PlatformLink, usePlatform, createRegistry } from './index';
-import { noContext, testAdapter, testSession, testSpace } from './test-support';
+import { noContext, testAdapter, testSession, testSpace } from './testing';
 
 const registry = createRegistry({
   spaces: [testSpace()],

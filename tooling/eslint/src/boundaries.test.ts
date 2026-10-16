@@ -108,6 +108,23 @@ const rows: Row[] = [
   { file: MENU, code: `import { x } from '@ap/components';`, rule: '' },
   { file: MENU, code: `import '@ap/ui/styles.css';`, rule: 'no-restricted-imports' },
 
+  // --- ADR-0040 (#381): `@ap/kernel/testing` is test-only; production files and other deep subpaths stay banned ---
+  { file: MENU, code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
+  { file: MENU, code: `const m = await import('@ap/kernel/testing');`, rule: 'ap/restricted-import-source' },
+  { file: 'menus/_global/home/src/pages/x.test.tsx', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
+  { file: 'menus/_global/home/src/pages/x.test.tsx', code: `const m = await import('@ap/kernel/testing');`, rule: '' },
+  { file: 'menus/_global/home/src/pages/x.test.tsx', code: `import { x } from '@ap/kernel/src/platform';`, rule: 'no-restricted-imports' },
+  { file: 'menus/_global/home/src/test-support.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
+  { file: 'packages/components/src/PlatformPage.tsx', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
+  { file: 'packages/components/src/PlatformPage.test.tsx', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
+  { file: 'packages/shell/src/AppShell.tsx', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
+  { file: 'packages/shell/src/AppShell.test.tsx', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
+  { file: 'packages/shell/src/test-setup.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/menus.test.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
+  { file: 'packages/kernel/src/x.test.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
+  { file: 'packages/server-conformance/src/x.test.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
+
   // --- #160: the table engine is components-internal; menus ban it statically and dynamically ---
   { file: MENU, code: `import type { ColumnDef } from '@tanstack/react-table';`, rule: 'no-restricted-imports', token: 'table engine' },
   { file: MENU, code: `import { x } from '@tanstack/react-table';`, rule: 'no-restricted-imports', token: 'table engine' },

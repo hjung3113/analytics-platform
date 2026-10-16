@@ -8,7 +8,7 @@ import { I18nProvider, PlatformProvider, usePlatform, createRegistry } from '@ap
 import { AppShell } from './AppShell';
 import { AppRail } from './AppRail';
 import { AppSidebar } from './AppSidebar';
-import { noContext, testAdapter, testSpace } from './test-setup';
+import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 function menu(id: string, group: GroupId, path: string, permission: Permission) {
   return { id, group, path, permission, primary: true, label: { ko: '운영 홈', en: 'Operations home' }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] };
@@ -21,7 +21,7 @@ const registry = createRegistry({
 
 const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
 function adapterWith(permissions: Session['user']['permissions'] = ['platform:view']): PlatformAdapter {
-  const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions }, scopes: [] };
+  const session = testSession(permissions);
   return testAdapter({
     session: () => session,
     getEntity: async () => forbidden,
@@ -515,7 +515,7 @@ describe('workspace shell layout (15 §3.1)', () => {
   it('drops the FeedbackOps block when space entry is revoked on the same route', () => {
     const listeners = new Set<() => void>();
     const seen: string[] = [];
-    let session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view', 'console:access'] }, scopes: [] };
+    let session = testSession(['platform:view', 'console:access']);
     const adapter: PlatformAdapter = {
       ...adapterWith(['platform:view', 'console:access']),
       session: () => session,

@@ -5,7 +5,7 @@ import type { ClientErrorReport, Session, SpaceDef, UsageEvent } from '@ap/contr
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { createRegistry, type MenuEntry } from './registry';
-import { noContext, testAdapter, testSpace } from './test-support';
+import { noContext, testAdapter, testSession, testSpace } from './testing';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 
@@ -42,7 +42,7 @@ const WITH_SPACE: Session['user']['permissions'] = ['platform:view', 'notice:vie
 const GLOBAL_ONLY: Session['user']['permissions'] = ['notice:view'];
 
 function fixture(permissions: Session['user']['permissions']) {
-  const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions }, scopes: [] };
+  const session = testSession(permissions);
   const events: UsageEvent[] = [];
   const reports: ClientErrorReport[] = [];
   const adapter = testAdapter({

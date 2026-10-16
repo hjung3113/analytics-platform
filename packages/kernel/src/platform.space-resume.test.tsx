@@ -5,7 +5,7 @@ import type { Session, SpaceDef } from '@ap/contracts';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { createRegistry } from './registry';
-import { noContext, testAdapter, testSpace } from './test-support';
+import { noContext, testAdapter, testSession, testSpace } from './testing';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const spaces: SpaceDef[] = [
@@ -34,7 +34,7 @@ const NOTICES_ONLY: Session['user']['permissions'] = ['notice:view'];
 const STORED = '/equipment?v=1&scopeId=OLD&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&page=2&extra=drop';
 
 function fixture(permissions: Session['user']['permissions']) {
-  const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions }, scopes: [] };
+  const session = testSession(permissions);
   const adapter = testAdapter({ session: () => session });
   return adapter;
 }

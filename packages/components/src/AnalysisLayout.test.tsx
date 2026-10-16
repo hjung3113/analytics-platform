@@ -2,13 +2,13 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { useEffect, useState } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ApiResponse, Session } from '@ap/contracts';
+import type { ApiResponse } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { QueryView } from './StateView';
 import { AnalysisLayout } from './AnalysisLayout';
 import { AnalysisChartFrame } from './AnalysisChartFrame';
 import { PlatformDataTable } from './PlatformDataTable';
-import { noContext, testAdapter, testSpace } from './test-support';
+import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 vi.mock('./EChartImpl', () => ({ default: ({ ariaLabel }: { ariaLabel: string }) => <div role="img" aria-label={ariaLabel} /> }));
 
@@ -18,9 +18,7 @@ const registry = createRegistry({
   menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
 
-const session: Session = {
-  user: { id: 'user-a', name: 'a', title: { ko: 'a', en: 'a' }, permissions: ['platform:view'] }, scopes: [],
-};
+const session = testSession(['platform:view'], { user: { id: 'user-a' } });
 const adapter = testAdapter({ session: () => session });
 
 let width = 1200;

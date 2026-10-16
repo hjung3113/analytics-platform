@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { PlatformAdapter, ScopeCheck, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { ScopeSelector } from './ScopeSelector';
-import { noContext, testAdapter, testSpace } from './test-setup';
+import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 const registry = createRegistry({
   spaces: [testSpace()],
@@ -15,7 +15,7 @@ const registry = createRegistry({
 
 const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
 function adapterWith(validateScope: PlatformAdapter['validateScope'], scopes: Session['scopes'] = []): PlatformAdapter {
-  const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view'] }, scopes };
+  const session = testSession(['platform:view'], { scopes });
   return testAdapter({
     session: () => session,
     validateScope,

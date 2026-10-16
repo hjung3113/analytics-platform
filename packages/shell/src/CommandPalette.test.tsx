@@ -2,11 +2,10 @@ import { Suspense, lazy, useLayoutEffect, useRef, useState, type ReactNode } fro
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, PlatformLink, usePlatform } from '@ap/kernel';
 import { PlatformPage } from '@ap/components';
 import { CommandPalette } from './CommandPalette';
-import { noContext, testAdapter, testSpace } from './test-setup';
+import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const page = lazy(async () => ({ default: () => null }));
@@ -59,7 +58,7 @@ function Open() {
 }
 
 function mount(extra?: ReactNode) {
-  const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view', 'console:access', 'notice:view'] }, scopes: [] };
+  const session = testSession(['platform:view', 'console:access', 'notice:view']);
   const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
   const adapter = testAdapter({
     session: () => session,
@@ -298,8 +297,8 @@ function mountNavigation({ delayed = false, denied = false, url = '/home?v=1', c
       ? { ...m, pageKeys: ['filter'], context: cold ? { ...noContext, time: 'apply' as const } : noContext, initializesMetric: cold }
       : m),
   });
-  const allowed: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view', 'console:access', 'notice:view'] }, scopes: [] };
-  const refused: Session = { ...allowed, user: { ...allowed.user, permissions: ['platform:view', 'notice:view'] } };
+  const allowed = testSession(['platform:view', 'console:access', 'notice:view']);
+  const refused = testSession(['platform:view', 'notice:view']);
   const listeners = new Set<() => void>();
   let currentSession = allowed;
   let blocked = denied;

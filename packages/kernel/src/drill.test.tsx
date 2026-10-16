@@ -5,7 +5,7 @@ import { useDrill, type DrillState } from './drill';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform, type ReturnOrigin } from './platform';
 import { createRegistry, type MenuEntry } from './registry';
-import { noContext, testAdapter, testSession, testSpace } from './test-support';
+import { noContext, testAdapter, testSession, testSpace } from './testing';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const drillKeys = ['drillRoom', 'drillStgroup', 'drillEquipment'] as const;

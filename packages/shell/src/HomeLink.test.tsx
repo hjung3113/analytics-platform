@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GroupId, Permission, PlatformAdapter, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { HomeLink } from './HomeLink';
-import { noContext, testAdapter, testSpace } from './test-setup';
+import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 
@@ -62,7 +62,7 @@ const neither = createRegistry({
 
 const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
 function adapterWith(permissions: Session['user']['permissions']): PlatformAdapter {
-  const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions }, scopes: [] };
+  const session = testSession(permissions);
   return testAdapter({
     session: () => session,
     getEntity: async () => forbidden,
