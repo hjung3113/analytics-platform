@@ -28,8 +28,12 @@ function headerWidths() {
   let width = 1200;
   let notify: (() => void) | undefined;
   vi.stubGlobal('ResizeObserver', class {
-    constructor(callback: () => void) { notify = callback; }
-    observe() {}
+    callback: () => void;
+    constructor(callback: () => void) { this.callback = callback; }
+    observe(element: Element) {
+      // Tooltip positioning also observes elements when keyboard focus opens it.
+      if (element.querySelector('header')) notify = this.callback;
+    }
     disconnect() {}
   });
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({
@@ -58,6 +62,48 @@ function page(onSecondary: () => void) {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('page header yield order (#303)', () => {
+  it.each([false, true])('keeps description focus when collapsed changes from %s without opening its tooltip', async collapsed => {
+    const user = userEvent.setup();
+    const widths = headerWidths();
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    render(page(vi.fn()));
+    await screen.findByText('page body');
+    if (collapsed) widths.set(999);
+    const description = collapsed
+      ? screen.getByRole('button', { name: '폭을 먼저 양보하는 설명' })
+      : screen.getByText('폭을 먼저 양보하는 설명');
+    for (let i = 0; i < 10 && document.activeElement !== description; i++) await user.tab();
+    expect(description).toHaveFocus();
+
+    widths.set(collapsed ? 1032 : 999);
+
+    const replacement = collapsed
+      ? screen.getByText('폭을 먼저 양보하는 설명')
+      : screen.getByRole('button', { name: '폭을 먼저 양보하는 설명' });
+    expect(replacement).toHaveFocus();
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    // A later keyboard visit still opens the ordinary description tooltip.
+    await user.tab();
+    await user.tab({ shift: true });
+    expect(replacement).toHaveFocus();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('폭을 먼저 양보하는 설명');
+  });
+
+  it('preserves focus on another control through both description transitions', async () => {
+    const user = userEvent.setup();
+    const widths = headerWidths();
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    render(page(vi.fn()));
+    await screen.findByText('page body');
+    const primary = screen.getByRole('button', { name: '주 동작' });
+    for (let i = 0; i < 10 && document.activeElement !== primary; i++) await user.tab();
+    expect(primary).toHaveFocus();
+    widths.set(999);
+    expect(primary).toHaveFocus();
+    widths.set(1032);
+    expect(primary).toHaveFocus();
+  });
+
   it.each([
     { name: 'partly hidden on the right', scrollWidth: 404, scrollLeft: 0, actionLeft: 526, expectedScrollLeft: 96 },
     { name: 'not overflowing', scrollWidth: 292, scrollLeft: 0, actionLeft: 526, expectedScrollLeft: 0 },
