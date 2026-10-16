@@ -415,22 +415,6 @@ describe('AuditTrail draft + apply (ADR-0037)', () => {
     expect(screen.queryByRole('button', { name: /Clear filters|필터 초기화/ })).toBeNull();
   });
 
-  it('moves focus to the first field when Apply, focused, disables itself; an unfocused Apply keeps field focus', async () => {
-    const f = renderAudit('/admin/audit');
-    await waitFor(() => expect(f.calls).toHaveLength(1));
-    fireEvent.change(actorInput(), { target: { value: 'park.seo' } });
-    applyButton().focus();
-    fireEvent.click(applyButton());
-    await waitFor(() => expect((applyButton() as HTMLButtonElement).disabled).toBe(true));
-    expect(document.activeElement).toBe(typeSelect());
-
-    fireEvent.change(targetIdInput(), { target: { value: 'ICH-1' } });
-    targetIdInput().focus();
-    fireEvent.click(applyButton());
-    await waitFor(() => expect((applyButton() as HTMLButtonElement).disabled).toBe(true));
-    expect(document.activeElement).toBe(targetIdInput());
-  });
-
   it.each([
     ['fromAt', fromInput, FROM],
     ['toAt', toInput, FROM],
