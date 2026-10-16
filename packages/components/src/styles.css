@@ -15,4 +15,9 @@
   row-gap: 0;
   min-width: 0;
 }
+/* The card grid's one implicit column is sized by its items' min-content, and the plot canvas owns a fixed
+   px width — without min-width:0 a canvas initialized during a wider transient layout would pin that column
+   wider than the card and push the summary/confirm rows past the right border. min-width:0 lets the column
+   follow the card, and the plot's ResizeObserver then shrinks the canvas to fit (#307 UX1). */
+[data-analysis-chart] > * { min-width: 0; }
 [data-analysis-chart-body] > footer { margin-top: auto; }

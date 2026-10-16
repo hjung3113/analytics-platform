@@ -41,6 +41,7 @@
 | [0033](0033-audit-window-open-ended-viewer-time-input.md) | 감사 화면의 시각 범위는 한쪽만 열 수 있고 입력은 보는 사람 시간대다 | Decided(2026-10-15) |
 | [0034](0034-user-facing-copy-no-contract-vocabulary.md) | 사용자 문구는 계약 어휘를 쓰지 않고 서버 message는 세부다 | Decided(2026-10-15) |
 | [0035](0035-page-header-yield-order.md) | 페이지 머리는 한 줄을 유지하고 설명부터 폭을 양보한다 | Decided(2026-10-16) |
+| [0036](0036-chart-range-keyboard-snap-compare-clip.md) | 차트 구간은 키보드로 고르고 막대 경계에 맞추며 비교 중에는 현재 기간만 선택한다 | Decided(2026-10-16) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

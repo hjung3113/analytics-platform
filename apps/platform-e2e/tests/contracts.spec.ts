@@ -1727,6 +1727,38 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
     expect(query(page).get('from')).toMatch(/^2026-09-25T\d\d:\d\d:\d\d$/);
   });
 
+  test('선택 요약과 시작·끝 조작은 차트 카드 안에 머문다 (#307)', async ({ page }) => {
+    await page.goto(CYCLE);
+    const frame = trend(page);
+    await expect(frame.getByRole('img', { name: /^사이클타임 추세/ })).toBeVisible();
+    await frame.getByRole('button', { name: '1시간', exact: true }).click();
+    const summary = frame.getByRole('region', { name: '선택 요약' });
+    await expect(summary).toContainText('선택 구간');
+    await expect.poll(async () => {
+      const [card, inner] = await Promise.all([frame.boundingBox(), summary.boundingBox()]);
+      return card !== null && inner !== null && inner.x + inner.width <= card.x + card.width;
+    }).toBe(true);
+  });
+
+  test('키보드만으로 빠른 구간을 골라 분석 구간을 적용한다 (#307)', async ({ page }, testInfo) => {
+    await page.goto(CYCLE);
+    await expect(mainHeading(page)).toHaveText('사이클타임 상세');
+    const frame = trend(page);
+    // PERIOD is 24 h of hourly bars, so "1시간" is the last bar, ending at the query end.
+    await frame.getByRole('button', { name: '1시간', exact: true }).press('Enter');
+    const summary = frame.getByRole('region', { name: '선택 요약' });
+    await expect(summary).toContainText('2026-09-26 08:00 – 2026-09-26 09:00');
+    expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
+
+    await frame.getByRole('button', { name: '분석 구간 적용…' }).press('Enter');
+    const confirmRow = frame.getByRole('group', { name: '구간 적용 확인' });
+    await expect(confirmRow).toContainText('2026-09-26 08:00:00 → 2026-09-26 09:00:00');
+    await evidence(page, testInfo, 'keyboard-preset-confirm');
+    await confirmRow.getByRole('button', { name: '적용' }).press('Enter');
+    await expect.poll(() => query(page).get('from')).toBe('2026-09-26T08:00:00');
+    expect(query(page).get('to')).toBe('2026-09-26T09:00:00');
+  });
+
   test('주석은 사이트(Scope)별로 저장되어 다른 사이트에는 보이지 않고, 돌아오면 다시 보인다', async ({ page }, testInfo) => {
     await page.goto(CYCLE);
     await brush(page);
