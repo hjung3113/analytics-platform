@@ -42,6 +42,7 @@
 | [0034](0034-user-facing-copy-no-contract-vocabulary.md) | 사용자 문구는 계약 어휘를 쓰지 않고 서버 message는 세부다 | Decided(2026-10-15) |
 | [0035](0035-page-header-yield-order.md) | 페이지 머리는 한 줄을 유지하고 설명부터 폭을 양보한다 | Decided(2026-10-16) |
 | [0036](0036-chart-range-keyboard-snap-compare-clip.md) | 차트 구간은 키보드로 고르고 막대 경계에 맞추며 비교 중에는 현재 기간만 선택한다 | Decided(2026-10-16) |
+| [0037](0037-table-filter-consistency.md) | 관리 표는 내용만큼 커지고 동작 열은 오른쪽에 고정하며, 필터는 초안을 적용으로 한 번에 반영한다 | Decided(2026-10-16) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
