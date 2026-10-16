@@ -130,7 +130,8 @@ export function useTableFit(section: { current: HTMLElement | null }): {
     // Virtual rows mount/unmount inside the viewport on every scroll; only structure outside it changes the flow.
     const mutations = typeof MutationObserver === 'undefined' ? null
       : new MutationObserver(records => { if (records.some(record => !node.contains(record.target))) rebind(); });
-    mutations?.observe(boundary, { childList: true, subtree: true });
+    // A peer switching between auto-fit and an explicit height changes this cap without changing any size.
+    mutations?.observe(boundary, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-table-auto-fit'] });
     window.addEventListener('resize', update);
     return () => { mutations?.disconnect(); observer?.disconnect(); window.removeEventListener('resize', update); };
   }, [node, section]);

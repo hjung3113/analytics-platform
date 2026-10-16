@@ -94,6 +94,15 @@ describe('table fit flow invalidation and convergence', () => {
     expect(pairs.slice(-3)).toEqual([[760, 760], [760, 760], [760, 760]]);
   });
 
+  it('re-measures when a peer leaves auto-fit without any size change', async () => {
+    setup(); banner = 0;
+    render(<Page count={2} />);
+    for (let i = 0; i < 4; i++) deliver();
+    const before = caps()[0];
+    await act(async () => { screen.getByTestId('table-1').removeAttribute('data-table-auto-fit'); });
+    expect(caps()[0]).not.toBe(before);
+  });
+
   it.each(['element', 'window'] as const)('%s fallback ignores scrollHeight slack at nonzero scroll, from short results to long', mode => {
     frame = mode; setup(); banner = 0; many = false;
     render(<Page hook={false} />);
