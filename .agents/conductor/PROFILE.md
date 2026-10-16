@@ -58,10 +58,41 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
   - `flags.contract`면 06 계약·ADR을 고친 곳을 코드 리뷰어 작업에 적는다.
 - 리뷰어 규칙:
   - 코드 리뷰어는 `docs/agents/templates/review-rules.md`.
-  - UX 리뷰어와 품질 리뷰어는 `.claude/agents/review-ux.md`·`review-quality.md`(→ `.agents/agents/`).
+  - UX 리뷰어와 품질 리뷰어는 전역 `~/.agents/agents/review-ux.md`·`review-quality.md`이고, 이 레포의 기준은 아래 `Review lens` 두 절이다.
 - 성능: 측정 도구가 없다. 회귀를 실제로 재었을 때만 `review-perf`를 띄우고, 그 밖에는 코드 리뷰어 작업에 성능 관점을 넣는다.
 - 충돌을 정하는 순서의 맨 앞: 권한·데이터 누출 규칙 → ADR·06 계약·기록된 사용자 결정.
 - 과거 병합으로 맞춰 본 결과: #247(드릴다운) → code+ux+perf, permission·e2e·contract / #246(표 컬럼) → code+ux, e2e / #248·#253(문서) → 리뷰 없음.
+
+## Review lens: UX
+
+전역 `review-ux` 페르소나가 이 절을 먼저 읽는다. 보고서는 한국어로 쓴다.
+
+- **미리보기**: `branch`와 `main`(기준) 둘 다 mock 조립 vite 서버다. 백엔드·로그인·DB가 없고, 포트가 달라 localStorage도 따로다. UI를 통한 쓰기는 mock 메모리에만 남는다.
+- **역할**: 각 미리보기 origin에서 localStorage `platform:role`로 정한다(예: 관리자·일반). 로딩·빈·오류 상태는 mock DevTools의 응답 시나리오로 만든다(페이지를 새로 열 때마다 다시 고른다).
+- **뷰포트**: 1440×900(`page.cdp("Emulation.setDeviceMetricsOverride", …)`), 상세 슬롯이 열리는 화면은 1280에서도 본다.
+- **기준 문서**:
+  - 루트 `AGENTS.md`(플랫폼이 목적, 메뉴 화면은 견본), `DESIGN.md`(FeedbackOps 디자인 시스템을 따르는 시각 규칙), `GLOSSARY.md`(용어).
+  - `docs/06_platform_ui_contract.md`의 해당 절: 셸 §7, 상세 슬롯 §13, 차트 §16, 상태 표시 §19, 메뉴 간 연결 §22, 그리고 이슈가 가리키는 절과 ADR.
+  - 컨펌된 시안(실제 앱 위 `?variant=` 중 사용자가 고른 안). 시안과 다르면 `owner-question`이다.
+  - 프로젝트가 말하지 않는 곳에만 일반 관점: `web-design-guidelines`·`interface-design` 스킬.
+- **추가 점검**:
+  - **URL 계약**: 새로고침·뒤로/앞으로·링크 복사로 같은 화면이 열리는가. Context 바를 바꿨을 때 page 값이 계약대로 남거나 지워지는가(06 §6.4).
+  - **키보드 기준**: 06 §26 입력 기준(Windows, 키보드와 마우스 함께).
+  - **문구**: 한국어 화면 문구, 기존 i18n 표현 재사용, `GLOSSARY.md` 용어(예: 설비명이 아니라 EquipmentID).
+  - **일관성**: 50px 페이지 머리, 원색 대신 토큰, 일회용 대신 `@ap/ui`·`@ap/components` 부품.
+- **심각도 예시**: `blocker`에는 다른 범위(Scope)의 데이터가 보이는 것, `major`에는 06 계약과 어긋나는 것이 들어간다.
+
+## Review lens: quality
+
+전역 `review-quality` 페르소나가 이 절을 먼저 읽는다. 보고서는 한국어로 쓴다.
+
+- **범위**: `<직전 릴리스 태그>...origin/main`(위 Slice close).
+- **기준 문서**: 루트 `AGENTS.md`(목적, 의존 방향, 공통화 기준, 검증)와 `packages/AGENTS.md`, 건드린 경로의 폴더 `AGENTS.md`; `docs/integration/platform-packages.md`(패키지 경계 §3), `docs/06_platform_ui_contract.md` §24(공통화 — 실제 소비자 2–3곳에서 확인된 뒤), `docs/AGENTS.md`(계약은 소유 문서 한 곳).
+- **경계 누출**: Kernel·공통 컴포넌트·셸이 메뉴나 mock을 안다; 역방향 import; 메뉴가 공개 진입점이 아닌 `@ap/*` 내부를 import한다; FeedbackOps primitive를 `@ap/ui` 밖에서 쓴다; 프런트가 권한을 진실로 강제한다.
+- **공통화 판단**: 소비자 하나뿐인데 공통 패키지로 올라간 것, 반대로 2–3곳에 반복되는데 메뉴에 남은 것.
+- **죽은 코드에 더해**: 지우지 않은 프로토타입(`?variant=`) 코드.
+- **문서 표류에 더해**: 06 절, ADR, `.planning/README.md` 줄.
+- **release-blocker**: 틀린 동작이나 데이터를 내보낼 패키지 경계·06 계약·권한 위반만.
 
 ## Fold scope
 

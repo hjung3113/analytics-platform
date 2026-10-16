@@ -24,7 +24,7 @@
 2. 정비 후속: #381(결정: 테스트용 어댑터 스텁을 공개 테스트 진입점으로 모을지).
 3. 그다음 후보: 멀티 워크스페이스 v2(지도 #249). #310은 FeedbackOps 제안(FeedbackOps#1202) — FeedbackOps 쪽 답 대기.
 4. 그 밖의 후보: 바로 할 수 있는 일 표. #251 FeedbackOps 링크 계약·매핑은 #81 대기, #252 표준 로그·개선 실행 공간은 도메인 소유자 합의·#249 미결 대기.
-5. 작업 규칙은 루트 `AGENTS.md`(2026-10-05 간소화), 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 문서만 바꾸면 `pnpm docs:links`만 돌린다. 작업자 배정은 전역 `routing.tsv`가 원본이다(역할 `impl`·`impl-mid`·`impl-complex`·`impl-luna` — 모델·effort를 여기에 복제하지 않는다, #283).
+5. 작업 규칙은 루트 `AGENTS.md`(2026-10-05 간소화), 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 문서만 바꾸면 `pnpm docs:links`만 돌린다. 작업자 배정은 전역 `routing.tsv`가 원본이다(역할별 모델·effort·fallback은 그 파일에만 두고, 다른 곳에는 역할 이름만 쓴다, #283).
 
 ## 결정 대기 — 정비 슬라이스에서 나온 것 (2026-10-13, 10-15)
 

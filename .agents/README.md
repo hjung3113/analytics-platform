@@ -8,9 +8,10 @@
 | --- | --- | --- |
 | 프로젝트 지침 | `/AGENTS.md` | `/CLAUDE.md → AGENTS.md` |
 | 스킬 | `.agents/skills/` | `.claude/skills`, `.omp/skills`, `.grok/skills`, `.opencode/skills → ../.agents/skills` |
-| 리뷰어 에이전트 | `.agents/agents/` | `.claude/agents → ../.agents/agents` |
 | 명령 텍스트 | `.agents/commands/` | `.claude/commands → ../.agents/commands` |
 | 외부 디자인 자료 | `.agents/references/` | `.claude/references → ../.agents/references` |
+
+작업 흐름 자산은 전역에 하나만 둔다: 리뷰어 페르소나는 `~/.agents/agents/`(→ `~/.claude/agents`), 워크플로우 스킬(`issue-wave-conductor`·`orca-dispatch-recipes`·`session-handoff` 등)은 `~/.agents/skills/`. 이 레포 고유 기준은 `.agents/conductor/PROFILE.md`의 `Review lens` 절에 둔다.
 
 모든 링크는 저장소 내부 상대 경로다. 복제본을 수정하거나 사용자 홈에 설치하지 않는다. Codex는 `.agents/skills`를 직접 탐색하므로 `.codex/skills` 복제 경로가 필요 없다. OpenCode/OMP가 공통 경로와 호환 경로를 함께 발견하더라도 같은 스킬의 별도 버전을 만들지 않는다.
 
