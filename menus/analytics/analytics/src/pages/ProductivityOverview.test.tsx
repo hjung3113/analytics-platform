@@ -57,20 +57,6 @@ describe('ProductivityOverview invalid page key warnings (#304 FIX1)', () => {
     expect(alert.textContent).toContain('초기화');
   });
 
-  it('each invalid field keeps its own name and raw value', async () => {
-    renderPage('/analytics/productivity?v=1&scopeId=ICH&kpi=bogus&axis=zzz&sort=nope');
-    const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toContain('지표');
-    expect(alert.textContent).toContain('bogus');
-    expect(alert.textContent).toContain('축');
-    expect(alert.textContent).toContain('zzz');
-    expect(alert.textContent).toContain('정렬');
-    expect(alert.textContent).toContain('nope');
-    expect(alert.textContent).not.toContain('kpi=');
-    expect(alert.textContent).not.toContain('axis=');
-    expect(alert.textContent).not.toContain('sort=');
-  });
-
   it('states each refusal as the exact ADR-0034 sentence plus the page own action (one paragraph per field)', async () => {
     renderPage('/analytics/productivity?v=1&scopeId=ICH&kpi=bogus&axis=zzz&sort=nope');
     const alert = await screen.findByRole('alert');

@@ -84,7 +84,7 @@ describe('productivity drill menuQuery (06 §6.4)', () => {
 
   it('does not call menuQuery when the URL has only drillStgroup', { timeout: DRILL_TEST_TIMEOUT_MS }, async () => {
     const calls = await mount('&drillStgroup=STG-PHOTO-A', () => screen.queryAllByRole('alert')
-      .some(node => node.textContent?.includes('drillStgroup=STG-PHOTO-A') === true));
+      .some(node => node.textContent?.includes('StGroup “STG-PHOTO-A”는 앞 단계 없이 쓸 수 없습니다.') === true));
     expect(calls).toHaveLength(0);
   });
 });

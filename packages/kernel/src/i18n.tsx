@@ -142,7 +142,11 @@ const dict = {
   selectedRange: { ko: '선택 구간', en: 'Selected range' },
   invalidUrlValue: { ko: '{field} “{raw}”{particle} 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.', en: '{field} “{raw}” is not a value this page can use. Reset the conditions.' },
   invalidUrlFilter: { ko: '{field} “{raw}”{particle} 이 화면에서 쓸 수 없는 필터입니다. 조건을 초기화하세요.', en: '{field} “{raw}” is not available on this screen. Reset the filters.' },
+  invalidUrlDrillGap: { ko: '{field} “{raw}”{particle} 앞 단계 없이 쓸 수 없습니다.', en: '{field} “{raw}” cannot be used without the earlier steps.' },
   invalidUrlPlain: { ko: '{field} “{raw}”{particle} 이 화면에서 쓸 수 없습니다.', en: '{field} “{raw}” cannot be used on this page.' },
+  invalidTableTitle: { ko: '정렬·페이지 값이 올바르지 않습니다', en: 'The sort or page value cannot be used' },
+  invalidTableSort: { ko: '정렬', en: 'Sort' },
+  invalidTablePage: { ko: '페이지', en: 'Page' },
 } satisfies Record<string, Text>;
 
 export type Key = keyof typeof dict;
@@ -192,7 +196,7 @@ export function userFacingEntries(): readonly { key: string; ko: string; en: str
   return Object.entries(dict).map(([key, text]) => ({ key, ko: text.ko, en: text.en }));
 }
 
-const INVALID_URL_KEY = { value: 'invalidUrlValue', filter: 'invalidUrlFilter', plain: 'invalidUrlPlain' } as const satisfies Record<string, Key>;
+const INVALID_URL_KEY = { value: 'invalidUrlValue', filter: 'invalidUrlFilter', plain: 'invalidUrlPlain', drillGap: 'invalidUrlDrillGap' } as const satisfies Record<string, Key>;
 
 /** Korean topic particle by the final-consonant of the last character; anything that is not a Hangul syllable takes 는. */
 function topicParticle(name: string): '은' | '는' {
@@ -202,7 +206,7 @@ function topicParticle(name: string): '은' | '는' {
 }
 
 /** ADR-0034 sentence for an invalid URL value: the field's user name + the raw value as entered (quoted, untruncated) + cause/action. Placeholders fill in one pass, so the raw value is never re-read. */
-export function invalidValueSentence(lang: Lang, kind: 'value' | 'filter' | 'plain', field: Text, raw: string): string {
+export function invalidValueSentence(lang: Lang, kind: 'value' | 'filter' | 'plain' | 'drillGap', field: Text, raw: string): string {
   const fill: Record<string, string> = { field: field[lang], raw, particle: lang === 'ko' ? topicParticle(field.ko) : '' };
   return dict[INVALID_URL_KEY[kind]][lang].replace(/\{(field|raw|particle)\}/g, (_token, name: string) => fill[name] ?? '');
 }

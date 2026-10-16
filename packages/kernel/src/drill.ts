@@ -7,7 +7,7 @@ export type DrillLevelState = { key: string; label: Text; value: string | null }
 /** A filled step on the leading run. `value` is the raw page-key string (06 §6.4). */
 export type DrillTrailStep = { key: string; label: Text; value: string };
 /** First later step that has a value while an earlier step is empty (06 §6.4 format error). */
-export type DrillInvalid = { key: string; value: string };
+export type DrillInvalid = { key: string; label: Text; value: string };
 
 export type DrillState = {
   levels: DrillLevelState[];
@@ -53,7 +53,7 @@ export function useDrill(): DrillState {
   const invalid = useMemo<DrillInvalid | null>(() => {
     for (let i = depth; i < levels.length; i += 1) {
       const value = levels[i]?.value;
-      if (value !== null && value !== undefined) return { key: levels[i].key, value };
+      if (value !== null && value !== undefined) return { key: levels[i].key, label: levels[i].label, value };
     }
     return null;
   }, [levels, depth]);

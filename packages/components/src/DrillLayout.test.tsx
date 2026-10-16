@@ -113,8 +113,8 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
   it('replaces the body on a format error and does not substitute a value', () => {
     mount('/source?v=1&drillStgroup=LATE', <DrillLayout notFound={{ key: 'drillRoom', value: 'NOPE' }}><p>본문</p></DrillLayout>);
     const alert = screen.getByRole('alert');
-    expect(alert.textContent).toContain('drillStgroup=LATE');
-    expect(alert.textContent).toContain('앞 단계 없이');
+    expect(alert.textContent).toContain('StGroup “LATE”는 앞 단계 없이 쓸 수 없습니다.');
+    expect(alert.textContent).not.toContain('drillStgroup=');
     expect(screen.queryByText('본문')).toBeNull();
     expect(screen.queryByText(/없는 값/)).toBeNull();
     expect(window.location.search).toBe('?v=1&drillStgroup=LATE');

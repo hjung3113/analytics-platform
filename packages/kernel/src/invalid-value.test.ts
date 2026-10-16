@@ -17,6 +17,9 @@ describe('invalidValueSentence (ADR-0034 wording)', () => {
     ['plain', 'ko', { ko: '지표', en: 'Metric' }, 'zzz', '지표 “zzz”는 이 화면에서 쓸 수 없습니다.'],
     ['plain', 'en', { ko: '지표', en: 'Metric' }, 'zzz', 'Metric “zzz” cannot be used on this page.'],
     ['plain', 'ko', { ko: '느린 실행 기준', en: 'Slow executions' }, 'q', '느린 실행 기준 “q”은 이 화면에서 쓸 수 없습니다.'],
+    ['drillGap', 'ko', { ko: '설비', en: 'Equipment' }, 'E1', '설비 “E1”는 앞 단계 없이 쓸 수 없습니다.'],
+    ['drillGap', 'en', { ko: '설비', en: 'Equipment' }, 'E1', 'Equipment “E1” cannot be used without the earlier steps.'],
+    ['drillGap', 'ko', { ko: '공정', en: 'Process' }, 'LATE', '공정 “LATE”은 앞 단계 없이 쓸 수 없습니다.'],
     ['plain', 'en', { ko: '느린 실행 기준', en: 'Slow executions' }, 'q', 'Slow executions “q” cannot be used on this page.'],
   ] as const)('%s / %s', (kind, lang, field, raw, expected) => {
     expect(invalidValueSentence(lang, kind, field, raw)).toBe(expected);
@@ -46,7 +49,7 @@ describe('invalidValueSentence (ADR-0034 wording)', () => {
 
   it('exposes the templates to the user-facing copy check without key=value', () => {
     const entries = userFacingEntries().filter(entry => entry.key.startsWith('invalidUrl'));
-    expect(entries.map(entry => entry.key).sort()).toEqual(['invalidUrlFilter', 'invalidUrlPlain', 'invalidUrlValue']);
+    expect(entries.map(entry => entry.key).sort()).toEqual(['invalidUrlDrillGap', 'invalidUrlFilter', 'invalidUrlPlain', 'invalidUrlValue']);
     for (const entry of entries) expect(`${entry.ko}${entry.en}`).not.toMatch(/\w=/);
   });
 });

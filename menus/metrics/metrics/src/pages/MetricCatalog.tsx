@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { type PageProps, PlatformLink, type QueryState, invalidValueSentence, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
-import { PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, StateMessage, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
+import { PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, StateMessage, TableUrlWarning, encodeTableSort, useTableUrlWarning } from '@ap/components';
 import { Button } from '@ap/ui';
 import {
   DOMAINS, STATUSES, catalogExportEndpoint, catalogListEndpoint, catalogPageEndpoint, metricPairEndpoint, sortColumns,
@@ -77,21 +77,13 @@ export default function MetricCatalogPage(_: PageProps) {
   const statusIllegal = status !== null && !STATUSES.includes(status as PublicationState);
   const domainIllegal = domain !== null && !DOMAINS.includes(domain as typeof DOMAINS[number]);
   // §6.1 page keys: sort/page are URL-owned; invalid wire values alert instead of substituting (never "empty rows").
-  const sortRaw = pageParam('sort');
-  const pageRaw = pageParam('page');
-  const parsedSort = parseTableSort(sortRaw, sortColumns);
-  const parsedPage = parsePageIndex(pageRaw);
+  const { parsedSort, parsedPage, invalid: tableInvalid, sentences: invalidTableSentences } = useTableUrlWarning(sortColumns);
   // #304 FIX1 (06 §19): each invalid field keeps its user name and the raw value as entered (quoted, untruncated),
   // one sentence per field — never `key=value`.
   const invalidFilterSentences = [
     statusIllegal ? invalidValueSentence(lang, 'filter', { ko: '상태', en: 'Status' }, status) : null,
     domainIllegal ? invalidValueSentence(lang, 'filter', { ko: '도메인', en: 'Domain' }, domain) : null,
   ].filter((sentence): sentence is string => sentence !== null);
-  const invalidTableSentences = [
-    !parsedSort.ok ? invalidValueSentence(lang, 'value', { ko: '정렬', en: 'Sort' }, sortRaw ?? '') : null,
-    !parsedPage.ok ? invalidValueSentence(lang, 'value', { ko: '페이지', en: 'Page' }, pageRaw ?? '') : null,
-  ].filter((sentence): sentence is string => sentence !== null);
-  const tableInvalid = !parsedSort.ok || !parsedPage.ok;
   // A global-Context change clears `page` in the kernel (manifest contextResetKeys); pages write no reset effect.
   const pair = useMenuQuery(metricPairEndpoint, NO_DESTINATION);
   const verdict = pair.response?.outcome === 'ok' ? pair.response.data : null;
@@ -130,10 +122,7 @@ export default function MetricCatalogPage(_: PageProps) {
         title={lang === 'ko' ? '등록되지 않은 필터입니다' : 'This filter is not registered'}
         body={invalidFilterSentences.map((sentence, index) => <p key={index}>{sentence}</p>)}
         action={<Button size="sm" variant="secondary" onClick={() => setPage({ ...(statusIllegal ? { status: null } : {}), ...(domainIllegal ? { domain: null } : {}) })}>{lang === 'ko' ? '초기화' : 'Reset'}</Button>} />}
-      {tableInvalid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />}
-        title={lang === 'ko' ? '정렬·페이지 값이 올바르지 않습니다' : 'The sort or page value cannot be used'}
-        body={invalidTableSentences.map((sentence, index) => <p key={index}>{sentence}</p>)}
-        action={<Button variant="secondary" size="sm" onClick={() => setPage({ sort: null, page: null })}>{lang === 'ko' ? '초기화' : 'Reset'}</Button>} /> : <PlatformDataTable
+      {tableInvalid ? <TableUrlWarning sentences={invalidTableSentences} /> : <PlatformDataTable
         title={lang === 'ko' ? '지표 카탈로그' : 'Metric catalog'}
         subtitle={lang === 'ko'
           ? `${metricCountText}. 게시 포인터는 레코드에 저장된 값이며 최대 버전 번호가 아닙니다. 초안 열기는 동작 열.`

@@ -104,20 +104,6 @@ describe('CycleTimeDrilldown invalid page key warnings (#304 FIX1)', () => {
     expect(alert.textContent).toContain('되돌리세요');
   });
 
-  it('each invalid field keeps its own name and raw value', async () => {
-    renderPage('/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00&granularity=zzz&bin=bogus&page=0');
-    const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toContain('집계');
-    expect(alert.textContent).toContain('zzz');
-    expect(alert.textContent).toContain('분포 구간');
-    expect(alert.textContent).toContain('bogus');
-    expect(alert.textContent).toContain('페이지');
-    expect(alert.textContent).toContain('“0”');
-    expect(alert.textContent).not.toContain('granularity=');
-    expect(alert.textContent).not.toContain('bin=');
-    expect(alert.textContent).not.toContain('page=');
-  });
-
   it('states each refusal as the exact ADR-0034 sentence plus the page own action (one paragraph per field)', async () => {
     renderPage('/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00&granularity=zzz&percentile=q&bin=bogus&page=0');
     const alert = await screen.findByRole('alert');

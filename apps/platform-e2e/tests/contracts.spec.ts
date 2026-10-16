@@ -2026,8 +2026,9 @@ test.describe('드릴다운 (06 §6.4, §12.7, §22, ADR-0025)', () => {
     const broken = `${PRODUCTIVITY}&drillStgroup=STG-PHOTO-A`;
     await page.goto(broken);
     const alert = page.getByRole('alert');
-    await expect(alert).toContainText('drillStgroup=STG-PHOTO-A');
-    await expect(alert).toContainText('앞 단계');
+    // ADR-0034: the step's user name and the quoted raw value, never `key=value`.
+    await expect(alert).toContainText('StGroup “STG-PHOTO-A”는 앞 단계 없이 쓸 수 없습니다.');
+    await expect(alert).not.toContainText('drillStgroup=');
     expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(broken);
     expect(query(page).has('drillRoom')).toBe(false);
     await expect(page.getByRole('region', { name: '네 지표 요약' })).toHaveCount(0);

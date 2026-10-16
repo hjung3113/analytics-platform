@@ -7,6 +7,7 @@ export * from './DetailDrawer';
 export { EChart, token, type EChartProps } from './EChart';
 export * from './PageFilterBar';
 export * from './PlatformDataTable';
+export * from './tableUrlWarning';
 export * from './PlatformPage';
 export * from './RadioGroup';
 export * from './StatCard';
