@@ -505,6 +505,11 @@ function actors(state: RefState) {
       state.console = true;
       try { return await fn(); } finally { state.console = false; }
     },
+    // A different user from the granted one who keeps the chart permission (and the site grants the reference gives everyone).
+    asOtherAnnotator: async <T>(fn: () => Promise<T>): Promise<T> => {
+      state.console = true;
+      try { return await fn(); } finally { state.console = false; }
+    },
   };
 }
 
@@ -752,6 +757,30 @@ describe('server conformance kit (#145)', () => {
     ['permission-reject-data', 'fixture.list · without analytics:view → forbidden'],
   ])('fails exactly the matching check when the server drops the %s rule', async (broken, check) => {
     expect(await failing([broken])).toEqual([check]);
+  });
+
+  // F1 (#399): the author check must not pass because the second actor was refused before authorship was tested.
+  // A console-only second actor (no chart permission) is refused at the permission gate whatever the server does with authors.
+  const AUTHOR_CHECK = 'port · deleteAnnotation by another user → forbidden and the note stays';
+  async function failingWithConsoleOnlyOther(breaks: string[]): Promise<{ id: string; failure: string | null }[]> {
+    const state: RefState = { permissions: new Set<Permission>(['analytics:view', 'equipment:view']), console: false };
+    const consoleOnly = async <T>(fn: () => Promise<T>): Promise<T> => {
+      state.console = true;
+      state.permissions.delete('analytics:view');
+      try { return await fn(); } finally { state.console = false; state.permissions.add('analytics:view'); }
+    };
+    const h: ServerConformanceHarness = { adapter: referenceAdapter(state, new Set(breaks)), cases: [{ spec, params: { page: 0 } }], context: CONTEXT, foreignScopeId: 'XIA', ports: PORTS, ...actors(state), asConsole: consoleOnly, asOtherAnnotator: consoleOnly };
+    return (await runServerConformance(h)).filter(r => r.id === AUTHOR_CHECK);
+  }
+
+  it.each([[[]], [['annotation-delete-any-author']]])('does not report an author pass when the second actor cannot annotate (breaks: %j)', async breaks => {
+    const [result] = await failingWithConsoleOnlyOther(breaks);
+    expect(result.failure).toMatch(/second actor .*cannot annotate/);
+  });
+
+  it('reports the permissive-author server with an annotation-capable second actor', async () => {
+    const [result] = (await runServerConformance(harness(new Set(['annotation-delete-any-author'])))).filter(r => r.id === AUTHOR_CHECK);
+    expect(result.failure).toMatch(/not the author: expected forbidden, got ok/);
   });
 
   // Rejecting every report fails both positive controls: the harness sample and the cloned global menu.

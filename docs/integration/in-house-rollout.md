@@ -45,7 +45,7 @@
 - [ ] 세션 만료·재인증 주기·단일 로그아웃 요구
 - [ ] FeedbackOps와 IdP 클라이언트 공유 가능 여부(M3 SSO 공유)
 - [ ] 망분리에서 서버의 IdP 백채널 접근 가능 여부
-- [ ] 테스트 계정: 모든 엔드포인트 권한 계정 + 권한 하나씩 뺀 계정(또는 세션 전환 훅), `console:access` 계정(`asConsole`), 부여 계정의 site 둘 부여·목적지/주석 권한 — 적합성 묶음에 필요(체크리스트 §4)
+- [ ] 테스트 계정: 모든 엔드포인트 권한 계정 + 권한 하나씩 뺀 계정(또는 세션 전환 훅), `console:access` 계정(`asConsole`), 주석 가능한 두 번째 사용자 계정(`asOtherAnnotator`), 부여 계정의 site 둘 부여·목적지/주석 권한 — 적합성 묶음에 필요(체크리스트 §4)
 
 ### 3.2 인프라 담당 — [#151](https://github.com/hjung3113/analytics-platform/issues/151)
 

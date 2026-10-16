@@ -24,17 +24,19 @@ function animationOff<T extends AnimationOption>(option: T): T {
 }
 
 /** ECharts-dependent implementation, loaded lazily from EChart (#48) so charts stay out of the main bundle. */
-export default function EChartImpl({ option, height = 280, onEvents, onReady, ariaLabel, className }: EChartProps) {
+export default function EChartImpl({ option, height = 280, onEvents, onReady, onResize, ariaLabel, className }: EChartProps) {
   const el = useRef<HTMLDivElement>(null);
   const chart = useRef<ECharts | null>(null);
   const events = useRef(onEvents);
   events.current = onEvents;
+  const resized = useRef(onResize);
+  resized.current = onResize;
 
   useEffect(() => {
     if (!el.current) return;
     const instance = echarts.init(el.current, undefined, { renderer: 'canvas' });
     chart.current = instance;
-    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => instance.resize()) : null;
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { instance.resize(); resized.current?.(instance.getWidth()); }) : null;
     observer?.observe(el.current);
     onReady?.(instance);
     return () => { observer?.disconnect(); instance.dispose(); chart.current = null; };

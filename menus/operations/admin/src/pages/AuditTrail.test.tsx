@@ -227,6 +227,25 @@ describe('AuditTrail text filters (issue #50 review)', () => {
     }
   });
 
+  // #399 UX-1: 삭제한 주석 문구가 reason에 남으므로 감사 표에서 읽을 수 있어야 한다(길면 말줄임, 전문은 title).
+  it('shows the recorded reason in its own column, with the full text in the title and a dash when empty', async () => {
+    const restore = withRowLayout();
+    try {
+      const reason = '삭제된 주석 문구가 아주 길어서 셀 폭을 넘는 경우에도 전문을 title로 읽을 수 있어야 한다';
+      renderAudit('/admin/audit', [{ ...EVENT, reason }, { ...EVENT, id: 'a2', changes: undefined, target: { ...EVENT.target, id: 'ICH-ETCH-0102' } }]);
+      const table = await screen.findByRole('table', { name: '변경 감사 목록' });
+      const headers = within(table).getAllByRole('columnheader');
+      const index = headers.findIndex(h => h.textContent?.includes('사유'));
+      expect(index).toBeGreaterThan(-1);
+      expect(headers.at(-1)?.textContent).toContain('동작');
+      const cellOf = (id: string) => within(within(table).getByText(id).closest('[role="row"]') as HTMLElement).getAllByRole('cell')[index];
+      expect(within(cellOf('ICH-ETCH-0101')).getByText(reason).getAttribute('title')).toBe(reason);
+      expect(cellOf('ICH-ETCH-0102').textContent).toBe('—');
+      fireEvent.click(screen.getByRole('button', { name: '컬럼' }));
+      expect(await screen.findByRole('checkbox', { name: /사유/ })).toBeTruthy();
+    } finally { restore(); }
+  });
+
   // W-302 FIX1: 알 수 없는 대상 유형은 원문으로 보인다. `constructor`·`toString`·`__proto__` 같은 상속 키도
   // 빈 셀이 되지 않는다(원래 Object.prototype의 속성을 찾아 label이 undefined였다).
   it('shows unknown target types as raw wire values, including inherited-key names', async () => {

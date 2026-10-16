@@ -39,6 +39,8 @@ export type EChartProps = {
   option: EChartsCoreOption; height?: number; ariaLabel: string; className?: string;
   onEvents?: Record<string, (params: any, chart: ECharts) => void>;
   onReady?: (chart: ECharts) => void;
+  /** The plot's width in px after its container resized (not called for the initial size; read it from the instance in onReady). */
+  onResize?: (width: number) => void;
 };
 
 /** Contains a rejected EChartImpl chunk load inside the chart box so it never unmounts the surrounding app (#48 P2). */
@@ -49,7 +51,7 @@ class ChunkLoadBoundary extends Component<{ onError: (error: unknown) => void; c
   render() { return this.state.failed ? null : this.props.children; }
 }
 
-export function EChart({ option, height = 280, onEvents, onReady, ariaLabel, className }: EChartProps) {
+export function EChart({ option, height = 280, onEvents, onReady, onResize, ariaLabel, className }: EChartProps) {
   const { t } = useI18n();
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
@@ -73,7 +75,7 @@ export function EChart({ option, height = 280, onEvents, onReady, ariaLabel, cla
         </div>
       }>
         {/* ECharts is code-split (#48): the echarts-dependent implementation lives in EChartImpl and loads on first chart mount. */}
-        <EChartImpl option={option} height={height} onEvents={onEvents} onReady={onReady} ariaLabel={ariaLabel} className={className} />
+        <EChartImpl option={option} height={height} onEvents={onEvents} onReady={onReady} onResize={onResize} ariaLabel={ariaLabel} className={className} />
       </Suspense>
     </ChunkLoadBoundary>
   );

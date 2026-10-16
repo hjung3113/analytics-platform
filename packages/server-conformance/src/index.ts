@@ -74,6 +74,12 @@ export type ServerConformanceHarness = {
   withoutPermission<T>(permission: Permission, fn: () => Promise<T>): Promise<T>;
   /** Run `fn` as an actor holding `console:access` (the console reads) — a different account from the granted one in practice. */
   asConsole<T>(fn: () => Promise<T>): Promise<T>;
+  /**
+   * Run `fn` as a second user, distinct from the granted one, who can annotate: `ports.annotation.permission` and a
+   * grant at `context.scopeId`. The author-only delete check uses it as "another user" — a refusal only proves
+   * authorship when this account is allowed to annotate, so the kit first proves it can (#399).
+   */
+  asOtherAnnotator<T>(fn: () => Promise<T>): Promise<T>;
 };
 
 /** One check: `run` resolves to null when the adapter conforms, otherwise to the reason it does not. */
@@ -837,7 +843,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
       expectOutcome(() => adapter.saveAnnotation(annotationInput(harness.context.scopeId)), 'forbidden', 'the annotation write re-checks the chart permission per request'),
     ),
   });
-  // Author-only delete (#399, ADR-0041). The two actors are the granted account and the console account, so
+  // Author-only delete (#399, ADR-0041). The two actors are the granted account and a second annotating account (`asOtherAnnotator`), so
   // these run sequentially and switch actors themselves (the mock's role is global).
   const deleteRef = (id: string, scopeId: string | null = harness.context.scopeId) => ({ chartId, scopeId, id });
   const saveAsGranted = async (): Promise<{ id: string } | string> => {
@@ -883,9 +889,17 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
       const saved = await savedAndListed();
       if (saved === null) return null;
       if (typeof saved === 'string') return saved;
-      const other = await harness.asConsole(() => adapter.deleteAnnotation(deleteRef(saved.id)));
+      // The second actor must be able to annotate, or a refusal could be the permission/site gate rather than authorship.
+      const own = await harness.asOtherAnnotator(() => adapter.saveAnnotation(annotationInput(harness.context.scopeId)));
+      if (own.outcome !== 'ok' || !own.data) {
+        await harness.asGranted(() => adapter.deleteAnnotation(deleteRef(saved.id)));
+        return `the second actor cannot annotate (saving its own note: expected ok, got ${describeResponse(own)}) — asOtherAnnotator needs ${annotationPermission} and a grant at ${harness.context.scopeId}, so a refusal would not prove authorship`;
+      }
+      const other = await harness.asOtherAnnotator(() => adapter.deleteAnnotation(deleteRef(saved.id)));
       const ids = await listIds(harness.asGranted);
       await harness.asGranted(() => adapter.deleteAnnotation(deleteRef(saved.id)));
+      const ownDeleted = await harness.asOtherAnnotator(() => adapter.deleteAnnotation(deleteRef(own.data!.id)));
+      if (ownDeleted.outcome !== 'ok') return `the second actor deleting its own note: expected ok, got ${describeResponse(ownDeleted)}`;
       if (other.outcome !== 'forbidden') return `a user who is not the author: expected forbidden, got ${describeResponse(other)}`;
       if (typeof ids === 'string') return ids;
       return ids.includes(saved.id) ? null : 'the note was removed by a user who is not its author';

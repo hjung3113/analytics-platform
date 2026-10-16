@@ -6,10 +6,16 @@ import type { AnnotationInput, ApiResponse, AnnotationRef, ChartAnnotation, Plat
 import { parseDateTime } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { AnalysisChartFrame, type ChartSeries } from './AnalysisChartFrame';
+import { assignNoteLevels } from './annotationLayout';
 import type { EChartProps } from './EChart';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 vi.mock('./EChartImpl', () => ({ default: FakePlot }));
+// Wraps the overlap pass so a test can count how often the frame recomputes it (#399 F4).
+vi.mock('./annotationLayout', async importOriginal => {
+  const actual = await importOriginal<typeof import('./annotationLayout')>();
+  return { ...actual, assignNoteLevels: vi.fn(actual.assignNoteLevels) };
+});
 
 type CapturedSeries = {
   id?: string;
@@ -20,6 +26,8 @@ type CapturedSeries = {
   markArea?: { data?: [{ name?: string; label?: { position?: string } }, unknown][] };
 };
 let plottedSeries: CapturedSeries[] = [];
+/** The props the frame last gave the plot, so a test can play the instance's ready and resize reports. */
+let plotProps: EChartProps | null = null;
 let plottedBrush: { brushStyle?: { color?: string; borderColor?: string } } | undefined;
 /** Per-test Brush coordRange. Null keeps the historical whole-series range so existing tests stay put. */
 let brushRangeOverride: [number, number] | null = null;
@@ -28,6 +36,7 @@ const atMs = (value: string) => parseDateTime(value, 'x').getTime();
 
 /** Stand-in plot: one button plays a Brush selection over the whole series. */
 function FakePlot(props: EChartProps): ReactElement {
+  plotProps = props;
   plottedSeries = (props.option as unknown as { series?: CapturedSeries[] }).series ?? [];
   plottedBrush = (props.option as unknown as { brush?: { brushStyle?: { borderColor?: string } } }).brush;
   const range = brushRangeOverride ?? defaultBrushRange();
@@ -81,6 +90,10 @@ function ToastProbe() {
   const { toasts } = usePlatform();
   return <output aria-label="토스트">{toasts.map(t => <span key={t.id}>{t.text}</span>)}</output>;
 }
+function SwitchRooms() {
+  const { setGlobal } = usePlatform();
+  return <button type="button" onClick={() => setGlobal({ roomNames: ['PHOTO'] })}>to-photo</button>;
+}
 function SwitchScope() {
   const { setGlobal } = usePlatform();
   return <button type="button" onClick={() => setGlobal({ scopeId: 'CJU' })}>to-cju</button>;
@@ -94,6 +107,7 @@ function mount(
   window.history.replaceState(null, '', url);
   return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registryWith(features)}>
     <SwitchScope />
+    <SwitchRooms />
     <ToastProbe />
     <AnalysisChartFrame chartId="chart-1" title="Chart" series={chart.series ?? series} compareSeries={chart.compareSeries ?? compareSeries} markLines={chart.markLines} unit="ea" />
   </PlatformProvider></I18nProvider>);
@@ -866,5 +880,101 @@ describe('author-only annotation delete (#399, ADR-0041)', () => {
     const labels = areas.map(([start]) => start.label);
     expect(labels.map(l => l?.offset?.[1])).toEqual([0, 12, 24]);
     for (const l of labels) { expect(l?.overflow).toBe('truncate'); expect(l?.width).toBeGreaterThan(0); }
+  });
+
+  const labelWidths = () => ((plottedSeries.find(s => s.id === '__overlay')?.markArea?.data ?? []) as unknown as [{ label?: { width?: number } }, unknown][]).map(([start]) => start.label?.width);
+  const plotInstance = (width: number) => ({ getWidth: () => width, dispatchAction: () => {} }) as never;
+
+  // F2: a Context change resets the whole delete operation, so the frame stays usable while still mounted.
+  it('lets the next delete run after a Context change lands between the accepted delete and the refetch', async () => {
+    const f = fixture();
+    f.rows.push(note('x1', '첫째', true), note('x2', '둘째', true));
+    mount(f.adapter, on);
+    await screen.findByRole('button', { name: '삭제: 첫째' });
+    let release: () => void = () => {};
+    f.list.mockImplementationOnce(() => new Promise(resolve => {
+      release = () => resolve({ ...envelope, outcome: 'ok', data: { items: f.rows.filter(r => r.chartId === 'chart-1' && r.scopeId === 'ICH') } });
+    }));
+    fireEvent.click(screen.getByRole('button', { name: '삭제: 첫째' }));
+    fireEvent.click(within(screen.getByRole('group', { name: '삭제 확인: 첫째' })).getByRole('button', { name: '삭제 확정' }));
+    await screen.findByText('주석을 삭제했습니다.');
+    fireEvent.click(screen.getByRole('button', { name: 'to-photo' }));
+    await act(async () => { release(); });
+    await waitFor(() => expect(screen.queryByText(/첫째/)).toBeNull());
+    fireEvent.click(await screen.findByRole('button', { name: '삭제: 둘째' }));
+    fireEvent.click(within(screen.getByRole('group', { name: '삭제 확인: 둘째' })).getByRole('button', { name: '삭제 확정' }));
+    await waitFor(() => expect(f.del).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByText(/둘째/)).toBeNull());
+  });
+
+  it('ignores a delete that finishes after the Context changed', async () => {
+    const f = fixture();
+    f.rows.push(note('x1', '첫째', true));
+    let finish: () => void = () => {};
+    f.del.mockImplementationOnce(async () => { await new Promise<void>(resolve => { finish = resolve; }); return { ...envelope, outcome: 'ok', data: { id: 'x1' } }; });
+    mount(f.adapter, on);
+    fireEvent.click(await screen.findByRole('button', { name: '삭제: 첫째' }));
+    fireEvent.click(within(screen.getByRole('group', { name: '삭제 확인: 첫째' })).getByRole('button', { name: '삭제 확정' }));
+    fireEvent.click(screen.getByRole('button', { name: 'to-photo' }));
+    await act(async () => { finish(); });
+    expect(screen.queryByText('주석을 삭제했습니다.')).toBeNull();
+    expect(f.list).toHaveBeenCalledTimes(1);
+  });
+
+  // F3: the label budget follows the plot width, with no other chart interaction.
+  it('recomputes the label widths when the plot narrows', async () => {
+    const f = fixture();
+    f.rows.push(note('x1', '긴 주석 '.repeat(20), false));
+    mount(f.adapter, on);
+    await screen.findByText(/긴 주석/);
+    act(() => plotProps?.onReady?.(plotInstance(640)));
+    const wide = labelWidths()[0]!;
+    act(() => plotProps?.onResize?.(320));
+    const narrow = labelWidths()[0]!;
+    expect(wide).toBe(568);
+    expect(narrow).toBe(248);
+  });
+
+  // F4: static label work is cached across unrelated renders and skipped without notes.
+  it('does not redo the overlap pass for renders that change no note, and skips it without notes', async () => {
+    const calls = vi.mocked(assignNoteLevels);
+    calls.mockClear();
+    const none = fixture();
+    mount(none.adapter, on);
+    await screen.findByRole('button', { name: '구간 선택' });
+    expect(calls).not.toHaveBeenCalled();
+    cleanup();
+    const f = fixture();
+    f.rows.push(note('x1', '내 메모', true), note('x2', '둘째', true));
+    mount(f.adapter, on);
+    fireEvent.click(await screen.findByRole('button', { name: '삭제: 내 메모' }));
+    const settledCalls = calls.mock.calls.length;
+    expect(settledCalls).toBeGreaterThan(0);
+    fireEvent.click(within(screen.getByRole('group', { name: '삭제 확인: 내 메모' })).getByRole('button', { name: '취소' }));
+    fireEvent.click(screen.getByText('fake-brush'));
+    fireEvent.click(await screen.findByRole('button', { name: '주석' }));
+    expect(calls.mock.calls.length).toBe(settledCalls);
+  });
+
+  // F5: a blur that lands on body is a real focus departure.
+  it('does not pull focus back after the user blurred the confirm button to the page', async () => {
+    const f = fixture();
+    f.rows.push(note('x1', '첫째', true), note('x3', '셋째', true));
+    let finish: () => void = () => {};
+    f.del.mockImplementationOnce(async () => {
+      await new Promise<void>(resolve => { finish = resolve; });
+      f.rows.splice(0, 1);
+      return { ...envelope, outcome: 'ok', data: { id: 'x1' } };
+    });
+    mount(f.adapter, on);
+    fireEvent.click(await screen.findByRole('button', { name: '삭제: 첫째' }));
+    const confirm = within(screen.getByRole('group', { name: '삭제 확인: 첫째' })).getByRole('button', { name: '삭제 확정' });
+    confirm.focus();
+    fireEvent.click(confirm);
+    confirm.blur();
+    expect(document.activeElement).toBe(document.body);
+    await act(async () => { finish(); });
+    await waitFor(() => expect(screen.queryByText(/첫째/)).toBeNull());
+    expect(document.activeElement).toBe(document.body);
   });
 });
