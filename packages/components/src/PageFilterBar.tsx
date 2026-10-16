@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Search } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
 import { Button, cn, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
@@ -37,6 +37,11 @@ type PageFilterBarShared = {
   label: string;
   fields: readonly PageFilterField[];
   actions?: ReactNode;
+  /**
+   * Wraps the bar in a form whose submit calls this (draft + apply model, ADR-0037). Enter in a text/search input submits
+   * through the form unless it commits an IME composition; render the submit button in `actions`.
+   */
+  onApply?: () => void;
 };
 
 export type PageFilterBarProps =
@@ -63,6 +68,65 @@ function emptyOptionValue(options: readonly PageFilterOption[]) {
   return value;
 }
 
+const TEXT_INPUT_TYPES = new Set(['text', 'search']);
+const isTextInput = (target: EventTarget): target is HTMLInputElement => target instanceof HTMLInputElement && TEXT_INPUT_TYPES.has(target.type);
+const FIRST_FIELD = 'input:not(:disabled), [role="combobox"]:not(:disabled)';
+
+/**
+ * The form around a draft + apply bar. Submit is the only apply dispatch; this only cancels the implicit submission of an
+ * Enter that belongs to an IME composition (isComposing, keyCode 229, or the Safari Enter that follows compositionend).
+ */
+function ApplyForm({ onApply, children }: { onApply: () => void; children: ReactNode }) {
+  const form = useRef<HTMLFormElement>(null);
+  const afterComposition = useRef(false);
+  const releaseFrame = useRef(0);
+  const submitter = useRef<HTMLElement | null>(null);
+
+  useEffect(() => () => cancelAnimationFrame(releaseFrame.current), []);
+
+  // A successful apply disables the focused submit button; hand focus to the first field of this same container.
+  // A field that submitted with Enter keeps its focus, and an unchanged (enabled) button keeps its own.
+  useLayoutEffect(() => {
+    const from = submitter.current;
+    submitter.current = null;
+    if (!(from instanceof HTMLButtonElement) || !from.disabled) return;
+    const active = document.activeElement;
+    if (active !== from && active !== document.body) return;
+    form.current?.querySelector<HTMLElement>(FIRST_FIELD)?.focus();
+  });
+
+  const release = () => { afterComposition.current = false; };
+  const onKeyDown = (event: KeyboardEvent<HTMLFormElement>) => {
+    if (event.defaultPrevented) return;
+    if (event.key !== 'Enter') { release(); return; }
+    if (!isTextInput(event.target as EventTarget)) return;
+    const composing = event.nativeEvent.isComposing || event.keyCode === 229 || afterComposition.current;
+    release();
+    if (composing) event.preventDefault();
+  };
+  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const from = (event.nativeEvent as Partial<SubmitEvent>).submitter ?? document.activeElement;
+    submitter.current = from instanceof HTMLElement && form.current?.contains(from) ? from : null;
+    onApply();
+  };
+
+  return <form ref={form} className="min-w-0" onSubmit={onSubmit} onKeyDown={onKeyDown}
+    onCompositionStart={release}
+    onCompositionEnd={event => {
+      if (!isTextInput(event.target as EventTarget)) return;
+      afterComposition.current = true;
+      cancelAnimationFrame(releaseFrame.current);
+      releaseFrame.current = requestAnimationFrame(release);
+    }}>
+    {children}
+  </form>;
+}
+
+function withApplyForm(onApply: (() => void) | undefined, bar: ReactNode) {
+  return onApply ? <ApplyForm onApply={onApply}>{bar}</ApplyForm> : bar;
+}
+
 function PageFilterFieldControl({ field, id, column }: { field: PageFilterField; id: string; column: boolean }) {
   const labelId = `${id}-label`;
 
@@ -83,7 +147,7 @@ function PageFilterFieldControl({ field, id, column }: { field: PageFilterField;
     return <div className={cn('grid gap-1 text-xs text-text-secondary', column ? 'min-w-0 w-full' : 'min-w-36')}>
       <label htmlFor={id} id={labelId} onClick={event => { event.preventDefault(); event.currentTarget.control?.focus(); }}>{field.label}</label>
       <Select value={value} onValueChange={next => field.onValueChange(next === emptyValue ? '' : next)}>
-        <SelectTrigger id={id} aria-labelledby={labelId} data-testid={field.testId} className={cn('h-8 border-border-control', column ? 'min-w-0 w-full' : 'min-w-36')}>
+        <SelectTrigger id={id} aria-labelledby={labelId} data-testid={field.testId} className={cn('border-border-control', column ? 'min-w-0 w-full' : 'min-w-36')}>
           <SelectValue placeholder={field.placeholder} />
         </SelectTrigger>
         <SelectContent>
@@ -97,7 +161,7 @@ function PageFilterFieldControl({ field, id, column }: { field: PageFilterField;
   return <div className="grid min-w-0 gap-1 text-xs text-text-secondary">
     <label htmlFor={id} id={labelId} onClick={event => { event.preventDefault(); event.currentTarget.control?.focus(); }}>{field.label}</label>
     <span className={cn('relative block max-w-full', column ? 'w-full' : 'w-56')}>
-      {field.kind === 'search' && <Search aria-hidden data-page-filter-search-icon className="pointer-events-none absolute left-2 top-2 size-4 text-text-secondary" />}
+      {field.kind === 'search' && <Search aria-hidden data-page-filter-search-icon className="pointer-events-none absolute left-2 top-3 size-4 text-text-secondary" />}
       <Input
         id={id}
         type={field.kind === 'search' ? 'search' : 'text'}
@@ -107,7 +171,7 @@ function PageFilterFieldControl({ field, id, column }: { field: PageFilterField;
         value={field.value}
         onChange={event => field.onValueChange(event.target.value)}
         className={cn(
-          'h-8 w-full border-border-control',
+          'w-full border-border-control',
           // eslint-disable-next-line shadcn/no-restyle -- 32px left padding reserves the overlaid search icon
           field.kind === 'search' && 'pl-8',
         )}
@@ -124,18 +188,18 @@ export function PageFilterBar(props: PageFilterBarProps) {
   return <CollapsiblePageFilterBar key={storageKey} {...props} storageKey={storageKey} />;
 }
 
-function StaticPageFilterBar({ label, fields, actions, orientation = 'row' }: PageFilterBarShared & { collapsible?: false; orientation?: 'row' | 'column' }) {
+function StaticPageFilterBar({ label, fields, actions, onApply, orientation = 'row' }: PageFilterBarShared & { collapsible?: false; orientation?: 'row' | 'column' }) {
   const id = useId();
   const column = orientation === 'column';
 
-  return <fieldset data-testid="page-filter-bar" className={column ? 'min-w-0 w-full' : 'mb-3 rounded-md border border-border-subtle bg-surface-card p-3'}>
+  return withApplyForm(onApply, <fieldset data-testid="page-filter-bar" className={column ? 'min-w-0 w-full' : 'mb-3 rounded-md border border-border-subtle bg-surface-card p-3'}>
     <legend className={column ? 'sr-only' : 'px-1 text-xs text-text-secondary'}>{label}</legend>
     <div className={column ? 'grid min-w-0 gap-3' : 'flex flex-wrap items-end gap-3'}>
       {fields.map((field, index) => <PageFilterFieldControl key={field.key} field={field} column={column} id={`${id}-field-${index}`} />)}
       {!column && actions != null && <div className="flex flex-wrap items-end gap-2">{actions}</div>}
     </div>
     {column && actions != null && <div className="sticky bottom-0 mt-3 flex flex-wrap items-end gap-2 border-t border-border-subtle bg-surface-card py-3">{actions}</div>}
-  </fieldset>;
+  </fieldset>);
 }
 
 function readCollapsedPreference(key: string): boolean {
@@ -144,7 +208,7 @@ function readCollapsedPreference(key: string): boolean {
   } catch { return false; }
 }
 
-function CollapsiblePageFilterBar({ label, fields, actions, summaryItems, collapsedActions, hasPendingChanges, storageKey }: PageFilterBarShared & {
+function CollapsiblePageFilterBar({ label, fields, actions, onApply, summaryItems, collapsedActions, hasPendingChanges, storageKey }: PageFilterBarShared & {
   summaryItems: readonly PageFilterSummaryItem[];
   collapsedActions?: ReactNode;
   hasPendingChanges?: boolean;
@@ -194,7 +258,7 @@ function CollapsiblePageFilterBar({ label, fields, actions, summaryItems, collap
     }
   }, [collapsed, summaryText]);
 
-  return <fieldset data-testid="page-filter-bar" className="mb-3 rounded-md border border-border-subtle bg-surface-card p-3">
+  return withApplyForm(onApply, <fieldset data-testid="page-filter-bar" className="mb-3 rounded-md border border-border-subtle bg-surface-card p-3">
     <legend className={collapsed ? 'sr-only' : 'px-1 text-xs text-text-secondary'}>{label}</legend>
     {collapsed && <div className="flex flex-wrap items-center gap-2">
       <Button ref={expandRef} type="button" variant="secondary" size="toolbar" wrapText onClick={() => toggle(false)}
@@ -227,5 +291,5 @@ function CollapsiblePageFilterBar({ label, fields, actions, summaryItems, collap
     </div>
     {/* Always mounted; carries only real summary changes that happened while collapsed (see the baseline effect above). */}
     <div aria-live="polite" className="sr-only">{liveText}</div>
-  </fieldset>;
+  </fieldset>);
 }

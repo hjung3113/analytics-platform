@@ -1,7 +1,7 @@
-import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { formatInstant, instantEpochMs, type AuditEvent, type AuditSortField, type Text } from '@ap/contracts';
 import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
-import { ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort } from '@ap/components';
+import { FilterApplyButton, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort, useFilterDraft } from '@ap/components';
 import { Button, Input, StatusBadge } from '@ap/ui';
 import { auditDestination } from '../audit-destination';
 import { ACTION_LABEL, AUDIT_PAGE_KEYS, SOURCE_LABEL, TYPE_LABEL, auditKeyProblem, parseAuditKeys, type AuditKeyProblem } from '../audit-query';
@@ -88,7 +88,7 @@ function AuditTimeInput({ label, value, error, onValueChange }: { label: string;
       aria-invalid={error ? true : undefined}
       aria-describedby={error ? errorId : undefined}
       onChange={event => onValueChange(event.target.value)}
-      className="h-8 w-full border-border-control"
+      className="w-full border-border-control"
     />
     {error ? <p id={errorId} className="text-xs text-text-danger-label">{error}</p> : null}
   </>;
@@ -115,32 +115,31 @@ export default function AuditTrail() {
   // §6.1 page keys: an invalid wire value alerts instead of substituting, and no adapter call is made.
   const parsed = parseAuditKeys(raw);
   const filterKey = JSON.stringify(parsed.ok ? parsed.filters : null);
-  // Every filter change returns to page 1 in the same setPage call — the table does not reset a controlled page.
-  const setFilter = (key: string, value: string | null) => setPage({ [key]: value, page: null });
-  const [drafts, setDrafts] = useState(() => ({
-    actor: raw.actor ?? '', targetId: raw.targetId ?? '',
+  // Draft + apply (ADR-0037): every field is a draft held above ManagementLayout. The draft holds viewer-local display
+  // text; the raw URL instants stay in `raw` for resolveTime. The draft rebases (and the time metadata resets) when any
+  // of the seven raw applied values or the time zone changes — even if the displayed text stays equal — never on
+  // ordinary rerenders or non-filter URL changes.
+  const identity = JSON.stringify([raw.type, raw.action, raw.source, raw.actor, raw.targetId, raw.fromAt, raw.toAt, timeZone]);
+  const draft = useFilterDraft({
+    type: raw.type ?? '', action: raw.action ?? '', source: raw.source ?? '', actor: raw.actor ?? '', targetId: raw.targetId ?? '',
     fromAt: shownTime(raw.fromAt, timeZone), toAt: shownTime(raw.toAt, timeZone),
-  }));
+  }, identity);
   const [timeTouched, setTimeTouched] = useState({ fromAt: false, toAt: false });
   const [timeError, setTimeError] = useState<{ fromAt: string | null; toAt: string | null }>({ fromAt: null, toAt: null });
-  useEffect(() => {
-    setDrafts({
-      actor: raw.actor ?? '', targetId: raw.targetId ?? '',
-      fromAt: shownTime(raw.fromAt, timeZone), toAt: shownTime(raw.toAt, timeZone),
-    });
+  const [syncedIdentity, setSyncedIdentity] = useState(identity);
+  if (syncedIdentity !== identity) {
+    setSyncedIdentity(identity);
     setTimeTouched({ fromAt: false, toAt: false });
     setTimeError({ fromAt: null, toAt: null });
-  }, [raw.actor, raw.targetId, raw.fromAt, raw.toAt, timeZone]);
-  const setDraft = (key: 'actor' | 'targetId', value: string) => setDrafts(current => ({ ...current, [key]: value }));
+  }
   const setTimeDraft = (key: 'fromAt' | 'toAt', value: string) => {
-    setDrafts(current => ({ ...current, [key]: value }));
+    draft.set(key, value);
     setTimeTouched(current => ({ ...current, [key]: true }));
     setTimeError(current => ({ ...current, [key]: null }));
   };
-  const applyDrafts = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const from = resolveTime(drafts.fromAt, timeTouched.fromAt, raw.fromAt, timeZone);
-    const to = resolveTime(drafts.toAt, timeTouched.toAt, raw.toAt, timeZone);
+  const applyDrafts = () => {
+    const from = resolveTime(draft.values.fromAt!, timeTouched.fromAt, raw.fromAt, timeZone);
+    const to = resolveTime(draft.values.toAt!, timeTouched.toAt, raw.toAt, timeZone);
     let fromMessage = from.ok ? null : FIELD_ERROR[from.reason][lang];
     let toMessage = to.ok ? null : FIELD_ERROR[to.reason][lang];
     if (from.ok && to.ok && from.value !== null && to.value !== null && fromMessage === null && toMessage === null) {
@@ -152,32 +151,29 @@ export default function AuditTrail() {
     }
     setTimeError({ fromAt: fromMessage, toAt: toMessage });
     if (fromMessage || toMessage || !from.ok || !to.ok) return;
-    setPage({
-      actor: drafts.actor || null,
-      targetId: drafts.targetId || null,
-      fromAt: from.value,
-      toAt: to.value,
-      page: null,
-    });
+    setPage({ ...draft.patch(), fromAt: from.value, toAt: to.value, page: null });
   };
+  const activeFilterCount = [raw.type, raw.actor, raw.action, raw.source, raw.fromAt, raw.toAt, raw.targetId].filter(Boolean).length;
   const clearFilters = () => {
-    setDrafts({ actor: '', targetId: '', fromAt: '', toAt: '' });
+    draft.reset({});
     setTimeTouched({ fromAt: false, toAt: false });
     setTimeError({ fromAt: null, toAt: null });
     setPage(Object.fromEntries(AUDIT_PAGE_KEYS.map(k => [k, null])));
   };
-  const clear = <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{t('clearFilters')}</Button>;
-  const filters = <form onSubmit={applyDrafts}>
-    <PageFilterBar orientation="column" label={ko ? '감사 필터' : 'Audit filters'} fields={[
-      { kind: 'select', key: 'type', label: ko ? '대상 유형' : 'Type', value: raw.type ?? '', emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(TYPE_LABEL).map(([value, label]) => ({ value, label: label[lang] })), onValueChange: value => setFilter('type', value || null) },
-      { kind: 'select', key: 'action', label: ko ? '작업' : 'Action', value: raw.action ?? '', emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(ACTION_LABEL).map(([value, label]) => ({ value, label: label[lang] })), onValueChange: value => setFilter('action', value || null) },
-      { kind: 'select', key: 'source', label: ko ? '출처' : 'Source', value: raw.source ?? '', emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(SOURCE_LABEL).map(([value, label]) => ({ value, label: label[lang] })), onValueChange: value => setFilter('source', value || null) },
-      { kind: 'text', key: 'actor', label: ko ? '행위자 정확 일치' : 'Exact actor', value: drafts.actor, onValueChange: value => setDraft('actor', value) },
-      { kind: 'text', key: 'targetId', label: ko ? '대상 ID 정확 일치' : 'Exact target id', value: drafts.targetId, onValueChange: value => setDraft('targetId', value) },
-      { kind: 'custom', key: 'fromAt', label: TIME_LABEL.fromAt[lang], content: <AuditTimeInput label={TIME_LABEL.fromAt[lang]} value={drafts.fromAt} error={timeError.fromAt} onValueChange={value => setTimeDraft('fromAt', value)} /> },
-      { kind: 'custom', key: 'toAt', label: TIME_LABEL.toAt[lang], content: <AuditTimeInput label={TIME_LABEL.toAt[lang]} value={drafts.toAt} error={timeError.toAt} onValueChange={value => setTimeDraft('toAt', value)} /> },
-    ]} actions={<><Button type="submit" size="sm" variant="secondary">{ko ? '적용' : 'Apply'}</Button>{parsed.ok && clear}</>} />
-  </form>;
+  // Recovery from an invalid URL always offers the reset; the filter footer and the empty state only when a filter is applied.
+  const recover = <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{t('clearFilters')}</Button>;
+  const clear = activeFilterCount > 0 ? recover : null;
+  const select = (key: 'type' | 'action' | 'source', label: string, labels: Record<string, Text>) =>
+    ({ kind: 'select', key, label, value: draft.values[key]!, emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(labels).map(([value, text]) => ({ value, label: text[lang] })), onValueChange: (value: string) => draft.set(key, value) }) as const;
+  const filters = <PageFilterBar orientation="column" label={ko ? '감사 필터' : 'Audit filters'} onApply={applyDrafts} fields={[
+      select('type', ko ? '대상 유형' : 'Type', TYPE_LABEL),
+      select('action', ko ? '작업' : 'Action', ACTION_LABEL),
+      select('source', ko ? '출처' : 'Source', SOURCE_LABEL),
+      { kind: 'text', key: 'actor', label: ko ? '행위자 정확 일치' : 'Exact actor', value: draft.values.actor!, onValueChange: value => draft.set('actor', value) },
+      { kind: 'text', key: 'targetId', label: ko ? '대상 ID 정확 일치' : 'Exact target id', value: draft.values.targetId!, onValueChange: value => draft.set('targetId', value) },
+      { kind: 'custom', key: 'fromAt', label: TIME_LABEL.fromAt[lang], content: <AuditTimeInput label={TIME_LABEL.fromAt[lang]} value={draft.values.fromAt!} error={timeError.fromAt} onValueChange={value => setTimeDraft('fromAt', value)} /> },
+      { kind: 'custom', key: 'toAt', label: TIME_LABEL.toAt[lang], content: <AuditTimeInput label={TIME_LABEL.toAt[lang]} value={draft.values.toAt!} error={timeError.toAt} onValueChange={value => setTimeDraft('toAt', value)} /> },
+    ]} actions={<><FilterApplyButton changedCount={draft.changedCount} />{clear}</>} />;
   const columns = useMemo<PlatformColumn<AuditEvent>[]>(() => [
     { id: 'at', header: ko ? '시각' : 'At', size: 150, cell: row => <span className="tabular">{formatInstant(row.at, lang, timeZone)}</span> },
     { id: 'actor', header: ko ? '행위자' : 'Actor', size: 130, cell: row => mono(row.actor) },
@@ -189,9 +185,9 @@ export default function AuditTrail() {
     { id: 'changes', header: ko ? '변경 필드' : 'Changed fields', sortable: false, size: 220, cell: row => row.changes ? Object.keys(row.changes).sort().join(', ') : '—' },
   ], [ko, lang, timeZone]);
   return <PlatformPage description={ko ? '모든 사이트의 마스터 변경 로그입니다. 행의 링크는 각 상세 화면의 변경 이력 탭으로 이동합니다.' : 'The master-change log across all sites. A row link opens the destination detail\'s change-history tab.'}>
-    <ManagementLayout filter={filters} activeFilterCount={[raw.type, raw.actor, raw.action, raw.source, raw.fromAt, raw.toAt, raw.targetId].filter(Boolean).length}
+    <ManagementLayout filter={filters} activeFilterCount={activeFilterCount} pendingFilterCount={draft.changedCount}
       table={filterSlot => <>
-    {!parsed.ok && <p role="alert">{filterSlot}{urlProblemLine(auditKeyProblem(raw) ?? { key: 'sort', reason: 'invalid' }, lang)} {clear}</p>}
+    {!parsed.ok && <p role="alert">{filterSlot}{urlProblemLine(auditKeyProblem(raw) ?? { key: 'sort', reason: 'invalid' }, lang)} {recover}</p>}
     {parsed.ok && <PlatformDataTable<AuditEvent>
         title={ko ? '변경 감사' : 'Audit trail'}
         ariaLabel={ko ? '변경 감사 목록' : 'Audit trail list'}

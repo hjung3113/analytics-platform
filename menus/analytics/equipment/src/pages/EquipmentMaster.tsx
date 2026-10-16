@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
 import { PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { equipmentExportEndpoint, equipmentMakersEndpoint, equipmentPageEndpoint, type Equipment } from '../endpoints';
-import { DetailDrawer, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort, parsePageIndex, parseTableSort } from '@ap/components';
+import { DetailDrawer, FilterApplyButton, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort, parsePageIndex, parseTableSort, useFilterDraft } from '@ap/components';
 import { Button } from '@ap/ui';
 import { EquipmentPanel, EquipmentStatus } from './EquipmentDetail';
 import { exportFilterSummary, exportParams, fields, sortFields, statusText } from './data';
-import { equipmentPageFilterFields, resetEquipmentPageFilters } from './filter-fields';
+import { applyEquipmentPageFilters, equipmentPageFilterFields, resetEquipmentPageFilters } from './filter-fields';
 
 const NO_PARAMS = {} as const;
 
@@ -40,9 +40,14 @@ export default function EquipmentMaster() {
     // The status cell shows a label badge; the export shows the same text (06 §15).
     exportValue: f.key === 'status' ? (row: Equipment) => statusText[row.status][lang] : undefined,
   })), [lang]);
-  const clear = <Button type="button" size="sm" variant="secondary" onClick={() => resetEquipmentPageFilters(setPage)}>{t('clearFilters')}</Button>;
+  // Draft + apply (ADR-0037): the drafts live here, above ManagementLayout, so they survive rail ↔ popover and collapse.
+  const draft = useFilterDraft({ q, status, maker });
+  const activeFilterCount = [q, status, maker].filter(Boolean).length;
+  const clear = activeFilterCount > 0 ? <Button type="button" size="sm" variant="secondary" onClick={() => { draft.reset({}); resetEquipmentPageFilters(setPage); }}>{t('clearFilters')}</Button> : null;
   return <PlatformPage description={ko ? '설비 속성 → 유효구간 → 변경 이력. 합성 데이터 · 조회 전용.' : 'Equipment attributes → validity → change history. Synthetic data · read-only.'}>
-    <ManagementLayout filter={<PageFilterBar orientation="column" label={t('pageFilter')} fields={equipmentPageFilterFields({ q, status, maker, makers: makerOptions, lang, setPage })} actions={clear} />} activeFilterCount={[q, status, maker].filter(Boolean).length}
+    <ManagementLayout filter={<PageFilterBar orientation="column" label={t('pageFilter')} fields={equipmentPageFilterFields({ values: draft.values, set: draft.set, makers: makerOptions, lang })}
+      onApply={() => applyEquipmentPageFilters(setPage, draft.patch())} actions={<><FilterApplyButton changedCount={draft.changedCount} />{clear}</>} />}
+      activeFilterCount={activeFilterCount} pendingFilterCount={draft.changedCount}
       drawer={focus && <DetailDrawer key={focus} title={<span className="t-mono">{focus}</span>} subtitle={ko ? '설비 상세 · 합성 데이터' : 'Equipment details · synthetic data'}
       onClose={() => setPage({ focus: null, tab: null })} tab={validTab ? drawerTab : 'invalid'} onTabChange={tab => setPage({ tab: tab === 'attributes' ? null : tab })}
       context={ko ? '목적지 ID만 열었습니다. 전역 Selection과 목록 필터는 유지됩니다.' : 'Only the destination ID is opened. Global Selection and list filters are preserved.'}

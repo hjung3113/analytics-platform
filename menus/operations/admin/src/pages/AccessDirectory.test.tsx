@@ -111,7 +111,7 @@ function renderRoles(path: string, response: ApiResponse<AccessDirectoryPage> | 
 
 const roleInput = () => screen.getByRole('textbox', { name: /Exact role|역할 정확 일치/ });
 const permissionSelect = () => screen.getByRole('combobox', { name: /Permission|권한/ });
-const applyButton = () => screen.getByRole('button', { name: /Apply|적용/ });
+const applyButton = () => screen.getByRole('button', { name: /^(Apply|적용)( \(\d+\))?$/ });
 const choosePermission = async (value: string) => {
   fireEvent.keyDown(permissionSelect(), { key: 'ArrowDown' });
   fireEvent.click(await screen.findByRole('option', { name: value }));
@@ -244,6 +244,10 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     expect(await screen.findByRole('heading', { name: 'Process Engineer' })).toBeTruthy();
 
     await choosePermission('console:access');
+    // The permission Select is a draft: nothing is requested before Apply.
+    expect(url().has('permission')).toBe(false);
+    expect(f.calls).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: '적용 (1)' }));
     await waitFor(() => expect(f.calls).toHaveLength(2));
     expect(await screen.findByText(/이 페이지에 없는 주체입니다\.|Principal not on this page\./)).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Process Engineer' })).toBeNull();
@@ -257,6 +261,8 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     await waitFor(() => expect(f.calls).toHaveLength(1));
 
     await choosePermission('console:access');
+    expect(f.calls).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: '적용 (1)' }));
     await waitFor(() => expect(f.calls).toHaveLength(2));
     expect(await screen.findByRole('heading', { name: 'Field Requester' })).toBeTruthy();
 
@@ -376,9 +382,45 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     await waitFor(() => expect(f.calls).toHaveLength(1));
     expect(f.calls[0].page).toBe(2);
     await choosePermission('console:access');
+    expect(f.calls).toHaveLength(1);
+    expect(url().has('permission')).toBe(false);
+    expect(url().get('page')).toBe('2');
+    fireEvent.click(screen.getByRole('button', { name: '적용 (1)' }));
     await waitFor(() => expect(f.calls).toHaveLength(2));
     expect(f.calls[1]).toMatchObject({ permission: 'console:access', page: 1 });
     expect(url().has('page')).toBe(false);
+  });
+
+  it('keeps Apply disabled until a field changed, counts changed fields, and shows the reset only while a filter is applied', async () => {
+    const f = renderRoles('/admin/roles');
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    expect((applyButton() as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: /Clear filters|필터 초기화/ })).toBeNull();
+    fireEvent.change(roleInput(), { target: { value: 'e' } });
+    fireEvent.change(roleInput(), { target: { value: 'en' } });
+    await choosePermission('console:access');
+    expect(applyButton().textContent).toBe('적용 (2)');
+    fireEvent.click(applyButton());
+    await waitFor(() => expect(f.calls).toHaveLength(2));
+    expect(f.calls[1]).toMatchObject({ role: 'en', permission: 'console:access', page: 1 });
+    expect((applyButton() as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: /Clear filters|필터 초기화/ })).toBeTruthy();
+  });
+
+  it('clears applied values and drafts together and rebases drafts on Back/Forward', async () => {
+    const f = renderRoles(`/admin/roles?${new URLSearchParams({ role: 'engineer' })}`);
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    fireEvent.change(roleInput(), { target: { value: 'draft-only' } });
+    fireEvent.click(screen.getByRole('button', { name: /Clear filters|필터 초기화/ }));
+    await waitFor(() => expect(url().has('role')).toBe(false));
+    expect((roleInput() as HTMLInputElement).value).toBe('');
+
+    fireEvent.change(roleInput(), { target: { value: 'edit' } });
+    act(() => {
+      window.history.pushState(null, '', `/admin/roles?${new URLSearchParams({ role: 'viewer' })}`);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    expect((roleInput() as HTMLInputElement).value).toBe('viewer');
   });
 
   // UX B-06 / #301: every row shared the name 보기/View — a screen reader on the list cannot tell rows apart.

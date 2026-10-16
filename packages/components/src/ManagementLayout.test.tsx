@@ -1,6 +1,8 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useState } from 'react';
+import userEvent from '@testing-library/user-event';
+import { PageFilterBar } from './PageFilterBar';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { DetailDrawer } from './DetailDrawer';
 import { I18nProvider } from '@ap/kernel';
@@ -31,9 +33,9 @@ beforeEach(() => {
   }));
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
-function mount(count = 0, filter: React.ReactNode = <input aria-label="상태 필터" />) {
+function mount(count = 0, filter: React.ReactNode = <input aria-label="상태 필터" />, pending = 0) {
   const table = vi.fn(slot => <section aria-label="표">{slot}<p>표 내용</p></section>);
-  const result = render(<I18nProvider><ManagementLayout filter={filter} activeFilterCount={count} table={table} drawer={<p>상세 내용</p>} /></I18nProvider>);
+  const result = render(<I18nProvider><ManagementLayout filter={filter} activeFilterCount={count} pendingFilterCount={pending} table={table} drawer={<p>상세 내용</p>} /></I18nProvider>);
   return { ...result, table };
 }
 function setWidth(next: number) { act(() => { width = next; resize?.(); }); }
@@ -183,6 +185,65 @@ describe('ManagementLayout', () => {
   });
 });
 
+
+describe('ManagementLayout pending filter changes (ADR-0037)', () => {
+  it('shows a text marker and a description on the collapsed trigger while its accessible name stays 필터 · N', () => {
+    storage.set(key, '1');
+    mount(2, undefined, 3);
+    const button = trigger();
+    expect(button).toHaveAccessibleName('필터 · 2');
+    expect(button).toHaveTextContent('미적용 3');
+    expect(button).toHaveAccessibleDescription('적용된 필터 2개, 미적용 변경 3개');
+  });
+
+  it('shows the marker on the narrow trigger as well, and nothing when no change is pending', () => {
+    width = 959;
+    const view = mount(1, undefined, 1);
+    expect(trigger()).toHaveTextContent('미적용 1');
+    expect(trigger()).toHaveAccessibleName('필터 · 1');
+    view.unmount();
+    mount(1, undefined, 0);
+    expect(trigger()).not.toHaveTextContent('미적용');
+    expect(trigger()).not.toHaveAttribute('aria-describedby');
+  });
+
+  it.each([
+    [2, 1, '2개 적용 · 미적용 변경 1개'],
+    [0, 2, '미적용 변경 2개'],
+  ])('adds the pending count to the rail header (applied %i, pending %i)', (applied, pending, text) => {
+    mount(applied, undefined, pending);
+    expect(screen.getByRole('region', { name: '필터' })).toHaveTextContent(text);
+  });
+
+  function Draft({ apply }: { apply: () => void }) {
+    const [text, setText] = useState('');
+    const [applied, setApplied] = useState('');
+    return <I18nProvider><ManagementLayout pendingFilterCount={text === applied ? 0 : 1}
+      filter={<PageFilterBar orientation="column" label="필터" onApply={() => { apply(); setApplied(text); }}
+        fields={[{ kind: 'text', key: 'q', label: '검색어', value: text, onValueChange: setText }]}
+        actions={<button type="submit" disabled={text === applied}>적용</button>} />}
+      table={slot => <section aria-label="표">{slot}</section>} /></I18nProvider>;
+  }
+
+  it.each([['rail', 1200], ['popover', 700]])('keeps the draft and moves focus to the first field after Apply in the %s', async (source, nextWidth) => {
+    width = nextWidth;
+    const apply = vi.fn();
+    render(<Draft apply={apply} />);
+    const user = userEvent.setup();
+    if (source === 'popover') {
+      await user.click(trigger());
+      await screen.findByRole('dialog', { name: '필터' });
+    }
+    await user.type(screen.getByRole('textbox', { name: '검색어' }), 'abc');
+    const button = screen.getByRole('button', { name: '적용' });
+    button.focus();
+    await user.keyboard('{Enter}');
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(button).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: '검색어' })).toHaveFocus();
+    expect(screen.getByRole('textbox', { name: '검색어' })).toHaveValue('abc');
+  });
+});
 
 it('keeps the focused detail and returns to the same table opener after the rail disappears', () => {
   function Host() { const host = useDetailPanelSlotHost(); return <aside ref={host.ref} />; }

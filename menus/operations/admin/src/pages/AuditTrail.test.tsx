@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { instantEpochMs, type ApiResponse, type AuditEvent, type AuditTrailPage, type AuditTrailQuery, type PlatformAdapter, type Session } from '@ap/contracts';
 import { House } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
@@ -95,7 +95,7 @@ const toInput = () => screen.getByRole('textbox', { name: /^(Before|시각 미�
 const actorInput = () => screen.getByRole('textbox', { name: /Exact actor|행위자 정확 일치/ });
 const targetIdInput = () => screen.getByRole('textbox', { name: /Exact target id|대상 ID 정확/ });
 const typeSelect = () => screen.getByRole('combobox', { name: /Type|대상 유형/ });
-const applyButton = () => screen.getByRole('button', { name: /Apply|적용/ });
+const applyButton = () => screen.getByRole('button', { name: /^(Apply|적용)( \(\d+\))?$/ });
 const clearButton = () => screen.getByRole('button', { name: /Clear filters|필터 초기화/ });
 const chooseType = async (value: string) => {
   fireEvent.keyDown(typeSelect(), { key: 'ArrowDown' });
@@ -125,10 +125,9 @@ describe('AuditTrail text filters (issue #50 review)', () => {
     expect(typeSelect()).toBeTruthy();
     expect(new URLSearchParams(window.location.search).has('targetId')).toBe(false);
     await chooseType('설비');
-    await waitFor(() => expect(f.calls).toHaveLength(1));
-    expect(new URLSearchParams(window.location.search).get('type')).toBe('equipment');
-    expect(new URLSearchParams(window.location.search).has('targetId')).toBe(false);
-    f.calls.length = 0;
+    // The Select is a draft like the text fields: nothing is written or fetched before Apply.
+    expect(new URLSearchParams(window.location.search).has('type')).toBe(false);
+    expect(f.calls).toHaveLength(0);
 
     fireEvent.change(fromInput(), { target: { value: '2026-09-26 11:00:00' } });
     expect(fromInput()).toBeTruthy();
@@ -137,6 +136,7 @@ describe('AuditTrail text filters (issue #50 review)', () => {
     expect(new URLSearchParams(window.location.search).has('fromAt')).toBe(false);
 
     fireEvent.change(toInput(), { target: { value: '2026-09-26 12:00:00' } });
+    expect(applyButton().textContent).toMatch(/^적용 \(4\)$/);
     fireEvent.click(applyButton());
 
     await waitFor(() => expect(f.calls).toHaveLength(1));
@@ -363,6 +363,135 @@ describe('AuditTrail text filters (issue #50 review)', () => {
     expect(bar.textContent).not.toMatch(/ISO|instant/i);
     expect(screen.getByRole('textbox', { name: 'At or after' })).toBeTruthy();
     expect(screen.getByRole('textbox', { name: 'Before' })).toBeTruthy();
+  });
+});
+
+describe('AuditTrail draft + apply (ADR-0037)', () => {
+  it('keeps Apply disabled until a field changed, counts changed fields, and hides the reset without an applied filter', async () => {
+    const f = renderAudit('/admin/audit');
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    expect((applyButton() as HTMLButtonElement).disabled).toBe(true);
+    expect(applyButton().textContent).toMatch(/^(적용|Apply)$/);
+    expect(screen.queryByRole('button', { name: /Clear filters|필터 초기화/ })).toBeNull();
+    fireEvent.change(actorInput(), { target: { value: 'a' } });
+    fireEvent.change(actorInput(), { target: { value: 'ab' } });
+    expect((applyButton() as HTMLButtonElement).disabled).toBe(false);
+    expect(applyButton().textContent).toMatch(/^적용 \(1\)$/);
+    fireEvent.change(actorInput(), { target: { value: '' } });
+    expect((applyButton() as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('writes every drafted field and the page reset in one navigation', async () => {
+    const f = renderAudit('/admin/audit?page=1');
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    const push = vi.spyOn(window.history, 'pushState');
+    await chooseType('설비');
+    fireEvent.change(actorInput(), { target: { value: 'park.seo' } });
+    fireEvent.click(applyButton());
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(new URLSearchParams(window.location.search).get('type')).toBe('equipment');
+    expect(new URLSearchParams(window.location.search).get('actor')).toBe('park.seo');
+    await waitFor(() => expect(f.calls.at(-1)).toMatchObject({ type: 'equipment', actor: 'park.seo', page: 1 }));
+    expect((applyButton() as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('clears applied values and drafts together, and the reset is shown only while a filter is applied', async () => {
+    const f = renderAudit('/admin/audit?type=equipment');
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    fireEvent.change(actorInput(), { target: { value: 'draft-only' } });
+    fireEvent.click(clearButton());
+    await waitFor(() => expect(new URLSearchParams(window.location.search).has('type')).toBe(false));
+    expect((actorInput() as HTMLInputElement).value).toBe('');
+    expect((applyButton() as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: /Clear filters|필터 초기화/ })).toBeNull();
+  });
+
+  it('moves focus to the first field when Apply, focused, disables itself; an Enter in a field keeps its focus', async () => {
+    const f = renderAudit('/admin/audit');
+    await waitFor(() => expect(f.calls).toHaveLength(1));
+    fireEvent.change(actorInput(), { target: { value: 'park.seo' } });
+    applyButton().focus();
+    fireEvent.click(applyButton());
+    await waitFor(() => expect((applyButton() as HTMLButtonElement).disabled).toBe(true));
+    expect(document.activeElement).toBe(typeSelect());
+
+    fireEvent.change(targetIdInput(), { target: { value: 'ICH-1' } });
+    targetIdInput().focus();
+    fireEvent.click(applyButton());
+    await waitFor(() => expect((applyButton() as HTMLButtonElement).disabled).toBe(true));
+    expect(document.activeElement).toBe(targetIdInput());
+  });
+
+  it('keeps focus on Apply when validation fails', () => {
+    renderAudit('/admin/audit');
+    fireEvent.change(fromInput(), { target: { value: '2026-02-30 10:00:00' } });
+    applyButton().focus();
+    fireEvent.click(applyButton());
+    expect(fromInput().getAttribute('aria-invalid')).toBe('true');
+    expect(document.activeElement).toBe(applyButton());
+  });
+
+  it('keeps the reset in the invalid-URL alert even when no filter key is applied', () => {
+    renderAudit('/admin/audit?sort=bogus');
+    expect(within(screen.getByRole('alert')).getByRole('button', { name: /Clear filters|필터 초기화/ })).toBeTruthy();
+  });
+
+  describe('draft reconciliation with the URL', () => {
+    const visit = (query: Record<string, string>) => act(() => {
+      window.history.pushState(null, '', `/admin/audit?${new URLSearchParams(query)}`);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    const A = '2026-09-26T02:00:00.100Z';
+    const B = '2026-09-26T02:00:00.900Z';
+
+    it('rebases on Back/Forward between raw instants whose displayed text is equal, and keeps the new raw instant on apply', async () => {
+      renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: A })}`);
+      expect((fromInput() as HTMLInputElement).value).toBe('2026-09-26 11:00:00');
+      fireEvent.change(actorInput(), { target: { value: 'edit' } });
+      visit({ fromAt: B });
+      expect((actorInput() as HTMLInputElement).value).toBe('');
+      expect((fromInput() as HTMLInputElement).value).toBe('2026-09-26 11:00:00');
+      fireEvent.change(actorInput(), { target: { value: 'park.seo' } });
+      fireEvent.click(applyButton());
+      await waitFor(() => expect(new URLSearchParams(window.location.search).get('actor')).toBe('park.seo'));
+      expect(new URLSearchParams(window.location.search).get('fromAt')).toBe(B);
+    });
+
+    it('clears the time metadata (touched, error) when the identity changes', () => {
+      renderAudit('/admin/audit');
+      fireEvent.change(fromInput(), { target: { value: '2026-02-30 10:00:00' } });
+      fireEvent.click(applyButton());
+      expect(fromInput().getAttribute('aria-invalid')).toBe('true');
+      visit({ fromAt: A });
+      expect(fromInput().hasAttribute('aria-invalid')).toBe(false);
+      expect((fromInput() as HTMLInputElement).value).toBe('2026-09-26 11:00:00');
+    });
+
+    it('rebases the displayed time when the viewer time zone changes', () => {
+      renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: FROM })}`);
+      expect((fromInput() as HTMLInputElement).value).toBe('2026-09-26 11:00:00');
+      viewerTz.value = 'America/New_York';
+      visit({ fromAt: FROM, sort: 'actor:desc' });
+      expect((fromInput() as HTMLInputElement).value).toBe('2026-09-25 22:00:00');
+    });
+
+    it('rebases on a Select-only applied change', () => {
+      renderAudit('/admin/audit');
+      fireEvent.change(actorInput(), { target: { value: 'edit' } });
+      visit({ source: 'user' });
+      expect((actorInput() as HTMLInputElement).value).toBe('');
+      expect((applyButton() as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it('keeps edits across an unchanged-applied rerender and a non-filter URL change', async () => {
+      renderAudit('/admin/audit');
+      fireEvent.change(actorInput(), { target: { value: 'edit' } });
+      fireEvent.change(fromInput(), { target: { value: '2026-02-30 10:00:00' } });
+      visit({ sort: 'actor:desc' });
+      expect((actorInput() as HTMLInputElement).value).toBe('edit');
+      expect((fromInput() as HTMLInputElement).value).toBe('2026-02-30 10:00:00');
+      expect(applyButton().textContent).toMatch(/^적용 \(2\)$/);
+    });
   });
 });
 
