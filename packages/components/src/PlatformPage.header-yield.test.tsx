@@ -201,8 +201,8 @@ describe('page header yield order (#303)', () => {
   // into the right group; the automatic minimum instead pins a nowrap description at full width (un-yielded
   // headers overflow). Header here: title + star + description, no breadcrumb.
   it.each([
-    { width: 1200, minWidth: '152px', icon: false },
-    { width: 999, minWidth: '176px', icon: true },
+    { width: 1200, minWidth: 'calc(7rem + 1.5rem + 1rem)', icon: false },
+    { width: 999, minWidth: 'calc(7rem + 3rem + 1rem)', icon: true },
   ])('reserves the non-shrinkable controls in the left group at $width px (#398)', async ({ width, minWidth, icon }) => {
     const widths = headerWidths();
     window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
@@ -213,6 +213,9 @@ describe('page header yield order (#303)', () => {
     expect(left).toHaveClass('flex-1');
     expect(left).toHaveClass('min-w-[var(--header-left-min)]');
     expect(left.style.getPropertyValue('--header-left-min')).toBe(minWidth);
+    // Same unit as min-w-28 / size-6 / gap-2 (rem via --spacing), so a larger root font scales both together.
+    expect(minWidth).not.toContain('px');
+    expect(left.style.getPropertyValue('--header-left-min')).toMatch(/^calc\((\d+(\.\d+)?rem)( \+ \d+(\.\d+)?rem)+\)$/);
     expect(!!screen.queryByRole('button', { name: '폭을 먼저 양보하는 설명' })).toBe(icon);
     expect(screen.getByRole('heading', { name: '아주 긴 생산성 개요 제목' })).toHaveClass('min-w-28', 'shrink', 'truncate');
     expect(screen.getByRole('button', { name: '즐겨찾기에 추가' })).toHaveClass('shrink-0');

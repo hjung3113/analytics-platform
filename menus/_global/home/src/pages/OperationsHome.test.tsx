@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlatformAdapter, Session } from '@ap/contracts';
@@ -269,6 +269,29 @@ describe('favorites removal focus (#398)', () => {
     const empty = await within(favorites).findByText('즐겨찾기가 없습니다. 화면 제목 옆 ☆로 추가하세요.');
     expect(empty.getAttribute('tabindex')).toBe('-1');
     await waitFor(() => expect(document.activeElement).toBe(empty));
+  });
+
+  it('leaves focus where the user moved it before the empty-state frame runs', async () => {
+    const frames: FrameRequestCallback[] = [];
+    const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => frames.push(callback));
+    try {
+      persisted.setItem('platform:favorites:u1', JSON.stringify(['catalog']));
+      mount(['platform:view', 'metrics:view']);
+      await settled();
+      const favorites = favoritesSection();
+      const [remove] = within(favorites).getAllByRole('button', { name: '즐겨찾기에서 제거' });
+      remove.focus();
+      fireEvent.click(remove);
+      const empty = await within(favorites).findByText('즐겨찾기가 없습니다. 화면 제목 옆 ☆로 추가하세요.');
+      const elsewhere = screen.getByRole('heading', { name: '플랫폼 홈' });
+      elsewhere.focus();
+      expect(document.activeElement).toBe(elsewhere);
+      act(() => { frames.splice(0).forEach(callback => callback(0)); });
+      expect(document.activeElement).toBe(elsewhere);
+      expect(document.activeElement).not.toBe(empty);
+    } finally {
+      raf.mockRestore();
+    }
   });
 });
 

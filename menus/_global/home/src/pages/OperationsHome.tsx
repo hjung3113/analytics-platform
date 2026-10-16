@@ -44,7 +44,12 @@ export default function OperationsHome() {
     toggleFavorite(menuId);
     if (!hadFocus) return;
     if (target) target.focus();
-    else requestAnimationFrame(() => noFavoritesRef.current?.focus()); // the empty state mounts after the state update
+    else requestAnimationFrame(() => { // the empty state mounts after the state update
+      const active = document.activeElement;
+      // Focus is still where the click left it (the removed button, or BODY after it unmounted); otherwise the user moved it.
+      if (active && active !== document.body && active !== button) return;
+      noFavoritesRef.current?.focus();
+    });
   }
 
   return <PlatformPage secondaryActions={canOpen('voc') ? <PlatformLink href={voc.href} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '내 VOC' : 'My VOC'}</PlatformLink> : undefined}>
