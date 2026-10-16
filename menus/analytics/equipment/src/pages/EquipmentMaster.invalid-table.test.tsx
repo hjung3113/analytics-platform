@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { Boxes } from 'lucide-react';
 import type { ApiResponse, MenuQuery, PlatformAdapter, Session } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
@@ -51,20 +51,13 @@ function mount(search: string) {
   render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><EquipmentMaster /></PlatformProvider></I18nProvider>);
 }
 
-const SORT = '정렬 “nope”은 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.';
-const PAGE = '페이지 “0”는 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.';
 const makerQueries = () => queries.filter(q => q.endpoint === 'equipment.master.makers');
 
 describe('EquipmentMaster invalid sort/page (ADR-0034)', () => {
-  it.each([
-    ['sort=nope', [SORT]],
-    ['page=0', [PAGE]],
-    ['sort=nope&page=0', [SORT, PAGE]],
-  ])('%s: states the exact sentences, keeps the filter slot, and asks no makers', async (query, sentences) => {
-    mount(`?v=1&scopeId=ICH&${query}`);
-    const alert = (await screen.findAllByRole('alert')).find(el => el.textContent?.includes('정렬·페이지 값이 올바르지 않습니다'))!;
-    expect([...alert.querySelectorAll('p')].map(p => p.textContent)).toEqual(sentences);
-    expect(alert.textContent).not.toMatch(/sort=|page=/);
+  // The sentences and Reset are owned by tableUrlWarning.test.tsx; this file keeps what the screen adds.
+  it('keeps the filter slot and asks no makers while sort/page is invalid', async () => {
+    mount('?v=1&scopeId=ICH&sort=nope&page=0');
+    await screen.findByText('정렬·페이지 값이 올바르지 않습니다');
     expect(screen.getByLabelText('설비 ID 검색')).toBeTruthy();
     expect(screen.getByLabelText('상태')).toBeTruthy();
     // Let the scope check settle: a request would have gone out by now if the gate were open.
@@ -76,18 +69,5 @@ describe('EquipmentMaster invalid sort/page (ADR-0034)', () => {
     mount('?v=1&scopeId=ICH&sort=status:desc&page=2');
     await vi.waitFor(() => expect(makerQueries().length).toBeGreaterThan(0));
     expect(screen.queryByText('정렬·페이지 값이 올바르지 않습니다')).toBeNull();
-  });
-
-  it('Reset writes one navigation that drops sort and page and keeps the applied filters', async () => {
-    mount('?v=1&scopeId=ICH&q=EQ&status=active&maker=ACME&sort=nope&page=0');
-    const alert = (await screen.findAllByRole('alert')).find(el => el.textContent?.includes('정렬·페이지 값이 올바르지 않습니다'))!;
-    const push = vi.spyOn(window.history, 'pushState');
-    const replace = vi.spyOn(window.history, 'replaceState');
-    fireEvent.click(within(alert).getByRole('button', { name: '초기화' }));
-    expect(push.mock.calls.length + replace.mock.calls.length).toBe(1);
-    const params = new URLSearchParams(window.location.search);
-    expect(params.has('sort')).toBe(false);
-    expect(params.has('page')).toBe(false);
-    expect([params.get('q'), params.get('status'), params.get('maker')]).toEqual(['EQ', 'active', 'ACME']);
   });
 });
