@@ -455,7 +455,7 @@ try {
       await button("데이터 신뢰").first().click();
     },
     () =>
-      unionClip([button("데이터 신뢰").first(), page.getByRole("dialog").filter({ hasText: "clear는" })], 48).then(
+      unionClip([button("데이터 신뢰").first(), page.getByRole("dialog").filter({ hasText: "문제 없음은" })], 48).then(
         (clip) => ({ clip, cover: true }),
       ),
     ["C8"],
