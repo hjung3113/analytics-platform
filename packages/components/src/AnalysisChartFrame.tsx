@@ -413,7 +413,11 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     setDeleting(true);
     try {
       const res = await adapter.deleteAnnotation({ chartId: p.chartId, scopeId, id });
-      if (stale()) return;
+      if (stale()) {
+        // The server removed the note; the session list is keyed by chart and Scope only, so it must still reload.
+        if (res.outcome === 'ok') refetchAnnotations();
+        return;
+      }
       if (res.outcome !== 'ok') { failed(); return; }
       toast(lang === 'ko' ? '주석을 삭제했습니다.' : 'Annotation deleted.');
       setSettled({ id, nextId });
@@ -590,7 +594,12 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       {annotations.length > 0 && <ul className="mt-2 space-y-0.5 border-t border-border-subtle pt-1.5 text-tiny text-text-secondary">
         {annotations.map(a => <li key={a.id} className="tabular flex flex-wrap items-center gap-x-1"><span className="mr-1 inline-block size-2 rounded-xs bg-chart-purple/60 align-middle" aria-hidden />{xType === 'time' ? `${fmt(a.from)}–${fmt(a.to)}` : `${a.from}–${a.to}`}: {a.text}
           {a.mine && (pendingDelete === a.id
-            ? <div role="group" aria-label={lang === 'ko' ? `삭제 확인: ${a.text}` : `Confirm delete: ${a.text}`} className="ml-2 inline-flex items-center gap-1" onFocus={() => { focusOnConfirm.current = true; }} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null) && document.activeElement !== e.target) focusOnConfirm.current = false; }}>
+            ? <div role="group" aria-label={lang === 'ko' ? `삭제 확인: ${a.text}` : `Confirm delete: ${a.text}`} className="ml-2 inline-flex items-center gap-1" onFocus={() => { focusOnConfirm.current = true; }} onBlur={e => {
+              if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+              // Removing the focused button also fires focusout (relatedTarget null, activeElement body) while the row is still attached; judge after the commit: a row that is gone keeps ownership.
+              const group = e.currentTarget;
+              queueMicrotask(() => { if (group.isConnected && !group.contains(document.activeElement)) focusOnConfirm.current = false; });
+            }}>
               <span>{lang === 'ko' ? '이 주석을 삭제할까요?' : 'Delete this note?'}</span>
               <Button size="toolbar" variant="destructive" autoFocus aria-disabled={deleting} onClick={() => void deleteNote(a.id)}>{lang === 'ko' ? '삭제 확정' : 'Confirm delete'}</Button>
               <Button size="toolbar" variant="ghost" aria-disabled={deleting} onClick={() => { if (deleting) return; setPendingDelete(null); setRestoreFocus(a.id); }}>{t('cancel')}</Button>

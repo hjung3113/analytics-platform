@@ -918,7 +918,8 @@ describe('author-only annotation delete (#399, ADR-0041)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'to-photo' }));
     await act(async () => { finish(); });
     expect(screen.queryByText('주석을 삭제했습니다.')).toBeNull();
-    expect(f.list).toHaveBeenCalledTimes(1);
+    // R2: the server removed the note, so the list reloads even though the toast and focus move are skipped.
+    await waitFor(() => expect(f.list).toHaveBeenCalledTimes(2));
   });
 
   // F3: the label budget follows the plot width, with no other chart interaction.
