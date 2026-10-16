@@ -128,13 +128,15 @@ export default function ProductivityOverview(_: PageProps) {
     }
     if (kpi === 'cycleTime') {
       const cy = c.cycle; const pc = p?.cycle ?? null;
+      // The delta compares P50 only while the card shows P50 / P95, so the finished text says so (#398).
+      const delta = deltaOf(cy.p50, pc?.p50 ?? null, false, v => `${v.toFixed(1)}${ko ? '분' : 'min'}`);
       return <StatCard key={kpi} icon={Timer} chip="purple" label={ko ? '사이클타임 P50 / P95' : 'Cycle time P50 / P95'}
         onClick={() => selectKpi(kpi)} active={active}
         value={<span className="flex items-baseline gap-2">
           <span>{cy.p50 !== null ? n1(cy.p50) : '—'}</span>
           <span className="t-stat-2 text-text-secondary">{cy.p95 !== null ? n1(cy.p95) : '—'}</span>
         </span>} unit={ko ? '분 · P50/P95' : 'min · P50/P95'}
-        delta={deltaOf(cy.p50, pc?.p50 ?? null, false, v => `${v.toFixed(1)}${ko ? '분' : 'min'}`)}
+        delta={delta ? { ...delta, value: `P50 ${delta.value}` } : undefined}
         caption={`${ko ? `완료 Job 모집단 n=${ni(cy.jobs)}` : `pooled jobs n=${ni(cy.jobs)}`} · ${ver(METRIC_VERSIONS.cycleTime)}`} />;
     }
     const t = c.throughput; const pt = p?.throughput ?? null;

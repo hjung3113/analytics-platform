@@ -196,6 +196,27 @@ describe('page header yield order (#303)', () => {
     const more = screen.getByRole('button', { name: '더보기' });
     expect(header.contains(more)).toBe(true);
   });
+  // #398 AA2-1: the left group's minimum counts only what cannot shrink (title 112 + star 24 + yielded
+  // description icon 24 + gaps 8). Without it the group shrinks below the shrink-0 controls and they spill
+  // into the right group; the automatic minimum instead pins a nowrap description at full width (un-yielded
+  // headers overflow). Header here: title + star + description, no breadcrumb.
+  it.each([
+    { width: 1200, minWidth: '152px', icon: false },
+    { width: 999, minWidth: '176px', icon: true },
+  ])('reserves the non-shrinkable controls in the left group at $width px (#398)', async ({ width, minWidth, icon }) => {
+    const widths = headerWidths();
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    const view = render(page(vi.fn()));
+    await screen.findByText('page body');
+    widths.set(width);
+    const left = view.container.querySelector('header')!.firstElementChild as HTMLElement;
+    expect(left).toHaveClass('flex-1');
+    expect(left).toHaveClass('min-w-[var(--header-left-min)]');
+    expect(left.style.getPropertyValue('--header-left-min')).toBe(minWidth);
+    expect(!!screen.queryByRole('button', { name: '폭을 먼저 양보하는 설명' })).toBe(icon);
+    expect(screen.getByRole('heading', { name: '아주 긴 생산성 개요 제목' })).toHaveClass('min-w-28', 'shrink', 'truncate');
+    expect(screen.getByRole('button', { name: '즐겨찾기에 추가' })).toHaveClass('shrink-0');
+  });
 
   it.each(['{Enter}', ' '])('selects a secondary action with %s and returns focus; Escape also returns focus', async key => {
     const user = userEvent.setup();

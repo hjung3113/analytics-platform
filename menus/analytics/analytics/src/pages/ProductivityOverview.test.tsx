@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
-import type { ApiResponse } from '@ap/contracts';
+import type { ApiResponse, Assessment } from '@ap/contracts';
 import { manifests } from '../index';
+import type { KpiSet, KpisData } from '../endpoints';
 import ProductivityOverview from './ProductivityOverview';
 
 afterEach(cleanup);
@@ -79,5 +80,66 @@ describe('ProductivityOverview guidance wording (UX-304-01)', () => {
     expect(body).toContain('“zzz”');
     expect(body).toContain('기본');
     expect(body).not.toContain('granularity=');
+  });
+});
+
+// #398 AB-3: the cycle-time card shows P50 / P95 but its delta compares P50 only, so the delta
+// text must carry the P50 prefix in both languages and both signs.
+describe('ProductivityOverview cycle-time delta label (#398)', () => {
+  const kpiSet = (p50: number): KpiSet => ({
+    equipmentCount: 8,
+    knownBuckets: 48,
+    occupancy: { num: 100, den: 200, pct: 50 },
+    dwell: { hours: 10, jobs: 5, perJobH: 2 },
+    cycle: { jobs: 100, p50, p95: 60 },
+    throughput: { jobs: 120, started: 130 },
+  });
+  // The kernel checks ok/empty replies against the endpoint's declared assessment kinds (query.ts
+  // checkMenuResponse), so the fixture answers with exactly those kinds.
+  const assessmentsOf = (kinds: readonly string[]): Assessment[] =>
+    kinds.map(kind => ({ kind: kind as Assessment['kind'], state: 'confirmed' }));
+  const kpis = (current: number, previous: number): ApiResponse<KpisData> => ({
+    outcome: 'ok',
+    data: { current: kpiSet(current), previous: kpiSet(previous) },
+    assessments: assessmentsOf(['collection', 'processing_delay', 'coverage', 'time_domain']),
+    trust: null,
+    correlationId: 'fixture',
+  });
+  const other: ApiResponse<never> = {
+    outcome: 'empty', data: null,
+    assessments: assessmentsOf(['collection', 'processing_delay', 'coverage']),
+    trust: null, correlationId: 'fixture',
+  };
+
+  function renderWithKpis(data: ApiResponse<KpisData>) {
+    const kpiAdapter = testAdapter({
+      session: () => session,
+      menuQuery: async req => (req.endpoint === 'analytics.productivity.kpis' ? data : other) as ApiResponse<unknown>,
+    });
+    window.history.replaceState(null, '', '/analytics/productivity?v=1&scopeId=ICH&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00');
+    render(<I18nProvider><PlatformProvider adapter={kpiAdapter} registry={registry}><ProductivityOverview params={{}} /></PlatformProvider></I18nProvider>);
+  }
+
+  it.each([
+    { lang: 'ko', current: 40, previous: 40.6, expected: 'P50 -0.6분 (-1.5%)' },
+    { lang: 'ko', current: 41.2, previous: 40.6, expected: 'P50 +0.6분 (+1.5%)' },
+    { lang: 'en', current: 40, previous: 40.6, expected: 'P50 -0.6min (-1.5%)' },
+    { lang: 'en', current: 41.2, previous: 40.6, expected: 'P50 +0.6min (+1.5%)' },
+  ])('labels the cycle-time delta as P50 ($lang, $expected)', async ({ lang, current, previous, expected }) => {
+    // Node's file-less localStorage shadows jsdom's; give this test its own in-memory store.
+    const store = new Map<string, string>();
+    const storage = {
+      getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => { store.set(k, v); },
+      removeItem: (k: string) => { store.delete(k); }, clear: () => store.clear(), key: () => null, get length() { return store.size; },
+    };
+    vi.stubGlobal('localStorage', storage);
+    try {
+      storage.setItem('platform:lang', lang);
+      renderWithKpis(kpis(current, previous));
+      await screen.findByRole('radiogroup', { name: lang === 'ko' ? '집계 단위' : 'Granularity' });
+      expect(await screen.findByText(expected)).toBeTruthy();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
