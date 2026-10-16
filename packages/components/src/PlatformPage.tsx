@@ -1,10 +1,54 @@
 import { OutcomeBanners, OutcomeScope } from './OutcomeScope';
-import { ChevronRight, Loader2, MapPinOff, RotateCw, ServerCrash, Star } from 'lucide-react';
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
+import { cloneElement, isValidElement, useLayoutEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
-import { Button, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { DataTrustIndicator } from './DataTrustIndicator';
 import { consumePageFocus } from './pageFocus';
 import { StateMessage } from './StateView';
+
+// Header's own width, not the viewport (#303, ADR-0035). Collapsing frees no container width, so the
+// slack is what stops a width sitting on the boundary from opening and closing on every measure.
+const YIELD_DESCRIPTION_AT = 1000;
+const YIELD_TRUST_AT = 840;
+const YIELD_BADGE_AT = 760;
+const YIELD_SLACK = 32;
+type HeaderYield = { description: boolean; trust: boolean; badge: boolean };
+const openHeader: HeaderYield = { description: false, trust: false, badge: false };
+
+function nextHeaderYield(width: number, prev: HeaderYield): HeaderYield {
+  const step = (on: boolean, at: number) => (on ? width < at + YIELD_SLACK : width < at);
+  return {
+    description: step(prev.description, YIELD_DESCRIPTION_AT),
+    trust: step(prev.trust, YIELD_TRUST_AT),
+    badge: step(prev.badge, YIELD_BADGE_AT),
+  };
+}
+
+function withTrustYield(node: ReactNode, yieldState: HeaderYield): ReactNode {
+  if (!isValidElement(node) || node.type !== DataTrustIndicator) return node;
+  return cloneElement(node as ReactElement<{ compact?: boolean; hideProvisional?: boolean }>, {
+    compact: yieldState.trust,
+    hideProvisional: yieldState.badge,
+  });
+}
+
+function HeaderOverflow({ actions }: { actions: ReactNode }) {
+  const { lang } = useI18n();
+  const ko = lang === 'ko';
+  const label = ko ? '더보기' : 'More';
+  const group = ko ? '기타 페이지 동작' : 'Other page actions';
+  const [open, setOpen] = useState(false);
+  return <DropdownMenu open={open} onOpenChange={setOpen}>
+    <DropdownMenuTrigger asChild>
+      <Button type="button" variant="ghost" size="icon-sm" aria-label={label} title={label}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end" aria-label={group} className="min-w-56">
+      {/* Not menu items: consumers pass a button, link, or fragment. Closing returns focus to the trigger. */}
+      <div role="group" aria-label={group} className="grid gap-2 p-1" onClick={() => setOpen(false)}>{actions}</div>
+    </DropdownMenuContent>
+  </DropdownMenu>;
+}
 
 export type PlatformPageProps = {
   /** Overrides the registry label (e.g. detail pages show the object ID). */
@@ -23,16 +67,27 @@ export type PlatformPageProps = {
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
 export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, dataTrustSummary, crumbs = [], children }: PlatformPageProps) {
   const { route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation } = usePlatform();
-  const { t, tx } = useI18n();
+  const { t, tx, lang } = useI18n();
   const heading = useRef<HTMLHeadingElement>(null);
   const programmaticHeadingFocus = useRef(false);
   const [headingTooltipOpen, setHeadingTooltipOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const stickyHeader = useRef<HTMLDivElement>(null);
+  const pageHeader = useRef<HTMLElement>(null);
+  const yieldRef = useRef<HeaderYield>(openHeader);
+  const [headerYield, setHeaderYield] = useState<HeaderYield>(openHeader);
   useLayoutEffect(() => {
     const header = stickyHeader.current;
     if (!header) return;
-    const measure = () => root.current?.style.setProperty('--page-sticky-offset', `${header.getBoundingClientRect().height}px`);
+    const measure = () => {
+      root.current?.style.setProperty('--page-sticky-offset', `${header.getBoundingClientRect().height}px`);
+      const width = pageHeader.current?.getBoundingClientRect().width ?? 0;
+      if (width <= 0) return;
+      const next = nextHeaderYield(width, yieldRef.current);
+      if (next.description === yieldRef.current.description && next.trust === yieldRef.current.trust && next.badge === yieldRef.current.badge) return;
+      yieldRef.current = next;
+      setHeaderYield(next);
+    };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
@@ -86,11 +141,14 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const titleResolved = title ?? tx(menu.label);
   const descriptionResolved = description ?? tx(menu.description);
   const hasDescription = typeof descriptionResolved === 'string' ? descriptionResolved.trim().length > 0 : descriptionResolved != null && descriptionResolved !== false;
+  const descriptionName = typeof descriptionResolved === 'string' && descriptionResolved.trim().length > 0
+    ? descriptionResolved
+    : (lang === 'ko' ? '설명' : 'Description');
 
   return <div ref={root} data-platform-page className="flex min-h-full flex-col">
     <div ref={stickyHeader} className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
-      <header className="flex h-[50px] shrink-0 overflow-x-auto items-center justify-between gap-3 border-b border-border-subtle bg-surface-canvas px-4">
-        <div className="flex min-w-6 flex-1 items-center gap-2">
+      <header ref={pageHeader} className="flex h-[50px] shrink-0 overflow-x-hidden items-center justify-between gap-3 border-b border-border-subtle bg-surface-canvas px-4">
+        <div className="flex min-w-28 flex-1 items-center gap-2">
           {(parent || crumbs.length > 0) && <nav aria-label={t('breadcrumb')} className="flex min-w-0 items-center gap-1 text-xs text-text-muted">
             {parent && <><PlatformLink className="min-w-0 truncate hover:text-accent-primary" title={tx(parent.label)} href={linkTo(parent.id)}>{tx(parent.label)}</PlatformLink><ChevronRight className="size-3 shrink-0" aria-hidden /></>}
             {crumbs.map((crumb, index) => <span key={index} className="flex min-w-0 items-center gap-1">
@@ -101,20 +159,25 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
           <TooltipProvider><Tooltip open={headingTooltipOpen} onOpenChange={open => {
             if (!open || !programmaticHeadingFocus.current) setHeadingTooltipOpen(open);
           }}><TooltipTrigger asChild>
-            <h1 ref={heading} tabIndex={0} title={typeof titleResolved === 'string' ? titleResolved : undefined} className="min-w-0 shrink truncate text-sm font-semibold text-text-primary">{titleResolved}</h1>
+            <h1 ref={heading} tabIndex={0} title={typeof titleResolved === 'string' ? titleResolved : undefined} className="min-w-28 shrink truncate text-sm font-semibold text-text-primary">{titleResolved}</h1>
           </TooltipTrigger><TooltipContent>{titleResolved}</TooltipContent></Tooltip></TooltipProvider>
           {favoriteTarget && <button type="button" onClick={() => toggleFavorite(favoriteTarget.id)} aria-pressed={isFavorite}
             aria-label={isFavorite ? t('removeFavorite') : t('addFavorite')} title={isFavorite ? t('removeFavorite') : t('addFavorite')}
             className="grid size-6 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover hover:text-accent-warn">
             <Star className={cn('size-3.5', isFavorite && 'fill-accent-warn text-accent-warn')} aria-hidden />
           </button>}
-          {hasDescription && <TooltipProvider><Tooltip><TooltipTrigger asChild>
+          {hasDescription && !headerYield.description && <TooltipProvider><Tooltip><TooltipTrigger asChild>
             <div tabIndex={0} className="min-w-0 flex-1 basis-0 truncate text-xs text-text-muted" title={typeof descriptionResolved === 'string' ? descriptionResolved : undefined}>{descriptionResolved}</div>
+          </TooltipTrigger><TooltipContent>{descriptionResolved}</TooltipContent></Tooltip></TooltipProvider>}
+          {hasDescription && headerYield.description && <TooltipProvider><Tooltip><TooltipTrigger asChild>
+            <button type="button" aria-label={descriptionName} title={typeof descriptionResolved === 'string' ? descriptionResolved : undefined} className="grid size-6 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover">
+              <Info className="size-3.5" aria-hidden />
+            </button>
           </TooltipTrigger><TooltipContent>{descriptionResolved}</TooltipContent></Tooltip></TooltipProvider>}
         </div>
         <div className="flex shrink-0 flex-nowrap items-center gap-2 whitespace-nowrap">
-          {!gate && dataTrustSummary}
-          {!gate && secondaryActions}
+          {!gate && dataTrustSummary && withTrustYield(dataTrustSummary, headerYield)}
+          {!gate && secondaryActions && <HeaderOverflow actions={secondaryActions} />}
           {!gate && primaryAction}
         </div>
       </header>

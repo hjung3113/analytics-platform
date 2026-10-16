@@ -32,7 +32,13 @@ const REASON_LABEL: Record<NonNullable<Assessment['reason']>, { ko: string; en: 
  * Data Trust vocabulary (§18): one compressed line, details in a popover.
  * `clear` is a narrow, source-backed claim; `unknown` is always shown, never folded into healthy.
  */
-export function DataTrustIndicator({ trust, assessments, className }: { trust: Trust | null; assessments: Assessment[]; className?: string }) {
+export function DataTrustIndicator({ trust, assessments, className, compact = false, hideProvisional = false }: {
+  trust: Trust | null; assessments: Assessment[]; className?: string;
+  /** Header yield (#303): keep the summary name on title/aria and show the dot. */
+  compact?: boolean;
+  /** Header yield (#303): drop the provisional badge once the summary is already compact. */
+  hideProvisional?: boolean;
+}) {
   const { t, tx, lang } = useI18n();
   if (!trust) return null;
   const confirmed = assessments.filter(a => a.state === 'confirmed');
@@ -43,16 +49,21 @@ export function DataTrustIndicator({ trust, assessments, className }: { trust: T
     : unknown.length
       ? (lang === 'ko' ? `일부 상태를 확인하지 못했습니다 (${unknown.length})` : `Some status could not be confirmed (${unknown.length})`)
       : (lang === 'ko' ? '확인된 이슈 없음' : 'No confirmed issues');
+  const coverageText = `${t('coverage')} ${trust.coverage === null ? '—' : `${(trust.coverage * 100).toFixed(1)}%`}`;
+  const updatedText = `${t('updated')} ${time(trust.updatedAt)}`;
+  const summaryName = `${headline} · ${coverageText} · ${updatedText}`;
   return <Popover>
     <PopoverTrigger asChild>
-      <button type="button" className={cn('inline-flex min-h-8 items-center gap-2 rounded-sm px-2 text-xs text-text-secondary hover:bg-surface-sunken', className)} aria-label={t('dataTrust')}>
+      <button type="button" className={cn('inline-flex min-h-8 items-center gap-2 rounded-sm px-2 text-xs text-text-secondary hover:bg-surface-sunken', className)} aria-label={t('dataTrust')} title={summaryName}>
         <Dot tone={tone} />
-        <span className="tabular">{headline}</span>
-        <span className="text-text-disabled" aria-hidden>·</span>
-        <span className="tabular">{t('coverage')} {trust.coverage === null ? '—' : `${(trust.coverage * 100).toFixed(1)}%`}</span>
-        <span className="text-text-disabled" aria-hidden>·</span>
-        <span className="tabular">{t('updated')} {time(trust.updatedAt)}</span>
-        {trust.provisional && <StatusBadge tone="warning">{t('provisional')}</StatusBadge>}
+        <span data-trust-summary-details className={cn('inline-flex items-center gap-2', compact && 'sr-only')}>
+          <span className="tabular">{headline}</span>
+          <span className="text-text-disabled" aria-hidden>·</span>
+          <span className="tabular">{coverageText}</span>
+          <span className="text-text-disabled" aria-hidden>·</span>
+          <span className="tabular">{updatedText}</span>
+        </span>
+        {trust.provisional && !hideProvisional && <StatusBadge tone="warning">{t('provisional')}</StatusBadge>}
         <Info className="size-3.5 text-text-muted" aria-hidden />
       </button>
     </PopoverTrigger>

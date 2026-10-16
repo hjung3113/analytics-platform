@@ -4,7 +4,7 @@ Platform Component 층(06 §13) + 차트 계약(§16) + 페이지 archetype 골�
 
 ## 파일
 
-- `PlatformPage.tsx` — 페이지 최상위. 제목·액션·`contextExtension`·`dataTrustSummary`·breadcrumb 슬롯, Scope 게이트, 전역 Context Bar는 `slots.contextBar`로 받아 렌더(셸을 import하지 않음). 본문 영역은 `data-platform-page-content` 속성으로 식별한다(헤더·전역 Context·페이지 extension 제외, Scope 게이트도 이 영역에 렌더). 계약 검사는 스타일 클래스 대신 이 안정된 hook을 사용한다. Kernel `pageNavigation`의 포커스 요청을 소비해 `drill`이면 현재 단계, 그 밖이면 제목(h1)에 포커스하고, 프로그램이 준 제목 포커스로는 제목 툴팁을 열지 않는다(06 §26). 도착으로 열린 `focus=` 상세 패널은 그 제목 포커스를 가져가지 않는다(ADR-0032). Scope 게이트의 동작 버튼이 상태 변경으로 사라지면 포커스를 main 랜드마크(셸 밖에서는 본문 요소)로 옮긴다(06 §26, #353).
+- `PlatformPage.tsx` — 페이지 최상위. 제목·액션·`contextExtension`·`dataTrustSummary`·breadcrumb 슬롯, Scope 게이트, 전역 Context Bar는 `slots.contextBar`로 받아 렌더(셸을 import하지 않음). 본문 영역은 `data-platform-page-content` 속성으로 식별한다(헤더·전역 Context·페이지 extension 제외, Scope 게이트도 이 영역에 렌더). 계약 검사는 스타일 클래스 대신 이 안정된 hook을 사용한다. Kernel `pageNavigation`의 포커스 요청을 소비해 `drill`이면 현재 단계, 그 밖이면 제목(h1)에 포커스하고, 프로그램이 준 제목 포커스로는 제목 툴팁을 열지 않는다(06 §26). 도착으로 열린 `focus=` 상세 패널은 그 제목 포커스를 가져가지 않는다(ADR-0032). Scope 게이트의 동작 버튼이 상태 변경으로 사라지면 포커스를 main 랜드마크(셸 밖에서는 본문 요소)로 옮긴다(06 §26, #353). 머리 컨테이너 폭이 줄면 설명·Data Trust 요약·잠정 배지 순으로 양보하고 제목은 최소 폭을 지키며, 보조 동작은 ⋯ 메뉴에 둔다(ADR-0035). 가로 스크롤은 쓰지 않는다.
 - `AnalysisLayout.tsx` — 분석 화면의 KPI 띠·차트 2열·전체 폭 분해 표, 단위별 접기와 접힌 항목 칩 복원·메뉴별 기억·포커스 이동을 소유한다(06 §12.6, ADR-0022).
 - `DrillLayout.tsx` — `DrillPath`·`DrillLayout`·`ReturnLink`(06 §12.7·§13·§22, ADR-0025). 경로 바는 `useDrill()`을 읽고, 형식 오류와 결과에 없는 값은 본문 자리에 상태를 그린다. 복귀 버튼은 `returnOrigin()`의 메뉴 이름과 단계 값을 쓴다.
 - `ManagementLayout.tsx` — 관리 화면의 filter/table/drawer 슬롯. 자기 폭에 따른 접을 수 있는 sticky 필터 레일과 좁은 폭 팝오버, 공통 접힘 기억·포커스 이동을 소유한다(06 §12.6, ADR-0022).

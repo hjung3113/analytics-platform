@@ -191,7 +191,7 @@ label 행은 #210(FeedbackOps 원본 값), 나머지 행은 #193/#194 UI/UX 리�
 - hover는 공유 row-hover, focus는 opaque 2px outline과 offset을 사용한다. hover/selected 안의 작은 필수 글자(‘예정’, Scope 상태·room, 언어)는 secondary 또는 허용 label로 유지한다.
 - collapsed에서는 Scope 선택·검증 상태와 주 메뉴를 남긴다. 아이콘은 이름 있는 동작이며 hover/focus Tooltip에 전체 이름을 제공한다. Scope Tooltip과 accessible description은 이름·상태·room을 보존하고 live announcement는 상태 문자열만 전달한다.
 - collapsed에서 즐겨찾기/최근은 숨겨 주 메뉴와 중복 아이콘이 섞이지 않게 한다. expanded에서는 두 section과 빈 안내를 유지한다. 빈 안내는 가짜 링크가 아니다.
-- 한 줄 머리에서는 설명이 먼저 폭을 양보한다. 제목·부모 링크가 축약되면 전체 문자열에 접근할 수 있어야 하고 동작·즐겨찾기는 가려지지 않는다. 고정 동작만으로 폭이 넘는 경우 header 내부 가로 스크롤로 접근한다. 제목을 키우려고 한 줄 계약을 바꾸지 않는다.
+- 한 줄 50px 머리는 머리 컨테이너 폭(뷰포트 아님)이 줄면 이 순서로 양보한다. 설명이 먼저 접혀 제목 옆 정보 아이콘의 툴팁으로 남고, 다음은 Data Trust 요약이 아이콘·축약(이름은 tooltip·aria)으로, 그다음 잠정 배지다. 제목은 말줄임하되 최소 폭을 지켜 0이 되지 않고, 전체 이름은 제목 툴팁과 `title`로 남는다. 주 동작은 항상 보이고 줄지 않는다. 보조 동작은 있으면 ⋯ 메뉴에 두며 없으면 ⋯도 없다. 다시 넓어지면 설명·요약·배지만 돌아오고 보조 동작은 메뉴에 남는다. 접힌 단계는 경계보다 넓은 폭에서 되돌려 진동하지 않게 한다. 줄바꿈과 머리 가로 스크롤은 쓰지 않는다. 제목·즐겨찾기·주 동작은 가려지지 않는다([ADR-0035](docs/adr/0035-page-header-yield-order.md)).
 - 언어 동작의 접근성 이름은 현재 언어와 다음 전환 목적을 함께 전달한다. 번역 범위와 Context 보존은 06 §23을 따른다.
 
 ## Layout and analysis composition
