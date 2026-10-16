@@ -171,8 +171,9 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
         const targetRect = event.target.getBoundingClientRect();
         const left = headerRect.left + header.clientLeft;
         const right = left + header.clientWidth;
-        if (targetRect.left < left) header.scrollLeft += targetRect.left - left;
-        else if (targetRect.right > right) header.scrollLeft += targetRect.right - right;
+        // scrollLeft is whole pixels; round away from the edge so a fractional rect lands fully inside.
+        if (targetRect.left < left) header.scrollLeft += Math.floor(targetRect.left - left);
+        else if (targetRect.right > right) header.scrollLeft += Math.ceil(targetRect.right - right);
       }} className="flex h-[50px] shrink-0 overflow-x-auto items-center justify-between gap-3 border-b border-border-subtle bg-surface-canvas px-4">
         <div className="flex min-w-28 flex-1 items-center gap-2">
           {(parent || crumbs.length > 0) && <nav aria-label={t('breadcrumb')} className="flex min-w-0 items-center gap-1 text-xs text-text-muted">
