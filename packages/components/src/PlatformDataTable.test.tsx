@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { useEffect, useState, type ReactNode } from 'react';
 import { House } from 'lucide-react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
-import type { ApiResponse, GlobalContext, PageSort, Session } from '@ap/contracts';
+import type { ApiResponse, GlobalContext, PageSort } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, useI18n, usePlatform } from '@ap/kernel';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { DetailDrawer } from './DetailDrawer';
@@ -11,7 +11,7 @@ import { toColumnDef } from './columnDef';
 import * as publicApi from './index';
 import { readXlsx } from './xlsxTestReader';
 import { PlatformDataTable, type PageQuery, type PageResult, type PlatformDataTableProps, type TableUrlState } from './PlatformDataTable';
-import { noContext, testAdapter, testSpace } from './test-support';
+import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 afterEach(cleanup);
 
@@ -23,9 +23,7 @@ const registry = createRegistry({
   menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
 
-const session: Session = {
-  user: { id: 'user-a', name: 'a', title: { ko: 'a', en: 'a' }, permissions: ['platform:view'] }, scopes: [],
-};
+const session = testSession(['platform:view'], { user: { id: 'user-a' } });
 const adapter = testAdapter({ session: () => session });
 
 type Row = { id: string; status: string };

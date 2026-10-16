@@ -2,9 +2,9 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
-import type { Capability, Session } from '@ap/contracts';
+import type { Capability } from '@ap/contracts';
 import { GlobalContextBar } from './GlobalContextBar';
-import { testAdapter, testSpace } from './test-setup';
+import { testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 const caps = { time: 'reference', roomNames: 'apply', condition: 'apply', selection: 'apply', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const registryWith = (context: Record<keyof typeof caps, Capability>) => createRegistry({
@@ -15,7 +15,7 @@ const registryWith = (context: Record<keyof typeof caps, Capability>) => createR
 const registry = registryWith(caps);
 const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
 const evaluation = vi.fn(async () => ({ inCondition: [], outOfCondition: [] }));
-const session: Session = { user: { id: 'u', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view'] }, scopes: [{ id: 'ICH', label: 'ICH', grantedRooms: 1, totalRooms: 1 }] };
+const session = testSession(['platform:view'], { user: { id: 'u' }, scopes: [{ id: 'ICH', label: 'ICH', grantedRooms: 1, totalRooms: 1 }] });
 const adapter = testAdapter({
   session: () => session,
   validateScope: async () => ({ status: 'valid', scopeId: 'ICH', grantedRooms: ['PHOTO'] }),

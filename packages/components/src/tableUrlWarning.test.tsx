@@ -3,10 +3,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
-import type { Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, type MenuEntry } from '@ap/kernel';
 import { TableUrlWarning, useTableUrlWarning } from './tableUrlWarning';
-import { noContext, testAdapter, testSpace } from './test-support';
+import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 afterEach(cleanup);
 
@@ -16,7 +15,7 @@ const menu: MenuEntry = {
   features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['sort', 'page', 'q'],
 };
 const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }], menus: [menu] });
-const session: Session = { user: { id: 'u1', name: 'u1', title: { ko: 'u1', en: 'u1' }, permissions: ['platform:view'] }, scopes: [] };
+const session = testSession(['platform:view']);
 
 function Probe() {
   const warning = useTableUrlWarning(['name', 'size']);

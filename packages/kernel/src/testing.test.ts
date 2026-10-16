@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { testAdapter } from './test-setup';
+import { testAdapter } from './testing';
 
 // PlatformAdapter.session() is a store snapshot: the same object until the session changes
 // (packages/contracts/src/adapter.ts). The builder's default must honor that — one session per

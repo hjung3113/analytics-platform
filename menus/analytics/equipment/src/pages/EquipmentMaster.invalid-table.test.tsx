@@ -2,8 +2,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { Boxes } from 'lucide-react';
-import type { ApiResponse, MenuQuery, PlatformAdapter, Session } from '@ap/contracts';
+import type { ApiResponse, MenuQuery } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import EquipmentMaster from './EquipmentMaster';
 
@@ -13,28 +14,18 @@ const registry = createRegistry({
   groups: [{ id: 'equipment', label: { ko: '설비', en: 'Equipment' }, icon: Boxes, space: 'analytics' }],
   menus: manifests,
 });
-const session: Session = { user: { id: 'analyst-a', name: 'analyst-a', title: { ko: '분석가', en: 'Analyst' }, permissions: ['equipment:view', 'platform:view'] }, scopes: [] };
+const session = testSession(['equipment:view', 'platform:view'], { user: { id: 'analyst-a', name: 'analyst-a', title: { ko: '분석가', en: 'Analyst' } } });
 const empty: ApiResponse<never> = { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' };
 const queries: MenuQuery[] = [];
-const adapter: PlatformAdapter = {
+const adapter = testAdapter({
   menuQuery: async req => { queries.push(req); return empty; },
   session: () => session,
-  validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
-  publishedMetrics: () => [],
-  defaultRangeTo: () => '2026-09-26T09:00:00',
-  contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-  evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
-  getEntity: async () => empty,
-  recordUsage: async () => ({ accepted: 0 }),
-  listAnnotations: async () => empty,
   saveAnnotation: async () => empty,
-  reportClientError: async () => ({ accepted: true }),
   usageSummary: async () => empty,
   auditTrail: async () => empty,
   entityAudit: async () => empty,
   accessDirectory: async () => empty,
-  subscribe: () => () => undefined,
-};
+});
 
 beforeEach(() => {
   queries.length = 0;

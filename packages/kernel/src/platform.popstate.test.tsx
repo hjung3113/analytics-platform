@@ -2,7 +2,7 @@ import { act, cleanup, render } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from './index';
-import { noContext, testAdapter, testSession, testSpace } from './test-support';
+import { noContext, testAdapter, testSession, testSpace } from './testing';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const entry = (partial: { id: string; path: string; pageKeys: string[]; primary?: boolean; parent?: string; navHidden?: boolean }) => ({

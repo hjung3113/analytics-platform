@@ -3,6 +3,7 @@ import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlatformAdapter, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { testAdapter, testSession } from '@ap/kernel/testing';
 import OperationsHome from './OperationsHome';
 
 const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
@@ -43,26 +44,11 @@ const registry = createRegistry({
 
 let queries = 0;
 function adapter(permissions: Session['user']['permissions']): PlatformAdapter {
-  const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions }, scopes: [] };
-  return {
-    menuQuery: async () => { queries += 1; return { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }; },
+  const session = testSession(permissions);
+  return testAdapter({
     session: () => session,
-    validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
-    publishedMetrics: () => [],
-    defaultRangeTo: () => '2026-09-26T09:00:00',
-    contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-    evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
-    getEntity: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    auditTrail: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    entityAudit: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    accessDirectory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    recordUsage: async () => ({ accepted: 0 }),
-    usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    listAnnotations: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    saveAnnotation: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    reportClientError: async () => ({ accepted: true }),
-    subscribe: () => () => {},
-  };
+    menuQuery: async () => { queries += 1; return { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }; },
+  });
 }
 
 function mount(permissions: Session['user']['permissions'], url = '/?v=1&scopeId=ICH') {

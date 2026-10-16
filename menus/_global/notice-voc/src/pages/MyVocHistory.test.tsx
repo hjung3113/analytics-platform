@@ -1,8 +1,9 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ApiResponse, MenuQuery, PlatformAdapter, Session } from '@ap/contracts';
+import type { ApiResponse, MenuQuery } from '@ap/contracts';
 import { Megaphone } from 'lucide-react';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import MyVocHistory from './MyVocHistory';
 import { setFeedbackOpsOrigin } from '../feedbackops-origin';
@@ -23,10 +24,10 @@ const ROW: MyVocItem = {
 
 /** Fixture adapter: a stale cursor errors (the mock's "Invalid cursor"), page 1 succeeds. */
 function fixture() {
-  const session: Session = { user: { id: 'user-a', name: 'user-a', title: { ko: 'a', en: 'a' }, permissions: ['platform:view', 'notice:view', 'voc:view'] }, scopes: [] };
+  const session = testSession(['platform:view', 'notice:view', 'voc:view'], { user: { id: 'user-a', name: 'user-a', title: { ko: 'a', en: 'a' } } });
   const calls: unknown[] = [];
   const okPage: ApiResponse<MyVocPage> = { outcome: 'ok', data: { items: [ROW], nextCursor: null }, assessments: [], trust: null, correlationId: 'fixture' };
-  const adapter: PlatformAdapter = {
+  const adapter = testAdapter({
     menuQuery: async (request: MenuQuery) => {
       if (request.endpoint !== myVocHistoryEndpoint.id) {
         const survey: ApiResponse<MySurveyPage> = {
@@ -41,23 +42,7 @@ function fixture() {
       return okPage;
     },
     session: () => session,
-    validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
-    publishedMetrics: () => [],
-    defaultRangeTo: () => '2026-09-26T09:00:00',
-    contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-    evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
-    getEntity: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    auditTrail: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    entityAudit: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    accessDirectory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    recordUsage: async () => ({ accepted: 0 }),
-    listAnnotations: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    saveAnnotation: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    reportClientError: async () => ({ accepted: true }),
-    usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    // Nothing in this test announces a session change; an empty unsubscribe is enough.
-    subscribe: () => () => undefined,
-  };
+  });
   return { adapter, calls };
 }
 

@@ -21,7 +21,7 @@
 - import 금지: React, DOM 타입, Node API, 다른 `@ap/*` 패키지, 외부 런타임 라이브러리.
 - 필드 추가·이름 변경은 계약 변경이다. 소비처(kernel, shell, 앱 mock 구현)를 같은 PR에서 맞추고, 06이나 패키지 경계 문서에 반영할 결정인지 먼저 판단한다. 필드 이름 대부분은 Candidate다.
 - 이 패키지는 자체 테스트가 없다. 계약 테스트는 앱 통합 테스트 `apps/platform-web/src/{url-contract,feedbackops-link,instant,menu-query-contract}.test.ts`이므로 codec·선언을 바꾸면 함께 갱신한다. URL은 보정 없이 오류로 거부한다(06 §6).
-- `PlatformAdapter`에 메서드를 추가하면 `pnpm typecheck`가 깨뜨리는 모든 어댑터 fixture(mock `packages/mock-server/src/adapter.ts`와 각 패키지 테스트의 fixture)와 `@ap/server-conformance` 검사, [체크리스트 §2](../../docs/integration/real-server-checklist.md)·[전송 형식 초안 §1](../../docs/integration/http-adapter-contract.md) 표를 같은 PR에서 고친다.
+- `PlatformAdapter`에 메서드를 추가하면 `pnpm typecheck`가 깨뜨리는 어댑터 구현(`@ap/kernel/testing`의 `testAdapter`, mock `packages/mock-server/src/adapter.ts`, `@ap/server-conformance` 테스트의 `referenceAdapter`)과 `@ap/server-conformance` 검사, [체크리스트 §2](../../docs/integration/real-server-checklist.md)·[전송 형식 초안 §1](../../docs/integration/http-adapter-contract.md) 표를 같은 PR에서 고친다.
 
 ## 검증
 

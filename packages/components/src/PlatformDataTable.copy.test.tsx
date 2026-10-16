@@ -6,10 +6,10 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import type { ApiResponse, PageQuery, PageResult, PageSort, Session } from '@ap/contracts';
+import type { ApiResponse, PageQuery, PageResult, PageSort } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { PlatformDataTable, type PlatformDataTableProps } from './PlatformDataTable';
-import { noContext, testAdapter, testSpace } from './test-support';
+import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 const registryWith = (exportFeature: boolean) => createRegistry({
   spaces: [testSpace({ homeMenuId: 'copy-menu' })],
@@ -18,7 +18,7 @@ const registryWith = (exportFeature: boolean) => createRegistry({
 });
 const exportRegistry = registryWith(true);
 
-const session: Session = { user: { id: 'user-a', name: 'a', title: { ko: 'a', en: 'a' }, permissions: ['platform:view'] }, scopes: [] };
+const session = testSession(['platform:view'], { user: { id: 'user-a' } });
 const adapter = testAdapter({ session: () => session });
 
 type Row = { id: string; code: string; note: string };

@@ -2,11 +2,11 @@ import { act, cleanup, render, screen, waitFor, within } from '@testing-library/
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { PlatformAdapter, Session, Trust } from '@ap/contracts';
+import type { PlatformAdapter, Trust } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, PlatformLink, createRegistry, usePlatform } from '@ap/kernel';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { PlatformPage } from './PlatformPage';
-import { noContext, testAdapter, testSpace } from './test-support';
+import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 const registry = createRegistry({
   spaces: [testSpace()],
@@ -15,7 +15,7 @@ const registry = createRegistry({
 });
 
 function adapter(): PlatformAdapter {
-  const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions: ['platform:view'] }, scopes: [] };
+  const session = testSession(['platform:view']);
   return testAdapter({ session: () => session, validateScope: async () => ({ status: 'valid', grantedRooms: [] }) });
 }
 

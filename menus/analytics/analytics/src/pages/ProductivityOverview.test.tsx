@@ -3,7 +3,8 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
-import type { ApiResponse, PlatformAdapter, Session } from '@ap/contracts';
+import { testAdapter, testSession } from '@ap/kernel/testing';
+import type { ApiResponse } from '@ap/contracts';
 import { manifests } from '../index';
 import ProductivityOverview from './ProductivityOverview';
 
@@ -15,30 +16,17 @@ const registry = createRegistry({
   menus: manifests,
 });
 
-const session: Session = {
-  user: { id: 'analyst-a', name: 'analyst-a', title: { ko: '분석가', en: 'Analyst' }, permissions: ['analytics:view', 'platform:view'] },
-  scopes: [],
-};
+const session = testSession(['analytics:view', 'platform:view'], { user: { id: 'analyst-a', name: 'analyst-a', title: { ko: '분석가', en: 'Analyst' } } });
 const empty: ApiResponse<never> = { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' };
-const adapter: PlatformAdapter = {
-  menuQuery: async () => empty,
+const adapter = testAdapter({
   session: () => session,
-  validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
-  publishedMetrics: () => [],
-  defaultRangeTo: () => '2026-09-26T09:00:00',
-  contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-  evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
-  getEntity: async () => empty,
-  recordUsage: async () => ({ accepted: 0 }),
-  listAnnotations: async () => empty,
+  menuQuery: async () => empty,
   saveAnnotation: async () => empty,
-  reportClientError: async () => ({ accepted: true }),
   usageSummary: async () => empty,
   auditTrail: async () => empty,
   entityAudit: async () => empty,
   accessDirectory: async () => empty,
-  subscribe: () => () => undefined,
-};
+});
 
 function renderPage(path: string) {
   window.history.replaceState(null, '', path);

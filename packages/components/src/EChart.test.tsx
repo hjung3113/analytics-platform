@@ -3,11 +3,10 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 import type { ECharts } from 'echarts/core';
-import type { Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { AnalysisChartFrame, type ChartSeries } from './AnalysisChartFrame';
 import { baseTextStyle, type EChartProps } from './EChart';
-import { noContext, testAdapter, testSpace } from './test-support';
+import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 // Regression test for the #48 P1 finding: the echarts-dependent implementation is code-split,
 // so the chart instance can appear after the parent already handled a Brush click. This mocks
@@ -45,9 +44,7 @@ const registry = createRegistry({
   groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
   menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
 });
-const session: Session = {
-  user: { id: 'user-a', name: 'a', title: { ko: 'a', en: 'a' }, permissions: ['platform:view'] }, scopes: [],
-};
+const session = testSession(['platform:view'], { user: { id: 'user-a' } });
 const adapter = testAdapter({ session: () => session });
 
 const series: ChartSeries[] = [{ id: 's1', name: 'S1', color: 'chart-blue', points: [['2026-09-01T00:00:00', 1], ['2026-09-02T00:00:00', 2]] }];

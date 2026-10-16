@@ -1,7 +1,8 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { PlatformAdapter, Session } from '@ap/contracts';
+import type { PlatformAdapter } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, usePlatform } from '@ap/kernel';
+import { testAdapter, testSession } from '@ap/kernel/testing';
 import { createAssembly } from '#platform-assembly';
 import { GROUPS, SPACES, registry } from './menus';
 import { appSlots } from './slots';
@@ -13,10 +14,7 @@ const probeRun = process.env.GEN_MENU_PROBE === '1';
 describe('workspace assembly (#260)', () => {
   it('enters productivity analysis at equipment-master for a partial-permission session (#264)', () => {
     const assembly = createAssembly({ registry });
-    const session: Session = {
-      user: { id: 'partial', name: 'partial', title: { ko: '부분 권한', en: 'Partial access' }, permissions: ['platform:view', 'equipment:view'] },
-      scopes: [],
-    };
+    const session = testSession(['platform:view', 'equipment:view'], { user: { id: 'partial', name: 'partial', title: { ko: '부분 권한', en: 'Partial access' } } });
     const adapter: PlatformAdapter = { ...assembly.adapter, session: () => session };
     function Probe() {
       const { spaceEntry } = usePlatform();
@@ -73,29 +71,10 @@ describe('workspace assembly (#260)', () => {
     expect(slots.topBarTools).toBe(assembly.topBarTools);
     expect(slots.feedbackOps).toBeUndefined();
     expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools']);
-    const session: Session = {
-      user: { id: 'viewer', name: 'viewer', title: { ko: '현업 문의자', en: 'Field requester' }, permissions: ['platform:view', 'metrics:view', 'notice:view', 'voc:view'] },
-      scopes: [],
-    };
-    const adapter: PlatformAdapter = {
-      menuQuery: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-      session: () => session,
-      validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
-      publishedMetrics: () => [],
-      defaultRangeTo: () => '2026-09-26T09:00:00',
-      contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-      evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
-      getEntity: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-      auditTrail: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-      entityAudit: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-      accessDirectory: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-      recordUsage: async () => ({ accepted: 0 }),
-      usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-      listAnnotations: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-      saveAnnotation: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-      reportClientError: async () => ({ accepted: true }),
-      subscribe: () => () => {},
-    };
+    const session = testSession(['platform:view', 'metrics:view', 'notice:view', 'voc:view'], {
+      user: { id: 'viewer', name: 'viewer', title: { ko: '현업 문의자', en: 'Field requester' } },
+    });
+    const adapter = testAdapter({ session: () => session });
     function Probe() {
       const { accessibleSpaces, resolveLink } = usePlatform();
       return <div>

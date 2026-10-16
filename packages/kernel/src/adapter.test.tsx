@@ -6,7 +6,7 @@ import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { useAdapterRequest, useEntityQuery, usePlatformQuery } from './query';
 import { createRegistry } from './registry';
-import { noContext, testAdapter, testSpace } from './test-support';
+import { noContext, testAdapter, testSession, testSpace } from './testing';
 import { House } from 'lucide-react';
 
 const registry = createRegistry({
@@ -17,7 +17,7 @@ const registry = createRegistry({
 
 /** Fixture adapter: no mock server, so these tests pin the kernel side of the port (platform-packages.md §4). */
 function fixture(getEntity?: PlatformAdapter['getEntity']) {
-  const make = (id: string): Session => ({ user: { id, name: id, title: { ko: id, en: id }, permissions: ['platform:view'] }, scopes: [] });
+  const make = (id: string): Session => testSession(['platform:view'], { user: { id, name: id, title: { ko: id, en: id } } });
   const sessions = { a: make('user-a'), b: make('user-b') };
   let current: Session = sessions.a;
   const listeners = new Set<() => void>();

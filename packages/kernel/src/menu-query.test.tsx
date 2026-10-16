@@ -7,7 +7,7 @@ import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { type MenuFetch, type QueryState, useEntityQuery, useMenuFetch, useMenuQuery } from './query';
 import { createRegistry } from './registry';
-import { testAdapter, testSpace } from './test-support';
+import { testAdapter, testSession, testSpace } from './testing';
 
 type Params = { page: number; sort?: string };
 type QueryData = { call: number; context: MenuQuery['context']; params: Params };
@@ -47,10 +47,7 @@ type Answer = (request: MenuQuery, call: number) => ApiResponse<QueryData>;
 type FixtureOptions = { answer?: Answer; validateScope?: PlatformAdapter['validateScope'] };
 
 function fixture(options: FixtureOptions = {}) {
-  const make = (id: string): Session => ({
-    user: { id, name: id, title: { ko: id, en: id }, permissions: ['platform:view'] },
-    scopes: [],
-  });
+  const make = (id: string): Session => testSession(['platform:view'], { user: { id, name: id, title: { ko: id, en: id } } });
   const sessions = { a: make('user-a'), b: make('user-b') };
   let current: Session = sessions.a;
   const listeners = new Set<() => void>();

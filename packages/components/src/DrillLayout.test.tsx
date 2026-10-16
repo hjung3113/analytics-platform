@@ -2,11 +2,10 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useState, type ReactNode } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, useDrill, usePlatform, type MenuEntry } from '@ap/kernel';
 import { PlatformPage } from './PlatformPage';
 import { DrillLayout, ReturnLink } from './DrillLayout';
-import { noContext, testAdapter, testSpace } from './test-support';
+import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const keys = ['drillRoom', 'drillStgroup', 'drillLine', 'drillEquipment'] as const;
@@ -40,7 +39,7 @@ const registry = createRegistry({
   ],
 });
 
-const session: Session = { user: { id: 'u1', name: 'u1', title: { ko: 'u1', en: 'u1' }, permissions: ['platform:view'] }, scopes: [] };
+const session = testSession(['platform:view']);
 const adapter = testAdapter({ session: () => session });
 
 let storage = new Map<string, string>();
@@ -291,7 +290,7 @@ it.each(['defaults', 'metric defaults', 'other navigation', 'history', 'denied']
         : ready && can(route!.menu.permission) ? <PlatformPage key={route!.menu.id}>destination</PlatformPage> : null}</>;
   }
   // A denied route must cancel even while no PlatformPage can consume the request.
-  const deniedSession: Session = { ...session, user: { ...session.user, permissions: [] } };
+  const deniedSession = testSession([]);
   let denied = action === 'denied';
   const listeners = new Set<() => void>();
   const coldAdapter = testAdapter({ publishedMetrics: () => [{ metricId: 'CT', publishedVersion: '7' }], session: () => denied ? deniedSession : session, subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); } });

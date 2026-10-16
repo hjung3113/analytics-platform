@@ -2,13 +2,12 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { House } from 'lucide-react';
 import { useLayoutEffect, useRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Session } from '@ap/contracts';
 import { I18nProvider, PlatformLink, PlatformProvider, createRegistry, usePlatform, type MenuEntry } from '@ap/kernel';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { DetailDrawer } from './DetailDrawer';
 import { PlatformPage } from './PlatformPage';
 import { ReturnLink } from './DrillLayout';
-import { noContext, testAdapter, testSpace } from './test-support';
+import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
 function entry(partial: Pick<MenuEntry, 'id' | 'path'> & Partial<MenuEntry>): MenuEntry {
@@ -29,7 +28,7 @@ const registry = createRegistry({
   ],
 });
 
-const session: Session = { user: { id: 'u1', name: 'u1', title: { ko: 'u1', en: 'u1' }, permissions: ['platform:view'] }, scopes: [] };
+const session = testSession(['platform:view']);
 const adapter = testAdapter({ session: () => session });
 const RETURN_HREF = `/detail?v=1&returnTo=${encodeURIComponent('/equipment?v=1&focus=EQ-1')}`;
 

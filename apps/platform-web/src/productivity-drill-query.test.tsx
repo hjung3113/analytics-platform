@@ -1,8 +1,9 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { Suspense } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { MenuQuery, PlatformAdapter, Session } from '@ap/contracts';
+import type { MenuQuery, PlatformAdapter } from '@ap/contracts';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
+import { testAdapter, testSession } from '@ap/kernel/testing';
 import { registry } from './menus';
 
 // Same scope, period and room filter. Only the drill step differs, so a zero count is the format-error
@@ -12,40 +13,26 @@ const BASE = '/analytics/productivity?v=1&scopeId=ICH&from=2026-09-25T09:00:00&t
 // Per-test timeout must exceed the waitFor readiness cap (10s), or vitest (default 5s) ends the test before waitFor leaves its diagnosis.
 const DRILL_TEST_TIMEOUT_MS = 15_000;
 
-const session: Session = {
-  user: {
-    id: 'analyst',
-    name: 'analyst',
-    title: { ko: '분석가', en: 'Analyst' },
-    permissions: ['analytics:view', 'platform:view'],
-  },
+const session = testSession(['analytics:view', 'platform:view'], {
+  user: { id: 'analyst', name: 'analyst', title: { ko: '분석가', en: 'Analyst' } },
   scopes: [{ id: 'ICH', label: 'ICH · Site A', grantedRooms: 1, totalRooms: 1 }],
-};
+});
 
 const refused = {
   outcome: 'error' as const, data: null, assessments: [], trust: null, correlationId: 'fixture', message: 'fixture',
 };
 
 function countingAdapter(calls: MenuQuery[]): PlatformAdapter {
-  return {
+  return testAdapter({
     menuQuery: async request => { calls.push(request); return refused; },
     session: () => session,
     validateScope: async () => ({ status: 'valid', grantedRooms: ['PHOTO'] }),
-    publishedMetrics: () => [],
-    defaultRangeTo: () => '2026-09-26T09:00:00',
-    contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-    evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
-    getEntity: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     auditTrail: async () => refused,
     entityAudit: async () => refused,
     accessDirectory: async () => refused,
-    recordUsage: async () => ({ accepted: 0 }),
     usageSummary: async () => refused,
-    listAnnotations: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     saveAnnotation: async () => refused,
-    reportClientError: async () => ({ accepted: true }),
-    subscribe: () => () => {},
-  };
+  });
 }
 
 function productivityPage() {

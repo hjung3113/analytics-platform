@@ -1,8 +1,9 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import type { AccessDirectoryPage, AccessDirectoryQuery, AccessPrincipal, ApiResponse, PlatformAdapter, Permission, Session } from '@ap/contracts';
+import type { AccessDirectoryPage, AccessDirectoryQuery, AccessPrincipal, ApiResponse, Permission } from '@ap/contracts';
 import { House, Wrench } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, type MenuEntry } from '@ap/kernel';
+import { testAdapter, testSession } from '@ap/kernel/testing';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { manifests } from '../index';
 import AccessDirectory from './AccessDirectory';
@@ -41,10 +42,7 @@ const registry = createRegistry({
   menus: [...manifests, fixtureMaster],
 });
 
-const session: Session = {
-  user: { id: 'admin-a', name: 'admin-a', title: { ko: '관리자', en: 'Administrator' }, permissions: ['console:access', 'platform:view'] },
-  scopes: [],
-};
+const session = testSession(['console:access', 'platform:view'], { user: { id: 'admin-a', name: 'admin-a', title: { ko: '관리자', en: 'Administrator' } } });
 
 const sites = (rooms: Record<string, string[]>): AccessPrincipal['sites'] => [
   { id: 'ICH', label: 'ICH · Site A', grantedRooms: rooms.ICH ?? [], totalRooms: 4 },
@@ -72,28 +70,13 @@ type ResponseForCall = (query: AccessDirectoryQuery, call: number) => ApiRespons
 
 function fixture(response: ApiResponse<AccessDirectoryPage> | ResponseForCall) {
   const calls: AccessDirectoryQuery[] = [];
-  const adapter: PlatformAdapter = {
-    menuQuery: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
+  const adapter = testAdapter({
     session: () => session,
-    validateScope: async () => ({ status: 'valid', grantedRooms: [] }),
-    publishedMetrics: () => [],
-    defaultRangeTo: () => '2026-09-26T09:00:00',
-    contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
-    evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
-    getEntity: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    recordUsage: async () => ({ accepted: 0 }),
-    listAnnotations: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    saveAnnotation: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    reportClientError: async () => ({ accepted: true }),
-    usageSummary: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    auditTrail: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
-    entityAudit: async () => ({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' }),
     accessDirectory: async (query: AccessDirectoryQuery) => {
       calls.push(query);
       return typeof response === 'function' ? response(query, calls.length) : response;
     },
-    subscribe: () => () => undefined,
-  };
+  });
   return { adapter, calls };
 }
 

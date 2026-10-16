@@ -6,7 +6,7 @@ import type { LinkOptions, LinkResolution } from './platform';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { createRegistry } from './registry';
-import { noContext, testAdapter, testSpace } from './test-support';
+import { noContext, testAdapter, testSession, testSpace } from './testing';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const entry = (id: string, group: 'equipment' | 'admin', path: string, permission: 'platform:view' | 'analytics:view' | 'console:access', pageKeys: string[]) => ({
@@ -40,7 +40,7 @@ const VIEWER: Session['user']['permissions'] = ['platform:view'];
 
 function fixture(permissions: Session['user']['permissions']) {
   // One stable snapshot object: useSyncExternalStore compares by identity on every render.
-  const session: Session = { user: { id: 'u1', name: 'u', title: { ko: 'u', en: 'u' }, permissions }, scopes: [] };
+  const session = testSession(permissions);
   const adapter = testAdapter({ session: () => session });
   return adapter;
 }

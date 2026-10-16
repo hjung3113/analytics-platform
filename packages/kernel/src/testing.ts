@@ -1,4 +1,6 @@
-// Package-internal test fixtures (#265). Not exported from src/index.ts — tests import it by relative path only.
+// Test-only public entry `@ap/kernel/testing` (ADR-0040, #381): adapter, session and space fixtures.
+// Import only from test files (*.test.ts(x), test-support.ts, test-setup.ts); the boundary lint rejects production imports.
+// Deliberately not exported from src/index.ts.
 import type { ApiResponse, Capability, ContextKey, Permission, PlatformAdapter, ScopeOption, Session, SessionUser, SpaceDef } from '@ap/contracts';
 
 /** Every Context key 'unsupported': the no-op Global Context capability record (06 §6). */
