@@ -1759,6 +1759,81 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
     expect(query(page).get('to')).toBe('2026-09-26T09:00:00');
   });
 
+  test('키보드만으로 시작·끝을 골라 선택하고 분석 구간을 적용한다 (#374)', async ({ page }, testInfo) => {
+    await page.goto(CYCLE);
+    await expect(mainHeading(page)).toHaveText('사이클타임 상세');
+    const frame = trend(page);
+    const plot = frame.getByRole('img', { name: /^사이클타임 추세/ });
+    await expect(plot).toBeVisible();
+
+    const start = frame.getByRole('combobox', { name: '구간 시작' });
+    const end = frame.getByRole('combobox', { name: '구간 끝' });
+    const summary = frame.getByRole('region', { name: '선택 요약' });
+    async function tabToControl(accessibleName: string, control: Locator) {
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        await page.keyboard.press('Tab');
+        const activeSnapshot = await page.locator(':focus').ariaSnapshot();
+        if (activeSnapshot.includes(`"${accessibleName}"`)) {
+          await expect(control).toBeFocused();
+          return;
+        }
+      }
+      throw new Error(`Tab did not reach ${accessibleName} within 40 steps`);
+    }
+
+    // Begin at an earlier chart action; Tab traversal must reach the start control.
+    await frame.getByRole('button', { name: '초기화', exact: true }).click();
+    await tabToControl('구간 시작', start);
+
+    // fallbackRange spans 09:00–09:00 next day; two start steps pick 11:00 and one end step picks 08:00.
+    const initialStart = '2026-09-25 09:00';
+    const chosenStart = '2026-09-25 11:00';
+    const initialEnd = '2026-09-26 09:00';
+    const chosenEnd = '2026-09-26 08:00';
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('option', { name: initialStart, exact: true })).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('option', { name: '2026-09-25 10:00', exact: true })).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('option', { name: chosenStart, exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(start).toContainText(chosenStart);
+    await expect(start).toBeFocused();
+
+    await page.keyboard.press('Tab');
+    await expect(end).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('option', { name: initialEnd, exact: true })).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    await expect(page.getByRole('option', { name: chosenEnd, exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(end).toContainText(chosenEnd);
+    await expect(end).toBeFocused();
+
+    await expect(summary).toContainText('선택 구간 없음');
+    expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
+    expect(query(page).get('to')).toBe('2026-09-26T09:00:00');
+
+    const choose = frame.getByRole('button', { name: '선택', exact: true });
+    await page.keyboard.press('Tab');
+    await expect(choose).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(summary).toContainText(`선택 구간: ${chosenStart} – ${chosenEnd}`);
+    expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
+    expect(query(page).get('to')).toBe('2026-09-26T09:00:00');
+
+    const applyRange = frame.getByRole('button', { name: '분석 구간 적용…' });
+    await page.keyboard.press('Tab');
+    await expect(applyRange).toBeFocused();
+    await page.keyboard.press('Enter');
+    const confirmRow = frame.getByRole('group', { name: '구간 적용 확인' });
+    await expect(confirmRow).toContainText(`${chosenStart}:00 → ${chosenEnd}:00`);
+    await evidence(page, testInfo, 'keyboard-start-end-confirm');
+    await confirmRow.getByRole('button', { name: '적용', exact: true }).press('Enter');
+    await expect.poll(() => query(page).get('from')).toBe('2026-09-25T11:00:00');
+    expect(query(page).get('to')).toBe('2026-09-26T08:00:00');
+  });
+
   test('주석은 사이트(Scope)별로 저장되어 다른 사이트에는 보이지 않고, 돌아오면 다시 보인다', async ({ page }, testInfo) => {
     await page.goto(CYCLE);
     await brush(page);
