@@ -1,7 +1,7 @@
 import { type ReactElement } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AnnotationInput, ApiResponse, AnnotationRef, ChartAnnotation, PlatformAdapter, Session } from '@ap/contracts';
 import { parseDateTime } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
@@ -21,12 +21,16 @@ type CapturedSeries = {
 };
 let plottedSeries: CapturedSeries[] = [];
 let plottedBrush: { brushStyle?: { color?: string; borderColor?: string } } | undefined;
+/** Per-test Brush coordRange. Null keeps the historical whole-series range so existing tests stay put. */
+let brushRangeOverride: [number, number] | null = null;
+const defaultBrushRange = (): [number, number] => [parseDateTime('2026-09-01T00:00:00', 'x').getTime(), parseDateTime('2026-09-02T00:00:00', 'x').getTime()];
+const atMs = (value: string) => parseDateTime(value, 'x').getTime();
 
 /** Stand-in plot: one button plays a Brush selection over the whole series. */
 function FakePlot(props: EChartProps): ReactElement {
   plottedSeries = (props.option as unknown as { series?: CapturedSeries[] }).series ?? [];
   plottedBrush = (props.option as unknown as { brush?: { brushStyle?: { borderColor?: string } } }).brush;
-  const range = [parseDateTime('2026-09-01T00:00:00', 'x').getTime(), parseDateTime('2026-09-02T00:00:00', 'x').getTime()];
+  const range = brushRangeOverride ?? defaultBrushRange();
   return <div role="img" aria-label={props.ariaLabel}>
     <button type="button" onClick={() => props.onEvents?.brushEnd?.({ areas: [{ coordRange: range }] }, { dispatchAction: () => {} } as never)}>fake-brush</button>
   </div>;
@@ -88,7 +92,7 @@ const brushAndOpenNote = async () => {
 };
 
 let errorSpy: ReturnType<typeof vi.spyOn>;
-beforeEach(() => { errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {}); });
+beforeEach(() => { brushRangeOverride = null; errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {}); });
 afterEach(() => { cleanup(); errorSpy.mockRestore(); });
 
 describe('AnalysisChartFrame follows the menu manifest features (06 §16, issue #103)', () => {
@@ -589,5 +593,151 @@ describe('chart annotations are keyed by chart and Scope (06 §16 layer 4)', () 
     fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
     expect(await screen.findByText(/재시도 후 보이는 메모/)).toBeTruthy();
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
+describe('keyboard range, bar snap, and compare clip (06 §16, #307)', () => {
+  const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+  beforeAll(() => { HTMLElement.prototype.scrollIntoView = vi.fn(); });
+  afterAll(() => {
+    if (originalScrollIntoView) HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+    else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+  });
+
+  const hour = (day: string, h: number) => `${day}T${String(h).padStart(2, '0')}:00:00`;
+  const hourly = (day: string, from: number, toInclusive: number, id: string, name: string): ChartSeries => ({
+    id, name, color: id === 's1' ? 'chart-blue' : 'chart-purple',
+    points: Array.from({ length: toInclusive - from + 1 }, (_, i) => [hour(day, from + i), 1]),
+  });
+  const currentDay = hourly('2026-10-16', 16, 22, 's1', 'S1');
+  const previousDay = hourly('2026-10-15', 16, 22, 'prev', 'Prev');
+  const period = '/?v=1&scopeId=ICH&from=2026-10-16T16:00:00&to=2026-10-16T23:00:00';
+  const summary = () => screen.getByRole('region', { name: '선택 요약' });
+  const pick = async (combobox: string, option: string) => {
+    fireEvent.click(screen.getByRole('combobox', { name: combobox }));
+    fireEvent.click(await screen.findByRole('option', { name: option }));
+  };
+
+  it('a quick range fills the selection summary and does not change the URL', async () => {
+    mount(fixture().adapter, off, period, { series: [currentDay], compareSeries: [] });
+    const before = window.location.search;
+    fireEvent.click(await screen.findByRole('button', { name: '1시간' }));
+    expect(summary().textContent).toContain('선택 구간: 2026-10-16 22:00 – 2026-10-16 23:00');
+    expect(summary().textContent).toContain('n=1');
+    expect(window.location.search).toBe(before);
+    expect(within(summary()).getByRole('button', { name: '분석 구간 적용…' })).toBeTruthy();
+  });
+
+  it('start and end plus 선택 produce the same summary as the matching quick range', async () => {
+    mount(fixture().adapter, off, period, { series: [currentDay], compareSeries: [] });
+    fireEvent.click(await screen.findByRole('button', { name: '4시간' }));
+    const viaPreset = summary().textContent;
+    expect(viaPreset).toContain('선택 구간: 2026-10-16 19:00 – 2026-10-16 23:00');
+    expect(viaPreset).toContain('n=4');
+    fireEvent.click(within(summary()).getByRole('button', { name: '지우기' }));
+    await pick('구간 시작', '2026-10-16 19:00');
+    await pick('구간 끝', '2026-10-16 23:00');
+    fireEvent.click(within(summary()).getByRole('button', { name: '선택' }));
+    expect(summary().textContent).toContain('선택 구간: 2026-10-16 19:00 – 2026-10-16 23:00');
+    expect(summary().textContent).toContain('n=4');
+  });
+
+  it('전체 and the last bar both end at the query end so the last bar stays in the summary', async () => {
+    mount(fixture().adapter, off, period, { series: [currentDay], compareSeries: [] });
+    fireEvent.click(await screen.findByRole('button', { name: '전체' }));
+    expect(summary().textContent).toContain('선택 구간: 2026-10-16 16:00 – 2026-10-16 23:00');
+    expect(summary().textContent).toContain('n=7');
+    fireEvent.click(within(summary()).getByRole('button', { name: '지우기' }));
+    await pick('구간 시작', '2026-10-16 22:00');
+    await pick('구간 끝', '2026-10-16 23:00');
+    fireEvent.click(within(summary()).getByRole('button', { name: '선택' }));
+    expect(summary().textContent).toContain('선택 구간: 2026-10-16 22:00 – 2026-10-16 23:00');
+    expect(summary().textContent).toContain('n=1');
+  });
+
+  it('a single bar can be selected, and a quick range longer than the data is not offered', async () => {
+    const one: ChartSeries = { id: 's1', name: 'S1', color: 'chart-blue', points: [['2026-10-16T16:00:00', 5]] };
+    mount(fixture().adapter, off, '/?v=1&scopeId=ICH&from=2026-10-16T16:00:00&to=2026-10-16T17:00:00', { series: [one], compareSeries: [] });
+    expect(await screen.findByRole('button', { name: '1시간' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '4시간' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '전체' }));
+    expect(summary().textContent).toContain('선택 구간: 2026-10-16 16:00 – 2026-10-16 17:00');
+    expect(summary().textContent).toContain('n=1');
+  });
+
+  it('includes a query start that is earlier than the first bar', async () => {
+    const bars: ChartSeries = { id: 's1', name: 'S1', color: 'chart-blue', points: [['2026-10-16T16:00:00', 1], ['2026-10-16T17:00:00', 1]] };
+    mount(fixture().adapter, off, '/?v=1&scopeId=ICH&from=2026-10-16T15:30:00&to=2026-10-16T18:00:00', { series: [bars], compareSeries: [] });
+    await screen.findByRole('button', { name: '전체' });
+    expect(screen.queryByRole('button', { name: '4시간' })).toBeNull();
+    fireEvent.click(screen.getByRole('combobox', { name: '구간 시작' }));
+    expect(await screen.findByRole('option', { name: '2026-10-16 15:30' })).toBeTruthy();
+    // The open list hides the rest of the page; close it before using the quick range.
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: '전체' }));
+    expect(summary().textContent).toContain('선택 구간: 2026-10-16 15:30 – 2026-10-16 18:00');
+    expect(summary().textContent).toContain('n=2');
+  });
+
+  it('offers no keyboard range when the query has no end', async () => {
+    mount(fixture().adapter, off);
+    await screen.findByRole('button', { name: '구간 선택' });
+    expect(screen.queryByRole('group', { name: '빠른 구간 선택' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: '구간 시작' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '1시간' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '전체' })).toBeNull();
+  });
+
+  it('snaps a time brush outward onto hourly bar boundaries', async () => {
+    brushRangeOverride = [atMs('2026-10-16T16:14:48'), atMs('2026-10-16T22:41:39')];
+    mount(fixture().adapter, off, period, { series: [currentDay], compareSeries: [] });
+    fireEvent.click(await screen.findByText('fake-brush'));
+    expect(summary().textContent).toContain('선택 구간: 2026-10-16 16:00 – 2026-10-16 23:00');
+  });
+
+  it('clips a brush that crosses the previous period and the apply confirmation uses the clipped range', async () => {
+    brushRangeOverride = [atMs('2026-10-15T20:30:00'), atMs('2026-10-16T18:30:00')];
+    mount(fixture().adapter, on, period, { series: [currentDay], compareSeries: [previousDay] });
+    fireEvent.click(await screen.findByRole('button', { name: '비교' }));
+    fireEvent.click(screen.getByRole('combobox', { name: '구간 시작' }));
+    expect(screen.queryByRole('option', { name: /2026-10-15/ })).toBeNull();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    fireEvent.click(screen.getByText('fake-brush'));
+    expect(summary().textContent).not.toContain('2026-10-15');
+    expect(summary().textContent).toContain('선택 구간: 2026-10-16 16:00 – 2026-10-16 19:00');
+    expect(summary().textContent).toContain('비교 중인 이전 기간에 걸친 부분을 현재 기간으로 잘랐습니다.');
+    fireEvent.click(within(summary()).getByRole('button', { name: '분석 구간 적용…' }));
+    const confirmRow = within(summary()).getByRole('group', { name: '구간 적용 확인' });
+    expect(confirmRow.textContent).toContain('2026-10-16 16:00:00 → 2026-10-16 19:00:00');
+    expect(confirmRow.textContent).not.toContain('2026-10-15');
+  });
+
+  it('selects nothing and says why when the brush is entirely in the previous period', async () => {
+    brushRangeOverride = [atMs('2026-10-15T17:10:00'), atMs('2026-10-15T20:40:00')];
+    mount(fixture().adapter, on, period, { series: [currentDay], compareSeries: [previousDay] });
+    fireEvent.click(await screen.findByRole('button', { name: '비교' }));
+    fireEvent.click(screen.getByText('fake-brush'));
+    expect(summary().textContent).not.toContain('선택 구간:');
+    expect(summary().textContent).toContain('고른 구간이 모두 이전 기간이라 선택하지 않았습니다.');
+    expect(within(summary()).queryByRole('button', { name: '분석 구간 적용…' })).toBeNull();
+  });
+
+  it('clips an open apply confirmation when Compare turns on, including the URL it writes', async () => {
+    brushRangeOverride = [atMs('2026-10-15T20:00:00'), atMs('2026-10-16T18:30:00')];
+    mount(fixture().adapter, on, period, { series: [currentDay], compareSeries: [previousDay] });
+    fireEvent.click(await screen.findByText('fake-brush'));
+    expect(summary().textContent).toContain('2026-10-15 20:00');
+    fireEvent.click(within(summary()).getByRole('button', { name: '분석 구간 적용…' }));
+    expect(within(summary()).getByRole('group', { name: '구간 적용 확인' }).textContent).toContain('2026-10-15 20:00:00');
+    fireEvent.click(screen.getByRole('button', { name: '비교' }));
+    expect(summary().textContent).not.toContain('2026-10-15');
+    const confirmRow = within(summary()).getByRole('group', { name: '구간 적용 확인' });
+    expect(confirmRow.textContent).toContain('2026-10-16 16:00:00 → 2026-10-16 19:00:00');
+    expect(confirmRow.textContent).not.toContain('2026-10-15');
+    fireEvent.click(within(confirmRow).getByRole('button', { name: '적용' }));
+    const query = new URLSearchParams(window.location.search);
+    expect(query.get('from')).toBe('2026-10-16T16:00:00');
+    expect(query.get('to')).toBe('2026-10-16T19:00:00');
+    expect(window.location.search).not.toContain('2026-10-15');
   });
 });

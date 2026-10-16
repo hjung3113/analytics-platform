@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import type { ApiResponse, PlatformAdapter, Session } from '@ap/contracts';
+import type { ApiResponse, MenuQuery, PlatformAdapter, Session } from '@ap/contracts';
+import type { CycleKpi } from '../endpoints';
 import { Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { manifests } from '../index';
@@ -115,5 +116,26 @@ describe('CycleTimeDrilldown invalid page key warnings (#304 FIX1)', () => {
     expect(alert.textContent).not.toContain('granularity=');
     expect(alert.textContent).not.toContain('bin=');
     expect(alert.textContent).not.toContain('page=');
+  });
+});
+
+describe('CycleTimeDrilldown slow-execution KPI name (#307)', () => {
+  afterEach(cleanup);
+
+  it('puts the P95 basis in the KPI name and leaves the population caption', async () => {
+    const kpi: CycleKpi = { p50: 41.2, p95: 68.5, count: 10, slowCount: 2, prevP50: null, prevP95: null };
+    const ok = {
+      outcome: 'ok' as const, data: kpi, trust: null, correlationId: 'fixture',
+      assessments: [
+        { kind: 'collection' as const, state: 'unknown' as const, reason: 'source_unavailable' as const },
+        { kind: 'processing_delay' as const, state: 'unknown' as const, reason: 'source_unavailable' as const },
+        { kind: 'coverage' as const, state: 'unknown' as const, reason: 'source_unavailable' as const },
+      ],
+    };
+    const querying: PlatformAdapter = { ...adapter, menuQuery: async (req: MenuQuery) => req.endpoint === 'analytics.cycle.kpi' ? ok : empty };
+    window.history.replaceState(null, '', '/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00');
+    render(<I18nProvider><PlatformProvider adapter={querying} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('느린 실행 (P95 기준)')).toBeTruthy();
+    expect(screen.getByTestId('cycle-kpi').textContent).toContain('표시된 P95 이상');
   });
 });

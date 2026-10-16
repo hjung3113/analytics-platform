@@ -3,7 +3,7 @@ import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, t
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { formatDateTime, formatMetricVersion, parseDateTime } from '@ap/contracts';
-import { Button, cn, Popover, PopoverContent, PopoverTrigger, prefersReducedMotion } from '@ap/ui';
+import { Button, cn, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { EChart, strokeToken, token } from './EChart';
 import { toCsvDocument } from './tableExport';
@@ -26,9 +26,62 @@ export type ChartSeries = {
 };
 
 type Selection = { from: string; to: string };
+type ClipNotice = 'partial' | 'outside';
 type LinePattern = 'solid' | number[];
 const toMs = (v: string) => parseDateTime(v, 'x').getTime();
 const fmt = (v: string) => v.replace('T', ' ').slice(0, 16);
+const HOUR_MS = 3_600_000;
+
+/** Current-period bar starts, plus the query end, plus a query start that precedes the first bar. No invented spacing. */
+function timeBoundaries(series: ChartSeries[], periodFrom: string | null, periodTo: string | null): string[] {
+  const starts = [...new Set(series.flatMap(s => s.points.map(([x]) => x)))].sort();
+  if (starts.length === 0) return [];
+  const bounds = [...starts];
+  if (periodFrom && periodFrom < starts[0]) bounds.unshift(periodFrom);
+  if (periodTo && !bounds.includes(periodTo)) bounds.push(periodTo);
+  return [...new Set(bounds)].sort();
+}
+
+/** Floor the start and ceil the end onto boundaries. Fewer than two boundaries keeps second precision. A side with no boundary stays put. */
+function snapOutward(fromMs: number, toMsValue: number, bounds: readonly string[]): Selection | null {
+  let from = formatDateTime(new Date(Math.floor(fromMs / 1000) * 1000));
+  let to = formatDateTime(new Date(Math.ceil(toMsValue / 1000) * 1000));
+  if (bounds.length >= 2) {
+    const ms = bounds.map(bound => toMs(bound));
+    let lo = -1;
+    for (let i = 0; i < ms.length; i++) if (ms[i] <= fromMs) lo = i;
+    if (lo >= 0) from = bounds[lo];
+    for (let i = 0; i < ms.length; i++) if (ms[i] >= toMsValue) { to = bounds[i]; break; }
+  }
+  if (from >= to) return null;
+  return { from, to };
+}
+
+/** Clip only while Compare is on and both query ends exist. Snap has already run. */
+function clipToPeriod(range: Selection, periodFrom: string | null, periodTo: string | null, clip: boolean): { range: Selection | null; notice: ClipNotice | null } {
+  if (!clip || periodFrom === null || periodTo === null) return { range, notice: null };
+  if (range.to <= periodFrom || range.from >= periodTo) return { range: null, notice: 'outside' };
+  const from = range.from < periodFrom ? periodFrom : range.from;
+  const to = range.to > periodTo ? periodTo : range.to;
+  if (from >= to) return { range: null, notice: 'outside' };
+  const clipped = from !== range.from || to !== range.to;
+  return { range: { from, to }, notice: clipped ? 'partial' : null };
+}
+
+/** A quick range ending at the query end. Hidden when the data span is shorter, or snapping would land wider than asked. */
+function presetWindow(hours: number, bounds: readonly string[], periodTo: string): Selection | null {
+  if (bounds.length < 2) return null;
+  const span = toMs(bounds[bounds.length - 1]) - toMs(bounds[0]);
+  if (span < hours * HOUR_MS) return null;
+  const snapped = snapOutward(toMs(periodTo) - hours * HOUR_MS, toMs(periodTo), bounds);
+  if (!snapped) return null;
+  if (toMs(snapped.to) - toMs(snapped.from) > hours * HOUR_MS) return null;
+  return snapped;
+}
+
+function withBound(options: readonly string[], value: string): string[] {
+  return options.includes(value) ? [...options] : [...options, value].sort();
+}
 
 function linePattern(series: ChartSeries, previous: boolean): LinePattern {
   if (previous) return series.dashed ? [8, 3, 2, 3] : [2, 2];
@@ -95,6 +148,8 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const [zoom, setZoom] = useState<[number, number]>([0, 100]);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [preview, setPreview] = useState<Selection | null>(null);
+  const [clipNotice, setClipNotice] = useState<ClipNotice | null>(null);
+  const [rangeDraft, setRangeDraft] = useState<Selection | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [showTable, setShowTable] = useState(false);
   // A row belongs to one site: the Scope is part of the query identity, so a site switch hides the previous site's notes.
@@ -129,12 +184,14 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   }, [visible, xType, categories]);
 
   const resetLocal = useCallback(() => {
-    setHidden(new Set()); setCompare(false); setBrushMode(false); setZoom([0, 100]); setSelection(null); setPreview(null); closeNote();
+    setHidden(new Set()); setCompare(false); setBrushMode(false); setZoom([0, 100]); setSelection(null); setPreview(null); closeNote(); setClipNotice(null); setRangeDraft(null);
   }, [closeNote]);
   // Global Context changes invalidate local selection (it described the previous result).
   const contextKey = JSON.stringify(global);
-  useEffect(() => { setSelection(null); setPreview(null); closeNote(); setZoom([0, 100]); }, [contextKey, closeNote]);
+  useEffect(() => { setSelection(null); setPreview(null); closeNote(); setZoom([0, 100]); setClipNotice(null); setRangeDraft(null); }, [contextKey, closeNote]);
 
+  const timeBounds = useMemo(() => (xType === 'time' ? timeBoundaries(p.series, global.from, global.to) : []), [xType, p.series, global.from, global.to]);
+  const showKeyboard = xType === 'time' && global.to !== null && timeBounds.length >= 2;
   const xValue = (x: string) => (xType === 'time' ? toMs(x) : x);
   const option = useMemo<EChartsCoreOption>(() => {
     const areas = [
@@ -195,12 +252,19 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       instance.dispatchAction({ type: 'brush', areas: [] });
       if (!range) return;
       if (xType === 'time') {
-        const from = formatDateTime(new Date(Math.floor(range[0] / 1000) * 1000));
-        const to = formatDateTime(new Date(Math.ceil(range[1] / 1000) * 1000));
-        if (from < to) setSelection({ from, to });
+        // Same snap as the keyboard path, then clip. A zero-width drag only drops an open confirm.
+        const snapped = snapOutward(range[0], range[1], timeBounds);
+        if (!snapped) { setPreview(null); return; }
+        const result = clipToPeriod(snapped, global.from, global.to, compare && canCompare);
+        setSelection(result.range);
+        setClipNotice(result.notice);
+        if (!result.range) closeNote();
+        setRangeDraft(null);
       } else {
         const a = categories[Math.max(0, Math.round(range[0]))]; const b = categories[Math.min(categories.length - 1, Math.round(range[1]))];
         if (a && b) setSelection({ from: a, to: b });
+        setClipNotice(null);
+        setRangeDraft(null);
       }
       setPreview(null);
     },
@@ -213,7 +277,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       const x = xType === 'time' && Array.isArray(params.value) ? formatDateTime(new Date(params.value[0] as number)) : params.name ?? '';
       p.onPointClick(x, params.seriesId);
     },
-  }), [xType, categories, brushMode, p.onPointClick]);
+  }), [xType, categories, brushMode, p.onPointClick, timeBounds, global.from, global.to, compare, canCompare, closeNote]);
 
   const selectionCounts = selection ? visible.map(s => {
     const inRange = s.points.filter(([x, y]) => y !== null && (xType === 'time' ? x >= selection.from && x < selection.to : categories.indexOf(x) >= categories.indexOf(selection.from) && categories.indexOf(x) <= categories.indexOf(selection.to)));
@@ -274,6 +338,32 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     } catch { failed(); } finally { setSaving(false); }
   }
 
+  const oneHour = global.to ? presetWindow(1, timeBounds, global.to) : null;
+  const fourHour = global.to ? presetWindow(4, timeBounds, global.to) : null;
+  const fallbackRange: Selection | null = timeBounds.length >= 2 ? { from: timeBounds[0], to: timeBounds[timeBounds.length - 1] } : null;
+  const draft = rangeDraft ?? selection ?? fallbackRange;
+  function commitRange(range: Selection) {
+    const snapped = snapOutward(toMs(range.from), toMs(range.to), timeBounds);
+    if (!snapped) { setPreview(null); return; }
+    const result = clipToPeriod(snapped, global.from, global.to, compare && canCompare && xType === 'time');
+    setSelection(result.range);
+    setClipNotice(result.notice);
+    if (!result.range) closeNote();
+    setPreview(null);
+    setRangeDraft(null);
+  }
+  function chooseStart(next: string) {
+    const base = rangeDraft ?? selection ?? fallbackRange;
+    if (!base) return;
+    const to = base.to > next ? base.to : timeBounds.find(bound => bound > next) ?? base.to;
+    setRangeDraft({ from: next, to });
+  }
+  function chooseEnd(next: string) {
+    const base = rangeDraft ?? selection ?? fallbackRange;
+    if (!base) return;
+    setRangeDraft({ from: base.from, to: next });
+  }
+
   // min-w-0: the plot canvas owns a fixed px width; without it that width becomes the card's min-content and a
   // grid cell can never shrink the card (the ResizeObserver then never sees a smaller width on column switch).
   return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className="relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card">
@@ -292,8 +382,28 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="toolbar" onClick={() => setZoom(([a, b]) => { const q = (b - a) / 4; return [a + q, b - q]; })} title={lang === 'ko' ? '확대 (Shift+휠도 가능)' : 'Zoom in (Shift+wheel)'}><ZoomIn className="size-3.5" aria-hidden />{lang === 'ko' ? '확대' : 'Zoom'}</Button>
           <Button ref={brushToggle} variant={brushMode ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={brushMode} onClick={() => setBrushMode(b => !b)}><BrushIcon className="size-3.5" aria-hidden />{lang === 'ko' ? '구간 선택' : 'Brush'}</Button>
+          {showKeyboard && <div role="group" aria-label={lang === 'ko' ? '빠른 구간 선택' : 'Quick range'} className="flex items-center gap-1">
+            {oneHour && <Button variant="ghost" size="toolbar" onClick={() => commitRange(oneHour)}>{lang === 'ko' ? '1시간' : '1h'}</Button>}
+            {fourHour && <Button variant="ghost" size="toolbar" onClick={() => commitRange(fourHour)}>{lang === 'ko' ? '4시간' : '4h'}</Button>}
+            <Button variant="ghost" size="toolbar" onClick={() => commitRange({ from: timeBounds[0], to: timeBounds[timeBounds.length - 1] })}>{lang === 'ko' ? '전체' : 'All'}</Button>
+          </div>}
           <Button variant="ghost" size="toolbar" onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />{lang === 'ko' ? '초기화' : 'Reset'}</Button>
-          {canCompare && <Button variant={compare ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={compare} onClick={() => setCompare(c => !c)}><GitCompare className="size-3.5" aria-hidden />{lang === 'ko' ? '비교' : 'Compare'}</Button>}
+          {canCompare && <Button variant={compare ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={compare} onClick={() => {
+            const next = !compare;
+            if (next && canCompare && xType === 'time' && (selection || preview)) {
+              const source = selection ?? preview!;
+              const snapped = snapOutward(toMs(source.from), toMs(source.to), timeBounds);
+              const result = snapped ? clipToPeriod(snapped, global.from, global.to, true) : { range: null, notice: 'outside' as const };
+              if (selection) {
+                setSelection(result.range);
+                if (!result.range) closeNote();
+              }
+              if (preview) setPreview(result.range);
+              setClipNotice(result.notice);
+              setRangeDraft(null);
+            }
+            setCompare(next);
+          }}><GitCompare className="size-3.5" aria-hidden />{lang === 'ko' ? '비교' : 'Compare'}</Button>}
           {canAnnotate && <Button variant="ghost" size="toolbar" disabled={!selection || scopeId === null} title={scopeId === null ? (lang === 'ko' ? '주석은 사이트(Scope)를 선택한 뒤 남길 수 있습니다' : 'Pick a site (Scope) to annotate') : selection ? undefined : (lang === 'ko' ? '구간 선택으로 구간을 먼저 선택하세요' : 'Brush a range first')} onClick={openNote}><MessageSquarePlus className="size-3.5" aria-hidden />{lang === 'ko' ? '주석' : 'Annotate'}</Button>}
         </div>
         <div className="flex items-center gap-1" data-chart-toolbar-tail>
@@ -340,16 +450,42 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     </div>}
 
     <section aria-label={lang === 'ko' ? '선택 요약' : 'Selection summary'} aria-live="polite" className="mx-4 mb-3 min-h-9 rounded-md bg-surface-sunken px-3 py-2 text-xs">
-      {!selection ? <span className="text-text-secondary">{lang === 'ko' ? '선택 구간 없음 — 구간 선택으로 구간을 선택하면 요약·주석·구간 적용을 할 수 있습니다.' : 'No selection — brush a range to summarize, annotate or apply it.'}</span>
+      {showKeyboard && draft && <div role="group" aria-label={lang === 'ko' ? '시작과 끝으로 구간 선택' : 'Choose a range by start and end'} className="mb-2 flex flex-wrap items-center gap-2">
+        <span className="text-text-secondary">{lang === 'ko' ? '시작' : 'Start'}</span>
+        <Select value={draft.from} onValueChange={chooseStart}>
+          <SelectTrigger aria-label={lang === 'ko' ? '구간 시작' : 'Range start'} className="h-8 w-44 border-border-control">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {withBound(timeBounds.slice(0, -1), draft.from).map(value => <SelectItem key={value} value={value}>{fmt(value)}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <span className="text-text-secondary">{lang === 'ko' ? '끝' : 'End'}</span>
+        <Select value={draft.to} onValueChange={chooseEnd}>
+          <SelectTrigger aria-label={lang === 'ko' ? '구간 끝' : 'Range end'} className="h-8 w-44 border-border-control">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {withBound(timeBounds.filter(bound => bound > draft.from), draft.to).map(value => <SelectItem key={value} value={value}>{fmt(value)}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Button size="toolbar" onClick={() => commitRange(draft)}>{lang === 'ko' ? '선택' : 'Select'}</Button>
+      </div>}
+      {!selection ? <span className="text-text-secondary">{showKeyboard
+        ? (lang === 'ko' ? '선택 구간 없음 — 시작·끝이나 빠른 구간, 또는 구간 선택으로 구간을 선택하면 요약·주석·구간 적용을 할 수 있습니다.' : 'No selection — choose a start and end, a quick range, or brush a range to summarize, annotate or apply it.')
+        : (lang === 'ko' ? '선택 구간 없음 — 구간 선택으로 구간을 선택하면 요약·주석·구간 적용을 할 수 있습니다.' : 'No selection — brush a range to summarize, annotate or apply it.')}</span>
         : <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <span className="font-semibold tabular">{t('selectedRange')}: {xType === 'time' ? `${fmt(selection.from)} – ${fmt(selection.to)}` : `${selection.from} – ${selection.to}`}</span>
           {selectionCounts.map(c => <span key={c.s.id} className="tabular text-text-secondary">{c.s.name}: n={c.n}{c.avg !== null && ` · avg ${format(c.avg)} · max ${format(c.max!)}`} {p.unit}</span>)}
           <span className="ml-auto flex flex-wrap gap-2">
             {p.selectionActions?.(selection)}
             {xType === 'time' && p.canApplyRange !== false && <Button ref={applyRangeButton} size="toolbar" onClick={() => setPreview(selection)}>{lang === 'ko' ? '분석 구간 적용…' : 'Apply analysis range…'}</Button>}
-            <Button size="toolbar" variant="ghost" onClick={() => setSelection(null)}>{t('clear')}</Button>
+            <Button size="toolbar" variant="ghost" onClick={() => { setSelection(null); setClipNotice(null); setRangeDraft(null); }}>{t('clear')}</Button>
           </span>
         </div>}
+      {clipNotice && <p className="mt-1 text-text-secondary">{clipNotice === 'partial'
+        ? (lang === 'ko' ? '비교 중인 이전 기간에 걸친 부분을 현재 기간으로 잘랐습니다.' : 'The part in the previous period was cut back to the current period.')
+        : (lang === 'ko' ? '고른 구간이 모두 이전 기간이라 선택하지 않았습니다.' : 'The range is entirely in the previous period, so nothing was selected.')}</p>}
       {preview && <div role="group" aria-label={lang === 'ko' ? '구간 적용 확인' : 'Confirm range'} className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-accent-primary bg-surface-card p-2">
         <span className="tabular">{lang === 'ko' ? '전역 기간을 다음으로 바꿉니다:' : 'Change the global period to:'} <b>{preview.from.replace('T', ' ')} → {preview.to.replace('T', ' ')}</b></span>
         {/* The row unmounts on either button; hand keyboard focus back instead of dropping it to body (#297 UX). */}
