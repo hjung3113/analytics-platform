@@ -21,4 +21,3 @@ export function assignNoteLevels(spans: readonly NoteSpan[]): number[] {
 export function noteLabelWidths(spans: readonly NoteSpan[], pxPerUnit: number, plotWidth: number): number[] {
   return spans.map(span => Math.min(Math.max(plotWidth, MIN_LABEL_WIDTH), Math.max(MIN_LABEL_WIDTH, Math.round(Math.abs(span.to - span.from) * pxPerUnit))));
 }
-
