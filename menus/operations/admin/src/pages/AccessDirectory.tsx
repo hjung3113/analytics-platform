@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { PERMISSIONS, type AccessPrincipal, type AccessSortField } from '@ap/contracts';
 import { invalidValueSentence, useI18n, usePlatform, type Text } from '@ap/kernel';
-import { DetailDrawer, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, encodeTableSort, focusPageFallback, useManagementFilters, useTableUrlWarning } from '@ap/components';
+import { PanelRight } from 'lucide-react';
+import { DetailDrawer, RowAction, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, encodeTableSort, focusPageFallback, useManagementFilters, useTableUrlWarning } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { grantTotals, menusForPermissions } from '../access-rows';
 import { ACCESS_PAGE_KEYS, SORT_FIELDS, badAccessFilterKeys, parseAccessKeys } from '../access-query';
@@ -180,7 +181,7 @@ export default function AccessDirectory() {
           };
         }}
         emptyAction={clearButton}
-        rowAction={row => <Button size="toolbar" variant="ghost" aria-label={ko ? `${row.id} 보기` : `View ${row.id}`} onClick={() => setPage({ focus: row.id, tab: null })}>{ko ? '보기' : 'View'}</Button>}
+        rowAction={(row, { compact }) => <RowAction compact={compact} icon={PanelRight} label={ko ? `${row.id} 보기` : `View ${row.id}`} text={ko ? '보기' : 'View'} onClick={() => setPage({ focus: row.id, tab: null })} />}
       />}
       </>} />
   </PlatformPage>;

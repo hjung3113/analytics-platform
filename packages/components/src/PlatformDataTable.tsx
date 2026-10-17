@@ -52,6 +52,8 @@ const EXPORT_REFUSAL: Record<'forbidden' | 'too_large' | 'error' | 'timeout', { 
 };
 /** Defensive client cap only: the server's declared `limits.maxRows` (#175) is the real guard — this one fires after the rows already arrived. */
 const ACTION_COLUMN_WIDTH = 128;
+/** Icon-only action column: two 32px icon buttons and a 4px gap fit with `px-0`. */
+const COMPACT_ACTION_WIDTH = 72;
 const DEFAULT_COLUMN_WIDTH = 150;
 const EXPORT_ROW_CAP = 100_000;
 type ExportFormat = 'xlsx' | 'csv';
@@ -153,7 +155,7 @@ export type PlatformDataTableProps<T> = {
   /** Identity of page-owned filters; a change returns to page 1 and clears row selection. */
   filterKey: string;
   filters?: ReactNode;
-  rowAction?: (row: T) => ReactNode;
+  rowAction?: (row: T, context: { compact: boolean }) => ReactNode;
   bulkActions?: (selectedIds: string[]) => ReactNode;
   /**
    * Table-owned export (#173, 06 §15): the menu only says how to read the rows to export from the server — permission/
@@ -282,9 +284,14 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   // ADR-0037: the action column is pinned right whenever the scrollport keeps room beside the user's left pins; narrower
   // it scrolls with the rest so pinned regions never overlap. Never user-pinnable, never stored (`_action` stays out of preferences).
   const leftPinnedWidth = (preferences.pinning.left ?? []).reduce((sum, id) => preferences.visibility[id] === false ? sum : sum + (preferences.sizing[id] ?? p.columns.find(c => c.id === id)?.size ?? DEFAULT_COLUMN_WIDTH), 0);
-  const actionPinned = !!p.rowAction && (fit.width === null || fit.width === 0 || fit.width >= leftPinnedWidth + ACTION_COLUMN_WIDTH + ACTION_PIN_MIN_SCROLL);
+  // When only the compact (72px, icon-only) form fits beside the left pins it stays pinned; narrower still it unpins in the normal form.
+  const fitsFull = fit.width === null || fit.width === 0 || fit.width >= leftPinnedWidth + ACTION_COLUMN_WIDTH + ACTION_PIN_MIN_SCROLL;
+  const actionCompact = !!p.rowAction && !fitsFull && fit.width !== null && fit.width >= leftPinnedWidth + COMPACT_ACTION_WIDTH + ACTION_PIN_MIN_SCROLL;
+  const actionPinned = !!p.rowAction && (fitsFull || actionCompact);
+  const actionWidth = actionCompact ? COMPACT_ACTION_WIDTH : ACTION_COLUMN_WIDTH;
   const pinningState: ColumnPinningState = { left: preferences.pinning.left ?? [], right: actionPinned ? ['_action'] : [] };
-  const allColumns = useMemo<ColumnDef<T>[]>(() => [
+  // The data and selection definitions do not depend on the action width: a band crossing must keep their cell functions (and the DOM they render).
+  const baseColumns = useMemo<ColumnDef<T>[]>(() => [
     ...(selectable ? [{
       id: '_select', size: 40, enableSorting: false, enableHiding: false, enableResizing: false,
       header: ({ table }) => <Checkbox aria-label={lang === 'ko' ? '현재 페이지 전체 선택' : 'Select all rows on this page'}
@@ -293,8 +300,12 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       cell: ({ row }) => <Checkbox aria-label={`${lang === 'ko' ? '선택' : 'Select'} ${row.id}`} checked={row.getIsSelected()} onCheckedChange={v => row.toggleSelected(v === true)} className="size-3.5 border-border-control" />,
     } as ColumnDef<T>] : []),
     ...p.columns.map(toColumnDef),
-    ...(p.rowAction ? [{ id: '_action', size: ACTION_COLUMN_WIDTH, enableSorting: false, enableHiding: false, enableResizing: false, header: lang === 'ko' ? '동작' : 'Actions' } as ColumnDef<T>] : []),
-  ], [p.columns, p.rowAction, lang, selectable]);
+  ], [p.columns, lang, selectable]);
+  const hasAction = !!p.rowAction;
+  const allColumns = useMemo<ColumnDef<T>[]>(() => [
+    ...baseColumns,
+    ...(hasAction ? [{ id: '_action', size: actionWidth, enableSorting: false, enableHiding: false, enableResizing: false, header: lang === 'ko' ? '동작' : 'Actions' } as ColumnDef<T>] : []),
+  ], [baseColumns, hasAction, lang, actionWidth]);
 
   const table = useReactTable({
     data: data.rows, columns: allColumns, getRowId: p.getRowId, getCoreRowModel: getCoreRowModel(),
@@ -810,9 +821,9 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
                 </div>}
                 {/* eslint-disable-next-line shadcn/no-inline-styles -- cell width and pin offset come from column sizing at runtime */}
                 {cells.map((cell, cellIndex) => <div role="cell" key={cell.id} data-column={cell.column.id} style={cellStyle(cell.column)}
-                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cellIndex === firstDataCell && 'font-medium', cell.column.id === '_action' && 'py-0', cell.column.getIsPinned() === 'right' && 'border-l', align(cell.column))}>
+                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card text-sm group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cellIndex === firstDataCell && 'font-medium', cell.column.id === '_action' && (actionCompact ? 'py-0 px-0' : 'py-0'), cell.column.getIsPinned() === 'right' && 'border-l', align(cell.column))}>
                   {/* The _action column cell is not used — rowAction renders directly to preserve DOM identity (#296). */}
-                  {cell.column.id === '_action' ? p.rowAction?.(row.original) : flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  {cell.column.id === '_action' ? p.rowAction?.(row.original, { compact: actionCompact }) : flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </div>)}
               </div>;
             })}</div>}
