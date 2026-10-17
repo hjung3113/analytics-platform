@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { applyEquipmentPageFilters, equipmentPageFilterFields, resetEquipmentPageFilters } from './filter-fields';
+import { equipmentPageFilterFields } from './filter-fields';
 
 describe('equipment PageFilterBar draft fields (#54, ADR-0037)', () => {
-  it('shows the draft values, edits only the draft, and writes the URL once on apply', () => {
+  it('shows the draft values and edits only the draft', () => {
     const set = vi.fn();
     const setPage = vi.fn();
     const fields = equipmentPageFilterFields({
@@ -23,14 +23,5 @@ describe('equipment PageFilterBar draft fields (#54, ADR-0037)', () => {
     maker.onValueChange('ACME');
     expect(set.mock.calls).toEqual([['q', 'PHOTO'], ['status', 'maintenance'], ['maker', 'ACME']]);
     expect(setPage).not.toHaveBeenCalled();
-
-    applyEquipmentPageFilters(setPage, { q: 'PHOTO', status: 'maintenance', maker: null });
-    expect(setPage.mock.calls).toEqual([[{ q: 'PHOTO', status: 'maintenance', maker: null, page: null }]]);
-  });
-
-  it('clears all filter keys and the page in one call', () => {
-    const setPage = vi.fn();
-    resetEquipmentPageFilters(setPage);
-    expect(setPage.mock.calls).toEqual([[{ q: null, status: null, maker: null, page: null }]]);
   });
 });

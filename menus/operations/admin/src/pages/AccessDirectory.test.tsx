@@ -437,6 +437,15 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     expect((roleInput() as HTMLInputElement).value).toBe('viewer');
   });
 
+  it('offers the clear in the empty state while a filter is applied, and it clears the filter', async () => {
+    renderRoles(`/admin/roles?${new URLSearchParams({ role: 'ghost' })}`, { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' });
+    await screen.findByText(/조건에 맞는 결과가 없습니다|No matching result/);
+    const clears = screen.getAllByRole('button', { name: /Clear filters|필터 초기화/ });
+    expect(clears).toHaveLength(2);
+    fireEvent.click(clears.find(button => !button.closest('form'))!);
+    await waitFor(() => expect(url().has('role')).toBe(false));
+  });
+
   // UX B-06 / #301: every row shared the name 보기/View — a screen reader on the list cannot tell rows apart.
   it('names each row action after its actual principal id, keeping the short visible label', async () => {
     renderRoles('/admin/roles');

@@ -13,7 +13,7 @@ export * from './PlatformPage';
 export * from './RadioGroup';
 export * from './StatCard';
 export * from './StateView';
-export { FilterApplyButton, useFilterDraft, type FilterDraft } from './useFilterDraft';
+export { FilterApplyButton, useFilterDraft, useManagementFilters, type FilterDraft, type ManagementFiltersOptions } from './useFilterDraft';
 
 export { ManagementLayout, type ManagementLayoutProps } from './ManagementLayout';
 

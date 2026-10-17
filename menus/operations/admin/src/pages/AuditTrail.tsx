@@ -1,7 +1,7 @@
 import { useId, useMemo, useState } from 'react';
 import { formatInstant, instantEpochMs, type AuditEvent, type AuditSortField, type Text } from '@ap/contracts';
 import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
-import { FilterApplyButton, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, encodeTableSort, focusPageFallback, useFilterDraft, useTableUrlWarning } from '@ap/components';
+import { ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, encodeTableSort, focusPageFallback, useManagementFilters, useTableUrlWarning } from '@ap/components';
 import { Button, Input, StatusBadge } from '@ap/ui';
 import { auditDestination } from '../audit-destination';
 import { ACTION_LABEL, AUDIT_PAGE_KEYS, SORT_FIELDS, SOURCE_LABEL, TYPE_LABEL, auditKeyProblem, parseAuditKeys, type AuditKeyProblem } from '../audit-query';
@@ -124,26 +124,16 @@ export default function AuditTrail() {
   // of the seven raw applied values or the time zone changes — even if the displayed text stays equal — never on
   // ordinary rerenders or non-filter URL changes.
   const identity = JSON.stringify([raw.type, raw.action, raw.source, raw.actor, raw.targetId, raw.fromAt, raw.toAt, timeZone]);
-  const draft = useFilterDraft({
-    type: raw.type ?? '', action: raw.action ?? '', source: raw.source ?? '', actor: raw.actor ?? '', targetId: raw.targetId ?? '',
-    fromAt: shownTime(raw.fromAt, timeZone), toAt: shownTime(raw.toAt, timeZone),
-  }, identity);
   const [timeTouched, setTimeTouched] = useState({ fromAt: false, toAt: false });
   const [timeError, setTimeError] = useState<{ fromAt: string | null; toAt: string | null }>({ fromAt: null, toAt: null });
-  const [syncedIdentity, setSyncedIdentity] = useState(identity);
-  if (syncedIdentity !== identity) {
-    setSyncedIdentity(identity);
+  const resetTimeState = () => {
     setTimeTouched({ fromAt: false, toAt: false });
     setTimeError({ fromAt: null, toAt: null });
-  }
-  const setTimeDraft = (key: 'fromAt' | 'toAt', value: string) => {
-    draft.set(key, value);
-    setTimeTouched(current => ({ ...current, [key]: true }));
-    setTimeError(current => ({ ...current, [key]: null }));
   };
-  const applyDrafts = () => {
-    const from = resolveTime(draft.values.fromAt, timeTouched.fromAt, raw.fromAt, timeZone);
-    const to = resolveTime(draft.values.toAt, timeTouched.toAt, raw.toAt, timeZone);
+  // Validation only: a failure keeps the errors on the fields and aborts the apply (null).
+  const toPatch = (patch: Record<string, string | null>) => {
+    const from = resolveTime(patch.fromAt ?? '', timeTouched.fromAt, raw.fromAt, timeZone);
+    const to = resolveTime(patch.toAt ?? '', timeTouched.toAt, raw.toAt, timeZone);
     let fromMessage = from.ok ? null : FIELD_ERROR[from.reason][lang];
     let toMessage = to.ok ? null : FIELD_ERROR[to.reason][lang];
     if (from.ok && to.ok && from.value !== null && to.value !== null && fromMessage === null && toMessage === null) {
@@ -154,23 +144,27 @@ export default function AuditTrail() {
       }
     }
     setTimeError({ fromAt: fromMessage, toAt: toMessage });
-    if (fromMessage || toMessage || !from.ok || !to.ok) return;
-    setPage({ ...draft.patch(), fromAt: from.value, toAt: to.value, page: null });
+    if (fromMessage || toMessage || !from.ok || !to.ok) return null;
+    return { ...patch, fromAt: from.value, toAt: to.value };
   };
-  const activeFilterCount = [raw.type, raw.actor, raw.action, raw.source, raw.fromAt, raw.toAt, raw.targetId].filter(Boolean).length;
-  const clearFilters = () => {
-    draft.reset({});
-    setTimeTouched({ fromAt: false, toAt: false });
-    setTimeError({ fromAt: null, toAt: null });
-    setPage(Object.fromEntries(AUDIT_PAGE_KEYS.map(k => [k, null])));
+  const { draft, clear: clearFilters, clearButton, barProps, layoutProps } = useManagementFilters({
+    applied: {
+      type: raw.type ?? '', action: raw.action ?? '', source: raw.source ?? '', actor: raw.actor ?? '', targetId: raw.targetId ?? '',
+      fromAt: shownTime(raw.fromAt, timeZone), toAt: shownTime(raw.toAt, timeZone),
+    },
+    identity, clearKeys: AUDIT_PAGE_KEYS, toPatch, onRebase: resetTimeState,
+  });
+  const setTimeDraft = (key: 'fromAt' | 'toAt', value: string) => {
+    draft.set(key, value);
+    setTimeTouched(current => ({ ...current, [key]: true }));
+    setTimeError(current => ({ ...current, [key]: null }));
   };
   // Recovery from an invalid URL always offers the reset; the filter footer and the empty state only when a filter is applied.
-  const clear = activeFilterCount > 0 ? <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{t('clearFilters')}</Button> : null;
   // The alert's button disappears with the alert, so focus goes to main first (06 §26); the footer button keeps the filter bar's own rule.
   const recover = <Button type="button" size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); clearFilters(); }}>{t('clearFilters')}</Button>;
   const select = (key: 'type' | 'action' | 'source', label: string, labels: Record<string, Text>) =>
     ({ kind: 'select', key, label, value: draft.values[key], emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(labels).map(([value, text]) => ({ value, label: text[lang] })), onValueChange: (value: string) => draft.set(key, value) }) as const;
-  const filters = <PageFilterBar orientation="column" label={ko ? '감사 필터' : 'Audit filters'} onApply={applyDrafts} fields={[
+  const filters = <PageFilterBar orientation="column" label={ko ? '감사 필터' : 'Audit filters'} fields={[
       select('type', ko ? '대상 유형' : 'Type', TYPE_LABEL),
       select('action', ko ? '작업' : 'Action', ACTION_LABEL),
       select('source', ko ? '출처' : 'Source', SOURCE_LABEL),
@@ -178,7 +172,7 @@ export default function AuditTrail() {
       { kind: 'text', key: 'targetId', label: ko ? '대상 ID 정확 일치' : 'Exact target id', value: draft.values.targetId, onValueChange: value => draft.set('targetId', value) },
       { kind: 'custom', key: 'fromAt', label: TIME_LABEL.fromAt[lang], content: <AuditTimeInput label={TIME_LABEL.fromAt[lang]} value={draft.values.fromAt} error={timeError.fromAt} onValueChange={value => setTimeDraft('fromAt', value)} /> },
       { kind: 'custom', key: 'toAt', label: TIME_LABEL.toAt[lang], content: <AuditTimeInput label={TIME_LABEL.toAt[lang]} value={draft.values.toAt} error={timeError.toAt} onValueChange={value => setTimeDraft('toAt', value)} /> },
-    ]} actions={<><FilterApplyButton changedCount={draft.changedCount} />{clear}</>} />;
+    ]} {...barProps} />;
   const columns = useMemo<PlatformColumn<AuditEvent>[]>(() => [
     { id: 'at', header: ko ? '시각' : 'At', size: 150, cell: row => <span className="tabular">{formatInstant(row.at, lang, timeZone)}</span> },
     { id: 'actor', header: ko ? '행위자' : 'Actor', size: 130, cell: row => mono(row.actor) },
@@ -191,7 +185,7 @@ export default function AuditTrail() {
     { id: 'reason', header: ko ? '사유' : 'Reason', sortable: false, size: 200, cell: row => row.reason ? <span className="block truncate" title={row.reason}>{row.reason}</span> : '—' },
   ], [ko, lang, timeZone]);
   return <PlatformPage description={ko ? '모든 사이트의 마스터 변경 로그입니다. 행의 링크는 각 상세 화면의 변경 이력 탭으로 이동합니다.' : 'The master-change log across all sites. A row link opens the destination detail\'s change-history tab.'}>
-    <ManagementLayout filter={filters} activeFilterCount={activeFilterCount} pendingFilterCount={draft.changedCount}
+    <ManagementLayout filter={filters} {...layoutProps}
       table={filterSlot => <>
     {!parsed.ok && (filterProblem
       ? <div className="flex flex-col gap-3">{filterSlot}<p role="alert">{urlProblemLine(filterProblem, lang)} {recover}</p></div>
@@ -233,7 +227,7 @@ export default function AuditTrail() {
             ...(response.message !== undefined && { message: response.message }),
           };
         }}
-        emptyAction={clear}
+        emptyAction={clearButton}
         rowAction={row => {
           const link = auditDestination(linkTo, row.target);
           return link.ok
