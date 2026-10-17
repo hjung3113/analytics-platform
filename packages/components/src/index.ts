@@ -11,6 +11,7 @@ export * from './tableUrlWarning';
 export { focusPageFallback } from './pageFocus';
 export * from './PlatformPage';
 export * from './RadioGroup';
+export { RowActionIcon, type RowActionIconProps } from './RowActionIcon';
 export * from './StatCard';
 export * from './StateView';
 export { FilterApplyButton, useFilterDraft, useManagementFilters, type FilterDraft, type ManagementFiltersOptions } from './useFilterDraft';

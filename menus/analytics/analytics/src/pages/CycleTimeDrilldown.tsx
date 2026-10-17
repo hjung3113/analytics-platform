@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { AlertTriangle, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
 import { periodHours, type Trust } from '@ap/contracts';
 import { type PageProps, PlatformLink, invalidValueSentence, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
-import { AnalysisLayout, AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type Delta, type PlatformColumn, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage } from '@ap/components';
+import { AnalysisLayout, RowActionIcon, AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type Delta, type PlatformColumn, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import {
   CYCLE_VERSION_NOTE, PAGE_METRIC_ID, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint,
@@ -266,7 +266,13 @@ export default function CycleTimeDrilldown(_: PageProps) {
             emptyAction={(bucketRange || bin || tailMode !== 'p95')
               ? <Button size="sm" variant="secondary" onClick={() => setPage({ bucket: null, bin: null, percentile: 'all', page: null })}>{ko ? '목록 필터 해제' : 'Clear list filters'}</Button>
               : undefined}
-            rowAction={row => <PlatformLink className="text-xs font-medium text-accent-primary hover:underline" href={linkTo('execution-detail', { params: { equipmentId: row.equipmentId }, page: { entityType: 'job', anchor: row.anchor }, returnTo: true })} aria-label={ko ? `${row.equipmentId} · ${row.anchor.replace('T', ' ')} 상세` : `Detail ${row.equipmentId} · ${row.anchor.replace('T', ' ')}`}>{ko ? '상세' : 'Detail'}</PlatformLink>}
+            rowAction={(row, { compact }) => {
+              const href = linkTo('execution-detail', { params: { equipmentId: row.equipmentId }, page: { entityType: 'job', anchor: row.anchor }, returnTo: true });
+              const name = ko ? `${row.equipmentId} · ${row.anchor.replace('T', ' ')} 상세` : `Detail ${row.equipmentId} · ${row.anchor.replace('T', ' ')}`;
+              return compact
+                ? <RowActionIcon icon={ArrowRight} label={name} tooltip={ko ? '상세' : 'Detail'} link={<PlatformLink href={href}>{ko ? '상세' : 'Detail'}</PlatformLink>} />
+                : <PlatformLink className="text-xs font-medium text-accent-primary hover:underline" href={href} aria-label={name}>{ko ? '상세' : 'Detail'}</PlatformLink>;
+            }}
             bulkActions={ids => <Button size="toolbar" onClick={() => {
               const equipmentIds = [...new Set(ids.map(equipmentIdFromKey))];
               setGlobal({ selection: equipmentIds });

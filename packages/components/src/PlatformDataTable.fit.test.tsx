@@ -271,27 +271,57 @@ describe('action column pinned right (ADR-0037)', () => {
     expect(row.lastElementChild).toBe(opener.parentElement);
   });
 
-  it('unpins when the scrollport is narrower than left pins + action + 120px, and re-pins when it widens', async () => {
-    geo.viewportWidth = 200; // < 0 left pins + 128 + 120
-    render(<Page height={200} rowAction={action} />);
+  const resize = (width: number) => { geo.viewportWidth = width; fireObservers(el => el.getAttribute('aria-label') === '스크롤 가능한 행 영역'); };
+  const actionCell = () => document.querySelector<HTMLElement>('[role="cell"][data-column="_action"]')!;
+  const compactAction = (row: Row, { compact }: { compact: boolean }) => <button type="button" data-compact={String(compact)}>{row.id} 열기</button>;
+
+  it.each([[248, 128, 'false'], [300, 128, 'false'], [247, 72, 'true'], [192, 72, 'true']])('at %ipx the action column is pinned at %ipx (compact=%s)', async (width, size, compact) => {
+    geo.viewportWidth = width;
+    render(<Page height={200} rowAction={compactAction} />);
     await screen.findByText('s0');
-    const cell = () => document.querySelector<HTMLElement>('[role="cell"][data-column="_action"]')!;
-    expect(cell().style.position).toBe('relative');
-    expect(cell().className).not.toContain('border-l');
-    geo.viewportWidth = 600;
-    fireObservers(el => el.getAttribute('aria-label') === '스크롤 가능한 행 영역');
-    expect(cell().style.position).toBe('sticky');
+    expect(actionCell().style.position).toBe('sticky');
+    expect(actionCell().style.width).toBe(`${size}px`);
+    expect(screen.getByRole('button', { name: 'r1 열기' })).toHaveAttribute('data-compact', compact);
+  });
+
+  it('unpins below left pins + 72 + 120px and shows the normal form, and re-pins compact then full when it widens', async () => {
+    geo.viewportWidth = 191;
+    render(<Page height={200} rowAction={compactAction} />);
+    await screen.findByText('s0');
+    expect(actionCell().style.position).toBe('relative');
+    expect(actionCell().style.width).toBe('128px');
+    expect(actionCell().className).not.toContain('border-l');
+    expect(screen.getByRole('button', { name: 'r1 열기' })).toHaveAttribute('data-compact', 'false');
+    resize(200);
+    expect(actionCell().style.position).toBe('sticky');
+    expect(actionCell().style.width).toBe('72px');
+    expect(actionCell().className).toContain('px-0');
+    expect(screen.getByRole('button', { name: 'r1 열기' })).toHaveAttribute('data-compact', 'true');
+    resize(600);
+    expect(actionCell().style.width).toBe('128px');
+    expect(actionCell().className).not.toContain('px-0');
+    expect(screen.getByRole('button', { name: 'r1 열기' })).toHaveAttribute('data-compact', 'false');
+  });
+
+  it('a one-argument rowAction still works', async () => {
+    geo.viewportWidth = 200;
+    render(<Page height={200} rowAction={action} />);
+    expect(await screen.findByRole('button', { name: 'r1 열기' })).toBeTruthy();
   });
 
   it('the user pin of a data column counts toward the narrow threshold and the action is never stored as a pin', async () => {
-    geo.viewportWidth = 420; // 150 (pinned status) + 128 + 120 = 398 → fits
+    geo.viewportWidth = 420; // 150 (pinned status) + 128 + 120 = 398 → full
     render(<Page height={200} rowAction={action} />);
     await screen.findByText('s0');
     fireEvent.click(screen.getByRole('button', { name: /컬럼/ }));
     fireEvent.click(await screen.findByRole('button', { name: 'Status 왼쪽 고정' }));
     expect(document.querySelector<HTMLElement>('[role="cell"][data-column="_action"]')!.style.position).toBe('sticky');
     expect(JSON.parse(localStorage.getItem('fit-table')!).pinning).toEqual({ left: ['status'], right: [] });
-    geo.viewportWidth = 380;
+    geo.viewportWidth = 380; // 150 + 72 + 120 = 342 ≤ 380 < 398 → compact, still pinned
+    fireObservers(el => el.getAttribute('aria-label') === '스크롤 가능한 행 영역');
+    expect(document.querySelector<HTMLElement>('[role="cell"][data-column="_action"]')!.style.position).toBe('sticky');
+    expect(document.querySelector<HTMLElement>('[role="cell"][data-column="_action"]')!.style.width).toBe('72px');
+    geo.viewportWidth = 341;
     fireObservers(el => el.getAttribute('aria-label') === '스크롤 가능한 행 영역');
     expect(document.querySelector<HTMLElement>('[role="cell"][data-column="_action"]')!.style.position).toBe('relative');
   });

@@ -1,8 +1,8 @@
 import { useId, useMemo } from 'react';
-import { AlertTriangle, HelpCircle } from 'lucide-react';
+import { AlertTriangle, ExternalLink, HelpCircle } from 'lucide-react';
 import { formatInstant } from '@ap/contracts';
 import { useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
-import { type PlatformColumn, Panel, PlatformDataTable, PlatformPage, QueryView, StateMessage } from '@ap/components';
+import { type PlatformColumn, Panel, RowActionIcon, PlatformDataTable, PlatformPage, QueryView, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { feedbackOpsHref } from '../feedbackops-href';
 import { feedbackOpsOrigin } from '../feedbackops-origin';
@@ -61,12 +61,16 @@ export default function MyVocHistory() {
     { id: 'updatedAt', header: ko ? '마지막 업데이트' : 'Updated', sortable: false, cell: row => formatInstant(row.updatedAt, lang) },
   ], [ko, lang]);
 
-  const openInFeedbackOps = (row: MyVocItem) => {
+  const openInFeedbackOps = (row: MyVocItem, { compact }: { compact: boolean }) => {
     const link = feedbackOpsHref(origin, { kind: 'voc-detail', vocId: row.id });
     const name = ko ? `${row.displayId} FeedbackOps에서 보기` : `Open ${row.displayId} in FeedbackOps`;
+    const describedBy = create.ok ? undefined : descId;
+    if (compact) return link.ok
+      ? <RowActionIcon icon={ExternalLink} variant="secondary" label={name} tooltip={openLabel} link={<a href={link.href} target="_blank" rel="noopener noreferrer">{openLabel}</a>} />
+      : <RowActionIcon icon={ExternalLink} variant="secondary" label={name} tooltip={openLabel} disabled aria-describedby={describedBy} />;
     return link.ok
       ? <Button asChild size="toolbar" variant="secondary"><a href={link.href} target="_blank" rel="noopener noreferrer" aria-label={name}>{openLabel}</a></Button>
-      : <Button size="toolbar" variant="secondary" disabled aria-label={name} aria-describedby={create.ok ? undefined : descId}>{openLabel}</Button>;
+      : <Button size="toolbar" variant="secondary" disabled aria-label={name} aria-describedby={describedBy}>{openLabel}</Button>;
   };
 
   return <PlatformPage

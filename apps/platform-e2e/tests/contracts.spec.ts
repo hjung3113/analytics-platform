@@ -2459,4 +2459,32 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
       await evidence(page, testInfo, `audit-action-${end}`);
     }
   });
+
+  // #399 AC-3: at 1024 with the expanded sidebar and the docked detail panel the scrollport is ~226px, so the full 128px
+  // action column cannot stay pinned; the compact 72px icon form stays pinned and still opens the row's drawer.
+  test('1024px 펼친 사이드바·상세 패널에서 동작 열은 72px 아이콘으로 고정되고 눌린다 (#399)', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await signInAs(page, 'admin');
+    await page.addInitScript(() => localStorage.setItem('platform:sidebar-collapsed', '0'));
+    await page.goto('/admin/roles?v=1');
+    await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
+    const rows = page.getByLabel('스크롤 가능한 행 영역', { exact: true });
+    const firstOpen = rows.getByRole('button', { name: / 보기$/ }).first();
+    await expect(firstOpen).toBeVisible();
+    const id = (await firstOpen.getAttribute('aria-label'))!.replace(/ 보기$/, '');
+    await page.goto(`/admin/roles?v=1&focus=${encodeURIComponent(id)}`);
+    await expect(page.getByRole('button', { name: '상세 닫기', exact: true })).toBeVisible();
+    const open = rows.getByRole('button', { name: `${id} 보기`, exact: true });
+    await expect(open).toBeVisible();
+    const cell = open.locator('xpath=ancestor::*[@role="cell"][1]');
+    await expect.poll(() => cell.evaluate(el => getComputedStyle(el).position)).toBe('sticky');
+    await expect.poll(() => cell.evaluate(el => Math.round(el.getBoundingClientRect().width))).toBeGreaterThanOrEqual(71);
+    await expect.poll(() => cell.evaluate(el => Math.round(el.getBoundingClientRect().width))).toBeLessThanOrEqual(73);
+    await evidence(page, testInfo, 'roles-compact-action-1024');
+    await page.getByRole('button', { name: '상세 닫기', exact: true }).click();
+    await expect(page.getByRole('button', { name: '상세 닫기', exact: true })).toHaveCount(0);
+    await open.click();
+    await expect(page.getByRole('button', { name: '상세 닫기', exact: true })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`focus=${encodeURIComponent(id)}`));
+  });
 });
