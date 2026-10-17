@@ -494,6 +494,8 @@ test.describe('셸 sticky 계약 (06 §7)', () => {
       if (drill) await expect(page.getByText('설비 요약', { exact: true }).first()).toBeVisible();
       const header = page.locator('#platform-main header').filter({ has: page.getByRole('heading', { level: 1 }) });
       await expect(header.getByRole('button', { name: '데이터 신뢰' })).toBeVisible();
+      // Compact mode keeps the button, so only the badge itself shows that no stage was yielded too far.
+      await expect(header.getByRole('button', { name: '데이터 신뢰' }).getByText('잠정')).toBeVisible();
       await expect.poll(() => header.evaluate(el => el.scrollWidth - el.clientWidth)).toBe(0);
       await evidence(page, testInfo, `page-header-collapsed-no-scroll-${width}`);
     });

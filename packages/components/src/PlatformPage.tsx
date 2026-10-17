@@ -101,7 +101,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
       setHeaderYield(next.yielded);
     };
     measureRef.current = measure;
-    measure();
+    // No direct measure() here: the [headerYield] layout effect below measures once on mount, after this assignment.
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     // Data Trust text or actions arriving later widen the content without resizing the header.

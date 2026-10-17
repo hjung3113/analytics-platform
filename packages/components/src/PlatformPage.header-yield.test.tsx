@@ -196,6 +196,25 @@ describe('page header yield order (#303)', () => {
     const more = screen.getByRole('button', { name: '더보기' });
     expect(header.contains(more)).toBe(true);
   });
+  // #398 UX-1/FIX4: mount measures once. A second read in the same commit still sees the pre-yield overflow
+  // and would close the provisional badge too.
+  it('keeps the provisional badge when the mount measure sees overflow near 900px', async () => {
+    const widths = headerWidths();
+    widths.set(900);
+    // The header overflows exactly until the description has yielded, so only a read of the pre-yield DOM sees it.
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      const open = this.tagName === 'HEADER' && !!this.textContent?.includes('폭을 먼저 양보하는 설명');
+      return open ? 1100 : 900;
+    });
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(900);
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    render(page(vi.fn()));
+    await screen.findByText('page body');
+    const trustButton = await screen.findByRole('button', { name: '데이터 신뢰' });
+    expect(trustButton.querySelector('[data-trust-summary-details]')).toHaveClass('sr-only');
+    expect(within(trustButton).getByText('잠정')).toBeTruthy();
+  });
+
   // #398 AA2-1: the left group's minimum counts only what cannot shrink (title 112 + star 24 + yielded
   // description icon 24 + gaps 8). Without it the group shrinks below the shrink-0 controls and they spill
   // into the right group; the automatic minimum instead pins a nowrap description at full width (un-yielded
