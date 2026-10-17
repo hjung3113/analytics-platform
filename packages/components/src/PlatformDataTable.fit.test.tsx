@@ -10,6 +10,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { ApiResponse, PageQuery, PageResult } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { PlatformDataTable, type PlatformDataTableProps } from './PlatformDataTable';
+import { RowAction } from './RowAction';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 afterEach(cleanup);
@@ -301,6 +302,34 @@ describe('action column pinned right (ADR-0037)', () => {
     expect(actionCell().style.width).toBe('128px');
     expect(actionCell().className).not.toContain('px-0');
     expect(screen.getByRole('button', { name: 'r1 열기' })).toHaveAttribute('data-compact', 'false');
+  });
+
+  // F-1 (#399): a geometry-only band crossing must not remount the content of ordinary data cells.
+  const noteColumns: PlatformDataTableProps<Row>['columns'] = [{ id: 'note', header: 'Note', cell: row => <input aria-label={`메모 ${row.id}`} defaultValue="" /> }];
+  it.each([[248, 247], [192, 191]])('crossing %ipx→%ipx and back keeps a stateful data cell: same node, value and focus', async (wide, narrow) => {
+    geo.viewportWidth = wide;
+    render(<Page height={200} columns={noteColumns} rowAction={compactAction} />);
+    const input = await screen.findByRole('textbox', { name: '메모 r1' });
+    fireEvent.change(input, { target: { value: '입력 중' } });
+    input.focus();
+    for (const width of [narrow, wide]) {
+      resize(width);
+      expect(screen.getByRole('textbox', { name: '메모 r1' })).toBe(input);
+      expect(input).toHaveValue('입력 중');
+      expect(document.activeElement).toBe(input);
+    }
+  });
+
+  it('the RowAction node of a row survives the 248→247 and 191→192 crossings with focus', async () => {
+    geo.viewportWidth = 300;
+    render(<Page height={200} rowAction={(row, { compact }) => <RowAction compact={compact} icon={House} label={`${row.id} 열기`} text="열기" />} />);
+    const node = await screen.findByRole('button', { name: 'r1 열기' });
+    node.focus();
+    for (const width of [247, 191, 192, 248, 600]) {
+      resize(width);
+      expect(screen.getByRole('button', { name: 'r1 열기' })).toBe(node);
+      expect(document.activeElement).toBe(node);
+    }
   });
 
   it('a one-argument rowAction still works', async () => {

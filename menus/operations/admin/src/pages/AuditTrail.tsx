@@ -2,7 +2,7 @@ import { useId, useMemo, useState } from 'react';
 import { formatInstant, instantEpochMs, type AuditEvent, type AuditSortField, type Text } from '@ap/contracts';
 import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { Minus, ArrowRight } from 'lucide-react';
-import { ManagementLayout, RowActionIcon, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, encodeTableSort, focusPageFallback, useManagementFilters, useTableUrlWarning } from '@ap/components';
+import { ManagementLayout, RowAction, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, encodeTableSort, focusPageFallback, useManagementFilters, useTableUrlWarning } from '@ap/components';
 import { Button, Input, StatusBadge } from '@ap/ui';
 import { auditDestination } from '../audit-destination';
 import { ACTION_LABEL, AUDIT_PAGE_KEYS, SORT_FIELDS, SOURCE_LABEL, TYPE_LABEL, auditKeyProblem, parseAuditKeys, type AuditKeyProblem } from '../audit-query';
@@ -232,12 +232,11 @@ export default function AuditTrail() {
         rowAction={(row, { compact }) => {
           const link = auditDestination(linkTo, row.target);
           const name = ko ? `${row.target.id} 상세` : `Detail ${row.target.id}`;
-          if (compact) return link.ok
-            ? <RowActionIcon icon={ArrowRight} label={name} tooltip={ko ? '상세' : 'Detail'} link={<PlatformLink href={link.href}>{ko ? '상세' : 'Detail'}</PlatformLink>} />
-            : <span className="flex size-8 items-center justify-center text-text-muted" title={ko ? '이 대상의 상세 화면이 없습니다.' : 'No detail screen for this target.'}><Minus className="size-4" aria-hidden /><span className="sr-only">{ko ? '상세 화면 없음' : 'No detail page'}</span></span>;
-          return link.ok
-            ? <Button asChild size="toolbar" variant="ghost"><PlatformLink href={link.href} aria-label={name}>{ko ? '상세' : 'Detail'}</PlatformLink></Button>
-            : <span className="text-xs text-text-muted" title={ko ? '이 대상의 상세 화면이 없습니다.' : 'No detail screen for this target.'}>{ko ? '상세 화면 없음' : 'No detail page'}</span>;
+          if (link.ok) return <RowAction compact={compact} icon={ArrowRight} label={name} text={ko ? '상세' : 'Detail'} link={<PlatformLink href={link.href} />} />;
+          const none = ko ? '상세 화면 없음' : 'No detail page';
+          return <span className={compact ? 'flex size-8 items-center justify-center text-text-muted' : 'text-xs text-text-muted'} title={ko ? '이 대상의 상세 화면이 없습니다.' : 'No detail screen for this target.'}>
+            {compact ? <><Minus className="size-4" aria-hidden /><span className="sr-only">{none}</span></> : none}
+          </span>;
         }}
       />}
       </>} />

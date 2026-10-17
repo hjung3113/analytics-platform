@@ -290,7 +290,8 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const actionPinned = !!p.rowAction && (fitsFull || actionCompact);
   const actionWidth = actionCompact ? COMPACT_ACTION_WIDTH : ACTION_COLUMN_WIDTH;
   const pinningState: ColumnPinningState = { left: preferences.pinning.left ?? [], right: actionPinned ? ['_action'] : [] };
-  const allColumns = useMemo<ColumnDef<T>[]>(() => [
+  // The data and selection definitions do not depend on the action width: a band crossing must keep their cell functions (and the DOM they render).
+  const baseColumns = useMemo<ColumnDef<T>[]>(() => [
     ...(selectable ? [{
       id: '_select', size: 40, enableSorting: false, enableHiding: false, enableResizing: false,
       header: ({ table }) => <Checkbox aria-label={lang === 'ko' ? '현재 페이지 전체 선택' : 'Select all rows on this page'}
@@ -299,8 +300,12 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
       cell: ({ row }) => <Checkbox aria-label={`${lang === 'ko' ? '선택' : 'Select'} ${row.id}`} checked={row.getIsSelected()} onCheckedChange={v => row.toggleSelected(v === true)} className="size-3.5 border-border-control" />,
     } as ColumnDef<T>] : []),
     ...p.columns.map(toColumnDef),
-    ...(p.rowAction ? [{ id: '_action', size: actionWidth, enableSorting: false, enableHiding: false, enableResizing: false, header: lang === 'ko' ? '동작' : 'Actions' } as ColumnDef<T>] : []),
-  ], [p.columns, p.rowAction, lang, selectable, actionWidth]);
+  ], [p.columns, lang, selectable]);
+  const hasAction = !!p.rowAction;
+  const allColumns = useMemo<ColumnDef<T>[]>(() => [
+    ...baseColumns,
+    ...(hasAction ? [{ id: '_action', size: actionWidth, enableSorting: false, enableHiding: false, enableResizing: false, header: lang === 'ko' ? '동작' : 'Actions' } as ColumnDef<T>] : []),
+  ], [baseColumns, hasAction, lang, actionWidth]);
 
   const table = useReactTable({
     data: data.rows, columns: allColumns, getRowId: p.getRowId, getCoreRowModel: getCoreRowModel(),

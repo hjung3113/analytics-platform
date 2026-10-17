@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { AlertTriangle, PanelRight } from 'lucide-react';
 import { CONTEXT_LABELS, PAGE_TYPE_LABELS, useI18n, usePlatform } from '@ap/kernel';
 import type { Text } from '@ap/contracts';
-import { DetailDrawer, RowActionIcon, type PlatformColumn, encodeTableSort, PlatformDataTable, PlatformPage, sortAndPage, StateMessage, TableUrlWarning, useTableUrlWarning } from '@ap/components';
+import { DetailDrawer, RowAction, type PlatformColumn, encodeTableSort, PlatformDataTable, PlatformPage, sortAndPage, StateMessage, TableUrlWarning, useTableUrlWarning } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { toRegistryRow, type RegistryRow } from '../registry-rows';
 
@@ -81,9 +81,7 @@ export default function RegistryCatalog() {
             sorting: parsedSort.sorting,
             onChange: ({ page, sorting }, reason) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }, { replace: reason === 'clamp' }),
           } : undefined}
-          rowAction={(row, { compact }) => compact
-            ? <RowActionIcon icon={PanelRight} label={ko ? `${row.id} 보기` : `View ${row.id}`} tooltip={ko ? '보기' : 'View'} onClick={() => setPage({ focus: row.id })} />
-            : <Button size="toolbar" variant="ghost" aria-label={ko ? `${row.id} 보기` : `View ${row.id}`} onClick={() => setPage({ focus: row.id })}>{ko ? '보기' : 'View'}</Button>}
+          rowAction={(row, { compact }) => <RowAction compact={compact} icon={PanelRight} label={ko ? `${row.id} 보기` : `View ${row.id}`} text={ko ? '보기' : 'View'} onClick={() => setPage({ focus: row.id })} />}
           loadPage={async page => {
             // Client envelope: the rows are the registry projection, not a server result — trust is null.
             const paged = sortAndPage(rows, page);

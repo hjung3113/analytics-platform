@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { AlertTriangle, BookOpen, FilePen } from 'lucide-react';
 import { CONTEXT_LABELS, type PageProps, PlatformLink, type QueryState, invalidValueSentence, topicParticle, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
-import { PageFilterBar, RowActionIcon, type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, StateMessage, TableUrlWarning, encodeTableSort, useTableUrlWarning } from '@ap/components';
+import { PageFilterBar, RowAction, type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, StateMessage, TableUrlWarning, encodeTableSort, useTableUrlWarning } from '@ap/components';
 import { Button } from '@ap/ui';
 import {
   DOMAINS, STATUSES, catalogExportEndpoint, catalogListEndpoint, catalogPageEndpoint, metricPairEndpoint, sortColumns,
@@ -141,19 +141,14 @@ export default function MetricCatalogPage(_: PageProps) {
         } : undefined}
         activeRowId={activeRowId}
         loadPage={(query, signal) => pages.fetch({ ...filter, ...query }, signal)}
-        rowAction={(row, { compact }) => compact
-          ? <span className="flex gap-1">
-            <RowActionIcon icon={BookOpen} label={lang === 'ko' ? '정의' : 'Definition'} tooltip={lang === 'ko' ? '정의' : 'Definition'} link={<PlatformLink href={metricDetailHref(linkTo, row)}>{lang === 'ko' ? '정의' : 'Definition'}</PlatformLink>} />
-            {row.draftVersion && <RowActionIcon icon={FilePen} label={lang === 'ko' ? `초안 v${row.draftVersion}` : `Draft v${row.draftVersion}`} tooltip={lang === 'ko' ? `초안 v${row.draftVersion}` : `Draft v${row.draftVersion}`} link={<PlatformLink href={metricDetailHref(linkTo, row, row.draftVersion)}>{lang === 'ko' ? `초안 v${row.draftVersion}` : `Draft v${row.draftVersion}`}</PlatformLink>} />}
-          </span>
-          : <span className="flex flex-wrap gap-2">
-          <PlatformLink className="text-xs font-medium text-accent-primary hover:underline" href={metricDetailHref(linkTo, row)}>
-            {lang === 'ko' ? '정의' : 'Definition'}
-          </PlatformLink>
-          {row.draftVersion && <PlatformLink className="text-xs text-text-secondary hover:underline" href={metricDetailHref(linkTo, row, row.draftVersion)}>
-            {lang === 'ko' ? `초안 v${row.draftVersion}` : `Draft v${row.draftVersion}`}
-          </PlatformLink>}
-        </span>}
+        rowAction={(row, { compact }) => {
+          const definition = lang === 'ko' ? '정의' : 'Definition';
+          const draft = lang === 'ko' ? `초안 v${row.draftVersion}` : `Draft v${row.draftVersion}`;
+          return <span className={compact ? 'flex gap-1' : 'flex flex-wrap gap-2'}>
+            <RowAction compact={compact} icon={BookOpen} label={definition} text={definition} textLink="primary" link={<PlatformLink href={metricDetailHref(linkTo, row)} />} />
+            {row.draftVersion && <RowAction compact={compact} icon={FilePen} label={draft} text={draft} textLink="secondary" link={<PlatformLink href={metricDetailHref(linkTo, row, row.draftVersion)} />} />}
+          </span>;
+        }}
         // Table-owned export (#173): the page only says how to read the rows; the table builds the file.
         exportRows={(request, signal) => exports.fetch(exportParams(filter, request), signal)}
         exportFilterSummary={exportFilterSummary(filter, lang, tx)} exportContext={catalogExportEndpoint.context}

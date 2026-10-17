@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { equipmentExportEndpoint, equipmentMakersEndpoint, equipmentPageEndpoint, type Equipment } from '../endpoints';
 import { PanelRight } from 'lucide-react';
-import { DetailDrawer, RowActionIcon, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, encodeTableSort, useManagementFilters, useTableUrlWarning } from '@ap/components';
+import { DetailDrawer, RowAction, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, encodeTableSort, useManagementFilters, useTableUrlWarning } from '@ap/components';
 import { Button } from '@ap/ui';
 import { EquipmentPanel, EquipmentStatus } from './EquipmentDetail';
 import { exportFilterSummary, exportParams, fields, sortFields, statusText } from './data';
@@ -63,9 +63,7 @@ export default function EquipmentMaster() {
       } : undefined}
       loadPage={(page, signal) => pages.fetch({ q, status, maker, ...page }, signal)}
       filters={filterSlot}
-      rowAction={(e, { compact }) => compact
-        ? <RowActionIcon icon={PanelRight} label={ko ? `${e.equipmentId} 보기` : `View ${e.equipmentId}`} tooltip={ko ? '보기' : 'View'} onClick={() => setPage({ focus: e.equipmentId, tab: null })} />
-        : <Button size="toolbar" variant="ghost" aria-label={ko ? `${e.equipmentId} 보기` : `View ${e.equipmentId}`} onClick={() => setPage({ focus: e.equipmentId, tab: null })}>{ko ? '보기' : 'View'}</Button>}
+      rowAction={(e, { compact }) => <RowAction compact={compact} icon={PanelRight} label={ko ? `${e.equipmentId} 보기` : `View ${e.equipmentId}`} text={ko ? '보기' : 'View'} onClick={() => setPage({ focus: e.equipmentId, tab: null })} />}
       bulkActions={ids => <Button asChild size="sm"><PlatformLink href={linkTo('productivity-overview', { global: { selection: ids } })}>{ko ? '선택 설비로 분석' : 'Analyze selected equipment'}</PlatformLink></Button>}
       // Table-owned export (#173): the page only says how to read the rows; the table builds the file.
       exportRows={(request, signal) => exports.fetch(exportParams({ q, status, maker }, request), signal)}
