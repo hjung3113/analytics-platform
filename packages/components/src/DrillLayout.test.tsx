@@ -119,6 +119,24 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
     expect(window.location.search).toBe('?v=1&drillStgroup=LATE');
   });
 
+  it('format error: the clear button removes the invalid step and focus goes to the title at depth 0', () => {
+    mount('/source?v=1&drillStgroup=LATE', <PlatformPage><DrillLayout><p>본문</p></DrillLayout></PlatformPage>);
+    fireEvent.click(screen.getByRole('button', { name: '잘못된 단계 지우기' }));
+    expect(new URLSearchParams(window.location.search).has('drillStgroup')).toBe(false);
+    expect(screen.getByText('본문')).toBeTruthy();
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement?.tagName).toBe('H1');
+  });
+
+  it('format error at depth 1: the clear button keeps the valid trail and focuses its step chip', () => {
+    mount('/source?v=1&drillRoom=PHOTO&drillLine=L1', <PlatformPage><DrillLayout><p>본문</p></DrillLayout></PlatformPage>);
+    fireEvent.click(screen.getByRole('button', { name: '잘못된 단계 지우기' }));
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get('drillRoom')).toBe('PHOTO');
+    expect(params.has('drillLine')).toBe(false);
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
   it('replaces the body when the step value is missing', () => {
     mount('/source?v=1&drillRoom=PHOTO', <DrillLayout notFound={{ key: 'drillRoom', value: 'NOPE' }}><p>본문</p></DrillLayout>);
     const status = screen.getByRole('status');

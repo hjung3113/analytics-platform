@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { invalidValueSentence, useI18n, usePlatform } from '@ap/kernel';
 import { Button } from '@ap/ui';
@@ -23,12 +24,16 @@ export function useTableUrlWarning(allowedSort: readonly string[]) {
   return { parsedSort, parsedPage, invalid: !parsedSort.ok || !parsedPage.ok, sentences };
 }
 
-/** The shared invalid sort/page message (06 §15): replaces the table, never substitutes a value, Reset clears both keys in one `setPage`. */
-export function TableUrlWarning({ sentences }: { sentences: readonly string[] }) {
+/**
+ * The shared invalid sort/page message (06 §15): replaces the table, never substitutes a value, Reset clears both keys in one `setPage`.
+ * `filters` is the management layout's filter slot (the `필터 · n` control when the rail is hidden); it renders above the message with the toolbar's gap.
+ */
+export function TableUrlWarning({ sentences, filters }: { sentences: readonly string[]; filters?: ReactNode }) {
   const { t } = useI18n();
   const { setPage } = usePlatform();
-  return <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />}
+  const message = <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />}
     title={t('invalidTableTitle')}
     body={sentences.map((sentence, index) => <p key={index}>{sentence}</p>)}
     action={<Button size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); setPage({ sort: null, page: null }); }}>{t('reset')}</Button>} />;
+  return filters ? <div className="flex flex-col gap-3">{filters}{message}</div> : message;
 }

@@ -1,6 +1,6 @@
 export { createBrowserLocation, createBasePathLocation, type PlatformLocation } from './location';
 export { useDrill, type DrillInvalid, type DrillLevelState, type DrillState, type DrillTrailStep } from './drill';
-export { contractErrorSentence, errorGuidance, URL_FIELD_NAMES, I18nProvider, invalidValueSentence, useI18n, type ErrorGuidance, type Key, type Lang, type Text } from './i18n';
+export { contractErrorSentence, errorGuidance, URL_FIELD_NAMES, I18nProvider, invalidValueSentence, topicParticle, useI18n, type ErrorGuidance, type Key, type Lang, type Text } from './i18n';
 export { classifyMetricInit, type MetricInit } from './metric-init';
 export { RETURN_CONTEXT_LABELS, PlatformLink, PlatformProvider, usePlatform, usePlatformOptional, type FeedbackOpsEntry, type FeedbackOpsEntryId, type FeedbackOpsSlot, type LinkOptions, type LinkResolution, type PlatformSlots, type Recent, type ReturnContextKey, type ReturnOrigin, type ScopeState, type Toast } from './platform';
 export { useAdapterRequest, useEntityQuery, useMenuFetch, useMenuQuery, usePlatformQuery, type MenuFetch, type QueryState, type RequestState } from './query';

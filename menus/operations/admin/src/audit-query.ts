@@ -15,7 +15,7 @@ import { parsePageIndex, parseTableSort } from '@ap/components';
 export const AUDIT_PAGE_KEYS = ['type', 'actor', 'action', 'source', 'fromAt', 'toAt', 'targetId', 'sort', 'page'] as const;
 
 /** Sortable columns only — `targetType` sorts `target.type`; the destination columns never sort. */
-const SORT_FIELDS = ['at', 'actor', 'action', 'source', 'targetType'];
+export const SORT_FIELDS = ['at', 'actor', 'action', 'source', 'targetType'];
 const AUDIT_TYPES = ['equipment', 'metric', 'annotation'];
 const AUDIT_ACTIONS = ['create', 'update', 'retire', 'sync', 'delete'];
 const AUDIT_SOURCES = ['user', 'system'];

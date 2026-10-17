@@ -1,10 +1,10 @@
 import { useId, useMemo, useState } from 'react';
 import { formatInstant, instantEpochMs, type AuditEvent, type AuditSortField, type Text } from '@ap/contracts';
 import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
-import { FilterApplyButton, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort, useFilterDraft } from '@ap/components';
+import { FilterApplyButton, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, encodeTableSort, focusPageFallback, useFilterDraft, useTableUrlWarning } from '@ap/components';
 import { Button, Input, StatusBadge } from '@ap/ui';
 import { auditDestination } from '../audit-destination';
-import { ACTION_LABEL, AUDIT_PAGE_KEYS, SOURCE_LABEL, TYPE_LABEL, auditKeyProblem, parseAuditKeys, type AuditKeyProblem } from '../audit-query';
+import { ACTION_LABEL, AUDIT_PAGE_KEYS, SORT_FIELDS, SOURCE_LABEL, TYPE_LABEL, auditKeyProblem, parseAuditKeys, type AuditKeyProblem } from '../audit-query';
 import { AUDIT_TIME_FIELD_EXAMPLE, instantToLocalField, localFieldToInstant, viewerTimeZone, type LocalFieldFailure } from '../audit-window';
 
 type Lang = keyof Text;
@@ -114,6 +114,10 @@ export default function AuditTrail() {
   };
   // §6.1 page keys: an invalid wire value alerts instead of substituting, and no adapter call is made.
   const parsed = parseAuditKeys(raw);
+  // auditKeyProblem reports sort/page first and stops, so the filter keys are judged without them. A bad filter key keeps the
+  // screen's own alert (its reset clears every key); only a bad sort/page is the shared table warning, which keeps applied filters.
+  const filterProblem = auditKeyProblem({ ...raw, sort: null, page: null });
+  const tableWarning = useTableUrlWarning(SORT_FIELDS);
   const filterKey = JSON.stringify(parsed.ok ? parsed.filters : null);
   // Draft + apply (ADR-0037): every field is a draft held above ManagementLayout. The draft holds viewer-local display
   // text; the raw URL instants stay in `raw` for resolveTime. The draft rebases (and the time metadata resets) when any
@@ -161,8 +165,9 @@ export default function AuditTrail() {
     setPage(Object.fromEntries(AUDIT_PAGE_KEYS.map(k => [k, null])));
   };
   // Recovery from an invalid URL always offers the reset; the filter footer and the empty state only when a filter is applied.
-  const recover = <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{t('clearFilters')}</Button>;
-  const clear = activeFilterCount > 0 ? recover : null;
+  const clear = activeFilterCount > 0 ? <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{t('clearFilters')}</Button> : null;
+  // The alert's button disappears with the alert, so focus goes to main first (06 §26); the footer button keeps the filter bar's own rule.
+  const recover = <Button type="button" size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); clearFilters(); }}>{t('clearFilters')}</Button>;
   const select = (key: 'type' | 'action' | 'source', label: string, labels: Record<string, Text>) =>
     ({ kind: 'select', key, label, value: draft.values[key], emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(labels).map(([value, text]) => ({ value, label: text[lang] })), onValueChange: (value: string) => draft.set(key, value) }) as const;
   const filters = <PageFilterBar orientation="column" label={ko ? '감사 필터' : 'Audit filters'} onApply={applyDrafts} fields={[
@@ -188,7 +193,9 @@ export default function AuditTrail() {
   return <PlatformPage description={ko ? '모든 사이트의 마스터 변경 로그입니다. 행의 링크는 각 상세 화면의 변경 이력 탭으로 이동합니다.' : 'The master-change log across all sites. A row link opens the destination detail\'s change-history tab.'}>
     <ManagementLayout filter={filters} activeFilterCount={activeFilterCount} pendingFilterCount={draft.changedCount}
       table={filterSlot => <>
-    {!parsed.ok && <p role="alert">{filterSlot}{urlProblemLine(auditKeyProblem(raw) ?? { key: 'sort', reason: 'invalid' }, lang)} {recover}</p>}
+    {!parsed.ok && (filterProblem
+      ? <div className="flex flex-col gap-3">{filterSlot}<p role="alert">{urlProblemLine(filterProblem, lang)} {recover}</p></div>
+      : <TableUrlWarning filters={filterSlot} sentences={tableWarning.sentences} />)}
     {parsed.ok && <PlatformDataTable<AuditEvent>
         title={ko ? '변경 감사' : 'Audit trail'}
         ariaLabel={ko ? '변경 감사 목록' : 'Audit trail list'}

@@ -35,6 +35,7 @@ const registry = createRegistry({
   groups: [{ id: 'equipment', label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: 'analytics' }],
   menus: [
     menu('home', '/home', { primary: true, component: () => <p>home page</p> }),
+    menu('metricpage', '/metricpage', { component: () => <p>metric page</p>, initializesMetric: true, pageKeys: [], context: { ...noContext, metric: 'apply' as const } }),
     menu('crash', '/crash', { component: Crash }),
     menu('flaky', '/flaky', { component: Flaky }),
     menu('missing', '/missing', { component: lazyMissing }),
@@ -60,9 +61,10 @@ function Nav() {
   return <nav><button type="button" onClick={() => navigate('/home')}>go home</button><button type="button" onClick={() => navigate('/flaky')}>go flaky</button></nav>;
 }
 
-function mountAt(url: string, adapter: PlatformAdapter) {
+function mountAt(url: string, adapter: PlatformAdapter, inMain = false) {
   window.history.replaceState(null, '', url);
-  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Nav /><RouteOutlet /></PlatformProvider></I18nProvider>);
+  const outlet = <><Nav /><RouteOutlet /></>;
+  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>{inMain ? <main tabIndex={-1}>{outlet}</main> : outlet}</PlatformProvider></I18nProvider>);
 }
 
 let errorSpy: ReturnType<typeof vi.spyOn>;
@@ -335,6 +337,22 @@ describe('RouteOutlet contract error view', () => {
     expect(sentence.textContent).not.toMatch(/from=|계약|URL/);
     expect(screen.getByRole('note', { name: '서버 세부' }).textContent).toContain('from: use YYYY-MM-DDTHH:mm:ss');
     expect(screen.getByRole('button', { name: '조건 초기화' })).toBeTruthy();
+  });
+
+  it('조건 초기화 sends focus to main before the view disappears (06 §26, #389)', async () => {
+    const { adapter } = fixture(async () => ({ accepted: true }));
+    mountAt('/home?from=garbage&to=2026-09-26T09:00:00', adapter, true);
+    fireEvent.click(await screen.findByRole('button', { name: '조건 초기화' }));
+    expect(screen.queryByRole('button', { name: '조건 초기화' })).toBeNull();
+    expect(document.activeElement).toBe(document.querySelector('main'));
+  });
+
+  it('이 지표 쌍 지우기 on the blocked metric view sends focus to main (06 §26, #389)', async () => {
+    const { adapter } = fixture(async () => ({ accepted: true }));
+    mountAt('/metricpage?metricId=nope', adapter, true);
+    fireEvent.click(await screen.findByRole('button', { name: '이 지표 쌍 지우기' }));
+    expect(screen.queryByRole('button', { name: '이 지표 쌍 지우기' })).toBeNull();
+    expect(document.activeElement).toBe(document.querySelector('main'));
   });
 
   it('shows the diagnostic URL at full strength — no opacity on danger-soft (AA, #193 UI/UX recheck)', async () => {

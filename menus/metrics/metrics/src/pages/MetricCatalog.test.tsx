@@ -75,6 +75,12 @@ describe('metric catalog count under a failed list query (UXA-4)', () => {
 // #304 FIX1: the warning keeps the field's user name and the raw value as entered (quoted, untruncated),
 // one sentence per invalid field — never `key=value`.
 describe('invalid URL value warnings keep field name and raw value (#304 FIX1)', () => {
+  it('the footer caption names the Context keys by their user labels (U-5)', () => {
+    window.history.replaceState(null, '', '/metrics?v=1&scopeId=ICH');
+    render(<I18nProvider><PlatformProvider adapter={fixture()} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
+    expect(screen.getByText(/이 목록의 필터가 아닙니다/).textContent).toContain('기간·Lot·room_name·그룹 조건·설비 선택은 이 목록의 필터가 아닙니다.');
+  });
+
   it('domain=bogus names the 도메인 field and the entered value, without key=value', async () => {
     window.history.replaceState(null, '', '/metrics?v=1&scopeId=ICH&domain=bogus');
     render(<I18nProvider><PlatformProvider adapter={fixture()} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);

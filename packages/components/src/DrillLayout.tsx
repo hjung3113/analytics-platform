@@ -109,13 +109,15 @@ export function DrillPath({ siblings }: DrillPathProps) {
 
 /** Path bar, then the current step's body. A format error or a missing value replaces the body and substitutes nothing. */
 export function DrillLayout({ siblings, notFound, children }: DrillLayoutProps) {
-  const { invalid } = useDrill();
+  const drill = useDrill();
+  const { invalid } = drill;
   const { lang } = useI18n();
   const ko = lang === 'ko';
   const body = invalid
     ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />}
       title={invalidValueSentence(lang, 'drillGap', invalid.label, invalid.value)}
-      body={ko ? '다른 값으로 바꾸지 않습니다.' : 'Nothing was substituted.'} />
+      body={ko ? '다른 값으로 바꾸지 않습니다.' : 'Nothing was substituted.'}
+      action={<Button size="sm" variant="secondary" onClick={() => drill.goTo(drill.depth)}>{ko ? '잘못된 단계 지우기' : 'Clear the invalid step'}</Button>} />
     : notFound
       ? <StateMessage tone="warning" icon={<AlertTriangle className="size-4" aria-hidden />}
         title={ko ? `이 조건에서 없는 값: ${notFound.value}` : `No value in this context: ${notFound.value}`}

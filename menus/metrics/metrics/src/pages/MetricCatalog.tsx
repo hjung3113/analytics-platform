@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { type PageProps, PlatformLink, type QueryState, invalidValueSentence, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
+import { CONTEXT_LABELS, type PageProps, PlatformLink, type QueryState, invalidValueSentence, topicParticle, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, StateMessage, TableUrlWarning, encodeTableSort, useTableUrlWarning } from '@ap/components';
 import { Button } from '@ap/ui';
 import {
@@ -71,6 +71,7 @@ export function MetricPairBanner({ query, pageVersion = null }: { query: QuerySt
 export default function MetricCatalogPage(_: PageProps) {
   const { pageParam, setPage, linkTo, global } = usePlatform();
   const { lang, tx, t } = useI18n();
+  const notFilters = (['time', 'lot', 'roomNames', 'condition', 'selection'] as const).map(key => tx(CONTEXT_LABELS[key])).join(lang === 'ko' ? '·' : ', ');
   const q = pageParam('q');
   const status = pageParam('status');
   const domain = pageParam('domain');
@@ -154,8 +155,8 @@ export default function MetricCatalogPage(_: PageProps) {
       />}
       <p className="t-caption text-text-muted">
         {lang === 'ko'
-          ? 'Time·Lot·room_name·Condition·Selection은 이 목록의 필터가 아닙니다. 검색·상태·도메인으로 거릅니다. 예시 데이터입니다.'
-          : 'Time, lot, room_name, condition and selection do not filter this list. It is filtered by search, status and domain. Synthetic data.'}
+          ? `${notFilters}${topicParticle(CONTEXT_LABELS.selection.ko)} 이 목록의 필터가 아닙니다. 검색·상태·도메인으로 거릅니다. 예시 데이터입니다.`
+          : `${notFilters} do not filter this list. It is filtered by search, status and domain. Synthetic data.`}
       </p>
     </div>
   </PlatformPage>;
