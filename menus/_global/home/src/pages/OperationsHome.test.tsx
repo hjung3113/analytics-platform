@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlatformAdapter, Session } from '@ap/contracts';
@@ -223,3 +223,75 @@ describe('platform home launcher', () => {
     expect(await screen.findByRole('link', { name: '내 VOC' })).toBeTruthy();
   });
 });
+
+// AA-2 (#398, 06 §26): the row's remove button disappears with the row it removes, so focus must
+// move deliberately instead of falling to BODY. Scoped to the favorites section — the header star
+// shares the accessible name 즐겨찾기에서 제거 when the home itself is a favorite.
+describe('favorites removal focus (#398)', () => {
+  function favoritesSection() {
+    return screen.getByRole('heading', { name: '즐겨찾기' }).closest('section')!;
+  }
+
+  it('focuses the next row remove button after removing a middle favorite', async () => {
+    persisted.setItem('platform:favorites:u1', JSON.stringify(['equipment', 'catalog', 'notices']));
+    mount(['platform:view', 'equipment:view', 'metrics:view', 'notice:view']);
+    await settled();
+    const favorites = favoritesSection();
+    const [first, middle, last] = within(favorites).getAllByRole('button', { name: '즐겨찾기에서 제거' });
+    expect(within(favorites).getAllByRole('link').map(link => link.textContent)).toEqual(['설비', '지표 카탈로그', '공지']);
+    middle.focus();
+    fireEvent.click(middle);
+    expect(within(favorites).getAllByRole('link').map(link => link.textContent)).toEqual(['설비', '공지']);
+    expect(document.activeElement).toBe(last);
+    expect(document.activeElement).not.toBe(first);
+  });
+
+  it('focuses the previous row remove button after removing the last of several favorites', async () => {
+    persisted.setItem('platform:favorites:u1', JSON.stringify(['equipment', 'catalog']));
+    mount(['platform:view', 'equipment:view', 'metrics:view']);
+    await settled();
+    const favorites = favoritesSection();
+    const [first, last] = within(favorites).getAllByRole('button', { name: '즐겨찾기에서 제거' });
+    last.focus();
+    fireEvent.click(last);
+    expect(within(favorites).getAllByRole('link').map(link => link.textContent)).toEqual(['설비']);
+    expect(document.activeElement).toBe(first);
+  });
+
+  it('focuses the empty-state paragraph after removing the last remaining favorite', async () => {
+    persisted.setItem('platform:favorites:u1', JSON.stringify(['catalog']));
+    mount(['platform:view', 'metrics:view']);
+    await settled();
+    const favorites = favoritesSection();
+    const [remove] = within(favorites).getAllByRole('button', { name: '즐겨찾기에서 제거' });
+    remove.focus();
+    fireEvent.click(remove);
+    const empty = await within(favorites).findByText('즐겨찾기가 없습니다. 화면 제목 옆 ☆로 추가하세요.');
+    expect(empty.getAttribute('tabindex')).toBe('-1');
+    await waitFor(() => expect(document.activeElement).toBe(empty));
+  });
+
+  it('leaves focus where the user moved it before the empty-state frame runs', async () => {
+    const frames: FrameRequestCallback[] = [];
+    const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => frames.push(callback));
+    try {
+      persisted.setItem('platform:favorites:u1', JSON.stringify(['catalog']));
+      mount(['platform:view', 'metrics:view']);
+      await settled();
+      const favorites = favoritesSection();
+      const [remove] = within(favorites).getAllByRole('button', { name: '즐겨찾기에서 제거' });
+      remove.focus();
+      fireEvent.click(remove);
+      const empty = await within(favorites).findByText('즐겨찾기가 없습니다. 화면 제목 옆 ☆로 추가하세요.');
+      const elsewhere = screen.getByRole('heading', { name: '플랫폼 홈' });
+      elsewhere.focus();
+      expect(document.activeElement).toBe(elsewhere);
+      act(() => { frames.splice(0).forEach(callback => callback(0)); });
+      expect(document.activeElement).toBe(elsewhere);
+      expect(document.activeElement).not.toBe(empty);
+    } finally {
+      raf.mockRestore();
+    }
+  });
+});
+

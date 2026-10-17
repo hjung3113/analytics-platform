@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Clock3, Megaphone, Star, X } from 'lucide-react';
 import { type MenuEntry, PlatformLink, useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
 import { noticesEndpoint } from '../endpoints';
@@ -9,7 +10,9 @@ import { StatusBadge } from '@ap/ui';
 export default function OperationsHome() {
   const { favorites, toggleFavorite, recent, linkTo, global, registry, accessibleSpaces, canOpen, resolveLink, spaceEntry } = usePlatform();
   const { t, tx, lang } = useI18n();
+
   const dismissed = useDismissedNotices();
+  const noFavoritesRef = useRef<HTMLParagraphElement>(null);
   const notices = useMenuQuery(noticesEndpoint, { targetScopeId: global.scopeId });
   const voc = resolveLink('voc');
   const noticesLink = resolveLink('notices');
@@ -28,6 +31,26 @@ export default function OperationsHome() {
     const space = registry.spaceOf(menu);
     return space ? tx(space.label) : (lang === 'ko' ? '플랫폼' : 'Platform');
   };
+
+  // 06 §26 (#398): the row's remove button disappears with the row it removes. Only from that
+  // button's own click, while focus is still on it, focus goes to the next row's remove button,
+  // else the previous row's, else the empty-state paragraph. The header star removes rows without
+  // disappearing itself, so a list-level effect would steal focus from it — no effect.
+  function removeFavoriteRow(menuId: string, button: HTMLButtonElement) {
+    const row = button.closest('li');
+    const neighbor = row?.nextElementSibling ?? row?.previousElementSibling ?? null;
+    const target = neighbor?.querySelector<HTMLButtonElement>('button') ?? null;
+    const hadFocus = document.activeElement === button;
+    toggleFavorite(menuId);
+    if (!hadFocus) return;
+    if (target) target.focus();
+    else requestAnimationFrame(() => { // the empty state mounts after the state update
+      const active = document.activeElement;
+      // Focus is still where the click left it (the removed button, or BODY after it unmounted); otherwise the user moved it.
+      if (active && active !== document.body && active !== button) return;
+      noFavoritesRef.current?.focus();
+    });
+  }
 
   return <PlatformPage secondaryActions={canOpen('voc') ? <PlatformLink href={voc.href} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '내 VOC' : 'My VOC'}</PlatformLink> : undefined}>
     <div className="space-y-4">
@@ -57,12 +80,13 @@ export default function OperationsHome() {
 
       <div className="grid gap-3 lg:grid-cols-2">
         <Panel title={<span className="inline-flex items-center gap-2"><Star className="size-4 text-accent-warn" aria-hidden />{t('favorites')}</span>} subtitle={lang === 'ko' ? '지금 조회 조건을 유지하고 그 화면의 기본 보기로 이동합니다.' : "Opens the screen's default view with your current filters."}>
-          {favoriteMenus.length === 0 ? <p className="rounded-md bg-surface-sunken p-3 text-xs text-text-secondary">{t('noFavorites')}</p> :
+          {favoriteMenus.length === 0 ? <p ref={noFavoritesRef} tabIndex={-1}
+            className="rounded-md bg-surface-sunken p-3 text-xs text-text-secondary outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">{t('noFavorites')}</p> :
             <ul className="divide-y divide-border-subtle">{favoriteMenus.map(menu => <li key={menu.id} className="flex items-center gap-3 py-2">
               <menu.icon className="size-4 text-text-muted" aria-hidden />
               <PlatformLink href={linkTo(menu.id)} className="min-w-0 flex-1 text-sm font-medium hover:text-accent-primary hover:underline">{tx(menu.label)}</PlatformLink>
               <span className="text-tiny text-text-muted">{affiliation(menu)}</span>
-              <button type="button" onClick={() => toggleFavorite(menu.id)} className="rounded-xs px-2 py-1 text-xs text-text-secondary hover:bg-surface-sunken">{t('removeFavorite')}</button>
+              <button type="button" onClick={event => removeFavoriteRow(menu.id, event.currentTarget)} className="rounded-xs px-2 py-1 text-xs text-text-secondary hover:bg-surface-sunken">{t('removeFavorite')}</button>
             </li>)}</ul>}
         </Panel>
         <Panel title={<span className="inline-flex items-center gap-2"><Clock3 className="size-4 text-text-muted" aria-hidden />{t('recent')}</span>} subtitle={lang === 'ko' ? '방문했던 조회 조건으로 돌아갑니다. 권한은 다시 확인합니다.' : 'Returns with the filters you used. Access is checked again.'}>

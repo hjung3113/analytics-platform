@@ -446,6 +446,61 @@ test.describe('셸 sticky 계약 (06 §7)', () => {
     await evidence(page, testInfo, 'page-header-primary-focus-1024');
   });
 
+  // AA2-1 (#398): at 1024 with the expanded sidebar and the drill detail panel every ADR-0035 yield is
+  // spent, and the measured header (clientWidth 292, scrollWidth 404) let the left group's shrink-0
+  // controls spill under Data Trust — a click on the star opened Data Trust instead of the favorite.
+  test('1024px 펼친 사이드바·설비 상세에서 별과 Data Trust 상자는 겹치지 않고 별은 눌린다 (#398)', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.addInitScript(() => localStorage.setItem('platform:sidebar-collapsed', '0'));
+    await page.goto(`${PRODUCTIVITY}&drillRoom=PHOTO&drillStgroup=STG-PHOTO-A&drillEquipment=ICH-PHOTO-0103`);
+    await expectScopeValid(page, 'ICH · Site A');
+    await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
+    await expect(page.getByText('설비 요약', { exact: true }).first()).toBeVisible();
+    const header = page.locator('#platform-main header').filter({ has: page.getByRole('heading', { level: 1 }) });
+    // The star's accessible name flips between 즐겨찾기에 추가/즐겨찾기에서 제거 with aria-pressed.
+    const star = header.getByRole('button', { name: /즐겨찾기/ });
+    const trust = header.getByRole('button', { name: '데이터 신뢰' });
+    const description = header.getByRole('button', { name: /물리 점유율/ });
+    const noOverlap = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) =>
+      a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y;
+    const starBox = await star.boundingBox();
+    const trustBox = await trust.boundingBox();
+    const descriptionBox = await description.boundingBox();
+    expect(starBox).not.toBeNull();
+    expect(trustBox).not.toBeNull();
+    expect(descriptionBox).not.toBeNull();
+    expect(noOverlap(starBox!, trustBox!)).toBe(true);
+    expect(noOverlap(descriptionBox!, trustBox!)).toBe(true);
+    await expect.poll(() => star.evaluate(el => {
+      const rect = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      return hit !== null && el.contains(hit);
+    })).toBe(true);
+    const pressed = await star.getAttribute('aria-pressed');
+    await star.click();
+    await expect(star).toHaveAttribute('aria-pressed', pressed === 'true' ? 'false' : 'true');
+    await evidence(page, testInfo, 'page-header-star-hit-1024');
+  });
+
+  // UX-1 (#398): the yield widths predate the left group's rem minimum, so 1024 collapsed (overview) and 1440
+  // collapsed (drill + detail) scrolled the header while Data Trust's summary and the badge were still shown.
+  for (const { width, drill } of [{ width: 1024, drill: false }, { width: 1440, drill: true }]) {
+    test(`사이드바를 접은 ${width}px ${drill ? '설비 상세' : '개요'}에서 머리는 모든 양보 전에 가로로 넘치지 않는다 (#398)`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.addInitScript(() => localStorage.setItem('platform:sidebar-collapsed', '1'));
+      await page.goto(`${PRODUCTIVITY}${drill ? '&drillRoom=PHOTO&drillStgroup=STG-PHOTO-A&drillEquipment=ICH-PHOTO-0103' : ''}`);
+      await expectScopeValid(page, 'ICH · Site A');
+      await expect(page.getByRole('button', { name: '사이드바 펼치기' })).toBeVisible();
+      if (drill) await expect(page.getByText('설비 요약', { exact: true }).first()).toBeVisible();
+      const header = page.locator('#platform-main header').filter({ has: page.getByRole('heading', { level: 1 }) });
+      await expect(header.getByRole('button', { name: '데이터 신뢰' })).toBeVisible();
+      // Compact mode keeps the button, so only the badge itself shows that no stage was yielded too far.
+      await expect(header.getByRole('button', { name: '데이터 신뢰' }).getByText('잠정')).toBeVisible();
+      await expect.poll(() => header.evaluate(el => el.scrollWidth - el.clientWidth)).toBe(0);
+      await evidence(page, testInfo, `page-header-collapsed-no-scroll-${width}`);
+    });
+  }
+
   // #303: the open detail panel narrows the page, and the header yields description → trust → badge instead of
   // hiding the title or pushing the primary action off screen behind a horizontal scroll.
   for (const width of [1440, 1280]) {
