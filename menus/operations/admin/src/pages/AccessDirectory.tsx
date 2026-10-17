@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { PERMISSIONS, type AccessPrincipal, type AccessSortField } from '@ap/contracts';
 import { invalidValueSentence, useI18n, usePlatform, type Text } from '@ap/kernel';
-import { DetailDrawer, FilterApplyButton, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, encodeTableSort, focusPageFallback, useFilterDraft, useTableUrlWarning } from '@ap/components';
+import { DetailDrawer, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, encodeTableSort, focusPageFallback, useManagementFilters, useTableUrlWarning } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { grantTotals, menusForPermissions } from '../access-rows';
 import { ACCESS_PAGE_KEYS, SORT_FIELDS, badAccessFilterKeys, parseAccessKeys } from '../access-query';
@@ -41,21 +41,14 @@ export default function AccessDirectory() {
   // Adapter filter JSON (role + permission only): a focus change must not refetch the table.
   const filterKey = JSON.stringify(parsed.ok ? parsed.filters : null);
   // Draft + apply (ADR-0037): both fields are drafts held above ManagementLayout; apply is one setPage that also returns to page 1.
-  const draft = useFilterDraft({ permission: raw.permission ?? '', role: raw.role ?? '' });
-  const activeFilterCount = [raw.role, raw.permission].filter(Boolean).length;
-  const applyDraft = () => setPage({ ...draft.patch(), page: null });
-  const clearFilters = () => {
-    draft.reset({});
-    setPage(Object.fromEntries(ACCESS_PAGE_KEYS.map(k => [k, null])));
-  };
+  const { draft, clear: clearFilters, clearButton, barProps, layoutProps } = useManagementFilters({ applied: { permission: raw.permission ?? '', role: raw.role ?? '' }, clearKeys: ACCESS_PAGE_KEYS });
   // Recovery from an invalid URL always offers the reset; the filter footer and the empty state only when a filter is applied.
-  const clear = activeFilterCount > 0 ? <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{t('clearFilters')}</Button> : null;
   // The alert's button disappears with the alert, so focus goes to main first (06 §26); the footer button keeps the filter bar's own rule.
   const recover = <Button type="button" size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); clearFilters(); }}>{t('clearFilters')}</Button>;
-  const filters = <PageFilterBar orientation="column" label={ko ? '필터' : 'Filters'} onApply={applyDraft} fields={[
+  const filters = <PageFilterBar orientation="column" label={ko ? '필터' : 'Filters'} fields={[
       { kind: 'select', key: 'permission', label: ko ? '권한' : 'Permission', value: draft.values.permission, emptyOptionLabel: ko ? '전체' : 'All', options: PERMISSIONS.map(value => ({ value, label: value })), onValueChange: value => draft.set('permission', value) },
       { kind: 'text', key: 'role', label: ko ? '역할 정확 일치' : 'Exact role', value: draft.values.role, onValueChange: value => draft.set('role', value) },
-    ]} actions={<><FilterApplyButton changedCount={draft.changedCount} />{clear}</>} />;
+    ]} {...barProps} />;
   const columns = useMemo<PlatformColumn<AccessPrincipal>[]>(() => [
     { id: 'name', header: ko ? '이름' : 'Name' },
     { id: 'role', header: ko ? '역할' : 'Role', cell: row => mono(row.role) },
@@ -136,7 +129,7 @@ export default function AccessDirectory() {
   return <PlatformPage description={ko
     ? '조회 전용 화면입니다. 권한 부여·회수는 하지 않습니다.'
     : 'Read-only view. Grants and revocations are not made here.'}>
-    <ManagementLayout filter={filters} activeFilterCount={activeFilterCount} pendingFilterCount={draft.changedCount} drawer={drawer}
+    <ManagementLayout filter={filters} {...layoutProps} drawer={drawer}
       table={filterSlot => <>
     {!parsed.ok && (badFilterKeys.length > 0
       ? <div className="flex flex-col gap-3">
@@ -186,7 +179,7 @@ export default function AccessDirectory() {
             ...(response.message !== undefined && { message: response.message }),
           };
         }}
-        emptyAction={clear}
+        emptyAction={clearButton}
         rowAction={row => <Button size="toolbar" variant="ghost" aria-label={ko ? `${row.id} 보기` : `View ${row.id}`} onClick={() => setPage({ focus: row.id, tab: null })}>{ko ? '보기' : 'View'}</Button>}
       />}
       </>} />

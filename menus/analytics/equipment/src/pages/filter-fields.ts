@@ -3,9 +3,7 @@ import { statusText } from './data';
 
 type EquipmentFilterKey = 'q' | 'status' | 'maker';
 
-type SetPage = (patch: Record<string, string | null>, options?: { replace?: boolean }) => void;
-
-/** Draft + apply (ADR-0037): every field edits the host's draft; `applyEquipmentPageFilters` is the only URL write. */
+/** Draft + apply (ADR-0037): every field edits the host's draft; `useManagementFilters` owns the apply. */
 export function equipmentPageFilterFields({
   values, set, makers, lang,
 }: {
@@ -19,13 +17,4 @@ export function equipmentPageFilterFields({
     { kind: 'select', key: 'status', label: lang === 'ko' ? '상태' : 'Status', value: values.status, emptyOptionLabel: lang === 'ko' ? '전체' : 'All', options: Object.entries(statusText).map(([value, text]) => ({ value, label: text[lang] })), onValueChange: value => set('status', value) },
     { kind: 'select', key: 'maker', label: 'Maker', value: values.maker, emptyOptionLabel: lang === 'ko' ? '전체' : 'All', options: makers.map(value => ({ value, label: value })), onValueChange: value => set('maker', value) },
   ];
-}
-
-/** One navigation: the drafted filter keys and the page reset together. */
-export function applyEquipmentPageFilters(setPage: SetPage, patch: Record<string, string | null>) {
-  setPage({ ...patch, page: null });
-}
-
-export function resetEquipmentPageFilters(setPage: SetPage) {
-  setPage({ q: null, status: null, maker: null, page: null });
 }

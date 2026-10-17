@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { useI18n } from '@ap/kernel';
+import { useCallback, useState, type ReactNode } from 'react';
+import { useI18n, usePlatform } from '@ap/kernel';
 import { Button } from '@ap/ui';
 
 export type FilterDraft<K extends string> = {
@@ -20,9 +20,10 @@ const keyOf = (applied: Record<string, string>) => JSON.stringify(Object.entries
  * Draft values for a filter form whose changes only take effect on an explicit apply (ADR-0037).
  * The drafts rebase onto `applied` when the applied URL values change (navigation, Back/Forward, reset), never while the
  * user edits an unchanged applied value. Pass `identity` when the applied values are display text derived from richer
- * state (raw instants, time zone): a change of identity rebases even if the displayed text stays equal.
+ * state (raw instants, time zone): a change of identity rebases even if the displayed text stays equal. `onRebase` runs in the
+ * same render-phase branch (the caller may set its own state there to reset metadata that belongs to the draft).
  */
-export function useFilterDraft<K extends string>(applied: Record<K, string>, identity?: string): FilterDraft<K> {
+export function useFilterDraft<K extends string>(applied: Record<K, string>, identity?: string, onRebase?: () => void): FilterDraft<K> {
   const appliedKey = identity ?? keyOf(applied);
   const [draft, setDraft] = useState<Partial<Record<K, string>>>(applied);
   const [syncedKey, setSyncedKey] = useState(appliedKey);
@@ -32,6 +33,7 @@ export function useFilterDraft<K extends string>(applied: Record<K, string>, ide
     setSyncedKey(appliedKey);
     setDraft(applied);
     current = applied;
+    onRebase?.();
   }
 
   const keys = [...new Set([...Object.keys(applied), ...Object.keys(current)])] as K[];
@@ -51,4 +53,46 @@ export function FilterApplyButton({ changedCount }: { changedCount: number }) {
   return <Button type="submit" size="sm" variant="secondary" disabled={changedCount === 0}>
     {changedCount > 0 ? t('applyWithCount', { count: changedCount }) : t('apply')}
   </Button>;
+}
+
+export type ManagementFiltersOptions<K extends string> = {
+  /** Applied values as display text, one per filter field. */
+  applied: Record<K, string>;
+  /** As `useFilterDraft`: rebase on this instead of the applied text when the text derives from richer state. */
+  identity?: string;
+  /** Page keys the clear sets to null; `page` is always added. */
+  clearKeys: readonly string[];
+  /** Builds the URL patch from the draft patch (validation included); null aborts the apply. Default: the draft patch as is. */
+  toPatch?: (draftPatch: Record<K, string | null>) => Record<string, string | null> | null;
+  /** Called from the render-phase rebase only (applied values or identity changed), never directly by `clear`. */
+  onRebase?: () => void;
+};
+
+/**
+ * The ADR-0037 wiring of a management filter bar in one place: draft + rebase, one-`setPage` apply that returns to page 1,
+ * the footer clear button (only while a filter is applied), and the counts `ManagementLayout` shows. The menu keeps the
+ * field meaning, the URL keys, the clear key list and the patch building/validation. The footer button leaves focus to
+ * `PageFilterBar` (06 §26); a recovery button outside the bar calls `focusPageFallback` itself, then `clear`.
+ */
+export function useManagementFilters<K extends string>({ applied, identity, clearKeys, toPatch, onRebase }: ManagementFiltersOptions<K>) {
+  const { t } = useI18n();
+  const { setPage } = usePlatform();
+  const draft = useFilterDraft(applied, identity, onRebase);
+  const activeFilterCount = Object.values<string>(applied).filter(Boolean).length;
+  const clear = () => {
+    draft.reset({});
+    setPage(Object.fromEntries([...clearKeys, 'page'].map(key => [key, null])));
+  };
+  const apply = () => {
+    const patch = toPatch ? toPatch(draft.patch()) : draft.patch();
+    if (patch !== null) setPage({ ...patch, page: null });
+  };
+  const clearButton: ReactNode = activeFilterCount > 0 ? <Button type="button" size="sm" variant="secondary" onClick={clear}>{t('clearFilters')}</Button> : null;
+  return {
+    draft,
+    clear,
+    clearButton,
+    barProps: { onApply: apply, actions: <><FilterApplyButton changedCount={draft.changedCount} />{clearButton}</> },
+    layoutProps: { activeFilterCount, pendingFilterCount: draft.changedCount },
+  };
 }

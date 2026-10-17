@@ -417,6 +417,20 @@ describe('AuditTrail draft + apply (ADR-0037)', () => {
     expect(screen.queryByRole('button', { name: /Clear filters|필터 초기화/ })).toBeNull();
   });
 
+  it('offers the clear in the empty state while a filter is applied, and it clears the filter', async () => {
+    window.history.replaceState(null, '', '/admin/audit?type=equipment');
+    const adapter = testAdapter({
+      session: () => session,
+      auditTrail: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }) satisfies ApiResponse<AuditTrailPage>,
+    });
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><AuditTrail /></PlatformProvider></I18nProvider>);
+    await screen.findByText(/조건에 맞는 결과가 없습니다|No matching result/);
+    const clears = screen.getAllByRole('button', { name: /Clear filters|필터 초기화/ });
+    expect(clears).toHaveLength(2);
+    fireEvent.click(clears.find(button => !button.closest('form'))!);
+    await waitFor(() => expect(new URLSearchParams(window.location.search).has('type')).toBe(false));
+  });
+
   it.each([
     ['fromAt', fromInput, FROM],
     ['toAt', toInput, FROM],
