@@ -14,7 +14,7 @@ export * from './RadioGroup';
 export { RowAction, type RowActionProps } from './RowAction';
 export * from './StatCard';
 export * from './StateView';
-export { FilterApplyButton, useFilterDraft, useManagementFilters, type FilterDraft, type ManagementFiltersOptions } from './useFilterDraft';
+export { useManagementFilters, type FilterDraft, type ManagementFiltersOptions } from './useFilterDraft';
 
 export { ManagementLayout, type ManagementLayoutProps } from './ManagementLayout';
 

@@ -11,7 +11,7 @@ Platform Kernel 런타임(06 §4). 메뉴 목록도, 서버 구현도 모른다.
 - `paletteFocus.ts` — 팔레트 열기·닫기, 세대·Dialog 인스턴스 소유·렌더 여부·Provider 세션 교체 정리를 소유한다. 열기는 이전 이동 요청을 취소하고, 셸에는 세션에 묶인 `claim(owner)`·`release(owner)`·`isCurrent()` 핸들을 준다. Dialog close autofocus 또는 FocusScope cleanup 뒤 지연 해제에서 현재 소유자만 차단을 푼다. 상태 전이는 `paletteFocus.test.ts`, 포커스 결과는 `packages/shell/src/CommandPalette.test.tsx`·`packages/components/src/DrillLayout.test.tsx`·E2E `메뉴 이동 포커스 (06 §26)`이 고정한다.
 - `query.ts` — `usePlatformQuery`(식별자 `[revision, user.id, global, pageInputs]`, `identity: 'session'`이면 전역 Context 제외), `useEntityQuery`(§22 목적지 `adapter.getEntity`), `useMenuQuery`/`useMenuFetch`(메뉴 `EndpointSpec` → `adapter.menuQuery`; Scope·기간 게이트와 assessments kind 검사 포함, `ready` 전 호출은 `not_ready` error), `useAdapterRequest`(셸 조회, 식별자 `[revision, user.id, key]` — 의존 값은 호출자가 `key`에 전부 넣는다). 취소는 Kernel 자신의 `signal.aborted`로만 판정하고 어댑터 타임아웃 `AbortError`는 오류다. 판정 규칙의 원본은 06 §19·[체크리스트 §3](../../docs/integration/real-server-checklist.md)이고 `menu-query.test.tsx`가 고정한다.
 - `testing.ts` — 테스트 전용 공개 진입점 `@ap/kernel/testing`(어댑터·세션·공간 fixture, ADR-0040). `index.ts`에서 내보내지 않는다.
-- `i18n.tsx` — `I18nProvider`, `useI18n()`(`tx`, `lang`), `invalidValueSentence()`(잘못된 URL 값 경고 문장 한 곳 — `value`·`filter`·`plain`·`drillGap`). `metric-init.ts` — 지표 쌍 초기화 분류.
+- `i18n.tsx` — `I18nProvider`, `useI18n()`(`tx`, `lang`), `contractErrorSentence()`(계약 오류 문장), `invalidValueSentence()`(잘못된 URL 값 경고 문장 한 곳 — `value`·`filter`·`plain`·`drillGap`), `topicParticle()`(한국어 조사 은/는, #410부터 공개). `metric-init.ts` — 지표 쌍 초기화 분류.
 
 ## 규칙
 

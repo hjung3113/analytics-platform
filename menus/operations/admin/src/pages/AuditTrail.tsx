@@ -24,9 +24,10 @@ const FIELD_ERROR: Record<LocalFieldFailure | 'order', Text> = {
   order: { ko: '시각 이후보다 뒤여야 합니다.', en: 'Must be later than the start time.' },
 };
 
-const URL_KEY: Record<AuditKeyProblem['key'], Text> = {
-  sort: { ko: '정렬', en: 'Sort' },
-  page: { ko: '페이지', en: 'Page' },
+type AuditFilterKey = Exclude<AuditKeyProblem['key'], 'sort' | 'page'>;
+type FilterAuditKeyProblem = AuditKeyProblem & { key: AuditFilterKey };
+
+const URL_KEY: Record<AuditFilterKey, Text> = {
   type: { ko: '대상 유형', en: 'Type' },
   action: { ko: '작업', en: 'Action' },
   source: { ko: '출처', en: 'Source' },
@@ -36,7 +37,11 @@ const URL_KEY: Record<AuditKeyProblem['key'], Text> = {
   toAt: TIME_LABEL.toAt,
 };
 
-function urlProblemLine(problem: AuditKeyProblem, lang: Lang): string {
+function isFilterAuditKeyProblem(problem: AuditKeyProblem): problem is FilterAuditKeyProblem {
+  return problem.key !== 'sort' && problem.key !== 'page';
+}
+
+function urlProblemLine(problem: FilterAuditKeyProblem, lang: Lang): string {
   const head = lang === 'ko' ? '필터 값이 잘못되었습니다.' : 'Invalid filter value.';
   if (problem.reason === 'order') {
     return lang === 'ko'
@@ -118,6 +123,7 @@ export default function AuditTrail() {
   // auditKeyProblem reports sort/page first and stops, so the filter keys are judged without them. A bad filter key keeps the
   // screen's own alert (its reset clears every key); only a bad sort/page is the shared table warning, which keeps applied filters.
   const filterProblem = auditKeyProblem({ ...raw, sort: null, page: null });
+  const filterKeyProblem = filterProblem && isFilterAuditKeyProblem(filterProblem) ? filterProblem : null;
   const tableWarning = useTableUrlWarning(SORT_FIELDS);
   const filterKey = JSON.stringify(parsed.ok ? parsed.filters : null);
   // Draft + apply (ADR-0037): every field is a draft held above ManagementLayout. The draft holds viewer-local display
@@ -188,8 +194,8 @@ export default function AuditTrail() {
   return <PlatformPage description={ko ? '모든 사이트의 마스터 변경 로그입니다. 행의 링크는 각 상세 화면의 변경 이력 탭으로 이동합니다.' : 'The master-change log across all sites. A row link opens the destination detail\'s change-history tab.'}>
     <ManagementLayout filter={filters} {...layoutProps}
       table={filterSlot => <>
-    {!parsed.ok && (filterProblem
-      ? <div className="flex flex-col gap-3">{filterSlot}<p role="alert">{urlProblemLine(filterProblem, lang)} {recover}</p></div>
+    {!parsed.ok && (filterKeyProblem
+      ? <div className="flex flex-col gap-3">{filterSlot}<p role="alert">{urlProblemLine(filterKeyProblem, lang)} {recover}</p></div>
       : <TableUrlWarning filters={filterSlot} sentences={tableWarning.sentences} />)}
     {parsed.ok && <PlatformDataTable<AuditEvent>
         title={ko ? '변경 감사' : 'Audit trail'}
