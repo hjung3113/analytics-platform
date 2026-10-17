@@ -566,7 +566,8 @@ describe('AuditTrail out-of-range page (#314)', () => {
     expect(window.history.length).toBe(start);
     expect(push).not.toHaveBeenCalled();
     expect(replace.mock.calls.some(call => String(call[2]).includes('page=2'))).toBe(true);
-    expect(f.calls.map(call => call.page)).toEqual([9, 2]);
+    // The URL is replaced before the table refetches page 2, so wait for the fetch too (CI flake, slice 14).
+    await waitFor(() => expect(f.calls.map(call => call.page)).toEqual([9, 2]));
     expect(f.calls.every(call => call.sort?.field === 'actor' && call.sort.desc === true)).toBe(true);
   });
 });

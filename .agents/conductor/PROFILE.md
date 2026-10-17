@@ -36,7 +36,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 검사는 순서대로 돌리고, 모두 0이어야 커밋한다.
 
 1. 바뀐 패키지 검사.
-2. 루트 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`를 순서대로 한 번 돌린다. FeedbackOps gitlink를 올렸으면 `--force`(#237).
+2. 루트 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`를 순서대로 한 번 돌린다.
 3. Kernel·셸·공통 컴포넌트·mock 서버가 바뀌었으면 E2E를 돌린다. 새 describe만 먼저(`cd apps/platform-e2e && pnpm exec playwright test -g "<describe>"`), 그다음 관련 E2E 또는 전체 `pnpm e2e`.
 4. `scripts/worker-hygiene.sh <worktree>`: 이유 없는 새 `eslint-disable`과 `eslint-suppressions.json` 증가는 실패, 공백만 바뀐 변경은 보고만 한다.
 
