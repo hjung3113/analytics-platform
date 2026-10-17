@@ -207,7 +207,7 @@ export function userFacingEntries(): readonly { key: string; ko: string; en: str
 const INVALID_URL_KEY = { value: 'invalidUrlValue', filter: 'invalidUrlFilter', plain: 'invalidUrlPlain', drillGap: 'invalidUrlDrillGap' } as const satisfies Record<string, Key>;
 
 /** Korean topic particle by the final-consonant of the last character; anything that is not a Hangul syllable takes 는. */
-function topicParticle(name: string): '은' | '는' {
+export function topicParticle(name: string): '은' | '는' {
   const code = name.charCodeAt(name.length - 1);
   const syllable = code >= 0xac00 && code <= 0xd7a3;
   return syllable && (code - 0xac00) % 28 !== 0 ? '은' : '는';

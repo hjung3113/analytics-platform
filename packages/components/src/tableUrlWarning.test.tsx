@@ -25,6 +25,12 @@ function Probe() {
   </div>;
 }
 
+function FilterProbe({ withFilters }: { withFilters: boolean }) {
+  const warning = useTableUrlWarning(['name']);
+  const slot = <button type="button">필터 · 1</button>;
+  return withFilters ? <TableUrlWarning filters={slot} sentences={warning.sentences} /> : <>{slot}<TableUrlWarning sentences={warning.sentences} /></>;
+}
+
 function mount(search: string) {
   window.history.replaceState(null, '', `/list${search}`);
   return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Probe /></PlatformProvider></I18nProvider>);
@@ -52,6 +58,18 @@ describe('useTableUrlWarning + TableUrlWarning (06 §15, ADR-0034)', () => {
     expect(alert.textContent).toContain('정렬·페이지 값이 올바르지 않습니다');
     expect([...alert.querySelectorAll('p')].map(p => p.textContent)).toEqual(sentences);
     expect(alert.textContent).not.toMatch(/sort=|page=/);
+  });
+
+  it.each([true, false])('filters slot (%s): renders before the alert inside one wrapper only when given', withFilters => {
+    window.history.replaceState(null, '', '/list?v=1&sort=nope');
+    const { container } = render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><FilterProbe withFilters={withFilters} /></PlatformProvider></I18nProvider>);
+    const slot = screen.getByRole('button', { name: '필터 · 1' });
+    const alert = screen.getByRole('alert');
+    expect(slot.compareDocumentPosition(alert) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const wrapper = slot.parentElement!;
+    expect(wrapper.classList.contains('gap-3')).toBe(withFilters);
+    expect(alert.parentElement).toBe(wrapper);
+    expect(wrapper === container).toBe(!withFilters);
   });
 
   it('Reset writes one navigation that removes sort and page and keeps other keys', () => {

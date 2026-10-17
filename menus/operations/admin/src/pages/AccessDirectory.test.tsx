@@ -140,16 +140,47 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
   });
 
   it.each([
-    ['malformed role', `/admin/roles?${new URLSearchParams({ role: 'a b' })}`],
-    ['malformed permission', `/admin/roles?${new URLSearchParams({ permission: 'console:write' })}`],
-    ['malformed sort', `/admin/roles?${new URLSearchParams({ sort: 'name:up' })}`],
-    ['malformed page', '/admin/roles?page=0'],
-    ['malformed focus', `/admin/roles?${new URLSearchParams({ focus: 'a b' })}`],
-  ])('alerts on %s without calling the adapter, keeping the form mounted', async (_name, path) => {
+    ['malformed role', `/admin/roles?${new URLSearchParams({ role: 'a b' })}`, '역할 “a b”은'],
+    ['malformed permission', `/admin/roles?${new URLSearchParams({ permission: 'console:write' })}`, '권한 “console:write”은'],
+    ['malformed sort', `/admin/roles?${new URLSearchParams({ sort: 'name:up' })}`, '정렬 “name:up”은'],
+    ['malformed page', '/admin/roles?page=0', '페이지 “0”는'],
+    ['malformed focus', `/admin/roles?${new URLSearchParams({ focus: 'a b' })}`, '상세 대상 “a b”은'],
+  ])('alerts on %s without calling the adapter, keeping the form mounted', async (_name, path, sentence) => {
     const f = renderRoles(path);
-    expect(screen.getByRole('alert').textContent).toMatch(/Invalid filter value|필터 값이 잘못되었습니다/);
+    expect(screen.getByRole('alert').textContent).toContain(sentence);
     expect(f.calls).toHaveLength(0);
     expect(screen.queryByRole('table')).toBeNull();
+  });
+
+  it('sort/page only: the shared table warning resets sort and page, keeps the applied filters, and focus leaves BODY', () => {
+    renderRoles(`/admin/roles?${new URLSearchParams({ role: 'engineer', permission: 'console:access', sort: 'bogus', page: '2' })}`);
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('정렬 “bogus”');
+    expect(within(alert).queryByRole('button', { name: '필터 초기화' })).toBeNull();
+    fireEvent.click(within(alert).getByRole('button', { name: '초기화' }));
+    expect(url().get('role')).toBe('engineer');
+    expect(url().get('permission')).toBe('console:access');
+    expect(url().has('sort')).toBe(false);
+    expect(url().has('page')).toBe(false);
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it('filter key: the alert names the field and raw value, its 필터 초기화 clears every key and focus leaves BODY', () => {
+    renderRoles(`/admin/roles?${new URLSearchParams({ permission: 'console:write', role: 'engineer' })}`);
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('권한 “console:write”');
+    fireEvent.click(within(alert).getByRole('button', { name: '필터 초기화' }));
+    expect(url().has('permission')).toBe(false);
+    expect(url().has('role')).toBe(false);
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it('a filter key problem wins over a bad sort: the filter alert shows, not the table warning', () => {
+    renderRoles(`/admin/roles?${new URLSearchParams({ permission: 'console:write', sort: 'bogus' })}`);
+    const alert = screen.getByRole('alert');
+    expect(within(alert).getByRole('button', { name: '필터 초기화' })).toBeTruthy();
+    expect(within(alert).queryByRole('button', { name: '초기화' })).toBeNull();
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
   });
 
   it('keeps a malformed URL role editable and uncoerced, and applies the typed draft', async () => {

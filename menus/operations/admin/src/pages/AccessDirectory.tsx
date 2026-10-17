@@ -1,10 +1,16 @@
 import { useMemo, useState } from 'react';
 import { PERMISSIONS, type AccessPrincipal, type AccessSortField } from '@ap/contracts';
-import { useI18n, usePlatform } from '@ap/kernel';
-import { DetailDrawer, FilterApplyButton, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, encodeTableSort, useFilterDraft } from '@ap/components';
+import { invalidValueSentence, useI18n, usePlatform, type Text } from '@ap/kernel';
+import { DetailDrawer, FilterApplyButton, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, encodeTableSort, focusPageFallback, useFilterDraft, useTableUrlWarning } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { grantTotals, menusForPermissions } from '../access-rows';
-import { ACCESS_PAGE_KEYS, parseAccessKeys } from '../access-query';
+import { ACCESS_PAGE_KEYS, SORT_FIELDS, badAccessFilterKeys, parseAccessKeys } from '../access-query';
+
+const KEY_LABEL = {
+  role: { ko: '역할', en: 'Role' },
+  permission: { ko: '권한', en: 'Permission' },
+  focus: { ko: '상세 대상', en: 'Detail target' },
+} as const satisfies Record<'role' | 'permission' | 'focus', Text>;
 
 const mono = (value: unknown) => <span className="t-mono">{String(value)}</span>;
 
@@ -29,6 +35,9 @@ export default function AccessDirectory() {
   const validTab = ['permissions', 'sites'].includes(drawerTab);
   // §6.1 page keys: an invalid wire value alerts instead of substituting, and no adapter call is made.
   const parsed = parseAccessKeys(raw);
+  // A bad filter key keeps the screen's own alert (its reset clears every key); only a bad sort/page is the shared table warning, which keeps applied filters.
+  const badFilterKeys = badAccessFilterKeys(raw);
+  const tableWarning = useTableUrlWarning(SORT_FIELDS);
   // Adapter filter JSON (role + permission only): a focus change must not refetch the table.
   const filterKey = JSON.stringify(parsed.ok ? parsed.filters : null);
   // Draft + apply (ADR-0037): both fields are drafts held above ManagementLayout; apply is one setPage that also returns to page 1.
@@ -40,8 +49,9 @@ export default function AccessDirectory() {
     setPage(Object.fromEntries(ACCESS_PAGE_KEYS.map(k => [k, null])));
   };
   // Recovery from an invalid URL always offers the reset; the filter footer and the empty state only when a filter is applied.
-  const recover = <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{t('clearFilters')}</Button>;
-  const clear = activeFilterCount > 0 ? recover : null;
+  const clear = activeFilterCount > 0 ? <Button type="button" size="sm" variant="secondary" onClick={clearFilters}>{t('clearFilters')}</Button> : null;
+  // The alert's button disappears with the alert, so focus goes to main first (06 §26); the footer button keeps the filter bar's own rule.
+  const recover = <Button type="button" size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); clearFilters(); }}>{t('clearFilters')}</Button>;
   const filters = <PageFilterBar orientation="column" label={ko ? '필터' : 'Filters'} onApply={applyDraft} fields={[
       { kind: 'select', key: 'permission', label: ko ? '권한' : 'Permission', value: draft.values.permission, emptyOptionLabel: ko ? '전체' : 'All', options: PERMISSIONS.map(value => ({ value, label: value })), onValueChange: value => draft.set('permission', value) },
       { kind: 'text', key: 'role', label: ko ? '역할 정확 일치' : 'Exact role', value: draft.values.role, onValueChange: value => draft.set('role', value) },
@@ -128,7 +138,15 @@ export default function AccessDirectory() {
     : 'Read-only view. Grants and revocations are not made here.'}>
     <ManagementLayout filter={filters} activeFilterCount={activeFilterCount} pendingFilterCount={draft.changedCount} drawer={drawer}
       table={filterSlot => <>
-    {!parsed.ok && <p role="alert">{filterSlot}{ko ? '필터 값이 잘못되었습니다.' : 'Invalid filter value.'} {recover}</p>}
+    {!parsed.ok && (badFilterKeys.length > 0
+      ? <div className="flex flex-col gap-3">
+          {filterSlot}
+          <div role="alert">
+            {badFilterKeys.map(key => <p key={key}>{invalidValueSentence(lang, 'value', KEY_LABEL[key], raw[key] ?? '')}</p>)}
+            <div className="mt-2">{recover}</div>
+          </div>
+        </div>
+      : <TableUrlWarning filters={filterSlot} sentences={tableWarning.sentences} />)}
     {parsed.ok && <PlatformDataTable<AccessPrincipal>
         title={ko ? '권한/역할' : 'Roles & access'}
         ariaLabel={ko ? '권한/역할 목록' : 'Roles and access list'}

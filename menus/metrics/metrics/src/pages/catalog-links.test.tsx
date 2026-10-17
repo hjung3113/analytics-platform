@@ -15,6 +15,8 @@ const row: CatalogRow = {
 };
 
 vi.mock('@ap/kernel', () => ({
+  CONTEXT_LABELS: { time: { ko: '기간' }, lot: { ko: 'Lot' }, roomNames: { ko: 'room_name' }, condition: { ko: '그룹 조건' }, selection: { ko: '설비 선택' } },
+  topicParticle: () => '은',
   PlatformLink: ({ href, children }: { href: string; children: ReactNode }) => <a href={href}>{children}</a>,
   useI18n: () => ({ lang: 'ko', tx: (text: { ko: string }) => text.ko, t: (key: string) => key }),
   usePlatform: () => ({

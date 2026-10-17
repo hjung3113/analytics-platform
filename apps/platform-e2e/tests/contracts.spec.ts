@@ -642,6 +642,13 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
     await evidence(page, testInfo, 'contract-error');
   });
 
+  test('주소 오류 화면의 조건 초기화는 눌린 뒤 포커스를 main으로 보낸다', async ({ page }) => {
+    await page.goto('/equipment?v=2&scopeId=ICH');
+    await page.getByRole('button', { name: '조건 초기화' }).click();
+    await expect(page.getByRole('button', { name: '조건 초기화' })).toHaveCount(0);
+    expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('MAIN');
+  });
+
   test('표 정렬·페이지·드로어 탭을 등록된 page key로 복원하고 새로고침에도 유지한다', async ({ page }, testInfo) => {
     // Fixture: ICH equipment list fills page 1 (25/row) and overflows to page 2.
     await page.goto('/equipment?v=1&scopeId=ICH');
@@ -1757,7 +1764,7 @@ test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-
 
     await page.goto('/admin/roles?v=1&permission=bogus');
     const main = page.getByRole('main');
-    await expect(main.getByRole('alert')).toContainText('필터 값이 잘못되었습니다.');
+    await expect(main.getByRole('alert')).toContainText('권한 “bogus”');
     await expect(main.getByRole('table')).toHaveCount(0);
     await evidence(page, testInfo, 'roles-invalid-permission-filter');
   });

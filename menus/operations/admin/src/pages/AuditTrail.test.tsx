@@ -452,7 +452,29 @@ describe('AuditTrail draft + apply (ADR-0037)', () => {
 
   it('keeps the reset in the invalid-URL alert even when no filter key is applied', () => {
     renderAudit('/admin/audit?sort=bogus');
-    expect(within(screen.getByRole('alert')).getByRole('button', { name: /Clear filters|필터 초기화/ })).toBeTruthy();
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('정렬 “bogus”');
+    expect(within(alert).getByRole('button', { name: /^(Reset|초기화)$/ })).toBeTruthy();
+    expect(within(alert).queryByRole('button', { name: /Clear filters|필터 초기화/ })).toBeNull();
+  });
+
+  it('sort only: 초기화 keeps the applied filters and drops sort', () => {
+    renderAudit('/admin/audit?type=equipment&actor=lee.s&sort=nope');
+    fireEvent.click(within(screen.getByRole('alert')).getByRole('button', { name: '초기화' }));
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get('type')).toBe('equipment');
+    expect(params.get('actor')).toBe('lee.s');
+    expect(params.has('sort')).toBe(false);
+  });
+
+  it('a filter key error wins over a bad sort, and its 필터 초기화 leaves focus off BODY', () => {
+    renderAudit('/admin/audit?type=bogus&sort=nope');
+    const alert = screen.getByRole('alert');
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(within(alert).queryByRole('button', { name: '초기화' })).toBeNull();
+    fireEvent.click(within(alert).getByRole('button', { name: '필터 초기화' }));
+    expect(window.location.search).not.toMatch(/type=|sort=/);
+    expect(document.activeElement).not.toBe(document.body);
   });
 
   describe('draft reconciliation with the URL', () => {

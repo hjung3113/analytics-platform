@@ -13,7 +13,7 @@ import { parsePageIndex, parseTableSort } from '@ap/components';
 export const ACCESS_PAGE_KEYS = ['role', 'permission', 'sort', 'page', 'focus', 'tab'] as const;
 
 /** Sortable columns only — the server sorts, the client never re-sorts a page. */
-const SORT_FIELDS = ['name', 'role', 'permissionCount', 'grantCount'] satisfies readonly AccessSortField[];
+export const SORT_FIELDS = ['name', 'role', 'permissionCount', 'grantCount'] satisfies readonly AccessSortField[];
 
 
 export type AccessFilters = {
@@ -28,6 +28,15 @@ export type ParsedAccessKeys =
 /** True when the operator text is not a plain token: empty, over 80 chars, or URL/whitespace-bearing. */
 const invalidText = (value: string): boolean => !value || value.length > 80 || /[?#&\s]/.test(value);
 
+/** The filter keys (not sort/page) whose wire value is unusable, in role → permission → focus order. */
+export function badAccessFilterKeys(raw: { role: string | null; permission: string | null; focus: string | null }): ('role' | 'permission' | 'focus')[] {
+  const bad: ('role' | 'permission' | 'focus')[] = [];
+  if (raw.role !== null && invalidText(raw.role)) bad.push('role');
+  if (raw.permission !== null && !(PERMISSIONS as readonly string[]).includes(raw.permission)) bad.push('permission');
+  if (raw.focus !== null && invalidText(raw.focus)) bad.push('focus');
+  return bad;
+}
+
 /** The screen's URL keys, validated without coercion. Anything the server would reject with
  *  `Invalid access filter` is already invalid here, so a bad value never reaches the adapter. */
 export function parseAccessKeys(raw: {
@@ -36,11 +45,9 @@ export function parseAccessKeys(raw: {
   const parsedSort = parseTableSort(raw.sort, SORT_FIELDS);
   const parsedPage = parsePageIndex(raw.page);
   if (!parsedSort.ok || !parsedPage.ok) return { ok: false };
-  if (raw.role !== null && invalidText(raw.role)) return { ok: false };
-  if (raw.permission !== null && !(PERMISSIONS as readonly string[]).includes(raw.permission)) return { ok: false };
   // `focus` selects the drawer row; it is never sent to accessDirectory. Same token grammar as `role`,
   // so a malformed focus fails the page parse (adapter not called) while an unknown one is the drawer alert.
-  if (raw.focus !== null && invalidText(raw.focus)) return { ok: false };
+  if (badAccessFilterKeys(raw).length > 0) return { ok: false };
   return {
     ok: true,
     filters: { role: raw.role, permission: raw.permission as Permission | null },
