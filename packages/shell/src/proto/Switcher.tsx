@@ -1,6 +1,6 @@
 // THROWAWAY #423 — never merge.
 import { Check, ChevronDown, ChevronRight, CornerDownLeft, House, LayoutGrid, Search } from 'lucide-react';
-import { useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ComponentType, type ReactNode, type RefObject } from 'react';
 import type { SpaceId } from '@ap/contracts';
 import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { cn, Dialog, DialogContent, DialogTitle, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipTrigger, usePrototype } from '@ap/ui';
@@ -63,11 +63,12 @@ export function SwitcherButton() {
   const [open, setOpen] = useState(false);
   const selected = useRef(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const Cur = currentSpace ? registry.groupById(registry.menuById(currentSpace.homeMenuId).group).icon as Icon : LayoutGrid;
   const label = currentSpace ? `업무 시스템 전환 · 현재: ${tx(currentSpace.label)}` : '업무 시스템 전환';
   const rows = useRows();
   const go = useGo(() => setOpen(false), selected);
-  const button = <button type="button" aria-label={label} aria-haspopup="dialog" aria-expanded={variant === 'C' ? paletteOpen : open}
+  const button = <button ref={triggerRef} type="button" aria-label={label} aria-haspopup="dialog" aria-expanded={variant === 'C' ? paletteOpen : open}
     onClick={variant === 'C' ? () => setPaletteOpen(true) : undefined}
     className="relative grid size-8 place-items-center rounded-md bg-accent-primary-soft text-accent-primary hover:bg-surface-row-hover">
     <Cur className="size-4" aria-hidden /><ChevronDown className="absolute bottom-0.5 right-0.5 size-2.5" aria-hidden />
@@ -76,7 +77,7 @@ export function SwitcherButton() {
   const focusIn = (e: Event, sel: string) => { e.preventDefault(); contentRef.current?.querySelector<HTMLElement>(sel)?.focus(); };
   const onOpen = (v: boolean) => { if (v) selected.current = false; setOpen(v); };
 
-  if (variant === 'C') return <>{wrap(<Tooltip><TooltipTrigger asChild>{button}</TooltipTrigger><TooltipContent side="right">{label}</TooltipContent></Tooltip>)}<SearchDialog rows={rows} /></>;
+  if (variant === 'C') return <>{wrap(<Tooltip><TooltipTrigger asChild>{button}</TooltipTrigger><TooltipContent side="right">{label}</TooltipContent></Tooltip>)}<SearchDialog rows={rows} returnRef={triggerRef} /></>;
 
   if (variant === 'A') {
     const main = rows.filter(r => r.section === 'main' && r.key !== 'home');
@@ -101,11 +102,11 @@ export function SwitcherButton() {
   }
 
   return wrap(<Dialog open={open} onOpenChange={onOpen}>
-    <Tooltip><TooltipTrigger asChild><button type="button" aria-label={label} aria-haspopup="dialog" aria-expanded={open} onClick={() => onOpen(true)}
+    <Tooltip><TooltipTrigger asChild><button ref={triggerRef} type="button" aria-label={label} aria-haspopup="dialog" aria-expanded={open} onClick={() => onOpen(true)}
       className="relative grid size-8 place-items-center rounded-md bg-accent-primary-soft text-accent-primary hover:bg-surface-row-hover"><Cur className="size-4" aria-hidden /><ChevronDown className="absolute bottom-0.5 right-0.5 size-2.5" aria-hidden /></button></TooltipTrigger><TooltipContent side="right">{label}</TooltipContent></Tooltip>
     <DialogContent ref={contentRef} closeLabel="닫기" aria-describedby={undefined}
       className="left-(--rail-width) top-0 h-full w-[280px] max-w-none translate-x-0 translate-y-0 content-start gap-0 overflow-y-auto p-0 data-[state=open]:translate-x-0"
-      onOpenAutoFocus={e => focusIn(e, '[data-first]')} onCloseAutoFocus={e => { if (selected.current) e.preventDefault(); }}>
+      onOpenAutoFocus={e => focusIn(e, '[data-first]')} onCloseAutoFocus={e => { e.preventDefault(); if (!selected.current) triggerRef.current?.focus(); }}>
       <DialogTitle className="sr-only">업무 시스템 전환</DialogTitle>
       <p aria-hidden className="border-b border-border-subtle px-4 py-3.5 text-sm font-semibold">업무 시스템 전환</p>
       <PanelB rows={rows} go={go} />
@@ -135,7 +136,8 @@ function PanelB({ rows, go }: { rows: Row[]; go: (href: string) => void }) {
   return <ul className="p-2">{rows.map(r => {
     const Ic = r.icon;
     if (r.key === 'home') return <li key={r.key}><button type="button" data-first disabled={!r.href} onClick={() => r.href && go(r.href)} className={item}><Ic className="size-4" aria-hidden />{r.title}</button></li>;
-    if (r.inert) return <li key={r.key}>{r.key === 'feedbackops' || r.section === 'planned' ? null : null}<button type="button" onClick={() => undefined} className={cn(item, 'text-text-muted')}><Ic className="size-4" aria-hidden /><span className="flex-1">{r.title}</span><span className="text-caption">{r.sub}</span></button></li>;
+    if (r.section === 'planned') return null;
+    if (r.inert) return <li key={r.key}><button type="button" onClick={() => undefined} className={cn(item, 'text-text-muted')}><Ic className="size-4" aria-hidden /><span className="flex-1">{r.title}</span><span className="text-caption">{r.sub}</span></button></li>;
     const open = expanded.has(r.key);
     const secs = r.spaceId ? sectionsOf(r.spaceId) : [];
     return <li key={r.key}>
@@ -154,7 +156,7 @@ function PanelB({ rows, go }: { rows: Row[]; go: (href: string) => void }) {
 }
 
 /** C: one dialog for switching systems and searching every menu of every accessible space. */
-export function SearchDialog({ rows }: { rows: Row[] }) {
+export function SearchDialog({ rows, returnRef }: { rows: Row[]; returnRef: RefObject<HTMLElement | null> }) {
   const { paletteOpen, setPaletteOpen, accessibleSpaces, menusInSpace, registry, linkTo } = usePlatform();
   const { tx } = useI18n();
   const [q, setQ] = useState('');
@@ -176,7 +178,7 @@ export function SearchDialog({ rows }: { rows: Row[] }) {
   const pick = (i: number) => { const it = items[i]; if (it?.href && !it.inert) go(it.href); };
   return <Dialog open={paletteOpen} onOpenChange={v => { if (v) { selected.current = false; setQ(''); setActive(0); } setPaletteOpen(v); }}>
     <DialogContent closeLabel="닫기" aria-describedby={undefined} className="top-[12vh] w-[min(560px,92vw)] max-w-none translate-y-0 gap-0 overflow-hidden p-0"
-      onOpenAutoFocus={e => { e.preventDefault(); inputRef.current?.focus(); }} onCloseAutoFocus={e => { if (selected.current) e.preventDefault(); }}>
+      onOpenAutoFocus={e => { e.preventDefault(); inputRef.current?.focus(); }} onCloseAutoFocus={e => { e.preventDefault(); if (!selected.current) returnRef.current?.focus(); }}>
       <DialogTitle className="sr-only">업무 시스템 전환 · 검색</DialogTitle>
       <div className="flex items-center gap-2 border-b border-border-subtle px-4 pr-12 focus-within:ring-2 focus-within:ring-inset focus-within:ring-focus-ring">
         <Search className="size-4 text-text-muted" aria-hidden />
