@@ -4,7 +4,7 @@
  * (submodule commit 6a0c7f8); direction B builds/validates platform inbound URLs (06 §6/§22).
  * Reuses the global-Context codec in ./url; adds no React, env, registry or cross-package imports.
  */
-import { buildQuery, ContractError, isAppRelativePath, normalizeSet, parseDateTime, parseQuery, type GlobalContext, type Pair } from './url';
+import { buildQuery, ContractError, isAppRelativePath, normalizeSet, parseDateTime, parseQuery, type GlobalContext, type Pair } from './url.js';
 
 const fail = (code: string, message: string): never => { throw new ContractError(code, message); };
 

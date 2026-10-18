@@ -10,8 +10,8 @@
  * over into March. Reuses the global-Context codec's error type; adds no React, env, registry or
  * cross-package imports.
  */
-import { ContractError } from './url';
-import type { Text } from './i18n';
+import { ContractError } from './url.js';
+import type { Text } from './i18n.js';
 
 const fail = (code: string, message: string): never => { throw new ContractError(code, message); };
 

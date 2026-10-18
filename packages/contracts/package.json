@@ -6,9 +6,20 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
+  "files": ["dist"],
   "scripts": {
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "check:pack": "node scripts/check-pack.mjs"
   },
   "devDependencies": {
     "@ap/eslint-config": "workspace:*",

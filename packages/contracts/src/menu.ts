@@ -1,4 +1,4 @@
-import type { Text } from './i18n';
+import type { Text } from './i18n.js';
 
 /**
  * Menu manifest metadata (docs/06 §5): menus declare, the shell consumes. Field names are Candidates.

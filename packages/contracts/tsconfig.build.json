@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  // Dist build for packing (#430): ESM .js + .d.ts from the same sources. Workspace consumers keep
+  // importing src (dev exports); only the packed tarball points here (publishConfig.exports, platform-packages.md §3).
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    // base.json allows .ts specifiers for the noEmit workspace check; emitting forbids them (TS5096).
+    // Relative imports carry explicit .js so the output resolves under Node ESM, NodeNext and Bundler.
+    "allowImportingTsExtensions": false
+  },
+  "include": ["src"]
+}

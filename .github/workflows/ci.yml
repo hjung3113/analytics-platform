@@ -136,6 +136,8 @@ jobs:
       # #166: vitest workers × parallel packages oversubscribe the runner → cap turbo concurrency
       - run: pnpm test --concurrency=2
       - run: pnpm build
+      # #430: verify the packed contracts package in an external consumer.
+      - run: pnpm --filter @ap/contracts check:pack
       # #153 (ADR-0009): the production module graph (assembly external) carries no mock-server, menu mock or src/dev
       - run: pnpm --filter @ap/platform-web check:prod-graph
       # The checks must still bite (#153 review P3-1): the assembly forced to the mock must fail both the CI graph
