@@ -33,7 +33,7 @@
 | [0025](0025-drilldown-level-page-keys-path-bar-layout.md) | 드릴다운은 단계마다 page key, Context가 바뀌면 지우고, 경로 바 + 단계마다 본문 교체 | Decided(2026-10-08) |
 | [0026](0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md) | 공간은 업무 시스템 단위, FeedbackOps는 시스템별 협업 진입 + 권한자용 전체 허브 | Decided(2026-10-08) — 진입 형태는 0027, 메뉴 귀속 Candidate, 매핑 Open |
 | [0027](0027-feedbackops-stays-standalone-entry-links.md) | FeedbackOps 화면은 옮기지 않고, 업무 공간에는 그 시스템으로 좁힌 진입 링크만 둔다 | Decided(2026-10-09) — 0018 대체, 진입 위치는 #250 시안 |
-| [0028](0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md) | 멀티 워크스페이스 셸: 카드 런처 홈, 사이드바 바닥 고정 FeedbackOps 진입, 홈·공지·내 VOC는 공간 밖 전역 유틸리티 | Decided(2026-10-09) — 구현 #250 |
+| [0028](0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md) | 멀티 워크스페이스 셸: 카드 런처 홈, 사이드바 바닥 고정 FeedbackOps 진입, 홈·공지·내 VOC는 공간 밖 전역 유틸리티 | Decided(2026-10-09) — 구현 #250. 레일·로고 부분은 0042가 대체(2026-10-18, 구현 전) |
 | [0029](0029-page-filter-bar-collapse-summary.md) | 페이지 필터 접기는 값 요약 버튼으로 하고 조건을 생략하지 않음(A+C 혼합) | Decided(2026-10-10) |
 | [0030](0030-location-adapter-base-path.md) | 하위 경로 배포는 위치 어댑터를 주입하고 앱 내부 URL 계약을 유지한다 | Decided(2026-10-13) |
 | [0031](0031-menu-folders-by-space.md) | 메뉴 폴더는 시스템(공간) 아래 그룹으로 나누고 전역 그룹은 `_global`에 둔다 | Decided(2026-10-14) |
@@ -47,6 +47,7 @@
 | [0039](0039-equipment-visualization-platform-first-host-contract.md) | equipment-visualization은 플랫폼 탑재가 기본이고, 플랫폼이 `@ap/contracts`로 호스트 → 모듈 계약을 낸다 | Proposed(2026-10-17, 선행 조사) — 방향은 사용자 코멘트(#332·#396) |
 | [0040](0040-public-test-adapter-entry.md) | 어댑터·세션·공간 테스트 fixture는 `@ap/kernel/testing` 한 곳에서 공개하고 테스트 파일에서만 import한다 | Decided(2026-10-16) — #265의 패키지 내부 fixture를 바꿈 |
 | [0041](0041-annotation-author-delete-audit.md) | 차트 주석은 작성자만 지울 수 있고, 삭제는 감사 기록에 남긴다 | Decided(2026-10-17) — #399 |
+| [0042](0042-system-switcher-and-system-owned-rail.md) | 업무 시스템은 레일 맨 위 전환기 하나로 바꾸고, 레일은 현재 시스템의 섹션으로 쓴다 | Decided(2026-10-18, 방향) — 0028 부분 대체, 화면 사양은 `?variant=` 시안 뒤, FeedbackOps 셸 안 열기는 0038 따름 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
