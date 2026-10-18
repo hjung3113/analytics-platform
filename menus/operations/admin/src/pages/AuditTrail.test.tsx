@@ -149,8 +149,8 @@ describe('AuditTrail text filters (issue #50 review)', () => {
 
   it('names a calendar-invalid deeplink and queries after that field is corrected', async () => {
     const f = renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: '2026-02-30T00:00:00.000Z', toAt: TO })}`);
-    expect(screen.getByRole('alert').textContent).toMatch(/필터 값이 잘못되었습니다/);
-    expect(screen.getByRole('alert').textContent).toMatch(/시각 이후/);
+    expect(screen.getByRole('alert').textContent).toContain('시각 이후 “2026-02-30T00:00:00.000Z”');
+    expect(screen.getByRole('alert').textContent).not.toContain('필터 값이 잘못되었습니다.');
     expect((fromInput() as HTMLInputElement).value).toBe('2026-02-30T00:00:00.000Z');
     expect((toInput() as HTMLInputElement).value).toBe('2026-09-26 12:00:00');
     expect(f.calls).toHaveLength(0);
@@ -164,10 +164,14 @@ describe('AuditTrail text filters (issue #50 review)', () => {
 
   it('tells a nonexistent date deeplink from an unreadable format, ko and en', () => {
     renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: '2026-02-30T00:00:00Z' })}`);
-    expect(screen.getByRole('alert').textContent).toContain('시각 이후에 없는 날짜가 있습니다. 날짜를 고치거나 필터를 초기화하세요.');
+    expect(screen.getByRole('alert').textContent).toContain('시각 이후 “2026-02-30T00:00:00Z”');
+    expect(screen.getByRole('alert').textContent).toContain('달력에 없는 날짜입니다.');
+    expect(screen.getByRole('alert').textContent).not.toContain('필터 값이 잘못되었습니다.');
     cleanup();
     renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: '2026-02-30T00:00:00' })}`);
-    expect(screen.getByRole('alert').textContent).toContain('시각 이후 값의 형식을 읽을 수 없습니다.');
+    expect(screen.getByRole('alert').textContent).toContain('시각 이후 “2026-02-30T00:00:00”');
+    expect(screen.getByRole('alert').textContent).toContain('날짜·시각 형식을 읽을 수 없습니다.');
+    expect(screen.getByRole('alert').textContent).not.toContain('필터 값이 잘못되었습니다.');
     cleanup();
     const store = new Map<string, string>([['platform:lang', 'en']]);
     vi.stubGlobal('localStorage', {
@@ -179,15 +183,35 @@ describe('AuditTrail text filters (issue #50 review)', () => {
       get length() { return store.size; },
     });
     renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: '2026-02-30T00:00:00Z' })}`);
-    expect(screen.getByRole('alert').textContent).toContain('The At or after value is a date that does not exist.');
+    expect(screen.getByRole('alert').textContent).toContain('At or after “2026-02-30T00:00:00Z”');
+    expect(screen.getByRole('alert').textContent).toContain('The date does not exist on the calendar.');
+    expect(screen.getByRole('alert').textContent).not.toContain('Invalid filter value.');
     cleanup();
     renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: '2026-02-30T00:00:00' })}`);
-    expect(screen.getByRole('alert').textContent).toContain('The At or after value is not in a readable format.');
+    expect(screen.getByRole('alert').textContent).toContain('At or after “2026-02-30T00:00:00”');
+    expect(screen.getByRole('alert').textContent).toContain('The date and time format cannot be read.');
+    expect(screen.getByRole('alert').textContent).not.toContain('Invalid filter value.');
+  });
+
+  it('a single bad key outside the time fields quotes the field and raw value and adds no cause line', () => {
+    renderAudit('/admin/audit?type=bogus');
+    const alert = screen.getByRole('alert');
+    expect([...alert.querySelectorAll('p')].map(p => p.textContent)).toEqual(['대상 유형 “bogus”은 이 화면에서 쓸 수 없는 값입니다. 조건을 초기화하세요.']);
+    expect(alert.textContent).toContain('필터 값이 올바르지 않습니다');
+    expect(alert.textContent).not.toContain('필터 값이 잘못되었습니다.');
+  });
+
+  it('a target id without a type keeps its cause sentence under the filter title', () => {
+    renderAudit('/admin/audit?targetId=EQ-1');
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('대상 ID는 대상 유형과 함께 있어야 합니다.');
+    expect(alert.textContent).not.toContain('필터 값이 잘못되었습니다.');
   });
 
   it('keeps a reversed deeplink editable until the end is later than the start', async () => {
     const f = renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: TO, toAt: FROM })}`);
     expect(screen.getByRole('alert').textContent).toMatch(/시각 미만은 시각 이후보다 뒤여야/);
+    expect(screen.getByRole('alert').textContent).not.toContain('필터 값이 잘못되었습니다.');
     expect((fromInput() as HTMLInputElement).value).toBe('2026-09-26 12:00:00');
     expect((toInput() as HTMLInputElement).value).toBe('2026-09-26 11:00:00');
     expect(f.calls).toHaveLength(0);

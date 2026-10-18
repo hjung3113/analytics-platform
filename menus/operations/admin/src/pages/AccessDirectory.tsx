@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { PERMISSIONS, type AccessPrincipal, type AccessSortField } from '@ap/contracts';
 import { invalidValueSentence, useI18n, usePlatform, type Text } from '@ap/kernel';
 import { PanelRight } from 'lucide-react';
-import { DetailDrawer, RowAction, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, encodeTableSort, focusPageFallback, useManagementFilters, useTableUrlWarning } from '@ap/components';
+import { DetailDrawer, RowAction, ManagementLayout, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, FilterUrlWarning, TableUrlWarning, encodeTableSort, useManagementFilters, useTableUrlWarning } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { grantTotals, menusForPermissions } from '../access-rows';
 import { ACCESS_PAGE_KEYS, SORT_FIELDS, badAccessFilterKeys, parseAccessKeys } from '../access-query';
@@ -23,7 +23,7 @@ const mono = (value: unknown) => <span className="t-mono">{String(value)}</span>
  * nothing: room/individual grants are meta-DB owned but the role-membership source stays open (issue #98). Not mart data, so there is no trust indicator.
  */
 export default function AccessDirectory() {
-  const { t, lang } = useI18n();
+  const { lang } = useI18n();
   const ko = lang === 'ko';
   const { adapter, registry, pageParam, setPage } = usePlatform();
   const raw = {
@@ -42,10 +42,8 @@ export default function AccessDirectory() {
   // Adapter filter JSON (role + permission only): a focus change must not refetch the table.
   const filterKey = JSON.stringify(parsed.ok ? parsed.filters : null);
   // Draft + apply (ADR-0037): both fields are drafts held above ManagementLayout; apply is one setPage that also returns to page 1.
-  const { draft, clear: clearFilters, clearButton, barProps, layoutProps } = useManagementFilters({ applied: { permission: raw.permission ?? '', role: raw.role ?? '' }, clearKeys: ACCESS_PAGE_KEYS });
-  // Recovery from an invalid URL always offers the reset; the filter footer and the empty state only when a filter is applied.
-  // The alert's button disappears with the alert, so focus goes to main first (06 §26); the footer button keeps the filter bar's own rule.
-  const recover = <Button type="button" size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); clearFilters(); }}>{t('clearFilters')}</Button>;
+  const { draft, clearButton, recoverButton, barProps, layoutProps } = useManagementFilters({ applied: { permission: raw.permission ?? '', role: raw.role ?? '' }, clearKeys: ACCESS_PAGE_KEYS });
+  // Recovery from an invalid URL always offers the reset (`recoverButton`, focus to main first — 06 §26); the filter footer and the empty state only when a filter is applied.
   const filters = <PageFilterBar orientation="column" label={ko ? '필터' : 'Filters'} fields={[
       { kind: 'select', key: 'permission', label: ko ? '권한' : 'Permission', value: draft.values.permission, emptyOptionLabel: ko ? '전체' : 'All', options: PERMISSIONS.map(value => ({ value, label: value })), onValueChange: value => draft.set('permission', value) },
       { kind: 'text', key: 'role', label: ko ? '역할 정확 일치' : 'Exact role', value: draft.values.role, onValueChange: value => draft.set('role', value) },
@@ -133,13 +131,7 @@ export default function AccessDirectory() {
     <ManagementLayout filter={filters} {...layoutProps} drawer={drawer}
       table={filterSlot => <>
     {!parsed.ok && (badFilterKeys.length > 0
-      ? <div className="flex flex-col gap-3">
-          {filterSlot}
-          <div role="alert">
-            {badFilterKeys.map(key => <p key={key}>{invalidValueSentence(lang, 'value', KEY_LABEL[key], raw[key] ?? '')}</p>)}
-            <div className="mt-2">{recover}</div>
-          </div>
-        </div>
+      ? <FilterUrlWarning filters={filterSlot} sentences={badFilterKeys.map(key => invalidValueSentence(lang, 'value', KEY_LABEL[key], raw[key] ?? ''))} recover={recoverButton} />
       : <TableUrlWarning filters={filterSlot} sentences={tableWarning.sentences} />)}
     {parsed.ok && <PlatformDataTable<AccessPrincipal>
         title={ko ? '권한/역할' : 'Roles & access'}

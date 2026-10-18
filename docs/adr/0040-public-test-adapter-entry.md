@@ -24,3 +24,10 @@
 - 세 벌의 본문을 `packages/kernel/src/testing.ts` 한 벌로 합쳤다. kernel 테스트는 상대 경로 `./testing`, components·shell·메뉴·앱 테스트는 `@ap/kernel/testing`을 쓴다. 기본 세션 동일성 테스트는 kernel에 하나만 남는다.
 - 경계 lint 규칙과 회귀 행은 `tooling/eslint/src/index.js`·`boundaries.test.ts`에 있다.
 - `packages/AGENTS.md`(공개 진입점 규칙의 예외)와 `packages/contracts/AGENTS.md`(포트 메서드 추가 시 고칠 fixture)를 같은 변경에서 고쳤다. 포트 변경 시 `testAdapter`, `packages/mock-server/src/adapter.ts`, `referenceAdapter`, `packages/kernel/src/adapter.test.tsx`의 `class ServerAdapter`만 고치면 된다.
+
+## 확장 (2026-10-18, #413)
+
+- 결정자: 코디네이터 — 2026-10-18, [#413](https://github.com/hjung3113/analytics-platform/issues/413). 되돌릴 수 있다.
+- 메뉴 패키지 네 곳이 같은 표 기하 stub(jsdom에 행 영역 폭 220px·페이지 1280×800을 주는 약 15줄)을 복제했다. `@ap/components`가 두 번째 테스트 전용 진입점 `@ap/components/testing`(`exports["./testing"]`, `src/testing.ts`, `stubCompactTableGeometry(scrollportWidth = 220)`)을 낸다. `src/index.ts`에서는 내보내지 않으며, 행 영역의 접근 가능한 이름은 `PlatformDataTable`과 stub이 같은 상수(`scrollportLabel.ts`)를 읽는다.
+- 경계 lint는 같은 테스트 파일 집합에 `shell`·`menu`·`app` 프리셋에서만 `components/testing`을 더한다. `components` 프리셋은 `kernel/testing`만 허용하므로 components 테스트는 상대 경로 `./testing`을 쓰고, 프로덕션 파일의 import는 오류다.
+- 기각한 대안: `@ap/kernel/testing`에 두기 — kernel이 components의 DOM 레이블(행 영역 이름)을 알게 되어 의존 방향을 거스른다.

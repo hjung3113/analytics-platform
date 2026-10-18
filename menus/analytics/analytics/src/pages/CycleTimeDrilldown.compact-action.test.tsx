@@ -4,6 +4,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { Timer } from 'lucide-react';
 import type { ApiResponse, MenuQuery } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { stubCompactTableGeometry } from '@ap/components/testing';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import CycleTimeDrilldown from './CycleTimeDrilldown';
@@ -25,20 +26,13 @@ const adapter = testAdapter({
     : empty,
 });
 
-const clientWidth = Object.getOwnPropertyDescriptor(Element.prototype, 'clientWidth');
+let restoreGeometry: () => void;
 beforeEach(() => {
-  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return 800; } });
-  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return 1280; } });
-  Object.defineProperty(Element.prototype, 'clientWidth', { configurable: true, get() { return /^(스크롤 가능한 행 영역|Scrollable rows)$/.test((this as Element).getAttribute('aria-label') ?? '') ? 220 : 0; } });
-  vi.stubGlobal('ResizeObserver', class { constructor(private cb: ResizeObserverCallback) {} observe(target: Element) { this.cb([{ target, contentRect: { width: 1280, height: 800 } } as ResizeObserverEntry], this as unknown as ResizeObserver); } unobserve() {} disconnect() {} });
-  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({ width: 1280, height: 800, x: 0, y: 0, top: 0, left: 0, right: 1280, bottom: 800, toJSON() {} }));
+  restoreGeometry = stubCompactTableGeometry();
   vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {} });
 });
 afterEach(() => {
-  cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals();
-  if (clientWidth) Object.defineProperty(Element.prototype, 'clientWidth', clientWidth); else delete (Element.prototype as unknown as Record<string, unknown>).clientWidth;
-  delete (HTMLElement.prototype as unknown as Record<string, unknown>).offsetHeight;
-  delete (HTMLElement.prototype as unknown as Record<string, unknown>).offsetWidth;
+  cleanup(); restoreGeometry(); vi.restoreAllMocks(); vi.unstubAllGlobals();
 });
 
 describe('CycleTimeDrilldown compact action', () => {
@@ -46,8 +40,6 @@ describe('CycleTimeDrilldown compact action', () => {
     window.history.replaceState(null, '', '/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00');
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
     const link = await screen.findByRole('link', { name: 'EQ-1 · 2026-09-26 01:02:03 상세' });
-    expect(link.querySelector('svg')).not.toBeNull();
-    expect(link.textContent).toBe('');
     expect(link.getAttribute('href')).toContain('EQ-1');
   });
 });

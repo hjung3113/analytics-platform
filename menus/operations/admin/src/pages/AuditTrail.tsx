@@ -1,9 +1,9 @@
 import { useId, useMemo, useState } from 'react';
 import { formatInstant, instantEpochMs, type AuditEvent, type AuditSortField, type Text } from '@ap/contracts';
-import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
+import { PlatformLink, invalidValueSentence, useI18n, usePlatform } from '@ap/kernel';
 import { Minus, ArrowRight } from 'lucide-react';
-import { ManagementLayout, RowAction, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, encodeTableSort, focusPageFallback, useManagementFilters, useTableUrlWarning } from '@ap/components';
-import { Button, Input, StatusBadge } from '@ap/ui';
+import { ManagementLayout, RowAction, PageFilterBar, type PlatformColumn, PlatformDataTable, PlatformPage, FilterUrlWarning, TableUrlWarning, encodeTableSort, useManagementFilters, useTableUrlWarning } from '@ap/components';
+import { Input, StatusBadge } from '@ap/ui';
 import { auditDestination } from '../audit-destination';
 import { ACTION_LABEL, AUDIT_PAGE_KEYS, SORT_FIELDS, SOURCE_LABEL, TYPE_LABEL, auditKeyProblem, parseAuditKeys, type AuditKeyProblem } from '../audit-query';
 import { AUDIT_TIME_FIELD_EXAMPLE, instantToLocalField, localFieldToInstant, viewerTimeZone, type LocalFieldFailure } from '../audit-window';
@@ -41,30 +41,17 @@ function isFilterAuditKeyProblem(problem: AuditKeyProblem): problem is FilterAud
   return problem.key !== 'sort' && problem.key !== 'page';
 }
 
-function urlProblemLine(problem: FilterAuditKeyProblem, lang: Lang): string {
-  const head = lang === 'ko' ? '필터 값이 잘못되었습니다.' : 'Invalid filter value.';
-  if (problem.reason === 'order') {
-    return lang === 'ko'
-      ? `${head} 시각 미만은 시각 이후보다 뒤여야 합니다.`
-      : `${head} Before must be later than At or after.`;
-  }
-  if (problem.reason === 'needs-type') {
-    return lang === 'ko'
-      ? `${head} 대상 ID는 대상 유형과 함께 있어야 합니다.`
-      : `${head} A target id needs a type.`;
-  }
-  const name = URL_KEY[problem.key][lang];
-  if (problem.reason === 'calendar') {
-    return lang === 'ko'
-      ? `${head} ${name}에 없는 날짜가 있습니다. 날짜를 고치거나 필터를 초기화하세요.`
-      : `${head} The ${name} value is a date that does not exist. Fix the date or reset the filters.`;
-  }
+/** One ADR-0034 sentence per bad filter key (field + raw value), plus the cause where the value itself does not say it; the cross-field problems have no single value to quote. */
+function urlProblemSentences(problem: FilterAuditKeyProblem, raw: Record<AuditFilterKey, string | null>, lang: Lang): string[] {
+  const ko = lang === 'ko';
+  if (problem.reason === 'order') return [ko ? '시각 미만은 시각 이후보다 뒤여야 합니다.' : 'Before must be later than At or after.'];
+  if (problem.reason === 'needs-type') return [ko ? '대상 ID는 대상 유형과 함께 있어야 합니다.' : 'A target id needs a type.'];
+  const value = invalidValueSentence(lang, 'value', URL_KEY[problem.key], raw[problem.key] ?? '');
+  if (problem.reason === 'calendar') return [value, ko ? '달력에 없는 날짜입니다.' : 'The date does not exist on the calendar.'];
   if ((problem.key === 'fromAt' || problem.key === 'toAt') && problem.reason === 'invalid') {
-    return lang === 'ko'
-      ? `${head} ${name} 값의 형식을 읽을 수 없습니다. 값을 고치거나 필터를 초기화하세요.`
-      : `${head} The ${name} value is not in a readable format. Fix the value or reset the filters.`;
+    return [value, ko ? '날짜·시각 형식을 읽을 수 없습니다.' : 'The date and time format cannot be read.'];
   }
-  return lang === 'ko' ? `${head} ${name} 값을 읽을 수 없습니다.` : `${head} The ${name} value cannot be read.`;
+  return [value];
 }
 
 function shownTime(urlValue: string | null, timeZone: string): string {
@@ -109,7 +96,7 @@ const mono = (value: unknown) => <span className="t-mono">{String(value)}</span>
  * never re-sorts a page; the default sort is the server's newest-first and no URL key is written for it.
  */
 export default function AuditTrail() {
-  const { t, lang } = useI18n();
+  const { lang } = useI18n();
   const ko = lang === 'ko';
   const timeZone = viewerTimeZone();
   const { adapter, global, linkTo, pageParam, setPage } = usePlatform();
@@ -154,7 +141,7 @@ export default function AuditTrail() {
     if (fromMessage || toMessage || !from.ok || !to.ok) return null;
     return { ...patch, fromAt: from.value, toAt: to.value };
   };
-  const { draft, clear: clearFilters, clearButton, barProps, layoutProps } = useManagementFilters({
+  const { draft, clearButton, recoverButton, barProps, layoutProps } = useManagementFilters({
     applied: {
       type: raw.type ?? '', action: raw.action ?? '', source: raw.source ?? '', actor: raw.actor ?? '', targetId: raw.targetId ?? '',
       fromAt: shownTime(raw.fromAt, timeZone), toAt: shownTime(raw.toAt, timeZone),
@@ -166,9 +153,6 @@ export default function AuditTrail() {
     setTimeTouched(current => ({ ...current, [key]: true }));
     setTimeError(current => ({ ...current, [key]: null }));
   };
-  // Recovery from an invalid URL always offers the reset; the filter footer and the empty state only when a filter is applied.
-  // The alert's button disappears with the alert, so focus goes to main first (06 §26); the footer button keeps the filter bar's own rule.
-  const recover = <Button type="button" size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); clearFilters(); }}>{t('clearFilters')}</Button>;
   const select = (key: 'type' | 'action' | 'source', label: string, labels: Record<string, Text>) =>
     ({ kind: 'select', key, label, value: draft.values[key], emptyOptionLabel: ko ? '전체' : 'All', options: Object.entries(labels).map(([value, text]) => ({ value, label: text[lang] })), onValueChange: (value: string) => draft.set(key, value) }) as const;
   const filters = <PageFilterBar orientation="column" label={ko ? '감사 필터' : 'Audit filters'} fields={[
@@ -195,7 +179,7 @@ export default function AuditTrail() {
     <ManagementLayout filter={filters} {...layoutProps}
       table={filterSlot => <>
     {!parsed.ok && (filterKeyProblem
-      ? <div className="flex flex-col gap-3">{filterSlot}<p role="alert">{urlProblemLine(filterKeyProblem, lang)} {recover}</p></div>
+      ? <FilterUrlWarning filters={filterSlot} sentences={urlProblemSentences(filterKeyProblem, raw, lang)} recover={recoverButton} />
       : <TableUrlWarning filters={filterSlot} sentences={tableWarning.sentences} />)}
     {parsed.ok && <PlatformDataTable<AuditEvent>
         title={ko ? '변경 감사' : 'Audit trail'}

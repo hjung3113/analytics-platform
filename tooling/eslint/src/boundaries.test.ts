@@ -125,6 +125,19 @@ const rows: Row[] = [
   { file: 'packages/kernel/src/x.test.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
   { file: 'packages/server-conformance/src/x.test.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
 
+  // --- #413 (ADR-0040 extension): `@ap/components/testing` is test-only, for the layers above components ---
+  { file: MENU, code: `import { stubCompactTableGeometry } from '@ap/components/testing';`, rule: 'no-restricted-imports' },
+  { file: MENU, code: `const m = await import('@ap/components/testing');`, rule: 'ap/restricted-import-source' },
+  { file: 'menus/_global/home/src/pages/x.test.tsx', code: `import { stubCompactTableGeometry } from '@ap/components/testing';`, rule: '' },
+  { file: 'menus/_global/home/src/pages/x.test.tsx', code: `const m = await import('@ap/components/testing');`, rule: '' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { stubCompactTableGeometry } from '@ap/components/testing';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/menus.test.ts', code: `import { stubCompactTableGeometry } from '@ap/components/testing';`, rule: '' },
+  { file: 'packages/shell/src/AppShell.test.tsx', code: `import { stubCompactTableGeometry } from '@ap/components/testing';`, rule: '' },
+  { file: 'packages/components/src/x.ts', code: `import { stubCompactTableGeometry } from '@ap/components/testing';`, rule: 'no-restricted-imports' },
+  { file: 'packages/components/src/x.test.tsx', code: `import { stubCompactTableGeometry } from '@ap/components/testing';`, rule: 'no-restricted-imports' },
+  { file: 'packages/components/src/x.test.tsx', code: `import { stubCompactTableGeometry } from './testing';`, rule: '' },
+  { file: 'packages/kernel/src/x.test.ts', code: `import { stubCompactTableGeometry } from '@ap/components/testing';`, rule: 'no-restricted-imports' },
+
   // --- #160: the table engine is components-internal; menus ban it statically and dynamically ---
   { file: MENU, code: `import type { ColumnDef } from '@tanstack/react-table';`, rule: 'no-restricted-imports', token: 'table engine' },
   { file: MENU, code: `import { x } from '@tanstack/react-table';`, rule: 'no-restricted-imports', token: 'table engine' },

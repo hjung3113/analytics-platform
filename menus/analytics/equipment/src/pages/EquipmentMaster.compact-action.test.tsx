@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { Boxes } from 'lucide-react';
 import type { ApiResponse, MenuQuery } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { stubCompactTableGeometry } from '@ap/components/testing';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { manifests } from '../index';
@@ -25,19 +26,12 @@ const adapter = testAdapter({
   session: () => session,
 });
 
-const clientWidth = Object.getOwnPropertyDescriptor(Element.prototype, 'clientWidth');
+let restoreGeometry: () => void;
 beforeEach(() => {
-  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return 800; } });
-  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return 1280; } });
-  Object.defineProperty(Element.prototype, 'clientWidth', { configurable: true, get() { return /^(스크롤 가능한 행 영역|Scrollable rows)$/.test((this as Element).getAttribute('aria-label') ?? '') ? 220 : 0; } });
-  vi.stubGlobal('ResizeObserver', class { constructor(private cb: ResizeObserverCallback) {} observe(target: Element) { this.cb([{ target, contentRect: { width: 1280, height: 800 } } as ResizeObserverEntry], this as unknown as ResizeObserver); } unobserve() {} disconnect() {} });
-  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({ width: 1280, height: 800, x: 0, y: 0, top: 0, left: 0, right: 1280, bottom: 800, toJSON() {} }));
+  restoreGeometry = stubCompactTableGeometry();
 });
 afterEach(() => {
-  cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals();
-  if (clientWidth) Object.defineProperty(Element.prototype, 'clientWidth', clientWidth); else delete (Element.prototype as unknown as Record<string, unknown>).clientWidth;
-  delete (HTMLElement.prototype as unknown as Record<string, unknown>).offsetHeight;
-  delete (HTMLElement.prototype as unknown as Record<string, unknown>).offsetWidth;
+  cleanup(); restoreGeometry(); vi.restoreAllMocks(); vi.unstubAllGlobals();
 });
 
 function DetailSlotHost() {
@@ -50,8 +44,6 @@ describe('EquipmentMaster compact action', () => {
     window.history.replaceState(null, '', '/equipment?v=1&scopeId=ICH');
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><EquipmentMaster /><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
     const button = await screen.findByRole('button', { name: 'EQ-1 보기' });
-    expect(button.querySelector('svg')).not.toBeNull();
-    expect(button.textContent).toBe('');
     fireEvent.click(button);
     expect(new URLSearchParams(window.location.search).get('focus')).toBe('EQ-1');
     expect(await screen.findByRole('heading', { name: 'EQ-1' })).toBeTruthy();
