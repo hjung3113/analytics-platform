@@ -12,6 +12,7 @@
 - Context 바에는 Lot·PPID·Recipe·지표 쌍을 새로 지정하는 편집기가 없다 — URL로 받은 값을 지우기만 한다(`GlobalContextBar.tsx`). 도메인 선택지가 정해진 뒤 만든다.
 - `AnalysisChartFrame` Compare에 이전 기간 x축 정렬 옵션이 없어 생산성 개요가 bucket index 정렬로 우회한다(`ProductivityOverview.tsx`의 우회 주석).
 - 차트 더보기 팝오버(`AnalysisChartFrame`)가 `shadow-md`를 쓴다. DESIGN의 그림자 규칙과 맞는지 확인(공유 floating primitive 전체로 넓히지 않는다는 문장만 있다).
+- **구현 안 함 — 간헐 실패 1회 기록:** `packages/shell/src/SystemSwitcher.test.tsx` "lets a lazy arrival keep the title when the switcher is reopened before it resolves"가 main 기준 문서만 바뀐 PR(#447)의 CI에서 1회 실패했다(`h1` 대신 전환 버튼이 포커스를 가짐, 1655ms). 로컬에서는 부하 루프(CPU ×20)로 파일 전체 12회·단일 12회·무부하 12회 모두 통과해 재현하지 못했다. 미검증 가설: Escape 뒤 Radix `onCloseAutoFocus`(`setTimeout 0`)와 새 제목의 도착 포커스 effect(React 스케줄러) 순서가 느린 러너에서 뒤집힌다. 다시 열 조건: 두 번째 발생 — 이슈로 올리고 그때 CI 로그 두 건을 대조해 진단한다.
 
 ## 설계 원칙 메모
 

@@ -71,3 +71,10 @@
 
 - 생성기(`tooling/gen-menu`)를 바꾸면 깨끗한 트리에서 `node tooling/gen-menu/scripts/probe.ts`.
 - mock 등록은 `apps/platform-web/src/dev/mock-assembly.tsx`의 `MOCK_ENDPOINTS` 하나다. params를 선언한 엔드포인트만 `src/server-conformance.test.ts`의 `PARAMS`에 표본을 넣는다(빠지면 테스트가 실패한다).
+
+## 부하에서만 실패하는 테스트
+
+- 루트 `pnpm test`(터보 병렬)에서만 `Unable to find role …`로 실패하고 그 파일 단독 실행은 통과하면 첫 `findBy*`의 기본 대기(1000ms)를 먼저 의심한다. 진단 루프: 해당 패키지에서 CPU 부하(`while :; do :; done`을 `ncpu×2`개 백그라운드)를 걸고 그 파일을 8–16회 반복해 실패 수를 센다. 고치기 전후와, 원래 코드(변경을 되돌린 것)를 같은 부하로 비교해 변경이 원인인지 가른다. 부하 프로세스는 반드시 `pkill`로 끝낸다. `*.compact-action.test.tsx`는 첫 `findByRole`에 `{ timeout: 8000 }`을 쓴다(#434·#437).
+- 한 파일을 고친 뒤 같은 구조의 형제 파일이 "안 깨진다"고 한 번 측정으로 단정하지 않는다. 형제마다 같은 부하 루프를 돈다(#437이 #434의 그 판단을 정정했다).
+- 터보 `test`는 첫 실패에서 나머지를 중단한다. 실패 하나로 끝난 루트 `pnpm test`는 나머지 패키지와 `build`를 검증하지 못한 것이므로, 고친 뒤 처음부터 다시 돌린다.
+- `node_modules`가 없는 worktree에서 `pnpm docs:links`는 의존성 확인에서 막힌다. 서브모듈을 init한 뒤 `node .github/scripts/check-doc-links.mjs`를 직접 돌리면 같은 검사다(새 파일은 `git add -N`으로 추적에 올려야 "untracked" 오류가 사라진다).
