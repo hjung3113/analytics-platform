@@ -1,0 +1,233 @@
+{
+  "review_plan": {
+    "base": "origin/main",
+    "test": {
+      "regex": "(__tests__/|\\.test\\.|\\.spec\\.|^apps/platform-e2e/|test-support/|/fixtures/)"
+    },
+    "docs_only": {
+      "doc": {
+        "any": [
+          {
+            "suffix": [
+              ".md"
+            ]
+          },
+          {
+            "prefix": [
+              "docs/",
+              ".planning/"
+            ]
+          }
+        ]
+      },
+      "also_allowed": [],
+      "require_doc": false
+    },
+    "reviewed_tests": "non_test",
+    "product_paths": [
+      "apps/",
+      "packages/",
+      "menus/"
+    ],
+    "skip_imports": true,
+    "reason_flags": false,
+    "ux": {
+      "required": [
+        {
+          "match": {
+            "any": [
+              {
+                "exact": [
+                  "products/feedbackops"
+                ]
+              },
+              {
+                "regex": "^(packages/(ui|components|shell)/src|menus/[^/]+/[^/]+/src|apps/platform-web/src)/",
+                "suffix": [
+                  ".tsx",
+                  ".css"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "optional": [
+        {
+          "regex": "^(packages/(ui|components|shell)/src|menus/[^/]+/[^/]+/src|apps/platform-web/src)/"
+        },
+        {
+          "regex": "^packages/(kernel|contracts|mock-server)/src/"
+        }
+      ]
+    },
+    "perf": {
+      "path_rules": [
+        {
+          "match": {
+            "any": [
+              {
+                "regex": "^packages/kernel/src/(query|platform|drill|registry)[\\w.-]*\\.tsx?$"
+              },
+              {
+                "regex": "(^|/)use[A-Z][\\w-]*\\.tsx?$"
+              }
+            ]
+          },
+          "reason": "query/navigation path: {file}"
+        },
+        {
+          "match": {
+            "regex": "^(apps|packages)/[^/]+/package\\.json$"
+          },
+          "reason": "dependency change: {file}"
+        }
+      ],
+      "line_rules": [
+        {
+          "regex": "\\b(useMenuQuery|useMenuFetch|usePlatformQuery|useEntityQuery|useAdapterRequest|menuQuery|getEntity|staleTime|refetchInterval|pollInterval)\\b|\\bfetch\\(",
+          "reason": "query calls or options changed: {files}"
+        }
+      ]
+    },
+    "flags": [
+      {
+        "name": "permission",
+        "scope": "reviewed",
+        "match": {
+          "prefix": [
+            "apps/",
+            "packages/",
+            "menus/"
+          ],
+          "regex": "(?i)(permission|scope|role|(?<![a-z])auth|grant)"
+        },
+        "line": {
+          "regex": "\\b(permission|scopeId|safeReturnTo|returnTo|allowedRoles|canAccess)\\b"
+        }
+      },
+      {
+        "name": "e2e",
+        "scope": "reviewed",
+        "match": {
+          "regex": "^packages/(kernel|shell|components|mock-server)/src/"
+        }
+      },
+      {
+        "name": "contract",
+        "match": {
+          "any": [
+            {
+              "exact": [
+                "docs/06_platform_ui_contract.md"
+              ]
+            },
+            {
+              "prefix": [
+                "docs/adr/",
+                "packages/contracts/"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "name": "submodule",
+        "match": {
+          "exact": [
+            "products/feedbackops"
+          ]
+        }
+      },
+      {
+        "name": "instructions",
+        "match": {
+          "any": [
+            {
+              "prefix": [
+                ".agents/",
+                ".claude/"
+              ]
+            },
+            {
+              "suffix": [
+                "AGENTS.md",
+                "CLAUDE.md"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "worker_hygiene": {
+    "base": "origin/main",
+    "product_paths": [
+      "apps",
+      "packages",
+      "menus"
+    ],
+    "tracked_excludes": [],
+    "forbidden_pattern": "eslint-disable",
+    "forbidden_header": "NEW eslint-disable without a reason (forbidden; fix the code or use the token the lint error suggests):",
+    "reason_allowed": true,
+    "suppressions_no_growth": "*eslint-suppressions.json",
+    "churn_paths": [
+      "apps",
+      "packages",
+      "menus"
+    ],
+    "pass_line": "worker-hygiene: no new eslint-disable, suppressions did not grow"
+  },
+  "wave_status": {
+    "preview_mode": "app-preview",
+    "app_preview_path": "scripts/app-preview.py",
+    "docker_containers": false
+  },
+  "launch": {
+    "main_env": "AP_MAIN",
+    "base": "origin/main",
+    "branch_prefix": "feat/",
+    "orca_setup": "skip",
+    "install": [
+      {
+        "run": [
+          "git",
+          "submodule",
+          "update",
+          "--init",
+          "--depth",
+          "1",
+          "-q",
+          "--",
+          "products/feedbackops"
+        ],
+        "fail": "submodule init failed"
+      },
+      {
+        "run": [
+          "pnpm",
+          "install",
+          "--frozen-lockfile",
+          "--config.optimistic-repeat-install=false"
+        ],
+        "log": ".review/install.log",
+        "fail": "pnpm install failed (see .review/install.log)"
+      }
+    ],
+    "first_line": "Read {rules} first and follow it.",
+    "templates": [
+      {
+        "dest": ".review/00-IMPL-RULES.md",
+        "shared": "impl-rules.md",
+        "addendum": "addenda/impl-rules.md",
+        "in_rules": true
+      },
+      {
+        "dest": ".review/00-REVIEW-RULES.md",
+        "shared": "review-rules.md",
+        "addendum": "addenda/review-rules.md"
+      }
+    ]
+  }
+}

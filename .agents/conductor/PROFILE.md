@@ -7,18 +7,19 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 ## Flow
 
 - `<base>`는 `main` 하나다(develop 없음). 병합은 squash로 한다. 릴리스는 보드 문서 PR → 태그 + GitHub Release.
-- 브랜치는 `feat/<n>-<slug>`. `$MAIN`은 `AP_MAIN`(메인 체크아웃 경로)이고, worktree는 `~/orca/workspaces/analytics-platform/<n>-<slug>`.
+- 브랜치는 `feat/<n>-<slug>`. `$MAIN`은 `AP_MAIN`(메인 체크아웃 경로)이고, worktree는 Orca가 정한 위치를 이름(`<n>-<slug>`)으로 찾는다.
+- 공통 도구(`launch-worker`·`review-plan`·`worker-hygiene`·`wave-status`)는 전역 엔진이다: `$ENGINE` = `~/.agents/skills/issue-wave-conductor/scripts`. 이 레포 설정은 [`conductor.json`](conductor.json)(base·브랜치·설치·리뷰 규칙·플래그·hygiene·미리보기 판정), 템플릿 덧붙임은 [`addenda/`](addenda/)다(#394). 규칙을 바꾸면 설정을 고친다 — 엔진 원본과 테스트는 `~/orca/workspaces/conductor-engine`.
 - `WAVE_BRIEFS`는 `$AP_MAIN/.review/wave/`(`.review/`는 `.git/info/exclude`).
 - `ship-pr.sh`를 쓰려면 이 클론에서 한 번 `git config workerops.protectedBases none`이 필요하다(PR 기준이 main이다).
 - PR마다 `.planning/README.md`의 해당 줄을 같은 PR에서 고친다.
 
 ## Launch
 
-- `scripts/launch-worker.sh <n> <slug>`가 하는 일:
-  - Orca worktree를 `origin/main`에서 만들고 브랜치 이름을 바꾼다.
+- `python3 $ENGINE/launch-worker.py <n> <slug>`가 하는 일(설정 `launch`):
+  - Orca worktree를 `origin/main`에서 만들고 이름으로 찾아 브랜치 이름을 바꾼다.
   - 서브모듈을 init하고 `pnpm install`을 돌린다.
   - 설정 셸을 닫는다.
-  - `.review/W-<n>-TASK.md`를 쓴다. 맨 앞 줄은 `docs/agents/templates/impl-rules.md` 포인터다.
+  - 전역 `impl-rules.md`·`review-rules.md`에 [`addenda/`](addenda/)를 붙여 worktree `.review/00-IMPL-RULES.md`·`00-REVIEW-RULES.md`로 쓰고, `.review/W-<n>-TASK.md` 맨 앞 줄은 그 구현 규칙 포인터다.
   - 공유 실행기를 부른다.
 - 필요한 환경 변수: `WAVE_STATE`·`WAVE_BRIEFS`·`AP_MAIN`. 역할은 `WORKER_ROLE`, 덮어쓰기는 `WORKER_MODEL`·`WORKER_EFFORT`로 준다.
 - 16GB 머신이라 동시에 1–2개만, 파일이 겹치지 않는 이슈만 병렬로 돌린다(메모리 기록은 `docs/agents/operations.md`).
@@ -38,7 +39,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 1. 바뀐 패키지 검사.
 2. 루트 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`를 순서대로 한 번 돌린다.
 3. Kernel·셸·공통 컴포넌트·mock 서버가 바뀌었으면 E2E를 돌린다. 새 describe만 먼저(`cd apps/platform-e2e && pnpm exec playwright test -g "<describe>"`), 그다음 관련 E2E 또는 전체 `pnpm e2e`.
-4. `scripts/worker-hygiene.sh <worktree>`: 이유 없는 새 `eslint-disable`과 `eslint-suppressions.json` 증가는 실패, 공백만 바뀐 변경은 보고만 한다.
+4. `python3 $ENGINE/worker-hygiene.py <worktree>`: 이유 없는 새 `eslint-disable`과 `eslint-suppressions.json` 증가는 실패, 공백만 바뀐 변경은 보고만 한다(설정 `worker_hygiene`).
 
 디자인 lint 오류는 메시지가 알려 주는 토큰·variant·부품으로 고치고, suppressions에 새 위반을 더하지 않는다. 기계적으로 직접 고쳐도 되는 것에는 빠진 mock 등록(`MOCK_ENDPOINTS`, `server-conformance.test.ts`의 `PARAMS`)도 들어간다.
 
@@ -51,13 +52,13 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 
 ## Review
 
-- 계획은 `python3 scripts/review-plan.py <checkout> [--base origin/main]`으로 세운다. 규칙표는 `scripts/test-review-plan.py`가 고정한다.
+- 계획은 `python3 $ENGINE/review-plan.py <checkout> [--base origin/main]`으로 세운다. 규칙은 `conductor.json`의 `review_plan`이고, 엔진 저장소의 이 레포 케이스(`engine/tests/ap/test-review-plan.py`)가 고정한다.
 - 플래그별 처리:
   - `flags.permission`·`flags.instructions`는 전역 스킬 7a를 따른다.
   - `flags.e2e`·`flags.submodule`이 있으면 Verify 3단계(E2E)와 gitlink 검사를 했는지 확인한다.
   - `flags.contract`면 06 계약·ADR을 고친 곳을 코드 리뷰어 작업에 적는다.
 - 리뷰어 규칙:
-  - 코드 리뷰어는 `docs/agents/templates/review-rules.md`.
+  - 코드 리뷰어는 전역 `templates/review-rules.md` + [`addenda/review-rules.md`](addenda/review-rules.md)(작업자 worktree에서는 `.review/00-REVIEW-RULES.md`로 합쳐져 있다). 브리프 사전 점검은 전역 `templates/brief-check.md` + [`addenda/brief-check.md`](addenda/brief-check.md).
   - UX 리뷰어와 품질 리뷰어는 전역 `~/.agents/agents/review-ux.md`·`review-quality.md`이고, 이 레포의 기준은 아래 `Review lens` 두 절이다.
 - 성능: 측정 도구가 없다. 회귀를 실제로 재었을 때만 `review-perf`를 띄우고, 그 밖에는 코드 리뷰어 작업에 성능 관점을 넣는다.
 - 충돌을 정하는 순서의 맨 앞: 권한·데이터 누출 규칙 → ADR·06 계약·기록된 사용자 결정.
@@ -109,12 +110,12 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 
 | 도구 | 하는 일 | 고정 테스트 |
 | --- | --- | --- |
-| `scripts/launch-worker.sh <n> <slug>` | 위 Launch | – |
-| `scripts/review-plan.py <checkout> [--base origin/main] [--head HEAD]` | 리뷰 계획 | `test-review-plan.py` |
-| `scripts/wave-status.py [--json] [--prs] [--state-dir <dir>]` | 읽기 전용 스냅숏: 작업자·리뷰어, 미리보기, worktree, `--prs`면 열린 PR의 CI. `$WAVE_STATE`가 없으면 이 레포의 최근 세션 `wave/` 폴더(하루 안)를 읽는다 | `test-wave-status.py` |
-| `scripts/worker-hygiene.sh <worktree>` | 위 Verify 4단계 | `test-worker-hygiene.py` |
-| `scripts/app-preview.py start <checkout> [--name <label>]` / `stop <label>\|--all` / `status` | mock 미리보기 | `test-app-preview.py` |
-| `templates/brief-check.md` | 브리프 사전 점검 항목 | – |
+| `$ENGINE/launch-worker.py <n> <slug>` | 위 Launch | 엔진 저장소 `test-launch-worker.py` |
+| `$ENGINE/review-plan.py <checkout> [--base origin/main] [--head HEAD]` | 리뷰 계획 | 엔진 저장소 `engine/tests/ap/` |
+| `$ENGINE/wave-status.py [--json] [--prs] [--state-dir <dir>]` | 읽기 전용 스냅숏: 작업자·리뷰어, 미리보기(이 레포 `app-preview.py`로 소유 판정), worktree, `--prs`면 열린 PR의 CI. `$WAVE_STATE`가 없으면 이 레포의 최근 세션 `wave/` 폴더(하루 안)를 읽는다 | 엔진 저장소 `engine/tests/ap/` |
+| `$ENGINE/worker-hygiene.py <worktree>` | 위 Verify 4단계 | 엔진 저장소 `engine/tests/ap/` |
+| `scripts/app-preview.py start <checkout> [--name <label>]` / `stop <label>\|--all` / `status` | mock 미리보기(이 레포 도구) | `test-app-preview.py` |
+| 전역 `templates/brief-check.md` + `addenda/brief-check.md` | 브리프 사전 점검 항목 | – |
 | `bash tooling/scripts/next-adr.sh` | ADR 번호 정하기 | – |
 
 `app-preview.py`의 동작:
@@ -126,7 +127,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
   - 여기에 `--port`가 정확히 맞고 `--strictPort`가 있어야 한다.
 - 소유가 불명확하면 상태 파일을 남긴 채 `ownership unclear`로 건너뛴다.
 
-CI가 `.github/workflows/ci.yml`에서 이 폴더의 테스트 4개를 돌린다.
+CI는 `.github/workflows/ci.yml`에서 이 폴더의 `test-app-preview.py`만 돌린다. 전역 엔진의 테스트는 엔진 저장소에서 돈다(`bash engine/scripts/test.sh`).
 
 ## Traps
 
