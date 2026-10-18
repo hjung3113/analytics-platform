@@ -1,3 +1,5 @@
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+
 export type PaletteSession = {
   opener: HTMLElement | null;
   select: () => void;
@@ -54,4 +56,27 @@ export function createPaletteFocus(page: { cancel: () => void; notify: () => voi
       session = null;
     },
   };
+}
+
+/** Open state + session of one focus gate; `owner` changing (a Provider session swap) disposes the gate. */
+export function useFocusGate(focus: ReturnType<typeof createPaletteFocus>, owner: unknown) {
+  const [open, updateOpen] = useState(false);
+  const [session, updateSession] = useState<PaletteSession | null>(null);
+  const setOpen = useCallback((next: boolean) => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    updateSession(focus.setOpen(next, opener));
+    updateOpen(next);
+  }, [focus]);
+  useEffect(() => {
+    if (!open) focus.releaseUnrendered();
+  }, [open, session, focus]);
+  const lastOwner = useRef(owner);
+  useLayoutEffect(() => {
+    if (lastOwner.current === owner) return;
+    lastOwner.current = owner;
+    focus.reset();
+    updateOpen(false);
+    updateSession(null);
+  }, [owner, focus]);
+  return { open, session, setOpen };
 }

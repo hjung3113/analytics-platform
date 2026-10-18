@@ -1,5 +1,5 @@
 import { Check, ChevronDown, House, LayoutGrid } from 'lucide-react';
-import { useId, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useId, useRef, type MouseEvent } from 'react';
 import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipTrigger } from '@ap/ui';
 
@@ -11,14 +11,34 @@ const CARD = 'flex w-full items-start gap-2 rounded-md border px-3 py-2.5 text-l
  * from `onCloseAutoFocus`, after the focus trap is gone, so the Kernel arrival focus (ADR-0032) lands on the new title.
  */
 export function SystemSwitcher() {
-  const { currentSpace, accessibleSpaces, spaceEntry, switchSpace, registry, resolveLink, navigate, pathname, slots } = usePlatform();
+  const { currentSpace, accessibleSpaces, spaceEntry, switchSpace, registry, resolveLink, navigate, pathname, slots, switcherOpen: open, setSwitcherOpen, switcherSession } = usePlatform();
   const { t, tx } = useI18n();
-  const [open, setOpen] = useState(false);
   const titleId = useId();
   const contentRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  // Set per selection and cleared on every open, so one open never inherits another's choice.
-  const pendingMove = useRef<(() => void) | null>(null);
+  // Set per selection and cleared on every open, so one open never inherits another's choice. It belongs to the
+  // Kernel focus session it was chosen in and dies with the component, so a late close-autofocus timer cannot run it.
+  const pendingMove = useRef<{ move: () => void; session: NonNullable<ReturnType<typeof usePlatform>['switcherSession']> } | null>(null);
+  const owner = useRef(Symbol('SystemSwitcher'));
+  const disposalTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => {
+    const own = owner.current;
+    clearTimeout(disposalTimer.current);
+    return () => {
+      pendingMove.current = null;
+      // Defer until FocusScope's passive cleanup has removed its trap listeners (as CommandPalette does).
+      if (switcherSession) disposalTimer.current = setTimeout(() => switcherSession.release(own), 0);
+    };
+  }, [switcherSession]);
+  // An arrival while open (Back/Forward, a link elsewhere) closes the switcher without taking focus back: the
+  // Kernel holds the title focus until the trap is released (06 §26, ADR-0032).
+  const openedAt = useRef(pathname);
+  useEffect(() => {
+    if (open && pathname !== openedAt.current) {
+      switcherSession?.select();
+      setSwitcherOpen(false);
+    }
+  }, [open, pathname, switcherSession, setSwitcherOpen]);
 
   const spaceIcon = (homeMenuId: string) => registry.groupById(registry.menuById(homeMenuId).group).icon;
   const cards = accessibleSpaces.flatMap(space => {
@@ -33,12 +53,12 @@ export function SystemSwitcher() {
   const TriggerIcon = currentSpace === null ? LayoutGrid : spaceIcon(currentSpace.homeMenuId);
 
   const onOpenChange = (next: boolean) => {
-    if (next) pendingMove.current = null;
-    setOpen(next);
+    if (next) { pendingMove.current = null; openedAt.current = pathname; }
+    setSwitcherOpen(next);
   };
   const close = (move: (() => void) | null) => {
-    pendingMove.current = move;
-    setOpen(false);
+    pendingMove.current = move && switcherSession ? { move, session: switcherSession } : null;
+    setSwitcherOpen(false);
   };
   const goHome = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -62,6 +82,7 @@ export function SystemSwitcher() {
       <PopoverContent ref={contentRef} side="right" align="start" padding="none" className="w-[520px]" aria-labelledby={titleId}
         onOpenAutoFocus={event => {
           event.preventDefault();
+          switcherSession?.claim(owner.current);
           const root = contentRef.current;
           const target = root?.querySelector<HTMLElement>('[data-switcher-current]')
             ?? root?.querySelector<HTMLElement>('[data-switcher-card]')
@@ -71,10 +92,20 @@ export function SystemSwitcher() {
         }}
         onCloseAutoFocus={event => {
           event.preventDefault();
-          const move = pendingMove.current;
+          const queued = pendingMove.current;
           pendingMove.current = null;
-          if (move) move();
-          else triggerRef.current?.focus({ preventScroll: true });
+          if (!switcherSession) return;
+          // Only this instance may release its rendered block; the Kernel then hands any arrival its title focus.
+          switcherSession.release(owner.current);
+          if (!switcherSession.isCurrent()) return;
+          if (queued) {
+            if (queued.session === switcherSession) queued.move();
+            return;
+          }
+          if (switcherSession.isSelecting()) return;
+          const active = document.activeElement;
+          if (active && document.getElementById('platform-main')?.contains(active)) return;
+          triggerRef.current?.focus({ preventScroll: true });
         }}>
         <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
           <h2 id={titleId} className="text-sm font-semibold">{t('switcherTitle')}</h2>

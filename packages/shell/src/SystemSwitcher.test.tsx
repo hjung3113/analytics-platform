@@ -45,9 +45,17 @@ function Page() {
     {late && pageParam('focus') && <DetailDrawer title="Detail" onClose={() => setPage({ focus: null })} tabs={[{ id: 'a', label: 'A', content: 'content' }]} />}
   </PlatformPage>;
 }
+// A destination that resolves late (a lazy chunk): its title only mounts after `lazyDelay` ms.
+let lazyMenuId: string | null = null;
+function Slow() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => { const timer = setTimeout(() => setReady(true), 60); return () => clearTimeout(timer); }, []);
+  return ready ? <Page /> : null;
+}
 function Routes() {
   const { route, can } = usePlatform();
-  return route && can(route.menu.permission) ? <Page key={route.menu.id} /> : null;
+  if (!route || !can(route.menu.permission)) return null;
+  return route.menu.id === lazyMenuId ? <Slow key={route.menu.id} /> : <Page key={route.menu.id} />;
 }
 
 function mount({ permissions = ['platform:view', 'metrics:view', 'console:access', 'notice:view'], url = '/cycle?v=1&scopeId=ICH', registry = buildRegistry(), slots = SLOT }: {
@@ -73,7 +81,7 @@ beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
   sessionStorage.clear();
 });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => { lazyMenuId = null; cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('SystemSwitcher button (15 §3.2)', () => {
   it('names the button and its visible tooltip with the current system', async () => {
@@ -279,3 +287,77 @@ describe('SystemSwitcher keyboard and focus (06 §26, ADR-0032)', () => {
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
 });
+
+describe('SystemSwitcher focus ownership and lifecycle (ADR-0032)', () => {
+  it.each([['back', -1], ['forward', 1]] as const)('keeps the new title focus when %s arrives while open', async (_name, step) => {
+    mount();
+    open();
+    fireEvent.click(cardOf('지표관리'));
+    await waitFor(() => expect(screen.getByRole('heading', { name: '카탈로그' })).toHaveFocus());
+    if (step === 1) {
+      window.history.back();
+      await waitFor(() => expect(screen.getByRole('heading', { name: '사이클' })).toHaveFocus());
+    }
+    open();
+    window.history.go(step === 1 ? 1 : -1);
+    const arrival = step === 1 ? '카탈로그' : '사이클';
+    await waitFor(() => expect(screen.getByRole('heading', { name: arrival })).toHaveFocus());
+    expect(screen.queryByRole('dialog', { name: '업무 시스템 전환' })).toBeNull();
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+    expect(screen.getByRole('heading', { name: arrival })).toHaveFocus();
+    expect(trigger()).not.toHaveFocus();
+  });
+
+  it('lets a lazy arrival keep the title when the switcher is reopened before it resolves', async () => {
+    lazyMenuId = 'catalog';
+    mount();
+    open();
+    fireEvent.click(cardOf('지표관리'));
+    await waitFor(() => expect(window.location.pathname).toBe('/metrics'));
+    open();
+    // Outside the modal popover the page is aria-hidden, so the title is found by the hidden option here.
+    const title = await screen.findByRole('heading', { name: '카탈로그', hidden: true });
+    expect(title).not.toHaveFocus();
+    fireEvent.keyDown(screen.getByRole('dialog', { name: '업무 시스템 전환' }), { key: 'Escape' });
+    await waitFor(() => expect(screen.getByRole('heading', { name: '카탈로그' })).toHaveFocus());
+    expect(trigger()).not.toHaveFocus();
+  });
+
+  it('runs a chosen card exactly once', async () => {
+    mount();
+    const push = vi.spyOn(window.history, 'pushState');
+    open();
+    fireEvent.click(cardOf('지표관리'));
+    await waitFor(() => expect(window.location.pathname).toBe('/metrics'));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+    expect(push).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops a queued card choice when the switcher unmounts before the close timers flush', async () => {
+    const view = mount();
+    const push = vi.spyOn(window.history, 'pushState');
+    open();
+    fireEvent.click(cardOf('지표관리'));
+    view.unmount();
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+    expect(push).not.toHaveBeenCalled();
+    expect(window.location.pathname).toBe('/cycle');
+  });
+
+  it('drops a queued card choice when the Provider session is replaced before the close timers flush', async () => {
+    window.history.replaceState(null, '', '/cycle?v=1&scopeId=ICH');
+    let current = testSession(['platform:view', 'metrics:view', 'console:access', 'notice:view']);
+    const listeners = new Set<() => void>();
+    const adapter = testAdapter({ session: () => current, subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; } });
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={buildRegistry()} slots={SLOT}><AppShell><Routes /></AppShell></PlatformProvider></I18nProvider>);
+    const push = vi.spyOn(window.history, 'pushState');
+    open();
+    fireEvent.click(cardOf('지표관리'));
+    current = testSession(['platform:view', 'metrics:view', 'console:access', 'notice:view']);
+    act(() => { listeners.forEach(listener => listener()); });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+    expect(push).not.toHaveBeenCalled();
+    expect(window.location.pathname).toBe('/cycle');
+  });
+});
+
