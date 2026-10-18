@@ -112,7 +112,7 @@ FeedbackOps 화면은 플랫폼으로 옮기지 않는다. FeedbackOps가 VOC �
 | #163 Perspective 자유 피벗 POC | 자유 피벗이 업무 필수로 확인될 때 |
 | #164 AG Grid Enterprise 평가 | 셀 범위 복붙·채우기가 사내 메뉴 2–3곳에서 필수로 확인될 때 |
 | #91 전역 감사 조회에 room 권한 적용(결정됨, 05) | 일부 room만 가진 콘솔 역할이 생길 때 서버에서 구현 |
-| #396 공통 SDK(목표 Decided — [ADR-0043](../docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md): 플랫폼 소유 단일 프레임워크 + 앱 계약, 의존 SDK ← 제품, 독립 실행은 제품 책임, 디자인 시스템 원본도 플랫폼). 다음 설계 산출물: 세 프레임워크 기능을 SDK가 다 덮는지 확인하는 포괄 목록 | #396 §8 착수 증거 — 탑재 1판(#402·#403) 착수 또는 사내 앱 첫 소비 요구가 생길 때 |
+| #396 공통 SDK(목표 Decided — [ADR-0043](../docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md): 플랫폼 소유 단일 프레임워크 + 앱 계약, 의존 SDK ← 제품, 독립 실행은 제품 책임, 디자인 시스템 원본도 플랫폼). 다음 설계 산출물: 세 프레임워크 기능을 SDK가 다 덮는지 확인하는 포괄 목록. 저장소·릴리즈 구조 후보와 정할 것은 [통합 계획 §4.4](../docs/integration/framework-unification-plan.md#44-sdk-저장소릴리즈-구조-candidate-2026-10-19) | #396 §8 착수 증거 — 탑재 1판(#402·#403) 착수 또는 사내 앱 첫 소비 요구가 생길 때 |
 | #389 F-2 tableFit 관찰 범위 축소(명시 height 표는 폭만, mutation 경로 좁히기) — 측정(2026-10-17) hover 1회당 rebind ≈1, long task 0으로 구현 안 함 | hover 중 long task가 측정되거나 CPU 4× 감속 측정에서 프레임 저하가 보일 때 |
 
 ## 끝난 것
