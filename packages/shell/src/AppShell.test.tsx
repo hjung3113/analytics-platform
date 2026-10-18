@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { DetailDrawer } from '@ap/components';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -72,30 +72,38 @@ function mount(permissions: Session['user']['permissions'] = ['platform:view'], 
   </PlatformProvider></I18nProvider>);
 }
 
+function openSwitcher() {
+  vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+  fireEvent.click(screen.getByRole('button', { name: /^업무 시스템 전환/ }));
+  return screen.getByRole('dialog', { name: '업무 시스템 전환' });
+}
+
 describe('rail space navigation', () => {
   it('omits all space buttons with only one accessible space and keeps global tools', () => {
     mount();
     expect(screen.queryByRole('button', { name: /^공간:/ })).toBeNull();
     const rail = screen.getByRole('navigation', { name: '앱 레일' });
+    expect(within(rail).getByRole('button', { name: '업무 시스템 전환 · 현재: 분석' })).toBeTruthy();
     expect(within(rail).getByRole('button', { name: '메뉴 검색…' })).toBeTruthy();
     expect(within(rail).getByRole('button', { name: 'injected tool' })).toBeTruthy();
     expect(within(rail).getByRole('button', { name: '도움말' })).toBeTruthy();
     expect(within(rail).getByRole('button', { name: '사용자 메뉴' })).toBeTruthy();
   });
 
-  it('uses Kernel space navigation, preserving globals and pushing history with aria-current', async () => {
+  it('uses Kernel space navigation from the switcher, preserving globals and pushing history with aria-current', async () => {
     mount(['platform:view', 'console:access']);
     const push = vi.spyOn(window.history, 'pushState');
-    expect(screen.getByRole('button', { name: '공간: 분석' }).getAttribute('aria-current')).toBe('page');
-    expect(screen.getByRole('button', { name: '공간: 분석' }).querySelector('[data-current-marker]')).toBeTruthy();
-    expect(screen.getByRole('button', { name: '공간: 운영 콘솔' }).querySelector('[data-current-marker]')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: '공간: 운영 콘솔' }));
-    expect(window.location.pathname).toBe('/ops');
+    const dialog = openSwitcher();
+    expect(within(dialog).getByRole('button', { name: /분석/ }).getAttribute('aria-current')).toBe('true');
+    expect(within(dialog).getByRole('button', { name: /운영 콘솔/ }).hasAttribute('aria-current')).toBe(false);
+    fireEvent.click(within(dialog).getByRole('button', { name: /운영 콘솔/ }));
+    await waitFor(() => expect(window.location.pathname).toBe('/ops'));
     expect(new URLSearchParams(window.location.search).get('lotIds')).toBe('kept');
     expect(new URLSearchParams(window.location.search).get('scopeId')).toBe('ICH');
     expect(push).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('button', { name: '공간: 운영 콘솔' }).getAttribute('aria-current')).toBe('page');
-    expect(screen.getByRole('button', { name: '공간: 분석' }).hasAttribute('aria-current')).toBe(false);
+    expect(screen.getByRole('button', { name: '업무 시스템 전환 · 현재: 운영 콘솔' })).toBeTruthy();
+    const rail = screen.getByRole('navigation', { name: '앱 레일' });
+    expect(within(rail).getByRole('button', { name: '관리' }).getAttribute('aria-current')).toBe('true');
     const nav = screen.getByRole('navigation', { name: '주 메뉴' });
     expect(within(nav).queryByRole('link', { name: '홈' })).toBeNull();
     expect(within(nav).getByRole('link', { name: '운영 홈' })).toBeTruthy();
@@ -196,8 +204,8 @@ describe('primary navigation boundary (#194 FIX1)', () => {
     expect(within(favorites).getByRole('link', { name: '홈' })).not.toHaveAttribute('aria-current');
     expect(favorites.querySelector('[data-current-marker]')).toBeNull();
     expect(recent.querySelector('[data-current-marker]')).toBeNull();
-    // Primary nav and the logo both mark the home menu; favorites and recent still do not.
-    expect(document.querySelectorAll('a[aria-current=page]')).toHaveLength(2);
+    // Only the primary nav marks the home menu (the rail has no logo link any more); favorites and recent still do not.
+    expect(document.querySelectorAll('a[aria-current=page]')).toHaveLength(1);
     // Match by substring, like Playwright's default name matching in the contract suite.
     expect(within(primary).getAllByRole('link', { name: /홈/ })).toHaveLength(1);
     expect(within(primary).getAllByRole('link')).toHaveLength(1);
@@ -233,7 +241,7 @@ describe('shell accessibility (#194 FIX2)', () => {
     expect(screen.getByRole('button', { name: 'Language: English — 한국어로 전환' })).toBe(toggle);
   });
 
-  it('marks only the current menu and space with a persistent shape, and keeps groups out of region/headings', () => {
+  it('marks only the current menu and section with a persistent shape, and keeps groups out of region/headings', async () => {
     localStorage.setItem('platform:sidebar-collapsed', '0');
     mount(['platform:view', 'console:access']);
     const primary = screen.getByRole('navigation', { name: '주 메뉴' });
@@ -243,11 +251,15 @@ describe('shell accessibility (#194 FIX2)', () => {
     expect(within(primary).getByText('예정')).toHaveClass('text-text-secondary');
     expect(within(primary).queryByRole('region')).toBeNull();
     expect(within(primary).queryByRole('heading')).toBeNull();
-    expect(screen.getByRole('button', { name: '공간: 분석' }).querySelector('[data-current-marker]')).toHaveClass('w-0.5');
-    expect(screen.getByRole('button', { name: '공간: 운영 콘솔' }).querySelector('[data-current-marker]')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: '공간: 운영 콘솔' }));
-    expect(screen.getByRole('button', { name: '공간: 분석' }).querySelector('[data-current-marker]')).toBeNull();
-    expect(screen.getByRole('button', { name: '공간: 운영 콘솔' }).querySelector('[data-current-marker]')).toBeTruthy();
+    const rail = screen.getByRole('navigation', { name: '앱 레일' });
+    // aria-current="page" is the current menu only; the section button says "true" (06 §26).
+    expect(home.getAttribute('aria-current')).toBe('page');
+    expect(within(rail).getByRole('button', { name: '개요' }).getAttribute('aria-current')).toBe('true');
+    expect(within(rail).getByRole('button', { name: '개요' }).querySelector('[data-current-marker]')).toHaveClass('w-0.5');
+    expect(within(rail).queryByRole('button', { name: '관리' })).toBeNull();
+    fireEvent.click(within(openSwitcher()).getByRole('button', { name: /운영 콘솔/ }));
+    await waitFor(() => expect(within(screen.getByRole('navigation', { name: '앱 레일' })).getByRole('button', { name: '관리' }).querySelector('[data-current-marker]')).toBeTruthy());
+    expect(within(screen.getByRole('navigation', { name: '앱 레일' })).queryByRole('button', { name: '개요' })).toBeNull();
     expect(within(screen.getByRole('navigation', { name: '주 메뉴' })).getByRole('link', { name: '운영 홈' }).querySelector('[data-current-marker]')).toBeTruthy();
   });
 });
@@ -380,47 +392,37 @@ function logoRegistry() {
 }
 
 describe('workspace shell layout (15 §3.1)', () => {
-  it('marks the logo as the current page on the home menu, and keeps the plain logo when / is unregistered', () => {
+  it('offers the platform home inside the switcher, not as a rail logo link, and shows a plain mark when / is unregistered', () => {
     mount();
     const rail = screen.getByRole('navigation', { name: '앱 레일' });
-    const home = within(rail).getByRole('link', { name: '플랫폼 홈' });
+    expect(within(rail).queryByRole('link', { name: '플랫폼 홈' })).toBeNull();
+    const home = within(openSwitcher()).getByRole('link', { name: '플랫폼 홈' });
     expect(home.getAttribute('href')).toMatch(/^\//);
-    expect(home.getAttribute('aria-current')).toBe('page');
-    expect(home).toHaveClass('bg-surface-row-selected', 'text-accent-primary');
-    expect(home.querySelector('[data-current-marker]')).toHaveClass('absolute', 'inset-y-2', 'left-0', 'w-0.5', 'rounded-pill', 'bg-accent-primary');
     cleanup();
     mount(['platform:view'], false, sidebarRegistry('equipment', '설비관리', ['equipment-home']));
-    const plain = screen.getByRole('navigation', { name: '앱 레일' });
-    expect(within(plain).queryByRole('link', { name: '플랫폼 홈' })).toBeNull();
-    expect(within(plain).getByText('Analytics Platform')).toBeTruthy();
+    openSwitcher();
+    expect(screen.queryByRole('link', { name: '플랫폼 홈' })).toBeNull();
   });
 
-  it('keeps the plain logo when / is registered but cannot be opened, and does not mark it current', () => {
+  it('omits the switcher home link when / is registered but cannot be opened', () => {
     window.history.replaceState(null, '', '/?v=1');
     mount(['notice:view'], true, logoRegistry());
-    const rail = screen.getByRole('navigation', { name: '앱 레일' });
-    expect(within(rail).queryByRole('link', { name: '플랫폼 홈' })).toBeNull();
-    expect(within(rail).getByText('Analytics Platform')).toBeTruthy();
-    expect(rail.querySelector('[data-current-marker]')).toBeNull();
+    expect(screen.getByRole('button', { name: '업무 시스템 전환' })).toBeTruthy();
+    openSwitcher();
+    expect(screen.queryByRole('link', { name: '플랫폼 홈' })).toBeNull();
   });
 
   it.each([
-    ['home', '/?v=1', true],
-    ['notices', '/notices?v=1', false],
-    ['space', '/equipment?v=1', false],
-  ])('marks the logo current only on the home menu (%s)', (_label, url, current) => {
+    ['home', '/?v=1', '업무 시스템 전환'],
+    ['notices', '/notices?v=1', '업무 시스템 전환'],
+    ['space', '/equipment?v=1', '업무 시스템 전환 · 현재: 분석'],
+  ])('names the switcher by the current system only inside a space (%s)', (_label, url, name) => {
     window.history.replaceState(null, '', url);
     mount(['platform:view', 'notice:view'], true, logoRegistry());
-    const logo = within(screen.getByRole('navigation', { name: '앱 레일' })).getByRole('link', { name: '플랫폼 홈' });
-    if (current) {
-      expect(logo.getAttribute('aria-current')).toBe('page');
-      expect(logo).toHaveClass('bg-surface-row-selected', 'text-accent-primary');
-      expect(logo.querySelector('[data-current-marker]')).toHaveClass('absolute', 'inset-y-2', 'left-0', 'w-0.5', 'rounded-pill', 'bg-accent-primary');
-    } else {
-      expect(logo.hasAttribute('aria-current')).toBe(false);
-      expect(logo.className).not.toContain('bg-surface-row-selected');
-      expect(logo.querySelector('[data-current-marker]')).toBeNull();
-    }
+    const rail = screen.getByRole('navigation', { name: '앱 레일' });
+    expect(within(rail).getByRole('button', { name })).toBeTruthy();
+    expect(within(rail).queryByRole('link', { name: '플랫폼 홈' })).toBeNull();
+    expect(rail.querySelector('a[aria-current]')).toBeNull();
   });
 
   it('renders FeedbackOps entries in slot order outside the scroll region, and the overall rail link', () => {
@@ -478,12 +480,14 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(within(screen.getByRole('navigation', { name: '앱 레일' })).getByRole('link', { name: 'FeedbackOps 전체 — 새 탭' })).toBeTruthy();
   });
 
-  it('hides the sidebar and the rail marker on a global screen', () => {
+  it('hides the sidebar, the rail sections and the current card on a global screen', () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
     mount(['platform:view', 'console:access'], true, globalShellRegistry());
     expect(screen.queryByRole('navigation', { name: '주 메뉴' })).toBeNull();
-    expect(screen.getByRole('button', { name: '공간: 분석' }).hasAttribute('aria-current')).toBe(false);
-    expect(screen.getByRole('button', { name: '공간: 운영 콘솔' }).hasAttribute('aria-current')).toBe(false);
+    expect(screen.queryByRole('group', { name: '시스템 섹션' })).toBeNull();
+    const dialog = openSwitcher();
+    expect(within(dialog).getByRole('button', { name: /분석/ }).hasAttribute('aria-current')).toBe(false);
+    expect(within(dialog).getByRole('button', { name: /운영 콘솔/ }).hasAttribute('aria-current')).toBe(false);
   });
 
   it('hides the sidebar when no space is accessible', () => {
@@ -493,12 +497,14 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(screen.queryByRole('complementary')).toBeNull();
   });
 
-  it('keeps the fallback sidebar on an unmatched path and still withholds the rail marker and FeedbackOps block', () => {
+  it('keeps the fallback sidebar on an unmatched path and still withholds the rail sections, the current card and the FeedbackOps block', () => {
     window.history.replaceState(null, '', '/unregistered?v=1');
     mount(['platform:view', 'console:access'], true, globalShellRegistry(), { feedbackOps: feedbackSlot });
     expect(screen.getByRole('navigation', { name: '주 메뉴' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '공간: 분석' }).hasAttribute('aria-current')).toBe(false);
+    expect(screen.queryByRole('group', { name: '시스템 섹션' })).toBeNull();
     expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
+    const dialog = openSwitcher();
+    expect(within(dialog).getByRole('button', { name: /분석/ }).hasAttribute('aria-current')).toBe(false);
   });
 
   it('omits FeedbackOps on a space-denied direct URL and does not query that space', () => {

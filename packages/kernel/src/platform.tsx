@@ -1,6 +1,7 @@
+import type { LucideIcon } from 'lucide-react';
 import { createBrowserLocation, type PlatformLocation } from './location';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { createPaletteFocus, type PaletteSession } from './paletteFocus';
+import { createPaletteFocus, useFocusGate, type PaletteSession } from './paletteFocus';
 import { createPageNavigation, type PageFocus, type PageNavigation } from './pageNavigation';
 import { classifyMetricInit, type MetricInit } from './metric-init';
 import { CONTEXT_LABELS, pathFor, type MenuEntry, type Registry } from './registry';
@@ -21,12 +22,15 @@ export type FeedbackOpsSlot = {
   entriesFor: (spaceId: SpaceId) => readonly FeedbackOpsEntry[] | null;
   overall: { href: string } | null;
 };
+/** A business system that is announced but cannot be entered yet. Display only — not in the Registry, no permission, no menu (ADR-0042). */
+export type PlannedSpace = { id: string; label: Text; icon: LucideIcon };
 /**
  * Shell slots (docs/06 §8) the app fills at composition time, so platform components never import the shell.
  * contextBar: rendered by PlatformPage above page content. topBarTools: extra controls at the bottom of the app rail (today the mock dev tools).
  * feedbackOps: space-scoped entries and the overall link (ADR-0027, ADR-0028).
+ * plannedSpaces: the system switcher's not-yet-available rows (ADR-0042, 15 §3.2).
  */
-export type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode; feedbackOps?: FeedbackOpsSlot };
+export type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode; feedbackOps?: FeedbackOpsSlot; plannedSpaces?: readonly PlannedSpace[] };
 export type LinkOptions = { params?: Record<string, string>; page?: Record<string, string>; global?: Partial<GlobalContext>; returnTo?: boolean };
 export type LinkResolution = {
   href: string;
@@ -109,6 +113,10 @@ type Platform = {
   paletteSession: PaletteSession | null;
   paletteOpen: boolean;
   setPaletteOpen: (open: boolean) => void;
+  /** The business-system switcher takes part in the same arrival-focus gate as the palette (ADR-0032). */
+  switcherSession: PaletteSession | null;
+  switcherOpen: boolean;
+  setSwitcherOpen: (open: boolean) => void;
 };
 
 const PlatformContext = createContext<Platform | null>(null);
@@ -216,10 +224,12 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const user = session.user;
   const userId = user.id;
   const [url, setUrl] = useState(() => location.read() ?? '');
-  const [{ pageNavigation, paletteFocus }] = useState(() => {
+  const [{ pageNavigation, paletteFocus, switcherFocus }] = useState(() => {
     const paletteFocus = createPaletteFocus({ cancel: () => pageNavigation.cancel(), notify: () => pageNavigation.notify() });
-    const pageNavigation = createPageNavigation(url, paletteFocus.isBlocked);
-    return { pageNavigation, paletteFocus };
+    // Reopening the switcher must not cancel an arrival that is still resolving: it keeps its title focus.
+    const switcherFocus = createPaletteFocus({ cancel: () => {}, notify: () => pageNavigation.notify() });
+    const pageNavigation = createPageNavigation(url, () => paletteFocus.isBlocked() || switcherFocus.isBlocked());
+    return { pageNavigation, paletteFocus, switcherFocus };
   });
   const [favorites, setFavorites] = useState<string[]>(() => read(`platform:favorites:${userId}`, [] as string[]));
   const [recent, setRecent] = useState<Recent[]>(() => read(`platform:recent:${userId}`, [] as Recent[]));
@@ -253,24 +263,8 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     return { scopeId: null, status: 'none', validatedFor: session, grantedRooms: [] };
   });
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [paletteOpen, updatePaletteOpen] = useState(false);
-  const [paletteSession, updatePaletteSession] = useState<PaletteSession | null>(null);
-  const setPaletteOpen = useCallback((open: boolean) => {
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    updatePaletteSession(paletteFocus.setOpen(open, opener));
-    updatePaletteOpen(open);
-  }, [paletteFocus]);
-  useEffect(() => {
-    if (!paletteOpen) paletteFocus.releaseUnrendered();
-  }, [paletteOpen, paletteSession, paletteFocus]);
-  const paletteSessionOwner = useRef(session);
-  useLayoutEffect(() => {
-    if (paletteSessionOwner.current === session) return;
-    paletteSessionOwner.current = session;
-    paletteFocus.reset();
-    updatePaletteOpen(false);
-    updatePaletteSession(null);
-  }, [session, paletteFocus]);
+  const { open: paletteOpen, session: paletteSession, setOpen: setPaletteOpen } = useFocusGate(paletteFocus, session);
+  const { open: switcherOpen, session: switcherSession, setOpen: setSwitcherOpen } = useFocusGate(switcherFocus, session);
   const toastId = useRef(1);
   const { lang } = useI18n();
 
@@ -651,7 +645,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const value: Platform = {
     registry, adapter, location, absoluteUrl, url, pathname, route, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
     session, user, revision, can, canOpen, visibleMenus, globalMenus, menusInSpace, accessibleSpaces, currentSpace, sidebarSpace, spaceResume, spaceEntry, switchSpace, scope: scopeView, retryScope, lastScope, favorites, toggleFavorite, recent,
-    toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen, paletteSession,
+    toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen, paletteSession, switcherOpen, setSwitcherOpen, switcherSession,
   };
   return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>;
 }

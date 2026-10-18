@@ -103,10 +103,10 @@ describe('CommandPalette space bundles (06 §9.1)', () => {
     expect(screen.getByRole('group', { name: '운영 콘솔' })).toHaveAttribute('aria-labelledby', 'palette-heading-operations');
     expect(screen.getByRole('group', { name: '플랫폼' })).toHaveAttribute('aria-labelledby', 'palette-heading-platform');
     expect(document.getElementById('palette-heading-analytics')).toHaveTextContent('분석');
-    expect(subtitle('palette-home')).toBe('분석');
-    expect(subtitle('palette-equipment')).toBe('분석 · 설비관리');
-    expect(subtitle('palette-roles')).toBe('운영 콘솔 · 관리·감사');
-    expect(subtitle('palette-notices')).toBe('플랫폼 · 공지·VOC · 예정');
+    expect(subtitle('palette-home')).toBe('분석 › 홈');
+    expect(subtitle('palette-equipment')).toBe('분석 › 설비관리 › 설비');
+    expect(subtitle('palette-roles')).toBe('운영 콘솔 › 관리·감사 › 권한');
+    expect(subtitle('palette-notices')).toBe('플랫폼 › 공지·VOC › 공지 · 예정');
     expect(screen.getByRole('option', { name: /홈/ }).textContent).not.toContain('Overview');
     expect(screen.getByRole('option', { name: /공지/ }).textContent).not.toContain('Catalog');
     expect(screen.queryByRole('option', { name: /공지 상세/ })).toBeNull();
@@ -127,7 +127,7 @@ describe('CommandPalette space bundles (06 §9.1)', () => {
     expect(screen.getByRole('group', { name: 'Platform' })).toBeTruthy();
     fireEvent.change(screen.getByRole('combobox', { name: 'Search menus' }), { target: { value: 'Platform' } });
     expect(screen.getAllByRole('option').map(option => option.id)).toEqual(['palette-notices']);
-    expect(subtitle('palette-notices')).toBe('Platform · Notice & VOC · Planned');
+    expect(subtitle('palette-notices')).toBe('Platform › Notice & VOC › Notices · Planned');
   });
 
   it('exposes each option as group inside listbox, with no list or listitem between them', () => {

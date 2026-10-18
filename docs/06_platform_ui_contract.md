@@ -324,8 +324,8 @@ Desktop-first를 기본으로 한다.
 
 셸 배치도(레일·사이드바·페이지 머리·Context 바·콘텐츠 슬롯, 상세가 열린 상태 포함)는 [07 §4](07_app_shell_wireframe.md#4-wireframe-decided-구조-2026-10-04--adr-0011)에 하나만 둔다.
 
-- **레일**: 공간 전환(§9.1), 명령 팔레트(§10), 앱이 주입하는 도구 슬롯(`topBarTools`, ADR-0009 이름 유지), 도움말, 언어, 사용자 메뉴.
-- **사이드바**: 머리에 공간 이름과 접기. 그 아래 Scope 선택기와 검증 상태가 있고, 그룹 섹션과 메뉴, 즐겨찾기·최근이 이어진다(§9).
+- **레일** (위 → 아래): 업무 시스템 전환기(맨 위, §9.1) → 현재 시스템의 섹션 버튼(그룹 단위, 공간 밖 화면에서는 비어 있음) → 공통 도구(명령 팔레트 §10) → 앱이 주입하는 도구 슬롯(`topBarTools`, ADR-0009 이름 유지), 도움말, 언어, 사용자 메뉴. 공통 도구는 시스템을 바꿔도 같은 자리다. 배치·치수 원본은 [15 §3.2](15_multi_workspace_ui.md#32-시스템별-레일-decided-2026-10-19-adr-0042), 방향은 [ADR-0042](adr/0042-system-switcher-and-system-owned-rail.md)다.
+- **사이드바**: 머리에 공간 이름과 현재 섹션 이름(같으면 한 줄)과 접기. 그 아래 Scope 선택기와 검증 상태가 있고, 현재 섹션(그룹)의 메뉴, 즐겨찾기·최근이 이어진다(§9). 미등록 경로·공간 진입 거부의 fallback 사이드바는 접근 가능한 공간의 모든 그룹을 그대로 그린다.
 - **상단 바는 없다.** 페이지 머리는 한 줄에 위치·제목·설명·동작을 둔다(§8 슬롯).
 
 Scope는 개념적으로 Global Context에 포함되지만 선택기는 **사이드바 머리에 하나만** 둔다. Context Bar에 두 번째 Scope 선택기를 만들지 않는다. 구체 셸 배치는 `07_app_shell_wireframe.md`를 따른다.
@@ -379,7 +379,7 @@ Page
 
 이 Slot 외의 위치에 페이지가 직접 전역 UI를 삽입하지 않는다. 상세 내용은 등록 경계로 넘기고, 셸이 main 옆의 전체 높이 오른쪽 aside 배치를 소유한다(§13).
 
-앱이 조립 때 주입하는 셸 슬롯은 `PlatformSlots`의 `contextBar`(PlatformPage가 페이지 머리 아래에 그린다), `topBarTools`(레일 아래 도구), `feedbackOps`(공간별 FeedbackOps 진입과 전체 링크, [ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md)·[ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md))다. 앱이 `feedbackOps`를 넘기지 않으면 셸은 블록과 레일 링크를 그리지 않는다. 페이지는 `crumbs`로 현재 위치(부모 메뉴 뒤 추가 경로)를 확장할 수 있다. 새 슬롯은 이 절에 근거를 먼저 적는다.
+앱이 조립 때 주입하는 셸 슬롯은 `PlatformSlots`의 `contextBar`(PlatformPage가 페이지 머리 아래에 그린다), `topBarTools`(레일 아래 도구), `feedbackOps`(공간별 FeedbackOps 진입과 전체 링크, [ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md)·[ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)), `plannedSpaces`(전환기의 `준비 중` 행 `{ id, label, icon }[]`)다. 앱이 `feedbackOps`를 넘기지 않으면 셸은 블록과 레일 링크를 그리지 않는다. `plannedSpaces`는 아직 들어갈 수 없는 업무 시스템을 알리는 표시용이라 Registry에 넣지 않는다(공간·메뉴·권한이 없고 이동하지 않는다). 앱이 넘기지 않으면 전환기는 `준비 중` 영역을 그리지 않는다([ADR-0042](adr/0042-system-switcher-and-system-owned-rail.md), 15 §3.2). 페이지는 `crumbs`로 현재 위치(부모 메뉴 뒤 추가 경로)를 확장할 수 있다. 새 슬롯은 이 절에 근거를 먼저 적는다.
 
 ### 이유
 
@@ -435,17 +435,17 @@ Sidebar 기능(셸 구조는 §7, ADR-0011):
 | 개선 실행 | 개선 담당자 | 개선 과제·대상 설비·현장 적용·성과 입력/검증(도메인 구현은 별도 제품이 소유) |
 | 운영 콘솔 (지원) | 개발자·운영자 | 시스템 모니터링, 개발자용 파이프라인 트레이스, 메뉴 활용률([05 계측](05_roadmap_and_open_questions.md#메뉴-활용률-계측-decided--v1-범위-포함-2026-09-22-grilling-round-2)), 관리·감사(권한/역할, 변경 감사), Menu Registry 조회 |
 
-- **플랫폼 홈:** 접근 가능한 공간을 고르는 시스템 런처다(카드 → 최근 방문·즐겨찾기 → 공지, [ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)). 모든 메뉴를 중복 나열하지 않는다. 레일 맨 위 로고가 홈 링크다(15 §3.1·§8).
+- **플랫폼 홈:** 접근 가능한 공간을 고르는 시스템 런처다(카드 → 최근 방문·즐겨찾기 → 공지, [ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)). 모든 메뉴를 중복 나열하지 않는다. 홈 링크는 전환기 머리의 `플랫폼 홈`이다(`/` 메뉴를 열 수 있을 때만, 15 §3.2·§8). 레일 로고는 링크가 아니다.
 - **전역 유틸리티 메뉴(Decided, 2026-10-09, [ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)):** 플랫폼 홈·공지·내 VOC는 어떤 공간에도 속하지 않는다. 자기 메뉴 권한(`platform:view`·`notice:view`·`voc:view`)으로만 판정하고 공간 진입 권한을 거치지 않으며, 접근 가능한 공간 수에 들지 않는다. 이 화면에서는 업무 공간 사이드바를 붙이지 않고 레일의 공간 표식도 끈다. 명령 팔레트에서는 공간이 아닌 별도 묶음(플랫폼)으로 보인다. Registry 표현: `GroupDef.space: null`(명시 필수). 다른 메뉴를 전역으로 올리려면 이 규칙을 개정한다.
 - **FeedbackOps(협업):** 별도 공간이 아니고, 화면을 플랫폼으로 옮기지도 않는다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md)). 각 공간 사이드바에 그 시스템의 Managed System으로 좁힌 FeedbackOps 진입(VOC 등록·VOC·Task·설문)을 두고 새 탭으로 연다. 공간에 대응하는 매핑이 없으면 진입을 그리지 않는다. 전체 협업 허브는 FeedbackOps 자체 화면이며 플랫폼은 시스템 범위 없는 진입 링크만 둔다(링크 노출 권한은 Candidate, 내용 판정은 FeedbackOps). 진입은 사이드바 바닥 고정 블록이고, 전체 링크는 레일 하단 도구 영역 맨 위다([ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), 15 §3.1).
 - **기존 메뉴 귀속(Decided, 2026-10-09, [ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)):** 운영 개요(플랫폼 현황)는 홈 런처에 합친다. 설비관리·기준정보관리는 생산성 분석 공간(분석 그룹 다음), 관리·감사는 운영 콘솔, 공지·내 VOC는 전역 유틸리티다. 경로와 메뉴 권한은 바꾸지 않는다. 가공 상태 조회처럼 아직 없는 메뉴는 만들 때 정한다. 사용자용 VOC·설문의 1단계 읽기·원본 화면 쓰기 규칙은 [저장소 연결 문서](integration/repository-layout.md#feedbackops-통합-방식-decided-2026-09-26)를 따른다.
 - **공간별 마지막 화면 복원(Decided, 2026-10-09, [ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)):** 레일·홈 카드로 공간에 들어가면 그 공간의 마지막 화면으로 간다. 사용자+공간별로 탭 세션 범위에 저장하고(기기·세션 간 동기화 없음), 가기 전에 경로·메뉴 권한·공간 진입·등록 page key를 다시 확인한다. 실패하면 공간 홈, 공간 홈을 열 수 없으면 그 공간에서 열 수 있는 첫 메뉴(사이드바 순서)로 간다. 현재 공간을 다시 누르면 아무 일도 하지 않는다. 전역 Context는 지금 값을 쓰고 공간마다 과거 값을 되살리지 않는다.
 
-- **노출:** 공간 전환은 레일의 공간 버튼으로 한다(2026-10-04, ADR-0011). 공간 버튼을 누르면 사이드바가 대상 공간 것으로 통째로 바뀌고 포털 재진입을 강제하지 않는다. 공간 전환은 레일 하나로만 한다 — 사이드바 머리 전환기나 사이드바 탭을 두지 않는다(ADR-0028). 접근 가능한 공간이 2개 이상인 사용자에게만 공간 버튼을 표시한다. 공간이 하나뿐인 사용자에게는 전환기가 없다. 공간 진입 권한도 §17 규칙을 따른다(비노출 + 직접 URL은 서버 검증).
+- **노출:** 공간 전환은 레일 맨 위 업무 시스템 전환기(팝오버 카드, 15 §3.2·ADR-0042, 2026-10-19)로 한다. 카드를 고르면 사이드바와 레일 섹션이 대상 공간 것으로 바뀌고 포털 재진입을 강제하지 않는다. 카드는 `accessibleSpaces` 중 `spaceEntry`가 있는 것만 레지스트리 순서로 그리고, 보조 문구는 `이어서: <메뉴>`(검증된 마지막 화면) 또는 `시작: <메뉴>`다. 현재 공간 카드를 다시 고르면 이동 없이 닫고 전환기 버튼으로 포커스를 돌린다. 전환기는 레일 하나에만 둔다 — 사이드바 머리 전환기나 사이드바 탭을 두지 않는다(ADR-0028). 접근 가능한 공간이 하나여도, 공간 밖 화면에서도 전환기는 있다(공간 밖에서는 현재 표식이 없다). 공간이 하나뿐인 사용자는 카드 하나와 `플랫폼 홈`을 본다. 공간 안에서는 레일 섹션 버튼(그룹 단위)이 같은 공간의 다른 섹션으로 보내며 현재 섹션을 누르면 아무 일도 없다. 현재 섹션은 `aria-current="true"`다(`page`는 현재 메뉴만). 공간 진입 권한도 §17 규칙을 따른다(비노출 + 직접 URL은 서버 검증).
 - **Context:** 공간 전환은 §6.4의 셸 내비게이션과 같은 규칙을 따른다. 등록된 전역 Context(Scope·기간·설비 선택 등)는 전부 보존하고, 대상 화면이 지원·검증한 값만 적용한다. 예: 사용자용 가공 상태 조회에서 본 설비·기간으로 개발자용 트레이스를 바로 연다.
 - **Registry:** 소속 공간은 메뉴가 아니라 **그룹이** 선언한다(`GroupDef.space`, **필드명 Decided, 2026-09-27**). 현재 공간은 매칭된 라우트의 메뉴에서 유도하며 공간용 URL 키는 없다(§6.4: 경로가 이미 공간이다). 위 표의 **공간별 배치**는 Decided다. **공간별 그룹 수 상한은 두지 않는다(Decided, 2026-09-27)** — 새 그룹은 공간 추가보다 먼저 기존 그룹에 흡수할 수 있는지 검토하고, 공간당 7개 이하를 권장한다. 표 항목 중 무엇이 그룹이고 무엇이 그 아래 화면인지는 각 공간을 구현할 때 정한다.
 - **운영 콘솔 권한(Decided, 2026-09-27):** '운영 콘솔 접근' 한 역할로 시작한다. 개발자·운영자 모두 운영 콘솔 전 화면에 들어간다. 메뉴 활용률 열람은 05 결정(개발자·운영자 기본 + 개별 부여)을 따른다. 역할 분리가 필요해지면 그때 나눈다. 권한/역할 화면(`/admin/roles`, #49)은 **조회 전용**이다 — 사용자별 보유 권한, 그 권한이 여는 메뉴(Registry `permission` 기준 클라이언트 조인이며 권한 증명이 아니다), 사이트별 부여 room_name을 보여 준다. 부여·회수(05의 개별 부여 포함)의 원천은 **분리(2026-09-29 Decided, 절반 확정, #98)**: room_name 부여와 메뉴 활용률 열람 개별 부여는 플랫폼 메타 DB가 소유하고, 역할 소속(누가 운영 콘솔 접근자인가)의 원천은 IdP 그룹 claim 사양이 나올 때까지 Open이다(claim을 주면 IdP, 안 주면 메타 DB). 쓰기 포트·화면은 아직 만들지 않는다.
-- **Command Palette:** 사용자가 접근 가능한 모든 공간의 메뉴와 전역 유틸리티를 검색한다. 결과는 공간별로 묶고(레일 순서, 전역 유틸리티는 별도 묶음), 행 보조줄은 공간명·그룹명이며 같으면 한 번만 쓴다. FeedbackOps 외부 링크는 넣지 않는다.
+- **Command Palette:** 사용자가 접근 가능한 모든 공간의 메뉴와 전역 유틸리티를 검색한다. 결과는 공간별로 묶고(레일 순서, 전역 유틸리티는 별도 묶음), 행 보조줄은 `<시스템> › <섹션> › <메뉴>` 전체 경로이며 연속해서 같은 이름은 한 번만 쓴다(전역 유틸리티는 `플랫폼 › <그룹> › <메뉴>`). FeedbackOps 외부 링크는 넣지 않는다.
 - **범위 밖:** 공간별 테마·별도 로그인·공간별 Scope는 두지 않는다. FeedbackOps 화면은 플랫폼으로 옮기지 않는다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md), 단계는 [저장소 연결 문서](integration/repository-layout.md)). 공간 `id`, FeedbackOps `Managed System`, 데이터 Scope(Site·room_name)는 서로 다른 식별 층이며 1:1을 가정하지 않는다(매핑은 #81·#213 Open). 현재 Registry에는 생산성 분석·지표관리·운영 콘솔 세 공간이 있다. 운영 개요·공지·VOC는 전역 유틸리티다. 표준 로그 개발·개선 실행 공간은 메뉴가 생길 때 등록한다([#252](https://github.com/hjung3113/analytics-platform/issues/252)). 멀티 워크스페이스 이전은 [#249](https://github.com/hjung3113/analytics-platform/issues/249)가 추적한다.
 
 ---

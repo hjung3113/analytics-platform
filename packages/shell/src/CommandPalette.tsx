@@ -108,9 +108,8 @@ export function CommandPalette() {
                 {section.items.map(m => {
                   const i = index++;
                   const Icon = m.icon;
-                  const groupName = tx(registry.groupById(m.group).label);
-                  const spaceName = tx(section.label);
-                  const base = spaceName === groupName ? spaceName : `${spaceName} · ${groupName}`;
+                  // <system> › <section> › <menu> (15 §3.2); a name repeated right after itself is written once.
+                  const base = [tx(section.label), tx(registry.groupById(m.group).label), tx(m.label)].filter((name, at, names) => at === 0 || name !== names[at - 1]).join(' › ');
                   return <li key={m.id} id={`palette-${m.id}`} role="option" aria-selected={i === active} onMouseEnter={() => setActive(i)} onClick={() => go(i)}
                     className={cn('flex cursor-pointer items-center gap-3 rounded-md px-3 py-2', i === active && 'bg-accent-primary-soft')}>
                     <Icon className="size-4 text-text-muted" aria-hidden />

@@ -8,6 +8,27 @@ import { contextBar, evidence, expectScopeValid, firstRowByColumn, lotColumn, ma
 const PERIOD = 'from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
 const PRODUCTIVITY = `/analytics/productivity?v=1&scopeId=ICH&${PERIOD}&roomNames=PHOTO`;
 
+/** Rail section buttons of the current system (15 §3.2). `exact` keeps '생산성 분석' apart from the switcher's '… 현재: 생산성 분석'. */
+function railSection(page: Page, name: string) {
+  return page.getByRole('navigation', { name: '앱 레일' }).getByRole('group', { name: '시스템 섹션' }).getByRole('button', { name, exact: true });
+}
+function systemSwitcher(page: Page) {
+  return page.getByRole('navigation', { name: '앱 레일' }).getByRole('button', { name: /^업무 시스템 전환/ });
+}
+/** Opens the switcher and returns its popover. */
+async function openSwitcher(page: Page) {
+  await systemSwitcher(page).click();
+  const popover = page.getByRole('dialog', { name: '업무 시스템 전환' });
+  await expect(popover).toBeVisible();
+  return popover;
+}
+/** Picks a system card in the switcher; the popover closes first and the Kernel moves. */
+async function chooseSystem(page: Page, name: string) {
+  const popover = await openSwitcher(page);
+  await popover.getByRole('button', { name: new RegExp(`^${name}`) }).click();
+  await expect(popover).toHaveCount(0);
+}
+
 async function chooseFilterOption(page: Page, field: string, option: string) {
   await page.getByRole('combobox', { name: field }).click();
   await page.getByRole('option', { name: option, exact: true }).click();
@@ -861,7 +882,8 @@ test.describe('메뉴 간 Context 보존과 미적용 표시 (06 §6, §22)', ()
   test('메뉴를 옮겨도 등록된 전역 Context는 URL에 그대로 남는다', async ({ page }, testInfo) => {
     await page.goto(`${PRODUCTIVITY}&granularity=day`);
     await expectScopeValid(page, 'ICH · Site A');
-    await page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: '설비 마스터' }).click();
+    // The sidebar draws only the current section (15 §3.2): reach 설비 마스터 through the 설비관리 section, which opens its first menu.
+    await railSection(page, '설비관리').click();
     await expect(mainHeading(page)).toHaveText('설비 마스터');
     const q = query(page);
     expect(q.get('scopeId')).toBe('ICH');
@@ -891,6 +913,7 @@ test.describe('메뉴 간 Context 보존과 미적용 표시 (06 §6, §22)', ()
     await evidence(page, testInfo, 'lot-not-used');
     await lotEditor.close();
 
+    await railSection(page, '생산성 분석').click();
     await page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: '사이클타임 상세' }).click();
     await expect(mainHeading(page)).toHaveText('사이클타임 상세');
     expect(query(page).getAll('lotIds')).toEqual([lot]);
@@ -962,10 +985,15 @@ test.describe('워크스페이스 (06 §9.1)', () => {
   // without narrowing the 54 rows, so page=2 is a real page and Back can restore it exactly.
   const EQUIPMENT_URL = `/equipment?v=1&scopeId=ICH&${PERIOD}&lotIds=LOT-0001&page=2`;
 
-  test('진입 가능한 공간이 하나뿐인 역할에는 전환기가 없고 운영 콘솔 메뉴가 보이지 않는다', async ({ page }, testInfo) => {
+  test('진입 가능한 공간이 하나뿐인 역할도 전환기가 있고 카드는 하나이며 운영 콘솔 메뉴가 보이지 않는다', async ({ page }, testInfo) => {
     await signInAs(page, 'viewer');
     await page.goto('/metrics');
-    await expect(page.getByRole('button', { name: /^공간:/ })).toHaveCount(0);
+    await expect(systemSwitcher(page)).toBeVisible();
+    const popover = await openSwitcher(page);
+    await expect(popover.getByRole('button', { name: /^지표관리/ })).toHaveAttribute('aria-current', 'true');
+    await expect(popover.getByRole('button', { name: /^(생산성 분석|운영 콘솔)/ })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(popover).toHaveCount(0);
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
     await expect(nav.getByRole('link', { name: '지표 카탈로그' })).toBeVisible();
     await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toHaveCount(0);
@@ -975,12 +1003,15 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await evidence(page, testInfo, 'no-switcher-viewer');
   });
 
-  test('engineer는 생산성 분석과 지표관리 버튼을 갖고 운영 콘솔 메뉴는 보이지 않는다', async ({ page }, testInfo) => {
+  test('engineer는 전환기에 생산성 분석과 지표관리 카드를 갖고 운영 콘솔은 보이지 않는다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
     await page.goto('/equipment?v=1&scopeId=ICH');
-    await expect(page.getByRole('button', { name: '공간: 생산성 분석' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '공간: 지표관리' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '공간: 운영 콘솔' })).toHaveCount(0);
+    const popover = await openSwitcher(page);
+    await expect(popover.getByRole('button', { name: /^생산성 분석/ })).toHaveAttribute('aria-current', 'true');
+    await expect(popover.getByRole('button', { name: /^지표관리/ })).toBeVisible();
+    await expect(popover.getByRole('button', { name: /^운영 콘솔/ })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(popover).toHaveCount(0);
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
     await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
     await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toHaveCount(0);
@@ -1007,11 +1038,10 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     }
   });
 
-  test('관리자는 레일 공간 버튼으로 운영 콘솔을 오가며 전역 Context를 보존한다', async ({ page }, testInfo) => {
+  test('관리자는 전환기로 운영 콘솔을 오가며 전역 Context를 보존한다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(EQUIPMENT_URL);
-    const switcher = page.getByRole('button', { name: '공간: 생산성 분석' });
-    await expect(switcher).toBeVisible();
+    await expect(systemSwitcher(page)).toHaveAccessibleName('업무 시스템 전환 · 현재: 생산성 분석');
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
     await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
     await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toHaveCount(0);
@@ -1022,8 +1052,8 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await page.keyboard.press('Escape');
     await evidence(page, testInfo, 'admin-analytics');
 
-    await page.getByRole('button', { name: '공간: 운영 콘솔' }).click();
-    expect(new URL(page.url()).pathname).toBe('/admin/roles');
+    await chooseSystem(page, '운영 콘솔');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/admin/roles');
     const q = query(page);
     expect(q.get('scopeId')).toBe('ICH');
     expect(q.get('from')).toBe('2026-09-25T09:00:00');
@@ -1033,7 +1063,9 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     expect(q.get('page')).toBeNull();
     await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toBeVisible();
     await expect(nav.getByRole('link', { name: '설비 마스터' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: '공간: 운영 콘솔' })).toHaveAttribute('aria-current', 'page');
+    // Current markers: the switcher names the system, the rail section carries aria-current="true" (not "page").
+    await expect(systemSwitcher(page)).toHaveAccessibleName('업무 시스템 전환 · 현재: 운영 콘솔');
+    await expect(railSection(page, '관리·감사')).toHaveAttribute('aria-current', 'true');
     await evidence(page, testInfo, 'admin-operations');
 
     // The switch pushed a history entry: Back lands on the exact origin URL (page=2 included, 06 §6.4)
@@ -1041,7 +1073,8 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await page.goBack();
     await expect.poll(() => page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(EQUIPMENT_URL);
     await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '공간: 생산성 분석' })).toHaveAttribute('aria-current', 'page');
+    await expect(systemSwitcher(page)).toHaveAccessibleName('업무 시스템 전환 · 현재: 생산성 분석');
+    await expect(railSection(page, '설비관리')).toHaveAttribute('aria-current', 'true');
     await evidence(page, testInfo, 'admin-history-back');
 
     await page.goForward();
@@ -1057,8 +1090,8 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toBeVisible();
     await evidence(page, testInfo, 'admin-history-forward');
 
-    await page.getByRole('button', { name: '공간: 생산성 분석' }).click();
-    expect(new URL(page.url()).pathname).toBe('/equipment');
+    await chooseSystem(page, '생산성 분석');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/equipment');
     const back = query(page);
     expect(back.get('scopeId')).toBe('ICH');
     expect(back.get('from')).toBe('2026-09-25T09:00:00');
@@ -1075,7 +1108,9 @@ test.describe('플랫폼 홈 · 전역 화면 (ADR-0028)', () => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: '플랫폼 홈' })).toBeVisible();
     await expect(page.getByRole('navigation', { name: '주 메뉴' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /^공간:/ })).toHaveCount(0);
+    // Outside a system the switcher stays, names no current system, and the rail has no section area.
+    await expect(systemSwitcher(page)).toHaveAccessibleName('업무 시스템 전환');
+    await expect(page.getByRole('group', { name: '시스템 섹션' })).toHaveCount(0);
     await (await headerMore(page)).getByRole('link', { name: '내 VOC' }).click();
     await expect.poll(() => new URL(page.url()).pathname).toBe('/voc');
     await expect(page.getByRole('navigation', { name: '주 메뉴' })).toHaveCount(0);
@@ -1086,16 +1121,21 @@ test.describe('플랫폼 홈 · 전역 화면 (ADR-0028)', () => {
     await evidence(page, testInfo, 'viewer-home-global');
   });
 
-  test('여러 공간이 있는 역할도 전역 화면에서는 레일 표식이 없고, 공간 화면에서만 현재 공간을 표시한다', async ({ page }, testInfo) => {
+  test('여러 공간이 있는 역할도 전역 화면에서는 현재 시스템·섹션 표식이 없고, 공간 화면에서만 표시한다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
     await page.goto('/notices');
     await expect(page.getByRole('navigation', { name: '주 메뉴' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: '공간: 생산성 분석' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '공간: 지표관리' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '공간: 생산성 분석' })).not.toHaveAttribute('aria-current', 'page');
-    await expect(page.getByRole('button', { name: '공간: 지표관리' })).not.toHaveAttribute('aria-current', 'page');
+    await expect(systemSwitcher(page)).toHaveAccessibleName('업무 시스템 전환');
+    await expect(page.getByRole('group', { name: '시스템 섹션' })).toHaveCount(0);
+    const popover = await openSwitcher(page);
+    await expect(popover.getByRole('button', { name: /^생산성 분석/ })).toBeVisible();
+    await expect(popover.getByRole('button', { name: /^지표관리/ })).toBeVisible();
+    for (const name of [/^생산성 분석/, /^지표관리/]) await expect(popover.getByRole('button', { name })).not.toHaveAttribute('aria-current', 'true');
+    await page.keyboard.press('Escape');
     await page.goto('/equipment?v=1&scopeId=ICH');
-    await expect(page.getByRole('button', { name: '공간: 생산성 분석' })).toHaveAttribute('aria-current', 'page');
+    await expect(systemSwitcher(page)).toHaveAccessibleName('업무 시스템 전환 · 현재: 생산성 분석');
+    await expect(railSection(page, '설비관리')).toHaveAttribute('aria-current', 'true');
+    await expect(page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: '설비 마스터' })).toHaveAttribute('aria-current', 'page');
     await evidence(page, testInfo, 'global-rail-marker');
   });
 });
@@ -2176,12 +2216,27 @@ test.describe('메뉴 이동 포커스 (06 §26)', () => {
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(mainHeading(page)).toBeFocused();
     await evidence(page, testInfo, 'palette-menu-heading-focus');
-    const link = page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: '설비 마스터', exact: true });
-    await link.focus();
+    // Rail section button, by keyboard: the new title takes the focus.
+    await railSection(page, '설비관리').focus();
     await page.keyboard.press('Enter');
     await expect(mainHeading(page)).toHaveText('설비 마스터');
     await expect(mainHeading(page)).toBeFocused();
-    await evidence(page, testInfo, 'sidebar-menu-heading-focus');
+    await evidence(page, testInfo, 'rail-section-heading-focus');
+    // System switcher, by keyboard: open focuses the current card, Tab stays inside, a real choice closes it and the title takes the focus.
+    await systemSwitcher(page).focus();
+    await page.keyboard.press('Enter');
+    const popover = page.getByRole('dialog', { name: '업무 시스템 전환' });
+    await expect(popover.getByRole('button', { name: /^생산성 분석/ })).toBeFocused();
+    for (let step = 0; step < 12; step++) {
+      await page.keyboard.press('Tab');
+      await expect(popover.locator(':focus')).toHaveCount(1);
+    }
+    await popover.getByRole('button', { name: /^지표관리/ }).focus();
+    await page.keyboard.press('Enter');
+    await expect(popover).toHaveCount(0);
+    await expect(mainHeading(page)).toHaveText('지표 카탈로그');
+    await expect(mainHeading(page)).toBeFocused();
+    await evidence(page, testInfo, 'switcher-menu-heading-focus');
   });
 });
 

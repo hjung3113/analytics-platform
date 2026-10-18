@@ -1,46 +1,41 @@
 import { CircleHelp, ExternalLink, LogOut, Search } from 'lucide-react';
-import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
+import { useI18n, usePlatform } from '@ap/kernel';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { SystemSwitcher } from './SystemSwitcher';
+import { firstOpenableMenu, useSystemSections } from './systemSections';
 
-/** Space navigation and global tools; the app keeps ownership of topBarTools. */
+/** System switcher, the current system's section buttons and global tools; the app keeps ownership of topBarTools. */
 export function AppRail() {
-  const { currentSpace, accessibleSpaces, switchSpace, slots, user, setPaletteOpen, registry, resolveLink, route } = usePlatform();
+  const { slots, user, setPaletteOpen, navigate, linkTo } = usePlatform();
   const { t, tx, lang, setLang } = useI18n();
   const languageLabel = lang === 'ko' ? '언어: 한국어 — English로 전환' : 'Language: English — 한국어로 전환';
-  const homeLabel = lang === 'ko' ? '플랫폼 홈' : 'Platform home';
   const overallLabel = lang === 'ko' ? 'FeedbackOps 전체 — 새 탭' : 'FeedbackOps overall — new tab';
-  const homeMenu = registry.matchRoute('/')?.menu;
-  const homeOpened = homeMenu !== undefined ? resolveLink(homeMenu.id) : null;
-  const homeLink = homeOpened?.allowed === true ? homeOpened : null;
-  const homeCurrent = homeLink !== null && route?.menu.id === homeMenu?.id;
+  const systems = useSystemSections();
   const overall = slots.feedbackOps?.overall ?? null;
   return <TooltipProvider delayDuration={200}>
-    <nav aria-label={lang === 'ko' ? '앱 레일' : 'App rail'} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-2 overflow-y-auto border-r border-border-subtle bg-surface-sidebar py-3">
-      {homeLink ? <Tooltip><TooltipTrigger asChild>
-        <PlatformLink href={homeLink.href} aria-label={homeLabel} aria-current={homeCurrent ? 'page' : undefined}
-          className={cn('relative mb-1 grid size-8 shrink-0 place-items-center rounded-md', homeCurrent ? 'bg-surface-row-selected text-accent-primary' : 'bg-accent-primary text-text-on-accent')}>
-          {homeCurrent && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
-          <span aria-hidden className="text-sm font-semibold">A</span><span className="sr-only">{homeLabel}</span>
-        </PlatformLink>
-      </TooltipTrigger><TooltipContent side="right">{homeLabel}</TooltipContent></Tooltip>
-        : <div title={t('appName')} className="mb-1 grid size-8 shrink-0 place-items-center rounded-md bg-accent-primary text-text-on-accent"><span aria-hidden className="text-sm font-semibold">A</span><span className="sr-only">{t('appName')}</span></div>}
-      {accessibleSpaces.length >= 2 && accessibleSpaces.map(space => {
-        const Icon = registry.groupById(registry.menuById(space.homeMenuId).group).icon;
-        const active = currentSpace?.id === space.id;
-        return <Tooltip key={space.id}><TooltipTrigger asChild>
-          <button type="button" aria-label={`${lang === 'ko' ? '공간' : 'Space'}: ${tx(space.label)}`} aria-current={active ? 'page' : undefined}
-            onClick={() => switchSpace(space.id)} className={cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', active && 'bg-surface-row-selected text-accent-primary')}>
-            {active && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
-            <Icon className="size-4" aria-hidden />
-          </button>
-        </TooltipTrigger><TooltipContent side="right">{tx(space.label)}</TooltipContent></Tooltip>;
-      })}
-      <div className="my-1 w-6 border-t border-border-subtle" aria-hidden />
+    <nav aria-label={lang === 'ko' ? '앱 레일' : 'App rail'} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r border-border-subtle bg-surface-sidebar pb-3">
+      <SystemSwitcher />
+      <div className="mb-1 w-6 shrink-0 border-t border-border-subtle" aria-hidden />
+      {systems !== null && systems.sections.length > 0 && <div role="group" aria-label={t('railSections')} className="flex min-h-8 shrink flex-col items-center gap-1.5 overflow-y-auto">
+        {systems.sections.map(({ group, items }) => {
+          const Icon = group.icon;
+          const active = group.id === systems.currentGroupId;
+          const name = tx(group.label);
+          return <Tooltip key={group.id}><TooltipTrigger asChild>
+            <button type="button" aria-label={name} aria-current={active ? 'true' : undefined}
+              onClick={() => { if (!active) navigate(linkTo(firstOpenableMenu(items).id), { focus: 'page' }); }}
+              className={cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', active && 'bg-surface-row-selected text-accent-primary')}>
+              {active && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
+              <Icon className="size-4" aria-hidden />
+            </button>
+          </TooltipTrigger><TooltipContent side="right">{name}</TooltipContent></Tooltip>;
+        })}
+      </div>}
+      <div className="min-h-3 flex-1" />
       <Tooltip><TooltipTrigger asChild>
         <button type="button" onClick={() => setPaletteOpen(true)} aria-label={t('searchPlaceholder')} aria-haspopup="dialog" aria-keyshortcuts="Meta+K Control+K"
           className="grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover"><Search className="size-4" aria-hidden /></button>
       </TooltipTrigger><TooltipContent side="right">{t('searchPlaceholder')} · {shortcutLabel('K')}</TooltipContent></Tooltip>
-      <div className="min-h-3 flex-1" />
       {overall && <Tooltip><TooltipTrigger asChild>
         <a href={overall.href} target="_blank" rel="noopener noreferrer" aria-label={overallLabel}
           className="grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover"><ExternalLink className="size-4" aria-hidden /></a>

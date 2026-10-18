@@ -218,10 +218,10 @@ describe('page header yield order (#303)', () => {
   // #398 AA2-1: the left group's minimum counts only what cannot shrink (title 112 + star 24 + yielded
   // description icon 24 + gaps 8). Without it the group shrinks below the shrink-0 controls and they spill
   // into the right group; the automatic minimum instead pins a nowrap description at full width (un-yielded
-  // headers overflow). Header here: title + star + description, no breadcrumb.
+  // headers overflow). Header here: title + star + description + the system-name breadcrumb (15 §3.2), so the gaps are 1.5rem; the no-breadcrumb gap sum is pinned in PlatformPage.system-breadcrumb.test.tsx.
   it.each([
-    { width: 1200, minWidth: 'calc(7rem + 1.5rem + 1rem)', icon: false },
-    { width: 999, minWidth: 'calc(7rem + 3rem + 1rem)', icon: true },
+    { width: 1200, minWidth: 'calc(7rem + 1.5rem + 1.5rem)', icon: false },
+    { width: 999, minWidth: 'calc(7rem + 3rem + 1.5rem)', icon: true },
   ])('reserves the non-shrinkable controls in the left group at $width px (#398)', async ({ width, minWidth, icon }) => {
     const widths = headerWidths();
     window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
