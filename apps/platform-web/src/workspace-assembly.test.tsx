@@ -70,7 +70,10 @@ describe('workspace assembly (#260)', () => {
     // The real composition: adding a feedbackOps test slot to appSlots fails this.
     expect(slots.topBarTools).toBe(assembly.topBarTools);
     expect(slots.feedbackOps).toBeUndefined();
-    expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools']);
+    expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools', 'plannedSpaces']);
+    // Planned systems are display-only rows for the switcher: no Registry space or menu carries their id.
+    expect(slots.plannedSpaces?.map(item => item.label.ko)).toEqual(['표준 로그 개발', '개선 실행']);
+    for (const item of slots.plannedSpaces ?? []) expect(registry.spaces.some(space => space.id === item.id)).toBe(false);
     const session = testSession(['platform:view', 'metrics:view', 'notice:view', 'voc:view'], {
       user: { id: 'viewer', name: 'viewer', title: { ko: '현업 문의자', en: 'Field requester' } },
     });

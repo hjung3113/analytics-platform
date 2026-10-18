@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react';
 import { createBrowserLocation, type PlatformLocation } from './location';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createPaletteFocus, type PaletteSession } from './paletteFocus';
@@ -21,12 +22,15 @@ export type FeedbackOpsSlot = {
   entriesFor: (spaceId: SpaceId) => readonly FeedbackOpsEntry[] | null;
   overall: { href: string } | null;
 };
+/** A business system that is announced but cannot be entered yet. Display only — not in the Registry, no permission, no menu (ADR-0042). */
+export type PlannedSpace = { id: string; label: Text; icon: LucideIcon };
 /**
  * Shell slots (docs/06 §8) the app fills at composition time, so platform components never import the shell.
  * contextBar: rendered by PlatformPage above page content. topBarTools: extra controls at the bottom of the app rail (today the mock dev tools).
  * feedbackOps: space-scoped entries and the overall link (ADR-0027, ADR-0028).
+ * plannedSpaces: the system switcher's not-yet-available rows (ADR-0042, 15 §3.2).
  */
-export type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode; feedbackOps?: FeedbackOpsSlot };
+export type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode; feedbackOps?: FeedbackOpsSlot; plannedSpaces?: readonly PlannedSpace[] };
 export type LinkOptions = { params?: Record<string, string>; page?: Record<string, string>; global?: Partial<GlobalContext>; returnTo?: boolean };
 export type LinkResolution = {
   href: string;
