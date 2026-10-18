@@ -32,6 +32,15 @@
 - pnpm 11은 설정(`pnpm-workspace.yaml`)만 바뀌면 "Already up to date"로 건너뛴다 → `pnpm install --config.optimistic-repeat-install=false`.
 - 서브모듈 gitlink를 올리면 플랫폼 lockfile도 같은 PR에서 고친다([저장소 구조](../integration/repository-layout.md)). 루트 검사는 `@fops/*` 작업을 돌리지 않는다(가드 `.github/scripts/check-platform-turbo-scope.mjs`가 실제 커맨드를 가진 `@fops/*` 태스크가 없음을 확인한다). 루트 스크립트는 `--filter='!@fops/*'`만 쓰고 의존 패키지 해시는 스크립트 없는 `transit` 태스크가 전파한다(#390). `--only`는 의존 해시까지 지워서 #388처럼 로컬 캐시가 CI를 못 따라가게 하므로 다시 넣지 않는다. 서브모듈 파일은 turbo 전역 해시에 들어가므로 gitlink를 올린 뒤 `--force`가 필요 없다(#237, 저장소 구조 문서).
 
+- 새 worktree에서 문서 링크 검사 전에 서브모듈을 init한다(`git submodule update --init --depth 1 -- products/feedbackops`). 안 하면 FeedbackOps 링크가 깨진 것으로 나온다. 실행은 `node .github/scripts/check-doc-links.mjs`.
+
+## macOS 셸(zsh·BSD)
+
+공통 목록은 전역 작업자 규칙 `templates/impl-rules.md` 8번(`sed -i ''`, `\|` 없음, `head -n -N` 없음, zsh `$pipestatus`, 경로 변수 따옴표, 여러 줄·백틱 문구는 `<<'EOF'`)이다. 이 레포에서 따로 겪은 것:
+
+- zsh는 따옴표 없는 변수를 단어로 나누지 않는다. `${T:+--terminal $T}`는 한 단어로 넘어가 `unrecognized arguments`가 된다 → `$( [ -n "$T" ] && echo --terminal "$T" )` 또는 배열.
+- 한 호출 안의 명령 하나가 훅에 막히면 그 호출 전체가 실행되지 않는다. 남은 명령을 다시 돌린다.
+
 ## git·PR
 
 - 강제 push는 훅이 막는다. 이미 push한 브랜치가 main과 충돌하면 rebase 대신 `git merge origin/main`(rebase는 첫 push 전에만).
