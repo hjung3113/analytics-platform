@@ -1,6 +1,6 @@
 # 15. 멀티 워크스페이스 v2 — UI·IA·화면 설계
 
-상태: **Decided — UX 구성 원칙(2026-10-08 사용자 승인). 공간 마지막 화면 복원은 사용자+공간별 탭 세션([ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26))** / **Candidate — 표 열 등 다른 사용자 설정 저장, 아직 없는 공간의 메뉴 귀속·기술 구현** / **Open — 인증·Managed System 매핑**. FeedbackOps 진입은 링크다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md), 2026-10-09 — 화면을 옮기지 않는다). **Proposed — 시스템 전환기 + 시스템별 레일(§3.2, [ADR-0042](adr/0042-system-switcher-and-system-owned-rail.md)).**
+상태: **Decided — UX 구성 원칙(2026-10-08 사용자 승인). 공간 마지막 화면 복원은 사용자+공간별 탭 세션([ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26))** / **Candidate — 표 열 등 다른 사용자 설정 저장, 아직 없는 공간의 메뉴 귀속·기술 구현** / **Open — 인증·Managed System 매핑**. FeedbackOps 진입은 링크다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md), 2026-10-09 — 화면을 옮기지 않는다). **Decided(방향, 2026-10-18) — 시스템 전환기 + 시스템별 레일([ADR-0042](adr/0042-system-switcher-and-system-owned-rail.md)); 화면 사양 §3.2는 Candidate(시안 컨펌 전).**
 
 > 이 문서는 **업무 시스템별 독립 워크스페이스**의 화면 설계·도입 계획이다. 플랫폼 전체 Navigation/Context/Permission의 단일 계약은 [06 §9·9.1](06_platform_ui_contract.md#9-information-architecture)이고, 이 문서는 이를 소비하는 상세 설계다. 기존 백엔드/DB의 소유권이나 구현 완료를 선언하지 않는다.
 
@@ -105,7 +105,7 @@ Equipment Platform
 
 ### 3.2 시스템별 레일 (Candidate, ADR-0042)
 
-[ADR-0042](adr/0042-system-switcher-and-system-owned-rail.md)(Proposed)가 채택되면 3.1의 레일·로고·FeedbackOps 새 탭 부분을 대체한다. 그 전까지 3.1이 유효하다. 아래 값은 다음 `?variant=` 시안의 사양이며 승인된 픽셀 계약이 아니다(원칙 7의 치수는 그대로).
+[ADR-0042](adr/0042-system-switcher-and-system-owned-rail.md)(Decided, 방향)가 3.1의 레일·로고 부분을 대체한다. 구현 전까지 지금 셸은 3.1대로 동작한다. FeedbackOps를 셸 안에서 여는 것은 ADR-0038을 따르고, 그 전까지 바닥 블록은 새 탭 링크다. 아래 값은 다음 `?variant=` 시안의 사양이며 승인된 픽셀 계약이 아니다(원칙 7의 치수는 그대로).
 
 **레일 (위 → 아래)**: 전환기(맨 위 50px 영역, 시각 32×32px, 대상 40×40px) → 구분선 → 현재 시스템 섹션(많으면 이 구역만 스크롤) → 공통 도구(메뉴 검색 → 분석 보드) → 구분선 → 도움말 → 언어 → 사용자. 버튼 시각 32px, 세로 간격 6px. 공통 도구는 시스템을 바꿔도 움직이지 않는다. 플랫폼 홈·분석 보드 화면에서는 섹션 구역을 비우고 전환기는 플랫폼 표식을 쓴다.
 
