@@ -8,10 +8,11 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 
 - `<base>`는 `main` 하나다(develop 없음). 병합은 squash로 한다. 릴리스는 보드 문서 PR → 태그 + GitHub Release.
 - 브랜치는 `feat/<n>-<slug>`. `$MAIN`은 `AP_MAIN`(메인 체크아웃 경로)이고, worktree는 Orca가 정한 위치를 이름(`<n>-<slug>`)으로 찾는다.
-- 공통 도구(`launch-worker`·`review-plan`·`worker-hygiene`·`wave-status`)는 전역 엔진이다: `$ENGINE` = `~/.agents/skills/issue-wave-conductor/scripts`. 이 레포 설정은 [`conductor.json`](conductor.json)(base·브랜치·설치·리뷰 규칙·플래그·hygiene·미리보기 판정), 템플릿 덧붙임은 [`addenda/`](addenda/)다(#394). 규칙을 바꾸면 설정을 고친다 — 엔진 원본과 테스트는 `~/orca/workspaces/conductor-engine`.
+- 공통 도구(`launch-worker`·`review-plan`·`worker-hygiene`·`wave-status`)는 전역 엔진이다: `$ENGINE` = `~/.agents/skills/issue-wave-conductor/scripts`. 이 레포 설정은 [`conductor.json`](conductor.json)(base·브랜치·설치·리뷰 규칙·플래그·hygiene·미리보기 판정), 템플릿 덧붙임은 [`addenda/`](addenda/)다(#394). 규칙을 바꾸면 설정을 고친다 — 엔진 원본과 테스트는 provider 정식 체크아웃 `~/orca/projects/conductor-engine`(설치는 아래 Tools).
 - `WAVE_BRIEFS`는 `$AP_MAIN/.review/wave/`(`.review/`는 `.git/info/exclude`).
 - `ship-pr.sh`를 쓰려면 이 클론에서 한 번 `git config workerops.protectedBases none`이 필요하다(PR 기준이 main이다).
 - PR마다 `.planning/README.md`의 해당 줄을 같은 PR에서 고친다.
+- 병합 권한은 슬라이스 시작 때 한 번 묻는다. 권장 선택지는 "CI·리뷰 통과 시 머지, 사후보고"다. 릴리스(태그·GitHub Release)는 따로 묻는다. PR마다 다시 묻지 않는다(#436).
 
 ## Launch
 
@@ -45,6 +46,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 
 ## Browser evidence
 
+- UX 리뷰 증거의 기본은 리뷰어가 브랜치·기준 미리보기를 직접 조작하는 것이다. ego-browser가 실패하면 다시 시도·대체하는 규칙은 전역 스킬 7d를 따르고, 호스트 캡처 → 자료 판정으로 바꿨다면 그 사실을 VERIFY에 적는다(#436 — 리뷰어 런타임이 바뀌어 예전 "처음부터 호스트 캡처" 기본을 버렸다).
 - 확인은 `ego-browser`로 한다. 막히면 `apps/platform-e2e`의 Playwright 일회용 캡처로 대신하고, 대신했다고 말한다.
 - 미리보기는 `scripts/app-preview.py start <checkout> --name <n>-branch`(기준은 `<n>-main`)로 띄운다. mock 조립 vite가 5180–5199 사이 빈 포트에 뜨고, 백엔드는 없다.
 - 기준 worktree 설치: 서브모듈 init + `pnpm install --frozen-lockfile`.
@@ -69,7 +71,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 전역 `review-ux` 페르소나가 이 절을 먼저 읽는다. 보고서는 한국어로 쓴다.
 
 - **미리보기**: `branch`와 `main`(기준) 둘 다 mock 조립 vite 서버다. 백엔드·로그인·DB가 없고, 포트가 달라 localStorage도 따로다. UI를 통한 쓰기는 mock 메모리에만 남는다.
-- **역할**: 각 미리보기 origin에서 localStorage `platform:role`로 정한다(예: 관리자·일반). 로딩·빈·오류 상태는 mock DevTools의 응답 시나리오로 만든다(페이지를 새로 열 때마다 다시 고른다).
+- **역할**: 각 미리보기 origin에서 localStorage `platform:role`로 정한다(예: 관리자·일반). 값은 JSON 문자열이다(`"admin"` — 따옴표 없는 `admin`은 무시된다). 로딩·빈·오류 상태는 mock DevTools의 응답 시나리오로 만든다(페이지를 새로 열 때마다 다시 고른다).
 - **뷰포트**: 1440×900(`page.cdp("Emulation.setDeviceMetricsOverride", …)`), 상세 슬롯이 열리는 화면은 1280에서도 본다.
 - **기준 문서**:
   - 루트 `AGENTS.md`(플랫폼이 목적, 메뉴 화면은 견본), `DESIGN.md`(FeedbackOps 디자인 시스템을 따르는 시각 규칙), `GLOSSARY.md`(용어).
@@ -103,10 +105,12 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 
 - 품질 리뷰 범위는 `<직전 태그>...origin/main`이다.
 - 화면이 바뀐 슬라이스면 `origin/main` 미리보기로 사용자 흐름을 `review-ux`로 본다.
-- 그다음 보드 문서 PR → 태그 + GitHub Release → 다음 슬라이스를 사용자에게 묻는다.
+- 그다음 보드 문서 PR → 태그 + GitHub Release → 다음 슬라이스를 사용자에게 묻는다. 릴리스 명령은 `SHA=$(git rev-parse origin/main)`로 시작해 `gh release create --target "$SHA"`에 전체 SHA를 준다(짧은 SHA는 `target_commitish is invalid`).
 - 인계 전 `scripts/app-preview.py status`에 추적 중인 미리보기가 없어야 한다.
 
 ## Tools
+
+공용 부품(`issue-wave-conductor`·`orca-dispatch-recipes`·`session-handoff` 스킬, 리뷰어 페르소나, 워크플로 훅)은 conductor-engine의 `install.sh`가 설치하고 이 레포에는 복사본을 두지 않는다. 세션 시작 문맥에 설치 커밋이 보이고, 설치본이 고쳐졌다는 경고가 뜨면 provider 체크아웃에서 `install.sh --check`를 돌린다.
 
 | 도구 | 하는 일 | 고정 테스트 |
 | --- | --- | --- |
@@ -134,3 +138,6 @@ CI는 `.github/workflows/ci.yml`에서 이 폴더의 `test-app-preview.py`만 �
 - 작업자 함정은 [`docs/agents/operations.md`](../../docs/agents/operations.md)에 있다: 새 worktree 설치, pnpm 11, CSS selector CI, 캡처, mock 등록.
 - 일반 `git worktree add`로 만든 기준 worktree에는 Orca 터미널 리뷰어를 띄울 수 없다. 거기서는 미리보기만 돌린다.
 - 메인 체크아웃의 `node_modules`는 병합이 쌓이면 낡는다. 마감 검사 전에 `pnpm install --frozen-lockfile`.
+- 이 프로필의 상대 경로(`scripts/app-preview.py`, `addenda/`)는 `$CONDUCTOR` 기준이다. 레포 루트에서 그대로 실행하면 "No such file"이다.
+- 이슈 번호가 없는 작업(마감 정리 등)은 `launch-worker.py`가 worktree를 만들지 못한다(`--issue`가 숫자를 요구). 손으로 한다: `orca worktree create --setup skip`(`--issue` 없이) → 서브모듈·설치 → 설정 셸 닫기 → TASK 작성 → 공유 실행기.
+- 공용 부품이 틀렸거나 빠졌으면 메모리나 `HANDOFF.md`에만 적지 않는다. 콘덕터가 provider의 `engine/scripts/upstream-file.sh`로 `upstream` 이슈를 올리고, 레포 안 임시 우회는 이 절에 그 이슈 링크와 함께 적는다.
