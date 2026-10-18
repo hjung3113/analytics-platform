@@ -81,6 +81,58 @@ describe('FeedbackOps deep link A — platform → FeedbackOps (contract: 1)', (
   });
 });
 
+describe('FeedbackOps deep link A — space entry targets (ADR-0045, #251)', () => {
+  const lists = [
+    { kind: 'voc-list' as const, managedSystemId: MS_ID, url: `${F}/vocs?view=inbox&managedSystem=${MS_ID}` },
+    { kind: 'task-list' as const, managedSystemId: MS_ID, url: `${F}/tasks?managedSystem=${MS_ID}` },
+    { kind: 'survey-list' as const, managedSystemId: MS_ID, url: `${F}/surveys?managedSystem=${MS_ID}` },
+  ];
+  it.each(lists)('builds and round-trips $kind byte-exactly', ({ url, ...target }) => {
+    expect(buildFeedbackOpsLink({ origin: F, target })).toBe(url);
+    expect(parseFeedbackOpsLink(url, F).target).toEqual(target);
+  });
+  it('builds and round-trips the overall target without a query', () => {
+    expect(buildFeedbackOpsLink({ origin: F, target: { kind: 'overall' } })).toBe(`${F}/home`);
+    expect(parseFeedbackOpsLink(`${F}/home`, F).target).toEqual({ kind: 'overall' });
+  });
+  it.each(lists)('$kind never emits a key outside managedSystem/view', ({ url, ...target }) => {
+    const keys = [...new URL(buildFeedbackOpsLink({ origin: F, target })).searchParams.keys()];
+    expect(keys.every(k => ['view', 'managedSystem'].includes(k))).toBe(true);
+    expect(url).toContain(`managedSystem=${MS_ID}`);
+  });
+  it.each(['voc-list', 'task-list', 'survey-list'] as const)('refuses a %s build without a uuid managed system (no all, no scope-less URL)', kind => {
+    for (const managedSystemId of ['all', 'ICH', '']) {
+      expect(code(() => buildFeedbackOpsLink({ origin: F, target: { kind, managedSystemId } }))).toBe('feedbackops_id');
+    }
+    expect(code(() => buildFeedbackOpsLink({ origin: F, target: { kind } as never }))).toBe('feedbackops_id');
+  });
+  it.each([
+    ['/vocs?view=inbox', 'feedbackops_path'],
+    [`/vocs?view=inbox&managedSystem=all`, 'feedbackops_id'],
+    [`/vocs?view=inbox&managedSystem=ICH`, 'feedbackops_id'],
+    [`/vocs?view=inbox&managedSystem=${MS_ID}&managedSystem=${MS_ID}`, 'feedbackops_path'],
+    [`/vocs?view=inbox&managedSystem=${MS_ID}&x=1`, 'feedbackops_path'],
+    [`/vocs?managedSystem=${MS_ID}`, 'feedbackops_path'],
+    ['/tasks', 'feedbackops_path'],
+    ['/tasks?managedSystem=all', 'feedbackops_id'],
+    ['/tasks?managedSystem=ICH', 'feedbackops_id'],
+    [`/tasks?managedSystem=${MS_ID}&managedSystem=${MS_ID}`, 'feedbackops_path'],
+    [`/tasks?managedSystem=${MS_ID}&view=inbox`, 'feedbackops_path'],
+    ['/surveys', 'feedbackops_path'],
+    ['/surveys?managedSystem=all', 'feedbackops_id'],
+    [`/surveys?managedSystem=${MS_ID}&selected=${SURVEY_ID}`, 'feedbackops_path'],
+    [`/surveys?managedSystem=${MS_ID}&managedSystem=${MS_ID}`, 'feedbackops_path'],
+    ['/home?x=1', 'feedbackops_path'],
+    [`/home?managedSystem=${MS_ID}`, 'feedbackops_path'],
+  ])('parse rejects %s', (path, expected) => {
+    expect(code(() => parseFeedbackOpsLink(`${F}${path}`, F))).toBe(expected);
+  });
+  it('keeps the existing detail and create shapes distinct from the list shapes', () => {
+    expect(parseFeedbackOpsLink(`${F}/vocs?view=inbox&selected=${VOC_ID}&managedSystem=${MS_ID}`, F).target).toEqual({ kind: 'voc-detail', vocId: VOC_ID, managedSystemId: MS_ID });
+    expect(parseFeedbackOpsLink(`${F}/surveys/${SURVEY_ID}`, F).target).toEqual({ kind: 'survey-detail', surveyId: SURVEY_ID });
+  });
+});
+
 describe('FeedbackOps deep link B — FeedbackOps → platform (06 §6/§22)', () => {
   it('builds the contract examples with canonical buildQuery serialization', () => {
     expect(buildPlatformInboundLink({ origin: P, hop: { menuId: 'equipment-detail', equipmentId: 'ICH-PHOTO-0103' }, context: PERIOD }))

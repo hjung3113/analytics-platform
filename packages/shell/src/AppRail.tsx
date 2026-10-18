@@ -6,7 +6,7 @@ import { firstOpenableMenu, useSystemSections } from './systemSections';
 
 /** System switcher, the current system's section buttons and global tools; the app keeps ownership of topBarTools. */
 export function AppRail() {
-  const { slots, user, setPaletteOpen, navigate, linkTo } = usePlatform();
+  const { slots, user, setPaletteOpen, navigate, linkTo, can } = usePlatform();
   const { t, tx, lang, setLang } = useI18n();
   const languageLabel = lang === 'ko' ? '언어: 한국어 — English로 전환' : 'Language: English — 한국어로 전환';
   const overallLabel = lang === 'ko' ? 'FeedbackOps 전체 — 새 탭' : 'FeedbackOps overall — new tab';
@@ -36,7 +36,7 @@ export function AppRail() {
         <button type="button" onClick={() => setPaletteOpen(true)} aria-label={t('searchPlaceholder')} aria-haspopup="dialog" aria-keyshortcuts="Meta+K Control+K"
           className="grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover"><Search className="size-4" aria-hidden /></button>
       </TooltipTrigger><TooltipContent side="right">{t('searchPlaceholder')} · {shortcutLabel('K')}</TooltipContent></Tooltip>
-      {overall && <Tooltip><TooltipTrigger asChild>
+      {overall && can(overall.permission) && <Tooltip><TooltipTrigger asChild>
         <a href={overall.href} target="_blank" rel="noopener noreferrer" aria-label={overallLabel}
           className="grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover"><ExternalLink className="size-4" aria-hidden /></a>
       </TooltipTrigger><TooltipContent side="right">{overallLabel}</TooltipContent></Tooltip>}

@@ -64,13 +64,16 @@ describe('workspace assembly (#260)', () => {
     expect(registry.menuById('voc').path).toBe('/voc');
   });
 
-  it.skipIf(probeRun)('gives a viewer one space and the global utilities, and the app does not pass feedbackOps', () => {
+  it.skipIf(probeRun)('gives a viewer one space and the global utilities, and the app passes the FeedbackOps slot', () => {
     const assembly = createAssembly({ registry });
-    const slots = appSlots(assembly);
-    // The real composition: adding a feedbackOps test slot to appSlots fails this.
+    const slots = appSlots(assembly, null);
     expect(slots.topBarTools).toBe(assembly.topBarTools);
-    expect(slots.feedbackOps).toBeUndefined();
-    expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools', 'plannedSpaces']);
+    // The real composition (#251): mapped spaces get four entries, disabled while the origin is absent; operations has no row.
+    expect(slots.feedbackOps?.entriesFor('metrics')?.map(entry => [entry.id, entry.href])).toEqual([['voc-create', null], ['voc', null], ['task', null], ['survey', null]]);
+    expect(slots.feedbackOps?.entriesFor('operations')).toBeNull();
+    expect(slots.feedbackOps?.overall).toBeNull();
+    expect(appSlots(assembly, 'https://feedbackops.example').feedbackOps?.entriesFor('metrics')?.every(entry => entry.href?.startsWith('https://feedbackops.example/'))).toBe(true);
+    expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools', 'feedbackOps', 'plannedSpaces']);
     // Planned systems are display-only rows for the switcher: no Registry space or menu carries their id.
     expect(slots.plannedSpaces?.map(item => item.label.ko)).toEqual(['표준 로그 개발', '개선 실행']);
     for (const item of slots.plannedSpaces ?? []) expect(registry.spaces.some(space => space.id === item.id)).toBe(false);

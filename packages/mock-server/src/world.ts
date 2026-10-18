@@ -17,7 +17,7 @@ const ALL: Permission[] = [...PERMISSIONS];
 export const USERS: Record<RoleId, User> = {
   engineer: {
     role: 'engineer', name: 'Process Engineer', title: { ko: '공정 엔지니어', en: 'Process engineer' },
-    permissions: ALL.filter(p => p !== 'console:access'),
+    permissions: ALL.filter(p => p !== 'console:access' && p !== 'feedbackops:access'),
     grants: { ICH: ['PHOTO', 'ETCH', 'CVD'], CJU: ['PHOTO'] },
   },
   admin: {
