@@ -11,6 +11,8 @@ UI Primitive 층(06 §13)과 디자인 시스템 CSS. 플랫폼 개념(Context, 
 
 ## 규칙
 
+- 디자인 시스템 원본 소유는 [ADR-0043](../../docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)으로 플랫폼(SDK)으로 바뀌었다. 코드를 옮기기 전까지는 아래 규칙(FeedbackOps 원본, 재수출, 변경은 FeedbackOps에 제안)을 그대로 따른다.
+
 - import 가능: 외부 라이브러리와 FeedbackOps `@fops/ui` 공개 진입점만. FeedbackOps primitive를 다시 내보내는 유일한 플랫폼 패키지다(ADR-0011); `@fops/shared`와 `@ap/*`는 import하지 않는다.
 - 공유 토큰·폰트·반경·본문 값의 원본은 FeedbackOps [tokens.css](../../products/feedbackops/packages/ui/src/styles/tokens.css)와 [ADR-0058](../../products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md)다(플랫폼 결정: [ADR-0011](../../docs/adr/0011-design-direction-feedbackops-shell.md)). 플랫폼 확장의 설계 원본은 [DESIGN.md](../../DESIGN.md#platform-extension-layer)이며 이 패키지는 구현을 소유한다. 토큰 파일 밖에서 hex 값 금지.
 - 앱은 Tailwind → `@ap/ui/styles.css` 순서로 import하며 `@fops/ui/styles/*`는 직접 가져오지 않는다(앱은 `@fops/ui`에 의존하지 않는다). 이 진입점은 FeedbackOps tokens·semantic(`layer(base)`) → theme → compat → 플랫폼 확장 → 두 UI 소스 트리 `@source` 순서를 유지한다. 폰트는 앱에서 레이어 없이 import한다.

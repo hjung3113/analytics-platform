@@ -587,6 +587,9 @@ Domain 메뉴는 가능하면 이 Archetype을 조합하고, 새로운 Page Type
 
 ## 13. Shared Component Layers
 
+> 디자인 시스템 원본 소유는 [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(2026-10-19)으로 플랫폼으로 바뀌었다. 코드를 SDK로 옮기기 전까지 이 절의 FeedbackOps 원본·재수출 규칙대로 동작한다.
+
+
 컴포넌트는 세 층으로 나눈다.
 
 ```text
@@ -1062,6 +1065,9 @@ FeedbackOps로 나가는 외부 hop은 `linkTo`가 아니라 [FeedbackOps 딥링
 ---
 
 ## 23. Design Tokens
+
+> 디자인 시스템 원본 소유는 [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(2026-10-19)으로 플랫폼으로 바뀌었다. 코드를 SDK로 옮기기 전까지 이 절의 FeedbackOps 원본·재수출 규칙대로 동작한다.
+
 
 **한/영 지원 범위(Decided, 2026-09-24):** UI 문구와 정적 본문만 번역한다. VOC·공지의 사용자 입력 본문, EquipmentID·room_name·분임조 이름 등 마스터 값과 식별자는 번역하지 않는다. 언어 설정은 현재 브라우저 localStorage에만 저장한다(§4). 사용자 계정 선호값으로 서버에 보존하는 것은 Candidate이며 저장소/API는 구현 시 확정한다. 언어 변경이 Context 값이나 URL 식별자를 바꾸지 않는다. CJK 폰트는 FeedbackOps ADR-0058의 Inter + Pretendard Variable 소비 계약을 따른다.
 

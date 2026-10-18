@@ -15,6 +15,9 @@
 
 ## 3. 패키지 구성
 
+> 목표 의존 방향은 SDK ← 제품 한 방향이다([ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), 2026-10-19). 아래 `@ap/ui → @fops/ui` 간선(규칙 7)은 지금 구조이고, 토큰·primitive 코드를 SDK로 옮길 때 없앤다.
+
+
 루트에 pnpm workspace를 두고 세 갈래로 나눈다: `packages/`(플랫폼), `menus/<space>/<group>/`(Consumer, `null` 소속은 `_global`), `apps/`(조립 지점). 이름 접두사는 Candidate `@ap/`.
 
 | 패키지 | 06 갈래 | 내용(현재 파일 기준) | React | 의존 가능 |

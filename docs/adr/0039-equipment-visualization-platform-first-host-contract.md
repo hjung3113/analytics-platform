@@ -1,6 +1,6 @@
 # equipment-visualization은 플랫폼 탑재가 기본이고, 플랫폼이 `@ap/contracts`로 호스트 → 모듈 계약을 낸다
 
-상태: **Proposed (2026-10-17)** — 선행 조사, 구현 안 함. 방향(플랫폼 탑재 기본, 호스트 계약은 `@ap/contracts`, `@ap/*` 의존은 EV `platform-adapter` 안에서만)은 사용자가 2026-10-17 [#396](https://github.com/hjung3113/analytics-platform/issues/396)·[#332](https://github.com/hjung3113/analytics-platform/issues/332) 코멘트로 정했다. 이 ADR은 그 방향을 플랫폼 쪽 계약 언어로 옮긴 초안이고, 아래 세부(계약 위치·이름·버전 규칙·EV 쪽 CI)는 아직 결정되지 않았다.
+상태: **Proposed (2026-10-17)** — 선행 조사, 구현 안 함. 방향(플랫폼 탑재 기본, 호스트 계약은 `@ap/contracts`, `@ap/*` 의존은 EV `platform-adapter` 안에서만)은 사용자가 2026-10-17 [#396](https://github.com/hjung3113/analytics-platform/issues/396)·[#332](https://github.com/hjung3113/analytics-platform/issues/332) 코멘트로 정했다. 이 ADR은 그 방향을 플랫폼 쪽 계약 언어로 옮긴 초안이고, 아래 세부(계약 위치·이름·버전 규칙·EV 쪽 CI)는 아직 결정되지 않았다. SDK 목표는 [ADR-0043](0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(2026-10-19)을 따른다 — 독립 호스트는 제품 책임이고 SDK는 제품을 import하지 않는다.
 - 결정자: 사용자 (미정)
 
 equipment-visualization(EV) [ADR-0001](https://github.com/hjung3113/equipment-visualization/blob/main/docs/adr/0001-standalone-packages-thin-platform-consumer.md)은 "독립 패키지가 정본, analytics-platform은 얇은 소비자"로, 플랫폼 `menus/equipment`에 페이지 조립·`menuQuery` 선언·`platform-adapter`만 두기로 했다. 2026-10-17 사용자 정정은 무게중심을 바꾼다: EV의 기본 실행 환경은 플랫폼 셸이고, 독립 Studio는 같은 모듈의 두 번째 호스트(부가 기능)다. 그러면 "플랫폼이 모듈에 무엇을 주는가"를 EV가 아니라 플랫폼이 정의해야 한다. 설계 전체는 [플랫폼 탑재 설계](../integration/platform-hosting-design.md), 호스트 계약의 일반형은 [ADR-0038](0038-host-module-contract-and-feedbackops-mounting.md)이다.

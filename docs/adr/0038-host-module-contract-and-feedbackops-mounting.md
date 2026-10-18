@@ -1,6 +1,6 @@
 # 업무 모듈은 한 원본을 두 호스트에 탑재하고, FeedbackOps 화면은 플랫폼 셸의 협업 공간에 모듈로 올린다
 
-상태: **Proposed (2026-10-17)** — 선행 조사, 구현 안 함. 채택되면 [ADR-0027](0027-feedbackops-stays-standalone-entry-links.md)을 대체하고, [ADR-0026](0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)의 "FeedbackOps는 공간이 아니다"와 [ADR-0028](0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)의 "진입은 새 탭" 부분을 고친다. 그 전까지 ADR-0027이 유효하다.
+상태: **Proposed (2026-10-17)** — 선행 조사, 구현 안 함. 채택되면 [ADR-0027](0027-feedbackops-stays-standalone-entry-links.md)을 대체하고, [ADR-0026](0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)의 "FeedbackOps는 공간이 아니다"와 [ADR-0028](0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)의 "진입은 새 탭" 부분을 고친다. 그 전까지 ADR-0027이 유효하다. SDK 목표는 [ADR-0043](0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(2026-10-19)을 따른다 — 독립 호스트는 제품 책임이고 SDK는 제품을 import하지 않는다.
 - 결정자: 사용자 (미정)
 
 플랫폼에는 지금 호스트 경계가 셋 있다: 서버 포트 `PlatformAdapter`([ADR-0019](0019-menu-query-endpoint-declaration.md)), 조립 주입 `#platform-assembly`([ADR-0009](0009-production-assembly-injection.md)), 위치 어댑터 `PlatformLocation`([ADR-0030](0030-location-adapter-base-path.md)). 셋 다 "플랫폼 앱이 자기 메뉴를 조립"하는 경계이고, 다른 저장소의 업무 모듈이 플랫폼 셸 안에서 무엇을 받는지는 정하지 않았다. [#396](https://github.com/hjung3113/analytics-platform/issues/396)은 세 제품이 한 SDK를 소비하고 각 제품이 독립 실행·플랫폼 탑재 둘 다 되는 것을 목표로 Decided했고(2026-10-16), equipment-visualization은 플랫폼 탑재가 기본으로 정정됐다([ADR-0039](0039-equipment-visualization-platform-first-host-contract.md)). FeedbackOps는 MVP에 가까워졌고, 사용자는 플랫폼 안으로 들일지 검토를 요청했다. ADR-0027이 화면 이전(ADR-0018)을 기각한 이유는 "화면이 두 벌이 된다"였다. 설계 전체와 근거는 [플랫폼 탑재 설계](../integration/platform-hosting-design.md)다.
@@ -24,5 +24,5 @@
 
 - 채택하면 ADR-0027을 Superseded로 바꾸고, 06 §9.1의 FeedbackOps 항목·15 §6·[저장소 구조](../integration/repository-layout.md) "FeedbackOps 통합 방식"·[딥링크 계약](../integration/feedbackops-deeplink.md)을 이 결정에 맞춰 고친다. 협업 공간의 셸 배치는 보이는 모양이 바뀌므로 `?variant=` 시안 컨펌이 먼저다(루트 AGENTS).
 - 플랫폼 일: 호스트 계약 타입(`@ap/contracts`), Kernel의 모듈 등록(경로 접두사·열린 권한·그룹 어휘)과 호스트 포트 구성, 모듈 연결 패키지의 경계 lint. 추적은 [#402](https://github.com/hjung3113/analytics-platform/issues/402).
-- FeedbackOps 일: 화면 모듈 패키지와 배포 가능한 `@fops/ui`(peer `@ap/ui`는 사용자 결정 2026-10-17), API 기준 경로 주입(지금 같은 origin 루트 상대 경로, CORS 없음), 라우터 의존 분리, 앱 루트가 주던 것(QueryClient·Toaster·문서 제목·상세 슬롯·`/me` 가드)을 모듈 루트나 포트로. 제안 이슈 [FO#1231](https://github.com/hjung3113/FeedbackOps/issues/1231).
+- FeedbackOps 일: 화면 모듈 패키지(토큰·primitive는 FeedbackOps가 배포하지 않고 플랫폼 SDK에서 받는다 — ADR-0043이 2026-10-17의 `@fops/ui` 배포·peer 결정을 뒤집음), API 기준 경로 주입(지금 같은 origin 루트 상대 경로, CORS 없음), 라우터 의존 분리, 앱 루트가 주던 것(QueryClient·Toaster·문서 제목·상세 슬롯·`/me` 가드)을 모듈 루트나 포트로. 제안 이슈 [FO#1231](https://github.com/hjung3113/FeedbackOps/issues/1231).
 - 선행 조건: FeedbackOps MVP 릴리스, 같은 사이트 배포(역방향 프록시 또는 하위 도메인 + CORS — #151)와 세션 방식(#150), `@ap/contracts` 배포 경로. 이 조건 전에는 구현을 시작하지 않는다.

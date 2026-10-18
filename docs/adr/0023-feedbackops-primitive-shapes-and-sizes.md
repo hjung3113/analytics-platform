@@ -1,6 +1,6 @@
 # 플랫폼은 FeedbackOps 부품의 모양과 크기를 덮어쓰지 않는다
 
-상태: **Decided (2026-10-07)**.
+상태: **Decided (2026-10-07)**. 디자인 시스템 결정의 원본 소유는 [ADR-0043](0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(2026-10-19)으로 플랫폼으로 바뀌었다. 코드를 SDK로 옮기기 전까지는 이 ADR의 규칙대로 동작하고, 본문은 코드 이전 이슈에서 고친다.
 
 개정 2026-10-15 (#340): 탭 선택 표식.
 - 결정자: 사용자 — 실제 앱 위 `?variant=` 시안(#228, 브랜치 `hjung3113/proto-228-fops-shapes`)에서 A(현재 · 플랫폼 덮어쓰기)/B(FeedbackOps 모양 · 지금 크기)/C(FeedbackOps 모양 · FeedbackOps 크기)를 보고 "니추천대로 하고 feedbackops스타일은 최대한 유지하는방향으로"라고 했다. 권장안은 C였다.
