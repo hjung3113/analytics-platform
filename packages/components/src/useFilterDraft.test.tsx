@@ -113,6 +113,16 @@ describe('useManagementFilters', () => {
     expect(setPage.mock.calls).toEqual([[{ q: null, status: null, page: null }]]);
   });
 
+  it('recoverButton exists with no filter applied (the footer clear does not), and a click moves focus to main, then clears', async () => {
+    const view = mountManagement({ applied: { q: '', status: '' } });
+    expect(view.result.current.clearButton).toBeNull();
+    expect(view.result.current.recoverButton).not.toBeNull();
+    render(<I18nProvider><main tabIndex={-1}>{view.result.current.recoverButton}</main></I18nProvider>);
+    await userEvent.click(screen.getByRole('button', { name: '필터 초기화' }));
+    expect(setPage.mock.calls).toEqual([[{ q: null, status: null, page: null }]]);
+    expect(document.activeElement).toBe(screen.getByRole('main'));
+  });
+
   it('fires onRebase once per applied/identity change, not on rerenders or edits, and not from clear itself', () => {
     const onRebase = vi.fn();
     const view = mountManagement({ applied: { q: 'x', status: '' }, onRebase });

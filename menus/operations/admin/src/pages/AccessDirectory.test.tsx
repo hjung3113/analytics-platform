@@ -168,6 +168,7 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
   it('filter key: the alert names the field and raw value, its 필터 초기화 clears every key and focus leaves BODY', () => {
     renderRoles(`/admin/roles?${new URLSearchParams({ permission: 'console:write', role: 'engineer' })}`);
     const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('필터 값이 올바르지 않습니다');
     expect(alert.textContent).toContain('권한 “console:write”');
     fireEvent.click(within(alert).getByRole('button', { name: '필터 초기화' }));
     expect(url().has('permission')).toBe(false);

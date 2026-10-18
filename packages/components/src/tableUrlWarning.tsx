@@ -24,6 +24,14 @@ export function useTableUrlWarning(allowedSort: readonly string[]) {
   return { parsedSort, parsedPage, invalid: !parsedSort.ok || !parsedPage.ok, sentences };
 }
 
+function UrlWarning({ title, sentences, action, filters }: { title: string; sentences: readonly string[]; action: ReactNode; filters?: ReactNode }) {
+  const message = <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />}
+    title={title}
+    body={sentences.map((sentence, index) => <p key={index}>{sentence}</p>)}
+    action={action} />;
+  return filters ? <div className="flex flex-col gap-3">{filters}{message}</div> : message;
+}
+
 /**
  * The shared invalid sort/page message (06 §15): replaces the table, never substitutes a value, Reset clears both keys in one `setPage`.
  * `filters` is the management layout's filter slot (the `필터 · n` control when the rail is hidden); it renders above the message with the toolbar's gap.
@@ -31,9 +39,15 @@ export function useTableUrlWarning(allowedSort: readonly string[]) {
 export function TableUrlWarning({ sentences, filters }: { sentences: readonly string[]; filters?: ReactNode }) {
   const { t } = useI18n();
   const { setPage } = usePlatform();
-  const message = <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />}
-    title={t('invalidTableTitle')}
-    body={sentences.map((sentence, index) => <p key={index}>{sentence}</p>)}
+  return <UrlWarning title={t('invalidTableTitle')} sentences={sentences} filters={filters}
     action={<Button size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); setPage({ sort: null, page: null }); }}>{t('reset')}</Button>} />;
-  return filters ? <div className="flex flex-col gap-3">{filters}{message}</div> : message;
+}
+
+/**
+ * The shared invalid filter-key message of a management screen: same frame as `TableUrlWarning`, one ADR-0034 sentence per bad
+ * key. `recover` is the screen's reset action — `useManagementFilters().recoverButton`, which moves focus to main first (06 §26).
+ */
+export function FilterUrlWarning({ sentences, filters, recover }: { sentences: readonly string[]; filters?: ReactNode; recover: ReactNode }) {
+  const { t } = useI18n();
+  return <UrlWarning title={t('invalidFilterTitle')} sentences={sentences} filters={filters} action={recover} />;
 }

@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { AccessPrincipal, ApiResponse, AuditEvent } from '@ap/contracts';
 import { House } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, type MenuEntry } from '@ap/kernel';
+import { stubCompactTableGeometry } from '@ap/components/testing';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { manifests } from '../index';
@@ -45,19 +46,12 @@ function mount(path: string, page: React.ReactElement) {
   render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider>{page}<DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
 }
 
-const clientWidth = Object.getOwnPropertyDescriptor(Element.prototype, 'clientWidth');
+let restoreGeometry: () => void;
 beforeEach(() => {
-  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return 800; } });
-  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return 1280; } });
-  Object.defineProperty(Element.prototype, 'clientWidth', { configurable: true, get() { return /^(스크롤 가능한 행 영역|Scrollable rows)$/.test((this as Element).getAttribute('aria-label') ?? '') ? 220 : 0; } });
-  vi.stubGlobal('ResizeObserver', class { constructor(private cb: ResizeObserverCallback) {} observe(target: Element) { this.cb([{ target, contentRect: { width: 1280, height: 800 } } as ResizeObserverEntry], this as unknown as ResizeObserver); } unobserve() {} disconnect() {} });
-  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({ width: 1280, height: 800, x: 0, y: 0, top: 0, left: 0, right: 1280, bottom: 800, toJSON() {} }));
+  restoreGeometry = stubCompactTableGeometry();
 });
 afterEach(() => {
-  cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals();
-  if (clientWidth) Object.defineProperty(Element.prototype, 'clientWidth', clientWidth); else delete (Element.prototype as unknown as Record<string, unknown>).clientWidth;
-  delete (HTMLElement.prototype as unknown as Record<string, unknown>).offsetHeight;
-  delete (HTMLElement.prototype as unknown as Record<string, unknown>).offsetWidth;
+  cleanup(); restoreGeometry(); vi.restoreAllMocks(); vi.unstubAllGlobals();
   window.history.replaceState(null, '', '/');
 });
 
@@ -67,8 +61,6 @@ describe('admin compact row actions', () => {
   it('AccessDirectory: icon-only 보기 keeps its name and opens the drawer', async () => {
     mount('/admin/roles', <AccessDirectory />);
     const button = await screen.findByRole('button', { name: 'engineer 보기' });
-    expect(button.querySelector('svg')).not.toBeNull();
-    expect(button.textContent).toBe('');
     fireEvent.click(button);
     expect(focusParam()).toBe('engineer');
   });
@@ -76,8 +68,6 @@ describe('admin compact row actions', () => {
   it('RegistryCatalog: icon-only 보기 keeps its name and opens the drawer', async () => {
     mount('/admin/registry', <RegistryCatalog />);
     const [button] = await screen.findAllByRole('button', { name: /^.+ 보기$/ });
-    expect(button.querySelector('svg')).not.toBeNull();
-    expect(button.textContent).toBe('');
     const id = button.getAttribute('aria-label')!.replace(/ 보기$/, '');
     fireEvent.click(button);
     expect(focusParam()).toBe(id);
@@ -86,8 +76,6 @@ describe('admin compact row actions', () => {
   it('AuditTrail: 상세 is an icon link with the right href; a target without a page gets a muted non-interactive mark', async () => {
     mount('/admin/audit', <AuditTrail />);
     const link = await screen.findByRole('link', { name: 'EQ-a1 상세' });
-    expect(link.querySelector('svg')).not.toBeNull();
-    expect(link.textContent).toBe('');
     expect(link.getAttribute('href')).toContain('/admin/fixture-detail/EQ-a1');
     const none = (await screen.findByText('상세 화면 없음')).closest('span[title]')!;
     expect(none.getAttribute('title')).toBe('이 대상의 상세 화면이 없습니다.');

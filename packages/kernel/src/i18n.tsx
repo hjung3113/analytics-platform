@@ -153,6 +153,7 @@ const dict = {
   invalidUrlDrillGap: { ko: '{field} “{raw}”{particle} 앞 단계 없이 쓸 수 없습니다.', en: '{field} “{raw}” cannot be used without the earlier steps.' },
   invalidUrlPlain: { ko: '{field} “{raw}”{particle} 이 화면에서 쓸 수 없습니다.', en: '{field} “{raw}” cannot be used on this page.' },
   invalidTableTitle: { ko: '정렬·페이지 값이 올바르지 않습니다', en: 'The sort or page value cannot be used' },
+  invalidFilterTitle: { ko: '필터 값이 올바르지 않습니다', en: 'A filter value cannot be used' },
   invalidTableSort: { ko: '정렬', en: 'Sort' },
   invalidTablePage: { ko: '페이지', en: 'Page' },
 } satisfies Record<string, Text>;

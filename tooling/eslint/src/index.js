@@ -110,12 +110,15 @@ function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, al
   ];
 }
 
-// ADR-0040 (#381): the kernel `testing` subpath is the one public test entry. Test files and test-tooling files get it as an
-// extra allowed subpath on top of their layer restriction; production configs never do, so a production import fails.
+// ADR-0040 (#381): the kernel `testing` subpath is the one public test entry; #413 adds `components/testing` for the layers
+// above components. Test files and test-tooling files get them as extra allowed subpaths on top of their layer restriction;
+// production configs never do, so a production import fails. The components preset itself gets `kernel/testing` only (its
+// own tests import `./testing`).
 const TEST_ENTRY_SUBPATH = 'kernel/testing';
+const COMPONENTS_TEST_ENTRY_SUBPATH = 'components/testing';
 const TEST_ENTRY_FILES = ['**/*.test.{ts,tsx}', '**/test-support.ts', '**/test-setup.ts'];
-const testEntryOverride = (restriction) => {
-  const withEntry = { ...restriction, allowSubpaths: [...(restriction.allowSubpaths ?? []), TEST_ENTRY_SUBPATH] };
+const testEntryOverride = (restriction, subpaths = [TEST_ENTRY_SUBPATH]) => {
+  const withEntry = { ...restriction, allowSubpaths: [...(restriction.allowSubpaths ?? []), ...subpaths] };
   return {
     files: TEST_ENTRY_FILES,
     rules: {
@@ -326,6 +329,7 @@ export const kernel = [
 ];
 
 const COMPONENTS_RESTRICTION = { allow: ['contracts', 'kernel', 'ui'], denyReact: false, mockAllowed: false };
+const ABOVE_COMPONENTS_TEST_ENTRIES = [TEST_ENTRY_SUBPATH, COMPONENTS_TEST_ENTRY_SUBPATH];
 const SHELL_RESTRICTION = { allow: ['contracts', 'kernel', 'ui', 'components'], denyReact: false, mockAllowed: false };
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -343,7 +347,7 @@ export const shell = [
     restriction: SHELL_RESTRICTION,
     extraRules: { 'ap/no-shell-id-literal-comparison': 'error' },
   }),
-  testEntryOverride(SHELL_RESTRICTION),
+  testEntryOverride(SHELL_RESTRICTION, ABOVE_COMPONENTS_TEST_ENTRIES),
   designSystem(),
 ];
 
@@ -372,7 +376,7 @@ export const menu = [
       'ap/no-menu-mock-import': 'error',
     },
   }),
-  testEntryOverride(MENU_RESTRICTION),
+  testEntryOverride(MENU_RESTRICTION, ABOVE_COMPONENTS_TEST_ENTRIES),
   {
     files: ['src/mock/**/*.{ts,tsx}'],
     rules: {
@@ -399,7 +403,7 @@ const appOverride = (files, restriction) => ({
 /** @type {import('eslint').Linter.Config[]} */
 export const app = [
   layerConfig({ restriction: APP_RESTRICTION }),
-  testEntryOverride(APP_RESTRICTION),
+  testEntryOverride(APP_RESTRICTION, ABOVE_COMPONENTS_TEST_ENTRIES),
   appOverride(['src/main.tsx'], APP_MAIN_RESTRICTION),
   appOverride([APP_CONFORMANCE_FILE], APP_CONFORMANCE_RESTRICTION),
   appOverride([APP_PUBLISHED_METRICS_FILE], APP_PUBLISHED_METRICS_RESTRICTION),

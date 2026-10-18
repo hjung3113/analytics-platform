@@ -1,6 +1,7 @@
 import { useCallback, useState, type ReactNode } from 'react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { Button } from '@ap/ui';
+import { focusPageFallback } from './pageFocus';
 
 export type FilterDraft<K extends string> = {
   /** Draft text of every applied field; fields omitted by reset read as ''. */
@@ -72,7 +73,8 @@ export type ManagementFiltersOptions<K extends string> = {
  * The ADR-0037 wiring of a management filter bar in one place: draft + rebase, one-`setPage` apply that returns to page 1,
  * the footer clear button (only while a filter is applied), and the counts `ManagementLayout` shows. The menu keeps the
  * field meaning, the URL keys, the clear key list and the patch building/validation. The footer button leaves focus to
- * `PageFilterBar` (06 §26); a recovery button outside the bar calls `focusPageFallback` itself, then `clear`.
+ * `PageFilterBar` (06 §26); a recovery button outside the bar (the invalid-filter alert's action) is `recoverButton`: always
+ * built, and it calls `focusPageFallback` before `clear` because it disappears with the alert.
  */
 export function useManagementFilters<K extends string>({ applied, identity, clearKeys, toPatch, onRebase }: ManagementFiltersOptions<K>) {
   const { t } = useI18n();
@@ -88,10 +90,12 @@ export function useManagementFilters<K extends string>({ applied, identity, clea
     if (patch !== null) setPage({ ...patch, page: null });
   };
   const clearButton: ReactNode = activeFilterCount > 0 ? <Button type="button" size="sm" variant="secondary" onClick={clear}>{t('clearFilters')}</Button> : null;
+  const recoverButton: ReactNode = <Button type="button" size="sm" variant="secondary" onClick={event => { focusPageFallback(event.currentTarget); clear(); }}>{t('clearFilters')}</Button>;
   return {
     draft,
     clear,
     clearButton,
+    recoverButton,
     barProps: { onApply: apply, actions: <><FilterApplyButton changedCount={draft.changedCount} />{clearButton}</> },
     layoutProps: { activeFilterCount, pendingFilterCount: draft.changedCount },
   };

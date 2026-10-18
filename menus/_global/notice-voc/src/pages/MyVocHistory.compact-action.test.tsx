@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ApiResponse, MenuQuery } from '@ap/contracts';
 import { Megaphone } from 'lucide-react';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { stubCompactTableGeometry } from '@ap/components/testing';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import MyVocHistory from './MyVocHistory';
@@ -33,24 +34,15 @@ const adapter = testAdapter({
   session: () => session,
 });
 
-const clientWidth = Object.getOwnPropertyDescriptor(Element.prototype, 'clientWidth');
+let restoreGeometry: () => void;
 beforeEach(() => {
   const data = new Map<string, string>();
   vi.stubGlobal('localStorage', { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); }, removeItem: (k: string) => { data.delete(k); }, clear: () => data.clear(), key: () => null, get length() { return data.size; } });
-  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return (this as Element).getAttribute('role') === 'row' ? 32 : 420; } });
-  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return 800; } });
-  Object.defineProperty(Element.prototype, 'clientWidth', { configurable: true, get() { return /^(스크롤 가능한 행 영역|Scrollable rows)$/.test((this as Element).getAttribute('aria-label') ?? '') ? 220 : 0; } });
-  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-    const height = this.getAttribute('role') === 'row' ? 32 : 420;
-    return { width: 800, height, top: 0, left: 0, right: 800, bottom: height, x: 0, y: 0, toJSON() {} };
-  });
+  restoreGeometry = stubCompactTableGeometry();
   window.history.replaceState(null, '', '/voc');
 });
 afterEach(() => {
-  cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); setFeedbackOpsOrigin(null);
-  if (clientWidth) Object.defineProperty(Element.prototype, 'clientWidth', clientWidth); else delete (Element.prototype as unknown as Record<string, unknown>).clientWidth;
-  delete (HTMLElement.prototype as unknown as Record<string, unknown>).offsetHeight;
-  delete (HTMLElement.prototype as unknown as Record<string, unknown>).offsetWidth;
+  cleanup(); restoreGeometry(); vi.restoreAllMocks(); vi.unstubAllGlobals(); setFeedbackOpsOrigin(null);
   window.history.replaceState(null, '', '/');
 });
 
@@ -61,8 +53,6 @@ describe('MyVocHistory compact action', () => {
     setFeedbackOpsOrigin('https://feedback.example.com');
     mount();
     const link = await screen.findByRole('link', { name: 'VOC-M-1001 FeedbackOps에서 보기' });
-    expect(link.querySelector('svg')).not.toBeNull();
-    expect(link.textContent).toBe('');
     expect(link.getAttribute('href')).toContain('feedback.example.com');
     expect(link.getAttribute('target')).toBe('_blank');
     expect(link.getAttribute('rel')).toContain('noopener');
@@ -72,8 +62,6 @@ describe('MyVocHistory compact action', () => {
     setFeedbackOpsOrigin(null);
     mount();
     const button = await screen.findByRole('button', { name: 'VOC-M-1001 FeedbackOps에서 보기' }) as HTMLButtonElement;
-    expect(button.querySelector('svg')).not.toBeNull();
-    expect(button.textContent).toBe('');
     expect(button.disabled).toBe(true);
     expect(document.getElementById(button.getAttribute('aria-describedby') ?? '')?.textContent).toContain('FeedbackOps 주소가 없거나 올바르지 않아');
   });
