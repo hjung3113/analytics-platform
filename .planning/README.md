@@ -21,7 +21,7 @@
 다음 세션은 여기서 시작한다. 정비 슬라이스 14를 v0.12.0으로 릴리스했다(아래 "끝난 것").
 
 1. 정비 후속: #413(슬라이스 14 품질 리뷰 follow-up — 관리 화면 필터 키 경고 공통화, compact 동작 열 테스트 헬퍼 중복). 정비 슬라이스를 열 때 본다. Q8(내부 단언 테스트 삭제)은 소유자 결정.
-2. 그다음 후보: 멀티 워크스페이스 v2(지도 #249). #310은 FeedbackOps 제안(FeedbackOps#1202) — FeedbackOps 쪽 답 대기. conductor 스크립트 전역 공통본(#394): 전역 엔진 설치와 이 레포 전환 완료, FeedbackOps·equipment-visualization 전환 PR이 남았다.
+2. 그다음 후보: 멀티 워크스페이스 v2(지도 #249). #310은 FeedbackOps 제안(FeedbackOps#1202) — FeedbackOps 쪽 답 대기. conductor 스크립트 전역 공통본(#394)은 끝났다(세 레포 전환, 엔진 원본 hjung3113/conductor-engine). 남은 오탐 후속은 hjung3113/conductor-engine#1.
 3. 그 밖의 후보: 바로 할 수 있는 일 표. #251 FeedbackOps 링크 계약·매핑은 #81 대기, #252 표준 로그·개선 실행 공간은 도메인 소유자 합의·#249 미결 대기.
 4. 작업 규칙은 루트 `AGENTS.md`(2026-10-05 간소화), 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 문서만 바꾸면 `pnpm docs:links`만 돌린다. 작업자 배정은 전역 `routing.tsv`가 원본이다(역할별 모델·effort·fallback은 그 파일에만 두고, 다른 곳에는 역할 이름만 쓴다, #283).
 
