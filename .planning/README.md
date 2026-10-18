@@ -20,10 +20,11 @@
 
 다음 세션은 여기서 시작한다. 정비 슬라이스 14를 v0.12.0으로 릴리스했다(아래 "끝난 것").
 
-1. 정비 후속: #413(슬라이스 14 품질 리뷰 follow-up). Q6(관리 화면 필터 키 경고 공통화)·Q7(compact 동작 열 테스트 기하 stub 공통화)은 #413 PR로 끝났다. Q8(내부 단언 테스트 삭제)은 소유자가 2026-10-18 "유지"로 정했다.
-2. 그다음 후보: 멀티 워크스페이스 v2(지도 #249). #310은 FeedbackOps 제안(FeedbackOps#1202) — FeedbackOps 쪽 답 대기. conductor 스크립트 전역 공통본(#394)은 끝났다(세 레포 전환, 엔진 원본 hjung3113/conductor-engine). 남은 오탐 후속은 hjung3113/conductor-engine#1.
-3. 그 밖의 후보: 바로 할 수 있는 일 표. #251 FeedbackOps 링크 계약·매핑은 #81 대기, #252 표준 로그·개선 실행 공간은 도메인 소유자 합의·#249 미결 대기.
-4. 작업 규칙은 루트 `AGENTS.md`(2026-10-05 간소화), 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 문서만 바꾸면 `pnpm docs:links`만 돌린다. 작업자 배정은 전역 `routing.tsv`가 원본이다(역할별 모델·effort·fallback은 그 파일에만 두고, 다른 곳에는 역할 이름만 쓴다, #283).
+1. **SDK 만들기 착수(#396, 사용자 2026-10-19 — 다음 세션부터).** 각 프로젝트가 따로 프레임워크를 키우고 있어서, 지금 시작하지 않으면 셋 사이의 차이가 더 벌어진다. 그래서 #396 §8의 착수 증거를 기다리지 않고 보류를 푼다. 목표는 [ADR-0043](../docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)이다: 플랫폼이 소유하는 하나의 프레임워크 + 앱 계약, 의존은 SDK ← 제품, 독립 실행은 제품 책임, 디자인 시스템 원본도 플랫폼. 첫 산출물은 둘이다 — 세 프레임워크 기능을 SDK가 다 덮는지 확인하는 포괄 목록, 그리고 [통합 계획 §4.4](../docs/integration/framework-unification-plan.md#44-sdk-저장소릴리즈-구조-candidate-2026-10-19)의 정할 것(저장소·릴리즈 구조). 첫 세션에서 슬라이스 범위를 사용자와 정한다.
+2. 정비 후속: #413(슬라이스 14 품질 리뷰 follow-up). Q6(관리 화면 필터 키 경고 공통화)·Q7(compact 동작 열 테스트 기하 stub 공통화)은 #413 PR로 끝났다. Q8(내부 단언 테스트 삭제)은 소유자가 2026-10-18 "유지"로 정했다.
+3. 그다음 후보: 멀티 워크스페이스 v2(지도 #249). #310은 FeedbackOps 제안(FeedbackOps#1202) — FeedbackOps 쪽 답 대기. conductor 스크립트 전역 공통본(#394)은 끝났다(세 레포 전환, 엔진 원본 hjung3113/conductor-engine). 남은 오탐 후속은 hjung3113/conductor-engine#1.
+4. 그 밖의 후보: 바로 할 수 있는 일 표. #251 FeedbackOps 링크 계약·매핑은 #81 대기, #252 표준 로그·개선 실행 공간은 도메인 소유자 합의·#249 미결 대기.
+5. 작업 규칙은 루트 `AGENTS.md`(2026-10-05 간소화), 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 문서만 바꾸면 `pnpm docs:links`만 돌린다. 작업자 배정은 전역 `routing.tsv`가 원본이다(역할별 모델·effort·fallback은 그 파일에만 두고, 다른 곳에는 역할 이름만 쓴다, #283).
 
 ## 결정 대기 — 정비 슬라이스에서 나온 것 (2026-10-13, 10-15)
 
@@ -112,7 +113,6 @@ FeedbackOps 화면은 플랫폼으로 옮기지 않는다. FeedbackOps가 VOC �
 | #163 Perspective 자유 피벗 POC | 자유 피벗이 업무 필수로 확인될 때 |
 | #164 AG Grid Enterprise 평가 | 셀 범위 복붙·채우기가 사내 메뉴 2–3곳에서 필수로 확인될 때 |
 | #91 전역 감사 조회에 room 권한 적용(결정됨, 05) | 일부 room만 가진 콘솔 역할이 생길 때 서버에서 구현 |
-| #396 공통 SDK(목표 Decided — [ADR-0043](../docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md): 플랫폼 소유 단일 프레임워크 + 앱 계약, 의존 SDK ← 제품, 독립 실행은 제품 책임, 디자인 시스템 원본도 플랫폼). 다음 설계 산출물: 세 프레임워크 기능을 SDK가 다 덮는지 확인하는 포괄 목록. 저장소·릴리즈 구조 후보와 정할 것은 [통합 계획 §4.4](../docs/integration/framework-unification-plan.md#44-sdk-저장소릴리즈-구조-candidate-2026-10-19) | #396 §8 착수 증거 — 탑재 1판(#402·#403) 착수 또는 사내 앱 첫 소비 요구가 생길 때 |
 | #389 F-2 tableFit 관찰 범위 축소(명시 height 표는 폭만, mutation 경로 좁히기) — 측정(2026-10-17) hover 1회당 rebind ≈1, long task 0으로 구현 안 함 | hover 중 long task가 측정되거나 CPU 4× 감속 측정에서 프레임 저하가 보일 때 |
 
 ## 끝난 것

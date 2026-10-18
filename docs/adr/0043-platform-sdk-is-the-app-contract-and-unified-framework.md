@@ -1,6 +1,6 @@
 # 플랫폼 SDK는 플랫폼에 올릴 앱이 따르는 계약이고, 세 제품의 프레임워크를 모두 덮는 하나의 플랫폼 프레임워크로 제공한다
 
-상태: **Decided (2026-10-19) — 목표.** 구조·패키지 이름·추출 순서는 Candidate, 구현은 Deferred(재개 조건은 [#396](https://github.com/hjung3113/analytics-platform/issues/396) §8 — 아래 결과대로 읽는다). #396의 목표(2026-10-16, "세 제품이 하나의 공유 SDK를 소비하고 각 제품은 독립 실행도 할 수 있어야 한다")를 대체한다.
+상태: **Decided (2026-10-19) — 목표.** 구조·패키지 이름·추출 순서는 Candidate, 구현은 착수(사용자 2026-10-19: 각 프로젝트가 따로 프레임워크를 키워 차이가 벌어지기 전에 시작한다 — [#396](https://github.com/hjung3113/analytics-platform/issues/396) §8 착수 증거를 기다리지 않음, 범위는 첫 슬라이스에서 정함). #396의 목표(2026-10-16, "세 제품이 하나의 공유 SDK를 소비하고 각 제품은 독립 실행도 할 수 있어야 한다")를 대체한다.
 - 결정자: 사용자 — 2026-10-19. "플랫폼위에 올릴 앱들이 지켜야할 sdk에 가깝지 않나? 같이 쓰는 sdk라기보단", "따로 앱으로 돌리는건 그 프로젝트 책임이지 이 sdk책임이 아님", "지금 세 프로젝트에서 쓴 프레임워크들을 통합(모두 커버되도록) 해서 하나의 프레임워크로 sdk가 제공해야함. 프레임워크 이름은 platform쪽으로 맞추는게 좋을듯", "sdk의 플랫폼 [프레임워크]를 각 프로젝트가 소비하는거야 의존방향은", "이제는 sdk를 만든단건 플랫폼이 결정하는거지 feedbackops에서 플랫폼으로 발전시킨 방향은 맞지만 이제는 플랫폼 소유야"(디자인 시스템 원본).
 
 #396은 SDK를 세 제품(analytics-platform·FeedbackOps·equipment-visualization)이 함께 소비하는 배포 단위로 정의했다. 원본은 기능마다 세 레포의 구현을 비교해 고르고(§3), 각 제품이 독립 실행과 플랫폼 실행을 모두 할 수 있게 하는 것(§5)이 목표에 들어 있었다. 이 정의에서는 SDK의 주인이 분명하지 않고, 독립 실행 호스트까지 SDK가 책임지게 된다. 레포 목적("메뉴들이 얹힐 플랫폼", 루트 AGENTS.md)과 호스트 → 모듈 계약 초안([ADR-0038](0038-host-module-contract-and-feedbackops-mounting.md)·[ADR-0039](0039-equipment-visualization-platform-first-host-contract.md))은 이미 플랫폼을 호스트로 보고 있었다.
@@ -30,7 +30,7 @@ SDK의 뜻:
 
 ## 결과
 
-- **코드를 옮기기 전까지는 지금 규칙을 그대로 따른다.** 06 §13, [ADR-0010](0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[ADR-0011](0011-design-direction-feedbackops-shell.md)·[ADR-0023](0023-feedbackops-primitive-shapes-and-sizes.md), [`packages/ui/AGENTS.md`](../../packages/ui/AGENTS.md)대로 `@ap/ui`는 `@fops/ui`를 재수출하고, primitive 변경은 FeedbackOps에 제안한다. 이 문서들의 "원본은 FeedbackOps" 서술은 소유 방향만 바뀌었다는 표시를 달고, 본문은 코드 이전 이슈에서 고친다. 이전 이슈는 아직 열지 않았다(재개 조건: #396 §8 착수 증거).
+- **코드를 옮기기 전까지는 지금 규칙을 그대로 따른다.** 06 §13, [ADR-0010](0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[ADR-0011](0011-design-direction-feedbackops-shell.md)·[ADR-0023](0023-feedbackops-primitive-shapes-and-sizes.md), [`packages/ui/AGENTS.md`](../../packages/ui/AGENTS.md)대로 `@ap/ui`는 `@fops/ui`를 재수출하고, primitive 변경은 FeedbackOps에 제안한다. 이 문서들의 "원본은 FeedbackOps" 서술은 소유 방향만 바뀌었다는 표시를 달고, 본문은 코드 이전 이슈에서 고친다. 이전 이슈는 SDK 첫 슬라이스에서 연다.
 - #396 본문의 제목·목표와 ADR-0043과 어긋나는 절(§2 상위집합 전제, §3 기능별 원본 선정, §5·§6 두 조립 진입점, §7 두 호스트 공통 구현, §8·§10 독립 실행 조건, §9 primitive 소유, §11 대안 판정, §12 Open)을 이 ADR에 맞춘다. §7 안전 조건과 §8 착수 증거는 플랫폼 실행에 대해서만 그대로 둔다.
 - [프레임워크 통합 계획](../integration/framework-unification-plan.md)과 [플랫폼 탑재 설계](../integration/platform-hosting-design.md)의 어긋나는 서술은 각 문서 머리말에서 이 ADR이 우선한다고 표시한다. 세 프레임워크가 하는 일을 SDK가 다 덮는지 확인하는 **포괄 목록**(통합 계획 §2·§3 지도에서 출발)이 다음 설계 산출물이다(Open, [보드](../../.planning/README.md)).
 - 호스트 → 모듈 계약(ADR-0038·0039, 탑재 설계 §2)은 SDK의 중심으로 남는다. 다만 탑재 설계 §4의 "모듈 패키지는 `@ap/contracts`만 import"와 `@fops/ui` 배포·peer 행은 "앱이 SDK 프레임워크를 소비한다"와 맞지 않으므로 SDK 배포 단위를 설계할 때 다시 정한다(Open).
