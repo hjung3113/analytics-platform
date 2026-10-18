@@ -105,7 +105,7 @@ function FeedbackOpsBlock({ collapsed }: { collapsed: boolean }) {
       </a>;
       return <li key={entry.id}><Tooltip><TooltipTrigger asChild>{link}</TooltipTrigger><TooltipContent side="right">{name}</TooltipContent></Tooltip></li>;
     })}</ul>
-    {!collapsed && <p className="px-3 pt-1 text-caption text-text-muted">{lang === 'ko' ? '새 탭에서 열립니다' : 'Opens in a new tab'}</p>}
+    {!collapsed && entries.some(entry => entry.href !== null) && <p className="px-3 pt-1 text-caption text-text-muted">{lang === 'ko' ? '새 탭에서 열립니다' : 'Opens in a new tab'}</p>}
   </nav>;
 }
 

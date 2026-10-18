@@ -509,6 +509,17 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(block.querySelectorAll('a[href]')).toHaveLength(1);
   });
 
+  it('drops the new-tab caption when every entry is disabled (UX-1)', () => {
+    localStorage.setItem('platform:sidebar-collapsed', '0');
+    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'analytics' ? [
+      { id: 'voc-create', label: { ko: 'VOC 등록', en: 'File a VOC' }, href: null },
+      { id: 'task', label: { ko: 'Task', en: 'Task' }, href: null },
+    ] : null, overall: null } });
+    const block = screen.getByRole('navigation', { name: /^FeedbackOps/ });
+    expect(within(block).getAllByRole('link')).toHaveLength(2);
+    expect(within(block).queryByText('새 탭에서 열립니다')).toBeNull();
+  });
+
   it('hides the sidebar, the rail sections and the current card on a global screen', () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
     mount(['platform:view', 'console:access'], true, globalShellRegistry());
