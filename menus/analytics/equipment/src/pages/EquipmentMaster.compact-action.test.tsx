@@ -43,7 +43,8 @@ describe('EquipmentMaster compact action', () => {
   it('shows an icon-only 보기 with the same name and still opens the drawer', async () => {
     window.history.replaceState(null, '', '/equipment?v=1&scopeId=ICH');
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><EquipmentMaster /><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
-    const button = await screen.findByRole('button', { name: 'EQ-1 보기' });
+    // The first render of this page (page, table, accessible-name lookup) exceeds the 1s default under parallel load (#434).
+    const button = await screen.findByRole('button', { name: 'EQ-1 보기' }, { timeout: 8000 });
     fireEvent.click(button);
     expect(new URLSearchParams(window.location.search).get('focus')).toBe('EQ-1');
     expect(await screen.findByRole('heading', { name: 'EQ-1' })).toBeTruthy();
