@@ -1,7 +1,7 @@
 # 플랫폼 SDK는 플랫폼에 올릴 앱이 따르는 계약이고, 세 제품의 프레임워크를 모두 덮는 하나의 플랫폼 프레임워크로 제공한다
 
 상태: **Decided (2026-10-19) — 목표.** 구조·패키지 이름·추출 순서는 Candidate, 구현은 Deferred(재개 조건은 [#396](https://github.com/hjung3113/analytics-platform/issues/396) §8). [#396](https://github.com/hjung3113/analytics-platform/issues/396)의 목표(2026-10-16, "세 제품이 하나의 공유 SDK를 소비하고 각 제품은 독립 실행도 할 수 있어야 한다")를 대체한다.
-- 결정자: 사용자 — 2026-10-19. "플랫폼위에 올릴 앱들이 지켜야할 sdk에 가깝지 않나? 같이 쓰는 sdk라기보단", "따로 앱으로 돌리는건 그 프로젝트 책임이지 이 sdk책임이 아님", "지금 세 프로젝트에서 쓴 프레임워크들을 통합(모두 커버되도록) 해서 하나의 프레임워크로 sdk가 제공해야함. 프레임워크 이름은 platform쪽으로 맞추는게 좋을듯", "sdk의 플랫폼 [프레임워크]를 각 프로젝트가 소비하는거야 의존방향은".
+- 결정자: 사용자 — 2026-10-19. "플랫폼위에 올릴 앱들이 지켜야할 sdk에 가깝지 않나? 같이 쓰는 sdk라기보단", "따로 앱으로 돌리는건 그 프로젝트 책임이지 이 sdk책임이 아님", "지금 세 프로젝트에서 쓴 프레임워크들을 통합(모두 커버되도록) 해서 하나의 프레임워크로 sdk가 제공해야함. 프레임워크 이름은 platform쪽으로 맞추는게 좋을듯", "sdk의 플랫폼 [프레임워크]를 각 프로젝트가 소비하는거야 의존방향은", "이제는 sdk를 만든단건 플랫폼이 결정하는거지 feedbackops에서 플랫폼으로 발전시킨 방향은 맞지만 이제는 플랫폼 소유야".
 
 #396은 SDK를 세 제품(analytics-platform·FeedbackOps·equipment-visualization)이 함께 소비하는 배포 단위로 정의했다. 원본은 기능마다 세 레포의 구현을 비교해 고르고(§3), 각 제품이 독립 실행과 플랫폼 실행을 모두 할 수 있게 하는 것(§5)이 목표에 들어 있었다. 이 정의에서는 SDK의 주인이 분명하지 않고, 독립 실행 호스트까지 SDK가 책임지게 된다. 레포 목적("메뉴들이 얹힐 플랫폼", 루트 AGENTS.md)과 호스트 → 모듈 계약 초안([ADR-0038](0038-host-module-contract-and-feedbackops-mounting.md)·[ADR-0039](0039-equipment-visualization-platform-first-host-contract.md))은 이미 플랫폼을 호스트로 보고 있었다.
 
@@ -24,5 +24,6 @@
 - #396의 목표 문단과 §3(기능별 원본 선정)·§5(두 조립 진입점) 해석을 이 ADR로 바꾼다. 안전 조건(§7)과 착수 증거(§8)는 그대로 둔다.
 - [프레임워크 통합 계획](../integration/framework-unification-plan.md)의 요약·§4를 이 목표로 고친다. 세 프레임워크가 하는 일을 SDK가 다 덮는지 확인하는 **포괄 목록**(통합 계획 §2·§3 지도에서 출발)이 다음 설계 산출물이다(Open).
 - [플랫폼 탑재 설계](../integration/platform-hosting-design.md)·ADR-0038·0039의 호스트 → 모듈 계약은 그대로 SDK의 중심이다. 그 문서의 "두 호스트" 중 독립 호스트 쪽은 각 제품의 선택이고 SDK 범위가 아니다.
-- 2026-10-17에 정한 "`@fops/ui`는 FeedbackOps가 배포하고 `@ap/ui`가 peer로 의존"(통합 계획 §8 Q2-a)을 이 ADR이 뒤집는다. 토큰·primitive 코드는 SDK가 소유한다. [ADR-0010](0010-feedbackops-design-system-shared-on-tailwind-v4.md)의 "`@fops/ui` 직접 참조"와 [ADR-0023](0023-feedbackops-primitive-shapes-and-sizes.md)의 "플랫폼은 FeedbackOps 부품을 덮어쓰지 않는다"는 코드 이전 단계에서 개정한다. 그 전까지는 지금 구조(`@ap/ui`가 `@fops/ui`를 재수출)를 그대로 둔다.
-- **남은 결정(Open, 사용자):** 코드가 SDK로 옮겨진 뒤에도 부품 모양·크기 같은 디자인 결정의 원본을 FeedbackOps에 둘지, 플랫폼으로 옮길지. 코드 이전 이슈를 열 때 함께 정한다.
+- 2026-10-17에 정한 "`@fops/ui`는 FeedbackOps가 배포하고 `@ap/ui`가 peer로 의존"(통합 계획 §8 Q2-a)을 이 ADR이 뒤집는다. 토큰·primitive 코드는 SDK로 옮긴다.
+- **디자인 결정도 플랫폼 소유다.** 토큰·primitive 모양·크기·상태 같은 디자인 시스템 결정의 원본은 지금부터 플랫폼(SDK)이다. FeedbackOps 디자인 시스템은 출발점이고, 지금 값이 SDK의 초기값이 된다. [ADR-0010](0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[ADR-0011](0011-design-direction-feedbackops-shell.md)·[ADR-0023](0023-feedbackops-primitive-shapes-and-sizes.md)의 "원본은 FeedbackOps"와 [DESIGN.md](../../DESIGN.md)의 "공유 디자인 원본" 표기는 이 결정으로 방향이 바뀐다. 문서 본문은 코드 이전 때 고친다.
+- **코드를 옮기기 전까지의 규칙(코디네이터 판단, 되돌릴 수 있음):** 값과 코드는 아직 FeedbackOps 서브모듈에 있다. 그래서 플랫폼이 primitive를 바꿔야 하면 `@ap/ui`에서 덮어쓰지 말고, 그 조각을 먼저 SDK로 옮긴 다음 SDK에서 바꾼다. 원본을 한 벌로 지키려는 것이고, ADR-0023의 "덮어쓰지 않는다"는 이 뜻으로 남는다.

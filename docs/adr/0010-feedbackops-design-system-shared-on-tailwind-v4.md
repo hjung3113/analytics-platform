@@ -1,6 +1,6 @@
 # FeedbackOps 디자인 시스템을 그대로 공유한다 — FeedbackOps를 Tailwind v4로 올리고 `@fops/ui`를 직접 참조
 
-상태: **Decided (2026-10-03)**.
+상태: **Decided (2026-10-03)**. 디자인 시스템 결정의 원본은 [ADR-0043](0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(2026-10-19)으로 플랫폼으로 바뀌었다. 본문은 코드 이전 때 개정하고, 그 전에는 FeedbackOps 값을 초기값으로 쓴다.
 - 결정자: 사용자 — 방식은 C안을 직접 골랐고("c로하자"), 참조 방식과 범위는 에이전트 추천을 따랐다("나머지는 니추천대로").
 
 세부(가져오는 순서·버전 차이·검증 방법)는 [#52](https://github.com/hjung3113/analytics-platform/issues/52) 코멘트가 소유한다. 이 ADR은 결정과 이유만 둔다.

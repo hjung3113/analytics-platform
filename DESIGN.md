@@ -80,6 +80,8 @@ components:
 
 ## Overview
 
+> 디자인 시스템 결정의 원본은 플랫폼이다([ADR-0043](docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), 2026-10-19). 아래의 "FeedbackOps 원본" 표기는 코드를 SDK로 옮길 때 고치고, 그때까지는 FeedbackOps 값이 초기값이다. primitive를 바꿔야 하면 덮어쓰지 말고 그 조각을 먼저 SDK로 옮긴다.
+
 이 문서는 **FeedbackOps 위에 얹는 플랫폼 디자인 확장**의 원본이다. 공유 디자인 시스템을 다시 정의하지 않는다. [ADR-0010](docs/adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)의 직접 소비 방식과 [ADR-0011](docs/adr/0011-design-direction-feedbackops-shell.md)의 승인된 프로토타입 C안을 따른다. #193의 토큰 이행과 #194의 밝은 셸 규칙을 반영한다. 이 문서 갱신은 새 프로토타입 승인이나 런타임 검증 기록이 아니다.
 
 메뉴 화면은 Kernel·공통 컴포넌트·차트 계약·Page Archetype·메뉴간 연결을 검증하는 Consumer다. 화면마다 새 팔레트나 부품 체계를 만들지 않는다. 행동·권한·Context·상태 의미는 [06](docs/06_platform_ui_contract.md)이 우선한다.
