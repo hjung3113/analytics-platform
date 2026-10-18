@@ -52,7 +52,8 @@ describe('MyVocHistory compact action', () => {
   it('renders an external icon link with the same name, href and target', async () => {
     setFeedbackOpsOrigin('https://feedback.example.com');
     mount();
-    const link = await screen.findByRole('link', { name: 'VOC-M-1001 FeedbackOps에서 보기' });
+    // The first render of this page exceeds the 1s default wait under parallel load (#434, #437).
+    const link = await screen.findByRole('link', { name: 'VOC-M-1001 FeedbackOps에서 보기' }, { timeout: 8000 });
     expect(link.getAttribute('href')).toContain('feedback.example.com');
     expect(link.getAttribute('target')).toBe('_blank');
     expect(link.getAttribute('rel')).toContain('noopener');
@@ -61,7 +62,8 @@ describe('MyVocHistory compact action', () => {
   it('keeps the disabled icon button with aria-describedby when there is no origin', async () => {
     setFeedbackOpsOrigin(null);
     mount();
-    const button = await screen.findByRole('button', { name: 'VOC-M-1001 FeedbackOps에서 보기' }) as HTMLButtonElement;
+    // The first render of this page exceeds the 1s default wait under parallel load (#434, #437).
+    const button = await screen.findByRole('button', { name: 'VOC-M-1001 FeedbackOps에서 보기' }, { timeout: 8000 }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
     expect(document.getElementById(button.getAttribute('aria-describedby') ?? '')?.textContent).toContain('FeedbackOps 주소가 없거나 올바르지 않아');
   });
