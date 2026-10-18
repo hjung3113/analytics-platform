@@ -2,6 +2,8 @@ import { ChevronLeft, ChevronRight, ClipboardList, Clock3, ExternalLink, ListTod
 import { type FeedbackOpsEntryId, type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { ScopeSelector } from './ScopeSelector';
+// THROWAWAY #423 — never merge.
+import { useCurrentGroupId } from './proto/Switcher';
 
 const FEEDBACK_ICONS: Record<FeedbackOpsEntryId, typeof Star> = {
   'voc-create': MessageSquarePlus,
@@ -14,8 +16,12 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
   const { visibleMenus, route, favorites, recent, registry, sidebarSpace } = usePlatform();
   const { t, tx, lang } = useI18n();
   const activeId = route?.menu.navHidden && route.menu.parent ? route.menu.parent : route?.menu.id;
-  const grouped = (sidebarSpace === null ? [] : registry.groups.filter(g => g.space === sidebarSpace.id))
+  // THROWAWAY #423 — never merge. Only the current section's menus.
+  const curGroup = useCurrentGroupId();
+  const all = (sidebarSpace === null ? [] : registry.groups.filter(g => g.space === sidebarSpace.id))
     .map(group => ({ group, items: visibleMenus.filter(m => !m.navHidden && m.group === group.id) })).filter(g => g.items.length);
+  const grouped = all.filter(g => g.group.id === curGroup).length ? all.filter(g => g.group.id === curGroup) : all.slice(0, 1);
+  const sectionLabel = grouped[0] ? tx(grouped[0].group.label) : null;
   const favoriteMenus = favorites.map(id => visibleMenus.find(m => m.id === id)).filter((m): m is MenuEntry => !!m);
   const recentItems = recent.filter(r => visibleMenus.some(m => m.id === r.menuId)).slice(0, 5);
 
@@ -24,7 +30,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
       <div className="flex h-[50px] shrink-0 items-center justify-between border-b border-border-subtle px-3">
         {!collapsed && (sidebarSpace === null
           ? <p className="min-w-0 truncate text-sm font-semibold">{t('appName')}</p>
-          : <div className="min-w-0"><p className="truncate text-sm font-semibold">{tx(sidebarSpace.label)}</p><p className="truncate text-caption text-text-muted">{t('appName')}</p></div>)}
+          : <div className="min-w-0"><p className="truncate text-sm font-semibold">{tx(sidebarSpace.label)}</p><p className="truncate text-caption text-text-muted">{sectionLabel ?? t('appName')}</p></div>)}
         <Tooltip><TooltipTrigger asChild>
           <button type="button" onClick={onToggle} aria-label={collapsed ? t('expand') : t('collapse')} aria-keyshortcuts="["
             className="ml-auto grid size-7 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover hover:text-text-primary">
@@ -36,7 +42,7 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
       <div className="shell-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2">
         <nav aria-label={lang === 'ko' ? '주 메뉴' : 'Primary'}>
           {grouped.map(({ group, items }, index) => <div key={group.id} role="group" aria-label={tx(group.label)}>
-            {!collapsed && !(group.hideLabelWhenSingle && items.length === 1) && <p className={cn('mx-2 mb-1 text-caption font-semibold uppercase tracking-wide text-text-muted', index === 0 ? 'mt-1.5' : 'mt-3.5')}>{tx(group.label)}</p>}
+            {false && !collapsed && !(group.hideLabelWhenSingle && items.length === 1) && <p className={cn('mx-2 mb-1 text-caption font-semibold uppercase tracking-wide text-text-muted', index === 0 ? 'mt-1.5' : 'mt-3.5')}>{tx(group.label)}</p>}
             {collapsed && index > 0 && <div className="mx-3 my-1.5 border-t border-border-subtle" aria-hidden />}
             <ul className="space-y-0.5">{items.map(menu => <li key={menu.id}><NavItem menu={menu} active={menu.id === activeId} collapsed={collapsed} /></li>)}</ul>
           </div>)}

@@ -1,50 +1,41 @@
-import { CircleHelp, ExternalLink, LogOut, Search } from 'lucide-react';
+// THROWAWAY #423 — never merge.
+import { CircleHelp, LogOut, PanelsTopLeft, Search } from 'lucide-react';
+import { SwitcherButton, useCurrentGroupId, useSectionsOf } from './proto/Switcher';
 import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 
 /** Space navigation and global tools; the app keeps ownership of topBarTools. */
 export function AppRail() {
-  const { currentSpace, accessibleSpaces, switchSpace, slots, user, setPaletteOpen, registry, resolveLink, route } = usePlatform();
+  const { currentSpace, slots, user, setPaletteOpen } = usePlatform();
   const { t, tx, lang, setLang } = useI18n();
+  // THROWAWAY #423 — never merge.
+  const sectionsOf = useSectionsOf();
+  const curGroup = useCurrentGroupId();
+  const sections = currentSpace ? sectionsOf(currentSpace.id) : [];
   const languageLabel = lang === 'ko' ? '언어: 한국어 — English로 전환' : 'Language: English — 한국어로 전환';
-  const homeLabel = lang === 'ko' ? '플랫폼 홈' : 'Platform home';
-  const overallLabel = lang === 'ko' ? 'FeedbackOps 전체 — 새 탭' : 'FeedbackOps overall — new tab';
-  const homeMenu = registry.matchRoute('/')?.menu;
-  const homeOpened = homeMenu !== undefined ? resolveLink(homeMenu.id) : null;
-  const homeLink = homeOpened?.allowed === true ? homeOpened : null;
-  const homeCurrent = homeLink !== null && route?.menu.id === homeMenu?.id;
-  const overall = slots.feedbackOps?.overall ?? null;
   return <TooltipProvider delayDuration={200}>
     <nav aria-label={lang === 'ko' ? '앱 레일' : 'App rail'} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-2 overflow-y-auto border-r border-border-subtle bg-surface-sidebar py-3">
-      {homeLink ? <Tooltip><TooltipTrigger asChild>
-        <PlatformLink href={homeLink.href} aria-label={homeLabel} aria-current={homeCurrent ? 'page' : undefined}
-          className={cn('relative mb-1 grid size-8 shrink-0 place-items-center rounded-md', homeCurrent ? 'bg-surface-row-selected text-accent-primary' : 'bg-accent-primary text-text-on-accent')}>
-          {homeCurrent && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
-          <span aria-hidden className="text-sm font-semibold">A</span><span className="sr-only">{homeLabel}</span>
-        </PlatformLink>
-      </TooltipTrigger><TooltipContent side="right">{homeLabel}</TooltipContent></Tooltip>
-        : <div title={t('appName')} className="mb-1 grid size-8 shrink-0 place-items-center rounded-md bg-accent-primary text-text-on-accent"><span aria-hidden className="text-sm font-semibold">A</span><span className="sr-only">{t('appName')}</span></div>}
-      {accessibleSpaces.length >= 2 && accessibleSpaces.map(space => {
-        const Icon = registry.groupById(registry.menuById(space.homeMenuId).group).icon;
-        const active = currentSpace?.id === space.id;
-        return <Tooltip key={space.id}><TooltipTrigger asChild>
-          <button type="button" aria-label={`${lang === 'ko' ? '공간' : 'Space'}: ${tx(space.label)}`} aria-current={active ? 'page' : undefined}
-            onClick={() => switchSpace(space.id)} className={cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', active && 'bg-surface-row-selected text-accent-primary')}>
-            {active && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
-            <Icon className="size-4" aria-hidden />
-          </button>
-        </TooltipTrigger><TooltipContent side="right">{tx(space.label)}</TooltipContent></Tooltip>;
-      })}
+      <SwitcherButton />
       <div className="my-1 w-6 border-t border-border-subtle" aria-hidden />
+      {sections.map(sec => {
+        const active = curGroup === sec.groupId;
+        return <Tooltip key={sec.groupId}><TooltipTrigger asChild>
+          <PlatformLink href={sec.href ?? '#'} aria-label={sec.label} aria-current={active ? 'page' : undefined}
+            className={cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', active && 'bg-surface-row-selected text-accent-primary')}>
+            {active && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
+            <sec.icon className="size-4" aria-hidden />
+          </PlatformLink>
+        </TooltipTrigger><TooltipContent side="right">{sec.label}</TooltipContent></Tooltip>;
+      })}
+      <div className="min-h-3 flex-1" />
       <Tooltip><TooltipTrigger asChild>
         <button type="button" onClick={() => setPaletteOpen(true)} aria-label={t('searchPlaceholder')} aria-haspopup="dialog" aria-keyshortcuts="Meta+K Control+K"
           className="grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover"><Search className="size-4" aria-hidden /></button>
       </TooltipTrigger><TooltipContent side="right">{t('searchPlaceholder')} · {shortcutLabel('K')}</TooltipContent></Tooltip>
-      <div className="min-h-3 flex-1" />
-      {overall && <Tooltip><TooltipTrigger asChild>
-        <a href={overall.href} target="_blank" rel="noopener noreferrer" aria-label={overallLabel}
-          className="grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover"><ExternalLink className="size-4" aria-hidden /></a>
-      </TooltipTrigger><TooltipContent side="right">{overallLabel}</TooltipContent></Tooltip>}
+      <Tooltip><TooltipTrigger asChild>
+        <button type="button" aria-label="분석 보드 — 준비 중" className="grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover"><PanelsTopLeft className="size-4" aria-hidden /></button>
+      </TooltipTrigger><TooltipContent side="right">분석 보드 — 준비 중</TooltipContent></Tooltip>
+      <div className="my-1 w-6 border-t border-border-subtle" aria-hidden />
       <div className="flex shrink-0 flex-col items-center gap-1">{slots.topBarTools}</div>
       <Popover>
         <PopoverTrigger asChild><button type="button" aria-label={lang === 'ko' ? '도움말' : 'Help'} title={lang === 'ko' ? '도움말' : 'Help'} className="grid size-8 place-items-center rounded-md text-text-secondary hover:bg-surface-sunken"><CircleHelp className="size-4" aria-hidden /></button></PopoverTrigger>

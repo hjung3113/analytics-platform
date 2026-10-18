@@ -11,6 +11,8 @@ import { readFeedbackOpsOrigin } from './feedbackops-origin';
 import { registry } from './menus';
 import { appSlots } from './slots';
 import { AppShell, RouteOutlet } from '@ap/shell';
+// THROWAWAY #423 — never merge.
+import { PrototypeVariants } from './proto/PrototypeVariants';
 
 // Composition root owns the FeedbackOps origin (issue #60 §4): menus never read the env, the adapter
 // never carries it. Missing env → null → the /voc links render disabled and the data still loads.
@@ -24,7 +26,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <I18nProvider>
       <PlatformProvider adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly)}>
-        <AppShell><RouteOutlet /></AppShell>
+        <PrototypeVariants><AppShell><RouteOutlet /></AppShell></PrototypeVariants>
       </PlatformProvider>
     </I18nProvider>
   </StrictMode>,

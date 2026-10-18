@@ -2,12 +2,14 @@ import { CornerDownLeft, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { type MenuEntry, useI18n, usePlatform } from '@ap/kernel';
 import type { Text } from '@ap/contracts';
-import { cn, Dialog, DialogContent, DialogTitle } from '@ap/ui';
+import { cn, Dialog, DialogContent, DialogTitle, usePrototype } from '@ap/ui';
 
 /** §10: menu navigation is the palette's base responsibility; entity search/action commands are Deferred. */
 export function CommandPalette() {
   const { paletteOpen, setPaletteOpen, paletteSession, menusInSpace, accessibleSpaces, globalMenus, recent, navigate, linkTo, registry, pathname } = usePlatform();
   const { t, tx, text, lang } = useI18n();
+  // THROWAWAY #423 — never merge. Variant C replaces the palette with the switcher dialog.
+  const { variant } = usePrototype();
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
   const platformLabel = text('palettePlatform');
@@ -68,6 +70,7 @@ export function CommandPalette() {
     setPaletteOpen(false);
   };
 
+  if (variant === 'C') return null;
   let index = 0;
   return <Dialog open={paletteOpen} onOpenChange={setPaletteOpen}>
       <DialogContent closeLabel={t('close')} aria-describedby={undefined}
