@@ -26,6 +26,10 @@ describe('parseAccessKeys (#49 page keys)', () => {
     });
   });
 
+  it('accepts the feedbackops:access permission filter (#251)', () => {
+    expect(parseAccessKeys(keys({ permission: 'feedbackops:access' }))).toMatchObject({ ok: true, filters: { role: null, permission: 'feedbackops:access' } });
+  });
+
   it.each([
     ['unknown permission', keys({ permission: 'console:write' })],
     ['empty role', keys({ role: '' })],

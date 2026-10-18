@@ -2,6 +2,7 @@ import { createElement, type ReactNode } from 'react';
 import { ClipboardCheck, FileSearch } from 'lucide-react';
 import type { PlannedSpace, PlatformSlots } from '@ap/kernel';
 import { GlobalContextBar } from '@ap/shell';
+import { feedbackOpsSlot } from './feedbackops-systems';
 
 /** Business systems announced in the switcher but not built (15 §3.2). Display only: no Registry entry, no permission, no menu. */
 export const PLANNED_SPACES: readonly PlannedSpace[] = [
@@ -9,7 +10,7 @@ export const PLANNED_SPACES: readonly PlannedSpace[] = [
   { id: 'improvement', label: { ko: '개선 실행', en: 'Improvement execution' }, icon: ClipboardCheck },
 ];
 
-/** Slots `main.tsx` passes to PlatformProvider. `feedbackOps` stays absent until #251. */
-export function appSlots(assembly: { topBarTools: ReactNode }): PlatformSlots {
-  return { contextBar: createElement(GlobalContextBar), topBarTools: assembly.topBarTools, plannedSpaces: PLANNED_SPACES };
+/** Slots `main.tsx` passes to PlatformProvider. `feedbackOpsOrigin` is the one value `main.tsx` read from the env (#60). */
+export function appSlots(assembly: { topBarTools: ReactNode }, feedbackOpsOrigin: string | null): PlatformSlots {
+  return { contextBar: createElement(GlobalContextBar), topBarTools: assembly.topBarTools, feedbackOps: feedbackOpsSlot(feedbackOpsOrigin), plannedSpaces: PLANNED_SPACES };
 }

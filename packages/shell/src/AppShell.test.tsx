@@ -353,7 +353,7 @@ const feedbackSlot: FeedbackOpsSlot = {
     { id: 'task', label: { ko: 'Task', en: 'Task' }, href: 'https://example.test/task' },
     { id: 'voc-create', label: { ko: 'VOC 등록', en: 'File a VOC' }, href: 'https://example.test/new' },
   ] : spaceId === 'operations' ? [] : null,
-  overall: { href: 'https://example.test/all' },
+  overall: { href: 'https://example.test/all', permission: 'feedbackops:access' },
 };
 
 function globalShellRegistry(equipmentPermission: Permission = 'platform:view') {
@@ -426,7 +426,7 @@ describe('workspace shell layout (15 §3.1)', () => {
   });
 
   it('renders FeedbackOps entries in slot order outside the scroll region, and the overall rail link', () => {
-    mount(['platform:view'], true, registry, { feedbackOps: feedbackSlot });
+    mount(['platform:view', 'feedbackops:access'], true, registry, { feedbackOps: feedbackSlot });
     const block = screen.getByRole('navigation', { name: 'FeedbackOps · 분석' });
     const scroll = document.querySelector('.shell-scroll');
     expect(scroll?.contains(block)).toBe(false);
@@ -475,9 +475,49 @@ describe('workspace shell layout (15 §3.1)', () => {
   });
 
   it('keeps the overall rail link when the block is empty', () => {
-    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: () => [], overall: { href: 'https://example.test/all' } } });
+    mount(['platform:view', 'feedbackops:access'], true, registry, { feedbackOps: { entriesFor: () => [], overall: { href: 'https://example.test/all', permission: 'feedbackops:access' } } });
     expect(screen.queryByRole('navigation', { name: /^FeedbackOps/ })).toBeNull();
     expect(within(screen.getByRole('navigation', { name: '앱 레일' })).getByRole('link', { name: 'FeedbackOps 전체 — 새 탭' })).toBeTruthy();
+  });
+
+  it('hides the overall rail link unless the user holds the slot permission, and shows it when held', () => {
+    mount(['platform:view'], true, registry, { feedbackOps: feedbackSlot });
+    expect(within(screen.getByRole('navigation', { name: '앱 레일' })).queryByRole('link', { name: /FeedbackOps 전체/ })).toBeNull();
+    cleanup();
+    mount(['platform:view', 'feedbackops:access'], true, registry, { feedbackOps: feedbackSlot });
+    expect(within(screen.getByRole('navigation', { name: '앱 레일' })).getByRole('link', { name: 'FeedbackOps 전체 — 새 탭' })).toHaveAttribute('href', 'https://example.test/all');
+  });
+
+  it.each([
+    ['ko', 'FeedbackOps 주소가 설정되지 않아 열 수 없습니다'],
+    ['en', 'FeedbackOps address is not configured'],
+  ])('draws an entry with a null href as a focusable disabled link (%s)', (lang, reason) => {
+    localStorage.setItem('platform:lang', lang);
+    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'analytics' ? [
+      { id: 'task', label: { ko: 'Task', en: 'Task' }, href: null },
+      { id: 'voc-create', label: { ko: 'VOC 등록', en: 'File a VOC' }, href: 'https://example.test/new' },
+    ] : null, overall: null } });
+    const block = screen.getByRole('navigation', { name: /^FeedbackOps/ });
+    const disabled = within(block).getAllByRole('link').find(link => link.getAttribute('aria-disabled') === 'true')!;
+    expect(disabled.tagName).toBe('SPAN');
+    expect(disabled.matches('a[href]')).toBe(false);
+    expect(disabled.getAttribute('tabindex')).toBe('0');
+    expect(disabled.getAttribute('aria-label')).toMatch(/^Task — .*FeedbackOps — /);
+    expect(disabled.getAttribute('aria-label')?.endsWith(reason)).toBe(true);
+    expect(disabled.className).toContain('text-text-muted');
+    expect(disabled.querySelectorAll('svg')).toHaveLength(1);
+    expect(block.querySelectorAll('a[href]')).toHaveLength(1);
+  });
+
+  it('drops the new-tab caption when every entry is disabled (UX-1)', () => {
+    localStorage.setItem('platform:sidebar-collapsed', '0');
+    mount(['platform:view'], true, registry, { feedbackOps: { entriesFor: id => id === 'analytics' ? [
+      { id: 'voc-create', label: { ko: 'VOC 등록', en: 'File a VOC' }, href: null },
+      { id: 'task', label: { ko: 'Task', en: 'Task' }, href: null },
+    ] : null, overall: null } });
+    const block = screen.getByRole('navigation', { name: /^FeedbackOps/ });
+    expect(within(block).getAllByRole('link')).toHaveLength(2);
+    expect(within(block).queryByText('새 탭에서 열립니다')).toBeNull();
   });
 
   it('hides the sidebar, the rail sections and the current card on a global screen', () => {

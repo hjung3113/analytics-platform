@@ -2452,7 +2452,8 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/voc?v=1');
     const rows = page.getByLabel('스크롤 가능한 행 영역', { exact: true });
-    await expect(rows.getByRole('button', { name: /보기$/ }).first()).toBeVisible();
+    // E2E sets VITE_FEEDBACKOPS_ORIGIN (#251), so the VOC row action is a link, not the disabled button.
+    await expect(rows.getByRole('link', { name: /보기$/ }).first()).toBeVisible();
     await expect.poll(() => rows.evaluate(el => el.clientHeight)).toBeGreaterThan(0);
     await expect.poll(() => rows.evaluate(el => el.getBoundingClientRect().height)).toBeLessThan(240);
     await expect.poll(() => rows.evaluate(el => el.scrollHeight - el.clientHeight)).toBe(0);
@@ -2554,4 +2555,66 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
     await expect(restored).toHaveText('보기');
     await expect(restored).toBeFocused();
   });
+});
+
+test.describe('FeedbackOps 공간별 진입(#251)', () => {
+  const ORIGIN = 'https://feedbackops.example';
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  /** The four space links, each scoped to exactly one Managed System uuid, opening in a new tab without opener access. */
+  async function managedSystemOf(page: Page, space: string) {
+    const block = page.getByRole('navigation', { name: `FeedbackOps · ${space}` });
+    await expect(block).toBeVisible();
+    const links = block.getByRole('link');
+    await expect(links).toHaveCount(4);
+    const found = new Set<string>();
+    for (const link of await links.all()) {
+      await expect(link).toHaveAttribute('target', '_blank');
+      await expect(link).toHaveAttribute('rel', /noopener/);
+      await expect(link).toHaveAttribute('rel', /noreferrer/);
+      const url = new URL((await link.getAttribute('href'))!);
+      expect(url.origin).toBe(ORIGIN);
+      const values = url.searchParams.getAll('managedSystem');
+      expect(values).toHaveLength(1);
+      expect(values[0]).toMatch(UUID);
+      expect(values[0]).not.toBe('all');
+      found.add(values[0]);
+    }
+    expect(found.size).toBe(1);
+    return [...found][0];
+  }
+
+  test('admin의 생산성 분석·지표관리 사이드바 블록은 그 공간의 managedSystem만 담은 새 탭 링크 넷이고, 운영 콘솔에는 블록이 없다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto(PRODUCTIVITY);
+    const analytics = await managedSystemOf(page, '생산성 분석');
+    await page.goto('/metrics');
+    const metrics = await managedSystemOf(page, '지표관리');
+    expect(metrics).not.toBe(analytics);
+    await evidence(page, testInfo, 'feedbackops-space-links');
+    await page.goto('/admin/roles?v=1');
+    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
+  });
+
+  const overall = (page: Page) => page.getByRole('navigation', { name: '앱 레일' }).getByRole('link', { name: 'FeedbackOps 전체 — 새 탭' });
+
+  test('레일의 FeedbackOps 전체 링크는 admin에게 보이고 /home을 새 탭으로 연다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto(PRODUCTIVITY);
+    await expect(overall(page)).toHaveAttribute('href', `${ORIGIN}/home`);
+    await expect(overall(page)).toHaveAttribute('target', '_blank');
+    await expect(overall(page)).toHaveAttribute('rel', /noopener/);
+    await expect(overall(page)).toHaveAttribute('rel', /noreferrer/);
+    await evidence(page, testInfo, 'feedbackops-overall-admin');
+  });
+
+  for (const role of ['engineer', 'viewer'] as const) {
+    test(`레일의 FeedbackOps 전체 링크는 ${role}에게 보이지 않는다`, async ({ page }) => {
+      await signInAs(page, role);
+      await page.goto('/metrics');
+      await expect(page.getByRole('navigation', { name: '앱 레일' })).toBeVisible();
+      await expect(overall(page)).toHaveCount(0);
+    });
+  }
 });

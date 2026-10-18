@@ -1,6 +1,6 @@
 # FeedbackOps ↔ 플랫폼 딥링크 계약
 
-상태: **Decided (phase-1 allowlist)**. 계약 버전: `contract: 1`. 설계 근거: 이슈 #61, 06 §6(URL 계약)·§22(Context Link), [저장소 구조](repository-layout.md). 관찰 기준: FeedbackOps 서브모듈 커밋 **`13a3c5a`**(이 문서가 다루는 `/vocs`의 `view`·`action`·`selected`·`managedSystem`과 `/surveys/$surveyId`의 `builder` 검색 키는 `a777ad1`·`6a0c7f8`과 같음을 확인했고, 다른 라우트는 확인하지 않았다).
+상태: **Decided (phase-1 allowlist)**. 계약 버전: `contract: 1`. 설계 근거: 이슈 #61, 06 §6(URL 계약)·§22(Context Link), [저장소 구조](repository-layout.md). 관찰 기준: FeedbackOps 서브모듈 커밋 **`13a3c5a`**(이 문서가 다루는 `/vocs`의 `view`·`action`·`selected`·`managedSystem`과 `/surveys/$surveyId`의 `builder` 검색 키는 `a777ad1`·`6a0c7f8`과 같음을 확인했고, 다른 라우트는 확인하지 않았다). 공간별 목록·전체 진입 네 대상(§1 표 아래 넷)은 서브모듈 커밋 **`dc7638f`**의 라우트 검색 스키마로 확인했다(#251).
 
 이 문서가 플랫폼 ↔ FeedbackOps 양방향 링크의 원본이다. 플랫폼 URL 규칙 자체(전역 Context 키, `v`, `returnTo`)는 06 §6이 원본이고, FeedbackOps 라우트·검색 스키마는 그쪽 `docs/frontend/routes-and-layout.md`가 원본이다. 여기는 **매핑, phase-1 허용 키(allowlist), 소유 경계, 변경 절차**만 다룬다.
 
@@ -17,6 +17,12 @@ Base는 인자 `origin`이다. 정규형은 정규식이 아니라 URL 표준 �
 | `voc-create` | `{origin}/vocs?action=create` 또는 `&managedSystem={uuid}` | `action=create` → `CreateRoute` → `initialManagedSystemId`. 사이드바 href와 동일 |
 | `voc-detail` | `{origin}/vocs?view=inbox&selected={uuid}` (+ uuid면 `managedSystem`) | `selected`는 uuid. inbox ListShell |
 | `survey-detail` | `{origin}/surveys/{uuid}` | path `surveyId`. search는 `builder`뿐이라 **query를 붙이지 않는다** |
+| `voc-list` | `{origin}/vocs?view=inbox&managedSystem={uuid}` | `/vocs`의 `view`(inbox\|my\|triage)·`managedSystem`(`apps/frontend/src/features/voc/routes/voc-search.ts`, `dc7638f`). `selected` 없음 |
+| `task-list` | `{origin}/tasks?managedSystem={uuid}` | `/tasks`의 `managedSystem`(uuid \| `all`, `apps/frontend/src/routes/_authed/tasks.tsx`, `dc7638f`). 생성기는 uuid만 낸다 |
+| `survey-list` | `{origin}/surveys?managedSystem={uuid}` | `/surveys`의 `managedSystem`(uuid \| `all`)·`selected` 둘뿐(`apps/frontend/src/routes/_authed/surveys/index.tsx`, `dc7638f`). 생성기는 `managedSystem` 하나만 낸다 |
+| `overall` | `{origin}/home` | `/home`의 `managedSystem`(uuid, optional, `apps/frontend/src/routes/_authed/home.tsx`, `dc7638f`). 쿼리를 붙이지 않는다 — 시스템 범위 없는 허브 |
+
+목록 셋은 `managedSystem`(uuid)이 필수다. `all`이나 생략으로 범위 없는 URL을 대신 내지 않는다(ADR-0045). `parseFeedbackOpsLink`도 같은 모양만 받는다 — 다른 키·중복 키·비 uuid, `/vocs?view=inbox`만 있는 링크, `/home?…`는 거부한다.
 
 예:
 
@@ -25,12 +31,16 @@ https://feedbackops.example/vocs?action=create
 https://feedbackops.example/vocs?action=create&managedSystem=11111111-1111-4111-8111-111111111111
 https://feedbackops.example/vocs?view=inbox&selected=22222222-2222-4222-8222-222222222222
 https://feedbackops.example/surveys/33333333-3333-4333-8333-333333333333
+https://feedbackops.example/vocs?view=inbox&managedSystem=11111111-1111-4111-8111-111111111111
+https://feedbackops.example/tasks?managedSystem=11111111-1111-4111-8111-111111111111
+https://feedbackops.example/surveys?managedSystem=11111111-1111-4111-8111-111111111111
+https://feedbackops.example/home
 ```
 
 ### 매핑 — 보내는 것과 보내지 않는 것
 
 - **VOC id → `selected`, survey id → path.** uuid만 (`8-4-4-4-12` hex). 비-uuid는 `feedbackops_id`로 거부.
-- **Scope → 보내지 않음.** 플랫폼 `scopeId`(예: `ICH`)는 Site 이름이고 FeedbackOps `managedSystem`은 Managed System uuid(`createVocRequestSchema.primary_managed_system_id`)다. 장비 ID로 Site/MS를 역산하지 않는다(ADR-0004와 같은 금지). `managedSystem`은 앱 조립 계층의 정적 표(업무 공간 id → uuid, 공간당 하나)에서만 온다([ADR-0045](../adr/0045-feedbackops-entry-link-mapping-and-scope.md)). 행이 없으면 `voc-create`·`voc-detail`은 생략하고(사용자가 FeedbackOps에서 고름), 공간별 목록 진입(#251)은 그리지 않는다.
+- **Scope → 보내지 않음.** 플랫폼 `scopeId`(예: `ICH`)는 Site 이름이고 FeedbackOps `managedSystem`은 Managed System uuid(`createVocRequestSchema.primary_managed_system_id`)다. 장비 ID로 Site/MS를 역산하지 않는다(ADR-0004와 같은 금지). `managedSystem`은 앱 조립 계층의 정적 표(업무 공간 id → uuid, 공간당 하나)에서만 온다([ADR-0045](../adr/0045-feedbackops-entry-link-mapping-and-scope.md)). 행이 없으면 `voc-create`·`voc-detail`은 생략하고(사용자가 FeedbackOps에서 고름), 공간별 목록 진입(`voc-list`·`task-list`·`survey-list`)은 그리지 않는다. 행은 있는데 origin이 없거나 정규형이 아니면 진입은 비활성으로 보이고, 전체 진입(`overall`)은 그리지 않는다(`apps/platform-web/src/feedbackops-systems.ts`, #251). 전체 진입은 `feedbackops:access` 권한자에게만 보인다.
 - **기간 `from`/`to`, 설비 Selection → 보내지 않음.** VOC create body에 그 필드가 없고 strict search가 거부한다.
 - **플랫폼 `returnTo` → 보내지 않음.** FeedbackOps `sanitizeLoginReturnTo`는 same-origin 상대경로만 받고 `redirectTo`는 로그인 전용이며, `/vocs`·`/tasks`의 `returnTo`는 FeedbackOps 안 경로 세 개(`/home`·`/integration`·`/integration/coverage`)만 받는다. 복귀는 새 탭이고, 외부 복귀는 FeedbackOps에 요청했다(ADR-0045, §5).
 - **설문 응답 화면은 있지만 딥링크 타입은 아직 두지 않는다.** FeedbackOps에는 로그인 사용자용 설문 참여 목록 `/surveys/participate`와 응답 폼 `/surveys/$surveyId/respond`가 있다(서브모듈 `dc7638f`에서 확인, FeedbackOps #726). 공개 링크는 FeedbackOps [ADR-0036](../../products/feedbackops/docs/adr/0036-survey-link-distribution-and-respondent-model.md)에서 Rejected(2026-10-13)다 — MVP 응답자는 AD 인증 내부 사용자이고, 외부 응답이 필요해지면 새 ADR로 시작한다. 플랫폼은 이 두 경로로 링크하지 않는다 — 설문 진입은 목록·상세까지다(ADR-0045).

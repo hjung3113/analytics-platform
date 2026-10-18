@@ -1,6 +1,6 @@
 # 15. 멀티 워크스페이스 v2 — UI·IA·화면 설계
 
-상태: **Decided — UX 구성 원칙(2026-10-08 사용자 승인). 공간 마지막 화면 복원은 사용자+공간별 탭 세션([ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26))** / **Candidate — 표 열 등 다른 사용자 설정 저장, 아직 없는 공간의 메뉴 귀속·기술 구현** / **Open — 인증·Managed System 매핑**. FeedbackOps 진입은 링크다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md), 2026-10-09 — 화면을 옮기지 않는다). **Decided(방향, 2026-10-18) — 시스템 전환기 + 시스템별 레일([ADR-0042](adr/0042-system-switcher-and-system-owned-rail.md)); 화면 사양 §3.2 Decided(2026-10-19, 전환기 A안).**
+상태: **Decided — UX 구성 원칙(2026-10-08 사용자 승인). 공간 마지막 화면 복원은 사용자+공간별 탭 세션([ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), [06 §9.1](06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26))** / **Candidate — 표 열 등 다른 사용자 설정 저장, 아직 없는 공간의 메뉴 귀속·기술 구현** / **Decided — Managed System 매핑(앱 정적 표, 공간당 하나, [ADR-0045](adr/0045-feedbackops-entry-link-mapping-and-scope.md), 2026-10-19)** / **Open — 인증**. FeedbackOps 진입은 링크다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md), 2026-10-09 — 화면을 옮기지 않는다). **Decided(방향, 2026-10-18) — 시스템 전환기 + 시스템별 레일([ADR-0042](adr/0042-system-switcher-and-system-owned-rail.md)); 화면 사양 §3.2 Decided(2026-10-19, 전환기 A안).**
 
 > 이 문서는 **업무 시스템별 독립 워크스페이스**의 화면 설계·도입 계획이다. 플랫폼 전체 Navigation/Context/Permission의 단일 계약은 [06 §9·9.1](06_platform_ui_contract.md#9-information-architecture)이고, 이 문서는 이를 소비하는 상세 설계다. 기존 백엔드/DB의 소유권이나 구현 완료를 선언하지 않는다.
 
@@ -194,7 +194,7 @@ FeedbackOps 화면은 플랫폼으로 옮기지 않는다([ADR-0027](adr/0027-fe
 
 전체 협업 허브는 FeedbackOps의 시스템 범위 없는 화면이다. 플랫폼은 허브 화면을 만들지 않고 진입 링크 하나만 둔다.
 
-- 링크를 누구에게 보일지는 플랫폼 권한으로 정한다(Candidate). 실제로 어느 시스템의 무엇을 볼 수 있는지는 FeedbackOps가 판정한다. 링크가 보인다고 다른 시스템의 내용을 볼 권한이 생기지 않는다.
+- 링크를 누구에게 보일지는 플랫폼 권한 `feedbackops:access`로 정한다(ADR-0045). 실제로 어느 시스템의 무엇을 볼 수 있는지는 FeedbackOps가 판정한다. 링크가 보인다고 다른 시스템의 내용을 볼 권한이 생기지 않는다.
 
 ### 6.3 도메인 경계
 
@@ -245,7 +245,7 @@ FeedbackOps 화면과 백엔드는 모두 독립 앱으로 남는다([ADR-0027](
 ### 전체 협업 허브 진입
 
 - 목적: 권한자가 FeedbackOps의 전체 화면으로 가기.
-- 입력: 링크 노출 권한(Candidate), FeedbackOps origin.
+- 입력: `feedbackops:access` 권한(ADR-0045), FeedbackOps origin.
 - 출력: FeedbackOps의 시스템 범위 없는 화면(새 탭).
 - 금지: 링크 노출을 다른 시스템 내용의 열람 권한처럼 다루는 것.
 
@@ -272,7 +272,7 @@ FeedbackOps 화면과 백엔드는 모두 독립 앱으로 남는다([ADR-0027](
 1. **설계 기준 고정:** UX·IA·예외·Open 문서/ADR/HTML 승인안 저장. 이 단계에서는 서비스 코드·서브모듈을 수정하지 않는다.
 2. **셸/Registry 확장:** 포털·워크스페이스 메뉴·전용 Sidebar·통합 검색/탐색·권한 기반 노출·기존 라우트 호환.
 3. **업무 워크스페이스 등록:** 분석/지표 분리, 로그 개발·개선 실행·운영 콘솔 추가; 기존 설비/기준정보 귀속 확정.
-4. **FeedbackOps 진입:** 공간 → Managed System 매핑(#81)과 링크 계약 확장 뒤 공간별 진입과 허브 링크를 단다. 화면은 옮기지 않는다(ADR-0027, #213).
+4. **FeedbackOps 진입:** 공간 → Managed System 매핑(#81, Decided — ADR-0045)과 링크 계약 확장 뒤 공간별 진입과 허브 링크를 단다(#251 완료). 화면은 옮기지 않는다(ADR-0027, #213).
 5. **시스템 간 링크 UX/회귀:** 출발 화면 복귀, 무권한, 필터 미지원, 새로고침·Back/Forward·직접 URL, 시스템 0개/많음, 좁은 데스크톱 폭 검사.
 
 ## 11. 구현 수용 기준
@@ -290,8 +290,7 @@ FeedbackOps 화면과 백엔드는 모두 독립 앱으로 남는다([ADR-0027](
 
 ## 12. Open / Risk
 
-- **Open:** FeedbackOps `Managed System` 매핑 모델/필터 불변식 및 여러 시스템 매핑 정책(#81, #213).
+- **Open:** 여러 시스템 매핑 정책과 필터 불변식(공간당 하나는 Decided — ADR-0045, #213).
 - **Open:** SSO·세션 공유(#150). 세션 공유 전에는 FeedbackOps에서 로그인을 한 번 더 거칠 수 있다.
-- **Candidate:** 전체 허브 링크를 보일 플랫폼 권한.
 - **Open:** 공간 0개 사용자의 권한 요청 안내 목적지(#250).
 - **Risk:** 한 화면에서 시스템을 바꾸는 동안 이전 시스템의 캐시·상세 패널이 보일 수 있음. 현재 Scope/permission이 변경되면 이전 결과를 새 결과처럼 보여주지 않는 06 §11 계약 준수.

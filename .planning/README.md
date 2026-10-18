@@ -23,7 +23,7 @@
 1. **SDK 만들기 착수(#396, 사용자 2026-10-19 — 다음 세션부터).** 각 프로젝트가 따로 프레임워크를 키우고 있어서, 지금 시작하지 않으면 셋 사이의 차이가 더 벌어진다. 그래서 #396 §8의 착수 증거를 기다리지 않고 보류를 푼다. 목표는 [ADR-0043](../docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)이다: 플랫폼이 소유하는 하나의 프레임워크 + 앱 계약, 의존은 SDK ← 제품, 독립 실행은 제품 책임, 디자인 시스템 원본도 플랫폼. 첫 슬라이스는 문서 2건이다(사용자 2026-10-19): [포괄 목록](../docs/integration/sdk-coverage-inventory.md)(Candidate, 작성됨)과 [통합 계획 §4.4](../docs/integration/framework-unification-plan.md#44-sdk-저장소릴리즈-구조-candidate-2026-10-19)의 저장소·릴리즈 구조 권고 [ADR-0044](../docs/adr/0044-sdk-source-in-platform-repo-released-separately.md)(Decided, 사용자 2026-10-19 — 이 저장소에 두고 따로 묶음 버전 릴리스). 같은 날 정한 것: SDK는 백엔드 구현 프레임워크를 덮지 않고 서버는 계약만, 이전 순서는 `@ap/contracts` 배포 먼저. 열린 것: registry 공급자(#151), 접두사 치환 시점. 이어지는 구현: [#430](https://github.com/hjung3113/analytics-platform/issues/430)(`@ap/contracts` 배포 가능한 모양 — dist 빌드·`check:pack`·저장소 밖 소비자 검사, 완료, 발행은 안 함) → [#431](https://github.com/hjung3113/analytics-platform/issues/431)(디자인 시스템 코드 이전, #430이 끝나 시작 가능, 설계 먼저).
 2. 정비 후속: #413(슬라이스 14 품질 리뷰 follow-up). Q6(관리 화면 필터 키 경고 공통화)·Q7(compact 동작 열 테스트 기하 stub 공통화)은 #413 PR로 끝났다. Q8(내부 단언 테스트 삭제)은 소유자가 2026-10-18 "유지"로 정했다.
 3. 그다음 후보: 멀티 워크스페이스 v2(지도 #249). #310은 FeedbackOps 제안(FeedbackOps#1202) — FeedbackOps 쪽 답 대기. conductor 스크립트 전역 공통본(#394)은 끝났다(세 레포 전환, 엔진 원본 hjung3113/conductor-engine). 남은 오탐 후속은 hjung3113/conductor-engine#1.
-4. 그 밖의 후보: 바로 할 수 있는 일 표. #251 FeedbackOps 링크 계약·매핑은 바로 할 수 있음(#81 결정, ADR-0045), #252 표준 로그·개선 실행 공간은 도메인 소유자 합의·#249 미결 대기.
+4. 그 밖의 후보: 바로 할 수 있는 일 표. #251 FeedbackOps 링크 계약·매핑은 구현을 마쳤다(#81 결정, ADR-0045), #252 표준 로그·개선 실행 공간은 도메인 소유자 합의·#249 미결 대기.
 5. 작업 규칙은 루트 `AGENTS.md`(2026-10-05 간소화), 작업자 함정은 [`docs/agents/operations.md`](../docs/agents/operations.md). 문서만 바꾸면 `pnpm docs:links`만 돌린다. 작업자 배정은 전역 `routing.tsv`가 원본이다(역할별 모델·effort·fallback은 그 파일에만 두고, 다른 곳에는 역할 이름만 쓴다, #283).
 
 ## 결정 대기 — 정비 슬라이스에서 나온 것 (2026-10-13, 10-15)
@@ -50,7 +50,7 @@
 | 2 | 셸·Registry 확장(#250): 플랫폼 홈(런처), 공간별 사이드바, 사이드바의 FeedbackOps 진입 자리, 권한별 레일, 기존 라우트 호환 → `?variant=` 시안 컨펌 | 완료 — ADR-0028, #259(Kernel·Registry·팔레트), #260(카드 런처 홈·전역 화면·공간 분리·마지막 화면 복원·FeedbackOps 자리) |
 | 3 | 기존 분석 메뉴를 생산성 분석·지표관리 공간으로 나눔. 귀속은 ADR-0028(운영 개요 → 홈, 설비·기준정보 → 생산성 분석, 공지·내 VOC → 전역 유틸리티) | 완료(#260) |
 | 4 | 표준 로그 개발·개선 실행 공간(#252). 도메인 구현은 별도 제품 | 후속 |
-| 5 | FeedbackOps 링크 계약·매핑(#251 — 결정됨, ADR-0045)과 시스템 간 링크 회귀(복귀, 무권한, 미지원 필터, 새로고침·Back/Forward, 공간 0개·많음) | 후속 |
+| 5 | FeedbackOps 링크 계약·매핑(#251 — 완료, ADR-0045)과 시스템 간 링크 회귀(복귀, 무권한, 미지원 필터, 새로고침·Back/Forward, 공간 0개·많음) | 링크 계약·매핑 완료, 회귀 검사는 후속 |
 | 6 | 셸 탑재 구조 재검토 — 시스템 전환기 + 시스템별 레일, FeedbackOps는 이동·미리 채움·복귀([ADR-0042](../docs/adr/0042-system-switcher-and-system-owned-rail.md), 사양 [15 §3.2](../docs/15_multi_workspace_ui.md#32-시스템별-레일-decided-2026-10-19-adr-0042)). A–D 시안 UX 리뷰가 D + A 연결을 권함 | 화면 Decided(2026-10-19, 전환기 A안, 사례 조사 [docs/research](../docs/research/2026-10-18-app-switcher-patterns.md)) — 구현 #423(작업자 구현 끝, 호스트 검증·리뷰 대기) |
 | 7 | 분석 보드(#421, [16](../docs/16_analysis_board.md)): 하단 시트 탭·그리드 칸·칸별 조건. 셸 결정이 막지 않도록 자리만 먼저 정한다 | 설계만, 구현 안 함 |
 
@@ -61,8 +61,8 @@ FeedbackOps 화면은 플랫폼으로 옮기지 않는다. FeedbackOps가 VOC �
 | 순서 | 할 일 | 상태 |
 | --- | --- | --- |
 | 1 | 공간 → Managed System 매핑 표의 모양과 원천(#81) | 결정됨 — 앱 정적 표, 공간당 하나([ADR-0045](../docs/adr/0045-feedbackops-entry-link-mapping-and-scope.md), 2026-10-19) |
-| 2 | 링크 계약 확장: 시스템별 목록 진입(VOC·Task·설문 + `managedSystem`)과 범위 없는 허브 진입을 `feedbackops-link` 계약·딥링크 문서에 더함 | 1 뒤 |
-| 3 | 셸의 진입 자리(#250에서 컨펌한 위치)에 링크를 연결, 허브 링크는 전용 권한(ADR-0045) | #251 |
+| 2 | 링크 계약 확장: 시스템별 목록 진입(VOC·Task·설문 + `managedSystem`)과 범위 없는 허브 진입을 `feedbackops-link` 계약·딥링크 문서에 더함 | #251 완료 |
+| 3 | 셸의 진입 자리(#250에서 컨펌한 위치)에 링크를 연결, 허브 링크는 전용 권한(ADR-0045) | #251 완료 |
 | 4 | 세션 공유(#150) — 그전에는 FeedbackOps 로그인이 한 번 더 있을 수 있음 | 사내 답 대기 |
 
 ## 결정 대기 — 사람이 고를 것

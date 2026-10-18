@@ -88,6 +88,16 @@ function FeedbackOpsBlock({ collapsed }: { collapsed: boolean }) {
       const Icon = FEEDBACK_ICONS[entry.id];
       const label = tx(entry.label);
       const name = lang === 'ko' ? `${label} — ${spaceName}, FeedbackOps, 새 탭` : `${label} — ${spaceName}, FeedbackOps, new tab`;
+      if (entry.href === null) {
+        const reason = lang === 'ko' ? 'FeedbackOps 주소가 설정되지 않아 열 수 없습니다' : 'FeedbackOps address is not configured';
+        const disabledName = `${label} — ${spaceName}, FeedbackOps — ${reason}`;
+        const disabled = <span role="link" aria-disabled="true" tabIndex={0} aria-label={disabledName}
+          className={cn('flex min-h-8 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-text-muted', collapsed && 'justify-center px-0')}>
+          <Icon className="size-4 shrink-0" aria-hidden />
+          {!collapsed && <span className="min-w-0 flex-1 truncate">{label}</span>}
+        </span>;
+        return <li key={entry.id}><Tooltip><TooltipTrigger asChild>{disabled}</TooltipTrigger><TooltipContent side="right">{disabledName}</TooltipContent></Tooltip></li>;
+      }
       const link = <a href={entry.href} target="_blank" rel="noopener noreferrer" aria-label={name}
         className={cn('flex min-h-8 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-row-hover hover:text-text-primary', collapsed && 'justify-center px-0')}>
         <Icon className="size-4 shrink-0" aria-hidden />
@@ -95,7 +105,7 @@ function FeedbackOpsBlock({ collapsed }: { collapsed: boolean }) {
       </a>;
       return <li key={entry.id}><Tooltip><TooltipTrigger asChild>{link}</TooltipTrigger><TooltipContent side="right">{name}</TooltipContent></Tooltip></li>;
     })}</ul>
-    {!collapsed && <p className="px-3 pt-1 text-caption text-text-muted">{lang === 'ko' ? '새 탭에서 열립니다' : 'Opens in a new tab'}</p>}
+    {!collapsed && entries.some(entry => entry.href !== null) && <p className="px-3 pt-1 text-caption text-text-muted">{lang === 'ko' ? '새 탭에서 열립니다' : 'Opens in a new tab'}</p>}
   </nav>;
 }
 

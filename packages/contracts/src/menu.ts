@@ -22,7 +22,7 @@ export type SpaceDef = {
   homeMenuId: string;
 };
 /** The permission vocabulary in canonical order — one runtime list for validators and selects (mock server, console filters). */
-export const PERMISSIONS = ['platform:view', 'equipment:view', 'master:view', 'analytics:view', 'metrics:view', 'notice:view', 'voc:view', 'console:access'] as const;
+export const PERMISSIONS = ['platform:view', 'equipment:view', 'master:view', 'analytics:view', 'metrics:view', 'notice:view', 'voc:view', 'console:access', 'feedbackops:access'] as const;
 export type Permission = typeof PERMISSIONS[number];
 
 /** One drill step: a page key plus the name the path bar shows (06 §6.4, ADR-0025). */

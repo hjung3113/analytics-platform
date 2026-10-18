@@ -119,6 +119,15 @@ describe('accessDirectory (issue #49: the console access directory)', () => {
     expect(ids(page(res).items)).toEqual(['admin']);
   });
 
+  it('filters by feedbackops:access: only admin holds it, and the filter accepts the new value', async () => {
+    expect(USERS.admin.permissions).toContain('feedbackops:access');
+    expect(USERS.engineer.permissions).not.toContain('feedbackops:access');
+    expect(USERS.viewer.permissions).not.toContain('feedbackops:access');
+    const res = await accessDirectory({ permission: 'feedbackops:access' }, undefined, { role: 'admin', latency: 0 });
+    expect(res.outcome).toBe('ok');
+    expect(ids(page(res).items)).toEqual(['admin']);
+  });
+
   it('pages with offset: pageSize 1 page 2 is the second default-order row with the true total', async () => {
     const res = await accessDirectory({ page: 2, pageSize: 1 }, undefined, { role: 'admin', latency: 0 });
     expect(res.outcome).toBe('ok');

@@ -1,7 +1,7 @@
 /**
  * FeedbackOps ↔ platform deep-link codec (docs/integration/feedbackops-deeplink.md, contract: 1).
  * Direction A builds only the URLs the FeedbackOps strict search schemas accept today
- * (submodule commit 6a0c7f8); direction B builds/validates platform inbound URLs (06 §6/§22).
+ * (submodule commit dc7638f); direction B builds/validates platform inbound URLs (06 §6/§22).
  * Reuses the global-Context codec in ./url; adds no React, env, registry or cross-package imports.
  */
 import { buildQuery, ContractError, isAppRelativePath, normalizeSet, parseDateTime, parseQuery, type GlobalContext, type Pair } from './url.js';
@@ -17,7 +17,11 @@ const uuid = (value: string, field: string): string => {
 export type FeedbackOpsTarget =
   | { kind: 'voc-create'; managedSystemId?: string }
   | { kind: 'voc-detail'; vocId: string; managedSystemId?: string }
-  | { kind: 'survey-detail'; surveyId: string };
+  | { kind: 'survey-detail'; surveyId: string }
+  | { kind: 'voc-list'; managedSystemId: string }
+  | { kind: 'task-list'; managedSystemId: string }
+  | { kind: 'survey-list'; managedSystemId: string }
+  | { kind: 'overall' };
 
 export type PlatformHop =
   | { menuId: 'equipment-detail'; equipmentId: string }
@@ -87,6 +91,10 @@ export function buildFeedbackOpsLink(input: { origin: string; target: FeedbackOp
     if (t.managedSystemId !== undefined) params.push(['managedSystem', uuid(t.managedSystemId, 'managedSystemId')]);
     return `${base}/vocs?${new URLSearchParams(params)}`;
   }
+  if (t.kind === 'voc-list') return `${base}/vocs?${new URLSearchParams([['view', 'inbox'], ['managedSystem', uuid(t.managedSystemId, 'managedSystemId')]])}`;
+  if (t.kind === 'task-list') return `${base}/tasks?${new URLSearchParams([['managedSystem', uuid(t.managedSystemId, 'managedSystemId')]])}`;
+  if (t.kind === 'survey-list') return `${base}/surveys?${new URLSearchParams([['managedSystem', uuid(t.managedSystemId, 'managedSystemId')]])}`;
+  if (t.kind === 'overall') return `${base}/home`;
   return `${base}/surveys/${uuid(t.surveyId, 'surveyId')}`;
 }
 
@@ -96,27 +104,42 @@ export function parseFeedbackOpsLink(url: string, expectedOrigin: string): { tar
   const split = splitUrl(url);
   if (split.origin !== expected) return fail('feedbackops_origin', `link origin ${split.origin} does not match expectedOrigin ${expected}`);
   const all = queryOf(split.search);
+  const single = (key: string): string | null => {
+    const values = all.filter(([k]) => k === key).map(([, v]) => v);
+    if (values.length > 1) return fail('feedbackops_path', `${key} appears more than once`);
+    return values[0] ?? null;
+  };
+  /** The scoped list pages take exactly one query key, `managedSystem=<uuid>` — no `all`, no scope-less URL. */
+  const listScope = (path: string): string => {
+    const extra = [...new Set(all.filter(([k]) => k !== 'managedSystem').map(([k]) => k))];
+    if (extra.length) return fail('feedbackops_path', `${path} takes only managedSystem; unknown key(s) ${extra.join(', ')}`);
+    const managed = single('managedSystem');
+    if (managed === null) return fail('feedbackops_path', `${path} needs ?managedSystem=<uuid> (no scope-less list link)`);
+    return uuid(managed, 'managedSystem');
+  };
+  if (split.path === '/tasks') return { target: { kind: 'task-list', managedSystemId: listScope('/tasks') } };
+  if (split.path === '/surveys') return { target: { kind: 'survey-list', managedSystemId: listScope('/surveys') } };
+  if (split.path === '/home') {
+    if (all.length) return fail('feedbackops_path', '/home takes no query');
+    return { target: { kind: 'overall' } };
+  }
   if (split.path === '/vocs') {
-    const single = (key: string): string | null => {
-      const values = all.filter(([k]) => k === key).map(([, v]) => v);
-      if (values.length > 1) return fail('feedbackops_path', `${key} appears more than once`);
-      return values[0] ?? null;
-    };
     const known = ['action', 'view', 'selected', 'managedSystem'];
     const unknown = [...new Set(all.filter(([k]) => !known.includes(k)).map(([k]) => k))];
     if (unknown.length) return fail('feedbackops_path', `unknown key(s) ${unknown.join(', ')}; the phase-1 allowlist is ${known.join(', ')}`);
     const action = single('action'); const view = single('view'); const selected = single('selected'); const managed = single('managedSystem');
     if (managed !== null && !UUID.test(managed)) return fail('feedbackops_id', `managedSystem must be a uuid, got ${JSON.stringify(managed)}`);
     if (action !== null) {
-      if (action !== 'create' || view !== null || selected !== null) return fail('feedbackops_path', 'use ?action=create[&managedSystem=<uuid>] or ?view=inbox&selected=<uuid>[&managedSystem=<uuid>]');
+      if (action !== 'create' || view !== null || selected !== null) return fail('feedbackops_path', 'use ?action=create[&managedSystem=<uuid>], ?view=inbox&managedSystem=<uuid> or ?view=inbox&selected=<uuid>[&managedSystem=<uuid>]');
       return { target: managed === null ? { kind: 'voc-create' as const } : { kind: 'voc-create' as const, managedSystemId: managed } };
     }
+    if (view === 'inbox' && selected === null && managed !== null) return { target: { kind: 'voc-list' as const, managedSystemId: managed } };
     if (view !== null || selected !== null) {
       if (view !== 'inbox' || selected === null) return fail('feedbackops_path', 'voc detail is ?view=inbox&selected=<uuid>');
       const target: FeedbackOpsTarget = { kind: 'voc-detail', vocId: uuid(selected, 'selected') };
       return { target: managed === null ? target : { ...target, managedSystemId: managed } };
     }
-    return fail('feedbackops_path', '/vocs needs ?action=create or ?view=inbox&selected=<uuid>');
+    return fail('feedbackops_path', '/vocs needs ?action=create, ?view=inbox&managedSystem=<uuid> or ?view=inbox&selected=<uuid>');
   }
   if (split.path.startsWith('/surveys/')) {
     const surveyId = split.path.slice('/surveys/'.length);

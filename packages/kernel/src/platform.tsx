@@ -13,14 +13,16 @@ export type Recent = { menuId: string; url: string; at: number };
 export type Toast = { id: number; text: string; tone: 'info' | 'warning' | 'danger'; detail?: string };
 /** FeedbackOps entry the shell draws for one space. The shell picks the icon from `id` (ADR-0028). */
 export type FeedbackOpsEntryId = 'voc-create' | 'voc' | 'task' | 'survey';
-export type FeedbackOpsEntry = { id: FeedbackOpsEntryId; label: Text; href: string };
+/** `href: null` draws the entry as a disabled link (15 §8: the FeedbackOps address is missing or invalid). */
+export type FeedbackOpsEntry = { id: FeedbackOpsEntryId; label: Text; href: string | null };
 /**
- * Space-scoped FeedbackOps links. Absent until the app supplies a Managed System mapping
- * (ADR-0027, ADR-0028, #81, #251) — the shell then draws neither the block nor the rail link.
+ * Space-scoped FeedbackOps links from the app's Managed System mapping (ADR-0027, ADR-0045).
+ * `entriesFor` returns null for a space without a mapping; an absent slot draws neither the block nor the rail link.
  */
 export type FeedbackOpsSlot = {
   entriesFor: (spaceId: SpaceId) => readonly FeedbackOpsEntry[] | null;
-  overall: { href: string } | null;
+  /** Rail link to FeedbackOps overall; the shell draws it only while the user holds `permission`. */
+  overall: { href: string; permission: Permission } | null;
 };
 /** A business system that is announced but cannot be entered yet. Display only — not in the Registry, no permission, no menu (ADR-0042). */
 export type PlannedSpace = { id: string; label: Text; icon: LucideIcon };
