@@ -1130,7 +1130,7 @@ test.describe('플랫폼 홈 · 전역 화면 (ADR-0028)', () => {
     const popover = await openSwitcher(page);
     await expect(popover.getByRole('button', { name: /^생산성 분석/ })).toBeVisible();
     await expect(popover.getByRole('button', { name: /^지표관리/ })).toBeVisible();
-    await expect(popover.getByRole('button', { name: /^(생산성 분석|지표관리)/ })).not.toHaveAttribute('aria-current', 'true');
+    for (const name of [/^생산성 분석/, /^지표관리/]) await expect(popover.getByRole('button', { name })).not.toHaveAttribute('aria-current', 'true');
     await page.keyboard.press('Escape');
     await page.goto('/equipment?v=1&scopeId=ICH');
     await expect(systemSwitcher(page)).toHaveAccessibleName('업무 시스템 전환 · 현재: 생산성 분석');
