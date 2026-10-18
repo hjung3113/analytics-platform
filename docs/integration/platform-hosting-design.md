@@ -2,7 +2,7 @@
 
 > 상태: **Proposed (선행 조사, 구현 안 함)** — 2026-10-17 작성. 다른 저장소의 업무 모듈(equipment-visualization, FeedbackOps)이 플랫폼 셸 안에 탑재될 때 무엇을 선언하고 무엇을 받는지(호스트 인터페이스), 같은 모듈이 독립 호스트에서도 도는 방법, 저장소·패키지 배치를 정한 **후보 설계**다. 장래 SDK([#396](https://github.com/hjung3113/analytics-platform/issues/396))의 핵심 인터페이스 초안이기도 하다. 구현 지시가 아니고 현행 계약 원본(06·[패키지 경계](platform-packages.md)·ADR)을 바꾸지 않는다. 결정 초안은 [ADR-0038](../adr/0038-host-module-contract-and-feedbackops-mounting.md)(호스트 계약 + FeedbackOps 탑재, 채택 시 ADR-0027 대체)과 [ADR-0039](../adr/0039-equipment-visualization-platform-first-host-contract.md)(EV 플랫폼 우선)이며 둘 다 Proposed다. 추적 이슈: [#402](https://github.com/hjung3113/analytics-platform/issues/402).
 >
-> SDK 목표는 [ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)를 따른다: 호스트 → 모듈 계약은 SDK의 중심이고, 아래 "독립 호스트" 쪽은 각 제품의 선택이며 SDK 범위가 아니다. `@fops/ui` 배포 전제(§0)는 ADR-0043이 뒤집었다.
+> SDK 목표는 [ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)를 따른다: 호스트 → 모듈 계약은 SDK의 중심이고, 아래 "독립 호스트" 쪽은 각 제품의 선택이며 SDK 범위가 아니다. `@fops/ui` 배포·peer 전제(§0, §2 G10, §3·§4 그림과 표, §5.6, §8 H2)는 ADR-0043이 뒤집었다. §4의 "모듈 패키지는 `@ap/contracts`만 import"도 "앱이 SDK 프레임워크를 소비한다"와 맞지 않아 SDK 배포 단위를 설계할 때 다시 정한다(Open).
 >
 > 사실은 2026-10-17에 읽은 파일·이슈에서 왔고 [§9 출처](#9-출처)에 모았다. 읽지 않은 것에서 끌어낸 판단은 **추정**으로 표시했다. 지도 역할의 앞 문서는 [프레임워크 통합 계획](framework-unification-plan.md)(단계 0–5)이고, 이 문서는 그 단계 2(EV 첫 실소비자)·단계 5(두 번째 호스트)의 호스트 인터페이스를 구체화한다.
 

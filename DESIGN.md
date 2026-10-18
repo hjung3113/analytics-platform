@@ -3,7 +3,8 @@ version: alpha
 name: analytics-platform-design
 description: >
   Platform visual extensions and data-workspace patterns on FeedbackOps.
-  Shared tokens, fonts and primitives remain owned by FeedbackOps;
+  Shared tokens, fonts and primitives currently come from FeedbackOps
+  (ownership moves to the platform SDK per ADR-0043; rules below stay until code migration);
   shell structure and behavior remain owned by the platform UI contract.
 sources:
   sharedTokens: products/feedbackops/packages/ui/src/styles/tokens.css
@@ -80,7 +81,7 @@ components:
 
 ## Overview
 
-> 디자인 시스템 결정의 원본은 플랫폼이다([ADR-0043](docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), 2026-10-19). 아래의 "FeedbackOps 원본" 표기는 코드를 SDK로 옮길 때 고치고, 그때까지는 FeedbackOps 값이 초기값이다. primitive를 바꿔야 하면 덮어쓰지 말고 그 조각을 먼저 SDK로 옮긴다.
+> 디자인 시스템 결정의 원본은 플랫폼이다([ADR-0043](docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), 2026-10-19). 이 문서의 "FeedbackOps 원본" 표기는 소유 방향만 바뀌었고, 코드를 SDK로 옮기기 전까지는 그 규칙대로 동작한다(값은 FeedbackOps, 변경은 FeedbackOps에 제안). 본문은 코드 이전 이슈에서 고친다.
 
 이 문서는 **FeedbackOps 위에 얹는 플랫폼 디자인 확장**의 원본이다. 공유 디자인 시스템을 다시 정의하지 않는다. [ADR-0010](docs/adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)의 직접 소비 방식과 [ADR-0011](docs/adr/0011-design-direction-feedbackops-shell.md)의 승인된 프로토타입 C안을 따른다. #193의 토큰 이행과 #194의 밝은 셸 규칙을 반영한다. 이 문서 갱신은 새 프로토타입 승인이나 런타임 검증 기록이 아니다.
 

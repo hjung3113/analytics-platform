@@ -36,7 +36,7 @@
 | 서버 계약·어댑터(실서버 전환 포함) | [사내 적용 가이드](integration/in-house-rollout.md)(순서) → [실서버 연결 체크리스트](integration/real-server-checklist.md)(규칙) → [전송 형식 초안](integration/http-adapter-contract.md)(HTTP 경계), [ADR-0019](adr/0019-menu-query-endpoint-declaration.md), 06 §18–19 | [contracts](../packages/contracts/AGENTS.md) → [mock-server](../packages/mock-server/AGENTS.md) → [server-conformance](../packages/server-conformance/AGENTS.md) → [apps/platform-web](../apps/platform-web/AGENTS.md)(주입·dev 도구) | `packages/contracts/src/adapter.ts`·`menu-query.ts` → `packages/mock-server/src/adapter.ts` |
 | 공통 컴포넌트·차트·상태 화면 | 06 §13·§15·§16·§18–19·§24 | [packages](../packages/AGENTS.md) → [components](../packages/components/AGENTS.md) → primitive가 필요하면 [ui](../packages/ui/AGENTS.md) | `packages/components/src/` → 소비 화면(`menus/*/*/src/pages`) |
 | 셸(레일·사이드바·페이지 머리·Context 바·상세 슬롯·라우트 상태·공간) | [07 셸](07_app_shell_wireframe.md), 06 §7–9 | [shell](../packages/shell/AGENTS.md) → 슬롯·Registry는 [kernel](../packages/kernel/AGENTS.md) | `packages/shell/src/` → 앱 `src/main.tsx`(조립) |
-| 디자인 토큰·시각 규칙 | [DESIGN](../DESIGN.md), [ADR-0011](adr/0011-design-direction-feedbackops-shell.md) → [FeedbackOps ADR-0058](../products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md), [06 §23](06_platform_ui_contract.md#23-design-tokens) | [ui](../packages/ui/AGENTS.md) | `packages/ui/src/styles/` |
+| 디자인 토큰·시각 규칙 | [DESIGN](../DESIGN.md), [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(원본 소유는 플랫폼, 코드 이전 전까지 아래 규칙), [ADR-0011](adr/0011-design-direction-feedbackops-shell.md) → [FeedbackOps ADR-0058](../products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md), [06 §23](06_platform_ui_contract.md#23-design-tokens) | [ui](../packages/ui/AGENTS.md) | `packages/ui/src/styles/` |
 | 플랫폼 계약 자동 검사(E2E) | 06 §6·§11·§17·§19·§22 | [apps/platform-e2e](../apps/platform-e2e/AGENTS.md) | `apps/platform-e2e/tests/contracts.spec.ts` → `support.ts` → 보고 `contract-reporter.ts` |
 | 모노레포 구조·빌드·CI·접두사 변경 | [패키지 경계](integration/platform-packages.md), [저장소 구조](integration/repository-layout.md) | [tooling](../tooling/AGENTS.md) → [packages](../packages/AGENTS.md) | 루트 `package.json`·`pnpm-workspace.yaml`·`turbo.json` → `.github/workflows/ci.yml` |
 | 설계 문서·결정 갱신 | 해당 소유 문서 → [ADR 목록](adr/README.md) 또는 [05](05_roadmap_and_open_questions.md) | [docs](AGENTS.md) | 바꾼 뒤 `pnpm docs:links` |
@@ -67,8 +67,8 @@
 - [사내 적용 가이드](integration/in-house-rollout.md) — mock → 실어댑터·실서버 전환 순서, 담당자별 확인 질문, 사내 메뉴 개발 가이드, 완료 기준.
 - [적재 워커 상태 기록 스키마](integration/ingest-status-schema.md) — 가공 상태 원천의 기록 구조와 평가 규칙. Candidate(#37 파서 담당 합의 대기).
 - [FeedbackOps 딥링크 계약](integration/feedbackops-deeplink.md) — 양방향 딥링크 1단계(확장은 #81).
-- [프레임워크 통합 계획](integration/framework-unification-plan.md) — FeedbackOps·equipment-visualization 프레임워크 조각을 플랫폼 프레임워크로 합치는 지도(현황·중복·목표·단계·SDK 준비 메모). Proposed(#396의 입력).
-- [플랫폼 탑재 설계](integration/platform-hosting-design.md) — 다른 저장소 업무 모듈(EV·FeedbackOps)의 호스트 → 모듈 계약, 두 호스트 실행, 패키지 배치, FeedbackOps 탑재안. Proposed(선행 조사, ADR-0038·0039 초안).
+- [프레임워크 통합 계획](integration/framework-unification-plan.md) — FeedbackOps·equipment-visualization 프레임워크 조각을 플랫폼 프레임워크로 합치는 지도(현황·중복·목표·단계·SDK 준비 메모). Proposed(#396의 입력). 목표는 [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)이 우선한다.
+- [플랫폼 탑재 설계](integration/platform-hosting-design.md) — 다른 저장소 업무 모듈(EV·FeedbackOps)의 호스트 → 모듈 계약, 두 호스트 실행, 패키지 배치, FeedbackOps 탑재안. Proposed(선행 조사, ADR-0038·0039 초안). 독립 호스트는 SDK 범위 밖(ADR-0043).
 
 루트 문서: [DESIGN](../DESIGN.md)(FeedbackOps 기반 플랫폼 시각 확장 — 06의 최소 기준·상태·접근성 의무는 바꾸지 않는다), [GLOSSARY](../GLOSSARY.md)(현행 도메인 용어와 관계).
 

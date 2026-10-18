@@ -19,7 +19,7 @@
 ## 모든 패키지에 적용
 
 - 역방향 import 금지, 서버에 닿는 길은 `PlatformAdapter` 하나([패키지 경계](../docs/integration/platform-packages.md) §3-§4) — 메뉴 어휘 메서드를 포트에 추가하지 않는다.
-- `@fops/*`는 외부 원본이다. FeedbackOps primitive는 `@ap/ui`만 `@fops/ui`에서 가져오며, 다른 플랫폼 코드는 `@ap/ui` 공개 export를 사용한다(ADR-0011).
+- `@fops/*`는 외부 원본이다. FeedbackOps primitive는 `@ap/ui`만 `@fops/ui`에서 가져오며, 다른 플랫폼 코드는 `@ap/ui` 공개 export를 사용한다(ADR-0011). 목표 구조에서는 이 간선이 없어지고 토큰·primitive가 SDK 소유가 된다([ADR-0043](../docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)). 코드 이전 전까지는 지금 규칙대로다.
 - 다른 패키지는 `package.json` `exports`의 공개 진입점으로만 import한다(`@ap/kernel`, `@ap/ui/styles.css`). `@ap/x/src/...` 깊은 경로 금지.
 - 패키지는 TS 소스를 그대로 export하고 빌드 단계가 없다. 앱의 Vite가 번들한다.
 - Tailwind 클래스를 쓰는 패키지는 `styles.css`에 `@source`로 자기 소스를 등록하고 앱 `src/style.css`가 그것을 import한다. 새 패키지를 만들면 이 둘을 같이 추가한다. Tailwind를 쓰지 않는 패키지(`mock-server`)는 `styles.css`를 만들지 않는다.

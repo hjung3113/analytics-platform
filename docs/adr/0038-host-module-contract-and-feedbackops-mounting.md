@@ -24,5 +24,5 @@
 
 - 채택하면 ADR-0027을 Superseded로 바꾸고, 06 §9.1의 FeedbackOps 항목·15 §6·[저장소 구조](../integration/repository-layout.md) "FeedbackOps 통합 방식"·[딥링크 계약](../integration/feedbackops-deeplink.md)을 이 결정에 맞춰 고친다. 협업 공간의 셸 배치는 보이는 모양이 바뀌므로 `?variant=` 시안 컨펌이 먼저다(루트 AGENTS).
 - 플랫폼 일: 호스트 계약 타입(`@ap/contracts`), Kernel의 모듈 등록(경로 접두사·열린 권한·그룹 어휘)과 호스트 포트 구성, 모듈 연결 패키지의 경계 lint. 추적은 [#402](https://github.com/hjung3113/analytics-platform/issues/402).
-- FeedbackOps 일: 화면 모듈 패키지와 배포 가능한 `@fops/ui`(peer `@ap/ui`는 사용자 결정 2026-10-17), API 기준 경로 주입(지금 같은 origin 루트 상대 경로, CORS 없음), 라우터 의존 분리, 앱 루트가 주던 것(QueryClient·Toaster·문서 제목·상세 슬롯·`/me` 가드)을 모듈 루트나 포트로. 제안 이슈 [FO#1231](https://github.com/hjung3113/FeedbackOps/issues/1231).
+- FeedbackOps 일: 화면 모듈 패키지(토큰·primitive는 FeedbackOps가 배포하지 않고 플랫폼 SDK에서 받는다 — ADR-0043이 2026-10-17의 `@fops/ui` 배포·peer 결정을 뒤집음), API 기준 경로 주입(지금 같은 origin 루트 상대 경로, CORS 없음), 라우터 의존 분리, 앱 루트가 주던 것(QueryClient·Toaster·문서 제목·상세 슬롯·`/me` 가드)을 모듈 루트나 포트로. 제안 이슈 [FO#1231](https://github.com/hjung3113/FeedbackOps/issues/1231).
 - 선행 조건: FeedbackOps MVP 릴리스, 같은 사이트 배포(역방향 프록시 또는 하위 도메인 + CORS — #151)와 세션 방식(#150), `@ap/contracts` 배포 경로. 이 조건 전에는 구현을 시작하지 않는다.
