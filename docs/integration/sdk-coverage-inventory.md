@@ -185,7 +185,7 @@
 
 | 항목 | 상태 | 이유·다시 열 조건 |
 | --- | --- | --- |
-| 디자인 시스템 코드 이전 | 이슈 등록, 구현 안 함 | 순서는 `@ap/contracts` 배포 뒤(Q-C). 다시 열 조건: contracts 배포 이슈 완료 |
+| 디자인 시스템 코드 이전 | [ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md) 결정, 구현 #441→#442→#443 | `@ap/contracts` 배포 모양(#430)은 끝났다 |
 | FeedbackOps#1231 본문 | 낡음 — "`@fops/ui`를 FeedbackOps가 배포" 서술이 10-17 안 그대로다 | 다른 저장소라 이 슬라이스에서 고치지 않았다. 사용자가 FO 쪽에 알릴 때 같이 갱신한다 |
 | EV ADR-0010 본문 | "미구현"으로 남아 있으나 코드는 구현됨 | EV 저장소 일 |
 | EV `packages/ui`의 AP 복사 치수 | 셸·표가 AP와 손 복사 | SDK 셸·표가 공개되면 교체. 그전에는 건드리지 않는다 |

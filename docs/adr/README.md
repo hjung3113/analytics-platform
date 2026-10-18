@@ -51,6 +51,7 @@
 | [0043](0043-platform-sdk-is-the-app-contract-and-unified-framework.md) | 플랫폼 SDK는 플랫폼에 올릴 앱이 따르는 계약이고, 세 제품의 프레임워크를 모두 덮는 하나의 플랫폼 프레임워크로 제공한다(의존은 SDK ← 제품, 독립 실행은 제품 책임) | Decided(2026-10-19, 목표) — #396 목표 대체, 디자인 시스템 원본 소유를 플랫폼으로(0010·0011·0023 규칙은 코드 이전까지 유지) |
 | [0044](0044-sdk-source-in-platform-repo-released-separately.md) | SDK 원본은 이 저장소에 두고, 플랫폼 앱과 따로 묶음 버전으로 릴리스하며, 모노레포 밖 소비자 검사를 게이트로 둔다 | Decided(2026-10-19) — registry·접두사 시점은 Open |
 | [0045](0045-feedbackops-entry-link-mapping-and-scope.md) | FeedbackOps 진입 링크: 공간 → Managed System 매핑은 앱 정적 표(공간당 하나), 설문은 목록·상세까지, 복귀는 FeedbackOps에 요청, 전체 진입은 전용 권한 | Decided(2026-10-19) — #81, 구현 #251 |
+| [0046](0046-design-system-source-moves-to-platform-whole-package.md) | 디자인 시스템 코드는 FeedbackOps `@fops/ui` 전체를 `@ap/ui`로 옮겨 플랫폼이 원본을 갖는다(세 묶음 순서, 도메인 결합 부분 포함) | Decided(2026-10-19) — 구현 #441·#442·#443, FeedbackOps 소비 전환·픽셀 하니스는 Open |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
