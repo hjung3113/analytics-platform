@@ -234,6 +234,8 @@ describe('AuditTrail text filters (issue #50 review)', () => {
     try {
       const f = renderAudit(`/admin/audit?${new URLSearchParams({ type: 'equipment', source: 'user' })}`, [EVENT]);
       const table = await screen.findByRole('table', { name: '변경 감사 목록' });
+      // Rows arrive after the table mounts (loading state); wait for them before reading cells synchronously.
+      await within(table).findByText('ICH-ETCH-0101');
       expect(within(table).getByText('ICH-ETCH-0101')).toBeTruthy();
       // Source badge and target-type cell render the label, not the wire value.
       expect(within(table).getByText('사용자')).toBeTruthy();
@@ -258,6 +260,8 @@ describe('AuditTrail text filters (issue #50 review)', () => {
       const reason = '삭제된 주석 문구가 아주 길어서 셀 폭을 넘는 경우에도 전문을 title로 읽을 수 있어야 한다';
       renderAudit('/admin/audit', [{ ...EVENT, reason }, { ...EVENT, id: 'a2', changes: undefined, target: { ...EVENT.target, id: 'ICH-ETCH-0102' } }]);
       const table = await screen.findByRole('table', { name: '변경 감사 목록' });
+      // Rows arrive after the table mounts (loading state); wait for them before reading cells synchronously.
+      await within(table).findByText('ICH-ETCH-0101');
       const headers = within(table).getAllByRole('columnheader');
       const index = headers.findIndex(h => h.textContent?.includes('사유'));
       expect(index).toBeGreaterThan(-1);
@@ -280,6 +284,8 @@ describe('AuditTrail text filters (issue #50 review)', () => {
     try {
       renderAudit('/admin/audit', [{ ...EVENT, id: 'a2', target: { type: 'constructor', id: 'X-1', scopeId: null } }]);
       const table = await screen.findByRole('table', { name: '변경 감사 목록' });
+      // Rows arrive after the table mounts (loading state); wait for them before reading cells synchronously.
+      await within(table).findByText('constructor');
       expect(within(table).getByText('constructor')).toBeTruthy();
     } finally {
       if (originalOffsetHeight) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', originalOffsetHeight);
@@ -304,6 +310,8 @@ describe('AuditTrail text filters (issue #50 review)', () => {
       const local = '2026-09-26 11:10:00';
       const f = renderAudit('/admin/audit', [EVENT], { filterWindow: true });
       const table = await screen.findByRole('table', { name: '변경 감사 목록' });
+      // Rows arrive after the table mounts (loading state); wait for them before reading cells synchronously.
+      await within(table).findByText('ICH-ETCH-0101');
       expect(within(table).getByText(/11:10/)).toBeTruthy();
       expect(within(table).queryByText(/02:10/)).toBeNull();
       expect(within(table).getByText('ICH-ETCH-0101')).toBeTruthy();
