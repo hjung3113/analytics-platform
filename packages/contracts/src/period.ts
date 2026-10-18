@@ -1,4 +1,4 @@
-import { formatDateTime, parseDateTime } from './url';
+import { formatDateTime, parseDateTime } from './url.js';
 
 /** Wall-clock period helpers (06 §6.3) shared by pages and the server: naive datetimes, never time-zone shifted. */
 export type Grain = 'hour' | 'day' | 'week';

@@ -1,9 +1,9 @@
-import type { Text } from './i18n';
-import type { Permission, SpaceId } from './menu';
-import type { AuditAction, AuditEvent, AuditSource } from './audit';
-import type { ApiResponse } from './response';
-import type { Condition, IdSet } from './url';
-import type { MenuQuery } from './menu-query';
+import type { Text } from './i18n.js';
+import type { Permission, SpaceId } from './menu.js';
+import type { AuditAction, AuditEvent, AuditSource } from './audit.js';
+import type { ApiResponse } from './response.js';
+import type { Condition, IdSet } from './url.js';
+import type { MenuQuery } from './menu-query.js';
 
 /**
  * Kernel port to the platform server (docs/integration/platform-packages.md §4). The kernel consumes it;
