@@ -49,10 +49,10 @@
 | 인증·세션 | `AuthProvider` 추상(Mock / OIDC via openid-client, `AUTH_PROVIDER` env), 서버 저장 세션 + httpOnly 쿠키 `fops_session`, capability 기반 내비게이션 | [ADR-0006](../../products/feedbackops/docs/adr/0006-authentication-and-actor-provisioning.md), [ADR-0056](../../products/feedbackops/docs/adr/0056-capability-based-admin-navigation.md) |
 | URL·딥링크 | TanStack Router `validateSearch` strict — `/vocs?view=inbox\|my\|triage&managedSystem=…&selected=…`, `/surveys/:id`, `/tasks?view=…`. 플랫폼용 답: 내 설문 응답 API `GET /me/survey-responses`(FO#548 완료), 신고자 `view=my&selected=` 딥링크(FO#549 답변 완료). 플랫폼 복귀 파라미터·VOC prefill·`fo` 버전 키는 미정(AP #81) | [routes-and-layout.md](../../products/feedbackops/docs/frontend/routes-and-layout.md), [FO#548](https://github.com/hjung3113/FeedbackOps/issues/548), [FO#549](https://github.com/hjung3113/FeedbackOps/issues/549), [딥링크 계약](feedbackops-deeplink.md) §5 |
 | 메뉴·셸 모델 | Registry 없음. 라우트 트리는 `scripts/generate-routes.mjs`(TanStack Router 파일 기반), 셸은 세 가지로 고정, 내비게이션은 capability로 노출. 플랫폼의 Menu Registry·전역 Context·Audit 계측은 적용되지 않음(ADR-0027 결과) | ADR-0020·0056 |
-| 플랫폼과의 연결 상태 | 플랫폼 workspace에 `packages/ui`·`packages/shared`만 포함. 플랫폼 → FO 제안 1건 열림(DialogContent `scrim` variant, FO#1202 = AP #310). 스킬·conductor 정리는 FO#1197(완료)·FO#1199(열림)·FO#1228(페르소나 전역, #393과 짝) | [저장소 구조](repository-layout.md), [FO#1202](https://github.com/hjung3113/FeedbackOps/issues/1202), [FO#1199](https://github.com/hjung3113/FeedbackOps/issues/1199) |
+| 플랫폼과의 연결 상태 | 플랫폼 workspace에 `packages/ui`·`packages/shared`만 포함. 플랫폼 → FO 제안 FO#1202(DialogContent `scrim` variant)는 닫힘 — FO #1050과 같은 값이라 `@ap/ui`에서 반영(AP #310, 2026-10-19). 스킬·conductor 정리는 FO#1197(완료)·FO#1199(열림)·FO#1228(페르소나 전역, #393과 짝) | [저장소 구조](repository-layout.md), [FO#1202](https://github.com/hjung3113/FeedbackOps/issues/1202), [FO#1199](https://github.com/hjung3113/FeedbackOps/issues/1199) |
 | 버전·릴리스 | 태그 없음(2026-10-17 `gh api …/tags` 빈 목록). 플랫폼은 gitlink로 커밋을 고정하고 올릴 때 lockfile을 같이 갱신, turbo `globalDependencies`에 두 패키지 포함 | 저장소 구조 "원본 변경을 반영하는 절차" |
 
-FeedbackOps가 이미 결정한 것 중 이 계획에 걸리는 것: **플랫폼용 공용 변경은 FeedbackOps 저장소 PR로만**(플랫폼이 서브모듈을 고치지 않음, 딥링크 계약 §3), Zod-first 계약(OpenAPI 아님), 세 셸 고정, 출시 UI 권위. 열린 것: AP #81의 네 항목(매핑·설문 제출 경로·VOC prefill·복귀), FO#1202, FO#1199.
+FeedbackOps가 이미 결정한 것 중 이 계획에 걸리는 것: **플랫폼용 공용 변경은 FeedbackOps 저장소 PR로만**(플랫폼이 서브모듈을 고치지 않음, 딥링크 계약 §3), Zod-first 계약(OpenAPI 아님), 세 셸 고정, 출시 UI 권위. 열린 것: AP #81의 네 항목(매핑·설문 제출 경로·VOC prefill·복귀), FO#1199.
 
 ### 2.3 equipment-visualization (EV — 독립 패키지 정본, 플랫폼 첫 실소비자 후보)
 
