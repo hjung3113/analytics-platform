@@ -87,7 +87,7 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 - `getEntity`·`entityAudit` 권한·site·room 재검증(`ungrantedRoomRef` 표본 있을 때)·null Scope·미등록 type
 - 콘솔 조회 권한(`auditTrail`·`accessDirectory`·`usageSummary`의 `console:access`)과 0건 outcome(`auditTrail`·`accessDirectory`는 `empty`, `usageSummary`는 `ok`·`menus: []`)
 - 주석: 저장·같은 site 재조회(저장자에게 `mine: true`), site 격리(다른 부여 site에 보이지 않음), 부여 없는 site·null Scope `forbidden`, 클라이언트 `at`·`id`·`user` 거부(거부한 주석은 저장 안 됨), 비 mart 응답(assessments 없음·trust null), 차트 권한 재검증, 삭제(작성자는 삭제되어 목록에서 사라짐·다른 사용자는 `forbidden`이고 주석이 남음·이 site에 없는 id는 `empty`·부여 없는 site, null Scope와 권한 없음은 `forbidden`). 작성자 검사는 부여 계정과 `asOtherAnnotator` 계정을 번갈아 쓰므로 혼자 차례로 돈다
-- 활용률: 유효 entry·dwell 적재, 하나라도 어긋나면 전체 거부(unknown key·클라이언트 userId·query 붙은 path·비숫자 `at`·비숫자 `enteredAt`·음수 `dwellMs`), `spaceId: null`(전역 메뉴) 수락, 제거된 `feedback`과 그 밖 알 수 없는 공간 id 거부, 수신 시각 집계(클라이언트 `at`이 아니라 서버 수신 시각으로 집계) — 이 수신 시각 검사는 **부여 계정으로 기록하고 콘솔 계정으로 집계를 읽는다**(하네스가 보장하는 건 부여 계정의 기록 권한뿐이라 콘솔 전용 계정이 기록하지 못하는 것은 적합하다). 혼자 차례로 돌므로 검사 안에서 actor를 전환한다
+- 활용률: 유효 entry·dwell 적재, 하나라도 어긋나면 전체 거부(unknown key·클라이언트 userId·query 붙은 path·비숫자 `at`·비숫자 `enteredAt`·음수 `dwellMs`), `spaceId: null`(전역 메뉴) 수락, 선택 필드 `source`(없음·`main`·`board`)와 `board` 전용 `stayId` 수락(알 수 없는 `source`·`board` 아닌 `stayId`는 전체 거부), 제거된 `feedback`과 그 밖 알 수 없는 공간 id 거부, 수신 시각 집계(클라이언트 `at`이 아니라 서버 수신 시각으로 집계) — 이 수신 시각 검사는 **부여 계정으로 기록하고 콘솔 계정으로 집계를 읽는다**(하네스가 보장하는 건 부여 계정의 기록 권한뿐이라 콘솔 전용 계정이 기록하지 못하는 것은 적합하다). 혼자 차례로 돌므로 검사 안에서 actor를 전환한다
 - 오류 보고: 유효 표본 적재(positive), `spaceId: null` 수락, 거부(자유 문장 message·절대 URL path·query 붙은 path·자유 문장 name·누락 필드·제거된 `feedback`과 알 수 없는 공간 id)
 - 응답 모양 — 거부에 데이터 없음, 누락된 envelope 키 지적(`assessments`·`trust`), 평가 항목 06 §19, Trust 06 §18
 
@@ -98,7 +98,7 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 ## 5. 세션·사용자
 
 - 클라이언트는 사용자 id·actor를 보내지 않는다. 사용자는 서버가 세션으로 찍는다(활용률·오류 보고·감사·내 VOC).
-- 시각은 계약마다 다르다. 감사·차트 주석·오류 보고는 서버가 기록 시각을 찍는다. 활용률 이벤트는 서버가 **수신 시각**을 찍고, `usageSummary`의 기간 필터·`lastUsedAt`은 그 수신 시각으로 계산한다. 이벤트의 `at`·`enteredAt`(클라이언트 epoch ms)은 모양(유한한 숫자)을 검사한 뒤 버리지 않고 저장한다 — 하나라도 어긋나면 호출 전체를 거부한다. `enteredAt`은 같은 진입의 dwell을 하나로 합치는 키이고, `dwellMs`는 클라이언트가 계산한 값이다(서버가 다시 계산하지 않음). 원본 동작: `packages/mock-server/src/server.ts` `recordUsage`·`aggregateUsage`.
+- 시각은 계약마다 다르다. 감사·차트 주석·오류 보고는 서버가 기록 시각을 찍는다. 활용률 이벤트는 서버가 **수신 시각**을 찍고, `usageSummary`의 기간 필터·`lastUsedAt`은 그 수신 시각으로 계산한다. 이벤트의 `at`·`enteredAt`(클라이언트 epoch ms)은 모양(유한한 숫자)을 검사한 뒤 버리지 않고 저장한다 — 하나라도 어긋나면 호출 전체를 거부한다. `enteredAt`은 같은 진입의 dwell을 하나로 합치는 키이고(보드 칸 이벤트는 `source: 'board'`와 `stayId`를 함께 저장하고 그 dwell은 (사용자, 세션, 메뉴, `source`, `stayId`)로 합친다), `dwellMs`는 클라이언트가 계산한 값이다(서버가 다시 계산하지 않음). 원본 동작: `packages/mock-server/src/server.ts` `recordUsage`·`aggregateUsage`.
 - 인증은 FeedbackOps 방식(AuthProvider: Mock + OIDC 계열, 서버 세션)으로 정했다(#35). 실제 IdP 설정값은 사내 SSO 사양 확인 뒤.
 - 역할 소속의 원천은 IdP 그룹 claim 사양이 나올 때까지 보류(#98). 그 전에는 부여·회수 쓰기를 만들지 않는다.
 

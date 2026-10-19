@@ -1,8 +1,9 @@
 import type { PageNavigation } from '@ap/kernel';
 
-// A disappearing action returns focus to main, or page content outside a shell (06 §26).
+// A disappearing action returns focus to its pane root (a board pane, ADR-0049), else main, or page content outside a shell (06 §26).
 export function focusPageFallback(source: HTMLElement | null) {
-  const target = source?.closest<HTMLElement>('main[tabindex]')
+  const target = source?.closest<HTMLElement>('[data-pane-id][tabindex]')
+    ?? source?.closest<HTMLElement>('main[tabindex]')
     ?? source?.closest<HTMLElement>('[data-platform-page-content]')
     ?? source?.querySelector<HTMLElement>('[data-platform-page-content]');
   target?.focus({ preventScroll: true });

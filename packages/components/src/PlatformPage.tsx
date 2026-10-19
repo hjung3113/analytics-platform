@@ -65,7 +65,9 @@ export type PlatformPageProps = {
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
 export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, dataTrustSummary, crumbs = [], children }: PlatformPageProps) {
-  const { route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace } = usePlatform();
+  const { route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode } = usePlatform();
+  // A board pane draws content only: the board owns the pane head and the Context bar, and no arrival focus moves here (ADR-0049).
+  const inPane = screenMode === 'pane';
   const { t, tx, lang } = useI18n();
   const heading = useRef<HTMLHeadingElement>(null);
   const programmaticHeadingFocus = useRef(false);
@@ -124,18 +126,20 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   useLayoutEffect(() => {
     const focusDestination = () => {
       const request = consumePageFocus(pageNavigation, pathname);
-      if (!request) return;
+      // A pane takes no automatic arrival focus; its explicit drill/return requests still land inside the pane.
+      if (!request || (inPane && request === 'page')) return;
       const currentStep = request === 'drill' ? root.current?.querySelector<HTMLElement>('[aria-current="step"]') : null;
       const target = currentStep ?? heading.current;
+      if (!target) { if (inPane) focusPageFallback(root.current); return; }
       programmaticHeadingFocus.current = target === heading.current;
       if (programmaticHeadingFocus.current) setHeadingTooltipOpen(false);
-      try { target?.focus({ preventScroll: true }); }
+      try { target.focus({ preventScroll: true }); }
       finally { programmaticHeadingFocus.current = false; }
     };
     focusDestination();
     // A palette selection remains pending until Dialog's close autofocus completes.
     return pageNavigation.subscribe(focusDestination);
-  }, [url, pathname, pageNavigation]);
+  }, [url, pathname, pageNavigation, inPane]);
   const menu = route!.menu;
   const favoriteTarget = menu.navHidden ? null : menu;
   const isFavorite = favoriteTarget ? favorites.includes(favoriteTarget.id) : false;
@@ -174,7 +178,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const leftGroupMinWidth = `calc(7rem + ${leftGroupControls * 1.5}rem + ${(leftGroupItems - 1) * 0.5}rem)`;
 
   return <div ref={root} data-platform-page className="flex min-h-full flex-col">
-    <div ref={stickyHeader} data-page-sticky-header className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
+    {!inPane && <div ref={stickyHeader} data-page-sticky-header className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
       <header ref={pageHeader} onFocus={event => {
         const header = event.currentTarget;
         // Popover portals bubble through React but are outside this scroll container.
@@ -225,7 +229,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
         </div>
       </header>
       {slots.contextBar}
-    </div>
+    </div>}
     {contextExtension && !gate && <div className="px-8 pt-3">{contextExtension}</div>}
     <div data-platform-page-content tabIndex={-1} className="flex-1 px-8 pb-9 pt-7">{gate ?? <OutcomeScope><OutcomeBanners />{children}</OutcomeScope>}</div>
   </div>;

@@ -60,7 +60,12 @@ export type UsageEvent = {
   dwellMs?: number;
   /** dwell only; the entry's `at`. */
   enteredAt?: number;
+  /** Where the screen was shown: absent or `'main'` = the main screen, `'board'` = a pane on the analysis board (ADR-0049). Provenance only — never a Context value. */
+  source?: UsageSource;
+  /** Board events only: opaque id of one admitted pane stay, equal on its entry and every dwell, fresh on re-entry. Dwell replacement for such events keys on it instead of `enteredAt`. */
+  stayId?: string;
 };
+export type UsageSource = 'main' | 'board';
 /**
  * A render failure the kernel's route error boundary contained (issue #101). Identity fields only, like UsageEvent:
  * no URL, Context value, stack, component stack or `Error.message` — a thrown message is free text that can carry

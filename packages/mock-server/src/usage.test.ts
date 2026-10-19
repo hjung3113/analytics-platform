@@ -176,3 +176,37 @@ describe('menu usage (docs/05 메뉴 활용률 계측)', () => {
     expect(aggregateUsage([], { preset: 'all' }).menus).toEqual([]);
   });
 });
+
+describe('board usage provenance (ADR-0049)', () => {
+  const board = (over: Partial<UsageEvent> = {}): UsageEvent => entry({ source: 'board', stayId: 'stay-a', ...over });
+  const boardDwell = (over: Partial<UsageEvent> = {}): UsageEvent => board({ name: 'dwell', dwellMs: 100, enteredAt: 1_000, ...over });
+
+  it('accepts absent, main and board source and stores source and stayId on the row', async () => {
+    expect((await recordUsage([entry(), entry({ source: 'main' }), board()])).accepted).toBe(3);
+    const rows = storedUsage();
+    expect(Object.keys(rows[0]).sort()).toEqual(['at', 'menuId', 'name', 'path', 'receivedAt', 'sessionId', 'spaceId', 'userId']);
+    expect(rows[1].source).toBe('main');
+    expect(rows[2]).toMatchObject({ source: 'board', stayId: 'stay-a' });
+  });
+
+  it.each([
+    ['an unknown source', entry({ source: 'sidebar' as never })],
+    ['a stayId without a board source', entry({ stayId: 'stay-a' })],
+    ['a stayId on a main source', entry({ source: 'main', stayId: 'stay-a' })],
+    ['a stayId with a query character', board({ stayId: 'a?b' })],
+    ['an empty stayId', board({ stayId: '' })],
+    ['an unknown key next to source', { ...board(), paneId: 'p1' } as unknown as UsageEvent],
+  ])('rejects the whole call for %s', async (_name, bad) => {
+    expect((await recordUsage([entry(), bad])).accepted).toBe(0);
+    expect(storedUsage()).toHaveLength(0);
+  });
+
+  it('keeps two stays with the same menu and enteredAt apart, and replaces a repeated dwell of one stay', async () => {
+    await recordUsage([boardDwell({ stayId: 'stay-a', dwellMs: 100 }), boardDwell({ stayId: 'stay-b', dwellMs: 200 }), entry({ name: 'dwell', dwellMs: 50, enteredAt: 1_000 })]);
+    await recordUsage([boardDwell({ stayId: 'stay-a', dwellMs: 300 })]);
+    const dwells = storedUsage().filter(e => e.name === 'dwell');
+    expect(dwells.map(d => [d.source, d.stayId, d.dwellMs])).toEqual([
+      ['board', 'stay-b', 200], [undefined, undefined, 50], ['board', 'stay-a', 300],
+    ]);
+  });
+});

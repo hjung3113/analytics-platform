@@ -45,7 +45,7 @@ export type MenuMeta = {
   requiresScope: boolean;
   context: Record<ContextKey, Capability>;
   pageType: PageType;
-  features: { export: boolean; savedView: boolean; annotate: boolean; compare: boolean };
+  features: { export: boolean; savedView: boolean; annotate: boolean; compare: boolean; /** The menu can be shown in an analysis-board pane (ADR-0049). Absent = false. */ board?: boolean };
   /** Registered page-owned URL keys (§6.1). Only these survive on this route besides globals/extras. */
   pageKeys: readonly string[];
   /**

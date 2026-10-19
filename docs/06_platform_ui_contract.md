@@ -323,6 +323,7 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 - **같은 규칙을 칸 단위로:** 지원하지 않는 Context의 보존·미적용 표시(§6.4), `contextResetKeys` 초기화, 드릴다운 단계 키는 칸마다 같은 규칙을 따른다. page 키는 칸 상태에 산다.
 - **Scope:** 칸 하나는 언제나 단일 `scopeId`다(§6.2). 칸마다 서버가 권한을 다시 판정하고, 거부된 칸만 권한 상태가 된다. 여러 칸의 Scope를 한 조회로 합치지 않는다.
 - **Context 바:** 바는 늘 지금 선택된 칸 하나의 분석 Context를 편집한다. 본 화면에서는 지금과 같다.
+- **구현 위치:** Kernel `PaneScreenProvider`(`@ap/kernel`)가 칸 하나의 화면 상태를 준다. `usePlatform()`은 가장 가까운 화면의 상태를 읽고 `screenMode`(`'main'`·`'pane'`)·`paneId`를 더한다. 쓰기와 메뉴 이동은 URL 대신 칸의 `onChange`·`onLeave`로 간다(#496).
 
 ---
 

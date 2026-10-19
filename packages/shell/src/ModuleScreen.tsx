@@ -21,7 +21,7 @@ export function ModuleScreen({ entry, params }: Props) {
 }
 
 function ReadyInstance({ entry, params, setStatus }: Props & { setStatus: (next: ModuleStatus) => void }) {
-  const { pageNavigation, pathname, url } = usePlatform();
+  const { pageNavigation, pathname, url, screenMode } = usePlatform();
   // A setter from an instance that was released (status change, Retry, key change, unmount) must change nothing.
   const [token] = useState(() => ({ alive: true }));
   useLayoutEffect(() => {
@@ -46,10 +46,12 @@ function ReadyInstance({ entry, params, setStatus }: Props & { setStatus: (next:
 
   // Arrival focus (06 §26, ADR-0032), the same consume the page header does: the registered target, else main.
   const arrive = useCallback(() => {
+    // A board pane takes no automatic arrival focus (ADR-0049); its own requests are never consumed here nor cancelled.
+    if (screenMode === 'pane') return;
     if (!pageNavigation.consume(pathname)) return;
     if (target.current?.isConnected) target.current.focus({ preventScroll: true });
     else focusPageFallback(wrapper.current);
-  }, [pageNavigation, pathname]);
+  }, [pageNavigation, pathname, screenMode]);
   useLayoutEffect(() => {
     arrive();
     // A palette or switcher keeps a page request pending until it closes; the release notifies here.

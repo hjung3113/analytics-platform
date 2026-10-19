@@ -343,12 +343,21 @@ function invalidUsageId(value: string, max: number): boolean {
 
 /** Declared wire fields (docs/05 v1) — anything else a client sends is an unknown key. */
 const USAGE_KEYS = ['name', 'menuId', 'spaceId', 'path', 'at', 'sessionId'] as const;
+/** Optional on any event (absent = legacy main); not counted as required. */
+const USAGE_OPTIONAL_KEYS = ['source', 'stayId'] as const;
 
 /** True when the event is not exactly the declared wire shape for its name (unknown or missing keys). */
 function hasUnknownUsageKeys(e: UsageEvent): boolean {
-  const allowed: readonly string[] = e.name === 'dwell' ? [...USAGE_KEYS, 'dwellMs', 'enteredAt'] : USAGE_KEYS;
+  const required: readonly string[] = e.name === 'dwell' ? [...USAGE_KEYS, 'dwellMs', 'enteredAt'] : USAGE_KEYS;
   const keys = Object.keys(e);
-  return keys.length !== allowed.length || keys.some(k => !allowed.includes(k));
+  return keys.some(k => !required.includes(k) && !(USAGE_OPTIONAL_KEYS as readonly string[]).includes(k)) || required.some(k => !keys.includes(k));
+}
+
+/** `source` absent/main/board; `stayId` (opaque token) only with `source: 'board'`. */
+function invalidUsageProvenance(e: UsageEvent): boolean {
+  if ('source' in e && e.source !== 'main' && e.source !== 'board') return true;
+  if ('stayId' in e) return e.source !== 'board' || invalidUsageId(e.stayId as string, 80);
+  return false;
 }
 
 /**
@@ -366,6 +375,7 @@ export async function recordUsage(events: readonly UsageEvent[], opts?: { role?:
     || invalidUsageId(e.menuId, 80)
     || invalidUsageId(e.path, 200)
     || typeof e.sessionId !== 'string'
+    || invalidUsageProvenance(e)
     || !validSpaceId(e.spaceId)
     || typeof e.name !== 'string' || (e.name !== 'entry' && e.name !== 'dwell')
     || typeof e.at !== 'number' || !Number.isFinite(e.at)
@@ -377,12 +387,16 @@ export async function recordUsage(events: readonly UsageEvent[], opts?: { role?:
   for (const e of events) {
     if (e.name === 'dwell') {
       // Same (userId, sessionId, menuId, enteredAt) dwell replaces the previous one — the final dwell wins.
-      const previous = usageEvents.findIndex(x => x.name === 'dwell' && x.userId === userId && x.sessionId === e.sessionId && x.menuId === e.menuId && x.enteredAt === e.enteredAt);
+      // A board dwell with a stayId is keyed (userId, sessionId, menuId, source, stayId) instead: two panes may share enteredAt.
+      const previous = usageEvents.findIndex(x => x.name === 'dwell' && x.userId === userId && x.sessionId === e.sessionId && x.menuId === e.menuId
+        && (e.stayId !== undefined ? x.source === e.source && x.stayId === e.stayId : x.stayId === undefined && x.enteredAt === e.enteredAt));
       if (previous >= 0) usageEvents.splice(previous, 1);
     }
     usageEvents.push({
       name: e.name, menuId: e.menuId, spaceId: e.spaceId, path: e.path, at: e.at, sessionId: e.sessionId,
       ...(e.name === 'dwell' && { dwellMs: e.dwellMs, enteredAt: e.enteredAt }),
+      ...(e.source !== undefined && { source: e.source }),
+      ...(e.stayId !== undefined && { stayId: e.stayId }),
       userId, receivedAt,
     });
   }

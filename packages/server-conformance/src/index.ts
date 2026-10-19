@@ -951,6 +951,39 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   // Global utility menus send spaceId null (06 §9.1). Null is always valid on this port, so the check clones
   // the harness sample instead of skipping when no separate global sample was given. 'feedback' is a removed
   // space id; any other string outside the declared SpaceId union is unknown.
+  // Board provenance (ADR-0049): `source` is optional (absent = legacy main), `board` carries an opaque stayId.
+  const boardEntry: UsageEvent = { ...usageEntry, source: 'board', stayId: 'conformance-stay-1' };
+  const boardDwell: UsageEvent = { ...usageDwell, source: 'board', stayId: 'conformance-stay-1' };
+  checks.push({
+    id: 'port · recordUsage accepts a board entry and dwell (source, stayId)',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted([boardEntry, boardDwell], 2, 'a valid board entry and dwell with source and stayId'),
+  });
+  checks.push({
+    id: 'port · recordUsage accepts an explicit main source and a legacy event without one',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted([{ ...usageEntry, source: 'main' }, usageEntry], 2, 'an explicit main source next to a legacy event without source'),
+  });
+  checks.push({
+    id: 'port · recordUsage: an unknown source is rejected',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted([badUsageEvent({ source: 'sidebar' })], 0, 'a source other than main/board — the whole call rejects'),
+  });
+  checks.push({
+    id: 'port · recordUsage: a stayId without board source is rejected',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted([badUsageEvent({ stayId: 'conformance-stay-1' })], 0, 'a stayId on a non-board event — the whole call rejects'),
+  });
+  checks.push({
+    id: 'port · recordUsage: an unknown key next to source is rejected',
+    mode: 'granted',
+    nonEnvelope: true,
+    run: expectAccepted([{ ...boardEntry, paneId: 'p1' } as unknown as UsageEvent], 0, 'an unknown key on a board event — the whole call rejects'),
+  });
   checks.push({
     id: 'port · recordUsage accepts a global menu (spaceId null)',
     mode: 'granted',

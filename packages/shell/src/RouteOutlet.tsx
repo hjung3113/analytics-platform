@@ -8,8 +8,17 @@ import { HomeLink } from './HomeLink';
 import { ModuleScreen } from './ModuleScreen';
 import { RouteErrorBoundary } from './RouteErrorBoundary';
 
-/** Renders the matched menu page, or the kernel's not-found / contract-error / permission / planned states (docs/06 §17, §19). */
+/** The main screen's outlet: `ScreenOutlet` for the URL-bound screen. */
 export function RouteOutlet() {
+  return <ScreenOutlet />;
+}
+
+/**
+ * Renders whatever the nearest screen state points at — the matched menu page, or the kernel's not-found / contract-error /
+ * permission / planned states (docs/06 §17, §19). Inside a board pane (`PaneScreenProvider`, ADR-0049) it runs the same gate
+ * chain for that pane's menu, so a denied pane shows its own permission state.
+ */
+export function ScreenOutlet() {
   const { route, contractError, can, url, global, metricInit, setGlobal, currentSpace, reportError, revision } = usePlatform();
   const { t, tx, lang } = useI18n();
   if (!route) return <KernelMessage icon={<FileQuestion className="size-4" aria-hidden />} title={t('notFound')} body={<span className="t-mono">{url}</span>} />;
