@@ -1,7 +1,7 @@
 /**
  * Mock server half of the metric endpoints (#129). Registered by the app composition root via
  * `@ap/menu-metrics/mock`; pages never import this module. The pair verdict, catalog filters and paging,
- * definition and usage are answered here; history is the shared audit store's (ADR-0047) — the page no longer holds the catalog.
+ * definition and usage are answered here; history is the shared audit store's (ADR-0048) — the page no longer holds the catalog.
  */
 import { sortAndPage, sortRows } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
@@ -10,7 +10,7 @@ import {
 } from '../endpoints';
 import { buildDefinition, buildUsage, catalogRows, filterCatalog, judgeGlobalPair } from './catalog';
 
-/** Metric audit seeds for the shared mock audit store; the app's mock assembly passes them to `createMockAdapter` (ADR-0047). */
+/** Metric audit seeds for the shared mock audit store; the app's mock assembly passes them to `createMockAdapter` (ADR-0048). */
 export { METRIC_AUDIT_EVENTS as metricsAuditEvents } from './catalog';
 
 export const metricsMock: readonly AnyMockEndpoint[] = [

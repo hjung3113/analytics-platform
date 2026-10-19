@@ -422,7 +422,7 @@ export function populationExamples(rule: PopulationRule, equipment: { equipmentI
 const recordedAt = (wallClock: string): string => new Date(`${wallClock}+09:00`).toISOString();
 
 /**
- * One metric's audit events — seeds for the shared mock audit store (ADR-0047), not a menu endpoint. Reason and
+ * One metric's audit events — seeds for the shared mock audit store (ADR-0048), not a menu endpoint. Reason and
  * diff values are the recorded Korean strings (an audit record is not translated); `at` is the recorded instant.
  * The destination triple is 06 §22's: a metric has no site.
  */
@@ -472,7 +472,7 @@ function metricAuditEvents(metric: MetricDef): AuditEvent[] {
   return events;
 }
 
-/** Every catalog metric's audit events, handed to `createMockAdapter({ auditEvents })` by the app's mock assembly (ADR-0047). */
+/** Every catalog metric's audit events, handed to `createMockAdapter({ auditEvents })` by the app's mock assembly (ADR-0048). */
 export const METRIC_AUDIT_EVENTS: readonly AuditEvent[] = METRICS.flatMap(metricAuditEvents);
 
 export function buildDefinition(metricId: string, requestedVersion: string | null, equipment: { equipmentId: string; room: string; status: string; chamberType: string }[]): DefinitionPayload {

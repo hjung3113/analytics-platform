@@ -33,7 +33,7 @@ export default function MetricDetailPage({ params }: PageProps) {
   const pair = useMenuQuery(metricPairEndpoint, { viewedId: metricId, pageVersion: versionParam });
   const definition = useMenuQuery(definitionEndpoint, { metricId, version: versionParam });
   const usage = useMenuQuery(usageEndpoint, { metricId, version: versionParam ?? '' }, versionParam !== null);
-  // ADR-0047: the shared audit store, same port read as the equipment Audit tab. A metric has no site, and the
+  // ADR-0048: the shared audit store, same port read as the equipment Audit tab. A metric has no site, and the
   // record does not change with the global Context, so session identity: a period or scope change does not refetch.
   const history = usePlatformQuery(signal => adapter.entityAudit({ type: 'metric', id: metricId, scopeId: null }, signal), [metricId], true, 'session');
 

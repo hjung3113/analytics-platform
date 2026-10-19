@@ -18,7 +18,7 @@ import { AUDIT_EVENTS } from './audit-fixtures';
 import { runtimeAuditEvents } from './annotations';
 import { EQUIPMENT, USERS, type RoleId } from './world';
 
-/** `seeds`: audit events the app's mock assembly hands in (menu-owned destinations such as metrics, ADR-0047); they join the store as-is. */
+/** `seeds`: audit events the app's mock assembly hands in (menu-owned destinations such as metrics, ADR-0048); they join the store as-is. */
 export type AuditOptions = { role?: RoleId; latency?: number; seeds?: readonly AuditEvent[] };
 
 export const AUDIT_TYPES = ['equipment', 'metric', 'annotation'];

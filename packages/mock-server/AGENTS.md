@@ -9,7 +9,7 @@
 - `src/annotations.ts` — 차트 주석 저장소(06 §16, #103). `listAnnotations`·`saveAnnotation`·`deleteAnnotation`은 권한(`analytics:view`) → 시나리오 → 검증 → Site 경계 순으로 판정하고, 행은 작성 당시 `scopeId`를 갖고 모든 조회가 `scopeId`로 거른다(`chartId`만으로 고르지 않는다). 작성자·시각은 서버가 찍고 wire 입력에 없다(알 수 없는 키는 거부). 비mart 데이터라 trust는 null. `mine`은 응답마다 요청 역할로 계산해 저장하지 않고, 삭제는 작성자만 하며 성공하면 `auditTrail`이 합쳐 읽는 런타임 감사 행(`delete`·`annotation`)을 남긴다(ADR-0041).
 - `src/access.ts`·`src/audit.ts`(+`audit-fixtures.ts`) — 권한/역할 조회(`accessDirectory`, #49)와 변경 감사(`auditTrail`·`entityAudit`, #50) 핸들러·픽스처.
 - `src/jobs.ts` — 작업(job) 합성 데이터와 조회 함수.
-- `src/adapter.ts` — `createMockAdapter({ endpoints, registry, auditEvents? })`: 포트 구현 + 선언 기반 `menuQuery`. `auditEvents`는 메뉴가 소유한 감사 대상(지표)의 시드로, 설비 이벤트와 한 저장소로 `auditTrail`·`entityAudit`에 쓰인다. 등록 때 id 중복·대상 유형(설비 제외)·지표 `scopeId: null`·zone 있는 instant를 검사한다([ADR-0047](../../docs/adr/0047-menu-audit-seeds-join-shared-mock-audit-store.md)). 엔드포인트 등록 검증 7가지의 원본은 [체크리스트 §3 "등록 검증"](../../docs/integration/real-server-checklist.md).
+- `src/adapter.ts` — `createMockAdapter({ endpoints, registry, auditEvents? })`: 포트 구현 + 선언 기반 `menuQuery`. `auditEvents`는 메뉴가 소유한 감사 대상(지표)의 시드로, 설비 이벤트와 한 저장소로 `auditTrail`·`entityAudit`에 쓰인다. 등록 때 id 중복·대상 유형(설비 제외)·지표 `scopeId: null`·zone 있는 instant를 검사한다([ADR-0048](../../docs/adr/0048-menu-audit-seeds-join-shared-mock-audit-store.md)). 엔드포인트 등록 검증 7가지의 원본은 [체크리스트 §3 "등록 검증"](../../docs/integration/real-server-checklist.md).
 - `src/endpoints.ts` — `MockEndpoint`·`defineMockEndpoint`·`serveEndpoint`(선언 기반 판정 순서 = 체크리스트 §3), `MockRegistrationError`·`MockRequestError`. `mart: false`는 비 mart 원천(Trust 없음, mart 시나리오 미적용).
 - `src/index.ts` — 공개 진입점. 명시적 export만 한다(`export *` 금지).
 

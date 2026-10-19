@@ -39,7 +39,7 @@ function sessionFor(role: RoleId): Session {
 }
 
 /**
- * Menu-owned audit seeds (ADR-0047) are checked once at registration, like endpoints: a declared target type,
+ * Menu-owned audit seeds (ADR-0048) are checked once at registration, like endpoints: a declared target type,
  * a canonical instant, no id collision, and no site on a metric (a metric has none — `entityAudit` rejects one).
  */
 function checkAuditSeeds(seeds: readonly AuditEvent[]): void {
@@ -58,7 +58,7 @@ function checkAuditSeeds(seeds: readonly AuditEvent[]): void {
 export function createMockAdapter(o: {
   endpoints: readonly AnyMockEndpoint[];
   registry: { menus: readonly MenuMeta[] };
-  /** Audit events of menu-owned destinations, from the app's mock assembly (ADR-0047). */
+  /** Audit events of menu-owned destinations, from the app's mock assembly (ADR-0048). */
   auditEvents?: readonly AuditEvent[];
 }): PlatformAdapter {
   const seeds = o.auditEvents ?? [];

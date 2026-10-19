@@ -106,7 +106,7 @@ describe('metric catalog export endpoint (#173)', () => {
   });
 });
 
-describe('metric audit seeds (#90, ADR-0047)', () => {
+describe('metric audit seeds (#90, ADR-0048)', () => {
   const seeded = createMockAdapter({ endpoints: [...metricsMock], registry, auditEvents: metricsAuditEvents });
 
   it('records each version as a draft, plus publish and deprecate when they happened, at the Seoul wall-clock instant in Z', () => {

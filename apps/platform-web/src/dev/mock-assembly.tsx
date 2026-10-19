@@ -5,7 +5,7 @@ import { homeMock } from '@ap/menu-home/mock';
 import { metricsMock } from '@ap/menu-metrics/mock';
 import { noticeVocMock } from '@ap/menu-notice-voc/mock';
 // </gen:menu-mock-imports>
-// Audit seeds of menu-owned destinations (ADR-0047) — hand-wired, outside the generator's import region.
+// Audit seeds of menu-owned destinations (ADR-0048) — hand-wired, outside the generator's import region.
 import { metricsAuditEvents } from '@ap/menu-metrics/mock';
 import type { CreateAssembly } from '#platform-assembly';
 import type { AuditEvent } from '@ap/contracts';
@@ -27,7 +27,7 @@ export const MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [
 ];
 
 /**
- * Audit events of menu-owned destinations (ADR-0047). The mock server joins them with its own equipment events,
+ * Audit events of menu-owned destinations (ADR-0048). The mock server joins them with its own equipment events,
  * so the console audit log and each destination's history tab read one store. The conformance test reads this list too.
  */
 export const MOCK_AUDIT_EVENTS: readonly AuditEvent[] = [...metricsAuditEvents];

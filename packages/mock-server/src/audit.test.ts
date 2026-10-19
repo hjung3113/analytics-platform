@@ -6,7 +6,7 @@ import { getRole, setRole, setScenario } from './server';
 import { AUDIT_EVENTS } from './audit-fixtures';
 import { EQUIPMENT, USERS, type RoleId } from './world';
 
-// Metric events are menu-owned seeds (ADR-0047); these three stand in for the metrics menu's seeds here.
+// Metric events are menu-owned seeds (ADR-0048); these three stand in for the metrics menu's seeds here.
 const METRIC_SEEDS: readonly AuditEvent[] = [
   { id: 'metric:cycle_time:update', at: '2026-09-26T02:00:00.000Z', actor: 'park.seo', action: 'update', source: 'user', target: { type: 'metric', id: 'cycle_time', scopeId: null }, changes: { publicationState: ['draft', 'published'] }, reason: '게시 확정. mart 재계산 완료가 아닙니다.' },
   { id: 'metric:cycle_time:create', at: '2026-09-20T02:00:00.000Z', actor: 'park.seo', action: 'create', source: 'user', target: { type: 'metric', id: 'cycle_time', scopeId: null }, changes: { metricVersion: [null, '4'] }, reason: '공정 구간으로 grain 설명 수정. 게시 포인터.' },

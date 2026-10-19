@@ -113,7 +113,7 @@ describe('scope_error scenario (#167)', () => {
   });
 });
 
-describe('createMockAdapter auditEvents (ADR-0047: menu-owned audit seeds)', () => {
+describe('createMockAdapter auditEvents (ADR-0048: menu-owned audit seeds)', () => {
   const seed = (patch: Partial<AuditEvent> = {}): AuditEvent => ({
     id: 'metric-x-v1-draft', at: '2026-09-20T02:00:00.000Z', actor: 'park.seo', action: 'create', source: 'user',
     target: { type: 'metric', id: 'x', scopeId: null }, reason: '최초 등록', ...patch,

@@ -216,7 +216,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(
 // 06 §18: Data Trust states a displayed number's status. The definition section shows no numbers, and the envelope
 // trust describes the catalog mart read — so no version state (draft, published, deprecated) gets a trust claim there
 // (user decision 2026-10-13, #299 UX review).
-describe('MetricDetail change history reads the shared audit store (#90, ADR-0047)', () => {
+describe('MetricDetail change history reads the shared audit store (#90, ADR-0048)', () => {
   it('asks entityAudit for the metric with no site, never a menu history endpoint, and shows the recorded reason in English too', async () => {
     const store = new Map<string, string>([['platform:lang', 'en']]);
     vi.stubGlobal('localStorage', {

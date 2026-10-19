@@ -649,7 +649,7 @@ shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](04_frontend_ui_ux
 
 row 방향 소비자는 opt-in `collapsible`로 입력 영역만 접을 수 있다(ADR-0029). 접힘 줄은 소비자가 제공한 `summaryItems`(필드명+현재값) 전체를 담은 펼치기 버튼 하나와 독립된 접힘 액션이며, 공통 부품은 조건을 생략·요약하지 않는다(말줄임·`+n` 금지, 폭이 부족하면 항목 단위 줄바꿈). 요약값은 펼친 입력과 같은 표시 모델에서 만들고 잘못된 값·미확정 상태도 사실대로 보인다. 접힘 기억(`preferenceKey`별 저장)·펼침/접힘 포커스 이동·disclosure aria는 공통 부품이 소유하고, column 레일 소비자는 이 접기를 켜지 않는다.
 
-`AuditTimeline`이 보이는 이벤트 타입은 `@ap/contracts`의 `AuditEvent`다. `at`은 실제 시점이라 `formatInstant`로 표시한다(§6.3). `target`은 목적지 참조(§22)이지 분석 Context가 아니다. 전역 감사 조회(`auditTrail`)와 목적지 감사 — 설비 상세 감사 탭, 지표 상세 변경 이력(`entityAudit`, 지표는 `scopeId: null`) — 는 같은 저장소를 어댑터 포트([패키지 경계](integration/platform-packages.md) §4)로 읽으며 셸 위젯이 아니다(#50, #90). 메뉴가 소유한 대상의 감사 기록은 mock에서 메뉴가 시드로 내고 앱 조립이 넣는다([ADR-0047](adr/0047-menu-audit-seeds-join-shared-mock-audit-store.md)); 사유·값은 기록된 문자열 그대로다.
+`AuditTimeline`이 보이는 이벤트 타입은 `@ap/contracts`의 `AuditEvent`다. `at`은 실제 시점이라 `formatInstant`로 표시한다(§6.3). `target`은 목적지 참조(§22)이지 분석 Context가 아니다. 전역 감사 조회(`auditTrail`)와 목적지 감사 — 설비 상세 감사 탭, 지표 상세 변경 이력(`entityAudit`, 지표는 `scopeId: null`) — 는 같은 저장소를 어댑터 포트([패키지 경계](integration/platform-packages.md) §4)로 읽으며 셸 위젯이 아니다(#50, #90). 메뉴가 소유한 대상의 감사 기록은 mock에서 메뉴가 시드로 내고 앱 조립이 넣는다([ADR-0048](adr/0048-menu-audit-seeds-join-shared-mock-audit-store.md)); 사유·값은 기록된 문자열 그대로다.
 
 ### DetailDrawer — docked shell slot (Decided, ADR-0013)
 
