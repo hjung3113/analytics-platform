@@ -11,6 +11,7 @@ import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testi
 vi.mock('./reload', () => ({ reloadApp: vi.fn() }));
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
+const deniedSpaceSubtitle = '권한 제한 안내용 시스템 부제';
 
 /** Innermost element whose text contains `needle` (sibling text nodes, not one element). */
 function hasTextWithoutChild(node: Element | null, needle: string) {
@@ -165,7 +166,7 @@ describe('global utility routes and the null-sidebar home link (06 §9.1)', () =
   });
   function globalRegistry(withRoot: boolean) {
     return createRegistry({
-      spaces: [testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'roles' })],
+      spaces: [testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, subtitle: { ko: deniedSpaceSubtitle, en: 'Denial-only space subtitle' }, permission: 'console:access', homeMenuId: 'roles' })],
       groups: [
         { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' },
         { id: 'noticeVoc', label: { ko: '공지·VOC', en: 'Notice' }, icon: House, space: null },
@@ -285,7 +286,9 @@ describe('global query admission under RouteOutlet (06 §9.1)', () => {
   it('does not query a space menu when space entry is denied', async () => {
     const menuQuery = mountQuery('/admin/child');
     expect(await screen.findByText('이 공간에 들어갈 수 없습니다')).toBeTruthy();
-    expect(screen.getByText(/운영 콘솔/)).toBeTruthy();
+    const denialBody = screen.getByText('운영 콘솔. 권한 담당자에게 요청하세요.');
+    expect(denialBody).toBeTruthy();
+    expect(denialBody.textContent).not.toContain(deniedSpaceSubtitle);
     expect(screen.getByText((_, node) => hasTextWithoutChild(node, '권한 담당자에게 요청하세요.'))).toBeTruthy();
     expect(screen.queryByText(/space=/)).toBeNull();
     await settled();
