@@ -9,6 +9,9 @@ export type ContextKey = 'time' | 'roomNames' | 'condition' | 'selection' | 'lot
 export type Capability = 'apply' | 'reference' | 'unsupported';
 export type PageType = 'overview' | 'analysis' | 'management' | 'catalog' | 'workflow';
 export type GroupId = 'overview' | 'equipment' | 'masterData' | 'analytics' | 'metrics' | 'noticeVoc' | 'admin';
+/** The platform's closed group list at runtime (a module group is `<moduleId>:<name>`, ADR-0053). The Record keeps it complete: a new GroupId member fails typecheck until it is listed here. */
+const GROUP_ID_SET: Record<GroupId, true> = { overview: true, equipment: true, masterData: true, analytics: true, metrics: true, noticeVoc: true, admin: true };
+export const GROUP_IDS: readonly GroupId[] = Object.keys(GROUP_ID_SET) as GroupId[];
 export type SpaceId = 'analytics' | 'metrics' | 'operations';
 /** Sidebar-visible group set + entry permission (06 §9.1). Groups declare membership via GroupDef.space, menus never do. */
 export type SpaceDef = {

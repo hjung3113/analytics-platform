@@ -1,6 +1,6 @@
 import type { ComponentType, LazyExoticComponent } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { GLOBAL_KEYS, isAppRelativePath, parseQuery, type ContextKey, type GroupId, type MenuMeta, type ModuleScopedId, type ModuleScreenProps, type PageType, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
+import { GLOBAL_KEYS, GROUP_IDS, PERMISSIONS, isAppRelativePath, parseQuery, type ContextKey, type GroupId, type MenuMeta, type ModuleScopedId, type ModuleScreenProps, type PageType, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
 
 /** docs/06 §5: menus declare, the shell consumes. Metadata lives in @ap/contracts; this adds the React bindings. */
 export type PageProps = { params: Record<string, string> };
@@ -64,6 +64,13 @@ export type Registry = {
 
 export class RegistryError extends Error {}
 
+const PLATFORM_PERMISSIONS: readonly string[] = PERMISSIONS;
+const PLATFORM_GROUPS: readonly string[] = GROUP_IDS;
+/** Namespaces of the platform's own permissions; a module id may not take one, so a module grant never equals a platform grant. */
+const RESERVED_MODULE_IDS = new Set<string>(PERMISSIONS.map(p => p.split(':')[0]));
+export const isPlatformPermission = (value: string) => PLATFORM_PERMISSIONS.includes(value);
+export const isReservedModuleId = (id: string) => RESERVED_MODULE_IDS.has(id);
+
 const segments = (path: string) => path.split('/').filter(Boolean);
 const isParam = (seg: string) => seg.startsWith(':');
 
@@ -89,7 +96,12 @@ export function createRegistry({ spaces, groups, menus }: { spaces: readonly Spa
   for (const g of groups) {
     if (groupIds.has(g.id)) fail(`Duplicate group id "${g.id}"`);
     if (g.space !== null && !spaceByIdMap.has(g.space)) fail(`Group "${g.id}" uses undeclared space "${g.space}"`);
-    if (g.module !== undefined && !g.id.startsWith(`${g.module}:`)) fail(`Group "${g.id}" of module "${g.module}" needs the "${g.module}:" prefix`);
+    if (g.module === undefined) {
+      if (!PLATFORM_GROUPS.includes(g.id)) fail(`Group "${g.id}" has no module and is not a platform group`);
+    } else {
+      if (!g.id.startsWith(`${g.module}:`)) fail(`Group "${g.id}" of module "${g.module}" needs the "${g.module}:" prefix`);
+      if (isReservedModuleId(g.module)) fail(`Group "${g.id}" module "${g.module}" is a reserved platform namespace`);
+    }
     groupIds.add(g.id);
     groupSpace.set(g.id, g.space);
     groupOwner.set(g.id, g.module);
@@ -97,7 +109,14 @@ export function createRegistry({ spaces, groups, menus }: { spaces: readonly Spa
   const shapes = new Map<string, string>();
   for (const m of menus) {
     if (!groupIds.has(m.group)) fail(`Menu "${m.id}" uses undeclared group "${m.group}"`);
-    if (m.module !== undefined && !m.permission.startsWith(`${m.module}:`)) fail(`Menu "${m.id}" of module "${m.module}" permission "${m.permission}" needs the "${m.module}:" prefix`);
+    if (m.module === undefined) {
+      if (!isPlatformPermission(m.permission)) fail(`Menu "${m.id}" has no module and permission "${m.permission}" is not a platform permission`);
+      if ((m as { moduleScreen?: unknown }).moduleScreen !== undefined) fail(`Menu "${m.id}" carries a moduleScreen but no module`);
+    } else {
+      if (!m.permission.startsWith(`${m.module}:`)) fail(`Menu "${m.id}" of module "${m.module}" permission "${m.permission}" needs the "${m.module}:" prefix`);
+      if (isPlatformPermission(m.permission)) fail(`Menu "${m.id}" of module "${m.module}" permission "${m.permission}" is a reserved platform permission`);
+      if (isReservedModuleId(m.module)) fail(`Menu "${m.id}" module "${m.module}" is a reserved platform namespace`);
+    }
     if (groupOwner.get(m.group) !== m.module) fail(`Menu "${m.id}" and its group "${m.group}" belong to different modules`);
     if (m.parent !== undefined) {
       const parent = byId.get(m.parent) ?? fail(`Menu "${m.id}" has unknown parent "${m.parent}"`);

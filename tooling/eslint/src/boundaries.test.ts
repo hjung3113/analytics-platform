@@ -50,6 +50,15 @@ async function lint(relFile: string, code: string): Promise<Linter.LintMessage[]
   return results[0]?.messages ?? [];
 }
 
+const EQV = path.join(HERE, 'fixtures', 'eqv-module');
+
+/** hostModule on an external package whose name is not in the platform scope (fixtures/eqv-module). */
+async function lintExternal(relFile: string, code: string): Promise<Linter.LintMessage[]> {
+  const eslint = new ESLint({ cwd: EQV, overrideConfigFile: true, overrideConfig: hostModule });
+  const results = await eslint.lintText(code, { filePath: path.join(EQV, relFile) });
+  return results[0]?.messages ?? [];
+}
+
 interface Row {
   /** Repo-relative file path; space and group segments pick menu packages; other packages use two segments. */
   file: string;
@@ -459,6 +468,17 @@ describe('boundary + contract fixtures', () => {
       messages.every((m) => m.ruleId === rule),
       dump,
     ).toBe(true);
+  });
+
+  it.each([
+    ['src/x.ts', `import { Screen } from './Screen';`, ''],
+    ['src/deep/x.ts', `import { Screen } from '../Screen';`, ''],
+    ['src/x.ts', `import { x } from '../../escape';`, 'ap/no-relative-package-escape'],
+    ['src/x.ts', `export * from '../../../../packages/contracts/src/url';`, 'ap/no-relative-package-escape'],
+    ['src/x.ts', `import { x } from '@ap/kernel';`, 'no-restricted-imports'],
+  ])('hostModule in a non-platform-scope package: %s %s', async (file, code, rule) => {
+    const messages = await lintExternal(file, code);
+    expect(messages.map((m) => m.ruleId), JSON.stringify(messages, null, 2)).toEqual(rule === '' ? [] : [rule]);
   });
 
   it('keeps the @ap/ prefix literal in src js to prefix.js only', async () => {

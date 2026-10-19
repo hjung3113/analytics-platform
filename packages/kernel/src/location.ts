@@ -46,7 +46,7 @@ export function createBasePathLocation(basePath: string): PlatformLocation {
 }
 
 /** Raw or percent-encoded '.'/'..' segments: folding them would move the deployment boundary. */
-function isDotSegment(segment: string): boolean {
+export function isDotSegment(segment: string): boolean {
   let decoded = segment;
   try { decoded = decodeURIComponent(segment); } catch { /* invalid escape keeps the raw segment */ }
   return decoded === '.' || decoded === '..';

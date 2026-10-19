@@ -372,7 +372,8 @@ const HOST_MODULE_RESTRICTION = {
 
 /** @type {import('eslint').Linter.Config[]} */
 export const hostModule = [
-  layerConfig({ restriction: HOST_MODULE_RESTRICTION }),
+  // The module keeps its own package scope, so relative imports are checked against its nearest package root.
+  layerConfig({ restriction: HOST_MODULE_RESTRICTION, extraRules: { 'ap/no-relative-package-escape': ['error', { anyPackageName: true }] } }),
 ];
 
 /** @type {import('eslint').Linter.Config[]} */

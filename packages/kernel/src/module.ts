@@ -1,7 +1,8 @@
 import type { ComponentType } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { HOST_CONTRACTS, type HostFeature, type ModuleManifest, type ModuleScreenProps, type SpaceId } from '@ap/contracts';
-import { RegistryError, type ModuleGroupDef, type ModuleMenuEntry } from './registry';
+import { isDotSegment } from './location';
+import { isReservedModuleId, RegistryError, type ModuleGroupDef, type ModuleMenuEntry } from './registry';
 
 export type MountOptions = {
   /** Absolute app path the module lives under, e.g. `/collab`. No params, no trailing slash. */
@@ -14,6 +15,11 @@ export type MountOptions = {
   /** Host features this host provides. */
   features?: readonly HostFeature[];
 };
+
+/** A pathname pattern the browser keeps as written: no URL delimiters, backslash, control or space, no `//`, no raw or encoded dot segments. `:param` segments stay allowed. */
+function isPathPattern(path: string): boolean {
+  return !/[?#\\\u0000-\u0020\u007F]/.test(path) && !path.includes('//') && !path.split('/').some(isDotSegment);
+}
 
 /**
  * Registers a module (ADR-0053): checks the manifest against what this host offers and returns the entries for
@@ -31,7 +37,8 @@ export function mountModule(
   if (!(HOST_CONTRACTS as readonly number[]).includes(manifest.module.contract)) fail(`${at} declares unsupported contract ${String(manifest.module.contract)}`);
   for (const feature of manifest.requires) if (!features.includes(feature)) fail(`${at} requires host feature "${feature}" which this host does not provide`);
   for (const key of manifest.config ?? []) if (!Object.hasOwn(config, key)) fail(`${at} needs config key "${key}"`);
-  if (!/^\/[^?#\s]+$/.test(prefix) || prefix.endsWith('/') || prefix.split('/').some(s => s.startsWith(':') || s === '..' || s === '.')) {
+  if (isReservedModuleId(id)) fail(`${at} id is a reserved platform namespace`);
+  if (!isPathPattern(prefix) || !prefix.startsWith('/') || prefix.endsWith('/') || prefix.split('/').some(s => s.startsWith(':'))) {
     fail(`${at} prefix "${prefix}" must be an absolute app path without params or a trailing slash`);
   }
 
@@ -49,7 +56,7 @@ export function mountModule(
   for (const s of manifest.screens) {
     if (!owns(s.permission)) fail(`${at} screen "${s.id}" permission "${s.permission}" needs the "${id}:" prefix`);
     if (!groupIds.has(s.group)) fail(`${at} screen "${s.id}" uses group "${s.group}" which the manifest does not declare`);
-    if (s.path.startsWith('/') || s.path.split('/').includes('..')) fail(`${at} screen "${s.id}" path "${s.path}" must be relative and stay inside the module`);
+    if (s.path.startsWith('/') || !isPathPattern(s.path)) fail(`${at} screen "${s.id}" path "${s.path}" must be relative and stay inside the module`);
     if (s.parent !== undefined && !screenIds.has(s.parent)) fail(`${at} screen "${s.id}" has parent "${s.parent}" outside the module`);
     if (!Object.hasOwn(screens, s.id)) fail(`${at} screen "${s.id}" has no component`);
   }
@@ -61,6 +68,8 @@ export function mountModule(
   });
   const menus = manifest.screens.map((s): ModuleMenuEntry => ({
     ...s,
+    id: `${id}:${s.id}`,
+    parent: s.parent === undefined ? undefined : `${id}:${s.parent}`,
     path: s.path === '' ? prefix : `${prefix}/${s.path}`,
     module: id,
     icon: icons.screens[s.id] ?? fail(`${at} screen "${s.id}" has no icon`),

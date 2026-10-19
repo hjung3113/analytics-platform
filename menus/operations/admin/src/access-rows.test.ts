@@ -96,6 +96,16 @@ const moduleRegistry = () => createRegistry({
 });
 
 describe('menusForPermissions module menu (ADR-0053)', () => {
+  it('returns no platform row for a session that holds only a module permission', () => {
+    const platform = createRegistry({
+      spaces: [{ id: 'operations', label: { ko: '운영', en: 'Ops' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'p' }],
+      groups: [{ id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' }],
+      menus: [{ ...moduleMenu(), id: 'p', group: 'admin', module: undefined, permission: 'console:access', moduleScreen: undefined }],
+    });
+
+    expect(menusForPermissions(platform, ['fx:view'])).toEqual([]);
+  });
+
   it('joins a module menu by its module-prefixed permission', () => {
     const joined = menusForPermissions(moduleRegistry(), ['fx:view', 'platform:view']);
 
