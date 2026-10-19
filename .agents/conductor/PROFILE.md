@@ -140,4 +140,6 @@ CI는 `.github/workflows/ci.yml`에서 이 폴더의 `test-app-preview.py`만 �
 - 메인 체크아웃의 `node_modules`는 병합이 쌓이면 낡는다. 마감 검사 전에 `pnpm install --frozen-lockfile`.
 - 이 프로필의 상대 경로(`scripts/app-preview.py`, `addenda/`)는 `$CONDUCTOR` 기준이다. 레포 루트에서 그대로 실행하면 "No such file"이다.
 - 이슈 번호가 없는 작업(마감 정리 등)은 `launch-worker.py`가 worktree를 만들지 못한다(`--issue`가 숫자를 요구). 손으로 한다: `orca worktree create --setup skip`(`--issue` 없이) → 서브모듈·설치 → 설정 셸 닫기 → TASK 작성 → 공유 실행기.
+- E2E는 vite dev 서버 위에서 돈다. 호스트 검사(루트 test·E2E)가 도는 worktree의 소스를 고치지 않는다 — HMR이 화면을 다시 그려 우연한 E2E 실패가 난다(#403: 검사 중 `module.ts` 수정 → Scope 메뉴 항목 detached). 고칠 것이 생기면 검사가 끝난 뒤 고치고 다시 돌린다.
+- E2E 포트는 4190 고정(`apps/platform-e2e/playwright.config.ts`, `--strictPort`)이라 다른 세션이 E2E를 돌리면 `is already used`로 바로 실패한다. 그 프로세스는 건드리지 말고(`lsof -nP -iTCP:4190 -sTCP:LISTEN`으로 cwd 확인) 포트가 빌 때까지 기다린 뒤 돌린다(#489).
 - 공용 부품이 틀렸거나 빠졌으면 메모리나 `HANDOFF.md`에만 적지 않는다. 콘덕터가 provider의 `engine/scripts/upstream-file.sh`로 `upstream` 이슈를 올리고, 레포 안 임시 우회는 이 절에 그 이슈 링크와 함께 적는다.
