@@ -309,8 +309,12 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       const token = (v: unknown, max: number) => typeof v === 'string' && v.length > 0 && v.length <= max
         && (breaks.has('usage-allows-query') ? !/[#&\s]/.test(v) : !/[?#&\s]/.test(v));
       const invalid = (e: UsageEvent) => {
-        const allowed = e.name === 'dwell' ? [...USAGE_KEYS, 'dwellMs', 'enteredAt'] : USAGE_KEYS;
+        const allowed = e.name === 'dwell' ? [...USAGE_KEYS, 'dwellMs', 'enteredAt', 'source', 'stayId'] : [...USAGE_KEYS, 'source', 'stayId'];
+        const badProvenance = (!breaks.has('usage-accepts-bad-source') && e.source !== undefined && e.source !== 'main' && e.source !== 'board')
+          || (!breaks.has('usage-accepts-orphan-stay') && e.stayId !== undefined && (e.source !== 'board' || !token(e.stayId, 80)));
         return Object.keys(e).some(k => !allowed.includes(k) && !(breaks.has('usage-client-user') && k === 'userId'))
+          || badProvenance
+          || (breaks.has('usage-rejects-board') && e.source === 'board')
           || !token(e.menuId, 80) || !token(e.path, 200)
           || typeof e.sessionId !== 'string'
           || (breaks.has('usage-rejects-null') && e.spaceId === null)
@@ -319,7 +323,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
           || (!breaks.has('usage-allows-any-at') && (typeof e.at !== 'number' || !Number.isFinite(e.at)))
           || (e.name === 'dwell' && (!breaks.has('usage-allows-any-entered-at') && (typeof e.enteredAt !== 'number' || !Number.isFinite(e.enteredAt))
             || typeof e.dwellMs !== 'number' || !Number.isInteger(e.dwellMs) || (!breaks.has('usage-allows-negative-dwell') && e.dwellMs < 0)))
-          || (breaks.has('usage-drops-dwell') && e.name === 'dwell');
+          || (breaks.has('usage-drops-dwell') && e.name === 'dwell' && e.source !== 'board');
       };
       const store = (rows: readonly UsageEvent[]) => {
         const userId = state.console ? 'admin' : 'engineer';
@@ -327,7 +331,9 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         for (const e of rows) {
           if (e.name === 'dwell') {
             // §5: the same (userId, sessionId, menuId, enteredAt) dwell replaces the previous one — the final dwell wins.
-            const previous = usageRows.findIndex(x => x.name === 'dwell' && x.userId === userId && x.sessionId === e.sessionId && x.menuId === e.menuId && x.enteredAt === e.enteredAt);
+            // A board dwell with a stayId keys on (source, stayId) instead of enteredAt.
+            const previous = usageRows.findIndex(x => x.name === 'dwell' && x.userId === userId && x.sessionId === e.sessionId && x.menuId === e.menuId
+              && (e.stayId !== undefined ? x.source === e.source && x.stayId === e.stayId : x.stayId === undefined && x.enteredAt === e.enteredAt));
             if (previous >= 0) usageRows.splice(previous, 1);
           }
           usageRows.push({ ...e, userId, receivedAt });
@@ -598,6 +604,11 @@ describe('server conformance kit (#145)', () => {
       'port · deleteAnnotation with a null Scope → forbidden',
       'port · deleteAnnotation without analytics:view → forbidden',
       'port · recordUsage accepts a valid entry and dwell',
+      'port · recordUsage accepts a board entry and dwell (source, stayId)',
+      'port · recordUsage accepts an explicit main source and a legacy event without one',
+      'port · recordUsage: an unknown source is rejected',
+      'port · recordUsage: a stayId without board source is rejected',
+      'port · recordUsage: an unknown key next to source is rejected',
       'port · recordUsage accepts a global menu (spaceId null)',
       'port · recordUsage: spaceId feedback is rejected',
       'port · recordUsage: an unknown spaceId is rejected',
@@ -734,6 +745,9 @@ describe('server conformance kit (#145)', () => {
     ['usage-allows-any-at', 'port · recordUsage: a non-numeric at is rejected'],
     ['usage-allows-any-entered-at', 'port · recordUsage: a non-numeric enteredAt is rejected'],
     ['usage-allows-negative-dwell', 'port · recordUsage: a negative dwellMs is rejected'],
+    ['usage-rejects-board', 'port · recordUsage accepts a board entry and dwell (source, stayId)'],
+    ['usage-accepts-bad-source', 'port · recordUsage: an unknown source is rejected'],
+    ['usage-accepts-orphan-stay', 'port · recordUsage: a stayId without board source is rejected'],
     ['usage-aggregates-by-client-at', 'port · usageSummary counts by receive time, not the client at'],
     // client-error-rejects-all fails every positive report, including the global-menu sample — asserted below.
     ['client-error-ignores-unknown', 'port · reportClientError: an unknown key (free-text message) is rejected'],
