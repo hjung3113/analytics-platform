@@ -25,3 +25,5 @@
 - 실제 전환 결과(FeedbackOps#1289, 1번 묶음): 소비자가 `@ap/ui`의 의존 범위(`^`)대로 받으면 radix가 새 버전으로 떠 동작이 바뀐다(Radix Tabs 1.2.x: 마우스다운에 `focus()`가 더해져 자동 활성화가 `onValueChange`를 두 번 부른다). 동작을 그대로 두려면 소비자가 `pnpm.overrides`로 radix·`lucide-react`를 이전 값에 고정한다. `@ap/ui`의 `react`·`react-dom` peer(`^19.3.0`)는 FeedbackOps(19.0.0)에서 경고를 낸다 — SDK 쪽 항목(#470).
 - 시험하지 않은 것(전환 전 확인): 소비자 개발 서버·테스트, 사내 git 서버 접근(GitHub의 이 저장소는 공개라 인증이 필요 없다. 사내에서 GitHub에 닿는지 또는 사내 미러가 필요한지는 [#151](https://github.com/hjung3113/analytics-platform/issues/151)·[#232](https://github.com/hjung3113/analytics-platform/issues/232)와 함께 확인), 의존 `@ap/ui` 버전이 둘 이상일 때의 React Context 중복.
 - 소스 export는 소비자 번들러가 `.ts`를 변환해야 한다는 전제를 둔다. 소비자가 이를 못 하게 되면 dist 빌드가 필요하고, 그 모양은 `@ap/contracts`([#430](https://github.com/hjung3113/analytics-platform/issues/430))를 따른다.
+
+- React 하한(#470, 2026-10-19 결정, 되돌릴 수 있다): `@ap/ui`의 `react`/`react-dom` peer는 `^19.0.0`이다. SDK 자체 테스트는 19.3으로 돌고, 19.0.0에서는 소비자 FeedbackOps가 1~3번 묶음(#1289·#1291·#1295·#1299·#1304·#1307) 동안 단위 테스트와 시각 하네스 145/145를 통과시켜 확인했다. 그 사이에 19.0 미만에서 깨지는 API를 SDK가 쓰면 이 범위를 올리고 소비자 조건으로 기록한다.
