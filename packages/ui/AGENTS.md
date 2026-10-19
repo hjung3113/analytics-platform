@@ -8,7 +8,8 @@ UI Primitive 층(06 §13)과 디자인 시스템 CSS. 플랫폼 개념(Context, 
 - `src/components/shadcn/*` — shadcn primitive 22종의 실제 구현(원래 FeedbackOps). 공개 export는 `src/index.ts`의 명시 목록이고, `src/public-exports.test.ts`가 이름 목록을 고정한다. `DialogContentBare`·`alert-dialog`·`avatar`·`card`·`combobox`·`hover-card`·`sheet`·`textarea`·`toggle-group`은 파일만 있고 공개하지 않는다(소비자가 생기면 연다).
 - `src/components/PlatformTabs.tsx` — 예외: `TabsList`·`TabsTrigger`는 같은 패키지 shadcn 탭을 감싼 플랫폼 선택 표식 구현(ADR-0023 개정, #340). `Tabs`·`TabsContent`는 `shadcn/tabs`에서 내보낸다.
 - `src/components/Button.tsx`·`KeyboardShortcut`·`SkeletonBlocks`·`SkeletonRows`, `src/utils/`(`cn`·`motion`·`toast-target`·`useListMotion` — 이전; `isProductionEnv`(플랫폼 환경 판단)·`platform.ts`(`isMacPlatform`·`shortcutLabel` — 단축키 표기의 OS 판정과 한 가지 표기 `⌘K`/`Ctrl+K`, #300) — 플랫폼 것), `src/internal/useHorizontalOverflow.ts`, `StatusBadge.tsx`(`Tone`: success/warning/danger/neutral/info).
-- 아직 옮기지 않은 것: 레이아웃·패널·툴바·폼·피드백(#442)과 도메인 결합 `badges`·`data`·`entity`·`identity`·`indicators`·`permissions`·`rich-content`(#443). `ChipPicker`·`ManagedSystemPicker`·`AnalyticsAreaPicker`는 `badges/*`에 기대어 #443이 맡는다(#441에서 옮기지 않았다).
+- `src/{layout,panel,toolbar,forms,feedback}/` — FeedbackOps `a8d768b8`에서 옮긴 레이아웃 셸 3종(`PageShell`·`ListShell`·`WorkbenchShell`)·`ShellHeader`·`ToolbarKicker`, 상세 패널 부품(`DetailPanelHeader`·`DetailPanelSectionNav`·`FieldRow`·`Callout` 등), 목록 툴바, 폼(`DatePicker`·`FieldLabel`·`SearchInput`), 피드백(`DirtyConfirmation`·`EmptyState`·`PreviewModal`·`UndoToast`)과 그 테스트(#442). 공개 export는 `src/index.ts`(FeedbackOps 이름 그대로, FeedbackOps의 `DetailPanelSlotContext`는 옮기지 않았다). `badges/StatusBadgeFrame.tsx`는 `DetailPanelHeader`가 쓰므로 함께 옮겼고 형제 `badges`(`InternalTaskBadge`·`SeverityBadge`·`ReporterStatusBadge` 등)는 #443에 남는다. 플랫폼 페이지는 계속 `PlatformPage`를 쓰고 이 셸을 채택하지 않는다.
+- 아직 옮기지 않은 것: 도메인 결합 `badges`(`StatusBadgeFrame`은 #442에서 옮기고 공개했다)·`data`·`entity`·`identity`·`indicators`·`permissions`·`rich-content`(#443). `ChipPicker`·`ManagedSystemPicker`·`AnalyticsAreaPicker`는 `badges/*`에 기대어 #443이 맡는다(#441에서 옮기지 않았다).
 
 ## 규칙
 
@@ -18,13 +19,13 @@ UI Primitive 층(06 §13)과 디자인 시스템 CSS. 플랫폼 개념(Context, 
 - 앱은 Tailwind → `@ap/ui/styles.css` 순서로 import한다. 이 진입점은 tokens·semantic(`layer(base)`) → theme → compat → `platform-tokens.css`(`layer(base)`) → `@source` 순서를 유지한다(캐스케이드 순서 변경 금지). 폰트는 앱에서 레이어 없이 import한다.
 - label·vivid accent·control 경계의 역할과 허용 표면은 [DESIGN 접근성 pairing](../../DESIGN.md#accessibility-pairing-rules)을 따른다. 새 소비자도 이 조합을 확인한다.
 - `DialogContent`·`SheetContent`를 플랫폼에서 렌더링하면 `closeLabel`, `Combobox`를 렌더링하면 `listboxLabel`·`emptyText`를 i18n에서 전달한다(FeedbackOps#749).
-- 모션(토큰, overlay 진입·퇴장, reduced-motion)은 `theme.css`·`compat.css`와 primitive에서 그대로 온다(FeedbackOps ADR-0063, 06 §26). 플랫폼에서 덮어쓰지 않는다. `useListMotion`·모션 상수·`DetailPanelReadingColumn`은 아직 공개하지 않는다 — 플랫폼 소비자가 생기면 그때 `src/index.ts`에 연다(06 §24, #289). `prefersReducedMotion`만 공개한다(첫 소비자는 EChartImpl의 Canvas reduced-motion, #297).
+- 모션(토큰, overlay 진입·퇴장, reduced-motion)은 `theme.css`·`compat.css`와 primitive에서 그대로 온다(FeedbackOps ADR-0063, 06 §26). 플랫폼에서 덮어쓰지 않는다. `useListMotion`·모션 상수는 아직 공개하지 않는다(`DetailPanelReadingColumn`은 #442에서 공개했다) — 플랫폼 소비자가 생기면 그때 `src/index.ts`에 연다(06 §24, #289). `prefersReducedMotion`만 공개한다(첫 소비자는 EChartImpl의 Canvas reduced-motion, #297).
 - 상태 색은 `StatusBadge`/`Tone`으로만 노출한다. 새 Tone은 DESIGN 변경이다.
 - 데이터 조회, 권한 판단, 라우팅, 도메인 문구를 넣지 않는다. 그런 조합은 `@ap/components`다.
 - shadcn 컴포넌트를 공개하려면 `src/index.ts`에 export하고 `src/public-exports.test.ts` 목록을 같이 고친다. `styles/index.css`의 `@source "../"`가 이 패키지 `src` 전체를 스캔한다.
 - 이전한 테스트는 `vitest.config.ts`(`globals`, jest-dom setup `src/vitest.setup.ts`)로 돈다. FeedbackOps와 다른 의존 버전(vitest 3·jsdom 26·lucide 1.x)에서 다시 도는 것이므로 새로 생긴 실패는 코드를 고치지 말고 원인을 먼저 가린다.
 
-- `DetailPanelSlot.tsx` — 셸 상세 슬롯 등록 primitive(Provider·host hook·등록 hook). 도메인·URL을 모른다(06 §13, ADR-0013).
+- `DetailPanelSlot.tsx` — 셸 상세 슬롯 등록 primitive(Provider·host hook·등록 hook). 도메인·URL을 모른다(06 §13, ADR-0013). 슬롯은 하나이고 등록 방식은 둘이다([ADR-0047](../../docs/adr/0047-detail-panel-slot-single-registrant-model.md)): portal 등록(`useDetailPanelSlot()` — host를 받아 직접 portal, 제공자 없으면 throw)과 내용 등록(`layout/useDetailPanelContent(node)` — 셸의 `detailPanel` prop, 제공자 없으면 no-op, `undefined`면 비움). 둘은 한 등록자 목록을 공유해 마지막 등록자가 이기고 정리 시 직전 등록자가 돌아온다. 내용 등록의 내용은 Provider가 host에 portal로 그린다(그래서 Provider 위치의 React context를 본다).
 
 ## 검증
 

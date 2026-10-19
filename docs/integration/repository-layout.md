@@ -74,7 +74,8 @@ git -C products/feedbackops diff --stat HEAD origin/develop
 
 - 출처: FeedbackOps `packages/ui` 커밋 `a8d768b8`(`origin/develop`, 2026-10-19). 값·클래스 문자열은 그대로 옮겼다. FeedbackOps 루트의 `patchedDependencies`(`@formkit/auto-animate@0.10.0`)도 함께 가져왔다(`patches/`, `pnpm-workspace.yaml`).
 - 옮긴 것(1묶음, `packages/ui/src/`): `styles/`(tokens·semantic·theme·compat + 소비 계약·토큰 충실도·대비 테스트), `utils/`(cn·motion·toast-target·useListMotion), `internal/useHorizontalOverflow`, `components/`(Button·KeyboardShortcut·SkeletonBlocks·SkeletonRows), `components/shadcn/` 22개(alert-dialog·alert·avatar·badge·button·card·checkbox·combobox·dialog·dropdown-menu·hover-card·input·label·popover·radio-group·select·sheet·skeleton·tabs·textarea·toggle-group·tooltip)와 그 테스트. 플랫폼 확장 CSS는 `platform-tokens.css`로 이름을 바꿨다(옛 `tokens.css`).
-- 아직 옮기지 않은 것: 2묶음(#442) 레이아웃·패널·툴바·폼·피드백, 3묶음(#443) `badges`·`data`·`entity`·`identity`·`indicators`·`permissions`·`rich-content`. `ChipPicker`·`ManagedSystemPicker`·`AnalyticsAreaPicker`(+`pickers.test`)는 `badges/*`에 기대어 도메인 결합이므로 #443이 맡는다.
+- 2묶음(#442, `packages/ui/src/`): `layout/`(ListShell·PageShell·ShellHeader·ToolbarKicker·WorkbenchShell, `useDetailPanelSlot`은 플랫폼 슬롯의 `layout/useDetailPanelContent`로 대체 — [ADR-0047](../adr/0047-detail-panel-slot-single-registrant-model.md)), `panel/`, `toolbar/`, `forms/`, `feedback/`과 그 테스트, 그리고 `DetailPanelHeader`가 쓰는 `badges/StatusBadgeFrame.tsx` 한 개. oxlint 주석은 `eslint-disable-next-line … -- 이유`로 바꿨다.
+- 아직 옮기지 않은 것: 3묶음(#443) `badges`(`StatusBadgeFrame` 제외)·`data`·`entity`·`identity`·`indicators`·`permissions`·`rich-content`. `ChipPicker`·`ManagedSystemPicker`·`AnalyticsAreaPicker`(+`pickers.test`)는 `badges/*`에 기대어 도메인 결합이므로 #443이 맡는다.
 - 이후 FeedbackOps의 `@fops/ui`는 FeedbackOps에 그대로 남고, 이전된 묶음의 모양 변경은 `@ap/ui`에서 먼저 한다. FeedbackOps가 SDK를 쓰는 전환 시점 = #443 완료 + 배포 경로 확정(#151).
 
 ## 개발 및 에이전트 진입점

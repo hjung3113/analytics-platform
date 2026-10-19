@@ -1,0 +1,83 @@
+/// <reference types="@testing-library/jest-dom" />
+import { render, screen } from '@testing-library/react';
+import { PanelTitleBlock } from '../PanelTitleBlock.js';
+
+describe('PanelTitleBlock', () => {
+  it('renders title text', () => {
+    render(<PanelTitleBlock title="VOC 제목" />);
+    expect(screen.getByText('VOC 제목')).toBeInTheDocument();
+  });
+
+  it('renders as h2 for correct heading hierarchy', () => {
+    render(<PanelTitleBlock title="제목 테스트" />);
+    expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument();
+  });
+
+  it('renders badges slot when provided', () => {
+    render(
+      <PanelTitleBlock
+        title="제목"
+        badges={
+          <>
+            <span data-testid="badge-a">badge A</span>
+            <span data-testid="badge-b">badge B</span>
+          </>
+        }
+      />,
+    );
+    expect(screen.getByTestId('badge-a')).toBeInTheDocument();
+    expect(screen.getByTestId('badge-b')).toBeInTheDocument();
+  });
+
+  it('does not render badges wrapper when badges is undefined', () => {
+    const { container } = render(<PanelTitleBlock title="제목" />);
+    // only 1 child div (the h2 wrapper); no badges row
+    const children = container.firstElementChild?.children;
+    expect(children?.length).toBe(1);
+  });
+
+  it('applies custom className', () => {
+    const { container } = render(<PanelTitleBlock title="x" className="custom-cls" />);
+    expect(container.firstElementChild).toHaveClass('custom-cls');
+  });
+
+  it('renders prototype panel-title typography by default: text-lg font-semibold tracking-tight leading-[1.35]', () => {
+    render(<PanelTitleBlock title="제목" />);
+    const h2 = screen.getByRole('heading', { level: 2 });
+    expect(h2).toHaveClass('text-lg');
+    expect(h2).toHaveClass('font-semibold');
+    expect(h2).toHaveClass('tracking-tight');
+    expect(h2).toHaveClass('leading-[1.35]');
+    expect(h2).toHaveClass('text-text-primary');
+    expect(h2).not.toHaveClass('text-xl');
+  });
+
+  it('renders xl typography when size="xl": text-xl font-bold tracking-tight (per title-reference.png)', () => {
+    render(<PanelTitleBlock title="제목" size="xl" />);
+    const h2 = screen.getByRole('heading', { level: 2 });
+    expect(h2).toHaveClass('text-xl');
+    expect(h2).toHaveClass('font-bold');
+    expect(h2).toHaveClass('tracking-tight');
+    expect(h2).not.toHaveClass('text-lg');
+  });
+
+  it('renders lg typography when size="lg" explicit (backward compat preservation)', () => {
+    render(<PanelTitleBlock title="제목" size="lg" />);
+    const h2 = screen.getByRole('heading', { level: 2 });
+    expect(h2).toHaveClass('text-lg');
+    expect(h2).toHaveClass('font-semibold');
+  });
+
+  it.each([['zero inset', 'px-0! py-0!']])(
+    'preserves legacy classes for %s',
+    (_name, oldClassName) => {
+      const before = render(<PanelTitleBlock title="제목" className={oldClassName} />);
+      const oldClasses = [...(before.container.firstElementChild?.classList ?? [])].sort();
+      before.unmount();
+
+      const after = render(<PanelTitleBlock title="제목" inset="none" />);
+      const variantClasses = [...(after.container.firstElementChild?.classList ?? [])].sort();
+      expect(variantClasses).toEqual(oldClasses);
+    },
+  );
+});
