@@ -6,16 +6,17 @@ import { PACKAGE_PREFIX } from './prefix.js';
 /**
  * Nearest package.json whose `name` starts with the package prefix, walking
  * up from `startDir`. Lexical only: no realpath/symlink resolution.
+ * With `anyName`, any named package.json owns the file (an external module keeps its own scope).
  * Returns null when no owning package root exists (bad filePath must not pass).
  */
-function findOwningPackage(startDir) {
+function findOwningPackage(startDir, anyName = false) {
   let dir = startDir;
   for (;;) {
     const manifest = path.join(dir, 'package.json');
     if (fs.existsSync(manifest)) {
       try {
         const pkg = JSON.parse(fs.readFileSync(manifest, 'utf8'));
-        if (typeof pkg.name === 'string' && pkg.name.startsWith(PACKAGE_PREFIX)) {
+        if (typeof pkg.name === 'string' && (anyName || pkg.name.startsWith(PACKAGE_PREFIX))) {
           return { root: dir, name: pkg.name };
         }
       } catch {
@@ -41,7 +42,7 @@ const noRelativePackageEscape = {
     docs: {
       description: 'Disallow relative imports and exports that leave the owning workspace package',
     },
-    schema: [],
+    schema: [{ type: 'object', properties: { anyPackageName: { type: 'boolean' } }, additionalProperties: false }],
     messages: {
       escape:
         "Relative path '{{source}}' escapes package '{{pkg}}'. Import the package entry ('{{pkg}}') instead.",
@@ -51,7 +52,7 @@ const noRelativePackageEscape = {
   },
   create(context) {
     const fileDir = path.dirname(context.filename);
-    const owner = findOwningPackage(fileDir);
+    const owner = findOwningPackage(fileDir, context.options[0]?.anyPackageName === true);
 
     const checkLiteral = (source) => {
       if (!source) return;

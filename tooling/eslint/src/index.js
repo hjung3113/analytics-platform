@@ -360,6 +360,22 @@ export const serverConformance = [
   layerConfig({ restriction: { allow: ['contracts'], denyReact: true, mockAllowed: false } }),
 ];
 
+// Module package (ADR-0053): lives in another repository, sees only the host contract and the SDK UI (with its
+// CSS subpaths). Never kernel, shell, components, menus or mock-server. Not applied to a package in this repo yet.
+const HOST_MODULE_RESTRICTION = {
+  allow: ['contracts', 'ui'],
+  denyReact: false,
+  mockAllowed: false,
+  // gitignore semantics: a file under styles/ is re-included only when its directory is too.
+  allowSubpaths: ['ui/styles.css', 'ui/styles', 'ui/styles/*.css'],
+};
+
+/** @type {import('eslint').Linter.Config[]} */
+export const hostModule = [
+  // The module keeps its own package scope, so relative imports are checked against its nearest package root.
+  layerConfig({ restriction: HOST_MODULE_RESTRICTION, extraRules: { 'ap/no-relative-package-escape': ['error', { anyPackageName: true }] } }),
+];
+
 /** @type {import('eslint').Linter.Config[]} */
 export const menu = [
   layerConfig({

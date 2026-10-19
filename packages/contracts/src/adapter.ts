@@ -1,5 +1,6 @@
 import type { Text } from './i18n.js';
 import type { Permission, SpaceId } from './menu.js';
+import type { ModuleScopedId } from './host.js';
 import type { AuditAction, AuditEvent, AuditSource } from './audit.js';
 import type { ApiResponse } from './response.js';
 import type { Condition, IdSet } from './url.js';
@@ -12,7 +13,7 @@ import type { MenuQuery } from './menu-query.js';
  * Session-shaped data is a synchronous snapshot plus `subscribe`, so the shell renders without a loading gap;
  * a real implementation bootstraps the session before mounting. Per-request checks stay asynchronous.
  */
-export type SessionUser = { id: string; name: string; title: Text; permissions: readonly Permission[] };
+export type SessionUser = { id: string; name: string; title: Text; permissions: readonly (Permission | ModuleScopedId)[] };
 
 /** A scope the user holds at least one room_name grant in. Counts are for display only; the server re-validates. */
 export type ScopeOption = { id: string; label: string; grantedRooms: number; totalRooms: number };

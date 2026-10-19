@@ -192,3 +192,16 @@ describe('toast auto-dismiss timers', () => {
     }
   });
 });
+
+describe('module grants are not platform grants (ADR-0053)', () => {
+  it('a session holding only a module permission opens and sees no platform menu', () => {
+    function Probe() {
+      const { canOpen, can, visibleMenus, accessibleSpaces } = usePlatform();
+      return <p data-testid="grant">{[can('platform:view'), can('console:access'), canOpen('equipment'), canOpen('admin-roles'), visibleMenus.length, accessibleSpaces.length].join(',')}</p>;
+    }
+    window.history.replaceState(null, '', '/equipment');
+    render(<I18nProvider><PlatformProvider adapter={fixture(['fx:view'])} registry={registry}><Probe /></PlatformProvider></I18nProvider>);
+
+    expect(screen.getByTestId('grant').textContent).toBe('false,false,false,false,0,0');
+  });
+});

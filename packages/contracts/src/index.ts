@@ -1,6 +1,7 @@
 export * from './adapter.js';
 export * from './audit.js';
 export * from './feedbackops-link.js';
+export * from './host.js';
 export * from './i18n.js';
 export * from './instant.js';
 export * from './menu.js';

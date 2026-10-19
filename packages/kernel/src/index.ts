@@ -6,6 +6,7 @@ export { RETURN_CONTEXT_LABELS, PlatformLink, PlatformProvider, usePlatform, use
 export { useAdapterRequest, useEntityQuery, useMenuFetch, useMenuQuery, usePlatformQuery, type MenuFetch, type QueryState, type RequestState } from './query';
 export {
   CONTEXT_LABELS, createRegistry, PAGE_TYPE_LABELS, pathFor, RegistryError,
-  type GroupDef, type MenuEntry, type PageProps, type Registry, type RouteMatch,
+  type AnyGroupId, type GroupDef, type MenuEntry, type ModuleGroupDef, type ModuleMenuEntry, type PageProps, type PlatformGroupDef, type PlatformMenuEntry, type Registry, type RouteMatch,
 } from './registry';
 export { type PageNavigation } from './pageNavigation';
+export { mountModule, type MountOptions } from './module';

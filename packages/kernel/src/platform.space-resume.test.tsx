@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Session, SpaceDef } from '@ap/contracts';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
-import { createRegistry } from './registry';
+import { createRegistry, type PlatformMenuEntry } from './registry';
 import { noContext, testAdapter, testSession, testSpace } from './testing';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
@@ -187,7 +187,7 @@ const entryRegistry = createRegistry({
   groups: [...registry.groups, { id: 'analytics', label: { ko: '분석', en: 'Analysis' }, icon: House, space: 'analytics' }],
   menus: [
     registry.menuById('admin-roles'),
-    { ...registry.menuById('admin-child'), id: 'later-group', group: 'analytics', primary: true, path: '/analysis/later' },
+    { ...(registry.menuById('admin-child') as PlatformMenuEntry), id: 'later-group', group: 'analytics', primary: true, path: '/analysis/later' },
     registry.menuById('admin-child'),
     { ...registry.menuById('equipment'), permission: 'analytics:view' },
     { ...registry.menuById('equipment-detail'), navHidden: false },

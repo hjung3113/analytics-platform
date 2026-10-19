@@ -1,14 +1,14 @@
 import { House } from 'lucide-react';
 import { describe, expect, it } from 'vitest';
-import type { GroupId, SpaceDef } from '@ap/contracts';
-import { createRegistry, RegistryError, type GroupDef, type MenuEntry } from './registry';
+import type { SpaceDef } from '@ap/contracts';
+import { createRegistry, RegistryError, type GroupDef, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from './registry';
 
 const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const groups: GroupDef[] = [{ id: 'metrics', label: { ko: '지표', en: 'Metrics' }, icon: House, space: 'analytics' }];
 const analyticsSpace: SpaceDef = { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'catalog' };
 const spaces: SpaceDef[] = [analyticsSpace];
 const homeA: SpaceDef[] = [{ ...analyticsSpace, homeMenuId: 'a' }];
-const menu = (id: string, path: string, extra: Partial<MenuEntry> = {}): MenuEntry => ({
+const menu = (id: string, path: string, extra: Partial<PlatformMenuEntry> = {}): MenuEntry => ({
   id, group: 'metrics', label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House,
   permission: 'metrics:view', requiresScope: false, context: none, pageType: 'catalog',
   features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], ...extra,
@@ -180,9 +180,15 @@ describe('spaces (06 §9.1)', () => {
   });
 
   it('allows eight groups in one space (no per-space group cap)', () => {
-    const ids = ['overview', 'equipment', 'masterData', 'analytics', 'metrics', 'noticeVoc', 'admin', 'genProbe'];
-    const eight: GroupDef[] = ids.map(id => ({ id: id as GroupId, label: { ko: id, en: id }, icon: House, space: 'analytics' }));
-    const eightMenus = eight.map((g, i) => menu(`m${i}`, `/m${i}`, { group: g.id, primary: true }));
+    // The platform vocabulary is closed at runtime, so the eighth group is a module group.
+    const ids = ['overview', 'equipment', 'masterData', 'analytics', 'metrics', 'noticeVoc', 'admin'] as const;
+    const platform: GroupDef[] = ids.map(id => ({ id, label: { ko: id, en: id }, icon: House, space: 'analytics' }));
+    const probe: GroupDef = { id: 'probe:main', module: 'probe', label: { ko: 'p', en: 'p' }, icon: House, space: 'analytics' };
+    const eight = [...platform, probe];
+    const eightMenus: MenuEntry[] = [
+      ...ids.map((id, i) => menu(`m${i}`, `/m${i}`, { group: id, primary: true })),
+      { ...menu('m7', '/m7', { primary: true }), group: 'probe:main', module: 'probe', permission: 'probe:view', component: undefined, moduleScreen: () => null } as MenuEntry,
+    ];
     expect(() => createRegistry({ spaces: [{ ...analyticsSpace, homeMenuId: 'm0' }], groups: eight, menus: eightMenus })).not.toThrow();
   });
 });
@@ -197,4 +203,66 @@ describe('matchRoute: static segments win, whatever the declaration order', () =
       expect(r.matchRoute('/metrics/cycle_time')).toMatchObject({ menu: { id: 'detail' }, params: { metricId: 'cycle_time' } });
     });
   }
+});
+
+describe('open vocabulary (ADR-0053)', () => {
+  const modGroup: GroupDef = { id: 'fx:main', module: 'fx', label: { ko: '모', en: 'M' }, icon: House, space: 'analytics' };
+  const modMenu = (over: Partial<ModuleMenuEntry> = {}): ModuleMenuEntry => ({
+    id: 'fx-home', module: 'fx', group: 'fx:main', permission: 'fx:view', label: { ko: 'f', en: 'f' }, description: { ko: '', en: '' }, path: '/fx', icon: House,
+    requiresScope: false, context: none, pageType: 'catalog', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], primary: true,
+    moduleScreen: () => null, ...over,
+  });
+
+  it('accepts a module group and permission with their module prefix', () => {
+    expect(() => createRegistry({ spaces, groups: [...groups, modGroup], menus: [catalog, modMenu()] })).not.toThrow();
+  });
+
+  it('rejects a module permission or group id without its module prefix', () => {
+    expect(() => createRegistry({ spaces, groups: [...groups, modGroup], menus: [catalog, modMenu({ permission: 'other:view' })] })).toThrow(/needs the "fx:" prefix/);
+    expect(() => createRegistry({ spaces, groups: [...groups, { ...modGroup, id: 'other:main' }], menus: [catalog] })).toThrow(/needs the "fx:" prefix/);
+  });
+
+  it('rejects a platform menu placed in a module group', () => {
+    const stray = menu('stray', '/stray', { group: 'fx:main' as never });
+
+    expect(() => createRegistry({ spaces, groups: [...groups, modGroup], menus: [catalog, modMenu(), stray] })).toThrow(/different modules/);
+  });
+
+  it('rejects a module whose id is a platform permission namespace or whose permission equals a platform permission', () => {
+    const console_ = { ...modGroup, id: 'console:main', module: 'console' } as GroupDef;
+
+    expect(() => createRegistry({ spaces, groups: [...groups, console_], menus: [catalog, modMenu({ module: 'console', group: 'console:main', permission: 'console:access' })] })).toThrow(/reserved platform namespace/);
+    expect(() => createRegistry({ spaces, groups: [...groups, console_], menus: [catalog, modMenu({ module: 'console', group: 'console:main', permission: 'console:other' })] })).toThrow(/reserved platform namespace/);
+    expect(() => createRegistry({ spaces, groups: [...groups, console_], menus: [catalog] })).toThrow(/reserved platform namespace/);
+  });
+
+  // Untyped data reaches the registry at runtime, so each variant is checked there too (not only by the types).
+  it('rejects, at runtime, a module-shaped group or menu with its module discriminator removed', () => {
+    const bareGroup = { ...modGroup, module: undefined } as unknown as GroupDef;
+    const bareMenu = modMenu({ module: undefined } as never);
+
+    expect(() => createRegistry({ spaces, groups: [...groups, bareGroup], menus: [catalog] })).toThrow(/not a platform group/);
+    expect(() => createRegistry({ spaces, groups: [...groups, { ...modGroup, id: 'metrics2' as never, module: undefined } as never], menus: [catalog] })).toThrow(/not a platform group/);
+    expect(() => createRegistry({ spaces, groups, menus: [catalog, { ...bareMenu, group: 'metrics', primary: false } as never] })).toThrow(/not a platform permission/);
+  });
+
+  it('rejects a menu with moduleScreen but no module, even in a platform group with a platform permission', () => {
+    const stray = { ...menu('stray', '/stray'), moduleScreen: () => null } as unknown as MenuEntry;
+
+    expect(() => createRegistry({ spaces, groups, menus: [catalog, stray] })).toThrow(/moduleScreen but no module/);
+  });
+
+  it('rejects ownership mismatch in both directions and a near-miss prefix', () => {
+    expect(() => createRegistry({ spaces, groups: [...groups, modGroup], menus: [catalog, modMenu({ module: 'gx', permission: 'gx:view' })] })).toThrow(/different modules/);
+    expect(() => createRegistry({ spaces, groups: [...groups, modGroup], menus: [catalog, modMenu({ permission: 'fixtures:view', module: 'fixture' })] })).toThrow(/needs the "fixture:" prefix/);
+    expect(() => createRegistry({ spaces, groups: [...groups, { ...modGroup, id: 'fixtures:main', module: 'fixture' }], menus: [catalog] })).toThrow(/needs the "fixture:" prefix/);
+    expect(() => createRegistry({ spaces, groups: [...groups, { ...modGroup, id: 'fixture:main', module: 'fixture' }], menus: [catalog, modMenu({ group: 'fixture:main', module: 'fixture', permission: 'fixtures:view' })] })).toThrow(/needs the "fixture:" prefix/);
+  });
+
+  it('keeps the platform vocabulary closed at compile time', () => {
+    // @ts-expect-error a platform menu's permission must be a Permission
+    menu('typo', '/typo', { permission: 'fx:view' });
+    // @ts-expect-error a platform menu's group must be a GroupId
+    menu('typo', '/typo', { group: 'fx:main' });
+  });
 });

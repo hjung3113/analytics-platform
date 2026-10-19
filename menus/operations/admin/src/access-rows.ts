@@ -3,7 +3,7 @@
  * permissions and per-site room grants only — the menu list is this client's registry joined to that
  * permission set ("this registry declares this menu for this permission"), never an authorization proof.
  */
-import type { AccessPrincipal, Permission, SpaceId, Text } from '@ap/contracts';
+import type { AccessPrincipal, ModuleScopedId, Permission, SpaceId, Text } from '@ap/contracts';
 import type { Registry } from '@ap/kernel';
 import { spaceFields } from './space-fields';
 
@@ -20,7 +20,7 @@ export type MenuForPermission = {
   label: Text;
   path: string;
   /** The menu's own declared permission — the key the drawer groups menus under. */
-  permission: Permission;
+  permission: Permission | ModuleScopedId;
   /** The menu's space itself gates entry behind a permission the principal lacks (06 §9.1): held menu, gated space. A global utility menu is never space-gated. */
   spaceGated: boolean;
   spaceId: SpaceId | null;
@@ -30,7 +30,7 @@ export type MenuForPermission = {
 /** Menus the registry declares for this permission set, sorted by menu id. Space entry is client-side:
  *  group → GroupDef.space → SpaceDef.permission; a space with no permission is open to every signed-in user.
  *  A global utility group (`space: null`) is menu permission only. */
-export function menusForPermissions(registry: Registry, permissions: readonly Permission[]): MenuForPermission[] {
+export function menusForPermissions(registry: Registry, permissions: readonly (Permission | ModuleScopedId)[]): MenuForPermission[] {
   return registry.menus
     .filter(menu => permissions.includes(menu.permission))
     .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))

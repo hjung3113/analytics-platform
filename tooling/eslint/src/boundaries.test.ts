@@ -9,6 +9,7 @@ import {
   app,
   components,
   contracts,
+  hostModule,
   kernel,
   menu,
   mockServer,
@@ -28,6 +29,7 @@ const PRESETS: Record<string, Linter.Config[]> = {
   'packages/components': components,
   'packages/shell': shell,
   'packages/mock-server': mockServer,
+  'modules/fixture': hostModule,
   'packages/server-conformance': serverConformance,
   'menus/_global/home': menu,
   'menus/analytics/analytics': menu,
@@ -45,6 +47,15 @@ async function lint(relFile: string, code: string): Promise<Linter.LintMessage[]
     overrideConfig: preset,
   });
   const results = await eslint.lintText(code, { filePath: path.join(REPO_ROOT, relFile) });
+  return results[0]?.messages ?? [];
+}
+
+const EQV = path.join(HERE, 'fixtures', 'eqv-module');
+
+/** hostModule on an external package whose name is not in the platform scope (fixtures/eqv-module). */
+async function lintExternal(relFile: string, code: string): Promise<Linter.LintMessage[]> {
+  const eslint = new ESLint({ cwd: EQV, overrideConfigFile: true, overrideConfig: hostModule });
+  const results = await eslint.lintText(code, { filePath: path.join(EQV, relFile) });
   return results[0]?.messages ?? [];
 }
 
@@ -97,6 +108,19 @@ const rows: Row[] = [
   { file: 'packages/mock-server/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
   { file: 'packages/mock-server/src/x.ts', code: `import type { X } from 'react';`, rule: 'no-restricted-imports' },
   { file: 'packages/mock-server/src/x.ts', code: `import { x } from '@ap/contracts';`, rule: '' },
+
+  // --- hostModule (ADR-0053): contracts and ui (with CSS subpaths) only ---
+  { file: 'modules/fixture/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
+  { file: 'modules/fixture/src/x.ts', code: `import { x } from '@ap/shell';`, rule: 'no-restricted-imports' },
+  { file: 'modules/fixture/src/x.ts', code: `import { x } from '@ap/components';`, rule: 'no-restricted-imports' },
+  { file: 'modules/fixture/src/x.ts', code: `import { x } from '@ap/menu-home';`, rule: 'no-restricted-imports' },
+  { file: 'modules/fixture/src/x.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
+  { file: 'modules/fixture/src/x.ts', code: `import { x } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
+  { file: 'modules/fixture/src/x.ts', code: `import type { ModuleHost } from '@ap/contracts';`, rule: '' },
+  { file: 'modules/fixture/src/x.ts', code: `import { cn } from '@ap/ui';`, rule: '' },
+  { file: 'modules/fixture/src/x.ts', code: `import '@ap/ui/styles.css';`, rule: '' },
+  { file: 'modules/fixture/src/x.ts', code: `import '@ap/ui/styles/tokens.css';`, rule: '' },
+  { file: 'modules/fixture/src/x.ts', code: `import { x } from '@ap/ui/src/index';`, rule: 'no-restricted-imports' },
 
   // --- menu mock-server carve-out (20-28) ---
   { file: MENU, code: `import { x } from '@ap/menu-equipment';`, rule: 'no-restricted-imports' },
@@ -444,6 +468,17 @@ describe('boundary + contract fixtures', () => {
       messages.every((m) => m.ruleId === rule),
       dump,
     ).toBe(true);
+  });
+
+  it.each([
+    ['src/x.ts', `import { Screen } from './Screen';`, ''],
+    ['src/deep/x.ts', `import { Screen } from '../Screen';`, ''],
+    ['src/x.ts', `import { x } from '../../escape';`, 'ap/no-relative-package-escape'],
+    ['src/x.ts', `export * from '../../../../packages/contracts/src/url';`, 'ap/no-relative-package-escape'],
+    ['src/x.ts', `import { x } from '@ap/kernel';`, 'no-restricted-imports'],
+  ])('hostModule in a non-platform-scope package: %s %s', async (file, code, rule) => {
+    const messages = await lintExternal(file, code);
+    expect(messages.map((m) => m.ruleId), JSON.stringify(messages, null, 2)).toEqual(rule === '' ? [] : [rule]);
   });
 
   it('keeps the @ap/ prefix literal in src js to prefix.js only', async () => {

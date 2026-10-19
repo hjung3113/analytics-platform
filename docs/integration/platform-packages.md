@@ -15,7 +15,7 @@
 
 ## 3. 패키지 구성
 
-> 목표 의존 방향은 SDK ← 제품 한 방향이다([ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), 2026-10-19). 아래 `@ap/ui → @fops/ui` 간선(규칙 7)은 지금 구조이고, 토큰·primitive 코드를 SDK로 옮길 때 없앤다.
+> 목표 의존 방향은 SDK ← 제품 한 방향이다([ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), 2026-10-19). 아래 `@ap/ui → @fops/ui` 간선(규칙 8)은 지금 구조이고, 토큰·primitive 코드를 SDK로 옮길 때 없앤다.
 
 
 루트에 pnpm workspace를 두고 세 갈래로 나눈다: `packages/`(플랫폼), `menus/<space>/<group>/`(Consumer, `null` 소속은 `_global`), `apps/`(조립 지점). 이름 접두사는 Candidate `@ap/`.
@@ -63,7 +63,8 @@
 4. 각 패키지는 `package.json` `exports`로 공개 진입점만 연다. `@ap/components/src/...` 같은 깊은 경로 import 금지.
 5. `contracts`는 React·브라우저 API에 타입 수준으로도 의존하지 않는다(향후 백엔드와 공유할 수 있게). 아이콘·화면 컴포넌트처럼 React 타입이 필요한 manifest 필드는 `kernel`의 `MenuEntry`가 소유한다.
 6. 규칙 1–3은 테스트 파일에도 적용한다. 층을 넘는 검증은 그 위층(메뉴 또는 앱)의 통합 테스트로 둔다.
-7. `@fops/*` 직접 import는 `@ap/ui`에서 공개 진입점 `@fops/ui`를 소비하는 경우만 허용한다. primitive는 나머지 모든 플랫폼 코드에서 `@ap/ui`를 통해 쓴다(ADR-0011).
+7. **모듈 패키지**(다른 저장소에서 플랫폼에 올라오는 화면 묶음, [ADR-0053](../adr/0053-host-module-contract-v1.md))는 `@ap/contracts`와 `@ap/ui`(+ `@ap/ui` CSS 하위 경로)만 import한다. `@ap/kernel`·`@ap/shell`·`@ap/components`·`menu-*`·`mock-server`는 import하지 않는다. `tooling/eslint`의 `hostModule` 프리셋이 강제하며, 이 저장소의 실제 패키지에는 아직 적용하지 않는다(고정 모듈 fixture는 #489). 모듈은 자기 패키지 루트 안의 상대 import만 쓴다(패키지 이름 접두사와 무관). 열린 어휘(`<moduleId>:` 권한·그룹)와 등록 `mountModule`은 Kernel이 소유한다. 모듈 id는 플랫폼 권한 네임스페이스(`PERMISSIONS`의 `:` 앞)를 쓸 수 없고, 화면 id는 메뉴 id `<moduleId>:<screenId>`로 등록된다.
+8. `@fops/*` 직접 import는 `@ap/ui`에서 공개 진입점 `@fops/ui`를 소비하는 경우만 허용한다. primitive는 나머지 모든 플랫폼 코드에서 `@ap/ui`를 통해 쓴다(ADR-0011).
 
 ## 4. Kernel 포트: `PlatformAdapter`
 

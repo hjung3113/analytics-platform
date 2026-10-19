@@ -57,7 +57,7 @@ function checkAuditSeeds(seeds: readonly AuditEvent[]): void {
 
 export function createMockAdapter(o: {
   endpoints: readonly AnyMockEndpoint[];
-  registry: { menus: readonly MenuMeta[] };
+  registry: { menus: readonly (Omit<MenuMeta, 'group' | 'permission'> & { permission: string })[] };
   /** Audit events of menu-owned destinations, from the app's mock assembly (ADR-0048). */
   auditEvents?: readonly AuditEvent[];
 }): PlatformAdapter {

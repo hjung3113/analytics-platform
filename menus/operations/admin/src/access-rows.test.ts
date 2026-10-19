@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { AccessPrincipal, Permission } from '@ap/contracts';
 import { House, Wrench } from 'lucide-react';
-import { createRegistry, type MenuEntry } from '@ap/kernel';
+import { createRegistry, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from '@ap/kernel';
 import { grantTotals, menusForPermissions } from './access-rows';
 
 const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false } as const;
-const menu = (over: Partial<MenuEntry> & Pick<MenuEntry, 'id' | 'permission'>): MenuEntry => ({
+const menu = (over: Partial<PlatformMenuEntry> & Pick<PlatformMenuEntry, 'id' | 'permission'>): MenuEntry => ({
   group: 'admin', label: { ko: over.id!, en: over.id! }, description: { ko: '', en: '' }, path: `/${over.id}`,
   icon: House, requiresScope: false, pageType: 'management', context: none, features: noFeatures, pageKeys: [],
   ...over,
@@ -82,5 +82,33 @@ describe('menusForPermissions (#49 drawer join)', () => {
 
   it('joins nothing for permissions no menu declares', () => {
     expect(menusForPermissions(registry, ['platform:view', 'voc:view'])).toEqual([]);
+  });
+});
+
+const moduleMenu = (): ModuleMenuEntry => ({
+  id: 'fx-home', module: 'fx', group: 'fx:main', permission: 'fx:view', label: { ko: '모듈', en: 'Module' }, description: { ko: '', en: '' }, path: '/fx', icon: House,
+  requiresScope: false, context: none, pageType: 'management', features: noFeatures, pageKeys: [], primary: true, moduleScreen: () => null,
+});
+const moduleRegistry = () => createRegistry({
+  spaces: [{ id: 'operations', label: { ko: '운영', en: 'Ops' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'fx-home' }],
+  groups: [{ id: 'fx:main', module: 'fx', label: { ko: '모듈', en: 'Module' }, icon: House, space: 'operations' }],
+  menus: [moduleMenu()],
+});
+
+describe('menusForPermissions module menu (ADR-0053)', () => {
+  it('returns no platform row for a session that holds only a module permission', () => {
+    const platform = createRegistry({
+      spaces: [{ id: 'operations', label: { ko: '운영', en: 'Ops' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'p' }],
+      groups: [{ id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' }],
+      menus: [{ ...moduleMenu(), id: 'p', group: 'admin', module: undefined, permission: 'console:access', moduleScreen: undefined }],
+    });
+
+    expect(menusForPermissions(platform, ['fx:view'])).toEqual([]);
+  });
+
+  it('joins a module menu by its module-prefixed permission', () => {
+    const joined = menusForPermissions(moduleRegistry(), ['fx:view', 'platform:view']);
+
+    expect(joined).toMatchObject([{ id: 'fx-home', permission: 'fx:view', spaceGated: false }]);
   });
 });
