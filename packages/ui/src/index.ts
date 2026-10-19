@@ -70,38 +70,13 @@ export { DetailPanelHeaderActions, type DetailPanelHeaderActionsProps } from './
 export { DetailPanelSectionNav, type DetailPanelSectionNavProps, type PanelSection } from './panel/DetailPanelSectionNav';
 export { StatusBadgeFrame, type StatusBadgeFrameProps, type StatusBadgeAppearance, type StatusBadgeTone } from './badges/StatusBadgeFrame';
 
-// Domain-coupled rest of FeedbackOps `packages/ui` (#443, ADR-0046): pickers, badges, identity, indicators, data, entity, permissions, rich content.
-export {
-  ManagedSystemPicker,
-  type ManagedSystemPickerProps,
-  type PickerOption,
-} from './components/ManagedSystemPicker.js';
-export {
-  AnalyticsAreaPicker,
-  type AnalyticsAreaPickerProps,
-} from './components/AnalyticsAreaPicker.js';
-export { RichEditor, type RichEditorProps, type RichEditorSurface, type RichEditorToolbarApi, type RichEditorAttachmentResult, type TipTapDoc } from './rich-content/RichEditor';
-export { AttachButton, type AttachButtonProps } from './rich-content/toolbar/AttachButton';
-export type { Editor as TipTapEditor } from '@tiptap/react';
-export { RichContentRenderer, type RichContentRendererProps, type RichContentMode } from './rich-content/RichContentRenderer';
-export { AttachmentRef, type AttachmentRefAttrs } from './rich-content/extensions/attachmentRef';
-export { Mention, type MentionAttrs } from './rich-content/extensions/mention';
+// Domain-neutral FeedbackOps UI retained in #443 (ADR-0046); domain-coupled parts returned by ADR-0050.
 export { SeverityIndicator, type SeverityIndicatorProps, type SeverityEnum } from './indicators/SeverityIndicator';
 export { ProgressMeter, type ProgressMeterProps } from './indicators/ProgressMeter';
-export { SeverityBadge, SEVERITY_LABELS, type SeverityBadgeProps } from './badges/SeverityBadge';
-export { ReporterStatusBadge, type ReporterStatusBadgeProps, type ReporterFacingStatusEnum } from './badges/ReporterStatusBadge';
-export { InternalTaskBadge, type InternalTaskBadgeProps, type InternalTaskStatusEnum } from './badges/InternalTaskBadge';
-export { UnassignedBadge, type UnassignedBadgeProps } from './badges/UnassignedBadge';
-export { ManagedSystemPill, type ManagedSystemPillProps } from './badges/ManagedSystemPill';
-export { ManagedSystemMark, type ManagedSystemMarkProps } from './badges/ManagedSystemMark';
-export { managedSystemMarkColor, managedSystemMarkToken, type ManagedSystemMarkToken } from './badges/managed-system-mark.js';
-export { OutlineBadge, type OutlineBadgeProps } from './badges/OutlineBadge';
-export { EntityIconBadge, type EntityIconBadgeProps, type EntityIconType, ENTITY_ICON_MAP } from './badges/EntityIconBadge';
 export { UserAvatar, type UserAvatarProps, type AvatarUser } from './identity/UserAvatar';
 export { UserChip, type UserChipProps } from './identity/UserChip';
 export { ObjectRow, type ObjectRowProps, type ObjectRowDensity, type ObjectRowSeverity } from './data/ObjectRow';
 export { PermissionBlockedPanel, type PermissionBlockedPanelProps, type PermissionState } from './permissions/PermissionBlockedPanel';
-export { LinkedEntityTrail, type LinkedEntityTrailProps, type EntityNodeRef } from './entity/LinkedEntityTrail';
 
 // FeedbackOps consumption surface (#466, ADR-0046): names FeedbackOps' `@fops/ui` exports that the platform itself does not use yet.
 // Opened because FeedbackOps is now their consumer (the "open when a consumer appears" condition in AGENTS.md).

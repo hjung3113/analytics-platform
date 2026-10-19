@@ -39,7 +39,7 @@ it(
   'documented imports ship the parity rules package components rely on',
   async () => {
     const css = await compileConsumerCss([
-      // Button.tsx, dialog.tsx, ChipPicker.tsx, LinkedEntityTrail.tsx.
+      // Button.tsx, dialog.tsx, UserChip.tsx, ObjectRow.tsx.
       'bg-accent-primary',
       'space-y-1.5',
       'rounded-(--radius-pill)',

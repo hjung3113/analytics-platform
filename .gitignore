@@ -14,3 +14,4 @@ _site/
 
 # Pages demo captures
 _shots/
+.pnpm-store/
