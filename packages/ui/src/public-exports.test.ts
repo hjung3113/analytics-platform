@@ -27,6 +27,8 @@ const PUBLIC_EXPORTS = [
   'useDetailPanelSlot', 'useDetailPanelSlotHost',
   // Moved from FeedbackOps in #442 (ADR-0046/0047).
   'ActiveFilterBar', 'Callout', 'DatePicker', 'DetailPanelFullscreenContext', 'DetailPanelFullscreenToggle', 'DetailPanelHeader', 'DetailPanelHeaderActions', 'DetailPanelReadingColumn', 'DetailPanelSectionNav', 'StatusBadgeFrame', 'DirtyConfirmation', 'EmptyState', 'FieldLabel', 'FieldRow', 'ListFilterButton', 'ListShell', 'ListSortButton', 'ListTabs', 'ListToolbar', 'NestedTextBlock', 'PageShell', 'PanelSectionTitle', 'PanelTitleBlock', 'PreviewModal', 'SearchInput', 'ShellHeader', 'ToolbarKicker', 'UndoToast', 'WorkbenchShell', 'useDetailPanelContent',
+  // Moved from FeedbackOps in #443 (ADR-0046): the domain-coupled rest.
+  'ManagedSystemPicker', 'AnalyticsAreaPicker', 'RichEditor', 'AttachButton', 'RichContentRenderer', 'AttachmentRef', 'Mention', 'SeverityIndicator', 'ProgressMeter', 'SeverityBadge', 'SEVERITY_LABELS', 'ReporterStatusBadge', 'InternalTaskBadge', 'UnassignedBadge', 'ManagedSystemPill', 'ManagedSystemMark', 'managedSystemMarkColor', 'managedSystemMarkToken', 'OutlineBadge', 'EntityIconBadge', 'ENTITY_ICON_MAP', 'UserAvatar', 'UserChip', 'ObjectRow', 'PermissionBlockedPanel', 'LinkedEntityTrail',
 ];
 
 it('pins the @ap/ui public export names', () => {
