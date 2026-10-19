@@ -7,6 +7,43 @@ import { contextBar, evidence, expectScopeValid, firstRowByColumn, lotColumn, ma
  */
 const PERIOD = 'from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
 const PRODUCTIVITY = `/analytics/productivity?v=1&scopeId=ICH&${PERIOD}&roomNames=PHOTO`;
+const ORIGIN = 'https://feedbackops.example';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The four space links, each scoped to exactly one Managed System uuid, opening in a new tab without opener access. */
+async function managedSystemOf(page: Page, space: string) {
+  const block = page.getByRole('navigation', { name: `FeedbackOps · ${space}` });
+  await expect(block).toBeVisible();
+  const links = block.getByRole('link');
+  await expect(links).toHaveCount(4);
+  const found = new Set<string>();
+  for (const link of await links.all()) {
+    await expect(link).toHaveAttribute('target', '_blank');
+    await expect(link).toHaveAttribute('rel', /noopener/);
+    await expect(link).toHaveAttribute('rel', /noreferrer/);
+    const url = new URL((await link.getAttribute('href'))!);
+    expect(url.origin).toBe(ORIGIN);
+    const values = url.searchParams.getAll('managedSystem');
+    expect(values).toHaveLength(1);
+    expect(values[0]).toMatch(UUID);
+    expect(values[0]).not.toBe('all');
+    // FeedbackOps links back to the page the link was drawn on (FO ADR-0071, #448).
+    expect(url.searchParams.getAll('platformReturn')).toEqual([page.url()]);
+    found.add(values[0]);
+  }
+  expect(found.size).toBe(1);
+  return [...found][0];
+}
+
+function expectExactQueryKeys(url: URL, keys: string[]) {
+  expect([...url.searchParams.keys()].sort()).toEqual([...keys].sort());
+}
+
+async function linkUrl(link: Locator) {
+  const href = await link.getAttribute('href');
+  expect(href).not.toBeNull();
+  return new URL(href!);
+}
 
 /** Rail section buttons of the current system (15 §3.2). `exact` keeps '생산성 분석' apart from the switcher's '… 현재: 생산성 분석'. */
 function railSection(page: Page, name: string) {
@@ -2558,34 +2595,6 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
 });
 
 test.describe('FeedbackOps 공간별 진입(#251)', () => {
-  const ORIGIN = 'https://feedbackops.example';
-  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-  /** The four space links, each scoped to exactly one Managed System uuid, opening in a new tab without opener access. */
-  async function managedSystemOf(page: Page, space: string) {
-    const block = page.getByRole('navigation', { name: `FeedbackOps · ${space}` });
-    await expect(block).toBeVisible();
-    const links = block.getByRole('link');
-    await expect(links).toHaveCount(4);
-    const found = new Set<string>();
-    for (const link of await links.all()) {
-      await expect(link).toHaveAttribute('target', '_blank');
-      await expect(link).toHaveAttribute('rel', /noopener/);
-      await expect(link).toHaveAttribute('rel', /noreferrer/);
-      const url = new URL((await link.getAttribute('href'))!);
-      expect(url.origin).toBe(ORIGIN);
-      const values = url.searchParams.getAll('managedSystem');
-      expect(values).toHaveLength(1);
-      expect(values[0]).toMatch(UUID);
-      expect(values[0]).not.toBe('all');
-      // FeedbackOps links back to the page the link was drawn on (FO ADR-0071, #448).
-      expect(url.searchParams.getAll('platformReturn')).toEqual([page.url()]);
-      found.add(values[0]);
-    }
-    expect(found.size).toBe(1);
-    return [...found][0];
-  }
-
   test('admin의 생산성 분석·지표관리 사이드바 블록은 그 공간의 managedSystem만 담은 새 탭 링크 넷이고, 운영 콘솔에는 블록이 없다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(PRODUCTIVITY);
@@ -2619,4 +2628,198 @@ test.describe('FeedbackOps 공간별 진입(#251)', () => {
       await expect(overall(page)).toHaveCount(0);
     });
   }
+});
+
+test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
+  test('Context 변경·화면 이동 뒤 platformReturn은 현재 URL을 가리킨다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto(PRODUCTIVITY);
+    const analyticsSystem = await managedSystemOf(page, '생산성 분석');
+    const initialUrl = page.url();
+
+    await switchScope(page, 'CJU');
+    await expect.poll(() => query(page).get('scopeId')).toBe('CJU');
+    expect(page.url()).not.toBe(initialUrl);
+    expect(await managedSystemOf(page, '생산성 분석')).toBe(analyticsSystem);
+
+    const nav = page.getByRole('navigation', { name: '주 메뉴' });
+    await nav.getByRole('link', { name: '사이클타임 상세' }).click();
+    await expect(mainHeading(page)).toHaveText('사이클타임 상세');
+    expect(new URL(page.url()).pathname).not.toBe('/analytics/productivity');
+    expect(await managedSystemOf(page, '생산성 분석')).toBe(analyticsSystem);
+    await evidence(page, testInfo, 'feedbackops-return-current-url');
+  });
+
+  test('내 VOC 커서 페이지에서도 FeedbackOps 복귀 URL을 갱신한다', async ({ page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    await page.goto('/voc?v=1');
+    await expect(mainHeading(page)).toBeVisible();
+
+    const create = page.getByRole('link', { name: 'VOC 등록' });
+    const rows = page.getByLabel('스크롤 가능한 행 영역', { exact: true });
+    const firstRowLink = rows.getByRole('link', { name: /FeedbackOps에서 보기$/ }).first();
+    await expect(create).toBeVisible();
+    await expect(firstRowLink).toBeVisible();
+    const initialReturn = page.url();
+    const createUrl = await linkUrl(create);
+    expectExactQueryKeys(createUrl, ['action', 'platformReturn']);
+    expect(createUrl.searchParams.get('action')).toBe('create');
+    expect(createUrl.searchParams.getAll('platformReturn')).toEqual([initialReturn]);
+    const initialRowUrl = await linkUrl(firstRowLink);
+    expectExactQueryKeys(initialRowUrl, ['view', 'selected', 'platformReturn']);
+    expect(initialRowUrl.searchParams.get('view')).toBe('inbox');
+    expect(initialRowUrl.searchParams.get('selected')).toMatch(UUID);
+    expect(initialRowUrl.searchParams.getAll('platformReturn')).toEqual([initialReturn]);
+
+    await page.getByRole('button', { name: '더 보기', exact: true }).click();
+    await expect.poll(() => query(page).get('cursor')).toBe('mock:engineer:2');
+    await expect.poll(async () => (await linkUrl(firstRowLink)).searchParams.get('selected'))
+      .not.toBe(initialRowUrl.searchParams.get('selected'));
+    const cursorReturn = page.url();
+    const cursorCreateUrl = await linkUrl(create);
+    expectExactQueryKeys(cursorCreateUrl, ['action', 'platformReturn']);
+    expect(cursorCreateUrl.searchParams.getAll('platformReturn')).toEqual([cursorReturn]);
+    const cursorRowUrl = await linkUrl(firstRowLink);
+    expectExactQueryKeys(cursorRowUrl, ['view', 'selected', 'platformReturn']);
+    expect(cursorRowUrl.searchParams.get('view')).toBe('inbox');
+    expect(cursorRowUrl.searchParams.getAll('platformReturn')).toEqual([cursorReturn]);
+    await evidence(page, testInfo, 'feedbackops-return-voc-cursor');
+  });
+
+  test('새로고침·Back·Forward 뒤에도 공간 링크는 현재 URL과 managedSystem을 유지한다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto(PRODUCTIVITY);
+    const analyticsSystem = await managedSystemOf(page, '생산성 분석');
+
+    await page.goto('/metrics');
+    const metricsSystem = await managedSystemOf(page, '지표관리');
+    await page.reload();
+    expect(await managedSystemOf(page, '지표관리')).toBe(metricsSystem);
+
+    await page.goBack();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/analytics/productivity');
+    expect(await managedSystemOf(page, '생산성 분석')).toBe(analyticsSystem);
+
+    await page.goForward();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/metrics');
+    expect(await managedSystemOf(page, '지표관리')).toBe(metricsSystem);
+    await evidence(page, testInfo, 'feedbackops-return-history-forward');
+  });
+
+  test('지원하지 않는 전역 필터는 FeedbackOps 링크의 최상위 키에 없다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    const urls = [
+      PRODUCTIVITY,
+      `/equipment?v=1&scopeId=ICH&${PERIOD}&selectedEquipmentIds=ICH-PHOTO-0103`,
+    ];
+    for (const url of urls) {
+      await page.goto(url);
+      if (url === PRODUCTIVITY) {
+        expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
+        expect(query(page).get('to')).toBe('2026-09-26T09:00:00');
+        expect(query(page).get('scopeId')).toBe('ICH');
+        expect(query(page).get('roomNames')).toBe('PHOTO');
+      } else {
+        expect(query(page).get('selectedEquipmentIds')).toBe('ICH-PHOTO-0103');
+      }
+      await managedSystemOf(page, '생산성 분석');
+      const links = await page.getByRole('navigation', { name: 'FeedbackOps · 생산성 분석' }).getByRole('link').all();
+      const destinations: string[] = [];
+      for (const link of links) {
+        const href = await linkUrl(link);
+        if (href.pathname === '/vocs' && href.searchParams.get('action') === 'create') {
+          expectExactQueryKeys(href, ['action', 'managedSystem', 'platformReturn']);
+          destinations.push('vocs:create');
+        } else if (href.pathname === '/vocs' && href.searchParams.get('view') === 'inbox') {
+          expectExactQueryKeys(href, ['view', 'managedSystem', 'platformReturn']);
+          destinations.push('vocs:inbox');
+        } else if (href.pathname === '/tasks') {
+          expectExactQueryKeys(href, ['managedSystem', 'platformReturn']);
+          destinations.push('tasks');
+        } else if (href.pathname === '/surveys') {
+          expectExactQueryKeys(href, ['managedSystem', 'platformReturn']);
+          destinations.push('surveys');
+        } else {
+          throw new Error(`Unexpected FeedbackOps destination: ${href.pathname}`);
+        }
+      }
+      expect(destinations.sort()).toEqual(['surveys', 'tasks', 'vocs:create', 'vocs:inbox']);
+    }
+
+    await page.goto('/voc?v=1');
+    await expect(mainHeading(page)).toBeVisible();
+    const create = await linkUrl(page.getByRole('link', { name: 'VOC 등록' }));
+    expectExactQueryKeys(create, ['action', 'platformReturn']);
+    expect(create.searchParams.get('action')).toBe('create');
+    expect(create.searchParams.getAll('platformReturn')).toEqual([page.url()]);
+    const firstRow = await linkUrl(page.getByLabel('스크롤 가능한 행 영역', { exact: true })
+      .getByRole('link', { name: /FeedbackOps에서 보기$/ }).first());
+    expectExactQueryKeys(firstRow, ['view', 'selected', 'platformReturn']);
+    expect(firstRow.searchParams.get('view')).toBe('inbox');
+    expect(firstRow.searchParams.get('selected')).toMatch(UUID);
+    expect(firstRow.searchParams.getAll('platformReturn')).toEqual([page.url()]);
+    await evidence(page, testInfo, 'feedbackops-query-keys');
+  });
+
+  test('거부·미등록 경로에는 공간 블록이 없고 viewer의 지표관리에는 있다', async ({ page }, testInfo) => {
+    await signInAs(page, 'viewer');
+    // Menu denial inside a mapped space draws no block.
+    await page.goto(PRODUCTIVITY);
+    await expect(page.getByRole('status').filter({ hasText: '이 메뉴에 대한 권한이 없습니다' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
+
+    // Space denial draws no block either.
+    await page.goto('/admin/roles?v=1');
+    await expect(page.getByRole('status').filter({ hasText: '이 공간에 들어갈 수 없습니다' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
+
+    await page.goto('/nope-451');
+    await expect(page.getByRole('main')).toBeVisible();
+    await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
+
+    await page.goto('/metrics');
+    expect(await managedSystemOf(page, '지표관리')).toMatch(UUID);
+    await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(1);
+    await evidence(page, testInfo, 'feedbackops-block-viewer');
+  });
+
+  test('공간 수와 화면에 따라 FeedbackOps 블록을 표시하고 전환기로 이동한다', async ({ page }, testInfo) => {
+    for (const role of ['admin', 'engineer', 'viewer'] as const) {
+      await signInAs(page, role);
+      for (const path of ['/', '/notices', '/voc']) {
+        await page.goto(path);
+        await expect(mainHeading(page)).toBeVisible();
+        await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
+      }
+    }
+
+    const overall = page.getByRole('navigation', { name: '앱 레일' })
+      .getByRole('link', { name: 'FeedbackOps 전체 — 새 탭' });
+    await page.goto('/metrics');
+    await managedSystemOf(page, '지표관리');
+    await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(1);
+    await expect(overall).toHaveCount(0);
+
+    await signInAs(page, 'engineer');
+    await page.goto(PRODUCTIVITY);
+    const engineerAnalytics = await managedSystemOf(page, '생산성 분석');
+    await chooseSystem(page, '지표관리');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/metrics');
+    const engineerMetrics = await managedSystemOf(page, '지표관리');
+    expect(engineerMetrics).not.toBe(engineerAnalytics);
+    await expect(overall).toHaveCount(0);
+
+    await signInAs(page, 'admin');
+    await page.goto(PRODUCTIVITY);
+    const adminAnalytics = await managedSystemOf(page, '생산성 분석');
+    await chooseSystem(page, '지표관리');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/metrics');
+    const adminMetrics = await managedSystemOf(page, '지표관리');
+    expect(adminMetrics).not.toBe(adminAnalytics);
+    await chooseSystem(page, '운영 콘솔');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/admin/roles');
+    await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
+    await expect(overall).toBeVisible();
+    await evidence(page, testInfo, 'feedbackops-space-count-admin');
+  });
 });
