@@ -1,3 +1,4 @@
+export * from './action.js';
 export * from './adapter.js';
 export * from './audit.js';
 export * from './feedbackops-link.js';

@@ -22,6 +22,7 @@
 | `contextOptions`·`evaluateSelection` | 조건 축 선택지, 조건 결과·조건 밖 선택. 조건 판정은 서버 책임이다. |
 | `defaultRangeTo()` | 기본 기간의 기준 시각(wall-clock, 06 §6.3). |
 | `menuQuery(req)` | §3 판정 순서 전부. 메뉴 데이터는 모두 이 한 메서드로 온다. |
+| `menuAction(req)` | §3 `menuAction` 판정 순서. 쓰기는 선언한 동작 하나씩 이 한 메서드로 온다([ADR-0054](../adr/0054-write-port-declared-actions-idempotency-version.md)). 답은 `ActionResponse`(`outcome`·`data`·`version`·`fieldErrors`·`replayed`·`correlationId`)이고 `ApiResponse` envelope 규칙(assessments·trust, 06 §19)은 적용되지 않는다 — `ApiResponse`·`Outcome`은 그대로다. 응답을 받지 못해 반영 여부를 모르는 전송 실패는 `unknown`이지 `error`가 아니다(`error`는 서버가 답했고 아무것도 바꾸지 않았다는 뜻). 판정된 요청에는 던지지 않는다. |
 | `getEntity(ref)` | §22 목적지 단건. 권한은 클라이언트 인수가 아니라 서버 소유 map(예: `equipment` → `equipment:view`)으로 판정하고, site 검증 뒤 그 객체의 room을 다시 검증한다. 등록 안 된 type은 `error`다. 거부 응답에 행 필드를 싣지 않는다. 전역 Context·Selection으로 대체하지 않는다. |
 | `auditTrail`·`entityAudit` | 변경 감사. 전역은 `console:access`, 단건은 그 목적지의 조회 권한. 클라이언트는 actor·at을 보내지 않는다(서버가 기록). 조건에 맞는 것이 없으면 `empty`(빈 목록의 `ok`가 아니다). 전역(`auditTrail`)에서 결과가 있는데 범위를 넘은 페이지는 `ok`에 `items: []`와 실제 `total` — 1페이지로 바꿔 답하지 않는다. 단건(`entityAudit`)은 `getEntity`와 같은 게이트 — 목적지 type의 조회 권한, site가 있는 type은 site·room 부여(부여 안 된 site·null Scope는 `forbidden`), site가 없는 type(지표)은 `scopeId: null`, 등록 안 된 type은 `error`. |
 | `accessDirectory` | 권한/역할 조회 전용(`console:access`). 부여·회수 쓰기는 원천 결정(#98) 전에는 없다. 조건에 맞는 것이 없으면 `empty`(빈 목록의 `ok`가 아니다). 결과가 있는데 범위를 넘은 페이지는 `ok`에 `items: []`와 실제 `total` — 1페이지로 바꿔 답하지 않는다. |
@@ -31,6 +32,7 @@
 
 메서드는 반환 모양에 따라 네 묶음이다. 이 분류의 원본은 여기다.
 
+- **쓰기 메서드** — `menuAction`. `ActionResponse`로 답한다(위 행). envelope 메서드와 같이 판정된 요청에는 던지지 않고, Kernel이 넘긴 `signal`이 중단돼도 보낸 쓰기는 되돌릴 수 없다(ADR-0054: Kernel은 쓰기에 `signal`을 넘기지 않는다).
 - **envelope 메서드** — `menuQuery`·`getEntity`·`auditTrail`·`entityAudit`·`accessDirectory`·`usageSummary`·`listAnnotations`·`saveAnnotation`·`deleteAnnotation`. 06 §19 envelope(`outcome` 하나 + 선언한 `assessments` + `trust`)로 답한다. 예외를 던지지 않는다 — 전송 실패도 `error` envelope다. 예외: Kernel이 넘긴 `signal`로 중단된 경우는 reject해도 된다(`AbortError` — Kernel이 그 결과를 버린다).
 - **동기 스냅샷** — `session`·`publishedMetrics`·`defaultRangeTo`. 부트스트랩에서 받아 둔 값을 돌려준다(던지지 않음).
 - **비 envelope 비동기** — `validateScope`·`contextOptions`·`evaluateSelection`. 자기 반환 타입 그대로다. `contextOptions`·`evaluateSelection`은 전송 실패 때 reject해도 된다(Kernel이 오류·재시도를 보인다). `validateScope`는 실어댑터가 전송 실패를 내부에서 재시도해도 되고, 끝내 실패하면 reject한다 — Kernel은 Scope를 `error`로 두고 "Scope를 확인하지 못했습니다 + 다시 시도"를 보이며, 그동안 Scope가 필요한 요청은 보내지 않는다(#167). Kernel은 자동 재시도하지 않는다. 취소로 보는 것은 Kernel이 넘긴 `signal`이 중단된 경우뿐이다 — 어댑터 내부 타임아웃·중단으로 호출이 끝나면 오류 이름(`AbortError` 포함)과 무관하게 실패로 reject한다.
@@ -65,6 +67,25 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 
 앱이 넘긴 메뉴 Registry로 엔드포인트 목록을 검증하고 하나라도 어긋나면 기동을 거부한다: 엔드포인트 id 중복 없음, `menuId`가 Registry에 있음, 권한 이름이 어떤 메뉴가 선언한 권한임, 엔드포인트가 `apply`한 키를 소유 메뉴도 `apply`함, 메뉴가 Scope를 요구하면 엔드포인트도 요구, Scope 없는 엔드포인트는 site 종속 키(`roomNames`·`condition`·`selection`·`lot`·`recipe`·`ppid`)를 `apply`할 수 없음(규칙 6), `limits.maxRows`는 양의 정수이고 페이지·커서 엔드포인트(`page`·`pageSize`·`cursor` paramKeys)가 아닐 것(규칙 7, #175). 원본: `packages/mock-server/src/adapter.ts` `createMockAdapter`.
 
+### `menuAction` 판정 순서
+
+서버는 요청이 아니라 자기 선언 사본(동작 id → `ActionSpec` + 핸들러)으로 판정한다. 순서도 계약이다([ADR-0054](../adr/0054-write-port-declared-actions-idempotency-version.md)).
+
+1. **요청 모양** → 어긋나면 `error`: 최상위 키는 `action`·`context`·`input`·`idempotencyKey`뿐(버전 방식 동작은 `expectedVersion`도), `action`·`context`·`input`은 필수(`idempotencyKey`는 이 단계에서 없거나 틀려도 2단계가 판정), 등록된 동작, `context`는 `scopeId`만 담고 `requiresScope`일 때만(그때는 반드시) 가짐, `input`은 평범한 객체, `expectedVersion`은 버전 방식 동작에만(그때는 반드시, 문자열).
+2. **멱등 키** → 없거나 비었거나 UUID가 아니면 `invalid`, `fieldErrors: [{ path: ['idempotencyKey'], code: 'required' | 'malformed' }]`.
+3. **권한** → 동작 권한이 없으면 `forbidden`. 요청 시점의 세션 사용자로 판정한다.
+4. **Scope** → `requiresScope`면 site 부여를 확인하고 `null`·모르는 id·부여 밖은 `forbidden`.
+5. **재생** → `(사용자, 키)` 기록이 있고 정규화한 요청(`action`·`scopeId`·`expectedVersion`·`input`, 키 정렬)이 같으면 저장한 답을 `replayed: true`로 돌려준다. 같은 키에 다른 요청이면 `error`(`idempotency_key_reuse`). 권한·Scope를 재생보다 먼저 보므로 권한을 잃은 사용자는 같은 키로도 저장된 답을 받지 못한다.
+6. **입력 값** → `inputKeys` 밖 키는 `invalid`, 키마다 `{ path: [키], code: 'unexpected_field' }`(행위자·시각 필드가 여기서 걸린다). 그다음 동작의 값 검증이 거부하면 `invalid`와 그 필드 오류.
+7. **버전** → 버전 방식이면 대상이 없으면 `not_found`, `expectedVersion`이 현재와 다르면 `conflict`이고 `version`에 현재 버전을 싣는다.
+8. **핸들러** → 쓰기를 적용하고 `ok`에 `data`와 쓴 뒤의 `version`을 싣는다.
+
+`replayed`는 새 답에서 항상 `false`다. 기록하는 것은 핸들러가 상태를 바꾼 `ok`뿐이다 — `invalid`·`conflict`·`not_found`·`forbidden`·`error`는 같은 키로 다시 보내면 처음부터 다시 판정한다. 보관 기간은 서버가 정하며 24시간 이상이다(mock은 기한 없이 보관). 감사는 핸들러가 같은 트랜잭션에서 남긴다 — 플랫폼 엔진은 감사 행을 쓰지 않으며, 계약은 입력에 행위자·시각이 오는 것만 금지한다(6단계).
+
+전송은 `POST` + `Idempotency-Key`·`If-Match` 헤더가 기본 후보지만 정하는 주체는 HTTP 어댑터(#149)다 — 이 문서는 라우트나 헤더를 확정하지 않는다.
+
+**등록 검증 (서버 기동 시)** — 동작도 엔드포인트처럼 검증하고 하나라도 어긋나면 기동을 거부한다: 동작 id 중복 없음, `menuId`가 Registry에 있음, 권한 이름이 어떤 메뉴가 선언한 권한임, 메뉴가 Scope를 요구하면 동작도 요구, `invalidates`의 각 항목이 같은 `menuId`의 등록된 엔드포인트임, `concurrency: 'version'` 동작에는 현재 버전을 읽는 핸들러가 있음. 원본: `packages/mock-server/src/adapter.ts` `createMockAdapter`.
+
 ## 4. 적합성 묶음으로 확인하기
 
 [`@ap/server-conformance`](../../packages/server-conformance/AGENTS.md)는 §3의 1·3·4·6·10(그리고 표본이 있으면 9)을 엔드포인트 선언에서 도출해 검사한다(엔드포인트마다 성공 요청, 알 수 없는 키·비적용 키·적용 키 누락·`from` null·`metricVersion` 단독 거부, 권한 없으면 `forbidden`, 부여 안 된 site·`null` Scope `forbidden`, 명시적 공집합, kind 정확히 일치). 선언한 `maxRows`가 있고 표본 요청이 `oversizeParams`를 갖고 있으면(#175), 그 요청이 `too_large`로 데이터 없이 답하는지도 검사한다. 지금은 `apps/platform-web/src/server-conformance.test.ts`가 앱의 모든 메뉴 엔드포인트와 mock 어댑터로 돌린다.
@@ -75,7 +96,7 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 - `cases`: 엔드포인트 선언과 표본 요청 — 앱 테스트의 `PARAMS` 표를 그대로 쓸 수 있다.
 - `context`·`foreignScopeId`: 테스트 계정에 부여된 site·기간, 부여되지 않은 site. `foreignScopeId`는 **서버가 아는** site여야 한다 — 모르는 id를 고르면 `validateScope(foreign site) → forbidden` 검사가 `unknown_scope`를 만나 실패한다.
 - `ports`: 포트 표본 — 목적지 표본(`EntityRef`와 그 조회 권한, 같은 site의 부여받지 않은 room에 있는 실제 목적지 `ungrantedRoomRef` — 선택), 주석 대상 chartId·권한·그 차트 축의 유효 범위 `from`·`to`(시간축이면 wall-clock, 범주축이면 범주 라벨 — 06 §16), 활용률 이벤트의 식별 필드 표본(`menuId`·`spaceId`·`path`·`sessionId` — 부여 계정이 기록할 수 있는 이벤트; `name`·`at`·dwell 필드는 무시 — 묶음이 자체 entry/dwell을 만든다), 오류 보고 표본, 두 번째 부여 site. 전역 메뉴 표본을 따로 넘기지 않아도 묶음이 활용률·오류 보고 표본을 `spaceId: null`로 복제해 검사한다(이 포트에서 null은 항상 유효하다). 목적지 표본은 **site가 있는 type**으로 `context.scopeId`에 둬야 하고 그 계정이 부여받은 room이어야 한다 — 지표 같은 site 없는 type은 site·null Scope 검사를 통과할 수 없다. `ungrantedRoomRef`를 주지 않으면 getEntity·entityAudit의 room 재검사 두 건은 건너뛴 것으로 표시된다(통과로 세지 않는다).
-- `asGranted`·`withoutPermission`: 모든 엔드포인트 권한을 가진 테스트 계정과, 권한 하나씩만 뺀 계정(또는 그렇게 세션을 바꾸는 테스트 훅). 부여 계정은 목적지 조회 권한·주석 권한도 있어야 하고 site 둘에 부여돼 있어야 한다. `withoutPermission`은 모든 엔드포인트 권한과 `ports.entity.permission`·`ports.annotation.permission`·`console:access`로 불린다 — 부여 계정이 안 가진 권한(예: `console:access`)을 빼면 부여 계정 자신으로 돌아가므로, 권한 하나씩만 뺀 계정을 따로 만드는 팀은 이 목록이 곧 준비할 계정 목록이다.
+- `asGranted`·`withoutPermission`: 모든 엔드포인트 권한을 가진 테스트 계정과, 권한 하나씩만 뺀 계정(또는 그렇게 세션을 바꾸는 테스트 훅). 부여 계정은 목적지 조회 권한·주석 권한도 있어야 하고 site 둘에 부여돼 있어야 한다. `withoutPermission`은 모든 엔드포인트 권한과 `ports.entity.permission`·`ports.annotation.permission`·동작 권한·`console:access`로 불린다 — 부여 계정이 안 가진 권한(예: `console:access`)을 빼면 부여 계정 자신으로 돌아가므로, 권한 하나씩만 뺀 계정을 따로 만드는 팀은 이 목록이 곧 준비할 계정 목록이다.
 - `asConsole`: `console:access`를 가진 계정(콘솔 조회·활용률 집계 검사가 이 계정으로 돈다).
 - `asOtherAnnotator`: 부여 계정과 **다른 사용자**로, 주석 권한(`ports.annotation.permission`)과 `context.scopeId` 부여가 있는 계정(작성자 삭제 검사의 "다른 사용자"). 콘솔 전용 계정은 차트 권한 단계에서 거부되어 작성자 판정을 증명하지 못하므로, 묶음이 먼저 이 계정으로 자기 주석을 저장·삭제할 수 있는지 확인하고 못 하면 실패로 처리한다.
 - 시계: 수신 시각 검사는 **테스트 러너 시각**의 ±10분 창을 서버의 수신 스탬프와 비교한다 — 러너와 서버 시계를 몇 분 이내로 맞춘다(NTP). 1970-01-01 창도 읽는다 — 보존 기간이 제한된 서버도 그 창에는 `ok`(0건)로 답해야 한다.
@@ -90,6 +111,8 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 - 활용률: 유효 entry·dwell 적재, 하나라도 어긋나면 전체 거부(unknown key·클라이언트 userId·query 붙은 path·비숫자 `at`·비숫자 `enteredAt`·음수 `dwellMs`), `spaceId: null`(전역 메뉴) 수락, 선택 필드 `source`(없음·`main`·`board`)와 `board` 전용 `stayId` 수락(알 수 없는 `source`·`board` 아닌 `stayId`는 전체 거부), 제거된 `feedback`과 그 밖 알 수 없는 공간 id 거부, 수신 시각 집계(클라이언트 `at`이 아니라 서버 수신 시각으로 집계) — 이 수신 시각 검사는 **부여 계정으로 기록하고 콘솔 계정으로 집계를 읽는다**(하네스가 보장하는 건 부여 계정의 기록 권한뿐이라 콘솔 전용 계정이 기록하지 못하는 것은 적합하다). 혼자 차례로 돌므로 검사 안에서 actor를 전환한다
 - 오류 보고: 유효 표본 적재(positive), `spaceId: null` 수락, 거부(자유 문장 message·절대 URL path·query 붙은 path·자유 문장 name·누락 필드·제거된 `feedback`과 알 수 없는 공간 id)
 - 응답 모양 — 거부에 데이터 없음, 누락된 envelope 키 지적(`assessments`·`trust`), 평가 항목 06 §19, Trust 06 §18
+
+- 쓰기(`menuAction`, `harness.actions`): 동작마다 성공 뒤 같은 키·입력의 재생(`replayed: true`와 같은 `data`), 같은 키에 다른 입력 `error`, 키 없음·빈 키·UUID 아님 `invalid`(경로 `idempotencyKey`), `inputKeys` 밖 키 `invalid`(`unexpected_field`), 버전 방식의 낡은 `expectedVersion` `conflict`(현재 `version` 포함), 권한이 재생보다 앞섬(같은 키로 성공한 뒤 권한을 뺀 계정의 같은 요청이 `forbidden`), `requiresScope` 동작의 미부여 site `forbidden`, `invalid` 답은 기록되지 않음(같은 키로 유효 요청이 새로 `ok`). 표본(`ActionCase`)은 동작 선언과 부여 계정이 성공하는 `input`이고, 버전 방식이면 대상의 현재 버전을 읽는 `currentVersion`도 필요하다(없으면 그 동작의 검사는 건너뛴 것으로 표시된다). 표본이 없으면 `actions: no sample` 한 건이 건너뛴 것으로 표시된다. 계정: `asGranted`는 동작 권한도 가져야 하고 `currentVersion` 읽기도 그 안에서 돈다. `withoutPermission`은 동작 권한으로도 불린다 — 부여 계정과 같은 계정을 돌려줘도(§4 위 설명) 권한이 재생보다 앞서는지가 증명되고, 권한 하나씩만 뺀 계정을 쓰면 `forbidden`만 증명된다. **묶음은 테스트 서버에 동작 표본을 실제로 쓴다.**
 
 **주의: 묶음은 테스트 서버에 주석·활용률 이벤트·오류 보고를 실제로 쓴다 — 운영 서버에 돌리지 않는다.**
 

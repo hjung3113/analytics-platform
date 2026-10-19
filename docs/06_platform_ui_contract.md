@@ -154,6 +154,7 @@ Domain logic이 Kernel로 역류하지 않도록 한다.
 | 페이지 유형 | overview / analysis / management / catalog / workflow |
 | 선택 기능 | 내보내기·저장된 뷰·주석·비교 지원 여부 |
 | 조회 엔드포인트 (2026-10-01) | 메뉴가 부르는 서버 조회마다: 식별자·소유 메뉴·허용 입력 키·데이터 접근 권한(메뉴 권한과 달라도 됨)·Scope 요구·적용 Context(메뉴가 적용하는 키의 부분집합)·적용 assessment kind(§19)·조회 한도·시간역 병합 가드 적용 여부(`mergeTimeDomain`, §6.3). 요청에는 적용 Context와 입력만 실리고, 서버는 요청이 아니라 자기 선언 사본으로 권한·kind·한도를 판정한다. 선언과 다른 요청 모양(적용하지 않는 Context 키, 적용 키 누락, 선언 밖 입력 키)은 오류다. Scope를 요구하지 않는 조회는 site에 묶인 Context(room_name·Condition·Selection·Lot·Recipe·PPID, §22)를 적용할 수 없다 |
+| 쓰기 동작 (2026-10-20) | 서버 쓰기는 메뉴가 동작마다 선언하고(`ActionSpec`: 식별자·소유 메뉴·허용 입력 키·권한·Scope 요구·동시성 방식 `none`/`version`·성공 뒤 다시 읽을 조회) 포트의 범용 `menuAction` 하나로 보낸다. 요청에는 동작 id·`scopeId`만 든 `context`·`input`·멱등 키·(버전 방식이면) `expectedVersion`이 실린다. 답은 조회 `ApiResponse`가 아니라 쓰기 전용 `ActionResponse`(`outcome` `ok`·`invalid`·`conflict`·`forbidden`·`not_found`·`error`·`unknown`, 필드 오류, `replayed`)다. 서버 판정 순서·멱등 기록·버전 충돌은 [ADR-0054](adr/0054-write-port-declared-actions-idempotency-version.md)와 [실서버 체크리스트](integration/real-server-checklist.md) §3. 구현 형식(Candidate): `packages/contracts/src/action.ts`. Kernel 훅은 #502. |
 | Sidebar 그룹 표시 (`hideLabelWhenSingle`, Candidate) | 그룹이 선언하면 확장된 사이드바에서 보이는 메뉴가 하나일 때 섹션 제목을 생략한다. 기본값은 생략하지 않음 |
 
 메뉴와 그룹이 선언하고 Shell이 소비한다. 필드명·TypeScript 타입·등록 방식은 구현 설계에서 구체화한다(그룹 표시 행의 필드명 `hideLabelWhenSingle`은 Candidate). 조회 엔드포인트 선언의 구현 형식(Candidate)은 `packages/contracts/src/menu-query.ts`의 `EndpointSpec`이고, 결정과 이유는 [ADR-0019](adr/0019-menu-query-endpoint-declaration.md)다.

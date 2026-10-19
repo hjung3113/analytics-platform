@@ -8,6 +8,7 @@
 - `feedbackops-link.ts` — FeedbackOps ↔ 플랫폼 딥링크 codec. 원본은 [통합 계약](../../docs/integration/feedbackops-deeplink.md)이며 이 파일은 구현이다.
 - `menu.ts` — `MenuMeta`(manifest 선언부), `ContextKey`, `Capability`, `PageType`, `Permission`과 그 런타임 목록 `PERMISSIONS`(검증기·선택지가 공유하는 유일한 값 목록, #49).
 - `menu-query.ts` — 메뉴 조회 엔드포인트 선언 `EndpointSpec`·`AnyEndpointSpec`·`defineEndpoint`, 전송 요청 `MenuQuery`, 선언 기반 Context 투영 `projectContext`. 결정은 [ADR-0019](../../docs/adr/0019-menu-query-endpoint-declaration.md), 서버 판정 순서는 [체크리스트 §3](../../docs/integration/real-server-checklist.md)(필드명은 Candidate).
+- `action.ts` — 메뉴 쓰기 동작 선언 `ActionSpec`·`AnyActionSpec`·`defineAction`, 전송 요청 `MenuAction`, 쓰기 전용 답 `ActionResponse`·`ActionOutcome`·`FieldError`(`ApiResponse`를 넓히지 않는다). 결정은 [ADR-0054](../../docs/adr/0054-write-port-declared-actions-idempotency-version.md), 서버 판정 순서는 [체크리스트 §3](../../docs/integration/real-server-checklist.md).
 - `paging.ts` — 서버 페이징 모양 `PageQuery`(`page` 0부터)·`PageResult`·`sortRows`(첫 정렬 키로 정렬만, 자르지 않음 — 내보내기 mock 핸들러 3곳, #173)·`sortAndPage`(`sortRows` + 자르기, mock 핸들러가 쓴다). `@ap/components`가 같은 이름으로 재export한다(06 §15, #128).
 - `period.ts` — wall-clock 기간 계산 `periodHours`·`bucketStart`·`Grain`(화면과 서버가 함께 쓴다, 06 §6.3, #127). `@ap/mock-server`가 같은 이름으로 재export한다.
 - `instant.ts` — 실제 시점(epoch ms·offset 포함 ISO) 표시 `formatInstant`·`instantEpochMs`. wall-clock(`url.ts`의 `formatDateTime`)과 섞지 않는다(06 §6.3).

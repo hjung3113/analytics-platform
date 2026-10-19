@@ -12,6 +12,7 @@ import { accessDirectory } from './access';
 import { deleteAnnotation, listAnnotations, saveAnnotation } from './annotations';
 import { DEFAULT_RANGE_TO, EQUIPMENT, PUBLISHED_METRICS, SITES, USERS, type RoleId } from './world';
 import { MockRegistrationError, serveEndpoint, type AnyMockEndpoint } from './endpoints';
+import { serveAction, type AnyMockAction } from './actions';
 
 const siteBoundContextKeys = new Set<ContextKey>(['roomNames', 'condition', 'selection', 'lot', 'recipe', 'ppid']);
 
@@ -57,6 +58,8 @@ function checkAuditSeeds(seeds: readonly AuditEvent[]): void {
 
 export function createMockAdapter(o: {
   endpoints: readonly AnyMockEndpoint[];
+  /** Declared writes (ADR-0054); registered like endpoints. */
+  actions?: readonly AnyMockAction[];
   registry: { menus: readonly (Omit<MenuMeta, 'group' | 'permission'> & { permission: string })[] };
   /** Audit events of menu-owned destinations, from the app's mock assembly (ADR-0048). */
   auditEvents?: readonly AuditEvent[];
@@ -105,6 +108,22 @@ export function createMockAdapter(o: {
     endpoints.set(spec.id, endpoint);
   }
 
+  const actions = new Map<string, AnyMockAction>();
+  for (const action of o.actions ?? []) {
+    const { spec } = action;
+    if (actions.has(spec.id)) throw new MockRegistrationError(`action ${spec.id}: duplicate id`);
+    const owner = o.registry.menus.find(menu => menu.id === spec.menuId);
+    if (!owner) throw new MockRegistrationError(`action ${spec.id}: menu ${spec.menuId} is not registered`);
+    if (!o.registry.menus.some(menu => menu.permission === spec.permission)) {
+      throw new MockRegistrationError(`action ${spec.id}: permission ${spec.permission} is not declared by any menu`);
+    }
+    if (owner.requiresScope && !spec.requiresScope) throw new MockRegistrationError(`action ${spec.id}: menu ${spec.menuId} requires scope`);
+    const foreign = spec.invalidates.find(query => endpoints.get(query.id)?.spec.menuId !== spec.menuId);
+    if (foreign) throw new MockRegistrationError(`action ${spec.id}: invalidates ${foreign.id}, which is not a registered endpoint of menu ${spec.menuId}`);
+    if (spec.concurrency === 'version' && !action.version) throw new MockRegistrationError(`action ${spec.id}: concurrency version needs a version handler`);
+    actions.set(spec.id, action);
+  }
+
   return {
     session: () => sessionFor(getRole()),
     validateScope: (scopeId, signal) => validateScope(getRole(), scopeId, signal),
@@ -138,6 +157,7 @@ export function createMockAdapter(o: {
     subscribe: subscribeServer,
     getEntity: (ref, signal) => getEntity(ref, signal),
     menuQuery: (req, signal) => serveEndpoint(endpoints, req, signal),
+    menuAction: (req, signal) => serveAction(actions, req, signal),
     // opts (test role pin, latency) stay server-side: the adapter passes the port arguments only.
     auditTrail: (query, signal) => auditTrail(query, signal, { seeds }),
     entityAudit: (ref, signal) => entityAudit(ref, signal, { seeds }),

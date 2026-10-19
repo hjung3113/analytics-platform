@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
-  defineEndpoint, emptyGlobal, projectContext,
-  type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type ClientErrorReport, type GlobalContext,
-  type MenuQuery, type Permission, type PlatformAdapter, type Session, type Trust, type UsageEvent, type UsageRange, type UsageSummary,
+  defineAction, defineEndpoint, emptyGlobal, projectContext,
+  type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type ClientErrorReport, type GlobalContext,
+  type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type Session, type Trust, type UsageEvent, type UsageRange, type UsageSummary,
 } from '@ap/contracts';
-import { planServerConformance, runServerConformance, type ConformanceCase, type PortSamples, type ServerConformanceHarness } from './index';
+import { planServerConformance, runServerConformance, type ActionCase, type ConformanceCase, type PortSamples, type ServerConformanceHarness } from './index';
 
 const spec = defineEndpoint<{ page: number }, { rows: number }>({
   id: 'fixture.list',
@@ -16,6 +16,12 @@ const spec = defineEndpoint<{ page: number }, { rows: number }>({
   kinds: ['collection', 'coverage'],
   mergeTimeDomain: false,
 });
+
+const actionSpec = defineAction<{ text: string }, { id: number }>({
+  id: 'fixture.save', menuId: 'fixture', inputKeys: { text: true }, permission: 'analytics:view',
+  requiresScope: true, concurrency: 'version', invalidates: [spec],
+});
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const err = (message: string): ApiResponse<never> => ({ outcome: 'error', message, data: null, assessments: [], trust: null, correlationId: 'ref' });
 const forbidden: ApiResponse<unknown> = { outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'ref' };
@@ -45,7 +51,7 @@ const REF_EQUIPMENT = [
 ];
 
 /** Granted actor: every case/entity permission, grants at MEM + FDRY, no console:access; `console` flips under asConsole. */
-type RefState = { permissions: Set<Permission>; console: boolean };
+type RefState = { permissions: Set<Permission>; console: boolean; /** The action target's version, read by `currentVersion`; starts at 1. */ targetVersion?: number };
 
 /**
  * A full-`PlatformAdapter` reference server that follows every contract rule the kit checks — so the unbroken
@@ -66,6 +72,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
   // The reference stamps the actual actor: the console account is a different user from the granted one (#399).
   const actor = () => (state.console ? 'admin' : 'engineer');
   const usageRows: (UsageEvent & { userId: string; receivedAt: number })[] = [];
+  const actionRecords = new Map<string, { hash: string; response: ActionResponse<unknown> }>();
   return {
     session: () => {
       if (session === null || breaks.has('session-identity')) {
@@ -459,6 +466,43 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       if (!breaks.has('annotation-delete-not-removed')) annotationRows.splice(index, 1);
       return { ...envelope, outcome: 'ok', data: { id: ref.id } };
     },
+    // The write port (ADR-0054): judgment order shape → key → permission → scope → replay → input → version → handler, one break per rule.
+    menuAction: async raw => {
+      const req = raw as MenuAction & { input: Record<string, unknown> };
+      const answer = (outcome: ActionResponse<unknown>['outcome'], rest: Partial<ActionResponse<unknown>> = {}): ActionResponse<unknown> =>
+        ({ outcome, data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'ref', ...rest });
+      const key = req.idempotencyKey;
+      if (!UUID_PATTERN.test(String(key)) && !breaks.has('action-key')) {
+        return answer('invalid', { fieldErrors: [{ path: ['idempotencyKey'], code: key === undefined ? 'required' : 'malformed' }] });
+      }
+      const slot = `${actor()}\n${key}`;
+      const hash = JSON.stringify([req.input, req.context, req.expectedVersion]);
+      const replay = (): ActionResponse<unknown> | null => {
+        const stored = actionRecords.get(slot);
+        if (!stored || breaks.has('action-no-replay')) return null;
+        if (stored.hash !== hash && !breaks.has('action-reuse')) return answer('error', { message: 'idempotency_key_reuse' });
+        return { ...stored.response, replayed: true };
+      };
+      if (breaks.has('action-replay-first')) { const stored = replay(); if (stored) return stored; }
+      if (!state.permissions.has(actionSpec.permission)) return answer('forbidden');
+      if (req.context.scopeId !== 'MEM' && req.context.scopeId !== 'FDRY' && !breaks.has('action-scope')) return answer('forbidden');
+      const stored = replay();
+      if (stored) return stored;
+      const extra = Object.keys(req.input).filter(k => k !== 'text');
+      if (extra.length > 0 && !breaks.has('action-unexpected')) {
+        const invalid = answer('invalid', { fieldErrors: extra.map(k => ({ path: [k], code: 'unexpected_field' })) });
+        if (breaks.has('action-record-invalid')) actionRecords.set(slot, { hash, response: invalid });
+        return invalid;
+      }
+      const current = String(state.targetVersion ??= 1);
+      if (req.expectedVersion !== current && !breaks.has('action-conflict-ignored')) {
+        return answer('conflict', { version: breaks.has('action-conflict-no-version') ? null : current });
+      }
+      state.targetVersion += 1;
+      const ok = answer('ok', { data: { id: state.targetVersion }, version: String(state.targetVersion) });
+      actionRecords.set(slot, { hash, response: ok });
+      return ok;
+    },
     // The ports round D exercises (#152): contract-shaped answers, one break each.
     publishedMetrics: () => breaks.has('published-metrics')
       ? [{ metricId: '', publishedVersion: 3 as unknown as string | null }] // empty id, non-string version
@@ -522,6 +566,12 @@ function actors(state: RefState) {
 function harness(breaks: ReadonlySet<string> = new Set(), cases: readonly ConformanceCase[] = [{ spec, params: { page: 0 } }]): ServerConformanceHarness {
   const state: RefState = { permissions: new Set<Permission>(['analytics:view', 'equipment:view']), console: false };
   return { adapter: referenceAdapter(state, breaks), cases, context: CONTEXT, foreignScopeId: 'XIA', ports: PORTS, ...actors(state) };
+}
+
+function actionHarness(breaks: ReadonlySet<string> = new Set(), over: Partial<ServerConformanceHarness> = {}): ServerConformanceHarness {
+  const state: RefState = { permissions: new Set<Permission>(['analytics:view', 'equipment:view']), console: false };
+  const actions: ActionCase[] = [{ spec: actionSpec, input: { text: 'hello' }, currentVersion: async () => String(state.targetVersion ??= 1) }];
+  return { adapter: referenceAdapter(state, breaks), cases: [], context: CONTEXT, foreignScopeId: 'XIA', ports: PORTS, actions, ...actors(state), ...over };
 }
 
 async function failing(breaks: string[]): Promise<string[]> {
@@ -628,6 +678,7 @@ describe('server conformance kit (#145)', () => {
       'port · reportClientError: a path with a query is rejected',
       'port · reportClientError: a free-text name is rejected',
       'port · reportClientError: a missing field is rejected',
+      'actions: no sample',
     ]);
   });
 
@@ -938,13 +989,14 @@ describe('server conformance kit (#145)', () => {
     expect(planServerConformance({ ...h, ports }).filter(c => c.mode === 'skipped').map(c => c.id)).toEqual([
       'port · getEntity of a destination in an ungranted room → forbidden',
       'port · entityAudit of a destination in an ungranted room → forbidden',
+      'actions: no sample',
     ]);
   });
 
   it('reports an adapter that throws instead of answering an envelope', async () => {
     const h = harness();
     const results = await runServerConformance({ ...h, adapter: { ...h.adapter, menuQuery: async () => { throw new Error('boom'); } } });
-    const menuQueryChecks = results.filter(r => !r.id.startsWith('port · '));
+    const menuQueryChecks = results.filter(r => !r.id.startsWith('port · ') && r.id !== 'actions: no sample');
     expect(menuQueryChecks.every(r => r.failure?.includes('threw'))).toBe(true);
     // The port checks do not go through menuQuery — the reference keeps passing them.
     expect(results.filter(r => r.id.startsWith('port · ')).every(r => r.failure === null)).toBe(true);
@@ -1014,7 +1066,7 @@ describe('declared maxRows oversize check (#175)', () => {
     const cases = [{ spec: exportSpec, params: { tail: 'p95' } }];
     const h = { ...oversizeHarness('too_large'), cases };
     expect(planServerConformance(h).filter(c => c.mode === 'skipped').map(c => c.id))
-      .toEqual([`${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`]);
+      .toEqual([`${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`, 'actions: no sample']);
     const skipped = (await runServerConformance(h)).find(r => r.id === `${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`);
     // #175 follow-up P2-A: a check that did not run is reported as skipped, never as a pass.
     expect(skipped).toEqual({ id: `${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`, status: 'skipped', failure: null });
@@ -1028,7 +1080,7 @@ describe('declared maxRows oversize check (#175)', () => {
   });
 
   it('plans no skipped check when the case provides oversizeParams', () => {
-    expect(planServerConformance(oversizeHarness('too_large')).some(c => c.mode === 'skipped')).toBe(false);
+    expect(planServerConformance(oversizeHarness('too_large')).filter(c => c.mode === 'skipped').map(c => c.id)).toEqual(['actions: no sample']);
   });
 
   it('passes on a server that answers too_large with no data', async () => {
@@ -1087,5 +1139,67 @@ describe('global utility spaceId (06 §9.1)', () => {
     ['client-error-accepts-feedback', 'port · reportClientError: spaceId feedback is rejected'],
   ])('the public plan fails %s when the adapter accepts feedback', async (broken, id) => {
     expect(await failing([broken])).toEqual([id]);
+  });
+});
+
+// The write port checks (ADR-0054, checklist §3–§4): each derived check fails a server breaking its rule.
+describe('menuAction conformance (#501)', () => {
+  const actionFailures = async (breaks: string[]) =>
+    (await runServerConformance(actionHarness(new Set(breaks)))).filter(r => r.id.startsWith('fixture.save · ') && r.failure !== null).map(r => r.id);
+
+  it('plans one visible skipped check when the harness has no action samples', async () => {
+    const h = { ...actionHarness(), actions: undefined };
+    expect(planServerConformance(h).filter(c => c.id.startsWith('actions')).map(c => [c.id, c.mode])).toEqual([['actions: no sample', 'skipped']]);
+    expect((await runServerConformance(h)).find(r => r.id === 'actions: no sample')).toEqual({ id: 'actions: no sample', status: 'skipped', failure: null });
+  });
+
+  it('plans a skipped check for a version action without a currentVersion sample', () => {
+    const h = actionHarness();
+    const noVersion = { ...h, actions: [{ spec: actionSpec, input: { text: 'hello' } }] };
+    expect(planServerConformance(noVersion).filter(c => c.mode === 'skipped').map(c => c.id))
+      .toEqual(['fixture.save · declares version concurrency but has no currentVersion sample — action checks not run']);
+  });
+
+  it('passes the reference adapter', async () => {
+    const results = await runServerConformance(actionHarness());
+    expect(results.filter(r => r.failure !== null)).toEqual([]);
+    expect(results.filter(r => r.id.startsWith('fixture.save · '))).toHaveLength(10);
+  });
+
+  it.each([
+    ['action-no-replay', 'ok, then the same key and input → the stored answer with replayed: true'],
+    ['action-reuse', 'the same key with a different input → error'],
+    ['action-key', 'idempotencyKey omitted → invalid at idempotencyKey'],
+    ['action-key', 'idempotencyKey empty → invalid at idempotencyKey'],
+    ['action-key', 'idempotencyKey not a UUID → invalid at idempotencyKey'],
+    ['action-unexpected', 'an input key outside inputKeys → invalid with unexpected_field'],
+    ['action-conflict-ignored', 'a stale expectedVersion → conflict with the current version'],
+    ['action-conflict-no-version', 'a stale expectedVersion → conflict with the current version'],
+    ['action-replay-first', 'permission precedes replay: without analytics:view the same key → forbidden'],
+    ['action-scope', 'a site without a grant → forbidden'],
+    ['action-record-invalid', 'an invalid answer is not recorded: the same key then succeeds'],
+  ])('%s fails %s', async (rule, check) => {
+    expect(await actionFailures([rule])).toContain(`fixture.save · ${check}`);
+  });
+
+  // The ambient actor lacks the action permission: every granted request and currentVersion read must run inside asGranted.
+  it('wraps every granted request in asGranted', async () => {
+    const state: RefState = { permissions: new Set<Permission>(['equipment:view']), console: false };
+    const base = actionHarness();
+    const h: ServerConformanceHarness = {
+      ...base,
+      adapter: referenceAdapter(state),
+      actions: [{ spec: actionSpec, input: { text: 'hello' }, currentVersion: async () => {
+        if (!state.permissions.has('analytics:view')) throw new Error('currentVersion read outside asGranted');
+        return String(state.targetVersion ??= 1);
+      } }],
+      asGranted: async fn => {
+        state.permissions.add('analytics:view');
+        try { return await fn(); } finally { state.permissions.delete('analytics:view'); }
+      },
+      withoutPermission: async (_permission, fn) => fn(),
+    };
+    const results = (await runServerConformance(h)).filter(r => r.id.startsWith('fixture.save · '));
+    expect(results.filter(r => r.status !== 'passed')).toEqual([]);
   });
 });
