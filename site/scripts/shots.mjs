@@ -560,6 +560,73 @@ try {
       id === "error" ? ["C11"] : [],
     );
   }
+  await capture(
+    "feedbackops-entry",
+    "FeedbackOps · VOC 진입",
+    "MARS 화면 아래 고정 영역에서 VOC 등록 등 연결 상태를 확인합니다.",
+    "shell",
+    async () => {
+      await go(productivity);
+      const block = page.getByRole("navigation", { name: "FeedbackOps · MARS", exact: true });
+      await expect(block).toBeVisible();
+      await expect(block.getByRole("link", { name: /^VOC 등록/ })).toBeVisible();
+    },
+    () => elementClip(page.getByRole("navigation", { name: "FeedbackOps · MARS", exact: true }), 24),
+  );
+  await capture(
+    "system-switcher",
+    "업무 시스템 전환기",
+    "MARS에서 BRAVO 등 업무 시스템을 바꾸는 전환기입니다.",
+    "shell",
+    async () => {
+      await go(productivity);
+      await button("업무 시스템 전환 · 현재: MARS").click();
+      const dialog = page.getByRole("dialog", { name: "업무 시스템 전환", exact: true });
+      await expect(dialog).toBeVisible();
+      await expect(dialog).toContainText("BRAVO");
+    },
+    () =>
+      unionClip(
+        [
+          button("업무 시스템 전환 · 현재: MARS"),
+          page.getByRole("dialog", { name: "업무 시스템 전환", exact: true }),
+        ],
+        32,
+      ).then((clip) => ({ clip, cover: true })),
+  );
+  await capture(
+    "change-audit",
+    "운영 콘솔 · 변경 감사",
+    "운영 콘솔에서 변경 내역을 확인합니다.",
+    "tables",
+    async () => {
+      await go("/admin/audit?v=1");
+      await expect(page.getByRole("main").getByRole("heading", { name: "변경 감사", exact: true })).toBeVisible();
+    },
+    mainContentClip,
+  );
+  await capture(
+    "menu-registry",
+    "운영 콘솔 · 메뉴 레지스트리",
+    "등록된 업무 화면과 정의를 목록으로 확인합니다.",
+    "tables",
+    async () => {
+      await go("/admin/registry?v=1");
+      await expect(page.getByRole("main").getByRole("heading", { name: "메뉴 레지스트리", exact: true })).toBeVisible();
+    },
+    mainContentClip,
+  );
+  await capture(
+    "menu-usage",
+    "운영 콘솔 · 메뉴 활용률",
+    "등록된 업무 화면의 사용 현황을 확인합니다.",
+    "tables",
+    async () => {
+      await go("/admin/usage?v=1");
+      await expect(page.getByRole("main").getByRole("heading", { name: "메뉴 활용률", exact: true })).toBeVisible();
+    },
+    mainContentClip,
+  );
   const total = (await Promise.all(manifest.map((s) => stat(join(options.out, `${s.id}.png`))))).reduce(
     (sum, s) => sum + s.size,
     0,

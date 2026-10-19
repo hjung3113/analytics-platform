@@ -237,12 +237,17 @@ if (shots.length) {
   const gallery = `<div class="shot-gallery" id="actual-shots" aria-labelledby="actual-shots-heading"><h3 id="actual-shots-heading">실제 화면</h3><p class="lead">아래는 데모 앱을 배포 때마다 자동으로 찍은 실제 화면입니다(mock 합성 데이터).</p><p class="caption">등록 유형: 선·막대(메뉴 사용 중)·파이·산점도(등록됨, 메뉴 미사용). <a class="source-ref" href="#source-L62">L62</a> · <a class="source-ref" href="#source-L63">L63</a></p><div class="shot-filters" role="group" aria-label="실제 화면 분류">${filters}</div><p id="shot-count" class="caption" role="status" aria-live="polite">${shots.length}개 화면</p><div class="shot-grid">${tiles}</div></div>
   <dialog class="shot-dialog" id="shot-dialog" aria-modal="true" aria-labelledby="shot-dialog-title" aria-describedby="shot-dialog-description"><div class="shot-dialog-controls"><h3 id="shot-dialog-title"></h3><button type="button" data-shot-close autofocus>닫기</button></div><img id="shot-dialog-image" alt=""><p id="shot-dialog-description"></p><div class="shot-dialog-controls"><button type="button" data-shot-prev>이전</button><span id="shot-dialog-position" role="status"></span><button type="button" data-shot-next>다음</button><a class="button secondary" data-demo hidden id="shot-dialog-demo" target="_blank" rel="noopener">데모에서 열기</a></div></dialog>`;
   const shotsLink = '<a class="button secondary" href="#actual-shots" data-chart-shots-link>실제 화면 보기 →</a>';
+  const groupShotsLink = (group, label) =>
+    `<a class="button secondary" href="#actual-shots" data-shot-group-link="${group}">${label}</a>`;
   html = html
     .replace("<!-- ACTUAL_SHOTS -->", gallery)
     .replace(
       "<!-- CHART_SHOTS_LINK -->",
       '<a class="button secondary" href="#actual-shots" data-chart-shots-link>실제 차트 보기 →</a>',
     )
+    .replace("<!-- STATES_SHOTS_LINK -->", groupShotsLink("states", "상태 화면 캡처 보기"))
+    .replace("<!-- ADMIN_SHOTS_LINK -->", groupShotsLink("tables", "변경 감사·운영 캡처 보기"))
+    .replace("<!-- SHELL_SHOTS_LINK -->", groupShotsLink("shell", "시스템 전환기 캡처 보기"))
     .replace("<!-- LEAD_SHOTS_LINK -->", shotsLink)
     .replace(
       "<!-- CHART_BRANCH_SHOTS_LINK -->",
@@ -266,6 +271,9 @@ if (shots.length) {
     .replace("<!-- ACTUAL_SHOTS -->", "")
     .replace("<!-- CHART_SHOTS_LINK -->", "")
     .replace("<!-- LEAD_SHOTS_LINK -->", "")
+    .replace("<!-- STATES_SHOTS_LINK -->", "")
+    .replace("<!-- ADMIN_SHOTS_LINK -->", "")
+    .replace("<!-- SHELL_SHOTS_LINK -->", "")
     .replace('<p class="caption"><!-- CHART_BRANCH_SHOTS_LINK --></p>', "");
 }
 await writeFile(join(out, "index.html"), html);

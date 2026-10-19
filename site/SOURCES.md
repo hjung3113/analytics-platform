@@ -1,16 +1,16 @@
 # 소개 사이트 콘텐츠 원장
 
-확정 설계 D1(2026-10-13)의 §7을 옮겼다. 아래 원본 코드·문서·이슈를 공개 근거로 연결한다. 실행 통과 수나 운영 연결 완료를 주장하지 않는다.
+소개 사이트의 사실·숫자를 공개 근거에 연결한다. 실행 통과 수나 운영 연결 완료를 주장하지 않는다.
 
 ## 7. 콘텐츠 원장
 
 ### 7.1 사실·숫자 (사이트에 들어가는 것 전부)
 
-조사·측정 기준일 2026-10-13. "재측정"은 첫 공개 직전에 같은 방법으로 다시 세서 고친다.
+조사·측정 기준일 2026-10-20. "재측정"은 첫 공개 직전에 같은 방법으로 다시 세서 고친다.
 
 | ID | 주장·숫자 | 출처 | 비고 |
 | --- | --- | --- | --- |
-| L01 | 릴리스 7개 v0.1.0(2026-10-04) – v0.6.1(2026-10-12), 각 릴리스 내용 | `.planning/README.md` 「끝난 것」, GitHub Releases | 공개 시 새 릴리스가 있으면 갱신 |
+| L01 | 최신 완료 상태 v0.13.0(2026-10-19)와 정비 슬라이스 15의 내용 | `.planning/README.md` 「끝난 것」 | 릴리스 개수는 표기하지 않음 |
 | L02 | `@ap/components` 공개 React 컴포넌트 21개: AnalysisChartFrame, EChart, PlatformDataTable, PageFilterBar, SegmentedRadio, DetailDrawer, Field, AuditTimeline, DataTrustIndicator, PlatformPage, Panel, StatCard, QueryView, OutcomeView, StateMessage, LoadingBlock, ManagementLayout, AnalysisLayout, DrillLayout, DrillPath, ReturnLink | `packages/components/src/index.ts` + 각 파일의 `export function [A-Z]…`(D1이 셈) | 재측정. `OutcomeScope`는 공개 export 아님 |
 | L03 | `@ap/ui`: 환경 helper isProductionEnv·isMacPlatform·shortcutLabel 포함. Button·buttonVariants, StatusBadge·Dot(Tone 5종), shadcn 13계열(Alert·Badge·Checkbox·Dialog·DropdownMenu·Input·Label·Popover·RadioGroup·Select·Skeleton·Tabs·Tooltip), DetailPanelSlot 3종, cn, prefersReducedMotion | `packages/ui/src/index.ts` | — |
 | L04 | `@ap/shell` 7개: AppShell, AppRail, AppSidebar, ScopeSelector, CommandPalette, GlobalContextBar, RouteOutlet | `packages/shell/src/index.ts` | — |
@@ -50,7 +50,7 @@
 | L38 | "새 메뉴가 추가될 때 플랫폼 코드를 계속 고쳐야 한다면 플랫폼 설계가 실패한 것이다." | `docs/06_platform_ui_contract.md` §30 | 인용 그대로 |
 | L39 | As-Is 구조적 문제(메뉴별 반복 구현, 같은 URL 다른 숫자, 0건 모호, 권한·감사 편차) | 플랫폼 UI 계약 §4–6·§17–19 | 측정값 아님 |
 | L40 | VOC 리드타임·신규 메뉴 개발 기간 등 아직 수치화 안 됨 | #233 | 사내 도구 이름은 쓰지 않음 |
-| L41 | 정비 슬라이스: #296·#297·#298·#299·#312 완료, #300 닫힘, #301–#307·#314 열림 | `.planning/README.md` 「진행 중」, `gh issue view`(2026-10-13) | 공개 시 실제 상태로 교체 |
+| L41 | 정비 슬라이스의 2026-10-13 상태 기록 | `.planning/README.md` 「진행 중」, `gh issue view`(2026-10-13) | 과거 스냅샷. 현재 상태로 인용하지 않음 |
 | L42 | 데모는 브라우저 안 mock assembly, 합성 데이터, 실제 SSO·권한 서버·mart 미연결 | `README.md:3-5`, `apps/platform-web/README.md:3` | — |
 | L43 | MVP 지원 환경은 데스크톱 웹 | `docs/05_roadmap_and_open_questions.md` | — |
 | L44 | 다크 모드 Deferred, FeedbackOps 토큰에 다크 블록 없음 | DESIGN.md Open Decisions, FeedbackOps `tokens.css` | 사이트 라이트 전용 근거 |
@@ -75,6 +75,15 @@
 
 | L62 | 실제 화면 갤러리는 Pages 경로의 mock 데모 빌드를 UI 상호작용으로 캡처한다. DPR2로 저장하고 shots.json의 width·height는 CSS px이다. 차트·표는 구성요소 영역만, 상태 화면은 설비 목록 패널만, 세로·가로로 긴 것은 위쪽 중심 영역을 찍고 타일에서 cover-top으로 잘라 보여 준다. 합성 데이터이며 운영 데이터가 아니다 | `apps/platform-web/dist` (`AP_BASE_PATH=/analytics-platform/demo/`), `site/scripts/shots.mjs`, `apps/platform-web/README.md` | 배포 시 자동 캡처, 실패 시 배포 중단 |
 | L63 | ECharts 등록 유형은 선·막대·파이·산점도이고 Brush·DataZoom·MarkArea·MarkLine·Toolbox·Tooltip을 등록한다. 메뉴는 선·막대를 사용한다 | `packages/components/src/EChartImpl.tsx`, `menus/analytics/analytics/src/pages/ProductivityOverview.tsx` | 파이·산점도는 메뉴 미사용, 화면을 생성하지 않음 |
+| L64 | 플랫폼 기능 9묶음과 요구 R1.1–R9.7의 상태 | `docs/17_platform_requirements.md` §1.1·§3.1–§3.9 | 요구 ID와 상태를 소개 사이트의 기능 지도·상태 보드에서 그대로 사용 |
+| L65 | 분석 대표 장면 7단계: 이상 확인 → 원인 추적 → 비교·주석 → VOC → 개선 Task 복귀 → 개선 확인 → 변경 감사 | `docs/17_platform_requirements.md` §2 | 각 단계의 동작·상태는 원문 기준 |
+| L66 | 플랫폼의 업무 맥락·화면 간 조건·숫자 신뢰·VOC·개선 연결·자유도 한계 | `docs/17_platform_requirements.md` §1·§4·§6 | 효과 수치·실데이터·사용자 조합 분석을 주장하지 않음 |
+| L67 | 업무 시스템은 MARS·BRAVO·CLAS(준비 중)·운영 콘솔이고, mock 사이트는 MEM·FDRY | `docs/17_platform_requirements.md` §0·§3.7 | 표준 로그 개발·개선 실행은 계획 |
+| L68 | 기존 시스템 이전 경계와 두 경로(저장소 안 화면 동작, SDK 탑재 진행 중) | `docs/17_platform_requirements.md` §5 | 팀의 화면 내용·업무 규칙·도메인 API는 계속 팀 소유 |
+| L69 | SDK의 보장·이득·상태와 의존 방향 | `docs/17_platform_requirements.md` §3.9, ADR-0043, ADR-0044, ADR-0053 | SDK는 플랫폼 소유 계약·프레임워크이며 독립 실행은 제품 책임 |
+| L70 | 분석 보드 시안의 칸·조건·레이아웃·선택 표시 | `docs/16_analysis_board.md` §4–5, ADR-0051 | 설계 확정·구현 전·예시 데이터 |
+| L71 | 도입 근거로 보일 수 있는 범위와 아직 없는 것 | `docs/17_platform_requirements.md` §6–7 | 효과 숫자·실데이터·사용자 조합 분석은 아직 없음 |
+| L72 | 요구 ID R1.1–R10.8의 개별 상태 표기와 §0의 여섯 상태 이름 | `docs/17_platform_requirements.md` §0·§3.1–§3.9·§7 | 표에 적힌 동작·설계·계획·결정 대기·보류·사내 답 대기·조직 요구값 표기를 보존 |
 
 ### 7.2 예시(합성) 데이터 — 화면에서 반드시 `예시`로 표시
 
@@ -88,14 +97,9 @@
 | E07 | 08 절 선언형 데이터셋·필드 역할 코드 | `구상 · 타입 미정 (#292)`, 코드 주석 `예시 형태` |
 | E05 | 04 절 주소 막대·D3 링크의 시각 값 — 2026-10-13 로컬 데모로 D1–D10 확인 | 스텝퍼 캡션 "주소의 값은 데모의 합성 데이터 기간" |
 
-### 7.3 "가정: 열린 이슈 해결" 표기
+### 7.3 기준일과 정비 상태 표기
 
-- **기본 계획:** 정비 슬라이스(#301–#307, #314)가 닫히고 그 릴리스가 나온 뒤 첫 공개한다. 이때 가정은 사실이 되므로 가정 문구를 모두 끄고 머리 칩을 `기준 <릴리스 태그> · <날짜>`로 바꾼다. 09 절 정비 노드 상태도 `완료`.
-- **그 전에 공개하면** 다음 세 곳에 켠다(같은 문구, `site-config.js`의 `assumption: true`로 토글):
-  1. 머리 가운데 칩: `기준 2026-10-13 · 정비 이슈 해결 가정`. 누르면 popover(`surface-popover`):
-     "이 페이지는 2026-10-13 기준으로, 진행 중인 정비 슬라이스의 남은 이슈(#301–#307, #314)가 해결된 상태를 가정해 썼습니다. 이 이슈들은 접근성·화면 문구·표와 차트의 세부 동작을 다룹니다(이슈 제목 기준). 실제 상태는 GitHub 이슈에서 확인하세요." + 이슈 목록 링크.
-  2. 05 절 리드 아래 중립 콜아웃: 같은 문구의 첫 문장 + "데모는 배포한 ref의 실제 상태를 보여 주므로 이 이슈들의 증상이 보일 수 있습니다."
-  3. 바닥글 `출처와 기준`.
+- 기준일은 `2026-10-20`이다. `--assumption` 토글은 유지하며, 켜면 머리 칩·14 상태 보드 안내·출처에 "정비 이슈는 해결된 상태를 반영했습니다"를 표시한다.
 
 ---
 
@@ -123,7 +127,7 @@ rg '^export function [A-Z]' packages/components/src/{AnalysisChartFrame,AuditTim
 
 L02는 index.ts가 공개한 모듈에서 React 컴포넌트 21개를 확인했다. 타입과 helper는 21개에 더하지 않는다. EChart의 token, 표의 sortAndPage/parsePageIndex/parseTableSort/encodeTableSort, copyText/useCopyLink도 갤러리에 노출한다(EChart의 strokeToken·baseTextStyle은 패키지 내부로 좁혀졌다). L03은 모든 shadcn 계열 개별 export 및 환경 helper를 실제 index.ts 기준으로 표시한다. L05 PlatformAdapter 메서드는 adapter.ts의 실제 전체 목록을 쓴다.
 
-L01·L41은 2026-10-13 설계 조사값이며 공개 직전 코디네이터 갱신 대상이다. L41은 --assumption으로 명시적으로 표기한다. 데모 주소(E05)는 2026-10-13 로컬 데모에서 D1–D10을 확인했다.
+L01은 2026-10-20 기준 `.planning/README.md`의 최신 완료 상태다. L41은 2026-10-13 상태 스냅샷으로, 현재 상태로 인용하지 않는다. 데모 주소(E05)는 2026-10-13 로컬 데모에서 D1–D10을 확인한 기록이다.
 
 ## 공개 원본
 

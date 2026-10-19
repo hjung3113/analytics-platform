@@ -65,35 +65,6 @@
       input.parentElement.classList.toggle("is-selected", input.checked);
     });
   }
-  function audience(value, updateUrl) {
-    value = value === "dev" ? "dev" : "lead";
-    all("[data-audience]").forEach(function (element) {
-      element.hidden = element.dataset.audience !== value;
-    });
-    all('input[name="audience"]').forEach(function (input) {
-      input.checked = input.value === value;
-    });
-    document.querySelector(".requests").classList.toggle("dev-first", value === "dev");
-    radioStyle("audience");
-    if (updateUrl) {
-      var url = new URL(location.href);
-      url.searchParams.set("for", value);
-      try {
-        history.replaceState(null, "", url.href);
-      } catch (_) {
-        /* file:// may forbid history changes; content still switches. */
-      }
-    }
-  }
-  audience(new URL(location.href).searchParams.get("for"), false);
-  all('input[name="audience"]').forEach(function (input) {
-    input.addEventListener("change", function () {
-      audience(input.value, true);
-    });
-  });
-  window.addEventListener("popstate", function () {
-    audience(new URL(location.href).searchParams.get("for"), false);
-  });
   function caseSelect(value) {
     all("[data-case]").forEach(function (element) {
       element.hidden = element.dataset.case !== value;
@@ -112,6 +83,251 @@
       step.select(step.current() + Number(button.dataset.step), false);
     });
   });
+  all("[data-loop-step]").forEach(function (link) {
+    function selectStep() {
+      var step = tabs.get("steps");
+      if (step) step.select(Number(link.dataset.loopStep), false);
+    }
+    link.addEventListener("click", selectStep);
+    link.addEventListener("focus", selectStep);
+  });
+
+  var board = document.getElementById("analysis-board");
+  if (board) {
+    var boardGrid = document.getElementById("board-grid");
+    var selectedContext = document.getElementById("selected-context");
+    var boardTabs = all(".board-sheets [role=tab]", board);
+    var boardLayout = "2x2";
+    var selectedSheet = 0;
+    var selectedPane = 0;
+    var sheets = [
+      {
+        name: "PHOTO 비교",
+        panes: [
+          { system: "MARS", screen: "생산성 개요", context: { 기간: "9월", 사이트: "MEM", 공정: "PHOTO", 설비: "전체" }, values: [34, 46, 39, 55, 43, 64] },
+          { system: "BRAVO", screen: "사이클타임 지표", context: { 기간: "9월", 사이트: "MEM", 공정: "PHOTO", 설비: "전체", 버전: "v2" }, values: [28, 42, 36, 59, 48, 67] },
+          { system: "MARS", screen: "사이클타임 상세", context: { 기간: "10월", 사이트: "MEM", 공정: "PHOTO", 설비: "LTH-014", 집계: "일" }, values: [40, 35, 52, 46, 66, 54] },
+          { system: "MARS", screen: "설비 상세", context: { 기간: "10월", 사이트: "FDRY", 공정: "PHOTO", 설비: "FDRY-0103", 집계: "시간" }, values: [38, 48, 43, 62, 51, 70] },
+        ],
+      },
+      {
+        name: "개선 전·후",
+        panes: [
+          { system: "MARS", screen: "사이클타임 상세 · 개선 전", context: { 기간: "9월", 사이트: "MEM", 공정: "PHOTO", 설비: "LTH-014", 구간: "개선 전" }, values: [36, 54, 48, 68, 58, 76] },
+          { system: "MARS", screen: "사이클타임 상세 · 개선 후", context: { 기간: "10월", 사이트: "MEM", 공정: "PHOTO", 설비: "LTH-014", 구간: "개선 후" }, values: [32, 43, 39, 51, 44, 57] },
+        ],
+      },
+    ];
+    boardTabs.forEach(function (tab, index) {
+      tab.dataset.boardSheet = String(index);
+      tab.addEventListener("click", function () {
+        selectSheet(index, true);
+      });
+      tab.addEventListener("keydown", function (event) {
+        var next;
+        if (event.key === "ArrowRight") next = (selectedSheet + 1) % boardTabs.length;
+        if (event.key === "ArrowLeft") next = (selectedSheet + boardTabs.length - 1) % boardTabs.length;
+        if (event.key === "Home") next = 0;
+        if (event.key === "End") next = boardTabs.length - 1;
+        if (next !== undefined) {
+          event.preventDefault();
+          selectSheet(next, true);
+        }
+      });
+    });
+    function currentSheet() {
+      return sheets[selectedSheet];
+    }
+    function paneCount() {
+      return boardLayout === "1x1" ? 1 : boardLayout === "2x2" ? 4 : 2;
+    }
+    function addText(parent, tag, value, className) {
+      var element = document.createElement(tag);
+      if (className) element.className = className;
+      element.textContent = value;
+      parent.appendChild(element);
+      return element;
+    }
+    function contextString(context) {
+      return Object.keys(context).map(function (key) {
+        return key + " " + context[key];
+      }).join(" · ");
+    }
+    function updatePaneSelection() {
+      var sheet = currentSheet();
+      var activeContext = sheet.panes[selectedPane].context;
+      selectedContext.textContent = "선택한 칸 " + (selectedPane + 1) + " · " + contextString(activeContext);
+      all(".board-pane", boardGrid).forEach(function (article) {
+        var index = Number(article.dataset.boardPane);
+        var pane = sheet.panes[index];
+        article.classList.toggle("is-selected", index === selectedPane);
+        var differences = article.querySelector(".pane-differences");
+        differences.replaceChildren();
+        Object.keys(activeContext).forEach(function (key) {
+          if (pane.context[key] !== activeContext[key]) addText(differences, "span", key + " " + pane.context[key], "difference-chip");
+        });
+        Object.keys(pane.context).forEach(function (key) {
+          if (!(key in activeContext)) addText(differences, "span", key + " " + pane.context[key], "difference-chip");
+        });
+        var sameCount = Object.keys(activeContext).filter(function (key) {
+          return key in pane.context && pane.context[key] === activeContext[key];
+        }).length;
+        var sameSummary = article.querySelector(".board-context summary");
+        sameSummary.textContent = "같음 " + sameCount;
+        sameSummary.setAttribute("aria-label", "칸 " + (index + 1) + "의 같은 조건 전체 보기");
+      });
+    }
+    function buildMiniChart(values) {
+      var chart = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      chart.setAttribute("viewBox", "0 0 360 112");
+      chart.setAttribute("aria-hidden", "true");
+      chart.classList.add("board-chart");
+      [28, 56, 84].forEach(function (y) {
+        var gridline = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        gridline.setAttribute("d", "M0 " + y + "H360");
+        gridline.classList.add("board-chart-grid");
+        chart.appendChild(gridline);
+      });
+      var points = values.map(function (value, index) {
+        return (index * 70 + 8) + " " + (98 - value);
+      }).join("L");
+      var line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      line.setAttribute("d", "M" + points);
+      line.classList.add("board-chart-line");
+      chart.appendChild(line);
+      return chart;
+    }
+    function selectPane(index, restoreFocus) {
+      if (selectedPane === index) return;
+      selectedPane = index;
+      renderBoard();
+      if (restoreFocus) {
+        var focusedPane = boardGrid.querySelector('[data-board-pane="' + index + '"]');
+        if (focusedPane) focusedPane.focus({ preventScroll: true });
+      }
+    }
+    function renderBoard() {
+      var sheet = currentSheet();
+      if (selectedPane >= Math.min(paneCount(), sheet.panes.length)) selectedPane = 0;
+      boardGrid.dataset.layout = boardLayout;
+      boardGrid.replaceChildren();
+      all("[data-board-layout]", board).forEach(function (button) {
+        var selected = button.dataset.boardLayout === boardLayout;
+        button.setAttribute("aria-pressed", String(selected));
+      });
+      boardTabs.forEach(function (tab, index) {
+        var selected = index === selectedSheet;
+        tab.setAttribute("aria-selected", String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+      });
+      document.getElementById("board-title").textContent = sheet.name === "PHOTO 비교" ? "PHOTO 분석 작업대" : "개선 전·후 작업대";
+      var activeContext = sheet.panes[selectedPane].context;
+      selectedContext.textContent = "선택한 칸 " + (selectedPane + 1) + " · " + contextString(activeContext);
+      sheet.panes.slice(0, paneCount()).forEach(function (pane, index) {
+        var article = document.createElement("article");
+        article.className = "board-pane" + (index === selectedPane ? " is-selected" : "");
+        article.tabIndex = 0;
+        article.dataset.boardPane = String(index);
+        article.setAttribute("aria-label", "칸 " + (index + 1) + " · " + pane.system + " · " + pane.screen);
+        article.addEventListener("click", function (event) {
+          if (event.target.closest(".board-popover")) {
+            if (selectedPane !== index) {
+              selectedPane = index;
+              updatePaneSelection();
+            }
+            return;
+          }
+          selectPane(index, false);
+        });
+        article.addEventListener("focusin", function (event) {
+          if (event.target !== article) return;
+          selectPane(index, true);
+        });
+        var header = document.createElement("div");
+        header.className = "board-pane-head";
+        var identity = document.createElement("div");
+        identity.className = "board-pane-identity";
+        addText(identity, "span", "칸 " + (index + 1), "pane-number");
+        addText(identity, "span", pane.system, "system-chip");
+        addText(identity, "b", pane.screen, "pane-screen");
+        header.appendChild(identity);
+        var activeKeys = Object.keys(activeContext);
+        var differences = document.createElement("div");
+        differences.className = "pane-differences";
+        differences.setAttribute("aria-label", "선택한 칸과 다른 조건");
+        activeKeys.forEach(function (key) {
+          if (pane.context[key] !== activeContext[key]) addText(differences, "span", key + " " + pane.context[key], "difference-chip");
+        });
+        Object.keys(pane.context).forEach(function (key) {
+          if (!(key in activeContext)) addText(differences, "span", key + " " + pane.context[key], "difference-chip");
+        });
+        header.appendChild(differences);
+        var same = Object.keys(activeContext).filter(function (key) {
+          return key in pane.context && pane.context[key] === activeContext[key];
+        });
+        var sameDetails = document.createElement("details");
+        sameDetails.className = "board-popover board-context";
+        var sameSummary = addText(sameDetails, "summary", "같음 " + same.length);
+        sameSummary.setAttribute("aria-label", "칸 " + (index + 1) + "의 같은 조건 전체 보기");
+        var allConditions = document.createElement("ul");
+        Object.keys(pane.context).forEach(function (key) {
+          addText(allConditions, "li", key + " · " + pane.context[key]);
+        });
+        sameDetails.appendChild(allConditions);
+        header.appendChild(sameDetails);
+        var menu = document.createElement("details");
+        menu.className = "board-popover board-menu";
+        var menuSummary = addText(menu, "summary", "⋯");
+        menuSummary.setAttribute("aria-label", "칸 " + (index + 1) + " 메뉴");
+        var apply = addText(menu, "button", "이 조건을 시트의 모든 칸에 적용");
+        apply.type = "button";
+        apply.addEventListener("click", function () {
+          selectedPane = index;
+          var chosen = Object.assign({}, currentSheet().panes[index].context);
+          currentSheet().panes.forEach(function (item) {
+            item.context = Object.assign({}, chosen);
+          });
+          menu.open = false;
+          renderBoard();
+          var activePane = boardGrid.querySelector('[data-board-pane="' + index + '"]');
+          if (activePane) activePane.focus({ preventScroll: true });
+        });
+        header.appendChild(menu);
+        article.appendChild(header);
+        var content = document.createElement("div");
+        content.className = "board-pane-body";
+        content.appendChild(buildMiniChart(pane.values));
+        var metrics = document.createElement("div");
+        metrics.className = "board-metrics";
+        addText(metrics, "span", "P50 " + (39 + index * 2) + "분");
+        addText(metrics, "span", "P95 " + (66 + index * 3) + "분");
+        content.appendChild(metrics);
+        article.appendChild(content);
+        boardGrid.appendChild(article);
+      });
+    }
+    function selectSheet(index, focus) {
+      selectedSheet = index;
+      selectedPane = 0;
+      renderBoard();
+      if (focus) boardTabs[index].focus();
+    }
+    all("[data-board-layout]", board).forEach(function (button) {
+      button.addEventListener("click", function () {
+        boardLayout = button.dataset.boardLayout;
+        renderBoard();
+      });
+    });
+    board.addEventListener("keydown", function (event) {
+      if (event.key !== "Escape") return;
+      var popover = event.target.closest("details.board-popover[open]");
+      if (!popover) return;
+      event.preventDefault();
+      popover.open = false;
+      popover.querySelector("summary").focus();
+    });
+    renderBoard();
+  }
   all("[data-demo]").forEach(function (element) {
     element.hidden = config.demo !== true;
   });
@@ -126,8 +342,8 @@
   });
   var basis = document.querySelector(".basis");
   document.getElementById("basis-label").textContent = config.assumption
-    ? "기준 2026-10-13 · 정비 이슈 해결 가정"
-    : "기준 " + (config.ref || "2026-10-13") + " · " + (config.builtAt || "2026-10-13");
+    ? "기준 2026-10-20 · 정비 이슈 해결 반영"
+    : "기준 2026-10-20 · " + (config.builtAt || "조립 전");
   if (!config.assumption) {
     basis.querySelector(".basis-popover").hidden = true;
     basis.querySelector("summary").addEventListener("click", function (event) {
@@ -197,6 +413,11 @@
     all("[data-chart-shots-link]").forEach(function (link) {
       link.addEventListener("click", function () {
         filterShots("charts");
+      });
+    });
+    all("[data-shot-group-link]").forEach(function (link) {
+      link.addEventListener("click", function () {
+        filterShots(link.dataset.shotGroupLink);
       });
     });
     shotButtons.forEach(function (button) {
@@ -286,15 +507,17 @@
   });
   openCard("C1", false);
   var expand = document.getElementById("expand-all");
-  expand.addEventListener("click", function () {
-    var next = all(".claim").some(function (detail) {
-      return !detail.open;
+  if (expand) {
+    expand.addEventListener("click", function () {
+      var next = all(".claim").some(function (detail) {
+        return !detail.open;
+      });
+      all(".claim").forEach(function (detail) {
+        detail.open = next;
+      });
+      expand.textContent = next ? "모두 접기" : "모두 펼치기";
     });
-    all(".claim").forEach(function (detail) {
-      detail.open = next;
-    });
-    expand.textContent = next ? "모두 접기" : "모두 펼치기";
-  });
+  }
   function filter() {
     var statusInput = document.querySelector('input[name="tech-filter"]:checked');
     var stageInput = document.querySelector('input[name="stage-filter"]:checked');
