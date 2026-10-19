@@ -1,10 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ApiResponse, AuditEvent, AuditSortField, AuditTrailPage, AuditTrailQuery } from '@ap/contracts';
 import { instantEpochMs } from '@ap/contracts';
-import { auditTrail, entityAudit } from './audit';
+import { auditTrail as auditTrailRead, entityAudit as entityAuditRead, type AuditOptions } from './audit';
 import { getRole, setRole, setScenario } from './server';
 import { AUDIT_EVENTS } from './audit-fixtures';
 import { EQUIPMENT, USERS, type RoleId } from './world';
+
+// Metric events are menu-owned seeds (ADR-0048); these three stand in for the metrics menu's seeds here.
+const METRIC_SEEDS: readonly AuditEvent[] = [
+  { id: 'metric:cycle_time:update', at: '2026-09-26T02:00:00.000Z', actor: 'park.seo', action: 'update', source: 'user', target: { type: 'metric', id: 'cycle_time', scopeId: null }, changes: { publicationState: ['draft', 'published'] }, reason: '게시 확정. mart 재계산 완료가 아닙니다.' },
+  { id: 'metric:cycle_time:create', at: '2026-09-20T02:00:00.000Z', actor: 'park.seo', action: 'create', source: 'user', target: { type: 'metric', id: 'cycle_time', scopeId: null }, changes: { metricVersion: [null, '4'] }, reason: '공정 구간으로 grain 설명 수정. 게시 포인터.' },
+  { id: 'metric:wafer_move_count:retire', at: '2026-04-02T02:00:00.000Z', actor: 'choi.min', action: 'retire', source: 'user', target: { type: 'metric', id: 'wafer_move_count', scopeId: null }, changes: { publicationState: ['published', 'deprecated'] }, reason: '폐기. 기존 참조는 유지하고 최신으로 대체하지 않습니다.' },
+];
+const auditTrail = (query: AuditTrailQuery, signal?: AbortSignal, opts?: AuditOptions) => auditTrailRead(query, signal, { seeds: METRIC_SEEDS, ...opts });
+const entityAudit = (ref: Parameters<typeof entityAuditRead>[0], signal?: AbortSignal, opts?: AuditOptions) => entityAuditRead(ref, signal, { seeds: METRIC_SEEDS, ...opts });
 
 const page = (res: ApiResponse<AuditTrailPage>) => res.data as AuditTrailPage;
 const events = (res: ApiResponse<{ events: readonly AuditEvent[] }>) => res.data?.events ?? [];

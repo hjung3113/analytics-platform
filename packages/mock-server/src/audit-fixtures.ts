@@ -2,9 +2,8 @@
  * Synthetic audit store (issue #50). One array feeds both the console read (auditTrail) and the destination
  * read (entityAudit). Deterministic: equipment events are seeded from the EQUIPMENT array order, never from
  * validity segments, shift or parseDateTime — `at` is not validFrom/validTo/updatedAt. Not parser data and
- * not the FeedbackOps audit log (a different record; do not merge). The three metric rows are hand-written
- * so the console can show and link a metric row; they will not equal the metric menu's language-dependent
- * history (follow-up A) — do not assert that they do.
+ * not the FeedbackOps audit log (a different record; do not merge). Equipment only: metric events are the
+ * metrics menu's audit seeds, handed in by the app's mock assembly (`createMockAdapter({ auditEvents })`, ADR-0048).
  */
 import type { AuditEvent } from '@ap/contracts';
 import { EQUIPMENT } from './world';
@@ -30,10 +29,5 @@ export const AUDIT_EVENTS: readonly AuditEvent[] = (() => {
       events.push({ id: `equipment:${row.equipmentId}:retire`, at: at('retire'), actor: row.updatedBy, action: 'retire', source: 'user', target, changes: { validTo: [null, row.validTo] } });
     }
   });
-  events.push(
-    { id: 'metric:cycle_time:update', at: '2026-09-26T02:00:00.000Z', actor: 'park.seo', action: 'update', source: 'user', target: { type: 'metric', id: 'cycle_time', scopeId: null }, changes: { publicationState: ['draft', 'published'] }, reason: '게시 확정. mart 재계산 완료가 아닙니다.' },
-    { id: 'metric:cycle_time:create', at: '2026-09-20T02:00:00.000Z', actor: 'park.seo', action: 'create', source: 'user', target: { type: 'metric', id: 'cycle_time', scopeId: null }, changes: { metricVersion: [null, '4'] }, reason: '공정 구간으로 grain 설명 수정. 게시 포인터.' },
-    { id: 'metric:wafer_move_count:retire', at: '2026-04-02T02:00:00.000Z', actor: 'choi.min', action: 'retire', source: 'user', target: { type: 'metric', id: 'wafer_move_count', scopeId: null }, changes: { publicationState: ['published', 'deprecated'] }, reason: '폐기. 기존 참조는 유지하고 최신으로 대체하지 않습니다.' },
-  );
   return events;
 })();

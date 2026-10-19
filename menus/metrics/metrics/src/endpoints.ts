@@ -117,7 +117,6 @@ export type DefinitionPayload = {
 export type UsageRow = { menuId: ConsumerMenuId; place: Text; version: string; evidenceSource: 'declared-dependency'; observedAt: null };
 export type UsagePayload = { problem: 'unknown-metric' | 'version-not-member' | null; rows: UsageRow[] };
 
-export type HistoryPayload = { problem: 'unknown-metric' | null; events: AuditEvent[] };
 
 export type PairVerdict =
   | { kind: 'absent' }
@@ -175,6 +174,3 @@ export const usageEndpoint = defineEndpoint<{ metricId: string; version: string 
   ...base, id: 'metrics.usage', menuId: 'metric-detail', context: {}, paramKeys: { metricId: true, version: true },
 });
 
-export const historyEndpoint = defineEndpoint<{ metricId: string; lang: Lang }, HistoryPayload>({
-  ...base, id: 'metrics.history', menuId: 'metric-detail', context: {}, paramKeys: { metricId: true, lang: true },
-});

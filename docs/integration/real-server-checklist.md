@@ -4,7 +4,7 @@
 
 ## 1. 무엇을 바꾸나
 
-앱은 서버를 `PlatformAdapter` 하나로만 만난다. `apps/platform-web/src/main.tsx`는 `#platform-assembly`의 `createAssembly({ registry })`가 돌려준 어댑터를 주입한다(#153, [ADR-0009](../adr/0009-production-assembly-injection.md)). 지금 dev·mock 빌드에서는 `src/dev/mock-assembly.tsx`가 `createMockAdapter({ endpoints, registry })`를 돌려준다 — 실어댑터를 돌려주는 조립 모듈을 만들어 운영 빌드에 꽂는 것이 사내 적용의 전부다. Kernel·셸·공통 컴포넌트·메뉴 화면은 고치지 않는다.
+앱은 서버를 `PlatformAdapter` 하나로만 만난다. `apps/platform-web/src/main.tsx`는 `#platform-assembly`의 `createAssembly({ registry })`가 돌려준 어댑터를 주입한다(#153, [ADR-0009](../adr/0009-production-assembly-injection.md)). 지금 dev·mock 빌드에서는 `src/dev/mock-assembly.tsx`가 `createMockAdapter({ endpoints, registry, auditEvents })`를 돌려준다(지표 감사 시드, ADR-0048 — 실서버에서는 서버 감사 저장소가 같은 자리를 채운다) — 실어댑터를 돌려주는 조립 모듈을 만들어 운영 빌드에 꽂는 것이 사내 적용의 전부다. Kernel·셸·공통 컴포넌트·메뉴 화면은 고치지 않는다.
 
 - 실어댑터(클라이언트)는 각 포트 메서드를 서버 호출로 옮긴다. 전송 형식(HTTP 경로·JSON 모양·상태 코드·부트스트랩·CSRF·Correlation ID)은 [전송 형식 초안](http-adapter-contract.md)(Candidate, 합의 대기 — [사내 적용 가이드](in-house-rollout.md) §2)에 있다.
 - 서버는 mock 엔진이 하는 판정을 그대로 한다. 판정의 기준은 요청이 아니라 **서버가 가진 엔드포인트 선언 사본**이다.

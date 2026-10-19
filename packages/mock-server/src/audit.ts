@@ -18,9 +18,10 @@ import { AUDIT_EVENTS } from './audit-fixtures';
 import { runtimeAuditEvents } from './annotations';
 import { EQUIPMENT, USERS, type RoleId } from './world';
 
-export type AuditOptions = { role?: RoleId; latency?: number };
+/** `seeds`: audit events the app's mock assembly hands in (menu-owned destinations such as metrics, ADR-0048); they join the store as-is. */
+export type AuditOptions = { role?: RoleId; latency?: number; seeds?: readonly AuditEvent[] };
 
-const AUDIT_TYPES = ['equipment', 'metric', 'annotation'];
+export const AUDIT_TYPES = ['equipment', 'metric', 'annotation'];
 const AUDIT_ACTIONS = ['create', 'update', 'retire', 'sync', 'delete'] as const satisfies readonly AuditAction[];
 const AUDIT_SOURCES = ['user', 'system'] as const satisfies readonly AuditSource[];
 const AUDIT_SORT_FIELDS = ['at', 'actor', 'action', 'source', 'targetType'] as const satisfies readonly AuditSortField[];
@@ -110,7 +111,7 @@ export async function auditTrail(query: AuditTrailQuery, signal?: AbortSignal, o
   if (s === 'empty') return { ...base, outcome: 'empty' };
   const fromMs = query.fromAt !== undefined ? instantEpochMs(query.fromAt) : null;
   const toMs = query.toAt !== undefined ? instantEpochMs(query.toAt) : null;
-  const filtered = [...AUDIT_EVENTS, ...runtimeAuditEvents()].filter(event =>
+  const filtered = [...AUDIT_EVENTS, ...(opts?.seeds ?? []), ...runtimeAuditEvents()].filter(event =>
     (query.type === undefined || event.target.type === query.type)
     && (query.actor === undefined || event.actor === query.actor)
     && (query.action === undefined || event.action === query.action)
@@ -163,7 +164,7 @@ export async function entityAudit(ref: EntityRef, signal?: AbortSignal, opts?: A
   // 6. A metric destination has no site; do not drop the site and do not filter by it.
   if (ref.scopeId !== null) return { ...base, outcome: 'error', message: 'Metric audit has no scope' };
   if (s === 'forbidden') return { ...base, outcome: 'forbidden', message: 'Permission revoked (scenario)' };
-  const events = AUDIT_EVENTS.filter(event => event.target.type === 'metric' && event.target.id === ref.id);
+  const events = (opts?.seeds ?? []).filter(event => event.target.type === 'metric' && event.target.id === ref.id);
   if (s === 'empty' || events.length === 0) return { ...base, outcome: 'empty' };
   return { ...base, outcome: 'ok', data: { events: [...events].sort(compareEventsDesc) } };
 }

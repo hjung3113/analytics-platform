@@ -3,9 +3,11 @@
  * The app's mock assembly (apps/platform-web/src/dev/mock-assembly.tsx, ADR-0009) hands the object returned by
  * createMockAdapter to main.tsx through `#platform-assembly`; production builds never contain it. A real server adapter replaces this file, not the kernel.
  */
-import type { ContextKey, MenuMeta, PlatformAdapter, Session } from '@ap/contracts';
+import type { AuditEvent, ContextKey, MenuMeta, PlatformAdapter, Session } from '@ap/contracts';
+import { instantEpochMs } from '@ap/contracts';
 import { checkScope, getEntity, getRole, matchesCondition, recordUsage, reportClientError, subscribeServer, usageSummary, validateScope } from './server';
-import { auditTrail, entityAudit } from './audit';
+import { AUDIT_TYPES, auditTrail, entityAudit } from './audit';
+import { AUDIT_EVENTS } from './audit-fixtures';
 import { accessDirectory } from './access';
 import { deleteAnnotation, listAnnotations, saveAnnotation } from './annotations';
 import { DEFAULT_RANGE_TO, EQUIPMENT, PUBLISHED_METRICS, SITES, USERS, type RoleId } from './world';
@@ -36,10 +38,31 @@ function sessionFor(role: RoleId): Session {
   return session;
 }
 
+/**
+ * Menu-owned audit seeds (ADR-0048) are checked once at registration, like endpoints: a declared target type,
+ * a canonical instant, no id collision, and no site on a metric (a metric has none — `entityAudit` rejects one).
+ */
+function checkAuditSeeds(seeds: readonly AuditEvent[]): void {
+  const seen = new Set(AUDIT_EVENTS.map(event => event.id));
+  for (const event of seeds) {
+    if (seen.has(event.id)) throw new MockRegistrationError(`audit seed ${event.id}: duplicate id`);
+    seen.add(event.id);
+    if (!AUDIT_TYPES.includes(event.target.type) || event.target.type === 'equipment') {
+      throw new MockRegistrationError(`audit seed ${event.id}: target type ${event.target.type} is not a seedable audit type`);
+    }
+    if (event.target.type === 'metric' && event.target.scopeId !== null) throw new MockRegistrationError(`audit seed ${event.id}: a metric has no scope`);
+    try { instantEpochMs(event.at); } catch { throw new MockRegistrationError(`audit seed ${event.id}: at must be an instant with a zone`); }
+  }
+}
+
 export function createMockAdapter(o: {
   endpoints: readonly AnyMockEndpoint[];
   registry: { menus: readonly MenuMeta[] };
+  /** Audit events of menu-owned destinations, from the app's mock assembly (ADR-0048). */
+  auditEvents?: readonly AuditEvent[];
 }): PlatformAdapter {
+  const seeds = o.auditEvents ?? [];
+  checkAuditSeeds(seeds);
   const endpoints = new Map<string, AnyMockEndpoint>();
   for (const endpoint of o.endpoints) {
     const { spec } = endpoint;
@@ -116,8 +139,8 @@ export function createMockAdapter(o: {
     getEntity: (ref, signal) => getEntity(ref, signal),
     menuQuery: (req, signal) => serveEndpoint(endpoints, req, signal),
     // opts (test role pin, latency) stay server-side: the adapter passes the port arguments only.
-    auditTrail: (query, signal) => auditTrail(query, signal),
-    entityAudit: (ref, signal) => entityAudit(ref, signal),
+    auditTrail: (query, signal) => auditTrail(query, signal, { seeds }),
+    entityAudit: (ref, signal) => entityAudit(ref, signal, { seeds }),
     accessDirectory: (query, signal) => accessDirectory(query, signal),
     listAnnotations: (ref, signal) => listAnnotations(ref, signal),
     saveAnnotation: (input, signal) => saveAnnotation(input, signal),
