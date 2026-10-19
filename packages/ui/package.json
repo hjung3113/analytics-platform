@@ -5,7 +5,12 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./styles.css": "./src/styles/index.css"
+    "./styles.css": "./src/styles/index.css",
+    "./styles/tokens.css": "./src/styles/tokens.css",
+    "./styles/semantic.css": "./src/styles/semantic.css",
+    "./styles/theme.css": "./src/styles/theme.css",
+    "./styles/compat.css": "./src/styles/compat.css",
+    "./styles/sources.css": "./src/styles/sources.css"
   },
   "scripts": {
     "lint": "eslint .",

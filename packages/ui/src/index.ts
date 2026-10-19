@@ -102,3 +102,30 @@ export { UserChip, type UserChipProps } from './identity/UserChip';
 export { ObjectRow, type ObjectRowProps, type ObjectRowDensity, type ObjectRowSeverity } from './data/ObjectRow';
 export { PermissionBlockedPanel, type PermissionBlockedPanelProps, type PermissionState } from './permissions/PermissionBlockedPanel';
 export { LinkedEntityTrail, type LinkedEntityTrailProps, type EntityNodeRef } from './entity/LinkedEntityTrail';
+
+// FeedbackOps consumption surface (#466, ADR-0046): names FeedbackOps' `@fops/ui` exports that the platform itself does not use yet.
+// Opened because FeedbackOps is now their consumer (the "open when a consumer appears" condition in AGENTS.md).
+export * from './components/shadcn/alert-dialog';
+export * from './components/shadcn/avatar';
+export * from './components/shadcn/card';
+export * from './components/shadcn/combobox';
+export * from './components/shadcn/hover-card';
+export * from './components/shadcn/sheet';
+export * from './components/shadcn/textarea';
+export * from './components/shadcn/toggle-group';
+export { DialogContentBare } from './components/shadcn/dialog';
+// The shadcn tab list/trigger, unwrapped. `TabsList`/`TabsTrigger` above are the platform selection-marker wrappers (ADR-0023 amended, #340).
+export { TabsList as TabsListBase, TabsTrigger as TabsTriggerBase } from './components/shadcn/tabs';
+export { KeyboardShortcut, type KeyboardShortcutProps } from './components/KeyboardShortcut';
+export { SkeletonBlocks, type SkeletonBlocksProps, type SkeletonBlock } from './components/SkeletonBlocks';
+export { SkeletonRows, type SkeletonRowsProps } from './components/SkeletonRows';
+export {
+  DIALOG_CONTENT_MOTION,
+  POPPER_CONTENT_MOTION,
+  SCRIM_MOTION,
+  SELECT_CONTENT_MOTION,
+  SHEET_CONTENT_MOTION,
+  readMotionTiming,
+} from './utils/motion';
+export { useListMotion } from './utils/useListMotion';
+export { isToastTarget } from './utils/toast-target';
