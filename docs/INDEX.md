@@ -16,7 +16,7 @@
 
 | 역할 | 먼저 볼 문서 | 같이 볼 문서 |
 | --- | --- | --- |
-| 신규 합류자 | [00 개요](00_overview.md) → [06 플랫폼 계약](06_platform_ui_contract.md) | 자기 역할 행 |
+| 신규 합류자 | [00 개요](00_overview.md) → [17 플랫폼 요구사항](17_platform_requirements.md) → [06 플랫폼 계약](06_platform_ui_contract.md) | 자기 역할 행 |
 | 기획(PM) — 도메인 | [02 도메인 catalog](02_domain_menus.md) | [GLOSSARY](../GLOSSARY.md), [05](05_roadmap_and_open_questions.md) |
 | 백엔드·인프라 | [01 아키텍처·데이터 계약](01_architecture_and_data_contract.md) | [03 백엔드](03_backend_stack.md), [실서버 연결 체크리스트](integration/real-server-checklist.md) |
 | 플랫폼·프론트엔드 | [06 플랫폼 계약](06_platform_ui_contract.md) | [04 프론트 기술 스택](04_frontend_ui_ux.md), [07 셸](07_app_shell_wireframe.md) |
@@ -54,6 +54,7 @@
 - [03 백엔드](03_backend_stack.md) — 백엔드·DB·인증 기술 스택, 재현성·시간 계약.
 - [04 프론트 기술 스택](04_frontend_ui_ux.md) — 라이브러리 결정과 코드 현황, 그리드·차트·데이터 도구 검토, 페이지별 UI 패턴.
 - [05 결정 상태](05_roadmap_and_open_questions.md) — ADR 없는 계약 결정 목록, MVP 지원 환경, 메뉴 활용률 계측 정책.
+- [17 플랫폼 요구사항](17_platform_requirements.md) — 플랫폼이 제공해야 하는 기능 전체(된 것·만들 것)를 사용자·운영자·개발자 언어로 모은 요구 목록과 상태. 소개 사이트(#468)의 근거. Candidate.
 - [06 플랫폼 UI 계약](06_platform_ui_contract.md) — Platform Kernel, Menu Registry, Context Capability, Shell Slot, Page Archetype, 공통 컴포넌트 승격 기준, Data Trust·권한·상태 UX, navigation IA. **전역 계약의 원본.**
 - [07 App Shell](07_app_shell_wireframe.md) — 셸 구조(ADR-0011·0013·0015로 Decided)와 IA.
 - 견본 메뉴 화면의 계약 메모(사내에서 새로 만들 메뉴라 계약에 닿는 부분만 둔다): [08 운영 개요](08_operations_overview_wireframe.md), [09 설비 마스터](09_equipment_master_wireframe.md), [11 생산성 개요](11_productivity_overview_wireframe.md), [12 사이클타임 드릴다운](12_cycle_time_drilldown_wireframe.md)(대표 드릴다운 왕복 계약), [13 지표 카탈로그](13_metric_catalog_wireframe.md)(`metricId`+`metricVersion` 쌍의 원본). 드릴다운 플랫폼 기능: [14 드릴다운 — 플랫폼 기능과 레이아웃](14_drilldown_platform.md)(#225, ADR-0025). 업무 시스템별 공간과 FeedbackOps 협업 진입: [15 멀티 워크스페이스](15_multi_workspace_ui.md)(#249, ADR-0026). 여러 화면을 한 화면에 나란히 보는 작업대: [16 분석 보드](16_analysis_board.md)(#421, 1차 동작 Decided·화면 모양 Candidate, ADR-0049).
