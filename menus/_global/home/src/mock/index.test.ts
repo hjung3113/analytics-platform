@@ -20,7 +20,7 @@ afterEach(() => { setRole(previousRole); });
 describe('home notices endpoint', () => {
   it('answers notices for the targeted site only', async () => {
     setRole('viewer');
-    const response = await adapter.menuQuery({ endpoint: noticesEndpoint.id, context: {}, params: { targetScopeId: 'CJU' } });
+    const response = await adapter.menuQuery({ endpoint: noticesEndpoint.id, context: {}, params: { targetScopeId: 'FDRY' } });
     expect(response.outcome).toBe('ok');
     expect((response.data as Notice[]).map(n => n.id)).toEqual(['N-2026-088']);
     const none = await adapter.menuQuery({ endpoint: noticesEndpoint.id, context: {}, params: { targetScopeId: null } });
@@ -33,7 +33,7 @@ describe('home notices endpoint', () => {
     try {
       setRole('viewer');
       expect(USERS.viewer.permissions).toContain('platform:view');
-      const response = await adapter.menuQuery({ endpoint: noticesEndpoint.id, context: {}, params: { targetScopeId: 'ICH' } });
+      const response = await adapter.menuQuery({ endpoint: noticesEndpoint.id, context: {}, params: { targetScopeId: 'MEM' } });
       expect(response.outcome).toBe('forbidden');
     } finally {
       USERS.viewer.permissions = permissions;
@@ -41,7 +41,7 @@ describe('home notices endpoint', () => {
   });
 
   it('rejects a Scope sent as Context: home does not apply Scope', async () => {
-    const response = await adapter.menuQuery({ endpoint: noticesEndpoint.id, context: { scopeId: 'ICH' }, params: { targetScopeId: 'ICH' } });
+    const response = await adapter.menuQuery({ endpoint: noticesEndpoint.id, context: { scopeId: 'MEM' }, params: { targetScopeId: 'MEM' } });
     expect(response.outcome).toBe('error');
   });
 });

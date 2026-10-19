@@ -6,7 +6,7 @@ import { contextBar, evidence, expectScopeValid, firstRowByColumn, lotColumn, ma
  * Menu screens are only the consumers the contract is observed through — assertions target kernel/shell behavior.
  */
 const PERIOD = 'from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
-const PRODUCTIVITY = `/analytics/productivity?v=1&scopeId=ICH&${PERIOD}&roomNames=PHOTO`;
+const PRODUCTIVITY = `/analytics/productivity?v=1&scopeId=MEM&${PERIOD}&roomNames=PHOTO`;
 const ORIGIN = 'https://feedbackops.example';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -64,7 +64,7 @@ async function expectMyVocLinks(page: Page, expectedReturn: string) {
   return firstRowUrl;
 }
 
-/** Rail section buttons of the current system (15 §3.2). `exact` keeps '생산성 분석' apart from the switcher's '… 현재: 생산성 분석'. */
+/** Rail section buttons of the current system (15 §3.2). `exact` keeps '생산성 분석' apart from the switcher's '… 현재: MARS'. */
 function railSection(page: Page, name: string) {
   return page.getByRole('navigation', { name: '앱 레일' }).getByRole('group', { name: '시스템 섹션' }).getByRole('button', { name, exact: true });
 }
@@ -149,7 +149,7 @@ function visibleContextLabel(page: Page) {
 
 test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
   test('FeedbackOps base 값이 theme보다 우선하고 플랫폼 control 경계는 label 대비를 유지한다', async ({ page }, testInfo) => {
-    await page.goto('/metrics?v=1&scopeId=ICH');
+    await page.goto('/metrics?v=1&scopeId=MEM');
     await expect(page.getByTestId('page-filter-bar')).toBeVisible();
     const search = page.getByTestId('metric-search');
     await expect(search).toBeVisible();
@@ -168,7 +168,7 @@ test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
 test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
   test('1440 설비 마스터는 접기 기억과 펼치기 포커스를 제공한다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/equipment?v=1&scopeId=ICH');
+    await page.goto('/equipment?v=1&scopeId=MEM');
     const rail = page.getByRole('region', { name: '필터', exact: true });
     const tableCard = page.getByRole('region', { name: '설비 마스터 목록' });
     await expect(rail.getByRole('heading', { name: '필터', exact: true })).toBeVisible();
@@ -192,7 +192,7 @@ test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
 
   test('1280 상세 슬롯은 자기 폭에 맞춰 필터 팝오버로 전환하고 URL 필터를 편집한다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/equipment?v=1&scopeId=ICH&focus=ICH-PHOTO-0103');
+    await page.goto('/equipment?v=1&scopeId=MEM&focus=MEM-PHOTO-0103');
     await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog')).toBeVisible();
     await expect(page.getByRole('region', { name: '필터', exact: true })).toHaveCount(0);
     const button = page.getByRole('region', { name: '설비 마스터 목록' }).getByRole('button', { name: /^필터(?: · \d+)?$/ });
@@ -237,7 +237,7 @@ test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
 
 test.describe('PageFilterBar page-key 계약 (#54)', () => {
   test('설비 q/status/maker는 동일한 page key를 쓰고 page와 전체 필터를 초기화한다', async ({ page }, testInfo) => {
-    await page.goto('/equipment?v=1&scopeId=ICH&page=2');
+    await page.goto('/equipment?v=1&scopeId=MEM&page=2');
     // ADR-0037: drafts until 적용 (Enter in the search field submits), then one navigation that drops page.
     await expect(page.getByRole('button', { name: '필터 초기화' })).toHaveCount(0);
     const search = page.getByRole('searchbox', { name: '설비 ID 검색' });
@@ -249,7 +249,7 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
     await expect.poll(() => query(page).has('page')).toBe(false);
     await expect(search).toBeFocused();
 
-    await page.goto('/equipment?v=1&scopeId=ICH&page=2');
+    await page.goto('/equipment?v=1&scopeId=MEM&page=2');
     await chooseFilterOption(page, '상태', '정비');
     expect(query(page).has('status')).toBe(false);
     await page.getByRole('button', { name: '적용 (1)', exact: true }).click();
@@ -260,7 +260,7 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
     await page.getByRole('button', { name: '적용 (1)', exact: true }).click();
     await expect.poll(() => query(page).has('status')).toBe(false);
 
-    await page.goto('/equipment?v=1&scopeId=ICH&maker=ZZZ&page=2');
+    await page.goto('/equipment?v=1&scopeId=MEM&maker=ZZZ&page=2');
     const maker = page.getByRole('combobox', { name: 'Maker' });
     await expect(maker).toHaveText('ZZZ');
     await chooseFilterOption(page, 'Maker', 'TEL');
@@ -269,7 +269,7 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
     await expect.poll(() => query(page).get('maker')).toBe('TEL');
     await expect.poll(() => query(page).has('page')).toBe(false);
 
-    await page.goto('/equipment?v=1&scopeId=ICH&q=PHOTO&status=maintenance&maker=ZZZ&page=2');
+    await page.goto('/equipment?v=1&scopeId=MEM&q=PHOTO&status=maintenance&maker=ZZZ&page=2');
     await page.getByRole('button', { name: '필터 초기화' }).click();
     await expect.poll(() => query(page).has('q')).toBe(false);
     expect(query(page).has('status')).toBe(false);
@@ -279,7 +279,7 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
   });
 
   test('지표 q/status/domain은 동일한 page key를 쓰고 unknown domain을 표시하며 전체 필터를 초기화한다', async ({ page }, testInfo) => {
-    await page.goto('/metrics?v=1&scopeId=ICH&page=2');
+    await page.goto('/metrics?v=1&scopeId=MEM&page=2');
     const search = page.getByRole('searchbox', { name: '이름 또는 지표 ID' });
     await page.locator('label').filter({ hasText: '이름 또는 지표 ID' }).click();
     await expect(search).toBeFocused();
@@ -293,24 +293,24 @@ test.describe('PageFilterBar page-key 계약 (#54)', () => {
     await expect.poll(() => query(page).get('q')).toBe('yield');
     await expect.poll(() => query(page).has('page')).toBe(false);
 
-    await page.goto('/metrics?v=1&scopeId=ICH&page=2');
+    await page.goto('/metrics?v=1&scopeId=MEM&page=2');
     await chooseFilterOption(page, '상태', '게시');
     await expect.poll(() => query(page).get('status')).toBe('published');
     await expect.poll(() => query(page).has('page')).toBe(false);
 
-    await page.goto('/metrics?v=1&scopeId=ICH&page=2');
+    await page.goto('/metrics?v=1&scopeId=MEM&page=2');
     await chooseFilterOption(page, '도메인', '품질');
     await expect.poll(() => query(page).get('domain')).toBe('quality');
     await expect.poll(() => query(page).has('page')).toBe(false);
 
-    await page.goto('/metrics?v=1&scopeId=ICH&domain=bogus');
+    await page.goto('/metrics?v=1&scopeId=MEM&domain=bogus');
     // #304 FIX1: the alert keeps the field's user name and the raw value as entered — never `key=value`.
     await expect(page.getByRole('alert')).toContainText('도메인');
     await expect(page.getByRole('alert')).toContainText('bogus');
     await expect(page.getByRole('alert')).not.toContainText('domain=');
     await expect(page.getByRole('combobox', { name: '도메인' })).toHaveText('bogus');
 
-    await page.goto('/metrics?v=1&scopeId=ICH&q=yield&status=draft&domain=quality&page=2');
+    await page.goto('/metrics?v=1&scopeId=MEM&q=yield&status=draft&domain=quality&page=2');
     await page.getByRole('button', { name: '필터 초기화' }).click();
     await expect.poll(() => query(page).has('q')).toBe(false);
     expect(query(page).has('status')).toBe(false);
@@ -325,7 +325,7 @@ test.describe('PageFilterBar 접힘 요약 (ADR-0029)', () => {
   test('접힌 요약은 조건을 자르지 않고 항목 단위로 왼쪽 정렬 줄바꿈하며 Enter로 펼친다', async ({ page }, testInfo) => {
     const longRaw = 'x'.repeat(60);
     await page.setViewportSize({ width: 1024, height: 900 });
-    await page.goto(`/analytics/cycle-time?v=1&scopeId=ICH&${PERIOD}&percentile=${longRaw}&sort=equipmentId:asc`);
+    await page.goto(`/analytics/cycle-time?v=1&scopeId=MEM&${PERIOD}&percentile=${longRaw}&sort=equipmentId:asc`);
     const bar = page.getByTestId('page-filter-bar');
     await expect(bar).toBeVisible();
     // 등록되지 않은 percentile은 페이지 키 오류이지만 필터 바는 원문을 요약에 그대로 남긴다.
@@ -472,7 +472,7 @@ test.describe('셸 sticky 계약 (06 §7)', () => {
   test('main 스크롤 뒤에도 페이지 제목·액션은 Context에 가리지 않는다', async ({ page }, testInfo) => {
     await page.goto(PRODUCTIVITY);
     await expect(mainHeading(page)).toHaveText('생산성 개요');
-    await expectScopeValid(page, 'ICH · Site A');
+    await expectScopeValid(page, 'MEM · 메모리');
     await expect(contextBar(page)).toBeVisible();
     const main = page.locator('#platform-main');
     // The real overview has KPI, trend and breakdown sections; no synthetic spacer is inserted.
@@ -501,12 +501,12 @@ test.describe('셸 sticky 계약 (06 §7)', () => {
     await page.setViewportSize({ width: 1024, height: 900 });
     await page.addInitScript(() => localStorage.setItem('platform:sidebar-collapsed', '0'));
     await page.goto(PRODUCTIVITY.replace('&roomNames=PHOTO', ''));
-    await expectScopeValid(page, 'ICH · Site A');
+    await expectScopeValid(page, 'MEM · 메모리');
     await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
     await page.getByRole('button', { name: 'CVD 들어가기' }).click();
     await page.getByRole('button', { name: 'STG-CVD-A 들어가기' }).click();
-    await page.getByRole('button', { name: 'ICH-CVD-0149 들어가기' }).click();
-    await expect.poll(() => query(page).get('drillEquipment')).toBe('ICH-CVD-0149');
+    await page.getByRole('button', { name: 'MEM-CVD-0149 들어가기' }).click();
+    await expect.poll(() => query(page).get('drillEquipment')).toBe('MEM-CVD-0149');
     await expect(page.getByText('설비 요약', { exact: true }).first()).toBeVisible();
     const header = page.locator('#platform-main header').filter({ has: page.getByRole('heading', { level: 1 }) });
     const primary = header.getByRole('link', { name: '사이클타임 상세 보기', exact: true });
@@ -529,8 +529,8 @@ test.describe('셸 sticky 계약 (06 §7)', () => {
   test('1024px 펼친 사이드바·설비 상세에서 별과 Data Trust 상자는 겹치지 않고 별은 눌린다 (#398)', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1024, height: 900 });
     await page.addInitScript(() => localStorage.setItem('platform:sidebar-collapsed', '0'));
-    await page.goto(`${PRODUCTIVITY}&drillRoom=PHOTO&drillStgroup=STG-PHOTO-A&drillEquipment=ICH-PHOTO-0103`);
-    await expectScopeValid(page, 'ICH · Site A');
+    await page.goto(`${PRODUCTIVITY}&drillRoom=PHOTO&drillStgroup=STG-PHOTO-A&drillEquipment=MEM-PHOTO-0103`);
+    await expectScopeValid(page, 'MEM · 메모리');
     await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
     await expect(page.getByText('설비 요약', { exact: true }).first()).toBeVisible();
     const header = page.locator('#platform-main header').filter({ has: page.getByRole('heading', { level: 1 }) });
@@ -565,8 +565,8 @@ test.describe('셸 sticky 계약 (06 §7)', () => {
     test(`사이드바를 접은 ${width}px ${drill ? '설비 상세' : '개요'}에서 머리는 모든 양보 전에 가로로 넘치지 않는다 (#398)`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 900 });
       await page.addInitScript(() => localStorage.setItem('platform:sidebar-collapsed', '1'));
-      await page.goto(`${PRODUCTIVITY}${drill ? '&drillRoom=PHOTO&drillStgroup=STG-PHOTO-A&drillEquipment=ICH-PHOTO-0103' : ''}`);
-      await expectScopeValid(page, 'ICH · Site A');
+      await page.goto(`${PRODUCTIVITY}${drill ? '&drillRoom=PHOTO&drillStgroup=STG-PHOTO-A&drillEquipment=MEM-PHOTO-0103' : ''}`);
+      await expectScopeValid(page, 'MEM · 메모리');
       await expect(page.getByRole('button', { name: '사이드바 펼치기' })).toBeVisible();
       if (drill) await expect(page.getByText('설비 요약', { exact: true }).first()).toBeVisible();
       const header = page.locator('#platform-main header').filter({ has: page.getByRole('heading', { level: 1 }) });
@@ -584,11 +584,11 @@ test.describe('셸 sticky 계약 (06 §7)', () => {
     test(`상세 패널이 열린 ${width}px에서도 제목은 보이고 주 동작은 화면 안, 머리는 가로로 넘치지 않는다 (#303)`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(`${PRODUCTIVITY.replace('&roomNames=PHOTO', '')}`);
-      await expectScopeValid(page, 'ICH · Site A');
+      await expectScopeValid(page, 'MEM · 메모리');
       await page.getByRole('button', { name: 'CVD 들어가기' }).click();
       await page.getByRole('button', { name: 'STG-CVD-A 들어가기' }).click();
-      await page.getByRole('button', { name: 'ICH-CVD-0149 들어가기' }).click();
-      await expect.poll(() => query(page).get('drillEquipment')).toBe('ICH-CVD-0149');
+      await page.getByRole('button', { name: 'MEM-CVD-0149 들어가기' }).click();
+      await expect.poll(() => query(page).get('drillEquipment')).toBe('MEM-CVD-0149');
       await expect(page.getByText('설비 요약', { exact: true }).first()).toBeVisible();
       const header = page.locator('#platform-main header').filter({ has: page.getByRole('heading', { level: 1 }) });
       const metrics = await header.evaluate(el => {
@@ -609,8 +609,8 @@ test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
   // Measured 2026-10-05: the full row needs about 1018px; the bar has about 1148px before the detail slot opens and 708px after.
   test('상세 슬롯을 같은 1280px 뷰포트에서 열면 자체 폭 변화로 라벨과 기간 프리셋이 접힌다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto('/equipment?v=1&scopeId=ICH');
-    await expectScopeValid(page, 'ICH · Site A');
+    await page.goto('/equipment?v=1&scopeId=MEM');
+    await expectScopeValid(page, 'MEM · 메모리');
     const row = page.getByRole('main').locator('[data-row-id]').first();
     await expect(row).toBeVisible();
     await expect(visibleContextLabel(page)).toBeVisible();
@@ -632,7 +632,7 @@ test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
   test('넓은 폭(1920px) 생산성 개요에서는 1일 프리셋과 모든 조건이 인라인이다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1920, height: 800 });
     await page.goto(PRODUCTIVITY);
-    await expectScopeValid(page, 'ICH · Site A');
+    await expectScopeValid(page, 'MEM · 메모리');
     await expect(contextBar(page).getByRole('radio', { name: '1일', exact: true })).toBeVisible();
     await expect(visibleContextLabel(page)).toBeVisible();
     await expect(contextBar(page).getByRole('button', { name: /개 더/ })).toHaveCount(0);
@@ -647,7 +647,7 @@ test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
   test('1440px 생산성 개요는 기간 프리셋·모든 조건이 인라인이다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 800 });
     await page.goto(PRODUCTIVITY);
-    await expectScopeValid(page, 'ICH · Site A');
+    await expectScopeValid(page, 'MEM · 메모리');
     await expect(contextBar(page).getByRole('button', { name: /개 더/ })).toHaveCount(0);
     await expect(contextBar(page).getByRole('radio', { name: '1일', exact: true })).toBeVisible();
     await expectContextBounds(page);
@@ -657,9 +657,9 @@ test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
   // At 1280px with the detail slot open the compact row fits without overflow (see the first test), so overflow editing is checked at 1024px.
   test('상세 슬롯이 열린 1024px에서도 한 줄이며 넘침에서 편집한다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1024, height: 800 });
-    await page.goto('/equipment?v=1&scopeId=ICH&focus=ICH-PHOTO-0103');
+    await page.goto('/equipment?v=1&scopeId=MEM&focus=MEM-PHOTO-0103');
     await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog')).toBeVisible();
-    await expectScopeValid(page, 'ICH · Site A');
+    await expectScopeValid(page, 'MEM · 메모리');
     const bar = contextBar(page);
     await expect(bar).toBeVisible();
     await expectContextBounds(page);
@@ -684,7 +684,7 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
     const url = `${PRODUCTIVITY}&granularity=day`;
     await page.goto(url);
     await expect(mainHeading(page)).toHaveText('생산성 개요');
-    await expectScopeValid(page, 'ICH · Site A');
+    await expectScopeValid(page, 'MEM · 메모리');
     const bar = contextBar(page);
     await expect(bar.getByRole('button', { name: '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00' })).toBeVisible();
     await expect(bar.getByRole('button', { name: 'room_name PHOTO' })).toBeVisible();
@@ -699,7 +699,7 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
 
   test('기간이 빠진 시간 적용 메뉴는 서버 기준시각으로 기본 기간을 절대값으로 URL에 기록한다', async ({ page }, testInfo) => {
     // The mock server's defaultRangeTo is 2026-09-26T09:00:00 (a fixture value): never browser now or midnight rounding (§6.3).
-    await page.goto('/analytics/productivity?v=1&scopeId=ICH');
+    await page.goto('/analytics/productivity?v=1&scopeId=MEM');
     await expect.poll(() => query(page).get('to')).toBe('2026-09-26T09:00:00');
     expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
     const preset = await periodPreset(page, '1일');
@@ -712,7 +712,7 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
   });
 
   test('지원하지 않는 URL 버전은 자동 보정하지 않고 계약 오류로 보인다', async ({ page }, testInfo) => {
-    await page.goto('/equipment?v=2&scopeId=ICH');
+    await page.goto('/equipment?v=2&scopeId=MEM');
     await expect(page.getByRole('alert')).toContainText('주소에 쓸 수 없는 값이 있습니다');
     await expect(page.getByRole('button', { name: '조건 초기화' })).toBeVisible();
     expect(query(page).get('v')).toBe('2');
@@ -720,20 +720,20 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
   });
 
   test('주소 오류 화면의 조건 초기화는 눌린 뒤 포커스를 main으로 보낸다', async ({ page }) => {
-    await page.goto('/equipment?v=2&scopeId=ICH');
+    await page.goto('/equipment?v=2&scopeId=MEM');
     await page.getByRole('button', { name: '조건 초기화' }).click();
     await expect(page.getByRole('button', { name: '조건 초기화' })).toHaveCount(0);
     expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('MAIN');
   });
 
   test('표 정렬·페이지·드로어 탭을 등록된 page key로 복원하고 새로고침에도 유지한다', async ({ page }, testInfo) => {
-    // Fixture: ICH equipment list fills page 1 (25/row) and overflows to page 2.
-    await page.goto('/equipment?v=1&scopeId=ICH');
+    // Fixture: MEM equipment list fills page 1 (25/row) and overflows to page 2.
+    await page.goto('/equipment?v=1&scopeId=MEM');
     await expect(page.getByTestId('page-filter-bar')).toBeVisible();
     const focus = await page.locator('[data-row-id]').first().getAttribute('data-row-id');
     expect(focus).toBeTruthy();
 
-    await page.goto(`/equipment?v=1&scopeId=ICH&sort=status:desc&page=2&focus=${focus}&tab=audit`);
+    await page.goto(`/equipment?v=1&scopeId=MEM&sort=status:desc&page=2&focus=${focus}&tab=audit`);
     // URL keys are kept as registered page keys — not stripped, not rewritten.
     expect(query(page).get('sort')).toBe('status:desc');
     expect(query(page).get('page')).toBe('2');
@@ -756,20 +756,20 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
   });
 
   test('Scope 전환은 manifest가 선언한 page 키만 지우고, 뒤로 가면 이전 URL을 그대로 복원한다', async ({ page }, testInfo) => {
-    await page.goto('/equipment?v=1&scopeId=ICH&page=2');
-    await expectScopeValid(page, 'ICH · Site A');
+    await page.goto('/equipment?v=1&scopeId=MEM&page=2');
+    await expectScopeValid(page, 'MEM · 메모리');
     await expect(tableStatusLine(page)).toContainText(/2\/\d+/);
 
-    await switchScope(page, 'CJU');
-    await expectScopeValid(page, 'CJU · Site B');
+    await switchScope(page, 'FDRY');
+    await expectScopeValid(page, 'FDRY · 파운드리');
     // contextResetKeys(['page']) is dropped by setGlobal itself — same navigation, no follow-up rewrite.
-    expect(query(page).get('scopeId')).toBe('CJU');
+    expect(query(page).get('scopeId')).toBe('FDRY');
     expect(query(page).has('page')).toBe(false);
     await evidence(page, testInfo, 'scope-switch-drops-page');
 
     // History traversal restores the entry exactly — the page key must survive Back (06 §6.4).
     await page.goBack();
-    await expect.poll(() => page.url().replace(/^https?:\/\/[^/]+/, '')).toBe('/equipment?v=1&scopeId=ICH&page=2');
+    await expect.poll(() => page.url().replace(/^https?:\/\/[^/]+/, '')).toBe('/equipment?v=1&scopeId=MEM&page=2');
     await expect(tableStatusLine(page)).toContainText(/2\/\d+/);
     await evidence(page, testInfo, 'back-restores-page');
   });
@@ -779,7 +779,7 @@ test.describe('셸 고정 상세 슬롯 (06 §13, ADR-0013)', () => {
   for (const width of [1440, 1280]) {
     test(`focus로 열린 상세가 표 옆에 놓이고 닫기·Back/Forward로 복원된다 (${width}px)`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 900 });
-      await page.goto('/equipment?v=1&scopeId=ICH');
+      await page.goto('/equipment?v=1&scopeId=MEM');
       const main = page.getByRole('main');
       const row = main.locator('[data-row-id]').first();
       await expect(row).toBeVisible();
@@ -834,12 +834,12 @@ test.describe('셸 고정 상세 슬롯 (06 §13, ADR-0013)', () => {
   }
 
   test('상세를 닫으면 상세 전용 tab도 같이 지워지고 목록 필터·전역 Context는 유지된다 (#299 B-05)', async ({ page }) => {
-    await page.goto('/equipment?v=1&scopeId=ICH');
+    await page.goto('/equipment?v=1&scopeId=MEM');
     const row = page.getByRole('main').locator('[data-row-id]').first();
     await expect(row).toBeVisible();
     const focus = await row.getAttribute('data-row-id');
 
-    await page.goto(`/equipment?v=1&scopeId=ICH&q=PHOTO&focus=${focus}&tab=validity`);
+    await page.goto(`/equipment?v=1&scopeId=MEM&q=PHOTO&focus=${focus}&tab=validity`);
     const dialog = page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog');
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole('tab', { name: '유효구간 이력' })).toHaveAttribute('aria-selected', 'true');
@@ -849,34 +849,34 @@ test.describe('셸 고정 상세 슬롯 (06 §13, ADR-0013)', () => {
     await expect.poll(() => query(page).has('focus')).toBe(false);
     await expect.poll(() => query(page).has('tab')).toBe(false);
     expect(query(page).get('q')).toBe('PHOTO');
-    expect(query(page).get('scopeId')).toBe('ICH');
+    expect(query(page).get('scopeId')).toBe('MEM');
 
     // 패널 Esc 경로: 같은 딥링크로 다시 열어 패널 안에서 닫는다.
-    await page.goto(`/equipment?v=1&scopeId=ICH&q=PHOTO&focus=${focus}&tab=validity`);
+    await page.goto(`/equipment?v=1&scopeId=MEM&q=PHOTO&focus=${focus}&tab=validity`);
     await expect(dialog).toBeVisible();
     await dialog.getByRole('button', { name: '상세 닫기' }).focus();
     await page.keyboard.press('Escape');
     await expect.poll(() => query(page).has('focus')).toBe(false);
     await expect.poll(() => query(page).has('tab')).toBe(false);
     expect(query(page).get('q')).toBe('PHOTO');
-    expect(query(page).get('scopeId')).toBe('ICH');
+    expect(query(page).get('scopeId')).toBe('MEM');
   });
 
   test('알 수 없는 drawer tab은 경고 탭으로 보이고 Back 복원 뒤에도 경고가 보인다 (W-350)', async ({ page }, testInfo) => {
-    await page.goto('/equipment?v=1&scopeId=ICH');
+    await page.goto('/equipment?v=1&scopeId=MEM');
     const row = page.getByRole('main').locator('[data-row-id]').first();
     await expect(row).toBeVisible();
     const focus = await row.getAttribute('data-row-id');
 
     // Start on a valid tab: Radix Tabs seeds its internal state once at mount, so the regression needs the
     // drawer mounted on a real tab first and then reaching the unknown tab by history traversal.
-    await page.goto(`/equipment?v=1&scopeId=ICH&focus=${focus}&tab=validity`);
+    await page.goto(`/equipment?v=1&scopeId=MEM&focus=${focus}&tab=validity`);
     const dialog = page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog');
     await expect(dialog.getByRole('tab', { name: '유효구간 이력' })).toHaveAttribute('aria-selected', 'true');
     await page.evaluate(href => {
       window.history.pushState(null, '', href);
       window.dispatchEvent(new PopStateEvent('popstate'));
-    }, `/equipment?v=1&scopeId=ICH&focus=${focus}&tab=bogus`);
+    }, `/equipment?v=1&scopeId=MEM&focus=${focus}&tab=bogus`);
     await expect.poll(() => query(page).get('tab')).toBe('bogus');
     await expect(dialog.getByRole('alert')).toContainText('등록되지 않은 탭입니다.');
     await dialog.getByRole('button', { name: '속성 열기' }).click();
@@ -891,19 +891,19 @@ test.describe('셸 고정 상세 슬롯 (06 §13, ADR-0013)', () => {
   });
 
   test('알 수 없는 탭 복구 버튼을 키보드로 누르면 선택된 탭으로 포커스가 간다 (#353)', async ({ page }, testInfo) => {
-    await page.goto('/equipment?v=1&scopeId=ICH');
+    await page.goto('/equipment?v=1&scopeId=MEM');
     const row = page.getByRole('main').locator('[data-row-id]').first();
     await expect(row).toBeVisible();
     const focus = await row.getAttribute('data-row-id');
 
     // W-350과 같이 유효 탭으로 마운트한 뒤 히스토리 순회로 알 수 없는 탭에 닿는다.
-    await page.goto(`/equipment?v=1&scopeId=ICH&focus=${focus}&tab=validity`);
+    await page.goto(`/equipment?v=1&scopeId=MEM&focus=${focus}&tab=validity`);
     const dialog = page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog');
     await expect(dialog.getByRole('tab', { name: '유효구간 이력' })).toHaveAttribute('aria-selected', 'true');
     await page.evaluate(href => {
       window.history.pushState(null, '', href);
       window.dispatchEvent(new PopStateEvent('popstate'));
-    }, `/equipment?v=1&scopeId=ICH&focus=${focus}&tab=bogus`);
+    }, `/equipment?v=1&scopeId=MEM&focus=${focus}&tab=bogus`);
     await expect.poll(() => query(page).get('tab')).toBe('bogus');
     await expect(dialog.getByRole('alert')).toContainText('등록되지 않은 탭입니다.');
     await dialog.getByRole('button', { name: '속성 열기' }).focus();
@@ -913,13 +913,13 @@ test.describe('셸 고정 상세 슬롯 (06 §13, ADR-0013)', () => {
   });
 
   test('탭 내용 안에 포커스가 있을 때 history로 탭이 바뀌면 선택된 탭으로 포커스가 간다 (#353)', async ({ page }, testInfo) => {
-    await page.goto('/equipment?v=1&scopeId=ICH');
+    await page.goto('/equipment?v=1&scopeId=MEM');
     const row = page.getByRole('main').locator('[data-row-id]').first();
     await expect(row).toBeVisible();
     const focus = await row.getAttribute('data-row-id');
 
     // The tab list itself stays; only the controlled tab value changes (Back with `tab` dropped).
-    await page.goto(`/equipment?v=1&scopeId=ICH&focus=${focus}&tab=validity`);
+    await page.goto(`/equipment?v=1&scopeId=MEM&focus=${focus}&tab=validity`);
     const dialog = page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog');
     await expect(dialog.getByRole('tab', { name: '유효구간 이력' })).toHaveAttribute('aria-selected', 'true');
     const inner = dialog.getByRole('tabpanel').getByRole('button').first();
@@ -928,7 +928,7 @@ test.describe('셸 고정 상세 슬롯 (06 §13, ADR-0013)', () => {
     await page.evaluate(href => {
       window.history.pushState(null, '', href);
       window.dispatchEvent(new PopStateEvent('popstate'));
-    }, `/equipment?v=1&scopeId=ICH&focus=${focus}`);
+    }, `/equipment?v=1&scopeId=MEM&focus=${focus}`);
     await expect(dialog.getByRole('tab', { name: '속성' })).toBeFocused();
     await evidence(page, testInfo, 'equipment-tab-content-focus-history');
   });
@@ -937,12 +937,12 @@ test.describe('셸 고정 상세 슬롯 (06 §13, ADR-0013)', () => {
 test.describe('메뉴 간 Context 보존과 미적용 표시 (06 §6, §22)', () => {
   test('메뉴를 옮겨도 등록된 전역 Context는 URL에 그대로 남는다', async ({ page }, testInfo) => {
     await page.goto(`${PRODUCTIVITY}&granularity=day`);
-    await expectScopeValid(page, 'ICH · Site A');
+    await expectScopeValid(page, 'MEM · 메모리');
     // The sidebar draws only the current section (15 §3.2): reach 설비 마스터 through the 설비관리 section, which opens its first menu.
     await railSection(page, '설비관리').click();
     await expect(mainHeading(page)).toHaveText('설비 마스터');
     const q = query(page);
-    expect(q.get('scopeId')).toBe('ICH');
+    expect(q.get('scopeId')).toBe('MEM');
     expect(q.get('from')).toBe('2026-09-25T09:00:00');
     expect(q.get('to')).toBe('2026-09-26T09:00:00');
     expect(q.getAll('roomNames')).toEqual(['PHOTO']);
@@ -955,13 +955,13 @@ test.describe('메뉴 간 Context 보존과 미적용 표시 (06 §6, §22)', ()
 
   test('지원하지 않는 Context는 지우지 않고 "미사용"으로 표시하고, 지원 메뉴로 가면 조회에 적용된다', async ({ page }, testInfo) => {
     // Pick a Lot that really exists in the period so the destination can prove the filter, not just the chip.
-    await page.goto(`/analytics/cycle-time?v=1&scopeId=ICH&${PERIOD}`);
+    await page.goto(`/analytics/cycle-time?v=1&scopeId=MEM&${PERIOD}`);
     const lots = await lotColumn(page);
     const lot = lots[0];
     expect(lots.some(l => l !== lot), 'fixture needs more than one Lot in the unfiltered period').toBe(true);
 
-    await page.goto(`/equipment?v=1&scopeId=ICH&${PERIOD}&lotIds=${lot}`);
-    await expectScopeValid(page, 'ICH · Site A');
+    await page.goto(`/equipment?v=1&scopeId=MEM&${PERIOD}&lotIds=${lot}`);
+    await expectScopeValid(page, 'MEM · 메모리');
     const lotEditor = await contextEditor(page, '지우기 Lot');
     const lotChip = lotEditor.locator.locator('..');
     await expect(lotChip).toContainText(lot);
@@ -999,7 +999,7 @@ test.describe('권한 — 메뉴 비노출·직접 URL 거부 (06 §6.2, §17)',
 
   test('권한 없는 메뉴의 직접 URL은 화면 대신 권한 거부를 보인다', async ({ page }, testInfo) => {
     await signInAs(page, 'viewer');
-    await page.goto('/equipment?v=1&scopeId=ICH');
+    await page.goto('/equipment?v=1&scopeId=MEM');
     await expect(page.getByRole('status').filter({ hasText: '이 메뉴에 대한 권한이 없습니다' })).toBeVisible();
     await expect(page.getByText('permission=equipment:view')).toHaveCount(0);
     await expect(page.getByText('설비 마스터')).toBeVisible();
@@ -1017,10 +1017,10 @@ test.describe('권한 — 메뉴 비노출·직접 URL 거부 (06 §6.2, §17)',
   });
 
   test('Scope 확인이 실패하면 "확인 중"에 멈추지 않고 실패와 다시 시도를 보이며, 서버가 돌아오면 다시 시도로 화면이 열린다 (#167)', async ({ page }, testInfo) => {
-    await page.goto('/equipment?v=1&scopeId=ICH');
+    await page.goto('/equipment?v=1&scopeId=MEM');
     await expect(page.getByRole('table')).toBeVisible();
     await setScenario(page, 'Scope 확인 실패');
-    await switchScope(page, 'CJU');
+    await switchScope(page, 'FDRY');
     const main = page.getByRole('main');
     await expect(main.getByText('Scope를 확인하지 못했습니다')).toBeVisible();
     await expect(page.getByRole('button', { name: /^Scope:/ })).toContainText('확인 실패');
@@ -1029,25 +1029,25 @@ test.describe('권한 — 메뉴 비노출·직접 URL 거부 (06 §6.2, §17)',
 
     await setScenario(page, '정상');
     await main.getByRole('button', { name: '다시 시도' }).click();
-    await expectScopeValid(page, 'CJU · Site B');
+    await expectScopeValid(page, 'FDRY · 파운드리');
     await expect(page.getByRole('table')).toBeVisible();
   });
 });
 
 test.describe('워크스페이스 (06 §9.1)', () => {
-  const ADMIN_URL = `/admin/roles?v=1&scopeId=ICH&${PERIOD}&selectedEquipmentIds=ICH-PHOTO-0103&page=2`;
+  const ADMIN_URL = `/admin/roles?v=1&scopeId=MEM&${PERIOD}&selectedEquipmentIds=MEM-PHOTO-0103&page=2`;
   // #314: the equipment table applies selectedEquipmentIds (1 row), so page=2 there is out of range and is
   // clamped away. lotIds is a registered global the equipment master does not apply — it stays in the URL
   // without narrowing the 54 rows, so page=2 is a real page and Back can restore it exactly.
-  const EQUIPMENT_URL = `/equipment?v=1&scopeId=ICH&${PERIOD}&lotIds=LOT-0001&page=2`;
+  const EQUIPMENT_URL = `/equipment?v=1&scopeId=MEM&${PERIOD}&lotIds=LOT-0001&page=2`;
 
   test('진입 가능한 공간이 하나뿐인 역할도 전환기가 있고 카드는 하나이며 운영 콘솔 메뉴가 보이지 않는다', async ({ page }, testInfo) => {
     await signInAs(page, 'viewer');
     await page.goto('/metrics');
     await expect(systemSwitcher(page)).toBeVisible();
     const popover = await openSwitcher(page);
-    await expect(popover.getByRole('button', { name: /^지표관리/ })).toHaveAttribute('aria-current', 'true');
-    await expect(popover.getByRole('button', { name: /^(생산성 분석|운영 콘솔)/ })).toHaveCount(0);
+    await expect(popover.getByRole('button', { name: /^BRAVO/ })).toHaveAttribute('aria-current', 'true');
+    await expect(popover.getByRole('button', { name: /^(MARS|운영 콘솔)/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(popover).toHaveCount(0);
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
@@ -1059,12 +1059,12 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await evidence(page, testInfo, 'no-switcher-viewer');
   });
 
-  test('engineer는 전환기에 생산성 분석과 지표관리 카드를 갖고 운영 콘솔은 보이지 않는다', async ({ page }, testInfo) => {
+  test('engineer는 전환기에 MARS와 BRAVO 카드를 갖고 운영 콘솔은 보이지 않는다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
-    await page.goto('/equipment?v=1&scopeId=ICH');
+    await page.goto('/equipment?v=1&scopeId=MEM');
     const popover = await openSwitcher(page);
-    await expect(popover.getByRole('button', { name: /^생산성 분석/ })).toHaveAttribute('aria-current', 'true');
-    await expect(popover.getByRole('button', { name: /^지표관리/ })).toBeVisible();
+    await expect(popover.getByRole('button', { name: /^MARS/ })).toHaveAttribute('aria-current', 'true');
+    await expect(popover.getByRole('button', { name: /^BRAVO/ })).toBeVisible();
     await expect(popover.getByRole('button', { name: /^운영 콘솔/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(popover).toHaveCount(0);
@@ -1086,10 +1086,10 @@ test.describe('워크스페이스 (06 §9.1)', () => {
       // Denial never rewrites the address: pathname and the four global keys stay exactly as entered.
       expect(new URL(page.url()).pathname).toBe('/admin/roles');
       const q = query(page);
-      expect(q.get('scopeId')).toBe('ICH');
+      expect(q.get('scopeId')).toBe('MEM');
       expect(q.get('from')).toBe('2026-09-25T09:00:00');
       expect(q.get('to')).toBe('2026-09-26T09:00:00');
-      expect(q.get('selectedEquipmentIds')).toBe('ICH-PHOTO-0103');
+      expect(q.get('selectedEquipmentIds')).toBe('MEM-PHOTO-0103');
       await evidence(page, testInfo, `space-denial-${role}`);
     }
   });
@@ -1097,21 +1097,21 @@ test.describe('워크스페이스 (06 §9.1)', () => {
   test('관리자는 전환기로 운영 콘솔을 오가며 전역 Context를 보존한다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(EQUIPMENT_URL);
-    await expect(systemSwitcher(page)).toHaveAccessibleName('업무 시스템 전환 · 현재: 생산성 분석');
+    await expect(systemSwitcher(page)).toHaveAccessibleName('업무 시스템 전환 · 현재: MARS');
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
     await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
     await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toHaveCount(0);
     await page.getByRole('button', { name: '메뉴 검색…' }).click();
     // Palette spans every accessible space; the secondary line names the space first.
     await expect(page.getByRole('option', { name: /권한\/역할 관리/ })).toContainText('운영 콘솔');
-    await expect(page.getByRole('option', { name: /설비 마스터/ })).toContainText('생산성 분석');
+    await expect(page.getByRole('option', { name: /설비 마스터/ })).toContainText('MARS');
     await page.keyboard.press('Escape');
     await evidence(page, testInfo, 'admin-analytics');
 
     await chooseSystem(page, '운영 콘솔');
     await expect.poll(() => new URL(page.url()).pathname).toBe('/admin/roles');
     const q = query(page);
-    expect(q.get('scopeId')).toBe('ICH');
+    expect(q.get('scopeId')).toBe('MEM');
     expect(q.get('from')).toBe('2026-09-25T09:00:00');
     expect(q.get('to')).toBe('2026-09-26T09:00:00');
     expect(q.get('lotIds')).toBe('LOT-0001');
@@ -1129,7 +1129,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await page.goBack();
     await expect.poll(() => page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(EQUIPMENT_URL);
     await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
-    await expect(systemSwitcher(page)).toHaveAccessibleName('업무 시스템 전환 · 현재: 생산성 분석');
+    await expect(systemSwitcher(page)).toHaveAccessibleName('업무 시스템 전환 · 현재: MARS');
     await expect(railSection(page, '설비관리')).toHaveAttribute('aria-current', 'true');
     await evidence(page, testInfo, 'admin-history-back');
 
@@ -1138,7 +1138,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     // (compared decoded — the kernel's buildQuery percent-encodes values in the pushed URL).
     await expect.poll(() => new URL(page.url()).pathname).toBe('/admin/roles');
     const fwd = query(page);
-    expect(fwd.get('scopeId')).toBe('ICH');
+    expect(fwd.get('scopeId')).toBe('MEM');
     expect(fwd.get('from')).toBe('2026-09-25T09:00:00');
     expect(fwd.get('to')).toBe('2026-09-26T09:00:00');
     expect(fwd.get('lotIds')).toBe('LOT-0001');
@@ -1146,10 +1146,10 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toBeVisible();
     await evidence(page, testInfo, 'admin-history-forward');
 
-    await chooseSystem(page, '생산성 분석');
+    await chooseSystem(page, 'MARS');
     await expect.poll(() => new URL(page.url()).pathname).toBe('/equipment');
     const back = query(page);
-    expect(back.get('scopeId')).toBe('ICH');
+    expect(back.get('scopeId')).toBe('MEM');
     expect(back.get('from')).toBe('2026-09-25T09:00:00');
     expect(back.get('to')).toBe('2026-09-26T09:00:00');
     expect(back.get('lotIds')).toBe('LOT-0001');
@@ -1184,12 +1184,12 @@ test.describe('플랫폼 홈 · 전역 화면 (ADR-0028)', () => {
     await expect(systemSwitcher(page)).toHaveAccessibleName('업무 시스템 전환');
     await expect(page.getByRole('group', { name: '시스템 섹션' })).toHaveCount(0);
     const popover = await openSwitcher(page);
-    await expect(popover.getByRole('button', { name: /^생산성 분석/ })).toBeVisible();
-    await expect(popover.getByRole('button', { name: /^지표관리/ })).toBeVisible();
-    for (const name of [/^생산성 분석/, /^지표관리/]) await expect(popover.getByRole('button', { name })).not.toHaveAttribute('aria-current', 'true');
+    await expect(popover.getByRole('button', { name: /^MARS/ })).toBeVisible();
+    await expect(popover.getByRole('button', { name: /^BRAVO/ })).toBeVisible();
+    for (const name of [/^MARS/, /^BRAVO/]) await expect(popover.getByRole('button', { name })).not.toHaveAttribute('aria-current', 'true');
     await page.keyboard.press('Escape');
-    await page.goto('/equipment?v=1&scopeId=ICH');
-    await expect(systemSwitcher(page)).toHaveAccessibleName('업무 시스템 전환 · 현재: 생산성 분석');
+    await page.goto('/equipment?v=1&scopeId=MEM');
+    await expect(systemSwitcher(page)).toHaveAccessibleName('업무 시스템 전환 · 현재: MARS');
     await expect(railSection(page, '설비관리')).toHaveAttribute('aria-current', 'true');
     await expect(page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: '설비 마스터' })).toHaveAttribute('aria-current', 'page');
     await evidence(page, testInfo, 'global-rail-marker');
@@ -1207,21 +1207,21 @@ test.describe('목적지 단건 조회 (06 §6.2, §22)', () => {
     const panel = page.getByRole('tabpanel'); // Radix mounts only the active tab's content
 
     // 1. Granted room (PHOTO): the URL id's own row renders on both surfaces, and the inherited Selection stays untouched in the URL.
-    // ICH-PHOTO-0105 (the inherited Selection) shares model Lithius-Pro; its stgroup STG-PHOTO-B is the row that must not render.
-    await page.goto('/equipment/ICH-PHOTO-0103?v=1&scopeId=ICH&selectedEquipmentIds=ICH-PHOTO-0105');
-    await expect(header.getByText('ICH-PHOTO-0103')).toBeVisible();
-    await expect(panel.getByText('ICH-PHOTO-0103')).toBeVisible();
+    // MEM-PHOTO-0105 (the inherited Selection) shares model Lithius-Pro; its stgroup STG-PHOTO-B is the row that must not render.
+    await page.goto('/equipment/MEM-PHOTO-0103?v=1&scopeId=MEM&selectedEquipmentIds=MEM-PHOTO-0105');
+    await expect(header.getByText('MEM-PHOTO-0103')).toBeVisible();
+    await expect(panel.getByText('MEM-PHOTO-0103')).toBeVisible();
     await expect(panel.getByText('STG-PHOTO-A')).toBeVisible();
     await expect(page.getByRole('main').locator('[aria-busy="true"]')).toHaveCount(0);
-    expect(query(page).get('selectedEquipmentIds')).toBe('ICH-PHOTO-0105');
+    expect(query(page).get('selectedEquipmentIds')).toBe('MEM-PHOTO-0105');
     await expect(page.getByRole('main')).not.toContainText('STG-PHOTO-B');
     await evidence(page, testInfo, 'entity-room-granted');
 
     // 2. Same site, ungranted room (DIFF): the site grant holds, but the row's room is re-checked server-side — on both surfaces.
     // The heading shows the URL id, which contains DIFF, so the leak check uses model/stgroup/maker instead of the room token.
-    await page.goto('/equipment/ICH-DIFF-0176?v=1&scopeId=ICH');
-    await expectScopeValid(page, 'ICH · Site A');
-    await expect(mainHeading(page)).toHaveText('ICH-DIFF-0176'); // the URL id, not a fetched field
+    await page.goto('/equipment/MEM-DIFF-0176?v=1&scopeId=MEM');
+    await expectScopeValid(page, 'MEM · 메모리');
+    await expect(mainHeading(page)).toHaveText('MEM-DIFF-0176'); // the URL id, not a fetched field
     await expect(header.getByText('이 Scope에 접근 권한이 없습니다')).toBeVisible();
     await expect(header.getByText('No grant for equipment')).toBeVisible();
     await expect(panel.getByText('이 Scope에 접근 권한이 없습니다')).toBeVisible();
@@ -1234,7 +1234,7 @@ test.describe('목적지 단건 조회 (06 §6.2, §22)', () => {
     await evidence(page, testInfo, 'entity-room-denied');
 
     // 3. Unknown id: a successful zero (empty) on both surfaces, never a denial and never another row's fields.
-    await page.goto('/equipment/DOES-NOT-EXIST?v=1&scopeId=ICH');
+    await page.goto('/equipment/DOES-NOT-EXIST?v=1&scopeId=MEM');
     const emptyBanner = page.getByRole('main').getByRole('group', { name: '위젯 상태 요약' });
     await expect(page.getByRole('main').locator('[data-outcome-banner]')).toHaveCount(1);
     await expect(emptyBanner).toContainText('위젯 2개');
@@ -1262,12 +1262,12 @@ test.describe('Scope·세션 전환 시 이전 결과 비노출 (06 §11, §19)'
     await expect(card).toBeVisible({ timeout: 10_000 });
     await evidence(page, testInfo, 'before-switch');
 
-    await switchScope(page, 'CJU');
+    await switchScope(page, 'FDRY');
     await expect(card).toHaveCount(0);
     await expect(kpis.locator('[aria-busy="true"]').first()).toBeVisible();
     await evidence(page, testInfo, 'during-switch');
     // room_name is site-bound and cleared on a site change (ADR-0004).
-    expect(query(page).get('scopeId')).toBe('CJU');
+    expect(query(page).get('scopeId')).toBe('FDRY');
     expect(query(page).has('roomNames')).toBe(false);
     await expect(card).toBeVisible({ timeout: 10_000 });
     await evidence(page, testInfo, 'after-switch');
@@ -1292,7 +1292,7 @@ test.describe('Scope·세션 전환 시 이전 결과 비노출 (06 §11, §19)'
 
   test('최근 Scope 적용을 키보드로 누르면 포커스가 main으로 간다 (#353)', async ({ page }, testInfo) => {
     // E2E fixture에는 platform:lastScope가 없어 유효 Scope로 한 번 진입해 Kernel이 저장하게 한다.
-    await page.goto('/equipment?v=1&scopeId=ICH');
+    await page.goto('/equipment?v=1&scopeId=MEM');
     await expect(page.getByRole('main').locator('[data-row-id]').first()).toBeVisible({ timeout: 10_000 });
     await page.goto('/equipment?v=1');
     const apply = page.getByRole('button', { name: /^최근 Scope 적용/ });
@@ -1318,7 +1318,7 @@ test.describe('Scope·세션 전환 시 이전 결과 비노출 (06 §11, §19)'
 });
 
 test.describe('공통 상태 화면 (06 §19)', () => {
-  const EQUIPMENT = '/equipment?v=1&scopeId=ICH';
+  const EQUIPMENT = '/equipment?v=1&scopeId=MEM';
   for (const { scenario, title, retry } of [
     { scenario: '서버 오류 (error)', title: '데이터를 불러오지 못했습니다', retry: true },
     { scenario: '시간 초과 (timeout)', title: '조회 시간이 초과되었습니다', retry: true },
@@ -1340,7 +1340,7 @@ test.describe('공통 상태 화면 (06 §19)', () => {
 
 test.describe('공유 위젯 응답 (06 §19, #55)', () => {
   test('생산성의 같은 오류 네 개는 배너 하나와 이름 있는 간결 상태 네 개로 표시한다', async ({ page }, testInfo) => {
-    await page.goto('/analytics/productivity?v=1&scopeId=ICH');
+    await page.goto('/analytics/productivity?v=1&scopeId=MEM');
     await expect(page.getByRole('heading', { name: '네 지표 요약' })).toBeVisible();
     await setScenario(page, '서버 오류 (error)');
     const main = page.getByRole('main');
@@ -1367,11 +1367,11 @@ test.describe('공유 위젯 응답 (06 §19, #55)', () => {
   test('일부 위젯 실패에서 단일 실패는 배너 없이 전체 상태를 유지한다', async ({ page }, testInfo) => {
     // The scenario fails every other query. Equipment detail has two queries;
     // productivity has four and therefore intentionally groups its two equal failures.
-    await page.goto('/equipment/ICH-PHOTO-0103?v=1&scopeId=ICH');
+    await page.goto('/equipment/MEM-PHOTO-0103?v=1&scopeId=MEM');
     const loadedHeader = page.getByRole('main').locator('[data-platform-page-content] > [aria-busy]');
     const loadedPanel = page.getByRole('tabpanel');
-    await expect(loadedHeader.getByText('ICH-PHOTO-0103')).toBeVisible();
-    await expect(loadedPanel.getByText('ICH-PHOTO-0103')).toBeVisible();
+    await expect(loadedHeader.getByText('MEM-PHOTO-0103')).toBeVisible();
+    await expect(loadedPanel.getByText('MEM-PHOTO-0103')).toBeVisible();
     await setScenario(page, '일부 위젯 실패');
     const main = page.getByRole('main');
     await expect(main.getByRole('alert')).toHaveCount(1);
@@ -1445,7 +1445,7 @@ test.describe('메뉴 간 링크 허용 여부 (06 §22 — 목적지 권한을 
 
 test.describe('returnTo 복귀 (06 §22)', () => {
   test('상세로 갔다가 복귀 버튼을 누르면 떠난 URL로 정확히 돌아온다', async ({ page }, testInfo) => {
-    await page.goto(`/equipment?v=1&scopeId=ICH&${PERIOD}&status=active`);
+    await page.goto(`/equipment?v=1&scopeId=MEM&${PERIOD}&status=active`);
     await expect(page.getByRole('table')).toBeVisible();
     await page.getByRole('table').getByRole('button', { name: '보기' }).first().click();
     await expect.poll(() => query(page).get('focus')).not.toBeNull();
@@ -1463,7 +1463,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
   });
 
   test('복귀로 다시 열린 상세 패널은 제목 포커스를 빼앗지 않고, 첫 Escape가 패널을 닫는다 (#356, ADR-0032)', async ({ page }, testInfo) => {
-    await page.goto(`/equipment?v=1&scopeId=ICH&${PERIOD}`);
+    await page.goto(`/equipment?v=1&scopeId=MEM&${PERIOD}`);
     await expect(page.getByRole('table')).toBeVisible();
     await page.getByRole('table').getByRole('button', { name: '보기' }).first().click();
     await expect.poll(() => query(page).get('focus')).not.toBeNull();
@@ -1489,7 +1489,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
   });
 
   test('메뉴 사이 Back으로 다시 열린 상세 패널도 제목 포커스를 빼앗지 않는다 (#356, ADR-0032)', async ({ page }, testInfo) => {
-    await page.goto(`/equipment?v=1&scopeId=ICH&${PERIOD}`);
+    await page.goto(`/equipment?v=1&scopeId=MEM&${PERIOD}`);
     await expect(page.getByRole('table')).toBeVisible();
     await page.getByRole('table').getByRole('button', { name: '보기' }).first().click();
     const dialog = page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog');
@@ -1506,7 +1506,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
   });
 
   test('전체 화면 링크는 보던 탭을 목적지 tab으로 넘긴다 (06 §13)', async ({ page }, testInfo) => {
-    await page.goto('/equipment?v=1&scopeId=ICH');
+    await page.goto('/equipment?v=1&scopeId=MEM');
     await expect(page.getByRole('table')).toBeVisible();
     await page.getByRole('table').getByRole('button', { name: '보기' }).first().click();
     await expect.poll(() => query(page).get('focus')).not.toBeNull();
@@ -1524,7 +1524,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
   });
 
   test('사이클타임 bucket·bin·정렬을 returnTo에 그대로 남기고 복귀 후에도 유지한다', async ({ page }, testInfo) => {
-    const base = '/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
+    const base = '/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
     // Read a bucket and bin that really contain the first slow execution, so the filter keeps a row (deterministic fixture).
     await page.goto(`${base}&sort=anchor:asc`);
     await expect(page.getByTestId('page-filter-bar')).toBeVisible();
@@ -1590,7 +1590,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
   });
 
   test('앱 밖을 가리키는 returnTo는 따르지 않고 상위 메뉴로 돌아간다', async ({ page }, testInfo) => {
-    await page.goto(`/equipment/EQ-X?v=1&scopeId=ICH&returnTo=${encodeURIComponent('https://example.com/phish')}`);
+    await page.goto(`/equipment/EQ-X?v=1&scopeId=MEM&returnTo=${encodeURIComponent('https://example.com/phish')}`);
     const back = (await headerMore(page)).getByRole('link', { name: '← 설비 마스터' });
     await expect(back).toBeVisible();
     const href = await back.getAttribute('href');
@@ -1605,7 +1605,7 @@ test.describe('메뉴 활용률 (06 §4, docs/05 — kernel이 recordUsage로 �
 
   test('권한 없는 역할(engineer)은 메뉴가 비노출이고 직접 URL은 공간 거부다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
-    await page.goto('/equipment?v=1&scopeId=ICH');
+    await page.goto('/equipment?v=1&scopeId=MEM');
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
     await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
     await expect(nav.getByRole('link', { name: '메뉴 활용률' })).toHaveCount(0);
@@ -1640,7 +1640,7 @@ test.describe('메뉴 활용률 (06 §4, docs/05 — kernel이 recordUsage로 �
     await signInAs(page, 'admin');
     // The usage store lives in the tab's JS realm, so the round trip must be SPA navigation (command
     // palette spans every accessible space) — a document reload restarts the mock server and erases counts.
-    await page.goto('/equipment?v=1&scopeId=ICH');
+    await page.goto('/equipment?v=1&scopeId=MEM');
     await expect(page.getByRole('main').getByRole('table').first()).toBeVisible({ timeout: 10_000 });
     const paletteTo = async (menu: RegExp) => {
       await page.getByRole('button', { name: '메뉴 검색…' }).click();
@@ -1685,7 +1685,7 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
   test('권한 없는 역할(engineer)은 메뉴가 비노출이고 직접 URL은 공간 거부다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
     await seedRecent(page, 'engineer', { menuId: 'equipment-master', url: '/equipment' });
-    await page.goto('/equipment?v=1&scopeId=ICH');
+    await page.goto('/equipment?v=1&scopeId=MEM');
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
     // Absence proves nothing before the shell has rendered: wait for a link this role does own.
     await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
@@ -1756,7 +1756,7 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
 
   test('관리자: 팔레트 검색으로 메뉴 레지스트리(운영 콘솔)에 도달한다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
-    await page.goto('/equipment?v=1&scopeId=ICH');
+    await page.goto('/equipment?v=1&scopeId=MEM');
     // Positive control for the non-exposure checks above: the same search finds the menu for admin.
     await expect(page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: '설비 마스터' })).toBeVisible();
     await searchPalette(page, '레지스트리');
@@ -1766,7 +1766,7 @@ test.describe('메뉴 레지스트리 (06 §9.1 — console declarations read ba
     await option.click();
     await expect(page.getByRole('main').getByRole('table').first()).toBeVisible({ timeout: 10_000 });
     // The palette navigates through linkTo: the target is the menu's v=1 deep link and keeps the current global scope (§6.1).
-    expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(`${DIRECT_URL}?v=1&scopeId=ICH`);
+    expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(`${DIRECT_URL}?v=1&scopeId=MEM`);
     await evidence(page, testInfo, 'registry-admin-palette');
   });
 
@@ -1790,7 +1790,7 @@ test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-
   test('engineer는 메뉴가 비노출이고 직접 URL에서 공간 거부를 본다', async ({ page }, testInfo) => {
     const directUrl = '/admin/roles?v=1&focus=admin';
     await signInAs(page, 'engineer');
-    await page.goto('/equipment?v=1&scopeId=ICH');
+    await page.goto('/equipment?v=1&scopeId=MEM');
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
     await expect(nav.getByRole('link', { name: '설비 마스터' })).toBeVisible();
     await expect(nav.getByRole('link', { name: '권한/역할 관리' })).toHaveCount(0);
@@ -1823,8 +1823,8 @@ test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-
     expect(new URL(page.url()).searchParams.get('focus')).toBe('engineer');
     const drawer = page.getByRole('dialog');
     await drawer.getByRole('tab', { name: '사이트 범위' }).click();
-    const ichScope = drawer.getByRole('listitem').filter({ hasText: 'ICH' });
-    await expect(ichScope).toContainText('PHOTO, ETCH, CVD');
+    const memScope = drawer.getByRole('listitem').filter({ hasText: 'MEM' });
+    await expect(memScope).toContainText('PHOTO, ETCH, CVD');
     const xiaRow = drawer.getByRole('listitem').filter({ hasText: 'XIA' });
     await expect(xiaRow).toContainText('부여 없음');
     // The sortable room-count column is also named "room 부여"; exclude that heading and catch action labels.
@@ -1867,7 +1867,7 @@ test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-
 });
 
 test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석 Scope 격리, manifest features)', () => {
-  const CYCLE = `/analytics/cycle-time?v=1&scopeId=ICH&${PERIOD}`;
+  const CYCLE = `/analytics/cycle-time?v=1&scopeId=MEM&${PERIOD}`;
   const trend = (page: Page) => page.getByRole('region', { name: '사이클타임 추세' });
 
   async function brush(page: Page) {
@@ -2020,21 +2020,21 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
     await brush(page);
     const frame = trend(page);
     await frame.getByRole('button', { name: '주석' }).click();
-    await frame.getByRole('textbox', { name: '주석 내용' }).fill('ICH 전용 PM 작업');
+    await frame.getByRole('textbox', { name: '주석 내용' }).fill('MEM 전용 PM 작업');
     await frame.getByRole('button', { name: '저장' }).click();
-    const note = frame.getByText(/ICH 전용 PM 작업/);
+    const note = frame.getByText(/MEM 전용 PM 작업/);
     await expect(note).toBeVisible();
-    await evidence(page, testInfo, 'annotation-ich');
+    await evidence(page, testInfo, 'annotation-mem');
 
-    await switchScope(page, 'CJU');
-    await expectScopeValid(page, 'CJU · Site B');
+    await switchScope(page, 'FDRY');
+    await expectScopeValid(page, 'FDRY · 파운드리');
     await expect(trend(page).getByRole('button', { name: '구간 선택' })).toBeVisible();
-    await expect(trend(page).getByText(/ICH 전용 PM 작업/)).toHaveCount(0);
-    await evidence(page, testInfo, 'annotation-cju-isolated');
+    await expect(trend(page).getByText(/MEM 전용 PM 작업/)).toHaveCount(0);
+    await evidence(page, testInfo, 'annotation-fdry-isolated');
 
-    await switchScope(page, 'ICH');
-    await expectScopeValid(page, 'ICH · Site A');
-    await expect(trend(page).getByText(/ICH 전용 PM 작업/)).toBeVisible();
+    await switchScope(page, 'MEM');
+    await expectScopeValid(page, 'MEM · 메모리');
+    await expect(trend(page).getByText(/MEM 전용 PM 작업/)).toBeVisible();
   });
 
   test('주석 삭제를 키보드로 확정하면 포커스가 남은 주석의 삭제 버튼으로 옮겨진다 (06 §26)', async ({ page }) => {
@@ -2089,7 +2089,7 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
 test.describe('분석 레이아웃 차트 2열·접기 (06 §12.6, ADR-0022)', () => {
   test('그림 영역을 같은 행에 맞추고 접힌 차트·표를 기억하여 칩으로 복원한다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`/analytics/cycle-time?v=1&scopeId=ICH&${PERIOD}`);
+    await page.goto(`/analytics/cycle-time?v=1&scopeId=MEM&${PERIOD}`);
     const trend = page.getByRole('region', { name: '사이클타임 추세', exact: true });
     const distribution = page.getByRole('region', { name: '사이클타임 분포', exact: true });
     const trendPlot = trend.getByRole('img', { name: /^사이클타임 추세/ });
@@ -2150,7 +2150,7 @@ test.describe('분석 레이아웃 차트 2열·접기 (06 §12.6, ADR-0022)', (
 });
 
 test.describe('드릴다운 (06 §6.4, §12.7, §22, ADR-0025)', () => {
-  const STEP = `${PRODUCTIVITY}&drillRoom=PHOTO&drillStgroup=STG-PHOTO-A&drillEquipment=ICH-PHOTO-0103`;
+  const STEP = `${PRODUCTIVITY}&drillRoom=PHOTO&drillStgroup=STG-PHOTO-A&drillEquipment=MEM-PHOTO-0103`;
 
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -2158,7 +2158,7 @@ test.describe('드릴다운 (06 §6.4, §12.7, §22, ADR-0025)', () => {
 
   test('단계마다 기록 하나 — Back 한 번에 한 단계', async ({ page }, testInfo) => {
     await page.goto(PRODUCTIVITY);
-    await expectScopeValid(page, 'ICH · Site A');
+    await expectScopeValid(page, 'MEM · 메모리');
     expect(page.viewportSize()).toEqual({ width: 1440, height: 900 });
     await page.getByRole('button', { name: 'PHOTO 들어가기' }).click();
     await expect.poll(() => query(page).get('drillRoom')).toBe('PHOTO');
@@ -2174,8 +2174,8 @@ test.describe('드릴다운 (06 §6.4, §12.7, §22, ADR-0025)', () => {
     expect(query(page).get('drillRoom')).toBe('PHOTO');
 
     await page.getByRole('button', { name: 'STG-PHOTO-A 들어가기' }).click();
-    await page.getByRole('button', { name: 'ICH-PHOTO-0103 들어가기' }).click();
-    await expect.poll(() => query(page).get('drillEquipment')).toBe('ICH-PHOTO-0103');
+    await page.getByRole('button', { name: 'MEM-PHOTO-0103 들어가기' }).click();
+    await expect.poll(() => query(page).get('drillEquipment')).toBe('MEM-PHOTO-0103');
     await evidence(page, testInfo, 'drill-step-3');
     await page.goBack();
     await expect.poll(() => query(page).has('drillEquipment')).toBe(false);
@@ -2185,7 +2185,7 @@ test.describe('드릴다운 (06 §6.4, §12.7, §22, ADR-0025)', () => {
 
   test('경로 칩으로 올라가면 뒤 단계 키가 URL에서 사라진다', async ({ page }, testInfo) => {
     await page.goto(STEP);
-    await expectScopeValid(page, 'ICH · Site A');
+    await expectScopeValid(page, 'MEM · 메모리');
     await page.getByRole('button', { name: '공정: PHOTO', exact: true }).click();
     await expect.poll(() => query(page).get('drillRoom')).toBe('PHOTO');
     expect(query(page).has('drillStgroup')).toBe(false);
@@ -2228,24 +2228,24 @@ test.describe('드릴다운 (06 §6.4, §12.7, §22, ADR-0025)', () => {
 
   test('3단계에서 설비 상세로 갔다가 단계 키와 상세 슬롯이 복원된다', async ({ page }, testInfo) => {
     await page.goto(STEP);
-    await expectScopeValid(page, 'ICH · Site A');
+    await expectScopeValid(page, 'MEM · 메모리');
     await page.getByRole('link', { name: '설비 상세로' }).click();
-    await expect(page).toHaveURL(/\/equipment\/ICH-PHOTO-0103/);
-    const back = (await headerMore(page)).getByRole('link', { name: '← 생산성 개요 (PHOTO › STG-PHOTO-A › ICH-PHOTO-0103)' });
+    await expect(page).toHaveURL(/\/equipment\/MEM-PHOTO-0103/);
+    const back = (await headerMore(page)).getByRole('link', { name: '← 생산성 개요 (PHOTO › STG-PHOTO-A › MEM-PHOTO-0103)' });
     await expect(back).toBeVisible();
     await evidence(page, testInfo, 'drill-equipment-return');
     await back.click();
     await expect.poll(() => query(page).get('drillRoom')).toBe('PHOTO');
     expect(query(page).get('drillStgroup')).toBe('STG-PHOTO-A');
-    expect(query(page).get('drillEquipment')).toBe('ICH-PHOTO-0103');
-    await expect(page.getByRole('dialog')).toContainText('ICH-PHOTO-0103');
+    expect(query(page).get('drillEquipment')).toBe('MEM-PHOTO-0103');
+    await expect(page.getByRole('dialog')).toContainText('MEM-PHOTO-0103');
     await evidence(page, testInfo, 'drill-slot-restored');
   });
 
   test('결과에 없는 설비로 직접 들어오면 URL을 유지하고 공통 상태가 본문과 상세 슬롯을 가린다', async ({ page }, testInfo) => {
     const missing = `${PRODUCTIVITY}&drillRoom=PHOTO&drillStgroup=STG-PHOTO-A&drillEquipment=NO-SUCH`;
     await page.goto(missing);
-    await expectScopeValid(page, 'ICH · Site A');
+    await expectScopeValid(page, 'MEM · 메모리');
     await expect(page.getByRole('status').filter({ hasText: '이 조건에서 없는 값: NO-SUCH' })).toBeVisible();
     expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(missing);
     await expect(page.getByRole('table', { name: '설비 점유' })).toHaveCount(0);
@@ -2259,7 +2259,7 @@ test.describe('드릴다운 (06 §6.4, §12.7, §22, ADR-0025)', () => {
 test.describe('메뉴 이동 포커스 (06 §26)', () => {
   test('팔레트와 사이드바 키보드 이동 뒤 새 화면 제목에 포커스가 남는다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
-    await page.goto('/equipment?v=1&scopeId=ICH');
+    await page.goto('/equipment?v=1&scopeId=MEM');
     await expect(mainHeading(page)).toHaveText('설비 마스터');
     await page.keyboard.press('ControlOrMeta+k');
     await page.getByRole('combobox', { name: '메뉴 검색' }).fill('생산성');
@@ -2282,12 +2282,12 @@ test.describe('메뉴 이동 포커스 (06 §26)', () => {
     await systemSwitcher(page).focus();
     await page.keyboard.press('Enter');
     const popover = page.getByRole('dialog', { name: '업무 시스템 전환' });
-    await expect(popover.getByRole('button', { name: /^생산성 분석/ })).toBeFocused();
+    await expect(popover.getByRole('button', { name: /^MARS/ })).toBeFocused();
     for (let step = 0; step < 12; step++) {
       await page.keyboard.press('Tab');
       await expect(popover.locator(':focus')).toHaveCount(1);
     }
-    await popover.getByRole('button', { name: /^지표관리/ }).focus();
+    await popover.getByRole('button', { name: /^BRAVO/ }).focus();
     await page.keyboard.press('Enter');
     await expect(popover).toHaveCount(0);
     await expect(mainHeading(page)).toHaveText('지표 카탈로그');
@@ -2474,7 +2474,7 @@ test.describe('지표 목록→상세 복귀 (06 §22)', () => {
 test.describe('표 쪽 이동 포커스 (06 §26)', () => {
   test('범위 밖 page 딥링크는 마지막 쪽으로 맞추고 히스토리를 늘리지 않는다 (06 §15, #314)', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
-    await page.goto('/equipment?v=1&scopeId=ICH&sort=status:desc&page=9');
+    await page.goto('/equipment?v=1&scopeId=MEM&sort=status:desc&page=9');
     await expect.poll(() => query(page).get('page')).toBe('3');
     expect(query(page).get('sort')).toBe('status:desc');
     await expect(tableStatusLine(page)).toContainText('54건 · 3/3 페이지');
@@ -2487,7 +2487,7 @@ test.describe('표 쪽 이동 포커스 (06 §26)', () => {
 
   test('마지막 쪽과 첫 쪽에 도달하면 반대쪽 버튼으로 포커스를 옮긴다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
-    await page.goto('/equipment?v=1&scopeId=ICH');
+    await page.goto('/equipment?v=1&scopeId=MEM');
     await expect(page.getByText(/1\/2 페이지/)).toBeVisible();
     const next = page.getByRole('button', { name: '다음', exact: true });
     const previous = page.getByRole('button', { name: '이전', exact: true });
@@ -2518,7 +2518,7 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
 
   test('긴 설비 결과는 안쪽에서 스크롤하고 쪽 넘김은 화면 안에 있다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/equipment?v=1&scopeId=ICH');
+    await page.goto('/equipment?v=1&scopeId=MEM');
     const rows = page.getByLabel('스크롤 가능한 행 영역', { exact: true });
     await expect(rows.getByRole('button', { name: /보기$/ }).first()).toBeVisible();
     await expect.poll(() => rows.evaluate(el => el.scrollHeight - el.clientHeight)).toBeGreaterThan(0);
@@ -2532,7 +2532,7 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
 
   test('1280px에서 상세를 열어도 본문은 넘치지 않고 건수는 한 줄이다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/equipment?v=1&scopeId=ICH');
+    await page.goto('/equipment?v=1&scopeId=MEM');
     const rows = page.getByLabel('스크롤 가능한 행 영역', { exact: true });
     await rows.getByRole('button', { name: /보기$/ }).first().click();
     await expect(page.getByRole('button', { name: '상세 닫기', exact: true })).toBeVisible();
@@ -2614,12 +2614,12 @@ test.describe('표 높이·고정 동작 열 (06 §15, ADR-0037)', () => {
 });
 
 test.describe('FeedbackOps 공간별 진입(#251)', () => {
-  test('admin의 생산성 분석·지표관리 사이드바 블록은 그 공간의 managedSystem만 담은 새 탭 링크 넷이고, 운영 콘솔에는 블록이 없다', async ({ page }, testInfo) => {
+  test('admin의 MARS·BRAVO 사이드바 블록은 그 공간의 managedSystem만 담은 새 탭 링크 넷이고, 운영 콘솔에는 블록이 없다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(PRODUCTIVITY);
-    const analytics = await managedSystemOf(page, '생산성 분석');
+    const analytics = await managedSystemOf(page, 'MARS');
     await page.goto('/metrics');
-    const metrics = await managedSystemOf(page, '지표관리');
+    const metrics = await managedSystemOf(page, 'BRAVO');
     expect(metrics).not.toBe(analytics);
     await evidence(page, testInfo, 'feedbackops-space-links');
     await page.goto('/admin/roles?v=1');
@@ -2651,19 +2651,19 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
   test('Context 변경·화면 이동 뒤 platformReturn은 현재 URL을 가리킨다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(PRODUCTIVITY);
-    const analyticsSystem = await managedSystemOf(page, '생산성 분석');
+    const analyticsSystem = await managedSystemOf(page, 'MARS');
     const initialUrl = page.url();
 
-    await switchScope(page, 'CJU');
-    await expect.poll(() => query(page).get('scopeId')).toBe('CJU');
+    await switchScope(page, 'FDRY');
+    await expect.poll(() => query(page).get('scopeId')).toBe('FDRY');
     expect(page.url()).not.toBe(initialUrl);
-    expect(await managedSystemOf(page, '생산성 분석')).toBe(analyticsSystem);
+    expect(await managedSystemOf(page, 'MARS')).toBe(analyticsSystem);
 
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
     await nav.getByRole('link', { name: '사이클타임 상세' }).click();
     await expect(mainHeading(page)).toHaveText('사이클타임 상세');
     expect(new URL(page.url()).pathname).not.toBe('/analytics/productivity');
-    expect(await managedSystemOf(page, '생산성 분석')).toBe(analyticsSystem);
+    expect(await managedSystemOf(page, 'MARS')).toBe(analyticsSystem);
     await evidence(page, testInfo, 'feedbackops-return-current-url');
   });
 
@@ -2692,20 +2692,20 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
   test('새로고침·Back·Forward 뒤에도 공간 링크는 현재 URL과 managedSystem을 유지한다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(PRODUCTIVITY);
-    const analyticsSystem = await managedSystemOf(page, '생산성 분석');
+    const analyticsSystem = await managedSystemOf(page, 'MARS');
 
     await page.goto('/metrics');
-    const metricsSystem = await managedSystemOf(page, '지표관리');
+    const metricsSystem = await managedSystemOf(page, 'BRAVO');
     await page.reload();
-    expect(await managedSystemOf(page, '지표관리')).toBe(metricsSystem);
+    expect(await managedSystemOf(page, 'BRAVO')).toBe(metricsSystem);
 
     await page.goBack();
     await expect.poll(() => new URL(page.url()).pathname).toBe('/analytics/productivity');
-    expect(await managedSystemOf(page, '생산성 분석')).toBe(analyticsSystem);
+    expect(await managedSystemOf(page, 'MARS')).toBe(analyticsSystem);
 
     await page.goForward();
     await expect.poll(() => new URL(page.url()).pathname).toBe('/metrics');
-    expect(await managedSystemOf(page, '지표관리')).toBe(metricsSystem);
+    expect(await managedSystemOf(page, 'BRAVO')).toBe(metricsSystem);
     await evidence(page, testInfo, 'feedbackops-return-history-forward');
   });
 
@@ -2713,20 +2713,20 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     await signInAs(page, 'admin');
     const urls = [
       PRODUCTIVITY,
-      `/equipment?v=1&scopeId=ICH&${PERIOD}&selectedEquipmentIds=ICH-PHOTO-0103`,
+      `/equipment?v=1&scopeId=MEM&${PERIOD}&selectedEquipmentIds=MEM-PHOTO-0103`,
     ];
     for (const url of urls) {
       await page.goto(url);
       if (url === PRODUCTIVITY) {
         expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
         expect(query(page).get('to')).toBe('2026-09-26T09:00:00');
-        expect(query(page).get('scopeId')).toBe('ICH');
+        expect(query(page).get('scopeId')).toBe('MEM');
         expect(query(page).get('roomNames')).toBe('PHOTO');
       } else {
-        expect(query(page).get('selectedEquipmentIds')).toBe('ICH-PHOTO-0103');
+        expect(query(page).get('selectedEquipmentIds')).toBe('MEM-PHOTO-0103');
       }
-      await managedSystemOf(page, '생산성 분석');
-      const links = await page.getByRole('navigation', { name: 'FeedbackOps · 생산성 분석' }).getByRole('link').all();
+      await managedSystemOf(page, 'MARS');
+      const links = await page.getByRole('navigation', { name: 'FeedbackOps · MARS' }).getByRole('link').all();
       const destinations: string[] = [];
       for (const link of links) {
         const href = await linkUrl(link);
@@ -2755,7 +2755,7 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     await evidence(page, testInfo, 'feedbackops-query-keys');
   });
 
-  test('거부·미등록 경로에는 공간 블록이 없고 viewer의 지표관리에는 있다', async ({ page }, testInfo) => {
+  test('거부·미등록 경로에는 공간 블록이 없고 viewer의 BRAVO에는 있다', async ({ page }, testInfo) => {
     await signInAs(page, 'viewer');
     // Menu denial inside a mapped space draws no block.
     await page.goto(PRODUCTIVITY);
@@ -2772,7 +2772,7 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
 
     await page.goto('/metrics');
-    expect(await managedSystemOf(page, '지표관리')).toMatch(UUID);
+    expect(await managedSystemOf(page, 'BRAVO')).toMatch(UUID);
     await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(1);
     await evidence(page, testInfo, 'feedbackops-block-viewer');
   });
@@ -2786,11 +2786,11 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     }
   }
 
-  test('공간 하나(viewer)는 전역 화면에 블록이 없고 지표관리에만 블록이 있으며 전체 링크가 없다', async ({ page }) => {
+  test('공간 하나(viewer)는 전역 화면에 블록이 없고 BRAVO에만 블록이 있으며 전체 링크가 없다', async ({ page }) => {
     await signInAs(page, 'viewer');
     await expectNoBlockOnGlobalScreens(page);
     await page.goto('/metrics');
-    await managedSystemOf(page, '지표관리');
+    await managedSystemOf(page, 'BRAVO');
     await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(1);
     await expect(feedbackOpsOverallLink(page)).toHaveCount(0);
   });
@@ -2799,10 +2799,10 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     await signInAs(page, 'engineer');
     await expectNoBlockOnGlobalScreens(page);
     await page.goto(PRODUCTIVITY);
-    const analytics = await managedSystemOf(page, '생산성 분석');
-    await chooseSystem(page, '지표관리');
+    const analytics = await managedSystemOf(page, 'MARS');
+    await chooseSystem(page, 'BRAVO');
     await expect.poll(() => new URL(page.url()).pathname).toBe('/metrics');
-    expect(await managedSystemOf(page, '지표관리')).not.toBe(analytics);
+    expect(await managedSystemOf(page, 'BRAVO')).not.toBe(analytics);
     await expect(feedbackOpsOverallLink(page)).toHaveCount(0);
   });
 
@@ -2810,10 +2810,10 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     await signInAs(page, 'admin');
     await expectNoBlockOnGlobalScreens(page);
     await page.goto(PRODUCTIVITY);
-    const analytics = await managedSystemOf(page, '생산성 분석');
-    await chooseSystem(page, '지표관리');
+    const analytics = await managedSystemOf(page, 'MARS');
+    await chooseSystem(page, 'BRAVO');
     await expect.poll(() => new URL(page.url()).pathname).toBe('/metrics');
-    expect(await managedSystemOf(page, '지표관리')).not.toBe(analytics);
+    expect(await managedSystemOf(page, 'BRAVO')).not.toBe(analytics);
     await chooseSystem(page, '운영 콘솔');
     await expect.poll(() => new URL(page.url()).pathname).toBe('/admin/roles');
     await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);

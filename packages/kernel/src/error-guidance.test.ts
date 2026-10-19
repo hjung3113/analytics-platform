@@ -7,7 +7,7 @@ const ALLOWED_KEYS: readonly string[] = [];
 
 describe('contract error copy (#304)', () => {
   it.each([
-    ['time_domain_unverified: ICH-PHOTO-0103, ICH-PHOTO-0105', 'time_domain_unverified', 'timeDomainUnverifiedCause', 'timeDomainUnverifiedAction'],
+    ['time_domain_unverified: MEM-PHOTO-0103, MEM-PHOTO-0105', 'time_domain_unverified', 'timeDomainUnverifiedCause', 'timeDomainUnverifiedAction'],
     ['time_domain_mismatch: TD-A, TD-B', 'time_domain_mismatch', 'timeDomainMismatchCause', 'timeDomainMismatchAction'],
   ] as const)('maps %s to cause and action', (message, code, cause, action) => {
     expect(errorGuidance(message)).toEqual({ code, cause, action });

@@ -19,14 +19,14 @@ describe('mockAdapter.evaluateSelection', () => {
   it('matches the former client-side computation across roles, rooms and conditions', async () => {
     const before = getRole();
     try {
-      const stgroup = EQUIPMENT.find(e => e.site === 'ICH')!.stgroup;
-      const someId = EQUIPMENT.find(e => e.site === 'ICH' && e.room === 'DIFF')!.equipmentId; // DIFF is granted to admin only
+      const stgroup = EQUIPMENT.find(e => e.site === 'MEM')!.stgroup;
+      const someId = EQUIPMENT.find(e => e.site === 'MEM' && e.room === 'DIFF')!.equipmentId; // DIFF is granted to admin only
       for (const role of ['engineer', 'admin', 'viewer'] as const) {
         setRole(role);
         for (const [roomNames, condition] of [[null, null], [['PHOTO'], null], [null, { axis: 'stgroup' as const, id: stgroup }]] as const) {
           const selection = [someId, 'NOPE-1'];
-          const got = await mockAdapter.evaluateSelection({ scopeId: 'ICH', roomNames: roomNames ? [...roomNames] : null, condition, selection });
-          const want = clientSide(role, 'ICH', roomNames ? [...roomNames] : null, condition, selection);
+          const got = await mockAdapter.evaluateSelection({ scopeId: 'MEM', roomNames: roomNames ? [...roomNames] : null, condition, selection });
+          const want = clientSide(role, 'MEM', roomNames ? [...roomNames] : null, condition, selection);
           expect({ inCondition: got.inCondition.map(e => e.equipmentId), outOfCondition: got.outOfCondition }).toEqual(want);
         }
       }
@@ -40,9 +40,9 @@ describe('mockAdapter.evaluateSelection', () => {
     try {
       for (const role of ['engineer', 'admin', 'viewer'] as const) {
         setRole(role);
-        const granted = USERS[role].grants.ICH ?? [];
-        const visible = EQUIPMENT.filter(e => e.site === 'ICH' && granted.includes(e.room));
-        const got = await mockAdapter.contextOptions('ICH');
+        const granted = USERS[role].grants.MEM ?? [];
+        const visible = EQUIPMENT.filter(e => e.site === 'MEM' && granted.includes(e.room));
+        const got = await mockAdapter.contextOptions('MEM');
         expect(got.stgroup).toEqual([...new Set(visible.map(e => e.stgroup))].sort());
         expect(got.team).toEqual([...new Set(visible.map(e => e.team))].sort());
         expect(new Set(got.makerModel.map(m => `${m.maker}/${m.model}`))).toEqual(new Set(visible.map(e => `${e.maker}/${e.model}`)));
@@ -55,21 +55,21 @@ describe('mockAdapter.evaluateSelection', () => {
   });
 
   // #242: room names repeat across Sites (PHOTO is in every Site), so a second granted Site must use its own grants
-  // and rows. The engineer holds PHOTO/ETCH/CVD in ICH but only PHOTO in CJU.
+  // and rows. The engineer holds PHOTO/ETCH/CVD in MEM but only PHOTO in FDRY.
   it('keeps a second granted Site to its own room grants and rows', async () => {
     const before = getRole();
     try {
       setRole('engineer');
-      expect(USERS.engineer.grants.CJU).toEqual(['PHOTO']);
-      const cjuPhoto = EQUIPMENT.filter(e => e.site === 'CJU' && e.room === 'PHOTO');
-      const cjuEtch = EQUIPMENT.find(e => e.site === 'CJU' && e.room === 'ETCH')!;
-      const ichPhoto = EQUIPMENT.find(e => e.site === 'ICH' && e.room === 'PHOTO')!;
-      const got = await mockAdapter.evaluateSelection({ scopeId: 'CJU', roomNames: null, condition: null, selection: [cjuEtch.equipmentId, ichPhoto.equipmentId] });
-      expect(got.inCondition.map(e => e.equipmentId).sort()).toEqual(cjuPhoto.map(e => e.equipmentId).sort());
-      expect(got.outOfCondition).toEqual([cjuEtch.equipmentId, ichPhoto.equipmentId]);
-      const options = await mockAdapter.contextOptions('CJU');
-      expect(options.stgroup).toEqual([...new Set(cjuPhoto.map(e => e.stgroup))].sort());
-      expect(options.stgroup).not.toContain(cjuEtch.stgroup);
+      expect(USERS.engineer.grants.FDRY).toEqual(['PHOTO']);
+      const fdryPhoto = EQUIPMENT.filter(e => e.site === 'FDRY' && e.room === 'PHOTO');
+      const fdryEtch = EQUIPMENT.find(e => e.site === 'FDRY' && e.room === 'ETCH')!;
+      const memPhoto = EQUIPMENT.find(e => e.site === 'MEM' && e.room === 'PHOTO')!;
+      const got = await mockAdapter.evaluateSelection({ scopeId: 'FDRY', roomNames: null, condition: null, selection: [fdryEtch.equipmentId, memPhoto.equipmentId] });
+      expect(got.inCondition.map(e => e.equipmentId).sort()).toEqual(fdryPhoto.map(e => e.equipmentId).sort());
+      expect(got.outOfCondition).toEqual([fdryEtch.equipmentId, memPhoto.equipmentId]);
+      const options = await mockAdapter.contextOptions('FDRY');
+      expect(options.stgroup).toEqual([...new Set(fdryPhoto.map(e => e.stgroup))].sort());
+      expect(options.stgroup).not.toContain(fdryEtch.stgroup);
     } finally {
       setRole(before);
     }
@@ -82,11 +82,11 @@ describe('scope_error scenario (#167)', () => {
     setScenario('scope_error');
     try {
       setRole('engineer');
-      await expect(mockAdapter.validateScope('ICH')).rejects.toThrow('Scope check failed (scenario)');
-      const got = await mockAdapter.evaluateSelection({ scopeId: 'ICH', roomNames: null, condition: null, selection: [] });
+      await expect(mockAdapter.validateScope('MEM')).rejects.toThrow('Scope check failed (scenario)');
+      const got = await mockAdapter.evaluateSelection({ scopeId: 'MEM', roomNames: null, condition: null, selection: [] });
       setScenario('normal');
-      expect(got).toEqual(await mockAdapter.evaluateSelection({ scopeId: 'ICH', roomNames: null, condition: null, selection: [] }));
-      expect((await mockAdapter.validateScope('ICH')).status).toBe('valid');
+      expect(got).toEqual(await mockAdapter.evaluateSelection({ scopeId: 'MEM', roomNames: null, condition: null, selection: [] }));
+      expect((await mockAdapter.validateScope('MEM')).status).toBe('valid');
     } finally { setScenario('normal'); setRole(before); }
   });
 
@@ -95,7 +95,7 @@ describe('scope_error scenario (#167)', () => {
     try {
       setRole('engineer');
       setScenario('scope_error');
-      const failing = mockAdapter.validateScope('ICH');
+      const failing = mockAdapter.validateScope('MEM');
       setScenario('normal');
       await expect(failing).rejects.toThrow('Scope check failed (scenario)');
     } finally { setScenario('normal'); setRole(before); }
@@ -106,7 +106,7 @@ describe('scope_error scenario (#167)', () => {
     try {
       setRole('engineer');
       setScenario('normal');
-      const passing = mockAdapter.validateScope('ICH');
+      const passing = mockAdapter.validateScope('MEM');
       setScenario('scope_error');
       expect((await passing).status).toBe('valid');
     } finally { setScenario('normal'); setRole(before); }
@@ -135,9 +135,9 @@ describe('createMockAdapter auditEvents (ADR-0048: menu-owned audit seeds)', () 
 
   it.each([
     ['a duplicate id', [seed(), seed()]],
-    ['an equipment target (the mock server owns equipment events)', [seed({ target: { type: 'equipment', id: 'ICH-PHOTO-0103', scopeId: 'ICH' } })]],
+    ['an equipment target (the mock server owns equipment events)', [seed({ target: { type: 'equipment', id: 'MEM-PHOTO-0103', scopeId: 'MEM' } })]],
     ['an undeclared target type', [seed({ target: { type: 'lot', id: 'L1', scopeId: null } })]],
-    ['a metric with a site', [seed({ target: { type: 'metric', id: 'x', scopeId: 'ICH' } })]],
+    ['a metric with a site', [seed({ target: { type: 'metric', id: 'x', scopeId: 'MEM' } })]],
     ['a zone-less time', [seed({ at: '2026-09-20T11:00:00' })]],
   ])('refuses %s at registration', (_name, events) => {
     expect(build(events)).toThrow(MockRegistrationError);

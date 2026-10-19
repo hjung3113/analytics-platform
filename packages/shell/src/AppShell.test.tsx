@@ -14,7 +14,7 @@ function menu(id: string, group: GroupId, path: string, permission: Permission) 
   return { id, group, path, permission, primary: true, label: { ko: '운영 홈', en: 'Operations home' }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] };
 }
 const registry = createRegistry({
-  spaces: [testSpace({ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' }), testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' })],
+  spaces: [testSpace({ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, subtitle: { ko: 'FeedbackOps 검사 전용 시스템 부제', en: 'FeedbackOps fixture system subtitle' }, homeMenuId: 'home' }), testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'ops', permission: 'console:access' })],
   groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics', hideLabelWhenSingle: true }, { id: 'admin', label: { ko: '관리', en: 'Admin' }, icon: House, space: 'operations' }],
   menus: [menu('ops', 'admin', '/ops', 'console:access'), { id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['focus', 'tab'] }],
 });
@@ -57,7 +57,7 @@ beforeEach(() => {
   // Admitted space routes now write platform:space-last. A shared jsdom sessionStorage would make a later
   // switchSpace resume that URL instead of the space home these tests assert.
   vi.stubGlobal('sessionStorage', { getItem: (key: string) => session.get(key) ?? null, setItem: (key: string, value: string) => session.set(key, value), removeItem: (key: string) => session.delete(key), clear: () => session.clear() });
-  window.history.replaceState(null, '', '/?v=1&scopeId=ICH&lotIds=kept');
+  window.history.replaceState(null, '', '/?v=1&scopeId=MEM&lotIds=kept');
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
@@ -99,7 +99,7 @@ describe('rail space navigation', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: /운영 콘솔/ }));
     await waitFor(() => expect(window.location.pathname).toBe('/ops'));
     expect(new URLSearchParams(window.location.search).get('lotIds')).toBe('kept');
-    expect(new URLSearchParams(window.location.search).get('scopeId')).toBe('ICH');
+    expect(new URLSearchParams(window.location.search).get('scopeId')).toBe('MEM');
     expect(push).toHaveBeenCalledTimes(1);
     // pathname changes at pushState, before React re-renders the switcher label: wait for the DOM, not the URL.
     expect(await screen.findByRole('button', { name: '업무 시스템 전환 · 현재: 운영 콘솔' })).toBeTruthy();
@@ -142,7 +142,7 @@ describe('light sidebar', () => {
   it('renders flat sections, planned menus, favorites and exact recent URLs without a menu filter', async () => {
     localStorage.setItem('platform:sidebar-collapsed', '0');
     localStorage.setItem('platform:favorites:u1', JSON.stringify(['ops']));
-    localStorage.setItem('platform:recent:u1', JSON.stringify([{ menuId: 'ops', url: '/ops?v=1&scopeId=ICH' }]));
+    localStorage.setItem('platform:recent:u1', JSON.stringify([{ menuId: 'ops', url: '/ops?v=1&scopeId=MEM' }]));
     mount();
     const nav = screen.getByRole('navigation', { name: '주 메뉴' });
     expect(within(nav).queryByRole('link', { name: /운영 홈/ })).toBeNull();
@@ -190,7 +190,7 @@ describe('primary navigation boundary (#194 FIX1)', () => {
   it.each([false, true])('keeps favorite and recent links outside the registry menu tree (collapsed=%s)', async collapsed => {
     localStorage.setItem('platform:sidebar-collapsed', collapsed ? '1' : '0');
     localStorage.setItem('platform:favorites:u1', JSON.stringify(['home', 'ops']));
-    localStorage.setItem('platform:recent:u1', JSON.stringify([{ menuId: 'home', url: '/?v=1&scopeId=ICH&lotIds=previous' }, { menuId: 'ops', url: '/ops' }]));
+    localStorage.setItem('platform:recent:u1', JSON.stringify([{ menuId: 'home', url: '/?v=1&scopeId=MEM&lotIds=previous' }, { menuId: 'ops', url: '/ops' }]));
     mount();
     const primary = screen.getByRole('navigation', { name: '주 메뉴' });
     if (collapsed) {
@@ -436,6 +436,7 @@ describe('workspace shell layout (15 §3.1)', () => {
       'Task — 분석, FeedbackOps, 새 탭',
       'VOC 등록 — 분석, FeedbackOps, 새 탭',
     ]);
+    expect([block.getAttribute('aria-label'), ...links.map(link => link.getAttribute('aria-label'))].join(' ')).not.toContain('FeedbackOps 검사 전용 시스템 부제');
     for (const link of links) {
       expect(link).toHaveAttribute('target', '_blank');
       expect(link).toHaveAttribute('rel', 'noopener noreferrer');
@@ -522,7 +523,7 @@ describe('workspace shell layout (15 §3.1)', () => {
   });
 
   it('hides the sidebar, the rail sections and the current card on a global screen', () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     mount(['platform:view', 'console:access'], true, globalShellRegistry());
     expect(screen.queryByRole('navigation', { name: '주 메뉴' })).toBeNull();
     expect(screen.queryByRole('group', { name: '시스템 섹션' })).toBeNull();
@@ -550,7 +551,7 @@ describe('workspace shell layout (15 §3.1)', () => {
 
   it('hands entriesFor the absolute URL of the page it draws as platformReturn (FO ADR-0071)', () => {
     const returns: (string | undefined)[] = [];
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&focus=entity');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&focus=entity');
     mount(['platform:view'], true, registry, { feedbackOps: {
       entriesFor: (spaceId, platformReturn) => { returns.push(platformReturn); return feedbackSlot.entriesFor(spaceId); },
       overall: null,

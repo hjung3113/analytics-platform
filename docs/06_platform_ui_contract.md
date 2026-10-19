@@ -389,7 +389,7 @@ Page
 
 이 Slot 외의 위치에 페이지가 직접 전역 UI를 삽입하지 않는다. 상세 내용은 등록 경계로 넘기고, 셸이 main 옆의 전체 높이 오른쪽 aside 배치를 소유한다(§13).
 
-앱이 조립 때 주입하는 셸 슬롯은 `PlatformSlots`의 `contextBar`(PlatformPage가 페이지 머리 아래에 그린다), `topBarTools`(레일 아래 도구), `feedbackOps`(공간별 FeedbackOps 진입과 전체 링크, [ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md)·[ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)), `plannedSpaces`(전환기의 `준비 중` 행 `{ id, label, icon }[]`)다. 앱이 `feedbackOps`를 넘기지 않으면 셸은 블록과 레일 링크를 그리지 않는다. `plannedSpaces`는 아직 들어갈 수 없는 업무 시스템을 알리는 표시용이라 Registry에 넣지 않는다(공간·메뉴·권한이 없고 이동하지 않는다). 앱이 넘기지 않으면 전환기는 `준비 중` 영역을 그리지 않는다([ADR-0042](adr/0042-system-switcher-and-system-owned-rail.md), 15 §3.2). 페이지는 `crumbs`로 현재 위치(부모 메뉴 뒤 추가 경로)를 확장할 수 있다. 새 슬롯은 이 절에 근거를 먼저 적는다.
+앱이 조립 때 주입하는 셸 슬롯은 `PlatformSlots`의 `contextBar`(PlatformPage가 페이지 머리 아래에 그린다), `topBarTools`(레일 아래 도구), `feedbackOps`(공간별 FeedbackOps 진입과 전체 링크, [ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md)·[ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)), `plannedSpaces`(전환기의 `준비 중` 행 `{ id, label, subtitle?, icon }[]`)다. 앱이 `feedbackOps`를 넘기지 않으면 셸은 블록과 레일 링크를 그리지 않는다. `plannedSpaces`는 아직 들어갈 수 없는 업무 시스템을 알리는 표시용이라 Registry에 넣지 않는다(공간·메뉴·권한이 없고 이동하지 않는다). 앱이 넘기지 않으면 전환기는 `준비 중` 영역을 그리지 않는다([ADR-0042](adr/0042-system-switcher-and-system-owned-rail.md), 15 §3.2). 페이지는 `crumbs`로 현재 위치(부모 메뉴 뒤 추가 경로)를 확장할 수 있다. 새 슬롯은 이 절에 근거를 먼저 적는다.
 
 ### 이유
 
@@ -439,12 +439,14 @@ Sidebar 기능(셸 구조는 §7, ADR-0011):
 
 | 공간 | 대상 | 그룹 / 화면 |
 | --- | --- | --- |
-| 생산성 분석 | 분석 엔지니어 | 개요·분석 대시보드, Cycle Time·Wafer/Job·드릴다운과 관련 상세 |
-| 지표관리 | 지표 관리자 | 지표 카탈로그·정의/버전·발행/이력·사용처 |
+| MARS (생산성 분석) | 분석 엔지니어 | 개요·분석 대시보드, Cycle Time·Wafer/Job·드릴다운과 관련 상세 |
+| BRAVO (지표관리) | 지표 관리자 | 지표 카탈로그·정의/버전·발행/이력·사용처 |
+| CLAS (생산성 분석, 준비 중) | 분석 엔지니어 | 메뉴가 MARS와 다른 별도 생산성 분석 시스템. 이 플랫폼에는 메뉴가 없고 전환기의 `준비 중` 행만 있다 |
 | 표준 로그 개발 | 로그 개발 담당자 | 모델별 개발 현황·단계, 검증 Round·규칙/결함·협력사 검토(도메인 구현은 별도 제품이 소유) |
 | 개선 실행 | 개선 담당자 | 개선 과제·대상 설비·현장 적용·성과 입력/검증(도메인 구현은 별도 제품이 소유) |
 | 운영 콘솔 (지원) | 개발자·운영자 | 시스템 모니터링, 개발자용 파이프라인 트레이스, 메뉴 활용률([05 계측](05_roadmap_and_open_questions.md#메뉴-활용률-계측-decided--v1-범위-포함-2026-09-22-grilling-round-2)), 관리·감사(권한/역할, 변경 감사), Menu Registry 조회 |
 
+- **시스템 이름과 부제(Decided, 2026-10-20, #472):** 공간 `label`은 시스템 이름(MARS·BRAVO·운영 콘솔)이고 선택적 `subtitle`(`SpaceDef`·`PlannedSpace`, 있으면 ko·en 모두 비어 있지 않아야 하며 Registry가 거부한다)은 그 성격을 한 줄로 설명한다(MARS는 `생산성 분석`, BRAVO는 `지표관리`, 운영 콘솔은 없음). 공간 id·경로·권한은 이름과 무관하다. 시스템을 설명하는 목록 — 플랫폼 홈 런처 카드(부제 아래에 `description` 유지)와 전환기의 실제·준비 중 행 — 만 이름 아래 둘째 줄에 부제를 보인다. 짧은 자리 — 레일, 전환기 버튼 이름·툴팁, 사이드바 머리 시스템 이름, 팔레트 시스템 경로, breadcrumb, FeedbackOps 머리, 즐겨찾기·최근 소속, 경로 거부 문구, 관리 화면의 공간 이름 — 는 이름만 쓴다. 메뉴 그룹 제목(`GroupDef.label`)은 사이드바 섹션이지 시스템이 아니라 바뀌지 않는다.
 - **플랫폼 홈:** 접근 가능한 공간을 고르는 시스템 런처다(카드 → 최근 방문·즐겨찾기 → 공지, [ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)). 모든 메뉴를 중복 나열하지 않는다. 홈 링크는 전환기 머리의 `플랫폼 홈`이다(`/` 메뉴를 열 수 있을 때만, 15 §3.2·§8). 레일 로고는 링크가 아니다.
 - **전역 유틸리티 메뉴(Decided, 2026-10-09, [ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)):** 플랫폼 홈·공지·내 VOC는 어떤 공간에도 속하지 않는다. 자기 메뉴 권한(`platform:view`·`notice:view`·`voc:view`)으로만 판정하고 공간 진입 권한을 거치지 않으며, 접근 가능한 공간 수에 들지 않는다. 이 화면에서는 업무 공간 사이드바를 붙이지 않고 레일의 공간 표식도 끈다. 명령 팔레트에서는 공간이 아닌 별도 묶음(플랫폼)으로 보인다. Registry 표현: `GroupDef.space: null`(명시 필수). 다른 메뉴를 전역으로 올리려면 이 규칙을 개정한다.
 - **FeedbackOps(협업):** 별도 공간이 아니고, 화면을 플랫폼으로 옮기지도 않는다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md)). 각 공간 사이드바에 그 시스템의 Managed System으로 좁힌 FeedbackOps 진입(VOC 등록·VOC·Task·설문)을 두고 새 탭으로 연다. 공간에 대응하는 매핑이 없으면 진입을 그리지 않는다. 전체 협업 허브는 FeedbackOps 자체 화면이며 플랫폼은 시스템 범위 없는 진입 링크만 둔다(링크 노출 권한은 Candidate, 내용 판정은 FeedbackOps). 진입은 사이드바 바닥 고정 블록이고, 전체 링크는 레일 하단 도구 영역 맨 위다([ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md), 15 §3.1).
@@ -456,7 +458,7 @@ Sidebar 기능(셸 구조는 §7, ADR-0011):
 - **Registry:** 소속 공간은 메뉴가 아니라 **그룹이** 선언한다(`GroupDef.space`, **필드명 Decided, 2026-09-27**). 현재 공간은 매칭된 라우트의 메뉴에서 유도하며 공간용 URL 키는 없다(§6.4: 경로가 이미 공간이다). 위 표의 **공간별 배치**는 Decided다. **공간별 그룹 수 상한은 두지 않는다(Decided, 2026-09-27)** — 새 그룹은 공간 추가보다 먼저 기존 그룹에 흡수할 수 있는지 검토하고, 공간당 7개 이하를 권장한다. 표 항목 중 무엇이 그룹이고 무엇이 그 아래 화면인지는 각 공간을 구현할 때 정한다.
 - **운영 콘솔 권한(Decided, 2026-09-27):** '운영 콘솔 접근' 한 역할로 시작한다. 개발자·운영자 모두 운영 콘솔 전 화면에 들어간다. 메뉴 활용률 열람은 05 결정(개발자·운영자 기본 + 개별 부여)을 따른다. 역할 분리가 필요해지면 그때 나눈다. 권한/역할 화면(`/admin/roles`, #49)은 **조회 전용**이다 — 사용자별 보유 권한, 그 권한이 여는 메뉴(Registry `permission` 기준 클라이언트 조인이며 권한 증명이 아니다), 사이트별 부여 room_name을 보여 준다. 부여·회수(05의 개별 부여 포함)의 원천은 **분리(2026-09-29 Decided, 절반 확정, #98)**: room_name 부여와 메뉴 활용률 열람 개별 부여는 플랫폼 메타 DB가 소유하고, 역할 소속(누가 운영 콘솔 접근자인가)의 원천은 IdP 그룹 claim 사양이 나올 때까지 Open이다(claim을 주면 IdP, 안 주면 메타 DB). 쓰기 포트·화면은 아직 만들지 않는다.
 - **Command Palette:** 사용자가 접근 가능한 모든 공간의 메뉴와 전역 유틸리티를 검색한다. 결과는 공간별로 묶고(레일 순서, 전역 유틸리티는 별도 묶음), 행 보조줄은 `<시스템> › <섹션> › <메뉴>` 전체 경로이며 연속해서 같은 이름은 한 번만 쓴다(전역 유틸리티는 `플랫폼 › <그룹> › <메뉴>`). FeedbackOps 외부 링크는 넣지 않는다.
-- **범위 밖:** 공간별 테마·별도 로그인·공간별 Scope는 두지 않는다. FeedbackOps 화면은 플랫폼으로 옮기지 않는다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md), 단계는 [저장소 연결 문서](integration/repository-layout.md)). 공간 `id`, FeedbackOps `Managed System`, 데이터 Scope(Site·room_name)는 서로 다른 식별 층이며 1:1을 가정하지 않는다(매핑은 #81·#213 Open). 현재 Registry에는 생산성 분석·지표관리·운영 콘솔 세 공간이 있다. 운영 개요·공지·VOC는 전역 유틸리티다. 표준 로그 개발·개선 실행 공간은 메뉴가 생길 때 등록한다([#252](https://github.com/hjung3113/analytics-platform/issues/252)). 멀티 워크스페이스 이전은 [#249](https://github.com/hjung3113/analytics-platform/issues/249)가 추적한다.
+- **범위 밖:** 공간별 테마·별도 로그인·공간별 Scope는 두지 않는다. FeedbackOps 화면은 플랫폼으로 옮기지 않는다([ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md), 단계는 [저장소 연결 문서](integration/repository-layout.md)). 공간 `id`, FeedbackOps `Managed System`, 데이터 Scope(Site·room_name)는 서로 다른 식별 층이며 1:1을 가정하지 않는다(매핑은 #81·#213 Open). 현재 Registry에는 MARS·BRAVO·운영 콘솔 세 공간이 있다. 운영 개요·공지·VOC는 전역 유틸리티다. 표준 로그 개발·개선 실행 공간은 메뉴가 생길 때 등록한다([#252](https://github.com/hjung3113/analytics-platform/issues/252)). 멀티 워크스페이스 이전은 [#249](https://github.com/hjung3113/analytics-platform/issues/249)가 추적한다.
 
 ---
 

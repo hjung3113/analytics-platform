@@ -60,7 +60,7 @@ describe('accessDirectory (issue #49: the console access directory)', () => {
 
   it.each([
     ['userId key', { userId: 'u-1' } as unknown as AccessDirectoryQuery],
-    ['scopeId key', { scopeId: 'ICH' } as unknown as AccessDirectoryQuery],
+    ['scopeId key', { scopeId: 'MEM' } as unknown as AccessDirectoryQuery],
     ['focus key', { focus: 'admin' } as unknown as AccessDirectoryQuery],
     ['unknown key', { extra: true } as unknown as AccessDirectoryQuery],
     ['bad permission', { permission: 'nope' as Permission }],
@@ -146,8 +146,8 @@ describe('accessDirectory (issue #49: the console access directory)', () => {
     const res = await accessDirectory({}, undefined, { role: 'admin', latency: 0 });
     const viewer = page(res).items.find(p => p.id === 'viewer')!;
     expect(viewer.sites).toEqual([
-      { id: 'ICH', label: 'ICH · Site A', grantedRooms: ['PHOTO'], totalRooms: 4 },
-      { id: 'CJU', label: 'CJU · Site B', grantedRooms: [], totalRooms: 3 },
+      { id: 'MEM', label: 'MEM · 메모리', grantedRooms: ['PHOTO'], totalRooms: 4 },
+      { id: 'FDRY', label: 'FDRY · 파운드리', grantedRooms: [], totalRooms: 3 },
       { id: 'XIA', label: 'XIA · Site C', grantedRooms: [], totalRooms: 2 },
     ]);
     const engineer = page(res).items.find(p => p.id === 'engineer')!;

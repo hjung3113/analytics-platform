@@ -41,13 +41,15 @@ describe('workspace assembly (#260)', () => {
     ]);
     expect(SPACES.map(space => space.id)).toEqual(['analytics', 'metrics', 'operations']);
     expect(SPACES[0]).toMatchObject({
-      label: { ko: '생산성 분석', en: 'Productivity analysis' },
+      label: { ko: 'MARS', en: 'MARS' },
+      subtitle: { ko: '생산성 분석', en: 'Productivity analysis' },
       description: { ko: '설비·기간별 생산성과 사이클타임을 분석합니다.', en: 'Analyze productivity and cycle time by equipment and period.' },
       homeMenuId: 'productivity-overview',
     });
     expect(SPACES[0].permission).toBeUndefined();
     expect(SPACES[1]).toMatchObject({
-      label: { ko: '지표관리', en: 'Metrics' },
+      label: { ko: 'BRAVO', en: 'BRAVO' },
+      subtitle: { ko: '지표관리', en: 'Metrics' },
       description: { ko: '지표 정의·버전·발행을 관리합니다.', en: 'Manage metric definitions, versions, and releases.' },
       homeMenuId: 'metric-catalog',
     });
@@ -58,6 +60,7 @@ describe('workspace assembly (#260)', () => {
       permission: 'console:access',
       homeMenuId: 'admin-roles',
     });
+    expect(SPACES[2].subtitle).toBeUndefined();
     expect(registry.menuById('home').label).toEqual({ ko: '플랫폼 홈', en: 'Platform home' });
     expect(registry.menuById('equipment-master').path).toBe('/equipment');
     expect(registry.menuById('notices').path).toBe('/notices');
@@ -75,7 +78,9 @@ describe('workspace assembly (#260)', () => {
     expect(appSlots(assembly, 'https://feedbackops.example').feedbackOps?.entriesFor('metrics')?.every(entry => entry.href?.startsWith('https://feedbackops.example/'))).toBe(true);
     expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools', 'feedbackOps', 'plannedSpaces']);
     // Planned systems are display-only rows for the switcher: no Registry space or menu carries their id.
-    expect(slots.plannedSpaces?.map(item => item.label.ko)).toEqual(['표준 로그 개발', '개선 실행']);
+    expect(slots.plannedSpaces?.map(item => item.label.ko)).toEqual(['CLAS', '표준 로그 개발', '개선 실행']);
+    expect(slots.plannedSpaces?.[0]).toMatchObject({ id: 'clas', subtitle: { ko: '생산성 분석', en: 'Productivity analysis' } });
+    expect(slots.plannedSpaces?.slice(1).every(item => item.subtitle === undefined)).toBe(true);
     for (const item of slots.plannedSpaces ?? []) expect(registry.spaces.some(space => space.id === item.id)).toBe(false);
     const session = testSession(['platform:view', 'metrics:view', 'notice:view', 'voc:view'], {
       user: { id: 'viewer', name: 'viewer', title: { ko: '현업 문의자', en: 'Field requester' } },
@@ -92,7 +97,7 @@ describe('workspace assembly (#260)', () => {
     vi.stubGlobal('sessionStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {}, clear: () => {} });
     window.history.replaceState(null, '', '/');
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={slots}><Probe /></PlatformProvider></I18nProvider>);
-    expect(screen.getByTestId('spaces').textContent).toBe('metrics:지표관리');
+    expect(screen.getByTestId('spaces').textContent).toBe('metrics:BRAVO');
     expect(screen.getByTestId('allowed').textContent).toBe('home:true,notices:true,voc:true');
     cleanup();
     vi.unstubAllGlobals();

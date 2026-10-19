@@ -47,7 +47,7 @@ const makerQueries = () => queries.filter(q => q.endpoint === 'equipment.master.
 describe('EquipmentMaster invalid sort/page (ADR-0034)', () => {
   // The sentences and Reset are owned by tableUrlWarning.test.tsx; this file keeps what the screen adds.
   it('keeps the filter slot and asks no makers while sort/page is invalid', async () => {
-    mount('?v=1&scopeId=ICH&sort=nope&page=0');
+    mount('?v=1&scopeId=MEM&sort=nope&page=0');
     await screen.findByText('정렬·페이지 값이 올바르지 않습니다');
     expect(screen.getByLabelText('설비 ID 검색')).toBeTruthy();
     expect(screen.getByLabelText('상태')).toBeTruthy();
@@ -57,7 +57,7 @@ describe('EquipmentMaster invalid sort/page (ADR-0034)', () => {
   });
 
   it('control: a valid sort/page does request the makers', async () => {
-    mount('?v=1&scopeId=ICH&sort=status:desc&page=2');
+    mount('?v=1&scopeId=MEM&sort=status:desc&page=2');
     await vi.waitFor(() => expect(makerQueries().length).toBeGreaterThan(0));
     expect(screen.queryByText('정렬·페이지 값이 올바르지 않습니다')).toBeNull();
   });

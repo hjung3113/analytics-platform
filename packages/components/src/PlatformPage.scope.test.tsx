@@ -30,7 +30,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('PlatformPage Scope gate: validation failure (#167)', () => {
   it('shows the check-failed message with a retry that re-validates and then renders the page', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     let fail = true;
     let calls = 0;
     const adapter = adapterWith(async (): Promise<ScopeCheck> => { calls++; if (fail) throw new Error('down'); return { status: 'valid', grantedRooms: [] }; });
@@ -62,8 +62,8 @@ describe('PlatformPage Scope gate follow-ups (#183)', () => {
   }
 
   it('shows the validating gate — never the previous status or scopeId — in the frame right after a switch', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
-    const adapter = adapterWith(scopeId => scopeId === 'ICH'
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    const adapter = adapterWith(scopeId => scopeId === 'MEM'
       ? Promise.reject(new Error('down'))
       : new Promise<ScopeCheck>(() => { /* the new Scope never settles */ }));
     const frames: string[] = [];
@@ -83,7 +83,7 @@ describe('PlatformPage Scope gate follow-ups (#183)', () => {
     expect(after.some(frame => frame.includes('검증 중'))).toBe(true);
     for (const frame of after) {
       expect(frame).not.toContain('확인하지 못했습니다');
-      expect(frame).not.toContain('scopeId=ICH');
+      expect(frame).not.toContain('scopeId=MEM');
     }
   });
 });
@@ -91,7 +91,7 @@ describe('PlatformPage Scope gate follow-ups (#183)', () => {
 
 describe('PlatformPage 50px header (#194)', () => {
   it('keeps title, full description, favorite and actions in one sticky header above Context and padded content', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     const adapter = adapterWith(async () => ({ status: 'valid', grantedRooms: [] }));
     const view = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ contextBar: <div>global context</div> }}>
       <PlatformPage title="Custom title" description="A long full description" dataTrustSummary={<span>trust</span>} secondaryActions={<button>secondary</button>} primaryAction={<button>primary</button>}><p>page body</p></PlatformPage>
@@ -124,7 +124,7 @@ describe('PlatformPage 50px header (#194)', () => {
   });
 
   it('retains header identity and Context but gates trust, actions, extension and body until Scope is valid', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     const adapter = adapterWith(async () => ({ status: 'forbidden', grantedRooms: [] }));
     const view = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ contextBar: <div>global context</div> }}>
       <PlatformPage title="Gated title" description="Gated description" dataTrustSummary={<span>trust</span>} secondaryActions={<button>secondary</button>} primaryAction={<button>primary</button>} contextExtension={<div>extension</div>}><p>page body</p></PlatformPage>
@@ -142,7 +142,7 @@ describe('PlatformPage 50px header (#194)', () => {
 
 describe('page header width (#194 FIX2)', () => {
   it('allows breadcrumb and rich title to shrink, yields description first and reserves favorite/actions', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}>
       <PlatformPage title={<span>Long object ID</span>} description="Description" crumbs={[{ label: 'Long parent', href: '/' }]} primaryAction={<button>Save</button>}><p>body</p></PlatformPage>
     </PlatformProvider></I18nProvider>);
@@ -161,7 +161,7 @@ describe('page header width (#194 FIX2)', () => {
   });
 
   it.each(['', '   '])('does not create an empty description tab stop (%j)', async description => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     const view = render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}>
       <PlatformPage description={description}><p>body</p></PlatformPage>
     </PlatformProvider></I18nProvider>);
@@ -173,7 +173,7 @@ describe('page header width (#194 FIX2)', () => {
     const detailRegistry = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [
       ...registry.menus, { ...registry.menus[0], id: 'detail', path: '/detail', primary: false, navHidden: true, parent: 'home' },
     ] });
-    window.history.replaceState(null, '', '/detail?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/detail?v=1&scopeId=MEM');
     render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={detailRegistry}>
       <PlatformPage title="Detail"><p>body</p></PlatformPage>
     </PlatformProvider></I18nProvider>);
@@ -188,7 +188,7 @@ describe('page header width (#194 FIX2)', () => {
 
 describe('PlatformPage shared outcome placement (#55)', () => {
   it('provides the scope automatically and places one banner before the page body', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     const adapter = adapterWith(async () => ({ status: 'valid', grantedRooms: [] }));
     const response = { ...forbidden, outcome: 'error' as const, message: 'Same response' };
     const query = { response, status: 'done' as const, refetch: () => {} };
@@ -222,12 +222,12 @@ describe('Scope gate action focus (#353)', () => {
   }
 
   it('sends focus to the page content element when the suggested-scope button disappears', async () => {
-    stubLocalStorage().set('platform:lastScope:u1', JSON.stringify('ICH'));
+    stubLocalStorage().set('platform:lastScope:u1', JSON.stringify('MEM'));
     window.history.replaceState(null, '', '/?v=1');
     const view = render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}>
       <PlatformPage><p>page body</p></PlatformPage>
     </PlatformProvider></I18nProvider>);
-    const apply = await screen.findByRole('button', { name: '최근 Scope 적용: ICH' });
+    const apply = await screen.findByRole('button', { name: '최근 Scope 적용: MEM' });
     apply.focus();
     expect(apply).toHaveFocus();
     fireEvent.click(apply);
@@ -237,19 +237,19 @@ describe('Scope gate action focus (#353)', () => {
   it('sends focus to the main landmark when the gate sits inside a shell main', async () => {
     // jsdom has no element.scrollTo; the kernel scrolls platform-main on push navigation (AppShell.test.tsx does the same).
     Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
-    stubLocalStorage().set('platform:lastScope:u1', JSON.stringify('ICH'));
+    stubLocalStorage().set('platform:lastScope:u1', JSON.stringify('MEM'));
     window.history.replaceState(null, '', '/?v=1');
     const view = render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}>
       <main id="platform-main" tabIndex={-1}><PlatformPage><p>page body</p></PlatformPage></main>
     </PlatformProvider></I18nProvider>);
-    const apply = await screen.findByRole('button', { name: '최근 Scope 적용: ICH' });
+    const apply = await screen.findByRole('button', { name: '최근 Scope 적용: MEM' });
     apply.focus();
     fireEvent.click(apply);
     expect(view.container.querySelector('main')).toHaveFocus();
   });
 
   it('sends focus to the page content element when the retry button disappears', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     const view = render(<I18nProvider><PlatformProvider adapter={adapterWith(async (): Promise<ScopeCheck> => { throw new Error('down'); })} registry={registry}>
       <PlatformPage><p>page body</p></PlatformPage>
     </PlatformProvider></I18nProvider>);

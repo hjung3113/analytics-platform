@@ -71,6 +71,7 @@ export default function OperationsHome() {
                 return <PlatformLink key={space.id} href={href} className="rounded-lg border border-border-subtle bg-surface-card p-4 hover:border-accent-primary">
                   <span className="grid size-10 place-items-center rounded-md bg-icon-blue-soft text-accent-primary"><Icon className="size-6" strokeWidth={1.75} aria-hidden /></span>
                   <span className="mt-3 block t-card-title">{tx(space.label)}</span>
+                  {space.subtitle && <span className="mt-0.5 block text-xs text-text-muted">{tx(space.subtitle)}</span>}
                   <span className="mt-0.5 block text-xs text-text-muted">{tx(space.description)}</span>
                   {resumeMenu && <span className="mt-2 block text-xs text-text-secondary">{lang === 'ko' ? `이어서: ${tx(resumeMenu.label)}` : `Continue: ${tx(resumeMenu.label)}`}</span>}
                 </PlatformLink>;

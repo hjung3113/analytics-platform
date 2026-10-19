@@ -58,12 +58,12 @@ export function DevTools() {
         <ul className="space-y-0.5 text-xs">
           {[
             { ko: '권한 없는 Scope (XIA)', en: 'Forbidden scope (XIA)', url: '/analytics/productivity?v=1&scopeId=XIA&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00' },
-            { ko: '미지원 URL 버전 (v=2)', en: 'Unsupported version (v=2)', url: '/equipment?v=2&scopeId=ICH' },
-            { ko: '기간 한쪽만 (from만)', en: 'Partial period (from only)', url: '/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-25T09:00:00' },
-            { ko: '미지원 Lot Context 전달', en: 'Unsupported Lot context', url: '/equipment?v=1&scopeId=ICH&lotIds=LOT-A1023&lotIds=LOT-A1024' },
-            { ko: '명시적 빈 설비 선택', en: 'Explicit empty selection', url: '/analytics/productivity?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&equipmentSelection=none' },
-            { ko: '90일 조회 (too_large)', en: '90-day query (too_large)', url: '/analytics/cycle-time?v=1&scopeId=ICH&from=2026-06-28T09:00:00&to=2026-09-26T09:00:00' },
-            { ko: '7일 복수 설비 (time_domain_unverified)', en: '7-day multi-equipment (time_domain_unverified)', url: '/analytics/productivity?v=1&scopeId=ICH&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00' },
+            { ko: '미지원 URL 버전 (v=2)', en: 'Unsupported version (v=2)', url: '/equipment?v=2&scopeId=MEM' },
+            { ko: '기간 한쪽만 (from만)', en: 'Partial period (from only)', url: '/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-25T09:00:00' },
+            { ko: '미지원 Lot Context 전달', en: 'Unsupported Lot context', url: '/equipment?v=1&scopeId=MEM&lotIds=LOT-A1023&lotIds=LOT-A1024' },
+            { ko: '명시적 빈 설비 선택', en: 'Explicit empty selection', url: '/analytics/productivity?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&equipmentSelection=none' },
+            { ko: '90일 조회 (too_large)', en: '90-day query (too_large)', url: '/analytics/cycle-time?v=1&scopeId=MEM&from=2026-06-28T09:00:00&to=2026-09-26T09:00:00' },
+            { ko: '7일 복수 설비 (time_domain_unverified)', en: '7-day multi-equipment (time_domain_unverified)', url: '/analytics/productivity?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00' },
           ].map(l => <li key={l.url}><button type="button" className="w-full rounded-sm px-2 py-1 text-left text-accent-primary hover:bg-surface-sunken hover:underline" onClick={() => navigate(l.url)}>{lang === 'ko' ? l.ko : l.en}</button></li>)}
         </ul>
       </PopoverContent>

@@ -247,7 +247,7 @@ const rows: Row[] = [
 
   // --- hand-built query strings in menus (42-55) ---
   { file: MENU, code: `<a href="/equipment?v=1" />`, rule: 'ap/no-hand-built-url', token: 'query string' },
-  { file: MENU, code: `<a href={'/equipment?v=1&scopeId=ICH'} />`, rule: 'ap/no-hand-built-url', token: 'query string' },
+  { file: MENU, code: `<a href={'/equipment?v=1&scopeId=MEM'} />`, rule: 'ap/no-hand-built-url', token: 'query string' },
   { file: MENU, code: '<a href={`/equipment?v=${id}`} />', rule: 'ap/no-hand-built-url', token: 'query string' },
   { file: MENU, code: `<a href={'/equipment' + '?' + 'v=1'} />`, rule: 'ap/no-hand-built-url', token: 'query string' },
   { file: MENU, code: `navigate('/equipment?v=1');`, rule: 'ap/no-hand-built-url', token: 'query string' },

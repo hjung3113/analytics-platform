@@ -55,7 +55,7 @@ function mockEndpoint(
 
 function request(
   endpoint = 'analytics.detail',
-  context: Record<string, unknown> = { scopeId: 'ICH', ...PERIOD },
+  context: Record<string, unknown> = { scopeId: 'MEM', ...PERIOD },
   params: Record<string, unknown> = { term: 'probe' },
 ) {
   return { endpoint, context, params };
@@ -93,11 +93,11 @@ describe('serveEndpoint request validation', () => {
   });
 
   it('rejects params and Context keys outside their allow-lists', async () => {
-    const badParams = await serveEndpoint(endpoints, request('analytics.detail', { scopeId: 'ICH' }, { term: 'probe', debug: true }), undefined, { role: 'engineer', latency: 0 });
+    const badParams = await serveEndpoint(endpoints, request('analytics.detail', { scopeId: 'MEM' }, { term: 'probe', debug: true }), undefined, { role: 'engineer', latency: 0 });
     expect(badParams.outcome).toBe('error');
     expect(badParams.message).toContain('debug');
 
-    const badContext = await serveEndpoint(endpoints, request('analytics.detail', { scopeId: 'ICH', foo: 'bar' }), undefined, { role: 'engineer', latency: 0 });
+    const badContext = await serveEndpoint(endpoints, request('analytics.detail', { scopeId: 'MEM', foo: 'bar' }), undefined, { role: 'engineer', latency: 0 });
     expect(badContext.outcome).toBe('error');
     expect(badContext.message).toContain('foo');
   });
@@ -108,7 +108,7 @@ describe('serveEndpoint request validation', () => {
     const endpoint = mockEndpoint(spec, handle);
     const result = await serveEndpoint(
       new Map([[spec.id, endpoint]]),
-      request(spec.id, { scopeId: 'ICH', roomNames: ['X'] }),
+      request(spec.id, { scopeId: 'MEM', roomNames: ['X'] }),
       undefined,
       { role: 'viewer', latency: 200 },
     );
@@ -122,7 +122,7 @@ describe('serveEndpoint request validation', () => {
     const spec = makeSpec('analytics.time-only');
     const result = await serveEndpoint(
       new Map([[spec.id, mockEndpoint(spec)]]),
-      request(spec.id, { scopeId: 'ICH', ...PERIOD, selection: [] }),
+      request(spec.id, { scopeId: 'MEM', ...PERIOD, selection: [] }),
       undefined,
       { role: 'engineer', latency: 0 },
     );
@@ -135,7 +135,7 @@ describe('serveEndpoint request validation', () => {
     const spec = makeSpec('analytics.unscoped', { requiresScope: false, context: {} });
     const result = await serveEndpoint(
       new Map([[spec.id, mockEndpoint(spec)]]),
-      request(spec.id, { scopeId: 'ICH' }),
+      request(spec.id, { scopeId: 'MEM' }),
       undefined,
       { role: 'engineer', latency: 0 },
     );
@@ -148,7 +148,7 @@ describe('serveEndpoint request validation', () => {
     const spec = makeSpec('analytics.missing-to');
     const result = await serveEndpoint(
       new Map([[spec.id, mockEndpoint(spec)]]),
-      request(spec.id, { scopeId: 'ICH', from: PERIOD.from }),
+      request(spec.id, { scopeId: 'MEM', from: PERIOD.from }),
       undefined,
       { role: 'engineer', latency: 0 },
     );
@@ -161,7 +161,7 @@ describe('serveEndpoint request validation', () => {
     const spec = makeSpec('analytics.missing-from');
     const result = await serveEndpoint(
       new Map([[spec.id, mockEndpoint(spec)]]),
-      request(spec.id, { scopeId: 'ICH', to: PERIOD.to }),
+      request(spec.id, { scopeId: 'MEM', to: PERIOD.to }),
       undefined,
       { role: 'engineer', latency: 0 },
     );
@@ -174,7 +174,7 @@ describe('serveEndpoint request validation', () => {
     const spec = makeSpec('analytics.null-to');
     const result = await serveEndpoint(
       new Map([[spec.id, mockEndpoint(spec)]]),
-      request(spec.id, { scopeId: 'ICH', from: PERIOD.from, to: null }),
+      request(spec.id, { scopeId: 'MEM', from: PERIOD.from, to: null }),
       undefined,
       { role: 'engineer', latency: 0 },
     );
@@ -212,7 +212,7 @@ describe('serveEndpoint request validation', () => {
     const spec = makeSpec('analytics.missing-room', { context: { roomNames: 'apply' } });
     const result = await serveEndpoint(
       new Map([[spec.id, mockEndpoint(spec)]]),
-      request(spec.id, { scopeId: 'ICH' }),
+      request(spec.id, { scopeId: 'MEM' }),
       undefined,
       { role: 'engineer', latency: 0 },
     );
@@ -225,7 +225,7 @@ describe('serveEndpoint request validation', () => {
     const spec = makeSpec('analytics.null-room', { context: { roomNames: 'apply' } });
     const result = await serveEndpoint(
       new Map([[spec.id, mockEndpoint(spec)]]),
-      request(spec.id, { scopeId: 'ICH', roomNames: null }),
+      request(spec.id, { scopeId: 'MEM', roomNames: null }),
       undefined,
       { role: 'engineer', latency: 0 },
     );
@@ -237,7 +237,7 @@ describe('serveEndpoint request validation', () => {
     const spec = makeSpec('analytics.partial-metric', { context: { metric: 'apply' } });
     const result = await serveEndpoint(
       new Map([[spec.id, mockEndpoint(spec)]]),
-      request(spec.id, { scopeId: 'ICH', metricId: 'cycleTime' }),
+      request(spec.id, { scopeId: 'MEM', metricId: 'cycleTime' }),
       undefined,
       { role: 'engineer', latency: 0 },
     );
@@ -250,7 +250,7 @@ describe('serveEndpoint request validation', () => {
     const spec = makeSpec('analytics.version-without-id', { context: { metric: 'apply' } });
     const result = await serveEndpoint(
       new Map([[spec.id, mockEndpoint(spec)]]),
-      request(spec.id, { scopeId: 'ICH', metricId: null, metricVersion: '3' }),
+      request(spec.id, { scopeId: 'MEM', metricId: null, metricVersion: '3' }),
       undefined,
       { role: 'engineer', latency: 0 },
     );
@@ -263,7 +263,7 @@ describe('serveEndpoint request validation', () => {
     const spec = makeSpec('analytics.id-without-version', { context: { metric: 'apply' } });
     const result = await serveEndpoint(
       new Map([[spec.id, mockEndpoint(spec)]]),
-      request(spec.id, { scopeId: 'ICH', metricId: 'cycleTime', metricVersion: null }),
+      request(spec.id, { scopeId: 'MEM', metricId: 'cycleTime', metricVersion: null }),
       undefined,
       { role: 'engineer', latency: 0 },
     );
@@ -292,7 +292,7 @@ describe('serveEndpoint declaration pipeline', () => {
     const endpoint = mockEndpoint(spec, handle);
     const endpoints = new Map<string, AnyMockEndpoint>([[spec.id, endpoint]]);
 
-    const response = await serveEndpoint(endpoints, request(spec.id, { scopeId: 'ICH' }), undefined, { role: 'engineer', latency: 0 });
+    const response = await serveEndpoint(endpoints, request(spec.id, { scopeId: 'MEM' }), undefined, { role: 'engineer', latency: 0 });
 
     expect(response.outcome).toBe('ok');
     const received = handle.mock.calls[0][0];
@@ -304,7 +304,7 @@ describe('serveEndpoint declaration pipeline', () => {
   it('resolves declared applied keys and forbids a denied room', async () => {
     const spec = makeSpec('analytics.room-filter', { context: { time: 'apply', roomNames: 'apply' } });
     const endpoint = mockEndpoint(spec);
-    const result = await serveEndpoint(new Map([[spec.id, endpoint]]), request(spec.id, { scopeId: 'ICH', ...PERIOD, roomNames: ['DIFF'] }), undefined, { role: 'engineer', latency: 0 });
+    const result = await serveEndpoint(new Map([[spec.id, endpoint]]), request(spec.id, { scopeId: 'MEM', ...PERIOD, roomNames: ['DIFF'] }), undefined, { role: 'engineer', latency: 0 });
     expect(result.outcome).toBe('forbidden');
   });
 
@@ -388,7 +388,7 @@ describe('serveEndpoint declaration pipeline', () => {
     const endpoint = mockEndpoint(spec);
     const result = await serveEndpoint(
       new Map([[spec.id, endpoint]]),
-      request(spec.id, { scopeId: 'ICH', ...PERIOD, roomNames: 'PHOTO' }),
+      request(spec.id, { scopeId: 'MEM', ...PERIOD, roomNames: 'PHOTO' }),
       undefined,
       { role: 'engineer', latency: 0 },
     );
@@ -406,7 +406,7 @@ describe('serveEndpoint declaration pipeline', () => {
     const endpoint = mockEndpoint(spec);
     const result = await serveEndpoint(
       new Map([[spec.id, endpoint]]),
-      request(spec.id, { scopeId: 'ICH', from: 'x', to: '2026-09-26T09:00:00' }),
+      request(spec.id, { scopeId: 'MEM', from: 'x', to: '2026-09-26T09:00:00' }),
       undefined,
       { role: 'engineer', latency: 0 },
     );
@@ -519,7 +519,7 @@ describe('serveEndpoint declaration pipeline', () => {
     });
     const result = await serveEndpoint(
       new Map([[spec.id, endpoint]]),
-      request(spec.id, { scopeId: 'ICH', ...PERIOD }, { v: '9' }),
+      request(spec.id, { scopeId: 'MEM', ...PERIOD }, { v: '9' }),
       undefined,
       { role: 'engineer', latency: 0 },
     );
@@ -564,7 +564,7 @@ describe('serveEndpoint declared limits.maxRows (#175)', () => {
     mergeTimeDomain: false,
     limits: { maxRows: 2 },
   });
-  const request = (context: Record<string, unknown> = { scopeId: 'ICH', selection: null, ...PERIOD }, params: Record<string, unknown> = { term: 'probe' }): MenuQuery =>
+  const request = (context: Record<string, unknown> = { scopeId: 'MEM', selection: null, ...PERIOD }, params: Record<string, unknown> = { term: 'probe' }): MenuQuery =>
     ({ endpoint: spec.id, context, params });
   const endpointsWith = (handle: MockEndpoint<{ term: string }, unknown>['handle']): ReadonlyMap<string, AnyMockEndpoint> =>
     new Map<string, AnyMockEndpoint>([[spec.id, defineMockEndpoint(spec, { handle })]]);
@@ -573,22 +573,22 @@ describe('serveEndpoint declared limits.maxRows (#175)', () => {
 
   it('answers too_large with no data when the whole handler result exceeds maxRows', async () => {
     const result = await send(endpointsWith(({ equipment }) => equipment.map(e => e.equipmentId)), request());
-    expect(result.outcome).toBe('too_large'); // the ICH grant alone resolves to more than 2 rows
+    expect(result.outcome).toBe('too_large'); // the MEM grant alone resolves to more than 2 rows
     expect(result.data).toBeNull();
     expect(result.message).toContain('over the declared maxRows 2');
   });
 
   it('answers ok when the handler returns exactly maxRows rows', async () => {
-    const selection = EQUIPMENT.filter(e => e.site === 'ICH').slice(0, 2).map(e => e.equipmentId);
-    const result = await send(endpointsWith(({ equipment }) => equipment.map(e => e.equipmentId)), request({ scopeId: 'ICH', selection, ...PERIOD }));
+    const selection = EQUIPMENT.filter(e => e.site === 'MEM').slice(0, 2).map(e => e.equipmentId);
+    const result = await send(endpointsWith(({ equipment }) => equipment.map(e => e.equipmentId)), request({ scopeId: 'MEM', selection, ...PERIOD }));
     expect(result.outcome).toBe('ok');
     expect(result.data as string[]).toHaveLength(2);
   });
 
   it('judges what the handler returns, not the resolved equipment count (narrowed through Context selection)', async () => {
     // Three selected rows, the handler narrows to two: 2 rows pass a maxRows of 2 even though the resolved set was 3.
-    const selection = EQUIPMENT.filter(e => e.site === 'ICH').slice(0, 3).map(e => e.equipmentId);
-    const result = await send(endpointsWith(({ equipment }) => equipment.slice(0, 2).map(e => e.equipmentId)), request({ scopeId: 'ICH', selection, ...PERIOD }));
+    const selection = EQUIPMENT.filter(e => e.site === 'MEM').slice(0, 3).map(e => e.equipmentId);
+    const result = await send(endpointsWith(({ equipment }) => equipment.slice(0, 2).map(e => e.equipmentId)), request({ scopeId: 'MEM', selection, ...PERIOD }));
     expect(result.outcome).toBe('ok');
     expect(result.data as string[]).toHaveLength(2);
   });
@@ -608,8 +608,8 @@ describe('serveEndpoint declared limits.maxRows (#175)', () => {
       limits: { maxRows: 2 },
     });
     const idsRequest = (params: { ids: string[] }): MenuQuery =>
-      ({ endpoint: idsSpec.id, context: { scopeId: 'ICH', ...PERIOD }, params });
-    const ids = EQUIPMENT.filter(e => e.site === 'ICH').slice(0, 2).map(e => e.equipmentId);
+      ({ endpoint: idsSpec.id, context: { scopeId: 'MEM', ...PERIOD }, params });
+    const ids = EQUIPMENT.filter(e => e.site === 'MEM').slice(0, 2).map(e => e.equipmentId);
     const endpoints = new Map<string, AnyMockEndpoint>([[
       idsSpec.id,
       defineMockEndpoint(idsSpec, { handle: ({ equipment, params }) => equipment.filter(e => params.ids.includes(e.equipmentId)).map(e => e.equipmentId) }),
@@ -743,7 +743,7 @@ describe('createMockAdapter registration', () => {
     const spec = makeSpec('analytics.adapter-smoke');
     const endpoint = mockEndpoint(spec, ({ params, equipment }) => ({ term: params.term, count: equipment.length }));
     const adapter = createMockAdapter({ endpoints: [endpoint], registry });
-    const result = await adapter.menuQuery({ endpoint: spec.id, context: { scopeId: 'ICH', ...PERIOD }, params: { term: 'smoke' } });
+    const result = await adapter.menuQuery({ endpoint: spec.id, context: { scopeId: 'MEM', ...PERIOD }, params: { term: 'smoke' } });
     expect(result.outcome).toBe('ok');
     expect(result.data).toEqual({ term: 'smoke', count: expect.any(Number) });
   });
@@ -759,16 +759,16 @@ describe('endpoint provisional ownership', () => {
     const data = { total: 7 };
     const hook = vi.fn(() => provisional);
     const endpoint = defineMockEndpoint(spec, { handle: () => data, provisional: hook });
-    const result = await serveEndpoint(new Map([[spec.id, endpoint]]), request(spec.id, { scopeId: 'ICH', from, to }), undefined, { latency: 0 });
+    const result = await serveEndpoint(new Map([[spec.id, endpoint]]), request(spec.id, { scopeId: 'MEM', from, to }), undefined, { latency: 0 });
     expect(result.outcome).toBe('ok');
     expect(result.trust?.provisional).toBe(provisional);
-    expect(hook).toHaveBeenCalledExactlyOnceWith({ data, params: { term: 'probe' }, context: expect.objectContaining({ scopeId: 'ICH', from, to, selection: null }) });
+    expect(hook).toHaveBeenCalledExactlyOnceWith({ data, params: { term: 'probe' }, context: expect.objectContaining({ scopeId: 'MEM', from, to, selection: null }) });
   });
 
   it.each([
-    { context: { scopeId: 'ICH', ...PERIOD }, applied: true, expected: true },
-    { context: { scopeId: 'ICH', from: '2026-09-01T09:00:00', to: PERIOD.to }, applied: true, expected: false },
-    { context: { scopeId: 'ICH' }, applied: false, expected: false },
+    { context: { scopeId: 'MEM', ...PERIOD }, applied: true, expected: true },
+    { context: { scopeId: 'MEM', from: '2026-09-01T09:00:00', to: PERIOD.to }, applied: true, expected: false },
+    { context: { scopeId: 'MEM' }, applied: false, expected: false },
   ])('keeps the period verdict without a hook: $expected ($applied)', async ({ context, applied, expected }) => {
     const spec = makeSpec('analytics.default-provisional', { context: applied ? { time: 'apply' } : {} });
     const endpoint = mockEndpoint(spec);

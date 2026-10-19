@@ -11,11 +11,11 @@ const WEEK_FROM = '2026-09-19T09:00:00';
 const WEEK_TO = DEFAULT_RANGE_TO;
 
 function ctx(over: Partial<GlobalContext> = {}): GlobalContext {
-  return { ...emptyGlobal, scopeId: 'ICH', from: DAY_FROM, to: DEFAULT_RANGE_TO, ...over };
+  return { ...emptyGlobal, scopeId: 'MEM', from: DAY_FROM, to: DEFAULT_RANGE_TO, ...over };
 }
 
-const coveredIch = EQUIPMENT
-  .filter(e => e.site === 'ICH' && e.room === 'PHOTO' && !LATE_TIME_DOMAIN_EQUIPMENT_IDS.includes(e.equipmentId))
+const coveredMem = EQUIPMENT
+  .filter(e => e.site === 'MEM' && e.room === 'PHOTO' && !LATE_TIME_DOMAIN_EQUIPMENT_IDS.includes(e.equipmentId))
   .map(e => e.equipmentId)
   .sort();
 
@@ -23,8 +23,8 @@ const row = (equipmentId: string, timeDomainId: string, validFrom: string, valid
   ({ equipmentId, timeDomainId, validFrom, validTo });
 
 describe('time-domain assertions (world)', () => {
-  it('pins two late ICH PHOTO tools and maps sites without using master validity', () => {
-    expect(LATE_TIME_DOMAIN_EQUIPMENT_IDS).toEqual(['ICH-PHOTO-0103', 'ICH-PHOTO-0105']);
+  it('pins two late MEM PHOTO tools and maps sites without using master validity', () => {
+    expect(LATE_TIME_DOMAIN_EQUIPMENT_IDS).toEqual(['MEM-PHOTO-0103', 'MEM-PHOTO-0105']);
     expect(TIME_DOMAIN_LATE_FROM >= WEEK_FROM && TIME_DOMAIN_LATE_FROM < DEFAULT_RANGE_TO).toBe(true);
     expect(TIME_DOMAIN_LATE_FROM <= DAY_FROM).toBe(true);
     expect(TIME_DOMAIN_ASSERTIONS).toHaveLength(EQUIPMENT.length);
@@ -109,7 +109,7 @@ describe('evaluateTimeDomainMerge', () => {
 describe('serve time-domain guard', () => {
   const kinds = ['collection', 'time_domain'] as const;
 
-  it('errors a 7-day ICH merge and does not compute', async () => {
+  it('errors a 7-day MEM merge and does not compute', async () => {
     const res = await serve({
       role: 'engineer', permission: 'analytics:view',
       global: ctx({ from: WEEK_FROM, to: WEEK_TO }),
@@ -118,14 +118,14 @@ describe('serve time-domain guard', () => {
       compute: () => { throw new Error('must not merge'); },
     });
     expect(res.outcome).toBe('error');
-    expect(res.message).toBe('time_domain_unverified: ICH-PHOTO-0103, ICH-PHOTO-0105');
+    expect(res.message).toBe('time_domain_unverified: MEM-PHOTO-0103, MEM-PHOTO-0105');
     expect(res.data).toBeNull();
     expect(res.assessments).toEqual([]);
     expect(res.trust).toBeNull();
     expect(res.correlationId).toMatch(/^corr-/);
   });
 
-  it('passes the default 24h ICH merge with a registry clear', async () => {
+  it('passes the default 24h MEM merge with a registry clear', async () => {
     const res = await serve({
       role: 'engineer', permission: 'analytics:view',
       global: ctx(),
@@ -141,10 +141,10 @@ describe('serve time-domain guard', () => {
     ]);
   });
 
-  it('passes a 7-day CJU merge (no late tools there)', async () => {
+  it('passes a 7-day FDRY merge (no late tools there)', async () => {
     const res = await serve({
       role: 'engineer', permission: 'analytics:view',
-      global: ctx({ scopeId: 'CJU', from: WEEK_FROM, to: WEEK_TO }),
+      global: ctx({ scopeId: 'FDRY', from: WEEK_FROM, to: WEEK_TO }),
       latency: 0,
       kinds: ['time_domain'],
       compute: ({ equipment }) => equipment.length,
@@ -170,13 +170,13 @@ describe('serve time-domain guard', () => {
   it('passes a 7-day selection that excludes the late tools', async () => {
     const res = await serve({
       role: 'engineer', permission: 'analytics:view',
-      global: ctx({ from: WEEK_FROM, to: WEEK_TO, selection: [coveredIch[0], coveredIch[1]] }),
+      global: ctx({ from: WEEK_FROM, to: WEEK_TO, selection: [coveredMem[0], coveredMem[1]] }),
       latency: 0,
       kinds: ['time_domain'],
       compute: ({ equipment }) => equipment.map(e => e.equipmentId),
     });
     expect(res.outcome).toBe('ok');
-    expect(res.data).toEqual([coveredIch[0], coveredIch[1]]);
+    expect(res.data).toEqual([coveredMem[0], coveredMem[1]]);
     expect(res.assessments[0]).toMatchObject({ state: 'clear', detail: 'KR-WALL' });
   });
 
@@ -201,7 +201,7 @@ describe('serve time-domain guard', () => {
       compute: () => { throw new Error('must not merge'); },
     });
     expect(res.outcome).toBe('error');
-    expect(res.message).toBe('time_domain_unverified: ICH-PHOTO-0103, ICH-PHOTO-0105');
+    expect(res.message).toBe('time_domain_unverified: MEM-PHOTO-0103, MEM-PHOTO-0105');
   });
 
   it('allows one equipment through a gap and does not claim clear', async () => {
@@ -220,7 +220,7 @@ describe('serve time-domain guard', () => {
   it('allows one fully covered equipment to clear', async () => {
     const res = await serve({
       role: 'engineer', permission: 'analytics:view',
-      global: ctx({ from: WEEK_FROM, to: WEEK_TO, selection: [coveredIch[0]] }),
+      global: ctx({ from: WEEK_FROM, to: WEEK_TO, selection: [coveredMem[0]] }),
       latency: 0,
       kinds: ['time_domain'],
       compute: ({ equipment }) => equipment.length,
@@ -264,7 +264,7 @@ describe('serve time-domain guard', () => {
       compute: () => { throw new Error('must not merge'); },
     });
     expect(res.outcome).toBe('error');
-    expect(res.message).toBe('time_domain_unverified: ICH-PHOTO-0103, ICH-PHOTO-0105');
+    expect(res.message).toBe('time_domain_unverified: MEM-PHOTO-0103, MEM-PHOTO-0105');
   });
 
   it('opt-out skips the guard and does not claim clear', async () => {
@@ -312,7 +312,7 @@ describe('serve time-domain guard', () => {
         compute: () => { throw new Error('must not merge'); },
       });
       expect(bad.outcome).toBe('error');
-      expect(bad.message).toBe('time_domain_unverified: ICH-PHOTO-0103, ICH-PHOTO-0105');
+      expect(bad.message).toBe('time_domain_unverified: MEM-PHOTO-0103, MEM-PHOTO-0105');
       const quiet = await serve({
         role: 'engineer', permission: 'analytics:view',
         global: ctx(),
@@ -378,7 +378,7 @@ describe('serve time-domain guard', () => {
   });
 
   it('does not reject one equipment whose assertions conflict', async () => {
-    const id = coveredIch[0];
+    const id = coveredMem[0];
     TIME_DOMAIN_ASSERTIONS.push(row(id, 'CN-XIA', TIME_DOMAIN_SEEDED_FROM, TIME_DOMAIN_OPEN_END));
     try {
       const alone = await serve({
@@ -393,7 +393,7 @@ describe('serve time-domain guard', () => {
       expect(alone.assessments).toEqual([{ kind: 'time_domain', state: 'unknown', reason: 'source_unavailable' }]);
       const pair = await serve({
         role: 'engineer', permission: 'analytics:view',
-        global: ctx({ selection: [id, coveredIch[1]] }),
+        global: ctx({ selection: [id, coveredMem[1]] }),
         latency: 0,
         compute: () => { throw new Error('must not merge'); },
       });

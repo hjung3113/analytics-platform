@@ -39,11 +39,11 @@ afterEach(() => { setRole(previousRole); });
 function grantedExecution(before?: string): Execution {
   const result = seededExecutions.find(execution => {
     const equipment = EQUIPMENT.find(row => row.equipmentId === execution.equipmentId);
-    return equipment?.site === 'ICH'
+    return equipment?.site === 'MEM'
       && ['PHOTO', 'ETCH', 'CVD'].includes(equipment.room)
       && (before === undefined || execution.anchor < before);
   });
-  if (!result) throw new Error('expected a seeded execution in an engineer-granted ICH room');
+  if (!result) throw new Error('expected a seeded execution in an engineer-granted MEM room');
   return result;
 }
 
@@ -78,8 +78,8 @@ describe('execution-detail occurrence endpoint behavior', () => {
   it('rejects carried reference-only Context and accepts a request matching its projection', async () => {
     const from = '2026-06-28T09:00:00';
     const execution = grantedExecution(from);
-    const outsideGrant = EQUIPMENT.find(row => row.site === 'ICH' && row.room === 'DIFF');
-    if (!outsideGrant) throw new Error('expected seeded equipment in ungranted ICH room DIFF');
+    const outsideGrant = EQUIPMENT.find(row => row.site === 'MEM' && row.room === 'DIFF');
+    if (!outsideGrant) throw new Error('expected seeded equipment in ungranted MEM room DIFF');
 
     let seenContext: GlobalContext | undefined;
     const handler = executionOccurrence;
@@ -103,7 +103,7 @@ describe('execution-detail occurrence endpoint behavior', () => {
     };
     const withReferenceContext = await observedAdapter.menuQuery({
       endpoint: occurrenceEndpoint.id,
-      context: { scopeId: 'ICH', roomNames: ['DIFF'], selection: [outsideGrant.equipmentId] },
+      context: { scopeId: 'MEM', roomNames: ['DIFF'], selection: [outsideGrant.equipmentId] },
       params,
     });
     expect(withReferenceContext.outcome).toBe('error');
@@ -112,26 +112,26 @@ describe('execution-detail occurrence endpoint behavior', () => {
 
     const wellFormed = await observedAdapter.menuQuery({
       endpoint: occurrenceEndpoint.id,
-      context: { scopeId: 'ICH' },
+      context: { scopeId: 'MEM' },
       params,
     });
     expect(['ok', 'empty']).toContain(wellFormed.outcome);
     expect(wellFormed.outcome).not.toBe('too_large');
     expect((wellFormed.data as OccurrenceResult | null)?.access).toBe('ok');
-    expect(seenContext).toMatchObject({ scopeId: 'ICH', roomNames: null, selection: null });
+    expect(seenContext).toMatchObject({ scopeId: 'MEM', roomNames: null, selection: null });
     expect(wellFormed.trust?.metricVersion).toBe(params.metricVersion);
   });
 
   it('returns granted, forbidden, and missing access states and pins declared kinds', async () => {
     const execution = grantedExecution();
-    const outsideGrant = EQUIPMENT.find(row => row.site === 'ICH' && row.room === 'DIFF');
-    if (!outsideGrant) throw new Error('expected seeded equipment in ungranted ICH room DIFF');
+    const outsideGrant = EQUIPMENT.find(row => row.site === 'MEM' && row.room === 'DIFF');
+    if (!outsideGrant) throw new Error('expected seeded equipment in ungranted MEM room DIFF');
     const kinds = ['collection', 'processing_delay', 'coverage'];
     expect(occurrenceEndpoint.kinds).toEqual(kinds);
 
     const granted = await adapter.menuQuery({
       endpoint: occurrenceEndpoint.id,
-      context: { scopeId: 'ICH' },
+      context: { scopeId: 'MEM' },
       params: occurrenceParams({ equipmentId: execution.equipmentId, anchor: execution.anchor }),
     });
     expect(granted.outcome).toBe('ok');
@@ -141,7 +141,7 @@ describe('execution-detail occurrence endpoint behavior', () => {
 
     const forbidden = await adapter.menuQuery({
       endpoint: occurrenceEndpoint.id,
-      context: { scopeId: 'ICH' },
+      context: { scopeId: 'MEM' },
       params: occurrenceParams({ equipmentId: outsideGrant.equipmentId, anchor: execution.anchor }),
     });
     expect(forbidden.outcome).toBe('ok');
@@ -149,7 +149,7 @@ describe('execution-detail occurrence endpoint behavior', () => {
 
     const missing = await adapter.menuQuery({
       endpoint: occurrenceEndpoint.id,
-      context: { scopeId: 'ICH' },
+      context: { scopeId: 'MEM' },
       params: occurrenceParams({ equipmentId: 'UNKNOWN-EQUIPMENT' }),
     });
     expect(missing.outcome).toBe('empty');
@@ -166,7 +166,7 @@ describe('execution-detail occurrence endpoint behavior', () => {
     const fetchOccurrence = async (metricVersion: string) => {
       const response = await adapter.menuQuery({
         endpoint: occurrenceEndpoint.id,
-        context: { scopeId: 'ICH' },
+        context: { scopeId: 'MEM' },
         params: occurrenceParams({ equipmentId: execution.equipmentId, anchor: execution.anchor, metricVersion }),
       });
       expect(response.outcome).toBe('ok');
@@ -189,7 +189,7 @@ describe('execution-detail occurrence endpoint behavior', () => {
     for (const metricVersion of ['999', '2']) {
       const response = await adapter.menuQuery({
         endpoint: occurrenceEndpoint.id,
-        context: { scopeId: 'ICH' },
+        context: { scopeId: 'MEM' },
         params: occurrenceParams({ equipmentId: execution.equipmentId, anchor: execution.anchor, metricVersion }),
       });
       expect(response).toMatchObject({ outcome: 'error', data: null, trust: null });
@@ -203,7 +203,7 @@ describe('execution-detail occurrence endpoint behavior', () => {
     // Same valid equipment/anchor, but entityType the page cannot open (identity is (equipmentId, entityType, anchor), 06 §22).
     const nonJob = await adapter.menuQuery({
       endpoint: occurrenceEndpoint.id,
-      context: { scopeId: 'ICH' },
+      context: { scopeId: 'MEM' },
       params: occurrenceParams({ entityType: 'lot' }),
     });
     expect(nonJob.outcome).toBe('empty');
@@ -212,7 +212,7 @@ describe('execution-detail occurrence endpoint behavior', () => {
     // Matches the YYYY-MM-DDTHH:mm:ss shape but is not a real calendar time.
     const malformedAnchor = await adapter.menuQuery({
       endpoint: occurrenceEndpoint.id,
-      context: { scopeId: 'ICH' },
+      context: { scopeId: 'MEM' },
       params: occurrenceParams({ anchor: '2026-13-40T25:61:61' }),
     });
     expect(malformedAnchor.outcome).toBe('empty');
@@ -226,7 +226,7 @@ describe('execution occurrence provisional follows the object anchor', () => {
     { recent: true, expected: true },
     { recent: false, expected: false },
   ])('returns provisional=$expected for recent=$recent with reference periods', async ({ recent, expected }) => {
-    const equipment = EQUIPMENT.find(row => row.site === 'ICH' && row.room === 'PHOTO');
+    const equipment = EQUIPMENT.find(row => row.site === 'MEM' && row.room === 'PHOTO');
     if (!equipment) throw new Error('expected engineer-granted equipment');
     const boundary = shift(DATA_THROUGH, -24);
     const job = jobsForEquipmentDay(equipment, boundary.slice(0, 10)).find(row => recent ? row.anchor >= boundary : row.anchor < boundary);
@@ -235,8 +235,8 @@ describe('execution occurrence provisional follows the object anchor', () => {
       { from: shift(DATA_THROUGH, -1), to: DATA_THROUGH },
       { from: shift(DATA_THROUGH, -168), to: DATA_THROUGH },
     ]) {
-      const context = projectContext(occurrenceEndpoint, { ...emptyGlobal, scopeId: 'ICH', ...period });
-      expect(context).toEqual({ scopeId: 'ICH' });
+      const context = projectContext(occurrenceEndpoint, { ...emptyGlobal, scopeId: 'MEM', ...period });
+      expect(context).toEqual({ scopeId: 'MEM' });
       const response = await adapter.menuQuery({
         endpoint: occurrenceEndpoint.id, context,
         params: occurrenceParams({ equipmentId: equipment.equipmentId, anchor: job.anchor }),
@@ -247,7 +247,7 @@ describe('execution occurrence provisional follows the object anchor', () => {
     }
     const carried = await adapter.menuQuery({
       endpoint: occurrenceEndpoint.id,
-      context: { scopeId: 'ICH', from: shift(DATA_THROUGH, -1), to: DATA_THROUGH },
+      context: { scopeId: 'MEM', from: shift(DATA_THROUGH, -1), to: DATA_THROUGH },
       params: occurrenceParams({ equipmentId: equipment.equipmentId, anchor: job.anchor }),
     });
     expect(carried.outcome).toBe('error');
@@ -270,7 +270,7 @@ describe('execution occurrence provisional follows the object anchor', () => {
 
   it('returns false for a missing occurrence even with a recent identity anchor', async () => {
     const response = await adapter.menuQuery({
-      endpoint: occurrenceEndpoint.id, context: { scopeId: 'ICH' },
+      endpoint: occurrenceEndpoint.id, context: { scopeId: 'MEM' },
       params: occurrenceParams({ equipmentId: 'UNKNOWN-EQUIPMENT', anchor: DATA_THROUGH }),
     });
     expect(response.outcome).toBe('empty');

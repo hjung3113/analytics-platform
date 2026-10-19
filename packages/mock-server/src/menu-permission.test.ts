@@ -5,12 +5,12 @@ import { emptyGlobal } from '@ap/contracts';
 const period = { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' };
 
 describe('menu permission re-validation', () => {
-  it('forbids a viewer from an analytics endpoint even with a valid ICH scope', async () => {
-    // viewer holds an ICH (PHOTO) grant, so the rejection is the menu permission, not Scope.
+  it('forbids a viewer from an analytics endpoint even with a valid MEM scope', async () => {
+    // viewer holds an MEM (PHOTO) grant, so the rejection is the menu permission, not Scope.
     const res = await serve({
       role: 'viewer',
       permission: 'analytics:view',
-      global: { ...emptyGlobal, scopeId: 'ICH', ...period },
+      global: { ...emptyGlobal, scopeId: 'MEM', ...period },
       latency: 0,
       compute: () => { throw new Error('must not run'); },
     });
@@ -18,11 +18,11 @@ describe('menu permission re-validation', () => {
     expect(res.message).toContain('analytics:view');
   });
 
-  it('serves an engineer with analytics:view on ICH', async () => {
+  it('serves an engineer with analytics:view on MEM', async () => {
     const res = await serve({
       role: 'engineer',
       permission: 'analytics:view',
-      global: { ...emptyGlobal, scopeId: 'ICH', ...period },
+      global: { ...emptyGlobal, scopeId: 'MEM', ...period },
       latency: 0,
       mergeTimeDomain: false,
       compute: () => 1,
@@ -37,7 +37,7 @@ describe('menu permission re-validation', () => {
     try {
       // viewer lacks analytics:view. The request was sent as engineer, and the pinned role —
       // not the live one — decides, like a session cookie on the request.
-      const pending = serve({ permission: 'analytics:view', global: { ...emptyGlobal, scopeId: 'ICH' }, latency: 60, mergeTimeDomain: false, compute: () => 1 });
+      const pending = serve({ permission: 'analytics:view', global: { ...emptyGlobal, scopeId: 'MEM' }, latency: 60, mergeTimeDomain: false, compute: () => 1 });
       setRole('viewer');
       const res = await pending;
       expect(res.outcome).toBe('ok');
@@ -52,7 +52,7 @@ describe('menu permission re-validation', () => {
       const res = await serve({
         role: 'viewer',
         permission: 'analytics:view',
-        global: { ...emptyGlobal, scopeId: 'ICH', ...period },
+        global: { ...emptyGlobal, scopeId: 'MEM', ...period },
         latency: 0,
         compute: () => { throw new Error('must not run'); },
       });

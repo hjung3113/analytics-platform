@@ -6,6 +6,7 @@ import { grantTotals, menusForPermissions } from './access-rows';
 
 const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false } as const;
+const spaceSubtitle = 'Access projection fixture subtitle';
 const menu = (over: Partial<PlatformMenuEntry> & Pick<PlatformMenuEntry, 'id' | 'permission'>): MenuEntry => ({
   group: 'admin', label: { ko: over.id!, en: over.id! }, description: { ko: '', en: '' }, path: `/${over.id}`,
   icon: House, requiresScope: false, pageType: 'management', context: none, features: noFeatures, pageKeys: [],
@@ -13,7 +14,7 @@ const menu = (over: Partial<PlatformMenuEntry> & Pick<PlatformMenuEntry, 'id' | 
 });
 
 const registry = createRegistry({
-  spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'roles' }],
+  spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, subtitle: { ko: spaceSubtitle, en: 'Access projection fixture subtitle' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'roles' }],
   groups: [
     { id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' },
     { id: 'equipment', label: { ko: '설비', en: 'Equipment' }, icon: Wrench, space: 'operations' },
@@ -35,8 +36,8 @@ const principal = (permissions: Permission[], sites: AccessPrincipal['sites']): 
 describe('grantTotals (#49 Room grants column)', () => {
   it('sums granted rooms and known rooms across sites, zeros included', () => {
     const p = principal([], [
-      { id: 'ICH', label: 'ICH', grantedRooms: ['PHOTO', 'ETCH', 'CVD'], totalRooms: 4 },
-      { id: 'CJU', label: 'CJU', grantedRooms: ['PHOTO'], totalRooms: 3 },
+      { id: 'MEM', label: 'MEM', grantedRooms: ['PHOTO', 'ETCH', 'CVD'], totalRooms: 4 },
+      { id: 'FDRY', label: 'FDRY', grantedRooms: ['PHOTO'], totalRooms: 3 },
       { id: 'XIA', label: 'XIA', grantedRooms: [], totalRooms: 2 },
     ]);
     expect(grantTotals(p)).toEqual({ granted: 4, total: 9 });
@@ -60,6 +61,8 @@ describe('menusForPermissions (#49 drawer join)', () => {
     // The same menu for a console holder is not gated: the space permission is held too.
     const admin = menusForPermissions(registry, ['equipment:view', 'console:access']);
     expect(admin[0].spaceGated).toBe(false);
+    expect(admin[0].spaceLabel).toEqual({ ko: '운영 콘솔', en: 'Operations console' });
+    expect(JSON.stringify(admin[0].spaceLabel)).not.toContain(spaceSubtitle);
   });
 
   it('does not space-gate a global utility menu and labels it 전역', () => {

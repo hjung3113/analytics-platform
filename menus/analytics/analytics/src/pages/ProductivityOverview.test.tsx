@@ -38,7 +38,7 @@ function renderPage(path: string) {
 // one sentence per field — never `key=value`.
 describe('ProductivityOverview invalid page key warnings (#304 FIX1)', () => {
   it('kpi=bogus names the 지표 field and the raw value, without key=value', async () => {
-    renderPage('/analytics/productivity?v=1&scopeId=ICH&kpi=bogus');
+    renderPage('/analytics/productivity?v=1&scopeId=MEM&kpi=bogus');
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('지표');
     expect(alert.textContent).toContain('bogus');
@@ -47,7 +47,7 @@ describe('ProductivityOverview invalid page key warnings (#304 FIX1)', () => {
   });
 
   it('states each refusal as the exact ADR-0034 sentence plus the page own action (one paragraph per field)', async () => {
-    renderPage('/analytics/productivity?v=1&scopeId=ICH&kpi=bogus&axis=zzz&sort=nope');
+    renderPage('/analytics/productivity?v=1&scopeId=MEM&kpi=bogus&axis=zzz&sort=nope');
     const alert = await screen.findByRole('alert');
     expect([...alert.querySelectorAll('p')].map(p => p.textContent)).toEqual([
       '지표 “bogus”는 이 화면에서 쓸 수 없습니다. 주소를 고치거나 조건을 초기화하세요.',
@@ -60,7 +60,7 @@ describe('ProductivityOverview invalid page key warnings (#304 FIX1)', () => {
 // UX-304-01: the overview guidance speaks in user operations and meanings — no URL keys, no page ownership.
 describe('ProductivityOverview guidance wording (UX-304-01)', () => {
   it('explains card selection and delta comparison without URL keys or page ownership', async () => {
-    renderPage('/analytics/productivity?v=1&scopeId=ICH&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00');
+    renderPage('/analytics/productivity?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00');
     // PlatformPage gates children behind the async scope validation — wait for the page itself to render.
     await screen.findByRole('radiogroup', { name: '집계 단위' });
     const body = document.body.textContent ?? '';
@@ -74,7 +74,7 @@ describe('ProductivityOverview guidance wording (UX-304-01)', () => {
   });
 
   it('an unknown grain keeps the raw value and states that the default grain is in effect', async () => {
-    renderPage('/analytics/productivity?v=1&scopeId=ICH&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00&granularity=zzz');
+    renderPage('/analytics/productivity?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00&granularity=zzz');
     await screen.findByText(/“zzz”/);
     const body = document.body.textContent ?? '';
     expect(body).toContain('“zzz”');
@@ -116,7 +116,7 @@ describe('ProductivityOverview cycle-time delta label (#398)', () => {
       session: () => session,
       menuQuery: async req => (req.endpoint === 'analytics.productivity.kpis' ? data : other) as ApiResponse<unknown>,
     });
-    window.history.replaceState(null, '', '/analytics/productivity?v=1&scopeId=ICH&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00');
+    window.history.replaceState(null, '', '/analytics/productivity?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00');
     render(<I18nProvider><PlatformProvider adapter={kpiAdapter} registry={registry}><ProductivityOverview params={{}} /></PlatformProvider></I18nProvider>);
   }
 

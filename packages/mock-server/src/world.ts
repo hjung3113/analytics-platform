@@ -6,8 +6,8 @@ import { PERMISSIONS, type Permission, type PublishedMetric } from '@ap/contract
 
 export type Site = { id: string; label: string; rooms: string[] };
 export const SITES: Site[] = [
-  { id: 'ICH', label: 'ICH · Site A', rooms: ['PHOTO', 'ETCH', 'CVD', 'DIFF'] },
-  { id: 'CJU', label: 'CJU · Site B', rooms: ['PHOTO', 'ETCH', 'CMP'] },
+  { id: 'MEM', label: 'MEM · 메모리', rooms: ['PHOTO', 'ETCH', 'CVD', 'DIFF'] },
+  { id: 'FDRY', label: 'FDRY · 파운드리', rooms: ['PHOTO', 'ETCH', 'CMP'] },
   { id: 'XIA', label: 'XIA · Site C', rooms: ['PHOTO', 'ETCH'] },
 ];
 
@@ -18,7 +18,7 @@ export const USERS: Record<RoleId, User> = {
   engineer: {
     role: 'engineer', name: 'Process Engineer', title: { ko: '공정 엔지니어', en: 'Process engineer' },
     permissions: ALL.filter(p => p !== 'console:access' && p !== 'feedbackops:access'),
-    grants: { ICH: ['PHOTO', 'ETCH', 'CVD'], CJU: ['PHOTO'] },
+    grants: { MEM: ['PHOTO', 'ETCH', 'CVD'], FDRY: ['PHOTO'] },
   },
   admin: {
     role: 'admin', name: 'Platform Admin', title: { ko: '플랫폼 관리자', en: 'Platform admin' },
@@ -27,7 +27,7 @@ export const USERS: Record<RoleId, User> = {
   viewer: {
     role: 'viewer', name: 'Field Requester', title: { ko: '현업 문의자', en: 'Field requester' },
     permissions: ['platform:view', 'metrics:view', 'notice:view', 'voc:view'],
-    grants: { ICH: ['PHOTO'] },
+    grants: { MEM: ['PHOTO'] },
   },
 };
 
@@ -104,15 +104,15 @@ export type TimeDomainAssertion = {
   validTo: string;
 };
 
-/** First two ICH PHOTO ids (sorted). Engineer and admin both resolve PHOTO. Viewer has no analytics menu. */
+/** First two MEM PHOTO ids (sorted). Engineer and admin both resolve PHOTO. Viewer has no analytics menu. */
 export const LATE_TIME_DOMAIN_EQUIPMENT_IDS: readonly string[] = EQUIPMENT
-  .filter(e => e.site === 'ICH' && e.room === 'PHOTO')
+  .filter(e => e.site === 'MEM' && e.room === 'PHOTO')
   .map(e => e.equipmentId)
   .sort()
   .slice(0, 2);
 
 function timeDomainIdFor(site: string): string {
-  if (site === 'ICH' || site === 'CJU') return 'KR-WALL';
+  if (site === 'MEM' || site === 'FDRY') return 'KR-WALL';
   if (site === 'XIA') return 'CN-XIA';
   throw new Error(`no time domain for site ${site}`);
 }

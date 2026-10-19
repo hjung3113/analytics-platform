@@ -10,7 +10,7 @@ describe('explicit empty sets', () => {
     for (const patch of [{ selection: [] as string[] }, { roomNames: [] as string[] }, { lotIds: [] as string[] }, { recipeIds: [] as string[] }]) {
       const res = await serve({
         role: 'engineer', permission: 'analytics:view',
-        global: { ...emptyGlobal, scopeId: 'ICH', ...period, ...patch },
+        global: { ...emptyGlobal, scopeId: 'MEM', ...period, ...patch },
         latency: 0,
         isEmpty: () => false,
         compute: () => { throw new Error('must not run'); },
@@ -26,7 +26,7 @@ describe('explicit empty sets', () => {
   it('does not treat an absent set as empty, and forbidden still wins', async () => {
     const ok = await serve({
       role: 'engineer', permission: 'analytics:view',
-      global: { ...emptyGlobal, scopeId: 'ICH', ...period },
+      global: { ...emptyGlobal, scopeId: 'MEM', ...period },
       latency: 0,
       mergeTimeDomain: false,
       compute: () => 1,
@@ -49,7 +49,7 @@ describe('malformed responses', () => {
     try {
       const result = await serve<{ rows: number[] }>({
         role: 'engineer', permission: 'analytics:view',
-        global: { ...emptyGlobal, scopeId: 'ICH', ...period },
+        global: { ...emptyGlobal, scopeId: 'MEM', ...period },
         latency: 0,
         mergeTimeDomain: false,
         compute: () => ({ rows: [] }),
@@ -70,7 +70,7 @@ describe('request identity', () => {
     setRole('engineer');
     try {
       // CVD is granted to engineer, not to viewer.
-      const pending = serve({ permission: 'analytics:view', global: { ...emptyGlobal, scopeId: 'ICH', ...period, roomNames: ['CVD'] }, latency: 30, mergeTimeDomain: false, compute: () => 1 });
+      const pending = serve({ permission: 'analytics:view', global: { ...emptyGlobal, scopeId: 'MEM', ...period, roomNames: ['CVD'] }, latency: 30, mergeTimeDomain: false, compute: () => 1 });
       setRole('viewer');
       const res = await pending;
       expect(res.outcome).toBe('ok');

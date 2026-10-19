@@ -313,7 +313,7 @@ describe('Fix round 1 peer lookup', () => {
 
 describe('server message is detail, not the body (#304)', () => {
   it.each([
-    ['error', 'time_domain_unverified: ICH-PHOTO-0103, ICH-PHOTO-0105', ['함께 집계할 수 없습니다', '설비를 좁히거나 기간을 줄이세요']],
+    ['error', 'time_domain_unverified: MEM-PHOTO-0103, MEM-PHOTO-0105', ['함께 집계할 수 없습니다', '설비를 좁히거나 기간을 줄이세요']],
     ['timeout', 'Upstream mart query failed', ['조회가 제한 시간 안에 끝나지 않았습니다', '기간을 줄이거나 집계 단위를 키워 다시 시도하세요']],
     ['empty', 'same empty message', ['조건에 맞는 결과가 없습니다', '조회는 성공했고 결과가 0건입니다']],
   ] as const)('groups two %s widgets and keeps the server message in each named detail', (outcome, message, phrases) => {

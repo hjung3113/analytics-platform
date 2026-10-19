@@ -14,8 +14,8 @@ function menu(id: string, group: GroupId, path: string, label: string, over: obj
 function buildRegistry(opts: { startOpen?: boolean } = {}) {
   return createRegistry({
     spaces: [
-      testSpace({ id: 'analytics', label: { ko: '생산성 분석', en: 'Productivity' }, homeMenuId: 'cycle' }),
-      testSpace({ id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, homeMenuId: 'catalog', permission: 'metrics:view' }),
+      testSpace({ id: 'analytics', label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, homeMenuId: 'cycle' }),
+      testSpace({ id: 'metrics', label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, homeMenuId: 'catalog', permission: 'metrics:view' }),
       testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'roles', permission: 'console:access' }),
     ],
     groups: [
@@ -34,7 +34,7 @@ function buildRegistry(opts: { startOpen?: boolean } = {}) {
   });
 }
 
-const SLOT: PlatformSlots = { plannedSpaces: [{ id: 'log', label: { ko: '표준 로그 개발', en: 'Log development' }, icon: Wrench }] };
+const SLOT: PlatformSlots = { plannedSpaces: [{ id: 'clas', label: { ko: 'CLAS', en: 'CLAS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, icon: Boxes }, { id: 'log', label: { ko: '표준 로그 개발', en: 'Log development' }, icon: Wrench }] };
 
 function Page() {
   const { pageParam, setPage } = usePlatform();
@@ -58,7 +58,7 @@ function Routes() {
   return route.menu.id === lazyMenuId ? <Slow key={route.menu.id} /> : <Page key={route.menu.id} />;
 }
 
-function mount({ permissions = ['platform:view', 'metrics:view', 'console:access', 'notice:view'], url = '/cycle?v=1&scopeId=ICH', registry = buildRegistry(), slots = SLOT }: {
+function mount({ permissions = ['platform:view', 'metrics:view', 'console:access', 'notice:view'], url = '/cycle?v=1&scopeId=MEM', registry = buildRegistry(), slots = SLOT }: {
   permissions?: Permission[]; url?: string; registry?: ReturnType<typeof buildRegistry>; slots?: PlatformSlots;
 } = {}) {
   window.history.replaceState(null, '', url);
@@ -86,9 +86,9 @@ afterEach(() => { lazyMenuId = null; cleanup(); vi.restoreAllMocks(); vi.unstubA
 describe('SystemSwitcher button (15 §3.2)', () => {
   it('names the button and its visible tooltip with the current system', async () => {
     mount();
-    expect(trigger()).toHaveAccessibleName('업무 시스템 전환 · 현재: 생산성 분석');
+    expect(trigger()).toHaveAccessibleName('업무 시스템 전환 · 현재: MARS');
     fireEvent.focus(trigger());
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('업무 시스템 전환 · 현재: 생산성 분석');
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('업무 시스템 전환 · 현재: MARS');
   });
 
   it('drops the current system outside a space and keeps the button', async () => {
@@ -101,7 +101,7 @@ describe('SystemSwitcher button (15 §3.2)', () => {
   it('has an English name', () => {
     localStorage.setItem('platform:lang', 'en');
     mount();
-    expect(screen.getByRole('button', { name: 'Switch business system · current: Productivity' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Switch business system · current: MARS' })).toBeTruthy();
   });
 });
 
@@ -109,14 +109,14 @@ describe('SystemSwitcher popover', () => {
   it('focuses the current card on open, and the first card outside a space', () => {
     mount();
     open();
-    expect(cardOf('생산성 분석')).toHaveFocus();
-    expect(cardOf('생산성 분석')).toHaveAttribute('aria-current', 'true');
-    expect(within(cardOf('생산성 분석')).getByText('현재')).toBeTruthy();
+    expect(cardOf('MARS')).toHaveFocus();
+    expect(cardOf('MARS')).toHaveAttribute('aria-current', 'true');
+    expect(within(cardOf('MARS')).getByText('현재')).toBeTruthy();
     cleanup();
     mount({ url: '/?v=1' });
     open();
-    expect(screen.getAllByRole('button', { name: /^(생산성 분석|지표관리|운영 콘솔)/ })[0]).toHaveFocus();
-    expect(cardOf('생산성 분석')).toHaveFocus();
+    expect(screen.getAllByRole('button', { name: /^(MARS|BRAVO|운영 콘솔)/ })[0]).toHaveFocus();
+    expect(cardOf('MARS')).toHaveFocus();
     expect(screen.queryByRole('button', { name: /현재/ })).toBeNull();
   });
 
@@ -124,8 +124,8 @@ describe('SystemSwitcher popover', () => {
     sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ metrics: '/metrics/definitions?v=1' }));
     mount();
     open();
-    expect(within(cardOf('생산성 분석')).getByText('이어서: 사이클')).toBeTruthy();
-    expect(within(cardOf('지표관리')).getByText('이어서: 정의')).toBeTruthy();
+    expect(within(cardOf('MARS')).getByText('이어서: 사이클')).toBeTruthy();
+    expect(within(cardOf('BRAVO')).getByText('이어서: 정의')).toBeTruthy();
     expect(within(cardOf('운영 콘솔')).getByText('시작: 권한')).toBeTruthy();
   });
 
@@ -134,7 +134,7 @@ describe('SystemSwitcher popover', () => {
     open();
     const names = within(screen.getByRole('dialog')).getAllByRole('button').map(button => button.textContent ?? '');
     expect(names.some(text => text.startsWith('운영 콘솔'))).toBe(false);
-    expect(names.findIndex(text => text.startsWith('생산성 분석'))).toBeLessThan(names.findIndex(text => text.startsWith('지표관리')));
+    expect(names.findIndex(text => text.startsWith('MARS'))).toBeLessThan(names.findIndex(text => text.startsWith('BRAVO')));
   });
 
   it('lists planned rows that are focusable, announce they are unavailable and never navigate', async () => {
@@ -151,6 +151,34 @@ describe('SystemSwitcher popover', () => {
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
     expect(window.location.href).toBe(before);
     expect(screen.getByRole('dialog', { name: '업무 시스템 전환' })).toBeTruthy();
+  });
+
+  it('shows the subtitle on its own line in real and planned rows when declared, and not for a space without one', () => {
+    mount();
+    const dialog = open();
+    expect(within(cardOf('MARS')).getByText('생산성 분석')).toBeTruthy();
+    expect(within(cardOf('BRAVO')).getByText('지표관리')).toBeTruthy();
+    expect(within(cardOf('운영 콘솔')).queryByText(/생산성 분석|지표관리/)).toBeNull();
+    const clas = within(dialog).getByRole('button', { name: /^CLAS/ });
+    expect(within(clas).getByText('생산성 분석')).toBeTruthy();
+    expect(within(clas).getByText('아직 사용할 수 없습니다')).toBeTruthy();
+    const logRow = within(dialog).getByRole('button', { name: /표준 로그 개발/ });
+    expect(within(logRow).queryByText('생산성 분석')).toBeNull();
+  });
+
+  it('writes the English subtitle in English', () => {
+    localStorage.setItem('platform:lang', 'en');
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: /^Switch business system/ }));
+    expect(within(cardOf('MARS')).getByText('Productivity analysis')).toBeTruthy();
+    expect(within(screen.getByRole('button', { name: /^CLAS/ })).getByText('Productivity analysis')).toBeTruthy();
+  });
+
+  it('keeps the subtitle out of the trigger name, its tooltip and the current badge', async () => {
+    mount();
+    expect(trigger()).toHaveAccessibleName('업무 시스템 전환 · 현재: MARS');
+    fireEvent.focus(trigger());
+    expect(await screen.findByRole('tooltip')).not.toHaveTextContent('생산성 분석');
   });
 
   it('omits the planned area without the slot', () => {
@@ -170,7 +198,7 @@ describe('SystemSwitcher popover', () => {
     mount({ permissions: ['notice:view'], url: '/?v=1' });
     const dialog = open();
     expect(within(dialog).getByText('접근 가능한 업무 시스템이 없습니다')).toBeTruthy();
-    expect(within(dialog).queryByRole('button', { name: /생산성 분석/ })).toBeNull();
+    expect(within(dialog).queryByRole('button', { name: /MARS/ })).toBeNull();
     expect(within(dialog).getByRole('link', { name: '플랫폼 홈' })).toHaveFocus();
   });
 
@@ -184,7 +212,7 @@ describe('SystemSwitcher popover', () => {
   it('shows one card and no hidden system for a single-system user', () => {
     mount({ permissions: ['platform:view'] });
     const dialog = open();
-    expect(within(dialog).getAllByRole('button', { name: /^(생산성 분석|지표관리|운영 콘솔)/ })).toHaveLength(1);
+    expect(within(dialog).getAllByRole('button', { name: /^(MARS|BRAVO|운영 콘솔)/ })).toHaveLength(1);
     expect(within(dialog).queryByText(/운영 콘솔/)).toBeNull();
   });
 });
@@ -206,13 +234,13 @@ describe('SystemSwitcher keyboard and focus (06 §26, ADR-0032)', () => {
   it.each([['Enter'], [' ']])('moves with %j on a card, closes first and leaves focus on the new title', async key => {
     mount();
     open();
-    cardOf('지표관리').focus();
+    cardOf('BRAVO').focus();
     fireEvent.keyDown(document.activeElement!, { key });
     fireEvent.click(document.activeElement!);
     await waitFor(() => expect(window.location.pathname).toBe('/metrics'));
     await waitFor(() => expect(screen.getByRole('heading', { name: '카탈로그' })).toHaveFocus());
     expect(screen.queryByRole('dialog', { name: '업무 시스템 전환' })).toBeNull();
-    expect(new URLSearchParams(window.location.search).get('scopeId')).toBe('ICH');
+    expect(new URLSearchParams(window.location.search).get('scopeId')).toBe('MEM');
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
     expect(screen.getByRole('heading', { name: '카탈로그' })).toHaveFocus();
     expect(screen.queryByRole('tooltip')).toBeNull();
@@ -229,7 +257,7 @@ describe('SystemSwitcher keyboard and focus (06 §26, ADR-0032)', () => {
     mount();
     const push = vi.spyOn(window.history, 'pushState');
     open();
-    fireEvent.click(cardOf('생산성 분석'));
+    fireEvent.click(cardOf('MARS'));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '업무 시스템 전환' })).toBeNull());
     await waitFor(() => expect(trigger()).toHaveFocus());
     expect(push).not.toHaveBeenCalled();
@@ -261,7 +289,7 @@ describe('SystemSwitcher keyboard and focus (06 §26, ADR-0032)', () => {
   it('starts every open fresh: a cancelled choice never leaks into the next open', async () => {
     mount();
     open();
-    fireEvent.click(cardOf('지표관리'));
+    fireEvent.click(cardOf('BRAVO'));
     await waitFor(() => expect(window.location.pathname).toBe('/metrics'));
     await waitFor(() => expect(screen.getByRole('heading', { name: '카탈로그' })).toHaveFocus());
     const pushes = vi.spyOn(window.history, 'pushState');
@@ -269,15 +297,15 @@ describe('SystemSwitcher keyboard and focus (06 §26, ADR-0032)', () => {
     await waitFor(() => expect(trigger()).toHaveFocus());
     expect(pushes).not.toHaveBeenCalled();
     open();
-    expect(cardOf('지표관리')).toHaveFocus();
-    expect(cardOf('지표관리')).toHaveAttribute('aria-current', 'true');
+    expect(cardOf('BRAVO')).toHaveFocus();
+    expect(cardOf('BRAVO')).toHaveAttribute('aria-current', 'true');
   });
 
   it('does not steal the title from a restored focus= detail that opens late, and leaves no tooltip', async () => {
     sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ metrics: '/metrics?v=1&focus=entity' }));
     mount();
     open();
-    fireEvent.click(cardOf('지표관리'));
+    fireEvent.click(cardOf('BRAVO'));
     await waitFor(() => expect(window.location.pathname).toBe('/metrics'));
     const title = await screen.findByRole('heading', { name: '카탈로그' });
     await waitFor(() => expect(title).toHaveFocus());
@@ -292,7 +320,7 @@ describe('SystemSwitcher focus ownership and lifecycle (ADR-0032)', () => {
   it.each([['back', -1], ['forward', 1]] as const)('keeps the new title focus when %s arrives while open', async (_name, step) => {
     mount();
     open();
-    fireEvent.click(cardOf('지표관리'));
+    fireEvent.click(cardOf('BRAVO'));
     await waitFor(() => expect(screen.getByRole('heading', { name: '카탈로그' })).toHaveFocus());
     if (step === 1) {
       window.history.back();
@@ -312,7 +340,7 @@ describe('SystemSwitcher focus ownership and lifecycle (ADR-0032)', () => {
     lazyMenuId = 'catalog';
     mount();
     open();
-    fireEvent.click(cardOf('지표관리'));
+    fireEvent.click(cardOf('BRAVO'));
     await waitFor(() => expect(window.location.pathname).toBe('/metrics'));
     open();
     // Outside the modal popover the page is aria-hidden, so the title is found by the hidden option here.
@@ -327,7 +355,7 @@ describe('SystemSwitcher focus ownership and lifecycle (ADR-0032)', () => {
     mount();
     const push = vi.spyOn(window.history, 'pushState');
     open();
-    fireEvent.click(cardOf('지표관리'));
+    fireEvent.click(cardOf('BRAVO'));
     await waitFor(() => expect(window.location.pathname).toBe('/metrics'));
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
     expect(push).toHaveBeenCalledTimes(1);
@@ -337,7 +365,7 @@ describe('SystemSwitcher focus ownership and lifecycle (ADR-0032)', () => {
     const view = mount();
     const push = vi.spyOn(window.history, 'pushState');
     open();
-    fireEvent.click(cardOf('지표관리'));
+    fireEvent.click(cardOf('BRAVO'));
     view.unmount();
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
     expect(push).not.toHaveBeenCalled();
@@ -345,14 +373,14 @@ describe('SystemSwitcher focus ownership and lifecycle (ADR-0032)', () => {
   });
 
   it('drops a queued card choice when the Provider session is replaced before the close timers flush', async () => {
-    window.history.replaceState(null, '', '/cycle?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/cycle?v=1&scopeId=MEM');
     let current = testSession(['platform:view', 'metrics:view', 'console:access', 'notice:view']);
     const listeners = new Set<() => void>();
     const adapter = testAdapter({ session: () => current, subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; } });
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={buildRegistry()} slots={SLOT}><AppShell><Routes /></AppShell></PlatformProvider></I18nProvider>);
     const push = vi.spyOn(window.history, 'pushState');
     open();
-    fireEvent.click(cardOf('지표관리'));
+    fireEvent.click(cardOf('BRAVO'));
     current = testSession(['platform:view', 'metrics:view', 'console:access', 'notice:view']);
     act(() => { listeners.forEach(listener => listener()); });
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });

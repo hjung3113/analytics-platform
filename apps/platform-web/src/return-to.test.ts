@@ -4,7 +4,7 @@ import { registry } from './menus';
 
 const { safeReturnTo } = registry;
 
-const cycle = '/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
+const cycle = '/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
 
 describe('safeReturnTo', () => {
   it('rejects open redirects and non-routes', () => {
@@ -16,7 +16,7 @@ describe('safeReturnTo', () => {
     expect(safeReturnTo('/unregistered')).toBeNull();
     expect(safeReturnTo('/equipment/X')).toBeNull();
     expect(safeReturnTo('/equipment/X?tab=attributes')).toBeNull();
-    expect(safeReturnTo('/analytics/cycle-time?v=2&scopeId=ICH')).toBeNull();
+    expect(safeReturnTo('/analytics/cycle-time?v=2&scopeId=MEM')).toBeNull();
     expect(safeReturnTo('/%2F%2Fevil.example')).toBeNull();
     expect(safeReturnTo('/equipment\u0000')).toBeNull();
     expect(safeReturnTo(null)).toBeNull();
@@ -24,19 +24,19 @@ describe('safeReturnTo', () => {
 
   it('keeps a registered non-detail URL whose query parses', () => {
     expect(safeReturnTo(cycle)).toBe(cycle);
-    expect(safeReturnTo('/equipment?v=1&scopeId=ICH')).toBe('/equipment?v=1&scopeId=ICH');
+    expect(safeReturnTo('/equipment?v=1&scopeId=MEM')).toBe('/equipment?v=1&scopeId=MEM');
     expect(safeReturnTo('/')).toBe('/');
   });
 
   it('keeps §6.1 screen state (sort/page/tab/focus, cycle bucket/bin) in the return URL', () => {
-    const equipment = '/equipment?v=1&scopeId=ICH&sort=status:desc&page=2&focus=ICH-PHOTO-0103&tab=audit';
-    const cycleFull = '/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&sort=anchor:asc&page=2&bucket=2026-09-25T09:00:00&bin=45-60';
+    const equipment = '/equipment?v=1&scopeId=MEM&sort=status:desc&page=2&focus=MEM-PHOTO-0103&tab=audit';
+    const cycleFull = '/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&sort=anchor:asc&page=2&bucket=2026-09-25T09:00:00&bin=45-60';
     expect(safeReturnTo(equipment)).toBe(equipment);
     expect(safeReturnTo(cycleFull)).toBe(cycleFull);
   });
 
   it('rejects a duplicated page key instead of guessing', () => {
-    expect(safeReturnTo('/equipment?v=1&scopeId=ICH&page=2&page=3')).toBeNull();
+    expect(safeReturnTo('/equipment?v=1&scopeId=MEM&page=2&page=3')).toBeNull();
   });
 
   it('does not treat a detail path as an app-relative failure', () => {

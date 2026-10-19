@@ -127,6 +127,7 @@ export function SystemSwitcher() {
                 <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{tx(space.label)}</span>
+                  {space.subtitle && <span className="block truncate text-caption text-text-muted">{tx(space.subtitle)}</span>}
                   <span className="block truncate text-caption text-text-muted">{entry.resumed ? t('switcherResume', { menu: menuName }) : t('switcherStart', { menu: menuName })}</span>
                 </span>
                 {current && <span className="flex items-center gap-0.5 text-caption font-semibold text-accent-primary"><Check className="size-3" aria-hidden />{t('switcherCurrentBadge')}</span>}
@@ -142,6 +143,7 @@ export function SystemSwitcher() {
                 <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{tx(item.label)}</span>
+                  {item.subtitle && <span className="block truncate text-caption">{tx(item.subtitle)}</span>}
                   <span className="block truncate text-caption">{t('switcherPlannedBody')}</span>
                 </span>
               </button>

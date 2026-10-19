@@ -11,8 +11,8 @@ function menu(id: string, group: GroupId, path: string, label: string, over: obj
 }
 const registry = createRegistry({
   spaces: [
-    testSpace({ id: 'analytics', label: { ko: '생산성 분석', en: 'Productivity' }, homeMenuId: 'cycle-list' }),
-    testSpace({ id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, homeMenuId: 'catalog' }),
+    testSpace({ id: 'analytics', label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, homeMenuId: 'cycle-list' }),
+    testSpace({ id: 'metrics', label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, homeMenuId: 'catalog' }),
     testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations' }, homeMenuId: 'roles', permission: 'console:access' }),
   ],
   groups: [
@@ -43,10 +43,10 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-function mount(url: string, permissions: Permission[] = ['platform:view', 'console:access']) {
+function mount(url: string, permissions: Permission[] = ['platform:view', 'console:access'], useRegistry = registry) {
   window.history.replaceState(null, '', url);
   const session = testSession(permissions);
-  return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}>
+  return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={useRegistry}>
     <AppShell><PlatformLink href="/cycle?v=1">back to cycle</PlatformLink></AppShell>
   </PlatformProvider></I18nProvider>);
 }
@@ -55,7 +55,7 @@ const sections = () => within(rail()).queryByRole('group', { name: '시스템 �
 
 describe('rail sections (15 §3.2)', () => {
   it('lists the visible sections of the current system in order and marks only the current one with aria-current=true', () => {
-    mount('/cycle?v=1&scopeId=ICH');
+    mount('/cycle?v=1&scopeId=MEM');
     const group = sections()!;
     const buttons = within(group).getAllByRole('button');
     expect(buttons.map(button => button.getAttribute('aria-label'))).toEqual(['사이클', '설비']);
@@ -73,7 +73,7 @@ describe('rail sections (15 §3.2)', () => {
   });
 
   it('does nothing when the current section is pressed', () => {
-    mount('/cycle?v=1&scopeId=ICH');
+    mount('/cycle?v=1&scopeId=MEM');
     const push = vi.spyOn(window.history, 'pushState');
     const replace = vi.spyOn(window.history, 'replaceState');
     fireEvent.click(within(sections()!).getByRole('button', { name: '사이클' }));
@@ -83,11 +83,11 @@ describe('rail sections (15 §3.2)', () => {
   });
 
   it('opens the first visible menu of another section through a Kernel link that keeps the global Context', async () => {
-    mount('/cycle?v=1&scopeId=ICH&lotIds=kept');
+    mount('/cycle?v=1&scopeId=MEM&lotIds=kept');
     const push = vi.spyOn(window.history, 'pushState');
     fireEvent.click(within(sections()!).getByRole('button', { name: '설비' }));
     await waitFor(() => expect(window.location.pathname).toBe('/equip'));
-    expect(new URLSearchParams(window.location.search).get('scopeId')).toBe('ICH');
+    expect(new URLSearchParams(window.location.search).get('scopeId')).toBe('MEM');
     expect(new URLSearchParams(window.location.search).get('lotIds')).toBe('kept');
     expect(push).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(within(sections()!).getByRole('button', { name: '설비' })).toHaveAttribute('aria-current', 'true'));
@@ -125,12 +125,23 @@ describe('sidebar of the current section (15 §3.2)', () => {
   it('shows the system name and, on a second line, the section name', () => {
     const view = mount('/equip?v=1');
     const head = view.container.querySelector('aside > div')!;
-    expect(Array.from(head.querySelectorAll('p')).map(p => p.textContent)).toEqual(['생산성 분석', '설비']);
+    expect(Array.from(head.querySelectorAll('p')).map(p => p.textContent)).toEqual(['MARS', '설비']);
     expect(head.querySelectorAll('p')[1]).toHaveClass('text-caption', 'text-text-muted');
   });
 
-  it('omits the second line when the section is named like the system', () => {
+  it('shows the system name and the same-named group on two lines once the labels differ (BRAVO / 지표관리), never the subtitle', () => {
     const view = mount('/metrics?v=1');
+    const head = view.container.querySelector('aside > div')!;
+    expect(Array.from(head.querySelectorAll('p')).map(p => p.textContent)).toEqual(['BRAVO', '지표관리']);
+  });
+
+  it('omits the second line when the section is named like the system', () => {
+    const equalLabels = createRegistry({
+      spaces: [testSpace({ id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, subtitle: { ko: '부제', en: 'Subtitle' }, homeMenuId: 'catalog' })],
+      groups: [{ id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, icon: House, space: 'metrics' }],
+      menus: [menu('catalog', 'metrics', '/metrics', '지표 카탈로그', { primary: true })],
+    });
+    const view = mount('/metrics?v=1', ['platform:view'], equalLabels);
     const head = view.container.querySelector('aside > div')!;
     expect(Array.from(head.querySelectorAll('p')).map(p => p.textContent)).toEqual(['지표관리']);
   });
@@ -164,7 +175,7 @@ describe('fallback sidebar on an unmatched or denied route (B5)', () => {
     expect(sections()).toBeNull();
     expect(rail().querySelector('[aria-current]')).toBeNull();
     const head = view.container.querySelector('aside > div')!;
-    expect(Array.from(head.querySelectorAll('p')).map(p => p.textContent)).toEqual(['생산성 분석', 'Analytics Platform']);
+    expect(Array.from(head.querySelectorAll('p')).map(p => p.textContent)).toEqual(['MARS', 'Analytics Platform']);
     expect(nav.querySelector('[aria-current="page"]')).toBeNull();
 
     fireEvent.click(screen.getByRole('link', { name: 'back to cycle' }));

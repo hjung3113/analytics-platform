@@ -6,13 +6,14 @@ import { joinUsageRows, formatLastUsed } from './usage-rows';
 
 const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
+const spaceSubtitle = 'Usage projection fixture subtitle';
 const menu = (over: Partial<PlatformMenuEntry>): MenuEntry => ({
   id: 'x', group: 'admin', label: { ko: '기본', en: 'Default' }, description: { ko: '', en: '' }, path: '/x', icon: House,
   permission: 'platform:view', requiresScope: false, context: none, pageType: 'management', features: noFeatures, pageKeys: [], ...over,
 });
 
 const registry = createRegistry({
-  spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' }],
+  spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, subtitle: { ko: spaceSubtitle, en: 'Usage projection fixture subtitle' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' }],
   groups: [{ id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' }],
   menus: [
     menu({ id: 'admin-roles', primary: true, label: { ko: '권한/역할 관리', en: 'Roles & access' }, path: '/admin/roles', permission: 'console:access' }),
@@ -24,10 +25,12 @@ const summary: UsageMenuSummary[] = [{ menuId: 'admin-roles', visits: 7, distinc
 
 describe('joinUsageRows', () => {
   it('keeps registry order, carries summary numbers and zero-fills missing menus', () => {
-    expect(joinUsageRows(registry, summary)).toEqual([
+    const rows = joinUsageRows(registry, summary);
+    expect(rows).toEqual([
       { id: 'admin-roles', label: { ko: '권한/역할 관리', en: 'Roles & access' }, spaceId: 'operations', spaceLabel: { ko: '운영 콘솔', en: 'Operations console' }, visits: 7, distinctUsers: 2, lastUsedAt: 1_760_000_000_000 },
       { id: 'admin-usage', label: { ko: '메뉴 활용률', en: 'Menu usage' }, spaceId: 'operations', spaceLabel: { ko: '운영 콘솔', en: 'Operations console' }, visits: 0, distinctUsers: 0, lastUsedAt: null },
     ]);
+    expect(JSON.stringify(rows.map(row => row.spaceLabel))).not.toContain(spaceSubtitle);
   });
 
   it('labels a global utility menu 전역', () => {

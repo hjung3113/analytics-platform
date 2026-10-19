@@ -10,10 +10,10 @@ afterEach(cleanup);
 // The Sep 26 +09:00 row is 03:00Z, one hour older than the 04:00Z row, despite sorting first as text.
 // The Sep 25 pair are the same instant; their IDs deliberately oppose lexical timestamp order.
 const EVENTS: AuditEvent[] = [
-  { id: 'e-z', at: '2026-09-26T04:00:00.000Z', actor: 'master-sync', action: 'create', source: 'system', target: { type: 'equipment', id: 'ICH-ETCH-0101', scopeId: 'ICH' }, changes: { chamberType: ['ET-A', 'ET-B'], validTo: [null, '2026-09-26T00:00:00'] } },
-  { id: 'e-seoul', at: '2026-09-26T12:00:00+09:00', actor: 'kim.j', action: 'retire', source: 'user', target: { type: 'equipment', id: 'ICH-ETCH-0101', scopeId: 'ICH' } },
-  { id: 'a-tie', at: '2026-09-25T03:00:00.000Z', actor: 'actor-tie-a', action: 'update', source: 'user', target: { type: 'equipment', id: 'ICH-ETCH-0101', scopeId: 'ICH' } },
-  { id: 'z-tie', at: '2026-09-25T12:00:00+09:00', actor: 'actor-tie-z', action: 'sync', source: 'system', target: { type: 'equipment', id: 'ICH-ETCH-0101', scopeId: 'ICH' } },
+  { id: 'e-z', at: '2026-09-26T04:00:00.000Z', actor: 'master-sync', action: 'create', source: 'system', target: { type: 'equipment', id: 'MEM-ETCH-0101', scopeId: 'MEM' }, changes: { chamberType: ['ET-A', 'ET-B'], validTo: [null, '2026-09-26T00:00:00'] } },
+  { id: 'e-seoul', at: '2026-09-26T12:00:00+09:00', actor: 'kim.j', action: 'retire', source: 'user', target: { type: 'equipment', id: 'MEM-ETCH-0101', scopeId: 'MEM' } },
+  { id: 'a-tie', at: '2026-09-25T03:00:00.000Z', actor: 'actor-tie-a', action: 'update', source: 'user', target: { type: 'equipment', id: 'MEM-ETCH-0101', scopeId: 'MEM' } },
+  { id: 'z-tie', at: '2026-09-25T12:00:00+09:00', actor: 'actor-tie-z', action: 'sync', source: 'system', target: { type: 'equipment', id: 'MEM-ETCH-0101', scopeId: 'MEM' } },
 ];
 
 function Timeline() {

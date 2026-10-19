@@ -360,8 +360,8 @@ it('announces reverted Scope exactly once after return', () => {
     const { toasts, url } = usePlatform();
     return <><ReturnLink /><output>{JSON.stringify({ toasts, url })}</output></>;
   }
-  const origin = '/source?v=1&scopeId=ICH';
-  mount(`/detail?v=1&scopeId=CJU&returnTo=${encodeURIComponent(origin)}`, <Fixture />);
+  const origin = '/source?v=1&scopeId=MEM';
+  mount(`/detail?v=1&scopeId=FDRY&returnTo=${encodeURIComponent(origin)}`, <Fixture />);
   expect(JSON.parse(screen.getByRole('status').textContent!).toasts).toHaveLength(0);
   fireEvent.click(screen.getByRole('link', { name: '← 생산성 개요' }));
   const result = JSON.parse(screen.getByRole('status').textContent!);

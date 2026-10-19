@@ -189,7 +189,7 @@ describe('useMenuQuery identity and request shape', () => {
   });
 
   it('waits for the selected Scope to be validated before querying', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
     let finishValidation!: (check: ScopeCheck) => void;
     const validation = new Promise<ScopeCheck>(resolve => { finishValidation = resolve; });
     const f = fixture({ validateScope: async () => validation });
@@ -201,7 +201,7 @@ describe('useMenuQuery identity and request shape', () => {
     act(() => finishValidation({ status: 'valid', grantedRooms: [] }));
     expect(await screen.findByText('done:1')).toBeTruthy();
     expect(f.requests).toHaveLength(1);
-    expect(f.requests[0].context.scopeId).toBe('ICH');
+    expect(f.requests[0].context.scopeId).toBe('MEM');
   });
 
   it('queries an endpoint that does not require Scope when no Scope is selected', async () => {
@@ -213,7 +213,7 @@ describe('useMenuQuery identity and request shape', () => {
   });
 
   it('does not query for a new user until that user has validated the selected Scope', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
     let finishUserBValidation!: (check: ScopeCheck) => void;
     const userBValidation = new Promise<ScopeCheck>(resolve => { finishUserBValidation = resolve; });
     let validationCount = 0;
@@ -238,7 +238,7 @@ describe('useMenuQuery identity and request shape', () => {
   });
 
   it('does not query for a replacement same-ID session until that session validates Scope', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
     const replacementValidations: Array<(check: ScopeCheck) => void> = [];
     let validationCount = 0;
     const f = fixture({
@@ -273,11 +273,11 @@ describe('useMenuQuery identity and request shape', () => {
   });
 
   it('does not query a changed URL Scope until that Scope validates', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
     let finishXiaValidation!: (check: ScopeCheck) => void;
     const xiaValidation = new Promise<ScopeCheck>(resolve => { finishXiaValidation = resolve; });
     const f = fixture({
-      validateScope: async scopeId => scopeId === 'ICH'
+      validateScope: async scopeId => scopeId === 'MEM'
         ? { status: 'valid', grantedRooms: [] }
         : xiaValidation,
     });
@@ -295,7 +295,7 @@ describe('useMenuQuery identity and request shape', () => {
     act(() => finishXiaValidation({ status: 'valid', grantedRooms: [] }));
     expect(await screen.findByText('done:2')).toBeTruthy();
     expect(f.requests).toHaveLength(2);
-    expect(f.requests[0].context.scopeId).toBe('ICH');
+    expect(f.requests[0].context.scopeId).toBe('MEM');
     expect(f.requests[1].context.scopeId).toBe('XIA');
   });
 
@@ -452,7 +452,7 @@ describe('useMenuFetch (caller-driven: table loadPage, export)', () => {
   });
 
   it('answers not_ready without reaching the adapter while Scope is unvalidated', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
     let finishValidation!: (check: ScopeCheck) => void;
     const validation = new Promise<ScopeCheck>(resolve => { finishValidation = resolve; });
     const f = fixture({ validateScope: async () => validation });
@@ -467,7 +467,7 @@ describe('useMenuFetch (caller-driven: table loadPage, export)', () => {
     act(() => finishValidation({ status: 'valid', grantedRooms: [] }));
     expect(await screen.findByText('true')).toBeTruthy();
     expect((await fetcher().fetch({ page: 1 })).outcome).toBe('ok');
-    expect(f.requests[0].context.scopeId).toBe('ICH');
+    expect(f.requests[0].context.scopeId).toBe('MEM');
   });
 
   it('applies the same assessment contract as useMenuQuery', async () => {
@@ -496,7 +496,7 @@ describe('Scope validation failure (#167)', () => {
     render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><ScopeProbe /></PlatformProvider></I18nProvider>);
 
   it('ends in error when validateScope rejects, sends no Scope-requiring query, and retryScope re-validates', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
     let fail = true;
     let validations = 0;
     const f = fixture({ validateScope: async () => { validations++; if (fail) throw new Error('down'); return { status: 'valid', grantedRooms: [] }; } });
@@ -516,34 +516,34 @@ describe('Scope validation failure (#167)', () => {
   });
 
   it('treats an adapter-internal AbortError (Kernel signal not aborted) as error', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
     const f = fixture({ validateScope: async () => { throw Object.assign(new Error('timeout'), { name: 'AbortError' }); } });
     mountScope(f);
     expect(await screen.findByText('error')).toBeTruthy();
   });
 
   it('ignores a late valid for a superseded Scope (adapter ignores the signal)', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
-    let finishIch!: (check: ScopeCheck) => void;
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    let finishMem!: (check: ScopeCheck) => void;
     const f = fixture({
-      validateScope: scopeId => scopeId === 'ICH'
-        ? new Promise<ScopeCheck>(resolve => { finishIch = resolve; })
+      validateScope: scopeId => scopeId === 'MEM'
+        ? new Promise<ScopeCheck>(resolve => { finishMem = resolve; })
         : new Promise<ScopeCheck>(() => {}),
     });
     const setItem = vi.spyOn(window.localStorage, 'setItem');
     mountScope(f);
     act(() => screen.getByTestId('switch').click());
     expect(screen.getByTestId('scope').textContent).toBe('validating');
-    await act(async () => { finishIch({ status: 'valid', grantedRooms: [] }); await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { finishMem({ status: 'valid', grantedRooms: [] }); await Promise.resolve(); await Promise.resolve(); });
     expect(screen.getByTestId('scope').textContent).toBe('validating');
     expect(setItem.mock.calls.filter(([key]) => key.startsWith('platform:lastScope:'))).toHaveLength(0);
   });
 
   it('never turns a superseded validation into error', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
     let finishXia!: (check: ScopeCheck) => void;
     const f = fixture({
-      validateScope: (scopeId, signal) => scopeId === 'ICH'
+      validateScope: (scopeId, signal) => scopeId === 'MEM'
         // Rejects only when aborted, with a non-AbortError reason, like an adapter that rethrows its own error.
         ? new Promise<ScopeCheck>((_, reject) => signal?.addEventListener('abort', () => reject(new Error('cancelled'))))
         : new Promise<ScopeCheck>(resolve => { finishXia = resolve; }),
@@ -654,7 +654,7 @@ describe('Adapter-internal AbortError in queries (#183: only the Kernel signal c
 
 describe('Scope switch mask equals the next effect state (#183)', () => {
   it('masks a switch to a Scope-less URL as the select-Scope state (never 검증 중) with no previous grantedRooms', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
     let fail = false;
     const f = fixture({ validateScope: async () => { if (fail) throw new Error('down'); return { status: 'valid', grantedRooms: ['R1'] }; } });
     const frames: string[] = [];
@@ -671,13 +671,13 @@ describe('Scope switch mask equals the next effect state (#183)', () => {
         <>
           <p data-testid="scope">{scope.status}:{scope.scopeId ?? 'null'}:{scope.grantedRooms.join(',')}</p>
           <button type="button" data-testid="retry" onClick={retryScope}>retry</button>
-          <button type="button" data-testid="pick" onClick={() => setGlobal({ scopeId: 'ICH' })}>pick</button>
+          <button type="button" data-testid="pick" onClick={() => setGlobal({ scopeId: 'MEM' })}>pick</button>
           <button type="button" data-testid="clear" onClick={() => setGlobal({ scopeId: null })}>clear</button>
         </>
       );
     }
     render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><MaskProbe /></PlatformProvider></I18nProvider>);
-    expect(await screen.findByText('valid:ICH:R1')).toBeTruthy();
+    expect(await screen.findByText('valid:MEM:R1')).toBeTruthy();
 
     // Leaving a valid Scope that had granted rooms: the very next frame is already the select-Scope state and
     // carries neither the previous scopeId nor its rooms.
@@ -688,7 +688,7 @@ describe('Scope switch mask equals the next effect state (#183)', () => {
     // From a Scope in error, a Scope-less URL never shows 검증 중 either.
     fail = true;
     act(() => screen.getByTestId('pick').click());
-    expect(await screen.findByText('error:ICH:')).toBeTruthy();
+    expect(await screen.findByText('error:MEM:')).toBeTruthy();
     frames.length = 0;
     act(() => screen.getByTestId('clear').click());
     expect(frames).toEqual(['none|null|']);
@@ -698,7 +698,7 @@ describe('Scope switch mask equals the next effect state (#183)', () => {
 
 describe('Session-only change mask equals the next effect state (#186)', () => {
   it('after a session switch with the same scopeId the frame is the validating mask, never the old session valid, and a status-gated consumer fires no request in it', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
     const f = fixture();
     const entities = vi.fn(async (): Promise<ApiResponse<string>> => ({ outcome: 'ok', data: 'd1', assessments: [], trust: null, correlationId: 'fixture' }));
     f.adapter.getEntity = entities;
@@ -716,7 +716,7 @@ describe('Session-only change mask equals the next effect state (#186)', () => {
       return <p data-testid="scope">{scope.status}:{scope.scopeId ?? 'null'}:{scope.grantedRooms.join(',')}</p>;
     }
     render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><SessionProbe /></PlatformProvider></I18nProvider>);
-    expect(await screen.findByText('valid:ICH:')).toBeTruthy();
+    expect(await screen.findByText('valid:MEM:')).toBeTruthy();
     await waitFor(() => expect(entities).toHaveBeenCalledTimes(1));
 
     // Role switch with the same scopeId: the frame before revalidation must not present the previous
@@ -724,9 +724,9 @@ describe('Session-only change mask equals the next effect state (#186)', () => {
     frames.length = 0;
     entities.mockClear();
     act(() => f.switchTo('b'));
-    expect(frames).toEqual(['validating|ICH|']);
+    expect(frames).toEqual(['validating|MEM|']);
     expect(entities).not.toHaveBeenCalled();
-    expect(await screen.findByText('valid:ICH:')).toBeTruthy(); // revalidated for the new session
+    expect(await screen.findByText('valid:MEM:')).toBeTruthy(); // revalidated for the new session
     await waitFor(() => expect(entities).toHaveBeenCalledTimes(1)); // exactly one request, after revalidation
   });
 
@@ -752,7 +752,7 @@ describe('Session-only change mask equals the next effect state (#186)', () => {
   });
 
   it('after a re-login (replaceWithSameUser: same user id, new session object) the frame is the validating mask and a status-gated consumer fires no request in it', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
     const f = fixture();
     const entities = vi.fn(async (): Promise<ApiResponse<string>> => ({ outcome: 'ok', data: 'd1', assessments: [], trust: null, correlationId: 'fixture' }));
     f.adapter.getEntity = entities;
@@ -768,7 +768,7 @@ describe('Session-only change mask equals the next effect state (#186)', () => {
       return <p data-testid="scope">{scope.status}:{scope.scopeId ?? 'null'}:{scope.grantedRooms.join(',')}</p>;
     }
     render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><ReLoginProbe /></PlatformProvider></I18nProvider>);
-    expect(await screen.findByText('valid:ICH:')).toBeTruthy();
+    expect(await screen.findByText('valid:MEM:')).toBeTruthy();
     await waitFor(() => expect(entities).toHaveBeenCalledTimes(1));
 
     // Re-login (the case the docs name): scopeId, user.id and the query key are unchanged, so only
@@ -777,9 +777,9 @@ describe('Session-only change mask equals the next effect state (#186)', () => {
     frames.length = 0;
     entities.mockClear();
     act(() => f.replaceWithSameUser());
-    expect(frames).toEqual(['validating|ICH|']);
+    expect(frames).toEqual(['validating|MEM|']);
     expect(entities).not.toHaveBeenCalled();
-    expect(await screen.findByText('valid:ICH:')).toBeTruthy(); // revalidated for the new session object
+    expect(await screen.findByText('valid:MEM:')).toBeTruthy(); // revalidated for the new session object
     await waitFor(() => expect(entities).toHaveBeenCalledTimes(1)); // exactly one request, after revalidation
   });
 });

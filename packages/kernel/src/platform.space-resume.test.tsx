@@ -51,7 +51,7 @@ function Probe() {
     <p data-testid="path">{pathname}</p>
     <button type="button" data-testid="to-ops" onClick={() => switchSpace('operations')}>ops</button>
     <button type="button" data-testid="to-ana" onClick={() => switchSpace('analytics')}>ana</button>
-    <button type="button" data-testid="to-notices" onClick={() => navigate('/notices?v=1&scopeId=ICH')}>notices</button>
+    <button type="button" data-testid="to-notices" onClick={() => navigate('/notices?v=1&scopeId=MEM')}>notices</button>
   </div>;
 }
 
@@ -77,29 +77,29 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe('spaceResume (06 §9.1)', () => {
   it('records an admitted space menu and restores its page keys with the current global', () => {
     sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ analytics: STORED }));
-    mountAt('/notices?v=1&scopeId=ICH', ADMIN);
+    mountAt('/notices?v=1&scopeId=MEM', ADMIN);
     const href = screen.getByTestId('ana').textContent ?? '';
     expect(href.startsWith('equipment|/equipment?')).toBe(true);
     const params = new URLSearchParams(href.slice(href.indexOf('?')));
     expect(params.get('page')).toBe('2');
-    expect(params.get('scopeId')).toBe('ICH');
+    expect(params.get('scopeId')).toBe('MEM');
     expect(params.get('from')).toBeNull();
     expect(params.get('extra')).toBeNull();
     expect(params.get('v')).toBe('1');
   });
 
   it('does not record a global menu and does not overwrite another space', () => {
-    mountAt('/equipment?v=1&scopeId=ICH&page=2', ADMIN);
-    expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null')).toEqual({ analytics: '/equipment?v=1&scopeId=ICH&page=2' });
+    mountAt('/equipment?v=1&scopeId=MEM&page=2', ADMIN);
+    expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null')).toEqual({ analytics: '/equipment?v=1&scopeId=MEM&page=2' });
     act(() => screen.getByTestId('to-ops').click());
     expect(screen.getByTestId('path').textContent).toBe('/admin/roles');
     const both = JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null') as Record<string, string>;
-    expect(both.analytics).toBe('/equipment?v=1&scopeId=ICH&page=2');
+    expect(both.analytics).toBe('/equipment?v=1&scopeId=MEM&page=2');
     expect(both.operations.startsWith('/admin/roles?')).toBe(true);
     act(() => screen.getByTestId('to-notices').click());
     const after = JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null') as Record<string, string>;
     expect(Object.keys(after).sort()).toEqual(['analytics', 'operations']);
-    expect(after.analytics).toBe('/equipment?v=1&scopeId=ICH&page=2');
+    expect(after.analytics).toBe('/equipment?v=1&scopeId=MEM&page=2');
   });
 
   it('does not record a contract error and replaces a broken document on the next write', () => {
@@ -107,8 +107,8 @@ describe('spaceResume (06 §9.1)', () => {
     expect(sessionStorage.getItem('platform:space-last:u1')).toBeNull();
     cleanup();
     sessionStorage.setItem('platform:space-last:u1', '{');
-    mountAt('/equipment?v=1&scopeId=ICH', ADMIN);
-    expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null')).toEqual({ analytics: '/equipment?v=1&scopeId=ICH' });
+    mountAt('/equipment?v=1&scopeId=MEM', ADMIN);
+    expect(JSON.parse(sessionStorage.getItem('platform:space-last:u1') ?? 'null')).toEqual({ analytics: '/equipment?v=1&scopeId=MEM' });
   });
 
   it.each([
@@ -127,12 +127,12 @@ describe('spaceResume (06 §9.1)', () => {
   });
 
   it.each([
-    ['a plain id', '/equipment/ICH-PHOTO-0103', 'equipment-detail|/equipment/ICH-PHOTO-0103?v=1&scopeId=ICH'],
-    ['an encoded ordinary id', '/equipment/ICH%2DPHOTO%2D0103', 'equipment-detail|/equipment/ICH-PHOTO-0103?v=1&scopeId=ICH'],
-    ['an id with an encoded space', '/equipment/ICH%20PHOTO', 'equipment-detail|/equipment/ICH%20PHOTO?v=1&scopeId=ICH'],
+    ['a plain id', '/equipment/MEM-PHOTO-0103', 'equipment-detail|/equipment/MEM-PHOTO-0103?v=1&scopeId=MEM'],
+    ['an encoded ordinary id', '/equipment/MEM%2DPHOTO%2D0103', 'equipment-detail|/equipment/MEM-PHOTO-0103?v=1&scopeId=MEM'],
+    ['an id with an encoded space', '/equipment/MEM%20PHOTO', 'equipment-detail|/equipment/MEM%20PHOTO?v=1&scopeId=MEM'],
   ])('restores %s', (_label, stored, expected) => {
     sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ analytics: stored }));
-    mountAt('/notices?v=1&scopeId=ICH', ADMIN);
+    mountAt('/notices?v=1&scopeId=MEM', ADMIN);
     expect(screen.getByTestId('ana').textContent).toBe(expected);
   });
 
@@ -142,10 +142,10 @@ describe('spaceResume (06 §9.1)', () => {
     ['a dot segment', '/equipment/.'],
     ['a dot-dot segment', '/equipment/..'],
     ['a mixed dot encoding', '/equipment/.%2e'],
-    ['a double slash', '/equipment//ICH-PHOTO-0103'],
+    ['a double slash', '/equipment//MEM-PHOTO-0103'],
   ])('returns null for %s', (_label, stored) => {
     sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ analytics: stored }));
-    mountAt('/notices?v=1&scopeId=ICH', ADMIN);
+    mountAt('/notices?v=1&scopeId=MEM', ADMIN);
     expect(screen.getByTestId('ana').textContent).toBe('null');
   });
 
@@ -166,16 +166,16 @@ describe('spaceResume (06 §9.1)', () => {
 
   it('switchSpace pushes the resumed href, or the space home, and does nothing on the current space', () => {
     sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ operations: '/admin/child?v=1&scopeId=OLD' }));
-    mountAt('/equipment?v=1&scopeId=ICH', ADMIN);
+    mountAt('/equipment?v=1&scopeId=MEM', ADMIN);
     act(() => screen.getByTestId('to-ops').click());
     expect(screen.getByTestId('path').textContent).toBe('/admin/child');
-    expect(new URLSearchParams(window.location.search).get('scopeId')).toBe('ICH');
+    expect(new URLSearchParams(window.location.search).get('scopeId')).toBe('MEM');
     const before = window.location.href;
     act(() => screen.getByTestId('to-ops').click());
     expect(window.location.href).toBe(before);
     cleanup();
     sessionStorage.removeItem('platform:space-last:u1');
-    mountAt('/equipment?v=1&scopeId=ICH', ADMIN);
+    mountAt('/equipment?v=1&scopeId=MEM', ADMIN);
     act(() => screen.getByTestId('to-ops').click());
     expect(screen.getByTestId('path').textContent).toBe('/admin/roles');
   });
@@ -203,16 +203,16 @@ function EntryProbe() {
   return null;
 }
 function mountEntry(permissions: Session['user']['permissions']) {
-  window.history.replaceState(null, '', '/notices?v=1&scopeId=ICH&page=9');
+  window.history.replaceState(null, '', '/notices?v=1&scopeId=MEM&page=9');
   render(<I18nProvider><PlatformProvider adapter={fixture(permissions)} registry={entryRegistry}><EntryProbe /></PlatformProvider></I18nProvider>);
 }
 
 describe('spaceEntry and canOpen (#264)', () => {
   it.each([
-    ['partial permission', ANALYST, null, { menuId: 'first', href: '/first?v=1&scopeId=ICH', resumed: false }],
-    ['openable home', [...ANALYST, 'analytics:view'] as Session['user']['permissions'], null, { menuId: 'equipment', href: '/equipment?v=1&scopeId=ICH', resumed: false }],
-    ['last screen before home', [...ANALYST, 'analytics:view'] as Session['user']['permissions'], '/second?v=1&page=2', { menuId: 'second', href: '/second?v=1&scopeId=ICH&page=2', resumed: true }],
-    ['rejected last screen', ANALYST, '/equipment?v=1', { menuId: 'first', href: '/first?v=1&scopeId=ICH', resumed: false }],
+    ['partial permission', ANALYST, null, { menuId: 'first', href: '/first?v=1&scopeId=MEM', resumed: false }],
+    ['openable home', [...ANALYST, 'analytics:view'] as Session['user']['permissions'], null, { menuId: 'equipment', href: '/equipment?v=1&scopeId=MEM', resumed: false }],
+    ['last screen before home', [...ANALYST, 'analytics:view'] as Session['user']['permissions'], '/second?v=1&page=2', { menuId: 'second', href: '/second?v=1&scopeId=MEM&page=2', resumed: true }],
+    ['rejected last screen', ANALYST, '/equipment?v=1', { menuId: 'first', href: '/first?v=1&scopeId=MEM', resumed: false }],
     ['no openable menu', NOTICES_ONLY, null, null],
   ])('chooses %s', (_label, permissions, stored, expected) => {
     if (stored) sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ analytics: stored }));
@@ -224,7 +224,7 @@ describe('spaceEntry and canOpen (#264)', () => {
     mountEntry(ANALYST);
     const push = vi.spyOn(window.history, 'pushState');
     act(() => entryPlatform.switchSpace('analytics'));
-    expect(push).toHaveBeenCalledWith(null, '', '/first?v=1&scopeId=ICH');
+    expect(push).toHaveBeenCalledWith(null, '', '/first?v=1&scopeId=MEM');
     act(() => entryPlatform.switchSpace('analytics'));
     act(() => entryPlatform.switchSpace('operations'));
     expect(push).toHaveBeenCalledTimes(1);

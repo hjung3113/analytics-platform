@@ -973,7 +973,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
     id: 'port · recordUsage: one bad event rejects the whole call',
     mode: 'granted',
     nonEnvelope: true,
-    run: expectAccepted([usageEntry, badUsageEvent({ url: '/equipment?scopeId=ICH' })], 0, 'one bad event among a valid one — the whole call rejects (checklist §5)'),
+    run: expectAccepted([usageEntry, badUsageEvent({ url: '/equipment?scopeId=MEM' })], 0, 'one bad event among a valid one — the whole call rejects (checklist §5)'),
   });
   checks.push({
     id: 'port · recordUsage: a client userId is rejected',
@@ -985,7 +985,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
     id: 'port · recordUsage: a concrete path with a query is rejected',
     mode: 'granted',
     nonEnvelope: true,
-    run: expectAccepted([badUsageEvent({ path: `${usageEntry.path}?scopeId=ICH` })], 0, 'a concrete pathname with a query — only the manifest route pattern travels'),
+    run: expectAccepted([badUsageEvent({ path: `${usageEntry.path}?scopeId=MEM` })], 0, 'a concrete pathname with a query — only the manifest route pattern travels'),
   });
   checks.push({
     id: 'port · recordUsage: a non-numeric at is rejected',
@@ -1094,7 +1094,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
     id: 'port · reportClientError: a path with a query is rejected',
     mode: 'granted',
     nonEnvelope: true,
-    run: expectReported(badErrorReport({ path: `${ports.clientError.path}?scopeId=ICH` }), false, 'a path with a query string'),
+    run: expectReported(badErrorReport({ path: `${ports.clientError.path}?scopeId=MEM` }), false, 'a path with a query string'),
   });
   checks.push({
     id: 'port · reportClientError: a free-text name is rejected',

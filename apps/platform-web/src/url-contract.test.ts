@@ -46,7 +46,7 @@ describe('ContractError structured cause (#397)', () => {
 
 describe('URL contract (§6.1–6.4)', () => {
   it('round-trips the full global context with canonical ordering', () => {
-    const g = { ...emptyGlobal, scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', roomNames: ['PHOTO', 'ETCH'], condition: { axis: 'makerModel' as const, maker: 'AMX', model: 'XP8' }, selection: ['B', 'A', 'A'], metricId: 'cycle_time', metricVersion: 'v3' };
+    const g = { ...emptyGlobal, scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', roomNames: ['PHOTO', 'ETCH'], condition: { axis: 'makerModel' as const, maker: 'AMX', model: 'XP8' }, selection: ['B', 'A', 'A'], metricId: 'cycle_time', metricVersion: 'v3' };
     const q = buildQuery(g);
     const back = parseQuery(q).global;
     expect(back.roomNames).toEqual(['ETCH', 'PHOTO']);
@@ -74,7 +74,7 @@ describe('URL contract (§6.1–6.4)', () => {
   it('rejects unsupported versions and duplicated singletons without guessing', () => {
     expect(code(() => parseQuery('?v=2'))).toBe('unsupported_version');
     expect(code(() => parseQuery('?v=abc'))).toBe('invalid_version');
-    expect(code(() => parseQuery('?scopeId=ICH&scopeId=ICH'))).toBe('duplicate_singleton');
+    expect(code(() => parseQuery('?scopeId=MEM&scopeId=MEM'))).toBe('duplicate_singleton');
   });
   it('rejects version-without-id and gates id-only by route', () => {
     expect(code(() => parseQuery('?metricVersion=v3'))).toBe('metric_pair');
@@ -117,9 +117,9 @@ describe('URL contract (§6.1–6.4)', () => {
 describe('Menu Registry', () => {
   it('matches parameterized destination routes and encodes IDs as one segment', () => {
     const detail = MENUS.find(m => m.id === 'equipment-detail')!;
-    const path = pathFor(detail, { equipmentId: 'ICH/ETCH 01' });
-    expect(path).toBe('/equipment/ICH%2FETCH%2001');
-    expect(matchRoute(path)).toMatchObject({ menu: { id: 'equipment-detail' }, params: { equipmentId: 'ICH/ETCH 01' } });
+    const path = pathFor(detail, { equipmentId: 'MEM/ETCH 01' });
+    expect(path).toBe('/equipment/MEM%2FETCH%2001');
+    expect(matchRoute(path)).toMatchObject({ menu: { id: 'equipment-detail' }, params: { equipmentId: 'MEM/ETCH 01' } });
   });
   it('declares exactly one primary destination per group', () => {
     const groups = new Set(MENUS.map(m => m.group));

@@ -7,6 +7,7 @@ import { formatCapabilities, toRegistryRow } from './registry-rows';
 
 const unsupported: Record<ContextKey, Capability> = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' };
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
+const spaceSubtitle = 'Registry projection fixture subtitle';
 const menu = (over: Partial<PlatformMenuEntry>): MenuEntry => ({
   id: 'x', group: 'admin', label: { ko: '기본', en: 'Default' }, description: { ko: '', en: '' }, path: '/x', icon: House,
   permission: 'platform:view', requiresScope: false, context: unsupported, pageType: 'management', features: noFeatures, pageKeys: [], ...over,
@@ -14,7 +15,7 @@ const menu = (over: Partial<PlatformMenuEntry>): MenuEntry => ({
 
 // One menu with a component, one without (planned) — covers both status branches.
 const registry = createRegistry({
-  spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' }],
+  spaces: [{ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, subtitle: { ko: spaceSubtitle, en: 'Registry projection fixture subtitle' }, description: { ko: '목적', en: 'Purpose' }, permission: 'console:access', homeMenuId: 'admin-roles' }],
   groups: [{ id: 'admin', label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: 'operations' }],
   menus: [
     menu({ id: 'admin-roles', primary: true, label: { ko: '권한/역할 관리', en: 'Roles & access' }, path: '/admin/roles', permission: 'console:access',
@@ -45,7 +46,7 @@ describe('toRegistryRow', () => {
       expect(row).toEqual({
         id: menu.id,
         spaceId: registry.spaceOf(menu)!.id,
-        spaceLabel: registry.spaceOf(menu)!.label,
+        spaceLabel: { ko: '운영 콘솔', en: 'Operations console' },
         groupId: menu.group,
         path: menu.path,
         permission: menu.permission,
@@ -54,6 +55,7 @@ describe('toRegistryRow', () => {
         contextResetKeys: (menu.contextResetKeys ?? []).join(', '),
         status: menu.component ? 'implemented' : 'planned',
       });
+      expect(JSON.stringify(row.spaceLabel)).not.toContain(spaceSubtitle);
     }
   });
 

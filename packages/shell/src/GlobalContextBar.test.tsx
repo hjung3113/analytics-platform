@@ -15,10 +15,10 @@ const registryWith = (context: Record<keyof typeof caps, Capability>) => createR
 const registry = registryWith(caps);
 const forbidden = { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'fixture' };
 const evaluation = vi.fn(async () => ({ inCondition: [], outOfCondition: [] }));
-const session = testSession(['platform:view'], { user: { id: 'u' }, scopes: [{ id: 'ICH', label: 'ICH', grantedRooms: 1, totalRooms: 1 }] });
+const session = testSession(['platform:view'], { user: { id: 'u' }, scopes: [{ id: 'MEM', label: 'MEM', grantedRooms: 1, totalRooms: 1 }] });
 const adapter = testAdapter({
   session: () => session,
-  validateScope: async () => ({ status: 'valid', scopeId: 'ICH', grantedRooms: ['PHOTO'] }),
+  validateScope: async () => ({ status: 'valid', scopeId: 'MEM', grantedRooms: ['PHOTO'] }),
   evaluateSelection: evaluation,
   getEntity: async () => forbidden,
   listAnnotations: async () => forbidden,
@@ -63,7 +63,7 @@ const visibleContextLabel = () => Array.from(bar().querySelectorAll('span'))
   .some(label => label.textContent === '전역 Context' && !label.closest('[data-context-measuring]'));
 function mount(extra = '', lang: 'ko' | 'en' = 'ko', period = true, menus = registry) {
   localStorage.setItem('platform:lang', lang);
-  window.history.replaceState(null, '', `/?v=1&scopeId=ICH${period ? '&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00' : ''}${extra}`);
+  window.history.replaceState(null, '', `/?v=1&scopeId=MEM${period ? '&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00' : ''}${extra}`);
   return render(<I18nProvider><PlatformProvider adapter={adapter} registry={menus}><GlobalContextBar /></PlatformProvider></I18nProvider>);
 }
 function width(value: number) { act(() => { barWidth = value; resize?.(); }); }
@@ -290,7 +290,7 @@ describe('링크 복사 reports success only after the clipboard write (#300)', 
 
   function mountWithToasts() {
     localStorage.setItem('platform:lang', 'ko');
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
     return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><GlobalContextBar /><ToastProbe /></PlatformProvider></I18nProvider>);
   }
 
@@ -317,7 +317,7 @@ describe('링크 복사 reports success only after the clipboard write (#300)', 
     expect(writeText).toHaveBeenCalledTimes(1);
     const written = String(writeText.mock.calls[0]?.[0]);
     expect(written.startsWith(window.location.origin)).toBe(true);
-    expect(written).toContain('scopeId=ICH');
+    expect(written).toContain('scopeId=MEM');
     expect(toasts()).toBe(''); // quiet while the write is pending
     act(() => { release?.(); });
     await vi.waitFor(() => expect(toasts()).toContain(SUCCESS));
@@ -330,7 +330,7 @@ describe('Condition editor exposes choices as a radio group (#301)', () => {
   // Two distinct StGroups so the keyboard branch and checked state have something to land on.
   const conditionAdapter = testAdapter({
     session: () => session,
-    validateScope: async () => ({ status: 'valid', scopeId: 'ICH', grantedRooms: ['PHOTO'] }),
+    validateScope: async () => ({ status: 'valid', scopeId: 'MEM', grantedRooms: ['PHOTO'] }),
     contextOptions: async () => ({ stgroup: ['st-01', 'st-02'], team: [], makerModel: [] }),
     evaluateSelection: evaluation,
     getEntity: async () => forbidden,
@@ -338,7 +338,7 @@ describe('Condition editor exposes choices as a radio group (#301)', () => {
   });
   const mountCondition = (condition: string | null) => {
     localStorage.setItem('platform:lang', 'ko');
-    window.history.replaceState(null, '', `/?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&selectedEquipmentIds=E1${condition ? `&equipmentGroup=${encodeURIComponent(condition)}` : ''}`);
+    window.history.replaceState(null, '', `/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&selectedEquipmentIds=E1${condition ? `&equipmentGroup=${encodeURIComponent(condition)}` : ''}`);
     return render(<I18nProvider><PlatformProvider adapter={conditionAdapter} registry={registry}><GlobalContextBar /></PlatformProvider></I18nProvider>);
   };
   const openConditionEditor = async () => {

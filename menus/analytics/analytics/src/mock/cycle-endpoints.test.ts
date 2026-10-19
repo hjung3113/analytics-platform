@@ -20,7 +20,7 @@ const cycleMenu: MenuMeta = {
 
 const adapter = createMockAdapter({ endpoints: [...cycleMock], registry: { menus: [cycleMenu] } });
 const context = {
-  scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00',
+  scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00',
   roomNames: null, condition: null, selection: null, lotIds: null, ppid: null, recipeIds: null, metricId: null, metricVersion: null,
 };
 const allFilter = { tail: 'all' as const, granularity: 'hour' as const, bucket: null, bin: null };
@@ -68,7 +68,7 @@ describe('cycle-time endpoints', () => {
     expect(cycleExportEndpoint.mergeTimeDomain).toBe(true);
     const week = { from: '2026-09-19T09:00:00', to: '2026-09-26T09:00:00' };
     const page = await adapter.menuQuery({ endpoint: cycleSlowPageEndpoint.id, context: { ...context, ...week }, params: { ...allFilter, ...page0 } });
-    expect(page.outcome).toBe('error'); // the screen refuses the 7-day ICH merge
+    expect(page.outcome).toBe('error'); // the screen refuses the 7-day MEM merge
     const exported = await adapter.menuQuery({ endpoint: cycleExportEndpoint.id, context: { ...context, ...week }, params: { ...allFilter, ids: null } });
     expect(exported.outcome).toBe('error'); // so does the export — it never merges what the screen refuses
   });
@@ -81,7 +81,7 @@ describe('cycle-time endpoints', () => {
   });
 
   it('computes with the version the server resolves from the metric pair: page default v3, not-applied → v3', async () => {
-    const granted = EQUIPMENT.filter(e => e.site === 'ICH' && ['PHOTO', 'ETCH', 'CVD'].includes(e.room));
+    const granted = EQUIPMENT.filter(e => e.site === 'MEM' && ['PHOTO', 'ETCH', 'CVD'].includes(e.room));
     const expectedP95 = percentile(population(granted, { ...emptyGlobal, ...context }, '3').map(r => r.cycleMin), 0.95);
     for (const pair of [{ metricId: null, metricVersion: null }, { metricId: 'occupancy', metricVersion: '3' }]) {
       const response = await adapter.menuQuery({ endpoint: cycleKpiEndpoint.id, context: { ...context, ...pair }, params: {} });

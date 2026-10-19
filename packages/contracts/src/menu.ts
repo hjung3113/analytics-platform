@@ -17,6 +17,8 @@ export type SpaceId = 'analytics' | 'metrics' | 'operations';
 export type SpaceDef = {
   id: SpaceId;
   label: Text;
+  /** Optional second line under the system name in lists that describe systems (launcher card, switcher row). Short places show the label only. Registry rejects an empty ko or en string when present. */
+  subtitle?: Text;
   /** One-line purpose on the platform-home card (ADR-0028). Registry rejects an empty ko or en string. */
   description: Text;
   /** Entry permission; absent means every signed-in user (analytics). */

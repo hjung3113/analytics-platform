@@ -6,7 +6,7 @@ import { getRole, setRole, setScenario } from './server';
 import type { RoleId } from './world';
 
 const input = (over: Partial<AnnotationInput> = {}): AnnotationInput => ({
-  chartId: 'cycle-time', scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-25T12:00:00', text: 'PM 작업', ...over,
+  chartId: 'cycle-time', scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-25T12:00:00', text: 'PM 작업', ...over,
 });
 const fast = { latency: 0 };
 
@@ -18,9 +18,9 @@ describe('chart annotations (issue #103)', () => {
     setRole('engineer');
     const saved = await saveAnnotation(input(), undefined, fast);
     expect(saved.outcome).toBe('ok');
-    expect(saved.data).toEqual({ id: 'ann-1', chartId: 'cycle-time', scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-25T12:00:00', text: 'PM 작업', at: expect.any(String), mine: true });
+    expect(saved.data).toEqual({ id: 'ann-1', chartId: 'cycle-time', scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-25T12:00:00', text: 'PM 작업', at: expect.any(String), mine: true });
     expect(storedAnnotations()[0].authorId).toBe('engineer');
-    const read = await listAnnotations({ chartId: 'cycle-time', scopeId: 'ICH' }, undefined, fast);
+    const read = await listAnnotations({ chartId: 'cycle-time', scopeId: 'MEM' }, undefined, fast);
     expect(read.outcome).toBe('ok');
     expect(read.data?.items).toEqual([saved.data]);
     expect(JSON.stringify(read.data)).not.toContain('authorId');
@@ -28,11 +28,11 @@ describe('chart annotations (issue #103)', () => {
 
   it('a note written at one site never appears at another site, even for the same chart and a role granted at both', async () => {
     setRole('admin');
-    await saveAnnotation(input({ scopeId: 'ICH' }), undefined, fast);
-    const other = await listAnnotations({ chartId: 'cycle-time', scopeId: 'CJU' }, undefined, fast);
+    await saveAnnotation(input({ scopeId: 'MEM' }), undefined, fast);
+    const other = await listAnnotations({ chartId: 'cycle-time', scopeId: 'FDRY' }, undefined, fast);
     expect(other.outcome).toBe('empty');
     expect(other.data).toBeNull();
-    const own = await listAnnotations({ chartId: 'cycle-time', scopeId: 'ICH' }, undefined, fast);
+    const own = await listAnnotations({ chartId: 'cycle-time', scopeId: 'MEM' }, undefined, fast);
     expect(own.data?.items).toHaveLength(1);
   });
 
@@ -40,8 +40,8 @@ describe('chart annotations (issue #103)', () => {
     setRole('admin');
     await saveAnnotation(input(), undefined, fast);
     setRole('engineer');
-    expect((await listAnnotations({ chartId: 'cycle-time', scopeId: 'ICH' }, undefined, fast)).data?.items).toHaveLength(1);
-    expect((await listAnnotations({ chartId: 'productivity', scopeId: 'ICH' }, undefined, fast)).outcome).toBe('empty');
+    expect((await listAnnotations({ chartId: 'cycle-time', scopeId: 'MEM' }, undefined, fast)).data?.items).toHaveLength(1);
+    expect((await listAnnotations({ chartId: 'productivity', scopeId: 'MEM' }, undefined, fast)).outcome).toBe('empty');
   });
 
   it('refuses a site the role holds no grant in, for both read and write, without touching the store', async () => {
@@ -57,7 +57,7 @@ describe('chart annotations (issue #103)', () => {
 
   it('answers forbidden without the chart permission, before anything else', async () => {
     setRole('viewer');
-    expect(await listAnnotations({ chartId: 'cycle-time', scopeId: 'ICH' }, undefined, fast)).toMatchObject({ outcome: 'forbidden', message: 'No permission analytics:view' });
+    expect(await listAnnotations({ chartId: 'cycle-time', scopeId: 'MEM' }, undefined, fast)).toMatchObject({ outcome: 'forbidden', message: 'No permission analytics:view' });
   });
 
   it('a null or unknown scope is never "all sites"', async () => {
@@ -75,7 +75,7 @@ describe('chart annotations (issue #103)', () => {
       const res = await saveAnnotation({ ...input(), ...extra } as unknown as AnnotationInput, undefined, fast);
       expect(res).toMatchObject({ outcome: 'error', message: 'Invalid annotation request' });
     }
-    expect((await listAnnotations({ chartId: 'cycle-time', scopeId: 'ICH', extra: 1 } as never, undefined, fast)).outcome).toBe('error');
+    expect((await listAnnotations({ chartId: 'cycle-time', scopeId: 'MEM', extra: 1 } as never, undefined, fast)).outcome).toBe('error');
     expect(storedAnnotations()).toHaveLength(0);
   });
 
@@ -103,26 +103,26 @@ describe('chart annotations (issue #103)', () => {
     await saveAnnotation(input(), undefined, fast);
     for (const scenario of ['timeout', 'error', 'forbidden'] as const) {
       setScenario(scenario);
-      expect((await listAnnotations({ chartId: 'cycle-time', scopeId: 'ICH' }, undefined, fast)).outcome).toBe(scenario);
+      expect((await listAnnotations({ chartId: 'cycle-time', scopeId: 'MEM' }, undefined, fast)).outcome).toBe(scenario);
       expect((await saveAnnotation(input(), undefined, fast)).outcome).toBe(scenario);
     }
     setScenario('empty');
-    expect((await listAnnotations({ chartId: 'cycle-time', scopeId: 'ICH' }, undefined, fast)).outcome).toBe('empty');
+    expect((await listAnnotations({ chartId: 'cycle-time', scopeId: 'MEM' }, undefined, fast)).outcome).toBe('empty');
     expect((await saveAnnotation(input(), undefined, fast)).outcome).toBe('ok');
   });
 });
 
 describe('author-only delete with audit (#399, ADR-0041)', () => {
-  const ref = (id: string, over: Partial<{ chartId: string; scopeId: string | null }> = {}) => ({ chartId: 'cycle-time', scopeId: 'ICH' as string | null, id, ...over });
+  const ref = (id: string, over: Partial<{ chartId: string; scopeId: string | null }> = {}) => ({ chartId: 'cycle-time', scopeId: 'MEM' as string | null, id, ...over });
 
   it('marks mine per requesting role on list and save, and never stores it', async () => {
     setRole('engineer');
     const saved = await saveAnnotation(input(), undefined, fast);
     expect(saved.data?.mine).toBe(true);
     expect(storedAnnotations()[0]).not.toHaveProperty('mine');
-    expect((await listAnnotations({ chartId: 'cycle-time', scopeId: 'ICH' }, undefined, fast)).data?.items[0].mine).toBe(true);
+    expect((await listAnnotations({ chartId: 'cycle-time', scopeId: 'MEM' }, undefined, fast)).data?.items[0].mine).toBe(true);
     setRole('admin');
-    expect((await listAnnotations({ chartId: 'cycle-time', scopeId: 'ICH' }, undefined, fast)).data?.items[0].mine).toBe(false);
+    expect((await listAnnotations({ chartId: 'cycle-time', scopeId: 'MEM' }, undefined, fast)).data?.items[0].mine).toBe(false);
   });
 
   it('lets the author delete: the note is gone and the answer carries only the id', async () => {
@@ -131,7 +131,7 @@ describe('author-only delete with audit (#399, ADR-0041)', () => {
     const res = await deleteAnnotation(ref('ann-1'), undefined, fast);
     expect(res).toMatchObject({ outcome: 'ok', data: { id: 'ann-1' }, trust: null, assessments: [] });
     expect(storedAnnotations()).toHaveLength(0);
-    expect((await listAnnotations({ chartId: 'cycle-time', scopeId: 'ICH' }, undefined, fast)).outcome).toBe('empty');
+    expect((await listAnnotations({ chartId: 'cycle-time', scopeId: 'MEM' }, undefined, fast)).outcome).toBe('empty');
   });
 
   it('refuses a non-author with forbidden and keeps the note', async () => {
@@ -145,9 +145,9 @@ describe('author-only delete with audit (#399, ADR-0041)', () => {
 
   it('answers empty for an unknown id, another chart and another site without revealing the row', async () => {
     setRole('admin');
-    await saveAnnotation(input({ scopeId: 'ICH' }), undefined, fast);
+    await saveAnnotation(input({ scopeId: 'MEM' }), undefined, fast);
     expect((await deleteAnnotation(ref('ann-99'), undefined, fast)).outcome).toBe('empty');
-    expect((await deleteAnnotation(ref('ann-1', { scopeId: 'CJU' }), undefined, fast)).outcome).toBe('empty');
+    expect((await deleteAnnotation(ref('ann-1', { scopeId: 'FDRY' }), undefined, fast)).outcome).toBe('empty');
     expect((await deleteAnnotation(ref('ann-1', { chartId: 'productivity' }), undefined, fast)).outcome).toBe('empty');
     expect(storedAnnotations()).toHaveLength(1);
   });
@@ -183,7 +183,7 @@ describe('author-only delete with audit (#399, ADR-0041)', () => {
     expect(trail.outcome).toBe('ok');
     expect(trail.data?.items).toEqual([{
       id: 'annotation:ann-1:delete', at: expect.stringMatching(/Z$/), actor: 'engineer', action: 'delete', source: 'user',
-      target: { type: 'annotation', id: 'ann-1', scopeId: 'ICH' }, changes: { chartId: ['cycle-time', null] }, reason: 'PM 작업',
+      target: { type: 'annotation', id: 'ann-1', scopeId: 'MEM' }, changes: { chartId: ['cycle-time', null] }, reason: 'PM 작업',
     }]);
     setRole('engineer');
     expect((await auditTrail({ type: 'annotation' }, undefined, fast)).outcome).toBe('forbidden');

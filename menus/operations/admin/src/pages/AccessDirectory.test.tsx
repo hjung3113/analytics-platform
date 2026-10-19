@@ -45,21 +45,21 @@ const registry = createRegistry({
 const session = testSession(['console:access', 'platform:view'], { user: { id: 'admin-a', name: 'admin-a', title: { ko: '관리자', en: 'Administrator' } } });
 
 const sites = (rooms: Record<string, string[]>): AccessPrincipal['sites'] => [
-  { id: 'ICH', label: 'ICH · Site A', grantedRooms: rooms.ICH ?? [], totalRooms: 4 },
-  { id: 'CJU', label: 'CJU · Site B', grantedRooms: rooms.CJU ?? [], totalRooms: 3 },
+  { id: 'MEM', label: 'MEM · 메모리', grantedRooms: rooms.MEM ?? [], totalRooms: 4 },
+  { id: 'FDRY', label: 'FDRY · 파운드리', grantedRooms: rooms.FDRY ?? [], totalRooms: 3 },
   { id: 'XIA', label: 'XIA · Site C', grantedRooms: rooms.XIA ?? [], totalRooms: 2 },
 ];
 const principal = (id: string, name: string, title: { ko: string; en: string }, permissions: Permission[], rooms: Record<string, string[]>): AccessPrincipal =>
   ({ id, name, title, role: id, permissions, sites: sites(rooms) });
 
 const VIEWER = principal('viewer', 'Field Requester', { ko: '현업 문의자', en: 'Field requester' },
-  ['platform:view', 'metrics:view', 'notice:view', 'voc:view'], { ICH: ['PHOTO'] });
+  ['platform:view', 'metrics:view', 'notice:view', 'voc:view'], { MEM: ['PHOTO'] });
 const ENGINEER = principal('engineer', 'Process Engineer', { ko: '공정 엔지니어', en: 'Process engineer' },
   ['platform:view', 'equipment:view', 'master:view', 'analytics:view', 'metrics:view', 'notice:view', 'voc:view'],
-  { ICH: ['PHOTO', 'ETCH', 'CVD'], CJU: ['PHOTO'] });
+  { MEM: ['PHOTO', 'ETCH', 'CVD'], FDRY: ['PHOTO'] });
 const ADMIN = principal('admin', 'Platform Admin', { ko: '플랫폼 관리자', en: 'Platform admin' },
   ['platform:view', 'equipment:view', 'master:view', 'analytics:view', 'metrics:view', 'notice:view', 'voc:view', 'console:access'],
-  { ICH: ['PHOTO', 'ETCH', 'CVD', 'DIFF'], CJU: ['PHOTO', 'ETCH', 'CMP'], XIA: ['PHOTO', 'ETCH'] });
+  { MEM: ['PHOTO', 'ETCH', 'CVD', 'DIFF'], FDRY: ['PHOTO', 'ETCH', 'CMP'], XIA: ['PHOTO', 'ETCH'] });
 // Payload order is deliberately NOT the server default (role asc): the table must not re-sort a page.
 const ITEMS = [VIEWER, ADMIN, ENGINEER];
 
@@ -224,11 +224,11 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     // The drawer is fed by the loaded page rows: no second adapter call.
     expect(f.calls).toHaveLength(1);
     fireEvent.mouseDown(screen.getByRole('tab', { name: /사이트 범위|Site scope/ }));
-    const ichRow = within(drawer).getByText('ICH · Site A').closest('li')!;
-    const cjuRow = within(drawer).getByText('CJU · Site B').closest('li')!;
-    expect(ichRow.textContent).toContain('3/4');
-    expect(within(ichRow).getByText('PHOTO, ETCH, CVD')).toBeTruthy();
-    expect(cjuRow.textContent).toContain('1/3');
+    const memRow = within(drawer).getByText('MEM · 메모리').closest('li')!;
+    const fdryRow = within(drawer).getByText('FDRY · 파운드리').closest('li')!;
+    expect(memRow.textContent).toContain('3/4');
+    expect(within(memRow).getByText('PHOTO, ETCH, CVD')).toBeTruthy();
+    expect(fdryRow.textContent).toContain('1/3');
     // Zero grants are the row copy on an ok page, not the page empty state.
     const xiaRow = within(drawer).getByText('XIA · Site C').closest('li')!;
     expect(xiaRow.textContent).toContain('0/2');

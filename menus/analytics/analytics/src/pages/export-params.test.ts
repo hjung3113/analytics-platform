@@ -11,8 +11,8 @@ describe('cycle-time export params', () => {
   const filter: SlowFilter = { tail: 'p95', granularity: 'hour', bucket: '2026-09-25T10:00:00', bin: { from: '45-60', to: '60-75' } };
 
   it('carries the page filters, execution keys and the table sort for a selection export', () => {
-    expect(exportParams(filter, { scope: { kind: 'selected', ids: ['ICH-PHOTO-0103|2026-09-25T10:00:00'] }, sorting }))
-      .toEqual({ ...filter, ids: ['ICH-PHOTO-0103|2026-09-25T10:00:00'], sorting });
+    expect(exportParams(filter, { scope: { kind: 'selected', ids: ['MEM-PHOTO-0103|2026-09-25T10:00:00'] }, sorting }))
+      .toEqual({ ...filter, ids: ['MEM-PHOTO-0103|2026-09-25T10:00:00'], sorting });
   });
 
   it('uses ids: null for the all-filtered export', () => {

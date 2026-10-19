@@ -50,7 +50,7 @@ function Probe() {
   const platform = usePlatform();
   origin = platform.returnOrigin();
   target = platform.returnTarget();
-  return <button type="button" onClick={() => platform.setGlobal({ scopeId: 'CJU' })}>scope</button>;
+  return <button type="button" onClick={() => platform.setGlobal({ scopeId: 'FDRY' })}>scope</button>;
 }
 
 function mount(url: string) {
@@ -139,12 +139,12 @@ describe('useDrill (06 §6.4, ADR-0025)', () => {
   });
 
   it('a context change clears drill keys in the same navigation and Back restores them', async () => {
-    const originUrl = '/source?v=1&scopeId=ICH&sort=name&drillRoom=PHOTO&drillStgroup=A';
+    const originUrl = '/source?v=1&scopeId=MEM&sort=name&drillRoom=PHOTO&drillStgroup=A';
     mount(originUrl);
     const start = window.history.length;
     act(() => { screen.getByRole('button', { name: 'scope' }).click(); });
     expect(window.history.length).toBe(start + 1);
-    expect(url()).toBe('/source?v=1&scopeId=CJU&sort=name');
+    expect(url()).toBe('/source?v=1&scopeId=FDRY&sort=name');
     expect(drill!.depth).toBe(0);
 
     await act(async () => {

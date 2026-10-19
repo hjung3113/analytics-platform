@@ -76,13 +76,13 @@ describe('metric catalog count under a failed list query (UXA-4)', () => {
 // one sentence per invalid field — never `key=value`.
 describe('invalid URL value warnings keep field name and raw value (#304 FIX1)', () => {
   it('the footer caption names the Context keys by their user labels (U-5)', () => {
-    window.history.replaceState(null, '', '/metrics?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/metrics?v=1&scopeId=MEM');
     render(<I18nProvider><PlatformProvider adapter={fixture()} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
     expect(screen.getByText(/이 목록의 필터가 아닙니다/).textContent).toContain('기간·Lot·room_name·그룹 조건·설비 선택은 이 목록의 필터가 아닙니다.');
   });
 
   it('domain=bogus names the 도메인 field and the entered value, without key=value', async () => {
-    window.history.replaceState(null, '', '/metrics?v=1&scopeId=ICH&domain=bogus');
+    window.history.replaceState(null, '', '/metrics?v=1&scopeId=MEM&domain=bogus');
     render(<I18nProvider><PlatformProvider adapter={fixture()} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('도메인');
@@ -92,7 +92,7 @@ describe('invalid URL value warnings keep field name and raw value (#304 FIX1)',
   });
 
   it('invalid sort and page values each name their own field and raw value', async () => {
-    window.history.replaceState(null, '', '/metrics?v=1&scopeId=ICH&sort=bogus&page=zzz');
+    window.history.replaceState(null, '', '/metrics?v=1&scopeId=MEM&sort=bogus&page=zzz');
     render(<I18nProvider><PlatformProvider adapter={fixture()} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('정렬');

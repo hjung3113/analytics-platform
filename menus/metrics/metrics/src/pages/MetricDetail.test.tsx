@@ -133,7 +133,7 @@ function definitionResponse(metric: MetricDef, requested: string): ApiResponse<D
       problem: null, requestedVersion: requested,
       metric, version: metric.versions[index] ?? null,
       previous: index > 0 ? metric.versions[index - 1] : null,
-      exampleEquipmentIds: ['ICH-ETCH-0101', 'ICH-ETCH-0102'], exampleRooms: ['ETCH'],
+      exampleEquipmentIds: ['MEM-ETCH-0101', 'MEM-ETCH-0102'], exampleRooms: ['ETCH'],
     },
     assessments: [...MART_ASSESSMENTS], trust: trustEnvelope(requested), correlationId: 'corr-fixture',
   };

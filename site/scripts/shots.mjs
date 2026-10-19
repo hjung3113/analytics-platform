@@ -67,9 +67,9 @@ await new Promise((done, reject) => {
   server.listen(0, "127.0.0.1", done);
 });
 const origin = `http://127.0.0.1:${server.address().port}`;
-const period = "v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&roomNames=PHOTO";
+const period = "v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&roomNames=PHOTO";
 const productivity = `/analytics/productivity?${period}`;
-const equipment = "/equipment?v=1&scopeId=ICH";
+const equipment = "/equipment?v=1&scopeId=MEM";
 const manifest = [];
 let browser;
 let currentId = "browser-launch";
@@ -531,7 +531,7 @@ try {
     "지표 이름·버전·상태를 목록으로 봅니다.",
     "tables",
     async () => {
-      await go("/metrics?v=1&scopeId=ICH");
+      await go("/metrics?v=1&scopeId=MEM");
       await expect(page.getByRole("table")).toBeVisible();
     },
     mainContentClip,
