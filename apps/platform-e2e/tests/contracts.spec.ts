@@ -2783,43 +2783,50 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     await evidence(page, testInfo, 'feedbackops-block-viewer');
   });
 
-  test('공간 수와 화면에 따라 FeedbackOps 블록을 표시하고 전환기로 이동한다', async ({ page }, testInfo) => {
-    for (const role of ['admin', 'engineer', 'viewer'] as const) {
-      await signInAs(page, role);
-      for (const path of ['/', '/notices', '/voc']) {
-        await page.goto(path);
-        await expect(mainHeading(page)).toBeVisible();
-        await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
-      }
-    }
+  // One test per role: each gets a fresh page, so exactly one `signInAs` init script writes the role.
+  const overallLink = (page: Page) => page.getByRole('navigation', { name: '앱 레일' })
+    .getByRole('link', { name: 'FeedbackOps 전체 — 새 탭' });
 
-    const overall = page.getByRole('navigation', { name: '앱 레일' })
-      .getByRole('link', { name: 'FeedbackOps 전체 — 새 탭' });
+  async function expectNoBlockOnGlobalScreens(page: Page) {
+    for (const path of ['/', '/notices', '/voc']) {
+      await page.goto(path);
+      await expect(mainHeading(page)).toBeVisible();
+      await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
+    }
+  }
+
+  test('공간 하나(viewer)는 전역 화면에 블록이 없고 지표관리에만 블록이 있으며 전체 링크가 없다', async ({ page }) => {
+    await signInAs(page, 'viewer');
+    await expectNoBlockOnGlobalScreens(page);
     await page.goto('/metrics');
     await managedSystemOf(page, '지표관리');
     await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(1);
-    await expect(overall).toHaveCount(0);
+    await expect(overallLink(page)).toHaveCount(0);
+  });
 
+  test('공간 둘(engineer)은 전환기로 옮긴 공간마다 그 공간 블록을 그리고 전체 링크가 없다', async ({ page }) => {
     await signInAs(page, 'engineer');
+    await expectNoBlockOnGlobalScreens(page);
     await page.goto(PRODUCTIVITY);
-    const engineerAnalytics = await managedSystemOf(page, '생산성 분석');
+    const analytics = await managedSystemOf(page, '생산성 분석');
     await chooseSystem(page, '지표관리');
     await expect.poll(() => new URL(page.url()).pathname).toBe('/metrics');
-    const engineerMetrics = await managedSystemOf(page, '지표관리');
-    expect(engineerMetrics).not.toBe(engineerAnalytics);
-    await expect(overall).toHaveCount(0);
+    expect(await managedSystemOf(page, '지표관리')).not.toBe(analytics);
+    await expect(overallLink(page)).toHaveCount(0);
+  });
 
+  test('공간 셋(admin)은 두 공간 블록, 운영 콘솔 블록 없음, 전체 링크 있음', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
+    await expectNoBlockOnGlobalScreens(page);
     await page.goto(PRODUCTIVITY);
-    const adminAnalytics = await managedSystemOf(page, '생산성 분석');
+    const analytics = await managedSystemOf(page, '생산성 분석');
     await chooseSystem(page, '지표관리');
     await expect.poll(() => new URL(page.url()).pathname).toBe('/metrics');
-    const adminMetrics = await managedSystemOf(page, '지표관리');
-    expect(adminMetrics).not.toBe(adminAnalytics);
+    expect(await managedSystemOf(page, '지표관리')).not.toBe(analytics);
     await chooseSystem(page, '운영 콘솔');
     await expect.poll(() => new URL(page.url()).pathname).toBe('/admin/roles');
     await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
-    await expect(overall).toBeVisible();
+    await expect(overallLink(page)).toBeVisible();
     await evidence(page, testInfo, 'feedbackops-space-count-admin');
   });
 });
