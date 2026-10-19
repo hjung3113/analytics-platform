@@ -101,7 +101,8 @@ describe('rail space navigation', () => {
     expect(new URLSearchParams(window.location.search).get('lotIds')).toBe('kept');
     expect(new URLSearchParams(window.location.search).get('scopeId')).toBe('ICH');
     expect(push).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('button', { name: '업무 시스템 전환 · 현재: 운영 콘솔' })).toBeTruthy();
+    // pathname changes at pushState, before React re-renders the switcher label: wait for the DOM, not the URL.
+    expect(await screen.findByRole('button', { name: '업무 시스템 전환 · 현재: 운영 콘솔' })).toBeTruthy();
     const rail = screen.getByRole('navigation', { name: '앱 레일' });
     expect(within(rail).getByRole('button', { name: '관리' }).getAttribute('aria-current')).toBe('true');
     const nav = screen.getByRole('navigation', { name: '주 메뉴' });
