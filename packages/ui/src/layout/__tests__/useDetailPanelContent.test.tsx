@@ -1,5 +1,5 @@
 import { cleanup, render, screen } from '@testing-library/react';
-import { createContext, StrictMode, useContext, useRef, type ReactNode } from 'react';
+import { createContext, StrictMode, useContext, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { afterEach, expect, it, vi } from 'vitest';
 import { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from '../../DetailPanelSlot';
@@ -104,9 +104,8 @@ it('a shell passing a fresh element every render settles without looping', () =>
   let renders = 0;
   function Shell() {
     renders += 1;
-    const count = useRef(0);
-    count.current += 1;
-    return <Content name="shell" node={<p>fresh {count.current}</p>} />;
+    useDetailPanelContent(<p>fresh {renders}</p>);
+    return null;
   }
   render(<StrictMode><Fixture><Shell /></Fixture></StrictMode>);
   expect(renders).toBeLessThan(10);

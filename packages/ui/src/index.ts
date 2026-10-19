@@ -68,4 +68,4 @@ export { PanelSectionTitle, type PanelSectionTitleProps } from './panel/PanelSec
 export { Callout, type CalloutProps, type CalloutTone } from './panel/Callout';
 export { DetailPanelHeaderActions, type DetailPanelHeaderActionsProps } from './panel/DetailPanelHeaderActions';
 export { DetailPanelSectionNav, type DetailPanelSectionNavProps, type PanelSection } from './panel/DetailPanelSectionNav';
-
+export { StatusBadgeFrame, type StatusBadgeFrameProps, type StatusBadgeAppearance, type StatusBadgeTone } from './badges/StatusBadgeFrame';
