@@ -78,3 +78,9 @@
 - 한 파일을 고친 뒤 같은 구조의 형제 파일이 "안 깨진다"고 한 번 측정으로 단정하지 않는다. 형제마다 같은 부하 루프를 돈다(#437이 #434의 그 판단을 정정했다).
 - 터보 `test`는 첫 실패에서 나머지를 중단한다. 실패 하나로 끝난 루트 `pnpm test`는 나머지 패키지와 `build`를 검증하지 못한 것이므로, 고친 뒤 처음부터 다시 돌린다.
 - `node_modules`가 없는 worktree에서 `pnpm docs:links`는 의존성 확인에서 막힌다. 서브모듈을 init한 뒤 `node .github/scripts/check-doc-links.mjs`를 직접 돌리면 같은 검사다(새 파일은 `git add -N`으로 추적에 올려야 "untracked" 오류가 사라진다).
+
+## E2E 포트와 코드 이전 PR (SDK 이전 슬라이스, 2026-10-19)
+
+- `pnpm e2e`의 서버는 4190 고정이고 `reuseExistingServer:false`다. 다른 세션의 E2E가 떠 있으면 `http://127.0.0.1:4190 is already used`로 바로 실패한다. 이 실패는 코드 문제가 아니다: `lsof -nP -iTCP:4190 -sTCP:LISTEN`으로 소유(cwd가 다른 checkout인지)를 확인하고, 남의 프로세스는 건드리지 말고 포트가 비면 다시 돌린다.
+- 소스를 옮겨 `@source`가 훑는 범위가 줄면 CSS selector 검사가 "N selector(s) removed"로 실패한다. 플랫폼 코드가 쓰는 클래스가 아니라 옮겨 간 쪽 전용 클래스인지 확인한 뒤 PR에 `css-removal-ok` 라벨을 단다(#450). 라벨 뒤에 `ship-pr.sh`가 예전 실패 기록 때문에 "CI failed"로 멈추면 현재 head의 검사가 모두 통과인지 `gh pr view --json statusCheckRollup`으로 확인하고 `gh pr merge --squash --match-head-commit <sha>`로 병합한다(엔진 이슈 conductor-engine#25).
+- 옮기는 원본이 `patchedDependencies`나 floating 범위 의존을 쓰는지 먼저 본다. FeedbackOps `@formkit/auto-animate@0.10.0` 패치가 빠져 `useListMotion` 테스트가 실패했고(#450), `@tiptap/*` 하위 확장이 3.32.0으로 올라가 로드 오류가 났다(#455). 원본 락파일의 해석(`pnpm-lock.yaml`)과 맞춘다. pnpm 설정(`patchedDependencies`·`overrides`)을 바꾼 뒤 `pnpm install`이 `Already up to date`로 끝나면 `node_modules/.pnpm-workspace-state-v1.json`을 지우고 다시 설치한다.
