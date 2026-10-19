@@ -104,6 +104,7 @@ describe('adapter shape', () => {
       async evaluateSelection() { return { inCondition: [], outOfCondition: [] }; }
       async getEntity() { return { outcome: 'empty' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
       async menuQuery() { return { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
+      async menuAction() { return { outcome: 'error' as const, data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'cls' }; }
       async auditTrail() { return { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
       async entityAudit() { return { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }
       async accessDirectory() { return { outcome: 'forbidden' as const, data: null, assessments: [], trust: null, correlationId: 'cls' }; }

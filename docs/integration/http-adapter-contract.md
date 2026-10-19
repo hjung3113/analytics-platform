@@ -31,6 +31,7 @@
 | `evaluateSelection(input)` | `POST /api/v1/platform/selection/evaluate` | `SelectionInput` | `SelectionEvaluation` |
 | `getEntity(ref)` | `POST /api/v1/platform/entity` | `EntityRef` | `ApiResponse<unknown>` |
 | `menuQuery(req)` | `POST /api/v1/menu-query` | `MenuQuery`(`{ endpoint, context, params }` 그대로) | `ApiResponse<unknown>` |
+| `menuAction(req)` | Candidate: `POST` + `Idempotency-Key`·`If-Match` 헤더([ADR-0054](../adr/0054-write-port-declared-actions-idempotency-version.md)) — 경로·헤더·상태 코드는 #149가 정한다 | `MenuAction`(`{ action, context, input, idempotencyKey, expectedVersion? }`) | `ActionResponse<unknown>` |
 | `recordUsage(events)` | `POST /api/v1/platform/usage-events` | `{ events: UsageEvent[] }` | `{ accepted: number }` |
 | `reportClientError(report)` | `POST /api/v1/platform/client-errors` | `ClientErrorReport` | `{ accepted: boolean }` |
 | `usageSummary(range)` | `GET /api/v1/platform/usage-summary?preset=all` 또는 `?from=…&to=…`(epoch ms) | 쿼리 | `ApiResponse<UsageSummary>` |

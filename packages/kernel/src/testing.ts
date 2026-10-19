@@ -1,7 +1,7 @@
 // Test-only public entry `@ap/kernel/testing` (ADR-0040, #381): adapter, session and space fixtures.
 // Import only from test files (*.test.ts(x), test-support.ts, test-setup.ts); the boundary lint rejects production imports.
 // Deliberately not exported from src/index.ts.
-import type { ApiResponse, Capability, ContextKey, ModuleScopedId, Permission, PlatformAdapter, ScopeOption, Session, SessionUser, SpaceDef } from '@ap/contracts';
+import type { ActionResponse, ApiResponse, Capability, ContextKey, ModuleScopedId, Permission, PlatformAdapter, ScopeOption, Session, SessionUser, SpaceDef } from '@ap/contracts';
 
 /** Every Context key 'unsupported': the no-op Global Context capability record (06 §6). */
 export const noContext: Record<ContextKey, Capability> = {
@@ -23,6 +23,7 @@ export function testSession(permissions: readonly (Permission | ModuleScopedId)[
 }
 
 const refused: ApiResponse<never> = { outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' };
+const refusedAction: ActionResponse<never> = { outcome: 'error', data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'test', message: 'refused' };
 const empty: ApiResponse<never> = { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' };
 
 /** Adapter fixture: every method denied/empty and `subscribe` a no-op. Pass only the methods the test means. */
@@ -37,6 +38,7 @@ export function testAdapter(over: Partial<PlatformAdapter> = {}): PlatformAdapte
     evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),
     getEntity: async () => empty,
     menuQuery: async () => refused,
+    menuAction: async () => refusedAction,
     defaultRangeTo: () => '2026-09-26T09:00:00',
     recordUsage: async () => ({ accepted: 0 }),
     reportClientError: async () => ({ accepted: true }),
