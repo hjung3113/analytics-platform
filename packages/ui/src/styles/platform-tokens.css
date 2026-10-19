@@ -1,0 +1,36 @@
+/* Platform extension values (ADR-0011). Shared tokens live in ./tokens.css and ./semantic.css (moved from FeedbackOps, ADR-0046).
+ * Chart/category/icon values are platform-owned.
+ */
+:root {
+  --accent-primary: var(--color-neon-lime);          /* #1428a0 */
+  --accent-primary-hover: 16 32 128;                 /* #102080 */
+  --accent-primary-soft: 228 232 246;                /* #1428a0 ≈12% on white */
+  --accent-info: var(--color-cyan-spark);
+  --accent-success: var(--color-emerald);
+  --accent-success-soft: 227 245 237;
+  --accent-warn: var(--color-amber);
+  --accent-warn-soft: 244 236 224;
+  --accent-danger: var(--color-warning-red);
+  --accent-danger-soft: 250 229 231;
+  --accent-neutral: var(--color-storm-cloud);
+  --accent-neutral-soft: var(--color-deep-slate);
+  --border-control: var(--color-storm-cloud);
+  --surface-sunken: var(--color-deep-slate);          /* #edf3fb */
+
+
+  --cat-purple: 124 58 237;
+  --cat-teal: 13 148 136;
+  --cat-amber: 217 119 6;
+  --cat-amber-stroke: 180 83 9;
+  --chart-blue: 59 156 255;
+  --chart-teal: 0 163 181;
+  --chart-green: 0 188 139;
+  --chart-purple: 161 116 245;
+  --chart-blue-stroke: 37 119 204;
+  --chart-teal-stroke: 0 128 144;
+  --chart-purple-stroke: 129 84 206;
+  --chart-remainder: 203 210 227;
+  --chart-grid: 237 241 247;
+  --icon-blue-soft: 227 239 255;
+  --icon-teal-soft: 220 248 239;
+}

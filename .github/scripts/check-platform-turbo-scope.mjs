@@ -2,33 +2,27 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
-const withoutFilter = process.argv.includes('--without-filter');
 const taskNames = ['test', 'typecheck', 'lint', 'build'];
 let failed = false;
 
 for (const taskName of taskNames) {
-  // --without-filter is a local negative control that proves this guard catches a removed package filter.
-  const args = withoutFilter ? ['exec', 'turbo', 'run', taskName, '--only', '--dry=json'] : [taskName, '--dry=json'];
+  const args = [taskName, '--dry=json'];
   if (taskName === 'test') args.push('--concurrency=2');
 
   const output = execFileSync('pnpm', args, { cwd: repoRoot, encoding: 'utf8' });
   const jsonStart = output.indexOf('{');
   if (jsonStart === -1) throw new Error(`${taskName}: Turbo dry run did not emit JSON`);
   const plan = JSON.parse(output.slice(jsonStart));
-  // #390: `transit` tasks have no script in any package, so turbo plans them as <NONEXISTENT>
-  // and never executes them. Only a @fops/* task with a real command would run FeedbackOps code.
+  // ADR-0046 (#441): the FeedbackOps submodule keeps its own workspace; no @fops/* package may rejoin this graph.
   const feedbackOpsTasks = plan.tasks
-    .filter(
-      ({ package: packageName, command }) =>
-        packageName?.startsWith('@fops/') && command !== '<NONEXISTENT>'
-    )
+    .filter(({ package: packageName }) => packageName?.startsWith('@fops/'))
     .map(({ taskId }) => taskId);
 
   if (feedbackOpsTasks.length > 0) {
     console.error(`${taskName}: unexpected FeedbackOps tasks: ${feedbackOpsTasks.join(', ')}`);
     failed = true;
   } else {
-    console.log(`${taskName}: ${plan.tasks.length} tasks; no @fops/* tasks with commands`);
+    console.log(`${taskName}: ${plan.tasks.length} tasks; no @fops/* packages`);
   }
 
   if (taskName === 'typecheck' && !plan.tasks.some(({ taskId }) => taskId === '@ap/ui#typecheck')) {
@@ -37,9 +31,4 @@ for (const taskName of taskNames) {
   }
 }
 
-if (failed) {
-  process.exitCode = 1;
-} else if (withoutFilter) {
-  console.error('The unfiltered control unexpectedly contains no @fops/* tasks.');
-  process.exitCode = 1;
-}
+if (failed) process.exitCode = 1;

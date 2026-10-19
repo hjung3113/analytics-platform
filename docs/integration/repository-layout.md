@@ -2,7 +2,7 @@
 
 ## 현재 단계
 
-FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를 참고하고 플랫폼 설계를 구체화한다. 공통 계약과 책임 범위를 확정한 뒤 통합 구현을 시작한다. 플랫폼 프론트엔드는 루트 pnpm workspace다. 패키지 추출은 완료됐다([패키지 경계](platform-packages.md)). `products/feedbackops/packages/ui`와 `packages/shared`만 플랫폼 workspace에 포함하며, 앱·백엔드 등 나머지 FeedbackOps workspace와 서버·DB·배포 통합 여부는 아직 확정하지 않았다.
+FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를 참고하고 플랫폼 설계를 구체화한다. 공통 계약과 책임 범위를 확정한 뒤 통합 구현을 시작한다. 플랫폼 프론트엔드는 루트 pnpm workspace다. 패키지 추출은 완료됐다([패키지 경계](platform-packages.md)). FeedbackOps 서브모듈은 플랫폼 workspace에 포함하지 않는다(#441, [ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md)). 서버·DB·배포 통합 여부는 아직 확정하지 않았다.
 
 기존 플랫폼 문서는 링크와 소유권을 보존하기 위해 `docs/`에 유지한다. `docs/platform/` 이동이나 공통 코드 추출은 이번 연결에 포함하지 않는다.
 
@@ -16,7 +16,7 @@ FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를
 | `DESIGN.md`, `GLOSSARY.md` | 플랫폼 디자인 방향, 도메인 용어 |
 | `.planning/` | 남은 일·결정 대기(원본은 GitHub 이슈) |
 | `.agents/` | 플랫폼 에이전트 스킬·참고자료·보고서 |
-| `package.json`, `pnpm-workspace.yaml`, `turbo.json` | 플랫폼 pnpm workspace 루트(`apps/*`, `packages/*`, `menus/*/*`, `tooling/*`)와 FeedbackOps `packages/ui`, `packages/shared` |
+| `package.json`, `pnpm-workspace.yaml`, `turbo.json` | 플랫폼 pnpm workspace 루트(`apps/*`, `packages/*`, `menus/*/*`, `tooling/*`) |
 | `apps/platform-web/` | 플랫폼 앱(조립 지점, dev 도구) |
 | `apps/platform-e2e/` | 플랫폼 계약 E2E(Playwright 블랙박스) |
 | `packages/` | 플랫폼 패키지 `contracts`·`ui`·`kernel`·`components`·`shell`·`mock-server`·`server-conformance`(`@ap/*`). 경계는 [패키지 경계](platform-packages.md) |
@@ -27,7 +27,7 @@ FeedbackOps 원본 개발을 유지하면서 동일 체크아웃에서 코드를
 | `products/feedbackops/apps/frontend/` | 기존 React 프론트엔드. `src/features/`에 업무 화면 구성 |
 | `products/feedbackops/apps/backend/` | 기존 Fastify 백엔드. `src/modules/`에 업무 및 공통 기능 구현 |
 | `products/feedbackops/packages/shared/` | FeedbackOps 프론트·백엔드 공유 계약. 아직 플랫폼 공통 계약은 아님 |
-| `products/feedbackops/packages/ui/` | FeedbackOps UI 패키지. 플랫폼 채택 범위는 추후 결정 |
+| `products/feedbackops/packages/ui/` | FeedbackOps UI 패키지(`@fops/ui`). 토큰·유틸·primitive는 `a8d768b8` 기준으로 `packages/ui`(`@ap/ui`)에 옮겨졌고 이 사본은 FeedbackOps에 그대로 남는다 |
 | `products/feedbackops/docs/` | FeedbackOps 설계·ADR·구현 계약·프로토타입 |
 | `products/feedbackops/scripts/` | FeedbackOps 빌드 지원 및 검증 도구 |
 
@@ -66,9 +66,16 @@ git -C products/feedbackops log --oneline HEAD..origin/develop
 git -C products/feedbackops diff --stat HEAD origin/develop
 ```
 
-반영할 커밋을 정한 뒤 해당 커밋으로 detached checkout하고, 부모 저장소에서 `git diff --submodule=log`로 변경을 검토한다. gitlink를 갱신하면 플랫폼 `pnpm-lock.yaml`도 같은 PR에서 다시 생성해야 한다. workspace package 내용이 바뀌므로 lockfile이 함께 바뀌지 않으면 CI의 `pnpm install --frozen-lockfile`이 실패한다. `git add products/feedbackops`는 부모 저장소의 참조 커밋만 스테이징한다. 커밋·푸시는 별도 작업 권한에 따른다. 단순 부모 저장소 `git pull`만으로 서브모듈 작업 트리 갱신까지 완료됐다고 가정하지 않는다.
+반영할 커밋을 정한 뒤 해당 커밋으로 detached checkout하고, 부모 저장소에서 `git diff --submodule=log`로 변경을 검토한다. FeedbackOps 패키지는 플랫폼 workspace가 아니므로 gitlink를 갱신해도 `pnpm-lock.yaml`은 바뀌지 않는다. `git add products/feedbackops`는 부모 저장소의 참조 커밋만 스테이징한다. 커밋·푸시는 별도 작업 권한에 따른다. 단순 부모 저장소 `git pull`만으로 서브모듈 작업 트리 갱신까지 완료됐다고 가정하지 않는다.
 
-루트 검사는 `@fops/*` 작업을 실행하지 않으므로(루트 스크립트 `--filter='!@fops/*'` + 스크립트 없는 `transit` 태스크가 의존 패키지 해시만 전파한다, #390. `--only`는 의존 해시까지 지워 #388 같은 로컬 캐시·CI 불일치를 만들어 제거했다), `turbo.json`의 `globalDependencies`가 `products/feedbackops/packages/{ui,shared}` 파일(생성물 `.turbo`·`dist`·`coverage`·`*.tsbuildinfo` 제외)을 모든 작업의 전역 해시에 넣는다(#237). 그래서 gitlink를 올리거나 서브모듈 파일이 바뀌면 플랫폼 작업 캐시가 모두 무효화되고, `--force` 없이도 실제 검사가 돈다. 두 패키지 안에 새 생성물이 생기면 같은 배열에서 제외한다.
+플랫폼 workspace에 `@fops/*` 패키지가 없으므로 루트 스크립트에 `--filter='!@fops/*'`가 없고 `turbo.json`에도 서브모듈 파일을 전역 해시에 넣는 `globalDependencies`가 없다(#441). 가드 `.github/scripts/check-platform-turbo-scope.mjs`가 작업 그래프에 `@fops/*`가 다시 들어오지 않는지 확인한다. 의존 패키지 해시는 스크립트 없는 `transit` 태스크가 전파한다(#390).
+
+## 디자인 시스템 이전 기록 (#441, ADR-0046)
+
+- 출처: FeedbackOps `packages/ui` 커밋 `a8d768b8`(`origin/develop`, 2026-10-19). 값·클래스 문자열은 그대로 옮겼다. FeedbackOps 루트의 `patchedDependencies`(`@formkit/auto-animate@0.10.0`)도 함께 가져왔다(`patches/`, `pnpm-workspace.yaml`).
+- 옮긴 것(1묶음, `packages/ui/src/`): `styles/`(tokens·semantic·theme·compat + 소비 계약·토큰 충실도·대비 테스트), `utils/`(cn·motion·toast-target·useListMotion), `internal/useHorizontalOverflow`, `components/`(Button·KeyboardShortcut·SkeletonBlocks·SkeletonRows), `components/shadcn/` 22개(alert-dialog·alert·avatar·badge·button·card·checkbox·combobox·dialog·dropdown-menu·hover-card·input·label·popover·radio-group·select·sheet·skeleton·tabs·textarea·toggle-group·tooltip)와 그 테스트. 플랫폼 확장 CSS는 `platform-tokens.css`로 이름을 바꿨다(옛 `tokens.css`).
+- 아직 옮기지 않은 것: 2묶음(#442) 레이아웃·패널·툴바·폼·피드백, 3묶음(#443) `badges`·`data`·`entity`·`identity`·`indicators`·`permissions`·`rich-content`. `ChipPicker`·`ManagedSystemPicker`·`AnalyticsAreaPicker`(+`pickers.test`)는 `badges/*`에 기대어 도메인 결합이므로 #443이 맡는다.
+- 이후 FeedbackOps의 `@fops/ui`는 FeedbackOps에 그대로 남고, 이전된 묶음의 모양 변경은 `@ap/ui`에서 먼저 한다. FeedbackOps가 SDK를 쓰는 전환 시점 = #443 완료 + 배포 경로 확정(#151).
 
 ## 개발 및 에이전트 진입점
 

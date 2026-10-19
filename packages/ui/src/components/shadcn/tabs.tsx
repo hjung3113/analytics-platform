@@ -1,50 +1,54 @@
-// ADR-0023 개정(#340): 목록·트리거만 플랫폼 선택 표식을 정의한다.
-// 역할·선택·키보드 동작은 FeedbackOps 탭을 그대로 사용한다.
+import * as TabsPrimitive from '@radix-ui/react-tabs';
 import * as React from 'react';
-import { TabsList as FeedbackOpsTabsList, TabsTrigger as FeedbackOpsTabsTrigger, cn } from '@fops/ui';
+import { cn } from '../../utils/cn.js';
 
-export { Tabs, TabsContent } from '@fops/ui';
+export const Tabs = TabsPrimitive.Root;
 
 export const TabsList = React.forwardRef<
-  React.ElementRef<typeof FeedbackOpsTabsList>,
-  React.ComponentPropsWithoutRef<typeof FeedbackOpsTabsList>
+  React.ElementRef<typeof TabsPrimitive.List>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
 >(({ className, ...props }, ref) => (
-  <FeedbackOpsTabsList
+  <TabsPrimitive.List
     ref={ref}
     className={cn(
-      'flex h-auto w-full items-end justify-start overflow-x-auto rounded-none bg-transparent p-0 text-text-secondary',
-      // eslint-disable-next-line shadcn/no-arbitrary-values -- 기준선을 inset shadow로 그려 선택 막대가 덮고 스크롤 목록에 1px 세로 넘침이 없게, #340
-      'shadow-[inset_0_-1px_0_var(--color-border-subtle)]',
-      // 고대비(forced-colors)에서 inset shadow가 지워지므로 1px 전경색 아래 테두리로 기준선을 남긴다. #340
-      'forced-colors:border-b forced-colors:border-current',
+      'inline-flex h-10 items-center justify-center rounded-md bg-surface-raised p-1 text-text-muted',
       className,
     )}
     {...props}
   />
 ));
-TabsList.displayName = FeedbackOpsTabsList.displayName;
+TabsList.displayName = TabsPrimitive.List.displayName;
 
 export const TabsTrigger = React.forwardRef<
-  React.ElementRef<typeof FeedbackOpsTabsTrigger>,
-  React.ComponentPropsWithoutRef<typeof FeedbackOpsTabsTrigger>
->(({ className, children, ...props }, ref) => (
-  <FeedbackOpsTabsTrigger
+  React.ElementRef<typeof TabsPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      'relative shrink-0 rounded-none text-text-secondary hover:text-text-primary focus-visible:ring-inset focus-visible:ring-offset-0 focus-visible:-outline-offset-2 data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-text-primary data-[state=active]:shadow-none',
-      // 선택 막대는 트리거 자신의 ::after로 그린다. 자식 형제 요소를 두면 Radix asChild 슬롯이
-      // 단일 요소 자식을 요구해 렌더가 깨진다(#340 F1). 고대비에서는 막대를 전경색 테두리로 남긴다.
-      'after:absolute after:inset-x-3 after:bottom-0 after:hidden after:h-0.5 after:rounded-pill after:bg-accent-primary data-[state=active]:after:block forced-colors:after:bg-transparent forced-colors:after:border-b-2 forced-colors:after:border-current',
+      'inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-surface-canvas transition-all',
+      'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2',
+      'disabled:pointer-events-none disabled:opacity-50',
+      'data-[state=active]:bg-surface-card data-[state=active]:text-text-primary data-[state=active]:shadow-sm',
       className,
     )}
     {...props}
-  >
-    {typeof children === 'string' || typeof children === 'number' ? (
-      <span className="grid">
-        <span aria-hidden className="invisible col-start-1 row-start-1 font-semibold whitespace-nowrap">{children}</span>
-        <span className="col-start-1 row-start-1">{children}</span>
-      </span>
-    ) : children}
-  </FeedbackOpsTabsTrigger>
+  />
 ));
-TabsTrigger.displayName = FeedbackOpsTabsTrigger.displayName;
+TabsTrigger.displayName = TabsPrimitive.Trigger.displayName;
+
+export const TabsContent = React.forwardRef<
+  React.ElementRef<typeof TabsPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.Content
+    ref={ref}
+    className={cn(
+      'mt-2 ring-offset-surface-canvas',
+      'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2',
+      className,
+    )}
+    {...props}
+  />
+));
+TabsContent.displayName = TabsPrimitive.Content.displayName;

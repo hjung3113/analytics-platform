@@ -9,7 +9,7 @@
 | 패키지 | 역할 | import 가능 |
 | --- | --- | --- |
 | `contracts/` (`@ap/contracts`) | URL codec, manifest 메타데이터 타입, 응답·Trust envelope, `PlatformAdapter` 포트 | 없음 |
-| `ui/` (`@ap/ui`) | 토큰·Tailwind 테마, shadcn primitive, `Button`, `StatusBadge`, `cn` | 외부 라이브러리, `@fops/ui` |
+| `ui/` (`@ap/ui`) | 토큰·Tailwind 테마, shadcn primitive, `Button`, `StatusBadge`, `cn` | 외부 라이브러리만 |
 | `kernel/` (`@ap/kernel`) | Registry 런타임, `PlatformProvider`, 전역 Context·URL·Scope 상태, 요청 수명주기, i18n | `contracts` |
 | `components/` (`@ap/components`) | `PlatformPage`, 표·드로어·감사·신뢰 표시, 상태 화면, 차트 프레임 | `contracts`, `kernel`, `ui` |
 | `shell/` (`@ap/shell`) | AppShell, AppRail, AppSidebar, ScopeSelector, CommandPalette, GlobalContextBar, RouteOutlet | `contracts`, `kernel`, `components`, `ui` |
@@ -19,7 +19,7 @@
 ## 모든 패키지에 적용
 
 - 역방향 import 금지, 서버에 닿는 길은 `PlatformAdapter` 하나([패키지 경계](../docs/integration/platform-packages.md) §3-§4) — 메뉴 어휘 메서드를 포트에 추가하지 않는다.
-- `@fops/*`는 외부 원본이다. FeedbackOps primitive는 `@ap/ui`만 `@fops/ui`에서 가져오며, 다른 플랫폼 코드는 `@ap/ui` 공개 export를 사용한다(ADR-0011). 목표 구조에서는 이 간선이 없어지고 토큰·primitive가 SDK 소유가 된다([ADR-0043](../docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)). 코드 이전 전까지는 지금 규칙대로다.
+- `@fops/*`는 어떤 플랫폼 패키지에서도 import하지 않는다(경계 lint). 토큰·primitive는 `@ap/ui`가 소유하고(FeedbackOps `a8d768b8`에서 이전, #441), 다른 플랫폼 코드는 `@ap/ui` 공개 export를 사용한다([ADR-0043](../docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)·[0046](../docs/adr/0046-design-system-source-moves-to-platform-whole-package.md)). 레이아웃·도메인 결합 묶음은 #442·#443에서 이어서 옮긴다.
 - 다른 패키지는 `package.json` `exports`의 공개 진입점으로만 import한다(`@ap/kernel`, `@ap/ui/styles.css`). `@ap/x/src/...` 깊은 경로 금지.
 - 패키지는 TS 소스를 그대로 export하고 빌드 단계가 없다. 앱의 Vite가 번들한다.
 - Tailwind 클래스를 쓰는 패키지는 `styles.css`에 `@source`로 자기 소스를 등록하고 앱 `src/style.css`가 그것을 import한다. 새 패키지를 만들면 이 둘을 같이 추가한다. Tailwind를 쓰지 않는 패키지(`mock-server`)는 `styles.css`를 만들지 않는다.

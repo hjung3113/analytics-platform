@@ -1,6 +1,6 @@
 # 디자인 방향은 FeedbackOps 토큰과 FeedbackOps 셸 구조를 그대로 쓴다 (프로토타입 C안)
 
-상태: **Decided (2026-10-04)**. 디자인 시스템 결정의 원본 소유는 [ADR-0043](0043-platform-sdk-is-the-app-contract-and-unified-framework.md)(2026-10-19)으로 플랫폼으로 바뀌었다. 코드를 SDK로 옮기기 전까지는 이 ADR의 규칙대로 동작하고, 본문은 코드 이전 이슈에서 고친다.
+상태: **Decided (2026-10-04)**. 디자인 시스템의 원본 소유는 [ADR-0043](0043-platform-sdk-is-the-app-contract-and-unified-framework.md)·[ADR-0046](0046-design-system-source-moves-to-platform-whole-package.md)(2026-10-19)으로 플랫폼이다. 토큰·유틸·primitive 코드는 #441에서 `@ap/ui`로 옮겨졌다(FeedbackOps `a8d768b8`) — 이 ADR의 `@fops/ui` 직접 참조·재수출 서술은 그 이전 방식의 기록이고, 본문은 나머지 묶음(#442·#443) 뒤에 고친다.
 - 결정자: 사용자 — "복잡해도 제일 완성도 높은 방향으로". 3안 중 C안이며, 에이전트 추천과 같다.
 
 세부(구현 순서, 토큰 매핑, 셸 치수)는 [#52](https://github.com/hjung3113/analytics-platform/issues/52) 코멘트, 구현 이슈, 프로토타입 브랜치 `prototype/52-fops-design`와 스크린샷 `.agents/reports/design/shots/52-fops/`(원격 브랜치 `prototype/52-fops-design`의 커밋에만 있다)가 소유한다. 이 ADR은 결정과 이유만 둔다.

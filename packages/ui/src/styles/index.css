@@ -1,11 +1,11 @@
-/* Consumers import Tailwind first: its theme/base layer order lets FeedbackOps base tokens win.
+/* Consumers import Tailwind first: its theme/base layer order lets the shared base tokens win.
  * ADR-0058 owns shared mappings and parity rules; ADR-0011 owns the platform extension.
  */
-@import "@fops/ui/styles/tokens.css" layer(base);
-@import "@fops/ui/styles/semantic.css" layer(base);
-@import "@fops/ui/styles/theme.css";
-@import "@fops/ui/styles/compat.css";
 @import "./tokens.css" layer(base);
+@import "./semantic.css" layer(base);
+@import "./theme.css";
+@import "./compat.css";
+@import "./platform-tokens.css" layer(base);
 
 @theme inline {
   --color-surface-sunken: rgb(var(--surface-sunken));
@@ -65,4 +65,3 @@
 }
 
 @source "../";
-@source "../../../../products/feedbackops/packages/ui/src";

@@ -34,7 +34,7 @@
 
 ## 코드
 
-- 루트 pnpm workspace: `apps/*`, `packages/*`, `menus/*/*`, `tooling/*`, FeedbackOps `products/feedbackops/packages/{ui,shared}`. Node 26.7.0, pnpm 11.1.1. 명령은 루트에서 `pnpm install|dev|lint|typecheck|test|build|e2e`.
+- 루트 pnpm workspace: `apps/*`, `packages/*`, `menus/*/*`, `tooling/*`. Node 26.7.0, pnpm 11.1.1. 명령은 루트에서 `pnpm install|dev|lint|typecheck|test|build|e2e`.
 - 의존 방향은 `contracts → ui/kernel → components → shell → apps`, 역방향 import 금지(경계 lint가 강제, 원본 `docs/integration/platform-packages.md` §3). FeedbackOps primitive는 `@ap/ui`로만 소비한다.
 - Kernel·공통 컴포넌트·셸은 메뉴와 mock을 모른다. 메뉴 목록은 Registry로, 서버는 `PlatformAdapter`로 앱이 주입한다.
 
@@ -64,7 +64,7 @@
 
 ## FeedbackOps 서브모듈
 
-`products/feedbackops/`는 별도 저장소의 특정 커밋을 가리키는 독립 제품이다. 내부 작업은 그 디렉터리의 `AGENTS.md`를 따르고, 플랫폼 규칙을 소급 적용하지 않는다. 서브모듈 수정·참조 커밋 갱신은 요청받은 범위에서만 하고, gitlink를 올리면 플랫폼 lockfile도 같은 PR에서 고친다. 통합 계약이 충돌하면 한쪽을 임의로 고치지 말고 사용자에게 올린다. 절차는 `docs/integration/repository-layout.md`.
+`products/feedbackops/`는 별도 저장소의 특정 커밋을 가리키는 독립 제품이다. 내부 작업은 그 디렉터리의 `AGENTS.md`를 따르고, 플랫폼 규칙을 소급 적용하지 않는다. 서브모듈 수정·참조 커밋 갱신은 요청받은 범위에서만 하고, 통합 계약이 충돌하면 한쪽을 임의로 고치지 말고 사용자에게 올린다. 절차는 `docs/integration/repository-layout.md`.
 
 ## 폴더별 지침
 

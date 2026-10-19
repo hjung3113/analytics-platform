@@ -7,11 +7,11 @@ function properties(path: string): Set<string> {
   return new Set([...css.matchAll(/(--[\w-]+)\s*:/g)].map(match => match[1]));
 }
 
-it('keeps platform extension tokens disjoint from FeedbackOps token ownership', () => {
-  const extension = properties('./tokens.css');
+it('keeps platform extension tokens disjoint from the shared token files', () => {
+  const extension = properties('./platform-tokens.css');
   const upstream = new Set([
-    ...properties('../../../../products/feedbackops/packages/ui/src/styles/tokens.css'),
-    ...properties('../../../../products/feedbackops/packages/ui/src/styles/semantic.css'),
+    ...properties('./tokens.css'),
+    ...properties('./semantic.css'),
   ]);
   expect(extension.size).toBeGreaterThan(0);
   expect(upstream.size).toBeGreaterThan(0);
@@ -24,9 +24,9 @@ function values(path: string): Map<string, string> {
 }
 
 const palette = new Map([
-  ...values('../../../../products/feedbackops/packages/ui/src/styles/tokens.css'),
-  ...values('../../../../products/feedbackops/packages/ui/src/styles/semantic.css'),
   ...values('./tokens.css'),
+  ...values('./semantic.css'),
+  ...values('./platform-tokens.css'),
 ]);
 
 function rgb(name: string): number[] {
@@ -87,10 +87,10 @@ it('keeps the previous-period amber stroke at the confirmed opaque value (#207)'
   expect(rgb('cat-amber-stroke')).toEqual([180, 83, 9]);
 });
 
-it('leaves reduced motion to the shared FeedbackOps compat rule (06 §26, #289)', () => {
+it('leaves reduced motion to the shared compat rule (06 §26, #289)', () => {
   const repo = join(process.cwd(), '../..');
   const platform = readFileSync(join(repo, 'packages/ui/src/styles/index.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-  const shared = readFileSync(join(repo, 'products/feedbackops/packages/ui/src/styles/compat.css'), 'utf8');
+  const shared = readFileSync(join(repo, 'packages/ui/src/styles/compat.css'), 'utf8');
   expect(shared).toMatch(/prefers-reduced-motion: reduce[\s\S]*animation-duration: 0\.01ms !important/);
   expect(platform).not.toMatch(/prefers-reduced-motion/);
 });

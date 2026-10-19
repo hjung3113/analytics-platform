@@ -3,16 +3,16 @@ version: alpha
 name: analytics-platform-design
 description: >
   Platform visual extensions and data-workspace patterns on FeedbackOps.
-  Shared tokens, fonts and primitives currently come from FeedbackOps
-  (ownership moves to the platform SDK per ADR-0043; rules below stay until code migration);
+  Shared tokens, fonts and primitives are owned by the platform (@ap/ui, ADR-0043/0046;
+  tokens, utils and primitives moved from FeedbackOps a8d768b8 in #441, other groups follow);
   shell structure and behavior remain owned by the platform UI contract.
 sources:
-  sharedTokens: products/feedbackops/packages/ui/src/styles/tokens.css
+  sharedTokens: packages/ui/src/styles/tokens.css
   sharedTypography: products/feedbackops/docs/frontend/tokens.md
   sharedPrimitives: products/feedbackops/docs/frontend/ui-design-system.md
   consumptionContract: products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md
   shellContract: docs/06_platform_ui_contract.md
-  extensionValues: packages/ui/src/styles/tokens.css
+  extensionValues: packages/ui/src/styles/platform-tokens.css
   extensionMappings: packages/ui/src/styles/index.css
 colors:
   accent-primary: "var(--color-neon-lime)"
@@ -89,11 +89,11 @@ components:
 
 | 소유자 | 소유하는 규칙 | 이 문서의 관계 |
 | --- | --- | --- |
-| FeedbackOps [tokens.md](products/feedbackops/docs/frontend/tokens.md), [tokens.css](products/feedbackops/packages/ui/src/styles/tokens.css) | 공유 색·표면·간격·반경·폰트·본문 타이포·AA 의미 label 쌍 | 값 스케일을 복제하지 않고 semantic token을 소비 |
-| FeedbackOps [ui-design-system.md](products/feedbackops/docs/frontend/ui-design-system.md), [ADR-0058](products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md) | primitive의 모양·상태, CSS-first 소비·폰트 로딩 계약 | `@ap/ui`를 통한 공개 primitive·CSS 소비 |
+| 플랫폼 [tokens.css](packages/ui/src/styles/tokens.css)·[semantic.css](packages/ui/src/styles/semantic.css)(FeedbackOps `a8d768b8`에서 이전, ADR-0046), FeedbackOps [tokens.md](products/feedbackops/docs/frontend/tokens.md)(이전 시점 설명) | 공유 색·표면·간격·반경·폰트·본문 타이포·AA 의미 label 쌍 | 원본은 플랫폼; 값 스케일을 복제하지 않고 semantic token을 소비 |
+| 플랫폼 `@ap/ui`(원본, ADR-0046). FeedbackOps [ui-design-system.md](products/feedbackops/docs/frontend/ui-design-system.md)·[ADR-0058](products/feedbackops/docs/adr/0058-tailwind-v4-css-first-theme.md)는 이전 시점(`a8d768b8`)의 참고 문서 | primitive의 모양·상태, CSS-first 소비·폰트 로딩 계약. 이전 뒤 변경은 `@ap/ui`에서 한다 | `@ap/ui`를 통한 공개 primitive·CSS 소비 |
 | [06 §7–9](docs/06_platform_ui_contract.md#7-application-shell), [07](docs/07_app_shell_wireframe.md) | 셸 구조·치수·슬롯·navigation IA·시나리오 | 구조를 복사하지 않고 플랫폼 시각 보완만 정의 |
 | DESIGN.md | 플랫폼 확장 token의 역할·값 출처, 허용 전경/표면, 분석·KPI·표·차트 시각 패턴 | 아래 정의가 원본 |
-| [플랫폼 CSS](packages/ui/src/styles/tokens.css), [매핑·역할 유틸리티](packages/ui/src/styles/index.css) | 확장 구현 | 문서와 대조; 불일치는 별도 보고 |
+| [플랫폼 확장 CSS](packages/ui/src/styles/platform-tokens.css), [매핑·역할 유틸리티](packages/ui/src/styles/index.css) | 확장 구현 | 문서와 대조; 불일치는 별도 보고 |
 
 ## Platform extension layer
 
@@ -270,7 +270,7 @@ stat/pipeline icon은 compact soft chip, navigation 그룹 icon은 unboxed outli
 
 ## Shared interaction and data states
 
-primitive 상태·keyboard 동작은 [FeedbackOps UI 계약](products/feedbackops/docs/frontend/ui-design-system.md)이 원본이다. 플랫폼 조합에서는 아래 역할을 연결한다.
+primitive 상태·keyboard 동작의 원본은 `@ap/ui`(ADR-0046)이고, [FeedbackOps UI 계약](products/feedbackops/docs/frontend/ui-design-system.md)은 이전 시점의 참고 문서다. 플랫폼 조합에서는 아래 역할을 연결한다.
 
 | Family | Hover / pressed / selected | Focus / disabled / busy |
 | --- | --- | --- |
