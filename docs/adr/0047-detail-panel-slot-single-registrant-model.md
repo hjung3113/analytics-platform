@@ -29,3 +29,11 @@
 - `DetailPanelSlot.tsx`·`AppShell.tsx`(호스트)를 건드리는 상태·순서 로직이므로 #442는 `impl-complex`와 수정 diff 점검을 받는다.
 - 06 §13 상세 슬롯 서술에 "등록 방식 둘, 활성 등록자는 하나"를 반영한다.
 - Open: 셸 세 벌(플랫폼 `@ap/shell`·FeedbackOps `AppFrame`·EV `AppFrame`) 통합 여부.
+
+## 추가 (2026-10-19, 결정자: 코디네이터 — [#473](https://github.com/hjung3113/analytics-platform/issues/473), FeedbackOps#1283 전환에 필요. 되돌릴 수 있다)
+
+`AppFrame`을 SDK 슬롯으로 옮겨도 동작을 잃지 않도록 세 가지를 더한다. 등록자 모델(슬롯 하나, 마지막 등록자 승리)은 그대로다.
+
+- **닫힌 등록자:** `useDetailPanelContent(null)`은 슬롯을 차지하되(이전 등록자는 숨고 정리 시 돌아온다) 아무것도 그리지 않고 `open`은 false다. `undefined`는 계속 비운다.
+- **확장 상태:** Provider가 `expandedKey`를 갖는다. `toggle()`이 활성 키로 켜고 끈다. 활성 키가 바뀌거나, 내용이 null이 되거나, 등록자가 비우거나 언마운트하면 해제되고, `window`의 Escape(`defaultPrevented`가 아닐 때)도 해제한다. 슬롯 내용(portal)만 `DetailPanelFullscreenContext`(`{expanded, toggle}`)를 받고 Provider의 `children`은 받지 않는다. portal 등록자는 영향이 없다.
+- **호스트:** `useDetailPanelSlotHost()`가 `{ ref, open, expanded }`를 돌려준다. `open`은 활성 등록자가 있고 닫힌 내용 등록자가 아닐 때 true다.
