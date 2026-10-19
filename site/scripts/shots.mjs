@@ -206,15 +206,16 @@ try {
       hideSticky: false,
     };
   }
-  // 번호 위치: 캡처 영역 안에서 대상 요소의 왼쪽 위 안쪽 점을 %로 잰다. 못 찾은 번호는 건너뛴다.
+  // 번호 위치: 캡처 영역 안에서 대상 요소의 왼쪽 위 모서리를 %로 잰다. 못 찾은 번호는 건너뛴다.
   async function placeMarks(targets, area) {
     const marks = [];
     for (const [n, locate] of targets) {
       try {
         const box = await locate().first().boundingBox({ timeout: 3000 });
         if (!box) throw new Error("no box");
-        const x = ((box.x + Math.min(14, box.width / 2) - area.x) / area.width) * 100;
-        const y = ((box.y + Math.min(14, box.height / 2) - area.y) / area.height) * 100;
+        // The badge centres on the element's top-left corner so it never covers the element's own text or numbers.
+        const x = ((box.x - area.x) / area.width) * 100;
+        const y = ((box.y - area.y) / area.height) * 100;
         if (x < 0 || x > 100 || y < 0 || y > 100) throw new Error("outside the capture");
         marks.push({ n, x: Number(x.toFixed(1)), y: Number(y.toFixed(1)) });
       } catch (error) {
@@ -337,6 +338,23 @@ try {
     () => elementClip(trend()),
   );
   await capture(
+    "chart-compare-annotate",
+    "AnalysisChartFrame · 비교 + 주석",
+    "이전 기간을 같은 시간 축에 겹치고 구간에 판단을 주석으로 남깁니다.",
+    "charts",
+    async () => {
+      await brush(true);
+      await page.getByRole("textbox", { name: "주석 내용" }).fill("예시: P95 상승 구간 확인");
+      await button("저장", trend()).click();
+      await expect(trend().getByRole("list")).toContainText("예시: P95 상승 구간 확인");
+      await button("지우기", trend()).click();
+      await expect(button("분석 구간 적용…", trend())).toHaveCount(0);
+      await button("비교", trend()).click();
+      await expect(trend().getByRole("group", { name: "범례", exact: true })).toContainText("P50 이전 기간");
+    },
+    () => elementClip(trend()),
+  );
+  await capture(
     "chart-bar",
     "AnalysisChartFrame · 막대 추세",
     "완료 Job 수를 0축 막대로 봅니다(합성 데이터라 버킷값이 같습니다).",
@@ -426,7 +444,7 @@ try {
           table().getByRole("button", { name: "컬럼", exact: true }),
           page.getByRole("dialog").filter({ hasText: "컬럼 설정" }),
         ],
-        48,
+        12,
       ).then((clip) => ({ clip, cover: true })),
   );
   const drawer = () => page.getByRole("complementary", { name: "상세 패널" }).getByRole("dialog");
@@ -467,16 +485,14 @@ try {
   await capture(
     "trust",
     "DataTrustIndicator · 원천과 미확인",
-    "갱신·커버리지와 상태 원천을 펼쳐 봅니다.",
+    "갱신·커버리지와 상태 원천을 펼친 패널입니다.",
     "tables",
     async () => {
       await go(productivity);
       await button("데이터 신뢰").first().click();
     },
     () =>
-      unionClip([button("데이터 신뢰").first(), page.getByRole("dialog").filter({ hasText: "문제 없음은" })], 48).then(
-        (clip) => ({ clip, cover: true }),
-      ),
+      unionClip([page.getByRole("dialog").filter({ hasText: "문제 없음은" })], 6).then((clip) => ({ clip, cover: true })),
     ["C8"],
   );
   await capture(
@@ -497,7 +513,7 @@ try {
       await go(productivity);
       await button(/^Scope:/).click();
     },
-    () => unionClip([button(/^Scope:/), page.getByRole("menu")], 48).then((clip) => ({ clip, cover: true })),
+    () => unionClip([button(/^Scope:/), page.getByRole("menu")], 12).then((clip) => ({ clip, cover: true })),
     ["U4"],
   );
   await capture(
@@ -600,8 +616,8 @@ try {
       [3, () => button("데이터 신뢰").first()],
       [4, () => button("비교", trend())],
       [5, () => page.getByRole("button", { name: "컬럼", exact: true })],
-      [6, () => page.getByRole("button", { name: /^상세/ })],
-      [7, () => page.getByRole("navigation", { name: "FeedbackOps · MARS", exact: true })],
+      [6, () => button(/^Scope:/)],
+      [7, () => page.getByText("Wafer Journey", { exact: true }).first()],
     ],
   );
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -630,15 +646,8 @@ try {
       await expect(dialog).toBeVisible();
       await expect(dialog).toContainText("BRAVO");
     },
-    () =>
-      unionClip(
-        [
-          // The open dialog hides the trigger from the accessibility tree; find it by attribute.
-          page.locator('button[aria-haspopup="dialog"][aria-label="업무 시스템 전환 · 현재: MARS"]'),
-          page.getByRole("dialog", { name: "업무 시스템 전환", exact: true }),
-        ],
-        32,
-      ).then((clip) => ({ clip, cover: true })),
+    // Dialog only: the trigger sits over page content, which would show behind the crop.
+    () => unionClip([page.getByRole("dialog", { name: "업무 시스템 전환", exact: true })], 4).then((clip) => ({ clip, cover: true })),
   );
   // Console screens need the demo's platform-admin role (the same switch D8 tells readers to use).
   await page.evaluate(() => localStorage.setItem("platform:role", JSON.stringify("admin")));
@@ -661,17 +670,6 @@ try {
     async () => {
       await go("/admin/registry?v=1");
       await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "메뉴 레지스트리", exact: true })).toBeVisible();
-    },
-    mainContentClip,
-  );
-  await capture(
-    "menu-usage",
-    "운영 콘솔 · 메뉴 활용률",
-    "등록된 업무 화면의 사용 현황을 확인합니다.",
-    "tables",
-    async () => {
-      await go("/admin/usage?v=1");
-      await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "메뉴 활용률", exact: true })).toBeVisible();
     },
     mainContentClip,
   );

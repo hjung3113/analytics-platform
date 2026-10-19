@@ -244,7 +244,7 @@ if (shots.length) {
       return `<article class="shot-tile" data-shot-group="${shot.group}"><button type="button" class="shot-open" data-shot-open="${shot.id}" aria-haspopup="dialog" aria-label="${escapeHtml(shot.title)} 크게 보기">${image(shot)}</button><div class="shot-copy"><h4>${escapeHtml(shot.title)}</h4><p>${escapeHtml(shot.description)}</p>${demoLink}</div></article>`;
     })
     .join("");
-  const gallery = `<div class="shot-gallery" id="actual-shots" aria-labelledby="actual-shots-heading"><h3 id="actual-shots-heading">실제 화면</h3><p class="lead">아래는 데모 앱을 배포 때마다 자동으로 찍은 실제 화면입니다(mock 합성 데이터).</p><p class="caption">등록 유형: 선·막대(메뉴 사용 중)·파이·산점도(등록됨, 메뉴 미사용). <a class="source-ref" href="#source-L62">L62</a> · <a class="source-ref" href="#source-L63">L63</a></p><div class="shot-filters" role="group" aria-label="실제 화면 분류">${filters}</div><p id="shot-count" class="caption" role="status" aria-live="polite">${shots.length}개 화면</p><div class="shot-grid">${tiles}</div></div>
+  const gallery = `<details class="appendix-content gallery-details" id="actual-shots-details"><summary>실제 화면 ${shots.length}장 펼치기</summary><div class="shot-gallery" id="actual-shots" aria-labelledby="actual-shots-heading"><h3 id="actual-shots-heading">실제 화면</h3><p class="lead">아래는 데모 앱을 배포 때마다 자동으로 찍은 실제 화면입니다(mock 합성 데이터).</p><p class="caption">등록 유형: 선·막대(메뉴 사용 중)·파이·산점도(등록됨, 메뉴 미사용). <a class="source-ref" href="#source-L62">L62</a> · <a class="source-ref" href="#source-L63">L63</a></p><div class="shot-filters" role="group" aria-label="실제 화면 분류">${filters}</div><p id="shot-count" class="caption" role="status" aria-live="polite">${shots.length}개 화면</p><div class="shot-grid">${tiles}</div></div></details>
   <dialog class="shot-dialog" id="shot-dialog" aria-modal="true" aria-labelledby="shot-dialog-title" aria-describedby="shot-dialog-description"><div class="shot-dialog-controls"><h3 id="shot-dialog-title"></h3><button type="button" data-shot-close autofocus>닫기</button></div><img id="shot-dialog-image" alt=""><p id="shot-dialog-description"></p><div class="shot-dialog-controls"><button type="button" data-shot-prev>이전</button><span id="shot-dialog-position" role="status"></span><button type="button" data-shot-next>다음</button><a class="button secondary" data-demo hidden id="shot-dialog-demo" target="_blank" rel="noopener">데모에서 열기</a></div></dialog>`;
   html = html
     .replace(
@@ -286,6 +286,14 @@ html = html.replace(figureSlot, (whole, cls, id, inner) => {
     : "";
   return `<figure class="${cls}" data-shot-fig="${id}"><span class="shot-frame">${img}${marks}</span>${inner.replace("<!--shot:" + id + "-->", "")}</figure>`;
 });
+// 히어로의 화면 캡처 자리: 캡처가 없는 조립에서는 02의 도식 A를 히어로에도 보인다(id는 접미사로 구분).
+const heroFallback = shotById.has("cycle-time-full")
+  ? ""
+  : (html.match(/<figure class="diagram diagram-a">[\s\S]*?<\/figure>/)?.[0] || "")
+      .replaceAll("fig-a-", "fig-a0-")
+      .replaceAll("arrow-a", "arrow-a0")
+      .replace("diagram diagram-a", "diagram diagram-a diagram-hero");
+html = html.replace("<!--HERO_FALLBACK-->", heroFallback);
 await writeFile(join(out, "index.html"), html);
 const noindex = (html) =>
   /<meta\b[^>]*name=["']robots["']/i.test(html)

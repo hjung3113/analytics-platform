@@ -85,17 +85,17 @@
       {
         name: "PHOTO 비교",
         panes: [
-          { system: "MARS", screen: "생산성 개요", context: { 기간: "9월", 사이트: "MEM", 공정: "PHOTO", 설비: "전체" }, values: [34, 46, 39, 55, 43, 64] },
-          { system: "BRAVO", screen: "사이클타임 지표", context: { 기간: "9월", 사이트: "MEM", 공정: "PHOTO", 설비: "전체", 버전: "v2" }, values: [28, 42, 36, 59, 48, 67] },
-          { system: "MARS", screen: "사이클타임 상세", context: { 기간: "10월", 사이트: "MEM", 공정: "PHOTO", 설비: "LTH-014", 집계: "일" }, values: [40, 35, 52, 46, 66, 54] },
-          { system: "MARS", screen: "설비 상세", context: { 기간: "10월", 사이트: "FDRY", 공정: "PHOTO", 설비: "FDRY-0103", 집계: "시간" }, values: [38, 48, 43, 62, 51, 70] },
+          { system: "MARS", screen: "생산성 개요", context: { 기간: "9월", 사이트: "MEM", 공정: "PHOTO", 설비: "전체" }, kind: "line", values: [34, 46, 39, 55, 43, 64] },
+          { system: "BRAVO", screen: "사이클타임 지표", context: { 기간: "9월", 사이트: "MEM", 공정: "PHOTO", 설비: "전체", 버전: "v2" }, kind: "bar", values: [28, 42, 36, 59, 48, 67] },
+          { system: "MARS", screen: "사이클타임 상세", context: { 기간: "10월", 사이트: "MEM", 공정: "PHOTO", 설비: "LTH-014", 집계: "일" }, kind: "dist", values: [12, 26, 52, 70, 44, 18] },
+          { system: "MARS", screen: "설비 상세", context: { 기간: "10월", 사이트: "FDRY", 공정: "PHOTO", 설비: "FDRY-0103", 집계: "시간" }, kind: "table", values: [38, 48, 43, 62, 51, 70] },
         ],
       },
       {
         name: "개선 전·후",
         panes: [
-          { system: "MARS", screen: "사이클타임 상세 · 개선 전", context: { 기간: "9월", 사이트: "MEM", 공정: "PHOTO", 설비: "LTH-014", 구간: "개선 전" }, values: [36, 54, 48, 68, 58, 76] },
-          { system: "MARS", screen: "사이클타임 상세 · 개선 후", context: { 기간: "10월", 사이트: "MEM", 공정: "PHOTO", 설비: "LTH-014", 구간: "개선 후" }, values: [32, 43, 39, 51, 44, 57] },
+          { system: "MARS", screen: "사이클타임 상세 · 개선 전", context: { 기간: "9월", 사이트: "MEM", 공정: "PHOTO", 설비: "LTH-014", 구간: "개선 전" }, kind: "line", values: [36, 54, 48, 68, 58, 76] },
+          { system: "MARS", screen: "사이클타임 상세 · 개선 후", context: { 기간: "10월", 사이트: "MEM", 공정: "PHOTO", 설비: "LTH-014", 구간: "개선 후" }, kind: "bar", values: [32, 43, 39, 51, 44, 57] },
         ],
       },
     ];
@@ -149,6 +149,20 @@
       return { differences: differences, same: same };
     }
     // board-diff:end
+    // At most two differing conditions show as chips; the rest fold into "+N" so a cell header keeps one line.
+    function showDifferences(container, diff) {
+      container.replaceChildren();
+      diff.differences.slice(0, 2).forEach(function (item) {
+        addText(container, "span", item.key + " " + item.value, "difference-chip");
+      });
+      if (diff.differences.length > 2) {
+        var rest = diff.differences.slice(2);
+        var more = addText(container, "span", "+" + rest.length, "difference-chip difference-more");
+        more.title = rest.map(function (item) {
+          return item.key + " " + item.value;
+        }).join(" · ");
+      }
+    }
     function updatePaneSelection() {
       var sheet = currentSheet();
       var activeContext = sheet.panes[selectedPane].context;
@@ -157,35 +171,49 @@
         var index = Number(article.dataset.boardPane);
         var pane = sheet.panes[index];
         article.classList.toggle("is-selected", index === selectedPane);
-        var differences = article.querySelector(".pane-differences");
-        differences.replaceChildren();
         var diff = contextDiff(activeContext, pane.context);
-        diff.differences.forEach(function (item) {
-          addText(differences, "span", item.key + " " + item.value, "difference-chip");
-        });
+        showDifferences(article.querySelector(".pane-differences"), diff);
         var sameSummary = article.querySelector(".board-context summary");
         sameSummary.textContent = "같음 " + diff.same;
+        sameSummary.title = "다른 칸과 같은 조건 " + diff.same + "개";
         sameSummary.setAttribute("aria-label", "칸 " + (index + 1) + "의 같은 조건 전체 보기");
       });
     }
-    function buildMiniChart(values) {
-      var chart = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      chart.setAttribute("viewBox", "0 0 360 112");
-      chart.setAttribute("aria-hidden", "true");
-      chart.classList.add("board-chart");
-      [28, 56, 84].forEach(function (y) {
-        var gridline = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        gridline.setAttribute("d", "M0 " + y + "H360");
-        gridline.classList.add("board-chart-grid");
-        chart.appendChild(gridline);
+    function svgNode(name, attributes, className) {
+      var node = document.createElementNS("http://www.w3.org/2000/svg", name);
+      Object.keys(attributes).forEach(function (key) {
+        node.setAttribute(key, attributes[key]);
       });
+      if (className) node.classList.add(className);
+      return node;
+    }
+    // Each cell sketches a different chart shape so the board reads as different analyses: trend, bars, distribution, table.
+    function buildMiniChart(kind, values) {
+      var chart = svgNode("svg", { viewBox: "0 0 360 112" }, "board-chart");
+      chart.setAttribute("aria-hidden", "true");
+      if (kind === "table") {
+        [0, 1, 2, 3].forEach(function (row) {
+          chart.appendChild(svgNode("rect", { x: 0, y: 4 + row * 27, width: 360, height: 22, rx: 3 }, row === 0 ? "board-chart-head" : "board-chart-row"));
+          [0, 1, 2].forEach(function (column) {
+            chart.appendChild(svgNode("rect", { x: 10 + column * 120, y: 11 + row * 27, width: row === 0 ? 56 : 34 + ((values[row + column] * 3) % 40), height: 8, rx: 2 }, "board-chart-cell"));
+          });
+        });
+        return chart;
+      }
+      [28, 56, 84].forEach(function (y) {
+        chart.appendChild(svgNode("path", { d: "M0 " + y + "H360" }, "board-chart-grid"));
+      });
+      if (kind === "bar" || kind === "dist") {
+        var width = kind === "bar" ? 36 : 52;
+        values.forEach(function (value, index) {
+          chart.appendChild(svgNode("rect", { x: index * 58 + 8, y: 98 - value, width: width, height: value, rx: 3 }, kind === "bar" ? "board-chart-bar" : "board-chart-dist"));
+        });
+        return chart;
+      }
       var points = values.map(function (value, index) {
         return (index * 70 + 8) + " " + (98 - value);
       }).join("L");
-      var line = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      line.setAttribute("d", "M" + points);
-      line.classList.add("board-chart-line");
-      chart.appendChild(line);
+      chart.appendChild(svgNode("path", { d: "M" + points }, "board-chart-line"));
       return chart;
     }
     function selectPane(index, restoreFocus) {
@@ -246,15 +274,15 @@
         differences.className = "pane-differences";
         differences.setAttribute("aria-label", "선택한 칸과 다른 조건");
         var diff = contextDiff(activeContext, pane.context);
-        diff.differences.forEach(function (item) {
-          addText(differences, "span", item.key + " " + item.value, "difference-chip");
-        });
+        showDifferences(differences, diff);
         header.appendChild(differences);
         var sameDetails = document.createElement("details");
         sameDetails.className = "board-popover board-context";
         var sameSummary = addText(sameDetails, "summary", "같음 " + diff.same);
+        sameSummary.title = "다른 칸과 같은 조건 " + diff.same + "개";
         sameSummary.setAttribute("aria-label", "칸 " + (index + 1) + "의 같은 조건 전체 보기");
         var allConditions = document.createElement("ul");
+        addText(allConditions, "li", "이 칸의 조건 전체 · 선택한 칸과 같은 것 " + diff.same + "개", "board-popover-note");
         Object.keys(pane.context).forEach(function (key) {
           addText(allConditions, "li", key + " · " + pane.context[key]);
         });
@@ -281,7 +309,7 @@
         article.appendChild(header);
         var content = document.createElement("div");
         content.className = "board-pane-body";
-        content.appendChild(buildMiniChart(pane.values));
+        content.appendChild(buildMiniChart(pane.kind, pane.values));
         var metrics = document.createElement("div");
         metrics.className = "board-metrics";
         addText(metrics, "span", "P50 " + (39 + index * 2) + "분");
@@ -325,21 +353,6 @@
   all("[data-maintenance-status]").forEach(function (element) {
     element.textContent = config.assumption ? "완료(가정)" : "완료";
   });
-  var basis = document.querySelector(".basis");
-  document.getElementById("basis-label").textContent = "기준 2026-10-20";
-  if (!config.assumption) {
-    basis.querySelector(".basis-popover").hidden = true;
-    basis.querySelector("summary").addEventListener("click", function (event) {
-      event.preventDefault();
-    });
-  } else {
-    document.addEventListener("keydown", function (event) {
-      if (event.key === "Escape" && basis.open) basis.open = false;
-    });
-    document.addEventListener("click", function (event) {
-      if (basis.open && !basis.contains(event.target)) basis.open = false;
-    });
-  }
   document.getElementById("build-info").textContent =
     "배포 ref " +
     (config.ref || "로컬") +
