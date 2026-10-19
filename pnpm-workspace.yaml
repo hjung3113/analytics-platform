@@ -1,12 +1,12 @@
 # docs/integration/platform-packages.md §3.
-# Only FeedbackOps packages/ui and packages/shared join this workspace; the rest keeps its own workspace.
+# The FeedbackOps submodule (products/feedbackops) keeps its own workspace; no FeedbackOps package joins this one (ADR-0046, #441).
 # prototypes/* are standalone npm units.
 packages:
   - apps/*
   - packages/*
   - menus/*/*
   - tooling/*
-  - products/feedbackops/packages/ui
-  - products/feedbackops/packages/shared
 allowBuilds:
   esbuild: true
+patchedDependencies:
+  "@formkit/auto-animate@0.10.0": patches/@formkit__auto-animate@0.10.0.patch

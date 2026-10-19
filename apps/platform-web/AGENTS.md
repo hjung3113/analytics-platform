@@ -17,7 +17,7 @@
 - 페이지는 `packages/*`를 수정하지 않는다. 공통 부품이 부족하면 필요 사항을 보고하고 플랫폼 작업으로 올린다.
 - 메뉴를 추가하면 해당 그룹 패키지(`menus/<space>/<group>/src/index.ts`)의 `manifests`에 선언하고 06 §5(Menu Extension Contract)·§29(Platform Done)를 확인한다. 메뉴 화면 3개 이상 연속 제작은 사용자에게 범위를 먼저 확인한다.
 - `@ap/mock-server`는 화면이 직접 import하지 않는다 — 규칙은 [menus/AGENTS.md](../../menus/AGENTS.md). 운영 빌드 제외는 `check:prod-graph`.
-- FeedbackOps CSS(`@fops/ui/styles/*`)는 앱이 직접 가져오지 않는다 — `src/style.css`는 `@ap/ui/styles.css`만 `@import`한다([packages/ui/AGENTS.md](../../packages/ui/AGENTS.md)).
+- 디자인 시스템 CSS(`@ap/ui`의 `styles/*`)는 앱이 개별로 가져오지 않는다 — `src/style.css`는 `@ap/ui/styles.css`만 `@import`한다([packages/ui/AGENTS.md](../../packages/ui/AGENTS.md)).
 
 ## 검증
 

@@ -30,7 +30,7 @@
 
 - `orca worktree create --setup run|skip`은 의존성을 설치하지 않는다 → `git submodule update --init --depth 1 -q -- products/feedbackops && pnpm install --frozen-lockfile --config.optimistic-repeat-install=false`. 기본으로 생기는 셸 탭은 닫는다.
 - pnpm 11은 설정(`pnpm-workspace.yaml`)만 바뀌면 "Already up to date"로 건너뛴다 → `pnpm install --config.optimistic-repeat-install=false`.
-- 서브모듈 gitlink를 올리면 플랫폼 lockfile도 같은 PR에서 고친다([저장소 구조](../integration/repository-layout.md)). 루트 검사는 `@fops/*` 작업을 돌리지 않는다(가드 `.github/scripts/check-platform-turbo-scope.mjs`가 실제 커맨드를 가진 `@fops/*` 태스크가 없음을 확인한다). 루트 스크립트는 `--filter='!@fops/*'`만 쓰고 의존 패키지 해시는 스크립트 없는 `transit` 태스크가 전파한다(#390). `--only`는 의존 해시까지 지워서 #388처럼 로컬 캐시가 CI를 못 따라가게 하므로 다시 넣지 않는다. 서브모듈 파일은 turbo 전역 해시에 들어가므로 gitlink를 올린 뒤 `--force`가 필요 없다(#237, 저장소 구조 문서).
+- FeedbackOps 서브모듈은 플랫폼 workspace 밖이다(#441, ADR-0046): gitlink를 올려도 플랫폼 lockfile·turbo 해시는 바뀌지 않는다([저장소 구조](../integration/repository-layout.md)). 가드 `.github/scripts/check-platform-turbo-scope.mjs`는 `@fops/*` 패키지가 작업 그래프에 다시 들어오지 않았는지 확인한다. 의존 패키지 해시는 스크립트 없는 `transit` 태스크가 전파하고(#390), `--only`는 의존 해시까지 지워 로컬 캐시가 CI를 못 따라가게 하므로(#388) 쓰지 않는다.
 
 - 새 worktree에서 문서 링크 검사 전에 서브모듈을 init한다(`git submodule update --init --depth 1 -- products/feedbackops`). 안 하면 FeedbackOps 링크가 깨진 것으로 나온다. 실행은 `node .github/scripts/check-doc-links.mjs`.
 

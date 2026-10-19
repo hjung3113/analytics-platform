@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { cn } from '@fops/ui';
+import { cn } from '../utils/cn.js';
 
 export type Tone = 'success' | 'warning' | 'danger' | 'neutral' | 'info';
 

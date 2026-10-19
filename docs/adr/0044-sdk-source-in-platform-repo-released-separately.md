@@ -28,4 +28,5 @@
 ## 결과
 
 - [통합 계획 §4.4](../integration/framework-unification-plan.md#44-sdk-저장소릴리즈-구조-candidate-2026-10-19)의 "정할 것" 중 원본 위치·독립 릴리스 원칙·버전 정책·첫 배포 대상·공개/내부 경계·CI 게이트 수용·검증 책임이 Decided이고, registry와 접두사 시점만 Open으로 남는다.
+- **Open — FeedbackOps 전환 시점:** FeedbackOps가 SDK를 쓰는 전환 시점 = #443 완료 + 배포 경로 확정(#151). 그 전까지 @fops/ui는 FO에 그대로 둔다.
 - 구현 이슈는 이 ADR에서 이어 연다: ① `@ap/contracts` 빌드·`exports`·pack 검사, ② 모노레포 밖 소비자 CI, ③ 릴리스 도구 도입, ④ 디자인 시스템 코드 이전([포괄 목록](../integration/sdk-coverage-inventory.md) §7).

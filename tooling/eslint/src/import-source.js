@@ -1,7 +1,6 @@
 import { PACKAGE_PREFIX } from './prefix.js';
 
 const FEEDBACKOPS_PREFIX = '@fops/';
-const FEEDBACKOPS_UI_ENTRY = '@fops/ui';
 
 // Applies the same import decision as the preset's no-restricted-imports
 // (same options object, built from the same restriction data in index.js)
@@ -38,10 +37,7 @@ function makeEvaluate(opts) {
   return (source) => {
     if (typeof source !== 'string') return null;
     if (devPattern !== null && devPattern.test(source)) return opts.devMessage;
-    if (source.startsWith(FEEDBACKOPS_PREFIX)) {
-      if (opts.allowFeedbackOpsUi && source === FEEDBACKOPS_UI_ENTRY) return null;
-      return opts.feedbackOpsMessage;
-    }
+    if (source.startsWith(FEEDBACKOPS_PREFIX)) return opts.feedbackOpsMessage;
     if (source.startsWith(PACKAGE_PREFIX)) {
       const rest = source.slice(PACKAGE_PREFIX.length);
       const slash = rest.indexOf('/');

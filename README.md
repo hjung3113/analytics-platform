@@ -2,7 +2,7 @@
 
 `context_recognized_parser`가 적재한 설비 로그 데이터를 소비하는 분석 플랫폼. 설비관리, 기준정보관리, 생산성 분석, 지표관리, 공지, VOC를 아우르는 다중 메뉴 플랫폼.
 
-플랫폼 프론트엔드는 루트 pnpm workspace로 개발 중이다(서버는 mock). FeedbackOps `products/feedbackops/packages/ui`·`packages/shared`만 workspace에 포함해 연결하고 UI primitive는 `@ap/ui`를 통해 소비한다. FeedbackOps 앱·백엔드 등 나머지는 자체 workspace를 유지한다. 서버·배포 통합은 아직 결정하지 않았다.
+플랫폼 프론트엔드는 루트 pnpm workspace로 개발 중이다(서버는 mock). FeedbackOps 서브모듈은 workspace에 포함하지 않고(자체 workspace 유지) UI primitive는 `@ap/ui`가 소유한다(ADR-0046). 서버·배포 통합은 아직 결정하지 않았다.
 
 시작점: [플랫폼 문서](docs/INDEX.md) · [저장소 구조와 FeedbackOps 사용법](docs/integration/repository-layout.md) · [FeedbackOps README](products/feedbackops/README.md)
 

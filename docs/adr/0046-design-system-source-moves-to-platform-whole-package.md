@@ -21,5 +21,6 @@
 ## 결과
 
 - #441 병합 후 `@fops/` import가 플랫폼 코드에 없어야 하고, 원본 소유를 서술한 06 §23·DESIGN.md·[ADR-0010](0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](0011-design-direction-feedbackops-shell.md)·[0023](0023-feedbackops-primitive-shapes-and-sizes.md) 머리표시·`packages/ui/AGENTS.md`를 같은 PR에서 고친다(ADR-0043 결과).
-- **Open:** FeedbackOps의 픽셀 비주얼 하니스(`apps/frontend/tests/visual`, 앱 화면에 묶여 darwin 기준 이미지)는 SDK로 옮길 수 없다. SDK가 원본이 된 뒤 토큰·primitive의 시각 검증을 어디서 어떻게 할지(컴포넌트 단위 하니스 등)를 #441 설계에서 정한다. `@fops/shared`와의 수동 복제 드리프트 테스트(`allowlist-drift`·`fixtures-drift`)는 SDK가 `@fops/shared`를 import할 수 없어 FeedbackOps에 남는다.
+- **Open — FeedbackOps 전환 시점:** FeedbackOps가 SDK를 쓰는 전환 시점 = #443 완료 + 배포 경로 확정(#151). 그 전까지 @fops/ui는 FO에 그대로 둔다.
+- **Open:** FeedbackOps의 픽셀 비주얼 하니스(`apps/frontend/tests/visual`, 앱 화면에 묶여 darwin 기준 이미지)는 SDK로 옮길 수 없다. SDK가 원본이 된 뒤 토큰·primitive의 시각 검증을 어디서 어떻게 할지(컴포넌트 단위 하니스 등)를 #441 설계에서 정한다. #441 결과: 이 하니스는 FeedbackOps에 남기고, SDK 쪽 검증은 이전된 토큰 충실도·대비·소비 계약 테스트와 플랫폼 E2E 계약 보고로 한다. 컴포넌트 단위 시각 하니스는 [백로그](../../.planning/backlog.md)에 구현 안 함으로 둔다. `@fops/shared`와의 수동 복제 드리프트 테스트(`allowlist-drift`·`fixtures-drift`)는 SDK가 `@fops/shared`를 import할 수 없어 FeedbackOps에 남는다.
 - 포괄 목록([SDK 포괄 목록](../integration/sdk-coverage-inventory.md) §3.6·§7)의 "디자인 시스템 코드 이전" 행은 이 ADR과 #441–#443이 이어받는다.
