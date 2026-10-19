@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Capability, ContextKey, MenuMeta, PageResult } from '@ap/contracts';
 import { createMockAdapter, getRole, setRole, USERS, type RoleId } from '@ap/mock-server';
-import { metricsMock } from './index';
+import { metricsAuditEvents, metricsMock } from './index';
 import { METRICS } from './catalog';
 import {
   catalogExportEndpoint, catalogListEndpoint, catalogPageEndpoint, definitionEndpoint, metricPairEndpoint,
@@ -103,5 +103,39 @@ describe('metric catalog export endpoint (#173)', () => {
     const ids = METRICS.slice(0, 2).map(m => m.metricId);
     const exported = await adapter.menuQuery({ endpoint: catalogExportEndpoint.id, context: {}, params: { q: null, status: null, domain: null, lang: 'ko' as const, ids, sorting: [] } });
     expect((exported.data as CatalogRow[]).map(r => r.metricId).sort()).toEqual([...ids].sort());
+  });
+});
+
+describe('metric audit seeds (#90, ADR-0047)', () => {
+  const seeded = createMockAdapter({ endpoints: [...metricsMock], registry, auditEvents: metricsAuditEvents });
+
+  it('records each version as a draft, plus publish and deprecate when they happened, at the Seoul wall-clock instant in Z', () => {
+    const expected = METRICS.flatMap(m => m.versions.flatMap(v => [v.registeredAt, v.publishedAt, v.deprecatedAt].filter((t): t is string => t !== null)));
+    expect(metricsAuditEvents).toHaveLength(expected.length);
+    expect(new Set(metricsAuditEvents.map(e => e.id)).size).toBe(metricsAuditEvents.length);
+    const v = METRICS.find(m => m.metricId === 'cycle_time')!.versions.find(x => x.publishedAt === '2026-09-20T11:00:00')!;
+    const published = metricsAuditEvents.find(e => e.id === `cycle_time-v${v.version}-publish`)!;
+    expect(published.at).toBe('2026-09-20T02:00:00.000Z');
+    for (const event of metricsAuditEvents) {
+      expect(event.at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000Z$/);
+      expect(event.target).toEqual({ type: 'metric', id: expect.any(String), scopeId: null });
+    }
+  });
+
+  it('keeps one recorded reason string per event (the Korean original, not a per-language function)', () => {
+    const draft = metricsAuditEvents.find(e => e.id === 'cycle_time-v4-draft')!;
+    expect(draft.reason).toBe(METRICS.find(m => m.metricId === 'cycle_time')!.versions.find(x => x.version === '4')!.changeReason.ko);
+    for (const event of metricsAuditEvents) expect(typeof event.reason).toBe('string');
+  });
+
+  it('answers the console log and the destination read from one store: same events, same order', async () => {
+    setRole('admin');
+    const detail = await seeded.entityAudit({ type: 'metric', id: 'cycle_time', scopeId: null });
+    const log = await seeded.auditTrail({ type: 'metric', targetId: 'cycle_time', pageSize: 100 });
+    expect(detail.outcome).toBe('ok');
+    expect(log.outcome).toBe('ok');
+    const ids = (detail.data?.events ?? []).map(e => e.id);
+    expect(ids.length).toBe(metricsAuditEvents.filter(e => e.target.id === 'cycle_time').length);
+    expect(log.data?.items.map(e => e.id)).toEqual(ids);
   });
 });

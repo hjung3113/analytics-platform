@@ -5,7 +5,10 @@ import { homeMock } from '@ap/menu-home/mock';
 import { metricsMock } from '@ap/menu-metrics/mock';
 import { noticeVocMock } from '@ap/menu-notice-voc/mock';
 // </gen:menu-mock-imports>
+// Audit seeds of menu-owned destinations (ADR-0047) — hand-wired, outside the generator's import region.
+import { metricsAuditEvents } from '@ap/menu-metrics/mock';
 import type { CreateAssembly } from '#platform-assembly';
+import type { AuditEvent } from '@ap/contracts';
 import { createMockAdapter, type AnyMockEndpoint } from '@ap/mock-server';
 import { DevTools } from './DevTools';
 
@@ -24,10 +27,16 @@ export const MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [
 ];
 
 /**
+ * Audit events of menu-owned destinations (ADR-0047). The mock server joins them with its own equipment events,
+ * so the console audit log and each destination's history tab read one store. The conformance test reads this list too.
+ */
+export const MOCK_AUDIT_EVENTS: readonly AuditEvent[] = [...metricsAuditEvents];
+
+/**
  * Mock assembly (#153, ADR-0009): what `#platform-assembly` resolves to in `vite` dev and `--mode mock` builds.
  * Menu mocks are registered in MOCK_ENDPOINTS by `pnpm gen:menu`; a production build never reaches this file.
  */
 export const createAssembly: CreateAssembly = ({ registry }) => ({
-  adapter: createMockAdapter({ endpoints: MOCK_ENDPOINTS, registry }),
+  adapter: createMockAdapter({ endpoints: MOCK_ENDPOINTS, registry, auditEvents: MOCK_AUDIT_EVENTS }),
   topBarTools: <DevTools />,
 });

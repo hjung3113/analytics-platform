@@ -1,14 +1,17 @@
 /**
  * Mock server half of the metric endpoints (#129). Registered by the app composition root via
  * `@ap/menu-metrics/mock`; pages never import this module. The pair verdict, catalog filters and paging,
- * definition, usage and history are all answered here — the page no longer holds the catalog.
+ * definition and usage are answered here; history is the shared audit store's (ADR-0047) — the page no longer holds the catalog.
  */
 import { sortAndPage, sortRows } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
 import {
-  catalogExportEndpoint, catalogListEndpoint, catalogPageEndpoint, definitionEndpoint, historyEndpoint, metricPairEndpoint, usageEndpoint,
+  catalogExportEndpoint, catalogListEndpoint, catalogPageEndpoint, definitionEndpoint, metricPairEndpoint, usageEndpoint,
 } from '../endpoints';
-import { buildDefinition, buildHistory, buildUsage, catalogRows, filterCatalog, judgeGlobalPair } from './catalog';
+import { buildDefinition, buildUsage, catalogRows, filterCatalog, judgeGlobalPair } from './catalog';
+
+/** Metric audit seeds for the shared mock audit store; the app's mock assembly passes them to `createMockAdapter` (ADR-0047). */
+export { METRIC_AUDIT_EVENTS as metricsAuditEvents } from './catalog';
 
 export const metricsMock: readonly AnyMockEndpoint[] = [
   defineMockEndpoint(metricPairEndpoint, {
@@ -40,8 +43,5 @@ export const metricsMock: readonly AnyMockEndpoint[] = [
     handle: ({ params }) => buildUsage(params.metricId, params.version),
     isEmpty: data => data.problem === null && data.rows.length === 0,
     metricVersion: ({ params }) => params.version,
-  }),
-  defineMockEndpoint(historyEndpoint, {
-    handle: ({ params }) => buildHistory(params.metricId, params.lang),
   }),
 ];

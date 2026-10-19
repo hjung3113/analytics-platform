@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import type { Permission } from '@ap/contracts';
 import { createMockAdapter, getRole, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
-import { MOCK_ENDPOINTS } from './dev/mock-assembly';
+import { MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS } from './dev/mock-assembly';
 import { registry } from './menus';
 
 /** Exactly what the app registers: the mock assembly's list, not a copy. */
@@ -33,7 +33,6 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'metrics.catalog.page': { q: null, status: null, domain: null, lang: 'ko', ...page },
   'metrics.definition': { metricId: 'cycle_time', version: '4' },
   'metrics.usage': { metricId: 'cycle_time', version: '4' },
-  'metrics.history': { metricId: 'cycle_time', lang: 'ko' },
   'noticeVoc.myVocHistory': { cursor: null },
 };
 
@@ -50,7 +49,7 @@ describe('conformance harness covers what the app registers', () => {
 });
 
 describeServerConformance('server boundary conformance — mock adapter', {
-  adapter: createMockAdapter({ endpoints, registry }),
+  adapter: createMockAdapter({ endpoints, registry, auditEvents: MOCK_AUDIT_EVENTS }),
   cases,
   context: { scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' },
   foreignScopeId: 'XIA',

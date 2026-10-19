@@ -7,7 +7,7 @@
 import type { AuditEvent } from '@ap/contracts';
 import {
   DOMAINS, PERIOD_BASIS as WALL, STATUSES, versionDiff,
-  type CatalogRow, type DefinitionPayload, type Domain, type HistoryPayload, type Lang, type MetricDef, type MetricVersion,
+  type CatalogRow, type DefinitionPayload, type Domain, type Lang, type MetricDef, type MetricVersion,
   type PairVerdict, type PopulationRule, type PublicationState, type Text, type UsagePayload,
 } from '../endpoints';
 
@@ -418,49 +418,52 @@ export function populationExamples(rule: PopulationRule, equipment: { equipmentI
   return { ids: rows.slice(0, 3).map(e => e.equipmentId), rooms };
 }
 
-export function auditEvents(metric: MetricDef, lang: Lang): AuditEvent[] {
+/** Catalog wall-clock (Asia/Seoul, no DST, 06 §6.3) → the recorded instant, canonical `Z`. */
+const recordedAt = (wallClock: string): string => new Date(`${wallClock}+09:00`).toISOString();
+
+/**
+ * One metric's audit events — seeds for the shared mock audit store (ADR-0047), not a menu endpoint. Reason and
+ * diff values are the recorded Korean strings (an audit record is not translated); `at` is the recorded instant.
+ * The destination triple is 06 §22's: a metric has no site.
+ */
+function metricAuditEvents(metric: MetricDef): AuditEvent[] {
   const events: AuditEvent[] = [];
-  // #50: the destination triple (06 §22). A metric has no site. The `at` stopgap: these catalog digit
-  // strings are zone-less synthetic person-times, and the decided viewer zone is Asia/Seoul (§6.3), so
-  // `+09:00` keeps the hour a Seoul viewer already saw. The catalog objects stay naive — only the audit
-  // `at` gains a zone. Menu-local until follow-up A moves this generator onto the shared store.
   const target = { type: 'metric', id: metric.metricId, scopeId: null };
   let prev: MetricVersion | null = null;
   for (const v of metric.versions) {
-    const diff = versionDiff(v, prev, lang);
     const changes: Record<string, [string | null, string | null]> = { metricVersion: [prev?.version ?? null, v.version] };
-    for (const row of diff) changes[row.field] = [row.before, row.after];
+    for (const row of versionDiff(v, prev, 'ko')) changes[row.field] = [row.before, row.after];
     events.push({
       id: `${metric.metricId}-v${v.version}-draft`,
-      at: `${v.registeredAt}+09:00`,
+      at: recordedAt(v.registeredAt),
       actor: v.updatedBy,
       action: 'create',
       source: 'user',
       target,
-      reason: v.changeReason[lang],
+      reason: v.changeReason.ko,
       changes,
     });
     if (v.publishedAt) {
       events.push({
         id: `${metric.metricId}-v${v.version}-publish`,
-        at: `${v.publishedAt}+09:00`,
+        at: recordedAt(v.publishedAt),
         actor: v.updatedBy,
         action: 'update',
         source: 'user',
         target,
-        reason: lang === 'ko' ? '게시 확정. mart 재계산 완료가 아닙니다.' : 'Published. This is not mart-recompute completion.',
+        reason: '게시 확정. mart 재계산 완료가 아닙니다.',
         changes: { metricVersion: [v.version, v.version], publicationState: ['draft', 'published'] },
       });
     }
     if (v.deprecatedAt) {
       events.push({
         id: `${metric.metricId}-v${v.version}-deprecate`,
-        at: `${v.deprecatedAt}+09:00`,
+        at: recordedAt(v.deprecatedAt),
         actor: v.updatedBy,
         action: 'retire',
         source: 'user',
         target,
-        reason: lang === 'ko' ? '폐기. 기존 참조는 유지하고 최신으로 대체하지 않습니다.' : 'Deprecated. Existing references stay; latest is not substituted.',
+        reason: '폐기. 기존 참조는 유지하고 최신으로 대체하지 않습니다.',
         changes: { metricVersion: [v.version, v.version], publicationState: ['published', 'deprecated'] },
       });
     }
@@ -468,6 +471,9 @@ export function auditEvents(metric: MetricDef, lang: Lang): AuditEvent[] {
   }
   return events;
 }
+
+/** Every catalog metric's audit events, handed to `createMockAdapter({ auditEvents })` by the app's mock assembly (ADR-0047). */
+export const METRIC_AUDIT_EVENTS: readonly AuditEvent[] = METRICS.flatMap(metricAuditEvents);
 
 export function buildDefinition(metricId: string, requestedVersion: string | null, equipment: { equipmentId: string; room: string; status: string; chamberType: string }[]): DefinitionPayload {
   const metric = metricById(metricId);
@@ -487,12 +493,6 @@ export function buildUsage(metricId: string, requestedVersion: string | null): U
     .filter(u => u.versions.includes(requestedVersion))
     .map(u => ({ menuId: u.menuId, place: u.place, version: requestedVersion, evidenceSource: 'declared-dependency' as const, observedAt: null }));
   return { problem: null, rows };
-}
-
-export function buildHistory(metricId: string, lang: Lang): HistoryPayload {
-  const metric = metricById(metricId);
-  if (!metric) return { problem: 'unknown-metric', events: [] };
-  return { problem: null, events: auditEvents(metric, lang) };
 }
 
 /**

@@ -1,11 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { type PageProps, PlatformLink, useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
+import { type PageProps, PlatformLink, useI18n, useMenuQuery, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { AuditTimeline, Field, Panel, PlatformPage, QueryView, ReturnLink, StateMessage, useCopyLink } from '@ap/components';
 import { Button, cn, StatusBadge } from '@ap/ui';
 import { MetricPairBanner } from './MetricCatalog';
 import {
-  PERIOD_BASIS, definitionEndpoint, historyEndpoint, metricPairEndpoint, usageEndpoint, versionDiff,
-  type Lang, type MetricDef, type MetricVersion,
+  PERIOD_BASIS, definitionEndpoint, metricPairEndpoint, usageEndpoint, versionDiff,
+  type MetricDef, type MetricVersion,
 } from '../endpoints';
 import { CONSUMER_LABEL, KIND_LABEL, STATUS_LABEL, STATUS_TONE } from './data';
 
@@ -22,7 +22,7 @@ function sectionId(id: string) { return `metric-section-${id}`; }
 
 export default function MetricDetailPage({ params }: PageProps) {
   const metricId = params.metricId;
-  const { pageParam, setPage, setGlobal, linkTo, resolveLink, global, url } = usePlatform();
+  const { adapter, pageParam, setPage, setGlobal, linkTo, resolveLink, global, url } = usePlatform();
   const { lang, tx } = useI18n();
   const copyVersionLink = useCopyLink(lang === 'ko' ? '이 버전의 링크를 복사했습니다.' : 'Copied the link to this version.');
   const versionParam = pageParam('version');
@@ -33,7 +33,9 @@ export default function MetricDetailPage({ params }: PageProps) {
   const pair = useMenuQuery(metricPairEndpoint, { viewedId: metricId, pageVersion: versionParam });
   const definition = useMenuQuery(definitionEndpoint, { metricId, version: versionParam });
   const usage = useMenuQuery(usageEndpoint, { metricId, version: versionParam ?? '' }, versionParam !== null);
-  const history = useMenuQuery(historyEndpoint, { metricId, lang: lang as Lang });
+  // ADR-0047: the shared audit store, same port read as the equipment Audit tab. A metric has no site, and the
+  // record does not change with the global Context, so session identity: a period or scope change does not refetch.
+  const history = usePlatformQuery(signal => adapter.entityAudit({ type: 'metric', id: metricId, scopeId: null }, signal), [metricId], true, 'session');
 
   // #325-2: the anchor scroll waits until every query rendering at or above the target has answered — any
   // outcome counts as landed (an error section holds its place too), and the pair banner sits above every
@@ -197,7 +199,7 @@ export default function MetricDetailPage({ params }: PageProps) {
 
       <Panel id={sectionId('history')} title={lang === 'ko' ? '변경 이력' : 'Change history'} subtitle={lang === 'ko' ? '정의의 등록·게시·폐기입니다. mart 계산 세대가 아닙니다.' : 'Registration, publication and deprecation of the definition. Not a mart generation.'}>
         <QueryView widgetName={lang === 'ko' ? '변경 이력' : 'Change history'} hideWidgetName query={history} compact skeletonRows={4}>
-          {data => data.problem ? <StateMessage tone="danger" icon={<span className="t-mono">!</span>} title={lang === 'ko' ? '이력을 조회할 지표가 없습니다' : 'No metric to load history for'} body={metricId} /> : <AuditTimeline events={data.events} />}
+          {data => <AuditTimeline events={[...data.events]} />}
         </QueryView>
       </Panel>
       <p className="t-caption text-text-muted">

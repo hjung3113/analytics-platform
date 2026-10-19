@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import type { ApiResponse, Capability, ContextKey, MenuQuery, PlatformAdapter } from '@ap/contracts';
+import type { ApiResponse, AuditEvent, Capability, ContextKey, EntityRef, MenuQuery, PlatformAdapter } from '@ap/contracts';
 import { Activity, Gauge, Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, type MenuEntry } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
@@ -169,7 +169,6 @@ function fixtureAdapter(): PlatformAdapter {
         .map(u => ({ menuId: u.menuId, place: u.place, version, evidenceSource: 'declared-dependency' as const, observedAt: null }));
       return asFixtureResponse(usageResponse({ problem: null, rows }));
     }
-    if (req.endpoint === 'metrics.history') return asFixtureResponse({ outcome: 'ok', data: { problem: null, events: [] }, assessments: [...MART_ASSESSMENTS], trust: null, correlationId: 'corr-fixture' });
     if (req.endpoint === 'metrics.pair') return asFixtureResponse({ outcome: 'ok', data: { kind: 'absent' }, assessments: [...MART_ASSESSMENTS], trust: null, correlationId: 'corr-fixture' });
     return empty;
   };
@@ -217,6 +216,38 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(
 // 06 §18: Data Trust states a displayed number's status. The definition section shows no numbers, and the envelope
 // trust describes the catalog mart read — so no version state (draft, published, deprecated) gets a trust claim there
 // (user decision 2026-10-13, #299 UX review).
+describe('MetricDetail change history reads the shared audit store (#90, ADR-0047)', () => {
+  it('asks entityAudit for the metric with no site, never a menu history endpoint, and shows the recorded reason in English too', async () => {
+    const store = new Map<string, string>([['platform:lang', 'en']]);
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => { store.set(key, value); },
+      removeItem: (key: string) => { store.delete(key); },
+      clear: () => { store.clear(); },
+      key: (index: number) => [...store.keys()][index] ?? null,
+      get length() { return store.size; },
+    });
+    const refs: EntityRef[] = [];
+    const endpoints: string[] = [];
+    const recorded: AuditEvent = {
+      id: 'cycle_time-v4-publish', at: '2026-09-20T02:00:00.000Z', actor: 'park.seo', action: 'update', source: 'user',
+      target: { type: 'metric', id: 'cycle_time', scopeId: null }, reason: '게시 확정. mart 재계산 완료가 아닙니다.',
+      changes: { publicationState: ['draft', 'published'] },
+    };
+    const base = fixtureAdapter();
+    const adapter: PlatformAdapter = {
+      ...base,
+      menuQuery: (req, signal) => { endpoints.push(req.endpoint); return base.menuQuery(req, signal); },
+      entityAudit: async ref => { refs.push(ref); return { outcome: 'ok', data: { events: [recorded] }, assessments: [], trust: null, correlationId: 'corr-audit' }; },
+    };
+    renderDetail('/metrics/cycle_time?version=4', 'cycle_time', adapter);
+    expect(await screen.findByText('게시 확정. mart 재계산 완료가 아닙니다.')).toBeTruthy();
+    expect(screen.getAllByText('Change history').length).toBeGreaterThan(0); // the screen is English; the record is not translated
+    expect(refs).toEqual([{ type: 'metric', id: 'cycle_time', scopeId: null }]);
+    expect(endpoints).not.toContain('metrics.history');
+  });
+});
+
 describe('MetricDetail definition draws no Data Trust (#299 B-10, 06 §18)', () => {
   it.each([
     ['queue_time@1 (draft, no published pointer)', '/metrics/queue_time?v=1&version=1', 'queue_time', '초안'],

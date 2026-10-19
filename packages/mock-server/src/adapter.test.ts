@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { AuditEvent } from '@ap/contracts';
 import { createMockAdapter } from './adapter';
+import { MockRegistrationError } from './endpoints';
 import { getRole, matchesCondition, setRole, setScenario } from './server';
 import { EQUIPMENT, USERS, type RoleId } from './world';
 
@@ -108,5 +110,36 @@ describe('scope_error scenario (#167)', () => {
       setScenario('scope_error');
       expect((await passing).status).toBe('valid');
     } finally { setScenario('normal'); setRole(before); }
+  });
+});
+
+describe('createMockAdapter auditEvents (ADR-0047: menu-owned audit seeds)', () => {
+  const seed = (patch: Partial<AuditEvent> = {}): AuditEvent => ({
+    id: 'metric-x-v1-draft', at: '2026-09-20T02:00:00.000Z', actor: 'park.seo', action: 'create', source: 'user',
+    target: { type: 'metric', id: 'x', scopeId: null }, reason: '최초 등록', ...patch,
+  });
+  const build = (events: AuditEvent[]) => () => createMockAdapter({ endpoints: [], registry: { menus: [] }, auditEvents: events });
+
+  it('serves the seeds through both auditTrail and entityAudit', async () => {
+    const before = getRole();
+    try {
+      setRole('admin');
+      const adapter = build([seed()])();
+      const detail = await adapter.entityAudit({ type: 'metric', id: 'x', scopeId: null });
+      const log = await adapter.auditTrail({ type: 'metric' });
+      expect(detail.data?.events.map(e => e.id)).toEqual(['metric-x-v1-draft']);
+      expect(log.data?.items.map(e => e.id)).toEqual(['metric-x-v1-draft']);
+      expect((await mockAdapter.entityAudit({ type: 'metric', id: 'x', scopeId: null })).outcome).toBe('empty');
+    } finally { setRole(before); }
+  });
+
+  it.each([
+    ['a duplicate id', [seed(), seed()]],
+    ['an equipment target (the mock server owns equipment events)', [seed({ target: { type: 'equipment', id: 'ICH-PHOTO-0103', scopeId: 'ICH' } })]],
+    ['an undeclared target type', [seed({ target: { type: 'lot', id: 'L1', scopeId: null } })]],
+    ['a metric with a site', [seed({ target: { type: 'metric', id: 'x', scopeId: 'ICH' } })]],
+    ['a zone-less time', [seed({ at: '2026-09-20T11:00:00' })]],
+  ])('refuses %s at registration', (_name, events) => {
+    expect(build(events)).toThrow(MockRegistrationError);
   });
 });
