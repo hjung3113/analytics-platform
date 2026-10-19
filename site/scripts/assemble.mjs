@@ -233,7 +233,9 @@ if (shots.length) {
         `<button type="button" data-shot-filter="${id}" aria-pressed="${id === "all"}">${label}</button>`,
     )
     .join("");
-  const tiles = shots
+  // inset-* 캡처는 히어로 확대용 조각이라 갤러리에 다시 싣지 않는다.
+  const galleryShots = shots.filter((shot) => !shot.id.startsWith("inset-"));
+  const tiles = galleryShots
     .map((shot) => {
       // 상태 화면은 응답 시나리오를 링크로 재현할 수 없으므로 데모 링크 대신
       // 재현 방법을 한 줄로 안내한다.
@@ -244,7 +246,7 @@ if (shots.length) {
       return `<article class="shot-tile" data-shot-group="${shot.group}"><button type="button" class="shot-open" data-shot-open="${shot.id}" aria-haspopup="dialog" aria-label="${escapeHtml(shot.title)} 크게 보기">${image(shot)}</button><div class="shot-copy"><h4>${escapeHtml(shot.title)}</h4><p>${escapeHtml(shot.description)}</p>${demoLink}</div></article>`;
     })
     .join("");
-  const gallery = `<details class="appendix-content gallery-details" id="actual-shots-details"><summary>실제 화면 ${shots.length}장 펼치기</summary><div class="shot-gallery" id="actual-shots" aria-labelledby="actual-shots-heading"><h3 id="actual-shots-heading">실제 화면</h3><p class="lead">아래는 데모 앱을 배포 때마다 자동으로 찍은 실제 화면입니다(mock 합성 데이터).</p><p class="caption">등록 유형: 선·막대(메뉴 사용 중)·파이·산점도(등록됨, 메뉴 미사용). <a class="source-ref" href="#source-L62">L62</a> · <a class="source-ref" href="#source-L63">L63</a></p><div class="shot-filters" role="group" aria-label="실제 화면 분류">${filters}</div><p id="shot-count" class="caption" role="status" aria-live="polite">${shots.length}개 화면</p><div class="shot-grid">${tiles}</div></div></details>
+  const gallery = `<details class="appendix-content gallery-details" id="actual-shots-details"><summary>실제 화면 ${galleryShots.length}장 펼치기</summary><div class="shot-gallery" id="actual-shots" aria-labelledby="actual-shots-heading"><h3 id="actual-shots-heading">실제 화면</h3><p class="lead">아래는 데모 앱을 배포 때마다 자동으로 찍은 실제 화면입니다(mock 합성 데이터).</p><p class="caption">등록 유형: 선·막대(메뉴 사용 중)·파이·산점도(등록됨, 메뉴 미사용). <a class="source-ref" href="#source-L62">L62</a> · <a class="source-ref" href="#source-L63">L63</a></p><div class="shot-filters" role="group" aria-label="실제 화면 분류">${filters}</div><p id="shot-count" class="caption" role="status" aria-live="polite">${galleryShots.length}개 화면</p><div class="shot-grid">${tiles}</div></div></details>
   <dialog class="shot-dialog" id="shot-dialog" aria-modal="true" aria-labelledby="shot-dialog-title" aria-describedby="shot-dialog-description"><div class="shot-dialog-controls"><h3 id="shot-dialog-title"></h3><button type="button" data-shot-close autofocus>닫기</button></div><img id="shot-dialog-image" alt=""><p id="shot-dialog-description"></p><div class="shot-dialog-controls"><button type="button" data-shot-prev>이전</button><span id="shot-dialog-position" role="status"></span><button type="button" data-shot-next>다음</button><a class="button secondary" data-demo hidden id="shot-dialog-demo" target="_blank" rel="noopener">데모에서 열기</a></div></dialog>`;
   html = html
     .replace(
@@ -280,7 +282,8 @@ const shotById = new Map(shots.map((shot) => [shot.id, shot]));
 html = html.replace(figureSlot, (whole, cls, id, inner) => {
   const shot = shotById.get(id);
   if (!shot) return "";
-  const img = `<img src="assets/shots/${shot.id}.png" loading="lazy" width="${shot.width}" height="${shot.height}" alt="${escapeHtml(shot.title + ". " + shot.description)}">`;
+  // CSS의 width:auto는 width 속성을 무시하고 PNG 픽셀(DPR2)로 되돌아가므로 CSS px 폭을 인라인으로 고정한다(2배 확대 방지).
+  const img = `<img src="assets/shots/${shot.id}.png" loading="lazy" width="${shot.width}" height="${shot.height}" style="width:${shot.width}px" alt="${escapeHtml(shot.title + ". " + shot.description)}">`;
   const marks = (shot.marks || []).length
     ? `<ol class="callouts" aria-hidden="true">${shot.marks.map((m) => `<li style="--x:${m.x}%;--y:${m.y}%"><span class="callout-no">${m.n}</span></li>`).join("")}</ol>`
     : "";

@@ -163,6 +163,9 @@
         }).join(" · ");
       }
     }
+    function sameNoteText(same) {
+      return "이 칸의 조건 전체 · 선택한 칸과 같은 것 " + same + "개";
+    }
     function updatePaneSelection() {
       var sheet = currentSheet();
       var activeContext = sheet.panes[selectedPane].context;
@@ -177,6 +180,8 @@
         sameSummary.textContent = "같음 " + diff.same;
         sameSummary.title = "다른 칸과 같은 조건 " + diff.same + "개";
         sameSummary.setAttribute("aria-label", "칸 " + (index + 1) + "의 같은 조건 전체 보기");
+        var sameNote = article.querySelector(".board-popover-note");
+        if (sameNote) sameNote.textContent = sameNoteText(diff.same);
       });
     }
     function svgNode(name, attributes, className) {
@@ -189,7 +194,7 @@
     }
     // Each cell sketches a different chart shape so the board reads as different analyses: trend, bars, distribution, table.
     function buildMiniChart(kind, values) {
-      var chart = svgNode("svg", { viewBox: "0 0 360 112" }, "board-chart");
+      var chart = svgNode("svg", { viewBox: "0 0 360 112", preserveAspectRatio: "none" }, "board-chart");
       chart.setAttribute("aria-hidden", "true");
       if (kind === "table") {
         [0, 1, 2, 3].forEach(function (row) {
@@ -258,9 +263,11 @@
           }
           selectPane(index, false);
         });
-        article.addEventListener("focusin", function (event) {
-          if (event.target !== article) return;
-          selectPane(index, true);
+        // Focus entering the pane or any control inside it selects the pane in place, so the focused control keeps focus.
+        article.addEventListener("focusin", function () {
+          if (selectedPane === index) return;
+          selectedPane = index;
+          updatePaneSelection();
         });
         var header = document.createElement("div");
         header.className = "board-pane-head";
@@ -282,7 +289,7 @@
         sameSummary.title = "다른 칸과 같은 조건 " + diff.same + "개";
         sameSummary.setAttribute("aria-label", "칸 " + (index + 1) + "의 같은 조건 전체 보기");
         var allConditions = document.createElement("ul");
-        addText(allConditions, "li", "이 칸의 조건 전체 · 선택한 칸과 같은 것 " + diff.same + "개", "board-popover-note");
+        addText(allConditions, "li", sameNoteText(diff.same), "board-popover-note");
         Object.keys(pane.context).forEach(function (key) {
           addText(allConditions, "li", key + " · " + pane.context[key]);
         });

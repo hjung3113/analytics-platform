@@ -85,7 +85,11 @@ try {
   page.setDefaultTimeout(15000);
   const button = (name, parent = page) => parent.getByRole("button", { name, exact: true });
   const trend = () => page.getByRole("region", { name: "사이클타임 추세", exact: true });
+  // go()가 매번 뷰포트를 이 높이로 되돌려, 앞 캡처가 키운 뷰포트가 다음에 새지 않는다.
+  let viewportHeight = 900;
+  let viewportWidth = 1440;
   async function go(path) {
+    await page.setViewportSize({ width: viewportWidth, height: viewportHeight });
     await page.goto(origin + base.slice(0, -1) + path);
     await page.getByRole("main").getByRole("heading", { level: 1 }).waitFor();
     await expect(page.getByRole("main").locator('[aria-busy="true"]')).toHaveCount(0);
@@ -148,6 +152,25 @@ try {
     }
     return { x: box.x - pad, y: box.y - pad, width: box.width + pad * 2, height: box.height + pad * 2 };
   }
+  // 글자 하나에서 시작해, 폭 640px 미만이고 글이 짧은 가장 바깥 부모까지 올라가 메시지 상자 하나를 찍는다.
+  async function messageClip(locator, pad = 12) {
+    await expect(locator).toBeVisible();
+    await locator.scrollIntoViewIfNeeded();
+    const box = await locator.evaluate((el) => {
+      let node = el;
+      while (
+        node.parentElement &&
+        node.parentElement.tagName !== "MAIN" &&
+        node.parentElement.getBoundingClientRect().height < 170 &&
+        node.parentElement.innerText.length < 300
+      )
+        node = node.parentElement;
+      const r = node.getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    });
+    // 글자가 화면에서 11px 이상으로 보이도록 폭을 600px로 자른다(왼쪽부터).
+    return { x: box.x - pad, y: box.y - pad, width: Math.min(box.width, 600) + pad * 2, height: box.height + pad * 2 };
+  }
   // 팝오버·메뉴는 열린 직후 위치가 정착되기 전에 재므로 두 번 연결 같은 상자를 볼 때까지 기다린다.
   async function stableBox(locator) {
     let prev = await locator.boundingBox();
@@ -206,6 +229,11 @@ try {
       hideSticky: false,
     };
   }
+  // 감사·레지스트리처럼 긴 표는 머리와 첫 몇 행, 왼쪽 열만 원본 크기로 찍는다.
+  async function tableCropClip() {
+    const clip = await elementClip(page.getByRole("main").getByRole("table").first());
+    return { clip: { ...clip, width: Math.min(clip.width, 560), height: Math.min(clip.height, 360) }, cover: true, hideSticky: false };
+  }
   // 번호 위치: 캡처 영역 안에서 대상 요소의 왼쪽 위 모서리를 %로 잰다. 못 찾은 번호는 건너뛴다.
   async function placeMarks(targets, area) {
     const marks = [];
@@ -236,7 +264,7 @@ try {
     if (hideSticky) await hideChrome(area.y);
     const png = await page.screenshot({ clip: area, animations: "disabled", caret: "hide", scale: "device" });
     if (hideSticky) await restoreChrome();
-    if (png.length < 10 * 1024) throw new Error(`캡처가 비어 있을 수 있습니다(${(png.length / 1024).toFixed(1)} KB)`);
+    if (png.length < (group === "states" ? 4 : 10) * 1024) throw new Error(`캡처가 비어 있을 수 있습니다(${(png.length / 1024).toFixed(1)} KB)`);
     await writeFile(join(options.out, `${id}.png`), png);
     manifest.push({
       id,
@@ -438,14 +466,7 @@ try {
       await tableReady();
       await button("컬럼", table()).click();
     },
-    () =>
-      unionClip(
-        [
-          table().getByRole("button", { name: "컬럼", exact: true }),
-          page.getByRole("dialog").filter({ hasText: "컬럼 설정" }),
-        ],
-        12,
-      ).then((clip) => ({ clip, cover: true })),
+    () => unionClip([page.getByRole("dialog").filter({ hasText: "컬럼 설정" })], 0).then((clip) => ({ clip, cover: true })),
   );
   const drawer = () => page.getByRole("complementary", { name: "상세 패널" }).getByRole("dialog");
   async function openDrawer() {
@@ -454,10 +475,16 @@ try {
     await expect(drawer()).toBeVisible();
     await expect(drawer().locator('[aria-busy="true"]')).toHaveCount(0);
   }
-  // 세로로 긴 패널은 위쪽 내용 중심만 찍는다.
+  // 패널 전체를 찍는다(잘리지 않게). 화면 높이가 모자라면 먼저 뷰포트를 키운다.
   const drawerTopClip = async () => {
-    const box = await drawer().boundingBox();
-    return { clip: { x: box.x, y: box.y, width: box.width, height: Math.min(box.height, 500) }, cover: true };
+    const box = await stableBox(drawer());
+    const viewport = page.viewportSize();
+    if (box.y + box.height > viewport.height) {
+      await page.setViewportSize({ width: viewport.width, height: Math.ceil(box.y + box.height) + 24 });
+      const moved = await stableBox(drawer());
+      return { clip: { x: moved.x, y: moved.y, width: moved.width, height: moved.height }, cover: true };
+    }
+    return { clip: { x: box.x, y: box.y, width: box.width, height: box.height }, cover: true };
   };
   await capture(
     "drawer",
@@ -492,7 +519,7 @@ try {
       await button("데이터 신뢰").first().click();
     },
     () =>
-      unionClip([page.getByRole("dialog").filter({ hasText: "문제 없음은" })], 6).then((clip) => ({ clip, cover: true })),
+      unionClip([page.getByRole("dialog").filter({ hasText: "문제 없음은" })], 0).then((clip) => ({ clip, cover: true })),
     ["C8"],
   );
   await capture(
@@ -513,7 +540,7 @@ try {
       await go(productivity);
       await button(/^Scope:/).click();
     },
-    () => unionClip([button(/^Scope:/), page.getByRole("menu")], 12).then((clip) => ({ clip, cover: true })),
+    () => unionClip([page.getByRole("menu")], 0).then((clip) => ({ clip, cover: true })),
     ["U4"],
   );
   await capture(
@@ -571,6 +598,8 @@ try {
     },
     mainContentClip,
   );
+  // 상태 메시지는 좁은 화면(700px)에서 찍어 글이 상자 안에서 줄바꿈되고 가장자리에서 잘리지 않게 한다.
+  viewportWidth = 700;
   for (const [id, label, title, description] of [
     ["empty", "0건 (empty)", "조건에 맞는 결과가 없습니다", "0건 결과를 오류와 구분해 보여 줍니다"],
     ["error", "서버 오류 (error)", "데이터를 불러오지 못했습니다", "조회 실패를 다시 시도 버튼과 함께 알립니다"],
@@ -590,11 +619,12 @@ try {
         await expect(page.getByRole("main").getByText(title, { exact: true }).first()).toBeVisible();
         await expect(page.getByRole("table")).toHaveCount(0);
       },
-      // 상태 메시지 상자가 들린 전체 화면 대신 설비 목록 패널만 찍는다.
-      () => elementClip(table()),
+      // 목록 패널 전체 대신 상태 메시지 상자만 찍어, 화면에서 글자가 읽히게 한다.
+      () => messageClip(page.getByRole("main").getByText(title, { exact: true }).first()).then((clip) => ({ clip, cover: true })),
       id === "error" ? ["C11"] : [],
     );
   }
+  viewportWidth = 1440;
   // 02 절 주석 캡처: 1440폭 전체 화면(셸 포함). 번호 7개의 위치를 캡처 때 잰다.
   await capture(
     "cycle-time-full",
@@ -602,7 +632,7 @@ try {
     "조건 바·차트·표·상세 진입·VOC 진입이 한 화면에 있는 모습입니다.",
     "tables",
     async () => {
-      await page.setViewportSize({ width: 1440, height: 1100 });
+      viewportHeight = 1280;
       await cycle();
     },
     () => {
@@ -614,12 +644,33 @@ try {
       [1, () => page.getByRole("button", { name: "링크 복사", exact: true }).locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' sticky ')][1]")],
       [2, () => page.getByRole("button", { name: "링크 복사", exact: true })],
       [3, () => button("데이터 신뢰").first()],
-      [4, () => button("비교", trend())],
-      [5, () => page.getByRole("button", { name: "컬럼", exact: true })],
-      [6, () => button(/^Scope:/)],
-      [7, () => page.getByText("Wafer Journey", { exact: true }).first()],
+      [4, () => button(/^Scope:/)],
     ],
   );
+  // 히어로 확대 인셋: 같은 화면에서 조건 바(왼쪽 560px)와 데이터 신뢰 패널을 원본 크기로 잘라 낸다.
+  await capture(
+    "inset-context",
+    "조건 바 확대",
+    "기간·사이트·공정 조건이 모인 전역 조건 바를 원본 크기로 봅니다.",
+    "shell",
+    async () => {},
+    async () => {
+      const clip = await unionClip([page.getByRole("button", { name: "링크 복사", exact: true }).locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' sticky ')][1]")], 0);
+      return { clip: { ...clip, width: Math.min(clip.width, 560) }, hideSticky: false };
+    },
+  );
+  await capture(
+    "inset-trust",
+    "데이터 신뢰 표시 확대",
+    "갱신 시각·커버리지·지표 버전·원천을 펼친 패널을 원본 크기로 봅니다.",
+    "tables",
+    async () => {
+      await button("데이터 신뢰").first().click();
+    },
+    () => unionClip([page.getByRole("dialog").filter({ hasText: "문제 없음은" })], 0).then((clip) => ({ clip, cover: true })),
+  );
+  await page.keyboard.press("Escape");
+  viewportHeight = 900;
   await page.setViewportSize({ width: 1440, height: 900 });
   await capture(
     "feedbackops-entry",
@@ -647,7 +698,7 @@ try {
       await expect(dialog).toContainText("BRAVO");
     },
     // Dialog only: the trigger sits over page content, which would show behind the crop.
-    () => unionClip([page.getByRole("dialog", { name: "업무 시스템 전환", exact: true })], 4).then((clip) => ({ clip, cover: true })),
+    () => unionClip([page.getByRole("dialog", { name: "업무 시스템 전환", exact: true })], 0).then((clip) => ({ clip, cover: true })),
   );
   // Console screens need the demo's platform-admin role (the same switch D8 tells readers to use).
   await page.evaluate(() => localStorage.setItem("platform:role", JSON.stringify("admin")));
@@ -660,7 +711,7 @@ try {
       await go("/admin/audit?v=1");
       await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "변경 감사", exact: true })).toBeVisible();
     },
-    mainContentClip,
+    tableCropClip,
   );
   await capture(
     "menu-registry",
@@ -671,7 +722,7 @@ try {
       await go("/admin/registry?v=1");
       await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "메뉴 레지스트리", exact: true })).toBeVisible();
     },
-    mainContentClip,
+    tableCropClip,
   );
   const total = (await Promise.all(manifest.map((s) => stat(join(options.out, `${s.id}.png`))))).reduce(
     (sum, s) => sum + s.size,
