@@ -25,5 +25,5 @@
 ## 결과
 
 - 화면 하나를 올리는 데 필요한 것이 manifest + 화면 컴포넌트 + 연결 한 줄로 줄어든다.
-- 계약 1판은 소비자가 없는 기능을 넣지 않는다. 저장된 뷰·Context 바 쓰기·쓰기 포트는 2판 이후다(쓰기 포트는 [SDK 포괄 목록](../integration/sdk-coverage-inventory.md) §5-3의 별도 항목).
+- 계약 1판은 소비자가 없는 기능을 넣지 않는다. 저장된 뷰·Context 바 쓰기는 2판 이후다. 쓰기 포트는 [ADR-0054](0054-write-port-declared-actions-idempotency-version.md)가 1판의 선택 기능 `write`로 더한다(기능 검사가 fail closed라 `contract` 정수는 그대로).
 - 1판 이후 바꾸면 `contract` 정수를 올리고, 호스트는 받아들일 버전을 명시한다.

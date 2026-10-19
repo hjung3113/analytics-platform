@@ -65,7 +65,7 @@
 | --- | --- | --- | --- | --- |
 | 조회 선언·포트 | `EndpointSpec`·`PlatformAdapter.menuQuery`·`useMenuQuery`·`useMenuFetch` | `apiRequest` + Zod 파서 필수, TanStack Query 훅 | `defineEndpoint` 제안(`equipment.topview.*`) | ✅ AP |
 | 응답·오류 의미 | `ApiResponse{outcome, assessments, trust}`, 어댑터는 던지지 않음 | `{code, message, detail, requestable_permission}`, code→HTTP 표는 **백엔드 `lib/errors.ts`**, `ERROR_CODES`는 도메인 코드가 섞인 닫힌 enum | Data Quality Issues·Evidence 4단계 | ✅ AP 의미 체계. FO code→outcome 변환은 서버 어댑터(⬜). 합치지 않음(통합 계획 §3 유지) |
-| 쓰기 포트 | 주석 저장·삭제(`saveAnnotation`·`deleteAnnotation`)뿐, 일반 쓰기 포트 없음 | `Idempotency-Key` 자동 발급(프런트) + advisory lock·해시·재생(백엔드), 낙관적 동시성 3방식 | Studio는 파일 API(개발 전용), 플랫폼 쓰기는 설계 없음(#334) | ⬇ FO 규약을 근거로 🆕 쓰기 포트를 설계한다 |
+| 쓰기 포트 | 주석 저장·삭제(`saveAnnotation`·`deleteAnnotation`)뿐, 일반 쓰기 포트 없음 | `Idempotency-Key` 자동 발급(프런트) + advisory lock·해시·재생(백엔드), 낙관적 동시성 3방식 | Studio는 파일 API(개발 전용), 플랫폼 쓰기는 설계 없음(#334) | ⬇ FO 규약을 근거로 🆕 쓰기 포트를 설계한다 → [ADR-0054](../adr/0054-write-port-declared-actions-idempotency-version.md)(#501·#502) |
 | 목록 페이지 계약 | `PageQuery`·`PageResult`·`sortAndPage` | 커서 페이지 계약, rate-limit 헤더 파싱, 304/ETag | 해당 없음 | ✅ + ⬇ 커서·rate-limit 헤더 |
 | 파서의 개인정보 방어 | — | `ApiParseError`가 값을 담지 않음, 파서 우회 `fetch(` ratchet allowlist 테스트 | 해당 없음 | ⬇ 비교 후 규칙만 가져옴. ⛔ 우회 `fetch(` 18곳과 레거시 `apiClient` 58곳 |
 | 라우트 오류 경계·오류 보고 | `RouteErrorBoundary`·`reportClientError` | `errorComponent`뿐, 클라이언트 오류 보고 없음 | 없음 | ✅ AP (FO·EV에 근거 없음) |
@@ -166,7 +166,7 @@
 
 1. 호스트 포트(`ModuleHost`)·화면 manifest·`contract` 정수와 필수·선택 기능 검사
 2. 열린 권한·그룹 어휘(모듈 접두사)와 모듈 경로 접두사
-3. 쓰기 포트(FO의 Idempotency-Key·동시성 규약을 근거로)
+3. 쓰기 포트(FO의 Idempotency-Key·동시성 규약을 근거로) — [ADR-0054](../adr/0054-write-port-declared-actions-idempotency-version.md)
 4. React 밖 `signal`·모듈 상태(`auth_required` 등)·도착 포커스 대상·문서 제목 소유
 5. 기계가 읽는 테마 계약(EV는 24개 중 9개만 매핑, 나머지는 hex fallback)
 6. 호스트 쪽 입력 검증 공유 위치(EV의 Binding→Mapping Version→Layout 검증이 `apps/studio`에 있어 `platform-adapter`가 복제하게 된다)
