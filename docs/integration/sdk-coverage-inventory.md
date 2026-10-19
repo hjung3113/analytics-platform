@@ -149,7 +149,7 @@
 | FO `returnTo`는 Findings만 | 여러 라우트의 공유 필드이고 허용목록 3경로 |
 | FO capability 내비 | 관리자 섹션만 문자열 필터 |
 | FO code→HTTP 표를 `@fops/shared`로 가정 | 백엔드 `lib/errors.ts`. `ERROR_CODES`는 도메인 코드가 섞인 enum |
-| FO#1202 `scrim` variant | 이 사본에는 `palette` variant뿐 |
+| FO#1202 `scrim` variant | `@ap/ui` `DialogContent scrim="palette"`(#310). FO#1202는 FO #1050과 같은 값이라 닫음 |
 | EV는 "primitive 없음, 디자인 lint 없음" | `@fops/ui`를 서브모듈로 소비(EV ADR-0008), `@shadcn/lint` 6규칙 적용, `packages/ui`(`@eqv/ui`, 컴포넌트 14개)가 AP 셸·표를 복사 |
 | EV 셸은 얇다 | 세 번째 셸 구현(`AppFrame`) |
 | EV `packages/replay`는 "계획만" | 존재한다. `platform-adapter`는 아직 없음 |

@@ -14,6 +14,8 @@
 - **구현 안 함 — 간헐 실패 1회 기록:** `packages/shell/src/SystemSwitcher.test.tsx` "lets a lazy arrival keep the title when the switcher is reopened before it resolves"가 main 기준 문서만 바뀐 PR(#447)의 CI에서 1회 실패했다(`h1` 대신 전환 버튼이 포커스를 가짐, 1655ms). 로컬에서는 부하 루프(CPU ×20)로 파일 전체 12회·단일 12회·무부하 12회 모두 통과해 재현하지 못했다. 미검증 가설: Escape 뒤 Radix `onCloseAutoFocus`(`setTimeout 0`)와 새 제목의 도착 포커스 effect(React 스케줄러) 순서가 느린 러너에서 뒤집힌다. 다시 열 조건: 두 번째 발생 — 이슈로 올리고 그때 CI 로그 두 건을 대조해 진단한다.
 - **구현 안 함 — 관리 화면 필터 초기화 범위 통일(#419 ②):** `useManagementFilters`의 초기화가 화면마다 다르다(설비는 sort 유지, 권한·감사는 sort·focus·tab까지 지움, #411 이전부터). 이유: 동작을 바꾸는 상태 코드이고 사용자 불편 신고가 없다(정비 슬라이스 15 콘덕터 결정, 2026-10-19). 다시 볼 조건: 초기화 동작에 대한 사용자 지적, 또는 `useManagementFilters`를 다시 만질 때.
 - **구현 안 함 — `RowAction`의 컨트롤별 `TooltipProvider`(#419 ④):** 컨트롤마다 provider를 만든다. 이유: 측정된 성능 문제가 없다. 다시 볼 조건: 행이 많은 표에서 렌더 비용이 측정될 때.
+- **구현 안 함 — `@ap/ui` 팔레트 층 경로 하나로(슬라이스 15 품질 Q5):** 팔레트 층을 만드는 길이 둘이다(`DialogContent scrim="palette"`와 `DialogOverlay`+`DialogContentBare variant="palette"`, 후자는 비공개). `z-60`도 두 곳에 따로 적혀 있다. 팔레트 내용이 z-60이라 앞으로 팔레트 안에 Tooltip·Popover·Select(z-50 portal)를 넣으면 뒤로 숨는다(지금은 그런 자식이 없다). 이유: 지금 소비자 하나, 결함 없음. 다시 볼 조건: 팔레트 안에 portal 자식을 넣을 때, 또는 `DialogContentBare`를 공개할 때.
+- **소유자 결정 후보 — FeedbackOps 링크 E2E 겹침(슬라이스 15 품질 Q2 관련):** #451의 공간 수 test 3건이 #251 describe의 admin 블록 test와 engineer·viewer "전체 링크 없음" test를 거의 다 덮는다. 테스트 삭제·합치기는 소유자 결정이라 하지 않았다. 다시 볼 조건: 소유자가 정할 때.
 
 ## 설계 원칙 메모
 

@@ -27,7 +27,8 @@ export const ACTION_LABEL: Record<AuditAction, { ko: string; en: string }> = {
 export const SOURCE_LABEL: Record<AuditSource, { ko: string; en: string }> = {
   user: { ko: '사용자', en: 'User' }, system: { ko: '시스템', en: 'System' },
 };
-export const TYPE_LABEL: Record<'equipment' | 'metric' | 'annotation', { ko: string; en: string }> = {
+export type AuditTargetType = 'equipment' | 'metric' | 'annotation';
+export const TYPE_LABEL: Record<AuditTargetType, { ko: string; en: string }> = {
   equipment: { ko: '설비', en: 'Equipment' }, metric: { ko: '지표', en: 'Metric' }, annotation: { ko: '차트 주석', en: 'Chart annotation' },
 };
 
@@ -36,7 +37,7 @@ const AUDIT_ACTIONS: readonly string[] = Object.keys(ACTION_LABEL);
 const AUDIT_SOURCES: readonly string[] = Object.keys(SOURCE_LABEL);
 
 export type AuditFilters = {
-  type: 'equipment' | 'metric' | 'annotation' | null;
+  type: AuditTargetType | null;
   actor: string | null;
   action: AuditAction | null;
   source: AuditSource | null;

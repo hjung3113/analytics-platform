@@ -156,7 +156,7 @@ export default function MetricCatalogPage(_: PageProps) {
       />}
       <p className="t-caption text-text-muted">
         {lang === 'ko'
-          ? `${notFilters}${topicParticle(CONTEXT_LABELS[NOT_FILTER_KEYS[NOT_FILTER_KEYS.length - 1]].ko)} 이 목록의 필터가 아닙니다. 검색·상태·도메인으로 거릅니다. 예시 데이터입니다.`
+          ? `${notFilters}${topicParticle(CONTEXT_LABELS[NOT_FILTER_KEYS.at(-1)!].ko)} 이 목록의 필터가 아닙니다. 검색·상태·도메인으로 거릅니다. 예시 데이터입니다.`
           : `${notFilters} do not filter this list. It is filtered by search, status and domain. Synthetic data.`}
       </p>
     </div>
