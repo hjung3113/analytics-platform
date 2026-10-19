@@ -125,7 +125,7 @@ describe('auditTrail (issue #50: the console audit log)', () => {
     ['page 0', { page: 0 }],
     ['pageSize 101', { pageSize: 101 }],
     ['sort outside the union', { sort: { field: 'changes' as AuditSortField, desc: true } }],
-    ['unknown key', { scopeId: 'ICH' } as unknown as AuditTrailQuery],
+    ['unknown key', { scopeId: 'MEM' } as unknown as AuditTrailQuery],
   ])('rejects %s as Invalid audit filter, without echoing a reason', async (_name, query) => {
     const res = await auditTrail(query, undefined, { role: 'admin', latency: 0 });
     expect(res.outcome).toBe('error');
@@ -157,9 +157,9 @@ describe('auditTrail (issue #50: the console audit log)', () => {
     const plain = await auditTrail({}, undefined, { role: 'engineer', latency: 0 });
     expect(plain.outcome).toBe('forbidden');
     expect(plain.message).toContain('console:access');
-    const filtered = await auditTrail({ type: 'equipment', targetId: 'ICH-PHOTO-0103' }, undefined, { role: 'engineer', latency: 0 });
+    const filtered = await auditTrail({ type: 'equipment', targetId: 'MEM-PHOTO-0103' }, undefined, { role: 'engineer', latency: 0 });
     expect(filtered.outcome).toBe('forbidden');
-    expect(body(filtered)).not.toContain('ICH-PHOTO-0103');
+    expect(body(filtered)).not.toContain('MEM-PHOTO-0103');
   });
 
   it('grades an in-flight request with the role it was sent as', async () => {
@@ -184,25 +184,25 @@ describe('auditTrail (issue #50: the console audit log)', () => {
 
 describe('entityAudit (issue #50: the destination audit read)', () => {
   it('serves an engineer a granted-room equipment audit and gates scope and room otherwise', async () => {
-    const granted = events(await entityAudit({ type: 'equipment', id: 'ICH-PHOTO-0103', scopeId: 'ICH' }, undefined, { role: 'engineer', latency: 0 }));
+    const granted = events(await entityAudit({ type: 'equipment', id: 'MEM-PHOTO-0103', scopeId: 'MEM' }, undefined, { role: 'engineer', latency: 0 }));
     expect(granted.length).toBeGreaterThan(0);
     // Same id under another granted site is a miss, never a cross-site hit (same as getEntity).
-    const cross = await entityAudit({ type: 'equipment', id: 'ICH-PHOTO-0103', scopeId: 'CJU' }, undefined, { role: 'engineer', latency: 0 });
+    const cross = await entityAudit({ type: 'equipment', id: 'MEM-PHOTO-0103', scopeId: 'FDRY' }, undefined, { role: 'engineer', latency: 0 });
     expect(cross.outcome).toBe('empty');
-    // A real id in a CJU room the engineer does not hold is a room miss; the body leaks no changes value.
-    const cju = EQUIPMENT.find(e => e.site === 'CJU' && !USERS.engineer.grants.CJU.includes(e.room))!;
-    const room = await entityAudit({ type: 'equipment', id: cju.equipmentId, scopeId: 'CJU' }, undefined, { role: 'engineer', latency: 0 });
+    // A real id in a FDRY room the engineer does not hold is a room miss; the body leaks no changes value.
+    const fdry = EQUIPMENT.find(e => e.site === 'FDRY' && !USERS.engineer.grants.FDRY.includes(e.room))!;
+    const room = await entityAudit({ type: 'equipment', id: fdry.equipmentId, scopeId: 'FDRY' }, undefined, { role: 'engineer', latency: 0 });
     expect(room.outcome).toBe('forbidden');
     expect(room.message).toBe('No grant for equipment');
-    expect(body(room)).not.toContain(cju.chamberType);
+    expect(body(room)).not.toContain(fdry.chamberType);
     // A site the engineer holds nothing in gets the scope message.
-    const scope = await entityAudit({ type: 'equipment', id: 'ICH-PHOTO-0103', scopeId: 'XIA' }, undefined, { role: 'engineer', latency: 0 });
+    const scope = await entityAudit({ type: 'equipment', id: 'MEM-PHOTO-0103', scopeId: 'XIA' }, undefined, { role: 'engineer', latency: 0 });
     expect(scope.outcome).toBe('forbidden');
     expect(scope.message).toBe('No grant for scope XIA');
   });
 
   it('treats a null equipment scope as the checkScope unknown path, not a cross-site hit', async () => {
-    const res = await entityAudit({ type: 'equipment', id: 'ICH-PHOTO-0103', scopeId: null }, undefined, { role: 'engineer', latency: 0 });
+    const res = await entityAudit({ type: 'equipment', id: 'MEM-PHOTO-0103', scopeId: null }, undefined, { role: 'engineer', latency: 0 });
     expect(res.outcome).toBe('forbidden');
     expect(res.message).toBe('Unknown scope null');
   });
@@ -211,10 +211,10 @@ describe('entityAudit (issue #50: the destination audit read)', () => {
     const metric = await entityAudit({ type: 'metric', id: 'cycle_time', scopeId: null }, undefined, { role: 'viewer', latency: 0 });
     expect(metric.outcome).toBe('ok');
     expect(ids(events(metric))).toEqual(['metric:cycle_time:update', 'metric:cycle_time:create']);
-    const equipment = await entityAudit({ type: 'equipment', id: 'ICH-PHOTO-0103', scopeId: 'ICH' }, undefined, { role: 'viewer', latency: 0 });
+    const equipment = await entityAudit({ type: 'equipment', id: 'MEM-PHOTO-0103', scopeId: 'MEM' }, undefined, { role: 'viewer', latency: 0 });
     expect(equipment.outcome).toBe('forbidden');
     expect(equipment.message).toBe('No permission equipment:view');
-    const scoped = await entityAudit({ type: 'metric', id: 'cycle_time', scopeId: 'ICH' }, undefined, { role: 'viewer', latency: 0 });
+    const scoped = await entityAudit({ type: 'metric', id: 'cycle_time', scopeId: 'MEM' }, undefined, { role: 'viewer', latency: 0 });
     expect(scoped.outcome).toBe('error');
     expect(scoped.message).toBe('Metric audit has no scope');
   });

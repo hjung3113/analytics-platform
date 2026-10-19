@@ -36,7 +36,7 @@ describe('menu query contracts', () => {
   it('projects only apply capabilities and omits reference and undeclared keys', () => {
     const g: GlobalContext = {
       ...emptyGlobal,
-      scopeId: 'ICH',
+      scopeId: 'MEM',
       from: '2026-09-25T09:00:00',
       to: '2026-09-26T09:00:00',
       roomNames: ['PHOTO'],
@@ -60,7 +60,7 @@ describe('menu query contracts', () => {
     }, true), g);
 
     expect(projected).toStrictEqual({
-      scopeId: 'ICH',
+      scopeId: 'MEM',
       from: '2026-09-25T09:00:00',
       to: '2026-09-26T09:00:00',
       condition: { axis: 'team', id: 'A1' },
@@ -78,7 +78,7 @@ describe('menu query contracts', () => {
       condition: 'reference',
       selection: 'reference',
     }, true), g);
-    expect(executionDetail).toStrictEqual({ scopeId: 'ICH' });
+    expect(executionDetail).toStrictEqual({ scopeId: 'MEM' });
     expect(executionDetail).not.toHaveProperty('roomNames');
     expect(executionDetail).not.toHaveProperty('condition');
     expect(executionDetail).not.toHaveProperty('selection');
@@ -127,7 +127,7 @@ describe('menu query contracts', () => {
 
     const unscoped = projectContext(endpoint({}), {
       ...emptyGlobal,
-      scopeId: 'ICH',
+      scopeId: 'MEM',
       from: '2026-09-25T09:00:00',
       to: '2026-09-26T09:00:00',
     });
@@ -149,7 +149,7 @@ describe('menu query contracts', () => {
       metric: 'apply',
     }, true), {
       ...emptyGlobal,
-      scopeId: 'ICH',
+      scopeId: 'MEM',
     });
 
     expect(Object.keys(projected)).toStrictEqual([

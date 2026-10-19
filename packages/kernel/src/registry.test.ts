@@ -124,6 +124,23 @@ describe('spaces (06 §9.1)', () => {
     expect(() => createRegistry({ spaces: [{ ...analyticsSpace, description }], groups, menus: [catalog] })).toThrow(/Space "analytics" description must not be empty/);
   });
 
+  it.each([
+    { name: 'absent', subtitle: undefined },
+    { name: 'present in ko and en', subtitle: { ko: '생산성 분석', en: 'Productivity analysis' } },
+  ])('accepts a space subtitle that is $name', ({ subtitle }) => {
+    const space: SpaceDef = subtitle ? { ...analyticsSpace, subtitle } : analyticsSpace;
+    expect(createRegistry({ spaces: [space], groups, menus: [catalog] }).spaces[0]?.subtitle).toEqual(subtitle);
+  });
+
+  it.each([
+    { ko: '', en: 'Productivity analysis' },
+    { ko: '생산성 분석', en: '' },
+    { ko: '   ', en: 'Productivity analysis' },
+    { ko: '생산성 분석', en: '   ' },
+  ])('rejects a blank space subtitle (%j)', subtitle => {
+    expect(() => createRegistry({ spaces: [{ ...analyticsSpace, subtitle }], groups, menus: [catalog] })).toThrow(/Space "analytics" subtitle must not be empty/);
+  });
+
   it('rejects a home menu whose permission differs from the space permission', () => {
     const viewerRoles = menu('admin-roles', '/admin/roles', { group: 'admin', permission: 'platform:view', primary: true });
     expect(() => createRegistry({ spaces: [operations], groups: adminGroups, menus: [viewerRoles] })).toThrow(/Space "operations" home permission must be "console:access"/);

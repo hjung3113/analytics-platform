@@ -16,7 +16,7 @@ const menu = (id: string, group: 'overview' | 'equipment' | 'admin' | 'noticeVoc
 
 const registry = createRegistry({
   spaces: [
-    testSpace({ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'home' }),
+    testSpace({ id: 'analytics', label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, homeMenuId: 'home' }),
     testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'roles' }),
   ],
   groups: [
@@ -108,12 +108,14 @@ describe('CommandPalette space bundles (06 §9.1)', () => {
     expect(screen.getAllByRole('option').map(option => option.id)).toEqual([
       'palette-equipment', 'palette-home', 'palette-roles', 'palette-notices',
     ]);
-    expect(screen.getByRole('group', { name: '분석' })).toHaveAttribute('aria-labelledby', 'palette-heading-analytics');
+    expect(screen.getByRole('group', { name: 'MARS' })).toHaveAttribute('aria-labelledby', 'palette-heading-analytics');
     expect(screen.getByRole('group', { name: '운영 콘솔' })).toHaveAttribute('aria-labelledby', 'palette-heading-operations');
     expect(screen.getByRole('group', { name: '플랫폼' })).toHaveAttribute('aria-labelledby', 'palette-heading-platform');
-    expect(document.getElementById('palette-heading-analytics')).toHaveTextContent('분석');
-    expect(subtitle('palette-home')).toBe('분석 › 홈');
-    expect(subtitle('palette-equipment')).toBe('분석 › 설비관리 › 설비');
+    expect(document.getElementById('palette-heading-analytics')).toHaveTextContent('MARS');
+    expect(subtitle('palette-home')).toBe('MARS › 분석 › 홈');
+    expect(subtitle('palette-equipment')).toBe('MARS › 설비관리 › 설비');
+    expect(document.getElementById('palette-heading-analytics')).not.toHaveTextContent('생산성 분석');
+    expect(screen.getByRole('listbox').textContent).not.toContain('생산성 분석');
     expect(subtitle('palette-roles')).toBe('운영 콘솔 › 관리·감사 › 권한');
     expect(subtitle('palette-notices')).toBe('플랫폼 › 공지·VOC › 공지 · 예정');
     expect(screen.getByRole('option', { name: /홈/ }).textContent).not.toContain('Overview');

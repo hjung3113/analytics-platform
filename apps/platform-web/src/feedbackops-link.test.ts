@@ -20,7 +20,7 @@ const MS_ID = '11111111-1111-4111-8111-111111111111';
 const VOC_ID = '22222222-2222-4222-8222-222222222222';
 const SURVEY_ID = '33333333-3333-4333-8333-333333333333';
 const NONE: GlobalContext = { ...emptyGlobal };
-const PERIOD: GlobalContext = { ...NONE, scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' };
+const PERIOD: GlobalContext = { ...NONE, scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' };
 
 describe('FeedbackOps deep link A — platform → FeedbackOps (contract: 2)', () => {
   it('emits the phase-1 allowlist URLs byte-exactly', () => {
@@ -46,8 +46,8 @@ describe('FeedbackOps deep link A — platform → FeedbackOps (contract: 2)', (
     }
   });
   it('rejects non-uuid ids without guessing', () => {
-    expect(code(() => buildFeedbackOpsLink({ origin: F, target: { kind: 'voc-detail', vocId: 'ICH-PHOTO-0103' } }))).toBe('feedbackops_id');
-    expect(code(() => buildFeedbackOpsLink({ origin: F, target: { kind: 'voc-create', managedSystemId: 'ICH' } }))).toBe('feedbackops_id');
+    expect(code(() => buildFeedbackOpsLink({ origin: F, target: { kind: 'voc-detail', vocId: 'MEM-PHOTO-0103' } }))).toBe('feedbackops_id');
+    expect(code(() => buildFeedbackOpsLink({ origin: F, target: { kind: 'voc-create', managedSystemId: 'MEM' } }))).toBe('feedbackops_id');
     expect(code(() => buildFeedbackOpsLink({ origin: F, target: { kind: 'survey-detail', surveyId: 'nope' } }))).toBe('feedbackops_id');
   });
   it('rejects non-canonical and non-https origins, and loopback http only', () => {
@@ -76,8 +76,8 @@ describe('FeedbackOps deep link A — platform → FeedbackOps (contract: 2)', (
     expect(code(() => parseFeedbackOpsLink(`${F}/vocs?action=create&fo=1`, F))).toBe('feedbackops_path');
     expect(code(() => parseFeedbackOpsLink(`${F}/vocs?view=inbox&selected=${VOC_ID}&selected=${VOC_ID}`, F))).toBe('feedbackops_path');
     expect(code(() => parseFeedbackOpsLink(`${F}/vocs?view=today&selected=${VOC_ID}`, F))).toBe('feedbackops_path');
-    expect(code(() => parseFeedbackOpsLink(`${F}/vocs?view=inbox&selected=ICH`, F))).toBe('feedbackops_id');
-    expect(code(() => parseFeedbackOpsLink(`${F}/vocs?action=create&managedSystem=ICH`, F))).toBe('feedbackops_id');
+    expect(code(() => parseFeedbackOpsLink(`${F}/vocs?view=inbox&selected=MEM`, F))).toBe('feedbackops_id');
+    expect(code(() => parseFeedbackOpsLink(`${F}/vocs?action=create&managedSystem=MEM`, F))).toBe('feedbackops_id');
     expect(code(() => parseFeedbackOpsLink(`${F}/surveys/${SURVEY_ID}?builder=x`, F))).toBe('feedbackops_path');
     expect(code(() => parseFeedbackOpsLink(`${F}/surveys/1234`, F))).toBe('feedbackops_id');
     expect(code(() => parseFeedbackOpsLink(`${F}/somewhere`, F))).toBe('feedbackops_path');
@@ -104,7 +104,7 @@ describe('FeedbackOps deep link A — space entry targets (ADR-0045, #251)', () 
     expect(url).toContain(`managedSystem=${MS_ID}`);
   });
   it.each(['voc-list', 'task-list', 'survey-list'] as const)('refuses a %s build without a uuid managed system (no all, no scope-less URL)', kind => {
-    for (const managedSystemId of ['all', 'ICH', '']) {
+    for (const managedSystemId of ['all', 'MEM', '']) {
       expect(code(() => buildFeedbackOpsLink({ origin: F, target: { kind, managedSystemId } }))).toBe('feedbackops_id');
     }
     expect(code(() => buildFeedbackOpsLink({ origin: F, target: { kind } as never }))).toBe('feedbackops_id');
@@ -112,13 +112,13 @@ describe('FeedbackOps deep link A — space entry targets (ADR-0045, #251)', () 
   it.each([
     ['/vocs?view=inbox', 'feedbackops_path'],
     [`/vocs?view=inbox&managedSystem=all`, 'feedbackops_id'],
-    [`/vocs?view=inbox&managedSystem=ICH`, 'feedbackops_id'],
+    [`/vocs?view=inbox&managedSystem=MEM`, 'feedbackops_id'],
     [`/vocs?view=inbox&managedSystem=${MS_ID}&managedSystem=${MS_ID}`, 'feedbackops_path'],
     [`/vocs?view=inbox&managedSystem=${MS_ID}&x=1`, 'feedbackops_path'],
     [`/vocs?managedSystem=${MS_ID}`, 'feedbackops_path'],
     ['/tasks', 'feedbackops_path'],
     ['/tasks?managedSystem=all', 'feedbackops_id'],
-    ['/tasks?managedSystem=ICH', 'feedbackops_id'],
+    ['/tasks?managedSystem=MEM', 'feedbackops_id'],
     [`/tasks?managedSystem=${MS_ID}&managedSystem=${MS_ID}`, 'feedbackops_path'],
     [`/tasks?managedSystem=${MS_ID}&view=inbox`, 'feedbackops_path'],
     ['/surveys', 'feedbackops_path'],
@@ -137,7 +137,7 @@ describe('FeedbackOps deep link A — space entry targets (ADR-0045, #251)', () 
 });
 
 describe('FeedbackOps platformReturn (contract: 2, FO ADR-0071)', () => {
-  const BACK = `${P}/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-25T09%3A00%3A00&to=2026-09-26T09%3A00%3A00`;
+  const BACK = `${P}/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-25T09%3A00%3A00&to=2026-09-26T09%3A00%3A00`;
   const back = (target: FeedbackOpsTarget, platformReturn: string) => ({ ...target, platformReturn }) as FeedbackOpsTarget;
   const RETURNABLE: FeedbackOpsTarget[] = [
     { kind: 'voc-create' },
@@ -202,27 +202,27 @@ describe('FeedbackOps platformReturn (contract: 2, FO ADR-0071)', () => {
 
 describe('FeedbackOps deep link B — FeedbackOps → platform (06 §6/§22)', () => {
   it('builds the contract examples with canonical buildQuery serialization', () => {
-    expect(buildPlatformInboundLink({ origin: P, hop: { menuId: 'equipment-detail', equipmentId: 'ICH-PHOTO-0103' }, context: PERIOD }))
-      .toBe(`${P}/equipment/ICH-PHOTO-0103?v=1&scopeId=ICH&from=2026-09-25T09%3A00%3A00&to=2026-09-26T09%3A00%3A00`);
-    expect(buildPlatformInboundLink({ origin: P, hop: { menuId: 'equipment-master' }, context: { ...NONE, scopeId: 'ICH', selection: ['ICH-PHOTO-0103'] } }))
-      .toBe(`${P}/equipment?v=1&scopeId=ICH&selectedEquipmentIds=ICH-PHOTO-0103`);
-    expect(buildPlatformInboundLink({ origin: P, hop: { menuId: 'cycle-time' }, context: { ...PERIOD, selection: ['ICH-PHOTO-0103'] } }))
-      .toBe(`${P}/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-25T09%3A00%3A00&to=2026-09-26T09%3A00%3A00&selectedEquipmentIds=ICH-PHOTO-0103`);
+    expect(buildPlatformInboundLink({ origin: P, hop: { menuId: 'equipment-detail', equipmentId: 'MEM-PHOTO-0103' }, context: PERIOD }))
+      .toBe(`${P}/equipment/MEM-PHOTO-0103?v=1&scopeId=MEM&from=2026-09-25T09%3A00%3A00&to=2026-09-26T09%3A00%3A00`);
+    expect(buildPlatformInboundLink({ origin: P, hop: { menuId: 'equipment-master' }, context: { ...NONE, scopeId: 'MEM', selection: ['MEM-PHOTO-0103'] } }))
+      .toBe(`${P}/equipment?v=1&scopeId=MEM&selectedEquipmentIds=MEM-PHOTO-0103`);
+    expect(buildPlatformInboundLink({ origin: P, hop: { menuId: 'cycle-time' }, context: { ...PERIOD, selection: ['MEM-PHOTO-0103'] } }))
+      .toBe(`${P}/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-25T09%3A00%3A00&to=2026-09-26T09%3A00%3A00&selectedEquipmentIds=MEM-PHOTO-0103`);
   });
   it('round-trips a hop with sorted selection (buildQuery rule) and encoded path ids', () => {
     const url = buildPlatformInboundLink({
       origin: P,
       hop: { menuId: 'cycle-time' },
-      context: { ...PERIOD, selection: ['ICH-PHOTO-0103', 'ICH-ETCH-01', 'ICH-ETCH-01'] },
+      context: { ...PERIOD, selection: ['MEM-PHOTO-0103', 'MEM-ETCH-01', 'MEM-ETCH-01'] },
     });
     const parsed = parsePlatformInboundLink(url, P);
     expect(parsed.hop).toEqual({ menuId: 'cycle-time' });
-    expect(parsed.context).toEqual({ ...PERIOD, selection: ['ICH-ETCH-01', 'ICH-PHOTO-0103'] });
+    expect(parsed.context).toEqual({ ...PERIOD, selection: ['MEM-ETCH-01', 'MEM-PHOTO-0103'] });
     const detail = parsePlatformInboundLink(
-      buildPlatformInboundLink({ origin: P, hop: { menuId: 'equipment-detail', equipmentId: 'ICH/ETCH 01' }, context: NONE }),
+      buildPlatformInboundLink({ origin: P, hop: { menuId: 'equipment-detail', equipmentId: 'MEM/ETCH 01' }, context: NONE }),
       P,
     );
-    expect(detail.hop).toEqual({ menuId: 'equipment-detail', equipmentId: 'ICH/ETCH 01' });
+    expect(detail.hop).toEqual({ menuId: 'equipment-detail', equipmentId: 'MEM/ETCH 01' });
     expect(detail.context.selection).toBeNull();
   });
   it('keeps managedSystem/vocId/fo as extras and never lifts them into global scope', () => {
@@ -232,25 +232,25 @@ describe('FeedbackOps deep link B — FeedbackOps → platform (06 §6/§22)', (
     expect(parsed.context.scopeId).toBeNull();
   });
   it('accepts the equipmentIds alias on parse only and rejects using both keys', () => {
-    expect(parsePlatformInboundLink(`${P}/equipment?v=1&equipmentIds=ICH-PHOTO-0103`, P).context.selection).toEqual(['ICH-PHOTO-0103']);
+    expect(parsePlatformInboundLink(`${P}/equipment?v=1&equipmentIds=MEM-PHOTO-0103`, P).context.selection).toEqual(['MEM-PHOTO-0103']);
     expect(code(() => parsePlatformInboundLink(`${P}/equipment?equipmentIds=A&selectedEquipmentIds=B`, P))).toBe('alias_conflict');
   });
   it('rejects v=2 and one-sided periods without rewriting', () => {
-    expect(code(() => parsePlatformInboundLink(`${P}/equipment?v=2&scopeId=ICH`, P))).toBe('unsupported_version');
+    expect(code(() => parsePlatformInboundLink(`${P}/equipment?v=2&scopeId=MEM`, P))).toBe('unsupported_version');
     expect(code(() => parsePlatformInboundLink(`${P}/equipment?from=2026-09-25T09:00:00`, P))).toBe('partial_period');
     expect(code(() => parsePlatformInboundLink(`${P}/equipment?from=2026-09-25T09:00:00Z&to=2026-09-26T09:00:00`, P))).toBe('invalid_time');
   });
   it('rejects external returnTo values as external_return', () => {
-    expect(code(() => parsePlatformInboundLink(`${P}/equipment/ICH-PHOTO-0103?returnTo=https://evil.com`, P))).toBe('external_return');
-    expect(code(() => parsePlatformInboundLink(`${P}/equipment/ICH-PHOTO-0103?returnTo=%2F%2Fevil`, P))).toBe('external_return');
-    expect(code(() => parsePlatformInboundLink(`${P}/equipment/ICH-PHOTO-0103?returnTo=${encodeURIComponent('/\\evil')}`, P))).toBe('external_return');
-    expect(code(() => buildPlatformInboundLink({ origin: P, hop: { menuId: 'equipment-detail', equipmentId: 'ICH-PHOTO-0103' }, context: NONE, returnTo: 'https://evil.com' }))).toBe('external_return');
+    expect(code(() => parsePlatformInboundLink(`${P}/equipment/MEM-PHOTO-0103?returnTo=https://evil.com`, P))).toBe('external_return');
+    expect(code(() => parsePlatformInboundLink(`${P}/equipment/MEM-PHOTO-0103?returnTo=%2F%2Fevil`, P))).toBe('external_return');
+    expect(code(() => parsePlatformInboundLink(`${P}/equipment/MEM-PHOTO-0103?returnTo=${encodeURIComponent('/\\evil')}`, P))).toBe('external_return');
+    expect(code(() => buildPlatformInboundLink({ origin: P, hop: { menuId: 'equipment-detail', equipmentId: 'MEM-PHOTO-0103' }, context: NONE, returnTo: 'https://evil.com' }))).toBe('external_return');
   });
   it('round-trips a relative returnTo on equipment-detail only', () => {
-    const returnTo = '/analytics/cycle-time?v=1&scopeId=ICH';
-    const url = buildPlatformInboundLink({ origin: P, hop: { menuId: 'equipment-detail', equipmentId: 'ICH-PHOTO-0103' }, context: NONE, returnTo });
+    const returnTo = '/analytics/cycle-time?v=1&scopeId=MEM';
+    const url = buildPlatformInboundLink({ origin: P, hop: { menuId: 'equipment-detail', equipmentId: 'MEM-PHOTO-0103' }, context: NONE, returnTo });
     const parsed = parsePlatformInboundLink(url, P);
-    expect(parsed.hop).toEqual({ menuId: 'equipment-detail', equipmentId: 'ICH-PHOTO-0103' });
+    expect(parsed.hop).toEqual({ menuId: 'equipment-detail', equipmentId: 'MEM-PHOTO-0103' });
     expect(parsed.returnTo).toBe(returnTo);
     expect(code(() => buildPlatformInboundLink({ origin: P, hop: { menuId: 'cycle-time' }, context: NONE, returnTo }))).toBe('unsupported_page_key');
     expect(code(() => parsePlatformInboundLink(`${P}/analytics/cycle-time?v=1&returnTo=${encodeURIComponent(returnTo)}`, P))).toBe('unsupported_page_key');
@@ -276,12 +276,12 @@ describe('FeedbackOps deep link B — FeedbackOps → platform (06 §6/§22)', (
   it('preserves every registered global key on round-trip (06 §6.4, P2-a)', () => {
     const context: GlobalContext = {
       ...emptyGlobal,
-      scopeId: 'ICH',
+      scopeId: 'MEM',
       from: '2026-09-25T09:00:00',
       to: '2026-09-26T09:00:00',
       roomNames: ['PHOTO'],
       condition: { axis: 'stgroup', id: 'ST-01' },
-      selection: ['ICH-PHOTO-0103'],
+      selection: ['MEM-PHOTO-0103'],
       lotIds: ['LOT-1'],
       ppid: 'PP-1',
       recipeIds: ['RCP-1'],
@@ -309,7 +309,7 @@ describe('FeedbackOps deep link B — FeedbackOps → platform (06 §6/§22)', (
     expect(code(() => parsePlatformInboundLink(`${P}/equipment/A/B`, P))).toBe('invalid_id');
     expect(code(() => parsePlatformInboundLink(`${P}/equipment/%20`, P))).toBe('invalid_id');
     expect(code(() => parsePlatformInboundLink(`${P}/equipment//`, P))).toBe('invalid_id');
-    expect(parsePlatformInboundLink(`${P}/equipment/ICH%2FPHOTO-0103`, P).hop).toEqual({ menuId: 'equipment-detail', equipmentId: 'ICH/PHOTO-0103' });
+    expect(parsePlatformInboundLink(`${P}/equipment/MEM%2FPHOTO-0103`, P).hop).toEqual({ menuId: 'equipment-detail', equipmentId: 'MEM/PHOTO-0103' });
   });
   it('canonicalizes origins with URL-standard parsing (P2-d)', () => {
     expect(code(() => buildFeedbackOpsLink({ origin: 'https://127.1', target: { kind: 'voc-create' } }))).toBe('feedbackops_origin');

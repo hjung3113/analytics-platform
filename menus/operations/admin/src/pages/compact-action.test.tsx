@@ -34,7 +34,7 @@ const event = (id: string, scopeId: string | null): AuditEvent => ({
 const adapter = testAdapter({
   session: () => session,
   accessDirectory: async () => ok({ items: [principal], total: 1 }),
-  auditTrail: async () => ok({ items: [event('a1', 'ICH'), event('a2', null)], total: 2 }),
+  auditTrail: async () => ok({ items: [event('a1', 'MEM'), event('a2', null)], total: 2 }),
 });
 
 function DetailSlotHost() {

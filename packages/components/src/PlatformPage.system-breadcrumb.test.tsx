@@ -10,7 +10,7 @@ function menu(id: string, group: GroupId, path: string, over: object = {}) {
   return { id, group, primary: true, label: { ko: id === 'home' ? '플랫폼 홈' : '설비 목록', en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], ...over };
 }
 const registry = createRegistry({
-  spaces: [testSpace({ id: 'analytics', label: { ko: '생산성 분석', en: 'Productivity' }, homeMenuId: 'equipment' })],
+  spaces: [testSpace({ id: 'analytics', label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, homeMenuId: 'equipment' })],
   groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: null }, { id: 'equipment', label: { ko: '설비', en: 'Equipment' }, icon: House, space: 'analytics' }],
   menus: [menu('home', 'overview', '/'), menu('equipment', 'equipment', '/equipment'), menu('equipment-detail', 'equipment', '/equipment/:id', { primary: false, navHidden: true, parent: 'equipment' })],
 });
@@ -28,15 +28,15 @@ describe('PlatformPage system breadcrumb (15 §3.2)', () => {
   it('puts the system name, as text and not a link, first in the breadcrumb of a space menu', () => {
     mount('/equipment?v=1');
     const nav = screen.getByRole('navigation', { name: '이동 경로' });
-    expect(within(nav).getByText('생산성 분석')).toBeTruthy();
+    expect(within(nav).getByText('MARS')).toBeTruthy();
     expect(within(nav).queryByRole('link')).toBeNull();
-    expect(nav.textContent).toBe('생산성 분석');
+    expect(nav.textContent).toBe('MARS');
   });
 
   it('keeps the system name before the parent and crumbs', () => {
     mount('/equipment/E1?v=1', [{ label: 'EQP-1' }]);
     const nav = screen.getByRole('navigation', { name: '이동 경로' });
-    expect(nav.textContent).toBe('생산성 분석설비 목록EQP-1');
+    expect(nav.textContent).toBe('MARS설비 목록EQP-1');
     expect(nav.firstElementChild).toHaveAttribute('data-breadcrumb-system');
     expect(within(nav).getAllByRole('link').map(link => link.textContent)).toEqual(['설비 목록']);
   });

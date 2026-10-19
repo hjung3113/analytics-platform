@@ -64,7 +64,7 @@
 | 생산성 KPI | `kpi=cycleTime`(또는 `occupancy`·`dwell`·`throughput`) |
 | Compare | 사이클타임 상세(생산성 개요는 manifest에서 Compare가 꺼져 있다) |
 | 접근 디렉터리 | 관리자 역할로 `/admin/roles?v=1&focus=engineer` |
-| 상세 패널 | `/equipment?v=1&scopeId=ICH&focus=ICH-PHOTO-0103` |
+| 상세 패널 | `/equipment?v=1&scopeId=MEM&focus=MEM-PHOTO-0103` |
 | 설비 Maker mock 값 | AMX / ASM / LRC / TEL |
 
 ## 생성기와 mock 등록

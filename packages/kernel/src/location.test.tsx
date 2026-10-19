@@ -42,15 +42,15 @@ describe('location boundary (06 §6.4)', () => {
 
   it.each(['/analytics-platform/demo/', '/analytics-platform/demo'])('strips/adds normalized base %s only at the boundary', base => {
     const prefix = '/analytics-platform/demo';
-    window.history.replaceState(null, '', prefix + '/?v=1&scopeId=ICH&tab=a%20b');
+    window.history.replaceState(null, '', prefix + '/?v=1&scopeId=MEM&tab=a%20b');
     const location = createBasePathLocation(base);
-    expect(location.read()).toBe('/?v=1&scopeId=ICH&tab=a%20b');
+    expect(location.read()).toBe('/?v=1&scopeId=MEM&tab=a%20b');
     location.push('/?v=1&tab=push');
     expect(window.location.pathname + window.location.search).toBe(prefix + '/?v=1&tab=push');
-    location.replace('/?v=1&scopeId=ICH&tab=replace');
+    location.replace('/?v=1&scopeId=MEM&tab=replace');
     mount(location);
     expect(platform.route?.menu.id).toBe('home');
-    expect(platform.global.scopeId).toBe('ICH');
+    expect(platform.global.scopeId).toBe('MEM');
     expect(platform.absoluteUrl('/?tab=%2f')).toBe(window.location.origin + prefix + '/?tab=%2f');
     expect(screen.getByRole('link')).toHaveAttribute('href', prefix + '/?v=1&tab=next');
     fireEvent.click(screen.getByRole('link'), { ctrlKey: true });

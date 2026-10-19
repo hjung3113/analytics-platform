@@ -29,22 +29,22 @@ const REF_ASSESSMENTS: Assessment[] = [
 ];
 const REF_TRUST: Trust = { updatedAt: '2026-09-26T09:02:00', dataThrough: '2026-09-26T08:00:00', coverage: 0.987, provisional: false, source: 'mart.productivity_hourly' };
 const REF_EVENT: AuditEvent = {
-  id: 'equipment:ICH-PHOTO-0103:create', at: '2026-01-01T00:00:00.000Z', actor: 'master-sync', action: 'create', source: 'system',
-  target: { type: 'equipment', id: 'ICH-PHOTO-0103', scopeId: 'ICH' }, changes: {},
+  id: 'equipment:MEM-PHOTO-0103:create', at: '2026-01-01T00:00:00.000Z', actor: 'master-sync', action: 'create', source: 'system',
+  target: { type: 'equipment', id: 'MEM-PHOTO-0103', scopeId: 'MEM' }, changes: {},
 };
 
-// The granted actor holds only PHOTO in ICH; the room re-check sample (06 §22) sits in DIFF.
+// The granted actor holds only PHOTO in MEM; the room re-check sample (06 §22) sits in DIFF.
 const GRANTED_ROOMS = ['PHOTO'];
-const ROOM_OF: Record<string, string> = { 'ICH-PHOTO-0103': 'PHOTO', 'ICH-DIFF-0176': 'DIFF' };
+const ROOM_OF: Record<string, string> = { 'MEM-PHOTO-0103': 'PHOTO', 'MEM-DIFF-0176': 'DIFF' };
 // The reference evaluator's world (the kit judges any adapter, so no mock import): two PHOTO rows and one
 // DIFF row the granted actor does not hold.
 const REF_EQUIPMENT = [
-  { equipmentId: 'ICH-PHOTO-0103', room: 'PHOTO', model: 'HX-1' },
-  { equipmentId: 'ICH-PHOTO-0107', room: 'PHOTO', model: 'HX-2' },
-  { equipmentId: 'ICH-DIFF-0176', room: 'DIFF', model: 'DF-9' },
+  { equipmentId: 'MEM-PHOTO-0103', room: 'PHOTO', model: 'HX-1' },
+  { equipmentId: 'MEM-PHOTO-0107', room: 'PHOTO', model: 'HX-2' },
+  { equipmentId: 'MEM-DIFF-0176', room: 'DIFF', model: 'DF-9' },
 ];
 
-/** Granted actor: every case/entity permission, grants at ICH + CJU, no console:access; `console` flips under asConsole. */
+/** Granted actor: every case/entity permission, grants at MEM + FDRY, no console:access; `console` flips under asConsole. */
 type RefState = { permissions: Set<Permission>; console: boolean };
 
 /**
@@ -71,7 +71,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       if (session === null || breaks.has('session-identity')) {
         session = {
           user: { id: 'engineer', name: 'Engineer', title: { ko: '엔지니어', en: 'Engineer' }, permissions: [...state.permissions] },
-          scopes: (breaks.has('session-scopes') ? ['ICH'] : [...(breaks.has('session-foreign') ? ['XIA'] : []), 'ICH', 'CJU']).map(id => ({ id, label: id, grantedRooms: 1, totalRooms: 4 })),
+          scopes: (breaks.has('session-scopes') ? ['MEM'] : [...(breaks.has('session-foreign') ? ['XIA'] : []), 'MEM', 'FDRY']).map(id => ({ id, label: id, grantedRooms: 1, totalRooms: 4 })),
         };
       }
       return session;
@@ -90,10 +90,10 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       };
     },
     validateScope: async scopeId => {
-      if (scopeId === 'ICH') {
+      if (scopeId === 'MEM') {
         return { status: 'valid', grantedRooms: breaks.has('validate-granted') ? [] : ['PHOTO'] };
       }
-      if (scopeId === 'CJU') {
+      if (scopeId === 'FDRY') {
         // 'validate-other' answers forbidden for the second granted site — the second-site check must catch it.
         return { status: breaks.has('validate-other') ? 'forbidden' : 'valid', grantedRooms: ['PHOTO'] };
       }
@@ -117,7 +117,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
           ? { ...envelope, outcome: 'ok', data: { equipmentId: ref.id }, assessments: REF_ASSESSMENTS, trust: REF_TRUST }
           : { ...envelope, outcome: 'forbidden', message: 'No grant for scope null' };
       }
-      if (ref.scopeId !== 'ICH') {
+      if (ref.scopeId !== 'MEM') {
         return breaks.has('entity-foreign')
           ? { ...envelope, outcome: 'ok', data: { equipmentId: ref.id }, assessments: REF_ASSESSMENTS, trust: REF_TRUST }
           : { ...envelope, outcome: 'forbidden', message: `No grant for scope ${ref.scopeId}` };
@@ -165,7 +165,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
           ? { ...forbidden, message: 'No permission analytics:view', data: { rows: 1 } }
           : forbidden;
       }
-      if (context.scopeId !== 'ICH' && !breaks.has('scope')) return forbidden;
+      if (context.scopeId !== 'MEM' && !breaks.has('scope')) return forbidden;
       const emptySets = (['roomNames', 'selection'] as const).filter(k => Array.isArray(context[k]) && (context[k] as unknown[]).length === 0);
       const honoured = breaks.has('explicit-empty-roomNames-only') ? emptySets.filter(k => k === 'roomNames') : emptySets;
       if (honoured.length > 0 && !breaks.has('explicit-empty')) {
@@ -216,7 +216,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
           ? { ...envelope, outcome: 'ok', data: { events: [REF_EVENT] } }
           : { ...envelope, outcome: 'forbidden', message: 'No permission equipment:view' };
       }
-      if (ref.scopeId !== 'ICH') {
+      if (ref.scopeId !== 'MEM') {
         // 'entity-audit-null' answers ok for a null Scope — the getEntity gate must catch it (adapter.ts).
         if (ref.scopeId === null && breaks.has('entity-audit-null')) {
           return { ...envelope, outcome: 'ok', data: { events: [REF_EVENT] } };
@@ -372,7 +372,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
           ? { ...envelope, outcome: 'empty' }
           : { ...envelope, outcome: 'forbidden', message: 'No grant for scope null' };
       }
-      if (ref.scopeId !== 'ICH' && ref.scopeId !== 'CJU') {
+      if (ref.scopeId !== 'MEM' && ref.scopeId !== 'FDRY') {
         return breaks.has('annotation-list-foreign')
           ? { ...envelope, outcome: 'empty' }
           : { ...envelope, outcome: 'forbidden', message: `No grant for scope ${ref.scopeId}` };
@@ -390,7 +390,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
     saveAnnotation: async (input) => {
       if (!state.permissions.has('analytics:view')) {
         return breaks.has('annotation-save-permission')
-          ? { ...envelope, outcome: 'ok', data: { id: 'ann-0', chartId: input.chartId, scopeId: input.scopeId ?? 'ICH', from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00', mine: true } }
+          ? { ...envelope, outcome: 'ok', data: { id: 'ann-0', chartId: input.chartId, scopeId: input.scopeId ?? 'MEM', from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00', mine: true } }
           : { ...envelope, outcome: 'forbidden', message: 'No permission analytics:view' };
       }
       // A user/at/id in the input is an unknown key and rejects the call (adapter.ts) — 'annotation-accepts-at'
@@ -401,16 +401,16 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
         (breaks.has('annotation-accepts-at') && k === 'at') || (breaks.has('annotation-accepts-id-user') && (k === 'id' || k === 'user')));
       if (extraInputKeys.length > 0 && !acceptsExtraKeys) {
         if (breaks.has('annotation-error-stores')) {
-          annotationRows.push({ id: `ann-${++annotationSeq}`, chartId: input.chartId, scopeId: input.scopeId ?? 'ICH', from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00', authorId: actor() });
+          annotationRows.push({ id: `ann-${++annotationSeq}`, chartId: input.chartId, scopeId: input.scopeId ?? 'MEM', from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00', authorId: actor() });
         }
         return err('Invalid annotation input');
       }
       if (input.scopeId === null) {
         return breaks.has('annotation-save-null')
-          ? { ...envelope, outcome: 'ok', data: { id: 'ann-0', chartId: input.chartId, scopeId: 'ICH', from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00', mine: true } }
+          ? { ...envelope, outcome: 'ok', data: { id: 'ann-0', chartId: input.chartId, scopeId: 'MEM', from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00', mine: true } }
           : { ...envelope, outcome: 'forbidden', message: 'No grant for scope null' };
       }
-      if (input.scopeId !== 'ICH' && input.scopeId !== 'CJU') {
+      if (input.scopeId !== 'MEM' && input.scopeId !== 'FDRY') {
         return breaks.has('annotation-save-foreign')
           ? { ...envelope, outcome: 'ok', data: { id: 'ann-0', chartId: input.chartId, scopeId: input.scopeId, from: input.from, to: input.to, text: input.text, at: '2026-09-26T09:00:00', mine: true } }
           : { ...envelope, outcome: 'forbidden', message: `No grant for scope ${input.scopeId}` };
@@ -437,7 +437,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
           ? { ...envelope, outcome: 'ok', data: { id: ref.id } }
           : { ...envelope, outcome: 'forbidden', message: 'No permission analytics:view' };
       }
-      if (ref.scopeId === null || (ref.scopeId !== 'ICH' && ref.scopeId !== 'CJU')) {
+      if (ref.scopeId === null || (ref.scopeId !== 'MEM' && ref.scopeId !== 'FDRY')) {
         return breaks.has(ref.scopeId === null ? 'annotation-delete-null' : 'annotation-delete-foreign')
           ? { ...envelope, outcome: 'ok', data: { id: ref.id } }
           : { ...envelope, outcome: 'forbidden', message: `No grant for scope ${ref.scopeId}` };
@@ -460,16 +460,16 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
     // 'default-range' answers with a Z suffix — a zone the naive wall-clock of 06 §6.3 forbids.
     defaultRangeTo: () => (breaks.has('default-range') ? '2026-09-26T09:00:00Z' : '2026-09-26T09:00:00'),
     contextOptions: async scopeId => {
-      if (scopeId !== 'ICH') return { stgroup: [], team: [], makerModel: [] };
+      if (scopeId !== 'MEM') return { stgroup: [], team: [], makerModel: [] };
       // 'context-options' answers stgroup as a plain string and model as a number.
       return breaks.has('context-options')
         ? { stgroup: 'photo' as unknown as string[], team: [], makerModel: [{ maker: 'Canon', model: 3 as unknown as string }] }
         : { stgroup: ['photo', 'etch'], team: ['shift-a', 'shift-b'], makerModel: [{ maker: 'Canon', model: 'HX-1' }] };
     },
     evaluateSelection: async input => {
-      // Grants come from the session (adapter.ts): ICH/PHOTO only. 'selection-ignores-grants' also serves
+      // Grants come from the session (adapter.ts): MEM/PHOTO only. 'selection-ignores-grants' also serves
       // the ungranted DIFF room; 'selection-foreign' lists equipment even at the ungranted site XIA.
-      const grantedRooms = input.scopeId === 'ICH'
+      const grantedRooms = input.scopeId === 'MEM'
         ? (breaks.has('selection-ignores-grants') ? ['PHOTO', 'DIFF'] : ['PHOTO'])
         : input.scopeId === 'XIA' && breaks.has('selection-foreign') ? ['DIFF'] : [];
       const inCondition = REF_EQUIPMENT
@@ -480,18 +480,18 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
   };
 }
 
-const CONTEXT = { scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' };
+const CONTEXT = { scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' };
 const PORTS: PortSamples = {
   entity: {
-    ref: { type: 'equipment', id: 'ICH-PHOTO-0103', scopeId: 'ICH' },
+    ref: { type: 'equipment', id: 'MEM-PHOTO-0103', scopeId: 'MEM' },
     permission: 'equipment:view',
-    // DIFF is a real ICH room the granted actor does not hold — the room re-check sample (06 §22).
-    ungrantedRoomRef: { type: 'equipment', id: 'ICH-DIFF-0176', scopeId: 'ICH' },
+    // DIFF is a real MEM room the granted actor does not hold — the room re-check sample (06 §22).
+    ungrantedRoomRef: { type: 'equipment', id: 'MEM-DIFF-0176', scopeId: 'MEM' },
   },
   annotation: { chartId: 'fixture-chart', from: '2026-09-25T10:00:00', to: '2026-09-25T11:00:00', permission: 'analytics:view' },
   usage: { name: 'entry', menuId: 'fixture', spaceId: 'analytics', path: '/fixture', at: 0, sessionId: 'tab' },
   clientError: { correlationId: 'client-ref', menuId: 'fixture', spaceId: 'analytics', path: '/fixture', name: 'Error' },
-  otherGrantedScopeId: 'CJU',
+  otherGrantedScopeId: 'FDRY',
 };
 
 function actors(state: RefState) {

@@ -15,18 +15,18 @@ const endpoints = MOCK_ENDPOINTS;
 
 const page = { page: 0, pageSize: 10, sorting: [] };
 const slowFilter = { tail: 'p95', granularity: 'hour', bucket: null, bin: null };
-/** One request per endpoint that the granted actor (engineer at ICH) runs successfully. Endpoints with no params default to `{}`. */
+/** One request per endpoint that the granted actor (engineer at MEM) runs successfully. Endpoints with no params default to `{}`. */
 const PARAMS: Record<string, Record<string, unknown>> = {
   'analytics.productivity.trend': { kpi: 'occupancy', granularity: 'hour' },
   'analytics.productivity.breakdown': { axis: 'room' },
   'analytics.productivity.drill': { level: 'stgroup', room: 'PHOTO', stgroup: '' },
-  'analytics.execution.occurrence': { equipmentId: 'ICH-PHOTO-0103', entityType: 'job', anchor: '2026-09-25T10:00:00', metricVersion: '3' },
+  'analytics.execution.occurrence': { equipmentId: 'MEM-PHOTO-0103', entityType: 'job', anchor: '2026-09-25T10:00:00', metricVersion: '3' },
   'analytics.cycle.trend': { granularity: 'hour' },
   'analytics.cycle.slow': { ...slowFilter, ...page },
   'analytics.cycle.export': { ...slowFilter, ids: null, sorting: [] },
   'equipment.master.page': { q: '', status: '', maker: '', ...page },
   'equipment.master.export': { q: '', status: '', maker: '', ids: null, sorting: [] },
-  'home.notices': { targetScopeId: 'ICH' },
+  'home.notices': { targetScopeId: 'MEM' },
   'metrics.pair': { viewedId: null, pageVersion: null },
   'metrics.catalog.list': { q: null, status: null, domain: null, lang: 'ko' },
   'metrics.catalog.export': { q: null, status: null, domain: null, lang: 'ko', ids: null, sorting: [] },
@@ -51,22 +51,22 @@ describe('conformance harness covers what the app registers', () => {
 describeServerConformance('server boundary conformance — mock adapter', {
   adapter: createMockAdapter({ endpoints, registry, auditEvents: MOCK_AUDIT_EVENTS }),
   cases,
-  context: { scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' },
+  context: { scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' },
   foreignScopeId: 'XIA',
-  // Real mock data: the equipment sample sits in ICH/PHOTO (an engineer room), the engineer holds ICH + CJU and
+  // Real mock data: the equipment sample sits in MEM/PHOTO (an engineer room), the engineer holds MEM + FDRY and
   // every permission except console:access, and the annotation/telemetry samples follow the usage wire contract.
-  // DIFF is a real ICH room granted to admin only — the room re-check sample (06 §22). cycle-time-trend is a
+  // DIFF is a real MEM room granted to admin only — the room re-check sample (06 §22). cycle-time-trend is a
   // time axis, so the annotation range is wall-clock (06 §16).
   ports: {
     entity: {
-      ref: { type: 'equipment', id: 'ICH-PHOTO-0103', scopeId: 'ICH' },
+      ref: { type: 'equipment', id: 'MEM-PHOTO-0103', scopeId: 'MEM' },
       permission: 'equipment:view',
-      ungrantedRoomRef: { type: 'equipment', id: 'ICH-DIFF-0176', scopeId: 'ICH' },
+      ungrantedRoomRef: { type: 'equipment', id: 'MEM-DIFF-0176', scopeId: 'MEM' },
     },
     annotation: { chartId: 'cycle-time-trend', from: '2026-09-25T10:00:00', to: '2026-09-25T11:00:00', permission: 'analytics:view' },
     usage: { name: 'entry', menuId: 'equipment', spaceId: 'analytics', path: '/equipment', at: Date.now(), sessionId: 'conformance-tab' },
     clientError: { correlationId: 'client-conformance', menuId: 'equipment', spaceId: 'analytics', path: '/equipment', name: 'TypeError' },
-    otherGrantedScopeId: 'CJU',
+    otherGrantedScopeId: 'FDRY',
   },
   asGranted: async fn => {
     const previous = getRole();
@@ -88,7 +88,7 @@ describeServerConformance('server boundary conformance — mock adapter', {
     setRole(CONSOLE);
     try { return await fn(); } finally { setRole(previous); }
   },
-  // admin: a different user from the granted engineer, with the chart permission and the ICH grant.
+  // admin: a different user from the granted engineer, with the chart permission and the MEM grant.
   asOtherAnnotator: async fn => {
     const previous = getRole();
     setRole(CONSOLE);

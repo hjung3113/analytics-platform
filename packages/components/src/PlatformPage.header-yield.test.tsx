@@ -65,7 +65,7 @@ describe('page header yield order (#303)', () => {
   it.each([false, true])('keeps description focus when collapsed changes from %s without opening its tooltip', async collapsed => {
     const user = userEvent.setup();
     const widths = headerWidths();
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     render(page(vi.fn()));
     await screen.findByText('page body');
     if (collapsed) widths.set(999);
@@ -92,7 +92,7 @@ describe('page header yield order (#303)', () => {
   it('preserves focus on another control through both description transitions', async () => {
     const user = userEvent.setup();
     const widths = headerWidths();
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     render(page(vi.fn()));
     await screen.findByText('page body');
     const primary = screen.getByRole('button', { name: '주 동작' });
@@ -111,7 +111,7 @@ describe('page header yield order (#303)', () => {
     { name: 'already visible', scrollWidth: 404, scrollLeft: 96, actionLeft: 310, expectedScrollLeft: 96 },
   ])('reveals the focused primary action only as needed: $name', async ({ scrollWidth, scrollLeft, actionLeft, expectedScrollLeft }) => {
     headerWidths();
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     const view = render(page(vi.fn()));
     await screen.findByText('page body');
     const header = view.container.querySelector('header')!;
@@ -131,7 +131,7 @@ describe('page header yield order (#303)', () => {
   });
 
   it('drops description, then the trust summary, then the provisional badge, and brings them back with slack', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     const widths = headerWidths();
     const onSecondary = vi.fn();
     const view = render(page(onSecondary));
@@ -207,7 +207,7 @@ describe('page header yield order (#303)', () => {
       return open ? 1100 : 900;
     });
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(900);
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     render(page(vi.fn()));
     await screen.findByText('page body');
     const trustButton = await screen.findByRole('button', { name: '데이터 신뢰' });
@@ -224,7 +224,7 @@ describe('page header yield order (#303)', () => {
     { width: 999, minWidth: 'calc(7rem + 3rem + 1.5rem)', icon: true },
   ])('reserves the non-shrinkable controls in the left group at $width px (#398)', async ({ width, minWidth, icon }) => {
     const widths = headerWidths();
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     const view = render(page(vi.fn()));
     await screen.findByText('page body');
     widths.set(width);
@@ -243,7 +243,7 @@ describe('page header yield order (#303)', () => {
   it.each(['{Enter}', ' '])('selects a secondary action with %s and returns focus; Escape also returns focus', async key => {
     const user = userEvent.setup();
     headerWidths();
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     const onSecondary = vi.fn();
     render(page(onSecondary));
     await screen.findByText('page body');
@@ -269,7 +269,7 @@ describe('page header yield order (#303)', () => {
   it('tabs between ordinary controls and closes after a pointer selection', async () => {
     const user = userEvent.setup();
     headerWidths();
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     const onAction = vi.fn();
     render(<I18nProvider><PlatformProvider adapter={adapter()} registry={registry}>
       <PlatformPage secondaryActions={<><button onClick={onAction}>첫 동작</button><a href="#same-page" onClick={e => { e.preventDefault(); onAction(); }}>다음 동작</a></>}><p>page body</p></PlatformPage>
@@ -293,14 +293,14 @@ describe('page header yield order (#303)', () => {
   it('leaves focus on the destination heading after a secondary link navigates', async () => {
     const user = userEvent.setup();
     headerWidths();
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     const navigationRegistry = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [
       ...registry.menus, { ...registry.menus[0], id: 'destination', path: '/destination', primary: false, navHidden: true },
     ] });
     function Pages() {
       const { pathname } = usePlatform();
       return <PlatformPage title={pathname === '/' ? '출발' : '도착'}
-        secondaryActions={<PlatformLink href="/destination?v=1&scopeId=ICH">다른 페이지</PlatformLink>}><p>page body</p></PlatformPage>;
+        secondaryActions={<PlatformLink href="/destination?v=1&scopeId=MEM">다른 페이지</PlatformLink>}><p>page body</p></PlatformPage>;
     }
     render(<I18nProvider><PlatformProvider adapter={adapter()} registry={navigationRegistry}><Pages /></PlatformProvider></I18nProvider>);
     await screen.findByText('page body');
@@ -315,7 +315,7 @@ describe('page header yield order (#303)', () => {
 
   it('has no more menu when there is no secondary action', async () => {
     headerWidths();
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     render(<I18nProvider><PlatformProvider adapter={adapter()} registry={registry}>
       <PlatformPage title="제목" primaryAction={<button type="button">주 동작</button>}><p>page body</p></PlatformPage>
     </PlatformProvider></I18nProvider>);

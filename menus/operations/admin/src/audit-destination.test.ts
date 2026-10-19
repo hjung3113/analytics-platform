@@ -7,20 +7,20 @@ const recording = () => {
   const linkTo: LinkTo = (menuId, options) => { calls.push({ menuId, options }); return `/linked/${menuId}`; };
   return { linkTo, calls };
 };
-const target = (over: Partial<AuditTarget>): AuditTarget => ({ type: 'equipment', id: 'ICH-ETCH-0101', scopeId: 'ICH', ...over });
+const target = (over: Partial<AuditTarget>): AuditTarget => ({ type: 'equipment', id: 'MEM-ETCH-0101', scopeId: 'MEM', ...over });
 
 describe('auditDestination (#50: the screen-owned type → menu map)', () => {
   it('links equipment to its audit tab with returnTo and asks for the destination site; the site-boundary clear is the kernel\'s', () => {
     const { linkTo, calls } = recording();
-    const link = auditDestination(linkTo, target({ scopeId: 'CJU' }));
+    const link = auditDestination(linkTo, target({ scopeId: 'FDRY' }));
     expect(link).toEqual({ ok: true, href: '/linked/equipment-detail' });
     const options = calls[0]!.options!;
     expect(calls[0]!.menuId).toBe('equipment-detail');
-    expect(options.params).toEqual({ equipmentId: 'ICH-ETCH-0101' });
+    expect(options.params).toEqual({ equipmentId: 'MEM-ETCH-0101' });
     expect(options.page).toEqual({ tab: 'audit' });
     expect(options.returnTo).toBe(true);
     // Only the scope — no hand-built site clear, and never the equipment id as the analysis Selection (§22).
-    expect(options.global).toEqual({ scopeId: 'CJU' } satisfies Partial<GlobalContext>);
+    expect(options.global).toEqual({ scopeId: 'FDRY' } satisfies Partial<GlobalContext>);
   });
 
   it('refuses a site-less equipment destination without calling linkTo', () => {

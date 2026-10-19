@@ -78,7 +78,7 @@ const FROM = '2026-09-25T09:00:00';
 const TO = '2026-09-26T09:00:00';
 /** All applied keys, like projectContext sends: scope, period, and the current filters. */
 const context = {
-  scopeId: 'ICH', from: FROM, to: TO, roomNames: ['PHOTO'],
+  scopeId: 'MEM', from: FROM, to: TO, roomNames: ['PHOTO'],
   condition: null, selection: null, ppid: null, recipeIds: null,
 };
 
@@ -185,7 +185,7 @@ describe('productivity-overview endpoint smoke', () => {
     expect(toolData.stgroupFound).toBe(true);
     expect(toolData.stgroups).toEqual([]);
     expect(toolData.equipment.length).toBeGreaterThan(0);
-    expect(toolData.equipment.every(row => row.equipmentId.startsWith('ICH-PHOTO-'))).toBe(true);
+    expect(toolData.equipment.every(row => row.equipmentId.startsWith('MEM-PHOTO-'))).toBe(true);
     expect(toolData.equipment.reduce((sum, row) => sum + row.jobs, 0)).toBe(roomData.stgroups[0].jobs);
 
     const missingRoom = await adapter.menuQuery({ endpoint: drillEndpoint.id, context, params: { level: 'stgroup', room: 'ETCH', stgroup: '' } });

@@ -139,7 +139,7 @@ describe('menu usage (docs/05 메뉴 활용률 계측)', () => {
   });
 
   it('rejects events carrying unknown keys and stores nothing, for the whole call', async () => {
-    const leak = { ...entry(), query: 'lot=SECRET', recentUrl: '/equipment/E-123?scopeId=ICH' } as unknown as UsageEvent;
+    const leak = { ...entry(), query: 'lot=SECRET', recentUrl: '/equipment/E-123?scopeId=MEM' } as unknown as UsageEvent;
     expect((await recordUsage([leak])).accepted).toBe(0);
     expect((await recordUsage([entry(), leak])).accepted).toBe(0); // one bad event rejects the whole call
     // Dwell-only fields are unknown keys on an entry.

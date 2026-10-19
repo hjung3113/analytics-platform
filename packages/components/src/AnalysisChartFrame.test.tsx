@@ -96,12 +96,12 @@ function SwitchRooms() {
 }
 function SwitchScope() {
   const { setGlobal } = usePlatform();
-  return <button type="button" onClick={() => setGlobal({ scopeId: 'CJU' })}>to-cju</button>;
+  return <button type="button" onClick={() => setGlobal({ scopeId: 'FDRY' })}>to-fdry</button>;
 }
 function mount(
   adapter: PlatformAdapter,
   features: typeof off,
-  url = '/?v=1&scopeId=ICH',
+  url = '/?v=1&scopeId=MEM',
   chart: { series?: ChartSeries[]; compareSeries?: ChartSeries[]; markLines?: { y: number; label: string }[] } = {},
 ) {
   window.history.replaceState(null, '', url);
@@ -172,7 +172,7 @@ describe('chart stroke aliases (#203)', () => {
     root.style.setProperty('--chart-blue', '59 156 255');
     root.style.setProperty('--chart-blue-stroke', '37 119 204');
     plottedSeries = [];
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
 
     try {
       render(<I18nProvider><PlatformProvider adapter={fixture().adapter} registry={registryWith(off)}>
@@ -208,7 +208,7 @@ describe('chart stroke aliases (#203)', () => {
     // Channels off the historical rgba(59,156,255,…) literal: reverting the fill to that literal must fail here.
     root.style.setProperty('--chart-blue', '10 20 30');
     root.style.setProperty('--chart-blue-stroke', '37 119 204');
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     try {
       render(<I18nProvider><PlatformProvider adapter={fixture().adapter} registry={registryWith(off)}>
         <AnalysisChartFrame chartId="chart-brush-fill" title="Brush fill" unit="ea" series={series} />
@@ -246,7 +246,7 @@ describe('data table and CSV share one x-union row projection (#297)', () => {
   });
 
   it('shows each series under its own date instead of the first series indexes', async () => {
-    mount(fixture().adapter, off, '/?v=1&scopeId=ICH', { series: spread });
+    mount(fixture().adapter, off, '/?v=1&scopeId=MEM', { series: spread });
     fireEvent.click(await screen.findByRole('button', { name: '더보기' }));
     fireEvent.click(await screen.findByRole('button', { name: '같은 데이터를 표로 보기' }));
     const rows = within(await screen.findByRole('table')).getAllByRole('row');
@@ -266,12 +266,12 @@ describe('data table and CSV share one x-union row projection (#297)', () => {
     URL.createObjectURL = (blob: Blob) => { blobs.push(blob); return 'blob:test'; };
     URL.revokeObjectURL = () => {};
     try {
-      mount(fixture().adapter, on, '/?v=1&scopeId=ICH', { series: spread });
+      mount(fixture().adapter, on, '/?v=1&scopeId=MEM', { series: spread });
       fireEvent.click(await screen.findByRole('button', { name: '내보내기' }));
       expect(blobs).toHaveLength(1);
       await expect(blobStartsWithBom(blobs[0])).resolves.toBe(true);
       await expect(blobText(blobs[0])).resolves.toBe(
-        '# Chart · scopeId=ICH · from= · to=\r\n'
+        '# Chart · scopeId=MEM · from= · to=\r\n'
         + 'x,"rate, %","say ""hi""","행\n분리"\r\n'
         + '2026-10-01T00:00:00,,20,\r\n'
         + '2026-10-02T00:00:00,10,,\r\n'
@@ -289,7 +289,7 @@ describe('data table and CSV share one x-union row projection (#297)', () => {
       { id: 'a', name: 'A', color: 'chart-blue', points: [['2026-10-01T00:00:00', 0]] },
       { id: 'b', name: 'B', color: 'chart-teal', points: [['2026-10-01T00:00:00', null], ['2026-10-02T00:00:00', 3]] },
     ];
-    mount(fixture().adapter, off, '/?v=1&scopeId=ICH', { series: sparse });
+    mount(fixture().adapter, off, '/?v=1&scopeId=MEM', { series: sparse });
     fireEvent.click(await screen.findByRole('button', { name: '더보기' }));
     fireEvent.click(await screen.findByRole('button', { name: '같은 데이터를 표로 보기' }));
     const table = await screen.findByRole('table');
@@ -307,7 +307,7 @@ describe('data table and CSV share one x-union row projection (#297)', () => {
 
   it('collapses duplicate axis categories to one row in categories order (F2)', async () => {
     const dupes: ChartSeries[] = [{ id: 'h', name: 'H', color: 'chart-blue', points: [['b', 3], ['a', 2], ['a', 1]] }];
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     render(<I18nProvider><PlatformProvider adapter={fixture().adapter} registry={registryWith(off)}>
       <AnalysisChartFrame chartId="chart-cat" title="Categories" unit="ea" xType="category" series={dupes} />
     </PlatformProvider></I18nProvider>);
@@ -438,7 +438,7 @@ describe('chart legend and comparison encoding (#207)', () => {
     expect(screen.queryByText('이전 기간')).toBeNull();
 
     cleanup();
-    mount(fixture().adapter, on, '/?v=1&scopeId=ICH', { compareSeries: [] });
+    mount(fixture().adapter, on, '/?v=1&scopeId=MEM', { compareSeries: [] });
     await screen.findByRole('button', { name: '구간 선택' });
     expect(screen.queryByRole('button', { name: '비교' })).toBeNull();
     expect(screen.queryByText('현재 기간')).toBeNull();
@@ -453,7 +453,7 @@ describe('chart legend and comparison encoding (#207)', () => {
       points: series[0].points,
     }));
     const previous = many.slice(0, 2).map((item, index) => ({ ...item, id: `previous-${index}`, name: `Previous ${index + 1}` }));
-    mount(fixture().adapter, on, '/?v=1&scopeId=ICH', { series: many, compareSeries: previous });
+    mount(fixture().adapter, on, '/?v=1&scopeId=MEM', { series: many, compareSeries: previous });
     fireEvent.click(await screen.findByRole('button', { name: '비교' }));
 
     const legend = screen.getByRole('group', { name: '범례' });
@@ -476,7 +476,7 @@ describe('chart legend and comparison encoding (#207)', () => {
     for (const [name, value] of Object.entries(values)) root.style.setProperty(name, value);
 
     try {
-      mount(fixture().adapter, on, '/?v=1&scopeId=ICH', {
+      mount(fixture().adapter, on, '/?v=1&scopeId=MEM', {
         series: [
           { id: 'p50', name: 'P50', color: 'chart-blue', points: series[0].points },
           { id: 'p95', name: 'P95', color: 'chart-teal', points: series[0].points, dashed: true },
@@ -538,12 +538,12 @@ describe('chart annotations are keyed by chart and Scope (06 §16 layer 4)', () 
   it('saves under the current Scope, then shows the row from the server', async () => {
     const f = fixture();
     mount(f.adapter, on);
-    await waitFor(() => expect(f.list).toHaveBeenCalledWith({ chartId: 'chart-1', scopeId: 'ICH' }, expect.anything()));
+    await waitFor(() => expect(f.list).toHaveBeenCalledWith({ chartId: 'chart-1', scopeId: 'MEM' }, expect.anything()));
     await brushAndOpenNote();
     fireEvent.change(screen.getByLabelText('주석 내용'), { target: { value: 'PM 작업' } });
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
     await waitFor(() => expect(f.save).toHaveBeenCalledTimes(1));
-    expect(f.save.mock.calls[0][0]).toEqual({ chartId: 'chart-1', scopeId: 'ICH', from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00', text: 'PM 작업' });
+    expect(f.save.mock.calls[0][0]).toEqual({ chartId: 'chart-1', scopeId: 'MEM', from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00', text: 'PM 작업' });
     expect(await screen.findByText(/PM 작업/)).toBeTruthy();
   });
 
@@ -563,12 +563,12 @@ describe('chart annotations are keyed by chart and Scope (06 §16 layer 4)', () 
 
   it('a site switch hides the previous site’s notes and reads the new site’s', async () => {
     const f = fixture();
-    f.rows.push({ id: 'x1', chartId: 'chart-1', scopeId: 'ICH', from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00', text: 'ICH 전용 메모', at: '2026-09-29T09:00', mine: false });
+    f.rows.push({ id: 'x1', chartId: 'chart-1', scopeId: 'MEM', from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00', text: 'MEM 전용 메모', at: '2026-09-29T09:00', mine: false });
     mount(f.adapter, on);
-    expect(await screen.findByText(/ICH 전용 메모/)).toBeTruthy();
-    fireEvent.click(screen.getByText('to-cju'));
-    await waitFor(() => expect(f.list).toHaveBeenLastCalledWith({ chartId: 'chart-1', scopeId: 'CJU' }, expect.anything()));
-    await waitFor(() => expect(screen.queryByText(/ICH 전용 메모/)).toBeNull());
+    expect(await screen.findByText(/MEM 전용 메모/)).toBeTruthy();
+    fireEvent.click(screen.getByText('to-fdry'));
+    await waitFor(() => expect(f.list).toHaveBeenLastCalledWith({ chartId: 'chart-1', scopeId: 'FDRY' }, expect.anything()));
+    await waitFor(() => expect(screen.queryByText(/MEM 전용 메모/)).toBeNull());
   });
 
   it('with no Scope selected it neither reads nor writes: Annotate is disabled', async () => {
@@ -615,7 +615,7 @@ describe('chart annotations are keyed by chart and Scope (06 §16 layer 4)', () 
     f.list.mockResolvedValueOnce(none_('forbidden'));
     mount(f.adapter, on);
     expect(await screen.findByRole('alert')).toHaveTextContent('주석을 불러오지 못했습니다');
-    f.rows.push({ id: 'r1', chartId: 'chart-1', scopeId: 'ICH', from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00', text: '재시도 후 보이는 메모', at: '2026-09-29T09:00', mine: false });
+    f.rows.push({ id: 'r1', chartId: 'chart-1', scopeId: 'MEM', from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00', text: '재시도 후 보이는 메모', at: '2026-09-29T09:00', mine: false });
     fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
     expect(await screen.findByText(/재시도 후 보이는 메모/)).toBeTruthy();
     expect(screen.queryByRole('alert')).toBeNull();
@@ -637,7 +637,7 @@ describe('keyboard range, bar snap, and compare clip (06 §16, #307)', () => {
   });
   const currentDay = hourly('2026-10-16', 16, 22, 's1', 'S1');
   const previousDay = hourly('2026-10-15', 16, 22, 'prev', 'Prev');
-  const period = '/?v=1&scopeId=ICH&from=2026-10-16T16:00:00&to=2026-10-16T23:00:00';
+  const period = '/?v=1&scopeId=MEM&from=2026-10-16T16:00:00&to=2026-10-16T23:00:00';
   const summary = () => screen.getByRole('region', { name: '선택 요약' });
   const pick = async (combobox: string, option: string) => {
     fireEvent.click(screen.getByRole('combobox', { name: combobox }));
@@ -699,7 +699,7 @@ describe('keyboard range, bar snap, and compare clip (06 §16, #307)', () => {
 
   it('a single bar can be selected, and a quick range longer than the data is not offered', async () => {
     const one: ChartSeries = { id: 's1', name: 'S1', color: 'chart-blue', points: [['2026-10-16T16:00:00', 5]] };
-    mount(fixture().adapter, off, '/?v=1&scopeId=ICH&from=2026-10-16T16:00:00&to=2026-10-16T17:00:00', { series: [one], compareSeries: [] });
+    mount(fixture().adapter, off, '/?v=1&scopeId=MEM&from=2026-10-16T16:00:00&to=2026-10-16T17:00:00', { series: [one], compareSeries: [] });
     expect(await screen.findByRole('button', { name: '1시간' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: '4시간' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '전체' }));
@@ -709,7 +709,7 @@ describe('keyboard range, bar snap, and compare clip (06 §16, #307)', () => {
 
   it('includes a query start that is earlier than the first bar', async () => {
     const bars: ChartSeries = { id: 's1', name: 'S1', color: 'chart-blue', points: [['2026-10-16T16:00:00', 1], ['2026-10-16T17:00:00', 1]] };
-    mount(fixture().adapter, off, '/?v=1&scopeId=ICH&from=2026-10-16T15:30:00&to=2026-10-16T18:00:00', { series: [bars], compareSeries: [] });
+    mount(fixture().adapter, off, '/?v=1&scopeId=MEM&from=2026-10-16T15:30:00&to=2026-10-16T18:00:00', { series: [bars], compareSeries: [] });
     await screen.findByRole('button', { name: '전체' });
     expect(screen.queryByRole('button', { name: '4시간' })).toBeNull();
     fireEvent.click(screen.getByRole('combobox', { name: '구간 시작' }));
@@ -797,7 +797,7 @@ describe('keyboard range, bar snap, and compare clip (06 §16, #307)', () => {
 
 describe('author-only annotation delete (#399, ADR-0041)', () => {
   const note = (id: string, text: string, mine: boolean, over: Partial<ChartAnnotation> = {}): ChartAnnotation =>
-    ({ id, chartId: 'chart-1', scopeId: 'ICH', from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00', text, at: '2026-09-29T09:00', mine, ...over });
+    ({ id, chartId: 'chart-1', scopeId: 'MEM', from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00', text, at: '2026-09-29T09:00', mine, ...over });
 
   it('draws a delete button only on the viewer’s own notes, named after the note without the Annotate word', async () => {
     const f = fixture();
@@ -822,7 +822,7 @@ describe('author-only annotation delete (#399, ADR-0041)', () => {
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: '삭제: 내 메모' })));
     fireEvent.click(screen.getByRole('button', { name: '삭제: 내 메모' }));
     fireEvent.click(within(screen.getByRole('group', { name: '삭제 확인: 내 메모' })).getByRole('button', { name: '삭제 확정' }));
-    await waitFor(() => expect(f.del).toHaveBeenCalledWith({ chartId: 'chart-1', scopeId: 'ICH', id: 'x1' }));
+    await waitFor(() => expect(f.del).toHaveBeenCalledWith({ chartId: 'chart-1', scopeId: 'MEM', id: 'x1' }));
     await waitFor(() => expect(screen.queryByText(/내 메모/)).toBeNull());
   });
 
@@ -893,7 +893,7 @@ describe('author-only annotation delete (#399, ADR-0041)', () => {
     await screen.findByRole('button', { name: '삭제: 첫째' });
     let release: () => void = () => {};
     f.list.mockImplementationOnce(() => new Promise(resolve => {
-      release = () => resolve({ ...envelope, outcome: 'ok', data: { items: f.rows.filter(r => r.chartId === 'chart-1' && r.scopeId === 'ICH') } });
+      release = () => resolve({ ...envelope, outcome: 'ok', data: { items: f.rows.filter(r => r.chartId === 'chart-1' && r.scopeId === 'MEM') } });
     }));
     fireEvent.click(screen.getByRole('button', { name: '삭제: 첫째' }));
     fireEvent.click(within(screen.getByRole('group', { name: '삭제 확인: 첫째' })).getByRole('button', { name: '삭제 확정' }));

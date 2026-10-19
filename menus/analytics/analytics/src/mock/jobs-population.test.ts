@@ -9,16 +9,16 @@ const TO = '2026-09-25T00:00:00';
 const DAY_FROM = '2026-09-25T09:00:00';
 const DAY_TO = '2026-09-26T09:00:00';
 
-function ich(room?: string) {
-  return EQUIPMENT.filter(e => e.site === 'ICH' && (!room || e.room === room)).slice(0, room ? 4 : 6);
+function mem(room?: string) {
+  return EQUIPMENT.filter(e => e.site === 'MEM' && (!room || e.room === room)).slice(0, room ? 4 : 6);
 }
 
 describe('screen 11 and 12 share one job population', () => {
   it('matches completed counts for several equipment sets and periods', () => {
     const cases = [
-      { equipment: ich('PHOTO'), from: FROM, to: TO },
-      { equipment: ich('ETCH').slice(0, 1), from: FROM, to: TO },
-      { equipment: ich(), from: DAY_FROM, to: DAY_TO },
+      { equipment: mem('PHOTO'), from: FROM, to: TO },
+      { equipment: mem('ETCH').slice(0, 1), from: FROM, to: TO },
+      { equipment: mem(), from: DAY_FROM, to: DAY_TO },
     ];
     for (const { equipment, from, to } of cases) {
       const jobs = jobsInPeriod(equipment, from, to);
@@ -35,7 +35,7 @@ describe('screen 11 and 12 share one job population', () => {
   });
 
   it('matches v4 P50/P95 and keeps v3 minutes different', () => {
-    const equipment = ich('PHOTO').slice(0, 2);
+    const equipment = mem('PHOTO').slice(0, 2);
     const kpi = computeKpis(equipment, FROM, TO);
     const v4 = population(equipment, { ...emptyGlobal, from: FROM, to: TO }, '4');
     const v3 = population(equipment, { ...emptyGlobal, from: FROM, to: TO }, '3');
@@ -46,7 +46,7 @@ describe('screen 11 and 12 share one job population', () => {
   });
 
   it('sums the same jobs at hour, day, and week', () => {
-    const equipment = ich('PHOTO').slice(0, 3);
+    const equipment = mem('PHOTO').slice(0, 3);
     const kpi = computeKpis(equipment, FROM, TO);
     for (const grain of ['hour', 'day', 'week'] as const) {
       const total = trendBuckets(equipment, FROM, TO, grain).reduce((sum, bucket) => sum + (bucket.jobs ?? 0), 0);
@@ -55,7 +55,7 @@ describe('screen 11 and 12 share one job population', () => {
   });
 
   it('uses v4 minutes only when the version is 4', () => {
-    const equipment = ich().slice(0, 1);
+    const equipment = mem().slice(0, 1);
     const [job] = jobsInPeriod(equipment, DAY_FROM, DAY_TO);
     expect(cycleMinutes(job, '4')).toBe(job.cycleMinV4);
     expect(cycleMinutes(job, '3')).toBe(job.cycleMinV3);

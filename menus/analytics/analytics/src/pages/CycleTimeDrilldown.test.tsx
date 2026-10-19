@@ -52,7 +52,7 @@ describe('CycleTimeDrilldown page filter summary', () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
   it('shows the unknown percentile raw value in the collapsed summary instead of the default label', async () => {
-    renderPage('/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00&percentile=zzz');
+    renderPage('/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00&percentile=zzz');
 
     fireEvent.click(await screen.findByRole('button', { name: '페이지 필터 접기' }));
     const expand = screen.getByRole('button', { name: '페이지 필터 펼치기' });
@@ -64,7 +64,7 @@ describe('CycleTimeDrilldown page filter summary', () => {
   });
 
   it('summarizes applied values and keeps the reset working without leaving the collapsed state', async () => {
-    renderPage('/analytics/cycle-time?v=1&scopeId=ICH&percentile=p50&sort=delta:desc');
+    renderPage('/analytics/cycle-time?v=1&scopeId=MEM&percentile=p50&sort=delta:desc');
 
     fireEvent.click(await screen.findByRole('button', { name: '페이지 필터 접기' }));
     const expand = screen.getByRole('button', { name: '페이지 필터 펼치기' });
@@ -84,7 +84,7 @@ describe('CycleTimeDrilldown invalid page key warnings (#304 FIX1)', () => {
   afterEach(cleanup);
 
   it('percentile=zzz names the 느린 실행 기준 field and the raw value, without key=value', async () => {
-    renderPage('/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00&percentile=zzz');
+    renderPage('/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00&percentile=zzz');
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('느린 실행 기준');
     expect(alert.textContent).toContain('zzz');
@@ -93,7 +93,7 @@ describe('CycleTimeDrilldown invalid page key warnings (#304 FIX1)', () => {
   });
 
   it('states each refusal as the exact ADR-0034 sentence plus the page own action (one paragraph per field)', async () => {
-    renderPage('/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00&granularity=zzz&percentile=q&bin=bogus&page=0');
+    renderPage('/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00&granularity=zzz&percentile=q&bin=bogus&page=0');
     const alert = await screen.findByRole('alert');
     expect([...alert.querySelectorAll('p')].map(p => p.textContent)).toEqual([
       '집계 “zzz”는 이 화면에서 쓸 수 없습니다. 페이지 조건을 기본값으로 되돌리세요.',
@@ -118,7 +118,7 @@ describe('CycleTimeDrilldown slow-execution KPI name (#307)', () => {
       ],
     };
     const querying: PlatformAdapter = { ...adapter, menuQuery: async (req: MenuQuery) => req.endpoint === 'analytics.cycle.kpi' ? ok : empty };
-    window.history.replaceState(null, '', '/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00');
+    window.history.replaceState(null, '', '/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00');
     render(<I18nProvider><PlatformProvider adapter={querying} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('느린 실행 (P95 기준)')).toBeTruthy();
     expect(screen.getByTestId('cycle-kpi').textContent).toContain('표시된 P95 이상');
@@ -127,7 +127,7 @@ describe('CycleTimeDrilldown slow-execution KPI name (#307)', () => {
 
 describe('CycleTimeDrilldown population caption (#397)', () => {
   afterEach(cleanup);
-  const url = '/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00';
+  const url = '/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00';
 
   it('shows … only while the KPI query is loading', async () => {
     const pending: PlatformAdapter = { ...adapter, menuQuery: () => new Promise<never>(() => undefined) };

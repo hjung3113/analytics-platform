@@ -38,7 +38,7 @@ describe('feedbackOpsSlot', () => {
   });
 
   it('carries the page it was drawn on as platformReturn on all four entries (FO ADR-0071)', () => {
-    const back = 'https://platform.example/analytics/cycle-time?v=1&scopeId=ICH';
+    const back = 'https://platform.example/analytics/cycle-time?v=1&scopeId=MEM';
     const entries = feedbackOpsSlot(F).entriesFor('analytics', back)!;
     for (const entry of entries) expect(new URL(entry.href!).searchParams.getAll('platformReturn')).toEqual([back]);
     expect(feedbackOpsSlot(F).overall!.href).toBe(`${F}/home`);
@@ -49,7 +49,7 @@ describe('feedbackOpsSlot', () => {
   });
 
   it('gives a space no block when its mapped value is not a uuid', () => {
-    vi.spyOn(FEEDBACKOPS_MANAGED_SYSTEMS as Record<string, string>, 'analytics', 'get').mockReturnValue('ICH');
+    vi.spyOn(FEEDBACKOPS_MANAGED_SYSTEMS as Record<string, string>, 'analytics', 'get').mockReturnValue('MEM');
     expect(feedbackOpsSlot(F).entriesFor('analytics')).toBeNull();
   });
 

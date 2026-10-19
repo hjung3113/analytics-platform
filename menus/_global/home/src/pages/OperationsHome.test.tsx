@@ -16,8 +16,8 @@ function menu(id: string, group: 'overview' | 'equipment' | 'metrics' | 'noticeV
 
 const registry = createRegistry({
   spaces: [
-    { id: 'analytics', label: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비·기간별 생산성과 사이클타임을 분석합니다.', en: 'Analyze productivity and cycle time by equipment and period.' }, homeMenuId: 'equipment' },
-    { id: 'metrics', label: { ko: '지표관리', en: 'Metrics' }, description: { ko: '지표 정의·버전·발행을 관리합니다.', en: 'Manage metric definitions, versions, and releases.' }, homeMenuId: 'catalog' },
+    { id: 'analytics', label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비·기간별 생산성과 사이클타임을 분석합니다.', en: 'Analyze productivity and cycle time by equipment and period.' }, homeMenuId: 'equipment' },
+    { id: 'metrics', label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, description: { ko: '지표 정의·버전·발행을 관리합니다.', en: 'Manage metric definitions, versions, and releases.' }, homeMenuId: 'catalog' },
     { id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, description: purpose, permission: 'console:access', homeMenuId: 'admin-roles' },
   ],
   groups: [
@@ -51,7 +51,7 @@ function adapter(permissions: Session['user']['permissions']): PlatformAdapter {
   });
 }
 
-function mount(permissions: Session['user']['permissions'], url = '/?v=1&scopeId=ICH') {
+function mount(permissions: Session['user']['permissions'], url = '/?v=1&scopeId=MEM') {
   window.history.replaceState(null, '', url);
   render(<I18nProvider><PlatformProvider adapter={adapter(permissions)} registry={registry}><OperationsHome /></PlatformProvider></I18nProvider>);
 }
@@ -100,12 +100,12 @@ describe('platform home launcher', () => {
     });
     const partialSpaces = partialRegistry.spaces.map(space => space.id === 'analytics' ? { ...space, homeMenuId: 'analysis-home' } : space);
     const withDeniedHome = createRegistry({ spaces: partialSpaces, groups: partialRegistry.groups, menus: partialRegistry.menus });
-    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&page=9');
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&page=9');
     render(<I18nProvider><PlatformProvider adapter={adapter(['platform:view', 'equipment:view'])} registry={withDeniedHome}><OperationsHome /></PlatformProvider></I18nProvider>);
     await settled();
     const cards = within(screen.getByRole('region', { name: '업무 시스템' })).getAllByRole('link');
     expect(cards).toHaveLength(1);
-    expect(cards[0].getAttribute('href')).toBe('/equipment?v=1&scopeId=ICH');
+    expect(cards[0].getAttribute('href')).toBe('/equipment?v=1&scopeId=MEM');
     expect(cards[0].textContent).not.toContain('이어서');
   });
 
@@ -116,9 +116,12 @@ describe('platform home launcher', () => {
     const section = screen.getByRole('region', { name: '업무 시스템' });
     const cards = within(section).getAllByRole('link');
     expect(cards.map(card => card.textContent)).toEqual([
-      expect.stringContaining('생산성 분석'),
-      expect.stringContaining('지표관리'),
+      expect.stringContaining('MARS'),
+      expect.stringContaining('BRAVO'),
     ]);
+    expect(cards[0].textContent).toContain('생산성 분석');
+    expect(cards[0].textContent).toContain('설비·기간별 생산성과 사이클타임을 분석합니다.');
+    expect(cards[1].textContent).toContain('지표관리');
     expect(cards[0].textContent).not.toContain('이어서');
     expect(cards[0].getAttribute('href')).toContain('/equipment');
     expect(cards[0].getAttribute('href')).not.toContain('page=2');
@@ -126,7 +129,7 @@ describe('platform home launcher', () => {
     const href = cards[1].getAttribute('href') ?? '';
     expect(href).toContain('/metrics');
     expect(href).toContain('page=2');
-    expect(href).toContain('scopeId=ICH');
+    expect(href).toContain('scopeId=MEM');
     expect(href).not.toContain('OLD');
     expect(href).not.toContain('extra=1');
     expect(tabStore.getItem('platform:space-last:u1')).toContain('page=2');
@@ -137,7 +140,7 @@ describe('platform home launcher', () => {
     await settled();
     const cards = within(screen.getByRole('region', { name: '업무 시스템' })).getAllByRole('link');
     expect(cards).toHaveLength(1);
-    expect(cards[0].textContent).toContain('지표관리');
+    expect(cards[0].textContent).toContain('BRAVO');
   });
 
   it('explains an empty space list without a link and still shows notices', async () => {
@@ -163,7 +166,8 @@ describe('platform home launcher', () => {
     const recent = screen.getByRole('heading', { name: '최근 방문' }).closest('section')!;
     const links = within(recent).getAllByRole('link');
     expect(links.map(link => link.textContent)).toEqual(['지표 카탈로그', '공지']);
-    expect(links[0].closest('li')?.textContent).toContain('지표관리');
+    expect(links[0].closest('li')?.textContent).toContain('BRAVO');
+    expect(links[0].closest('li')?.textContent).not.toContain('지표관리');
     expect(links[1].closest('li')?.textContent).toContain('플랫폼');
     expect(links[0].getAttribute('href')).toBe('/metrics?page=1');
     cleanup();
@@ -183,7 +187,8 @@ describe('platform home launcher', () => {
     expect(within(favorites).getByRole('link', { name: '지표 카탈로그' })).toBeTruthy();
     expect(within(favorites).getByRole('link', { name: '공지' })).toBeTruthy();
     expect(within(favorites).getByRole('link', { name: '플랫폼 홈' })).toBeTruthy();
-    expect(within(favorites).getAllByText('지표관리')).toHaveLength(1);
+    expect(within(favorites).getAllByText('BRAVO')).toHaveLength(1);
+    expect(within(favorites).queryByText('지표관리')).toBeNull();
     expect(within(favorites).getAllByText('플랫폼').length).toBeGreaterThanOrEqual(2);
   });
 

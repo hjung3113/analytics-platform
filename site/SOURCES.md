@@ -17,7 +17,7 @@
 | L05 | Kernel·contracts 공개 API(createRegistry, pathFor, PlatformProvider, usePlatform, PlatformLink, useMenuQuery, useMenuFetch, usePlatformQuery, useEntityQuery, useDrill, I18nProvider, defineEndpoint, PlatformAdapter 메서드 목록) | `packages/kernel/src/index.ts`, `packages/contracts/src/menu-query.ts`, `packages/contracts/src/adapter.ts` | `linkTo`·`can`·`canOpen`은 `usePlatform()` 반환값 |
 | L06 | 계약 E2E test() 선언 70개 | `apps/platform-e2e/tests/contracts.spec.ts` | 선언 수, 통과 수 아님. 재측정 |
 | L07 | 테스트 파일 105개, it()/test() 계열 선언 968개(`packages/`·`menus/`·`apps/platform-web/`) | 현재 워크트리 재측정 | 선언 수. 매개변수화·skip 포함, 펼친 실행 수 아님 |
-| L08 | 공간 3개(생산성 분석·지표관리·운영 콘솔), 그룹 패키지 7개, 홈 런처, 공간별 마지막 화면 복원 | `apps/platform-web/src/menus.ts:21-37`, `.planning` v0.5.0·v0.6.0 | — |
+| L08 | 공간 3개(MARS·BRAVO·운영 콘솔), 그룹 패키지 7개, 홈 런처, 공간별 마지막 화면 복원 | `apps/platform-web/src/menus.ts:21-37`, `.planning` v0.5.0·v0.6.0 | — |
 | L09 | Registry가 메뉴·그룹 중복, 부모·경로, pageKeys·contextResetKeys, 드릴 선언을 검증 | `packages/kernel/src/registry.ts` | 새 그룹은 사람이 GroupId·GROUPS 행을 먼저 추가 |
 | L10 | 전역 조건과 page key를 버전 URL로 읽고 써 새로고침·Back/Forward·메뉴 전환에서 복원, 지원 안 하는 조건은 지우지 않고 "미사용" 표시, `linkTo`가 현재 전역 조건을 실어 감 | E2E `contracts.spec.ts:456-524`, `platform.tsx` spaceResume 주석 | — |
 | L11 | 메뉴·직접 URL 권한 게이트, mock adapter가 조회마다 세션 권한·Scope·room 재검사 | `packages/shell/src/RouteOutlet.tsx:15-40`, `packages/mock-server/src/adapter.ts` | mock 판정. 서버 거부 검증은 별도(`apps/platform-e2e/AGENTS.md:11`) |
@@ -81,7 +81,7 @@
 | ID | 내용 | 표시 위치 |
 | --- | --- | --- |
 | E01 | 미니어처 값: P50 41.2분, P95 68.5분, 느린 실행 12건, 차트 곡선, 표 4행, `갱신 09:00`, 기간 칩 시각 | 미니어처 틀 배지 `화면 모형 · 예시 데이터` |
-| E02 | 설비 ID `ICH-PHOTO-0103` 등 — mock 데이터의 형식을 빌린 합성 값 | 미니어처·06 절 미리보기 |
+| E02 | 설비 ID `MEM-PHOTO-0103` 등 — mock 데이터의 형식을 빌린 합성 값 | 미니어처·06 절 미리보기 |
 | E03 | 02 절 "공통 계약이 없을 때" 흐름 — 설명용 예시이지 사내 관찰이 아님 | 패널 머리 `예시` 배지 |
 | E04 | 06 절 미리보기의 문구·값(`필터 · 상태 가동 · 제조사 A`, `1–20 / 54`, 감사 이벤트 내용 등) | 갤러리 머리 캡션 |
 | E06 | 08 절 사용자 조합 분석 모형: 필드·축·필터·차트 종류(선 선택)·패널·저장·공유 문구, 선 추이와 설비별 표의 예시 값(38.4·41.2·47.9 분) | 모형 배지 `화면 모형 · 예시 데이터`, `구상 · 결정 대기 (#294)` |

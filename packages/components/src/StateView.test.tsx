@@ -33,7 +33,7 @@ describe('non-grouped compact state names its widget (UXA-3)', () => {
   });
 
   it.each([
-    ['error', 'time_domain_unverified: ICH-PHOTO-0103, ICH-PHOTO-0105', 'alert', ['함께 집계할 수 없습니다', '설비를 좁히거나 기간을 줄이세요'], true],
+    ['error', 'time_domain_unverified: MEM-PHOTO-0103, MEM-PHOTO-0105', 'alert', ['함께 집계할 수 없습니다', '설비를 좁히거나 기간을 줄이세요'], true],
     ['forbidden', 'no grant', 'status', ['권한 담당자에게 요청하세요'], false],
     ['too_large', 'row cap', 'status', ['조회 조건을 좁혀 다시 시도하세요'], false],
     ['timeout', 'Upstream mart query failed', 'alert', ['조회가 제한 시간 안에 끝나지 않았습니다', '기간을 줄이거나 집계 단위를 키워 다시 시도하세요'], true],

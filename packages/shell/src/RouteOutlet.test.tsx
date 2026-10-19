@@ -75,7 +75,7 @@ describe('RouteOutlet error boundary (06 §4)', () => {
   it('contains a menu render failure: error view with the reported correlation id, shell stays usable', async () => {
     const reports: ClientErrorReport[] = [];
     const { adapter } = fixture(async r => { reports.push(r); return { accepted: true }; });
-    mountAt('/crash?v=1&scopeId=ICH&secret=abc', adapter);
+    mountAt('/crash?v=1&scopeId=MEM&secret=abc', adapter);
     expect(await screen.findByText('이 화면에서 오류가 발생했습니다')).toBeTruthy();
     expect(reports).toHaveLength(1);
     expect(reports[0]).toEqual({

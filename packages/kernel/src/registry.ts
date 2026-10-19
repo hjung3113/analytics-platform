@@ -155,6 +155,7 @@ export function createRegistry({ spaces, groups, menus }: { spaces: readonly Spa
   }
   for (const s of spaces) {
     if (typeof s.description?.ko !== 'string' || s.description.ko.trim() === '' || typeof s.description?.en !== 'string' || s.description.en.trim() === '') fail(`Space "${s.id}" description must not be empty`);
+    if (s.subtitle !== undefined && (typeof s.subtitle.ko !== 'string' || s.subtitle.ko.trim() === '' || typeof s.subtitle.en !== 'string' || s.subtitle.en.trim() === '')) fail(`Space "${s.id}" subtitle must not be empty`);
     const home = byId.get(s.homeMenuId) ?? fail(`Space "${s.id}" homeMenuId "${s.homeMenuId}" is unknown`);
     if (groupSpace.get(home.group) !== s.id) fail(`Space "${s.id}" homeMenuId "${s.homeMenuId}" is not in that space`);
     // Space entry lands on the home menu without params, so its route must not need any.

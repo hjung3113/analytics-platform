@@ -70,7 +70,7 @@ function renderAudit(path: string, items: AuditEvent[] = [], options?: { filterW
 
 const EVENT: AuditEvent = {
   id: 'a1', at: '2026-09-26T02:10:00.000Z', actor: 'admin-a', action: 'update', source: 'user',
-  target: { type: 'equipment', id: 'ICH-ETCH-0101', scopeId: 'ICH' }, changes: { status: ['idle', 'maintenance'] },
+  target: { type: 'equipment', id: 'MEM-ETCH-0101', scopeId: 'MEM' }, changes: { status: ['idle', 'maintenance'] },
 };
 
 const fromInput = () => screen.getByRole('textbox', { name: /^(At or after|시각 이후)$/ });
@@ -113,7 +113,7 @@ describe('AuditTrail text filters (issue #50 review)', () => {
     await waitFor(() => expect(f.calls).toHaveLength(1));
     f.calls.length = 0;
 
-    fireEvent.change(targetIdInput(), { target: { value: 'ICH-ETCH-0101' } });
+    fireEvent.change(targetIdInput(), { target: { value: 'MEM-ETCH-0101' } });
     expect(typeSelect()).toBeTruthy();
     expect(new URLSearchParams(window.location.search).has('targetId')).toBe(false);
     await chooseType('설비');
@@ -132,7 +132,7 @@ describe('AuditTrail text filters (issue #50 review)', () => {
     fireEvent.click(applyButton());
 
     await waitFor(() => expect(f.calls).toHaveLength(1));
-    expect(f.calls[0]).toMatchObject({ type: 'equipment', targetId: 'ICH-ETCH-0101', fromAt: FROM, toAt: TO, page: 1, pageSize: 25 });
+    expect(f.calls[0]).toMatchObject({ type: 'equipment', targetId: 'MEM-ETCH-0101', fromAt: FROM, toAt: TO, page: 1, pageSize: 25 });
     expect(new URLSearchParams(window.location.search).has('page')).toBe(false);
   });
 
@@ -235,8 +235,8 @@ describe('AuditTrail text filters (issue #50 review)', () => {
       const f = renderAudit(`/admin/audit?${new URLSearchParams({ type: 'equipment', source: 'user' })}`, [EVENT]);
       const table = await screen.findByRole('table', { name: '변경 감사 목록' });
       // Rows arrive after the table mounts (loading state); wait for them before reading cells synchronously.
-      await within(table).findByText('ICH-ETCH-0101');
-      expect(within(table).getByText('ICH-ETCH-0101')).toBeTruthy();
+      await within(table).findByText('MEM-ETCH-0101');
+      expect(within(table).getByText('MEM-ETCH-0101')).toBeTruthy();
       // Source badge and target-type cell render the label, not the wire value.
       expect(within(table).getByText('사용자')).toBeTruthy();
       expect(within(table).getByText('설비')).toBeTruthy();
@@ -258,17 +258,17 @@ describe('AuditTrail text filters (issue #50 review)', () => {
     const restore = withRowLayout();
     try {
       const reason = '삭제된 주석 문구가 아주 길어서 셀 폭을 넘는 경우에도 전문을 title로 읽을 수 있어야 한다';
-      renderAudit('/admin/audit', [{ ...EVENT, reason }, { ...EVENT, id: 'a2', changes: undefined, target: { ...EVENT.target, id: 'ICH-ETCH-0102' } }]);
+      renderAudit('/admin/audit', [{ ...EVENT, reason }, { ...EVENT, id: 'a2', changes: undefined, target: { ...EVENT.target, id: 'MEM-ETCH-0102' } }]);
       const table = await screen.findByRole('table', { name: '변경 감사 목록' });
       // Rows arrive after the table mounts (loading state); wait for them before reading cells synchronously.
-      await within(table).findByText('ICH-ETCH-0101');
+      await within(table).findByText('MEM-ETCH-0101');
       const headers = within(table).getAllByRole('columnheader');
       const index = headers.findIndex(h => h.textContent?.includes('사유'));
       expect(index).toBeGreaterThan(-1);
       expect(headers.at(-1)?.textContent).toContain('동작');
       const cellOf = (id: string) => within(within(table).getByText(id).closest('[role="row"]') as HTMLElement).getAllByRole('cell')[index];
-      expect(within(cellOf('ICH-ETCH-0101')).getByText(reason).getAttribute('title')).toBe(reason);
-      expect(cellOf('ICH-ETCH-0102').textContent).toBe('—');
+      expect(within(cellOf('MEM-ETCH-0101')).getByText(reason).getAttribute('title')).toBe(reason);
+      expect(cellOf('MEM-ETCH-0102').textContent).toBe('—');
       fireEvent.click(screen.getByRole('button', { name: '컬럼' }));
       expect(await screen.findByRole('checkbox', { name: /사유/ })).toBeTruthy();
     } finally { restore(); }
@@ -311,10 +311,10 @@ describe('AuditTrail text filters (issue #50 review)', () => {
       const f = renderAudit('/admin/audit', [EVENT], { filterWindow: true });
       const table = await screen.findByRole('table', { name: '변경 감사 목록' });
       // Rows arrive after the table mounts (loading state); wait for them before reading cells synchronously.
-      await within(table).findByText('ICH-ETCH-0101');
+      await within(table).findByText('MEM-ETCH-0101');
       expect(within(table).getByText(/11:10/)).toBeTruthy();
       expect(within(table).queryByText(/02:10/)).toBeNull();
-      expect(within(table).getByText('ICH-ETCH-0101')).toBeTruthy();
+      expect(within(table).getByText('MEM-ETCH-0101')).toBeTruthy();
 
       fireEvent.change(fromInput(), { target: { value: local } });
       fireEvent.click(applyButton());
@@ -322,7 +322,7 @@ describe('AuditTrail text filters (issue #50 review)', () => {
       const fromCall = f.calls.at(-1);
       expect(instantEpochMs(fromCall?.fromAt ?? '')).toBe(instantEpochMs(EVENT.at));
       expect(instantEpochMs(new URLSearchParams(window.location.search).get('fromAt') ?? '')).toBe(instantEpochMs(EVENT.at));
-      expect(await screen.findByText('ICH-ETCH-0101')).toBeTruthy();
+      expect(await screen.findByText('MEM-ETCH-0101')).toBeTruthy();
 
       fireEvent.change(fromInput(), { target: { value: '' } });
       fireEvent.change(toInput(), { target: { value: local } });
@@ -332,7 +332,7 @@ describe('AuditTrail text filters (issue #50 review)', () => {
       expect(toCall?.fromAt).toBeUndefined();
       expect(instantEpochMs(new URLSearchParams(window.location.search).get('toAt') ?? '')).toBe(instantEpochMs(EVENT.at));
       expect(new URLSearchParams(window.location.search).has('fromAt')).toBe(false);
-      await waitFor(() => expect(screen.queryByText('ICH-ETCH-0101')).toBeNull());
+      await waitFor(() => expect(screen.queryByText('MEM-ETCH-0101')).toBeNull());
     } finally {
       restore();
     }

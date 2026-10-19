@@ -30,7 +30,7 @@ const registry = createRegistry({
   ],
 });
 
-const EQUIPMENT_URL = '/equipment?v=1&scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&selectedEquipmentIds=ICH-PHOTO-0103&page=2';
+const EQUIPMENT_URL = '/equipment?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&selectedEquipmentIds=MEM-PHOTO-0103&page=2';
 const ADMIN: Session['user']['permissions'] = ['platform:view', 'console:access'];
 const ANALYST: Session['user']['permissions'] = ['platform:view'];
 
@@ -88,10 +88,10 @@ describe('spaces on Platform (06 §9.1)', () => {
     act(() => screen.getByTestId('to-operations').click());
     expect(screen.getByTestId('pathname').textContent).toBe('/admin/roles');
     const params = new URLSearchParams(window.location.search);
-    expect(params.get('scopeId')).toBe('ICH');
+    expect(params.get('scopeId')).toBe('MEM');
     expect(params.get('from')).toBe('2026-09-25T09:00:00');
     expect(params.get('to')).toBe('2026-09-26T09:00:00');
-    expect(params.get('selectedEquipmentIds')).toBe('ICH-PHOTO-0103');
+    expect(params.get('selectedEquipmentIds')).toBe('MEM-PHOTO-0103');
     expect(params.get('page')).toBeNull();
     expect(screen.getByTestId('current').textContent).toBe('operations');
     expect(screen.getByTestId('visible').textContent).toBe('admin-roles,admin-child');
@@ -137,7 +137,7 @@ describe('spaces on Platform (06 §9.1)', () => {
     // admin-child only needs 'platform:view', which the analyst has: the operations space gate
     // ('console:access') is the ONLY guard that can deny /admin/child, so this pins the canEnter
     // checks in both the recent and usage effects (the /admin/roles home is menu-denied as well).
-    mountAt('/admin/child?v=1&scopeId=ICH', ANALYST);
+    mountAt('/admin/child?v=1&scopeId=MEM', ANALYST);
     expect(screen.getByTestId('current').textContent).toBe('operations');
     expect(screen.getByTestId('recent').textContent).toBe('');
     expect(localStorage.getItem('platform:recent:u1')).toBeNull();
@@ -145,10 +145,10 @@ describe('spaces on Platform (06 §9.1)', () => {
   });
 
   it('a console:access user visiting the same child URL is recorded in recent', () => {
-    mountAt('/admin/child?v=1&scopeId=ICH', ADMIN);
+    mountAt('/admin/child?v=1&scopeId=MEM', ADMIN);
     expect(screen.getByTestId('recent').textContent).toBe('admin-child');
     expect(JSON.parse(localStorage.getItem('platform:recent:u1') ?? 'null')).toEqual([
-      { menuId: 'admin-child', url: '/admin/child?v=1&scopeId=ICH', at: expect.any(Number) },
+      { menuId: 'admin-child', url: '/admin/child?v=1&scopeId=MEM', at: expect.any(Number) },
     ]);
     // Usage is events via adapter.recordUsage now — the old platform:usage counter must stay dead.
     expect(localStorage.getItem('platform:usage')).toBeNull();

@@ -26,7 +26,7 @@ export type FeedbackOpsSlot = {
   overall: { href: string; permission: Permission } | null;
 };
 /** A business system that is announced but cannot be entered yet. Display only — not in the Registry, no permission, no menu (ADR-0042). */
-export type PlannedSpace = { id: string; label: Text; icon: LucideIcon };
+export type PlannedSpace = { id: string; label: Text; /** Optional second line in the switcher row; same non-blank ko/en rule as SpaceDef.subtitle. */ subtitle?: Text; icon: LucideIcon };
 /**
  * Shell slots (docs/06 §8) the app fills at composition time, so platform components never import the shell.
  * contextBar: rendered by PlatformPage above page content. topBarTools: extra controls at the bottom of the app rail (today the mock dev tools).

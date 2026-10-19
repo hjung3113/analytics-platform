@@ -100,7 +100,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('usage events (docs/05 메뉴 활용률 계측)', () => {
   it('a permitted navigation emits exactly one entry whose path is the manifest pattern', async () => {
-    const events = mountAt('/equipment/E-123?scopeId=ICH&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00', ADMIN);
+    const events = mountAt('/equipment/E-123?scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00', ADMIN);
     await settle();
     expect(events).toHaveLength(1);
     expect(events[0].name).toBe('entry');
@@ -110,12 +110,12 @@ describe('usage events (docs/05 메뉴 활용률 계측)', () => {
     expect(events[0].sessionId).toEqual(expect.any(String));
     // No concrete id, no Context value, no search in the wire format.
     expect(JSON.stringify(events)).not.toContain('E-123');
-    expect(JSON.stringify(events)).not.toContain('ICH');
+    expect(JSON.stringify(events)).not.toContain('MEM');
     expect(JSON.stringify(events)).not.toContain('?');
   });
 
   it('a second render of the same pathname and a query-only setPage emit nothing', async () => {
-    const events = mountAt('/equipment?v=1&scopeId=ICH&page=1', ADMIN);
+    const events = mountAt('/equipment?v=1&scopeId=MEM&page=1', ADMIN);
     await settle();
     expect(events).toHaveLength(1);
     act(() => screen.getByTestId('page').click());
@@ -124,7 +124,7 @@ describe('usage events (docs/05 메뉴 활용률 계측)', () => {
   });
 
   it('leaving emits one dwell with the entry\'s enteredAt; returning admits a fresh stay', async () => {
-    const events = mountAt('/equipment?v=1&scopeId=ICH', ADMIN);
+    const events = mountAt('/equipment?v=1&scopeId=MEM', ADMIN);
     await settle();
     act(() => screen.getByTestId('leave').click());
     await settle();
@@ -144,7 +144,7 @@ describe('usage events (docs/05 메뉴 활용률 계측)', () => {
     try {
       const base = Date.parse('2026-09-25T09:00:00Z');
       vi.setSystemTime(base);
-      const events = mountAt('/equipment?v=1&scopeId=ICH', ADMIN);
+      const events = mountAt('/equipment?v=1&scopeId=MEM', ADMIN);
       act(() => { vi.advanceTimersByTime(0); }); // fires exactly the deferred entry timer
       expect(events).toEqual([expect.objectContaining({ name: 'entry', at: base })]);
       const hidden = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
@@ -174,7 +174,7 @@ describe('usage events (docs/05 메뉴 활용률 계측)', () => {
   });
 
   it('StrictMode double-mounting still emits exactly one entry and no dwell', async () => {
-    const events = mountAt('/equipment?v=1&scopeId=ICH', ADMIN, true);
+    const events = mountAt('/equipment?v=1&scopeId=MEM', ADMIN, true);
     await settle();
     expect(events).toHaveLength(1);
     expect(events[0].name).toBe('entry');
@@ -183,14 +183,14 @@ describe('usage events (docs/05 메뉴 활용률 계측)', () => {
   it('a space-denied direct URL emits zero calls', async () => {
     // admin-child only needs 'platform:view', which the analyst has: the operations space gate
     // ('console:access') is the only guard that can deny this stay (canEnter admission).
-    const events = mountAt('/admin/child?v=1&scopeId=ICH', ANALYST);
+    const events = mountAt('/admin/child?v=1&scopeId=MEM', ANALYST);
     await settle();
     expect(events).toHaveLength(0);
   });
 
   it('a menu-denied direct URL emits zero calls', async () => {
     // The analytics space is open, but the equipment menu requires 'platform:view'.
-    const events = mountAt('/equipment?v=1&scopeId=ICH', []);
+    const events = mountAt('/equipment?v=1&scopeId=MEM', []);
     await settle();
     expect(events).toHaveLength(0);
   });
@@ -204,7 +204,7 @@ describe('usage events (docs/05 메뉴 활용률 계측)', () => {
   it('a role switch does not bill the old stay\'s dwell to the new user', async () => {
     // The mock stamps the session user at call time, so a dwell sent after the switch would carry the
     // new user's id — the kernel must not send that stale dwell at all.
-    const fixture = mountFixture('/equipment?v=1&scopeId=ICH', ANALYST, 'engineer');
+    const fixture = mountFixture('/equipment?v=1&scopeId=MEM', ANALYST, 'engineer');
     await settle();
     expect(fixture.events).toEqual([expect.objectContaining({ name: 'entry', userId: 'engineer' })]);
     act(() => fixture.setSessionUser('admin'));
@@ -214,7 +214,7 @@ describe('usage events (docs/05 메뉴 활용률 계측)', () => {
   });
 
   it('a pending entry timer from the old user does not fire after a role switch', async () => {
-    const fixture = mountFixture('/equipment?v=1&scopeId=ICH', ANALYST, 'engineer');
+    const fixture = mountFixture('/equipment?v=1&scopeId=MEM', ANALYST, 'engineer');
     act(() => fixture.setSessionUser('admin')); // before the deferred entry timer fires
     await settle();
     expect(fixture.events.map(e => `${e.userId}:${e.name}`)).toEqual(['admin:entry']);
@@ -226,7 +226,7 @@ describe('usage events (docs/05 메뉴 활용률 계측)', () => {
     process.on('unhandledRejection', onRejection);
     try {
       const { adapter } = recordingFixture(ADMIN, 'u1', async () => { throw new Error('network down'); });
-      mountUi('/equipment?v=1&scopeId=ICH', adapter);
+      mountUi('/equipment?v=1&scopeId=MEM', adapter);
       await settle();
       act(() => screen.getByTestId('leave').click());
       await settle();
@@ -240,7 +240,7 @@ describe('usage events (docs/05 메뉴 활용률 계측)', () => {
 
   it('a synchronously throwing recordUsage does not break navigation', async () => {
     const { adapter } = recordingFixture(ADMIN, 'u1', () => { throw new Error('sync boom'); });
-    mountUi('/equipment?v=1&scopeId=ICH', adapter);
+    mountUi('/equipment?v=1&scopeId=MEM', adapter);
     await settle();
     act(() => screen.getByTestId('leave').click());
     await settle();
