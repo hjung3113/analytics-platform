@@ -146,31 +146,30 @@ function normalizeAllowlist(allowlist: SurfaceAllowlist | undefined): unknown {
 describe('rich-content allowlist parity with FeedbackOps source', () => {
   it('matches surface names, allowlist rules, and extension-capability tables', async () => {
     const { uiAllowlist, feedbackOpsAllowlist } = await getParitySources();
-    const uiBySurface = Object.fromEntries(feedbackOpsAllowlist.SHARED_SURFACES.map((surface) => [
-      surface,
-      {
-        allowlist: normalizeAllowlist(uiAllowlist.UI_ALLOWLISTS[surface]),
-        extensionCapabilities: uiAllowlist.UI_SURFACE_EXTENSION_CAPABILITIES[surface],
-      },
-    ]));
-    const feedbackOpsBySurface = Object.fromEntries(feedbackOpsAllowlist.SHARED_SURFACES.map((surface) => [
-      surface,
-      {
-        allowlist: normalizeAllowlist(feedbackOpsAllowlist.SHARED_ALLOWLISTS[surface]),
-        extensionCapabilities: feedbackOpsAllowlist.SHARED_SURFACE_EXTENSION_CAPABILITIES[surface],
-      },
-    ]));
+    // Project every key each side actually exports (not only the original's surface list), so an extra surface
+    // on either side shows up as a difference.
+    const project = (
+      allowlists: Readonly<Record<string, SurfaceAllowlist>>,
+      capabilities: Readonly<Record<string, readonly string[]>>,
+    ) => ({
+      allowlistKeys: Object.keys(allowlists).sort(),
+      capabilityKeys: Object.keys(capabilities).sort(),
+      allowlists: Object.fromEntries(
+        Object.entries(allowlists)
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([surface, allowlist]) => [surface, normalizeAllowlist(allowlist)]),
+      ),
+      capabilities,
+    });
 
     expect({
       surfaces: uiAllowlist.UI_SURFACES,
       extensionCapabilities: uiAllowlist.UI_RICH_CONTENT_EXTENSION_CAPABILITIES,
-      bySurface: uiBySurface,
-      extensionCapabilityTable: uiAllowlist.UI_SURFACE_EXTENSION_CAPABILITIES,
+      ...project(uiAllowlist.UI_ALLOWLISTS, uiAllowlist.UI_SURFACE_EXTENSION_CAPABILITIES),
     }).toEqual({
       surfaces: feedbackOpsAllowlist.SHARED_SURFACES,
       extensionCapabilities: feedbackOpsAllowlist.SHARED_RICH_CONTENT_EXTENSION_CAPABILITIES,
-      bySurface: feedbackOpsBySurface,
-      extensionCapabilityTable: feedbackOpsAllowlist.SHARED_SURFACE_EXTENSION_CAPABILITIES,
+      ...project(feedbackOpsAllowlist.SHARED_ALLOWLISTS, feedbackOpsAllowlist.SHARED_SURFACE_EXTENSION_CAPABILITIES),
     });
   });
 

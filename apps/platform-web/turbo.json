@@ -1,0 +1,13 @@
+{
+  "$schema": "../../node_modules/turbo/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "test": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "../../packages/ui/src/rich-content/**",
+        "../../products/feedbackops/packages/shared/src/rich-content/**"
+      ]
+    }
+  }
+}
