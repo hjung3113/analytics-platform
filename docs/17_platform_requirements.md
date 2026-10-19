@@ -184,13 +184,13 @@ SDK는 플랫폼에 올릴 앱이 지키는 **계약**이면서, 앱이 자기 �
 
 | ID | 보장 | 이득 | 상태 | 근거 |
 | --- | --- | --- | --- | --- |
-| R9.1 | 같은 디자인 시스템 하나 | 앱마다 버튼·표·패널 모양이 달라지지 않는다. 디자인 결정의 원본이 하나라 고치면 다 같이 바뀐다 | 동작 — FeedbackOps가 이미 SDK UI(`@ap/ui`)를 받아 쓴다(전환 뒤 시각 비교 변화 없음) | [ADR-0046](adr/0046-design-system-source-moves-to-platform-whole-package.md), [ADR-0052](adr/0052-rich-content-stays-in-the-sdk.md) |
-| R9.2 | 앱이 선언하고 호스트가 주는 계약 | 앱은 manifest(화면·권한·필요 기능·계약 버전)를 내고, 플랫폼은 세션·조건·이동·알림·오류 보고를 준다. 플랫폼 내부를 import하지 않아 플랫폼이 바뀌어도 앱이 깨지지 않는다 | 동작 — 계약 1판(등록 검사·화면 렌더·호스트 포트)을 계약 검사용 고정 모듈로 검증. 다른 저장소 앱 연결은 첫 소비자 편입 뒤(#332) | [ADR-0053](adr/0053-host-module-contract-v1.md), [탑재 설계](integration/platform-hosting-design.md) |
+| R9.1 | 같은 디자인 시스템 하나 | 앱마다 버튼·표·패널 모양이 달라지지 않는다. 디자인 결정의 원본이 하나라, 고친 것은 소비자가 태그를 올려 받는다 | 동작 — FeedbackOps가 이미 SDK UI(`@ap/ui`)를 받아 쓴다(전환 뒤 시각 비교 변화 없음) | [ADR-0046](adr/0046-design-system-source-moves-to-platform-whole-package.md), [ADR-0052](adr/0052-rich-content-stays-in-the-sdk.md) |
+| R9.2 | 앱이 선언하고 호스트가 주는 계약 | 앱은 manifest(화면·권한·필요 기능·계약 버전)를 내고, 플랫폼은 세션·조건 읽기·이동·알림·오류 보고를 준다. 플랫폼 내부를 import하지 않아 플랫폼이 바뀌어도 앱이 깨지지 않는다 | 동작 — 계약 1판(등록 검사·화면 렌더·호스트 포트)을 계약 검사용 고정 모듈로만 검증. 플랫폼 앱에 탑재된 모듈은 아직 없고, 다른 저장소 앱 연결은 첫 소비자 편입 뒤(#332). 계약 패키지(`@ap/contracts`)는 아직 저장소 밖 배포 모양이 아니다 | [ADR-0053](adr/0053-host-module-contract-v1.md), [탑재 설계](integration/platform-hosting-design.md) |
 | R9.3 | 등록할 때 잘못을 막는다 | 계약 버전이 다르거나, 필요한 기능을 호스트가 못 주거나, 권한 이름이 다른 앱과 겹치면 사용자가 보기 전에 등록이 실패한다 | 동작(고정 모듈로 검증). 모듈 조회의 모듈 권한 선언은 #492 | [ADR-0053](adr/0053-host-module-contract-v1.md), #492 |
 | R9.4 | 화면 사이 일을 앱이 다시 만들지 않는다 | 앱이 올라오는 순간 R1–R6(조건 유지, 주소, 신뢰 표시, 상태 화면, 권한, 감사, 활용률)을 받는다 | 플랫폼 안 화면은 동작. 다른 저장소 앱은 첫 소비자 편입 뒤(#332) | §3.1–§3.6 |
-| R9.5 | 서버는 계약만 | SDK는 백엔드 프레임워크를 강요하지 않는다. 전송 형식·오류 변환·적합성 묶음만 맞추면 사내 FastAPI든 다른 서버든 된다 | 계약·묶음 동작. 전송 형식은 사내 합의 대기 | [SDK 포괄 목록](integration/sdk-coverage-inventory.md) §6, #149 |
-| R9.6 | 버전을 고정해 받는다 | 플랫폼 변경이 앱에 예고 없이 들어간다 | SDK는 앱과 따로 묶음 버전(`sdk-v*` 태그)으로 내고, 앱은 git 태그로 버전을 고정해 받는다(사내 패키지 레지스트리 없음). 저장소 밖 소비자 검사가 릴리스 게이트다 | 동작 | [ADR-0044](adr/0044-sdk-source-in-platform-repo-released-separately.md), [git 태그 소비](integration/sdk-git-tag-consumption.md) |
-| R9.7 | 세 제품의 프레임워크를 모두 덮는다 | 제품마다 프레임워크를 따로 키워 차이가 벌어진다 | analytics-platform·FeedbackOps·equipment-visualization이 하는 일을 SDK 하나가 덮는다. 빠진 것(쓰기 포트, 기계가 읽는 테마 계약, 접근성·성능 게이트)은 SDK가 새로 정한다 | 계획 | [SDK 포괄 목록](integration/sdk-coverage-inventory.md) §5 |
+| R9.5 | 서버는 계약만 | SDK는 백엔드 프레임워크를 강요하지 않는다. 전송 형식·오류 변환·적합성 묶음만 맞추면 사내 FastAPI든 다른 서버든 된다 | 계약·적합성 묶음 동작(지금은 mock 어댑터를 판정). 전송 형식은 사내 합의 대기, HTTP 실어댑터는 #154 | [SDK 포괄 목록](integration/sdk-coverage-inventory.md) §6, #149, #154 |
+| R9.6 | 버전을 고정해 받는다 | 플랫폼 변경이 앱에 예고 없이 들어가지 않는다. SDK는 앱과 따로 묶음 버전(`sdk-v*` 태그)으로 내고, 앱은 git 태그로 버전을 고정해 받는다(사내 패키지 레지스트리 없음). 저장소 밖 소비자 검사가 릴리스 게이트다 | 동작 — 지금 태그로 받는 것은 SDK UI(`@ap/ui`)뿐이다. 계약·Kernel·셸 패키지는 아직 저장소 밖 배포 모양이 아니다 | [ADR-0044](adr/0044-sdk-source-in-platform-repo-released-separately.md), [git 태그 소비](integration/sdk-git-tag-consumption.md) |
+| R9.7 | 세 제품의 프레임워크를 모두 덮는다 | 제품마다 프레임워크를 따로 키워 차이가 벌어지지 않는다. analytics-platform·FeedbackOps·equipment-visualization이 하는 일을 SDK 하나가 덮고, 빠진 것(쓰기 포트, 기계가 읽는 테마 계약, 접근성·성능 게이트)은 SDK가 새로 정한다 | 계획 | [SDK 포괄 목록](integration/sdk-coverage-inventory.md) §5 |
 
 ## 4. 판단 기준 — 이 플랫폼이라서 되는 것
 
