@@ -56,6 +56,7 @@
 | [0048](0048-menu-audit-seeds-join-shared-mock-audit-store.md) | 지표 이력은 공용 감사 저장소에서 읽는다 — 메뉴 mock이 감사 시드를 내고 앱 mock 조립이 `createMockAdapter`에 넣는다 | Decided(2026-10-19) — #90 |
 | [0049](0049-analysis-context-belongs-to-a-pane.md) | 분석 Context는 칸에 속한다 — 본 화면은 칸이 하나, 분석 보드는 칸마다 하나. Kernel이 칸마다 하위 Provider를 주고 메뉴는 Kernel 훅으로만 읽는다 | Decided(2026-10-19, 사용자) — #421, 구현 전 |
 | [0050](0050-domain-coupled-ui-returns-to-feedbackops.md) | FeedbackOps 도메인에 묶인 UI 부품과 rich-content는 FeedbackOps 소유로 되돌리고, SDK에는 도메인을 모르는 부품만 남긴다 | Decided(2026-10-19, 사용자 승인·되돌릴 수 있음) — 구현 #479 |
+| [0051](0051-analysis-board-pane-header-signal-chips-numbered-selection.md) | 분석 보드 칸 머리는 다른 키만 칩(`같음 N` 팝오버, 동작 `⋯`), 선택된 칸은 번호 배지 + 왼쪽 2px 막대 + 머리 선택 표면 | Decided(2026-10-19, 코디네이터 — 사용자가 UX 리뷰 판정에 위임) — #421 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

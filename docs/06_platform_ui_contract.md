@@ -338,7 +338,7 @@ Desktop-first를 기본으로 한다.
 - **사이드바**: 머리에 공간 이름과 현재 섹션 이름(같으면 한 줄)과 접기. 그 아래 Scope 선택기와 검증 상태가 있고, 현재 섹션(그룹)의 메뉴, 즐겨찾기·최근이 이어진다(§9). 미등록 경로·공간 진입 거부의 fallback 사이드바는 접근 가능한 공간의 모든 그룹을 그대로 그린다.
 - **상단 바는 없다.** 페이지 머리는 한 줄에 위치·제목·설명·동작을 둔다(§8 슬롯).
 
-Scope는 개념적으로 Global Context에 포함되지만 선택기는 **사이드바 머리에 하나만** 둔다. Context Bar에 두 번째 Scope 선택기를 만들지 않는다. 구체 셸 배치는 `07_app_shell_wireframe.md`를 따른다.
+Scope는 개념적으로 Global Context에 포함되지만 선택기는 **사이드바 머리에 하나만** 둔다. Context Bar에 두 번째 Scope 선택기를 만들지 않는다. 예외: 분석 보드([16](16_analysis_board.md))에는 업무 시스템 사이드바가 없으므로, 보드 Context 바의 Scope가 **선택된 칸의 Scope이자 그 화면의 유일한 Scope 선택기**다(§6.5, [ADR-0051](adr/0051-analysis-board-pane-header-signal-chips-numbered-selection.md)). 구체 셸 배치는 `07_app_shell_wireframe.md`를 따른다.
 
 ### Context 바 우선순위 넘침 (Decided, 2026-10-04 — #56, [ADR-0015](adr/0015-context-bar-priority-overflow.md))
 
