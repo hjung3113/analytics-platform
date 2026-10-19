@@ -84,8 +84,11 @@ const restrictedImportSource = {
   create(context) {
     const evaluate = makeEvaluate(context.options[0] ?? {});
     const checkLiteral = (node) => {
-      if (!node || node.type !== 'Literal' || typeof node.value !== 'string') return;
-      const message = evaluate(node.value);
+      // A substitution-free template names the same static source as a quoted string.
+      const value = node?.type === 'Literal' ? node.value
+        : node?.type === 'TemplateLiteral' && node.expressions.length === 0 ? node.quasis[0].value.cooked : null;
+      if (typeof value !== 'string') return;
+      const message = evaluate(value);
       if (message) context.report({ node, messageId: 'restricted', data: { message } });
     };
     return {

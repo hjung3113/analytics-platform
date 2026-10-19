@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -22,7 +23,7 @@ function SlotHost() {
   return <aside ref={slot.ref} aria-label="상세 패널" />;
 }
 
-function mount(url = '/fixture', options: { item?: (props: ModuleScreenProps) => React.ReactNode; extra?: React.ReactNode } = {}) {
+function mount(url = '/fixture', options: { item?: (props: ModuleScreenProps) => React.ReactNode; extra?: React.ReactNode; strict?: boolean } = {}) {
   window.history.replaceState(null, '', url);
   const { menus, groups } = mountModule(manifest, { list: SpyList, item: options.item ?? ItemScreen }, {
     prefix: '/fixture', groupSpace: { 'fixture:main': 'analytics' }, config: { apiBase: 'https://api.example' },
@@ -54,9 +55,10 @@ function mount(url = '/fixture', options: { item?: (props: ModuleScreenProps) =>
   });
   const seen: { platform: ReturnType<typeof usePlatform> } = { platform: undefined as never };
   function Probe() { seen.platform = usePlatform(); return null; }
-  const view = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider>
+  const app = <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider>
     <main id="platform-main" tabIndex={-1}><Probe /><RouteOutlet />{options.extra}</main><SlotHost />
-  </DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  </DetailPanelSlotProvider></PlatformProvider></I18nProvider>;
+  const view = render(options.strict ? <StrictMode>{app}</StrictMode> : app);
   return {
     ...view, calls, seen,
     go: (to: string, focus?: 'page') => act(() => { seen.platform.navigate(to, focus ? { focus } : undefined); }),
@@ -91,6 +93,15 @@ describe('ModuleScreen renders { params, host } (ADR-0053)', () => {
     expect(screen.getByTestId('page').textContent).toBe('2');
     expect(view.calls[1].request.params).toEqual({ page: 2 });
     expect(listEndpoint.id).toBe('fixture.items');
+  });
+
+  it('loads the list and keeps its subscriptions under StrictMode effect replay', async () => {
+    const view = mount('/fixture?v=1', { strict: true });
+    const last = view.calls.at(-1)!;
+    expect(last.signal?.aborted).toBe(false);
+    await act(async () => last.resolve([{ id: 'r1' }]));
+    expect(screen.getByTestId('rows').textContent).toBe('r1');
+    expect(spy.hosts.at(-1)!.signal.aborted).toBe(false);
   });
 
   it('still renders a platform menu as <Page params>', () => {
@@ -162,6 +173,26 @@ describe('ModuleScreen status', () => {
     expect(screen.queryByText('old detail')).toBeNull();
   });
 
+  it('a released instance\'s captured status, detail and focusTarget change nothing (the calls run inside act)', () => {
+    const view = mount('/fixture?v=1');
+    const old = spy.hosts.at(-1)!;
+    click('server down');
+    click('다시 시도');
+    act(() => {
+      old.status('unavailable');
+      old.status('auth_required');
+      old.detail!.show(<p>old detail</p>, 'old');
+      old.focusTarget(document.body);
+    });
+    expect(screen.getByRole('heading', { name: 'Fixture list' })).toBeTruthy();
+    expect(screen.queryByText('지금 이 화면을 열 수 없습니다')).toBeNull();
+    expect(screen.queryByText('다시 로그인이 필요합니다')).toBeNull();
+    expect(screen.queryByText('old detail')).toBeNull();
+    view.go('/?v=1');
+    view.go('/fixture?v=1', 'page');
+    expect(screen.getByRole('heading', { name: 'Fixture list' })).toHaveFocus();
+  });
+
   it('drops host subscriptions on a normal unmount', () => {
     const view = mount('/fixture?v=1');
     const host = spy.hosts.at(-1)!;
@@ -208,6 +239,12 @@ describe('ModuleScreen arrival focus (06 §26, ADR-0032)', () => {
     const view = mount('/?v=1');
     view.go('/fixture?v=1', 'page');
     expect(screen.getByRole('heading', { name: 'Fixture list' })).toHaveFocus();
+  });
+
+  it('focuses the destination heading after host.navigate to another screen', () => {
+    mount('/fixture?v=1');
+    fireEvent.click(screen.getByRole('link', { name: 'open item' }));
+    expect(screen.getByRole('heading', { name: 'Fixture item a1' })).toHaveFocus();
   });
 
   it('falls back to the page content when no target is registered', () => {

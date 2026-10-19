@@ -4,6 +4,8 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — 모듈 화면 실제 브라우저 확인(#489):** `ModuleScreen`의 도착 포커스·상세 패널(`section.contents` 래퍼 레이아웃)·상태 화면을 실제 브라우저로 보지 않았다. 이유: 고정 모듈은 앱에 올리지 않아(ADR-0053) 브라우저로 열 화면이 없고, 검증은 jsdom 단위 테스트다. 다시 열 조건: 첫 실제 모듈(EV `platform-adapter`, #332 뒤)이 앱에 올라올 때 그 화면으로 확인한다.
+- **받아들인 한계 — StrictMode 재실행 중 자식 layout effect(#489):** React는 부모보다 자식의 layout effect를 먼저 다시 실행하므로, 개발 모드 StrictMode 재실행 동안 모듈 화면 자식의 layout effect는 해제된 호스트를 볼 수 있다. passive effect(조회·구독)는 보호된다. 이유: 개발 모드 전용이고 고정 모듈·문서는 passive effect만 쓴다. 다시 볼 조건: 모듈이 layout effect에서 호스트를 쓰는 사례가 생길 때.
 - 표 행 복사(#174, 닫힘) 실확인: 실제 엑셀·구글 시트 붙여넣기, Safari 클립보드, HTTP 경로 실브라우저.
 - **구현 안 함 — SDK 쪽 픽셀·시각 하니스:** 토큰·primitive의 컴포넌트 단위 시각 검증. 이유: FeedbackOps의 하니스(`apps/frontend/tests/visual`)는 앱 화면에 묶여 FeedbackOps에 남는다(ADR-0046 Open). 지금 검증은 이전된 token-fidelity·대비·소비 계약 테스트와 플랫폼 E2E 계약 보고다. 다시 열 조건: #443 완료 뒤, 또는 FeedbackOps 소비 전환 전.
 - 앱 Tailwind 소스 범위: `apps/platform-web/src/style.css`를 `@import "tailwindcss" source(none)` + 명시 `@source`로 좁혀 Markdown 글자가 CSS를 만들지 않게 할지(#220에서 문서 삭제로 selector 5개가 빠졌다). 바꾸면 CSS selector 비교가 한 번 크게 움직인다.

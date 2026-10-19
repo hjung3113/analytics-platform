@@ -1,3 +1,4 @@
+import { StrictMode, useEffect, useLayoutEffect } from 'react';
 import { act, cleanup, render } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -29,12 +30,28 @@ const manifest = (over: Partial<ModuleManifest> = {}): ModuleManifest => ({
   ], ...over,
 });
 const Noop = () => null;
-function makeRegistry(m = manifest(), features?: Parameters<typeof mountModule>[2]['features']) {
+function makeRegistry(m = manifest(), features?: Parameters<typeof mountModule>[2]['features'], lookalikes = false) {
   const { menus, groups } = mountModule(m, Object.fromEntries(m.screens.map(screen => [screen.id, Noop])), {
     prefix: '/fx', groupSpace: { 'fx:main': 'analytics' }, config: { apiBase: 'https://api.example' }, features,
     icons: { groups: { 'fx:main': House }, screens: Object.fromEntries(m.screens.map(screen => [screen.id, House])) },
   });
-  return createRegistry({ spaces: [testSpace({ homeMenuId: 'fx:list' })], groups, menus });
+  if (!lookalikes) return createRegistry({ spaces: [testSpace({ homeMenuId: 'fx:list' })], groups, menus });
+  // Ids that look like `fx:<screen>` but are not this module's screens: a nested module id and a platform menu.
+  const nested = manifest({
+    module: { id: 'fx:nested', label: { ko: '중첩', en: 'Nested' }, contract: 1, languages: ['ko', 'en'] }, optional: [], config: [],
+    groups: [{ id: 'fx:nested:main', label: { ko: '메인', en: 'Main' } }],
+    screens: [meta('list', '', { group: 'fx:nested:main', permission: 'fx:nested:view', primary: true })],
+  });
+  const mounted = mountModule(nested, { list: Noop }, { prefix: '/fxn', groupSpace: { 'fx:nested:main': 'analytics' }, config: {}, icons: { groups: { 'fx:nested:main': House }, screens: { list: House } } });
+  const outside = {
+    id: 'fx:outside', group: 'overview', primary: true, label: { ko: '밖', en: 'Outside' }, description: { ko: '', en: '' }, path: '/outside', icon: House,
+    permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', pageKeys: [], features: { export: false, savedView: false, annotate: false, compare: false },
+  } as never;
+  return createRegistry({
+    spaces: [testSpace({ homeMenuId: 'fx:list' })],
+    groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }, ...groups, ...mounted.groups],
+    menus: [...menus, ...mounted.menus, outside],
+  });
 }
 
 type Call = { request: MenuQuery; signal: AbortSignal | undefined; resolve: (r: ApiResponse<Data>) => void };
@@ -42,9 +59,9 @@ const ok = (request: MenuQuery): ApiResponse<Data> => ({
   outcome: 'ok', data: { from: request.context.from ?? null, roomNames: request.context.roomNames }, assessments: [{ kind: 'collection', state: 'clear' }], trust: null, correlationId: 'c',
 });
 
-function setup(url = '/fx?v=1&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00', m = manifest(), features?: Parameters<typeof mountModule>[2]['features']) {
+function setup(url = '/fx?v=1&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00', m = manifest(), features?: Parameters<typeof mountModule>[2]['features'], lookalikes = false) {
   window.history.replaceState(null, '', url);
-  const registry = makeRegistry(m, features);
+  const registry = makeRegistry(m, features, lookalikes);
   const calls: Call[] = [];
   const make = (id: string): Session => testSession(['fx:view'], { user: { id, name: id, title: { ko: id, en: id } } });
   let current = make('user-a');
@@ -168,6 +185,28 @@ describe('useModuleHost: reads', () => {
     expect(window.location.pathname).toBe('/fx/items/9');
   });
 
+  it('href/navigate({ screen }) refuse an id that only looks like this module\'s screen (a nested module id, a platform menu)', () => {
+    const { seen, registry } = setup('/fx?v=1', manifest(), undefined, true);
+    expect(registry.menuById('fx:nested:list')).toBeDefined();
+    expect(registry.menuById('fx:outside')).toBeDefined();
+    for (const screen of ['nested:list', 'outside']) {
+      expect(seen.host.href({ screen })).toBeNull();
+      expect(seen.host.navigate({ screen })).toBe(false);
+    }
+    expect(window.location.pathname).toBe('/fx');
+    expect(seen.host.href({ menuId: 'fx:nested:list' })?.href).toMatch(/^\/fxn/);
+  });
+
+  it('navigate requests arrival focus when the pathname changes and none for a same-screen move (06 §26)', () => {
+    const { seen } = setup('/fx?v=1');
+    act(() => { seen.host.navigate({ screen: 'list', page: { q: 'z' } }); });
+    expect(window.location.search).toContain('q=z');
+    expect(seen.platform.pageNavigation.consume('/fx')).toBeNull();
+    act(() => { seen.host.navigate({ screen: 'item', params: { id: '3' } }, { replace: true }); });
+    expect(window.location.pathname).toBe('/fx/items/3');
+    expect(seen.platform.pageNavigation.consume('/fx/items/3')).toBe('page');
+  });
+
   it('notify() raises a toast with the default tone for info', () => {
     const { seen } = setup();
     act(() => { seen.host.notify('hello'); seen.host.notify('careful', 'warning'); });
@@ -276,10 +315,13 @@ describe('useModuleHost: query', () => {
     const s = setup();
     const a = settle(s.seen.host.query!(spec, { page: 1 }));
     s.setGlobal({ from: '2026-09-24T09:00:00' });
+    // A is rejected at the Context change itself (the commit-time invalidation), before the adapter has answered anything.
+    expect(isAbort(await a)).toBe(true);
+    expect(s.calls[0].signal?.aborted).toBe(true);
     const b = settle(s.seen.host.query!(spec, { page: 1 }));
     expect(s.calls).toHaveLength(2);
+    // The adapter ignores the AbortSignal and answers B, then the stale A.
     await act(async () => { s.calls[1].resolve(ok(s.calls[1].request)); s.calls[0].resolve(ok(s.calls[0].request)); });
-    expect(isAbort(await a)).toBe(true);
     expect(await b).toMatchObject({ value: { data: { from: '2026-09-24T09:00:00' } } });
   });
 
@@ -291,5 +333,73 @@ describe('useModuleHost: query', () => {
     await act(async () => { s.calls[1].resolve(ok(s.calls[1].request)); s.calls[0].resolve(ok(s.calls[0].request)); });
     expect(await first).toMatchObject({ value: { outcome: 'ok' } });
     expect(await second).toMatchObject({ value: { outcome: 'ok' } });
+  });
+});
+
+describe('useModuleHost: lifetime ordering', () => {
+  const ports = { status: vi.fn(), focusTarget: vi.fn() } satisfies ModuleShellPorts;
+  function harness(children: (registry: ReturnType<typeof makeRegistry>) => React.ReactNode, strict = false) {
+    window.history.replaceState(null, '', '/fx?v=1&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    const registry = makeRegistry();
+    const calls: Call[] = [];
+    const session = testSession(['fx:view']);
+    const adapter = testAdapter({
+      session: () => session,
+      menuQuery: vi.fn((request: MenuQuery, signal?: AbortSignal) => new Promise<ApiResponse<never>>(resolve => {
+        calls.push({ request, signal, resolve: r => resolve(r as ApiResponse<never>) });
+      })),
+    });
+    const tree = (nodes: React.ReactNode) => {
+      const inner = <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>{nodes}</PlatformProvider></I18nProvider>;
+      return strict ? <StrictMode>{inner}</StrictMode> : inner;
+    };
+    const view = render(tree(children(registry)));
+    return { calls, registry, rerender: (nodes: React.ReactNode) => view.rerender(tree(nodes)) };
+  }
+
+  it('keeps the host usable for a descendant effect that re-runs in a StrictMode replay: its query reaches the adapter and its subscription survives', async () => {
+    const queries: Promise<unknown>[] = [];
+    const changes = vi.fn();
+    let setGlobal: ((patch: Partial<GlobalContext>) => void) | undefined;
+    function Consumer({ host }: { host: ModuleHost }) {
+      // Like a screen: it depends on the generation it reads, not on the host object, so a replay is the only re-run.
+      const { generation } = host.session();
+      useEffect(() => {
+        queries.push(settle(host.query!(spec, { page: 1 }, host.signal)));
+        return host.subscribe(changes);
+      }, [generation]);
+      return null;
+    }
+    function Owner({ id }: { id: string }) {
+      const platform = usePlatform();
+      setGlobal = platform.setGlobal;
+      return <Consumer host={useModuleHost(platform.registry.menuById(id) as never, {}, ports)} />;
+    }
+    const view = harness(() => <Owner id="fx:list" />, true);
+    const last = view.calls.at(-1)!;
+    expect(last.signal?.aborted).toBe(false);
+    await act(async () => last.resolve(ok(last.request)));
+    expect(await queries.at(-1)).toMatchObject({ value: { outcome: 'ok' } });
+    act(() => setGlobal!({ roomNames: ['ETCH'] }));
+    expect(changes).toHaveBeenCalled();
+  });
+
+  it('revokes the host when the screen is removed, before a replacement layout effect can use it', async () => {
+    let retained: ModuleHost | undefined;
+    const late: Promise<unknown>[] = [];
+    function Owner() {
+      const platform = usePlatform();
+      retained = useModuleHost(platform.registry.menuById('fx:list') as never, {}, ports);
+      return null;
+    }
+    function Replacement() {
+      useLayoutEffect(() => { late.push(settle(retained!.query!(spec, { page: 1 }))); }, []);
+      return null;
+    }
+    const view = harness(() => <Owner />);
+    view.rerender(<Replacement />);
+    expect(isAbort(await late[0] as object)).toBe(true);
+    expect(view.calls).toHaveLength(0);
+    expect(retained!.signal.aborted).toBe(true);
   });
 });

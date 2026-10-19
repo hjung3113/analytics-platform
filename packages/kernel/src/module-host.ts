@@ -52,7 +52,9 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
     seen.current = changeKey;
     for (const listener of [...instance.listeners]) listener();
   }, [changeKey, instance]);
-  useEffect(() => {
+  // A layout effect, so the host is revoked when the screen is removed (before any replacement's effects can use it) and
+  // revived before any passive effect of a descendant runs again in a StrictMode replay.
+  useLayoutEffect(() => {
     instance.released = false;
     // React's dev double-effect re-runs setup on the same instance; a real unmount never does.
     if (instance.controller.signal.aborted) instance.controller = new AbortController();
@@ -70,7 +72,16 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
     const declared = (key: string) => entry.pageKeys.includes(key);
     // Only registered menus resolve, through the platform's own link builder: a module never assembles a URL.
     const resolve = (target: ModuleTarget) => {
-      try { return p.resolveLink('screen' in target ? `${entry.module}:${target.screen}` : target.menuId, { params: target.params, page: target.page, returnTo: target.returnTo }); } catch { return null; }
+      try {
+        let id: string;
+        if ('screen' in target) {
+          // A prefixed id is not proof of ownership (a nested module id or a platform id can look the same): the entry must be this module's.
+          id = `${entry.module}:${target.screen}`;
+          const candidate = p.registry.menuById(id);
+          if (candidate.moduleScreen === undefined || candidate.module !== entry.module) return null;
+        } else id = target.menuId;
+        return p.resolveLink(id, { params: target.params, page: target.page, returnTo: target.returnTo });
+      } catch { return null; }
     };
     const host: ModuleHost = {
       contract: 1,
@@ -84,7 +95,11 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
         if (!instance.released) p.setPage(patch, options);
       },
       href: target => { const link = resolve(target); return link && { href: link.href, allowed: link.allowed }; },
-      navigate: (target, options) => { const link = resolve(target); return link !== null && !instance.released && p.navigate(link.href, options); },
+      // Arrival focus is requested when the pathname changes, as PlatformLink does (06 §26, ADR-0032).
+      navigate: (target, options) => {
+        const link = resolve(target);
+        return link !== null && !instance.released && p.navigate(link.href, link.href.split('?')[0] !== p.pathname ? { ...options, focus: 'page' } : options);
+      },
       returnTarget: () => p.returnTarget(),
       context() {
         const values: Partial<GlobalContext> = {};

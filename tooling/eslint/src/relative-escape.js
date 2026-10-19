@@ -29,11 +29,18 @@ function findOwningPackage(startDir, anyName = false) {
   }
 }
 
-/** The source literal of import/export expressions, when it is a relative string. */
+/** The string a Literal or a substitution-free template names (a template is the same static source), else null. */
+function staticString(node) {
+  if (!node) return null;
+  if (node.type === 'Literal') return typeof node.value === 'string' ? node.value : null;
+  if (node.type === 'TemplateLiteral' && node.expressions.length === 0) return node.quasis[0].value.cooked ?? null;
+  return null;
+}
+
+/** The source of import/export expressions, when it is a relative static string. */
 function relativeSourceLiteral(node) {
   const source = node.source;
-  if (!source || source.type !== 'Literal' || typeof source.value !== 'string') return null;
-  return source.value.startsWith('.') ? source : null;
+  return staticString(source)?.startsWith('.') ? source : null;
 }
 
 const noRelativePackageEscape = {
@@ -68,12 +75,13 @@ const noRelativePackageEscape = {
         });
         return;
       }
-      const resolved = path.resolve(fileDir, source.value);
+      const value = staticString(source);
+      const resolved = path.resolve(fileDir, value);
       if (resolved !== owner.root && !resolved.startsWith(owner.root + path.sep)) {
         context.report({
           node: source,
           messageId: 'escape',
-          data: { source: source.value, pkg: owner.name },
+          data: { source: value, pkg: owner.name },
         });
       }
     };
@@ -87,9 +95,7 @@ const noRelativePackageEscape = {
         return;
       }
       const arg = node.arguments[0];
-      if (!arg || arg.type !== 'Literal' || typeof arg.value !== 'string' || !arg.value.startsWith('.')) {
-        return;
-      }
+      if (!staticString(arg)?.startsWith('.')) return;
       checkLiteral(arg);
     };
 
