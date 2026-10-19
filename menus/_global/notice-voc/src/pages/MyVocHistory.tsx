@@ -1,6 +1,6 @@
 import { useId, useMemo } from 'react';
 import { AlertTriangle, ExternalLink, HelpCircle } from 'lucide-react';
-import { formatInstant } from '@ap/contracts';
+import { formatInstant, platformReturnFor } from '@ap/contracts';
 import { useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
 import { type PlatformColumn, Panel, RowAction, PlatformDataTable, PlatformPage, QueryView, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
@@ -25,7 +25,7 @@ const CURSOR = /^[^?#&\s]{1,512}$/;
 export default function MyVocHistory() {
   const { t, lang } = useI18n();
   const ko = lang === 'ko';
-  const { pageParam, setPage } = usePlatform();
+  const { pageParam, setPage, url, pathname, absoluteUrl } = usePlatform();
 
   const cursor = pageParam('cursor');
   const cursorOk = cursor === null || CURSOR.test(cursor);
@@ -35,7 +35,10 @@ export default function MyVocHistory() {
   const surveyQ = useMenuQuery(mySurveyHistoryEndpoint, NO_PARAMS);
 
   const origin = feedbackOpsOrigin();
-  const create = feedbackOpsHref(origin, { kind: 'voc-create' });
+  // FeedbackOps links back to this page (FO ADR-0071); `url` keeps the hrefs current as the cursor changes.
+  const platformReturn = platformReturnFor(absoluteUrl(url), absoluteUrl(pathname));
+  const back = platformReturn === undefined ? {} : { platformReturn };
+  const create = feedbackOpsHref(origin, { kind: 'voc-create', ...back });
   // Fail closed: a disabled button, never an <a href="#"> — a bad origin is not a data error.
   // Buttons keep short labels; the long guidance renders once above the table (StateMessage), not per control.
   const noLink = ko
@@ -62,7 +65,7 @@ export default function MyVocHistory() {
   ], [ko, lang]);
 
   const openInFeedbackOps = (row: MyVocItem, { compact }: { compact: boolean }) => {
-    const link = feedbackOpsHref(origin, { kind: 'voc-detail', vocId: row.id });
+    const link = feedbackOpsHref(origin, { kind: 'voc-detail', vocId: row.id, ...back });
     const name = ko ? `${row.displayId} FeedbackOps에서 보기` : `Open ${row.displayId} in FeedbackOps`;
     const describedBy = create.ok ? undefined : descId;
     return link.ok

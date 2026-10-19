@@ -547,6 +547,18 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(within(dialog).getByRole('button', { name: /분석/ }).hasAttribute('aria-current')).toBe(false);
   });
 
+  it('hands entriesFor the absolute URL of the page it draws as platformReturn (FO ADR-0071)', () => {
+    const returns: (string | undefined)[] = [];
+    window.history.replaceState(null, '', '/?v=1&scopeId=ICH&focus=entity');
+    mount(['platform:view'], true, registry, { feedbackOps: {
+      entriesFor: (spaceId, platformReturn) => { returns.push(platformReturn); return feedbackSlot.entriesFor(spaceId); },
+      overall: null,
+    } });
+    expect(screen.getByRole('navigation', { name: /^FeedbackOps/ })).toBeTruthy();
+    expect(window.location.search).toContain('focus=entity');
+    expect(returns.at(-1)).toBe(window.location.href);
+  });
+
   it('omits FeedbackOps on a space-denied direct URL and does not query that space', () => {
     const seen: string[] = [];
     window.history.replaceState(null, '', '/ops?v=1');

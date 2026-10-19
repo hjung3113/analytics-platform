@@ -1,5 +1,5 @@
 /**
- * FeedbackOps ↔ platform deep-link codec (docs/integration/feedbackops-deeplink.md, contract: 1).
+ * FeedbackOps ↔ platform deep-link codec (docs/integration/feedbackops-deeplink.md, contract: 2).
  * Direction A builds only the URLs the FeedbackOps strict search schemas accept today
  * (submodule commit dc7638f); direction B builds/validates platform inbound URLs (06 §6/§22).
  * Reuses the global-Context codec in ./url; adds no React, env, registry or cross-package imports.
@@ -14,14 +14,42 @@ const uuid = (value: string, field: string): string => {
   return value;
 };
 
+/** `platformReturn` is the absolute platform URL FeedbackOps links back to (FO ADR-0071). `overall` (/home) does not take it. */
 export type FeedbackOpsTarget =
-  | { kind: 'voc-create'; managedSystemId?: string }
-  | { kind: 'voc-detail'; vocId: string; managedSystemId?: string }
-  | { kind: 'survey-detail'; surveyId: string }
-  | { kind: 'voc-list'; managedSystemId: string }
-  | { kind: 'task-list'; managedSystemId: string }
-  | { kind: 'survey-list'; managedSystemId: string }
+  | { kind: 'voc-create'; managedSystemId?: string; platformReturn?: string }
+  | { kind: 'voc-detail'; vocId: string; managedSystemId?: string; platformReturn?: string }
+  | { kind: 'survey-detail'; surveyId: string; platformReturn?: string }
+  | { kind: 'voc-list'; managedSystemId: string; platformReturn?: string }
+  | { kind: 'task-list'; managedSystemId: string; platformReturn?: string }
+  | { kind: 'survey-list'; managedSystemId: string; platformReturn?: string }
   | { kind: 'overall' };
+
+/** FeedbackOps' `platformReturn` length cap (FO ADR-0071). */
+export const PLATFORM_RETURN_MAX = 2048;
+
+/** FO ADR-0071 syntax: absolute URL ≤ 2048 chars, https (http only for localhost/127.0.0.1), no userinfo.
+ *  Checked before emit so FeedbackOps never silently drops a value the platform sent. Origin trust is FeedbackOps' allowlist. */
+function platformReturnValue(value: string): string {
+  const reject = (why: string): never => fail('feedbackops_return', `platformReturn ${why}, got ${JSON.stringify(value.length > 80 ? value.slice(0, 80) + '…' : value)}`);
+  if (value.length > PLATFORM_RETURN_MAX) return reject(`must be at most ${PLATFORM_RETURN_MAX} characters`);
+  let url: URL;
+  try { url = new URL(value); } catch { return reject('must be an absolute URL'); }
+  if (url.username !== '' || url.password !== '') return reject('must not carry userinfo');
+  const loopback = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) return reject('must be https (http only for localhost/127.0.0.1)');
+  return value;
+}
+
+/** The return value for the page the user is on: the full URL, else (too long) its path-only URL, else none. Never throws. */
+export function platformReturnFor(fullUrl: string, pathOnlyUrl: string): string | undefined {
+  for (const candidate of [fullUrl, pathOnlyUrl]) {
+    try { return platformReturnValue(candidate); } catch (error) { if (!(error instanceof ContractError)) throw error; }
+  }
+  return undefined;
+}
+
+const withReturn = (params: Pair[], value: string | undefined): Pair[] =>
+  value === undefined ? params : [...params, ['platformReturn', platformReturnValue(value)]];
 
 export type PlatformHop =
   | { menuId: 'equipment-detail'; equipmentId: string }
@@ -84,18 +112,20 @@ export function buildFeedbackOpsLink(input: { origin: string; target: FeedbackOp
   if (t.kind === 'voc-create') {
     const params: Pair[] = [['action', 'create']];
     if (t.managedSystemId !== undefined) params.push(['managedSystem', uuid(t.managedSystemId, 'managedSystemId')]);
-    return `${base}/vocs?${new URLSearchParams(params)}`;
+    return `${base}/vocs?${new URLSearchParams(withReturn(params, t.platformReturn))}`;
   }
   if (t.kind === 'voc-detail') {
     const params: Pair[] = [['view', 'inbox'], ['selected', uuid(t.vocId, 'vocId')]];
     if (t.managedSystemId !== undefined) params.push(['managedSystem', uuid(t.managedSystemId, 'managedSystemId')]);
-    return `${base}/vocs?${new URLSearchParams(params)}`;
+    return `${base}/vocs?${new URLSearchParams(withReturn(params, t.platformReturn))}`;
   }
-  if (t.kind === 'voc-list') return `${base}/vocs?${new URLSearchParams([['view', 'inbox'], ['managedSystem', uuid(t.managedSystemId, 'managedSystemId')]])}`;
-  if (t.kind === 'task-list') return `${base}/tasks?${new URLSearchParams([['managedSystem', uuid(t.managedSystemId, 'managedSystemId')]])}`;
-  if (t.kind === 'survey-list') return `${base}/surveys?${new URLSearchParams([['managedSystem', uuid(t.managedSystemId, 'managedSystemId')]])}`;
+  if (t.kind === 'voc-list') return `${base}/vocs?${new URLSearchParams(withReturn([['view', 'inbox'], ['managedSystem', uuid(t.managedSystemId, 'managedSystemId')]], t.platformReturn))}`;
+  if (t.kind === 'task-list') return `${base}/tasks?${new URLSearchParams(withReturn([['managedSystem', uuid(t.managedSystemId, 'managedSystemId')]], t.platformReturn))}`;
+  if (t.kind === 'survey-list') return `${base}/surveys?${new URLSearchParams(withReturn([['managedSystem', uuid(t.managedSystemId, 'managedSystemId')]], t.platformReturn))}`;
   if (t.kind === 'overall') return `${base}/home`;
-  return `${base}/surveys/${uuid(t.surveyId, 'surveyId')}`;
+  const surveyPath = `${base}/surveys/${uuid(t.surveyId, 'surveyId')}`;
+  const surveyQuery = withReturn([], t.platformReturn);
+  return surveyQuery.length ? `${surveyPath}?${new URLSearchParams(surveyQuery)}` : surveyPath;
 }
 
 /** Direction A parse — strict allowlist: unknown keys, wrong shapes and non-uuid ids are rejected, never coerced. */
@@ -103,12 +133,17 @@ export function parseFeedbackOpsLink(url: string, expectedOrigin: string): { tar
   const expected = origin(expectedOrigin);
   const split = splitUrl(url);
   if (split.origin !== expected) return fail('feedbackops_origin', `link origin ${split.origin} does not match expectedOrigin ${expected}`);
-  const all = queryOf(split.search);
+  const query = queryOf(split.search);
   const single = (key: string): string | null => {
-    const values = all.filter(([k]) => k === key).map(([, v]) => v);
+    const values = query.filter(([k]) => k === key).map(([, v]) => v);
     if (values.length > 1) return fail('feedbackops_path', `${key} appears more than once`);
     return values[0] ?? null;
   };
+  // `platformReturn` rides on /vocs, /tasks, /surveys and /surveys/{id} only (FO ADR-0071); /home keeps rejecting it.
+  const takesReturn = split.path === '/vocs' || split.path === '/tasks' || split.path === '/surveys' || split.path.startsWith('/surveys/');
+  const rawReturn = takesReturn ? single('platformReturn') : null;
+  const ret = rawReturn === null ? {} : { platformReturn: platformReturnValue(rawReturn) };
+  const all = takesReturn ? query.filter(([k]) => k !== 'platformReturn') : query;
   /** The scoped list pages take exactly one query key, `managedSystem=<uuid>` — no `all`, no scope-less URL. */
   const listScope = (path: string): string => {
     const extra = [...new Set(all.filter(([k]) => k !== 'managedSystem').map(([k]) => k))];
@@ -117,8 +152,8 @@ export function parseFeedbackOpsLink(url: string, expectedOrigin: string): { tar
     if (managed === null) return fail('feedbackops_path', `${path} needs ?managedSystem=<uuid> (no scope-less list link)`);
     return uuid(managed, 'managedSystem');
   };
-  if (split.path === '/tasks') return { target: { kind: 'task-list', managedSystemId: listScope('/tasks') } };
-  if (split.path === '/surveys') return { target: { kind: 'survey-list', managedSystemId: listScope('/surveys') } };
+  if (split.path === '/tasks') return { target: { kind: 'task-list', managedSystemId: listScope('/tasks'), ...ret } };
+  if (split.path === '/surveys') return { target: { kind: 'survey-list', managedSystemId: listScope('/surveys'), ...ret } };
   if (split.path === '/home') {
     if (all.length) return fail('feedbackops_path', '/home takes no query');
     return { target: { kind: 'overall' } };
@@ -131,21 +166,21 @@ export function parseFeedbackOpsLink(url: string, expectedOrigin: string): { tar
     if (managed !== null && !UUID.test(managed)) return fail('feedbackops_id', `managedSystem must be a uuid, got ${JSON.stringify(managed)}`);
     if (action !== null) {
       if (action !== 'create' || view !== null || selected !== null) return fail('feedbackops_path', 'use ?action=create[&managedSystem=<uuid>], ?view=inbox&managedSystem=<uuid> or ?view=inbox&selected=<uuid>[&managedSystem=<uuid>]');
-      return { target: managed === null ? { kind: 'voc-create' as const } : { kind: 'voc-create' as const, managedSystemId: managed } };
+      return { target: managed === null ? { kind: 'voc-create' as const, ...ret } : { kind: 'voc-create' as const, managedSystemId: managed, ...ret } };
     }
-    if (view === 'inbox' && selected === null && managed !== null) return { target: { kind: 'voc-list' as const, managedSystemId: managed } };
+    if (view === 'inbox' && selected === null && managed !== null) return { target: { kind: 'voc-list' as const, managedSystemId: managed, ...ret } };
     if (view !== null || selected !== null) {
       if (view !== 'inbox' || selected === null) return fail('feedbackops_path', 'voc detail is ?view=inbox&selected=<uuid>');
       const target: FeedbackOpsTarget = { kind: 'voc-detail', vocId: uuid(selected, 'selected') };
-      return { target: managed === null ? target : { ...target, managedSystemId: managed } };
+      return { target: managed === null ? { ...target, ...ret } : { ...target, managedSystemId: managed, ...ret } };
     }
     return fail('feedbackops_path', '/vocs needs ?action=create, ?view=inbox&managedSystem=<uuid> or ?view=inbox&selected=<uuid>');
   }
   if (split.path.startsWith('/surveys/')) {
     const surveyId = split.path.slice('/surveys/'.length);
     if (!surveyId || surveyId.includes('/')) return fail('feedbackops_path', 'survey detail is /surveys/{surveyId}');
-    if (all.length) return fail('feedbackops_path', 'survey detail takes no query (FeedbackOps search schema is builder-only)');
-    return { target: { kind: 'survey-detail', surveyId: uuid(surveyId, 'surveyId') } };
+    if (all.length) return fail('feedbackops_path', 'survey detail takes only platformReturn (the rest of its FeedbackOps search schema is builder/list state)');
+    return { target: { kind: 'survey-detail', surveyId: uuid(surveyId, 'surveyId'), ...ret } };
   }
   return fail('feedbackops_path', `unsupported FeedbackOps path ${split.path}`);
 }

@@ -2578,6 +2578,8 @@ test.describe('FeedbackOps 공간별 진입(#251)', () => {
       expect(values).toHaveLength(1);
       expect(values[0]).toMatch(UUID);
       expect(values[0]).not.toBe('all');
+      // FeedbackOps links back to the page the link was drawn on (FO ADR-0071, #448).
+      expect(url.searchParams.getAll('platformReturn')).toEqual([page.url()]);
       found.add(values[0]);
     }
     expect(found.size).toBe(1);

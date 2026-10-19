@@ -18,9 +18,10 @@ export type FeedbackOpsEntry = { id: FeedbackOpsEntryId; label: Text; href: stri
 /**
  * Space-scoped FeedbackOps links from the app's Managed System mapping (ADR-0027, ADR-0045).
  * `entriesFor` returns null for a space without a mapping; an absent slot draws neither the block nor the rail link.
+ * `platformReturn` is the absolute URL of the page the shell is drawing, for FeedbackOps' way back (FO ADR-0071).
  */
 export type FeedbackOpsSlot = {
-  entriesFor: (spaceId: SpaceId) => readonly FeedbackOpsEntry[] | null;
+  entriesFor: (spaceId: SpaceId, platformReturn?: string) => readonly FeedbackOpsEntry[] | null;
   /** Rail link to FeedbackOps overall; the shell draws it only while the user holds `permission`. */
   overall: { href: string; permission: Permission } | null;
 };

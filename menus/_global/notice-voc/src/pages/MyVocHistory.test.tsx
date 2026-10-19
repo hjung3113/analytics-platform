@@ -138,6 +138,9 @@ describe('MyVocHistory FeedbackOps origin (#302 review)', () => {
       // The visible text stays the short 보기; the accessible name carries the row's displayId (#301 pattern).
       expect(rowLink.textContent).toBe('보기');
       expect(rowLink.getAttribute('href')).toContain('feedback.example.com');
+      // FeedbackOps links back to this page (FO ADR-0071).
+      expect(new URL(rowLink.getAttribute('href')!).searchParams.get('platformReturn')).toBe(window.location.href);
+      expect(new URL(screen.getByRole('link', { name: 'VOC 등록' }).getAttribute('href')!).searchParams.get('platformReturn')).toBe(window.location.href);
       expect(screen.queryByText('FeedbackOps 연결 없음')).toBeNull();
       expect(screen.queryByRole('button', { name: 'VOC 등록' })).toBeNull();
     } finally {
