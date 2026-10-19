@@ -20,6 +20,7 @@ UI Primitive 층(06 §13)과 디자인 시스템 CSS. 플랫폼 개념(Context, 
 - 앱은 Tailwind → `@ap/ui/styles.css` 순서로 import한다. 이 진입점은 tokens·semantic(`layer(base)`) → theme → compat → `platform-tokens.css`(`layer(base)`) → `@source` 순서를 유지한다(캐스케이드 순서 변경 금지). 폰트는 앱에서 레이어 없이 import한다.
 - label·vivid accent·control 경계의 역할과 허용 표면은 [DESIGN 접근성 pairing](../../DESIGN.md#accessibility-pairing-rules)을 따른다. 새 소비자도 이 조합을 확인한다.
 - `DialogContent`·`SheetContent`를 플랫폼에서 렌더링하면 `closeLabel`, `Combobox`를 렌더링하면 `listboxLabel`·`emptyText`를 i18n에서 전달한다(FeedbackOps#749).
+- 명령 팔레트는 `DialogContent scrim="palette"`를 사용한다(#310, FeedbackOps #1050); 다른 `DialogContent`는 기본 모달 scrim을 유지한다.
 - 모션(토큰, overlay 진입·퇴장, reduced-motion)은 `theme.css`·`compat.css`와 primitive에서 그대로 온다(FeedbackOps ADR-0063, 06 §26). 플랫폼에서 덮어쓰지 않는다. `useListMotion`·모션 상수는 아직 공개하지 않는다(`DetailPanelReadingColumn`은 #442에서 공개했다) — 플랫폼 소비자가 생기면 그때 `src/index.ts`에 연다(06 §24, #289). `prefersReducedMotion`만 공개한다(첫 소비자는 EChartImpl의 Canvas reduced-motion, #297).
 - 상태 색은 `StatusBadge`/`Tone`으로만 노출한다. 새 Tone은 DESIGN 변경이다.
 - 데이터 조회, 권한 판단, 라우팅, 도메인 문구를 넣지 않는다. 그런 조합은 `@ap/components`다.

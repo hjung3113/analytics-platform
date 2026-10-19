@@ -70,7 +70,7 @@ export function CommandPalette() {
 
   let index = 0;
   return <Dialog open={paletteOpen} onOpenChange={setPaletteOpen}>
-      <DialogContent closeLabel={t('close')} aria-describedby={undefined}
+      <DialogContent closeLabel={t('close')} scrim="palette" aria-describedby={undefined}
         className="top-[12vh] w-[min(640px,92vw)] max-w-none translate-y-0 gap-0 overflow-hidden p-0"
         onOpenAutoFocus={() => {
           paletteSession?.claim(paletteOwner.current);

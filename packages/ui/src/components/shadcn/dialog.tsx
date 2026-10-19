@@ -14,6 +14,8 @@ export const DialogClose = DialogPrimitive.Close;
 interface DialogContentProps
   extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
   closeLabel?: string;
+  // Command palette only (#310; approved FeedbackOps #1050 scrim value).
+  scrim?: 'modal' | 'palette';
 }
 
 // #1050 command palette: accent-tinted, blurred scrim instead of the default black.
@@ -41,13 +43,14 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 export const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, closeLabel = '닫기', onInteractOutside, ...props }, ref) => (
+>(({ className, children, closeLabel = '닫기', onInteractOutside, scrim = 'modal', ...props }, ref) => (
   <DialogPortal {...(props.forceMount ? { forceMount: true } : {})}>
-    <DialogOverlay />
+    <DialogOverlay variant={scrim === 'palette' ? 'palette' : undefined} />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
         'fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 border border-border-subtle bg-surface-card p-6 shadow-lg',
+        scrim === 'palette' && 'z-60',
         DIALOG_CONTENT_MOTION,
         'sm:rounded-lg',
         className,
