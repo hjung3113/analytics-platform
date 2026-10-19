@@ -69,7 +69,7 @@
 - [FeedbackOps 딥링크 계약](integration/feedbackops-deeplink.md) — 양방향 딥링크 1단계(확장은 #81).
 - [프레임워크 통합 계획](integration/framework-unification-plan.md) — FeedbackOps·equipment-visualization 프레임워크 조각을 플랫폼 프레임워크로 합치는 지도(현황·중복·목표·단계·SDK 준비 메모). Proposed(#396의 입력). 목표는 [ADR-0043](adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)이 우선한다.
 - [SDK 포괄 목록](integration/sdk-coverage-inventory.md) — 세 프레임워크(AP·FeedbackOps·EV)의 기능을 SDK가 모두 덮는지 코드로 대조한 목록과 통합 계획 지도 정정. Candidate. 저장소·릴리스 구조 결정은 [ADR-0044](adr/0044-sdk-source-in-platform-repo-released-separately.md)(Decided).
-- [SDK git 태그 소비 시험](integration/sdk-git-tag-consumption.md) — FeedbackOps가 `@ap/ui`를 git 태그 의존성으로 받을 때 되는 것과 소비자 조건(`@types/node`·`@tiptap/*` overrides·auto-animate 패치). Candidate.
+- [SDK git 태그 소비 시험](integration/sdk-git-tag-consumption.md) — FeedbackOps가 `@ap/ui`를 git 태그 의존성으로 받을 때 되는 것과 소비자 조건(`@types/node`·auto-animate 패치; `sdk-v0.4.0`부터 TipTap overrides 불필요). Candidate.
 - [플랫폼 탑재 설계](integration/platform-hosting-design.md) — 다른 저장소 업무 모듈(EV·FeedbackOps)의 호스트 → 모듈 계약, 두 호스트 실행, 패키지 배치, FeedbackOps 탑재안. Proposed(선행 조사, ADR-0038·0039 초안). 독립 호스트는 SDK 범위 밖(ADR-0043).
 
 루트 문서: [DESIGN](../DESIGN.md)(FeedbackOps 기반 플랫폼 시각 확장 — 06의 최소 기준·상태·접근성 의무는 바꾸지 않는다), [GLOSSARY](../GLOSSARY.md)(현행 도메인 용어와 관계).
