@@ -1,4 +1,4 @@
-import { StrictMode, useState, type ReactNode } from 'react';
+import { StrictMode, useLayoutEffect, useState, type ReactNode } from 'react';
 import { act, cleanup, render } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -339,6 +339,45 @@ describe('PaneScreenProvider — Scope and spaces', () => {
     act(() => { at('shell').setGlobal({ roomNames: ['M1'] }); });
     expect(at('shell').global.roomNames).toEqual(['M1']);
     expect(at('p').global.roomNames).toEqual(['R9']);
+  });
+});
+
+describe('PaneScreenProvider — render isolation and commit routing', () => {
+  it('a main-only Scope retry does not re-render a pane consumer', async () => {
+    let renders = 0;
+    function Counter() { usePlatform(); renders += 1; return null; }
+    const children = <Counter />;
+    mount(<><Probe id="main" /><Pane id="a" initial={screenA()} spies={spies()}>{children}</Pane></>, fixture().adapter);
+    await flush();
+    const before = renders;
+    act(() => { at('main').retryScope(); });
+    await flush();
+    expect(renders).toBe(before);
+  });
+
+  it('a write from a layout effect of the newly exposed screen targets that screen, not the previous menu or params', async () => {
+    const p = spies();
+    let set!: (next: PaneScreen) => void;
+    function Writer() {
+      const { route, setPage, pageParam } = usePlatform();
+      const menu = route?.menu.id;
+      useLayoutEffect(() => { if (menu === 'item' && pageParam('tab') === null) setPage({ tab: 'info' }, { replace: true }); }, [menu, pageParam, setPage]);
+      return null;
+    }
+    function Controlled() {
+      const [screen, setScreen] = useState<PaneScreen>(screenA());
+      set = setScreen;
+      return <PaneScreenProvider paneId="p" screen={screen} onLeave={() => {}} onChange={(next, how) => { p.onChange(next, how); setScreen(next); }}>
+        <Probe id="p" /><Writer />
+      </PaneScreenProvider>;
+    }
+    mount(<Controlled />, fixture().adapter);
+    await flush();
+    act(() => { set({ menuId: 'item', params: { id: 'new' }, query: `?${window1}` }); });
+    expect(p.onChange).toHaveBeenCalledTimes(1);
+    expect(p.onChange.mock.calls[0]![0]).toMatchObject({ menuId: 'item', params: { id: 'new' } });
+    expect(p.onChange.mock.calls[0]![0].query).toContain('tab=info');
+    expect(at('p').route?.menu.id).toBe('item');
   });
 });
 

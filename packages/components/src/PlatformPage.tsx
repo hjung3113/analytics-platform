@@ -124,15 +124,16 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   // before paint. Each pass closes one of three stages, so this ends.
   useLayoutEffect(() => { measureRef.current(); }, [headerYield]);
   useLayoutEffect(() => {
-    if (inPane) return;
     const focusDestination = () => {
       const request = consumePageFocus(pageNavigation, pathname);
-      if (!request) return;
+      // A pane takes no automatic arrival focus; its explicit drill/return requests still land inside the pane.
+      if (!request || (inPane && request === 'page')) return;
       const currentStep = request === 'drill' ? root.current?.querySelector<HTMLElement>('[aria-current="step"]') : null;
       const target = currentStep ?? heading.current;
+      if (!target) { if (inPane) focusPageFallback(root.current); return; }
       programmaticHeadingFocus.current = target === heading.current;
       if (programmaticHeadingFocus.current) setHeadingTooltipOpen(false);
-      try { target?.focus({ preventScroll: true }); }
+      try { target.focus({ preventScroll: true }); }
       finally { programmaticHeadingFocus.current = false; }
     };
     focusDestination();

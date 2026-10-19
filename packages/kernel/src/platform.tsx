@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import { createBrowserLocation, type PlatformLocation } from './location';
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { use, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createPaletteFocus, useFocusGate, type PaletteSession } from './paletteFocus';
 import { createPageNavigation, type PageFocus, type PageNavigation } from './pageNavigation';
 import { classifyMetricInit, type MetricInit } from './metric-init';
@@ -241,6 +241,9 @@ type AppValue = { pub: AppState; internal: AppInternal };
 const AppContext = createContext<AppValue | null>(null);
 const MainBoundContext = createContext<MainBound | null>(null);
 const ScreenContext = createContext<ScreenState | null>(null);
+// A pane gets its own context object: React re-renders every ScreenContext reader under the main provider when the main
+// screen changes, even below a nested provider of the same context, so a shared object would wake all panes (C3).
+const PaneScreenContext = createContext<ScreenState | null>(null);
 
 type CommitOptions = { focus?: PageFocus; materialize?: boolean };
 /** What the screen state hook needs from its owner: where the URL lives and how a write or a navigation lands. */
@@ -762,7 +765,8 @@ function MainScreenProvider({ app, children }: { app: AppValue; children: ReactN
     if (entry) navigate(entry.href, { focus: 'page' });
   }, [currentSpace, spaceEntry, navigate]);
 
-  const mainBound: MainBound = { visibleMenus, sidebarSpace, spaceResume, spaceEntry, switchSpace };
+  // Stable while the five members are: an unrelated main Scope update must not re-render every pane consumer.
+  const mainBound = useMemo<MainBound>(() => ({ visibleMenus, sidebarSpace, spaceResume, spaceEntry, switchSpace }), [visibleMenus, sidebarSpace, spaceResume, spaceEntry, switchSpace]);
   return <MainBoundContext.Provider value={mainBound}><ScreenContext.Provider value={screen}>{children}</ScreenContext.Provider></MainBoundContext.Provider>;
 }
 
@@ -790,44 +794,49 @@ export function PaneScreenProvider({ paneId, screen, onChange, onLeave, children
   const query = screen.query === '' || screen.query.startsWith('?') ? screen.query : `?${screen.query}`;
   const url = pathFor(registry.menuById(screen.menuId), screen.params) + query;
   const [navigation] = useState(() => createPageNavigation(url));
-  const latest = useRef({ screen, url, onChange, onLeave });
-  useLayoutEffect(() => { latest.current = { screen, url, onChange, onLeave }; });
+  const latest = useRef({ onChange, onLeave });
+  useLayoutEffect(() => { latest.current = { onChange, onLeave }; });
+  // Routing identity and current address come from the rendered screen, not from a layout-effect ref: a descendant layout
+  // effect runs before this provider's, so a ref would still hold the previous menu/params. Params are keyed by content.
+  const menuId = screen.menuId;
+  const paramsKey = JSON.stringify(Object.entries(screen.params));
+  const params = useMemo<Record<string, string>>(() => Object.fromEntries(JSON.parse(paramsKey) as [string, string][]), [paramsKey]);
 
   const commit = useCallback((next: string, how: 'push' | 'replace', options: CommitOptions = {}) => {
-    const current = latest.current;
-    if (next === current.url) { if (!options.materialize) navigation.cancel(); return false; }
+    if (next === url) { if (!options.materialize) navigation.cancel(); return false; }
     if (options.materialize) navigation.materialize(next);
     else navigation.advance(next, options.focus);
     const q = next.indexOf('?');
-    current.onChange({ menuId: current.screen.menuId, params: current.screen.params, query: q === -1 ? '' : next.slice(q) }, how);
+    latest.current.onChange({ menuId, params, query: q === -1 ? '' : next.slice(q) }, how);
     return true;
-  }, [navigation]);
+  }, [navigation, url, menuId, params]);
   const { matchRoute } = registry;
   const go = useCallback((href: string, options?: { replace?: boolean; focus?: PageFocus }) => {
-    const current = latest.current;
-    if (!isAppRelativePath(href) || href === current.url) { navigation.cancel(); return false; }
+    if (!isAppRelativePath(href) || href === url) { navigation.cancel(); return false; }
     const how = options?.replace ? 'replace' : 'push';
     const q = href.indexOf('?');
     const path = q === -1 ? href : href.slice(0, q);
     // Staying on this pane's own route is a write to the pane, whatever the menu's board support.
-    if (path === current.url.split('?')[0]) return commit(href, how, { focus: options?.focus });
+    if (path === url.split('?')[0]) return commit(href, how, { focus: options?.focus });
     const matched = hasDotSegment(path) ? null : matchRoute(path);
     if (matched && matched.menu.features.board === true && canOpen(matched.menu.id)) {
       navigation.advance(href, options?.focus);
-      current.onChange({ menuId: matched.menu.id, params: matched.params, query: q === -1 ? '' : href.slice(q) }, how);
-    } else current.onLeave(href);
+      latest.current.onChange({ menuId: matched.menu.id, params: matched.params, query: q === -1 ? '' : href.slice(q) }, how);
+    } else latest.current.onLeave(href);
     return true;
-  }, [navigation, commit, matchRoute, canOpen]);
+  }, [navigation, url, commit, matchRoute, canOpen]);
 
   const source: ScreenSource = { mode: 'pane', paneId, url, navigation, commit, go, sidebarSpace: main.sidebarSpace };
   const state = useScreenState(app, source);
-  return <ScreenContext.Provider value={state.screen}>{children}</ScreenContext.Provider>;
+  return <PaneScreenContext.Provider value={state.screen}>{children}</PaneScreenContext.Provider>;
 }
 
 function useMerged(): Platform | null {
   const app = useContext(AppContext);
   const main = useContext(MainBoundContext);
-  const screen = useContext(ScreenContext);
+  const paneScreen = useContext(PaneScreenContext);
+  // `use` reads the main screen only outside a pane, so a pane reader has no dependency on it.
+  const screen = paneScreen ?? use(ScreenContext);
   return useMemo(() => (app && main && screen ? { ...app.pub, ...main, ...screen } : null), [app, main, screen]);
 }
 
