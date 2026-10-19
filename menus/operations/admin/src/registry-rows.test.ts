@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { lazy } from 'react';
 import { House } from 'lucide-react';
 import type { Capability, ContextKey } from '@ap/contracts';
-import { createRegistry, type MenuEntry } from '@ap/kernel';
+import { createRegistry, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from '@ap/kernel';
 import { formatCapabilities, toRegistryRow } from './registry-rows';
 
 const unsupported: Record<ContextKey, Capability> = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' };
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
-const menu = (over: Partial<MenuEntry>): MenuEntry => ({
+const menu = (over: Partial<PlatformMenuEntry>): MenuEntry => ({
   id: 'x', group: 'admin', label: { ko: '기본', en: 'Default' }, description: { ko: '', en: '' }, path: '/x', icon: House,
   permission: 'platform:view', requiresScope: false, context: unsupported, pageType: 'management', features: noFeatures, pageKeys: [], ...over,
 });
@@ -91,5 +91,24 @@ describe('toRegistryRow', () => {
     expect(row.status).toBe('implemented');
     expect(row.pageKeys).toBe('sort, page, focus');
     expect(row.contextResetKeys).toBe('');
+  });
+});
+
+const moduleMenu = (): ModuleMenuEntry => ({
+  id: 'fx-home', module: 'fx', group: 'fx:main', permission: 'fx:view', label: { ko: '모듈', en: 'Module' }, description: { ko: '', en: '' }, path: '/fx', icon: House,
+  requiresScope: false, context: unsupported, pageType: 'management', features: noFeatures, pageKeys: [], primary: true, moduleScreen: () => null,
+});
+const moduleRegistry = () => createRegistry({
+  spaces: [{ id: 'operations', label: { ko: '운영', en: 'Ops' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'fx-home' }],
+  groups: [{ id: 'fx:main', module: 'fx', label: { ko: '모듈', en: 'Module' }, icon: House, space: 'operations' }],
+  menus: [moduleMenu()],
+});
+
+describe('toRegistryRow module menu (ADR-0053)', () => {
+  it('shows the module group and permission as-is and counts moduleScreen as implemented', () => {
+    const registry = moduleRegistry();
+    const row = toRegistryRow(registry.menuById('fx-home'), registry);
+
+    expect(row).toMatchObject({ groupId: 'fx:main', permission: 'fx:view', status: 'implemented' });
   });
 });

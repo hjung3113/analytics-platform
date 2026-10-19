@@ -3,13 +3,13 @@
  * result: rows are projected in the menu package and the page queries no endpoint. Pure so the equality
  * contract (every row equals registry values) is unit-testable.
  */
-import type { Capability, ContextKey, GroupId, Permission, SpaceId, Text } from '@ap/contracts';
+import type { Capability, ContextKey, GroupId, ModuleScopedId, Permission, SpaceId, Text } from '@ap/contracts';
 import type { MenuEntry, Registry } from '@ap/kernel';
 import { spaceFields } from './space-fields';
 
 export type RegistryRow = {
-  id: string; spaceId: SpaceId | null; spaceLabel: Text; groupId: GroupId; path: string;
-  permission: Permission; capabilities: string; pageKeys: string;
+  id: string; spaceId: SpaceId | null; spaceLabel: Text; groupId: GroupId | ModuleScopedId; path: string;
+  permission: Permission | ModuleScopedId; capabilities: string; pageKeys: string;
   contextResetKeys: string; status: 'implemented' | 'planned';
 };
 
@@ -26,6 +26,6 @@ export function toRegistryRow(menu: MenuEntry, registry: Registry): RegistryRow 
     id: menu.id, ...spaceFields(menu, registry), groupId: menu.group, path: menu.path,
     permission: menu.permission, capabilities: formatCapabilities(menu.context),
     pageKeys: menu.pageKeys.join(', '), contextResetKeys: (menu.contextResetKeys ?? []).join(', '),
-    status: menu.component ? 'implemented' : 'planned',
+    status: menu.component || menu.moduleScreen ? 'implemented' : 'planned',
   };
 }

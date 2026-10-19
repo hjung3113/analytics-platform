@@ -6,7 +6,7 @@ import { createPageNavigation, type PageFocus, type PageNavigation } from './pag
 import { classifyMetricInit, type MetricInit } from './metric-init';
 import { CONTEXT_LABELS, pathFor, type MenuEntry, type Registry } from './registry';
 import { useI18n } from './i18n';
-import { buildQuery, ContractError, emptyGlobal, type ContextKey, type GlobalContext, incompleteMetricPair, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent } from '@ap/contracts';
+import { buildQuery, ContractError, emptyGlobal, type ContextKey, type GlobalContext, incompleteMetricPair, type ModuleScopedId, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent } from '@ap/contracts';
 
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope' | 'error'; validatedFor: Session | null; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
@@ -80,7 +80,7 @@ type Platform = {
   user: SessionUser;
   /** Bumps whenever the adapter announces a change; part of every query identity. */
   revision: number;
-  can: (permission: Permission) => boolean;
+  can: (permission: Permission | ModuleScopedId) => boolean;
   /** Menu permission ∧ space entry, independent of URL generation and route parameters. */
   canOpen: (menuId: string) => boolean;
   /** Menus of the sidebar space the user may enter: menu permission ∧ space entry (06 §9.1). Empty when sidebarSpace is null. */
@@ -360,7 +360,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     navigate(pathname + buildQuery(next, dropContextResetKeys(page, next), extras));
   }, [pathname, navigate, global, page, extras, dropContextResetKeys]);
 
-  const can = useCallback((p: Permission) => user.permissions.includes(p), [user]);
+  const can = useCallback((p: Permission | ModuleScopedId) => user.permissions.includes(p), [user]);
   // Space entry gate (06 §9.1): a space without permission is open to every signed-in user.
   const canEnter = useCallback((space: SpaceDef) => !space.permission || can(space.permission), [can]);
   // A global utility menu skips space entry; a space menu still has to pass it.

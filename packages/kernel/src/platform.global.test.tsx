@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ClientErrorReport, Session, SpaceDef, UsageEvent } from '@ap/contracts';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
-import { createRegistry, type MenuEntry } from './registry';
+import { createRegistry, type MenuEntry, type PlatformMenuEntry } from './registry';
 import { noContext, testAdapter, testSession, testSpace } from './testing';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
@@ -14,7 +14,7 @@ const spaces: SpaceDef[] = [
   testSpace({ id: 'operations', label: { ko: '운영 콘솔', en: 'Operations console' }, permission: 'console:access', homeMenuId: 'admin-roles' }),
 ];
 
-function menu(over: Partial<MenuEntry> & Pick<MenuEntry, 'id' | 'group' | 'path' | 'permission'>): MenuEntry {
+function menu(over: Partial<PlatformMenuEntry> & Pick<PlatformMenuEntry, 'id' | 'group' | 'path' | 'permission'>): MenuEntry {
   return {
     label: { ko: over.id, en: over.id }, description: { ko: '', en: '' }, icon: House, requiresScope: false,
     context: noContext, pageType: 'catalog', features: noFeatures, pageKeys: [], ...over,

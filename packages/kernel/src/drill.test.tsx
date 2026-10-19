@@ -4,14 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDrill, type DrillState } from './drill';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform, type ReturnOrigin } from './platform';
-import { createRegistry, type MenuEntry } from './registry';
+import { createRegistry, type MenuEntry, type PlatformMenuEntry } from './registry';
 import { noContext, testAdapter, testSession, testSpace } from './testing';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const drillKeys = ['drillRoom', 'drillStgroup', 'drillEquipment'] as const;
 const level = (key: string, ko: string, en: string) => ({ key, label: { ko, en } });
 
-function entry(partial: Pick<MenuEntry, 'id' | 'path'> & Partial<MenuEntry>): MenuEntry {
+function entry(partial: Pick<PlatformMenuEntry, 'id' | 'path'> & Partial<PlatformMenuEntry>): MenuEntry {
   return {
     group: 'overview', label: { ko: partial.id, en: partial.id }, description: { ko: '', en: '' }, icon: House,
     permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features, pageKeys: [],

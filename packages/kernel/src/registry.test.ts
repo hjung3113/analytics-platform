@@ -1,14 +1,14 @@
 import { House } from 'lucide-react';
 import { describe, expect, it } from 'vitest';
 import type { GroupId, SpaceDef } from '@ap/contracts';
-import { createRegistry, RegistryError, type GroupDef, type MenuEntry } from './registry';
+import { createRegistry, RegistryError, type GroupDef, type MenuEntry, type ModuleMenuEntry, type PlatformGroupDef, type PlatformMenuEntry } from './registry';
 
 const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const groups: GroupDef[] = [{ id: 'metrics', label: { ko: '지표', en: 'Metrics' }, icon: House, space: 'analytics' }];
 const analyticsSpace: SpaceDef = { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'catalog' };
 const spaces: SpaceDef[] = [analyticsSpace];
 const homeA: SpaceDef[] = [{ ...analyticsSpace, homeMenuId: 'a' }];
-const menu = (id: string, path: string, extra: Partial<MenuEntry> = {}): MenuEntry => ({
+const menu = (id: string, path: string, extra: Partial<PlatformMenuEntry> = {}): MenuEntry => ({
   id, group: 'metrics', label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House,
   permission: 'metrics:view', requiresScope: false, context: none, pageType: 'catalog',
   features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], ...extra,
@@ -181,7 +181,7 @@ describe('spaces (06 §9.1)', () => {
 
   it('allows eight groups in one space (no per-space group cap)', () => {
     const ids = ['overview', 'equipment', 'masterData', 'analytics', 'metrics', 'noticeVoc', 'admin', 'genProbe'];
-    const eight: GroupDef[] = ids.map(id => ({ id: id as GroupId, label: { ko: id, en: id }, icon: House, space: 'analytics' }));
+    const eight: PlatformGroupDef[] = ids.map(id => ({ id: id as GroupId, label: { ko: id, en: id }, icon: House, space: 'analytics' }));
     const eightMenus = eight.map((g, i) => menu(`m${i}`, `/m${i}`, { group: g.id, primary: true }));
     expect(() => createRegistry({ spaces: [{ ...analyticsSpace, homeMenuId: 'm0' }], groups: eight, menus: eightMenus })).not.toThrow();
   });
@@ -197,4 +197,35 @@ describe('matchRoute: static segments win, whatever the declaration order', () =
       expect(r.matchRoute('/metrics/cycle_time')).toMatchObject({ menu: { id: 'detail' }, params: { metricId: 'cycle_time' } });
     });
   }
+});
+
+describe('open vocabulary (ADR-0053)', () => {
+  const modGroup: GroupDef = { id: 'fx:main', module: 'fx', label: { ko: '모', en: 'M' }, icon: House, space: 'analytics' };
+  const modMenu = (over: Partial<ModuleMenuEntry> = {}): ModuleMenuEntry => ({
+    id: 'fx-home', module: 'fx', group: 'fx:main', permission: 'fx:view', label: { ko: 'f', en: 'f' }, description: { ko: '', en: '' }, path: '/fx', icon: House,
+    requiresScope: false, context: none, pageType: 'catalog', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], primary: true,
+    moduleScreen: () => null, ...over,
+  });
+
+  it('accepts a module group and permission with their module prefix', () => {
+    expect(() => createRegistry({ spaces, groups: [...groups, modGroup], menus: [catalog, modMenu()] })).not.toThrow();
+  });
+
+  it('rejects a module permission or group id without its module prefix', () => {
+    expect(() => createRegistry({ spaces, groups: [...groups, modGroup], menus: [catalog, modMenu({ permission: 'other:view' })] })).toThrow(/needs the "fx:" prefix/);
+    expect(() => createRegistry({ spaces, groups: [...groups, { ...modGroup, id: 'other:main' }], menus: [catalog] })).toThrow(/needs the "fx:" prefix/);
+  });
+
+  it('rejects a platform menu placed in a module group', () => {
+    const stray = menu('stray', '/stray', { group: 'fx:main' as never });
+
+    expect(() => createRegistry({ spaces, groups: [...groups, modGroup], menus: [catalog, modMenu(), stray] })).toThrow(/different modules/);
+  });
+
+  it('keeps the platform vocabulary closed at compile time', () => {
+    // @ts-expect-error a platform menu's permission must be a Permission
+    menu('typo', '/typo', { permission: 'fx:view' });
+    // @ts-expect-error a platform menu's group must be a GroupId
+    menu('typo', '/typo', { group: 'fx:main' });
+  });
 });

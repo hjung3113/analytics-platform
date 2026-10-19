@@ -1,17 +1,36 @@
 import type { ComponentType, LazyExoticComponent } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { GLOBAL_KEYS, isAppRelativePath, parseQuery, type ContextKey, type GroupId, type MenuMeta, type PageType, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
+import { GLOBAL_KEYS, isAppRelativePath, parseQuery, type ContextKey, type GroupId, type MenuMeta, type ModuleScopedId, type ModuleScreenProps, type PageType, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
 
 /** docs/06 §5: menus declare, the shell consumes. Metadata lives in @ap/contracts; this adds the React bindings. */
 export type PageProps = { params: Record<string, string> };
 
-export type MenuEntry = MenuMeta & {
+export type PlatformMenuEntry = MenuMeta & {
   icon: LucideIcon;
   component?: LazyExoticComponent<ComponentType<PageProps>>;
+  module?: undefined;
+  moduleScreen?: undefined;
 };
 
-export type GroupDef = {
-  id: GroupId;
+/**
+ * A menu a module brings (ADR-0053): open vocabulary, prefixed with `module`. `moduleScreen` is rendered with
+ * `{ params, host }` (#489); until then it has no `component`, so it does not count as implemented.
+ */
+export type ModuleMenuEntry = Omit<MenuMeta, 'group' | 'permission'> & {
+  module: string;
+  group: ModuleScopedId;
+  permission: ModuleScopedId;
+  icon: LucideIcon;
+  component?: undefined;
+  moduleScreen: ComponentType<ModuleScreenProps>;
+};
+
+export type MenuEntry = PlatformMenuEntry | ModuleMenuEntry;
+
+/** Group ids a menu can name: the closed platform list or a module-prefixed id. */
+export type AnyGroupId = GroupId | ModuleScopedId;
+
+type GroupBase = {
   label: Text;
   icon: LucideIcon;
   /** `null` is a global utility. Required, not optional, so omission cannot skip the space check (06 §9.1). */
@@ -19,6 +38,9 @@ export type GroupDef = {
   /** In the expanded sidebar, omit the section label when only one visible menu remains. */
   hideLabelWhenSingle?: boolean;
 };
+export type PlatformGroupDef = GroupBase & { id: GroupId; module?: undefined };
+export type ModuleGroupDef = GroupBase & { id: ModuleScopedId; module: string };
+export type GroupDef = PlatformGroupDef | ModuleGroupDef;
 
 export type RouteMatch = { menu: MenuEntry; params: Record<string, string> };
 
@@ -26,7 +48,7 @@ export type Registry = {
   groups: readonly GroupDef[];
   menus: readonly MenuEntry[];
   spaces: readonly SpaceDef[];
-  groupById: (id: GroupId) => GroupDef;
+  groupById: (id: AnyGroupId) => GroupDef;
   spaceById: (id: SpaceId) => SpaceDef;
   /** Space of the menu's group — membership lives on the group, never on the menu. Null when the group is a global utility (06 §9.1). */
   spaceOf: (menu: MenuEntry) => SpaceDef | null;
@@ -62,16 +84,21 @@ export function createRegistry({ spaces, groups, menus }: { spaces: readonly Spa
     byId.set(m.id, m);
   }
   const groupIds = new Set<string>();
-  const groupSpace = new Map<GroupId, SpaceId | null>();
+  const groupSpace = new Map<AnyGroupId, SpaceId | null>();
+  const groupOwner = new Map<AnyGroupId, string | undefined>();
   for (const g of groups) {
     if (groupIds.has(g.id)) fail(`Duplicate group id "${g.id}"`);
     if (g.space !== null && !spaceByIdMap.has(g.space)) fail(`Group "${g.id}" uses undeclared space "${g.space}"`);
+    if (g.module !== undefined && !g.id.startsWith(`${g.module}:`)) fail(`Group "${g.id}" of module "${g.module}" needs the "${g.module}:" prefix`);
     groupIds.add(g.id);
     groupSpace.set(g.id, g.space);
+    groupOwner.set(g.id, g.module);
   }
   const shapes = new Map<string, string>();
   for (const m of menus) {
     if (!groupIds.has(m.group)) fail(`Menu "${m.id}" uses undeclared group "${m.group}"`);
+    if (m.module !== undefined && !m.permission.startsWith(`${m.module}:`)) fail(`Menu "${m.id}" of module "${m.module}" permission "${m.permission}" needs the "${m.module}:" prefix`);
+    if (groupOwner.get(m.group) !== m.module) fail(`Menu "${m.id}" and its group "${m.group}" belong to different modules`);
     if (m.parent !== undefined) {
       const parent = byId.get(m.parent) ?? fail(`Menu "${m.id}" has unknown parent "${m.parent}"`);
       // Breadcrumbs and returnTarget link to the parent without params, so a parent route must not need any.
@@ -117,7 +144,7 @@ export function createRegistry({ spaces, groups, menus }: { spaces: readonly Spa
     if (s.permission !== undefined && home.permission !== s.permission) fail(`Space "${s.id}" home permission must be "${s.permission}"`);
   }
 
-  const groupById = (id: GroupId) => groups.find(g => g.id === id) ?? fail(`Unknown group ${id}`);
+  const groupById = (id: AnyGroupId) => groups.find(g => g.id === id) ?? fail(`Unknown group ${id}`);
   const spaceById = (id: SpaceId) => spaceByIdMap.get(id) ?? fail(`Unknown space ${id}`);
   const spaceOf = (menu: MenuEntry): SpaceDef | null => {
     const space = groupById(menu.group).space;
