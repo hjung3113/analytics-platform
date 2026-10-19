@@ -8,7 +8,7 @@
 ## 결정
 
 - **`packages/ui` 전체를 `@ap/ui`로 옮긴다.** 원본 소유가 플랫폼(SDK)으로 바뀐다. 값은 그대로 옮기고(모양 변경 없음) 이전 범위는 세 묶음으로 나눠 차례로 한다: ① 토큰·유틸·primitive(`styles`·`utils`·`components`·`internal`, #441) — 플랫폼 사용분이 모두 여기 있어 이것으로 `@ap/ui → @fops/ui` 간선과 플랫폼 workspace의 FeedbackOps 서브모듈 의존이 없어진다, ② 레이아웃·상세 패널·툴바·폼·피드백(#442), ③ 도메인 결합 부분(`badges`·`data`·`entity`·`identity`·`indicators`·`permissions`·`rich-content`, #443). 앞 묶음이 끝나야 다음을 시작한다.
-- **도메인 결합 부분도 이번 이전에 포함한다(수용한 비용).** ADR-0043의 "업무는 제품 소유"와 긴장하지만 사용자가 전체 이전을 골랐다. 이전을 끝낸 뒤 도메인 결합 부분을 분류해 FeedbackOps 소유 층으로 되돌릴지 다시 정한다(Open → [ADR-0050](0050-domain-coupled-ui-returns-to-feedbackops.md)이 정했다: 도메인에 묶인 부품과 rich-content는 되돌린다).
+- **도메인 결합 부분도 이번 이전에 포함한다(수용한 비용).** ADR-0043의 "업무는 제품 소유"와 긴장하지만 사용자가 전체 이전을 골랐다. 이전을 끝낸 뒤 도메인 결합 부분을 분류해 FeedbackOps 소유 층으로 되돌릴지 다시 정한다(Open → [ADR-0050](0050-domain-coupled-ui-returns-to-feedbackops.md)이 정했다: 도메인에 묶인 부품은 되돌린다; rich-content는 [ADR-0052](0052-rich-content-stays-in-the-sdk.md)가 SDK에 복원).
 - **이전 중에는 두 벌이 있다.** FeedbackOps의 `@fops/ui`는 이전 동안 그대로 남고, 이전이 끝난 묶음의 토큰·primitive 모양 변경은 SDK에서 먼저 한다. 이 규칙은 FeedbackOps에 알린다(플랫폼이 FeedbackOps#1231에 코멘트와 본문 갱신, 사용자 허락 2026-10-19).
 - **FeedbackOps가 SDK를 받아 쓰는 시점은 이 ADR이 정하지 않는다.** 배포 경로(registry, [#151](https://github.com/hjung3113/analytics-platform/issues/151) Open)와 `@ap/ui` 배포 준비가 먼저다([ADR-0044](0044-sdk-source-in-platform-repo-released-separately.md)). equipment-visualization도 같다(EV ADR-0008이 `@fops/ui`를 서브모듈로 소비 중).
 

@@ -32,6 +32,8 @@ const PUBLIC_EXPORTS = [
   // Moved from FeedbackOps in #442 (ADR-0046/0047).
   'ActiveFilterBar', 'Callout', 'DatePicker', 'DetailPanelFullscreenContext', 'DetailPanelFullscreenToggle', 'DetailPanelHeader', 'DetailPanelHeaderActions', 'DetailPanelReadingColumn', 'DetailPanelSectionNav', 'StatusBadgeFrame', 'DirtyConfirmation', 'EmptyState', 'FieldLabel', 'FieldRow', 'ListFilterButton', 'ListShell', 'ListSortButton', 'ListTabs', 'ListToolbar', 'NestedTextBlock', 'PageShell', 'PanelSectionTitle', 'PanelTitleBlock', 'PreviewModal', 'SearchInput', 'ShellHeader', 'ToolbarKicker', 'UndoToast', 'WorkbenchShell', 'useDetailPanelContent',
   // Domain-neutral parts retained from FeedbackOps in #443 (ADR-0046); ADR-0050 returned the coupled parts.
+  // Rich content restored by ADR-0052.
+  'RichEditor', 'AttachButton', 'RichContentRenderer', 'AttachmentRef', 'Mention',
   'SeverityIndicator', 'ProgressMeter', 'UserAvatar', 'UserChip', 'ObjectRow', 'PermissionBlockedPanel',
   // Opened for FeedbackOps' `@fops/ui` thin re-export (its consumer; ADR-0046). `TabsListBase`/`TabsTriggerBase` are the unwrapped shadcn tabs.
   'AlertDialog', 'AlertDialogAction', 'AlertDialogCancel', 'AlertDialogContent', 'AlertDialogDescription', 'AlertDialogFooter', 'AlertDialogHeader', 'AlertDialogOverlay', 'AlertDialogPortal', 'AlertDialogTitle', 'AlertDialogTrigger',
