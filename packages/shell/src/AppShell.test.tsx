@@ -625,3 +625,28 @@ describe('toast detail', () => {
     expect(note.textContent).not.toContain('내보내기를 수행하지 못했습니다');
   });
 });
+
+// #310: the palette scrim rose to z-60; the toast layer must stay above it or the scrim swallows Dismiss clicks.
+describe('toast layer above palette scrim (#310)', () => {
+  it('keeps the toast container above the open palette overlay', () => {
+    function PaletteToastProbe() {
+      const { toast, setPaletteOpen } = usePlatform();
+      return <>
+        <button type="button" onClick={() => setPaletteOpen(true)}>open palette</button>
+        <button type="button" onClick={() => toast('내보내기를 시작합니다.')}>fire toast</button>
+      </>;
+    }
+    render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={registry}>
+      <AppShell><PaletteToastProbe /></AppShell>
+    </PlatformProvider></I18nProvider>);
+    // Radix's modal Dialog aria-hides outside content, so grab both buttons before opening.
+    const fireToast = screen.getByRole('button', { name: 'fire toast' });
+    fireEvent.click(screen.getByRole('button', { name: 'open palette' }));
+    fireEvent.click(fireToast);
+    const overlay = document.querySelector('[data-state="open"][class*="inset-0"]');
+    expect(overlay).toBeInTheDocument();
+    const toastHost = screen.getByText('내보내기를 시작합니다.').closest('[aria-live="polite"]');
+    expect(toastHost).toBeInTheDocument();
+    expect(Number(toastHost!.className.match(/z-\[?(\d+)\]?/)![1])).toBeGreaterThan(Number(overlay!.className.match(/z-\[?(\d+)\]?/)![1]));
+  });
+});

@@ -53,7 +53,8 @@ function ShellLayout({ children }: { children: ReactNode }) {
 function Toasts() {
   const { toasts, dismissToast } = usePlatform();
   const { lang, t } = useI18n();
-  return <div aria-live="polite" className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-[min(420px,90vw)] flex-col gap-2">
+  // Toasts sit above the command palette scrim (z-60) so their dismiss stays clickable (#310).
+  return <div aria-live="polite" className="pointer-events-none fixed bottom-4 right-4 z-70 flex w-[min(420px,90vw)] flex-col gap-2">
     {toasts.map(tst => {
       const Icon = tst.tone === 'danger' ? XCircle : tst.tone === 'warning' ? AlertTriangle : Info;
       return <div key={tst.id} role={tst.tone === 'danger' ? 'alert' : 'status'} className={cn('pointer-events-auto flex items-start gap-2 rounded-md border bg-surface-card px-3 py-2.5 text-xs shadow-lg',
