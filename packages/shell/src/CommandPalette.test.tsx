@@ -93,6 +93,15 @@ function nearestRole(el: Element): { el: Element; role: string } | null {
 }
 
 describe('CommandPalette space bundles (06 §9.1)', () => {
+  it('uses the palette scrim (#310)', () => {
+    mount();
+
+    const overlay = document.querySelector<HTMLElement>('[data-state="open"][class*="inset-0"]');
+    expect(overlay).toBeInTheDocument();
+    expect(overlay).toHaveClass('bg-accent-primary/16', 'backdrop-blur-xs');
+    expect(overlay).not.toHaveClass('bg-black/80');
+  });
+
   it('groups accessible spaces in registry order, then 플랫폼, and drops page type from the subtitle', () => {
     mount();
     expect(screen.getByRole('combobox', { name: '메뉴 검색' })).toHaveAttribute('placeholder', '이동할 메뉴를 입력하세요…');
