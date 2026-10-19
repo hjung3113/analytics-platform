@@ -372,9 +372,9 @@ try {
     "charts",
     async () => {
       await brush(true);
-      await page.getByRole("textbox", { name: "주석 내용" }).fill("예시: P95 상승 구간 확인");
+      await page.getByRole("textbox", { name: "주석 내용" }).fill("예시: 확인할 구간");
       await button("저장", trend()).click();
-      await expect(trend().getByRole("list")).toContainText("예시: P95 상승 구간 확인");
+      await expect(trend().getByRole("list")).toContainText("예시: 확인할 구간");
       await button("지우기", trend()).click();
       await expect(button("분석 구간 적용…", trend())).toHaveCount(0);
       await button("비교", trend()).click();
@@ -625,11 +625,11 @@ try {
     );
   }
   viewportWidth = 1440;
-  // 02 절 주석 캡처: 1440폭 전체 화면(셸 포함). 번호 7개의 위치를 캡처 때 잰다.
+  // 히어로 주석 캡처: 1440폭 전체 화면(셸 포함). 번호는 02의 다섯 가지에 대응하고 위치를 캡처 때 잰다(4는 화면 밖이라 표식 없음).
   await capture(
     "cycle-time-full",
-    "MARS · 사이클타임 상세 전체 화면",
-    "조건 바·차트·표·상세 진입·VOC 진입이 한 화면에 있는 모습입니다.",
+    "견본 화면 전체",
+    "조건 바·차트·표·상세 진입·VOC 진입이 한 화면에 있는 견본 화면입니다.",
     "tables",
     async () => {
       viewportHeight = 1280;
@@ -641,10 +641,10 @@ try {
     },
     [],
     [
-      [1, () => page.getByRole("button", { name: "링크 복사", exact: true }).locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' sticky ')][1]")],
-      [2, () => page.getByRole("button", { name: "링크 복사", exact: true })],
-      [3, () => button("데이터 신뢰").first()],
-      [4, () => button(/^Scope:/)],
+      [5, () => page.getByRole("button", { name: "링크 복사", exact: true }).locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' sticky ')][1]")],
+      [1, () => page.getByRole("button", { name: "링크 복사", exact: true })],
+      [2, () => button("데이터 신뢰").first()],
+      [3, () => button(/^Scope:/)],
     ],
   );
   // 히어로 확대 인셋: 같은 화면에서 조건 바(왼쪽 560px)와 데이터 신뢰 패널을 원본 크기로 잘라 낸다.

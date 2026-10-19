@@ -83,19 +83,19 @@
     var selectedPane = 0;
     var sheets = [
       {
-        name: "PHOTO 비교",
+        name: "견본 비교",
         panes: [
-          { system: "MARS", screen: "생산성 개요", context: { 기간: "9월", 사이트: "MEM", 공정: "PHOTO", 설비: "전체" }, kind: "line", values: [34, 46, 39, 55, 43, 64] },
-          { system: "BRAVO", screen: "사이클타임 지표", context: { 기간: "9월", 사이트: "MEM", 공정: "PHOTO", 설비: "전체", 버전: "v2" }, kind: "bar", values: [28, 42, 36, 59, 48, 67] },
-          { system: "MARS", screen: "사이클타임 상세", context: { 기간: "10월", 사이트: "MEM", 공정: "PHOTO", 설비: "LTH-014", 집계: "일" }, kind: "dist", values: [12, 26, 52, 70, 44, 18] },
-          { system: "MARS", screen: "설비 상세", context: { 기간: "10월", 사이트: "FDRY", 공정: "PHOTO", 설비: "FDRY-0103", 집계: "시간" }, kind: "table", values: [38, 48, 43, 62, 51, 70] },
+          { system: "MARS", screen: "견본 화면 A", context: { 기간: "9월", 사이트: "MEM", 공정: "A", 설비: "전체" }, kind: "line", values: [34, 46, 39, 55, 43, 64] },
+          { system: "BRAVO", screen: "견본 화면 B", context: { 기간: "9월", 사이트: "MEM", 공정: "A", 설비: "전체", 버전: "v2" }, kind: "bar", values: [28, 42, 36, 59, 48, 67] },
+          { system: "MARS", screen: "견본 화면 C", context: { 기간: "10월", 사이트: "MEM", 공정: "A", 설비: "1", 집계: "일" }, kind: "dist", values: [12, 26, 52, 70, 44, 18] },
+          { system: "MARS", screen: "견본 화면 D", context: { 기간: "10월", 사이트: "FDRY", 공정: "A", 설비: "2", 집계: "시간" }, kind: "table", values: [38, 48, 43, 62, 51, 70] },
         ],
       },
       {
-        name: "개선 전·후",
+        name: "견본 전·후",
         panes: [
-          { system: "MARS", screen: "사이클타임 상세 · 개선 전", context: { 기간: "9월", 사이트: "MEM", 공정: "PHOTO", 설비: "LTH-014", 구간: "개선 전" }, kind: "line", values: [36, 54, 48, 68, 58, 76] },
-          { system: "MARS", screen: "사이클타임 상세 · 개선 후", context: { 기간: "10월", 사이트: "MEM", 공정: "PHOTO", 설비: "LTH-014", 구간: "개선 후" }, kind: "bar", values: [32, 43, 39, 51, 44, 57] },
+          { system: "MARS", screen: "견본 화면 C · 전", context: { 기간: "9월", 사이트: "MEM", 공정: "A", 설비: "1", 구간: "개선 전" }, kind: "line", values: [36, 54, 48, 68, 58, 76] },
+          { system: "MARS", screen: "견본 화면 C · 후", context: { 기간: "10월", 사이트: "MEM", 공정: "A", 설비: "1", 구간: "개선 후" }, kind: "bar", values: [32, 43, 39, 51, 44, 57] },
         ],
       },
     ];
@@ -244,7 +244,7 @@
         tab.setAttribute("aria-selected", String(selected));
         tab.tabIndex = selected ? 0 : -1;
       });
-      document.getElementById("board-title").textContent = sheet.name === "PHOTO 비교" ? "PHOTO 분석 작업대" : "개선 전·후 작업대";
+      document.getElementById("board-title").textContent = sheet.name === "견본 비교" ? "견본 분석 작업대" : "견본 전·후 작업대";
       var activeContext = sheet.panes[selectedPane].context;
       selectedContext.textContent = "선택한 칸 " + (selectedPane + 1) + " · " + contextString(activeContext);
       sheet.panes.slice(0, paneCount()).forEach(function (pane, index) {
@@ -319,8 +319,8 @@
         content.appendChild(buildMiniChart(pane.kind, pane.values));
         var metrics = document.createElement("div");
         metrics.className = "board-metrics";
-        addText(metrics, "span", "P50 " + (39 + index * 2) + "분");
-        addText(metrics, "span", "P95 " + (66 + index * 3) + "분");
+        addText(metrics, "span", "예시 값 A " + (39 + index * 2));
+        addText(metrics, "span", "예시 값 B " + (66 + index * 3));
         content.appendChild(metrics);
         article.appendChild(content);
         boardGrid.appendChild(article);
