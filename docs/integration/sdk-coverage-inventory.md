@@ -103,7 +103,7 @@
 | 빈·로딩·오류 상태 | `StateView`·`QueryView`·`OutcomeView` | `ListStateMessage`(empty/filtered/error) | `StateMessage`·`LoadingBlock` | ✅ AP |
 | 차트 프레임·상호작용 | `AnalysisChartFrame`·`EChart`(주석·범위·비교) | 없음 | SVG 렌더러(`TopViewer`) | ✅ AP. ⬜ EV 렌더러 |
 | 감사 타임라인 | `AuditTimeline` | 백엔드 감사만 | 없음 | ✅ AP |
-| 폼(RHF+Zod)·리치 에디터(TipTap) | SDK 부품 없음 | 있음(FeedbackOps 제품 소유) | 없음 | ⬜ 제품 유지. SDK에는 rich-content 복사본을 두지 않는다(ADR-0050) |
+| 폼(RHF+Zod)·리치 에디터(TipTap) | 폼 래퍼 없음 | 있음(리치 allowlist가 **세 곳에 수동 복사** ⛔) | 없음 | ⬜ 제품 유지. 두 번째 소비자가 생기면 올린다(06 §24) |
 | 실행 취소(`useUndoableMutation`·`UndoToast`)·미저장 확인 | 없음 | 있음 | Mapping Board 이력(`undo`/`redo`)은 EV 전용 | ⬜ 제품. 소비 2곳 확인 뒤 비교 |
 
 ### 3.8 계측·감사·운영

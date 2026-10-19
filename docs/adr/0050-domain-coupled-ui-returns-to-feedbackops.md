@@ -1,6 +1,6 @@
 # FeedbackOps 도메인에 묶인 UI 부품과 rich-content는 FeedbackOps 소유로 되돌리고, SDK에는 도메인을 모르는 부품만 남긴다
 
-상태: **Decided (2026-10-19, 결정자: 사용자 — "ㅇㅋ 이어하자", 코디네이터 분류 초안을 승인. 되돌릴 수 있음)** — 구현은 [#479](https://github.com/hjung3113/analytics-platform/issues/479).
+상태: **일부 대체 — `rich-content` 부분은 [ADR-0052](0052-rich-content-stays-in-the-sdk.md)가 뒤집었다(2026-10-19). 나머지(도메인 배지·`LinkedEntityTrail`·pickers 되돌림)는 유효.** 원 결정: **Decided (2026-10-19, 결정자: 사용자 — "ㅇㅋ 이어하자", 코디네이터 분류 초안을 승인. 되돌릴 수 있음)** — 구현은 [#479](https://github.com/hjung3113/analytics-platform/issues/479).
 
 [ADR-0046](0046-design-system-source-moves-to-platform-whole-package.md)은 FeedbackOps `@fops/ui` 전체를 `@ap/ui`로 옮기면서 "도메인 결합 부분을 분류해 FeedbackOps 소유 층으로 되돌릴지는 이전 끝난 뒤 다시 정한다"를 Open으로 남겼다. 이전(#441–#443)과 FeedbackOps의 1·2번 묶음 전환(FeedbackOps#1289·#1291·#1295)이 끝나 분류할 수 있다. 플랫폼 코드에서 이 부품들을 쓰는 곳은 0건이다(메뉴의 `ReporterStatusBadge` 언급은 주석뿐).
 
