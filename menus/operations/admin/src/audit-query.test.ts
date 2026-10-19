@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACTION_LABEL, auditKeyProblem, parseAuditKeys } from './audit-query';
+import { ACTION_LABEL, SOURCE_LABEL, TYPE_LABEL, auditKeyProblem, parseAuditKeys } from './audit-query';
 
 const keys = (over: Partial<Record<string, string | null>> = {}) => ({
   type: null, actor: null, action: null, source: null, fromAt: null, toAt: null, targetId: null, sort: null, page: null,
@@ -68,6 +68,16 @@ describe('auditKeyProblem time reasons (#305)', () => {
   it('keeps valid and out-of-order values outside the new reasons', () => {
     expect(auditKeyProblem(keys({ fromAt: '2026-09-20T02:00:00.000Z', toAt: '2026-09-26T02:00:00.000Z' }))).toBeNull();
     expect(auditKeyProblem(keys({ fromAt: '2026-09-26T02:00:00.000Z', toAt: '2026-09-20T02:00:00.000Z' }))).toEqual({ key: 'toAt', reason: 'order' });
+  });
+});
+
+describe('audit filter validators follow their displayed keys', () => {
+  it.each([
+    ...Object.keys(TYPE_LABEL).map(value => ['type', value] as const),
+    ...Object.keys(ACTION_LABEL).map(value => ['action', value] as const),
+    ...Object.keys(SOURCE_LABEL).map(value => ['source', value] as const),
+  ])('accepts the labeled %s value %s', (key, value) => {
+    expect(auditKeyProblem(keys({ [key]: value }))).toBeNull();
   });
 });
 

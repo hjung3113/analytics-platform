@@ -16,9 +16,6 @@ export const AUDIT_PAGE_KEYS = ['type', 'actor', 'action', 'source', 'fromAt', '
 
 /** Sortable columns only — `targetType` sorts `target.type`; the destination columns never sort. */
 export const SORT_FIELDS = ['at', 'actor', 'action', 'source', 'targetType'];
-const AUDIT_TYPES = ['equipment', 'metric', 'annotation'];
-const AUDIT_ACTIONS = ['create', 'update', 'retire', 'sync', 'delete'];
-const AUDIT_SOURCES = ['user', 'system'];
 
 /** The timeline words, copied from AuditTimeline (§6: do not export a label helper from components). */
 export const ACTION_LABEL: Record<AuditAction, { ko: string; en: string }> = {
@@ -33,6 +30,10 @@ export const SOURCE_LABEL: Record<AuditSource, { ko: string; en: string }> = {
 export const TYPE_LABEL: Record<'equipment' | 'metric' | 'annotation', { ko: string; en: string }> = {
   equipment: { ko: '설비', en: 'Equipment' }, metric: { ko: '지표', en: 'Metric' }, annotation: { ko: '차트 주석', en: 'Chart annotation' },
 };
+
+const AUDIT_TYPES: readonly string[] = Object.keys(TYPE_LABEL);
+const AUDIT_ACTIONS: readonly string[] = Object.keys(ACTION_LABEL);
+const AUDIT_SOURCES: readonly string[] = Object.keys(SOURCE_LABEL);
 
 export type AuditFilters = {
   type: 'equipment' | 'metric' | 'annotation' | null;

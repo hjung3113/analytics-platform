@@ -13,6 +13,7 @@ import { metricDetailHref } from './detail-link';
 import { metricCatalogHasActiveFilters, metricCatalogPageFilterFields, resetMetricCatalogPageFilters } from './filter-fields';
 
 const NO_DESTINATION = { viewedId: null, pageVersion: null };
+const NOT_FILTER_KEYS = ['time', 'lot', 'roomNames', 'condition', 'selection'] as const;
 
 function pairText(verdict: PairVerdict, lang: 'ko' | 'en', pageVersion: string | null): { title: string; body: string; tone: 'neutral' | 'danger' | 'warning' } {
   const ko = lang === 'ko';
@@ -71,7 +72,7 @@ export function MetricPairBanner({ query, pageVersion = null }: { query: QuerySt
 export default function MetricCatalogPage(_: PageProps) {
   const { pageParam, setPage, linkTo, global } = usePlatform();
   const { lang, tx, t } = useI18n();
-  const notFilters = (['time', 'lot', 'roomNames', 'condition', 'selection'] as const).map(key => tx(CONTEXT_LABELS[key])).join(lang === 'ko' ? '·' : ', ');
+  const notFilters = NOT_FILTER_KEYS.map(key => tx(CONTEXT_LABELS[key])).join(lang === 'ko' ? '·' : ', ');
   const q = pageParam('q');
   const status = pageParam('status');
   const domain = pageParam('domain');
@@ -155,7 +156,7 @@ export default function MetricCatalogPage(_: PageProps) {
       />}
       <p className="t-caption text-text-muted">
         {lang === 'ko'
-          ? `${notFilters}${topicParticle(CONTEXT_LABELS.selection.ko)} 이 목록의 필터가 아닙니다. 검색·상태·도메인으로 거릅니다. 예시 데이터입니다.`
+          ? `${notFilters}${topicParticle(CONTEXT_LABELS[NOT_FILTER_KEYS[NOT_FILTER_KEYS.length - 1]].ko)} 이 목록의 필터가 아닙니다. 검색·상태·도메인으로 거릅니다. 예시 데이터입니다.`
           : `${notFilters} do not filter this list. It is filtered by search, status and domain. Synthetic data.`}
       </p>
     </div>

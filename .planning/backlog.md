@@ -13,6 +13,8 @@
 - 차트 더보기 팝오버(`AnalysisChartFrame`)가 `shadow-md`를 쓴다. DESIGN의 그림자 규칙과 맞는지 확인(공유 floating primitive 전체로 넓히지 않는다는 문장만 있다).
 - **구현 안 함 — rich-content allowlist 사본의 백엔드 동등성 검사(보안 관련):** `packages/ui/src/rich-content/{allowlist-local,fixtures-local}.ts`는 sanitizer 허용 목록 사본인데 `@fops/shared`/FeedbackOps 백엔드와 맞춰 보는 검사(`drift-vs-shared.test.ts`)가 이 저장소에 없다. 이유: 경계가 `@fops/shared` import를 금지한다. 사본 유지와 검사는 FeedbackOps 몫이고 여기서 바꾸면 FeedbackOps가 같이 반영해야 한다. 다시 열 조건: FeedbackOps가 SDK 소비로 전환할 때, 또는 SDK에서 allowlist를 처음 바꾸기 전.
 - **구현 안 함 — 간헐 실패 1회 기록:** `packages/shell/src/SystemSwitcher.test.tsx` "lets a lazy arrival keep the title when the switcher is reopened before it resolves"가 main 기준 문서만 바뀐 PR(#447)의 CI에서 1회 실패했다(`h1` 대신 전환 버튼이 포커스를 가짐, 1655ms). 로컬에서는 부하 루프(CPU ×20)로 파일 전체 12회·단일 12회·무부하 12회 모두 통과해 재현하지 못했다. 미검증 가설: Escape 뒤 Radix `onCloseAutoFocus`(`setTimeout 0`)와 새 제목의 도착 포커스 effect(React 스케줄러) 순서가 느린 러너에서 뒤집힌다. 다시 열 조건: 두 번째 발생 — 이슈로 올리고 그때 CI 로그 두 건을 대조해 진단한다.
+- **구현 안 함 — 관리 화면 필터 초기화 범위 통일(#419 ②):** `useManagementFilters`의 초기화가 화면마다 다르다(설비는 sort 유지, 권한·감사는 sort·focus·tab까지 지움, #411 이전부터). 이유: 동작을 바꾸는 상태 코드이고 사용자 불편 신고가 없다(정비 슬라이스 15 콘덕터 결정, 2026-10-19). 다시 볼 조건: 초기화 동작에 대한 사용자 지적, 또는 `useManagementFilters`를 다시 만질 때.
+- **구현 안 함 — `RowAction`의 컨트롤별 `TooltipProvider`(#419 ④):** 컨트롤마다 provider를 만든다. 이유: 측정된 성능 문제가 없다. 다시 볼 조건: 행이 많은 표에서 렌더 비용이 측정될 때.
 
 ## 설계 원칙 메모
 
