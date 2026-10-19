@@ -16,9 +16,9 @@ export type MountOptions = {
   features?: readonly HostFeature[];
 };
 
-/** A pathname pattern the browser keeps as written: no URL delimiters, backslash, control or space, no `//`, no raw or encoded dot segments. `:param` segments stay allowed. */
+/** A pathname pattern the browser keeps as written: no URL delimiters, backslash, control characters or any (Unicode) whitespace, no `//`, no raw or encoded dot segments. `:param` segments stay allowed. */
 function isPathPattern(path: string): boolean {
-  return !/[?#\\\u0000-\u0020\u007F]/.test(path) && !path.includes('//') && !path.split('/').some(isDotSegment);
+  return !/[?#\\\u0000-\u0020\u007F]|\s/u.test(path) && !path.includes('//') && !path.split('/').some(isDotSegment);
 }
 
 /**
