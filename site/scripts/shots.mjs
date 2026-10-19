@@ -588,12 +588,15 @@ try {
     () =>
       unionClip(
         [
-          button("업무 시스템 전환 · 현재: MARS"),
+          // The open dialog hides the trigger from the accessibility tree; find it by attribute.
+          page.locator('button[aria-haspopup="dialog"][aria-label="업무 시스템 전환 · 현재: MARS"]'),
           page.getByRole("dialog", { name: "업무 시스템 전환", exact: true }),
         ],
         32,
       ).then((clip) => ({ clip, cover: true })),
   );
+  // Console screens need the demo's platform-admin role (the same switch D8 tells readers to use).
+  await page.evaluate(() => localStorage.setItem("platform:role", JSON.stringify("admin")));
   await capture(
     "change-audit",
     "운영 콘솔 · 변경 감사",
@@ -601,7 +604,7 @@ try {
     "tables",
     async () => {
       await go("/admin/audit?v=1");
-      await expect(page.getByRole("main").getByRole("heading", { name: "변경 감사", exact: true })).toBeVisible();
+      await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "변경 감사", exact: true })).toBeVisible();
     },
     mainContentClip,
   );
@@ -612,7 +615,7 @@ try {
     "tables",
     async () => {
       await go("/admin/registry?v=1");
-      await expect(page.getByRole("main").getByRole("heading", { name: "메뉴 레지스트리", exact: true })).toBeVisible();
+      await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "메뉴 레지스트리", exact: true })).toBeVisible();
     },
     mainContentClip,
   );
@@ -623,7 +626,7 @@ try {
     "tables",
     async () => {
       await go("/admin/usage?v=1");
-      await expect(page.getByRole("main").getByRole("heading", { name: "메뉴 활용률", exact: true })).toBeVisible();
+      await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "메뉴 활용률", exact: true })).toBeVisible();
     },
     mainContentClip,
   );
