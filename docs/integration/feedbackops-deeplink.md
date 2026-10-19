@@ -16,13 +16,15 @@ Base는 인자 `origin`이다. 정규형은 정규식이 아니라 URL 표준 �
 | --- | --- | --- |
 | `voc-create` | `{origin}/vocs?action=create` 또는 `&managedSystem={uuid}` | `action=create` → `CreateRoute` → `initialManagedSystemId`. 사이드바 href와 동일 |
 | `voc-detail` | `{origin}/vocs?view=inbox&selected={uuid}` (+ uuid면 `managedSystem`) | `selected`는 uuid. inbox ListShell |
-| `survey-detail` | `{origin}/surveys/{uuid}` | path `surveyId`. search는 `builder`뿐이라 **query를 붙이지 않는다** |
+| `survey-detail` | `{origin}/surveys/{uuid}` | path `surveyId`. search의 다른 키(`builder` 등)는 화면 상태라 **`platformReturn` 밖의 query를 붙이지 않는다** |
 | `voc-list` | `{origin}/vocs?view=inbox&managedSystem={uuid}` | `/vocs`의 `view`(inbox\|my\|triage)·`managedSystem`(`apps/frontend/src/features/voc/routes/voc-search.ts`, `dc7638f`). `selected` 없음 |
 | `task-list` | `{origin}/tasks?managedSystem={uuid}` | `/tasks`의 `managedSystem`(uuid \| `all`, `apps/frontend/src/routes/_authed/tasks.tsx`, `dc7638f`). 생성기는 uuid만 낸다 |
 | `survey-list` | `{origin}/surveys?managedSystem={uuid}` | `/surveys`의 `managedSystem`(uuid \| `all`)·`selected` 둘뿐(`apps/frontend/src/routes/_authed/surveys/index.tsx`, `dc7638f`). 생성기는 `managedSystem` 하나만 낸다 |
 | `overall` | `{origin}/home` | `/home`의 `managedSystem`(uuid, optional, `apps/frontend/src/routes/_authed/home.tsx`, `dc7638f`). 쿼리를 붙이지 않는다 — 시스템 범위 없는 허브 |
 
-목록 셋은 `managedSystem`(uuid)이 필수다. `all`이나 생략으로 범위 없는 URL을 대신 내지 않는다(ADR-0045). `parseFeedbackOpsLink`도 같은 모양만 받는다 — 다른 키·중복 키·비 uuid, `/vocs?view=inbox`만 있는 링크, `/home?…`는 거부한다.
+`overall`을 뺀 여섯 대상은 위 URL 끝에 선택 키 `platformReturn` 하나를 더 붙일 수 있다(contract 2, 아래 "복귀"). 표의 "하나만"·"query 없음"은 그 키를 뺀 나머지 키를 말한다.
+
+목록 셋은 `managedSystem`(uuid)이 필수다. `all`이나 생략으로 범위 없는 URL을 대신 내지 않는다(ADR-0045). `parseFeedbackOpsLink`도 같은 모양만 받는다 — 다른 키·중복 키(`platformReturn` 중복 포함)·비 uuid·규칙을 어긴 `platformReturn`, `/vocs?view=inbox`만 있는 링크, `/home?…`는 거부한다.
 
 예:
 
@@ -87,7 +89,7 @@ https://platform.example/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-25T09
 
 ## 4. 변경 절차
 
-1. FeedbackOps 라우트·스키마 변경은 원본 저장소 PR로 한다 → 서브모듈 bump → 이 문서를 갱신한다.
+1. FeedbackOps 라우트·스키마 변경은 원본 저장소 PR로 한다 → 이 문서를 갱신한다. 서브모듈은 플랫폼이 그 코드를 빌드에 쓸 때만 올린다. 링크 키만 바뀌면 원본 커밋을 헤더에 관찰 기준으로 적고 올리지 않는다(`platformReturn`, #448).
 2. 새 키로 조회 의미가 바뀌면 플랫폼은 `v` bump(06 §6.4), 이 통합 문서는 `contract` bump를 함께 올린다.
 3. **생성기는 이 문서 allowlist 밖의 키를 내지 않는다.** 허용 전 생성기 변경 금지. 테스트(`feedbackops-link.test.ts`)가 이 불변을 단언한다.
 
