@@ -79,6 +79,7 @@
 - [URL·시간·상태 계약 grilling](reviews/2026-09-18-url-time-status-contract-grilling.md) — 06 §6.1·§6.3·§6.4·§19의 세부 판정 근거와 반례.
 - [플랫폼 구축 리서치 종합](research/platform-build-2026-09-22/SYNTHESIS.md) — #165(폴링·계산 세대)·#155(서버) 착수 때 설계 입력.
 - [반도체 도메인 외부 조사](research/semiconductor-domain-2026-09-24/README.md) — SEMI 표준·제품 자료를 우리 용어에 대 본 조사(Operation 이름·CFG 형식은 아직 Open).
+- [플랫폼의 가치 — 사용자·운영자 입장](research/2026-10-19-platform-value-users-operators.md) — 소개 사이트 재구성(#468) 입력: 사용자·운영자 기능 요구(U1–U8·O1–O6), 개선 고리, 비교표(Candidate).
 
 ## 상태 표기
 
