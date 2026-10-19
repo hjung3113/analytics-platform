@@ -155,3 +155,19 @@ it('portal registrants are open, never expanded, and see no fullscreen context',
   expect(host().getAttribute('data-open')).toBe('true');
   expect(host().getAttribute('data-expanded')).toBe('false');
 });
+
+it('the host hook returns the same toggle the portaled content receives', () => {
+  function ToggleHost() {
+    const slot = useDetailPanelSlotHost();
+    return <aside ref={slot.ref} aria-label="Detail slot" data-expanded={slot.expanded}><button onClick={slot.toggle}>host-toggle</button></aside>;
+  }
+  render(<DetailPanelSlotProvider>
+    <Content name="a" node={panel()} />
+    <ToggleHost />
+  </DetailPanelSlotProvider>);
+  fireEvent.click(screen.getByRole('button', { name: 'host-toggle' }));
+  expect(host().getAttribute('data-expanded')).toBe('true');
+  expect(screen.getByRole('button', { name: 'panel:true' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'host-toggle' }));
+  expect(host().getAttribute('data-expanded')).toBe('false');
+});

@@ -9,6 +9,7 @@ interface DetailPanelSlot {
   /** True when the active registrant is not a closed (`null`) content registrant. */
   open: boolean;
   expanded: boolean;
+  toggle: () => void;
   setHost: (host: HTMLElement | null) => void;
   register: (key: string) => () => void;
 }
@@ -90,7 +91,7 @@ export function DetailPanelSlotProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [expanded]);
   const fullscreen = useMemo(() => ({ expanded, toggle }), [expanded, toggle]);
-  const value = useMemo(() => ({ host, activeKey, open, expanded, setHost, register }), [host, activeKey, open, expanded, register]);
+  const value = useMemo(() => ({ host, activeKey, open, expanded, toggle, setHost, register }), [host, activeKey, open, expanded, toggle, register]);
   const activeContent = activeKey !== undefined && host ? contents.get(activeKey) : undefined;
   return <DetailPanelSlotActionsContext.Provider value={actions}>
     <DetailPanelSlotContext.Provider value={value}>
@@ -118,5 +119,5 @@ export function useDetailPanelSlot(): HTMLElement | null {
 export function useDetailPanelSlotHost() {
   const slot = useContext(DetailPanelSlotContext);
   if (!slot) throw new Error('Detail panel host requires DetailPanelSlotProvider.');
-  return { ref: slot.setHost, open: slot.open, expanded: slot.expanded };
+  return { ref: slot.setHost, open: slot.open, expanded: slot.expanded, toggle: slot.toggle };
 }
