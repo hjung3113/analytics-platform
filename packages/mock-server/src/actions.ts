@@ -39,10 +39,13 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return prototype === Object.prototype || prototype === null;
 }
 
-const canonical = (value: unknown): string => {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+const MAX_DEPTH = 64;
+/** Stable text of a request value: object keys sorted, array holes `null` like JSON. Throws on BigInt, cycles and depth over 64. */
+const canonical = (value: unknown, depth = 0): string => {
+  if (depth > MAX_DEPTH) throw new Error('input nested too deep');
+  if (Array.isArray(value)) return `[${Array.from({ length: value.length }, (_, i) => canonical(value[i], depth + 1)).join(',')}]`;
   if (isPlainObject(value)) {
-    return `{${Object.keys(value).sort().filter(k => value[k] !== undefined).map(k => `${JSON.stringify(k)}:${canonical(value[k])}`).join(',')}}`;
+    return `{${Object.keys(value).sort().filter(k => value[k] !== undefined).map(k => `${JSON.stringify(k)}:${canonical(value[k], depth + 1)}`).join(',')}}`;
   }
   return JSON.stringify(value) ?? 'null';
 };
@@ -101,9 +104,14 @@ export async function serveAction(
 
   const store = records.get(actions) ?? new Map<string, Stored>();
   records.set(actions, store);
-  const hash = canonical({ action: spec.id, scopeId, expectedVersion: req.expectedVersion, input: req.input });
+  let hash: string;
+  try {
+    hash = canonical({ action: spec.id, scopeId, expectedVersion: req.expectedVersion, input: req.input });
+  } catch {
+    return shape('input cannot be canonicalized');
+  }
   const stored = store.get(`${actor}\n${key}`);
-  if (stored) return stored.hash === hash ? { ...stored.response, replayed: true } : shape('idempotency_key_reuse');
+  if (stored) return stored.hash === hash ? { ...structuredClone(stored.response), replayed: true } : shape('idempotency_key_reuse');
 
   const unexpectedFields = Object.keys(req.input).filter(k => !Object.prototype.hasOwnProperty.call(spec.inputKeys, k));
   if (unexpectedFields.length > 0) return answer('invalid', { fieldErrors: unexpectedFields.map(k => ({ path: [k], code: 'unexpected_field' })) });
@@ -118,8 +126,9 @@ export async function serveAction(
     }
     const done = action.handle(input);
     const response = answer('ok', { data: done.data, version: done.version });
-    store.set(`${actor}\n${key}`, { hash, response });
-    return response;
+    // The record is a snapshot: a later handler write or a caller mutating its answer must not change a replay.
+    store.set(`${actor}\n${key}`, { hash, response: structuredClone(response) });
+    return structuredClone(response);
   } catch (error) {
     if (typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError') throw error;
     return shape('action handler failed');

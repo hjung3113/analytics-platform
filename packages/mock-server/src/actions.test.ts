@@ -4,7 +4,7 @@ import { createMockAdapter } from './adapter';
 import { defineMockAction, serveAction, type AnyMockAction } from './actions';
 import { defineMockEndpoint, MockRegistrationError } from './endpoints';
 import { getRole, setRole } from './server';
-import type { RoleId } from './world';
+import { USERS, type RoleId } from './world';
 
 type Input = { text: string };
 const KEY = '3f2b8a40-6c1e-4d5a-9b7e-1a2b3c4d5e6f';
@@ -137,6 +137,81 @@ describe('serveAction judgment order (ADR-0054)', () => {
   it('keeps records per actor: another actor with the same key is judged fresh', async () => {
     await call(req());
     expect((await call(req(), 'viewer')).outcome).toBe('forbidden');
+  });
+
+  it('keeps a replay a snapshot: a handler rewriting its shared row does not change earlier answers', async () => {
+    // The handler returns the one row object it mutates in place, like a store that hands out live rows.
+    const row = { text: 'seed' };
+    const rowSpec = defineAction<Input, { text: string }>({ ...plainSpec, invalidates: [] });
+    actions.set('analytics.append', defineMockAction(rowSpec, { handle: ({ input }) => { row.text = input.text; return { data: row, version: null }; } }));
+    const write = (key: string, text: string) => call({ action: 'analytics.append', context: { scopeId: 'MEM' }, input: { text }, idempotencyKey: key });
+    const k1 = await write(KEY, 'a');
+    await write(OTHER_KEY, 'b');
+    expect(k1.data).toEqual({ text: 'a' });
+    expect((await write(KEY, 'a')).data).toEqual({ text: 'a' });
+  });
+
+  it('keeps a replay a snapshot: mutating a returned answer does not change the next replay', async () => {
+    const first = await call(req());
+    (first.data as { id: number }).id = 99;
+    const replay = await call(req());
+    (replay.data as { id: number }).id = 77;
+    expect(await call(req())).toMatchObject({ data: { id: 2 }, version: '2', replayed: true });
+  });
+
+  it('keeps records per actor: two authorized actors with one key each run the handler', async () => {
+    const append = { action: 'analytics.append', expectedVersion: undefined };
+    expect(await call(req(append), 'engineer')).toMatchObject({ outcome: 'ok', replayed: false });
+    expect(await call(req(append), 'admin')).toMatchObject({ outcome: 'ok', replayed: false });
+    expect(handled).toBe(2);
+  });
+
+  it('judges permission before replay: a recorded actor who lost the permission is forbidden on retry', async () => {
+    const original = USERS.engineer.permissions;
+    await call(req());
+    try {
+      USERS.engineer.permissions = original.filter(p => p !== 'analytics:view');
+      expect((await call(req())).outcome).toBe('forbidden');
+    } finally {
+      USERS.engineer.permissions = original;
+    }
+  });
+
+  it('judges scope before replay: a recorded actor who lost the grant is forbidden on retry', async () => {
+    const original = USERS.engineer.grants;
+    await call(req());
+    try {
+      USERS.engineer.grants = { ...original, MEM: [] };
+      expect((await call(req())).outcome).toBe('forbidden');
+    } finally {
+      USERS.engineer.grants = original;
+    }
+  });
+
+  it.each([
+    ['a BigInt', { text: 'a', n: 1n }],
+    ['a cycle', (() => { const c: Record<string, unknown> = { text: 'a' }; c.self = c; return c; })()],
+    ['excessive depth', Array.from({ length: 70 }).reduce<unknown>(acc => ({ n: acc }), 'x') as Record<string, unknown>],
+  ])('answers error without recording or running the handler for input holding %s', async (_what, input) => {
+    const r = await call(req({ action: 'analytics.append', expectedVersion: undefined, input }));
+    expect(r.outcome).toBe('error');
+    expect(handled).toBe(0);
+    expect(await call(req({ action: 'analytics.append', expectedVersion: undefined }))).toMatchObject({ outcome: 'ok', replayed: false });
+    expect(handled).toBe(1);
+  });
+
+  it('treats a sparse array hole as null: a hole then an empty array under one key is reuse', async () => {
+    const append = (items: unknown) => req({ action: 'analytics.append', expectedVersion: undefined, input: { text: items } });
+    expect((await call(append(Array(1)))).outcome).toBe('ok');
+    expect(await call(append([]))).toMatchObject({ outcome: 'error', message: 'idempotency_key_reuse' });
+    expect((await call(append([null]))).replayed).toBe(true);
+  });
+
+  it('replays across nested-object key order but treats array order as reuse', async () => {
+    const append = (items: unknown) => req({ action: 'analytics.append', expectedVersion: undefined, input: { text: items } });
+    await call(append([{ a: 1, b: { c: 1, d: 2 } }, 2]));
+    expect((await call(append([{ b: { d: 2, c: 1 }, a: 1 }, 2]))).replayed).toBe(true);
+    expect(await call(append([2, { a: 1, b: { c: 1, d: 2 } }]))).toMatchObject({ outcome: 'error', message: 'idempotency_key_reuse' });
   });
 
   it('judges permission and scope before replay', async () => {
