@@ -116,9 +116,9 @@ export * from './components/shadcn/toggle-group';
 export { DialogContentBare } from './components/shadcn/dialog';
 // The shadcn tab list/trigger, unwrapped. `TabsList`/`TabsTrigger` above are the platform selection-marker wrappers (ADR-0023 amended, #340).
 export { TabsList as TabsListBase, TabsTrigger as TabsTriggerBase } from './components/shadcn/tabs';
-export { KeyboardShortcut } from './components/KeyboardShortcut';
-export { SkeletonBlocks } from './components/SkeletonBlocks';
-export { SkeletonRows } from './components/SkeletonRows';
+export { KeyboardShortcut, type KeyboardShortcutProps } from './components/KeyboardShortcut';
+export { SkeletonBlocks, type SkeletonBlocksProps, type SkeletonBlock } from './components/SkeletonBlocks';
+export { SkeletonRows, type SkeletonRowsProps } from './components/SkeletonRows';
 export {
   DIALOG_CONTENT_MOTION,
   POPPER_CONTENT_MOTION,
