@@ -5,6 +5,7 @@ import { Button, StatusBadge } from '@ap/ui';
 import type { Capability, ContextKey } from '@ap/contracts';
 import { contextBarVisible } from './GlobalContextBar';
 import { HomeLink } from './HomeLink';
+import { ModuleScreen } from './ModuleScreen';
 import { RouteErrorBoundary } from './RouteErrorBoundary';
 
 /** Renders the matched menu page, or the kernel's not-found / contract-error / permission / planned states (docs/06 §17, §19). */
@@ -40,8 +41,12 @@ export function RouteOutlet() {
   if (!can(route.menu.permission)) return <KernelMessage tone="warning" icon={<Ban className="size-4" aria-hidden />} title={lang === 'ko' ? '이 메뉴에 대한 권한이 없습니다' : 'You do not have access to this menu'}
     body={<>{tx(route.menu.label)}. {t('askAccessOwner')}</>} />;
   const Page = route.menu.component;
-  if (!Page) return <PlannedPage />;
   const pageKey = route.menu.id + JSON.stringify(route.params);
+  // A module screen is a different instance per generation: a revision change remounts it and drops its local state.
+  if (route.menu.moduleScreen) return <RouteErrorBoundary onError={reportError} resetKey={`${pageKey}|${revision}`}>
+    <ModuleScreen key={`${pageKey}|${revision}`} entry={route.menu} params={route.params} />
+  </RouteErrorBoundary>;
+  if (!Page) return <PlannedPage />;
   return <RouteErrorBoundary onError={reportError} resetKey={`${pageKey}|${revision}`}>
     <Page key={pageKey} params={route.params} />
   </RouteErrorBoundary>;

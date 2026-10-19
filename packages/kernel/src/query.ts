@@ -103,15 +103,21 @@ function checkMenuResponse<P, T>(spec: EndpointSpec<P, T>, projected: MenuQueryC
   return response as ApiResponse<T>;
 }
 
-/** The request gates shared by useMenuQuery and useMenuFetch: Scope validated for this session, absolute period when time applies. */
-function useMenuRequest<P, T>(spec: EndpointSpec<P, T>) {
-  const { adapter, global, scope, session } = usePlatform();
+/** What the request gates read from the platform; a host port reads it at call time instead of from a hook. */
+export type MenuRequestInputs = Pick<ReturnType<typeof usePlatform>, 'adapter' | 'global' | 'scope' | 'session'>;
+
+/**
+ * The request gates shared by useMenuQuery, useMenuFetch and the module host port: Scope validated for this session,
+ * absolute period when time applies, Context projection and the assessment check. Not a hook.
+ */
+export function menuRequest<P, T>(spec: EndpointSpec<P, T>, { adapter, global, scope, session }: MenuRequestInputs) {
   const projected = projectContext(spec, global);
   const scopeReady = !spec.requiresScope || (scope.status === 'valid' && scope.scopeId === global.scopeId && scope.validatedFor === session);
   const periodReady = spec.context.time !== 'apply' || (global.from !== null && global.to !== null);
   const send = async (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> =>
     checkMenuResponse(spec, projected, await adapter.menuQuery({ endpoint: spec.id, context: projected, params }, signal));
-  return { projected, ready: scopeReady && periodReady, send };
+  const notReady = (): ApiResponse<T> => ({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'client-' + Date.now().toString(16), message: `not_ready: ${spec.id} waits for a validated Scope and period` });
+  return { projected, ready: scopeReady && periodReady, send, notReady };
 }
 
 /**
@@ -127,7 +133,7 @@ function useMenuRequest<P, T>(spec: EndpointSpec<P, T>) {
  * The explicit-empty envelope bypasses kind checks only when the projected request contains an applied empty set, per 06 §6 명시적 공집합.
  */
 export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, enabled = true): QueryState<T> {
-  const { projected, ready, send } = useMenuRequest(spec);
+  const { projected, ready, send } = menuRequest(spec, usePlatform());
   return usePlatformQuery<T>(signal => send(params, signal), [spec.id, projected, params], enabled && ready, 'session');
 }
 
@@ -145,10 +151,10 @@ export type MenuFetch<P, T> = {
  * never sends an unvalidated Scope.
  */
 export function useMenuFetch<P, T>(spec: EndpointSpec<P, T>): MenuFetch<P, T> {
-  const { ready, send } = useMenuRequest(spec);
+  const { ready, send, notReady } = menuRequest(spec, usePlatform());
   const fetch = (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> => ready
     ? send(params, signal)
-    : Promise.resolve({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'client-' + Date.now().toString(16), message: `not_ready: ${spec.id} waits for a validated Scope and period` });
+    : Promise.resolve(notReady());
   return { ready, fetch };
 }
 

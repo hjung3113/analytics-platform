@@ -23,8 +23,8 @@ function isPathPattern(path: string): boolean {
 
 /**
  * Registers a module (ADR-0053): checks the manifest against what this host offers and returns the entries for
- * `createRegistry`. Any violation throws RegistryError (fail closed). Screens render through #489; until then the
- * entries carry `moduleScreen` and no `component`.
+ * `createRegistry`. Any violation throws RegistryError (fail closed). Entries carry `moduleScreen` (rendered with
+ * `{ params, host }` by the shell) and no `component`, plus the declared features and config the host port needs.
  */
 export function mountModule(
   manifest: ModuleManifest,
@@ -66,6 +66,8 @@ export function mountModule(
     if (!Object.hasOwn(groupSpace, g.id)) fail(`${at} group "${g.id}" has no groupSpace entry`);
     return { id: g.id, module: id, label: g.label, icon: icons.groups[g.id] ?? fail(`${at} group "${g.id}" has no icon`), space: groupSpace[g.id] };
   });
+  const moduleFeatures = [...new Set([...manifest.requires, ...(manifest.optional ?? [])])].filter(feature => features.includes(feature));
+  const moduleConfig = Object.fromEntries((manifest.config ?? []).map(key => [key, config[key]]));
   const menus = manifest.screens.map((s): ModuleMenuEntry => ({
     ...s,
     id: `${id}:${s.id}`,
@@ -74,6 +76,8 @@ export function mountModule(
     module: id,
     icon: icons.screens[s.id] ?? fail(`${at} screen "${s.id}" has no icon`),
     moduleScreen: screens[s.id],
+    moduleFeatures,
+    moduleConfig,
   }));
   return { menus, groups };
 }

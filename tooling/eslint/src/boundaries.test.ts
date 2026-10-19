@@ -10,6 +10,7 @@ import {
   components,
   contracts,
   hostModule,
+  hostModuleDir,
   kernel,
   menu,
   mockServer,
@@ -51,6 +52,15 @@ async function lint(relFile: string, code: string): Promise<Linter.LintMessage[]
 }
 
 const EQV = path.join(HERE, 'fixtures', 'eqv-module');
+
+/** The shell package with its fixture module directory under hostModuleDir, as packages/shell/eslint.config.js composes it. */
+const SHELL_FIXTURE_DIR = 'src/__fixtures__/module-fixture';
+async function lintShellFixture(relFile: string, code: string): Promise<Linter.LintMessage[]> {
+  const cwd = path.join(REPO_ROOT, 'packages/shell');
+  const eslint = new ESLint({ cwd, overrideConfigFile: true, overrideConfig: [...shell, ...hostModuleDir(SHELL_FIXTURE_DIR)] });
+  const results = await eslint.lintText(code, { filePath: path.join(cwd, relFile) });
+  return results[0]?.messages ?? [];
+}
 
 /** hostModule on an external package whose name is not in the platform scope (fixtures/eqv-module). */
 async function lintExternal(relFile: string, code: string): Promise<Linter.LintMessage[]> {
@@ -478,6 +488,24 @@ describe('boundary + contract fixtures', () => {
     ['src/x.ts', `import { x } from '@ap/kernel';`, 'no-restricted-imports'],
   ])('hostModule in a non-platform-scope package: %s %s', async (file, code, rule) => {
     const messages = await lintExternal(file, code);
+    expect(messages.map((m) => m.ruleId), JSON.stringify(messages, null, 2)).toEqual(rule === '' ? [] : [rule]);
+  });
+
+  it.each([
+    [`${SHELL_FIXTURE_DIR}/x.ts`, `import { usePlatform } from '@ap/kernel';`, 'no-restricted-imports'],
+    [`${SHELL_FIXTURE_DIR}/x.ts`, `import { StateMessage } from '@ap/components';`, 'no-restricted-imports'],
+    [`${SHELL_FIXTURE_DIR}/x.ts`, `import { RouteOutlet } from '../../RouteOutlet';`, 'ap/no-relative-package-escape'],
+    [`${SHELL_FIXTURE_DIR}/deep/x.ts`, `export * from '../../../ModuleScreen';`, 'ap/no-relative-package-escape'],
+    [`${SHELL_FIXTURE_DIR}/x.ts`, 'void import(`@ap/kernel`);', 'ap/restricted-import-source'],
+    [`${SHELL_FIXTURE_DIR}/x.ts`, 'void import(`../../RouteOutlet`);', 'ap/no-relative-package-escape'],
+    [`${SHELL_FIXTURE_DIR}/x.ts`, 'void import(`./manifest`);', ''],
+    [`${SHELL_FIXTURE_DIR}/x.ts`, `import type { ModuleHost } from '@ap/contracts';`, ''],
+    [`${SHELL_FIXTURE_DIR}/x.ts`, `import { manifest } from './manifest';`, ''],
+    [`${SHELL_FIXTURE_DIR}/deep/x.ts`, `import { manifest } from '../manifest';`, ''],
+    ['src/x.ts', `import { usePlatform } from '@ap/kernel';`, ''],
+    ['src/x.ts', `import { ListScreen } from './__fixtures__/module-fixture';`, ''],
+  ])('hostModuleDir on the shell fixture module: %s %s', async (file, code, rule) => {
+    const messages = await lintShellFixture(file, code);
     expect(messages.map((m) => m.ruleId), JSON.stringify(messages, null, 2)).toEqual(rule === '' ? [] : [rule]);
   });
 

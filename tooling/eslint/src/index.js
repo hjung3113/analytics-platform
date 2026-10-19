@@ -376,6 +376,19 @@ export const hostModule = [
   layerConfig({ restriction: HOST_MODULE_RESTRICTION, extraRules: { 'ap/no-relative-package-escape': ['error', { anyPackageName: true }] } }),
 ];
 
+/**
+ * hostModule for one directory of a package that is not its own package (a fixture module): the directory is the
+ * boundary, so a relative import may not leave it, and kernel, components and shell files stay out of reach.
+ * Appended after a layer preset, which already registers the `ap` plugin.
+ * @param {string} dir directory relative to the lint cwd, no trailing slash
+ * @type {(dir: string) => import('eslint').Linter.Config[]}
+ */
+export const hostModuleDir = (dir) => hostModule.map(({ plugins: _ap, ...config }) => ({
+  ...config,
+  files: [`${dir}/**/*.{ts,tsx}`],
+  rules: { ...config.rules, 'ap/no-relative-package-escape': ['error', { root: dir }] },
+}));
+
 /** @type {import('eslint').Linter.Config[]} */
 export const menu = [
   layerConfig({

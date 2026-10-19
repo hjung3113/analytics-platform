@@ -29,11 +29,18 @@ function findOwningPackage(startDir, anyName = false) {
   }
 }
 
-/** The source literal of import/export expressions, when it is a relative string. */
+/** The string a Literal or a substitution-free template names (a template is the same static source), else null. */
+function staticString(node) {
+  if (!node) return null;
+  if (node.type === 'Literal') return typeof node.value === 'string' ? node.value : null;
+  if (node.type === 'TemplateLiteral' && node.expressions.length === 0) return node.quasis[0].value.cooked ?? null;
+  return null;
+}
+
+/** The source of import/export expressions, when it is a relative static string. */
 function relativeSourceLiteral(node) {
   const source = node.source;
-  if (!source || source.type !== 'Literal' || typeof source.value !== 'string') return null;
-  return source.value.startsWith('.') ? source : null;
+  return staticString(source)?.startsWith('.') ? source : null;
 }
 
 const noRelativePackageEscape = {
@@ -42,7 +49,7 @@ const noRelativePackageEscape = {
     docs: {
       description: 'Disallow relative imports and exports that leave the owning workspace package',
     },
-    schema: [{ type: 'object', properties: { anyPackageName: { type: 'boolean' } }, additionalProperties: false }],
+    schema: [{ type: 'object', properties: { anyPackageName: { type: 'boolean' }, root: { type: 'string' } }, additionalProperties: false }],
     messages: {
       escape:
         "Relative path '{{source}}' escapes package '{{pkg}}'. Import the package entry ('{{pkg}}') instead.",
@@ -52,7 +59,11 @@ const noRelativePackageEscape = {
   },
   create(context) {
     const fileDir = path.dirname(context.filename);
-    const owner = findOwningPackage(fileDir, context.options[0]?.anyPackageName === true);
+    // `root` (relative to the lint cwd) makes a directory the boundary, for a module that is not its own package.
+    const root = context.options[0]?.root;
+    const owner = root === undefined
+      ? findOwningPackage(fileDir, context.options[0]?.anyPackageName === true)
+      : { root: path.resolve(context.cwd, root), name: root };
 
     const checkLiteral = (source) => {
       if (!source) return;
@@ -64,12 +75,13 @@ const noRelativePackageEscape = {
         });
         return;
       }
-      const resolved = path.resolve(fileDir, source.value);
+      const value = staticString(source);
+      const resolved = path.resolve(fileDir, value);
       if (resolved !== owner.root && !resolved.startsWith(owner.root + path.sep)) {
         context.report({
           node: source,
           messageId: 'escape',
-          data: { source: source.value, pkg: owner.name },
+          data: { source: value, pkg: owner.name },
         });
       }
     };
@@ -83,9 +95,7 @@ const noRelativePackageEscape = {
         return;
       }
       const arg = node.arguments[0];
-      if (!arg || arg.type !== 'Literal' || typeof arg.value !== 'string' || !arg.value.startsWith('.')) {
-        return;
-      }
+      if (!staticString(arg)?.startsWith('.')) return;
       checkLiteral(arg);
     };
 
