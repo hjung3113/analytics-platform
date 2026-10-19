@@ -1,10 +1,14 @@
-import { createContext, useCallback, useContext, useLayoutEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { DetailPanelFullscreenContext } from './panel/DetailPanelFullscreenContext';
 import { isProductionEnv } from './utils/isProductionEnv';
 
 interface DetailPanelSlot {
   host: HTMLElement | null;
   activeKey: string | undefined;
+  /** True when the active registrant is not a closed (`null`) content registrant. */
+  open: boolean;
+  expanded: boolean;
   setHost: (host: HTMLElement | null) => void;
   register: (key: string) => () => void;
 }
@@ -28,6 +32,8 @@ function warnOnOverlap(registrants: number) {
 /**
  * Shell-scoped DOM slot. Portal registrants (`useDetailPanelSlot`) preserve the registering page's React context;
  * content registrants (`useDetailPanelContent`) are rendered here, so they see the provider's context (ADR-0047).
+ * A `null` content registrant is closed: it wins the slot but nothing renders. The portaled content (not `children`)
+ * gets `DetailPanelFullscreenContext`; the expanded state is reset when the active registrant changes, closes or clears.
  */
 export function DetailPanelSlotProvider({ children }: { children: ReactNode }) {
   const [host, setHost] = useState<HTMLElement | null>(null);
@@ -68,12 +74,31 @@ export function DetailPanelSlotProvider({ children }: { children: ReactNode }) {
       if (keys.current.includes(key)) unregister(key);
     },
   }), [unregister]);
-  const value = useMemo(() => ({ host, activeKey, setHost, register }), [host, activeKey, register]);
+  // A closed registrant is a content registrant whose node is `null`: it wins the slot but renders nothing.
+  const open = activeKey !== undefined && contents.get(activeKey) !== null;
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const expanded = open && expandedKey !== null && expandedKey === activeKey;
+  // Render-phase reset: expansion ends when the active key changes, closes, or clears.
+  if (expandedKey !== null && !expanded) setExpandedKey(null);
+  const toggle = useCallback(() => setExpandedKey(prev => (prev !== null ? null : activeKey ?? null)), [activeKey]);
+  useEffect(() => {
+    if (!expanded) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented) setExpandedKey(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [expanded]);
+  const fullscreen = useMemo(() => ({ expanded, toggle }), [expanded, toggle]);
+  const value = useMemo(() => ({ host, activeKey, open, expanded, setHost, register }), [host, activeKey, open, expanded, register]);
   const activeContent = activeKey !== undefined && host ? contents.get(activeKey) : undefined;
   return <DetailPanelSlotActionsContext.Provider value={actions}>
     <DetailPanelSlotContext.Provider value={value}>
       {children}
-      {activeContent !== undefined && host ? createPortal(activeContent, host) : null}
+      {activeContent != null && host ? createPortal(
+        <DetailPanelFullscreenContext.Provider value={fullscreen}>{activeContent}</DetailPanelFullscreenContext.Provider>,
+        host,
+      ) : null}
     </DetailPanelSlotContext.Provider>
   </DetailPanelSlotActionsContext.Provider>;
 }
@@ -93,5 +118,5 @@ export function useDetailPanelSlot(): HTMLElement | null {
 export function useDetailPanelSlotHost() {
   const slot = useContext(DetailPanelSlotContext);
   if (!slot) throw new Error('Detail panel host requires DetailPanelSlotProvider.');
-  return { ref: slot.setHost, open: slot.activeKey !== undefined };
+  return { ref: slot.setHost, open: slot.open, expanded: slot.expanded };
 }

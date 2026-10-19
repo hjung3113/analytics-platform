@@ -27,7 +27,7 @@ UI Primitive 층(06 §13)과 디자인 시스템 CSS. 플랫폼 개념(Context, 
 - shadcn 컴포넌트를 공개하려면 `src/index.ts`에 export하고 `src/public-exports.test.ts` 목록을 같이 고친다. `styles/index.css`의 `@source "../"`가 이 패키지 `src` 전체를 스캔한다.
 - 이전한 테스트는 `vitest.config.ts`(`globals`, jest-dom setup `src/vitest.setup.ts`)로 돈다. FeedbackOps와 다른 의존 버전(vitest 3·jsdom 26·lucide 1.x)에서 다시 도는 것이므로 새로 생긴 실패는 코드를 고치지 말고 원인을 먼저 가린다.
 
-- `DetailPanelSlot.tsx` — 셸 상세 슬롯 등록 primitive(Provider·host hook·등록 hook). 도메인·URL을 모른다(06 §13, ADR-0013). 슬롯은 하나이고 등록 방식은 둘이다([ADR-0047](../../docs/adr/0047-detail-panel-slot-single-registrant-model.md)): portal 등록(`useDetailPanelSlot()` — host를 받아 직접 portal, 제공자 없으면 throw)과 내용 등록(`layout/useDetailPanelContent(node)` — 셸의 `detailPanel` prop, 제공자 없으면 no-op, `undefined`면 비움). 둘은 한 등록자 목록을 공유해 마지막 등록자가 이기고 정리 시 직전 등록자가 돌아온다. 내용 등록의 내용은 Provider가 host에 portal로 그린다(그래서 Provider 위치의 React context를 본다).
+- `DetailPanelSlot.tsx` — 셸 상세 슬롯 등록 primitive(Provider·host hook·등록 hook). 도메인·URL을 모른다(06 §13, ADR-0013). 슬롯은 하나이고 등록 방식은 둘이다([ADR-0047](../../docs/adr/0047-detail-panel-slot-single-registrant-model.md)): portal 등록(`useDetailPanelSlot()` — host를 받아 직접 portal, 제공자 없으면 throw)과 내용 등록(`layout/useDetailPanelContent(node)` — 셸의 `detailPanel` prop, 제공자 없으면 no-op, `undefined`면 비움). 둘은 한 등록자 목록을 공유해 마지막 등록자가 이기고 정리 시 직전 등록자가 돌아온다. 내용 등록의 내용은 Provider가 host에 portal로 그린다(그래서 Provider 위치의 React context를 본다). `useDetailPanelContent(null)`은 슬롯만 차지하는 닫힌 등록자이고, 슬롯 내용만 `DetailPanelFullscreenContext`(Provider가 확장 상태·Escape를 소유)를 받으며 호스트 hook은 `{ ref, open, expanded }`를 돌려준다(#473).
 
 ## 검증
 
