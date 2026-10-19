@@ -384,6 +384,33 @@ describe('useModuleHost: lifetime ordering', () => {
     expect(changes).toHaveBeenCalled();
   });
 
+  it('keeps the host usable for a descendant layout effect that re-runs in a StrictMode replay: its query delivers and its subscription is notified', async () => {
+    const queries: Promise<unknown>[] = [];
+    const changes = vi.fn();
+    let setGlobal: ((patch: Partial<GlobalContext>) => void) | undefined;
+    function Consumer({ host }: { host: ModuleHost }) {
+      const { generation } = host.session();
+      useLayoutEffect(() => {
+        queries.push(settle(host.query!(spec, { page: 1 }, host.signal)));
+        return host.subscribe(changes);
+      }, [generation]);
+      return null;
+    }
+    function Owner({ id }: { id: string }) {
+      const platform = usePlatform();
+      setGlobal = platform.setGlobal;
+      return <Consumer host={useModuleHost(platform.registry.menuById(id) as never, {}, ports)} />;
+    }
+    const view = harness(() => <Owner id="fx:list" />, true);
+    await act(async () => {});
+    const last = view.calls.at(-1)!;
+    expect(last.signal?.aborted).toBe(false);
+    await act(async () => last.resolve(ok(last.request)));
+    expect(await queries.at(-1)).toMatchObject({ value: { outcome: 'ok' } });
+    act(() => setGlobal!({ roomNames: ['ETCH'] }));
+    expect(changes).toHaveBeenCalled();
+  });
+
   it('revokes the host when the screen is removed, before a replacement layout effect can use it', async () => {
     let retained: ModuleHost | undefined;
     const late: Promise<unknown>[] = [];

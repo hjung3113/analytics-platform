@@ -22,6 +22,9 @@ const CONTEXT_FIELDS: Record<ContextKey, readonly (keyof GlobalContext)[]> = {
 const abortError = () => new DOMException('The module screen was released or its request context changed.', 'AbortError');
 
 type Pending = { valid: () => boolean; fail: () => void };
+/** A call a screen made between the owner's layout cleanup and its re-setup: started on re-setup, rejected if the screen is really gone. */
+type Deferred = { start: () => void; fail: () => void };
+type Lifetime = 'active' | 'suspended' | 'released';
 
 /**
  * The ModuleHost one mounted, ready screen instance receives (ADR-0053, hosting design §2.2/§2.5). The caller owns
@@ -35,7 +38,9 @@ type Pending = { valid: () => boolean; fail: () => void };
 export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<string, string>>, ports: ModuleShellPorts): ModuleHost {
   const platform = usePlatform();
   const { lang } = useI18n();
-  const [instance] = useState(() => ({ controller: new AbortController(), released: false, listeners: new Set<() => void>(), pending: new Set<Pending>() }));
+  const [instance] = useState(() => ({
+    controller: new AbortController(), state: 'active' as Lifetime, listeners: new Set<() => void>(), pending: new Set<Pending>(), deferred: new Set<Deferred>(),
+  }));
   const latest = useRef(platform);
   const portsRef = useRef(ports);
 
@@ -52,17 +57,26 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
     seen.current = changeKey;
     for (const listener of [...instance.listeners]) listener();
   }, [changeKey, instance]);
-  // A layout effect, so the host is revoked when the screen is removed (before any replacement's effects can use it) and
-  // revived before any passive effect of a descendant runs again in a StrictMode replay.
+  // A layout effect, so the screen's removal is seen in the commit that removes it, before a replacement's effects run.
+  // React's dev StrictMode replay runs the owner's cleanup, then the descendants' layout setup, then the owner's setup,
+  // so between cleanup and setup the instance is only suspended: the signal is aborted and pending
+  // calls fail at once, but a call made now waits (no adapter work) for the setup that follows a replay. A removal is
+  // final when no setup followed by the end of the commit's synchronous work.
   useLayoutEffect(() => {
-    instance.released = false;
-    // React's dev double-effect re-runs setup on the same instance; a real unmount never does.
+    instance.state = 'active';
     if (instance.controller.signal.aborted) instance.controller = new AbortController();
+    for (const call of [...instance.deferred]) { instance.deferred.delete(call); call.start(); }
     return () => {
-      instance.released = true;
+      instance.state = 'suspended';
       instance.controller.abort();
       instance.listeners.clear();
       for (const call of [...instance.pending]) call.fail();
+      queueMicrotask(() => {
+        if (instance.state !== 'suspended') return;
+        instance.state = 'released';
+        instance.listeners.clear();
+        for (const call of [...instance.deferred]) { instance.deferred.delete(call); call.fail(); }
+      });
     };
   }, [instance]);
 
@@ -92,13 +106,13 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
       setPage(patch, options) {
         const undeclared = Object.keys(patch).find(key => !declared(key));
         if (undeclared !== undefined) throw new RangeError(`Module "${entry.module}" screen "${entry.id}" does not declare page key "${undeclared}"`);
-        if (!instance.released) p.setPage(patch, options);
+        if (instance.state === 'active') p.setPage(patch, options);
       },
       href: target => { const link = resolve(target); return link && { href: link.href, allowed: link.allowed }; },
       // Arrival focus is requested when the pathname changes, as PlatformLink does (06 §26, ADR-0032).
       navigate: (target, options) => {
         const link = resolve(target);
-        return link !== null && !instance.released && p.navigate(link.href, link.href.split('?')[0] !== p.pathname ? { ...options, focus: 'page' } : options);
+        return link !== null && instance.state === 'active' && p.navigate(link.href, link.href.split('?')[0] !== p.pathname ? { ...options, focus: 'page' } : options);
       },
       returnTarget: () => p.returnTarget(),
       context() {
@@ -118,7 +132,7 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
       reportError: error => p.reportError(error),
       focusTarget: el => portsRef.current.focusTarget(el),
       subscribe(onChange) {
-        if (instance.released) return () => {};
+        if (instance.state === 'released') return () => {};
         instance.listeners.add(onChange);
         return () => { instance.listeners.delete(onChange); };
       },
@@ -127,7 +141,17 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
     if (entry.moduleFeatures?.includes('detailSlot') && ports.detail) host.detail = ports.detail;
     if (entry.moduleFeatures?.includes('query')) {
       host.query = <P, T>(spec: EndpointSpec<P, T>, queryParams: P, callerSignal?: AbortSignal): Promise<ApiResponse<T>> => {
-        if (instance.released || instance.controller.signal.aborted || callerSignal?.aborted) return Promise.reject(abortError());
+        const own = instance.controller.signal;
+        // While suspended the host's own signal is already aborted; passing it back to `query` is not a caller abort.
+        const suspended = instance.state === 'suspended';
+        if (instance.state === 'released' || (callerSignal?.aborted && !(suspended && callerSignal === own))) return Promise.reject(abortError());
+        if (suspended) {
+          return new Promise<ApiResponse<T>>((resolve, reject) => {
+            const call: Deferred = { start: () => host.query!(spec, queryParams, callerSignal === own ? undefined : callerSignal).then(resolve, reject), fail: () => reject(abortError()) };
+            instance.deferred.add(call);
+          });
+        }
+        if (own.aborted) return Promise.reject(abortError());
         const now = latest.current;
         const request = menuRequest(spec, now);
         if (!request.ready) return Promise.resolve(request.notReady());
@@ -136,7 +160,7 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
         return new Promise<ApiResponse<T>>((resolve, reject) => {
           const adapterCall = new AbortController();
           const call: Pending = {
-            valid: () => !instance.released && !callerSignal?.aborted && latest.current.revision === startedFor.revision
+            valid: () => instance.state === 'active' && !callerSignal?.aborted && latest.current.revision === startedFor.revision
               && latest.current.user.id === startedFor.user && JSON.stringify(projectContext(spec, latest.current.global)) === appliedKey,
             fail: () => { settle(); adapterCall.abort(); reject(abortError()); },
           };
