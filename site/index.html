@@ -42,16 +42,16 @@
       <details class="mobile-toc">
         <summary>목차</summary>
         <nav aria-label="모바일 목차">
-          <p class="nav-group">개요</p>
-          <a href="#intro"><span class="mono">01</span> 소개</a><a href="#features"><span class="mono">02</span> 기능 지도</a><a href="#why"><span class="mono">03</span> 화면 사이</a>
-          <p class="nav-group">분석하는 분</p>
-          <a href="#scene"><span class="mono">04</span> 분석 흐름</a><a href="#conditions"><span class="mono">05</span> 조건과 이동</a><a href="#trust"><span class="mono">06</span> 숫자 신뢰</a><a href="#tools"><span class="mono">07</span> 분석 도구</a><a href="#board"><span class="mono">08</span> 분석 보드</a>
-          <p class="nav-group">운영·도입</p>
-          <a href="#operate"><span class="mono">09</span> 운영</a><a href="#systems"><span class="mono">10</span> 업무 시스템</a><a href="#status"><span class="mono">14</span> 현재 상태</a><a href="#ask"><span class="mono">15</span> 도입 판단</a>
-          <p class="nav-group">만드는 분</p>
-          <a href="#migrate"><span class="mono">11</span> 기존 시스템 이전</a><a href="#build"><span class="mono">12</span> 새 화면 만들기</a><a href="#sdk"><span class="mono">13</span> SDK</a>
-          <p class="nav-group">부록</p>
-          <a href="#appendix-a">A–F 개발자 부록</a>
+<p class="nav-group">개요</p>
+<a href="#intro"><span class="mono">01</span> 소개</a><a href="#features"><span class="mono">02</span> 기능 지도</a><a href="#why"><span class="mono">03</span> 왜 플랫폼인가</a>
+<p class="nav-group">분석하는 분</p>
+<a href="#scene"><span class="mono">04</span> 분석 흐름</a><a href="#conditions"><span class="mono">05</span> 조건과 이동</a><a href="#trust"><span class="mono">06</span> 숫자 신뢰</a><a href="#tools"><span class="mono">07</span> 분석 도구</a><a href="#board"><span class="mono">08</span> 분석 보드</a>
+<p class="nav-group">운영·도입</p>
+<a href="#operate"><span class="mono">09</span> 권한과 감사</a><a href="#systems"><span class="mono">10</span> 업무 시스템</a><a href="#status"><span class="mono">11</span> 현재 상태</a><a href="#ask"><span class="mono">12</span> 도입 판단</a>
+<p class="nav-group">만드는 분</p>
+<a href="#extend"><span class="mono">13</span> 플랫폼에 올리는 길</a><a href="#build"><span class="mono">14</span> 새 화면 만들기</a>
+<p class="nav-group">부록</p>
+<a href="#appendix-a">개발자 부록</a>
           <a class="toc-github" href="https://github.com/hjung3113/analytics-platform">GitHub</a>
         </nav>
       </details>
@@ -69,779 +69,279 @@
     </header>
     <aside class="sidebar">
       <nav aria-label="섹션 목차">
-        <p class="nav-group">개요</p>
-        <a href="#intro"><span class="mono">01</span> 소개</a><a href="#features"><span class="mono">02</span> 기능 지도</a><a href="#why"><span class="mono">03</span> 화면 사이</a>
-        <p class="nav-group">분석하는 분</p>
-        <a href="#scene"><span class="mono">04</span> 분석 흐름</a><a href="#conditions"><span class="mono">05</span> 조건과 이동</a><a href="#trust"><span class="mono">06</span> 숫자 신뢰</a><a href="#tools"><span class="mono">07</span> 분석 도구</a><a href="#board"><span class="mono">08</span> 분석 보드</a>
-        <p class="nav-group">운영·도입</p>
-        <a href="#operate"><span class="mono">09</span> 운영</a><a href="#systems"><span class="mono">10</span> 업무 시스템</a><a href="#status"><span class="mono">14</span> 현재 상태</a><a href="#ask"><span class="mono">15</span> 도입 판단</a>
-        <p class="nav-group">만드는 분</p>
-        <a href="#migrate"><span class="mono">11</span> 기존 시스템 이전</a><a href="#build"><span class="mono">12</span> 새 화면 만들기</a><a href="#sdk"><span class="mono">13</span> SDK</a>
-        <p class="nav-group">부록</p>
-        <a href="#appendix-a">A–F 개발자 부록</a>
+<p class="nav-group">개요</p>
+<a href="#intro"><span class="mono">01</span> 소개</a><a href="#features"><span class="mono">02</span> 기능 지도</a><a href="#why"><span class="mono">03</span> 왜 플랫폼인가</a>
+<p class="nav-group">분석하는 분</p>
+<a href="#scene"><span class="mono">04</span> 분석 흐름</a><a href="#conditions"><span class="mono">05</span> 조건과 이동</a><a href="#trust"><span class="mono">06</span> 숫자 신뢰</a><a href="#tools"><span class="mono">07</span> 분석 도구</a><a href="#board"><span class="mono">08</span> 분석 보드</a>
+<p class="nav-group">운영·도입</p>
+<a href="#operate"><span class="mono">09</span> 권한과 감사</a><a href="#systems"><span class="mono">10</span> 업무 시스템</a><a href="#status"><span class="mono">11</span> 현재 상태</a><a href="#ask"><span class="mono">12</span> 도입 판단</a>
+<p class="nav-group">만드는 분</p>
+<a href="#extend"><span class="mono">13</span> 플랫폼에 올리는 길</a><a href="#build"><span class="mono">14</span> 새 화면 만들기</a>
+<p class="nav-group">부록</p>
+<a href="#appendix-a">개발자 부록</a>
       </nav>
     </aside>
     <main>
 <section id="intro" class="hero-section" aria-labelledby="intro-heading">
-  <p class="section-label">Analytics Platform · 업무 화면이 얹히는 바탕</p>
   <div class="hero-grid">
     <div class="hero-copy">
-      <p class="eyebrow">화면 사이의 일은 플랫폼이 맡습니다</p>
-      <h1 id="intro-heading">업무 화면들이 얹히는 바탕.<br>조건·주소·신뢰·권한을 이어 줍니다.</h1>
-      <p class="hero-core"><strong>보는 데서 끝나지 않고, 고쳐졌는지 확인하는 데까지.</strong></p>
-      <div class="entry-grid" aria-label="관심 주제별로 보기">
-        <a class="entry-card" href="#scene"><span>01 · 분석</span><b>분석하는 분</b><small>이상에서 원인과 개선 확인까지</small></a>
-        <a class="entry-card" href="#operate"><span>02 · 운영·도입</span><b>운영·도입을 정하는 분</b><small>권한·감사·도입 조건 살펴보기</small></a>
-        <a class="entry-card" href="#migrate"><span>03 · 제작</span><b>화면을 만드는 분</b><small>기존 업무 화면을 이어 올리기</small></a>
-      </div>
-      <p class="hero-actions"><a class="button primary" href="#features">기능 지도 보기 <span aria-hidden="true">↓</span></a><a class="button secondary" href="#scene">분석 장면 따라가기</a><!-- LEAD_SHOTS_LINK --></p>
-      <p class="hero-caption">① 완료 · ② PoC 후보 · ③ 결정 대기 <a class="source-ref" href="#source-L61">근거 L61</a></p>
+      <p class="eyebrow">반도체 생산성 분석 플랫폼</p>
+      <h1 id="intro-heading">업무 화면을 더해도 플랫폼은 고치지 않습니다.</h1>
+      <p class="hero-core">화면은 선언만 하고, 화면 사이의 약속 — 조건·링크·숫자 상태·권한·감사 — 은 플랫폼이 지킵니다.</p>
+      <p class="hero-actions"><a class="button primary" href="#features">기능 지도 보기 <span aria-hidden="true">↓</span></a><a class="button secondary" data-demo hidden href="demo/" target="_blank" rel="noopener">데모 열기</a><a class="button secondary" data-demo-fallback href="#scene">분석 흐름 보기</a></p>
     </div>
     <div class="hero-visual">
-      <figure class="diagram hero-map">
-        <div class="diagram-desktop"><svg role="img" aria-labelledby="hero-map-title hero-map-desc" viewBox="0 0 600 450" xmlns="http://www.w3.org/2000/svg">
-          <title id="hero-map-title">업무 화면 아래 플랫폼 기능과 데이터 층</title><desc id="hero-map-desc">MARS와 BRAVO 화면이 플랫폼 기능 위에 있고, 조건·신뢰·권한·연결 기능이 서버 계약과 데이터에 이어집니다.</desc>
-          <defs><marker id="arrow-hero" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path class="diagram-arrow-head" d="M0 0L8 4L0 8z"/></marker></defs>
-          <text class="diagram-overline" x="30" y="34">업무 화면 · 팀이 만드는 것</text>
-          <rect class="diagram-node" x="28" y="52" width="250" height="64" rx="14"/><text x="153" y="91" text-anchor="middle">MARS · 생산성 분석</text>
-          <rect class="diagram-node" x="300" y="52" width="270" height="64" rx="14"/><text x="435" y="91" text-anchor="middle">BRAVO · 지표관리</text>
-          <path class="diagram-arrow" marker-end="url(#arrow-hero)" d="M300 122v23"/>
-          <rect class="diagram-platform" x="28" y="151" width="542" height="184" rx="18"/><text class="diagram-overline" x="50" y="183">플랫폼 · 화면 사이를 맡는 층</text>
-          <rect class="diagram-node" x="50" y="202" width="220" height="48" rx="11"/><text class="diagram-small" x="160" y="232" text-anchor="middle">조건 · 주소 · 이동</text>
-          <rect class="diagram-node" x="290" y="202" width="258" height="48" rx="11"/><text class="diagram-small" x="419" y="232" text-anchor="middle">신뢰 · 권한 · 감사</text>
-          <rect class="diagram-node" x="50" y="266" width="498" height="48" rx="11"/><text class="diagram-small" x="299" y="296" text-anchor="middle">분석 도구 · VOC · 운영 · 화면 연결</text>
-          <path class="diagram-arrow" marker-end="url(#arrow-hero)" d="M299 337v22"/>
-          <rect class="diagram-contract" x="78" y="365" width="442" height="52" rx="13"/><text x="299" y="397" text-anchor="middle">조회 계약 · 파서 데이터</text>
-        </svg></div>
-        <div class="diagram-mobile"><ol class="diagram-stack"><li><b>업무 화면</b><span>MARS · BRAVO · CLAS(준비 중)</span></li><li><b>플랫폼</b><span>조건 · 주소 · 신뢰 · 권한 · 감사 · 연결</span></li><li><b>데이터</b><span>조회 계약 · 파서가 쌓은 view · mart</span></li></ol></div>
-        <figcaption>팀은 업무 화면을 만들고, 화면 사이 기능은 플랫폼이 맡습니다. <a class="source-ref" href="#source-L64">L64</a></figcaption>
-        <details class="diagram-alt"><summary>글로 보기</summary><p>MARS·BRAVO 같은 업무 화면 아래에 조건, 주소, 신뢰, 권한, 감사와 연결 기능이 한 층으로 놓입니다.</p></details>
+      <figure class="diagram diagram-hero hero-map">
+        <div class="diagram-desktop"><svg role="img" aria-labelledby="fig-a-title fig-a-desc" viewBox="0 0 600 676" xmlns="http://www.w3.org/2000/svg"><title id="fig-a-title">업무 화면 아래에서 세 층의 약속을 지키는 플랫폼</title><desc id="fig-a-desc">맨 위에 업무 시스템(MARS·BRAVO·운영 콘솔은 동작, CLAS·표준 로그 개발·개선 실행은 준비 중이거나 계획)이 있습니다. 가운데 플랫폼은 사용자가 받는 약속 다섯 개, 화면 선언에서 등록 검사를 거쳐 약속을 제공하는 확장 약속과 SDK, 그리고 버전 고정 배포·경계와 디자인 검사·계약 자동 검사·서버 적합성 검사를 둡니다. 아래에는 서버 계약과 파서가 쌓은 데이터가 있습니다.</desc><defs><marker id="arrow-a" viewBox="0 0 8 8" markerWidth="6" markerHeight="6" refX="8" refY="4" orient="auto"><path class="diagram-arrow-head" d="M0 0L8 4L0 8z"/></marker></defs><text class="diagram-overline" x="0" y="16">업무 시스템 · 팀이 만드는 화면</text><a href="#systems" aria-label="MARS 설명으로 이동"><rect class="diagram-node" x="0" y="26" width="192" height="44" rx="12"/><text x="96" y="54" text-anchor="middle">MARS</text></a><a href="#systems" aria-label="BRAVO 설명으로 이동"><rect class="diagram-node" x="204" y="26" width="192" height="44" rx="12"/><text x="300" y="54" text-anchor="middle">BRAVO</text></a><a href="#operate" aria-label="운영 콘솔 설명으로 이동"><rect class="diagram-node" x="408" y="26" width="192" height="44" rx="12"/><text x="504" y="54" text-anchor="middle">운영 콘솔</text></a><a href="#systems" aria-label="CLAS · 준비 중 설명으로 이동"><rect class="diagram-planned" x="0" y="80" width="192" height="44" rx="12"/><text x="96" y="108" text-anchor="middle">CLAS · 준비 중</text></a><a href="#systems" aria-label="표준 로그 개발 · 계획 설명으로 이동"><rect class="diagram-planned" x="204" y="80" width="192" height="44" rx="12"/><text x="300" y="108" text-anchor="middle">표준 로그 개발 · 계획</text></a><a href="#systems" aria-label="개선 실행 · 계획 설명으로 이동"><rect class="diagram-planned" x="408" y="80" width="192" height="44" rx="12"/><text x="504" y="108" text-anchor="middle">개선 실행 · 계획</text></a><path class="diagram-arrow" marker-end="url(#arrow-a)" d="M300 124V150"/><rect class="diagram-platform" x="0" y="150" width="600" height="386" rx="16"/><text class="diagram-overline" x="18" y="178">플랫폼 · 화면 사이의 일을 맡는 층</text><text class="diagram-overline" x="18" y="204">사용자가 받는 약속 5개 · 사이트·공정·설비가 기본 조건</text><a href="#conditions" aria-label="조건이 따라온다 설명으로 이동"><rect class="diagram-chip" x="14" y="214" width="104" height="60" rx="11"/><text class="diagram-small" x="66" y="240" text-anchor="middle">조건이</text><text class="diagram-small" x="66" y="262" text-anchor="middle">따라온다</text></a><a href="#conditions" aria-label="링크가 곧 화면 설명으로 이동"><rect class="diagram-chip" x="131" y="214" width="104" height="60" rx="11"/><text class="diagram-small" x="183" y="240" text-anchor="middle">링크가</text><text class="diagram-small" x="183" y="262" text-anchor="middle">곧 화면</text></a><a href="#trust" aria-label="숫자 상태가 보인다 설명으로 이동"><rect class="diagram-chip" x="248" y="214" width="104" height="60" rx="11"/><text class="diagram-small" x="300" y="240" text-anchor="middle">숫자 상태가</text><text class="diagram-small" x="300" y="262" text-anchor="middle">보인다</text></a><a href="#operate" aria-label="권한은 한 곳 설명으로 이동"><rect class="diagram-chip" x="365" y="214" width="104" height="60" rx="11"/><text class="diagram-small" x="417" y="240" text-anchor="middle">권한은</text><text class="diagram-small" x="417" y="262" text-anchor="middle">한 곳</text></a><a href="#operate" aria-label="바뀐 것은 감사에 설명으로 이동"><rect class="diagram-chip" x="482" y="214" width="104" height="60" rx="11"/><text class="diagram-small" x="534" y="240" text-anchor="middle">바뀐 것은</text><text class="diagram-small" x="534" y="262" text-anchor="middle">감사에</text></a><a href="#tools" aria-label="분석 도구 설명으로 이동"><rect class="diagram-node" x="14" y="284" width="572" height="34" rx="10"/><text class="diagram-small" x="300" y="306" text-anchor="middle">표 · 차트 · 상세 패널 · 분석 보드 — 어느 화면이든 같은 손버릇</text></a><text class="diagram-overline" x="18" y="346">확장 약속 · 새 화면은 선언만 합니다</text><a href="#build" aria-label="화면 선언 설명으로 이동"><rect class="diagram-node" x="14" y="356" width="136" height="50" rx="12"/><text x="82" y="386" text-anchor="middle">화면 선언</text></a><a href="#build" aria-label="등록 검사 설명으로 이동"><rect class="diagram-node" x="170" y="356" width="210" height="50" rx="12"/><text x="275" y="376" text-anchor="middle">등록할 때 검사</text><text class="diagram-small" x="275" y="396" text-anchor="middle">잘못되면 거부</text></a><a href="#build" aria-label="약속 제공 설명으로 이동"><rect class="diagram-contract" x="400" y="356" width="186" height="50" rx="12"/><text x="493" y="386" text-anchor="middle">플랫폼이 약속 제공</text></a><path class="diagram-arrow" marker-end="url(#arrow-a)" d="M150 381H170"/><path class="diagram-arrow" marker-end="url(#arrow-a)" d="M380 381H400"/><a href="#extend" aria-label="SDK 설명으로 이동"><rect class="diagram-planned" x="14" y="414" width="572" height="34" rx="10"/><text class="diagram-small" x="300" y="436" text-anchor="middle">SDK · 다른 저장소의 앱도 같은 선언으로 올라옵니다 · 진행 중</text></a><text class="diagram-overline" x="18" y="474">지키는 장치 · 사람이 아니라 기계가 검사</text><a href="#extend" aria-label="버전 고정 배포(sdk-v*) 설명으로 이동"><rect class="diagram-node" x="14" y="484" width="134" height="44" rx="10"/><text class="diagram-small" x="81" y="504" text-anchor="middle">버전 고정</text><text class="diagram-small" x="81" y="522" text-anchor="middle">배포(sdk-v*)</text></a><a href="#build" aria-label="경계 · 디자인 검사 설명으로 이동"><rect class="diagram-node" x="160" y="484" width="134" height="44" rx="10"/><text class="diagram-small" x="227" y="504" text-anchor="middle">경계 · 디자인</text><text class="diagram-small" x="227" y="522" text-anchor="middle">검사</text></a><a href="#build" aria-label="계약 자동 검사 설명으로 이동"><rect class="diagram-node" x="306" y="484" width="134" height="44" rx="10"/><text class="diagram-small" x="373" y="504" text-anchor="middle">계약</text><text class="diagram-small" x="373" y="522" text-anchor="middle">자동 검사</text></a><a href="#build" aria-label="서버 적합성 검사 설명으로 이동"><rect class="diagram-node" x="452" y="484" width="134" height="44" rx="10"/><text class="diagram-small" x="519" y="504" text-anchor="middle">서버</text><text class="diagram-small" x="519" y="522" text-anchor="middle">적합성 검사</text></a><path class="diagram-arrow" marker-end="url(#arrow-a)" d="M300 536V558"/><rect class="diagram-contract" x="60" y="558" width="480" height="44" rx="12"/><text x="300" y="586" text-anchor="middle">서버 계약 · 조회 선언</text><path class="diagram-arrow" marker-end="url(#arrow-a)" d="M300 602V624"/><rect class="diagram-data" x="60" y="624" width="480" height="44" rx="12"/><text x="300" y="652" text-anchor="middle">파서가 쌓은 데이터 · view / mart</text></svg></div>
+        <div class="diagram-mobile"><ol class="diagram-stack layers">
+          <li><b>업무 시스템</b><span>MARS · BRAVO · 운영 콘솔 (동작)</span><span>CLAS 준비 중 · 표준 로그 개발 · 개선 실행 (계획)</span></li>
+          <li><b>플랫폼</b><span>받는 약속 5개: 조건이 따라온다 · 링크가 곧 화면 · 숫자 상태가 보인다 · 권한은 한 곳 · 바뀐 것은 감사에</span><span>확장 약속: 화면 선언 → 등록할 때 검사 → 약속 제공 · SDK (진행 중)</span><span>지키는 장치: 버전 고정 배포 · 경계·디자인 검사 · 계약 자동 검사 · 서버 적합성 검사</span></li>
+          <li><b>서버 계약 · 데이터</b><span>조회 선언 → 파서가 쌓은 view · mart</span></li>
+        </ol></div>
+        <figcaption><span class="status-key"><span class="key-solid">실선 = 동작</span><span class="key-dash">점선 = 계획 · 진행 중</span></span> 설명용 도식</figcaption>
       </figure>
     </div>
   </div>
+  <details class="evidence-details"><summary>근거</summary><p>새 메뉴가 늘 때 플랫폼 코드를 계속 고쳐야 한다면 설계 실패라는 기준이 이 문장의 바탕입니다. <a class="source-ref" href="#source-L38">L38</a> · <a class="source-ref" href="#source-L73">L73</a> · <a class="source-ref" href="#source-L74">L74</a></p></details>
 </section>
 
 <section id="features" class="content-section" aria-labelledby="features-heading">
-  <div class="section-heading"><p class="section-label">02 · 전체 기능</p><h2 id="features-heading">플랫폼이 해 주는 기능</h2><p class="key-message"><strong>화면을 옮겨도 분석의 맥락이 이어집니다.</strong></p></div>
-  <figure class="diagram figure-a">
-  <div class="diagram-desktop">
-    <svg role="img" aria-labelledby="fig-a-title fig-a-desc" viewBox="0 0 1040 590" xmlns="http://www.w3.org/2000/svg">
-      <title id="fig-a-title">업무 시스템이 공통 플랫폼 층 위에 놓이는 기능 지도</title>
-      <desc id="fig-a-desc">MARS, BRAVO, 준비 중인 CLAS와 운영 콘솔의 아래에 공통 기능 묶음, 서버 계약, 파서가 쌓은 데이터를 차례로 보여 줍니다. 각 기능 묶음은 해당 소개 절로 연결됩니다.</desc>
-      <defs><marker id="arrow-a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path class="diagram-arrow-head" d="M0 0L8 4L0 8z"/></marker></defs>
-      <text class="diagram-overline" x="24" y="28">업무 시스템 · 각 팀의 업무 화면</text>
-      <a href="#systems" aria-label="업무 시스템 설명으로 이동"><rect class="diagram-node" x="24" y="44" width="230" height="58" rx="12"/><text x="139" y="79" text-anchor="middle">MARS · 생산성 분석</text></a>
-      <a href="#systems" aria-label="업무 시스템 설명으로 이동"><rect class="diagram-node" x="270" y="44" width="230" height="58" rx="12"/><text x="385" y="79" text-anchor="middle">BRAVO · 지표관리</text></a>
-      <a href="#systems" aria-label="업무 시스템 설명으로 이동"><rect class="diagram-planned" x="516" y="44" width="230" height="58" rx="12"/><text x="631" y="79" text-anchor="middle">CLAS · 준비 중</text></a>
-      <a href="#operate" aria-label="운영 절로 이동"><rect class="diagram-node" x="762" y="44" width="254" height="58" rx="12"/><text x="889" y="79" text-anchor="middle">운영 콘솔</text></a>
-      <path class="diagram-arrow" marker-end="url(#arrow-a)" d="M520 106v28"/>
-      <rect class="diagram-platform" x="18" y="140" width="1004" height="284" rx="18"/>
-      <text class="diagram-overline" x="42" y="173">플랫폼 · 화면 사이의 공통 기능</text>
-      <a href="#conditions" aria-label="조건과 이동 설명으로 이동"><rect class="diagram-node" x="40" y="194" width="225" height="78" rx="12"/><text x="152" y="226" text-anchor="middle">조건과 이동</text><text class="diagram-small" x="152" y="251" text-anchor="middle">동작 · 실선</text></a>
-      <a href="#trust" aria-label="숫자 신뢰 설명으로 이동"><rect class="diagram-node" x="285" y="194" width="225" height="78" rx="12"/><text x="397" y="226" text-anchor="middle">숫자의 신뢰</text><text class="diagram-small" x="397" y="251" text-anchor="middle">동작 · 자동 갱신은 계획</text></a>
-      <a href="#tools" aria-label="분석 도구 설명으로 이동"><rect class="diagram-node" x="530" y="194" width="225" height="78" rx="12"/><text x="642" y="226" text-anchor="middle">분석 도구</text><text class="diagram-small" x="642" y="251" text-anchor="middle">동작 · 일부 계획</text></a>
-      <a href="#board" aria-label="분석 보드 설명으로 이동"><rect class="diagram-planned" x="775" y="194" width="225" height="78" rx="12"/><text x="887" y="226" text-anchor="middle">여러 화면</text><text class="diagram-small" x="887" y="251" text-anchor="middle">설계 확정 · 보드는 구현 전</text></a>
-      <a href="#operate" aria-label="운영 설명으로 이동"><rect class="diagram-node" x="160" y="294" width="225" height="78" rx="12"/><text x="272" y="326" text-anchor="middle">알리고 확인</text><text class="diagram-small" x="272" y="351" text-anchor="middle">동작 · 실연결은 SSO 뒤</text></a>
-      <a href="#systems" aria-label="업무 시스템 설명으로 이동"><rect class="diagram-node" x="407" y="294" width="225" height="78" rx="12"/><text x="519" y="326" text-anchor="middle">업무 시스템</text><text class="diagram-small" x="519" y="351" text-anchor="middle">동작 + 계획</text></a>
-      <a href="#build" aria-label="화면 만드는 기능 설명으로 이동"><rect class="diagram-node" x="654" y="294" width="225" height="78" rx="12"/><text x="766" y="326" text-anchor="middle">화면 만들기 · SDK</text><text class="diagram-small" x="766" y="351" text-anchor="middle">동작 + 진행 중 + 계획</text></a>
-      <path class="diagram-arrow" marker-end="url(#arrow-a)" d="M520 426v27"/>
-      <rect class="diagram-contract" x="120" y="461" width="800" height="48" rx="12"/>
-      <text x="520" y="491" text-anchor="middle">서버 계약 · 조회 선언과 적합성 검사</text>
-      <path class="diagram-arrow" marker-end="url(#arrow-a)" d="M520 512v23"/>
-      <rect class="diagram-data" x="120" y="542" width="800" height="34" rx="10"/>
-      <text x="520" y="565" text-anchor="middle">파서가 쌓은 데이터 · view / mart</text>
-    </svg>
+  <div class="section-head"><p class="section-label">02 · 기능 지도</p><h2 id="features-heading">화면 하나를 뜯어보면</h2><p class="section-lead">팀이 만든 것은 가운데 숫자와 그 의미뿐 — 나머지는 플랫폼입니다.</p></div>
+  <div class="anatomy">
+    <figure class="shot-figure anatomy-shot" data-shot-fig="cycle-time-full"><!--shot:cycle-time-full--><figcaption>MARS 사이클타임 상세 · 예시 데이터</figcaption></figure>
+    <ol class="anatomy-list">
+      <li><span class="callout-no">1</span><b>조건 바</b><small>조건이 따라온다</small></li>
+      <li><span class="callout-no">2</span><b>링크 복사</b><small>링크가 곧 화면</small></li>
+      <li><span class="callout-no">3</span><b>데이터 신뢰 표시</b><small>숫자 상태가 보인다</small></li>
+      <li><span class="callout-no">4</span><b>차트 도구</b><small>비교 · 주석 · 확대</small></li>
+      <li><span class="callout-no">5</span><b>표 도구</b><small>열 설정 · 내보내기</small></li>
+      <li><span class="callout-no">6</span><b>드릴 · 상세 패널</b><small>같은 자리에서 상세</small></li>
+      <li><span class="callout-no">7</span><b>VOC 진입</b><small>그 자리에서 알림</small></li>
+    </ol>
   </div>
-  <div class="diagram-mobile">
-    <ol class="diagram-stack"><li><b>업무 시스템</b><span>MARS · BRAVO · CLAS(준비 중) · 운영 콘솔</span></li><li><b>플랫폼 공통 기능</b><span>조건과 이동 · 숫자의 신뢰 · 분석 도구 · 여러 화면 · 알리고 확인 · 운영 · 새 화면</span></li><li><b>서버 계약</b><span>조회 선언 · 적합성 검사</span></li><li><b>업무 데이터</b><span>파서가 쌓은 view · mart</span></li></ol>
-  </div>
-  <figcaption>도식 A · 업무 화면이 공통 기능 층 위에서 이어집니다. 설명용 도식, 근거 <a class="source-ref" href="#source-L64">L64</a> · <a class="source-ref" href="#source-L67">L67</a></figcaption>
-  <details class="diagram-alt"><summary>글로 보기</summary><p>업무 시스템은 위에 있고, 플랫폼 공통 기능은 아래에서 조건·숫자·분석·운영·화면 제작을 맡습니다. 조회 선언과 적합성 검사를 거쳐 파서가 만든 view와 mart를 읽습니다.</p></details>
-</figure>
-  <div class="platform-edges">
-    <div><p class="section-label">이 플랫폼이라서 되는 것</p><h3>반도체 분석의 흐름에 맞춘 공통 기능</h3></div>
-    <ul><li><span class="belt-icon" aria-hidden="true"><svg><use href="#i-info" /></svg></span><span><b>반도체 업무 조건</b><small>사이트·공정·설비가 기본 조건</small></span></li>
-<li><span class="belt-icon" aria-hidden="true"><svg><use href="#i-chart" /></svg></span><span><b>지표에서 설비까지</b><small>분석에서 원인 설비로 내려감</small></span></li>
-<li><span class="belt-icon" aria-hidden="true"><svg><use href="#i-circle" /></svg></span><span><b>숫자 상태와 버전</b><small>갱신·coverage·정의를 같이 봄</small></span></li>
-<li><span class="belt-icon" aria-hidden="true"><svg><use href="#i-table" /></svg></span><span><b>범위 권한과 감사</b><small>사이트·공정 권한을 조회마다 확인</small></span></li>
-<li><span class="belt-icon" aria-hidden="true"><svg><use href="#i-arrow" /></svg></span><span><b>VOC에서 개선까지</b><small>원래 화면으로 돌아와 확인</small></span></li>
-<li><span class="belt-icon" aria-hidden="true"><svg><use href="#i-link" /></svg></span><span><b>기존 화면을 탑재</b><small>한 플랫폼 SDK가 계약을 제공</small></span></li></ul>
-  </div>
-  <div class="feature-grid"><a class="feature-card" href="#conditions"><span class="feature-card-top"><span class="mono">R1.1–R1.6</span><span class="status-badge">동작</span></span><h3>조건과 이동</h3><p>화면을 옮겨도 분석 조건과 본 화면이 이어집니다.</p><small>자동 시간 규칙 포함</small></a>
-<a class="feature-card" href="#trust"><span class="feature-card-top"><span class="mono">R2.1–R2.7</span><span class="status-badge">동작</span></span><h3>숫자의 신뢰</h3><p>숫자의 기준 시각과 지표 버전을 함께 봅니다.</p><small>자동 갱신은 계획</small></a>
-<a class="feature-card" href="#tools"><span class="feature-card-top"><span class="mono">R3.1–R3.6</span><span class="status-badge">동작</span></span><h3>분석 도구</h3><p>표·차트·상세 패널의 사용법이 이어집니다.</p><small>설비 Top View는 계획</small></a>
-<a class="feature-card" href="#board"><span class="feature-card-top"><span class="mono">R4.1–R4.5</span><span class="status-badge">설계 확정</span></span><h3>여러 화면</h3><p>시안에서 조건이 다른 칸만 살펴봅니다.</p><small>저장·조합 분석은 상태 보드 참고</small></a>
-<a class="feature-card" href="#operate"><span class="feature-card-top"><span class="mono">R5.1–R5.5</span><span class="status-badge">동작</span></span><h3>알리고 확인</h3><p>분석 자리에서 VOC와 개선 확인으로 잇습니다.</p><small>실연결은 SSO 뒤</small></a>
-<a class="feature-card" href="#operate"><span class="feature-card-top"><span class="mono">R6.1–R6.7</span><span class="status-badge">동작</span></span><h3>운영</h3><p>권한·감사·활용 현황을 한 곳에서 봅니다.</p><small>권한 쓰기·적재 상태는 대기</small></a>
-<a class="feature-card" href="#systems"><span class="feature-card-top"><span class="mono">R7.1–R7.5</span><span class="status-badge">동작</span></span><h3>업무 시스템</h3><p>각 팀 화면은 같은 바탕 위에 이어집니다.</p><small>일부 화면은 계획</small></a>
-<a class="feature-card" href="#build"><span class="feature-card-top"><span class="mono">R8.1–R8.7</span><span class="status-badge">동작</span></span><h3>화면 만들기</h3><p>새 화면은 공통 도구와 상태 표현을 받습니다.</p><small>사내 연결 조건은 별도</small></a>
-<a class="feature-card" href="#sdk"><span class="feature-card-top"><span class="mono">R9.1–R9.7</span><span class="status-badge">진행 중</span></span><h3>SDK</h3><p>기존 앱은 한 계약으로 플랫폼에 올라옵니다.</p><small>프레임워크 통합 계획 포함</small></a></div>
-  <details class="evidence-details"><summary>요구 ID와 상태 근거 보기</summary><p>각 요구의 현재 상태는 14절에 원문 표기로 모았습니다. 기능별 근거는 <a class="source-ref" href="#source-L64">L64</a>, 세부 기준은 요구사항 문서 §1.1과 §3을 봅니다.</p></details>
+  <h3 class="promise-title">이 플랫폼만의 약속</h3>
+  <ul class="promise4">
+    <li><span class="belt-icon" aria-hidden="true"><svg><use href="#i-info" /></svg></span><div><b>모르는 값을 0으로 바꾸지 않습니다</b><span>0건 · 권한 없음 · 과대 · 시간 초과 · 미확인을 구분합니다. <a href="#trust">상태 화면 보기</a></span></div></li>
+    <li><span class="belt-icon" aria-hidden="true"><svg><use href="#i-link" /></svg></span><div><b>링크는 권한이 아닙니다</b><span>링크를 받은 사람의 권한으로 서버가 다시 확인합니다.</span></div></li>
+    <li><span class="belt-icon" aria-hidden="true"><svg><use href="#i-chart" /></svg></span><div><b>지표는 정의와 버전으로 고정됩니다</b><span>같은 이름의 다른 계산이 섞이지 않습니다.</span></div></li>
+    <li><span class="belt-icon" aria-hidden="true"><svg><use href="#i-check" /></svg></span><div><b>잘못된 화면은 등록에서 거부됩니다</b><span>계약 버전 · 필요 기능 · 권한 이름을 사용자에게 닿기 전에 검사합니다.</span></div></li>
+  </ul>
+  <p class="promise-foot"><b>반도체 업무 조건이 처음부터 기본입니다.</b> 사이트 · 공정 · 설비 그룹 · 설비 · Lot · Recipe.</p>
+  <details class="evidence-details"><summary>근거</summary><p><a class="source-ref" href="#source-L64">L64</a> · <a class="source-ref" href="#source-L75">L75</a> · <a class="source-ref" href="#source-L79">L79</a></p></details>
 </section>
 
 <section id="why" class="content-section" aria-labelledby="why-heading">
-  <div class="section-heading"><p class="section-label">03 · 화면 사이의 일</p><h2 id="why-heading">화면 사이에서 자주 깨지는 것</h2><p class="key-message"><strong>조건·권한·숫자 상태를 한 번만 맡깁니다.</strong></p></div>
+  <div class="section-head"><p class="section-label">03 · 왜 플랫폼인가</p><h2 id="why-heading">화면 하나는 잘 만들어도, 화면 사이에서 깨집니다</h2><p class="section-lead">그 사이를 지킬 수 있는 자리는 플랫폼뿐입니다.</p></div>
   <figure class="diagram">
-  <div class="diagram-desktop"><svg role="img" aria-labelledby="fig-b-title fig-b-desc" viewBox="0 0 1040 420" xmlns="http://www.w3.org/2000/svg">
-    <title id="fig-b-title">팀별 화면과 공통 플랫폼 위 화면의 차이</title><desc id="fig-b-desc">왼쪽 세 업무 시스템은 조건과 운영 기능을 각각 갖고 화면 이동 때 조건이 끊깁니다. 오른쪽은 화면 아래 공통 기능 층이 있어 조건을 이어 줍니다.</desc>
-    <defs><marker id="arrow-b" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path class="diagram-arrow-head" d="M0 0L8 4L0 8z"/></marker></defs>
-    <text class="diagram-overline" x="28" y="34">각 팀이 따로 운영</text><text class="diagram-overline" x="570" y="34">공통 바탕 위에서 연결</text>
-    <g class="diagram-broken"><rect x="28" y="58" width="150" height="145" rx="12"/><rect x="198" y="58" width="150" height="145" rx="12"/><rect x="368" y="58" width="150" height="145" rx="12"/></g>
-    <g class="diagram-text"><text x="103" y="88" text-anchor="middle">시스템 A</text><text x="273" y="88" text-anchor="middle">시스템 B</text><text x="443" y="88" text-anchor="middle">시스템 C</text>
-    <text class="diagram-small" x="103" y="119" text-anchor="middle">로그인 · 권한</text><text class="diagram-small" x="103" y="143" text-anchor="middle">필터 · 표 · 차트</text><text class="diagram-small" x="103" y="167" text-anchor="middle">감사</text>
-    <text class="diagram-small" x="273" y="119" text-anchor="middle">로그인 · 권한</text><text class="diagram-small" x="273" y="143" text-anchor="middle">필터 · 표 · 차트</text><text class="diagram-small" x="273" y="167" text-anchor="middle">감사</text>
-    <text class="diagram-small" x="443" y="119" text-anchor="middle">로그인 · 권한</text><text class="diagram-small" x="443" y="143" text-anchor="middle">필터 · 표 · 차트</text><text class="diagram-small" x="443" y="167" text-anchor="middle">감사</text></g>
-    <path class="diagram-broken-arrow" d="M180 234h153"/><path class="diagram-broken-arrow" d="M350 234h153"/>
-    <text class="diagram-small" x="272" y="266" text-anchor="middle">화면마다 조건을 다시 입력</text>
-    <rect class="diagram-node" x="574" y="58" width="130" height="108" rx="12"/><rect class="diagram-node" x="720" y="58" width="130" height="108" rx="12"/><rect class="diagram-node" x="866" y="58" width="145" height="108" rx="12"/>
-    <text x="639" y="101" text-anchor="middle">MARS</text><text class="diagram-small" x="639" y="130" text-anchor="middle">생산성 개요</text><text x="785" y="101" text-anchor="middle">BRAVO</text><text class="diagram-small" x="785" y="130" text-anchor="middle">지표 상세</text><text x="938" y="101" text-anchor="middle">CLAS</text><text class="diagram-small" x="938" y="130" text-anchor="middle">준비 중</text>
-    <path class="diagram-arrow" marker-end="url(#arrow-b)" d="M704 185h8m138 0h8"/>
-    <rect class="diagram-platform" x="574" y="205" width="437" height="128" rx="16"/>
-    <text x="792" y="242" text-anchor="middle">공통 기능 한 층</text>
-    <rect class="diagram-chip" x="602" y="264" width="145" height="44" rx="10"/><text class="diagram-small" x="674" y="291" text-anchor="middle">기간 · 9월</text>
-    <rect class="diagram-chip" x="763" y="264" width="216" height="44" rx="10"/><text class="diagram-small" x="871" y="291" text-anchor="middle">MEM · PHOTO · 설비</text>
-  </svg></div>
-  <div class="diagram-mobile"><div class="compare-diagram"><article><h3>팀별 시스템 3개</h3><p>로그인 · 권한 · 필터 · 표 · 차트 · 감사가 각자 있습니다.</p><p>화면을 옮길 때 조건을 다시 고릅니다.</p></article><article><h3>플랫폼 위</h3><p>업무 화면은 팀이 만들고 공통 기능은 아래 한 층에서 맡습니다.</p><p>기간 · 사이트 · 공정 · 설비 조건이 이동을 따라갑니다.</p></article></div></div>
-  <figcaption>도식 B · 화면 사이 일을 공통으로 맡으면 조건을 다시 고르지 않습니다. 설명용 도식, 근거 <a class="source-ref" href="#source-L66">L66</a></figcaption>
-  <details class="diagram-alt"><summary>글로 보기</summary><p>각 팀이 따로 만들면 로그인·권한·필터·표·차트·감사를 반복하고 화면 이동 때 조건이 끊깁니다. 플랫폼 위에서는 각 업무 화면 아래 공통 층이 조건을 유지합니다.</p></details>
-</figure>
-  <div class="three-cards">
-    <article><span class="card-icon">01</span><h3>화면을 옮길 때</h3><p><b>없으면</b> 기간과 공정을 다시 고릅니다.</p><p><b>있으면</b> 본 화면 링크가 조건을 이어 줍니다.</p></article>
-    <article><span class="card-icon">02</span><h3>숫자를 볼 때</h3><p><b>없으면</b> 빈 표가 0건인지 실패인지 헷갈립니다.</p><p><b>있으면</b> 조회 상태와 숫자 기준을 나눠 봅니다.</p></article>
-    <article><span class="card-icon">03</span><h3>운영할 때</h3><p><b>없으면</b> 권한과 감사가 화면마다 흩어집니다.</p><p><b>있으면</b> 조회 범위와 변경을 한 곳에서 확인합니다.</p></article>
-  </div>
-  <p class="caption">효과 수치 대신 동작을 제시합니다. 설명용 도식, 근거 <a class="source-ref" href="#source-L66">L66</a></p>
-  <details class="evidence-details"><summary>기존 문제 설명 펼치기</summary><section id="problem" aria-labelledby="problem-heading">
-        <p class="section-label">02 · 문제</p>
-        <h2 id="problem-heading">메뉴마다 따로 만들면, 같은 기능이 메뉴 수만큼 생깁니다.</h2>
-        <p class="lead">
-          메뉴 등록·필터·딥링크·권한·데이터 상태·감사를 메뉴마다 구현하면, 메뉴가 늘수록 동작과 의미가 갈라지기
-          쉽습니다. 아래 네 가지는 설계 문서가 정의한 구조적 문제이고, 비용은 아직 측정하지 않았습니다.
-        </p>
-        <div class="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">문제</th>
-                <th scope="col">메뉴가 따로 만들면</th>
-                <th scope="col">플랫폼 규칙</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th scope="row">조건이 끊긴다</th>
-                <td>다른 메뉴로 가면 기간·Site·설비를 다시 고른다</td>
-                <td>전역 조건이 URL에 담겨 메뉴 사이에서 이어진다 (계약 §6·§22)</td>
-              </tr>
-              <tr>
-                <th scope="row">같은 링크, 다른 숫자</th>
-                <td>늦게 들어온 데이터나 마스터 정정 때문에 같은 링크도 값이 달라진다</td>
-                <td>계산 기준 시각과 신뢰 정보(갱신 시각·coverage·지표 버전)를 함께 보인다 (§18)</td>
-              </tr>
-              <tr>
-                <th scope="row">0건의 뜻이 모호하다</th>
-                <td>결과 없음·수집 누락·파서 지연을 구분하지 못한다</td>
-                <td>
-                  0건·권한 거부·조회 과대·시간 초과·오류를 구분하고, 근거가 없으면 &#x27;미확인&#x27;으로 둔다 (§19)
-                </td>
-              </tr>
-              <tr>
-                <th scope="row">권한·감사가 메뉴마다 다르다</th>
-                <td>메뉴마다 권한 검사와 변경 이력 표시가 달라진다</td>
-                <td>
-                  메뉴와 직접 URL이 같은 게이트를 지나고, 서버가 요청마다 다시 판정하며, 감사는 공통 형식으로 본다
-                  (§13·§17)
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p>
-          처리 시간·건수 같은 효과는 지금 주장하지 않습니다. 사내 적용 파일럿에서 기준선부터 잽니다(<a
-            href="https://github.com/hjung3113/analytics-platform/issues/233"
-            >#233</a
-          >).
-        </p>
-        <h3>설비 몇 대를 골라 생산성을 보려면</h3>
-        <fieldset class="segments">
-          <legend class="sr-only">전후 비교</legend>
-          <label
-            ><input type="radio" name="before-after" value="0" checked /><span>공통 계약이 없을 때(예시)</span></label
-          ><label><input type="radio" name="before-after" value="1" /><span>플랫폼 위에서</span></label>
-        </fieldset>
-        <div data-case="0" class="panel">
-          <h3>
-            공통 계약이 없을 때
-            <span class="badge neutral"
-              ><svg aria-hidden="true"><use href="#i-circle" /></svg>예시</span
-            >
-          </h3>
-          <ol>
-            <li>설비 목록에서 설비 ID 몇 개를 복사한다</li>
-            <li>분석 화면을 따로 열고 기간과 Site를 다시 고른다</li>
-            <li>설비 ID를 붙여 넣어 조건을 맞춘다</li>
-            <li>동료에게는 화면 캡처와 조건 설명을 같이 보낸다</li>
-            <li>받은 사람은 열어 봐야 권한이 있는지 안다</li>
-          </ol>
-          <p class="caption">설명용 예시이며 사내에서 측정·관찰한 흐름이 아닙니다.</p>
-        </div>
-        <div data-case="1" class="panel">
-          <h3>플랫폼 위에서</h3>
-          <ol>
-            <li>설비 마스터에서 행을 선택한다 <span class="chip">② 공통 컴포넌트</span></li>
-            <li>
-              선택 설비로 분석을 누른다 <span class="chip">⑤ 메뉴 간 연결</span> <span class="chip">① 공통 기능</span>
-            </li>
-            <li>생산성 개요가 같은 기간·Site와 선택 설비로 열린다 <span class="chip">① 공통 기능</span></li>
-            <li>링크 복사로 조건이 담긴 주소를 보낸다 <span class="chip">① 공통 기능</span></li>
-            <li>받는 사람의 권한으로 서버가 다시 검증한다 <span class="chip">① 공통 기능</span></li>
-          </ol>
-          <div class="demo-link" data-demo hidden>
-            <a
-              href="demo/equipment?v=1&amp;scopeId=MEM"
-              target="_blank"
-              rel="noopener"
-              aria-label="데모에서 해 보기 D7 (새 탭)"
-              >데모에서 해 보기 <span class="mono">D7</span> ↗</a
-            >
-            <p data-demo-step="D7"></p>
-            <small>합성 데이터 · 예시 동작</small>
-          </div>
-        </div>
-        <p class="caption">
-          원본:
-          <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/06_platform_ui_contract.md"
-            >플랫폼 UI 계약 §4–6·§17–19</a
-          >
-          · <a href="#source-L39" class="source-ref">L39</a> · <a href="#source-L40" class="source-ref">L40</a>
-        </p>
-      </section></details>
+    <div class="diagram-desktop"><svg role="img" aria-labelledby="fig-b-title fig-b-desc" viewBox="0 0 1040 432" xmlns="http://www.w3.org/2000/svg"><title id="fig-b-title">팀별로 따로 만들 때와 공통 플랫폼 위에서 만들 때</title><desc id="fig-b-desc">왼쪽은 세 시스템이 로그인·권한·필터·표·차트·감사를 각각 갖고 화면을 옮길 때 조건이 끊깁니다. 오른쪽은 업무 화면 세 개가 이어지고 아래 공통 기능 한 층이 조건을 유지합니다. 없으면 겪는 일 세 가지와 있으면 받는 것 세 가지를 좌우에 둡니다.</desc><defs><marker id="arrow-b" viewBox="0 0 8 8" markerWidth="6" markerHeight="6" refX="8" refY="4" orient="auto"><path class="diagram-arrow-head" d="M0 0L8 4L0 8z"/></marker></defs><text class="diagram-overline" x="0" y="26">각 팀이 따로 만들면</text><text class="diagram-overline" x="560" y="26">공통 바탕 위에서 만들면</text><rect class="diagram-broken" x="0" y="40" width="140" height="136" rx="12"/><text x="70" y="72" text-anchor="middle">시스템 A</text><text class="diagram-small" x="70" y="102" text-anchor="middle">로그인 · 권한</text><text class="diagram-small" x="70" y="126" text-anchor="middle">필터 · 표 · 차트</text><text class="diagram-small" x="70" y="150" text-anchor="middle">감사</text><rect class="diagram-broken" x="170" y="40" width="140" height="136" rx="12"/><text x="240" y="72" text-anchor="middle">시스템 B</text><text class="diagram-small" x="240" y="102" text-anchor="middle">로그인 · 권한</text><text class="diagram-small" x="240" y="126" text-anchor="middle">필터 · 표 · 차트</text><text class="diagram-small" x="240" y="150" text-anchor="middle">감사</text><rect class="diagram-broken" x="340" y="40" width="140" height="136" rx="12"/><text x="410" y="72" text-anchor="middle">시스템 C</text><text class="diagram-small" x="410" y="102" text-anchor="middle">로그인 · 권한</text><text class="diagram-small" x="410" y="126" text-anchor="middle">필터 · 표 · 차트</text><text class="diagram-small" x="410" y="150" text-anchor="middle">감사</text><path class="diagram-broken-arrow" marker-end="url(#arrow-b)" d="M140 108H170"/><path class="diagram-broken-arrow" marker-end="url(#arrow-b)" d="M310 108H340"/><text class="diagram-small" x="240" y="204" text-anchor="middle">화면을 옮길 때마다 조건을 다시 입력</text><rect class="diagram-node" x="560" y="40" width="140" height="64" rx="12"/><text x="630" y="68" text-anchor="middle">MARS</text><text class="diagram-small" x="630" y="90" text-anchor="middle">생산성 개요</text><rect class="diagram-node" x="730" y="40" width="140" height="64" rx="12"/><text x="800" y="68" text-anchor="middle">BRAVO</text><text class="diagram-small" x="800" y="90" text-anchor="middle">지표 상세</text><rect class="diagram-planned" x="900" y="40" width="140" height="64" rx="12"/><text x="970" y="68" text-anchor="middle">CLAS</text><text class="diagram-small" x="970" y="90" text-anchor="middle">준비 중</text><path class="diagram-arrow" marker-end="url(#arrow-b)" d="M700 72H730"/><path class="diagram-arrow" marker-end="url(#arrow-b)" d="M870 72H900"/><path class="diagram-arrow" marker-end="url(#arrow-b)" d="M630 104V136"/><path class="diagram-arrow" marker-end="url(#arrow-b)" d="M800 104V136"/><path class="diagram-arrow" marker-end="url(#arrow-b)" d="M970 104V136"/><rect class="diagram-platform" x="560" y="136" width="480" height="92" rx="14"/><text x="800" y="164" text-anchor="middle">공통 기능 한 층</text><rect class="diagram-chip" x="582" y="178" width="130" height="36" rx="10"/><text class="diagram-small" x="647" y="201" text-anchor="middle">기간 · 9월</text><rect class="diagram-chip" x="728" y="178" width="290" height="36" rx="10"/><text class="diagram-small" x="873" y="201" text-anchor="middle">MEM · PHOTO · 설비 — 조건이 따라감</text><text class="diagram-overline" x="0" y="262">없으면</text><text class="diagram-overline" x="560" y="262">있으면</text><rect class="diagram-broken" x="0" y="272" width="480" height="42" rx="10"/><text x="16" y="299">옮길 때 기간·공정을 다시 고른다</text><rect class="diagram-contract" x="560" y="272" width="480" height="42" rx="10"/><text x="576" y="299">본 화면 링크가 조건을 이어 준다</text><rect class="diagram-broken" x="0" y="324" width="480" height="42" rx="10"/><text x="16" y="351">0건인지 실패인지 헷갈린다</text><rect class="diagram-contract" x="560" y="324" width="480" height="42" rx="10"/><text x="576" y="351">조회 상태와 숫자 기준을 나눠 본다</text><rect class="diagram-broken" x="0" y="376" width="480" height="42" rx="10"/><text x="16" y="403">권한·감사가 화면마다 흩어진다</text><rect class="diagram-contract" x="560" y="376" width="480" height="42" rx="10"/><text x="576" y="403">조회 범위와 변경을 한 곳에서 본다</text></svg></div>
+    <div class="diagram-mobile"><div class="compare-diagram"><article><h3>각 팀이 따로</h3><p>로그인 · 권한 · 필터 · 표 · 차트 · 감사가 시스템마다 있고, 옮길 때 조건을 다시 입력합니다.</p><p><b>없으면</b> 조건 재입력 · 0건/실패 혼동 · 권한·감사 분산</p></article><article><h3>공통 바탕 위</h3><p>업무 화면 아래 공통 기능 한 층이 조건을 이어 줍니다.</p><p><b>있으면</b> 링크가 조건을 이어 줌 · 상태 구분 · 권한·감사 한 곳</p></article></div></div>
+    <figcaption>설명용 도식</figcaption>
+  </figure>
+  <details class="evidence-details"><summary>근거</summary><p><a class="source-ref" href="#source-L66">L66</a> · <a class="source-ref" href="#source-L39">L39</a> · 효과 수치는 쓰지 않습니다(기준선 없음).</p></details>
 </section>
 
 <section id="scene" class="content-section" aria-labelledby="scene-heading">
-  <div class="section-heading"><p class="section-label">04 · 분석 흐름</p><h2 id="scene-heading">분석 한 건을 끝까지 따라갑니다</h2><p class="key-message"><strong>이상 확인부터 개선 결과 확인까지 이어집니다.</strong></p></div>
-  <figure class="diagram diagram-loop"><div class="diagram-desktop"><svg role="img" aria-labelledby="fig-c-title fig-c-desc" viewBox="0 0 1040 460" xmlns="http://www.w3.org/2000/svg">
-  <title id="fig-c-title">분석 결과를 개선 확인과 감사까지 잇는 일곱 단계</title><desc id="fig-c-desc">이상을 보고, 원인을 따라가고, 비교와 주석, VOC, 개선 작업, 개선 확인, 변경 감사를 거쳐 다시 분석으로 이어집니다. 각 단계는 해당 내용을 선택하는 링크입니다.</desc>
-  <defs><marker id="arrow-c" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path class="diagram-arrow-head" d="M0 0L8 4L0 8z"/></marker></defs>
-  <path class="diagram-arrow" marker-end="url(#arrow-c)" d="M245 106h60M495 106h60M745 106h60M875 145v106M805 315h-60M555 315h-60M305 315h-60M165 278V145"/>
-  <a href="#scene-step-1" data-loop-step="0" aria-label="1단계 이상을 본다"><rect class="diagram-step" x="40" y="62" width="205" height="88" rx="18"/><text x="142" y="96" text-anchor="middle">01 · 본다</text><text class="diagram-small" x="142" y="124" text-anchor="middle">P95 이상 확인</text></a>
-  <a href="#scene-step-2" data-loop-step="1" aria-label="2단계 원인까지 내려간다"><rect class="diagram-step" x="290" y="62" width="205" height="88" rx="18"/><text x="392" y="96" text-anchor="middle">02 · 내려간다</text><text class="diagram-small" x="392" y="124" text-anchor="middle">공정 → 설비</text></a>
-  <a href="#scene-step-3" data-loop-step="2" aria-label="3단계 비교한다"><rect class="diagram-step" x="540" y="62" width="205" height="88" rx="18"/><text x="642" y="96" text-anchor="middle">03 · 비교한다</text><text class="diagram-small" x="642" y="124" text-anchor="middle">기간 · 주석</text></a>
-  <a href="#scene-step-4" data-loop-step="3" aria-label="4단계 알린다"><rect class="diagram-planned" x="790" y="62" width="205" height="88" rx="18"/><text x="892" y="96" text-anchor="middle">04 · 알린다</text><text class="diagram-small" x="892" y="124" text-anchor="middle">VOC 진입</text></a>
-  <a href="#scene-step-5" data-loop-step="4" aria-label="5단계 개선 작업으로 잇는다"><rect class="diagram-planned" x="790" y="270" width="205" height="88" rx="18"/><text x="892" y="304" text-anchor="middle">05 · 개선 Task</text><text class="diagram-small" x="892" y="332" text-anchor="middle">실연결은 SSO 뒤</text></a>
-  <a href="#scene-step-6" data-loop-step="5" aria-label="6단계 개선을 확인한다"><rect class="diagram-step" x="540" y="270" width="205" height="88" rx="18"/><text x="642" y="304" text-anchor="middle">06 · 확인한다</text><text class="diagram-small" x="642" y="332" text-anchor="middle">이전 기간 비교</text></a>
-  <a href="#scene-step-7" data-loop-step="6" aria-label="7단계 변경을 감사한다"><rect class="diagram-step" x="290" y="270" width="205" height="88" rx="18"/><text x="392" y="304" text-anchor="middle">07 · 감사</text><text class="diagram-small" x="392" y="332" text-anchor="middle">변경 이력 확인</text></a>
-  <text class="diagram-overline" x="520" y="220" text-anchor="middle">보는 데서 끝나지 않고, 고쳐졌는지 확인</text>
-</svg></div>
-  <div class="diagram-mobile"><ol class="loop-list"><li>본다 · 이상 확인</li><li>내려간다 · 공정에서 설비까지</li><li>비교한다 · 이전 기간과 주석</li><li>알린다 · VOC 진입</li><li>개선 Task로 잇는다</li><li>개선을 확인한다</li><li>변경을 감사한다</li></ol></div>
-  <figcaption>도식 C · 분석 한 건을 일곱 단계로 이어 봅니다. 상태는 단계 설명에 표시합니다. 근거 <a class="source-ref" href="#source-L65">L65</a></figcaption>
-  <details class="diagram-alt"><summary>글로 보기</summary><ol><li>이상을 본다</li><li>공정에서 설비까지 내려간다</li><li>기간을 비교하고 주석을 남긴다</li><li>VOC를 알린다</li><li>개선 Task로 잇는다</li><li>개선 전후를 확인한다</li><li>변경 감사를 확인한다</li></ol></details>
-</figure>
-  <div class="tabs scene-tabs" data-tabs="steps" data-default="0">
-    <div class="tab-buttons scene-step-tabs" role="tablist" aria-label="분석 흐름 7단계">
-      <button type="button" role="tab" id="scene-tab-1" aria-controls="scene-step-1" aria-selected="false">01 본다</button>
-      <button type="button" role="tab" id="scene-tab-2" aria-controls="scene-step-2" aria-selected="false">02 내려간다</button>
-      <button type="button" role="tab" id="scene-tab-3" aria-controls="scene-step-3" aria-selected="false">03 비교한다</button>
-      <button type="button" role="tab" id="scene-tab-4" aria-controls="scene-step-4" aria-selected="false">04 알린다</button>
-      <button type="button" role="tab" id="scene-tab-5" aria-controls="scene-step-5" aria-selected="false">05 개선 과제</button>
-      <button type="button" role="tab" id="scene-tab-6" aria-controls="scene-step-6" aria-selected="false">06 확인한다</button>
-      <button type="button" role="tab" id="scene-tab-7" aria-controls="scene-step-7" aria-selected="false">07 감사</button>
-    </div>
-    <div class="scene-panels">
-      <article role="tabpanel" id="scene-step-1" aria-labelledby="scene-tab-1"><span class="status-badge">동작</span><h3>튀는 지표를 발견합니다</h3><p>BRAVO나 MARS에서 사이클타임 P95가 튄 구간과 숫자 상태를 함께 봅니다.</p><a class="button secondary" data-demo hidden href="demo/">데모에서 보기</a><p data-demo-step="D1"></p><p data-demo-step="D2"></p></article>
-      <article role="tabpanel" id="scene-step-2" aria-labelledby="scene-tab-2" hidden><span class="status-badge">동작</span><h3>원인 설비까지 내려갑니다</h3><p>공정, 설비 그룹, 설비로 좁히고 상세를 본 뒤 원래 조건으로 돌아옵니다.</p><p data-demo-step="D5"></p><p data-demo-step="D6"></p></article>
-      <article role="tabpanel" id="scene-step-3" aria-labelledby="scene-tab-3" hidden><span class="status-badge">동작</span><h3>기간을 비교하고 판단을 남깁니다</h3><p>같은 차트에서 이전 기간을 보고, 분석 주석으로 판단을 남깁니다.</p><p data-demo-step="D4"></p></article>
-      <article role="tabpanel" id="scene-step-4" aria-labelledby="scene-tab-4" hidden><span class="status-badge">동작</span><h3>그 자리에서 VOC로 알립니다</h3><p>업무 시스템과 현재 화면 주소를 붙여 FeedbackOps로 이동합니다.</p></article>
-      <article role="tabpanel" id="scene-step-5" aria-labelledby="scene-tab-5" hidden><span class="status-badge">동작</span><h3>개선 Task에서 돌아옵니다</h3><p>복귀 링크 계약은 동작합니다. 실제 연결은 사내 SSO 뒤입니다.</p></article>
-      <article role="tabpanel" id="scene-step-6" aria-labelledby="scene-tab-6" hidden><span class="status-badge">설계 확정</span><h3>개선 전후를 나란히 확인합니다</h3><p>차트 비교는 동작하고, 분석 보드는 설계 확정·구현 전입니다.</p><p data-demo-step="D5"></p></article>
-      <article role="tabpanel" id="scene-step-7" aria-labelledby="scene-tab-7" hidden><span class="status-badge">동작</span><h3>변경 감사를 확인합니다</h3><p>운영자는 누가 무엇을 바꿨는지 변경 감사에서 봅니다.</p><p data-demo-step="D7"></p></article>
-    </div>
-    <div class="step-controls"><button type="button" data-step="-1" aria-label="이전 단계">← 이전</button><span>단계 선택 후 키보드 화살표로 이동</span><button type="button" data-step="1" aria-label="다음 단계">다음 →</button></div>
-  </div>
-  <details class="evidence-details"><summary>대표 장면 표 보기</summary><p>1–3·6(비교)·7단계는 데모에서 동작합니다. VOC 처리 화면은 별도 제품이며, 실제 연결은 SSO 뒤입니다. 단계와 기대 요구는 <a class="source-ref" href="#source-L65">L65</a>에 근거합니다.</p><table class="compact-table"><thead><tr><th>단계</th><th>요구</th><th>현재 상태</th></tr></thead><tbody><tr><td>이상 확인</td><td>R1.1, R2.1–R2.3</td><td>동작</td></tr><tr><td>원인 추적</td><td>R1.3, R3.1–R3.3</td><td>동작</td></tr><tr><td>비교·주석</td><td>R3.2, R3.4</td><td>동작</td></tr><tr><td>VOC·복귀</td><td>R5.1–R5.2</td><td>링크 동작 · 실연결은 SSO 뒤</td></tr><tr><td>개선 확인</td><td>R3.2, R4.1</td><td>비교 동작 · 보드는 설계 확정</td></tr><tr><td>변경 감사</td><td>R6.2</td><td>동작</td></tr></tbody></table></details>
-  <details class="evidence-details"><summary>기존 상세 흐름 펼치기</summary><section id="flow" aria-labelledby="flow-heading">
-        <p class="section-label">04 · 합치면</p>
-        <h2 id="flow-heading">업무 시스템을 한 셸에 모으면, 조건과 근거가 끊기지 않습니다.</h2>
-        <p class="lead">
-          MARS·BRAVO·운영 콘솔은 같은 업무 화면 바탕에 있습니다. 아래는 사이클타임 이상을 원인 확인과 개선까지 잇는 흐름입니다.
-        </p>
-        <div class="tabs" data-tabs="steps" data-default="0">
-          <div class="tab-buttons" role="tablist" aria-label="steps">
-            <button type="button" role="tab" id="steps-tab-0" aria-controls="steps-panel-0" aria-selected="false">
-              S1 이상 발견</button
-            ><button type="button" role="tab" id="steps-tab-1" aria-controls="steps-panel-1" aria-selected="false">
-              S2 구간 좁히기</button
-            ><button type="button" role="tab" id="steps-tab-2" aria-controls="steps-panel-2" aria-selected="false">
-              S3 실행 상세로</button
-            ><button type="button" role="tab" id="steps-tab-3" aria-controls="steps-panel-3" aria-selected="false">
-              S4 원래 분석으로</button
-            ><button type="button" role="tab" id="steps-tab-4" aria-controls="steps-panel-4" aria-selected="false">
-              S5 개선 과제로
-            </button>
-          </div>
-          <div role="tabpanel" class="tab-panel" id="steps-panel-0" aria-labelledby="steps-tab-0">
-            <h3>사이클타임 상세</h3>
-            <p class="address">
-              <code
-                >사이클타임 상세 · 사이트 MEM · 기간 2026-09-25 09:00–2026-09-26 09:00</code
-              >
-            </p>
-            <div class="preview flow-preview">
-              <p>비교 켜짐 · 현재 기간 / 이전 기간</p>
-              <svg class="chart" viewBox="0 0 600 130" aria-hidden="true">
-                <path class="grid-line" d="M0 25H600M0 65H600M0 105H600" />
-                <path
-                  class="p50"
-                  d="M0 90L50 86L100 95L150 75L200 80L250 60L300 65L350 40L400 65L450 58L500 76L550 64L600 70"
-                />
-                <path
-                  class="p95"
-                  d="M0 65L50 60L100 64L150 45L200 50L250 28L300 34L350 12L400 30L450 28L500 45L550 34L600 38"
-                />
-              </svg>
-            </div>
-            <p>
-              P50·P95 추이를 이전 기간과 비교합니다. 기간과 사이트가 주소에 있어서 이 링크를 연 사람은 같은 조건으로
-              봅니다.
-            </p>
-            <span class="chip">이어지는 기능 ① ③</span>
-            <span class="badge info"
-              ><svg aria-hidden="true"><use href="#i-circle" /></svg>예시 데이터로 동작</span
-            >
-            <div class="demo-link" data-demo hidden>
-              <a
-                href="demo/analytics/cycle-time?v=1&amp;scopeId=MEM"
-                target="_blank"
-                rel="noopener"
-                aria-label="데모에서 해 보기 D4 (새 탭)"
-                >데모에서 해 보기 <span class="mono">D4</span> ↗</a
-              >
-              <p data-demo-step="D4"></p>
-              <small>합성 예시 데이터</small>
-            </div>
-          </div>
-          <div role="tabpanel" class="tab-panel" id="steps-panel-1" aria-labelledby="steps-tab-1">
-            <h3>사이클타임 상세</h3>
-            <p class="address">
-              <code
-                >사이클타임 상세 · 사이트 MEM · 기간 2026-09-25 09:00–2026-09-26 09:00</code
-              >
-            </p>
-            <div class="preview flow-preview">
-              <div class="confirmation">
-                <b>구간 적용 확인</b>
-                <p>선택 구간 09-25 12:00 – 15:00</p>
-                <span class="button primary">적용</span> <span class="button secondary">취소</span>
-              </div>
-            </div>
-            <p>
-              차트에서 구간을 고르면 그 차트 안에서만 확대·비교됩니다. &#x27;분석 구간 적용…&#x27;을 누르고 확인해야
-              전역 기간이 바뀌고, 그때부터 다른 메뉴도 그 기간을 씁니다.
-            </p>
-            <span class="chip">이어지는 기능 ③ ①</span>
-            <span class="badge info"
-              ><svg aria-hidden="true"><use href="#i-circle" /></svg>예시 데이터로 동작</span
-            >
-            <div class="demo-link" data-demo hidden>
-              <a
-                href="demo/analytics/cycle-time?v=1&amp;scopeId=MEM"
-                target="_blank"
-                rel="noopener"
-                aria-label="데모에서 해 보기 D4 (새 탭)"
-                >데모에서 해 보기 <span class="mono">D4</span> ↗</a
-              >
-              <p data-demo-step="D4"></p>
-              <small>합성 예시 데이터</small>
-            </div>
-          </div>
-          <div role="tabpanel" class="tab-panel" id="steps-panel-2" aria-labelledby="steps-tab-2">
-            <h3>실행 상세</h3>
-            <p class="address">
-              <code
-                >실행 상세 · 설비 MEM-PHOTO-0103 · 사이트 MEM · 기간 2026-09-25 09:00–2026-09-26 09:00</code
-              >
-            </p>
-            <div class="preview flow-preview">
-              <table>
-                <thead>
-                  <tr>
-                    <th>설비 ID</th>
-                    <th>시작 시각</th>
-                    <th>사이클타임</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td class="mono">MEM-PHOTO-0103</td>
-                    <td>09-25 09:30</td>
-                    <td class="number">65.5 분</td>
-                    <td data-branch="5">상세</td>
-                  </tr>
-                  <tr>
-                    <td class="mono">MEM-PHOTO-0104</td>
-                    <td>09-25 09:40</td>
-                    <td class="number">64.5 분</td>
-                    <td data-branch="5">상세</td>
-                  </tr>
-                  <tr>
-                    <td class="mono">MEM-PHOTO-0105</td>
-                    <td>09-25 09:50</td>
-                    <td class="number">63.5 분</td>
-                    <td data-branch="5">상세</td>
-                  </tr>
-                  <tr>
-                    <td class="mono">MEM-PHOTO-0106</td>
-                    <td>09-25 10:00</td>
-                    <td class="number">62.5 분</td>
-                    <td data-branch="5">상세</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <p>
-              느린 실행 행에서 실행 상세로 갑니다. 설비 ID는 목적지로, 기간·Site는 분석 조건으로 따로 넘어가고, 목적지
-              권한을 확인한 뒤 엽니다.
-            </p>
-            <span class="chip">이어지는 기능 ⑤ ①</span>
-            <span class="badge info"
-              ><svg aria-hidden="true"><use href="#i-circle" /></svg>예시 데이터로 동작</span
-            >
-            <div class="demo-link" data-demo hidden>
-              <a
-                href="demo/analytics/cycle-time?v=1&amp;scopeId=MEM"
-                target="_blank"
-                rel="noopener"
-                aria-label="데모에서 해 보기 D5 (새 탭)"
-                >데모에서 해 보기 <span class="mono">D5</span> ↗</a
-              >
-              <p data-demo-step="D5"></p>
-              <small>합성 예시 데이터</small>
-            </div>
-          </div>
-          <div role="tabpanel" class="tab-panel" id="steps-panel-3" aria-labelledby="steps-tab-3">
-            <h3>사이클타임 상세</h3>
-            <p class="address">
-              <code
-                >사이클타임 상세 · 현재 사이트 MEM · 출발 당시 사이트 ICH</code
-              >
-            </p>
-            <div class="preview flow-preview"><span class="button secondary">← 사이클타임 상세</span></div>
-            <p>
-              복귀 버튼이 출발한 화면의 주소와 드릴 단계를 되살립니다. 돌아갈 화면을 열 수 없으면 열 수 있는 상위
-              메뉴나 홈으로 돌아갑니다. 출발 화면으로 돌아오면 상세에서 바꾼 분석 조건을 알립니다.
-            </p>
-            <span class="chip">이어지는 기능 ⑤</span>
-            <span class="badge info"
-              ><svg aria-hidden="true"><use href="#i-circle" /></svg>예시 데이터로 동작</span
-            >
-            <div class="demo-link" data-demo hidden>
-              <a
-                href="demo/analytics/cycle-time?v=1&amp;scopeId=MEM"
-                target="_blank"
-                rel="noopener"
-                aria-label="데모에서 해 보기 D5 (새 탭)"
-                >데모에서 해 보기 <span class="mono">D5</span> ↗</a
-              >
-              <p data-demo-step="D5"></p>
-              <small>합성 예시 데이터</small>
-            </div>
-          </div>
-          <div role="tabpanel" class="tab-panel" id="steps-panel-4" aria-labelledby="steps-tab-4">
-            <h3>FeedbackOps(새 탭)</h3>
-            <p class="address"><code>FeedbackOps /voc — 다음 단계 · 새 탭</code></p>
-            <div class="preview flow-preview"><div class="future">VOC → Evidence → Finding → Task</div></div>
-            <p>
-              발견한 문제를 FeedbackOps에서 VOC로 열고 Evidence·Finding·Task로 이어, 개선 실행 공간에서 결과를 추적하는
-              것이 다음 단계입니다. FeedbackOps는 독립 앱이라 새 탭으로 열리고 권한도 따로 판정합니다. 지금 링크는
-              기간·Site·복귀 주소를 자동으로 넘기지 않습니다.
-            </p>
-            <span class="chip">쓰인 계약 ⑤</span>
-            <span class="badge neutral"
-              ><svg aria-hidden="true"><use href="#i-arrow" /></svg>다음 —
-              <a href="https://github.com/hjung3113/analytics-platform/issues/81">#81</a> ·
-              <a href="https://github.com/hjung3113/analytics-platform/issues/251">#251</a> ·
-              <a href="https://github.com/hjung3113/analytics-platform/issues/252">#252</a></span
-            >
-          </div>
-        </div>
-        <div class="step-controls"><button data-step="-1">이전</button><button data-step="1">다음</button></div>
-        <p class="caption">
-          주소의 값은 데모의 합성 데이터 기간입니다. 공개 전 배포된 데모에서 실제 이동 주소와 동작을 확인합니다.
-        </p>
-        <div class="two-col">
-          <div>
-            <h3>합치는 것</h3>
-            <ul>
-              <li>한 진입점(홈 런처·⌘K 메뉴 검색)</li>
-              <li>전역 조건과 공유 링크</li>
-              <li>권한·Scope 게이트</li>
-              <li>로딩/빈/오류와 신뢰 표시</li>
-              <li>감사·활용률을 보는 운영 콘솔</li>
-            </ul>
-          </div>
-          <div>
-            <h3>합치지 않는 것</h3>
-            <ul>
-              <li>업무 시스템별 백엔드·DB</li>
-              <li>FeedbackOps의 화면·권한·감사·상태 전이</li>
-              <li>URL은 권한 증명이 아님(받는 쪽 서버가 다시 판정)</li>
-            </ul>
-          </div>
-        </div>
-        <p class="caption">
-          계획된 흐름: Recipe×Module 편차에서 원인 설비로 — 자유 피벗은 보류 (<a
-            href="https://github.com/hjung3113/analytics-platform/issues/163"
-            >#163</a
-          >) · 지연·누락 데이터에서 운영 대응으로 — 적재 상태 스키마 합의 (<a
-            href="https://github.com/hjung3113/analytics-platform/issues/37"
-            >#37</a
-          >) 뒤 모니터링 (<a href="https://github.com/hjung3113/analytics-platform/issues/51">#51</a>).
-        </p>
-        <p class="caption">
-          원본:
-          <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/06_platform_ui_contract.md"
-            >플랫폼 UI 계약 §6·§16·§22</a
-          >
-          · <a href="#source-L08" class="source-ref">L08</a> · <a href="#source-L10" class="source-ref">L10</a> ·
-          <a href="#source-L21" class="source-ref">L21</a> · <a href="#source-L23" class="source-ref">L23</a> ·
-          <a href="#source-L24" class="source-ref">L24</a>
-        </p>
-      </section></details>
+  <div class="section-head"><p class="section-label">04 · 분석 흐름</p><h2 id="scene-heading">분석 한 건을 끝까지 따라가 봅니다</h2><p class="section-lead">보는 데서 끝나지 않고, 고쳐졌는지 확인하는 데까지.</p></div>
+  <figure class="diagram diagram-loop">
+    <div class="diagram-desktop"><svg role="img" aria-labelledby="fig-c-title fig-c-desc" viewBox="0 0 1040 360" xmlns="http://www.w3.org/2000/svg"><title id="fig-c-title">분석 결과를 개선 확인과 감사까지 잇는 일곱 단계 고리</title><desc id="fig-c-desc">이상을 보고(1), 원인까지 내려가고(2), 비교와 주석을 남기고(3), VOC로 알리고(4), 개선 과제로 잇고(5), 개선을 확인하고(6), 변경을 감사한(7) 뒤 다시 분석으로 돌아오는 고리입니다. 각 단계는 아래 단계 카드로 이동하는 링크입니다.</desc><defs><marker id="arrow-c" viewBox="0 0 8 8" markerWidth="6" markerHeight="6" refX="8" refY="4" orient="auto"><path class="diagram-arrow-head" d="M0 0L8 4L0 8z"/></marker></defs><a href="#scene-step-1" aria-label="1단계 본다"><rect class="diagram-step" x="40" y="40" width="205" height="92" rx="16"/><text x="142" y="70" text-anchor="middle">01 · 본다</text><text class="diagram-small" x="142" y="96" text-anchor="middle">P95 이상 확인</text><text class="diagram-small" x="142" y="118" text-anchor="middle">동작</text></a><a href="#scene-step-2" aria-label="2단계 내려간다"><rect class="diagram-step" x="290" y="40" width="205" height="92" rx="16"/><text x="392" y="70" text-anchor="middle">02 · 내려간다</text><text class="diagram-small" x="392" y="96" text-anchor="middle">공정 → 설비</text><text class="diagram-small" x="392" y="118" text-anchor="middle">동작</text></a><a href="#scene-step-3" aria-label="3단계 비교한다"><rect class="diagram-step" x="540" y="40" width="205" height="92" rx="16"/><text x="642" y="70" text-anchor="middle">03 · 비교한다</text><text class="diagram-small" x="642" y="96" text-anchor="middle">이전 기간 · 주석</text><text class="diagram-small" x="642" y="118" text-anchor="middle">동작</text></a><a href="#scene-step-4" aria-label="4단계 알린다"><rect class="diagram-step" x="790" y="40" width="205" height="92" rx="16"/><text x="892" y="70" text-anchor="middle">04 · 알린다</text><text class="diagram-small" x="892" y="96" text-anchor="middle">VOC 링크</text><text class="diagram-small" x="892" y="118" text-anchor="middle">동작(링크)</text></a><a href="#scene-step-5" aria-label="5단계 개선 과제"><rect class="diagram-planned" x="790" y="248" width="205" height="92" rx="16"/><text x="892" y="278" text-anchor="middle">05 · 개선 과제</text><text class="diagram-small" x="892" y="304" text-anchor="middle">원래 화면으로 복귀</text><text class="diagram-small" x="892" y="326" text-anchor="middle">SSO 뒤 연결</text></a><a href="#scene-step-6" aria-label="6단계 확인한다"><rect class="diagram-step" x="540" y="248" width="205" height="92" rx="16"/><text x="642" y="278" text-anchor="middle">06 · 확인한다</text><text class="diagram-small" x="642" y="304" text-anchor="middle">이전 기간 비교</text><text class="diagram-small" x="642" y="326" text-anchor="middle">비교 동작</text></a><a href="#scene-step-7" aria-label="7단계 감사"><rect class="diagram-step" x="290" y="248" width="205" height="92" rx="16"/><text x="392" y="278" text-anchor="middle">07 · 감사</text><text class="diagram-small" x="392" y="304" text-anchor="middle">변경 이력 확인</text><text class="diagram-small" x="392" y="326" text-anchor="middle">동작</text></a><path class="diagram-arrow" marker-end="url(#arrow-c)" d="M245 86H290"/><path class="diagram-arrow" marker-end="url(#arrow-c)" d="M495 86H540"/><path class="diagram-arrow" marker-end="url(#arrow-c)" d="M745 86H790"/><path class="diagram-arrow" marker-end="url(#arrow-c)" d="M892 132V248"/><path class="diagram-arrow" marker-end="url(#arrow-c)" d="M790 294H745"/><path class="diagram-arrow" marker-end="url(#arrow-c)" d="M540 294H495"/><path class="diagram-arrow" marker-end="url(#arrow-c)" d="M290 294H142V132"/><text class="diagram-overline" x="520" y="206" text-anchor="middle">보는 데서 끝나지 않고, 고쳐졌는지 확인하는 데까지</text></svg></div>
+    <div class="diagram-mobile"><ol class="loop-list"><li>본다 · 이상 확인</li><li>내려간다 · 공정에서 설비까지</li><li>비교한다 · 이전 기간과 주석</li><li>알린다 · VOC 링크</li><li>개선 과제로 잇는다</li><li>확인한다 · 이전 기간 비교</li><li>감사 · 변경 이력</li></ol></div>
+    <figcaption>설명용 도식 · 실선은 동작, 점선은 사내 연결 대기</figcaption>
+  </figure>
+  <ol class="step-strip" aria-label="분석 흐름 7단계">
+    <li id="scene-step-1" class="step-card"><span class="step-no">01</span><figure class="shot-figure" data-shot-fig="chart-trend"><!--shot:chart-trend--></figure><h3>본다</h3><p>P95가 튄 구간과 숫자 상태를 함께 봅니다.</p><p class="step-meta"><span class="status-badge">동작</span><a class="demo-link" data-demo hidden href="demo/analytics/cycle-time?v=1&amp;scopeId=MEM" target="_blank" rel="noopener">데모에서 해 보기</a></p></li>
+    <li id="scene-step-2" class="step-card"><span class="step-no">02</span><figure class="shot-figure" data-shot-fig="drill"><!--shot:drill--></figure><h3>내려간다</h3><p>공정에서 설비까지 좁히고, 돌아오면 처음 조건 그대로입니다.</p><p class="step-meta"><span class="status-badge">동작</span><a class="demo-link" data-demo hidden href="demo/analytics/productivity?v=1&amp;scopeId=MEM&amp;from=2026-09-25T09:00:00&amp;to=2026-09-26T09:00:00&amp;roomNames=PHOTO" target="_blank" rel="noopener">데모에서 해 보기</a></p></li>
+    <li id="scene-step-3" class="step-card"><span class="step-no">03</span><figure class="shot-figure" data-shot-fig="chart-annotate"><!--shot:chart-annotate--></figure><h3>비교한다</h3><p>이전 기간을 같은 차트에 겹치고 판단을 주석으로 남깁니다.</p><p class="step-meta"><span class="status-badge">동작</span><a class="demo-link" data-demo hidden href="demo/analytics/cycle-time?v=1&amp;scopeId=MEM" target="_blank" rel="noopener">데모에서 해 보기</a></p></li>
+    <li id="scene-step-4" class="step-card"><span class="step-no">04</span><figure class="shot-figure" data-shot-fig="feedbackops-entry"><!--shot:feedbackops-entry--></figure><h3>알린다</h3><p>그 자리에서 VOC로 — 현재 화면 링크가 함께 갑니다.</p><p class="step-meta"><span class="status-badge">동작</span><small>링크까지 · 처리 화면은 별도 제품</small></p></li>
+    <li id="scene-step-5" class="step-card"><span class="step-no">05</span><div class="step-noshot">별도 제품 화면</div><h3>개선 과제</h3><p>개선 Task에서 같은 화면·조건으로 돌아옵니다.</p><p class="step-meta"><span class="status-badge">동작</span><small>실제 연결은 사내 SSO 뒤</small></p></li>
+    <li id="scene-step-6" class="step-card"><span class="step-no">06</span><figure class="shot-figure" data-shot-fig="chart-compare"><!--shot:chart-compare--></figure><h3>확인한다</h3><p>개선 뒤 같은 지표를 이전 기간과 비교합니다.</p><p class="step-meta"><span class="status-badge">동작</span><small>분석 보드는 설계 확정</small><a class="demo-link" data-demo hidden href="demo/analytics/cycle-time?v=1&amp;scopeId=MEM" target="_blank" rel="noopener">데모에서 해 보기</a></p></li>
+    <li id="scene-step-7" class="step-card"><span class="step-no">07</span><figure class="shot-figure" data-shot-fig="change-audit"><!--shot:change-audit--></figure><h3>감사</h3><p>누가 무엇을 바꿨는지 변경 감사에서 봅니다.</p><p class="step-meta"><span class="status-badge">동작</span></p></li>
+  </ol>
+  <details class="evidence-details"><summary>근거</summary><p><a class="source-ref" href="#source-L65">L65</a> · 1–3·6(비교)·7단계는 데모에서 동작합니다. VOC 처리 화면은 별도 제품이며 실제 연결은 사내 SSO 뒤입니다.</p></details>
 </section>
 
 <section id="conditions" class="content-section" aria-labelledby="conditions-heading">
-  <div class="section-heading"><p class="section-label">05 · 조건과 이동</p><h2 id="conditions-heading">조건이 따라오고 본 화면을 넘깁니다</h2><p class="key-message"><strong>링크를 열면 같은 조건에서 이어서 봅니다.</strong></p></div>
+  <div class="section-head"><p class="section-label">05 · 조건과 이동</p><h2 id="conditions-heading">조건이 따라오고, 본 화면을 그대로 넘깁니다</h2><p class="section-lead">한 번 고른 조건은 화면을 옮겨도 유지됩니다.</p></div>
   <figure class="diagram sequence-diagram">
-  <div class="diagram-desktop"><svg role="img" aria-labelledby="fig-d-title fig-d-desc" viewBox="0 0 1240 700" xmlns="http://www.w3.org/2000/svg">
-    <title id="fig-d-title">분석 조건이 화면 이동을 따라가는 시퀀스</title><desc id="fig-d-desc">사용자가 기간과 MEM, PHOTO를 고르고 생산성 개요에서 사이클타임 상세, 공정과 설비 그룹, 설비 상세로 이동합니다. 복귀하면 출발 조건을 되살리고 링크를 받은 서버가 권한을 다시 확인합니다.</desc>
-    <defs><marker id="arrow-d" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path class="diagram-arrow-head" d="M0 0L8 4L0 8z"/></marker></defs>
-    <g class="diagram-lifeline"><rect x="18" y="26" width="170" height="54" rx="12"/><rect x="258" y="26" width="180" height="54" rx="12"/><rect x="508" y="26" width="180" height="54" rx="12"/><rect x="758" y="26" width="180" height="54" rx="12"/><rect x="1008" y="26" width="205" height="54" rx="12"/>
-      <text x="103" y="60" text-anchor="middle">사용자</text><text x="348" y="60" text-anchor="middle">생산성 개요</text><text x="598" y="60" text-anchor="middle">사이클타임 상세</text><text x="848" y="60" text-anchor="middle">설비 상세</text><text x="1110" y="60" text-anchor="middle">주소 · 서버</text></g>
-    <path class="diagram-dash" d="M103 80v560M348 80v560M598 80v560M848 80v560M1110 80v560"/>
-    <path class="diagram-message" marker-end="url(#arrow-d)" d="M103 122h245"/><text class="diagram-small" x="225" y="112" text-anchor="middle">기간 · MEM · PHOTO 선택</text>
-    <path class="diagram-message" marker-end="url(#arrow-d)" d="M348 172h250"/><text class="diagram-small" x="473" y="162" text-anchor="middle">조건 유지 이동</text>
-    <path class="diagram-message" marker-end="url(#arrow-d)" d="M598 222h250"/><text class="diagram-small" x="723" y="212" text-anchor="middle">공정 → 설비 그룹 → 설비</text>
-    <path class="diagram-message" marker-end="url(#arrow-d)" d="M848 272h262"/><text class="diagram-small" x="979" y="262" text-anchor="middle">열 대상 ID + 조건</text>
-    <path class="diagram-return" marker-end="url(#arrow-d)" d="M848 334H598"/><text class="diagram-small" x="723" y="324" text-anchor="middle">출발 조건 복원 · 변경 알림</text>
-    <path class="diagram-message" marker-end="url(#arrow-d)" d="M103 402h1007"/><text class="diagram-small" x="606" y="392" text-anchor="middle">링크 복사 · 받는 사람 권한으로 다시 확인</text>
-    <path class="diagram-return" marker-end="url(#arrow-d)" d="M1110 452H848"/><text class="diagram-small" x="979" y="442" text-anchor="middle">권한 판정 결과</text>
-    <rect class="diagram-activation" x="336" y="132" width="24" height="78" rx="5"/><rect class="diagram-activation" x="586" y="182" width="24" height="178" rx="5"/><rect class="diagram-activation" x="836" y="232" width="24" height="128" rx="5"/><rect class="diagram-activation" x="1098" y="272" width="24" height="190" rx="5"/>
-    <text class="diagram-overline" x="620" y="550" text-anchor="middle">조건은 이어지고, 열 대상은 별도로 지정합니다</text>
-  </svg></div>
-  <div class="diagram-mobile"><ol class="diagram-stack"><li>사용자 선택 <span>기간 · MEM · PHOTO</span></li><li>생산성 개요 → 사이클타임 상세 <span>조건 유지</span></li><li>공정 → 설비 그룹 → 설비 <span>드릴 경로</span></li><li>설비 상세 열기 <span>열 대상 ID와 조건을 따로 전달</span></li><li>돌아가기 <span>출발 조건 복원 · 변경 알림</span></li><li>링크 복사 <span>받는 사람 권한으로 다시 확인</span></li></ol></div>
-  <figcaption>도식 D · 조건과 열 대상은 따로 전달하고, 받는 사람 권한을 다시 확인합니다. 설명용 도식, 근거 <a class="source-ref" href="#source-L64">L64</a></figcaption>
-  <details class="diagram-alt"><summary>글로 보기</summary><p>기간·사이트·공정을 고른 뒤 화면을 옮기면 조건을 유지합니다. 설비 상세는 열 대상을 별도로 받고, 돌아가기는 출발 조건을 되살립니다. 링크를 받은 서버가 그 사람의 권한을 확인합니다.</p></details>
-</figure>
-  <div class="promise-grid"><article><h3>조건 유지</h3><p>기간·사이트·공정·설비가 화면과 업무 시스템을 넘어 유지됩니다.</p></article><article><h3>화면 복원</h3><p>링크·새로고침·뒤로 가기에서 같은 화면을 다시 엽니다.</p></article><article><h3>대상과 조건 분리</h3><p>설비 상세 같은 열 대상과 분석 조건을 따로 전달합니다.</p></article></div>
-  <details class="evidence-details"><summary>주소에서 다시 확인하기</summary><p data-demo-step="D3"></p></details>
-  <p class="caption"><a class="source-ref" href="#source-L64">요구 근거 L64</a> · 주소는 권한을 주지 않으며 받는 사람 권한으로 다시 확인합니다.</p>
+    <div class="diagram-desktop"><svg role="img" aria-labelledby="fig-d-title fig-d-desc" viewBox="0 0 1100 536" xmlns="http://www.w3.org/2000/svg"><title id="fig-d-title">분석 조건이 화면 이동을 따라가는 시퀀스</title><desc id="fig-d-desc">사용자가 기간과 MEM, PHOTO를 고르고 생산성 개요에서 사이클타임 상세로 이동하면 조건이 유지됩니다. 공정에서 설비 그룹, 설비로 내려가 설비 상세를 열 때 열 대상 ID와 조건을 따로 보내고, 돌아가면 출발 조건을 되살리며 바뀐 조건을 알립니다. 링크를 복사하면 받는 사람의 권한으로 서버가 다시 확인하고 그 결과를 사용자에게 돌려줍니다.</desc><defs><marker id="arrow-d" viewBox="0 0 8 8" markerWidth="6" markerHeight="6" refX="8" refY="4" orient="auto"><path class="diagram-arrow-head" d="M0 0L8 4L0 8z"/></marker></defs><rect class="diagram-lifehead" x="16" y="16" width="160" height="48" rx="11"/><text x="96" y="46" text-anchor="middle">사용자</text><rect class="diagram-lifehead" x="270" y="16" width="160" height="48" rx="11"/><text x="350" y="46" text-anchor="middle">생산성 개요</text><rect class="diagram-lifehead" x="510" y="16" width="160" height="48" rx="11"/><text x="590" y="46" text-anchor="middle">사이클타임 상세</text><rect class="diagram-lifehead" x="740" y="16" width="160" height="48" rx="11"/><text x="820" y="46" text-anchor="middle">설비 상세</text><rect class="diagram-lifehead" x="915" y="16" width="170" height="48" rx="11"/><text x="1000" y="46" text-anchor="middle">링크를 여는 서버</text><path class="diagram-dash" d="M96 64V520M350 64V520M590 64V520M820 64V520M1000 64V520"/><rect class="diagram-activation" x="342" y="112" width="16" height="80" rx="4"/><rect class="diagram-activation" x="582" y="162" width="16" height="188" rx="4"/><rect class="diagram-activation" x="812" y="212" width="16" height="133" rx="4"/><rect class="diagram-activation" x="992" y="262" width="16" height="212" rx="4"/><path class="diagram-message" marker-end="url(#arrow-d)" d="M96 122H342"/><rect class="diagram-label-bg" x="115" y="97" width="208" height="21" rx="4"/><text class="diagram-small" x="219" y="112" text-anchor="middle">기간 · MEM · PHOTO 선택</text><path class="diagram-message" marker-end="url(#arrow-d)" d="M358 172H582"/><rect class="diagram-label-bg" x="413" y="147" width="114" height="21" rx="4"/><text class="diagram-small" x="470" y="162" text-anchor="middle">조건 유지 이동</text><path class="diagram-message" marker-end="url(#arrow-d)" d="M598 222H812"/><rect class="diagram-label-bg" x="611" y="197" width="188" height="21" rx="4"/><text class="diagram-small" x="705" y="212" text-anchor="middle">공정 → 설비 그룹 → 설비</text><path class="diagram-message" marker-end="url(#arrow-d)" d="M828 272H992"/><rect class="diagram-label-bg" x="852" y="247" width="117" height="21" rx="4"/><text class="diagram-small" x="910" y="262" text-anchor="middle">대상 ID + 조건</text><path class="diagram-return" marker-end="url(#arrow-d)" d="M812 334H598"/><rect class="diagram-label-bg" x="621" y="309" width="169" height="21" rx="4"/><text class="diagram-small" x="705" y="324" text-anchor="middle">조건 복원 · 변경 알림</text><path class="diagram-message" marker-end="url(#arrow-d)" d="M96 412H992"/><rect class="diagram-label-bg" x="397" y="387" width="303" height="21" rx="4"/><text class="diagram-small" x="548" y="402" text-anchor="middle">링크 복사 · 받는 사람 권한으로 다시 확인</text><path class="diagram-return" marker-end="url(#arrow-d)" d="M992 466H96"/><rect class="diagram-label-bg" x="491" y="441" width="114" height="21" rx="4"/><text class="diagram-small" x="548" y="456" text-anchor="middle">권한 판정 결과</text><rect class="diagram-label-bg" x="398" y="496" width="300" height="22" rx="4"/><text class="diagram-overline" x="548" y="512" text-anchor="middle">조건은 이어지고, 열 대상은 따로 지정합니다</text></svg></div>
+    <div class="diagram-mobile"><ol class="diagram-stack"><li>사용자 선택 <span>기간 · MEM · PHOTO</span></li><li>개요 → 사이클타임 상세 <span>조건 유지</span></li><li>공정 → 설비 그룹 → 설비 <span>드릴 경로</span></li><li>설비 상세 열기 <span>대상 ID와 조건을 따로 전달</span></li><li>돌아가기 <span>출발 조건 복원 · 변경 알림</span></li><li>링크 복사 <span>받는 사람 권한으로 서버가 다시 확인</span></li></ol></div>
+    <figcaption>설명용 도식</figcaption>
+  </figure>
+  <p class="key-line"><strong>사이트 · 공정 · 설비 · Lot · Recipe가 처음부터 조건입니다.</strong> 링크는 권한이 아니라서, 받는 사람의 권한으로 서버가 다시 확인합니다.</p>
+  <p class="hero-actions"><a class="demo-link" data-demo hidden href="demo/analytics/productivity?v=1&amp;scopeId=MEM&amp;from=2026-09-25T09:00:00&amp;to=2026-09-26T09:00:00&amp;roomNames=PHOTO" target="_blank" rel="noopener">데모에서 링크 열어 보기</a></p>
+  <details class="evidence-details"><summary>근거</summary><p><a class="source-ref" href="#source-L64">L64</a> · <a class="source-ref" href="#source-L10">L10</a> · <a class="source-ref" href="#source-L12">L12</a> · <a class="source-ref" href="#source-L21">L21</a></p></details>
 </section>
 
 <section id="trust" class="content-section" aria-labelledby="trust-heading">
-  <div class="section-heading"><p class="section-label">06 · 숫자의 신뢰</p><h2 id="trust-heading">숫자가 어떤 상태인지 압니다</h2><p class="key-message"><strong>갱신 시각·채움 정도·지표 버전을 함께 봅니다.</strong></p></div>
-  <div class="trust-anatomy">
-    <figure class="trust-card">
-      <div class="trust-sample" role="img" aria-label="예시 데이터 신뢰 표시: 갱신 시각, 기준 시각, 채움 정도, 잠정 표시, 지표 버전"><span class="badge neutral">예시 · 합성 표시</span><h3>사이클타임 P95</h3><dl><div><dt>갱신</dt><dd>09:00</dd></div><div><dt>기준 시각</dt><dd>08:45</dd></div><div><dt>채움 정도</dt><dd>98%</dd></div><div><dt>상태</dt><dd><span class="status-badge">잠정</span></dd></div><div><dt>지표 버전</dt><dd>v2</dd></div></dl></div>
-      <figcaption>예시 데이터 · 숫자 주변에 붙는 기준 정보</figcaption>
-    </figure>
-    <ol class="trust-notes"><li><b>갱신 시각</b><span>값이 다시 계산된 때</span></li><li><b>기준 시각</b><span>데이터가 어디까지 들어왔는지</span></li><li><b>Coverage</b><span>받은 데이터의 채움 정도</span></li><li><b>잠정</b><span>아직 끝나지 않은 실행이 있음</span></li><li><b>지표 버전</b><span>어떤 정의로 계산했는지</span></li></ol>
+  <div class="section-head"><p class="section-label">06 · 숫자 신뢰</p><h2 id="trust-heading">숫자가 어떤 상태인지 압니다</h2><p class="section-lead">갱신 · 기준 시각 · 채움 · 잠정 · 지표 버전이 숫자 옆에 붙습니다.</p></div>
+  <div class="trust-grid">
+    <figure class="shot-figure" data-shot-fig="trust"><!--shot:trust--><figcaption>실제 화면 · 확인 항목별 상태, 모르면 ‘미확인’</figcaption></figure>
+    <div class="trust-sample" role="group" aria-label="예시 데이터 신뢰 표시"><span class="badge neutral">예시 · 합성 표시</span><h3>사이클타임 P95</h3>
+      <ol class="trust-rows">
+        <li><span class="callout-no">1</span><b>갱신</b><em>09:00</em><small>다시 계산된 때</small></li>
+        <li><span class="callout-no">2</span><b>기준 시각</b><em>08:45</em><small>데이터가 들어온 곳까지</small></li>
+        <li><span class="callout-no">3</span><b>채움</b><em>98%</em><small>받은 데이터의 비율</small></li>
+        <li><span class="callout-no">4</span><b>잠정</b><em><span class="badge neutral">잠정</span></em><small>끝나지 않은 실행이 있음</small></li>
+        <li><span class="callout-no">5</span><b>지표 버전</b><em>v2</em><small>어떤 정의로 계산했나</small></li>
+      </ol></div>
   </div>
-  <div class="promise-grid"><article><h3>0건 ≠ 실패</h3><p>빈 결과·권한 없음·시간 초과·오류를 다른 상태로 봅니다.</p></article><article><h3>같은 조건, 같은 숫자</h3><p>차트·표·내보내기가 같은 결과를 사용합니다.</p></article><article><h3>지표 정의와 이력</h3><p>BRAVO에서 단위·분자·분모·버전을 확인합니다.</p></article></div>
-  <p class="hero-actions"><!-- STATES_SHOTS_LINK --></p>
-  <!-- ACTUAL_SHOTS -->
-  <details class="evidence-details"><summary>요구 R2.1–R2.7</summary><p>늦은 데이터의 잠정 표시와 지표 버전을 확인합니다. 5분 간격 자동 갱신은 계획이며, 계산은 사내 서버에 연결된 뒤입니다. <a class="source-ref" href="#source-L64">L64</a></p><p data-demo-step="D10"></p></details>
+  <div class="state-row" aria-label="상태 화면 4종">
+    <figure class="shot-figure" data-shot-fig="state-empty"><!--shot:state-empty--><figcaption>0건</figcaption></figure><figure class="shot-figure" data-shot-fig="state-error"><!--shot:state-error--><figcaption>오류</figcaption></figure><figure class="shot-figure" data-shot-fig="state-forbidden"><!--shot:state-forbidden--><figcaption>권한 없음</figcaption></figure><figure class="shot-figure" data-shot-fig="state-too-large"><!--shot:state-too-large--><figcaption>조회 과대</figcaption></figure>
+  </div>
+  <p class="key-line"><strong>0건 ≠ 실패 ≠ 권한 없음.</strong> 같은 조건이면 차트 · 표 · 내보내기가 같은 숫자입니다.</p>
+  <details class="evidence-details"><summary>근거</summary><p><a class="source-ref" href="#source-L64">L64</a> · <a class="source-ref" href="#source-L15">L15</a> · <a class="source-ref" href="#source-L16">L16</a> · 5분 간격 자동 갱신은 계획이며 계산은 사내 서버에 연결된 뒤입니다. 나머지 캡처는 부록 G.</p></details>
 </section>
 
 <section id="tools" class="content-section" aria-labelledby="tools-heading">
-  <div class="section-heading"><p class="section-label">07 · 분석 도구</p><h2 id="tools-heading">어느 화면이든 같은 분석 도구</h2><p class="key-message"><strong>표와 차트에서 같은 방식으로 비교하고 살펴봅니다.</strong></p></div>
-  <div class="tool-grid"><article><span class="tool-symbol" aria-hidden="true">↕</span><h3>표</h3><p>정렬·열 설정·행 선택·복사·CSV와 Excel 내보내기</p></article><article><span class="tool-symbol" aria-hidden="true">⌁</span><h3>차트</h3><p>확대·구간 선택·이전 기간 비교·주석·표 보기</p></article><article><span class="tool-symbol" aria-hidden="true">▤</span><h3>상세 패널</h3><p>목록 위치를 유지한 채 옆에서 상세 확인</p></article><article><span class="tool-symbol" aria-hidden="true">⌕</span><h3>필터와 화면</h3><p>조건 한 줄과 다섯 가지 화면 모양</p></article></div>
-  <p class="caption">표·차트·상세 화면은 예시 데이터를 쓰며, 캡처는 배포된 데모에서 생성합니다. <a class="source-ref" href="#source-L63">L63</a></p>
-  <!-- CHART_SHOTS_LINK -->
-  <details class="evidence-details"><summary>요구 R3.1–R3.6</summary><p>표 정렬과 열 설정, 차트 확대와 구간 선택, 같은 자리의 상세, 주석과 일정한 필터를 제공합니다. 설비 Top View는 계획입니다. <a class="source-ref" href="#source-L64">L64</a></p><p data-demo-step="D7"></p></details>
+  <div class="section-head"><p class="section-label">07 · 분석 도구</p><h2 id="tools-heading">어느 화면이든 같은 분석 도구</h2><p class="section-lead">표 · 차트 · 상세는 어디서나 같은 방식입니다.</p></div>
+  <div class="tools-grid">
+    <figure class="shot-figure" data-shot-fig="chart-compare"><!--shot:chart-compare--><figcaption>차트 · 이전 기간 비교, 주석, 확대</figcaption></figure><figure class="shot-figure" data-shot-fig="table-columns"><!--shot:table-columns--><figcaption>표 · 열 설정, 내보내기</figcaption></figure><figure class="shot-figure" data-shot-fig="drawer"><!--shot:drawer--><figcaption>상세 패널 · 목록 위치를 유지</figcaption></figure><figure class="shot-figure" data-shot-fig="drill"><!--shot:drill--><figcaption>드릴 경로 · 공정 → 설비 그룹 → 설비</figcaption></figure>
+  </div>
+  <details class="evidence-details"><summary>근거</summary><p><a class="source-ref" href="#source-L13">L13</a> · <a class="source-ref" href="#source-L14">L14</a> · <a class="source-ref" href="#source-L64">L64</a> · 설비 Top View는 계획입니다.</p></details>
 </section>
 
 <section id="board" class="content-section" aria-labelledby="board-heading">
-  <div class="section-heading"><p class="section-label">08 · 여러 분석</p><h2 id="board-heading">여러 분석을 한 작업대에서</h2><p class="key-message"><strong>칸마다 다른 조건만 보고 한 번에 맞춥니다.</strong></p></div>
-  <div class="board-intro"><span class="status-badge">설계 확정</span><span class="status-badge">구현 전</span><span class="badge neutral">예시 데이터</span><a class="source-ref" href="#source-L70">시안 근거 L70</a><a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/16_analysis_board.md">분석 보드 설계 §4</a></div>
+  <div class="section-head"><p class="section-label">08 · 분석 보드</p><h2 id="board-heading">여러 분석을 한 작업대에서</h2><p class="section-lead">칸마다 다른 조건만 강조하고, 한 번에 맞춥니다.</p></div>
+  <div class="board-intro"><span class="status-badge">설계 확정</span><span class="status-badge">구현 전</span><span class="badge neutral">시안 · 예시 데이터</span></div>
   <div class="analysis-board" id="analysis-board" aria-label="분석 보드 인터랙티브 시안">
     <div class="board-toolbar"><div><p class="eyebrow">보드 · 개선 원인 비교</p><h3 id="board-title">PHOTO 분석 작업대</h3></div><div class="layout-switch" role="group" aria-label="보드 레이아웃"><button type="button" data-board-layout="1x1" aria-pressed="false">1×1</button><button type="button" data-board-layout="1x2" aria-pressed="false">1×2</button><button type="button" data-board-layout="2x1" aria-pressed="false">2×1</button><button type="button" data-board-layout="2x2" aria-pressed="true">2×2</button></div></div>
     <p class="selected-context" id="selected-context" role="status" aria-live="polite"></p>
     <div class="board-grid" id="board-grid" data-layout="2x2" aria-label="분석 보드 칸"></div>
     <div class="board-sheets" role="tablist" aria-label="분석 시트"><button type="button" role="tab" id="board-tab-0" aria-controls="board-grid" aria-selected="true">PHOTO 비교</button><button type="button" role="tab" id="board-tab-1" aria-controls="board-grid" aria-selected="false">개선 전·후</button></div>
-    <p class="caption">칸의 숫자와 차트는 시안용 예시입니다. 보드 자체는 설계 확정·구현 전입니다.</p>
   </div>
-  <details class="evidence-details"><summary>저장과 사용자 조합 분석 상태</summary><p>저장된 뷰는 보류, 사용자 조합 분석은 결정 대기, 자유 피벗은 보류입니다. 보드는 이미 있는 화면을 칸에 놓는 시안입니다. <a class="source-ref" href="#source-L64">L64</a></p></details>
+  <details class="evidence-details"><summary>근거</summary><p><a class="source-ref" href="#source-L70">L70</a> · <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/16_analysis_board.md">분석 보드 설계 §4</a> · 저장된 뷰는 보류, 사용자 조합 분석은 결정 대기, 자유 피벗은 보류입니다.</p></details>
 </section>
 
 <section id="operate" class="content-section" aria-labelledby="operate-heading">
-  <div class="section-heading"><p class="section-label">09 · 운영</p><h2 id="operate-heading">알리고, 고쳐졌는지 확인하고 운영합니다</h2><p class="key-message"><strong>VOC·개선·감사로 분석 흐름을 이어 줍니다.</strong></p></div>
+  <div class="section-head"><p class="section-label">09 · 권한과 감사</p><h2 id="operate-heading">권한은 한 곳에서, 바뀐 것은 감사에</h2><p class="section-lead">누가 무엇을 볼 수 있고 무엇이 바뀌었는지 한 곳에서 봅니다.</p></div>
   <figure class="diagram">
-  <div class="diagram-desktop"><svg role="img" aria-labelledby="fig-f-title fig-f-desc" viewBox="0 0 980 550" xmlns="http://www.w3.org/2000/svg">
-    <title id="fig-f-title">시스템, 화면, 조회 범위를 차례로 확인하는 권한 판정 흐름</title><desc id="fig-f-desc">업무 시스템 진입, 화면 열기, 사이트와 공정 조회 범위를 각각 확인하고 서버가 매 조회마다 다시 판정합니다. 거절은 서로 다른 안내 화면으로 나옵니다.</desc>
-    <defs><marker id="arrow-f" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path class="diagram-arrow-head" d="M0 0L8 4L0 8z"/></marker></defs>
-    <rect class="diagram-node" x="360" y="20" width="260" height="58" rx="14"/><text x="490" y="56" text-anchor="middle">요청</text>
-    <path class="diagram-arrow" marker-end="url(#arrow-f)" d="M490 78v28"/>
-    <path class="diagram-decision" d="M490 106l135 60-135 60-135-60z"/><text x="490" y="161" text-anchor="middle">업무 시스템 진입 가능?</text>
-    <path class="diagram-arrow" marker-end="url(#arrow-f)" d="M625 166h190v24"/><text class="diagram-small" x="701" y="155">아니오</text>
-    <rect class="diagram-warning" x="815" y="182" width="145" height="62" rx="12"/><text class="diagram-small" x="887" y="208" text-anchor="middle">시스템 진입 거절</text><text class="diagram-small" x="887" y="229" text-anchor="middle">권한 없음</text>
-    <path class="diagram-arrow" marker-end="url(#arrow-f)" d="M490 226v34"/><text class="diagram-small" x="502" y="248">예</text>
-    <path class="diagram-decision" d="M490 260l135 60-135 60-135-60z"/><text x="490" y="315" text-anchor="middle">화면 열기 가능?</text>
-    <path class="diagram-arrow" marker-end="url(#arrow-f)" d="M625 320h190v24"/><text class="diagram-small" x="701" y="309">아니오</text>
-    <rect class="diagram-warning" x="815" y="338" width="145" height="62" rx="12"/><text class="diagram-small" x="887" y="364" text-anchor="middle">화면 열기 거절</text><text class="diagram-small" x="887" y="385" text-anchor="middle">권한 없음</text>
-    <path class="diagram-arrow" marker-end="url(#arrow-f)" d="M490 380v33"/><text class="diagram-small" x="502" y="402">예</text>
-    <path class="diagram-decision" d="M490 413l135 60-135 60-135-60z"/><text class="diagram-small" x="490" y="469" text-anchor="middle">사이트 · 공정 조회 범위?</text>
-    <path class="diagram-arrow" marker-end="url(#arrow-f)" d="M625 473h190"/><text class="diagram-small" x="704" y="462">아니오</text><rect class="diagram-warning" x="815" y="444" width="145" height="62" rx="12"/><text class="diagram-small" x="887" y="470" text-anchor="middle">범위 거절</text><text class="diagram-small" x="887" y="491" text-anchor="middle">0건과 구분</text>
-    <path class="diagram-arrow" marker-end="url(#arrow-f)" d="M355 473H226v-81"/><text class="diagram-small" x="239" y="456">예</text>
-    <rect class="diagram-platform" x="54" y="166" width="152" height="174" rx="16"/><text class="diagram-small" x="130" y="204" text-anchor="middle">서버가 매번</text><text x="130" y="234" text-anchor="middle">조회 범위 확인</text><text class="diagram-small" x="130" y="270" text-anchor="middle">허용 → 결과</text><text class="diagram-small" x="130" y="301" text-anchor="middle">거절 → 다른 상태</text>
-  </svg></div>
-  <div class="diagram-mobile"><ol class="diagram-stack"><li>요청한 업무 시스템에 들어갈 수 있는가?</li><li>화면을 열 수 있는가?</li><li>사이트·공정 조회 범위에 권한이 있는가?</li><li>서버가 매 조회마다 다시 확인한다.</li><li>허용이면 결과, 거절이면 서로 다른 안내를 보인다. 권한 없음은 0건과 다릅니다.</li></ol></div>
-  <figcaption>도식 F · 권한 없음은 0건과 다른 상태입니다. 범위를 벗어난 데이터 노출은 최우선 결함입니다. 근거 <a class="source-ref" href="#source-L64">L64</a></figcaption>
-  <details class="diagram-alt"><summary>글로 보기</summary><ol><li>업무 시스템에 들어갈 수 있는지 확인합니다.</li><li>화면을 열 수 있는지 확인합니다.</li><li>사이트·공정 조회 범위를 확인합니다.</li><li>서버가 조회마다 권한을 다시 확인합니다.</li><li>허용과 거절을 결과·상태 화면으로 구분합니다.</li></ol></details>
-</figure>
-  <div class="promise-grid"><article><h3>알리기</h3><p>현재 업무 시스템과 화면 주소를 VOC에 전달합니다.</p></article><article><h3>돌아오기</h3><p>개선 Task 링크로 원래 화면과 조건을 다시 엽니다.</p></article><article><h3>운영 확인</h3><p>변경 감사와 메뉴 활용 현황을 살핍니다.</p></article></div>
-  <p class="caption">VOC 처리 화면은 별도 제품입니다. 처리 화면과의 연결은 사내 SSO 뒤입니다. <a class="source-ref" href="#source-L65">L65</a> · <a class="source-ref" href="#source-L66">L66</a></p>
-  <div class="operation-links"><!-- ADMIN_SHOTS_LINK --><a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/17_platform_requirements.md#3.6-운영">R6 운영 요구 보기</a></div>
-  <details class="evidence-details"><summary>운영 화면 확인</summary><p data-demo-step="D8"></p></details>
-  <details class="evidence-details"><summary>요구 R5.1–R5.5 · R6.1–R6.7</summary><p>링크는 동작하고 실연결은 SSO 뒤입니다. 권한 부여·회수와 적재 상태는 사내 답 대기입니다. 효과 기준선은 아직 없어 효과 숫자를 제시하지 않습니다. <a class="source-ref" href="#source-L71">L71</a></p></details>
+    <div class="diagram-desktop"><svg role="img" aria-labelledby="fig-f-title fig-f-desc" viewBox="0 0 980 592" xmlns="http://www.w3.org/2000/svg"><title id="fig-f-title">시스템, 화면, 조회 범위를 차례로 확인하는 권한 판정 흐름</title><desc id="fig-f-desc">요청이 업무 시스템 진입, 화면 열기, 사이트와 공정 조회 범위를 차례로 통과하면 서버가 조회마다 다시 확인합니다. 거절은 단계마다 다른 안내 화면으로 나오며 권한 없음은 0건과 다릅니다. 서버가 거절하면 범위 거절로 이어집니다.</desc><defs><marker id="arrow-f" viewBox="0 0 8 8" markerWidth="6" markerHeight="6" refX="8" refY="4" orient="auto"><path class="diagram-arrow-head" d="M0 0L8 4L0 8z"/></marker></defs><rect class="diagram-node" x="360" y="16" width="260" height="44" rx="12"/><text x="490" y="44" text-anchor="middle">요청</text><path class="diagram-arrow" marker-end="url(#arrow-f)" d="M490 60V80"/><path class="diagram-decision" d="M490 80L625 130L490 180L355 130Z"/><text x="490" y="136" text-anchor="middle">업무 시스템 진입 가능?</text><path class="diagram-arrow" marker-end="url(#arrow-f)" d="M625 130H815"/><text class="diagram-small" x="720" y="120" text-anchor="middle">아니오</text><rect class="diagram-warning" x="815" y="100" width="160" height="60" rx="12"/><text class="diagram-small" x="895" y="126" text-anchor="middle">시스템 진입 거절</text><text class="diagram-small" x="895" y="148" text-anchor="middle">권한 없음 안내</text><path class="diagram-decision" d="M490 200L625 250L490 300L355 250Z"/><text x="490" y="256" text-anchor="middle">화면 열기 가능?</text><path class="diagram-arrow" marker-end="url(#arrow-f)" d="M625 250H815"/><text class="diagram-small" x="720" y="240" text-anchor="middle">아니오</text><rect class="diagram-warning" x="815" y="220" width="160" height="60" rx="12"/><text class="diagram-small" x="895" y="246" text-anchor="middle">화면 열기 거절</text><text class="diagram-small" x="895" y="268" text-anchor="middle">권한 없음 안내</text><path class="diagram-decision" d="M490 320L625 370L490 420L355 370Z"/><text x="490" y="376" text-anchor="middle">사이트 · 공정 조회 범위?</text><path class="diagram-arrow" marker-end="url(#arrow-f)" d="M625 370H815"/><text class="diagram-small" x="720" y="360" text-anchor="middle">아니오</text><rect class="diagram-warning" x="815" y="340" width="160" height="60" rx="12"/><text class="diagram-small" x="895" y="366" text-anchor="middle">조회 범위 거절</text><text class="diagram-small" x="895" y="388" text-anchor="middle">0건과 구분</text><path class="diagram-arrow" marker-end="url(#arrow-f)" d="M490 180V200"/><text class="diagram-small" x="502" y="194">예</text><path class="diagram-arrow" marker-end="url(#arrow-f)" d="M490 300V320"/><text class="diagram-small" x="502" y="314">예</text><path class="diagram-arrow" marker-end="url(#arrow-f)" d="M490 420V450"/><text class="diagram-small" x="502" y="440">예</text><rect class="diagram-platform" x="330" y="450" width="320" height="48" rx="12"/><text x="490" y="480" text-anchor="middle">서버가 조회마다 다시 확인</text><path class="diagram-arrow" marker-end="url(#arrow-f)" d="M490 498V536"/><rect class="diagram-contract" x="390" y="536" width="200" height="44" rx="12"/><text x="490" y="564" text-anchor="middle">허용 → 결과를 보임</text><path class="diagram-arrow" marker-end="url(#arrow-f)" d="M650 474H895V400"/><text class="diagram-small" x="772" y="464" text-anchor="middle">거절</text></svg></div>
+    <div class="diagram-mobile"><ol class="diagram-stack"><li>업무 시스템에 들어갈 수 있나?</li><li>화면을 열 수 있나?</li><li>사이트·공정 조회 범위에 권한이 있나?</li><li>서버가 조회마다 다시 확인</li><li>거절은 단계마다 다른 안내 — 권한 없음은 0건과 다릅니다</li></ol></div>
+    <figcaption>설명용 도식 · 다른 범위의 데이터가 보이는 것은 최우선 결함 <small>(mock 서버에서 검증)</small></figcaption>
+  </figure>
+  <div class="shots-row"><figure class="shot-figure" data-shot-fig="change-audit"><!--shot:change-audit--><figcaption>변경 감사 · 누가 · 언제 · 전후 값</figcaption></figure><figure class="shot-figure" data-shot-fig="menu-usage"><!--shot:menu-usage--><figcaption>메뉴 활용률 · 무엇이 쓰이나</figcaption></figure></div>
+  <p class="key-line">VOC 진입과 복귀는 <a href="#scene-step-4">04의 4·5단계</a>에서 봅니다.</p>
+  <details class="evidence-details"><summary>근거</summary><p><a class="source-ref" href="#source-L11">L11</a> · <a class="source-ref" href="#source-L16">L16</a> · <a class="source-ref" href="#source-L30">L30</a> · <a class="source-ref" href="#source-L46">L46</a> · <a class="source-ref" href="#source-L71">L71</a>. 권한 부여·회수와 적재 상태는 사내 답 대기입니다.</p></details>
 </section>
 
 <section id="systems" class="content-section" aria-labelledby="systems-heading">
-  <div class="section-heading"><p class="section-label">10 · 업무 시스템</p><h2 id="systems-heading">업무 시스템을 한 곳에</h2><p class="key-message"><strong>각 팀의 메뉴가 같은 바탕 위에서 이어집니다.</strong></p></div>
-  <div class="system-grid"><article><span class="system-code">MARS</span><h3>생산성 분석</h3><p>개요에서 사이클타임과 설비 상세까지</p><span class="status-badge">동작</span></article><article><span class="system-code">BRAVO</span><h3>지표관리</h3><p>지표 정의와 버전 카탈로그</p><span class="status-badge">동작</span></article><article><span class="system-code">CLAS</span><h3>생산성 분석</h3><p>기존 업무 화면 이전 대상</p><span class="status-badge">계획</span><small>준비 중</small></article><article><span class="system-code">운영</span><h3>운영 콘솔</h3><p>권한·변경 감사·활용률·메뉴 현황</p><span class="status-badge">동작</span></article></div>
-  <p class="caption">mock 사이트 예시: MEM(메모리) · FDRY(파운드리). 표준 로그 개발과 개선 실행 화면은 계획입니다. <a class="source-ref" href="#source-L67">L67</a></p>
-  <p class="hero-actions"><!-- SHELL_SHOTS_LINK --></p>
-  <details class="evidence-details"><summary>업무 시스템 전환 확인</summary><p data-demo-step="D9"></p></details>
-  <details class="evidence-details"><summary>요구 R7.1–R7.5</summary><p>각 시스템은 메뉴를 가질 수 있고, 업무 화면은 같은 조건·권한·탐색을 사용합니다. CLAS 이전과 외부 기여 경로는 상태 보드에서 확인합니다. <a class="source-ref" href="#source-L64">L64</a></p></details>
-</section>
-
-<section id="migrate" class="content-section" aria-labelledby="migrate-heading">
-  <div class="section-heading"><p class="section-label">11 · 기존 시스템 이전</p><h2 id="migrate-heading">기존 시스템을 옮기면</h2><p class="key-message"><strong>업무 내용은 팀에 남고, 화면 사이 기능은 함께 씁니다.</strong></p></div>
-  <figure class="diagram">
-  <div class="diagram-desktop"><svg role="img" aria-labelledby="fig-g-title fig-g-desc" viewBox="0 0 1040 500" xmlns="http://www.w3.org/2000/svg">
-    <title id="fig-g-title">기존 시스템을 옮겨도 팀이 계속 갖는 것과 플랫폼이 맡는 것</title><desc id="fig-g-desc">화면, 조건과 주소, 권한과 운영, 서버의 책임을 팀과 플랫폼 두 열로 나눕니다. 저장소 안 화면 이동은 동작하고 자기 저장소에 두고 SDK로 올리기는 진행 중입니다.</desc>
-    <rect class="diagram-platform" x="20" y="20" width="1000" height="330" rx="16"/>
-    <rect class="diagram-node" x="35" y="36" width="160" height="50" rx="10"/><rect class="diagram-node" x="207" y="36" width="385" height="50" rx="10"/><rect class="diagram-node" x="604" y="36" width="395" height="50" rx="10"/>
-    <text x="115" y="67" text-anchor="middle">영역</text><text x="399" y="67" text-anchor="middle">팀이 계속 갖는 것</text><text x="801" y="67" text-anchor="middle">플랫폼이 맡는 것</text>
-    <g class="diagram-table">
-      <rect x="35" y="96" width="964" height="56" rx="8"/><rect x="35" y="158" width="964" height="56" rx="8"/><rect x="35" y="220" width="964" height="56" rx="8"/><rect x="35" y="282" width="964" height="56" rx="8"/>
-      <text x="115" y="130" text-anchor="middle">화면</text><text class="diagram-small" x="220" y="130">업무 내용 · 흐름 · 객체</text><text class="diagram-small" x="617" y="130">화면 틀 · 표 · 차트 · 상세 · 필터</text>
-      <text x="115" y="192" text-anchor="middle">조건 · 주소</text><text class="diagram-small" x="220" y="192">그 화면만 쓰는 조건</text><text class="diagram-small" x="617" y="192">조건 유지 · 링크 · 드릴 복귀</text>
-      <text x="115" y="254" text-anchor="middle">권한 · 운영</text><text class="diagram-small" x="220" y="254">업무 규칙에 따른 쓰기 판정</text><text class="diagram-small" x="617" y="254">로그인 연결 · 조회 권한 · 감사</text>
-      <text x="115" y="316" text-anchor="middle">서버</text><text class="diagram-small" x="220" y="316">도메인 API · 데이터</text><text class="diagram-small" x="617" y="316">조회 검사 · 상태 분류 · 적합성 묶음</text>
-    </g>
-    <path class="diagram-arrow" d="M260 412h230"/><path class="diagram-arrow" d="M780 412h-230"/>
-    <rect class="diagram-chip" x="35" y="376" width="460" height="92" rx="14"/><text x="265" y="413" text-anchor="middle">저장소 안 화면</text><text class="diagram-small" x="265" y="444" text-anchor="middle">동작 · 메뉴 생성기와 화면 이전</text>
-    <rect class="diagram-planned" x="545" y="376" width="460" height="92" rx="14"/><text x="775" y="413" text-anchor="middle">자기 저장소에서 SDK로 올리기</text><text class="diagram-small" x="775" y="444" text-anchor="middle">진행 중 · 화면 렌더 호스트 포트 #489</text>
-  </svg></div>
-  <div class="diagram-mobile"><div class="compare-diagram"><article><h3>팀이 계속 갖는 것</h3><ul><li>업무 화면의 내용과 흐름</li><li>그 화면만 쓰는 조건</li><li>업무 규칙에 따른 쓰기 판정</li><li>도메인 API와 데이터</li></ul></article><article><h3>플랫폼이 맡는 것</h3><ul><li>화면 틀과 공통 분석 도구</li><li>조건 유지와 화면 간 이동</li><li>조회 권한과 감사</li><li>조회 검사와 상태 구분</li></ul></article></div><ol class="diagram-stack"><li>저장소 안 화면으로 옮기기 · 동작</li><li>자기 저장소에서 SDK로 올리기 · 진행 중</li></ol></div>
-  <figcaption>도식 G · 팀의 업무 규칙과 도메인 데이터는 팀에 남습니다. 설명용 도식, 근거 <a class="source-ref" href="#source-L68">L68</a></figcaption>
-  <details class="diagram-alt"><summary>글로 보기</summary><p>팀은 업무 화면 내용, 전용 조건, 업무 쓰기 규칙, 도메인 API와 데이터를 갖습니다. 플랫폼은 화면 틀, 조건·주소, 조회 권한, 감사와 상태 분류를 맡습니다. 저장소 안 화면은 동작하고 SDK 경로는 진행 중입니다.</p></details>
-</figure>
-  <div class="migration-paths"><article><span class="status-badge">동작</span><h3>저장소 안 화면으로</h3><p>메뉴 생성기로 뼈대를 만들고 화면을 옮깁니다.</p></article><article><span class="status-badge">진행 중</span><h3>자기 저장소에서 SDK로</h3><p>계약 1판과 등록 검사는 있고, 화면을 그리는 호스트 포트는 #489 진행 중입니다.</p></article></div>
-  <p class="caption"><a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/integration/in-house-rollout.md">사내 적용 가이드</a> · <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/adr/0053-host-module-contract-v1.md">호스트 계약 ADR-0053</a> · <a class="source-ref" href="#source-L68">L68</a></p>
-</section>
-
-<section id="build" class="content-section" aria-labelledby="build-heading">
-  <div class="section-heading"><p class="section-label">12 · 새 화면 만들기</p><h2 id="build-heading">새 화면이 처음부터 받는 것</h2><p class="key-message"><strong>공통 도구와 상태 표현을 다시 만들지 않습니다.</strong></p></div>
-  <div class="build-grid"><article><span class="build-number">01</span><h3>화면 기본 구조</h3><p>메뉴 등록과 탐색, 조건 표시, 다섯 가지 화면 모양</p></article><article><span class="build-number">02</span><h3>분석 기능</h3><p>표·차트·상세 패널·필터·내보내기</p></article><article><span class="build-number">03</span><h3>안전 확인</h3><p>조회 선언 검사, 계약 검사, 테스트용 mock 서버</p></article><article><span class="build-number">04</span><h3>개발 흐름</h3><p>화면 생성기, 경계 검사, 디자인 검사, 주소 아래 배포</p></article></div>
-  <p class="caption">개발자 부품과 사용법은 <a href="#appendix-b">부록 B · 컴포넌트 목록</a>에서 봅니다. <a class="source-ref" href="#source-L64">L64</a></p>
-  <details class="evidence-details"><summary>요구 R8.1–R8.7</summary><p>메뉴 선언, 공통 부품, 조회 검사, 계약 E2E, 경계·디자인 검사, mock 서버, 생성기와 하위 경로 배포를 제공합니다.</p></details>
-</section>
-
-<section id="sdk" class="content-section" aria-labelledby="sdk-heading">
-  <div class="section-heading"><p class="section-label">13 · SDK</p><h2 id="sdk-heading">SDK가 보장하고 좋아지는 것</h2><p class="key-message"><strong>앱은 업무 화면에 집중하고 호스트 계약을 따릅니다.</strong></p></div>
-  <figure class="diagram">
-  <div class="diagram-desktop"><svg role="img" aria-labelledby="fig-h-title fig-h-desc" viewBox="0 0 1040 390" xmlns="http://www.w3.org/2000/svg">
-    <title id="fig-h-title">제품 앱이 한 방향으로 플랫폼 SDK에 의존하는 구성</title><desc id="fig-h-desc">가운데 플랫폼 SDK에는 디자인 시스템, 호스트 계약과 플랫폼 프레임워크가 있습니다. FeedbackOps, equipment-visualization, 이 플랫폼 앱, 사내 새 앱이 SDK를 소비합니다. 역방향 의존은 없습니다.</desc>
-    <defs><marker id="arrow-h" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path class="diagram-arrow-head" d="M0 0L8 4L0 8z"/></marker></defs>
-    <rect class="diagram-platform" x="342" y="92" width="356" height="210" rx="18"/><text x="520" y="129" text-anchor="middle">플랫폼 SDK · 한 프레임워크</text>
-    <rect class="diagram-node" x="378" y="151" width="284" height="38" rx="9"/><text class="diagram-small" x="520" y="175" text-anchor="middle">디자인 시스템 · @ap/ui</text>
-    <rect class="diagram-node" x="378" y="200" width="284" height="38" rx="9"/><text class="diagram-small" x="520" y="224" text-anchor="middle">호스트 계약 · @ap/contracts</text>
-    <rect class="diagram-node" x="378" y="249" width="284" height="38" rx="9"/><text class="diagram-small" x="520" y="273" text-anchor="middle">플랫폼 프레임워크</text>
-    <g><rect class="diagram-chip" x="20" y="32" width="222" height="60" rx="12"/><text x="131" y="57" text-anchor="middle">FeedbackOps</text><text class="diagram-small" x="131" y="78" text-anchor="middle">SDK UI 사용 중</text>
-    <rect class="diagram-chip" x="20" y="130" width="222" height="60" rx="12"/><text x="131" y="155" text-anchor="middle">equipment-visualization</text><text class="diagram-small" x="131" y="176" text-anchor="middle">첫 외부 모듈 · 대기</text>
-    <rect class="diagram-chip" x="798" y="32" width="222" height="60" rx="12"/><text x="909" y="57" text-anchor="middle">이 플랫폼 앱</text><text class="diagram-small" x="909" y="78" text-anchor="middle">내부 소비자</text>
-    <rect class="diagram-chip" x="798" y="130" width="222" height="60" rx="12"/><text x="909" y="155" text-anchor="middle">사내 새 앱</text><text class="diagram-small" x="909" y="176" text-anchor="middle">SDK 계약을 따름</text></g>
-    <path class="diagram-arrow" marker-end="url(#arrow-h)" d="M242 62h92"/><path class="diagram-arrow" marker-end="url(#arrow-h)" d="M242 160h92"/><path class="diagram-arrow" marker-end="url(#arrow-h)" d="M798 62h-92"/><path class="diagram-arrow" marker-end="url(#arrow-h)" d="M798 160h-92"/>
-    <text class="diagram-overline" x="520" y="350" text-anchor="middle">독립 실행 호스트는 각 제품이 책임집니다</text>
-  </svg></div>
-  <div class="diagram-mobile"><ol class="diagram-stack"><li><b>한 플랫폼 SDK</b><span>디자인 시스템 · 호스트 계약 · 플랫폼 프레임워크</span></li><li>FeedbackOps <span>SDK UI 사용 중</span></li><li>equipment-visualization <span>첫 외부 모듈 · 대기</span></li><li>이 플랫폼 앱 · 사내 새 앱 <span>SDK를 소비</span></li><li>독립 실행 호스트는 각 제품이 책임집니다.</li></ol></div>
-  <figcaption>도식 H · 제품은 플랫폼 SDK를 소비하고 SDK는 제품에 의존하지 않습니다. 설명용 도식, 근거 <a class="source-ref" href="#source-L69">L69</a></figcaption>
-  <details class="diagram-alt"><summary>글로 보기</summary><p>플랫폼이 디자인 시스템, 호스트 계약과 프레임워크를 한 SDK로 제공합니다. 제품 앱은 그 SDK에 의존합니다. 독립 실행 호스트는 각 제품이 책임집니다.</p></details>
-</figure>
-  <div class="sdk-benefits"><article><span class="status-badge">동작</span><h3>한 디자인 시스템</h3><p>하나의 결정 원본이 제품 화면에 같은 모양과 상태를 제공합니다.</p><b>이득 · 모양과 동작을 함께 고칩니다.</b></article><article><span class="status-badge">진행 중</span><h3>앱과 호스트의 계약</h3><p>앱이 화면과 권한을 선언하고 호스트가 조건·이동·알림을 줍니다.</p><b>이득 · 플랫폼 내부 변경에 앱이 덜 묶입니다.</b></article><article><span class="status-badge">진행 중</span><h3>등록 단계 검사</h3><p>버전·필요 기능·권한 이름을 등록 전에 확인합니다.</p><b>이득 · 잘못된 모듈을 사용자에게 보이기 전에 거절합니다.</b></article><article><span class="status-badge">동작</span><h3>서버 선택은 팀에</h3><p>SDK가 백엔드 프레임워크를 정하지 않습니다.</p><b>이득 · 서버 계약과 적합성 묶음으로 맞춥니다.</b></article><article><span class="status-badge">동작</span><h3>버전을 고정해 받기</h3><p>SDK 묶음 버전은 앱 릴리스와 따로 냅니다.</p><b>이득 · 앱이 검증한 버전에 머뭅니다.</b></article><article><span class="status-badge">계획</span><h3>세 프레임워크를 하나로</h3><p>FeedbackOps·equipment-visualization·이 플랫폼 앱의 기능을 덮습니다.</p><b>이득 · 앱마다 프레임워크를 따로 키우지 않습니다.</b></article></div>
-  <figure class="diagram sequence-diagram">
-  <div class="diagram-desktop"><svg role="img" aria-labelledby="fig-i-title fig-i-desc" viewBox="0 0 1160 650" xmlns="http://www.w3.org/2000/svg">
-    <title id="fig-i-title">앱 manifest가 등록 검사와 호스트 포트를 거쳐 화면이 되는 과정</title><desc id="fig-i-desc">앱이 id, 계약 버전, 필요 기능, 권한과 화면을 등록합니다. 플랫폼은 계약 버전, 기능과 이름 충돌을 확인하고 메뉴를 만듭니다. 사용자가 열면 호스트가 화면에 세션, 조건, 이동, 알림과 오류 보고 기능을 줍니다. 화면 렌더 단계는 진행 중입니다.</desc>
-    <defs><marker id="arrow-i" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path class="diagram-arrow-head" d="M0 0L8 4L0 8z"/></marker></defs>
-    <g class="diagram-lifeline"><rect x="38" y="25" width="210" height="54" rx="12"/><rect x="323" y="25" width="210" height="54" rx="12"/><rect x="608" y="25" width="210" height="54" rx="12"/><rect x="893" y="25" width="220" height="54" rx="12"/>
-      <text x="143" y="59" text-anchor="middle">앱 · 모듈</text><text x="428" y="59" text-anchor="middle">등록 · mountModule</text><text x="713" y="59" text-anchor="middle">호스트 · 셸</text><text x="1003" y="59" text-anchor="middle">화면</text></g>
-    <path class="diagram-dash" d="M143 79v540M428 79v540M713 79v540M1003 79v540"/>
-    <path class="diagram-message" marker-end="url(#arrow-i)" d="M143 125h285"/><text class="diagram-small" x="285" y="112" text-anchor="middle">manifest: id · 계약 버전 · 기능 · 권한 · 화면</text>
-    <rect class="diagram-warning" x="305" y="148" width="246" height="104" rx="14"/><text x="428" y="176" text-anchor="middle">등록 검사</text><text class="diagram-small" x="428" y="202" text-anchor="middle">모르는 버전 · 필수 기능 누락</text><text class="diagram-small" x="428" y="227" text-anchor="middle">권한 이름 충돌이면 거부</text>
-    <path class="diagram-message" marker-end="url(#arrow-i)" d="M428 274h285"/><text class="diagram-small" x="570" y="263" text-anchor="middle">검사 통과 · 메뉴와 그룹 생성</text>
-    <path class="diagram-message" marker-end="url(#arrow-i)" d="M713 326h290"/><text class="diagram-small" x="858" y="315" text-anchor="middle">사용자가 화면 열기</text>
-    <path class="diagram-return" marker-end="url(#arrow-i)" d="M1003 380H713"/><text class="diagram-small" x="858" y="369" text-anchor="middle">세션 · 조건 · 이동 · 알림 · 오류 보고</text>
-    <path class="diagram-message" marker-end="url(#arrow-i)" d="M1003 433H713"/><text class="diagram-small" x="858" y="422" text-anchor="middle">호스트 포트 제공 · 진행 중 (#489)</text>
-    <rect class="diagram-planned" x="916" y="470" width="175" height="74" rx="13"/><text x="1003" y="499" text-anchor="middle">화면 렌더</text><text class="diagram-small" x="1003" y="526" text-anchor="middle">진행 중</text>
-    <path class="diagram-arrow" marker-end="url(#arrow-i)" d="M713 505h190"/><text class="diagram-small" x="807" y="494" text-anchor="middle">화면 열기 허용</text>
-    <text class="diagram-overline" x="428" y="598" text-anchor="middle">계약 버전은 명시하고, 등록에서 안전하게 거절합니다</text>
-  </svg></div>
-  <div class="diagram-mobile"><ol class="diagram-stack"><li>앱이 id · 계약 버전 · 필요 기능 · 권한 · 화면을 냅니다.</li><li>등록 검사에서 모르는 버전, 기능 누락, 권한 이름 충돌을 거절합니다.</li><li>통과하면 메뉴와 그룹이 생깁니다.</li><li>화면을 열면 호스트가 세션 · 조건 · 이동 · 알림 · 오류 보고를 줍니다.</li><li>화면 렌더와 호스트 포트는 진행 중(#489)입니다.</li></ol></div>
-  <figcaption>도식 I · 등록 실패 조건을 먼저 검사하고 호스트 기능을 화면에 제공합니다. 설명용 도식, 근거 <a class="source-ref" href="#source-L69">L69</a></figcaption>
-  <details class="diagram-alt"><summary>글로 보기</summary><ol><li>앱이 선언을 제출합니다.</li><li>등록 단계에서 버전·기능·이름을 검사하고 맞지 않으면 거절합니다.</li><li>통과한 앱의 메뉴를 만듭니다.</li><li>화면을 열 때 호스트가 필요한 기능을 제공합니다.</li><li>호스트 포트와 실제 화면 렌더는 진행 중입니다.</li></ol></details>
-</figure>
-  <p class="caption">화면 렌더와 호스트 포트는 진행 중(#489). SDK는 플랫폼이 소유하며 앱만 SDK에 의존합니다. <a class="source-ref" href="#source-L69">L69</a></p>
-  <details class="evidence-details"><summary>요구 R9.1–R9.7와 계약 근거</summary><p>디자인 시스템은 동작, 계약·등록 일부는 진행 중입니다. 서버 전송 형식은 사내 합의 대기입니다. SDK 버전은 sdk-v* 태그로 고정합니다. <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md">ADR-0043</a> · <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/adr/0044-sdk-source-in-platform-repo-released-separately.md">ADR-0044</a> · <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/adr/0053-host-module-contract-v1.md">ADR-0053</a></p></details>
+  <div class="section-head"><p class="section-label">10 · 업무 시스템</p><h2 id="systems-heading">업무 시스템을 한 곳에</h2><p class="section-lead">시스템마다 메뉴는 따로, 화면 틀 · 권한 · 감사는 같습니다.</p></div>
+  <div class="systems-layout">
+    <figure class="shot-figure" data-shot-fig="system-switcher"><!--shot:system-switcher--><figcaption>시스템 전환기 · 옮겨도 분석 조건은 유지</figcaption></figure>
+    <ul class="system-list">
+      <li><b>MARS</b><span>생산성 분석</span><span class="status-badge">동작</span></li>
+      <li><b>BRAVO</b><span>지표관리</span><span class="status-badge">동작</span></li>
+      <li><b>운영 콘솔</b><span>권한 · 감사 · 활용률 · 메뉴 현황</span><span class="status-badge">동작</span></li>
+      <li><b>CLAS</b><span>생산성 분석 · 기존 시스템을 옮겨 옵니다 (준비 중)</span><span class="status-badge">계획</span></li>
+      <li><b>표준 로그 개발 · 개선 실행</b><span>자기 메뉴를 가진 업무 시스템으로</span><span class="status-badge">계획</span></li>
+    </ul>
+  </div>
+  <p class="micro">예시 사이트: MEM(메모리) · FDRY(파운드리) — mock 데이터</p>
+  <details class="evidence-details"><summary>근거</summary><p><a class="source-ref" href="#source-L67">L67</a> · <a class="source-ref" href="#source-L25">L25</a></p></details>
 </section>
 
 <section id="status" class="content-section" aria-labelledby="status-heading">
-  <div class="section-heading"><p class="section-label">14 · 현재 상태</p><h2 id="status-heading">지금 되는 것과 아직 아닌 것</h2><p class="key-message"><strong>요구 상태를 원문 그대로 공개합니다.</strong></p></div>
-  <div class="status-legend"><span class="status-badge">동작</span><span class="status-badge">진행 중</span><span class="status-badge">설계 확정</span><span class="status-badge">계획</span><span class="status-badge">결정 대기</span><span class="status-badge">보류</span></div>
-  <p class="caption" data-assumption hidden>정비 이슈가 해결된 상태를 반영했습니다.</p><p class="caption"><a class="source-ref" href="#source-L72">상태 근거 L72</a></p>
-  <div class="status-grid"><article class="status-card"><h3><span class="status-badge">동작</span></h3><p>R1.1 · R1.2 · R1.3 · R1.4 · R1.6 · R2.2 · R2.5 · R2.6 · R3.1 · R3.2 · R3.3 · R3.4 · R3.5 · R5.4 · R6.2 · R6.3 · R6.4 · R6.7 · R7.5 · R8.1 · R8.2 · R8.4 · R8.5 · R8.6 · R8.7 · R9.6 · R10.7 · R10.8</p></article>
-<article class="status-card"><h3><span class="status-badge">동작(즐겨찾기·최근은 이 브라우저에만 저장)</span></h3><p>R1.5</p></article>
-<article class="status-card"><h3><span class="status-badge">동작(값 계산은 서버, §7)</span></h3><p>R2.1</p></article>
-<article class="status-card"><h3><span class="status-badge">표시는 동작. 재집계는 사내 서버 일(§7)</span></h3><p>R2.3</p></article>
-<article class="status-card"><h3><span class="status-badge">카탈로그·상세·이력 동작. 발행 쓰기는 사내 서버 뒤</span></h3><p>R2.4</p></article>
-<article class="status-card"><h3><span class="status-badge">계획 — 사내 서버의 계산 세대 신호 필요</span></h3><p>R2.7</p></article>
-<article class="status-card"><h3><span class="status-badge">계획 — 저장소 편입 결정 대기</span></h3><p>R3.6</p></article>
-<article class="status-card"><h3><span class="status-badge">설계 확정(구현 전). 저장은 이 브라우저에만, 서버 저장·공유는 보류</span></h3><p>R4.1</p></article>
-<article class="status-card"><h3><span class="status-badge">보류 — 사용자 조합 분석(R4.3)과 같이 정한다</span></h3><p>R4.2</p></article>
-<article class="status-card"><h3><span class="status-badge">결정 대기 — 범위·저장·공유 질문이 열려 있다</span></h3><p>R4.3</p></article>
-<article class="status-card"><h3><span class="status-badge">보류 — 업무 필수로 확인될 때</span></h3><p>R4.4</p></article>
-<article class="status-card"><h3><span class="status-badge">결정 대기 — 지금은 브라우저 저장</span></h3><p>R4.5</p></article>
-<article class="status-card"><h3><span class="status-badge">동작(링크)</span></h3><p>R5.1</p></article>
-<article class="status-card"><h3><span class="status-badge">동작(계약·링크). 실제 연결은 SSO 공유 뒤</span></h3><p>R5.2</p></article>
-<article class="status-card"><h3><span class="status-badge">동작(mock). 실제 연결은 SSO 뒤</span></h3><p>R5.3</p></article>
-<article class="status-card"><h3><span class="status-badge">비교는 동작. 기준선은 결정 대기</span></h3><p>R5.5</p></article>
-<article class="status-card"><h3><span class="status-badge">동작(mock 세션)</span></h3><p>R6.1</p></article>
-<article class="status-card"><h3><span class="status-badge">조회 동작. 쓰기는 결정 대기</span></h3><p>R6.5</p></article>
-<article class="status-card"><h3><span class="status-badge">계획 — 파서 쪽 상태 스키마 합의 대기</span></h3><p>R6.6</p></article>
-<article class="status-card"><h3><span class="status-badge">동작(MARS·BRAVO·운영 콘솔)</span></h3><p>R7.1</p></article>
-<article class="status-card"><h3><span class="status-badge">계획 — CLAS 자리는 #472</span></h3><p>R7.2</p></article>
-<article class="status-card"><h3><span class="status-badge">계획 — 도메인 소유자 합의 대기</span></h3><p>R7.3</p></article>
-<article class="status-card"><h3><span class="status-badge">보류(요구 후보)</span></h3><p>R7.4</p></article>
-<article class="status-card"><h3><span class="status-badge">동작(mock 서버)</span></h3><p>R8.3</p></article>
-<article class="status-card"><h3><span class="status-badge">동작 — FeedbackOps가 이미 SDK UI(`@ap/ui`)를 받아 쓴다(전환 뒤 시각 비교 변화 없음)</span></h3><p>R9.1</p></article>
-<article class="status-card"><h3><span class="status-badge">진행 중 — 계약 1판 타입과 등록은 병합, 화면 렌더와 호스트 포트는 #489</span></h3><p>R9.2</p></article>
-<article class="status-card"><h3><span class="status-badge">진행 중(#403 병합)</span></h3><p>R9.3</p></article>
-<article class="status-card"><h3><span class="status-badge">플랫폼 안 화면은 동작. 다른 저장소 앱은 R9.2 뒤</span></h3><p>R9.4</p></article>
-<article class="status-card"><h3><span class="status-badge">계약·묶음 동작. 전송 형식은 사내 합의 대기</span></h3><p>R9.5</p></article>
-<article class="status-card"><h3><span class="status-badge">계획</span></h3><p>R9.7</p></article>
-<article class="status-card"><h3><span class="status-badge">사내 답 대기</span></h3><p>R10.1 · R10.2 · R10.3</p></article>
-<article class="status-card"><h3><span class="status-badge">요구. 사내 환경 확인과 함께 검증</span></h3><p>R10.4</p></article>
-<article class="status-card"><h3><span class="status-badge">Decided(조직 요구값)</span></h3><p>R10.5</p></article>
-<article class="status-card"><h3><span class="status-badge">동작(lint·E2E가 일부 검사)</span></h3><p>R10.6</p></article></div>
-  <details class="evidence-details"><summary>효과 수치와 실데이터</summary><p>도입 전 기준선이 없어 효과 수치를 제시하지 않습니다. 실서버·SSO·배포 환경은 사내 답을 기다리며, 사용자 직접 조합 분석은 결정 대기입니다. 상태 근거 <a class="source-ref" href="#source-L71">L71</a></p></details>
+  <div class="section-head"><p class="section-label">11 · 현재 상태</p><h2 id="status-heading">지금 되는 것과 아직 아닌 것</h2><p class="section-lead">요구 63개의 상태를 그대로 공개합니다.</p></div>
+  <p class="key-line"><strong>동작 = mock 서버 위에서 처음부터 끝까지 동작(실서버 · SSO 연결 전).</strong></p>
+  <ul class="status-bar" aria-label="상태별 개수"><li><b>44</b> 동작</li><li><b>2</b> 진행 중</li><li><b>1</b> 설계 확정</li><li><b>6</b> 계획</li><li><b>6</b> 결정 대기</li><li><b>3</b> 보류</li><li class="muted"><b>1</b> 결정됨(조직 요구값)</li></ul>
+  <div class="status-people">
+    <div><h3>지금 쓸 수 있는 것</h3><p>조건 유지 · 링크 공유 · 드릴 · 숫자 상태 · 공통 표와 차트 · 변경 감사 (mock 서버 위)</p></div>
+    <div><h3>곧</h3><p>SDK로 앱 올리기 <small>(진행 중)</small> · 분석 보드 <small>(설계 확정)</small></p></div>
+    <div><h3>정해야 하는 것</h3><p>사내 SSO · 배포 · 서버 연결, 사용자 조합 분석의 범위, 권한 부여의 원천</p></div>
+  </div>
+  <p class="caption" data-assumption hidden>정비 이슈가 해결된 상태를 반영했습니다.</p>
+  <div class="table-wrap"><table class="status-table"><caption class="sr-only">요구 상태 표</caption><thead><tr><th scope="col">ID</th><th scope="col">요구</th><th scope="col">상태</th><th scope="col">비고</th></tr></thead><tbody><tr class="group-row"><th colspan="4" scope="colgroup">조건과 이동</th></tr><tr><td class="mono">R1.1</td><th scope="row">조건을 한 번만 고름</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R1.2</td><th scope="row">링크가 곧 화면</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R1.3</td><th scope="row">드릴다운과 복귀</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R1.4</td><th scope="row">화면 사이 링크</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R1.5</td><th scope="row">시스템 전환기 · Ctrl+K</th><td><span class="status-badge">동작</span></td><td class="note">즐겨찾기 · 최근은 이 브라우저에만 저장</td></tr><tr><td class="mono">R1.6</td><th scope="row">시간대 규칙</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr></tbody><tbody><tr class="group-row"><th colspan="4" scope="colgroup">숫자의 신뢰</th></tr><tr><td class="mono">R2.1</td><th scope="row">데이터 신뢰 표시</th><td><span class="status-badge">동작</span></td><td class="note">값 계산은 서버</td></tr><tr><td class="mono">R2.2</td><th scope="row">0건과 실패 구분</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R2.3</td><th scope="row">늦은 데이터는 잠정</th><td><span class="status-badge">동작</span></td><td class="note">표시는 동작, 재집계는 사내 서버 일</td></tr><tr><td class="mono">R2.4</td><th scope="row">지표 정의 · 버전</th><td><span class="status-badge">동작</span></td><td class="note">발행 쓰기는 사내 서버 뒤</td></tr><tr><td class="mono">R2.5</td><th scope="row">잘못된 조건 알림</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R2.6</td><th scope="row">차트 = 표 = 내보내기</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R2.7</td><th scope="row">자동 최신화</th><td><span class="status-badge">계획</span></td><td class="note">사내 서버의 계산 세대 신호 필요</td></tr></tbody><tbody><tr class="group-row"><th colspan="4" scope="colgroup">분석 도구</th></tr><tr><td class="mono">R3.1</td><th scope="row">공통 표</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R3.2</td><th scope="row">공통 차트</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R3.3</td><th scope="row">상세 패널</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R3.4</td><th scope="row">차트 주석</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R3.5</td><th scope="row">필터 줄 · 화면 모양</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R3.6</td><th scope="row">설비 Top View</th><td><span class="status-badge">계획</span></td><td class="note">저장소 편입 결정 대기</td></tr></tbody><tbody><tr class="group-row"><th colspan="4" scope="colgroup">여러 화면 · 저장 · 조합</th></tr><tr><td class="mono">R4.1</td><th scope="row">분석 보드</th><td><span class="status-badge">설계 확정</span></td><td class="note">구현 전 · 저장은 이 브라우저에만</td></tr><tr><td class="mono">R4.2</td><th scope="row">저장된 뷰</th><td><span class="status-badge">보류</span></td><td class="note">R4.3과 같이 정함</td></tr><tr><td class="mono">R4.3</td><th scope="row">사용자 조합 분석</th><td><span class="status-badge">결정 대기</span></td><td class="note">범위 · 저장 · 공유가 열려 있음</td></tr><tr><td class="mono">R4.4</td><th scope="row">자유 피벗</th><td><span class="status-badge">보류</span></td><td class="note">업무 필수로 확인될 때</td></tr><tr><td class="mono">R4.5</td><th scope="row">설정을 서버에 보존</th><td><span class="status-badge">결정 대기</span></td><td class="note">지금은 브라우저 저장</td></tr></tbody><tbody><tr class="group-row"><th colspan="4" scope="colgroup">알리고 확인</th></tr><tr><td class="mono">R5.1</td><th scope="row">그 자리에서 VOC</th><td><span class="status-badge">동작</span></td><td class="note">링크</td></tr><tr><td class="mono">R5.2</td><th scope="row">개선에서 원래 화면으로</th><td><span class="status-badge">동작</span></td><td class="note">링크 계약 · 실연결은 SSO 뒤</td></tr><tr><td class="mono">R5.3</td><th scope="row">내 VOC 상태</th><td><span class="status-badge">동작</span></td><td class="note">mock · 실연결은 SSO 뒤</td></tr><tr><td class="mono">R5.4</td><th scope="row">공지 한 곳</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R5.5</td><th scope="row">개선 전후 비교</th><td><span class="status-badge">동작</span></td><td class="note">비교는 동작, 기준선은 결정 대기</td></tr></tbody><tbody><tr class="group-row"><th colspan="4" scope="colgroup">운영</th></tr><tr><td class="mono">R6.1</td><th scope="row">권한은 한 곳</th><td><span class="status-badge">동작</span></td><td class="note">mock 세션</td></tr><tr><td class="mono">R6.2</td><th scope="row">변경 감사</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R6.3</td><th scope="row">화면 활용률</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R6.4</td><th scope="row">메뉴 레지스트리</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R6.5</td><th scope="row">권한 부여 · 회수</th><td><span class="status-badge">동작</span></td><td class="note">조회만 동작, 쓰기는 결정 대기</td></tr><tr><td class="mono">R6.6</td><th scope="row">적재 상태</th><td><span class="status-badge">계획</span></td><td class="note">파서 쪽 상태 스키마 합의 대기</td></tr><tr><td class="mono">R6.7</td><th scope="row">화면 오류 격리</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr></tbody><tbody><tr class="group-row"><th colspan="4" scope="colgroup">업무 시스템</th></tr><tr><td class="mono">R7.1</td><th scope="row">시스템별 메뉴</th><td><span class="status-badge">동작</span></td><td class="note">MARS · BRAVO · 운영 콘솔</td></tr><tr><td class="mono">R7.2</td><th scope="row">기존 시스템 이전</th><td><span class="status-badge">계획</span></td><td class="note">CLAS 자리</td></tr><tr><td class="mono">R7.3</td><th scope="row">새 업무 시스템 추가</th><td><span class="status-badge">계획</span></td><td class="note">도메인 소유자 합의 대기</td></tr><tr><td class="mono">R7.4</td><th scope="row">다른 팀의 화면 기여</th><td><span class="status-badge">보류</span></td><td class="note">요구 후보</td></tr><tr><td class="mono">R7.5</td><th scope="row">예정 화면 자리</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr></tbody><tbody><tr class="group-row"><th colspan="4" scope="colgroup">화면 만들기</th></tr><tr><td class="mono">R8.1</td><th scope="row">선언으로 등록</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R8.2</td><th scope="row">공통 부품</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R8.3</td><th scope="row">조회 선언</th><td><span class="status-badge">동작</span></td><td class="note">mock 서버</td></tr><tr><td class="mono">R8.4</td><th scope="row">계약 자동 검사</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R8.5</td><th scope="row">경계 · 디자인 검사</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R8.6</td><th scope="row">mock 서버 · 생성기</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R8.7</td><th scope="row">하위 경로 배포</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr></tbody><tbody><tr class="group-row"><th colspan="4" scope="colgroup">SDK</th></tr><tr><td class="mono">R9.1</td><th scope="row">디자인 시스템 하나</th><td><span class="status-badge">동작</span></td><td class="note">FeedbackOps가 이미 받아 씀</td></tr><tr><td class="mono">R9.2</td><th scope="row">앱 선언 · 호스트 계약</th><td><span class="status-badge">진행 중</span></td><td class="note">화면 렌더와 호스트 포트가 남음</td></tr><tr><td class="mono">R9.3</td><th scope="row">등록할 때 검사</th><td><span class="status-badge">진행 중</span></td><td class="note"></td></tr><tr><td class="mono">R9.4</td><th scope="row">화면 사이 일을 다시 안 만듦</th><td><span class="status-badge">동작</span></td><td class="note">플랫폼 안 화면만, 다른 저장소 앱은 R9.2 뒤</td></tr><tr><td class="mono">R9.5</td><th scope="row">서버는 계약만</th><td><span class="status-badge">동작</span></td><td class="note">전송 형식은 사내 합의 대기</td></tr><tr><td class="mono">R9.6</td><th scope="row">버전 고정</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R9.7</td><th scope="row">세 제품을 하나로</th><td><span class="status-badge">계획</span></td><td class="note"></td></tr></tbody><tbody><tr class="group-row"><th colspan="4" scope="colgroup">사내에서 돌기 위한 조건</th></tr><tr><td class="mono">R10.1</td><th scope="row">사내 SSO 한 번 로그인</th><td><span class="status-badge">결정 대기</span></td><td class="note">FeedbackOps와 세션 공유</td></tr><tr><td class="mono">R10.2</td><th scope="row">사내 배포 환경</th><td><span class="status-badge">결정 대기</span></td><td class="note">on-prem · 망분리 · CI · 브라우저</td></tr><tr><td class="mono">R10.3</td><th scope="row">사내 API 연결</th><td><span class="status-badge">결정 대기</span></td><td class="note">실어댑터 · 적합성 통과</td></tr><tr><td class="mono">R10.4</td><th scope="row">망분리</th><td><span class="status-badge">결정 대기</span></td><td class="note">외부 네트워크 호출 없음. 사내 환경 확인과 함께 검증</td></tr><tr><td class="mono">R10.5</td><th scope="row">규모 · 보존 · 시작 범위</th><td><span class="status-badge">결정됨</span></td><td class="note">결정됨(조직 요구값): 동시 약 100명, 보존 무제한, 사이트 하나로 시작</td></tr><tr><td class="mono">R10.6</td><th scope="row">접근성 · 성능 하한</th><td><span class="status-badge">동작</span></td><td class="note">lint · E2E가 일부 검사</td></tr><tr><td class="mono">R10.7</td><th scope="row">한국어 · 영어</th><td><span class="status-badge">동작</span></td><td class="note"></td></tr><tr><td class="mono">R10.8</td><th scope="row">데스크톱 폭</th><td><span class="status-badge">동작</span></td><td class="note">1280px 이상</td></tr></tbody></table></div>
+  <details class="evidence-details"><summary>근거</summary><p><a class="source-ref" href="#source-L72">L72</a> · <a class="source-ref" href="#source-L71">L71</a> · 도입 전 기준선이 없어 효과 수치는 제시하지 않습니다.</p></details>
 </section>
 
 <section id="ask" class="content-section" aria-labelledby="ask-heading">
-  <div class="section-heading"><p class="section-label">15 · 도입 판단</p><h2 id="ask-heading">도입 전에 함께 정할 것</h2><p class="key-message"><strong>사내 조건과 판단 기준을 확인한 뒤 연결합니다.</strong></p></div>
-  <div class="decision-grid"><article><span>확인할 것 01</span><h3>사내 실행 조건</h3><p>SSO, 배포 환경, 플랫폼 API와 실서버 연결</p></article><article><span>확인할 것 02</span><h3>권한 운영</h3><p>권한 부여·회수의 원천과 담당</p></article><article><span>확인할 것 03</span><h3>측정 기준</h3><p>도입 전 기준선과 무엇을 측정할지</p></article><article><span>확인할 것 04</span><h3>열린 범위</h3><p>사용자 조합 분석, 서버 저장, 장비 화면 이전</p></article></div>
-  <div class="adoption-evidence"><article><h3>지금 보일 수 있는 것</h3><p>mock 서버 위 분석 흐름, 동작 요구의 계약과 검사, 다른 저장소의 SDK UI 사용</p></article><article><h3>아직 없는 것</h3><p>효과 숫자, 실데이터 연결, 사용자가 직접 만드는 분석 화면</p></article></div>
-  <p class="caption">의사결정 전에 확인할 질문 <a href="https://github.com/hjung3113/analytics-platform/blob/main/.planning/README.md">현재 작업 지도</a> · <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/17_platform_requirements.md#9-열린-결정">열린 결정 목록</a> · <a class="source-ref" href="#source-L71">L71</a></p>
+  <div class="section-head"><p class="section-label">12 · 도입 판단</p><h2 id="ask-heading">도입 전에 함께 정할 것</h2><p class="section-lead">지금까지 된 것, 요청하는 것, 위험을 한 장에 모았습니다.</p></div>
+  <dl class="decision-summary">
+    <div><dt>무엇을 하나</dt><dd>반도체 분석 화면이 얹히는 공통 바탕을 만듭니다.</dd></div>
+    <div><dt>지금 어디까지</dt><dd>mock 서버 위에서 동작합니다. 실서버 연결 전입니다.</dd></div>
+    <div><dt>무엇을 요청하나</dt><dd>시범 범위와 사내 담당을 정해 주세요. 인력 · 기간 · 비용은 미산정입니다.</dd></div>
+  </dl>
+  <h3 class="sub-title">요청 5가지</h3>
+  <ol class="ask-list">
+    <li><b>시범 범위 지정</b><span>1개 팀 · 1 Site/Line에서 시작</span></li>
+    <li><b>도입 전 기준선 측정 담당</b><span>효과를 숫자로 말하려면 도입 전에 재야 합니다</span></li>
+    <li><b>사내 SSO 사양 담당</b><span>로그인 연결과 권한의 원천</span></li>
+    <li><b>배포 · 인프라 환경 확인</b><span>망분리와 지원 브라우저</span></li>
+    <li><b>사내 플랫폼 API 담당</b><span>실서버 연결과 적합성 검사</span></li>
+  </ol>
+  <h3 class="sub-title">위험과 완화</h3>
+  <div class="table-wrap"><table class="risk-table"><thead><tr><th scope="col">위험</th><th scope="col">완화</th></tr></thead><tbody>
+    <tr><th scope="row">실데이터로 검증하지 않았다</th><td>적합성 묶음이 실서버도 같은 계약을 지키는지 검사합니다. 시범 범위에서 먼저 확인합니다.</td></tr>
+    <tr><th scope="row">SSO 일정이 정해지지 않았다</th><td>서버 연결부(어댑터)만 바꾸는 구조라 화면 코드는 고치지 않습니다. 실서버에서는 아직 검증하지 않았습니다.</td></tr>
+    <tr><th scope="row">사용자 조합 분석이 결정되지 않았다</th><td>분석 보드(설계 확정 · 구현 전)가 이미 있는 화면을 칸에 담아 일부를 먼저 메웁니다.</td></tr>
+    <tr><th scope="row">기존 시스템 이전을 시작하지 않았다</th><td>두 길(저장소 안 화면 · SDK)로 화면 단위로 하나씩 옮깁니다.</td></tr>
+    <tr><th scope="row">유지 인력</th><td>미산정입니다. 결정이 필요합니다.</td></tr>
+  </tbody></table></div>
+  <details class="evidence-details"><summary>근거</summary><p>요청 번호: ① #233 제안 ② #233 ③ #150 ④ #151 ⑤ #155 · #149. <a href="https://github.com/hjung3113/analytics-platform/blob/main/.planning/README.md">현재 작업 지도</a> · <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/17_platform_requirements.md#9-열린-결정">열린 결정 목록</a> · <a class="source-ref" href="#source-L29">L29</a> · <a class="source-ref" href="#source-L26">L26</a> · <a class="source-ref" href="#source-L27">L27</a> · <a class="source-ref" href="#source-L71">L71</a> · <a class="source-ref" href="#source-L78">L78</a></p></details>
+</section>
+
+<section id="extend" class="content-section" aria-labelledby="extend-heading">
+  <div class="section-head"><p class="section-label">13 · 플랫폼에 올리는 길</p><h2 id="extend-heading">기존 시스템을 플랫폼에 올리는 길</h2><p class="section-lead">업무 내용은 팀에 남고, 화면 사이의 일은 플랫폼이 맡습니다.</p></div>
+  <p class="evidence-badge"><b>증거</b> 다른 제품(FeedbackOps)이 이미 이 SDK의 디자인 시스템을 git 태그(<code>sdk-v0.2.0</code>–<code>v0.5.0</code>)로 받아 쓴다. <a href="https://github.com/hjung3113/FeedbackOps/pull/1289">#1289</a> · <a href="https://github.com/hjung3113/FeedbackOps/pull/1291">#1291</a> · <a href="https://github.com/hjung3113/FeedbackOps/pull/1295">#1295</a> · <a href="https://github.com/hjung3113/FeedbackOps/pull/1304">#1304</a> · <a href="https://github.com/hjung3113/FeedbackOps/pull/1307">#1307</a> <a class="source-ref" href="#source-L76">L76</a></p>
+  <figure class="diagram">
+    <div class="diagram-desktop"><svg role="img" aria-labelledby="fig-g-title fig-g-desc" viewBox="0 0 1040 280" xmlns="http://www.w3.org/2000/svg"><title id="fig-g-title">기존 시스템을 옮겨도 팀이 계속 갖는 것과 플랫폼이 맡는 것</title><desc id="fig-g-desc">화면, 조건과 링크, 권한과 운영, 서버 네 영역을 팀이 계속 갖는 것과 플랫폼이 맡는 것 두 열로 나눕니다.</desc><rect class="diagram-node" x="0" y="0" width="150" height="44" rx="10"/><text x="75" y="28" text-anchor="middle">영역</text><rect class="diagram-broken" x="162" y="0" width="408" height="44" rx="10"/><text x="366" y="28" text-anchor="middle">팀이 계속 갖는 것</text><rect class="diagram-contract" x="582" y="0" width="458" height="44" rx="10"/><text x="811" y="28" text-anchor="middle">플랫폼이 맡는 것</text><rect class="diagram-table-row" x="0" y="54" width="150" height="48" rx="8"/><text x="75" y="84" text-anchor="middle">화면</text><rect class="diagram-table-row" x="162" y="54" width="408" height="48" rx="8"/><text class="diagram-small" x="178" y="84">업무 화면의 내용</text><rect class="diagram-table-row" x="582" y="54" width="458" height="48" rx="8"/><text class="diagram-small" x="598" y="84">화면 틀 · 표 · 차트 · 상세 · 필터</text><rect class="diagram-table-row" x="0" y="110" width="150" height="48" rx="8"/><text x="75" y="140" text-anchor="middle">조건 · 링크</text><rect class="diagram-table-row" x="162" y="110" width="408" height="48" rx="8"/><text class="diagram-small" x="178" y="140">그 화면만 쓰는 조건</text><rect class="diagram-table-row" x="582" y="110" width="458" height="48" rx="8"/><text class="diagram-small" x="598" y="140">조건 유지 · 링크 · 드릴 복귀</text><rect class="diagram-table-row" x="0" y="166" width="150" height="48" rx="8"/><text x="75" y="196" text-anchor="middle">권한 · 운영</text><rect class="diagram-table-row" x="162" y="166" width="408" height="48" rx="8"/><text class="diagram-small" x="178" y="196">업무 규칙에 따른 쓰기 판정</text><rect class="diagram-table-row" x="582" y="166" width="458" height="48" rx="8"/><text class="diagram-small" x="598" y="196">로그인 · 조회 권한 · 감사 · 활용률</text><rect class="diagram-table-row" x="0" y="222" width="150" height="48" rx="8"/><text x="75" y="252" text-anchor="middle">서버</text><rect class="diagram-table-row" x="162" y="222" width="408" height="48" rx="8"/><text class="diagram-small" x="178" y="252">도메인 API와 데이터</text><rect class="diagram-table-row" x="582" y="222" width="458" height="48" rx="8"/><text class="diagram-small" x="598" y="252">조회 선언 검사 · 상태 분류 · 적합성</text></svg></div>
+    <div class="diagram-mobile"><div class="compare-diagram"><article><h3>팀이 계속 갖는 것</h3><ul><li>업무 화면의 내용</li><li>그 화면만 쓰는 조건</li><li>업무 규칙에 따른 쓰기 판정</li><li>도메인 API와 데이터</li></ul></article><article><h3>플랫폼이 맡는 것</h3><ul><li>화면 틀 · 표 · 차트 · 상세 · 필터</li><li>조건 유지 · 링크 · 드릴 복귀</li><li>로그인 · 조회 권한 · 감사 · 활용률</li><li>조회 선언 검사 · 상태 분류 · 적합성</li></ul></article></div></div>
+    <figcaption>설명용 도식</figcaption>
+  </figure>
+  <h3 class="sub-title">이전 체크리스트</h3>
+  <div class="migrate-cols">
+    <article><h4>버리는 것</h4><ul><li>자체 화면 틀 · 사이드바 · 검색</li><li>자체 전역 필터 · URL 규칙</li><li>권한 노출 판정 화면 코드</li><li>공통 표 · 차트 틀 · 내보내기</li><li>상태 화면(0건 · 오류)</li><li>감사 · 활용률 기록 코드</li></ul></article>
+    <article><h4>바꾸는 것</h4><ul><li>데이터 조회 → 조회 선언(입력 · 권한 · 한도)</li><li>차트 → 공통 차트 틀(ECharts Canvas)</li><li>표 → 공통 표</li><li>React 19 이상(SDK peer <code>^19.0.0</code>)</li></ul></article>
+    <article><h4>그대로 두는 것</h4><ul><li>업무 화면의 내용과 의미</li><li>도메인 API · 데이터</li><li>업무 규칙에 따른 쓰기 판정</li></ul></article>
+  </div>
+  <p class="micro">공존 방법은 SSO 결정 뒤 정합니다(결정 대기). 화면 하나를 옮기는 비용은 아직 측정하지 않았습니다(미측정).</p>
+  <h3 class="sub-title">올리는 길 두 가지</h3>
+  <div class="migration-paths"><article><span class="status-badge">동작</span><h4>이 저장소 안 화면으로</h4><p><code>pnpm gen:menu</code>로 뼈대를 만들고 화면을 옮깁니다.</p></article><article><span class="status-badge">진행 중</span><h4>자기 저장소에 둔 채 SDK로</h4><p>등록 검사까지 됩니다. 화면 렌더와 호스트 포트는 진행 중입니다.</p></article></div>
+  <h3 class="sub-title">SDK가 보장하는 것과 이득</h3>
+  <div class="table-wrap"><table class="sdk-table"><thead><tr><th scope="col">보장</th><th scope="col">이득</th><th scope="col">상태</th></tr></thead><tbody>
+    <tr><th scope="row">디자인 시스템 하나</th><td>앱마다 버튼 · 표 · 패널 모양이 달라지지 않고, 고치면 다 같이 바뀝니다.</td><td><span class="status-badge">동작</span></td></tr>
+    <tr><th scope="row">앱이 선언하고 플랫폼이 제공, 등록할 때 거부</th><td>계약 버전 · 필요 기능 · 권한 이름이 틀린 앱은 사용자에게 보이기 전에 막힙니다.</td><td><span class="status-badge">진행 중</span></td></tr>
+    <tr><th scope="row">서버는 계약만</th><td>백엔드 프레임워크를 강요하지 않고, 전송 형식과 적합성 묶음만 맞추면 됩니다.</td><td><span class="status-badge">동작</span></td></tr>
+    <tr><th scope="row">버전 고정</th><td>SDK는 <code>sdk-v*</code> 태그로 내고, 앱은 검증한 버전에 머뭅니다.</td><td><span class="status-badge">동작</span></td></tr>
+  </tbody></table></div>
+  <pre class="code-excerpt" tabindex="0" aria-label="호스트 계약 발췌"><code>// packages/contracts/src/host.ts 발췌 — 필드 이름은 Candidate(ADR-0053)
+export type ModuleManifest = {
+  module: { id: string; label: Text; contract: HostContract; languages: readonly ('ko' | 'en')[] };
+  requires: readonly HostFeature[];   // 호스트가 못 주면 등록 실패
+  groups: readonly { id: ModuleScopedId; label: Text }[];
+  screens: readonly ModuleScreenMeta[];
+};
+export type ModuleHost = {
+  session(): { user: { id: string; name: string } | null; generation: number };
+  can(permission: string): boolean;   // 표시용 — 서버가 매 요청 다시 판정
+  context(): { values: Partial&lt;GlobalContext&gt;; unsupported: readonly ContextKey[] };
+  navigate(target: ModuleTarget, options?: { replace?: boolean }): boolean;
+};</code></pre>
+  <figure class="diagram">
+    <div class="diagram-desktop"><svg role="img" aria-labelledby="fig-h-title fig-h-desc" viewBox="0 0 1040 324" xmlns="http://www.w3.org/2000/svg"><title id="fig-h-title">제품 앱이 한 방향으로 플랫폼 SDK에 의존하는 구성</title><desc id="fig-h-desc">가운데 플랫폼 SDK에는 디자인 시스템, 호스트 계약과 플랫폼 프레임워크가 있습니다. FeedbackOps, equipment-visualization, 이 플랫폼 앱, 사내 새 앱이 SDK에 의존합니다. 화살표는 제품에서 SDK로 한 방향뿐입니다.</desc><defs><marker id="arrow-h" viewBox="0 0 8 8" markerWidth="6" markerHeight="6" refX="8" refY="4" orient="auto"><path class="diagram-arrow-head" d="M0 0L8 4L0 8z"/></marker></defs><text class="diagram-overline" x="520" y="24" text-anchor="middle">의존은 제품 → SDK 한 방향</text><rect class="diagram-platform" x="342" y="44" width="356" height="224" rx="18"/><text x="520" y="80" text-anchor="middle">플랫폼 SDK · 한 프레임워크</text><rect class="diagram-node" x="378" y="100" width="284" height="38" rx="9"/><text class="diagram-small" x="520" y="125" text-anchor="middle">디자인 시스템 · @ap/ui</text><rect class="diagram-node" x="378" y="148" width="284" height="38" rx="9"/><text class="diagram-small" x="520" y="173" text-anchor="middle">호스트 계약 · @ap/contracts</text><rect class="diagram-node" x="378" y="196" width="284" height="38" rx="9"/><text class="diagram-small" x="520" y="221" text-anchor="middle">플랫폼 프레임워크</text><rect class="diagram-chip" x="20" y="76" width="222" height="60" rx="12"/><text x="131" y="102" text-anchor="middle">FeedbackOps</text><text class="diagram-small" x="131" y="123" text-anchor="middle">SDK UI 사용 중</text><rect class="diagram-planned" x="20" y="168" width="222" height="60" rx="12"/><text x="131" y="194" text-anchor="middle">equipment-visualization</text><text class="diagram-small" x="131" y="215" text-anchor="middle">첫 외부 모듈 · 대기</text><rect class="diagram-chip" x="798" y="76" width="222" height="60" rx="12"/><text x="909" y="102" text-anchor="middle">이 플랫폼 앱</text><text class="diagram-small" x="909" y="123" text-anchor="middle">내부 소비자</text><rect class="diagram-planned" x="798" y="168" width="222" height="60" rx="12"/><text x="909" y="194" text-anchor="middle">사내 새 앱</text><text class="diagram-small" x="909" y="215" text-anchor="middle">SDK 계약을 따름 · 계획</text><path class="diagram-arrow" marker-end="url(#arrow-h)" d="M242 106H342"/><path class="diagram-arrow" marker-end="url(#arrow-h)" d="M242 198H342"/><path class="diagram-arrow" marker-end="url(#arrow-h)" d="M798 106H698"/><path class="diagram-arrow" marker-end="url(#arrow-h)" d="M798 198H698"/><text class="diagram-overline" x="520" y="304" text-anchor="middle">독립 실행 호스트는 각 제품이 책임집니다</text></svg></div>
+    <div class="diagram-mobile"><ol class="diagram-stack"><li><b>플랫폼 SDK</b><span>디자인 시스템 · 호스트 계약 · 플랫폼 프레임워크</span></li><li>FeedbackOps <span>SDK UI 사용 중</span></li><li>equipment-visualization <span>첫 외부 모듈 · 대기</span></li><li>이 플랫폼 앱 · 사내 새 앱 <span>SDK에 의존 (한 방향)</span></li></ol></div>
+    <figcaption>설명용 도식</figcaption>
+  </figure>
+  <figure class="diagram sequence-diagram">
+    <div class="diagram-desktop"><svg role="img" aria-labelledby="fig-i-title fig-i-desc" viewBox="0 0 1200 540" xmlns="http://www.w3.org/2000/svg"><title id="fig-i-title">앱 선언이 등록 검사와 호스트 포트를 거쳐 화면이 되는 과정</title><desc id="fig-i-desc">앱이 id, 계약 버전, 필요 기능, 권한과 화면을 선언해 제출합니다. 등록에서 모르는 버전, 빠진 필수 기능, 권한 이름 충돌이면 거부하고 사용자에게 보이기 전에 알립니다. 통과하면 메뉴와 그룹을 만듭니다. 사용자가 화면을 열면 호스트가 화면에 세션·조건·이동·알림·오류 보고를 주는 호스트 포트를 제공하며, 이 단계와 화면 렌더는 진행 중입니다.</desc><defs><marker id="arrow-i" viewBox="0 0 8 8" markerWidth="6" markerHeight="6" refX="8" refY="4" orient="auto"><path class="diagram-arrow-head" d="M0 0L8 4L0 8z"/></marker></defs><rect class="diagram-lifehead" x="50" y="16" width="180" height="48" rx="11"/><text x="140" y="46" text-anchor="middle">앱 · 모듈</text><rect class="diagram-lifehead" x="380" y="16" width="180" height="48" rx="11"/><text x="470" y="46" text-anchor="middle">등록 검사</text><rect class="diagram-lifehead" x="740" y="16" width="180" height="48" rx="11"/><text x="830" y="46" text-anchor="middle">호스트 · 셸</text><rect class="diagram-lifehead" x="970" y="16" width="180" height="48" rx="11"/><text x="1060" y="46" text-anchor="middle">화면</text><path class="diagram-dash" d="M140 64V500M470 64V500M830 64V500M1060 64V500"/><rect class="diagram-activation" x="132" y="114" width="16" height="134" rx="4"/><rect class="diagram-activation" x="462" y="114" width="16" height="186" rx="4"/><rect class="diagram-activation" x="822" y="278" width="16" height="120" rx="4"/><rect class="diagram-activation" x="1052" y="346" width="16" height="78" rx="4"/><path class="diagram-message" marker-end="url(#arrow-i)" d="M148 124H462"/><rect class="diagram-label-bg" x="124" y="91" width="363" height="21" rx="4"/><text class="diagram-small" x="305" y="106" text-anchor="middle">선언 제출: id · 계약 버전 · 기능 · 권한 · 화면</text><rect class="diagram-frame" x="300" y="150" width="400" height="150" rx="6"/><rect class="diagram-label-bg" x="300" y="150" width="46" height="22" rx="4"/><text class="diagram-small" x="308" y="166">alt</text><text class="diagram-small" x="490" y="184">[거부] 모르는 버전</text><text class="diagram-small" x="490" y="204">필수 기능 누락</text><text class="diagram-small" x="490" y="224">권한 이름 충돌</text><path class="diagram-return" marker-end="url(#arrow-i)" d="M462 238H148"/><rect class="diagram-label-bg" x="167" y="215" width="114" height="21" rx="4"/><text class="diagram-small" x="224" y="230" text-anchor="middle">등록 실패 알림</text><path class="diagram-dash" d="M300 258H700"/><text class="diagram-small" x="316" y="282">[통과]</text><path class="diagram-message" marker-end="url(#arrow-i)" d="M478 288H822"/><rect class="diagram-label-bg" x="696" y="261" width="129" height="21" rx="4"/><text class="diagram-small" x="760" y="276" text-anchor="middle">메뉴와 그룹 생성</text><text class="diagram-small" x="850" y="334">사용자가 화면을 열면</text><path class="diagram-return" marker-end="url(#arrow-i)" d="M838 372H1052"/><rect class="diagram-label-bg" x="844" y="345" width="203" height="21" rx="4"/><text class="diagram-small" x="945" y="360" text-anchor="middle">호스트 포트 제공 · 진행 중</text><rect class="diagram-label-bg" x="814" y="381" width="263" height="21" rx="4"/><text class="diagram-small" x="945" y="396" text-anchor="middle">세션 · 조건 · 이동 · 알림 · 오류</text><path class="diagram-return" marker-end="url(#arrow-i)" d="M1060 424V440"/><rect class="diagram-planned" x="970" y="440" width="180" height="48" rx="12"/><text x="1060" y="470" text-anchor="middle">화면 렌더 · 진행 중</text><text class="diagram-overline" x="640" y="516" text-anchor="middle">계약 버전은 명시하고, 등록에서 안전하게 거절합니다</text></svg></div>
+    <div class="diagram-mobile"><ol class="diagram-stack"><li>앱이 id · 계약 버전 · 필요 기능 · 권한 · 화면을 제출합니다.</li><li>등록 검사: 모르는 버전 · 기능 누락 · 권한 이름 충돌이면 거부합니다.</li><li>통과하면 메뉴와 그룹이 생깁니다.</li><li>화면을 열면 호스트가 세션 · 조건 · 이동 · 알림 · 오류 보고를 줍니다 (진행 중).</li></ol></div>
+    <figcaption>설명용 도식 · 점선은 진행 중</figcaption>
+  </figure>
+  <details class="evidence-details"><summary>근거</summary><p><a class="source-ref" href="#source-L68">L68</a> · <a class="source-ref" href="#source-L69">L69</a> · <a class="source-ref" href="#source-L76">L76</a> · <a class="source-ref" href="#source-L77">L77</a> · <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/adr/0053-host-module-contract-v1.md">ADR-0053</a> · <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md">ADR-0043</a> · <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/integration/in-house-rollout.md">사내 적용 가이드</a></p></details>
+</section>
+
+<section id="build" class="content-section" aria-labelledby="build-heading">
+  <div class="section-head"><p class="section-label">14 · 새 화면 만들기</p><h2 id="build-heading">새 화면이 처음부터 받는 것</h2><p class="section-lead">공통 도구와 상태 표현을 다시 만들지 않습니다.</p></div>
+  <ul class="checklist">
+    <li>메뉴를 한 번 등록하면 사이드바 · Ctrl+K · 경로 · 권한 게이트가 따라옵니다</li>
+    <li>표 · 차트 · 상세 패널 · 감사 타임라인 · 신뢰 표시 · 상태 화면 · 필터 줄</li>
+    <li>화면 모양 다섯 가지와 드릴 경로</li>
+    <li>조회 선언(입력 · 권한 · 한도)을 플랫폼이 검사합니다</li>
+    <li>계약 자동 검사가 새 화면에도 같은 기준을 겁니다</li>
+    <li>경계 · 디자인 규칙을 리뷰어 대신 기계가 검사합니다</li>
+    <li>서버 없이 끝까지: mock 서버 · 응답 시나리오 · 화면 생성기(<code>pnpm gen:menu</code>) · 하위 경로 배포</li>
+  </ul>
+  <p class="key-line">부품과 사용법은 <a href="#appendix-b">부록 B · 컴포넌트 목록</a>에서 봅니다.</p>
+  <details class="evidence-details"><summary>근거</summary><p><a class="source-ref" href="#source-L64">L64</a> · <a class="source-ref" href="#source-L36">L36</a> · <a class="source-ref" href="#source-L37">L37</a></p></details>
 </section>
 
 <section class="appendix-section" id="appendix-a" aria-labelledby="appendix-a-heading">
@@ -850,7 +350,7 @@
   <details class="appendix-content">
     <summary>기존 상세 내용 펼치기</summary>
     <section id="structure" aria-labelledby="structure-heading">
-        <p class="section-label">03 · 구조</p>
+        <p class="section-label">A · 구조</p>
         <h2 id="structure-heading">플랫폼이 맡는 다섯 가지</h2>
         <p class="lead">
           메뉴 화면은 이 다섯 갈래 위에 얹히는 소비자입니다. 메뉴 목록은 Registry로, 서버는 PlatformAdapter로 주입되므로
@@ -973,7 +473,7 @@
               <h3>표·상세·감사·신뢰 표시·상태 화면을 메뉴마다 다시 만들지 않습니다.</h3>
               <p>
                 공개 컴포넌트 21개가 서버 페이징 표, 고정 상세 슬롯, 감사 타임라인, 데이터 신뢰 표시, 0건·권한·오류 상태
-                화면을 제공합니다. 전체 목록은 06 절.
+                화면을 제공합니다. 전체 목록은 부록 B.
               </p>
               <p>이 화면에서: KPI 카드·표·신뢰 표시</p>
               <span class="badge success"
@@ -1237,7 +737,7 @@
   <details class="appendix-content">
     <summary>기존 상세 내용 펼치기</summary>
     <section id="components" aria-labelledby="components-heading">
-        <p class="section-label">06 · 컴포넌트</p>
+        <p class="section-label">B · 컴포넌트</p>
         <h2 id="components-heading">새 메뉴가 처음부터 받는 것</h2>
         <p class="lead">
           공통 컴포넌트 21개, FeedbackOps와 같은 UI primitive, 셸과 Kernel이 이미 있습니다. 메뉴는 이 부품을 조합하고
@@ -3045,7 +2545,7 @@
   <details class="appendix-content">
     <summary>기존 상세 내용 펼치기</summary>
     <section id="compare" aria-labelledby="compare-heading">
-        <p class="section-label">07 · 비교와 코드</p>
+        <p class="section-label">C · 비교와 코드</p>
         <h2 id="compare-heading">단독 앱으로 만들 때와 무엇이 다른가</h2>
         <p class="lead">
           같은 오픈소스는 단독 앱에서도 쓸 수 있습니다. 차이는 라우팅·권한·상태·컴포넌트 동작을 앱마다 다시 조립하고
@@ -3300,7 +2800,7 @@
   <details class="appendix-content">
     <summary>기존 상세 내용 펼치기</summary>
     <section id="vision" aria-labelledby="vision-heading">
-        <p class="section-label">08 · 가는 방향</p>
+        <p class="section-label">D · 가는 방향</p>
         <h2 id="vision-heading">목표는 사용자가 직접 만드는 분석 — 그 전제를 플랫폼이 먼저 깝니다</h2>
         <p class="lead">
           지금은 개발자가 공통 컴포넌트로 업무 화면을 조립합니다. 다음은 데이터·필드 선언으로 화면을 구성하고, 나아가
@@ -3334,7 +2834,7 @@
             <p>
               manifest로 경로·권한을 등록하고, <code>defineEndpoint</code>로 조회를 선언한 뒤
               <code>PlatformDataTable</code>과 <code>AnalysisChartFrame</code>을 조합합니다.
-              <a href="#compare">07 비교와 코드에서 실제 조합 보기 →</a>
+              <a href="#compare">부록 C에서 실제 조합 보기 →</a>
             </p>
             <h3>받쳐 주는 기술</h3>
             <p>
@@ -3545,10 +3045,10 @@
   <details class="appendix-content">
     <summary>기존 상세 내용 펼치기</summary>
     <section id="roadmap" aria-labelledby="roadmap-heading">
-        <p class="section-label">09 · 로드맵</p>
+        <p class="section-label">E · 로드맵</p>
         <h2 id="roadmap-heading">MVP는 사내 적용, 그 다음은 사용자 조합 분석까지</h2>
         <p class="lead">
-          플랫폼 쪽 준비는 끝났습니다. 사내 SSO·인프라·백엔드 답이 오면 조립 모듈을 실어댑터로 바꿔 꽂고, Kernel·셸·공통
+          플랫폼 쪽 준비는 mock 기준으로 끝났고, 실서버 연결은 사내 답을 기다립니다. 사내 SSO·인프라·백엔드 답이 오면 조립 모듈을 실어댑터로 바꿔 꽂고, Kernel·셸·공통
           컴포넌트·메뉴 화면은 고치지 않습니다.
         </p>
         <div class="tabs roadmap" data-tabs="roadmap-nodes" data-default="2">
@@ -3801,7 +3301,7 @@
   <details class="appendix-content">
     <summary>기존 상세 내용 펼치기</summary>
     <section id="tech" aria-labelledby="tech-heading">
-        <p class="section-label">10 · 기술 후보</p>
+        <p class="section-label">F · 기술 후보</p>
         <h2 id="tech-heading">붙이면 좋아지는 기술 — 조건을 통과할 때만</h2>
         <p class="lead">
           지금은 Apache ECharts와 TanStack Table로 차트·표 계약을 지킵니다. 아래 후보는 실제 수요가 확인되고
@@ -4177,6 +3677,8 @@
       </section>
   </details>
 </section>
+<!-- ACTUAL_SHOTS -->
+
 <footer id="sources">
         <h2>출처와 기준</h2>
         <p>기준일 2026-10-20 · <span id="build-info">배포 ref는 조립 때 기록됩니다.</span></p>
@@ -4209,7 +3711,7 @@
           </p>
         </details>
         <details class="source-ledger">
-          <summary>콘텐츠 원장 L01–L72</summary>
+          <summary>콘텐츠 원장 L01–L79</summary>
           <div id="source-L01">
             <h3>L01</h3>
             <a href="https://github.com/hjung3113/analytics-platform/blob/main/.planning/README.md">공개 원본 보기</a>
@@ -4477,17 +3979,9 @@
           </div>
           <div id="source-L24">
             <h3>L24</h3>
-            <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/integration/feedbackops-deeplink.md"
-              >공개 원본 보기</a
-            >
-            <p>
-              FeedbackOps 링크는 분석 기간·Site·returnTo를 자동 전달하지 않음, 확장은
-              <a href="https://github.com/hjung3113/analytics-platform/issues/81">#81</a>·<a
-                href="https://github.com/hjung3113/analytics-platform/issues/251"
-                >#251</a
-              >, 개선 실행 공간 <a href="https://github.com/hjung3113/analytics-platform/issues/252">#252</a>
-            </p>
-            <p class="caption"><code>docs/integration/feedbackops-deeplink.md</code> · —</p>
+            <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/integration/feedbackops-deeplink.md">공개 원본 보기</a>
+            <p>플랫폼 링크는 업무 시스템 범위로 좁혀 FeedbackOps를 열고, 기간·Site·returnTo는 FeedbackOps 주소의 키로 따로 보내지 않는다. 복귀 키 <code>platformReturn</code> 하나에 링크를 그린 플랫폼 화면의 URL이 실린다(contract 2). 확장 <a href="https://github.com/hjung3113/analytics-platform/issues/251">#251</a>·<a href="https://github.com/hjung3113/analytics-platform/issues/448">#448</a>, 개선 실행 공간 <a href="https://github.com/hjung3113/analytics-platform/issues/252">#252</a></p>
+            <p class="caption"><code>docs/integration/feedbackops-deeplink.md</code>, <code>.planning/README.md</code> 3a행, ADR-0045 · 낡은 문장(자동 전달 없음)을 고침</p>
           </div>
           <div id="source-L25">
             <h3>L25</h3>
@@ -4747,19 +4241,15 @@
           </div>
           <div id="source-L49">
             <h3>L49</h3>
-            <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/integration/in-house-rollout.md"
-              >공개 원본 보기</a
-            >
-            <p>&quot;플랫폼 쪽 준비는 끝났다&quot;</p>
-            <p class="caption">
-              <code>docs/integration/in-house-rollout.md</code> §0, <code>.planning</code> 「지금 어디까지」 7단계 · —
-            </p>
+            <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/integration/in-house-rollout.md">공개 원본 보기</a>
+            <p>원문 &quot;플랫폼 쪽 준비는 끝났다&quot; — 사이트는 &quot;mock 기준으로 끝났고, 실서버 연결은 사내 답 대기&quot;로 한정해 쓴다</p>
+            <p class="caption"><code>docs/integration/in-house-rollout.md</code> §0, <code>.planning</code> 「지금 어디까지」 7단계 · 한정은 사이트의 해석</p>
           </div>
           <div id="source-L50">
             <h3>L50</h3>
-            <a href="https://github.com/hjung3113/analytics-platform/blob/main/packages/ui/AGENTS.md">공개 원본 보기</a>
-            <p>UI primitive는 FeedbackOps 원본을 <code>@ap/ui</code>로 소비</p>
-            <p class="caption">ADR-0011, <code>packages/ui/AGENTS.md</code>, DESIGN.md Overview · —</p>
+            <a href="https://github.com/hjung3113/analytics-platform/blob/main/docs/adr/0046-design-system-source-moves-to-platform-whole-package.md">공개 원본 보기</a>
+            <p>UI 디자인 시스템의 원본은 플랫폼 <code>@ap/ui</code>이다(FeedbackOps <code>@fops/ui</code> 전체를 옮겨 옴). FeedbackOps가 이를 git 태그로 받아 쓴다</p>
+            <p class="caption">ADR-0046, ADR-0043, ADR-0044, <code>packages/ui/AGENTS.md</code> · ADR-0011의 &quot;FeedbackOps 원본을 소비&quot;는 ADR-0046으로 대체됨</p>
           </div>
           <div id="source-L51">
             <h3>L51</h3>
@@ -4878,6 +4368,13 @@
           <div id="source-L70"><h3>L70</h3><p>분석 보드 시안의 칸·조건·레이아웃·선택 표시</p><p class="caption">docs/16_analysis_board.md §4–5, ADR-0051</p></div>
           <div id="source-L71"><h3>L71</h3><p>도입 근거로 보일 수 있는 범위와 아직 없는 것</p><p class="caption">docs/17_platform_requirements.md §6–7</p></div>
           <div id="source-L72"><h3>L72</h3><p>요구 ID R1.1–R10.8의 개별 상태와 여섯 상태 이름</p><p class="caption">docs/17_platform_requirements.md §0·§3.1–§3.9·§7</p></div>
+          <div id="source-L73"><h3>L73</h3><p>히어로 한 문장 &quot;업무 화면을 더해도 플랫폼은 고치지 않습니다&quot;는 06 §30의 설계 기준(L38)을 사용자 말로 옮긴 것이다. 부제의 약속 다섯(조건·링크·숫자 상태·권한·감사)은 R1.1·R1.2·R2.1·R6.1·R6.2의 요약이다</p><p class="caption">docs/06_platform_ui_contract.md §30, docs/17_platform_requirements.md §1·§3.1–§3.2·§3.6 · 사이트의 해석 문장</p></div>
+          <div id="source-L74"><h3>L74</h3><p>도식 A의 세 층: 사용자가 받는 약속 5개(R1·R2·R6), 확장 약속(화면 선언 R8.1 → 등록 검사 R9.3 → 약속 제공 R9.2, SDK 진행 중), 지키는 장치(버전 고정 배포 R9.6, 경계·디자인 검사 R8.5, 계약 자동 검사·서버 적합성 R8.4)</p><p class="caption">docs/17_platform_requirements.md §1.1·§3.8–§3.9, tooling/AGENTS.md · 설명용 도식</p></div>
+          <div id="source-L75"><h3>L75</h3><p>&quot;이 플랫폼만의 약속&quot; 4개: 모르는 값을 0으로 바꾸지 않음(R2.1·R2.2), 링크는 권한이 아님(R1.2, L12), 지표는 정의와 버전으로 고정(R2.4, L55), 잘못된 화면은 등록에서 거부(R9.3, 진행 중). 반도체 업무 조건이 기본(R1.1, §4)</p><p class="caption">docs/17_platform_requirements.md §3, §4 · 효과 숫자 없음</p></div>
+          <div id="source-L76"><h3>L76</h3><p>FeedbackOps가 이 SDK의 디자인 시스템 <code>@ap/ui</code>를 git 태그 <code>sdk-v0.2.0</code>–<code>v0.5.0</code>으로 받아 쓴다. 전환 기록 FeedbackOps#1289·#1291·#1295·#1304·#1307(1~3번 묶음). 이 저장소의 FeedbackOps 서브모듈 포인터는 전환 전 시점을 가리킨다</p><p class="caption">docs/integration/sdk-git-tag-consumption.md, .planning/README.md · 링크 <a href="https://github.com/hjung3113/FeedbackOps/pull/1289">#1289</a> <a href="https://github.com/hjung3113/FeedbackOps/pull/1291">#1291</a> <a href="https://github.com/hjung3113/FeedbackOps/pull/1295">#1295</a> <a href="https://github.com/hjung3113/FeedbackOps/pull/1304">#1304</a> <a href="https://github.com/hjung3113/FeedbackOps/pull/1307">#1307</a>. 이 작업은 네트워크 없이 했다: 번호가 PR인지 이슈인지(GitHub은 두 주소를 서로 넘긴다), 묶음마다 어느 태그를 받았는지는 확인하지 못했고 태그 범위는 조정 지시를 따랐다. 로컬 태그 sdk-v0.1.0–v0.6.0 존재만 확인</p></div>
+          <div id="source-L77"><h3>L77</h3><p>이전 체크리스트: 버리는 것(자체 화면 틀·전역 필터·권한 노출 판정·공통 표·차트·상태 화면·감사 기록), 바꾸는 것(조회 선언 R8.3, 공통 차트 ADR-0021, 공통 표, React peer <code>^19.0.0</code> #470), 그대로(§5). 공존 방법은 SSO(#150) 결정 뒤, 화면 이전 비용은 미측정</p><p class="caption">docs/17_platform_requirements.md §5·§3.8, docs/integration/sdk-git-tag-consumption.md · 공존·비용은 근거 문서 없음</p></div>
+          <div id="source-L78"><h3>L78</h3><p>도입 판단: 요청 5(시범 1개 팀·1 Site/Line #233 제안, 기준선 담당 #233, SSO #150, 배포 #151, 플랫폼 API #155·#149), 인력·기간·비용 미산정, 위험 5와 완화(근거 L26·L27·L28·L68·L70)</p><p class="caption">docs/17_platform_requirements.md §6·§7·§9, docs/integration/in-house-rollout.md · 미산정 항목은 숫자 없음</p></div>
+          <div id="source-L79"><h3>L79</h3><p>02 주석 캡처 <code>cycle-time-full</code>: 데모 1440폭 전체 화면. 번호 위치는 캡처 때 요소 위치를 재서 shots.json의 marks에 기록한다. 번호의 뜻: 1 조건 바 R1.1, 2 링크 복사 R1.2, 3 데이터 신뢰 R2.1, 4 차트 R3.2, 5 표 R3.1, 6 드릴·상세 R1.3·R3.3, 7 VOC 진입 R5.1</p><p class="caption">site/scripts/shots.mjs, docs/17_platform_requirements.md §3 · 합성 데이터</p></div>
         </details>
       </footer>
 </main>

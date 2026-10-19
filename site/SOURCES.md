@@ -33,7 +33,7 @@
 | L21 | `linkTo`/`PlatformLink`가 목적지 객체 ID와 분석 Context 분리, 목적지 권한·공간 확인, `returnTo` 복귀(출발 URL·드릴 단계), 열 수 없는 복귀 대상은 열 수 있는 상위 메뉴나 홈으로 돌아감(#298) | 플랫폼 UI 계약 §22, `.planning` #298 행 | — |
 | L22 | 설비 마스터의 '선택 설비로 분석' 버튼 코드 | `menus/analytics/equipment/src/pages/EquipmentMaster.tsx:63` | — |
 | L23 | FeedbackOps는 독립 앱, 화면·API·권한·감사를 플랫폼에 합치지 않음, `/voc` 링크는 origin 설정·검증 시 새 탭, 셸의 공간별 링크 슬롯은 미주입 | ADR-0027, `apps/platform-web/src/slots.ts:5-8` | 데모에서는 비활성 |
-| L24 | FeedbackOps 링크는 분석 기간·Site·returnTo를 자동 전달하지 않음, 확장은 #81·#251, 개선 실행 공간 #252 | `docs/integration/feedbackops-deeplink.md` | — |
+| L24 | 플랫폼 링크는 업무 시스템 범위로 좁혀 FeedbackOps를 열고 기간·Site·returnTo는 FeedbackOps 주소의 키로 따로 보내지 않는다. 복귀 키 `platformReturn` 하나에 링크를 그린 플랫폼 화면의 URL이 실린다(contract 2). 확장 #251·#448, 개선 실행 공간 #252 | `docs/integration/feedbackops-deeplink.md`, `.planning/README.md` 3a행, ADR-0045 | 낡은 문장("자동 전달 없음")을 고침 |
 | L25 | 업무 시스템별 백엔드·DB는 합치지 않음 | `docs/15_multi_workspace_ui.md` | — |
 | L26 | 사내 적용 = `#platform-assembly` 조립 모듈을 실어댑터로 교체, Kernel·셸·공통 컴포넌트·메뉴 화면은 고치지 않음 | `docs/integration/in-house-rollout.md` §0·§1 | — |
 | L27 | 서버 적합성 묶음이 어떤 어댑터든 같은 잣대로 판정, 지금 mock으로 모든 메뉴 엔드포인트 통과(oversize 표본 없는 `maxRows` 검사 3개는 건너뜀) | `docs/integration/in-house-rollout.md` §0 | 문서 기재, D1 미실행 |
@@ -58,8 +58,8 @@
 | L46 | 감사: 공통 AuditTimeline·포트·운영 화면 있음, 모든 메뉴 행위 자동 감사 아님, 실서버 저장 미확인 | `packages/contracts/src/adapter.ts`, `packages/components/src/AuditTimeline.tsx` | — |
 | L47 | 도입 원칙: 성능·접근성·표 대체 경로·Trust가 나빠지면 도입하지 않음, 현행 무료 경로 우선 | `docs/04_frontend_ui_ux.md` | — |
 | L48 | ECharts Canvas 렌더러 결정 | ADR-0021 | — |
-| L49 | "플랫폼 쪽 준비는 끝났다" | `docs/integration/in-house-rollout.md` §0, `.planning` 「지금 어디까지」 7단계 | — |
-| L50 | UI primitive는 FeedbackOps 원본을 `@ap/ui`로 소비 | ADR-0011, `packages/ui/AGENTS.md`, DESIGN.md Overview | — |
+| L49 | 원문 "플랫폼 쪽 준비는 끝났다" — 사이트는 "mock 기준으로 끝났고, 실서버 연결은 사내 답 대기"로 한정해 쓴다 | `docs/integration/in-house-rollout.md` §0, `.planning` 「지금 어디까지」 7단계 | 한정은 사이트의 해석 |
+| L50 | UI 디자인 시스템의 원본은 플랫폼 `@ap/ui`다(FeedbackOps `@fops/ui` 전체를 옮겨 옴). FeedbackOps가 이를 git 태그로 받아 쓴다 | ADR-0046, ADR-0043, ADR-0044, `packages/ui/AGENTS.md` | ADR-0011의 "FeedbackOps 원본을 소비"는 ADR-0046으로 대체됨 |
 | L51 | 메뉴 라벨·경로: 생산성 개요 `/analytics/productivity`, 사이클타임 상세 `/analytics/cycle-time`, 실행 상세 `/analytics/executions/:equipmentId`, Wafer Journey, 설비 마스터 `/equipment`, 지표 카탈로그 `/metrics`, VOC `/voc`, 운영 콘솔 `/admin/*`(권한/역할 관리·변경 감사·메뉴 활용률·메뉴 레지스트리) | `menus/*/*/src/index.ts` | 공정·레시피 마스터·`/notices`는 화면이 없으므로 기능으로 소개하지 않음 |
 
 | L52 | 처음부터 범용 빌더를 만들지 않고 메뉴 2–3곳의 반복 수요 확인 뒤 공통 기능으로 승격한다 | docs/06_platform_ui_contract.md §1 | 확정 원칙 |
@@ -84,6 +84,13 @@
 | L70 | 분석 보드 시안의 칸·조건·레이아웃·선택 표시 | `docs/16_analysis_board.md` §4–5, ADR-0051 | 설계 확정·구현 전·예시 데이터 |
 | L71 | 도입 근거로 보일 수 있는 범위와 아직 없는 것 | `docs/17_platform_requirements.md` §6–7 | 효과 숫자·실데이터·사용자 조합 분석은 아직 없음 |
 | L72 | 요구 ID R1.1–R10.8의 개별 상태 표기와 §0의 여섯 상태 이름 | `docs/17_platform_requirements.md` §0·§3.1–§3.9·§7 | 표에 적힌 동작·설계·계획·결정 대기·보류·사내 답 대기·조직 요구값 표기를 보존 |
+| L73 | 히어로 한 문장 "업무 화면을 더해도 플랫폼은 고치지 않습니다"는 06 §30의 설계 기준(L38)을 사용자 말로 옮긴 것이다. 부제의 약속 다섯(조건·링크·숫자 상태·권한·감사)은 R1.1·R1.2·R2.1·R6.1·R6.2의 요약이다 | `docs/06_platform_ui_contract.md` §30, `docs/17_platform_requirements.md` §1·§3.1–§3.2·§3.6 | 사이트의 해석 문장 |
+| L74 | 도식 A의 세 층: 사용자가 받는 약속 5개(R1·R2·R6), 확장 약속(화면 선언 R8.1 → 등록 검사 R9.3 → 약속 제공 R9.2, SDK 진행 중), 지키는 장치(버전 고정 배포 R9.6, 경계·디자인 검사 R8.5, 계약 자동 검사·서버 적합성 R8.4) | `docs/17_platform_requirements.md` §1.1·§3.8–§3.9, `tooling/AGENTS.md` | 설명용 도식 |
+| L75 | "이 플랫폼만의 약속" 4개: 모르는 값을 0으로 바꾸지 않음(R2.1·R2.2), 링크는 권한이 아님(R1.2, L12), 지표는 정의와 버전으로 고정(R2.4, L55), 잘못된 화면은 등록에서 거부(R9.3, 진행 중). 반도체 업무 조건이 기본(R1.1, §4) | `docs/17_platform_requirements.md` §3·§4 | 효과 숫자 없음 |
+| L76 | FeedbackOps가 이 SDK의 `@ap/ui`를 git 태그 `sdk-v0.2.0`–`v0.5.0`으로 받아 쓴다. 전환 기록 FeedbackOps#1289·#1291·#1295·#1304·#1307(1~3번 묶음). 이 저장소의 FeedbackOps 서브모듈 포인터는 전환 전 시점을 가리킨다 | `docs/integration/sdk-git-tag-consumption.md`, `.planning/README.md`, https://github.com/hjung3113/FeedbackOps/pull/<n> | 네트워크 없이 작성: 번호가 PR인지 이슈인지(GitHub은 두 주소를 서로 넘긴다)와 묶음별 태그는 확인하지 못했고 태그 범위는 조정 지시를 따랐다. 로컬 태그 sdk-v0.1.0–v0.6.0 존재만 확인 |
+| L77 | 이전 체크리스트: 버리는 것(자체 화면 틀·전역 필터·권한 노출 판정·공통 표·차트·상태 화면·감사 기록), 바꾸는 것(조회 선언 R8.3, 공통 차트 ADR-0021, 공통 표, React peer `^19.0.0` #470), 그대로(§5). 공존 방법은 SSO(#150) 결정 뒤, 화면 이전 비용은 미측정 | `docs/17_platform_requirements.md` §5·§3.8, `docs/integration/sdk-git-tag-consumption.md` | 공존·비용은 근거 문서 없음 |
+| L78 | 도입 판단: 요청 5(시범 1개 팀·1 Site/Line #233 제안, 기준선 담당 #233, SSO #150, 배포 #151, 플랫폼 API #155·#149), 인력·기간·비용 미산정, 위험 5와 완화(근거 L26·L27·L28·L68·L70) | `docs/17_platform_requirements.md` §6·§7·§9, `docs/integration/in-house-rollout.md` | 미산정 항목은 숫자 없음 |
+| L79 | 02 주석 캡처 `cycle-time-full`: 데모 1440폭 전체 화면. 번호 위치는 캡처 때 요소 위치를 재서 shots.json의 `marks`에 기록한다. 번호 뜻: 1 조건 바 R1.1, 2 링크 복사 R1.2, 3 데이터 신뢰 R2.1, 4 차트 R3.2, 5 표 R3.1, 6 드릴·상세 R1.3·R3.3, 7 VOC 진입 R5.1 | `site/scripts/shots.mjs`, `docs/17_platform_requirements.md` §3 | 합성 데이터 |
 
 ### 7.2 예시(합성) 데이터 — 화면에서 반드시 `예시`로 표시
 

@@ -94,6 +94,16 @@ if (shotsDir) {
       !Array.isArray(shot.cards)
     )
       throw new Error(`잘못된 캡처 메타데이터: ${shot.id}`);
+    if (
+      shot.marks !== undefined &&
+      !(
+        Array.isArray(shot.marks) &&
+        shot.marks.every(
+          (m) => Number.isInteger(m.n) && m.n >= 1 && m.n <= 9 && m.x >= 0 && m.x <= 100 && m.y >= 0 && m.y <= 100,
+        )
+      )
+    )
+      throw new Error(`잘못된 캡처 번호 위치(marks): ${shot.id}`);
     for (const card of shot.cards) {
       if (!/^(C(?:[1-9]|1[0-4])|U[1-9]|K(?:[1-9]|10))$/.test(card) || cards.has(card))
         throw new Error(`잘못되거나 중복된 카드 대응: ${card}`);
@@ -236,19 +246,11 @@ if (shots.length) {
     .join("");
   const gallery = `<div class="shot-gallery" id="actual-shots" aria-labelledby="actual-shots-heading"><h3 id="actual-shots-heading">실제 화면</h3><p class="lead">아래는 데모 앱을 배포 때마다 자동으로 찍은 실제 화면입니다(mock 합성 데이터).</p><p class="caption">등록 유형: 선·막대(메뉴 사용 중)·파이·산점도(등록됨, 메뉴 미사용). <a class="source-ref" href="#source-L62">L62</a> · <a class="source-ref" href="#source-L63">L63</a></p><div class="shot-filters" role="group" aria-label="실제 화면 분류">${filters}</div><p id="shot-count" class="caption" role="status" aria-live="polite">${shots.length}개 화면</p><div class="shot-grid">${tiles}</div></div>
   <dialog class="shot-dialog" id="shot-dialog" aria-modal="true" aria-labelledby="shot-dialog-title" aria-describedby="shot-dialog-description"><div class="shot-dialog-controls"><h3 id="shot-dialog-title"></h3><button type="button" data-shot-close autofocus>닫기</button></div><img id="shot-dialog-image" alt=""><p id="shot-dialog-description"></p><div class="shot-dialog-controls"><button type="button" data-shot-prev>이전</button><span id="shot-dialog-position" role="status"></span><button type="button" data-shot-next>다음</button><a class="button secondary" data-demo hidden id="shot-dialog-demo" target="_blank" rel="noopener">데모에서 열기</a></div></dialog>`;
-  const shotsLink = '<a class="button secondary" href="#actual-shots" data-chart-shots-link>실제 화면 보기 →</a>';
-  const groupShotsLink = (group, label) =>
-    `<a class="button secondary" href="#actual-shots" data-shot-group-link="${group}">${label}</a>`;
   html = html
-    .replace("<!-- ACTUAL_SHOTS -->", gallery)
     .replace(
-      "<!-- CHART_SHOTS_LINK -->",
-      '<a class="button secondary" href="#actual-shots" data-chart-shots-link>실제 차트 보기 →</a>',
+      "<!-- ACTUAL_SHOTS -->",
+      `<section class="appendix-section" id="appendix-g" aria-labelledby="appendix-g-heading"><p class="section-label">부록 G · 개발자 참고</p><h2 id="appendix-g-heading">실제 화면 갤러리</h2>${gallery}</section>`,
     )
-    .replace("<!-- STATES_SHOTS_LINK -->", groupShotsLink("states", "상태 화면 캡처 보기"))
-    .replace("<!-- ADMIN_SHOTS_LINK -->", groupShotsLink("tables", "변경 감사·운영 캡처 보기"))
-    .replace("<!-- SHELL_SHOTS_LINK -->", groupShotsLink("shell", "시스템 전환기 캡처 보기"))
-    .replace("<!-- LEAD_SHOTS_LINK -->", shotsLink)
     .replace(
       "<!-- CHART_BRANCH_SHOTS_LINK -->",
       '<a href="#actual-shots" data-chart-shots-link>갤러리에서 실제 차트 보기 →</a>',
@@ -269,13 +271,21 @@ if (shots.length) {
 } else {
   html = html
     .replace("<!-- ACTUAL_SHOTS -->", "")
-    .replace("<!-- CHART_SHOTS_LINK -->", "")
-    .replace("<!-- LEAD_SHOTS_LINK -->", "")
-    .replace("<!-- STATES_SHOTS_LINK -->", "")
-    .replace("<!-- ADMIN_SHOTS_LINK -->", "")
-    .replace("<!-- SHELL_SHOTS_LINK -->", "")
     .replace('<p class="caption"><!-- CHART_BRANCH_SHOTS_LINK --></p>', "");
 }
+// 본문 캡처 자리: 캡처가 있으면 이미지(와 번호 위치)를 심고, 없으면 자리 전체를 지운다.
+// 캡처 없는 조립에서도 도식과 글만으로 페이지가 읽힌다.
+const figureSlot = /<figure class="([^"]*)" data-shot-fig="([a-z][a-z0-9-]*)">([\s\S]*?)<\/figure>/g;
+const shotById = new Map(shots.map((shot) => [shot.id, shot]));
+html = html.replace(figureSlot, (whole, cls, id, inner) => {
+  const shot = shotById.get(id);
+  if (!shot) return "";
+  const img = `<img src="assets/shots/${shot.id}.png" loading="lazy" width="${shot.width}" height="${shot.height}" alt="${escapeHtml(shot.title + ". " + shot.description)}">`;
+  const marks = (shot.marks || []).length
+    ? `<ol class="callouts" aria-hidden="true">${shot.marks.map((m) => `<li style="--x:${m.x}%;--y:${m.y}%"><span class="callout-no">${m.n}</span></li>`).join("")}</ol>`
+    : "";
+  return `<figure class="${cls}" data-shot-fig="${id}"><span class="shot-frame">${img}${marks}</span>${inner.replace("<!--shot:" + id + "-->", "")}</figure>`;
+});
 await writeFile(join(out, "index.html"), html);
 const noindex = (html) =>
   /<meta\b[^>]*name=["']robots["']/i.test(html)

@@ -206,7 +206,24 @@ try {
       hideSticky: false,
     };
   }
-  async function capture(id, title, description, group, action, plan, cards = []) {
+  // 번호 위치: 캡처 영역 안에서 대상 요소의 왼쪽 위 안쪽 점을 %로 잰다. 못 찾은 번호는 건너뛴다.
+  async function placeMarks(targets, area) {
+    const marks = [];
+    for (const [n, locate] of targets) {
+      try {
+        const box = await locate().first().boundingBox({ timeout: 3000 });
+        if (!box) throw new Error("no box");
+        const x = ((box.x + Math.min(14, box.width / 2) - area.x) / area.width) * 100;
+        const y = ((box.y + Math.min(14, box.height / 2) - area.y) / area.height) * 100;
+        if (x < 0 || x > 100 || y < 0 || y > 100) throw new Error("outside the capture");
+        marks.push({ n, x: Number(x.toFixed(1)), y: Number(y.toFixed(1)) });
+      } catch (error) {
+        console.warn(`  번호 ${n} 건너뜀: ${String(error.message).split("\n")[0]}`);
+      }
+    }
+    return marks;
+  }
+  async function capture(id, title, description, group, action, plan, cards = [], targets = null) {
     currentId = id;
     await action();
     const planned = await plan();
@@ -214,6 +231,7 @@ try {
     await page.evaluate(() => document.fonts.ready);
     const { clip = planned, cover = false, hideSticky = true } = planned.clip ? planned : {};
     const area = frame(clip);
+    const marks = targets ? await placeMarks(targets, area) : [];
     if (hideSticky) await hideChrome(area.y);
     const png = await page.screenshot({ clip: area, animations: "disabled", caret: "hide", scale: "device" });
     if (hideSticky) await restoreChrome();
@@ -231,6 +249,7 @@ try {
       scale: 2,
       ...(cover ? { fit: "cover-top" } : {}),
       cards,
+      ...(marks.length ? { marks } : {}),
     });
     console.log(`${id}: ${area.width}×${area.height}, ${(png.length / 1024).toFixed(1)} KB`);
   }
@@ -560,6 +579,32 @@ try {
       id === "error" ? ["C11"] : [],
     );
   }
+  // 02 절 주석 캡처: 1440폭 전체 화면(셸 포함). 번호 7개의 위치를 캡처 때 잰다.
+  await capture(
+    "cycle-time-full",
+    "MARS · 사이클타임 상세 전체 화면",
+    "조건 바·차트·표·상세 진입·VOC 진입이 한 화면에 있는 모습입니다.",
+    "tables",
+    async () => {
+      await page.setViewportSize({ width: 1440, height: 1100 });
+      await cycle();
+    },
+    () => {
+      const viewport = page.viewportSize();
+      return { clip: { x: 0, y: 0, width: viewport.width, height: viewport.height }, hideSticky: false };
+    },
+    [],
+    [
+      [1, () => page.getByRole("button", { name: "링크 복사", exact: true }).locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' sticky ')][1]")],
+      [2, () => page.getByRole("button", { name: "링크 복사", exact: true })],
+      [3, () => button("데이터 신뢰").first()],
+      [4, () => button("비교", trend())],
+      [5, () => page.getByRole("button", { name: "컬럼", exact: true })],
+      [6, () => page.getByRole("button", { name: /^상세/ })],
+      [7, () => page.getByRole("navigation", { name: "FeedbackOps · MARS", exact: true })],
+    ],
+  );
+  await page.setViewportSize({ width: 1440, height: 900 });
   await capture(
     "feedbackops-entry",
     "FeedbackOps · VOC 진입",

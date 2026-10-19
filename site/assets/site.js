@@ -23,11 +23,6 @@
       if (focus) buttons[active].focus();
       if (root.dataset.tabs === "branches") highlightBranch(active + 1);
       if (root.dataset.tabs === "layers" && focus) openCard(["C1", "U1", "K1"][active], false);
-      if (root.dataset.tabs === "steps") {
-        all("[data-step]").forEach(function (button) {
-          button.disabled = Number(button.dataset.step) < 0 ? active === 0 : active === buttons.length - 1;
-        });
-      }
     }
     buttons.forEach(function (button, i) {
       button.addEventListener("click", function () {
@@ -77,20 +72,6 @@
     });
   });
   caseSelect("0");
-  all("[data-step]").forEach(function (button) {
-    button.addEventListener("click", function () {
-      var step = tabs.get("steps");
-      step.select(step.current() + Number(button.dataset.step), false);
-    });
-  });
-  all("[data-loop-step]").forEach(function (link) {
-    function selectStep() {
-      var step = tabs.get("steps");
-      if (step) step.select(Number(link.dataset.loopStep), false);
-    }
-    link.addEventListener("click", selectStep);
-    link.addEventListener("focus", selectStep);
-  });
 
   var board = document.getElementById("analysis-board");
   if (board) {
@@ -153,6 +134,21 @@
         return key + " " + context[key];
       }).join(" · ");
     }
+    // board-diff:start
+    // Keys the selected cell has and this cell lacks show as "—", never "undefined".
+    function contextDiff(activeContext, paneContext) {
+      var differences = [];
+      var same = 0;
+      Object.keys(activeContext).forEach(function (key) {
+        if (key in paneContext && paneContext[key] === activeContext[key]) same += 1;
+        else differences.push({ key: key, value: key in paneContext ? paneContext[key] : "—" });
+      });
+      Object.keys(paneContext).forEach(function (key) {
+        if (!(key in activeContext)) differences.push({ key: key, value: paneContext[key] });
+      });
+      return { differences: differences, same: same };
+    }
+    // board-diff:end
     function updatePaneSelection() {
       var sheet = currentSheet();
       var activeContext = sheet.panes[selectedPane].context;
@@ -163,17 +159,12 @@
         article.classList.toggle("is-selected", index === selectedPane);
         var differences = article.querySelector(".pane-differences");
         differences.replaceChildren();
-        Object.keys(activeContext).forEach(function (key) {
-          if (pane.context[key] !== activeContext[key]) addText(differences, "span", key + " " + pane.context[key], "difference-chip");
+        var diff = contextDiff(activeContext, pane.context);
+        diff.differences.forEach(function (item) {
+          addText(differences, "span", item.key + " " + item.value, "difference-chip");
         });
-        Object.keys(pane.context).forEach(function (key) {
-          if (!(key in activeContext)) addText(differences, "span", key + " " + pane.context[key], "difference-chip");
-        });
-        var sameCount = Object.keys(activeContext).filter(function (key) {
-          return key in pane.context && pane.context[key] === activeContext[key];
-        }).length;
         var sameSummary = article.querySelector(".board-context summary");
-        sameSummary.textContent = "같음 " + sameCount;
+        sameSummary.textContent = "같음 " + diff.same;
         sameSummary.setAttribute("aria-label", "칸 " + (index + 1) + "의 같은 조건 전체 보기");
       });
     }
@@ -251,23 +242,17 @@
         addText(identity, "span", pane.system, "system-chip");
         addText(identity, "b", pane.screen, "pane-screen");
         header.appendChild(identity);
-        var activeKeys = Object.keys(activeContext);
         var differences = document.createElement("div");
         differences.className = "pane-differences";
         differences.setAttribute("aria-label", "선택한 칸과 다른 조건");
-        activeKeys.forEach(function (key) {
-          if (pane.context[key] !== activeContext[key]) addText(differences, "span", key + " " + pane.context[key], "difference-chip");
-        });
-        Object.keys(pane.context).forEach(function (key) {
-          if (!(key in activeContext)) addText(differences, "span", key + " " + pane.context[key], "difference-chip");
+        var diff = contextDiff(activeContext, pane.context);
+        diff.differences.forEach(function (item) {
+          addText(differences, "span", item.key + " " + item.value, "difference-chip");
         });
         header.appendChild(differences);
-        var same = Object.keys(activeContext).filter(function (key) {
-          return key in pane.context && pane.context[key] === activeContext[key];
-        });
         var sameDetails = document.createElement("details");
         sameDetails.className = "board-popover board-context";
-        var sameSummary = addText(sameDetails, "summary", "같음 " + same.length);
+        var sameSummary = addText(sameDetails, "summary", "같음 " + diff.same);
         sameSummary.setAttribute("aria-label", "칸 " + (index + 1) + "의 같은 조건 전체 보기");
         var allConditions = document.createElement("ul");
         Object.keys(pane.context).forEach(function (key) {
@@ -341,9 +326,7 @@
     element.textContent = config.assumption ? "완료(가정)" : "완료";
   });
   var basis = document.querySelector(".basis");
-  document.getElementById("basis-label").textContent = config.assumption
-    ? "기준 2026-10-20 · 정비 이슈 해결 반영"
-    : "기준 2026-10-20 · " + (config.builtAt || "조립 전");
+  document.getElementById("basis-label").textContent = "기준 2026-10-20";
   if (!config.assumption) {
     basis.querySelector(".basis-popover").hidden = true;
     basis.querySelector("summary").addEventListener("click", function (event) {
@@ -616,24 +599,20 @@
   current(location.hash.slice(1) || "intro");
   if (window.IntersectionObserver) {
     var sections = all("main>section");
-    // Anchor jumps land a section at scroll-padding-top + scroll-margin-top;
-    // comparing with the same offset (+1px for sub-pixel rounding) keeps the
-    // jumped-to section ahead of the one whose top is still above it.
-    var rootPad = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
-    var landing = sections.map(function (section) {
-      return rootPad + (parseFloat(getComputedStyle(section).scrollMarginTop) || 0);
-    });
+    // The current section is the last one whose top has passed a reading line:
+    // header height + 30% of the viewport. An anchor jump lands a section at
+    // scroll-padding-top, well above that line, so the jumped-to section wins.
+    var topbar = document.querySelector(".topbar");
     var updateCurrent = function () {
-      // Recompute from live geometry so in-page links and deep links land on
-      // the right entry; stale entry/exit rects must not decide the current one.
+      var line = (topbar ? topbar.getBoundingClientRect().height : 0) + window.innerHeight * 0.3;
       var best = sections[0].id;
-      sections.forEach(function (section, i) {
-        if (section.getBoundingClientRect().top <= landing[i] + 1) best = section.id;
+      sections.forEach(function (section) {
+        if (section.getBoundingClientRect().top <= line) best = section.id;
       });
       current(best);
     };
     var observer = new IntersectionObserver(updateCurrent, {
-      rootMargin: "-50px 0px -60% 0px",
+      rootMargin: "0px 0px 0px 0px",
       threshold: 0,
     });
     sections.forEach(function (section) {
@@ -643,9 +622,15 @@
     // callback can predate the last sub-pixel of a smooth or instant scroll.
     // Recompute once the scroll settles.
     var scrollSettle = 0;
+    var scrollFrame = 0;
     window.addEventListener(
       "scroll",
       function () {
+        if (!scrollFrame)
+          scrollFrame = requestAnimationFrame(function () {
+            scrollFrame = 0;
+            updateCurrent();
+          });
         clearTimeout(scrollSettle);
         scrollSettle = setTimeout(updateCurrent, 120);
       },
