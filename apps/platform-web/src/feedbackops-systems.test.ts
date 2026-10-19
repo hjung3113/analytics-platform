@@ -37,6 +37,13 @@ describe('feedbackOpsSlot', () => {
     }
   });
 
+  it('carries the page it was drawn on as platformReturn on all four entries (FO ADR-0071)', () => {
+    const back = 'https://platform.example/analytics/cycle-time?v=1&scopeId=ICH';
+    const entries = feedbackOpsSlot(F).entriesFor('analytics', back)!;
+    for (const entry of entries) expect(new URL(entry.href!).searchParams.getAll('platformReturn')).toEqual([back]);
+    expect(feedbackOpsSlot(F).overall!.href).toBe(`${F}/home`);
+  });
+
   it('gives a space without a mapping row no block', () => {
     expect(feedbackOpsSlot(F).entriesFor('operations')).toBeNull();
   });

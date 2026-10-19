@@ -6,6 +6,9 @@ import {
   emptyGlobal,
   parseFeedbackOpsLink,
   parsePlatformInboundLink,
+  PLATFORM_RETURN_MAX,
+  platformReturnFor,
+  type FeedbackOpsTarget,
   type GlobalContext,
 } from '@ap/contracts';
 
@@ -19,7 +22,7 @@ const SURVEY_ID = '33333333-3333-4333-8333-333333333333';
 const NONE: GlobalContext = { ...emptyGlobal };
 const PERIOD: GlobalContext = { ...NONE, scopeId: 'ICH', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' };
 
-describe('FeedbackOps deep link A — platform → FeedbackOps (contract: 1)', () => {
+describe('FeedbackOps deep link A — platform → FeedbackOps (contract: 2)', () => {
   it('emits the phase-1 allowlist URLs byte-exactly', () => {
     expect(buildFeedbackOpsLink({ origin: F, target: { kind: 'voc-create' } })).toBe(`${F}/vocs?action=create`);
     expect(buildFeedbackOpsLink({ origin: F, target: { kind: 'voc-create', managedSystemId: MS_ID } })).toBe(`${F}/vocs?action=create&managedSystem=${MS_ID}`);
@@ -130,6 +133,70 @@ describe('FeedbackOps deep link A — space entry targets (ADR-0045, #251)', () 
   it('keeps the existing detail and create shapes distinct from the list shapes', () => {
     expect(parseFeedbackOpsLink(`${F}/vocs?view=inbox&selected=${VOC_ID}&managedSystem=${MS_ID}`, F).target).toEqual({ kind: 'voc-detail', vocId: VOC_ID, managedSystemId: MS_ID });
     expect(parseFeedbackOpsLink(`${F}/surveys/${SURVEY_ID}`, F).target).toEqual({ kind: 'survey-detail', surveyId: SURVEY_ID });
+  });
+});
+
+describe('FeedbackOps platformReturn (contract: 2, FO ADR-0071)', () => {
+  const BACK = `${P}/analytics/cycle-time?v=1&scopeId=ICH&from=2026-09-25T09%3A00%3A00&to=2026-09-26T09%3A00%3A00`;
+  const back = (target: FeedbackOpsTarget, platformReturn: string) => ({ ...target, platformReturn }) as FeedbackOpsTarget;
+  const RETURNABLE: FeedbackOpsTarget[] = [
+    { kind: 'voc-create' },
+    { kind: 'voc-create', managedSystemId: MS_ID },
+    { kind: 'voc-detail', vocId: VOC_ID, managedSystemId: MS_ID },
+    { kind: 'voc-list', managedSystemId: MS_ID },
+    { kind: 'task-list', managedSystemId: MS_ID },
+    { kind: 'survey-list', managedSystemId: MS_ID },
+    { kind: 'survey-detail', surveyId: SURVEY_ID },
+  ];
+
+  it('appends platformReturn last, encoded, on every route FeedbackOps accepts it, and round-trips', () => {
+    for (const target of RETURNABLE) {
+      const url = buildFeedbackOpsLink({ origin: F, target: back(target, BACK) });
+      const params = [...new URL(url).searchParams];
+      expect(params.at(-1)).toEqual(['platformReturn', BACK]);
+      expect(url).toContain(`platformReturn=${encodeURIComponent(BACK).replace(/%20/g, '+')}`);
+      expect(parseFeedbackOpsLink(url, F).target).toEqual(back(target, BACK));
+    }
+    expect(buildFeedbackOpsLink({ origin: F, target: { kind: 'survey-detail', surveyId: SURVEY_ID, platformReturn: `${P}/` } }))
+      .toBe(`${F}/surveys/${SURVEY_ID}?platformReturn=${encodeURIComponent(`${P}/`)}`);
+  });
+
+  it('keeps every target byte-identical when platformReturn is absent', () => {
+    for (const target of RETURNABLE) expect(new URL(buildFeedbackOpsLink({ origin: F, target })).searchParams.has('platformReturn')).toBe(false);
+    expect(buildFeedbackOpsLink({ origin: F, target: { kind: 'survey-detail', surveyId: SURVEY_ID } })).toBe(`${F}/surveys/${SURVEY_ID}`);
+  });
+
+  it.each([
+    ['relative', '/analytics/cycle-time'],
+    ['http off loopback', 'http://platform.example/'],
+    ['userinfo', 'https://user:pw@platform.example/'],
+    ['javascript', 'javascript:alert(1)'],
+    ['too long', `${P}/?q=${'x'.repeat(PLATFORM_RETURN_MAX)}`],
+  ])('rejects a %s platformReturn on build and parse (feedbackops_return)', (_name, value) => {
+    expect(code(() => buildFeedbackOpsLink({ origin: F, target: { kind: 'task-list', managedSystemId: MS_ID, platformReturn: value } }))).toBe('feedbackops_return');
+    expect(code(() => parseFeedbackOpsLink(`${F}/tasks?managedSystem=${MS_ID}&platformReturn=${encodeURIComponent(value)}`, F))).toBe('feedbackops_return');
+  });
+
+  it('accepts loopback http and exactly the length cap', () => {
+    const local = 'http://localhost:5180/equipment?v=1';
+    expect(parseFeedbackOpsLink(buildFeedbackOpsLink({ origin: F, target: { kind: 'task-list', managedSystemId: MS_ID, platformReturn: local } }), F).target)
+      .toEqual({ kind: 'task-list', managedSystemId: MS_ID, platformReturn: local });
+    const edge = `${P}/?q=${'x'.repeat(PLATFORM_RETURN_MAX - `${P}/?q=`.length)}`;
+    expect(edge).toHaveLength(PLATFORM_RETURN_MAX);
+    expect(code(() => buildFeedbackOpsLink({ origin: F, target: { kind: 'task-list', managedSystemId: MS_ID, platformReturn: edge } }))).toBe('ok');
+  });
+
+  it('keeps /home without a query, and rejects a duplicate platformReturn or one on another survey path', () => {
+    expect(code(() => parseFeedbackOpsLink(`${F}/home?platformReturn=${encodeURIComponent(BACK)}`, F))).toBe('feedbackops_path');
+    expect(code(() => parseFeedbackOpsLink(`${F}/tasks?managedSystem=${MS_ID}&platformReturn=${encodeURIComponent(BACK)}&platformReturn=${encodeURIComponent(BACK)}`, F))).toBe('feedbackops_path');
+    expect(code(() => parseFeedbackOpsLink(`${F}/surveys/${SURVEY_ID}?platformReturn=${encodeURIComponent(BACK)}&builder=x`, F))).toBe('feedbackops_path');
+  });
+
+  it('platformReturnFor: the full URL, else the path-only URL, else nothing — never throws', () => {
+    expect(platformReturnFor(BACK, `${P}/analytics/cycle-time`)).toBe(BACK);
+    const long = `${P}/equipment?v=1&selectedEquipmentIds=${'A'.repeat(PLATFORM_RETURN_MAX)}`;
+    expect(platformReturnFor(long, `${P}/equipment`)).toBe(`${P}/equipment`);
+    expect(platformReturnFor('http://platform.example/x', 'http://platform.example/x')).toBeUndefined();
   });
 });
 

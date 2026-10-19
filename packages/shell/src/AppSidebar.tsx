@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, ClipboardList, Clock3, ExternalLink, ListTodo, MessageSquarePlus, MessagesSquare, Star } from 'lucide-react';
+import { platformReturnFor } from '@ap/contracts';
 import { type FeedbackOpsEntryId, type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { ScopeSelector } from './ScopeSelector';
@@ -71,14 +72,15 @@ export function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onTogg
 }
 
 function FeedbackOpsBlock({ collapsed }: { collapsed: boolean }) {
-  const { slots, route, currentSpace, sidebarSpace, accessibleSpaces } = usePlatform();
+  const { slots, route, currentSpace, sidebarSpace, accessibleSpaces, url, pathname, absoluteUrl } = usePlatform();
   const { tx, lang } = useI18n();
   const slot = slots.feedbackOps;
   // Only the space this sidebar is drawing, and only when the route is that space's menu.
   // A denied-space URL and an unmatched path keep a fallback sidebar but must not query another space.
   if (!slot || sidebarSpace === null || !accessibleSpaces.some(space => space.id === sidebarSpace.id)) return null;
   if (route === null || currentSpace?.id !== sidebarSpace.id) return null;
-  const entries = slot.entriesFor(sidebarSpace.id);
+  // The page this sidebar is drawing is where FeedbackOps links back to (FO ADR-0071); `url` re-renders the hrefs on every navigation.
+  const entries = slot.entriesFor(sidebarSpace.id, platformReturnFor(absoluteUrl(url), absoluteUrl(pathname)));
   if (!entries || entries.length === 0) return null;
   const spaceName = tx(sidebarSpace.label);
   const heading = `FeedbackOps · ${spaceName}`;

@@ -13,11 +13,12 @@ export const FEEDBACKOPS_MANAGED_SYSTEMS: Readonly<Partial<Record<SpaceId, strin
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const ENTRIES: readonly { id: FeedbackOpsEntry['id']; label: FeedbackOpsEntry['label']; target: (managedSystemId: string) => FeedbackOpsTarget }[] = [
-  { id: 'voc-create', label: { ko: 'VOC 등록', en: 'Submit VOC' }, target: managedSystemId => ({ kind: 'voc-create', managedSystemId }) },
-  { id: 'voc', label: { ko: 'VOC', en: 'VOC' }, target: managedSystemId => ({ kind: 'voc-list', managedSystemId }) },
-  { id: 'task', label: { ko: 'Task', en: 'Tasks' }, target: managedSystemId => ({ kind: 'task-list', managedSystemId }) },
-  { id: 'survey', label: { ko: '설문', en: 'Surveys' }, target: managedSystemId => ({ kind: 'survey-list', managedSystemId }) },
+type Back = { platformReturn?: string };
+const ENTRIES: readonly { id: FeedbackOpsEntry['id']; label: FeedbackOpsEntry['label']; target: (managedSystemId: string, back: Back) => FeedbackOpsTarget }[] = [
+  { id: 'voc-create', label: { ko: 'VOC 등록', en: 'Submit VOC' }, target: (managedSystemId, back) => ({ kind: 'voc-create', managedSystemId, ...back }) },
+  { id: 'voc', label: { ko: 'VOC', en: 'VOC' }, target: (managedSystemId, back) => ({ kind: 'voc-list', managedSystemId, ...back }) },
+  { id: 'task', label: { ko: 'Task', en: 'Tasks' }, target: (managedSystemId, back) => ({ kind: 'task-list', managedSystemId, ...back }) },
+  { id: 'survey', label: { ko: '설문', en: 'Surveys' }, target: (managedSystemId, back) => ({ kind: 'survey-list', managedSystemId, ...back }) },
 ];
 
 /** href for one entry; a missing or non-canonical origin yields null (the shell draws the entry disabled, 15 §8). */
@@ -33,10 +34,11 @@ function hrefOrNull(origin: string | null, target: FeedbackOpsTarget): string | 
 export function feedbackOpsSlot(origin: string | null): FeedbackOpsSlot {
   const overallHref = hrefOrNull(origin, { kind: 'overall' });
   return {
-    entriesFor: spaceId => {
+    entriesFor: (spaceId, platformReturn) => {
       const managedSystemId = FEEDBACKOPS_MANAGED_SYSTEMS[spaceId];
       if (managedSystemId === undefined || !UUID.test(managedSystemId)) return null;
-      return ENTRIES.map(({ id, label, target }) => ({ id, label, href: hrefOrNull(origin, target(managedSystemId)) }));
+      const back: Back = platformReturn === undefined ? {} : { platformReturn };
+      return ENTRIES.map(({ id, label, target }) => ({ id, label, href: hrefOrNull(origin, target(managedSystemId, back)) }));
     },
     overall: overallHref === null ? null : { href: overallHref, permission: 'feedbackops:access' },
   };
