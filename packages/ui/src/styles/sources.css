@@ -1,0 +1,3 @@
+/* Scan this package's sources for Tailwind classes. For consumers that import the individual style files
+ * (tokens, semantic, theme, compat) instead of the `index.css` entry (which carries the same `@source`). */
+@source "../";

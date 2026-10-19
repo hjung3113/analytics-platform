@@ -29,6 +29,16 @@ const PUBLIC_EXPORTS = [
   'ActiveFilterBar', 'Callout', 'DatePicker', 'DetailPanelFullscreenContext', 'DetailPanelFullscreenToggle', 'DetailPanelHeader', 'DetailPanelHeaderActions', 'DetailPanelReadingColumn', 'DetailPanelSectionNav', 'StatusBadgeFrame', 'DirtyConfirmation', 'EmptyState', 'FieldLabel', 'FieldRow', 'ListFilterButton', 'ListShell', 'ListSortButton', 'ListTabs', 'ListToolbar', 'NestedTextBlock', 'PageShell', 'PanelSectionTitle', 'PanelTitleBlock', 'PreviewModal', 'SearchInput', 'ShellHeader', 'ToolbarKicker', 'UndoToast', 'WorkbenchShell', 'useDetailPanelContent',
   // Moved from FeedbackOps in #443 (ADR-0046): the domain-coupled rest.
   'ManagedSystemPicker', 'AnalyticsAreaPicker', 'RichEditor', 'AttachButton', 'RichContentRenderer', 'AttachmentRef', 'Mention', 'SeverityIndicator', 'ProgressMeter', 'SeverityBadge', 'SEVERITY_LABELS', 'ReporterStatusBadge', 'InternalTaskBadge', 'UnassignedBadge', 'ManagedSystemPill', 'ManagedSystemMark', 'managedSystemMarkColor', 'managedSystemMarkToken', 'OutlineBadge', 'EntityIconBadge', 'ENTITY_ICON_MAP', 'UserAvatar', 'UserChip', 'ObjectRow', 'PermissionBlockedPanel', 'LinkedEntityTrail',
+  // Opened for FeedbackOps' `@fops/ui` thin re-export (its consumer; ADR-0046). `TabsListBase`/`TabsTriggerBase` are the unwrapped shadcn tabs.
+  'AlertDialog', 'AlertDialogAction', 'AlertDialogCancel', 'AlertDialogContent', 'AlertDialogDescription', 'AlertDialogFooter', 'AlertDialogHeader', 'AlertDialogOverlay', 'AlertDialogPortal', 'AlertDialogTitle', 'AlertDialogTrigger',
+  'Avatar', 'AvatarFallback', 'AvatarImage',
+  'Card', 'CardContent', 'CardDescription', 'CardFooter', 'CardHeader', 'CardTitle',
+  'Combobox',
+  'HoverCard', 'HoverCardContent', 'HoverCardTrigger',
+  'Sheet', 'SheetClose', 'SheetContent', 'SheetDescription', 'SheetFooter', 'SheetHeader', 'SheetOverlay', 'SheetPortal', 'SheetTitle', 'SheetTrigger',
+  'Textarea', 'ToggleGroup', 'ToggleGroupItem', 'DialogContentBare', 'TabsListBase', 'TabsTriggerBase',
+  'KeyboardShortcut', 'SkeletonBlocks', 'SkeletonRows',
+  'DIALOG_CONTENT_MOTION', 'POPPER_CONTENT_MOTION', 'SCRIM_MOTION', 'SELECT_CONTENT_MOTION', 'SHEET_CONTENT_MOTION', 'readMotionTiming', 'useListMotion', 'isToastTarget',
 ];
 
 it('pins the @ap/ui public export names', () => {
