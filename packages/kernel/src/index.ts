@@ -10,3 +10,4 @@ export {
 } from './registry';
 export { type PageNavigation } from './pageNavigation';
 export { mountModule, type MountOptions } from './module';
+export { useModuleHost, type ModuleShellPorts } from './module-host';

@@ -1,6 +1,6 @@
 import type { ComponentType, LazyExoticComponent } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { GLOBAL_KEYS, GROUP_IDS, PERMISSIONS, isAppRelativePath, parseQuery, type ContextKey, type GroupId, type MenuMeta, type ModuleScopedId, type ModuleScreenProps, type PageType, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
+import { GLOBAL_KEYS, GROUP_IDS, PERMISSIONS, isAppRelativePath, parseQuery, type ContextKey, type GroupId, type HostFeature, type MenuMeta, type ModuleScopedId, type ModuleScreenProps, type PageType, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
 
 /** docs/06 §5: menus declare, the shell consumes. Metadata lives in @ap/contracts; this adds the React bindings. */
 export type PageProps = { params: Record<string, string> };
@@ -14,7 +14,7 @@ export type PlatformMenuEntry = MenuMeta & {
 
 /**
  * A menu a module brings (ADR-0053): open vocabulary, prefixed with `module`. `moduleScreen` is rendered with
- * `{ params, host }` (#489); until then it has no `component`, so it does not count as implemented.
+ * `{ params, host }` (the shell's ModuleScreen); it has no `component` but still counts as implemented.
  */
 export type ModuleMenuEntry = Omit<MenuMeta, 'group' | 'permission'> & {
   module: string;
@@ -23,6 +23,10 @@ export type ModuleMenuEntry = Omit<MenuMeta, 'group' | 'permission'> & {
   icon: LucideIcon;
   component?: undefined;
   moduleScreen: ComponentType<ModuleScreenProps>;
+  /** Host features the module declared (`requires` ∪ `optional`) that this host provides; `mountModule` fills it. */
+  moduleFeatures?: readonly HostFeature[];
+  /** The manifest's `config` keys with the values the assembly gave; `mountModule` fills it. */
+  moduleConfig?: Readonly<Record<string, string>>;
 };
 
 export type MenuEntry = PlatformMenuEntry | ModuleMenuEntry;

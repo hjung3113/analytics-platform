@@ -115,7 +115,7 @@ export function CommandPalette() {
                     <Icon className="size-4 text-text-muted" aria-hidden />
                     <span className="flex-1">
                       <span className="block text-sm font-medium">{tx(m.label)}</span>
-                      <span className="block text-tiny text-text-secondary">{!m.component ? `${base} · ${t('planned')}` : base}</span>
+                      <span className="block text-tiny text-text-secondary">{!m.component && !m.moduleScreen ? `${base} · ${t('planned')}` : base}</span>
                     </span>
                     {i === active && <CornerDownLeft className="size-3.5 text-text-muted" aria-hidden />}
                   </li>;

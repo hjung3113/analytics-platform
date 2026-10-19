@@ -50,7 +50,7 @@
 | --- | --- | --- | --- |
 | Registry 진입 | 화면을 메뉴로 등록, 사이드바·팔레트·breadcrumb·권한 숨김·미구현 표시 | `createRegistry`, 셸 | 모듈은 사이드바 JSX를 만들지 않는다(06 §5 금지) |
 | 경로·page key | 화면 매칭 params, 등록 page key 값(읽기), `setPage`(push/replace), 모듈 안 이동 `href`/`navigate`, 다른 메뉴로 `linkTo`(menuId) | `route.params`, `pageParam`, `setPage`, `navigate`, `resolveLink` | URL 문자열을 모듈이 조립하지 않는다(06 §22). 모르는 키·형식 오류는 보정하지 않고 거부(06 §6.4) |
-| 전역 Context | 선언한 `apply`·`reference` 키의 현재 값과 미적용 표시 | `global`, `projectContext` | 모듈은 전역 Context를 쓰지 않는다(쓰기는 셸·Context 바 몫). EV 재생 구간의 명시적 "분석 구간 적용"만 06 §6.1 규칙으로 허용 후보 |
+| 전역 Context | 선언한 `apply`·`reference` 키의 현재 값과 미적용 표시. 1판 의미(Decided, 코디네이터): `host.context()`는 `time`→`from`·`to`, `roomNames`, `condition`, `selection`, `lot`→`lotIds`, `ppid`, `recipe`→`recipeIds`, `metric`→`metricId`+`metricVersion`(둘이 함께)을 옮기고, `unsupported`로 선언한 키는 값 없이 `unsupported` 목록에 이름만 준다. `scopeId`는 화면이 `requiresScope`일 때만 포함한다. null·명시적 공집합은 그대로 두고 URL을 바꾸지 않는다. 참조 값은 여기서 보이고 질의 투영(`projectContext`)에서는 빠진다 | `global`, `projectContext` | 모듈은 전역 Context를 쓰지 않는다(쓰기는 셸·Context 바 몫). EV 재생 구간의 명시적 "분석 구간 적용"만 06 §6.1 규칙으로 허용 후보 |
 | 권한·Scope | 표시용 `can(permission)`, Scope 상태(`valid` 전에는 Scope 조회 금지) | `can`, `scope` | 표시용일 뿐, 서버가 매 요청 재검증(06 §6.2·§17) |
 | 데이터 | (a) 플랫폼 서버: `query(spec, params, signal)` → `ApiResponse` (b) 제품 서버: 조립 설정의 기준 경로·자격 증명 방식 | `menuQuery`, `useMenuQuery` 수명주기 | (b)는 새 항목. 세션 세대가 바뀌면 이전 결과를 숨긴다(`usePlatformQuery` identity 규칙과 같은 의미) |
 | 세션·신원 | 동기 스냅샷 `{ user, generation }`, 변경 구독 | `session()`, `subscribe`, `revision` | 제품 서버 세션과 다르면 모듈이 차단(§5.4) |

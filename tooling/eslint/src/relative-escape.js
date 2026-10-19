@@ -42,7 +42,7 @@ const noRelativePackageEscape = {
     docs: {
       description: 'Disallow relative imports and exports that leave the owning workspace package',
     },
-    schema: [{ type: 'object', properties: { anyPackageName: { type: 'boolean' } }, additionalProperties: false }],
+    schema: [{ type: 'object', properties: { anyPackageName: { type: 'boolean' }, root: { type: 'string' } }, additionalProperties: false }],
     messages: {
       escape:
         "Relative path '{{source}}' escapes package '{{pkg}}'. Import the package entry ('{{pkg}}') instead.",
@@ -52,7 +52,11 @@ const noRelativePackageEscape = {
   },
   create(context) {
     const fileDir = path.dirname(context.filename);
-    const owner = findOwningPackage(fileDir, context.options[0]?.anyPackageName === true);
+    // `root` (relative to the lint cwd) makes a directory the boundary, for a module that is not its own package.
+    const root = context.options[0]?.root;
+    const owner = root === undefined
+      ? findOwningPackage(fileDir, context.options[0]?.anyPackageName === true)
+      : { root: path.resolve(context.cwd, root), name: root };
 
     const checkLiteral = (source) => {
       if (!source) return;
