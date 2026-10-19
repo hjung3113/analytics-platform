@@ -83,7 +83,7 @@
 
 | 기능 | AP | FO | EV | 판정 |
 | --- | --- | --- | --- | --- |
-| 토큰·primitive | `@ap/ui`는 `@fops/ui` 재수출 + 확장 층 | **현재 원본** `@fops/ui`(Pack 17, Tailwind v4) | `@eqv/ui`가 `@fops/ui`를 서브모듈로 소비(EV ADR-0008) + `--eqv-*` 24개(렌더러 전용) | ⬇ 코드를 SDK로 이전(ADR-0043). EV 서브모듈 경로도 SDK 소비로 바뀐다 |
+| 토큰·primitive | `@ap/ui`는 `@fops/ui` 재수출 + 확장 층 | **현재 원본** `@fops/ui`(Pack 17, Tailwind v4) | `@eqv/ui`가 `@fops/ui`를 서브모듈로 소비(EV ADR-0008) + `--eqv-*` 24개(렌더러 전용) | ⬇ 코드를 SDK로 이전(ADR-0043) — **이전 끝**(#441–#443, ADR-0046: `@fops/ui` 전체가 `@ap/ui`에 있다). EV 서브모듈 경로도 SDK 소비로 바뀐다(전환은 열림) |
 | 셸·레이아웃 | `@ap/shell`(레일 52·사이드바 240·머리 50), `AnalysisLayout`·`ManagementLayout`·`DrillLayout` | `PageShell`·`ListShell`·`WorkbenchShell`은 **`@fops/ui` 안**. `AppFrame` 계열은 앱 안이며 managed-systems·권한·저장된 뷰를 직접 조회해 도메인 결합이 큼 | `@eqv/ui` `AppFrame`·`Page`(AP를 손으로 복사한 치수) | ⬇ 구현 **세 벌**을 SDK 하나로. FO `AppFrame`은 ⛔ 그대로 옮기지 않음 |
 | 상세 패널 슬롯 | `DetailPanelSlot`(ADR-0013) | `DetailPanelSlotContext`(마지막 등록자 승리 + dev 경고) | 쓰지 않음 | ⬇ 슬롯 하나로 통합(G10) — 결정됨 [ADR-0047](../adr/0047-detail-panel-slot-single-registrant-model.md): FO의 `useDetailPanelSlot(node)`는 `@ap/ui` `useDetailPanelContent`(같은 `DetailPanelSlotProvider`의 내용 등록)로 옮겼다 |
 | 문서 제목 | 없음 | `DocumentTitleProvider`, **모듈 전역 Map 상태**라 인스턴스 간 격리 안 됨 | 없음 | 🆕 호스트 소유(G11). ⛔ 전역 Map |
@@ -185,7 +185,7 @@
 
 | 항목 | 상태 | 이유·다시 열 조건 |
 | --- | --- | --- |
-| 디자인 시스템 코드 이전 | [ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md) 결정, 구현 #441→#442→#443 | `@ap/contracts` 배포 모양(#430)은 끝났다 |
+| 디자인 시스템 코드 이전 | [ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md) 코드 이전 끝(#441–#443) | 남은 것: FeedbackOps 소비 전환(+배포 경로 #151), 도메인 결합 부분 분류, `@ap/ui` 전체 배포 모양 |
 | FeedbackOps#1231 본문 | ~~낡음~~ 완료 — 본문 갱신(2026-10-19, 사용자 허락) | "`@fops/ui`를 FeedbackOps가 배포" 서술을 ADR-0046 기준으로 고쳤다 |
 | EV ADR-0010 본문 | "미구현"으로 남아 있으나 코드는 구현됨 | EV 저장소 일 |
 | EV `packages/ui`의 AP 복사 치수 | 셸·표가 AP와 손 복사 | SDK 셸·표가 공개되면 교체. 그전에는 건드리지 않는다 |
