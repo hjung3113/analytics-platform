@@ -36,4 +36,4 @@
 
 - **닫힌 등록자:** `useDetailPanelContent(null)`은 슬롯을 차지하되(이전 등록자는 숨고 정리 시 돌아온다) 아무것도 그리지 않고 `open`은 false다. `undefined`는 계속 비운다.
 - **확장 상태:** Provider가 `expandedKey`를 갖는다. `toggle()`이 활성 키로 켜고 끈다. 활성 키가 바뀌거나, 내용이 null이 되거나, 등록자가 비우거나 언마운트하면 해제되고, `window`의 Escape(`defaultPrevented`가 아닐 때)도 해제한다. 슬롯 내용(portal)만 `DetailPanelFullscreenContext`(`{expanded, toggle}`)를 받고 Provider의 `children`은 받지 않는다. portal 등록자는 영향이 없다.
-- **호스트:** `useDetailPanelSlotHost()`가 `{ ref, open, expanded }`를 돌려준다. `open`은 활성 등록자가 있고 닫힌 내용 등록자가 아닐 때 true다.
+- **호스트:** `useDetailPanelSlotHost()`가 `{ ref, open, expanded, toggle }`을 돌려준다(`toggle`은 #476, `sdk-v0.3.1` — 호스트가 그리는 읽기 칼럼 같은 부분이 슬롯 내용과 같은 확장 상태를 읽고 켜고 끌 수 있게). `open`은 활성 등록자가 있고 닫힌 내용 등록자가 아닐 때 true다.
