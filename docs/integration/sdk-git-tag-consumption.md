@@ -21,5 +21,5 @@
 
 - git 태그 의존성은 **된다**. 결정(레지스트리 없이 태그)을 다시 열 이유는 시험에서 나오지 않았다.
 - 소비자 조건은 둘이다: `@types/node`, 그리고 `@tiptap/*` overrides와 auto-animate 패치를 소비자가 이미 갖거나 갖추는 것. 둘 다 FeedbackOps 전환 작업의 수용 기준에 넣는다.
-- 시험하지 않은 것(전환 전 확인): 소비자 개발 서버·테스트, 사설 원격에서의 인증(CI 토큰 또는 사내 git 접근, [#232](https://github.com/hjung3113/analytics-platform/issues/232) 저장소 공개 범위와 겹침), 의존 `@ap/ui` 버전이 둘 이상일 때의 React Context 중복.
+- 시험하지 않은 것(전환 전 확인): 소비자 개발 서버·테스트, 사내 git 서버 접근(GitHub의 이 저장소는 공개라 인증이 필요 없다. 사내에서 GitHub에 닿는지 또는 사내 미러가 필요한지는 [#151](https://github.com/hjung3113/analytics-platform/issues/151)·[#232](https://github.com/hjung3113/analytics-platform/issues/232)와 함께 확인), 의존 `@ap/ui` 버전이 둘 이상일 때의 React Context 중복.
 - 소스 export는 소비자 번들러가 `.ts`를 변환해야 한다는 전제를 둔다. 소비자가 이를 못 하게 되면 dist 빌드가 필요하고, 그 모양은 `@ap/contracts`([#430](https://github.com/hjung3113/analytics-platform/issues/430))를 따른다.
