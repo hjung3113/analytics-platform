@@ -85,7 +85,7 @@
 | --- | --- | --- | --- | --- |
 | 토큰·primitive | `@ap/ui`는 `@fops/ui` 재수출 + 확장 층 | **현재 원본** `@fops/ui`(Pack 17, Tailwind v4) | `@eqv/ui`가 `@fops/ui`를 서브모듈로 소비(EV ADR-0008) + `--eqv-*` 24개(렌더러 전용) | ⬇ 코드를 SDK로 이전(ADR-0043). EV 서브모듈 경로도 SDK 소비로 바뀐다 |
 | 셸·레이아웃 | `@ap/shell`(레일 52·사이드바 240·머리 50), `AnalysisLayout`·`ManagementLayout`·`DrillLayout` | `PageShell`·`ListShell`·`WorkbenchShell`은 **`@fops/ui` 안**. `AppFrame` 계열은 앱 안이며 managed-systems·권한·저장된 뷰를 직접 조회해 도메인 결합이 큼 | `@eqv/ui` `AppFrame`·`Page`(AP를 손으로 복사한 치수) | ⬇ 구현 **세 벌**을 SDK 하나로. FO `AppFrame`은 ⛔ 그대로 옮기지 않음 |
-| 상세 패널 슬롯 | `DetailPanelSlot`(ADR-0013) | `DetailPanelSlotContext`(마지막 등록자 승리 + dev 경고) | 쓰지 않음 | ⬇ 슬롯 하나로 통합(G10) |
+| 상세 패널 슬롯 | `DetailPanelSlot`(ADR-0013) | `DetailPanelSlotContext`(마지막 등록자 승리 + dev 경고) | 쓰지 않음 | ⬇ 슬롯 하나로 통합(G10) — 결정됨 [ADR-0047](../adr/0047-detail-panel-slot-single-registrant-model.md): FO의 `useDetailPanelSlot(node)`는 `@ap/ui` `useDetailPanelContent`(같은 `DetailPanelSlotProvider`의 내용 등록)로 옮겼다 |
 | 문서 제목 | 없음 | `DocumentTitleProvider`, **모듈 전역 Map 상태**라 인스턴스 간 격리 안 됨 | 없음 | 🆕 호스트 소유(G11). ⛔ 전역 Map |
 | 토스트·알림 | `toast`(Platform) | sonner | `useToastQueue`·`ToastRegion` | 🆕 `notify` 포트 하나 |
 | 모션·reduced motion | `prefersReducedMotion` 재수출 | 모션 토큰, `useListMotion` | 해당 없음 | ✅ / ⬇ 모션 토큰은 토큰 이전에 포함 |

@@ -54,7 +54,7 @@
 | 세션·신원 | 동기 스냅샷 `{ user, generation }`, 변경 구독 | `session()`, `subscribe`, `revision` | 제품 서버 세션과 다르면 모듈이 차단(§5.4) |
 | i18n | 현재 언어 `ko`/`en` | `useI18n().lang`, `Text` | 사전은 모듈 소유. 지원하지 않는 언어는 모듈 기본 언어로 그리고 그 사실을 manifest에 선언 |
 | 감사·활용률 | 활용률(진입·체류)은 **호스트가 자동 기록**(등록 화면 단위), 감사는 서버가 쓴다 | `recordUsage`, `AuditEvent`, `entityAudit` | 모듈은 클라이언트에서 감사 행을 쓰지 않는다. 플랫폼 `AuditTimeline`을 쓸지는 모듈 선택 |
-| 상세 패널 | 셸의 오른쪽 고정 슬롯에 노드 하나를 올리고 내림 | `@ap/ui` `DetailPanelSlot`(ADR-0013) — FO는 별도 `@fops/ui` `DetailPanelSlotContext`(AppFrame이 제공) | FO 목록+상세 화면은 이 슬롯 없이는 상세가 보이지 않는다(제공자가 없으면 hook이 아무것도 하지 않음). 슬롯 primitive가 두 벌이다(G10) |
+| 상세 패널 | 셸의 오른쪽 고정 슬롯에 노드 하나를 올리고 내림 | `@ap/ui` `DetailPanelSlot`(ADR-0013) — FO는 별도 `@fops/ui` `DetailPanelSlotContext`(AppFrame이 제공) | FO 목록+상세 화면은 이 슬롯 없이는 상세가 보이지 않는다(제공자가 없으면 hook이 아무것도 하지 않음). 슬롯 primitive가 두 벌이었으나 [ADR-0047](../adr/0047-detail-panel-slot-single-registrant-model.md)로 하나로 합쳤다(G10) |
 | 문서 제목 | 호스트가 `document.title`을 소유하고 화면 이름은 manifest `label`에서 | 없음(플랫폼은 미정, FO는 `DocumentTitleProvider`) | 모듈이 `document.title`을 직접 쓰지 않는다(G11) |
 | 포커스·복귀 | 도착 포커스 요청 소비, 복귀 대상 `returnTarget()`·출발 표시 `returnOrigin()` | `PageNavigation`, `ReturnLink`(06 §22), ADR-0032 | 지금 도착 포커스는 `PlatformPage`가 수행한다. `PlatformPage`를 쓰지 않는 모듈 화면을 위해 포트에 "도착 포커스 대상 등록"이 필요 |
 | 오류·상태 | 라우트 오류 경계(호스트 소유), `reportError` → correlation id, 알림 `notify` | `RouteErrorBoundary`, `reportClientError`, `toast` | 모듈 상태 `auth_required`·`identity_mismatch`·`unavailable`을 호스트가 공통 화면으로 그린다(새 항목) |
@@ -96,7 +96,7 @@
 | G7 | 도착 포커스 대상 | 도착 포커스(ADR-0032)가 `PlatformPage` 안에 있다 | 포트에 `focusTarget(el)` 등록 또는 모듈 화면이 정해진 속성의 제목을 그림 |
 | G8 | 모듈 CSS 소스 등록 | 모듈 패키지가 Tailwind 클래스를 쓰면 앱 `style.css`의 `@source`가 필요하다(지금 메뉴는 `styles.css` + 앱 import) | 생성기 마커처럼 연결 패키지가 `styles.css`를 내고 앱이 import |
 | G9 | 화면 해제 신호 | 지금은 React 언마운트에 맡긴다 | `host.signal`(AbortSignal) — React 밖 자원(EV worker, FO 업로드 큐) 정리용 |
-| G10 | 상세 슬롯 primitive 두 벌 | 플랫폼 `@ap/ui` `DetailPanelSlot`과 FO `@fops/ui` `DetailPanelSlotContext`가 다른 구현이다 | 포트에 선택 기능 `detail`(노드는 `unknown` 타입)을 두고 FO 모듈 루트가 자기 Context를 그쪽에 잇는다. 장기적으로 원본 하나(`@fops/ui`)로 — ADR-0023 절차대로 FO 이슈 제안 |
+| G10 | 상세 슬롯 primitive 두 벌 (결정됨: [ADR-0047](../adr/0047-detail-panel-slot-single-registrant-model.md) — 슬롯 하나, FO는 전환 시점에 `DetailPanelSlotProvider`를 채택) | 플랫폼 `@ap/ui` `DetailPanelSlot`과 FO `@fops/ui` `DetailPanelSlotContext`가 다른 구현이다 | 포트에 선택 기능 `detail`(노드는 `unknown` 타입)을 두고 FO 모듈 루트가 자기 Context를 그쪽에 잇는다. 장기적으로 원본 하나(`@fops/ui`)로 — ADR-0023 절차대로 FO 이슈 제안 |
 | G11 | 문서 제목 | FO는 `DocumentTitleProvider`가 `"<label> · FeedbackOps"`를 쓰고 플랫폼은 정한 것이 없다 | 호스트 소유. 모듈은 manifest `label`과 동적 제목 요청만 |
 
 ### 2.5 스케치 (설명용, 이름·모양 Candidate)
