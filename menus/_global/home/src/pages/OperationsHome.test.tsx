@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PlatformAdapter, Session } from '@ap/contracts';
+import type { Permission, PlatformAdapter, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import OperationsHome from './OperationsHome';
@@ -10,7 +10,7 @@ const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupp
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const purpose = { ko: '목적', en: 'Purpose' };
 
-function menu(id: string, group: 'overview' | 'equipment' | 'metrics' | 'noticeVoc' | 'admin', path: string, permission: Session['user']['permissions'][number], label: { ko: string; en: string }, primary = false, pageKeys: string[] = []) {
+function menu(id: string, group: 'overview' | 'equipment' | 'metrics' | 'noticeVoc' | 'admin', path: string, permission: Permission, label: { ko: string; en: string }, primary = false, pageKeys: string[] = []) {
   return { id, group, path, permission, primary, label, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: none, pageType: 'overview' as const, features: noFeatures, pageKeys };
 }
 

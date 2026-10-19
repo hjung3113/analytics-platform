@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { House } from 'lucide-react';
 import { useLayoutEffect, useRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformLink, PlatformProvider, createRegistry, usePlatform, type MenuEntry } from '@ap/kernel';
+import { I18nProvider, PlatformLink, PlatformProvider, createRegistry, usePlatform, type PlatformMenuEntry } from '@ap/kernel';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { DetailDrawer } from './DetailDrawer';
 import { PlatformPage } from './PlatformPage';
@@ -10,7 +10,7 @@ import { ReturnLink } from './DrillLayout';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
-function entry(partial: Pick<MenuEntry, 'id' | 'path'> & Partial<MenuEntry>): MenuEntry {
+function entry(partial: Pick<PlatformMenuEntry, 'id' | 'path'> & Partial<PlatformMenuEntry>): PlatformMenuEntry {
   return {
     group: 'overview', label: { ko: partial.id, en: partial.id }, description: { ko: '', en: '' }, icon: House,
     permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features, pageKeys: [],

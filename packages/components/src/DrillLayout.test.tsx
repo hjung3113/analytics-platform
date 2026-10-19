@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useState, type ReactNode } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry, useDrill, usePlatform, type MenuEntry } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, useDrill, usePlatform, type PlatformMenuEntry } from '@ap/kernel';
 import { PlatformPage } from './PlatformPage';
 import { DrillLayout, ReturnLink } from './DrillLayout';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
@@ -11,7 +11,7 @@ const features = { export: false, savedView: false, annotate: false, compare: fa
 const keys = ['drillRoom', 'drillStgroup', 'drillLine', 'drillEquipment'] as const;
 const level = (key: string, ko: string, en: string) => ({ key, label: { ko, en } });
 
-function entry(partial: Pick<MenuEntry, 'id' | 'path'> & Partial<MenuEntry>): MenuEntry {
+function entry(partial: Pick<PlatformMenuEntry, 'id' | 'path'> & Partial<PlatformMenuEntry>): PlatformMenuEntry {
   return {
     group: 'overview', label: { ko: partial.id, en: partial.id }, description: { ko: '', en: '' }, icon: House,
     permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features, pageKeys: [],
