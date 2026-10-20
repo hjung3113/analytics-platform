@@ -1,3 +1,4 @@
+import { unknownLabel } from './analysisChartShared';
 import { BrushIcon, Download, GitCompare, MessageSquarePlus, MoreHorizontal, RotateCcw, Table2, ZoomIn } from 'lucide-react';
 import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
@@ -5,9 +6,9 @@ import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { formatDateTime, parseDateTime } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
-import { AnalysisSectionContext, resolveAnalysisChartSize } from './AnalysisSectionContext';
+import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, type ChartSize } from './AnalysisSectionContext';
 import { chartTheme, EChart, strokeToken, token } from './EChart';
-import { toCsvDocument } from './tableExport';
+import { downloadChartCsv } from './analysisChartCsv';
 import { assignNoteLevels, noteLabelWidths } from './annotationLayout';
 
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
@@ -107,7 +108,7 @@ export type AnalysisChartFrameProps = {
   xType?: 'time' | 'category';
   unit: string;
   valueFormat?: (v: number) => string;
-  height?: number; size?: 'regular' | 'compact' | 'hero';
+  height?: number; size?: ChartSize;
   trust?: { source: string; updated: string; coverage: string };
   /** Time axis only: allow promoting a brushed range to the global period (explicit Apply). */
   canApplyRange?: boolean;
@@ -131,7 +132,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const analysisSection = useContext(AnalysisSectionContext);
   const size = resolveAnalysisChartSize(p.size, analysisSection);
   const compact = size === 'compact';
-  const height = p.height ?? (size === 'hero' ? 360 : compact ? 200 : 260);
+  const height = p.height ?? analysisChartHeight(size, 260);
   const { setGlobal, toast, global, adapter, route } = usePlatform();
   const features = route?.menu.features;
   const canCompare = !!features?.compare && !!p.compareSeries?.length;
@@ -263,7 +264,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       grid: { left: 52, right: 20, top: 16, bottom: 44 },
       tooltip: {
         trigger: 'axis', confine: true, textStyle: { fontSize: 12 },
-        valueFormatter: (v: number | null) => (v === null || v === undefined ? (lang === 'ko' ? '미확인' : 'unknown') : `${format(v)} ${p.unit}`),
+        valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang === 'ko') : `${format(v)} ${p.unit}`),
       },
       xAxis: xType === 'time'
         ? { type: 'time', axisLine: theme.axisLine, axisLabel: { hideOverlap: true }, splitLine: { show: false } }
@@ -373,9 +374,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     const header = ['x', ...visible.map(s => s.name)];
     // The table projection verbatim: numbers stay numbers so the formula guard never prefixes them (#297).
     const body = rows.map(([x, values]) => [x, ...values.map(v => (v === null ? '' : v))]);
-    const meta = `# ${String(typeof p.title === 'string' ? p.title : p.chartId)} · scopeId=${global.scopeId ?? ''} · from=${global.from ?? ''} · to=${global.to ?? ''}${p.metricVersion ? ` · metricVersion=${p.metricVersion}` : ''}`;
-    const blob = new Blob([toCsvDocument(meta, header, body)], { type: 'text/csv' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${p.chartId}.csv`; a.click(); URL.revokeObjectURL(a.href);
+    downloadChartCsv({ ...p, context: global }, header, body);
     toast(lang === 'ko' ? `${p.chartId}.csv 내보냄 (보이는 시리즈, 현재 적용 Context 기준)` : `Exported ${p.chartId}.csv (visible series, applied context)`);
   }
 

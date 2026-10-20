@@ -1,29 +1,13 @@
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { mount } from './__tests__/test-support';
+import { act, cleanup, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry, useI18n, usePlatform } from '@ap/kernel';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
-import { AnalysisChart, type ChartSpec } from './AnalysisChart';
+import { type ChartSpec } from './AnalysisChart';
 import { readColorToken } from '@ap/ui/theme';
 import type { EChartProps } from './EChart';
 
 let plot: EChartProps;
 vi.mock('./EChartImpl', () => ({ default: (props: EChartProps) => { plot = props; return <div role="img" aria-label={props.ariaLabel} />; } }));
-function ChangeContext() {
-  const { setGlobal } = usePlatform();
-  const { setLang } = useI18n();
-  return <><button onClick={() => setLang('en')}>english</button><button onClick={() => setGlobal({ scopeId: 'FDRY' })}>context</button></>;
-}
-function mount(spec: ChartSpec, canExport = false, hasRoute = true) {
-  window.history.replaceState(null, '', hasRoute ? '/?v=1&scopeId=MEM' : '/missing?v=1&scopeId=MEM');
-  const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: 'overview', label: { ko: 'G', en: 'G' }, icon: House, space: 'analytics' }], menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: canExport, compare: true, annotate: true, savedView: false }, pageKeys: [] }] });
-  const session = testSession(['platform:view']);
-  const adapter = testAdapter({ session: () => session });
-  const wrap = (next: ChartSpec) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><ChangeContext /><AnalysisChart chartId="test" title="Chart" unit="ea" spec={next} /></PlatformProvider></I18nProvider>;
-  const view = render(wrap(spec));
-  return { ...view, update: (next: ChartSpec) => view.rerender(wrap(next)) };
-}
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('AnalysisChart scatter', () => {
@@ -294,9 +278,9 @@ it.each([scatter, box, pareto])('gates $kind CSV on feature and an active route'
 });
 
 it.each<{ spec: ChartSpec; expected: string }>([
-  { spec: { ...scatter, points: [{ id: 'a', x: 1, y: 2 }, { id: 'b', x: null, y: null }] }, expected: '# test · ea\r\nID,이름,그룹,X (s),Y (ea)\r\na,a,기본 그룹,1 s,2 ea\r\nb,b,기본 그룹,미확인,미확인\r\n' },
-  { spec: { ...box, groups: [{ id: 'a', label: 'A', stats: { ...stats, outliers: [8, 9] } }, { id: 'b', label: 'B', stats: null }] }, expected: '# test · ea\r\n그룹,Min,Q1,중앙값,Q3,Max,n,이상치\r\nA,1 ea,2 ea,3 ea,4 ea,5 ea,미확인,8 ea; 9 ea\r\nB,미확인,미확인,미확인,미확인,미확인,미확인,미확인\r\n' },
-  { spec: { ...pareto, maxItems: 2, items: [{ id: 'a', label: 'A', value: 3 }, { id: 'b', label: 'B', value: 2 }, { id: 'c', label: 'C', value: 1 }] }, expected: '# test · ea\r\n이름,값,누적 %\r\nA,3 ea,50%\r\n기타,3 ea,100%\r\n' },
+  { spec: { ...scatter, points: [{ id: 'a', x: 1, y: 2 }, { id: 'b', x: null, y: null }] }, expected: '# Chart · scopeId=MEM · from= · to= · unit=ea\r\nID,이름,그룹,X (s),Y (ea)\r\na,a,기본 그룹,1 s,2 ea\r\nb,b,기본 그룹,미확인,미확인\r\n' },
+  { spec: { ...box, groups: [{ id: 'a', label: 'A', stats: { ...stats, outliers: [8, 9] } }, { id: 'b', label: 'B', stats: null }] }, expected: '# Chart · scopeId=MEM · from= · to= · unit=ea\r\n그룹,Min,Q1,중앙값,Q3,Max,n,이상치\r\nA,1 ea,2 ea,3 ea,4 ea,5 ea,미확인,8 ea; 9 ea\r\nB,미확인,미확인,미확인,미확인,미확인,미확인,미확인\r\n' },
+  { spec: { ...pareto, maxItems: 2, items: [{ id: 'a', label: 'A', value: 3 }, { id: 'b', label: 'B', value: 2 }, { id: 'c', label: 'C', value: 1 }] }, expected: '# Chart · scopeId=MEM · from= · to= · unit=ea\r\n이름,값,누적 %\r\nA,3 ea,50%\r\n기타,3 ea,100%\r\n' },
 ])('exports the $spec.kind table projection including unknown/synthetic/outlier values', async ({ spec, expected }) => {
   const blobs: Blob[] = [];
   class DownloadURL extends URL {

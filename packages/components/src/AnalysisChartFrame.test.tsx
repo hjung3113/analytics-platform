@@ -282,7 +282,7 @@ describe('data table and CSV share one x-union row projection (#297)', () => {
       expect(blobs).toHaveLength(1);
       await expect(blobStartsWithBom(blobs[0])).resolves.toBe(true);
       await expect(blobText(blobs[0])).resolves.toBe(
-        '# Chart · scopeId=MEM · from= · to=\r\n'
+        '# Chart · scopeId=MEM · from= · to= · unit=ea\r\n'
         + 'x,"rate, %","say ""hi""","행\n분리"\r\n'
         + '2026-10-01T00:00:00,,20,\r\n'
         + '2026-10-02T00:00:00,10,,\r\n'
@@ -1066,4 +1066,25 @@ it('keeps a focused frame action and consumer actions mounted across size change
   const action = screen.getByRole('button', { name: 'Selected custom' }); action.focus();
   view.rerender(sizedFrame({ ...props, size: 'compact' }));
   expect(action).toHaveFocus(); expect(screen.getByRole('button', { name: 'Custom' })).toBeVisible();
+});
+
+
+it.each([['Export title', 'Export title'], [<strong>Rich title</strong>, 'sized']] as const)('exports applied context, metric version and unit with title %s', async (title, expectedTitle) => {
+  const blobs: Blob[] = [];
+  class DownloadURL extends URL {
+    static createObjectURL(blob: Blob) { blobs.push(blob); return 'blob:metadata'; }
+    static revokeObjectURL = vi.fn();
+  }
+  vi.stubGlobal('URL', DownloadURL);
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  try {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-10-01T00:00:00&to=2026-10-02T00:00:00');
+    render(sizedFrame({ title, metricVersion: 'v2', unit: 'kg' }));
+    fireEvent.click(await screen.findByRole('button', { name: '내보내기' }));
+    const text = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsText(blobs[0]);
+    });
+    expect(text.split('\r\n')[0]).toBe(`# ${expectedTitle} · scopeId=MEM · from=2026-10-01T00:00:00 · to=2026-10-02T00:00:00 · metricVersion=v2 · unit=kg`);
+    expect(DownloadURL.revokeObjectURL).toHaveBeenCalledWith('blob:metadata');
+  } finally { vi.unstubAllGlobals(); }
 });

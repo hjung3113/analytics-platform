@@ -1,3 +1,4 @@
+import { seriesColors as fills, percent as pct, unknownLabel, brushOptions } from './analysisChartShared';
 import { cn } from '@ap/ui';
 import type { EChartsCoreOption } from 'echarts/core';
 import type { ThemeColorToken } from '@ap/ui/theme';
@@ -6,7 +7,6 @@ import type { ChartRow } from './analysisChartData';
 import { chartDiagnostic } from './analysisChartData';
 import { chartTheme, strokeToken, token } from './EChart';
 
-const fills: ThemeColorToken[] = ['chart-series-1', 'chart-series-2', 'chart-series-3', 'chart-series-4'];
 const shapes = ['circle', 'rect', 'triangle', 'diamond'] as const;
 export type KindProjection = {
   rows: ChartRow[]; total: number; empty: boolean; summary: string; headers: string[]; tableValues: string[][];
@@ -15,7 +15,6 @@ export type KindProjection = {
   option: (active: string[]) => EChartsCoreOption;
 };
 const rowKey = (kind: string, id: string) => JSON.stringify([kind, 'row', id]);
-const pct = (n: number) => `${Number(n.toFixed(1))}%`;
 function unique<T extends { id: string }>(items: T[]): T[] {
   const seen = new Set<string>();
   return items.filter(item => {
@@ -25,7 +24,7 @@ function unique<T extends { id: string }>(items: T[]): T[] {
 }
 
 export function scatterData(spec: ScatterSpec, ko: boolean, unit: string): KindProjection {
-  const unknown = ko ? '미확인' : 'Unknown';
+  const unknown = unknownLabel(ko);
   const defaultLabel = ko ? '기본 그룹' : 'Default group';
   // JSON tags keep an ungrouped point separate from every caller-supplied string ID.
   const groupKey = (id?: string) => JSON.stringify(id === undefined ? ['default'] : ['group', id]);
@@ -66,8 +65,7 @@ export function scatterData(spec: ScatterSpec, ko: boolean, unit: string): KindP
         grid: { top: 32, bottom: 56, left: 48, right: 40, containLabel: true },
         xAxis: { type: 'value', ...axisRange('x'), name: `${spec.xLabel} (${spec.xUnit})`, nameLocation: 'middle', nameGap: 32, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, showMinLabel: false, showMaxLabel: false }, splitLine: theme.splitLine },
         yAxis: { type: 'value', ...axisRange('y'), name: `${spec.yLabel} (${unit})`, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, showMinLabel: false, showMaxLabel: false }, splitLine: theme.splitLine },
-        toolbox: { show: false },
-        brush: { toolbox: [], brushType: 'rect', xAxisIndex: 0, yAxisIndex: 0, inBrush: {}, outOfBrush: {} },
+        ...brushOptions(),
         series: plotted.map((group, i) => ({ type: 'scatter', symbol: legend[i].symbol, emphasis: { focus: 'none' },
           markLine: i === 0 ? { ...theme.referenceLine, data: spec.referenceLines?.filter(r => Number.isFinite(r.value)).map(r => ({ name: r.label, ...(r.axis === 'x' ? { xAxis: r.value, label: { position: 'end', rotate: 0, offset: [0, 8], verticalAlign: 'top' } } : { yAxis: r.value }) })) } : undefined,
           data: group.map(p => ({ value: [p.x, p.y], itemStyle: { color: token(legend[i].color), borderColor: token('chart-selection-outline'), borderWidth: active.includes(rowKey('scatter', p.id)) ? 2 : 0 } })),
@@ -96,7 +94,7 @@ function validStats(stats: BoxStats, mode: BoxPlotSpec['whisker']) {
 }
 
 export function boxPlotData(spec: BoxPlotSpec, ko: boolean, unit: string): KindProjection {
-  const unknown = ko ? '미확인' : 'Unknown';
+  const unknown = unknownLabel(ko);
   const groups = unique(spec.groups).map(g => {
     if (g.stats && !validStats(g.stats, spec.whisker)) { chartDiagnostic('invalid box statistics; using Unknown'); return { ...g, stats: null }; }
     return g;

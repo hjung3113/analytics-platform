@@ -29,6 +29,9 @@
 | --- | --- | --- | --- |
 | 다음 SDK 태그 | components | AnalysisSection.span·AnalysisLayout.density·차트 size 추가 | 없음 — 추가만 |
 | 다음 SDK 태그 | components | AnalysisChart·ChartSpec 추가 | 없음 — 추가만 |
+| 다음 SDK 태그 | components | LegendTree·LegendTreeNode·LegendTreeSort·LegendTreeProps 추가(#539) | 없음 — 추가만 |
+| 다음 SDK 태그 | components | chartTheme() 추가(#544) | 없음 — 추가만 |
+| 다음 SDK 태그 | ui | Checkbox 일부 선택(indeterminate) 표시 추가(#539) | 없음 — 추가만 |
 | 다음 SDK 태그 | components | ChartSpec에 scatter·boxPlot·pareto 추가 | 없음 — 추가만 |
 | 다음 SDK 태그 | ui | `useDetailPanelSlot(options?)` — 선택 옵션 `onSuperseded` 추가(하위 호환) | 없음 |
 | 다음 SDK 태그 | kernel | `dropResetKeys` 제거 예고 | `withPaneContext` |

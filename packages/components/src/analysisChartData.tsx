@@ -1,3 +1,4 @@
+import { seriesColors } from './analysisChartShared';
 import { scatterData, boxPlotData, paretoData, type KindProjection } from './analysisChartKinds';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import type { ChartSpec, HeatmapCell } from './AnalysisChart';
@@ -13,7 +14,6 @@ export const chartColors = {
   unknown: 'chart-no-data', pattern: 'chart-no-data-pattern', selection: 'chart-selection-outline',
   series1: 'chart-series-1', series2: 'chart-series-2', series3: 'chart-series-3', series4: 'chart-series-4', remainder: 'chart-remainder',
 } as const satisfies Record<string, ThemeColorToken>;
-const seriesColors = [chartColors.series1, chartColors.series2, chartColors.series3, chartColors.series4];
 
 /** One projection for plot, table, selection and CSV. Synthetic aggregate rows never invent drill IDs. */
 export function chartData(spec: ChartSpec, ko: boolean, unit = ''): { cells: HeatmapCell[]; rows: ChartRow[]; total: number; extended?: KindProjection } {

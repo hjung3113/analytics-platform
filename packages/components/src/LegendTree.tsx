@@ -2,8 +2,7 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type Keyb
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
 import { Button, Checkbox, cn } from '@ap/ui';
-import type { ThemeColorToken } from '@ap/ui/theme';
-import { token } from './EChart';
+import { readColorToken, type ThemeColorToken } from '@ap/ui/theme';
 
 export type LegendTreeNode = { id: string; label: ReactNode; color?: ThemeColorToken; children?: LegendTreeNode[] };
 export type LegendTreeSort = 'asc' | 'desc' | null;
@@ -236,7 +235,7 @@ export function LegendTree(props: LegendTreeProps) {
           onCheckedChange={() => { focus(entry); toggle(entry); }} />
         {node.color &&
           // eslint-disable-next-line shadcn/no-inline-styles -- swatch color is the caller's theme token resolved at runtime
-          <span data-legend-swatch aria-hidden className="inline-block size-3 shrink-0 border-2" style={{ backgroundColor: token(node.color) }} />}
+          <span data-legend-swatch aria-hidden className="inline-block size-3 shrink-0 border-2" style={{ backgroundColor: readColorToken(node.color) }} />}
         <span id={labelId} className="min-w-0 flex-1 cursor-pointer truncate" title={typeof node.label === 'string' ? node.label : undefined}
           onClick={() => { focus(entry); if (onSelect) onSelect(node.id); else toggle(entry); }}>{node.label}</span>
         {sortOf && (onSortChange ? <Button type="button" variant="ghost" size="icon-xs" aria-labelledby={`${labelId} ${sortLabelId}`}

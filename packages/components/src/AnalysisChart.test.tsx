@@ -1,9 +1,10 @@
+import { House } from 'lucide-react';
+import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { mount, ChangeContext } from './__tests__/test-support';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry, useI18n, usePlatform } from '@ap/kernel';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { AnalysisChart, type AnalysisChartProps, type ChartSpec } from './AnalysisChart';
 import { readColorToken, type ThemeColorToken } from '@ap/ui/theme';
@@ -12,20 +13,6 @@ import type { EChartProps } from './EChart';
 let plot: EChartProps;
 vi.mock('./EChartImpl', () => ({ default: (props: EChartProps) => { plot = props; return <div role="img" aria-label={props.ariaLabel} />; } }));
 const heat: ChartSpec = { kind: 'heatmap', xLabels: ['09', '10'], yLabels: ['A', 'B'], cells: [{ x: '09', y: 'A', value: 0 }, { x: '10', y: 'A', value: null }] };
-function ChangeContext() {
-  const { setGlobal } = usePlatform();
-  const { setLang } = useI18n();
-  return <><button onClick={() => setLang('en')}>english</button><button onClick={() => setGlobal({ scopeId: 'FDRY' })}>context</button></>;
-}
-function mount(spec: ChartSpec, canExport = false) {
-  window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
-  const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: 'overview', label: { ko: 'G', en: 'G' }, icon: House, space: 'analytics' }], menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: canExport, compare: true, annotate: true, savedView: false }, pageKeys: [] }] });
-  const session = testSession(['platform:view']);
-  const adapter = testAdapter({ session: () => session });
-  const wrap = (next: ChartSpec) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><ChangeContext /><AnalysisChart chartId="test" title="Chart" unit="ea" spec={next} /></PlatformProvider></I18nProvider>;
-  const view = render(wrap(spec));
-  return { ...view, update: (next: ChartSpec) => view.rerender(wrap(next)) };
-}
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('AnalysisChart heatmap', () => {
@@ -166,8 +153,8 @@ it('clears the ECharts brush areas as well as local selection on Reset and Conte
 });
 
 it.each<{ spec: ChartSpec; expected: string }>([
-  { spec: heat, expected: '# test · ea\r\nx,y,값\r\n09,A,0 ea\r\n10,A,미확인\r\n' },
-  { spec: { kind: 'donut', slices: [{ id: 'a', label: 'Alpha, One', value: 20 }, { id: 'b', label: 'Beta', value: 80 }], total: 200 }, expected: '# test · ea\r\n이름,값,%\r\n"Alpha, One",20 ea,10%\r\nBeta,80 ea,40%\r\n미분류,100 ea,50%\r\n' },
+  { spec: heat, expected: '# Chart · scopeId=MEM · from= · to= · unit=ea\r\nx,y,값\r\n09,A,0 ea\r\n10,A,미확인\r\n' },
+  { spec: { kind: 'donut', slices: [{ id: 'a', label: 'Alpha, One', value: 20 }, { id: 'b', label: 'Beta', value: 80 }], total: 200 }, expected: '# Chart · scopeId=MEM · from= · to= · unit=ea\r\n이름,값,%\r\n"Alpha, One",20 ea,10%\r\nBeta,80 ea,40%\r\n미분류,100 ea,50%\r\n' },
 ])('exports the table projection for $spec.kind as CSV', async ({ spec, expected }) => {
   const blobs: Blob[] = [];
   class DownloadURL extends URL {
@@ -385,4 +372,25 @@ it('retains the focused description control when leaving compact size', async ()
   const reset = screen.getByRole('button', { name: '초기화' });
   act(() => reset.focus());
   expect(screen.queryByRole('button', { name: '차트 설명' })).toBeNull();
+});
+
+
+it.each([['Export title', 'Export title'], [<strong>Rich title</strong>, 'size']] as const)('exports applied context, metric version and unit with title %s', async (title, expectedTitle) => {
+  const blobs: Blob[] = [];
+  class DownloadURL extends URL {
+    static createObjectURL(blob: Blob) { blobs.push(blob); return 'blob:metadata'; }
+    static revokeObjectURL = vi.fn();
+  }
+  vi.stubGlobal('URL', DownloadURL);
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  try {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-10-01T00:00:00&to=2026-10-02T00:00:00');
+    render(sizedChart({ title, metricVersion: 'v2', unit: 'kg' }));
+    fireEvent.click(await screen.findByRole('button', { name: '내보내기' }));
+    const text = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsText(blobs[0]);
+    });
+    expect(text.split('\r\n')[0]).toBe(`# ${expectedTitle} · scopeId=MEM · from=2026-10-01T00:00:00 · to=2026-10-02T00:00:00 · metricVersion=v2 · unit=kg`);
+    expect(DownloadURL.revokeObjectURL).toHaveBeenCalledWith('blob:metadata');
+  } finally { vi.unstubAllGlobals(); }
 });

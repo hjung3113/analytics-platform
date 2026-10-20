@@ -1,14 +1,15 @@
-import { useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { percent, unknownLabel, brushOptions, isBrushableKind, isSingleSelectKind } from './analysisChartShared';
+import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { Button, Checkbox, cn } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { chartTheme, EChart, token } from './EChart';
-import { toCsvDocument } from './tableExport';
+import { downloadChartCsv } from './analysisChartCsv';
 import { chartData, chartColors as colors, cellKey as keyOf, chartDiagnostic as diagnostic } from './analysisChartData';
 import { KindLegend } from './analysisChartKinds';
 import { heatmapSymbolSize } from './analysisChartGeometry';
-import { AnalysisSectionContext, resolveAnalysisChartSize } from './AnalysisSectionContext';
+import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, type ChartSize } from './AnalysisSectionContext';
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
 
 export type HeatmapCell = { x: string; y: string; value: number | null };
@@ -63,7 +64,7 @@ export type ParetoSpec = {
 export type ChartSpec = HeatmapSpec | DonutSpec | ScatterSpec | BoxPlotSpec | ParetoSpec;
 export type AnalysisChartProps = {
   chartId: string; title: ReactNode; description?: ReactNode; metricVersion?: string; unit: string;
-  trust?: { source: string; updated: string; coverage: string }; height?: number; size?: 'regular' | 'compact' | 'hero'; emptyText?: string; spec: ChartSpec;
+  trust?: { source: string; updated: string; coverage: string }; height?: number; size?: ChartSize; emptyText?: string; spec: ChartSpec;
 };
 
 const sequential = [colors.seq0, colors.seq1, colors.seq2, colors.seq3, colors.seq4];
@@ -75,7 +76,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const section = useContext(AnalysisSectionContext);
   const size = resolveAnalysisChartSize(p.size, section);
   const compact = size === 'compact';
-  const height = p.height ?? (size === 'hero' ? 360 : compact ? 200 : 280);
+  const height = p.height ?? analysisChartHeight(size, 280);
   const titleId = useId(); const summaryId = useId();
   const [table, setTable] = useState(false);
   const chart = useRef<ECharts | null>(null);
@@ -85,56 +86,60 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const [instanceReady, setInstanceReady] = useState(0);
   const [plotSize, setPlotSize] = useState({ width: 0, height: 0 });
   const spec = p.spec;
+  const brushable = isBrushableKind(spec.kind);
+  const singleSelect = isSingleSelectKind(spec.kind);
   const { cells, rows, total, extended } = useMemo(() => chartData(spec, lang === 'ko', p.unit), [spec, lang, p.unit]);
-  const keys = rows.map(row => row.key);
+  const keys = useMemo(() => rows.map(row => row.key), [rows]);
   const contextKey = JSON.stringify(global);
   const [previousContext, setPreviousContext] = useState(contextKey);
-  const active = previousContext === contextKey ? selected.filter(key => keys.includes(key)) : [];
+  const active = useMemo(() => previousContext === contextKey ? selected.filter(key => keys.includes(key)) : [], [previousContext, contextKey, selected, keys]);
   if (previousContext !== contextKey) { setPreviousContext(contextKey); setSelected([]); }
   else if (active.length !== selected.length) setSelected(active);
-  useEffect(() => { brushedKeys.current = []; if (spec.kind === 'heatmap' || spec.kind === 'scatter') clearBrush(chart.current); }, [contextKey, spec.kind]);
+  useEffect(() => { brushedKeys.current = []; if (brushable) clearBrush(chart.current); }, [contextKey, brushable]);
   useEffect(() => { brushedKeys.current = []; setBrushMode(false); }, [spec.kind]);
-  const reset = () => { brushedKeys.current = []; setSelected([]); if (spec.kind === 'heatmap' || spec.kind === 'scatter') clearBrush(chart.current); };
-  const toggle = (key: string) => setSelected(old => old.includes(key) ? old.filter(k => k !== key) : (spec.kind === 'donut' || spec.kind === 'boxPlot') ? [key] : [...old, key]);
-  const format = (v: number) => ('valueFormat' in spec ? spec.valueFormat?.(v) : undefined) ?? String(v);
-  const unknown = lang === 'ko' ? '미확인' : 'Unknown';
-  const valueText = (v: number | null) => v === null ? unknown : `${format(v)} ${p.unit}`;
-  const theme = chartTheme();
-  const values = cells.flatMap(c => c.value === null ? [] : [c.value]);
-  const scale = spec.kind === 'heatmap' ? spec.scale : undefined;
-  let domain: [number, number] = scale && 'domain' in scale && scale.domain ? scale.domain : [values.length ? Math.min(...values) : 0, values.length ? Math.max(...values) : 0];
-  let ramp: ThemeColorToken[] = sequential;
-  if (scale?.type === 'diverging') {
-    const half = Math.max(Math.abs(domain[0] - scale.pivot), Math.abs(domain[1] - scale.pivot));
-    domain = [scale.pivot - half, scale.pivot + half];
-    ramp = scale.lowerIsBetter === false ? [...diverging].reverse() : diverging;
-  }
-  const validThreshold = scale?.type !== 'threshold' || scale.breaks[0] < scale.breaks[1];
-  if (!validThreshold) diagnostic('threshold breaks must be increasing; using sequential scale');
-  function cellColor(value: number | null) {
-    if (value === null) return token(colors.unknown);
-    if (scale?.type === 'threshold' && validThreshold) return token(value < scale.breaks[0] ? colors.good : value < scale.breaks[1] ? colors.warn : colors.critical);
-    const fraction = domain[1] === domain[0] ? 0.5 : (value - domain[0]) / (domain[1] - domain[0]);
-    return token(ramp[Math.max(0, Math.min(4, Math.round(fraction * 4)))]);
-  }
-  const option: EChartsCoreOption = extended ? extended.option(active) : spec.kind === 'heatmap' ? {
-    tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const c = cells[params.dataIndex]; return c ? `${c.x} · ${c.y}: ${valueText(c.value)}` : ''; } },
-    grid: { top: 16, bottom: 16, left: 16, right: 16, containLabel: true },
-    xAxis: { type: 'category', data: spec.xLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: spec.xLabels.length <= 24 ? 0 : 'auto' }, splitLine: theme.splitLine },
-    yAxis: { type: 'category', data: spec.yLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: spec.yLabels.length <= 24 ? 0 : 'auto' }, splitLine: theme.splitLine },
-    toolbox: { show: false },
-    brush: { toolbox: [], brushType: 'rect', xAxisIndex: 0, yAxisIndex: 0, inBrush: {}, outOfBrush: {} },
-    series: [{ type: 'scatter', symbol: 'rect', symbolSize: heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length), emphasis: { focus: 'none' }, data: cells.map(c => ({
-      value: [spec.xLabels.indexOf(c.x), spec.yLabels.indexOf(c.y), c.value],
-      itemStyle: { color: cellColor(c.value), borderColor: token(active.includes(keyOf(c.x, c.y)) ? colors.selection : colors.pattern), borderWidth: active.includes(keyOf(c.x, c.y)) ? 1.5 : c.value === null ? 1 : 0, borderType: c.value === null ? 'dashed' : 'solid' },
-    })) }],
-  } : {
-    tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const row = rows[params.dataIndex]; return row ? `${row.label}: ${valueText(row.value)} · ${percent(row.share ?? 0)}` : ''; } },
-    series: [{ type: 'pie', radius: ['55%', '80%'], selectedMode: false, emphasis: { focus: 'none', scale: false }, label: { show: false }, data: rows.map(row => ({ name: row.label, value: row.value, itemStyle: { color: token(row.color!), borderColor: token(colors.selection), borderWidth: active.includes(row.key) ? 1.5 : 0 } })) }],
-  };
+  const reset = () => { brushedKeys.current = []; setSelected([]); if (brushable) clearBrush(chart.current); };
+  const toggle = (key: string) => setSelected(old => old.includes(key) ? old.filter(k => k !== key) : singleSelect ? [key] : [...old, key]);
+  const format = useCallback((v: number) => ('valueFormat' in spec ? spec.valueFormat?.(v) : undefined) ?? String(v), [spec]);
+  const unknown = unknownLabel(lang === 'ko');
+  const valueText = useCallback((v: number | null) => v === null ? unknown : `${format(v)} ${p.unit}`, [unknown, format, p.unit]);
+  const { option, scale, domain, ramp, validThreshold } = useMemo(() => {
+    const theme = chartTheme();
+    const values = cells.flatMap(c => c.value === null ? [] : [c.value]);
+    const scale = spec.kind === 'heatmap' ? spec.scale : undefined;
+    let domain: [number, number] = scale && 'domain' in scale && scale.domain ? scale.domain : [values.length ? Math.min(...values) : 0, values.length ? Math.max(...values) : 0];
+    let ramp: ThemeColorToken[] = sequential;
+    if (scale?.type === 'diverging') {
+      const half = Math.max(Math.abs(domain[0] - scale.pivot), Math.abs(domain[1] - scale.pivot));
+      domain = [scale.pivot - half, scale.pivot + half];
+      ramp = scale.lowerIsBetter === false ? [...diverging].reverse() : diverging;
+    }
+    const validThreshold = scale?.type !== 'threshold' || scale.breaks[0] < scale.breaks[1];
+    if (!validThreshold) diagnostic('threshold breaks must be increasing; using sequential scale');
+    function cellColor(value: number | null) {
+      if (value === null) return token(colors.unknown);
+      if (scale?.type === 'threshold' && validThreshold) return token(value < scale.breaks[0] ? colors.good : value < scale.breaks[1] ? colors.warn : colors.critical);
+      const fraction = domain[1] === domain[0] ? 0.5 : (value - domain[0]) / (domain[1] - domain[0]);
+      return token(ramp[Math.max(0, Math.min(4, Math.round(fraction * 4)))]);
+    }
+    const option: EChartsCoreOption = extended ? extended.option(active) : spec.kind === 'heatmap' ? {
+      tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const c = cells[params.dataIndex]; return c ? `${c.x} · ${c.y}: ${valueText(c.value)}` : ''; } },
+      grid: { top: 16, bottom: 16, left: 16, right: 16, containLabel: true },
+      xAxis: { type: 'category', data: spec.xLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: spec.xLabels.length <= 24 ? 0 : 'auto' }, splitLine: theme.splitLine },
+      yAxis: { type: 'category', data: spec.yLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: spec.yLabels.length <= 24 ? 0 : 'auto' }, splitLine: theme.splitLine },
+      ...brushOptions(),
+      series: [{ type: 'scatter', symbol: 'rect', symbolSize: heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length), emphasis: { focus: 'none' }, data: cells.map(c => ({
+        value: [spec.xLabels.indexOf(c.x), spec.yLabels.indexOf(c.y), c.value],
+        itemStyle: { color: cellColor(c.value), borderColor: token(active.includes(keyOf(c.x, c.y)) ? colors.selection : colors.pattern), borderWidth: active.includes(keyOf(c.x, c.y)) ? 1.5 : c.value === null ? 1 : 0, borderType: c.value === null ? 'dashed' : 'solid' },
+      })) }],
+    } : {
+      tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const row = rows[params.dataIndex]; return row ? `${row.label}: ${valueText(row.value)} · ${percent(row.share ?? 0)}` : ''; } },
+      series: [{ type: 'pie', radius: ['55%', '80%'], selectedMode: false, emphasis: { focus: 'none', scale: false }, label: { show: false }, data: rows.map(row => ({ name: row.label, value: row.value, itemStyle: { color: token(row.color!), borderColor: token(colors.selection), borderWidth: active.includes(row.key) ? 1.5 : 0 } })) }],
+    };
+    return { option, scale, domain, ramp, validThreshold };
+  }, [spec, cells, rows, extended, active, plotSize, valueText, size, height, lang]);
   // notMerge replaces the brush model; restore the toolbox cursor after that replacement.
   useEffect(() => {
-    if ((spec.kind === 'heatmap' || spec.kind === 'scatter') && chart.current && !chart.current.isDisposed?.()) {
+    if (brushable && chart.current && !chart.current.isDisposed?.()) {
       chart.current.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: brushMode ? 'rect' : false, brushMode: 'single' } }, { silent: true });
     }
     measureGrid(chart.current);
@@ -164,8 +169,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const headers = extended?.headers ?? (spec.kind === 'heatmap' ? ['x', 'y', lang === 'ko' ? '값' : 'Value'] : [lang === 'ko' ? '이름' : 'Name', lang === 'ko' ? '값' : 'Value', '%']);
   const tableValues = extended?.tableValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, valueText(row.value)] : [row.label, valueText(row.value), percent(row.share ?? 0)]);
   function exportCsv() {
-    const blob = new Blob([toCsvDocument(`# ${p.chartId} · ${p.unit}`, headers, tableValues)], { type: 'text/csv' });
-    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${p.chartId}.csv`; link.click(); URL.revokeObjectURL(link.href);
+    downloadChartCsv({ ...p, context: global }, headers, tableValues);
     toast(lang === 'ko' ? `${p.chartId}.csv 내보냄` : `Exported ${p.chartId}.csv`);
   }
   return <section role="region" aria-labelledby={titleId} aria-describedby={summaryId} data-analysis-chart={section ? '' : undefined} className="relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card">
@@ -174,7 +178,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
         <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} compact={compact} />
         <div role="toolbar" aria-label={lang === 'ko' ? '차트 동작' : 'Chart actions'} className="flex flex-wrap gap-1">
           <Button size="toolbar" variant="ghost" onClick={reset}>{lang === 'ko' ? '초기화' : 'Reset'}</Button>
-          {(spec.kind === 'heatmap' || spec.kind === 'scatter') && <Button size="toolbar" variant="ghost" aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}>{lang === 'ko' ? '끌어서 선택' : 'Drag to select'}</Button>}
+          {brushable && <Button size="toolbar" variant="ghost" aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}>{lang === 'ko' ? '끌어서 선택' : 'Drag to select'}</Button>}
           <Button size="toolbar" variant="ghost" aria-pressed={table} onClick={() => setTable(!table)}>{lang === 'ko' ? '표로 보기' : 'Show as table'}</Button>
           {route?.menu.features?.export && <Button size="toolbar" variant="ghost" onClick={exportCsv}>{lang === 'ko' ? '내보내기' : 'Export'}</Button>}
         </div>
@@ -203,9 +207,9 @@ export function AnalysisChart(p: AnalysisChartProps) {
         <EChart key={spec.kind} onReady={instance => { chart.current = instance; setInstanceReady(generation => generation + 1); }} onResize={() => measureGrid(chart.current)} option={option} height={height} ariaLabel={typeof p.title === 'string' ? p.title : p.chartId} onEvents={{
           click: params => { if (params.componentType !== 'series') return; const key = extended ? extended.seriesKeys[params.seriesIndex]?.[params.dataIndex] : rows[params.dataIndex]?.key; if (key) toggle(key); },
           finished: (_, instance) => measureGrid(instance),
-          takeglobalcursor: params => { if (spec.kind === 'heatmap' || spec.kind === 'scatter') setBrushMode(params.key === 'brush' && params.brushOption?.brushType === 'rect'); },
-          brushselected: params => { if (spec.kind !== 'heatmap' && spec.kind !== 'scatter') return; const selections: { seriesIndex: number; dataIndex: number[] }[] = params.batch?.[0]?.selected ?? []; brushedKeys.current = [...new Set(selections.flatMap(s => s.dataIndex.flatMap(i => { const key = extended ? extended.seriesKeys[s.seriesIndex]?.[i] : s.seriesIndex === 0 ? rows[i]?.key : undefined; return key ? [key] : []; })))]; },
-          brushEnd: () => { if (spec.kind !== 'heatmap' && spec.kind !== 'scatter') return; const next = brushedKeys.current.filter(key => keys.includes(key)); setSelected(old => old.length === next.length && old.every(key => next.includes(key)) ? old : next); },
+          takeglobalcursor: params => { if (brushable) setBrushMode(params.key === 'brush' && params.brushOption?.brushType === 'rect'); },
+          brushselected: params => { if (!brushable) return; const selections: { seriesIndex: number; dataIndex: number[] }[] = params.batch?.[0]?.selected ?? []; brushedKeys.current = [...new Set(selections.flatMap(s => s.dataIndex.flatMap(i => { const key = extended ? extended.seriesKeys[s.seriesIndex]?.[i] : s.seriesIndex === 0 ? rows[i]?.key : undefined; return key ? [key] : []; })))]; },
+          brushEnd: () => { if (!brushable) return; const next = brushedKeys.current.filter(key => keys.includes(key)); setSelected(old => old.length === next.length && old.every(key => next.includes(key)) ? old : next); },
         }} />
         {spec.kind === 'donut' && <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-xs text-text-secondary">
           <p>{selectedRows[0]?.label ?? spec.centerLabel ?? (lang === 'ko' ? '합계' : 'Total')}</p>
@@ -232,8 +236,6 @@ export function AnalysisChart(p: AnalysisChartProps) {
 function clearBrush(chart: ECharts | null) {
   if (chart && !chart.isDisposed?.()) chart.dispatchAction({ type: 'brush', areas: [] });
 }
-
-function percent(value: number) { return `${Number(value.toFixed(1))}%`; }
 
 function Swatch({ color, unknown = false }: { color: string; unknown?: boolean }) {
   // eslint-disable-next-line shadcn/no-inline-styles -- swatch reflects runtime chart tokens; unknown matches the canvas dashed border
