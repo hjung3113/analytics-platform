@@ -670,6 +670,32 @@ describe('detail slot sharing (docs/16 §5)', () => {
 });
 
 describe('collapsed pane header focus return', () => {
+  it.each(['menu', 'popover'])('dismisses an open %s on collapse without stale focus return, then restores normal focus return', async overlay => {
+    const user = userEvent.setup();
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [pane(`?${w1}`), pane(`?${w1}`), null, null] })]));
+    mount();
+    await settle();
+    const trigger = within(paneGroup(1)).getByRole('button', { name: overlay === 'menu' ? '칸 1 동작' : /칸 1의 같은 조건/ });
+    const collapse = screen.getByRole('button', { name: '칸 1 접기' });
+    const role = overlay === 'menu' ? 'menu' : 'dialog';
+    await user.click(trigger);
+    expect(await screen.findByRole(role)).toBeInTheDocument();
+    // Click alone skips pointer dismissal, keeping the overlay open until the collapse transition.
+    fireEvent.click(collapse);
+    expect(screen.queryByRole(role)).toBeNull();
+    act(() => { collapse.focus(); });
+    await settle();
+    expect(screen.queryByRole(role)).toBeNull();
+    expect(collapse).toHaveAccessibleName('칸 1 펼치기');
+    expect(collapse).toHaveFocus();
+    await user.click(trigger);
+    expect(await screen.findByRole(role)).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await settle();
+    expect(screen.queryByRole(role)).toBeNull();
+    expect(trigger).toHaveFocus();
+  });
+
   it.each(['Escape', 'menu item'])('returns focus to the collapsed pane action trigger after %s', async closeWith => {
     const user = userEvent.setup();
     seed(boardOf([sheet('a', { layout: '2x2', panes: [pane(`?${w1}`), pane(`?${w1}`), null, null] })]));
