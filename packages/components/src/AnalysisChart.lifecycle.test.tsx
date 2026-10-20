@@ -54,12 +54,14 @@ it('keeps rectangle mode across empty activation events, option replacement and 
   act(() => selected([]));
   expect(props.option).toBe(before);
   act(() => { if (armed) selected([0]); });
+  act(() => props.onEvents?.brushEnd?.({}, instance as never));
   expect(screen.getByRole('region', { name: '선택 요약' })).toHaveTextContent('1칸 선택');
   expect(armed).toBe(true);
   const after = props.option;
   act(() => selected([0]));
   expect(props.option).toBe(after);
   act(() => { if (armed) selected([0, 1]); });
+  act(() => props.onEvents?.brushEnd?.({}, instance as never));
   expect(screen.getByRole('region', { name: '선택 요약' })).toHaveTextContent('2칸 선택');
   fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
   expect(armed).toBe(true);
@@ -72,4 +74,22 @@ it('sizes cells from the laid-out grid and recomputes after resize', async () =>
   await waitFor(() => expect(size()).toEqual([298, 118]));
   act(() => { rect = { width: 300, height: 120 }; props.onResize?.(400); });
   expect(size()).toEqual([148, 58]);
+});
+
+it('keeps the option unchanged during a drag and commits only the final selection on brushEnd', async () => {
+  mount(); await screen.findByRole('img');
+  const summary = screen.getByRole('region', { name: '선택 요약' });
+  const before = props.option;
+  for (const indices of [[0], [1], [0, 1]]) {
+    act(() => selected(indices));
+    expect(summary).toHaveTextContent('선택 없음');
+    expect(props.option).toBe(before);
+  }
+  act(() => props.onEvents?.brushEnd?.({}, instance as never));
+  expect(summary).toHaveTextContent('2칸 선택');
+  const committed = props.option;
+  act(() => selected([1, 0]));
+  expect(props.option).toBe(committed);
+  act(() => props.onEvents?.brushEnd?.({}, instance as never));
+  expect(props.option).toBe(committed);
 });

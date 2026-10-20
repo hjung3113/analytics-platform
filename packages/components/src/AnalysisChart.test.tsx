@@ -83,6 +83,7 @@ it('uses dashed unknown markers and outline selection without changing ramp colo
   expect(option().tooltip.formatter({ dataIndex: 1 })).toBe('10 · A: 미확인');
   const color = option().series[0].data[0].itemStyle.color;
   brushPlot([0, 1]);
+  act(() => plot.onEvents?.brushEnd?.({}, {} as never));
   expect(selection()).toHaveTextContent('2칸 선택');
   expect(option().series[0].data[0].itemStyle).toMatchObject({ color, borderColor: readColorToken('chart-selection-outline'), borderWidth: 1.5 });
   expect(option().series[0].emphasis.focus).toBe('none');
@@ -102,7 +103,7 @@ it('shares canvas/table selection, drills only via Details, resets, clears on Co
   expect(drill).toHaveBeenCalledTimes(2); expect(drill).toHaveBeenLastCalledWith('10', 'A');
   expect(window.location.href).toBe(url); expect(history).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: '초기화' })); expect(selection()).toHaveTextContent('선택 없음');
-  brushPlot([0, 1]); view.update({ ...heat, cells: [heat.cells[0]] });
+  brushPlot([0, 1]); act(() => plot.onEvents?.brushEnd?.({}, {} as never)); view.update({ ...heat, cells: [heat.cells[0]] });
   expect(selection()).toHaveTextContent('1칸 선택');
   fireEvent.click(screen.getByRole('button', { name: 'context' })); expect(selection()).toHaveTextContent('선택 없음');
   history.mockClear(); clickPlot(0); expect(history).not.toHaveBeenCalled();
@@ -241,4 +242,35 @@ it('puts keyboard-operable rectangle selection in the header instead of over the
   await user.keyboard(' '); expect(button).toHaveAttribute('aria-pressed', 'false');
   fireEvent.click(screen.getByRole('button', { name: 'english' }));
   expect(screen.getByRole('button', { name: 'Drag to select' })).toBeTruthy();
+});
+
+it.each([
+  { lang: 'ko', count: 1, expected: 'A · 09 · 1칸 선택' },
+  { lang: 'ko', count: 3, expected: 'A · 09, A · 10, A · 11 · 3칸 선택' },
+  { lang: 'ko', count: 5, expected: '5칸 선택 · A · 13–09' },
+  { lang: 'ko', count: 25, expected: '25칸 선택 · E–A · 13–09' },
+  { lang: 'en', count: 1, expected: 'A · 09 · 1 selected' },
+  { lang: 'en', count: 3, expected: 'A · 09, A · 10, A · 11 · 3 selected' },
+  { lang: 'en', count: 5, expected: '5 cells selected · A · 13–09' },
+  { lang: 'en', count: 25, expected: '25 cells selected · E–A · 13–09' },
+])('summarizes $count heatmap cells in $lang with axis-ordered ranges above three cells', async ({ lang, count, expected }) => {
+  const xLabels = ['13', '12', '11', '10', '09'];
+  const yLabels = ['E', 'D', 'C', 'B', 'A'];
+  mount({ kind: 'heatmap', xLabels, yLabels, cells: yLabels.flatMap(y => xLabels.map(x => ({ x, y, value: 1 }))).reverse(), onCellClick: vi.fn() });
+  await screen.findByRole('img');
+  if (lang === 'en') fireEvent.click(screen.getByRole('button', { name: 'english' }));
+  brushPlot(Array.from({ length: count }, (_, i) => i));
+  act(() => plot.onEvents?.brushEnd?.({}, {} as never));
+  const summary = screen.getByRole('region', { name: lang === 'ko' ? '선택 요약' : 'Selection summary' });
+  expect(summary.textContent).toBe(expected + (count === 1 ? (lang === 'ko' ? '상세' : 'Details') : ''));
+  expect(within(summary).queryAllByRole('button')).toHaveLength(count === 1 ? 1 : 0);
+});
+
+it.each(['초기화', 'context'])('clears the pending drag on %s so brushEnd cannot restore it', async action => {
+  mount(heat); await screen.findByRole('img');
+  clickPlot(1);
+  brushPlot([0]);
+  fireEvent.click(screen.getByRole('button', { name: action }));
+  act(() => plot.onEvents?.brushEnd?.({}, {} as never));
+  expect(selection()).toHaveTextContent('선택 없음');
 });
