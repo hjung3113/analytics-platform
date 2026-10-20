@@ -190,7 +190,10 @@ export function LegendTree(props: LegendTreeProps) {
   function renderEntry(entry: Entry): ReactNode {
     const { node } = entry;
     const labelId = `${treeId}-${encodeURIComponent(entry.key)}`;
+    const expandLabelId = `${labelId}-expand`;
+    const sortLabelId = `${labelId}-sort`;
     const isOpen = open.has(node.id);
+    const expandLabel = lang === 'ko' ? (isOpen ? '접기' : '펼치기') : (isOpen ? 'Collapse' : 'Expand');
     const isSelected = !!onSelect && selectedId === node.id;
     const value = sortOf?.(node.id);
     const sortLabel = lang === 'ko'
@@ -198,11 +201,12 @@ export function LegendTree(props: LegendTreeProps) {
       : `Sort: ${value === 'asc' ? 'ascending' : value === 'desc' ? 'descending' : 'none'}`;
     const SortIcon = value === 'asc' ? ArrowUp : value === 'desc' ? ArrowDown : ArrowUpDown;
     return <div key={entry.key} role="treeitem" data-id={node.id} aria-labelledby={labelId}
+      aria-describedby={sortOf && !onSortChange ? sortLabelId : undefined}
       ref={element => { if (element) rows.current.set(entry.key, element); else rows.current.delete(entry.key); }}
       aria-level={entry.path.length} aria-setsize={entry.size} aria-posinset={entry.position}
       aria-expanded={entry.children.length ? isOpen : undefined} aria-checked={checked(entry)}
       aria-selected={onSelect ? isSelected : undefined} tabIndex={active === entry ? 0 : -1}
-      className="focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2"
+      className="focus-visible:outline-hidden"
       onFocus={event => {
         if (event.target === event.currentTarget || event.currentTarget.closest('[role=treeitem]') === event.target.closest('[role=treeitem]')) {
           setActivePath(entry.path);
@@ -213,17 +217,19 @@ export function LegendTree(props: LegendTreeProps) {
       {/* eslint-disable-next-line shadcn/no-inline-styles -- indent is 16px per caller-supplied tree level */}
       <div style={{ paddingInlineStart: (entry.path.length - 1) * 16 }}
         className={cn('relative flex h-7 items-center gap-1 text-xs text-text-secondary hover:bg-surface-row-hover',
+          '[[role=treeitem]:focus-visible>&]:ring-2 [[role=treeitem]:focus-visible>&]:ring-focus-ring [[role=treeitem]:focus-visible>&]:ring-offset-2',
           isSelected && 'bg-surface-row-selected font-semibold')}
         onClick={() => focus(entry)}>
         {isSelected && <span aria-hidden className="absolute inset-y-0 start-0 w-0.5 bg-accent-primary" />}
-        {entry.children.length ? <Button variant="ghost" size="icon-xs" tabIndex={-1}
-          aria-label={lang === 'ko' ? (isOpen ? '접기' : '펼치기') : (isOpen ? 'Collapse' : 'Expand')}
+        {entry.children.length ? <Button type="button" variant="ghost" size="icon-xs" tabIndex={active === entry ? 0 : -1}
+          aria-labelledby={lang === 'ko' ? `${labelId} ${expandLabelId}` : `${expandLabelId} ${labelId}`}
           disabled={controlled && !onExpandedChange}
-          onMouseDown={event => event.preventDefault()}
-          onClick={() => { focus(entry); expand(entry); }}>
+          onMouseDown={event => { event.preventDefault(); focus(entry); }}
+          onClick={event => { event.stopPropagation(); expand(entry); }}>
+          <span id={expandLabelId} className="sr-only">{expandLabel}</span>
           <ChevronRight aria-hidden className={isOpen ? 'size-3 rotate-90' : 'size-3'} />
         </Button> : <span aria-hidden className="inline-block w-7 shrink-0" />}
-        <Checkbox checked={checked(entry) === 'mixed' ? 'indeterminate' : checked(entry) === true}
+        <Checkbox type="button" checked={checked(entry) === 'mixed' ? 'indeterminate' : checked(entry) === true}
           className="border-border-control" tabIndex={-1}
           aria-label={typeof node.label === 'string' ? node.label : node.id}
           onMouseDown={event => event.preventDefault()}
@@ -233,11 +239,12 @@ export function LegendTree(props: LegendTreeProps) {
           <span data-legend-swatch aria-hidden className="inline-block size-3 shrink-0 border-2" style={{ backgroundColor: token(node.color) }} />}
         <span id={labelId} className="min-w-0 flex-1 cursor-pointer truncate" title={typeof node.label === 'string' ? node.label : undefined}
           onClick={() => { focus(entry); if (onSelect) onSelect(node.id); else toggle(entry); }}>{node.label}</span>
-        {sortOf && (onSortChange ? <Button variant="ghost" size="icon-xs" aria-label={sortLabel}
+        {sortOf && (onSortChange ? <Button type="button" variant="ghost" size="icon-xs" aria-labelledby={`${labelId} ${sortLabelId}`}
           tabIndex={active === entry ? 0 : -1} onMouseDown={event => { event.preventDefault(); focus(entry); }}
           onClick={event => { event.stopPropagation(); sort(entry); }}>
+          <span id={sortLabelId} className="sr-only">{sortLabel}</span>
           <SortIcon aria-hidden className="size-3" />
-        </Button> : <span aria-label={sortLabel}><SortIcon aria-hidden className="size-3" /></span>)}
+        </Button> : <span><span id={sortLabelId} className="sr-only">{sortLabel}</span><SortIcon aria-hidden className="size-3" /></span>)}
       </div>
       {entry.children.length > 0 && isOpen && <div role="group">{entry.children.map(renderEntry)}</div>}
     </div>;

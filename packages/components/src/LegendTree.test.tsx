@@ -60,6 +60,124 @@ describe('LegendTree', () => {
     expect(onVisibleChange).toHaveBeenLastCalledWith(new Set(['a.1.y']));
   });
 
+  it.each(['click', 'Enter', 'Space'])('does not submit an enclosing form on button %s', async action => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(event => event.preventDefault());
+    const onExpandedChange = vi.fn(); const onSortChange = vi.fn(); const onVisibleChange = vi.fn();
+    vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+    try {
+      render(<form onSubmit={onSubmit}>{tree({ onExpandedChange, sortOf: () => null, onSortChange, onVisibleChange })}</form>);
+      const line = within(row('a').firstElementChild as HTMLElement);
+      for (const button of [...line.getAllByRole('button'), line.getByRole('checkbox')]) {
+        if (action === 'click') await user.click(button);
+        else {
+          act(() => button.focus());
+          await user.keyboard(action === 'Enter' ? '{Enter}' : ' ');
+        }
+        expect(onSubmit).not.toHaveBeenCalled();
+      }
+      expect(onExpandedChange).toHaveBeenCalledTimes(1);
+      expect(onSortChange).toHaveBeenCalledTimes(1);
+      if (action !== 'Enter') expect(onVisibleChange).toHaveBeenCalledTimes(1);
+    } finally { cleanup(); vi.unstubAllGlobals(); }
+  });
+
+  it.each([
+    [false, 'none'], [false, 'readonly'], [false, 'interactive'],
+    [true, 'none'], [true, 'readonly'], [true, 'interactive'],
+  ] as const)('tabs through only active row controls (selection=%s, sort=%s)', async (selection, sorting) => {
+    const user = userEvent.setup(); const onSelect = vi.fn(); const onSortChange = vi.fn();
+    render(<>{tree({ defaultExpanded: new Set(), onSelect: selection ? onSelect : undefined,
+      sortOf: sorting === 'none' ? undefined : () => null,
+      onSortChange: sorting === 'interactive' ? onSortChange : undefined })}<button>Outside</button></>);
+    await user.tab(); expect(row('a')).toHaveFocus();
+    await user.tab();
+    const expandButton = within(row('a')).getAllByRole('button')[0];
+    expect(expandButton).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(row('a')).toHaveAttribute('aria-expanded', 'true');
+    expect(expandButton).toHaveFocus();
+    for (const button of within(row('a.1').firstElementChild as HTMLElement).getAllByRole('button')) {
+      expect(button).toHaveAttribute('tabindex', '-1');
+    }
+    await user.keyboard(' ');
+    expect(row('a')).toHaveAttribute('aria-expanded', 'false');
+    expect(expandButton).toHaveFocus();
+    if (sorting === 'interactive') {
+      await user.tab();
+      expect(within(row('a')).getAllByRole('button')[1]).toHaveFocus();
+      await user.tab({ shift: true }); expect(expandButton).toHaveFocus();
+      await user.tab();
+    }
+    await user.tab(); expect(screen.getByText('Outside')).toHaveFocus();
+    await user.tab({ shift: true });
+    if (sorting === 'interactive') await user.tab({ shift: true });
+    expect(expandButton).toHaveFocus();
+    await user.tab({ shift: true }); expect(row('a')).toHaveFocus();
+    await user.keyboard('{Enter}');
+    if (selection) {
+      expect(onSelect).toHaveBeenLastCalledWith('a');
+      expect(row('a')).toHaveAttribute('aria-expanded', 'false');
+    } else expect(row('a')).toHaveAttribute('aria-expanded', 'true');
+    await user.keyboard('{End}'); expect(row('b')).toHaveFocus();
+    for (const button of within(row('a').firstElementChild as HTMLElement).getAllByRole('button')) {
+      expect(button).toHaveAttribute('tabindex', '-1');
+    }
+    await user.tab();
+    if (sorting === 'interactive') {
+      expect(within(row('b')).getByRole('button')).toHaveFocus();
+      await user.tab();
+    }
+    expect(screen.getByText('Outside')).toHaveFocus();
+  });
+
+  it.each([false, true])('names row controls from string and rich labels in both languages (rich=%s)', async rich => {
+    const user = userEvent.setup();
+    function English() {
+      const { setLang } = useI18n();
+      return <button onClick={() => setLang('en')}>English</button>;
+    }
+    render(<I18nProvider><English /><LegendTree {...base} nodes={[
+      { id: 'parent', label: rich ? <span>Maker <strong>One</strong></span> : 'Maker One',
+        children: [{ id: 'child', label: 'Child' }] },
+    ]} sortOf={() => 'asc'} onSortChange={vi.fn()} /></I18nProvider>);
+    const collapse = screen.getByRole('button', { name: 'Maker One 접기' });
+    expect(screen.getByRole('button', { name: 'Maker One 정렬: 오름차순' })).toBeTruthy();
+    await user.click(collapse);
+    expect(screen.getByRole('button', { name: 'Maker One 펼치기' })).toBeTruthy();
+    await user.click(screen.getByText('English'));
+    expect(screen.getByRole('button', { name: 'Expand Maker One' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Maker One Sort: ascending' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Expand Maker One' }));
+    expect(screen.getByRole('button', { name: 'Collapse Maker One' })).toBeTruthy();
+  });
+
+  it.each([
+    [null, '정렬: 없음'], ['asc', '정렬: 오름차순'], ['desc', '정렬: 내림차순'],
+  ] as const)('announces read-only sort %s in each row description', (sort, description) => {
+    const view = render(tree({ sortOf: () => sort }));
+    for (const item of screen.getAllByRole('treeitem')) expect(item).toHaveAccessibleDescription(description);
+    expect(row('a')).toHaveAccessibleName('A');
+    expect(screen.queryByRole('button', { name: /정렬/ })).toBeNull();
+    view.rerender(tree({ sortOf: () => sort, onSortChange: vi.fn() }));
+    expect(row('a')).not.toHaveAttribute('aria-describedby');
+  });
+
+  it('scopes the focus ring to the directly focused row line instead of its descendant group', () => {
+    render(tree());
+    act(() => row('a').focus());
+    expect(row('a')).toHaveFocus();
+    for (const item of [row('a'), row('a.1')]) {
+      expect(item).not.toHaveClass('focus-visible:ring-2');
+      expect(item.firstElementChild).toHaveClass(
+        '[[role=treeitem]:focus-visible>&]:ring-2',
+        '[[role=treeitem]:focus-visible>&]:ring-focus-ring',
+        '[[role=treeitem]:focus-visible>&]:ring-offset-2',
+      );
+    }
+    expect(within(row('a')).getAllByRole('group')[0]).not.toHaveClass('focus-visible:ring-2');
+  });
+
   it('navigates visible rows, expands/collapses, and maintains one row entry target', async () => {
     const user = userEvent.setup();
     render(tree({ defaultExpanded: new Set() }));
@@ -106,8 +224,8 @@ describe('LegendTree', () => {
     let sort: LegendTreeSort = null;
     const props = { sortOf: () => sort, onSortChange };
     const view = render(<>{tree(props)}<button>Outside</button></>);
-    await user.tab(); await user.tab();
-    const sortButton = within(row('a').firstElementChild as HTMLElement).getByRole('button', { name: '정렬: 없음' });
+    await user.tab(); await user.tab(); await user.tab();
+    const sortButton = within(row('a').firstElementChild as HTMLElement).getByRole('button', { name: 'A 정렬: 없음' });
     expect(sortButton).toHaveFocus();
     await user.keyboard('{Enter}');
     expect(onSortChange).toHaveBeenLastCalledWith('a', 'asc');
@@ -115,11 +233,13 @@ describe('LegendTree', () => {
     await user.keyboard(' ');
     expect(onSortChange).toHaveBeenLastCalledWith('a', 'desc');
     sort = 'desc'; view.rerender(<>{tree(props)}<button>Outside</button></>);
-    await user.click(within(row('a').firstElementChild as HTMLElement).getByRole('button', { name: '정렬: 내림차순' }));
+    await user.click(within(row('a').firstElementChild as HTMLElement).getByRole('button', { name: 'A 정렬: 내림차순' }));
     expect(onSortChange).toHaveBeenLastCalledWith('a', null);
     expect(row('a')).toHaveFocus();
-    await user.tab(); await user.tab({ shift: true }); expect(row('a')).toHaveFocus();
-    await user.tab(); await user.tab(); expect(screen.getByText('Outside')).toHaveFocus();
+    await user.tab(); await user.tab(); await user.tab({ shift: true });
+    expect(within(row('a').firstElementChild as HTMLElement).getByRole('button', { name: 'A 접기' })).toHaveFocus();
+    await user.tab({ shift: true }); expect(row('a')).toHaveFocus();
+    await user.tab(); await user.tab(); await user.tab(); expect(screen.getByText('Outside')).toHaveFocus();
     expect(screen.getByRole('tree')).not.toHaveAttribute('aria-describedby');
   });
 
@@ -142,7 +262,7 @@ describe('LegendTree', () => {
     expect(row('b')).not.toHaveAttribute('aria-selected');
     view.rerender(tree({ sortOf: () => 'asc' }));
     expect(screen.queryByRole('button', { name: /정렬/ })).toBeNull();
-    expect(screen.getAllByLabelText('정렬: 오름차순')).toHaveLength(7);
+    for (const item of screen.getAllByRole('treeitem')) expect(item).toHaveAccessibleDescription('정렬: 오름차순');
   });
 
   it('uses controlled expansion, fresh callback Sets, and read-only expansion without a callback', () => {
@@ -170,7 +290,7 @@ describe('LegendTree', () => {
   it('repairs focus to an ancestor, then first row, then the empty tree', () => {
     const view = render(tree());
     act(() => row('a.1.x.i').focus());
-    fireEvent.click(within(row('a').firstElementChild as HTMLElement).getByRole('button', { name: '접기' }));
+    fireEvent.click(within(row('a').firstElementChild as HTMLElement).getByRole('button', { name: 'A 접기' }));
     expect(row('a')).toHaveFocus();
     view.rerender(tree({ nodes: [{ id: 'b', label: 'B' }] }));
     expect(row('b')).toHaveFocus();
@@ -244,7 +364,7 @@ describe('LegendTree', () => {
     }
     const view = render(<I18nProvider><English /><LegendTree {...base} sortOf={() => 'asc'} /></I18nProvider>);
     await user.click(screen.getByText('English'));
-    expect(screen.getAllByLabelText('Sort: ascending')).toHaveLength(7);
+    for (const item of screen.getAllByRole('treeitem')) expect(item).toHaveAccessibleDescription('Sort: ascending');
     view.rerender(<I18nProvider><LegendTree {...base} nodes={[]} /></I18nProvider>);
     expect(screen.getByText('No items to show.')).toBeTruthy();
   });
