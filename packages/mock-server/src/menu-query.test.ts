@@ -805,6 +805,25 @@ describe('Line/PRC and membership basis request filtering (#552)', () => {
   const spec = makeSpec('analytics.multi-axis', { context: { condition: 'apply', line: 'apply', prcGroup: 'apply' } });
   const endpoint = mockEndpoint(spec);
   const endpoints = new Map([[spec.id, endpoint]]);
+  it.each([
+    ['array Condition', { condition: [] }, 'invalid_condition'],
+    ['scalar axis', { condition: { maker: 'X' } }, 'invalid_condition'],
+    ['empty Condition', { condition: {} }, 'invalid_condition'],
+    ['empty axis array', { condition: { maker: [] } }, 'invalid_condition'],
+    ['blank axis value', { condition: { maker: [' '] } }, 'invalid_condition'],
+    ['non-string axis value', { condition: { maker: [1] } }, 'invalid_condition'],
+    ['scalar Line', { lineNames: 'L10' }, 'invalid request context'],
+    ['scalar PRC', { prcGroups: 'P10' }, 'invalid request context'],
+    ['blank Line ID', { lineNames: [' '] }, 'invalid request context'],
+    ['non-string PRC ID', { prcGroups: [1] }, 'invalid request context'],
+    ['invalid basis', { membershipBasis: 'current' }, 'invalid_membership_basis'],
+    ['orphan basis', { membershipBasis: 'asOf' }, 'membership_basis_pair'],
+  ])('rejects malformed runtime Context: %s', async (_label, patch, message) => {
+    const context = { scopeId: 'MEM', condition: null, lineNames: null, prcGroups: null, membershipBasis: null, ...patch };
+    const result = await serveEndpoint(endpoints, request(spec.id, context), undefined, { role: 'engineer', latency: 0 });
+    expect(result).toMatchObject({ outcome: 'error', data: null, assessments: [], trust: null, message });
+    expect(result.correlationId).toBeTruthy();
+  });
   it('filters Line and PRC together with a multi-axis map', async () => {
     const row = EQUIPMENT.find(e => e.site === 'MEM' && e.room === 'PHOTO')!;
     const context = { scopeId: 'MEM', condition: { maker: [row.maker], model: [row.model] }, lineNames: [row.line], prcGroups: [row.prcGroup], membershipBasis: null };

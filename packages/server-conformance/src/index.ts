@@ -508,7 +508,41 @@ function planConditionChecks(harness: ServerConformanceHarness): ConformanceChec
     return new Set(r.inCondition.map(e => e.equipmentId));
   };
   const single: Condition = { [axisA.id]: [axisA.values[0]] };
+  const malformed: { label: string; patch: Record<string, unknown> }[] = [
+    { label: 'malformed map', patch: { condition: [] } },
+    { label: 'empty axis array', patch: { condition: { [axisA.id]: [] } } },
+    { label: 'scalar axis', patch: { condition: { [axisA.id]: axisA.values[0] } } },
+    { label: 'blank axis ID', patch: { condition: { [axisA.id]: [' '] } } },
+    { label: 'scalar Line', patch: { lineNames: 'L10' } },
+    { label: 'scalar PRC', patch: { prcGroups: 'P10' } },
+    { label: 'invalid basis', patch: { membershipBasis: 'current' } },
+    { label: 'orphan basis', patch: { membershipBasis: 'asOf' } },
+  ];
+  const endpointCase = harness.cases.find(c => c.spec.id === sample.endpoint);
+  const invalidChecks: ConformanceCheck[] = malformed.flatMap(({ label, patch }) => {
+    const checks: ConformanceCheck[] = [{
+      id: `condition · evaluateSelection rejects ${label}`, mode: 'granted', nonEnvelope: true,
+      run: async () => {
+        try {
+          await harness.adapter.evaluateSelection({ ...emptyGlobal, scopeId: harness.context.scopeId, ...patch } as Parameters<PlatformAdapter['evaluateSelection']>[0]);
+          return 'invalid Selection input must reject';
+        } catch (error) {
+          return error instanceof Error && error.name !== 'TypeError' ? null : 'invalid input must be rejected explicitly, not crash during matching';
+        }
+      },
+    }];
+    if (endpointCase) {
+      const base = baseRequest(harness, endpointCase);
+      if (Object.keys(patch).every(key => key in base.context)) checks.push({
+        id: `condition · menuQuery rejects ${label}`, mode: 'granted',
+        run: expectOutcome(() => harness.adapter.menuQuery({ ...base, context: { ...base.context, ...patch } }), 'error', label),
+      });
+    }
+    return checks;
+  });
+
   return [
+    ...invalidChecks,
     { id: 'condition · AND narrows across axes', mode: 'granted', nonEnvelope: true, run: async () => {
       const [base, both] = await Promise.all([evaluate(single), evaluate({ ...single, [axisB.id]: [axisB.value] })]);
       return both.size > 0 && both.size < base.size && [...both].every(id => base.has(id)) ? null : 'AND must produce a non-empty strict subset for the supplied sample';

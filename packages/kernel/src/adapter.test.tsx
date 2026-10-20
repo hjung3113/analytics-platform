@@ -396,6 +396,20 @@ describe('site-bound map fields (#552)', () => {
     expect(JSON.parse(screen.getByTestId('site-global').textContent!)).toMatchObject({ scopeId: 'FDRY', condition: null, membershipBasis: null, lineNames: null, prcGroups: null });
     expect(window.location.search).not.toContain('membershipBasis');
   });
+  it.each([
+    ['ko', 'Scope 변경: room_name·Line·PRC 그룹·설비 조건·선택·Lot·Recipe를 초기화했습니다 (Site 경계).'],
+    ['en', 'Scope changed: room_name, Line, PRC groups, condition, selection, Lot and Recipe were cleared (site boundary).'],
+  ])('names Line and PRC groups in the %s Scope reset toast', (lang, expected) => {
+    localStorage.setItem('platform:lang', lang);
+    window.history.replaceState(null, '', '/?scopeId=MEM&lineNames=L&prcGroups=P');
+    function ToastProbe() {
+      const p = usePlatform();
+      return <><button onClick={() => p.setGlobal({ scopeId: 'FDRY' })}>change-site</button><p data-testid="reset-toast">{p.toasts.map(t => t.text).join('')}</p></>;
+    }
+    render(<I18nProvider><PlatformProvider adapter={fixture().adapter} registry={registry}><ToastProbe /></PlatformProvider></I18nProvider>);
+    act(() => screen.getByRole('button', { name: 'change-site' }).click());
+    expect(screen.getByTestId('reset-toast').textContent).toBe(expected);
+  });
   it('accepts PRC-only asOf without any equipment descriptors', () => {
     window.history.replaceState(null, '', '/?prcGroups=P&membershipBasis=asOf');
     render(<I18nProvider><PlatformProvider adapter={fixture().adapter} registry={registry}><Probe /></PlatformProvider></I18nProvider>);

@@ -1,6 +1,7 @@
 import { emptyGlobal, projectContext } from '@ap/contracts';
 import type { ApiResponse, EndpointSpec, GlobalContext } from '@ap/contracts';
 import { nextCorrelation, serve } from './server';
+import { contextShapeError } from './context-validation';
 import type { Equipment, RoleId } from './world';
 
 /** A menu's mock handler for one declared endpoint. Lives in the menu's `src/mock/` from step 5 on. */
@@ -110,9 +111,9 @@ export async function serveEndpoint(
     return requestError(`missing context key ${missingAppliedContextKey} for ${endpoint.spec.id}`);
   }
 
+  const invalidContext = contextShapeError(req.context);
+  if (invalidContext) return requestError(invalidContext);
   const basis = req.context.membershipBasis;
-  if (basis !== undefined && basis !== null && basis !== 'asOf') return requestError('invalid_membership_basis');
-  if (basis === 'asOf' && req.context.condition == null && req.context.prcGroups == null) return requestError('membership_basis_pair');
   if (basis === 'asOf' && req.context.condition != null) return requestError('membership_basis_unsupported');
 
   if (endpoint.spec.context.time === 'apply') {

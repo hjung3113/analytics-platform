@@ -9,7 +9,7 @@ export class ContractError extends Error {
 }
 const fail = (code: string, message: string, field?: string, raw?: string): never => { throw new ContractError(code, message, field, raw); };
 
-/** App-owned axis IDs; the URL codec retains only the legacy v1 vocabulary. */
+/** App-owned axis IDs; the URL codec only validates structure. */
 export type Condition = Readonly<Record<string, readonly string[]>>;
 
 /** null = key absent (no explicit constraint); [] = explicit empty set; otherwise sorted unique IDs. */
@@ -95,10 +95,13 @@ function conditionFromJson(raw: string): Condition | null {
     const obj: unknown = JSON.parse(raw);
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return invalid();
     let o = obj as Record<string, unknown>;
-    const keys = Object.keys(o).sort().join(',');
-    // Legacy v1 decoding is the sole concrete-axis compatibility boundary.
-    if ((o.axis === 'stgroup' || o.axis === 'team') && keys === 'axis,id') o = { [o.axis]: [o.id] };
-    else if (o.axis === 'makerModel' && keys === 'axis,maker,model') o = { maker: [o.maker], model: [o.model] };
+    if (typeof o.axis === 'string') {
+      const fields = Object.keys(o).filter(key => key !== 'axis');
+      if (fields.length === 1 && fields[0] === 'id' && typeof o.id === 'string') o = { [o.axis]: [o.id] };
+      else if (fields.length && !fields.includes('id') && fields.every(key => typeof o[key] === 'string')) {
+        o = Object.fromEntries(fields.map(key => [key, [o[key]]]));
+      } else return invalid();
+    }
     const entries = Object.keys(o).sort(codepointCompare).map(axis => {
       identifier(axis, 'axis');
       const values = o[axis];

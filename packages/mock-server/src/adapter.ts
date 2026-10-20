@@ -5,6 +5,7 @@
  */
 import type { AuditEvent, ContextKey, MenuMeta, PlatformAdapter, Session } from '@ap/contracts';
 import { instantEpochMs } from '@ap/contracts';
+import { contextShapeError } from './context-validation';
 import { checkScope, getEntity, getRole, matchesCondition, recordUsage, reportClientError, subscribeServer, usageSummary, validateScope } from './server';
 import { AUDIT_TYPES, auditTrail, entityAudit } from './audit';
 import { AUDIT_EVENTS } from './audit-fixtures';
@@ -146,6 +147,8 @@ export function createMockAdapter(o: {
     evaluateSelection: async ({ scopeId, roomNames, lineNames, prcGroups, membershipBasis, condition, selection }, signal) => {
       const role = getRole();
       await pause(signal);
+      const invalidContext = contextShapeError({ roomNames, lineNames, prcGroups, membershipBasis, condition, selection });
+      if (invalidContext) throw new Error(invalidContext);
       if (membershipBasis === 'asOf' && condition !== null) throw new Error('membership_basis_unsupported');
       // PRC-only asOf uses current membership in this mock (no history data).
       // Grants come from the session on the server, not from anything the client sends.

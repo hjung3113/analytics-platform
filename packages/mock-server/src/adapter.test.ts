@@ -155,6 +155,25 @@ describe('multi-axis Condition matching (#552)', () => {
 });
 
 describe('Selection evaluation carries Line/PRC and basis (#552)', () => {
+  it.each([
+    ['array Condition', { condition: [] }, 'invalid_condition'],
+    ['scalar axis', { condition: { maker: 'X' } }, 'invalid_condition'],
+    ['empty Condition', { condition: {} }, 'invalid_condition'],
+    ['empty axis array', { condition: { maker: [] } }, 'invalid_condition'],
+    ['blank axis value', { condition: { maker: [' '] } }, 'invalid_condition'],
+    ['non-string axis value', { condition: { maker: [1] } }, 'invalid_condition'],
+    ['scalar Line', { lineNames: 'L10' }, 'invalid request context'],
+    ['scalar PRC', { prcGroups: 'P10' }, 'invalid request context'],
+    ['blank Line ID', { lineNames: [' '] }, 'invalid request context'],
+    ['non-string PRC ID', { prcGroups: [1] }, 'invalid request context'],
+    ['invalid basis', { membershipBasis: 'current' }, 'invalid_membership_basis'],
+    ['orphan basis', { membershipBasis: 'asOf' }, 'membership_basis_pair'],
+    ['scalar rooms', { roomNames: 'PHOTO' }, 'invalid request context'],
+    ['scalar Selection', { selection: 'E1' }, 'invalid request context'],
+  ])('rejects malformed runtime Selection input: %s', async (_label, patch, message) => {
+    const input = { scopeId: 'MEM', roomNames: null, condition: null, selection: null, lineNames: null, prcGroups: null, membershipBasis: null, ...patch };
+    await expect(mockAdapter.evaluateSelection(input as unknown as Parameters<typeof mockAdapter.evaluateSelection>[0])).rejects.toThrow(message as string);
+  });
   it('filters both sets and treats PRC-only asOf as current membership', async () => {
     const before = getRole();
     try {

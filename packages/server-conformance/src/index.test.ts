@@ -1214,6 +1214,45 @@ describe('Condition conformance samples (#552)', () => {
     const check = planServerConformance(harness()).find(c => c.id === 'condition: no sample');
     expect(check?.mode).toBe('skipped');
   });
+  it.each(['malformed map', 'empty axis array', 'scalar axis', 'blank axis ID', 'scalar Line', 'scalar PRC', 'invalid basis', 'orphan basis'])('pins rejection of %s at both server entry points', async label => {
+    const h = harness();
+    const conditionSpec = defineEndpoint({ ...spec, context: { condition: 'apply', line: 'apply', prcGroup: 'apply' } });
+    h.cases = [{ spec: conditionSpec, params: { page: 0 } }];
+    h.ports.condition = { endpoint: spec.id, axisA: { id: 'alpha', values: ['a1', 'a2'] }, axisB: { id: 'beta', value: 'b1' }, nonHistoryAxisId: 'alpha' };
+    h.adapter.menuQuery = async () => err('invalid context');
+    h.adapter.evaluateSelection = async () => { throw new Error('invalid context'); };
+    const checks = planServerConformance(h);
+    for (const entry of ['menuQuery', 'evaluateSelection']) {
+      const id = `condition · ${entry} rejects ${label}`;
+      const check = checks.find(c => c.id === id);
+      expect(check, id).toBeDefined();
+      expect(await check!.run(), id).toBeNull();
+    }
+    h.adapter.menuQuery = async () => ({ ...err(''), outcome: 'ok' });
+    h.adapter.evaluateSelection = async () => ({ inCondition: [], outOfCondition: [] });
+    for (const entry of ['menuQuery', 'evaluateSelection']) {
+      const check = checks.find(c => c.id === `condition · ${entry} rejects ${label}`)!;
+      expect(await check.run()).toBeTruthy();
+    }
+  });
+  it('passes AND, OR and legacy equivalence for custom axis IDs', async () => {
+    const h = harness();
+    h.ports.condition = { endpoint: spec.id, axisA: { id: 'alpha', values: ['a1', 'a2'] }, axisB: { id: 'beta', value: 'b1' }, nonHistoryAxisId: 'alpha' };
+    const rows = [
+      { equipmentId: 'E1', room: 'R', model: 'M', alpha: 'a1', beta: 'b1' },
+      { equipmentId: 'E2', room: 'R', model: 'M', alpha: 'a1', beta: 'b2' },
+      { equipmentId: 'E3', room: 'R', model: 'M', alpha: 'a2', beta: 'b1' },
+    ];
+    h.adapter.evaluateSelection = async ({ condition }) => ({
+      inCondition: rows.filter(row => Object.entries(condition ?? {}).every(([axis, values]) => values.includes(row[axis as 'alpha' | 'beta']))),
+      outOfCondition: [],
+    });
+    for (const id of ['condition · AND narrows across axes', 'condition · OR includes each value', 'condition · v1 single axis is equivalent']) {
+      const check = planServerConformance(h).find(c => c.id === id);
+      expect(check, id).toBeDefined();
+      expect(await check!.run(), id).toBeNull();
+    }
+  });
   it('detects an evaluator that ignores the second axis', async () => {
     const h = harness();
     h.ports.condition = { endpoint: spec.id, axisA: { id: 'stgroup', values: ['A', 'B'] }, axisB: { id: 'model', value: 'M' }, nonHistoryAxisId: 'stgroup' };

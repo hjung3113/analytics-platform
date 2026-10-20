@@ -155,6 +155,18 @@ describe('app-injected multi-axis Condition (#552)', () => {
   ])('migrates v1 %j losslessly', (legacy, expected) => {
     expect(parseQuery(query(legacy)).global.condition).toEqual(expected);
   });
+  it.each([
+    [{ axis: 'alpha', id: 'a1' }, { alpha: ['a1'] }],
+    [{ axis: 'composite', first: 'F', second: 'S' }, { first: ['F'], second: ['S'] }],
+  ])('decodes v1 using only structure: %j', (legacy, expected) => {
+    expect(parseQuery(query(legacy)).global.condition).toEqual(expected);
+  });
+  it.each([
+    { axis: 'alpha' }, { axis: 'alpha', id: 'a1', other: 'x' },
+    { axis: 'alpha', first: ['F'] }, { axis: 'alpha', id: '' },
+  ])('rejects malformed v1 tag %j', value => {
+    expect(cause(query(value))).toEqual({ code: 'invalid_condition', field: 'equipmentGroup', raw: JSON.stringify(value) });
+  });
   it('normalizes axis order, unique values and empty map without changing Selection', () => {
     const g = parseQuery(query({ z: ['B', 'A', 'A'], a: ['X'] }, '&selectedEquipmentIds=E')).global;
     expect(new URLSearchParams(buildQuery(g)).get('equipmentGroup')).toBe('{"a":["X"],"z":["A","B"]}');

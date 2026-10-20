@@ -347,7 +347,7 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
       // Site is a DB boundary (ADR-0004): site-bound sets are cleared explicitly, never re-mapped.
       const had = global.lineNames !== null || global.prcGroups !== null || global.membershipBasis !== null || global.roomNames !== null || global.condition !== null || global.selection !== null || global.lotIds !== null || global.recipeIds !== null || global.ppid !== null;
       next = { ...next, roomNames: null, lineNames: null, prcGroups: null, condition: null, membershipBasis: null, selection: null, lotIds: null, recipeIds: null, ppid: null };
-      if (had && !options?.silent) toast(lang === 'ko' ? 'Scope 변경: room_name·설비 조건·선택·Lot·Recipe를 초기화했습니다 (Site 경계).' : 'Scope changed: room_name, condition, selection, Lot and Recipe were cleared (site boundary).', 'warning');
+      if (had && !options?.silent) toast(lang === 'ko' ? 'Scope 변경: room_name·Line·PRC 그룹·설비 조건·선택·Lot·Recipe를 초기화했습니다 (Site 경계).' : 'Scope changed: room_name, Line, PRC groups, condition, selection, Lot and Recipe were cleared (site boundary).', 'warning');
     }
     write(pathname + buildQuery(next, dropContextResetKeys(page, next), extras), options);
   }, [global, page, extras, pathname, write, toast, lang, dropContextResetKeys]);

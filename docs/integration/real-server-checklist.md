@@ -44,7 +44,7 @@
 
 서버는 요청이 아니라 자기 선언 사본(엔드포인트 id → `EndpointSpec` + 핸들러)으로 판정한다. 순서도 계약이다(앞 단계가 뒤 단계보다 우선).
 
-1. **요청 모양** → 어긋나면 `error`: 최상위 키는 `endpoint`·`context`·`params`뿐, 등록된 엔드포인트, GlobalContext 필드만, `paramKeys` 밖 params 키 없음, 선언이 적용하지 않는 Context 키 없음(Q3), 적용 키 누락 없음(Q9), `time` 적용이면 `from`·`to`가 non-null 문자열, `metric` 적용이면 `metricVersion`은 `metricId` 없이 오지 않음.
+1. **요청 모양** → 어긋나면 `error`: 최상위 키는 `endpoint`·`context`·`params`뿐, 등록된 엔드포인트, GlobalContext 필드만, `paramKeys` 밖 params 키 없음, 선언이 적용하지 않는 Context 키 없음(Q3), 적용 키 누락 없음(Q9), Condition은 null 또는 축이 하나 이상인 plain object이며 각 축 값은 비공백 문자열의 비어 있지 않은 배열, IdSet은 null 또는 비공백 문자열 배열, `membershipBasis`는 null 또는 `asOf`이고 `asOf`에는 Condition 또는 PRC 그룹 필요, `time` 적용이면 `from`·`to`가 non-null 문자열, `metric` 적용이면 `metricVersion`은 `metricId` 없이 오지 않음.
 2. **params 값** → 엔드포인트의 값 검증(예: 계열에 없는 `metricVersion`)이 거부하면 `error`. 잘못된 요청이지 빈 결과가 아니다.
 3. **권한** → 엔드포인트 권한(데이터 접근 권한, 메뉴 권한과 다를 수 있음 — Q5)이 없으면 `forbidden`. 요청 시점의 세션 사용자로 판정하고, 비행 중 역할이 바뀌어도 보낸 사람 기준이다.
 4. **Scope** → `requiresScope`면 site 부여 → room 부여 → 조건 → Selection으로 설비 집합을 해석하고, 부여 밖이면 `forbidden`(Scope `null`도 `forbidden`).
@@ -136,4 +136,4 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 
 ### Condition map conformance (ADR-0059, #552)
 
-`ports.condition` supplies app-owned axis IDs and fixture values: cross-axis AND must narrow, within-axis OR equals the union, legacy v1 single-axis decoding preserves results, and `asOf` on a non-history axis returns an error. Without the sample the kit reports one visible skipped check. `lineNames` and `prcGroups` follow IdSet filtering; PRC membership history is server-owned. The mock alone evaluates PRC-only `asOf` as current membership because it has no history data.
+`ports.condition` supplies app-owned axis IDs and fixture values: cross-axis AND must narrow, within-axis OR equals the union, legacy v1 single-axis decoding preserves results, and `asOf` on a non-history axis returns an error. The sample also pins rejection of malformed Condition maps, empty axis arrays, scalar axis values, blank value IDs, scalar Line/PRC sets, invalid membership bases and orphaned `asOf`. `evaluateSelection` must explicitly reject invalid input; `menuQuery` returns an error envelope for fields the sampled endpoint applies. Without the sample the kit reports one visible skipped check. `lineNames` and `prcGroups` follow IdSet filtering; PRC membership history is server-owned. The mock alone evaluates PRC-only `asOf` as current membership because it has no history data.

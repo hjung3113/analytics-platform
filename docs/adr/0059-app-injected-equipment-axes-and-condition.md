@@ -31,7 +31,7 @@ MARS 이관 웨이브 1(#557)의 조회 조건은 여러 설비 분류를 함께
 
 - `equipmentGroup` 부재는 `condition=null`(축 제약 없음), 맵의 축 부재도 그 축 무제약이다. `null`인 JSON/축 값, `[]`인 맵/축 값, 빈 ID는 유효한 Condition이 아니다. 빈 맵 `{}`는 제약 없음으로 정규화하고 serializer에서 키를 생략한다. 기존 ID 정규화 규칙을 따르되 ID 자체를 변형하지 않는다.
 - 새 링크는 배열 맵만 쓴다(문자열 값 맵은 과거에 쓰인 적이 없어 받지 않는다). v1 `makerModel`은 maker/model 두 축의 단일값 AND로 이행한다(2026-10-21 구현에서 확정 — 코디네이터 결정, 사용자가 되돌릴 수 있음). 미주입 축은 검증된 질의로 사용하지 않고 오류를 표시한다. 주입됐지만 메뉴에서 미지원인 축과는 구별한다.
-- v1 링크: 현재 `packages/contracts/src/url.ts`는 `{"axis":"stgroup","id":"A"}`, `{"axis":"team","id":"B"}`, `{"axis":"makerModel","maker":"X","model":"Y"}` tagged object를 받는다. 이 v1 링크도 기존 디코더 의미대로 읽어 새 내부 표현으로 이행한다. 앞의 둘은 해당 축의 단일값 배열로, Maker+Model은 `{maker:[X], model:[Y]}`로 이행해 두 ID와 AND 의미를 보존한다(2026-10-21 구현에서 확정 — 코디네이터 결정, 사용자가 되돌릴 수 있음).
+- v1 tag는 축 이름을 모르는 구조 규칙으로 읽는다 (2026-10-21, 코드 리뷰 C2 — SDK에 구체 축 이름을 두지 않는다는 사용자 규칙). 문자열 `axis`가 있는 객체는 v1 tag다. 정확히 `{axis: X, id: Y}`인 문자열 쌍은 `{[X]: [Y]}`로, `id` 없이 문자열 필드가 하나 이상 있는 `{axis: X, ...fields}`는 필드 이름별 단일값 배열 맵으로 읽는다. 그 밖의 tag 모양은 `invalid_condition`이다. 기존 StGroup·team·Maker+Model 링크의 ID와 AND 의미를 보존하며, 실제 축 존재 여부는 주입 descriptor로 검증한다.
 - `v`는 올리지 않고 기존 링크의 `v`를 자동 변경하지 않는다. 신규 직렬화만 배열 맵을 쓴다. `equipmentIds` 별칭과 `equipmentSelection=none`, `roomSelection=none` 및 다른 기존 집합 표식의 의미는 유지한다. Condition 축의 `[]`는 이 표식으로 전환하지 않는다.
 
 ## 결과
