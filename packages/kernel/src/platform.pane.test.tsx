@@ -149,6 +149,20 @@ describe('PaneScreenProvider — independent screen state (ADR-0049)', () => {
   });
 });
 
+describe('PaneScreenProvider — paneLabel', () => {
+  it('exposes the pane caption read-only in a pane and null on the main screen and in a pane without one', async () => {
+    mount(<>
+      <Probe id="main" />
+      <PaneScreenProvider paneId="p1" paneLabel="칸 2 · board-a" screen={screenA()} onChange={() => {}} onLeave={() => {}}><Probe id="p1" /></PaneScreenProvider>
+      <PaneScreenProvider paneId="p2" screen={screenA()} onChange={() => {}} onLeave={() => {}}><Probe id="p2" /></PaneScreenProvider>
+    </>, fixture().adapter);
+    await flush();
+    expect(at('p1').paneLabel).toBe('칸 2 · board-a');
+    expect(at('main').paneLabel).toBeNull();
+    expect(at('p2').paneLabel).toBeNull();
+  });
+});
+
 describe('PaneScreenProvider — navigation and links', () => {
   it('a link to an openable board menu is onChange push; to a non-board, unopenable or external target it is onLeave (or rejected)', async () => {
     const p = spies();

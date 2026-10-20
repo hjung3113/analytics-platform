@@ -1,14 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties } from 'react';
-import { BOARD_PATH, useI18n, usePlatform, type MenuEntry, type PaneScreen, type Registry } from '@ap/kernel';
+import { BOARD_PATH, pathFor, useI18n, usePlatform, type MenuEntry, type PaneScreen, type Registry } from '@ap/kernel';
 import { buildQuery, parseQuery } from '@ap/contracts';
 import { cn, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Toaster, ToggleGroup, ToggleGroupItem, UndoToast, toast } from '@ap/ui';
 import { BoardContextBar } from './BoardContextBar';
 import { BoardPane } from './BoardPane';
 import { SheetTabs } from './SheetTabs';
 import {
-  BOARD_LAYOUTS, addSheet, droppedPaneCount, layoutShape, moveSheet, removeSheet, renameSheet, restoreLayout, restorePane, restoreSheet,
-  selectPane, setActiveSheet, setLayout, setPane, type Board, type BoardLayout, type LayoutChange,
+  BOARD_LAYOUTS, addSheet, applyPaneEdits, droppedPaneCount, editPane, goBackPane, layoutShape, moveSheet, previousOf, removeSheet, renameSheet,
+  restoreLayout, restorePane, restoreSheet, revertPaneEdits, selectPane, setActiveSheet, setLayout, setPane, type Board, type BoardLayout, type LayoutChange, type PaneEdit,
 } from './boardModel';
+import { canMountPaneScreen } from './boardMenus';
+import { applyContextToSheet, copyContextToSheet, firstEmptyPane, paneNumbers, paneSignals, replacementScreen } from './paneActions';
 import { useBoardStore } from './boardStore';
 import { GRID_GAP_CLASS, PANE_MIN_HEIGHT, drawnColumns, useElementWidth } from './layout';
 import { boardText, type BoardText } from './text';
@@ -39,7 +41,7 @@ function raiseUndo(text: BoardText, message: string, onUndo: () => void) {
  * `Outlet` renders a pane's menu (the shell's `ScreenOutlet`); it is passed in so this folder does not import the outlet that mounts it.
  */
 export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
-  const { user, url, pathname, navigate, registry, recent, pageNavigation } = usePlatform();
+  const { user, url, pathname, navigate, registry, recent, pageNavigation, can } = usePlatform();
   const { lang } = useI18n();
   const text = boardText(lang);
   const { board, update } = useBoardStore(user.id, text.sheetPrefix);
@@ -111,6 +113,56 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     update(() => next);
     navigate(sheetHref(next.activeSheetId));
   };
+  /** Runs `edits` on this sheet (or `onSheet`) and raises an undo that restores them only while every edited pane still holds what they left. */
+  const editPanes = (edits: PaneEdit[], message: string, onSheet = sheetId) => {
+    update(b => applyPaneEdits(b, onSheet, edits));
+    raiseUndo(text, message, () => { undo(b => revertPaneEdits(b, onSheet, edits)); });
+  };
+  const applyToAll = (index: number) => {
+    const result = applyContextToSheet(registry, can, sheet, index);
+    if (!result) return;
+    if (result.edits.length === 0) { toast.info(text.appliedNothing); return; }
+    editPanes(result.edits, text.applied(index + 1, paneNumbers(result.edits.map(e => e.index))));
+  };
+  const copyContext = (targetId: string) => {
+    const target = board.sheets.find(s => s.id === targetId);
+    if (!target) return;
+    const edits = copyContextToSheet(registry, can, sheet, target);
+    if (edits.length === 0) { toast.info(text.copiedNothing(target.name)); return; }
+    editPanes(edits, text.copied(paneNumbers(edits.map(e => e.index)), target.name), targetId);
+  };
+  const replaceScreen = (index: number, menu: MenuEntry) => {
+    const old = sheet.panes[index];
+    if (!old) return;
+    editPanes([{ index, before: old, after: replacementScreen(registry, can, old, menu, defaultQuery(registry, recent)), fresh: true }], text.replaced(index + 1));
+  };
+  const duplicate = (index: number) => {
+    const from = sheet.panes[index];
+    const to = firstEmptyPane(sheet);
+    if (!from || to === -1 || !canMountPaneScreen(registry, can, from)) return;
+    editPanes([{ index: to, before: null, after: { ...from, params: { ...from.params } }, fresh: true }], text.duplicated(index + 1, to + 1));
+  };
+  const openFull = (index: number) => {
+    const screen = sheet.panes[index];
+    const menu = screen ? registry.menus.find(m => m.id === screen.menuId) : null;
+    if (screen && menu) navigate(pathFor(menu, screen.params) + screen.query, { focus: 'page' });
+  };
+  // `Context 바에서 편집`: the bar row is keyed by the selected pane, so it remounts for the new one; focus its first control afterwards.
+  const [editRequest, setEditRequest] = useState(0);
+  const editContext = (index: number) => { update(b => selectPane(b, sheetId, index)); setEditRequest(n => n + 1); };
+  useEffect(() => {
+    if (editRequest === 0) return;
+    const timer = setTimeout(() => {
+      document.querySelector<HTMLElement>('[data-board-context-row] button:not(:disabled), [data-board-context-row] [tabindex="0"]')?.focus({ preventScroll: true });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [editRequest]);
+
+  const unavailable = (index: number) => { const own = sheet.panes[index]; return own !== null && !canMountPaneScreen(registry, can, own); };
+  const applyOff = (index: number) => (unavailable(index) ? text.paneUnavailable : applyContextToSheet(registry, can, sheet, index)?.others ? null : text.applyToAllNone);
+  const duplicateOff = (index: number) => (unavailable(index) ? text.paneUnavailable : emptyIndex === -1 ? text.noEmptyPane : null);
+  const signals = paneSignals(registry, can, sheet.panes, text.noneValue);
+  const emptyIndex = firstEmptyPane(sheet);
   const insert = (index: number, menu: MenuEntry) => writePane(index, { menuId: menu.id, params: {}, query: defaultQuery(registry, recent) });
 
   const shrinkCount = confirmLayout ? droppedPaneCount(sheet, confirmLayout) : 0;
@@ -128,17 +180,22 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
         {BOARD_LAYOUTS.map(layout => <ToggleGroupItem key={layout} value={layout} size="sm" appearance="selected-filter" aria-label={text.layoutOption(layout)}>{layout.replace('x', '×')}</ToggleGroupItem>)}
       </ToggleGroup>
     </header>
-    <BoardContextBar key={`${sheetId}.${selected}`} paneId={paneIdOf(sheetId, selected)} number={selected + 1} screen={sheet.panes[selected]} onChange={next => writePane(selected, next)} onLeave={onLeave} />
+    <BoardContextBar key={`${sheetId}.${selected}`} paneId={paneIdOf(sheetId, selected)} number={selected + 1} screen={sheet.panes[selected]} onChange={(next, how) => update(b => editPane(b, sheetId, selected, next, how))} onLeave={onLeave} />
     <div id={PANEL_ID} role="tabpanel" aria-labelledby={`board-tab-${sheetId}`} className="min-h-0 flex-1 overflow-auto p-3">
       <div ref={grid} data-board-grid data-columns={drawn} data-rows={rows} style={{ '--board-row': `minmax(${PANE_MIN_HEIGHT}px, 1fr)` } as CSSProperties}
         className={cn('grid min-h-full auto-rows-(--board-row)', GRID_GAP_CLASS, drawn === 1 ? 'grid-cols-1' : 'grid-cols-2')}>
         {sheet.panes.map((screen, index) => <BoardPane key={`${sheetId}.${index}`} paneId={paneIdOf(sheetId, index)} number={index + 1} screen={screen} selected={index === selected} Outlet={Outlet}
-          onSelect={() => update(b => selectPane(b, sheetId, index))} onChange={next => writePane(index, next)} onLeave={onLeave}
-          onInsert={menu => insert(index, menu)} onClear={() => clearPane(index)} />)}
+          signal={signals[index]} hasPrevious={previousOf(sheet, index) !== null}
+          applyAllOff={applyOff(index)} duplicateOff={duplicateOff(index)}
+          onSelect={() => update(b => selectPane(b, sheetId, index))} onChange={(next, how) => update(b => editPane(b, sheetId, index, next, how))} onLeave={onLeave}
+          onInsert={menu => insert(index, menu)} onClear={() => clearPane(index)} onBack={() => update(b => goBackPane(b, sheetId, index))}
+          onApplyAll={() => applyToAll(index)} onOpenFull={() => openFull(index)} onReplace={menu => replaceScreen(index, menu)}
+          onDuplicate={() => duplicate(index)} onEditContext={() => editContext(index)} />)}
       </div>
     </div>
     <SheetTabs sheets={board.sheets} activeId={sheetId} panelId={PANEL_ID}
       onSwitch={id => { if (id !== sheetId) navigate(sheetHref(id)); }} onAdd={addNewSheet}
+      onCopyContext={copyContext}
       onRename={(id, name) => update(b => renameSheet(b, id, name))} onMove={(id, to) => update(b => moveSheet(b, id, to))} onDelete={deleteSheet} />
     <AlertDialog open={confirmLayout !== null} onOpenChange={open => { if (!open) setConfirmLayout(null); }}>
       <AlertDialogContent role="alertdialog" onOpenAutoFocus={event => { event.preventDefault(); cancelShrink.current?.focus(); }}>

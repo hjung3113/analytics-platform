@@ -391,7 +391,7 @@ Page
 
 이 Slot 외의 위치에 페이지가 직접 전역 UI를 삽입하지 않는다. 상세 내용은 등록 경계로 넘기고, 셸이 main 옆의 전체 높이 오른쪽 aside 배치를 소유한다(§13).
 
-앱이 조립 때 주입하는 셸 슬롯은 `PlatformSlots`의 `contextBar`(PlatformPage가 페이지 머리 아래에 그린다), `topBarTools`(레일 아래 도구), `feedbackOps`(공간별 FeedbackOps 진입과 전체 링크, [ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md)·[ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)), `plannedSpaces`(전환기의 `준비 중` 행 `{ id, label, subtitle?, icon }[]`)다. 앱이 `feedbackOps`를 넘기지 않으면 셸은 블록과 레일 링크를 그리지 않는다. `plannedSpaces`는 아직 들어갈 수 없는 업무 시스템을 알리는 표시용이라 Registry에 넣지 않는다(공간·메뉴·권한이 없고 이동하지 않는다). 앱이 넘기지 않으면 전환기는 `준비 중` 영역을 그리지 않는다([ADR-0042](adr/0042-system-switcher-and-system-owned-rail.md), 15 §3.2). 페이지는 `crumbs`로 현재 위치(부모 메뉴 뒤 추가 경로)를 확장할 수 있다. 새 슬롯은 이 절에 근거를 먼저 적는다.
+앱이 조립 때 주입하는 셸 슬롯은 `PlatformSlots`의 `contextBar`(PlatformPage가 페이지 머리 아래에 그린다), `topBarTools`(레일 아래 도구), `feedbackOps`(공간별 FeedbackOps 진입과 전체 링크, [ADR-0027](adr/0027-feedbackops-stays-standalone-entry-links.md)·[ADR-0028](adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)), `plannedSpaces`(전환기의 `준비 중` 행 `{ id, label, subtitle?, icon }[]`), `boardEntry`(보드 지원 메뉴의 본 화면 페이지 머리 `⋯`에 PlatformPage가 덧붙이는 `분석 보드에 열기…` 항목, [16 §6](16_analysis_board.md#6-메뉴-쪽-요구-decided) — 컴포넌트가 셸을 import하지 않도록 앱이 넘긴다. 슬롯이 없거나 메뉴가 보드를 지원하지 않거나 열 수 없거나 칸 안이면 항목도 `⋯`도 만들지 않는다. 항목의 대화상자는 `⋯` 메뉴가 닫혀도 남도록 머리가 들고 있다)다. 앱이 `feedbackOps`를 넘기지 않으면 셸은 블록과 레일 링크를 그리지 않는다. `plannedSpaces`는 아직 들어갈 수 없는 업무 시스템을 알리는 표시용이라 Registry에 넣지 않는다(공간·메뉴·권한이 없고 이동하지 않는다). 앱이 넘기지 않으면 전환기는 `준비 중` 영역을 그리지 않는다([ADR-0042](adr/0042-system-switcher-and-system-owned-rail.md), 15 §3.2). 페이지는 `crumbs`로 현재 위치(부모 메뉴 뒤 추가 경로)를 확장할 수 있다. 새 슬롯은 이 절에 근거를 먼저 적는다.
 
 ### 이유
 

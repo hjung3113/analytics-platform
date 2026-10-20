@@ -16,6 +16,10 @@ function save(userId: string, board: Board) {
   try { localStorage.setItem(storageKey(userId), JSON.stringify(board)); } catch { /* memory-only */ }
 }
 
+/** The stored board for code outside the board screen (`분석 보드에 열기…`): read and write through the same functions the hook uses. */
+export const readStoredBoard = load;
+export const writeStoredBoard = save;
+
 /**
  * The signed-in user's board (docs/16 §7). Reads once per user and swaps in the same render the user changes. A missing, malformed or
  * newer-version value yields a fresh board that is NOT written back until the user edits, so a value this build cannot read survives.

@@ -1,6 +1,6 @@
 import { OutcomeBanners, OutcomeScope } from './OutcomeScope';
 import { ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
-import { cloneElement, isValidElement, useLayoutEffect, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
+import { cloneElement, createContext, isValidElement, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { DataTrustIndicator } from './DataTrustIndicator';
@@ -16,37 +16,70 @@ function withTrustYield(node: ReactNode, yieldState: HeaderYield): ReactNode {
   });
 }
 
+/** What `HeaderOverflow` hands a dialog it hosts: `close`, and the `onCloseAutoFocus` that returns focus to `더보기` unless the user navigated. */
+export type HeaderOverflowDialogControl = { close: () => void; onCloseAutoFocus: (event: Event) => void };
+type ShowHeaderDialog = (render: (control: HeaderOverflowDialogControl) => ReactNode) => void;
+const HeaderOverflowDialogContext = createContext<ShowHeaderDialog | null>(null);
+
+/**
+ * For an item inside the `⋯` menu that opens a dialog: the menu closes on any click inside and unmounts its items, so the dialog is
+ * handed to the header, which keeps it mounted outside the menu. Null outside a page header's `⋯` menu.
+ */
+export function useHeaderOverflowDialog(): ShowHeaderDialog | null {
+  return useContext(HeaderOverflowDialogContext);
+}
+
 function HeaderOverflow({ actions }: { actions: ReactNode }) {
   const { lang } = useI18n();
   const ko = lang === 'ko';
   const label = ko ? '더보기' : 'More';
   const group = ko ? '기타 페이지 동작' : 'Other page actions';
   const [open, setOpen] = useState(false);
+  const [dialog, setDialog] = useState<((control: HeaderOverflowDialogControl) => ReactNode) | null>(null);
   const { location } = usePlatform();
   const openingPath = useRef<string | null>(null);
   const content = useRef<HTMLDivElement>(null);
-  return <Popover open={open} onOpenChange={next => {
-    if (next) openingPath.current = location.read()?.split('?')[0] ?? null;
-    setOpen(next);
-  }}>
-    <PopoverTrigger asChild>
-      <Button type="button" variant="ghost" size="icon-sm" aria-label={label} title={label}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
-    </PopoverTrigger>
-    <PopoverContent ref={content} align="end" role="group" aria-label={group} className="min-w-56" padding="compact"
-      onOpenAutoFocus={event => {
-        // Radix's default autofocus skips anchors; secondary actions can be links.
-        const first = Array.from(content.current?.querySelectorAll<HTMLElement>('a[href], button, input, select, textarea, [tabindex]') ?? [])
-          .find(control => control.tabIndex >= 0 && !control.matches(':disabled, input[type="hidden"]')
-            && !control.closest('[hidden], [inert]') && getComputedStyle(control).display !== 'none' && getComputedStyle(control).visibility !== 'hidden');
-        if (first) { event.preventDefault(); first.focus(); }
-      }}
-      onCloseAutoFocus={event => {
-        // A destination page owns focus after navigation (06 §26).
-        if ((location.read()?.split('?')[0] ?? null) !== openingPath.current) event.preventDefault();
-      }}>
-      <div className="grid gap-2 p-1" onClick={() => setOpen(false)}>{actions}</div>
-    </PopoverContent>
-  </Popover>;
+  const trigger = useRef<HTMLButtonElement>(null);
+  const hostedDialogOpening = useRef(false);
+  const show = useCallback<ShowHeaderDialog>(render => {
+    // The menu is about to close because of this click; it must not pull focus back to the trigger over the dialog.
+    hostedDialogOpening.current = true;
+    setDialog(() => render);
+  }, []);
+  const control = useMemo<HeaderOverflowDialogControl>(() => ({
+    close: () => setDialog(null),
+    onCloseAutoFocus: event => {
+      event.preventDefault();
+      // A destination page owns focus after navigation (06 §26).
+      if ((location.read()?.split('?')[0] ?? null) === openingPath.current) trigger.current?.focus({ preventScroll: true });
+    },
+  }), [location]);
+  return <HeaderOverflowDialogContext.Provider value={show}>
+    <Popover open={open} onOpenChange={next => {
+      if (next) openingPath.current = location.read()?.split('?')[0] ?? null;
+      setOpen(next);
+    }}>
+      <PopoverTrigger asChild>
+        <Button ref={trigger} type="button" variant="ghost" size="icon-sm" aria-label={label} title={label}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
+      </PopoverTrigger>
+      <PopoverContent ref={content} align="end" role="group" aria-label={group} className="min-w-56" padding="compact"
+        onOpenAutoFocus={event => {
+          // Radix's default autofocus skips anchors; secondary actions can be links.
+          const first = Array.from(content.current?.querySelectorAll<HTMLElement>('a[href], button, input, select, textarea, [tabindex]') ?? [])
+            .find(control => control.tabIndex >= 0 && !control.matches(':disabled, input[type="hidden"]')
+              && !control.closest('[hidden], [inert]') && getComputedStyle(control).display !== 'none' && getComputedStyle(control).visibility !== 'hidden');
+          if (first) { event.preventDefault(); first.focus(); }
+        }}
+        onCloseAutoFocus={event => {
+          if (hostedDialogOpening.current) { hostedDialogOpening.current = false; event.preventDefault(); return; }
+          // A destination page owns focus after navigation (06 §26).
+          if ((location.read()?.split('?')[0] ?? null) !== openingPath.current) event.preventDefault();
+        }}>
+        <div className="grid gap-2 p-1" onClick={() => setOpen(false)}>{actions}</div>
+      </PopoverContent>
+    </Popover>
+    {dialog?.(control)}
+  </HeaderOverflowDialogContext.Provider>;
 }
 
 export type PlatformPageProps = {
@@ -65,7 +98,7 @@ export type PlatformPageProps = {
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
 export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, dataTrustSummary, crumbs = [], children }: PlatformPageProps) {
-  const { route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode } = usePlatform();
+  const { route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen } = usePlatform();
   // A board pane draws content only: the board owns the pane head and the Context bar, and no arrival focus moves here (ADR-0049).
   const inPane = screenMode === 'pane';
   const { t, tx, lang } = useI18n();
@@ -141,6 +174,8 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
     return pageNavigation.subscribe(focusDestination);
   }, [url, pathname, pageNavigation, inPane]);
   const menu = route!.menu;
+  // `분석 보드에 열기…` (docs/16 §6): the app's slot item, only on the main screen of a menu that declares board support and the user can open.
+  const boardEntry = !inPane && menu.features.board === true && canOpen(menu.id) ? slots.boardEntry : null;
   const favoriteTarget = menu.navHidden ? null : menu;
   const isFavorite = favoriteTarget ? favorites.includes(favoriteTarget.id) : false;
   const parent: MenuEntry | null = menu.parent ? registry.menuById(menu.parent) : null;
@@ -224,7 +259,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
         </div>
         <div className="flex shrink-0 flex-nowrap items-center gap-2 whitespace-nowrap">
           {!gate && dataTrustSummary && withTrustYield(dataTrustSummary, headerYield)}
-          {!gate && secondaryActions && <HeaderOverflow actions={secondaryActions} />}
+          {!gate && (secondaryActions || boardEntry) && <HeaderOverflow actions={<>{secondaryActions}{boardEntry}</>} />}
           {!gate && primaryAction}
         </div>
       </header>

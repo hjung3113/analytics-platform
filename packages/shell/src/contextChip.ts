@@ -6,3 +6,5 @@
 export const CONTEXT_CHIP = 'inline-flex h-8 items-center gap-1.5 rounded-sm border px-2.5 whitespace-nowrap text-xs hover:border-border-control';
 /** The applied/reference tone; unsupported chips use a dashed border instead. */
 export const CONTEXT_CHIP_TONE = 'border-border-strong bg-surface-card text-text-primary';
+/** The pane-header version (docs/16 §4, ADR-0051): a 24px chip for a Context key that differs from another pane, accent tone so the difference is the loudest thing in the head. */
+export const PANE_CHIP = 'inline-flex h-6 shrink-0 items-center gap-1 rounded-xs border border-accent-primary bg-surface-card px-1.5 whitespace-nowrap text-caption text-accent-primary';

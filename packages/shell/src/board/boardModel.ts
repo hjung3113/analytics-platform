@@ -5,7 +5,11 @@ export type BoardLayout = '1x1' | '1x2' | '2x1' | '2x2';
 export const BOARD_LAYOUTS: readonly BoardLayout[] = ['1x1', '1x2', '2x1', '2x2'];
 export const MAX_SHEETS = 20;
 
-export type Sheet = { id: string; name: string; layout: BoardLayout; selected: number; panes: (PaneScreen | null)[] };
+/**
+ * `previous` (optional, missing in boards stored before 497b) holds, per pane, the screen it showed before it moved to another menu —
+ * the one step `이전 화면` goes back (docs/16 §4). When present it is as long as `panes`.
+ */
+export type Sheet = { id: string; name: string; layout: BoardLayout; selected: number; panes: (PaneScreen | null)[]; previous?: (PaneScreen | null)[] };
 export type Board = { v: 1; activeSheetId: string; sheets: Sheet[] };
 
 export const paneCount = (layout: BoardLayout) => ({ '1x1': 1, '1x2': 2, '2x1': 2, '2x2': 4 })[layout];
@@ -48,6 +52,28 @@ function parsePane(value: unknown): PaneScreen | null | undefined {
   return { menuId: value.menuId, params, query: value.query };
 }
 
+function parsePrevious(value: unknown, count: number): (PaneScreen | null)[] | undefined {
+  if (!Array.isArray(value) || value.length !== count) return undefined;
+  const previous: (PaneScreen | null)[] = [];
+  for (const item of value) {
+    const parsed = parsePane(item);
+    if (parsed === undefined) return undefined;
+    previous.push(parsed);
+  }
+  return previous;
+}
+
+/** The sheet with `previous` set, or without the field when nothing is stored in it. */
+function withPrevious(sheet: Sheet, previous: (PaneScreen | null)[] | undefined): Sheet {
+  const rest = { ...sheet };
+  delete rest.previous;
+  return previous && previous.some(p => p !== null) ? { ...rest, previous } : rest;
+}
+
+const previousAt = (sheet: Sheet, index: number): PaneScreen | null => sheet.previous?.[index] ?? null;
+const setPreviousAt = (sheet: Sheet, index: number, screen: PaneScreen | null): Sheet =>
+  withPrevious(sheet, sheet.panes.map((_, i) => (i === index ? screen : previousAt(sheet, i))));
+
 /** Validates a stored value. Anything off — shape, version, counts, duplicate ids — is null, never a partial board. */
 export function parseBoard(raw: unknown): Board | null {
   if (!isRecord(raw) || raw.v !== 1 || typeof raw.activeSheetId !== 'string' || !Array.isArray(raw.sheets)) return null;
@@ -67,7 +93,7 @@ export function parseBoard(raw: unknown): Board | null {
     }
     if (typeof item.selected !== 'number' || !Number.isInteger(item.selected) || item.selected < 0 || item.selected >= panes.length) return null;
     ids.add(item.id);
-    sheets.push({ id: item.id, name: item.name, layout, selected: item.selected, panes });
+    sheets.push(withPrevious({ id: item.id, name: item.name, layout, selected: item.selected, panes }, parsePrevious(item.previous, panes.length)));
   }
   if (!ids.has(raw.activeSheetId)) return null;
   return { v: 1, activeSheetId: raw.activeSheetId, sheets };
@@ -125,7 +151,7 @@ export function removeSheet(board: Board, id: string, prefix: string): { board: 
   return { board: { ...board, activeSheetId, sheets }, removed: { sheet, index, wasActive, replacement: null } };
 }
 
-const samePane = (a: PaneScreen | null, b: PaneScreen | null) => a === b
+export const samePane = (a: PaneScreen | null, b: PaneScreen | null) => a === b
   || (a !== null && b !== null && a.menuId === b.menuId && a.query === b.query
     && Object.keys(a.params).length === Object.keys(b.params).length && Object.entries(a.params).every(([k, v]) => b.params[k] === v));
 const samePanes = (a: Sheet, b: Sheet) => a.layout === b.layout && a.panes.length === b.panes.length && a.panes.every((p, i) => samePane(p, b.panes[i]));
@@ -141,10 +167,12 @@ export function normalizeBoard(board: Board): Board | null {
   let changed = false;
   const sheets = board.sheets.slice(0, MAX_SHEETS).map(sheet => {
     const count = paneCount(sheet.layout);
-    const fits = sheet.panes.length === count && Number.isInteger(sheet.selected) && sheet.selected >= 0 && sheet.selected < count;
+    const fits = sheet.panes.length === count && Number.isInteger(sheet.selected) && sheet.selected >= 0 && sheet.selected < count
+      && (sheet.previous === undefined || sheet.previous.length === count);
     if (fits) return sheet;
     changed = true;
-    return { ...sheet, panes: Array.from({ length: count }, (_, i) => sheet.panes[i] ?? null), selected: Number.isInteger(sheet.selected) && sheet.selected >= 0 && sheet.selected < count ? sheet.selected : 0 };
+    const fitted = { ...sheet, panes: Array.from({ length: count }, (_, i) => sheet.panes[i] ?? null), selected: Number.isInteger(sheet.selected) && sheet.selected >= 0 && sheet.selected < count ? sheet.selected : 0 };
+    return withPrevious(fitted, sheet.previous && Array.from({ length: count }, (_, i) => sheet.previous![i] ?? null));
   });
   if (sheets.length !== board.sheets.length) changed = true;
   const active = sheets.some(s => s.id === board.activeSheetId);
@@ -174,8 +202,65 @@ export function selectPane(board: Board, sheetId: string, index: number): Board 
   return mapSheet(board, sheetId, s => (index < 0 || index >= s.panes.length || s.selected === index ? s : { ...s, selected: index }));
 }
 
+/** Puts a whole new screen (or nothing) in a pane: a clear, an insert or a replace, so the pane's `이전 화면` goes. */
 export function setPane(board: Board, sheetId: string, index: number, screen: PaneScreen | null): Board {
-  return mapSheet(board, sheetId, s => (index < 0 || index >= s.panes.length ? s : { ...s, panes: s.panes.map((p, i) => (i === index ? screen : p)) }));
+  return mapSheet(board, sheetId, s => (index < 0 || index >= s.panes.length ? s
+    : setPreviousAt({ ...s, panes: s.panes.map((p, i) => (i === index ? screen : p)) }, index, null)));
+}
+
+/**
+ * A pane edits its own screen (`PaneScreenProvider.onChange`). A `push` to another menu keeps the screen it leaves as the pane's one
+ * `이전 화면`; a replace or a write inside the same menu leaves `previous` alone (docs/16 §4).
+ */
+export function editPane(board: Board, sheetId: string, index: number, next: PaneScreen, how: 'push' | 'replace'): Board {
+  return mapSheet(board, sheetId, s => {
+    if (index < 0 || index >= s.panes.length) return s;
+    const old = s.panes[index];
+    const moved = how === 'push' && old !== null && old.menuId !== next.menuId;
+    const edited = { ...s, panes: s.panes.map((p, i) => (i === index ? next : p)) };
+    return moved ? setPreviousAt(edited, index, old) : edited;
+  });
+}
+
+/** `이전 화면`: the pane shows its previous screen again and forgets it. No-op without one. */
+export function goBackPane(board: Board, sheetId: string, index: number): Board {
+  return mapSheet(board, sheetId, s => {
+    const back = index >= 0 && index < s.panes.length ? previousAt(s, index) : null;
+    return back === null ? s : setPreviousAt({ ...s, panes: s.panes.map((p, i) => (i === index ? back : p)) }, index, null);
+  });
+}
+
+export const previousOf = (sheet: Sheet, index: number): PaneScreen | null => previousAt(sheet, index);
+
+/**
+ * One pane an action changed: what it held and what the action left. `fresh` marks a whole new screen (replace, duplicate), which
+ * also drops the pane's `이전 화면`; without it only the pane's own Context changed and `previous` stays.
+ */
+export type PaneEdit = { index: number; before: PaneScreen | null; after: PaneScreen | null; fresh?: boolean };
+
+/** Writes one edit's pane. A Context-only edit leaves the pane's `previous` alone; a whole new screen (or none) goes through `setPane`. */
+function writeEdit(board: Board, sheetId: string, edit: PaneEdit, screen: PaneScreen | null): Board {
+  return edit.fresh || edit.before === null || edit.after === null
+    ? setPane(board, sheetId, edit.index, screen)
+    : mapSheet(board, sheetId, s => (edit.index >= s.panes.length ? s : { ...s, panes: s.panes.map((p, i) => (i === edit.index ? screen : p)) }));
+}
+
+export function applyPaneEdits(board: Board, sheetId: string, edits: readonly PaneEdit[]): Board {
+  return edits.reduce((b, edit) => writeEdit(b, sheetId, edit, edit.after), board);
+}
+
+/** Undo of `applyPaneEdits`. Null — nothing restored — unless every edited pane still holds what the action left. */
+export function revertPaneEdits(board: Board, sheetId: string, edits: readonly PaneEdit[]): Board | null {
+  const sheet = board.sheets.find(s => s.id === sheetId);
+  if (!sheet || edits.some(e => e.index >= sheet.panes.length || !samePane(sheet.panes[e.index], e.after))) return null;
+  return normalizeBoard(edits.reduce((b, edit) => writeEdit(b, sheetId, edit, edit.before), board));
+}
+
+/** A new sheet holding one screen, active. Null at the 20-sheet limit. */
+export function openScreenInNewSheet(board: Board, prefix: string, screen: PaneScreen): Board | null {
+  if (board.sheets.length >= MAX_SHEETS) return null;
+  const added = addSheet(board, prefix);
+  return setPane(added, added.activeSheetId, 0, screen);
 }
 
 /** Undo of a pane clear. Null — nothing restored — unless the slot is still there and still empty. */
@@ -198,7 +283,7 @@ export function setLayout(board: Board, sheetId: string, layout: BoardLayout): B
     if (s.layout === layout) return s;
     const count = paneCount(layout);
     const panes = Array.from({ length: count }, (_, i) => s.panes[i] ?? null);
-    return { ...s, layout, panes, selected: s.selected < count ? s.selected : 0 };
+    return withPrevious({ ...s, layout, panes, selected: s.selected < count ? s.selected : 0 }, s.previous && Array.from({ length: count }, (_, i) => s.previous![i] ?? null));
   });
 }
 
@@ -210,7 +295,7 @@ export function restoreLayout(board: Board, change: LayoutChange): Board | null 
   const sheet = board.sheets.find(s => s.id === change.sheetId);
   if (!sheet || !samePanes(sheet, change.after)) return null;
   const selected = sheet.selected === change.after.selected ? change.before.selected : sheet.selected;
-  return normalizeBoard(mapSheet(board, change.sheetId, s => ({ ...s, layout: change.before.layout, panes: change.before.panes, selected })));
+  return normalizeBoard(mapSheet(board, change.sheetId, s => withPrevious({ ...s, layout: change.before.layout, panes: change.before.panes, selected }, change.before.previous)));
 }
 
 /** A board as it is opened: the first pane of every sheet selected (docs/16 §4). The stored selection is never used for arrival. */

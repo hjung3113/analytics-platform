@@ -26,7 +26,8 @@ Platform Kernel 런타임(06 §4). 메뉴 목록도, 서버 구현도 모른다.
 - Registry 검증 규칙을 바꾸면 `registry.test.ts`에 실패 사례를 추가한다. 테스트는 fixture Registry만 쓰고 실제 메뉴를 import하지 않는다(실제 메뉴가 필요한 테스트는 앱 통합 테스트).
 - 전역 Context 키·URL 규칙은 06 §6 계약이다. 메뉴 요구 때문에 바꾸지 말고 플랫폼 결정으로 올린다.
 - 테스트의 어댑터·세션·공간 fixture(`testAdapter`·`testSession`·`testSpace`·`noContext`)는 `src/testing.ts` 한 벌이고 `@ap/kernel/testing`으로 공개한다(ADR-0040). 테스트 파일에서만 import하며, 포트 메서드를 더하면 여기 기본값을 같은 PR에서 고친다.
-- 새 슬롯은 06 §8 Shell Slot에 근거가 있을 때만 `PlatformSlots`에 추가한다.
+- 새 슬롯은 06 §8 Shell Slot에 근거가 있을 때만 `PlatformSlots`에 추가한다. `boardEntry`는 보드 지원 메뉴 머리 `⋯`의 `분석 보드에 열기…` 항목(타입만 Kernel, 구현은 셸 `OpenInBoardAction`, 16 §6).
+- `paneContext.ts` — 순수 도우미 `dropResetKeys`(Context 쓰기 때 `contextResetKeys`를 page 쌍에서 지우는 유일한 규칙, `setGlobal`이 사용)와 `withPaneContext(menu, query, global)`(칸 주소의 Context만 바꾸고 page 키는 reset 키만 지운다 — 보드의 일괄 적용·복사·바꾸기, 주소가 틀리면 `ContractError`). `PaneScreenProvider`의 선택 prop `paneLabel`은 `usePlatform().paneLabel`(본 화면은 null, 읽기 전용)로 나가 `DetailDrawer`가 `칸 N · 메뉴`를 보인다.
 
 ## 검증
 
