@@ -812,6 +812,20 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     expect(screen.getByText('필터 결과 전체 2행을 CSV 파일로 내보냈습니다')).toBeTruthy();
   });
 
+  it('shows a mixed page header after partial selection and selects the remaining page rows', async () => {
+    render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={async () => ok([])} />);
+    await screen.findByText(/1\/1/);
+    fireEvent.click(screen.getByRole('checkbox', { name: '선택 r1' }));
+    const header = screen.getByRole('checkbox', { name: '현재 페이지 전체 선택' });
+    expect(header).toHaveAttribute('aria-checked', 'mixed');
+    expect(header.querySelector('.lucide-minus')).not.toBeNull();
+    fireEvent.click(header);
+    expect(header).toHaveAttribute('aria-checked', 'true');
+    for (const id of ['r1', 'r2', 'r3']) {
+      expect(screen.getByRole('checkbox', { name: `선택 ${id}` })).toHaveAttribute('aria-checked', 'true');
+    }
+  });
+
   it('exports only the selection, reconciles by getRowId and says which selected rows are gone', async () => {
     const exportRows = vi.fn(async (request: { scope: { kind: 'selected'; ids: string[] } | { kind: 'filtered' }; sorting: PageSort[] }) =>
       request.scope.kind === 'selected' ? ok([{ id: 'r1', status: 'a' }]) : ok([]));
