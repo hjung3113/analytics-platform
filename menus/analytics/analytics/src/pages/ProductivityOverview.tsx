@@ -256,7 +256,7 @@ export default function ProductivityOverview(_: PageProps) {
   >
     {pageInvalid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '페이지 키 값이 올바르지 않습니다' : 'Invalid page key'}
       body={pageRefusals.map((sentence, index) => <p key={index}>{sentence} {ko ? '주소를 고치거나 조건을 초기화하세요.' : 'Fix the address or reset the conditions.'}</p>)} />
-      : <DrillLayout siblings={drillSiblings} notFound={notFound}>{drill.depth === 0 ? <div className="space-y-4">
+      : <DrillLayout siblings={drillSiblings} notFound={notFound}>{drill.depth === 0 ? <div className="@container space-y-4">
       {/* Primary KPI / Summary */}
       <section aria-labelledby="kpi-heading">
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
@@ -267,7 +267,7 @@ export default function ProductivityOverview(_: PageProps) {
           </div>
         </div>
         <QueryView widgetName={ko ? '네 지표 요약' : 'Four-metric summary'} hideWidgetName query={kpiQ} skeletonRows={4} emptyAction={clearEmptySelection}>
-          {data => <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {data => <div className="grid grid-cols-1 gap-3 @md:grid-cols-2 @4xl:grid-cols-4">
             {(['occupancy', 'dwell', 'cycleTime', 'throughput'] as const).map(k => kpiCard(k, data))}
           </div>}
         </QueryView>
@@ -295,7 +295,7 @@ export default function ProductivityOverview(_: PageProps) {
         </QueryView>
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 @xl:grid-cols-2">
         {/* Breakdown: occupancy composition per room_name / StGroup */}
         <section aria-label={ko ? '점유 구성' : 'Occupancy composition'}>
           <QueryView widgetName={ko ? '점유 구성' : 'Occupancy composition'} query={breakdownQ} skeletonRows={4} emptyAction={clearEmptySelection}>

@@ -462,12 +462,11 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         <h2 id={titleId} className="t-card-title">{p.title}</h2>
         {(p.description || p.metricVersion) && <p className="text-xs text-text-muted">{p.description}{p.metricVersion && <> · <span className="tabular">{t('metricVersion')} {formatMetricVersion(p.metricVersion)}</span></>}</p>}
       </div>
-      {/* Line-based wrapping (#297 FIX1, supersedes the A-07 single bundle): bundles collapse as whole lines, so a
-        narrow card drops them below the title and the Export/More tail is never stranded alone; wide cards still
-        get one right-aligned row. extraActions keeps its own bundle. */}
+      {/* The core controls wrap in source order inside narrow cards; the Export/More tail stays bundled as its own
+        wrap unit. Wide cards keep one right-aligned row, and extraActions keeps its own bundle. */}
       <div role="toolbar" aria-label={lang === 'ko' ? '차트 동작' : 'Chart actions'} className="ml-auto flex flex-wrap items-center justify-end gap-1">
         {p.extraActions != null && <div className="flex items-center gap-1">{p.extraActions}</div>}
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <Button variant="ghost" size="toolbar" onClick={() => setZoom(([a, b]) => { const q = (b - a) / 4; return [a + q, b - q]; })} title={lang === 'ko' ? '확대 (Shift+휠도 가능)' : 'Zoom in (Shift+wheel)'}><ZoomIn className="size-3.5" aria-hidden />{lang === 'ko' ? '확대' : 'Zoom'}</Button>
           <Button ref={brushToggle} variant={brushMode ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={brushMode} onClick={() => setBrushMode(b => !b)}><BrushIcon className="size-3.5" aria-hidden />{lang === 'ko' ? '구간 선택' : 'Brush'}</Button>
           {showKeyboard && <div role="group" aria-label={lang === 'ko' ? '빠른 구간 선택' : 'Quick range'} className="flex items-center gap-1">

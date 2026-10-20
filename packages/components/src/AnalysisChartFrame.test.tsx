@@ -393,8 +393,9 @@ describe('chart card sizing and toolbar wrapping (#297 FIX1 UX)', () => {
     expect(tail).toBeTruthy();
     expect(within(tail).getByRole('button', { name: '내보내기' })).toBeTruthy();
     expect(within(tail).getByRole('button', { name: '더보기' })).toBeTruthy();
-    // The front buttons are their own bundle ahead of the tail.
+    // The core action row wraps in source order ahead of the bundled tail.
     const front = tail.previousElementSibling as HTMLElement;
+    expect(front.className).toContain('flex-wrap');
     expect(within(front).getByRole('button', { name: '구간 선택' })).toBeTruthy();
     expect(within(front).getByRole('button', { name: '초기화' })).toBeTruthy();
     expect(within(front).getByRole('button', { name: '비교' })).toBeTruthy();
