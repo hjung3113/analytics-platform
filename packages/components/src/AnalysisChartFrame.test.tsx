@@ -5,7 +5,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { AnnotationInput, ApiResponse, AnnotationRef, ChartAnnotation, PlatformAdapter } from '@ap/contracts';
 import { parseDateTime } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
-import { AnalysisChartFrame, type ChartSeries } from './AnalysisChartFrame';
+import userEvent from '@testing-library/user-event';
+import { AnalysisSectionContext } from './AnalysisSectionContext';
+import { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries } from './AnalysisChartFrame';
 import { assignNoteLevels } from './annotationLayout';
 import type { EChartProps } from './EChart';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
@@ -988,4 +990,80 @@ describe('author-only annotation delete (#399, ADR-0041)', () => {
     await waitFor(() => expect(screen.queryByText(/첫째/)).toBeNull());
     expect(document.activeElement).toBe(document.body);
   });
+});
+
+
+const sizeSession = testSession(['platform:view']);
+const sizeAdapter = testAdapter({ session: () => sizeSession });
+function sizedFrame(props: Partial<AnalysisChartFrameProps> = {}, context: React.ContextType<typeof AnalysisSectionContext> = null) {
+  return <I18nProvider><PlatformProvider adapter={sizeAdapter} registry={registryWith(on)}>
+    <AnalysisSectionContext.Provider value={context}><AnalysisChartFrame chartId="sized" title="Sized" unit="ea" series={series} compareSeries={compareSeries} {...props} /></AnalysisSectionContext.Provider>
+  </PlatformProvider></I18nProvider>;
+}
+it.each([[undefined, 260], ['regular', 260], ['compact', 200], ['hero', 360]] as const)('uses %s frame plot height %s', async (size, height) => {
+  render(sizedFrame({ size })); await screen.findByRole('img'); expect(plotProps?.height).toBe(height);
+});
+it.each([
+  [{ kind: 'chart', density: 'compact' }, {}, 200, true],
+  [{ kind: 'chart', density: 'compact', span: 'full' }, {}, 360, false],
+  [{ kind: 'chart', density: 'compact' }, { size: 'regular' }, 260, false],
+  [{ kind: 'chart', span: 'full' }, { size: 'compact' }, 200, true],
+  [{ kind: 'chart', density: 'compact' }, { height: 333 }, 333, true],
+  [{ kind: 'breakdown', density: 'compact' }, {}, 260, false],
+] as const)('resolves frame context %j and overrides %j', async (context, props, height, compact) => {
+  render(sizedFrame({ description: 'Details', ...props }, { title: 'Section', collapse() {}, ...context }));
+  await screen.findByRole('img'); expect(plotProps?.height).toBe(height);
+  expect(screen.queryByRole('button', { name: '차트 설명' }) !== null).toBe(compact);
+});
+it('reveals compact string descriptions on keyboard focus and retains version and action names', async () => {
+  window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+  render(sizedFrame({ size: 'compact', description: 'String details', metricVersion: 'v1', extraActions: <button>Custom action</button> }));
+  await screen.findByRole('img'); const user = userEvent.setup(); await user.tab();
+  expect(screen.getByRole('button', { name: '차트 설명' })).toHaveFocus();
+  expect(await screen.findByRole('tooltip')).toHaveTextContent('String details');
+  expect(screen.getByText(/Metric|지표 버전/)).toBeVisible();
+  for (const name of ['Custom action', '비교', '주석', '내보내기', '더보기', '구간 선택']) expect(screen.getByRole('button', { name })).toBeVisible();
+});
+it('keeps compare, hidden series, brush selection, annotation draft and focus across size changes', async () => {
+  window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+  const f = fixture();
+  const node = (size: 'regular' | 'compact') => <I18nProvider><PlatformProvider adapter={f.adapter} registry={registryWith(on)}>
+    <AnalysisChartFrame chartId="sized" title="Sized" unit="ea" series={series} compareSeries={compareSeries} size={size} />
+  </PlatformProvider></I18nProvider>;
+  const view = render(node('regular')); await screen.findByRole('img');
+  fireEvent.click(screen.getByRole('button', { name: '비교' }));
+  fireEvent.click(screen.getByRole('checkbox', { name: 'S1' }));
+  await brushAndOpenNote();
+  const input = screen.getByRole('textbox'); fireEvent.change(input, { target: { value: 'Draft' } }); input.focus();
+  view.rerender(node('compact'));
+  expect(input).toHaveFocus(); expect(input).toHaveValue('Draft');
+  expect(screen.getByRole('button', { name: '비교' })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByRole('checkbox', { name: 'S1' })).not.toBeChecked();
+  const legend = screen.getByRole('group', { name: '범례' });
+  for (const label of legend.querySelectorAll('label, strong')) expect(label).toHaveClass('text-tiny');
+});
+
+it.each([undefined, 'Details', <em key="rich">Details</em>])('keeps frame version visible with description %j in every size', async description => {
+  const view = render(sizedFrame({ description, metricVersion: 'v1' })); await screen.findByRole('img');
+  expect(screen.getByText(/지표 버전/)).toBeVisible();
+  if (description) expect(screen.getByText(/Details/)).toBeVisible();
+  view.rerender(sizedFrame({ size: 'compact', description, metricVersion: 'v1', height: 321 }));
+  expect(plotProps?.height).toBe(321);
+  expect(screen.getByText(/지표 버전/)).toBeVisible();
+  const info = screen.queryByRole('button', { name: '차트 설명' });
+  expect(info !== null).toBe(Boolean(description));
+  if (info) {
+    info.focus();
+    const tooltip = await screen.findByRole('tooltip'); expect(tooltip).toHaveTextContent('Details');
+    if (typeof description !== 'string') expect(tooltip.querySelector('em')).toBeTruthy();
+  }
+});
+it('keeps a focused frame action and consumer actions mounted across size changes', async () => {
+  window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+  const props = { extraActions: <button>Custom</button>, selectionActions: () => <button>Selected custom</button> };
+  const view = render(sizedFrame(props)); await screen.findByRole('img');
+  fireEvent.click(screen.getByText('fake-brush'));
+  const action = screen.getByRole('button', { name: 'Selected custom' }); action.focus();
+  view.rerender(sizedFrame({ ...props, size: 'compact' }));
+  expect(action).toHaveFocus(); expect(screen.getByRole('button', { name: 'Custom' })).toBeVisible();
 });

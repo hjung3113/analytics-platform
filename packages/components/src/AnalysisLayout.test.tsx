@@ -270,3 +270,82 @@ it('aligns AnalysisChart heatmap and donut head/body fragments in a chart sectio
   fireEvent.click(screen.getByRole('button', { name: 'Heat 펼치기' }));
   expect(await screen.findByRole('img', { name: 'Heat' })).toBeTruthy();
 });
+
+it('switches compact columns at every boundary on the same layout', () => {
+  const { container } = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+    <AnalysisLayout density="compact" charts={['A', 'B', 'C'].map(id => ({ id, title: id, node: chart(id) }))} />
+  </PlatformProvider></I18nProvider>);
+  const grid = container.querySelector('[data-analysis-chart-grid]');
+  for (const [nextWidth, columns] of [[600, 1], [639, 1], [640, 2], [700, 2], [959, 2], [960, 3], [1000, 3], [1279, 3], [1280, 4], [1300, 4]]) {
+    setWidth(nextWidth);
+    expect(grid).toHaveAttribute('data-columns', String(columns));
+    expect(grid).toHaveAttribute('data-two-columns', 'false');
+    expect(grid).toHaveClass(`grid-cols-${columns}`);
+    for (const span of ['col-span-2', 'col-span-full']) {
+      expect(container.querySelector('[data-analysis-section="C"]')).not.toHaveClass(span);
+    }
+  }
+});
+
+it('exposes regular hooks and preserves the odd-last rule and lone-chart reflow', () => {
+  const { container } = mount(true);
+  const grid = container.querySelector('[data-analysis-chart-grid]');
+  setWidth(959); expect(grid).toHaveAttribute('data-columns', '1'); expect(grid).toHaveAttribute('data-two-columns', 'false');
+  setWidth(960); expect(grid).toHaveAttribute('data-columns', '2'); expect(grid).toHaveAttribute('data-two-columns', 'true');
+  expect(container.querySelector('[data-analysis-section="third"]')).toHaveClass('col-span-2');
+  fireEvent.click(collapse('분포'));
+  fireEvent.click(collapse('세번째'));
+  expect(grid).toHaveAttribute('data-columns', '1'); expect(grid).toHaveAttribute('data-two-columns', 'false');
+});
+
+it.each(['regular', 'compact'] as const)('spans explicit full charts in %s without reordering mixed sections', density => {
+  const { container } = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+    <AnalysisLayout density={density} kpi={{ id: 'kpi', title: 'KPI', node: <p>KPI</p> }}
+      breakdown={{ id: 'breakdown', title: 'Breakdown', node: <p>Breakdown</p> }}
+      charts={[
+        { id: 'hero-first', title: 'Hero first', span: 'full', node: chart('Hero first') },
+        { id: 'ordinary', title: 'Ordinary', node: chart('Ordinary') },
+        { id: 'hero-middle', title: 'Hero middle', span: 'full', node: chart('Hero middle') },
+        { id: 'ordinary-last', title: 'Ordinary last', node: chart('Ordinary last') },
+      ]} />
+  </PlatformProvider></I18nProvider>);
+  for (const nextWidth of [600, 700, 1000, 1300]) {
+    setWidth(nextWidth);
+    for (const id of ['hero-first', 'hero-middle']) expect(container.querySelector(`[data-analysis-section="${id}"]`)).toHaveClass('col-span-full');
+    expect([...container.querySelectorAll('[data-analysis-kind="chart"]')].map(el => el.getAttribute('data-analysis-section'))).toEqual(['hero-first', 'ordinary', 'hero-middle', 'ordinary-last']);
+    expect(container.querySelector('[data-analysis-kind="kpi"]')?.parentElement).not.toHaveAttribute('data-analysis-chart-grid');
+    expect(container.querySelector('[data-analysis-kind="breakdown"]')?.parentElement).not.toHaveAttribute('data-analysis-chart-grid');
+  }
+});
+
+it('restores compact collapse focus, storage, order and column count', () => {
+  const node = <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+    <AnalysisLayout density="compact" charts={['A', 'B', 'C'].map(id => ({ id, title: id, node: chart(id) }))} />
+  </PlatformProvider></I18nProvider>;
+  const view = render(node); setWidth(1300);
+  fireEvent.click(collapse('B')); expect(expand('B')).toHaveFocus();
+  expect(JSON.parse(storage.get(key)!)).toEqual(['B']);
+  expect(view.container.querySelector('[data-analysis-chart-grid]')).toHaveAttribute('data-columns', '4');
+  view.unmount();
+  const restored = render(node); expect(screen.queryByRole('region', { name: 'B' })).toBeNull();
+  fireEvent.click(expand('B')); expect(collapse('B')).toHaveFocus();
+  expect(JSON.parse(storage.get(key)!)).toEqual([]);
+  expect([...restored.container.querySelectorAll('[data-analysis-kind="chart"]')].map(el => el.getAttribute('data-analysis-section'))).toEqual(['A', 'B', 'C']);
+});
+
+it('inherits compact content through layout context and keeps table and focused controls across density changes', async () => {
+  const node = (density: 'regular' | 'compact') => <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+    <AnalysisLayout density={density} charts={[
+      { id: 'kind', title: 'Kind', node: <AnalysisChart chartId="kind" title="Kind" description="Kind details" unit="ea" spec={{ kind: 'donut', slices: [{ id: 'a', label: 'A', value: 1 }] }} /> },
+      { id: 'frame', title: 'Frame', node: <AnalysisChartFrame chartId="frame" title="Frame" description="Frame details" unit="ea" series={[]} /> },
+      { id: 'full', title: 'Full', span: 'full', node: <AnalysisChartFrame chartId="full" title="Full" description="Hero details" unit="ea" series={[]} /> },
+    ]} />
+  </PlatformProvider></I18nProvider>;
+  const view = render(node('regular')); await screen.findByRole('img', { name: 'Kind' });
+  const tableButton = screen.getByRole('button', { name: '표로 보기' }); fireEvent.click(tableButton); tableButton.focus();
+  view.rerender(node('compact'));
+  expect(tableButton).toHaveFocus(); expect(tableButton).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByRole('table')).toBeVisible();
+  expect(screen.getAllByRole('button', { name: '차트 설명' })).toHaveLength(2);
+  expect(screen.getByText('Hero details')).toBeVisible();
+});

@@ -1,9 +1,9 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, type ContextType } from 'react';
 import { ChevronUp } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
 import { Button, cn } from '@ap/ui';
 
-export const AnalysisSectionContext = createContext<{ title: string; kind: 'kpi' | 'chart' | 'breakdown'; collapse: () => void } | null>(null);
+export const AnalysisSectionContext = createContext<{ title: string; kind: 'kpi' | 'chart' | 'breakdown'; span?: 'full'; density?: 'regular' | 'compact'; collapse: () => void } | null>(null);
 
 /** Only AnalysisLayout consumers receive a collapse action. */
 export function AnalysisCollapseButton({ className }: { className?: string }) {
@@ -15,4 +15,10 @@ export function AnalysisCollapseButton({ className }: { className?: string }) {
     data-analysis-collapse aria-expanded="true" aria-label={label} title={label} onClick={section.collapse}>
     <ChevronUp className="size-3.5" aria-hidden />
   </Button>;
+}
+
+
+/** Explicit size wins; only chart sections contribute inherited size. */
+export function resolveAnalysisChartSize(size: 'regular' | 'compact' | 'hero' | undefined, section: ContextType<typeof AnalysisSectionContext>) {
+  return size ?? (section?.kind === 'chart' ? section.span === 'full' ? 'hero' : section.density === 'compact' ? 'compact' : 'regular' : 'regular');
 }

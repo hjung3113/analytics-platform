@@ -8,7 +8,7 @@ import { toCsvDocument } from './tableExport';
 import { chartData, chartColors as colors, cellKey as keyOf, chartDiagnostic as diagnostic } from './analysisChartData';
 import { KindLegend } from './analysisChartKinds';
 import { heatmapSymbolSize } from './analysisChartGeometry';
-import { AnalysisSectionContext } from './AnalysisSectionContext';
+import { AnalysisSectionContext, resolveAnalysisChartSize } from './AnalysisSectionContext';
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
 
 export type HeatmapCell = { x: string; y: string; value: number | null };
@@ -63,7 +63,7 @@ export type ParetoSpec = {
 export type ChartSpec = HeatmapSpec | DonutSpec | ScatterSpec | BoxPlotSpec | ParetoSpec;
 export type AnalysisChartProps = {
   chartId: string; title: ReactNode; description?: ReactNode; metricVersion?: string; unit: string;
-  trust?: { source: string; updated: string; coverage: string }; height?: number; emptyText?: string; spec: ChartSpec;
+  trust?: { source: string; updated: string; coverage: string }; height?: number; size?: 'regular' | 'compact' | 'hero'; emptyText?: string; spec: ChartSpec;
 };
 
 const sequential = [colors.seq0, colors.seq1, colors.seq2, colors.seq3, colors.seq4];
@@ -73,6 +73,9 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const { lang } = useI18n();
   const { global, route, toast } = usePlatform();
   const section = useContext(AnalysisSectionContext);
+  const size = resolveAnalysisChartSize(p.size, section);
+  const compact = size === 'compact';
+  const height = p.height ?? (size === 'hero' ? 360 : compact ? 200 : 280);
   const titleId = useId(); const summaryId = useId();
   const [table, setTable] = useState(false);
   const chart = useRef<ECharts | null>(null);
@@ -119,6 +122,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     grid: { top: 16, bottom: 16, left: 16, right: 16, containLabel: true },
     xAxis: { type: 'category', data: spec.xLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: spec.xLabels.length <= 24 ? 0 : 'auto' }, splitLine: theme.splitLine },
     yAxis: { type: 'category', data: spec.yLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: spec.yLabels.length <= 24 ? 0 : 'auto' }, splitLine: theme.splitLine },
+    toolbox: { show: false },
     brush: { toolbox: [], brushType: 'rect', xAxisIndex: 0, yAxisIndex: 0, inBrush: {}, outOfBrush: {} },
     series: [{ type: 'scatter', symbol: 'rect', symbolSize: heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length), emphasis: { focus: 'none' }, data: cells.map(c => ({
       value: [spec.xLabels.indexOf(c.x), spec.yLabels.indexOf(c.y), c.value],
@@ -167,7 +171,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   return <section role="region" aria-labelledby={titleId} aria-describedby={summaryId} data-analysis-chart={section ? '' : undefined} className="relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card">
     <AnalysisChartPart enabled={section !== null}>
       <header className={cn('flex flex-wrap items-start justify-between gap-2 px-4 pt-3', section && 'pr-12')}>
-        <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} />
+        <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} compact={compact} />
         <div role="toolbar" aria-label={lang === 'ko' ? '차트 동작' : 'Chart actions'} className="flex flex-wrap gap-1">
           <Button size="toolbar" variant="ghost" onClick={reset}>{lang === 'ko' ? '초기화' : 'Reset'}</Button>
           {(spec.kind === 'heatmap' || spec.kind === 'scatter') && <Button size="toolbar" variant="ghost" aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}>{lang === 'ko' ? '끌어서 선택' : 'Drag to select'}</Button>}
@@ -175,7 +179,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
           {route?.menu.features?.export && <Button size="toolbar" variant="ghost" onClick={exportCsv}>{lang === 'ko' ? '내보내기' : 'Export'}</Button>}
         </div>
       </header>
-      {spec.kind === 'heatmap' && <div className="px-4 py-2 text-xs text-text-secondary">
+      {spec.kind === 'heatmap' && <div className={cn('px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>
         {scale?.type === 'threshold' && validThreshold ? <div className="flex gap-3">{scale.labels.map((label, i) => <span key={i} className="flex items-center gap-1"><Swatch color={token([colors.good, colors.warn, colors.critical][i])} />{label}</span>)}</div> : <>
           {/* eslint-disable-next-line shadcn/no-inline-styles -- continuous scale legend resolves the five public ramp tokens at runtime */}
           <div className="h-2 w-full rounded" style={{ background: `linear-gradient(to right, ${ramp.map(c => token(c)).join(', ')})` }} />
@@ -190,11 +194,13 @@ export function AnalysisChart(p: AnalysisChartProps) {
         </>}
         <span className="flex items-center gap-1"><Swatch color={token(colors.unknown)} unknown />{unknown}</span>
       </div>}
+      {extended && <KindLegend compact={compact} items={extended.legend} label={lang === 'ko' ? '범례' : 'Legend'} />}
+      {spec.kind === 'donut' && <ul aria-label={lang === 'ko' ? '범례' : 'Legend'} className={cn('flex flex-wrap gap-3 px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>{rows.map(row => <li key={row.key} className="flex items-center gap-1"><Swatch color={token(row.color!)} />{row.label} · {valueText(row.value)} · {percent(row.share ?? 0)}</li>)}</ul>}
+      <p id={summaryId} className="px-4 py-2 text-xs text-text-secondary">{summary}</p>
     </AnalysisChartPart>
     <AnalysisChartPart enabled={section !== null} body>
-      <p id={summaryId} className="px-4 py-2 text-xs text-text-secondary">{summary}</p>
       {empty ? <p className="px-4 py-3 text-text-secondary">{p.emptyText ?? (lang === 'ko' ? '데이터 없음' : 'No data')}</p> : <div className="relative">
-        <EChart key={spec.kind} onReady={instance => { chart.current = instance; setInstanceReady(generation => generation + 1); }} onResize={() => measureGrid(chart.current)} option={option} height={p.height} ariaLabel={typeof p.title === 'string' ? p.title : p.chartId} onEvents={{
+        <EChart key={spec.kind} onReady={instance => { chart.current = instance; setInstanceReady(generation => generation + 1); }} onResize={() => measureGrid(chart.current)} option={option} height={height} ariaLabel={typeof p.title === 'string' ? p.title : p.chartId} onEvents={{
           click: params => { if (params.componentType !== 'series') return; const key = extended ? extended.seriesKeys[params.seriesIndex]?.[params.dataIndex] : rows[params.dataIndex]?.key; if (key) toggle(key); },
           finished: (_, instance) => measureGrid(instance),
           takeglobalcursor: params => { if (spec.kind === 'heatmap' || spec.kind === 'scatter') setBrushMode(params.key === 'brush' && params.brushOption?.brushType === 'rect'); },
@@ -207,8 +213,6 @@ export function AnalysisChart(p: AnalysisChartProps) {
           {selectedRows[0] && <p>{percent(selectedRows[0].share ?? 0)}</p>}
         </div>}
       </div>}
-      {extended && <KindLegend items={extended.legend} label={lang === 'ko' ? '범례' : 'Legend'} />}
-      {spec.kind === 'donut' && <ul aria-label={lang === 'ko' ? '범례' : 'Legend'} className="flex flex-wrap gap-3 px-4 py-2 text-xs text-text-secondary">{rows.map(row => <li key={row.key} className="flex items-center gap-1"><Swatch color={token(row.color!)} />{row.label} · {valueText(row.value)} · {percent(row.share ?? 0)}</li>)}</ul>}
       <section aria-label={lang === 'ko' ? '선택 요약' : 'Selection summary'} className="bg-surface-sunken px-4 py-2 text-xs text-text-secondary">
         {selectionSummary}
         {selectedRows.length === 1 && selectedRows[0].drill && <Button size="toolbar" variant="ghost" onClick={selectedRows[0].drill}>{lang === 'ko' ? '상세' : 'Details'}</Button>}

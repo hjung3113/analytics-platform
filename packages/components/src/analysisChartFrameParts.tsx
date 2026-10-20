@@ -1,4 +1,6 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { Info } from 'lucide-react';
+import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { formatMetricVersion } from '@ap/contracts';
 import { useI18n } from '@ap/kernel';
 
@@ -9,11 +11,20 @@ export function AnalysisChartPart({ enabled, body, children }: { enabled: boolea
     : <div data-analysis-chart-head>{children}</div>;
 }
 
-export function ChartHeading({ titleId, title, description, metricVersion }: { titleId: string; title: ReactNode; description?: ReactNode; metricVersion?: string }) {
-  const { t } = useI18n();
+export function ChartHeading({ titleId, title, description, metricVersion, compact = false }: { titleId: string; title: ReactNode; description?: ReactNode; metricVersion?: string; compact?: boolean }) {
+  const { t, lang } = useI18n();
+  const [infoFocused, setInfoFocused] = useState(false);
   return <div className="min-w-0">
-    <h2 id={titleId} className="t-card-title">{title}</h2>
-    {(description || metricVersion) && <p className="text-xs text-text-muted">{description}{metricVersion && <> · <span className="tabular">{t('metricVersion')} {formatMetricVersion(metricVersion)}</span></>}</p>}
+    <div className="flex items-center gap-1">
+      <h2 id={titleId} className="t-card-title">{title}</h2>
+      {description && <span hidden={!compact && !infoFocused}><TooltipProvider delayDuration={200}><Tooltip>
+        <TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-xs" onFocus={() => setInfoFocused(true)} onBlur={() => setInfoFocused(false)} aria-label={lang === 'ko' ? '차트 설명' : 'Chart description'}>
+          <Info className="size-3.5" aria-hidden />
+        </Button></TooltipTrigger>
+        <TooltipContent>{description}</TooltipContent>
+      </Tooltip></TooltipProvider></span>}
+    </div>
+    {((!compact && description) || metricVersion) && <p className="text-xs text-text-muted">{!compact && description}{metricVersion && <>{!compact ? ' · ' : null}<span className="tabular">{t('metricVersion')} {formatMetricVersion(metricVersion)}</span></>}</p>}
   </div>;
 }
 
