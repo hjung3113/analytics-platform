@@ -6,6 +6,7 @@ import { createPageNavigation, type PageFocus, type PageNavigation } from './pag
 import { classifyMetricInit, type MetricInit } from './metric-init';
 import { CONTEXT_LABELS, isBoardPath, pathFor, type MenuEntry, type Registry } from './registry';
 import { useI18n } from './i18n';
+import { dropResetKeys } from './paneContext';
 import { createRefreshEpochs, type RefreshEpochs } from './refresh-epochs';
 import { buildQuery, ContractError, emptyGlobal, type ContextKey, type GlobalContext, incompleteMetricPair, type ModuleScopedId, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent } from '@ap/contracts';
 
@@ -33,8 +34,9 @@ export type PlannedSpace = { id: string; label: Text; /** Optional second line i
  * contextBar: rendered by PlatformPage above page content. topBarTools: extra controls at the bottom of the app rail (today the mock dev tools).
  * feedbackOps: space-scoped entries and the overall link (ADR-0027, ADR-0028).
  * plannedSpaces: the system switcher's not-yet-available rows (ADR-0042, 15 §3.2).
+ * boardEntry: the `분석 보드에 열기…` item `PlatformPage` appends to a board menu's `⋯` menu (docs/16 §6); components never import the shell.
  */
-export type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode; feedbackOps?: FeedbackOpsSlot; plannedSpaces?: readonly PlannedSpace[] };
+export type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode; feedbackOps?: FeedbackOpsSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode };
 export type LinkOptions = { params?: Record<string, string>; page?: Record<string, string>; global?: Partial<GlobalContext>; returnTo?: boolean };
 export type LinkResolution = {
   href: string;
@@ -132,6 +134,8 @@ type Platform = {
   screenMode: 'main' | 'pane';
   /** The pane's id in a pane, null on the main screen. */
   paneId: string | null;
+  /** The pane's caption (`칸 N · 메뉴`) the board passes to its `PaneScreenProvider`; null on the main screen. Read-only. */
+  paneLabel: string | null;
 };
 
 /** Context items named by return notifications, separate from menu capabilities. */
@@ -231,9 +235,9 @@ let fallbackUsageSession: string | null = null;
 type ScreenFields = 'url' | 'pathname' | 'route' | 'platformScreen' | 'contractError' | 'metricInit' | 'global' | 'page' | 'extras' | 'pageParam' | 'pageNavigation' | 'navigate' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'reportError' | 'returnTarget' | 'returnOrigin' | 'scope' | 'retryScope' | 'currentSpace';
 /** Shell navigation state that always follows the main screen, even when read from inside a pane (ADR-0049). */
 type MainBoundFields = 'visibleMenus' | 'sidebarSpace' | 'spaceResume' | 'spaceEntry' | 'switchSpace';
-type ScreenState = Pick<Platform, ScreenFields | 'screenMode' | 'paneId'>;
+type ScreenState = Pick<Platform, ScreenFields | 'screenMode' | 'paneId' | 'paneLabel'>;
 type MainBound = Pick<Platform, MainBoundFields>;
-type AppState = Omit<Platform, ScreenFields | MainBoundFields | 'screenMode' | 'paneId'>;
+type AppState = Omit<Platform, ScreenFields | MainBoundFields | 'screenMode' | 'paneId' | 'paneLabel'>;
 /** App-internal handles the screen layers need; never part of the public `usePlatform()` value. */
 type AppInternal = {
   enters: (menu: MenuEntry) => boolean;
@@ -258,6 +262,7 @@ type CommitOptions = { focus?: PageFocus; materialize?: boolean };
 type ScreenSource = {
   mode: 'main' | 'pane';
   paneId: string | null;
+  paneLabel?: string | null;
   /** The screen's address: the browser URL for the main screen, the pane's virtual path plus its own query. */
   url: string;
   navigation: ReturnType<typeof createPageNavigation>;
@@ -287,6 +292,7 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
   const { enters, usageSessionId, userIdRef } = app.internal;
   const { matchRoute, menuById, safeReturnTo } = registry;
   const { url, navigation: pageNavigation, commit, go, mode, paneId } = source;
+  const paneLabel = source.paneLabel ?? null;
   const { lang } = useI18n();
   const userId = user.id;
 
@@ -316,11 +322,7 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
   // A deliberate global-Context change drops the manifest's contextResetKeys (e.g. the result-set page index)
   // from the page pairs in the SAME navigation — one history entry, so Back returns to the pre-change URL
   // exactly (06 §6.4). History traversal (popstate, navigate) and no-op setGlobal calls never drop anything.
-  const dropContextResetKeys = useCallback((pairs: Pair[], next: GlobalContext): Pair[] => {
-    const keys = route?.menu.contextResetKeys;
-    if (!keys || keys.length === 0 || sameGlobal(global, next)) return pairs;
-    return pairs.filter(([k]) => !keys.includes(k));
-  }, [route, global]);
+  const dropContextResetKeys = useCallback((pairs: Pair[], next: GlobalContext): Pair[] => dropResetKeys(route?.menu, pairs, global, next), [route, global]);
 
   // Writers commit this screen's own address; they are not cross-menu navigation (a pane keeps writing to itself
   // even after its menu lost permission or board support).
@@ -552,7 +554,7 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
 
   const screen: ScreenState = {
     url, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
-    currentSpace, scope: scopeView, retryScope, screenMode: mode, paneId,
+    currentSpace, scope: scopeView, retryScope, screenMode: mode, paneId, paneLabel,
   };
   return { screen, sidebarSpace };
 }
@@ -711,7 +713,7 @@ function MainScreenProvider({ app, children }: { app: AppValue; children: ReactN
   }, [pageNavigation, location]);
   const go = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus }) => commit(next, options?.replace ? 'replace' : 'push', { focus: options?.focus }), [commit]);
 
-  const source: ScreenSource = { mode: 'main', paneId: null, url, navigation: pageNavigation, commit, go, onScopeValid: rememberScope };
+  const source: ScreenSource = { mode: 'main', paneId: null, paneLabel: null, url, navigation: pageNavigation, commit, go, onScopeValid: rememberScope };
   const { screen, sidebarSpace } = useScreenState(app, source);
   const { pathname, route, contractError, resolveLink, navigate, currentSpace } = screen;
 
@@ -801,8 +803,8 @@ export type PaneScreen = { menuId: string; params: Record<string, string>; query
  * apply `next` later and its identity may change every render. Navigation (`navigate`, `PlatformLink`, return links) to another
  * menu with `features.board` that the user can open is `onChange(..., 'push')`; any other destination is `onLeave(href)`.
  */
-export function PaneScreenProvider({ paneId, screen, onChange, onLeave, countUsage = true, children }: {
-  paneId: string; screen: PaneScreen; onChange: (next: PaneScreen, how: 'push' | 'replace') => void; onLeave: (href: string) => void;
+export function PaneScreenProvider({ paneId, paneLabel, screen, onChange, onLeave, countUsage = true, children }: {
+  paneId: string; /** Caption for a detail panel opened from this pane (`칸 2 · 메뉴`); read back as `usePlatform().paneLabel`. */ paneLabel?: string; screen: PaneScreen; onChange: (next: PaneScreen, how: 'push' | 'replace') => void; onLeave: (href: string) => void;
   /** Default true. The board's Context bar mounts a second, controlled provider for the selected pane; it passes false so that stay is counted once. */
   countUsage?: boolean; children: ReactNode;
 }) {
@@ -845,7 +847,7 @@ export function PaneScreenProvider({ paneId, screen, onChange, onLeave, countUsa
     return true;
   }, [navigation, url, commit, matchRoute, canOpen]);
 
-  const source: ScreenSource = { mode: 'pane', paneId, url, navigation, commit, go, sidebarSpace: main.sidebarSpace, countsUsage: countUsage };
+  const source: ScreenSource = { mode: 'pane', paneId, paneLabel, url, navigation, commit, go, sidebarSpace: main.sidebarSpace, countsUsage: countUsage };
   const state = useScreenState(app, source);
   return <PaneScreenContext.Provider value={state.screen}>{children}</PaneScreenContext.Provider>;
 }

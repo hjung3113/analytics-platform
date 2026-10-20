@@ -1,7 +1,8 @@
 import { OutcomeBanners, OutcomeScope } from './OutcomeScope';
 import { X } from 'lucide-react';
-import { Fragment, useId, useLayoutEffect, useRef, type ReactNode } from 'react';
+import { Fragment, useEffect, useId, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { buildQuery } from '@ap/contracts';
 import { useI18n, usePlatformOptional } from '@ap/kernel';
 import { Tabs, TabsContent, TabsList, TabsTrigger, useDetailPanelSlot } from '@ap/ui';
 
@@ -26,6 +27,19 @@ function DetailContent({ title, subtitle, headerActions, context, tabs, onClose,
   const platform = usePlatformOptional();
   const pageNavigation = platform?.pageNavigation;
   const paneId = platform?.paneId ?? null;
+  const paneLabel = platform?.paneLabel ?? null;
+  // Docs/16 §5: a panel opened from a board pane belongs to the screen and Context that pane had then; when either changes it closes.
+  const identity = paneId === null || !platform ? null : `${platform.pathname}\0${buildQuery(platform.global)}`;
+  const openedAs = useRef(identity);
+  const closeLatest = useRef(onClose);
+  useLayoutEffect(() => { closeLatest.current = onClose; });
+  const closedByChange = useRef(false);
+  useEffect(() => {
+    // Once: a menu that fills in its default period right after a screen change would otherwise ask twice.
+    if (identity === openedAs.current || closedByChange.current) return;
+    closedByChange.current = true;
+    closeLatest.current();
+  }, [identity]);
   useLayoutEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     // Arrival with focus= leaves the title focused (§26). Same-screen open still moves here.
@@ -70,6 +84,7 @@ function DetailContent({ title, subtitle, headerActions, context, tabs, onClose,
     className="flex h-full min-h-0 w-full flex-col bg-surface-detail">
     <header className="flex items-start justify-between gap-3 border-b border-border-subtle px-5 py-4">
       <div className="min-w-0">
+        {paneLabel && <p data-detail-pane-label className="truncate text-xs text-text-muted">{paneLabel}</p>}
         <h2 id={`${id}-t`} className="t-section-title truncate">{title}</h2>
         {subtitle && <p className="text-xs text-text-muted">{subtitle}</p>}
       </div>

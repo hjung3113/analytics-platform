@@ -190,10 +190,11 @@ describe('panes', () => {
     fireEvent.pointerDown(within(paneGroup(2)).getByTestId('from'));
     await settle();
     expect(stored().sheets[0].selected).toBe(1);
-    act(() => { within(paneGroup(3)).getByRole('button', { name: '칸 3 비우기' }).focus(); });
+    act(() => { within(paneGroup(3)).getByRole('button', { name: '칸 3 동작' }).focus(); });
     await settle();
     expect(stored().sheets[0].selected).toBe(2);
-    fireEvent.click(within(paneGroup(4)).getByRole('button', { name: '칸 4 비우기' }));
+    openMenu(within(paneGroup(4)).getByRole('button', { name: '칸 4 동작' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: '비우기' }));
     await settle();
     expect(stored().sheets[0].selected).toBe(3);
     expect(stored().sheets[0].panes[3]).toBeNull();
@@ -330,7 +331,8 @@ describe('layout (docs/16 §4)', () => {
     seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), alpha(w2)] })]));
     mount();
     await settle();
-    fireEvent.click(within(paneGroup(1)).getByRole('button', { name: '칸 1 비우기' }));
+    openMenu(within(paneGroup(1)).getByRole('button', { name: '칸 1 동작' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: '비우기' }));
     fireEvent.click(await screen.findByRole('button', { name: '실행 취소' }));
     await settle();
     expect(stored().sheets[0].panes[0]).toEqual(alpha(w1));

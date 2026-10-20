@@ -12,7 +12,7 @@ import { boardText } from './text';
  * With no pane screen to edit the row stays, disabled, so the grid does not jump.
  */
 export function BoardContextBar({ paneId, number, screen, onChange, onLeave }: {
-  paneId: string; number: number; screen: PaneScreen | null; onChange: (next: PaneScreen) => void; onLeave: (href: string) => void;
+  paneId: string; number: number; screen: PaneScreen | null; onChange: (next: PaneScreen, how: 'push' | 'replace') => void; onLeave: (href: string) => void;
 }) {
   const { registry, can } = usePlatform();
   const { lang } = useI18n();
@@ -26,7 +26,7 @@ export function BoardContextBar({ paneId, number, screen, onChange, onLeave }: {
   </div>;
   // Only a pane that mounts its menu screen gets the Context controls; a denied one would otherwise read Scope and equipment data its body refuses.
   if (screen === null || !canMountPaneScreen(registry, can, screen)) return row(null, disabled);
-  return <PaneScreenProvider paneId={paneId} screen={screen} countUsage={false} onChange={next => onChange(next)} onLeave={onLeave}>
+  return <PaneScreenProvider paneId={paneId} screen={screen} countUsage={false} onChange={onChange} onLeave={onLeave}>
     <ContractGate
       closed={row(null, disabled)}
       open={row(<ScopeSelector layout="bar" />, <div className="min-w-0 flex-1"><GlobalContextBar label={{ visible: text.contextLabel, region: text.paneContext(number) }} whenEmpty={disabled} /></div>)} />

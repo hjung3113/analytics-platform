@@ -1,7 +1,7 @@
 import { MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useI18n } from '@ap/kernel';
-import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@ap/ui';
+import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@ap/ui';
 import { MAX_SHEETS, type Sheet } from './boardModel';
 import { boardText } from './text';
 
@@ -15,6 +15,8 @@ export type SheetTabsProps = {
   onRename: (id: string, name: string) => void;
   onMove: (id: string, toIndex: number) => void;
   onDelete: (id: string) => void;
+  /** `이 시트 조건을 다른 시트에 복사`: the active sheet's pane Contexts onto the same-numbered panes of `targetId`. */
+  onCopyContext: (targetId: string) => void;
 };
 
 /**
@@ -22,7 +24,7 @@ export type SheetTabsProps = {
  * switch; add, rename, reorder and delete live in the controls beside the tablist, so no button sits inside a tab. ←/→ move focus
  * between tabs, Enter/Space opens one (a sheet switch is a history entry and mounts its panes, so focus alone does not switch).
  */
-export function SheetTabs({ sheets, activeId, panelId, onSwitch, onAdd, onRename, onMove, onDelete }: SheetTabsProps) {
+export function SheetTabs({ sheets, activeId, panelId, onSwitch, onAdd, onRename, onMove, onDelete, onCopyContext }: SheetTabsProps) {
   const { lang } = useI18n();
   const text = boardText(lang);
   const [editing, setEditing] = useState<string | null>(null);
@@ -101,6 +103,15 @@ export function SheetTabs({ sheets, activeId, panelId, onSwitch, onAdd, onRename
           <DropdownMenuItem onSelect={() => { renameNext.current = true; }}>{text.rename}</DropdownMenuItem>
           <DropdownMenuItem disabled={activeIndex <= 0} onSelect={() => onMove(active.id, activeIndex - 1)}>{text.moveLeft}</DropdownMenuItem>
           <DropdownMenuItem disabled={activeIndex >= sheets.length - 1} onSelect={() => onMove(active.id, activeIndex + 1)}>{text.moveRight}</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger disabled={sheets.length < 2}>
+              <span className="grid">{text.copyContext}{sheets.length < 2 && <span className="text-tiny text-text-muted">{text.copyContextNone}</span>}</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {sheets.filter(sheet => sheet.id !== active.id).map(sheet => <DropdownMenuItem key={sheet.id} onSelect={() => onCopyContext(sheet.id)}>{sheet.name}</DropdownMenuItem>)}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => onDelete(active.id)}><Trash2 className="mr-2 size-3.5" aria-hidden />{text.deleteSheet}</DropdownMenuItem>
         </DropdownMenuContent>

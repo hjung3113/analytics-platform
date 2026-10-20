@@ -1,0 +1,125 @@
+import { conditionLabel, ContractError, formatMetricVersion, parseQuery, sameGlobal, type GlobalContext } from '@ap/contracts';
+import { withPaneContext, type MenuEntry, type PaneScreen, type Registry, type ReturnContextKey, type usePlatform } from '@ap/kernel';
+import { canMountPaneScreen } from './boardMenus';
+import type { PaneEdit, Sheet } from './boardModel';
+
+type Can = ReturnType<typeof usePlatform>['can'];
+
+/** The analysis-Context keys in the order a pane header and its popover list them (Scope counts as a key, docs/16 §4). */
+const KEY_ORDER: readonly ReturnContextKey[] = ['scope', 'time', 'roomNames', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric'];
+
+/** `value` is null for a key the pane does not set. */
+export type ContextEntry = { key: ReturnContextKey; value: string | null };
+export type ContextRow = ContextEntry & { differs: boolean };
+
+const minutes = (value: string) => value.replace('T', ' ').slice(0, 16);
+
+/** The keys a Context sets, as the values the header shows; two panes differ on a key when these strings differ. `none` names an explicitly empty set. */
+export function contextValues(global: GlobalContext, none: string): ContextEntry[] {
+  const set = (ids: readonly string[] | null) => (ids === null ? null : ids.length === 0 ? none : ids.join(', '));
+  const values: Record<ReturnContextKey, string | null> = {
+    scope: global.scopeId,
+    time: global.from !== null && global.to !== null ? `${minutes(global.from)} ~ ${minutes(global.to)}` : null,
+    roomNames: set(global.roomNames),
+    condition: global.condition ? conditionLabel(global.condition) : null,
+    selection: set(global.selection),
+    lot: set(global.lotIds),
+    ppid: global.ppid,
+    recipe: set(global.recipeIds),
+    metric: global.metricId === null ? null : global.metricVersion === null ? global.metricId : `${global.metricId} ${formatMetricVersion(global.metricVersion)}`,
+  };
+  return KEY_ORDER.map(key => ({ key, value: values[key] }));
+}
+
+const menuOf = (registry: Registry, screen: PaneScreen): MenuEntry | null => registry.menus.find(m => m.id === screen.menuId) ?? null;
+
+/** A pane's analysis Context, or null when its menu is unknown or its saved address does not parse for that menu. Never throws. */
+export function paneGlobal(registry: Registry, screen: PaneScreen): GlobalContext | null {
+  const menu = menuOf(registry, screen);
+  if (!menu) return null;
+  try { return parseQuery(screen.query, menu.pageKeys).global; } catch (error) {
+    if (error instanceof ContractError) return null;
+    throw error;
+  }
+}
+
+/** The panes that take part in comparison and in Context actions: content the user's role would actually mount, with a readable address. */
+function participants(registry: Registry, can: Can, panes: readonly (PaneScreen | null)[]): (GlobalContext | null)[] {
+  return panes.map(screen => (screen !== null && canMountPaneScreen(registry, can, screen) ? paneGlobal(registry, screen) : null));
+}
+
+/** What a pane header shows about its Context against the other panes of the sheet. `compared` is false while it is the only content pane. */
+export type PaneSignal = { rows: ContextRow[]; differing: ContextRow[]; same: ContextRow[]; compared: boolean };
+
+export function paneSignals(registry: Registry, can: Can, panes: readonly (PaneScreen | null)[], none: string): (PaneSignal | null)[] {
+  const globals = participants(registry, can, panes);
+  const values = globals.map(g => (g === null ? null : contextValues(g, none)));
+  return values.map((own, index) => {
+    if (own === null) return null;
+    const others = values.filter((v, i): v is ContextEntry[] => i !== index && v !== null);
+    const rows = own.map((entry, k) => ({ ...entry, differs: others.some(other => other[k].value !== entry.value) }))
+      .filter(row => row.value !== null || row.differs);
+    return { rows, differing: rows.filter(r => r.differs), same: rows.filter(r => !r.differs), compared: others.length > 0 };
+  });
+}
+
+/** `1, 3` for a list, `1–3` for a run of consecutive numbers (1-based). */
+export function paneNumbers(indices: readonly number[]): string {
+  const numbers = [...indices].sort((a, b) => a - b).map(i => i + 1);
+  const parts: string[] = [];
+  for (let i = 0; i < numbers.length;) {
+    let end = i;
+    while (end + 1 < numbers.length && numbers[end + 1] === numbers[end] + 1) end++;
+    parts.push(end > i ? `${numbers[i]}–${numbers[end]}` : `${numbers[i]}`);
+    i = end + 1;
+  }
+  return parts.join(', ');
+}
+
+/** The target's address with `global` as its Context: its page keys stay except the menu's reset keys (the kernel's own rule). Null if it does not parse. */
+function withContext(menu: MenuEntry, query: string, global: GlobalContext): string | null {
+  try { return withPaneContext(menu, query, global); } catch (error) {
+    if (error instanceof ContractError) return null;
+    throw error;
+  }
+}
+
+/** `이 조건을 시트의 모든 칸에 적용`: `others` counts the other content panes it could reach; `edits` those whose Context actually changes. Null if the source cannot be read. */
+export function applyContextToSheet(registry: Registry, can: Can, sheet: Sheet, sourceIndex: number): { edits: PaneEdit[]; others: number } | null {
+  const globals = participants(registry, can, sheet.panes);
+  const source = globals[sourceIndex];
+  if (!source) return null;
+  const edits: PaneEdit[] = [];
+  let others = 0;
+  sheet.panes.forEach((pane, index) => {
+    const global = globals[index];
+    if (index === sourceIndex || pane === null || global === null) return;
+    others++;
+    if (sameGlobal(global, source)) return;
+    const query = withContext(menuOf(registry, pane)!, pane.query, source);
+    if (query !== null) edits.push({ index, before: pane, after: { ...pane, query } });
+  });
+  return { edits, others };
+}
+
+/** `이 시트 조건을 다른 시트에 복사`: pane i of `from` onto pane i of `to`, only where both hold content the role can mount. */
+export function copyContextToSheet(registry: Registry, can: Can, from: Sheet, to: Sheet): PaneEdit[] {
+  const source = participants(registry, can, from.panes);
+  const target = participants(registry, can, to.panes);
+  const edits: PaneEdit[] = [];
+  to.panes.forEach((pane, index) => {
+    const global = source[index];
+    if (index >= from.panes.length || pane === null || global == null || target[index] === null || sameGlobal(target[index]!, global)) return;
+    const query = withContext(menuOf(registry, pane)!, pane.query, global);
+    if (query !== null) edits.push({ index, before: pane, after: { ...pane, query } });
+  });
+  return edits;
+}
+
+/** The screen a pane gets when `menu` replaces what it held: it starts with the old pane's Context and nothing else. */
+export function replacementScreen(registry: Registry, old: PaneScreen, menu: MenuEntry): PaneScreen {
+  const global = paneGlobal(registry, old);
+  return { menuId: menu.id, params: {}, query: global === null ? '' : withContext(menu, '', global) ?? '' };
+}
+
+export const firstEmptyPane = (sheet: Sheet): number => sheet.panes.findIndex(p => p === null);

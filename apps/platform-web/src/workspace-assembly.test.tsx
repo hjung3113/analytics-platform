@@ -76,7 +76,7 @@ describe('workspace assembly (#260)', () => {
     expect(slots.feedbackOps?.entriesFor('operations')).toBeNull();
     expect(slots.feedbackOps?.overall).toBeNull();
     expect(appSlots(assembly, 'https://feedbackops.example').feedbackOps?.entriesFor('metrics')?.every(entry => entry.href?.startsWith('https://feedbackops.example/'))).toBe(true);
-    expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools', 'feedbackOps', 'plannedSpaces']);
+    expect(Object.keys(slots)).toEqual(['contextBar', 'topBarTools', 'feedbackOps', 'plannedSpaces', 'boardEntry']);
     // Planned systems are display-only rows for the switcher: no Registry space or menu carries their id.
     expect(slots.plannedSpaces?.map(item => item.label.ko)).toEqual(['CLAS', '표준 로그 개발', '개선 실행']);
     expect(slots.plannedSpaces?.[0]).toMatchObject({ id: 'clas', subtitle: { ko: '생산성 분석', en: 'Productivity analysis' } });

@@ -5,3 +5,4 @@ export { RouteOutlet, ScreenOutlet } from './RouteOutlet';
 export { AppSidebar } from './AppSidebar';
 export { ScopeSelector } from './ScopeSelector';
 export { AppRail } from './AppRail';
+export { OpenInBoardAction } from './board/OpenInBoardAction';

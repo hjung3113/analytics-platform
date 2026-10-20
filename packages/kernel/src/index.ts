@@ -10,5 +10,6 @@ export {
   type AnyGroupId, type GroupDef, type MenuEntry, type ModuleGroupDef, type ModuleMenuEntry, type PageProps, type PlatformGroupDef, type PlatformMenuEntry, type Registry, type RouteMatch,
 } from './registry';
 export { type PageNavigation } from './pageNavigation';
+export { dropResetKeys, withPaneContext } from './paneContext';
 export { mountModule, type MountOptions } from './module';
 export { useModuleHost, type ModuleShellPorts } from './module-host';
