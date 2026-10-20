@@ -2,7 +2,7 @@ import { useLayoutEffect, useState, type RefObject } from 'react';
 
 /**
  * Narrowest a pane may get before the grid stacks (docs/16 §4): measured on the grid container, not the viewport, so the 788px main
- * column at 1280 + a 440px detail slot keeps a 2×2 in two columns. The final value is re-measured with real menus (#498).
+ * column at 1280 + a 440px detail slot keeps a 2×2 in two columns. Kept after measuring the three board menus at that width (#498, docs/16 §4).
  */
 export const PANE_MIN_WIDTH = 340;
 export const PANE_MIN_HEIGHT = 320;
