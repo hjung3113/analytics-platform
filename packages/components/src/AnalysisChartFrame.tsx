@@ -6,7 +6,7 @@ import { formatDateTime, formatMetricVersion, parseDateTime } from '@ap/contract
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { AnalysisSectionContext } from './AnalysisSectionContext';
-import { EChart, strokeToken, token } from './EChart';
+import { chartTheme, EChart, strokeToken, token } from './EChart';
 import { toCsvDocument } from './tableExport';
 import { assignNoteLevels, noteLabelWidths } from './annotationLayout';
 
@@ -248,6 +248,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     return max > min ? max - min : 0;
   }, [xType, allSeries, annotations.length]);
   const option = useMemo<EChartsCoreOption>(() => {
+    const theme = chartTheme();
     // Pixels per axis unit from the plot width and the zoom window, so a label can be cut to its own area (#399 AC-2).
     const plotWidth = Math.max(0, chartWidth - PLOT_MARGIN);
     const zoomed = Math.max((zoom[1] - zoom[0]) / 100, 0.01);
@@ -266,11 +267,9 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         valueFormatter: (v: number | null) => (v === null || v === undefined ? (lang === 'ko' ? '미확인' : 'unknown') : `${format(v)} ${p.unit}`),
       },
       xAxis: xType === 'time'
-        // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
-        ? { type: 'time', axisLine: { lineStyle: { color: token('border-strong') } }, axisLabel: { hideOverlap: true }, splitLine: { show: false } }
-        // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
-        : { type: 'category', data: categories, axisLine: { lineStyle: { color: token('border-strong') } }, axisTick: { alignWithLabel: true } },
-      yAxis: { type: 'value', min: 0, name: p.unit, nameTextStyle: { align: 'right' }, splitLine: { lineStyle: { color: token('chart-grid') } } },
+        ? { type: 'time', axisLine: theme.axisLine, axisLabel: { hideOverlap: true }, splitLine: { show: false } }
+        : { type: 'category', data: categories, axisLine: theme.axisLine, axisTick: { alignWithLabel: true } },
+      yAxis: { type: 'value', min: 0, name: p.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine },
       dataZoom: [{ type: 'inside', xAxisIndex: 0, start: zoom[0], end: zoom[1], zoomOnMouseWheel: 'shift', moveOnMouseMove: !brushMode }],
       // Fill derives rgba from the resolved chart-blue token (#297): copying stroke channels would shift the hue,
       // and a literal rgba copies the token's values. Selection and annotation fills keep echarts-native opacity.
@@ -293,8 +292,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         {
           id: '__overlay', type: 'line', data: [], silent: true, symbol: 'none',
           markArea: { silent: true, data: areas },
-          // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
-          markLine: p.markLines?.length ? { silent: true, symbol: 'none', lineStyle: { color: token('text-secondary'), type: 'dashed' }, label: { formatter: '{b}', fontSize: 10, color: token('text-secondary'), position: 'insideEndTop' }, data: p.markLines.map(m => ({ name: m.label, yAxis: m.y })) } : undefined,
+          markLine: p.markLines?.length ? { ...theme.referenceLine, data: p.markLines.map(m => ({ name: m.label, yAxis: m.y })) } : undefined,
         },
       ],
     };

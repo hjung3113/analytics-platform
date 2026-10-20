@@ -4,7 +4,7 @@ export { copyText, useCopyLink } from './copyText';
 export * from './DataTrustIndicator';
 export * from './DetailDrawer';
 // Explicit: strokeToken·baseTextStyle stay package-internal (chart plumbing and tests only).
-export { EChart, token, type EChartProps } from './EChart';
+export { chartTheme, EChart, token, type EChartProps } from './EChart';
 export * from './PageFilterBar';
 export * from './PlatformDataTable';
 export * from './tableUrlWarning';

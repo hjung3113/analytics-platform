@@ -37,6 +37,31 @@ colors:
   chart-teal: "#00a3b5"
   chart-green: "#00bc8b"
   chart-purple: "#a174f5"
+  chart-series-1: "#466896"
+  chart-series-1-stroke: "#466896"
+  chart-series-2: "#726397"
+  chart-series-2-stroke: "#726397"
+  chart-series-3: "#357d78"
+  chart-series-3-stroke: "#357d78"
+  chart-series-4: "#667083"
+  chart-series-4-stroke: "#667083"
+  chart-heat-seq-0: "#f2f8ff"
+  chart-heat-seq-1: "#cfe5fb"
+  chart-heat-seq-2: "#a0cff6"
+  chart-heat-seq-3: "#64abeb"
+  chart-heat-seq-4: "#2577cc"
+  chart-heat-div-0: "#00707b"
+  chart-heat-div-1: "#68b3b4"
+  chart-heat-div-2: "#f7f6f1"
+  chart-heat-div-3: "#e28e85"
+  chart-heat-div-4: "#ae3f47"
+  chart-status-good: "var(--accent-success)"
+  chart-status-warn: "var(--accent-warn)"
+  chart-status-critical: "var(--accent-danger)"
+  chart-no-data: "#dce2eb"
+  chart-no-data-pattern: "#667083"
+  chart-selection-outline: "var(--accent-primary)"
+  chart-median-on-fill: "var(--surface-card)"
   chart-remainder: "#cbd2e3"
   chart-grid: "#edf1f7"
   icon-blue-soft: "#e3efff"
@@ -113,6 +138,14 @@ components:
 | `accent-neutral` / `accent-neutral-soft` | 미평가·보조 상태의 dot 및 배경 | FeedbackOps `color-storm-cloud` / `color-deep-slate` 참조 |
 | `border-control` | 입력·select·checkbox 등 식별에 필요한 interactive 경계 | FeedbackOps `color-storm-cloud` 참조 |
 | `surface-sunken` | 표 열 머리·검색 배경·progress track·recessed 보조 영역 | FeedbackOps `color-deep-slate` 참조 |
+| `chart-series-1` / `chart-series-2` / `chart-series-3` / `chart-series-4` | 신규 chart kinds의 기본 범주 순서; 기존 chart token 이름도 유효 | 플랫폼 literal `#466896` / `#726397` / `#357d78` / `#667083` |
+| `chart-series-1-stroke` / `chart-series-2-stroke` / `chart-series-3-stroke` / `chart-series-4-stroke` | 얇은 line/outline mark와 line legend 전용; 카드에서 각 series fill과 같은 값, ≥3:1 | 플랫폼 literal `#466896` / `#726397` / `#357d78` / `#667083` |
+| `chart-heat-seq-0..4` | 값이 낮음에서 높음으로 가는 순차 heatmap ramp | 플랫폼 literal `#f2f8ff` → `#cfe5fb` → `#a0cff6` → `#64abeb` → `#2577cc` |
+| `chart-heat-div-0..4` | 목표와 방향이 정의된 경우의 diverging heatmap ramp | 플랫폼 literal `#00707b` → `#68b3b4` → `#f7f6f1` → `#e28e85` → `#ae3f47` |
+| `chart-status-good` / `chart-status-warn` / `chart-status-critical` | 승인된 실제 판정의 상태색만; 작은 글자는 의미 label token을 사용 | `accent-success` / `accent-warn` / `accent-danger` alias |
+| `chart-no-data` / `chart-no-data-pattern` | 결측값은 0·최저값·기타와 구분해 빗금으로 표시 | 플랫폼 literal `#dce2eb` / `#667083` |
+| `chart-selection-outline` | 선택·hover 강조 외곽선; series 색 정체성은 보존 | `accent-primary` alias |
+| `chart-median-on-fill` | 진한 box fill 위 불투명 median 선 | `surface-card` alias |
 | `cat-purple` / `cat-teal` / `cat-amber` | 범주 tag·series 구분; 성공·실패 판정이나 CTA에 쓰지 않음 | 플랫폼 literal `#7c3aed` / `#0d9488` / `#d97706` |
 | `chart-blue` / `chart-teal` / `chart-green` / `chart-purple` | series 정체성; 의미 있는 얇은 선 대비는 Chart stroke 결정 참고 | 플랫폼 literal `#3b9cff` / `#00a3b5` / `#00bc8b` / `#a174f5` |
 | `chart-blue-stroke` / `chart-teal-stroke` / `chart-purple-stroke` / `cat-amber-stroke` | 얇은 line/outline mark와 해당 line legend 전용; fill과 작은 글자에는 쓰지 않음 | B2 platform literal `#2577cc` / `#008090` / `#8154ce` / `#b45309` |
@@ -220,7 +253,7 @@ label 행은 #210(FeedbackOps 원본 값), 나머지 행은 #193/#194 UI/UX 리�
 
 [06 §16](docs/06_platform_ui_contract.md#16-analysis-chart-contract)과 [§26](docs/06_platform_ui_contract.md#26-accessibility-baseline)의 Chart Frame/interaction 계약을 따른다. 모든 차트에는 **title, unit, textual summary, 동일 데이터 table 접근 경로**가 있다. legend는 이름+선 모양/기호+색을 제공한다. Tooltip은 hover와 keyboard focus에 대응하고 label/value/unit을 포함한다. passive mark에 가짜 pressed 동작을 넣지 않는다.
 
-series fill 정체성은 `chart-*`, 범주 구분은 `cat-*`, 상태 판정은 별도 label vocabulary로 표현한다. 얇은 line/outline mark는 `chart-*-stroke` 별칭을 쓰고 legend도 같은 stroke 색을 사용한다. 이전 기간의 `cat-amber` 선·외곽선 마크는 `cat-amber-stroke` 별칭을 쓴다. stroke 별칭은 EChart의 JS 매핑(`EChart.tsx` `strokeAliases`)으로만 쓰며 Tailwind 유틸리티가 아니다. 막대와 영역, series symbol, 선택/annotation fill은 기존 fill token을 유지한다. P50 solid / P95 dashed처럼 색 이외의 구별을 유지한다. 선택/brush/drill-down이 전역 Context를 바꾸는지는 명시적으로 구분하고 단순 chart click으로 조용히 조건을 바꾸지 않는다.
+새 chart kind의 기본 범주 순서는 `chart-series-1` → `chart-series-2` → `chart-series-3` → `chart-series-4`이며, 기존 `chart-blue` / `chart-teal` / `chart-green` / `chart-purple`도 계속 유효하다. series fill 정체성은 `chart-*`, 범주 구분은 `cat-*`, 상태 판정은 별도 label vocabulary로 표현한다. `chart-status-*`는 실제 판정일 때만 쓴다. 얇은 line/outline mark는 `chart-*-stroke` 별칭을 쓰고 legend도 같은 stroke 색을 사용한다. 이전 기간의 `cat-amber` 선·외곽선 마크는 `cat-amber-stroke` 별칭을 쓴다. stroke 별칭은 EChart의 JS 매핑(`EChart.tsx` `strokeAliases`)으로만 쓰며 Tailwind 유틸리티가 아니다. 기준선은 `text-secondary` 점선과 label을 쓰고 null은 빗금으로 구분한다. 막대와 영역, series symbol, 선택/annotation fill은 기존 fill token을 유지한다. P50 solid / P95 dashed처럼 색 이외의 구별을 유지한다. 선택/brush/drill-down이 전역 Context를 바꾸는지는 명시적으로 구분하고 단순 chart click으로 조용히 조건을 바꾸지 않는다.
 
 reference quality recipe는 coverage→blue, traceability→teal, consistency→green, missing/untraced→이름 있는 remainder, inconsistent→cat-amber다. 분자·분모를 detail/table에서 제공하며 donut/gauge의 기본 허용 범위는 [06 §24](docs/06_platform_ui_contract.md#decorative-visualization)를 따른다. defect bar는 zero baseline·정수 ticks·날짜·단위를 갖고 max는 데이터로 산정한다. queue/progress는 완료율과 성공률을 분리하고 분모 없는 회색 remainder를 만들어내지 않는다. pipeline/queue/lifecycle의 도메인 의미는 Consumer 후보이며 반복 확인 전 범용 플랫폼 컴포넌트로 승격하지 않는다.
 

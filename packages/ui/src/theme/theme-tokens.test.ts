@@ -2,16 +2,37 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, it, vi } from 'vitest';
 import { generateThemeTokens } from '../../scripts/gen-theme-tokens.mjs';
-import { THEME_COLOR_FALLBACK, THEME_COLOR_TOKENS } from './tokens.generated';
+import { THEME_COLOR_FALLBACK, THEME_COLOR_TOKENS, type ThemeColorToken } from './tokens.generated';
 import { isThemeColorToken, readColorToken } from './index';
 
 const tokensCss = readFileSync(join(process.cwd(), 'src/styles/tokens.css'), 'utf8');
 const platformCss = readFileSync(join(process.cwd(), 'src/styles/platform-tokens.css'), 'utf8');
+const themeCss = readFileSync(join(process.cwd(), 'src/styles/index.css'), 'utf8');
 const themeJson = readFileSync(join(process.cwd(), 'src/theme/theme-tokens.json'), 'utf8');
 const themeTs = readFileSync(join(process.cwd(), 'src/theme/tokens.generated.ts'), 'utf8');
 const manifest = JSON.parse(themeJson) as {
   color: Record<string, { $type: string; $value: { colorSpace: string; components: number[]; hex: string } }>;
 };
+
+const newChartTokens = [
+  'chart-series-1', 'chart-series-1-stroke', 'chart-series-2', 'chart-series-2-stroke',
+  'chart-series-3', 'chart-series-3-stroke', 'chart-series-4', 'chart-series-4-stroke',
+  'chart-heat-seq-0', 'chart-heat-seq-1', 'chart-heat-seq-2', 'chart-heat-seq-3', 'chart-heat-seq-4',
+  'chart-heat-div-0', 'chart-heat-div-1', 'chart-heat-div-2', 'chart-heat-div-3', 'chart-heat-div-4',
+  'chart-status-good', 'chart-status-warn', 'chart-status-critical',
+  'chart-no-data', 'chart-no-data-pattern', 'chart-selection-outline', 'chart-median-on-fill',
+] as const;
+
+const classChartTokens = [
+  'chart-series-1', 'chart-series-2', 'chart-series-3', 'chart-series-4', 'chart-no-data',
+  'chart-status-good', 'chart-status-warn', 'chart-status-critical',
+] as const;
+
+const chartStatusAliases = [
+  ['chart-status-good', 'accent-success'],
+  ['chart-status-warn', 'accent-warn'],
+  ['chart-status-critical', 'accent-danger'],
+] as const;
 
 function cssProperties(): Map<string, string> {
   const declarations = `${tokensCss}\n${platformCss}`.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -36,6 +57,19 @@ function resolveCssColor(name: string): [number, number, number] {
 
 function hex([red, green, blue]: [number, number, number]): string {
   return `#${[red, green, blue].map(channel => channel.toString(16).padStart(2, '0')).join('')}`;
+}
+
+function relativeLuminance([red, green, blue]: [number, number, number]): number {
+  const linear = (channel: number) => {
+    const value = channel / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue);
+}
+
+function contrastRatio(a: [number, number, number], b: [number, number, number]): number {
+  const [lighter, darker] = [relativeLuminance(a), relativeLuminance(b)].sort((left, right) => right - left);
+  return (lighter + 0.05) / (darker + 0.05);
 }
 
 it('commits byte-for-byte generator output from the source CSS', () => {
@@ -107,6 +141,37 @@ it('resolves every manifest hex from CSS and pins representative values', () => 
   expect(manifest.color['text-primary'].$value.hex).toBe('#101828');
   expect(manifest.color['chart-blue-stroke'].$value.hex).toBe('#2577cc');
   expect(manifest.color['accent-primary'].$value.hex).toBe('#1428a0');
+});
+
+it('publishes and resolves every adopted chart colour token', () => {
+  for (const name of newChartTokens) {
+    expect(THEME_COLOR_TOKENS, name).toContain(name);
+    expect(manifest.color[name], name).toBeDefined();
+    expect(readColorToken(name as ThemeColorToken), name).toBe(`rgb(${resolveCssColor(name).join(',')})`);
+  }
+});
+
+it('keeps all four categorical stroke tokens at least 3:1 against the card surface', () => {
+  const card = resolveCssColor('surface-card');
+  for (const name of ['chart-series-1-stroke', 'chart-series-2-stroke', 'chart-series-3-stroke', 'chart-series-4-stroke']) {
+    expect(contrastRatio(resolveCssColor(name), card), name).toBeGreaterThanOrEqual(3);
+  }
+});
+
+it('aliases chart status roles to their semantic accent tokens', () => {
+  const properties = cssProperties();
+  for (const [chartStatus, accent] of chartStatusAliases) {
+    expect(properties.get(chartStatus)).toBe(`var(--${accent})`);
+    expect(resolveCssColor(chartStatus)).toEqual(resolveCssColor(accent));
+  }
+});
+
+it('adds Tailwind aliases only for the chart roles consumed as classes', () => {
+  for (const name of classChartTokens) {
+    expect(themeCss).toContain(`--color-${name}: rgb(var(--${name}));`);
+  }
+  expect(themeCss).not.toContain('--color-chart-series-1-stroke:');
+  expect(themeCss).not.toContain('--color-chart-heat-seq-0:');
 });
 
 it('writes valid DTCG sRGB colour leaves', () => {

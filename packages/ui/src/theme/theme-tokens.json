@@ -288,6 +288,162 @@
         "hex": "#edf1f7"
       }
     },
+    "chart-heat-div-0": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0,
+          0.4392,
+          0.4824
+        ],
+        "hex": "#00707b"
+      }
+    },
+    "chart-heat-div-1": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.4078,
+          0.702,
+          0.7059
+        ],
+        "hex": "#68b3b4"
+      }
+    },
+    "chart-heat-div-2": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.9686,
+          0.9647,
+          0.9451
+        ],
+        "hex": "#f7f6f1"
+      }
+    },
+    "chart-heat-div-3": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.8863,
+          0.5569,
+          0.5216
+        ],
+        "hex": "#e28e85"
+      }
+    },
+    "chart-heat-div-4": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.6824,
+          0.2471,
+          0.2784
+        ],
+        "hex": "#ae3f47"
+      }
+    },
+    "chart-heat-seq-0": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.949,
+          0.9725,
+          1
+        ],
+        "hex": "#f2f8ff"
+      }
+    },
+    "chart-heat-seq-1": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.8118,
+          0.898,
+          0.9843
+        ],
+        "hex": "#cfe5fb"
+      }
+    },
+    "chart-heat-seq-2": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.6275,
+          0.8118,
+          0.9647
+        ],
+        "hex": "#a0cff6"
+      }
+    },
+    "chart-heat-seq-3": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.3922,
+          0.6706,
+          0.9216
+        ],
+        "hex": "#64abeb"
+      }
+    },
+    "chart-heat-seq-4": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.1451,
+          0.4667,
+          0.8
+        ],
+        "hex": "#2577cc"
+      }
+    },
+    "chart-median-on-fill": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.9843,
+          0.9922,
+          1
+        ],
+        "hex": "#fbfdff"
+      }
+    },
+    "chart-no-data": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.8627,
+          0.8863,
+          0.9216
+        ],
+        "hex": "#dce2eb"
+      }
+    },
+    "chart-no-data-pattern": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.4,
+          0.4392,
+          0.5137
+        ],
+        "hex": "#667083"
+      }
+    },
     "chart-purple": {
       "$type": "color",
       "$value": {
@@ -322,6 +478,150 @@
           0.8902
         ],
         "hex": "#cbd2e3"
+      }
+    },
+    "chart-selection-outline": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.0784,
+          0.1569,
+          0.6275
+        ],
+        "hex": "#1428a0"
+      }
+    },
+    "chart-series-1": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.2745,
+          0.4078,
+          0.5882
+        ],
+        "hex": "#466896"
+      }
+    },
+    "chart-series-1-stroke": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.2745,
+          0.4078,
+          0.5882
+        ],
+        "hex": "#466896"
+      }
+    },
+    "chart-series-2": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.4471,
+          0.3882,
+          0.5922
+        ],
+        "hex": "#726397"
+      }
+    },
+    "chart-series-2-stroke": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.4471,
+          0.3882,
+          0.5922
+        ],
+        "hex": "#726397"
+      }
+    },
+    "chart-series-3": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.2078,
+          0.4902,
+          0.4706
+        ],
+        "hex": "#357d78"
+      }
+    },
+    "chart-series-3-stroke": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.2078,
+          0.4902,
+          0.4706
+        ],
+        "hex": "#357d78"
+      }
+    },
+    "chart-series-4": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.4,
+          0.4392,
+          0.5137
+        ],
+        "hex": "#667083"
+      }
+    },
+    "chart-series-4-stroke": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.4,
+          0.4392,
+          0.5137
+        ],
+        "hex": "#667083"
+      }
+    },
+    "chart-status-critical": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.851,
+          0.1765,
+          0.2275
+        ],
+        "hex": "#d92d3a"
+      }
+    },
+    "chart-status-good": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.0941,
+          0.6588,
+          0.4196
+        ],
+        "hex": "#18a86b"
+      }
+    },
+    "chart-status-warn": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.6471,
+          0.3882,
+          0
+        ],
+        "hex": "#a56300"
       }
     },
     "chart-teal": {

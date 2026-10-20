@@ -11,16 +11,53 @@ export function token(name: ThemeColorToken): string {
   return readColorToken(name);
 }
 
+/* eslint-disable shadcn/no-raw-colors -- CSS variable names for token(), not classes */
+const chartThemeTokens = {
+  axisLine: 'border-strong',
+  splitLine: 'chart-grid',
+  axisLabel: 'text-muted',
+  tooltipBackground: 'surface-popover',
+  tooltipBorder: 'border-subtle',
+  tooltipText: 'text-primary',
+  referenceText: 'text-secondary',
+} as const satisfies Record<string, ThemeColorToken>;
+/* eslint-enable shadcn/no-raw-colors */
+
 const strokeAliases: Partial<Record<ThemeColorToken, ThemeColorToken>> = {
   'chart-blue': 'chart-blue-stroke',
   'chart-teal': 'chart-teal-stroke',
   'chart-purple': 'chart-purple-stroke',
+  'chart-series-1': 'chart-series-1-stroke',
+  'chart-series-2': 'chart-series-2-stroke',
+  'chart-series-3': 'chart-series-3-stroke',
+  'chart-series-4': 'chart-series-4-stroke',
   'cat-amber': 'cat-amber-stroke',
 };
 
 /** Resolve a chart series identity token to its thin-line counterpart when one exists. */
 export function strokeToken(name: ThemeColorToken): ThemeColorToken {
   return strokeAliases[name] ?? name;
+}
+
+/** Shared ECharts role styles, resolved from the current CSS token source. */
+export function chartTheme() {
+  const referenceText = token(chartThemeTokens.referenceText);
+  return {
+    axisLine: { lineStyle: { color: token(chartThemeTokens.axisLine) } },
+    splitLine: { lineStyle: { color: token(chartThemeTokens.splitLine) } },
+    axisLabel: { color: token(chartThemeTokens.axisLabel) },
+    tooltip: {
+      backgroundColor: token(chartThemeTokens.tooltipBackground),
+      borderColor: token(chartThemeTokens.tooltipBorder),
+      textStyle: { color: token(chartThemeTokens.tooltipText) },
+    },
+    referenceLine: {
+      silent: true,
+      symbol: 'none',
+      lineStyle: { color: referenceText, type: 'dashed' },
+      label: { formatter: '{b}', fontSize: 10, color: referenceText, position: 'insideEndTop' },
+    },
+  } as const;
 }
 
 export const baseTextStyle = {
