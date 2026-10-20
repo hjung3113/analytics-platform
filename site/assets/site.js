@@ -78,7 +78,8 @@
     var boardGrid = document.getElementById("board-grid");
     var selectedContext = document.getElementById("selected-context");
     var boardTabs = all(".board-sheets [role=tab]", board);
-    var boardLayout = "2x2";
+    // Narrow screens start with two cells; the four-cell layout is one tap away.
+    var boardLayout = window.matchMedia && window.matchMedia("(max-width: 700px)").matches ? "1x2" : "2x2";
     var selectedSheet = 0;
     var selectedPane = 0;
     var sheets = [
@@ -282,7 +283,6 @@
         differences.setAttribute("aria-label", "선택한 칸과 다른 조건");
         var diff = contextDiff(activeContext, pane.context);
         showDifferences(differences, diff);
-        header.appendChild(differences);
         var sameDetails = document.createElement("details");
         sameDetails.className = "board-popover board-context";
         var sameSummary = addText(sameDetails, "summary", "같음 " + diff.same);
@@ -313,6 +313,9 @@
           if (activePane) activePane.focus({ preventScroll: true });
         });
         header.appendChild(menu);
+        // The differing-condition chips come last: selecting a pane changes how many chips a head shows, and chips placed before
+        // the popover buttons moved them between mousedown and mouseup, so the first click only selected the pane.
+        header.appendChild(differences);
         article.appendChild(header);
         var content = document.createElement("div");
         content.className = "board-pane-body";

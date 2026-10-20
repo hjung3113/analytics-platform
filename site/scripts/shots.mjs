@@ -625,7 +625,7 @@ try {
     );
   }
   viewportWidth = 1440;
-  // 히어로 주석 캡처: 1440폭 전체 화면(셸 포함). 번호는 02의 다섯 가지에 대응하고 위치를 캡처 때 잰다(4는 화면 밖이라 표식 없음).
+  // 히어로 주석 캡처: 1440폭 전체 화면(셸 포함). 번호는 02의 여덟 장면에 대응하고 위치를 캡처 때 잰다(2·4·6·8은 이 화면 밖이라 표식 없음).
   await capture(
     "cycle-time-full",
     "견본 화면 전체",
@@ -641,10 +641,10 @@ try {
     },
     [],
     [
-      [5, () => page.getByRole("button", { name: "링크 복사", exact: true }).locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' sticky ')][1]")],
-      [1, () => page.getByRole("button", { name: "링크 복사", exact: true })],
-      [2, () => button("데이터 신뢰").first()],
-      [3, () => button(/^Scope:/)],
+      [1, () => page.getByRole("button", { name: "링크 복사", exact: true }).locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' sticky ')][1]")],
+      [3, () => page.getByRole("button", { name: "링크 복사", exact: true })],
+      [5, () => button("데이터 신뢰").first()],
+      [7, () => button(/^Scope:/)],
     ],
   );
   // 히어로 확대 인셋: 같은 화면에서 조건 바(왼쪽 560px)와 데이터 신뢰 패널을 원본 크기로 잘라 낸다.
