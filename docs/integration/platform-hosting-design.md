@@ -75,13 +75,14 @@
 | 다른 메뉴로 `linkTo` + `returnTo` | 분석 화면 복귀 | 플랫폼 설비 상세 hop(지금 딥링크 방향 B) |
 | 전역 Context 읽기 | `time`·Selection·Scope | 쓰지 않음(전부 `unsupported`) |
 | 플랫폼 서버 `query` | 필요 | 쓰지 않음 |
+| 플랫폼 서버 쓰기 `write`(`host.act`, [ADR-0054](../adr/0054-write-port-declared-actions-idempotency-version.md)) | 초안·Publish가 쓰면 선택 기능으로 선언 | 쓰지 않음(자기 백엔드) |
 | 조립 설정값 | 테마 매핑 표(선택) | `apiBase`, Managed System 매핑 |
 | 언어 | 필요(지금 EV는 한국어 고정 — 선언으로 처리) | 필요(FeedbackOps도 한국어 고정 — 같음) |
 | 알림·오류 보고·해제 신호 | 필요 | 필요 |
 | 모듈 상태(인증 필요 등) | 쓰지 않음(플랫폼 세션을 그대로 씀) | 필요 |
 | 상세 패널 슬롯 | 쓰지 않음(1차) | 목록+상세 화면(VOC·Task·Finding)부터 필요 — 파일럿(설문)은 쓰지 않음 |
 
-**권고:** 위 표를 계약 1판(`contract: 1`)으로 두되 `query`와 `detailSlot`은 **선택 기능**으로 둔다. `query`는 플랫폼 호스트만 제공하고(FeedbackOps 화면은 선언하지 않는다), `detailSlot`은 두 호스트가 모두 제공하며 그것을 `requires`에 넣은 화면만 쓴다. Context 바 쓰기·저장된 뷰는 1판에 넣지 않는다(쓰는 모듈 없음).
+**권고:** 위 표를 계약 1판(`contract: 1`)으로 두되 `query`와 `detailSlot`은 **선택 기능**으로 둔다. `query`와 `write`(ADR-0054로 더함, `contract` 그대로 1)는 플랫폼 호스트만 제공하고(FeedbackOps 화면은 선언하지 않는다), `detailSlot`은 두 호스트가 모두 제공하며 그것을 `requires`에 넣은 화면만 쓴다. Context 바 쓰기·저장된 뷰는 1판에 넣지 않는다(쓰는 모듈 없음).
 
 ### 2.4 이미 있는 것과 빠진 것
 
@@ -106,7 +107,7 @@
 ```ts
 // @ap/contracts/src/host.ts — React·DOM 무의존(패키지 경계 §3 규칙 5)
 export type HostContract = 1;
-export type HostFeature = 'query' | 'detailSlot';
+export type HostFeature = 'query' | 'detailSlot' | 'write';
 
 export type ModuleScreenMeta = Omit<MenuMeta, 'group' | 'path' | 'permission' | 'parent'> & {
   /** 모듈 안 상대 경로. 호스트가 접두사를 붙인다(G2). */

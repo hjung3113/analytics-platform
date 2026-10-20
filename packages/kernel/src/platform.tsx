@@ -6,6 +6,7 @@ import { createPageNavigation, type PageFocus, type PageNavigation } from './pag
 import { classifyMetricInit, type MetricInit } from './metric-init';
 import { CONTEXT_LABELS, pathFor, type MenuEntry, type Registry } from './registry';
 import { useI18n } from './i18n';
+import { createRefreshEpochs, type RefreshEpochs } from './refresh-epochs';
 import { buildQuery, ContractError, emptyGlobal, type ContextKey, type GlobalContext, incompleteMetricPair, type ModuleScopedId, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent } from '@ap/contracts';
 
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope' | 'error'; validatedFor: Session | null; grantedRooms: string[] };
@@ -80,6 +81,8 @@ type Platform = {
   user: SessionUser;
   /** Bumps whenever the adapter announces a change; part of every query identity. */
   revision: number;
+  /** App-wide refresh counters per endpoint: a write bumps what it invalidates and mounted queries refetch (ADR-0054). */
+  refreshEpochs: RefreshEpochs;
   can: (permission: Permission | ModuleScopedId) => boolean;
   /** Menu permission ∧ space entry, independent of URL generation and route parameters. */
   canOpen: (menuId: string) => boolean;
@@ -548,6 +551,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const session = useSyncExternalStore(sessionStore.subscribe, sessionStore.get);
   const revisions = useMemo(() => counterStore(adapter), [adapter]);
   const revision = useSyncExternalStore(revisions.subscribe, revisions.get);
+  const [refreshEpochs] = useState(createRefreshEpochs);
   const user = session.user;
   const userId = user.id;
   const [initialUrl] = useState(() => location.read() ?? '');
@@ -668,7 +672,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
 
   const pub: AppState = {
     registry, adapter, location, absoluteUrl,
-    session, user, revision, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, recent,
+    session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, recent,
     toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen, paletteSession, switcherOpen, setSwitcherOpen, switcherSession,
   };
   const value: AppValue = { pub, internal: { enters, usageSessionId, userIdRef, mainNavigation: pageNavigation, initialUrl, recordVisit, rememberScope } };

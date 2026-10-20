@@ -1,3 +1,3 @@
 export { manifest } from './manifest';
-export { ItemScreen } from './ItemScreen';
+export { FIXTURE_VERSION, ItemScreen, saveAction } from './ItemScreen';
 export { ListScreen, listEndpoint } from './ListScreen';

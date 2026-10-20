@@ -67,6 +67,7 @@ describe('mountModule (ADR-0053)', () => {
   it.each<[string, () => unknown, RegExp]>([
     ['unknown contract', () => mount(manifest({ module: { ...manifest().module, contract: 2 as 1 } })), /unsupported contract/],
     ['missing required feature', () => mount(manifest(), screens, options({ features: [] })), /requires host feature "query"/],
+    ['missing write feature on a host without it', () => mount(manifest({ requires: ['write'] }), screens, options({ features: ['query', 'detailSlot'] })), /requires host feature "write"/],
     ['missing config key', () => mount(manifest(), screens, options({ config: {} })), /config key "apiBase"/],
     ['permission without module prefix', () => mount(manifest({ screens: [screen('list', '', { permission: 'other:view', primary: true })] }), { list: Screen }), /permission "other:view"/],
     ['group id without module prefix', () => mount(manifest({ groups: [{ id: 'other:main', label: { ko: 'g', en: 'g' } }] }), screens), /group "other:main"/],

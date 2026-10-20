@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { usePlatform } from './platform';
 import { projectContext, type ApiResponse, type AssessmentKind, type EndpointSpec, type EntityRef, type MenuQueryContext, serializeGlobal } from '@ap/contracts';
 
@@ -14,9 +14,10 @@ export type QueryState<T> = {
  * when it changes the previous result is hidden immediately and late responses are discarded. The revision covers
  * server-side changes the URL cannot show (session switch, dev response scenario). identity 'context' (default)
  * includes the global Context; 'session' drops it — a period/room/condition change neither refetches nor hides
- * the result (destination single-row lookup, docs/06 §22).
+ * the result (destination single-row lookup, docs/06 §22). `refreshEpoch` is outside the identity: a change refetches
+ * like `refetch()` (prior result kept, `refreshing`).
  */
-export function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<ApiResponse<T>>, pageInputs: unknown = null, enabled = true, identity: 'context' | 'session' = 'context'): QueryState<T> {
+export function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<ApiResponse<T>>, pageInputs: unknown = null, enabled = true, identity: 'context' | 'session' = 'context', refreshEpoch = 0): QueryState<T> {
   const { global, user, revision } = usePlatform();
   const key = JSON.stringify(identity === 'session'
     ? [revision, user.id, pageInputs]
@@ -43,7 +44,7 @@ export function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<ApiRes
       setInFlight(null);
     });
     return () => controller.abort();
-  }, [key, tick, enabled]);
+  }, [key, tick, refreshEpoch, enabled]);
 
   const refetch = useCallback(() => setTick(t => t + 1), []);
   const current = result?.identity === key ? result.response : null;
@@ -131,10 +132,14 @@ export function menuRequest<P, T>(spec: EndpointSpec<P, T>, { adapter, global, s
  * `JSON.stringify` query key; callers should pass objects with a stable key order.
  * Endpoints applying time wait for an absolute `from` and `to`; 06 §6.3 defaults are materialized before the query.
  * The explicit-empty envelope bypasses kind checks only when the projected request contains an applied empty set, per 06 §6 명시적 공집합.
+ * A write that declares this endpoint in `invalidates` (ADR-0054) refetches it with the prior result kept (`refreshing`).
  */
 export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, enabled = true): QueryState<T> {
-  const { projected, ready, send } = menuRequest(spec, usePlatform());
-  return usePlatformQuery<T>(signal => send(params, signal), [spec.id, projected, params], enabled && ready, 'session');
+  const platform = usePlatform();
+  const { projected, ready, send } = menuRequest(spec, platform);
+  const { refreshEpochs } = platform;
+  const epoch = useSyncExternalStore(refreshEpochs.subscribe, () => refreshEpochs.get(spec.id));
+  return usePlatformQuery<T>(signal => send(params, signal), [spec.id, projected, params], enabled && ready, 'session', epoch);
 }
 
 export type MenuFetch<P, T> = {
