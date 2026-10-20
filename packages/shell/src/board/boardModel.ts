@@ -107,9 +107,10 @@ export function moveSheet(board: Board, id: string, toIndex: number): Board {
   return { ...board, sheets };
 }
 
-export type RemovedSheet = { sheet: Sheet; index: number; wasActive: boolean; replacement: string | null };
+/** `replacement` is the empty sheet that took the place of a deleted last sheet, as created (the undo compares against it). */
+export type RemovedSheet = { sheet: Sheet; index: number; wasActive: boolean; replacement: Sheet | null };
 
-/** Removes a sheet. The last sheet is replaced by an empty one (`replacement` is its id) so a board always has a sheet. */
+/** Removes a sheet. The last sheet is replaced by an empty one (`replacement`) so a board always has a sheet. */
 export function removeSheet(board: Board, id: string, prefix: string): { board: Board; removed: RemovedSheet } | null {
   const index = board.sheets.findIndex(s => s.id === id);
   if (index === -1) return null;
@@ -117,24 +118,56 @@ export function removeSheet(board: Board, id: string, prefix: string): { board: 
   const wasActive = board.activeSheetId === id;
   if (board.sheets.length === 1) {
     const blank = newSheet(`${prefix} 1`, new Set([id]));
-    return { board: { ...board, activeSheetId: blank.id, sheets: [blank] }, removed: { sheet, index, wasActive, replacement: blank.id } };
+    return { board: { ...board, activeSheetId: blank.id, sheets: [blank] }, removed: { sheet, index, wasActive, replacement: blank } };
   }
   const sheets = board.sheets.filter(s => s.id !== id);
   const activeSheetId = wasActive ? sheets[Math.min(index, sheets.length - 1)].id : board.activeSheetId;
   return { board: { ...board, activeSheetId, sheets }, removed: { sheet, index, wasActive, replacement: null } };
 }
 
-/** Undo of `removeSheet`: puts the sheet back where it was; a replacement sheet is dropped only if it is still untouched. */
-export function restoreSheet(board: Board, removed: RemovedSheet): Board {
-  if (board.sheets.some(s => s.id === removed.sheet.id)) return board;
+const samePane = (a: PaneScreen | null, b: PaneScreen | null) => a === b
+  || (a !== null && b !== null && a.menuId === b.menuId && a.query === b.query
+    && Object.keys(a.params).length === Object.keys(b.params).length && Object.entries(a.params).every(([k, v]) => b.params[k] === v));
+const samePanes = (a: Sheet, b: Sheet) => a.layout === b.layout && a.panes.length === b.panes.length && a.panes.every((p, i) => samePane(p, b.panes[i]));
+const sameSheet = (a: Sheet, b: Sheet) => a.name === b.name && a.selected === b.selected && samePanes(a, b);
+
+/**
+ * The one place the board's invariants are enforced after an undo: 1–20 sheets, every sheet's pane array matching its layout, `selected`
+ * inside it, and an active sheet that exists. Returns the same object when nothing needed repair, and null for a board with no sheets
+ * (nothing to repair it from).
+ */
+export function normalizeBoard(board: Board): Board | null {
+  if (board.sheets.length === 0) return null;
+  let changed = false;
+  const sheets = board.sheets.slice(0, MAX_SHEETS).map(sheet => {
+    const count = paneCount(sheet.layout);
+    const fits = sheet.panes.length === count && Number.isInteger(sheet.selected) && sheet.selected >= 0 && sheet.selected < count;
+    if (fits) return sheet;
+    changed = true;
+    return { ...sheet, panes: Array.from({ length: count }, (_, i) => sheet.panes[i] ?? null), selected: Number.isInteger(sheet.selected) && sheet.selected >= 0 && sheet.selected < count ? sheet.selected : 0 };
+  });
+  if (sheets.length !== board.sheets.length) changed = true;
+  const active = sheets.some(s => s.id === board.activeSheetId);
+  if (!active) changed = true;
+  return changed ? { ...board, activeSheetId: active ? board.activeSheetId : sheets[0].id, sheets } : board;
+}
+
+/**
+ * Undo of `removeSheet`: puts the sheet back where it was. Null — nothing restored — when something changed since: the replacement
+ * sheet was edited or removed, the sheet's id is back already, or the board is at 20 sheets again.
+ */
+export function restoreSheet(board: Board, removed: RemovedSheet): Board | null {
+  if (board.sheets.some(s => s.id === removed.sheet.id)) return null;
   let sheets = board.sheets;
   if (removed.replacement !== null) {
-    const blank = sheets.find(s => s.id === removed.replacement);
-    if (blank && blank.panes.every(p => p === null) && blank.layout === '1x1') sheets = sheets.filter(s => s.id !== removed.replacement);
+    const blank = sheets.find(s => s.id === removed.replacement!.id);
+    if (!blank || !sameSheet(blank, removed.replacement)) return null;
+    sheets = sheets.filter(s => s !== blank);
   }
+  if (sheets.length >= MAX_SHEETS) return null;
   const at = Math.min(removed.index, sheets.length);
   const next = [...sheets.slice(0, at), removed.sheet, ...sheets.slice(at)];
-  return { ...board, sheets: next, activeSheetId: removed.wasActive ? removed.sheet.id : (next.some(s => s.id === board.activeSheetId) ? board.activeSheetId : removed.sheet.id) };
+  return normalizeBoard({ ...board, sheets: next, activeSheetId: removed.wasActive ? removed.sheet.id : (next.some(s => s.id === board.activeSheetId) ? board.activeSheetId : removed.sheet.id) });
 }
 
 export function selectPane(board: Board, sheetId: string, index: number): Board {
@@ -145,9 +178,11 @@ export function setPane(board: Board, sheetId: string, index: number, screen: Pa
   return mapSheet(board, sheetId, s => (index < 0 || index >= s.panes.length ? s : { ...s, panes: s.panes.map((p, i) => (i === index ? screen : p)) }));
 }
 
-/** Undo of a pane clear: only a slot that is still empty gets its screen back, so a screen placed meanwhile is never overwritten. */
-export function restorePane(board: Board, sheetId: string, index: number, screen: PaneScreen): Board {
-  return mapSheet(board, sheetId, s => (index < s.panes.length && s.panes[index] === null ? { ...s, panes: s.panes.map((p, i) => (i === index ? screen : p)) } : s));
+/** Undo of a pane clear. Null — nothing restored — unless the slot is still there and still empty. */
+export function restorePane(board: Board, sheetId: string, index: number, screen: PaneScreen): Board | null {
+  const sheet = board.sheets.find(s => s.id === sheetId);
+  if (!sheet || index >= sheet.panes.length || sheet.panes[index] !== null) return null;
+  return normalizeBoard(setPane(board, sheetId, index, screen));
 }
 
 /** How many panes with a screen a layout change would drop. Empty overflow panes cost nothing. */
@@ -155,7 +190,8 @@ export function droppedPaneCount(sheet: Sheet, layout: BoardLayout): number {
   return sheet.panes.slice(paneCount(layout)).filter(p => p !== null).length;
 }
 
-export type LayoutChange = { sheetId: string; before: Sheet; layout: BoardLayout };
+/** `before` is the sheet as it was, `after` as the change left it; the undo applies only while the sheet still is `after`. */
+export type LayoutChange = { sheetId: string; before: Sheet; after: Sheet; layout: BoardLayout };
 
 export function setLayout(board: Board, sheetId: string, layout: BoardLayout): Board {
   return mapSheet(board, sheetId, s => {
@@ -167,14 +203,15 @@ export function setLayout(board: Board, sheetId: string, layout: BoardLayout): B
 }
 
 /**
- * Undo of a layout shrink: brings back the layout and only the panes the change dropped (indexes past the new count);
- * the panes that stayed keep whatever they hold now. The selection returns only if nothing moved it since.
+ * Undo of a layout shrink: brings back the layout and the dropped panes. Null — nothing restored — unless the sheet's layout and panes
+ * are still what the shrink left, so nothing edited since is overwritten. The selection returns only if nothing moved it since.
  */
-export function restoreLayout(board: Board, change: LayoutChange): Board {
-  return mapSheet(board, change.sheetId, s => {
-    const keep = Math.min(paneCount(change.layout), s.panes.length);
-    const panes = change.before.panes.map((p, i) => (i < keep ? s.panes[i] : p));
-    const movedBack = change.before.selected >= paneCount(change.layout) && s.selected === 0;
-    return { ...s, layout: change.before.layout, panes, selected: movedBack ? change.before.selected : s.selected };
-  });
+export function restoreLayout(board: Board, change: LayoutChange): Board | null {
+  const sheet = board.sheets.find(s => s.id === change.sheetId);
+  if (!sheet || !samePanes(sheet, change.after)) return null;
+  const selected = sheet.selected === change.after.selected ? change.before.selected : sheet.selected;
+  return normalizeBoard(mapSheet(board, change.sheetId, s => ({ ...s, layout: change.before.layout, panes: change.before.panes, selected })));
 }
+
+/** A board as it is opened: the first pane of every sheet selected (docs/16 §4). The stored selection is never used for arrival. */
+export const atFirstPanes = (board: Board): Board => (board.sheets.every(s => s.selected === 0) ? board : { ...board, sheets: board.sheets.map(s => (s.selected === 0 ? s : { ...s, selected: 0 })) });

@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Session } from '@ap/contracts';
+import type { PlatformAdapter, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { PlatformPage } from '@ap/components';
@@ -50,10 +50,10 @@ const w2 = '?from=2026-08-01T00:00:00&to=2026-08-02T00:00:00';
 
 let session: Session;
 const listeners = new Set<() => void>();
-function mount(url = '/board?sheet=a', permissions: Session['user']['permissions'] = ['platform:view'], registry = makeRegistry()) {
+function mount(url = '/board?sheet=a', permissions: Session['user']['permissions'] = ['platform:view'], registry = makeRegistry(), adapterOver: Partial<PlatformAdapter> = {}) {
   window.history.replaceState(null, '', url);
   session = testSession(permissions);
-  const adapter = testAdapter({ session: () => session, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; } });
+  const adapter = testAdapter({ session: () => session, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; }, ...adapterOver });
   return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><RouteOutlet /></PlatformProvider></I18nProvider>);
 }
 const openMenu = (trigger: HTMLElement) => { act(() => { trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })); }); };
@@ -153,8 +153,10 @@ describe('panes', () => {
   });
 
   it('editing the selected pane through the Context bar changes only that pane\'s stored screen', async () => {
-    seed(boardOf([sheet('a', { layout: '1x2', selected: 1, panes: [alpha(w1), alpha(w2)] })]));
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), alpha(w2)] })]));
     mount();
+    await settle();
+    fireEvent.click(within(paneGroup(2)).getByRole('button', { name: '칸 2 선택' }));
     await settle();
     const bar = screen.getByRole('region', { name: '칸 2 · 분석 Context' });
     fireEvent.click(within(bar).getByRole('button', { name: /기간/ }));
@@ -167,8 +169,10 @@ describe('panes', () => {
   });
 
   it('shows 칸 N on every pane, the selected one marked by an accent bar and a pressed title button, never by colour alone', async () => {
-    seed(boardOf([sheet('a', { layout: '1x2', selected: 1, panes: [null, alpha(w1)] })]));
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [null, alpha(w1)] })]));
     mount();
+    await settle();
+    fireEvent.click(within(paneGroup(2)).getByRole('button', { name: '칸 2 선택' }));
     await settle();
     expect(within(paneGroup(1)).getByRole('button', { name: '칸 1 선택' })).toHaveAttribute('aria-pressed', 'false');
     expect(within(paneGroup(2)).getByRole('button', { name: '칸 2 선택' })).toHaveAttribute('aria-pressed', 'true');
@@ -193,6 +197,30 @@ describe('panes', () => {
     await settle();
     expect(stored().sheets[0].selected).toBe(3);
     expect(stored().sheets[0].panes[3]).toBeNull();
+  });
+
+  it('opens on the first pane of the shown sheet even when another pane was selected when the board was left (docs/16 §4)', async () => {
+    seed(boardOf([sheet('a', { layout: '2x2', selected: 3, panes: [alpha(w1), alpha(w1), alpha(w1), alpha(w1)] })]));
+    mount();
+    await settle();
+    expect(within(paneGroup(1)).getByRole('button', { name: '칸 1 선택' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(paneGroup(4)).getByRole('button', { name: '칸 4 선택' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('region', { name: '칸 1 · 분석 Context' })).toBeInTheDocument();
+  });
+
+  it('shows the disabled 48px bar and makes no Context request for a selected pane whose menu the role cannot open', async () => {
+    const contextOptions = vi.fn(async () => ({ stgroup: [], team: [], makerModel: [] }));
+    const evaluateSelection = vi.fn(async () => ({ inCondition: [], outOfCondition: [] }));
+    seed(boardOf([sheet('a', { panes: [{ menuId: 'locked', params: {}, query: '' }] })]));
+    mount('/board?sheet=a', ['platform:view'], makeRegistry(), { contextOptions, evaluateSelection });
+    await settle();
+    expect(within(paneGroup(1)).getByText('이 메뉴에 대한 권한이 없습니다')).toBeInTheDocument();
+    const bar = screen.getByRole('region', { name: '칸 1 · 분석 Context' });
+    expect(bar).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.queryByRole('button', { name: /^Scope/ })).toBeNull();
+    expect(document.querySelector('[data-board-context-row]')).toHaveClass('h-12');
+    expect(contextOptions).not.toHaveBeenCalled();
+    expect(evaluateSelection).not.toHaveBeenCalled();
   });
 
   it('disables the Context bar, keeping its 48px row and the 칸 N name, while an empty pane is selected', async () => {
@@ -276,6 +304,28 @@ describe('layout (docs/16 §4)', () => {
     expect(screen.queryByRole('button', { name: '실행 취소' })).toBeNull();
   });
 
+  it('says nothing was restored when the shrunk sheet was edited after the shrink, and restores nothing', async () => {
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(w1), alpha(w1), alpha(w2), alpha(w2)] })]));
+    mount();
+    await settle();
+    fireEvent.click(screen.getByRole('radio', { name: '1×2 레이아웃' }));
+    fireEvent.click(await screen.findByRole('button', { name: '비우고 줄이기' }));
+    await settle();
+    fireEvent.click(screen.getByRole('radio', { name: '2×2 레이아웃' }));
+    await settle();
+    fireEvent.click(within(paneGroup(4)).getByRole('button', { name: '칸 4 선택' }));
+    fireEvent.click(within(paneGroup(4)).getByRole('button', { name: '분석 화면 넣기' }));
+    fireEvent.click(await screen.findByRole('button', { name: '베타' }));
+    await settle();
+    fireEvent.click(await screen.findByRole('button', { name: '실행 취소' }));
+    await settle();
+    expect(await screen.findByText('실행 취소할 수 없습니다 — 그 뒤에 바뀌었습니다')).toBeInTheDocument();
+    const a = stored().sheets[0];
+    expect(a.layout).toBe('2x2');
+    expect(a.panes.map(p => p?.menuId ?? null)).toEqual(['alpha', 'alpha', null, 'beta']);
+    expect(a.selected).toBe(3);
+  });
+
   it('undoes a pane clear without overwriting a screen placed meanwhile', async () => {
     seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), alpha(w2)] })]));
     mount();
@@ -352,6 +402,23 @@ describe('sheet strip (docs/16 §4)', () => {
     fireEvent.keyDown(again, { key: 'Enter' });
     await settle();
     expect(stored().sheets[0].name).toBe('이번달');
+  });
+
+  it('ignores an Enter that belongs to an IME composition while renaming (isComposing, keyCode 229)', async () => {
+    seed(boardOf([sheet('a'), sheet('b')]));
+    mount();
+    await settle();
+    fireEvent.doubleClick(screen.getByRole('tab', { name: 'b' }));
+    const field = await screen.findByRole('textbox', { name: '시트 이름' });
+    fireEvent.change(field, { target: { value: '지난' } });
+    fireEvent.keyDown(field, { key: 'Enter', isComposing: true });
+    fireEvent.keyDown(field, { key: 'Enter', keyCode: 229 });
+    await settle();
+    expect(screen.getByRole('textbox', { name: '시트 이름' })).toBeInTheDocument();
+    expect(stored().sheets[1].name).toBe('b');
+    fireEvent.keyDown(field, { key: 'Enter' });
+    await settle();
+    expect(stored().sheets[1].name).toBe('지난');
   });
 
   it('deletes with undo, and deleting the last sheet leaves one empty sheet', async () => {

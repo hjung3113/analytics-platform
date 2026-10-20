@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PaneScreen } from '@ap/kernel';
-import { MAX_SHEETS, addSheet, droppedPaneCount, freshBoard, moveSheet, nextSheetName, paneCount, parseBoard, removeSheet, renameSheet, restoreLayout, restorePane, restoreSheet, selectPane, setLayout, setPane, type Board, type LayoutChange } from './boardModel';
+import { MAX_SHEETS, addSheet, atFirstPanes, droppedPaneCount, freshBoard, moveSheet, nextSheetName, normalizeBoard, paneCount, parseBoard, removeSheet, renameSheet, restoreLayout, restorePane, restoreSheet, selectPane, setLayout, setPane, type Board, type LayoutChange } from './boardModel';
 
 const screen = (menuId: string): PaneScreen => ({ menuId, params: {}, query: '' });
 const two = (): Board => addSheet(freshBoard('시트'), '시트');
@@ -62,7 +62,7 @@ describe('sheets', () => {
     expect(result.board.sheets).toHaveLength(1);
     expect(result.board.sheets[0].id).not.toBe(only.id);
     expect(result.board.sheets[0].panes).toEqual([null]);
-    const restored = restoreSheet(result.board, result.removed);
+    const restored = restoreSheet(result.board, result.removed)!;
     expect(restored.sheets.map(s => s.id)).toEqual([only.id]);
     expect(restored.activeSheetId).toBe(only.id);
   });
@@ -72,8 +72,29 @@ describe('sheets', () => {
     const [a, b] = board.sheets;
     const result = removeSheet(board, a.id, '시트')!;
     const edited = renameSheet(result.board, b.id, '다른 이름');
-    const restored = restoreSheet(edited, result.removed);
+    const restored = restoreSheet(edited, result.removed)!;
     expect(restored.sheets.map(s => s.name)).toEqual(['시트 1', '다른 이름']);
+  });
+
+  it('undo of deleting the last sheet restores nothing once the replacement sheet was renamed or edited', () => {
+    const board = freshBoard('시트');
+    const result = removeSheet(board, board.sheets[0].id, '시트')!;
+    const blank = result.board.sheets[0];
+    expect(restoreSheet(renameSheet(result.board, blank.id, '새 비교'), result.removed)).toBeNull();
+    expect(restoreSheet(setPane(result.board, blank.id, 0, screen('a')), result.removed)).toBeNull();
+    expect(restoreSheet(setLayout(result.board, blank.id, '1x2'), result.removed)).toBeNull();
+  });
+
+  it('undo of a delete never writes a 21st sheet (20 → delete → add → undo)', () => {
+    let board = freshBoard('시트');
+    for (let i = 1; i < MAX_SHEETS; i++) board = addSheet(board, '시트');
+    const result = removeSheet(board, board.sheets[3].id, '시트')!;
+    const refilled = addSheet(result.board, '시트');
+    expect(refilled.sheets).toHaveLength(MAX_SHEETS);
+    expect(restoreSheet(refilled, result.removed)).toBeNull();
+    const restored = restoreSheet(result.board, result.removed)!;
+    expect(restored.sheets).toHaveLength(MAX_SHEETS);
+    expect(parseBoard(JSON.parse(JSON.stringify(restored)))).not.toBeNull();
   });
 });
 
@@ -102,30 +123,95 @@ describe('panes and layouts', () => {
     expect(droppedPaneCount(setPane(setPane(board, id, 2, null), id, 3, null).sheets[0], '1x2')).toBe(0);
   });
 
-  it('undo of a shrink restores the dropped panes only; panes that stayed keep their later edits', () => {
+  const shrink = (board: Board, id: string, layout: '1x2' | '1x1' = '1x2'): { after: Board; change: LayoutChange } => {
+    const after = setLayout(board, id, layout);
+    return { after, change: { sheetId: id, before: board.sheets[0], after: after.sheets[0], layout } };
+  };
+
+  it('undo of a shrink brings back the layout, the dropped panes and the selection when the sheet is as the shrink left it', () => {
     const { board, id } = base();
-    const change: LayoutChange = { sheetId: id, before: selectPane(board, id, 3).sheets[0], layout: '1x2' };
-    const after = setPane(setLayout(selectPane(board, id, 3), id, '1x2'), id, 0, screen('edited'));
-    const restored = restoreLayout(after, change);
+    const selected = selectPane(board, id, 3);
+    const { after, change } = shrink(selected, id);
+    const restored = restoreLayout(after, change)!;
     expect(restored.sheets[0].layout).toBe('2x2');
-    expect(restored.sheets[0].panes.map(p => p?.menuId)).toEqual(['edited', 'm1', 'm2', 'm3']);
+    expect(restored.sheets[0].panes.map(p => p?.menuId)).toEqual(['m0', 'm1', 'm2', 'm3']);
     expect(restored.sheets[0].selected).toBe(3);
+  });
+
+  it('undo of a shrink restores nothing if the sheet was edited, re-expanded or its selection moved on meanwhile', () => {
+    const { board, id } = base();
+    const { after, change } = shrink(board, id);
+    expect(restoreLayout(setPane(after, id, 0, screen('edited')), change)).toBeNull();
+    const regrown = setPane(setLayout(after, id, '2x2'), id, 3, screen('new'));
+    expect(restoreLayout(regrown, change)).toBeNull();
+    expect(restoreLayout(setLayout(after, id, '2x2'), change)).toBeNull();
+    // Selecting another pane is not an edit of the content, and the user's selection stays.
+    const moved = restoreLayout(selectPane(after, id, 1), change)!;
+    expect(moved.sheets[0].layout).toBe('2x2');
+    expect(moved.sheets[0].selected).toBe(1);
+  });
+
+  it('undo of a 1×1 shrink after growing back to 2×2 and selecting pane 4 restores nothing, so the selection stays inside the panes', () => {
+    const { board, id } = base();
+    const { after, change } = shrink(board, id, '1x1');
+    const regrown = selectPane(setLayout(after, id, '2x2'), id, 3);
+    const restored = restoreLayout(regrown, change);
+    expect(restored).toBeNull();
+    expect(regrown.sheets[0].panes).toHaveLength(4);
   });
 
   it('undo of a shrink touches only its own sheet', () => {
     const { board, id } = base();
     const more = addSheet(board, '시트');
     const other = more.sheets[1];
-    const change: LayoutChange = { sheetId: id, before: board.sheets[0], layout: '1x2' };
-    const restored = restoreLayout(setLayout(more, id, '1x2'), change);
+    const { after, change } = shrink(more, id);
+    const restored = restoreLayout(after, change)!;
     expect(restored.sheets[1]).toBe(other);
+    expect(restoreLayout({ ...after, sheets: after.sheets.filter(s => s.id !== id) }, change)).toBeNull();
   });
 
-  it('undo of a clear never overwrites a screen placed in the slot since', () => {
+  it('undo of a clear restores only a slot that is still there and still empty', () => {
     const { board, id } = base();
     const cleared = setPane(board, id, 1, null);
-    expect(restorePane(cleared, id, 1, screen('m1')).sheets[0].panes[1]?.menuId).toBe('m1');
-    const replaced = setPane(cleared, id, 1, screen('new'));
-    expect(restorePane(replaced, id, 1, screen('m1')).sheets[0].panes[1]?.menuId).toBe('new');
+    expect(restorePane(cleared, id, 1, screen('m1'))!.sheets[0].panes[1]?.menuId).toBe('m1');
+    expect(restorePane(setPane(cleared, id, 1, screen('new')), id, 1, screen('m1'))).toBeNull();
+    expect(restorePane(setLayout(cleared, id, '1x1'), id, 1, screen('m1'))).toBeNull();
+  });
+});
+
+describe('normalizeBoard', () => {
+  it('returns a valid board as is', () => {
+    const board = two();
+    expect(normalizeBoard(board)).toBe(board);
+  });
+
+  it('repairs pane counts, a selection out of range, an unknown active sheet and more than 20 sheets', () => {
+    const board = two();
+    const [a, b] = board.sheets;
+    const broken: Board = { ...board, activeSheetId: 'gone', sheets: [{ ...a, layout: '2x2', panes: [null], selected: 5 }, { ...b, panes: [null, null, null], selected: -1 }] };
+    const fixed = normalizeBoard(broken)!;
+    expect(fixed.sheets[0].panes).toHaveLength(4);
+    expect(fixed.sheets[0].selected).toBe(0);
+    expect(fixed.sheets[1].panes).toHaveLength(1);
+    expect(fixed.sheets[1].selected).toBe(0);
+    expect(fixed.activeSheetId).toBe(a.id);
+    expect(parseBoard(JSON.parse(JSON.stringify(fixed)))).not.toBeNull();
+    const crowded: Board = { ...board, sheets: Array.from({ length: MAX_SHEETS + 3 }, (_, i) => ({ ...a, id: `x${i}` })), activeSheetId: 'x0' };
+    expect(normalizeBoard(crowded)!.sheets).toHaveLength(MAX_SHEETS);
+  });
+
+  it('has no board to repair when no sheet is left', () => {
+    expect(normalizeBoard({ ...two(), sheets: [] })).toBeNull();
+  });
+});
+
+describe('atFirstPanes', () => {
+  it('selects the first pane of every sheet and keeps an already-first board as is', () => {
+    const start = two();
+    const [a] = start.sheets;
+    const picked = selectPane(setLayout(start, a.id, '2x2'), a.id, 3);
+    expect(picked.sheets[0].selected).toBe(3);
+    expect(atFirstPanes(picked).sheets.map(s => s.selected)).toEqual([0, 0]);
+    expect(atFirstPanes(start)).toBe(start);
   });
 });

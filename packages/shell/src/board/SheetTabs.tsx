@@ -30,6 +30,7 @@ export function SheetTabs({ sheets, activeId, panelId, onSwitch, onAdd, onRename
   const list = useRef<HTMLDivElement>(null);
   const refocus = useRef<string | null>(null);
   const renameNext = useRef(false);
+  const afterComposition = useRef(false);
   const active = sheets.find(s => s.id === activeId) ?? sheets[0];
   const activeIndex = sheets.findIndex(s => s.id === active.id);
   const full = sheets.length >= MAX_SHEETS;
@@ -60,7 +61,13 @@ export function SheetTabs({ sheets, activeId, panelId, onSwitch, onAdd, onRename
       {sheets.map(sheet => sheet.id === editing
         ? <input key={sheet.id} autoFocus aria-label={text.renameField} defaultValue={sheet.name} maxLength={40}
           onFocus={event => event.currentTarget.select()}
+          onCompositionStart={() => { afterComposition.current = false; }}
+          // Safari fires the confirming Enter after compositionend with isComposing already false; swallow that one, then release.
+          onCompositionEnd={() => { afterComposition.current = true; requestAnimationFrame(() => { afterComposition.current = false; }); }}
           onKeyDown={event => {
+            const composing = event.nativeEvent.isComposing || event.keyCode === 229 || afterComposition.current;
+            afterComposition.current = false;
+            if (composing) return;
             if (event.key === 'Enter') { event.preventDefault(); commit(sheet.id, event.currentTarget.value); }
             else if (event.key === 'Escape') { event.preventDefault(); refocus.current = sheet.id; setEditing(null); }
           }}

@@ -1,4 +1,4 @@
-import { hasDotSegment, pathFor, type MenuEntry, type PaneScreen, type Registry } from '@ap/kernel';
+import { hasDotSegment, pathFor, type MenuEntry, type PaneScreen, type Registry, type usePlatform } from '@ap/kernel';
 
 const params = (path: string) => path.split('/').filter(segment => segment.startsWith(':')).map(segment => segment.slice(1));
 
@@ -29,4 +29,16 @@ export function admitPaneScreen(registry: Registry, screen: PaneScreen): boolean
   const names = params(menu.path);
   const extra = Object.keys(screen.params).some(key => !names.includes(key));
   return !extra && names.every(name => matched.params[name] === screen.params[name]);
+}
+
+/**
+ * Whether a saved pane's menu screen would actually mount its page: admitted, and both the space entry and the menu permission pass
+ * (the gate order of `ScreenOutlet`). The pane's Context bar uses it so a denied pane asks for nothing.
+ */
+export function canMountPaneScreen(registry: Registry, can: ReturnType<typeof usePlatform>['can'], screen: PaneScreen): boolean {
+  if (!admitPaneScreen(registry, screen)) return false;
+  const menu = registry.menus.find(m => m.id === screen.menuId)!;
+  const space = registry.spaceOf(menu);
+  if (space?.permission !== undefined && !can(space.permission)) return false;
+  return can(menu.permission);
 }

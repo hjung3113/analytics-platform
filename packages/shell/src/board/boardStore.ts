@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { freshBoard, parseBoard, type Board } from './boardModel';
+import { atFirstPanes, freshBoard, parseBoard, type Board } from './boardModel';
 
 const storageKey = (userId: string) => `platform:board:${userId}`;
 
@@ -7,7 +7,7 @@ function load(userId: string, prefix: string): Board {
   try {
     const raw = localStorage.getItem(storageKey(userId));
     const parsed = raw ? parseBoard(JSON.parse(raw)) : null;
-    if (parsed) return parsed;
+    if (parsed) return atFirstPanes(parsed);
   } catch { /* unreadable or unavailable: start fresh below */ }
   return freshBoard(prefix);
 }

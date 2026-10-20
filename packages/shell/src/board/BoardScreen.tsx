@@ -7,7 +7,7 @@ import { BoardPane } from './BoardPane';
 import { SheetTabs } from './SheetTabs';
 import {
   BOARD_LAYOUTS, addSheet, droppedPaneCount, layoutShape, moveSheet, removeSheet, renameSheet, restoreLayout, restorePane, restoreSheet,
-  selectPane, setActiveSheet, setLayout, setPane, type BoardLayout, type LayoutChange,
+  selectPane, setActiveSheet, setLayout, setPane, type Board, type BoardLayout, type LayoutChange,
 } from './boardModel';
 import { useBoardStore } from './boardStore';
 import { GRID_GAP_CLASS, PANE_MIN_HEIGHT, drawnColumns, useElementWidth } from './layout';
@@ -66,20 +66,31 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   // Undo closures write through `update`, so they must not outlive the user or the screen they were raised on.
   useEffect(() => () => { toast.dismiss(); }, [user.id]);
 
+  // The latest committed board, for undo to check against; closures raised earlier would otherwise see the board of their own render.
+  const latest = useRef(board);
+  useEffect(() => { latest.current = board; });
+
   const sheetId = sheet.id;
   const onLeave = (href: string) => { navigate(href, { focus: 'page' }); };
   const writePane = (index: number, screen: PaneScreen | null) => update(b => setPane(b, sheetId, index, screen));
 
+  /** Runs an undo only if nothing changed what it would restore (the model returns null); otherwise says so and changes nothing. */
+  const undo = (restore: (b: Board) => Board | null): boolean => {
+    if (restore(latest.current) === null) { toast.info(text.undoStale); return false; }
+    update(b => restore(b) ?? b);
+    return true;
+  };
   const clearPane = (index: number) => {
     const previous = sheet.panes[index];
     writePane(index, null);
-    if (previous) raiseUndo(text, text.paneCleared(index + 1), () => update(b => restorePane(b, sheetId, index, previous)));
+    if (previous) raiseUndo(text, text.paneCleared(index + 1), () => { undo(b => restorePane(b, sheetId, index, previous)); });
   };
   const applyLayout = (layout: BoardLayout) => {
-    const change: LayoutChange = { sheetId, before: sheet, layout };
+    const after = setLayout(board, sheetId, layout).sheets.find(s => s.id === sheetId) ?? sheet;
+    const change: LayoutChange = { sheetId, before: sheet, after, layout };
     const dropped = droppedPaneCount(sheet, layout);
     update(b => setLayout(b, sheetId, layout));
-    if (dropped > 0) raiseUndo(text, text.shrunk(dropped), () => update(b => restoreLayout(b, change)));
+    if (dropped > 0) raiseUndo(text, text.shrunk(dropped), () => { undo(b => restoreLayout(b, change)); });
   };
   const requestLayout = (layout: BoardLayout) => {
     if (layout === sheet.layout) return;
@@ -91,8 +102,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     const { removed } = result;
     update(() => result.board);
     raiseUndo(text, text.sheetDeleted(removed.sheet.name), () => {
-      update(b => restoreSheet(b, removed));
-      if (removed.wasActive) navigate(sheetHref(removed.sheet.id), { replace: true });
+      if (undo(b => restoreSheet(b, removed)) && removed.wasActive) navigate(sheetHref(removed.sheet.id), { replace: true });
     });
   };
   const addNewSheet = () => {
