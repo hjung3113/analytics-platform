@@ -2,8 +2,8 @@ import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, u
 import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type ColumnSizingState, type RowSelectionState, type VisibilityState } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, Loader2, Pin, PinOff } from 'lucide-react';
-import { CONTEXT_LABELS, useI18n, usePlatform } from '@ap/kernel';
-import { conditionLabel, type ApiResponse, type Capability, type ContextKey, type GlobalContext, type PageQuery, type PageResult, type PageSort, serializeGlobal, type Trust } from '@ap/contracts';
+import { CONTEXT_LABELS, labelledCondition, useEquipmentAxes, useI18n, usePlatform } from '@ap/kernel';
+import { type EquipmentAxisDescriptor, type ApiResponse, type Capability, type ContextKey, type GlobalContext, type PageQuery, type PageResult, type PageSort, serializeGlobal, type Trust } from '@ap/contracts';
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, isProductionEnv, Label, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { toColumnDef } from './columnDef';
@@ -104,16 +104,17 @@ function idSetValue(ids: string[], lang: 'ko' | 'en'): string {
   const head = ids.slice(0, CONTEXT_ID_LIMIT).join(', ');
   return ids.length > CONTEXT_ID_LIMIT ? `${count}: ${head} …` : `${count}: ${head}`;
 }
-const CONDITION_AXIS_LABEL = { stgroup: { ko: 'StGroup', en: 'StGroup' }, team: { ko: '분임조', en: 'Team' }, makerModel: { ko: 'Maker+Model', en: 'Maker+Model' } } as const;
 /**
  * Applied global Context keys of this menu, rendered readably (the GlobalContextBar vocabulary). Limited to keys the
  * menu's manifest applies; absent keys are omitted as whole rows — never invented.
  */
-function globalContextRows(global: GlobalContext, context: Readonly<Partial<Record<ContextKey, Capability>>>, lang: 'ko' | 'en'): [string, string][] {
+function globalContextRows(global: GlobalContext, context: Readonly<Partial<Record<ContextKey, Capability>>>, lang: 'ko' | 'en', axes: readonly EquipmentAxisDescriptor[], asOf: string): [string, string][] {
   const applied = (key: ContextKey) => context[key] === 'apply';
   const rows: [string, string][] = [];
   if (applied('roomNames') && global.roomNames !== null) rows.push([CONTEXT_LABELS.roomNames[lang], global.roomNames.length > 0 ? global.roomNames.join(', ') : EXPLICIT_EMPTY[lang]]);
-  if (applied('condition') && global.condition !== null) rows.push([CONTEXT_LABELS.condition[lang], `${CONDITION_AXIS_LABEL[global.condition.axis][lang]}: ${conditionLabel(global.condition)}`]);
+  if (applied('line') && global.lineNames !== null) rows.push([CONTEXT_LABELS.line[lang], idSetValue(global.lineNames, lang)]);
+  if (applied('prcGroup') && global.prcGroups !== null) rows.push([CONTEXT_LABELS.prcGroup[lang], idSetValue(global.prcGroups, lang) + (global.membershipBasis === 'asOf' ? ` · ${asOf}` : '')]);
+  if (applied('condition') && global.condition !== null) rows.push([CONTEXT_LABELS.condition[lang], labelledCondition(global.condition, axes, lang) + (global.membershipBasis === 'asOf' ? ` · ${asOf}` : '')]);
   if (applied('selection') && global.selection !== null) rows.push([CONTEXT_LABELS.selection[lang], idSetValue(global.selection, lang)]);
   if (applied('lot') && global.lotIds !== null) rows.push([CONTEXT_LABELS.lot[lang], idSetValue(global.lotIds, lang)]);
   if (applied('ppid') && global.ppid !== null) rows.push([CONTEXT_LABELS.ppid[lang], global.ppid]);
@@ -193,6 +194,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
   const { t, lang } = useI18n();
   const analysisSection = useContext(AnalysisSectionContext);
   const { global, user, revision, route, toast } = usePlatform();
+  const axes = useEquipmentAxes();
   // Registry declares export capability (§5); the table never offers Export on a menu that did not declare it.
   const canExport = !!p.exportRows && !!route?.menu.features.export;
   // Selection exists only for features that read it (export/copy, bulk actions); ADR-0037.
@@ -504,7 +506,7 @@ export function PlatformDataTable<T>(p: PlatformDataTableProps<T>) {
           ...(menu?.requiresScope ? [['Scope', global.scopeId ?? ''] as [string, string]] : []),
           ...(appliedContext?.time === 'apply' ? [[L.period, global.from && global.to ? `${global.from} – ${global.to}` : ''] as [string, string]] : []),
           ...(p.exportFilterSummary ?? []).map(([label, value]) => [label, value] as [string, string]),
-          ...(appliedContext ? globalContextRows(global, appliedContext, lang) : []),
+          ...(appliedContext ? globalContextRows(global, appliedContext, lang, axes, t('membershipAsOf')) : []),
           [L.updatedAt, trust?.updatedAt?.replace('T', ' ') ?? ''],
           [L.dataThrough, trust?.dataThrough?.replace('T', ' ') ?? ''],
           [L.coverage, trust != null && trust.coverage !== null ? `${(trust.coverage * 100).toFixed(1)}%` : ''],

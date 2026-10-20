@@ -88,7 +88,7 @@ function setup(url = '/fx?v=1&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00', 
     return show ? <Probe key={keyed ? `${id}|${revision}` : id} id={id} /> : null;
   }
   const tree = (props: { id?: string; show?: boolean; keyed?: boolean }) => (
-    <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Outlet id={props.id ?? 'fx:list'} show={props.show ?? true} keyed={props.keyed ?? false} /></PlatformProvider></I18nProvider>
+    <I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}><Outlet id={props.id ?? 'fx:list'} show={props.show ?? true} keyed={props.keyed ?? false} /></PlatformProvider></I18nProvider>
   );
   const view = render(tree({}));
   return {
@@ -122,7 +122,7 @@ describe('useModuleHost: reads', () => {
   it.each<[ContextKey, string, Partial<GlobalContext>, Partial<GlobalContext>]>([
     ['time', 'time', { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' }, { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' }],
     ['roomNames', 'roomNames', { roomNames: ['ETCH'] }, { roomNames: ['ETCH'] }],
-    ['condition', 'condition', { condition: { axis: 'team', id: 'T1' } }, { condition: { axis: 'team', id: 'T1' } }],
+    ['condition', 'condition', { condition: { team: ['T1'] } }, { condition: { team: ['T1'] }, membershipBasis: null }],
     ['selection', 'selection', { selection: ['E1'] }, { selection: ['E1'] }],
     ['lot', 'lot', { lotIds: ['L1'] }, { lotIds: ['L1'] }],
     ['ppid', 'ppid', { ppid: 'P1' }, { ppid: 'P1' }],
@@ -147,7 +147,7 @@ describe('useModuleHost: reads', () => {
     const { seen } = setup('/fx?v=1&roomSelection=none');
     expect(Object.keys(seen.host.context().values)).toEqual(['from', 'to', 'roomNames']);
     expect(seen.host.context().values.roomNames).toEqual([]);
-    expect(seen.host.context().unsupported).toEqual(['condition', 'selection', 'lot', 'ppid', 'recipe', 'metric']);
+    expect(seen.host.context().unsupported).toEqual(['line', 'prcGroup', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric']);
     expect(seen.host.context().values).not.toHaveProperty('scopeId');
     cleanup();
     const scoped = setup('/fx/scoped?v=1&scopeId=S1');
@@ -346,7 +346,7 @@ describe('useModuleHost: lifetime ordering', () => {
       })),
     });
     const tree = (nodes: React.ReactNode) => {
-      const inner = <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>{nodes}</PlatformProvider></I18nProvider>;
+      const inner = <I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}>{nodes}</PlatformProvider></I18nProvider>;
       return strict ? <StrictMode>{inner}</StrictMode> : inner;
     };
     const view = render(tree(children(registry)));
@@ -453,7 +453,7 @@ describe('useModuleHost: write', () => {
       return <>{options.consumer?.(host)}</>;
     }
     const tree = (show: boolean) => {
-      const inner = <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>{show ? <Owner /> : null}</PlatformProvider></I18nProvider>;
+      const inner = <I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}>{show ? <Owner /> : null}</PlatformProvider></I18nProvider>;
       return options.strict ? <StrictMode>{inner}</StrictMode> : inner;
     };
     const view = render(tree(true));
@@ -592,3 +592,10 @@ describe('useModuleHost: write', () => {
     expect(h.sent).toHaveLength(0);
   });
 });
+
+const equipmentAxes = [
+  { id: 'stgroup', label: { ko: 'StGroup', en: 'StGroup' }, membershipHistory: false },
+  { id: 'team', label: { ko: '분임조', en: 'Team' }, membershipHistory: false },
+  { id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false },
+  { id: 'model', label: { ko: 'Model', en: 'Model' }, membershipHistory: false, dependsOn: 'maker' },
+];

@@ -39,11 +39,21 @@ describe('contractErrorSentence (ADR-0034, #397)', () => {
 
   it.each([
     'from', 'to', 'scopeId', 'v', 'roomNames', 'selectedEquipmentIds', 'lotIds', 'recipeIds', 'ppid', 'metricId', 'metricVersion', 'equipmentGroup',
+    'membershipBasis', 'lineNames', 'lineSelection', 'prcGroups', 'prcGroupSelection',
     'roomSelection', 'equipmentSelection', 'lotSelection', 'recipeSelection',
   ])('field map names %s in both languages without contract vocabulary', key => {
     const name = URL_FIELD_NAMES[key];
     expect(name.ko).toBeTruthy();
     expect(name.en).toBeTruthy();
     expect(`${name.ko}${name.en}`).not.toMatch(/=|URL|§/);
+  });
+});
+
+describe('membership basis contract errors (#552)', () => {
+  it.each([
+    ['membership_basis_pair', 'Membership basis requires a condition or PRC group.'],
+    ['membership_basis_unsupported', 'A condition axis does not support membership history.'],
+  ])('explains %s without exposing diagnostics', (code, cause) => {
+    expect(contractErrorSentence('en', { code })).toBe(`${cause} ${ACTION.en}`);
   });
 });

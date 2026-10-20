@@ -307,3 +307,12 @@ describe('generate in a temp workspace', () => {
     expect(menusTree(root)).toEqual(['menus/analytics/metric-catalog/src/index.ts']);
   });
 });
+
+describe('global Line/PRC capabilities (#552)', () => {
+  it('new menus explicitly preserve both keys as unsupported', () => {
+    const files = renderFiles(INPUTS);
+    const manifest = files.find(f => f.relPath === 'src/index.ts')!.content;
+    expect(manifest).toContain("line: 'unsupported'");
+    expect(manifest).toContain("prcGroup: 'unsupported'");
+  });
+});

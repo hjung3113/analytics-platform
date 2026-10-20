@@ -16,7 +16,7 @@ import {
 // mart read trust + declared processing_delay assessment); the catalog values are copied from the
 // synthetic catalog. Page tests may not import src/mock (ap/no-menu-mock-import), so the payload
 // lives here with the real field values.
-const none: Record<ContextKey, Capability> = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' };
+const none: Record<ContextKey, Capability> = { time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' };
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 // usage rows resolveLink into analytics menus; cross-package manifests are not importable, so the
 // registry carries id-honest stubs for the two destinations the usage table links to.
@@ -187,7 +187,7 @@ function fixtureAdapter(): PlatformAdapter {
 
 function renderDetail(path: string, metricId: string, adapter: PlatformAdapter = fixtureAdapter()) {
   window.history.replaceState(null, '', path);
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><MetricDetailPage params={{ metricId }} /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}><MetricDetailPage params={{ metricId }} /></PlatformProvider></I18nProvider>);
 }
 
 /** Waits for the version badge (the definition response arrived), then: no Data Trust beside the definition. */
@@ -422,3 +422,10 @@ describe('MetricDetail tab anchor scroll timing (#325-2)', () => {
     expect(scrollTargets()).toEqual(['metric-section-definition']); // the heading itself is the scroll target
   });
 });
+
+const equipmentAxes = [
+  { id: 'stgroup', label: { ko: 'StGroup', en: 'StGroup' }, membershipHistory: false },
+  { id: 'team', label: { ko: '분임조', en: 'Team' }, membershipHistory: false },
+  { id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false },
+  { id: 'model', label: { ko: 'Model', en: 'Model' }, membershipHistory: false, dependsOn: 'maker' },
+];

@@ -5,7 +5,7 @@ import { noticeVocMock } from './index';
 import { myVocHistoryEndpoint, mySurveyHistoryEndpoint, type MySurveyPage, type MyVocPage } from '../endpoints';
 
 const none: Record<ContextKey, Capability> = {
-  time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
+  time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
   lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
 };
 /** Inline mirror of the voc manifest in '../index.ts' (permission, requiresScope, context). 바꾸면 같이 바꾼다. */

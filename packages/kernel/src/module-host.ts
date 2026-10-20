@@ -16,7 +16,7 @@ export type ModuleShellPorts = {
 
 /** Global fields each Context key reads, for `host.context()` (v1 semantics, hosting design §2.2 "전역 Context"). */
 const CONTEXT_FIELDS: Record<ContextKey, readonly (keyof GlobalContext)[]> = {
-  time: ['from', 'to'], roomNames: ['roomNames'], condition: ['condition'], selection: ['selection'],
+  time: ['from', 'to'], roomNames: ['roomNames'], line: ['lineNames'], prcGroup: ['prcGroups', 'membershipBasis'], condition: ['condition', 'membershipBasis'], selection: ['selection'],
   lot: ['lotIds'], ppid: ['ppid'], recipe: ['recipeIds'], metric: ['metricId', 'metricVersion'],
 };
 

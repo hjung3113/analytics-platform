@@ -280,7 +280,7 @@ describe('FeedbackOps deep link B — FeedbackOps → platform (06 §6/§22)', (
       from: '2026-09-25T09:00:00',
       to: '2026-09-26T09:00:00',
       roomNames: ['PHOTO'],
-      condition: { axis: 'stgroup', id: 'ST-01' },
+      condition: { stgroup: ['ST-01'] },
       selection: ['MEM-PHOTO-0103'],
       lotIds: ['LOT-1'],
       ppid: 'PP-1',
@@ -321,5 +321,22 @@ describe('FeedbackOps deep link B — FeedbackOps → platform (06 §6/§22)', (
     expect(buildFeedbackOpsLink({ origin: `${F}/`, target: { kind: 'voc-create' } })).toBe(`${F}/vocs?action=create`);
     expect(new URL(buildFeedbackOpsLink({ origin: F, target: { kind: 'voc-create' } })).origin).toBe(F);
     expect(new URL(buildPlatformInboundLink({ origin: P, hop: { menuId: 'cycle-time' }, context: PERIOD })).origin).toBe(P);
+  });
+});
+
+describe('platform inbound Condition builder parity (#552)', () => {
+  const target = { origin: P, hop: { menuId: 'equipment-master' } as const };
+  it('round-trips map, Line/PRC sets and membership basis', () => {
+    const context = { ...emptyGlobal, condition: { maker: ['X'], model: ['Y'] }, lineNames: ['L'], prcGroups: ['P'], membershipBasis: 'asOf' as const };
+    const url = buildPlatformInboundLink({ ...target, context });
+    expect(parsePlatformInboundLink(url, P).context).toEqual(context);
+  });
+  it.each([
+    [{ membershipBasis: 'asOf' as const }, 'membership_basis_pair'],
+    [{ condition: { alpha: [] } }, 'invalid_condition'],
+    [{ lineNames: [' '] }, 'invalid_id'],
+    [{ prcGroups: [''] }, 'invalid_id'],
+  ])('rejects invalid runtime input %j before serialization', (input, expected) => {
+    expect(code(() => buildPlatformInboundLink({ ...target, context: { ...emptyGlobal, ...input } }))).toBe(expected);
   });
 });

@@ -8,7 +8,7 @@ import { getRole, setRole, setScenario } from './server';
 type Params = { term: string; page?: number };
 const PERIOD = { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' };
 const allUnsupported: Record<ContextKey, Capability> = {
-  time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
+  time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
   lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
 };
 
@@ -798,5 +798,36 @@ describe('endpoint provisional ownership', () => {
     expect(result.data).toEqual({ total: 7 });
     expect(result.trust).toBeNull();
     expect(hook).not.toHaveBeenCalled();
+  });
+});
+
+describe('Line/PRC and membership basis request filtering (#552)', () => {
+  const spec = makeSpec('analytics.multi-axis', { context: { condition: 'apply', line: 'apply', prcGroup: 'apply' } });
+  const endpoint = mockEndpoint(spec);
+  const endpoints = new Map([[spec.id, endpoint]]);
+  it('filters Line and PRC together with a multi-axis map', async () => {
+    const row = EQUIPMENT.find(e => e.site === 'MEM' && e.room === 'PHOTO')!;
+    const context = { scopeId: 'MEM', condition: { maker: [row.maker], model: [row.model] }, lineNames: [row.line], prcGroups: [row.prcGroup], membershipBasis: null };
+    const result = await serveEndpoint(endpoints, request(spec.id, context), undefined, { role: 'engineer', latency: 0 });
+    expect(result.outcome).toBe('ok');
+    const ids = (result.data as { ids: string[] }).ids;
+    expect(ids).toContain(row.equipmentId);
+    expect(ids.every(id => EQUIPMENT.some(e => e.equipmentId === id && e.line === row.line && e.prcGroup === row.prcGroup && e.maker === row.maker && e.model === row.model))).toBe(true);
+  });
+  it('rejects asOf with Condition, accepts PRC-only as current, and rejects orphaned basis', async () => {
+    const row = EQUIPMENT.find(e => e.site === 'MEM' && e.room === 'PHOTO')!;
+    const context = { scopeId: 'MEM', condition: null, lineNames: null, prcGroups: [row.prcGroup], membershipBasis: 'asOf' };
+    const current = await serveEndpoint(endpoints, request(spec.id, { ...context, membershipBasis: null }), undefined, { role: 'engineer', latency: 0 });
+    const asOf = await serveEndpoint(endpoints, request(spec.id, context), undefined, { role: 'engineer', latency: 0 });
+    expect(asOf.outcome).toBe('ok');
+    expect(asOf.data).toEqual(current.data);
+    const unsupported = await serveEndpoint(endpoints, request(spec.id, { ...context, condition: { team: [row.team] } }), undefined, { role: 'engineer', latency: 0 });
+    expect(unsupported.outcome).toBe('error');
+    expect(unsupported.data).toBeNull();
+    const orphan = await serveEndpoint(endpoints, request(spec.id, { ...context, prcGroups: null }), undefined, { role: 'engineer', latency: 0 });
+    expect(orphan.outcome).toBe('error');
+    const empty = await serveEndpoint(endpoints, request(spec.id, { ...context, lineNames: [], membershipBasis: null }), undefined, { role: 'engineer', latency: 0 });
+    expect(empty.outcome).toBe('empty');
+    expect(empty.assessments).toEqual([]);
   });
 });

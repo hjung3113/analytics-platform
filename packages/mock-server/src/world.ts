@@ -32,7 +32,7 @@ export const USERS: Record<RoleId, User> = {
 };
 
 export type Equipment = {
-  equipmentId: string; site: string; room: string; line: string;
+  equipmentId: string; site: string; room: string; line: string; prcGroup: string;
   stgroup: string; team: string; maker: string; model: string; chamberType: string;
   status: 'active' | 'idle' | 'maintenance' | 'retired';
   validFrom: string; validTo: string | null; updatedAt: string; updatedBy: string;
@@ -68,7 +68,7 @@ export const EQUIPMENT: Equipment[] = (() => {
       const day = 1 + Math.floor(rnd() * 27);
       rows.push({
         equipmentId: `${site.id}-${room}-${String(n).padStart(4, '0')}`,
-        site: site.id, room, line: `L${1 + Math.floor(rnd() * 4)}`,
+        site: site.id, room, prcGroup: `PRC-${room}-${i % 3}`, line: `L${1 + Math.floor(rnd() * 4)}`,
         stgroup: `STG-${room}-${String.fromCharCode(65 + Math.floor(rnd() * 3))}`,
         team: TEAMS[Math.floor(rnd() * TEAMS.length)],
         maker: m.maker, model, chamberType: `${room.slice(0, 2)}-${['A', 'B', 'C'][Math.floor(rnd() * 3)]}`,

@@ -6,7 +6,7 @@ import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import OperationsHome from './OperationsHome';
 
-const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
+const none = { time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const purpose = { ko: '목적', en: 'Purpose' };
 
@@ -53,7 +53,7 @@ function adapter(permissions: Session['user']['permissions']): PlatformAdapter {
 
 function mount(permissions: Session['user']['permissions'], url = '/?v=1&scopeId=MEM') {
   window.history.replaceState(null, '', url);
-  render(<I18nProvider><PlatformProvider adapter={adapter(permissions)} registry={registry}><OperationsHome /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(permissions)} registry={registry}><OperationsHome /></PlatformProvider></I18nProvider>);
 }
 
 async function settled() {
@@ -89,7 +89,7 @@ describe('platform home launcher', () => {
     const partialSpaces = partialRegistry.spaces.map(space => space.id === 'analytics' ? { ...space, homeMenuId: 'analysis-home' } : space);
     const withDeniedHome = createRegistry({ spaces: partialSpaces, groups: partialRegistry.groups, menus: partialRegistry.menus });
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM&page=9');
-    render(<I18nProvider><PlatformProvider adapter={adapter(['platform:view', 'equipment:view'])} registry={withDeniedHome}><OperationsHome /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(['platform:view', 'equipment:view'])} registry={withDeniedHome}><OperationsHome /></PlatformProvider></I18nProvider>);
     await settled();
     const cards = within(screen.getByRole('region', { name: '업무 시스템' })).getAllByRole('link');
     expect(cards).toHaveLength(1);
@@ -288,3 +288,10 @@ describe('favorites removal focus (#398)', () => {
   });
 });
 
+
+const equipmentAxes = [
+  { id: 'stgroup', label: { ko: 'StGroup', en: 'StGroup' }, membershipHistory: false },
+  { id: 'team', label: { ko: '분임조', en: 'Team' }, membershipHistory: false },
+  { id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false },
+  { id: 'model', label: { ko: 'Model', en: 'Model' }, membershipHistory: false, dependsOn: 'maker' },
+];

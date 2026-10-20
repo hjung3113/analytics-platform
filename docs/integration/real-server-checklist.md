@@ -133,3 +133,7 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 ## 7. 아직 사람 결정이 필요한 것
 
 남은 사람 결정은 [사내 적용 가이드](in-house-rollout.md) §2-§3.
+
+### Condition map conformance (ADR-0059, #552)
+
+`ports.condition` supplies app-owned axis IDs and fixture values: cross-axis AND must narrow, within-axis OR equals the union, legacy v1 single-axis decoding preserves results, and `asOf` on a non-history axis returns an error. Without the sample the kit reports one visible skipped check. `lineNames` and `prcGroups` follow IdSet filtering; PRC membership history is server-owned. The mock alone evaluates PRC-only `asOf` as current membership because it has no history data.

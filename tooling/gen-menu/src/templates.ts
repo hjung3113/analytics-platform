@@ -128,7 +128,7 @@ import type { Capability, ContextKey } from '${PACKAGE_PREFIX}contracts';
 import type { MenuEntry } from '${PACKAGE_PREFIX}kernel';
 
 const none: Record<ContextKey, Capability> = {
-  time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
+  time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
   lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
 };
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
@@ -334,7 +334,7 @@ import { sampleEndpoint } from '../endpoints';
  * manifest('../index.ts')를 바꾸면 여기도 같이 바꾼다.
  */
 const none: Record<ContextKey, Capability> = {
-  time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
+  time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
   lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
 };
 const sampleMenu: MenuMeta = {

@@ -588,6 +588,9 @@ describe('server conformance kit (#145)', () => {
       'fixture.list · unknown top-level request key → error',
       'fixture.list · unknown params key → error',
       'fixture.list · non-applied Context key condition → error',
+      'fixture.list · non-applied Context key lineNames → error',
+      'fixture.list · non-applied Context key prcGroups → error',
+      'fixture.list · non-applied Context key membershipBasis → error',
       'fixture.list · non-applied Context key lotIds → error',
       'fixture.list · non-applied Context key ppid → error',
       'fixture.list · non-applied Context key recipeIds → error',
@@ -679,6 +682,7 @@ describe('server conformance kit (#145)', () => {
       'port · reportClientError: a free-text name is rejected',
       'port · reportClientError: a missing field is rejected',
       'actions: no sample',
+      'condition: no sample',
     ]);
   });
 
@@ -699,8 +703,8 @@ describe('server conformance kit (#145)', () => {
 
   // #146 review: one sampled key per rule let a server that checks only that key pass. Every key is a check now.
   it.each([
-    ['non-applied', ['condition', 'lotIds', 'ppid', 'recipeIds'].map(k => `fixture.list · non-applied Context key ${k} → error`)],
-    ['non-applied-first-only', ['lotIds', 'ppid', 'recipeIds'].map(k => `fixture.list · non-applied Context key ${k} → error`)],
+    ['non-applied', ['condition', 'lineNames', 'prcGroups', 'membershipBasis', 'lotIds', 'ppid', 'recipeIds'].map(k => `fixture.list · non-applied Context key ${k} → error`)],
+    ['non-applied-first-only', ['lineNames', 'prcGroups', 'membershipBasis', 'lotIds', 'ppid', 'recipeIds'].map(k => `fixture.list · non-applied Context key ${k} → error`)],
     // from/to stay caught by the reference server's separate absolute-period rule.
     ['missing-last-only', ['scopeId', 'roomNames', 'selection', 'metricId'].map(k => `fixture.list · missing applied Context key ${k} → error`)],
     ['explicit-empty', ['roomNames', 'selection'].map(k => `fixture.list · explicit empty ${k}: [] → empty with no assessments and no trust`)],
@@ -990,13 +994,14 @@ describe('server conformance kit (#145)', () => {
       'port · getEntity of a destination in an ungranted room → forbidden',
       'port · entityAudit of a destination in an ungranted room → forbidden',
       'actions: no sample',
+      'condition: no sample',
     ]);
   });
 
   it('reports an adapter that throws instead of answering an envelope', async () => {
     const h = harness();
     const results = await runServerConformance({ ...h, adapter: { ...h.adapter, menuQuery: async () => { throw new Error('boom'); } } });
-    const menuQueryChecks = results.filter(r => !r.id.startsWith('port · ') && r.id !== 'actions: no sample');
+    const menuQueryChecks = results.filter(r => !r.id.startsWith('port · ') && r.status !== 'skipped');
     expect(menuQueryChecks.every(r => r.failure?.includes('threw'))).toBe(true);
     // The port checks do not go through menuQuery — the reference keeps passing them.
     expect(results.filter(r => r.id.startsWith('port · ')).every(r => r.failure === null)).toBe(true);
@@ -1066,7 +1071,7 @@ describe('declared maxRows oversize check (#175)', () => {
     const cases = [{ spec: exportSpec, params: { tail: 'p95' } }];
     const h = { ...oversizeHarness('too_large'), cases };
     expect(planServerConformance(h).filter(c => c.mode === 'skipped').map(c => c.id))
-      .toEqual([`${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`, 'actions: no sample']);
+      .toEqual([`${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`, 'actions: no sample', 'condition: no sample']);
     const skipped = (await runServerConformance(h)).find(r => r.id === `${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`);
     // #175 follow-up P2-A: a check that did not run is reported as skipped, never as a pass.
     expect(skipped).toEqual({ id: `${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`, status: 'skipped', failure: null });
@@ -1080,7 +1085,7 @@ describe('declared maxRows oversize check (#175)', () => {
   });
 
   it('plans no skipped check when the case provides oversizeParams', () => {
-    expect(planServerConformance(oversizeHarness('too_large')).filter(c => c.mode === 'skipped').map(c => c.id)).toEqual(['actions: no sample']);
+    expect(planServerConformance(oversizeHarness('too_large')).filter(c => c.mode === 'skipped').map(c => c.id)).toEqual(['actions: no sample', 'condition: no sample']);
   });
 
   it('passes on a server that answers too_large with no data', async () => {
@@ -1157,7 +1162,7 @@ describe('menuAction conformance (#501)', () => {
     const h = actionHarness();
     const noVersion = { ...h, actions: [{ spec: actionSpec, input: { text: 'hello' } }] };
     expect(planServerConformance(noVersion).filter(c => c.mode === 'skipped').map(c => c.id))
-      .toEqual(['fixture.save · declares version concurrency but has no currentVersion sample — action checks not run']);
+      .toEqual(['fixture.save · declares version concurrency but has no currentVersion sample — action checks not run', 'condition: no sample']);
   });
 
   it('passes the reference adapter', async () => {
@@ -1201,5 +1206,19 @@ describe('menuAction conformance (#501)', () => {
     };
     const results = (await runServerConformance(h)).filter(r => r.id.startsWith('fixture.save · '));
     expect(results.filter(r => r.status !== 'passed')).toEqual([]);
+  });
+});
+
+describe('Condition conformance samples (#552)', () => {
+  it('plans a visible skipped check when the server supplies no axis sample', () => {
+    const check = planServerConformance(harness()).find(c => c.id === 'condition: no sample');
+    expect(check?.mode).toBe('skipped');
+  });
+  it('detects an evaluator that ignores the second axis', async () => {
+    const h = harness();
+    h.ports.condition = { endpoint: spec.id, axisA: { id: 'stgroup', values: ['A', 'B'] }, axisB: { id: 'model', value: 'M' }, nonHistoryAxisId: 'stgroup' };
+    h.adapter.evaluateSelection = async () => ({ inCondition: [{ equipmentId: 'E1', room: 'R', model: 'M' }, { equipmentId: 'E2', room: 'R', model: 'N' }], outOfCondition: [] });
+    const check = planServerConformance(h).find(c => c.id === 'condition · AND narrows across axes');
+    expect(await check?.run()).toBeTruthy();
   });
 });

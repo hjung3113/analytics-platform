@@ -23,6 +23,7 @@ describe('ContractError structured cause (#397)', () => {
     ['?ppid=%20', 'invalid_id', 'ppid', ' '],
     ['?metricId=%20', 'invalid_id', 'metricId', ' '],
     ['?metricId=m&metricVersion=%20', 'invalid_id', 'metricVersion', ' '],
+    ['?equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A1%7D', 'invalid_condition', 'equipmentGroup', '{"axis":"team","id":1}'],
     ['?equipmentGroup=nope', 'invalid_condition', 'equipmentGroup', 'nope'],
     ['?lotSelection=all', 'invalid_set', 'lotSelection', 'all'],
   ])('%s', (search, c, field, raw) => {
@@ -35,7 +36,6 @@ describe('ContractError structured cause (#397)', () => {
     ['?equipmentIds=A&selectedEquipmentIds=B', 'alias_conflict'],
     ['?metricVersion=3', 'metric_pair'],
     ['?scopeId=A&scopeId=B', 'duplicate_singleton'],
-    ['?equipmentGroup=%7B%22axis%22%3A%22team%22%2C%22id%22%3A1%7D', 'invalid_condition'],
   ])('%s blames no single value', (search, c) => {
     expect(cause(search)).toEqual({ code: c, field: undefined, raw: undefined });
   });
@@ -46,7 +46,7 @@ describe('ContractError structured cause (#397)', () => {
 
 describe('URL contract (§6.1–6.4)', () => {
   it('round-trips the full global context with canonical ordering', () => {
-    const g = { ...emptyGlobal, scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', roomNames: ['PHOTO', 'ETCH'], condition: { axis: 'makerModel' as const, maker: 'AMX', model: 'XP8' }, selection: ['B', 'A', 'A'], metricId: 'cycle_time', metricVersion: 'v3' };
+    const g = { ...emptyGlobal, scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', roomNames: ['PHOTO', 'ETCH'], condition: { maker: ['AMX'], model: ['XP8'] }, selection: ['B', 'A', 'A'], metricId: 'cycle_time', metricVersion: 'v3' };
     const q = buildQuery(g);
     const back = parseQuery(q).global;
     expect(back.roomNames).toEqual(['ETCH', 'PHOTO']);
@@ -92,9 +92,9 @@ describe('URL contract (§6.1–6.4)', () => {
     expect(incompleteMetricPair(menu('equipment-master'), null, null)).toBeNull();
     expect(MENUS.filter(m => m.initializesMetric).map(m => m.id).sort()).toEqual(['cycle-time', 'metric-detail']);
   });
-  it('allows exactly one Condition axis', () => {
+  it('rejects extra fields in a v1 Condition tag', () => {
     expect(code(() => parseQuery(`?equipmentGroup=${encodeURIComponent('{"axis":"stgroup","id":"S","maker":"X"}')}`))).toBe('invalid_condition');
-    expect(parseQuery(`?equipmentGroup=${encodeURIComponent('{"axis":"team","id":"분임조 A1"}')}`).global.condition).toEqual({ axis: 'team', id: '분임조 A1' });
+    expect(parseQuery(`?equipmentGroup=${encodeURIComponent('{"axis":"team","id":"분임조 A1"}')}`).global.condition).toEqual({ team: ['분임조 A1'] });
   });
   it('separates registered page keys from unregistered extras', () => {
     const r = parseQuery('?v=1&granularity=day&utm=x', ['granularity']);
@@ -133,7 +133,7 @@ describe('Menu Registry', () => {
     expect(audit.permission).toBe('console:access');
     expect(audit.requiresScope).toBe(false);
     expect(audit.context).toEqual({
-      time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
+      time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
       lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
     });
     expect(audit.pageKeys).toEqual(['type', 'actor', 'action', 'source', 'fromAt', 'toAt', 'targetId', 'sort', 'page']);
@@ -143,5 +143,50 @@ describe('Menu Registry', () => {
 
   it('declares returnTo on metric-detail so cross-menu links can offer the way back', () => {
     expect(MENUS.find(m => m.id === 'metric-detail')!.pageKeys).toContain('returnTo');
+  });
+});
+
+describe('app-injected multi-axis Condition (#552)', () => {
+  const query = (value: unknown, tail = '') => `?equipmentGroup=${encodeURIComponent(JSON.stringify(value))}${tail}`;
+  it.each([
+    [{ axis: 'stgroup', id: 'A' }, { stgroup: ['A'] }],
+    [{ axis: 'team', id: 'T' }, { team: ['T'] }],
+    [{ axis: 'makerModel', maker: 'X', model: 'Y' }, { maker: ['X'], model: ['Y'] }],
+  ])('migrates v1 %j losslessly', (legacy, expected) => {
+    expect(parseQuery(query(legacy)).global.condition).toEqual(expected);
+  });
+  it('normalizes axis order, unique values and empty map without changing Selection', () => {
+    const g = parseQuery(query({ z: ['B', 'A', 'A'], a: ['X'] }, '&selectedEquipmentIds=E')).global;
+    expect(new URLSearchParams(buildQuery(g)).get('equipmentGroup')).toBe('{"a":["X"],"z":["A","B"]}');
+    expect(parseQuery(buildQuery(g)).global).toEqual(g);
+    expect(g.selection).toEqual(['E']);
+    expect(parseQuery(query({})).global.condition).toBeNull();
+    expect(new URLSearchParams(buildQuery({ ...emptyGlobal, condition: {} })).has('equipmentGroup')).toBe(false);
+  });
+  it('serializes numeric axis IDs in code-point order', () => {
+    const g = parseQuery(query({ '2': ['B'], '10': ['A'] })).global;
+    expect(new URLSearchParams(buildQuery(g)).get('equipmentGroup')).toBe('{"10":["A"],"2":["B"]}');
+  });
+  it.each([null, [], { a: null }, { a: [] }, { a: [''] }, { a: [' '] }, { a: [1] }, { '': ['A'] }, { axis: ['A'] }, { a: 'A' }])('rejects malformed Condition %j', value => {
+    expect(cause(query(value))).toEqual({ code: 'invalid_condition', field: 'equipmentGroup', raw: JSON.stringify(value) });
+  });
+  it.each([
+    ['?membershipBasis=asOf', 'membership_basis_pair'],
+    ['?membershipBasis=current', 'invalid_membership_basis'],
+    ['?prcGroups=P&membershipBasis=asOf&membershipBasis=asOf', 'duplicate_singleton'],
+  ])('rejects invalid basis %s', (search, expected) => expect(code(() => parseQuery(search))).toBe(expected));
+  it('accepts basis with PRC alone and omits orphaned basis on write', () => {
+    expect(parseQuery('?prcGroups=P&membershipBasis=asOf').global.membershipBasis).toBe('asOf');
+    expect(new URLSearchParams(buildQuery({ ...emptyGlobal, membershipBasis: 'asOf' })).has('membershipBasis')).toBe(false);
+  });
+  it.each([
+    ['lineNames', 'lineSelection'], ['prcGroups', 'prcGroupSelection'],
+  ])('%s distinguishes absence, empty and sorted IDs', (field, marker) => {
+    expect(parseQuery('').global).toHaveProperty(field, null);
+    expect(parseQuery(`?${marker}=none`).global).toHaveProperty(field, []);
+    const g = parseQuery(`?${field}=B&${field}=A&${field}=B`).global;
+    expect(g).toHaveProperty(field, ['A', 'B']);
+    expect(parseQuery(buildQuery(g)).global).toEqual(g);
+    expect(code(() => parseQuery(`?${field}=A&${marker}=none`))).toBe('invalid_set');
   });
 });

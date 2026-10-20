@@ -6,7 +6,7 @@ import { occurrenceEndpoint, type Execution, type OccurrenceParams, type Occurre
 import { allExecutions } from './cycle';
 
 const none: Record<ContextKey, Capability> = {
-  time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
+  time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
   lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
 };
 
@@ -21,7 +21,7 @@ const executionMenu: MenuMeta = {
   requiresScope: true,
   context: {
     ...none,
-    time: 'reference', roomNames: 'reference', condition: 'reference', selection: 'reference',
+    time: 'reference', roomNames: 'reference', line: 'unsupported', prcGroup: 'unsupported', condition: 'reference', selection: 'reference',
     lot: 'reference', ppid: 'reference', recipe: 'reference', metric: 'reference',
   },
   pageType: 'analysis',

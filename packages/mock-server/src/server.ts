@@ -60,9 +60,8 @@ export async function validateScope(role: RoleId, scopeId: string, signal?: Abor
 
 export function matchesCondition(e: Equipment, c: Condition | null): boolean {
   if (!c) return true;
-  if (c.axis === 'stgroup') return e.stgroup === c.id;
-  if (c.axis === 'team') return e.team === c.id;
-  return e.maker === c.maker && e.model === c.model;
+  const values: Record<string, string> = { stgroup: e.stgroup, team: e.team, maker: e.maker, model: e.model };
+  return Object.entries(c).every(([axis, ids]) => Object.hasOwn(values, axis) && ids.includes(values[axis]));
 }
 
 /** Equipment the request may analyse: Scope → granted rooms → room filter → Condition → Selection. */
@@ -75,6 +74,9 @@ export function resolveEquipment(g: GlobalContext, role: RoleId = getRole()): { 
   }
   let rows = EQUIPMENT.filter(e => e.site === g.scopeId && scope.grantedRooms.includes(e.room));
   if (g.roomNames !== null) rows = rows.filter(e => g.roomNames!.includes(e.room));
+  if (g.lineNames !== null) rows = rows.filter(e => g.lineNames!.includes(e.line));
+  // The mock has no PRC membership history: asOf with PRC alone uses current membership.
+  if (g.prcGroups !== null) rows = rows.filter(e => g.prcGroups!.includes(e.prcGroup));
   rows = rows.filter(e => matchesCondition(e, g.condition));
   if (g.selection !== null) {
     const outside = g.selection.filter(id => !EQUIPMENT.some(e => e.equipmentId === id && e.site === g.scopeId && scope.grantedRooms.includes(e.room)));
@@ -237,7 +239,7 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
     return { ...base, outcome: 'too_large', message: `Period ${hours ?? '?'}h exceeds ${o.maxHours ?? '—'}h without a narrow fixed Selection` };
   }
   // 06 §19 exception: an explicit empty on any set key is answered without reading the source (#146).
-  if ([o.global.selection, o.global.roomNames, o.global.lotIds, o.global.recipeIds].some(set => set?.length === 0)) {
+  if ([o.global.selection, o.global.roomNames, o.global.lineNames, o.global.prcGroups, o.global.lotIds, o.global.recipeIds].some(set => set?.length === 0)) {
     return { ...base, outcome: 'empty' };
   }
   let verifiedDomain: string | null = null;

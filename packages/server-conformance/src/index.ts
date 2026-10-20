@@ -7,7 +7,7 @@
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
-  emptyGlobal, parseDateTime, projectContext,
+  emptyGlobal, parseDateTime, parseQuery, projectContext, type Condition,
   type ActionResponse, type AnnotationInput, type AnyActionSpec, type AnyEndpointSpec, type ApiResponse, type Assessment, type AssessmentKind, type ClientErrorReport, type EntityRef,
   type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type Trust, type UsageEvent, type UsageSummary,
 } from '@ap/contracts';
@@ -41,6 +41,8 @@ export type ActionCase = {
  * site the actor also holds a grant in.
  */
 export type PortSamples = {
+  /** A declared endpoint plus app-owned axis values that demonstrate narrowing. */
+  condition?: { endpoint: string; axisA: { id: string; values: readonly [string, string] }; axisB: { id: string; value: string }; nonHistoryAxisId: string };
   /**
    * A destination the granted actor may read: a site-scoped type at `ref.scopeId: context.scopeId` whose room is
    * granted (a siteless type like 지표 cannot pass the site/Scope checks — checklist §4); `permission` is that
@@ -120,7 +122,7 @@ export type ConformanceCheck = {
 /** `skipped`: planned but not run (e.g. no oversize sample) — never counted as a pass. `failure` is null unless `failed`. */
 export type ConformanceResult = { id: string; status: 'passed' | 'failed' | 'skipped'; failure: string | null };
 
-const SET_KEYS = ['roomNames', 'selection', 'lotIds', 'recipeIds'] as const;
+const SET_KEYS = ['lineNames', 'prcGroups', 'roomNames', 'selection', 'lotIds', 'recipeIds'] as const;
 /** Every GlobalContext key a request may carry, in projection order. */
 const CONTEXT_KEYS = Object.keys(emptyGlobal) as (keyof GlobalContext)[];
 const UNKNOWN_ENDPOINT = '__conformance.unknown';
@@ -359,7 +361,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
     });
   }
 
-  return [...checks, ...planPortChecks(harness), ...planActionChecks(harness)];
+  return [...checks, ...planPortChecks(harness), ...planActionChecks(harness), ...planConditionChecks(harness)];
 }
 
 const describeAction = (r: ActionResponse<unknown>): string => `${r.outcome}${r.message ? ` (${r.message})` : ''}`;
@@ -494,6 +496,40 @@ function planActionChecks(harness: ServerConformanceHarness): ConformanceCheck[]
     });
   }
   return checks;
+}
+
+/** Axis vocabulary and data come entirely from the harness. */
+function planConditionChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
+  const sample = harness.ports.condition;
+  if (!sample) return [{ id: 'condition: no sample', mode: 'skipped', run: async () => null }];
+  const { axisA, axisB } = sample;
+  const evaluate = async (condition: Condition) => {
+    const r = await harness.adapter.evaluateSelection({ ...emptyGlobal, scopeId: harness.context.scopeId, condition });
+    return new Set(r.inCondition.map(e => e.equipmentId));
+  };
+  const single: Condition = { [axisA.id]: [axisA.values[0]] };
+  return [
+    { id: 'condition · AND narrows across axes', mode: 'granted', nonEnvelope: true, run: async () => {
+      const [base, both] = await Promise.all([evaluate(single), evaluate({ ...single, [axisB.id]: [axisB.value] })]);
+      return both.size > 0 && both.size < base.size && [...both].every(id => base.has(id)) ? null : 'AND must produce a non-empty strict subset for the supplied sample';
+    } },
+    { id: 'condition · OR includes each value', mode: 'granted', nonEnvelope: true, run: async () => {
+      const [a, b, either] = await Promise.all([evaluate(single), evaluate({ [axisA.id]: [axisA.values[1]] }), evaluate({ [axisA.id]: axisA.values })]);
+      const union = new Set([...a, ...b]);
+      return a.size > 0 && b.size > 0 && either.size === union.size && [...union].every(id => either.has(id)) ? null : 'OR must equal the union of the two non-empty samples';
+    } },
+    { id: 'condition · v1 single axis is equivalent', mode: 'granted', nonEnvelope: true, run: async () => {
+      const legacy = parseQuery('?equipmentGroup=' + encodeURIComponent(JSON.stringify({ axis: axisA.id, id: axisA.values[0] }))).global.condition!;
+      const [a, b] = await Promise.all([evaluate(single), evaluate(legacy)]);
+      return a.size === b.size && [...a].every(id => b.has(id)) ? null : 'v1 decoding changed the matching equipment';
+    } },
+    { id: 'condition · asOf without history → error', mode: 'granted', run: async () => {
+      const c = harness.cases.find(c => c.spec.id === sample.endpoint);
+      if (!c || c.spec.context.condition !== 'apply') return 'condition sample needs a condition-applying endpoint';
+      const base = baseRequest(harness, c);
+      return expectOutcome(() => harness.adapter.menuQuery({ ...base, context: { ...base.context, condition: { [sample.nonHistoryAxisId]: [axisA.values[0]] }, membershipBasis: 'asOf' } }), 'error', 'asOf on a non-history axis')();
+    } },
+  ];
 }
 
 /**
@@ -654,7 +690,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
       // Zero listed rooms is validateScope's own check's failure — the grant filter comparison only judges a
       // server that does list its rooms.
       const grantedRooms = scope.grantedRooms.length > 0 ? scope.grantedRooms : null;
-      const evaluation = await adapter.evaluateSelection({ scopeId: harness.context.scopeId, roomNames: null, condition: null, selection: null });
+      const evaluation = await adapter.evaluateSelection({ scopeId: harness.context.scopeId, roomNames: null, condition: null, lineNames: null, prcGroups: null, membershipBasis: null, selection: null });
       if (!Array.isArray(evaluation.inCondition) || !Array.isArray(evaluation.outOfCondition)) {
         return 'evaluateSelection answers inCondition and outOfCondition arrays (adapter.ts SelectionEvaluation)';
       }
@@ -681,7 +717,7 @@ function planPortChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
       // pass — only equipment actually listed at the ungranted site fails this check.
       let evaluation;
       try {
-        evaluation = await adapter.evaluateSelection({ scopeId: harness.foreignScopeId, roomNames: null, condition: null, selection: null });
+        evaluation = await adapter.evaluateSelection({ scopeId: harness.foreignScopeId, roomNames: null, condition: null, lineNames: null, prcGroups: null, membershipBasis: null, selection: null });
       } catch {
         return null;
       }

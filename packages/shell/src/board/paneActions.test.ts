@@ -89,3 +89,14 @@ describe('defaultQuery', () => {
     expect(defaultQuery(registry, [{ menuId: 'alpha', url: '/alpha' }])).toBe('');
   });
 });
+
+describe('Condition basis and global Line/PRC copy (#552)', () => {
+  it('copies the complete map, basis and site-bound sets without changing Selection', () => {
+    const source = pane(`?equipmentGroup=${encodeURIComponent(JSON.stringify({ alpha: ['A', 'B'], beta: ['C'] }))}&membershipBasis=asOf&lineNames=L&prcGroups=P&selectedEquipmentIds=E`);
+    const s = sheet([source, pane('?selectedEquipmentIds=OTHER')]);
+    const { edits } = applyContextToSheet(registry, canOpen, s, 0)!;
+    expect(edits).toHaveLength(1);
+    const copied = parseQuery(edits[0].after!.query).global;
+    expect(copied).toMatchObject({ condition: { alpha: ['A', 'B'], beta: ['C'] }, membershipBasis: 'asOf', lineNames: ['L'], prcGroups: ['P'], selection: ['E'] });
+  });
+});

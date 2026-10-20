@@ -47,7 +47,7 @@ export type MenuQueryContext = Partial<GlobalContext>;
 export type MenuQuery<P = unknown> = { endpoint: string; context: MenuQueryContext; params: P };
 
 /**
- * Projects GlobalContext in fixed query-identity order: `scopeId`, `from`, `to`, `roomNames`, `condition`, `selection`,
+ * Projects GlobalContext in fixed query-identity order: `scopeId`, `from`, `to`, `roomNames`, `lineNames`, `prcGroups`, `condition`, `membershipBasis`, `selection`,
  * `lotIds`, `ppid`, `recipeIds`, `metricId`, `metricVersion`.
  * The result is a query identity and shares array and condition references with `g`; treat it as read-only.
  */
@@ -60,7 +60,12 @@ export function projectContext<P, T>(spec: EndpointSpec<P, T>, g: GlobalContext)
     context.to = g.to;
   }
   if (spec.context.roomNames === 'apply') context.roomNames = g.roomNames;
+  if (spec.context.line === 'apply') context.lineNames = g.lineNames;
+  if (spec.context.prcGroup === 'apply') context.prcGroups = g.prcGroups;
   if (spec.context.condition === 'apply') context.condition = g.condition;
+  if (spec.context.condition === 'apply' || spec.context.prcGroup === 'apply') {
+    context.membershipBasis = ((spec.context.condition === 'apply' && g.condition !== null) || (spec.context.prcGroup === 'apply' && g.prcGroups !== null)) ? g.membershipBasis : null;
+  }
   if (spec.context.selection === 'apply') context.selection = g.selection;
   if (spec.context.lot === 'apply') context.lotIds = g.lotIds;
   if (spec.context.ppid === 'apply') context.ppid = g.ppid;

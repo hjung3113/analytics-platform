@@ -14,7 +14,7 @@ export type RegistryRow = {
 };
 
 /** Fixed display order; unsupported keys omitted. */
-const ORDER = ['time', 'roomNames', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric'] as const satisfies readonly ContextKey[];
+const ORDER = ['time', 'roomNames', 'line', 'prcGroup', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric'] as const satisfies readonly ContextKey[];
 
 /** Table cell only. `time:apply, lot:reference`. None → ''. */
 export function formatCapabilities(context: Record<ContextKey, Capability>): string {

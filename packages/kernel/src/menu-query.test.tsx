@@ -32,7 +32,7 @@ function makeRegistry(time: 'apply' | 'unsupported') {
       id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' },
       path: '/', icon: House, permission: 'platform:view', requiresScope: false,
       context: {
-        time, roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
+        time, roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
         lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
       },
       pageType: 'overview', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [],
@@ -102,7 +102,7 @@ function QueryProbe({ spec = endpoint, enabled = true, onQuery }: ProbeProps) {
 }
 
 function mount(f: ReturnType<typeof fixture>, props: ProbeProps = {}, selectedRegistry = registry) {
-  return render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={selectedRegistry}><QueryProbe {...props} /></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={selectedRegistry}><QueryProbe {...props} /></PlatformProvider></I18nProvider>);
 }
 
 function response(outcome: ApiResponse<QueryData>['outcome'], kinds: AssessmentKind[], correlationId = 'server-correlation'): ApiResponse<QueryData> {
@@ -419,7 +419,7 @@ function FetchProbe({ spec = endpoint, onFetch }: { spec?: EndpointSpec<Params, 
 
 function mountFetch(f: ReturnType<typeof fixture>, spec: EndpointSpec<Params, QueryData> = endpoint) {
   let latest!: MenuFetch<Params, QueryData>;
-  render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><FetchProbe spec={spec} onFetch={fetcher => { latest = fetcher; }} /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><FetchProbe spec={spec} onFetch={fetcher => { latest = fetcher; }} /></PlatformProvider></I18nProvider>);
   return () => latest;
 }
 
@@ -485,7 +485,7 @@ describe('Scope validation failure (#167)', () => {
     );
   }
   const mountScope = (f: ReturnType<typeof fixture>) =>
-    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><ScopeProbe /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><ScopeProbe /></PlatformProvider></I18nProvider>);
 
   it('ends in error when validateScope rejects, sends no Scope-requiring query, and retryScope re-validates', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
@@ -564,7 +564,7 @@ describe('Adapter-internal AbortError in queries (#183: only the Kernel signal c
     );
   }
   const mountAbort = (f: { adapter: PlatformAdapter }) =>
-    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><AbortProbe /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><AbortProbe /></PlatformProvider></I18nProvider>);
 
   // jsdom's DOMException is not `instanceof Error`, so both shapes are covered; the DOMException variant is
   // the one the pre-#183 check (`error instanceof DOMException && error.name === 'AbortError'`) discarded.
@@ -632,7 +632,7 @@ describe('Adapter-internal AbortError in queries (#183: only the Kernel signal c
         </>
       );
     }
-    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><ToggleProbe /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><ToggleProbe /></PlatformProvider></I18nProvider>);
     await act(async () => {}); // the request hangs until the Kernel aborts it
     expect(calls).toBe(1);
     act(() => screen.getByTestId('off').click());
@@ -668,7 +668,7 @@ describe('Scope switch mask equals the next effect state (#183)', () => {
         </>
       );
     }
-    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><MaskProbe /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><MaskProbe /></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('valid:MEM:R1')).toBeTruthy();
 
     // Leaving a valid Scope that had granted rooms: the very next frame is already the select-Scope state and
@@ -707,7 +707,7 @@ describe('Session-only change mask equals the next effect state (#186)', () => {
       });
       return <p data-testid="scope">{scope.status}:{scope.scopeId ?? 'null'}:{scope.grantedRooms.join(',')}</p>;
     }
-    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><SessionProbe /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><SessionProbe /></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('valid:MEM:')).toBeTruthy();
     await waitFor(() => expect(entities).toHaveBeenCalledTimes(1));
 
@@ -734,7 +734,7 @@ describe('Session-only change mask equals the next effect state (#186)', () => {
       });
       return <p data-testid="scope">{scope.status}:{scope.scopeId ?? 'null'}:{scope.grantedRooms.join(',')}</p>;
     }
-    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><NoScopeProbe /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><NoScopeProbe /></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('none:null:')).toBeTruthy();
     frames.length = 0;
     act(() => f.switchTo('b'));
@@ -759,7 +759,7 @@ describe('Session-only change mask equals the next effect state (#186)', () => {
       });
       return <p data-testid="scope">{scope.status}:{scope.scopeId ?? 'null'}:{scope.grantedRooms.join(',')}</p>;
     }
-    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><ReLoginProbe /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><ReLoginProbe /></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('valid:MEM:')).toBeTruthy();
     await waitFor(() => expect(entities).toHaveBeenCalledTimes(1));
 
@@ -775,3 +775,10 @@ describe('Session-only change mask equals the next effect state (#186)', () => {
     await waitFor(() => expect(entities).toHaveBeenCalledTimes(1)); // exactly one request, after revalidation
   });
 });
+
+const equipmentAxes = [
+  { id: 'stgroup', label: { ko: 'StGroup', en: 'StGroup' }, membershipHistory: false },
+  { id: 'team', label: { ko: '분임조', en: 'Team' }, membershipHistory: false },
+  { id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false },
+  { id: 'model', label: { ko: 'Model', en: 'Model' }, membershipHistory: false, dependsOn: 'maker' },
+];

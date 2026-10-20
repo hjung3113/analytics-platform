@@ -2,18 +2,18 @@ import { CalendarDays, ChevronDown, Link2, RotateCcw, X } from 'lucide-react';
 import { useContext, type ReactNode } from 'react';
 import { ContextBarLayout, MeasuringContext, useContextEditorState, useContextEditorFocusRecovery } from './ContextBarLayout';
 import { CONTEXT_CHIP, CONTEXT_CHIP_TONE } from './contextChip';
-import { CONTEXT_LABELS, useAdapterRequest, useI18n, usePlatform, type RequestState } from '@ap/kernel';
-import { type Capability, type Condition, type ConditionAxis, conditionLabel, type ContextKey, formatDateTime, type GlobalContext, type SelectionEvaluation, parseDateTime, shift } from '@ap/contracts';
+import { CONTEXT_LABELS, labelledCondition, useEquipmentAxes, useAdapterRequest, useI18n, usePlatform, type RequestState } from '@ap/kernel';
+import { type Capability, type Condition, type ContextKey, formatDateTime, type GlobalContext, type SelectionEvaluation, parseDateTime, shift } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem } from '@ap/ui';
 import { SegmentedRadio, useCopyLink } from '@ap/components';
 
 const hours = (g: GlobalContext) => (g.from && g.to ? (parseDateTime(g.to, 'to').getTime() - parseDateTime(g.from, 'from').getTime()) / 3_600_000 : null);
 const short = (v: string) => v.replace('T', ' ').slice(5, 16);
-const CONTEXT_KEYS: ContextKey[] = ['time', 'roomNames', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric'];
+const CONTEXT_KEYS: ContextKey[] = ['time', 'roomNames', 'line', 'prcGroup', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric'];
 
 export function contextHasValue(global: GlobalContext): Record<ContextKey, boolean> {
   return {
-    time: global.from !== null, roomNames: global.roomNames !== null, condition: global.condition !== null, selection: global.selection !== null,
+    line: global.lineNames !== null, prcGroup: global.prcGroups !== null, time: global.from !== null, roomNames: global.roomNames !== null, condition: global.condition !== null, selection: global.selection !== null,
     lot: global.lotIds !== null, ppid: global.ppid !== null, recipe: global.recipeIds !== null, metric: global.metricId !== null,
   };
 }
@@ -32,9 +32,11 @@ export function GlobalContextBar({ label, whenEmpty = null }: {
 } = {}) {
   const { route, global, setGlobal, resetContext, url, scope, adapter } = usePlatform();
   const { t, lang } = useI18n();
+  const axes = useEquipmentAxes();
+  const basisText = global.membershipBasis === 'asOf' ? ` · ${t('membershipAsOf')}` : '';
   const copyLink = useCopyLink(lang === 'ko' ? '현재 Context가 담긴 링크를 복사했습니다. 받는 사람의 권한으로 서버가 다시 검증합니다.' : 'Copied a link with the current context. The server re-validates for the recipient.');
   // Keep one request owner while the Selection editor moves between inline and overflow.
-  const input = { scopeId: global.scopeId, roomNames: global.roomNames, condition: global.condition, selection: global.selection };
+  const input = { scopeId: global.scopeId, roomNames: global.roomNames, lineNames: global.lineNames, prcGroups: global.prcGroups, membershipBasis: global.membershipBasis, condition: global.condition, selection: global.selection };
   const evaluation = useAdapterRequest(signal => adapter.evaluateSelection(input, signal), [input, scope.status],
     scope.status === 'valid' && !!route && route.menu.context.selection !== 'unsupported');
   if (!route) return whenEmpty;
@@ -47,7 +49,9 @@ export function GlobalContextBar({ label, whenEmpty = null }: {
   const controls = [
     ...(shown.includes('time') ? [{ key: 'time' as const, applied: has.time, node: (editable('time') ? <PeriodControl cap={cap.time} /> : <CarriedChip k="time" cap={cap.time} value={global.from ? `${short(global.from)} → ${short(global.to!)}` : ''} onRemove={() => setGlobal({ from: null, to: null })} />), compactNode: editable('time') ? <PeriodControl cap={cap.time} compact /> : <CarriedChip k="time" cap={cap.time} value={global.from ? `${short(global.from)} → ${short(global.to!)}` : ''} onRemove={() => setGlobal({ from: null, to: null })} /> }] : []),
     ...(shown.includes('roomNames') ? [{ key: 'roomNames' as const, applied: has.roomNames, node: (editable('roomNames') ? <RoomEditor cap={cap.roomNames} /> : <CarriedChip k="roomNames" cap={cap.roomNames} value={setText(global.roomNames, t)} onRemove={() => setGlobal({ roomNames: null })} />) }] : []),
-    ...(shown.includes('condition') ? [{ key: 'condition' as const, applied: has.condition, node: (editable('condition') ? <ConditionEditor cap={cap.condition} /> : <CarriedChip k="condition" cap={cap.condition} value={global.condition ? conditionLabel(global.condition) : ''} onRemove={() => setGlobal({ condition: null })} />) }] : []),
+    ...(has.line ? [{ key: 'line' as const, applied: has.line, node: <CarriedChip k="line" cap={cap.line} value={setText(global.lineNames, t)} onRemove={() => setGlobal({ lineNames: null })} /> }] : []),
+    ...(has.prcGroup ? [{ key: 'prcGroup' as const, applied: has.prcGroup, node: <CarriedChip k="prcGroup" cap={cap.prcGroup} value={setText(global.prcGroups, t) + basisText} onRemove={() => setGlobal({ prcGroups: null })} /> }] : []),
+    ...(shown.includes('condition') ? [{ key: 'condition' as const, applied: has.condition, node: (editable('condition') ? <ConditionEditor cap={cap.condition} /> : <CarriedChip k="condition" cap={cap.condition} value={global.condition ? labelledCondition(global.condition, axes, lang) + basisText : ''} onRemove={() => setGlobal({ condition: null })} />) }] : []),
     ...(shown.includes('selection') ? [{ key: 'selection' as const, applied: has.selection, node: (editable('selection') ? <SelectionEditor cap={cap.selection} evaluation={evaluation} /> : <CarriedChip k="selection" cap={cap.selection} value={setText(global.selection, t)} onRemove={() => setGlobal({ selection: null })} />) }] : []),
     ...(has.lot ? [{ key: 'lot' as const, applied: has.lot, node: <CarriedChip k="lot" cap={cap.lot} value={setText(global.lotIds, t)} onRemove={() => setGlobal({ lotIds: null })} /> }] : []),
     ...(has.ppid ? [{ key: 'ppid' as const, applied: has.ppid, node: <CarriedChip k="ppid" cap={cap.ppid} value={global.ppid!} onRemove={() => setGlobal({ ppid: null })} /> }] : []),
@@ -272,49 +276,65 @@ function ConditionEditor({ cap }: { cap: Capability }) {
   const site = global.scopeId ?? '';
   const [open, setOpen] = useContextEditorState('open', false);
   const preserveRelocationFocus = useContextEditorFocusRecovery();
-  const [axis, setAxis] = useContextEditorState<ConditionAxis>('axis', global.condition?.axis ?? 'stgroup');
-  const [val, setVal] = useContextEditorState<string>('val', global.condition ? conditionLabel(global.condition) : '');
-  // Choices come from the server per site (platform-packages.md §4); fetched only while the editor is open.
+  const axes = useEquipmentAxes();
+  // Derive the legacy single-axis/pair UI from injected metadata and server option records.
+  const groups = axes.filter(a => !a.dependsOn).map(a => {
+    const child = axes.find(candidate => candidate.dependsOn === a.id);
+    const fields = child ? [a.id, child.id] : [a.id];
+    return { id: a.id, fields, label: child ? `${a.label[lang]}+${child.label[lang]}` : a.label[lang] };
+  });
+  const current = global.condition;
+  const selected = current === null ? undefined : groups.find(group => Object.keys(current).length === group.fields.length && group.fields.every(id => current[id]?.length === 1));
+  const representable = current === null || selected !== undefined;
+  const currentValue = selected ? JSON.stringify(selected.fields.map(id => current![id][0])) : '';
+  const [axis, setAxis] = useContextEditorState<string>('axis', selected?.id ?? groups[0]?.id ?? '');
+  const [val, setVal] = useContextEditorState<string>('val', currentValue);
   const measuring = useContext(MeasuringContext);
-  const choices = useAdapterRequest(signal => adapter.contextOptions(site, signal), site, open && !measuring);
+  const choices = useAdapterRequest(signal => adapter.contextOptions(site, signal), site, open && !measuring && representable);
+  const group = groups.find(g => g.id === axis);
   const all = choices.data;
-  const options = !all ? [] : axis === 'stgroup' ? all.stgroup : axis === 'team' ? all.team : all.makerModel.map(m => `${m.maker} / ${m.model}`);
-  const build = (): Condition | null => {
-    if (!val) return null;
-    if (axis === 'makerModel') { const [maker, model] = val.split(' / '); return { axis, maker, model }; }
-    return { axis, id: val };
-  };
-  const axisLabel = { stgroup: 'StGroup', team: lang === 'ko' ? '분임조' : 'Team', makerModel: 'Maker+Model' };
-  return <Popover open={open} onOpenChange={o => { setOpen(o); if (o) { setAxis(global.condition?.axis ?? 'stgroup'); setVal(global.condition ? conditionLabel(global.condition) : ''); } }}>
+  const rawOptions = !all || !group ? [] : group.fields.length === 1
+    ? (Object.entries(all).find(([key]) => key === group.id)?.[1] ?? [])
+    : (Object.values(all).find(items => items.some(item => typeof item === 'object' && group.fields.every(id => Object.hasOwn(item, id)))) ?? []);
+  const options: { value: string; label: string; condition: Condition }[] = !group ? [] : rawOptions.flatMap(item => {
+    if (typeof item === 'string') return [{ value: JSON.stringify([item]), label: item, condition: { [group.id]: [item] } }];
+    const record = item as Record<string, string>;
+    return [{ value: JSON.stringify(group.fields.map(id => record[id])), label: group.fields.map(id => record[id]).join(' / '), condition: Object.fromEntries(group.fields.map(id => [id, [record[id]]])) }];
+  });
+  const summary = current ? labelledCondition(current, axes, lang) + (global.membershipBasis === 'asOf' ? ` · ${t('membershipAsOf')}` : '') : t('none');
+  const build = (): Condition | null => options.find(option => option.value === val)?.condition ?? null;
+  return <Popover open={open} onOpenChange={o => { setOpen(o); if (o) { setAxis(selected?.id ?? groups[0]?.id ?? ''); setVal(currentValue); } }}>
     <PopoverTrigger asChild><ChipShell label={t('condition')} cap={cap} empty={!global.condition}
-      value={global.condition ? `${axisLabel[global.condition.axis]}: ${conditionLabel(global.condition)}` : t('none')}><ChevronDown className="size-3.5 text-text-muted" aria-hidden /></ChipShell></PopoverTrigger>
+      value={summary}><ChevronDown className="size-3.5 text-text-muted" aria-hidden /></ChipShell></PopoverTrigger>
     <PopoverContent onFocusOutside={preserveRelocationFocus} align="start" className="w-80">
+      {representable ? <>
       <SegmentedRadio
         label={lang === 'ko' ? '조건 축 (하나만)' : 'Condition axis (one)'}
         value={axis}
         onChange={a => { setAxis(a); setVal(''); }}
         className="mb-2 flex"
-        options={(['stgroup', 'team', 'makerModel'] as const).map(a => ({ value: a, label: axisLabel[a] }))}
+        options={groups.map(g => ({ value: g.id, label: g.label }))}
       />
       {choices.status !== 'done' && <p role="status" className="px-2 py-1 text-text-secondary">{choices.status === 'error'
         ? <>{lang === 'ko' ? '선택지를 불러오지 못했습니다.' : 'Could not load choices.'} <button type="button" className="text-accent-primary underline" onClick={choices.retry}>{t('retry')}</button></>
         : (lang === 'ko' ? '선택지를 불러오는 중…' : 'Loading choices…')}</p>}
       {/* Selection shape + text, not colour alone (06 §26): radio marker per option, arrow-key roving focus. */}
-      <RadioGroup orientation="vertical" aria-label={axisLabel[axis]} value={val} onValueChange={setVal}
+      <RadioGroup orientation="vertical" aria-label={group?.label} value={val} onValueChange={setVal}
         className="max-h-48 overflow-auto">
-        {options.map(o => <label key={o}
-          className={cn('flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-left t-mono', val === o ? 'bg-accent-primary-soft text-accent-primary' : 'hover:bg-surface-sunken')}>
-          <RadioGroupItem value={o} />
+        {options.map(({ label: o, value }) => <label key={value}
+          className={cn('flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-left t-mono', val === value ? 'bg-accent-primary-soft text-accent-primary' : 'hover:bg-surface-sunken')}>
+          <RadioGroupItem value={value} />
           <span className="min-w-0">{o}</span>
         </label>)}
       </RadioGroup>
       <p className="mt-2 rounded-md bg-surface-sunken px-2 py-1.5 text-tiny text-text-secondary">{lang === 'ko' ? 'live 조건: 재방문 시 현재 소속으로 다시 평가됩니다. 조건 변경은 고정 Selection을 바꾸지 않습니다.' : 'Live condition: membership is re-evaluated on revisit. Changing it never alters the fixed Selection.'}</p>
+      </> : <p>{summary}</p>}
       <div className="mt-3 flex justify-between gap-2">
         <Button size="toolbar" variant="ghost" onClick={() => { setGlobal({ condition: null }); setOpen(false); }}>{t('clear')}</Button>
-        <span className="flex gap-2">
+        {representable && <span className="flex gap-2">
           <Button size="sm" variant="secondary" onClick={() => setOpen(false)}>{t('cancel')}</Button>
-          <Button size="sm" disabled={!val} onClick={() => { setGlobal({ condition: build() }); setOpen(false); }}>{t('apply')}</Button>
-        </span>
+          <Button size="sm" disabled={!val || build() === null} onClick={() => { setGlobal({ condition: build() }); setOpen(false); }}>{t('apply')}</Button>
+        </span>}
       </div>
     </PopoverContent>
   </Popover>;

@@ -8,7 +8,9 @@ import { CONTEXT_LABELS, isBoardPath, pathFor, routeParamNames, type MenuEntry, 
 import { useI18n } from './i18n';
 import { dropResetKeys, paneHref } from './paneContext';
 import { createRefreshEpochs, type RefreshEpochs } from './refresh-epochs';
-import { buildQuery, ContractError, emptyGlobal, type ContextKey, type GlobalContext, incompleteMetricPair, type ModuleScopedId, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent } from '@ap/contracts';
+import { buildQuery, ContractError, emptyGlobal, type EquipmentAxisDescriptor, type ContextKey, type GlobalContext, incompleteMetricPair, type ModuleScopedId, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent } from '@ap/contracts';
+
+const NO_EQUIPMENT_AXES: readonly EquipmentAxisDescriptor[] = [];
 
 export type ScopeState = { scopeId: string | null; status: 'none' | 'validating' | 'valid' | 'forbidden' | 'unknown_scope' | 'error'; validatedFor: Session | null; grantedRooms: string[] };
 export type Recent = { menuId: string; url: string; at: number };
@@ -48,6 +50,7 @@ export type LinkResolution = {
 
 
 type Platform = {
+  equipmentAxes: readonly EquipmentAxisDescriptor[];
   registry: Registry;
   /** For platform layers (shell) that query the server directly; pages go through their own api seam. */
   adapter: PlatformAdapter;
@@ -288,7 +291,7 @@ function makeStayId(): string {
  * the same rules run per screen.
  */
 function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenState; sidebarSpace: SpaceDef | null } {
-  const { registry, adapter, session, user, can, canOpen, toast, accessibleSpaces, defaultRangeTo } = app.pub;
+  const { registry, adapter, session, user, can, canOpen, toast, accessibleSpaces, defaultRangeTo, equipmentAxes } = app.pub;
   const { enters, usageSessionId, userIdRef } = app.internal;
   const { matchRoute, menuById, safeReturnTo } = registry;
   const { url, navigation: pageNavigation, commit, go, mode, paneId } = source;
@@ -305,11 +308,19 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
   const { parsed, contractError } = useMemo((): { parsed: ParsedQuery | null; contractError: ContractError | null } => {
     // The board owns its own query (`?sheet=`), not the Context codec: the main Context there is empty.
     if (platformScreen !== null) return { parsed: null, contractError: null };
-    try { return { parsed: parseQuery(search, route?.menu.pageKeys ?? []), contractError: null }; } catch (e) {
+    try {
+      const parsed = parseQuery(search, route?.menu.pageKeys ?? []);
+      for (const axisId of Object.keys(parsed.global.condition ?? {})) {
+        const axis = equipmentAxes.find(a => a.id === axisId);
+        if (!axis) throw new ContractError('invalid_condition', 'Unknown equipment axis', 'equipmentGroup', new URLSearchParams(search).get('equipmentGroup') ?? '');
+        if (parsed.global.membershipBasis === 'asOf' && !axis.membershipHistory) throw new ContractError('membership_basis_unsupported', 'Axis has no membership history');
+      }
+      return { parsed, contractError: null };
+    } catch (e) {
       if (e instanceof ContractError) return { parsed: null, contractError: e };
       throw e;
     }
-  }, [search, route, platformScreen]);
+  }, [search, route, platformScreen, equipmentAxes]);
   const global = parsed?.global ?? emptyGlobal;
   const pairError = contractError ? null : incompleteMetricPair(route?.menu ?? null, global.metricId, global.metricVersion);
   const routeContractError = contractError ?? pairError;
@@ -334,8 +345,8 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
     let next: GlobalContext = { ...global, ...patch };
     if ('scopeId' in patch && patch.scopeId !== global.scopeId) {
       // Site is a DB boundary (ADR-0004): site-bound sets are cleared explicitly, never re-mapped.
-      const had = global.roomNames !== null || global.condition !== null || global.selection !== null || global.lotIds !== null || global.recipeIds !== null || global.ppid !== null;
-      next = { ...next, roomNames: null, condition: null, selection: null, lotIds: null, recipeIds: null, ppid: null };
+      const had = global.lineNames !== null || global.prcGroups !== null || global.membershipBasis !== null || global.roomNames !== null || global.condition !== null || global.selection !== null || global.lotIds !== null || global.recipeIds !== null || global.ppid !== null;
+      next = { ...next, roomNames: null, lineNames: null, prcGroups: null, condition: null, membershipBasis: null, selection: null, lotIds: null, recipeIds: null, ppid: null };
       if (had && !options?.silent) toast(lang === 'ko' ? 'Scope 변경: room_name·설비 조건·선택·Lot·Recipe를 초기화했습니다 (Site 경계).' : 'Scope changed: room_name, condition, selection, Lot and Recipe were cleared (site boundary).', 'warning');
     }
     write(pathname + buildQuery(next, dropContextResetKeys(page, next), extras), options);
@@ -362,7 +373,7 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
   const resolveLink = useCallback((menuId: string, options: LinkOptions = {}): LinkResolution => {
     const target = menuById(menuId);
     const carried: GlobalContext = options.global && 'scopeId' in options.global && options.global.scopeId !== global.scopeId
-      ? { ...global, roomNames: null, condition: null, selection: null, lotIds: null, recipeIds: null, ppid: null }
+      ? { ...global, roomNames: null, lineNames: null, prcGroups: null, condition: null, membershipBasis: null, selection: null, lotIds: null, recipeIds: null, ppid: null }
       : global;
     const g = { ...carried, ...options.global };
     const requested = Object.entries(options.page ?? {});
@@ -513,7 +524,7 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
         const starting = parseQuery(search, matched.menu.pageKeys).global;
         const fields: Record<ReturnContextKey, (keyof GlobalContext)[]> = {
           scope: ['scopeId'],
-          time: ['from', 'to'], roomNames: ['roomNames'], condition: ['condition'], selection: ['selection'],
+          time: ['from', 'to'], roomNames: ['roomNames'], line: ['lineNames'], prcGroup: ['prcGroups', 'membershipBasis'], condition: ['condition', 'membershipBasis'], selection: ['selection'],
           lot: ['lotIds'], ppid: ['ppid'], recipe: ['recipeIds'], metric: ['metricId', 'metricVersion'],
         };
         const revertedContext = (Object.keys(fields) as ReturnContextKey[]).filter(key => {
@@ -559,7 +570,7 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
   return { screen, sidebarSpace };
 }
 
-export function PlatformProvider({ adapter, registry, location = browserLocation, slots = {}, children }: { location?: PlatformLocation; adapter: PlatformAdapter; registry: Registry; slots?: PlatformSlots; children: ReactNode }) {
+export function PlatformProvider({ adapter, registry, location = browserLocation, slots = {}, equipmentAxes = NO_EQUIPMENT_AXES, children }: { equipmentAxes?: readonly EquipmentAxisDescriptor[]; location?: PlatformLocation; adapter: PlatformAdapter; registry: Registry; slots?: PlatformSlots; children: ReactNode }) {
   const { menuById } = registry;
   // Bound here so class-based adapters keep their receiver when React calls these.
   const sessionStore = useMemo(() => ({ subscribe: (l: () => void) => adapter.subscribe(l), get: () => adapter.session() }), [adapter]);
@@ -686,7 +697,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const defaultRangeTo = adapter.defaultRangeTo();
 
   const pub: AppState = {
-    registry, adapter, location, absoluteUrl,
+    registry, adapter, location, absoluteUrl, equipmentAxes,
     session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, recent,
     toasts, toast, dismissToast, defaultRangeTo, slots, paletteOpen, setPaletteOpen, paletteSession, switcherOpen, setSwitcherOpen, switcherSession,
   };
@@ -880,4 +891,11 @@ export function PlatformLink({ href, children, className, onNavigate, ...rest }:
     e.preventDefault();
     if (navigate(href, href.split('?')[0] !== pathname ? { focus: 'page' } : undefined)) onNavigate?.();
   }}>{children}</a>;
+}
+
+/** App-supplied axes; an omitted prop deliberately supports no Condition axes. */
+export function useEquipmentAxes(): readonly EquipmentAxisDescriptor[] {
+  const app = useContext(AppContext);
+  if (!app) throw new Error('useEquipmentAxes outside PlatformProvider');
+  return app.pub.equipmentAxes;
 }

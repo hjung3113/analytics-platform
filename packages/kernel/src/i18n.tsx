@@ -66,6 +66,9 @@ const dict = {
   skipToContent: { ko: '본문으로 건너뛰기', en: 'Skip to content' },
   breadcrumb: { ko: '이동 경로', en: 'Breadcrumb' },
   roomNames: { ko: 'room_name', en: 'room_name' },
+  membershipAsOf: { ko: '그 시점 소속', en: 'Membership as of period' },
+  line: { ko: 'Line', en: 'Line' },
+  prcGroup: { ko: 'PRC 그룹', en: 'PRC group' },
   condition: { ko: '설비 그룹 조건', en: 'Group condition' },
   selection: { ko: '설비 선택', en: 'Equipment selection' },
   all: { ko: '전체', en: 'All' },
@@ -114,6 +117,8 @@ const dict = {
   contractError: { ko: '주소에 쓸 수 없는 값이 있습니다', en: 'The address has a value this page cannot use' },
   contractErrorBody: { ko: '주소의 값이 올바르지 않아 조회하지 않았습니다. 주소를 고치거나 조건을 초기화하세요.', en: 'The address has a value this page cannot use. Fix the address or reset the conditions.' },
   contractErrorAction: { ko: '주소를 고치거나 조건을 초기화하세요.', en: 'Fix the address or reset the conditions.' },
+  contractCauseMembershipPair: { ko: '소속 기준에는 설비 그룹 조건 또는 PRC 그룹이 필요합니다.', en: 'Membership basis requires a condition or PRC group.' },
+  contractCauseMembershipUnsupported: { ko: '소속 이력을 지원하지 않는 조건입니다.', en: 'A condition axis does not support membership history.' },
   contractCausePartialPeriod: { ko: '기간의 시작과 끝 중 하나만 있습니다.', en: 'Only one end of the period is in the address.' },
   contractCauseInvalidPeriod: { ko: '기간의 시작이 끝보다 늦습니다.', en: 'The period starts after it ends.' },
   contractCauseDuplicateKey: { ko: '같은 키가 주소에 두 번 있습니다.', en: 'The same key is written twice in the address.' },
@@ -231,6 +236,7 @@ export function invalidValueSentence(lang: Lang, kind: 'value' | 'filter' | 'pla
 }
 
 const IDENTIFIER_NAMES = {
+  lineNames: dict.line, prcGroups: dict.prcGroup,
   roomNames: dict.roomNames, selectedEquipmentIds: dict.selection,
   lotIds: { ko: 'Lot', en: 'Lot' }, recipeIds: { ko: 'Recipe', en: 'Recipe' }, ppid: { ko: 'PPID', en: 'PPID' },
 } as const satisfies Record<string, Text>;
@@ -246,10 +252,14 @@ export const URL_FIELD_NAMES: Readonly<Record<string, Text>> = {
   lotSelection: IDENTIFIER_NAMES.lotIds, recipeSelection: IDENTIFIER_NAMES.recipeIds,
   metricId: { ko: '지표', en: 'Metric' },
   metricVersion: dict.metricVersion,
+  membershipBasis: { ko: '소속 기준', en: 'Membership basis' },
+  lineSelection: dict.line, prcGroupSelection: dict.prcGroup,
   equipmentGroup: dict.condition,
 };
 
 const CONTRACT_CAUSE = {
+  membership_basis_pair: 'contractCauseMembershipPair',
+  membership_basis_unsupported: 'contractCauseMembershipUnsupported',
   partial_period: 'contractCausePartialPeriod',
   invalid_period: 'contractCauseInvalidPeriod',
   duplicate_singleton: 'contractCauseDuplicateKey',

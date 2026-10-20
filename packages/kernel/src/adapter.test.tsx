@@ -45,7 +45,7 @@ function Probe() {
 }
 
 function mount(adapter: PlatformAdapter) {
-  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Probe /></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}><Probe /></PlatformProvider></I18nProvider>);
 }
 
 // Node's own (file-less) localStorage shadows jsdom's here, so give each test an in-memory store.
@@ -80,7 +80,7 @@ describe('per-user kernel state', () => {
     localStorage.setItem('platform:favorites:user-b', JSON.stringify(['m-b']));
     const f = fixture();
     function Favs() { return <p data-testid="favs">{usePlatform().favorites.join(',')}</p>; }
-    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><Favs /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><Favs /></PlatformProvider></I18nProvider>);
     expect(screen.getByTestId('favs').textContent).toBe('m-a');
     act(() => f.switchTo('b'));
     expect(screen.getByTestId('favs').textContent).toBe('m-b');
@@ -127,7 +127,7 @@ describe('useAdapterRequest', () => {
       const r = useAdapterRequest(async () => `data-${key}`, key);
       return <p data-testid="req">{r.status}:{r.data ?? '-'}</p>;
     }
-    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><Req /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><Req /></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('done:data-a')).toBeTruthy();
     act(() => setKey('b'));
     expect(screen.getByTestId('req').textContent).toBe('loading:-');
@@ -145,7 +145,7 @@ describe('useAdapterRequest error', () => {
       const r = useAdapterRequest(async () => { if (fail) throw new Error('down'); return 'ok'; }, 'k');
       return <button type="button" data-testid="r" onClick={r.retry}>{r.status}:{r.data ?? '-'}</button>;
     }
-    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><Req /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><Req /></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('error:-')).toBeTruthy();
     fail = false;
     act(() => screen.getByTestId('r').click());
@@ -177,7 +177,7 @@ describe('useEntityQuery (session identity)', () => {
       calls++;
       return { outcome: 'ok', data: `row-${ref.id}`, assessments: [], trust: null, correlationId: 'e' };
     });
-    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><RowProbe id="d-1" /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><RowProbe id="d-1" /></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('done:row-d-1')).toBeTruthy();
     expect(calls).toBe(1);
     act(() => screen.getByTestId('ent').click());
@@ -193,7 +193,7 @@ describe('useEntityQuery (session identity)', () => {
       return { outcome: 'ok', data: `row-${ref.id}`, assessments: [], trust: null, correlationId: 'e' };
     });
     let setId: (id: string) => void = () => {};
-    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><RowSwitch onId={set => { setId = set; }} /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><RowSwitch onId={set => { setId = set; }} /></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('done:row-d-1')).toBeTruthy();
     act(() => setId('d-2'));
     expect(screen.getByTestId('ent').textContent).toBe('loading:-');
@@ -207,7 +207,7 @@ describe('useEntityQuery (session identity)', () => {
       calls++;
       return { outcome: 'ok', data: `row-${ref.id}`, assessments: [], trust: null, correlationId: 'e' };
     });
-    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><RowProbe id="d-1" /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><RowProbe id="d-1" /></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('done:row-d-1')).toBeTruthy();
     act(() => f.serverChanged());
     expect(screen.getByTestId('ent').textContent).toBe('loading:-');
@@ -237,7 +237,7 @@ describe('setGlobal drops contextResetKeys in the same navigation (06 §6.4)', (
   }
 
   const mountStateful = () => render(
-    <I18nProvider><PlatformProvider adapter={fixture().adapter} registry={stateful}><UrlProbe /></PlatformProvider></I18nProvider>,
+    <I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={fixture().adapter} registry={stateful}><UrlProbe /></PlatformProvider></I18nProvider>,
   );
 
   it('drops declared keys, keeps others, and history.back() restores the earlier URL exactly', async () => {
@@ -290,7 +290,7 @@ describe('useAdapterRequest with an adapter-internal AbortError (#183: only the 
       const r = useAdapterRequest(async () => { calls++; if (calls === 1) throw make(); return `ok-${calls}`; }, 'k');
       return <button type="button" data-testid="r" onClick={r.retry}>{r.status}:{r.data ?? '-'}</button>;
     }
-    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><Req /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><Req /></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('error:-')).toBeTruthy();
     act(() => screen.getByTestId('r').click());
     expect(await screen.findByText('done:ok-2')).toBeTruthy();
@@ -312,10 +312,10 @@ describe('useAdapterRequest with an adapter-internal AbortError (#183: only the 
     function Req() {
       const [key, set] = useState('a');
       setKey = set;
-      const r = useAdapterRequest(async signal => { await f.adapter.evaluateSelection({ scopeId: null, roomNames: null, condition: null, selection: null }, signal); return `ok-${key}`; }, key);
+      const r = useAdapterRequest(async signal => { await f.adapter.evaluateSelection({ scopeId: null, roomNames: null, condition: null, lineNames: null, prcGroups: null, membershipBasis: null, selection: null }, signal); return `ok-${key}`; }, key);
       return <p data-testid="req">{r.status}:{r.data ?? '-'}</p>;
     }
-    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><Req /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><Req /></PlatformProvider></I18nProvider>);
     await act(async () => {}); // the first call hangs until the Kernel aborts it
     act(() => setKey('b'));
     expect(screen.getByTestId('req').textContent).toBe('loading:-');
@@ -346,7 +346,7 @@ describe('useAdapterRequest with an adapter-internal AbortError (#183: only the 
         </>
       );
     }
-    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><Req /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><Req /></PlatformProvider></I18nProvider>);
     await act(async () => {}); // the call hangs until the Kernel aborts it
     expect(calls).toBe(1);
     act(() => screen.getByTestId('off').click());
@@ -354,5 +354,51 @@ describe('useAdapterRequest with an adapter-internal AbortError (#183: only the 
     // `error:-` on the unchanged identity is the regression this pins.
     await act(async () => {});
     expect(screen.getByTestId('req').textContent).toBe('loading:-');
+  });
+});
+
+describe('injected equipment axes (#552)', () => {
+  function ErrorProbe() { const p = usePlatform(); return <p data-testid="axis-error">{p.contractError?.code ?? 'ok'}</p>; }
+  it.each([
+    [[], { alpha: ['A'] }, '', 'invalid_condition'],
+    [[{ id: 'alpha', label: { ko: '분류', en: 'Axis' }, membershipHistory: false }], { alpha: ['A'] }, '&membershipBasis=asOf', 'membership_basis_unsupported'],
+    [[{ id: 'alpha', label: { ko: '분류', en: 'Axis' }, membershipHistory: true }], { alpha: ['A'] }, '&membershipBasis=asOf', 'ok'],
+  ])('validates URL axes and history support', (equipmentAxes, condition, tail, expected) => {
+    window.history.replaceState(null, '', `/?equipmentGroup=${encodeURIComponent(JSON.stringify(condition))}${tail}`);
+    render(<I18nProvider><PlatformProvider adapter={fixture().adapter} registry={registry} equipmentAxes={equipmentAxes}><ErrorProbe /></PlatformProvider></I18nProvider>);
+    expect(screen.getByTestId('axis-error').textContent).toBe(expected);
+  });
+});
+
+const equipmentAxes = [
+  { id: 'stgroup', label: { ko: 'StGroup', en: 'StGroup' }, membershipHistory: false },
+  { id: 'team', label: { ko: '분임조', en: 'Team' }, membershipHistory: false },
+  { id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false },
+  { id: 'model', label: { ko: 'Model', en: 'Model' }, membershipHistory: false, dependsOn: 'maker' },
+];
+
+describe('site-bound map fields (#552)', () => {
+  function Probe() {
+    const p = usePlatform();
+    return <><p data-testid="site-global">{JSON.stringify(p.global)}</p><p data-testid="site-error">{p.contractError?.code ?? 'ok'}</p><button onClick={() => p.setGlobal({ scopeId: 'FDRY' })}>change-site</button></>;
+  }
+  it('default descriptors reject every supplied Condition', () => {
+    window.history.replaceState(null, '', '/?equipmentGroup=%7B%22alpha%22%3A%5B%22A%22%5D%7D');
+    render(<I18nProvider><PlatformProvider adapter={fixture().adapter} registry={registry}><Probe /></PlatformProvider></I18nProvider>);
+    expect(screen.getByTestId('site-error').textContent).toBe('invalid_condition');
+  });
+  it('scope change clears Condition, basis, Line and PRC together', () => {
+    const historyAxes = [{ id: 'alpha', label: { ko: '분류', en: 'Axis' }, membershipHistory: true }];
+    window.history.replaceState(null, '', '/?scopeId=MEM&equipmentGroup=%7B%22alpha%22%3A%5B%22A%22%5D%7D&membershipBasis=asOf&lineNames=L&prcGroups=P');
+    render(<I18nProvider><PlatformProvider equipmentAxes={historyAxes} adapter={fixture().adapter} registry={registry}><Probe /></PlatformProvider></I18nProvider>);
+    expect(screen.getByTestId('site-error').textContent).toBe('ok');
+    act(() => screen.getByRole('button', { name: 'change-site' }).click());
+    expect(JSON.parse(screen.getByTestId('site-global').textContent!)).toMatchObject({ scopeId: 'FDRY', condition: null, membershipBasis: null, lineNames: null, prcGroups: null });
+    expect(window.location.search).not.toContain('membershipBasis');
+  });
+  it('accepts PRC-only asOf without any equipment descriptors', () => {
+    window.history.replaceState(null, '', '/?prcGroups=P&membershipBasis=asOf');
+    render(<I18nProvider><PlatformProvider adapter={fixture().adapter} registry={registry}><Probe /></PlatformProvider></I18nProvider>);
+    expect(screen.getByTestId('site-error').textContent).toBe('ok');
   });
 });
