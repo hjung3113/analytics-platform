@@ -23,11 +23,6 @@
       if (focus) buttons[active].focus();
       if (root.dataset.tabs === "branches") highlightBranch(active + 1);
       if (root.dataset.tabs === "layers" && focus) openCard(["C1", "U1", "K1"][active], false);
-      if (root.dataset.tabs === "steps") {
-        all("[data-step]").forEach(function (button) {
-          button.disabled = Number(button.dataset.step) < 0 ? active === 0 : active === buttons.length - 1;
-        });
-      }
     }
     buttons.forEach(function (button, i) {
       button.addEventListener("click", function () {
@@ -65,35 +60,6 @@
       input.parentElement.classList.toggle("is-selected", input.checked);
     });
   }
-  function audience(value, updateUrl) {
-    value = value === "dev" ? "dev" : "lead";
-    all("[data-audience]").forEach(function (element) {
-      element.hidden = element.dataset.audience !== value;
-    });
-    all('input[name="audience"]').forEach(function (input) {
-      input.checked = input.value === value;
-    });
-    document.querySelector(".requests").classList.toggle("dev-first", value === "dev");
-    radioStyle("audience");
-    if (updateUrl) {
-      var url = new URL(location.href);
-      url.searchParams.set("for", value);
-      try {
-        history.replaceState(null, "", url.href);
-      } catch (_) {
-        /* file:// may forbid history changes; content still switches. */
-      }
-    }
-  }
-  audience(new URL(location.href).searchParams.get("for"), false);
-  all('input[name="audience"]').forEach(function (input) {
-    input.addEventListener("change", function () {
-      audience(input.value, true);
-    });
-  });
-  window.addEventListener("popstate", function () {
-    audience(new URL(location.href).searchParams.get("for"), false);
-  });
   function caseSelect(value) {
     all("[data-case]").forEach(function (element) {
       element.hidden = element.dataset.case !== value;
@@ -106,12 +72,285 @@
     });
   });
   caseSelect("0");
-  all("[data-step]").forEach(function (button) {
-    button.addEventListener("click", function () {
-      var step = tabs.get("steps");
-      step.select(step.current() + Number(button.dataset.step), false);
+
+  var board = document.getElementById("analysis-board");
+  if (board) {
+    var boardGrid = document.getElementById("board-grid");
+    var selectedContext = document.getElementById("selected-context");
+    var boardTabs = all(".board-sheets [role=tab]", board);
+    // Narrow screens start with two cells; the four-cell layout is one tap away.
+    var boardLayout = window.matchMedia && window.matchMedia("(max-width: 700px)").matches ? "1x2" : "2x2";
+    var selectedSheet = 0;
+    var selectedPane = 0;
+    var sheets = [
+      {
+        name: "견본 비교",
+        panes: [
+          { system: "MARS", screen: "견본 화면 A", context: { 기간: "9월", 사이트: "MEM", 공정: "A", 설비: "전체" }, kind: "line", values: [34, 46, 39, 55, 43, 64] },
+          { system: "BRAVO", screen: "견본 화면 B", context: { 기간: "9월", 사이트: "MEM", 공정: "A", 설비: "전체", 버전: "v2" }, kind: "bar", values: [28, 42, 36, 59, 48, 67] },
+          { system: "MARS", screen: "견본 화면 C", context: { 기간: "10월", 사이트: "MEM", 공정: "A", 설비: "1", 집계: "일" }, kind: "dist", values: [12, 26, 52, 70, 44, 18] },
+          { system: "MARS", screen: "견본 화면 D", context: { 기간: "10월", 사이트: "FDRY", 공정: "A", 설비: "2", 집계: "시간" }, kind: "table", values: [38, 48, 43, 62, 51, 70] },
+        ],
+      },
+      {
+        name: "견본 전·후",
+        panes: [
+          { system: "MARS", screen: "견본 화면 C · 전", context: { 기간: "9월", 사이트: "MEM", 공정: "A", 설비: "1", 구간: "개선 전" }, kind: "line", values: [36, 54, 48, 68, 58, 76] },
+          { system: "MARS", screen: "견본 화면 C · 후", context: { 기간: "10월", 사이트: "MEM", 공정: "A", 설비: "1", 구간: "개선 후" }, kind: "bar", values: [32, 43, 39, 51, 44, 57] },
+        ],
+      },
+    ];
+    boardTabs.forEach(function (tab, index) {
+      tab.dataset.boardSheet = String(index);
+      tab.addEventListener("click", function () {
+        selectSheet(index, true);
+      });
+      tab.addEventListener("keydown", function (event) {
+        var next;
+        if (event.key === "ArrowRight") next = (selectedSheet + 1) % boardTabs.length;
+        if (event.key === "ArrowLeft") next = (selectedSheet + boardTabs.length - 1) % boardTabs.length;
+        if (event.key === "Home") next = 0;
+        if (event.key === "End") next = boardTabs.length - 1;
+        if (next !== undefined) {
+          event.preventDefault();
+          selectSheet(next, true);
+        }
+      });
     });
-  });
+    function currentSheet() {
+      return sheets[selectedSheet];
+    }
+    function paneCount() {
+      return boardLayout === "1x1" ? 1 : boardLayout === "2x2" ? 4 : 2;
+    }
+    function addText(parent, tag, value, className) {
+      var element = document.createElement(tag);
+      if (className) element.className = className;
+      element.textContent = value;
+      parent.appendChild(element);
+      return element;
+    }
+    function contextString(context) {
+      return Object.keys(context).map(function (key) {
+        return key + " " + context[key];
+      }).join(" · ");
+    }
+    // board-diff:start
+    // Keys the selected cell has and this cell lacks show as "—", never "undefined".
+    function contextDiff(activeContext, paneContext) {
+      var differences = [];
+      var same = 0;
+      Object.keys(activeContext).forEach(function (key) {
+        if (key in paneContext && paneContext[key] === activeContext[key]) same += 1;
+        else differences.push({ key: key, value: key in paneContext ? paneContext[key] : "—" });
+      });
+      Object.keys(paneContext).forEach(function (key) {
+        if (!(key in activeContext)) differences.push({ key: key, value: paneContext[key] });
+      });
+      return { differences: differences, same: same };
+    }
+    // board-diff:end
+    // At most two differing conditions show as chips; the rest fold into "+N" so a cell header keeps one line.
+    function showDifferences(container, diff) {
+      container.replaceChildren();
+      diff.differences.slice(0, 2).forEach(function (item) {
+        addText(container, "span", item.key + " " + item.value, "difference-chip");
+      });
+      if (diff.differences.length > 2) {
+        var rest = diff.differences.slice(2);
+        var more = addText(container, "span", "+" + rest.length, "difference-chip difference-more");
+        more.title = rest.map(function (item) {
+          return item.key + " " + item.value;
+        }).join(" · ");
+      }
+    }
+    function sameNoteText(same) {
+      return "이 칸의 조건 전체 · 선택한 칸과 같은 것 " + same + "개";
+    }
+    function updatePaneSelection() {
+      var sheet = currentSheet();
+      var activeContext = sheet.panes[selectedPane].context;
+      selectedContext.textContent = "선택한 칸 " + (selectedPane + 1) + " · " + contextString(activeContext);
+      all(".board-pane", boardGrid).forEach(function (article) {
+        var index = Number(article.dataset.boardPane);
+        var pane = sheet.panes[index];
+        article.classList.toggle("is-selected", index === selectedPane);
+        var diff = contextDiff(activeContext, pane.context);
+        showDifferences(article.querySelector(".pane-differences"), diff);
+        var sameSummary = article.querySelector(".board-context summary");
+        sameSummary.textContent = "같음 " + diff.same;
+        sameSummary.title = "다른 칸과 같은 조건 " + diff.same + "개";
+        sameSummary.setAttribute("aria-label", "칸 " + (index + 1) + "의 같은 조건 전체 보기");
+        var sameNote = article.querySelector(".board-popover-note");
+        if (sameNote) sameNote.textContent = sameNoteText(diff.same);
+      });
+    }
+    function svgNode(name, attributes, className) {
+      var node = document.createElementNS("http://www.w3.org/2000/svg", name);
+      Object.keys(attributes).forEach(function (key) {
+        node.setAttribute(key, attributes[key]);
+      });
+      if (className) node.classList.add(className);
+      return node;
+    }
+    // Each cell sketches a different chart shape so the board reads as different analyses: trend, bars, distribution, table.
+    function buildMiniChart(kind, values) {
+      var chart = svgNode("svg", { viewBox: "0 0 360 112", preserveAspectRatio: "none" }, "board-chart");
+      chart.setAttribute("aria-hidden", "true");
+      if (kind === "table") {
+        [0, 1, 2, 3].forEach(function (row) {
+          chart.appendChild(svgNode("rect", { x: 0, y: 4 + row * 27, width: 360, height: 22, rx: 3 }, row === 0 ? "board-chart-head" : "board-chart-row"));
+          [0, 1, 2].forEach(function (column) {
+            chart.appendChild(svgNode("rect", { x: 10 + column * 120, y: 11 + row * 27, width: row === 0 ? 56 : 34 + ((values[row + column] * 3) % 40), height: 8, rx: 2 }, "board-chart-cell"));
+          });
+        });
+        return chart;
+      }
+      [28, 56, 84].forEach(function (y) {
+        chart.appendChild(svgNode("path", { d: "M0 " + y + "H360" }, "board-chart-grid"));
+      });
+      if (kind === "bar" || kind === "dist") {
+        var width = kind === "bar" ? 36 : 52;
+        values.forEach(function (value, index) {
+          chart.appendChild(svgNode("rect", { x: index * 58 + 8, y: 98 - value, width: width, height: value, rx: 3 }, kind === "bar" ? "board-chart-bar" : "board-chart-dist"));
+        });
+        return chart;
+      }
+      var points = values.map(function (value, index) {
+        return (index * 70 + 8) + " " + (98 - value);
+      }).join("L");
+      chart.appendChild(svgNode("path", { d: "M" + points }, "board-chart-line"));
+      return chart;
+    }
+    function selectPane(index, restoreFocus) {
+      if (selectedPane === index) return;
+      selectedPane = index;
+      renderBoard();
+      if (restoreFocus) {
+        var focusedPane = boardGrid.querySelector('[data-board-pane="' + index + '"]');
+        if (focusedPane) focusedPane.focus({ preventScroll: true });
+      }
+    }
+    function renderBoard() {
+      var sheet = currentSheet();
+      if (selectedPane >= Math.min(paneCount(), sheet.panes.length)) selectedPane = 0;
+      boardGrid.dataset.layout = boardLayout;
+      boardGrid.replaceChildren();
+      all("[data-board-layout]", board).forEach(function (button) {
+        var selected = button.dataset.boardLayout === boardLayout;
+        button.setAttribute("aria-pressed", String(selected));
+      });
+      boardTabs.forEach(function (tab, index) {
+        var selected = index === selectedSheet;
+        tab.setAttribute("aria-selected", String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+      });
+      document.getElementById("board-title").textContent = sheet.name === "견본 비교" ? "견본 분석 작업대" : "견본 전·후 작업대";
+      var activeContext = sheet.panes[selectedPane].context;
+      selectedContext.textContent = "선택한 칸 " + (selectedPane + 1) + " · " + contextString(activeContext);
+      sheet.panes.slice(0, paneCount()).forEach(function (pane, index) {
+        var article = document.createElement("article");
+        article.className = "board-pane" + (index === selectedPane ? " is-selected" : "");
+        article.tabIndex = 0;
+        article.dataset.boardPane = String(index);
+        article.setAttribute("aria-label", "칸 " + (index + 1) + " · " + pane.system + " · " + pane.screen);
+        article.addEventListener("click", function (event) {
+          if (event.target.closest(".board-popover")) {
+            if (selectedPane !== index) {
+              selectedPane = index;
+              updatePaneSelection();
+            }
+            return;
+          }
+          selectPane(index, false);
+        });
+        // Focus entering the pane or any control inside it selects the pane in place, so the focused control keeps focus.
+        article.addEventListener("focusin", function () {
+          if (selectedPane === index) return;
+          selectedPane = index;
+          updatePaneSelection();
+        });
+        var header = document.createElement("div");
+        header.className = "board-pane-head";
+        var identity = document.createElement("div");
+        identity.className = "board-pane-identity";
+        addText(identity, "span", "칸 " + (index + 1), "pane-number");
+        addText(identity, "span", pane.system, "system-chip");
+        addText(identity, "b", pane.screen, "pane-screen");
+        header.appendChild(identity);
+        var differences = document.createElement("div");
+        differences.className = "pane-differences";
+        differences.setAttribute("aria-label", "선택한 칸과 다른 조건");
+        var diff = contextDiff(activeContext, pane.context);
+        showDifferences(differences, diff);
+        var sameDetails = document.createElement("details");
+        sameDetails.className = "board-popover board-context";
+        var sameSummary = addText(sameDetails, "summary", "같음 " + diff.same);
+        sameSummary.title = "다른 칸과 같은 조건 " + diff.same + "개";
+        sameSummary.setAttribute("aria-label", "칸 " + (index + 1) + "의 같은 조건 전체 보기");
+        var allConditions = document.createElement("ul");
+        addText(allConditions, "li", sameNoteText(diff.same), "board-popover-note");
+        Object.keys(pane.context).forEach(function (key) {
+          addText(allConditions, "li", key + " · " + pane.context[key]);
+        });
+        sameDetails.appendChild(allConditions);
+        header.appendChild(sameDetails);
+        var menu = document.createElement("details");
+        menu.className = "board-popover board-menu";
+        var menuSummary = addText(menu, "summary", "⋯");
+        menuSummary.setAttribute("aria-label", "칸 " + (index + 1) + " 메뉴");
+        var apply = addText(menu, "button", "이 조건을 시트의 모든 칸에 적용");
+        apply.type = "button";
+        apply.addEventListener("click", function () {
+          selectedPane = index;
+          var chosen = Object.assign({}, currentSheet().panes[index].context);
+          currentSheet().panes.forEach(function (item) {
+            item.context = Object.assign({}, chosen);
+          });
+          menu.open = false;
+          renderBoard();
+          var activePane = boardGrid.querySelector('[data-board-pane="' + index + '"]');
+          if (activePane) activePane.focus({ preventScroll: true });
+        });
+        header.appendChild(menu);
+        // The differing-condition chips come last: selecting a pane changes how many chips a head shows, and chips placed before
+        // the popover buttons moved them between mousedown and mouseup, so the first click only selected the pane.
+        header.appendChild(differences);
+        article.appendChild(header);
+        var content = document.createElement("div");
+        content.className = "board-pane-body";
+        content.appendChild(buildMiniChart(pane.kind, pane.values));
+        var metrics = document.createElement("div");
+        metrics.className = "board-metrics";
+        addText(metrics, "span", "예시 값 A " + (39 + index * 2));
+        addText(metrics, "span", "예시 값 B " + (66 + index * 3));
+        content.appendChild(metrics);
+        article.appendChild(content);
+        boardGrid.appendChild(article);
+      });
+    }
+    function selectSheet(index, focus) {
+      selectedSheet = index;
+      selectedPane = 0;
+      renderBoard();
+      if (focus) boardTabs[index].focus();
+    }
+    all("[data-board-layout]", board).forEach(function (button) {
+      button.addEventListener("click", function () {
+        boardLayout = button.dataset.boardLayout;
+        renderBoard();
+      });
+    });
+    board.addEventListener("keydown", function (event) {
+      if (event.key !== "Escape") return;
+      var popover = event.target.closest("details.board-popover[open]");
+      if (!popover) return;
+      event.preventDefault();
+      popover.open = false;
+      popover.querySelector("summary").focus();
+    });
+    renderBoard();
+  }
   all("[data-demo]").forEach(function (element) {
     element.hidden = config.demo !== true;
   });
@@ -124,23 +363,6 @@
   all("[data-maintenance-status]").forEach(function (element) {
     element.textContent = config.assumption ? "완료(가정)" : "완료";
   });
-  var basis = document.querySelector(".basis");
-  document.getElementById("basis-label").textContent = config.assumption
-    ? "기준 2026-10-13 · 정비 이슈 해결 가정"
-    : "기준 " + (config.ref || "2026-10-13") + " · " + (config.builtAt || "2026-10-13");
-  if (!config.assumption) {
-    basis.querySelector(".basis-popover").hidden = true;
-    basis.querySelector("summary").addEventListener("click", function (event) {
-      event.preventDefault();
-    });
-  } else {
-    document.addEventListener("keydown", function (event) {
-      if (event.key === "Escape" && basis.open) basis.open = false;
-    });
-    document.addEventListener("click", function (event) {
-      if (basis.open && !basis.contains(event.target)) basis.open = false;
-    });
-  }
   document.getElementById("build-info").textContent =
     "배포 ref " +
     (config.ref || "로컬") +
@@ -197,6 +419,11 @@
     all("[data-chart-shots-link]").forEach(function (link) {
       link.addEventListener("click", function () {
         filterShots("charts");
+      });
+    });
+    all("[data-shot-group-link]").forEach(function (link) {
+      link.addEventListener("click", function () {
+        filterShots(link.dataset.shotGroupLink);
       });
     });
     shotButtons.forEach(function (button) {
@@ -286,15 +513,17 @@
   });
   openCard("C1", false);
   var expand = document.getElementById("expand-all");
-  expand.addEventListener("click", function () {
-    var next = all(".claim").some(function (detail) {
-      return !detail.open;
+  if (expand) {
+    expand.addEventListener("click", function () {
+      var next = all(".claim").some(function (detail) {
+        return !detail.open;
+      });
+      all(".claim").forEach(function (detail) {
+        detail.open = next;
+      });
+      expand.textContent = next ? "모두 접기" : "모두 펼치기";
     });
-    all(".claim").forEach(function (detail) {
-      detail.open = next;
-    });
-    expand.textContent = next ? "모두 접기" : "모두 펼치기";
-  });
+  }
   function filter() {
     var statusInput = document.querySelector('input[name="tech-filter"]:checked');
     var stageInput = document.querySelector('input[name="stage-filter"]:checked');
@@ -393,24 +622,20 @@
   current(location.hash.slice(1) || "intro");
   if (window.IntersectionObserver) {
     var sections = all("main>section");
-    // Anchor jumps land a section at scroll-padding-top + scroll-margin-top;
-    // comparing with the same offset (+1px for sub-pixel rounding) keeps the
-    // jumped-to section ahead of the one whose top is still above it.
-    var rootPad = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
-    var landing = sections.map(function (section) {
-      return rootPad + (parseFloat(getComputedStyle(section).scrollMarginTop) || 0);
-    });
+    // The current section is the last one whose top has passed a reading line:
+    // header height + 30% of the viewport. An anchor jump lands a section at
+    // scroll-padding-top, well above that line, so the jumped-to section wins.
+    var topbar = document.querySelector(".topbar");
     var updateCurrent = function () {
-      // Recompute from live geometry so in-page links and deep links land on
-      // the right entry; stale entry/exit rects must not decide the current one.
+      var line = (topbar ? topbar.getBoundingClientRect().height : 0) + window.innerHeight * 0.3;
       var best = sections[0].id;
-      sections.forEach(function (section, i) {
-        if (section.getBoundingClientRect().top <= landing[i] + 1) best = section.id;
+      sections.forEach(function (section) {
+        if (section.getBoundingClientRect().top <= line) best = section.id;
       });
       current(best);
     };
     var observer = new IntersectionObserver(updateCurrent, {
-      rootMargin: "-50px 0px -60% 0px",
+      rootMargin: "0px 0px 0px 0px",
       threshold: 0,
     });
     sections.forEach(function (section) {
@@ -420,9 +645,15 @@
     // callback can predate the last sub-pixel of a smooth or instant scroll.
     // Recompute once the scroll settles.
     var scrollSettle = 0;
+    var scrollFrame = 0;
     window.addEventListener(
       "scroll",
       function () {
+        if (!scrollFrame)
+          scrollFrame = requestAnimationFrame(function () {
+            scrollFrame = 0;
+            updateCurrent();
+          });
         clearTimeout(scrollSettle);
         scrollSettle = setTimeout(updateCurrent, 120);
       },
@@ -435,20 +666,39 @@
       current(a.hash.slice(1));
     });
   });
-  function revealSource() {
-    if (location.hash.startsWith("#source-")) document.querySelector(".source-ledger").open = true;
+  // 앵커 대상이 닫힌 <details>(원장·부록 접기) 안에 있으면 조상을 모두 연다 — 열지 않으면 대상이 숨어 스크롤이 일어나지 않는다.
+  function revealTarget(hash) {
+    if (!hash || hash.length < 2) return;
+    var id;
+    try {
+      id = decodeURIComponent(hash.slice(1));
+    } catch (error) {
+      return;
+    }
+    var target = document.getElementById(id);
+    var opened = false;
+    for (var d = target && target.closest("details"); d; d = d.parentElement && d.parentElement.closest("details")) {
+      if (!d.open) opened = true;
+      d.open = true;
+    }
+    return opened ? target : null;
   }
-  all('a[href^="#source-"]').forEach(function (a) {
+  all('a[href^="#"]').forEach(function (a) {
     a.addEventListener("click", function () {
-      document.querySelector(".source-ledger").open = true;
+      revealTarget(a.hash);
     });
   });
-  window.addEventListener("hashchange", revealSource);
-  revealSource();
+  // 주소창에서 바꾼 해시는 브라우저가 먼저 점프하고 나서 이 이벤트가 오므로, 접기를 연 경우에만 다시 맞춘다.
+  window.addEventListener("hashchange", function () {
+    var revealed = revealTarget(location.hash);
+    if (revealed) revealed.scrollIntoView({ block: "start" });
+  });
+  revealTarget(location.hash);
   // 초기 JS(읽는 사람 전환, 원장 열기)가 앞부분 높이를 바꾸면, 브라우저가 JS보다
   // 먼저 한 앵커 점프의 착지가 어긋난다. 절의 scroll-margin-top이 반영된 위치로
   // 한 번 더 맞춰 점프 결과와 사이드바 표시를 일치시킨다.
-  var reanchor = document.querySelector('main>section[id="' + CSS.escape(location.hash.slice(1)) + '"]');
+  // 닫힌 접기 안의 대상(부록·원장)도 브라우저 점프가 숨은 상태에서 일어나므로 같이 맞춘다.
+  var reanchor = location.hash.length > 1 && document.querySelector('[id="' + CSS.escape(location.hash.slice(1)) + '"]');
   if (reanchor) reanchor.scrollIntoView({ block: "start", behavior: "instant" });
   var printDetails = [];
   window.addEventListener("beforeprint", function () {

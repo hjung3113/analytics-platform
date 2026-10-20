@@ -85,7 +85,11 @@ try {
   page.setDefaultTimeout(15000);
   const button = (name, parent = page) => parent.getByRole("button", { name, exact: true });
   const trend = () => page.getByRole("region", { name: "사이클타임 추세", exact: true });
+  // go()가 매번 뷰포트를 이 높이로 되돌려, 앞 캡처가 키운 뷰포트가 다음에 새지 않는다.
+  let viewportHeight = 900;
+  let viewportWidth = 1440;
   async function go(path) {
+    await page.setViewportSize({ width: viewportWidth, height: viewportHeight });
     await page.goto(origin + base.slice(0, -1) + path);
     await page.getByRole("main").getByRole("heading", { level: 1 }).waitFor();
     await expect(page.getByRole("main").locator('[aria-busy="true"]')).toHaveCount(0);
@@ -148,6 +152,25 @@ try {
     }
     return { x: box.x - pad, y: box.y - pad, width: box.width + pad * 2, height: box.height + pad * 2 };
   }
+  // 글자 하나에서 시작해, 폭 640px 미만이고 글이 짧은 가장 바깥 부모까지 올라가 메시지 상자 하나를 찍는다.
+  async function messageClip(locator, pad = 12) {
+    await expect(locator).toBeVisible();
+    await locator.scrollIntoViewIfNeeded();
+    const box = await locator.evaluate((el) => {
+      let node = el;
+      while (
+        node.parentElement &&
+        node.parentElement.tagName !== "MAIN" &&
+        node.parentElement.getBoundingClientRect().height < 170 &&
+        node.parentElement.innerText.length < 300
+      )
+        node = node.parentElement;
+      const r = node.getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    });
+    // 글자가 화면에서 11px 이상으로 보이도록 폭을 600px로 자른다(왼쪽부터).
+    return { x: box.x - pad, y: box.y - pad, width: Math.min(box.width, 600) + pad * 2, height: box.height + pad * 2 };
+  }
   // 팝오버·메뉴는 열린 직후 위치가 정착되기 전에 재므로 두 번 연결 같은 상자를 볼 때까지 기다린다.
   async function stableBox(locator) {
     let prev = await locator.boundingBox();
@@ -206,7 +229,49 @@ try {
       hideSticky: false,
     };
   }
-  async function capture(id, title, description, group, action, plan, cards = []) {
+  // 감사·레지스트리처럼 긴 표는 머리와 첫 몇 행, 왼쪽 열만 원본 크기로 찍는다.
+  // 오른쪽은 열 경계에서, 아래는 행 경계에서 끊어 열이나 행이 가운데서 잘리지 않게 한다.
+  async function tableCropClip(maxWidth = 620, maxHeight = 360) {
+    const table = page.getByRole("main").getByRole("table").first();
+    const clip = await elementClip(table);
+    const cut = await table.evaluate(
+      (el, limit) => {
+        const origin = el.getBoundingClientRect();
+        const heads = [...el.querySelectorAll('[role="columnheader"], th')].map((h) => h.getBoundingClientRect());
+        let right = 0;
+        for (const h of heads) if (h.right - origin.x <= limit.w && h.right - origin.x > right) right = h.right - origin.x;
+        const rows = [...el.querySelectorAll("[data-row-id], tbody tr")].map((r) => r.getBoundingClientRect());
+        let bottom = 0;
+        for (const r of rows) if (r.bottom - origin.y <= limit.h && r.bottom - origin.y > bottom) bottom = r.bottom - origin.y;
+        return { right, bottom };
+      },
+      { w: maxWidth, h: maxHeight },
+    );
+    return {
+      clip: { ...clip, width: cut.right || Math.min(clip.width, maxWidth), height: cut.bottom || Math.min(clip.height, maxHeight) },
+      cover: true,
+      hideSticky: false,
+    };
+  }
+  // 번호 위치: 캡처 영역 안에서 대상 요소의 왼쪽 위 모서리를 %로 잰다. 못 찾은 번호는 건너뛴다.
+  async function placeMarks(targets, area) {
+    const marks = [];
+    for (const [n, locate] of targets) {
+      try {
+        const box = await locate().first().boundingBox({ timeout: 3000 });
+        if (!box) throw new Error("no box");
+        // The badge centres on the element's top-left corner so it never covers the element's own text or numbers.
+        const x = ((box.x - area.x) / area.width) * 100;
+        const y = ((box.y - area.y) / area.height) * 100;
+        if (x < 0 || x > 100 || y < 0 || y > 100) throw new Error("outside the capture");
+        marks.push({ n, x: Number(x.toFixed(1)), y: Number(y.toFixed(1)) });
+      } catch (error) {
+        console.warn(`  번호 ${n} 건너뜀: ${String(error.message).split("\n")[0]}`);
+      }
+    }
+    return marks;
+  }
+  async function capture(id, title, description, group, action, plan, cards = [], targets = null) {
     currentId = id;
     await action();
     const planned = await plan();
@@ -214,10 +279,11 @@ try {
     await page.evaluate(() => document.fonts.ready);
     const { clip = planned, cover = false, hideSticky = true } = planned.clip ? planned : {};
     const area = frame(clip);
+    const marks = targets ? await placeMarks(targets, area) : [];
     if (hideSticky) await hideChrome(area.y);
     const png = await page.screenshot({ clip: area, animations: "disabled", caret: "hide", scale: "device" });
     if (hideSticky) await restoreChrome();
-    if (png.length < 10 * 1024) throw new Error(`캡처가 비어 있을 수 있습니다(${(png.length / 1024).toFixed(1)} KB)`);
+    if (png.length < (group === "states" ? 4 : 10) * 1024) throw new Error(`캡처가 비어 있을 수 있습니다(${(png.length / 1024).toFixed(1)} KB)`);
     await writeFile(join(options.out, `${id}.png`), png);
     manifest.push({
       id,
@@ -231,6 +297,7 @@ try {
       scale: 2,
       ...(cover ? { fit: "cover-top" } : {}),
       cards,
+      ...(marks.length ? { marks } : {}),
     });
     console.log(`${id}: ${area.width}×${area.height}, ${(png.length / 1024).toFixed(1)} KB`);
   }
@@ -318,6 +385,23 @@ try {
     () => elementClip(trend()),
   );
   await capture(
+    "chart-compare-annotate",
+    "AnalysisChartFrame · 비교 + 주석",
+    "이전 기간을 같은 시간 축에 겹치고 구간에 판단을 주석으로 남깁니다.",
+    "charts",
+    async () => {
+      await brush(true);
+      await page.getByRole("textbox", { name: "주석 내용" }).fill("예시: 확인할 구간");
+      await button("저장", trend()).click();
+      await expect(trend().getByRole("list")).toContainText("예시: 확인할 구간");
+      await button("지우기", trend()).click();
+      await expect(button("분석 구간 적용…", trend())).toHaveCount(0);
+      await button("비교", trend()).click();
+      await expect(trend().getByRole("group", { name: "범례", exact: true })).toContainText("P50 이전 기간");
+    },
+    () => elementClip(trend()),
+  );
+  await capture(
     "chart-bar",
     "AnalysisChartFrame · 막대 추세",
     "완료 Job 수를 0축 막대로 봅니다(합성 데이터라 버킷값이 같습니다).",
@@ -401,14 +485,7 @@ try {
       await tableReady();
       await button("컬럼", table()).click();
     },
-    () =>
-      unionClip(
-        [
-          table().getByRole("button", { name: "컬럼", exact: true }),
-          page.getByRole("dialog").filter({ hasText: "컬럼 설정" }),
-        ],
-        48,
-      ).then((clip) => ({ clip, cover: true })),
+    () => unionClip([page.getByRole("dialog").filter({ hasText: "컬럼 설정" })], 0).then((clip) => ({ clip, cover: true })),
   );
   const drawer = () => page.getByRole("complementary", { name: "상세 패널" }).getByRole("dialog");
   async function openDrawer() {
@@ -417,10 +494,16 @@ try {
     await expect(drawer()).toBeVisible();
     await expect(drawer().locator('[aria-busy="true"]')).toHaveCount(0);
   }
-  // 세로로 긴 패널은 위쪽 내용 중심만 찍는다.
+  // 패널 전체를 찍는다(잘리지 않게). 화면 높이가 모자라면 먼저 뷰포트를 키운다.
   const drawerTopClip = async () => {
-    const box = await drawer().boundingBox();
-    return { clip: { x: box.x, y: box.y, width: box.width, height: Math.min(box.height, 500) }, cover: true };
+    const box = await stableBox(drawer());
+    const viewport = page.viewportSize();
+    if (box.y + box.height > viewport.height) {
+      await page.setViewportSize({ width: viewport.width, height: Math.ceil(box.y + box.height) + 24 });
+      const moved = await stableBox(drawer());
+      return { clip: { x: moved.x, y: moved.y, width: moved.width, height: moved.height }, cover: true };
+    }
+    return { clip: { x: box.x, y: box.y, width: box.width, height: box.height }, cover: true };
   };
   await capture(
     "drawer",
@@ -448,16 +531,14 @@ try {
   await capture(
     "trust",
     "DataTrustIndicator · 원천과 미확인",
-    "갱신·커버리지와 상태 원천을 펼쳐 봅니다.",
+    "갱신·커버리지와 상태 원천을 펼친 패널입니다.",
     "tables",
     async () => {
       await go(productivity);
       await button("데이터 신뢰").first().click();
     },
     () =>
-      unionClip([button("데이터 신뢰").first(), page.getByRole("dialog").filter({ hasText: "문제 없음은" })], 48).then(
-        (clip) => ({ clip, cover: true }),
-      ),
+      unionClip([page.getByRole("dialog").filter({ hasText: "문제 없음은" })], 0).then((clip) => ({ clip, cover: true })),
     ["C8"],
   );
   await capture(
@@ -478,7 +559,7 @@ try {
       await go(productivity);
       await button(/^Scope:/).click();
     },
-    () => unionClip([button(/^Scope:/), page.getByRole("menu")], 48).then((clip) => ({ clip, cover: true })),
+    () => unionClip([page.getByRole("menu")], 0).then((clip) => ({ clip, cover: true })),
     ["U4"],
   );
   await capture(
@@ -536,6 +617,8 @@ try {
     },
     mainContentClip,
   );
+  // 상태 메시지는 좁은 화면(700px)에서 찍어 글이 상자 안에서 줄바꿈되고 가장자리에서 잘리지 않게 한다.
+  viewportWidth = 700;
   for (const [id, label, title, description] of [
     ["empty", "0건 (empty)", "조건에 맞는 결과가 없습니다", "0건 결과를 오류와 구분해 보여 줍니다"],
     ["error", "서버 오류 (error)", "데이터를 불러오지 못했습니다", "조회 실패를 다시 시도 버튼과 함께 알립니다"],
@@ -555,11 +638,129 @@ try {
         await expect(page.getByRole("main").getByText(title, { exact: true }).first()).toBeVisible();
         await expect(page.getByRole("table")).toHaveCount(0);
       },
-      // 상태 메시지 상자가 들린 전체 화면 대신 설비 목록 패널만 찍는다.
-      () => elementClip(table()),
+      // 목록 패널 전체 대신 상태 메시지 상자만 찍어, 화면에서 글자가 읽히게 한다.
+      () => messageClip(page.getByRole("main").getByText(title, { exact: true }).first()).then((clip) => ({ clip, cover: true })),
       id === "error" ? ["C11"] : [],
     );
   }
+  viewportWidth = 1440;
+  // 히어로 합성 그림의 MARS 자리: 1440폭 전체 화면(셸 포함). 번호 표식은 두지 않는다(번호는 02의 장면 카드에만 있다).
+  await capture(
+    "cycle-time-full",
+    "견본 화면 전체",
+    "조건 바·차트·표·상세 진입·VOC 진입이 한 화면에 있는 견본 화면입니다.",
+    "tables",
+    async () => {
+      viewportHeight = 1280;
+      await cycle();
+    },
+    () => {
+      const viewport = page.viewportSize();
+      return { clip: { x: 0, y: 0, width: viewport.width, height: viewport.height }, hideSticky: false };
+    },
+    [],
+    [],
+  );
+  // 02 핵심 장면 카드의 확대 조각: 같은 화면에서 조건 바(왼쪽 560px)와 데이터 신뢰 패널을 원본 크기로 잘라 낸다.
+  await capture(
+    "inset-context",
+    "조건 바 확대",
+    "기간·사이트·공정 조건이 모인 전역 조건 바의 왼쪽을 원본 크기로 봅니다.",
+    "shell",
+    async () => {},
+    async () => {
+      // 조건 바 왼쪽(기간·빠른 범위·room_name 칩)까지를 칩 경계에서 끊는다. 경계에 걸리는 오른쪽 데이터 신뢰 배지는 찍는 동안만 숨긴다.
+      const bar = page.getByRole("button", { name: "링크 복사", exact: true }).locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' sticky ')][1]");
+      const cutX = await bar.evaluate((el) => {
+        const chip = [...el.querySelectorAll("button")].find((b) => /^room_name/.test(b.textContent.trim()));
+        const right = chip.getBoundingClientRect().right + 4;
+        for (const b of el.querySelectorAll("button")) {
+          const r = b.getBoundingClientRect();
+          if (r.left < right && r.right > right) b.style.visibility = "hidden";
+        }
+        return right;
+      });
+      const clip = await unionClip([bar], 0);
+      return { clip: { ...clip, width: cutX - clip.x }, hideSticky: false };
+    },
+  );
+  await capture(
+    "inset-trust",
+    "데이터 신뢰 표시 확대",
+    "갱신 시각·커버리지·지표 버전·원천과 ‘미확인’ 상태를 펼친 패널을 원본 크기로 봅니다(견본 지표·견본 원천).",
+    "tables",
+    async () => {
+      // 앞 캡처가 숨겨 둔 조건 바의 신뢰 배지를 되돌린 뒤 연다.
+      await page.evaluate(() => document.querySelectorAll('button[style*="visibility"]').forEach((b) => b.style.removeProperty("visibility")));
+      await button("데이터 신뢰").first().click();
+    },
+    () => unionClip([page.getByRole("dialog").filter({ hasText: "문제 없음은" })], 0).then((clip) => ({ clip, cover: true })),
+  );
+  await page.keyboard.press("Escape");
+  viewportHeight = 900;
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await capture(
+    "feedbackops-entry",
+    "FeedbackOps · VOC 진입",
+    "MARS 사이드바 아래의 VOC 등록·VOC·Task·설문 진입 링크입니다. 데모에는 FeedbackOps 주소가 없어 흐리게 보입니다.",
+    "shell",
+    async () => {
+      await go(productivity);
+      const block = page.getByRole("navigation", { name: "FeedbackOps · MARS", exact: true });
+      await expect(block).toBeVisible();
+      await expect(block.getByRole("link", { name: /^VOC 등록/ })).toBeVisible();
+    },
+    // VOC 진입 링크 묶음(제목 + VOC 등록 · VOC · Task · 설문)만 원본 크기로 찍는다.
+    async () => {
+      const nav = page.getByRole("navigation", { name: "FeedbackOps · MARS", exact: true });
+      await expect(nav).toBeVisible();
+      const box = await nav.boundingBox();
+      return { clip: { x: box.x, y: box.y - 6, width: box.width, height: box.height + 12 }, cover: true, hideSticky: false };
+    },
+  );
+  await capture(
+    "system-switcher",
+    "업무 시스템 전환기",
+    "MARS에서 BRAVO 등 업무 시스템을 바꾸는 전환기입니다.",
+    "shell",
+    async () => {
+      await go(productivity);
+      await button("업무 시스템 전환 · 현재: MARS").click();
+      const dialog = page.getByRole("dialog", { name: "업무 시스템 전환", exact: true });
+      await expect(dialog).toBeVisible();
+      await expect(dialog).toContainText("BRAVO");
+      // 대화상자 뒤의 화면 내용이 가장자리에 비치지 않게 앱 루트를 숨기고, 테두리까지 온전히 찍는다.
+      await page.evaluate(() => {
+        const root = document.getElementById("root");
+        if (root) root.style.visibility = "hidden";
+      });
+    },
+    () => unionClip([page.getByRole("dialog", { name: "업무 시스템 전환", exact: true })], 14).then((clip) => ({ clip, cover: true, hideSticky: false })),
+  );
+  // Console screens need the demo's platform-admin role (the same switch D8 tells readers to use).
+  await page.evaluate(() => localStorage.setItem("platform:role", JSON.stringify("admin")));
+  await capture(
+    "change-audit",
+    "운영 콘솔 · 변경 감사",
+    "운영 콘솔에서 변경 내역을 확인합니다.",
+    "tables",
+    async () => {
+      await go("/admin/audit?v=1");
+      await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "변경 감사", exact: true })).toBeVisible();
+    },
+    tableCropClip,
+  );
+  await capture(
+    "menu-registry",
+    "운영 콘솔 · 메뉴 레지스트리",
+    "등록된 업무 화면과 정의를 목록으로 확인합니다.",
+    "tables",
+    async () => {
+      await go("/admin/registry?v=1");
+      await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "메뉴 레지스트리", exact: true })).toBeVisible();
+    },
+    tableCropClip,
+  );
   const total = (await Promise.all(manifest.map((s) => stat(join(options.out, `${s.id}.png`))))).reduce(
     (sum, s) => sum + s.size,
     0,

@@ -94,6 +94,16 @@ if (shotsDir) {
       !Array.isArray(shot.cards)
     )
       throw new Error(`잘못된 캡처 메타데이터: ${shot.id}`);
+    if (
+      shot.marks !== undefined &&
+      !(
+        Array.isArray(shot.marks) &&
+        shot.marks.every(
+          (m) => Number.isInteger(m.n) && m.n >= 1 && m.n <= 9 && m.x >= 0 && m.x <= 100 && m.y >= 0 && m.y <= 100,
+        )
+      )
+    )
+      throw new Error(`잘못된 캡처 번호 위치(marks): ${shot.id}`);
     for (const card of shot.cards) {
       if (!/^(C(?:[1-9]|1[0-4])|U[1-9]|K(?:[1-9]|10))$/.test(card) || cards.has(card))
         throw new Error(`잘못되거나 중복된 카드 대응: ${card}`);
@@ -223,7 +233,9 @@ if (shots.length) {
         `<button type="button" data-shot-filter="${id}" aria-pressed="${id === "all"}">${label}</button>`,
     )
     .join("");
-  const tiles = shots
+  // inset-* 캡처는 히어로 확대용 조각이라 갤러리에 다시 싣지 않는다.
+  const galleryShots = shots.filter((shot) => !shot.id.startsWith("inset-"));
+  const tiles = galleryShots
     .map((shot) => {
       // 상태 화면은 응답 시나리오를 링크로 재현할 수 없으므로 데모 링크 대신
       // 재현 방법을 한 줄로 안내한다.
@@ -234,16 +246,13 @@ if (shots.length) {
       return `<article class="shot-tile" data-shot-group="${shot.group}"><button type="button" class="shot-open" data-shot-open="${shot.id}" aria-haspopup="dialog" aria-label="${escapeHtml(shot.title)} 크게 보기">${image(shot)}</button><div class="shot-copy"><h4>${escapeHtml(shot.title)}</h4><p>${escapeHtml(shot.description)}</p>${demoLink}</div></article>`;
     })
     .join("");
-  const gallery = `<div class="shot-gallery" id="actual-shots" aria-labelledby="actual-shots-heading"><h3 id="actual-shots-heading">실제 화면</h3><p class="lead">아래는 데모 앱을 배포 때마다 자동으로 찍은 실제 화면입니다(mock 합성 데이터).</p><p class="caption">등록 유형: 선·막대(메뉴 사용 중)·파이·산점도(등록됨, 메뉴 미사용). <a class="source-ref" href="#source-L62">L62</a> · <a class="source-ref" href="#source-L63">L63</a></p><div class="shot-filters" role="group" aria-label="실제 화면 분류">${filters}</div><p id="shot-count" class="caption" role="status" aria-live="polite">${shots.length}개 화면</p><div class="shot-grid">${tiles}</div></div>
+  const gallery = `<details class="appendix-content gallery-details" id="actual-shots-details"><summary>실제 화면 ${galleryShots.length}장 펼치기</summary><div class="shot-gallery" id="actual-shots" aria-labelledby="actual-shots-heading"><h3 id="actual-shots-heading">실제 화면</h3><p class="lead">아래는 데모 앱을 배포 때마다 자동으로 찍은 실제 화면입니다(mock 합성 데이터).</p><p class="caption">등록 유형: 선·막대(메뉴 사용 중)·파이·산점도(등록됨, 메뉴 미사용). <a class="source-ref" href="#source-L62">L62</a> · <a class="source-ref" href="#source-L63">L63</a></p><div class="shot-filters" role="group" aria-label="실제 화면 분류">${filters}</div><p id="shot-count" class="caption" role="status" aria-live="polite">${galleryShots.length}개 화면</p><div class="shot-grid">${tiles}</div></div></details>
   <dialog class="shot-dialog" id="shot-dialog" aria-modal="true" aria-labelledby="shot-dialog-title" aria-describedby="shot-dialog-description"><div class="shot-dialog-controls"><h3 id="shot-dialog-title"></h3><button type="button" data-shot-close autofocus>닫기</button></div><img id="shot-dialog-image" alt=""><p id="shot-dialog-description"></p><div class="shot-dialog-controls"><button type="button" data-shot-prev>이전</button><span id="shot-dialog-position" role="status"></span><button type="button" data-shot-next>다음</button><a class="button secondary" data-demo hidden id="shot-dialog-demo" target="_blank" rel="noopener">데모에서 열기</a></div></dialog>`;
-  const shotsLink = '<a class="button secondary" href="#actual-shots" data-chart-shots-link>실제 화면 보기 →</a>';
   html = html
-    .replace("<!-- ACTUAL_SHOTS -->", gallery)
     .replace(
-      "<!-- CHART_SHOTS_LINK -->",
-      '<a class="button secondary" href="#actual-shots" data-chart-shots-link>실제 차트 보기 →</a>',
+      "<!-- ACTUAL_SHOTS -->",
+      `<section class="appendix-section" id="appendix-g" aria-labelledby="appendix-g-heading"><p class="section-label">부록 G · 개발자 참고</p><h2 id="appendix-g-heading">실제 화면 갤러리</h2>${gallery}</section>`,
     )
-    .replace("<!-- LEAD_SHOTS_LINK -->", shotsLink)
     .replace(
       "<!-- CHART_BRANCH_SHOTS_LINK -->",
       '<a href="#actual-shots" data-chart-shots-link>갤러리에서 실제 차트 보기 →</a>',
@@ -264,10 +273,38 @@ if (shots.length) {
 } else {
   html = html
     .replace("<!-- ACTUAL_SHOTS -->", "")
-    .replace("<!-- CHART_SHOTS_LINK -->", "")
-    .replace("<!-- LEAD_SHOTS_LINK -->", "")
     .replace('<p class="caption"><!-- CHART_BRANCH_SHOTS_LINK --></p>', "");
 }
+// 본문 캡처 자리: 캡처가 있으면 이미지(와 번호 위치)를 심고, 없으면 자리 전체를 지운다.
+// 캡처 없는 조립에서도 도식과 글만으로 페이지가 읽힌다.
+const figureSlot = /<figure class="([^"]*)" data-shot-fig="([a-z][a-z0-9-]*)">([\s\S]*?)<\/figure>/g;
+const shotById = new Map(shots.map((shot) => [shot.id, shot]));
+html = html.replace(figureSlot, (whole, cls, id, inner) => {
+  const shot = shotById.get(id);
+  if (!shot) return "";
+  // CSS의 width:auto는 width 속성을 무시하고 PNG 픽셀(DPR2)로 되돌아가므로 CSS px 폭을 인라인으로 고정한다(2배 확대 방지).
+  const img = `<img src="assets/shots/${shot.id}.png" loading="lazy" width="${shot.width}" height="${shot.height}" style="width:${shot.width}px" alt="${escapeHtml(shot.title + ". " + shot.description)}">`;
+  const marks = (shot.marks || []).length
+    ? `<ol class="callouts" aria-hidden="true">${shot.marks.map((m) => `<li style="--x:${m.x}%;--y:${m.y}%"><span class="callout-no">${m.n}</span></li>`).join("")}</ol>`
+    : "";
+  return `<figure class="${cls}" data-shot-fig="${id}"><span class="shot-frame">${img}${marks}</span>${inner.replace("<!--shot:" + id + "-->", "")}</figure>`;
+});
+// 캡처 자리가 모두 지워진 묶음과, 그래서 내용이 빈 캡처 전용 접기는 함께 지운다(빈 토글을 남기지 않는다).
+html = html
+  .replace(/<div class="(?:state-row|tools-grid|shots-row)"[^>]*>\s*<\/div>/g, "")
+  .replace(/<details class="evidence-details flow-details">\s*<summary>[^<]*<\/summary>\s*<\/details>/g, "");
+if (!shotById.has("change-audit")) html = html.replace("견본 캡처와 권한 판정 흐름 보기 — 변경 감사, ", "권한 판정 흐름 보기 — ");
+// 히어로의 견본 화면 세 장(MARS·BRAVO·운영 콘솔)이 모두 있어야 합성 그림을 보인다. 하나라도 없으면 그 블록을 지우고
+// 캡처 없는 조립에서는 도식 A를 히어로에도 보인다(id는 접미사로 구분).
+const hasHeroStack = ["cycle-time-full", "catalog", "change-audit"].every((id) => shotById.has(id));
+if (!hasHeroStack) html = html.replace(/<!--HERO_STACK-->[\s\S]*?<!--\/HERO_STACK-->/, "");
+const heroFallback = hasHeroStack
+  ? ""
+  : (html.match(/<figure class="diagram diagram-a">[\s\S]*?<\/figure>/)?.[0] || "")
+      .replaceAll("fig-a-", "fig-a0-")
+      .replaceAll("arrow-a", "arrow-a0")
+      .replace("diagram diagram-a", "diagram diagram-a diagram-hero");
+html = html.replace("<!--HERO_FALLBACK-->", heroFallback);
 await writeFile(join(out, "index.html"), html);
 const noindex = (html) =>
   /<meta\b[^>]*name=["']robots["']/i.test(html)
