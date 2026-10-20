@@ -99,6 +99,12 @@ const rows: Row[] = [
   { file: 'packages/components/src/x.ts', code: `import { cn } from '@ap/ui';`, rule: '' },
   { file: 'packages/components/src/x.ts', code: `import { readColorToken } from '@ap/ui/theme';`, rule: '' },
   { file: MENU, code: `import tokens from '@ap/ui/theme-tokens.json';`, rule: '' },
+  { file: 'packages/shell/src/x.ts', code: `import { readColorToken } from '@ap/ui/theme';`, rule: '' },
+  { file: 'packages/shell/src/x.ts', code: `import tokens from '@ap/ui/theme-tokens.json';`, rule: '' },
+  { file: 'packages/shell/src/x.ts', code: `import tokens from '@ap/ui/src/styles/tokens.css';`, rule: 'no-restricted-imports' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { readColorToken } from '@ap/ui/theme';`, rule: '' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import tokens from '@ap/ui/theme-tokens.json';`, rule: '' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import tokens from '@ap/ui/src/styles/tokens.css';`, rule: 'no-restricted-imports' },
   { file: 'packages/shell/src/x.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
   { file: 'packages/shell/src/x.ts', code: `import { x } from '@ap/components';`, rule: '' },
   { file: 'packages/shell/src/AppSidebar.tsx', code: `if (group.id === 'overview') render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
@@ -488,6 +494,9 @@ describe('boundary + contract fixtures', () => {
     ['src/x.ts', `import { x } from '../../escape';`, 'ap/no-relative-package-escape'],
     ['src/x.ts', `export * from '../../../../packages/contracts/src/url';`, 'ap/no-relative-package-escape'],
     ['src/x.ts', `import { x } from '@ap/kernel';`, 'no-restricted-imports'],
+    ['src/x.ts', `import { readColorToken } from '@ap/ui/theme';`, ''],
+    ['src/x.ts', `import tokens from '@ap/ui/theme-tokens.json';`, ''],
+    ['src/x.ts', `import tokens from '@ap/ui/src/styles/tokens.css';`, 'no-restricted-imports'],
   ])('hostModule in a non-platform-scope package: %s %s', async (file, code, rule) => {
     const messages = await lintExternal(file, code);
     expect(messages.map((m) => m.ruleId), JSON.stringify(messages, null, 2)).toEqual(rule === '' ? [] : [rule]);

@@ -49,6 +49,37 @@ it('fails closed when a new colour token has no classification', () => {
   expect(() => generateThemeTokens({ tokensCss: injectedCss, platformCss })).toThrow(/--new-unclassified/);
 });
 
+it.each([
+  ['transparent', 'transparent'],
+  ['rgb with alpha', 'rgb(0 0 0 / .4)'],
+  ['rgba', 'rgba(0, 0, 0, 0.4)'],
+  ['hex', '#123456'],
+  ['hex with alpha', '#1234'],
+  ['named colour', 'rebeccapurple'],
+  ['hsl', 'hsl(0 0% 0% / .4)'],
+  ['oklch', 'oklch(0 0 0 / .4)'],
+  ['var fallback', 'var(--missing-overlay, #000)'],
+])('fails closed for an unclassified colour value: %s', (_label, value) => {
+  const injectedCss = `${tokensCss}\n:root { --new-overlay: ${value}; }`;
+  expect(() => generateThemeTokens({ tokensCss: injectedCss, platformCss })).toThrow(/--new-overlay/);
+});
+
+it('fails closed when a colour alias resolves to a non-RGB colour value', () => {
+  const injectedCss = `${tokensCss}\n:root { --new-overlay: var(--overlay-value); --overlay-value: rgb(0 0 0 / .4); }`;
+  expect(() => generateThemeTokens({ tokensCss: injectedCss, platformCss })).toThrow(/--new-overlay/);
+});
+
+it('matches exact exclusions without excluding a same-prefix published role', () => {
+  const names = Object.keys(JSON.parse(generateThemeTokens({ tokensCss, platformCss }).json).color);
+  expect(names).not.toContain('surface-field');
+  expect(names).toContain('surface-field-filled');
+});
+
+it('ignores non-colour composite values such as shadows', () => {
+  const injectedCss = `${tokensCss}\n:root { --new-shadow: rgba(0, 0, 0, .4) 0px 2px 4px; --new-font: 12px sans-serif; }`;
+  expect(() => generateThemeTokens({ tokensCss: injectedCss, platformCss })).not.toThrow();
+});
+
 it('uses platform CSS when both source files declare the same token', () => {
   const generated = generateThemeTokens({
     tokensCss: ':root { --text-primary: 1 2 3; }',
@@ -61,10 +92,11 @@ it('uses platform CSS when both source files declare the same token', () => {
 it('omits primitives and FeedbackOps domain roles from the public manifest', () => {
   const names = Object.keys(manifest.color);
   const excludedPrefixes = [
-    'color-', 'status-reporter-', 'status-internal-', 'accent-voc', 'accent-task',
-    'entity-icon-', 'managed-system-', 'confidence-',
+    'color-', 'status-reporter-', 'status-internal-', 'entity-icon-', 'managed-system-', 'confidence-',
   ];
   expect(names.some(name => excludedPrefixes.some(prefix => name.startsWith(prefix)))).toBe(false);
+  expect(names).not.toContain('accent-voc');
+  expect(names).not.toContain('accent-task');
   expect(names).not.toContain('surface-field');
 });
 

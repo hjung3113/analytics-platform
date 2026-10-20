@@ -18,6 +18,7 @@ export const exclude = {
   'status-internal-': 'FeedbackOps Task workflow status is a product-domain role.',
   'accent-voc': 'FeedbackOps VOC identity accent is a product-domain role.',
   'accent-task': 'FeedbackOps Task identity accent is a product-domain role.',
+  'surface-field': 'Transparent field background, not a colour role.',
   'entity-icon-': 'FeedbackOps entity icon identities are a product-domain role.',
   'managed-system-': 'FeedbackOps managed-system identities are a product-domain role.',
   'confidence-': 'Confidence levels are used only by the FeedbackOps copy and its prototypes; the platform has no consumer.',

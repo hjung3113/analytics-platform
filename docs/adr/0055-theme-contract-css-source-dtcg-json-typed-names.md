@@ -15,8 +15,8 @@
   - 넣는 것: 공유 의미 역할(텍스트·표면·경계·포커스·accent·severity 등)과 플랫폼 확장 역할(차트·범주·아이콘·control).
   - 빼는 것: 원색 `--color-*`(컴포넌트가 직접 쓰지 않는다는 기존 규칙, `tokens.css` 머리말). FeedbackOps 도메인 역할(VOC·Task 상태, 엔티티 아이콘, 관리 시스템, VOC·Task accent). 색이 아닌 토큰(모션·간격·타이포·크기).
   - 뺀 목록은 이유와 함께 생성기 설정에 닫힌 목록으로 둔다. CSS에 새 색 토큰이 생기면, 넣거나 뺀 목록에 이유와 함께 올릴 때까지 테스트가 실패한다.
-- **JSON 형식은 DTCG 2025.10이다.** `$type: "color"`, `$value`는 `{ colorSpace: "srgb", components, hex }`이고, 값은 별칭을 풀어 최종 값으로 적는다. 공개하지 않는 원색을 가리키는 별칭이 끊기지 않게 하려는 것이다. 폐기하는 토큰은 `$deprecated`에 대체 이름을 적고 최소 한 SDK 릴리스 동안 유지한다([ADR-0044](0044-sdk-source-in-platform-repo-released-separately.md)의 공개 API 변경 고지와 같다).
-- **TS 쪽은 이름 목록·타입·읽기 함수다.** `THEME_COLOR_TOKENS`(읽기 전용 이름 목록), `ThemeColorToken`(이름 union), `readColorToken(name, element?)`.
+- **JSON 형식은 DTCG 2025.10이다.** `$type: "color"`, `$value`는 `{ colorSpace: "srgb", components, hex }`이고, 값은 별칭을 풀어 최종 값으로 적는다. 공개하지 않는 원색을 가리키는 별칭이 끊기지 않게 하려는 것이다. 폐기하는 토큰은 `$deprecated`에 대체 이름을 적고 최소 한 SDK 릴리스 동안 유지한다([ADR-0044](0044-sdk-source-in-platform-repo-released-separately.md)의 공개 API 변경 고지와 같다). `$deprecated`는 정책일 뿐이며 생성기는 아직 출력하지 않는다. 첫 토큰 폐기 때 추가한다.
+- **TS 쪽은 이름 목록·타입·판별 함수·읽기 함수다.** `THEME_COLOR_TOKENS`(읽기 전용 이름 목록), `ThemeColorToken`(이름 union), `isThemeColorToken(name)`, `readColorToken(name, element?)`.
   - `readColorToken`은 CSS 변수를 런타임에 읽어 완전한 CSS 색 문자열을 돌려준다.
   - DOM이 없거나 변수가 비면 manifest의 정적 값을 쓴다. `#000`이 아니다.
 - **진입점:** `@ap/ui/theme`(TS)과 `@ap/ui/theme-tokens.json`. SDK 묶음 태그 `sdk-v0.x.y`에 함께 실린다.
