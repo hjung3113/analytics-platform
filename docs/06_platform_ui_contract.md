@@ -818,6 +818,17 @@ Selection Summary
 Source · Updated · Coverage
 ```
 
+### 종류별 상호작용
+
+`AnalysisChart`의 `ChartSpec`은 종류와 입력 데이터의 유효 조합을 고정한다([ADR-0058](adr/0058-analysis-chart-spec-union.md)). 기존 line/bar `AnalysisChartFrame` 소비자는 그대로 유지한다.
+
+| 종류 | Zoom | Brush·선택 | Reset | Compare | Annotate | Export | Drill | 표로 보기 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| heatmap | — | 클릭·사각 끌기·표 체크박스로 셀 다중 선택 | 선택 해제 | — | — | manifest `features.export` | 단일 선택 요약·표 행의 상세 버튼 | 같은 셀 데이터·선택·상세 |
+| donut | — | 클릭·표 체크박스로 한 항목 선택, 재클릭 해제 | 선택 해제 | — | — | manifest `features.export` | 단일 선택 요약·표 행의 상세 버튼 | 같은 구성비 데이터·선택·상세 |
+
+선택은 URL·Global Context를 바꾸지 않는 Chart Local State다. Global Context 변경 시 선택을 지우고 spec 변경 시 사라진 키를 버린다. 캔버스 클릭은 드릴하지 않는다. 표의 체크박스와 상세 버튼이 키보드 경로이며, 선택은 체크 상태와 요약 글로도 표시한다. 합성 항목(기타·미분류)은 소비자 ID가 없으므로 상세 버튼이 없다. 눈에 보이는 데이터 요약을 차트 section의 `aria-describedby`로 연결하며, 표와 CSV는 같은 데이터 투영을 쓴다. 히트맵의 누락 좌표는 빈 자리로, null은 미확인 표식으로, 0은 값으로 구분한다. threshold 색은 승인된 실제 판정에만 쓰고 범례에 세 판정명을 함께 적는다.
+
 ### 상태 분리
 
 - Global Context

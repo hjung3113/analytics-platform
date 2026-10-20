@@ -2,7 +2,7 @@ import { BrushIcon, Download, GitCompare, MessageSquarePlus, MoreHorizontal, Rot
 import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
-import { formatDateTime, formatMetricVersion, parseDateTime } from '@ap/contracts';
+import { formatDateTime, parseDateTime } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { AnalysisSectionContext } from './AnalysisSectionContext';
@@ -10,11 +10,7 @@ import { chartTheme, EChart, strokeToken, token } from './EChart';
 import { toCsvDocument } from './tableExport';
 import { assignNoteLevels, noteLabelWidths } from './annotationLayout';
 
-function AnalysisChartPart({ enabled, body, children }: { enabled: boolean; body?: boolean; children: ReactNode }) {
-  if (!enabled) return <>{children}</>;
-  return body ? <div data-analysis-chart-body className="flex flex-1 flex-col">{children}</div>
-    : <div data-analysis-chart-head>{children}</div>;
-}
+import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
 
 export type ChartSeries = {
   id: string;
@@ -456,10 +452,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     {/* Pinned to the card corner so a wrapping toolbar never strands it on its own line. */}
     <AnalysisChartPart enabled={analysisSection !== null}>
     <header className={cn('flex flex-wrap items-start justify-between gap-2 px-4 pt-3', analysisSection && 'pr-12')}>
-      <div className="min-w-0">
-        <h2 id={titleId} className="t-card-title">{p.title}</h2>
-        {(p.description || p.metricVersion) && <p className="text-xs text-text-muted">{p.description}{p.metricVersion && <> · <span className="tabular">{t('metricVersion')} {formatMetricVersion(p.metricVersion)}</span></>}</p>}
-      </div>
+      <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} />
       {/* The core controls wrap in source order inside narrow cards; the Export/More tail stays bundled as its own
         wrap unit. Wide cards keep one right-aligned row, and extraActions keeps its own bundle. */}
       <div role="toolbar" aria-label={lang === 'ko' ? '차트 동작' : 'Chart actions'} className="ml-auto flex flex-wrap items-center justify-end gap-1">
@@ -607,9 +600,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       </ul>}
     </section>
 
-    {p.trust && <footer className="border-t border-border-subtle px-4 py-2 text-tiny text-text-muted tabular">
-      {t('source')}: <span className="t-mono text-tiny">{p.trust.source}</span> · {t('updated')}: {p.trust.updated} · {t('coverage')}: {p.trust.coverage}
-    </footer>}
+    <ChartTrustFooter trust={p.trust} />
     </AnalysisChartPart>
   </section>;
 }

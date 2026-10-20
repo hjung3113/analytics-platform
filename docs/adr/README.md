@@ -63,6 +63,7 @@
 | [0053](0053-host-module-contract-v1.md) | 호스트 → 모듈 계약 1판을 `@ap/contracts`에 내고, Kernel이 모듈을 등록해 화면에 호스트 포트를 준다(첫 소비자는 저장소 안 고정 모듈) | Decided(2026-10-19, 코디네이터·되돌릴 수 있음) — 탑재 설계 §2 확정, 0039의 계약 부분 구현 범위, 구현 #403·#489 |
 | [0051](0051-analysis-board-pane-header-signal-chips-numbered-selection.md) | 분석 보드 칸 머리는 다른 키만 칩(`같음 N` 팝오버, 동작 `⋯`), 선택된 칸은 번호 배지 + 왼쪽 2px 막대 + 머리 선택 표면 | Decided(2026-10-19, 코디네이터 — 사용자가 UX 리뷰 판정에 위임) — #421 |
 | [0057](0057-legend-tree-arrow-key-row-navigation.md) | LegendTree의 행 이동은 APG 트리 방향키로 하고, 체크·펼침·선택·정렬은 기본 키보드 경로로 조작한다 | Decided(2026-10-20, 사용자 spec + 코디네이터) — #539, 06 §26 Tab 하한의 행 이동 예외 |
+| [0058](0058-analysis-chart-spec-union.md) | 종류별 차트는 AnalysisChart의 ChartSpec 판별 union으로 받고 기존 시간축 프레임은 유지한다 | Decided(2026-10-20, 코디네이터 — 사용자 위임) — #545 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

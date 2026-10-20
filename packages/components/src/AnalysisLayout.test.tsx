@@ -6,6 +6,7 @@ import type { ApiResponse } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { QueryView } from './StateView';
 import { AnalysisLayout } from './AnalysisLayout';
+import { AnalysisChart } from './AnalysisChart';
 import { AnalysisChartFrame } from './AnalysisChartFrame';
 import { PlatformDataTable } from './PlatformDataTable';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
@@ -249,4 +250,23 @@ describe('AnalysisLayout', () => {
     expect(container.querySelectorAll('.pr-12')).toHaveLength(0);
     expect(screen.getByRole('region', { name: '추세' }).firstElementChild?.tagName).toBe('HEADER');
   });
+});
+
+
+it('aligns AnalysisChart heatmap and donut head/body fragments in a chart section', async () => {
+  const { container } = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+    <AnalysisLayout charts={[
+      { id: 'heat', title: 'Heat', node: <AnalysisChart chartId="heat" title="Heat" unit="ea" spec={{ kind: 'heatmap', xLabels: ['X'], yLabels: ['Y'], cells: [{ x: 'X', y: 'Y', value: 1 }] }} /> },
+      { id: 'donut', title: 'Donut', node: <AnalysisChart chartId="donut" title="Donut" unit="ea" spec={{ kind: 'donut', slices: [{ id: 'a', label: 'A', value: 1 }] }} /> },
+    ]} />
+  </PlatformProvider></I18nProvider>);
+  await screen.findByRole('img', { name: 'Heat' });
+  expect(container.querySelectorAll('[data-analysis-chart]')).toHaveLength(2);
+  expect(container.querySelectorAll('[data-analysis-chart-head]')).toHaveLength(2);
+  expect(container.querySelectorAll('[data-analysis-chart-body]')).toHaveLength(2);
+  for (const header of container.querySelectorAll('[data-analysis-chart-head] header')) expect(header.className).toContain('pr-12');
+  fireEvent.click(screen.getByRole('button', { name: 'Heat 접기' }));
+  expect(screen.queryByRole('img', { name: 'Heat' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Heat 펼치기' }));
+  expect(await screen.findByRole('img', { name: 'Heat' })).toBeTruthy();
 });

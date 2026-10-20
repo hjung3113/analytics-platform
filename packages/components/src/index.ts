@@ -1,3 +1,4 @@
+export { AnalysisChart, type AnalysisChartProps, type ChartSpec, type HeatmapSpec, type HeatmapCell, type DonutSpec, type DonutSlice } from './AnalysisChart';
 export * from './AnalysisChartFrame';
 export * from './AuditTimeline';
 export { copyText, useCopyLink } from './copyText';
