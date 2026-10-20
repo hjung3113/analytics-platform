@@ -22,7 +22,7 @@
 
 0b. **MARS 이관 웨이브 1 착수(#557, 2026-10-21).** [ADR-0059](../docs/adr/0059-app-injected-equipment-axes-and-condition.md)(#552·#513)로 앱 주입 축·다중축 조건·소속 기준·옵션/Selection 계약부터 정한다. 코드 구현은 후속 PR.
 
-0a. **지금: 보드 첫 사용 다듬기(#526, 슬라이스 17, 2026-10-20 착수).** Sol high UX 리뷰의 BX-1–5와 슬라이스 16 품질 리뷰 후속을 네 이슈로 나눴다. 사용자 결정(2026-10-20): BX-2는 보드에서 새 칸 상세가 이전 칸 상세를 닫는다, BX-3은 우선순위 시안 비교 뒤 결정, BX-5·BX-1·BX-3 시안은 실제 앱 `?variant=`.
+0a. **보드 첫 사용 다듬기(#526, 슬라이스 17) — 이슈 네 개 완료(2026-10-21).** Sol high UX 리뷰의 BX-1–5와 슬라이스 16 품질 리뷰 후속을 네 이슈로 나눴다. 사용자 결정(2026-10-20): BX-2는 보드에서 새 칸 상세가 이전 칸 상세를 닫는다, BX-3은 우선순위 시안 비교 뒤 결정, BX-5·BX-1·BX-3 시안은 실제 앱 `?variant=`.
 
    - [#533](https://github.com/hjung3113/analytics-platform/issues/533) 실행 취소 토스트 Enter 두 번 실행(BX-4) — 완료.
 
@@ -30,7 +30,7 @@
 
    - [#535](https://github.com/hjung3113/analytics-platform/issues/535) 다른 칸 상세가 열리면 이전 칸 상세를 닫음(BX-2) — 완료(`useDetailPanelSlot` `onSuperseded`, 06 §13·ADR-0047 보충).
 
-   - [#536](https://github.com/hjung3113/analytics-platform/issues/536) 2×2 칸 높이·빈 화면 안내·좁은 폭 차이 칩(BX-5·BX-1·BX-3) — 빈 화면(C + A 안내)·차이 칩(A) 완료(사용자 2026-10-21). 칸 높이(BX-5)는 2차 시안 D(경계선·열별 행 비율·접기·최대화·저장) 확정(사용자 2026-10-21, [ADR-0060](../docs/adr/0060-analysis-board-pane-sizing-collapse-maximize.md)). 작업자 구현·패키지 검사 완료, 호스트 브라우저·E2E·전체 검증 대기.
+   - [#536](https://github.com/hjung3113/analytics-platform/issues/536) 2×2 칸 높이·빈 화면 안내·좁은 폭 차이 칩(BX-5·BX-1·BX-3) — 빈 화면(C + A 안내)·차이 칩(A) 완료(사용자 2026-10-21). 칸 높이(BX-5)는 2차 시안 D(경계선·열별 행 비율·접기·최대화·저장) 확정(사용자 2026-10-21, [ADR-0060](../docs/adr/0060-analysis-board-pane-sizing-collapse-maximize.md)). 구현 완료(쌓기 칸 최소 400px, 콘덕터 결정). #536 완료.
 
 0. **분석 보드 1차(#421, 사용자 2026-10-19).** 설계 질의로 1차 동작을 정했다([16](../docs/16_analysis_board.md), [ADR-0049](../docs/adr/0049-analysis-context-belongs-to-a-pane.md)). 사례 조사([분석 보드 화면 패턴](../docs/research/2026-10-19-analysis-board-patterns.md))와 시안 3안 UX 리뷰로 칸 머리·선택 표시를 정했다([ADR-0051](../docs/adr/0051-analysis-board-pane-header-signal-chips-numbered-selection.md)). #496 Kernel 칸 Context, #497 보드 화면(골격·칸 머리·동작), #498 메뉴 보드 지원·E2E를 완료해 분석 보드 1차 구현을 마쳤다(v0.14.0).
 
