@@ -1,13 +1,13 @@
 import { useEffect, useRef } from 'react';
 import * as echarts from 'echarts/core';
-import { BarChart, LineChart, PieChart, ScatterChart } from 'echarts/charts';
+import { BarChart, BoxplotChart, LineChart, PieChart, ScatterChart } from 'echarts/charts';
 import { BrushComponent, DataZoomComponent, GridComponent, MarkAreaComponent, MarkLineComponent, ToolboxComponent, TooltipComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { cn, prefersReducedMotion } from '@ap/ui';
 import { baseTextStyle, type EChartProps } from './EChart';
 
-echarts.use([LineChart, BarChart, PieChart, ScatterChart, GridComponent, TooltipComponent, DataZoomComponent, BrushComponent, ToolboxComponent, MarkAreaComponent, MarkLineComponent, CanvasRenderer]);
+echarts.use([LineChart, BarChart, BoxplotChart, PieChart, ScatterChart, GridComponent, TooltipComponent, DataZoomComponent, BrushComponent, ToolboxComponent, MarkAreaComponent, MarkLineComponent, CanvasRenderer]);
 
 /** One option node: a global `animation` flag plus a series array or a single series object. */
 type AnimationOption = { animation?: boolean; series?: unknown };

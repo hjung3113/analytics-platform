@@ -28,6 +28,7 @@
 | 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
 | --- | --- | --- | --- |
 | 다음 SDK 태그 | components | AnalysisChart·ChartSpec 추가 | 없음 — 추가만 |
+| 다음 SDK 태그 | components | ChartSpec에 scatter·boxPlot·pareto 추가 | 없음 — 추가만 |
 | 다음 SDK 태그 | ui | `useDetailPanelSlot(options?)` — 선택 옵션 `onSuperseded` 추가(하위 호환) | 없음 |
 | 다음 SDK 태그 | kernel | `dropResetKeys` 제거 예고 | `withPaneContext` |
 | 다음 SDK 태그 | ui | `THEME_COLOR_TOKENS`·`ThemeColorToken`에 차트 역할 25개 추가(`chart-series-*`·`chart-heat-*`·`chart-status-*`·`chart-no-data*`·`chart-selection-outline`·`chart-median-on-fill`, #544) | 없음 — 추가만, 기존 이름 그대로 |

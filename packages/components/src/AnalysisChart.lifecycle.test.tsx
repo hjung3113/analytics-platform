@@ -93,3 +93,36 @@ it('keeps the option unchanged during a drag and commits only the final selectio
   act(() => props.onEvents?.brushEnd?.({}, instance as never));
   expect(props.option).toBe(committed);
 });
+
+function mountScatter() {
+  window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+  const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: 'overview', label: { ko: 'G', en: 'G' }, icon: House, space: 'analytics' }], menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: false, compare: false, annotate: false, savedView: false }, pageKeys: [] }] });
+  const session = testSession(['platform:view']);
+  render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session })}>
+    <AnalysisChart chartId="test" title="Chart" unit="ea" spec={{ kind: 'scatter', xUnit: 's', xLabel: 'X', yLabel: 'Y', points: [{ id: 'a', group: 'A', x: 1, y: 2 }, { id: 'null', group: 'A', x: null, y: 4 }, { id: 'b', group: 'B', x: 3, y: 4 }] }} />
+  </PlatformProvider></I18nProvider>);
+}
+it('restores scatter rectangle cursor after lazy readiness, replacement and repeated grouped drags', async () => {
+  mountScatter(); await screen.findByRole('img');
+  fireEvent.click(screen.getByRole('button', { name: '끌어서 선택' }));
+  await waitFor(() => expect(armed).toBe(true));
+  const before = props.option;
+  act(() => selected([0]));
+  expect(props.option).toBe(before);
+  expect(screen.getByRole('region', { name: '선택 요약' })).toHaveTextContent('선택 없음');
+  act(() => props.onEvents?.brushEnd?.({}, instance as never));
+  expect(armed).toBe(true);
+  expect(screen.getByRole('region', { name: '선택 요약' })).toHaveTextContent('a · 1개 선택');
+  const committed = props.option;
+  act(() => props.onEvents?.brushselected?.({ batch: [{ selected: [{ seriesIndex: 0, dataIndex: [0] }, { seriesIndex: 1, dataIndex: [0] }] }] }, instance as never));
+  expect(props.option).toBe(committed);
+  act(() => props.onEvents?.brushEnd?.({}, instance as never));
+  expect(armed).toBe(true);
+  expect(screen.getByRole('region', { name: '선택 요약' })).toHaveTextContent('2개 선택');
+  const final = props.option;
+  act(() => props.onEvents?.brushselected?.({ batch: [{ selected: [{ seriesIndex: 1, dataIndex: [0] }, { seriesIndex: 0, dataIndex: [0] }] }] }, instance as never));
+  act(() => props.onEvents?.brushEnd?.({}, instance as never));
+  expect(props.option).toBe(final);
+  act(() => instance.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: false } }));
+  expect(armed).toBe(false);
+});
