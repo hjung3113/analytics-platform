@@ -4,7 +4,7 @@ import { use, createContext, useCallback, useContext, useEffect, useLayoutEffect
 import { createPaletteFocus, useFocusGate, type PaletteSession } from './paletteFocus';
 import { createPageNavigation, type PageFocus, type PageNavigation } from './pageNavigation';
 import { classifyMetricInit, type MetricInit } from './metric-init';
-import { CONTEXT_LABELS, pathFor, type MenuEntry, type Registry } from './registry';
+import { CONTEXT_LABELS, isBoardPath, pathFor, type MenuEntry, type Registry } from './registry';
 import { useI18n } from './i18n';
 import { createRefreshEpochs, type RefreshEpochs } from './refresh-epochs';
 import { buildQuery, ContractError, emptyGlobal, type ContextKey, type GlobalContext, incompleteMetricPair, type ModuleScopedId, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent } from '@ap/contracts';
@@ -54,6 +54,11 @@ type Platform = {
   url: string;
   pathname: string;
   route: { menu: MenuEntry; params: Record<string, string> } | null;
+  /**
+   * The platform-owned screen the main screen shows instead of a Registry route (`'board'` on `/board`, docs/16 §7), else null.
+   * On it `route` and `contractError` are null, the main Context is empty, and nothing is recorded as a visit, a resume URL or a menu usage event. Read-only; always null in a pane.
+   */
+  platformScreen: 'board' | null;
   contractError: ContractError | null;
   metricInit: MetricInit;
   global: GlobalContext;
@@ -189,7 +194,7 @@ function readSpaceLast(userId: string): Record<string, string> {
 }
 
 /** A path segment that is `.` or `..` after one decode (`%2e`, `%2E`, `.%2e`, and the literal forms). */
-function hasDotSegment(pathname: string): boolean {
+export function hasDotSegment(pathname: string): boolean {
   for (const segment of pathname.split('/')) {
     if (segment === '') continue;
     let decoded: string;
@@ -223,7 +228,7 @@ function counterStore(adapter: PlatformAdapter) {
 let fallbackUsageSession: string | null = null;
 
 /** Fields of the screen state: what a menu page reads about the screen it is shown on (the main screen or one board pane). */
-type ScreenFields = 'url' | 'pathname' | 'route' | 'contractError' | 'metricInit' | 'global' | 'page' | 'extras' | 'pageParam' | 'pageNavigation' | 'navigate' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'reportError' | 'returnTarget' | 'returnOrigin' | 'scope' | 'retryScope' | 'currentSpace';
+type ScreenFields = 'url' | 'pathname' | 'route' | 'platformScreen' | 'contractError' | 'metricInit' | 'global' | 'page' | 'extras' | 'pageParam' | 'pageNavigation' | 'navigate' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'reportError' | 'returnTarget' | 'returnOrigin' | 'scope' | 'retryScope' | 'currentSpace';
 /** Shell navigation state that always follows the main screen, even when read from inside a pane (ADR-0049). */
 type MainBoundFields = 'visibleMenus' | 'sidebarSpace' | 'spaceResume' | 'spaceEntry' | 'switchSpace';
 type ScreenState = Pick<Platform, ScreenFields | 'screenMode' | 'paneId'>;
@@ -264,6 +269,8 @@ type ScreenSource = {
   sidebarSpace?: SpaceDef | null;
   /** Main only: remember a Scope the server confirmed. */
   onScopeValid?: (scopeId: string) => void;
+  /** False for a second reader of a pane that another provider already counts (the board's Context bar): it sends no usage events. */
+  countsUsage?: boolean;
 };
 
 function makeStayId(): string {
@@ -287,13 +294,16 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
   const search = url.includes('?') ? url.slice(url.indexOf('?')) : '';
   const outsideDeployment = url === '';
 
-  const route = useMemo(() => outsideDeployment ? null : matchRoute(pathname), [matchRoute, pathname, outsideDeployment]);
+  const platformScreen = mode === 'main' && !outsideDeployment && isBoardPath(pathname) ? 'board' : null;
+  const route = useMemo(() => outsideDeployment || platformScreen !== null ? null : matchRoute(pathname), [matchRoute, pathname, outsideDeployment, platformScreen]);
   const { parsed, contractError } = useMemo((): { parsed: ParsedQuery | null; contractError: ContractError | null } => {
+    // The board owns its own query (`?sheet=`), not the Context codec: the main Context there is empty.
+    if (platformScreen !== null) return { parsed: null, contractError: null };
     try { return { parsed: parseQuery(search, route?.menu.pageKeys ?? []), contractError: null }; } catch (e) {
       if (e instanceof ContractError) return { parsed: null, contractError: e };
       throw e;
     }
-  }, [search, route]);
+  }, [search, route, platformScreen]);
   const global = parsed?.global ?? emptyGlobal;
   const pairError = contractError ? null : incompleteMetricPair(route?.menu ?? null, global.metricId, global.metricVersion);
   const routeContractError = contractError ?? pairError;
@@ -433,8 +443,10 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
   }, [route, routeContractError, global, metricInit, page, extras, pathname, url, commit, defaultRangeTo]);
 
   useLayoutEffect(() => {
+    // A platform screen takes its own arrival focus; "no route" must not cancel the request for it.
+    if (platformScreen !== null) return;
     if (!route || routeContractError || !can(route.menu.permission) || !enters(route.menu) || metricInit.phase === 'blocked') pageNavigation.cancel();
-  }, [route, routeContractError, can, enters, metricInit.phase, pageNavigation]);
+  }, [route, routeContractError, can, enters, metricInit.phase, pageNavigation, platformScreen]);
 
   // Usage events (docs/05 메뉴 활용률 계측): one `entry` per admitted stay and a `dwell` on leave, sent
   // fire-and-forget through the adapter — no await, no abort signal, failures are silent, navigation never
@@ -444,8 +456,9 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
   // default-period replace) never re-admit. `path` is the manifest route pattern, never the concrete pathname,
   // search or Context values. A pane's events carry `source: 'board'` and one opaque `stayId` per stay (ADR-0049).
   const lastAdmitted = useRef<string | null>(null);
+  const countsUsage = source.countsUsage !== false;
   useEffect(() => {
-    if (!route || routeContractError || !can(route.menu.permission) || !enters(route.menu)) return;
+    if (!countsUsage || !route || routeContractError || !can(route.menu.permission) || !enters(route.menu)) return;
     const admitKey = `${userId}\0${paneId ?? ''}\0${route.menu.id}\0${pathname}`;
     if (lastAdmitted.current === admitKey) return;
     lastAdmitted.current = admitKey;
@@ -484,7 +497,7 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
       lastAdmitted.current = null;
       sendDwell();
     };
-  }, [route, routeContractError, pathname, userId, can, enters, registry, adapter, usageSessionId, userIdRef, paneId, mode]);
+  }, [countsUsage, route, routeContractError, pathname, userId, can, enters, registry, adapter, usageSessionId, userIdRef, paneId, mode]);
 
   const pageParam = useCallback((key: string) => page.find(([k]) => k === key)?.[1] ?? null, [page]);
   const resolveReturnOrigin = useCallback((): ReturnOrigin => {
@@ -538,7 +551,7 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
   }, [adapter, registry, route, pageNavigation]);
 
   const screen: ScreenState = {
-    url, pathname, route, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
+    url, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
     currentSpace, scope: scopeView, retryScope, screenMode: mode, paneId,
   };
   return { screen, sidebarSpace };
@@ -788,8 +801,10 @@ export type PaneScreen = { menuId: string; params: Record<string, string>; query
  * apply `next` later and its identity may change every render. Navigation (`navigate`, `PlatformLink`, return links) to another
  * menu with `features.board` that the user can open is `onChange(..., 'push')`; any other destination is `onLeave(href)`.
  */
-export function PaneScreenProvider({ paneId, screen, onChange, onLeave, children }: {
-  paneId: string; screen: PaneScreen; onChange: (next: PaneScreen, how: 'push' | 'replace') => void; onLeave: (href: string) => void; children: ReactNode;
+export function PaneScreenProvider({ paneId, screen, onChange, onLeave, countUsage = true, children }: {
+  paneId: string; screen: PaneScreen; onChange: (next: PaneScreen, how: 'push' | 'replace') => void; onLeave: (href: string) => void;
+  /** Default true. The board's Context bar mounts a second, controlled provider for the selected pane; it passes false so that stay is counted once. */
+  countUsage?: boolean; children: ReactNode;
 }) {
   const app = useContext(AppContext);
   const main = useContext(MainBoundContext);
@@ -830,7 +845,7 @@ export function PaneScreenProvider({ paneId, screen, onChange, onLeave, children
     return true;
   }, [navigation, url, commit, matchRoute, canOpen]);
 
-  const source: ScreenSource = { mode: 'pane', paneId, url, navigation, commit, go, sidebarSpace: main.sidebarSpace };
+  const source: ScreenSource = { mode: 'pane', paneId, url, navigation, commit, go, sidebarSpace: main.sidebarSpace, countsUsage: countUsage };
   const state = useScreenState(app, source);
   return <PaneScreenContext.Provider value={state.screen}>{children}</PaneScreenContext.Provider>;
 }

@@ -17,8 +17,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 function ShellLayout({ children }: { children: ReactNode }) {
   const detail = useDetailPanelSlotHost();
   const { lang, t } = useI18n();
-  const { route, registry, sidebarSpace } = usePlatform();
-  const globalScreen = route !== null && registry.spaceOf(route.menu) === null;
+  const { route, registry, sidebarSpace, platformScreen } = usePlatform();
+  // The board is a platform screen like the home and global utilities: no business-system sidebar (docs/16 §4).
+  const globalScreen = platformScreen === 'board' || (route !== null && registry.spaceOf(route.menu) === null);
   const showSidebar = sidebarSpace !== null && !globalScreen;
   const [collapsed, setCollapsed] = useState(() => {
     try { const v = localStorage.getItem(COLLAPSE_KEY); return v === null ? window.innerWidth < 1440 : v === '1'; } catch { return false; }

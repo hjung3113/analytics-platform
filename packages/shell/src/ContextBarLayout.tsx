@@ -36,10 +36,13 @@ export function useContextEditorFocusRecovery() {
 type Control = { key: ContextKey; applied: boolean; node: ReactNode; compactNode?: ReactNode };
 type Measurements = { width: number; controls: number[]; period: number; actions: number; icons: number; label: number; overflow: number[] };
 
-export function ContextBarLayout({ controls, revision, actions }: {
+export function ContextBarLayout({ controls, revision, actions, barName }: {
   controls: Control[]; revision: string; actions: (compact: boolean) => ReactNode;
+  /** The analysis board names the bar after the pane it edits: visible text and the region's accessible name (docs/16 §4). */
+  barName?: { visible: string; region: string };
 }) {
   const { t, lang } = useI18n();
+  const barLabel = barName?.visible ?? t('globalContext');
   const host = useRef<HTMLDivElement>(null);
   const probe = useRef<HTMLDivElement>(null);
   const [drafts, setDrafts] = useState<Drafts>({});
@@ -134,11 +137,11 @@ export function ContextBarLayout({ controls, revision, actions }: {
       {compactPeriod ? control.compactNode ?? control.node : control.node}
     </div>
   </EditorState.Provider>;
-  return <div ref={host} tabIndex={-1} role="region" aria-label={t('globalContext')} className="relative h-12 min-w-0 border-b border-border-subtle bg-surface-canvas/95 px-3 backdrop-blur">
+  return <div ref={host} tabIndex={-1} role="region" aria-label={barName?.region ?? barLabel} className="relative h-12 min-w-0 border-b border-border-subtle bg-surface-canvas/95 px-3 backdrop-blur">
     <div inert aria-hidden className="pointer-events-none invisible absolute inset-0 overflow-hidden">
     <div ref={probe} data-context-measuring className="flex w-max items-center gap-2 whitespace-nowrap">
       <MeasuringContext.Provider value>
-        <span data-measure="label" className="text-tiny font-semibold uppercase tracking-wide text-text-muted">{t('globalContext')}</span>
+        <span data-measure="label" className="text-tiny font-semibold uppercase tracking-wide text-text-muted">{barLabel}</span>
         {controls.map(control => <div key={control.key} data-measure-key={control.key}>{control.node}</div>)}
         {period && <div data-measure="period">{period.compactNode ?? period.node}</div>}
         <div data-measure="actions">{actions(false)}</div><div data-measure="icons">{actions(true)}</div>
@@ -149,7 +152,7 @@ export function ContextBarLayout({ controls, revision, actions }: {
       </MeasuringContext.Provider>
     </div></div>
     <div className="flex h-full min-w-0 items-center gap-2 whitespace-nowrap">
-      {labelVisible && <span className="shrink-0 text-tiny font-semibold uppercase tracking-wide text-text-muted">{t('globalContext')}</span>}
+      {labelVisible && <span className="shrink-0 text-tiny font-semibold uppercase tracking-wide text-text-muted">{barLabel}</span>}
       {period && item(period, compact)}
       {others.slice(0, inlineCount).map(control => item(control))}
       {hidden.length > 0 && <Popover open={overflowOpen || activeHidden} onOpenChange={setOverflowOpen}><PopoverTrigger asChild>

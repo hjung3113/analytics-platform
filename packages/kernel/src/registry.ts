@@ -78,6 +78,11 @@ export const isReservedModuleId = (id: string) => RESERVED_MODULE_IDS.has(id);
 const segments = (path: string) => path.split('/').filter(Boolean);
 const isParam = (seg: string) => seg.startsWith(':');
 
+/** The analysis board's reserved path (docs/16 §7). A platform screen, not a Registry route; no menu may take it or live under it. */
+export const BOARD_PATH = '/board';
+/** True for `/board` itself, with or without a trailing slash. Deeper paths are not the board. */
+export const isBoardPath = (pathname: string) => pathname.replace(/\/+$/, '') === BOARD_PATH;
+
 /**
  * Validates the declared IA once and returns the lookup functions the kernel and shell use
  * (docs/integration/platform-packages.md §5). Throws RegistryError on any violation.
@@ -112,6 +117,7 @@ export function createRegistry({ spaces, groups, menus }: { spaces: readonly Spa
   }
   const shapes = new Map<string, string>();
   for (const m of menus) {
+    if (segments(m.path)[0] === BOARD_PATH.slice(1)) fail(`Menu "${m.id}" path "${m.path}" is reserved for the analysis board (${BOARD_PATH})`);
     if (!groupIds.has(m.group)) fail(`Menu "${m.id}" uses undeclared group "${m.group}"`);
     if (m.module === undefined) {
       if (!isPlatformPermission(m.permission)) fail(`Menu "${m.id}" has no module and permission "${m.permission}" is not a platform permission`);

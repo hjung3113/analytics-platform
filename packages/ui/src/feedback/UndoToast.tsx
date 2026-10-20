@@ -28,6 +28,8 @@ export interface UndoToastProps {
   message: string;
   /** Called when the user clicks 실행 취소 or presses Enter on the button. */
   onAction: () => void;
+  /** Action button text. Default `실행 취소`; callers that localize pass their own label. */
+  actionLabel?: string;
   /** Called when the auto-dismiss timer fires or Escape is pressed inside the toast. Optional. */
   onDismiss?: () => void;
   /** Auto-dismiss delay in ms. 0 disables the timer. Default: 4000. Paused while focus/pointer is inside. */
@@ -37,6 +39,7 @@ export interface UndoToastProps {
 
 export function UndoToast({
   message,
+  actionLabel = '실행 취소',
   onAction,
   onDismiss,
   duration = 4000,
@@ -184,7 +187,7 @@ export function UndoToast({
         onClick={onAction}
         onKeyDown={handleKeyDown}
       >
-        실행 취소
+        {actionLabel}
       </Button>
     </div>
   );

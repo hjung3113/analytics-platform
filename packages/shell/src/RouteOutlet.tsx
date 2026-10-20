@@ -7,10 +7,12 @@ import { contextBarVisible } from './GlobalContextBar';
 import { HomeLink } from './HomeLink';
 import { ModuleScreen } from './ModuleScreen';
 import { RouteErrorBoundary } from './RouteErrorBoundary';
+import { BoardScreen } from './board/BoardScreen';
 
-/** The main screen's outlet: `ScreenOutlet` for the URL-bound screen. */
+/** The main screen's outlet: `ScreenOutlet` for the URL-bound screen, or the analysis board where the kernel says `/board` (a platform screen, docs/16). */
 export function RouteOutlet() {
-  return <ScreenOutlet />;
+  const { platformScreen } = usePlatform();
+  return platformScreen === 'board' ? <BoardScreen Outlet={ScreenOutlet} /> : <ScreenOutlet />;
 }
 
 /**

@@ -1,17 +1,21 @@
-import { CircleHelp, ExternalLink, LogOut, Search } from 'lucide-react';
-import { useI18n, usePlatform } from '@ap/kernel';
+import { CircleHelp, ExternalLink, LayoutGrid, LogOut, Search } from 'lucide-react';
+import { BOARD_PATH, useI18n, usePlatform } from '@ap/kernel';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { SystemSwitcher } from './SystemSwitcher';
+import { placeableMenus } from './board/boardMenus';
 import { firstOpenableMenu, useSystemSections } from './systemSections';
 
 /** System switcher, the current system's section buttons and global tools; the app keeps ownership of topBarTools. */
 export function AppRail() {
-  const { slots, user, setPaletteOpen, navigate, linkTo, can } = usePlatform();
+  const { slots, user, setPaletteOpen, navigate, linkTo, can, canOpen, registry, platformScreen } = usePlatform();
   const { t, tx, lang, setLang } = useI18n();
   const languageLabel = lang === 'ko' ? '언어: 한국어 — English로 전환' : 'Language: English — 한국어로 전환';
   const overallLabel = lang === 'ko' ? 'FeedbackOps 전체 — 새 탭' : 'FeedbackOps overall — new tab';
   const systems = useSystemSections();
   const overall = slots.feedbackOps?.overall ?? null;
+  // The board is offered only where something can be placed on it: the same menus the empty pane lists (docs/16 §4).
+  const showBoard = placeableMenus(registry, canOpen).length > 0;
+  const boardLabel = lang === 'ko' ? '분석 보드' : 'Analysis board';
   return <TooltipProvider delayDuration={200}>
     <nav aria-label={lang === 'ko' ? '앱 레일' : 'App rail'} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r border-border-subtle bg-surface-sidebar pb-3">
       <SystemSwitcher />
@@ -36,6 +40,10 @@ export function AppRail() {
         <button type="button" onClick={() => setPaletteOpen(true)} aria-label={t('searchPlaceholder')} aria-haspopup="dialog" aria-keyshortcuts="Meta+K Control+K"
           className="grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover"><Search className="size-4" aria-hidden /></button>
       </TooltipTrigger><TooltipContent side="right">{t('searchPlaceholder')} · {shortcutLabel('K')}</TooltipContent></Tooltip>
+      {showBoard && <Tooltip><TooltipTrigger asChild>
+        <button type="button" onClick={() => { if (platformScreen !== 'board') navigate(BOARD_PATH, { focus: 'page' }); }} aria-label={boardLabel} aria-current={platformScreen === 'board' ? 'page' : undefined}
+          className={cn('grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', platformScreen === 'board' && 'bg-surface-row-selected text-accent-primary')}><LayoutGrid className="size-4" aria-hidden /></button>
+      </TooltipTrigger><TooltipContent side="right">{boardLabel}</TooltipContent></Tooltip>}
       {overall && can(overall.permission) && <Tooltip><TooltipTrigger asChild>
         <a href={overall.href} target="_blank" rel="noopener noreferrer" aria-label={overallLabel}
           className="grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover"><ExternalLink className="size-4" aria-hidden /></a>

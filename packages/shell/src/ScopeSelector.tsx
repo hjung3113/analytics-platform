@@ -3,8 +3,12 @@ import { ChevronDown, Loader2, MapPin, RotateCw, ShieldAlert } from 'lucide-reac
 import { useI18n, usePlatform } from '@ap/kernel';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 
-/** Single requested Scope; validation and retries belong to the Kernel. */
-export function ScopeSelector({ collapsed = false }: { collapsed?: boolean }) {
+/**
+ * Single requested Scope; validation and retries belong to the Kernel. `layout="bar"` is the analysis board's Context bar: it edits the
+ * selected pane's Scope and is the only Scope selector on that screen (06 §7), so it drops the sidebar's frame and status line.
+ */
+export function ScopeSelector({ collapsed = false, layout = 'sidebar' }: { collapsed?: boolean; layout?: 'sidebar' | 'bar' }) {
+  const bar = layout === 'bar';
   const { global, setGlobal, scope, retryScope, session } = usePlatform();
   const { t, lang } = useI18n();
   const current = session.scopes.find(s => s.id === global.scopeId);
@@ -17,7 +21,7 @@ export function ScopeSelector({ collapsed = false }: { collapsed?: boolean }) {
   const trigger = <DropdownMenuTrigger asChild>
     <button type="button" aria-label={`${t('scope')}: ${current?.label ?? global.scopeId ?? t('scopeNone')}`}
       aria-describedby={descriptionId}
-      className="flex min-h-10 w-full items-center gap-2 rounded-md border border-border-control px-2 py-2 text-left text-sm hover:bg-surface-row-hover">
+      className={cn('flex items-center gap-2 rounded-md border border-border-control px-2 text-left text-sm hover:bg-surface-row-hover', bar ? 'h-8 w-52' : 'min-h-10 w-full py-2')}>
       <span className={cn('grid size-5 shrink-0 place-items-center rounded text-xs font-semibold', warn ? 'bg-accent-warn-soft text-text-warning-label' : 'bg-accent-primary-soft text-accent-primary')}>
         {scope.status === 'validating' ? <Loader2 className="size-3 animate-spin" aria-hidden />
           : scope.status === 'none' ? <MapPin className="size-3" aria-hidden />
@@ -25,12 +29,12 @@ export function ScopeSelector({ collapsed = false }: { collapsed?: boolean }) {
       </span>
       <span className={cn('min-w-0 flex-1', collapsed && 'sr-only')}>
         <span className="block truncate font-medium">{name}</span>
-        <span id={descriptionId} className={cn('block truncate text-caption', scope.status === 'none' && 'sr-only', warn ? 'text-text-warning-label' : 'text-text-secondary')}><span role="status" aria-live="polite">{status}</span>{current && ` · room ${current.grantedRooms}/${current.totalRooms}`}</span>
+        <span id={descriptionId} className={cn('block truncate text-caption', (bar || scope.status === 'none') && 'sr-only', warn ? 'text-text-warning-label' : 'text-text-secondary')}><span role="status" aria-live="polite">{status}</span>{current && ` · room ${current.grantedRooms}/${current.totalRooms}`}</span>
       </span>
       {!collapsed && <ChevronDown className="size-3 shrink-0 text-text-muted" aria-hidden />}
     </button>
   </DropdownMenuTrigger>;
-  return <TooltipProvider><div className="shrink-0 border-b border-border-subtle p-2">
+  return <TooltipProvider><div className={bar ? 'shrink-0' : 'shrink-0 border-b border-border-subtle p-2'}>
     <DropdownMenu>
       {collapsed ? <Tooltip><TooltipTrigger asChild>{trigger}</TooltipTrigger><TooltipContent side="right">{name} · {status}{current && ` · room ${current.grantedRooms}/${current.totalRooms}`}</TooltipContent></Tooltip> : trigger}
       <DropdownMenuContent align="start" className="w-72">

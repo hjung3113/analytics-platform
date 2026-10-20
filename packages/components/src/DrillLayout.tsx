@@ -31,8 +31,10 @@ function focusDrillDestination(source: HTMLElement | null) {
 
 const focusRing = 'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring';
 
-function SiblingMenu({ label, value, items, onSwitch }: {
+function SiblingMenu({ label, value, items, onSwitch, scopeRef }: {
   label: string; value: string; items: readonly DrillSibling[]; onSwitch: (value: string) => void;
+  /** The path bar, which stays mounted when this trigger does not; it keeps the lookup inside the owning pane (#497 D1). */
+  scopeRef: { readonly current: HTMLElement | null };
 }) {
   const { lang } = useI18n();
   const ko = lang === 'ko';
@@ -45,7 +47,7 @@ function SiblingMenu({ label, value, items, onSwitch }: {
         <ChevronDown className="size-3.5" aria-hidden />
       </button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent onCloseAutoFocus={event => { if (switched.current) { event.preventDefault(); switched.current = false; focusDrillDestination(trigger.current); } }} align="start" className="w-56">
+    <DropdownMenuContent onCloseAutoFocus={event => { if (switched.current) { event.preventDefault(); switched.current = false; focusDrillDestination(trigger.current ?? scopeRef.current); } }} align="start" className="w-56">
       <DropdownMenuRadioGroup value={value} onValueChange={next => { switched.current = next !== value; onSwitch(next); }}>
         {items.map(item => <DropdownMenuRadioItem key={item.value} value={item.value} className={focusRing}>
           <span className="t-mono">{item.value}</span>
@@ -65,7 +67,7 @@ export function DrillPath({ siblings }: DrillPathProps) {
   const { lang, tx } = useI18n();
   const ko = lang === 'ko';
   const wentUp = useRef(false);
-  const middle = useRef<HTMLButtonElement>(null);
+  const nav = useRef<HTMLElement>(null);
   if (drill.depth === 0) return null;
 
   const collapsed = drill.trail.length === 4;
@@ -83,19 +85,19 @@ export function DrillPath({ siblings }: DrillPathProps) {
         className={cn('rounded-md px-2 py-1', current ? 'bg-accent-primary-soft font-medium text-text-primary' : 'text-text-secondary hover:bg-surface-sunken')}>
         {name}: {step.value}
       </button>
-      {options && options.length > 0 && <SiblingMenu label={name} value={step.value} items={options} onSwitch={value => drill.enter(step.key, value)} />}
+      {options && options.length > 0 && <SiblingMenu label={name} value={step.value} items={options} onSwitch={value => drill.enter(step.key, value)} scopeRef={nav} />}
     </span>;
   };
 
-  return <nav aria-label={ko ? '드릴 경로' : 'Drill path'} className="flex flex-wrap items-center gap-1 text-xs">
+  return <nav ref={nav} aria-label={ko ? '드릴 경로' : 'Drill path'} className="flex flex-wrap items-center gap-1 text-xs">
     <button type="button" onClick={() => drill.goTo(0)} className="rounded-md px-2 py-1 text-text-secondary hover:bg-surface-sunken">{ko ? '전체' : 'All'}</button>
     {hidden.length > 0 && <>
       <ChevronRight className="size-3 text-text-muted" aria-hidden />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button ref={middle} type="button" aria-label={ko ? '가운데 단계' : 'Middle steps'} className="rounded-md px-2 py-1 text-text-secondary hover:bg-surface-sunken">…</button>
+          <button type="button" aria-label={ko ? '가운데 단계' : 'Middle steps'} className="rounded-md px-2 py-1 text-text-secondary hover:bg-surface-sunken">…</button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent onCloseAutoFocus={event => { if (wentUp.current) { event.preventDefault(); wentUp.current = false; focusDrillDestination(middle.current); } }} align="start" className="w-56">
+        <DropdownMenuContent onCloseAutoFocus={event => { if (wentUp.current) { event.preventDefault(); wentUp.current = false; focusDrillDestination(nav.current); } }} align="start" className="w-56">
           {hidden.map((step, index) => <DropdownMenuItem key={step.key} className={focusRing} onSelect={() => { wentUp.current = true; drill.goTo(index + 1); }}>
             {tx(step.label)}: {step.value}
           </DropdownMenuItem>)}
