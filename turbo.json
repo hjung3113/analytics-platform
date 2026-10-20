@@ -6,7 +6,7 @@
     "typecheck": { "dependsOn": ["transit"] },
     "lint": { "dependsOn": ["transit"], "outputs": [] },
     "test": { "dependsOn": ["transit"] },
-    "build": { "dependsOn": ["transit"], "outputs": ["dist/**"] },
+    "build": { "dependsOn": ["transit", "^build"], "outputs": ["dist/**"] },
     "dev": { "cache": false, "persistent": true }
   }
 }

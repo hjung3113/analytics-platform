@@ -306,19 +306,26 @@ const designSystem = ({ componentSource = false } = {}) => ({
   rules: componentSource ? COMPONENT_SOURCE_RULES : DESIGN_SYSTEM_RULES,
 });
 
+// Build output (the SDK release `dist`, ADR-0056) is emitted code with source comments copied in; a config object that holds
+// only `ignores` is global, so no rule and no inline directive of the emitted files is evaluated.
+const BUILD_OUTPUT = { ignores: ['dist/**'] };
+
 /** @type {import('eslint').Linter.Config[]} */
 export const contracts = [
+  BUILD_OUTPUT,
   layerConfig({ restriction: { allow: [], denyReact: true, mockAllowed: false } }),
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
 export const ui = [
+  BUILD_OUTPUT,
   layerConfig({ restriction: { allow: [], denyReact: false, mockAllowed: false } }),
   designSystem({ componentSource: true }),
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
 export const kernel = [
+  BUILD_OUTPUT,
   layerConfig({ restriction: { allow: ['contracts'], denyReact: false, mockAllowed: false } }),
 ];
 
@@ -328,6 +335,7 @@ const SHELL_RESTRICTION = { allow: ['contracts', 'kernel', 'ui', 'components'], 
 
 /** @type {import('eslint').Linter.Config[]} */
 export const components = [
+  BUILD_OUTPUT,
   layerConfig({ restriction: COMPONENTS_RESTRICTION }),
   testEntryOverride(COMPONENTS_RESTRICTION),
   // Shared components are assembled from ui primitives (06 §13) and may not restyle them; their own markup is not a
@@ -337,6 +345,7 @@ export const components = [
 
 /** @type {import('eslint').Linter.Config[]} */
 export const shell = [
+  BUILD_OUTPUT,
   layerConfig({
     restriction: SHELL_RESTRICTION,
     extraRules: { 'ap/no-shell-id-literal-comparison': 'error' },

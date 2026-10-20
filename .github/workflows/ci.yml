@@ -135,6 +135,12 @@ jobs:
       - run: pnpm build
       # #430: verify the packed contracts package in an external consumer.
       - run: pnpm --filter @ap/contracts check:pack
+      # #519 (ADR-0056): the five release tarballs, then a clean outside consumer installs them (install, tsc, vite build, CSS classes, vitest).
+      - name: SDK release tarballs and outside consumer
+        run: |
+          out="$(mktemp -d)"
+          pnpm sdk:pack --out "$out"
+          pnpm sdk:consumer-check "$out"
       # #153 (ADR-0009): the production module graph (assembly external) carries no mock-server, menu mock or src/dev
       - run: pnpm --filter @ap/platform-web check:prod-graph
       # The checks must still bite (#153 review P3-1): the assembly forced to the mock must fail both the CI graph

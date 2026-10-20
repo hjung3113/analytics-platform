@@ -17,6 +17,7 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json && node ../../tooling/scripts/sdk-finalize-dist.mjs",
     "test": "vitest run",
     "gen:theme": "node scripts/gen-theme-tokens.mjs"
   },
