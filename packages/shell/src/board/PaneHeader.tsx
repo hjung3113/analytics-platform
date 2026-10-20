@@ -2,7 +2,7 @@ import { CornerUpLeft, MoreHorizontal } from 'lucide-react';
 import { useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { RETURN_CONTEXT_LABELS, useI18n } from '@ap/kernel';
 import {
-  Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+  Button, buttonVariants, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
   Popover, PopoverAnchor, PopoverContent,
 } from '@ap/ui';
 import { PANE_CHIP } from '../contextChip';
@@ -18,29 +18,35 @@ const CHIP_GAP = 4;
 
 /**
  * How many difference chips fit in the head. Fixed groups and the menu name get their minimum width first; same conditions fold into
- * the overflow count whenever a difference is hidden. Measurements happen after layout, and a zero-width first paint shows all chips.
+ * the overflow count whenever the full row does not fit. Measurements happen after layout, and a zero-width first paint shows all chips.
  */
-function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, signature: string, sameCount: number): number {
-  const [visible, setVisible] = useState(count);
+function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, signature: string, sameCount: number) {
+  const [layout, setLayout] = useState({ visible: count, overflow: false });
   useLayoutEffect(() => {
     const element = head.current;
     if (!element) return;
     const measure = () => {
       const width = element.getBoundingClientRect().width;
-      if (width <= 0 || count === 0) { setVisible(count); return; }
+      if (width <= 0 || count === 0) { setLayout({ visible: count, overflow: false }); return; }
       const widthOf = (selector: string) => Array.from(element.querySelectorAll<HTMLElement>(selector)).map(item => item.getBoundingClientRect().width);
       const fixed = widthOf('[data-head-fixed]').reduce((sum, w) => sum + w, 0);
       const chips = widthOf('[data-chip-measure="chip"]');
       const [more = 0] = widthOf('[data-chip-measure="more"]');
+      const [same = 0] = widthOf('[data-chip-measure="same"]');
       const available = width - HEAD_PADDING - fixed - MENU_NAME_MIN_WIDTH - HEAD_GAP * (count > 0 ? 3 : 2);
+      const allChips = chips.reduce((sum, w) => sum + w, 0) + CHIP_GAP * Math.max(0, count - 1);
+      if (allChips + (sameCount > 0 ? same + HEAD_GAP : 0) <= available) {
+        setLayout({ visible: count, overflow: false });
+        return;
+      }
       let fit = 0;
-      for (let k = count; k >= 0; k--) {
+      for (let k = sameCount > 0 ? count : count - 1; k >= 0; k--) {
         const used = chips.slice(0, k).reduce((sum, w) => sum + w, 0)
           + CHIP_GAP * Math.max(0, k - 1)
-          + (k < count ? more + (k > 0 ? CHIP_GAP : 0) : 0);
+          + more + (k > 0 ? CHIP_GAP : 0);
         if (used <= available) { fit = k; break; }
       }
-      setVisible(fit);
+      setLayout({ visible: fit, overflow: true });
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
@@ -49,7 +55,7 @@ function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, 
     for (const target of [element, ...element.querySelectorAll('[data-head-fixed], [data-chip-measure]')]) observer.observe(target);
     return () => observer.disconnect();
   }, [head, count, signature, sameCount]);
-  return Math.min(visible, count);
+  return { visible: Math.min(layout.visible, count), overflow: count > 0 && layout.overflow };
 }
 
 export type PaneHeaderProps = {
@@ -83,7 +89,7 @@ export type PaneHeaderProps = {
 
 /**
  * The pane head (docs/16 §4, ADR-0051), one line: number badge · system chip · menu name · difference chips · same-condition summary · actions.
- * Differing chips get space before the same-condition summary; any hidden difference folds the summary into +N and opens the full popover.
+ * Differing chips get space before the same-condition summary; a row that does not fit folds the summary into +N and opens the full popover.
  * Any control selects the pane first
  * (the pane root also does, on focus and press).
  */
@@ -98,10 +104,10 @@ export function PaneHeader(props: PaneHeaderProps) {
   const [popover, setPopover] = useState(false);
   const chips = signal?.compared ? signal.differing : [];
   const signature = chips.map(c => `${c.key}:${c.value}`).join('|');
-  const visibleCount = useVisibleChips(head, chips.length, signature, signal?.compared ? signal.same.length : 0);
+  const { visible: visibleCount, overflow } = useVisibleChips(head, chips.length, signature, signal?.compared ? signal.same.length : 0);
   const shown = chips.slice(0, visibleCount);
   const hiddenDifferences = chips.length - shown.length;
-  const hidden = hiddenDifferences > 0 ? hiddenDifferences + (signal?.compared ? signal.same.length : 0) : 0;
+  const hidden = overflow ? hiddenDifferences + (signal?.compared ? signal.same.length : 0) : 0;
   const sameCount = signal ? (signal.compared ? signal.same.length : signal.rows.length) : 0;
   const label = (key: (typeof chips)[number]['key']) => tx(RETURN_CONTEXT_LABELS[key]);
   const chipText = (chip: (typeof chips)[number]) => `${label(chip.key)} ${chip.value ?? text.unsetValue}`;
@@ -125,6 +131,9 @@ export function PaneHeader(props: PaneHeaderProps) {
       {chips.length > 0 && <div aria-hidden inert className="pointer-events-none invisible absolute left-0 top-0 flex gap-1">
         {chips.map(chip => <span key={chip.key} data-chip-measure="chip" className={PANE_CHIP}>{chipText(chip)}</span>)}
         <span data-chip-measure="more" className={PANE_CHIP}>{text.contextMore(chips.length + (signal?.compared ? sameCount : 0))}</span>
+        {active && sameCount > 0 && <span className={buttonVariants({ variant: 'ghost', size: 'toolbar' })} data-chip-measure="same">
+          {text.contextSame(sameCount)}
+        </span>}
       </div>}
       {active && signal && sameCount > 0 && hidden === 0 && <Button type="button" variant="ghost" size="toolbar" aria-haspopup="dialog" aria-expanded={popover}
         aria-label={signal.compared ? text.contextSameName(number, sameCount) : text.contextCountName(number, sameCount)} onClick={open}>

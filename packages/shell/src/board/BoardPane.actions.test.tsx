@@ -108,6 +108,38 @@ describe('pane header signals (ADR-0051)', () => {
     expect(within(paneGroup(1)).getByRole('button', { name: '칸 1의 같은 조건 1개' })).toHaveTextContent('같음 1');
   });
 
+  it.each([
+    { width: 512, shown: 1, hidden: 2 },
+    { width: 560, shown: 2, hidden: 1 },
+    { width: 567, shown: 2, hidden: 1 },
+    { width: 568, shown: 2, hidden: 0 },
+    { width: 600, shown: 2, hidden: 0 },
+  ])('fits the complete header at $width px, preserving actions and folding same conditions only as needed', async ({ width: headWidth, shown, hidden }) => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [pane('?scopeId=S1&' + w1 + '&roomNames=R1'), pane('?scopeId=S1&' + w2 + '&roomNames=R2')] })]));
+    // Full row: 16 padding + 100 badge/system + 96 menu + 244 chips + 48 summary + 32 actions + 32 gaps = 568.
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const width = this.hasAttribute('data-pane-head') ? headWidth
+        : this.dataset.headFixed === 'actions' ? 32
+          : this.hasAttribute('data-head-fixed') ? 100
+            : this.dataset.chipMeasure === 'chip' ? 120
+              : this.dataset.chipMeasure === 'same' ? 48
+                : this.dataset.chipMeasure === 'more' ? 44 : 0;
+      return { width, height: 0, top: 0, left: 0, right: width, bottom: 0, x: 0, y: 0, toJSON: () => ({}) };
+    });
+    mount();
+    await settle();
+    const header = paneGroup(1).querySelector<HTMLElement>('[data-pane-head]')!;
+    expect(header.querySelectorAll('[data-pane-chip]:not([data-pane-chip="more"])')).toHaveLength(shown);
+    expect(within(header).getByRole('button', { name: '칸 1 동작' })).toBeVisible();
+    if (hidden > 0) {
+      expect(within(header).queryByRole('button', { name: /같은 조건/ })).toBeNull();
+      expect(within(header).getByRole('button', { name: `칸 1의 조건 ${hidden}개 더 보기` })).toHaveTextContent(`+${hidden}`);
+    } else {
+      expect(within(header).getByRole('button', { name: '칸 1의 같은 조건 1개' })).toHaveTextContent('같음 1');
+      expect(within(header).queryByRole('button', { name: /더 보기/ })).toBeNull();
+    }
+  });
+
   it('folds 같음 into +N when differing chips do not all fit, and the popover still lists every condition', async () => {
     seed(boardOf([sheet('a', { layout: '1x2', panes: [pane('?scopeId=S1&' + w1 + '&roomNames=R1&lotIds=L1'), pane('?scopeId=S1&' + w2 + '&roomNames=R2&lotIds=L2')] })]));
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
