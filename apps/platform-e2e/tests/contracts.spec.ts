@@ -178,13 +178,18 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
   async function signInWithBoard(page: Page, role: BoardTestRole, board: BoardSeed) {
     await signInAs(page, role);
     await page.addInitScript(({ role: boardRole, value }) => {
+      const seeded = `platform:board-fixture-seeded:${boardRole}`;
+      if (sessionStorage.getItem(seeded)) return;
       localStorage.setItem(`platform:board:${boardRole}`, JSON.stringify(value));
+      sessionStorage.setItem(seeded, '1');
     }, { role, value: board });
   }
 
   const boardPane = (page: Page, number: number) => page.getByRole('group', { name: `칸 ${number}` });
   const boardPaneHead = (page: Page, number: number) => boardPane(page, number).locator('[data-pane-head]');
   const boardContext = (page: Page, number: number) => page.getByRole('region', { name: `칸 ${number} · 분석 Context` });
+  const productivityBody = (page: Page, number: number) => boardPane(page, number).getByRole('region', { name: '점유 구성 — room_name', exact: true });
+  const cycleTimeBody = (page: Page, number: number) => boardPane(page, number).getByRole('region', { name: '사이클타임 추세', exact: true });
 
   async function boardPeriodPreset(page: Page, number: number, name: string) {
     const context = boardContext(page, number);
@@ -238,6 +243,7 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
 
   test('일괄 적용: 모든 칸이 같은 조건이 되고 실행 취소가 차이 칩을 복원한다', async ({ page }, testInfo) => {
     const paneQuery = `v=1&scopeId=MEM&${PERIOD}`;
+    const sourcePeriod = '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00';
     await signInWithBoard(page, 'engineer', boardOf(boardSheet('apply', '적용', '1x2', [
       boardScreen(`${paneQuery}&roomNames=PHOTO`), boardScreen(`${paneQuery}&roomNames=ETCH`),
     ])));
@@ -254,6 +260,13 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     await expect(first.getByText('room_name PHOTO', { exact: true }).filter({ visible: true })).toHaveCount(0);
     await expect(second.getByText('room_name ETCH', { exact: true }).filter({ visible: true })).toHaveCount(0);
 
+    await first.getByRole('button', { name: '칸 1 선택' }).click();
+    await expect(boardContext(page, 1).getByRole('button', { name: sourcePeriod, exact: true })).toBeVisible();
+    await expect(boardContext(page, 1).getByRole('button', { name: 'room_name PHOTO', exact: true })).toBeVisible();
+    await second.getByRole('button', { name: '칸 2 선택' }).click();
+    await expect(boardContext(page, 2).getByRole('button', { name: sourcePeriod, exact: true })).toBeVisible();
+    await expect(boardContext(page, 2).getByRole('button', { name: 'room_name PHOTO', exact: true })).toBeVisible();
+
     await page.getByRole('button', { name: '실행 취소' }).click();
     await expect(first.getByText('room_name PHOTO', { exact: true }).filter({ visible: true })).toBeVisible();
     await expect(second.getByText('room_name ETCH', { exact: true }).filter({ visible: true })).toBeVisible();
@@ -269,13 +282,20 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     await page.getByRole('tab', { name: '비교' }).click();
     await expect.poll(() => query(page).get('sheet')).toBe('sheet-two');
     await expect(boardPaneHead(page, 1)).toContainText('사이클타임 상세');
+    await expect(cycleTimeBody(page, 1)).toBeVisible();
+    await boardPeriodPreset(page, 1, '7일');
+    const changedPeriod = '기간: 2026-09-19T09:00:00 – 2026-09-26T09:00:00';
+    await expect(boardContext(page, 1).getByRole('button', { name: changedPeriod, exact: true })).toBeVisible();
 
     await page.reload();
     await expect.poll(() => query(page).get('sheet')).toBe('sheet-two');
     await expect(boardPaneHead(page, 1)).toContainText('사이클타임 상세');
+    await expect(cycleTimeBody(page, 1)).toBeVisible();
+    await expect(boardContext(page, 1).getByRole('button', { name: changedPeriod, exact: true })).toBeVisible();
     await page.goBack();
     await expect.poll(() => query(page).get('sheet')).toBe('sheet-one');
     await expect(boardPaneHead(page, 1)).toContainText('생산성 개요');
+    await expect(productivityBody(page, 1)).toBeVisible();
     await evidence(page, testInfo, 'board-sheet-reload-history');
   });
 
@@ -289,6 +309,7 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     await expect(unavailable.getByText('더는 보드에서 열 수 없는 화면')).toBeVisible();
     await expect(unavailable.getByRole('button', { name: '비우기' })).toBeVisible();
     await expect(boardPaneHead(page, 2)).toContainText('생산성 개요');
+    await expect(productivityBody(page, 2)).toBeVisible();
     await evidence(page, testInfo, 'board-unavailable-pane');
   });
 
@@ -319,6 +340,7 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     expect(query(page).get('sheet')).not.toBeNull();
     await expect(page.getByRole('tab', { name: '시트 2' })).toHaveAttribute('aria-selected', 'true');
     await expect(boardPaneHead(page, 1)).toContainText('사이클타임 상세');
+    await expect(cycleTimeBody(page, 1)).toBeVisible();
     await evidence(page, testInfo, 'board-open-cycle-time-new-sheet');
   });
 });
