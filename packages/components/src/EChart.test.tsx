@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 import type { ECharts } from 'echarts/core';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { AnalysisChartFrame, type ChartSeries } from './AnalysisChartFrame';
-import { baseTextStyle, type EChartProps } from './EChart';
+import { baseTextStyle, chartTheme, strokeToken, token, type EChartProps } from './EChart';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 // Regression test for the #48 P1 finding: the echarts-dependent implementation is code-split,
@@ -87,5 +87,53 @@ describe('chart text tokens (#193)', () => {
       if (oldFont) root.style.setProperty('--font-sans', oldFont); else root.style.removeProperty('--font-sans');
       if (oldColor) root.style.setProperty('--text-muted', oldColor); else root.style.removeProperty('--text-muted');
     }
+  });
+});
+
+describe('ECharts base theme (#544)', () => {
+  it('resolves existing axis and reference roles and token-backed tooltip roles', () => {
+    const root = document.documentElement;
+    const values = {
+      '--border-strong': '184 196 214',
+      '--chart-grid': '237 241 247',
+      '--text-muted': '102 112 131',
+      '--surface-popover': '237 243 251',
+      '--border-subtle': '203 214 230',
+      '--text-primary': '16 24 40',
+      '--text-secondary': '55 65 81',
+    };
+    const previous = new Map(Object.keys(values).map(name => [name, root.style.getPropertyValue(name)]));
+    for (const [name, value] of Object.entries(values)) root.style.setProperty(name, value);
+
+    try {
+      const theme = chartTheme();
+      expect(theme.axisLine.lineStyle.color).toBe('rgb(184,196,214)');
+      expect(theme.splitLine.lineStyle.color).toBe('rgb(237,241,247)');
+      expect(theme.axisLabel.color).toBe('rgb(102,112,131)');
+      expect(theme.tooltip.backgroundColor).toBe('rgb(237,243,251)');
+      expect(theme.tooltip.borderColor).toBe('rgb(203,214,230)');
+      expect(theme.tooltip.textStyle.color).toBe('rgb(16,24,40)');
+      expect(theme.referenceLine).toEqual({
+        silent: true,
+        symbol: 'none',
+        lineStyle: { color: 'rgb(55,65,81)', type: 'dashed' },
+        label: { formatter: '{b}', fontSize: 10, color: 'rgb(55,65,81)', position: 'insideEndTop' },
+      });
+      expect(token('border-strong')).toBe(theme.axisLine.lineStyle.color);
+      expect(token('chart-grid')).toBe(theme.splitLine.lineStyle.color);
+    } finally {
+      for (const [name, value] of previous) {
+        if (value) root.style.setProperty(name, value); else root.style.removeProperty(name);
+      }
+    }
+  });
+
+  it.each([
+    ['chart-series-1', 'chart-series-1-stroke'],
+    ['chart-series-2', 'chart-series-2-stroke'],
+    ['chart-series-3', 'chart-series-3-stroke'],
+    ['chart-series-4', 'chart-series-4-stroke'],
+  ])('maps %s to its stroke token', (series, stroke) => {
+    expect(strokeToken(series as never)).toBe(stroke);
   });
 });

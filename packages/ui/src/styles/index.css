@@ -24,6 +24,14 @@
   --color-chart-teal: rgb(var(--chart-teal));
   --color-chart-green: rgb(var(--chart-green));
   --color-chart-purple: rgb(var(--chart-purple));
+  --color-chart-series-1: rgb(var(--chart-series-1));
+  --color-chart-series-2: rgb(var(--chart-series-2));
+  --color-chart-series-3: rgb(var(--chart-series-3));
+  --color-chart-series-4: rgb(var(--chart-series-4));
+  --color-chart-no-data: rgb(var(--chart-no-data));
+  --color-chart-status-good: rgb(var(--chart-status-good));
+  --color-chart-status-warn: rgb(var(--chart-status-warn));
+  --color-chart-status-critical: rgb(var(--chart-status-critical));
   --color-chart-remainder: rgb(var(--chart-remainder));
   --color-chart-grid: rgb(var(--chart-grid));
   --color-icon-blue-soft: rgb(var(--icon-blue-soft));
