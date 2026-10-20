@@ -133,6 +133,11 @@ jobs:
       # #166: vitest workers × parallel packages oversubscribe the runner → cap turbo concurrency
       - run: pnpm test --concurrency=2
       - run: pnpm build
+      # #520: snapshot the built declaration surface before sdk:pack clears and rebuilds dist.
+      - name: SDK public API snapshots
+        run: |
+          pnpm sdk:api
+          pnpm sdk:api --self-test
       # #430: verify the packed contracts package in an external consumer.
       - run: pnpm --filter @ap/contracts check:pack
       # #519 (ADR-0056): the five release tarballs, then a clean outside consumer installs them (install, tsc, vite build, CSS classes, vitest).

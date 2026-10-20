@@ -1,0 +1,2 @@
+stubCompactTableGeometry | function | function stubCompactTableGeometry(scrollportWidth?: number): () => void
+# reachable types

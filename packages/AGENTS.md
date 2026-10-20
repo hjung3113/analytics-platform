@@ -29,6 +29,7 @@
 
 ## 검증
 
+- Verify the public API snapshot with `pnpm sdk:api` after the build; it reads each package's built `dist`.
 패키지별 검사(`pnpm --filter @ap/<패키지> test`)로 좁혀 본 뒤 루트 검사(루트 `AGENTS.md`). 이동·리팩터링 PR의 빌드 CSS selector 집합은 CI `CSS selectors (build diff)`가 자동 비교한다(의도한 제거만 `css-removal-ok` 라벨, [tooling/AGENTS.md](../tooling/AGENTS.md)).
 
 배포 모양을 건드렸으면(패키지 `exports`·CSS `@source`·`tsconfig.build.json`·새 파일 종류) `pnpm sdk:pack --out <임시 폴더>` 뒤 `pnpm sdk:consumer-check <같은 폴더>`를 돌린다. 앞은 다섯 패키지를 `dist`로 빌드해 tarball과 `SHA256SUMS`를 만들고, 뒤는 깨끗한 외부 소비자가 그것을 받아 설치·`tsc`·Vite 빌드·CSS 클래스·Vitest까지 확인한다(CI가 같은 순서로 돌린다, ADR-0056).

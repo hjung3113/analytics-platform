@@ -1,0 +1,114 @@
+AccessDirectoryPage | type | type AccessDirectoryPage = { items: readonly @ap/contracts#AccessPrincipal[]; total: number; }
+AccessDirectoryQuery | type | type AccessDirectoryQuery = { page?: number; pageSize?: number; permission?: @ap/contracts#Permission; role?: string; sort?: { desc: boolean; field: @ap/contracts#AccessSortField; }; }
+AccessPrincipal | type | type AccessPrincipal = { id: string; name: string; permissions: readonly @ap/contracts#Permission[]; role: string; sites: readonly @ap/contracts#SiteGrant[]; title: @ap/contracts#Text; }
+AccessSortField | type | type AccessSortField = 'grantCount' | 'name' | 'permissionCount' | 'role'
+ActionOutcome | type | type ActionOutcome = 'conflict' | 'error' | 'forbidden' | 'invalid' | 'not_found' | 'ok' | 'unknown'
+ActionResponse | type | type ActionResponse<T> = { correlationId: string; data: T | null; fieldErrors: readonly @ap/contracts#FieldError[]; message?: string; outcome: @ap/contracts#ActionOutcome; replayed: boolean; version: null | string; }
+ActionResult | type | type ActionResult<T> = @ap/contracts#ActionResponse<T> & { retry?: () => Promise<@ap/contracts#ActionResult<T>>; }
+ActionSpec | type | type ActionSpec<I, T> = { readonly _types?: { data: T; input: I; }; concurrency: 'none' | 'version'; id: string; inputKeys: Readonly<Record<keyof I & string, true>>; invalidates: readonly @ap/contracts#AnyEndpointSpec[]; menuId: string; permission: @ap/contracts#Permission; requiresScope: boolean; }
+AnnotationInput | type | type AnnotationInput = @ap/contracts#AnnotationRef & { from: string; text: string; to: string; }
+AnnotationRef | type | type AnnotationRef = { chartId: string; scopeId: null | string; }
+AnyActionSpec | type | type AnyActionSpec = @ap/contracts#ActionSpec<any, unknown>
+AnyEndpointSpec | type | type AnyEndpointSpec = @ap/contracts#EndpointSpec<any, unknown>
+ApiResponse | type | type ApiResponse<T> = { assessments: @ap/contracts#Assessment[]; correlationId: string; data: T | null; message?: string; outcome: @ap/contracts#Outcome; trust: @ap/contracts#Trust | null; }
+Assessment | type | type Assessment = { detail?: string; explainsEmpty?: boolean; kind: @ap/contracts#AssessmentKind; observedAt?: string; reason?: 'check_failed' | 'source_unavailable'; state: 'clear' | 'confirmed' | 'unknown'; statusSource?: string; }
+AssessmentKind | type | type AssessmentKind = 'collection' | 'coverage' | 'processing_delay' | 'respondent_history' | 'time_domain'
+AuditAction | type | type AuditAction = 'create' | 'delete' | 'retire' | 'sync' | 'update'
+AuditEvent | type | type AuditEvent = { action: @ap/contracts#AuditAction; actor: string; at: string; changes?: Record<string, [ null | string, null | string ]>; id: string; reason?: string; source: @ap/contracts#AuditSource; target: @ap/contracts#AuditTarget; }
+AuditSortField | type | type AuditSortField = 'action' | 'actor' | 'at' | 'source' | 'targetType'
+AuditSource | type | type AuditSource = 'system' | 'user'
+AuditTarget | type | type AuditTarget = { id: string; scopeId: null | string; type: string; }
+AuditTrailPage | type | type AuditTrailPage = { items: readonly @ap/contracts#AuditEvent[]; total: number; }
+AuditTrailQuery | type | type AuditTrailQuery = { action?: @ap/contracts#AuditAction; actor?: string; fromAt?: string; page?: number; pageSize?: number; sort?: { desc: boolean; field: @ap/contracts#AuditSortField; }; source?: @ap/contracts#AuditSource; targetId?: string; toAt?: string; type?: string; }
+Capability | type | type Capability = 'apply' | 'reference' | 'unsupported'
+ChartAnnotation | type | type ChartAnnotation = { at: string; chartId: string; from: string; id: string; mine: boolean; scopeId: string; text: string; to: string; }
+ClientErrorReport | type | type ClientErrorReport = { correlationId: string; menuId: string; name: string; path: string; spaceId: @ap/contracts#SpaceId | null; }
+Condition | type | type Condition = { axis: 'makerModel'; maker: string; model: string; } | { axis: 'stgroup'; id: string; } | { axis: 'team'; id: string; }
+ConditionAxis | type | type ConditionAxis = 'makerModel' | 'stgroup' | 'team'
+ConditionOptions | type | type ConditionOptions = { makerModel: { maker: string; model: string; }[]; stgroup: string[]; team: string[]; }
+ContextKey | type | type ContextKey = 'condition' | 'lot' | 'metric' | 'ppid' | 'recipe' | 'roomNames' | 'selection' | 'time'
+ContractError | class | class ContractError extends Error { code: string; field?: string | undefined; raw?: string | undefined; constructor(code: string, message: string, field?: string | undefined, raw?: string | undefined); }
+DrillLevel | type | type DrillLevel = { key: string; label: @ap/contracts#Text; }
+EndpointSpec | type | type EndpointSpec<P, T> = { readonly _types?: { data: T; params: P; }; context: Partial<Record<@ap/contracts#ContextKey, Exclude<@ap/contracts#Capability, 'unsupported'>>>; id: string; kinds: readonly @ap/contracts#AssessmentKind[]; limits?: { maxHours?: number; maxRows?: number; }; menuId: string; mergeTimeDomain: boolean; paramKeys: Readonly<Record<keyof P & string, true>>; permission: @ap/contracts#Permission; requiresScope: boolean; }
+EntityRef | type | type EntityRef = { id: string; scopeId: null | string; type: string; }
+EquipmentOption | type | type EquipmentOption = { equipmentId: string; model: string; room: string; }
+FeedbackOpsTarget | type | type FeedbackOpsTarget = { kind: 'overall'; } | { kind: 'survey-detail'; platformReturn?: string; surveyId: string; } | { kind: 'survey-list'; managedSystemId: string; platformReturn?: string; } | { kind: 'task-list'; managedSystemId: string; platformReturn?: string; } | { kind: 'voc-create'; managedSystemId?: string; platformReturn?: string; } | { kind: 'voc-detail'; managedSystemId?: string; platformReturn?: string; vocId: string; } | { kind: 'voc-list'; managedSystemId: string; platformReturn?: string; }
+FieldError | type | type FieldError = { code: string; path: readonly string[]; }
+GLOBAL_KEYS | const | const GLOBAL_KEYS: Set<string>
+GROUP_IDS | const | const GROUP_IDS: readonly @ap/contracts#GroupId[]
+GlobalContext | type | type GlobalContext = { condition: @ap/contracts#Condition | null; from: null | string; lotIds: @ap/contracts#IdSet; metricId: null | string; metricVersion: null | string; ppid: null | string; recipeIds: @ap/contracts#IdSet; roomNames: @ap/contracts#IdSet; scopeId: null | string; selection: @ap/contracts#IdSet; to: null | string; }
+Grain | type | type Grain = 'day' | 'hour' | 'week'
+GroupId | type | type GroupId = 'admin' | 'analytics' | 'equipment' | 'masterData' | 'metrics' | 'noticeVoc' | 'overview'
+HOST_CONTRACTS | const | const HOST_CONTRACTS: readonly [ 1 ]
+HostContract | type | type HostContract = 1
+HostFeature | type | type HostFeature = 'detailSlot' | 'query' | 'write'
+IdSet | type | type IdSet = null | string[]
+MenuAction | type | type MenuAction<I = unknown> = { action: string; context: { scopeId?: null | string; }; expectedVersion?: string; idempotencyKey: string; input: I; }
+MenuMeta | type | type MenuMeta = { context: Record<@ap/contracts#ContextKey, @ap/contracts#Capability>; contextResetKeys?: readonly string[]; description: @ap/contracts#Text; drill?: { levels: readonly @ap/contracts#DrillLevel[]; }; features: { annotate: boolean; board?: boolean; compare: boolean; export: boolean; savedView: boolean; }; group: @ap/contracts#GroupId; id: string; initializesMetric?: boolean; label: @ap/contracts#Text; navHidden?: boolean; pageKeys: readonly string[]; pageType: @ap/contracts#PageType; parent?: string; path: string; permission: @ap/contracts#Permission; primary?: boolean; requiresScope: boolean; }
+MenuQuery | type | type MenuQuery<P = unknown> = { context: @ap/contracts#MenuQueryContext; endpoint: string; params: P; }
+MenuQueryContext | type | type MenuQueryContext = Partial<@ap/contracts#GlobalContext>
+ModuleHost | type | type ModuleHost = { act?<I, T>(spec: @ap/contracts#ActionSpec<I, T>, input: I, options?: { expectedVersion?: string; }): Promise<@ap/contracts#ActionResult<T>>; can(permission: string): boolean; config(key: string): null | string; context(): { unsupported: readonly @ap/contracts#ContextKey[]; values: Partial<@ap/contracts#GlobalContext>; }; contract: @ap/contracts#HostContract; detail?: { clear(): void; show(node: unknown, label: string): void; }; focusTarget(el: unknown): void; href(target: @ap/contracts#ModuleTarget): null | { allowed: boolean; href: string; }; lang(): 'en' | 'ko'; navigate(target: @ap/contracts#ModuleTarget, options?: { replace?: boolean; }): boolean; notify(text: string, tone?: 'danger' | 'info' | 'warning'): void; page(key: string): null | string; params(): Readonly<Record<string, string>>; query?<P, T>(spec: @ap/contracts#EndpointSpec<P, T>, params: P, signal?: AbortSignal): Promise<@ap/contracts#ApiResponse<T>>; reportError(error: unknown): string; returnTarget(): string; session(): { generation: number; user: null | { id: string; name: string; }; }; setPage(patch: Record<string, null | string>, options?: { replace?: boolean; }): void; signal: AbortSignal; status(next: @ap/contracts#ModuleStatus): void; subscribe(onChange: () => void): () => void; }
+ModuleManifest | type | type ModuleManifest = { config?: readonly string[]; groups: readonly { id: @ap/contracts#ModuleScopedId; label: @ap/contracts#Text; }[]; module: { contract: @ap/contracts#HostContract; id: string; label: @ap/contracts#Text; languages: readonly ('en' | 'ko')[]; }; optional?: readonly @ap/contracts#HostFeature[]; requires: readonly @ap/contracts#HostFeature[]; screens: readonly @ap/contracts#ModuleScreenMeta[]; }
+ModuleScopedId | type | type ModuleScopedId = `${string}:${string}`
+ModuleScreenMeta | type | type ModuleScreenMeta = Omit<@ap/contracts#MenuMeta, 'group' | 'path' | 'permission'> & { group: @ap/contracts#ModuleScopedId; path: string; permission: @ap/contracts#ModuleScopedId; }
+ModuleScreenProps | type | type ModuleScreenProps = { host: @ap/contracts#ModuleHost; params: Readonly<Record<string, string>>; }
+ModuleStatus | type | type ModuleStatus = 'auth_required' | 'identity_mismatch' | 'ready' | 'unavailable'
+ModuleTarget | type | type ModuleTarget = { menuId: string; page?: Record<string, string>; params?: Record<string, string>; returnTo?: boolean; } | { page?: Record<string, string>; params?: Record<string, string>; returnTo?: boolean; screen: string; }
+Outcome | type | type Outcome = 'empty' | 'error' | 'forbidden' | 'ok' | 'timeout' | 'too_large'
+PERMISSIONS | const | const PERMISSIONS: readonly [ "platform:view", "equipment:view", "master:view", "analytics:view", "metrics:view", "notice:view", "voc:view", "console:access", "feedbackops:access" ]
+PLATFORM_RETURN_MAX | const | const PLATFORM_RETURN_MAX: 2048
+PageQuery | type | type PageQuery = { page: number; pageSize: number; sorting: @ap/contracts#PageSort[]; }
+PageResult | type | type PageResult<T> = { rows: T[]; total: number; }
+PageSort | type | type PageSort = { desc: boolean; id: string; }
+PageType | type | type PageType = 'analysis' | 'catalog' | 'management' | 'overview' | 'workflow'
+Pair | type | type Pair = [ string, string ]
+ParsedQuery | type | type ParsedQuery = { extras: @ap/contracts#Pair[]; global: @ap/contracts#GlobalContext; page: @ap/contracts#Pair[]; }
+Permission | type | type Permission = (typeof @ap/contracts#PERMISSIONS)[number]
+PlatformAdapter | type | type PlatformAdapter = { accessDirectory(query: @ap/contracts#AccessDirectoryQuery, signal?: AbortSignal): Promise<@ap/contracts#ApiResponse<@ap/contracts#AccessDirectoryPage>>; auditTrail(query: @ap/contracts#AuditTrailQuery, signal?: AbortSignal): Promise<@ap/contracts#ApiResponse<@ap/contracts#AuditTrailPage>>; contextOptions(scopeId: string, signal?: AbortSignal): Promise<@ap/contracts#ConditionOptions>; defaultRangeTo(): string; deleteAnnotation(ref: @ap/contracts#AnnotationRef & { id: string; }, signal?: AbortSignal): Promise<@ap/contracts#ApiResponse<{ id: string; }>>; entityAudit(ref: @ap/contracts#EntityRef, signal?: AbortSignal): Promise<@ap/contracts#ApiResponse<{ events: readonly @ap/contracts#AuditEvent[]; }>>; evaluateSelection(input: @ap/contracts#SelectionInput, signal?: AbortSignal): Promise<@ap/contracts#SelectionEvaluation>; getEntity(ref: @ap/contracts#EntityRef, signal?: AbortSignal): Promise<@ap/contracts#ApiResponse<unknown>>; listAnnotations(ref: @ap/contracts#AnnotationRef, signal?: AbortSignal): Promise<@ap/contracts#ApiResponse<{ items: readonly @ap/contracts#ChartAnnotation[]; }>>; menuAction(req: @ap/contracts#MenuAction, signal?: AbortSignal): Promise<@ap/contracts#ActionResponse<unknown>>; menuQuery(req: @ap/contracts#MenuQuery, signal?: AbortSignal): Promise<@ap/contracts#ApiResponse<unknown>>; publishedMetrics(): readonly @ap/contracts#PublishedMetric[]; recordUsage(events: readonly @ap/contracts#UsageEvent[]): Promise<{ accepted: number; }>; reportClientError(report: @ap/contracts#ClientErrorReport): Promise<{ accepted: boolean; }>; saveAnnotation(input: @ap/contracts#AnnotationInput, signal?: AbortSignal): Promise<@ap/contracts#ApiResponse<@ap/contracts#ChartAnnotation>>; session(): @ap/contracts#Session; subscribe(onChange: () => void): () => void; usageSummary(range: @ap/contracts#UsageRange, signal?: AbortSignal): Promise<@ap/contracts#ApiResponse<@ap/contracts#UsageSummary>>; validateScope(scopeId: string, signal?: AbortSignal): Promise<@ap/contracts#ScopeCheck>; }
+PlatformHop | type | type PlatformHop = { equipmentId: string; menuId: 'equipment-detail'; } | { menuId: 'cycle-time'; } | { menuId: 'equipment-master'; }
+PublishedMetric | type | type PublishedMetric = { metricId: string; publishedVersion: null | string; }
+ScopeCheck | type | type ScopeCheck = { grantedRooms: string[]; status: 'forbidden' | 'unknown_scope' | 'valid'; }
+ScopeOption | type | type ScopeOption = { grantedRooms: number; id: string; label: string; totalRooms: number; }
+SelectionEvaluation | type | type SelectionEvaluation = { inCondition: @ap/contracts#EquipmentOption[]; outOfCondition: string[]; }
+SelectionInput | type | type SelectionInput = { condition: @ap/contracts#Condition | null; roomNames: @ap/contracts#IdSet; scopeId: null | string; selection: @ap/contracts#IdSet; }
+Session | type | type Session = { scopes: readonly @ap/contracts#ScopeOption[]; user: @ap/contracts#SessionUser; }
+SessionUser | type | type SessionUser = { id: string; name: string; permissions: readonly (@ap/contracts#ModuleScopedId | @ap/contracts#Permission)[]; title: @ap/contracts#Text; }
+SiteGrant | type | type SiteGrant = { grantedRooms: readonly string[]; id: string; label: string; totalRooms: number; }
+SpaceDef | type | type SpaceDef = { description: @ap/contracts#Text; homeMenuId: string; id: @ap/contracts#SpaceId; label: @ap/contracts#Text; permission?: @ap/contracts#Permission; subtitle?: @ap/contracts#Text; }
+SpaceId | type | type SpaceId = 'analytics' | 'metrics' | 'operations'
+Text | type | type Text = { en: string; ko: string; }
+Trust | type | type Trust = { coverage: null | number; dataThrough: null | string; metricVersion?: string; provisional: boolean; source: string; updatedAt: string; }
+UsageEvent | type | type UsageEvent = { at: number; dwellMs?: number; enteredAt?: number; menuId: string; name: @ap/contracts#UsageEventName; path: string; sessionId: string; source?: @ap/contracts#UsageSource; spaceId: @ap/contracts#SpaceId | null; stayId?: string; }
+UsageEventName | type | type UsageEventName = 'dwell' | 'entry'
+UsageMenuSummary | type | type UsageMenuSummary = { distinctUsers: number; lastUsedAt: number; menuId: string; visits: number; }
+UsageRange | type | type UsageRange = { from: number; to: number; } | { preset: 'all'; }
+UsageSource | type | type UsageSource = 'board' | 'main'
+UsageSummary | type | type UsageSummary = { menus: @ap/contracts#UsageMenuSummary[]; preset: 'all' | 'range'; }
+bucketStart | function | function bucketStart(instant: string, grain: @ap/contracts#Grain): string
+buildFeedbackOpsLink | function | function buildFeedbackOpsLink(input: { origin: string; target: @ap/contracts#FeedbackOpsTarget; }): string
+buildPlatformInboundLink | function | function buildPlatformInboundLink(input: { context: @ap/contracts#GlobalContext; hop: @ap/contracts#PlatformHop; origin: string; returnTo?: string; }): string
+buildQuery | function | function buildQuery(g: @ap/contracts#GlobalContext, page?: @ap/contracts#Pair[], extras?: @ap/contracts#Pair[]): string
+conditionLabel | function | function conditionLabel(c: @ap/contracts#Condition): string
+defineAction | const | const defineAction: <I, T>(spec: Omit<@ap/contracts#ActionSpec<I, T>, "_types">) => @ap/contracts#ActionSpec<I, T>
+defineEndpoint | const | const defineEndpoint: <P, T>(spec: Omit<@ap/contracts#EndpointSpec<P, T>, "_types">) => @ap/contracts#EndpointSpec<P, T>
+emptyGlobal | const | const emptyGlobal: @ap/contracts#GlobalContext
+formatDateTime | function | function formatDateTime(date: Date): string
+formatInstant | function | function formatInstant(instant: number | string, lang: keyof @ap/contracts#Text, timeZone?: string): string
+formatMetricVersion | function | function formatMetricVersion(version: string): string
+incompleteMetricPair | function | function incompleteMetricPair(menu: null | { initializesMetric?: boolean; }, metricId: null | string, metricVersion: null | string): @ap/contracts#ContractError | null
+instantEpochMs | function | function instantEpochMs(instant: string): number
+isAppRelativePath | function | function isAppRelativePath(value: string): boolean
+normalizeSet | function | function normalizeSet(values: string[], field?: string, urlKey?: string): string[]
+parseDateTime | function | function parseDateTime(value: string, field: string, urlKey?: string): Date
+parseFeedbackOpsLink | function | function parseFeedbackOpsLink(url: string, expectedOrigin: string): { target: @ap/contracts#FeedbackOpsTarget; }
+parsePlatformInboundLink | function | function parsePlatformInboundLink(url: string, expectedOrigin: string): { context: @ap/contracts#GlobalContext; extras: @ap/contracts#Pair[]; hop: @ap/contracts#PlatformHop; returnTo: null | string; }
+parseQuery | function | function parseQuery(search: string, pageKeys?: readonly string[]): @ap/contracts#ParsedQuery
+periodHours | function | function periodHours(g: { from: null | string; to: null | string; }): null | number
+platformReturnFor | function | function platformReturnFor(fullUrl: string, pathOnlyUrl: string): string | undefined
+projectContext | function | function projectContext<P, T>(spec: @ap/contracts#EndpointSpec<P, T>, g: @ap/contracts#GlobalContext): @ap/contracts#MenuQueryContext
+sameGlobal | function | function sameGlobal(a: @ap/contracts#GlobalContext, b: @ap/contracts#GlobalContext): boolean
+serializeGlobal | function | function serializeGlobal(g: @ap/contracts#GlobalContext): @ap/contracts#Pair[]
+shift | function | function shift(value: string, hours: number): string
+sortAndPage | function | function sortAndPage<T>(rows: T[], q: @ap/contracts#PageQuery): @ap/contracts#PageResult<T>
+sortRows | function | function sortRows<T>(rows: readonly T[], sorting: @ap/contracts#PageSort[]): T[]
+# reachable types

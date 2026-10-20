@@ -21,6 +21,14 @@
 
 `sdk-v0.8.0`부터 `@ap/components`의 `token(name)`과 `ChartSeries.color`는 `string` 대신 `ThemeColorToken`을 받는다(ADR-0055). 런타임 문자열을 넘기는 호출자는 `isThemeColorToken(name)`으로 좁힌 뒤 부르거나, 자기 데이터 모델에 `ThemeColorToken`을 쓴다. 폐기 예고 없이 바꾼 이유: `@ap/components`를 저장소 밖에서 받는 소비자가 아직 없고(FeedbackOps·EV는 `@ap/ui`만 받는다, 2026-10-20 확인), 값과 출력 형식(`rgb(r,g,b)`)은 그대로다. 저장소 밖 소비자가 생긴 뒤의 같은 변경은 ADR-0044의 한 릴리스 예고를 따른다.
 
+## 변경 기록
+
+스냅샷 줄이 삭제되거나 바뀌면 같은 PR에서 이 표에 기록하고, [ADR-0044](../adr/0044-sdk-source-in-platform-repo-released-separately.md)에 따라 한 SDK 릴리스 전에 소비자에게 예고한다.
+
+| 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
+| --- | --- | --- | --- |
+| `sdk-v0.8.0` | components | `token()`·`ChartSeries.color` → `ThemeColorToken` | `isThemeColorToken`으로 좁힌다 (ADR-0055) |
+
 ## Release tarball로 받기 (ADR-0056)
 
 `@ap/ui` 말고 `@ap/kernel`·`@ap/components`·`@ap/shell`·`@ap/contracts`까지 받는 소비자(EV `platform-adapter`, 사내 메뉴)는 git 태그 `path:` 대신 **GitHub Release의 tarball**을 쓴다. 이유와 대안은 [ADR-0056](../adr/0056-sdk-release-github-release-tarballs.md)이다: 네 패키지는 서로를 `workspace:*`로 의존해 git `path:`로는 풀리지 않는다. 묶음 태그 `sdk-vX.Y.Z`마다 Release에 `ap-contracts-X.Y.Z.tgz`·`ap-kernel-…`·`ap-ui-…`·`ap-components-…`·`ap-shell-…`와 `SHA256SUMS`가 붙는다. 다섯 패키지는 같은 버전이고, tarball 안의 형제 의존은 그 버전으로 고정돼 있다. 내용은 ESM JS·`.d.ts`·CSS·`theme-tokens.json`뿐이라(TS 소스·tsconfig·테스트 없음) 소비자는 SDK 때문에 `@types/node`나 JSX 설정을 맞출 필요가 없다. 번들러(Vite·Vitest·webpack 계열) 소비자를 전제로 하며, `@ap/contracts`만 Node ESM에서도 그대로 읽힌다.

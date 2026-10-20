@@ -1,0 +1,262 @@
+ActiveFilterBar | function | function ActiveFilterBar({ items, onClearAll, className }: @ap/ui#ActiveFilterBarProps): import("react").JSX.Element | null
+ActiveFilterBarProps | interface | interface ActiveFilterBarProps { className?: string; items: { key: string; label: string; onRemove: () => void; }[]; onClearAll: () => void; }
+Alert | const | const Alert: React.ForwardRefExoticComponent<React.HTMLAttributes<HTMLDivElement> & VariantProps<(props?: ({ variant?: "default" | "destructive" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string> & React.RefAttributes<HTMLDivElement>>
+AlertDescription | const | const AlertDescription: React.ForwardRefExoticComponent<React.HTMLAttributes<HTMLParagraphElement> & React.RefAttributes<HTMLParagraphElement>>
+AlertDialog | const | const AlertDialog: React.FC<AlertDialogPrimitive.DialogProps>
+AlertDialogAction | const | const AlertDialogAction: React.ForwardRefExoticComponent<React.ButtonHTMLAttributes<HTMLButtonElement> & React.RefAttributes<HTMLButtonElement>>
+AlertDialogCancel | const | const AlertDialogCancel: React.ForwardRefExoticComponent<React.ButtonHTMLAttributes<HTMLButtonElement> & React.RefAttributes<HTMLButtonElement>>
+AlertDialogContent | const | const AlertDialogContent: React.ForwardRefExoticComponent<Omit<AlertDialogPrimitive.DialogContentProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
+AlertDialogDescription | const | const AlertDialogDescription: React.ForwardRefExoticComponent<Omit<AlertDialogPrimitive.DialogDescriptionProps & React.RefAttributes<HTMLParagraphElement>, "ref"> & React.RefAttributes<HTMLParagraphElement>>
+AlertDialogFooter | function | function AlertDialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>): React.JSX.Element
+AlertDialogHeader | function | function AlertDialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>): React.JSX.Element
+AlertDialogOverlay | const | const AlertDialogOverlay: React.ForwardRefExoticComponent<Omit<AlertDialogPrimitive.DialogOverlayProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
+AlertDialogPortal | const | const AlertDialogPortal: React.FC<AlertDialogPrimitive.DialogPortalProps>
+AlertDialogTitle | const | const AlertDialogTitle: React.ForwardRefExoticComponent<Omit<AlertDialogPrimitive.DialogTitleProps & React.RefAttributes<HTMLHeadingElement>, "ref"> & React.RefAttributes<HTMLHeadingElement>>
+AlertDialogTrigger | const | const AlertDialogTrigger: React.ForwardRefExoticComponent<AlertDialogPrimitive.DialogTriggerProps & React.RefAttributes<HTMLButtonElement>>
+AlertTitle | const | const AlertTitle: React.ForwardRefExoticComponent<React.HTMLAttributes<HTMLHeadingElement> & React.RefAttributes<HTMLParagraphElement>>
+AttachButton | function | function AttachButton({ onPick, accept, disabled, label, className, 'data-testid': testId, }: @ap/ui#AttachButtonProps): React.ReactElement
+AttachButtonProps | interface | interface AttachButtonProps { 'data-testid'?: string; accept?: string; className?: string; disabled?: boolean; label?: string; onPick: (file: File) => Promise<unknown> | void; }
+AttachmentRef | const | const AttachmentRef: Node<any, any>
+AttachmentRefAttrs | interface | interface AttachmentRefAttrs { id: string; mime_type?: null | string; name?: null | string; size_bytes?: null | number; }
+Avatar | const | const Avatar: React.ForwardRefExoticComponent<Omit<AvatarPrimitive.AvatarProps & React.RefAttributes<HTMLSpanElement>, "ref"> & React.RefAttributes<HTMLSpanElement>>
+AvatarFallback | const | const AvatarFallback: React.ForwardRefExoticComponent<Omit<AvatarPrimitive.AvatarFallbackProps & React.RefAttributes<HTMLSpanElement>, "ref"> & React.RefAttributes<HTMLSpanElement>>
+AvatarImage | const | const AvatarImage: React.ForwardRefExoticComponent<Omit<AvatarPrimitive.AvatarImageProps & React.RefAttributes<HTMLImageElement>, "ref"> & React.RefAttributes<HTMLImageElement>>
+AvatarUser | interface | interface AvatarUser { display_name: string; }
+Badge | function | function Badge({ className, variant, ...props }: @ap/ui#BadgeProps): React.JSX.Element
+BadgeProps | interface | interface BadgeProps extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof @ap/ui#badgeVariants> { }
+Button | const | const Button: React.ForwardRefExoticComponent<@ap/ui#ButtonProps & React.RefAttributes<HTMLButtonElement>>
+ButtonProps | interface | interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children'> { asChild?: boolean; children?: React.ReactNode; loading?: boolean; padding?: 'compact' | 'default'; size?: ButtonSize; spacing?: 'compact' | 'default'; variant?: ButtonVariant; wrapText?: boolean; }
+Callout | function | function Callout({ tone, icon, title, children, action, className }: @ap/ui#CalloutProps): React.JSX.Element
+CalloutProps | interface | interface CalloutProps { action?: React.ReactNode; children: React.ReactNode; className?: string; icon?: React.ReactNode; title?: string; tone: @ap/ui#CalloutTone; }
+CalloutTone | type | type CalloutTone = 'amber' | 'blue' | 'cyan' | 'emerald' | 'red'
+Card | const | const Card: React.ForwardRefExoticComponent<CardProps & React.RefAttributes<HTMLDivElement>>
+CardContent | const | const CardContent: React.ForwardRefExoticComponent<CardContentProps & React.RefAttributes<HTMLDivElement>>
+CardDescription | const | const CardDescription: React.ForwardRefExoticComponent<React.HTMLAttributes<HTMLParagraphElement> & React.RefAttributes<HTMLParagraphElement>>
+CardFooter | const | const CardFooter: React.ForwardRefExoticComponent<React.HTMLAttributes<HTMLDivElement> & React.RefAttributes<HTMLDivElement>>
+CardHeader | const | const CardHeader: React.ForwardRefExoticComponent<React.HTMLAttributes<HTMLDivElement> & React.RefAttributes<HTMLDivElement>>
+CardTitle | const | const CardTitle: React.ForwardRefExoticComponent<React.HTMLAttributes<HTMLHeadingElement> & React.RefAttributes<HTMLParagraphElement>>
+Checkbox | const | const Checkbox: React.ForwardRefExoticComponent<Omit<CheckboxPrimitive.CheckboxProps & React.RefAttributes<HTMLButtonElement>, "ref"> & React.RefAttributes<HTMLButtonElement>>
+Combobox | function | function Combobox({ options, value, onChange, placeholder, searchPlaceholder, listboxLabel, emptyText, footerText, className, id, 'aria-invalid': ariaInvalid, 'aria-describedby': ariaDescribedBy, onSearchChange, filterOptions, disabled, }: @ap/ui#ComboboxProps): React.JSX.Element
+ComboboxOption | interface | interface ComboboxOption { disabled?: boolean; label: string; value: string; }
+ComboboxProps | interface | interface ComboboxProps { 'aria-describedby'?: string; 'aria-invalid'?: boolean; className?: string; disabled?: boolean; emptyText?: string; filterOptions?: boolean; footerText?: string; id?: string; listboxLabel?: string; onChange: (value: string) => void; onSearchChange?: (search: string) => void; options: @ap/ui#ComboboxOption[]; placeholder?: string; searchPlaceholder?: string; value: null | string; }
+DIALOG_CONTENT_MOTION | const | const DIALOG_CONTENT_MOTION: "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:animation-duration-base data-[state=open]:ease-enter data-[state=open]:zoom-in-95"
+DatePicker | function | function DatePicker({ value, onChange, min, max, emptyValue, showValidation, onValidityChange, appearance, className, disabled, 'aria-invalid': ariaInvalid, 'aria-describedby': ariaDescribedBy, onBlur, onInvalid, placeholder, ...inputProps }: @ap/ui#DatePickerProps): React.JSX.Element
+DatePickerProps | interface | interface DatePickerProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'max' | 'min' | 'onChange' | 'type' | 'value'> { appearance?: 'default' | 'detail'; emptyValue?: '' | null; max?: string; min?: string; onChange: (value: null | string) => void; onValidityChange?: (valid: boolean) => void; showValidation?: boolean; value: null | string; }
+DetailPanelFullscreenContext | const | const DetailPanelFullscreenContext: React.Context<@ap/ui#DetailPanelFullscreenValue | null>
+DetailPanelFullscreenToggle | function | function DetailPanelFullscreenToggle(): React.ReactElement | null
+DetailPanelFullscreenValue | interface | interface DetailPanelFullscreenValue { expanded: boolean; toggle: () => void; }
+DetailPanelHeader | function | function DetailPanelHeader({ kind, id, onClose, extras, className, }: @ap/ui#DetailPanelHeaderProps): React.JSX.Element
+DetailPanelHeaderActions | function | function DetailPanelHeaderActions({ entityKind: _entityKind, entityId: _entityId, copyUrl, extraMore, }: @ap/ui#DetailPanelHeaderActionsProps): React.JSX.Element
+DetailPanelHeaderActionsProps | interface | interface DetailPanelHeaderActionsProps { copyUrl: string; entityId: string; entityKind: @ap/ui#DetailPanelKind; extraMore?: React.ReactNode; }
+DetailPanelHeaderProps | interface | interface DetailPanelHeaderProps { className?: string; extras?: React.ReactNode; id?: string; kind: @ap/ui#DetailPanelKind; onClose?: () => void; }
+DetailPanelKind | type | type DetailPanelKind = 'cluster' | 'finding' | 'milestone' | 'survey' | 'task' | 'task_request' | 'voc'
+DetailPanelReadingColumn | function | function DetailPanelReadingColumn({ children, ...dataAttrs }: React.PropsWithChildren<{ 'data-testid'?: string; }>): React.ReactElement
+DetailPanelSectionNav | function | function DetailPanelSectionNav({ sections, scrollRef, className, navigationLabel, }: @ap/ui#DetailPanelSectionNavProps): React.ReactElement | null
+DetailPanelSectionNavProps | interface | interface DetailPanelSectionNavProps { className?: string; navigationLabel?: string; scrollRef?: React.RefObject<HTMLElement | null>; sections: @ap/ui#PanelSection[]; }
+DetailPanelSlotProvider | function | function DetailPanelSlotProvider({ children }: { children: ReactNode; }): import("react").JSX.Element
+Dialog | const | const Dialog: React.FC<DialogPrimitive.DialogProps>
+DialogClose | const | const DialogClose: React.ForwardRefExoticComponent<DialogPrimitive.DialogCloseProps & React.RefAttributes<HTMLButtonElement>>
+DialogContent | const | const DialogContent: React.ForwardRefExoticComponent<DialogContentProps & React.RefAttributes<HTMLDivElement>>
+DialogContentBare | const | const DialogContentBare: React.ForwardRefExoticComponent<Omit<DialogPrimitive.DialogContentProps & React.RefAttributes<HTMLDivElement>, "ref"> & VariantProps<(props?: ({ variant?: "palette" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string> & React.RefAttributes<HTMLDivElement>>
+DialogDescription | const | const DialogDescription: React.ForwardRefExoticComponent<Omit<DialogPrimitive.DialogDescriptionProps & React.RefAttributes<HTMLParagraphElement>, "ref"> & React.RefAttributes<HTMLParagraphElement>>
+DialogFooter | function | function DialogFooter({ className, spacing, ...props }: DialogFooterProps): React.JSX.Element
+DialogHeader | function | function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>): React.JSX.Element
+DialogOverlay | const | const DialogOverlay: React.ForwardRefExoticComponent<Omit<DialogPrimitive.DialogOverlayProps & React.RefAttributes<HTMLDivElement>, "ref"> & VariantProps<(props?: ({ variant?: "palette" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string> & React.RefAttributes<HTMLDivElement>>
+DialogPortal | const | const DialogPortal: React.FC<DialogPrimitive.DialogPortalProps>
+DialogTitle | const | const DialogTitle: React.ForwardRefExoticComponent<Omit<DialogPrimitive.DialogTitleProps & React.RefAttributes<HTMLHeadingElement>, "ref"> & React.RefAttributes<HTMLHeadingElement>>
+DialogTrigger | const | const DialogTrigger: React.ForwardRefExoticComponent<DialogPrimitive.DialogTriggerProps & React.RefAttributes<HTMLButtonElement>>
+DirtyConfirmation | function | function DirtyConfirmation({ open, onConfirm, onCancel, title, message, confirmLabel, cancelLabel, }: @ap/ui#DirtyConfirmationProps): React.JSX.Element
+DirtyConfirmationProps | interface | interface DirtyConfirmationProps { cancelLabel?: string; confirmLabel?: string; message?: string; onCancel: () => void; onConfirm: () => void; open: boolean; title?: string; }
+Dot | function | function Dot({ tone, className }: { className?: string; tone: @ap/ui#Tone; }): import("react").JSX.Element
+DropdownMenu | const | const DropdownMenu: React.FC<DropdownMenuPrimitive.DropdownMenuProps>
+DropdownMenuCheckboxItem | const | const DropdownMenuCheckboxItem: React.ForwardRefExoticComponent<Omit<DropdownMenuPrimitive.DropdownMenuCheckboxItemProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
+DropdownMenuContent | const | const DropdownMenuContent: React.ForwardRefExoticComponent<Omit<DropdownMenuPrimitive.DropdownMenuContentProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
+DropdownMenuGroup | const | const DropdownMenuGroup: React.ForwardRefExoticComponent<DropdownMenuPrimitive.DropdownMenuGroupProps & React.RefAttributes<HTMLDivElement>>
+DropdownMenuItem | const | const DropdownMenuItem: React.ForwardRefExoticComponent<Omit<DropdownMenuPrimitive.DropdownMenuItemProps & React.RefAttributes<HTMLDivElement>, "ref"> & { inset?: boolean; } & React.RefAttributes<HTMLDivElement>>
+DropdownMenuLabel | const | const DropdownMenuLabel: React.ForwardRefExoticComponent<Omit<DropdownMenuPrimitive.DropdownMenuLabelProps & React.RefAttributes<HTMLDivElement>, "ref"> & { inset?: boolean; } & React.RefAttributes<HTMLDivElement>>
+DropdownMenuPortal | const | const DropdownMenuPortal: React.FC<DropdownMenuPrimitive.DropdownMenuPortalProps>
+DropdownMenuRadioGroup | const | const DropdownMenuRadioGroup: React.ForwardRefExoticComponent<DropdownMenuPrimitive.DropdownMenuRadioGroupProps & React.RefAttributes<HTMLDivElement>>
+DropdownMenuRadioItem | const | const DropdownMenuRadioItem: React.ForwardRefExoticComponent<Omit<DropdownMenuPrimitive.DropdownMenuRadioItemProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
+DropdownMenuSeparator | const | const DropdownMenuSeparator: React.ForwardRefExoticComponent<Omit<DropdownMenuPrimitive.DropdownMenuSeparatorProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
+DropdownMenuShortcut | function | function DropdownMenuShortcut({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>): React.JSX.Element
+DropdownMenuSub | const | const DropdownMenuSub: React.FC<DropdownMenuPrimitive.DropdownMenuSubProps>
+DropdownMenuSubContent | const | const DropdownMenuSubContent: React.ForwardRefExoticComponent<Omit<DropdownMenuPrimitive.DropdownMenuSubContentProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
+DropdownMenuSubTrigger | const | const DropdownMenuSubTrigger: React.ForwardRefExoticComponent<Omit<DropdownMenuPrimitive.DropdownMenuSubTriggerProps & React.RefAttributes<HTMLDivElement>, "ref"> & { inset?: boolean; } & React.RefAttributes<HTMLDivElement>>
+DropdownMenuTrigger | const | const DropdownMenuTrigger: React.ForwardRefExoticComponent<DropdownMenuPrimitive.DropdownMenuTriggerProps & React.RefAttributes<HTMLButtonElement>>
+EmptyState | function | function EmptyState({ icon, title, body, action, size, density, padding, className, }: @ap/ui#EmptyStateProps): React.JSX.Element
+EmptyStateProps | interface | interface EmptyStateProps { action?: React.ReactNode; body?: string; className?: string; density?: 'compact' | 'default'; icon?: React.ReactNode; padding?: 'default' | 'wide'; size?: 'lg' | 'md' | 'sm'; title: string; }
+FieldLabel | function | function FieldLabel({ appearance, required, tone, tip, children, className, ...props }: @ap/ui#FieldLabelProps): React.JSX.Element
+FieldLabelProps | interface | interface FieldLabelProps extends React.ComponentPropsWithoutRef<typeof @ap/ui#Label> { appearance?: 'default' | 'section'; children: React.ReactNode; required?: boolean; tip?: string; tone?: 'default' | 'secondary'; }
+FieldRow | function | function FieldRow({ label, children, inset, layout, className, }: @ap/ui#FieldRowProps): React.JSX.Element
+FieldRowProps | interface | interface FieldRowProps { children: React.ReactNode; className?: string; inset?: 'default' | 'none'; label: string; layout?: 'default' | 'property'; }
+FilterCategory | interface | interface FilterCategory { key: string; label: string; options: { label: string; value: string; }[]; }
+HoverCard | const | const HoverCard: React.FC<HoverCardPrimitive.HoverCardProps>
+HoverCardContent | const | const HoverCardContent: React.ForwardRefExoticComponent<Omit<HoverCardPrimitive.HoverCardContentProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
+HoverCardTrigger | const | const HoverCardTrigger: React.ForwardRefExoticComponent<HoverCardPrimitive.HoverCardTriggerProps & React.RefAttributes<HTMLAnchorElement>>
+Input | const | const Input: React.ForwardRefExoticComponent<@ap/ui#InputProps & React.RefAttributes<HTMLInputElement>>
+InputProps | interface | interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> { }
+KeyboardShortcut | function | function KeyboardShortcut({ children, className, testId }: @ap/ui#KeyboardShortcutProps): React.JSX.Element
+KeyboardShortcutProps | interface | interface KeyboardShortcutProps { children: React.ReactNode; className?: string; testId?: string; }
+Label | const | const Label: React.ForwardRefExoticComponent<Omit<LabelPrimitive.LabelProps & React.RefAttributes<HTMLLabelElement>, "ref"> & React.RefAttributes<HTMLLabelElement>>
+ListFilterButton | function | function ListFilterButton({ categories, values, onChange, className, }: @ap/ui#ListFilterButtonProps): React.JSX.Element
+ListFilterButtonProps | interface | interface ListFilterButtonProps { categories: @ap/ui#FilterCategory[]; className?: string; onChange: (next: Record<string, string[]>) => void; values: Record<string, string[]>; }
+ListShell | function | function ListShell({ toolbar, list, tabs, detailPanel, className }: @ap/ui#ListShellProps): React.JSX.Element
+ListShellProps | interface | interface ListShellProps { className?: string; detailPanel?: React.ReactNode; list: React.ReactNode; tabs?: React.ReactNode; toolbar?: @ap/ui#ShellHeaderProps; }
+ListSortButton | function | function ListSortButton({ options, value, defaultValue, onChange, className, }: @ap/ui#ListSortButtonProps): React.JSX.Element
+ListSortButtonProps | interface | interface ListSortButtonProps { className?: string; defaultValue: string; onChange: (next: string) => void; options: @ap/ui#SortOption[]; value: string; }
+ListTabs | function | function ListTabs({ tabs, activeTab, onTabChange, ariaLabel, align, className, }: @ap/ui#ListTabsProps): React.ReactElement
+ListTabsProps | interface | interface ListTabsProps { activeTab?: string; align?: 'end' | 'start'; ariaLabel?: string; className?: string; onTabChange?: (next: string) => void; tabs: @ap/ui#ListToolbarTab[]; }
+ListToolbar | function | function ListToolbar({ title, tabs, activeTab, onTabChange, tabsAriaLabel, action, className, }: @ap/ui#ListToolbarProps): React.JSX.Element
+ListToolbarProps | interface | interface ListToolbarProps { action?: React.ReactNode; activeTab?: string; className?: string; onTabChange?: (next: string) => void; tabs?: @ap/ui#ListToolbarTab[]; tabsAriaLabel?: string; title?: string; }
+ListToolbarTab | interface | interface ListToolbarTab { badgeCount?: number; controlsId?: string; disabled?: boolean; icon?: LucideIcon; id?: string; label: string; testId?: string; tip?: string; urgent?: boolean; value: string; }
+Mention | const | const Mention: Node<any, any>
+MentionAttrs | interface | interface MentionAttrs { actor_id: string; }
+NestedTextBlock | function | function NestedTextBlock({ children, className }: @ap/ui#NestedTextBlockProps): React.JSX.Element
+NestedTextBlockProps | interface | interface NestedTextBlockProps { children: React.ReactNode; className?: string; }
+ObjectRow | const | const ObjectRow: React.ForwardRefExoticComponent<@ap/ui#ObjectRowProps & React.RefAttributes<HTMLDivElement>>
+ObjectRowDensity | type | type ObjectRowDensity = 'compact' | 'default' | 'expanded'
+ObjectRowProps | interface | interface ObjectRowProps { badges?: React.ReactNode; checked?: boolean; children?: React.ReactNode; className?: string; density?: @ap/ui#ObjectRowDensity; icon?: React.ReactNode; id?: string; meta?: React.ReactNode; onCheckedChange?: (checked: boolean) => void; onClick?: React.MouseEventHandler<HTMLDivElement>; selectable?: boolean; selected?: boolean; severity?: @ap/ui#ObjectRowSeverity; title: React.ReactNode; trailing?: React.ReactNode; }
+ObjectRowSeverity | type | type ObjectRowSeverity = 'critical' | 'high' | 'low' | 'medium'
+POPPER_CONTENT_MOTION | const | const POPPER_CONTENT_MOTION: "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:animation-duration-base data-[state=open]:ease-enter data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-[state=delayed-open]:animation-duration-base data-[state=delayed-open]:ease-enter data-[state=instant-open]:animate-in data-[state=instant-open]:fade-in-0 data-[state=instant-open]:zoom-in-95 data-[state=instant-open]:animation-duration-base data-[state=instant-open]:ease-enter data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
+PageShell | function | function PageShell({ header, children, detailPanel, fluid, className, contentClassName, }: @ap/ui#PageShellProps): React.JSX.Element
+PageShellProps | interface | interface PageShellProps { children: React.ReactNode; className?: string; contentClassName?: string; detailPanel?: React.ReactNode; fluid?: boolean; header?: @ap/ui#ShellHeaderProps; }
+PanelSection | interface | interface PanelSection { count?: number; id: string; label: string; overflow?: boolean; }
+PanelSectionTitle | const | const PanelSectionTitle: React.ForwardRefExoticComponent<@ap/ui#PanelSectionTitleProps & React.RefAttributes<HTMLHeadingElement>>
+PanelSectionTitleProps | interface | interface PanelSectionTitleProps extends React.ComponentPropsWithoutRef<'h3'> { children: React.ReactNode; className?: string; inset?: 'default' | 'panel'; size?: 'default' | 'tiny'; }
+PanelTitleBlock | function | function PanelTitleBlock({ title, titleTabIndex, badges, className, inset, size, }: @ap/ui#PanelTitleBlockProps): React.JSX.Element
+PanelTitleBlockProps | interface | interface PanelTitleBlockProps { badges?: React.ReactNode; className?: string; inset?: 'default' | 'none'; size?: 'lg' | 'xl'; title: string; titleTabIndex?: number; }
+PermissionBlockedPanel | function | function PermissionBlockedPanel({ state, category, reason, description, requestAccessLabel, requiredScope, summary, decisionId, evaluatedRelative, onRequestAccess, className, }: @ap/ui#PermissionBlockedPanelProps): React.JSX.Element
+PermissionBlockedPanelProps | interface | interface PermissionBlockedPanelProps { category: string; className?: string; decisionId?: string; description?: string; evaluatedRelative?: string; onRequestAccess?: () => void; reason?: string; requestAccessLabel?: string; requiredScope?: readonly string[]; state: @ap/ui#PermissionState; summary?: React.ReactNode; }
+PermissionState | type | type PermissionState = 'blocked_not_requestable' | 'denied' | 'request_access' | 'summary_visible'
+Popover | const | const Popover: React.FC<PopoverPrimitive.PopoverProps>
+PopoverAnchor | const | const PopoverAnchor: React.ForwardRefExoticComponent<PopoverPrimitive.PopoverAnchorProps & React.RefAttributes<HTMLDivElement>>
+PopoverContent | const | const PopoverContent: React.ForwardRefExoticComponent<PopoverContentProps & React.RefAttributes<HTMLDivElement>>
+PopoverTrigger | const | const PopoverTrigger: React.ForwardRefExoticComponent<PopoverPrimitive.PopoverTriggerProps & React.RefAttributes<HTMLButtonElement>>
+PreviewModal | function | function PreviewModal({ open, onClose, title, children, className, }: @ap/ui#PreviewModalProps): React.ReactElement
+PreviewModalProps | interface | interface PreviewModalProps { children?: React.ReactNode; className?: string; onClose: () => void; open: boolean; title: string; }
+ProgressMeter | function | function ProgressMeter({ element, value, max, size, tone, trackTone, fillShape, clip, className, 'data-testid': testId, semantics, }: @ap/ui#ProgressMeterProps): React.JSX.Element
+ProgressMeterProps | interface | interface ProgressMeterProps { 'data-testid'?: string; className?: string; clip?: boolean; element?: 'div' | 'span'; fillShape?: 'rounded' | 'square'; max?: number; semantics?: 'decorative' | 'plain' | { label: string; role: 'meter' | 'progressbar'; }; size?: 'normal' | 'thin'; tone?: 'danger' | 'primary' | 'success' | 'warning'; trackTone?: 'row-hover' | 'row-selected' | 'subtle'; value: number; }
+RadioGroup | const | const RadioGroup: React.ForwardRefExoticComponent<RadioGroupProps & React.RefAttributes<HTMLDivElement>>
+RadioGroupItem | const | const RadioGroupItem: React.ForwardRefExoticComponent<RadioGroupItemProps & React.RefAttributes<HTMLButtonElement>>
+RichContentMode | type | type RichContentMode = 'internal' | 'reporter_visible'
+RichContentRenderer | function | function RichContentRenderer({ doc, mode, surface, size, className, }: @ap/ui#RichContentRendererProps): React.JSX.Element
+RichContentRendererProps | interface | interface RichContentRendererProps { className?: string; doc: @ap/ui#TipTapDoc; mode: @ap/ui#RichContentMode; size?: 'default' | 'sm'; surface?: ClientSanitizeSurface; }
+RichEditor | function | function RichEditor({ surface, value, defaultValue, onChange, placeholder, disabled, minHeight, className, toolbar, onAttach, }: @ap/ui#RichEditorProps): React.JSX.Element
+RichEditorAttachmentResult | interface | interface RichEditorAttachmentResult { attachment_id: string; mime_type: string; name: string; size_bytes: number; }
+RichEditorProps | interface | interface RichEditorProps { className?: string; defaultValue?: @ap/ui#TipTapDoc; disabled?: boolean; minHeight?: number | string; onAttach?: (file: File) => Promise<@ap/ui#RichEditorAttachmentResult>; onChange?: (doc: @ap/ui#TipTapDoc) => void; placeholder?: string; surface: @ap/ui#RichEditorSurface; toolbar?: (editor: Editor | null, toolbarApi: @ap/ui#RichEditorToolbarApi) => React.ReactNode; value?: @ap/ui#TipTapDoc | null; }
+RichEditorSurface | type | type RichEditorSurface = 'internal-comment' | 'public-update' | 'reporter-reply' | 'voc-description'
+RichEditorToolbarApi | interface | interface RichEditorToolbarApi { attach: (file: File) => Promise<@ap/ui#RichEditorAttachmentResult>; }
+SCRIM_MOTION | const | const SCRIM_MOTION: "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:animation-duration-base data-[state=open]:ease-enter"
+SELECT_CONTENT_MOTION | const | const SELECT_CONTENT_MOTION: "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:animation-duration-base data-[state=open]:ease-enter data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-[state=delayed-open]:animation-duration-base data-[state=delayed-open]:ease-enter data-[state=instant-open]:animate-in data-[state=instant-open]:fade-in-0 data-[state=instant-open]:zoom-in-95 data-[state=instant-open]:animation-duration-base data-[state=instant-open]:ease-enter data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
+SHEET_CONTENT_MOTION | const | const SHEET_CONTENT_MOTION: { readonly bottom: "data-[state=open]:animate-in data-[state=open]:animation-duration-slow data-[state=open]:ease-enter data-[state=open]:slide-in-from-bottom"; readonly left: "data-[state=open]:animate-in data-[state=open]:animation-duration-slow data-[state=open]:ease-enter data-[state=open]:slide-in-from-left"; readonly right: "data-[state=open]:animate-in data-[state=open]:animation-duration-slow data-[state=open]:ease-enter data-[state=open]:slide-in-from-right"; readonly top: "data-[state=open]:animate-in data-[state=open]:animation-duration-slow data-[state=open]:ease-enter data-[state=open]:slide-in-from-top"; }
+SearchInput | function | function SearchInput({ placeholder, className, value, onValueChange, onCommit, }: @ap/ui#SearchInputProps): import("react").JSX.Element
+SearchInputProps | interface | interface SearchInputProps { className?: string; onCommit?: () => void; onValueChange?: (value: string) => void; placeholder?: string; value?: string; }
+Select | const | const Select: React.FC<SelectPrimitive.SelectProps>
+SelectContent | const | const SelectContent: React.ForwardRefExoticComponent<Omit<SelectPrimitive.SelectContentProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
+SelectGroup | const | const SelectGroup: React.ForwardRefExoticComponent<SelectPrimitive.SelectGroupProps & React.RefAttributes<HTMLDivElement>>
+SelectItem | const | const SelectItem: React.ForwardRefExoticComponent<Omit<SelectPrimitive.SelectItemProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
+SelectLabel | const | const SelectLabel: React.ForwardRefExoticComponent<Omit<SelectPrimitive.SelectLabelProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
+SelectScrollDownButton | const | const SelectScrollDownButton: React.ForwardRefExoticComponent<Omit<SelectPrimitive.SelectScrollDownButtonProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
+SelectScrollUpButton | const | const SelectScrollUpButton: React.ForwardRefExoticComponent<Omit<SelectPrimitive.SelectScrollUpButtonProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
+SelectSeparator | const | const SelectSeparator: React.ForwardRefExoticComponent<Omit<SelectPrimitive.SelectSeparatorProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
+SelectTrigger | const | const SelectTrigger: React.ForwardRefExoticComponent<SelectTriggerProps & React.RefAttributes<HTMLButtonElement>>
+SelectValue | const | const SelectValue: React.ForwardRefExoticComponent<SelectPrimitive.SelectValueProps & React.RefAttributes<HTMLSpanElement>>
+SeverityEnum | type | type SeverityEnum = 'critical' | 'high' | 'low' | 'medium'
+SeverityIndicator | function | function SeverityIndicator({ severity, className, label, decorative, }: @ap/ui#SeverityIndicatorProps): import("react").JSX.Element
+SeverityIndicatorProps | interface | interface SeverityIndicatorProps { className?: string; decorative?: boolean; label?: string; severity: @ap/ui#SeverityEnum | null; }
+Sheet | const | const Sheet: React.FC<SheetPrimitive.DialogProps>
+SheetClose | const | const SheetClose: React.ForwardRefExoticComponent<SheetPrimitive.DialogCloseProps & React.RefAttributes<HTMLButtonElement>>
+SheetContent | const | const SheetContent: React.ForwardRefExoticComponent<SheetContentProps & React.RefAttributes<HTMLDivElement>>
+SheetDescription | const | const SheetDescription: React.ForwardRefExoticComponent<Omit<SheetPrimitive.DialogDescriptionProps & React.RefAttributes<HTMLParagraphElement>, "ref"> & React.RefAttributes<HTMLParagraphElement>>
+SheetFooter | function | function SheetFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>): React.JSX.Element
+SheetHeader | function | function SheetHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>): React.JSX.Element
+SheetOverlay | const | const SheetOverlay: React.ForwardRefExoticComponent<Omit<SheetPrimitive.DialogOverlayProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
+SheetPortal | const | const SheetPortal: React.FC<SheetPrimitive.DialogPortalProps>
+SheetTitle | const | const SheetTitle: React.ForwardRefExoticComponent<Omit<SheetPrimitive.DialogTitleProps & React.RefAttributes<HTMLHeadingElement>, "ref"> & React.RefAttributes<HTMLHeadingElement>>
+SheetTrigger | const | const SheetTrigger: React.ForwardRefExoticComponent<SheetPrimitive.DialogTriggerProps & React.RefAttributes<HTMLButtonElement>>
+ShellHeader | function | function ShellHeader({ title, subtitle, actions, variant, className }: @ap/ui#ShellHeaderProps): React.JSX.Element
+ShellHeaderProps | interface | interface ShellHeaderProps { actions?: React.ReactNode; className?: string; subtitle?: React.ReactNode; title?: React.ReactNode; variant?: 'default' | 'drawer' | 'toolbar'; }
+Skeleton | function | function Skeleton({ className, shape, ...props }: SkeletonProps): React.JSX.Element
+SkeletonBlock | type | type SkeletonBlock = { kind: 'badge'; width: 'standard'; } | { kind: 'body'; size: 'compact' | 'large' | 'regular'; width: 'full'; } | { kind: 'line'; width: SkeletonWidth; } | { kind: 'title'; size: 'large' | 'small'; width: SkeletonWidth; }
+SkeletonBlocks | function | function SkeletonBlocks({ blocks }: @ap/ui#SkeletonBlocksProps): import("react").JSX.Element
+SkeletonBlocksProps | interface | interface SkeletonBlocksProps { blocks: readonly @ap/ui#SkeletonBlock[]; }
+SkeletonRows | function | function SkeletonRows({ count, size }: @ap/ui#SkeletonRowsProps): import("react").JSX.Element
+SkeletonRowsProps | interface | interface SkeletonRowsProps { count: number; size: 'compact' | 'regular'; }
+SortOption | interface | interface SortOption { label: string; value: string; }
+StatusBadge | function | function StatusBadge({ tone, children, dot, className }: { children: ReactNode; className?: string; dot?: boolean; tone: @ap/ui#Tone; }): import("react").JSX.Element
+StatusBadgeAppearance | type | type StatusBadgeAppearance = 'compact' | 'compact-identity' | 'compact-outline' | 'link' | 'reporter' | 'severity' | 'task'
+StatusBadgeFrame | function | function StatusBadgeFrame({ appearance, ariaLabel, tone, children, indicator, textClassName, tintClassName, className, style, token, }: @ap/ui#StatusBadgeFrameProps): React.JSX.Element
+StatusBadgeFrameProps | interface | interface StatusBadgeFrameProps { appearance: @ap/ui#StatusBadgeAppearance; ariaLabel?: string; children: React.ReactNode; className?: string; indicator?: React.ReactNode; style?: React.CSSProperties; textClassName?: string; tintClassName?: string; token?: string; tone?: @ap/ui#StatusBadgeTone; }
+StatusBadgeTone | type | type StatusBadgeTone = 'danger' | 'internal-doing' | 'internal-done' | 'internal-todo' | 'muted' | 'success' | 'warning'
+Tabs | const | const Tabs: React.ForwardRefExoticComponent<TabsPrimitive.TabsProps & React.RefAttributes<HTMLDivElement>>
+TabsContent | const | const TabsContent: React.ForwardRefExoticComponent<Omit<TabsPrimitive.TabsContentProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
+TabsList | const | const TabsList: React.ForwardRefExoticComponent<Omit<Omit<import("@radix-ui/react-tabs").TabsListProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
+TabsListBase | const | const TabsListBase: React.ForwardRefExoticComponent<Omit<TabsPrimitive.TabsListProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
+TabsTrigger | const | const TabsTrigger: React.ForwardRefExoticComponent<Omit<Omit<import("@radix-ui/react-tabs").TabsTriggerProps & React.RefAttributes<HTMLButtonElement>, "ref"> & React.RefAttributes<HTMLButtonElement>, "ref"> & React.RefAttributes<HTMLButtonElement>>
+TabsTriggerBase | const | const TabsTriggerBase: React.ForwardRefExoticComponent<Omit<TabsPrimitive.TabsTriggerProps & React.RefAttributes<HTMLButtonElement>, "ref"> & React.RefAttributes<HTMLButtonElement>>
+Textarea | const | const Textarea: React.ForwardRefExoticComponent<@ap/ui#TextareaProps & React.RefAttributes<HTMLTextAreaElement>>
+TextareaProps | interface | interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> { }
+TipTapDoc | type | type TipTapDoc = JSONContent & { type: 'doc'; }
+TipTapEditor | type-only class | class TipTapEditor extends EventEmitter<EditorEvents> { get $doc(): NodePos; $node(selector: string, attributes?: { [key: string]: any; }): NodePos | null; $nodes(selector: string, attributes?: { [key: string]: any; }): NodePos[] | null; $pos(pos: number): NodePos; can(): CanCommands; captureTransaction(fn: () => void): Transaction | null; private capturedTransaction; chain(): ChainedCommands; private className; private commandManager; get commands(): SingleCommands; private createCommandManager; private createDoc; private createExtensionManager; createNodeViews(): void; private createSchema; private createView; private css; destroy(): void; private destroyed; private dispatchTransaction; private editorState; private editorView; extensionManager: ExtensionManager; extensionStorage: Storage; getAttributes(nameOrType: MarkType$1 | NodeType$1 | string): Record<string, any>; getHTML(): string; getJSON(): DocumentType<Record<string, any> | undefined, NodeType<string, Record<string, any> | undefined, any, (NodeType | TextType)[]>[]>; getText(options?: { blockSeparator?: string; textSerializers?: Record<string, TextSerializer>; }): string; private injectCSS; instanceId: string; isActive(name: string, attributes?: {}): boolean; isActive(attributes: {}): boolean; isCapturingTransaction: boolean; get isDestroyed(): boolean; get isEditable(): boolean; get isEmpty(): boolean; isFocused: boolean; isInitialized: boolean; mount(el: NonNullable<EditorOptions['element']> & {}): void; options: EditorOptions; prependClass(): void; registerPlugin(plugin: Plugin, handlePlugins?: (newPlugin: Plugin, plugins: Plugin[]) => Plugin[]): EditorState; schema: Schema; setEditable(editable: boolean, emitUpdate?: boolean): void; setOptions(options?: Partial<EditorOptions>): void; get state(): EditorState; get storage(): Storage; unmount(): void; unregisterPlugin(nameOrPluginKeyToRemove: (PluginKey | string)[] | PluginKey | string): EditorState | undefined; utils: Utils; get view(): EditorView; constructor(options?: Partial<EditorOptions>); }
+Toaster | const | const Toaster: React.ForwardRefExoticComponent<ToasterProps & React.RefAttributes<HTMLElement>>
+ToggleGroup | const | const ToggleGroup: React.ForwardRefExoticComponent<ToggleGroupProps & React.RefAttributes<HTMLDivElement>>
+ToggleGroupItem | const | const ToggleGroupItem: React.ForwardRefExoticComponent<ToggleGroupItemProps & VariantProps<(props?: ({ size?: "default" | "lg" | "sm" | null | undefined; variant?: "default" | "outline" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string> & React.RefAttributes<HTMLButtonElement>>
+Tone | type | type Tone = 'danger' | 'info' | 'neutral' | 'success' | 'warning'
+ToolbarKicker | function | function ToolbarKicker({ label, name, className, testId, labelTestId, nameTestId, }: @ap/ui#ToolbarKickerProps): import("react").JSX.Element
+ToolbarKickerProps | interface | interface ToolbarKickerProps { className?: string; label: string; labelTestId?: string; name: string; nameTestId?: string; testId?: string; }
+Tooltip | const | const Tooltip: React.FC<TooltipPrimitive.TooltipProps>
+TooltipContent | const | const TooltipContent: React.ForwardRefExoticComponent<TooltipContentProps & React.RefAttributes<HTMLDivElement>>
+TooltipProvider | const | const TooltipProvider: React.FC<TooltipPrimitive.TooltipProviderProps>
+TooltipTrigger | const | const TooltipTrigger: React.ForwardRefExoticComponent<TooltipPrimitive.TooltipTriggerProps & React.RefAttributes<HTMLButtonElement>>
+UndoToast | function | function UndoToast({ message, actionLabel, onAction, onDismiss, duration, className, }: @ap/ui#UndoToastProps): React.JSX.Element
+UndoToastProps | interface | interface UndoToastProps { actionLabel?: string; className?: string; duration?: number; message: string; onAction: () => void; onDismiss?: () => void; }
+UserAvatar | function | function UserAvatar({ user, size, className }: @ap/ui#UserAvatarProps): React.ReactElement
+UserAvatarProps | interface | interface UserAvatarProps { className?: string; size?: 'lg' | 'md' | 'sm'; user: @ap/ui#AvatarUser; }
+UserChip | function | function UserChip({ user, size, sub, className }: @ap/ui#UserChipProps): React.ReactElement
+UserChipProps | interface | interface UserChipProps { className?: string; size?: 'md' | 'sm'; sub?: string; user: @ap/ui#AvatarUser | null | undefined; }
+WorkbenchShell | function | function WorkbenchShell({ toolbar, children, detailPanel, className }: @ap/ui#WorkbenchShellProps): React.JSX.Element
+WorkbenchShellProps | interface | interface WorkbenchShellProps { children: React.ReactNode; className?: string; detailPanel?: React.ReactNode; toolbar?: @ap/ui#ShellHeaderProps; }
+badgeVariants | const | const badgeVariants: (props?: ({ variant?: "default" | "destructive" | "outline" | "secondary" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string
+buttonVariants | const | const buttonVariants: (props?: ({ size?: "icon-sm" | "icon-xs" | "lg" | "md" | "sm" | "toolbar" | null | undefined; variant?: "default" | "destructive" | "ghost" | "link" | "outline" | "secondary" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string
+cn | function | function cn(...inputs: ClassValue[]): string
+isMacPlatform | function | function isMacPlatform(): boolean
+isProductionEnv | function | function isProductionEnv(meta: { env?: { PROD?: boolean; }; }, g: { process?: { env?: { NODE_ENV?: string; }; }; }): boolean
+isToastTarget | function | function isToastTarget(target: EventTarget | null): boolean
+prefersReducedMotion | function | function prefersReducedMotion(): boolean
+readMotionTiming | function | function readMotionTiming(duration: 'base' | 'fast' | 'slow', easing: 'enter' | 'exit' | 'standard'): { durationMs: number; easing: string; }
+shortcutLabel | function | function shortcutLabel(key: string): string
+toast | const | const toast: ((message: titleT, data?: ExternalToast) => number | string) & { custom: (jsx: (id: number | string) => React.ReactElement, data?: ExternalToast) => number | string; dismiss: (id?: number | string) => number | string; error: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; info: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; loading: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; message: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; promise: <ToastData>(promise: PromiseT<ToastData>, data?: PromiseData<ToastData>) => (number & { unwrap: () => Promise<ToastData>; }) | (string & { unwrap: () => Promise<ToastData>; }) | { unwrap: () => Promise<ToastData>; }; success: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; warning: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; } & { getHistory: () => (ToastT | ToastToDismiss)[]; getToasts: () => (ToastT | ToastToDismiss)[]; }
+useDetailPanelContent | function | function useDetailPanelContent(node: ReactNode | undefined): void
+useDetailPanelSlot | function | function useDetailPanelSlot(): HTMLElement | null
+useDetailPanelSlotHost | function | function useDetailPanelSlotHost(): { expanded: boolean; open: boolean; ref: (host: HTMLElement | null) => void; toggle: () => void; }
+useListMotion | function | function useListMotion(): RefCallback<HTMLElement>
+# reachable types
+ButtonSize | type | type ButtonSize = NonNullable<VariantProps<typeof @ap/ui#buttonVariants>['size']>
+ButtonVariant | type | type ButtonVariant = LegacyVariant | ShadcnVariant
+CardContentProps | interface | interface CardContentProps extends React.HTMLAttributes<HTMLDivElement> { padding?: 'default' | 'none'; }
+CardProps | interface | interface CardProps extends React.HTMLAttributes<HTMLDivElement> { padding?: 'compact' | 'default'; }
+ClientSanitizeSurface | type | type ClientSanitizeSurface = UISurface
+DialogContentProps | interface | interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> { closeLabel?: string; scrim?: 'modal' | 'palette'; }
+DialogFooterProps | interface | interface DialogFooterProps extends React.HTMLAttributes<HTMLDivElement> { spacing?: 'compact' | 'default'; }
+LegacyVariant | type | type LegacyVariant = 'primary' | 'subtle'
+PopoverContentPadding | type | type PopoverContentPadding = 'compact' | 'default' | 'none'
+PopoverContentProps | interface | interface PopoverContentProps extends React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content> { padding?: PopoverContentPadding; }
+RadioGroupAppearance | type | type RadioGroupAppearance = 'default' | 'segmented'
+RadioGroupItemProps | interface | interface RadioGroupItemProps extends React.ComponentPropsWithoutRef<typeof RadioGroupPrimitive.Item> { appearance?: RadioGroupAppearance; }
+RadioGroupProps | interface | interface RadioGroupProps extends React.ComponentPropsWithoutRef<typeof RadioGroupPrimitive.Root> { appearance?: RadioGroupAppearance; spacing?: RadioGroupSpacing; }
+RadioGroupSpacing | type | type RadioGroupSpacing = 'compact' | 'default'
+SelectAppearance | type | type SelectAppearance = 'canvas' | 'default' | 'field'
+SelectTriggerProps | interface | interface SelectTriggerProps extends React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger> { appearance?: SelectAppearance; density?: 'compact' | 'default'; }
+ShadcnVariant | type | type ShadcnVariant = NonNullable<VariantProps<typeof @ap/ui#buttonVariants>['variant']>
+SheetContentProps | interface | interface SheetContentProps extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>, VariantProps<typeof sheetVariants> { closeLabel?: string; }
+SkeletonProps | interface | interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> { shape?: 'default' | 'rounded'; }
+SkeletonWidth | type | type SkeletonWidth = 'five-sixths' | 'full' | 'half' | 'third' | 'three-quarters' | 'two-thirds' | 'w12' | 'w16' | 'w24'
+ToggleGroupAppearance | type | type ToggleGroupAppearance = 'default' | 'filter'
+ToggleGroupItemAppearance | type | type ToggleGroupItemAppearance = 'default' | 'selected-filter'
+ToggleGroupItemProps | interface | interface ToggleGroupItemProps extends React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Item> { appearance?: ToggleGroupItemAppearance; }
+ToggleGroupProps | type | type ToggleGroupProps = React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Root> & VariantProps<typeof toggleGroupItemVariants> & { appearance?: ToggleGroupAppearance; }
+TooltipContentProps | interface | interface TooltipContentProps extends React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> { size?: 'default' | 'sm'; }
+UISurface | type | type UISurface = (typeof UI_SURFACES)[number]
+UI_SURFACES | const | const UI_SURFACES: readonly [ "voc-description", "reporter-reply", "public-update", "internal-comment" ]
+sheetVariants | const | const sheetVariants: (props?: ({ side?: "bottom" | "left" | "right" | "top" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string
+toggleGroupItemVariants | const | const toggleGroupItemVariants: (props?: ({ size?: "default" | "lg" | "sm" | null | undefined; variant?: "default" | "outline" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string
