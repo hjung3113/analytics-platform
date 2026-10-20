@@ -181,8 +181,28 @@
   },
   "wave_status": {
     "preview_mode": "app-preview",
-    "app_preview_path": "scripts/app-preview.py",
     "docker_containers": false
+  },
+  "app_preview": {
+    "ports": [
+      5180,
+      5199
+    ],
+    "marker": "apps/platform-web/vite.config.ts",
+    "ready_file": "node_modules/.modules.yaml",
+    "ready_hint": "node_modules missing: submodule init + pnpm install --frozen-lockfile first",
+    "command": [
+      "pnpm",
+      "--filter",
+      "@ap/platform-web",
+      "exec",
+      "vite",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "{port}",
+      "--strictPort"
+    ]
   },
   "launch": {
     "main_env": "AP_MAIN",
