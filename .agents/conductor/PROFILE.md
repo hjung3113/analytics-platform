@@ -48,7 +48,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 
 - UX 리뷰 증거의 기본은 리뷰어가 브랜치·기준 미리보기를 직접 조작하는 것이다. ego-browser가 실패하면 다시 시도·대체하는 규칙은 전역 스킬 7d를 따르고, 호스트 캡처 → 자료 판정으로 바꿨다면 그 사실을 VERIFY에 적는다(#436 — 리뷰어 런타임이 바뀌어 예전 "처음부터 호스트 캡처" 기본을 버렸다).
 - 확인은 `ego-browser`로 한다. 막히면 `apps/platform-e2e`의 Playwright 일회용 캡처로 대신하고, 대신했다고 말한다.
-- 미리보기는 `scripts/app-preview.py start <checkout> --name <n>-branch`(기준은 `<n>-main`)로 띄운다. mock 조립 vite가 5180–5199 사이 빈 포트에 뜨고, 백엔드는 없다.
+- 미리보기는 `$ENGINE/app-preview.py start <checkout> --name <n>-branch`(기준은 `<n>-main`)로 띄운다. mock 조립 vite가 5180–5199 사이 빈 포트에 뜨고, 백엔드는 없다.
 - 기준 worktree 설치: 서브모듈 init + `pnpm install --frozen-lockfile`.
 - 캡처는 차트 canvas와 표 행이 그려진 뒤에 찍는다. 같은 턴에 `stop`한다.
 
@@ -106,7 +106,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 - 품질 리뷰 범위는 `<직전 태그>...origin/main`이다.
 - 화면이 바뀐 슬라이스면 `origin/main` 미리보기로 사용자 흐름을 `review-ux`로 본다.
 - 그다음 보드 문서 PR → 태그 + GitHub Release → 다음 슬라이스를 사용자에게 묻는다. 릴리스 명령은 `SHA=$(git rev-parse origin/main)`로 시작해 `gh release create --target "$SHA"`에 전체 SHA를 준다(짧은 SHA는 `target_commitish is invalid`).
-- 인계 전 `scripts/app-preview.py status`에 추적 중인 미리보기가 없어야 한다.
+- 인계 전 `$ENGINE/app-preview.py status`에 추적 중인 미리보기가 없어야 한다.
 
 ## Tools
 
@@ -116,9 +116,9 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 | --- | --- | --- |
 | `$ENGINE/launch-worker.py <n> <slug>` | 위 Launch | 엔진 저장소 `test-launch-worker.py` |
 | `$ENGINE/review-plan.py <checkout> [--base origin/main] [--head HEAD]` | 리뷰 계획 | 엔진 저장소 `engine/tests/ap/` |
-| `$ENGINE/wave-status.py [--json] [--prs] [--state-dir <dir>]` | 읽기 전용 스냅숏: 작업자·리뷰어, 미리보기(이 레포 `app-preview.py`로 소유 판정), worktree, `--prs`면 열린 PR의 CI. `$WAVE_STATE`가 없으면 이 레포의 최근 세션 `wave/` 폴더(하루 안)를 읽는다 | 엔진 저장소 `engine/tests/ap/` |
+| `$ENGINE/wave-status.py [--json] [--prs] [--state-dir <dir>]` | 읽기 전용 스냅숏: 작업자·리뷰어, 미리보기(엔진 `app-preview.py`로 소유 판정), worktree, `--prs`면 열린 PR의 CI. `$WAVE_STATE`가 없으면 이 레포의 최근 세션 `wave/` 폴더(하루 안)를 읽는다 | 엔진 저장소 `engine/tests/ap/` |
 | `$ENGINE/worker-hygiene.py <worktree>` | 위 Verify 4단계 | 엔진 저장소 `engine/tests/ap/` |
-| `scripts/app-preview.py start <checkout> [--name <label>]` / `stop <label>\|--all` / `status` | mock 미리보기(이 레포 도구) | `test-app-preview.py` |
+| `$ENGINE/app-preview.py start <checkout> [--name <label>]` / `stop <label>\|--all` / `status` | mock 미리보기(엔진 도구, 이 레포 설정은 `conductor.json`의 `app_preview`) | 엔진 저장소 `engine/tests/test-app-preview.py` |
 | 전역 `templates/brief-check.md` + `addenda/brief-check.md` | 브리프 사전 점검 항목 | – |
 | `bash tooling/scripts/next-adr.sh` | ADR 번호 정하기 | – |
 
@@ -131,14 +131,14 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
   - 여기에 `--port`가 정확히 맞고 `--strictPort`가 있어야 한다.
 - 소유가 불명확하면 상태 파일을 남긴 채 `ownership unclear`로 건너뛴다.
 
-CI는 `.github/workflows/ci.yml`에서 이 폴더의 `test-app-preview.py`만 돌린다. 전역 엔진의 테스트는 엔진 저장소에서 돈다(`bash engine/scripts/test.sh`).
+이 폴더에는 레포 전용 conductor 도구가 없다. `app-preview.py`를 포함한 전역 엔진의 테스트는 엔진 저장소에서 돈다(`bash engine/scripts/test.sh`, conductor-engine#18).
 
 ## Traps
 
 - 작업자 함정은 [`docs/agents/operations.md`](../../docs/agents/operations.md)에 있다: 새 worktree 설치, pnpm 11, CSS selector CI, 캡처, mock 등록.
 - 일반 `git worktree add`로 만든 기준 worktree에는 Orca 터미널 리뷰어를 띄울 수 없다. 거기서는 미리보기만 돌린다.
 - 메인 체크아웃의 `node_modules`는 병합이 쌓이면 낡는다. 마감 검사 전에 `pnpm install --frozen-lockfile`.
-- 이 프로필의 상대 경로(`scripts/app-preview.py`, `addenda/`)는 `$CONDUCTOR` 기준이다. 레포 루트에서 그대로 실행하면 "No such file"이다.
+- 이 프로필의 상대 경로(`addenda/`)는 `$CONDUCTOR` 기준이다. 레포 루트에서 그대로 실행하면 "No such file"이다.
 - 이슈 번호가 없는 작업(마감 정리 등)은 `launch-worker.py`가 worktree를 만들지 못한다(`--issue`가 숫자를 요구). 손으로 한다: `orca worktree create --setup skip`(`--issue` 없이) → 서브모듈·설치 → 설정 셸 닫기 → TASK 작성 → 공유 실행기.
 - E2E는 vite dev 서버 위에서 돈다. 호스트 검사(루트 test·E2E)가 도는 worktree의 소스를 고치지 않는다 — HMR이 화면을 다시 그려 우연한 E2E 실패가 난다(#403: 검사 중 `module.ts` 수정 → Scope 메뉴 항목 detached). 고칠 것이 생기면 검사가 끝난 뒤 고치고 다시 돌린다.
 - E2E 포트는 4190 고정(`apps/platform-e2e/playwright.config.ts`, `--strictPort`)이라 다른 세션이 E2E를 돌리면 `is already used`로 바로 실패한다. 그 프로세스는 건드리지 말고(`lsof -nP -iTCP:4190 -sTCP:LISTEN`으로 cwd 확인) 포트가 빌 때까지 기다린 뒤 돌린다(#489).

@@ -128,9 +128,6 @@ jobs:
         run: node .github/scripts/check-platform-turbo-scope.mjs
       # Relative links and heading anchors in tracked Markdown (CLAUDE.md symlinks and vendored skills excluded)
       - run: pnpm docs:links
-      # Repo-local conductor tool (stdlib only, fake ps/signal): not a workspace package, so `pnpm test` never runs it
-      # (v0.6.0 slice review F1). The shared engines and their tests live in the global skill (#394).
-      - run: python3 .agents/conductor/scripts/test-app-preview.py
       - run: pnpm lint
       - run: pnpm typecheck
       # #166: vitest workers × parallel packages oversubscribe the runner → cap turbo concurrency
