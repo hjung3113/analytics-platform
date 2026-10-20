@@ -1,11 +1,8 @@
+import { mount as mountChart } from './__tests__/test-support';
 import { useEffect } from 'react';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { House } from 'lucide-react';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import type { EChartProps } from './EChart';
-import { AnalysisChart } from './AnalysisChart';
 
 let props: EChartProps;
 let armed = false;
@@ -38,14 +35,7 @@ function MockImpl(next: EChartProps) {
   return <div role="img" aria-label={next.ariaLabel} />;
 }
 afterEach(() => { cleanup(); vi.clearAllMocks(); armed = false; rect = { width: 600, height: 240 }; });
-function mount() {
-  window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
-  const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: 'overview', label: { ko: 'G', en: 'G' }, icon: House, space: 'analytics' }], menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: false, compare: false, annotate: false, savedView: false }, pageKeys: [] }] });
-  const session = testSession(['platform:view']);
-  render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session })}>
-    <AnalysisChart chartId="test" title="Chart" unit="ea" spec={{ kind: 'heatmap', xLabels: ['09', '10'], yLabels: ['A', 'B'], cells: [{ x: '09', y: 'A', value: 1 }, { x: '10', y: 'B', value: 2 }] }} />
-  </PlatformProvider></I18nProvider>);
-}
+const mount = () => mountChart({ kind: 'heatmap', xLabels: ['09', '10'], yLabels: ['A', 'B'], cells: [{ x: '09', y: 'A', value: 1 }, { x: '10', y: 'B', value: 2 }] }, false, true, false, false);
 it('keeps rectangle mode across empty activation events, option replacement and repeated drags', async () => {
   mount(); await screen.findByRole('img');
   act(() => instance.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: 'rect' } }));
@@ -94,14 +84,7 @@ it('keeps the option unchanged during a drag and commits only the final selectio
   expect(props.option).toBe(committed);
 });
 
-function mountScatter() {
-  window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
-  const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: 'overview', label: { ko: 'G', en: 'G' }, icon: House, space: 'analytics' }], menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: false, compare: false, annotate: false, savedView: false }, pageKeys: [] }] });
-  const session = testSession(['platform:view']);
-  render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session })}>
-    <AnalysisChart chartId="test" title="Chart" unit="ea" spec={{ kind: 'scatter', xUnit: 's', xLabel: 'X', yLabel: 'Y', points: [{ id: 'a', group: 'A', x: 1, y: 2 }, { id: 'null', group: 'A', x: null, y: 4 }, { id: 'b', group: 'B', x: 3, y: 4 }] }} />
-  </PlatformProvider></I18nProvider>);
-}
+const mountScatter = () => mountChart({ kind: 'scatter', xUnit: 's', xLabel: 'X', yLabel: 'Y', points: [{ id: 'a', group: 'A', x: 1, y: 2 }, { id: 'null', group: 'A', x: null, y: 4 }, { id: 'b', group: 'B', x: 3, y: 4 }] }, false, true, false, false);
 it('restores scatter rectangle cursor after lazy readiness, replacement and repeated grouped drags', async () => {
   mountScatter(); await screen.findByRole('img');
   fireEvent.click(screen.getByRole('button', { name: '끌어서 선택' }));

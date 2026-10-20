@@ -653,6 +653,8 @@ shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](04_frontend_ui_ux
 - PageFilterBar
 - DataTrustIndicator
 - AnalysisChartFrame
+- AnalysisChart (종류별 데이터·로컬 선택·표·CSV 프레임, [§16](#16-analysis-chart-contract), [ADR-0058](adr/0058-analysis-chart-spec-union.md))
+- LegendTree (계층 범례의 보이기·단일 현재 항목·키보드 행 이동, [§16](#16-analysis-chart-contract), [ADR-0057](adr/0057-legend-tree-arrow-key-row-navigation.md))
 - PlatformDataTable
 - DetailDrawer
 - AuditTimeline

@@ -1,26 +1,16 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { House } from 'lucide-react';
+import { mount as mountChart } from './__tests__/test-support';
+import { act, cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
-import { AnalysisChart, type ChartSpec } from './AnalysisChart';
+import { type ChartSpec } from './AnalysisChart';
 import type { EChartProps } from './EChart';
 
+const mount = (spec: ChartSpec, canExport = false, hasRoute = true) => mountChart(spec, canExport, hasRoute, false);
 let plot: EChartProps;
 // Keep readiness under test control, including delayed readiness of a replacement renderer.
 vi.mock('./EChart', async importOriginal => ({
   ...await importOriginal<typeof import('./EChart')>(),
   EChart: (props: EChartProps) => { plot = props; return <div role="img" aria-label={props.ariaLabel} />; },
 }));
-function mount(spec: ChartSpec, canExport = false, hasRoute = true) {
-  window.history.replaceState(null, '', hasRoute ? '/?v=1&scopeId=MEM' : '/missing?v=1&scopeId=MEM');
-  const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: 'overview', label: { ko: 'G', en: 'G' }, icon: House, space: 'analytics' }], menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: canExport, compare: true, annotate: true, savedView: false }, pageKeys: [] }] });
-  const session = testSession(['platform:view']);
-  const adapter = testAdapter({ session: () => session });
-  const wrap = (next: ChartSpec) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><AnalysisChart chartId="test" title="Chart" unit="ea" spec={next} /></PlatformProvider></I18nProvider>;
-  const view = render(wrap(spec));
-  return { ...view, update: (next: ChartSpec) => view.rerender(wrap(next)) };
-}
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const scatter = { kind: 'scatter', xUnit: 's', xLabel: 'X', yLabel: 'Y', points: [{ id: 'a', label: 'Alpha', x: 1, y: 2 }, { id: 'b', label: 'Beta', x: 3, y: 4 }] } satisfies ChartSpec;

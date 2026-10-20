@@ -29,9 +29,13 @@
 | --- | --- | --- | --- |
 | 다음 SDK 태그 | components | AnalysisSection.span·AnalysisLayout.density·차트 size 추가 | 없음 — 추가만 |
 | 다음 SDK 태그 | components | AnalysisChart·ChartSpec 추가 | 없음 — 추가만 |
+| 다음 SDK 태그 | components | LegendTree·LegendTreeNode·LegendTreeSort·LegendTreeProps 추가(#539) | 없음 — 추가만 |
+| 다음 SDK 태그 | components | chartTheme() 추가(#544) | 없음 — 추가만 |
+| 다음 SDK 태그 | ui | Checkbox 일부 선택(indeterminate) 표시 추가(#539) | 없음 — 추가만 |
 | 다음 SDK 태그 | components | ChartSpec에 scatter·boxPlot·pareto 추가 | 없음 — 추가만 |
 | 다음 SDK 태그 | ui | `useDetailPanelSlot(options?)` — 선택 옵션 `onSuperseded` 추가(하위 호환) | 없음 |
 | 다음 SDK 태그 | kernel | `dropResetKeys` 제거 예고 | `withPaneContext` |
+| 다음 SDK 태그 | components | 차트 `size` 속성 타입에 이름 `ChartSize`(같은 union `'compact' \| 'hero' \| 'regular'`, #560) | 없음 — 같은 값 |
 | 다음 SDK 태그 | ui | `THEME_COLOR_TOKENS`·`ThemeColorToken`에 차트 역할 25개 추가(`chart-series-*`·`chart-heat-*`·`chart-status-*`·`chart-no-data*`·`chart-selection-outline`·`chart-median-on-fill`, #544) | 없음 — 추가만, 기존 이름 그대로 |
 | `sdk-v0.8.0` | components | `token()`·`ChartSeries.color` → `ThemeColorToken` | `isThemeColorToken`으로 좁힌다 (ADR-0055) |
 

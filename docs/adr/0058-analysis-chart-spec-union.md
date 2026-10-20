@@ -6,7 +6,7 @@
 
 ## 결정
 
-- `AnalysisChart`는 `spec: ChartSpec`을 받는다. 현재 판별자는 `heatmap | donut | scatter | boxPlot | pareto`다. 공통 props는 `chartId`, `title`, `description?`, `metricVersion?`, `unit`, `trust?`, `height?`, `emptyText?`다.
+- `AnalysisChart`는 `spec: ChartSpec`을 받는다. 현재 판별자는 `heatmap | donut | scatter | boxPlot | pareto`다. 공통 props는 `chartId`, `title`, `description?`, `metricVersion?`, `unit`, `trust?`, `height?`, `size?`, `emptyText?`다.
 - 기존 `AnalysisChartFrame`의 line/bar API와 렌더 DOM은 유지한다. 제목·설명·지표 버전, Trust footer와 분석 레이아웃 head/body 구획만 비공개 모듈로 공유한다. 시간축 상호작용을 union에 합치는 일은 **구현하지 않는다**. 다시 여는 조건은 세 번째 시간축 종류 또는 두 API를 함께 써야 하는 소비자의 등장이다.
 - 선택은 Chart Local State다. Context가 바뀌거나 Reset하면 지우며 데이터에서 사라진 선택 키도 버린다. 캔버스 클릭은 선택만 하고, 사각 끌기는 히트맵 셀과 scatter 점의 다중 선택을 한다. 표의 기본 체크박스가 같은 선택의 키보드 경로다. 도넛과 boxPlot은 한 번에 한 항목·그룹을 고르고 두 번째 클릭으로 해제한다. Pareto는 막대 항목을 다중 선택하며 누적선·기준선은 선택하지 않는다.
 - 드릴 콜백은 선택과 분리한다. 정확히 한 항목을 선택한 요약과 표 행의 `상세` 버튼만 콜백을 부른다. `기타`·`미분류`는 소비자 ID가 없는 합성 항목이므로 선택·표·내보내기는 가능하되 드릴 동작을 만들지 않는다.

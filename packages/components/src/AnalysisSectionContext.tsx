@@ -19,6 +19,13 @@ export function AnalysisCollapseButton({ className }: { className?: string }) {
 
 
 /** Explicit size wins; only chart sections contribute inherited size. */
-export function resolveAnalysisChartSize(size: 'regular' | 'compact' | 'hero' | undefined, section: ContextType<typeof AnalysisSectionContext>) {
+export function resolveAnalysisChartSize(size: ChartSize | undefined, section: ContextType<typeof AnalysisSectionContext>) {
   return size ?? (section?.kind === 'chart' ? section.span === 'full' ? 'hero' : section.density === 'compact' ? 'compact' : 'regular' : 'regular');
+}
+
+export type ChartSize = 'regular' | 'compact' | 'hero';
+
+/** Keep each frame’s established regular default while sharing compact/hero heights. */
+export function analysisChartHeight(size: ChartSize, regularHeight: number) {
+  return size === 'hero' ? 360 : size === 'compact' ? 200 : regularHeight;
 }
