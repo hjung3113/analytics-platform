@@ -139,12 +139,6 @@ export function UndoToast({
     };
   }, [duration, onDismiss, paused]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-    if (e.key === 'Enter') {
-      onAction();
-    }
-  };
-
   return (
     // Pack 17 translation of prototype .toast block:
     // position:fixed / bottom:24 / translateX(-50%) are handled by sonner's Toaster
@@ -185,7 +179,6 @@ export function UndoToast({
         variant="subtle"
         size="sm"
         onClick={onAction}
-        onKeyDown={handleKeyDown}
       >
         {actionLabel}
       </Button>

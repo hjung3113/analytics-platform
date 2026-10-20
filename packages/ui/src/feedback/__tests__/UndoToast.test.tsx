@@ -5,6 +5,7 @@
 
 import * as React from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { UndoToast } from '../UndoToast.js';
 
@@ -33,7 +34,8 @@ describe('UndoToast', () => {
     expect(screen.queryByRole('button', { name: '실행 취소' })).toBeNull();
   });
 
-  it('calls onAction when 실행 취소 button is clicked', () => {
+  it('calls onAction once when 실행 취소 button is clicked', async () => {
+    const user = userEvent.setup();
     const onAction = vi.fn();
     render(
       <UndoToast
@@ -42,7 +44,7 @@ describe('UndoToast', () => {
         duration={5000}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: '실행 취소' }));
+    await user.click(screen.getByRole('button', { name: '실행 취소' }));
     expect(onAction).toHaveBeenCalledOnce();
   });
 
@@ -62,7 +64,11 @@ describe('UndoToast', () => {
     expect(onDismiss).toHaveBeenCalledOnce();
   });
 
-  it('calls onAction when Enter is pressed on the button', () => {
+  it.each([
+    { key: 'Enter', input: '{Enter}' },
+    { key: 'Space', input: ' ' },
+  ])('calls onAction once when $key is pressed on the focused button', async ({ input }) => {
+    const user = userEvent.setup();
     const onAction = vi.fn();
     render(
       <UndoToast
@@ -71,8 +77,11 @@ describe('UndoToast', () => {
         duration={5000}
       />,
     );
-    const btn = screen.getByRole('button', { name: '실행 취소' });
-    fireEvent.keyDown(btn, { key: 'Enter', code: 'Enter' });
+    const button = screen.getByRole('button', { name: '실행 취소' });
+    await user.tab();
+    expect(button).toHaveFocus();
+
+    await user.keyboard(input);
     expect(onAction).toHaveBeenCalledOnce();
   });
 });
