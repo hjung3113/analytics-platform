@@ -16,7 +16,7 @@ export const manifests: MenuEntry[] = [
     description: { ko: '물리 점유율, 비Process 체류, 사이클타임 P50·P95, Job 처리량을 요약합니다.', en: 'Occupancy, non-process dwell, cycle time P50/P95 and job throughput.' },
     path: '/analytics/productivity', icon: Activity, permission: 'analytics:view', requiresScope: true, pageType: 'overview',
     context: { ...none, time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', ppid: 'apply', recipe: 'apply', metric: 'reference', lot: 'unsupported' },
-    features: { ...noFeatures, export: true },
+    features: { ...noFeatures, export: true, board: true },
     pageKeys: ['granularity', 'kpi', 'axis', 'sort', 'drillRoom', 'drillStgroup', 'drillEquipment'],
     contextResetKeys: ['drillRoom', 'drillStgroup', 'drillEquipment'],
     drill: { levels: [
@@ -31,7 +31,7 @@ export const manifests: MenuEntry[] = [
     description: { ko: '사이클타임 분포에서 느린 실행을 찾아 실행 상세로 드릴다운합니다.', en: 'Find slow executions in the cycle-time distribution and drill into them.' },
     path: '/analytics/cycle-time', icon: Timer, permission: 'analytics:view', requiresScope: true, pageType: 'analysis',
     context: { ...none, time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', lot: 'apply', ppid: 'apply', recipe: 'apply', metric: 'apply' },
-    features: { export: true, savedView: false, annotate: true, compare: true }, pageKeys: ['granularity', 'percentile', 'sort', 'page', 'bucket', 'bin'], contextResetKeys: ['page', 'bucket', 'bin'], initializesMetric: true,
+    features: { export: true, savedView: false, annotate: true, compare: true, board: true }, pageKeys: ['granularity', 'percentile', 'sort', 'page', 'bucket', 'bin'], contextResetKeys: ['page', 'bucket', 'bin'], initializesMetric: true,
     component: lazy(() => import('./pages/CycleTimeDrilldown')),
   },
   {

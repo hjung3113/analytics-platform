@@ -165,6 +165,162 @@ test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
   });
 });
 
+test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
+  type BoardTestRole = 'engineer' | 'viewer';
+  type BoardPaneSeed = { menuId: string; params: Record<string, string>; query: string };
+  type BoardSheetSeed = { id: string; name: string; layout: '1x1' | '1x2'; selected: number; panes: (BoardPaneSeed | null)[] };
+  type BoardSeed = { v: 1; activeSheetId: string; sheets: BoardSheetSeed[] };
+
+  const boardScreen = (query: string, menuId = 'productivity-overview'): BoardPaneSeed => ({ menuId, params: {}, query: `?${query}` });
+  const boardOf = (first: BoardSheetSeed, ...rest: BoardSheetSeed[]): BoardSeed => ({ v: 1, activeSheetId: first.id, sheets: [first, ...rest] });
+  const boardSheet = (id: string, name: string, layout: BoardSheetSeed['layout'], panes: BoardSheetSeed['panes']): BoardSheetSeed => ({ id, name, layout, selected: 0, panes });
+
+  async function signInWithBoard(page: Page, role: BoardTestRole, board: BoardSeed) {
+    await signInAs(page, role);
+    await page.addInitScript(({ role: boardRole, value }) => {
+      localStorage.setItem(`platform:board:${boardRole}`, JSON.stringify(value));
+    }, { role, value: board });
+  }
+
+  const boardPane = (page: Page, number: number) => page.getByRole('group', { name: `칸 ${number}` });
+  const boardContext = (page: Page, number: number) => page.getByRole('region', { name: `칸 ${number} · 분석 Context` });
+
+  async function boardPeriodPreset(page: Page, number: number, name: string) {
+    const context = boardContext(page, number);
+    await expect(context).toBeVisible();
+    const inline = context.getByRole('radio', { name, exact: true });
+    if (await inline.isVisible()) {
+      await inline.click();
+      return;
+    }
+    await context.getByRole('button', { name: /^기간:/ }).click();
+    await page.getByRole('radio', { name, exact: true }).click();
+  }
+
+  test('조건 독립: 칸 2 기간을 바꿔도 칸 1 Context와 본 화면 URL은 유지된다', async ({ page }, testInfo) => {
+    const paneQuery = `v=1&scopeId=MEM&${PERIOD}`;
+    await signInWithBoard(page, 'engineer', boardOf(boardSheet('independent', '독립', '1x2', [
+      boardScreen(`${paneQuery}&roomNames=PHOTO`), boardScreen(`${paneQuery}&roomNames=ETCH`),
+    ])));
+    await page.goto(PRODUCTIVITY);
+    await expect(mainHeading(page)).toHaveText('생산성 개요');
+    const originalMainUrl = page.url();
+    const rail = page.getByRole('navigation', { name: '앱 레일' });
+    await rail.getByRole('button', { name: '분석 보드' }).click();
+    await expect(page.getByRole('heading', { name: '분석 보드' })).toBeVisible();
+
+    const first = boardPane(page, 1);
+    const firstHeading = first.getByRole('heading', { name: '생산성 개요' });
+    const firstRoomChip = first.getByText('room_name PHOTO', { exact: true }).filter({ visible: true });
+    await expect(firstHeading).toBeVisible();
+    await expect(firstRoomChip).toBeVisible();
+    const headingBefore = await firstHeading.innerText();
+    const originalPeriod = boardContext(page, 1).getByRole('button', { name: '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00' });
+    await expect(originalPeriod).toBeVisible();
+
+    await boardPane(page, 2).getByRole('button', { name: '칸 2 선택' }).click();
+    await boardPeriodPreset(page, 2, '7일');
+    await expect(boardContext(page, 2).getByRole('button', { name: '기간: 2026-09-19T09:00:00 – 2026-09-26T09:00:00' })).toBeVisible();
+    await expect(firstHeading).toHaveText(headingBefore);
+    await expect(firstRoomChip).toBeVisible();
+
+    await first.getByRole('button', { name: '칸 1 선택' }).click();
+    await expect(boardContext(page, 1).getByRole('button', { name: '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00' })).toBeVisible();
+    await page.goBack();
+    await expect.poll(() => page.url()).toBe(originalMainUrl);
+    expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
+    expect(query(page).get('to')).toBe('2026-09-26T09:00:00');
+    expect(query(page).get('roomNames')).toBe('PHOTO');
+    await evidence(page, testInfo, 'board-independent-pane-context');
+  });
+
+  test('일괄 적용: 모든 칸이 같은 조건이 되고 실행 취소가 차이 칩을 복원한다', async ({ page }, testInfo) => {
+    const paneQuery = `v=1&scopeId=MEM&${PERIOD}`;
+    await signInWithBoard(page, 'engineer', boardOf(boardSheet('apply', '적용', '1x2', [
+      boardScreen(`${paneQuery}&roomNames=PHOTO`), boardScreen(`${paneQuery}&roomNames=ETCH`),
+    ])));
+    await page.goto('/board?sheet=apply');
+    const first = boardPane(page, 1);
+    const second = boardPane(page, 2);
+    await expect(first.getByText('room_name PHOTO', { exact: true }).filter({ visible: true })).toBeVisible();
+    await expect(second.getByText('room_name ETCH', { exact: true }).filter({ visible: true })).toBeVisible();
+
+    await first.getByRole('button', { name: '칸 1 동작' }).click();
+    await page.getByRole('menuitem', { name: '이 조건을 시트의 모든 칸에 적용' }).click();
+    await expect(first.getByRole('button', { name: /칸 1의 같은 조건/ })).toBeVisible();
+    await expect(second.getByRole('button', { name: /칸 2의 같은 조건/ })).toBeVisible();
+    await expect(first.getByText('room_name PHOTO', { exact: true }).filter({ visible: true })).toHaveCount(0);
+    await expect(second.getByText('room_name ETCH', { exact: true }).filter({ visible: true })).toHaveCount(0);
+
+    await page.getByRole('button', { name: '실행 취소' }).click();
+    await expect(first.getByText('room_name PHOTO', { exact: true }).filter({ visible: true })).toBeVisible();
+    await expect(second.getByText('room_name ETCH', { exact: true }).filter({ visible: true })).toBeVisible();
+    await evidence(page, testInfo, 'board-apply-all-undo');
+  });
+
+  test('새로고침 시트 유지: 선택한 시트 URL과 화면이 유지되고 Back은 이전 시트로 간다', async ({ page }, testInfo) => {
+    await signInWithBoard(page, 'engineer', boardOf(
+      boardSheet('sheet-one', '기준', '1x1', [boardScreen(`v=1&scopeId=MEM&${PERIOD}&roomNames=PHOTO`)]),
+      boardSheet('sheet-two', '비교', '1x1', [boardScreen(`v=1&scopeId=MEM&${PERIOD}`, 'cycle-time')]),
+    ));
+    await page.goto('/board?sheet=sheet-one');
+    await page.getByRole('tab', { name: '비교' }).click();
+    await expect.poll(() => query(page).get('sheet')).toBe('sheet-two');
+    await expect(boardPane(page, 1).getByRole('heading', { name: '사이클타임 상세' })).toBeVisible();
+
+    await page.reload();
+    await expect.poll(() => query(page).get('sheet')).toBe('sheet-two');
+    await expect(boardPane(page, 1).getByRole('heading', { name: '사이클타임 상세' })).toBeVisible();
+    await page.goBack();
+    await expect.poll(() => query(page).get('sheet')).toBe('sheet-one');
+    await expect(boardPane(page, 1).getByRole('heading', { name: '생산성 개요' })).toBeVisible();
+    await evidence(page, testInfo, 'board-sheet-reload-history');
+  });
+
+  test('열 수 없는 칸: 미등록 메뉴만 안내하고 다른 칸은 계속 그린다', async ({ page }, testInfo) => {
+    await signInWithBoard(page, 'engineer', boardOf(boardSheet('unavailable', '복구', '1x2', [
+      boardScreen(`v=1&scopeId=MEM&${PERIOD}`, 'removed-menu'),
+      boardScreen(`v=1&scopeId=MEM&${PERIOD}&roomNames=PHOTO`),
+    ])));
+    await page.goto('/board?sheet=unavailable');
+    const unavailable = boardPane(page, 1);
+    await expect(unavailable.getByText('더는 보드에서 열 수 없는 화면')).toBeVisible();
+    await expect(unavailable.getByRole('button', { name: '비우기' })).toBeVisible();
+    await expect(boardPane(page, 2).getByRole('heading', { name: '생산성 개요' })).toBeVisible();
+    await evidence(page, testInfo, 'board-unavailable-pane');
+  });
+
+  test('권한 칸: viewer에게 거부 상태만 보이고 칸 데이터와 보드 레일 항목은 없다', async ({ page }, testInfo) => {
+    await signInWithBoard(page, 'viewer', boardOf(boardSheet('denied', '권한', '1x1', [
+      boardScreen(`v=1&scopeId=MEM&${PERIOD}&roomNames=PHOTO`),
+    ])));
+    await page.goto('/board?sheet=denied');
+    const pane = boardPane(page, 1);
+    await expect(pane.getByRole('status').filter({ hasText: '이 메뉴에 대한 권한이 없습니다' })).toBeVisible();
+    await expect(pane.getByRole('table')).toHaveCount(0);
+    await expect(pane.getByRole('row')).toHaveCount(0);
+    await expect(page.getByRole('status').filter({ hasText: '이 메뉴에 대한 권한이 없습니다' })).toHaveCount(1);
+    await expect(page.getByRole('navigation', { name: '앱 레일' }).getByRole('button', { name: '분석 보드' })).toHaveCount(0);
+    await evidence(page, testInfo, 'board-denied-pane');
+  });
+
+  test('분석 보드에 열기: 사이클타임 상세를 새 시트의 첫 칸으로 연다', async ({ page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    await page.goto(`/analytics/cycle-time?v=1&scopeId=MEM&${PERIOD}`);
+    await expect(mainHeading(page)).toHaveText('사이클타임 상세');
+    const actions = await headerMore(page);
+    await actions.getByRole('menuitem', { name: '분석 보드에 열기…' }).click();
+    const dialog = page.getByRole('dialog', { name: '분석 보드에 열기' });
+    await expect(dialog.getByRole('radio', { name: '새 시트' })).toHaveAttribute('aria-checked', 'true');
+    await dialog.getByRole('button', { name: '열기' }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/board');
+    expect(query(page).get('sheet')).not.toBeNull();
+    await expect(page.getByRole('tab', { name: '시트 2' })).toHaveAttribute('aria-selected', 'true');
+    await expect(boardPane(page, 1).getByRole('heading', { name: '사이클타임 상세' })).toBeVisible();
+    await evidence(page, testInfo, 'board-open-cycle-time-new-sheet');
+  });
+});
+
 test.describe('관리 레이아웃 필터 레일 (06 §12.6, ADR-0022)', () => {
   test('1440 설비 마스터는 접기 기억과 펼치기 포커스를 제공한다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });

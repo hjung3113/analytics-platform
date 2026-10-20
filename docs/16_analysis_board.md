@@ -1,6 +1,6 @@
 # 16. 분석 보드 — 하단 시트 탭 · 그리드 칸 · 칸별 조건
 
-상태: **Decided — 1차 범위의 동작(사용자, 2026-10-19 #421 설계 질의 Q1–Q25)** / **Decided — 칸 머리·선택 표시([ADR-0051](adr/0051-analysis-board-pane-header-signal-chips-numbered-selection.md), 2026-10-19)** / **Deferred — §10**. 구현은 나눠 진행한다: Kernel 칸 Context(#496) 완료, 보드 골격(#497a: `/board` 플랫폼 화면·시트 탭 띠·그리드·칸 선택·Context 바·저장·되돌리기·레일 진입)은 이 사양대로 구현했고 칸 머리 차이 칩·`⋯` 동작·일괄 적용/복사·`분석 보드에 열기…`·상세 슬롯 공유·`이전 화면`(#497b)도 이 사양대로 구현했고 메뉴 보드 지원(#498)이 남았다. 추적: [#421](https://github.com/hjung3113/analytics-platform/issues/421). 용어는 [GLOSSARY](../GLOSSARY.md) "분석 조건과 분석 보드".
+상태: **Decided — 1차 범위의 동작(사용자, 2026-10-19 #421 설계 질의 Q1–Q25)** / **Decided — 칸 머리·선택 표시([ADR-0051](adr/0051-analysis-board-pane-header-signal-chips-numbered-selection.md), 2026-10-19)** / **Deferred — §10**. 구현은 나눠 진행했다: Kernel 칸 Context(#496), 보드 골격(#497a: `/board` 플랫폼 화면·시트 탭 띠·그리드·칸 선택·Context 바·저장·되돌리기·레일 진입), 칸 머리 차이 칩·`⋯` 동작·일괄 적용/복사·`분석 보드에 열기…`·상세 슬롯 공유·`이전 화면`(#497b), 메뉴 보드 지원·E2E(#498)를 이 사양대로 구현했다. 1차 분석 보드 구현 완료(#496·#497·#498). 추적: [#421](https://github.com/hjung3113/analytics-platform/issues/421). 용어는 [GLOSSARY](../GLOSSARY.md) "분석 조건과 분석 보드".
 
 > 분석 Context의 범위 계약은 [06 §6.5](06_platform_ui_contract.md#65-분석-context의-범위--칸-decided-adr-0049)와 [ADR-0049](adr/0049-analysis-context-belongs-to-a-pane.md)가 소유한다. 이 문서는 보드 화면과 동작을 적는다.
 
@@ -66,7 +66,10 @@
 
 ## 6. 메뉴 쪽 요구 (Decided)
 
-- **보드 지원 선언**: manifest `features.board: boolean`(기존 `features`의 `compare`·`annotate` 옆, 필드명 Candidate). 선언하지 않은 메뉴는 `분석 화면 넣기`·`분석 보드에 열기…`에 나오지 않는다. 1차는 분석 성격 메뉴 2–3개만 켜서 계약을 검증한다. 어느 메뉴인지는 2×2 칸 폭을 잰 뒤 구현 PR에 이유와 함께 적는다.
+- **보드 지원 선언**: manifest `features.board: boolean`(기존 `features`의 `compare`·`annotate` 옆). 선언하지 않은 메뉴는 `분석 화면 넣기`·`분석 보드에 열기…`에 나오지 않는다. 1차 지원 메뉴와 이유:
+  - `productivity-overview`: 기간·room_name Context를 적용하고 KPI·요약 그리드가 컨테이너 폭에 따라 재배치된다.
+  - `cycle-time`: 기간·조건 Context를 적용하고 차트 레이아웃이 화면 자체 폭에 따라 재배치된다.
+  - `equipment-master`: room_name·조건 Context를 적용하고 ManagementLayout이 필터와 목록을 컨테이너 폭에 따라 재배치한다.
 - **칸에는 원래 메뉴 화면이 들어간다.** 보드용 작은 화면을 따로 만들지 않는다. 화면은 자기 컨테이너 폭으로 반응해야 한다(뷰포트 기준 아님). 좁은 칸에서 깨지는 메뉴는 보드 지원을 선언하지 않는다. 메뉴 화면은 좁은 칸에서 깨지는 부분만 고친다.
 - **page 상태**: 칸의 page 키(탭·정렬·페이지·드릴 단계)는 칸 상태에 산다. 메뉴는 Kernel의 page 상태 API로만 읽고 쓴다.
 - **칸 안에서 다른 메뉴로 가는 링크**(드릴다운·메뉴 간 연결 `navigateTo`): 대상이 보드를 지원하면 그 칸의 화면을 대상 메뉴로 바꾸고 칸 조건을 링크가 넘긴 값으로 갱신한다. 칸 머리에 `이전 화면`을 한 단계만 둔다. 대상이 보드를 지원하지 않으면 본 화면으로 이동한다(보드 상태는 저장돼 있다).
