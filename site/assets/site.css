@@ -2977,10 +2977,10 @@ a.demo-link[data-demo]:not([hidden]) {
   font: 700 var(--text-xs) / 1 var(--font-mono);
 }
 
-/* 13 extend: four-column migration checklist. */
+/* 13 extend: three-column migration checklist. */
 .migrate-cols {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 .migration-paths {
@@ -3292,8 +3292,10 @@ a.demo-link[data-demo]:not([hidden]) {
   font-size: 14.5px;
 }
 @media (min-width: 1100px) {
+  /* 두 캡처를 자연 크기 상한으로 나란히 두되, 기본기 칸의 폭을 넘지 않게 줄어든다. */
   .tools-grid {
-    grid-template-columns: 288px 439px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 288px) minmax(0, 439px);
+    justify-content: start;
     align-items: start;
     gap: 22px 28px;
   }
