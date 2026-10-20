@@ -225,21 +225,24 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 - 목적지 객체 식별자와 전달하는 분석 Context를 분리한다. `(equipmentId, entityType, anchor)`는 **occurrence 전용 식별키**다. `lotId` 같은 업무 ID는 occurrence 검색 보조이며 anchor 없는 occurrence 조인에 쓰지 않는다.
 - Site가 활성 Scope에서 확립된 상태에서 설비 마스터의 객체 키는 `equipment_id` 하나다(전역 유일 ID, [ADR-0004](adr/0004-site-is-db-partition-not-column.md)). EquipmentID로 Site DB를 추정하지 않는다. VOC는 `vocId`, 지표는 `metricId`와 `metricVersion`으로 식별한다. 도메인 객체에 occurrence 키를 강제하지 않는다.
-- URL은 요청한 `scopeId`, `from`/`to`, `roomNames`, `equipmentGroup`(Condition), `selectedEquipmentIds`(Selection; 기존 `equipmentIds` 대응), `lotIds`, `ppid`, `recipeIds`, `metricId`/`metricVersion`, 해당 화면의 탭/저장된 조회조건 식별자 및 해당하는 경우 occurrence anchor를 소유한다. 새 공개 필드명·조건 인코딩은 Candidate다. 객체 ID는 목적지 경로/계약에 따라 별도로 전달한다.
+- URL은 요청한 `scopeId`, `from`/`to`, `roomNames`, `equipmentGroup`(Condition)와 `membershipBasis`(소속 기준), `selectedEquipmentIds`(Selection; 기존 `equipmentIds` 대응), `lotIds`, `ppid`, `recipeIds`, `metricId`/`metricVersion`, 해당 화면의 탭/저장된 조회조건 식별자 및 해당하는 경우 occurrence anchor를 소유한다. 공개 필드명·조건 인코딩은 별도 결정이 없으면 Candidate다. `equipmentGroup` 맵 확장과 `membershipBasis`는 ADR-0059에서 Decided로 정했다(구현 전). 객체 ID는 목적지 경로/계약에 따라 별도로 전달한다.
 - **`lotIds` / `ppid` / `recipeIds`(필드명 Candidate, 축은 Decided)**: Lot은 논리적 묶음, Job은 실행 인스턴스이며 1:1이 아니다. PPID는 LEH `FlowId`, Recipe(`prc_name`)는 PRC `RecipeId`다. Recipe를 Lot 전체의 고정값으로 가정하지 않는다. `lotIds`/`recipeIds`는 집합 정규화, `ppid`는 단일값 후보로 등록한다. Operation은 v1 필터/URL 축에서 제외한다. Recipe 필터가 Job 전체를 포함할지 매칭 PRC 구간만 포함할지는 **Candidate / 메뉴별 정의**이며 Kernel이 강제하지 않는다.
-- **Equipment Group 두 층(Decided)**: Condition 키 후보 `equipmentGroup`은 사용한 축과 조건을 담는 단일 구조화 값이며 StGroup / 분임조 / Maker+Model 중 하나만 허용한다(축 간 조합 미지원). 현재 소속·속성을 재평가하는 live reference가 가능하다. Selection 키 후보 `selectedEquipmentIds`는 그 결과에서 명시적으로 고른 **고정 EquipmentID 집합**이다. 향후 그룹 축에도 같은 규칙을 적용한다. 조건만 선택했다고 결과 전체를 자동 물질화하지 않는다. 근거: [ADR-0002](adr/0002-stgroup-materializes-to-equipment-ids.md).
+- **Equipment Group 두 층(Decided, 2026-10-21 — [ADR-0059](adr/0059-app-injected-equipment-axes-and-condition.md); 구현 전)**: Condition은 앱이 주입한 axisId → 비어 있지 않은 value-id 배열의 맵이다. 서로 다른 축은 AND, 같은 축의 값은 OR이며 축 부재는 그 축 무제약이다. `equipmentGroup`을 단일 JSON 값으로 유지하고 Line·PRC 그룹도 주입 축으로 표현한다. `lineNames`/`prcGroups`를 새 전역 키로 등록하지 않는다. Selection `selectedEquipmentIds`는 명시적으로 고른 **고정 EquipmentID 집합**이다. 조건만 선택했다고 결과 전체를 자동 물질화하지 않는다. [ADR-0002](adr/0002-stgroup-materializes-to-equipment-ids.md)의 두 층 분리는 유지한다.
+- **주입 축과 소속 기준(Decided, 2026-10-21; 구현 전)**: 앱은 안정 `id`, 표시 `label`, `membershipHistory: boolean`, 선택적 `dependsOn: axisId` descriptor를 공급한다. 플랫폼은 닫힌 축 union 대신 axis-id 문자열을 주입 descriptor에 대조한다. 공개 API는 특정 업무 시스템·SQL·SP 구조를 모른다. `membershipBasis` 부재는 `current`(지금 소속), `asOf`는 그 시점 소속이다. 사용한 모든 축이 이력을 지원해야 `asOf`가 유효하고 아니면 거부한다(자동 current 전환 금지). 사용자가 기준을 고르며 서버가 소속 이력을 공급한다. `roomNames`는 기존 독립 집합 키다. Maker→Model 같은 의존 축은 서버가 선택한 부모 값 안에서 평가하며 클라이언트가 자식 값을 조용히 지우지 않는다.
 - **room_name은 Global Context(Decided)**: 공개 집합 키 후보는 `roomNames`이며 도메인 값 `room_name`과 매핑한다. 요청 Scope 안의 조회 범위를 좁히며 권한을 부여하지 않는다. 집합 정규화/공집합 규칙을 따르고 Page Filter `processIds`를 별도로 만들지 않는다.
 - **page-owned URL 키의 예시로 `granularity`(Candidate 필드명, Decided — 메커니즘)**: 조회 기간(`from`/`to`)과 집계 단위(시간별/일별/주별로 뭉쳐 보기)는 다른 축이다. 모든 메뉴가 집계 단위 선택을 갖는 게 아니므로 전역 Context Bar가 아니라 `metricId`+`metricVersion` 쌍과 같은 방식으로 화면마다 선언·등록하는 page-owned 계약으로 둔다. 값 후보: `hour`/`day`/`week`.
-- 딥링크 왕복은 조회조건·명시 선택·지표 버전을 재현한다. live Condition은 재방문 시 현재 멤버/매칭 결과를 평가하므로 대상 집합이 달라질 수 있음을 표시한다. Selection은 고정이며, 지연 완료·마스터 정정으로 숫자는 달라질 수 있으므로 결과에는 계산 기준시각을 표시한다.
+- 딥링크 왕복은 조회조건·명시 선택·지표 버전을 재현한다. live Condition은 재방문 시 선언한 소속 기준의 멤버/매칭 결과를 재평가하므로 대상 집합이 달라질 수 있음을 표시한다. Selection은 고정이며, 지연 완료·마스터 정정으로 숫자는 달라질 수 있으므로 결과에는 계산 기준시각을 표시한다.
 - 단순 차트 줌은 로컬 상태다. Brush 후 명시적인 분석 구간 적용만 전역 Context/URL로 전달한다.
 - 미지원 Context는 조용히 버리지 않고 적용되지 않음을 표시한다. 보존·재적용 방식은 §6.4를 따른다.
 - `savedViewToken`은 긴 URL을 대체할 후보 계약으로 예약한다(Deferred). 저장된 뷰 구현 전에는 토큰 생성이나 비활성 버튼을 셸 필수 요소로 두지 않는다.
 
 **URL/JSON 케이싱과 매핑 소유 (Decided):** URL·JSON 공개 필드명은 camelCase, DB는 해당 스키마 관례(snake_case)를 유지한다. 컬렉션은 URL 반복 키(`equipmentIds=A&equipmentIds=B`), JSON은 배열로 직렬화한다(콤마 결합은 ID의 예약문자와 충돌할 수 있어 채택하지 않는다). 공개 계약(이름·타입·카디널리티·버전·지원 Context·page-owned 키 등록)은 플랫폼 Kernel이 소유하며 클라이언트 라우터와 서버 요청 검증은 같은 산출물을 소비한다. SQL 컬럼/조인/계산식 매핑은 서버 소비 계층이 소유하고 공개 필드가 DB 컬럼과 1:1이라고 가정하지 않는다. 구현 형식(OpenAPI/JSON Schema/codegen)은 Candidate.
 
-**집합 키 정규화와 공집합 표식 (Decided):** 집합 키(`selectedEquipmentIds`; 기존 `equipmentIds` 대응, `roomNames`, `lotIds`, `recipeIds`)가 URL에 부재하면 해당 명시 집합의 제약은 없다(Scope·권한·다른 조건·조회량 제한은 유지). Selection 부재는 Condition이 있을 때 그 현재 결과 전체를 조회한다는 뜻이지 Condition까지 무제약으로 바꾸는 뜻이 아니다. 유효 ID 1개 이상이면 선택 집합이며 중복은 제거하고 순서는 무의미하다(정규 URL은 Unicode 코드 포인트 사전식 정렬, trim/대소문자 변환/유니코드 정규화로 서로 다른 ID를 합치지 않는다). 빈 문자열/공백만 있는 ID는 형식 오류다(반복 키는 항목이 0개면 키 자체가 사라지므로 `equipmentIds=`는 "빈 ID 1개"이지 "선택 0개"가 아니다). **명시적 공집합**은 집합 키마다 등록되는 단일값 표식으로 표현한다(필드명 Candidate, 예: Selection 집합의 `equipmentSelection=none`). 표식만 있으면 명시적 공집합, ID 키와 표식이 동시에 있으면 오류다. 공집합을 지원하는 메뉴는 나머지 요청이 유효할 때 `outcome=empty`로 처리하고, 공집합 때문에 잘못된 Scope/기간을 성공으로 바꾸지 않는다. **미지원 메뉴는 공집합을 미적용으로 보존할 뿐 자기 결과를 강제로 empty로 만들지 않는다.** 표식과 ID 집합은 한 논리 Context로 함께 전달·제거한다.
+**집합 키 정규화와 공집합 표식 (Decided):** 집합 키(`selectedEquipmentIds`; 기존 `equipmentIds` 대응, `roomNames`, `lotIds`, `recipeIds`)가 URL에 부재하면 해당 명시 집합의 제약은 없다(Scope·권한·다른 조건·조회량 제한은 유지). Selection 부재는 Condition이 있을 때 그 소속 기준의 평가 결과 전체를 조회한다는 뜻이지 Condition까지 무제약으로 바꾸는 뜻이 아니다. 유효 ID 1개 이상이면 선택 집합이며 중복은 제거하고 순서는 무의미하다(정규 URL은 Unicode 코드 포인트 사전식 정렬, trim/대소문자 변환/유니코드 정규화로 서로 다른 ID를 합치지 않는다). 빈 문자열/공백만 있는 ID는 형식 오류다(반복 키는 항목이 0개면 키 자체가 사라지므로 `equipmentIds=`는 "빈 ID 1개"이지 "선택 0개"가 아니다). **명시적 공집합**은 집합 키마다 등록되는 단일값 표식으로 표현한다(필드명 Candidate, 예: Selection 집합의 `equipmentSelection=none`). 표식만 있으면 명시적 공집합, ID 키와 표식이 동시에 있으면 오류다. 공집합을 지원하는 메뉴는 나머지 요청이 유효할 때 `outcome=empty`로 처리하고, 공집합 때문에 잘못된 Scope/기간을 성공으로 바꾸지 않는다. **미지원 메뉴는 공집합을 미적용으로 보존할 뿐 자기 결과를 강제로 empty로 만들지 않는다.** 표식과 ID 집합은 한 논리 Context로 함께 전달·제거한다.
 
-**단일값 키 중복 (Decided):** `scopeId`/`from`/`to`/`v`/`equipmentGroup`/`ppid`/`metricId`/`metricVersion`/목적지 ID 등 카디널리티 1인 키가 반복되면 같은 값이어도 형식 오류다. 클라이언트와 서버가 첫 값/마지막 값을 다르게 해석하는 것을 금지한다.
+**Condition의 null / 빈 배열(Decided, 2026-10-21; 구현 전):** 내부 `condition=null`은 URL `equipmentGroup` 부재이며 축 제약 없음이다. 맵 `{}`도 제약 없음으로 정규화해 키를 생략한다. URL의 JSON `null`·배열, 맵의 축 값 `null`·`[]`·빈 ID는 `invalid_condition`이며 보정하지 않는다. 값 배열은 기존 ID 집합처럼 중복 제거·정렬하되 ID를 변형하지 않는다. Condition 축에는 명시적 공집합 표식을 만들지 않는다. 기존 `roomNames=null`/`selection=null`은 키 부재, `[]`는 각각 `roomSelection=none`/`equipmentSelection=none`을 뜻한다. 이 변경은 다른 기존 집합 키의 표식도 바꾸지 않는다.
+
+**단일값 키 중복 (Decided):** `scopeId`/`from`/`to`/`v`/`equipmentGroup`/`membershipBasis`/`ppid`/`metricId`/`metricVersion`/목적지 ID 등 카디널리티 1인 키가 반복되면 같은 값이어도 형식 오류다. 클라이언트와 서버가 첫 값/마지막 값을 다르게 해석하는 것을 금지한다.
 
 **전역 지표 Context: `metricId` + `metricVersion` 쌍 (Decided):** v1의 전역 지표 Context는 단일 `metricId`와 단일 `metricVersion`의 쌍이다. 두 필드는 공개 스키마에 함께 등록하고 함께 보존·적용·제거한다(전역 반복 키나 지표별 맵은 v1에 없음). 완성/초기화 불변식:
   - query에 둘 다 있음 → 완성된 전역 Context. 서버가 그 `metricId`에 그 `metricVersion`이 속하고 유효한지 검증하고, 실패하면 오류로 처리하며 최신 버전으로 대체하지 않는다.
@@ -293,7 +296,16 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 배포 하위 경로는 주입된 위치 어댑터의 브라우저 경계에서만 붙고 떼며, 앱 내부 URL·`returnTo`·저장 URL은 base 없는 앱 상대 경로다([ADR-0030](adr/0030-location-adapter-base-path.md)).
 
-**Equipment Group / Context Capability (Decided; 공개 표현 Candidate):** 메뉴는 Condition과 Selection의 적용/참조/미지원 범위를 선언하고 두 층을 전달·보존한다. StGroup·분임조·Maker+Model 중 사용한 축을 그대로 유지하며 다른 축으로 역추정하지 않는다. Condition만 있으면 현재 결과를 조회하고, 명시 Selection이 있으면 그 고정 ID 집합을 분석 대상으로 사용한다. 재평가된 Condition에서 빠졌다는 이유로 선택을 자동 교집합·확장·대체하지 않는다. 권한/Scope 검증 실패는 명시적으로 처리한다. 조건 편집 시 기존 선택의 처리 UI는 Candidate이며 조용한 선택 변경은 허용하지 않는다.
+**Equipment Group / Context Capability (Decided; 공개 표현 Candidate, ADR-0059 확장 Decided·구현 전):** 메뉴는 Condition과 Selection의 적용/참조/미지원 범위를 선언하고 두 층을 전달·보존한다. 주입된 사용 축 전체와 소속 기준을 유지하며 다른 축으로 역추정하지 않는다. Condition만 있으면 선언한 소속 기준으로 재평가하고, 명시 Selection이 있으면 그 고정 ID 집합을 분석 대상으로 사용한다. 재평가된 Condition에서 빠졌다는 이유로 선택을 자동 교집합·확장·대체하지 않는다. 권한/Scope 검증 실패는 명시적으로 처리한다. 조건 편집 시 기존 선택의 처리 UI는 Candidate이며 조용한 선택 변경은 허용하지 않는다.
+
+**`equipmentGroup` v1 호환 확장(Decided, 2026-10-21; 구현 전):** URL 버전을 올리지 않는다. 새 표현은 배열 맵 `{"stgroup":["A"]}`이고 serializer는 배열 맵만 쓴다. 기존 v1 tagged object(`{"axis":"stgroup","id":"A"}`, team 및 makerModel의 maker/model 쌍)는 기존 의미를 보존해 배열 맵으로 읽는다. 이 구분을 위해 축 id `axis`는 예약한다. `makerModel` 값은 같은 복합축의 ID로 유지하고 앱이 해당 축을 계속 주입할 수 있다. Maker+Model의 두 ID를 손실 없이 값 ID로 대응하는 구체 형식과 fixture는 #552 후속 구현에서 확정한다. 단일축 소비자는 같은 한 값 조건으로 동작해야 한다. `membershipBasis=asOf`는 §6.1의 이력 지원 검증을 거치며 생략은 current다. 미주입 축은 오류로 거부하고 검증된 조회에 쓰지 않는다. 주입된 축이 대상 메뉴에서 미지원인 경우는 전체 Condition과 기준을 보존하고 미적용으로 표시한다. 보드 복사도 Condition 전체와 기준을 함께 전달하며 칸 소유권([ADR-0049](adr/0049-analysis-context-belongs-to-a-pane.md))은 유지한다.
+
+**옵션·Selection 평가 포트(Decided, 2026-10-21; 구현 전):**
+
+- `listAxisOptions({ scopeId, axisId, query?, parents?: Record<axisId,string[]>, cursor?, limit }, signal)` → `{ items: {id,label}[], nextCursor: string|null }`. 캐시 키는 모든 입력이다. 입력 변경 시 이전 요청을 abort하고 오래된 입력의 늦은 응답을 버린다. 세션·권한·마스터 변경의 무효화 정책은 #552 후속 구현 항목이다. `contextOptions`는 기존 소비자 호환을 위해 deprecated로 유지하고 모든 소비자 전환과 호환 검증 완료 후 제거한다.
+- `searchEquipment({ scopeId, roomNames, condition, membershipBasis, query?, cursor?, limit }, signal)` → `{ items: EquipmentSummary[], nextCursor: string|null, total? }`. `EquipmentSummary`는 EquipmentID + room + 축별 값 맵이다. `total` 부재를 0으로 표시하지 않는다.
+- `resolveSelection({ scopeId, ids }, signal)` → ID별 `ok | forbidden | not_found`. forbidden ID에는 상세 필드를 일절 반환하지 않는다. 검색 페이지/결과 밖의 선택을 삭제·대체하지 않고 UI에 결과 밖·권한 거부·없음의 이유를 표시한다. 이 확인은 Condition을 우회하는 분석 허가가 아니다. 서버의 최종 분석 판정 순서는 매 요청 **Scope → room grant → Condition → Selection**이다.
+- 페이지/선택 한도·커서 정책 및 `asOf`의 정확한 평가시점·기간 전달은 #552 후속 구현에서 확정한다([ADR-0059 구현 항목](adr/0059-app-injected-equipment-axes-and-condition.md#구현-pr에-남기는-항목-open--미구현)). 이 설계만으로 런타임 포트가 제공된다고 주장하지 않는다.
 
 기존 `equipmentIds` 목록 필터와 `selectedEquipmentIds`는 같은 EquipmentID 명시 집합을 나타내는 공개 표현이다. 새 이름은 Selection의 역할을 드러내는 후보이며 두 개의 독립 필터가 아니다. 기존 이름의 동등 별칭/버전 이행은 아래 `v` 규칙으로 등록한다. 동시 입력은 후보 스키마에서 거부하여 우선순위 추정을 피한다. 상세의 단일 `equipment_id`도 **같은 식별자 개념**이며, 집합 조회와 객체 목적지라는 사용 역할만 다르다.
 
@@ -490,6 +502,8 @@ Create VOC from current context
 플랫폼에서 가장 중요한 공통 UI 중 하나다.
 
 대표 Context: Time Range · room_name · Equipment Group(Condition·Selection) · Lot · PPID · Recipe · Metric(ID+버전 쌍). Scope는 Global Context에 속하지만 선택기는 사이드바 머리에 하나만 둔다(§7).
+
+**다중축·소속 기준(Decided, 2026-10-21; 구현 전 — [ADR-0059](adr/0059-app-injected-equipment-axes-and-condition.md)):** 바는 앱이 주입한 여러 축과 축별 여러 값을 표시·편집하고 축 간 AND / 축 안 OR의 적용 조건을 요약한다. “그 시점 소속 / 지금 소속” 선택과 현재 적용한 기준을 표시하며 이력 없는 축을 쓰면 지금 소속만 허용한다. 미지원 축·무효 조합·옵션 갱신 시 기존 값을 조용히 지우지 않고 사유를 표시한다. 후보의 서버 검색·페이징과 고정 선택의 페이지 밖 보존은 §6.4를 따른다. 구체 UI는 실앱 시안 승인 뒤 구현한다.
 
 ### Context 변경 규칙
 
