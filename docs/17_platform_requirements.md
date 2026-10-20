@@ -190,7 +190,7 @@ SDK는 플랫폼에 올릴 앱이 지키는 **계약**이면서, 앱이 자기 �
 | R9.4 | 화면 사이 일을 앱이 다시 만들지 않는다 | 앱이 올라오는 순간 R1–R6(조건 유지, 주소, 신뢰 표시, 상태 화면, 권한, 감사, 활용률)을 받는다 | 플랫폼 안 화면은 동작. 다른 저장소 앱은 첫 소비자 편입 뒤(#332) | §3.1–§3.6 |
 | R9.5 | 서버는 계약만 | SDK는 백엔드 프레임워크를 강요하지 않는다. 전송 형식·오류 변환·적합성 묶음만 맞추면 사내 FastAPI든 다른 서버든 된다 | 계약·적합성 묶음 동작(지금은 mock 어댑터를 판정). 전송 형식은 사내 합의 대기, HTTP 실어댑터는 #154 | [SDK 포괄 목록](integration/sdk-coverage-inventory.md) §6, #149, #154 |
 | R9.6 | 버전을 고정해 받는다 | 플랫폼 변경이 앱에 예고 없이 들어가지 않는다. SDK는 앱과 따로 묶음 버전(`sdk-v*` 태그)으로 내고, 앱은 git 태그로 버전을 고정해 받는다(사내 패키지 레지스트리 없음). 저장소 밖 소비자 검사가 릴리스 게이트다 | 동작 — 지금 태그로 받는 것은 SDK UI(`@ap/ui`)뿐이다. 계약·Kernel·셸 패키지는 아직 저장소 밖 배포 모양이 아니다 | [ADR-0044](adr/0044-sdk-source-in-platform-repo-released-separately.md), [git 태그 소비](integration/sdk-git-tag-consumption.md) |
-| R9.7 | 세 제품의 프레임워크를 모두 덮는다 | 제품마다 프레임워크를 따로 키워 차이가 벌어지지 않는다. analytics-platform·FeedbackOps·equipment-visualization이 하는 일을 SDK 하나가 덮고, 빠진 것(쓰기 포트, 기계가 읽는 테마 계약, 접근성·성능 게이트)은 SDK가 새로 정한다 | 계획 — 쓰기 포트는 진행 중(ADR-0054, #501) | [SDK 포괄 목록](integration/sdk-coverage-inventory.md) §5 |
+| R9.7 | 세 제품의 프레임워크를 모두 덮는다 | 제품마다 프레임워크를 따로 키워 차이가 벌어지지 않는다. analytics-platform·FeedbackOps·equipment-visualization이 하는 일을 SDK 하나가 덮고, 빠진 것(쓰기 포트, 기계가 읽는 테마 계약, 접근성·성능 게이트)은 SDK가 새로 정한다 | 계획 — 쓰기 포트는 동작(ADR-0054, #501·#502: 동작 선언·멱등 키·쓰기 뒤 다시 읽기, mock 기준) | [SDK 포괄 목록](integration/sdk-coverage-inventory.md) §5 |
 
 ## 4. 판단 기준 — 이 플랫폼이라서 되는 것
 
