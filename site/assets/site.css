@@ -4615,3 +4615,189 @@ a.demo-link[data-demo]:not([hidden]) {
     display: none;
   }
 }
+
+/* W-468 persona round: why chips under 02, platform branch list, 11 change list, stop card, file tree, state thumbnails. */
+.why-chips {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 20px;
+  padding: 0;
+  list-style: none;
+}
+.why-chips li {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  padding: 8px 12px;
+  border: 1px solid rgb(var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: rgb(var(--accent-primary-soft));
+}
+.why-chips b {
+  font-size: var(--text-sm);
+  line-height: 1.35;
+  word-break: keep-all;
+}
+.why-chips span {
+  color: rgb(var(--text-secondary));
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  word-break: keep-all;
+}
+.plat-branches {
+  margin: 8px 0;
+  padding-left: 18px;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+.diagram svg .diagram-sub {
+  opacity: 0.8;
+}
+.change-list li {
+  grid-template-columns: minmax(0, 1fr);
+  padding-left: 0;
+}
+.change-list li::before {
+  content: none;
+}
+.change-list li b,
+.change-list li span {
+  grid-column: 1;
+}
+.change-list {
+  margin-bottom: 14px;
+}
+.stop-card {
+  margin: 14px 0 0;
+  padding: 12px 16px;
+  border: 1px solid rgb(var(--border-subtle));
+  border-left: 4px solid rgb(var(--accent-primary));
+  border-radius: var(--radius-md);
+  background: rgb(var(--surface-card));
+}
+.stop-card h3 {
+  margin: 0 0 4px;
+  font-size: var(--text-md);
+}
+.stop-card p {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  word-break: keep-all;
+}
+.file-tree {
+  margin: 0 0 8px;
+  font-size: var(--text-sm);
+}
+.file-tree code {
+  font-size: var(--text-xs);
+}
+.state-row.state-thumbs {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+.state-row.state-thumbs figure:nth-child(n + 3) {
+  display: block;
+}
+.state-thumbs .shot-figure figcaption {
+  margin-top: 4px;
+}
+/* 02 card 1: keep the trust capture whole but small, so the card has no empty band above or below the text. */
+#scene-1 .scene-shot {
+  flex: 0 1 min(28%, 250px);
+  align-self: center;
+}
+#scene-1 .scene-text {
+  align-content: center;
+}
+@media (max-width: 900px) {
+  .why-chips {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+  .why-chips li {
+    padding: 6px 10px;
+  }
+}
+@media (max-width: 700px) {
+  .why-chips span {
+    display: none;
+  }
+}
+@media (max-width: 700px) {
+  .state-row.state-thumbs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  #scene-1 .scene-shot {
+    flex: 0 0 auto;
+    width: 60%;
+    align-self: center;
+  }
+}
+
+.change-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 24px;
+}
+.change-list li span {
+  display: block;
+}
+.state-row.state-thumbs {
+  max-width: 760px;
+}
+.state-thumbs .shot-figure img {
+  aspect-ratio: 16 / 9;
+}
+@media (max-width: 700px) {
+  .change-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .change-list li {
+    padding: 5px 0;
+  }
+  .why-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .why-chips li {
+    flex: 1 1 auto;
+    padding: 4px 10px;
+  }
+  .plat-branches {
+    margin: 4px 0;
+    font-size: var(--text-xs);
+  }
+}
+
+.state-row.state-thumbs {
+  max-width: 620px;
+}
+@media (max-width: 700px) {
+  .state-thumbs .shot-figure img {
+    aspect-ratio: 16 / 8;
+  }
+}
+@media (max-width: 700px) {
+  .state-thumbs .shot-figure img {
+    aspect-ratio: 16 / 6;
+  }
+  #scene-1 .scene-shot {
+    width: 50%;
+  }
+}
+@media (max-width: 700px) {
+  .stop-card {
+    margin-top: 8px;
+    padding: 8px 12px;
+  }
+  .change-list li {
+    padding: 3px 0;
+  }
+}
+.stop-card {
+  margin-bottom: 14px;
+}
