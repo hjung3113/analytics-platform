@@ -625,7 +625,7 @@ try {
     );
   }
   viewportWidth = 1440;
-  // 히어로 주석 캡처: 1440폭 전체 화면(셸 포함). 번호는 02의 여덟 장면에 대응하고 위치를 캡처 때 잰다(2·4·6·8은 이 화면 밖이라 표식 없음).
+  // 히어로 합성 그림의 MARS 자리: 1440폭 전체 화면(셸 포함). 번호 표식은 두지 않는다(번호는 02의 장면 카드에만 있다).
   await capture(
     "cycle-time-full",
     "견본 화면 전체",
@@ -640,14 +640,9 @@ try {
       return { clip: { x: 0, y: 0, width: viewport.width, height: viewport.height }, hideSticky: false };
     },
     [],
-    [
-      [1, () => page.getByRole("button", { name: "링크 복사", exact: true }).locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' sticky ')][1]")],
-      [3, () => page.getByRole("button", { name: "링크 복사", exact: true })],
-      [5, () => button("데이터 신뢰").first()],
-      [7, () => button(/^Scope:/)],
-    ],
+    [],
   );
-  // 히어로 확대 인셋: 같은 화면에서 조건 바(왼쪽 560px)와 데이터 신뢰 패널을 원본 크기로 잘라 낸다.
+  // 02 핵심 장면 카드의 확대 조각: 같은 화면에서 조건 바(왼쪽 560px)와 데이터 신뢰 패널을 원본 크기로 잘라 낸다.
   await capture(
     "inset-context",
     "조건 바 확대",
@@ -683,7 +678,14 @@ try {
       await expect(block).toBeVisible();
       await expect(block.getByRole("link", { name: /^VOC 등록/ })).toBeVisible();
     },
-    () => elementClip(page.getByRole("navigation", { name: "FeedbackOps · MARS", exact: true }), 24),
+    // 진입 버튼(VOC 등록 · VOC · Task · 설문)이 모두 보이게 사이드바 아래쪽 전체 폭을 찍는다(왼쪽 아이콘 레일 포함, 가장자리 잘림 없음).
+    async () => {
+      const nav = page.getByRole("navigation", { name: "FeedbackOps · MARS", exact: true });
+      await expect(nav).toBeVisible();
+      const box = await nav.boundingBox();
+      const y = Math.max(0, box.y - 64);
+      return { clip: { x: 0, y, width: box.x + box.width + 1, height: page.viewportSize().height - y }, hideSticky: false };
+    },
   );
   await capture(
     "system-switcher",
@@ -696,9 +698,13 @@ try {
       const dialog = page.getByRole("dialog", { name: "업무 시스템 전환", exact: true });
       await expect(dialog).toBeVisible();
       await expect(dialog).toContainText("BRAVO");
+      // 대화상자 뒤의 화면 내용이 가장자리에 비치지 않게 앱 루트를 숨기고, 테두리까지 온전히 찍는다.
+      await page.evaluate(() => {
+        const root = document.getElementById("root");
+        if (root) root.style.visibility = "hidden";
+      });
     },
-    // Dialog only: the trigger sits over page content, which would show behind the crop.
-    () => unionClip([page.getByRole("dialog", { name: "업무 시스템 전환", exact: true })], 0).then((clip) => ({ clip, cover: true })),
+    () => unionClip([page.getByRole("dialog", { name: "업무 시스템 전환", exact: true })], 14).then((clip) => ({ clip, cover: true, hideSticky: false })),
   );
   // Console screens need the demo's platform-admin role (the same switch D8 tells readers to use).
   await page.evaluate(() => localStorage.setItem("platform:role", JSON.stringify("admin")));

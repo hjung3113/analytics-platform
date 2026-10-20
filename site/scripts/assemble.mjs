@@ -289,8 +289,11 @@ html = html.replace(figureSlot, (whole, cls, id, inner) => {
     : "";
   return `<figure class="${cls}" data-shot-fig="${id}"><span class="shot-frame">${img}${marks}</span>${inner.replace("<!--shot:" + id + "-->", "")}</figure>`;
 });
-// 히어로의 화면 캡처 자리: 캡처가 없는 조립에서는 02의 도식 A를 히어로에도 보인다(id는 접미사로 구분).
-const heroFallback = shotById.has("cycle-time-full")
+// 히어로의 견본 화면 세 장(MARS·BRAVO·운영 콘솔)이 모두 있어야 합성 그림을 보인다. 하나라도 없으면 그 블록을 지우고
+// 캡처 없는 조립에서는 도식 A를 히어로에도 보인다(id는 접미사로 구분).
+const hasHeroStack = ["cycle-time-full", "catalog", "change-audit"].every((id) => shotById.has(id));
+if (!hasHeroStack) html = html.replace(/<!--HERO_STACK-->[\s\S]*?<!--\/HERO_STACK-->/, "");
+const heroFallback = hasHeroStack
   ? ""
   : (html.match(/<figure class="diagram diagram-a">[\s\S]*?<\/figure>/)?.[0] || "")
       .replaceAll("fig-a-", "fig-a0-")
