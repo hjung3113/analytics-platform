@@ -5,6 +5,32 @@ import { exclude, includePrefixes } from './theme-tokens.config.mjs';
 
 const scriptPath = fileURLToPath(import.meta.url);
 const packageRoot = resolve(dirname(scriptPath), '..');
+const COLOR_FUNCTIONS = new Set([
+  'color', 'color-mix', 'device-cmyk', 'hsl', 'hsla', 'hwb', 'lab', 'lch', 'light-dark',
+  'oklab', 'oklch', 'rgb', 'rgba',
+]);
+const CSS_COLOR_KEYWORDS = new Set(`
+  accentcolor accentcolortext activetext activeborder activecaption aliceblue antiquewhite aqua aquamarine
+  appworkspace azure background beige bisque black
+  blanchedalmond blue blueviolet brown burlywood buttonborder buttonface buttonhighlight buttonshadow buttontext
+  cadetblue captiontext canvas canvastext
+  chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen
+  darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue
+  darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick
+  floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray graytext green greenyellow grey honeydew hotpink
+  indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan
+  lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray
+  lightslategrey lightsteelblue lightyellow lime limegreen linen linktext magenta maroon mark marktext menu menutext
+  mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen
+  field fieldtext mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace
+  olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum
+  powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna
+  scrollbar silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal threeddarkshadow
+  threedface threedhighlight threedlightshadow threedshadow thistle tomato turquoise violet
+  visitedtext wheat white whitesmoke yellow yellowgreen transparent currentcolor graytext highlight highlighttext
+  selecteditem selecteditemtext window windowframe windowtext infobackground infotext inactiveborder
+  inactivecaption inactivecaptiontext
+`.trim().split(/\s+/));
 
 function parseRootDeclarations(css, sourceName) {
   const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -20,25 +46,61 @@ function parseRootDeclarations(css, sourceName) {
   return properties;
 }
 
-function resolveRgb(name, properties, chain = []) {
+function parseVariable(value) {
+  const match = /^var\(\s*(--[\w-]+)\s*(?:,([\s\S]*))?\)$/i.exec(value);
+  if (!match) return null;
+  return { name: match[1], fallback: match[2]?.trim() };
+}
+
+function isStandaloneColorFunction(value) {
+  const match = /^([a-z][\w-]*)\s*\(/i.exec(value);
+  if (!match || !COLOR_FUNCTIONS.has(match[1].toLowerCase())) return false;
+
+  let depth = 0;
+  for (let index = match[0].length - 1; index < value.length; index += 1) {
+    if (value[index] === '(') depth += 1;
+    if (value[index] === ')') {
+      depth -= 1;
+      if (depth === 0) return value.slice(index + 1).trim() === '';
+    }
+  }
+  return true;
+}
+
+function isCssColorValue(value) {
+  if (/^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i.test(value)) return true;
+  if (CSS_COLOR_KEYWORDS.has(value.toLowerCase())) return true;
+  return isStandaloneColorFunction(value);
+}
+
+function resolveColorValue(value, properties, chain) {
+  const triple = /^(\d+)\s+(\d+)\s+(\d+)$/.exec(value);
+  if (triple) {
+    const channels = triple.slice(1).map(Number);
+    if (channels.some(channel => channel > 255)) {
+      throw new Error(`Colour token ${chain[0]} has an RGB channel outside 0..255: ${value}`);
+    }
+    return { kind: 'rgb', rgb: channels };
+  }
+
+  const variable = parseVariable(value);
+  if (variable) {
+    if (properties.has(variable.name)) return resolveColor(variable.name, properties, chain);
+    if (variable.fallback !== undefined) return resolveColorValue(variable.fallback, properties, chain);
+    throw new Error(`Colour token ${chain[0]} references missing ${variable.name}`);
+  }
+
+  return isCssColorValue(value) ? { kind: 'unsupported', value } : null;
+}
+
+function resolveColor(name, properties, chain = []) {
   if (chain.includes(name)) throw new Error(`Colour token alias cycle at ${name}: ${chain.join(' -> ')}`);
   const value = properties.get(name);
   if (value === undefined) {
     if (chain.length > 0) throw new Error(`Colour token ${chain[0]} references missing ${name}`);
     return null;
   }
-  if (value === 'transparent') return null;
-
-  const alias = /^var\(\s*(--[\w-]+)\s*\)$/.exec(value);
-  if (alias) return resolveRgb(alias[1], properties, [...chain, name]);
-
-  const triple = /^(\d+)\s+(\d+)\s+(\d+)$/.exec(value);
-  if (!triple) return null;
-  const channels = triple.slice(1).map(Number);
-  if (channels.some(channel => channel > 255)) {
-    throw new Error(`Colour token ${name} has an RGB channel outside 0..255: ${value}`);
-  }
-  return channels;
+  return resolveColorValue(value, properties, [...chain, name]);
 }
 
 function hex([red, green, blue]) {
@@ -46,7 +108,9 @@ function hex([red, green, blue]) {
 }
 
 function excludedReason(name) {
-  const entry = Object.entries(exclude).find(([nameOrPrefix]) => name === nameOrPrefix || name.startsWith(nameOrPrefix));
+  const entry = Object.entries(exclude).find(([nameOrPrefix]) => (
+    nameOrPrefix.endsWith('-') ? name.startsWith(nameOrPrefix) : name === nameOrPrefix
+  ));
   return entry?.[1];
 }
 
@@ -89,14 +153,16 @@ export function generateThemeTokens({ tokensCss, platformCss }) {
   ]);
   const included = [];
 
-  for (const [cssName, value] of properties) {
-    const rgb = resolveRgb(cssName, properties);
-    if (!rgb) continue;
-
+  for (const [cssName] of properties) {
     const name = cssName.slice(2);
+    const resolved = resolveColor(cssName, properties);
+    if (!resolved) continue;
     if (excludedReason(name)) continue;
-    if (!isIncluded(name)) throw new Error(`Unclassified colour token: ${cssName} (${value})`);
-    included.push({ name, rgb });
+    if (resolved.kind === 'unsupported') {
+      throw new Error(`Colour token ${cssName} resolves to a non-RGB colour value: ${resolved.value}`);
+    }
+    if (!isIncluded(name)) throw new Error(`Unclassified colour token: ${cssName} (${properties.get(cssName)})`);
+    included.push({ name, rgb: resolved.rgb });
   }
 
   included.sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
