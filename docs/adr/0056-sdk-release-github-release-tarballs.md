@@ -32,3 +32,5 @@
 - FeedbackOps의 `@ap/ui` git 태그 소비는 그대로 동작한다. 원하면 tarball로 옮겨도 된다(FeedbackOps 판단).
 - EV `platform-adapter`(#332 뒤)는 처음부터 tarball로 받는다.
 - 레지스트리가 생기면 같은 다섯 파일을 `@ap` 범위로 발행하고, 소비자는 URL을 `^X.Y.Z`로 바꾼다.
+
+구현 메모(2026-10-20): `sdk-pack`은 저장소 밖 staging에서 생성 manifest를 만들고, 형제 의존의 `workspace:*` 범위를 태그 버전으로 직접 바꾼다(`pnpm pack` 자체가 바꾸는 것은 아니다). CI의 `sdk:api`는 `pnpm build`가 만든 `packages/*/dist` 선언을 읽으며 tarball 안 `.d.ts`를 직접 읽지 않는다. 스냅샷과 tarball은 같은 export 대상 파생 규칙과 빌드 모양을 공유한다.

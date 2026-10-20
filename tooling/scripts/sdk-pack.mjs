@@ -13,13 +13,10 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SDK_PACKAGES, distTarget } from './sdk-exports.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-// Dependency order: a package builds against the declarations its siblings already emitted.
-const PACKAGES = ['contracts', 'kernel', 'ui', 'components', 'shell'];
 const SCOPE = '@ap/';
-// Optional peers of the release manifest: only the test-only `./testing` entry imports them (ADR-0040).
-const OPTIONAL_PEERS = { components: { vitest: '^3.2.7' } };
 
 function fail(message) {
   throw new Error(message);
@@ -65,18 +62,7 @@ function readJson(path) {
   }
 }
 
-/** './src/theme/index.ts' → { types: './dist/theme/index.d.ts', import: './dist/theme/index.js' }; CSS/JSON → './dist/…'. */
-function distTarget(target, label) {
-  if (typeof target !== 'string' || !target.startsWith('./src/')) fail(`${label}: export target ${JSON.stringify(target)} must start with ./src/`);
-  const inDist = `./dist/${target.slice('./src/'.length)}`;
-  if (/\.tsx?$/.test(inDist)) {
-    const stem = inDist.replace(/\.tsx?$/, '');
-    return { types: `${stem}.d.ts`, import: `${stem}.js` };
-  }
-  return inDist;
-}
-
-export function releaseManifest(name, source, version) {
+function releaseManifest(name, source, version) {
   const exports = {};
   for (const [subpath, target] of Object.entries(source.exports ?? {})) exports[subpath] = distTarget(target, `${name} exports["${subpath}"]`);
   if (Object.keys(exports).length === 0) fail(`${name}: source manifest has no exports`);
@@ -91,7 +77,8 @@ export function releaseManifest(name, source, version) {
   };
   const dependencies = pin(source.dependencies);
   if (dependencies && Object.keys(dependencies).length > 0) manifest.dependencies = dependencies;
-  const optional = OPTIONAL_PEERS[name];
+  const optional = name === 'components' ? { vitest: source.devDependencies?.vitest } : undefined;
+  if (optional && !optional.vitest) fail('@ap/components must declare devDependencies.vitest for its optional testing peer');
   const peerDependencies = { ...source.peerDependencies, ...optional };
   if (Object.keys(peerDependencies).length > 0) manifest.peerDependencies = peerDependencies;
   if (optional) manifest.peerDependenciesMeta = Object.fromEntries(Object.keys(optional).map((peer) => [peer, { optional: true }]));
@@ -106,7 +93,7 @@ function archiveRelativePath(path) {
   return normalized.slice('package/'.length);
 }
 
-export function validateArchive(name, paths, manifest, version) {
+function validateArchive(name, paths, manifest, version) {
   const files = paths.map(archiveRelativePath).filter(Boolean);
   const bad = (reason, test) => {
     const hit = files.find(test);
@@ -146,7 +133,7 @@ function main() {
     mkdirSync(collected);
 
     const tarballs = [];
-    for (const name of PACKAGES) {
+    for (const name of SDK_PACKAGES) {
       const packageRoot = join(repoRoot, 'packages', name);
       const source = readJson(join(packageRoot, 'package.json'));
       // dist is git-ignored; clearing it keeps a deleted source file from lingering in the tarball.

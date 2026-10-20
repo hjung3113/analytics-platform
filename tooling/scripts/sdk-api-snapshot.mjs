@@ -5,9 +5,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpath
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { SDK_PACKAGES, distTarget } from './sdk-exports.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const packageNames = ['contracts', 'kernel', 'ui', 'components', 'shell'];
 const snapshotDirectory = join(repoRoot, 'tooling/sdk-api');
 const apiFilePattern = /\.api\.txt$/;
 
@@ -28,21 +28,9 @@ function readJson(path) {
 }
 
 function loadTypeScript() {
-  const packageRequire = createRequire(resolve(repoRoot, 'tooling/gen-menu/package.json'));
+  // @ap/contracts uses TypeScript to build and validate the same SDK declarations.
+  const packageRequire = createRequire(resolve(repoRoot, 'packages/contracts/package.json'));
   return packageRequire('typescript');
-}
-
-// Keep this derivation in sync with sdk-pack.mjs: a source JS entry has a .d.ts and .js target.
-function distTarget(target, label) {
-  if (typeof target !== 'string' || !target.startsWith('./src/')) {
-    fail(label + ': export target ' + JSON.stringify(target) + ' must start with ./src/');
-  }
-  const inDist = './dist/' + target.slice('./src/'.length);
-  if (/\.tsx?$/.test(inDist)) {
-    const stem = inDist.replace(/\.tsx?$/, '');
-    return { types: stem + '.d.ts', import: stem + '.js' };
-  }
-  return inDist;
 }
 
 function normalizeModulePaths(value, packageRoot) {
@@ -528,7 +516,7 @@ function entrySnapshotPath(packageName, subpath) {
 }
 
 function packageConfigs() {
-  return packageNames.map((name) => {
+  return SDK_PACKAGES.map((name) => {
     const packageRoot = join(repoRoot, 'packages', name);
     const manifest = readJson(join(packageRoot, 'package.json'));
     return { name, packageRoot, manifest };

@@ -19,7 +19,8 @@
     "test": "turbo run test",
     "build": "turbo run build",
     "e2e": "pnpm --filter @ap/platform-e2e e2e",
-    "e2e:base-path": "pnpm --filter @ap/platform-e2e e2e:base-path"
+    "e2e:base-path": "pnpm --filter @ap/platform-e2e e2e:base-path",
+    "sdk:test": "node --test tooling/scripts/*.test.mjs"
   },
   "devDependencies": {
     "turbo": "^2.11.4"

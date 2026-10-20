@@ -22,8 +22,8 @@
     "lucide-react": "^1.48.0"
   },
   "peerDependencies": {
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@ap/eslint-config": "workspace:*",
