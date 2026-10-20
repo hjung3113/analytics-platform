@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { cleanup, fireEvent, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { mount } from './__tests__/test-support';
 import type { ChartSpec } from './AnalysisChart';
@@ -21,6 +21,8 @@ it.each<ChartSpec>([
 ])('preserves $kind option on unrelated renders and updates real inputs', async spec => {
   const view = mount(spec);
   await screen.findByRole('img');
+  // The plot's DOM can commit before its passive effect runs (slow CI): wait for the first setOption itself.
+  await waitFor(() => expect(setOption).toHaveBeenCalled());
   const calls = setOption.mock.calls.length;
   view.update(spec);
   fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
