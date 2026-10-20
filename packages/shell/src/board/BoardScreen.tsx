@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties, type RefObject } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties, type RefObject } from 'react';
 import { HardDrive, Info } from 'lucide-react';
 import { pathFor, useI18n, usePlatform, type MenuEntry, type PaneScreen, type Registry } from '@ap/kernel';
 import { buildQuery, parseQuery } from '@ap/contracts';
@@ -8,7 +8,8 @@ import { BoardPane } from './BoardPane';
 import { SheetTabs } from './SheetTabs';
 import {
   BOARD_LAYOUTS, addSheet, applyPaneEdits, droppedPaneCount, editPane, goBackPane, layoutShape, moveSheet, previousOf, removeSheet, renameSheet,
-  restoreLayout, restorePane, restoreSheet, revertPaneEdits, selectPane, setActiveSheet, setLayout, setPane, type Board, type BoardLayout, type LayoutChange, type PaneEdit,
+  restoreLayout, restorePane, restoreSheet, revertPaneEdits, selectPane, setActiveSheet, setLayout, setPane, setPrototypeLayout,
+  type Board, type BoardLayout, type BoardPrototypeLayout, type LayoutChange, type PaneEdit,
 } from './boardModel';
 import { canMountPaneScreen } from './boardMenus';
 import { applyContextToSheet, copyContextToSheet, firstEmptyPane, paneNumbers, paneSignals, replacementScreen } from './paneActions';
@@ -39,6 +40,88 @@ function splitTrackTemplate(values: number[]): string {
   return values.flatMap((value, index) => index === values.length - 1 ? [`minmax(0, ${value}fr)`] : [`minmax(0, ${value}fr)`, `${GRID_GAP}px`]).join(' ');
 }
 
+function prototypeTrackTemplate(weights: number[], collapsed: boolean[]): string {
+  return weights.flatMap((weight, index) => {
+    const track = collapsed[index] ? 'auto' : `minmax(0, ${weight}fr)`;
+    if (index === weights.length - 1) return [track];
+    return [track, collapsed[index] || collapsed[index + 1] ? '0px' : `${GRID_GAP}px`];
+  }).join(' ');
+}
+
+function defaultPrototypeLayout(layout: BoardLayout): BoardPrototypeLayout {
+  const { rows, columns } = layoutShape(layout);
+  const columnWeight = 100 / columns;
+  const rowWeight = 100 / rows;
+  return { columns: Array.from({ length: columns }, () => columnWeight), rows: Array.from({ length: columns }, () => Array.from({ length: rows }, () => rowWeight)), collapsed: [] };
+}
+
+function BoardPrototypeDSeparator({ axis, index, column, weights, controls, label, placement, onChange }: {
+  axis: SplitAxis;
+  index: number;
+  column?: number;
+  weights: number[];
+  controls: string;
+  label: string;
+  placement: { column: number; row: number };
+  onChange: (weights: number[]) => void;
+}) {
+  const drag = useRef<{ pointerId: number; coordinate: number; extent: number; value: number; total: number } | null>(null);
+  const first = weights[index] ?? 50;
+  const second = weights[index + 1] ?? 50;
+  const total = first + second || 100;
+  const value = Math.round(first / total * 100);
+  const horizontal = axis === 'rows';
+  const changeBy = (amount: number) => {
+    const next = Math.max(15, Math.min(85, value + amount));
+    const nextFirst = total * next / 100;
+    onChange([nextFirst, total - nextFirst]);
+  };
+  return <div role="separator" tabIndex={0} aria-orientation={horizontal ? 'horizontal' : 'vertical'} aria-valuemin={15} aria-valuemax={85} aria-valuenow={value}
+    aria-valuetext={`${value}%`} aria-controls={controls} aria-label={label} data-prototype-splitter-axis={axis}
+    data-prototype-splitter-column={column} data-prototype-splitter-index={index}
+    onKeyDown={event => {
+      const direction = horizontal ? (event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : 0)
+        : (event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0);
+      if (direction === 0) return;
+      event.preventDefault();
+      changeBy(direction * 5);
+    }}
+    onPointerDown={event => {
+      const firstTrack = horizontal ? event.currentTarget.previousElementSibling : event.currentTarget.parentElement?.querySelector(`[data-board-column="${index}"]`);
+      const secondTrack = horizontal ? event.currentTarget.nextElementSibling : event.currentTarget.parentElement?.querySelector(`[data-board-column="${index + 1}"]`);
+      if (!(firstTrack instanceof HTMLElement) || !(secondTrack instanceof HTMLElement)) return;
+      const firstRect = firstTrack.getBoundingClientRect();
+      const secondRect = secondTrack.getBoundingClientRect();
+      const coordinate = horizontal ? event.clientY : event.clientX;
+      const extent = horizontal ? firstRect.height + secondRect.height : firstRect.width + secondRect.width;
+      if (extent <= 0) return;
+      event.preventDefault();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      drag.current = { pointerId: event.pointerId, coordinate, extent, value, total };
+    }}
+    onPointerMove={event => {
+      const active = drag.current;
+      if (!active || active.pointerId !== event.pointerId) return;
+      const coordinate = horizontal ? event.clientY : event.clientX;
+      const next = Math.max(15, Math.min(85, active.value + (coordinate - active.coordinate) / active.extent * 100));
+      const rounded = Math.round(next);
+      const nextFirst = active.total * rounded / 100;
+      onChange([nextFirst, active.total - nextFirst]);
+    }}
+    onPointerUp={event => {
+      if (drag.current?.pointerId !== event.pointerId) return;
+      drag.current = null;
+      if (typeof event.currentTarget.hasPointerCapture === 'function' && event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    }}
+    onPointerCancel={() => { drag.current = null; }}
+    onLostPointerCapture={() => { drag.current = null; }}
+    style={{ '--prototype-splitter-column': placement.column, '--prototype-splitter-row': placement.row } as CSSProperties}
+    className={cn('z-20 flex touch-none select-none items-center justify-center bg-border-subtle hover:bg-accent-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring [grid-column:var(--prototype-splitter-column)] [grid-row:var(--prototype-splitter-row)]',
+      horizontal ? 'cursor-row-resize' : 'cursor-col-resize')}>
+    <span aria-hidden className={cn(horizontal ? 'h-px w-8' : 'h-8 w-px', 'bg-surface-canvas')} />
+  </div>;
+}
+
 function BoardLayoutIcon({ layout }: { layout: BoardLayout }) {
   const classes: Record<BoardLayout, string> = {
     '1x1': 'grid-cols-1 grid-rows-1', '1x2': 'grid-cols-2 grid-rows-1',
@@ -50,11 +133,11 @@ function BoardLayoutIcon({ layout }: { layout: BoardLayout }) {
   </span>;
 }
 
-function BoardPrototypeSplitter({ axis, index, weights, primaryPaneId, label, collapsedLabel, onAdjust, onToggle, gridRef, trackCount }: {
+function BoardPrototypeSplitter({ axis, index, weights, controls, label, collapsedLabel, onAdjust, onToggle, gridRef, trackCount }: {
   axis: SplitAxis;
   index: number;
   weights: number[];
-  primaryPaneId: string;
+  controls: string;
   label: string;
   collapsedLabel: string;
   onAdjust: (axis: SplitAxis, index: number, amount: number) => void;
@@ -62,6 +145,7 @@ function BoardPrototypeSplitter({ axis, index, weights, primaryPaneId, label, co
   gridRef: RefObject<HTMLDivElement | null>;
   trackCount: number;
 }) {
+  const drag = useRef<{ pointerId: number; coordinate: number; pixelsPerWeight: number } | null>(null);
   const first = weights[index] ?? 1;
   const second = weights[index + 1] ?? 1;
   const total = first + second || 1;
@@ -70,7 +154,7 @@ function BoardPrototypeSplitter({ axis, index, weights, primaryPaneId, label, co
   const horizontal = axis === 'rows';
   const position = index * 2 + 2;
   return <div role="separator" tabIndex={0} aria-orientation={horizontal ? 'horizontal' : 'vertical'} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value}
-    aria-valuetext={collapsed ? collapsedLabel : `${value}%`} aria-controls={primaryPaneId} aria-label={label}
+    aria-valuetext={collapsed ? collapsedLabel : `${value}%`} aria-controls={controls} aria-label={label}
     onKeyDown={event => {
       if (event.key === 'Enter') { event.preventDefault(); onToggle(axis, index); return; }
       const direction = horizontal ? (event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : 0)
@@ -79,13 +163,28 @@ function BoardPrototypeSplitter({ axis, index, weights, primaryPaneId, label, co
       event.preventDefault();
       onAdjust(axis, index, direction * total * 0.05);
     }}
-    onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); }}
-    onPointerMove={event => {
-      if (event.buttons !== 1) return;
+    onPointerDown={event => {
       const size = horizontal ? gridRef.current?.clientHeight ?? 0 : gridRef.current?.clientWidth ?? 0;
-      const delta = horizontal ? event.movementY : event.movementX;
-      if (size > 0) onAdjust(axis, index, delta / (size / trackCount));
+      const pixelsPerWeight = (size - GRID_GAP * (trackCount - 1)) / (weights.reduce((sum, weight) => sum + weight, 0) || 1);
+      if (pixelsPerWeight <= 0) return;
+      event.preventDefault();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      drag.current = { pointerId: event.pointerId, coordinate: horizontal ? event.clientY : event.clientX, pixelsPerWeight };
     }}
+    onPointerMove={event => {
+      const active = drag.current;
+      if (!active || active.pointerId !== event.pointerId) return;
+      const coordinate = horizontal ? event.clientY : event.clientX;
+      onAdjust(axis, index, (coordinate - active.coordinate) / active.pixelsPerWeight);
+      drag.current = { ...active, coordinate };
+    }}
+    onPointerUp={event => {
+      if (drag.current?.pointerId !== event.pointerId) return;
+      drag.current = null;
+      if (typeof event.currentTarget.hasPointerCapture === 'function' && event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    }}
+    onPointerCancel={() => { drag.current = null; }}
+    onLostPointerCapture={() => { drag.current = null; }}
     style={{ '--splitter-position': position } as CSSProperties}
     className={cn('group z-20 flex touch-none select-none items-center justify-center bg-transparent hover:bg-surface-row-hover focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring',
       horizontal ? 'row-start-(--splitter-position) [grid-column:1/-1] cursor-row-resize' : 'col-start-(--splitter-position) [grid-row:1/-1] cursor-col-resize')}>
@@ -127,7 +226,9 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   const panelHeight = useBoardPrototypePanelHeight(panel);
   const [confirmLayout, setConfirmLayout] = useState<BoardLayout | null>(null);
   const [splitSizes, setSplitSizes] = useState<SplitWeights>({ columns: [1, 1], rows: [1, 1, 1, 1] });
+  const [responsiveRowWeights, setResponsiveRowWeights] = useState<number[]>([]);
   const [maximizedPane, setMaximizedPane] = useState<number | null>(null);
+  const restoreMaximizeFocus = useRef<number | null>(null);
 
   const requested = new URLSearchParams(url.includes('?') ? url.slice(url.indexOf('?') + 1) : '').get('sheet');
   const matched = board.sheets.find(s => s.id === requested) ?? null;
@@ -273,27 +374,41 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   const fixedPanes = heightQuestion && (variant === 'A' || variant === 'B');
   const splitters = heightQuestion && variant === 'B';
   const naturalPanes = heightQuestion && variant === 'C';
+  const paneCustomization = heightQuestion && variant === 'D';
   const emptyQuestion = question === 'empty';
   const largeEmpty = emptyQuestion && variant === 'A';
   const emptyCellHint = emptyQuestion && variant !== 'A' ? prototypeText.emptyPaneHint : undefined;
-  const chipMode = question === 'chips' ? ({ A: 'priority', B: 'value', C: 'wrap' } as const)[variant!] : undefined;
-  const maxIsOpen = naturalPanes && maximizedPane !== null;
+  const chipMode = question === 'chips' && variant !== 'D' ? ({ A: 'priority', B: 'value', C: 'wrap' } as const)[variant!] : undefined;
+  const maxIsOpen = (naturalPanes || paneCustomization) && maximizedPane !== null;
   const columnWeights = normalizedWeights(splitSizes.columns, drawn);
   const rowWeights = normalizedWeights(splitSizes.rows, visualRows);
+  const paneLayout = sheet.prototypeLayouts?.[sheet.layout] ?? defaultPrototypeLayout(sheet.layout);
+  const responsiveStack = paneCustomization && drawn < columns;
+  const dColumnWeights = responsiveStack ? [100] : normalizedWeights(paneLayout.columns, drawn);
+  const dRowWeightsByColumn = responsiveStack
+    ? [responsiveRowWeights.length === visualRows ? responsiveRowWeights : Array.from({ length: visualRows }, () => 100 / visualRows)]
+    : Array.from({ length: drawn }, (_, index) => normalizedWeights(paneLayout.rows[index] ?? [], visualRows));
   const rowCap = visualRows > 1 ? Math.max(0, Math.floor((panelHeight - 64 - (visualRows - 1) * GRID_GAP) / (visualRows - 1))) : 0;
 
-  useEffect(() => { setMaximizedPane(null); }, [sheetId]);
+  useEffect(() => { setMaximizedPane(null); restoreMaximizeFocus.current = null; }, [sheetId]);
   useEffect(() => {
     if (maximizedPane === null) return;
     const restore = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      if (document.querySelector('[role="dialog"], [role="menu"]')) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]')) return;
       event.preventDefault();
+      restoreMaximizeFocus.current = maximizedPane;
       setMaximizedPane(null);
     };
     window.addEventListener('keydown', restore);
     return () => window.removeEventListener('keydown', restore);
   }, [maximizedPane]);
+  useLayoutEffect(() => {
+    const paneIndex = maximizedPane ?? restoreMaximizeFocus.current;
+    if (paneIndex === null) return;
+    if (maximizedPane === null) restoreMaximizeFocus.current = null;
+    document.getElementById(paneIdOf(sheetId, paneIndex))?.querySelector<HTMLElement>('[data-pane-maximize-trigger]')?.focus({ preventScroll: true });
+  }, [maximizedPane, sheetId]);
 
   const adjustSplit = (axis: SplitAxis, index: number, amount: number) => setSplitSizes(previous => {
     const values = normalizedWeights(previous[axis], axis === 'columns' ? drawn : visualRows);
@@ -313,6 +428,43 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     values[index + 1] = collapsed ? total / 2 : total;
     return { ...previous, [axis]: values };
   });
+
+  const savePaneLayout = (next: BoardPrototypeLayout) => update(b => setPrototypeLayout(b, sheetId, sheet.layout, next));
+  const adjustPaneLayout = (axis: SplitAxis, index: number, column: number, pair: number[]) => {
+    if (axis === 'columns') {
+      if (responsiveStack) return;
+      const columns = paneLayout.columns.slice();
+      columns[index] = pair[0];
+      columns[index + 1] = pair[1];
+      savePaneLayout({ ...paneLayout, columns });
+      return;
+    }
+    if (responsiveStack) {
+      const weights = dRowWeightsByColumn[column].slice();
+      weights[index] = pair[0];
+      weights[index + 1] = pair[1];
+      setResponsiveRowWeights(weights);
+      return;
+    }
+    const rowsByColumn = paneLayout.rows.map(weights => weights.slice());
+    rowsByColumn[column][index] = pair[0];
+    rowsByColumn[column][index + 1] = pair[1];
+    savePaneLayout({ ...paneLayout, rows: rowsByColumn });
+  };
+  const togglePaneCollapsed = (index: number) => {
+    const collapsed = paneLayout.collapsed.includes(index)
+      ? paneLayout.collapsed.filter(item => item !== index)
+      : [...paneLayout.collapsed, index].sort((a, b) => a - b);
+    savePaneLayout({ ...paneLayout, collapsed });
+  };
+  const resetPaneLayout = () => {
+    setResponsiveRowWeights([]);
+    savePaneLayout(defaultPrototypeLayout(sheet.layout));
+  };
+  const toggleMaximize = (index: number) => {
+    if (maximizedPane === index) { restoreMaximizeFocus.current = index; setMaximizedPane(null); }
+    else { restoreMaximizeFocus.current = null; setMaximizedPane(index); }
+  };
 
   const minGridHeight = visualRows * PANE_MIN_HEIGHT + (visualRows - 1) * GRID_GAP;
   let gridStyle: BoardGridVariables = { '--board-row': `minmax(${PANE_MIN_HEIGHT}px, 1fr)` };
@@ -356,10 +508,30 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     switchPrototype({ ...prototype, variant: nextVariant });
   };
 
+  const renderPane = (index: number, gridRow?: number) => {
+    const screen = sheet.panes[index];
+    const maximized = maximizedPane === index;
+    const capped = naturalPanes && visualRows > 1 && Math.floor(index / drawn) < visualRows - 1;
+    const contentMode = maxIsOpen ? (maximized ? 'fixed' : 'default') : fixedPanes || paneCustomization ? 'fixed' : naturalPanes ? (capped ? 'capped' : 'natural') : 'default';
+    const panePlacement = splitters && !maxIsOpen ? SPLIT_PANE_PLACEMENTS[drawn === 1 ? 'narrow' : 'wide'][index] : undefined;
+    return <BoardPane key={`${sheetId}.${index}`} paneId={paneIdOf(sheetId, index)} number={index + 1} screen={screen} selected={index === selected} Outlet={Outlet}
+      signal={signals[index]} hasPrevious={previousOf(sheet, index) !== null}
+      applyAllOff={applyOff(index)} duplicateOff={duplicateOff(index)} contentMode={contentMode} scrollRegion={Boolean(fixedPanes)}
+      emptyHint={emptyCellHint} chipMode={chipMode} maximizable={Boolean(naturalPanes || paneCustomization)} maximized={maximized}
+      collapsible={paneCustomization} collapsed={paneLayout.collapsed.includes(index)}
+      hiddenForMax={Boolean(maxIsOpen && !maximized)} gridRow={gridRow} gridPlacement={panePlacement} maximizedOverlay={Boolean(maxIsOpen && maximized)}
+      onToggleMaximize={() => toggleMaximize(index)} onToggleCollapse={() => togglePaneCollapsed(index)}
+      onSelect={() => update(b => selectPane(b, sheetId, index))} onChange={(next, how) => update(b => editPane(b, sheetId, index, next, how))} onLeave={onLeave}
+      onInsert={menu => insert(index, menu)} onClear={() => clearPane(index)} onBack={() => update(b => goBackPane(b, sheetId, index))}
+      onApplyAll={() => applyToAll(index)} onOpenFull={() => openFull(index)} onReplace={menu => replaceScreen(index, menu)}
+      onDuplicate={() => duplicate(index)} onEditContext={() => editContext(index)} />;
+  };
+
   return <div data-board data-board-prototype={prototype?.question} data-board-variant={prototype?.variant} className="flex h-full min-h-0 flex-col">
     <header className="flex h-[50px] shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-surface-canvas px-4">
       <h1 ref={heading} tabIndex={0} className="min-w-28 truncate text-sm font-semibold text-text-primary">{text.board}</h1>
       <div className="flex min-w-0 shrink-0 items-center gap-3">
+        {paneCustomization && <Button type="button" variant="secondary" size="sm" onClick={resetPaneLayout}>{prototypeText.resetSize}</Button>}
         {emptyQuestion && variant === 'B' && <span role="status" className="text-xs text-text-secondary">{prototypeText.browserOnly}</span>}
         {emptyQuestion && variant === 'C' && <Popover>
           <PopoverTrigger asChild>
@@ -377,7 +549,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
       </div>
     </header>
     <BoardContextBar key={`${sheetId}.${selected}`} paneId={paneIdOf(sheetId, selected)} number={selected + 1} screen={sheet.panes[selected]} onChange={(next, how) => update(b => editPane(b, sheetId, selected, next, how))} onLeave={onLeave} />
-    <div ref={panel} id={PANEL_ID} role="tabpanel" aria-labelledby={`board-tab-${sheetId}`} className="min-h-0 flex-1 overflow-auto p-3">
+    <div ref={panel} id={PANEL_ID} role="tabpanel" aria-labelledby={`board-tab-${sheetId}`} className={cn('min-h-0 flex-1 p-3', paneCustomization ? 'overflow-hidden' : 'overflow-auto')}>
       {largeEmpty
         ? <div className="grid min-h-full content-center justify-items-center gap-4 px-4 py-8 text-center">
           <div className="grid max-w-2xl justify-items-center gap-2">
@@ -397,29 +569,44 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
           </div>
           <p role="status" className="text-xs text-text-secondary">{prototypeText.autoSave}</p>
         </div>
-        : <div ref={grid} data-board-grid data-columns={drawn} data-rows={rows} data-visual-rows={visualRows}
-          style={{ '--board-row': gridStyle['--board-row'], '--board-grid-columns': gridStyle['--board-grid-columns'], '--board-grid-rows': gridStyle['--board-grid-rows'], '--board-grid-height': gridStyle['--board-grid-height'] } as CSSProperties} className={gridClass}>
-          {sheet.panes.map((screen, index) => {
-            const maximized = maximizedPane === index;
-            const capped = naturalPanes && visualRows > 1 && Math.floor(index / drawn) < visualRows - 1;
-            const contentMode = maxIsOpen ? (maximized ? 'fixed' : 'default') : fixedPanes ? 'fixed' : naturalPanes ? (capped ? 'capped' : 'natural') : 'default';
-            const panePlacement = splitters && !maxIsOpen ? SPLIT_PANE_PLACEMENTS[drawn === 1 ? 'narrow' : 'wide'][index] : undefined;
-            return <BoardPane key={`${sheetId}.${index}`} paneId={paneIdOf(sheetId, index)} number={index + 1} screen={screen} selected={index === selected} Outlet={Outlet}
-              signal={signals[index]} hasPrevious={previousOf(sheet, index) !== null}
-              applyAllOff={applyOff(index)} duplicateOff={duplicateOff(index)} contentMode={contentMode} scrollRegion={Boolean(fixedPanes)}
-              emptyHint={emptyCellHint} chipMode={chipMode} maximizable={Boolean(naturalPanes)} maximized={maximized}
-              hiddenForMax={Boolean(maxIsOpen && !maximized)} gridPlacement={panePlacement} maximizedOverlay={Boolean(maxIsOpen && maximized)}
-              onToggleMaximize={() => setMaximizedPane(current => current === index ? null : index)}
-              onSelect={() => update(b => selectPane(b, sheetId, index))} onChange={(next, how) => update(b => editPane(b, sheetId, index, next, how))} onLeave={onLeave}
-              onInsert={menu => insert(index, menu)} onClear={() => clearPane(index)} onBack={() => update(b => goBackPane(b, sheetId, index))}
-              onApplyAll={() => applyToAll(index)} onOpenFull={() => openFull(index)} onReplace={menu => replaceScreen(index, menu)}
-              onDuplicate={() => duplicate(index)} onEditContext={() => editContext(index)} />;
-          })}
-          {splitters && !maxIsOpen && drawn > 1 && columnWeights.slice(0, -1).map((_, index) => <BoardPrototypeSplitter key={`column-${index}`} axis="columns" index={index} weights={columnWeights}
-            primaryPaneId={paneIdOf(sheetId, index)} label={prototypeText.splitterColumn} collapsedLabel={prototypeText.collapsed} onAdjust={adjustSplit} onToggle={toggleSplit} gridRef={grid} trackCount={drawn} />)}
-          {splitters && !maxIsOpen && rowWeights.slice(0, -1).map((_, index) => <BoardPrototypeSplitter key={`row-${index}`} axis="rows" index={index} weights={rowWeights}
-            primaryPaneId={paneIdOf(sheetId, index * drawn)} label={prototypeText.splitterRow} collapsedLabel={prototypeText.collapsed} onAdjust={adjustSplit} onToggle={toggleSplit} gridRef={grid} trackCount={visualRows} />)}
-        </div>}
+        : paneCustomization && !maxIsOpen
+          ? (() => {
+            const paneIndicesByColumn = Array.from({ length: drawn }, (_, column) => responsiveStack
+              ? Array.from({ length: visualRows }, (_row, row) => row * drawn + column).filter(index => index < sheet.panes.length)
+              : Array.from({ length: rows }, (_row, row) => row * columns + column).filter(index => index < sheet.panes.length));
+            return <div ref={grid} data-board-grid data-columns={drawn} data-rows={rows} data-visual-rows={visualRows}
+              style={{ '--board-grid-columns': splitTrackTemplate(dColumnWeights) } as CSSProperties}
+              className="relative grid h-full min-h-0 min-w-0 [grid-template-columns:var(--board-grid-columns)] [grid-template-rows:minmax(0,1fr)]">
+              {paneIndicesByColumn.map((indices, column) => {
+                const rowWeightsForColumn = dRowWeightsByColumn[column] ?? Array.from({ length: indices.length }, () => 100 / indices.length);
+                const collapsedRows = indices.map(index => paneLayout.collapsed.includes(index));
+                return <div key={`column-${column}`} data-board-column={column} className="grid min-h-0 min-w-0 [grid-column:var(--prototype-column)] [grid-row:var(--prototype-row)] [grid-template-rows:var(--prototype-rows)]"
+                  style={{ '--prototype-column': drawn > 1 ? column * 2 + 1 : 1, '--prototype-row': 1, '--prototype-rows': prototypeTrackTemplate(rowWeightsForColumn, collapsedRows) } as CSSProperties}>
+                  {indices.map((paneIndex, row) => <Fragment key={`pane-${paneIndex}`}>
+                    {renderPane(paneIndex, row * 2 + 1)}
+                    {row < indices.length - 1 && !collapsedRows[row] && !collapsedRows[row + 1] && <BoardPrototypeDSeparator
+                      axis="rows" index={row} column={column} weights={rowWeightsForColumn} controls={`${paneIdOf(sheetId, paneIndex)} ${paneIdOf(sheetId, indices[row + 1])}`}
+                      label={prototypeText.splitterRowBetween(paneIndex + 1, indices[row + 1] + 1)} placement={{ row: row * 2 + 2, column: 1 }}
+                      onChange={pair => adjustPaneLayout('rows', row, column, pair)} />}
+                  </Fragment>)}
+                </div>;
+              })}
+              {drawn > 1 && dColumnWeights.slice(0, -1).map((_, index) => <BoardPrototypeDSeparator key={`column-split-${index}`}
+                axis="columns" index={index} weights={dColumnWeights} controls={[...paneIndicesByColumn[index], ...paneIndicesByColumn[index + 1]].map(paneIndex => paneIdOf(sheetId, paneIndex)).join(' ')}
+                label={prototypeText.splitterColumn} placement={{ column: index * 2 + 2, row: 1 }}
+                onChange={pair => adjustPaneLayout('columns', index, 0, pair)} />)}
+            </div>;
+          })()
+          : <div ref={grid} data-board-grid data-columns={drawn} data-rows={rows} data-visual-rows={visualRows}
+            style={{ '--board-row': gridStyle['--board-row'], '--board-grid-columns': gridStyle['--board-grid-columns'], '--board-grid-rows': gridStyle['--board-grid-rows'], '--board-grid-height': gridStyle['--board-grid-height'] } as CSSProperties} className={gridClass}>
+            {sheet.panes.map((_screen, index) => renderPane(index))}
+            {splitters && !maxIsOpen && drawn > 1 && columnWeights.slice(0, -1).map((_, index) => <BoardPrototypeSplitter key={`column-${index}`} axis="columns" index={index} weights={columnWeights}
+              controls={Array.from({ length: visualRows }, (_row, row) => `${paneIdOf(sheetId, row * drawn + index)} ${paneIdOf(sheetId, row * drawn + index + 1)}`).join(' ')}
+              label={prototypeText.splitterColumn} collapsedLabel={prototypeText.collapsed} onAdjust={adjustSplit} onToggle={toggleSplit} gridRef={grid} trackCount={drawn} />)}
+            {splitters && !maxIsOpen && rowWeights.slice(0, -1).map((_, index) => <BoardPrototypeSplitter key={`row-${index}`} axis="rows" index={index} weights={rowWeights}
+              controls={Array.from({ length: drawn }, (_column, column) => `${paneIdOf(sheetId, index * drawn + column)} ${paneIdOf(sheetId, (index + 1) * drawn + column)}`).join(' ')}
+              label={prototypeText.splitterRow} collapsedLabel={prototypeText.collapsed} onAdjust={adjustSplit} onToggle={toggleSplit} gridRef={grid} trackCount={visualRows} />)}
+          </div>}
     </div>
     <SheetTabs sheets={board.sheets} activeId={sheetId} panelId={PANEL_ID}
       onSwitch={id => { if (id !== sheetId) navigate(boardPrototypeHref(id, prototype)); }} onAdd={addNewSheet}

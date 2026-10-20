@@ -12,6 +12,16 @@ describe('parseBoard', () => {
     expect(parseBoard(JSON.parse(JSON.stringify(board)))).toEqual(board);
   });
 
+  it('round-trips per-sheet prototype split ratios and collapsed panes', () => {
+    const start = freshBoard('시트');
+    const source = setLayout(start, start.sheets[0].id, '2x2');
+    const raw = JSON.parse(JSON.stringify({
+      ...source,
+      sheets: [{ ...source.sheets[0], prototypeLayouts: { '2x2': { columns: [60, 40], rows: [[65, 35], [40, 60]], collapsed: [1] } } }],
+    }));
+    expect(parseBoard(raw)).toEqual(raw);
+  });
+
   it.each([
     ['non-object', 'x'],
     ['newer version', { ...freshBoard('시트'), v: 2 }],
@@ -22,6 +32,8 @@ describe('parseBoard', () => {
     ['selected out of range', { ...freshBoard('시트'), sheets: [{ ...freshBoard('시트').sheets[0], selected: 3 }] }],
     ['bad pane', { ...freshBoard('시트'), sheets: [{ ...freshBoard('시트').sheets[0], panes: [{ menuId: 1, params: {}, query: '' }] }] }],
     ['query without ?', { ...freshBoard('시트'), sheets: [{ ...freshBoard('시트').sheets[0], panes: [{ menuId: 'a', params: {}, query: 'x=1' }] }] }],
+    ['invalid prototype ratio', { ...freshBoard('시트'), sheets: [{ ...freshBoard('시트').sheets[0], prototypeLayouts: { '1x1': { columns: [0], rows: [[100]], collapsed: [] } } }] }],
+    ['out-of-range collapsed prototype pane', { ...freshBoard('시트'), sheets: [{ ...freshBoard('시트').sheets[0], prototypeLayouts: { '1x1': { columns: [100], rows: [[100]], collapsed: [1] } } }] }],
   ])('rejects %s', (_name, value) => {
     expect(parseBoard(value)).toBeNull();
   });

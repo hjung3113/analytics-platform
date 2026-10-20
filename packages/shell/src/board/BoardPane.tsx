@@ -1,5 +1,5 @@
 import { Ban } from 'lucide-react';
-import { useRef, useState, type ComponentType } from 'react';
+import { useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import { PaneScreenProvider, useI18n, usePlatform, type MenuEntry, type PaneScreen } from '@ap/kernel';
 import { StateMessage } from '@ap/components';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn } from '@ap/ui';
@@ -30,10 +30,14 @@ export type BoardPaneProps = {
   chipMode?: 'priority' | 'value' | 'wrap';
   maximizable?: boolean;
   maximized?: boolean;
+  collapsible?: boolean;
+  collapsed?: boolean;
   hiddenForMax?: boolean;
+  gridRow?: number;
   gridPlacement?: string;
   maximizedOverlay?: boolean;
-  onToggleMaximize?: () => void;
+  onToggleMaximize?: (trigger: HTMLButtonElement) => void;
+  onToggleCollapse?: () => void;
   onSelect: () => void;
   onChange: (next: PaneScreen, how: 'push' | 'replace') => void;
   onLeave: (href: string) => void;
@@ -52,7 +56,7 @@ export type BoardPaneProps = {
  * `tabIndex=-1`). Focus inside the pane, a press on it and any header control select it first. `바꾸기` chains the picker and a confirm
  * dialog off the `⋯` menu; focus ends on the `⋯` trigger (or the pane root when the trigger is gone).
  */
-export function BoardPane({ paneId, number, screen, selected, Outlet, signal, hasPrevious, applyAllOff, duplicateOff, contentMode = 'default', scrollRegion, emptyHint, chipMode, maximizable, maximized, hiddenForMax, gridPlacement, maximizedOverlay, onToggleMaximize, onSelect, onChange, onLeave, onInsert, onClear, onBack, onApplyAll, onOpenFull, onReplace, onDuplicate, onEditContext }: BoardPaneProps) {
+export function BoardPane({ paneId, number, screen, selected, Outlet, signal, hasPrevious, applyAllOff, duplicateOff, contentMode = 'default', scrollRegion, emptyHint, chipMode, maximizable, maximized, collapsible, collapsed, hiddenForMax, gridRow, gridPlacement, maximizedOverlay, onToggleMaximize, onToggleCollapse, onSelect, onChange, onLeave, onInsert, onClear, onBack, onApplyAll, onOpenFull, onReplace, onDuplicate, onEditContext }: BoardPaneProps) {
   const { registry } = usePlatform();
   const { tx, lang } = useI18n();
   const text = boardText(lang);
@@ -73,23 +77,25 @@ export function BoardPane({ paneId, number, screen, selected, Outlet, signal, ha
   const clear = () => { onSelect(); onClear(); root.current?.focus({ preventScroll: true }); };
   const focusHead = () => (menuTrigger.current ?? root.current)?.focus({ preventScroll: true });
 
-  return <div ref={root} id={paneId} role="group" aria-label={text.pane(number)} data-pane-id={paneId} tabIndex={-1} data-selected={selected}
+  return <div ref={root} id={paneId} role="group" aria-label={text.pane(number)} data-pane-id={paneId} data-pane-collapsed={collapsed || undefined} tabIndex={-1} data-selected={selected}
     hidden={hiddenForMax} aria-hidden={hiddenForMax || undefined} inert={hiddenForMax || undefined}
+    style={gridRow === undefined ? undefined : { '--pane-grid-row': gridRow } as CSSProperties}
     onFocus={onSelect} onPointerDownCapture={onSelect}
     className={cn('relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border bg-surface-card outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring',
-      gridPlacement, maximizedOverlay && 'absolute inset-0 z-30 h-full w-full',
+      gridPlacement, gridRow !== undefined && '[grid-row:var(--pane-grid-row)]', maximizedOverlay && 'absolute inset-0 z-30 h-full w-full',
       contentMode === 'natural' && 'flex-none overflow-visible',
       selected ? 'border-border-selected' : 'border-border-subtle')}>
     {selected && <span aria-hidden data-pane-selected-bar className="absolute inset-y-0 left-0 z-10 w-0.5 bg-accent-primary" />}
     <PaneHeader number={number} selected={selected} systemLabel={space ? tx(space.label) : null}
       menuName={menu ? menuName : screen ? <span className="t-mono">{screen.menuId}</span> : null}
       active={screen !== null && admitted} signal={signal} hasPrevious={hasPrevious} applyAllOff={applyAllOff} duplicateOff={duplicateOff}
-      chipMode={chipMode} maximizable={maximizable} maximized={maximized} onToggleMaximize={onToggleMaximize}
+      chipMode={chipMode} maximizable={maximizable} maximized={maximized} collapsible={collapsible} collapsed={collapsed} collapseControls={`${paneId}-content`}
+      onToggleCollapse={onToggleCollapse} onToggleMaximize={onToggleMaximize}
       menuTrigger={menuTrigger} afterMenuClose={afterMenuClose}
       onSelect={onSelect} onBack={onBack} onApplyAll={onApplyAll} onOpenFull={onOpenFull} onDuplicate={onDuplicate} onEditContext={onEditContext}
       onReplace={() => { onSelect(); picked.current = false; pickMode.current = 'replace'; setPicking('replace'); }}
       onClear={() => { afterMenuClose.current = () => root.current?.focus({ preventScroll: true }); onSelect(); onClear(); }} />
-    <div className={cn(contentMode === 'natural' ? 'flex-none overflow-visible' : 'min-h-0 flex-1 overflow-auto')}
+    <div id={`${paneId}-content`} hidden={collapsed} className={cn(contentMode === 'natural' ? 'flex-none overflow-visible' : 'min-h-0 flex-1 overflow-auto')}
       role={scrollRegion ? 'region' : undefined} aria-label={scrollRegion ? prototypeText.screenRegion(number, regionName) : undefined} tabIndex={scrollRegion ? 0 : undefined}>
       {screen === null
         ? <div className="grid h-full place-items-center p-6">

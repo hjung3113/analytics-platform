@@ -5,11 +5,14 @@ export type BoardLayout = '1x1' | '1x2' | '2x1' | '2x2';
 export const BOARD_LAYOUTS: readonly BoardLayout[] = ['1x1', '1x2', '2x1', '2x2'];
 export const MAX_SHEETS = 20;
 
+/** Prototype-only split and collapse preferences, saved under the sheet that owns them. */
+export type BoardPrototypeLayout = { columns: number[]; rows: number[][]; collapsed: number[] };
+
 /**
  * `previous` (optional, missing in boards stored before 497b) holds, per pane, the screen it showed before it moved to another menu —
  * the one step `이전 화면` goes back (docs/16 §4). When present it is as long as `panes`.
  */
-export type Sheet = { id: string; name: string; layout: BoardLayout; selected: number; panes: (PaneScreen | null)[]; previous?: (PaneScreen | null)[] };
+export type Sheet = { id: string; name: string; layout: BoardLayout; selected: number; panes: (PaneScreen | null)[]; previous?: (PaneScreen | null)[]; prototypeLayouts?: Partial<Record<BoardLayout, BoardPrototypeLayout>> };
 export type Board = { v: 1; activeSheetId: string; sheets: Sheet[] };
 
 export const paneCount = (layout: BoardLayout) => ({ '1x1': 1, '1x2': 2, '2x1': 2, '2x2': 4 })[layout];
@@ -63,6 +66,32 @@ function parsePrevious(value: unknown, count: number): (PaneScreen | null)[] | u
   return previous;
 }
 
+function parsePrototypeLayouts(value: unknown): Sheet['prototypeLayouts'] | null | undefined {
+  if (value === undefined) return undefined;
+  if (!isRecord(value)) return null;
+  const layouts: Partial<Record<BoardLayout, BoardPrototypeLayout>> = {};
+  for (const [name, candidate] of Object.entries(value)) {
+    if (!BOARD_LAYOUTS.includes(name as BoardLayout) || !isRecord(candidate)) return null;
+    const layout = name as BoardLayout;
+    const { rows: rowCount, columns: columnCount } = layoutShape(layout);
+    if (!Array.isArray(candidate.columns) || candidate.columns.length !== columnCount || !Array.isArray(candidate.rows) || candidate.rows.length !== columnCount
+      || !Array.isArray(candidate.collapsed)) return null;
+    const columns = candidate.columns;
+    if (!columns.every(weight => typeof weight === 'number' && Number.isFinite(weight) && weight > 0 && weight <= 100 && (columns.length === 1 || (weight >= 15 && weight <= 85)))
+      || Math.abs(columns.reduce((sum, weight) => sum + weight, 0) - 100) > 0.01) return null;
+    const rows: number[][] = [];
+    for (const column of candidate.rows) {
+      if (!Array.isArray(column) || column.length !== rowCount || !column.every(weight => typeof weight === 'number' && Number.isFinite(weight) && weight > 0 && weight <= 100 && (column.length === 1 || (weight >= 15 && weight <= 85)))
+        || Math.abs(column.reduce((sum, weight) => sum + weight, 0) - 100) > 0.01) return null;
+      rows.push(column);
+    }
+    const collapsed = candidate.collapsed;
+    if (!collapsed.every(index => Number.isInteger(index) && index >= 0 && index < paneCount(layout)) || new Set(collapsed).size !== collapsed.length) return null;
+    layouts[layout] = { columns, rows, collapsed };
+  }
+  return Object.keys(layouts).length > 0 ? layouts : undefined;
+}
+
 /** The sheet with `previous` set, or without the field when nothing is stored in it. */
 function withPrevious(sheet: Sheet, previous: (PaneScreen | null)[] | undefined): Sheet {
   const rest = { ...sheet };
@@ -92,8 +121,10 @@ export function parseBoard(raw: unknown): Board | null {
       panes.push(parsed);
     }
     if (typeof item.selected !== 'number' || !Number.isInteger(item.selected) || item.selected < 0 || item.selected >= panes.length) return null;
+    const prototypeLayouts = parsePrototypeLayouts(item.prototypeLayouts);
+    if (prototypeLayouts === null) return null;
     ids.add(item.id);
-    sheets.push(withPrevious({ id: item.id, name: item.name, layout, selected: item.selected, panes }, parsePrevious(item.previous, panes.length)));
+    sheets.push(withPrevious({ id: item.id, name: item.name, layout, selected: item.selected, panes, ...(prototypeLayouts ? { prototypeLayouts } : {}) }, parsePrevious(item.previous, panes.length)));
   }
   if (!ids.has(raw.activeSheetId)) return null;
   return { v: 1, activeSheetId: raw.activeSheetId, sheets };
@@ -105,6 +136,16 @@ const mapSheet = (board: Board, id: string, change: (sheet: Sheet) => Sheet): Bo
   const next = change(board.sheets[index]);
   return next === board.sheets[index] ? board : { ...board, sheets: board.sheets.map((s, i) => (i === index ? next : s)) };
 };
+
+export function setPrototypeLayout(board: Board, sheetId: string, layout: BoardLayout, preferences: BoardPrototypeLayout): Board {
+  return mapSheet(board, sheetId, sheet => {
+    const current = sheet.prototypeLayouts?.[layout];
+    if (current && current.columns.length === preferences.columns.length && current.columns.every((weight, index) => weight === preferences.columns[index])
+      && current.rows.length === preferences.rows.length && current.rows.every((weights, index) => weights.length === preferences.rows[index].length && weights.every((weight, row) => weight === preferences.rows[index][row]))
+      && current.collapsed.length === preferences.collapsed.length && current.collapsed.every((index, position) => index === preferences.collapsed[position])) return sheet;
+    return { ...sheet, prototypeLayouts: { ...sheet.prototypeLayouts, [layout]: preferences } };
+  });
+}
 
 export function setActiveSheet(board: Board, id: string): Board {
   return board.activeSheetId === id || !board.sheets.some(s => s.id === id) ? board : { ...board, activeSheetId: id };

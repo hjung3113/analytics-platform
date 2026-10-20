@@ -527,6 +527,138 @@ describe('narrow stacking (docs/16 §4)', () => {
   });
 });
 
+describe('height prototype D', () => {
+  it('keeps the 2×2 row splits per column, stores pane sizing per sheet, and restores focus after maximize', async () => {
+    seed(boardOf([sheet('a', { name: '높이', layout: '2x2', panes: [alpha(w1), alpha(w2), alpha(w1), alpha(w2)] })]));
+    const view = mount('/board?sheet=a&protoQuestion=height&variant=D');
+    await settle();
+
+    expect(document.querySelector('[data-board]')).toHaveAttribute('data-board-variant', 'D');
+    const separators = screen.getAllByRole('separator');
+    expect(separators).toHaveLength(3);
+    const rowSplitters = Array.from(document.querySelectorAll<HTMLElement>('[data-prototype-splitter-axis="rows"]'));
+    expect(rowSplitters).toHaveLength(2);
+    expect(rowSplitters[0]).toHaveAttribute('aria-controls', 'a.0 a.2');
+    expect(rowSplitters[1]).toHaveAttribute('aria-controls', 'a.1 a.3');
+    expect(document.querySelector('[data-prototype-splitter-axis="columns"]')).toHaveAttribute('aria-controls', 'a.0 a.2 a.1 a.3');
+    expect(screen.getByRole('button', { name: '크기 초기화' })).toBeInTheDocument();
+
+    const columnSplitter = document.querySelector<HTMLElement>('[data-prototype-splitter-axis="columns"]')!;
+    fireEvent.keyDown(columnSplitter, { key: 'ArrowRight' });
+    fireEvent.keyDown(rowSplitters[0], { key: 'ArrowDown' });
+    await settle();
+    expect(columnSplitter).toHaveAttribute('aria-valuenow', '55');
+    expect(rowSplitters[0]).toHaveAttribute('aria-valuenow', '55');
+    expect(rowSplitters[1]).toHaveAttribute('aria-valuenow', '50');
+    expect(stored().sheets[0].prototypeLayouts?.['2x2']).toEqual({
+      columns: [55, 45], rows: [[55, 45], [50, 50]], collapsed: [],
+    });
+
+    const firstPane = paneGroup(1);
+    fireEvent.click(within(firstPane).getByRole('button', { name: '칸 1 접기' }));
+    await settle();
+    expect(within(firstPane).getByRole('button', { name: '칸 1 펼치기' })).toHaveAttribute('aria-expanded', 'false');
+    expect(document.getElementById('a.0-content')).toHaveAttribute('hidden');
+    expect(stored().sheets[0].prototypeLayouts?.['2x2']?.collapsed).toEqual([0]);
+    view.unmount();
+    mount('/board?sheet=a&protoQuestion=height&variant=D');
+    await settle();
+    expect(within(paneGroup(1)).getByRole('button', { name: '칸 1 펼치기' })).toHaveAttribute('aria-expanded', 'false');
+    expect(document.querySelector('[data-prototype-splitter-axis="columns"]')).toHaveAttribute('aria-valuenow', '55');
+    fireEvent.click(within(paneGroup(1)).getByRole('button', { name: '칸 1 펼치기' }));
+    await settle();
+    expect(document.getElementById('a.0-content')).not.toHaveAttribute('hidden');
+    expect(document.querySelector('[data-prototype-splitter-axis="rows"][data-prototype-splitter-column="0"]')).toHaveAttribute('aria-valuenow', '55');
+
+    fireEvent.click(within(paneGroup(2)).getByRole('button', { name: '칸 2 최대화' }));
+    await settle();
+    expect(document.querySelector('[data-pane-id="a.0"]')).toHaveAttribute('hidden');
+    expect(within(paneGroup(2)).getByRole('button', { name: '칸 2 원래 크기로' })).toBeInTheDocument();
+    openMenu(within(paneGroup(2)).getByRole('button', { name: '칸 2 동작' }));
+    await settle();
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    await settle();
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(document.querySelector('[data-pane-id="a.0"]')).toHaveAttribute('hidden');
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await settle();
+    expect(document.querySelector('[data-pane-id="a.0"]')).not.toHaveAttribute('hidden');
+    expect(within(paneGroup(2)).getByRole('button', { name: '칸 2 최대화' })).toHaveFocus();
+
+    fireEvent.click(screen.getByRole('button', { name: '크기 초기화' }));
+    await settle();
+    expect(stored().sheets[0].prototypeLayouts?.['2x2']).toEqual({
+      columns: [50, 50], rows: [[50, 50], [50, 50]], collapsed: [],
+    });
+  });
+
+  it('captures a pointer drag and updates the dragged split ratio', async () => {
+    const capture = vi.fn();
+    const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'setPointerCapture');
+    class PointerEventForTest extends MouseEvent {
+      pointerId: number;
+      constructor(type: string, init: PointerEventInit = {}) { super(type, init); this.pointerId = init.pointerId ?? 0; }
+    }
+    vi.stubGlobal('PointerEvent', PointerEventForTest);
+    Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', { configurable: true, value: capture });
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(), alpha(), alpha(), alpha()] })]));
+    mount('/board?sheet=a&protoQuestion=height&variant=D');
+    await settle();
+    const leftTop = paneGroup(1);
+    const leftBottom = paneGroup(3);
+    leftTop.getBoundingClientRect = () => ({ x: 0, y: 0, left: 0, top: 0, width: 500, height: 400, right: 500, bottom: 400, toJSON() {} });
+    leftBottom.getBoundingClientRect = () => ({ x: 0, y: 408, left: 0, top: 408, width: 500, height: 392, right: 500, bottom: 800, toJSON() {} });
+    const rowSplitter = document.querySelector<HTMLElement>('[data-prototype-splitter-axis="rows"][data-prototype-splitter-column="0"]')!;
+    fireEvent.pointerDown(rowSplitter, { pointerId: 7, clientY: 400 });
+    fireEvent.pointerMove(rowSplitter, { pointerId: 7, clientY: 440 });
+    fireEvent.pointerUp(rowSplitter, { pointerId: 7, clientY: 440 });
+    await settle();
+    expect(capture).toHaveBeenCalledWith(7);
+    expect(rowSplitter).toHaveAttribute('aria-valuenow', '55');
+    expect(stored().sheets[0].prototypeLayouts?.['2x2']?.rows[0]).toEqual([55, 45]);
+    const leftColumn = document.querySelector<HTMLElement>('[data-board-column="0"]')!;
+    const rightColumn = document.querySelector<HTMLElement>('[data-board-column="1"]')!;
+    leftColumn.getBoundingClientRect = () => ({ x: 0, y: 0, left: 0, top: 0, width: 500, height: 800, right: 500, bottom: 800, toJSON() {} });
+    rightColumn.getBoundingClientRect = () => ({ x: 512, y: 0, left: 512, top: 0, width: 500, height: 800, right: 1012, bottom: 800, toJSON() {} });
+    const columnSplitter = document.querySelector<HTMLElement>('[data-prototype-splitter-axis="columns"]')!;
+    fireEvent.pointerDown(columnSplitter, { pointerId: 8, clientX: 500 });
+    fireEvent.pointerMove(columnSplitter, { pointerId: 8, clientX: 550 });
+    fireEvent.pointerUp(columnSplitter, { pointerId: 8, clientX: 550 });
+    await settle();
+    expect(capture).toHaveBeenCalledWith(8);
+    expect(columnSplitter).toHaveAttribute('aria-valuenow', '55');
+    expect(stored().sheets[0].prototypeLayouts?.['2x2']?.columns).toEqual([55, 45]);
+    if (original) Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', original);
+    else delete (HTMLElement.prototype as Partial<HTMLElement>).setPointerCapture;
+  });
+
+  it('keeps B pointer drag working after the pointer leaves the separator', async () => {
+    const capture = vi.fn();
+    const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'setPointerCapture');
+    class PointerEventForTest extends MouseEvent {
+      pointerId: number;
+      constructor(type: string, init: PointerEventInit = {}) { super(type, init); this.pointerId = init.pointerId ?? 0; }
+    }
+    vi.stubGlobal('PointerEvent', PointerEventForTest);
+    Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', { configurable: true, value: capture });
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [null, null, null, null] })]));
+    mount('/board?sheet=a&protoQuestion=height&variant=B');
+    await settle();
+    const grid = document.querySelector<HTMLElement>('[data-board-grid]')!;
+    Object.defineProperty(grid, 'clientWidth', { configurable: true, value: 1000 });
+    const columnSplitter = screen.getAllByRole('separator').find(separator => separator.getAttribute('aria-orientation') === 'vertical')!;
+    expect(columnSplitter).toHaveAttribute('aria-controls', 'a.0 a.1 a.2 a.3');
+    fireEvent.pointerDown(columnSplitter, { pointerId: 9, clientX: 500 });
+    fireEvent.pointerMove(columnSplitter, { pointerId: 9, clientX: 550 });
+    fireEvent.pointerUp(columnSplitter, { pointerId: 9, clientX: 550 });
+    await settle();
+    expect(capture).toHaveBeenCalledWith(9);
+    expect(columnSplitter).toHaveAttribute('aria-valuenow', '55');
+    if (original) Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', original);
+    else delete (HTMLElement.prototype as Partial<HTMLElement>).setPointerCapture;
+  });
+});
+
 describe('shell entry (docs/16 §4, §8)', () => {
   it('shows the rail entry only when the user can open a placeable board menu', () => {
     const withBoard = (registry: ReturnType<typeof makeRegistry>, permissions: Session['user']['permissions'] = ['platform:view']) => {

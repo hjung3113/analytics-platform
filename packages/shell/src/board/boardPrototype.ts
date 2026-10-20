@@ -6,12 +6,13 @@ import { MAX_SHEETS, newSheet, type Board, type BoardLayout, type Sheet } from '
 
 /** Three board questions on the existing /board route, switched with ?protoQuestion=...&variant=.... */
 export type BoardPrototypeQuestion = 'height' | 'empty' | 'chips';
-export type BoardPrototypeVariant = 'A' | 'B' | 'C';
+type BoardPrototypeBaseVariant = 'A' | 'B' | 'C';
+export type BoardPrototypeVariant = BoardPrototypeBaseVariant | 'D';
 export type BoardPrototype = { question: BoardPrototypeQuestion; variant: BoardPrototypeVariant; seed: boolean };
 
 const QUESTION_NAMES: Record<BoardPrototypeQuestion, string> = { height: '높이', empty: '빈 화면', chips: '차이 칩' };
 const isQuestion = (value: string | null): value is BoardPrototypeQuestion => value === 'height' || value === 'empty' || value === 'chips';
-const isVariant = (value: string | null): value is BoardPrototypeVariant => value === 'A' || value === 'B' || value === 'C';
+const isVariant = (value: string | null, question: BoardPrototypeQuestion): value is BoardPrototypeVariant => value === 'A' || value === 'B' || value === 'C' || (value === 'D' && question === 'height');
 
 export function readBoardPrototype(url: string, enabled: boolean): BoardPrototype | null {
   if (!enabled) return null;
@@ -21,8 +22,9 @@ export function readBoardPrototype(url: string, enabled: boolean): BoardPrototyp
   const rawVariant = params.get('variant');
   const seed = params.get('protoSeed') === '1';
   if (!isQuestion(rawQuestion) && !seed) return null;
-  if (rawVariant !== null && !isVariant(rawVariant)) return null;
-  return { question: isQuestion(rawQuestion) ? rawQuestion : 'height', variant: isVariant(rawVariant) ? rawVariant : 'A', seed };
+  const question = isQuestion(rawQuestion) ? rawQuestion : 'height';
+  if (rawVariant !== null && !isVariant(rawVariant, question)) return null;
+  return { question, variant: isVariant(rawVariant, question) ? rawVariant : 'A', seed };
 }
 
 export function boardPrototypeHref(sheetId: string, prototype: BoardPrototype | null): string {
@@ -100,10 +102,10 @@ export function boardPrototypeCopy(lang: Lang) {
       height: ko ? '높이' : 'Height', empty: ko ? '빈 화면' : 'First use', chips: ko ? '차이 칩' : 'Difference chips',
     } satisfies Record<BoardPrototypeQuestion, string>,
     variants: {
-      height: { A: ko ? '고정 높이 · 칸별 스크롤' : 'Fixed panes · own scroll', B: ko ? '키보드 분할' : 'Keyboard splitters', C: ko ? '최대화' : 'Maximize' },
+      height: { A: ko ? '고정 높이 · 칸별 스크롤' : 'Fixed panes · own scroll', B: ko ? '키보드 분할' : 'Keyboard splitters', C: ko ? '최대화' : 'Maximize', D: ko ? '칸별 크기 · 접기' : 'Per-pane sizing · collapse' },
       empty: { A: ko ? '레이아웃 먼저' : 'Choose a layout', B: ko ? '칸별 추가' : 'Add per pane', C: ko ? '저장 범위 안내' : 'Storage scope' },
       chips: { A: ko ? '차이 우선' : 'Differences first', B: ko ? '값만 보기' : 'Values only', C: ko ? '두 줄' : 'Two rows' },
-    } satisfies Record<BoardPrototypeQuestion, Record<BoardPrototypeVariant, string>>,
+    } satisfies { height: Record<BoardPrototypeVariant, string>; empty: Record<BoardPrototypeBaseVariant, string>; chips: Record<BoardPrototypeBaseVariant, string> },
     previousVariant: ko ? '이전 안' : 'Previous variant',
     nextVariant: ko ? '다음 안' : 'Next variant',
     chooseQuestion: ko ? '검토할 질문' : 'Choose a question',
@@ -118,9 +120,13 @@ export function boardPrototypeCopy(lang: Lang) {
     layoutDescription: ko ? '레이아웃을 골라 비교를 시작하세요.' : 'Choose a layout to start your comparison.',
     maximizePane: (number: number) => ko ? `칸 ${number} 최대화` : `Maximize pane ${number}`,
     restorePane: (number: number) => ko ? `칸 ${number} 원래 크기로` : `Restore pane ${number}`,
+    collapsePane: (number: number) => ko ? `칸 ${number} 접기` : `Collapse pane ${number}`,
+    expandPane: (number: number) => ko ? `칸 ${number} 펼치기` : `Expand pane ${number}`,
+    resetSize: ko ? '크기 초기화' : 'Reset sizes',
     screenRegion: (number: number, name: string) => ko ? `칸 ${number}의 ${name} 화면` : `Pane ${number} ${name} screen`,
     splitterColumn: ko ? '열 너비 조절' : 'Resize columns',
     splitterRow: ko ? '행 높이 조절' : 'Resize rows',
+    splitterRowBetween: (first: number, second: number) => ko ? `칸 ${first}과 칸 ${second} 높이 조절` : `Resize height between panes ${first} and ${second}`,
     collapsed: ko ? '접힘' : 'Collapsed',
     percentage: (value: number) => ko ? `${value}%` : `${value}%`,
     moreConditions: (number: number, count: number) => ko ? `칸 ${number}의 조건 ${count}개 더 보기` : `Show ${count} more conditions in pane ${number}`,

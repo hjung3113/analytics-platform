@@ -1,4 +1,4 @@
-import { CornerUpLeft, Maximize2, Minimize2, MoreHorizontal } from 'lucide-react';
+import { ChevronDown, ChevronUp, CornerUpLeft, Maximize2, Minimize2, MoreHorizontal } from 'lucide-react';
 import { useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { RETURN_CONTEXT_LABELS, useI18n } from '@ap/kernel';
 import {
@@ -88,7 +88,11 @@ export type PaneHeaderProps = {
   chipMode?: 'priority' | 'value' | 'wrap';
   maximizable?: boolean;
   maximized?: boolean;
-  onToggleMaximize?: () => void;
+  collapsible?: boolean;
+  collapsed?: boolean;
+  collapseControls?: string;
+  onToggleCollapse?: () => void;
+  onToggleMaximize?: (trigger: HTMLButtonElement) => void;
   menuTrigger: RefObject<HTMLButtonElement | null>;
   onSelect: () => void;
   onBack: () => void;
@@ -111,7 +115,7 @@ export type PaneHeaderProps = {
  * pane first (the pane root also does, on focus and press).
  */
 export function PaneHeader(props: PaneHeaderProps) {
-  const { number, selected, systemLabel, menuName, active, signal, hasPrevious, applyAllOff, duplicateOff, chipMode, maximizable, maximized, onToggleMaximize, menuTrigger, onSelect, afterMenuClose } = props;
+  const { number, selected, systemLabel, menuName, active, signal, hasPrevious, applyAllOff, duplicateOff, chipMode, maximizable, maximized, collapsible, collapsed, collapseControls, onToggleCollapse, onToggleMaximize, menuTrigger, onSelect, afterMenuClose } = props;
   const { lang, tx } = useI18n();
   const text = boardText(lang);
   const prototypeText = boardPrototypeCopy(lang);
@@ -132,19 +136,25 @@ export function PaneHeader(props: PaneHeaderProps) {
   const chipText = (chip: (typeof chips)[number]) => `${label(chip.key)} ${chip.value ?? text.unsetValue}`;
   const open = (event: { currentTarget: HTMLElement }) => { onSelect(); lastTrigger.current = event.currentTarget; setPopover(true); };
 
+  const paneNumber = <button type="button" aria-label={text.selectPane(number)} aria-pressed={selected} onClick={onSelect}
+    className="rounded-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
+    <PaneBadge label={text.pane(number)} selected={selected} />
+  </button>;
   const identity = <div data-head-fixed className="flex shrink-0 items-center gap-2">
-    <button type="button" aria-label={text.selectPane(number)} aria-pressed={selected} onClick={onSelect}
-      className="rounded-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
-      <PaneBadge label={text.pane(number)} selected={selected} />
-    </button>
+    {paneNumber}
     {systemLabel && <span data-pane-system className="shrink-0 rounded-xs border border-border-subtle px-1.5 text-caption text-text-secondary">{systemLabel}</span>}
   </div>;
-  const name = <span className="min-w-24 flex-1 truncate text-sm font-medium text-text-primary">{menuName}</span>;
+  const name = <span className="min-w-24 flex-1 truncate text-sm font-medium text-text-primary">{collapsed ? menuName ?? text.emptyPane : menuName}</span>;
+  const collapseToggle = collapsible && <Button key="collapse-toggle" type="button" variant="ghost" size="icon-sm"
+    aria-label={collapsed ? prototypeText.expandPane(number) : prototypeText.collapsePane(number)} aria-expanded={!collapsed} aria-controls={collapseControls}
+    title={collapsed ? prototypeText.expandPane(number) : prototypeText.collapsePane(number)} onClick={() => { onSelect(); onToggleCollapse?.(); }}>
+    {collapsed ? <ChevronDown className="size-3.5" aria-hidden /> : <ChevronUp className="size-3.5" aria-hidden />}
+  </Button>;
   const actions = <div data-head-fixed className="flex shrink-0 items-center gap-1">
     {active && hasPrevious && <Button type="button" variant="ghost" size="icon-sm" aria-label={text.previousScreen} title={text.previousScreen}
       onClick={() => { onSelect(); props.onBack(); }}><CornerUpLeft className="size-3.5" aria-hidden /></Button>}
-    {maximizable && <Button type="button" variant="ghost" size="icon-sm" aria-label={maximized ? prototypeText.restorePane(number) : prototypeText.maximizePane(number)}
-      title={maximized ? prototypeText.restorePane(number) : prototypeText.maximizePane(number)} onClick={() => { onSelect(); onToggleMaximize?.(); }}>
+    {maximizable && <Button data-pane-maximize-trigger type="button" variant="ghost" size="icon-sm" aria-label={maximized ? prototypeText.restorePane(number) : prototypeText.maximizePane(number)}
+      title={maximized ? prototypeText.restorePane(number) : prototypeText.maximizePane(number)} onClick={event => { onSelect(); onToggleMaximize?.(event.currentTarget); }}>
       {maximized ? <Minimize2 className="size-3.5" aria-hidden /> : <Maximize2 className="size-3.5" aria-hidden />}
     </Button>}
     {active && chipMode !== 'priority' && signal && sameCount > 0 && <Button type="button" variant="ghost" size="toolbar" aria-haspopup="dialog" aria-expanded={popover}
@@ -199,9 +209,10 @@ export function PaneHeader(props: PaneHeaderProps) {
           {(shown.length > 0 || hidden > 0) && <div ref={chipRegion} data-pane-chips className="flex max-h-14 min-w-0 flex-wrap content-start items-start gap-1 overflow-hidden">{chipNodes}</div>}
         </>
         : <>
-          {identity}{name}
+          {collapsed ? paneNumber : identity}{name}
           {(shown.length > 0 || hidden > 0) && <div ref={chipRegion} data-pane-chips className="flex shrink-0 items-center gap-1">{chipNodes}</div>}
-          {actions}
+          {collapseToggle}
+          {!collapsed && actions}
         </>}
       {chips.length > 0 && <div aria-hidden inert data-chip-measure-row className={cn('pointer-events-none invisible absolute left-0 top-0 flex gap-1', chipMode === 'wrap' && 'flex-wrap content-start')}>
         {chips.map(chip => {

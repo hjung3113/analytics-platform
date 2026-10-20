@@ -4,7 +4,9 @@ import { useI18n } from '@ap/kernel';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@ap/ui';
 import { boardPrototypeCopy, type BoardPrototypeQuestion, type BoardPrototypeVariant } from './boardPrototype';
 
-const VARIANTS: readonly BoardPrototypeVariant[] = ['A', 'B', 'C'];
+const VARIANTS: Record<BoardPrototypeQuestion, readonly BoardPrototypeVariant[]> = {
+  height: ['A', 'B', 'C', 'D'], empty: ['A', 'B', 'C'], chips: ['A', 'B', 'C'],
+};
 const QUESTIONS: readonly BoardPrototypeQuestion[] = ['height', 'empty', 'chips'];
 
 export function BoardPrototypeSwitcher({
@@ -19,9 +21,12 @@ export function BoardPrototypeSwitcher({
   const { lang } = useI18n();
   const text = boardPrototypeCopy(lang);
   const step = useCallback((direction: -1 | 1) => {
-    const index = VARIANTS.indexOf(variant);
-    onVariantChange(VARIANTS[(index + direction + VARIANTS.length) % VARIANTS.length]);
-  }, [variant, onVariantChange]);
+    const variants = VARIANTS[question];
+    const current = variants.indexOf(variant);
+    const index = current === -1 ? 0 : current;
+    onVariantChange(variants[(index + direction + variants.length) % variants.length]);
+  }, [question, variant, onVariantChange]);
+  const variantName = question === 'height' ? text.variants.height[variant] : text.variants[question][variant as 'A' | 'B' | 'C'];
 
   useEffect(() => {
     if (!enabled) return;
@@ -43,7 +48,7 @@ export function BoardPrototypeSwitcher({
       <ChevronLeft className="size-4" aria-hidden />
     </Button>
     <span aria-live="polite" className="min-w-40 text-center text-xs font-medium text-text-primary">
-      {variant} · {text.variants[question][variant]}
+      {variant} · {variantName}
     </span>
     <Button type="button" variant="ghost" size="icon-sm" aria-label={text.nextVariant} onClick={() => step(1)}>
       <ChevronRight className="size-4" aria-hidden />
