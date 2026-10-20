@@ -24,7 +24,12 @@ export function contextBarVisible(context: Record<ContextKey, Capability>, globa
   return CONTEXT_KEYS.some(k => context[k] !== 'unsupported' || has[k]);
 }
 
-export function GlobalContextBar() {
+export function GlobalContextBar({ label, whenEmpty = null }: {
+  /** Board only: names the bar after its pane (visible text and region name). */
+  label?: { visible: string; region: string };
+  /** Board only: drawn where the bar would collapse to nothing, so the row keeps its height. */
+  whenEmpty?: ReactNode;
+} = {}) {
   const { route, global, setGlobal, resetContext, url, scope, adapter } = usePlatform();
   const { t, lang } = useI18n();
   const copyLink = useCopyLink(lang === 'ko' ? '현재 Context가 담긴 링크를 복사했습니다. 받는 사람의 권한으로 서버가 다시 검증합니다.' : 'Copied a link with the current context. The server re-validates for the recipient.');
@@ -32,11 +37,11 @@ export function GlobalContextBar() {
   const input = { scopeId: global.scopeId, roomNames: global.roomNames, condition: global.condition, selection: global.selection };
   const evaluation = useAdapterRequest(signal => adapter.evaluateSelection(input, signal), [input, scope.status],
     scope.status === 'valid' && !!route && route.menu.context.selection !== 'unsupported');
-  if (!route) return null;
+  if (!route) return whenEmpty;
   const cap = route.menu.context;
   const has = contextHasValue(global);
   const shown = CONTEXT_KEYS.filter(k => cap[k] !== 'unsupported' || has[k]);
-  if (!shown.length) return null;
+  if (!shown.length) return whenEmpty;
   const editable = (k: ContextKey) => cap[k] !== 'unsupported';
 
   const controls = [
@@ -49,7 +54,7 @@ export function GlobalContextBar() {
     ...(has.recipe ? [{ key: 'recipe' as const, applied: has.recipe, node: <CarriedChip k="recipe" cap={cap.recipe} value={setText(global.recipeIds, t)} onRemove={() => setGlobal({ recipeIds: null })} /> }] : []),
     ...(has.metric ? [{ key: 'metric' as const, applied: has.metric, node: <CarriedChip k="metric" cap={cap.metric} value={`${global.metricId}${global.metricVersion ? ` @ ${global.metricVersion}` : ` (${lang === 'ko' ? '버전 미정' : 'no version'})`}`} onRemove={() => setGlobal({ metricId: null, metricVersion: null })} /> }] : []),
   ];
-  return <ContextBarLayout controls={controls} revision={JSON.stringify([global, cap, lang, shown, evaluation.status, evaluation.data?.inCondition.length])} actions={compact => <span className="flex items-center gap-1">
+  return <ContextBarLayout barName={label} controls={controls} revision={JSON.stringify([global, cap, lang, shown, evaluation.status, evaluation.data?.inCondition.length, label])} actions={compact => <span className="flex items-center gap-1">
         <Button type="button" variant="ghost" size="toolbar" aria-label={lang === 'ko' ? '링크 복사' : 'Copy link'} title={lang === 'ko' ? '링크 복사' : 'Copy link'} onClick={() => copyLink(url)}>
           <Link2 className="size-3.5" aria-hidden />{!compact && (lang === 'ko' ? '링크 복사' : 'Copy link')}
         </Button>

@@ -29,6 +29,13 @@ describe('createRegistry validation (platform-packages.md §5)', () => {
     expect(() => createRegistry({ spaces, groups, menus: [catalog, menu('a', '/a', { group: 'admin' })] })).toThrow(/undeclared group/);
   });
 
+  it('rejects a menu on the reserved /board path, but not a sibling segment such as /boards (platform screen, #497)', () => {
+    for (const path of ['/board', '/board/', '/board/archive', '/board/:id']) {
+      expect(() => createRegistry({ spaces: homeA, groups, menus: [menu('a', path, { primary: true })] })).toThrow(/reserved for the analysis board/);
+    }
+    expect(() => createRegistry({ spaces: homeA, groups, menus: [menu('a', '/boards', { primary: true })] })).not.toThrow();
+  });
+
   it('rejects duplicate group ids and parents whose route needs parameters', () => {
     expect(() => createRegistry({ spaces, groups: [...groups, ...groups], menus: [catalog] })).toThrow(/Duplicate group id/);
     const detail = menu('detail', '/metrics/:metricId', { parent: 'catalog' });

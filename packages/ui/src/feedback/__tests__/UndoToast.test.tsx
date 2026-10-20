@@ -27,6 +27,12 @@ describe('UndoToast', () => {
     expect(screen.getByRole('button', { name: '실행 취소' })).toBeInTheDocument();
   });
 
+  it('shows actionLabel instead of 실행 취소 when given', () => {
+    render(<UndoToast message="Sheet deleted" actionLabel="Undo" onAction={vi.fn()} duration={5000} />);
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '실행 취소' })).toBeNull();
+  });
+
   it('calls onAction when 실행 취소 button is clicked', () => {
     const onAction = vi.fn();
     render(
