@@ -10,14 +10,16 @@ import { PaneBadge } from './PaneBadge';
 import type { PaneSignal } from './paneActions';
 import { boardText } from './text';
 
-/** The menu name never gets narrower than this to make room for chips (docs/16 §4): hidden conditions collapse into +N. Equals the min-w-24 class on the name. */
+/** Default menu name minimum (docs/16 §4), matching min-w-24 on the name. */
 export const MENU_NAME_MIN_WIDTH = 96;
+/** Overflow with differing chips gives those chips space first, matching min-w-16 on the name. */
+const MENU_NAME_MIN_WIDTH_SQUEEZED = 64;
 const HEAD_PADDING = 16;
 const HEAD_GAP = 8;
 const CHIP_GAP = 4;
 
 /**
- * How many difference chips fit in the head. Fixed groups and the menu name get their minimum width first; same conditions fold into
+ * How many difference chips fit in the head. Overflow squeezes the menu name minimum; same conditions fold into
  * the overflow count whenever the full row does not fit. Measurements happen after layout, and a zero-width first paint shows all chips.
  */
 function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, signature: string, sameCount: number) {
@@ -39,12 +41,13 @@ function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, 
         setLayout({ visible: count, overflow: false });
         return;
       }
+      const overflowAvailable = available + MENU_NAME_MIN_WIDTH - MENU_NAME_MIN_WIDTH_SQUEEZED;
       let fit = 0;
       for (let k = sameCount > 0 ? count : count - 1; k >= 0; k--) {
         const used = chips.slice(0, k).reduce((sum, w) => sum + w, 0)
           + CHIP_GAP * Math.max(0, k - 1)
           + more + (k > 0 ? CHIP_GAP : 0);
-        if (used <= available) { fit = k; break; }
+        if (used <= overflowAvailable) { fit = k; break; }
       }
       setLayout({ visible: fit, overflow: true });
     };
@@ -123,7 +126,7 @@ export function PaneHeader(props: PaneHeaderProps) {
         </button>
         {systemLabel && <span data-pane-system className="shrink-0 rounded-xs border border-border-subtle px-1.5 text-caption text-text-secondary">{systemLabel}</span>}
       </div>
-      <span className="min-w-24 flex-1 truncate text-sm font-medium text-text-primary">{menuName}</span>
+      <span className={cn('flex-1 truncate text-sm font-medium text-text-primary', overflow && chips.length > 0 ? 'min-w-16' : 'min-w-24')}>{menuName}</span>
       {(shown.length > 0 || hidden > 0) && <div data-pane-chips className="flex shrink-0 items-center gap-1">
         {shown.map(chip => <span key={chip.key} data-pane-chip={chip.key} className={PANE_CHIP}>{chipText(chip)}</span>)}
         {hidden > 0 && <button type="button" data-pane-chip="more" aria-haspopup="dialog" aria-expanded={popover} aria-label={text.contextMoreName(number, hidden)} onClick={open} className={cn(PANE_CHIP, 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring')}>{text.contextMore(hidden)}</button>}

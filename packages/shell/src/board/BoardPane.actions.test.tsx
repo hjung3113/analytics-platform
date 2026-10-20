@@ -76,6 +76,53 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); window
 describe('pane header signals (ADR-0051)', () => {
   const two = () => seed(boardOf([sheet('a', { layout: '1x2', panes: [pane(`?scopeId=S1&${w1}`), pane(`?scopeId=S1&${w2}`)] })]));
 
+  it('squeezes the menu name so the differing room remains visible at the measured 374px head width', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [pane(`?scopeId=S1&${w1}&lotIds=L1&roomNames=PHOTO`), pane(`?scopeId=S1&${w1}&lotIds=L1&roomNames=ETCH`)] })]));
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const width = this.hasAttribute('data-pane-head') ? 374
+        : this.dataset.headFixed === 'actions' ? 32
+          : this.hasAttribute('data-head-fixed') ? 81
+            : this.dataset.chipMeasure === 'chip' ? 107
+              : this.dataset.chipMeasure === 'same' ? 50
+                : this.dataset.chipMeasure === 'more' ? 27 : 0;
+      return { width, height: 0, top: 0, left: 0, right: width, bottom: 0, x: 0, y: 0, toJSON: () => ({}) };
+    });
+    mount();
+    await settle();
+    const header = paneGroup(1).querySelector<HTMLElement>('[data-pane-head]')!;
+    expect(header.querySelector('[data-pane-chip="roomNames"]')).toHaveTextContent('room_name PHOTO');
+    expect(within(header).getByRole('button', { name: '칸 1의 조건 3개 더 보기' })).toHaveTextContent('+3');
+    expect(within(header).queryByRole('button', { name: /같은 조건/ })).toBeNull();
+    expect(within(header).getByRole('button', { name: '칸 1 동작' })).toBeVisible();
+    expect(within(header).getByText('알파')).toHaveClass('min-w-16', 'truncate');
+    expect(within(header).getByText('알파')).not.toHaveClass('min-w-24');
+  });
+
+  it.each([
+    { headWidth: 600, otherRoom: 'ETCH', differing: true },
+    { headWidth: 374, otherRoom: 'PHOTO', differing: false },
+  ])('keeps the 96px menu minimum at $headWidth px when overflow is absent (differing: $differing)', async ({ headWidth, otherRoom, differing }) => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [pane(`?scopeId=S1&${w1}&lotIds=L1&roomNames=PHOTO`), pane(`?scopeId=S1&${w1}&lotIds=L1&roomNames=${otherRoom}`)] })]));
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const width = this.hasAttribute('data-pane-head') ? headWidth
+        : this.dataset.headFixed === 'actions' ? 32
+          : this.hasAttribute('data-head-fixed') ? 81
+            : this.dataset.chipMeasure === 'chip' ? 107
+              : this.dataset.chipMeasure === 'same' ? 50
+                : this.dataset.chipMeasure === 'more' ? 27 : 0;
+      return { width, height: 0, top: 0, left: 0, right: width, bottom: 0, x: 0, y: 0, toJSON: () => ({}) };
+    });
+    mount();
+    await settle();
+    const header = paneGroup(1).querySelector<HTMLElement>('[data-pane-head]')!;
+    expect(within(header).getByText('알파')).toHaveClass('min-w-24', 'truncate');
+    expect(within(header).getByText('알파')).not.toHaveClass('min-w-16');
+    expect(header.querySelectorAll('[data-pane-chip]')).toHaveLength(differing ? 1 : 0);
+    expect(within(header).queryByRole('button', { name: /더 보기/ })).toBeNull();
+    expect(within(header).getByRole('button', { name: `칸 1의 같은 조건 ${differing ? 3 : 4}개` })).toBeVisible();
+    expect(within(header).getByRole('button', { name: '칸 1 동작' })).toBeVisible();
+  });
+
   it('shows a chip only for a key that differs from another content pane, and 같음 N for the rest', async () => {
     two();
     mount();
@@ -255,10 +302,10 @@ describe('pane header signals (ADR-0051)', () => {
       await settle();
       const shown = () => paneGroup(1).querySelectorAll('[data-pane-head] [data-pane-chip]:not([data-pane-chip="more"])').length;
       expect(shown()).toBe(1);
-      // A fixed part grows with the head unchanged (e.g. 이전 화면 appears): available 264 -> 164, no chip fits.
+      // A fixed part grows with the head unchanged: squeezed available 296 -> 196, so one chip still fits.
       sizes.fixed = 150;
       act(() => { for (const w of watchers) if (w.targets.some(t => t.hasAttribute('data-head-fixed'))) w.callback(); });
-      expect(shown()).toBe(0);
+      expect(shown()).toBe(1);
       // A measuring chip grows (e.g. language change) with everything else unchanged.
       sizes.fixed = 100;
       act(() => { for (const w of watchers) if (w.targets.some(t => t.hasAttribute('data-head-fixed'))) w.callback(); });
