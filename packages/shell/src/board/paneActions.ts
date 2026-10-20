@@ -1,4 +1,4 @@
-import { conditionLabel, ContractError, formatMetricVersion, parseQuery, sameGlobal, type GlobalContext } from '@ap/contracts';
+import { conditionLabel, ContractError, emptyGlobal, formatMetricVersion, parseQuery, sameGlobal, serializeGlobal, type GlobalContext } from '@ap/contracts';
 import { withPaneContext, type MenuEntry, type PaneScreen, type Registry, type ReturnContextKey, type usePlatform } from '@ap/kernel';
 import { canMountPaneScreen } from './boardMenus';
 import type { PaneEdit, Sheet } from './boardModel';
@@ -8,13 +8,25 @@ type Can = ReturnType<typeof usePlatform>['can'];
 /** The analysis-Context keys in the order a pane header and its popover list them (Scope counts as a key, docs/16 §4). */
 const KEY_ORDER: readonly ReturnContextKey[] = ['scope', 'time', 'roomNames', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric'];
 
-/** `value` is null for a key the pane does not set. */
-export type ContextEntry = { key: ReturnContextKey; value: string | null };
+/** `value` is what the header shows, null for a key the pane does not set; `raw` is the key's canonical value, which comparison uses (display drops seconds and a Condition's axis). */
+export type ContextEntry = { key: ReturnContextKey; value: string | null; raw: string | null };
 export type ContextRow = ContextEntry & { differs: boolean };
+
+const KEY_FIELDS: Record<ReturnContextKey, readonly (keyof GlobalContext)[]> = {
+  scope: ['scopeId'], time: ['from', 'to'], roomNames: ['roomNames'], condition: ['condition'], selection: ['selection'], lot: ['lotIds'],
+  ppid: ['ppid'], recipe: ['recipeIds'], metric: ['metricId', 'metricVersion'],
+};
+
+/** The key's value in the address contract's own serialization (06 §6); null when the Context does not set it. */
+function rawValue(global: GlobalContext, key: ReturnContextKey): string | null {
+  const part = Object.fromEntries(KEY_FIELDS[key].map(field => [field, global[field]])) as Partial<GlobalContext>;
+  const pairs = serializeGlobal({ ...emptyGlobal, ...part });
+  return pairs.length === 0 ? null : JSON.stringify(pairs);
+}
 
 const minutes = (value: string) => value.replace('T', ' ').slice(0, 16);
 
-/** The keys a Context sets, as the values the header shows; two panes differ on a key when these strings differ. `none` names an explicitly empty set. */
+/** The keys a Context sets: the value the header shows and the canonical one two panes are compared by. `none` names an explicitly empty set in the display. */
 export function contextValues(global: GlobalContext, none: string): ContextEntry[] {
   const set = (ids: readonly string[] | null) => (ids === null ? null : ids.length === 0 ? none : ids.join(', '));
   const values: Record<ReturnContextKey, string | null> = {
@@ -28,7 +40,7 @@ export function contextValues(global: GlobalContext, none: string): ContextEntry
     recipe: set(global.recipeIds),
     metric: global.metricId === null ? null : global.metricVersion === null ? global.metricId : `${global.metricId} ${formatMetricVersion(global.metricVersion)}`,
   };
-  return KEY_ORDER.map(key => ({ key, value: values[key] }));
+  return KEY_ORDER.map(key => ({ key, value: values[key], raw: rawValue(global, key) }));
 }
 
 const menuOf = (registry: Registry, screen: PaneScreen): MenuEntry | null => registry.menus.find(m => m.id === screen.menuId) ?? null;
@@ -57,7 +69,7 @@ export function paneSignals(registry: Registry, can: Can, panes: readonly (PaneS
   return values.map((own, index) => {
     if (own === null) return null;
     const others = values.filter((v, i): v is ContextEntry[] => i !== index && v !== null);
-    const rows = own.map((entry, k) => ({ ...entry, differs: others.some(other => other[k].value !== entry.value) }))
+    const rows = own.map((entry, k) => ({ ...entry, differs: others.some(other => other[k].raw !== entry.raw) }))
       .filter(row => row.value !== null || row.differs);
     return { rows, differing: rows.filter(r => r.differs), same: rows.filter(r => !r.differs), compared: others.length > 0 };
   });
@@ -116,10 +128,13 @@ export function copyContextToSheet(registry: Registry, can: Can, from: Sheet, to
   return edits;
 }
 
-/** The screen a pane gets when `menu` replaces what it held: it starts with the old pane's Context and nothing else. */
-export function replacementScreen(registry: Registry, old: PaneScreen, menu: MenuEntry): PaneScreen {
-  const global = paneGlobal(registry, old);
-  return { menuId: menu.id, params: {}, query: global === null ? '' : withContext(menu, '', global) ?? '' };
+/**
+ * The screen a pane gets when `menu` replaces what it held. It starts with the old pane's Context and nothing else, but only when the
+ * role can mount the old screen; a denied or unavailable pane's saved Context is never read, and the new screen starts from `freshQuery`.
+ */
+export function replacementScreen(registry: Registry, can: Can, old: PaneScreen, menu: MenuEntry, freshQuery: string): PaneScreen {
+  const global = canMountPaneScreen(registry, can, old) ? paneGlobal(registry, old) : null;
+  return { menuId: menu.id, params: {}, query: global === null ? freshQuery : withContext(menu, '', global) ?? freshQuery };
 }
 
 export const firstEmptyPane = (sheet: Sheet): number => sheet.panes.findIndex(p => p === null);

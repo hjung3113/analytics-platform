@@ -151,7 +151,7 @@ export function removeSheet(board: Board, id: string, prefix: string): { board: 
   return { board: { ...board, activeSheetId, sheets }, removed: { sheet, index, wasActive, replacement: null } };
 }
 
-const samePane = (a: PaneScreen | null, b: PaneScreen | null) => a === b
+export const samePane = (a: PaneScreen | null, b: PaneScreen | null) => a === b
   || (a !== null && b !== null && a.menuId === b.menuId && a.query === b.query
     && Object.keys(a.params).length === Object.keys(b.params).length && Object.entries(a.params).every(([k, v]) => b.params[k] === v));
 const samePanes = (a: Sheet, b: Sheet) => a.layout === b.layout && a.panes.length === b.panes.length && a.panes.every((p, i) => samePane(p, b.panes[i]));
@@ -238,17 +238,22 @@ export const previousOf = (sheet: Sheet, index: number): PaneScreen | null => pr
  */
 export type PaneEdit = { index: number; before: PaneScreen | null; after: PaneScreen | null; fresh?: boolean };
 
+/** Writes one edit's pane. A Context-only edit leaves the pane's `previous` alone; a whole new screen (or none) goes through `setPane`. */
+function writeEdit(board: Board, sheetId: string, edit: PaneEdit, screen: PaneScreen | null): Board {
+  return edit.fresh || edit.before === null || edit.after === null
+    ? setPane(board, sheetId, edit.index, screen)
+    : mapSheet(board, sheetId, s => (edit.index >= s.panes.length ? s : { ...s, panes: s.panes.map((p, i) => (i === edit.index ? screen : p)) }));
+}
+
 export function applyPaneEdits(board: Board, sheetId: string, edits: readonly PaneEdit[]): Board {
-  return edits.reduce((b, edit) => (edit.fresh || edit.before === null || edit.after === null
-    ? setPane(b, sheetId, edit.index, edit.after)
-    : mapSheet(b, sheetId, s => (edit.index >= s.panes.length ? s : { ...s, panes: s.panes.map((p, i) => (i === edit.index ? edit.after : p)) }))), board);
+  return edits.reduce((b, edit) => writeEdit(b, sheetId, edit, edit.after), board);
 }
 
 /** Undo of `applyPaneEdits`. Null — nothing restored — unless every edited pane still holds what the action left. */
 export function revertPaneEdits(board: Board, sheetId: string, edits: readonly PaneEdit[]): Board | null {
   const sheet = board.sheets.find(s => s.id === sheetId);
   if (!sheet || edits.some(e => e.index >= sheet.panes.length || !samePane(sheet.panes[e.index], e.after))) return null;
-  return normalizeBoard(edits.reduce((b, edit) => setPane(b, sheetId, edit.index, edit.before), board));
+  return normalizeBoard(edits.reduce((b, edit) => writeEdit(b, sheetId, edit, edit.before), board));
 }
 
 /** A new sheet holding one screen, active. Null at the 20-sheet limit. */

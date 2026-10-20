@@ -13,7 +13,27 @@ export function DetailDrawer({ title, subtitle, headerActions, context, tabs, on
   onClose: () => void; tab?: string; onTabChange?: (tab: string) => void;
 }) {
   const host = useDetailPanelSlot();
+  useCloseOnPaneChange(onClose);
   return host ? createPortal(<OutcomeScope><DetailContent title={title} subtitle={subtitle} headerActions={headerActions} context={context} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} /></OutcomeScope>, host) : null;
+}
+
+/**
+ * Docs/16 §5: a panel opened from a board pane belongs to the screen and Context that pane had then; when either changes it closes.
+ * Runs in the drawer itself, not its portaled content, so a panel that lost the shared slot to another pane still notices.
+ */
+function useCloseOnPaneChange(onClose: () => void) {
+  const platform = usePlatformOptional();
+  const identity = platform?.paneId == null ? null : `${platform.pathname}\0${buildQuery(platform.global)}`;
+  const openedAs = useRef(identity);
+  const closeLatest = useRef(onClose);
+  useLayoutEffect(() => { closeLatest.current = onClose; });
+  const closedByChange = useRef(false);
+  useEffect(() => {
+    // Once: a menu that fills in its default period right after a screen change would otherwise ask twice.
+    if (identity === openedAs.current || closedByChange.current) return;
+    closedByChange.current = true;
+    closeLatest.current();
+  }, [identity]);
 }
 
 function DetailContent({ title, subtitle, headerActions, context, tabs, onClose, tab, onTabChange }: Parameters<typeof DetailDrawer>[0]) {
@@ -28,18 +48,6 @@ function DetailContent({ title, subtitle, headerActions, context, tabs, onClose,
   const pageNavigation = platform?.pageNavigation;
   const paneId = platform?.paneId ?? null;
   const paneLabel = platform?.paneLabel ?? null;
-  // Docs/16 §5: a panel opened from a board pane belongs to the screen and Context that pane had then; when either changes it closes.
-  const identity = paneId === null || !platform ? null : `${platform.pathname}\0${buildQuery(platform.global)}`;
-  const openedAs = useRef(identity);
-  const closeLatest = useRef(onClose);
-  useLayoutEffect(() => { closeLatest.current = onClose; });
-  const closedByChange = useRef(false);
-  useEffect(() => {
-    // Once: a menu that fills in its default period right after a screen change would otherwise ask twice.
-    if (identity === openedAs.current || closedByChange.current) return;
-    closedByChange.current = true;
-    closeLatest.current();
-  }, [identity]);
   useLayoutEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     // Arrival with focus= leaves the title focused (§26). Same-screen open still moves here.

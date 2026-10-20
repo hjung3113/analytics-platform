@@ -9,6 +9,7 @@ import {
   BOARD_LAYOUTS, addSheet, applyPaneEdits, droppedPaneCount, editPane, goBackPane, layoutShape, moveSheet, previousOf, removeSheet, renameSheet,
   restoreLayout, restorePane, restoreSheet, revertPaneEdits, selectPane, setActiveSheet, setLayout, setPane, type Board, type BoardLayout, type LayoutChange, type PaneEdit,
 } from './boardModel';
+import { canMountPaneScreen } from './boardMenus';
 import { applyContextToSheet, copyContextToSheet, firstEmptyPane, paneNumbers, paneSignals, replacementScreen } from './paneActions';
 import { useBoardStore } from './boardStore';
 import { GRID_GAP_CLASS, PANE_MIN_HEIGHT, drawnColumns, useElementWidth } from './layout';
@@ -133,12 +134,12 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   const replaceScreen = (index: number, menu: MenuEntry) => {
     const old = sheet.panes[index];
     if (!old) return;
-    editPanes([{ index, before: old, after: replacementScreen(registry, old, menu), fresh: true }], text.replaced(index + 1));
+    editPanes([{ index, before: old, after: replacementScreen(registry, can, old, menu, defaultQuery(registry, recent)), fresh: true }], text.replaced(index + 1));
   };
   const duplicate = (index: number) => {
     const from = sheet.panes[index];
     const to = firstEmptyPane(sheet);
-    if (!from || to === -1) return;
+    if (!from || to === -1 || !canMountPaneScreen(registry, can, from)) return;
     editPanes([{ index: to, before: null, after: { ...from, params: { ...from.params } }, fresh: true }], text.duplicated(index + 1, to + 1));
   };
   const openFull = (index: number) => {
@@ -157,6 +158,9 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     return () => clearTimeout(timer);
   }, [editRequest]);
 
+  const unavailable = (index: number) => { const own = sheet.panes[index]; return own !== null && !canMountPaneScreen(registry, can, own); };
+  const applyOff = (index: number) => (unavailable(index) ? text.paneUnavailable : applyContextToSheet(registry, can, sheet, index)?.others ? null : text.applyToAllNone);
+  const duplicateOff = (index: number) => (unavailable(index) ? text.paneUnavailable : emptyIndex === -1 ? text.noEmptyPane : null);
   const signals = paneSignals(registry, can, sheet.panes, text.noneValue);
   const emptyIndex = firstEmptyPane(sheet);
   const insert = (index: number, menu: MenuEntry) => writePane(index, { menuId: menu.id, params: {}, query: defaultQuery(registry, recent) });
@@ -182,7 +186,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
         className={cn('grid min-h-full auto-rows-(--board-row)', GRID_GAP_CLASS, drawn === 1 ? 'grid-cols-1' : 'grid-cols-2')}>
         {sheet.panes.map((screen, index) => <BoardPane key={`${sheetId}.${index}`} paneId={paneIdOf(sheetId, index)} number={index + 1} screen={screen} selected={index === selected} Outlet={Outlet}
           signal={signals[index]} hasPrevious={previousOf(sheet, index) !== null}
-          applyAllOff={applyContextToSheet(registry, can, sheet, index)?.others ? null : text.applyToAllNone} duplicateOff={emptyIndex === -1}
+          applyAllOff={applyOff(index)} duplicateOff={duplicateOff(index)}
           onSelect={() => update(b => selectPane(b, sheetId, index))} onChange={(next, how) => update(b => editPane(b, sheetId, index, next, how))} onLeave={onLeave}
           onInsert={menu => insert(index, menu)} onClear={() => clearPane(index)} onBack={() => update(b => goBackPane(b, sheetId, index))}
           onApplyAll={() => applyToAll(index)} onOpenFull={() => openFull(index)} onReplace={menu => replaceScreen(index, menu)}

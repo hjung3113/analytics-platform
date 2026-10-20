@@ -3,6 +3,7 @@ import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import type { Session } from '@ap/contracts';
 import { PlatformPage } from '@ap/components';
 import { RouteOutlet } from '../RouteOutlet';
 import { MAX_SHEETS, type Board, type Sheet } from './boardModel';
@@ -151,5 +152,66 @@ describe('분석 보드에 열기… (docs/16 §6)', () => {
     expect(localStorage.getItem(KEY)).toBeNull();
     expect(window.location.pathname).toBe('/alpha');
     expect(screen.getByRole('button', { name: '더보기' })).toHaveFocus();
+  });
+
+  const changed = '그 칸이 바뀌었습니다 — 다시 고르세요';
+
+  it('기존 시트의 빈 칸: a pane filled after the dialog opened is not overwritten; the dialog stays open with the reason', async () => {
+    seed(boardOf([sheet('roomy', { name: 'roomy', layout: '1x2', panes: [beta, null] })]));
+    mount(`/alpha?${w1}`);
+    await settle();
+    const dialog = await openDialog();
+    fireEvent.click(within(dialog).getByRole('radio', { name: '기존 시트의 빈 칸' }));
+    fireEvent.click(await within(dialog).findByRole('radio', { name: 'roomy' }));
+    fireEvent.click(await within(dialog).findByRole('radio', { name: '칸 2 · 비어 있음' }));
+    const filled = boardOf([sheet('roomy', { name: 'roomy', layout: '1x2', panes: [beta, { menuId: 'item', params: { id: '1' }, query: '' }] })]);
+    seed(filled);
+    fireEvent.click(within(dialog).getByRole('button', { name: '열기' }));
+    await settle();
+    expect(within(dialog).getByText(changed)).toBeInTheDocument();
+    expect(stored()).toEqual(filled);
+    expect(window.location.pathname).toBe('/alpha');
+    expect(screen.getByRole('dialog', { name: '분석 보드에 열기' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['the pane now holds another screen', (b: Board) => ({ ...b, sheets: [{ ...b.sheets[0], panes: [beta, { ...beta, query: '?tab=z' }] }] })],
+    ['the pane is gone with a smaller layout', (b: Board) => ({ ...b, sheets: [{ ...b.sheets[0], layout: '1x1' as const, panes: [beta] }] })],
+    ['the sheet is gone', (b: Board) => ({ ...b, sheets: [sheet('other', { panes: [beta] })], activeSheetId: 'other' })],
+  ])('기존 칸 바꾸기: writes nothing when %s', async (_name, change) => {
+    const start = boardOf([sheet('a', { layout: '1x2', panes: [beta, beta] })]);
+    seed(start);
+    mount(`/alpha?${w1}`);
+    await settle();
+    const dialog = await openDialog();
+    fireEvent.click(within(dialog).getByRole('radio', { name: '기존 칸 바꾸기' }));
+    fireEvent.click(await within(dialog).findByRole('radio', { name: 'a' }));
+    fireEvent.click(await within(dialog).findByRole('radio', { name: '칸 2 · 베타' }));
+    const after = change(start);
+    seed(after);
+    fireEvent.click(within(dialog).getByRole('button', { name: '열기' }));
+    await settle();
+    expect(within(dialog).getByText(changed)).toBeInTheDocument();
+    expect(stored()).toEqual(after);
+    expect(window.location.pathname).toBe('/alpha');
+  });
+
+  it('shows only the signed-in user\'s sheets after the user changes with the dialog open', async () => {
+    seed(boardOf([sheet('mine', { name: 'u1 sheet', panes: [beta] })]));
+    let session: Session = testSession(['platform:view']);
+    const listeners = new Set<() => void>();
+    window.history.replaceState(null, '', `/alpha?${w1}`);
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; } })} registry={registry} slots={{ boardEntry: <OpenInBoardAction /> }}><RouteOutlet /></PlatformProvider></I18nProvider>);
+    await settle();
+    const dialog = await openDialog();
+    fireEvent.click(within(dialog).getByRole('radio', { name: '기존 칸 바꾸기' }));
+    expect(await within(dialog).findByRole('radio', { name: 'u1 sheet' })).toBeInTheDocument();
+    session = testSession(['platform:view'], { user: { id: 'u2' } });
+    act(() => { for (const listener of listeners) listener(); });
+    await settle();
+    const open = screen.getByRole('dialog', { name: '분석 보드에 열기' });
+    expect(within(open).queryByText('u1 sheet')).toBeNull();
+    fireEvent.click(within(open).getByRole('radio', { name: '기존 칸 바꾸기' }));
+    expect(within(open).queryByRole('radio', { name: 'u1 sheet' })).toBeNull();
   });
 });

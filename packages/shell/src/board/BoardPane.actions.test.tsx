@@ -149,6 +149,57 @@ describe('pane header signals (ADR-0051)', () => {
     expect(await screen.findByRole('dialog', { name: '칸 1의 분석 Context' })).toBeInTheDocument();
   });
 
+  describe('chip measuring', () => {
+    const roomy = () => seed(boardOf([sheet('a', { layout: '1x2', panes: [pane(`?scopeId=S1&${w1}&roomNames=R1&lotIds=L1`), pane(`?scopeId=S1&${w2}&roomNames=R2&lotIds=L2`)] })]));
+    const sizes = { head: 600, fixed: 100, chip: 120, more: 60 };
+    const stubSizes = () => vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const width = this.hasAttribute('data-pane-head') ? sizes.head : this.hasAttribute('data-head-fixed') ? sizes.fixed : this.dataset.chipMeasure === 'chip' ? sizes.chip : this.dataset.chipMeasure === 'more' ? sizes.more : 0;
+      return { width, height: 0, top: 0, left: 0, right: width, bottom: 0, x: 0, y: 0, toJSON: () => ({}) };
+    });
+    afterEach(() => { Object.assign(sizes, { head: 600, fixed: 100, chip: 120, more: 60 }); });
+
+    it('keeps +N 다름 and its popover when not even one chip fits', async () => {
+      roomy();
+      sizes.chip = 300;
+      stubSizes();
+      mount();
+      await settle();
+      // available = 264: a 300px chip does not fit, so all three differing keys collapse.
+      expect(paneGroup(1).querySelectorAll('[data-pane-head] [data-pane-chip]:not([data-pane-chip="more"])')).toHaveLength(0);
+      const more = within(paneGroup(1)).getByRole('button', { name: '칸 1의 다른 조건 3개 더' });
+      expect(more).toHaveTextContent('+3 다름');
+      fireEvent.click(more);
+      expect(await screen.findByRole('dialog', { name: '칸 1의 분석 Context' })).toBeInTheDocument();
+    });
+
+    it('measures again when a fixed part or a measuring chip changes size', async () => {
+      roomy();
+      const watchers: { callback: () => void; targets: Element[] }[] = [];
+      vi.stubGlobal('ResizeObserver', class {
+        entry = { callback: () => {}, targets: [] as Element[] };
+        constructor(callback: () => void) { this.entry.callback = callback; watchers.push(this.entry); }
+        observe(target: Element) { this.entry.targets.push(target); }
+        unobserve() {} disconnect() {}
+      });
+      stubSizes();
+      mount();
+      await settle();
+      const shown = () => paneGroup(1).querySelectorAll('[data-pane-head] [data-pane-chip]:not([data-pane-chip="more"])').length;
+      expect(shown()).toBe(1);
+      // A fixed part grows with the head unchanged (e.g. 이전 화면 appears): available 264 -> 164, no chip fits.
+      sizes.fixed = 150;
+      act(() => { for (const w of watchers) if (w.targets.some(t => t.hasAttribute('data-head-fixed'))) w.callback(); });
+      expect(shown()).toBe(0);
+      // A measuring chip grows (e.g. language change) with everything else unchanged.
+      sizes.fixed = 100;
+      act(() => { for (const w of watchers) if (w.targets.some(t => t.hasAttribute('data-head-fixed'))) w.callback(); });
+      expect(shown()).toBe(1);
+      sizes.chip = 300;
+      act(() => { for (const w of watchers) if (w.targets.some(t => (t as HTMLElement).dataset.chipMeasure === 'chip')) w.callback(); });
+      expect(shown()).toBe(0);
+    });
+  });
+
   it('a header control selects its pane first', async () => {
     two();
     mount();
@@ -295,6 +346,26 @@ describe('⋯ pane menu (docs/16 §4)', () => {
     expect(within(paneGroup(1)).getByRole('button', { name: '칸 1 동작' })).toHaveFocus();
   });
 
+  it('a denied pane offers 바꾸기 as a fresh screen and never lends its saved Context; 적용 and 복제 are off with a reason', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [pane(`?lotIds=SECRET&${w1}`, 'locked'), null] })]));
+    mount();
+    await settle();
+    await openActions(1);
+    for (const name of [/이 조건을 시트의 모든 칸에 적용/, /복제/]) {
+      const off = await item(name);
+      expect(off).toHaveAttribute('data-disabled');
+      expect(off).toHaveTextContent('이 칸의 화면을 열 수 없어 조건을 쓸 수 없습니다');
+    }
+    fireEvent.click(await item('바꾸기'));
+    fireEvent.click(within(await screen.findByRole('dialog', { name: '칸 1에 넣을 분석 화면' })).getByRole('button', { name: '베타' }));
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: '바꾸기' }));
+    await settle();
+    const replaced = stored().sheets[0].panes[0]!;
+    expect(replaced.menuId).toBe('beta');
+    expect(replaced.query).not.toContain('SECRET');
+    expect(ctx(replaced.query).global.lotIds).toBeNull();
+  });
+
   it('복제 puts the same menu, params and query in the first empty pane, with undo; it is off, with its reason, when no pane is empty', async () => {
     seed(boardOf([sheet('a', { layout: '2x2', panes: [pane(`?${w1}&tab=x`), null, null, pane(`?${w2}`)] })]));
     mount();
@@ -357,7 +428,7 @@ describe('이 시트 조건을 다른 시트에 복사 (docs/16 §4)', () => {
     expect(ctx(target.panes[2]!.query).page).toEqual([['tab', 'r']]);
     expect(target.panes[3]).toEqual(pane(`?${w2}`));
     expect(stored().sheets[0].panes[0]).toEqual(pane(`?scopeId=S1&${w1}`));
-    expect(await screen.findByText("칸 1, 3의 조건을 'B'의 같은 칸에 복사")).toBeInTheDocument();
+    expect(await screen.findByText("칸 1, 3의 조건을 'B'의 같은 칸에 복사했습니다")).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '실행 취소' }));
     await settle();
     expect(stored().sheets[1].panes).toEqual(seedTargetPanes());
@@ -373,14 +444,14 @@ describe('이 시트 조건을 다른 시트에 복사 (docs/16 §4)', () => {
     mount();
     await settle();
     await copy('B');
-    expect(await screen.findByText("칸 1–2의 조건을 'B'의 같은 칸에 복사")).toBeInTheDocument();
+    expect(await screen.findByText("칸 1–2의 조건을 'B'의 같은 칸에 복사했습니다")).toBeInTheDocument();
     // The target sheet is edited before the undo.
     fireEvent.click(screen.getByRole('tab', { name: 'B' }));
     await settle();
     await openActions(2);
     fireEvent.click(await item('비우기'));
     await settle();
-    const toast = screen.getByText("칸 1–2의 조건을 'B'의 같은 칸에 복사").closest('[data-sonner-toast]') as HTMLElement;
+    const toast = screen.getByText("칸 1–2의 조건을 'B'의 같은 칸에 복사했습니다").closest('[data-sonner-toast]') as HTMLElement;
     fireEvent.click(within(toast).getByRole('button', { name: '실행 취소' }));
     await settle();
     expect(await screen.findByText('실행 취소할 수 없습니다 — 그 뒤에 바뀌었습니다')).toBeInTheDocument();

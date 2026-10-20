@@ -60,6 +60,7 @@ const KO = {
   replacePane: '바꾸기',
   duplicatePane: '복제',
   noEmptyPane: '빈 칸이 없습니다',
+  paneUnavailable: '이 칸의 화면을 열 수 없어 조건을 쓸 수 없습니다',
   replaceTitle: (n: number) => `칸 ${n}의 화면을 바꿉니다`,
   replaceBody: (from: string, to: string) => `'${from}' 대신 '${to}'을(를) 넣습니다. 지금 조건은 새 화면이 이어받고, 바로 뒤에 실행 취소할 수 있습니다.`,
   replaceConfirm: '바꾸기',
@@ -70,7 +71,7 @@ const KO = {
   duplicated: (from: number, to: number) => `칸 ${from}을 칸 ${to}에 복제했습니다`,
   copyContext: '이 시트 조건을 다른 시트에 복사',
   copyContextNone: '복사할 다른 시트가 없습니다',
-  copied: (numbers: string, target: string) => `칸 ${numbers}의 조건을 '${target}'의 같은 칸에 복사`,
+  copied: (numbers: string, target: string) => `칸 ${numbers}의 조건을 '${target}'의 같은 칸에 복사했습니다`,
   copiedNothing: (target: string) => `'${target}'에 복사할 칸이 없습니다 — 같은 번호의 두 칸에 모두 화면이 있고 조건이 달라야 합니다`,
   openInBoard: '분석 보드에 열기…',
   openInBoardTitle: '분석 보드에 열기',
@@ -84,6 +85,7 @@ const KO = {
   paneOption: (n: number, name: string | null) => (name === null ? `칸 ${n} · 비어 있음` : `칸 ${n} · ${name}`),
   confirmReplace: (n: number) => `칸 ${n}의 화면을 바꿉니다`,
   openAction: '열기',
+  paneChanged: '그 칸이 바뀌었습니다 — 다시 고르세요',
 };
 
 type Strings<T> = { [K in keyof T]: T[K] extends (...args: infer A) => string ? (...args: A) => string : string };
@@ -146,6 +148,7 @@ const EN: Strings<typeof KO> = {
   replacePane: 'Replace',
   duplicatePane: 'Duplicate',
   noEmptyPane: 'No empty pane',
+  paneUnavailable: 'This pane\'s screen cannot be opened, so its conditions cannot be used',
   replaceTitle: (n: number) => `Replace the screen in pane ${n}`,
   replaceBody: (from: string, to: string) => `'${to}' takes the place of '${from}'. It starts with the current conditions, and you can undo right after.`,
   replaceConfirm: 'Replace',
@@ -156,7 +159,7 @@ const EN: Strings<typeof KO> = {
   duplicated: (from: number, to: number) => `Duplicated pane ${from} into pane ${to}`,
   copyContext: 'Copy this sheet\'s conditions to another sheet',
   copyContextNone: 'No other sheet to copy to',
-  copied: (numbers: string, target: string) => `Copied the conditions of pane ${numbers} to the same panes of '${target}'`,
+  copied: (numbers: string, target: string) => `Copied the conditions of panes ${numbers} to the same panes of '${target}'`,
   copiedNothing: (target: string) => `Nothing to copy to '${target}' — both panes with the same number need a screen and different conditions`,
   openInBoard: 'Open in the analysis board…',
   openInBoardTitle: 'Open in the analysis board',
@@ -170,6 +173,7 @@ const EN: Strings<typeof KO> = {
   paneOption: (n: number, name: string | null) => (name === null ? `Pane ${n} · empty` : `Pane ${n} · ${name}`),
   confirmReplace: (n: number) => `This replaces the screen in pane ${n}`,
   openAction: 'Open',
+  paneChanged: 'That pane has changed — choose again',
 };
 
 export type BoardText = Strings<typeof KO>;

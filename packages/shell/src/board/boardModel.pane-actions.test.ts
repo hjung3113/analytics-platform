@@ -91,6 +91,17 @@ describe('pane edits', () => {
     expect(revertPaneEdits({ ...applied, sheets: [] }, id, edits())).toBeNull();
   });
 
+  it('reverts a Context-only edit without dropping the pane\'s 이전 화면', () => {
+    const { board, id } = seeded();
+    const withPrevious = editPane(board, id, 1, screen('c'), 'push');
+    const only: PaneEdit[] = [{ index: 1, before: screen('c'), after: screen('c', '?x=2') }];
+    const applied = applyPaneEdits(withPrevious, id, only);
+    expect(previousOf(sheetOf(applied, id), 1)).toEqual(screen('b', '?x=1'));
+    const reverted = revertPaneEdits(applied, id, only)!;
+    expect(sheetOf(reverted, id).panes[1]).toEqual(screen('c'));
+    expect(previousOf(sheetOf(reverted, id), 1)).toEqual(screen('b', '?x=1'));
+  });
+
   it('reverts a duplicate by emptying the pane it filled', () => {
     const { board, id } = base();
     const duplicate: PaneEdit[] = [{ index: 1, before: null, after: screen('a'), fresh: true }];

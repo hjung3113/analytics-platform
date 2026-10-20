@@ -22,7 +22,7 @@ export type BoardPaneProps = {
   hasPrevious: boolean;
   /** Why `이 조건을 시트의 모든 칸에 적용` is unavailable, or null. */
   applyAllOff: string | null;
-  duplicateOff: boolean;
+  duplicateOff: string | null;
   onSelect: () => void;
   onChange: (next: PaneScreen, how: 'push' | 'replace') => void;
   onLeave: (href: string) => void;

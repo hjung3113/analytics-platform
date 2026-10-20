@@ -88,4 +88,22 @@ describe('DetailDrawer in a board pane (docs/16 §5)', () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByRole('dialog').querySelector('[data-detail-pane-label]')).toHaveTextContent('칸 3 · home');
   });
+
+  it('notices a Context change while another pane\'s panel owns the shared slot', () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    function Two() {
+      const [screen, setScreen] = useState<PaneScreen>({ menuId: 'home', params: {}, query: '?from=2026-09-01T00:00:00&to=2026-09-02T00:00:00' });
+      const [other, setOther] = useState<PaneScreen>({ menuId: 'home', params: {}, query: '?from=2026-09-01T00:00:00&to=2026-09-02T00:00:00' });
+      return <>
+        <button type="button" onClick={() => setScreen(s => ({ ...s, query: '?from=2026-08-01T00:00:00&to=2026-08-02T00:00:00' }))}>change first</button>
+        <PaneScreenProvider paneId="p1" screen={screen} onChange={next => setScreen(next)} onLeave={() => {}}>{drawer(first)}</PaneScreenProvider>
+        <PaneScreenProvider paneId="p2" screen={other} onChange={next => setOther(next)} onLeave={() => {}}>{drawer(second)}</PaneScreenProvider>
+      </>;
+    }
+    render(tree(<Two />));
+    fireEvent.click(screen.getByRole('button', { name: 'change first' }));
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).not.toHaveBeenCalled();
+  });
 });

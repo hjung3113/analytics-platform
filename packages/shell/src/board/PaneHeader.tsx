@@ -43,7 +43,8 @@ function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, 
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
-    observer.observe(element);
+    // The head alone is not enough: a fixed group or a measuring chip can change size (`이전 화면` appears, the language changes) with the head's width unchanged.
+    for (const target of [element, ...element.querySelectorAll('[data-head-fixed], [data-chip-measure]')]) observer.observe(target);
     return () => observer.disconnect();
   }, [head, count, signature]);
   return Math.min(visible, count);
@@ -60,7 +61,8 @@ export type PaneHeaderProps = {
   hasPrevious: boolean;
   /** Why `이 조건을 시트의 모든 칸에 적용` is off, or null when it is on. */
   applyAllOff: string | null;
-  duplicateOff: boolean;
+  /** Why `복제` is off, or null when it is on. */
+  duplicateOff: string | null;
   menuTrigger: RefObject<HTMLButtonElement | null>;
   onSelect: () => void;
   onBack: () => void;
@@ -112,7 +114,7 @@ export function PaneHeader(props: PaneHeaderProps) {
         {systemLabel && <span data-pane-system className="shrink-0 rounded-xs border border-border-subtle px-1.5 text-caption text-text-secondary">{systemLabel}</span>}
       </div>
       <span className="min-w-24 flex-1 truncate text-sm font-medium text-text-primary">{menuName}</span>
-      {shown.length > 0 && <div data-pane-chips className="flex shrink-0 items-center gap-1">
+      {(shown.length > 0 || hidden > 0) && <div data-pane-chips className="flex shrink-0 items-center gap-1">
         {shown.map(chip => <span key={chip.key} data-pane-chip={chip.key} className={PANE_CHIP}>{chipText(chip)}</span>)}
         {hidden > 0 && <button type="button" data-pane-chip="more" aria-haspopup="dialog" aria-expanded={popover} aria-label={text.contextMoreName(number, hidden)} onClick={open} className={cn(PANE_CHIP, 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring')}>{text.contextMore(hidden)}</button>}
       </div>}
@@ -144,8 +146,8 @@ export function PaneHeader(props: PaneHeaderProps) {
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => props.onOpenFull()}>{text.openFull}</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => { afterMenuClose.current = () => {}; props.onReplace(); }}>{text.replacePane}</DropdownMenuItem>
-            <DropdownMenuItem disabled={duplicateOff} aria-describedby={duplicateOff ? `${id}-dup-off` : undefined} onSelect={() => props.onDuplicate()}>
-              <span className="grid">{text.duplicatePane}{duplicateOff && <span id={`${id}-dup-off`} className="text-tiny text-text-muted">{text.noEmptyPane}</span>}</span>
+            <DropdownMenuItem disabled={duplicateOff !== null} aria-describedby={duplicateOff !== null ? `${id}-dup-off` : undefined} onSelect={() => props.onDuplicate()}>
+              <span className="grid">{text.duplicatePane}{duplicateOff !== null && <span id={`${id}-dup-off`} className="text-tiny text-text-muted">{duplicateOff}</span>}</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => props.onClear()}>{text.clear}</DropdownMenuItem>

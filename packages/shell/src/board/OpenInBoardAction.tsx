@@ -4,7 +4,7 @@ import { useHeaderOverflowDialog, type HeaderOverflowDialogControl } from '@ap/c
 import {
   Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Label, RadioGroup, RadioGroupItem,
 } from '@ap/ui';
-import { MAX_SHEETS, openScreenInNewSheet, setPane, type Board } from './boardModel';
+import { MAX_SHEETS, openScreenInNewSheet, samePane, setPane, type Board } from './boardModel';
 import { readStoredBoard, writeStoredBoard } from './boardStore';
 import { boardText } from './text';
 
@@ -30,17 +30,26 @@ export function OpenInBoardAction() {
   </Button>;
 }
 
+/** The dialog belongs to the signed-in user: another user gets a fresh one, so the previous user's sheets are never shown. */
 function OpenInBoardDialog({ control }: { control: HeaderOverflowDialogControl }) {
+  const { user } = usePlatform();
+  return <OpenInBoardDialogBody key={user.id} control={control} />;
+}
+
+const initialDestination = (board: Board): Destination => (board.sheets.length >= MAX_SHEETS ? (board.sheets.some(s => s.panes.some(p => p === null)) ? 'empty' : 'replace') : 'new');
+
+function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogControl }) {
   const { user, navigate, registry } = usePlatform();
   const { lang, tx } = useI18n();
   const text = boardText(lang);
   const screen = useCurrentScreen();
   const menuName = (menuId: string) => { const menu = registry.menus.find(m => m.id === menuId); return menu ? tx(menu.label) : menuId; };
-  // Read once when the dialog opens; the confirm re-reads, so a board changed in another tab is never overwritten with stale data.
-  const [board] = useState<Board>(() => readStoredBoard(user.id, text.sheetPrefix));
+  // Read when the dialog opens; the confirm re-reads and checks the chosen target again, so a board changed in another tab is never overwritten with stale data.
+  const [board, setBoard] = useState<Board>(() => readStoredBoard(user.id, text.sheetPrefix));
   const full = board.sheets.length >= MAX_SHEETS;
   const withEmpty = board.sheets.filter(s => s.panes.some(p => p === null));
-  const [destination, setDestination] = useState<Destination>(() => (full ? (withEmpty.length > 0 ? 'empty' : 'replace') : 'new'));
+  const [destination, setDestination] = useState<Destination>(() => initialDestination(board));
+  const [problem, setProblem] = useState<string | null>(null);
   const [sheetId, setSheetId] = useState<string>('');
   const [paneIndex, setPaneIndex] = useState<number | null>(null);
   const sheetChoices = destination === 'empty' ? withEmpty : board.sheets;
@@ -51,16 +60,26 @@ function OpenInBoardDialog({ control }: { control: HeaderOverflowDialogControl }
   const confirm = () => {
     if (!screen || !ready) return;
     const current = readStoredBoard(user.id, text.sheetPrefix);
-    let next: Board | null;
+    let next: Board | null = null;
     if (destination === 'new') next = openScreenInNewSheet(current, text.sheetPrefix, screen);
-    else if (paneIndex !== null && sheet && current.sheets.some(s => s.id === sheet.id)) next = { ...setPane(current, sheet.id, paneIndex, screen), activeSheetId: sheet.id };
-    else next = null;
-    if (!next) return;
+    else if (paneIndex !== null && sheet) {
+      // The pane the user was shown must still be what they chose: empty for 빈 칸, the same screen for 바꾸기.
+      const live = current.sheets.find(s => s.id === sheet.id)?.panes[paneIndex];
+      const shown = sheet.panes[paneIndex];
+      const unchanged = live !== undefined && (destination === 'empty' ? live === null : live !== null && samePane(live, shown));
+      if (unchanged) next = { ...setPane(current, sheet.id, paneIndex, screen), activeSheetId: sheet.id };
+    }
+    if (!next) {
+      setBoard(current);
+      setPaneIndex(null);
+      if (destination === 'new') { setDestination(initialDestination(current)); setProblem(text.maxSheets); } else setProblem(text.paneChanged);
+      return;
+    }
     writeStoredBoard(user.id, next);
     control.close();
     navigate(`${BOARD_PATH}?sheet=${encodeURIComponent(next.activeSheetId)}`, { focus: 'page' });
   };
-  const pick = (value: string) => { setDestination(value as Destination); setSheetId(''); setPaneIndex(null); };
+  const pick = (value: string) => { setDestination(value as Destination); setSheetId(''); setPaneIndex(null); setProblem(null); };
 
   return <Dialog open onOpenChange={open => { if (!open) control.close(); }}>
     <DialogContent closeLabel={lang === 'ko' ? '닫기' : 'Close'} onCloseAutoFocus={control.onCloseAutoFocus} className="max-h-[80vh] overflow-y-auto">
@@ -87,7 +106,7 @@ function OpenInBoardDialog({ control }: { control: HeaderOverflowDialogControl }
       {destination !== 'new' && <div className="grid gap-3">
         <fieldset className="grid gap-1">
           <legend className="text-tiny font-semibold text-text-secondary">{text.destSheet}</legend>
-          <RadioGroup aria-label={text.destSheet} value={sheetId} onValueChange={id => { setSheetId(id); setPaneIndex(null); }} spacing="compact" className="max-h-40 overflow-y-auto">
+          <RadioGroup aria-label={text.destSheet} value={sheetId} onValueChange={id => { setSheetId(id); setPaneIndex(null); setProblem(null); }} spacing="compact" className="max-h-40 overflow-y-auto">
             {sheetChoices.map(s => <div key={s.id} className="flex items-center gap-2">
               <RadioGroupItem id={`board-sheet-${s.id}`} value={s.id} />
               <Label htmlFor={`board-sheet-${s.id}`}>{s.name}</Label>
@@ -96,7 +115,7 @@ function OpenInBoardDialog({ control }: { control: HeaderOverflowDialogControl }
         </fieldset>
         {sheet && <fieldset className="grid gap-1">
           <legend className="text-tiny font-semibold text-text-secondary">{text.destPane}</legend>
-          <RadioGroup aria-label={text.destPane} value={paneIndex === null ? '' : String(paneIndex)} onValueChange={value => setPaneIndex(Number(value))} spacing="compact">
+          <RadioGroup aria-label={text.destPane} value={paneIndex === null ? '' : String(paneIndex)} onValueChange={value => { setPaneIndex(Number(value)); setProblem(null); }} spacing="compact">
             {paneChoices.map(({ pane, index }) => <div key={index} className="flex items-center gap-2">
               <RadioGroupItem id={`board-pane-${index}`} value={String(index)} />
               <Label htmlFor={`board-pane-${index}`}>{text.paneOption(index + 1, pane === null ? null : menuName(pane.menuId))}</Label>
@@ -105,6 +124,7 @@ function OpenInBoardDialog({ control }: { control: HeaderOverflowDialogControl }
         </fieldset>}
         {destination === 'replace' && sheet && paneIndex !== null && <p role="status" className="text-sm text-text-primary">{text.confirmReplace(paneIndex + 1)}</p>}
       </div>}
+      {problem !== null && <p role="alert" className="text-sm text-text-danger-label">{problem}</p>}
       <DialogFooter>
         <Button type="button" variant="secondary" onClick={control.close}>{text.cancel}</Button>
         <Button type="button" disabled={!ready} onClick={confirm}>{text.openAction}</Button>
