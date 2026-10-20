@@ -4,6 +4,7 @@ import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { formatDateTime, formatMetricVersion, parseDateTime } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
+import type { ThemeColorToken } from '@ap/ui/theme';
 import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { EChart, strokeToken, token } from './EChart';
 import { toCsvDocument } from './tableExport';
@@ -18,8 +19,8 @@ function AnalysisChartPart({ enabled, body, children }: { enabled: boolean; body
 export type ChartSeries = {
   id: string;
   name: string;
-  /** CSS custom property name from tokens.css, e.g. 'chart-blue'. */
-  color: string;
+  /** Public CSS custom property name from @ap/ui/theme, e.g. 'chart-blue'. */
+  color: ThemeColorToken;
   /** [x, y]: x is a naive wall-clock datetime (time axis) or a category label. null = unknown, never 0. */
   points: [string, number | null][];
   kind?: 'line' | 'bar';

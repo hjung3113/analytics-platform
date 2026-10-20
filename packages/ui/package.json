@@ -10,12 +10,15 @@
     "./styles/semantic.css": "./src/styles/semantic.css",
     "./styles/theme.css": "./src/styles/theme.css",
     "./styles/compat.css": "./src/styles/compat.css",
-    "./styles/sources.css": "./src/styles/sources.css"
+    "./styles/sources.css": "./src/styles/sources.css",
+    "./theme": "./src/theme/index.ts",
+    "./theme-tokens.json": "./src/theme/theme-tokens.json"
   },
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "gen:theme": "node scripts/gen-theme-tokens.mjs"
   },
   "dependencies": {
     "@formkit/auto-animate": "0.10.0",

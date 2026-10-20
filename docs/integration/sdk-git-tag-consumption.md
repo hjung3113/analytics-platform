@@ -17,6 +17,10 @@
 | `@tiptap/*` 버전 | **소비자가 고정해야 한다.** 잠금 없는 소비자는 starter-kit의 확장이 3.32.0으로 떠서 `@tiptap/core` 3.23.5와 어긋나 빌드가 `MISSING_EXPORT`로 실패한다 | 소비자에 `@tiptap/*` 22개 `overrides`를 3.23.5로(이 저장소 `pnpm-workspace.yaml`과 같음). FeedbackOps는 자기 잠금이 이미 3.23.5라 같은 잠금을 유지하면 된다 |
 | `@formkit/auto-animate` 패치 | 소비자가 같은 `patchedDependencies`를 가져야 한다(패치가 `@ap/ui`와 함께 오지 않는다). FeedbackOps는 이미 같은 패치를 갖고 있다(`package.json`의 `pnpm.patchedDependencies`) | 패치 파일 내용이 `@ap/ui`와 같은지 전환 때 대조 |
 
+테마 이름은 `@ap/ui/theme`의 `ThemeColorToken`·`THEME_COLOR_TOKENS`·`readColorToken`으로 소비하고, 도구는 `@ap/ui/theme-tokens.json`의 `color` 이름 목록을 읽는다. CSS는 계속 `rgb(var(--…))`로 쓰며, 제품 쪽 매핑 검사는 JSON 이름 목록과 대조한다. `$value.hex`는 매핑 키로 쓰지 않는다.
+
+`sdk-v0.8.0`부터 `@ap/components`의 `token(name)`과 `ChartSeries.color`는 `string` 대신 `ThemeColorToken`을 받는다(ADR-0055). 런타임 문자열을 넘기는 호출자는 `isThemeColorToken(name)`으로 좁힌 뒤 부르거나, 자기 데이터 모델에 `ThemeColorToken`을 쓴다. 폐기 예고 없이 바꾼 이유: `@ap/components`를 저장소 밖에서 받는 소비자가 아직 없고(FeedbackOps·EV는 `@ap/ui`만 받는다, 2026-10-20 확인), 값과 출력 형식(`rgb(r,g,b)`)은 그대로다. 저장소 밖 소비자가 생긴 뒤의 같은 변경은 ADR-0044의 한 릴리스 예고를 따른다.
+
 ## 결론과 남은 것
 
 - git 태그 의존성은 **된다**. 결정(레지스트리 없이 태그)을 다시 열 이유는 시험에서 나오지 않았다.

@@ -34,6 +34,15 @@ let brushRangeOverride: [number, number] | null = null;
 const defaultBrushRange = (): [number, number] => [parseDateTime('2026-09-01T00:00:00', 'x').getTime(), parseDateTime('2026-09-02T00:00:00', 'x').getTime()];
 const atMs = (value: string) => parseDateTime(value, 'x').getTime();
 
+const invalidChartSeries = (): ChartSeries => ({
+  id: 'invalid',
+  name: 'Invalid',
+  // @ts-expect-error ChartSeries colours must be names from the public theme contract.
+  color: 'not-a-token',
+  points: [],
+});
+void invalidChartSeries;
+
 /** Stand-in plot: one button plays a Brush selection over the whole series. */
 function FakePlot(props: EChartProps): ReactElement {
   plotProps = props;
@@ -446,7 +455,7 @@ describe('chart legend and comparison encoding (#207)', () => {
   });
 
   it('keeps wrapping period rows when more than four corresponding series are present', async () => {
-    const many = Array.from({ length: 5 }, (_, index) => ({
+    const many: ChartSeries[] = Array.from({ length: 5 }, (_, index) => ({
       id: `current-${index}`,
       name: `Current ${index + 1}`,
       color: 'chart-blue',
