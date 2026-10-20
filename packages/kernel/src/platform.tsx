@@ -4,9 +4,9 @@ import { use, createContext, useCallback, useContext, useEffect, useLayoutEffect
 import { createPaletteFocus, useFocusGate, type PaletteSession } from './paletteFocus';
 import { createPageNavigation, type PageFocus, type PageNavigation } from './pageNavigation';
 import { classifyMetricInit, type MetricInit } from './metric-init';
-import { CONTEXT_LABELS, isBoardPath, pathFor, type MenuEntry, type Registry } from './registry';
+import { CONTEXT_LABELS, isBoardPath, pathFor, routeParamNames, type MenuEntry, type Registry } from './registry';
 import { useI18n } from './i18n';
-import { dropResetKeys } from './paneContext';
+import { dropResetKeys, paneHref } from './paneContext';
 import { createRefreshEpochs, type RefreshEpochs } from './refresh-epochs';
 import { buildQuery, ContractError, emptyGlobal, type ContextKey, type GlobalContext, incompleteMetricPair, type ModuleScopedId, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent } from '@ap/contracts';
 
@@ -772,7 +772,7 @@ function MainScreenProvider({ app, children }: { app: AppValue; children: ReactN
     if (canOpen(space.homeMenuId)) return { menuId: space.homeMenuId, href: resolveLink(space.homeMenuId).href, resumed: false };
     for (const group of registry.groups) {
       if (group.space !== spaceId) continue;
-      const menu = registry.menus.find(m => m.group === group.id && !m.navHidden && !m.path.split('/').some(segment => segment.startsWith(':')) && canOpen(m.id));
+      const menu = registry.menus.find(m => m.group === group.id && !m.navHidden && routeParamNames(m.path).length === 0 && canOpen(m.id));
       if (menu) return { menuId: menu.id, href: resolveLink(menu.id).href, resumed: false };
     }
     return null;
@@ -812,8 +812,7 @@ export function PaneScreenProvider({ paneId, paneLabel, screen, onChange, onLeav
   const main = useContext(MainBoundContext);
   if (!app || !main) throw new Error('PaneScreenProvider outside PlatformProvider');
   const { registry, canOpen } = app.pub;
-  const query = screen.query === '' || screen.query.startsWith('?') ? screen.query : `?${screen.query}`;
-  const url = pathFor(registry.menuById(screen.menuId), screen.params) + query;
+  const url = paneHref(registry, screen);
   const [navigation] = useState(() => createPageNavigation(url));
   const latest = useRef({ onChange, onLeave });
   useLayoutEffect(() => { latest.current = { onChange, onLeave }; });

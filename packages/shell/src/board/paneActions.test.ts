@@ -1,9 +1,10 @@
+import { admitPaneScreen, canMountPaneScreen } from './boardMenus';
 import { House } from 'lucide-react';
 import { describe, expect, it } from 'vitest';
 import { parseQuery } from '@ap/contracts';
 import { createRegistry } from '@ap/kernel';
 import { noContext, testSpace } from '@ap/kernel/testing';
-import { applyContextToSheet, copyContextToSheet, paneSignals, replacementScreen } from './paneActions';
+import { applyContextToSheet, defaultQuery, copyContextToSheet, paneSignals, replacementScreen } from './paneActions';
 import type { Sheet } from './boardModel';
 
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
@@ -22,11 +23,11 @@ const registry = createRegistry({
     entry('locked', '/locked', { permission: 'console:access' }),
   ],
 });
-const can = (permission: string) => permission === 'platform:view';
+const canOpen = (menuId: string) => menuId !== 'locked';
 const pane = (query: string, menuId = 'alpha') => ({ menuId, params: {}, query });
 const sheet = (panes: Sheet['panes']): Sheet => ({ id: 's', name: 's', layout: '1x2', selected: 0, panes });
 const condition = (axis: string) => `?equipmentGroup=${encodeURIComponent(JSON.stringify({ axis, id: 'X' }))}`;
-const differing = (panes: Sheet['panes']) => paneSignals(registry, can, panes, '없음').map(signal => signal?.differing.map(row => row.key) ?? null);
+const differing = (panes: Sheet['panes']) => paneSignals(registry, canOpen, panes, '없음').map(signal => signal?.differing.map(row => row.key) ?? null);
 
 describe('paneSignals compares the Context itself, not its displayed text', () => {
   it('a Condition on another axis with the same id differs', () => {
@@ -46,19 +47,45 @@ describe('Context is inherited only from a pane the role can mount', () => {
   const beta = registry.matchRoute('/beta')!.menu;
 
   it('a denied pane\'s saved Context never reaches the replacing screen; a fresh screen takes the given default instead', () => {
-    const replaced = replacementScreen(registry, can, pane(secret, 'locked'), beta, '?from=2026-01-01T00:00:00&to=2026-01-02T00:00:00');
+    const replaced = replacementScreen(registry, canOpen, pane(secret, 'locked'), beta, '?from=2026-01-01T00:00:00&to=2026-01-02T00:00:00');
     expect(replaced.query).not.toContain('SECRET');
     expect(parseQuery(replaced.query, []).global.from).toBe('2026-01-01T00:00:00');
   });
 
   it('a mountable pane still hands its Context to the replacing screen', () => {
-    const replaced = replacementScreen(registry, can, pane(secret), beta, '');
+    const replaced = replacementScreen(registry, canOpen, pane(secret), beta, '');
     expect(parseQuery(replaced.query, []).global.lotIds).toEqual(['SECRET']);
   });
 
   it('a denied pane is neither a source for apply-to-all nor for the sheet copy', () => {
     const denied = sheet([pane(secret, 'locked'), pane('?from=2026-08-01T00:00:00&to=2026-08-02T00:00:00')]);
-    expect(applyContextToSheet(registry, can, denied, 0)).toBeNull();
-    expect(copyContextToSheet(registry, can, denied, sheet([pane('?from=2026-08-01T00:00:00&to=2026-08-02T00:00:00'), pane('?from=2026-08-01T00:00:00&to=2026-08-02T00:00:00')]))).toEqual([]);
+    expect(applyContextToSheet(registry, canOpen, denied, 0)).toBeNull();
+    expect(copyContextToSheet(registry, canOpen, denied, sheet([pane('?from=2026-08-01T00:00:00&to=2026-08-02T00:00:00'), pane('?from=2026-08-01T00:00:00&to=2026-08-02T00:00:00')]))).toEqual([]);
+  });
+});
+
+describe('board pane admission', () => {
+  it('does not mount an admitted pane when canOpen rejects its menu id', () => {
+    const screen = pane('');
+    expect(admitPaneScreen(registry, screen)).toBe(true);
+    expect(canMountPaneScreen(registry, id => id !== 'alpha', screen)).toBe(false);
+  });
+});
+
+describe('defaultQuery', () => {
+  it('returns an empty query for a malformed Context address', () => {
+    expect(defaultQuery(registry, [{ menuId: 'alpha', url: '/alpha?from=bad' }])).toBe('');
+  });
+
+  it('rethrows unexpected registry errors', () => {
+    const broken = { ...registry, get menus(): typeof registry.menus { throw new Error('registry failure'); } };
+    expect(() => defaultQuery(broken, [{ menuId: 'alpha', url: '/alpha?lotIds=LOT' }])).toThrow('registry failure');
+  });
+
+  it('copies only Context from the latest address and handles no recent query', () => {
+    expect(parseQuery(defaultQuery(registry, [{ menuId: 'alpha', url: '/alpha?lotIds=LOT&tab=detail&unknown=x' }]), []).global.lotIds).toEqual(['LOT']);
+    expect(defaultQuery(registry, [{ menuId: 'alpha', url: '/alpha?tab=detail' }])).not.toContain('tab');
+    expect(defaultQuery(registry, [])).toBe('');
+    expect(defaultQuery(registry, [{ menuId: 'alpha', url: '/alpha' }])).toBe('');
   });
 });

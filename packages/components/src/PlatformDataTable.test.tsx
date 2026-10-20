@@ -11,7 +11,7 @@ import { toColumnDef } from './columnDef';
 import * as publicApi from './index';
 import { readXlsx } from './xlsxTestReader';
 import { PlatformDataTable, type PageQuery, type PageResult, type PlatformDataTableProps, type TableUrlState } from './PlatformDataTable';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 afterEach(cleanup);
 
@@ -562,8 +562,8 @@ describe('PlatformColumn conversion defaults (#160)', () => {
   // pin toggle per column, pinned columns grouped on top, and a reset.
   // The table keeps column preferences in localStorage; this environment has none, so these tests stub it.
   function stubStorage(initial: Record<string, string> = {}) {
-    const store = new Map(Object.entries(initial));
-    vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => { store.set(k, v); }, removeItem: (k: string) => { store.delete(k); } });
+    vi.stubGlobal('localStorage', memoryStorage());
+    for (const [key, value] of Object.entries(initial)) localStorage.setItem(key, value);
   }
 
   it('column popover: no width slider, a pin toggle per column, pinned group on top, and reset to defaults', async () => {

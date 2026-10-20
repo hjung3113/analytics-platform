@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, PlatformLink, usePlatform } from '@ap/kernel';
 import { PlatformPage } from '@ap/components';
 import { CommandPalette } from './CommandPalette';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const page = lazy(async () => ({ default: () => null }));
@@ -34,17 +34,12 @@ const registry = createRegistry({
   ],
 });
 
-const storage = new Map<string, string>();
+const storage = memoryStorage();
 beforeEach(() => {
   storage.clear();
   Element.prototype.scrollIntoView = vi.fn();
-  vi.stubGlobal('localStorage', {
-    getItem: (key: string) => storage.get(key) ?? null,
-    setItem: (key: string, value: string) => { storage.set(key, value); },
-    removeItem: (key: string) => { storage.delete(key); },
-    clear: () => storage.clear(),
-  });
-  storage.set('platform:recent:u1', JSON.stringify([
+  vi.stubGlobal('localStorage', storage);
+  storage.setItem('platform:recent:u1', JSON.stringify([
     { menuId: 'equipment', url: '/equipment?v=1', at: 2 },
     { menuId: 'home', url: '/home?v=1', at: 1 },
   ]));
@@ -132,7 +127,7 @@ describe('CommandPalette space bundles (06 §9.1)', () => {
   });
 
   it('uses the English accessible name, heading and Platform search', () => {
-    storage.set('platform:lang', 'en');
+    storage.setItem('platform:lang', 'en');
     mount();
     expect(screen.getByRole('combobox', { name: 'Search menus' })).toBeTruthy();
     expect(screen.getByRole('group', { name: 'Platform' })).toBeTruthy();

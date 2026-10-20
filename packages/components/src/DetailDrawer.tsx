@@ -1,3 +1,4 @@
+import { paneRootById } from './pageFocus';
 import { OutcomeBanners, OutcomeScope } from './OutcomeScope';
 import { X } from 'lucide-react';
 import { Fragment, useEffect, useId, useLayoutEffect, useRef, type ReactNode } from 'react';
@@ -60,7 +61,7 @@ function DetailContent({ title, subtitle, headerActions, context, tabs, onClose,
       const restore = claim ? inside || document.activeElement === document.body : inside || (document.activeElement === document.body && focusInside.current);
       if (!restore) return;
       // The panel is portaled out of its pane, so a pane's fallback is found by id (compared, not interpolated into a selector).
-      const paneRoot = paneId === null ? null : Array.from(document.querySelectorAll<HTMLElement>('[data-pane-id]')).find(el => el.dataset.paneId === paneId) ?? null;
+      const paneRoot = paneId === null ? null : paneRootById(paneId);
       const target = opener?.isConnected && opener !== document.body ? opener : paneRoot ?? document.getElementById('platform-main');
       target?.focus({ preventScroll: true });
     };

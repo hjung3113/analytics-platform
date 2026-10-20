@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ActionResponse, ApiResponse, ClientErrorReport, MenuAction, MenuQuery, ModuleHost, ModuleScopedId, ModuleScreenProps, Permission, PlatformAdapter } from '@ap/contracts';
 import { I18nProvider, PaneScreenProvider, PlatformProvider, createRegistry, mountModule, usePlatform, type FeedbackOpsSlot, type PaneScreen } from '@ap/kernel';
 import { DetailPanelSlotProvider } from '@ap/ui';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AppSidebar } from './AppSidebar';
 import { ItemScreen, ListScreen, manifest } from './__fixtures__/module-fixture';
 import { RouteOutlet, ScreenOutlet } from './RouteOutlet';
@@ -112,11 +112,7 @@ const flush = async () => { await act(async () => { await new Promise(r => setTi
 beforeEach(() => {
   state.hosts = []; state.platforms = new Map(); state.pageSeen = []; state.subscribed = 0; state.changes = 0;
   for (const name of ['localStorage', 'sessionStorage'] as const) {
-    const data = new Map<string, string>();
-    vi.stubGlobal(name, {
-      getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); },
-      removeItem: (k: string) => { data.delete(k); }, clear: () => data.clear(), key: () => null, get length() { return data.size; },
-    });
+    vi.stubGlobal(name, memoryStorage());
   }
   Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
 });

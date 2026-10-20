@@ -7,7 +7,7 @@ import type { PlatformAdapter, ScopeCheck } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { PlatformPage } from './PlatformPage';
 import { QueryView } from './StateView';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 const registry = createRegistry({
   spaces: [testSpace()],
@@ -213,16 +213,13 @@ describe('PlatformPage shared outcome placement (#55)', () => {
 describe('Scope gate action focus (#353)', () => {
   /** Node's file-less localStorage shadows jsdom's here, so give the test an in-memory store. */
   function stubLocalStorage() {
-    const data = new Map<string, string>();
-    vi.stubGlobal('localStorage', {
-      getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); },
-      removeItem: (k: string) => { data.delete(k); }, clear: () => data.clear(), key: () => null, get length() { return data.size; },
-    });
-    return data;
+    const storage = memoryStorage();
+    vi.stubGlobal('localStorage', storage);
+    return storage;
   }
 
   it('sends focus to the page content element when the suggested-scope button disappears', async () => {
-    stubLocalStorage().set('platform:lastScope:u1', JSON.stringify('MEM'));
+    stubLocalStorage().setItem('platform:lastScope:u1', JSON.stringify('MEM'));
     window.history.replaceState(null, '', '/?v=1');
     const view = render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}>
       <PlatformPage><p>page body</p></PlatformPage>
@@ -237,7 +234,7 @@ describe('Scope gate action focus (#353)', () => {
   it('sends focus to the main landmark when the gate sits inside a shell main', async () => {
     // jsdom has no element.scrollTo; the kernel scrolls platform-main on push navigation (AppShell.test.tsx does the same).
     Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
-    stubLocalStorage().set('platform:lastScope:u1', JSON.stringify('MEM'));
+    stubLocalStorage().setItem('platform:lastScope:u1', JSON.stringify('MEM'));
     window.history.replaceState(null, '', '/?v=1');
     const view = render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}>
       <main id="platform-main" tabIndex={-1}><PlatformPage><p>page body</p></PlatformPage></main>

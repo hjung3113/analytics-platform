@@ -5,7 +5,7 @@ import type { UsageEvent } from '@ap/contracts';
 import { I18nProvider } from './i18n';
 import { PaneScreenProvider, PlatformProvider, usePlatform } from './platform';
 import { createRegistry } from './registry';
-import { noContext, testAdapter, testSession, testSpace } from './testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
 
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const registry = createRegistry({
@@ -19,11 +19,7 @@ const registry = createRegistry({
 
 beforeEach(() => {
   for (const name of ['localStorage', 'sessionStorage'] as const) {
-    const data = new Map<string, string>();
-    vi.stubGlobal(name, {
-      getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); },
-      removeItem: (k: string) => { data.delete(k); }, clear: () => data.clear(), key: () => null, get length() { return data.size; },
-    });
+    vi.stubGlobal(name, memoryStorage());
   }
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });

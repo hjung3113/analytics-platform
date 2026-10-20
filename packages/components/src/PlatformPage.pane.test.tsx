@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlatformAdapter, ScopeCheck } from '@ap/contracts';
 import { I18nProvider, PaneScreenProvider, PlatformProvider, createRegistry, usePlatform, type PaneScreen } from '@ap/kernel';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { DetailDrawer } from './DetailDrawer';
 import { focusPageFallback } from './pageFocus';
 import { PlatformPage } from './PlatformPage';
@@ -26,12 +26,9 @@ const validate = vi.fn(async (_id: string): Promise<ScopeCheck> => ({ status: 'v
 beforeEach(() => {
   validate.mockClear();
   for (const name of ['localStorage', 'sessionStorage'] as const) {
-    const data = new Map<string, string>();
-    if (name === 'localStorage') data.set('platform:lastScope:u1', JSON.stringify('S9'));
-    vi.stubGlobal(name, {
-      getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); },
-      removeItem: (k: string) => { data.delete(k); }, clear: () => data.clear(), key: () => null, get length() { return data.size; },
-    });
+    const data = memoryStorage();
+    if (name === 'localStorage') data.setItem('platform:lastScope:u1', JSON.stringify('S9'));
+    vi.stubGlobal(name, data);
   }
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });

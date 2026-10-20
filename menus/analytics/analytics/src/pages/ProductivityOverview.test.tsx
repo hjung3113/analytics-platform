@@ -3,7 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
-import { testAdapter, testSession } from '@ap/kernel/testing';
+import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import type { ApiResponse, Assessment } from '@ap/contracts';
 import { manifests } from '../index';
 import type { KpiSet, KpisData } from '../endpoints';
@@ -127,11 +127,7 @@ describe('ProductivityOverview cycle-time delta label (#398)', () => {
     { lang: 'en', current: 41.2, previous: 40.6, expected: 'P50 +0.6min (+1.5%)' },
   ])('labels the cycle-time delta as P50 ($lang, $expected)', async ({ lang, current, previous, expected }) => {
     // Node's file-less localStorage shadows jsdom's; give this test its own in-memory store.
-    const store = new Map<string, string>();
-    const storage = {
-      getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => { store.set(k, v); },
-      removeItem: (k: string) => { store.delete(k); }, clear: () => store.clear(), key: () => null, get length() { return store.size; },
-    };
+    const storage = memoryStorage();
     vi.stubGlobal('localStorage', storage);
     try {
       storage.setItem('platform:lang', lang);

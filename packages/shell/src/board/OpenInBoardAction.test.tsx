@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import type { Session } from '@ap/contracts';
 import { PlatformPage } from '@ap/components';
 import { RouteOutlet } from '../RouteOutlet';
@@ -51,11 +51,7 @@ async function openDialog() {
 
 beforeEach(() => {
   for (const name of ['localStorage', 'sessionStorage'] as const) {
-    const data = new Map<string, string>();
-    vi.stubGlobal(name, {
-      getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); },
-      removeItem: (k: string) => { data.delete(k); }, clear: () => data.clear(), key: () => null, get length() { return data.size; },
-    });
+    vi.stubGlobal(name, memoryStorage());
   }
   Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });

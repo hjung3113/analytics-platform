@@ -3,7 +3,7 @@ import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Permission, PlatformAdapter, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
-import { testAdapter, testSession } from '@ap/kernel/testing';
+import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import OperationsHome from './OperationsHome';
 
 const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
@@ -67,22 +67,10 @@ let tabStore!: MemoryStore;
 
 beforeEach(() => {
   queries = 0;
-  const data = new Map<string, string>();
-  const session = new Map<string, string>();
-  persisted = {
-    getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); },
-  };
-  tabStore = {
-    getItem: (k: string) => session.get(k) ?? null, setItem: (k: string, v: string) => { session.set(k, v); },
-  };
-  vi.stubGlobal('localStorage', {
-    ...persisted,
-    removeItem: (k: string) => { data.delete(k); }, clear: () => data.clear(), key: () => null, get length() { return data.size; },
-  });
-  vi.stubGlobal('sessionStorage', {
-    ...tabStore,
-    removeItem: (k: string) => { session.delete(k); }, clear: () => session.clear(), key: () => null, get length() { return session.size; },
-  });
+  persisted = memoryStorage();
+  tabStore = memoryStorage();
+  vi.stubGlobal('localStorage', persisted);
+  vi.stubGlobal('sessionStorage', tabStore);
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 

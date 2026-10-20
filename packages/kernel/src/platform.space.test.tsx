@@ -6,7 +6,7 @@ import type { Session, SpaceDef } from '@ap/contracts';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { createRegistry } from './registry';
-import { noContext, testAdapter, testSession, testSpace } from './testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 
@@ -64,18 +64,10 @@ function mountAt(url: string, permissions: Session['user']['permissions']) {
 
 // Node's own (file-less) localStorage shadows jsdom's here, so give each test an in-memory store.
 beforeEach(() => {
-  const data = new Map<string, string>();
-  const session = new Map<string, string>();
-  vi.stubGlobal('localStorage', {
-    getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); },
-    removeItem: (k: string) => { data.delete(k); }, clear: () => data.clear(), key: () => null, get length() { return data.size; },
-  });
+  vi.stubGlobal('localStorage', memoryStorage());
   // The provider now writes platform:space-last on an admitted space route. Isolate it so a later switchSpace
   // in this file does not resume a URL recorded by an earlier test.
-  vi.stubGlobal('sessionStorage', {
-    getItem: (k: string) => session.get(k) ?? null, setItem: (k: string, v: string) => { session.set(k, v); },
-    removeItem: (k: string) => { session.delete(k); }, clear: () => session.clear(), key: () => null, get length() { return session.size; },
-  });
+  vi.stubGlobal('sessionStorage', memoryStorage());
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 

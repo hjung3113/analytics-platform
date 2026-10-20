@@ -6,7 +6,7 @@ import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { useAdapterRequest, useEntityQuery, usePlatformQuery } from './query';
 import { createRegistry } from './registry';
-import { noContext, testAdapter, testSession, testSpace } from './testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
 import { House } from 'lucide-react';
 
 const registry = createRegistry({
@@ -50,11 +50,7 @@ function mount(adapter: PlatformAdapter) {
 
 // Node's own (file-less) localStorage shadows jsdom's here, so give each test an in-memory store.
 beforeEach(() => {
-  const data = new Map<string, string>();
-  vi.stubGlobal('localStorage', {
-    getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); },
-    removeItem: (k: string) => { data.delete(k); }, clear: () => data.clear(), key: () => null, get length() { return data.size; },
-  });
+  vi.stubGlobal('localStorage', memoryStorage());
 });
 afterEach(() => { cleanup(); calls = 0; vi.unstubAllGlobals(); });
 

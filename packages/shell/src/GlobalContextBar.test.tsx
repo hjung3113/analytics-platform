@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import type { Capability } from '@ap/contracts';
 import { GlobalContextBar } from './GlobalContextBar';
-import { testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { memoryStorage, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 const caps = { time: 'reference', roomNames: 'apply', condition: 'apply', selection: 'apply', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const registryWith = (context: Record<keyof typeof caps, Capability>) => createRegistry({
@@ -32,8 +32,7 @@ let probeResize: (() => void) | undefined;
 const fontsDescriptor = Object.getOwnPropertyDescriptor(document, 'fonts');
 beforeEach(() => {
   barWidth = 2000; reads = 0; keyWidths = {}; resize = undefined; probeResize = undefined; observed = undefined; evaluation.mockClear();
-  const storage = new Map<string, string>();
-  vi.stubGlobal('localStorage', { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => storage.set(key, value) });
+  vi.stubGlobal('localStorage', memoryStorage());
   vi.stubGlobal('ResizeObserver', class {
     constructor(private callback: () => void) {}
     observe(element: Element) {

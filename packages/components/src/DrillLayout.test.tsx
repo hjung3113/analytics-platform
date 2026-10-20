@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, useDrill, usePlatform, type PlatformMenuEntry } from '@ap/kernel';
 import { PlatformPage } from './PlatformPage';
 import { DrillLayout, ReturnLink } from './DrillLayout';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const keys = ['drillRoom', 'drillStgroup', 'drillLine', 'drillEquipment'] as const;
@@ -42,17 +42,10 @@ const registry = createRegistry({
 const session = testSession(['platform:view']);
 const adapter = testAdapter({ session: () => session });
 
-let storage = new Map<string, string>();
+let storage = memoryStorage();
 beforeEach(() => {
-  storage = new Map();
-  vi.stubGlobal('localStorage', {
-    getItem: (key: string) => storage.get(key) ?? null,
-    setItem: (key: string, value: string) => { storage.set(key, value); },
-    removeItem: (key: string) => { storage.delete(key); },
-    clear: () => storage.clear(),
-    key: () => null,
-    get length() { return storage.size; },
-  });
+  storage = memoryStorage();
+  vi.stubGlobal('localStorage', storage);
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -145,7 +138,7 @@ describe('DrillLayout (06 §12.7, ADR-0025)', () => {
   });
 
   it('names the path and the sibling control in English', () => {
-    storage.set('platform:lang', 'en');
+    storage.setItem('platform:lang', 'en');
     mount('/source?v=1&drillRoom=PHOTO', <DrillLayout siblings={siblings}><p>Body</p></DrillLayout>);
     expect(screen.getByRole('navigation', { name: 'Drill path' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Change Process' })).toBeTruthy();

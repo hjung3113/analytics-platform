@@ -217,6 +217,11 @@ export function createRegistry({ spaces, groups, menus }: { spaces: readonly Spa
   return { groups, menus, spaces, groupById, spaceById, spaceOf, menuById, matchRoute, safeReturnTo };
 }
 
+/** Parameter names declared by route segments, in route order. */
+export function routeParamNames(path: string): string[] {
+  return segments(path).filter(isParam).map(segment => segment.slice(1));
+}
+
 export function pathFor(menu: MenuEntry, params: Record<string, string> = {}): string {
   return '/' + segments(menu.path).map(seg => (isParam(seg) ? encodeURIComponent(params[seg.slice(1)] ?? missing(seg)) : seg)).join('/');
 }

@@ -7,7 +7,7 @@ import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { type MenuFetch, type QueryState, useEntityQuery, useMenuFetch, useMenuQuery } from './query';
 import { createRegistry } from './registry';
-import { testAdapter, testSession, testSpace } from './testing';
+import { memoryStorage, testAdapter, testSession, testSpace } from './testing';
 
 type Params = { page: number; sort?: string };
 type QueryData = { call: number; context: MenuQuery['context']; params: Params };
@@ -124,15 +124,7 @@ void MenuQueryNoInferTypeProbe;
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/?v=1&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
-  const data = new Map<string, string>();
-  vi.stubGlobal('localStorage', {
-    getItem: (key: string) => data.get(key) ?? null,
-    setItem: (key: string, value: string) => { data.set(key, value); },
-    removeItem: (key: string) => { data.delete(key); },
-    clear: () => data.clear(),
-    key: () => null,
-    get length() { return data.size; },
-  });
+  vi.stubGlobal('localStorage', memoryStorage());
 });
 
 afterEach(() => {

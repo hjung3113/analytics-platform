@@ -1,16 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties } from 'react';
-import { BOARD_PATH, pathFor, useI18n, usePlatform, type MenuEntry, type PaneScreen, type Registry } from '@ap/kernel';
-import { buildQuery, parseQuery } from '@ap/contracts';
+import { BOARD_PATH, paneHref, useI18n, usePlatform, type MenuEntry, type PaneScreen } from '@ap/kernel';
 import { cn, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Toaster, ToggleGroup, ToggleGroupItem, UndoToast, toast } from '@ap/ui';
 import { BoardContextBar } from './BoardContextBar';
 import { BoardPane } from './BoardPane';
 import { SheetTabs } from './SheetTabs';
 import {
-  BOARD_LAYOUTS, addSheet, applyPaneEdits, droppedPaneCount, editPane, goBackPane, layoutShape, moveSheet, previousOf, removeSheet, renameSheet,
+  BOARD_LAYOUTS, addSheet, applyPaneEdits, droppedPaneCount, editPane, goBackPane, layoutShape, moveSheet, previousAt, removeSheet, renameSheet,
   restoreLayout, restorePane, restoreSheet, revertPaneEdits, selectPane, setActiveSheet, setLayout, setPane, type Board, type BoardLayout, type LayoutChange, type PaneEdit,
 } from './boardModel';
 import { canMountPaneScreen } from './boardMenus';
-import { applyContextToSheet, copyContextToSheet, firstEmptyPane, paneNumbers, paneSignals, replacementScreen } from './paneActions';
+import { applyContextToSheet, copyContextToSheet, defaultQuery, firstEmptyPane, paneNumbers, paneSignals, replacementScreen } from './paneActions';
 import { useBoardStore } from './boardStore';
 import { GRID_GAP_CLASS, PANE_MIN_HEIGHT, drawnColumns, useElementWidth } from './layout';
 import { boardText, type BoardText } from './text';
@@ -18,17 +17,6 @@ import { boardText, type BoardText } from './text';
 const PANEL_ID = 'board-panel';
 const paneIdOf = (sheetId: string, index: number) => `${sheetId}.${index}`;
 const sheetHref = (id: string) => `${BOARD_PATH}?sheet=${encodeURIComponent(id)}`;
-
-/** The Context keys (not page keys) of the screen the user saw last, as a query: the starting condition of a new pane (docs/16 §5). */
-function defaultQuery(registry: Registry, recent: readonly { menuId: string; url: string }[]): string {
-  const latest = recent[0];
-  const at = latest?.url.indexOf('?') ?? -1;
-  if (!latest || at === -1) return '';
-  try {
-    const pageKeys = registry.menus.find(m => m.id === latest.menuId)?.pageKeys ?? [];
-    return buildQuery(parseQuery(latest.url.slice(at), pageKeys).global);
-  } catch { return ''; }
-}
 
 function raiseUndo(text: BoardText, message: string, onUndo: () => void) {
   toast.custom(id => <UndoToast message={message} actionLabel={text.undo} duration={8000}
@@ -41,7 +29,7 @@ function raiseUndo(text: BoardText, message: string, onUndo: () => void) {
  * `Outlet` renders a pane's menu (the shell's `ScreenOutlet`); it is passed in so this folder does not import the outlet that mounts it.
  */
 export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
-  const { user, url, pathname, navigate, registry, recent, pageNavigation, can } = usePlatform();
+  const { user, url, pathname, navigate, registry, recent, pageNavigation, canOpen } = usePlatform();
   const { lang } = useI18n();
   const text = boardText(lang);
   const { board, update } = useBoardStore(user.id, text.sheetPrefix);
@@ -119,7 +107,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     raiseUndo(text, message, () => { undo(b => revertPaneEdits(b, onSheet, edits)); });
   };
   const applyToAll = (index: number) => {
-    const result = applyContextToSheet(registry, can, sheet, index);
+    const result = applyContextToSheet(registry, canOpen, sheet, index);
     if (!result) return;
     if (result.edits.length === 0) { toast.info(text.appliedNothing); return; }
     editPanes(result.edits, text.applied(index + 1, paneNumbers(result.edits.map(e => e.index))));
@@ -127,25 +115,25 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   const copyContext = (targetId: string) => {
     const target = board.sheets.find(s => s.id === targetId);
     if (!target) return;
-    const edits = copyContextToSheet(registry, can, sheet, target);
+    const edits = copyContextToSheet(registry, canOpen, sheet, target);
     if (edits.length === 0) { toast.info(text.copiedNothing(target.name)); return; }
     editPanes(edits, text.copied(paneNumbers(edits.map(e => e.index)), target.name), targetId);
   };
   const replaceScreen = (index: number, menu: MenuEntry) => {
     const old = sheet.panes[index];
     if (!old) return;
-    editPanes([{ index, before: old, after: replacementScreen(registry, can, old, menu, defaultQuery(registry, recent)), fresh: true }], text.replaced(index + 1));
+    editPanes([{ index, before: old, after: replacementScreen(registry, canOpen, old, menu, defaultQuery(registry, recent)), fresh: true }], text.replaced(index + 1));
   };
   const duplicate = (index: number) => {
     const from = sheet.panes[index];
     const to = firstEmptyPane(sheet);
-    if (!from || to === -1 || !canMountPaneScreen(registry, can, from)) return;
+    if (!from || to === -1 || !canMountPaneScreen(registry, canOpen, from)) return;
     editPanes([{ index: to, before: null, after: { ...from, params: { ...from.params } }, fresh: true }], text.duplicated(index + 1, to + 1));
   };
   const openFull = (index: number) => {
     const screen = sheet.panes[index];
     const menu = screen ? registry.menus.find(m => m.id === screen.menuId) : null;
-    if (screen && menu) navigate(pathFor(menu, screen.params) + screen.query, { focus: 'page' });
+    if (screen && menu) navigate(paneHref(registry, screen), { focus: 'page' });
   };
   // `Context 바에서 편집`: the bar row is keyed by the selected pane, so it remounts for the new one; focus its first control afterwards.
   const [editRequest, setEditRequest] = useState(0);
@@ -158,10 +146,10 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     return () => clearTimeout(timer);
   }, [editRequest]);
 
-  const unavailable = (index: number) => { const own = sheet.panes[index]; return own !== null && !canMountPaneScreen(registry, can, own); };
-  const applyOff = (index: number) => (unavailable(index) ? text.paneUnavailable : applyContextToSheet(registry, can, sheet, index)?.others ? null : text.applyToAllNone);
+  const unavailable = (index: number) => { const own = sheet.panes[index]; return own !== null && !canMountPaneScreen(registry, canOpen, own); };
+  const applyOff = (index: number) => (unavailable(index) ? text.paneUnavailable : applyContextToSheet(registry, canOpen, sheet, index)?.others ? null : text.applyToAllNone);
   const duplicateOff = (index: number) => (unavailable(index) ? text.paneUnavailable : emptyIndex === -1 ? text.noEmptyPane : null);
-  const signals = paneSignals(registry, can, sheet.panes, text.noneValue);
+  const signals = paneSignals(registry, canOpen, sheet.panes, text.noneValue);
   const emptyIndex = firstEmptyPane(sheet);
   const insert = (index: number, menu: MenuEntry) => writePane(index, { menuId: menu.id, params: {}, query: defaultQuery(registry, recent) });
 
@@ -185,7 +173,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
       <div ref={grid} data-board-grid data-columns={drawn} data-rows={rows} style={{ '--board-row': `minmax(${PANE_MIN_HEIGHT}px, 1fr)` } as CSSProperties}
         className={cn('grid min-h-full auto-rows-(--board-row)', GRID_GAP_CLASS, drawn === 1 ? 'grid-cols-1' : 'grid-cols-2')}>
         {sheet.panes.map((screen, index) => <BoardPane key={`${sheetId}.${index}`} paneId={paneIdOf(sheetId, index)} number={index + 1} screen={screen} selected={index === selected} Outlet={Outlet}
-          signal={signals[index]} hasPrevious={previousOf(sheet, index) !== null}
+          signal={signals[index]} hasPrevious={previousAt(sheet, index) !== null}
           applyAllOff={applyOff(index)} duplicateOff={duplicateOff(index)}
           onSelect={() => update(b => selectPane(b, sheetId, index))} onChange={(next, how) => update(b => editPane(b, sheetId, index, next, how))} onLeave={onLeave}
           onInsert={menu => insert(index, menu)} onClear={() => clearPane(index)} onBack={() => update(b => goBackPane(b, sheetId, index))}

@@ -82,7 +82,7 @@ function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogContr
   const pick = (value: string) => { setDestination(value as Destination); setSheetId(''); setPaneIndex(null); setProblem(null); };
 
   return <Dialog open onOpenChange={open => { if (!open) control.close(); }}>
-    <DialogContent closeLabel={lang === 'ko' ? '닫기' : 'Close'} onCloseAutoFocus={control.onCloseAutoFocus} className="max-h-[80vh] overflow-y-auto">
+    <DialogContent closeLabel={text.close} onCloseAutoFocus={control.onCloseAutoFocus} className="max-h-[80vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>{text.openInBoardTitle}</DialogTitle>
         <DialogDescription>{text.openInBoardBody}</DialogDescription>

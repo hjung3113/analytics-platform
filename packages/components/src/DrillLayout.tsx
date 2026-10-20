@@ -5,7 +5,7 @@ import {
   Button, cn,
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger,
 } from '@ap/ui';
-import { focusPageFallback, requestReturnFocus } from './pageFocus';
+import { focusPageFallback, paneRootOf, requestReturnFocus } from './pageFocus';
 import { StateMessage } from './StateView';
 
 /** One sibling choice. `hint` is already display text; this layer does not know the domain. */
@@ -22,7 +22,7 @@ export type DrillLayoutProps = DrillPathProps & {
 
 // Looked up inside the pane that owns `source` (a board pane, ADR-0049), else the document: a sibling pane or main must not take the focus.
 function focusDrillDestination(source: HTMLElement | null) {
-  const pane = source?.closest<HTMLElement>('[data-pane-id]') ?? null;
+  const pane = paneRootOf(source);
   const scope: ParentNode = pane ?? document;
   const target = scope.querySelector<HTMLElement>('[aria-current="step"]') ?? scope.querySelector<HTMLElement>('[data-platform-page] h1');
   if (target) target.focus({ preventScroll: true });

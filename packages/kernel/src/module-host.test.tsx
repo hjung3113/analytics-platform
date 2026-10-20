@@ -8,7 +8,7 @@ import { mountModule } from './module';
 import { useModuleHost, type ModuleShellPorts } from './module-host';
 import { PlatformProvider, usePlatform } from './platform';
 import { createRegistry } from './registry';
-import { noContext, testAdapter, testSession, testSpace } from './testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
 
 type Data = { from: string | null; roomNames: unknown };
 const spec: EndpointSpec<{ page: number }, Data> = defineEndpoint<{ page: number }, Data>({
@@ -104,11 +104,7 @@ const settle = <T,>(promise: Promise<T>) => promise.then(value => ({ value }), (
 const isAbort = (outcome: object) => 'error' in outcome && outcome.error instanceof DOMException && outcome.error.name === 'AbortError';
 
 beforeEach(() => {
-  const data = new Map<string, string>();
-  vi.stubGlobal('localStorage', {
-    getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => { data.set(key, value); },
-    removeItem: (key: string) => { data.delete(key); }, clear: () => data.clear(), key: () => null, get length() { return data.size; },
-  });
+  vi.stubGlobal('localStorage', memoryStorage());
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
