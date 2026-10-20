@@ -44,6 +44,7 @@ const devRegex = (devAllow = []) =>
 // side (import-source.js) uses `[^/]+` for the same pattern.
 const MENU_MOCK_SUBPATH = 'menu-*/mock';
 const FEEDBACKOPS_ORIGIN_SUBPATH = 'menu-notice-voc/feedbackops-origin';
+const UI_THEME_SUBPATHS = ['ui/theme', 'ui/theme-tokens.json'];
 
 // Restriction data is the single decision source: each layer declares
 // { allow, denyReact, denyTableEngine, mockAllowed, allowSubpaths } and BOTH import rules are built
@@ -55,13 +56,13 @@ const FEEDBACKOPS_ORIGIN_SUBPATH = 'menu-notice-voc/feedbackops-origin';
 //   specifiers exempted from it.
 // Deep subpaths are banned for everyone, except subpaths matched by allowSubpaths.
 const TABLE_ENGINE_PACKAGES = ['@tanstack/react-table', '@tanstack/react-virtual', '@tanstack/table-core', '@tanstack/virtual-core'];
-const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, denyTableEngine: true, mockAllowed: false };
+const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, denyTableEngine: true, mockAllowed: false, allowSubpaths: UI_THEME_SUBPATHS };
 const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTableEngine: true, mockAllowed: true };
-const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false, denyDev: true };
+const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false, denyDev: true, allowSubpaths: UI_THEME_SUBPATHS };
 // src/main.tsx is the composition root: only the FeedbackOps origin slot subpath; no mock, no ./dev (#153).
-const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [FEEDBACKOPS_ORIGIN_SUBPATH] };
+const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, FEEDBACKOPS_ORIGIN_SUBPATH] };
 // The mock assembly and DevTools: mock-server and the menu `/mock` subpaths.
-const APP_DEV_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true, allowSubpaths: [MENU_MOCK_SUBPATH] };
+const APP_DEV_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true, allowSubpaths: [...UI_THEME_SUBPATHS, MENU_MOCK_SUBPATH] };
 // The conformance test: mock-server, and from ./dev only the mock assembly's MOCK_ENDPOINTS list (#153 follow-up —
 // one source for "what the app registers"); no menu `/mock` subpath of its own.
 const APP_CONFORMANCE_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true, devAllow: ['./dev/mock-assembly'] };
@@ -321,9 +322,9 @@ export const kernel = [
   layerConfig({ restriction: { allow: ['contracts'], denyReact: false, mockAllowed: false } }),
 ];
 
-const COMPONENTS_RESTRICTION = { allow: ['contracts', 'kernel', 'ui'], denyReact: false, mockAllowed: false };
+const COMPONENTS_RESTRICTION = { allow: ['contracts', 'kernel', 'ui'], denyReact: false, mockAllowed: false, allowSubpaths: UI_THEME_SUBPATHS };
 const ABOVE_COMPONENTS_TEST_ENTRIES = [TEST_ENTRY_SUBPATH, COMPONENTS_TEST_ENTRY_SUBPATH];
-const SHELL_RESTRICTION = { allow: ['contracts', 'kernel', 'ui', 'components'], denyReact: false, mockAllowed: false };
+const SHELL_RESTRICTION = { allow: ['contracts', 'kernel', 'ui', 'components'], denyReact: false, mockAllowed: false, allowSubpaths: UI_THEME_SUBPATHS };
 
 /** @type {import('eslint').Linter.Config[]} */
 export const components = [
@@ -367,7 +368,7 @@ const HOST_MODULE_RESTRICTION = {
   denyReact: false,
   mockAllowed: false,
   // gitignore semantics: a file under styles/ is re-included only when its directory is too.
-  allowSubpaths: ['ui/styles.css', 'ui/styles', 'ui/styles/*.css'],
+  allowSubpaths: [...UI_THEME_SUBPATHS, 'ui/styles.css', 'ui/styles', 'ui/styles/*.css'],
 };
 
 /** @type {import('eslint').Linter.Config[]} */

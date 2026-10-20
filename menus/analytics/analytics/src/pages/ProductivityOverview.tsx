@@ -12,6 +12,7 @@ import { AlertTriangle, ArrowRight, BarChart3, ChevronRight, Hourglass, Percent,
 import { type PageProps, PlatformLink, useDrill, invalidValueSentence, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
 import { AnalysisChartFrame, type ChartSeries, DataTrustIndicator, type Delta, DrillLayout, Panel, PlatformPage, QueryView, SegmentedRadio, StatCard, StateMessage } from '@ap/components';
 import { Button, cn, StatusBadge } from '@ap/ui';
+import type { ThemeColorToken } from '@ap/ui/theme';
 import {
   CYCLE_VERSION_NOTE, METRIC_VERSIONS, attentionEndpoint, breakdownEndpoint, drillEndpoint, kpisEndpoint, trendEndpoint,
   type AttentionRow, type Granularity, type KpiKey, type KpiSet, type TrendBucket, type TrendData,
@@ -148,7 +149,7 @@ export default function ProductivityOverview(_: PageProps) {
   }
 
   // --- Main trend: AnalysisChartFrame for the selected KPI; Compare overlays the previous equal period (bucket-index aligned). ---
-  const trendMeta: Record<KpiKey, { title: string; names: string[]; colors: string[]; dashed?: boolean[]; kind: 'line' | 'bar'; unit: string; decimals: 0 | 1 | 2; description: string }> = {
+  const trendMeta: Record<KpiKey, { title: string; names: string[]; colors: ThemeColorToken[]; dashed?: boolean[]; kind: 'line' | 'bar'; unit: string; decimals: 0 | 1 | 2; description: string }> = {
     occupancy: {
       title: ko ? '물리 점유율 추세' : 'Physical occupancy trend', names: [ko ? '물리 점유율' : 'Physical occupancy'], colors: ['chart-blue'], kind: 'line', unit: '%', decimals: 1,
       description: ko ? '점유 시간 합 ÷ 관측 가능 시간 합 — 비율은 분자·분모를 각각 합산 (설비별 %의 평균 아님)' : 'sum(occupied) ÷ sum(observable); ratios sum numerator and denominator separately, never average per-equipment %',

@@ -97,6 +97,8 @@ const rows: Row[] = [
   { file: 'packages/components/src/x.ts', code: `import { x } from '@ap/shell';`, rule: 'no-restricted-imports' },
   { file: 'packages/components/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: '' },
   { file: 'packages/components/src/x.ts', code: `import { cn } from '@ap/ui';`, rule: '' },
+  { file: 'packages/components/src/x.ts', code: `import { readColorToken } from '@ap/ui/theme';`, rule: '' },
+  { file: MENU, code: `import tokens from '@ap/ui/theme-tokens.json';`, rule: '' },
   { file: 'packages/shell/src/x.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
   { file: 'packages/shell/src/x.ts', code: `import { x } from '@ap/components';`, rule: '' },
   { file: 'packages/shell/src/AppSidebar.tsx', code: `if (group.id === 'overview') render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },

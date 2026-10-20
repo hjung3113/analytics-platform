@@ -3,16 +3,15 @@ import { RotateCw, ServerCrash } from 'lucide-react';
 import type { EChartsCoreOption, ECharts } from 'echarts/core';
 import { useI18n } from '@ap/kernel';
 import { Button, Skeleton, cn } from '@ap/ui';
+import { readColorToken, type ThemeColorToken } from '@ap/ui/theme';
 import { StateMessage } from './StateView';
 
 /** Palette contract consumed by charts (DESIGN.md platform chart/category extensions). Read from CSS variables so tokens stay single-sourced. */
-export function token(name: string): string {
-  if (typeof window === 'undefined') return '#000';
-  const raw = getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim();
-  return raw ? `rgb(${raw.split(/\s+/).join(',')})` : '#000';
+export function token(name: ThemeColorToken): string {
+  return readColorToken(name);
 }
 
-const strokeAliases: Record<string, string> = {
+const strokeAliases: Partial<Record<ThemeColorToken, ThemeColorToken>> = {
   'chart-blue': 'chart-blue-stroke',
   'chart-teal': 'chart-teal-stroke',
   'chart-purple': 'chart-purple-stroke',
@@ -20,7 +19,7 @@ const strokeAliases: Record<string, string> = {
 };
 
 /** Resolve a chart series identity token to its thin-line counterpart when one exists. */
-export function strokeToken(name: string): string {
+export function strokeToken(name: ThemeColorToken): ThemeColorToken {
   return strokeAliases[name] ?? name;
 }
 

@@ -6,6 +6,7 @@
 
 | ADR | 결정 | 상태 |
 | --- | --- | --- |
+| [0055](0055-theme-contract-css-source-dtcg-json-typed-names.md) | CSS를 원본으로 DTCG 테마 JSON과 색 토큰 이름 타입·런타임 읽기 함수를 생성한다 | Decided(2026-10-20, 코디네이터·되돌릴 수 있음) — 포괄 목록 §5-5, 구현 #512 |
 | [0001](0001-scope-hierarchy-site-line-only.md) | Scope 계층은 Site→Line 2단계, Factory는 모델링하지 않음 | 부분 대체(2026-09-24) — Factory 미모델링만 유지, 나머지는 0005 |
 | [0002](0002-stgroup-materializes-to-equipment-ids.md) | Equipment Group URL은 Condition / Selection 두 층 | Decided(2026-09-24 개정) |
 | [0003](0003-equipment-master-platform-owned-target.md) | 설비 마스터는 플랫폼이 등록·관리하는 시스템이 목표 | Decided(2026-09-24) — 필드별 전환 순서는 Open |

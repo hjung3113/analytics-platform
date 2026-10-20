@@ -92,7 +92,7 @@
 | 명령 팔레트 | `CommandPalette`(shell) | cmdk + display-id 해석 | 없음 | ✅ AP. ⬇ display-id 해석은 비교 |
 | 디자인 lint | `@shadcn/lint` 6규칙 ESLint 프리셋 | Oxlint(`.oxlintrc.json`) | ESLint `RESTYLE_CONTRACTS` 복사본 | ⬇ **세 벌 수동 동기화 → 한 곳**. 규칙 옵션 원본을 SDK로 |
 | 다크·반응형 | 없음 | 없음 | 다크 팔레트 없음 | 🆕 해당 없음이면 선언으로 명시 |
-| 기계가 읽는 테마 계약 | `tokens.css` | CSS만 | README 표 + Studio CSS 9개 매핑, 나머지 15개는 hex fallback | 🆕 |
+| 기계가 읽는 테마 계약 | `tokens.css` | CSS만 | README 표 기준 25개 중 9개 매핑, 나머지 16개는 hex fallback | 🆕 — [ADR-0055](../adr/0055-theme-contract-css-source-dtcg-json-typed-names.md), [#512](https://github.com/hjung3113/analytics-platform/issues/512) |
 
 ### 3.7 공통 컴포넌트
 
@@ -168,7 +168,7 @@
 2. 열린 권한·그룹 어휘(모듈 접두사)와 모듈 경로 접두사
 3. 쓰기 포트(FO의 Idempotency-Key·동시성 규약을 근거로) — [ADR-0054](../adr/0054-write-port-declared-actions-idempotency-version.md)
 4. React 밖 `signal`·모듈 상태(`auth_required` 등)·도착 포커스 대상·문서 제목 소유
-5. 기계가 읽는 테마 계약(EV는 24개 중 9개만 매핑, 나머지는 hex fallback)
+5. 기계가 읽는 테마 계약(EV는 25개 중 9개(README 표 기준)만 매핑, 나머지는 hex fallback) — [ADR-0055](../adr/0055-theme-contract-css-source-dtcg-json-typed-names.md)
 6. 호스트 쪽 입력 검증 공유 위치(EV의 Binding→Mapping Version→Layout 검증이 `apps/studio`에 있어 `platform-adapter`가 복제하게 된다)
 7. 자동 접근성·시각·성능 예산 게이트
 8. 패키지 배포 구조([ADR-0044](../adr/0044-sdk-source-in-platform-repo-released-separately.md))
