@@ -1,3 +1,4 @@
+memoryStorage | function | function memoryStorage(): Storage
 noContext | const | const noContext: Record<@ap/contracts#ContextKey, @ap/contracts#Capability>
 testAdapter | function | function testAdapter(over?: Partial<@ap/contracts#PlatformAdapter>): @ap/contracts#PlatformAdapter
 testSession | function | function testSession(permissions: readonly (@ap/contracts#ModuleScopedId | @ap/contracts#Permission)[], over?: { scopes?: readonly @ap/contracts#ScopeOption[]; user?: Partial<@ap/contracts#SessionUser>; }): @ap/contracts#Session
