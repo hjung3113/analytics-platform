@@ -20,6 +20,10 @@ Field | function | function Field({ label, children, mono }: { children: ReactNo
 FilterDraft | type | type FilterDraft<K extends string> = { changedCount: number; patch: () => Record<K, null | string>; reset: (next?: Partial<Record<K, string>>) => void; set: (key: K, value: string) => void; values: Record<K, string>; }
 FilterUrlWarning | function | function FilterUrlWarning({ sentences, filters, recover }: { filters?: ReactNode; recover: ReactNode; sentences: readonly string[]; }): import("react").JSX.Element
 HeaderOverflowDialogControl | type | type HeaderOverflowDialogControl = { close: () => void; onCloseAutoFocus: (event: Event) => void; }
+LegendTree | function | function LegendTree(props: @ap/components#LegendTreeProps): import("react").JSX.Element
+LegendTreeNode | type | type LegendTreeNode = { children?: @ap/components#LegendTreeNode[]; color?: @ap/ui/theme#ThemeColorToken; id: string; label: ReactNode; }
+LegendTreeProps | type | type LegendTreeProps = { className?: string; defaultExpanded?: ReadonlySet<string>; emptyText?: ReactNode; expanded?: ReadonlySet<string>; label: string; nodes: @ap/components#LegendTreeNode[]; onExpandedChange?: (next: Set<string>) => void; onSelect?: (id: string) => void; onSortChange?: (id: string, next: @ap/components#LegendTreeSort) => void; onVisibleChange: (next: Set<string>) => void; selectedId?: null | string; sortOf?: (id: string) => @ap/components#LegendTreeSort; visible: ReadonlySet<string>; }
+LegendTreeSort | type | type LegendTreeSort = 'asc' | 'desc' | null
 LoadingBlock | function | function LoadingBlock({ rows, height, className }: { className?: string; height?: number; rows?: number; }): import("react").JSX.Element
 ManagementFiltersOptions | type | type ManagementFiltersOptions<K extends string> = { applied: Record<K, string>; clearKeys: readonly string[]; identity?: string; onRebase?: () => void; toPatch?: (draftPatch: Record<K, null | string>) => Record<string, null | string> | null; }
 ManagementLayout | function | function ManagementLayout({ filter, activeFilterCount, pendingFilterCount, table, drawer }: @ap/components#ManagementLayoutProps): import("react").JSX.Element
