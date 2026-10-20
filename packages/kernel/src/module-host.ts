@@ -1,5 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { projectContext, type ApiResponse, type ContextKey, type EndpointSpec, type GlobalContext, type ModuleHost, type ModuleScopedId, type ModuleStatus, type ModuleTarget } from '@ap/contracts';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { projectContext, type ActionResult, type ActionSpec, type ApiResponse, type ContextKey, type EndpointSpec, type GlobalContext, type ModuleHost, type ModuleScopedId, type ModuleStatus, type ModuleTarget } from '@ap/contracts';
+import { abortError, actionRequest, launchWrite, type PendingWrite, type WriteFlight } from './action';
 import { useI18n } from './i18n';
 import { usePlatform } from './platform';
 import { menuRequest } from './query';
@@ -18,8 +19,6 @@ const CONTEXT_FIELDS: Record<ContextKey, readonly (keyof GlobalContext)[]> = {
   time: ['from', 'to'], roomNames: ['roomNames'], condition: ['condition'], selection: ['selection'],
   lot: ['lotIds'], ppid: ['ppid'], recipe: ['recipeIds'], metric: ['metricId', 'metricVersion'],
 };
-
-const abortError = () => new DOMException('The module screen was released or its request context changed.', 'AbortError');
 
 type Pending = { valid: () => boolean; fail: () => void };
 /** A call a screen made between the owner's layout cleanup and its re-setup: started on re-setup, rejected if the screen is really gone. */
@@ -40,6 +39,7 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
   const { lang } = useI18n();
   const [instance] = useState(() => ({
     controller: new AbortController(), state: 'active' as Lifetime, listeners: new Set<() => void>(), pending: new Set<Pending>(), deferred: new Set<Deferred>(),
+    writes: new Map<string, WriteFlight['slot']>(), writePending: new Set<PendingWrite>(),
   }));
   const latest = useRef(platform);
   const portsRef = useRef(ports);
@@ -48,9 +48,11 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
   useLayoutEffect(() => {
     latest.current = platform;
     portsRef.current = ports;
-    for (const call of [...instance.pending]) if (!call.valid()) call.fail();
+    for (const call of [...instance.pending, ...instance.writePending]) if (!call.valid()) call.fail();
   });
-  const changeKey = `${platform.revision}|${platform.url}`;
+  // A write elsewhere refreshes queries the module cannot see: its listeners hear every epoch bump.
+  const epochTotal = useSyncExternalStore(platform.refreshEpochs.subscribe, platform.refreshEpochs.total);
+  const changeKey = `${platform.revision}|${platform.url}|${epochTotal}`;
   const seen = useRef(changeKey);
   useEffect(() => {
     if (seen.current === changeKey) return;
@@ -70,7 +72,7 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
       instance.state = 'suspended';
       instance.controller.abort();
       instance.listeners.clear();
-      for (const call of [...instance.pending]) call.fail();
+      for (const call of [...instance.pending, ...instance.writePending]) call.fail();
       queueMicrotask(() => {
         if (instance.state !== 'suspended') return;
         instance.state = 'released';
@@ -172,6 +174,31 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
             error => { if (!call.valid()) return call.fail(); settle(); reject(error); },
           );
         });
+      };
+    }
+    if (entry.moduleFeatures?.includes('write')) {
+      host.act = <I, T>(spec: ActionSpec<I, T>, input: I, options?: { expectedVersion?: string }): Promise<ActionResult<T>> => {
+        const slot = instance.writes.get(spec.id) ?? { promise: null };
+        instance.writes.set(spec.id, slot);
+        if (slot.promise) return slot.promise;
+        if (instance.state === 'released') return Promise.reject(abortError());
+        const now = latest.current;
+        const request = actionRequest(spec, input, options?.expectedVersion, now);
+        if (!request.ready) return Promise.resolve(request.notReady());
+        const origin = { revision: now.revision, user: now.user.id };
+        const sameGeneration = () => latest.current.revision === origin.revision && latest.current.user.id === origin.user;
+        const flight: WriteFlight = {
+          slot, pending: instance.writePending,
+          valid: () => instance.state === 'active' && sameGeneration(),
+          // Suspended is not expired: a StrictMode re-setup may still follow.
+          expired: () => instance.state === 'released' || !sameGeneration(),
+          // Like `query`: a call made while only suspended waits for the re-setup of a StrictMode replay, and fails if the screen is really gone.
+          gate: start => instance.state === 'released' ? Promise.reject(abortError())
+            : instance.state === 'suspended'
+              ? new Promise((resolve, reject) => { instance.deferred.add({ start: () => start().then(resolve, reject), fail: () => reject(abortError()) }); })
+              : start(),
+        };
+        return launchWrite(flight, request.send);
       };
     }
     return host;

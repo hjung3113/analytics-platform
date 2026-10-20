@@ -2,7 +2,7 @@ import { StrictMode, useEffect, useState, type ReactNode } from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ApiResponse, ClientErrorReport, MenuQuery, ModuleHost, ModuleScopedId, ModuleScreenProps, Permission, PlatformAdapter } from '@ap/contracts';
+import type { ActionResponse, ApiResponse, ClientErrorReport, MenuAction, MenuQuery, ModuleHost, ModuleScopedId, ModuleScreenProps, Permission, PlatformAdapter } from '@ap/contracts';
 import { I18nProvider, PaneScreenProvider, PlatformProvider, createRegistry, mountModule, usePlatform, type FeedbackOpsSlot, type PaneScreen } from '@ap/kernel';
 import { DetailPanelSlotProvider } from '@ap/ui';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
@@ -265,5 +265,31 @@ describe('a module screen mounted in a pane (ADR-0053 host over a pane)', () => 
     view.unmount();
     expect(next.signal?.aborted).toBe(true);
     expect(state.hosts.at(-1)!.signal.aborted).toBe(true);
+  });
+
+  it('an item pane save refreshes an already mounted list pane without a URL or generation change', async () => {
+    let answerAction!: (response: ActionResponse<unknown>) => void;
+    const sent: MenuAction[] = [];
+    const { adapter, queries } = fixtureAdapter(ANALYST, {
+      menuAction: vi.fn((request: MenuAction) => { sent.push(request); return new Promise<ActionResponse<unknown>>(resolve => { answerAction = resolve; }); }),
+    });
+    const view = mount('/', [{ id: 'l', screen: paneOf('fixture:list', '') }, { id: 'i', screen: { menuId: 'fixture:item', params: { id: 'a1' }, query: '' } }], adapter);
+    await flush();
+    await act(async () => queries.at(-1)!.resolve([{ id: 'r1' }]));
+    expect(view.pane('l').getByTestId('rows').textContent).toBe('r1');
+    const queriesBefore = queries.length;
+    const search = window.location.search;
+    const generation = at('l').revision;
+    fireEvent.click(view.pane('i').getByRole('button', { name: 'save' }));
+    await act(async () => answerAction({ outcome: 'ok', data: null, version: 'v2', fieldErrors: [], replayed: false, correlationId: 'c' }));
+    await flush();
+    expect(sent).toHaveLength(1);
+    expect(queries).toHaveLength(queriesBefore + 1);
+    // The prior rows stay until the refreshed answer arrives.
+    expect(view.pane('l').getByTestId('rows').textContent).toBe('r1');
+    await act(async () => queries.at(-1)!.resolve([{ id: 'r1' }, { id: 'r2' }]));
+    expect(view.pane('l').getByTestId('rows').textContent).toBe('r1,r2');
+    expect(window.location.search).toBe(search);
+    expect(at('l').revision).toBe(generation);
   });
 });

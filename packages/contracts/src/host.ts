@@ -1,3 +1,4 @@
+import type { ActionResult, ActionSpec } from './action.js';
 import type { Text } from './i18n.js';
 import type { ApiResponse } from './response.js';
 import type { EndpointSpec } from './menu-query.js';
@@ -12,8 +13,8 @@ import type { GlobalContext } from './url.js';
 export type HostContract = 1;
 /** Contract versions a host accepts; a manifest with any other `contract` is rejected at registration (fail closed). */
 export const HOST_CONTRACTS = [1] as const;
-/** Optional host features a module may require. `query` = platform server query, `detailSlot` = shell detail panel slot. */
-export type HostFeature = 'query' | 'detailSlot';
+/** Optional host features a module may require. `query` = platform server query, `detailSlot` = shell detail panel slot, `write` = declared server write (ADR-0054). */
+export type HostFeature = 'query' | 'detailSlot' | 'write';
 
 /** Open vocabulary (G1): a module permission or group id is `<moduleId>:<name>`; the registry checks the prefix. */
 export type ModuleScopedId = `${string}:${string}`;
@@ -61,6 +62,14 @@ export type ModuleHost = {
   context(): { values: Partial<GlobalContext>; unsupported: readonly ContextKey[] };
   /** Feature `query`; absent when the host does not provide it. */
   query?<P, T>(spec: EndpointSpec<P, T>, params: P, signal?: AbortSignal): Promise<ApiResponse<T>>;
+  /**
+   * Feature `write` (ADR-0054). One server write: the host mints the idempotency key, applies the Scope gate and, on `ok`,
+   * `conflict` or `unknown`, refreshes the queries in `spec.invalidates`. `concurrency: 'version'` needs `expectedVersion`
+   * (a `RangeError` before anything is sent). A second call for the same `spec.id` while one is unsettled returns that call's
+   * promise. Rejects `AbortError` when the screen is released or the session generation changes before the answer; a sent write is
+   * not undone. `error` and `unknown` answers carry `retry()`, which resends the identical request.
+   */
+  act?<I, T>(spec: ActionSpec<I, T>, input: I, options?: { expectedVersion?: string }): Promise<ActionResult<T>>;
   config(key: string): string | null;
   lang(): 'ko' | 'en';
   notify(text: string, tone?: 'info' | 'warning' | 'danger'): void;

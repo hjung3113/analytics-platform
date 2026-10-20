@@ -58,3 +58,9 @@ export type ActionResponse<T> = {
   correlationId: string;
   message?: string;
 };
+
+/**
+ * What a screen receives. `retry` resends the identical request (same key, input and version) and is present only on
+ * `error` and `unknown` answers that reached or may have reached the server — never on `not_ready`.
+ */
+export type ActionResult<T> = ActionResponse<T> & { retry?: () => Promise<ActionResult<T>> };

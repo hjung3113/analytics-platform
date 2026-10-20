@@ -2,16 +2,17 @@ import { StrictMode } from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ApiResponse, MenuQuery, ModuleHost, ModuleScreenProps, Session } from '@ap/contracts';
+import type { ActionResponse, ApiResponse, MenuAction, MenuQuery, ModuleHost, ModuleScreenProps, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, mountModule, usePlatform } from '@ap/kernel';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AppSidebar } from './AppSidebar';
 import { CommandPalette } from './CommandPalette';
-import { ItemScreen, ListScreen, listEndpoint, manifest } from './__fixtures__/module-fixture';
+import { FIXTURE_VERSION, ItemScreen, ListScreen, listEndpoint, manifest } from './__fixtures__/module-fixture';
 import { RouteOutlet } from './RouteOutlet';
 
 type Rows = { id: string }[];
+type ActionCall = { request: MenuAction; args: unknown[]; resolve: (response: ActionResponse<unknown>) => void };
 type Call = { request: MenuQuery; signal: AbortSignal | undefined; resolve: (rows: Rows) => void };
 
 const spy: { hosts: ModuleHost[] } = { hosts: [] };
@@ -40,6 +41,7 @@ function mount(url = '/fixture', options: { item?: (props: ModuleScreenProps) =>
     }, ...menus],
   });
   const calls: Call[] = [];
+  const actions: ActionCall[] = [];
   const make = (id: string): Session => testSession(['platform:view', 'fixture:view'], { user: { id, name: id, title: { ko: id, en: id } } });
   let current = make('user-a');
   const listeners = new Set<() => void>();
@@ -52,6 +54,7 @@ function mount(url = '/fixture', options: { item?: (props: ModuleScreenProps) =>
         resolve: rows => resolve({ outcome: 'ok', data: rows, assessments: [{ kind: 'collection', state: 'clear' }], trust: null, correlationId: 'c' } as unknown as ApiResponse<never>),
       });
     })),
+    menuAction: vi.fn((request: MenuAction, ...args: unknown[]) => new Promise<ActionResponse<unknown>>(resolve => { actions.push({ request, args, resolve }); })),
   });
   const seen: { platform: ReturnType<typeof usePlatform> } = { platform: undefined as never };
   function Probe() { seen.platform = usePlatform(); return null; }
@@ -60,7 +63,7 @@ function mount(url = '/fixture', options: { item?: (props: ModuleScreenProps) =>
   </DetailPanelSlotProvider></PlatformProvider></I18nProvider>;
   const view = render(options.strict ? <StrictMode>{app}</StrictMode> : app);
   return {
-    ...view, calls, seen,
+    ...view, calls, actions, seen,
     go: (to: string, focus?: 'page') => act(() => { seen.platform.navigate(to, focus ? { focus } : undefined); }),
     switchUser: () => act(() => { current = make('user-b'); listeners.forEach(l => l()); }),
   };
@@ -289,5 +292,34 @@ describe('implemented badge', () => {
     const option = screen.getAllByRole('option').find(el => el.textContent?.includes('list'));
     expect(option).toBeTruthy();
     expect(option!.textContent).not.toContain('예정');
+  });
+});
+
+describe('ModuleScreen write port (ADR-0054)', () => {
+  const answer = (outcome: ActionResponse<unknown>['outcome']): ActionResponse<unknown> => ({ outcome, data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'c' });
+
+  it('saves through host.act with the exact versioned request and renders the outcome', async () => {
+    const view = mount('/fixture/items/a1?v=1');
+    click('save');
+    expect(view.actions).toHaveLength(1);
+    expect(view.actions[0].args).toEqual([]);
+    expect(view.actions[0].request).toEqual({
+      action: 'fixture.save', context: {}, input: { text: 'item a1' }, idempotencyKey: expect.stringMatching(/^[0-9a-f-]{36}$/), expectedVersion: FIXTURE_VERSION,
+    });
+    await act(async () => view.actions[0].resolve(answer('conflict')));
+    expect(screen.getByTestId('save-outcome').textContent).toBe('conflict');
+    expect(screen.queryByRole('button', { name: 'retry save' })).toBeNull();
+  });
+
+  it('offers retry after an error, and the retry resends the same key and request', async () => {
+    const view = mount('/fixture/items/a1?v=1');
+    click('save');
+    await act(async () => view.actions[0].resolve(answer('error')));
+    expect(screen.getByTestId('save-outcome').textContent).toBe('error');
+    click('retry save');
+    expect(view.actions).toHaveLength(2);
+    expect(view.actions[1].request).toBe(view.actions[0].request);
+    await act(async () => view.actions[1].resolve(answer('ok')));
+    expect(screen.getByTestId('save-outcome').textContent).toBe('ok');
   });
 });

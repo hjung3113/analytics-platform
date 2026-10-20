@@ -10,7 +10,7 @@ const screen = (id: string, path: string, over: Partial<ModuleScreenMeta>): Modu
 export const manifest: ModuleManifest = {
   module: { id: 'fixture', label: { ko: '픽스처', en: 'Fixture' }, contract: 1, languages: ['ko', 'en'] },
   requires: ['query'],
-  optional: ['detailSlot'],
+  optional: ['detailSlot', 'write'],
   config: ['apiBase'],
   groups: [{ id: 'fixture:main', label: { ko: '픽스처', en: 'Fixture' } }],
   screens: [

@@ -29,7 +29,7 @@ function isPathPattern(path: string): boolean {
 export function mountModule(
   manifest: ModuleManifest,
   screens: Readonly<Record<string, ComponentType<ModuleScreenProps>>>,
-  { prefix, groupSpace, config, icons, features = ['query', 'detailSlot'] }: MountOptions,
+  { prefix, groupSpace, config, icons, features = ['query', 'detailSlot', 'write'] }: MountOptions,
 ): { menus: ModuleMenuEntry[]; groups: ModuleGroupDef[] } {
   const fail = (message: string): never => { throw new RegistryError(message); };
   const { id } = manifest.module;

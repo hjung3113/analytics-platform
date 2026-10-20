@@ -14,6 +14,9 @@ export function ListScreen({ params, host }: ModuleScreenProps) {
   const [rows, setRows] = useState<readonly Row[] | null>(null);
   // The host is a snapshot (a new object when the URL, session or language changes): depend on the values read, not on its identity.
   const { generation } = host.session();
+  // A write elsewhere (or any host change) notifies: read again; the rows stay until the new answer arrives.
+  const [stale, setStale] = useState(0);
+  useEffect(() => host.subscribe(() => setStale(n => n + 1)), [generation]);
   useEffect(() => {
     let live = true;
     host.query?.(listEndpoint, { page }, host.signal).then(
@@ -21,7 +24,7 @@ export function ListScreen({ params, host }: ModuleScreenProps) {
       () => { /* released or superseded */ },
     );
     return () => { live = false; };
-  }, [generation, page]);
+  }, [generation, page, stale]);
   const item = host.href({ screen: 'item', params: { id: 'a1' }, page: { tab: 'info' } });
   return (
     <section>
