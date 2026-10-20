@@ -281,8 +281,10 @@ it('switches compact columns at every boundary on the same layout', () => {
     expect(grid).toHaveAttribute('data-columns', String(columns));
     expect(grid).toHaveAttribute('data-two-columns', 'false');
     expect(grid).toHaveClass(`grid-cols-${columns}`);
+    for (const span of ['col-span-2', 'col-span-full']) {
+      expect(container.querySelector('[data-analysis-section="C"]')).not.toHaveClass(span);
+    }
   }
-  expect(container.querySelector('[data-analysis-section="C"]')).not.toHaveClass('col-span-2', 'col-span-full');
 });
 
 it('exposes regular hooks and preserves the odd-last rule and lone-chart reflow', () => {

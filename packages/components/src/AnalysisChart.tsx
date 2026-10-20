@@ -122,6 +122,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     grid: { top: 16, bottom: 16, left: 16, right: 16, containLabel: true },
     xAxis: { type: 'category', data: spec.xLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: spec.xLabels.length <= 24 ? 0 : 'auto' }, splitLine: theme.splitLine },
     yAxis: { type: 'category', data: spec.yLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: spec.yLabels.length <= 24 ? 0 : 'auto' }, splitLine: theme.splitLine },
+    toolbox: { show: false },
     brush: { toolbox: [], brushType: 'rect', xAxisIndex: 0, yAxisIndex: 0, inBrush: {}, outOfBrush: {} },
     series: [{ type: 'scatter', symbol: 'rect', symbolSize: heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length), emphasis: { focus: 'none' }, data: cells.map(c => ({
       value: [spec.xLabels.indexOf(c.x), spec.yLabels.indexOf(c.y), c.value],
@@ -193,9 +194,11 @@ export function AnalysisChart(p: AnalysisChartProps) {
         </>}
         <span className="flex items-center gap-1"><Swatch color={token(colors.unknown)} unknown />{unknown}</span>
       </div>}
+      {extended && <KindLegend compact={compact} items={extended.legend} label={lang === 'ko' ? '범례' : 'Legend'} />}
+      {spec.kind === 'donut' && <ul aria-label={lang === 'ko' ? '범례' : 'Legend'} className={cn('flex flex-wrap gap-3 px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>{rows.map(row => <li key={row.key} className="flex items-center gap-1"><Swatch color={token(row.color!)} />{row.label} · {valueText(row.value)} · {percent(row.share ?? 0)}</li>)}</ul>}
+      <p id={summaryId} className="px-4 py-2 text-xs text-text-secondary">{summary}</p>
     </AnalysisChartPart>
     <AnalysisChartPart enabled={section !== null} body>
-      <p id={summaryId} className="px-4 py-2 text-xs text-text-secondary">{summary}</p>
       {empty ? <p className="px-4 py-3 text-text-secondary">{p.emptyText ?? (lang === 'ko' ? '데이터 없음' : 'No data')}</p> : <div className="relative">
         <EChart key={spec.kind} onReady={instance => { chart.current = instance; setInstanceReady(generation => generation + 1); }} onResize={() => measureGrid(chart.current)} option={option} height={height} ariaLabel={typeof p.title === 'string' ? p.title : p.chartId} onEvents={{
           click: params => { if (params.componentType !== 'series') return; const key = extended ? extended.seriesKeys[params.seriesIndex]?.[params.dataIndex] : rows[params.dataIndex]?.key; if (key) toggle(key); },
@@ -210,8 +213,6 @@ export function AnalysisChart(p: AnalysisChartProps) {
           {selectedRows[0] && <p>{percent(selectedRows[0].share ?? 0)}</p>}
         </div>}
       </div>}
-      {extended && <KindLegend compact={compact} items={extended.legend} label={lang === 'ko' ? '범례' : 'Legend'} />}
-      {spec.kind === 'donut' && <ul aria-label={lang === 'ko' ? '범례' : 'Legend'} className={cn('flex flex-wrap gap-3 px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>{rows.map(row => <li key={row.key} className="flex items-center gap-1"><Swatch color={token(row.color!)} />{row.label} · {valueText(row.value)} · {percent(row.share ?? 0)}</li>)}</ul>}
       <section aria-label={lang === 'ko' ? '선택 요약' : 'Selection summary'} className="bg-surface-sunken px-4 py-2 text-xs text-text-secondary">
         {selectionSummary}
         {selectedRows.length === 1 && selectedRows[0].drill && <Button size="toolbar" variant="ghost" onClick={selectedRows[0].drill}>{lang === 'ko' ? '상세' : 'Details'}</Button>}

@@ -285,6 +285,32 @@ function sizedChart(props: Partial<AnalysisChartProps> = {}, context: React.Cont
     <AnalysisSectionContext.Provider value={context}><AnalysisChart chartId="size" title="Sized" unit="ea" spec={heat} {...props} /></AnalysisSectionContext.Provider>
   </PlatformProvider></I18nProvider>;
 }
+it.each<ChartSpec>([
+  heat,
+  { kind: 'donut', slices: [{ id: 'a', label: 'Alpha', value: 1 }] },
+  { kind: 'scatter', xUnit: 's', xLabel: 'X', yLabel: 'Y', points: [{ id: 'a', x: 1, y: 2 }] },
+  { kind: 'boxPlot', whisker: 'minMax', groups: [{ id: 'a', label: 'Alpha', stats: { min: 0, q1: 1, median: 2, q3: 3, max: 4 } }] },
+  { kind: 'pareto', items: [{ id: 'a', label: 'Alpha', value: 1 }] },
+])('aligns the $kind summary and legend in the shared head before the plot', async spec => {
+  const { container } = render(sizedChart({ spec, description: 'Details' }, { title: 'Section', kind: 'chart', density: 'compact', collapse() {} }));
+  const image = await screen.findByRole('img');
+  const region = screen.getByRole('region', { name: 'Sized' });
+  const summary = document.getElementById(region.getAttribute('aria-describedby')!);
+  const head = container.querySelector('[data-analysis-chart-head]');
+  expect(summary).toHaveTextContent('ea');
+  expect(head).toContainElement(summary);
+  const legend = spec.kind === 'heatmap' ? head?.querySelector<HTMLDivElement>('header + div') : screen.getByRole('list', { name: '범례' });
+  expect(head).toContainElement(legend ?? null);
+  expect(summary?.compareDocumentPosition(image)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  expect(legend?.compareDocumentPosition(image)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  expect(container.querySelector('[data-analysis-chart-body]')?.firstElementChild).toContainElement(image);
+});
+it('hides the heatmap toolbox while retaining the header brush control', async () => {
+  mount(heat);
+  await screen.findByRole('img');
+  expect(plot.option).toMatchObject({ toolbox: { show: false } });
+  expect(screen.getByRole('button', { name: '끌어서 선택' })).toBeVisible();
+});
 it.each([
   [undefined, 280], ['regular', 280], ['compact', 200], ['hero', 360],
 ] as const)('uses %s AnalysisChart plot height %s', async (size, height) => {
