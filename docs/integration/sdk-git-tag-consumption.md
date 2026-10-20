@@ -19,6 +19,8 @@
 
 테마 이름은 `@ap/ui/theme`의 `ThemeColorToken`·`THEME_COLOR_TOKENS`·`readColorToken`으로 소비하고, 도구는 `@ap/ui/theme-tokens.json`의 `color` 이름 목록을 읽는다. CSS는 계속 `rgb(var(--…))`로 쓰며, 제품 쪽 매핑 검사는 JSON 이름 목록과 대조한다. `$value.hex`는 매핑 키로 쓰지 않는다.
 
+`sdk-v0.8.0`부터 `@ap/components`의 `token(name)`과 `ChartSeries.color`는 `string` 대신 `ThemeColorToken`을 받는다(ADR-0055). 런타임 문자열을 넘기는 호출자는 `isThemeColorToken(name)`으로 좁힌 뒤 부르거나, 자기 데이터 모델에 `ThemeColorToken`을 쓴다. 폐기 예고 없이 바꾼 이유: `@ap/components`를 저장소 밖에서 받는 소비자가 아직 없고(FeedbackOps·EV는 `@ap/ui`만 받는다, 2026-10-20 확인), 값과 출력 형식(`rgb(r,g,b)`)은 그대로다. 저장소 밖 소비자가 생긴 뒤의 같은 변경은 ADR-0044의 한 릴리스 예고를 따른다.
+
 ## 결론과 남은 것
 
 - git 태그 의존성은 **된다**. 결정(레지스트리 없이 태그)을 다시 열 이유는 시험에서 나오지 않았다.
