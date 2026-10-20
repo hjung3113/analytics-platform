@@ -118,7 +118,7 @@
 
 <section id="why" class="content-section" aria-labelledby="why-heading">
   <div class="section-head"><p class="section-label">03 · 왜 플랫폼인가</p><h2 id="why-heading">화면 하나는 잘 만들어도, 화면 사이에서 깨집니다</h2><p class="section-lead">위 여덟 장면은 모두 화면 사이에서 생기는 일이라, 한 화면 안에서는 지킬 수 없습니다.</p><details class="evidence-details evidence-inline"><summary>근거</summary><p>도식의 갈래와 장면 번호는 부록 A의 ‘장면 → 구현 영역’ 대응과 같습니다. <a class="source-ref" href="#source-L66">L66</a> · <a class="source-ref" href="#source-L39">L39</a> · <a class="source-ref" href="#source-L85">L85</a> · <a class="source-ref" href="#source-L101">L101</a> · <a class="source-ref" href="#source-L106">L106</a> · 효과 수치는 쓰지 않습니다(기준선 없음).</p></details></div>
-  <div class="why-base"><h3>왜 이 바탕인가</h3><ol><li><b>업무 시스템을 하나로 합치지 않습니다.</b></li><li><b>사내망·사내 서버 위에서 돕니다.</b><span>서버는 규칙만 지키면 교체할 수 있게 설계했습니다(전송 형식은 사내 합의 대기, 외부 네트워크 요청 금지는 사내 환경 확인 때 검증).</span></li><li><b>반도체 조건과 숫자 상태가 처음부터 계약입니다.</b></li></ol><p class="micro"><b>이 저장소 안 화면:</b> 공통 부품 · 조건 선언을 쓰면 장면 적용 · <b>다른 저장소 앱(SDK):</b> 고정 모듈로만 검증, 외부 앱 연결 대기 → <a href="#extend">12 대조표</a></p></div>
+  <div class="why-base"><h3>왜 이 바탕인가</h3><ol><li><b>업무 시스템을 하나로 합치지 않습니다.</b><span>업무 내용과 데이터는 각 팀에 남고, 화면만 같은 바탕 위로 옮겨 옵니다.</span></li><li><b>사내망·사내 서버 위에서 돕니다.</b><span>서버는 규칙만 지키면 교체할 수 있게 설계했습니다(전송 형식은 사내 합의 대기, 외부 네트워크 요청 금지는 사내 환경 확인 때 검증).</span></li><li><b>반도체 조건과 숫자 상태가 처음부터 계약입니다.</b><span>사이트·공정·설비·Lot·Recipe 조건과 숫자의 기준 시각·채운 비율·지표 버전을 공통 규칙으로 다룹니다.</span></li></ol><p class="micro"><b>이 저장소 안 화면:</b> 공통 부품 · 조건 선언을 쓰면 장면 적용 · <b>다른 저장소 앱(SDK):</b> 고정 모듈로만 검증, 외부 앱 연결 대기 → <a href="#extend">12 대조표</a></p></div>
   <figure class="diagram">
     <div class="diagram-desktop"><svg role="img" aria-labelledby="fig-b-title fig-b-desc" viewBox="0 0 1040 548" xmlns="http://www.w3.org/2000/svg"><title id="fig-b-title">팀별로 따로 만들 때와 공통 플랫폼 위에서 만들 때</title><desc id="fig-b-desc">왼쪽은 세 시스템이 로그인·권한·필터·표·차트·감사를 각각 갖고 화면을 옮길 때 조건이 끊깁니다. 오른쪽은 업무 화면 세 개가 이어지고, 아래 플랫폼이 다섯 갈래(전역 조건·링크·권한·감사, 공통 표·차트·상세·상태 부품, 차트 상호작용 계약, 화면 유형 레이아웃, 메뉴 사이 이동)와 SDK 호스트 포트로 나뉘어 장면 번호를 하나씩 맡습니다. 없으면 겪는 일 세 가지와 있으면 받는 것 세 가지를 좌우에 둡니다.</desc><defs><marker id="arrow-b" viewBox="0 0 8 8" markerWidth="6" markerHeight="6" refX="8" refY="4" orient="auto"><path class="diagram-arrow-head" d="M0 0L8 4L0 8z"/></marker></defs><text class="diagram-overline" x="0" y="26">각 팀이 따로 만들면</text><text class="diagram-overline" x="560" y="26">공통 바탕 위에서 만들면</text><rect class="diagram-broken" x="0" y="40" width="140" height="136" rx="12"/><text x="70" y="72" text-anchor="middle">시스템 A</text><text class="diagram-small" x="70" y="102" text-anchor="middle">로그인 · 권한</text><text class="diagram-small" x="70" y="126" text-anchor="middle">필터 · 표 · 차트</text><text class="diagram-small" x="70" y="150" text-anchor="middle">감사</text><rect class="diagram-broken" x="170" y="40" width="140" height="136" rx="12"/><text x="240" y="72" text-anchor="middle">시스템 B</text><text class="diagram-small" x="240" y="102" text-anchor="middle">로그인 · 권한</text><text class="diagram-small" x="240" y="126" text-anchor="middle">필터 · 표 · 차트</text><text class="diagram-small" x="240" y="150" text-anchor="middle">감사</text><rect class="diagram-broken" x="340" y="40" width="140" height="136" rx="12"/><text x="410" y="72" text-anchor="middle">시스템 C</text><text class="diagram-small" x="410" y="102" text-anchor="middle">로그인 · 권한</text><text class="diagram-small" x="410" y="126" text-anchor="middle">필터 · 표 · 차트</text><text class="diagram-small" x="410" y="150" text-anchor="middle">감사</text><path class="diagram-broken-arrow" marker-end="url(#arrow-b)" d="M140 108H170"/><path class="diagram-broken-arrow" marker-end="url(#arrow-b)" d="M310 108H340"/><text class="diagram-small" x="240" y="204" text-anchor="middle">화면을 옮길 때마다 조건을 다시 입력</text><rect class="diagram-node" x="560" y="40" width="140" height="64" rx="12"/><text x="630" y="68" text-anchor="middle">MARS</text><text class="diagram-small" x="630" y="90" text-anchor="middle">화면 A</text><rect class="diagram-node" x="730" y="40" width="140" height="64" rx="12"/><text x="800" y="68" text-anchor="middle">BRAVO</text><text class="diagram-small" x="800" y="90" text-anchor="middle">화면 B</text><rect class="diagram-planned" x="900" y="40" width="140" height="64" rx="12"/><text x="970" y="68" text-anchor="middle">CLAS</text><text class="diagram-small" x="970" y="90" text-anchor="middle">준비 중</text><path class="diagram-arrow" marker-end="url(#arrow-b)" d="M700 72H730"/><path class="diagram-arrow" marker-end="url(#arrow-b)" d="M870 72H900"/><path class="diagram-arrow" marker-end="url(#arrow-b)" d="M630 104V136"/><path class="diagram-arrow" marker-end="url(#arrow-b)" d="M800 104V136"/><path class="diagram-arrow" marker-end="url(#arrow-b)" d="M970 104V136"/><rect class="diagram-platform" x="560" y="136" width="480" height="208" rx="14"/><text x="800" y="162" text-anchor="middle">플랫폼 · 다섯 갈래와 호스트 포트</text><rect class="diagram-chip" x="576" y="176" width="224" height="46" rx="10"/><text class="diagram-small" x="688" y="195" text-anchor="middle">전역 조건 · 링크 · 권한 · 감사</text><text class="diagram-small diagram-sub" x="688" y="213" text-anchor="middle">Kernel · 장면 2·3·5·6·8</text><rect class="diagram-chip" x="812" y="176" width="224" height="46" rx="10"/><text class="diagram-small" x="924" y="195" text-anchor="middle">공통 표 · 차트 · 상세 · 상태 부품</text><text class="diagram-small diagram-sub" x="924" y="213" text-anchor="middle">공통 컴포넌트 · 장면 1·7</text><rect class="diagram-chip" x="576" y="230" width="224" height="46" rx="10"/><text class="diagram-small" x="688" y="249" text-anchor="middle">차트 상호작용 계약</text><text class="diagram-small diagram-sub" x="688" y="267" text-anchor="middle">확대·구간·비교·주석 · 장면 1·7</text><rect class="diagram-chip" x="812" y="230" width="224" height="46" rx="10"/><text class="diagram-small" x="924" y="249" text-anchor="middle">화면 유형 레이아웃</text><text class="diagram-small diagram-sub" x="924" y="267" text-anchor="middle">다섯 가지 틀 · 모든 장면</text><rect class="diagram-chip" x="576" y="284" width="224" height="46" rx="10"/><text class="diagram-small" x="688" y="303" text-anchor="middle">메뉴 사이 이동</text><text class="diagram-small diagram-sub" x="688" y="321" text-anchor="middle">조건을 싣고 이동 · 장면 2·4·6</text><rect class="diagram-planned" x="812" y="284" width="224" height="46" rx="10"/><text class="diagram-small" x="924" y="303" text-anchor="middle">SDK 호스트 포트</text><text class="diagram-small diagram-sub" x="924" y="321" text-anchor="middle">다른 저장소 앱 · 12 대조표</text><text class="diagram-overline" x="0" y="378">없으면</text><text class="diagram-overline" x="560" y="378">있으면</text><rect class="diagram-broken" x="0" y="388" width="480" height="42" rx="10"/><text x="16" y="415">옮길 때 기간·공정을 다시 고른다</text><rect class="diagram-contract" x="560" y="388" width="480" height="42" rx="10"/><text x="576" y="415">본 화면 링크가 조건을 이어 준다</text><rect class="diagram-broken" x="0" y="440" width="480" height="42" rx="10"/><text x="16" y="467">0건인지 실패인지 헷갈린다</text><rect class="diagram-contract" x="560" y="440" width="480" height="42" rx="10"/><text x="576" y="467">조회 상태와 숫자 기준을 나눠 본다</text><rect class="diagram-broken" x="0" y="492" width="480" height="42" rx="10"/><text x="16" y="519">권한·감사가 화면마다 흩어진다</text><rect class="diagram-contract" x="560" y="492" width="480" height="42" rx="10"/><text x="576" y="519">조회 범위와 변경을 한 곳에서 본다</text></svg></div>
     <div class="diagram-mobile"><div class="compare-diagram"><article><h3>각 팀이 따로</h3><p>로그인 · 권한 · 필터 · 표 · 차트 · 감사가 시스템마다 있고, 옮길 때 조건을 다시 입력합니다.</p><p><b>없으면</b> 조건 재입력 · 0건/실패 혼동 · 권한·감사 분산</p></article><article><h3>공통 바탕 위</h3><ul class="plat-branches"><li><b>전역 조건 · 링크 · 권한 · 감사</b> — Kernel · 장면 2·3·5·6·8</li><li><b>공통 표 · 차트 · 상세 · 상태 부품</b> — 장면 1·7</li><li><b>차트 상호작용 계약</b> — 장면 1·7</li><li><b>화면 유형 레이아웃</b> — 모든 장면</li><li><b>메뉴 사이 이동</b> — 장면 2·4·6</li><li><b>SDK 호스트 포트</b> — 다른 저장소 앱 · 12 대조표</li></ul><p><b>있으면</b> 링크가 조건을 이어 줌 · 상태 구분 · 권한·감사 한 곳</p></article></div></div>
@@ -445,7 +445,7 @@
             <div role="tabpanel" class="tab-panel" id="branches-panel-1" aria-labelledby="branches-tab-1">
               <h3>표·상세·감사·신뢰 표시·상태 화면을 메뉴마다 다시 만들지 않습니다.</h3>
               <p>
-                공개 컴포넌트 21개가 서버 페이징 표, 고정 상세 슬롯, 감사 타임라인, 데이터 신뢰 표시, 0건·권한·오류 상태
+                공개 컴포넌트 23개가 서버 페이징 표, 고정 상세 슬롯, 감사 타임라인, 데이터 신뢰 표시, 0건·권한·오류 상태
                 화면을 제공합니다. 전체 목록은 부록 B.
               </p>
               <p>이 화면에서: KPI 카드·표·신뢰 표시</p>
@@ -547,10 +547,10 @@
               </p>
               <p>이 화면에서: 표 행의 &#x27;상세&#x27; 링크·머리의 부모 링크</p>
               <span class="badge success"
-                ><svg aria-hidden="true"><use href="#i-check" /></svg>완료(플랫폼 안) · FeedbackOps 범위 링크는 다음(<a
+                ><svg aria-hidden="true"><use href="#i-check" /></svg>완료 · FeedbackOps 공간별 링크와 복귀 키까지(<a
                   href="https://github.com/hjung3113/analytics-platform/issues/251"
                   >#251</a
-                >)</span
+                >·#448)</span
               >
               <div class="demo-link" data-demo hidden>
                 <a
@@ -712,7 +712,7 @@
     <section id="components" aria-labelledby="components-heading">
         <p class="section-label">B · 컴포넌트</p>
         <h2 id="components-heading">새 메뉴가 처음부터 받는 것</h2>
-        <p class="lead">공통 컴포넌트 21개, FeedbackOps와 같은 UI primitive, 셸과 Kernel이 이미 있습니다. 화면은 이 부품을 조합하고 업무 데이터와 문구를 채웁니다. 카드를 누르면 받는 것과 화면이 할 일이 한 줄씩 열립니다.</p>
+        <p class="lead">공통 컴포넌트 23개, FeedbackOps와 같은 UI primitive, 셸과 Kernel이 이미 있습니다. 화면은 이 부품을 조합하고 업무 데이터와 문구를 채웁니다. 카드를 누르면 받는 것과 화면이 할 일이 한 줄씩 열립니다.</p>
         <div class="demo-tour" data-demo hidden><h3>데모 둘러보기 <small>견본 화면 · 합성 데이터 · mock 어댑터</small></h3><ol class="demo-tour-list"><li class="demo-link"><a href="demo/" target="_blank" rel="noopener" aria-label="데모 D1 (새 탭)"><span class="mono">D1</span> 열기 ↗</a><p data-demo-step="D1"></p></li><li class="demo-link"><a href="demo/analytics/productivity?v=1&amp;scopeId=MEM" target="_blank" rel="noopener" aria-label="데모 D2 (새 탭)"><span class="mono">D2</span> 열기 ↗</a><p data-demo-step="D2"></p></li><li class="demo-link"><a href="demo/analytics/productivity?v=1&amp;scopeId=MEM&amp;from=2026-09-25T09:00:00&amp;to=2026-09-26T09:00:00&amp;roomNames=PHOTO" target="_blank" rel="noopener" aria-label="데모 D3 (새 탭)"><span class="mono">D3</span> 열기 ↗</a><p data-demo-step="D3"></p></li><li class="demo-link"><a href="demo/analytics/cycle-time?v=1&amp;scopeId=MEM" target="_blank" rel="noopener" aria-label="데모 D4 (새 탭)"><span class="mono">D4</span> 열기 ↗</a><p data-demo-step="D4"></p></li><li class="demo-link"><a href="demo/analytics/cycle-time?v=1&amp;scopeId=MEM" target="_blank" rel="noopener" aria-label="데모 D5 (새 탭)"><span class="mono">D5</span> 열기 ↗</a><p data-demo-step="D5"></p></li><li class="demo-link"><a href="demo/analytics/productivity?v=1&amp;scopeId=MEM" target="_blank" rel="noopener" aria-label="데모 D6 (새 탭)"><span class="mono">D6</span> 열기 ↗</a><p data-demo-step="D6"></p></li><li class="demo-link"><a href="demo/equipment?v=1&amp;scopeId=MEM" target="_blank" rel="noopener" aria-label="데모 D7 (새 탭)"><span class="mono">D7</span> 열기 ↗</a><p data-demo-step="D7"></p></li><li class="demo-link"><a href="demo/admin/audit?v=1" target="_blank" rel="noopener" aria-label="데모 D8 (새 탭)"><span class="mono">D8</span> 열기 ↗</a><p data-demo-step="D8"></p></li><li class="demo-link"><a href="demo/metrics?v=1&amp;scopeId=MEM" target="_blank" rel="noopener" aria-label="데모 D9 (새 탭)"><span class="mono">D9</span> 열기 ↗</a><p data-demo-step="D9"></p></li><li class="demo-link"><a href="demo/analytics/productivity?v=1&amp;scopeId=MEM" target="_blank" rel="noopener" aria-label="데모 D10 (새 탭)"><span class="mono">D10</span> 열기 ↗</a><p data-demo-step="D10"></p></li></ol></div>
         
         <p class="caption" id="component-preview-caption">
@@ -1962,7 +1962,7 @@
             </p>
             <h3>상태와 다음 결정</h3>
             <p>
-              <span class="badge success">완료 · v0.1–v0.6.1</span> 공통 기반은 준비됐습니다. 사내 서버 연결은 별도
+              <span class="badge success">완료 · v0.1–v0.13.0</span> 공통 기반은 준비됐습니다. 사내 서버 연결은 별도
               입력과 검증이 남아 있습니다.
             </p>
           </div>
@@ -2182,7 +2182,7 @@
               <span class="badge success"
                 ><svg aria-hidden="true"><use href="#i-check" /></svg>완료</span
               >
-              <span class="node-name">v0.1–v0.6.1</span></button
+              <span class="node-name">v0.1–v0.13.0</span></button
             ><button
               type="button"
               role="tab"
@@ -2265,6 +2265,7 @@
                 <strong>v0.6.1</strong> — 목적지 provisional 판정, FeedbackOps 변경의 Turbo 캐시 추적, UI 계약 후속
                 정리.
               </li>
+              <li><strong>v0.7.0–v0.13.0</strong> — 정비 슬라이스 9–15(포커스·표·필터 일관성·문구), 업무 시스템 전환기, FeedbackOps 공간별 진입 링크와 복귀 키(#251·#448).</li>
             </ul>
             <p>완료된 것은 플랫폼과 mock 계약의 기반이며 사내 SSO·서버 운영 완료가 아닙니다.</p>
             <p class="caption">
@@ -2362,11 +2363,10 @@
             >
             <p>
               FeedbackOps 2단계(<a href="https://github.com/hjung3113/analytics-platform/issues/213">#213</a>): 화면을
-              옮기지 않고 공간별 범위 링크를 둡니다: 공간↔Managed System 매핑(<a
+              옮기지 않고 공간별 범위 링크를 둡니다. 공간↔Managed System 매핑(<a
                 href="https://github.com/hjung3113/analytics-platform/issues/81"
                 >#81</a
-              >) → 링크 계약·노출 권한(<a href="https://github.com/hjung3113/analytics-platform/issues/251">#251</a>) →
-              셸 연결. 세션 공유(<a href="https://github.com/hjung3113/analytics-platform/issues/150">#150</a>) 전에는
+              >, 결정)과 링크 계약·노출 권한·셸 연결(<a href="https://github.com/hjung3113/analytics-platform/issues/251">#251</a>, 완료)은 끝났고, 남은 것은 세션 공유입니다. 세션 공유(<a href="https://github.com/hjung3113/analytics-platform/issues/150">#150</a>) 전에는
               FeedbackOps 로그인이 한 번 더 있을 수 있습니다. 근거는 ADR-0027.
             </p>
             <p class="caption">
@@ -2874,7 +2874,7 @@ export type ModuleHost = {
           </p>
         </details>
         <details class="source-ledger">
-          <summary>콘텐츠 원장 L01–L104</summary>
+          <summary>콘텐츠 원장 L01–L112</summary>
           <div id="source-L01">
             <h3>L01</h3>
             <a href="https://github.com/hjung3113/analytics-platform/blob/main/.planning/README.md">공개 원본 보기</a>
@@ -2887,10 +2887,10 @@ export type ModuleHost = {
               >공개 원본 보기</a
             >
             <p>
-              <code>@ap/components</code> 공개 React 컴포넌트 21개: AnalysisChartFrame, EChart, PlatformDataTable,
+              <code>@ap/components</code> 공개 React 컴포넌트 23개: AnalysisChartFrame, EChart, PlatformDataTable,
               PageFilterBar, SegmentedRadio, DetailDrawer, Field, AuditTimeline, DataTrustIndicator, PlatformPage,
               Panel, StatCard, QueryView, OutcomeView, StateMessage, LoadingBlock, ManagementLayout,
-              AnalysisLayout, DrillLayout, DrillPath, ReturnLink
+              AnalysisLayout, DrillLayout, DrillPath, ReturnLink, RowAction, TableUrlWarning
             </p>
             <p class="caption">
               <code>packages/components/src/index.ts</code> + 각 파일의 <code>export function [A-Z]…</code>(D1이 셈) ·
@@ -3136,9 +3136,9 @@ export type ModuleHost = {
             >
             <p>
               FeedbackOps는 독립 앱, 화면·API·권한·감사를 플랫폼에 합치지 않음, <code>/voc</code> 링크는 origin
-              설정·검증 시 새 탭, 셸의 공간별 링크 슬롯은 미주입
+              설정·검증 시 새 탭, 셸의 공간별 링크 슬롯은 <code>feedbackOpsSlot</code>으로 주입됨(#251)
             </p>
-            <p class="caption">ADR-0027, <code>apps/platform-web/src/slots.ts:5-8</code> · 데모에서는 비활성</p>
+            <p class="caption">ADR-0027, <code>apps/platform-web/src/slots.ts</code> · 데모에서는 FeedbackOps 주소가 없어 비활성</p>
           </div>
           <div id="source-L24">
             <h3>L24</h3>
@@ -3231,7 +3231,7 @@ export type ModuleHost = {
                 href="https://github.com/hjung3113/analytics-platform/issues/213"
                 >#213</a
               >: <a href="https://github.com/hjung3113/analytics-platform/issues/81">#81</a> →
-              <a href="https://github.com/hjung3113/analytics-platform/issues/251">#251</a> → 셸 연결,
+              <a href="https://github.com/hjung3113/analytics-platform/issues/251">#251</a> → 셸 연결(#81 결정·#251 완료),
               <a href="https://github.com/hjung3113/analytics-platform/issues/150">#150</a> 전 재로그인 가능), 계획된
               흐름(<a href="https://github.com/hjung3113/analytics-platform/issues/163">#163</a>,
               <a href="https://github.com/hjung3113/analytics-platform/issues/37">#37</a> →
@@ -3570,6 +3570,7 @@ export type ModuleHost = {
           <div id="source-L109"><h3>L109</h3><p>12 메뉴 패키지 트리: <code>pnpm gen:menu</code>가 만드는 파일 — <code>package.json</code>·<code>tsconfig.json</code>·<code>eslint.config.js</code>·<code>vitest.config.ts</code>·<code>src/styles.css</code>·<code>src/endpoints.ts</code>·<code>src/mock/index.ts</code>·<code>src/index.ts</code>·<code>src/pages/&lt;화면&gt;.tsx</code>·<code>src/manifest.test.ts</code>·<code>src/mock/index.test.ts</code> 11개(<code>renderFiles</code>, <code>templates.ts</code>)에 <code>.gen-menu.json</code> 1개(<code>generate.ts:718</code>)를 더한 12개, 앱 배선 4곳(<code>menus.ts</code>·<code>dev/mock-assembly.tsx</code>·<code>style.css</code>·<code>package.json</code>)은 L36과 같다. 화면 이전 비용은 미측정</p><p class="caption">tooling/gen-menu/src/templates.ts · generate.ts</p></div>
           <div id="source-L110"><h3>L110</h3><p>2026-10-20 재평가 2회차 정정: ① 장면 4 이름을 '본 자리에서 알리고, 같은 자리로 돌아온다'로 되돌리고 FeedbackOps 복귀 지원은 있다고 정정(L94·L102, 앞선 ‘서브모듈 포인터에 없음 → 지원 없음’ 추론이 틀렸음). ② 메뉴 패키지 파일 12개(L36·L109). ③ 계약 패키지는 배포 모양은 갖췄으나 발행하지 않음, Kernel·셸·공통 컴포넌트는 배포 모양 아님(L77·L101, 17 R9.2·R9.6). ④ 12의 ‘누가 무엇을 소유하고 어떻게 바뀌나’ 블록(L111). ⑤ 11 인력 행을 ‘시범 범위와 함께 산정(미산정)’로, 장면 3의 ‘사람의 리뷰 대신’을 ‘리뷰 전에 기계가 먼저 막음’으로</p><p class="caption"><code>docs/integration/feedbackops-deeplink.md</code>, <code>packages/contracts/package.json</code>, <code>tooling/gen-menu/src/{templates,generate}.ts</code> · 사실 정정과 문구 변경. 효과 숫자·다른 제품 이름 없음</p></div>
           <div id="source-L111"><h3>L111</h3><p>12 '누가 무엇을 소유하고 어떻게 바뀌나': SDK 원본은 플랫폼 저장소이고 플랫폼 앱과 따로 릴리스(ADR-0044), 받는 쪽은 <code>sdk-v*</code> 태그로 버전을 고정해 받고 새 태그를 올리는 것은 받는 쪽(R9.6, <code>docs/integration/sdk-git-tag-consumption.md</code>), 호스트는 받아들일 계약 버전 <code>HOST_CONTRACTS</code>를 명시하고 모르는 버전은 등록 거부, 1판 이후 바꾸면 계약 정수를 올림(ADR-0053), 모듈 추가·교체는 조립 코드를 고쳐 플랫폼 앱을 다시 배포(L84), 계약 변경은 소유 문서 한 곳을 고치고 다른 문서는 링크로만 참조(<code>docs/AGENTS.md</code> 소유권·규칙). 승인자·인원은 근거 문서에 없어 쓰지 않음</p><p class="caption"><code>docs/adr/0044-sdk-source-in-platform-repo-released-separately.md</code>, <code>docs/adr/0053-host-module-contract-v1.md</code>, <code>docs/integration/sdk-git-tag-consumption.md</code>, <code>docs/AGENTS.md</code> · 저장소에 근거가 있는 것만. 변경 승인 절차·담당은 정해져 있지 않음</p></div>
+          <div id="source-L112"><h3>L112</h3><p>재평가 3회차 정정(2026-10-20): 공개 컴포넌트 21 → 23(L02), 부록 A ⑤·부록 E·L23·L31의 FeedbackOps 링크 상태를 &#x27;#251 완료·#81 결정·복귀 키 #448, 남은 것 세션 공유 #150&#x27;으로, 로드맵 완료 범위 v0.1–v0.6.1 → v0.1–v0.13.0(L01과 같게), 03 &#x27;왜 이 바탕인가&#x27; ①·③에 한 줄 설명</p><p class="caption"><code>packages/components/src/index.ts</code>, <code>apps/platform-web/src/slots.ts</code>, <code>.planning/README.md</code> · 사실 갱신, 새 주장 없음</p></div>
         </details>
       </footer>
 </main>
