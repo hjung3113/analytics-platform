@@ -1,6 +1,6 @@
 import { useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useI18n, usePlatform } from '@ap/kernel';
-import { Button, cn } from '@ap/ui';
+import { Button, Checkbox, cn } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { chartTheme, EChart, token } from './EChart';
@@ -79,7 +79,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const [selected, setSelected] = useState<string[]>([]);
   const brushedKeys = useRef<string[]>([]);
   const [brushMode, setBrushMode] = useState(false);
-  const [instanceReady, setInstanceReady] = useState(false);
+  const [instanceReady, setInstanceReady] = useState(0);
   const [plotSize, setPlotSize] = useState({ width: 0, height: 0 });
   const spec = p.spec;
   const { cells, rows, total, extended } = useMemo(() => chartData(spec, lang === 'ko', p.unit), [spec, lang, p.unit]);
@@ -145,6 +145,10 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const summary = extended?.summary ?? (spec.kind === 'heatmap' ? (lang === 'ko' ? `${cells.length}칸 · ${spec.xLabels.length * spec.yLabels.length - cells.length}칸 비어 있음 · ${cells.filter(c => c.value === null).length}칸 미확인 · 단위 ${p.unit}` : `${cells.length} cells · ${spec.xLabels.length * spec.yLabels.length - cells.length} missing · ${cells.filter(c => c.value === null).length} unknown · Unit ${p.unit}`) : `${rows.length}${lang === 'ko' ? '개 항목 · 합계' : ' slices · Total'} ${format(total)} ${p.unit}`);
   const selectedRows = rows.filter(row => active.includes(row.key));
   let selectionSummary = active.length ? `${selectedRows.map(row => row.label).join(', ')} · ${active.length}${lang === 'ko' ? (spec.kind === 'heatmap' ? '칸 선택' : '개 선택') : ' selected'}` : (lang === 'ko' ? '선택 없음' : 'No selection');
+  if ((spec.kind === 'scatter' || spec.kind === 'pareto') && active.length > 3) {
+    const labels = selectedRows.slice(0, 3).map(row => row.label).join(', ');
+    selectionSummary = lang === 'ko' ? `${active.length}개 선택 · ${labels} 외 ${active.length - 3}개` : `${active.length} selected · ${labels} +${active.length - 3} more`;
+  }
   if (spec.kind === 'heatmap' && active.length > 3) {
     const range = (labels: string[], axis: 'x' | 'y') => {
       const selectedLabels = labels.filter(label => selectedRows.some(row => row[axis] === label));
@@ -190,7 +194,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     <AnalysisChartPart enabled={section !== null} body>
       <p id={summaryId} className="px-4 py-2 text-xs text-text-secondary">{summary}</p>
       {empty ? <p className="px-4 py-3 text-text-secondary">{p.emptyText ?? (lang === 'ko' ? '데이터 없음' : 'No data')}</p> : <div className="relative">
-        <EChart key={spec.kind} onReady={instance => { chart.current = instance; setInstanceReady(true); }} onResize={() => measureGrid(chart.current)} option={option} height={p.height} ariaLabel={typeof p.title === 'string' ? p.title : p.chartId} onEvents={{
+        <EChart key={spec.kind} onReady={instance => { chart.current = instance; setInstanceReady(generation => generation + 1); }} onResize={() => measureGrid(chart.current)} option={option} height={p.height} ariaLabel={typeof p.title === 'string' ? p.title : p.chartId} onEvents={{
           click: params => { if (params.componentType !== 'series') return; const key = extended ? extended.seriesKeys[params.seriesIndex]?.[params.dataIndex] : rows[params.dataIndex]?.key; if (key) toggle(key); },
           finished: (_, instance) => measureGrid(instance),
           takeglobalcursor: params => { if (spec.kind === 'heatmap' || spec.kind === 'scatter') setBrushMode(params.key === 'brush' && params.brushOption?.brushType === 'rect'); },
@@ -212,7 +216,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
       {table && <div className="overflow-auto px-4 py-2"><table className="w-full text-xs"><caption>{p.title} · {p.unit}</caption>
         <thead className="bg-surface-sunken"><tr>{[...headers, lang === 'ko' ? '선택' : 'Select'].map(h => <th key={h} scope="col" className="text-text-secondary">{h}</th>)}</tr></thead>
         <tbody>{rows.map((row, i) => <tr key={row.key}>{tableValues[i].map((value, j) => <td key={j}>{value}</td>)}<td>
-          <input type="checkbox" aria-label={`${lang === 'ko' ? '선택' : 'Select'} ${row.label}`} checked={active.includes(row.key)} onChange={() => toggle(row.key)} />
+          <Checkbox aria-label={`${lang === 'ko' ? '선택' : 'Select'} ${row.label}`} checked={active.includes(row.key)} onCheckedChange={() => toggle(row.key)} />
           {row.drill && <Button size="toolbar" variant="ghost" onClick={row.drill}>{lang === 'ko' ? '상세' : 'Details'}</Button>}
         </td></tr>)}</tbody>
       </table></div>}

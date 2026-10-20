@@ -9,7 +9,7 @@ const fills: ThemeColorToken[] = ['chart-series-1', 'chart-series-2', 'chart-ser
 const shapes = ['circle', 'rect', 'triangle', 'diamond'] as const;
 export type KindProjection = {
   rows: ChartRow[]; total: number; empty: boolean; summary: string; headers: string[]; tableValues: string[][];
-  legend: { label: string; color: ThemeColorToken; symbol: string; stroke?: ThemeColorToken }[];
+  legend: { label: string; color: ThemeColorToken; symbol: string; stroke?: ThemeColorToken; unknown?: boolean }[];
   seriesKeys: (string | undefined)[][];
   option: (active: string[]) => EChartsCoreOption;
 };
@@ -46,6 +46,13 @@ export function scatterData(spec: ScatterSpec, ko: boolean, unit: string): KindP
   const rows: ChartRow[] = points.map(p => ({ key: rowKey('scatter', p.id), label: p.label ?? p.id, value: p.y, drill: spec.onPointClick ? () => spec.onPointClick?.(p.id) : undefined }));
   const tableValues = points.map(p => [p.id, p.label ?? p.id, groups.find(g => g.key === groupKey(p.group))!.label, text(p.x, spec.xUnit), text(p.y, unit)]);
   const plotted = groups.map(g => points.filter(p => groupKey(p.group) === g.key && p.x !== null && p.y !== null));
+  const bounds = (axis: 'x' | 'y', extent: { min: number; max: number }) => {
+    const references = (spec.referenceLines ?? []).filter(r => r.axis === axis && Number.isFinite(r.value)).map(r => r.value);
+    const min = Math.min(extent.min, ...references); const max = Math.max(extent.max, ...references);
+    const padding = (max - min || Math.abs(min) || 1) * 0.05;
+    return { min: min - padding, max: max + padding };
+  };
+  const axisRange = (axis: 'x' | 'y') => ({ scale: true, min: (extent: { min: number; max: number }) => bounds(axis, extent).min, max: (extent: { min: number; max: number }) => bounds(axis, extent).max });
   return {
     rows, total: 0, empty: !plotted.some(g => g.length),
     summary: ko ? `${points.length}개 점 · ${points.filter(p => p.x === null || p.y === null).length}개 미확인 · ${legend.map(g => g.label).join(', ')} · ${spec.xLabel} (${spec.xUnit}) · ${spec.yLabel} (${unit})` : `${points.length} points · ${points.filter(p => p.x === null || p.y === null).length} unknown · ${legend.map(g => g.label).join(', ')} · ${spec.xLabel} (${spec.xUnit}) · ${spec.yLabel} (${unit})`,
@@ -55,12 +62,13 @@ export function scatterData(spec: ScatterSpec, ko: boolean, unit: string): KindP
       const theme = chartTheme();
       return {
         tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (p: { seriesIndex: number; dataIndex: number }) => { const point = plotted[p.seriesIndex]?.[p.dataIndex]; return point ? `${point.label ?? point.id} · ${groups[p.seriesIndex].label}: ${spec.xLabel} ${text(point.x, spec.xUnit)} · ${spec.yLabel} ${text(point.y, unit)}` : ''; } },
-        grid: { top: 32, bottom: 40, left: 48, right: 24, containLabel: true },
-        xAxis: { type: 'value', name: `${spec.xLabel} (${spec.xUnit})`, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine },
-        yAxis: { type: 'value', name: `${spec.yLabel} (${unit})`, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine },
+        grid: { top: 32, bottom: 56, left: 48, right: 40, containLabel: true },
+        xAxis: { type: 'value', ...axisRange('x'), name: `${spec.xLabel} (${spec.xUnit})`, nameLocation: 'middle', nameGap: 32, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine },
+        yAxis: { type: 'value', ...axisRange('y'), name: `${spec.yLabel} (${unit})`, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine },
+        toolbox: { show: false },
         brush: { toolbox: [], brushType: 'rect', xAxisIndex: 0, yAxisIndex: 0, inBrush: {}, outOfBrush: {} },
         series: plotted.map((group, i) => ({ type: 'scatter', symbol: legend[i].symbol, emphasis: { focus: 'none' },
-          markLine: i === 0 ? { ...theme.referenceLine, data: spec.referenceLines?.filter(r => Number.isFinite(r.value)).map(r => ({ name: r.label, ...(r.axis === 'x' ? { xAxis: r.value } : { yAxis: r.value }) })) } : undefined,
+          markLine: i === 0 ? { ...theme.referenceLine, data: spec.referenceLines?.filter(r => Number.isFinite(r.value)).map(r => ({ name: r.label, ...(r.axis === 'x' ? { xAxis: r.value, label: { position: 'end', rotate: 0, offset: [0, 8], verticalAlign: 'top' } } : { yAxis: r.value }) })) } : undefined,
           data: group.map(p => ({ value: [p.x, p.y], itemStyle: { color: token(legend[i].color), borderColor: token('chart-selection-outline'), borderWidth: active.includes(rowKey('scatter', p.id)) ? 2 : 0 } })),
         })),
       };
@@ -72,7 +80,7 @@ export function scatterData(spec: ScatterSpec, ko: boolean, unit: string): KindP
 export function KindLegend({ items, label }: { items: KindProjection['legend']; label: string }) {
   return <ul aria-label={label} className="flex flex-wrap gap-3 px-4 py-2 text-xs text-text-secondary">{items.map((item, i) => <li key={i} className="flex items-center gap-1">
     <svg aria-hidden width="14" height="14" viewBox="0 0 14 14">
-      {item.symbol === 'circle' ? <circle cx="7" cy="7" r="5" fill={token(item.color)} /> : item.symbol === 'rect' ? <rect x="2" y="2" width="10" height="10" fill={token(item.color)} stroke={item.stroke ? token(item.stroke) : undefined} /> : item.symbol === 'triangle' ? <path d="M7 1 L13 13 L1 13 Z" fill={token(item.color)} /> : item.symbol === 'line' ? <path d="M1 7 H13" stroke={token(item.color)} strokeWidth="2" /> : <path d="M7 1 L13 7 L7 13 L1 7 Z" fill={token(item.color)} />}
+      {item.symbol === 'circle' ? <circle cx="7" cy="7" r="5" fill={token(item.color)} /> : item.symbol === 'rect' ? <rect x="2" y="2" width="10" height="10" fill={token(item.color)} stroke={item.stroke ? token(item.stroke) : undefined} strokeDasharray={item.unknown ? '2 2' : undefined} /> : item.symbol === 'triangle' ? <path d="M7 1 L13 13 L1 13 Z" fill={token(item.color)} /> : item.symbol === 'line' ? <path d="M1 7 H13" stroke={token(item.color)} strokeWidth="2" /> : <path d="M7 1 L13 7 L7 13 L1 7 Z" fill={token(item.color)} />}
     </svg>{item.label}
   </li>)}</ul>;
 }
@@ -98,11 +106,12 @@ export function boxPlotData(spec: BoxPlotSpec, ko: boolean, unit: string): KindP
   const headers = [ko ? '그룹' : 'Group', 'Min', 'Q1', ko ? '중앙값' : 'Median', 'Q3', 'Max', 'n', ko ? '이상치' : 'Outliers'];
   const outliers = groups.flatMap((g, i) => (g.stats?.outliers ?? []).map(value => ({ group: i, value })));
   const medianGroups = groups.flatMap((g, i) => g.stats ? [i] : []);
+  const unknownGroups = groups.flatMap((g, i) => g.stats ? [] : [i]);
   return {
     rows, total: 0, empty: !groups.some(g => g.stats),
     headers, tableValues,
     summary: `${groups.length}${ko ? '개 그룹' : ' groups'} · ${groups.filter(g => !g.stats).length}${ko ? '개 미확인' : ' unknown'} · ${ko ? '수염: ' : 'Whiskers: '}${spec.whisker === 'tukey' ? '1.5×IQR' : ko ? '최소–최대' : 'min–max'} · ${unit}`,
-    legend: groups.map((g, i) => ({ label: g.label, color: fills[i % 4], stroke: strokeToken(fills[i % 4]), symbol: 'rect' })),
+    legend: groups.map((g, i) => ({ label: g.label, color: g.stats ? fills[i % 4] : 'chart-no-data', stroke: g.stats ? strokeToken(fills[i % 4]) : 'chart-no-data-pattern', unknown: !g.stats, symbol: 'rect' })),
     seriesKeys: [rows.map(r => r.key), outliers.map(o => rows[o.group].key), medianGroups.map(i => rows[i].key)],
     option: active => {
       const theme = chartTheme();
@@ -110,7 +119,7 @@ export function boxPlotData(spec: BoxPlotSpec, ko: boolean, unit: string): KindP
         grid: { top: 24, bottom: 24, left: 24, right: 24, containLabel: true },
         tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (p: { seriesIndex: number; dataIndex: number }) => { const index = p.seriesIndex === 1 ? outliers[p.dataIndex]?.group : p.seriesIndex === 2 ? medianGroups[p.dataIndex] : p.dataIndex; return index === undefined ? '' : tableValues[index].map((value, i) => `${headers[i]}: ${value}`).join(' · '); } },
         xAxis: { type: 'category', data: groups.map(g => g.label), axisLine: theme.axisLine, axisLabel: theme.axisLabel },
-        yAxis: { type: 'value', name: unit, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine },
+        yAxis: [{ type: 'value', name: unit, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine }, { type: 'value', show: false, min: 0, max: 1 }],
         series: [
           { type: 'boxplot', boxWidth: [24, 24], itemStyle: { borderColor: token(strokeToken(fills[0])) },
             markLine: { ...theme.referenceLine, data: spec.referenceLines?.filter(r => Number.isFinite(r.value)).map(r => ({ name: r.label, yAxis: r.value })) },
@@ -119,6 +128,9 @@ export function boxPlotData(spec: BoxPlotSpec, ko: boolean, unit: string): KindP
           { type: 'scatter', symbolSize: 5, data: outliers.map(o => ({ value: [o.group, o.value], itemStyle: { color: token(strokeToken(fills[o.group % 4])) } })) },
           // ECharts boxplot draws its median and outline in one path. Overlay an exact-width median in the on-fill token.
           { type: 'scatter', symbol: 'rect', symbolSize: [24, 2], z: 3, itemStyle: { color: token('chart-median-on-fill') }, data: medianGroups.map(i => ({ value: [i, groups[i].stats!.median] })) },
+          // A separate hidden 0..1 axis centres text without inventing a box statistic or altering its value axis.
+          { type: 'scatter', yAxisIndex: 1, symbolSize: 0, silent: true, tooltip: { show: false },
+            label: { show: true, position: 'inside', formatter: unknown, color: theme.axisLabel.color }, data: unknownGroups.map(i => [i, 0.5]) },
         ],
       };
     },

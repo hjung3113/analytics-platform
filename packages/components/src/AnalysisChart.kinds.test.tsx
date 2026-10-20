@@ -192,7 +192,7 @@ it('normalizes scatter groups, duplicate IDs and invalid coordinates without los
   expect(option.series[0].data[0].itemStyle.color).toBe(readColorToken('chart-purple'));
   expect(option.series.at(-1)!.data[0].itemStyle.color).toBe(readColorToken('chart-remainder'));
   expect(option.series[0].markLine?.lineStyle).toEqual({ color: readColorToken('text-secondary'), type: 'dashed' });
-  expect(option.series[0].markLine?.data).toEqual([{ name: 'X ref', xAxis: 2 }, { name: 'Y ref', yAxis: 3 }]);
+  expect(option.series[0].markLine?.data).toEqual([{ name: 'X ref', xAxis: 2, label: { position: 'end', rotate: 0, offset: [0, 8], verticalAlign: 'top' } }, { name: 'Y ref', yAxis: 3 }]);
   expect(screen.getByRole('list', { name: '범례' }).textContent).toBe('Declared기본 그룹BCDE');
   expect(diagnostic).toHaveBeenCalledWith(expect.stringContaining('four scatter groups'));
   expect(diagnostic).toHaveBeenCalledWith(expect.stringContaining('duplicate ID'));
@@ -340,5 +340,85 @@ it('does not carry a heatmap coordinate selection into a matching new-kind row I
   await screen.findByRole('img'); click(0, 0);
   expect(selection()).toHaveTextContent('1칸 선택');
   view.update(scatter);
+  expect(selection()).toHaveTextContent('선택 없음');
+});
+
+
+it('hides the scatter ECharts toolbox while keeping the header drag toggle', async () => {
+  mount(scatter); await screen.findByRole('img');
+  expect(plot.option).toMatchObject({ toolbox: { show: false } });
+  expect(screen.getByRole('button', { name: '끌어서 선택' })).toHaveAttribute('aria-pressed', 'false');
+  fireEvent.click(screen.getByRole('button', { name: '끌어서 선택' }));
+  expect(screen.getByRole('button', { name: '끌어서 선택' })).toHaveAttribute('aria-pressed', 'true');
+});
+
+it('keeps scatter vertical reference labels horizontal inside the top of the grid and centres the x-axis name', async () => {
+  mount({ ...scatter, referenceLines: [{ axis: 'x', value: 2, label: 'Target' }, { axis: 'y', value: 3, label: 'Y target' }] });
+  await screen.findByRole('img');
+  expect(plot.option).toMatchObject({
+    grid: { bottom: 56 }, xAxis: { name: 'X (s)', nameLocation: 'middle', nameGap: 32 },
+    series: [{ markLine: { data: [
+      { name: 'Target', xAxis: 2, label: { position: 'end', rotate: 0, offset: [0, 8], verticalAlign: 'top' } },
+      { name: 'Y target', yAxis: 3 },
+    ] } }],
+  });
+});
+
+it.each([
+  { refs: [], expectedX: [58, 102], expectedY: [9, 31] },
+  { refs: [{ axis: 'x' as const, value: 140, label: 'Upper' }, { axis: 'y' as const, value: -10, label: 'Lower' }], expectedX: [56, 144], expectedY: [-12, 32] },
+])('pads scatter value axes around data and includes outside references: $expectedX', async ({ refs, expectedX, expectedY }) => {
+  mount({ ...scatter, points: [{ id: 'a', x: 60, y: 10 }, { id: 'b', x: 100, y: 30 }], referenceLines: refs });
+  await screen.findByRole('img');
+  type Axis = { scale: boolean; min: (extent: { min: number; max: number }) => number; max: (extent: { min: number; max: number }) => number };
+  const option = plot.option as { xAxis: Axis; yAxis: Axis };
+  expect(option.xAxis.scale).toBe(true); expect(option.yAxis.scale).toBe(true);
+  expect([option.xAxis.min({ min: 60, max: 100 }), option.xAxis.max({ min: 60, max: 100 })]).toEqual(expectedX);
+  expect([option.yAxis.min({ min: 10, max: 30 }), option.yAxis.max({ min: 10, max: 30 })]).toEqual(expectedY);
+});
+
+it.each(['scatter', 'pareto'] as const)('puts the count before at most three %s labels in both languages', async kind => {
+  const items = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon'].map((label, i) => ({ id: String(i), label, value: 5 - i, x: i, y: i }));
+  mount(kind === 'scatter' ? { ...scatter, points: items } : { kind: 'pareto', items });
+  await screen.findByRole('img');
+  for (let i = 0; i < 3; i++) click(0, i);
+  expect(selection()).toHaveTextContent(/^Alpha, Beta, Gamma · 3개 선택$/);
+  click(0, 3); click(0, 4);
+  expect(selection()).toHaveTextContent(/^5개 선택 · Alpha, Beta, Gamma 외 2개$/);
+  fireEvent.click(screen.getByRole('button', { name: 'english' }));
+  expect(screen.getByRole('region', { name: 'Selection summary' })).toHaveTextContent(/^5 selected · Alpha, Beta, Gamma \+2 more$/);
+});
+
+it.each(['ko', 'en'])('marks an unknown box slot at its category centre and uses the no-data legend swatch in %s', async lang => {
+  mount({ ...box, groups: [box.groups[0], { id: 'missing', label: 'Missing', stats: null }, box.groups[1]] });
+  await screen.findByRole('img');
+  if (lang === 'en') fireEvent.click(screen.getByRole('button', { name: 'english' }));
+  expect(plot.option).toMatchObject({
+    yAxis: [{ type: 'value' }, { show: false, min: 0, max: 1 }],
+    series: [{}, {}, {}, {
+      type: 'scatter', yAxisIndex: 1, symbolSize: 0, silent: true,
+      label: { show: true, position: 'inside', formatter: lang === 'ko' ? '미확인' : 'Unknown' }, data: [[1, 0.5]],
+    }],
+  });
+  const legend = screen.getByRole('list', { name: lang === 'ko' ? '범례' : 'Legend' });
+  const missing = within(legend).getByText('Missing').querySelector('rect');
+  expect(missing).toHaveAttribute('fill', readColorToken('chart-no-data'));
+  expect(missing).toHaveAttribute('stroke', readColorToken('chart-no-data-pattern'));
+  expect(missing).toHaveAttribute('stroke-dasharray', '2 2');
+});
+
+it.each<ChartSpec>([
+  { kind: 'heatmap', xLabels: ['A'], yLabels: ['B'], cells: [{ x: 'A', y: 'B', value: 1 }] },
+  { kind: 'donut', slices: [{ id: 'a', label: 'Alpha', value: 1 }] }, scatter, box, pareto,
+])('uses the shared checkbox with Space and canvas selection sharing state for $kind', async spec => {
+  const user = userEvent.setup();
+  mount(spec); await screen.findByRole('img');
+  await user.click(screen.getByRole('button', { name: '표로 보기' })); await user.tab();
+  const checkbox = screen.getAllByRole('checkbox')[0];
+  expect(checkbox.tagName).toBe('BUTTON');
+  expect(checkbox).toHaveAccessibleName(/^선택 /); expect(checkbox).toHaveFocus();
+  await user.keyboard(' '); expect(checkbox).toBeChecked();
+  expect(selection()).not.toHaveTextContent('선택 없음');
+  click(0, 0); expect(checkbox).not.toBeChecked();
   expect(selection()).toHaveTextContent('선택 없음');
 });
