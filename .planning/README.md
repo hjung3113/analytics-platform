@@ -26,7 +26,7 @@
 
    - [#534](https://github.com/hjung3113/analytics-platform/issues/534) 품질 후속(Q3–Q7, F1–F3) — 완료. `dropResetKeys`는 제거 예고만 했다(ADR-0044 한 릴리스 예고, [backlog](backlog.md)).
 
-   - [#535](https://github.com/hjung3113/analytics-platform/issues/535) 다른 칸 상세가 열리면 이전 칸 상세를 닫음(BX-2) — #534 뒤.
+   - [#535](https://github.com/hjung3113/analytics-platform/issues/535) 다른 칸 상세가 열리면 이전 칸 상세를 닫음(BX-2) — 완료(`useDetailPanelSlot` `onSuperseded`, 06 §13·ADR-0047 보충).
 
    - [#536](https://github.com/hjung3113/analytics-platform/issues/536) 2×2 칸 높이·빈 화면 안내·좁은 폭 차이 칩(BX-5·BX-1·BX-3) — 사례 조사 → `?variant=` 시안 컨펌 → 구현.
 

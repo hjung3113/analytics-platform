@@ -1,7 +1,7 @@
 import { paneRootById } from './pageFocus';
 import { OutcomeBanners, OutcomeScope } from './OutcomeScope';
 import { X } from 'lucide-react';
-import { Fragment, useEffect, useId, useLayoutEffect, useRef, type ReactNode } from 'react';
+import { Fragment, useEffect, useId, useInsertionEffect, useLayoutEffect, useRef, type MutableRefObject, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { buildQuery } from '@ap/contracts';
 import { useI18n, usePlatformOptional } from '@ap/kernel';
@@ -13,14 +13,22 @@ export function DetailDrawer({ title, subtitle, headerActions, context, tabs, on
   tabs: { id: string; label: ReactNode; content: ReactNode }[];
   onClose: () => void; tab?: string; onTabChange?: (tab: string) => void;
 }) {
-  const host = useDetailPanelSlot();
+  const paneId = usePlatformOptional()?.paneId;
+  const closeLatest = useRef(onClose);
+  useInsertionEffect(() => { closeLatest.current = onClose; });
+  // A terminal reason for this drawer lifetime, including every outgoing content cleanup/replay.
+  const superseded = useRef(false);
+  const host = useDetailPanelSlot(paneId != null ? { onSuperseded: () => {
+    superseded.current = true;
+    closeLatest.current();
+  } } : undefined);
   useCloseOnPaneChange(onClose);
-  return host ? createPortal(<OutcomeScope><DetailContent title={title} subtitle={subtitle} headerActions={headerActions} context={context} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} /></OutcomeScope>, host) : null;
+  return host ? createPortal(<OutcomeScope><DetailContent superseded={superseded} title={title} subtitle={subtitle} headerActions={headerActions} context={context} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} /></OutcomeScope>, host) : null;
 }
 
 /**
  * Docs/16 §5: a panel opened from a board pane belongs to the screen and Context that pane had then; when either changes it closes.
- * Runs in the drawer itself, not its portaled content, so a panel that lost the shared slot to another pane still notices.
+ * Runs in the drawer itself, not its portaled content, so changes are noticed even before a host is attached.
  */
 function useCloseOnPaneChange(onClose: () => void) {
   const platform = usePlatformOptional();
@@ -37,7 +45,7 @@ function useCloseOnPaneChange(onClose: () => void) {
   }, [identity]);
 }
 
-function DetailContent({ title, subtitle, headerActions, context, tabs, onClose, tab, onTabChange }: Parameters<typeof DetailDrawer>[0]) {
+function DetailContent({ superseded, title, subtitle, headerActions, context, tabs, onClose, tab, onTabChange }: Parameters<typeof DetailDrawer>[0] & { superseded: MutableRefObject<boolean> }) {
   const { lang } = useI18n();
   const close = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -56,6 +64,7 @@ function DetailContent({ title, subtitle, headerActions, context, tabs, onClose,
     const claim = pageNavigation?.claimsDetailFocus() ?? true;
     if (claim) close.current?.focus({ preventScroll: true });
     return () => {
+      if (superseded.current) return;
       const inside = panel.current?.contains(document.activeElement) ?? false;
       // A panel that never took focus must not treat the untouched body as its own.
       const restore = claim ? inside || document.activeElement === document.body : inside || (document.activeElement === document.body && focusInside.current);
@@ -65,7 +74,7 @@ function DetailContent({ title, subtitle, headerActions, context, tabs, onClose,
       const target = opener?.isConnected && opener !== document.body ? opener : paneRoot ?? document.getElementById('platform-main');
       target?.focus({ preventScroll: true });
     };
-  }, [pageNavigation, paneId]);
+  }, [pageNavigation, paneId, superseded]);
   useLayoutEffect(() => {
     // A pointerdown outside the panel is the user choosing a focus destination (often body).
     const onPointerDown = (e: PointerEvent) => { if (!panel.current?.contains(e.target as Node)) focusInside.current = false; };

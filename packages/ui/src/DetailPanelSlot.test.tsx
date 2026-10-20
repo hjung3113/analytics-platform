@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { createContext, StrictMode, useContext, type ReactNode } from 'react';
+import { createContext, StrictMode, useContext, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { afterEach, expect, it, vi } from 'vitest';
 import { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from './DetailPanelSlot';
@@ -170,4 +170,139 @@ it('the host hook returns the same toggle the portaled content receives', () => 
   expect(screen.getByRole('button', { name: 'panel:true' })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'host-toggle' }));
   expect(host().getAttribute('data-expanded')).toBe('false');
+});
+
+function ClosingPortal({ name, onClose }: { name: string; onClose: () => void }) {
+  const target = useDetailPanelSlot({ onSuperseded: onClose });
+  return target ? createPortal(<button>{name}</button>, target) : null;
+}
+
+it.each([false, true])('closes only the outgoing portal once in StrictMode (simultaneous=%s), even without a host', simultaneous => {
+  const first = vi.fn();
+  const second = vi.fn();
+  function ClosingFixture({ add = simultaneous, attach = false }: { add?: boolean; attach?: boolean }) {
+    const [open, setOpen] = useState(true);
+    const [winner, setWinner] = useState(true);
+    return <DetailPanelSlotProvider>
+      {open && <ClosingPortal name="old" onClose={() => { first(); setOpen(false); }} />}
+      {add && winner && <ClosingPortal name="winner" onClose={second} />}
+      <button onClick={() => setWinner(false)}>remove winner</button>
+      {attach && <Host />}
+    </DetailPanelSlotProvider>;
+  }
+  const view = render(<StrictMode><ClosingFixture /></StrictMode>);
+  view.rerender(<StrictMode><ClosingFixture add /></StrictMode>);
+  expect(first).toHaveBeenCalledTimes(1);
+  expect(second).not.toHaveBeenCalled();
+  view.rerender(<StrictMode><ClosingFixture add attach /></StrictMode>);
+  expect(screen.getByRole('button', { name: 'winner' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'remove winner' }));
+  expect(host().childElementCount).toBe(0);
+  expect(first).toHaveBeenCalledTimes(1);
+});
+
+it.each(['node', 'null'])('new content %s supersedes a portal; updates and undefined do not', kind => {
+  const node = kind === 'node' ? <p>content</p> : null;
+  const closed = vi.fn();
+  function Mixed({ value, portal = true }: { value: ReactNode | undefined; portal?: boolean }) {
+    return <DetailPanelSlotProvider>
+      <Content name="content" node={value} />
+      {portal && <ClosingPortal name="portal" onClose={closed} />}
+      <Host />
+    </DetailPanelSlotProvider>;
+  }
+  const view = render(<Mixed value={node} />);
+  expect(closed).not.toHaveBeenCalled();
+  view.rerender(<Mixed value={<p>updated</p>} />);
+  expect(screen.getByRole('button', { name: 'portal' })).toBeTruthy();
+  expect(closed).not.toHaveBeenCalled();
+  view.rerender(<Mixed value={undefined} />);
+  expect(closed).not.toHaveBeenCalled();
+  view.rerender(<Mixed value={node} />);
+  expect(closed).toHaveBeenCalledTimes(1);
+  view.rerender(<Mixed value={undefined} portal={false} />);
+  expect(closed).toHaveBeenCalledTimes(1);
+});
+
+it.each([false, true])('notifies a surviving portal again after it resumes and is superseded (StrictMode=%s)', strict => {
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const superseded = vi.fn();
+  function ResumingFixture({ winner }: { winner?: 'b' | 'c' }) {
+    return <DetailPanelSlotProvider>
+      <ClosingPortal name="a" onClose={superseded} />
+      {winner && <Consumer key={winner} name={winner} />}
+      <Host />
+    </DetailPanelSlotProvider>;
+  }
+  const fixture = (winner?: 'b' | 'c') => strict
+    ? <StrictMode><ResumingFixture winner={winner} /></StrictMode>
+    : <ResumingFixture winner={winner} />;
+  const view = render(fixture());
+  expect(screen.getByRole('button', { name: 'a' })).toBeTruthy();
+  view.rerender(fixture('b'));
+  expect(screen.getByRole('button', { name: 'b:missing' })).toBeTruthy();
+  expect(superseded).toHaveBeenCalledTimes(1);
+  view.rerender(fixture());
+  expect(screen.getByRole('button', { name: 'a' })).toBeTruthy();
+  expect(superseded).toHaveBeenCalledTimes(1);
+  view.rerender(fixture('c'));
+  expect(screen.getByRole('button', { name: 'c:missing' })).toBeTruthy();
+  expect(superseded).toHaveBeenCalledTimes(2);
+});
+
+it.each([false, true])('notifies a surviving portal when the winner is replaced in one commit (StrictMode=%s)', strict => {
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const superseded = vi.fn();
+  function ReplacingFixture({ winner }: { winner?: 'b' | 'c' }) {
+    return <DetailPanelSlotProvider>
+      <ClosingPortal name="a" onClose={superseded} />
+      {winner && <Consumer key={winner} name={winner} />}
+      <Host />
+    </DetailPanelSlotProvider>;
+  }
+  const fixture = (winner?: 'b' | 'c') => strict
+    ? <StrictMode><ReplacingFixture winner={winner} /></StrictMode>
+    : <ReplacingFixture winner={winner} />;
+  const view = render(fixture());
+  expect(screen.getByRole('button', { name: 'a' })).toBeTruthy();
+  view.rerender(fixture('b'));
+  expect(screen.getByRole('button', { name: 'b:missing' })).toBeTruthy();
+  expect(superseded).toHaveBeenCalledTimes(1);
+  view.rerender(fixture('c'));
+  expect(screen.getByRole('button', { name: 'c:missing' })).toBeTruthy();
+  expect(superseded).toHaveBeenCalledTimes(2);
+});
+
+it('notifies once when slot activation mounts a winner under StrictMode', () => {
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const superseded = vi.fn();
+  function WinnerWhenOpen() {
+    const { open } = useDetailPanelSlotHost();
+    return open ? <Consumer name="b" /> : null;
+  }
+  render(<StrictMode><DetailPanelSlotProvider>
+    <ClosingPortal name="a" onClose={superseded} />
+    <WinnerWhenOpen />
+    <Host />
+  </DetailPanelSlotProvider></StrictMode>);
+  expect(screen.getByRole('button', { name: 'b:missing' })).toBeTruthy();
+  expect(superseded).toHaveBeenCalledTimes(1);
+});
+
+it('own unregister and removing the winner never notify an inactive portal', () => {
+  const closed = vi.fn();
+  function Pair({ first = true, second = false }: { first?: boolean; second?: boolean }) {
+    return <DetailPanelSlotProvider>
+      {first && <ClosingPortal name="first" onClose={closed} />}
+      {second && <Consumer name="second" />}
+      <Host />
+    </DetailPanelSlotProvider>;
+  }
+  const view = render(<Pair />);
+  view.rerender(<Pair first={false} />);
+  expect(closed).not.toHaveBeenCalled();
+  view.rerender(<Pair second />);
+  expect(closed).toHaveBeenCalledTimes(1);
+  view.rerender(<Pair />);
+  expect(closed).toHaveBeenCalledTimes(1);
 });
