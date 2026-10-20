@@ -12,6 +12,7 @@
     "docs:links": "node .github/scripts/check-doc-links.mjs",
     "sdk:pack": "node tooling/scripts/sdk-pack.mjs",
     "sdk:consumer-check": "node tooling/scripts/sdk-consumer-check.mjs",
+    "sdk:api": "node tooling/scripts/sdk-api-snapshot.mjs",
     "gen:menu": "node tooling/gen-menu/src/cli.ts",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",

@@ -1,0 +1,4 @@
+noContext | const | const noContext: Record<ContextKey, Capability>
+testAdapter | function | function testAdapter(over?: Partial<PlatformAdapter>): PlatformAdapter
+testSession | function | function testSession(permissions: readonly (Permission | ModuleScopedId)[], over?: { user?: Partial<SessionUser>; scopes?: readonly ScopeOption[]; }): Session
+testSpace | function | function testSpace(over?: Partial<SpaceDef>): SpaceDef

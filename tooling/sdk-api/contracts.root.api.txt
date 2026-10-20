@@ -1,0 +1,113 @@
+AccessDirectoryPage | type | type AccessDirectoryPage = { items: readonly AccessPrincipal[]; total: number; }
+AccessDirectoryQuery | type | type AccessDirectoryQuery = { role?: string; permission?: Permission; page?: number; pageSize?: number; sort?: { field: AccessSortField; desc: boolean; }; }
+AccessPrincipal | type | type AccessPrincipal = { id: string; name: string; title: Text; role: string; permissions: readonly Permission[]; sites: readonly SiteGrant[]; }
+AccessSortField | type | type AccessSortField = "name" | "role" | "permissionCount" | "grantCount"
+ActionOutcome | type | type ActionOutcome = "ok" | "invalid" | "conflict" | "forbidden" | "not_found" | "error" | "unknown"
+ActionResponse | type | type ActionResponse<T> = { outcome: ActionOutcome; data: T | null; version: string | null; fieldErrors: readonly FieldError[]; replayed: boolean; correlationId: string; message?: string; }
+ActionResult | type | type ActionResult<T> = ActionResponse<T> & { retry?: () => Promise<ActionResult<T>>; }
+ActionSpec | type | type ActionSpec<I, T> = { id: string; menuId: string; inputKeys: Readonly<Record<keyof I & string, true>>; permission: Permission; requiresScope: boolean; concurrency: "none" | "version"; invalidates: readonly AnyEndpointSpec[]; readonly _types?: { input: I; data: T; }; }
+AnnotationInput | type | type AnnotationInput = AnnotationRef & { from: string; to: string; text: string; }
+AnnotationRef | type | type AnnotationRef = { chartId: string; scopeId: string | null; }
+AnyActionSpec | type | type AnyActionSpec = { id: string; menuId: string; inputKeys: Readonly<Record<string, true>>; permission: Permission; requiresScope: boolean; concurrency: "none" | "version"; invalidates: readonly AnyEndpointSpec[]; readonly _types?: { input: any; data: unknown; } | undefined; }
+AnyEndpointSpec | type | type AnyEndpointSpec = { id: string; menuId: string; paramKeys: Readonly<Record<string, true>>; permission: Permission; requiresScope: boolean; context: Partial<Record<ContextKey, Exclude<Capability, "unsupported">>>; kinds: readonly AssessmentKind[]; limits?: { maxHours?: number; maxRows?: number; }; mergeTimeDomain: boolean; readonly _types?: { params: any; data: unknown; } | undefined; }
+ApiResponse | type | type ApiResponse<T> = { outcome: Outcome; data: T | null; assessments: Assessment[]; trust: Trust | null; correlationId: string; message?: string; }
+Assessment | type | type Assessment = { kind: AssessmentKind; state: "confirmed" | "clear" | "unknown"; statusSource?: string; observedAt?: string; reason?: "source_unavailable" | "check_failed"; explainsEmpty?: boolean; detail?: string; }
+AssessmentKind | type | type AssessmentKind = "collection" | "processing_delay" | "coverage" | "time_domain" | "respondent_history"
+AuditAction | type | type AuditAction = "create" | "update" | "retire" | "sync" | "delete"
+AuditEvent | type | type AuditEvent = { id: string; at: string; actor: string; action: AuditAction; source: AuditSource; target: AuditTarget; changes?: Record<string, [string | null, string | null]>; reason?: string; }
+AuditSortField | type | type AuditSortField = "at" | "actor" | "action" | "source" | "targetType"
+AuditSource | type | type AuditSource = "user" | "system"
+AuditTarget | type | type AuditTarget = { type: string; id: string; scopeId: string | null; }
+AuditTrailPage | type | type AuditTrailPage = { items: readonly AuditEvent[]; total: number; }
+AuditTrailQuery | type | type AuditTrailQuery = { type?: string; actor?: string; action?: AuditAction; source?: AuditSource; fromAt?: string; toAt?: string; targetId?: string; page?: number; pageSize?: number; sort?: { field: AuditSortField; desc: boolean; }; }
+Capability | type | type Capability = "apply" | "reference" | "unsupported"
+ChartAnnotation | type | type ChartAnnotation = { id: string; chartId: string; scopeId: string; from: string; to: string; text: string; at: string; mine: boolean; }
+ClientErrorReport | type | type ClientErrorReport = { correlationId: string; menuId: string; spaceId: SpaceId | null; path: string; name: string; }
+Condition | type | type Condition = { axis: "stgroup"; id: string; } | { axis: "team"; id: string; } | { axis: "makerModel"; maker: string; model: string; }
+ConditionAxis | type | type ConditionAxis = "stgroup" | "team" | "makerModel"
+ConditionOptions | type | type ConditionOptions = { stgroup: string[]; team: string[]; makerModel: { maker: string; model: string; }[]; }
+ContextKey | type | type ContextKey = "time" | "roomNames" | "condition" | "selection" | "lot" | "ppid" | "recipe" | "metric"
+ContractError | class | class ContractError extends Error { code: string; constructor(code: string, message: string, field?: string | undefined, raw?: string | undefined); field?: string | undefined; raw?: string | undefined; }
+DrillLevel | type | type DrillLevel = { key: string; label: Text; }
+EndpointSpec | type | type EndpointSpec<P, T> = { id: string; menuId: string; paramKeys: Readonly<Record<keyof P & string, true>>; permission: Permission; requiresScope: boolean; context: Partial<Record<ContextKey, Exclude<Capability, "unsupported">>>; kinds: readonly AssessmentKind[]; limits?: { maxHours?: number; maxRows?: number; }; mergeTimeDomain: boolean; readonly _types?: { params: P; data: T; }; }
+EntityRef | type | type EntityRef = { type: string; id: string; scopeId: string | null; }
+EquipmentOption | type | type EquipmentOption = { equipmentId: string; room: string; model: string; }
+FeedbackOpsTarget | type | type FeedbackOpsTarget = { kind: "voc-create"; managedSystemId?: string; platformReturn?: string; } | { kind: "voc-detail"; vocId: string; managedSystemId?: string; platformReturn?: string; } | { kind: "survey-detail"; surveyId: string; platformReturn?: string; } | { kind: "voc-list"; managedSystemId: string; platformReturn?: string; } | { kind: "task-list"; managedSystemId: string; platformReturn?: string; } | { kind: "survey-list"; managedSystemId: string; platformReturn?: string; } | { kind: "overall"; }
+FieldError | type | type FieldError = { path: readonly string[]; code: string; }
+GLOBAL_KEYS | const | const GLOBAL_KEYS: Set<string>
+GROUP_IDS | const | const GROUP_IDS: readonly GroupId[]
+GlobalContext | type | type GlobalContext = { scopeId: string | null; from: string | null; to: string | null; roomNames: IdSet; condition: Condition | null; selection: IdSet; lotIds: IdSet; ppid: string | null; recipeIds: IdSet; metricId: string | null; metricVersion: string | null; }
+Grain | type | type Grain = "hour" | "day" | "week"
+GroupId | type | type GroupId = "metrics" | "analytics" | "equipment" | "overview" | "masterData" | "noticeVoc" | "admin"
+HOST_CONTRACTS | const | const HOST_CONTRACTS: readonly [1]
+HostContract | type | type HostContract = 1
+HostFeature | type | type HostFeature = "query" | "detailSlot" | "write"
+IdSet | type | type IdSet = string[] | null
+MenuAction | type | type MenuAction<I = unknown> = { action: string; context: { scopeId?: string | null; }; input: I; idempotencyKey: string; expectedVersion?: string; }
+MenuMeta | type | type MenuMeta = { id: string; group: GroupId; label: Text; description: Text; path: string; permission: Permission; requiresScope: boolean; context: Record<ContextKey, Capability>; pageType: PageType; features: { export: boolean; savedView: boolean; annotate: boolean; compare: boolean; board?: boolean; }; pageKeys: readonly string[]; contextResetKeys?: readonly string[]; initializesMetric?: boolean; navHidden?: boolean; parent?: string; primary?: boolean; drill?: { levels: readonly DrillLevel[]; }; }
+MenuQuery | type | type MenuQuery<P = unknown> = { endpoint: string; context: MenuQueryContext; params: P; }
+MenuQueryContext | type | type MenuQueryContext = { scopeId?: string | null | undefined; from?: string | null | undefined; to?: string | null | undefined; roomNames?: import("./dist/url").IdSet | undefined; condition?: import("./dist/url").Condition | null | undefined; selection?: import("./dist/url").IdSet | undefined; lotIds?: import("./dist/url").IdSet | undefined; ppid?: string | null | undefined; recipeIds?: import("./dist/url").IdSet | undefined; metricId?: string | null | undefined; metricVersion?: string | null | undefined; }
+ModuleHost | type | type ModuleHost = { contract: HostContract; session(): { user: { id: string; name: string; } | null; generation: number; }; can(permission: string): boolean; params(): Readonly<Record<string, string>>; page(key: string): string | null; setPage(patch: Record<string, string | null>, options?: { replace?: boolean; }): void; href(target: ModuleTarget): { href: string; allowed: boolean; } | null; navigate(target: ModuleTarget, options?: { replace?: boolean; }): boolean; returnTarget(): string; context(): { values: Partial<GlobalContext>; unsupported: readonly ContextKey[]; }; query?<P, T>(spec: EndpointSpec<P, T>, params: P, signal?: AbortSignal): Promise<ApiResponse<T>>; act?<I, T>(spec: ActionSpec<I, T>, input: I, options?: { expectedVersion?: string; }): Promise<ActionResult<T>>; config(key: string): string | null; lang(): "ko" | "en"; notify(text: string, tone?: "info" | "warning" | "danger"): void; status(next: ModuleStatus): void; reportError(error: unknown): string; focusTarget(el: unknown): void; detail?: { show(node: unknown, label: string): void; clear(): void; }; subscribe(onChange: () => void): () => void; signal: AbortSignal; }
+ModuleManifest | type | type ModuleManifest = { module: { id: string; label: Text; contract: HostContract; languages: readonly ("ko" | "en")[]; }; requires: readonly HostFeature[]; optional?: readonly HostFeature[]; config?: readonly string[]; groups: readonly { id: ModuleScopedId; label: Text; }[]; screens: readonly ModuleScreenMeta[]; }
+ModuleScopedId | type | type ModuleScopedId = `${string}:${string}`
+ModuleScreenMeta | type | type ModuleScreenMeta = Omit<MenuMeta, "permission" | "group" | "path"> & { path: string; group: ModuleScopedId; permission: ModuleScopedId; }
+ModuleScreenProps | type | type ModuleScreenProps = { params: Readonly<Record<string, string>>; host: ModuleHost; }
+ModuleStatus | type | type ModuleStatus = "ready" | "auth_required" | "identity_mismatch" | "unavailable"
+ModuleTarget | type | type ModuleTarget = { screen: string; params?: Record<string, string>; page?: Record<string, string>; returnTo?: boolean; } | { menuId: string; params?: Record<string, string>; page?: Record<string, string>; returnTo?: boolean; }
+Outcome | type | type Outcome = "ok" | "forbidden" | "error" | "empty" | "too_large" | "timeout"
+PERMISSIONS | const | const PERMISSIONS: readonly ["platform:view", "equipment:view", "master:view", "analytics:view", "metrics:view", "notice:view", "voc:view", "console:access", "feedbackops:access"]
+PLATFORM_RETURN_MAX | const | const PLATFORM_RETURN_MAX: 2048
+PageQuery | type | type PageQuery = { page: number; pageSize: number; sorting: PageSort[]; }
+PageResult | type | type PageResult<T> = { rows: T[]; total: number; }
+PageSort | type | type PageSort = { id: string; desc: boolean; }
+PageType | type | type PageType = "overview" | "analysis" | "management" | "catalog" | "workflow"
+Pair | type | type Pair = [string, string]
+ParsedQuery | type | type ParsedQuery = { global: GlobalContext; page: Pair[]; extras: Pair[]; }
+Permission | type | type Permission = "platform:view" | "equipment:view" | "master:view" | "analytics:view" | "metrics:view" | "notice:view" | "voc:view" | "console:access" | "feedbackops:access"
+PlatformAdapter | type | type PlatformAdapter = { session(): Session; validateScope(scopeId: string, signal?: AbortSignal): Promise<ScopeCheck>; publishedMetrics(): readonly PublishedMetric[]; contextOptions(scopeId: string, signal?: AbortSignal): Promise<ConditionOptions>; evaluateSelection(input: SelectionInput, signal?: AbortSignal): Promise<SelectionEvaluation>; getEntity(ref: EntityRef, signal?: AbortSignal): Promise<ApiResponse<unknown>>; menuQuery(req: MenuQuery, signal?: AbortSignal): Promise<ApiResponse<unknown>>; menuAction(req: MenuAction, signal?: AbortSignal): Promise<ActionResponse<unknown>>; defaultRangeTo(): string; recordUsage(events: readonly UsageEvent[]): Promise<{ accepted: number; }>; reportClientError(report: ClientErrorReport): Promise<{ accepted: boolean; }>; usageSummary(range: UsageRange, signal?: AbortSignal): Promise<ApiResponse<UsageSummary>>; auditTrail(query: AuditTrailQuery, signal?: AbortSignal): Promise<ApiResponse<AuditTrailPage>>; entityAudit(ref: EntityRef, signal?: AbortSignal): Promise<ApiResponse<{ events: readonly AuditEvent[]; }>>; accessDirectory(query: AccessDirectoryQuery, signal?: AbortSignal): Promise<ApiResponse<AccessDirectoryPage>>; listAnnotations(ref: AnnotationRef, signal?: AbortSignal): Promise<ApiResponse<{ items: readonly ChartAnnotation[]; }>>; saveAnnotation(input: AnnotationInput, signal?: AbortSignal): Promise<ApiResponse<ChartAnnotation>>; deleteAnnotation(ref: AnnotationRef & { id: string; }, signal?: AbortSignal): Promise<ApiResponse<{ id: string; }>>; subscribe(onChange: () => void): () => void; }
+PlatformHop | type | type PlatformHop = { menuId: "equipment-detail"; equipmentId: string; } | { menuId: "equipment-master"; } | { menuId: "cycle-time"; }
+PublishedMetric | type | type PublishedMetric = { metricId: string; publishedVersion: string | null; }
+ScopeCheck | type | type ScopeCheck = { status: "valid" | "forbidden" | "unknown_scope"; grantedRooms: string[]; }
+ScopeOption | type | type ScopeOption = { id: string; label: string; grantedRooms: number; totalRooms: number; }
+SelectionEvaluation | type | type SelectionEvaluation = { inCondition: EquipmentOption[]; outOfCondition: string[]; }
+SelectionInput | type | type SelectionInput = { scopeId: string | null; roomNames: IdSet; condition: Condition | null; selection: IdSet; }
+Session | type | type Session = { user: SessionUser; scopes: readonly ScopeOption[]; }
+SessionUser | type | type SessionUser = { id: string; name: string; title: Text; permissions: readonly (Permission | ModuleScopedId)[]; }
+SiteGrant | type | type SiteGrant = { id: string; label: string; grantedRooms: readonly string[]; totalRooms: number; }
+SpaceDef | type | type SpaceDef = { id: SpaceId; label: Text; subtitle?: Text; description: Text; permission?: Permission; homeMenuId: string; }
+SpaceId | type | type SpaceId = "metrics" | "analytics" | "operations"
+Text | type | type Text = { ko: string; en: string; }
+Trust | type | type Trust = { updatedAt: string; dataThrough: string | null; coverage: number | null; metricVersion?: string; provisional: boolean; source: string; }
+UsageEvent | type | type UsageEvent = { name: UsageEventName; menuId: string; spaceId: SpaceId | null; path: string; at: number; sessionId: string; dwellMs?: number; enteredAt?: number; source?: UsageSource; stayId?: string; }
+UsageEventName | type | type UsageEventName = "entry" | "dwell"
+UsageMenuSummary | type | type UsageMenuSummary = { menuId: string; visits: number; distinctUsers: number; lastUsedAt: number; }
+UsageRange | type | type UsageRange = { preset: "all"; } | { from: number; to: number; }
+UsageSource | type | type UsageSource = "main" | "board"
+UsageSummary | type | type UsageSummary = { preset: "all" | "range"; menus: UsageMenuSummary[]; }
+bucketStart | function | function bucketStart(instant: string, grain: Grain): string
+buildFeedbackOpsLink | function | function buildFeedbackOpsLink(input: { origin: string; target: FeedbackOpsTarget; }): string
+buildPlatformInboundLink | function | function buildPlatformInboundLink(input: { origin: string; hop: PlatformHop; context: GlobalContext; returnTo?: string; }): string
+buildQuery | function | function buildQuery(g: GlobalContext, page?: Pair[], extras?: Pair[]): string
+conditionLabel | function | function conditionLabel(c: Condition): string
+defineAction | const | const defineAction: <I, T>(spec: Omit<ActionSpec<I, T>, "_types">) => ActionSpec<I, T>
+defineEndpoint | const | const defineEndpoint: <P, T>(spec: Omit<EndpointSpec<P, T>, "_types">) => EndpointSpec<P, T>
+emptyGlobal | const | const emptyGlobal: GlobalContext
+formatDateTime | function | function formatDateTime(date: Date): string
+formatInstant | function | function formatInstant(instant: number | string, lang: keyof Text, timeZone?: string): string
+formatMetricVersion | function | function formatMetricVersion(version: string): string
+incompleteMetricPair | function | function incompleteMetricPair(menu: { initializesMetric?: boolean; } | null, metricId: string | null, metricVersion: string | null): ContractError | null
+instantEpochMs | function | function instantEpochMs(instant: string): number
+isAppRelativePath | function | function isAppRelativePath(value: string): boolean
+normalizeSet | function | function normalizeSet(values: string[], field?: string, urlKey?: string): string[]
+parseDateTime | function | function parseDateTime(value: string, field: string, urlKey?: string): Date
+parseFeedbackOpsLink | function | function parseFeedbackOpsLink(url: string, expectedOrigin: string): { target: FeedbackOpsTarget; }
+parsePlatformInboundLink | function | function parsePlatformInboundLink(url: string, expectedOrigin: string): { hop: PlatformHop; context: GlobalContext; extras: Pair[]; returnTo: string | null; }
+parseQuery | function | function parseQuery(search: string, pageKeys?: readonly string[]): ParsedQuery
+periodHours | function | function periodHours(g: { from: string | null; to: string | null; }): number | null
+platformReturnFor | function | function platformReturnFor(fullUrl: string, pathOnlyUrl: string): string | undefined
+projectContext | function | function projectContext<P, T>(spec: EndpointSpec<P, T>, g: GlobalContext): MenuQueryContext
+sameGlobal | function | function sameGlobal(a: GlobalContext, b: GlobalContext): boolean
+serializeGlobal | function | function serializeGlobal(g: GlobalContext): Pair[]
+shift | function | function shift(value: string, hours: number): string
+sortAndPage | function | function sortAndPage<T>(rows: T[], q: PageQuery): PageResult<T>
+sortRows | function | function sortRows<T>(rows: readonly T[], sorting: PageSort[]): T[]

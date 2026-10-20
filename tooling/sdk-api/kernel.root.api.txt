@@ -1,0 +1,74 @@
+AnyGroupId | type | type AnyGroupId = GroupId | `${string}:${string}`
+BOARD_PATH | const | const BOARD_PATH: "/board"
+CONTEXT_LABELS | const | const CONTEXT_LABELS: Record<ContextKey, Text>
+DrillInvalid | type | type DrillInvalid = { key: string; label: Text; value: string; }
+DrillLevelState | type | type DrillLevelState = { key: string; label: Text; value: string | null; }
+DrillState | type | type DrillState = { levels: DrillLevelState[]; depth: number; trail: DrillTrailStep[]; invalid: DrillInvalid | null; enter: (key: string, value: string) => void; goTo: (n: number) => void; }
+DrillTrailStep | type | type DrillTrailStep = { key: string; label: Text; value: string; }
+ErrorGuidance | type | type ErrorGuidance = { code: string | null; cause: Key; action: Key; }
+FeedbackOpsEntry | type | type FeedbackOpsEntry = { id: FeedbackOpsEntryId; label: Text; href: string | null; }
+FeedbackOpsEntryId | type | type FeedbackOpsEntryId = "voc-create" | "voc" | "task" | "survey"
+FeedbackOpsSlot | type | type FeedbackOpsSlot = { entriesFor: (spaceId: SpaceId, platformReturn?: string) => readonly FeedbackOpsEntry[] | null; overall: { href: string; permission: Permission; } | null; }
+GroupDef | type | type GroupDef = PlatformGroupDef | ModuleGroupDef
+I18nProvider | function | function I18nProvider({ children }: { children: ReactNode; }): import("react").JSX.Element
+Key | type | type Key = "close" | "appName" | "appTagline" | "searchPlaceholder" | "collapse" | "expand" | "filters" | "collapseFilters" | "expandFilters" | "collapsedSections" | "collapseSection" | "expandSection" | "collapsePageFilter" | "expandPageFilter" | "collapseShort" | "pageFilterPendingChanges" | "appliedFilterCount" | "applyWithCount" | "unappliedFilterMarker" | "unappliedFilterRail" | "filterStateDescription" | "favorites" | "recent" | "noFavorites" | "noRecent" | "addFavorite" | "removeFavorite" | "scope" | "scopeNone" | "scopeValidating" | "scopeValid" | "scopeForbidden" | "scopeUnknown" | "scopeCheckFailed" | "scopeRetryCheck" | "scopeErrorTitle" | "scopeErrorBody" | "scopeUnknownTitle" | "scopeUnknownBody" | "profile" | "role" | "language" | "signOut" | "signOutUnavailable" | "scenario" | "scenarioHint" | "period" | "preset1d" | "preset7d" | "presetCustom" | "apply" | "cancel" | "reset" | "clear" | "pageFilter" | "clearFilters" | "skipToContent" | "breadcrumb" | "roomNames" | "condition" | "selection" | "all" | "none" | "explicitEmpty" | "notUsed" | "referenceOnly" | "applied" | "inherited" | "globalContext" | "home" | "back" | "returnContextReverted" | "retry" | "loading" | "refreshing" | "correlationId" | "serverDetail" | "askAccessOwner" | "sharedOutcomeRegion" | "sharedOutcomeSummary" | "sharedOutcomeError" | "sharedOutcomeTimeout" | "sharedOutcomeEmpty" | "stateTimeoutBody" | "stateEmpty" | "stateEmptyBody" | "stateForbidden" | "stateForbiddenBody" | "stateTooLarge" | "stateTooLargeBody" | "stateTimeout" | "stateError" | "stateErrorCause" | "stateErrorAction" | "timeDomainUnverifiedCause" | "timeDomainUnverifiedAction" | "timeDomainMismatchCause" | "timeDomainMismatchAction" | "stateUnknown" | "stateUnknownBody" | "selectScope" | "selectScopeBody" | "applySuggested" | "selectPeriod" | "contractError" | "contractErrorBody" | "contractErrorAction" | "contractCausePartialPeriod" | "contractCauseInvalidPeriod" | "contractCauseDuplicateKey" | "contractCauseAliasConflict" | "contractCauseMetricPair" | "contractCauseMetricPairIncomplete" | "contractCauseEmptySetWithList" | "resetContext" | "notFound" | "plannedTitle" | "plannedBody" | "dataTrust" | "updated" | "dataThrough" | "coverage" | "metricVersion" | "currentPeriod" | "previousPeriod" | "status" | "provisional" | "final" | "source" | "export" | "palettePlaceholder" | "paletteName" | "palettePlatform" | "paletteEmpty" | "paletteHint" | "goTo" | "planned" | "switcherTitle" | "switcherCurrent" | "switcherCurrentBadge" | "switcherResume" | "switcherStart" | "switcherPlannedHeading" | "switcherPlannedBody" | "switcherEmpty" | "platformHome" | "railSections" | "restricted" | "capability" | "pageType" | "selectedRange" | "invalidUrlValue" | "invalidUrlFilter" | "invalidUrlDrillGap" | "invalidUrlPlain" | "invalidTableTitle" | "invalidFilterTitle" | "invalidTableSort" | "invalidTablePage"
+Lang | type | type Lang = "ko" | "en"
+LinkOptions | type | type LinkOptions = { params?: Record<string, string>; page?: Record<string, string>; global?: Partial<GlobalContext>; returnTo?: boolean; }
+LinkResolution | type | type LinkResolution = { href: string; allowed: boolean; droppedPageKeys: string[]; }
+MenuActionState | type | type MenuActionState<I, T> = { ready: boolean; pending: boolean; run: (input: I, options?: { expectedVersion?: string; }) => Promise<ActionResult<T>>; }
+MenuEntry | type | type MenuEntry = PlatformMenuEntry | ModuleMenuEntry
+MenuFetch | type | type MenuFetch<P, T> = { ready: boolean; fetch: (params: P, signal?: AbortSignal) => Promise<ApiResponse<T>>; }
+MetricInit | type | type MetricInit = { phase: "skip"; } | { phase: "confirm"; metricVersion: string; } | { phase: "blocked"; reason: "unknown_metric" | "unpublished"; }
+ModuleGroupDef | type | type ModuleGroupDef = GroupBase & { id: ModuleScopedId; module: string; }
+ModuleMenuEntry | type | type ModuleMenuEntry = Omit<MenuMeta, "group" | "permission"> & { module: string; group: ModuleScopedId; permission: ModuleScopedId; icon: LucideIcon; component?: undefined; moduleScreen: ComponentType<ModuleScreenProps>; moduleFeatures?: readonly HostFeature[]; moduleConfig?: Readonly<Record<string, string>>; }
+ModuleShellPorts | type | type ModuleShellPorts = { status: (next: ModuleStatus) => void; focusTarget: (el: unknown) => void; detail?: ModuleHost["detail"]; }
+MountOptions | type | type MountOptions = { prefix: string; groupSpace: Readonly<Record<string, SpaceId | null>>; config: Readonly<Record<string, string>>; icons: { groups: Readonly<Record<string, LucideIcon>>; screens: Readonly<Record<string, LucideIcon>>; }; features?: readonly HostFeature[]; }
+PAGE_TYPE_LABELS | const | const PAGE_TYPE_LABELS: Record<PageType, Text>
+PageNavigation | type | type PageNavigation = { requestReturn: (href: string) => void; consume: (path: string) => PageFocus | null; subscribe: (listener: () => void) => () => void; claimsDetailFocus: () => boolean; }
+PageProps | type | type PageProps = { params: Record<string, string>; }
+PaneScreen | type | type PaneScreen = { menuId: string; params: Record<string, string>; query: string; }
+PaneScreenProvider | function | function PaneScreenProvider({ paneId, paneLabel, screen, onChange, onLeave, countUsage, children }: { paneId: string; paneLabel?: string; screen: PaneScreen; onChange: (next: PaneScreen, how: "push" | "replace") => void; onLeave: (href: string) => void; countUsage?: boolean; children: ReactNode; }): import("react").JSX.Element
+PlannedSpace | type | type PlannedSpace = { id: string; label: Text; subtitle?: Text; icon: LucideIcon; }
+PlatformGroupDef | type | type PlatformGroupDef = GroupBase & { id: GroupId; module?: undefined; }
+PlatformLink | function | function PlatformLink({ href, children, className, onNavigate, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string; onNavigate?: () => void; }): import("react").JSX.Element
+PlatformLocation | type | type PlatformLocation = { read: () => string | null; push: (url: string) => void; replace: (url: string) => void; href: (url: string) => string; absoluteUrl: (url: string) => string; }
+PlatformMenuEntry | type | type PlatformMenuEntry = MenuMeta & { icon: LucideIcon; component?: LazyExoticComponent<ComponentType<PageProps>>; module?: undefined; moduleScreen?: undefined; }
+PlatformProvider | function | function PlatformProvider({ adapter, registry, location, slots, children }: { location?: PlatformLocation; adapter: PlatformAdapter; registry: Registry; slots?: PlatformSlots; children: ReactNode; }): import("react").JSX.Element
+PlatformSlots | type | type PlatformSlots = { contextBar?: ReactNode; topBarTools?: ReactNode; feedbackOps?: FeedbackOpsSlot; plannedSpaces?: readonly PlannedSpace[]; boardEntry?: ReactNode; }
+QueryState | type | type QueryState<T> = { status: "loading" | "refreshing" | "done"; response: ApiResponse<T> | null; refetch: () => void; }
+RETURN_CONTEXT_LABELS | const | const RETURN_CONTEXT_LABELS: Record<ReturnContextKey, Text>
+Recent | type | type Recent = { menuId: string; url: string; at: number; }
+Registry | type | type Registry = { groups: readonly GroupDef[]; menus: readonly MenuEntry[]; spaces: readonly SpaceDef[]; groupById: (id: AnyGroupId) => GroupDef; spaceById: (id: SpaceId) => SpaceDef; spaceOf: (menu: MenuEntry) => SpaceDef | null; menuById: (id: string) => MenuEntry; matchRoute: (pathname: string) => RouteMatch | null; safeReturnTo: (value: string | null) => string | null; }
+RegistryError | class | class RegistryError extends Error { }
+RequestState | type | type RequestState<T> = { status: "loading" | "done" | "error"; data: T | null; retry: () => void; }
+ReturnContextKey | type | type ReturnContextKey = "scope" | ContextKey
+ReturnOrigin | type | type ReturnOrigin = { href: string; menuLabel: Text; trail: { label: Text; value: string; }[]; revertedContext: ReturnContextKey[]; }
+RouteMatch | type | type RouteMatch = { menu: MenuEntry; params: Record<string, string>; }
+ScopeState | type | type ScopeState = { scopeId: string | null; status: "none" | "validating" | "valid" | "forbidden" | "unknown_scope" | "error"; validatedFor: Session | null; grantedRooms: string[]; }
+Text | type | type Text = { ko: string; en: string; }
+Toast | type | type Toast = { id: number; text: string; tone: "info" | "warning" | "danger"; detail?: string; }
+classifyMetricInit | function | function classifyMetricInit(published: readonly PublishedMetric[], initializesMetric: boolean, metricId: string | null, metricVersion: string | null): MetricInit
+contractErrorSentence | function | function contractErrorSentence(lang: Lang, error: { code: string; field?: string; raw?: string; }): string
+createBasePathLocation | function | function createBasePathLocation(basePath: string): PlatformLocation
+createBrowserLocation | function | function createBrowserLocation(): PlatformLocation
+createRegistry | function | function createRegistry({ spaces, groups, menus }: { spaces: readonly SpaceDef[]; groups: readonly GroupDef[]; menus: readonly MenuEntry[]; }): Registry
+dropResetKeys | function | function dropResetKeys(menu: ResetRule | null | undefined, pairs: Pair[], current: GlobalContext, next: GlobalContext): Pair[]
+errorGuidance | function | function errorGuidance(message: string | undefined): ErrorGuidance
+hasDotSegment | function | function hasDotSegment(pathname: string): boolean
+invalidValueSentence | function | function invalidValueSentence(lang: Lang, kind: "value" | "filter" | "plain" | "drillGap", field: Text, raw: string): string
+isBoardPath | const | const isBoardPath: (pathname: string) => boolean
+mountModule | function | function mountModule(manifest: ModuleManifest, screens: Readonly<Record<string, ComponentType<ModuleScreenProps>>>, { prefix, groupSpace, config, icons, features }: MountOptions): { menus: ModuleMenuEntry[]; groups: ModuleGroupDef[]; }
+pathFor | function | function pathFor(menu: MenuEntry, params?: Record<string, string>): string
+topicParticle | function | function topicParticle(name: string): "\uC740" | "\uB294"
+useAdapterRequest | function | function useAdapterRequest<T>(run: (signal: AbortSignal) => Promise<T>, key: unknown, enabled?: boolean): RequestState<T>
+useDrill | function | function useDrill(): DrillState
+useEntityQuery | function | function useEntityQuery<T>(ref: EntityRef, pageInputs?: unknown, enabled?: boolean): QueryState<T>
+useI18n | function | function useI18n(): I18n
+useMenuAction | function | function useMenuAction<I, T>(spec: ActionSpec<I, T>): MenuActionState<I, T>
+useMenuFetch | function | function useMenuFetch<P, T>(spec: EndpointSpec<P, T>): MenuFetch<P, T>
+useMenuQuery | function | function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, enabled?: boolean): QueryState<T>
+useModuleHost | function | function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<string, string>>, ports: ModuleShellPorts): ModuleHost
+usePlatform | function | function usePlatform(): Platform
+usePlatformOptional | function | function usePlatformOptional(): Platform | null
+usePlatformQuery | function | function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<ApiResponse<T>>, pageInputs?: unknown, enabled?: boolean, identity?: "context" | "session", refreshEpoch?: number): QueryState<T>
+withPaneContext | function | function withPaneContext(menu: Pick<MenuEntry, "pageKeys" | "contextResetKeys">, query: string, global: GlobalContext): string
