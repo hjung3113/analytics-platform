@@ -11,19 +11,17 @@ export function token(name: ThemeColorToken): string {
   return readColorToken(name);
 }
 
-function themeToken<Prefix extends string, Role extends string>(prefix: Prefix, role: Role): Extract<ThemeColorToken, `${Prefix}-${Role}`> {
-  return `${prefix}-${role}` as Extract<ThemeColorToken, `${Prefix}-${Role}`>;
-}
-
+/* eslint-disable shadcn/no-raw-colors -- CSS variable names for token(), not classes */
 const chartThemeTokens = {
-  axisLine: themeToken('border', 'strong'),
-  splitLine: themeToken('chart', 'grid'),
-  axisLabel: themeToken('text', 'muted'),
-  tooltipBackground: themeToken('surface', 'popover'),
-  tooltipBorder: themeToken('border', 'subtle'),
-  tooltipText: themeToken('text', 'primary'),
-  referenceText: themeToken('text', 'secondary'),
-} as const;
+  axisLine: 'border-strong',
+  splitLine: 'chart-grid',
+  axisLabel: 'text-muted',
+  tooltipBackground: 'surface-popover',
+  tooltipBorder: 'border-subtle',
+  tooltipText: 'text-primary',
+  referenceText: 'text-secondary',
+} as const satisfies Record<string, ThemeColorToken>;
+/* eslint-enable shadcn/no-raw-colors */
 
 const strokeAliases: Partial<Record<ThemeColorToken, ThemeColorToken>> = {
   'chart-blue': 'chart-blue-stroke',
