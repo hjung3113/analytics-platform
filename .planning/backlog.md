@@ -35,7 +35,7 @@
 - **구현 안 함 — 차트 주석을 쓰기 동작으로 옮기기(ADR-0054):** `saveAnnotation`·`deleteAnnotation`은 포트 전용 메서드로 남긴다. 이유: 동작으로 바꿔도 화면 동작이 같고 diff만 생긴다. 다시 볼 조건: 주석에 버전 충돌·재시도가 필요해질 때, 또는 포트 메서드를 줄이는 정리 이슈가 생길 때.
 - **구현 안 함 — 표(`useMenuFetch`)의 쓰기 뒤 다시 읽기(#502):** 쓰기가 무효화한 조회는 `useMenuQuery`만 다시 읽고(`refreshEpochs`), `useMenuFetch`·`PlatformDataTable` 쪽은 다시 읽지 않는다. 이유: 쓰기 동작을 가진 표가 아직 없다(결과 정체성을 호출자가 쥐어서 한 번에 맞출 소비자가 필요하다). 다시 볼 조건: 쓰기 동작이 있는 첫 표.
 - **구현 안 함 — `@ap/kernel` `dropResetKeys` 공개 export 제거(#534 품질 Q5):** Kernel 밖 소비자가 없고 시그니처가 비공개 타입 `ResetRule`을 드러낸다. 이번에는 `@deprecated`와 변경 기록 예고만 했다. 이유: ADR-0044는 공개 API 줄을 지우기 전에 한 SDK 릴리스 예고를 요구한다. 다시 볼 조건: 예고를 실은 다음 SDK 태그가 나간 뒤 — 그다음 SDK 슬라이스에서 `index.ts` export와 `kernel.root.api.txt` 줄을 지운다.
-- **구현 안 함 — 주소 `?` 분리 정리(#534 F3 나머지):** `url.indexOf('?')` 분리가 `OpenInBoardAction.tsx`·`BoardScreen.tsx`·`platform.tsx`에 남아 있다(칸 href 규칙은 `paneHref` 하나로 모았다). 이유: 하는 일이 달라 한 도우미로 모을지 정해지지 않았다. 다시 볼 조건: 이 분리를 쓰는 곳이 하나 더 생길 때.
+- **구현 안 함 — 보드 `defaultQuery`의 `?` 분리 정리(#534 F3 나머지):** `paneActions.defaultQuery`가 최근 화면 URL에서 `?` 뒤의 query를 잘라 Context를 구한다. 이유: 현재는 한 helper의 Context 추출이고 공통 URL 도우미가 필요한 근거가 없다. 다시 볼 조건: 다른 기능에서 같은 Context 추출 규칙을 공유해야 할 때.
 - **구현 안 함 — 분석 보드 서버 저장·공유·여러 보드(#421):** 1차는 브라우저 저장·사용자당 보드 하나다. 이유: 사용자 설정 쓰기 포트와 저장소 소유자가 없다. 다시 볼 조건: 쓰기 포트·저장소 소유자 결정(#155·#157), 또는 다른 기기에서 같은 보드를 쓰자는 요구. 공유 때 권한은 받는 사람 기준으로 칸마다 다시 판정.
 - **구현 안 함 — 분석 보드 시트 복제·칸 묶음(#421):** 이유: 1차는 일괄 적용·복사 동작으로 충분하다. 다시 볼 조건: 같은 시트를 반복해 다시 만드는 사용이 확인될 때.
 - **구현 안 함 — 분석 보드 서버 동시 실행 상한·캐시(#421):** 이유: mock에서 정한 값은 근거가 없다. 다시 볼 조건: 실서버 연결(#154).
@@ -43,6 +43,14 @@
 - **구현 안 함 — 코드 이름 `usePlatform().global` → 칸 Context(ADR-0049):** 이유: 메뉴 전체에 닿는 이름 바꾸기라 보드 구현과 따로 한다. 다시 볼 조건: 정비 슬라이스.
 
 - **구현 안 함 — 분석 보드 Context 바에 `모든 칸에 적용`도 두기(#421 UX 리뷰 제안):** 바에서 선택 칸 조건을 편집한 뒤 바로 퍼뜨리는 흐름이 짧아진다. 이유: 16 §4가 칸 머리 `⋯`로 정했고 1차에 꼭 필요하지 않다. 다시 볼 조건: 1차 사용에서 바 편집 → 일괄 적용이 잦다고 확인될 때(소유자 OK 필요).
+
+- **구현 안 함 — transient overlay 숨김 규칙 단일화와 공개 범위(#568 Q7):** 숨김 시 닫힘이 ui Root·Content·autofocus와 셸 수동 초기화 네 겹으로 구현됐고, 보드 개념이 `@ap/ui` 루트 API에도 공개돼 있다. 이유: Radix 래퍼 여섯 개와 셸 overlay 동작, SDK 경계를 함께 바꾸는 별도 작업이다. 다시 볼 조건: 숨긴 칸에서 overlay가 남는 결함이 생기거나 보드 밖의 scope 재사용 요구가 생길 때.
+- **구현 안 함 — 칸 기하 계산을 `layout.ts`로 이동(#568 Q8 나머지):** `BoardScreen`에 `stackedHeights`·`gridHeight`·`panePlacement`과 구분선 위치·값 계산이 남아 있다. 이유: 순수 계산 추출과 jsdom 기하 테스트 교체가 기계적인 `layoutShape` 중복 제거를 넘는다. 다시 볼 조건: 배치·최대화 동작을 바꾸거나 기하 계산에 새 소비자가 생길 때.
+- **구현 안 함 — 포커스 가능 대상 판정 통합(#568 Q9):** 셸 네 곳과 `DetailDrawer`에서 연결·`inert`·`hidden`·`aria-hidden` 판정이 조금씩 다르다. 이유: 판정 차이를 먼저 결정하고 컴포넌트에서 셸로 새 공개 API를 연결해야 한다. 다시 볼 조건: 포커스 복귀 결함이 생기거나 공유 판정을 요구하는 두 번째 소비자가 생길 때.
+- **구현 안 함 — 보드 영어 `contextMoreName` 단·복수 문구:** 영어 접근성 이름이 count 1에도 항상 `conditions`를 쓰고 문자열을 이어 붙인다. 이유: 동작 결함 없이 영어 문구 정리 범위를 따로 두었다. 다시 볼 조건: 보드 영어 문구를 검토하거나 단수형 관련 신고가 들어올 때.
+- **구현 안 함 — components 테스트의 storage stub 세 곳:** `ManagementLayout.test.tsx`·`AnalysisLayout.test.tsx`·`PageFilterBar.test.tsx`가 storage stub을 직접 만든다. 이유: 테스트 fixture 정리는 이번 동작 없는 소스·문서 정리와 별개다. 다시 볼 조건: 세 테스트의 저장 동작을 다시 손보거나 공통 fixture 정리 작업을 할 때.
+- **구현 안 함 — ADR-0047 보충의 React DOM 내부 함수 근거:** 보충 문장이 `react-dom-client.development.js`의 내부 함수 이름과 commit 순서에 기대고 있다. 이유: 결정 계약은 유지하고 구현 근거 문구 정리는 별도 문서 변경으로 둔다. 다시 볼 조건: React DOM 업그레이드로 순서 근거를 다시 확인하거나 ADR-0047을 수정할 때.
+- **소유자 결정 후보 — 보드 테스트의 px·mount 횟수 단언(#568):** `BoardScreen.test.tsx`의 `narrow stacking`·`pane sizing`에서 `--pane-height`·`--board-height` px 문자열 단언은 `layout.test.ts`·E2E 기하 행렬과 겹치고, `stateful Outlet presentation lifetime`에는 mount 호출 횟수 단언 열두 개가 있다. 테스트 삭제·대체 여부는 정하지 않았다. 다시 볼 조건: 소유자가 중복 단언의 삭제·유지·대체를 결정할 때.
 
 ## 설계 원칙 메모
 

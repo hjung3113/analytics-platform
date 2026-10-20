@@ -1,14 +1,13 @@
 import { useLayoutEffect, useState, type RefObject } from 'react';
+import { layoutShape, type Arrangement, type BoardLayout } from './boardModel';
 
 /**
  * Narrowest a pane may get before the grid stacks (docs/16 §4): measured on the grid container, not the viewport, so the 788px main
  * column at 1280 + a 440px detail slot keeps a 2×2 in two columns. Kept after measuring the three board menus at that width (#498, docs/16 §4).
  */
 export const PANE_MIN_WIDTH = 340;
-export const PANE_MIN_HEIGHT = 320;
-/** The grid gap in px, and the Tailwind class that draws it (`gap-3` = 12px); `drawnColumns` needs the number. */
+/** The grid gap in px (`gap-3` = 12px); `drawnColumns` needs the number. */
 export const GRID_GAP = 12;
-export const GRID_GAP_CLASS = 'gap-3';
 
 /** Width of an element's content box, tracked with a ResizeObserver. 0 until measured (or where there is no observer). */
 export function useElementWidth(ref: RefObject<HTMLElement | null>): number {
@@ -37,13 +36,13 @@ export function drawnColumns(columns: number, width: number): number {
 /** 40px head plus the pane's two outer borders; expanded bodies keep 120px. */
 export const PANE_HEADER_HEIGHT = 42;
 export const PANE_BODY_MIN_HEIGHT = 120;
+export const STACKED_PANE_MIN_HEIGHT = 400;
 export type SplitBounds = { min: number; max: number };
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 /** Stored percentages stay untouched; responsive constraints apply only to the rendered tracks. */
-export function effectiveTracks(layout: import('./boardModel').BoardLayout, arrangement: import('./boardModel').Arrangement, width: number, availableHeight: number) {
-  const rows = Number(layout[0]);
-  const columns = Number(layout[2]);
+export function effectiveTracks(layout: BoardLayout, arrangement: Arrangement, width: number, availableHeight: number) {
+  const { rows, columns } = layoutShape(layout);
   const columnSpace = Math.max(columns * PANE_MIN_WIDTH, width - (columns - 1) * GRID_GAP);
   const columnBounds = columns === 1 ? { min: 100, max: 100 } : { min: PANE_MIN_WIDTH / columnSpace * 100, max: (columnSpace - PANE_MIN_WIDTH) / columnSpace * 100 };
   const firstWidth = columnSpace * clamp(arrangement.columns[0], columnBounds.min, columnBounds.max) / 100;

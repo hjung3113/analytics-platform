@@ -1,4 +1,4 @@
-import { paneRootById } from './pageFocus';
+import { detailFocusFallback, paneRootById } from './pageFocus';
 import { OutcomeBanners, OutcomeScope } from './OutcomeScope';
 import { X } from 'lucide-react';
 import { Fragment, useEffect, useId, useInsertionEffect, useLayoutEffect, useRef, type MutableRefObject, type ReactNode } from 'react';
@@ -73,9 +73,7 @@ function DetailContent({ superseded, title, subtitle, headerActions, context, ta
       const paneRoot = paneId === null ? null : paneRootById(paneId);
       const available = (element: HTMLElement | null): element is HTMLElement => !!element?.isConnected
         && element !== document.body && !element.closest('[hidden], [inert], [aria-hidden="true"]');
-      const visiblePane = Array.from(document.querySelectorAll<HTMLElement>('[data-pane-id][tabindex]')).find(available) ?? null;
-      const target = available(opener) ? opener : available(paneRoot) ? paneRoot : visiblePane
-        ?? document.querySelector<HTMLElement>('[data-board] h1[tabindex]') ?? document.getElementById('platform-main');
+      const target = detailFocusFallback(opener, paneRoot, available);
       target?.focus({ preventScroll: true });
     };
   }, [pageNavigation, paneId, superseded]);
