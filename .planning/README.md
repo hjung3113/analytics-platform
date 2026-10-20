@@ -20,7 +20,15 @@
 
 다음 세션은 여기서 시작한다. 분석 보드 1차(슬라이스 16)를 v0.14.0으로 릴리스했다(아래 "끝난 것").
 
-0a. **다음 세션: 보드 첫 사용 다듬기(#526, 사용자 2026-10-20 — 다음 세션에 고친다).** Sol high UX 리뷰(처음 쓰는 엔지니어·사내 개발자 관점)의 BX-1–5와 슬라이스 16 품질 리뷰 후속(Q3–Q7, F1–F3)을 한 묶음으로. 우선: BX-5 2×2 칸 높이(major), BX-4 Enter 실행 취소 오안내(결함). BX-2·BX-3은 06 §13·ADR-0051을 바꾸는 사용자 결정이 먼저다.
+0a. **지금: 보드 첫 사용 다듬기(#526, 슬라이스 17, 2026-10-20 착수).** Sol high UX 리뷰의 BX-1–5와 슬라이스 16 품질 리뷰 후속을 네 이슈로 나눴다. 사용자 결정(2026-10-20): BX-2는 보드에서 새 칸 상세가 이전 칸 상세를 닫는다, BX-3은 우선순위 시안 비교 뒤 결정, BX-5·BX-1·BX-3 시안은 실제 앱 `?variant=`.
+
+   - [#533](https://github.com/hjung3113/analytics-platform/issues/533) 실행 취소 토스트 Enter 두 번 실행(BX-4) — 완료.
+
+   - [#534](https://github.com/hjung3113/analytics-platform/issues/534) 품질 후속(Q3–Q7, F1–F3) — 진행 중.
+
+   - [#535](https://github.com/hjung3113/analytics-platform/issues/535) 다른 칸 상세가 열리면 이전 칸 상세를 닫음(BX-2) — #534 뒤.
+
+   - [#536](https://github.com/hjung3113/analytics-platform/issues/536) 2×2 칸 높이·빈 화면 안내·좁은 폭 차이 칩(BX-5·BX-1·BX-3) — 사례 조사 → `?variant=` 시안 컨펌 → 구현.
 
 0. **분석 보드 1차(#421, 사용자 2026-10-19).** 설계 질의로 1차 동작을 정했다([16](../docs/16_analysis_board.md), [ADR-0049](../docs/adr/0049-analysis-context-belongs-to-a-pane.md)). 사례 조사([분석 보드 화면 패턴](../docs/research/2026-10-19-analysis-board-patterns.md))와 시안 3안 UX 리뷰로 칸 머리·선택 표시를 정했다([ADR-0051](../docs/adr/0051-analysis-board-pane-header-signal-chips-numbered-selection.md)). #496 Kernel 칸 Context, #497 보드 화면(골격·칸 머리·동작), #498 메뉴 보드 지원·E2E를 완료해 분석 보드 1차 구현을 마쳤다(v0.14.0).
 
