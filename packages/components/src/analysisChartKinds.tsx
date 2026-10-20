@@ -63,8 +63,8 @@ export function scatterData(spec: ScatterSpec, ko: boolean, unit: string): KindP
       return {
         tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (p: { seriesIndex: number; dataIndex: number }) => { const point = plotted[p.seriesIndex]?.[p.dataIndex]; return point ? `${point.label ?? point.id} · ${groups[p.seriesIndex].label}: ${spec.xLabel} ${text(point.x, spec.xUnit)} · ${spec.yLabel} ${text(point.y, unit)}` : ''; } },
         grid: { top: 32, bottom: 56, left: 48, right: 40, containLabel: true },
-        xAxis: { type: 'value', ...axisRange('x'), name: `${spec.xLabel} (${spec.xUnit})`, nameLocation: 'middle', nameGap: 32, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine },
-        yAxis: { type: 'value', ...axisRange('y'), name: `${spec.yLabel} (${unit})`, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine },
+        xAxis: { type: 'value', ...axisRange('x'), name: `${spec.xLabel} (${spec.xUnit})`, nameLocation: 'middle', nameGap: 32, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, showMinLabel: false, showMaxLabel: false }, splitLine: theme.splitLine },
+        yAxis: { type: 'value', ...axisRange('y'), name: `${spec.yLabel} (${unit})`, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, showMinLabel: false, showMaxLabel: false }, splitLine: theme.splitLine },
         toolbox: { show: false },
         brush: { toolbox: [], brushType: 'rect', xAxisIndex: 0, yAxisIndex: 0, inBrush: {}, outOfBrush: {} },
         series: plotted.map((group, i) => ({ type: 'scatter', symbol: legend[i].symbol, emphasis: { focus: 'none' },
