@@ -8,7 +8,7 @@ import { I18nProvider } from './i18n';
 import { PaneScreenProvider, PlatformProvider } from './platform';
 import { useMenuQuery, type QueryState } from './query';
 import { createRegistry } from './registry';
-import { noContext, testAdapter, testSession, testSpace } from './testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
 
 type Input = { text: string; nested: { n: number } };
 const endpoint = (id: string) => defineEndpoint<{ page: number }, { id: string }>({
@@ -79,8 +79,7 @@ const isAbort = (outcome: object) => 'error' in outcome && outcome.error instanc
 
 beforeEach(() => {
   for (const name of ['localStorage', 'sessionStorage'] as const) {
-    const data = new Map<string, string>();
-    vi.stubGlobal(name, { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); }, removeItem: (k: string) => { data.delete(k); }, clear: () => data.clear(), key: () => null, get length() { return data.size; } });
+    vi.stubGlobal(name, memoryStorage());
   }
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });

@@ -5,7 +5,7 @@ import type { Session, SpaceDef } from '@ap/contracts';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { createRegistry, type PlatformMenuEntry } from './registry';
-import { noContext, testAdapter, testSession, testSpace } from './testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const spaces: SpaceDef[] = [
@@ -61,16 +61,8 @@ function mountAt(url: string, permissions: Session['user']['permissions']) {
 }
 
 beforeEach(() => {
-  const data = new Map<string, string>();
-  const session = new Map<string, string>();
-  vi.stubGlobal('localStorage', {
-    getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); },
-    removeItem: (k: string) => { data.delete(k); }, clear: () => data.clear(), key: () => null, get length() { return data.size; },
-  });
-  vi.stubGlobal('sessionStorage', {
-    getItem: (k: string) => session.get(k) ?? null, setItem: (k: string, v: string) => { session.set(k, v); },
-    removeItem: (k: string) => { session.delete(k); }, clear: () => session.clear(), key: () => null, get length() { return session.size; },
-  });
+  vi.stubGlobal('localStorage', memoryStorage());
+  vi.stubGlobal('sessionStorage', memoryStorage());
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 

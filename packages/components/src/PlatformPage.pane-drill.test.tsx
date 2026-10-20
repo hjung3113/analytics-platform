@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PaneScreenProvider, PlatformProvider, createRegistry, useDrill, type PaneScreen } from '@ap/kernel';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { DrillLayout, ReturnLink } from './DrillLayout';
 import { PlatformPage } from './PlatformPage';
 
@@ -21,11 +21,7 @@ const registry = createRegistry({
 const siblings = { drillRoom: [{ value: 'PHOTO' }, { value: 'ETCH' }] };
 
 beforeEach(() => {
-  const data = new Map<string, string>();
-  vi.stubGlobal('localStorage', {
-    getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); },
-    removeItem: (k: string) => { data.delete(k); }, clear: () => data.clear(), key: () => null, get length() { return data.size; },
-  });
+  vi.stubGlobal('localStorage', memoryStorage());
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 

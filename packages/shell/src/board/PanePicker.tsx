@@ -24,7 +24,7 @@ export function PanePicker({ open, paneNumber, onOpenChange, onPick, onCloseAuto
     return [...byKey.values()];
   }, [registry, canOpen, tx]);
   return <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent closeLabel={lang === 'ko' ? '닫기' : 'Close'} onCloseAutoFocus={onCloseAutoFocus} className="max-h-[80vh] overflow-y-auto">
+    <DialogContent closeLabel={text.close} onCloseAutoFocus={onCloseAutoFocus} className="max-h-[80vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>{text.insertTitle(paneNumber)}</DialogTitle>
         <DialogDescription>{text.insertBody}</DialogDescription>

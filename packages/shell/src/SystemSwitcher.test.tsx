@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GroupId, Permission } from '@ap/contracts';
 import { DetailDrawer, PlatformPage } from '@ap/components';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type PlatformSlots } from '@ap/kernel';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AppShell } from './AppShell';
 
 function menu(id: string, group: GroupId, path: string, label: string, over: object = {}) {
@@ -75,9 +75,8 @@ function open() {
 const cardOf = (name: string) => screen.getByRole('button', { name: new RegExp(`^${name}`) });
 
 beforeEach(() => {
-  const local = new Map<string, string>();
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
-  vi.stubGlobal('localStorage', { getItem: (key: string) => local.get(key) ?? null, setItem: (key: string, value: string) => local.set(key, value), removeItem: (key: string) => local.delete(key), clear: () => local.clear() });
+  vi.stubGlobal('localStorage', memoryStorage());
   Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
   sessionStorage.clear();
 });

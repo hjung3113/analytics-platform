@@ -5,7 +5,7 @@ import type { ClientErrorReport, Session, SpaceDef, UsageEvent } from '@ap/contr
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform } from './platform';
 import { createRegistry, type MenuEntry, type PlatformMenuEntry } from './registry';
-import { noContext, testAdapter, testSession, testSpace } from './testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 
@@ -79,11 +79,7 @@ const settle = async () => { await act(async () => { await new Promise(r => setT
 
 beforeEach(() => {
   for (const name of ['localStorage', 'sessionStorage'] as const) {
-    const data = new Map<string, string>();
-    vi.stubGlobal(name, {
-      getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); },
-      removeItem: (k: string) => { data.delete(k); }, clear: () => data.clear(), key: () => null, get length() { return data.size; },
-    });
+    vi.stubGlobal(name, memoryStorage());
   }
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });

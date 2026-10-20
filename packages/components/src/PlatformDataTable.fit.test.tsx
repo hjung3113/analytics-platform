@@ -11,7 +11,7 @@ import type { ApiResponse, PageQuery, PageResult } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { PlatformDataTable, type PlatformDataTableProps } from './PlatformDataTable';
 import { RowAction } from './RowAction';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 afterEach(cleanup);
 
@@ -90,8 +90,7 @@ beforeEach(() => {
   observers.clear();
   vi.stubGlobal('ResizeObserver', FakeResizeObserver);
   // This environment has no localStorage; the table's column preferences go to a stub.
-  const store = new Map<string, string>();
-  vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => { store.set(k, v); }, removeItem: (k: string) => { store.delete(k); } });
+  vi.stubGlobal('localStorage', memoryStorage());
 });
 afterEach(() => { vi.unstubAllGlobals(); });
 

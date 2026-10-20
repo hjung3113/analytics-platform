@@ -1,4 +1,4 @@
-import { type GroupDef, type MenuEntry, usePlatform } from '@ap/kernel';
+import { type GroupDef, type MenuEntry, usePlatform, routeParamNames } from '@ap/kernel';
 
 export type SystemSection = { group: GroupDef; items: MenuEntry[] };
 
@@ -20,5 +20,5 @@ export function useSystemSections(): { sections: SystemSection[]; currentGroupId
 
 /** First menu a section button opens: the first visible one that needs no path parameter. */
 export function firstOpenableMenu(items: readonly MenuEntry[]): MenuEntry {
-  return items.find(menu => !menu.path.split('/').some(segment => segment.startsWith(':'))) ?? items[0]!;
+  return items.find(menu => routeParamNames(menu.path).length === 0) ?? items[0]!;
 }

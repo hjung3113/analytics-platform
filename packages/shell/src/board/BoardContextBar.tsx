@@ -14,7 +14,7 @@ import { boardText } from './text';
 export function BoardContextBar({ paneId, number, screen, onChange, onLeave }: {
   paneId: string; number: number; screen: PaneScreen | null; onChange: (next: PaneScreen, how: 'push' | 'replace') => void; onLeave: (href: string) => void;
 }) {
-  const { registry, can } = usePlatform();
+  const { registry, canOpen } = usePlatform();
   const { lang } = useI18n();
   const text = boardText(lang);
   const badge = <PaneBadge label={text.pane(number)} selected />;
@@ -25,7 +25,7 @@ export function BoardContextBar({ paneId, number, screen, onChange, onLeave }: {
     <div className="flex min-w-0 flex-1">{bar}</div>
   </div>;
   // Only a pane that mounts its menu screen gets the Context controls; a denied one would otherwise read Scope and equipment data its body refuses.
-  if (screen === null || !canMountPaneScreen(registry, can, screen)) return row(null, disabled);
+  if (screen === null || !canMountPaneScreen(registry, canOpen, screen)) return row(null, disabled);
   return <PaneScreenProvider paneId={paneId} screen={screen} countUsage={false} onChange={onChange} onLeave={onLeave}>
     <ContractGate
       closed={row(null, disabled)}

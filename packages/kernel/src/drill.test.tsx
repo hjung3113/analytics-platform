@@ -5,7 +5,7 @@ import { useDrill, type DrillState } from './drill';
 import { I18nProvider } from './i18n';
 import { PlatformProvider, usePlatform, type ReturnOrigin } from './platform';
 import { createRegistry, type MenuEntry, type PlatformMenuEntry } from './registry';
-import { noContext, testAdapter, testSession, testSpace } from './testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from './testing';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const drillKeys = ['drillRoom', 'drillStgroup', 'drillEquipment'] as const;
@@ -64,15 +64,7 @@ beforeEach(() => {
   drill = null;
   origin = null;
   target = '';
-  const data = new Map<string, string>();
-  vi.stubGlobal('localStorage', {
-    getItem: (key: string) => data.get(key) ?? null,
-    setItem: (key: string, value: string) => { data.set(key, value); },
-    removeItem: (key: string) => { data.delete(key); },
-    clear: () => data.clear(),
-    key: () => null,
-    get length() { return data.size; },
-  });
+  vi.stubGlobal('localStorage', memoryStorage());
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 

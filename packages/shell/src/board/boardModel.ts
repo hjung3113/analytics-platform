@@ -70,7 +70,7 @@ function withPrevious(sheet: Sheet, previous: (PaneScreen | null)[] | undefined)
   return previous && previous.some(p => p !== null) ? { ...rest, previous } : rest;
 }
 
-const previousAt = (sheet: Sheet, index: number): PaneScreen | null => sheet.previous?.[index] ?? null;
+export const previousAt = (sheet: Sheet, index: number): PaneScreen | null => sheet.previous?.[index] ?? null;
 const setPreviousAt = (sheet: Sheet, index: number, screen: PaneScreen | null): Sheet =>
   withPrevious(sheet, sheet.panes.map((_, i) => (i === index ? screen : previousAt(sheet, i))));
 
@@ -230,7 +230,6 @@ export function goBackPane(board: Board, sheetId: string, index: number): Board 
   });
 }
 
-export const previousOf = (sheet: Sheet, index: number): PaneScreen | null => previousAt(sheet, index);
 
 /**
  * One pane an action changed: what it held and what the action left. `fresh` marks a whole new screen (replace, duplicate), which

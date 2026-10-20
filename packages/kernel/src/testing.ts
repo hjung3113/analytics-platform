@@ -53,3 +53,16 @@ export function testAdapter(over: Partial<PlatformAdapter> = {}): PlatformAdapte
     ...over,
   };
 }
+
+/** An isolated in-memory Web Storage implementation; no browser or test-runner dependency. */
+export function memoryStorage(): Storage {
+  const data = new Map<string, string>();
+  return {
+    getItem: key => data.get(String(key)) ?? null,
+    setItem: (key, value) => { data.set(String(key), String(value)); },
+    removeItem: key => { data.delete(String(key)); },
+    clear: () => data.clear(),
+    key: index => Array.from(data.keys())[index] ?? null,
+    get length() { return data.size; },
+  };
+}

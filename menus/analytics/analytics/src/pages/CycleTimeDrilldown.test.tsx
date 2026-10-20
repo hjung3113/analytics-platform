@@ -5,7 +5,7 @@ import type { ApiResponse, MenuQuery, PlatformAdapter } from '@ap/contracts';
 import type { CycleKpi } from '../endpoints';
 import { Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
-import { testAdapter, testSession } from '@ap/kernel/testing';
+import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import CycleTimeDrilldown from './CycleTimeDrilldown';
 
@@ -40,14 +40,8 @@ function renderPage(path: string) {
 }
 
 describe('CycleTimeDrilldown page filter summary', () => {
-  let storage: Map<string, string>;
   beforeEach(() => {
-    storage = new Map();
-    vi.stubGlobal('localStorage', {
-      getItem: (key: string) => storage.get(key) ?? null,
-      setItem: (key: string, value: string) => { storage.set(key, value); },
-      removeItem: (key: string) => storage.delete(key),
-    });
+    vi.stubGlobal('localStorage', memoryStorage());
   });
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 

@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ApiResponse, AuditEvent, Capability, ContextKey, EntityRef, MenuQuery, PlatformAdapter } from '@ap/contracts';
 import { Activity, Gauge, Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, type MenuEntry } from '@ap/kernel';
-import { testAdapter, testSession } from '@ap/kernel/testing';
+import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import MetricDetailPage from './MetricDetail';
 import {
@@ -198,17 +198,7 @@ async function expectNoDefinitionTrust(path: string, metricId: string, badge: st
 }
 
 beforeEach(() => {
-  vi.stubGlobal('localStorage', (() => {
-    const store = new Map<string, string>();
-    return {
-      getItem: (key: string) => store.get(key) ?? null,
-      setItem: (key: string, value: string) => { store.set(key, value); },
-      removeItem: (key: string) => { store.delete(key); },
-      clear: () => store.clear(),
-      key: () => null,
-      get length() { return store.size; },
-    };
-  })());
+  vi.stubGlobal('localStorage', memoryStorage());
 });
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
@@ -218,15 +208,9 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(
 // (user decision 2026-10-13, #299 UX review).
 describe('MetricDetail change history reads the shared audit store (#90, ADR-0048)', () => {
   it('asks entityAudit for the metric with no site, never a menu history endpoint, and shows the recorded reason in English too', async () => {
-    const store = new Map<string, string>([['platform:lang', 'en']]);
-    vi.stubGlobal('localStorage', {
-      getItem: (key: string) => store.get(key) ?? null,
-      setItem: (key: string, value: string) => { store.set(key, value); },
-      removeItem: (key: string) => { store.delete(key); },
-      clear: () => { store.clear(); },
-      key: (index: number) => [...store.keys()][index] ?? null,
-      get length() { return store.size; },
-    });
+    const storage = memoryStorage();
+    storage.setItem('platform:lang', 'en');
+    vi.stubGlobal('localStorage', storage);
     const refs: EntityRef[] = [];
     const endpoints: string[] = [];
     const recorded: AuditEvent = {

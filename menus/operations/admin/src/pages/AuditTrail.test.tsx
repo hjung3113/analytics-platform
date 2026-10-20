@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { instantEpochMs, type ApiResponse, type AuditEvent, type AuditTrailPage, type AuditTrailQuery } from '@ap/contracts';
 import { House } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
-import { testAdapter, testSession } from '@ap/kernel/testing';
+import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import AuditTrail from './AuditTrail';
 
@@ -173,15 +173,9 @@ describe('AuditTrail text filters (issue #50 review)', () => {
     expect(screen.getByRole('alert').textContent).toContain('날짜·시각 형식을 읽을 수 없습니다.');
     expect(screen.getByRole('alert').textContent).not.toContain('필터 값이 잘못되었습니다.');
     cleanup();
-    const store = new Map<string, string>([['platform:lang', 'en']]);
-    vi.stubGlobal('localStorage', {
-      getItem: (key: string) => store.get(key) ?? null,
-      setItem: (key: string, value: string) => { store.set(key, value); },
-      removeItem: (key: string) => { store.delete(key); },
-      clear: () => { store.clear(); },
-      key: (index: number) => [...store.keys()][index] ?? null,
-      get length() { return store.size; },
-    });
+    const storage = memoryStorage();
+    storage.setItem('platform:lang', 'en');
+    vi.stubGlobal('localStorage', storage);
     renderAudit(`/admin/audit?${new URLSearchParams({ fromAt: '2026-02-30T00:00:00Z' })}`);
     expect(screen.getByRole('alert').textContent).toContain('At or after “2026-02-30T00:00:00Z”');
     expect(screen.getByRole('alert').textContent).toContain('The date does not exist on the calendar.');
@@ -392,15 +386,9 @@ describe('AuditTrail text filters (issue #50 review)', () => {
   });
 
   it('labels the time fields in English without contract words', () => {
-    const store = new Map<string, string>([['platform:lang', 'en']]);
-    vi.stubGlobal('localStorage', {
-      getItem: (key: string) => store.get(key) ?? null,
-      setItem: (key: string, value: string) => { store.set(key, value); },
-      removeItem: (key: string) => { store.delete(key); },
-      clear: () => { store.clear(); },
-      key: (index: number) => [...store.keys()][index] ?? null,
-      get length() { return store.size; },
-    });
+    const storage = memoryStorage();
+    storage.setItem('platform:lang', 'en');
+    vi.stubGlobal('localStorage', storage);
     renderAudit('/admin/audit');
     const bar = screen.getByTestId('page-filter-bar');
     expect(bar.textContent).not.toMatch(/ISO|instant/i);

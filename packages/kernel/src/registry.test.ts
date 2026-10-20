@@ -1,7 +1,8 @@
+import { paneHref } from './paneContext';
 import { House } from 'lucide-react';
 import { describe, expect, it } from 'vitest';
 import type { SpaceDef } from '@ap/contracts';
-import { createRegistry, RegistryError, type GroupDef, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from './registry';
+import { createRegistry, routeParamNames, RegistryError, type GroupDef, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from './registry';
 
 const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const groups: GroupDef[] = [{ id: 'metrics', label: { ko: '지표', en: 'Metrics' }, icon: House, space: 'analytics' }];
@@ -288,5 +289,20 @@ describe('open vocabulary (ADR-0053)', () => {
     menu('typo', '/typo', { permission: 'fx:view' });
     // @ts-expect-error a platform menu's group must be a GroupId
     menu('typo', '/typo', { group: 'fx:main' });
+  });
+});
+
+describe('routeParamNames', () => {
+  it.each([
+    ['/', []], ['/metrics/static:label', []], ['/metrics/:id/versions/:version/', ['id', 'version']],
+  ])('reads route parameter names from %s', (path, names) => {
+    expect(routeParamNames(path)).toEqual(names);
+  });
+});
+
+describe('paneHref', () => {
+  const registry = createRegistry({ spaces, groups, menus: [catalog, menu('detail', '/metrics/:id')] });
+  it.each([['', '/metrics/a%2Fb'], ['a=1', '/metrics/a%2Fb?a=1'], ['?a=1', '/metrics/a%2Fb?a=1']])('builds a pane address with query %s', (query, href) => {
+    expect(paneHref(registry, { menuId: 'detail', params: { id: 'a/b' }, query })).toBe(href);
   });
 });

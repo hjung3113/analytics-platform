@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ApiResponse, MenuQuery } from '@ap/contracts';
 import { Megaphone } from 'lucide-react';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
-import { testAdapter, testSession } from '@ap/kernel/testing';
+import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import MyVocHistory from './MyVocHistory';
 import { setFeedbackOpsOrigin } from '../feedbackops-origin';
@@ -48,11 +48,7 @@ function fixture() {
 
 // Node's own (file-less) localStorage shadows jsdom's here, so give the test an in-memory store.
 beforeEach(() => {
-  const data = new Map<string, string>();
-  vi.stubGlobal('localStorage', {
-    getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); },
-    removeItem: (k: string) => { data.delete(k); }, clear: () => data.clear(), key: () => null, get length() { return data.size; },
-  });
+  vi.stubGlobal('localStorage', memoryStorage());
   window.history.replaceState(null, '', '/voc?cursor=mock:engineer:2');
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });

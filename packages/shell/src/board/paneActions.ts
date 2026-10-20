@@ -1,9 +1,9 @@
-import { conditionLabel, ContractError, emptyGlobal, formatMetricVersion, parseQuery, sameGlobal, serializeGlobal, type GlobalContext } from '@ap/contracts';
-import { withPaneContext, type MenuEntry, type PaneScreen, type Registry, type ReturnContextKey, type usePlatform } from '@ap/kernel';
+import { buildQuery, conditionLabel, ContractError, emptyGlobal, formatMetricVersion, parseQuery, sameGlobal, serializeGlobal, type GlobalContext } from '@ap/contracts';
+import { withPaneContext, type MenuEntry, type PaneScreen, type Registry, type ReturnContextKey } from '@ap/kernel';
 import { canMountPaneScreen } from './boardMenus';
 import type { PaneEdit, Sheet } from './boardModel';
 
-type Can = ReturnType<typeof usePlatform>['can'];
+type CanOpen = (menuId: string) => boolean;
 
 /** The analysis-Context keys in the order a pane header and its popover list them (Scope counts as a key, docs/16 §4). */
 const KEY_ORDER: readonly ReturnContextKey[] = ['scope', 'time', 'roomNames', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric'];
@@ -45,26 +45,41 @@ export function contextValues(global: GlobalContext, none: string): ContextEntry
 
 const menuOf = (registry: Registry, screen: PaneScreen): MenuEntry | null => registry.menus.find(m => m.id === screen.menuId) ?? null;
 
-/** A pane's analysis Context, or null when its menu is unknown or its saved address does not parse for that menu. Never throws. */
-export function paneGlobal(registry: Registry, screen: PaneScreen): GlobalContext | null {
-  const menu = menuOf(registry, screen);
-  if (!menu) return null;
-  try { return parseQuery(screen.query, menu.pageKeys).global; } catch (error) {
+/** Parse an address's Context; only a ContractError means the address is unreadable. */
+function globalOfUrl(registry: Registry, menuId: string, url: string): GlobalContext | null {
+  try {
+    const pageKeys = registry.menus.find(menu => menu.id === menuId)?.pageKeys ?? [];
+    return parseQuery(url, pageKeys).global;
+  } catch (error) {
     if (error instanceof ContractError) return null;
     throw error;
   }
 }
 
+/** A pane's analysis Context, or null when its menu is unknown or its saved address does not parse for that menu. */
+export function paneGlobal(registry: Registry, screen: PaneScreen): GlobalContext | null {
+  return menuOf(registry, screen) === null ? null : globalOfUrl(registry, screen.menuId, screen.query);
+}
+
+/** Only the Context of the latest main screen becomes a new pane's starting condition (docs/16 §5). */
+export function defaultQuery(registry: Registry, recent: readonly { menuId: string; url: string }[]): string {
+  const latest = recent[0];
+  const at = latest?.url.indexOf('?') ?? -1;
+  if (!latest || at === -1) return '';
+  const global = globalOfUrl(registry, latest.menuId, latest.url.slice(at));
+  return global === null ? '' : buildQuery(global);
+}
+
 /** The panes that take part in comparison and in Context actions: content the user's role would actually mount, with a readable address. */
-function participants(registry: Registry, can: Can, panes: readonly (PaneScreen | null)[]): (GlobalContext | null)[] {
-  return panes.map(screen => (screen !== null && canMountPaneScreen(registry, can, screen) ? paneGlobal(registry, screen) : null));
+function participants(registry: Registry, canOpen: CanOpen, panes: readonly (PaneScreen | null)[]): (GlobalContext | null)[] {
+  return panes.map(screen => (screen !== null && canMountPaneScreen(registry, canOpen, screen) ? paneGlobal(registry, screen) : null));
 }
 
 /** What a pane header shows about its Context against the other panes of the sheet. `compared` is false while it is the only content pane. */
 export type PaneSignal = { rows: ContextRow[]; differing: ContextRow[]; same: ContextRow[]; compared: boolean };
 
-export function paneSignals(registry: Registry, can: Can, panes: readonly (PaneScreen | null)[], none: string): (PaneSignal | null)[] {
-  const globals = participants(registry, can, panes);
+export function paneSignals(registry: Registry, canOpen: CanOpen, panes: readonly (PaneScreen | null)[], none: string): (PaneSignal | null)[] {
+  const globals = participants(registry, canOpen, panes);
   const values = globals.map(g => (g === null ? null : contextValues(g, none)));
   return values.map((own, index) => {
     if (own === null) return null;
@@ -97,8 +112,8 @@ function withContext(menu: MenuEntry, query: string, global: GlobalContext): str
 }
 
 /** `이 조건을 시트의 모든 칸에 적용`: `others` counts the other content panes it could reach; `edits` those whose Context actually changes. Null if the source cannot be read. */
-export function applyContextToSheet(registry: Registry, can: Can, sheet: Sheet, sourceIndex: number): { edits: PaneEdit[]; others: number } | null {
-  const globals = participants(registry, can, sheet.panes);
+export function applyContextToSheet(registry: Registry, canOpen: CanOpen, sheet: Sheet, sourceIndex: number): { edits: PaneEdit[]; others: number } | null {
+  const globals = participants(registry, canOpen, sheet.panes);
   const source = globals[sourceIndex];
   if (!source) return null;
   const edits: PaneEdit[] = [];
@@ -115,9 +130,9 @@ export function applyContextToSheet(registry: Registry, can: Can, sheet: Sheet, 
 }
 
 /** `이 시트 조건을 다른 시트에 복사`: pane i of `from` onto pane i of `to`, only where both hold content the role can mount. */
-export function copyContextToSheet(registry: Registry, can: Can, from: Sheet, to: Sheet): PaneEdit[] {
-  const source = participants(registry, can, from.panes);
-  const target = participants(registry, can, to.panes);
+export function copyContextToSheet(registry: Registry, canOpen: CanOpen, from: Sheet, to: Sheet): PaneEdit[] {
+  const source = participants(registry, canOpen, from.panes);
+  const target = participants(registry, canOpen, to.panes);
   const edits: PaneEdit[] = [];
   to.panes.forEach((pane, index) => {
     const global = source[index];
@@ -132,8 +147,8 @@ export function copyContextToSheet(registry: Registry, can: Can, from: Sheet, to
  * The screen a pane gets when `menu` replaces what it held. It starts with the old pane's Context and nothing else, but only when the
  * role can mount the old screen; a denied or unavailable pane's saved Context is never read, and the new screen starts from `freshQuery`.
  */
-export function replacementScreen(registry: Registry, can: Can, old: PaneScreen, menu: MenuEntry, freshQuery: string): PaneScreen {
-  const global = canMountPaneScreen(registry, can, old) ? paneGlobal(registry, old) : null;
+export function replacementScreen(registry: Registry, canOpen: CanOpen, old: PaneScreen, menu: MenuEntry, freshQuery: string): PaneScreen {
+  const global = canMountPaneScreen(registry, canOpen, old) ? paneGlobal(registry, old) : null;
   return { menuId: menu.id, params: {}, query: global === null ? freshQuery : withContext(menu, '', global) ?? freshQuery };
 }
 

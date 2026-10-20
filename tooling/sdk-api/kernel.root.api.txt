@@ -58,7 +58,9 @@ hasDotSegment | function | function hasDotSegment(pathname: string): boolean
 invalidValueSentence | function | function invalidValueSentence(lang: @ap/kernel#Lang, kind: 'drillGap' | 'filter' | 'plain' | 'value', field: @ap/contracts#Text, raw: string): string
 isBoardPath | const | const isBoardPath: (pathname: string) => boolean
 mountModule | function | function mountModule(manifest: @ap/contracts#ModuleManifest, screens: Readonly<Record<string, ComponentType<@ap/contracts#ModuleScreenProps>>>, { prefix, groupSpace, config, icons, features }: @ap/kernel#MountOptions): { groups: @ap/kernel#ModuleGroupDef[]; menus: @ap/kernel#ModuleMenuEntry[]; }
+paneHref | function | function paneHref(registry: @ap/kernel#Registry, screen: @ap/kernel#PaneScreen): string
 pathFor | function | function pathFor(menu: @ap/kernel#MenuEntry, params?: Record<string, string>): string
+routeParamNames | function | function routeParamNames(path: string): string[]
 topicParticle | function | function topicParticle(name: string): '는' | '은'
 useAdapterRequest | function | function useAdapterRequest<T>(run: (signal: AbortSignal) => Promise<T>, key: unknown, enabled?: boolean): @ap/kernel#RequestState<T>
 useDrill | function | function useDrill(): @ap/kernel#DrillState

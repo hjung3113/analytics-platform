@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PaneScreen } from '@ap/kernel';
 import {
-  MAX_SHEETS, addSheet, applyPaneEdits, editPane, freshBoard, goBackPane, normalizeBoard, openScreenInNewSheet, parseBoard, previousOf, restoreLayout,
+  MAX_SHEETS, addSheet, applyPaneEdits, editPane, freshBoard, goBackPane, normalizeBoard, openScreenInNewSheet, parseBoard, previousAt, restoreLayout,
   revertPaneEdits, setLayout, setPane, type Board, type PaneEdit,
 } from './boardModel';
 
@@ -17,12 +17,12 @@ describe('이전 화면 (previous)', () => {
   it('a push to another menu stores the screen it leaves, one step only; goBackPane restores it and forgets it', () => {
     const { board, id } = base();
     const pushed = editPane(board, id, 0, screen('b'), 'push');
-    expect(previousOf(sheetOf(pushed, id), 0)).toEqual(screen('a'));
+    expect(previousAt(sheetOf(pushed, id), 0)).toEqual(screen('a'));
     const again = editPane(pushed, id, 0, screen('c'), 'push');
-    expect(previousOf(sheetOf(again, id), 0)).toEqual(screen('b'));
+    expect(previousAt(sheetOf(again, id), 0)).toEqual(screen('b'));
     const back = goBackPane(again, id, 0);
     expect(sheetOf(back, id).panes[0]).toEqual(screen('b'));
-    expect(previousOf(sheetOf(back, id), 0)).toBeNull();
+    expect(previousAt(sheetOf(back, id), 0)).toBeNull();
     expect(goBackPane(back, id, 0)).toBe(back);
   });
 
@@ -33,20 +33,20 @@ describe('이전 화면 (previous)', () => {
     const { board, id } = base();
     const withPrevious = editPane(board, id, 0, screen('b'), 'push');
     const next = editPane(withPrevious, id, 0, screen(menuId, '?x=1'), how);
-    expect(previousOf(sheetOf(next, id), 0)).toEqual(screen('a'));
-    expect(previousOf(sheetOf(editPane(board, id, 0, screen('a', '?x=1'), 'push'), id), 0)).toBeNull();
-    expect(previousOf(sheetOf(editPane(board, id, 0, screen('b'), 'replace'), id), 0)).toBeNull();
+    expect(previousAt(sheetOf(next, id), 0)).toEqual(screen('a'));
+    expect(previousAt(sheetOf(editPane(board, id, 0, screen('a', '?x=1'), 'push'), id), 0)).toBeNull();
+    expect(previousAt(sheetOf(editPane(board, id, 0, screen('b'), 'replace'), id), 0)).toBeNull();
   });
 
   it('is cleared when the pane is cleared or given a whole new screen', () => {
     const { board, id } = base();
     const withPrevious = editPane(board, id, 0, screen('b'), 'push');
-    expect(previousOf(sheetOf(setPane(withPrevious, id, 0, null), id), 0)).toBeNull();
-    expect(previousOf(sheetOf(setPane(withPrevious, id, 0, screen('c')), id), 0)).toBeNull();
+    expect(previousAt(sheetOf(setPane(withPrevious, id, 0, null), id), 0)).toBeNull();
+    expect(previousAt(sheetOf(setPane(withPrevious, id, 0, screen('c')), id), 0)).toBeNull();
     const fresh = applyPaneEdits(withPrevious, id, [{ index: 0, before: screen('b'), after: screen('b', '?x=1'), fresh: true }]);
-    expect(previousOf(sheetOf(fresh, id), 0)).toBeNull();
+    expect(previousAt(sheetOf(fresh, id), 0)).toBeNull();
     const contextOnly = applyPaneEdits(withPrevious, id, [{ index: 0, before: screen('b'), after: screen('b', '?x=1') }]);
-    expect(previousOf(sheetOf(contextOnly, id), 0)).toEqual(screen('a'));
+    expect(previousAt(sheetOf(contextOnly, id), 0)).toEqual(screen('a'));
   });
 
   it('is stored, parses back, and a board stored without it (or with a malformed one) still parses', () => {
@@ -70,7 +70,7 @@ describe('이전 화면 (previous)', () => {
     const after = sheetOf(shrunk, id);
     expect(after.previous).toBeUndefined();
     const restored = restoreLayout(shrunk, { sheetId: id, before, after, layout: '1x1' });
-    expect(previousOf(sheetOf(restored!, id), 1)).toEqual(screen('z'));
+    expect(previousAt(sheetOf(restored!, id), 1)).toEqual(screen('z'));
     expect(normalizeBoard({ ...keep, sheets: [{ ...before, previous: [null] }] })?.sheets[0].previous).toBeUndefined();
   });
 });
@@ -96,10 +96,10 @@ describe('pane edits', () => {
     const withPrevious = editPane(board, id, 1, screen('c'), 'push');
     const only: PaneEdit[] = [{ index: 1, before: screen('c'), after: screen('c', '?x=2') }];
     const applied = applyPaneEdits(withPrevious, id, only);
-    expect(previousOf(sheetOf(applied, id), 1)).toEqual(screen('b', '?x=1'));
+    expect(previousAt(sheetOf(applied, id), 1)).toEqual(screen('b', '?x=1'));
     const reverted = revertPaneEdits(applied, id, only)!;
     expect(sheetOf(reverted, id).panes[1]).toEqual(screen('c'));
-    expect(previousOf(sheetOf(reverted, id), 1)).toEqual(screen('b', '?x=1'));
+    expect(previousAt(sheetOf(reverted, id), 1)).toEqual(screen('b', '?x=1'));
   });
 
   it('reverts a duplicate by emptying the pane it filled', () => {

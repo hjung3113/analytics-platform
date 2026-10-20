@@ -8,7 +8,7 @@ import { I18nProvider, PlatformProvider, usePlatform, createRegistry } from '@ap
 import { AppShell } from './AppShell';
 import { AppRail } from './AppRail';
 import { AppSidebar } from './AppSidebar';
-import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
 function menu(id: string, group: GroupId, path: string, permission: Permission) {
   return { id, group, path, permission, primary: true, label: { ko: '운영 홈', en: 'Operations home' }, description: { ko: '', en: '' }, icon: House, requiresScope: false, context: noContext, pageType: 'overview' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] };
@@ -50,13 +50,11 @@ function sidebarRegistry(groupId: GroupId, groupLabel: string, menuIds: string[]
 
 
 beforeEach(() => {
-  const values = new Map<string, string>();
-  const session = new Map<string, string>();
   Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
-  vi.stubGlobal('localStorage', { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key), clear: () => values.clear() });
+  vi.stubGlobal('localStorage', memoryStorage());
   // Admitted space routes now write platform:space-last. A shared jsdom sessionStorage would make a later
   // switchSpace resume that URL instead of the space home these tests assert.
-  vi.stubGlobal('sessionStorage', { getItem: (key: string) => session.get(key) ?? null, setItem: (key: string, value: string) => session.set(key, value), removeItem: (key: string) => session.delete(key), clear: () => session.clear() });
+  vi.stubGlobal('sessionStorage', memoryStorage());
   window.history.replaceState(null, '', '/?v=1&scopeId=MEM&lotIds=kept');
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
