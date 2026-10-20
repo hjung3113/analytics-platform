@@ -226,3 +226,19 @@ it('marks the diverging pivot at the neutral midpoint in both languages', async 
   view.update({ ...heat, scale: { type: 'sequential' } });
   expect(screen.queryByText('60 target')).toBeNull();
 });
+
+it('puts keyboard-operable rectangle selection in the header instead of over the grid', async () => {
+  const user = userEvent.setup();
+  mount(heat); await screen.findByRole('img');
+  const dispatchAction = vi.fn(); act(() => plot.onReady?.({ dispatchAction } as never));
+  expect((plot.option as { brush: { toolbox: string[] } }).brush.toolbox).toEqual([]);
+  const toolbar = screen.getByRole('toolbar', { name: '차트 동작' });
+  const button = within(toolbar).getByRole('button', { name: '끌어서 선택' });
+  within(toolbar).getByRole('button', { name: '초기화' }).focus();
+  await user.tab(); expect(button).toHaveFocus();
+  await user.keyboard('{Enter}'); expect(button).toHaveAttribute('aria-pressed', 'true');
+  expect(dispatchAction).toHaveBeenCalledWith({ type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: 'rect', brushMode: 'single' } }, { silent: true });
+  await user.keyboard(' '); expect(button).toHaveAttribute('aria-pressed', 'false');
+  fireEvent.click(screen.getByRole('button', { name: 'english' }));
+  expect(screen.getByRole('button', { name: 'Drag to select' })).toBeTruthy();
+});
