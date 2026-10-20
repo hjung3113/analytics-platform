@@ -119,8 +119,12 @@ export function useDetailPanelSlot(options?: { onSuperseded?: () => void }): HTM
   const latest = useRef(options?.onSuperseded);
   // Mutation phase completes across the entire tree before any layout registration runs (React 19.3).
   useInsertionEffect(() => { latest.current = options?.onSuperseded; });
-  // Logical lifetime survives StrictMode layout cleanup/setup replay; keyed remount creates a new ref.
+  // Preserve notification across StrictMode layout cleanup/setup replay until this registrant resumes.
   const notified = useRef(false);
+  const active = slot?.activeKey === key;
+  useEffect(() => {
+    if (active) notified.current = false;
+  }, [active]);
   const supersede = useCallback(() => {
     if (notified.current || !latest.current) return;
     notified.current = true;

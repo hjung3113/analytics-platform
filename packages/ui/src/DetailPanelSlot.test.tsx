@@ -224,6 +224,32 @@ it.each(['node', 'null'])('new content %s supersedes a portal; updates and undef
   expect(closed).toHaveBeenCalledTimes(1);
 });
 
+it.each([false, true])('notifies a surviving portal again after it resumes and is superseded (StrictMode=%s)', strict => {
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const superseded = vi.fn();
+  function ResumingFixture({ winner }: { winner?: 'b' | 'c' }) {
+    return <DetailPanelSlotProvider>
+      <ClosingPortal name="a" onClose={superseded} />
+      {winner && <Consumer key={winner} name={winner} />}
+      <Host />
+    </DetailPanelSlotProvider>;
+  }
+  const fixture = (winner?: 'b' | 'c') => strict
+    ? <StrictMode><ResumingFixture winner={winner} /></StrictMode>
+    : <ResumingFixture winner={winner} />;
+  const view = render(fixture());
+  expect(screen.getByRole('button', { name: 'a' })).toBeTruthy();
+  view.rerender(fixture('b'));
+  expect(screen.getByRole('button', { name: 'b:missing' })).toBeTruthy();
+  expect(superseded).toHaveBeenCalledTimes(1);
+  view.rerender(fixture());
+  expect(screen.getByRole('button', { name: 'a' })).toBeTruthy();
+  expect(superseded).toHaveBeenCalledTimes(1);
+  view.rerender(fixture('c'));
+  expect(screen.getByRole('button', { name: 'c:missing' })).toBeTruthy();
+  expect(superseded).toHaveBeenCalledTimes(2);
+});
+
 it('own unregister and removing the winner never notify an inactive portal', () => {
   const closed = vi.fn();
   function Pair({ first = true, second = false }: { first?: boolean; second?: boolean }) {
