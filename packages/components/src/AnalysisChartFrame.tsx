@@ -5,7 +5,7 @@ import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { formatDateTime, parseDateTime } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
-import { AnalysisSectionContext } from './AnalysisSectionContext';
+import { AnalysisSectionContext, resolveAnalysisChartSize } from './AnalysisSectionContext';
 import { chartTheme, EChart, strokeToken, token } from './EChart';
 import { toCsvDocument } from './tableExport';
 import { assignNoteLevels, noteLabelWidths } from './annotationLayout';
@@ -107,7 +107,7 @@ export type AnalysisChartFrameProps = {
   xType?: 'time' | 'category';
   unit: string;
   valueFormat?: (v: number) => string;
-  height?: number;
+  height?: number; size?: 'regular' | 'compact' | 'hero';
   trust?: { source: string; updated: string; coverage: string };
   /** Time axis only: allow promoting a brushed range to the global period (explicit Apply). */
   canApplyRange?: boolean;
@@ -129,6 +129,9 @@ export type AnalysisChartFrameProps = {
 export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const { t, lang } = useI18n();
   const analysisSection = useContext(AnalysisSectionContext);
+  const size = resolveAnalysisChartSize(p.size, analysisSection);
+  const compact = size === 'compact';
+  const height = p.height ?? (size === 'hero' ? 360 : compact ? 200 : 260);
   const { setGlobal, toast, global, adapter, route } = usePlatform();
   const features = route?.menu.features;
   const canCompare = !!features?.compare && !!p.compareSeries?.length;
@@ -343,7 +346,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     const kind = s.kind ?? 'line';
     // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
     const stroke = token(kind === 'bar' && s.color === 'chart-remainder' ? 'border-control' : strokeToken(s.color));
-    return <label key={s.id} className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text-secondary">
+    return <label key={s.id} className={cn('inline-flex cursor-pointer items-center gap-1.5 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>
       <input type="checkbox" className="size-3.5 accent-accent-primary" checked={!hidden.has(s.id)} onChange={() => setHidden(h => { const n = new Set(h); if (n.has(s.id)) n.delete(s.id); else n.add(s.id); return n; })} />
       {kind === 'bar'
         // eslint-disable-next-line shadcn/no-inline-styles -- swatch color is the series token resolved at runtime
@@ -355,12 +358,12 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
 
   function renderPeriodLegendGroup(id: string, title: string, series: ChartSeries[], previous: boolean) {
     if (!usePeriodLegendGrid) return <div role="group" aria-labelledby={id} className="flex flex-wrap items-center gap-x-4 gap-y-1">
-      <strong id={id} className="min-w-20 text-xs font-medium text-text-secondary">{title}</strong>
+      <strong id={id} className={cn('min-w-20 font-medium text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>{title}</strong>
       {series.map(s => renderLegendSeries(s, previous))}
     </div>;
 
     return <div role="group" aria-labelledby={id} className="col-span-full grid grid-cols-subgrid items-center gap-x-4">
-      <strong id={id} className="col-start-1 min-w-20 text-xs font-medium text-text-secondary">{title}</strong>
+      <strong id={id} className={cn('col-start-1 min-w-20 font-medium text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>{title}</strong>
       {/* eslint-disable-next-line shadcn/no-inline-styles -- legend column is the per-series index computed at runtime */}
       {series.map((s, index) => <div key={s.id} data-legend-series-id={s.id} style={{ gridColumn: index + 2 }}>{renderLegendSeries(s, previous)}</div>)}
     </div>;
@@ -452,7 +455,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     {/* Pinned to the card corner so a wrapping toolbar never strands it on its own line. */}
     <AnalysisChartPart enabled={analysisSection !== null}>
     <header className={cn('flex flex-wrap items-start justify-between gap-2 px-4 pt-3', analysisSection && 'pr-12')}>
-      <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} />
+      <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} compact={compact} />
       {/* The core controls wrap in source order inside narrow cards; the Export/More tail stays bundled as its own
         wrap unit. Wide cards keep one right-aligned row, and extraActions keeps its own bundle. */}
       <div role="toolbar" aria-label={lang === 'ko' ? '차트 동작' : 'Chart actions'} className="ml-auto flex flex-wrap items-center justify-end gap-1">
@@ -514,7 +517,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
 
     </AnalysisChartPart>
     <AnalysisChartPart enabled={analysisSection !== null} body>
-    <div className="px-2"><EChart option={option} height={p.height ?? 260} onEvents={onEvents} onReady={c => { chart.current = c; setChartWidth(c.getWidth()); setInstanceReady(v => v + 1); }} onResize={setChartWidth}
+    <div className="px-2"><EChart option={option} height={height} onEvents={onEvents} onReady={c => { chart.current = c; setChartWidth(c.getWidth()); setInstanceReady(v => v + 1); }} onResize={setChartWidth}
       ariaLabel={`${typeof p.title === 'string' ? p.title : p.chartId}: ${visible.map(s => s.name).join(', ')}`} /></div>
 
     {showTable && <div className="mx-4 mb-2 max-h-56 overflow-auto rounded-md border border-border-subtle">

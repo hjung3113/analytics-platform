@@ -4,7 +4,8 @@ import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, useI18n, usePlatform } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
-import { AnalysisChart, type ChartSpec } from './AnalysisChart';
+import { AnalysisSectionContext } from './AnalysisSectionContext';
+import { AnalysisChart, type AnalysisChartProps, type ChartSpec } from './AnalysisChart';
 import { readColorToken, type ThemeColorToken } from '@ap/ui/theme';
 import type { EChartProps } from './EChart';
 
@@ -273,4 +274,89 @@ it.each(['초기화', 'context'])('clears the pending drag on %s so brushEnd can
   fireEvent.click(screen.getByRole('button', { name: action }));
   act(() => plot.onEvents?.brushEnd?.({}, {} as never));
   expect(selection()).toHaveTextContent('선택 없음');
+});
+
+
+const sizeSession = testSession(['platform:view']);
+const sizeAdapter = testAdapter({ session: () => sizeSession });
+function sizedChart(props: Partial<AnalysisChartProps> = {}, context: React.ContextType<typeof AnalysisSectionContext> = null) {
+  const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: 'overview', label: { ko: 'G', en: 'G' }, icon: House, space: 'analytics' }], menus: [{ id: 'home', group: 'overview', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: true, compare: true, annotate: true, savedView: false }, pageKeys: [] }] });
+  return <I18nProvider><PlatformProvider adapter={sizeAdapter} registry={registry}>
+    <AnalysisSectionContext.Provider value={context}><AnalysisChart chartId="size" title="Sized" unit="ea" spec={heat} {...props} /></AnalysisSectionContext.Provider>
+  </PlatformProvider></I18nProvider>;
+}
+it.each([
+  [undefined, 280], ['regular', 280], ['compact', 200], ['hero', 360],
+] as const)('uses %s AnalysisChart plot height %s', async (size, height) => {
+  render(sizedChart({ size })); await screen.findByRole('img'); expect(plot.height).toBe(height);
+});
+it('preserves rich compact descriptions in a keyboard tooltip and keeps metric version visible', async () => {
+  const user = userEvent.setup();
+  const { container } = render(sizedChart({ size: 'compact', description: <strong>Rich details</strong>, metricVersion: 'v1' }));
+  await screen.findByRole('img');
+  expect(screen.getByText(/Metric|지표 버전/)).toBeVisible();
+  expect(screen.queryByText('Rich details')).toBeNull();
+  await user.tab();
+  expect(screen.getByRole('button', { name: '차트 설명' })).toHaveFocus();
+  const tooltip = await screen.findByRole('tooltip');
+  expect(tooltip).toHaveTextContent('Rich details');
+  expect(tooltip.querySelector('strong')).toBeTruthy();
+  expect(screen.getByRole('button', { name: '차트 설명' })).toHaveAttribute('aria-describedby', tooltip.id);
+  expect(container.querySelector('header + div')).toHaveClass('text-tiny');
+  for (const name of ['초기화', '끌어서 선택', '표로 보기']) expect(screen.getByRole('button', { name })).toBeVisible();
+});
+it('keeps selection, table, brush and focused actions across size changes', async () => {
+  const view = render(sizedChart()); await screen.findByRole('img'); clickPlot(0);
+  fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+  const brush = screen.getByRole('button', { name: '끌어서 선택' }); fireEvent.click(brush); brush.focus();
+  view.rerender(sizedChart({ size: 'compact' }));
+  expect(brush).toHaveFocus(); expect(brush).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByRole('table')).toBeVisible(); expect(selection()).toHaveTextContent('1칸 선택');
+});
+it.each([
+  [{ kind: 'chart', density: 'compact' }, {}, 200, true],
+  [{ kind: 'chart', density: 'compact', span: 'full' }, {}, 360, false],
+  [{ kind: 'chart', density: 'compact' }, { size: 'regular' }, 280, false],
+  [{ kind: 'chart', span: 'full' }, { size: 'compact' }, 200, true],
+  [{ kind: 'chart', density: 'compact' }, { height: 333 }, 333, true],
+  [{ kind: 'kpi', density: 'compact', span: 'full' }, {}, 280, false],
+  [{ kind: 'breakdown', density: 'compact' }, {}, 280, false],
+] as const)('resolves AnalysisChart context %j and overrides %j', async (context, props, height, compact) => {
+  render(sizedChart({ description: 'Details', ...props }, { title: 'Section', collapse() {}, ...context }));
+  await screen.findByRole('img'); expect(plot.height).toBe(height);
+  expect(screen.queryByRole('button', { name: '차트 설명' }) !== null).toBe(compact);
+});
+
+it.each<ChartSpec>([
+  { ...heat, scale: { type: 'threshold', breaks: [1, 2], labels: ['Good', 'Warning', 'Critical'] } },
+  { kind: 'donut', slices: [{ id: 'a', label: 'Alpha', value: 1 }] },
+  { kind: 'scatter', xUnit: 's', xLabel: 'X', yLabel: 'Y', points: [{ id: 'a', x: 1, y: 2, group: 'a' }], groups: [{ id: 'a', label: 'Alpha' }] },
+  { kind: 'boxPlot', whisker: 'minMax', groups: [{ id: 'a', label: 'Alpha', stats: { min: 0, q1: 1, median: 2, q3: 3, max: 4 } }] },
+  { kind: 'pareto', items: [{ id: 'a', label: 'Alpha', value: 1 }] },
+])('uses compact legend text while preserving $kind symbols and labels', async spec => {
+  const { container } = render(sizedChart({ spec, size: 'compact' })); await screen.findByRole('img');
+  const legend = spec.kind === 'heatmap' ? container.querySelector('header + div')! : screen.getByRole('list', { name: '범례' });
+  expect(legend).toHaveClass('text-tiny'); expect(legend).not.toHaveClass('text-xs');
+  expect(legend.textContent?.length).toBeGreaterThan(0);
+  expect(legend.querySelectorAll('svg, [aria-hidden]')).not.toHaveLength(0);
+  expect(legend.querySelector('.text-xs')).toBeNull();
+});
+it.each([undefined, 'Details', <em key="rich">Details</em>])('keeps version visible with description %j in every chart size', description => {
+  const view = render(sizedChart({ description, metricVersion: 'v1' }));
+  expect(screen.getByText(/지표 버전/)).toBeVisible();
+  if (description) expect(screen.getByText(/Details/)).toBeVisible();
+  view.rerender(sizedChart({ size: 'compact', description, metricVersion: 'v1', height: 321 }));
+  expect(screen.getByText(/지표 버전/)).toBeVisible();
+  expect(screen.queryByRole('button', { name: '차트 설명' }) !== null).toBe(Boolean(description));
+});
+
+it('retains the focused description control when leaving compact size', async () => {
+  const view = render(sizedChart({ size: 'compact', description: 'Details' }));
+  const info = screen.getByRole('button', { name: '차트 설명' });
+  act(() => info.focus()); await screen.findByRole('tooltip');
+  view.rerender(sizedChart({ size: 'regular', description: 'Details' }));
+  expect(info).toHaveFocus(); expect(info).toBeVisible();
+  const reset = screen.getByRole('button', { name: '초기화' });
+  act(() => reset.focus());
+  expect(screen.queryByRole('button', { name: '차트 설명' })).toBeNull();
 });

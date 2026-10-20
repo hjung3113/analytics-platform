@@ -4,10 +4,11 @@ import { useI18n, usePlatform } from '@ap/kernel';
 import { Button } from '@ap/ui';
 import { AnalysisCollapseButton, AnalysisSectionContext } from './AnalysisSectionContext';
 
-export type AnalysisSection = { id: string; title: string; node: ReactNode };
+export type AnalysisSection = { id: string; title: string; node: ReactNode; span?: 'full' };
 export type AnalysisLayoutProps = {
   /** KPI summary strip, collapsed as one section. */
   kpi?: AnalysisSection;
+  density?: 'regular' | 'compact';
   /** Each chart is independently collapsible. */
   charts: AnalysisSection[];
   /** Full-width breakdown, collapsed as one section. */
@@ -28,23 +29,25 @@ export function AnalysisLayout(props: AnalysisLayoutProps) {
   return <AnalysisLayoutBody key={key} {...props} storageKey={key} />;
 }
 
-function AnalysisLayoutBody({ kpi, charts, breakdown, storageKey }: AnalysisLayoutProps & { storageKey: string }) {
+function AnalysisLayoutBody({ kpi, charts, breakdown, density = 'regular', storageKey }: AnalysisLayoutProps & { storageKey: string }) {
   const { t } = useI18n();
   const root = useRef<HTMLDivElement>(null);
   const sections = [kpi, ...charts, breakdown].filter((section): section is AnalysisSection => section !== undefined);
   const [collapsed, setCollapsed] = useState(() => readCollapsed(storageKey));
-  const [wide, setWide] = useState(false);
+  const [width, setWidth] = useState(0);
   const pendingFocus = useRef<{ id: string; collapsed: boolean } | null>(null);
   const sectionElements = useRef(new Map<string, HTMLDivElement>());
   const chips = useRef(new Map<string, HTMLButtonElement>());
   const hidden = sections.filter(section => collapsed.includes(section.id));
   const visibleCharts = charts.filter(section => !collapsed.includes(section.id));
-  const twoColumns = wide && visibleCharts.length >= 2;
+  const twoColumns = density === 'regular' && width >= 960 && visibleCharts.length >= 2;
+  const columns = density === 'compact' ? (width >= 1280 ? 4 : width >= 960 ? 3 : width >= 640 ? 2 : 1) : twoColumns ? 2 : 1;
+  const columnClass = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4' }[columns];
 
   useLayoutEffect(() => {
     const element = root.current;
     if (!element) return;
-    const measure = () => setWide(element.getBoundingClientRect().width >= 960);
+    const measure = () => setWidth(element.getBoundingClientRect().width);
     measure();
     if (typeof ResizeObserver === 'undefined') {
       window.addEventListener('resize', measure);
@@ -74,10 +77,10 @@ function AnalysisLayoutBody({ kpi, charts, breakdown, storageKey }: AnalysisLayo
   function renderSection(section: AnalysisSection, kind: 'kpi' | 'chart' | 'breakdown', index = 0) {
     if (collapsed.includes(section.id)) return null;
     const span = kind === 'chart' && twoColumns && visibleCharts.length % 2 === 1 && index === visibleCharts.length - 1;
-    return <AnalysisSectionContext.Provider key={section.id} value={{ title: section.title, kind, collapse: () => toggle(section.id, true) }}>
+    return <AnalysisSectionContext.Provider key={section.id} value={{ title: section.title, kind, span: section.span, density, collapse: () => toggle(section.id, true) }}>
       <div ref={element => { if (element) sectionElements.current.set(section.id, element); else sectionElements.current.delete(section.id); }}
         data-analysis-section={section.id} data-analysis-kind={kind}
-        className={kind === 'chart' ? `relative min-w-0${span ? ' col-span-2' : ''}` : 'relative min-w-0 space-y-2'}>
+        className={kind === 'chart' ? `relative min-w-0${section.span === 'full' ? ' col-span-full' : span ? ' col-span-2' : ''}` : 'relative min-w-0 space-y-2'}>
         {kind === 'kpi' && <div className="flex items-center justify-between gap-2 text-xs text-text-secondary">
           <h2 className="font-medium">{section.title}</h2><AnalysisCollapseButton />
         </div>}
@@ -97,8 +100,8 @@ function AnalysisLayoutBody({ kpi, charts, breakdown, storageKey }: AnalysisLayo
       </Button>)}
     </div>}
     {kpi && renderSection(kpi, 'kpi')}
-    {visibleCharts.length > 0 && <div data-analysis-chart-grid data-two-columns={twoColumns}
-      className={`grid min-w-0 items-stretch gap-4 ${twoColumns ? 'grid-cols-2' : 'grid-cols-1'}`}>
+    {visibleCharts.length > 0 && <div data-analysis-chart-grid data-two-columns={twoColumns} data-columns={columns}
+      className={`grid min-w-0 items-stretch gap-4 ${columnClass}`}>
       {visibleCharts.map((section, index) => renderSection(section, 'chart', index))}
     </div>}
     {breakdown && renderSection(breakdown, 'breakdown')}
