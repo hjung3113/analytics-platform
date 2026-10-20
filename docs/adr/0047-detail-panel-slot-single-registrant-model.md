@@ -45,6 +45,6 @@
 
 - `useDetailPanelSlot(options?: { onSuperseded?: () => void })`를 추가한다. `DetailDrawer`는 칸 안에서만 옵션을 주며 내용 전달 등록자에는 옵션을 추가하지 않는다.
 - 활성 portal 등록자가 목록에 남아 있는 동안 다른 새 키(portal 또는 내용의 node·null)가 등록되면 목록 갱신 뒤 동기 통지한다. 자기 해제·같은 키 등록·기존 내용 갱신·undefined 해제는 통지하지 않는다. 호스트 유무와 관계없다. 지연 전달이 없으므로 전달 전 source·winner 언마운트에 대한 대기 상태도 없다.
-- 통지 완료 표식은 렌더 없이 동기 실행되는 StrictMode의 layout effect 정리·재실행 동안 유지해 같은 슬롯 인계의 닫기를 반복하지 않는다. 살아 있는 등록자가 다시 활성 키로 렌더된 뒤 effect에서 표식을 지워, 이후 별개의 슬롯 인계는 다시 통지한다. 실제 keyed remount는 새 수명이다. 콜백 변경만으로 다시 등록하지 않는다.
+- Provider는 outgoing 등록자의 콜백에 winner 키를 전달하고, 훅은 마지막으로 통지한 winner 키를 ref에 보관해 같은 키의 반복 통지를 생략한다. StrictMode의 layout effect 정리·재실행은 같은 `useId` 키를 유지하므로 닫기를 반복하지 않는다. 다른 등록자(실제 keyed remount 포함)는 새 `useId` 키를 가지므로, 살아 있는 등록자가 중간에 활성 상태로 렌더되지 않아도 다시 통지한다. render 중 ref 쓰기나 활성 상태 effect에 의한 초기화는 하지 않는다. 콜백 변경만으로 다시 등록하지 않는다.
 - 콜백 ref는 insertion effect에서 갱신하고 통지는 layout effect 등록에서 실행한다. 설치된 React DOM 19.3.0의 `react-dom-client.development.js`에서 `commitMutationEffectsOnFiber`는 insertion effect를 실행하고, 전체 mutation 뒤 `flushLayoutEffects`가 `commitLayoutEffectOnFiber`를 실행한다. 따라서 뒤 형제의 콜백도 해당 commit 값이며 render 중 ref 쓰기가 없다.
 - 닫힘 이유는 통지 시점에 먼저 기록하고 outgoing content의 모든 정리 동안 유지한다. superseded 상세는 포커스를 복귀시키지 않으며 일반 닫기의 inside/body 조건과 ADR-0032 도착 포커스 규칙은 유지한다.

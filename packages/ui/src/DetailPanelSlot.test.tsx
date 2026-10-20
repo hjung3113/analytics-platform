@@ -250,6 +250,45 @@ it.each([false, true])('notifies a surviving portal again after it resumes and i
   expect(superseded).toHaveBeenCalledTimes(2);
 });
 
+it.each([false, true])('notifies a surviving portal when the winner is replaced in one commit (StrictMode=%s)', strict => {
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const superseded = vi.fn();
+  function ReplacingFixture({ winner }: { winner?: 'b' | 'c' }) {
+    return <DetailPanelSlotProvider>
+      <ClosingPortal name="a" onClose={superseded} />
+      {winner && <Consumer key={winner} name={winner} />}
+      <Host />
+    </DetailPanelSlotProvider>;
+  }
+  const fixture = (winner?: 'b' | 'c') => strict
+    ? <StrictMode><ReplacingFixture winner={winner} /></StrictMode>
+    : <ReplacingFixture winner={winner} />;
+  const view = render(fixture());
+  expect(screen.getByRole('button', { name: 'a' })).toBeTruthy();
+  view.rerender(fixture('b'));
+  expect(screen.getByRole('button', { name: 'b:missing' })).toBeTruthy();
+  expect(superseded).toHaveBeenCalledTimes(1);
+  view.rerender(fixture('c'));
+  expect(screen.getByRole('button', { name: 'c:missing' })).toBeTruthy();
+  expect(superseded).toHaveBeenCalledTimes(2);
+});
+
+it('notifies once when slot activation mounts a winner under StrictMode', () => {
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const superseded = vi.fn();
+  function WinnerWhenOpen() {
+    const { open } = useDetailPanelSlotHost();
+    return open ? <Consumer name="b" /> : null;
+  }
+  render(<StrictMode><DetailPanelSlotProvider>
+    <ClosingPortal name="a" onClose={superseded} />
+    <WinnerWhenOpen />
+    <Host />
+  </DetailPanelSlotProvider></StrictMode>);
+  expect(screen.getByRole('button', { name: 'b:missing' })).toBeTruthy();
+  expect(superseded).toHaveBeenCalledTimes(1);
+});
+
 it('own unregister and removing the winner never notify an inactive portal', () => {
   const closed = vi.fn();
   function Pair({ first = true, second = false }: { first?: boolean; second?: boolean }) {

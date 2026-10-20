@@ -11,7 +11,7 @@ interface DetailPanelSlot {
   expanded: boolean;
   toggle: () => void;
   setHost: (host: HTMLElement | null) => void;
-  register: (key: string, onSuperseded: () => void) => () => void;
+  register: (key: string, onSuperseded: (winner: string) => void) => () => void;
 }
 
 /** Stable callbacks for content registrants; never changes, so `useDetailPanelContent` callers do not re-render with the slot state. */
@@ -42,7 +42,7 @@ export function DetailPanelSlotProvider({ children }: { children: ReactNode }) {
   const [contents, setContents] = useState<ReadonlyMap<string, ReactNode>>(() => new Map());
   // One registrant list for portal (`register`) and content (`setContent`) registrants: the last one wins.
   const keys = useRef<string[]>([]);
-  const portals = useRef(new Map<string, () => void>());
+  const portals = useRef(new Map<string, (winner: string) => void>());
   const unregister = useCallback((key: string) => {
     portals.current.delete(key);
     keys.current = keys.current.filter(existing => existing !== key);
@@ -56,9 +56,9 @@ export function DetailPanelSlotProvider({ children }: { children: ReactNode }) {
     setActiveKey(key);
     // Synchronous, after list mutation and before React can remove the outgoing portal content.
     // No deferred delivery: neither source nor winner can disappear between takeover and notification.
-    if (outgoing !== undefined) portals.current.get(outgoing)?.();
+    if (outgoing !== undefined) portals.current.get(outgoing)?.(key);
   }, []);
-  const register = useCallback((key: string, onSuperseded: () => void) => {
+  const register = useCallback((key: string, onSuperseded: (winner: string) => void) => {
     portals.current.set(key, onSuperseded);
     takeSlot(key);
     return () => unregister(key);
@@ -119,16 +119,12 @@ export function useDetailPanelSlot(options?: { onSuperseded?: () => void }): HTM
   const latest = useRef(options?.onSuperseded);
   // Mutation phase completes across the entire tree before any layout registration runs (React 19.3).
   useInsertionEffect(() => { latest.current = options?.onSuperseded; });
-  // Preserve notification across StrictMode layout cleanup/setup replay until this registrant resumes.
-  const notified = useRef(false);
-  const active = slot?.activeKey === key;
-  useEffect(() => {
-    if (active) notified.current = false;
-  }, [active]);
-  const supersede = useCallback(() => {
-    if (notified.current || !latest.current) return;
-    notified.current = true;
-    latest.current();
+  // StrictMode replay preserves the winner's key; a different registrant is a new takeover.
+  const lastWinner = useRef<string | null>(null);
+  const supersede = useCallback((winner: string) => {
+    if (winner === lastWinner.current) return;
+    lastWinner.current = winner;
+    latest.current?.();
   }, []);
   // Register before paint so a deep link does not briefly show a full-width main without its detail.
   useLayoutEffect(() => register?.(key, supersede), [register, key, supersede]);
