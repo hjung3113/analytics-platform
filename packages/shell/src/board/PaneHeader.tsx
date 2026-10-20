@@ -1,4 +1,4 @@
-import { CornerUpLeft, MoreHorizontal } from 'lucide-react';
+import { ChevronDown, ChevronUp, Maximize2, Minimize2, CornerUpLeft, MoreHorizontal } from 'lucide-react';
 import { useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { RETURN_CONTEXT_LABELS, useI18n } from '@ap/kernel';
 import {
@@ -62,6 +62,14 @@ function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, 
 }
 
 export type PaneHeaderProps = {
+  sizing?: boolean;
+  collapsed?: boolean;
+  maximized?: boolean;
+  canMaximize?: boolean;
+  collapseOff?: string | null;
+  onCollapse?: () => void;
+  onMaximize?: () => void;
+  presentationHidden?: boolean;
   number: number;
   selected: boolean;
   systemLabel: string | null;
@@ -105,6 +113,17 @@ export function PaneHeader(props: PaneHeaderProps) {
   const lastTrigger = useRef<HTMLElement | null>(null);
   const editing = useRef(false);
   const [popover, setPopover] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const ownerHidden = useRef(false);
+  useLayoutEffect(() => {
+    ownerHidden.current = props.presentationHidden ?? false;
+    if (!props.presentationHidden) return;
+    setPopover(false);
+    setMenuOpen(false);
+    afterMenuClose.current = null;
+    lastTrigger.current = null;
+    editing.current = false;
+  }, [props.presentationHidden, afterMenuClose]);
   const chips = signal?.compared ? signal.differing : [];
   const signature = chips.map(c => `${c.key}:${c.value}`).join('|');
   const { visible: visibleCount, overflow } = useVisibleChips(head, chips.length, signature, signal?.compared ? signal.same.length : 0);
@@ -145,12 +164,23 @@ export function PaneHeader(props: PaneHeaderProps) {
       <div data-head-fixed="actions" className="flex shrink-0 items-center gap-1">
         {active && hasPrevious && <Button type="button" variant="ghost" size="icon-sm" aria-label={text.previousScreen} title={text.previousScreen}
           onClick={() => { onSelect(); props.onBack(); }}><CornerUpLeft className="size-3.5" aria-hidden /></Button>}
-        {active && <DropdownMenu>
+        {props.sizing && <>
+          <Button type="button" variant="ghost" size="icon-sm" aria-expanded={!props.collapsed} aria-label={props.collapsed ? text.expandPane(number) : text.collapsePane(number)}
+            disabled={props.collapseOff != null} aria-describedby={props.collapseOff ? `${id}-collapse-off` : undefined} onClick={props.onCollapse}>
+            {props.collapsed ? <ChevronDown className="size-3.5" aria-hidden /> : <ChevronUp className="size-3.5" aria-hidden />}
+          </Button>
+          {props.collapseOff && <span id={`${id}-collapse-off`} className="sr-only">{props.collapseOff}</span>}
+          {props.canMaximize && <Button type="button" variant="ghost" size="icon-sm" data-pane-maximize aria-label={props.maximized ? text.restoreSize : text.maximizePane(number)} onClick={props.onMaximize}>
+            {props.maximized ? <Minimize2 className="size-3.5" aria-hidden /> : <Maximize2 className="size-3.5" aria-hidden />}
+          </Button>}
+        </>}
+        {active && <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger asChild>
             <Button ref={menuTrigger} type="button" variant="ghost" size="icon-sm" aria-label={text.paneActions(number)} title={text.paneActions(number)} onPointerDown={onSelect}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end"
             onCloseAutoFocus={event => {
+              if (ownerHidden.current) { event.preventDefault(); afterMenuClose.current = null; return; }
               const next = afterMenuClose.current;
               if (next === null) return;
               afterMenuClose.current = null;
@@ -173,6 +203,7 @@ export function PaneHeader(props: PaneHeaderProps) {
       <PopoverContent align="end" role="dialog" aria-label={text.contextPopover(number)} className="w-80"
         onCloseAutoFocus={event => {
           event.preventDefault();
+          if (ownerHidden.current) return;
           // `Context 바에서 편집` moves focus into the bar itself.
           if (editing.current) editing.current = false; else lastTrigger.current?.focus({ preventScroll: true });
         }}>

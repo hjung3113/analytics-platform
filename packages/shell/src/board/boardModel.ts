@@ -9,7 +9,8 @@ export const MAX_SHEETS = 20;
  * `previous` (optional, missing in boards stored before 497b) holds, per pane, the screen it showed before it moved to another menu —
  * the one step `이전 화면` goes back (docs/16 §4). When present it is as long as `panes`.
  */
-export type Sheet = { id: string; name: string; layout: BoardLayout; selected: number; panes: (PaneScreen | null)[]; previous?: (PaneScreen | null)[] };
+export type Arrangement = { columns: number[]; rows: number[][]; collapsed: number[] };
+export type Sheet = { arrangement?: Partial<Record<BoardLayout, Arrangement>>; id: string; name: string; layout: BoardLayout; selected: number; panes: (PaneScreen | null)[]; previous?: (PaneScreen | null)[] };
 export type Board = { v: 1; activeSheetId: string; sheets: Sheet[] };
 
 export const paneCount = (layout: BoardLayout) => ({ '1x1': 1, '1x2': 2, '2x1': 2, '2x2': 4 })[layout];
@@ -39,6 +40,57 @@ export function freshBoard(prefix: string): Board {
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** Row-major indices belonging to a logical column, independent of responsive stacking. */
+export function columnPanes(layout: BoardLayout, column: number): number[] {
+  const { rows, columns } = layoutShape(layout);
+  return Array.from({ length: rows }, (_, row) => row * columns + column);
+}
+
+export function defaultArrangement(layout: BoardLayout): Arrangement {
+  const { rows, columns } = layoutShape(layout);
+  return { columns: Array(columns).fill(100 / columns), rows: Array.from({ length: columns }, () => Array(rows).fill(100 / rows)), collapsed: [] };
+}
+export const getArrangement = (sheet: Sheet, layout = sheet.layout): Arrangement => sheet.arrangement?.[layout] ?? defaultArrangement(layout);
+export const canCollapse = (layout: BoardLayout, collapsed: readonly number[], index: number): boolean =>
+  columnPanes(layout, index % layoutShape(layout).columns).some(i => i !== index && !collapsed.includes(i));
+
+function parseArrangementEntry(value: unknown, layout: BoardLayout): Arrangement | null {
+  if (!isRecord(value)) return null;
+  const { rows, columns } = layoutShape(layout);
+  const vector = (v: unknown, count: number): v is number[] => Array.isArray(v) && v.length === count
+    && v.every(n => typeof n === 'number' && Number.isFinite(n) && n > 0)
+    && Math.abs(v.reduce((a: number, b: number) => a + b, 0) - 100) <= 0.01
+    && (count !== 1 || v[0] === 100);
+  if (!vector(value.columns, columns) || !Array.isArray(value.rows) || value.rows.length !== columns
+    || !value.rows.every(v => vector(v, rows)) || !Array.isArray(value.collapsed)) return null;
+  const collapsed: number[] = value.collapsed;
+  if (collapsed.some(i => !Number.isInteger(i) || i < 0 || i >= paneCount(layout)) || new Set(collapsed).size !== collapsed.length
+    || Array.from({ length: columns }, (_, c) => columnPanes(layout, c)).some(indices => indices.every(i => collapsed.includes(i)))) return null;
+  return { columns: [...value.columns], rows: value.rows.map(v => [...v]), collapsed: [...collapsed].sort((a, b) => a - b) };
+}
+
+function parseArrangement(value: unknown): Sheet['arrangement'] {
+  if (!isRecord(value)) return undefined;
+  const entries: Sheet['arrangement'] = {};
+  for (const layout of BOARD_LAYOUTS) {
+    const entry = parseArrangementEntry(value[layout], layout);
+    if (entry && JSON.stringify(entry) !== JSON.stringify(defaultArrangement(layout))) entries[layout] = entry;
+  }
+  return Object.keys(entries).length ? entries : undefined;
+}
+function withArrangement(sheet: Sheet, value: unknown): Sheet {
+  const rest = { ...sheet };
+  delete rest.arrangement;
+  const arrangement = parseArrangement(value);
+  return arrangement ? { ...rest, arrangement } : rest;
+}
+
+/** Invalid input is ignored; defaults remove only this layout's saved entry. */
+export function setArrangement(board: Board, sheetId: string, layout: BoardLayout, value: Arrangement): Board {
+  if (!parseArrangementEntry(value, layout)) return board;
+  return mapSheet(board, sheetId, sheet => withArrangement(sheet, { ...sheet.arrangement, [layout]: value }));
+}
 
 function parsePane(value: unknown): PaneScreen | null | undefined {
   if (value === null) return null;
@@ -93,7 +145,7 @@ export function parseBoard(raw: unknown): Board | null {
     }
     if (typeof item.selected !== 'number' || !Number.isInteger(item.selected) || item.selected < 0 || item.selected >= panes.length) return null;
     ids.add(item.id);
-    sheets.push(withPrevious({ id: item.id, name: item.name, layout, selected: item.selected, panes }, parsePrevious(item.previous, panes.length)));
+    sheets.push(withArrangement(withPrevious({ id: item.id, name: item.name, layout, selected: item.selected, panes }, parsePrevious(item.previous, panes.length)), item.arrangement));
   }
   if (!ids.has(raw.activeSheetId)) return null;
   return { v: 1, activeSheetId: raw.activeSheetId, sheets };
@@ -155,7 +207,7 @@ export const samePane = (a: PaneScreen | null, b: PaneScreen | null) => a === b
   || (a !== null && b !== null && a.menuId === b.menuId && a.query === b.query
     && Object.keys(a.params).length === Object.keys(b.params).length && Object.entries(a.params).every(([k, v]) => b.params[k] === v));
 const samePanes = (a: Sheet, b: Sheet) => a.layout === b.layout && a.panes.length === b.panes.length && a.panes.every((p, i) => samePane(p, b.panes[i]));
-const sameSheet = (a: Sheet, b: Sheet) => a.name === b.name && a.selected === b.selected && samePanes(a, b);
+const sameSheet = (a: Sheet, b: Sheet) => a.name === b.name && a.selected === b.selected && samePanes(a, b) && JSON.stringify(a.arrangement) === JSON.stringify(b.arrangement);
 
 /**
  * The one place the board's invariants are enforced after an undo: 1–20 sheets, every sheet's pane array matching its layout, `selected`
@@ -169,9 +221,12 @@ export function normalizeBoard(board: Board): Board | null {
     const count = paneCount(sheet.layout);
     const fits = sheet.panes.length === count && Number.isInteger(sheet.selected) && sheet.selected >= 0 && sheet.selected < count
       && (sheet.previous === undefined || sheet.previous.length === count);
-    if (fits) return sheet;
+    const canonical = withArrangement(sheet, sheet.arrangement);
+    const arrangementFits = JSON.stringify(canonical.arrangement) === JSON.stringify(sheet.arrangement);
+    if (fits && arrangementFits) return sheet;
+    if (fits) { changed = true; return canonical; }
     changed = true;
-    const fitted = { ...sheet, panes: Array.from({ length: count }, (_, i) => sheet.panes[i] ?? null), selected: Number.isInteger(sheet.selected) && sheet.selected >= 0 && sheet.selected < count ? sheet.selected : 0 };
+    const fitted = { ...canonical, panes: Array.from({ length: count }, (_, i) => sheet.panes[i] ?? null), selected: Number.isInteger(sheet.selected) && sheet.selected >= 0 && sheet.selected < count ? sheet.selected : 0 };
     return withPrevious(fitted, sheet.previous && Array.from({ length: count }, (_, i) => sheet.previous![i] ?? null));
   });
   if (sheets.length !== board.sheets.length) changed = true;

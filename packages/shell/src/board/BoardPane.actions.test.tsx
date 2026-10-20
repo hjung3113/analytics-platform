@@ -135,7 +135,7 @@ describe('pane header signals (ADR-0051)', () => {
     expect(within(paneGroup(2)).getByRole('button', { name: '칸 2의 같은 조건 1개' })).toBeInTheDocument();
     // Order in the head: badge, system chip, name, chips, 같음, ⋯.
     const order = Array.from(paneGroup(1).querySelectorAll('[data-pane-head] button, [data-pane-head] [data-pane-chip]')).map(el => el.getAttribute('aria-label') ?? el.getAttribute('data-pane-chip'));
-    expect(order).toEqual(['칸 1 선택', 'time', '칸 1의 같은 조건 1개', '칸 1 동작']);
+    expect(order).toEqual(['칸 1 선택', 'time', '칸 1의 같은 조건 1개', '칸 1 접기', '칸 1 최대화', '칸 1 동작']);
   });
 
   it('keeps two differing chips and 같음 N when both differing chips fit', async () => {
@@ -665,5 +665,52 @@ describe('detail slot sharing (docs/16 §5)', () => {
     fireEvent.click(await screen.findByRole('radio', { name: '7일' }));
     await settle();
     expect(screen.queryByRole('dialog', { name: '상세 제목' })).toBeNull();
+  });
+});
+
+describe('presentation Escape and portal ownership', () => {
+  it.each(['menu', 'popover', 'picker'])('%s consumes Escape before maximize and returns focus after restore', async overlay => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [pane(`?${w1}`), pane(`?${w1}`)] })]));
+    mount(); await settle();
+    fireEvent.click(screen.getByRole('button', { name: '칸 1 최대화' }));
+    if (overlay === 'menu' || overlay === 'picker') {
+      await openActions(1);
+      if (overlay === 'picker') { fireEvent.click(await item('바꾸기')); await settle(); }
+    } else { fireEvent.click(screen.getByRole('button', { name: /칸 1의 같은 조건/ })); await settle(); }
+    const layer = overlay === 'menu' ? screen.getByRole('menu') : screen.getByRole('dialog');
+    fireEvent.keyDown(layer, { key: 'Escape' }); await settle();
+    expect(screen.getByRole('button', { name: '원래 크기로' })).toBeInTheDocument();
+    expect(screen.queryByRole('menu')).toBeNull(); expect(screen.queryByRole('dialog')).toBeNull();
+    const restore = screen.getByRole('button', { name: '원래 크기로' });
+    fireEvent.keyDown(restore, { key: 'Escape' }); await settle();
+    expect(screen.getByRole('button', { name: '칸 1 최대화' })).toHaveFocus();
+  });
+  it('hiding a pane closes its Context portal and cannot redirect focus back into the hidden owner', async () => {
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [pane(`?${w1}`), pane(`?${w1}`), null, null] })]));
+    mount(); await settle();
+    fireEvent.click(screen.getByRole('button', { name: /칸 1의 같은 조건/ })); await settle();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '칸 2 최대화' })); await settle();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('button', { name: '원래 크기로' })).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole('button', { name: '원래 크기로' }), { key: 'Escape' }); await settle();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+  it('detail Escape closes detail first; Escape in the board restores maximize while keeping shared detail', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [pane(`?${w1}`, 'drawer'), pane(`?${w1}`)] })]));
+    window.history.replaceState(null, '', '/board?sheet=a');
+    const session = testSession(['platform:view']);
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><AppShell><RouteOutlet /></AppShell></PlatformProvider></I18nProvider>);
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: '칸 2 최대화' }));
+    const restore = screen.getByRole('button', { name: '원래 크기로' });
+    fireEvent.keyDown(restore, { key: 'Escape' }); await settle();
+    expect(screen.getByRole('dialog', { name: '상세 제목' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '칸 2 최대화' }));
+    const close = screen.getByRole('button', { name: '상세 닫기' });
+    close.focus(); fireEvent.keyDown(close, { key: 'Escape' }); await settle();
+    expect(screen.queryByRole('dialog', { name: '상세 제목' })).toBeNull();
+    expect(screen.getByRole('button', { name: '원래 크기로' })).toBeInTheDocument();
+    expect(document.activeElement?.closest('[inert], [hidden]')).toBeNull();
   });
 });

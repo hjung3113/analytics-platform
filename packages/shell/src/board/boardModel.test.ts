@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PaneScreen } from '@ap/kernel';
-import { MAX_SHEETS, addSheet, atFirstPanes, droppedPaneCount, freshBoard, moveSheet, nextSheetName, normalizeBoard, paneCount, parseBoard, removeSheet, renameSheet, restoreLayout, restorePane, restoreSheet, selectPane, setLayout, setPane, type Board, type LayoutChange } from './boardModel';
+import { defaultArrangement, getArrangement, setArrangement, MAX_SHEETS, addSheet, atFirstPanes, droppedPaneCount, freshBoard, moveSheet, nextSheetName, normalizeBoard, paneCount, parseBoard, removeSheet, renameSheet, restoreLayout, restorePane, restoreSheet, selectPane, setLayout, setPane, type Board, type LayoutChange } from './boardModel';
 
 const screen = (menuId: string): PaneScreen => ({ menuId, params: {}, query: '' });
 const two = (): Board => addSheet(freshBoard('시트'), '시트');
@@ -213,5 +213,51 @@ describe('atFirstPanes', () => {
     expect(picked.sheets[0].selected).toBe(3);
     expect(atFirstPanes(picked).sheets.map(s => s.selected)).toEqual([0, 0]);
     expect(atFirstPanes(start)).toBe(start);
+  });
+});
+
+describe('per-layout arrangement', () => {
+  const custom = { columns: [60, 40], rows: [[30, 70], [65, 35]], collapsed: [0] };
+  it('round-trips independent layouts and preserves them through unrelated edits and layout undo', () => {
+    const start = freshBoard('시트');
+    const id = start.sheets[0].id;
+    const wide = setArrangement(setLayout(start, id, '2x2'), id, '2x2', custom);
+    const small = setLayout(wide, id, '1x2');
+    const later = setArrangement(small, id, '1x2', { columns: [55, 45], rows: [[100], [100]], collapsed: [] });
+    const change: LayoutChange = { sheetId: id, before: wide.sheets[0], after: small.sheets[0], layout: '1x2' };
+    const restored = restoreLayout(later, change)!;
+    expect(getArrangement(restored.sheets[0])).toEqual(custom);
+    expect(restored.sheets[0].arrangement?.['1x2']?.columns).toEqual([55, 45]);
+    const edited = renameSheet(selectPane(setPane(restored, id, 0, screen('a')), id, 1), id, 'edited');
+    expect(parseBoard(JSON.parse(JSON.stringify(edited)))).toEqual(edited);
+    expect(atFirstPanes(edited).sheets[0].arrangement).toEqual(restored.sheets[0].arrangement);
+    expect(addSheet(edited, '시트').sheets[1].arrangement).toBeUndefined();
+  });
+  it.each([
+    { columns: [0, 100] }, { columns: [NaN, 50] }, { columns: [Infinity, 1] }, { columns: ['50', 50] },
+    { columns: [20, 20] }, { columns: [100] }, { rows: [[50, 50]] }, { rows: [[100], [50, 50]] },
+    { collapsed: [0, 2] }, { collapsed: [1, 3] }, { collapsed: [0, 0] }, { collapsed: [-1] },
+    { collapsed: [4] }, { collapsed: [0.5] }, { rows: [[-10, 110], [50, 50]] },
+  ])('drops only an invalid layout entry: %j', invalid => {
+    const board = freshBoard('시트');
+    const raw = { ...board, sheets: [{ ...board.sheets[0], arrangement: {
+      '2x2': { ...custom, ...invalid }, '1x2': { columns: [70, 30], rows: [[100], [100]], collapsed: [] }, bogus: custom,
+    } }] };
+    expect(parseBoard(raw)?.sheets[0].arrangement).toEqual({ '1x2': { columns: [70, 30], rows: [[100], [100]], collapsed: [] } });
+  });
+  it('canonicalizes defaults and rejects impossible logical-column collapse in 1×2', () => {
+    const board = freshBoard('시트');
+    const id = board.sheets[0].id;
+    expect(setArrangement(board, id, '2x2', defaultArrangement('2x2')).sheets[0].arrangement).toBeUndefined();
+    const raw = { ...board, sheets: [{ ...board.sheets[0], arrangement: { '1x2': { columns: [50, 50], rows: [[100], [100]], collapsed: [0] } } }] };
+    expect(parseBoard(raw)).toEqual(board);
+    expect(parseBoard({ ...board, sheets: [{ ...board.sheets[0], arrangement: 'bad' }] })).toEqual(board);
+    expect(getArrangement(board.sheets[0])).toEqual(defaultArrangement('1x1'));
+  });
+  it('makes last-sheet delete undo stale after an arrangement edit alone', () => {
+    const start = freshBoard('시트');
+    const removed = removeSheet(start, start.sheets[0].id, '시트')!;
+    const edited = setArrangement(removed.board, removed.board.sheets[0].id, '2x2', custom);
+    expect(restoreSheet(edited, removed.removed)).toBeNull();
   });
 });

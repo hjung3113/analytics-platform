@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PaneScreen } from '@ap/kernel';
 import {
-  MAX_SHEETS, addSheet, applyPaneEdits, editPane, freshBoard, goBackPane, normalizeBoard, openScreenInNewSheet, parseBoard, previousAt, restoreLayout,
+  setArrangement, MAX_SHEETS, addSheet, applyPaneEdits, editPane, freshBoard, goBackPane, normalizeBoard, openScreenInNewSheet, parseBoard, previousAt, restoreLayout,
   revertPaneEdits, setLayout, setPane, type Board, type PaneEdit,
 } from './boardModel';
 
@@ -123,4 +123,16 @@ describe('openScreenInNewSheet', () => {
     for (let i = 1; i < MAX_SHEETS; i++) full = addSheet(full, '시트');
     expect(openScreenInNewSheet(full, '시트', screen('a'))).toBeNull();
   });
+});
+
+it('pane navigation and edits/undo retain all saved arrangements', () => {
+  const { board: original, id } = base();
+  const value = { columns: [60, 40], rows: [[100], [100]], collapsed: [] };
+  const board = setArrangement(original, id, '1x2', value);
+  const navigated = editPane(board, id, 0, screen('b'), 'push');
+  expect(goBackPane(navigated, id, 0).sheets[0].arrangement).toEqual(board.sheets[0].arrangement);
+  const edits: PaneEdit[] = [{ index: 0, before: board.sheets[0].panes[0], after: screen('a', '?tab=x') }];
+  const applied = applyPaneEdits(board, id, edits);
+  expect(revertPaneEdits(applied, id, edits)?.sheets[0].arrangement).toEqual(board.sheets[0].arrangement);
+  expect(openScreenInNewSheet(board, '시트', screen('c'))?.sheets[0].arrangement).toEqual(board.sheets[0].arrangement);
 });

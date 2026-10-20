@@ -168,7 +168,7 @@ test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
 test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
   type BoardTestRole = 'engineer' | 'viewer';
   type BoardPaneSeed = { menuId: string; params: Record<string, string>; query: string };
-  type BoardSheetSeed = { id: string; name: string; layout: '1x1' | '1x2'; selected: number; panes: (BoardPaneSeed | null)[] };
+  type BoardSheetSeed = { id: string; name: string; layout: '1x1' | '1x2' | '2x1' | '2x2'; arrangement?: Partial<Record<'1x1' | '1x2' | '2x1' | '2x2', { columns: number[]; rows: number[][]; collapsed: number[] }>>; selected: number; panes: (BoardPaneSeed | null)[] };
   type BoardSeed = { v: 1; activeSheetId: string; sheets: BoardSheetSeed[] };
 
   const boardScreen = (query: string, menuId = 'productivity-overview'): BoardPaneSeed => ({ menuId, params: {}, query: `?${query}` });
@@ -201,6 +201,122 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     }
     await context.getByRole('button', { name: /^기간:/ }).click();
     await page.getByRole('radio', { name, exact: true }).click();
+  }
+
+  const sizingSheet = (id: string, detail = false) => boardSheet(id, '크기', '2x2', [
+    boardScreen(`v=1&scopeId=MEM&${PERIOD}${detail ? '&focus=MEM-PHOTO-0103' : ''}`, 'equipment-master'),
+    boardScreen(`v=1&scopeId=MEM&${PERIOD}&roomNames=PHOTO`), null, null,
+  ]);
+  async function sizingReady(page: Page) {
+    await expect(boardPane(page, 1).getByRole('region', { name: '설비 마스터 목록' })).toBeVisible();
+    await expect(productivityBody(page, 2)).toBeVisible();
+  }
+  async function boardGeometry(page: Page) {
+    return page.locator('[data-board-grid]').evaluate(grid => {
+      const rect = (element: Element) => { const r = element.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, bottom: r.bottom, right: r.right }; };
+      return { grid: rect(grid), panel: rect(grid.parentElement!), panes: Array.from(grid.querySelectorAll('[data-pane-id]')).map(pane => ({
+        root: rect(pane), head: rect(pane.querySelector('[data-pane-head]')!), body: rect(pane.querySelector('[data-pane-body]')!),
+      })) };
+    });
+  }
+
+  test('칸 크기 D: 화면 안 비교, 열 조절·같은 열 접기 저장, 최대화 복원과 포커스', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithBoard(page, 'engineer', boardOf(sizingSheet('sizing')));
+    await page.goto('/board?sheet=sizing'); await sizingReady(page);
+    const initial = await boardGeometry(page);
+    for (const pane of initial.panes) {
+      expect(pane.head.y).toBeGreaterThanOrEqual(initial.grid.y);
+      expect(pane.body.bottom).toBeLessThanOrEqual(Math.min(900, initial.panel.bottom));
+      expect(pane.body.height).toBeGreaterThanOrEqual(120);
+      expect(pane.head.height).toBe(40);
+    }
+    const splitter = page.getByRole('separator', { name: '열 너비 조절' });
+    const beforeValue = Number(await splitter.getAttribute('aria-valuenow'));
+    await splitter.press('ArrowRight');
+    await expect.poll(async () => Number(await splitter.getAttribute('aria-valuenow'))).toBeGreaterThan(beforeValue);
+    const resized = await boardGeometry(page);
+    expect(resized.panes[0].root.width).toBeGreaterThan(initial.panes[0].root.width);
+    expect(resized.panes[1].root.width).toBeLessThan(initial.panes[1].root.width);
+    const savedValue = await splitter.getAttribute('aria-valuenow');
+    await page.getByRole('button', { name: '칸 1 접기' }).click();
+    const collapsed = await boardGeometry(page);
+    expect(collapsed.panes[2].root.height).toBeGreaterThan(resized.panes[2].root.height);
+    expect(collapsed.panes[3].root.height).toBeCloseTo(resized.panes[3].root.height, 0);
+    await page.reload(); await expect(productivityBody(page, 2)).toBeVisible();
+    await expect(splitter).toHaveAttribute('aria-valuenow', savedValue!);
+    await expect(page.getByRole('button', { name: '칸 1 펼치기' })).toHaveAttribute('aria-expanded', 'false');
+    const reloaded = await boardGeometry(page);
+    expect(reloaded.panes[0].root.width).toBeCloseTo(resized.panes[0].root.width, 0);
+    expect(reloaded.panes[2].root.height).toBeCloseTo(collapsed.panes[2].root.height, 0);
+    // Retained DOM identity is observed directly, including hidden roots deliberately.
+    await page.locator('[data-pane-id]').evaluateAll(panes => panes.forEach(pane => { (pane as HTMLElement).dataset.retainedProbe = 'same'; }));
+    const trigger = page.getByRole('button', { name: '칸 2 최대화' });
+    await trigger.click();
+    for (const n of [1, 3, 4]) {
+      await expect(boardPane(page, n)).toHaveCount(0);
+      await expect(page.getByRole('group', { name: `칸 ${n}`, includeHidden: true })).toHaveCount(1);
+      await expect(page.locator(`[data-pane-index="${n - 1}"]`)).toHaveAttribute('inert', '');
+    }
+    await page.getByRole('button', { name: '원래 크기로' }).press('Escape');
+    await expect(trigger).toBeFocused();
+    await expect(page.locator('[data-retained-probe="same"]')).toHaveCount(4);
+    await expect(page.getByRole('button', { name: '칸 1 펼치기' })).toHaveAttribute('aria-expanded', 'false');
+    await testInfo.attach('board-sizing-coordinates', { body: JSON.stringify({ initial, resized, collapsed, reloaded }, null, 2), contentType: 'application/json' });
+    await evidence(page, testInfo, 'board-pane-sizing-D');
+  });
+
+  for (const populated of [true, false]) {
+    test(`칸 크기 D 기하 행렬: ${populated ? '화면 있음' : '모두 빈 시트'}·상세·692px 경계·짧은 높이`, async ({ page }, testInfo) => {
+      const seed = sizingSheet('matrix', populated);
+      if (!populated) seed.panes = [null, null, null, null];
+      seed.arrangement = { '2x2': { columns: [10, 90], rows: [[15, 85], [70, 30]], collapsed: [] } };
+      await signInWithBoard(page, 'engineer', boardOf(seed));
+      await page.goto('/board?sheet=matrix');
+      if (populated) { await sizingReady(page); await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog')).toBeVisible(); }
+      const coordinates = [];
+      for (const width of [1440, 1280, 1120]) {
+        await page.setViewportSize({ width, height: 900 });
+        const grid = page.locator('[data-board-grid]');
+        await expect(grid).toHaveAttribute('data-columns', populated && width === 1120 ? '1' : '2');
+        if (populated) expect((await page.getByRole('complementary', { name: '상세 패널' }).boundingBox())!.width).toBe(440);
+        const geometry = await boardGeometry(page); coordinates.push({ width, geometry });
+        for (const pane of geometry.panes) { expect(pane.body.height).toBeGreaterThanOrEqual(120); expect(pane.head.height).toBe(40); }
+        if (!populated || width !== 1120) for (const pane of geometry.panes) {
+          expect(pane.root.width).toBeGreaterThanOrEqual(340);
+          expect(pane.body.bottom).toBeLessThanOrEqual(Math.min(900, geometry.panel.bottom));
+        }
+      }
+      // Measure the real grid to choose viewport sizes immediately either side of its 692px content-box threshold.
+      await page.setViewportSize({ width: 1440, height: 900 });
+      const measuredWidth = (await page.locator('[data-board-grid]').boundingBox())!.width;
+      for (const target of [691, 693]) {
+        await page.setViewportSize({ width: Math.round(1440 - measuredWidth + target), height: 900 });
+        await expect(page.locator('[data-board-grid]')).toHaveAttribute('data-columns', target < 692 ? '1' : '2');
+        coordinates.push({ width: target, geometry: await boardGeometry(page) });
+      }
+      await page.setViewportSize({ width: 1440, height: 420 });
+      const short = await boardGeometry(page); coordinates.push({ width: 1440, geometry: short });
+      for (const pane of short.panes) expect(pane.body.height).toBeGreaterThanOrEqual(120);
+      await expect(page.getByRole('tab', { name: '크기', exact: true })).toBeInViewport();
+      await expect(page.getByRole('button', { name: '크기 초기화' })).toBeInViewport();
+      await expect(page.locator('[data-board-context-row]')).toBeInViewport();
+      if (!populated) await expect(page.getByRole('region', { name: '분석 화면 두 개를 넣어 나란히 비교하세요' })).toBeVisible();
+      if (populated) {
+        await page.getByRole('button', { name: '칸 2 최대화' }).click();
+        await page.getByRole('button', { name: '칸 2 동작' }).click();
+        await page.getByRole('menu').press('Escape');
+        await expect(page.getByRole('button', { name: '원래 크기로' })).toBeVisible();
+        await page.getByRole('button', { name: '원래 크기로' }).press('Escape');
+        await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog')).toBeVisible();
+        await page.getByRole('button', { name: '칸 2 최대화' }).click();
+        await page.getByRole('button', { name: '상세 닫기' }).press('Escape');
+        await expect(page.getByRole('button', { name: '원래 크기로' })).toBeVisible();
+        await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog')).toHaveCount(0);
+      }
+      await testInfo.attach('board-matrix-coordinates', { body: JSON.stringify(coordinates, null, 2), contentType: 'application/json' });
+      await evidence(page, testInfo, `board-sizing-matrix-${populated ? 'populated' : 'empty'}`);
+    });
   }
 
   test('조건 독립: 칸 2 기간을 바꿔도 칸 1 Context와 본 화면 URL은 유지된다', async ({ page }, testInfo) => {

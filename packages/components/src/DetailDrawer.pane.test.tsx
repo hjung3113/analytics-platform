@@ -203,3 +203,25 @@ it('main-screen drawers still resume when their winner unmounts', () => {
   expect(screen.getByRole('dialog')).toBeInTheDocument();
   expect(closed).not.toHaveBeenCalled();
 });
+
+it('closing detail skips an inert or collapsed opener and focuses a visible pane fallback', () => {
+  function Fixture() {
+    const [open, setOpen] = useState(false);
+    const [hidden, setHidden] = useState(false);
+    return <>
+      <button type="button" onClick={() => setHidden(true)}>hide owner</button>
+      <div data-pane-id="hidden-owner" tabIndex={-1} inert={hidden || undefined} hidden={hidden}>
+        <button type="button" onClick={() => setOpen(true)}>opener</button>
+        {open && drawer(() => setOpen(false))}
+      </div>
+      <div data-pane-id="visible" tabIndex={-1}>visible pane</div>
+    </>;
+  }
+  render(tree(<Fixture />));
+  const opener = screen.getByRole('button', { name: 'opener' });
+  opener.focus(); fireEvent.click(opener);
+  fireEvent.click(screen.getByRole('button', { name: 'hide owner' }));
+  const close = screen.getByRole('button', { name: '상세 닫기' });
+  close.focus(); fireEvent.click(close);
+  expect(document.querySelector('[data-pane-id="visible"]')).toHaveFocus();
+});

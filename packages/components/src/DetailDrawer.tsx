@@ -71,7 +71,11 @@ function DetailContent({ superseded, title, subtitle, headerActions, context, ta
       if (!restore) return;
       // The panel is portaled out of its pane, so a pane's fallback is found by id (compared, not interpolated into a selector).
       const paneRoot = paneId === null ? null : paneRootById(paneId);
-      const target = opener?.isConnected && opener !== document.body ? opener : paneRoot ?? document.getElementById('platform-main');
+      const available = (element: HTMLElement | null): element is HTMLElement => !!element?.isConnected
+        && element !== document.body && !element.closest('[hidden], [inert], [aria-hidden="true"]');
+      const visiblePane = Array.from(document.querySelectorAll<HTMLElement>('[data-pane-id][tabindex]')).find(available) ?? null;
+      const target = available(opener) ? opener : available(paneRoot) ? paneRoot : visiblePane
+        ?? document.querySelector<HTMLElement>('[data-board] h1[tabindex]') ?? document.getElementById('platform-main');
       target?.focus({ preventScroll: true });
     };
   }, [pageNavigation, paneId, superseded]);

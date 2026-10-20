@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -5,6 +6,7 @@ import type { PlatformAdapter, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { PlatformPage } from '@ap/components';
+import { BoardScreen } from './BoardScreen';
 import { RouteOutlet } from '../RouteOutlet';
 import { AppRail } from '../AppRail';
 import { AppShell } from '../AppShell';
@@ -565,6 +567,25 @@ describe('narrow stacking (docs/16 §4)', () => {
     expect(grid()).toHaveAttribute('data-columns', '2');
     expect(localStorage.getItem(KEY)).toContain('"layout":"2x2"');
   });
+  it('keeps saved unequal ratios through the actual 692px boundary and logical-column collapse while stacked', async () => {
+    const arrangement = { columns: [20, 80], rows: [[40, 60], [70, 30]], collapsed: [] };
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [null, null, null, null], arrangement: { '2x2': arrangement } })]));
+    mount(); await settle();
+    act(() => { notify(691); });
+    expect(document.querySelector('[data-board-grid]')).toHaveAttribute('data-columns', '1');
+    expect(screen.queryByRole('separator')).toBeNull();
+    expect(screen.queryByRole('button', { name: '칸 1 최대화' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '칸 1 접기' }));
+    expect(screen.getByRole('button', { name: '칸 3 접기' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '칸 2 접기' })).toBeEnabled();
+    act(() => { notify(692); });
+    expect(document.querySelector('[data-board-grid]')).toHaveAttribute('data-columns', '2');
+    expect(screen.getByRole('separator', { name: '열 너비 조절' })).toHaveAttribute('aria-valuenow', '50');
+    expect(stored().sheets[0].arrangement?.['2x2']).toEqual({ ...arrangement, collapsed: [0] });
+    act(() => { notify(3412); });
+    expect(Number(screen.getByRole('separator', { name: '열 너비 조절' }).getAttribute('aria-valuenow'))).toBeCloseTo(20);
+  });
+
 });
 
 describe('shell entry (docs/16 §4, §8)', () => {
@@ -616,5 +637,109 @@ describe('shell entry (docs/16 §4, §8)', () => {
     const last = JSON.parse(sessionStorage.getItem('platform:space-last:u1')!) as Record<string, string>;
     expect(Object.keys(last)).toEqual(['analytics']);
     expect(last.analytics.startsWith('/beta?')).toBe(true);
+  });
+});
+
+describe('pane sizing and retained presentation', () => {
+  beforeEach(() => { vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 1000, height: 600, x: 0, y: 0, top: 0, left: 0, bottom: 600, right: 1000, toJSON: () => ({}) }); });
+  afterEach(() => { vi.restoreAllMocks(); });
+  it('resizes, collapses logical columns, maximizes and restores with focus without changing pane Context', async () => {
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(w1), alpha(w2), null, null] })]));
+    mount();
+    await settle();
+    const splitter = screen.getByRole('separator', { name: '열 너비 조절' });
+    fireEvent.keyDown(splitter, { key: 'ArrowRight' });
+    expect(stored().sheets[0].arrangement?.['2x2']?.columns).toEqual([55, 45]);
+    fireEvent.click(screen.getByRole('button', { name: '칸 1 접기' }));
+    expect(screen.getByRole('button', { name: '칸 3 접기' })).toBeDisabled();
+    expect(paneGroup(1).querySelector('[data-pane-body]')).toHaveAttribute('inert');
+    const trigger = screen.getByRole('button', { name: '칸 2 최대화' });
+    fireEvent.click(trigger);
+    expect(paneGroup(2)).toHaveAttribute('data-maximized', 'true');
+    expect(screen.queryByRole('group', { name: '칸 1' })).toBeNull();
+    expect(document.querySelector('[data-pane-id="a.0"]')).toHaveAttribute('inert');
+    fireEvent.keyDown(trigger, { key: 'Escape' });
+    await settle();
+    expect(trigger).toHaveFocus();
+    expect(screen.getByRole('button', { name: '칸 1 펼치기' })).toHaveAttribute('aria-expanded', 'false');
+    expect(stored().sheets[0].panes[0]?.query).toBe(w1);
+    fireEvent.click(screen.getByRole('button', { name: '크기 초기화' }));
+    expect(stored().sheets[0].arrangement).toBeUndefined();
+  });
+  it('temporarily shows a collapsed maximized body, disables collapse, and restores its saved collapse flag', async () => {
+    seed(boardOf([sheet('a', { layout: '2x1', panes: [alpha(w1), null] })]));
+    mount(); await settle();
+    fireEvent.click(screen.getByRole('button', { name: '칸 1 접기' }));
+    fireEvent.click(screen.getByRole('button', { name: '칸 1 최대화' }));
+    expect(paneGroup(1).querySelector('[data-pane-body]')).not.toHaveAttribute('inert');
+    expect(screen.getByRole('button', { name: '칸 1 펼치기' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: '원래 크기로' }));
+    expect(paneGroup(1).querySelector('[data-pane-body]')).toHaveAttribute('inert');
+  });
+  it('1×1 has no pane sizing controls and 1×2 cannot collapse either logical column', async () => {
+    seed(boardOf([sheet('a')])); mount(); await settle();
+    expect(screen.queryByRole('button', { name: '칸 1 최대화' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '칸 1 접기' })).toBeNull();
+    expect(screen.queryByRole('separator')).toBeNull();
+    fireEvent.click(screen.getByRole('radio', { name: '1×2 레이아웃' }));
+    expect(screen.getByRole('button', { name: '칸 1 접기' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '칸 2 접기' })).toBeDisabled();
+  });
+});
+
+describe('stateful Outlet presentation lifetime', () => {
+  it('retains input, DOM, scroll and mounts in collapse/maximize/stacking both directions, but unmounts on sheet/user changes', async () => {
+    const mounted = vi.fn(); const unmounted = vi.fn();
+    function Stateful() {
+      const { paneId } = usePlatform();
+      const [value, setValue] = useState('initial');
+      useEffect(() => { mounted(paneId); return () => { unmounted(paneId); }; }, [paneId]);
+      return <input aria-label={`local ${paneId}`} value={value} onChange={e => setValue(e.target.value)} />;
+    }
+    let resize: (width: number) => void = () => {};
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(private callback: ResizeObserverCallback) {}
+      observe(element: HTMLElement) { if (element.hasAttribute('data-board-grid')) resize = width => this.callback([{ contentRect: { width } } as ResizeObserverEntry], this as unknown as ResizeObserver); }
+      disconnect() {} unobserve() {}
+    });
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(), alpha(), alpha(), alpha()] }), sheet('b', { panes: [alpha()] })]));
+    window.history.replaceState(null, '', '/board?sheet=a');
+    let current = testSession(['platform:view']);
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => current, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; } })} registry={makeRegistry()}><BoardScreen Outlet={Stateful} /></PlatformProvider></I18nProvider>);
+    await settle();
+    const input = screen.getByRole('textbox', { name: 'local a.0' });
+    const body = input.closest('[data-pane-body]') as HTMLElement;
+    body.scrollTop = 75;
+    fireEvent.change(input, { target: { value: 'kept' } });
+    fireEvent.click(screen.getByRole('button', { name: '칸 1 접기' }));
+    fireEvent.click(screen.getByRole('button', { name: '칸 1 펼치기' }));
+    fireEvent.click(screen.getByRole('button', { name: '칸 2 최대화' }));
+    fireEvent.keyDown(screen.getByRole('button', { name: '원래 크기로' }), { key: 'Escape' });
+    act(() => { resize(600); });
+    expect(screen.queryByRole('button', { name: '칸 2 최대화' })).toBeNull();
+    expect(screen.queryByRole('separator')).toBeNull();
+    act(() => { resize(764); });
+    expect(screen.getByRole('textbox', { name: 'local a.0' })).toBe(input);
+    expect(input).toHaveValue('kept'); expect(body.scrollTop).toBe(75);
+    expect(mounted).toHaveBeenCalledTimes(4); expect(unmounted).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('radio', { name: '1×2 레이아웃' }));
+    fireEvent.click(screen.getByRole('button', { name: '비우고 줄이기' })); await settle();
+    expect(unmounted).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole('textbox', { name: 'local a.0' })).toBe(input);
+    fireEvent.click(screen.getByRole('button', { name: '실행 취소' })); await settle();
+    expect(mounted).toHaveBeenCalledTimes(6);
+    expect(screen.getByRole('textbox', { name: 'local a.0' })).toBe(input);
+    expect(body.scrollTop).toBe(75);
+    fireEvent.click(screen.getByRole('tab', { name: 'b' })); await settle();
+    expect(unmounted).toHaveBeenCalledTimes(6); expect(mounted).toHaveBeenCalledTimes(7);
+    fireEvent.click(screen.getByRole('tab', { name: 'a' })); await settle();
+    expect(screen.getByRole('textbox', { name: 'local a.0' })).toHaveValue('initial');
+    expect(mounted).toHaveBeenCalledTimes(11);
+    localStorage.setItem('platform:board:u2', JSON.stringify(boardOf([sheet('a', { panes: [alpha()] })])));
+    current = { ...current, user: { ...current.user, id: 'u2' } };
+    act(() => { listeners.forEach(l => l()); }); await settle();
+    expect(unmounted).toHaveBeenCalledTimes(11);
+    expect(mounted).toHaveBeenCalledTimes(12);
+    expect(screen.getByRole('textbox', { name: 'local a.0' })).toHaveValue('initial');
   });
 });

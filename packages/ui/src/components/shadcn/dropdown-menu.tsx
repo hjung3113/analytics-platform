@@ -1,10 +1,14 @@
+import { useOverlayVisible, useScopedAutofocus, useScopedOverlay } from '../TransientOverlayScope';
 import * as React from 'react';
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
 import { Check, ChevronRight, Circle } from 'lucide-react';
 import { cn } from '../../utils/cn.js';
 import { POPPER_CONTENT_MOTION } from '../../utils/motion.js';
 
-export const DropdownMenu = DropdownMenuPrimitive.Root;
+export const DropdownMenu: React.FC<DropdownMenuPrimitive.DropdownMenuProps> = (props) => {
+  const scoped = useScopedOverlay(props);
+  return <DropdownMenuPrimitive.Root {...props} {...scoped} />;
+};
 export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 export const DropdownMenuGroup = DropdownMenuPrimitive.Group;
 export const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
@@ -52,7 +56,10 @@ DropdownMenuSubContent.displayName = DropdownMenuPrimitive.SubContent.displayNam
 export const DropdownMenuContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
->(({ className, sideOffset = 4, ...props }, ref) => (
+>(({ className, sideOffset = 4, ...props }, ref) => {
+  const visible = useOverlayVisible();
+  const onCloseAutoFocus = useScopedAutofocus(props.onCloseAutoFocus);
+  return visible ? (
   <DropdownMenuPrimitive.Portal>
     <DropdownMenuPrimitive.Content
       ref={ref}
@@ -63,9 +70,11 @@ export const DropdownMenuContent = React.forwardRef<
         className,
       )}
       {...props}
+      onCloseAutoFocus={onCloseAutoFocus}
     />
   </DropdownMenuPrimitive.Portal>
-));
+) : null;
+});
 DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName;
 
 export const DropdownMenuItem = React.forwardRef<

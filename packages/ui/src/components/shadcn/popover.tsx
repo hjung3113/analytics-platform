@@ -1,9 +1,13 @@
+import { useOverlayVisible, useScopedAutofocus, useScopedOverlay } from '../TransientOverlayScope';
 import * as PopoverPrimitive from '@radix-ui/react-popover';
 import * as React from 'react';
 import { cn } from '../../utils/cn.js';
 import { POPPER_CONTENT_MOTION } from '../../utils/motion.js';
 
-export const Popover = PopoverPrimitive.Root;
+export const Popover: React.FC<PopoverPrimitive.PopoverProps> = (props) => {
+  const scoped = useScopedOverlay(props);
+  return <PopoverPrimitive.Root {...props} {...scoped} />;
+};
 export const PopoverTrigger = PopoverPrimitive.Trigger;
 export const PopoverAnchor = PopoverPrimitive.Anchor;
 
@@ -23,7 +27,10 @@ const POPOVER_CONTENT_PADDING_CLASSES: Record<PopoverContentPadding, string> = {
 export const PopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
   PopoverContentProps
->(({ className, align = 'center', sideOffset = 4, padding = 'default', ...props }, ref) => (
+>(({ className, align = 'center', sideOffset = 4, padding = 'default', ...props }, ref) => {
+  const visible = useOverlayVisible();
+  const onCloseAutoFocus = useScopedAutofocus(props.onCloseAutoFocus);
+  return visible ? (
   <PopoverPrimitive.Portal>
     <PopoverPrimitive.Content
       ref={ref}
@@ -36,7 +43,9 @@ export const PopoverContent = React.forwardRef<
         className,
       )}
       {...props}
+      onCloseAutoFocus={onCloseAutoFocus}
     />
   </PopoverPrimitive.Portal>
-));
+) : null;
+});
 PopoverContent.displayName = PopoverPrimitive.Content.displayName;
