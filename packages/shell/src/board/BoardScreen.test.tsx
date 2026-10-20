@@ -82,6 +82,50 @@ describe('storage (docs/16 §7)', () => {
     expect(stored().sheets.map(s => s.name)).toEqual(['시트 1', '시트 2']);
   });
 
+  it('shows comparison guidance once above a sheet when every pane is empty', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [null, null] })]));
+    mount();
+    await settle();
+    expect(screen.getAllByText('분석 화면 두 개를 넣어 나란히 비교하세요')).toHaveLength(1);
+    expect(screen.getByText('시트 — 비교 작업 하나를 담는 탭')).toBeInTheDocument();
+    expect(screen.getByText('칸 — 시트 안에 놓는 분석 화면 한 개')).toBeInTheDocument();
+    expect(within(paneGroup(1)).getByRole('button', { name: '분석 화면 넣기' })).toBeInTheDocument();
+    expect(within(paneGroup(2)).getByRole('button', { name: '분석 화면 넣기' })).toBeInTheDocument();
+  });
+
+  it('hides comparison guidance when one pane has a screen and keeps the empty pane action', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(), null] })]));
+    mount();
+    await settle();
+    expect(screen.queryByText('분석 화면 두 개를 넣어 나란히 비교하세요')).toBeNull();
+    expect(within(paneGroup(2)).getByRole('button', { name: '분석 화면 넣기' })).toBeInTheDocument();
+  });
+
+  it('opens the browser storage notice with Enter and Space, closes with Escape, and restores trigger focus', async () => {
+    mount('/board');
+    await settle();
+    const trigger = screen.getByRole('button', { name: '이 브라우저에만 저장' });
+
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: 'Enter' });
+    fireEvent.keyUp(trigger, { key: 'Enter' });
+    fireEvent.click(trigger);
+    let notice = await screen.findByRole('dialog', { name: '이 브라우저에만 저장' });
+    expect(within(notice).getByText('보드와 배치는 이 브라우저의 저장 공간에 보관됩니다. 다른 컴퓨터나 기기에서는 보이지 않습니다.')).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '이 브라우저에만 저장' })).toBeNull());
+    expect(trigger).toHaveFocus();
+
+    fireEvent.keyDown(trigger, { key: ' ' });
+    fireEvent.keyUp(trigger, { key: ' ' });
+    fireEvent.click(trigger);
+    notice = await screen.findByRole('dialog', { name: '이 브라우저에만 저장' });
+    expect(notice).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '이 브라우저에만 저장' })).toBeNull());
+    expect(trigger).toHaveFocus();
+  });
+
   it.each([['not JSON', '{nope'], ['a newer version', JSON.stringify({ v: 2, anything: true })], ['a wrong shape', JSON.stringify({ v: 1, activeSheetId: 'x', sheets: [] })]])('starts a fresh board on %s and leaves the stored value alone until the first edit', async (_name, raw) => {
     localStorage.setItem(KEY, raw);
     mount('/board');

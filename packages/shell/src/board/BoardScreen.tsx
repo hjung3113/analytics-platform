@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties } from 'react';
+import { HardDrive } from 'lucide-react';
 import { BOARD_PATH, paneHref, useI18n, usePlatform, type MenuEntry, type PaneScreen } from '@ap/kernel';
-import { cn, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Toaster, ToggleGroup, ToggleGroupItem, UndoToast, toast } from '@ap/ui';
+import { cn, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Popover, PopoverContent, PopoverTrigger, Toaster, ToggleGroup, ToggleGroupItem, UndoToast, toast } from '@ap/ui';
 import { BoardContextBar } from './BoardContextBar';
 import { BoardPane } from './BoardPane';
 import { SheetTabs } from './SheetTabs';
@@ -163,13 +164,30 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
 
   return <div data-board className="flex h-full min-h-0 flex-col">
     <header className="flex h-[50px] shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-surface-canvas px-4">
-      <h1 ref={heading} tabIndex={0} className="min-w-28 truncate text-sm font-semibold text-text-primary">{text.board}</h1>
+      <div className="flex min-w-0 items-center gap-3">
+        <h1 ref={heading} tabIndex={0} className="min-w-28 truncate text-sm font-semibold text-text-primary">{text.board}</h1>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button type="button" variant="ghost" size="sm" className="shrink-0" aria-haspopup="dialog">
+              <HardDrive className="size-3.5 text-text-muted" aria-hidden />{text.browserOnly}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" role="dialog" aria-label={text.browserOnly} className="w-72">
+            <p className="text-xs text-text-secondary">{text.storageDetails}</p>
+          </PopoverContent>
+        </Popover>
+      </div>
       <ToggleGroup type="single" appearance="filter" aria-label={text.layout} value={sheet.layout} onValueChange={value => { if (value) requestLayout(value as BoardLayout); }}>
         {BOARD_LAYOUTS.map(layout => <ToggleGroupItem key={layout} value={layout} size="sm" appearance="selected-filter" aria-label={text.layoutOption(layout)}>{layout.replace('x', '×')}</ToggleGroupItem>)}
       </ToggleGroup>
     </header>
     <BoardContextBar key={`${sheetId}.${selected}`} paneId={paneIdOf(sheetId, selected)} number={selected + 1} screen={sheet.panes[selected]} onChange={(next, how) => update(b => editPane(b, sheetId, selected, next, how))} onLeave={onLeave} />
     <div id={PANEL_ID} role="tabpanel" aria-labelledby={`board-tab-${sheetId}`} className="min-h-0 flex-1 overflow-auto p-3">
+      {sheet.panes.every(screen => screen === null) && <section aria-label={text.emptyGuidanceTitle} className="mb-3 rounded-md border border-border-subtle bg-surface-card px-4 py-3">
+        <h2 className="text-sm font-semibold text-text-primary">{text.emptyGuidanceTitle}</h2>
+        <p className="mt-1 text-xs text-text-secondary">{text.sheetGuidance}</p>
+        <p className="text-xs text-text-secondary">{text.paneGuidance}</p>
+      </section>}
       <div ref={grid} data-board-grid data-columns={drawn} data-rows={rows} style={{ '--board-row': `minmax(${PANE_MIN_HEIGHT}px, 1fr)` } as CSSProperties}
         className={cn('grid min-h-full auto-rows-(--board-row)', GRID_GAP_CLASS, drawn === 1 ? 'grid-cols-1' : 'grid-cols-2')}>
         {sheet.panes.map((screen, index) => <BoardPane key={`${sheetId}.${index}`} paneId={paneIdOf(sheetId, index)} number={index + 1} screen={screen} selected={index === selected} Outlet={Outlet}
