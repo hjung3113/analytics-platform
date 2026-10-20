@@ -1,4 +1,4 @@
-import { useOverlayVisible, useScopedAutofocus, useScopedOverlay } from '../TransientOverlayScope';
+import { useOverlayVisible, useScopedAutofocus, withScopedOverlay } from '../TransientOverlayScope';
 import * as AlertDialogPrimitive from '@radix-ui/react-dialog';
 import * as React from 'react';
 import { cn } from '../../utils/cn.js';
@@ -6,10 +6,7 @@ import { DIALOG_CONTENT_MOTION, SCRIM_MOTION } from '../../utils/motion.js';
 import { isToastTarget } from '../../utils/toast-target.js';
 import { buttonVariants } from '../Button.js';
 
-export const AlertDialog: React.FC<AlertDialogPrimitive.DialogProps> = (props) => {
-  const scoped = useScopedOverlay(props);
-  return <AlertDialogPrimitive.Root {...props} {...scoped} />;
-};
+export const AlertDialog: React.FC<AlertDialogPrimitive.DialogProps> = withScopedOverlay(AlertDialogPrimitive.Root);
 export const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
 export const AlertDialogPortal = AlertDialogPrimitive.Portal;
 

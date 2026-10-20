@@ -1,12 +1,14 @@
 import type * as React from 'react';
+import { createElement } from 'react';
 import { createContext, useContext, useInsertionEffect, useLayoutEffect, useMemo, useState } from 'react';
 
 const OverlayVisibility = createContext<{ active: boolean; status: { current: boolean } } | null>(null);
 
 /** Hiding retained content dismisses its transient portals without unmounting ordinary state or docked content. */
-export function TransientOverlayScope({ active, children }: { active: boolean; children: React.ReactNode }): React.ReactElement {
+export function TransientOverlayScope({ active, detached = false, children }: { active: boolean; detached?: boolean; children: React.ReactNode }): React.ReactElement {
   const parent = useContext(OverlayVisibility);
-  const visible = active && (parent?.active ?? true);
+  // Docked content owns visibility independently of the pane that created its portal.
+  const visible = active && (detached || (parent?.active ?? true));
   // Each visibility lifetime has its own cancellation token; a rapid hide/show cannot revive an old autofocus callback.
   const status = useMemo(() => ({ current: visible }), [visible]);
   useInsertionEffect(() => () => { status.current = false; }, [status]);
@@ -14,7 +16,18 @@ export function TransientOverlayScope({ active, children }: { active: boolean; c
 }
 
 type OpenProps = { open?: boolean; defaultOpen?: boolean; onOpenChange?: (open: boolean) => void };
-export function useScopedOverlay(props: OpenProps): OpenProps {
+/** The unscoped branch delegates state and notification timing entirely to Radix. */
+export function withScopedOverlay<P extends OpenProps>(Root: React.ComponentType<P>): React.FC<P> {
+  return function OverlayRoot(props: P) {
+    const scope = useContext(OverlayVisibility);
+    return scope === null ? createElement(Root, props) : createElement(ScopedOverlayRoot<P>, { Root, props });
+  };
+}
+function ScopedOverlayRoot<P extends OpenProps>({ Root, props }: { Root: React.ComponentType<P>; props: P }) {
+  const scoped = useScopedOverlay(props);
+  return createElement(Root, { ...props, ...scoped });
+}
+function useScopedOverlay(props: OpenProps): OpenProps {
   const scope = useContext(OverlayVisibility);
   const [local, setLocal] = useState(props.defaultOpen ?? false);
   const active = scope?.active ?? true;

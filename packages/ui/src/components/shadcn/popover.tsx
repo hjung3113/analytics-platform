@@ -1,13 +1,10 @@
-import { useOverlayVisible, useScopedAutofocus, useScopedOverlay } from '../TransientOverlayScope';
+import { useOverlayVisible, useScopedAutofocus, withScopedOverlay } from '../TransientOverlayScope';
 import * as PopoverPrimitive from '@radix-ui/react-popover';
 import * as React from 'react';
 import { cn } from '../../utils/cn.js';
 import { POPPER_CONTENT_MOTION } from '../../utils/motion.js';
 
-export const Popover: React.FC<PopoverPrimitive.PopoverProps> = (props) => {
-  const scoped = useScopedOverlay(props);
-  return <PopoverPrimitive.Root {...props} {...scoped} />;
-};
+export const Popover: React.FC<PopoverPrimitive.PopoverProps> = withScopedOverlay(PopoverPrimitive.Root);
 export const PopoverTrigger = PopoverPrimitive.Trigger;
 export const PopoverAnchor = PopoverPrimitive.Anchor;
 

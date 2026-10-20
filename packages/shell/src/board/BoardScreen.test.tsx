@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlatformAdapter, Session } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
-import { PlatformPage } from '@ap/components';
+import { DetailDrawer, PlatformPage } from '@ap/components';
+import { Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { BoardScreen } from './BoardScreen';
 import { RouteOutlet } from '../RouteOutlet';
 import { AppRail } from '../AppRail';
@@ -555,6 +556,45 @@ describe('narrow stacking (docs/16 §4)', () => {
   });
   afterEach(() => { vi.restoreAllMocks(); });
 
+  it('gives stacked expanded panes 400px tracks and collapsed panes header-only tracks', async () => {
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [null, null, null, null] })]));
+    mount(); await settle();
+    act(() => { notify(600); });
+    expect([1, 2, 3, 4].map(n => paneGroup(n).style.getPropertyValue('--pane-height'))).toEqual(['400px', '400px', '400px', '400px']);
+    expect(document.querySelector('[data-board-grid]')).toHaveStyle({ '--board-height': '1636px' });
+    fireEvent.click(screen.getByRole('button', { name: '칸 1 접기' }));
+    expect([1, 2, 3, 4].map(n => paneGroup(n).style.getPropertyValue('--pane-height'))).toEqual(['42px', '400px', '400px', '400px']);
+    expect(document.querySelector('[data-board-grid]')).toHaveStyle({ '--board-height': '1278px' });
+  });
+
+  it('recovers the focused restore button to the same pane when stacking cancels maximize', async () => {
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [null, null, null, null] })]));
+    mount(); await settle();
+    fireEvent.click(screen.getByRole('button', { name: '칸 2 최대화' }));
+    expect(screen.getByRole('button', { name: '원래 크기로' })).toHaveFocus();
+    act(() => { notify(600); });
+    expect(paneGroup(2)).toHaveFocus();
+    act(() => { notify(764); });
+    expect(paneGroup(2)).toHaveFocus();
+    expect(screen.getByRole('button', { name: '칸 2 최대화' })).toBeInTheDocument();
+  });
+
+  it('does not steal focus on stacking from a surviving control or an outgoing sheet', async () => {
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [null, null, null, null] }), sheet('b')]));
+    mount(); await settle();
+    fireEvent.click(screen.getByRole('button', { name: '칸 2 최대화' }));
+    const collapse = screen.getByRole('button', { name: '칸 2 선택' });
+    act(() => { collapse.focus(); notify(600); });
+    expect(collapse).toHaveFocus();
+    act(() => { notify(764); });
+    fireEvent.click(screen.getByRole('button', { name: '칸 2 최대화' }));
+    const oldPane = paneGroup(2);
+    fireEvent.click(screen.getByRole('tab', { name: 'b' }));
+    await settle();
+    expect(oldPane).not.toBeInTheDocument();
+    expect(document.activeElement?.closest('[data-pane-id]')).toBeNull();
+  });
+
   it('stacks by the grid container width, not the viewport, and never changes the stored layout', async () => {
     seed(boardOf([sheet('a', { layout: '2x2', panes: [null, null, null, null] })]));
     mount();
@@ -741,5 +781,32 @@ describe('stateful Outlet presentation lifetime', () => {
     expect(unmounted).toHaveBeenCalledTimes(11);
     expect(mounted).toHaveBeenCalledTimes(12);
     expect(screen.getByRole('textbox', { name: 'local a.0' })).toHaveValue('initial');
+  });
+});
+
+describe('docked detail overlay lifetime', () => {
+  it.each(['collapse owner', 'maximize sibling'])('keeps detail popovers usable after %s', async transition => {
+    function DetailOwner() {
+      const { paneId } = usePlatform();
+      const [open, setOpen] = useState(false);
+      return <><button onClick={() => setOpen(true)}>detail {paneId}</button>{open && <DetailDrawer title="owned detail" onClose={() => setOpen(false)} tabs={[{
+        id: 'a', label: 'Attributes', content: <Popover><PopoverTrigger>detail options</PopoverTrigger><PopoverContent>detail popup</PopoverContent></Popover>,
+      }]} />}</>;
+    }
+    seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(), alpha(), null, null] })]));
+    window.history.replaceState(null, '', '/board?sheet=a');
+    const current = testSession(['platform:view']);
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => current })} registry={makeRegistry()}><AppShell><BoardScreen Outlet={DetailOwner} /></AppShell></PlatformProvider></I18nProvider>);
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: 'detail a.0' }));
+    expect(screen.getByRole('dialog', { name: 'owned detail' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: transition === 'collapse owner' ? '칸 1 접기' : '칸 2 최대화' }));
+    fireEvent.click(screen.getByRole('button', { name: 'detail options' }));
+    expect(screen.getByText('detail popup')).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByText('detail popup'), { key: 'Escape' });
+    await settle();
+    expect(screen.queryByText('detail popup')).toBeNull();
+    expect(screen.getByRole('dialog', { name: 'owned detail' })).toBeInTheDocument();
+    if (transition === 'maximize sibling') expect(screen.getByRole('button', { name: '원래 크기로' })).toBeInTheDocument();
   });
 });

@@ -1,14 +1,11 @@
-import { useOverlayVisible, useScopedAutofocus, useScopedOverlay } from '../TransientOverlayScope';
+import { useOverlayVisible, useScopedAutofocus, withScopedOverlay } from '../TransientOverlayScope';
 import * as React from 'react';
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
 import { Check, ChevronRight, Circle } from 'lucide-react';
 import { cn } from '../../utils/cn.js';
 import { POPPER_CONTENT_MOTION } from '../../utils/motion.js';
 
-export const DropdownMenu: React.FC<DropdownMenuPrimitive.DropdownMenuProps> = (props) => {
-  const scoped = useScopedOverlay(props);
-  return <DropdownMenuPrimitive.Root {...props} {...scoped} />;
-};
+export const DropdownMenu: React.FC<DropdownMenuPrimitive.DropdownMenuProps> = withScopedOverlay(DropdownMenuPrimitive.Root);
 export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 export const DropdownMenuGroup = DropdownMenuPrimitive.Group;
 export const DropdownMenuPortal = DropdownMenuPrimitive.Portal;

@@ -1,14 +1,11 @@
-import { useOverlayVisible, useScopedAutofocus, useScopedOverlay } from '../TransientOverlayScope';
+import { useOverlayVisible, useScopedAutofocus, withScopedOverlay } from '../TransientOverlayScope';
 import * as React from 'react';
 import * as SelectPrimitive from '@radix-ui/react-select';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../../utils/cn.js';
 import { SELECT_CONTENT_MOTION } from '../../utils/motion.js';
 
-export const Select: React.FC<SelectPrimitive.SelectProps> = (props) => {
-  const scoped = useScopedOverlay(props);
-  return <SelectPrimitive.Root {...props} {...scoped} />;
-};
+export const Select: React.FC<SelectPrimitive.SelectProps> = withScopedOverlay(SelectPrimitive.Root);
 export const SelectGroup = SelectPrimitive.Group;
 export const SelectValue = SelectPrimitive.Value;
 

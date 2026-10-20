@@ -1,4 +1,4 @@
-import { useOverlayVisible, useScopedAutofocus, useScopedOverlay } from '../TransientOverlayScope';
+import { useOverlayVisible, useScopedAutofocus, withScopedOverlay } from '../TransientOverlayScope';
 import * as SheetPrimitive from '@radix-ui/react-dialog';
 import { type VariantProps, cva } from 'class-variance-authority';
 import { X } from 'lucide-react';
@@ -7,10 +7,7 @@ import { cn } from '../../utils/cn.js';
 import { SCRIM_MOTION, SHEET_CONTENT_MOTION } from '../../utils/motion.js';
 import { isToastTarget } from '../../utils/toast-target.js';
 
-export const Sheet: React.FC<SheetPrimitive.DialogProps> = (props) => {
-  const scoped = useScopedOverlay(props);
-  return <SheetPrimitive.Root {...props} {...scoped} />;
-};
+export const Sheet: React.FC<SheetPrimitive.DialogProps> = withScopedOverlay(SheetPrimitive.Root);
 export const SheetTrigger = SheetPrimitive.Trigger;
 export const SheetClose = SheetPrimitive.Close;
 export const SheetPortal = SheetPrimitive.Portal;

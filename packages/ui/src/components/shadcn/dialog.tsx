@@ -1,4 +1,4 @@
-import { useOverlayVisible, useScopedAutofocus, useScopedOverlay } from '../TransientOverlayScope';
+import { useOverlayVisible, useScopedAutofocus, withScopedOverlay } from '../TransientOverlayScope';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { type VariantProps, cva } from 'class-variance-authority';
 import { X } from 'lucide-react';
@@ -7,10 +7,7 @@ import { cn } from '../../utils/cn.js';
 import { DIALOG_CONTENT_MOTION, SCRIM_MOTION } from '../../utils/motion.js';
 import { isToastTarget } from '../../utils/toast-target.js';
 
-export const Dialog: React.FC<DialogPrimitive.DialogProps> = (props) => {
-  const scoped = useScopedOverlay(props);
-  return <DialogPrimitive.Root {...props} {...scoped} />;
-};
+export const Dialog: React.FC<DialogPrimitive.DialogProps> = withScopedOverlay(DialogPrimitive.Root);
 export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogPortal = DialogPrimitive.Portal;
 export const DialogClose = DialogPrimitive.Close;

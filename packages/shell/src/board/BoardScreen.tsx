@@ -169,7 +169,8 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   const stacked = drawn !== columns;
   const arrangement = getArrangement(sheet);
   const tracks = effectiveTracks(sheet.layout, arrangement, width, height);
-  const identity = `${user.id}.${sheetId}.${sheet.layout}.${stacked}`;
+  const owner = `${user.id}.${sheetId}.${sheet.layout}`;
+  const identity = `${owner}.${stacked}`;
   const [presentation, setPresentation] = useState<{ identity: string; maximized: number | null }>({ identity, maximized: null });
   // Identity changes cancel transient presentation before children commit; no outgoing focus handoff survives.
   if (presentation.identity !== identity) {
@@ -182,17 +183,25 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
     update(b => selectPane(b, sheetId, index));
     setPresentation({ identity, maximized: maximized === index ? null : index });
   };
-  const focusPresentation = useRef<{ identity: string; index: number } | null>(null);
+  const lastGridFocus = useRef<EventTarget | null>(null);
+  const focusPresentation = useRef<{ identity: string; owner: string; index: number; trigger: HTMLElement | null } | null>(null);
   useLayoutEffect(() => {
     const previous = focusPresentation.current;
-    const index = maximized ?? (previous?.identity === identity ? previous.index : null);
+    const stackingRestore = stacked && previous?.owner === owner && previous.trigger === lastGridFocus.current
+      && document.activeElement === document.body;
+    const index = maximized ?? (previous?.identity === identity || stackingRestore ? previous!.index : null);
     if (index !== null) {
       const trigger = grid.current?.querySelector<HTMLElement>(`[data-pane-index="${index}"] [data-pane-maximize]`);
       if (trigger && !trigger.closest('[inert], [hidden]')) trigger.focus({ preventScroll: true });
-      else heading.current?.focus({ preventScroll: true });
+      else {
+        const pane = grid.current?.querySelector<HTMLElement>(`[data-pane-index="${index}"]`);
+        if (pane && !pane.closest('[inert], [hidden]')) pane.focus({ preventScroll: true });
+        else heading.current?.focus({ preventScroll: true });
+      }
     }
-    focusPresentation.current = maximized === null ? null : { identity, index: maximized };
-  }, [maximized, identity]);
+    focusPresentation.current = maximized === null ? null : { identity, owner, index: maximized,
+      trigger: grid.current?.querySelector<HTMLElement>(`[data-pane-index="${maximized}"] [data-pane-maximize]`) ?? null };
+  }, [maximized, identity, owner, stacked]);
   useEffect(() => {
     if (maximized === null) return;
     // Radix handles Escape at document capture; React detail/consumer handlers run before window bubble.
@@ -210,7 +219,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   });
   const collapse = (index: number) => saved({ collapsed: arrangement.collapsed.includes(index)
     ? arrangement.collapsed.filter(i => i !== index) : canCollapse(sheet.layout, arrangement.collapsed, index) ? [...arrangement.collapsed, index] : arrangement.collapsed });
-  const stackedHeights = sheet.panes.map((_, i) => PANE_HEADER_HEIGHT + (arrangement.collapsed.includes(i) ? 0 : PANE_BODY_MIN_HEIGHT));
+  const stackedHeights = sheet.panes.map((_, i) => PANE_HEADER_HEIGHT + (arrangement.collapsed.includes(i) ? 0 : 400 - PANE_HEADER_HEIGHT));
   const gridHeight = maximized !== null ? Math.max(height, PANE_HEADER_HEIGHT + PANE_BODY_MIN_HEIGHT)
     : stacked ? stackedHeights.reduce((a, b) => a + b, 0) + GRID_GAP * (sheet.panes.length - 1) : tracks.height;
   const panePlacement = (index: number) => {
@@ -251,7 +260,8 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
         <p className="mt-1 text-xs text-text-secondary">{text.sheetGuidance}</p>
         <p className="text-xs text-text-secondary">{text.paneGuidance}</p>
       </section>}
-      <div ref={grid} data-board-grid data-columns={drawn} data-rows={rows} style={{ '--board-height': `${gridHeight}px` } as CSSProperties} className="relative h-(--board-height)">
+      <div ref={grid} onFocusCapture={event => { lastGridFocus.current = event.target; }}
+        onBlurCapture={event => { if (event.relatedTarget) lastGridFocus.current = event.relatedTarget; }} data-board-grid data-columns={drawn} data-rows={rows} style={{ '--board-height': `${gridHeight}px` } as CSSProperties} className="relative h-(--board-height)">
         {sheet.panes.map((screen, index) => <BoardPane key={`${user.id}.${sheetId}.${index}`} paneId={paneIdOf(sheetId, index)} number={index + 1} screen={screen} selected={index === selected} Outlet={Outlet}
           placement={panePlacement(index)} hidden={maximized !== null && maximized !== index} collapsed={arrangement.collapsed.includes(index)} maximized={maximized === index}
           sizing={sheet.panes.length >= 2} canMaximize={!stacked} collapseOff={maximized !== null ? text.maximizedCollapseOff : !arrangement.collapsed.includes(index) && !canCollapse(sheet.layout, arrangement.collapsed, index) ? text.lastExpanded : null}
