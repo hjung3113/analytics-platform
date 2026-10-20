@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  // Dist build for the SDK release tarball (ADR-0056, #519): ESM .js + .d.ts from the same sources. Workspace consumers keep
+  // importing src (dev exports); only the staged release manifest points here (tooling/scripts/sdk-pack.mjs).
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    "jsx": "react-jsx",
+    "types": [],
+    // base.json allows .ts specifiers for the noEmit workspace check; emitting forbids them (TS5096).
+    "allowImportingTsExtensions": false,
+    // Siblings resolve to their emitted declarations, not their src (build order: contracts, kernel, ui, components, shell).
+    "paths": { "@ap/contracts": ["../contracts/dist/index.d.ts"] }
+  },
+  "include": ["src"],
+  "exclude": ["**/*.test.*", "**/__tests__/**", "**/__fixtures__/**", "src/test-setup.ts", "src/vitest.setup.ts"]
+}

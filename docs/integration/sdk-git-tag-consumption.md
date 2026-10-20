@@ -21,6 +21,51 @@
 
 `sdk-v0.8.0`부터 `@ap/components`의 `token(name)`과 `ChartSeries.color`는 `string` 대신 `ThemeColorToken`을 받는다(ADR-0055). 런타임 문자열을 넘기는 호출자는 `isThemeColorToken(name)`으로 좁힌 뒤 부르거나, 자기 데이터 모델에 `ThemeColorToken`을 쓴다. 폐기 예고 없이 바꾼 이유: `@ap/components`를 저장소 밖에서 받는 소비자가 아직 없고(FeedbackOps·EV는 `@ap/ui`만 받는다, 2026-10-20 확인), 값과 출력 형식(`rgb(r,g,b)`)은 그대로다. 저장소 밖 소비자가 생긴 뒤의 같은 변경은 ADR-0044의 한 릴리스 예고를 따른다.
 
+## Release tarball로 받기 (ADR-0056)
+
+`@ap/ui` 말고 `@ap/kernel`·`@ap/components`·`@ap/shell`·`@ap/contracts`까지 받는 소비자(EV `platform-adapter`, 사내 메뉴)는 git 태그 `path:` 대신 **GitHub Release의 tarball**을 쓴다. 이유와 대안은 [ADR-0056](../adr/0056-sdk-release-github-release-tarballs.md)이다: 네 패키지는 서로를 `workspace:*`로 의존해 git `path:`로는 풀리지 않는다. 묶음 태그 `sdk-vX.Y.Z`마다 Release에 `ap-contracts-X.Y.Z.tgz`·`ap-kernel-…`·`ap-ui-…`·`ap-components-…`·`ap-shell-…`와 `SHA256SUMS`가 붙는다. 다섯 패키지는 같은 버전이고, tarball 안의 형제 의존은 그 버전으로 고정돼 있다. 내용은 ESM JS·`.d.ts`·CSS·`theme-tokens.json`뿐이라(TS 소스·tsconfig·테스트 없음) 소비자는 SDK 때문에 `@types/node`나 JSX 설정을 맞출 필요가 없다. 번들러(Vite·Vitest·webpack 계열) 소비자를 전제로 하며, `@ap/contracts`만 Node ESM에서도 그대로 읽힌다.
+
+`package.json` (쓰는 패키지만 적는다. 아래는 다섯 모두를 쓰는 예):
+
+```json
+{
+  "dependencies": {
+    "@ap/contracts": "https://github.com/hjung3113/analytics-platform/releases/download/sdk-vX.Y.Z/ap-contracts-X.Y.Z.tgz",
+    "@ap/kernel": "https://github.com/hjung3113/analytics-platform/releases/download/sdk-vX.Y.Z/ap-kernel-X.Y.Z.tgz",
+    "@ap/ui": "https://github.com/hjung3113/analytics-platform/releases/download/sdk-vX.Y.Z/ap-ui-X.Y.Z.tgz",
+    "@ap/components": "https://github.com/hjung3113/analytics-platform/releases/download/sdk-vX.Y.Z/ap-components-X.Y.Z.tgz",
+    "@ap/shell": "https://github.com/hjung3113/analytics-platform/releases/download/sdk-vX.Y.Z/ap-shell-X.Y.Z.tgz",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  }
+}
+```
+
+`pnpm-workspace.yaml` — tarball 안의 형제 의존(`@ap/kernel@X.Y.Z` 등)을 같은 Release 파일로 풀고, 아래 소비자 조건을 건다:
+
+```yaml
+overrides:
+  "@ap/contracts": "https://github.com/hjung3113/analytics-platform/releases/download/sdk-vX.Y.Z/ap-contracts-X.Y.Z.tgz"
+  "@ap/kernel": "https://github.com/hjung3113/analytics-platform/releases/download/sdk-vX.Y.Z/ap-kernel-X.Y.Z.tgz"
+  "@ap/ui": "https://github.com/hjung3113/analytics-platform/releases/download/sdk-vX.Y.Z/ap-ui-X.Y.Z.tgz"
+  "@ap/components": "https://github.com/hjung3113/analytics-platform/releases/download/sdk-vX.Y.Z/ap-components-X.Y.Z.tgz"
+  "@ap/shell": "https://github.com/hjung3113/analytics-platform/releases/download/sdk-vX.Y.Z/ap-shell-X.Y.Z.tgz"
+  "@tiptap/core": 3.23.5
+  # … 나머지 @tiptap/* 21개도 3.23.5로 (이 저장소 pnpm-workspace.yaml의 overrides와 같게)
+patchedDependencies:
+  "@formkit/auto-animate@0.10.0": patches/@formkit__auto-animate@0.10.0.patch
+```
+
+남는 소비자 조건:
+
+- `@tiptap/*` 22개 `overrides`를 3.23.5로 고정하고 `@formkit/auto-animate@0.10.0` 패치를 갖는다(위 표와 같은 이유; tarball이 이 둘을 대신 해 주지 않는다).
+- React 19: `react`·`react-dom`은 SDK 패키지의 peer다. 소비자가 한 벌만 설치한다(Provider·Context 짝이 한 사본이어야 한다). `@ap/kernel`도 한 벌이어야 하므로 위 `overrides`를 빼지 않는다.
+- CSS: `@import "tailwindcss"` 다음에 `@ap/ui/styles.css`, `@ap/components/styles.css`, `@ap/shell/styles.css` 순서로 import한다. 각 파일의 `@source`가 tarball 안 `dist`를 스캔한다.
+- `@ap/components/testing`은 `vitest`를 import한다(`vitest`는 선택 peer). 그 진입점을 쓰는 소비자만 `vitest`를 설치하면 된다. `@ap/kernel/testing`은 `vitest`가 필요 없다.
+- 체크섬은 `SHA256SUMS`로 확인한다.
+
+CI가 매 PR마다 같은 다섯 tarball을 만들고(`pnpm sdk:pack`), 깨끗한 임시 소비자가 위 조건 그대로 받아 `tsc --noEmit`(`@types/node` 없음)·Vite 빌드·CSS 클래스 생성·Vitest까지 통과해야 병합된다(`pnpm sdk:consumer-check`). 기존 `@ap/ui` git 태그 `path:` 경로(위 시험 결과)는 그대로 동작한다. tarball로 옮길지는 소비자(FeedbackOps) 판단이다.
+
 ## 결론과 남은 것
 
 - git 태그 의존성은 **된다**. 결정(레지스트리 없이 태그)을 다시 열 이유는 시험에서 나오지 않았다.

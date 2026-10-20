@@ -135,7 +135,7 @@
 | 성능 예산 | 없음 | 번들 예산 없음 | 수동 표(컴포넌트 2006개 342ms, 초선형) | 🆕 |
 | CI 게이트 | 루트 `lint·typecheck·test·build·e2e` + 계약 보고 | `gate.sh` 3단계(static/unit/integration) | 단일 `Gate` 잡 | ✅ AP |
 | 툴체인 | pnpm 11.1.1 / Node 26.7 / TS 5.9 | pnpm 9.15 / Node 22 / TS 5.7 / Biome | AP와 같음 | FO가 한 세대 뒤. 소비 조건으로 peer 범위에 표현 |
-| 패키지 배포 상태 | 전부 `private`·`0.0.0`·소스 export | 같음 | `core`·`renderer`는 `dist` 빌드, 나머지 소스 export. `files`·changelog·`publishConfig` 없음 | 🆕 [ADR-0044](../adr/0044-sdk-source-in-platform-repo-released-separately.md) |
+| 패키지 배포 상태 | 전부 `private`·`0.0.0`·소스 export | 같음 | `core`·`renderer`는 `dist` 빌드, 나머지 소스 export. `files`·changelog·`publishConfig` 없음 | 🆕 [ADR-0044](../adr/0044-sdk-source-in-platform-repo-released-separately.md). 배포 모양은 [ADR-0056](../adr/0056-sdk-release-github-release-tarballs.md)(Release tarball 다섯, 구현 [#519](https://github.com/hjung3113/analytics-platform/issues/519)) |
 
 ## 4. 통합 계획 지도의 정정
 
@@ -171,7 +171,7 @@
 5. 기계가 읽는 테마 계약(EV는 25개 중 9개(README 표 기준)만 매핑, 나머지는 hex fallback) — [ADR-0055](../adr/0055-theme-contract-css-source-dtcg-json-typed-names.md)
 6. 호스트 쪽 입력 검증 공유 위치(EV의 Binding→Mapping Version→Layout 검증이 `apps/studio`에 있어 `platform-adapter`가 복제하게 된다)
 7. 자동 접근성·시각·성능 예산 게이트
-8. 패키지 배포 구조([ADR-0044](../adr/0044-sdk-source-in-platform-repo-released-separately.md))
+8. 패키지 배포 구조([ADR-0044](../adr/0044-sdk-source-in-platform-repo-released-separately.md)) — 배포물은 `sdk-v*` GitHub Release의 tarball 다섯 개다([ADR-0056](../adr/0056-sdk-release-github-release-tarballs.md), 구현 [#519](https://github.com/hjung3113/analytics-platform/issues/519))
 
 ## 6. 결정 (사용자 2026-10-19, 권고안 그대로)
 

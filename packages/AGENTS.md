@@ -21,7 +21,7 @@
 - 역방향 import 금지, 서버에 닿는 길은 `PlatformAdapter` 하나([패키지 경계](../docs/integration/platform-packages.md) §3-§4) — 메뉴 어휘 메서드를 포트에 추가하지 않는다.
 - `@fops/*`는 어떤 플랫폼 패키지에서도 import하지 않는다(경계 lint). 토큰·primitive는 `@ap/ui`가 소유하고(FeedbackOps `a8d768b8`에서 이전, #441), 다른 플랫폼 코드는 `@ap/ui` 공개 export를 사용한다([ADR-0043](../docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)·[0046](../docs/adr/0046-design-system-source-moves-to-platform-whole-package.md)). 레이아웃·도메인 결합 묶음은 #442·#443에서 이어서 옮긴다.
 - 다른 패키지는 `package.json` `exports`의 공개 진입점으로만 import한다(`@ap/kernel`, `@ap/ui/styles.css`). `@ap/x/src/...` 깊은 경로 금지.
-- 패키지는 TS 소스를 그대로 export하고 빌드 단계가 없다. 앱의 Vite가 번들한다.
+- 패키지는 TS 소스를 그대로 export하고 빌드 단계가 없다(workspace 개발; 배포 tarball은 [ADR-0056](../docs/adr/0056-sdk-release-github-release-tarballs.md)의 `dist`다). 앱의 Vite가 번들한다.
 - Tailwind 클래스를 쓰는 패키지는 `styles.css`에 `@source`로 자기 소스를 등록하고 앱 `src/style.css`가 그것을 import한다. 새 패키지를 만들면 이 둘을 같이 추가한다. Tailwind를 쓰지 않는 패키지(`mock-server`)는 `styles.css`를 만들지 않는다.
 - 예외: 테스트 전용 진입점 `@ap/kernel/testing`(`testAdapter`·`testSession`·`testSpace`·`noContext`)과 `@ap/components/testing`(`stubCompactTableGeometry`, 표 기하 stub; components 테스트는 `./testing`) 둘은 ADR-0040(확장 #413)에 따라 `exports["./testing"]`로 낸다. 테스트 파일(`*.test.ts(x)`·`test-support.ts`·`test-setup.ts`)에서만 import하고, 프로덕션 소스는 lint가 막는다. 어댑터 stub은 손으로 쓰지 말고 `testAdapter({ … })`로 만든다. `@ap/server-conformance`는 프로덕션·테스트 모두 `@ap/contracts`만 본다.
 - 새 공개 API는 `src/index.ts`에 명시적으로 export한다. 메뉴 한 곳에서만 쓰이는 것은 올리지 않는다(06 §24, 2~3개 메뉴 반복 확인 후 승격). §4 Kernel 책임은 이 기준 밖이다.
@@ -30,5 +30,7 @@
 ## 검증
 
 패키지별 검사(`pnpm --filter @ap/<패키지> test`)로 좁혀 본 뒤 루트 검사(루트 `AGENTS.md`). 이동·리팩터링 PR의 빌드 CSS selector 집합은 CI `CSS selectors (build diff)`가 자동 비교한다(의도한 제거만 `css-removal-ok` 라벨, [tooling/AGENTS.md](../tooling/AGENTS.md)).
+
+배포 모양을 건드렸으면(패키지 `exports`·CSS `@source`·`tsconfig.build.json`·새 파일 종류) `pnpm sdk:pack --out <임시 폴더>` 뒤 `pnpm sdk:consumer-check <같은 폴더>`를 돌린다. 앞은 다섯 패키지를 `dist`로 빌드해 tarball과 `SHA256SUMS`를 만들고, 뒤는 깨끗한 외부 소비자가 그것을 받아 설치·`tsc`·Vite 빌드·CSS 클래스·Vitest까지 확인한다(CI가 같은 순서로 돌린다, ADR-0056).
 
 다음 단계: 수정할 패키지의 `AGENTS.md`.
