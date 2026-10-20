@@ -8,6 +8,7 @@ import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@
 import { DetailDrawer, PlatformPage } from '@ap/components';
 import { Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { BoardScreen } from './BoardScreen';
+import { GRID_GAP, PANE_HEADER_HEIGHT, STACKED_PANE_MIN_HEIGHT } from './layout';
 import { RouteOutlet } from '../RouteOutlet';
 import { AppRail } from '../AppRail';
 import { AppShell } from '../AppShell';
@@ -556,15 +557,16 @@ describe('narrow stacking (docs/16 §4)', () => {
   });
   afterEach(() => { vi.restoreAllMocks(); });
 
-  it('gives stacked expanded panes 400px tracks and collapsed panes header-only tracks', async () => {
+  it('uses the stacked minimum for expanded panes and header-only tracks when collapsed', async () => {
     seed(boardOf([sheet('a', { layout: '2x2', panes: [null, null, null, null] })]));
     mount(); await settle();
     act(() => { notify(600); });
-    expect([1, 2, 3, 4].map(n => paneGroup(n).style.getPropertyValue('--pane-height'))).toEqual(['400px', '400px', '400px', '400px']);
-    expect(document.querySelector('[data-board-grid]')).toHaveStyle({ '--board-height': '1636px' });
+    const stackedHeight = `${STACKED_PANE_MIN_HEIGHT}px`;
+    expect([1, 2, 3, 4].map(n => paneGroup(n).style.getPropertyValue('--pane-height'))).toEqual([stackedHeight, stackedHeight, stackedHeight, stackedHeight]);
+    expect(document.querySelector('[data-board-grid]')).toHaveStyle({ '--board-height': `${STACKED_PANE_MIN_HEIGHT * 4 + GRID_GAP * 3}px` });
     fireEvent.click(screen.getByRole('button', { name: '칸 1 접기' }));
-    expect([1, 2, 3, 4].map(n => paneGroup(n).style.getPropertyValue('--pane-height'))).toEqual(['42px', '400px', '400px', '400px']);
-    expect(document.querySelector('[data-board-grid]')).toHaveStyle({ '--board-height': '1278px' });
+    expect([1, 2, 3, 4].map(n => paneGroup(n).style.getPropertyValue('--pane-height'))).toEqual([`${PANE_HEADER_HEIGHT}px`, stackedHeight, stackedHeight, stackedHeight]);
+    expect(document.querySelector('[data-board-grid]')).toHaveStyle({ '--board-height': `${PANE_HEADER_HEIGHT + STACKED_PANE_MIN_HEIGHT * 3 + GRID_GAP * 3}px` });
   });
 
   it('recovers the focused restore button to the same pane when stacking cancels maximize', async () => {

@@ -12,7 +12,7 @@ import {
 import { canMountPaneScreen } from './boardMenus';
 import { applyContextToSheet, copyContextToSheet, defaultQuery, firstEmptyPane, paneNumbers, paneSignals, replacementScreen } from './paneActions';
 import { useBoardStore } from './boardStore';
-import { GRID_GAP, PANE_HEADER_HEIGHT, PANE_BODY_MIN_HEIGHT, drawnColumns, effectiveTracks, useElementWidth, useGridHeight } from './layout';
+import { GRID_GAP, PANE_HEADER_HEIGHT, PANE_BODY_MIN_HEIGHT, STACKED_PANE_MIN_HEIGHT, drawnColumns, effectiveTracks, useElementWidth, useGridHeight } from './layout';
 import { PaneSplitter } from './PaneSplitter';
 import { boardText, type BoardText } from './text';
 
@@ -219,7 +219,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   });
   const collapse = (index: number) => saved({ collapsed: arrangement.collapsed.includes(index)
     ? arrangement.collapsed.filter(i => i !== index) : canCollapse(sheet.layout, arrangement.collapsed, index) ? [...arrangement.collapsed, index] : arrangement.collapsed });
-  const stackedHeights = sheet.panes.map((_, i) => PANE_HEADER_HEIGHT + (arrangement.collapsed.includes(i) ? 0 : 400 - PANE_HEADER_HEIGHT));
+  const stackedHeights = sheet.panes.map((_, i) => PANE_HEADER_HEIGHT + (arrangement.collapsed.includes(i) ? 0 : STACKED_PANE_MIN_HEIGHT - PANE_HEADER_HEIGHT));
   const gridHeight = maximized !== null ? Math.max(height, PANE_HEADER_HEIGHT + PANE_BODY_MIN_HEIGHT)
     : stacked ? stackedHeights.reduce((a, b) => a + b, 0) + GRID_GAP * (sheet.panes.length - 1) : tracks.height;
   const panePlacement = (index: number) => {
@@ -234,7 +234,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   return <div data-board className="flex h-full min-h-0 flex-col">
     <header className="flex h-[50px] shrink-0 items-center justify-between gap-3 overflow-x-auto border-b border-border-subtle bg-surface-canvas px-4">
       <div className="flex min-w-0 items-center gap-3">
-        <h1 ref={heading} tabIndex={0} className="min-w-28 truncate text-sm font-semibold text-text-primary">{text.board}</h1>
+        <h1 data-page-heading ref={heading} tabIndex={0} className="min-w-28 truncate text-sm font-semibold text-text-primary">{text.board}</h1>
         <Popover>
           <PopoverTrigger asChild>
             <Button type="button" variant="ghost" size="sm" className="shrink-0" aria-haspopup="dialog">
