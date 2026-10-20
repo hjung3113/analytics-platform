@@ -32,6 +32,8 @@
 
    - [#536](https://github.com/hjung3113/analytics-platform/issues/536) 2×2 칸 높이·빈 화면 안내·좁은 폭 차이 칩(BX-5·BX-1·BX-3) — 빈 화면(C + A 안내)·차이 칩(A) 완료(사용자 2026-10-21). 칸 높이(BX-5)는 2차 시안 D(경계선·열별 행 비율·접기·최대화·저장) 확정(사용자 2026-10-21, [ADR-0060](../docs/adr/0060-analysis-board-pane-sizing-collapse-maximize.md)). 구현 완료(쌓기 칸 최소 400px, 콘덕터 결정). #536 완료.
 
+   - 슬라이스 품질 리뷰(PASS-WITH-NITS) 후속: [#567](https://github.com/hjung3113/analytics-platform/issues/567) 접힌 칸 머리 포커스 복귀 — 완료, [#568](https://github.com/hjung3113/analytics-platform/issues/568) 정리(Q2–Q6, 후속은 백로그).
+
 0. **분석 보드 1차(#421, 사용자 2026-10-19).** 설계 질의로 1차 동작을 정했다([16](../docs/16_analysis_board.md), [ADR-0049](../docs/adr/0049-analysis-context-belongs-to-a-pane.md)). 사례 조사([분석 보드 화면 패턴](../docs/research/2026-10-19-analysis-board-patterns.md))와 시안 3안 UX 리뷰로 칸 머리·선택 표시를 정했다([ADR-0051](../docs/adr/0051-analysis-board-pane-header-signal-chips-numbered-selection.md)). #496 Kernel 칸 Context, #497 보드 화면(골격·칸 머리·동작), #498 메뉴 보드 지원·E2E를 완료해 분석 보드 1차 구현을 마쳤다(v0.14.0).
 
 1. **소개 사이트 재구성(#468) — 완료(2026-10-20).** 근거 문서 [17 플랫폼 요구사항](../docs/17_platform_requirements.md)(기능 전체·상태)을 쓰고, 사이트를 "플랫폼 안이라서 되는 장면" 8개(핵심 3·이어짐 2·기본기)로 다시 짰다. 페르소나 독립 평가 5회(분석가·기존 시스템 개발 리드·도입 결정자·아키텍트·디자인)로 고쳤고, 견본 메뉴는 조연으로만 쓴다(사용자 2026-10-20). 남은 설득 장애는 사이트 밖 입력이다: 시범 인력·기간·비용 산정, 실서버·실사용자, 도입 전 기준선(#233), 화면 하나 실제 이전 비용 측정. SDK 모듈이 공통 표·차트 부품(`@ap/components`)을 아직 못 받는 것은 SDK 배포 모양 후속(아래 1a).

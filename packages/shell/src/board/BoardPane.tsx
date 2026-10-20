@@ -83,7 +83,7 @@ export function BoardPane({ placement, hidden = false, collapsed = false, maximi
       selected ? 'border-border-selected' : 'border-border-subtle', placement && 'absolute left-(--pane-left) top-(--pane-top) h-(--pane-height) w-(--pane-width)', hidden && 'hidden')}>
     {selected && <span aria-hidden data-pane-selected-bar className="absolute inset-y-0 left-0 z-10 w-0.5 bg-accent-primary" />}
     <PaneHeader sizing={sizing} collapsed={collapsed} maximized={maximized} canMaximize={canMaximize} collapseOff={collapseOff}
-      onCollapse={() => { onSelect(); onCollapse?.(); }} onMaximize={() => { onSelect(); onMaximize?.(); }} presentationHidden={hidden || bodyHidden}
+      onCollapse={() => { onSelect(); onCollapse?.(); }} onMaximize={() => { onSelect(); onMaximize?.(); }} presentationHidden={hidden}
       number={number} selected={selected} systemLabel={space ? tx(space.label) : null}
       menuName={menu ? menuName : screen ? <span className="t-mono">{screen.menuId}</span> : null}
       active={screen !== null && admitted} signal={signal} hasPrevious={hasPrevious} applyAllOff={applyAllOff} duplicateOff={duplicateOff}

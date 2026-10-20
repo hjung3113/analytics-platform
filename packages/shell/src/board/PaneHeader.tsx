@@ -115,15 +115,21 @@ export function PaneHeader(props: PaneHeaderProps) {
   const [popover, setPopover] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const ownerHidden = useRef(false);
+  const cancelMenuFocus = useRef(false);
+  const bodyHidden = props.collapsed && !props.maximized;
   useLayoutEffect(() => {
     ownerHidden.current = props.presentationHidden ?? false;
-    if (!props.presentationHidden) return;
+  }, [props.presentationHidden]);
+  useLayoutEffect(() => {
+    if (!props.presentationHidden && !bodyHidden) return;
+    // Cancel the outgoing overlays once; the collapsed header remains interactive.
+    cancelMenuFocus.current = true;
     setPopover(false);
     setMenuOpen(false);
     afterMenuClose.current = null;
     lastTrigger.current = null;
     editing.current = false;
-  }, [props.presentationHidden, afterMenuClose]);
+  }, [props.presentationHidden, bodyHidden, afterMenuClose]);
   const chips = signal?.compared ? signal.differing : [];
   const signature = chips.map(c => `${c.key}:${c.value}`).join('|');
   const { visible: visibleCount, overflow } = useVisibleChips(head, chips.length, signature, signal?.compared ? signal.same.length : 0);
@@ -174,13 +180,13 @@ export function PaneHeader(props: PaneHeaderProps) {
             {props.maximized ? <Minimize2 className="size-3.5" aria-hidden /> : <Maximize2 className="size-3.5" aria-hidden />}
           </Button>}
         </>}
-        {active && <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+        {active && <DropdownMenu open={menuOpen} onOpenChange={open => { if (open) cancelMenuFocus.current = false; setMenuOpen(open); }}>
           <DropdownMenuTrigger asChild>
             <Button ref={menuTrigger} type="button" variant="ghost" size="icon-sm" aria-label={text.paneActions(number)} title={text.paneActions(number)} onPointerDown={onSelect}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end"
             onCloseAutoFocus={event => {
-              if (ownerHidden.current) { event.preventDefault(); afterMenuClose.current = null; return; }
+              if (ownerHidden.current || cancelMenuFocus.current) { event.preventDefault(); cancelMenuFocus.current = false; afterMenuClose.current = null; return; }
               const next = afterMenuClose.current;
               if (next === null) return;
               afterMenuClose.current = null;
