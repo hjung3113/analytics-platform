@@ -7,6 +7,7 @@ import { admitPaneScreen } from './boardMenus';
 import { PaneHeader } from './PaneHeader';
 import type { PaneSignal } from './paneActions';
 import { PanePicker } from './PanePicker';
+import { boardPrototypeCopy } from './boardPrototype';
 import { boardText } from './text';
 
 export type BoardPaneProps = {
@@ -23,6 +24,16 @@ export type BoardPaneProps = {
   /** Why `이 조건을 시트의 모든 칸에 적용` is unavailable, or null. */
   applyAllOff: string | null;
   duplicateOff: string | null;
+  contentMode?: 'default' | 'fixed' | 'natural' | 'capped';
+  scrollRegion?: boolean;
+  emptyHint?: string;
+  chipMode?: 'priority' | 'value' | 'wrap';
+  maximizable?: boolean;
+  maximized?: boolean;
+  hiddenForMax?: boolean;
+  gridPlacement?: string;
+  maximizedOverlay?: boolean;
+  onToggleMaximize?: () => void;
   onSelect: () => void;
   onChange: (next: PaneScreen, how: 'push' | 'replace') => void;
   onLeave: (href: string) => void;
@@ -41,10 +52,11 @@ export type BoardPaneProps = {
  * `tabIndex=-1`). Focus inside the pane, a press on it and any header control select it first. `바꾸기` chains the picker and a confirm
  * dialog off the `⋯` menu; focus ends on the `⋯` trigger (or the pane root when the trigger is gone).
  */
-export function BoardPane({ paneId, number, screen, selected, Outlet, signal, hasPrevious, applyAllOff, duplicateOff, onSelect, onChange, onLeave, onInsert, onClear, onBack, onApplyAll, onOpenFull, onReplace, onDuplicate, onEditContext }: BoardPaneProps) {
+export function BoardPane({ paneId, number, screen, selected, Outlet, signal, hasPrevious, applyAllOff, duplicateOff, contentMode = 'default', scrollRegion, emptyHint, chipMode, maximizable, maximized, hiddenForMax, gridPlacement, maximizedOverlay, onToggleMaximize, onSelect, onChange, onLeave, onInsert, onClear, onBack, onApplyAll, onOpenFull, onReplace, onDuplicate, onEditContext }: BoardPaneProps) {
   const { registry } = usePlatform();
   const { tx, lang } = useI18n();
   const text = boardText(lang);
+  const prototypeText = boardPrototypeCopy(lang);
   const root = useRef<HTMLDivElement>(null);
   const menuTrigger = useRef<HTMLButtonElement>(null);
   const afterMenuClose = useRef<(() => void) | null>(null);
@@ -57,26 +69,33 @@ export function BoardPane({ paneId, number, screen, selected, Outlet, signal, ha
   const menu = screen === null ? null : registry.menus.find(m => m.id === screen.menuId) ?? null;
   const space = menu ? registry.spaceOf(menu) : null;
   const menuName = menu ? tx(menu.label) : screen ? screen.menuId : '';
+  const regionName = menu ? tx(menu.label) : screen?.menuId ?? text.emptyPane;
   const clear = () => { onSelect(); onClear(); root.current?.focus({ preventScroll: true }); };
   const focusHead = () => (menuTrigger.current ?? root.current)?.focus({ preventScroll: true });
 
-  return <div ref={root} role="group" aria-label={text.pane(number)} data-pane-id={paneId} tabIndex={-1} data-selected={selected}
+  return <div ref={root} id={paneId} role="group" aria-label={text.pane(number)} data-pane-id={paneId} tabIndex={-1} data-selected={selected}
+    hidden={hiddenForMax} aria-hidden={hiddenForMax || undefined} inert={hiddenForMax || undefined}
     onFocus={onSelect} onPointerDownCapture={onSelect}
     className={cn('relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border bg-surface-card outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring',
+      gridPlacement, maximizedOverlay && 'absolute inset-0 z-30 h-full w-full',
+      contentMode === 'natural' && 'flex-none overflow-visible',
       selected ? 'border-border-selected' : 'border-border-subtle')}>
     {selected && <span aria-hidden data-pane-selected-bar className="absolute inset-y-0 left-0 z-10 w-0.5 bg-accent-primary" />}
     <PaneHeader number={number} selected={selected} systemLabel={space ? tx(space.label) : null}
       menuName={menu ? menuName : screen ? <span className="t-mono">{screen.menuId}</span> : null}
       active={screen !== null && admitted} signal={signal} hasPrevious={hasPrevious} applyAllOff={applyAllOff} duplicateOff={duplicateOff}
+      chipMode={chipMode} maximizable={maximizable} maximized={maximized} onToggleMaximize={onToggleMaximize}
       menuTrigger={menuTrigger} afterMenuClose={afterMenuClose}
       onSelect={onSelect} onBack={onBack} onApplyAll={onApplyAll} onOpenFull={onOpenFull} onDuplicate={onDuplicate} onEditContext={onEditContext}
       onReplace={() => { onSelect(); picked.current = false; pickMode.current = 'replace'; setPicking('replace'); }}
       onClear={() => { afterMenuClose.current = () => root.current?.focus({ preventScroll: true }); onSelect(); onClear(); }} />
-    <div className="min-h-0 flex-1 overflow-auto">
+    <div className={cn(contentMode === 'natural' ? 'flex-none overflow-visible' : 'min-h-0 flex-1 overflow-auto')}
+      role={scrollRegion ? 'region' : undefined} aria-label={scrollRegion ? prototypeText.screenRegion(number, regionName) : undefined} tabIndex={scrollRegion ? 0 : undefined}>
       {screen === null
         ? <div className="grid h-full place-items-center p-6">
           <div className="grid justify-items-center gap-3 text-center">
             <p className="text-sm text-text-secondary">{text.emptyPane}</p>
+            {emptyHint && <p title={emptyHint} className="max-w-56 truncate text-xs text-text-secondary">{emptyHint}</p>}
             <Button type="button" variant="secondary" size="sm" onClick={() => { onSelect(); pickMode.current = 'insert'; setPicking('insert'); }}>{text.insertScreen}</Button>
           </div>
         </div>
