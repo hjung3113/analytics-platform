@@ -11,7 +11,7 @@
 | ID | 주장·숫자 | 출처 | 비고 |
 | --- | --- | --- | --- |
 | L01 | 최신 완료 상태 v0.13.0(2026-10-19)와 정비 슬라이스 15의 내용 | `.planning/README.md` 「끝난 것」 | 릴리스 개수는 표기하지 않음 |
-| L02 | `@ap/components` 공개 React 컴포넌트 21개: AnalysisChartFrame, EChart, PlatformDataTable, PageFilterBar, SegmentedRadio, DetailDrawer, Field, AuditTimeline, DataTrustIndicator, PlatformPage, Panel, StatCard, QueryView, OutcomeView, StateMessage, LoadingBlock, ManagementLayout, AnalysisLayout, DrillLayout, DrillPath, ReturnLink | `packages/components/src/index.ts` + 각 파일의 `export function [A-Z]…`(D1이 셈) | 재측정. `OutcomeScope`는 공개 export 아님 |
+| L02 | `@ap/components` 공개 React 컴포넌트 23개: AnalysisChartFrame, EChart, PlatformDataTable, PageFilterBar, SegmentedRadio, DetailDrawer, Field, AuditTimeline, DataTrustIndicator, PlatformPage, Panel, StatCard, QueryView, OutcomeView, StateMessage, LoadingBlock, ManagementLayout, AnalysisLayout, DrillLayout, DrillPath, ReturnLink, RowAction, TableUrlWarning | `packages/components/src/index.ts` + 각 파일의 `export function [A-Z]…`(D1이 셈) | 재측정. `OutcomeScope`는 공개 export 아님 |
 | L03 | `@ap/ui`: 환경 helper isProductionEnv·isMacPlatform·shortcutLabel 포함. Button·buttonVariants, StatusBadge·Dot(Tone 5종), shadcn 13계열(Alert·Badge·Checkbox·Dialog·DropdownMenu·Input·Label·Popover·RadioGroup·Select·Skeleton·Tabs·Tooltip), DetailPanelSlot 3종, cn, prefersReducedMotion | `packages/ui/src/index.ts` | — |
 | L04 | `@ap/shell` 7개: AppShell, AppRail, AppSidebar, ScopeSelector, CommandPalette, GlobalContextBar, RouteOutlet | `packages/shell/src/index.ts` | — |
 | L05 | Kernel·contracts 공개 API(createRegistry, pathFor, PlatformProvider, usePlatform, PlatformLink, useMenuQuery, useMenuFetch, usePlatformQuery, useEntityQuery, useDrill, I18nProvider, defineEndpoint, PlatformAdapter 메서드 목록) | `packages/kernel/src/index.ts`, `packages/contracts/src/menu-query.ts`, `packages/contracts/src/adapter.ts` | `linkTo`·`can`·`canOpen`은 `usePlatform()` 반환값 |
@@ -32,7 +32,7 @@
 | L20 | 셸 치수 레일 52px · 사이드바 240/56px · 머리 50px · 상세 슬롯 440px | FeedbackOps `tokens.css:169-174` | — |
 | L21 | `linkTo`/`PlatformLink`가 목적지 객체 ID와 분석 Context 분리, 목적지 권한·공간 확인, `returnTo` 복귀(출발 URL·드릴 단계), 열 수 없는 복귀 대상은 열 수 있는 상위 메뉴나 홈으로 돌아감(#298) | 플랫폼 UI 계약 §22, `.planning` #298 행 | — |
 | L22 | (사이트에서 뺌, 2026-10-20 FIX4) 설비 마스터의 '선택 설비로 분석' 버튼 코드 — 메뉴 특화 코드 발췌라서 부록 C에서 뺐다. 본문·부록 어디에서도 이 주장을 쓰지 않는다 | `menus/analytics/equipment/src/pages/EquipmentMaster.tsx:63` | — |
-| L23 | FeedbackOps는 독립 앱, 화면·API·권한·감사를 플랫폼에 합치지 않음, `/voc` 링크는 origin 설정·검증 시 새 탭, 셸의 공간별 링크 슬롯은 미주입 | ADR-0027, `apps/platform-web/src/slots.ts:5-8` | 데모에서는 비활성 |
+| L23 | FeedbackOps는 독립 앱, 화면·API·권한·감사를 플랫폼에 합치지 않음, `/voc` 링크는 origin 설정·검증 시 새 탭, 셸의 공간별 링크 슬롯은 `feedbackOpsSlot`으로 주입됨(#251) | ADR-0027, ADR-0045, `apps/platform-web/src/slots.ts` | 데모에서는 FeedbackOps 주소가 없어 비활성. 2026-10-20 '미주입'을 정정 |
 | L24 | 플랫폼 링크는 업무 시스템 범위로 좁혀 FeedbackOps를 열고 기간·Site·returnTo는 FeedbackOps 주소의 키로 따로 보내지 않는다. 복귀 키 `platformReturn` 하나에 링크를 그린 플랫폼 화면의 URL이 실린다(contract 2). 확장 #251·#448, 개선 실행 공간 #252 | `docs/integration/feedbackops-deeplink.md`, `.planning/README.md` 3a행, ADR-0045 | 낡은 문장("자동 전달 없음")을 고침 |
 | L25 | 업무 시스템별 백엔드·DB는 합치지 않음 | `docs/15_multi_workspace_ui.md` | — |
 | L26 | 사내 적용 = `#platform-assembly` 조립 모듈을 실어댑터로 교체, Kernel·셸·공통 컴포넌트·메뉴 화면은 고치지 않음 | `docs/integration/in-house-rollout.md` §0·§1 | — |
@@ -40,7 +40,7 @@
 | L28 | M4 막힌 입력 #150·#151·#148·#149 → #154·#155·#165, #37. 완료 기준(적합성 통과, SSO 두 계정 범위 차이, 세션 만료 시 이전 결과 미노출, Correlation ID, unknown/null, 개발·E2E mock 유지) | `docs/integration/in-house-rollout.md` §2·§6, `.planning` 「사내·외부 답 대기」 | — |
 | L29 | #233: 후보 지표, 기준선·목표 없음, 1개 팀·1 Site/Line 파일럿과 지난 6개월 기준선 담당 결정 대기 | #233 | "제안"으로만 표기 |
 | L30 | 활용률 이벤트는 식별 필드만(메뉴·공간·경로 패턴·시각·세션·체류), 조회 조건 값은 수집 안 함 | ADR-0020 | — |
-| L31 | MVP 다음: 멀티 워크스페이스 v2(#249, #252), FeedbackOps 2단계 M5(#213: #81 → #251 → 셸 연결, #150 전 재로그인 가능), 계획된 흐름(#163, #37 → #51) | `.planning` | M5 마일스톤 설명의 구식 문구(ADR-0018) 대신 ADR-0027 기준 |
+| L31 | MVP 다음: 멀티 워크스페이스 v2(#249, #252), FeedbackOps 2단계 M5(#213: #81 결정 → #251 링크 계약·셸 연결 완료 → 남은 것 세션 공유 #150, 그전에는 재로그인 가능), 계획된 흐름(#163, #37 → #51) | `.planning` | M5 마일스톤 설명의 구식 문구(ADR-0018) 대신 ADR-0027 기준 |
 | L32 | 기술 표(사용 중 3, 후보·보류·상용 10행)와 라이선스·조건 | `docs/04_frontend_ui_ux.md` | 라이선스 미확정 항목은 "미확정·확인 필요" 그대로 |
 | L33 | 분석 도구 확장 M0–M5와 게이트, PR #295 미채택 조사 문서 | PR #295(공개) | 2026-10-13 PR 열림 |
 | L34 | 위험 8개와 대응 | `docs/integration/in-house-rollout.md` | — |
@@ -123,6 +123,7 @@
 | L109 | 12 메뉴 패키지 트리: `pnpm gen:menu`가 만드는 파일 — `package.json`·`tsconfig.json`·`eslint.config.js`·`vitest.config.ts`·`src/styles.css`·`src/endpoints.ts`·`src/mock/index.ts`·`src/index.ts`·`src/pages/<화면>.tsx`·`src/manifest.test.ts`·`src/mock/index.test.ts` 11개(`renderFiles`, `templates.ts`)에 `.gen-menu.json` 1개(`generate.ts:718`)를 더한 12개, 앱 배선 4곳(`menus.ts`·`dev/mock-assembly.tsx`·`style.css`·`package.json`)은 L36과 같다. 화면 이전 비용은 미측정 | `tooling/gen-menu/src/templates.ts`, `tooling/gen-menu/src/generate.ts` | 견본 뼈대. 기존 화면 내용을 옮기는 비용은 측정하지 않음 |
 | L110 | 2026-10-20 재평가 2회차 정정: ① 장면 4 이름을 '본 자리에서 알리고, 같은 자리로 돌아온다'로 되돌리고 FeedbackOps 복귀 지원은 있다고 정정(L94·L102, 앞선 ‘서브모듈 포인터에 없음 → 지원 없음’ 추론이 틀렸음). ② 메뉴 패키지 파일 12개(L36·L109). ③ 계약 패키지는 배포 모양은 갖췄으나 발행하지 않음, Kernel·셸·공통 컴포넌트는 배포 모양 아님(L77·L101, 17 R9.2·R9.6). ④ 12의 ‘누가 무엇을 소유하고 어떻게 바뀌나’ 블록(L111). ⑤ 11 인력 행을 ‘시범 범위와 함께 산정(미산정)’로, 장면 3의 ‘사람의 리뷰 대신’을 ‘리뷰 전에 기계가 먼저 막음’으로 | `docs/integration/feedbackops-deeplink.md`, `packages/contracts/package.json`, `tooling/gen-menu/src/{templates,generate}.ts` | 사실 정정과 문구 변경. 효과 숫자·다른 제품 이름 없음 |
 | L111 | 12 '누가 무엇을 소유하고 어떻게 바뀌나': SDK 원본은 플랫폼 저장소이고 플랫폼 앱과 따로 릴리스(ADR-0044), 받는 쪽은 `sdk-v*` 태그로 버전을 고정해 받고 새 태그를 올리는 것은 받는 쪽(R9.6, `docs/integration/sdk-git-tag-consumption.md`), 호스트는 받아들일 계약 버전 `HOST_CONTRACTS`를 명시하고 모르는 버전은 등록 거부, 1판 이후 바꾸면 계약 정수를 올림(ADR-0053), 모듈 추가·교체는 조립 코드를 고쳐 플랫폼 앱을 다시 배포(L84), 계약 변경은 소유 문서 한 곳을 고치고 다른 문서는 링크로만 참조(`docs/AGENTS.md` 소유권·규칙). 승인자·인원은 근거 문서에 없어 쓰지 않음 | `docs/adr/0044-sdk-source-in-platform-repo-released-separately.md`, `docs/adr/0053-host-module-contract-v1.md`, `docs/integration/sdk-git-tag-consumption.md`, `docs/AGENTS.md` | 저장소에 근거가 있는 것만. 변경 승인 절차·담당은 정해져 있지 않음 |
+| L112 | 재평가 3회차 정정(2026-10-20): 공개 컴포넌트 21 → 23(L02), 부록 A ⑤·부록 E·L23·L31의 FeedbackOps 링크 상태를 '#251 완료·#81 결정·복귀 키 #448, 남은 것 세션 공유 #150'으로, 로드맵 완료 범위 v0.1–v0.6.1 → v0.1–v0.13.0(L01과 같게), 03 '왜 이 바탕인가' ①·③에 한 줄 설명 | `packages/components/src/index.ts`, `apps/platform-web/src/slots.ts`, `.planning/README.md`(29·58·69–70행, v0.7.0–v0.13.0 기록) | 사실 갱신, 새 주장 없음 |
 
 ### 7.2 예시(합성) 데이터 — 화면에서 반드시 `예시`로 표시
 
@@ -164,7 +165,7 @@ PYCOUNT
 rg '^export function [A-Z]' packages/components/src/{AnalysisChartFrame,AuditTimeline,DataTrustIndicator,DetailDrawer,EChart,PageFilterBar,PlatformDataTable,PlatformPage,RadioGroup,StatCard,StateView,ManagementLayout,AnalysisLayout,DrillLayout}.tsx
 ```
 
-L02는 index.ts가 공개한 모듈에서 React 컴포넌트 21개를 확인했다. 타입과 helper는 21개에 더하지 않는다. EChart의 token, 표의 sortAndPage/parsePageIndex/parseTableSort/encodeTableSort, copyText/useCopyLink도 갤러리에 노출한다(EChart의 strokeToken·baseTextStyle은 패키지 내부로 좁혀졌다). L03은 모든 shadcn 계열 개별 export 및 환경 helper를 실제 index.ts 기준으로 표시한다. L05 PlatformAdapter 메서드는 adapter.ts의 실제 전체 목록을 쓴다.
+L02는 index.ts가 공개한 모듈에서 React 컴포넌트 23개를 확인했다(2026-10-20 다시 셈: `RowAction`·`TableUrlWarning` 추가). 타입과 helper는 23개에 더하지 않는다. EChart의 token, 표의 sortAndPage/parsePageIndex/parseTableSort/encodeTableSort, copyText/useCopyLink도 갤러리에 노출한다(EChart의 strokeToken·baseTextStyle은 패키지 내부로 좁혀졌다). L03은 모든 shadcn 계열 개별 export 및 환경 helper를 실제 index.ts 기준으로 표시한다. L05 PlatformAdapter 메서드는 adapter.ts의 실제 전체 목록을 쓴다.
 
 L01은 2026-10-20 기준 `.planning/README.md`의 최신 완료 상태다. L41은 2026-10-13 상태 스냅샷으로, 현재 상태로 인용하지 않는다. 데모 주소(E05)는 2026-10-13 로컬 데모에서 D1–D10을 확인한 기록이다.
 
