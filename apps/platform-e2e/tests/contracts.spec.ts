@@ -276,15 +276,16 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
   test('새로고침 시트 유지: 선택한 시트 URL과 화면이 유지되고 Back은 이전 시트로 간다', async ({ page }, testInfo) => {
     await signInWithBoard(page, 'engineer', boardOf(
       boardSheet('sheet-one', '기준', '1x1', [boardScreen(`v=1&scopeId=MEM&${PERIOD}&roomNames=PHOTO`)]),
-      boardSheet('sheet-two', '비교', '1x1', [boardScreen(`v=1&scopeId=MEM&${PERIOD}`, 'cycle-time')]),
+      // A day earlier, so the 1일 preset is a real change that stays inside the mock's verified time domain (7일 over MEM is time_domain_unverified).
+      boardSheet('sheet-two', '비교', '1x1', [boardScreen('v=1&scopeId=MEM&from=2026-09-24T09:00:00&to=2026-09-25T09:00:00', 'cycle-time')]),
     ));
     await page.goto('/board?sheet=sheet-one');
     await page.getByRole('tab', { name: '비교' }).click();
     await expect.poll(() => query(page).get('sheet')).toBe('sheet-two');
     await expect(boardPaneHead(page, 1)).toContainText('사이클타임 상세');
     await expect(cycleTimeBody(page, 1)).toBeVisible();
-    await boardPeriodPreset(page, 1, '7일');
-    const changedPeriod = '기간: 2026-09-19T09:00:00 – 2026-09-26T09:00:00';
+    await boardPeriodPreset(page, 1, '1일');
+    const changedPeriod = '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00';
     await expect(boardContext(page, 1).getByRole('button', { name: changedPeriod, exact: true })).toBeVisible();
 
     await page.reload();
