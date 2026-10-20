@@ -1,3 +1,4 @@
+import { scatterData, boxPlotData, paretoData, type KindProjection } from './analysisChartKinds';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import type { ChartSpec, HeatmapCell } from './AnalysisChart';
 
@@ -15,7 +16,10 @@ export const chartColors = {
 const seriesColors = [chartColors.series1, chartColors.series2, chartColors.series3, chartColors.series4];
 
 /** One projection for plot, table, selection and CSV. Synthetic aggregate rows never invent drill IDs. */
-export function chartData(spec: ChartSpec, ko: boolean): { cells: HeatmapCell[]; rows: ChartRow[]; total: number } {
+export function chartData(spec: ChartSpec, ko: boolean, unit = ''): { cells: HeatmapCell[]; rows: ChartRow[]; total: number; extended?: KindProjection } {
+  if (spec.kind === 'scatter') { const extended = scatterData(spec, ko, unit); return { cells: [], rows: extended.rows, total: extended.total, extended }; }
+  if (spec.kind === 'boxPlot') { const extended = boxPlotData(spec, ko, unit); return { cells: [], rows: extended.rows, total: extended.total, extended }; }
+  if (spec.kind === 'pareto') { const extended = paretoData(spec, ko, unit); return { cells: [], rows: extended.rows, total: extended.total, extended }; }
   if (spec.kind === 'heatmap') {
     const seen = new Set<string>();
     const cells = spec.cells.filter(cell => {

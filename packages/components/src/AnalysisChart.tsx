@@ -1,11 +1,12 @@
 import { useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useI18n, usePlatform } from '@ap/kernel';
-import { Button, cn } from '@ap/ui';
+import { Button, Checkbox, cn } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { chartTheme, EChart, token } from './EChart';
 import { toCsvDocument } from './tableExport';
 import { chartData, chartColors as colors, cellKey as keyOf, chartDiagnostic as diagnostic } from './analysisChartData';
+import { KindLegend } from './analysisChartKinds';
 import { heatmapSymbolSize } from './analysisChartGeometry';
 import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
@@ -35,7 +36,31 @@ export type DonutSpec = {
   /** Explicit drill from Details only; canvas clicks select. */
   onSliceClick?: (id: string) => void;
 };
-export type ChartSpec = HeatmapSpec | DonutSpec;
+export type ScatterPoint = { id: string; x: number | null; y: number | null; group?: string; label?: string };
+export type ScatterSpec = {
+  kind: 'scatter'; points: ScatterPoint[]; xUnit: string; xLabel: string; yLabel: string;
+  groups?: { id: string; label: string; color?: ThemeColorToken }[];
+  referenceLines?: { axis: 'x' | 'y'; value: number; label: string }[];
+  onPointClick?: (id: string) => void;
+};
+export type BoxStats = {
+  /** Caller-owned whisker endpoints: extrema for minMax, outermost inliers within Tukey fences for tukey. */
+  min: number; q1: number; median: number; q3: number; max: number; outliers?: number[]; n?: number;
+};
+export type BoxPlotSpec = {
+  kind: 'boxPlot'; groups: { id: string; label: string; stats: BoxStats | null }[];
+  /** Changes the description and validates endpoints; never infers observations or quartiles. */
+  whisker: 'minMax' | 'tukey'; referenceLines?: { value: number; label: string }[];
+  onGroupClick?: (id: string) => void;
+};
+export type ParetoSpec = {
+  kind: 'pareto'; items: { id: string; label: string; value: number }[];
+  /** Finite fraction in (0,1], default 0.8. */
+  cumulativeTarget?: number;
+  /** Total displayed cap including Other; floors and clamps to at least 2, default 10. */
+  maxItems?: number; onItemClick?: (id: string) => void;
+};
+export type ChartSpec = HeatmapSpec | DonutSpec | ScatterSpec | BoxPlotSpec | ParetoSpec;
 export type AnalysisChartProps = {
   chartId: string; title: ReactNode; description?: ReactNode; metricVersion?: string; unit: string;
   trust?: { source: string; updated: string; coverage: string }; height?: number; emptyText?: string; spec: ChartSpec;
@@ -54,20 +79,21 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const [selected, setSelected] = useState<string[]>([]);
   const brushedKeys = useRef<string[]>([]);
   const [brushMode, setBrushMode] = useState(false);
-  const [instanceReady, setInstanceReady] = useState(false);
+  const [instanceReady, setInstanceReady] = useState(0);
   const [plotSize, setPlotSize] = useState({ width: 0, height: 0 });
   const spec = p.spec;
-  const { cells, rows, total } = useMemo(() => chartData(spec, lang === 'ko'), [spec, lang]);
+  const { cells, rows, total, extended } = useMemo(() => chartData(spec, lang === 'ko', p.unit), [spec, lang, p.unit]);
   const keys = rows.map(row => row.key);
   const contextKey = JSON.stringify(global);
   const [previousContext, setPreviousContext] = useState(contextKey);
   const active = previousContext === contextKey ? selected.filter(key => keys.includes(key)) : [];
   if (previousContext !== contextKey) { setPreviousContext(contextKey); setSelected([]); }
   else if (active.length !== selected.length) setSelected(active);
-  useEffect(() => { brushedKeys.current = []; if (spec.kind === 'heatmap') clearBrush(chart.current); }, [contextKey, spec.kind]);
-  const reset = () => { brushedKeys.current = []; setSelected([]); if (spec.kind === 'heatmap') clearBrush(chart.current); };
-  const toggle = (key: string) => setSelected(old => old.includes(key) ? old.filter(k => k !== key) : spec.kind === 'donut' ? [key] : [...old, key]);
-  const format = (v: number) => spec.valueFormat?.(v) ?? String(v);
+  useEffect(() => { brushedKeys.current = []; if (spec.kind === 'heatmap' || spec.kind === 'scatter') clearBrush(chart.current); }, [contextKey, spec.kind]);
+  useEffect(() => { brushedKeys.current = []; setBrushMode(false); }, [spec.kind]);
+  const reset = () => { brushedKeys.current = []; setSelected([]); if (spec.kind === 'heatmap' || spec.kind === 'scatter') clearBrush(chart.current); };
+  const toggle = (key: string) => setSelected(old => old.includes(key) ? old.filter(k => k !== key) : (spec.kind === 'donut' || spec.kind === 'boxPlot') ? [key] : [...old, key]);
+  const format = (v: number) => ('valueFormat' in spec ? spec.valueFormat?.(v) : undefined) ?? String(v);
   const unknown = lang === 'ko' ? '미확인' : 'Unknown';
   const valueText = (v: number | null) => v === null ? unknown : `${format(v)} ${p.unit}`;
   const theme = chartTheme();
@@ -88,7 +114,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     const fraction = domain[1] === domain[0] ? 0.5 : (value - domain[0]) / (domain[1] - domain[0]);
     return token(ramp[Math.max(0, Math.min(4, Math.round(fraction * 4)))]);
   }
-  const option: EChartsCoreOption = spec.kind === 'heatmap' ? {
+  const option: EChartsCoreOption = extended ? extended.option(active) : spec.kind === 'heatmap' ? {
     tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const c = cells[params.dataIndex]; return c ? `${c.x} · ${c.y}: ${valueText(c.value)}` : ''; } },
     grid: { top: 16, bottom: 16, left: 16, right: 16, containLabel: true },
     xAxis: { type: 'category', data: spec.xLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: spec.xLabels.length <= 24 ? 0 : 'auto' }, splitLine: theme.splitLine },
@@ -104,7 +130,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   };
   // notMerge replaces the brush model; restore the toolbox cursor after that replacement.
   useEffect(() => {
-    if (spec.kind === 'heatmap' && chart.current && !chart.current.isDisposed?.()) {
+    if ((spec.kind === 'heatmap' || spec.kind === 'scatter') && chart.current && !chart.current.isDisposed?.()) {
       chart.current.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: brushMode ? 'rect' : false, brushMode: 'single' } }, { silent: true });
     }
     measureGrid(chart.current);
@@ -116,9 +142,13 @@ export function AnalysisChart(p: AnalysisChartProps) {
     const rect = grid?.coordinateSystem?.getRect();
     if (rect) setPlotSize(old => old.width === rect.width && old.height === rect.height ? old : { width: rect.width, height: rect.height });
   }
-  const summary = spec.kind === 'heatmap' ? (lang === 'ko' ? `${cells.length}칸 · ${spec.xLabels.length * spec.yLabels.length - cells.length}칸 비어 있음 · ${cells.filter(c => c.value === null).length}칸 미확인 · 단위 ${p.unit}` : `${cells.length} cells · ${spec.xLabels.length * spec.yLabels.length - cells.length} missing · ${cells.filter(c => c.value === null).length} unknown · Unit ${p.unit}`) : `${rows.length}${lang === 'ko' ? '개 항목 · 합계' : ' slices · Total'} ${format(total)} ${p.unit}`;
+  const summary = extended?.summary ?? (spec.kind === 'heatmap' ? (lang === 'ko' ? `${cells.length}칸 · ${spec.xLabels.length * spec.yLabels.length - cells.length}칸 비어 있음 · ${cells.filter(c => c.value === null).length}칸 미확인 · 단위 ${p.unit}` : `${cells.length} cells · ${spec.xLabels.length * spec.yLabels.length - cells.length} missing · ${cells.filter(c => c.value === null).length} unknown · Unit ${p.unit}`) : `${rows.length}${lang === 'ko' ? '개 항목 · 합계' : ' slices · Total'} ${format(total)} ${p.unit}`);
   const selectedRows = rows.filter(row => active.includes(row.key));
   let selectionSummary = active.length ? `${selectedRows.map(row => row.label).join(', ')} · ${active.length}${lang === 'ko' ? (spec.kind === 'heatmap' ? '칸 선택' : '개 선택') : ' selected'}` : (lang === 'ko' ? '선택 없음' : 'No selection');
+  if ((spec.kind === 'scatter' || spec.kind === 'pareto') && active.length > 3) {
+    const labels = selectedRows.slice(0, 3).map(row => row.label).join(', ');
+    selectionSummary = lang === 'ko' ? `${active.length}개 선택 · ${labels} 외 ${active.length - 3}개` : `${active.length} selected · ${labels} +${active.length - 3} more`;
+  }
   if (spec.kind === 'heatmap' && active.length > 3) {
     const range = (labels: string[], axis: 'x' | 'y') => {
       const selectedLabels = labels.filter(label => selectedRows.some(row => row[axis] === label));
@@ -126,9 +156,9 @@ export function AnalysisChart(p: AnalysisChartProps) {
     };
     selectionSummary = `${active.length}${lang === 'ko' ? '칸 선택' : ' cells selected'} · ${range(spec.yLabels, 'y')} · ${range(spec.xLabels, 'x')}`;
   }
-  const empty = spec.kind === 'heatmap' ? !cells.length : total === 0;
-  const headers = spec.kind === 'heatmap' ? ['x', 'y', lang === 'ko' ? '값' : 'Value'] : [lang === 'ko' ? '이름' : 'Name', lang === 'ko' ? '값' : 'Value', '%'];
-  const tableValues = rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, valueText(row.value)] : [row.label, valueText(row.value), percent(row.share ?? 0)]);
+  const empty = extended ? extended.empty : spec.kind === 'heatmap' ? !cells.length : total === 0;
+  const headers = extended?.headers ?? (spec.kind === 'heatmap' ? ['x', 'y', lang === 'ko' ? '값' : 'Value'] : [lang === 'ko' ? '이름' : 'Name', lang === 'ko' ? '값' : 'Value', '%']);
+  const tableValues = extended?.tableValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, valueText(row.value)] : [row.label, valueText(row.value), percent(row.share ?? 0)]);
   function exportCsv() {
     const blob = new Blob([toCsvDocument(`# ${p.chartId} · ${p.unit}`, headers, tableValues)], { type: 'text/csv' });
     const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${p.chartId}.csv`; link.click(); URL.revokeObjectURL(link.href);
@@ -140,7 +170,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
         <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} />
         <div role="toolbar" aria-label={lang === 'ko' ? '차트 동작' : 'Chart actions'} className="flex flex-wrap gap-1">
           <Button size="toolbar" variant="ghost" onClick={reset}>{lang === 'ko' ? '초기화' : 'Reset'}</Button>
-          {spec.kind === 'heatmap' && <Button size="toolbar" variant="ghost" aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}>{lang === 'ko' ? '끌어서 선택' : 'Drag to select'}</Button>}
+          {(spec.kind === 'heatmap' || spec.kind === 'scatter') && <Button size="toolbar" variant="ghost" aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}>{lang === 'ko' ? '끌어서 선택' : 'Drag to select'}</Button>}
           <Button size="toolbar" variant="ghost" aria-pressed={table} onClick={() => setTable(!table)}>{lang === 'ko' ? '표로 보기' : 'Show as table'}</Button>
           {route?.menu.features?.export && <Button size="toolbar" variant="ghost" onClick={exportCsv}>{lang === 'ko' ? '내보내기' : 'Export'}</Button>}
         </div>
@@ -164,12 +194,12 @@ export function AnalysisChart(p: AnalysisChartProps) {
     <AnalysisChartPart enabled={section !== null} body>
       <p id={summaryId} className="px-4 py-2 text-xs text-text-secondary">{summary}</p>
       {empty ? <p className="px-4 py-3 text-text-secondary">{p.emptyText ?? (lang === 'ko' ? '데이터 없음' : 'No data')}</p> : <div className="relative">
-        <EChart key={spec.kind} onReady={instance => { chart.current = instance; setInstanceReady(true); }} onResize={() => measureGrid(chart.current)} option={option} height={p.height} ariaLabel={typeof p.title === 'string' ? p.title : p.chartId} onEvents={{
-          click: params => { if (params.componentType === 'series' && rows[params.dataIndex]) toggle(rows[params.dataIndex].key); },
+        <EChart key={spec.kind} onReady={instance => { chart.current = instance; setInstanceReady(generation => generation + 1); }} onResize={() => measureGrid(chart.current)} option={option} height={p.height} ariaLabel={typeof p.title === 'string' ? p.title : p.chartId} onEvents={{
+          click: params => { if (params.componentType !== 'series') return; const key = extended ? extended.seriesKeys[params.seriesIndex]?.[params.dataIndex] : rows[params.dataIndex]?.key; if (key) toggle(key); },
           finished: (_, instance) => measureGrid(instance),
-          takeglobalcursor: params => { if (spec.kind === 'heatmap') setBrushMode(params.key === 'brush' && params.brushOption?.brushType === 'rect'); },
-          brushselected: params => { if (spec.kind !== 'heatmap') return; const indices: number[] = params.batch?.[0]?.selected?.find((s: { seriesIndex: number }) => s.seriesIndex === 0)?.dataIndex ?? []; brushedKeys.current = indices.filter(i => !!rows[i]).map(i => rows[i].key); },
-          brushEnd: () => { if (spec.kind !== 'heatmap') return; const next = brushedKeys.current; setSelected(old => old.length === next.length && old.every(key => next.includes(key)) ? old : next); },
+          takeglobalcursor: params => { if (spec.kind === 'heatmap' || spec.kind === 'scatter') setBrushMode(params.key === 'brush' && params.brushOption?.brushType === 'rect'); },
+          brushselected: params => { if (spec.kind !== 'heatmap' && spec.kind !== 'scatter') return; const selections: { seriesIndex: number; dataIndex: number[] }[] = params.batch?.[0]?.selected ?? []; brushedKeys.current = [...new Set(selections.flatMap(s => s.dataIndex.flatMap(i => { const key = extended ? extended.seriesKeys[s.seriesIndex]?.[i] : s.seriesIndex === 0 ? rows[i]?.key : undefined; return key ? [key] : []; })))]; },
+          brushEnd: () => { if (spec.kind !== 'heatmap' && spec.kind !== 'scatter') return; const next = brushedKeys.current.filter(key => keys.includes(key)); setSelected(old => old.length === next.length && old.every(key => next.includes(key)) ? old : next); },
         }} />
         {spec.kind === 'donut' && <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-xs text-text-secondary">
           <p>{selectedRows[0]?.label ?? spec.centerLabel ?? (lang === 'ko' ? '합계' : 'Total')}</p>
@@ -177,6 +207,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
           {selectedRows[0] && <p>{percent(selectedRows[0].share ?? 0)}</p>}
         </div>}
       </div>}
+      {extended && <KindLegend items={extended.legend} label={lang === 'ko' ? '범례' : 'Legend'} />}
       {spec.kind === 'donut' && <ul aria-label={lang === 'ko' ? '범례' : 'Legend'} className="flex flex-wrap gap-3 px-4 py-2 text-xs text-text-secondary">{rows.map(row => <li key={row.key} className="flex items-center gap-1"><Swatch color={token(row.color!)} />{row.label} · {valueText(row.value)} · {percent(row.share ?? 0)}</li>)}</ul>}
       <section aria-label={lang === 'ko' ? '선택 요약' : 'Selection summary'} className="bg-surface-sunken px-4 py-2 text-xs text-text-secondary">
         {selectionSummary}
@@ -185,7 +216,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
       {table && <div className="overflow-auto px-4 py-2"><table className="w-full text-xs"><caption>{p.title} · {p.unit}</caption>
         <thead className="bg-surface-sunken"><tr>{[...headers, lang === 'ko' ? '선택' : 'Select'].map(h => <th key={h} scope="col" className="text-text-secondary">{h}</th>)}</tr></thead>
         <tbody>{rows.map((row, i) => <tr key={row.key}>{tableValues[i].map((value, j) => <td key={j}>{value}</td>)}<td>
-          <input type="checkbox" aria-label={`${lang === 'ko' ? '선택' : 'Select'} ${row.label}`} checked={active.includes(row.key)} onChange={() => toggle(row.key)} />
+          <Checkbox aria-label={`${lang === 'ko' ? '선택' : 'Select'} ${row.label}`} checked={active.includes(row.key)} onCheckedChange={() => toggle(row.key)} />
           {row.drill && <Button size="toolbar" variant="ghost" onClick={row.drill}>{lang === 'ko' ? '상세' : 'Details'}</Button>}
         </td></tr>)}</tbody>
       </table></div>}
