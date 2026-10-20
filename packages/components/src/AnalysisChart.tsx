@@ -6,6 +6,7 @@ import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { chartTheme, EChart, token } from './EChart';
 import { toCsvDocument } from './tableExport';
 import { chartData, chartColors as colors, cellKey as keyOf, chartDiagnostic as diagnostic } from './analysisChartData';
+import { heatmapSymbolSize } from './analysisChartGeometry';
 import { AnalysisSectionContext } from './AnalysisSectionContext';
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
 
@@ -51,6 +52,9 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const [table, setTable] = useState(false);
   const chart = useRef<ECharts | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
+  const [brushMode, setBrushMode] = useState(false);
+  const [instanceReady, setInstanceReady] = useState(false);
+  const [plotSize, setPlotSize] = useState({ width: 0, height: 0 });
   const spec = p.spec;
   const { cells, rows, total } = useMemo(() => chartData(spec, lang === 'ko'), [spec, lang]);
   const keys = rows.map(row => row.key);
@@ -85,11 +89,11 @@ export function AnalysisChart(p: AnalysisChartProps) {
   }
   const option: EChartsCoreOption = spec.kind === 'heatmap' ? {
     tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const c = cells[params.dataIndex]; return c ? `${c.x} · ${c.y}: ${valueText(c.value)}` : ''; } },
-    grid: { containLabel: true },
-    xAxis: { type: 'category', data: spec.xLabels, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine },
-    yAxis: { type: 'category', data: spec.yLabels, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine },
+    grid: { top: 16, bottom: 16, left: 16, right: 16, containLabel: true },
+    xAxis: { type: 'category', data: spec.xLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: spec.xLabels.length <= 24 ? 0 : 'auto' }, splitLine: theme.splitLine },
+    yAxis: { type: 'category', data: spec.yLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: spec.yLabels.length <= 24 ? 0 : 'auto' }, splitLine: theme.splitLine },
     brush: { toolbox: ['rect', 'clear'], brushType: 'rect', xAxisIndex: 0, yAxisIndex: 0, inBrush: {}, outOfBrush: {} },
-    series: [{ type: 'scatter', symbol: 'rect', symbolSize: [24, 24], emphasis: { focus: 'none' }, data: cells.map(c => ({
+    series: [{ type: 'scatter', symbol: 'rect', symbolSize: heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length), emphasis: { focus: 'none' }, data: cells.map(c => ({
       value: [spec.xLabels.indexOf(c.x), spec.yLabels.indexOf(c.y), c.value],
       itemStyle: { color: cellColor(c.value), borderColor: token(active.includes(keyOf(c.x, c.y)) ? colors.selection : colors.pattern), borderWidth: active.includes(keyOf(c.x, c.y)) ? 1.5 : c.value === null ? 1 : 0, borderType: c.value === null ? 'dashed' : 'solid' },
     })) }],
@@ -97,6 +101,20 @@ export function AnalysisChart(p: AnalysisChartProps) {
     tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const row = rows[params.dataIndex]; return row ? `${row.label}: ${valueText(row.value)} · ${percent(row.share ?? 0)}` : ''; } },
     series: [{ type: 'pie', radius: ['55%', '80%'], selectedMode: false, emphasis: { focus: 'none', scale: false }, label: { show: false }, data: rows.map(row => ({ name: row.label, value: row.value, itemStyle: { color: token(row.color!), borderColor: token(colors.selection), borderWidth: active.includes(row.key) ? 1.5 : 0 } })) }],
   };
+  // notMerge replaces the brush model; restore the toolbox cursor after that replacement.
+  useEffect(() => {
+    if (spec.kind === 'heatmap' && chart.current && !chart.current.isDisposed?.()) {
+      chart.current.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: brushMode ? 'rect' : false, brushMode: 'single' } }, { silent: true });
+    }
+    measureGrid(chart.current);
+  }, [option, brushMode, instanceReady]);
+  function measureGrid(instance: ECharts | null) {
+    if (spec.kind !== 'heatmap' || !instance || instance.isDisposed?.()) return;
+    // ECharts exposes the laid-out grid through its runtime model (not in its public TS surface).
+    const grid = (instance as unknown as { getModel?: () => { getComponent: (name: string) => { coordinateSystem?: { getRect: () => { width: number; height: number } } } | undefined } }).getModel?.().getComponent('grid');
+    const rect = grid?.coordinateSystem?.getRect();
+    if (rect) setPlotSize(old => old.width === rect.width && old.height === rect.height ? old : { width: rect.width, height: rect.height });
+  }
   const summary = spec.kind === 'heatmap' ? (lang === 'ko' ? `${cells.length}칸 · ${spec.xLabels.length * spec.yLabels.length - cells.length}칸 비어 있음 · ${cells.filter(c => c.value === null).length}칸 미확인 · 단위 ${p.unit}` : `${cells.length} cells · ${spec.xLabels.length * spec.yLabels.length - cells.length} missing · ${cells.filter(c => c.value === null).length} unknown · Unit ${p.unit}`) : `${rows.length}${lang === 'ko' ? '개 항목 · 합계' : ' slices · Total'} ${format(total)} ${p.unit}`;
   const selectedRows = rows.filter(row => active.includes(row.key));
   const empty = spec.kind === 'heatmap' ? !cells.length : total === 0;
@@ -121,7 +139,14 @@ export function AnalysisChart(p: AnalysisChartProps) {
         {scale?.type === 'threshold' && validThreshold ? <div className="flex gap-3">{scale.labels.map((label, i) => <span key={i} className="flex items-center gap-1"><Swatch color={token([colors.good, colors.warn, colors.critical][i])} />{label}</span>)}</div> : <>
           {/* eslint-disable-next-line shadcn/no-inline-styles -- continuous scale legend resolves the five public ramp tokens at runtime */}
           <div className="h-2 w-full rounded" style={{ background: `linear-gradient(to right, ${ramp.map(c => token(c)).join(', ')})` }} />
-          <div className="flex justify-between"><span>{format(domain[0])}</span><span>{format(domain[1])}</span></div>
+          <div className="relative flex justify-between">
+            <span>{format(domain[0])}</span>
+            {scale?.type === 'diverging' && <span className="absolute left-1/2 flex -translate-x-1/2 flex-col items-center">
+              <span aria-hidden className="absolute bottom-full h-2 border-l border-border-strong" />
+              <span>{format(scale.pivot)} {lang === 'ko' ? '목표' : 'target'}</span>
+            </span>}
+            <span>{format(domain[1])}</span>
+          </div>
         </>}
         <span className="flex items-center gap-1"><Swatch color={token(colors.unknown)} unknown />{unknown}</span>
       </div>}
@@ -129,9 +154,11 @@ export function AnalysisChart(p: AnalysisChartProps) {
     <AnalysisChartPart enabled={section !== null} body>
       <p id={summaryId} className="px-4 py-2 text-xs text-text-secondary">{summary}</p>
       {empty ? <p className="px-4 py-3 text-text-secondary">{p.emptyText ?? (lang === 'ko' ? '데이터 없음' : 'No data')}</p> : <div className="relative">
-        <EChart key={spec.kind} onReady={instance => { chart.current = instance; }} option={option} height={p.height} ariaLabel={typeof p.title === 'string' ? p.title : p.chartId} onEvents={{
+        <EChart key={spec.kind} onReady={instance => { chart.current = instance; setInstanceReady(true); }} onResize={() => measureGrid(chart.current)} option={option} height={p.height} ariaLabel={typeof p.title === 'string' ? p.title : p.chartId} onEvents={{
           click: params => { if (params.componentType === 'series' && rows[params.dataIndex]) toggle(rows[params.dataIndex].key); },
-          brushselected: params => { if (spec.kind !== 'heatmap') return; const indices: number[] = params.batch?.[0]?.selected?.find((s: { seriesIndex: number }) => s.seriesIndex === 0)?.dataIndex ?? []; setSelected(indices.filter(i => !!rows[i]).map(i => rows[i].key)); },
+          finished: (_, instance) => measureGrid(instance),
+          takeglobalcursor: params => { if (spec.kind === 'heatmap') setBrushMode(params.key === 'brush' && params.brushOption?.brushType === 'rect'); },
+          brushselected: params => { if (spec.kind !== 'heatmap') return; const indices: number[] = params.batch?.[0]?.selected?.find((s: { seriesIndex: number }) => s.seriesIndex === 0)?.dataIndex ?? []; const next = indices.filter(i => !!rows[i]).map(i => rows[i].key); setSelected(old => old.length === next.length && old.every(key => next.includes(key)) ? old : next); },
         }} />
         {spec.kind === 'donut' && <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-xs text-text-secondary">
           <p>{selectedRows[0]?.label ?? spec.centerLabel ?? (lang === 'ko' ? '합계' : 'Total')}</p>

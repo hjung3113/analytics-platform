@@ -112,6 +112,8 @@ it('reports invalid cells and threshold breaks without throwing and preserves va
   const error = vi.spyOn(console, 'error').mockImplementation(() => {});
   mount({ ...heat, cells: [...heat.cells, { x: 'outside', y: 'A', value: 5 }], scale: { type: 'threshold', breaks: [5, 5], labels: ['a', 'b', 'c'] } });
   await screen.findByRole('img'); expect(option().series[0].data).toHaveLength(2); expect(error).toHaveBeenCalled();
+  expect(error).toHaveBeenCalledWith('AnalysisChart: threshold breaks must be increasing; using sequential scale');
+  expect(option().series[0].data.map(cell => cell.itemStyle.color)).toEqual([readColorToken('chart-heat-seq-2'), readColorToken('chart-no-data')]);
 });
 
 it('selects a donut slice without drill, switches centre, and drills only on Details', async () => {
@@ -203,4 +205,24 @@ it('uses English chart, table, unknown, aggregate and drill copy', async () => {
   expect(screen.getByRole('region', { name: 'Selection summary' })).toHaveTextContent('No selection');
   expect(screen.getAllByRole('button', { name: 'Details' })).toHaveLength(2);
   expect(screen.getByRole('checkbox', { name: 'Select A · 09' })).toBeTruthy();
+});
+
+it.each([1, 24, 25])('shows every category label up to 24 categories (%i)', async count => {
+  mount({ ...heat, xLabels: Array.from({ length: count }, (_, i) => String(i)), yLabels: Array.from({ length: count }, (_, i) => String(i)), cells: [{ x: '0', y: '0', value: 1 }] });
+  await screen.findByRole('img');
+  const axes = plot.option as { xAxis: { axisLabel: { interval: number | string } }; yAxis: { axisLabel: { interval: number | string } } };
+  expect(axes.xAxis.axisLabel.interval).toBe(count <= 24 ? 0 : 'auto');
+  expect(axes.yAxis.axisLabel.interval).toBe(count <= 24 ? 0 : 'auto');
+});
+
+it('marks the diverging pivot at the neutral midpoint in both languages', async () => {
+  const view = mount({ ...heat, scale: { type: 'diverging', pivot: 60, domain: [30, 80] } });
+  await screen.findByRole('img');
+  const pivot = screen.getByText('60 목표');
+  expect(pivot.parentElement).toHaveClass('left-1/2');
+  expect(pivot.parentElement?.querySelector('[aria-hidden]')).toHaveClass('border-l');
+  fireEvent.click(screen.getByRole('button', { name: 'english' }));
+  expect(screen.getByText('60 target')).toBeTruthy();
+  view.update({ ...heat, scale: { type: 'sequential' } });
+  expect(screen.queryByText('60 target')).toBeNull();
 });
