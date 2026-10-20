@@ -230,9 +230,28 @@ try {
     };
   }
   // 감사·레지스트리처럼 긴 표는 머리와 첫 몇 행, 왼쪽 열만 원본 크기로 찍는다.
-  async function tableCropClip() {
-    const clip = await elementClip(page.getByRole("main").getByRole("table").first());
-    return { clip: { ...clip, width: Math.min(clip.width, 560), height: Math.min(clip.height, 360) }, cover: true, hideSticky: false };
+  // 오른쪽은 열 경계에서, 아래는 행 경계에서 끊어 열이나 행이 가운데서 잘리지 않게 한다.
+  async function tableCropClip(maxWidth = 620, maxHeight = 360) {
+    const table = page.getByRole("main").getByRole("table").first();
+    const clip = await elementClip(table);
+    const cut = await table.evaluate(
+      (el, limit) => {
+        const origin = el.getBoundingClientRect();
+        const heads = [...el.querySelectorAll('[role="columnheader"], th')].map((h) => h.getBoundingClientRect());
+        let right = 0;
+        for (const h of heads) if (h.right - origin.x <= limit.w && h.right - origin.x > right) right = h.right - origin.x;
+        const rows = [...el.querySelectorAll("[data-row-id], tbody tr")].map((r) => r.getBoundingClientRect());
+        let bottom = 0;
+        for (const r of rows) if (r.bottom - origin.y <= limit.h && r.bottom - origin.y > bottom) bottom = r.bottom - origin.y;
+        return { right, bottom };
+      },
+      { w: maxWidth, h: maxHeight },
+    );
+    return {
+      clip: { ...clip, width: cut.right || Math.min(clip.width, maxWidth), height: cut.bottom || Math.min(clip.height, maxHeight) },
+      cover: true,
+      hideSticky: false,
+    };
   }
   // 번호 위치: 캡처 영역 안에서 대상 요소의 왼쪽 위 모서리를 %로 잰다. 못 찾은 번호는 건너뛴다.
   async function placeMarks(targets, area) {
@@ -646,20 +665,33 @@ try {
   await capture(
     "inset-context",
     "조건 바 확대",
-    "기간·사이트·공정 조건이 모인 전역 조건 바를 원본 크기로 봅니다.",
+    "기간·사이트·공정 조건이 모인 전역 조건 바의 왼쪽을 원본 크기로 봅니다.",
     "shell",
     async () => {},
     async () => {
-      const clip = await unionClip([page.getByRole("button", { name: "링크 복사", exact: true }).locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' sticky ')][1]")], 0);
-      return { clip: { ...clip, width: Math.min(clip.width, 560) }, hideSticky: false };
+      // 조건 바 왼쪽(기간·빠른 범위·room_name 칩)까지를 칩 경계에서 끊는다. 경계에 걸리는 오른쪽 데이터 신뢰 배지는 찍는 동안만 숨긴다.
+      const bar = page.getByRole("button", { name: "링크 복사", exact: true }).locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' sticky ')][1]");
+      const cutX = await bar.evaluate((el) => {
+        const chip = [...el.querySelectorAll("button")].find((b) => /^room_name/.test(b.textContent.trim()));
+        const right = chip.getBoundingClientRect().right + 4;
+        for (const b of el.querySelectorAll("button")) {
+          const r = b.getBoundingClientRect();
+          if (r.left < right && r.right > right) b.style.visibility = "hidden";
+        }
+        return right;
+      });
+      const clip = await unionClip([bar], 0);
+      return { clip: { ...clip, width: cutX - clip.x }, hideSticky: false };
     },
   );
   await capture(
     "inset-trust",
     "데이터 신뢰 표시 확대",
-    "갱신 시각·커버리지·지표 버전·원천을 펼친 패널을 원본 크기로 봅니다.",
+    "갱신 시각·커버리지·지표 버전·원천과 ‘미확인’ 상태를 펼친 패널을 원본 크기로 봅니다(견본 지표·견본 원천).",
     "tables",
     async () => {
+      // 앞 캡처가 숨겨 둔 조건 바의 신뢰 배지를 되돌린 뒤 연다.
+      await page.evaluate(() => document.querySelectorAll('button[style*="visibility"]').forEach((b) => b.style.removeProperty("visibility")));
       await button("데이터 신뢰").first().click();
     },
     () => unionClip([page.getByRole("dialog").filter({ hasText: "문제 없음은" })], 0).then((clip) => ({ clip, cover: true })),
@@ -670,7 +702,7 @@ try {
   await capture(
     "feedbackops-entry",
     "FeedbackOps · VOC 진입",
-    "MARS 화면 아래 고정 영역에서 VOC 등록 등 연결 상태를 확인합니다.",
+    "MARS 사이드바 아래의 VOC 등록·VOC·Task·설문 진입 링크입니다. 데모에는 FeedbackOps 주소가 없어 흐리게 보입니다.",
     "shell",
     async () => {
       await go(productivity);
@@ -678,13 +710,12 @@ try {
       await expect(block).toBeVisible();
       await expect(block.getByRole("link", { name: /^VOC 등록/ })).toBeVisible();
     },
-    // 진입 버튼(VOC 등록 · VOC · Task · 설문)이 모두 보이게 사이드바 아래쪽 전체 폭을 찍는다(왼쪽 아이콘 레일 포함, 가장자리 잘림 없음).
+    // VOC 진입 링크 묶음(제목 + VOC 등록 · VOC · Task · 설문)만 원본 크기로 찍는다.
     async () => {
       const nav = page.getByRole("navigation", { name: "FeedbackOps · MARS", exact: true });
       await expect(nav).toBeVisible();
       const box = await nav.boundingBox();
-      const y = Math.max(0, box.y - 64);
-      return { clip: { x: 0, y, width: box.x + box.width + 1, height: page.viewportSize().height - y }, hideSticky: false };
+      return { clip: { x: box.x, y: box.y - 6, width: box.width, height: box.height + 12 }, cover: true, hideSticky: false };
     },
   );
   await capture(
