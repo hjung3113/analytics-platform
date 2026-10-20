@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { createContext, StrictMode, useContext, type ReactNode } from 'react';
+import { createContext, StrictMode, useContext, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { afterEach, expect, it, vi } from 'vitest';
 import { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from './DetailPanelSlot';
@@ -170,4 +170,74 @@ it('the host hook returns the same toggle the portaled content receives', () => 
   expect(screen.getByRole('button', { name: 'panel:true' })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'host-toggle' }));
   expect(host().getAttribute('data-expanded')).toBe('false');
+});
+
+function ClosingPortal({ name, onClose }: { name: string; onClose: () => void }) {
+  const target = useDetailPanelSlot({ onSuperseded: onClose });
+  return target ? createPortal(<button>{name}</button>, target) : null;
+}
+
+it.each([false, true])('closes only the outgoing portal once in StrictMode (simultaneous=%s), even without a host', simultaneous => {
+  const first = vi.fn();
+  const second = vi.fn();
+  function ClosingFixture({ add = simultaneous, attach = false }: { add?: boolean; attach?: boolean }) {
+    const [open, setOpen] = useState(true);
+    const [winner, setWinner] = useState(true);
+    return <DetailPanelSlotProvider>
+      {open && <ClosingPortal name="old" onClose={() => { first(); setOpen(false); }} />}
+      {add && winner && <ClosingPortal name="winner" onClose={second} />}
+      <button onClick={() => setWinner(false)}>remove winner</button>
+      {attach && <Host />}
+    </DetailPanelSlotProvider>;
+  }
+  const view = render(<StrictMode><ClosingFixture /></StrictMode>);
+  view.rerender(<StrictMode><ClosingFixture add /></StrictMode>);
+  expect(first).toHaveBeenCalledTimes(1);
+  expect(second).not.toHaveBeenCalled();
+  view.rerender(<StrictMode><ClosingFixture add attach /></StrictMode>);
+  expect(screen.getByRole('button', { name: 'winner' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'remove winner' }));
+  expect(host().childElementCount).toBe(0);
+  expect(first).toHaveBeenCalledTimes(1);
+});
+
+it.each(['node', 'null'])('new content %s supersedes a portal; updates and undefined do not', kind => {
+  const node = kind === 'node' ? <p>content</p> : null;
+  const closed = vi.fn();
+  function Mixed({ value, portal = true }: { value: ReactNode | undefined; portal?: boolean }) {
+    return <DetailPanelSlotProvider>
+      <Content name="content" node={value} />
+      {portal && <ClosingPortal name="portal" onClose={closed} />}
+      <Host />
+    </DetailPanelSlotProvider>;
+  }
+  const view = render(<Mixed value={node} />);
+  expect(closed).not.toHaveBeenCalled();
+  view.rerender(<Mixed value={<p>updated</p>} />);
+  expect(screen.getByRole('button', { name: 'portal' })).toBeTruthy();
+  expect(closed).not.toHaveBeenCalled();
+  view.rerender(<Mixed value={undefined} />);
+  expect(closed).not.toHaveBeenCalled();
+  view.rerender(<Mixed value={node} />);
+  expect(closed).toHaveBeenCalledTimes(1);
+  view.rerender(<Mixed value={undefined} portal={false} />);
+  expect(closed).toHaveBeenCalledTimes(1);
+});
+
+it('own unregister and removing the winner never notify an inactive portal', () => {
+  const closed = vi.fn();
+  function Pair({ first = true, second = false }: { first?: boolean; second?: boolean }) {
+    return <DetailPanelSlotProvider>
+      {first && <ClosingPortal name="first" onClose={closed} />}
+      {second && <Consumer name="second" />}
+      <Host />
+    </DetailPanelSlotProvider>;
+  }
+  const view = render(<Pair />);
+  view.rerender(<Pair first={false} />);
+  expect(closed).not.toHaveBeenCalled();
+  view.rerender(<Pair second />);
+  expect(closed).toHaveBeenCalledTimes(1);
+  view.rerender(<Pair />);
+  expect(closed).toHaveBeenCalledTimes(1);
 });

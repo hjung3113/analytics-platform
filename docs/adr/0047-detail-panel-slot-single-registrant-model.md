@@ -37,3 +37,14 @@
 - **닫힌 등록자:** `useDetailPanelContent(null)`은 슬롯을 차지하되(이전 등록자는 숨고 정리 시 돌아온다) 아무것도 그리지 않고 `open`은 false다. `undefined`는 계속 비운다.
 - **확장 상태:** Provider가 `expandedKey`를 갖는다. `toggle()`이 활성 키로 켜고 끈다. 활성 키가 바뀌거나, 내용이 null이 되거나, 등록자가 비우거나 언마운트하면 해제되고, `window`의 Escape(`defaultPrevented`가 아닐 때)도 해제한다. 슬롯 내용(portal)만 `DetailPanelFullscreenContext`(`{expanded, toggle}`)를 받고 Provider의 `children`은 받지 않는다. portal 등록자는 영향이 없다.
 - **호스트:** `useDetailPanelSlotHost()`가 `{ ref, open, expanded, toggle }`을 돌려준다(`toggle`은 #476, `sdk-v0.3.1` — 호스트가 그리는 읽기 칼럼 같은 부분이 슬롯 내용과 같은 확장 상태를 읽고 켜고 끌 수 있게). `open`은 활성 등록자가 있고 닫힌 내용 등록자가 아닐 때 true다.
+
+
+## 추가 (2026-10-20, 결정자: 사용자 — #535/#526 BX-2)
+
+분석 보드의 상세는 다른 칸의 상세에 슬롯을 넘기면 닫힌다([16 §6](../16_analysis_board.md#6-메뉴-쪽-요구-decided)). 이전 상세를 살려 두면 새 상세를 ×로 닫았을 때 이전 상세가 돌아와 두 번 닫아야 하므로, 앞 칸의 `onClose`를 호출해 저장된 `focus`·`tab`도 지운다. 본 화면의 이전 등록자 복귀 규칙은 유지한다.
+
+- `useDetailPanelSlot(options?: { onSuperseded?: () => void })`를 추가한다. `DetailDrawer`는 칸 안에서만 옵션을 주며 내용 전달 등록자에는 옵션을 추가하지 않는다.
+- 활성 portal 등록자가 목록에 남아 있는 동안 다른 새 키(portal 또는 내용의 node·null)가 등록되면 목록 갱신 뒤 동기 통지한다. 자기 해제·같은 키 등록·기존 내용 갱신·undefined 해제는 통지하지 않는다. 호스트 유무와 관계없다. 지연 전달이 없으므로 전달 전 source·winner 언마운트에 대한 대기 상태도 없다.
+- 통지 완료 표식은 훅의 마운트 수명 동안 유지해 StrictMode의 layout effect 정리·재실행에서 같은 닫기를 반복하지 않는다. 실제 keyed remount는 새 수명이다. 콜백 변경만으로 다시 등록하지 않는다.
+- 콜백 ref는 insertion effect에서 갱신하고 통지는 layout effect 등록에서 실행한다. 설치된 React DOM 19.3.0의 `react-dom-client.development.js`에서 `commitMutationEffectsOnFiber`는 insertion effect를 실행하고, 전체 mutation 뒤 `flushLayoutEffects`가 `commitLayoutEffectOnFiber`를 실행한다. 따라서 뒤 형제의 콜백도 해당 commit 값이며 render 중 ref 쓰기가 없다.
+- 닫힘 이유는 통지 시점에 먼저 기록하고 outgoing content의 모든 정리 동안 유지한다. superseded 상세는 포커스를 복귀시키지 않으며 일반 닫기의 inside/body 조건과 ADR-0032 도착 포커스 규칙은 유지한다.

@@ -27,6 +27,7 @@
 
 | 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
 | --- | --- | --- | --- |
+| 다음 SDK 태그 | ui | `useDetailPanelSlot(options?)` — 선택 옵션 `onSuperseded` 추가(하위 호환) | 없음 |
 | 다음 SDK 태그 | kernel | `dropResetKeys` 제거 예고 | `withPaneContext` |
 | `sdk-v0.8.0` | components | `token()`·`ChartSeries.color` → `ThemeColorToken` | `isThemeColorToken`으로 좁힌다 (ADR-0055) |
 

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useInsertionEffect, useLayoutEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { DetailPanelFullscreenContext } from './panel/DetailPanelFullscreenContext';
 import { isProductionEnv } from './utils/isProductionEnv';
@@ -11,7 +11,7 @@ interface DetailPanelSlot {
   expanded: boolean;
   toggle: () => void;
   setHost: (host: HTMLElement | null) => void;
-  register: (key: string) => () => void;
+  register: (key: string, onSuperseded: () => void) => () => void;
 }
 
 /** Stable callbacks for content registrants; never changes, so `useDetailPanelContent` callers do not re-render with the slot state. */
@@ -42,24 +42,31 @@ export function DetailPanelSlotProvider({ children }: { children: ReactNode }) {
   const [contents, setContents] = useState<ReadonlyMap<string, ReactNode>>(() => new Map());
   // One registrant list for portal (`register`) and content (`setContent`) registrants: the last one wins.
   const keys = useRef<string[]>([]);
+  const portals = useRef(new Map<string, () => void>());
   const unregister = useCallback((key: string) => {
+    portals.current.delete(key);
     keys.current = keys.current.filter(existing => existing !== key);
     setActiveKey(keys.current.at(-1));
   }, []);
-  const register = useCallback((key: string) => {
+  const takeSlot = useCallback((key: string) => {
+    if (keys.current.includes(key)) return;
+    const outgoing = keys.current.at(-1);
     warnOnOverlap(keys.current.length);
-    keys.current = [...keys.current.filter(existing => existing !== key), key];
+    keys.current = [...keys.current, key];
     setActiveKey(key);
+    // Synchronous, after list mutation and before React can remove the outgoing portal content.
+    // No deferred delivery: neither source nor winner can disappear between takeover and notification.
+    if (outgoing !== undefined) portals.current.get(outgoing)?.();
+  }, []);
+  const register = useCallback((key: string, onSuperseded: () => void) => {
+    portals.current.set(key, onSuperseded);
+    takeSlot(key);
     return () => unregister(key);
-  }, [unregister]);
+  }, [takeSlot, unregister]);
   const actions = useMemo<DetailPanelSlotActions>(() => ({
     setContent: (key, node) => {
       // A registrant that is already listed keeps its place: a new node must not reclaim the slot.
-      if (!keys.current.includes(key)) {
-        warnOnOverlap(keys.current.length);
-        keys.current = [...keys.current, key];
-        setActiveKey(key);
-      }
+      takeSlot(key);
       setContents(prev => {
         if (prev.get(key) === node) return prev;
         return new Map(prev).set(key, node);
@@ -74,7 +81,7 @@ export function DetailPanelSlotProvider({ children }: { children: ReactNode }) {
       });
       if (keys.current.includes(key)) unregister(key);
     },
-  }), [unregister]);
+  }), [takeSlot, unregister]);
   // A closed registrant is a content registrant whose node is `null`: it wins the slot but renders nothing.
   const open = activeKey !== undefined && contents.get(activeKey) !== null;
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
@@ -104,13 +111,23 @@ export function DetailPanelSlotProvider({ children }: { children: ReactNode }) {
   </DetailPanelSlotActionsContext.Provider>;
 }
 
-/** Register once per mounted consumer. The previous registrant resumes when the winner unmounts. */
-export function useDetailPanelSlot(): HTMLElement | null {
+/** Register once per mounted consumer. Without onSuperseded, the previous registrant resumes when the winner unmounts. */
+export function useDetailPanelSlot(options?: { onSuperseded?: () => void }): HTMLElement | null {
   const slot = useContext(DetailPanelSlotContext);
   const key = useId();
   const register = slot?.register;
+  const latest = useRef(options?.onSuperseded);
+  // Mutation phase completes across the entire tree before any layout registration runs (React 19.3).
+  useInsertionEffect(() => { latest.current = options?.onSuperseded; });
+  // Logical lifetime survives StrictMode layout cleanup/setup replay; keyed remount creates a new ref.
+  const notified = useRef(false);
+  const supersede = useCallback(() => {
+    if (notified.current || !latest.current) return;
+    notified.current = true;
+    latest.current();
+  }, []);
   // Register before paint so a deep link does not briefly show a full-width main without its detail.
-  useLayoutEffect(() => register?.(key), [register, key]);
+  useLayoutEffect(() => register?.(key, supersede), [register, key, supersede]);
   if (!slot) throw new Error('Detail panel requires DetailPanelSlotProvider (provided by AppShell).');
   return slot.activeKey === key ? slot.host : null;
 }
