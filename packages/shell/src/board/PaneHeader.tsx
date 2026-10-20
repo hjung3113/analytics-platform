@@ -2,7 +2,7 @@ import { CornerUpLeft, MoreHorizontal } from 'lucide-react';
 import { useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { RETURN_CONTEXT_LABELS, useI18n } from '@ap/kernel';
 import {
-  Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+  Button, buttonVariants, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
   Popover, PopoverAnchor, PopoverContent,
 } from '@ap/ui';
 import { PANE_CHIP } from '../contextChip';
@@ -10,35 +10,46 @@ import { PaneBadge } from './PaneBadge';
 import type { PaneSignal } from './paneActions';
 import { boardText } from './text';
 
-/** The menu name never gets narrower than this to make room for chips (docs/16 §4): what does not fit collapses into `+N 다름`. Equals the class `min-w-24` on the name. */
+/** Default menu name minimum (docs/16 §4), matching min-w-24 on the name. */
 export const MENU_NAME_MIN_WIDTH = 96;
+/** Overflow with differing chips gives those chips space first, matching min-w-16 on the name. */
+const MENU_NAME_MIN_WIDTH_SQUEEZED = 64;
 const HEAD_PADDING = 16;
 const HEAD_GAP = 8;
 const CHIP_GAP = 4;
 
 /**
- * How many difference chips fit in the head. Measures the fixed groups (`data-head-fixed`), the head and an invisible copy of every
- * chip plus the `+N 다름` sample (`data-chip-measure`). Where nothing has a width yet (first paint, no layout) all chips show.
+ * How many difference chips fit in the head. Overflow squeezes the menu name minimum; same conditions fold into
+ * the overflow count whenever the full row does not fit. Measurements happen after layout, and a zero-width first paint shows all chips.
  */
-function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, signature: string): number {
-  const [visible, setVisible] = useState(count);
+function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, signature: string, sameCount: number) {
+  const [layout, setLayout] = useState({ visible: count, overflow: false });
   useLayoutEffect(() => {
     const element = head.current;
     if (!element) return;
     const measure = () => {
       const width = element.getBoundingClientRect().width;
-      if (width <= 0 || count === 0) { setVisible(count); return; }
+      if (width <= 0 || count === 0) { setLayout({ visible: count, overflow: false }); return; }
       const widthOf = (selector: string) => Array.from(element.querySelectorAll<HTMLElement>(selector)).map(item => item.getBoundingClientRect().width);
       const fixed = widthOf('[data-head-fixed]').reduce((sum, w) => sum + w, 0);
       const chips = widthOf('[data-chip-measure="chip"]');
       const [more = 0] = widthOf('[data-chip-measure="more"]');
-      const available = width - HEAD_PADDING - fixed - MENU_NAME_MIN_WIDTH - HEAD_GAP * 3;
-      let fit = 0;
-      for (let k = count; k >= 1; k--) {
-        const used = chips.slice(0, k).reduce((sum, w) => sum + w, 0) + CHIP_GAP * (k - 1) + (k < count ? more + CHIP_GAP : 0);
-        if (used <= available) { fit = k; break; }
+      const [same = 0] = widthOf('[data-chip-measure="same"]');
+      const available = width - HEAD_PADDING - fixed - MENU_NAME_MIN_WIDTH - HEAD_GAP * (count > 0 ? 3 : 2);
+      const allChips = chips.reduce((sum, w) => sum + w, 0) + CHIP_GAP * Math.max(0, count - 1);
+      if (allChips + (sameCount > 0 ? same + HEAD_GAP : 0) <= available) {
+        setLayout({ visible: count, overflow: false });
+        return;
       }
-      setVisible(fit);
+      const overflowAvailable = available + MENU_NAME_MIN_WIDTH - MENU_NAME_MIN_WIDTH_SQUEEZED;
+      let fit = 0;
+      for (let k = sameCount > 0 ? count : count - 1; k >= 0; k--) {
+        const used = chips.slice(0, k).reduce((sum, w) => sum + w, 0)
+          + CHIP_GAP * Math.max(0, k - 1)
+          + more + (k > 0 ? CHIP_GAP : 0);
+        if (used <= overflowAvailable) { fit = k; break; }
+      }
+      setLayout({ visible: fit, overflow: true });
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
@@ -46,8 +57,8 @@ function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, 
     // The head alone is not enough: a fixed group or a measuring chip can change size (`이전 화면` appears, the language changes) with the head's width unchanged.
     for (const target of [element, ...element.querySelectorAll('[data-head-fixed], [data-chip-measure]')]) observer.observe(target);
     return () => observer.disconnect();
-  }, [head, count, signature]);
-  return Math.min(visible, count);
+  }, [head, count, signature, sameCount]);
+  return { visible: Math.min(layout.visible, count), overflow: count > 0 && layout.overflow };
 }
 
 export type PaneHeaderProps = {
@@ -80,8 +91,9 @@ export type PaneHeaderProps = {
 };
 
 /**
- * The pane head (docs/16 §4, ADR-0051), one line: number badge · system chip · menu name · difference chips · `같음 N` · `⋯`.
- * Chips never wrap; what does not fit becomes one `+N 다름` chip opening the same popover. Any control selects the pane first
+ * The pane head (docs/16 §4, ADR-0051), one line: number badge · system chip · menu name · difference chips · same-condition summary · actions.
+ * Differing chips get space before the same-condition summary; a row that does not fit folds the summary into +N and opens the full popover.
+ * Any control selects the pane first
  * (the pane root also does, on focus and press).
  */
 export function PaneHeader(props: PaneHeaderProps) {
@@ -95,9 +107,10 @@ export function PaneHeader(props: PaneHeaderProps) {
   const [popover, setPopover] = useState(false);
   const chips = signal?.compared ? signal.differing : [];
   const signature = chips.map(c => `${c.key}:${c.value}`).join('|');
-  const visibleCount = useVisibleChips(head, chips.length, signature);
+  const { visible: visibleCount, overflow } = useVisibleChips(head, chips.length, signature, signal?.compared ? signal.same.length : 0);
   const shown = chips.slice(0, visibleCount);
-  const hidden = chips.length - shown.length;
+  const hiddenDifferences = chips.length - shown.length;
+  const hidden = overflow ? hiddenDifferences + (signal?.compared ? signal.same.length : 0) : 0;
   const sameCount = signal ? (signal.compared ? signal.same.length : signal.rows.length) : 0;
   const label = (key: (typeof chips)[number]['key']) => tx(RETURN_CONTEXT_LABELS[key]);
   const chipText = (chip: (typeof chips)[number]) => `${label(chip.key)} ${chip.value ?? text.unsetValue}`;
@@ -113,22 +126,25 @@ export function PaneHeader(props: PaneHeaderProps) {
         </button>
         {systemLabel && <span data-pane-system className="shrink-0 rounded-xs border border-border-subtle px-1.5 text-caption text-text-secondary">{systemLabel}</span>}
       </div>
-      <span className="min-w-24 flex-1 truncate text-sm font-medium text-text-primary">{menuName}</span>
+      <span className={cn('flex-1 truncate text-sm font-medium text-text-primary', overflow && chips.length > 0 ? 'min-w-16' : 'min-w-24')}>{menuName}</span>
       {(shown.length > 0 || hidden > 0) && <div data-pane-chips className="flex shrink-0 items-center gap-1">
         {shown.map(chip => <span key={chip.key} data-pane-chip={chip.key} className={PANE_CHIP}>{chipText(chip)}</span>)}
         {hidden > 0 && <button type="button" data-pane-chip="more" aria-haspopup="dialog" aria-expanded={popover} aria-label={text.contextMoreName(number, hidden)} onClick={open} className={cn(PANE_CHIP, 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring')}>{text.contextMore(hidden)}</button>}
       </div>}
       {chips.length > 0 && <div aria-hidden inert className="pointer-events-none invisible absolute left-0 top-0 flex gap-1">
         {chips.map(chip => <span key={chip.key} data-chip-measure="chip" className={PANE_CHIP}>{chipText(chip)}</span>)}
-        <span data-chip-measure="more" className={PANE_CHIP}>{text.contextMore(chips.length)}</span>
+        <span data-chip-measure="more" className={PANE_CHIP}>{text.contextMore(chips.length + (signal?.compared ? sameCount : 0))}</span>
+        {active && sameCount > 0 && <span className={buttonVariants({ variant: 'ghost', size: 'toolbar' })} data-chip-measure="same">
+          {text.contextSame(sameCount)}
+        </span>}
       </div>}
-      <div data-head-fixed className="flex shrink-0 items-center gap-1">
+      {active && signal && sameCount > 0 && hidden === 0 && <Button type="button" variant="ghost" size="toolbar" aria-haspopup="dialog" aria-expanded={popover}
+        aria-label={signal.compared ? text.contextSameName(number, sameCount) : text.contextCountName(number, sameCount)} onClick={open}>
+        {signal.compared ? text.contextSame(sameCount) : text.contextCount(sameCount)}
+      </Button>}
+      <div data-head-fixed="actions" className="flex shrink-0 items-center gap-1">
         {active && hasPrevious && <Button type="button" variant="ghost" size="icon-sm" aria-label={text.previousScreen} title={text.previousScreen}
           onClick={() => { onSelect(); props.onBack(); }}><CornerUpLeft className="size-3.5" aria-hidden /></Button>}
-        {active && signal && sameCount > 0 && <Button type="button" variant="ghost" size="toolbar" aria-haspopup="dialog" aria-expanded={popover}
-          aria-label={signal.compared ? text.contextSameName(number, sameCount) : text.contextCountName(number, sameCount)} onClick={open}>
-          {signal.compared ? text.contextSame(sameCount) : text.contextCount(sameCount)}
-        </Button>}
         {active && <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button ref={menuTrigger} type="button" variant="ghost" size="icon-sm" aria-label={text.paneActions(number)} title={text.paneActions(number)} onPointerDown={onSelect}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
