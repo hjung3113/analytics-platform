@@ -4,7 +4,7 @@ Platform Component 층(06 §13) + 차트 계약(§16) + 페이지 archetype 골�
 
 ## 파일
 
-- `LegendTree.tsx` — Domain-neutral hierarchical visibility checks, optional single current choice, controlled sorting and controlled/uncontrolled expansion. Owns tree keyboard navigation and focus recovery (06 §26, ADR-0057).
+- `LegendTree.tsx` — 도메인을 모르는 계층 범례 트리. 보이기 3단계 체크(`visible`은 소비자 소유, 리프 id로 판정), 선택 모드의 단일 현재 항목, controlled 정렬 표시, controlled/uncontrolled 펼침을 받는다. 트리 키보드(행 이동은 APG 방향키, 나머지는 Tab·Enter·Space)와 포커스 복구를 소유한다(06 §26, ADR-0057).
 
 - `PlatformPage.tsx` — 페이지 최상위. 제목·액션·`contextExtension`·`dataTrustSummary`·breadcrumb 슬롯, Scope 게이트, 전역 Context Bar는 `slots.contextBar`로 받아 렌더(셸을 import하지 않음). 본문 영역은 `data-platform-page-content` 속성으로 식별한다(헤더·전역 Context·페이지 extension 제외, Scope 게이트도 이 영역에 렌더). 계약 검사는 스타일 클래스 대신 이 안정된 hook을 사용한다. Kernel `pageNavigation`의 포커스 요청을 소비해 `drill`이면 현재 단계, 그 밖이면 제목(h1)에 포커스하고, 프로그램이 준 제목 포커스로는 제목 툴팁을 열지 않는다(06 §26). 도착으로 열린 `focus=` 상세 패널은 그 제목 포커스를 가져가지 않는다(ADR-0032). Scope 게이트의 동작 버튼이 상태 변경으로 사라지면 포커스를 main 랜드마크(셸 밖에서는 본문 요소)로 옮긴다(06 §26, #353). 머리 컨테이너 폭이 줄거나 실제로 넘치면(`scrollWidth > clientWidth`, 결정은 `headerYield.ts`) 설명·Data Trust 요약·잠정 배지 순으로 양보하고 제목은 최소 폭을 지키며, 보조 동작은 ⋯ 메뉴에 둔다(ADR-0035). 보드 지원 메뉴(`features.board`)를 열 수 있는 본 화면에서는 `secondaryActions`가 없어도 앱의 `slots.boardEntry` 항목을 ⋯에 덧붙인다(칸 안·슬롯 없음·보드 미지원은 ⋯를 만들지 않음, 16 §6). 항목의 대화상자는 `useHeaderOverflowDialog()`로 머리에 맡기면 ⋯가 닫혀도 남고, 열릴 때 ⋯가 `더보기`로 포커스를 끌어오지 않으며 이동 없이 닫으면 `더보기`로 돌아간다(`PlatformPage.board-entry.test.tsx`). 모든 양보 뒤에도 들어가지 않는 폭에서만 머리 가로 스크롤을 남겨 주 동작에 Tab 포커스나 스크롤로 닿게 하며, 정상 폭(1280px 이상 + 상세 패널)에서는 넘치지 않는다(06 §7).
 - `AnalysisLayout.tsx` — 분석 화면의 KPI 띠·차트 2열·전체 폭 분해 표, 단위별 접기와 접힌 항목 칩 복원·메뉴별 기억·포커스 이동을 소유한다(06 §12.6, ADR-0022).
