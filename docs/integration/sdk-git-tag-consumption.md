@@ -29,6 +29,7 @@
 | --- | --- | --- | --- |
 | 다음 SDK 태그 | ui | `useDetailPanelSlot(options?)` — 선택 옵션 `onSuperseded` 추가(하위 호환) | 없음 |
 | 다음 SDK 태그 | kernel | `dropResetKeys` 제거 예고 | `withPaneContext` |
+| 다음 SDK 태그 | ui | `THEME_COLOR_TOKENS`·`ThemeColorToken`에 차트 역할 25개 추가(`chart-series-*`·`chart-heat-*`·`chart-status-*`·`chart-no-data*`·`chart-selection-outline`·`chart-median-on-fill`, #544) | 없음 — 추가만, 기존 이름 그대로 |
 | `sdk-v0.8.0` | components | `token()`·`ChartSeries.color` → `ThemeColorToken` | `isThemeColorToken`으로 좁힌다 (ADR-0055) |
 
 ## Release tarball로 받기 (ADR-0056)

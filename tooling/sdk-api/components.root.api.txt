@@ -52,6 +52,7 @@ StatCard | function | function StatCard({ icon: Icon, label, value, unit, delta,
 StateMessage | function | function StateMessage({ icon, title, body, action, tone, correlationId, compact, detail }: StateProps): import("react").JSX.Element
 TableUrlState | type | type TableUrlState = { onChange: (next: { page: null | number; sorting: @ap/contracts#PageSort[]; }, reason: 'clamp' | 'reset' | 'user') => void; page: null | number; sorting: @ap/contracts#PageSort[]; }
 TableUrlWarning | function | function TableUrlWarning({ sentences, filters }: { filters?: ReactNode; sentences: readonly string[]; }): import("react").JSX.Element
+chartTheme | function | function chartTheme(): { readonly axisLabel: { readonly color: string; }; readonly axisLine: { readonly lineStyle: { readonly color: string; }; }; readonly referenceLine: { readonly label: { readonly color: string; readonly fontSize: 10; readonly formatter: "{b}"; readonly position: "insideEndTop"; }; readonly lineStyle: { readonly color: string; readonly type: "dashed"; }; readonly silent: true; readonly symbol: "none"; }; readonly splitLine: { readonly lineStyle: { readonly color: string; }; }; readonly tooltip: { readonly backgroundColor: string; readonly borderColor: string; readonly textStyle: { readonly color: string; }; }; }
 copyText | function | function copyText(text: string): Promise<boolean>
 encodeTableSort | function | function encodeTableSort(sorting: @ap/contracts#PageSort[]): null | string
 focusPageFallback | function | function focusPageFallback(source: HTMLElement | null): void
