@@ -1,4 +1,5 @@
-noContext | const | const noContext: Record<ContextKey, Capability>
-testAdapter | function | function testAdapter(over?: Partial<PlatformAdapter>): PlatformAdapter
-testSession | function | function testSession(permissions: readonly (Permission | ModuleScopedId)[], over?: { user?: Partial<SessionUser>; scopes?: readonly ScopeOption[]; }): Session
-testSpace | function | function testSpace(over?: Partial<SpaceDef>): SpaceDef
+noContext | const | const noContext: Record<@ap/contracts#ContextKey, @ap/contracts#Capability>
+testAdapter | function | function testAdapter(over?: Partial<@ap/contracts#PlatformAdapter>): @ap/contracts#PlatformAdapter
+testSession | function | function testSession(permissions: readonly (@ap/contracts#ModuleScopedId | @ap/contracts#Permission)[], over?: { scopes?: readonly @ap/contracts#ScopeOption[]; user?: Partial<@ap/contracts#SessionUser>; }): @ap/contracts#Session
+testSpace | function | function testSpace(over?: Partial<@ap/contracts#SpaceDef>): @ap/contracts#SpaceDef
+# reachable types
