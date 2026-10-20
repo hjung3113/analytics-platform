@@ -58,6 +58,8 @@ export type WriteFlight = {
   pending: Set<PendingWrite>;
   /** Origin lifetime and generation: false once the owner is gone or the session generation changed since the first send. */
   valid: () => boolean;
+  /** Permanent end of the origin (owner released or unmounted, generation changed); unlike `valid()` false while only suspended. */
+  expired?: () => boolean;
   /** Host only: defers while the instance is only suspended, rejects once released. */
   /** Called with true when a send starts and false when it settles (hook `pending`). */
   busy?: (on: boolean) => void;
@@ -69,6 +71,8 @@ export type WriteFlight = {
  * wrapped in the same control (recursively). The send itself is never cancelled, so epochs still bump on a rejected delivery.
  */
 export function launchWrite<T>(flight: WriteFlight, send: () => Promise<ActionResult<T>>): Promise<ActionResult<T>> {
+  // A retained retry of an expired origin never joins or occupies a slot: it must not see another generation's answer.
+  if (flight.expired?.()) return Promise.reject(abortError());
   if (flight.slot.promise) return flight.slot.promise;
   const start = () => new Promise<ActionResult<T>>((resolve, reject) => {
     if (!flight.valid()) return reject(abortError());
@@ -123,9 +127,11 @@ export function useMenuAction<I, T>(spec: ActionSpec<I, T>): MenuActionState<I, 
     const request = actionRequest(spec, input, options?.expectedVersion, now);
     if (!request.ready) return Promise.resolve(request.notReady());
     const origin = { revision: now.revision, user: now.user.id };
+    const sameGeneration = () => latest.current.revision === origin.revision && latest.current.user.id === origin.user;
     const flight: WriteFlight = {
       ...owner, busy: on => { if (mounted.current) setPending(on); },
-      valid: () => mounted.current && latest.current.revision === origin.revision && latest.current.user.id === origin.user,
+      valid: () => mounted.current && sameGeneration(),
+      expired: () => !mounted.current || !sameGeneration(),
     };
     return launchWrite(flight, request.send);
   }, [spec, owner]);

@@ -515,6 +515,47 @@ describe('useModuleHost: write', () => {
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 
+  it('rejects a retained retry of an expired generation at once while a newer generation\'s call is pending', async () => {
+    const h = harness();
+    let first!: Promise<ActionResult<Saved>>;
+    act(() => { first = h.seen.host.act!(save, { text: 'a' }); });
+    await act(async () => { h.sent[0].resolve(answer('error')); await first; });
+    const { retry } = await first;
+    await h.switchUser();
+    let second!: Promise<ActionResult<Saved>>;
+    act(() => { second = h.seen.host.act!(save, { text: 'b' }); });
+    expect(h.sent).toHaveLength(2);
+    expect(isAbort(await settle(retry!()))).toBe(true);
+    expect(h.sent).toHaveLength(2);
+    await act(async () => { h.sent[1].resolve(answer('ok')); });
+    expect(await second).toMatchObject({ outcome: 'ok' });
+  });
+
+  it('a retry made while only suspended joins the deferred call and both reject once the screen is gone', async () => {
+    let retained: (() => Promise<ActionResult<Saved>>) | undefined;
+    const results: Promise<unknown>[] = [];
+    const raw: Promise<unknown>[] = [];
+    function Consumer({ host }: { host: ModuleHost }) {
+      useLayoutEffect(() => () => {
+        raw.push(host.act!(save, { text: 'late' }), retained!());
+        results.push(...raw.map(settle));
+      }, []);
+      return null;
+    }
+    const h = harness({ consumer: host => <Consumer host={host} /> });
+    let first!: Promise<ActionResult<Saved>>;
+    act(() => { first = h.seen.host.act!(save, { text: 'a' }); });
+    await act(async () => { h.sent[0].resolve(answer('error')); await first; });
+    retained = (await first).retry;
+    h.unmount();
+    await act(async () => {});
+    expect(results).toHaveLength(2);
+    // The retry joins the deferred call: the same promise, not a separate rejection.
+    expect(raw[1]).toBe(raw[0]);
+    for (const outcome of await Promise.all(results)) expect(isAbort(outcome as object)).toBe(true);
+    expect(h.sent).toHaveLength(1);
+  });
+
   it('subscribe fires after a settled ok write and not after an invalid one', async () => {
     const h = harness();
     const onChange = vi.fn();

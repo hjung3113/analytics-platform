@@ -205,6 +205,23 @@ describe('useMenuAction: retry', () => {
     expect(isAbort(await settle(retry!()))).toBe(true);
     expect(t.sent).toHaveLength(1);
   });
+
+  it('rejects an expired generation\'s retained retry at once while the newer generation\'s run is pending', async () => {
+    const t = setup(both());
+    await flush();
+    let promise!: Promise<ActionResult<{ id: string }>>;
+    act(() => { promise = t.probes.action.run(input()); });
+    await act(async () => { t.sent[0].resolve(response('error')); await promise; });
+    const { retry } = await promise;
+    t.switchUser();
+    let second!: Promise<ActionResult<{ id: string }>>;
+    act(() => { second = t.probes.action.run(input()); });
+    expect(t.sent).toHaveLength(2);
+    expect(isAbort(await settle(retry!()))).toBe(true);
+    expect(t.sent).toHaveLength(2);
+    await act(async () => { t.sent[1].resolve(response('ok')); });
+    expect(await second).toMatchObject({ outcome: 'ok' });
+  });
 });
 
 describe('useMenuAction: lifetime and generation', () => {

@@ -186,9 +186,12 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
         const request = actionRequest(spec, input, options?.expectedVersion, now);
         if (!request.ready) return Promise.resolve(request.notReady());
         const origin = { revision: now.revision, user: now.user.id };
+        const sameGeneration = () => latest.current.revision === origin.revision && latest.current.user.id === origin.user;
         const flight: WriteFlight = {
           slot, pending: instance.writePending,
-          valid: () => instance.state === 'active' && latest.current.revision === origin.revision && latest.current.user.id === origin.user,
+          valid: () => instance.state === 'active' && sameGeneration(),
+          // Suspended is not expired: a StrictMode re-setup may still follow.
+          expired: () => instance.state === 'released' || !sameGeneration(),
           // Like `query`: a call made while only suspended waits for the re-setup of a StrictMode replay, and fails if the screen is really gone.
           gate: start => instance.state === 'released' ? Promise.reject(abortError())
             : instance.state === 'suspended'
