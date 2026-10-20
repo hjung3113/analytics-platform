@@ -103,3 +103,5 @@
 | jira-voc-nexus | 이벤트 재처리 방지, 근거 제한 답변 | 로컬 POC |
 | vocpage | 알림 수신자·읽음·반복 억제, 목록/상세 UX | FeedbackOps와 중복 제외 |
 | system-survey | 임시저장·첨부·댓글 설문 흐름 | FeedbackOps Survey와 중복 |
+
+- **구현 안 함 — 분석 보드 자유 창 배치**: 떠다니거나 겹치는 창·모서리 자유 resize·별도 OS 창은 #536의 사용자 선택 D에서 제외했다([ADR-0060](../docs/adr/0060-analysis-board-pane-sizing-collapse-maximize.md)). 이유: 고정 비교 공간을 넘어 창별 포커스·z-index·저장 모델을 늘린다. 다시 열 조건: 실제 고정 그리드 사용에서 배치 제약이 반복 보고될 때.

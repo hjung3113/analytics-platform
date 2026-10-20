@@ -1,3 +1,4 @@
+import { useOverlayVisible, useScopedAutofocus, withScopedOverlay } from '../TransientOverlayScope';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { type VariantProps, cva } from 'class-variance-authority';
 import { X } from 'lucide-react';
@@ -6,7 +7,7 @@ import { cn } from '../../utils/cn.js';
 import { DIALOG_CONTENT_MOTION, SCRIM_MOTION } from '../../utils/motion.js';
 import { isToastTarget } from '../../utils/toast-target.js';
 
-export const Dialog = DialogPrimitive.Root;
+export const Dialog: React.FC<DialogPrimitive.DialogProps> = withScopedOverlay(DialogPrimitive.Root);
 export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogPortal = DialogPrimitive.Portal;
 export const DialogClose = DialogPrimitive.Close;
@@ -43,7 +44,10 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 export const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, closeLabel = '닫기', onInteractOutside, scrim = 'modal', ...props }, ref) => (
+>(({ className, children, closeLabel = '닫기', onInteractOutside, scrim = 'modal', ...props }, ref) => {
+  const visible = useOverlayVisible();
+  const onCloseAutoFocus = useScopedAutofocus(props.onCloseAutoFocus);
+  return visible ? (
   <DialogPortal {...(props.forceMount ? { forceMount: true } : {})}>
     <DialogOverlay variant={scrim === 'palette' ? 'palette' : undefined} />
     <DialogPrimitive.Content
@@ -56,6 +60,7 @@ export const DialogContent = React.forwardRef<
         className,
       )}
       {...props}
+      onCloseAutoFocus={onCloseAutoFocus}
       onInteractOutside={(event) => {
         if (isToastTarget(event.target)) event.preventDefault();
         onInteractOutside?.(event);
@@ -68,7 +73,8 @@ export const DialogContent = React.forwardRef<
       </DialogClose>
     </DialogPrimitive.Content>
   </DialogPortal>
-));
+) : null;
+});
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 // #1050 command palette panel: the prototype .cmdk-panel surface, owned here so
@@ -95,17 +101,22 @@ export const DialogContentBare = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> &
     VariantProps<typeof dialogContentBareVariants>
->(({ children, className, variant, ...props }, ref) => (
+>(({ children, className, variant, ...props }, ref) => {
+  const visible = useOverlayVisible();
+  const onCloseAutoFocus = useScopedAutofocus(props.onCloseAutoFocus);
+  return visible ? (
   <DialogPortal>
     <DialogPrimitive.Content
       ref={ref}
       className={cn(dialogContentBareVariants({ variant }), className)}
       {...props}
+      onCloseAutoFocus={onCloseAutoFocus}
     >
       {children}
     </DialogPrimitive.Content>
   </DialogPortal>
-));
+) : null;
+});
 DialogContentBare.displayName = 'DialogContentBare';
 
 export function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {

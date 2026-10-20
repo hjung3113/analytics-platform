@@ -1,8 +1,8 @@
 import { Ban } from 'lucide-react';
-import { useRef, useState, type ComponentType } from 'react';
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ComponentType } from 'react';
 import { PaneScreenProvider, useI18n, usePlatform, type MenuEntry, type PaneScreen } from '@ap/kernel';
 import { StateMessage } from '@ap/components';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn } from '@ap/ui';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, TransientOverlayScope } from '@ap/ui';
 import { admitPaneScreen } from './boardMenus';
 import { PaneHeader } from './PaneHeader';
 import type { PaneSignal } from './paneActions';
@@ -11,6 +11,15 @@ import { boardText } from './text';
 
 export type BoardPaneProps = {
   paneId: string;
+  placement?: { left: number; top: number; width: number | string; height: number };
+  hidden?: boolean;
+  collapsed?: boolean;
+  maximized?: boolean;
+  sizing?: boolean;
+  canMaximize?: boolean;
+  collapseOff?: string | null;
+  onCollapse?: () => void;
+  onMaximize?: () => void;
   /** 1-based, the `칸 N` everyone sees. */
   number: number;
   screen: PaneScreen | null;
@@ -41,7 +50,7 @@ export type BoardPaneProps = {
  * `tabIndex=-1`). Focus inside the pane, a press on it and any header control select it first. `바꾸기` chains the picker and a confirm
  * dialog off the `⋯` menu; focus ends on the `⋯` trigger (or the pane root when the trigger is gone).
  */
-export function BoardPane({ paneId, number, screen, selected, Outlet, signal, hasPrevious, applyAllOff, duplicateOff, onSelect, onChange, onLeave, onInsert, onClear, onBack, onApplyAll, onOpenFull, onReplace, onDuplicate, onEditContext }: BoardPaneProps) {
+export function BoardPane({ placement, hidden = false, collapsed = false, maximized = false, sizing = false, canMaximize = false, collapseOff = null, onCollapse, onMaximize, paneId, number, screen, selected, Outlet, signal, hasPrevious, applyAllOff, duplicateOff, onSelect, onChange, onLeave, onInsert, onClear, onBack, onApplyAll, onOpenFull, onReplace, onDuplicate, onEditContext }: BoardPaneProps) {
   const { registry } = usePlatform();
   const { tx, lang } = useI18n();
   const text = boardText(lang);
@@ -58,21 +67,31 @@ export function BoardPane({ paneId, number, screen, selected, Outlet, signal, ha
   const space = menu ? registry.spaceOf(menu) : null;
   const menuName = menu ? tx(menu.label) : screen ? screen.menuId : '';
   const clear = () => { onSelect(); onClear(); root.current?.focus({ preventScroll: true }); };
-  const focusHead = () => (menuTrigger.current ?? root.current)?.focus({ preventScroll: true });
+  const focusHead = () => { if (root.current?.isConnected && !root.current.closest('[inert], [hidden]')) (menuTrigger.current ?? root.current).focus({ preventScroll: true }); };
+  const bodyHidden = collapsed && !maximized;
+  useLayoutEffect(() => {
+    if (!hidden && !bodyHidden) return;
+    afterMenuClose.current = null;
+    picked.current = false;
+    setPicking(null);
+    setReplaceWith(null);
+  }, [hidden, bodyHidden]);
 
-  return <div ref={root} role="group" aria-label={text.pane(number)} data-pane-id={paneId} tabIndex={-1} data-selected={selected}
+  return <TransientOverlayScope active={!hidden}><div ref={root} id={`board-pane-${paneId}`} data-pane-index={number - 1} data-maximized={maximized} style={placement ? { '--pane-left': `${placement.left}px`, '--pane-top': `${placement.top}px`, '--pane-width': typeof placement.width === 'number' ? `${placement.width}px` : placement.width, '--pane-height': `${placement.height}px` } as CSSProperties : undefined} hidden={hidden} inert={hidden || undefined} aria-hidden={hidden || undefined} role="group" aria-label={text.pane(number)} data-pane-id={paneId} tabIndex={-1} data-selected={selected}
     onFocus={onSelect} onPointerDownCapture={onSelect}
     className={cn('relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border bg-surface-card outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring',
-      selected ? 'border-border-selected' : 'border-border-subtle')}>
+      selected ? 'border-border-selected' : 'border-border-subtle', placement && 'absolute left-(--pane-left) top-(--pane-top) h-(--pane-height) w-(--pane-width)', hidden && 'hidden')}>
     {selected && <span aria-hidden data-pane-selected-bar className="absolute inset-y-0 left-0 z-10 w-0.5 bg-accent-primary" />}
-    <PaneHeader number={number} selected={selected} systemLabel={space ? tx(space.label) : null}
+    <PaneHeader sizing={sizing} collapsed={collapsed} maximized={maximized} canMaximize={canMaximize} collapseOff={collapseOff}
+      onCollapse={() => { onSelect(); onCollapse?.(); }} onMaximize={() => { onSelect(); onMaximize?.(); }} presentationHidden={hidden || bodyHidden}
+      number={number} selected={selected} systemLabel={space ? tx(space.label) : null}
       menuName={menu ? menuName : screen ? <span className="t-mono">{screen.menuId}</span> : null}
       active={screen !== null && admitted} signal={signal} hasPrevious={hasPrevious} applyAllOff={applyAllOff} duplicateOff={duplicateOff}
       menuTrigger={menuTrigger} afterMenuClose={afterMenuClose}
       onSelect={onSelect} onBack={onBack} onApplyAll={onApplyAll} onOpenFull={onOpenFull} onDuplicate={onDuplicate} onEditContext={onEditContext}
       onReplace={() => { onSelect(); picked.current = false; pickMode.current = 'replace'; setPicking('replace'); }}
       onClear={() => { afterMenuClose.current = () => root.current?.focus({ preventScroll: true }); onSelect(); onClear(); }} />
-    <div className="min-h-0 flex-1 overflow-auto">
+    <TransientOverlayScope active={!bodyHidden}><div data-pane-body hidden={bodyHidden} inert={bodyHidden || undefined} className="min-h-0 flex-1 overflow-auto">
       {screen === null
         ? <div className="grid h-full place-items-center p-6">
           <div className="grid justify-items-center gap-3 text-center">
@@ -86,7 +105,7 @@ export function BoardPane({ paneId, number, screen, selected, Outlet, signal, ha
             <StateMessage tone="warning" icon={<Ban className="size-4" aria-hidden />} title={text.unavailable} body={text.unavailableBody}
               action={<Button type="button" size="sm" variant="secondary" onClick={clear}>{text.clear}</Button>} />
           </div>}
-    </div>
+    </div></TransientOverlayScope>
     <PanePicker open={picking !== null} paneNumber={number} onOpenChange={open => { if (!open) setPicking(null); }}
       onPick={picked_ => {
         const mode = picking;
@@ -98,7 +117,7 @@ export function BoardPane({ paneId, number, screen, selected, Outlet, signal, ha
         // The empty view (and its trigger) is gone once a screen is placed, so focus goes to the pane itself. A replace goes on to the
         // confirm dialog when a screen was picked, and back to the `⋯` trigger when it was cancelled.
         if (pickMode.current === 'replace') { if (!picked.current) focusHead(); return; }
-        root.current?.focus({ preventScroll: true });
+        if (root.current?.isConnected && !root.current.closest('[inert], [hidden]')) root.current.focus({ preventScroll: true });
       }} />
     <AlertDialog open={replaceWith !== null} onOpenChange={open => { if (!open) setReplaceWith(null); }}>
       <AlertDialogContent role="alertdialog"
@@ -114,5 +133,5 @@ export function BoardPane({ paneId, number, screen, selected, Outlet, signal, ha
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  </div>;
+  </div></TransientOverlayScope>;
 }

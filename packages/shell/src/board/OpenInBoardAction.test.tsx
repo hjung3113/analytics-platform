@@ -211,3 +211,18 @@ describe('분석 보드에 열기… (docs/16 §6)', () => {
     expect(within(open).queryByRole('radio', { name: 'u1 sheet' })).toBeNull();
   });
 });
+
+it('external open rereads and preserves arrangement edits made while its dialog is open', async () => {
+  seed(boardOf([sheet('a', { name: '비교', layout: '1x2', panes: [beta, null] })]));
+  mount(`/alpha?${w1}`); await settle();
+  const dialog = await openDialog();
+  fireEvent.click(within(dialog).getByRole('radio', { name: '기존 시트의 빈 칸' }));
+  fireEvent.click(within(dialog).getByRole('radio', { name: '비교' }));
+  fireEvent.click(within(dialog).getByRole('radio', { name: '칸 2 · 비어 있음' }));
+  const live = stored();
+  live.sheets[0].arrangement = { '1x2': { columns: [65, 35], rows: [[100], [100]], collapsed: [] } };
+  seed(live);
+  fireEvent.click(within(dialog).getByRole('button', { name: '열기' })); await settle();
+  expect(stored().sheets[0].arrangement).toEqual(live.sheets[0].arrangement);
+  expect(stored().sheets[0].panes[1]?.menuId).toBe('alpha');
+});

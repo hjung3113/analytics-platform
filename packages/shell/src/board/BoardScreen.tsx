@@ -1,18 +1,19 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import { HardDrive } from 'lucide-react';
 import { BOARD_PATH, paneHref, useI18n, usePlatform, type MenuEntry, type PaneScreen } from '@ap/kernel';
-import { cn, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Popover, PopoverContent, PopoverTrigger, Toaster, ToggleGroup, ToggleGroupItem, UndoToast, toast } from '@ap/ui';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Popover, PopoverContent, PopoverTrigger, Toaster, ToggleGroup, ToggleGroupItem, UndoToast, toast } from '@ap/ui';
 import { BoardContextBar } from './BoardContextBar';
 import { BoardPane } from './BoardPane';
 import { SheetTabs } from './SheetTabs';
 import {
-  BOARD_LAYOUTS, addSheet, applyPaneEdits, droppedPaneCount, editPane, goBackPane, layoutShape, moveSheet, previousAt, removeSheet, renameSheet,
+  BOARD_LAYOUTS, canCollapse, defaultArrangement, getArrangement, setArrangement, addSheet, applyPaneEdits, droppedPaneCount, editPane, goBackPane, layoutShape, moveSheet, previousAt, removeSheet, renameSheet,
   restoreLayout, restorePane, restoreSheet, revertPaneEdits, selectPane, setActiveSheet, setLayout, setPane, type Board, type BoardLayout, type LayoutChange, type PaneEdit,
 } from './boardModel';
 import { canMountPaneScreen } from './boardMenus';
 import { applyContextToSheet, copyContextToSheet, defaultQuery, firstEmptyPane, paneNumbers, paneSignals, replacementScreen } from './paneActions';
 import { useBoardStore } from './boardStore';
-import { GRID_GAP_CLASS, PANE_MIN_HEIGHT, drawnColumns, useElementWidth } from './layout';
+import { GRID_GAP, PANE_HEADER_HEIGHT, PANE_BODY_MIN_HEIGHT, drawnColumns, effectiveTracks, useElementWidth, useGridHeight } from './layout';
+import { PaneSplitter } from './PaneSplitter';
 import { boardText, type BoardText } from './text';
 
 const PANEL_ID = 'board-panel';
@@ -145,7 +146,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
       document.querySelector<HTMLElement>('[data-board-context-row] button:not(:disabled), [data-board-context-row] [tabindex="0"]')?.focus({ preventScroll: true });
     }, 0);
     return () => clearTimeout(timer);
-  }, [editRequest]);
+  }, [editRequest, user.id, sheetId, sheet.layout]);
 
   const unavailable = (index: number) => { const own = sheet.panes[index]; return own !== null && !canMountPaneScreen(registry, canOpen, own); };
   const applyOff = (index: number) => (unavailable(index) ? text.paneUnavailable : applyContextToSheet(registry, canOpen, sheet, index)?.others ? null : text.applyToAllNone);
@@ -159,11 +160,79 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   const selected = sheet.selected;
   const { rows, columns } = layoutShape(sheet.layout);
   const grid = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const guidance = useRef<HTMLElement>(null);
+  const allEmpty = sheet.panes.every(screen => screen === null);
+  const height = useGridHeight(panel, guidance, allEmpty);
   const width = useElementWidth(grid);
   const drawn = drawnColumns(columns, width);
+  const stacked = drawn !== columns;
+  const arrangement = getArrangement(sheet);
+  const tracks = effectiveTracks(sheet.layout, arrangement, width, height);
+  const owner = `${user.id}.${sheetId}.${sheet.layout}`;
+  const identity = `${owner}.${stacked}`;
+  const [presentation, setPresentation] = useState<{ identity: string; maximized: number | null }>({ identity, maximized: null });
+  // Identity changes cancel transient presentation before children commit; no outgoing focus handoff survives.
+  if (presentation.identity !== identity) {
+    setPresentation({ identity, maximized: null });
+    if (confirmLayout !== null) setConfirmLayout(null);
+    if (editRequest !== 0) setEditRequest(0);
+  }
+  const maximized = presentation.identity === identity ? presentation.maximized : null;
+  const toggleMaximize = (index: number) => {
+    update(b => selectPane(b, sheetId, index));
+    setPresentation({ identity, maximized: maximized === index ? null : index });
+  };
+  const lastGridFocus = useRef<EventTarget | null>(null);
+  const focusPresentation = useRef<{ identity: string; owner: string; index: number; trigger: HTMLElement | null } | null>(null);
+  useLayoutEffect(() => {
+    const previous = focusPresentation.current;
+    const stackingRestore = stacked && previous?.owner === owner && previous.trigger === lastGridFocus.current
+      && document.activeElement === document.body;
+    const index = maximized ?? (previous?.identity === identity || stackingRestore ? previous!.index : null);
+    if (index !== null) {
+      const trigger = grid.current?.querySelector<HTMLElement>(`[data-pane-index="${index}"] [data-pane-maximize]`);
+      if (trigger && !trigger.closest('[inert], [hidden]')) trigger.focus({ preventScroll: true });
+      else {
+        const pane = grid.current?.querySelector<HTMLElement>(`[data-pane-index="${index}"]`);
+        if (pane && !pane.closest('[inert], [hidden]')) pane.focus({ preventScroll: true });
+        else heading.current?.focus({ preventScroll: true });
+      }
+    }
+    focusPresentation.current = maximized === null ? null : { identity, owner, index: maximized,
+      trigger: grid.current?.querySelector<HTMLElement>(`[data-pane-index="${maximized}"] [data-pane-maximize]`) ?? null };
+  }, [maximized, identity, owner, stacked]);
+  useEffect(() => {
+    if (maximized === null) return;
+    // Radix handles Escape at document capture; React detail/consumer handlers run before window bubble.
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      event.preventDefault();
+      setPresentation({ identity, maximized: null });
+    };
+    window.addEventListener('keydown', escape);
+    return () => window.removeEventListener('keydown', escape);
+  }, [maximized, identity]);
+  const saved = (change: Partial<typeof arrangement>) => update(b => {
+    const current = b.sheets.find(s => s.id === sheetId);
+    return current ? setArrangement(b, sheetId, sheet.layout, { ...getArrangement(current), ...change }) : b;
+  });
+  const collapse = (index: number) => saved({ collapsed: arrangement.collapsed.includes(index)
+    ? arrangement.collapsed.filter(i => i !== index) : canCollapse(sheet.layout, arrangement.collapsed, index) ? [...arrangement.collapsed, index] : arrangement.collapsed });
+  const stackedHeights = sheet.panes.map((_, i) => PANE_HEADER_HEIGHT + (arrangement.collapsed.includes(i) ? 0 : 400 - PANE_HEADER_HEIGHT));
+  const gridHeight = maximized !== null ? Math.max(height, PANE_HEADER_HEIGHT + PANE_BODY_MIN_HEIGHT)
+    : stacked ? stackedHeights.reduce((a, b) => a + b, 0) + GRID_GAP * (sheet.panes.length - 1) : tracks.height;
+  const panePlacement = (index: number) => {
+    if (maximized !== null) return { left: 0, top: 0, width: '100%', height: gridHeight };
+    if (stacked) return { left: 0, width: '100%', top: stackedHeights.slice(0, index).reduce((a, b) => a + b + GRID_GAP, 0), height: stackedHeights[index] };
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    return { left: column === 0 ? 0 : tracks.widths[0] + GRID_GAP,
+      top: row === 0 ? 0 : tracks.heights[column][0] + GRID_GAP, width: tracks.widths[column], height: tracks.heights[column][row] };
+  };
 
   return <div data-board className="flex h-full min-h-0 flex-col">
-    <header className="flex h-[50px] shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-surface-canvas px-4">
+    <header className="flex h-[50px] shrink-0 items-center justify-between gap-3 overflow-x-auto border-b border-border-subtle bg-surface-canvas px-4">
       <div className="flex min-w-0 items-center gap-3">
         <h1 ref={heading} tabIndex={0} className="min-w-28 truncate text-sm font-semibold text-text-primary">{text.board}</h1>
         <Popover>
@@ -177,26 +246,40 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
           </PopoverContent>
         </Popover>
       </div>
+      <div className="flex shrink-0 items-center gap-2">
+      <Button type="button" variant="ghost" size="sm" onClick={() => saved(defaultArrangement(sheet.layout))}>{text.resetSize}</Button>
       <ToggleGroup type="single" appearance="filter" aria-label={text.layout} value={sheet.layout} onValueChange={value => { if (value) requestLayout(value as BoardLayout); }}>
         {BOARD_LAYOUTS.map(layout => <ToggleGroupItem key={layout} value={layout} size="sm" appearance="selected-filter" aria-label={text.layoutOption(layout)}>{layout.replace('x', '×')}</ToggleGroupItem>)}
       </ToggleGroup>
+      </div>
     </header>
     <BoardContextBar key={`${sheetId}.${selected}`} paneId={paneIdOf(sheetId, selected)} number={selected + 1} screen={sheet.panes[selected]} onChange={(next, how) => update(b => editPane(b, sheetId, selected, next, how))} onLeave={onLeave} />
-    <div id={PANEL_ID} role="tabpanel" aria-labelledby={`board-tab-${sheetId}`} className="min-h-0 flex-1 overflow-auto p-3">
-      {sheet.panes.every(screen => screen === null) && <section aria-label={text.emptyGuidanceTitle} className="mb-3 rounded-md border border-border-subtle bg-surface-card px-4 py-3">
+    <div ref={panel} id={PANEL_ID} role="tabpanel" aria-labelledby={`board-tab-${sheetId}`} className="min-h-0 flex-1 overflow-auto p-3">
+      {allEmpty && <section ref={guidance} aria-label={text.emptyGuidanceTitle} className="mb-3 rounded-md border border-border-subtle bg-surface-card px-4 py-3">
         <h2 className="text-sm font-semibold text-text-primary">{text.emptyGuidanceTitle}</h2>
         <p className="mt-1 text-xs text-text-secondary">{text.sheetGuidance}</p>
         <p className="text-xs text-text-secondary">{text.paneGuidance}</p>
       </section>}
-      <div ref={grid} data-board-grid data-columns={drawn} data-rows={rows} style={{ '--board-row': `minmax(${PANE_MIN_HEIGHT}px, 1fr)` } as CSSProperties}
-        className={cn('grid min-h-full auto-rows-(--board-row)', GRID_GAP_CLASS, drawn === 1 ? 'grid-cols-1' : 'grid-cols-2')}>
-        {sheet.panes.map((screen, index) => <BoardPane key={`${sheetId}.${index}`} paneId={paneIdOf(sheetId, index)} number={index + 1} screen={screen} selected={index === selected} Outlet={Outlet}
+      <div ref={grid} onFocusCapture={event => { lastGridFocus.current = event.target; }}
+        onBlurCapture={event => { if (event.relatedTarget) lastGridFocus.current = event.relatedTarget; }} data-board-grid data-columns={drawn} data-rows={rows} style={{ '--board-height': `${gridHeight}px` } as CSSProperties} className="relative h-(--board-height)">
+        {sheet.panes.map((screen, index) => <BoardPane key={`${user.id}.${sheetId}.${index}`} paneId={paneIdOf(sheetId, index)} number={index + 1} screen={screen} selected={index === selected} Outlet={Outlet}
+          placement={panePlacement(index)} hidden={maximized !== null && maximized !== index} collapsed={arrangement.collapsed.includes(index)} maximized={maximized === index}
+          sizing={sheet.panes.length >= 2} canMaximize={!stacked} collapseOff={maximized !== null ? text.maximizedCollapseOff : !arrangement.collapsed.includes(index) && !canCollapse(sheet.layout, arrangement.collapsed, index) ? text.lastExpanded : null}
+          onCollapse={() => collapse(index)} onMaximize={() => toggleMaximize(index)}
           signal={signals[index]} hasPrevious={previousAt(sheet, index) !== null}
           applyAllOff={applyOff(index)} duplicateOff={duplicateOff(index)}
           onSelect={() => update(b => selectPane(b, sheetId, index))} onChange={(next, how) => update(b => editPane(b, sheetId, index, next, how))} onLeave={onLeave}
           onInsert={menu => insert(index, menu)} onClear={() => clearPane(index)} onBack={() => update(b => goBackPane(b, sheetId, index))}
           onApplyAll={() => applyToAll(index)} onOpenFull={() => openFull(index)} onReplace={menu => replaceScreen(index, menu)}
           onDuplicate={() => duplicate(index)} onEditContext={() => editContext(index)} />)}
+        {!stacked && maximized === null && columns === 2 && <PaneSplitter key={`${identity}.columns`} label={text.columnSize} controls={`board-pane-${paneIdOf(sheetId, 0)}`}
+          value={tracks.widths[0] / (tracks.widths[0] + tracks.widths[1]) * 100} bounds={tracks.columnBounds} extent={tracks.widths[0] + tracks.widths[1]}
+          placement={{ left: tracks.widths[0], top: 0, width: GRID_GAP, height: tracks.height }} onChange={values => saved({ columns: values })} />}
+        {!stacked && maximized === null && rows === 2 && Array.from({ length: columns }, (_, c) => !arrangement.collapsed.includes(c) && !arrangement.collapsed.includes(c + columns)
+          ? <PaneSplitter key={`${identity}.rows.${c}`} horizontal label={text.rowSize(c + 1, c + columns + 1)} controls={`board-pane-${paneIdOf(sheetId, c)}`}
+            value={tracks.heights[c][0] / (tracks.height - GRID_GAP) * 100} bounds={tracks.rowBounds[c]} extent={tracks.height - GRID_GAP}
+            placement={{ left: c === 0 ? 0 : tracks.widths[0] + GRID_GAP, top: tracks.heights[c][0], width: tracks.widths[c], height: GRID_GAP }}
+            onChange={values => saved({ rows: arrangement.rows.map((r, i) => i === c ? values : r) })} /> : null)}
       </div>
     </div>
     <SheetTabs sheets={board.sheets} activeId={sheetId} panelId={PANEL_ID}

@@ -1,3 +1,4 @@
+import { useOverlayVisible, useScopedAutofocus, withScopedOverlay } from '../TransientOverlayScope';
 import * as AlertDialogPrimitive from '@radix-ui/react-dialog';
 import * as React from 'react';
 import { cn } from '../../utils/cn.js';
@@ -5,7 +6,7 @@ import { DIALOG_CONTENT_MOTION, SCRIM_MOTION } from '../../utils/motion.js';
 import { isToastTarget } from '../../utils/toast-target.js';
 import { buttonVariants } from '../Button.js';
 
-export const AlertDialog = AlertDialogPrimitive.Root;
+export const AlertDialog: React.FC<AlertDialogPrimitive.DialogProps> = withScopedOverlay(AlertDialogPrimitive.Root);
 export const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
 export const AlertDialogPortal = AlertDialogPrimitive.Portal;
 
@@ -24,7 +25,10 @@ AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName;
 export const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
->(({ className, onInteractOutside, ...props }, ref) => (
+>(({ className, onInteractOutside, ...props }, ref) => {
+  const visible = useOverlayVisible();
+  const onCloseAutoFocus = useScopedAutofocus(props.onCloseAutoFocus);
+  return visible ? (
   <AlertDialogPortal>
     <AlertDialogOverlay />
     <AlertDialogPrimitive.Content
@@ -36,13 +40,15 @@ export const AlertDialogContent = React.forwardRef<
         className,
       )}
       {...props}
+      onCloseAutoFocus={onCloseAutoFocus}
       onInteractOutside={(event) => {
         if (isToastTarget(event.target)) event.preventDefault();
         onInteractOutside?.(event);
       }}
     />
   </AlertDialogPortal>
-));
+) : null;
+});
 AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName;
 
 export function AlertDialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {

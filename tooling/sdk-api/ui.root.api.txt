@@ -208,6 +208,7 @@ Tooltip | const | const Tooltip: React.FC<TooltipPrimitive.TooltipProps>
 TooltipContent | const | const TooltipContent: React.ForwardRefExoticComponent<TooltipContentProps & React.RefAttributes<HTMLDivElement>>
 TooltipProvider | const | const TooltipProvider: React.FC<TooltipPrimitive.TooltipProviderProps>
 TooltipTrigger | const | const TooltipTrigger: React.ForwardRefExoticComponent<TooltipPrimitive.TooltipTriggerProps & React.RefAttributes<HTMLButtonElement>>
+TransientOverlayScope | function | function TransientOverlayScope({ active, detached, children }: { active: boolean; children: React.ReactNode; detached?: boolean; }): React.ReactElement
 UndoToast | function | function UndoToast({ message, actionLabel, onAction, onDismiss, duration, className, }: @ap/ui#UndoToastProps): React.JSX.Element
 UndoToastProps | interface | interface UndoToastProps { actionLabel?: string; className?: string; duration?: number; message: string; onAction: () => void; onDismiss?: () => void; }
 UserAvatar | function | function UserAvatar({ user, size, className }: @ap/ui#UserAvatarProps): React.ReactElement

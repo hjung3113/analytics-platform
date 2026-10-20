@@ -1,10 +1,11 @@
+import { useOverlayVisible, useScopedAutofocus, withScopedOverlay } from '../TransientOverlayScope';
 import * as React from 'react';
 import * as SelectPrimitive from '@radix-ui/react-select';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../../utils/cn.js';
 import { SELECT_CONTENT_MOTION } from '../../utils/motion.js';
 
-export const Select = SelectPrimitive.Root;
+export const Select: React.FC<SelectPrimitive.SelectProps> = withScopedOverlay(SelectPrimitive.Root);
 export const SelectGroup = SelectPrimitive.Group;
 export const SelectValue = SelectPrimitive.Value;
 
@@ -77,7 +78,10 @@ SelectScrollDownButton.displayName = SelectPrimitive.ScrollDownButton.displayNam
 export const SelectContent = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
->(({ className, children, position = 'popper', ...props }, ref) => (
+>(({ className, children, position = 'popper', ...props }, ref) => {
+  const visible = useOverlayVisible();
+  const onCloseAutoFocus = useScopedAutofocus(props.onCloseAutoFocus);
+  return visible ? (
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
       ref={ref}
@@ -90,6 +94,7 @@ export const SelectContent = React.forwardRef<
       )}
       position={position}
       {...props}
+      onCloseAutoFocus={onCloseAutoFocus}
     >
       <SelectScrollUpButton />
       <SelectPrimitive.Viewport
@@ -104,7 +109,8 @@ export const SelectContent = React.forwardRef<
       <SelectScrollDownButton />
     </SelectPrimitive.Content>
   </SelectPrimitive.Portal>
-));
+) : null;
+});
 SelectContent.displayName = SelectPrimitive.Content.displayName;
 
 export const SelectLabel = React.forwardRef<

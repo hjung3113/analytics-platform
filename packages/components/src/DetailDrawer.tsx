@@ -5,7 +5,7 @@ import { Fragment, useEffect, useId, useInsertionEffect, useLayoutEffect, useRef
 import { createPortal } from 'react-dom';
 import { buildQuery } from '@ap/contracts';
 import { useI18n, usePlatformOptional } from '@ap/kernel';
-import { Tabs, TabsContent, TabsList, TabsTrigger, useDetailPanelSlot } from '@ap/ui';
+import { Tabs, TabsContent, TabsList, TabsTrigger, TransientOverlayScope, useDetailPanelSlot } from '@ap/ui';
 
 /** §13: URL-controlled detail content rendered into the shell-owned docked slot. */
 export function DetailDrawer({ title, subtitle, headerActions, context, tabs, onClose, tab, onTabChange }: {
@@ -23,7 +23,7 @@ export function DetailDrawer({ title, subtitle, headerActions, context, tabs, on
     closeLatest.current();
   } } : undefined);
   useCloseOnPaneChange(onClose);
-  return host ? createPortal(<OutcomeScope><DetailContent superseded={superseded} title={title} subtitle={subtitle} headerActions={headerActions} context={context} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} /></OutcomeScope>, host) : null;
+  return host ? createPortal(<TransientOverlayScope active detached><OutcomeScope><DetailContent superseded={superseded} title={title} subtitle={subtitle} headerActions={headerActions} context={context} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} /></OutcomeScope></TransientOverlayScope>, host) : null;
 }
 
 /**
@@ -71,7 +71,11 @@ function DetailContent({ superseded, title, subtitle, headerActions, context, ta
       if (!restore) return;
       // The panel is portaled out of its pane, so a pane's fallback is found by id (compared, not interpolated into a selector).
       const paneRoot = paneId === null ? null : paneRootById(paneId);
-      const target = opener?.isConnected && opener !== document.body ? opener : paneRoot ?? document.getElementById('platform-main');
+      const available = (element: HTMLElement | null): element is HTMLElement => !!element?.isConnected
+        && element !== document.body && !element.closest('[hidden], [inert], [aria-hidden="true"]');
+      const visiblePane = Array.from(document.querySelectorAll<HTMLElement>('[data-pane-id][tabindex]')).find(available) ?? null;
+      const target = available(opener) ? opener : available(paneRoot) ? paneRoot : visiblePane
+        ?? document.querySelector<HTMLElement>('[data-board] h1[tabindex]') ?? document.getElementById('platform-main');
       target?.focus({ preventScroll: true });
     };
   }, [pageNavigation, paneId, superseded]);

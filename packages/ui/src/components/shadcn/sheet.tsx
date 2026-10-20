@@ -1,3 +1,4 @@
+import { useOverlayVisible, useScopedAutofocus, withScopedOverlay } from '../TransientOverlayScope';
 import * as SheetPrimitive from '@radix-ui/react-dialog';
 import { type VariantProps, cva } from 'class-variance-authority';
 import { X } from 'lucide-react';
@@ -6,7 +7,7 @@ import { cn } from '../../utils/cn.js';
 import { SCRIM_MOTION, SHEET_CONTENT_MOTION } from '../../utils/motion.js';
 import { isToastTarget } from '../../utils/toast-target.js';
 
-export const Sheet = SheetPrimitive.Root;
+export const Sheet: React.FC<SheetPrimitive.DialogProps> = withScopedOverlay(SheetPrimitive.Root);
 export const SheetTrigger = SheetPrimitive.Trigger;
 export const SheetClose = SheetPrimitive.Close;
 export const SheetPortal = SheetPrimitive.Portal;
@@ -48,13 +49,17 @@ export const SheetContent = React.forwardRef<
   (
     { side = 'right', className, children, closeLabel = '닫기', onInteractOutside, ...props },
     ref,
-  ) => (
+  ) => {
+    const visible = useOverlayVisible();
+    const onCloseAutoFocus = useScopedAutofocus(props.onCloseAutoFocus);
+    return visible ? (
     <SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Content
         ref={ref}
         className={cn(sheetVariants({ side }), SHEET_CONTENT_MOTION[side ?? 'right'], className)}
         {...props}
+        onCloseAutoFocus={onCloseAutoFocus}
         onInteractOutside={(event) => {
           if (isToastTarget(event.target)) event.preventDefault();
           onInteractOutside?.(event);
@@ -67,7 +72,8 @@ export const SheetContent = React.forwardRef<
         </SheetClose>
       </SheetPrimitive.Content>
     </SheetPortal>
-  ),
+    ) : null;
+  },
 );
 SheetContent.displayName = SheetPrimitive.Content.displayName;
 
