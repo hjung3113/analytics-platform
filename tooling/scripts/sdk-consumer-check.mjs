@@ -76,7 +76,8 @@ export default defineConfig({
   test: { environment: 'jsdom', include: ['src/**/*.test.tsx'] },
 });
 `,
-  'tsconfig.json': `${JSON.stringify({
+  // Browser SDK check: the program is the app source only (no vite.config.ts, no tests, so no Vite/Vitest Node declarations).
+  'tsconfig.browser.json': `${JSON.stringify({
     compilerOptions: {
       target: 'ES2022',
       lib: ['ES2022', 'DOM', 'DOM.Iterable'],
@@ -89,6 +90,15 @@ export default defineConfig({
       types: [],
       skipLibCheck: false,
     },
+    include: ['src/main.tsx'],
+  }, null, 2)}\n`,
+  // Self-test: the same browser program plus a file that needs Node types; the browser check must reject it.
+  'tsconfig.poisoned.json': `${JSON.stringify({ extends: './tsconfig.browser.json', include: ['src/main.tsx', 'src/poison.ts'] }, null, 2)}\n`,
+  'src/poison.ts': `export const poisoned: NodeJS.Timeout | undefined = undefined;\n`,
+  // Config and tests may use Node/Vitest types; they are checked apart from the browser program.
+  'tsconfig.json': `${JSON.stringify({
+    extends: './tsconfig.browser.json',
+    compilerOptions: { types: [] },
     include: ['src', 'vite.config.ts'],
   }, null, 2)}\n`,
   'src/style.css': `@import "tailwindcss";
@@ -168,9 +178,10 @@ it('renders the shell, a components widget and a kernel hook under one PlatformP
 
 function writeProject(root, tarballDir) {
   const tarball = (name) => {
-    const file = readdirSync(tarballDir).find((candidate) => candidate.startsWith(`ap-${name}-`) && candidate.endsWith('.tgz'));
-    if (!file) fail(`no ap-${name}-*.tgz in ${tarballDir}`);
-    return join(tarballDir, file);
+    const files = readdirSync(tarballDir).filter((candidate) => candidate.startsWith(`ap-${name}-`) && candidate.endsWith('.tgz'));
+    if (files.length === 0) fail(`no ap-${name}-*.tgz in ${tarballDir}`);
+    if (files.length > 1) fail(`more than one ap-${name}-*.tgz in ${tarballDir}: ${files.join(', ')}; pass a directory with one release`);
+    return join(tarballDir, files[0]);
   };
   const dependencies = {};
   for (const name of PACKAGES) dependencies[`@ap/${name}`] = `file:${tarball(name)}`;
@@ -228,6 +239,13 @@ function assertSingleCopies(root) {
   if (mismatches.length > 0) fail(mismatches.join('; '));
 }
 
+function assertBrowserCheckRejectsNode(root) {
+  const result = spawnSync('pnpm', ['exec', 'tsc', '--noEmit', '-p', 'tsconfig.poisoned.json'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  if (result.error) fail(`tsc could not run: ${result.error.message}`);
+  if (result.status === 0) fail('the browser tsc check accepted a NodeJS.Timeout declaration: it is not Node-free');
+  if (!`${result.stdout}${result.stderr}`.includes('NodeJS')) fail(`the poisoned check failed for another reason:\n${`${result.stdout}${result.stderr}`.slice(-1500)}`);
+}
+
 function assertCssClasses(root) {
   const assets = join(root, 'dist', 'assets');
   const cssFiles = existsSync(assets) ? readdirSync(assets).filter((file) => file.endsWith('.css')) : [];
@@ -237,6 +255,19 @@ function assertCssClasses(root) {
   if (missing.length > 0) {
     fail(`emitted CSS lacks ${missing.map(({ pkg, css: selector }) => `${selector} (only ${pkg} uses it)`).join(', ')}: the @source of that package's styles.css did not reach its dist`);
   }
+}
+
+// Button throws this under NODE_ENV !== 'production' (the production fallback only warns, with different wording after the
+// dash); the production bundle must have the throw dead-code-eliminated, which only happens when the SDK dist carries a
+// statically replaceable `process.env.NODE_ENV` (bare import.meta stays in Vite builds).
+const BUTTON_DEV_ERROR = 'Slot enforces single-child contract';
+
+function assertProductionSignal(root) {
+  const assets = join(root, 'dist', 'assets');
+  const jsFiles = existsSync(assets) ? readdirSync(assets).filter((file) => file.endsWith('.js')) : [];
+  if (jsFiles.length === 0) fail('vite build emitted no JS file');
+  const hit = jsFiles.find((file) => readFileSync(join(assets, file), 'utf8').includes(BUTTON_DEV_ERROR));
+  if (hit) fail(`dist/assets/${hit} still carries Button's dev-only error: the production signal did not reach the SDK dist`);
 }
 
 function main() {
@@ -251,8 +282,11 @@ function main() {
     runStep('write consumer project', () => writeProject(root, tarballDir));
     runStep('pnpm install (tarballs, tiptap overrides, auto-animate patch)', () => run('pnpm', ['install', '--no-frozen-lockfile'], root));
     runStep('single copy of react and @ap/* packages', () => assertSingleCopies(root));
-    runStep('tsc --noEmit (strict, Bundler, no @types/node)', () => run('pnpm', ['exec', 'tsc', '--noEmit', '-p', 'tsconfig.json'], root));
+    runStep('browser tsc self-test: a Node-only declaration is rejected', () => assertBrowserCheckRejectsNode(root));
+    runStep('tsc --noEmit (app source only, strict, Bundler, no @types/node)', () => run('pnpm', ['exec', 'tsc', '--noEmit', '-p', 'tsconfig.browser.json'], root));
+    runStep('tsc --noEmit (vite config + tests)', () => run('pnpm', ['exec', 'tsc', '--noEmit', '-p', 'tsconfig.json'], root));
     runStep('vite build', () => run('pnpm', ['exec', 'vite', 'build'], root));
+    runStep('built JS has no Button dev-only error (NODE_ENV reached dist)', () => assertProductionSignal(root));
     runStep('built CSS carries a ui, components and shell class', () => assertCssClasses(root));
     runStep('vitest (jsdom): shell + components + kernel under one PlatformProvider', () => run('pnpm', ['exec', 'vitest', 'run'], root));
     process.stdout.write('sdk:consumer-check passed\n');

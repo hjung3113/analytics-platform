@@ -3,7 +3,6 @@ import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Loader2 } from 'lucide-react';
 import { cn } from '../utils/cn.js';
-import { isProductionEnv } from '../utils/isProductionEnv.js';
 
 /**
  * Pack 17 shadcn-CVA Button. Per ADR-0021.
@@ -87,7 +86,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ref,
   ) => {
     if (asChild && loading) {
-      if (!isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) {
+      if (process.env.NODE_ENV !== 'production') {
         throw new Error(
           'Button: `loading` is incompatible with `asChild` — Slot enforces single-child contract.',
         );

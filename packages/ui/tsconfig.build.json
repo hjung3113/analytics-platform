@@ -12,6 +12,6 @@
     // base.json allows .ts specifiers for the noEmit workspace check; emitting forbids them (TS5096).
     "allowImportingTsExtensions": false
   },
-  "include": ["src"],
+  "include": ["src", "build-env.d.ts"],
   "exclude": ["**/*.test.*", "**/__tests__/**", "**/__fixtures__/**", "src/test-setup.ts", "src/vitest.setup.ts", "src/rich-content/fixtures-local.ts"]
 }

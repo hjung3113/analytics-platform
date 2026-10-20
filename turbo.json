@@ -1,5 +1,6 @@
 {
   "$schema": "./node_modules/turbo/schema.json",
+  "globalDependencies": ["tooling/scripts/sdk-finalize-dist.mjs"],
   "globalPassThroughEnv": ["GEN_MENU_PROBE", "VITEST_MAX_WORKERS", "VITEST_MAX_FORKS", "VITEST_MAX_THREADS", "VITEST_MIN_FORKS", "VITEST_MIN_THREADS"],
   "tasks": {
     "transit": { "dependsOn": ["^transit"] },

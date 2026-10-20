@@ -4,10 +4,12 @@
 // Builds each package in dependency order (the build configs resolve siblings to the emitted declarations of the sibling),
 // stages `dist` plus a generated release manifest in a temp directory outside the repo, runs `pnpm pack` there, writes
 // SHA256SUMS next to the tarballs and rejects archives that carry source, tests, tsconfigs or a loose @ap/* version.
+// `--out` must be absent or an empty directory (nothing in it is ever deleted); the five tarballs + SHA256SUMS are built in
+// the temp directory and moved into `--out` only after every step passed.
 // Tracked files are never touched; the only repo writes are the git-ignored `packages/<name>/dist` folders.
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -125,6 +127,13 @@ export function validateArchive(name, paths, manifest, version) {
   }
 }
 
+/** `--out` is never cleaned: it must be absent or an empty directory, so a failed run cannot destroy an earlier release. */
+function assertOutDirFree(outDir) {
+  if (!existsSync(outDir)) return;
+  if (!statSync(outDir).isDirectory()) fail(`--out ${outDir} exists and is not a directory`);
+  if (readdirSync(outDir).length > 0) fail(`--out ${outDir} is not empty; pass a new or empty directory (nothing is deleted)`);
+}
+
 function main() {
   const { version, out } = parseArgs(process.argv.slice(2));
   const outDir = resolve(out);
@@ -132,10 +141,9 @@ function main() {
   try {
     const relativeStaging = relative(repoRoot, staging);
     if (relativeStaging === '' || !relativeStaging.startsWith(`..${sep}`)) fail('staging directory must be outside the repository');
-    mkdirSync(outDir, { recursive: true });
-    for (const stale of readdirSync(outDir)) {
-      if (stale === 'SHA256SUMS' || /^ap-.*\.tgz$/.test(stale)) rmSync(join(outDir, stale));
-    }
+    assertOutDirFree(outDir);
+    const collected = join(staging, 'out');
+    mkdirSync(collected);
 
     const tarballs = [];
     for (const name of PACKAGES) {
@@ -167,12 +175,15 @@ function main() {
       run('tar', ['-xzf', join(packDir, packed[0]), '-C', extracted], staging);
       validateArchive(name, archivePaths, readJson(join(extracted, 'package', 'package.json')), version);
 
-      cpSync(join(packDir, packed[0]), join(outDir, packed[0]));
+      cpSync(join(packDir, packed[0]), join(collected, packed[0]));
       tarballs.push(packed[0]);
     }
 
-    const sums = tarballs.map((file) => `${createHash('sha256').update(readFileSync(join(outDir, file))).digest('hex')}  ${file}`);
-    writeFileSync(join(outDir, 'SHA256SUMS'), `${sums.join('\n')}\n`);
+    const sums = tarballs.map((file) => `${createHash('sha256').update(readFileSync(join(collected, file))).digest('hex')}  ${file}`);
+    writeFileSync(join(collected, 'SHA256SUMS'), `${sums.join('\n')}\n`);
+    assertOutDirFree(outDir);
+    mkdirSync(outDir, { recursive: true });
+    for (const file of readdirSync(collected)) cpSync(join(collected, file), join(outDir, file));
     process.stdout.write(`sdk:pack passed: ${tarballs.length} tarballs (${version}) + SHA256SUMS in ${outDir}\n`);
   } finally {
     rmSync(staging, { recursive: true, force: true });
