@@ -1,13 +1,16 @@
 {
   "$schema": "./node_modules/turbo/schema.json",
-  "globalDependencies": ["tooling/scripts/sdk-finalize-dist.mjs"],
   "globalPassThroughEnv": ["GEN_MENU_PROBE", "VITEST_MAX_WORKERS", "VITEST_MAX_FORKS", "VITEST_MAX_THREADS", "VITEST_MIN_FORKS", "VITEST_MIN_THREADS"],
   "tasks": {
     "transit": { "dependsOn": ["^transit"] },
     "typecheck": { "dependsOn": ["transit"] },
     "lint": { "dependsOn": ["transit"], "outputs": [] },
     "test": { "dependsOn": ["transit"] },
-    "build": { "dependsOn": ["transit", "^build"], "outputs": ["dist/**"] },
+    "build": {
+      "dependsOn": ["transit", "^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/tooling/scripts/sdk-finalize-dist.mjs"],
+      "outputs": ["dist/**"]
+    },
     "dev": { "cache": false, "persistent": true }
   }
 }

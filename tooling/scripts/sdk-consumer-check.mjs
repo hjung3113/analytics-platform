@@ -8,16 +8,11 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SDK_PACKAGES } from './sdk-exports.mjs';
+import { hasCssSelector, selectCssProbes } from './sdk-css-probes.mjs';
+import { readAutoAnimatePatch, readWorkspaceBlock } from './sdk-pnpm-config.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const PACKAGES = ['contracts', 'kernel', 'ui', 'components', 'shell'];
-// One utility class that only the named package's source uses (the consumer app never writes it), so finding it in the
-// emitted CSS proves Tailwind scanned that package's dist through its `@source` line.
-const PACKAGE_CLASSES = [
-  { pkg: 'ui', css: String.raw`.max-w-\[1600px\]`, usedIn: 'packages/ui/src/layout/PageShell.tsx' },
-  { pkg: 'components', css: String.raw`.min-h-\[100px\]`, usedIn: 'packages/components/src/StatCard.tsx' },
-  { pkg: 'shell', css: String.raw`.min-w-\[204px\]`, usedIn: 'packages/shell/src/GlobalContextBar.tsx' },
-];
 // The consumer installs the versions this repo's workspace resolved (the web app is the reference install).
 const REFERENCE_APP = join(repoRoot, 'apps', 'platform-web');
 const CONSUMER_DEPENDENCIES = ['react', 'react-dom', 'vite', 'vitest', 'typescript', 'jsdom', 'tailwindcss', '@tailwindcss/vite', '@testing-library/react', '@testing-library/dom', '@types/react', '@types/react-dom'];
@@ -46,16 +41,19 @@ function installedVersion(name) {
 
 /** The `overrides:` lines of this repo's pnpm-workspace.yaml that pin @tiptap/* (consumer condition, sdk-git-tag-consumption.md). */
 function tiptapOverrides() {
-  const lines = readFileSync(join(repoRoot, 'pnpm-workspace.yaml'), 'utf8').split('\n');
-  const start = lines.findIndex((line) => line.trim() === 'overrides:');
-  if (start < 0) fail('pnpm-workspace.yaml has no overrides block');
-  const block = [];
-  for (const line of lines.slice(start + 1)) {
-    if (!line.startsWith('  ')) break;
-    block.push(line);
-  }
+  const workspaceYaml = readFileSync(join(repoRoot, 'pnpm-workspace.yaml'), 'utf8');
+  const block = readWorkspaceBlock(workspaceYaml, 'overrides');
   if (!block.some((line) => line.includes('"@tiptap/'))) fail('pnpm-workspace.yaml overrides carry no @tiptap pins');
   return block;
+}
+
+function javascriptFiles(directory) {
+  if (!existsSync(directory)) return [];
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) return javascriptFiles(path);
+    return entry.isFile() && entry.name.endsWith('.js') ? [path] : [];
+  });
 }
 
 function runStep(name, action) {
@@ -184,7 +182,7 @@ function writeProject(root, tarballDir) {
     return join(tarballDir, files[0]);
   };
   const dependencies = {};
-  for (const name of PACKAGES) dependencies[`@ap/${name}`] = `file:${tarball(name)}`;
+  for (const name of SDK_PACKAGES) dependencies[`@ap/${name}`] = `file:${tarball(name)}`;
   const external = { 'lucide-react': installedVersion('lucide-react') };
   for (const name of CONSUMER_DEPENDENCIES) external[name] = installedVersion(name);
   writeFileSync(join(root, 'package.json'), `${JSON.stringify({
@@ -194,15 +192,20 @@ function writeProject(root, tarballDir) {
     dependencies: { ...dependencies, ...external },
   }, null, 2)}\n`);
 
-  mkdirSync(join(root, 'patches'));
-  cpSync(join(repoRoot, 'patches', '@formkit__auto-animate@0.10.0.patch'), join(root, 'patches', '@formkit__auto-animate@0.10.0.patch'));
-  const overrides = PACKAGES.map((name) => `  "@ap/${name}": "file:${tarball(name)}"`);
+  const workspaceYaml = readFileSync(join(repoRoot, 'pnpm-workspace.yaml'), 'utf8');
+  const autoAnimatePatch = readAutoAnimatePatch(workspaceYaml);
+  const sourcePatch = join(repoRoot, autoAnimatePatch.path);
+  const consumerPatch = join(root, autoAnimatePatch.path);
+  if (!existsSync(sourcePatch)) fail(`patch file from pnpm-workspace.yaml not found: ${autoAnimatePatch.path}`);
+  mkdirSync(dirname(consumerPatch), { recursive: true });
+  cpSync(sourcePatch, consumerPatch);
+  const overrides = SDK_PACKAGES.map((name) => `  "@ap/${name}": "file:${tarball(name)}"`);
   writeFileSync(join(root, 'pnpm-workspace.yaml'), [
     'packages: []',
     'allowBuilds:',
     '  esbuild: true',
     'patchedDependencies:',
-    '  "@formkit/auto-animate@0.10.0": patches/@formkit__auto-animate@0.10.0.patch',
+    `  ${JSON.stringify(autoAnimatePatch.id)}: ${JSON.stringify(autoAnimatePatch.path)}`,
     'overrides:',
     ...overrides,
     ...tiptapOverrides(),
@@ -225,7 +228,7 @@ function assertSingleCopies(root) {
       if (dirname(current) === current) fail(`${name} does not resolve from ${dir}`);
     }
   };
-  const dirs = Object.fromEntries(PACKAGES.map((name) => [name, dirOf(root, `@ap/${name}`)]));
+  const dirs = Object.fromEntries(SDK_PACKAGES.map((name) => [name, dirOf(root, `@ap/${name}`)]));
   const mismatches = [];
   for (const [consumer, wants] of [['kernel', ['contracts']], ['components', ['kernel', 'ui', 'contracts']], ['shell', ['components', 'kernel', 'ui', 'contracts']]]) {
     for (const dep of wants) {
@@ -234,7 +237,7 @@ function assertSingleCopies(root) {
     }
   }
   const reactDirs = new Set([dirOf(root, 'react')]);
-  for (const name of PACKAGES.filter((candidate) => candidate !== 'contracts')) reactDirs.add(dirOf(dirs[name], 'react'));
+  for (const name of SDK_PACKAGES.filter((candidate) => candidate !== 'contracts')) reactDirs.add(dirOf(dirs[name], 'react'));
   if (reactDirs.size !== 1) mismatches.push(`react resolves to ${[...reactDirs].join(' and ')}`);
   if (mismatches.length > 0) fail(mismatches.join('; '));
 }
@@ -251,9 +254,24 @@ function assertCssClasses(root) {
   const cssFiles = existsSync(assets) ? readdirSync(assets).filter((file) => file.endsWith('.css')) : [];
   if (cssFiles.length === 0) fail('vite build emitted no CSS file');
   const css = cssFiles.map((file) => readFileSync(join(assets, file), 'utf8')).join('\n');
-  const missing = PACKAGE_CLASSES.filter(({ css: selector }) => !css.includes(selector));
+  const packages = SDK_PACKAGES.map((name) => {
+    const packageDirectory = join(root, 'node_modules', '@ap', name);
+    const manifest = JSON.parse(readFileSync(join(packageDirectory, 'package.json'), 'utf8'));
+    const files = javascriptFiles(join(packageDirectory, 'dist'));
+    if (files.length === 0) fail(`installed @ap/${name} package has no dist JS to probe`);
+    return {
+      packageName: name,
+      sourceText: files.map((file) => readFileSync(file, 'utf8')).join('\n'),
+      hasStyles: Boolean(manifest.exports?.['./styles.css']),
+    };
+  });
+  const targetPackages = packages.filter(({ hasStyles }) => hasStyles).map(({ packageName }) => packageName);
+  const probes = selectCssProbes(packages, 3, targetPackages);
+  const missing = probes.flatMap(({ packageName, classNames }) => classNames
+    .filter((className) => !hasCssSelector(css, className))
+    .map((className) => `@ap/${packageName} .${className}`));
   if (missing.length > 0) {
-    fail(`emitted CSS lacks ${missing.map(({ pkg, css: selector }) => `${selector} (only ${pkg} uses it)`).join(', ')}: the @source of that package's styles.css did not reach its dist`);
+    fail(`built CSS is missing package-specific utility selectors found in installed SDK dist JS: ${missing.join(', ')}; check the package stylesheet imports and Tailwind source scanning`);
   }
 }
 
@@ -287,7 +305,7 @@ function main() {
     runStep('tsc --noEmit (vite config + tests)', () => run('pnpm', ['exec', 'tsc', '--noEmit', '-p', 'tsconfig.json'], root));
     runStep('vite build', () => run('pnpm', ['exec', 'vite', 'build'], root));
     runStep('built JS has no Button dev-only error (NODE_ENV reached dist)', () => assertProductionSignal(root));
-    runStep('built CSS carries a ui, components and shell class', () => assertCssClasses(root));
+    runStep('built CSS carries utility classes from package-specific ui, components and shell dist JS', () => assertCssClasses(root));
     runStep('vitest (jsdom): shell + components + kernel under one PlatformProvider', () => run('pnpm', ['exec', 'vitest', 'run'], root));
     process.stdout.write('sdk:consumer-check passed\n');
   } finally {
