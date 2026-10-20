@@ -289,6 +289,11 @@ html = html.replace(figureSlot, (whole, cls, id, inner) => {
     : "";
   return `<figure class="${cls}" data-shot-fig="${id}"><span class="shot-frame">${img}${marks}</span>${inner.replace("<!--shot:" + id + "-->", "")}</figure>`;
 });
+// 캡처 자리가 모두 지워진 묶음과, 그래서 내용이 빈 캡처 전용 접기는 함께 지운다(빈 토글을 남기지 않는다).
+html = html
+  .replace(/<div class="(?:state-row|tools-grid|shots-row)"[^>]*>\s*<\/div>/g, "")
+  .replace(/<details class="evidence-details flow-details">\s*<summary>[^<]*<\/summary>\s*<\/details>/g, "");
+if (!shotById.has("change-audit")) html = html.replace("견본 캡처와 권한 판정 흐름 보기 — 변경 감사, ", "권한 판정 흐름 보기 — ");
 // 히어로의 견본 화면 세 장(MARS·BRAVO·운영 콘솔)이 모두 있어야 합성 그림을 보인다. 하나라도 없으면 그 블록을 지우고
 // 캡처 없는 조립에서는 도식 A를 히어로에도 보인다(id는 접미사로 구분).
 const hasHeroStack = ["cycle-time-full", "catalog", "change-audit"].every((id) => shotById.has(id));

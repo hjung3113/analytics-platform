@@ -666,20 +666,39 @@
       current(a.hash.slice(1));
     });
   });
-  function revealSource() {
-    if (location.hash.startsWith("#source-")) document.querySelector(".source-ledger").open = true;
+  // 앵커 대상이 닫힌 <details>(원장·부록 접기) 안에 있으면 조상을 모두 연다 — 열지 않으면 대상이 숨어 스크롤이 일어나지 않는다.
+  function revealTarget(hash) {
+    if (!hash || hash.length < 2) return;
+    var id;
+    try {
+      id = decodeURIComponent(hash.slice(1));
+    } catch (error) {
+      return;
+    }
+    var target = document.getElementById(id);
+    var opened = false;
+    for (var d = target && target.closest("details"); d; d = d.parentElement && d.parentElement.closest("details")) {
+      if (!d.open) opened = true;
+      d.open = true;
+    }
+    return opened ? target : null;
   }
-  all('a[href^="#source-"]').forEach(function (a) {
+  all('a[href^="#"]').forEach(function (a) {
     a.addEventListener("click", function () {
-      document.querySelector(".source-ledger").open = true;
+      revealTarget(a.hash);
     });
   });
-  window.addEventListener("hashchange", revealSource);
-  revealSource();
+  // 주소창에서 바꾼 해시는 브라우저가 먼저 점프하고 나서 이 이벤트가 오므로, 접기를 연 경우에만 다시 맞춘다.
+  window.addEventListener("hashchange", function () {
+    var revealed = revealTarget(location.hash);
+    if (revealed) revealed.scrollIntoView({ block: "start" });
+  });
+  revealTarget(location.hash);
   // 초기 JS(읽는 사람 전환, 원장 열기)가 앞부분 높이를 바꾸면, 브라우저가 JS보다
   // 먼저 한 앵커 점프의 착지가 어긋난다. 절의 scroll-margin-top이 반영된 위치로
   // 한 번 더 맞춰 점프 결과와 사이드바 표시를 일치시킨다.
-  var reanchor = document.querySelector('main>section[id="' + CSS.escape(location.hash.slice(1)) + '"]');
+  // 닫힌 접기 안의 대상(부록·원장)도 브라우저 점프가 숨은 상태에서 일어나므로 같이 맞춘다.
+  var reanchor = location.hash.length > 1 && document.querySelector('[id="' + CSS.escape(location.hash.slice(1)) + '"]');
   if (reanchor) reanchor.scrollIntoView({ block: "start", behavior: "instant" });
   var printDetails = [];
   window.addEventListener("beforeprint", function () {
