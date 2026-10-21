@@ -153,3 +153,6 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 - 콘덕터 호스트 Playwright 캡처는 `apps/platform-e2e` 안에서 `@playwright/test`를 import해 돌리고, 주소에 `v=1&scopeId=MEM`을 붙인다. Scope가 없으면 "Scope를 선택하세요"만 그려져 canvas를 기다리다 시간 초과다(2026-10-21).
 - 브리프에 도메인 계층·묶음(예: "Maker → Module")을 적기 전에 `GLOSSARY.md`와 대조한다. 확인 없이 옮긴 "제조사/모듈 묶음"으로 쓸모없는 시안 라운드를 돌렸다(#541, 원칙은 루트 AGENTS.md "SDK는 범용 조각을 준다").
 - 커밋은 검사의 종료 코드로만 건다. `vitest … | grep 'Tests ' && git commit`은 grep이 성공하면 실패한 테스트 위에도 커밋한다(#576 FIX1 문구 수정, 2026-10-21).
+- IA·메뉴 구성 시안 캡처는 공간의 레일 섹션마다 찍는다. 셸은 그룹을 레일 섹션으로 그리고 사이드바에는 고른 섹션의 메뉴만 보여, 첫 화면 캡처만으로는 메뉴 트리가 안 보인다. 안을 바꿔 가며 찍으면 최근 방문이 섞이니 캡처마다 origin의 localStorage·sessionStorage를 비운다(#252, 2026-10-21).
+- 팝오버·메뉴는 열릴 때 200ms 동안 투명에서 서서히 나타난다. 캡처와 시각 판정은 애니메이션이 끝난 뒤에 한다. 중간 캡처를 "배경이 비친다"는 결함으로 잘못 보고했다(Sol 확인 결과 재현 안 됨, 2026-10-21).
+- `@ap/contracts`·SDK 패키지의 공개 타입(union 확장 포함)을 바꾸면 루트 검사 뒤 `pnpm sdk:api`도 돌린다. 루트 4종 검사에는 없고 CI만 돌려서, 로컬이 초록이어도 CI가 깨진다. 의도한 변경이면 `--update`와 `docs/integration/sdk-git-tag-consumption.md` 변경 기록 한 줄(#252, 2026-10-21).
