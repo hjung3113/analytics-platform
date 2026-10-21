@@ -289,8 +289,19 @@ html = html.replace(figureSlot, (whole, cls, id, inner) => {
   const marks = (shot.marks || []).length
     ? `<ol class="callouts" aria-hidden="true">${shot.marks.map((m) => `<li style="--x:${m.x}%;--y:${m.y}%"><span class="callout-no">${m.n}</span></li>`).join("")}</ol>`
     : "";
-  return `<figure class="${cls}" data-shot-fig="${id}"><span class="shot-frame">${img}${marks}</span>${inner.replace("<!--shot:" + id + "-->", "")}</figure>`;
+  // 본문 캡처는 부록 갤러리와 같은 확대 대화상자로 열어, 좁은 화면에서도 글자를 읽게 한다(히어로 견본 화면은 제외).
+  const zoomable = !cls.split(" ").includes("stack-shot");
+  const picture = zoomable
+    ? `<button type="button" class="shot-zoom" data-shot-open="${id}" aria-haspopup="dialog" aria-label="${escapeHtml(shot.title)} 크게 보기">${img}</button>`
+    : img;
+  return `<figure class="${cls}" data-shot-fig="${id}"><span class="shot-frame">${picture}${marks}</span>${inner.replace("<!--shot:" + id + "-->", "")}</figure>`;
 });
+// 시안 JPG도 같은 확대 대화상자로 연다(캡처 유무와 무관).
+html = html.replace(
+  /<figure class="shot-figure"><img src="(assets\/proto\/[a-z0-9-]+\.jpg)" loading="lazy" alt="([^"]*)">/g,
+  (whole, src, alt) =>
+    `<figure class="shot-figure"><button type="button" class="shot-zoom" data-shot-open="${src}" aria-haspopup="dialog" aria-label="${alt} 크게 보기"><img src="${src}" loading="lazy" alt="${alt}"></button>`,
+);
 // 캡처 자리가 모두 지워진 묶음과, 그래서 내용이 빈 캡처 전용 접기는 함께 지운다(빈 토글을 남기지 않는다).
 html = html
   .replace(/<div class="(?:state-row|tools-grid|shots-row)"[^>]*>\s*<\/div>/g, "")

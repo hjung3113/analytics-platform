@@ -380,18 +380,25 @@
       shotIndex = (index + shownShots.length) % shownShots.length;
       var trigger = shownShots[shotIndex];
       var tile = trigger.closest(".shot-tile");
+      var figure = trigger.closest("figure");
+      var caption = figure && figure.querySelector("figcaption");
       var source = trigger.querySelector("img");
       var target = document.getElementById("shot-dialog-image");
       target.src = source.src;
       target.alt = source.alt;
       // 타일의 렌더 크기가 아니라 shots.json의 원본 크기(width/height 속성)를 쓴다.
-      target.width = Number(source.getAttribute("width"));
-      target.height = Number(source.getAttribute("height"));
-      document.getElementById("shot-dialog-title").textContent = tile.querySelector("h4").textContent;
-      document.getElementById("shot-dialog-description").textContent = tile.querySelector(".shot-copy p").textContent;
+      if (source.getAttribute("width")) {
+        target.width = Number(source.getAttribute("width"));
+        target.height = Number(source.getAttribute("height"));
+      } else {
+        target.removeAttribute("width");
+        target.removeAttribute("height");
+      }
+      document.getElementById("shot-dialog-title").textContent = tile ? tile.querySelector("h4").textContent : caption ? caption.textContent : source.alt;
+      document.getElementById("shot-dialog-description").textContent = tile ? tile.querySelector(".shot-copy p").textContent : source.alt;
       document.getElementById("shot-dialog-position").textContent = shotIndex + 1 + " / " + shownShots.length;
       var demoLink = document.getElementById("shot-dialog-demo");
-      var tileDemo = tile.querySelector("a[data-demo]");
+      var tileDemo = tile && tile.querySelector("a[data-demo]");
       if (config.demo === true && tileDemo && !tileDemo.hidden) {
         demoLink.href = tileDemo.href;
         demoLink.hidden = false;
@@ -407,9 +414,12 @@
         tile.hidden = group !== "all" && tile.dataset.shotGroup !== group;
       });
       shownShots = shotButtons.filter(function (button) {
-        return !button.closest(".shot-tile").hidden;
+        var tile = button.closest(".shot-tile");
+        return !tile || !tile.hidden;
       });
-      document.getElementById("shot-count").textContent = shownShots.length + "개 화면";
+      document.getElementById("shot-count").textContent = shownShots.filter(function (button) {
+        return button.closest(".shot-tile");
+      }).length + "개 화면";
     }
     all("[data-shot-filter]").forEach(function (button) {
       button.addEventListener("click", function () {
@@ -691,7 +701,18 @@
   // 주소창에서 바꾼 해시는 브라우저가 먼저 점프하고 나서 이 이벤트가 오므로, 접기를 연 경우에만 다시 맞춘다.
   window.addEventListener("hashchange", function () {
     var revealed = revealTarget(location.hash);
-    if (revealed) revealed.scrollIntoView({ block: "start" });
+    if (revealed) {
+      revealed.scrollIntoView({ block: "start", behavior: "instant" });
+      // 열린 부록의 지연 로딩 이미지가 높이를 바꾸면 목표 행이 밀리므로, 이미지가 로드될 때마다 같은 위치로 다시 맞춘다.
+      var settling = all("#appendix img").filter(function (img) {
+        return !img.complete;
+      });
+      settling.forEach(function (img) {
+        img.addEventListener("load", function () {
+          if (location.hash.slice(1) === revealed.id) revealed.scrollIntoView({ block: "start", behavior: "instant" });
+        }, { once: true });
+      });
+    }
   });
   revealTarget(location.hash);
   // 초기 JS(읽는 사람 전환, 원장 열기)가 앞부분 높이를 바꾸면, 브라우저가 JS보다

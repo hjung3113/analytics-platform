@@ -642,7 +642,16 @@ try {
       await expect(drawer().getByRole("tabpanel")).toBeVisible();
       await expect(drawer().locator('[aria-busy="true"]')).toHaveCount(0);
     },
-    drawerTopClip,
+    async () => {
+      // 변경 이력 목록 아래의 빈 면은 자른다.
+      const planned = await drawerTopClip();
+      const bottom = await drawer().getByRole("tabpanel").evaluate((el) => {
+        let max = el.getBoundingClientRect().top;
+        for (const child of el.querySelectorAll("*")) max = Math.max(max, child.getBoundingClientRect().bottom);
+        return max;
+      });
+      return { ...planned, clip: { ...planned.clip, height: Math.min(planned.clip.height, bottom - planned.clip.y + 20) } };
+    },
     ["C7"],
   );
   await capture(
@@ -681,10 +690,12 @@ try {
       await button("링크 복사").click();
       await expect(page.getByRole("status").filter({ hasText: "현재 Context가 담긴 링크를 복사했습니다" })).toBeVisible();
     },
-    () => {
-      const viewport = page.viewportSize();
-      return { clip: { x: 0, y: 0, width: viewport.width, height: viewport.height }, hideSticky: false };
-    },
+    () =>
+      elementClip(page.getByRole("status").filter({ hasText: "현재 Context가 담긴 링크를 복사했습니다" }), 12).then((clip) => ({
+        clip,
+        cover: true,
+        hideSticky: false,
+      })),
   );
   await capture(
     "scope",
@@ -714,7 +725,7 @@ try {
   await capture(
     "launcher",
     "AppShell · 홈 런처",
-    "공간별 진입 카드를 봅니다.",
+    "업무 시스템 카드와 최근 방문을 봅니다.",
     "shell",
     () => go("/"),
     mainContentClip,
@@ -756,7 +767,7 @@ try {
     "두 비교 구성을 아래 시트 탭으로 전환합니다.",
     "shell",
     async () => {
-      viewportHeight = 1100;
+      viewportHeight = 560;
       await seedBoard();
       await go("/board?sheet=sheet-compare");
       await readyBoard();
@@ -788,10 +799,12 @@ try {
       await expect(page.locator('[data-pane-index="0"]')).toContainText(/client-/);
       for (let index = 1; index < 4; index += 1) await expect(boardPaneChart(index).locator("canvas")).toBeVisible();
     },
-    () => {
-      const viewport = page.viewportSize();
-      return { clip: { x: 0, y: 0, width: viewport.width, height: viewport.height }, hideSticky: false };
-    },
+    () =>
+      unionClip([page.locator('[data-pane-index="0"]'), page.locator('[data-pane-index="1"]')], 8).then((clip) => ({
+        clip,
+        cover: true,
+        hideSticky: false,
+      })),
   );
   viewportHeight = 900;
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -973,6 +986,7 @@ try {
     "메뉴별 방문·사용자·마지막 사용 시각을 활용률 화면에서 봅니다.",
     "tables",
     async () => {
+      for (const path of [productivity, equipment, "/metrics?v=1&scopeId=MEM", "/analytics/cycle-time?" + period, productivity]) await go(path);
       viewportHeight = 1400;
       await go("/admin/usage?v=1");
       await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "메뉴 활용률", exact: true })).toBeVisible();
