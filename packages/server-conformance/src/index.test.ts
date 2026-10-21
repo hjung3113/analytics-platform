@@ -1264,6 +1264,39 @@ describe('Condition conformance samples (#552)', () => {
 
 describe('required Context samples (#553)', () => {
   const required = { ...spec, requiredContext: ['selection'] as const };
+  it.each([
+    ['selection', 'selection'], ['roomNames', 'roomNames'], ['line', 'lineNames'],
+    ['prcGroup', 'prcGroups'], ['lot', 'lotIds'], ['recipe', 'recipeIds'],
+  ] as const)('accepts a valid explicit-empty required %s baseline in the planner and runner', async (capability, field) => {
+    const emptySpec = { ...spec, context: { ...spec.context, [capability]: 'apply' as const }, requiredContext: [capability] };
+    const h = harness(new Set(), [{ spec: emptySpec, params: { page: 0 }, context: { [field]: [] } }]);
+    const received: MenuQuery[] = [];
+    h.adapter.menuQuery = async request => {
+      received.push(request);
+      return { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'empty-baseline' };
+    };
+    const check = planServerConformance(h).find(c => c.id.includes('granted request'))!;
+    expect(check.mode).toBe('granted');
+    expect(await check.run()).toBeNull();
+    expect(received[0].context[field]).toEqual([]);
+    const results = await runServerConformance(h);
+    expect(results.find(c => c.id === check.id)?.status).toBe('passed');
+  });
+
+  it.each([
+    { label: 'ok outcome', outcome: 'ok' as const, assessments: [] as Assessment[], trust: null },
+    { label: 'declared assessments', outcome: 'empty' as const, assessments: REF_ASSESSMENTS.filter(a => spec.kinds.includes(a.kind)), trust: null },
+    { label: 'source trust', outcome: 'empty' as const, assessments: [] as Assessment[], trust: REF_TRUST },
+    { label: 'missing trust', outcome: 'empty' as const, assessments: [] as Assessment[], trust: undefined },
+  ])('rejects an explicit-empty baseline with $label', async ({ outcome, assessments, trust }) => {
+    const h = harness(new Set(), [{ spec: required, params: { page: 0 }, context: { selection: [] } }]);
+    h.adapter.menuQuery = async () => ({ outcome, data: null, assessments, trust, correlationId: 'invalid-empty' }) as ApiResponse<unknown>;
+    const check = planServerConformance(h).find(c => c.id.includes('granted request'))!;
+    expect(await check.run()).toBeTruthy();
+    const results = await runServerConformance(h);
+    expect(results.find(c => c.id === check.id)?.status).toBe('failed');
+  });
+
   it('visibly skips baseline-dependent checks when required Context has no valid sample', async () => {
     const h = harness(new Set(), [{ spec: required, params: { page: 0 } }]);
     const plan = planServerConformance(h).filter(c => c.id.startsWith(spec.id));

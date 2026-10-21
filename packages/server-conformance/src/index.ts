@@ -230,6 +230,12 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
         if (r.outcome !== 'ok' && r.outcome !== 'empty') return `expected ok or empty, got ${describeResponse(r)}`;
         const missing = missingEnvelopeKey(r, 'assessments');
         if (missing) return missing;
+        if (SET_KEYS.some(key => Array.isArray(base.context[key]) && base.context[key]!.length === 0)) {
+          const missingTrust = missingEnvelopeKey(r, 'trust');
+          if (missingTrust) return missingTrust;
+          if (r.outcome !== 'empty' || r.assessments.length > 0 || r.trust !== null) return 'an explicit empty set is answered without reading a source (06 §19): empty, no assessments, null trust';
+          return null;
+        }
         if (!sameKinds(r.assessments, spec.kinds)) {
           return `assessments [${r.assessments.map(a => a.kind).join(', ')}] ≠ declared [${spec.kinds.join(', ')}]`;
         }

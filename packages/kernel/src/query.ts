@@ -91,7 +91,7 @@ function hasExactAssessmentKinds(actual: readonly { kind: AssessmentKind }[], ex
 
 /** Applied set keys sent as `[]`: the only requests whose `empty` reply may skip the kind check (06 §6 명시적 공집합). */
 function requestedEmptySet(projected: MenuQueryContext): boolean {
-  return [projected.selection, projected.roomNames, projected.lotIds, projected.recipeIds]
+  return [projected.selection, projected.roomNames, projected.lineNames, projected.prcGroups, projected.lotIds, projected.recipeIds]
     .some(value => Array.isArray(value) && value.length === 0);
 }
 

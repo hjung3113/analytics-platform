@@ -353,6 +353,22 @@ describe('useMenuQuery assessment contract', () => {
     expect(f.requests[0].context.roomNames).toEqual([]);
   });
 
+  it.each([
+    { capability: 'line', field: 'lineNames', marker: 'lineSelection' },
+    { capability: 'prcGroup', field: 'prcGroups', marker: 'prcGroupSelection' },
+  ] as const)('passes through an explicit-empty response for applied $field', async ({ capability, field, marker }) => {
+    window.history.replaceState(null, '', `/?v=1&${marker}=none&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00`);
+    const serverResponse = response('empty', []);
+    const f = fixture({ answer: () => serverResponse });
+    const observed: QueryState<QueryData>[] = [];
+    const setEndpoint = { ...endpoint, context: { ...endpoint.context, [capability]: 'apply' as const } };
+    mount(f, { spec: setEndpoint, onQuery: query => { observed.push(query); } });
+    expect(await screen.findByText('done:-')).toBeTruthy();
+
+    expect(f.requests[0].context[field]).toEqual([]);
+    expect(observed.at(-1)?.response).toBe(serverResponse);
+  });
+
   it('rejects the explicit-empty response shape when the request had no applied empty set', async () => {
     const serverResponse = response('empty', []);
     const f = fixture({ answer: () => serverResponse });
