@@ -3831,7 +3831,7 @@ a.demo-link[data-demo]:not([hidden]) {
   bottom: -14px;
   left: 46%;
 }
-.stack-tie-ops {
+.stack-tie-clas {
   top: 100%;
   height: 14px;
   left: 76%;
@@ -3866,7 +3866,7 @@ a.demo-link[data-demo]:not([hidden]) {
   z-index: 2;
   width: 58%;
 }
-.stack-ops {
+.stack-clas {
   right: 0;
   bottom: 0;
   z-index: 3;
@@ -3979,7 +3979,7 @@ a.demo-link[data-demo]:not([hidden]) {
     left: 15%;
     width: 46%;
   }
-  .stack-ops {
+  .stack-clas {
     width: 42%;
   }
   .stack-base {
@@ -4800,4 +4800,99 @@ a.demo-link[data-demo]:not([hidden]) {
 }
 .stop-card {
   margin-bottom: 14px;
+}
+
+/* #607 FIX3: hero MARS frame stays inside the stack, topic spacing, folded diagrams, zoomable captures. */
+.stack-mars .shot-frame {
+  aspect-ratio: 9 / 8;
+}
+.stack-mars .shot-frame img {
+  height: 100%;
+  object-fit: cover;
+  object-position: top left;
+}
+.topic-copy > h3:not(:first-child) {
+  margin-top: 32px;
+}
+.topic-copy > .shot-figure,
+.topic-copy > .shots-row,
+.topic-copy > details {
+  margin-bottom: 16px;
+}
+.topic-copy > details + details {
+  margin-top: 12px;
+}
+.scene-title a {
+  color: inherit;
+  text-decoration: none;
+}
+.scene-title a:hover,
+.scene-title a:focus-visible {
+  text-decoration: underline;
+}
+.scene-card.scene-planned {
+  border-style: dashed;
+}
+.diagram-details > .diagram {
+  margin-top: 12px;
+}
+.content-section .diagram-details .diagram-compact {
+  max-width: 480px;
+  margin: 12px 0 0;
+}
+.content-section .diagram-details .diagram-compact svg {
+  max-width: 440px;
+}
+.content-section .diagram-medium {
+  max-width: 880px;
+  margin: 12px 0 14px;
+  padding: 14px;
+}
+.content-section .diagram-medium svg {
+  max-width: 860px;
+  margin: 0 auto;
+}
+.diagram-medium svg text {
+  font-size: 16px;
+}
+.diagram-medium svg .diagram-small {
+  font-size: 14px;
+}
+.diagram-medium svg .diagram-overline {
+  font-size: 14px;
+}
+.shot-zoom {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: zoom-in;
+  text-align: inherit;
+}
+.shot-zoom:focus-visible {
+  outline: 2px solid rgb(var(--focus-ring));
+  outline-offset: 2px;
+}
+.glossary-list dt {
+  margin-top: 16px;
+  font-weight: 600;
+}
+.glossary-list dd {
+  margin: 4px 0 0;
+  color: rgb(var(--text-secondary));
+}
+@media (max-width: 700px) {
+  .sdk-table td {
+    white-space: normal;
+  }
+  .sdk-table code {
+    word-break: break-all;
+  }
+  .content-section .diagram-details .diagram-compact,
+  .content-section .diagram-medium {
+    max-width: none;
+  }
 }

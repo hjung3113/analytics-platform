@@ -131,7 +131,7 @@ async function empty(dir) {
 }
 await mkdir(out, { recursive: true });
 await empty(out);
-for (const name of ["index.html", "assets"]) await cp(join(site, name), join(out, name), { recursive: true });
+for (const name of ["index.html", "glossary.html", "assets"]) await cp(join(site, name), join(out, name), { recursive: true });
 await mkdir(join(out, "assets/tokens"), { recursive: true });
 for (const [source, name] of tokens) await cp(source, join(out, "assets/tokens", name));
 // SVG image documents cannot reliably import external token stylesheets. Resolve
@@ -188,10 +188,12 @@ for (const font of fonts) {
   if (!copiedLicense) throw new Error(`${font.pkg}: 폰트 LICENSE가 없습니다.`);
   fontLinks.push(`<link rel="stylesheet" href="assets/fonts/${font.name}/${cssName}">`);
 }
-let html = await readFile(join(out, "index.html"), "utf8");
-html = html
-  .replaceAll("/blob/main/", `/blob/${encodeURIComponent(options.ref).replaceAll("%2F", "/")}/`)
-  .replace("<!-- LOCAL_FONTS -->", fontLinks.join(""));
+const localizePage = (page) =>
+  page
+    .replaceAll("/blob/main/", `/blob/${encodeURIComponent(options.ref).replaceAll("%2F", "/")}/`)
+    .replace("<!-- LOCAL_FONTS -->", fontLinks.join(""));
+let html = localizePage(await readFile(join(out, "index.html"), "utf8"));
+let glossaryHtml = localizePage(await readFile(join(out, "glossary.html"), "utf8"));
 // D1–D10 지시문은 demo-step-copy 템플릿 한 곳에서만 관리하고, 조립 때 모든 사본에
 // 같은 문장을 심는다. 빌드 타임 채우기이므로 JS가 꺼진 페이지에도 문장이 보인다.
 const stepTemplate = html.match(/<template id="demo-step-copy">([\s\S]*?)<\/template>/);
@@ -287,8 +289,19 @@ html = html.replace(figureSlot, (whole, cls, id, inner) => {
   const marks = (shot.marks || []).length
     ? `<ol class="callouts" aria-hidden="true">${shot.marks.map((m) => `<li style="--x:${m.x}%;--y:${m.y}%"><span class="callout-no">${m.n}</span></li>`).join("")}</ol>`
     : "";
-  return `<figure class="${cls}" data-shot-fig="${id}"><span class="shot-frame">${img}${marks}</span>${inner.replace("<!--shot:" + id + "-->", "")}</figure>`;
+  // 본문 캡처는 부록 갤러리와 같은 확대 대화상자로 열어, 좁은 화면에서도 글자를 읽게 한다(히어로 견본 화면은 제외).
+  const zoomable = !cls.split(" ").includes("stack-shot");
+  const picture = zoomable
+    ? `<button type="button" class="shot-zoom" data-shot-open="${id}" aria-haspopup="dialog" aria-label="${escapeHtml(shot.title)} 크게 보기">${img}</button>`
+    : img;
+  return `<figure class="${cls}" data-shot-fig="${id}"><span class="shot-frame">${picture}${marks}</span>${inner.replace("<!--shot:" + id + "-->", "")}</figure>`;
 });
+// 시안 JPG도 같은 확대 대화상자로 연다(캡처 유무와 무관).
+html = html.replace(
+  /<figure class="shot-figure"><img src="(assets\/proto\/[a-z0-9-]+\.jpg)" loading="lazy" alt="([^"]*)">/g,
+  (whole, src, alt) =>
+    `<figure class="shot-figure"><button type="button" class="shot-zoom" data-shot-open="${src}" aria-haspopup="dialog" aria-label="${alt} 크게 보기"><img src="${src}" loading="lazy" alt="${alt}"></button>`,
+);
 // 캡처 자리가 모두 지워진 묶음과, 그래서 내용이 빈 캡처 전용 접기는 함께 지운다(빈 토글을 남기지 않는다).
 html = html
   .replace(/<div class="(?:state-row|tools-grid|shots-row)"[^>]*>\s*<\/div>/g, "")
@@ -296,7 +309,7 @@ html = html
 if (!shotById.has("change-audit")) html = html.replace("견본 캡처와 권한 판정 흐름 보기 — 변경 감사, ", "권한 판정 흐름 보기 — ");
 // 히어로의 견본 화면 세 장(MARS·BRAVO·운영 콘솔)이 모두 있어야 합성 그림을 보인다. 하나라도 없으면 그 블록을 지우고
 // 캡처 없는 조립에서는 도식 A를 히어로에도 보인다(id는 접미사로 구분).
-const hasHeroStack = ["cycle-time-full", "catalog", "change-audit"].every((id) => shotById.has(id));
+const hasHeroStack = ["cycle-time-full", "catalog", "clas-operation-time"].every((id) => shotById.has(id));
 if (!hasHeroStack) html = html.replace(/<!--HERO_STACK-->[\s\S]*?<!--\/HERO_STACK-->/, "");
 const heroFallback = hasHeroStack
   ? ""
@@ -306,6 +319,7 @@ const heroFallback = hasHeroStack
       .replace("diagram diagram-a", "diagram diagram-a diagram-hero");
 html = html.replace("<!--HERO_FALLBACK-->", heroFallback);
 await writeFile(join(out, "index.html"), html);
+await writeFile(join(out, "glossary.html"), glossaryHtml);
 const noindex = (html) =>
   /<meta\b[^>]*name=["']robots["']/i.test(html)
     ? html
