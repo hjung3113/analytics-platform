@@ -5,7 +5,7 @@ import { chartCatalogEndpoint, isCatalogKind, type CatalogData } from '../endpoi
 export const chartCatalogMock = defineMockEndpoint(chartCatalogEndpoint, {
   validate: ({ params }) => isCatalogKind(params.kind) ? null : 'Unknown chart kind',
   handle: ({ context, equipment }): CatalogData => {
-    const empty: CatalogData = { current: [], previous: [], previousFrom: null, previousTo: null, heatmap: { xLabels: [], yLabels: [], cells: [] }, donut: [], scatter: [], boxPlot: [], pareto: [] };
+    const empty: CatalogData = { current: [], previous: [], previousFrom: null, previousTo: null, heatmap: { xLabels: [], yLabels: [], cells: [] }, donut: [], scatter: [], boxPlot: [], pareto: [], topNBar: [], lane: [] };
     if (context.from === null || context.to === null || equipment.length === 0) return empty;
     const start = parseDateTime(context.from, 'from').getTime();
     const duration = parseDateTime(context.to, 'to').getTime() - start;
@@ -23,6 +23,11 @@ export const chartCatalogMock = defineMockEndpoint(chartCatalogEndpoint, {
       donut: targets.slice(0, 4).map((row, i) => ({ id: row.equipmentId, label: row.equipmentId, value: 40 - i * 7 })),
       scatter: targets.map((row, i) => ({ id: row.equipmentId, x: i === 0 ? null : 20 + i * 5, y: 30 + i * 3, group: row.room })),
       boxPlot: targets.slice(0, 3).map((row, i) => ({ id: row.equipmentId, label: row.equipmentId, stats: { min: 10 + i, q1: 20 + i, median: 25 + i, q3: 30 + i, max: 40 + i, n: 18 + i } })),
+      topNBar: Array.from({ length: 12 }, (_, i) => ({ id: `item-${i}`, label: `Item ${i + 1}`, value: 60 - i * 3, colorToken: i % 2 === 0 ? 'chart-series-1' : 'chart-series-2' })),
+      lane: Array.from({ length: 40 }, (_, i) => ({ id: `lane-${i}`, label: `Lane ${i + 1}`, segments: Array.from({ length: 6 }, (_, j) => ({
+        id: `segment-${i}-${j}`, start: start + duration * (j / 8), end: start + duration * ((j + 2) / 8), depth: j % 3,
+        rank: ['high', 'mid', 'low'][j % 3], ...(j === 0 ? { startBoundary: 'orphan' as const } : {}), ...(j === 5 ? { endBoundary: 'open' as const } : {}),
+      })) })),
       pareto: targets.map((row, i) => ({ id: row.equipmentId, label: row.equipmentId, value: 40 - i * 5 })),
     };
   },

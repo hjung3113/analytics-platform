@@ -1,5 +1,5 @@
 import { percent, unknownLabel, brushOptions, isBrushableKind, isSingleSelectKind } from './analysisChartShared';
-import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { Button, Checkbox, cn } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
@@ -61,7 +61,15 @@ export type ParetoSpec = {
   /** Total displayed cap including Other; floors and clamps to at least 2, default 10. */
   maxItems?: number; onItemClick?: (id: string) => void;
 };
-export type ChartSpec = HeatmapSpec | DonutSpec | ScatterSpec | BoxPlotSpec | ParetoSpec;
+export type TopNBarItem = { id: string; label: string; value: number; colorToken: ThemeColorToken };
+export type TopNBarSpec = {
+  kind: 'topNBar'; items: TopNBarItem[];
+  legend?: { label: string; colorToken: ThemeColorToken }[];
+  topN?: number; expanded?: boolean; defaultExpanded?: boolean;
+  onExpandedChange?: (next: boolean) => void; hideWhenEmpty?: boolean;
+  onItemClick?: (id: string) => void;
+};
+export type ChartSpec = HeatmapSpec | DonutSpec | ScatterSpec | BoxPlotSpec | ParetoSpec | TopNBarSpec;
 export type AnalysisChartProps = {
   chartId: string; title: ReactNode; description?: ReactNode; metricVersion?: string; unit: string;
   trust?: { source: string; updated: string; coverage: string }; height?: number; size?: ChartSize; emptyText?: string; spec: ChartSpec;
@@ -76,7 +84,15 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const section = useContext(AnalysisSectionContext);
   const size = resolveAnalysisChartSize(p.size, section);
   const compact = size === 'compact';
-  const height = p.height ?? analysisChartHeight(size, 280);
+  const bodyId = useId();
+  const collapseButton = useRef<HTMLButtonElement>(null);
+  const [localExpanded, setLocalExpanded] = useState(p.spec.kind === 'topNBar' ? p.spec.defaultExpanded ?? false : false);
+  const expanded = p.spec.kind !== 'topNBar' || (p.spec.expanded ?? localExpanded);
+  if (p.spec.kind === 'topNBar' && p.spec.expanded !== undefined && localExpanded !== p.spec.expanded) setLocalExpanded(p.spec.expanded);
+  const collapsibleBody = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!expanded && collapsibleBody.current?.contains(document.activeElement)) collapseButton.current?.focus();
+  }, [expanded]);
   const titleId = useId(); const summaryId = useId();
   const [table, setTable] = useState(false);
   const chart = useRef<ECharts | null>(null);
@@ -89,6 +105,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const brushable = isBrushableKind(spec.kind);
   const singleSelect = isSingleSelectKind(spec.kind);
   const { cells, rows, total, extended } = useMemo(() => chartData(spec, lang === 'ko', p.unit), [spec, lang, p.unit]);
+  const height = p.height ?? (spec.kind === 'topNBar' ? Math.max(120, rows.length * 28 + 24) : analysisChartHeight(size, 280));
   const keys = useMemo(() => rows.map(row => row.key), [rows]);
   const contextKey = JSON.stringify(global);
   const [previousContext, setPreviousContext] = useState(contextKey);
@@ -172,11 +189,16 @@ export function AnalysisChart(p: AnalysisChartProps) {
     downloadChartCsv({ ...p, context: global }, headers, tableValues);
     toast(lang === 'ko' ? `${p.chartId}.csv 내보냄` : `Exported ${p.chartId}.csv`);
   }
+  if (spec.kind === 'topNBar' && spec.hideWhenEmpty && empty) return null;
   return <section role="region" aria-labelledby={titleId} aria-describedby={summaryId} data-analysis-chart={section ? '' : undefined} className="relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card">
     <AnalysisChartPart enabled={section !== null}>
       <header className={cn('flex flex-wrap items-start justify-between gap-2 px-4 pt-3', section && 'pr-12')}>
         <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} compact={compact} />
         <div role="toolbar" aria-label={lang === 'ko' ? '차트 동작' : 'Chart actions'} className="flex flex-wrap gap-1">
+          {spec.kind === 'topNBar' && <Button ref={collapseButton} size="toolbar" variant="ghost" aria-expanded={expanded} aria-controls={bodyId} onClick={() => {
+            const next = !expanded; if (spec.expanded === undefined) setLocalExpanded(next); spec.onExpandedChange?.(next);
+            if (!next) collapseButton.current?.focus();
+          }}>{expanded ? (lang === 'ko' ? '숨기기' : 'Hide') : (lang === 'ko' ? '표시' : 'Show')}</Button>}
           <Button size="toolbar" variant="ghost" onClick={reset}>{lang === 'ko' ? '초기화' : 'Reset'}</Button>
           {brushable && <Button size="toolbar" variant="ghost" aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}>{lang === 'ko' ? '끌어서 선택' : 'Drag to select'}</Button>}
           <Button size="toolbar" variant="ghost" aria-pressed={table} onClick={() => setTable(!table)}>{lang === 'ko' ? '표로 보기' : 'Show as table'}</Button>
@@ -202,8 +224,9 @@ export function AnalysisChart(p: AnalysisChartProps) {
       {spec.kind === 'donut' && <ul aria-label={lang === 'ko' ? '범례' : 'Legend'} className={cn('flex flex-wrap gap-3 px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>{rows.map(row => <li key={row.key} className="flex items-center gap-1"><Swatch color={token(row.color!)} />{row.label} · {valueText(row.value)} · {percent(row.share ?? 0)}</li>)}</ul>}
       <p id={summaryId} className="px-4 py-2 text-xs text-text-secondary">{summary}</p>
     </AnalysisChartPart>
+    <ChartCollapseBody enabled={spec.kind === 'topNBar'} bodyRef={collapsibleBody} id={bodyId} expanded={expanded}>
     <AnalysisChartPart enabled={section !== null} body>
-      {empty ? <p className="px-4 py-3 text-text-secondary">{p.emptyText ?? (lang === 'ko' ? '데이터 없음' : 'No data')}</p> : <div className="relative">
+      {!expanded ? null : empty ? <p className="px-4 py-3 text-text-secondary">{p.emptyText ?? (lang === 'ko' ? '데이터 없음' : 'No data')}</p> : <div className="relative">
         <EChart key={spec.kind} onReady={instance => { chart.current = instance; setInstanceReady(generation => generation + 1); }} onResize={() => measureGrid(chart.current)} option={option} height={height} ariaLabel={typeof p.title === 'string' ? p.title : p.chartId} onEvents={{
           click: params => { if (params.componentType !== 'series') return; const key = extended ? extended.seriesKeys[params.seriesIndex]?.[params.dataIndex] : rows[params.dataIndex]?.key; if (key) toggle(key); },
           finished: (_, instance) => measureGrid(instance),
@@ -230,6 +253,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
       </table></div>}
       <ChartTrustFooter trust={p.trust} />
     </AnalysisChartPart>
+    </ChartCollapseBody>
   </section>;
 }
 
@@ -240,4 +264,8 @@ function clearBrush(chart: ECharts | null) {
 function Swatch({ color, unknown = false }: { color: string; unknown?: boolean }) {
   // eslint-disable-next-line shadcn/no-inline-styles -- swatch reflects runtime chart tokens; unknown matches the canvas dashed border
   return <span aria-hidden className="inline-block size-3" style={{ backgroundColor: color, border: unknown ? `1px dashed ${token(colors.pattern)}` : undefined }} />;
+}
+
+function ChartCollapseBody({ enabled, bodyRef, id, expanded, children }: { enabled: boolean; bodyRef: RefObject<HTMLDivElement | null>; id: string; expanded: boolean; children: ReactNode }) {
+  return enabled ? <div ref={bodyRef} id={id} hidden={!expanded} className={expanded ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>{children}</div> : <>{children}</>;
 }

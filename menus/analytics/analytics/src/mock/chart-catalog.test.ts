@@ -70,3 +70,15 @@ describe('chart catalog projected endpoint', () => {
     expect(response.outcome).toBe('error');
   });
 });
+
+it('provides twelve TopN values and forty multi-depth lanes with explicit boundary/rank examples', async () => {
+  const response = await adapter.menuQuery({ endpoint: chartCatalogEndpoint.id, params: { kind: 'lane' }, context });
+  const data = response.data as CatalogData;
+  expect(data.topNBar?.length).toBeGreaterThanOrEqual(12);
+  expect(data.lane?.length).toBeGreaterThanOrEqual(40);
+  const segments = data.lane!.flatMap(lane => lane.segments);
+  expect(segments.some(segment => segment.depth === 2)).toBe(true);
+  expect(segments.some(segment => segment.startBoundary === 'orphan')).toBe(true);
+  expect(segments.some(segment => segment.endBoundary === 'open')).toBe(true);
+  expect(new Set(segments.map(segment => segment.rank))).toEqual(new Set(['high', 'mid', 'low']));
+});

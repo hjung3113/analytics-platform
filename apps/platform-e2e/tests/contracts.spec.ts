@@ -3275,6 +3275,7 @@ test.describe('차트 카탈로그 — 종류별 상호작용 (06 §16, #530)', 
   const kinds = [
     ['line', '선'], ['bar', '막대'], ['heatmap', '히트맵'], ['donut', '도넛'],
     ['scatter', '산점도'], ['boxPlot', '상자그림'], ['pareto', '파레토'],
+    ['topNBar', 'TopN 막대'], ['lane', 'Lane 시간선'],
   ] as const;
   for (const [kind, label] of kinds) {
     test(`${label} — 그려짐과 선택 결과`, async ({ page }, testInfo) => {
@@ -3295,9 +3296,19 @@ test.describe('차트 카탈로그 — 종류별 상호작용 (06 §16, #530)', 
         await expect(summary).toContainText('n=8');
         await workspace.getByRole('button', { name: '비교', exact: true }).click();
         await expect(workspace.getByRole('group', { name: '범례', exact: true })).toContainText('이전 동일 기간');
+      } else if (kind === 'lane') {
+        await expect(workspace.getByText('Lane 1', { exact: true })).toBeVisible();
+        const timeline = workspace.getByRole('region', { name: 'Lane 시간선 차트', exact: true });
+        await timeline.focus(); await timeline.press('Enter');
+        await expect(summary).toContainText('segment-0-0');
+        await timeline.press('Escape'); await expect(summary).toContainText('선택 없음');
       } else {
+        if (kind === 'topNBar') {
+          await expect(workspace.getByRole('button', { name: '숨기기', exact: true })).toHaveAttribute('aria-expanded', 'true');
+        }
         await workspace.getByRole('button', { name: '표로 보기', exact: true }).click();
         const table = workspace.getByRole('table', { name: `${label} 차트`, exact: false });
+        if (kind === 'topNBar') await expect(table.getByText('Item 1', { exact: true })).toBeVisible();
         const checkbox = table.getByRole('checkbox').first();
         await checkbox.check();
         await expect(checkbox).toBeChecked();

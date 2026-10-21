@@ -16,7 +16,7 @@ describe('catalog support source of truth (06 §16)', () => {
     }
     const counts = supportCounts(row);
     expect(counts.supported + counts.conditional + counts.unsupported).toBe(8);
-    expect(row.find(cell => cell.id === 'drill')!.status).toBe(kind === 'line' || kind === 'bar' ? 'unsupported' : 'conditional');
+    expect(row.find(cell => cell.id === 'drill')!.status).toBe(kind === 'line' || kind === 'bar' || kind === 'lane' ? 'unsupported' : 'conditional');
   });
   it.each(['line', 'bar'] as const)('%s follows feature flags for Compare/Annotate/Export', kind => {
     const off = supportFor(kind, { compare: false, annotate: false, export: false });

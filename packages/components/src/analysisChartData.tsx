@@ -1,3 +1,4 @@
+import { topNData } from './topNBar';
 import { seriesColors } from './analysisChartShared';
 import { scatterData, boxPlotData, paretoData, type KindProjection } from './analysisChartKinds';
 import type { ThemeColorToken } from '@ap/ui/theme';
@@ -17,6 +18,7 @@ export const chartColors = {
 
 /** One projection for plot, table, selection and CSV. Synthetic aggregate rows never invent drill IDs. */
 export function chartData(spec: ChartSpec, ko: boolean, unit = ''): { cells: HeatmapCell[]; rows: ChartRow[]; total: number; extended?: KindProjection } {
+  if (spec.kind === 'topNBar') { const extended = topNData(spec, ko, unit); return { cells: [], rows: extended.rows, total: extended.total, extended }; }
   if (spec.kind === 'scatter') { const extended = scatterData(spec, ko, unit); return { cells: [], rows: extended.rows, total: extended.total, extended }; }
   if (spec.kind === 'boxPlot') { const extended = boxPlotData(spec, ko, unit); return { cells: [], rows: extended.rows, total: extended.total, extended }; }
   if (spec.kind === 'pareto') { const extended = paretoData(spec, ko, unit); return { cells: [], rows: extended.rows, total: extended.total, extended }; }

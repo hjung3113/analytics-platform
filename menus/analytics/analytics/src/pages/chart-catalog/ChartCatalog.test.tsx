@@ -215,3 +215,31 @@ describe('chart catalog route and lifetime', () => {
     expect(document.activeElement).toBe(control);
   });
 });
+
+it('renders the TopN catalog consumer through the SDK table and explicit details', async () => {
+  const previous = query.getMockImplementation()!;
+  query.mockImplementation(async () => ({ outcome: 'ok', data: { ...fixture, topNBar: Array.from({ length: 12 }, (_, i) => ({ id: `item-${i}`, label: `Item ${i + 1}`, value: 12 - i, colorToken: 'chart-series-1' as const })) }, assessments: [{ kind: 'collection', state: 'confirmed' }, { kind: 'coverage', state: 'confirmed' }], trust: null, correlationId: 'topn' }));
+  try {
+    mount('topNBar'); await screen.findByRole('img');
+    expect(screen.getByRole('button', { name: '숨기기' }).getAttribute('aria-expanded')).toBe('true');
+    const dataTable = await table();
+    expect(within(dataTable).getAllByRole('checkbox')).toHaveLength(8);
+    expect(within(dataTable).getByText('Item 1')).toBeTruthy();
+    fireEvent.click(within(dataTable).getAllByRole('button', { name: '상세' })[0]);
+    expect(await screen.findByRole('status', { name: '상세 결과' })).toBeTruthy();
+  } finally { query.mockImplementation(previous); }
+});
+it('renders the standalone Lane consumer with labels and keyboard selection', async () => {
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+  const previous = query.getMockImplementation()!;
+  query.mockImplementation(async () => ({ outcome: 'ok', data: { ...fixture, lane: [{ id: 'lane', label: 'Lane 1', segments: [{ id: 'segment', start: 0, end: 10 }] }] }, assessments: [{ kind: 'collection', state: 'confirmed' }, { kind: 'coverage', state: 'confirmed' }], trust: null, correlationId: 'lane' }));
+  try {
+    mount('lane'); await screen.findByRole('img');
+    expect(screen.getByText('Lane 1', { exact: true })).toBeTruthy();
+    const timeline = screen.getByRole('region', { name: 'Lane 시간선 차트' });
+    fireEvent.keyDown(timeline, { key: 'Enter' });
+    expect(summary().textContent).toContain('segment');
+    expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
+  } finally { query.mockImplementation(previous); vi.unstubAllGlobals(); }
+});
