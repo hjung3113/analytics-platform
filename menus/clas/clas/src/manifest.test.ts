@@ -25,4 +25,8 @@ describe('manifest', () => {
     expect(operationTimeEndpoint.permission).toBe(manifests[0].permission);
     expect(operationTimeEndpoint.requiresScope).toBe(manifests[0].requiresScope);
   });
+
+  it('declares board support so its screen can sit in a board pane (docs/16 §6)', () => {
+    expect(manifests[0].features.board).toBe(true);
+  });
 });

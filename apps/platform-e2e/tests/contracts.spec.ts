@@ -437,6 +437,23 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     await evidence(page, testInfo, 'board-sheet-reload-history');
   });
 
+  test('업무 시스템 섞기: 한 시트의 MARS·CLAS·BRAVO 칸 머리에 서로 다른 업무 시스템 칩이 보인다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInWithBoard(page, 'engineer', boardOf(boardSheet('mixed', '섞기', '2x2', [
+      boardScreen(`v=1&scopeId=MEM&${PERIOD}&roomNames=PHOTO`),
+      boardScreen(`v=1&scopeId=MEM&${PERIOD}&roomNames=PHOTO`, 'operation-time'),
+      boardScreen('v=1', 'metric-catalog'), null,
+    ])));
+    await page.goto('/board?sheet=mixed');
+    await expect(productivityBody(page, 1)).toBeVisible();
+    await expect(boardPaneHead(page, 1).locator('[data-pane-system]')).toHaveText('MARS');
+    await expect(boardPaneHead(page, 2).locator('[data-pane-system]')).toHaveText('CLAS');
+    await expect(boardPaneHead(page, 3).locator('[data-pane-system]')).toHaveText('BRAVO');
+    await expect(boardPaneHead(page, 2)).toContainText('설비 동작시간');
+    await expect(boardPaneHead(page, 3)).toContainText('지표 카탈로그');
+    await evidence(page, testInfo, 'board-mixed-systems');
+  });
+
   test('열 수 없는 칸: 미등록 메뉴만 안내하고 다른 칸은 계속 그린다', async ({ page }, testInfo) => {
     await signInWithBoard(page, 'engineer', boardOf(boardSheet('unavailable', '복구', '1x2', [
       boardScreen(`v=1&scopeId=MEM&${PERIOD}`, 'removed-menu'),
@@ -451,7 +468,7 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     await evidence(page, testInfo, 'board-unavailable-pane');
   });
 
-  test('권한 칸: viewer에게 거부 상태만 보이고 칸 데이터와 보드 레일 항목은 없다', async ({ page }, testInfo) => {
+  test('권한 칸: viewer에게 거부 상태만 보이고 칸 데이터는 없다', async ({ page }, testInfo) => {
     await signInWithBoard(page, 'viewer', boardOf(boardSheet('denied', '권한', '1x1', [
       boardScreen(`v=1&scopeId=MEM&${PERIOD}&roomNames=PHOTO`),
     ])));
@@ -461,7 +478,8 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     await expect(pane.getByRole('table')).toHaveCount(0);
     await expect(pane.getByRole('row')).toHaveCount(0);
     await expect(page.getByRole('status').filter({ hasText: '이 메뉴에 대한 권한이 없습니다' })).toHaveCount(1);
-    await expect(page.getByRole('navigation', { name: '앱 레일' }).getByRole('button', { name: '분석 보드' })).toHaveCount(0);
+    // viewer holds metrics:view, so the BRAVO metric catalog is a placeable menu and the rail entry stays (16 §6).
+    await expect(page.getByRole('navigation', { name: '앱 레일' }).getByRole('button', { name: '분석 보드' })).toHaveCount(1);
     await evidence(page, testInfo, 'board-denied-pane');
   });
 
