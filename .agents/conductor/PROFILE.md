@@ -143,4 +143,5 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 - E2E는 vite dev 서버 위에서 돈다. 호스트 검사(루트 test·E2E)가 도는 worktree의 소스를 고치지 않는다 — HMR이 화면을 다시 그려 우연한 E2E 실패가 난다(#403: 검사 중 `module.ts` 수정 → Scope 메뉴 항목 detached). 고칠 것이 생기면 검사가 끝난 뒤 고치고 다시 돌린다.
 - E2E 포트는 4190 고정(`apps/platform-e2e/playwright.config.ts`, `--strictPort`)이라 다른 세션이 E2E를 돌리면 `is already used`로 바로 실패한다. 그 프로세스는 건드리지 말고(`lsof -nP -iTCP:4190 -sTCP:LISTEN`으로 cwd 확인) 포트가 빌 때까지 기다린 뒤 돌린다(#489).
 - `ship-pr.sh --issue`가 PR 본문의 `Closes #n`으로 이미 닫힌 이슈를 다시 닫으려다 `Could not close the issue`로 끝나면 머지는 됐어도 `--worktree` 정리와 `--archive-review`가 돌지 않고 JSON에 `merged`가 빠진다([conductor-engine#58](https://github.com/hjung3113/conductor-engine/issues/58)). 그때는 `gh pr list --head <branch> --state all`로 병합을 확인하고, worktree의 `.review/`를 손으로 보관한 뒤 worktree를 지운다(#546).
+- PR에 `css-removal-ok` 라벨을 붙인 직후 `ship-pr.sh`를 다시 돌리면 css-selectors 재실행이 시작되기 전이라 이전 실패 실행으로 판정한다. 라벨을 붙인 뒤 `gh pr checks <n> --watch`로 재실행이 끝나기를 기다린 다음 ship한다(슬라이스 17).
 - 공용 부품이 틀렸거나 빠졌으면 메모리나 `HANDOFF.md`에만 적지 않는다. 콘덕터가 provider의 `engine/scripts/upstream-file.sh`로 `upstream` 이슈를 올리고, 레포 안 임시 우회는 이 절에 그 이슈 링크와 함께 적는다.
