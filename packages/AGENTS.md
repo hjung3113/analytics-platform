@@ -24,7 +24,7 @@
 - 다른 패키지는 `package.json` `exports`의 공개 진입점으로만 import한다(`@ap/kernel`, `@ap/ui/styles.css`). `@ap/x/src/...` 깊은 경로 금지.
 - workspace 개발에서는 패키지가 TS 소스를 그대로 export하고, `build`는 배포 tarball용 `dist`를 만든다([ADR-0056](../docs/adr/0056-sdk-release-github-release-tarballs.md)). 앱은 Vite가 번들한다.
 - Tailwind 클래스를 쓰는 패키지는 `styles.css`에 `@source`로 자기 소스를 등록하고 앱 `src/style.css`가 그것을 import한다. 새 패키지를 만들면 이 둘을 같이 추가한다. Tailwind를 쓰지 않는 패키지(`mock-server`)는 `styles.css`를 만들지 않는다.
-- 예외: 테스트 전용 진입점 `@ap/kernel/testing`(`testAdapter`·`testSession`·`testSpace`·`noContext`·`memoryStorage`)과 `@ap/components/testing`(`stubCompactTableGeometry`, 표 기하 stub; components 테스트는 `./testing`) 둘은 ADR-0040(확장 #413)에 따라 `exports["./testing"]`로 낸다. 테스트 파일(`*.test.ts(x)`·`test-support.ts`·`test-setup.ts`)에서만 import하고, 프로덕션 소스는 lint가 막는다. 어댑터 stub은 손으로 쓰지 말고 `testAdapter({ … })`로 만든다. `@ap/server-conformance`는 프로덕션·테스트 모두 `@ap/contracts`만 본다.
+- 예외: 테스트 전용 진입점 `@ap/kernel/testing`(`testAdapter`·`testSession`·`testSpace`·`noContext`·`memoryStorage`)과 `@ap/components/testing`(`stubCompactTableGeometry`, 표 기하 stub; components 테스트는 `./testing`) 둘은 ADR-0040(확장 #413)에 따라 `exports["./testing"]`로 낸다. 호스트 전용 진입점 `@ap/components/dock`(제어형 `DockLayout`·레이아웃 스키마·순수 명령, ADR-0067)도 `exports["./dock"]`로 내며 `src/index.ts`에서 내보내지 않는다. 셸·앱만 import하고(lint 게이트) `dockview-*` 엔진은 `@ap/components` 밖에서 import하지 않는다. 테스트 파일(`*.test.ts(x)`·`test-support.ts`·`test-setup.ts`)에서만 import하고, 프로덕션 소스는 lint가 막는다. 어댑터 stub은 손으로 쓰지 말고 `testAdapter({ … })`로 만든다. `@ap/server-conformance`는 프로덕션·테스트 모두 `@ap/contracts`만 본다.
 - 새 공개 API는 `src/index.ts`에 명시적으로 export한다. 메뉴 한 곳에서만 쓰이는 것은 올리지 않는다(06 §24, 2~3개 메뉴 반복 확인 후 승격). §4 Kernel 책임은 이 기준 밖이다.
 - 접두사 `@ap/`는 임시다. 런타임 문자열(localStorage 키, 이벤트 이름)에 넣지 않는다.
 
