@@ -339,7 +339,7 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 **뒤로가기 복원 범위와 셸 내비게이션 (Decided):** 플랫폼이 보장하는 복원 범위는 **URL이 소유한 상태**(전역 Context + 그 페이지가 URL에 쓰기로 한 탭/뷰 id + 선언됐지만 미적용인 등록 Context + §6.1 공집합 표식)로 한정한다. 줌/브러시/시리즈 가시성은 보장 밖이다(로컬 저장 자체가 금지되는 것은 아니나 제품 복원 계약에는 넣지 않는다). **셸의 사이드바/메뉴 레지스트리를 통한 메뉴 전환도 Context Link helper와 같은 규칙을 따른다**: 전달 집합은 등록된 전역 Context뿐이며 대상의 지원 여부와 무관하게 보존한다. 적용은 대상이 지원하고 검증한 값에만 한다. page-owned 상태와 미등록 키는 자동 복사하지 않는다. helper는 **보존할 Context**와 **적용할 Context**를 구분해야 하며, "지원 키만 골라 쓴다"는 동작이 URL에서 나머지를 지운다는 뜻이면 안 된다(보존 약속과 충돌). **Context 변경 시 초기화할 page 키 (Candidate 필드명 `contextResetKeys`, #45):** 결과 집합에 묶인 page 키(표 페이지 번호, 선택 구간 등)는 메뉴 manifest가 `pageKeys`의 부분집합으로 선언하고, Kernel이 사용자의 전역 Context 변경(`setGlobal`·초기화)과 **같은 내비게이션 안에서** 지운다. 뒤로/앞으로 가기와 URL 진입은 아무 키도 지우지 않는다(복원은 정확해야 한다). 페이지가 Context 변경을 감지해 뒤따르는 replace로 지우는 방식은 뒤로가기에서도 발동해 복원을 깨므로 쓰지 않는다.
 
-**드릴다운 단계 (Decided, [ADR-0025](adr/0025-drilldown-level-page-keys-path-bar-layout.md); 필드명 Candidate):** 화면 안에서 단계별로 좁혀 들어가는 메뉴는 manifest `drill.levels`에 단계 순서(page key와 표시 이름)를 선언한다. 단계 키는 `pageKeys`와 `contextResetKeys`에 함께 등록해야 하고(Registry가 검사) 단계는 최대 4개다. 단계 값은 page 소유 ID·마스터 값이며 전역 Context로 승격하지 않는다(공정으로 들어가도 Context 바의 room_name은 그대로다). 앞 단계 키 없이 뒤 단계 키만 있는 URL은 형식 오류로 거부하고 조회하지 않는다. 형식이 맞지만 지금 범위의 결과에 없는 값은 그 단계에서 거부를 보이고 다른 값으로 바꾸지 않는다. 새 단계 진입·앞 단계로 올라가기·같은 단계의 다른 값으로 바꾸기는 history push이며, 바꾼 단계 뒤의 키를 같은 내비게이션에서 지운다. 사용자의 전역 Context 변경은 위 `contextResetKeys` 규칙으로 단계 키를 모두 지우고, 뒤로/앞으로 가기와 URL 진입은 지우지 않는다. 단계 안의 다른 page key(정렬·축 등)의 기록 방식은 이 계약이 바꾸지 않는다. 화면 모양은 §12.7, 다른 메뉴로 넘어갔다 돌아오는 복귀는 §22.
+**드릴다운 단계 (Decided, [ADR-0025](adr/0025-drilldown-level-page-keys-path-bar-layout.md); 필드명 Candidate):** 화면 안에서 단계별로 좁혀 들어가는 메뉴는 manifest `drill.levels`에 단계 순서(page key와 표시 이름)를 선언한다. 단계 키는 `pageKeys`와 `contextResetKeys`에 함께 등록해야 하고(Registry가 검사) 단계는 1개 이상이며 상한 없이 메뉴가 선언한다([ADR-0063](adr/0063-consumer-owned-chart-pieces-and-unbounded-drill.md)). 단계 값은 page 소유 ID·마스터 값이며 전역 Context로 승격하지 않는다(공정으로 들어가도 Context 바의 room_name은 그대로다). 앞 단계 키 없이 뒤 단계 키만 있는 URL은 형식 오류로 거부하고 조회하지 않는다. 형식이 맞지만 지금 범위의 결과에 없는 값은 그 단계에서 거부를 보이고 다른 값으로 바꾸지 않는다. 새 단계 진입·앞 단계로 올라가기·같은 단계의 다른 값으로 바꾸기는 history push이며, 바꾼 단계 뒤의 키를 같은 내비게이션에서 지운다. 사용자의 전역 Context 변경은 위 `contextResetKeys` 규칙으로 단계 키를 모두 지우고, 뒤로/앞으로 가기와 URL 진입은 지우지 않는다. 단계 안의 다른 page key(정렬·축 등)의 기록 방식은 이 계약이 바꾸지 않는다. 화면 모양은 §12.7, 다른 메뉴로 넘어갔다 돌아오는 복귀는 §22.
 
 **복수 Scope와 시간 계약이 해결되기 전 허용할 조회 범위 (Decided):** §6.2의 `scopeId` 단일 원칙과 §6.3의 시간역 병합 가드로 닫힌다. TZ 매핑이 끝날 때까지 분석을 전면 금지하지는 않는다(단일 설비 naive 조회는 계속 허용). 프로토타입에서 무제한 조회를 허용하는 것은 거부한다.
 
@@ -656,10 +656,10 @@ Domain 메뉴는 가능하면 이 Archetype을 조합하고, 새로운 Page Type
 
 `DrillLayout`은 페이지 본문 맨 위에 경로 바(`DrillPath`)를 두고 그 아래에 현재 단계의 본문을 그린다. 단계가 바뀌면 본문을 통째로 바꾸며, 앞 단계 본문을 아래로 쌓거나 옆 열로 남기지 않는다. 0단계(단계 키 없음)에서는 경로 바를 숨기고 메뉴의 요약 본문을 그대로 둔다. 형식 오류(§6.4)와 결과에 없는 값은 `DrillLayout`이 본문 자리에 명시적 상태로 그린다.
 
-- 경로 바는 `전체 › <단계 이름>: <값> › …` 칩이고 마지막 칩이 현재 단계(`aria-current="step"`)다. 앞 칩을 누르면 그 단계로 올라간다. 칩이 5개(깊이 4)가 되면 `전체`와 마지막 2개만 두고 가운데를 `…` 메뉴로 접는다.
+- 경로 바는 `전체 › <단계 이름>: <값> › …` 칩이고 마지막 칩이 현재 단계(`aria-current="step"`)다. 앞 칩을 누르면 그 단계로 올라간다. 칩이 5개 이상(깊이 4 이상)이면 `전체`와 마지막 2개만 두고 가운데를 `…` 메뉴로 접는다.
 - 메뉴가 같은 단계의 다른 값 목록을 주면 그 칩 옆 ▾ 메뉴로 바로 바꾼다(형제 비교).
 - 경로 바는 `PlatformPage`의 고정 breadcrumb(메뉴 위치)과도, 다른 메뉴로 돌아가는 복귀 버튼(§22)과도 다른 요소다.
-- 단계 진입은 행 끝 들어가기 버튼(접근 이름 `<값> 들어가기`)처럼 눈에 보이는 동작으로만 한다. 행 전체 클릭이나 차트 클릭으로 들어가지 않는다(교차 필터와 구분).
+- 단계 진입은 행 끝 들어가기 버튼(접근 이름 `<값> 들어가기`)처럼 눈에 보이는 동작으로 한다. 메뉴가 §16의 `pointActivation`을 선택하고 키보드로 같은 동작을 실행할 수 있으면 차트 지점 활성화로도 진입할 수 있다. 행 전체 클릭은 진입 동작으로 쓰지 않는다(교차 필터와 구분).
 - 객체 하나인 마지막 단계는 오른쪽 상세 슬롯(ADR-0013)으로 연다. 슬롯을 닫으면 바로 앞 단계로 올라간다.
 
 ---
@@ -884,6 +884,16 @@ Plot
 Selection Summary
 Source · Updated · Coverage
 ```
+
+### 메뉴가 조립하는 차트 조각 (Decided, #541·#580 S4)
+
+`AnalysisChartFrame`의 선택 API는 메뉴가 의미를 정하고 프레임은 지점·행·시리즈 표시만 제공한다([ADR-0063](adr/0063-consumer-owned-chart-pieces-and-unbounded-drill.md)). 기본 소비자는 새 prop 없이 기존 동작을 유지한다.
+
+- `pointActivation?: { on: 'click' | 'dblclick'; onActivate(point) }`, `pointActions?: readonly { id; label; onSelect(point); disabled? }[]`의 `point: ChartPoint`는 `{ x: string; seriesId: string; value: number | null }`이다. 시간 x는 원래 wall-clock 문자열, 범주는 소비자 문자열 그대로다. 프레임은 단계·목적지를 알지 못하며 URL·Global Context를 쓰지 않는다. 메뉴가 콜백에서 `useDrill` 등 자신의 이동을 실행한다.
+- 클릭은 지점을 선택한다. `dblclick` 활성화를 선택한 경우 기존 `onPointClick` 경로를 300ms 지연하고 다음 클릭·더블클릭에서 대기 작업을 취소한다. 더블클릭은 활성화 콜백만 실행한다. 이 선택이 없으면 기존 `onPointClick(x, seriesId)`는 즉시 실행한다. 결과·Context·표시 시리즈·제스처 설정 변경과 언마운트는 대기 클릭을 취소한다.
+- 선택기는 보이는 시리즈의 지점을 키보드로 고르고 `선택 지점 실행`으로 같은 활성화를 실행한다. `지점 동작`은 선택 지점의 메뉴를 열며 오른쪽 클릭은 해당 지점을 선택한 뒤 같은 메뉴를 연다. 포커스된 차트에서 Shift+F10·ContextMenu 키도 같은 메뉴를 연다. 선택 전에는 첫 지점을 기본으로 사용한다. Brush 모드에서는 지점 선택·실행·동작 메뉴를 끄고 이유를 표시한다. 경로 바의 이전 단계 칩·가운데 단계 메뉴·전체 버튼은 차트 없이도 키보드로 이동할 수 있다(§12.7).
+- `orientation?: 'vertical' | 'horizontal'`은 기본 vertical이다. horizontal은 `xType='category'`에서만 적용하며(time에서는 무시), 범주를 입력 순서대로 위→아래 행, 값을 가로축, 시리즈를 막대로 그린다. 라벨은 소비자가 준 문자열 그대로이고 그룹·계층을 추론하지 않는다. `stacked`는 한 행에 여러 시리즈의 세그먼트를 쌓는다. Zoom·Brush는 세로 범주축을 대상으로 하며 선택 요약·주석·표·내보내기·Trust는 같은 데이터를 사용한다.
+- `visibleSeriesIds?: readonly string[]`이 있으면 현재·비교 시리즈의 표시는 이 prop만 따른다. 범례는 `onVisibleSeriesChange?(ids: string[])`로 다음 표시 집합을 요청하고 자체 표시를 바꾸지 않는다. 없으면 기존 로컬 표시 상태를 쓰며 콜백은 변경을 알린다. Reset은 현재 범례의 모든 ID를 요청하고, controlled 소비자는 수락 여부를 정한다. 모든 시리즈를 끈 상태는 `표시할 시리즈를 모두 껐습니다`로 표시하며 데이터 없음으로 취급하지 않는다.
 
 ### 종류별 상호작용
 

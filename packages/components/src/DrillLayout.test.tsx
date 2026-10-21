@@ -362,3 +362,26 @@ it('announces reverted Scope exactly once after return', () => {
   expect(result.toasts).toHaveLength(1);
   expect(result.toasts[0].text).toBe('출발 화면의 Context로 돌아왔습니다. 상세에서 바꾼 항목을 되돌렸습니다: Scope');
 });
+
+
+describe('unbounded drill path (#541)', () => {
+  it('collapses six levels and keeps a keyboard path to a previous level', async () => {
+    const deepKeys = ['a', 'b', 'c', 'd', 'e', 'f'];
+    const deepRegistry = createRegistry({
+      spaces: [testSpace()],
+      groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
+      menus: [entry({ id: 'home', path: '/', primary: true, pageKeys: deepKeys, contextResetKeys: deepKeys, drill: { levels: deepKeys.map(key => level(key, key, key)) } })],
+    });
+    window.history.replaceState(null, '', '/?v=1&a=1&b=2&c=3&d=4&e=5&f=6');
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={deepRegistry}><DrillLayout><p>Deep body</p></DrillLayout></PlatformProvider></I18nProvider>);
+    expect(screen.queryByRole('button', { name: 'a: 1' })).toBeNull();
+    const middle = screen.getByRole('button', { name: '가운데 단계' });
+    fireEvent.keyDown(middle, { key: 'Enter' });
+    const prior = await screen.findByRole('menuitem', { name: 'd: 4' });
+    prior.focus(); fireEvent.keyDown(prior, { key: 'Enter' });
+    expect(window.location.search).toBe('?v=1&a=1&b=2&c=3&d=4');
+    expect(screen.getByRole('button', { name: 'd: 4' }).getAttribute('aria-current')).toBe('step');
+    fireEvent.click(screen.getByRole('button', { name: '전체' }));
+    expect(window.location.search).toBe('?v=1');
+  });
+});

@@ -60,7 +60,7 @@ function SiblingMenu({ label, value, items, onSwitch, scopeRef }: {
 
 /**
  * Path bar for the current menu's drill (06 §12.7, ADR-0025). Nothing at depth 0.
- * Five chips (depth 4) collapse to All, a middle-step menu, and the last two chips.
+ * Five or more chips (depth 4+) collapse to All, a middle-step menu, and the last two chips.
  */
 export function DrillPath({ siblings }: DrillPathProps) {
   const drill = useDrill();
@@ -70,7 +70,7 @@ export function DrillPath({ siblings }: DrillPathProps) {
   const nav = useRef<HTMLElement>(null);
   if (drill.depth === 0) return null;
 
-  const collapsed = drill.trail.length === 4;
+  const collapsed = drill.trail.length >= 4;
   const hidden = collapsed ? drill.trail.slice(0, drill.trail.length - 2) : [];
   const visible = collapsed ? drill.trail.slice(drill.trail.length - 2) : drill.trail;
 
