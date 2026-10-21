@@ -114,11 +114,15 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
         ['core.sessions', 'actor_id'],
         ['core.actors', 'id'],
       ]) {
-        await migrateHandle.pool.query(`delete from ${table} where ${column} = any($1)`, [actorIds]);
+        await migrateHandle.pool.query(`delete from ${table} where ${column} = any($1)`, [
+          actorIds,
+        ]);
       }
     }
     if (msIds.length > 0) {
-      await migrateHandle.pool.query('delete from core.managed_systems where id = any($1)', [msIds]);
+      await migrateHandle.pool.query('delete from core.managed_systems where id = any($1)', [
+        msIds,
+      ]);
     }
     await app?.close();
     await dbHandle?.close();
@@ -134,8 +138,16 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
     });
 
     it.each([
-      ['admin', ['console:access', 'feedbackops:access', 'notice:view', 'platform:view', 'voc:view'], { ko: '관리자', en: 'Admin' }],
-      ['developer', ['feedbackops:access', 'notice:view', 'platform:view', 'voc:view'], { ko: '개발자', en: 'Developer' }],
+      [
+        'admin',
+        ['console:access', 'feedbackops:access', 'notice:view', 'platform:view', 'voc:view'],
+        { ko: '관리자', en: 'Admin' },
+      ],
+      [
+        'developer',
+        ['feedbackops:access', 'notice:view', 'platform:view', 'voc:view'],
+        { ko: '개발자', en: 'Developer' },
+      ],
       ['user', ['notice:view', 'platform:view', 'voc:view'], { ko: '사용자', en: 'User' }],
     ] as const)('returns the %s session', async (role, permissions, title) => {
       const actor = await newActor(role);
@@ -185,13 +197,27 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
       expect(await has(denied.cookie)).toBe(false);
 
       const revoked = await newActor('user');
-      const revokedGrant = await grantCapability(dbHandle, WORKSPACE_ID, revoked.id, 'finding.read', ms, admin.id);
+      const revokedGrant = await grantCapability(
+        dbHandle,
+        WORKSPACE_ID,
+        revoked.id,
+        'finding.read',
+        ms,
+        admin.id,
+      );
       expect(await has(revoked.cookie)).toBe(true);
       await revokeCapabilityGrant(dbHandle, revokedGrant, admin.id);
       expect(await has(revoked.cookie)).toBe(false);
 
       const expired = await newActor('user');
-      const expiredGrant = await grantCapability(dbHandle, WORKSPACE_ID, expired.id, 'survey.manage', null, admin.id);
+      const expiredGrant = await grantCapability(
+        dbHandle,
+        WORKSPACE_ID,
+        expired.id,
+        'survey.manage',
+        null,
+        admin.id,
+      );
       expect(await has(expired.cookie)).toBe(true);
       await expireCapabilityGrant(dbHandle, expiredGrant);
       expect(await has(expired.cookie)).toBe(false);
@@ -224,7 +250,7 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
       expect(res.headers['cache-control']).toBe('no-store');
     });
 
-    it('returns bootstrap\'s sessionVersion and does not touch last_seen_at', async () => {
+    it("returns bootstrap's sessionVersion and does not touch last_seen_at", async () => {
       const actor = await newActor('developer');
       const { sessionVersion } = await bootstrap(actor.cookie);
       const before = await lastSeen(actor.cookie);
@@ -257,7 +283,9 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
       expect(await tokenInDb(a.cookie)).toBeTruthy();
       expect(await tokenInDb(a.cookie)).not.toBe(await tokenInDb(b.cookie));
 
-      await dbHandle.pool.query('update core.sessions set csrf_token = null where id = $1', [a.cookie]);
+      await dbHandle.pool.query('update core.sessions set csrf_token = null where id = $1', [
+        a.cookie,
+      ]);
       const filled = (await bootstrap(a.cookie)).csrfToken;
       expect(filled).toMatch(/^[A-Za-z0-9_-]{43}$/);
       expect(await tokenInDb(a.cookie)).toBe(filled);
@@ -304,10 +332,13 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
       expect(res.headers['x-correlation-id']).toBe('trace-1.a_B');
     });
 
-    it.each([['a b'], ['a'.repeat(129)]])('replaces an invalid id (%j) with a generated srv- id', async (bad) => {
-      const res = await platformGet('/session-state', undefined, { 'x-correlation-id': bad });
-      expect(res.headers['x-correlation-id']).toMatch(/^srv-\d+-[0-9a-f]+$/);
-    });
+    it.each([['a b'], ['a'.repeat(129)]])(
+      'replaces an invalid id (%j) with a generated srv- id',
+      async (bad) => {
+        const res = await platformGet('/session-state', undefined, { 'x-correlation-id': bad });
+        expect(res.headers['x-correlation-id']).toMatch(/^srv-\d+-[0-9a-f]+$/);
+      },
+    );
 
     it('generates an id when absent, on routes outside the platform prefix too', async () => {
       const res = await app.inject({ method: 'GET', url: '/health' });

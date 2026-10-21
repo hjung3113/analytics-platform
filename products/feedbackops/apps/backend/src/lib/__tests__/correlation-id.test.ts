@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { resolveCorrelationId } from '../correlation-id.js';
 
-const req = (value?: string) => ({ headers: value === undefined ? {} : { 'x-correlation-id': value } });
+const req = (value?: string) => ({
+  headers: value === undefined ? {} : { 'x-correlation-id': value },
+});
 
 describe('resolveCorrelationId', () => {
   it('adopts a valid inbound id', () => {

@@ -30,7 +30,11 @@ export const PLATFORM_PERMISSION_TABLE = [
 ] as const satisfies ReadonlyArray<{ permission: string; rule: PlatformPermissionRule }>;
 
 /** Capabilities whose active grant (workspace or Managed-System scoped) opens `feedbackops:access`. */
-export const FEEDBACKOPS_ACCESS_CAPABILITIES = ['voc.triage', 'finding.read', 'survey.manage'] as const;
+export const FEEDBACKOPS_ACCESS_CAPABILITIES = [
+  'voc.triage',
+  'finding.read',
+  'survey.manage',
+] as const;
 
 export interface PlatformActor {
   actor_id: string;

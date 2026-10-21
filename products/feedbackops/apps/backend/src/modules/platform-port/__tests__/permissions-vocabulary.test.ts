@@ -20,7 +20,10 @@ describe('platform permission table vs packages/contracts PERMISSIONS', () => {
     expect(vocabulary.length).toBeGreaterThan(0);
     const tabled = PLATFORM_PERMISSION_TABLE.map((entry) => entry.permission);
     for (const permission of vocabulary) {
-      expect(tabled.filter((p) => p === permission), permission).toHaveLength(1);
+      expect(
+        tabled.filter((p) => p === permission),
+        permission,
+      ).toHaveLength(1);
     }
     expect(tabled.filter((p) => !vocabulary.includes(p))).toEqual([]);
   });
