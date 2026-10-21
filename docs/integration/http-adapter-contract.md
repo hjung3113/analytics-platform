@@ -1,6 +1,7 @@
 # 실어댑터 전송 형식 (HTTP 경계) — 초안
 
 > 상태: **Candidate** — 2026-10-02 에이전트 초안(#149). 사내 백엔드(FastAPI) 담당과 합의하기 전까지 구현 지시가 아니다. 실어댑터(이 저장소, #154)와 FastAPI 플랫폼 API(사내, #155)가 이 문서 하나를 보고 따로 구현할 수 있게 하는 것이 목적이다. 각 절의 표기: **[제안]** 에이전트 제안, **[백엔드]** 사내 백엔드 담당 확인, **[#151]** 배포·인프라, **[#150]** 사내 SSO, **[#148]** 선언 원본 결정, **[#165]**/**[#155]** 세대 신호.
+> 참조 서버: 이 문서가 말하는 서버는 FastAPI가 아니라 **FeedbackOps 백엔드(Fastify + zod)의 `/api/v1/platform` 모듈**이다([ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md)). 아래 "FastAPI" 표기는 초안 당시 가정이며, 와이어 형식(경로·camelCase·헤더)은 그대로 유효하다. §1의 `bootstrap`·`session-state`·CSRF(`X-CSRF-Token`)·Correlation ID(`X-Correlation-Id`) 행은 #620이 구현했다(O12 나머지). 다른 행은 후속 이슈가 채운다.
 
 ## 읽는 순서·관계
 
@@ -10,6 +11,8 @@
 - 타입 원본: `packages/contracts/src/adapter.ts`(`PlatformAdapter`), `response.ts`(`ApiResponse`), `menu-query.ts`(`MenuQuery`).
 
 ## 1. 메서드 → HTTP 매핑
+
+> 구현 상태(#620): `GET /api/v1/platform/bootstrap`, `GET /api/v1/platform/session-state`, 세션별 CSRF 토큰(`bootstrap`이 `csrfToken`으로 내려주고 쓰기 요청의 `X-CSRF-Token`과 상수 시간 비교, 불일치 `403 csrf.invalid`), 모든 응답의 `X-Correlation-Id` 반향(유효 `^[A-Za-z0-9._-]{1,128}$`이면 채택, 아니면 `srv-…` 생성)이 FeedbackOps 백엔드에 구현돼 있다. `session-state`는 `last_seen_at`을 갱신하지 않는다(§4).
 
 **[제안]** 공통 규칙:
 

@@ -512,6 +512,13 @@
       "when": 1792155846827,
       "tag": "0072_normal_captain_marvel",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1792240000000,
+      "tag": "0073_session_csrf_token",
+      "breakpoints": true
     }
   ]
 }
