@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n, usePlatform } from '@ap/kernel';
-import { AnalysisChart, AnalysisChartFrame, type ChartSeries, type ChartSpec } from '@ap/components';
+import { AnalysisChart, AnalysisChartFrame, LaneTimeline, type ChartSeries, type ChartSpec } from '@ap/components';
 import type { CatalogData, CatalogKind } from '../../endpoints';
 import { kindLabels } from './support';
 
@@ -26,7 +26,8 @@ export function CatalogChart({ kind, data, height }: { kind: CatalogKind; data: 
   const spec = useMemo<ChartSpec | null>(() => {
     const show = (target: string) => setDetail({ identity, target });
     switch (kind) {
-      case 'line': case 'bar': return null;
+      case 'line': case 'bar': case 'lane': return null;
+      case 'topNBar': return { kind, items: data.topNBar ?? [], defaultExpanded: true, onItemClick: show, legend: [{ label: tx({ ko: '그룹 A', en: 'Group A' }), colorToken: 'chart-series-1' }, { label: tx({ ko: '그룹 B', en: 'Group B' }), colorToken: 'chart-series-2' }] };
       case 'heatmap': return { kind, ...data.heatmap,
         xLabels: data.heatmap.xLabels.map(displayTime),
         cells: data.heatmap.cells.map(cell => ({ ...cell, x: displayTime(cell.x) })),
@@ -45,11 +46,12 @@ export function CatalogChart({ kind, data, height }: { kind: CatalogKind; data: 
     }];
     return { current: make(false), previous: make(true) };
   }, [data, kind, currentLabel, previousLabel]);
-  const unit = kind === 'bar' || kind === 'donut' || kind === 'pareto' ? tx({ ko: '건', en: 'jobs' }) : tx({ ko: '분', en: 'min' });
+  const densityInstants = useMemo(() => data.lane?.flatMap(lane => lane.segments.map(segment => segment.start)), [data.lane]);
+  const unit = kind === 'bar' || kind === 'donut' || kind === 'pareto' || kind === 'topNBar' ? tx({ ko: '건', en: 'jobs' }) : tx({ ko: '분', en: 'min' });
   const common = { chartId: `chart-catalog-${kind}`, title, description, metricVersion: 'synthetic v1', unit, size: 'hero' as const, height,
     trust: { source: tx({ ko: '합성 데이터', en: 'Synthetic data' }), updated: displayTime(global.to), coverage: tx({ ko: '견본 데이터', en: 'Sample data' }) } };
   return <>
-    {spec ? <AnalysisChart {...common} spec={spec} /> : <AnalysisChartFrame {...common} series={series.current} compareSeries={series.previous} />}
+    {kind === 'lane' ? <LaneTimeline key={identity} lanes={data.lane ?? []} ariaLabel={title} description={description} trust={common.trust} height={height} densityInstants={densityInstants} outlineWidthsByRank={{ high: 3, mid: 2, low: 1.5 }} /> : spec ? <AnalysisChart {...common} spec={spec} /> : <AnalysisChartFrame {...common} series={series.current} compareSeries={series.previous} />}
     {detail?.identity === identity && <p ref={result} role="status" aria-label={tx({ ko: '상세 결과', en: 'Details result' })} className="t-caption px-4 py-2 text-text-secondary">
       {tx({ ko: '상세 대상', en: 'Details target' })}: {detail.target}
     </p>}

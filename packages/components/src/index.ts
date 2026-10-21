@@ -1,4 +1,4 @@
-export { AnalysisChart, type AnalysisChartProps, type ChartSpec, type HeatmapSpec, type HeatmapCell, type DonutSpec, type DonutSlice, type ScatterPoint, type ScatterSpec, type BoxStats, type BoxPlotSpec, type ParetoSpec } from './AnalysisChart';
+export { AnalysisChart, type AnalysisChartProps, type ChartSpec, type HeatmapSpec, type HeatmapCell, type DonutSpec, type DonutSlice, type ScatterPoint, type ScatterSpec, type BoxStats, type BoxPlotSpec, type ParetoSpec, type TopNBarSpec, type TopNBarItem } from './AnalysisChart';
 export * from './AnalysisChartFrame';
 export * from './AuditTimeline';
 export { copyText, useCopyLink } from './copyText';
@@ -25,3 +25,4 @@ export { LegendTree, type LegendTreeNode, type LegendTreeSort, type LegendTreePr
 
 export { formatQuerySummary, querySummaryItems, type QuerySummaryOptions, type QuerySummaryItem } from './querySummary';
 export { QueryBarExtensionContext, QueryBarExtensionsProvider, useQueryBarExtension, type QueryBarExtension } from './QueryBarExtension';
+export { LaneTimeline, type LaneTimelineProps, type LaneTimelineHandle, type TimelineLane, type TimelineSegment } from './LaneTimeline';

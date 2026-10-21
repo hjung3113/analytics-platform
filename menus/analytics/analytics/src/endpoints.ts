@@ -1,3 +1,4 @@
+import type { ThemeColorToken } from '@ap/ui/theme';
 /**
  * Analytics query endpoints (packages/contracts/src/menu-query.ts, #114–#115).
  * Client-safe: declarations, params/data types and display constants only — computation
@@ -309,7 +310,7 @@ export function executionKey(row: { equipmentId: string; anchor: string }): stri
 }
 
 // ---- chart catalog (#530): client-safe synthetic sample contract ----
-export const CHART_KINDS = ['line', 'bar', 'heatmap', 'donut', 'scatter', 'boxPlot', 'pareto'] as const;
+export const CHART_KINDS = ['line', 'bar', 'heatmap', 'donut', 'scatter', 'boxPlot', 'pareto', 'topNBar', 'lane'] as const;
 export type CatalogKind = typeof CHART_KINDS[number];
 export function isCatalogKind(value: unknown): value is CatalogKind {
   return CHART_KINDS.some(kind => kind === value);
@@ -323,6 +324,9 @@ export type CatalogData = {
   scatter: { id: string; x: number | null; y: number | null; group: string }[];
   boxPlot: { id: string; label: string; stats: { min: number; q1: number; median: number; q3: number; max: number; n: number } }[];
   pareto: { id: string; label: string; value: number }[];
+  /** Additive fields: old catalog responses remain readable. */
+  topNBar?: { id: string; label: string; value: number; colorToken: ThemeColorToken }[];
+  lane?: { id: string; label: string; segments: { id: string; start: number; end: number; depth?: number; rank?: string; startBoundary?: 'orphan'; endBoundary?: 'open' }[] }[];
 };
 export const chartCatalogEndpoint = defineEndpoint<{ kind: CatalogKind }, CatalogData>({
   id: 'analytics.chartCatalog', menuId: 'chart-catalog', permission: 'analytics:view', requiresScope: true,
