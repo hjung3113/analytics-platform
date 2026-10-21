@@ -124,10 +124,5 @@
 - **구현 안 함 — #553 1024px 미만 모바일 전용 조회 바 재설계:** 기본 줄바꿈·포커스 접근만 유지한다. 이유: 현재 DESIGN.md 데스크톱 범위와 위임된 시안 밖이다. 다시 열 조건: 모바일 배포 범위가 승인될 때 실제 앱 시안으로 좁은 화면 편집·보드 동작을 결정한다.
 
 - **구현 안 함 — #553 idle 안내의 필수 항목 이름 통일:** 조회 바는 `공정`, 본문 idle 사유는 Kernel 공용 라벨(`CONTEXT_LABELS`)의 `room_name`으로 같은 항목을 다르게 부른다(UX 재확인 W-553B-UX2 UX-1, 경미). 이유: 공용 라벨을 바꾸면 Context 바·내보내기·오류 문구 등 모든 화면 표기가 함께 바뀌어 별도 문구 검토가 필요하다. 다시 열 조건: 다음 문구 정리 PR 또는 조회 바를 두 번째 메뉴에 적용할 때.
-- **구현 안 함 — 권한 없는 값을 주소에 직접 넣었을 때 조건 표시:** 데이터는 서버가 막지만 조건 칩·요약에는 입력한 값 문자열이 남는다(main과 같은 기존 동작, W-553B-UX2 Noticed). 이유: 새 누출이 아니고 표시 정책(숨김 vs "사용할 수 없음")은 #554 이력 복원의 무효값 표시와 함께 정하는 편이 맞다. 다시 열 조건: #554 착수 시.
+- **구현 안 함 — 권한 없는 값을 주소에 직접 넣었을 때 조건 표시:** 데이터는 서버가 막지만 조건 칩·요약에는 입력한 값 문자열이 남는다(main과 같은 기존 동작, W-553B-UX2 Noticed). 이유: 새 누출이 아니고 표시 정책(숨김 vs "사용할 수 없음")은 #554 이력 복원의 무효값 표시와 함께 정하는 편이 맞다. #554는 이력 행에만 "현재 사용할 수 없음"을 적용했고 주소 칩 표시는 바꾸지 않았다(2026-10-21). 다시 열 조건: 조회 바를 두 번째 메뉴에 적용할 때.
 
-### W-554 query history worker incomplete
-
-- **Not complete / not finally verified (2026-10-21, #554).** The worktree contains storage, draft restore and UI changes, but issue acceptance is not established.
-- Reason: fixing a shared-pane history render loop exposed repeated asynchronous validation. A validation-in-progress guard was added but remains unverified. Process inspection (`ps`) was denied, requiring the worker to stop under its task rules.
-- Reopen: the conductor identifies and cleans only the two owned test runners, verifies the latest guard, reruns affected package checks, then performs SDK API snapshot, committed E2E and 1280/pane captures. Detailed commands and acceptance gaps are in the worker report.
