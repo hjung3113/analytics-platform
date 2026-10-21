@@ -12,6 +12,7 @@ import { createLocalQueryHistoryStore } from './query-history-store';
 import { EQUIPMENT_AXES } from './equipmentAxes';
 import { registry } from './menus';
 import { appSlots } from './slots';
+import { startOrFail } from './startup-failure';
 import { AppShell, RouteOutlet } from '@ap/shell';
 
 // Composition root owns the FeedbackOps origin (issue #60 §4): menus never read the env, the adapter
@@ -26,7 +27,7 @@ const queryHistory = createLocalQueryHistoryStore();
 const location = import.meta.env.BASE_URL === '/' ? undefined : createBasePathLocation(import.meta.env.BASE_URL);
 const root = createRoot(document.getElementById('root')!);
 
-void (async () => {
+void startOrFail(root, async () => {
   const assembly = await Promise.resolve(createAssembly({ registry }));
   if ('redirect' in assembly) {
     window.location.replace(assembly.redirect);
@@ -45,4 +46,4 @@ void (async () => {
       </I18nProvider>
     </StrictMode>,
   );
-})();
+});
