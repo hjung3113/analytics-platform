@@ -2188,6 +2188,16 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
   const CYCLE = `/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
   const trend = (page: Page) => page.getByRole('region', { name: '사이클타임 추세' });
 
+  async function applyRoomInQueryBar(page: Page, room: string) {
+    const bar = contextBar(page);
+    const expand = bar.getByRole('button', { name: '조회 조건 펼치기' });
+    if (await expand.count()) await expand.click();
+    await bar.getByRole('button', { name: '공정', exact: true }).click();
+    await page.getByRole('option', { name: room, exact: true }).click();
+    await page.keyboard.press('Escape');
+    await bar.getByRole('button', { name: '적용', exact: true }).click();
+  }
+
   async function brush(page: Page) {
     const frame = trend(page);
     await frame.getByRole('button', { name: '구간 선택' }).click();
@@ -2347,12 +2357,16 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
 
     await switchScope(page, 'FDRY');
     await expectScopeValid(page, 'FDRY · 파운드리');
+    // Apply mode (ADR-0061): the Scope switch clears the required room; pick it again in the query bar and apply
+    // in-app (a reload would reset the in-browser mock and lose the annotation).
+    await applyRoomInQueryBar(page, 'PHOTO');
     await expect(trend(page).getByRole('button', { name: '구간 선택' })).toBeVisible();
     await expect(trend(page).getByText(/MEM 전용 PM 작업/)).toHaveCount(0);
     await evidence(page, testInfo, 'annotation-fdry-isolated');
 
     await switchScope(page, 'MEM');
     await expectScopeValid(page, 'MEM · 메모리');
+    await applyRoomInQueryBar(page, 'PHOTO');
     await expect(trend(page).getByText(/MEM 전용 PM 작업/)).toBeVisible();
   });
 
