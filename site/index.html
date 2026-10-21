@@ -88,11 +88,11 @@
           <div class="stack-base" role="group" aria-label="공통 플랫폼 위의 업무 시스템">
             <p class="stack-base-label"><a class="glossary-term" href="glossary.html#work-system">업무 시스템</a></p>
             <ul class="stack-band" aria-label="데모에 등록된 업무 시스템">
-              <li>MARS</li><li>BRAVO</li><li>CLAS</li><li>운영 콘솔</li><li>표준 로그 개발</li><li>개선 실행</li>
+              <li>MARS</li><li>BRAVO</li><li>CLAS</li><li>운영 콘솔</li><li>표준 로그 개발 · 메뉴 예정</li><li>개선 실행 · 메뉴 예정</li>
             </ul>
           </div>
         </div>
-        <p class="stack-caption">화면은 예시 데이터입니다.</p>
+        <p class="stack-caption">화면은 예시 데이터입니다. 표준 로그 개발·개선 실행은 공간만 등록돼 있고 메뉴는 예정입니다.</p>
       </div>
       <!--/HERO_STACK-->
       <!--HERO_FALLBACK-->
@@ -3679,7 +3679,7 @@ export type ModuleHost = {
           <div id="source-L112"><h3>L112</h3><p>재평가 3회차 정정(2026-10-20): 공개 컴포넌트 21 → 23(L02), 부록 A ⑤·부록 E·L23·L31의 FeedbackOps 링크 상태를 &#x27;#251 완료·#81 결정·복귀 키 #448, 남은 것 세션 공유 #150&#x27;으로, 로드맵 완료 범위 v0.1–v0.6.1 → v0.1–v0.13.0(L01과 같게), 03 &#x27;왜 이 바탕인가&#x27; ①·③에 한 줄 설명</p><p class="caption"><code>packages/components/src/index.ts</code>, <code>apps/platform-web/src/slots.ts</code>, <code>.planning/README.md</code> · 사실 갱신, 새 주장 없음</p></div>
           <div id="source-L113"><h3>L113</h3><p>2026-10-21 #607의 「주제 7개와 지금 상태」 표를 기능별 현재 상태 원장으로 사용한다. 분석 보드 배치, 딥링크 범위, 권한·오류·개인 설정의 미구현 항목과 예정 이슈는 이 표를 따른다.</p><p class="caption">GitHub issue #607 · 사용자 인터뷰 2026-10-21</p></div>
           <div id="source-L114"><h3>L114</h3><p>용어 페이지는 업무 시스템·FeedbackOps Task·Site·Line·Scope·분석 Context·본 화면·분석 보드·시트·칸·기본 조건의 GLOSSARY.md 정의를 짧게 옮긴다. 메뉴·딥링크·Audit·Correlation ID·VOC는 플랫폼 계약 §4–6·§13·§17·§19·§22의 정의를 쓴다.</p><p class="caption">GLOSSARY.md · docs/06_platform_ui_contract.md</p></div>
-          <div id="source-L115"><h3>L115</h3><p>MARS·BRAVO·CLAS·운영 콘솔은 사용 중인 업무 시스템이고, 표준 로그 개발·개선 실행은 계획이다. mock Site는 MEM·FDRY다.</p><p class="caption">docs/17_platform_requirements.md §0·§3.7 · #590 · #252</p></div>
+          <div id="source-L115"><h3>L115</h3><p>MARS·BRAVO·CLAS·운영 콘솔은 사용 중인 업무 시스템이다. 표준 로그 개발·개선 실행은 공간이 등록됐고(#589) 메뉴는 모두 예정이다. mock Site는 MEM·FDRY다.</p><p class="caption">docs/17_platform_requirements.md §0·§3.7 · #590 · #252</p></div>
           <div id="source-L116"><h3>L116</h3><p>CLAS 설비 동작시간 견본 화면은 TopN 가로 막대와 LaneTimeline을 함께 보여 준다. 캡처는 예시 데이터다.</p><p class="caption">docs/06_platform_ui_contract.md §16 · ADR-0064 · #576 · #590 · site/scripts/shots.mjs</p></div>
           <div id="source-L117"><h3>L117</h3><p>RouteErrorBoundary는 렌더 오류를 메뉴 화면 영역 안에 격리하고 Correlation ID를 표시한다. 커널은 오류를 어댑터로 보고하며 mock 기록도 같은 번호를 보관한다. 이 연결은 요청 헤더나 서버 로그로 이어지지 않는다.</p><p class="caption">docs/06_platform_ui_contract.md §4·§19 · packages/kernel/src/platform.tsx · packages/contracts/src/adapter.ts · packages/mock-server/src/server.ts · packages/shell/src/RouteErrorBoundary.tsx · packages/shell/src/RouteOutlet.tsx</p></div>
           <div id="source-L118"><h3>L118</h3><p>메뉴 진입·체류 이벤트는 메뉴·공간·경로 패턴·시각·탭 세션과 체류 시간을 기록한다. #605의 via와 fromMenuId는 main 화면 진입 이벤트에만 붙으며 실제 URL·조회 조건은 수집하지 않는다.</p><p class="caption">ADR-0020 · docs/06_platform_ui_contract.md §4 · packages/contracts/src/adapter.ts · packages/kernel/src/platform.tsx · packages/mock-server/src/server.ts</p></div>
