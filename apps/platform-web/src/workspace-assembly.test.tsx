@@ -46,7 +46,7 @@ describe('workspace assembly (#260)', () => {
       ['impTasks', 'improvement'],
       ['impReports', 'improvement'],
     ]);
-    expect(SPACES.map(space => space.id)).toEqual(['analytics', 'metrics', 'operations', 'log-dev', 'improvement']);
+    expect(SPACES.map(space => space.id)).toEqual(['analytics', 'metrics', 'log-dev', 'improvement', 'operations']);
     expect(SPACES[0]).toMatchObject({
       label: { ko: 'MARS', en: 'MARS' },
       subtitle: { ko: '생산성 분석', en: 'Productivity analysis' },
@@ -61,17 +61,17 @@ describe('workspace assembly (#260)', () => {
       homeMenuId: 'metric-catalog',
     });
     expect(SPACES[1].permission).toBeUndefined();
-    expect(SPACES[2]).toMatchObject({
+    expect(SPACES[4]).toMatchObject({
       label: { ko: '운영 콘솔', en: 'Operations console' },
       description: { ko: '권한·감사·메뉴 활용률을 운영합니다.', en: 'Operate permissions, audit, and menu usage.' },
       permission: 'console:access',
       homeMenuId: 'admin-roles',
     });
-    expect(SPACES[2].subtitle).toBeUndefined();
+    expect(SPACES[4].subtitle).toBeUndefined();
     // #252 (ADR-0065): work-queue first; every menu is planned and open to every signed-in user for now.
-    expect(SPACES[3]).toMatchObject({ label: { ko: '표준 로그 개발', en: 'Standard log development' }, homeMenuId: 'log-my-queue' });
-    expect(SPACES[4]).toMatchObject({ label: { ko: '개선 실행', en: 'Improvement execution' }, homeMenuId: 'imp-my-tasks' });
-    expect(SPACES.slice(3).every(space => space.permission === undefined)).toBe(true);
+    expect(SPACES[2]).toMatchObject({ label: { ko: '표준 로그 개발', en: 'Standard log development' }, homeMenuId: 'log-my-queue' });
+    expect(SPACES[3]).toMatchObject({ label: { ko: '개선 실행', en: 'Improvement execution' }, homeMenuId: 'imp-my-tasks' });
+    expect(SPACES.slice(2, 4).every(space => space.permission === undefined)).toBe(true);
     const planned = registry.menus.filter(menu => ['log-dev', 'improvement'].includes(registry.spaceOf(menu)?.id ?? ''));
     expect(planned.map(menu => menu.id)).toEqual([
       'log-my-queue', 'log-recent-models', 'log-models', 'log-defects', 'log-partner-reviews', 'log-rules',

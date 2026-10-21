@@ -27,6 +27,7 @@
 
 | 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
 | --- | --- | --- | --- |
+| 다음 SDK 태그 | contracts | `SpaceId`에 `log-dev`·`improvement`, `GroupId`에 `logMyWork`·`logModels`·`logCross`·`logRules`·`impMyWork`·`impTasks`·`impReports` 추가(#252, ADR-0065) | `Record<SpaceId, …>`·`Record<GroupId, …>`나 빠짐없는 `switch`를 쓰는 소비자는 새 멤버를 더한다 |
 | 다음 SDK 태그 | components | AnalysisSection.span·AnalysisLayout.density·차트 size 추가 | 없음 — 추가만 |
 | 다음 SDK 태그 | components | AnalysisChart·ChartSpec 추가 | 없음 — 추가만 |
 | 다음 SDK 태그 | components | LegendTree·LegendTreeNode·LegendTreeSort·LegendTreeProps 추가(#539) | 없음 — 추가만 |
