@@ -48,21 +48,12 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
-      "redirectUris": [
-        "${FEEDBACKOPS_REDIRECT_URI}"
-      ],
-      "webOrigins": [
-        "${FEEDBACKOPS_WEB_ORIGIN}"
-      ],
+      "redirectUris": ["${FEEDBACKOPS_REDIRECT_URI}"],
+      "webOrigins": ["${FEEDBACKOPS_WEB_ORIGIN}"],
       "attributes": {
         "pkce.code.challenge.method": "S256"
       },
-      "defaultClientScopes": [
-        "email",
-        "profile",
-        "web-origins",
-        "roles"
-      ],
+      "defaultClientScopes": ["email", "profile", "web-origins", "roles"],
       "optionalClientScopes": [],
       "protocolMappers": [
         {
@@ -122,9 +113,6 @@
     }
   ],
   "internationalizationEnabled": true,
-  "supportedLocales": [
-    "ko",
-    "en"
-  ],
+  "supportedLocales": ["ko", "en"],
   "defaultLocale": "ko"
 }
