@@ -1,0 +1,234 @@
+// Auth routes. Mounted at the root (no prefix) so URLs match ADR-0006 and
+// the issue body verbatim: GET/POST /auth/mock-login, POST /auth/logout, GET
+// /me. The AuthProvider implementation is chosen in `buildServer` from
+// `config.AUTH_PROVIDER` (F-006); outside that switch, code only sees the
+// AuthProvider interface.
+
+import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
+
+import { sendError } from '../../lib/errors.js';
+import { SESSION_COOKIE_NAME, requireSession } from '../../middleware/require-session.js';
+import { requireWorkspace } from '../../middleware/require-workspace.js';
+import { OIDC_TX_COOKIE_NAME } from './oidc-tx-cookie.js';
+import type { AuthProvider, CompleteLoginResult, LoginStart } from './auth-provider.js';
+import type { SessionService } from './session-service.js';
+
+export interface AuthRoutesOptions {
+  authProvider: AuthProvider;
+  sessionService: SessionService;
+  workspaceId: string;
+  /** From AppConfig.NODE_ENV; controls cookie `Secure` flag and dev-only routes. */
+  nodeEnv: 'development' | 'test' | 'production';
+  /** From AppConfig.platformReturnOrigins; `[]` when the feature is off. */
+  platformReturnOrigins: string[];
+}
+
+export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opts) => {
+  const { authProvider, sessionService, workspaceId, nodeEnv, platformReturnOrigins } = opts;
+  const isProd = nodeEnv === 'production';
+
+  // ── GET /auth/login ───────────────────────────────────────────────────
+  // Provider-agnostic entry point (issue #390). Mock: dev-only HTML picker
+  // (production refuses, same semantics as /auth/mock-login). OIDC: sets
+  // the provider cookies then 302s to the IdP authorization endpoint.
+  app.route({
+    method: 'GET',
+    url: '/auth/login',
+    schema: {
+      querystring: z.object({ return_to: z.string().optional() }),
+    },
+    handler: async (req, reply) => {
+      // Cast matches the mock route's body access: the zod provider leaves
+      // unschema'd/fast-path query types loose at this boundary.
+      const query = req.query as { return_to?: string };
+      const started: LoginStart = await authProvider.startLogin({
+        ...(typeof query.return_to === 'string' ? { returnTo: query.return_to } : {}),
+      });
+      if ('html' in started) {
+        // HTML responses exist only for the dev-only mock picker.
+        if (isProd || authProvider.name !== 'mock') {
+          return sendError(reply, 'not_found.record', 'mock login is not available');
+        }
+        reply.type('text/html; charset=utf-8').send(started.html);
+        return reply;
+      }
+      for (const cookie of started.cookies) {
+        reply.setCookie(cookie.name, cookie.value, {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: isProd,
+          path: cookie.path,
+          maxAge: cookie.maxAgeSeconds,
+        });
+      }
+      return reply.redirect(started.redirect, 302);
+    },
+  });
+
+  // ── GET /auth/callback ────────────────────────────────────────────────
+  // IdP authorization-response endpoint. Mock has no callback phase — 404
+  // like the mock routes 404 for non-mock. On success: same session issue
+  // + cookie options as POST /auth/mock-login, then 302 to the sanitized
+  // returnTo (or /). The transaction cookie is single-use: cleared on
+  // every callback attempt — success, invalid (401), or provider/DB error
+  // (the global error handler sends on this same reply, so the Set-Cookie
+  // clear survives).
+  app.route({
+    method: 'GET',
+    url: '/auth/callback',
+    handler: async (req, reply) => {
+      if (authProvider.name === 'mock') {
+        return sendError(reply, 'not_found.record', 'auth callback is not available');
+      }
+      const clearTx = () =>
+        reply.clearCookie(OIDC_TX_COOKIE_NAME, {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: isProd,
+          path: '/auth',
+        });
+      try {
+        const completed: CompleteLoginResult = await authProvider.completeLogin({
+          query: req.query as Record<string, string | string[] | undefined>,
+          cookies: req.cookies as Record<string, string | undefined>,
+        });
+        const ua = req.headers['user-agent'];
+        const { session, actor, expiresAt } = await sessionService.provisionAndIssueSession({
+          claims: completed,
+          ...(typeof ua === 'string' ? { userAgent: ua } : {}),
+          ip: req.ip,
+        });
+        reply.setCookie(SESSION_COOKIE_NAME, session.id, {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: isProd,
+          path: '/',
+          expires: expiresAt,
+        });
+        for (const cookie of completed.clearCookies ?? []) {
+          reply.clearCookie(cookie.name, {
+            httpOnly: true,
+            sameSite: 'lax',
+            secure: isProd,
+            path: cookie.path,
+          });
+        }
+        return reply.redirect(completed.returnTo ?? '/', 302);
+      } catch (err) {
+        clearTx();
+        throw err;
+      }
+    },
+  });
+
+  // ── GET /auth/mock-login ──────────────────────────────────────────────
+  // Dev-only picker. Production returns 404 (the route still exists but the
+  // handler refuses) so the surface area is identical between envs — the
+  // 404 leaks nothing.
+  app.route({
+    method: 'GET',
+    url: '/auth/mock-login',
+    handler: async (_req, reply) => {
+      if (isProd || authProvider.name !== 'mock') {
+        return sendError(reply, 'not_found.record', 'mock login is not available');
+      }
+      const started = await authProvider.startLogin();
+      // Only the mock provider is wired here; narrow the seam union explicitly.
+      if (!('html' in started)) {
+        return sendError(reply, 'internal.unexpected', 'mock provider returned a redirect');
+      }
+      reply.type('text/html; charset=utf-8').send(started.html);
+    },
+  });
+
+  // ── POST /auth/mock-login ─────────────────────────────────────────────
+  app.route({
+    method: 'POST',
+    url: '/auth/mock-login',
+    schema: {
+      body: z.object({ external_id: z.string().min(1) }),
+    },
+    handler: async (req, reply) => {
+      if (isProd || authProvider.name !== 'mock') {
+        return sendError(reply, 'not_found.record', 'mock login is not available');
+      }
+      const { external_id } = req.body as { external_id: string };
+      const claims = await authProvider.completeLogin({ external_id });
+      const ua = req.headers['user-agent'];
+      const { session, actor, expiresAt } = await sessionService.provisionAndIssueSession({
+        claims,
+        ...(typeof ua === 'string' ? { userAgent: ua } : {}),
+        ip: req.ip,
+      });
+      reply.setCookie(SESSION_COOKIE_NAME, session.id, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: isProd,
+        path: '/',
+        expires: expiresAt,
+      });
+      return {
+        actor: {
+          id: actor.id,
+          external_id: actor.externalId,
+          email: actor.email,
+          display_name: actor.displayName,
+          role_level: actor.roleLevel,
+        },
+        workspace_id: workspaceId,
+      };
+    },
+  });
+
+  // ── POST /auth/logout ─────────────────────────────────────────────────
+  app.route({
+    method: 'POST',
+    url: '/auth/logout',
+    handler: async (req, reply) => {
+      const cookie = req.cookies?.[SESSION_COOKIE_NAME];
+      if (cookie) {
+        await sessionService.revoke(cookie);
+      }
+      reply.clearCookie(SESSION_COOKIE_NAME, {
+        path: '/',
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: isProd,
+      });
+      reply.code(204).send();
+    },
+  });
+
+  // ── GET /me ───────────────────────────────────────────────────────────
+  // Authenticated identity probe. Frontend home calls this to decide
+  // whether to render the dashboard or redirect to /login.
+  app.route({
+    method: 'GET',
+    url: '/me',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    handler: async (req) => {
+      // requireSession guarantees req.session; we narrow it explicitly so
+      // exactOptionalPropertyTypes is happy without a non-null assertion.
+      const sess = req.session;
+      if (!sess) throw new Error('requireSession did not populate req.session');
+      const loaded = await sessionService.loadAndTouch(sess.session_id);
+      // loadAndTouch can return null if the row was concurrently revoked
+      // between the middleware call and here — treat as session_invalid.
+      if (!loaded) {
+        throw new Error('session vanished mid-request');
+      }
+      return {
+        actor: {
+          id: loaded.actor.id,
+          external_id: loaded.actor.externalId,
+          email: loaded.actor.email,
+          display_name: loaded.actor.displayName,
+          role_level: loaded.actor.roleLevel,
+        },
+        workspace_id: sess.workspace_id,
+        platform_return_origins: platformReturnOrigins,
+      };
+    },
+  });
+};

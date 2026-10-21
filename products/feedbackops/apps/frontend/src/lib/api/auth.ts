@@ -1,0 +1,58 @@
+// Auth endpoint fetchers — /me, /auth/mock-login, /auth/logout.
+// Per AGENTS.md the frontend never enforces backend permissions; these helpers
+// only surface what the server says.
+
+export interface MeResponse {
+  actor: {
+    id: string;
+    external_id: string;
+    email: string;
+    display_name: string;
+    role_level: string;
+  };
+  workspace_id: string;
+  /** GET /me only (ADR-0071); absent from POST /auth/mock-login. Treat undefined as []. */
+  platform_return_origins?: string[];
+}
+
+export class UnauthenticatedError extends Error {
+  constructor() {
+    super('unauthenticated');
+  }
+}
+
+export class MeRequestError extends Error {
+  readonly status: number;
+  readonly retryAfter?: string;
+
+  constructor(status: number, retryAfter?: string) {
+    super('Unable to load the current session.');
+    this.name = 'MeRequestError';
+    this.status = status;
+    if (retryAfter !== undefined) this.retryAfter = retryAfter;
+  }
+}
+
+export async function fetchMe(signal?: AbortSignal): Promise<MeResponse> {
+  const init: RequestInit = { credentials: 'same-origin' };
+  if (signal) init.signal = signal;
+  const res = await fetch('/me', init);
+  if (res.status === 401) throw new UnauthenticatedError();
+  if (!res.ok) throw new MeRequestError(res.status, res.headers.get('retry-after') ?? undefined);
+  return (await res.json()) as MeResponse;
+}
+
+export async function mockLogin(externalId: string): Promise<MeResponse> {
+  const res = await fetch('/auth/mock-login', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ external_id: externalId }),
+  });
+  if (!res.ok) throw new Error(`mock-login failed: ${res.status}`);
+  return (await res.json()) as MeResponse;
+}
+
+export async function logout(): Promise<void> {
+  await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' });
+}

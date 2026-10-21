@@ -1,0 +1,82 @@
+// TimelineEntry — single conversation entry with kind chip + rich body.
+
+import { useMe } from '@/lib/auth/useMe';
+import { GLOSSARY } from '@/lib/copy/glossary';
+import { formatRelativeTime } from '@/lib/format/datetime';
+import type { ConversationEntry } from '@fops/shared';
+import {
+  OutlineBadge,
+  type ReporterFacingStatusEnum,
+  ReporterStatusBadge,
+  RichContentRenderer,
+  type TipTapDoc,
+  UserChip,
+} from '@fops/ui';
+import type * as React from 'react';
+import { AttachmentChipList } from './AttachmentChip';
+
+// ── Korean labels ────────────────────────────────────────────────────────────
+
+const KIND_LABELS: Record<ConversationEntry['kind'], string> = {
+  public_update:     '공개 업데이트',
+  reporter_reply:    '제출자 답변',
+  internal_comment:  '내부 코멘트',
+};
+
+// ── Props ────────────────────────────────────────────────────────────────────
+
+export interface TimelineEntryProps {
+  entry: ConversationEntry;
+  actorDisplayName?: string | undefined;
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
+
+export function TimelineEntry({ entry, actorDisplayName }: TimelineEntryProps): React.ReactElement {
+  const { data: me } = useMe();
+
+  const actorUser: { display_name: string } =
+    actorDisplayName !== undefined
+      ? { display_name: actorDisplayName }
+      : me?.actor.id === entry.actor_id
+      ? { display_name: me.actor.display_name }
+      : { display_name: GLOSSARY.unknownUser };
+
+  const rendererMode =
+    entry.kind === 'internal_comment' ? 'internal' : 'reporter_visible';
+
+  const hasStatusTransition =
+    entry.kind === 'public_update' &&
+    typeof entry.reporter_facing_status_before === 'string' &&
+    typeof entry.reporter_facing_status_after === 'string';
+
+  return (
+    <div className="flex flex-col gap-1 py-2 border-b border-border-subtle last:border-b-0">
+      {/* Top row: actor chip + kind badge */}
+      <div className="flex items-center justify-between gap-2">
+        <UserChip user={actorUser} size="sm" sub={formatRelativeTime(entry.created_at)} />
+        <OutlineBadge>{KIND_LABELS[entry.kind]}</OutlineBadge>
+      </div>
+
+      {/* Rich body */}
+      <div className="pl-8">
+        <RichContentRenderer doc={entry.body_rich_content as TipTapDoc} mode={rendererMode} />
+        {/* PLAN-22 §Bug-2 (2026-05-22): per-entry linked attachments. */}
+        <AttachmentChipList attachments={entry.attachments} />
+      </div>
+
+      {/* Status transition pair (public_update only) */}
+      {hasStatusTransition && (
+        <div className="pl-8 flex items-center gap-2 mt-1">
+          <ReporterStatusBadge
+            status={entry.reporter_facing_status_before as ReporterFacingStatusEnum}
+          />
+          <span className="text-text-muted text-xs">→</span>
+          <ReporterStatusBadge
+            status={entry.reporter_facing_status_after as ReporterFacingStatusEnum}
+          />
+        </div>
+      )}
+    </div>
+  );
+}

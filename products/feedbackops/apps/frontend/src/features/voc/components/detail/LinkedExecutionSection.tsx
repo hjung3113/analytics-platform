@@ -1,0 +1,61 @@
+// LinkedExecutionSection — linked-execution heading and summary/empty-state wrapper.
+
+import type { TaskStatus, VocDetailEnvelope } from '@fops/shared';
+import { EmptyState, OutlineBadge, PanelSectionTitle, PermissionBlockedPanel } from '@fops/ui';
+import type * as React from 'react';
+
+import { TASK_STATUS_LABELS } from '@/lib/copy/enum-labels';
+import { getPermissionDecision } from '@/lib/cross-system/getPermissionDecision';
+import { hasVisibleFollowUp } from './LinkedEntityTrailSection';
+
+export interface LinkedExecutionSectionProps {
+  voc: VocDetailEnvelope;
+  linkedTask?: { title: string; status: TaskStatus } | null;
+  isReporterContext?: boolean;
+}
+
+export function LinkedExecutionSection({
+  voc,
+  linkedTask = null,
+  isReporterContext = false,
+}: LinkedExecutionSectionProps): React.ReactElement {
+  const linkedFindingDecision = getPermissionDecision(voc, 'linkedFinding');
+
+  if (linkedFindingDecision !== null) {
+    return (
+      <div className="mt-8">
+        <PanelSectionTitle>연결된 실행</PanelSectionTitle>
+        <PermissionBlockedPanel
+          state={linkedFindingDecision.state}
+          category="연결된 Finding"
+          // #564: request_access now renders reason, and this decision's reason is a
+          // machine code (e.g. developer_outside_managed_system_scope), so keep it out there.
+          {...(linkedFindingDecision.reason !== undefined &&
+          linkedFindingDecision.state !== 'request_access'
+            ? { reason: linkedFindingDecision.reason }
+            : {})}
+          {...(linkedFindingDecision.required_scope !== undefined
+            ? { requiredScope: linkedFindingDecision.required_scope }
+            : {})}
+          {...(linkedFindingDecision.decision_id !== undefined
+            ? { decisionId: linkedFindingDecision.decision_id }
+            : {})}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-8">
+      <PanelSectionTitle>연결된 실행</PanelSectionTitle>
+      {linkedTask !== null ? (
+        <div className="flex items-center justify-between gap-3 rounded-sm border border-border-subtle bg-surface-card px-3 py-2">
+          <span className="text-sm font-medium text-text-primary">{linkedTask.title}</span>
+          <OutlineBadge>{TASK_STATUS_LABELS[linkedTask.status]}</OutlineBadge>
+        </div>
+      ) : !hasVisibleFollowUp(voc, isReporterContext) ? (
+        <EmptyState size="sm" title="연결된 실행 없음" />
+      ) : null}
+    </div>
+  );
+}

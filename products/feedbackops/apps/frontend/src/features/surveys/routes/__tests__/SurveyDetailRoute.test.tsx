@@ -1,0 +1,298 @@
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@fops/ui';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  Outlet,
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from '@tanstack/react-router';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type * as React from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Survey } from '../../types';
+
+const {
+  useCloseSurvey,
+  useManagedSystemNamesResult,
+  useOpenSurvey,
+  useSurvey,
+  useSurveys,
+  useSurveyManageAnySystemGate,
+  useSurveyManageGate,
+  useWorkspaceActors,
+  useRouteSearch,
+} = vi.hoisted(() => ({
+  useCloseSurvey: vi.fn(() => ({ mutate: vi.fn(), isPending: false, error: null })),
+  useManagedSystemNamesResult: vi.fn(() => ({
+    namesById: new Map<string, string>(),
+    isSuccess: true,
+  })),
+  useOpenSurvey: vi.fn(() => ({ mutate: vi.fn(), isPending: false, error: null })),
+  useSurvey: vi.fn(),
+  useSurveys: vi.fn(),
+  useSurveyManageAnySystemGate: vi.fn(() => ({ canManage: false })),
+  useSurveyManageGate: vi.fn(),
+  useWorkspaceActors: vi.fn(() => ({
+    actors: [] as Array<{
+      id: string;
+      display_name: string;
+      email: string;
+      role_level: 'user';
+    }>,
+    isSuccess: true,
+  })),
+  useRouteSearch: vi.fn(() => ({})),
+}));
+
+vi.mock('@/features/surveys/hooks/useSurveys', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/surveys/hooks/useSurveys')>()),
+  useCloseSurvey,
+  useOpenSurvey,
+  useSurvey,
+  useSurveys,
+}));
+vi.mock('@/features/surveys/routes/SurveyPermissionGate', () => ({
+  useSurveyManageAnySystemGate,
+  useSurveyManageGate,
+}));
+vi.mock('@/lib/useAnalyticsAreaFilterLabel', () => ({
+  useAnalyticsAreaFilterLabel: () => undefined,
+}));
+vi.mock('@/lib/cross-system/useManagedSystemNames', () => ({ useManagedSystemNamesResult }));
+vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({ useWorkspaceActors }));
+vi.mock('@tanstack/react-router', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tanstack/react-router')>()),
+  createFileRoute: () => () => ({
+    useParams: () => ({ surveyId: 'survey-1' }),
+    useSearch: useRouteSearch,
+  }),
+  useMatchRoute: () => () => false,
+  useNavigate: () => vi.fn(),
+  // #812: the builder route guards unsaved changes with useBlocker, which needs a router.
+  useBlocker: () => ({ status: 'idle' }),
+}));
+
+import { SurveyDetailRoute } from '@/routes/_authed/surveys/$surveyId';
+
+function DetailPanelSlotHost() {
+  const { ref } = useDetailPanelSlotHost();
+  return <div ref={ref} />;
+}
+function DetailPanelHost({ children }: { children: React.ReactNode }) {
+  return (
+    <DetailPanelSlotProvider>
+      {children}
+      <DetailPanelSlotHost />
+    </DetailPanelSlotProvider>
+  );
+}
+
+const survey: Survey = {
+  id: 'survey-1',
+  display_id: 'SRV-1',
+  title: 'Q3 사용성 진단',
+  type: 'discovery',
+  status: 'draft',
+  description: null,
+  primary_managed_system_id: 'system-1',
+  analytics_area_id: null,
+  operator_actor_id: null,
+  responses_identity_protected: true,
+  created_by: 'actor-1',
+  opened_at: null,
+  closed_at: null,
+  created_at: '2026-07-20T00:00:00.000Z',
+  updated_at: '2026-07-20T00:00:00.000Z',
+  questions: [],
+};
+
+describe('/surveys/:surveyId route', () => {
+  beforeEach(() => {
+    useSurveyManageAnySystemGate.mockReturnValue({ canManage: false });
+  });
+
+  it('renders the Surveys toolbar and create action for a manager', () => {
+    useSurvey.mockReturnValue({
+      data: survey,
+      isLoading: false,
+      isError: false,
+    });
+    useSurveyManageGate.mockReturnValue({ canManage: true, gateState: undefined });
+    useSurveyManageAnySystemGate.mockReturnValue({ canManage: true });
+    useSurveys.mockReturnValue({
+      data: [survey],
+      isPending: false,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(<SurveyDetailRoute />);
+
+    expect(screen.getByRole('heading', { name: 'Surveys' })).toBeInTheDocument();
+    expect(screen.getByTestId('survey-create-button')).toBeInTheDocument();
+  });
+
+  it('renders the detail screen when the survey exists', () => {
+    useSurvey.mockReturnValue({
+      data: survey,
+      isLoading: false,
+      isError: false,
+    });
+    useSurveyManageGate.mockReturnValue({
+      canManage: false,
+      gateState: 'absent',
+    });
+    useSurveys.mockReturnValue({
+      data: [survey],
+      isLoading: false,
+      error: null,
+    });
+
+    render(<SurveyDetailRoute />);
+
+    expect(screen.getByTestId('survey-list')).toBeInTheDocument();
+    expect(screen.getByText('Q3 사용성 진단')).toBeInTheDocument();
+  });
+
+  it('shows results before the locked builder note and keeps the note muted', async () => {
+    const openSurvey = { ...survey, status: 'open' as const };
+    useSurvey.mockReturnValue({ data: openSurvey, isLoading: false, isError: false });
+    useSurveyManageGate.mockReturnValue({ canManage: false, gateState: 'absent' });
+    useSurveys.mockReturnValue({ data: [openSurvey], isLoading: false, error: null });
+
+    const rootRoute = createRootRoute({ component: () => <Outlet /> });
+    const surveyRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/surveys/$surveyId',
+      component: () => (
+        <DetailPanelHost>
+          <SurveyDetailRoute />
+        </DetailPanelHost>
+      ),
+    });
+    const resultsRoute = createRoute({
+      getParentRoute: () => surveyRoute,
+      path: '/results',
+      component: () => null,
+    });
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([surveyRoute.addChildren([resultsRoute])]),
+      history: createMemoryHistory({ initialEntries: ['/surveys/survey-1'] }),
+    });
+    await router.load();
+    const queryClient = new QueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+
+    const detail = screen.getByTestId('survey-detail');
+    const sections = [...detail.querySelectorAll('section')];
+    const resultsIndex = sections.findIndex((section) =>
+      within(section).queryByRole('heading', { name: '결과 요약' }),
+    );
+    const builderIndex = sections.findIndex((section) =>
+      within(section).queryByRole('heading', { name: 'Survey 빌더' }),
+    );
+    expect(resultsIndex).toBeGreaterThanOrEqual(0);
+    expect(resultsIndex).toBeLessThan(builderIndex);
+    expect(within(detail).getByRole('link', { name: /결과 요약 보기/ })).toBeInTheDocument();
+    const lockedNote = within(detail).getByText('질문 변경은 잠겨 있습니다.');
+    expect(lockedNote).toHaveClass('text-xs', 'text-text-muted');
+  });
+
+  it('wires successful lookups into the survey detail and builder routes', () => {
+    const systemId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    const actorId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    const namedSurvey = {
+      ...survey,
+      primary_managed_system_id: systemId,
+      operator_actor_id: actorId,
+    };
+    useSurvey.mockReturnValue({ data: namedSurvey, isLoading: false, isError: false });
+    useSurveyManageGate.mockReturnValue({ canManage: false, gateState: 'absent' });
+    useSurveys.mockReturnValue({ data: [namedSurvey], isLoading: false, error: null });
+    useManagedSystemNamesResult.mockReturnValue({
+      namesById: new Map([[systemId, 'Revenue Analytics']]),
+      isSuccess: true,
+    });
+    useWorkspaceActors.mockReturnValue({
+      actors: [
+        {
+          id: actorId,
+          display_name: 'Named Operator',
+          email: 'operator@example.com',
+          role_level: 'user',
+        },
+      ],
+      isSuccess: true,
+    });
+
+    const detailView = render(
+      <DetailPanelHost>
+        <SurveyDetailRoute />
+      </DetailPanelHost>,
+    );
+    expect(screen.getByTestId('survey-detail')).toHaveTextContent('Revenue Analytics');
+    expect(screen.getByText('담당자 · Named Operator')).toBeInTheDocument();
+    detailView.unmount();
+
+    useRouteSearch.mockReturnValueOnce({ builder: true });
+    useSurveyManageGate.mockReturnValue({ canManage: true, gateState: undefined });
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SurveyDetailRoute />
+      </QueryClientProvider>,
+    );
+    const settings = screen.getByText('Survey 설정').closest('aside');
+    if (!settings) throw new Error('Expected the builder Survey 설정 rail');
+    expect(within(settings).getByText('Revenue Analytics')).toBeInTheDocument();
+  });
+
+  it('renders not-found when the survey is unavailable', () => {
+    useSurvey.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+    });
+    useSurveyManageGate.mockReturnValue({
+      canManage: false,
+      gateState: 'absent',
+    });
+    useSurveys.mockReturnValue({ data: [], isLoading: false, error: null });
+
+    render(<SurveyDetailRoute />);
+
+    expect(screen.getByText('Survey를 찾을 수 없습니다.')).toBeInTheDocument();
+  });
+
+  it('retries the survey list from the detail route error state', async () => {
+    const refetch = vi.fn();
+    useSurvey.mockReturnValue({
+      data: survey,
+      isLoading: false,
+      isError: false,
+    });
+    useSurveyManageGate.mockReturnValue({
+      canManage: false,
+      gateState: 'absent',
+    });
+    useSurveys.mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: new Error('list request failed'),
+      refetch,
+    });
+
+    render(<SurveyDetailRoute />);
+
+    expect(await screen.findByText('Survey 목록을 불러오지 못했습니다')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+});

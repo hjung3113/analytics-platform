@@ -1,0 +1,32 @@
+import { CoverageRoute } from '@/features/integration/routes/CoverageRoute';
+import { parseRouteSearch } from '@/lib/router/search';
+import { createFileRoute } from '@tanstack/react-router';
+import { z } from 'zod';
+
+// docs/frontend/routes-and-layout.md: /integration/coverage?managedSystem=:managedSystemId|all
+export const integrationCoverageSearchSchema = z
+  .object({
+    view: z.literal('areas').optional(),
+    'filter.analytics_area': z.union([z.string().uuid(), z.literal('unset')]).optional(),
+    cursor: z.string().min(1).optional(),
+    managedSystem: z.union([z.string().uuid(), z.literal('all')]).optional(),
+  })
+  .strict();
+
+export function validateIntegrationCoverageSearch(raw: unknown) {
+  return parseRouteSearch(integrationCoverageSearchSchema, raw);
+}
+
+// #982: the router plugin skips code-splitting when the route component is an
+// exported local (hasExport check). The alias keeps the shell exported for
+// tests while letting the route component split into its own chunk.
+const IntegrationCoverageRouteShellSplit = IntegrationCoverageRouteShell;
+
+export const Route = createFileRoute('/_authed/integration/coverage')({
+  validateSearch: validateIntegrationCoverageSearch,
+  component: IntegrationCoverageRouteShellSplit,
+});
+
+export function IntegrationCoverageRouteShell() {
+  return <CoverageRoute />;
+}

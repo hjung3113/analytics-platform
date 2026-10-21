@@ -1,0 +1,207 @@
+/**
+ * OwnerPicker — selects the owner (user or team) for a VOC during triage.
+ *
+ * Prototype ref: screen-voc-create.jsx:466-491
+ * Token translations (PROTOTYPE-TO-PACK17.md §3.15):
+ *   .entity-node rows → bg-surface-canvas shadow-subtle rounded-md
+ *   active entity-node → bg-accent-primary/6 ring-1 ring-inset ring-accent-primary/40
+ *   .entity-node-title → text-xs font-medium text-text-primary
+ *   .entity-node-meta → text-caption text-text-muted
+ *
+ * Decision D-2.1 (PLAN-21): threshold is exactly 5.
+ *   candidates.length <= 5 → RadioGroup-style entity rows
+ *   candidates.length > 5  → Combobox (search + select)
+ *
+ * Decision D-2.3: "(미지정)" maps to { ownerUserId: null, ownerTeamId: null }.
+ */
+
+import { MANAGED_SYSTEM_COPY } from '@/lib/copy/managed-systems';
+import { Combobox, UserAvatar, cn } from '@fops/ui';
+import { Check } from 'lucide-react';
+import type * as React from 'react';
+import { PickerOptionGrid } from './PickerOptionGrid';
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export interface OwnerCandidate {
+  id: string;
+  display_name: string;
+  kind: 'user' | 'team';
+  eligible?: boolean;
+  /** Optional meta description line, e.g. "담당 시스템: Tableau Revenue · 대기 4건" */
+  meta?: string;
+}
+
+export interface OwnerValue {
+  ownerUserId: string | null;
+  ownerTeamId: string | null;
+}
+
+export interface OwnerPickerProps {
+  candidates: OwnerCandidate[];
+  value: string | null; // selected actor id (user or team), or null for 미지정
+  onChange: (value: OwnerValue) => void;
+  disabled?: boolean;
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const UNASSIGNED_ID = '__unassigned__';
+const COMBOBOX_THRESHOLD = 5;
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+export function OwnerPicker({
+  candidates,
+  value,
+  onChange,
+  disabled = false,
+}: OwnerPickerProps): React.ReactElement {
+  function toOwnerValue(candidateId: string | null): OwnerValue {
+    if (candidateId === null || candidateId === UNASSIGNED_ID) {
+      return { ownerUserId: null, ownerTeamId: null };
+    }
+    const actor = candidates.find((c) => c.id === candidateId);
+    if (!actor) return { ownerUserId: null, ownerTeamId: null };
+    return actor.kind === 'team'
+      ? { ownerUserId: null, ownerTeamId: actor.id }
+      : { ownerUserId: actor.id, ownerTeamId: null };
+  }
+
+  function candidateLabel(candidate: OwnerCandidate): string {
+    return candidate.eligible === false
+      ? `${candidate.display_name} · ${MANAGED_SYSTEM_COPY.categories.ineligible_actor}`
+      : candidate.display_name;
+  }
+
+  // Combobox mode (>5 candidates)
+  if (candidates.length > COMBOBOX_THRESHOLD) {
+    const options = [
+      { value: UNASSIGNED_ID, label: '(미지정)' },
+      ...candidates.map((c) => ({
+        value: c.id,
+        label: candidateLabel(c),
+        disabled: c.eligible === false,
+      })),
+    ];
+
+    return (
+      <Combobox
+        options={options}
+        value={value ?? UNASSIGNED_ID}
+        onChange={(v) => {
+          onChange(toOwnerValue(v === UNASSIGNED_ID ? null : v));
+        }}
+        placeholder="담당자 선택…"
+        searchPlaceholder="이름으로 검색…"
+        disabled={disabled}
+      />
+    );
+  }
+
+  // RadioGroup-style entity rows (≤5 candidates)
+  return (
+    <div className="flex flex-col gap-1.5">
+      {/* "(미지정)" always first — D-2.3 */}
+      <OwnerRow
+        id={UNASSIGNED_ID}
+        displayName="(미지정)"
+        isActive={value === null}
+        onClick={() => {
+          onChange({ ownerUserId: null, ownerTeamId: null });
+        }}
+        disabled={disabled}
+      />
+
+      {candidates.map((actor) => (
+        <OwnerRow
+          key={actor.id}
+          id={actor.id}
+          displayName={candidateLabel(actor)}
+          meta={actor.meta}
+          isActive={value === actor.id}
+          user={actor.kind === 'user' ? { display_name: actor.display_name } : undefined}
+          onClick={() => {
+            onChange(toOwnerValue(actor.id));
+          }}
+          disabled={disabled || actor.eligible === false}
+        />
+      ))}
+    </div>
+  );
+}
+
+OwnerPicker.displayName = 'OwnerPicker';
+
+// ── OwnerRow sub-component ────────────────────────────────────────────────────
+
+interface OwnerRowProps {
+  id: string;
+  displayName: string;
+  meta?: string | undefined;
+  isActive: boolean;
+  user?: { display_name: string } | undefined;
+  onClick: () => void;
+  disabled?: boolean | undefined;
+}
+
+function OwnerRow({
+  id,
+  displayName,
+  meta,
+  isActive,
+  user,
+  onClick,
+  disabled,
+}: OwnerRowProps): React.ReactElement {
+  return (
+    <PickerOptionGrid columns="owner">
+      <button
+        type="button"
+        data-owner-id={id}
+        data-active={isActive ? 'true' : 'false'}
+        aria-pressed={isActive}
+        onClick={onClick}
+        disabled={disabled}
+        className={cn(
+          'grid items-center gap-2.5 px-3 py-2.5 rounded-md bg-surface-canvas shadow-subtle text-left w-full',
+          'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring',
+          'disabled:opacity-40 disabled:pointer-events-none',
+          isActive && 'bg-accent-primary/5 ring-1 ring-inset ring-accent-primary/40',
+        )}
+      >
+        {/* Avatar or placeholder circle */}
+        {user !== undefined ? (
+          <UserAvatar user={user} size="sm" />
+        ) : (
+          // Placeholder (e.g. "(미지정)") — dashed circle
+          <span
+            className="inline-flex size-4.5 shrink-0 items-center justify-center rounded-full border border-dashed border-border-strong text-text-muted"
+            aria-hidden="true"
+          />
+        )}
+
+        {/* Label column */}
+        <span className="flex flex-col min-w-0">
+          {/* .entity-node-title */}
+          <span className="text-xs font-medium text-text-primary leading-none truncate">
+            {displayName}
+          </span>
+          {/* .entity-node-meta */}
+          {meta !== undefined && (
+            <span className="text-caption text-text-muted leading-none mt-0.5 truncate">
+              {meta}
+            </span>
+          )}
+        </span>
+
+        {/* Check mark when active */}
+        {isActive ? (
+          <Check size={12} className="text-accent-primary shrink-0" aria-hidden="true" />
+        ) : (
+          <span className="w-3 h-3 shrink-0" aria-hidden="true" />
+        )}
+      </button>
+    </PickerOptionGrid>
+  );
+}

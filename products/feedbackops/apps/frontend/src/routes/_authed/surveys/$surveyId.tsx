@@ -1,0 +1,228 @@
+import { SurveyBuilder } from '@/features/surveys/components/builder/SurveyBuilder';
+import { SurveyDetail } from '@/features/surveys/components/detail/SurveyDetail';
+import {
+  SurveyListScreen,
+  surveyListContextFromSearch,
+  surveyListContextSearch,
+} from '@/features/surveys/components/list/SurveyListScreen';
+import { useSurvey } from '@/features/surveys/hooks/useSurveys';
+import { useSurveyManageGate } from '@/features/surveys/routes/SurveyPermissionGate';
+import type { Survey } from '@/features/surveys/types';
+import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
+import { useManagedSystemNamesResult } from '@/lib/cross-system/useManagedSystemNames';
+import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
+import { formatRecordDocumentTitle, useDocumentTitle } from '@/lib/router/document-title';
+import { platformReturnField } from '@/lib/router/platform-return';
+import { recoverySearchFields } from '@/lib/router/recovery-search';
+import { parseRouteSearch } from '@/lib/router/search';
+import { DirtyConfirmation, EmptyState, PermissionBlockedPanel } from '@fops/ui';
+import {
+  Outlet,
+  createFileRoute,
+  useBlocker,
+  useMatchRoute,
+  useNavigate,
+} from '@tanstack/react-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { z } from 'zod';
+
+const searchSchema = z
+  .object({
+    builder: z.boolean().optional(),
+    returnTo: recoverySearchFields.returnTo,
+    platformReturn: platformReturnField,
+    managedSystem: z.union([z.string().uuid(), z.literal('all')]).optional(),
+    'filter.analytics_area': z.union([z.string().uuid(), z.literal('unset')]).optional(),
+    status: z.literal('open').optional(),
+    follow_up: z.literal('needed').optional(),
+  })
+  .strict();
+
+export function validateSurveyDetailSearch(raw: unknown) {
+  return parseRouteSearch(searchSchema, raw);
+}
+
+// #982: the router plugin skips code-splitting when the route component is an
+// exported local (hasExport check). The alias keeps SurveyDetailRoute exported
+// for tests while letting the route component split into its own chunk.
+const SurveyDetailRouteSplit = SurveyDetailRoute;
+
+export const Route = createFileRoute('/_authed/surveys/$surveyId')({
+  validateSearch: validateSurveyDetailSearch,
+  component: SurveyDetailRouteSplit,
+});
+
+function SurveyBuilderWithDirtyConfirmation({
+  survey,
+  canManage,
+  gateState,
+  managedSystemNamesById,
+  onBack,
+}: {
+  survey: Survey;
+  canManage: boolean;
+  gateState?: 'loading' | 'error' | 'absent';
+  managedSystemNamesById: ReadonlyMap<string, string> | undefined;
+  onBack: () => void;
+}) {
+  const builderDirtyRef = useRef(false);
+  const [dirtyDialogOpen, setDirtyDialogOpen] = useState(false);
+  const handleBuilderDirtyChange = useCallback((dirty: boolean) => {
+    builderDirtyRef.current = dirty;
+  }, []);
+  const blocker = useBlocker({
+    shouldBlockFn: () => builderDirtyRef.current,
+    withResolver: true,
+    enableBeforeUnload: () => builderDirtyRef.current,
+  });
+  useEffect(() => {
+    if (blocker.status === 'blocked') setDirtyDialogOpen(true);
+  }, [blocker.status]);
+  const confirmLeaveBuilder = () => {
+    setDirtyDialogOpen(false);
+    handleBuilderDirtyChange(false);
+    if (blocker.status === 'blocked' && blocker.proceed) blocker.proceed();
+  };
+  const cancelLeaveBuilder = () => {
+    setDirtyDialogOpen(false);
+    if (blocker.status === 'blocked' && blocker.reset) blocker.reset();
+  };
+
+  return (
+    <>
+      <SurveyBuilder
+        survey={survey}
+        canManage={canManage}
+        {...(gateState ? { gateState } : {})}
+        managedSystemNamesById={managedSystemNamesById}
+        onBack={onBack}
+        onDirtyChange={handleBuilderDirtyChange}
+      />
+      <DirtyConfirmation
+        open={dirtyDialogOpen}
+        onConfirm={confirmLeaveBuilder}
+        onCancel={cancelLeaveBuilder}
+      />
+    </>
+  );
+}
+
+export function SurveyDetailRoute() {
+  const { surveyId } = Route.useParams();
+  const matchRoute = useMatchRoute();
+  const search = Route.useSearch();
+  const navigate = useNavigate();
+  const isResultsRoute = matchRoute({
+    to: '/surveys/$surveyId/results',
+    params: { surveyId },
+    fuzzy: false,
+  });
+  const isFollowUpRoute = matchRoute({
+    to: '/surveys/$surveyId/follow-up',
+    params: { surveyId },
+    fuzzy: false,
+  });
+  const isOutcomeReviewRoute = isResultsRoute || isFollowUpRoute;
+  const query = useSurvey(surveyId);
+  const gate = useSurveyManageGate(query.data?.primary_managed_system_id);
+  const documentTitleRecord =
+    !isOutcomeReviewRoute &&
+    query.isSuccess &&
+    !query.isFetching &&
+    (!search.builder || gate.canManage)
+      ? formatRecordDocumentTitle({
+          displayId: query.data.display_id,
+          title: query.data.title,
+        })
+      : null;
+  useDocumentTitle(documentTitleRecord);
+  const listContext = surveyListContextFromSearch(search);
+  const managedSystemNames = useManagedSystemNamesResult({ enabled: !isOutcomeReviewRoute });
+  const managedSystemNamesById = managedSystemNames.isSuccess
+    ? managedSystemNames.namesById
+    : undefined;
+  const actorsQuery = useWorkspaceActors({ enabled: !isOutcomeReviewRoute });
+  const actorNamesById = useMemo(
+    () =>
+      actorsQuery.isSuccess
+        ? new Map((actorsQuery.actors ?? []).map((actor) => [actor.id, actor.display_name]))
+        : undefined,
+    [actorsQuery.actors, actorsQuery.isSuccess],
+  );
+
+  if (isOutcomeReviewRoute) return <Outlet />;
+  if (query.isLoading) return <div className="p-6 text-sm text-text-muted">불러오는 중…</div>;
+  if (query.isError || !query.data)
+    return (
+      <EmptyState title="Survey를 찾을 수 없습니다." body="삭제되었거나 접근 권한이 없습니다." />
+    );
+  if (search.builder) {
+    if (!gate.canManage)
+      return (
+        <div className="p-6">
+          <PermissionBlockedPanel
+            state="blocked_not_requestable"
+            category="Survey 빌더"
+            reason={PERMISSION_BLOCKED_REASONS.surveyBuilder}
+          />
+        </div>
+      );
+    return (
+      <SurveyBuilderWithDirtyConfirmation
+        survey={query.data}
+        canManage
+        managedSystemNamesById={managedSystemNamesById}
+        {...(gate.gateState ? { gateState: gate.gateState } : {})}
+        onBack={() => void navigate({ to: '/surveys/$surveyId', params: { surveyId } })}
+      />
+    );
+  }
+  return (
+    <SurveyListScreen
+      context={listContext}
+      selectedId={surveyId}
+      onSelect={(id) =>
+        void navigate({
+          to: '/surveys/$surveyId',
+          params: { surveyId: id },
+          search: (previous) => previous,
+        })
+      }
+      onClose={() =>
+        void navigate({
+          to: '/surveys',
+          search: surveyListContextSearch(listContext),
+        })
+      }
+      onRemoveFilters={(keys) =>
+        void navigate({
+          to: '/surveys/$surveyId',
+          params: { surveyId },
+          search: (previous) => {
+            const next = { ...previous };
+            for (const key of keys) delete next[key];
+            return next;
+          },
+        })
+      }
+      onCreated={(createdId) =>
+        void navigate({
+          to: '/surveys/$surveyId',
+          params: { surveyId: createdId },
+          search: { builder: true },
+        })
+      }
+      managedSystemNamesById={managedSystemNamesById}
+      actorNamesById={actorNamesById}
+      renderDetail={(close) => (
+        <SurveyDetail
+          survey={query.data}
+          canManage={gate.canManage}
+          onClose={close}
+          managedSystemNamesById={managedSystemNamesById}
+          actorNamesById={actorNamesById}
+        />
+      )}
+    />
+  );
+}

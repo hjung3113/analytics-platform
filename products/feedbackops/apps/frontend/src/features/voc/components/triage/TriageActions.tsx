@@ -1,0 +1,118 @@
+/**
+ * TriageActions — footer action buttons for the TriagePanel.
+ *
+ * Prototype ref: screen-voc-create.jsx:572-584
+ * Three buttons:
+ *   1. "Triage 확정 & 다음 VOC" — primary, disabled when !canConfirm. Block-width.
+ *   2. "Finding 만들기" — secondary, always enabled.
+ *   3. "보류" — subtle, enabled only when postponement can apply.
+ *
+ * Chunk 2: no mutation logic. Buttons emit onConfirm/onFinding/onSkip callbacks.
+ * Chunk 3 will wire real mutation into onConfirm.
+ *
+ * Token translations (PROTOTYPE-TO-PACK17.md §3.3, §3.5):
+ *   .panel-footer → border-t border-border-subtle px-5 py-4 flex flex-col gap-2 bg-surface-detail
+ *   .btn-primary .btn-block → w-full bg-accent-primary text-text-on-accent
+ *   .btn-secondary → bg-surface-card text-text-primary shadow-subtle
+ *   .btn-subtle → text-text-secondary hover:bg-surface-card
+ *
+ * Neon Lime rule (PLAN-21 §Acceptance criteria "Neon Lime usage rule"):
+ *   bg-accent-primary is only used on the "Triage 확정" CTA. ✓
+ */
+
+import { cn } from '@fops/ui';
+import { BookOpen, Check, ChevronRight } from 'lucide-react';
+import * as React from 'react';
+
+export interface TriageActionsProps {
+  /** A field changed, or the VOC is not triaged yet; the panel also folds in its lock. */
+  canConfirm: boolean;
+  submitting: boolean;
+  skipDisabledReason?: string | undefined;
+  onConfirm: () => void;
+  onFinding: () => void;
+  onSkip: () => void;
+}
+
+export function TriageActions({
+  canConfirm,
+  submitting,
+  skipDisabledReason,
+  onConfirm,
+  onFinding,
+  onSkip,
+}: TriageActionsProps): React.ReactElement {
+  const confirmDisabled = !canConfirm || submitting;
+
+  return (
+    <div className="border-t border-border-subtle px-5 py-4 flex flex-col gap-2 bg-surface-detail shrink-0">
+      {/* Primary CTA — Triage 확정 */}
+      <button
+        type="button"
+        aria-label="Triage 확정 & 다음 VOC"
+        disabled={confirmDisabled}
+        onClick={onConfirm}
+        className={cn(
+          'w-full inline-flex items-center justify-center gap-1.5',
+          'h-8 px-3.5 rounded-md text-sm font-semibold',
+          'bg-accent-primary text-text-on-accent',
+          'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring',
+          'disabled:opacity-40 disabled:pointer-events-none',
+        )}
+      >
+        <Check size={12} aria-hidden="true" />
+        Triage 확정 &amp; 다음 VOC
+      </button>
+
+      {/* Secondary actions row.
+          REV-2 #2 / NEW-1: disable secondary buttons while a mutation is pending
+          so the user cannot start a second mutation that would mark the first
+          call — its optimistic row is restored at once, the request keeps
+          running, and it is compensated if it succeeds. */}
+      <div className="flex gap-2">
+        {/* Finding 만들기 */}
+        <button
+          type="button"
+          aria-label="Finding 만들기"
+          disabled={submitting}
+          onClick={onFinding}
+          className={cn(
+            'flex-1 inline-flex items-center justify-center gap-1.5',
+            'h-7 px-2.5 rounded-md text-sm font-medium',
+            'bg-surface-card text-text-primary shadow-subtle',
+            'hover:bg-surface-popover',
+            'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring',
+            'disabled:opacity-40 disabled:pointer-events-none',
+          )}
+        >
+          <BookOpen size={11} aria-hidden="true" />
+          Finding 만들기
+        </button>
+
+        {/* 보류 — a disabled button gets no pointer events, so the wrapper carries the
+            reason tooltip. */}
+        <span className="flex-1 inline-flex" title={skipDisabledReason}>
+          <button
+            type="button"
+            aria-label="보류"
+            disabled={submitting || skipDisabledReason !== undefined}
+            onClick={onSkip}
+            className={cn(
+              'w-full inline-flex items-center justify-center gap-1.5',
+              'h-7 px-2.5 rounded-md text-sm font-medium',
+              'text-text-secondary',
+              'hover:bg-surface-card hover:text-text-primary',
+              'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring',
+              'disabled:opacity-40 disabled:pointer-events-none',
+            )}
+          >
+            <ChevronRight size={11} aria-hidden="true" />
+            보류
+          </button>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+TriageActions.displayName = 'TriageActions';

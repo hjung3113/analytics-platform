@@ -1,0 +1,283 @@
+import type { ReactNode } from 'react';
+
+import { PermissionBlockedPanel } from '@fops/ui';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+
+import {
+  permissionCheckQueryKey,
+  permissionRequestsMineKey,
+} from '@/lib/cross-system/usePermissionCheck';
+import { RequestAccessButton } from '../request-access-button.js';
+
+const CAPABILITY = 'finding.manage';
+const CAPABILITY_LABEL = 'Finding 관리';
+const MANAGED_SYSTEM_ID = '11111111-1111-4111-8111-111111111111';
+const RETURN_ROUTE = '/findings?selected=FND-274';
+const REASON = 'Need scoped access to verify the distinct finding fixture.';
+const CREATED_AT = '2026-08-03T09:30:00.000Z';
+
+function success(id = 'PR-D8-001') {
+  return new Response(JSON.stringify({ id, status: 'pending', created_at: CREATED_AT }), {
+    status: 201,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+function wrap(
+  renderTrigger?: (open: () => void) => ReactNode,
+  managedSystemId: string | null = MANAGED_SYSTEM_ID,
+) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+  render(
+    <QueryClientProvider client={qc}>
+      <RequestAccessButton
+        capability={CAPABILITY}
+        returnRouteIntent={RETURN_ROUTE}
+        {...(managedSystemId !== null ? { managedSystemId } : {})}
+        {...(renderTrigger !== undefined ? { renderTrigger } : {})}
+      />
+    </QueryClientProvider>,
+  );
+  return { invalidateSpy };
+}
+
+function openForm() {
+  fireEvent.click(screen.getByRole('button', { name: '권한 요청' }));
+  expect(screen.getByTestId('permission-request-form')).toBeInTheDocument();
+  expect(screen.getByText(CAPABILITY_LABEL)).toBeInTheDocument();
+  expect(screen.queryByText(CAPABILITY)).not.toBeInTheDocument();
+  expect(screen.getByLabelText('사유 · 필수')).toBeInTheDocument();
+  expect(screen.getByText(MANAGED_SYSTEM_ID)).toBeInTheDocument();
+}
+
+function fillReasonAndSubmit(reason = REASON) {
+  fireEvent.change(screen.getByTestId('permission-request-reason'), { target: { value: reason } });
+  fireEvent.submit(screen.getByTestId('permission-request-form'));
+}
+
+// #1170: opening the dialog additionally fetches Managed System names via the
+// shared ['managed-systems','all'] query. The pins below guard permission
+// requests, so every helper counts POST calls only.
+function postCalls(fetchMock: ReturnType<typeof vi.fn>) {
+  return fetchMock.mock.calls.filter(
+    (call) => (call[1] as RequestInit | undefined)?.method === 'POST',
+  );
+}
+
+function requestBody(fetchMock: ReturnType<typeof vi.fn>, index = 0) {
+  const call = postCalls(fetchMock)[index];
+  if (!call) throw new Error(`missing fetch call ${index}`);
+  return JSON.parse((call[1] as RequestInit).body as string) as Record<string, unknown>;
+}
+
+function idempotencyKey(fetchMock: ReturnType<typeof vi.fn>, index = 0) {
+  const call = postCalls(fetchMock)[index];
+  if (!call) throw new Error(`missing fetch call ${index}`);
+  return ((call[1] as RequestInit).headers as Record<string, string>)['Idempotency-Key'];
+}
+
+describe('<RequestAccessButton>', () => {
+  const originalFetch = globalThis.fetch;
+
+  beforeEach(() => {
+    globalThis.fetch = vi.fn(async () => new Response('not mocked', { status: 500 }));
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  test('AC-D8a clicking Request access renders confirmation before exactly zero POSTs', async () => {
+    const fetchMock = vi.fn(async () => success());
+    globalThis.fetch = fetchMock as typeof globalThis.fetch;
+    wrap();
+
+    openForm();
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(postCalls(fetchMock)).toHaveLength(0);
+  });
+
+  test('renders a workspace-wide request scope in Korean', () => {
+    wrap(undefined, null);
+
+    fireEvent.click(screen.getByRole('button', { name: '권한 요청' }));
+
+    expect(screen.getByText('워크스페이스 전체')).toBeInTheDocument();
+    expect(screen.getByText(CAPABILITY_LABEL)).toBeInTheDocument();
+  });
+
+  test('a request-access panel trigger opens the existing permission request form', () => {
+    const fetchMock = vi.fn(async () => success());
+    globalThis.fetch = fetchMock as typeof globalThis.fetch;
+    wrap((open) => (
+      <PermissionBlockedPanel state="request_access" category="VOC Inbox" onRequestAccess={open} />
+    ));
+
+    fireEvent.click(screen.getByRole('button', { name: '권한 요청하기' }));
+
+    expect(screen.getByTestId('permission-request-form')).toBeInTheDocument();
+    expect(screen.getByText(CAPABILITY_LABEL)).toBeInTheDocument();
+    expect(screen.getByText(MANAGED_SYSTEM_ID)).toBeInTheDocument();
+    expect(postCalls(fetchMock)).toHaveLength(0);
+  });
+
+  test('the dialog scope summaries show the Managed System name, not the UUID', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = new URL(String(input), 'http://localhost').pathname;
+      if (path === '/managed-systems') {
+        return new Response(
+          JSON.stringify({ items: [{ id: MANAGED_SYSTEM_ID, name: 'Tableau' }], total: 1 }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      return success();
+    });
+    globalThis.fetch = fetchMock as typeof globalThis.fetch;
+    wrap();
+    fireEvent.click(screen.getByRole('button', { name: '권한 요청' }));
+
+    expect(await screen.findByText('Tableau')).toBeInTheDocument();
+    expect(screen.queryByText(MANAGED_SYSTEM_ID)).not.toBeInTheDocument();
+
+    fillReasonAndSubmit();
+
+    expect(await screen.findByText('권한 요청 완료')).toBeInTheDocument();
+    expect(screen.getByText('Tableau')).toBeInTheDocument();
+    expect(screen.queryByText(MANAGED_SYSTEM_ID)).not.toBeInTheDocument();
+  });
+
+  test('AC-D8b submitting sends exactly one matching non-hardcoded reason', async () => {
+    const fetchMock = vi.fn(async () => success());
+    globalThis.fetch = fetchMock as typeof globalThis.fetch;
+    wrap();
+    openForm();
+
+    fillReasonAndSubmit();
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const body = requestBody(fetchMock);
+    expect(body.reason).toBe(REASON);
+    expect(body.reason).not.toBe('Requested via permission gate');
+  });
+
+  test('AC-D8c empty expiration sends capability and exactly no expiration key', async () => {
+    const fetchMock = vi.fn(async () => success());
+    globalThis.fetch = fetchMock as typeof globalThis.fetch;
+    wrap();
+    openForm();
+
+    fillReasonAndSubmit();
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const body = requestBody(fetchMock);
+    expect(body.requested_capability).toBe(CAPABILITY);
+    expect(body).not.toHaveProperty('requested_expiration');
+  });
+
+  test('AC-D8d expiration sends its end-of-day ISO value exactly once', async () => {
+    const fetchMock = vi.fn(async () => success());
+    globalThis.fetch = fetchMock as typeof globalThis.fetch;
+    wrap();
+    openForm();
+    fireEvent.change(screen.getByTestId('permission-request-expiration'), {
+      target: { value: '2026-09-30' },
+    });
+
+    fillReasonAndSubmit();
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(requestBody(fetchMock).requested_expiration).toBe('2026-09-30T23:59:59.000Z');
+  });
+
+  test('AC-D8f successful submit shows the request identifier and submitted content', async () => {
+    const fetchMock = vi.fn(async () => success('PR-D8-IDENTIFIABLE'));
+    globalThis.fetch = fetchMock as typeof globalThis.fetch;
+    wrap();
+    openForm();
+    fireEvent.change(screen.getByTestId('permission-request-expiration'), {
+      target: { value: '2026-09-30' },
+    });
+
+    fillReasonAndSubmit();
+
+    expect(await screen.findByText('권한 요청 완료')).toBeInTheDocument();
+    expect(screen.getByTestId('permission-request-id')).toHaveTextContent('PR-D8-IDENTIFIABLE');
+    expect(screen.getByText(CAPABILITY_LABEL)).toBeInTheDocument();
+    expect(screen.queryByText(CAPABILITY)).not.toBeInTheDocument();
+    expect(screen.getByText('권한')).toBeInTheDocument();
+    expect(screen.getByText(MANAGED_SYSTEM_ID)).toBeInTheDocument();
+    expect(screen.getByText('사유')).toBeInTheDocument();
+    expect(screen.getByText(REASON)).toBeInTheDocument();
+    expect(screen.getByText('상태')).toBeInTheDocument();
+    expect(screen.getByText('요청일')).toBeInTheDocument();
+    expect(screen.getByText('만료일')).toBeInTheDocument();
+    expect(screen.getByText('대기 중')).toBeInTheDocument();
+    expect(screen.queryByText('pending')).not.toBeInTheDocument();
+    expect(screen.getByText(CREATED_AT)).toBeInTheDocument();
+  });
+
+  test('AC-D8g capability-already-granted shows no error and invalidates queries', async () => {
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            code: 'conflict.capability_already_granted',
+            message: 'already granted',
+          }),
+          { status: 409, headers: { 'content-type': 'application/json' } },
+        ),
+    ) as typeof globalThis.fetch;
+    const { invalidateSpy } = wrap();
+    openForm();
+
+    fillReasonAndSubmit();
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: permissionCheckQueryKey({
+          capability: CAPABILITY,
+          managedSystemId: MANAGED_SYSTEM_ID,
+        }),
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: permissionRequestsMineKey });
+    });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  test('AC-D8h failed retry reuses the key and a post-success new intent rotates it', async () => {
+    const fetchMock = vi
+      .fn()
+      // Leading 500: the dialog-open Managed System name lookup (retry:false).
+      .mockResolvedValueOnce(new Response('failed', { status: 500 }))
+      .mockResolvedValueOnce(new Response('failed', { status: 500 }))
+      .mockResolvedValueOnce(success('PR-D8-RETRY'))
+      .mockResolvedValueOnce(success('PR-D8-NEXT'));
+    globalThis.fetch = fetchMock as typeof globalThis.fetch;
+    wrap();
+    openForm();
+
+    fillReasonAndSubmit();
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        '일시적 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.',
+      ),
+    );
+    fireEvent.submit(screen.getByTestId('permission-request-form'));
+    await waitFor(() =>
+      expect(screen.getByTestId('permission-request-id')).toHaveTextContent('PR-D8-RETRY'),
+    );
+    fireEvent.click(screen.getByRole('button', { name: '다른 권한 요청' }));
+    fillReasonAndSubmit('A distinct second intent after the successful request.');
+
+    await waitFor(() => expect(postCalls(fetchMock)).toHaveLength(3));
+    expect(idempotencyKey(fetchMock, 0)).toBe(idempotencyKey(fetchMock, 1));
+    expect(idempotencyKey(fetchMock, 2)).not.toBe(idempotencyKey(fetchMock, 1));
+  });
+});

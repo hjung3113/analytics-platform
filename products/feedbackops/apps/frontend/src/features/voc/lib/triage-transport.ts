@@ -1,0 +1,56 @@
+// triage-transport.ts — HTTP adapter for the VOC triage endpoints (issue #481).
+// The triage HTTP calls live ONLY in this file: the panel, the command hook,
+// and the react-query seam all delegate here.
+//
+// Forward PATCH /vocs/:id:
+//   Idempotency-Key auto-minted by the API client for PATCH (D-3.5);
+//   If-Match: input.ifMatch (click-time voc.updated_at).
+//   No AbortSignal: an abort cannot un-send a request (#857).
+// Compensating PATCH /vocs/:id:
+//   EXPLICIT fresh Idempotency-Key (D-3.5) — do NOT rely on the auto-mint
+//   (which would reuse the auto-generated key from the same process if called
+//   too quickly).
+// GET /vocs/:id:
+//   No If-Match / Idempotency-Key. Signal comes only from the query context.
+
+import { apiClient } from '@/lib/api/client';
+import { mintIdempotencyKey } from '@/lib/api/idempotency';
+import { buildCompensatePayload, buildPayload } from './triage-payload';
+import type { TriageInput, TriageOutput, TriageSnapshot } from './triage-types';
+
+export async function patchVocTriage(input: TriageInput): Promise<TriageOutput> {
+  const res = await apiClient<TriageOutput>('PATCH', `/vocs/${input.vocId}`, {
+    body: buildPayload(input),
+    ifMatch: input.ifMatch,
+    // Idempotency-Key auto-minted by the API client for PATCH (D-3.5)
+  });
+  return res.data;
+}
+
+/**
+ * executeCompensatingPatch — fires the compensating PATCH for the undo-settled path.
+ * Must be called with the snapshot captured at mutate() time.
+ *
+ * D-3.5: the compensating PATCH MUST use an explicit fresh Idempotency-Key — do NOT
+ * rely on the auto-mint (which would reuse the auto-generated key from the same
+ * process if called too quickly). Pass an explicit fresh UUID.
+ */
+export async function executeCompensatingPatch(snapshot: TriageSnapshot): Promise<TriageOutput> {
+  const payload = buildCompensatePayload(snapshot);
+  const res = await apiClient<TriageOutput>('PATCH', `/vocs/${snapshot.vocId}`, {
+    body: payload,
+    ifMatch: snapshot.ifMatch,
+    idempotencyKey: mintIdempotencyKey(),
+  });
+  return res.data;
+}
+
+export async function getVocUpdatedAt(
+  vocId: string,
+  signal?: AbortSignal,
+): Promise<{ updated_at?: unknown }> {
+  const res = await apiClient<{ updated_at?: unknown }>('GET', `/vocs/${vocId}`, {
+    ...(signal !== undefined && { signal }),
+  });
+  return res.data;
+}

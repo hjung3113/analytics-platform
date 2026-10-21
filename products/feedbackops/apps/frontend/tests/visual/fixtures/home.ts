@@ -1,0 +1,241 @@
+import {
+  dashboardSummarySchema,
+  permissionRequestOwnerDetailSchema,
+  taskDtoSchema,
+  taskRequestDtoSchema,
+} from '@fops/shared';
+
+import type { MinePermissionRequestRow } from '@/lib/api/permissions';
+
+export const homeSummaryFixture = dashboardSummarySchema.parse({
+  computed_at: '2026-07-20T08:00:00.000Z',
+  kpis: {
+    open_voc: 47,
+    active_finding: 14,
+    pending_request: 8,
+    tasks_in_flight: 23,
+    coverage_percent: 67,
+  },
+  action_queues: [
+    {
+      id: 'unassigned-voc',
+      severity: 'urgent',
+      count: 12,
+      next_action: {
+        label: 'Review VOCs',
+        route: '/vocs?view=triage&tab=unassigned',
+        intent: 'review',
+      },
+      secondary_action: {
+        label: 'Bulk assign',
+        route: '/vocs?view=triage&tab=unassigned',
+        intent: 'assign',
+      },
+    },
+    {
+      id: 'actionable-finding-no-execution',
+      severity: 'warn',
+      count: 8,
+      next_action: { label: 'Request Tasks', route: '/findings', intent: 'request-task' },
+      secondary_action: { label: 'Open queue', route: '/findings', intent: 'open' },
+    },
+    {
+      id: 'released-task-unresolved-voc',
+      severity: 'warn',
+      count: 5,
+      next_action: { label: 'Review Updates', route: '/vocs?view=inbox', intent: 'review-update' },
+      secondary_action: { label: 'Open queue', route: '/vocs?view=inbox', intent: 'open' },
+    },
+    {
+      id: 'bad-outcome-no-followup',
+      severity: 'urgent',
+      count: 3,
+      next_action: { label: 'Create Follow-up', route: '/surveys', intent: 'create-follow-up' },
+      secondary_action: { label: 'View surveys', route: '/surveys', intent: 'open' },
+    },
+    {
+      id: 'high-severity-unlinked',
+      severity: 'urgent',
+      count: 4,
+      next_action: { label: 'Link Finding', route: '/vocs?view=triage&tab=high', intent: 'link' },
+      secondary_action: {
+        label: 'Open queue',
+        route: '/vocs?view=triage&tab=high',
+        intent: 'open',
+      },
+    },
+    {
+      id: 'permission-requests-pending',
+      severity: 'info',
+      count: 2,
+      next_action: {
+        label: 'Open Requests',
+        route: '/admin/permissions/requests',
+        intent: 'review',
+      },
+      secondary_action: null,
+    },
+  ],
+  coverage: [
+    { id: 'voc-task', value: 180, total: 1000, percent: 18, status: 'warn' },
+    { id: 'finding-execution', value: 23, total: 31, percent: 74, status: 'good' },
+    { id: 'high-followup', value: 41, total: 47, percent: 87, status: 'good' },
+  ],
+  by_managed_system: [],
+});
+
+export const homeZeroQueueSummaryFixture = dashboardSummarySchema.parse({
+  ...homeSummaryFixture,
+  action_queues: homeSummaryFixture.action_queues.map((queue) =>
+    queue.id === 'unassigned-voc' || queue.id === 'actionable-finding-no-execution'
+      ? { ...queue, count: 0 }
+      : queue,
+  ),
+});
+
+export const homeUnscopedSummaryFixture = dashboardSummarySchema.parse({
+  ...homeSummaryFixture,
+  kpis: {},
+  action_queues: [],
+  coverage: [],
+});
+
+export type HomeVisualScenario = 'populated' | 'empty' | 'zero-queues' | 'unscoped';
+
+export const homeVisualSnapshot = 'home-action-dashboard.png';
+export const homeEmptyVisualSnapshot = 'home-action-dashboard-empty.png';
+export const homeZeroQueuesVisualSnapshot = 'home-action-dashboard-zero-queues.png';
+export const homeUnscopedVisualSnapshot = 'home-summary-unscoped.png';
+export const homeInboxPopulatedVisualSnapshot = 'home-inbox-populated.png';
+export const homeInboxSubjectReferencesVisualSnapshot = 'home-inbox-subject-references.png';
+export const inboxHighNoLinkSelectedVisualSnapshot = 'inbox-high-no-link-selected.png';
+
+const homeFixtureIds = {
+  taskOne: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  taskTwo: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  requestOne: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+  requestTwo: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+  finding: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+  voc: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+} as const;
+
+const taskBase = {
+  workspace_id: '11111111-1111-4111-8111-111111111111',
+  primary_managed_system_id: '33333333-3333-4333-8333-333333333333',
+  assignee_actor_id: '22222222-2222-4222-8222-222222222222',
+  assignee_team_id: null,
+  due_date: null,
+  milestone_id: null,
+  analytics_area_id: null,
+  source_task_request_id: null,
+  created_by: '22222222-2222-4222-8222-222222222222',
+  created_at: '2026-07-10T00:00:00.000Z',
+  updated_at: '2026-07-10T00:00:00.000Z',
+} as const;
+
+export const homeMyWorkTasksFixture = [
+  taskDtoSchema.parse({
+    ...taskBase,
+    id: homeFixtureIds.taskOne,
+    display_id: 'TASK-901',
+    title: '매출 리포트 쿼리 플랜 개선',
+    status: 'review',
+    priority: 'high',
+  }),
+  taskDtoSchema.parse({
+    ...taskBase,
+    id: homeFixtureIds.taskTwo,
+    display_id: 'TASK-902',
+    title: '데이터 추출 안정화',
+    status: 'doing',
+    priority: 'medium',
+  }),
+];
+
+const taskRequestBase = {
+  workspace_id: taskBase.workspace_id,
+  primary_managed_system_id: taskBase.primary_managed_system_id,
+  evidence_summary: '후속 조치가 필요한 운영 신호입니다.',
+  requester_actor_id: taskBase.created_by,
+  status: 'pending_review',
+  assigned_reviewer_actor_id: '22222222-2222-4222-8222-222222222222',
+  assigned_reviewer_team_id: null,
+  reviewer_actor_id: null,
+  decision_reason: null,
+  decided_at: null,
+  created_at: taskBase.created_at,
+  updated_at: taskBase.updated_at,
+} as const;
+
+export const homeMyWorkRequestsFixture = [
+  taskRequestDtoSchema.parse({
+    ...taskRequestBase,
+    id: homeFixtureIds.requestOne,
+    display_id: 'REQ-42',
+    source_type: 'finding',
+    source_id: homeFixtureIds.finding,
+    requested_outcome: '검토 결과 → Task 변환',
+  }),
+  taskRequestDtoSchema.parse({
+    ...taskRequestBase,
+    id: homeFixtureIds.requestTwo,
+    display_id: 'REQ-43',
+    source_type: 'voc',
+    source_id: homeFixtureIds.voc,
+    requested_outcome: '공개 업데이트 검토',
+  }),
+];
+
+export const homeOpenPermissionRequestsFixture = [
+  {
+    id: '99999999-9999-4999-8999-999999999991',
+    requested_capability: 'workspace.admin',
+    requested_managed_system_id: null,
+    revision: 1,
+    requested_expiration: null,
+    updated_at: '2026-07-10T00:00:00.000Z',
+    return_route_intent: '/home',
+    reason: 'Admin review is required.',
+    requested_object_type: null,
+    requested_object_id: null,
+    source_object_type: null,
+    source_object_id: null,
+    source_action_id: null,
+    status: 'pending' as const,
+    created_at: '2026-07-10T00:00:00.000Z',
+  },
+  {
+    id: '99999999-9999-4999-8999-999999999992',
+    requested_capability: 'finding.manage',
+    requested_managed_system_id: null,
+    revision: 1,
+    requested_expiration: '2026-12-31T23:59:59.000Z',
+    updated_at: '2026-07-11T00:00:00.000Z',
+    return_route_intent: '/findings',
+    reason: 'Finding updates are needed.',
+    requested_object_type: null,
+    requested_object_id: null,
+    source_object_type: null,
+    source_object_id: null,
+    source_action_id: null,
+    status: 'needs_more_info' as const,
+    created_at: '2026-07-11T00:00:00.000Z',
+  },
+] satisfies MinePermissionRequestRow[];
+
+export const homeOwnerPermissionDetailsFixture = homeOpenPermissionRequestsFixture.map((row) =>
+  permissionRequestOwnerDetailSchema.parse({
+    ...row,
+    requester_actor_id: '22222222-2222-4222-8222-222222222222',
+    source_summary: null,
+    latest_admin_question:
+      row.status === 'needs_more_info'
+        ? {
+            note: '필요한 Finding 관리 범위와 기간을 알려 주세요.',
+            created_at: '2026-07-12T00:00:00.000Z',
+          }
+        : null,
+    editable_scope_candidates: [{ managed_system_id: null }],
+    allowed_actions: [row.status === 'pending' ? 'edit' : 'supplement', 'withdraw'],
+  }),
+);

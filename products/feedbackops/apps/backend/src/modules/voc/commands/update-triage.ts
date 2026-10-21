@@ -1,0 +1,452 @@
+// VOC triage update command and its idempotent entry point.
+import { randomUUID } from 'node:crypto';
+
+import { and, eq, sql } from 'drizzle-orm';
+
+import type { PatchVocRequest, VocSummaryEnvelope } from '@fops/shared';
+import { vocs } from '../../../db/schema/voc.js';
+import type { Tx } from '../../../db/tx.js';
+import { HttpError } from '../../../lib/errors.js';
+import { assertActiveAnalyticsAreaForManagedSystem } from '../../analytics-areas/index.js';
+import { listWorkspaceAdminActorIds } from '../../auth/index.js';
+import type { RoleLevel } from '../../auth/session-service.js';
+import { runIdempotentCommand } from '../../core/idempotency/idempotent-command.js';
+import { lockManagedSystem } from '../../managed-systems/index.js';
+import { assertVocTriage } from '../authorization.js';
+import { selectVocForUpdate } from '../repo.js';
+import { validateOwner } from '../responsibility.js';
+import type { VocEnvelope, VocServiceDeps } from '../service.js';
+import { type ReporterFacingStatus, nextReporterStates } from '../transitions.js';
+import { composeEnvelope } from './compose-envelope.js';
+
+export function createVocUpdateTriageCommands(deps: VocServiceDeps) {
+  // #1187: a triage-only writer has no full read; its response follows the read matrix.
+  async function writeResponseSummary(
+    tx: Tx,
+    actor: { actor_id: string; workspace_id: string; role_level: RoleLevel },
+    vocId: string,
+  ): Promise<VocSummaryEnvelope | null> {
+    const access = await deps.vocReadService.resolveWriteResponseAccess({ tx, actor, vocId });
+    return access.kind === 'summary' ? access.envelope : null;
+  }
+
+  async function updateVoc(args: {
+    tx: Tx;
+    actor: { actor_id: string; workspace_id: string; role_level: RoleLevel };
+    vocId: string;
+    ifMatch: string;
+    input: PatchVocRequest;
+  }): Promise<VocEnvelope | VocSummaryEnvelope> {
+    const { tx, actor, vocId, ifMatch, input } = args;
+    const recovery = await deps.recoveryRecorder?.capture(tx, actor.workspace_id, [
+      { type: 'voc', id: vocId },
+    ]);
+    const workspaceId = actor.workspace_id;
+
+    // 1. FOR UPDATE lock on the VOC row.
+    const row = await selectVocForUpdate(tx, workspaceId, vocId);
+    if (!row) throw new HttpError('not_found.record', 'voc not found');
+    if (row.archivedAt !== null) throw new HttpError('conflict.record_archived', 'voc is archived');
+
+    // 2. Permission re-check inside the tx (ADR-0019 Section D).
+    // C3: permission check MUST fire before the If-Match comparison. The
+    // previous ordering (stale_write before permission deny) leaked
+    // `current_updated_at` of any in-workspace VOC to actors without
+    // `voc.triage` grant — an activity-frequency probe vector. The check
+    // only needs `row.primaryManagedSystemId`, which is available after the
+    // FOR UPDATE above. Moving it here ensures unauthorised actors receive
+    // 403 regardless of the If-Match value they supply.
+    await assertVocTriage(tx, deps.checkService, actor, row.primaryManagedSystemId);
+
+    // 3. Optimistic concurrency check (after permission — C3: no current_updated_at
+    // leak to unauthorised actors; only authorised actors see 409 stale_write detail).
+    if (row.updatedAt.toISOString() !== ifMatch) {
+      throw new HttpError('conflict.stale_write', 'voc updated_at does not match If-Match', {
+        current_updated_at: row.updatedAt.toISOString(),
+      });
+    }
+
+    // 4. FOR UPDATE lock on parent Managed System.
+    const ms = await lockManagedSystem(tx, workspaceId, row.primaryManagedSystemId);
+    if (!ms) throw new HttpError('not_found.record', 'managed system not found');
+    if (ms.archived_at !== null) {
+      throw new HttpError('conflict.parent_archived', 'parent managed system is archived', {
+        fields: [{ path: ['primary_managed_system_id'], code: 'parent_archived' }],
+      });
+    }
+
+    // 5. Analytics area cross-scope guard (only when supplied and non-null and changed).
+    if (
+      input.analytics_area_id !== undefined &&
+      input.analytics_area_id !== null &&
+      input.analytics_area_id !== row.analyticsAreaId
+    ) {
+      await assertActiveAnalyticsAreaForManagedSystem(
+        tx,
+        workspaceId,
+        row.primaryManagedSystemId,
+        input.analytics_area_id,
+      );
+    }
+
+    // 6. Mutex: both owner fields non-null simultaneously (belt-and-suspenders;
+    //    patchVocRequestSchema refine already catches this in the route layer).
+    if (input.owner_user_id != null && input.owner_team_id != null) {
+      throw new HttpError(
+        'validation.failed',
+        'owner_user_id and owner_team_id are mutually exclusive',
+        {
+          fields: [{ path: ['owner_team_id'], code: 'invalid' }],
+        },
+      );
+    }
+    if (input.postpone_review !== undefined && input.triage_state !== undefined) {
+      throw new HttpError(
+        'validation.failed',
+        'postpone_review and triage_state cannot be set together',
+        {
+          fields: [{ path: ['postpone_review'], code: 'invalid' }],
+        },
+      );
+    }
+
+    if (input.restore_review_postponed_at !== undefined) {
+      if (input.triage_state !== 'untriaged') {
+        throw new HttpError(
+          'validation.failed',
+          'restore_review_postponed_at requires triage_state untriaged',
+          {
+            fields: [{ path: ['restore_review_postponed_at'], code: 'invalid' }],
+          },
+        );
+      }
+      if (row.triageState === 'untriaged') {
+        throw new HttpError(
+          'validation.failed',
+          'restore_review_postponed_at requires a previously triaged VOC',
+          {
+            fields: [{ path: ['restore_review_postponed_at'], code: 'invalid_state' }],
+          },
+        );
+      }
+      const future = await tx.execute<{ is_future: boolean }>(sql`
+        SELECT ${input.restore_review_postponed_at}::timestamptz > NOW() AS is_future
+      `);
+      if (future.rows[0]?.is_future) {
+        throw new HttpError(
+          'validation.failed',
+          'restore_review_postponed_at cannot be in the future',
+          {
+            fields: [{ path: ['restore_review_postponed_at'], code: 'invalid' }],
+          },
+        );
+      }
+    }
+
+    // Preserve validation precedence: invalid postpone state precedes the
+    // resolved-owner mutex, just as it did in the separate postpone path.
+    if (input.postpone_review === true && row.triageState !== 'untriaged') {
+      throw new HttpError('validation.failed', 'postpone_review only applies to untriaged VOCs', {
+        fields: [{ path: ['postpone_review'], code: 'invalid_state' }],
+      });
+    }
+
+    // 7. Compute one field diff for every request.
+    type VocPatch = {
+      severity?: 'low' | 'medium' | 'high' | 'critical' | null;
+      ownerUserId?: string | null;
+      ownerTeamId?: string | null;
+      analyticsAreaId?: string | null;
+      triageState?: 'untriaged' | 'triaged' | 'needs_more_information' | 'dismissed_not_actionable';
+      triageStateReviewPostponedAt?: ReturnType<typeof sql> | null;
+    };
+    const patch: VocPatch = {};
+    let severityChanged = false;
+    let ownerChanged = false;
+    let aaChanged = false;
+    let triageStateChanged = false;
+
+    if (input.severity !== undefined && input.severity !== row.severity) {
+      patch.severity = input.severity;
+      severityChanged = true;
+    }
+
+    // Owner fields treated as a unit.
+    const newOwnerUser =
+      input.owner_user_id !== undefined ? (input.owner_user_id ?? null) : row.ownerUserId;
+    const newOwnerTeam =
+      input.owner_team_id !== undefined ? (input.owner_team_id ?? null) : row.ownerTeamId;
+    // C2: resolved-value mutex — catches the case where the row already has
+    // one owner and the client sends only the other without clearing the first.
+    // The input-level mutex (step 6) only fires when both fields appear in the
+    // payload; this guard fires on the resolved (input ?? row) pair.
+    if (newOwnerUser != null && newOwnerTeam != null) {
+      throw new HttpError(
+        'validation.failed',
+        'cannot have both owner_user_id and owner_team_id set; explicitly clear the other owner in the same PATCH',
+        {
+          fields: [{ path: ['owner_team_id'], code: 'invalid' }],
+        },
+      );
+    }
+    if (newOwnerUser !== row.ownerUserId || newOwnerTeam !== row.ownerTeamId) {
+      const failure = await validateOwner(tx, deps, workspaceId, ms, newOwnerUser, newOwnerTeam);
+      if (failure) {
+        throw new HttpError('validation.failed', 'invalid owner', {
+          fields: [{ path: [newOwnerTeam ? 'owner_team_id' : 'owner_user_id'], code: failure }],
+        });
+      }
+      patch.ownerUserId = newOwnerUser;
+      patch.ownerTeamId = newOwnerTeam;
+      ownerChanged = true;
+    }
+
+    if (input.analytics_area_id !== undefined && input.analytics_area_id !== row.analyticsAreaId) {
+      patch.analyticsAreaId = input.analytics_area_id ?? null;
+      aaChanged = true;
+    }
+
+    if (input.triage_state !== undefined && input.triage_state !== row.triageState) {
+      patch.triageState = input.triage_state;
+      triageStateChanged = true;
+    }
+
+    // Explicit clear only applies to a postponed, untriaged review (#921).
+    const clearingPostpone =
+      input.postpone_review === false &&
+      row.triageState === 'untriaged' &&
+      row.triageStateReviewPostponedAt !== null;
+    type PostponeOutcome =
+      | 'restore'
+      | 'set'
+      | 'explicit_clear'
+      | 'clear_on_transition'
+      | 'unchanged';
+    const postponeOutcome: PostponeOutcome =
+      input.restore_review_postponed_at !== undefined
+        ? 'restore'
+        : input.postpone_review === true
+          ? 'set'
+          : clearingPostpone
+            ? 'explicit_clear'
+            : triageStateChanged && input.triage_state !== 'untriaged'
+              ? 'clear_on_transition'
+              : 'unchanged';
+
+    // Complete the shared UPDATE patch. Transition clears have no postpone
+    // audit; explicit clears do. Every set is a fresh deferral event (F14).
+    if (postponeOutcome === 'restore') {
+      patch.triageStateReviewPostponedAt = sql`${input.restore_review_postponed_at}::timestamptz`;
+    } else if (postponeOutcome === 'set') {
+      patch.triageStateReviewPostponedAt = sql`date_trunc('milliseconds', NOW())`;
+    } else if (postponeOutcome !== 'unchanged') {
+      patch.triageStateReviewPostponedAt = null;
+    }
+
+    // 8. Empty diff — return current state without any writes.
+    if (
+      !severityChanged &&
+      !ownerChanged &&
+      !aaChanged &&
+      !triageStateChanged &&
+      !clearingPostpone &&
+      postponeOutcome !== 'set'
+    ) {
+      const nextStates = await nextReporterStates(
+        row.reporterFacingStatus as ReporterFacingStatus,
+        tx,
+      );
+      return (await writeResponseSummary(tx, actor, vocId)) ?? composeEnvelope(row, nextStates);
+    }
+
+    // 9. UPDATE the voc row.
+    const updatedRows = await tx
+      .update(vocs)
+      .set({ ...patch, updatedAt: sql`NOW()` })
+      .where(and(eq(vocs.id, vocId), eq(vocs.workspaceId, workspaceId)))
+      .returning();
+    const updated = updatedRows[0];
+    if (!updated) throw new HttpError('internal.unexpected', 'voc UPDATE returned no row');
+
+    const newSev = updated.severity as Exclude<VocEnvelope['severity'], undefined>;
+    const newOwnerUser2 = updated.ownerUserId;
+    const newOwnerTeam2 = updated.ownerTeamId;
+    const newAa = updated.analyticsAreaId;
+    const newTriageState = updated.triageState as VocEnvelope['triage_state'];
+
+    // 10. Emit audit events in deterministic order (same tx).
+    // a0. Postpone set/explicit clear precedes all accompanying field audits.
+    if (postponeOutcome === 'set') {
+      await deps.auditService.record(tx, {
+        workspace_id: workspaceId,
+        actor_id: actor.actor_id,
+        event_type: 'voc_triage_postponed',
+        subject_type: 'voc',
+        subject_id: vocId,
+        summary: `VOC ${updated.displayId} triage review postponed`,
+        detail: { voc_id: vocId, actor_id: actor.actor_id },
+      });
+    } else if (clearingPostpone) {
+      await deps.auditService.record(tx, {
+        workspace_id: workspaceId,
+        actor_id: actor.actor_id,
+        event_type: 'voc_triage_postpone_cleared',
+        subject_type: 'voc',
+        subject_id: vocId,
+        summary: `VOC ${updated.displayId} triage review postpone cleared`,
+        detail: { voc_id: vocId, actor_id: actor.actor_id },
+      });
+    }
+
+    // a. voc_severity_set — emitted for any severity change including null
+    //    (de-triage / severity-clear). Schema now accepts nullable `to`
+    //    (F2 — vocSeveritySetDetailSchema widened).
+    if (severityChanged) {
+      await deps.auditService.record(tx, {
+        workspace_id: workspaceId,
+        actor_id: actor.actor_id,
+        event_type: 'voc_severity_set',
+        subject_type: 'voc',
+        subject_id: vocId,
+        summary: `VOC ${updated.displayId} severity set to ${String(newSev)}`,
+        detail: { voc_id: vocId, from: row.severity, to: newSev },
+      });
+      if (newSev === 'high' || newSev === 'critical') {
+        const adminActorIds = await listWorkspaceAdminActorIds(tx, workspaceId);
+        const actorIds = updated.ownerUserId
+          ? [...new Set([updated.ownerUserId, ...adminActorIds])]
+          : adminActorIds;
+        await deps.notify(tx, 'voc.severity_set_high_or_critical', {
+          workspace_id: workspaceId,
+          actor_ids: actorIds,
+          subject_id: vocId,
+          correlation_id: randomUUID(),
+          detail: {
+            voc_id: vocId,
+            primary_managed_system_id: updated.primaryManagedSystemId,
+          },
+          params: { severity: newSev },
+        });
+      }
+    }
+
+    // b. voc_owner_assigned
+    if (ownerChanged) {
+      await deps.auditService.record(tx, {
+        workspace_id: workspaceId,
+        actor_id: actor.actor_id,
+        event_type: 'voc_owner_assigned',
+        subject_type: 'voc',
+        subject_id: vocId,
+        summary: `VOC ${updated.displayId} owner assigned`,
+        detail: {
+          voc_id: vocId,
+          from: { user_id: row.ownerUserId, team_id: row.ownerTeamId },
+          to: { user_id: newOwnerUser2, team_id: newOwnerTeam2 },
+        },
+      });
+      if (updated.ownerUserId) {
+        await deps.notify(tx, 'voc.assigned_to_me', {
+          workspace_id: workspaceId,
+          actor_ids: [updated.ownerUserId],
+          subject_id: vocId,
+          correlation_id: randomUUID(),
+          detail: {
+            voc_id: vocId,
+            primary_managed_system_id: updated.primaryManagedSystemId,
+          },
+          params: {},
+        });
+      }
+    }
+
+    // c. voc_analytics_area_linked
+    if (aaChanged) {
+      await deps.auditService.record(tx, {
+        workspace_id: workspaceId,
+        actor_id: actor.actor_id,
+        event_type: 'voc_analytics_area_linked',
+        subject_type: 'voc',
+        subject_id: vocId,
+        summary: `VOC ${updated.displayId} analytics area linked`,
+        detail: { voc_id: vocId, from: row.analyticsAreaId, to: newAa },
+      });
+    }
+
+    // d. voc_triage_committed — only when transitioning untriaged → triaged.
+    // WHY: The spec reads "initial triage commit" — NMI → triaged and
+    // dismissed_not_actionable → triaged do NOT re-fire this event. If spec
+    // later clarifies re-triage must emit commit, add `|| row.triageState ===
+    // 'needs_more_information'` here. (F19)
+    if (triageStateChanged && row.triageState === 'untriaged' && newTriageState === 'triaged') {
+      await deps.auditService.record(tx, {
+        workspace_id: workspaceId,
+        actor_id: actor.actor_id,
+        event_type: 'voc_triage_committed',
+        subject_type: 'voc',
+        subject_id: vocId,
+        summary: `VOC ${updated.displayId} triage committed`,
+        detail: {
+          voc_id: vocId,
+          severity: newSev,
+          owner_user_id: newOwnerUser2,
+          owner_team_id: newOwnerTeam2,
+          analytics_area_id: newAa,
+          cluster_decision: null,
+        },
+      });
+    }
+
+    // 11. Compose and return the envelope with the new row state.
+    const updatedLockedVoc = {
+      id: updated.id,
+      workspaceId: updated.workspaceId,
+      primaryManagedSystemId: updated.primaryManagedSystemId,
+      analyticsAreaId: updated.analyticsAreaId,
+      reporterId: updated.reporterId,
+      displayId: updated.displayId,
+      title: updated.title,
+      descriptionRichContent: updated.descriptionRichContent,
+      severity: newSev,
+      reporterFacingStatus: updated.reporterFacingStatus,
+      triageState: newTriageState,
+      triageStateReviewPostponedAt: updated.triageStateReviewPostponedAt,
+      ownerUserId: newOwnerUser2,
+      ownerTeamId: newOwnerTeam2,
+      sourceContext: updated.sourceContext,
+      archivedAt: updated.archivedAt,
+      createdAt: updated.createdAt,
+      updatedAt: updated.updatedAt,
+    };
+    const nextStates = await nextReporterStates(
+      updated.reporterFacingStatus as ReporterFacingStatus,
+      tx,
+    );
+    if (recovery) await deps.recoveryRecorder?.finish(tx, recovery, actor.actor_id, 'updateVoc');
+    return (
+      (await writeResponseSummary(tx, actor, vocId)) ??
+      composeEnvelope(updatedLockedVoc, nextStates)
+    );
+  }
+  async function updateVocCommand(args: {
+    actor: { actor_id: string; workspace_id: string; role_level: RoleLevel };
+    vocId: string;
+    ifMatch: string;
+    input: PatchVocRequest;
+    idempotencyKey: string;
+    requestHash: string;
+  }): Promise<{ status: number; body: VocEnvelope | VocSummaryEnvelope }> {
+    const { actor, vocId, ifMatch, input, idempotencyKey, requestHash } = args;
+    return runIdempotentCommand({
+      db: deps.db,
+      idempotencyService: deps.idempotencyService,
+      actorId: actor.actor_id,
+      idempotencyKey,
+      requestHash,
+      status: 200,
+      recoveryWorkspaceId: actor.workspace_id,
+      work: (tx) => updateVoc({ tx, actor, vocId, ifMatch, input }),
+    });
+  }
+  return { updateVoc, updateVocCommand };
+}

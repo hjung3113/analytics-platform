@@ -1,0 +1,316 @@
+// useFindingDetailController.test.tsx — #399 step B controller coverage.
+//
+// renderHook + QueryClientProvider; cross-system hooks and @/lib/api are
+// mocked with the same conventions as FindingDetailPanel.test.tsx. Negative
+// assertions are paired with positive twins so a broken mock or query wiring
+// cannot pass vacuously.
+
+import { useVocClusterDetail } from '@/features/voc-cluster/hooks/useVocClusterDetail';
+import type { PermissionCheckResponse } from '@/lib/api';
+import { apiClient, getTask } from '@/lib/api';
+import type { MeResponse } from '@/lib/auth/useMe';
+import { useMe } from '@/lib/auth/useMe';
+import { usePermissionCheck } from '@/lib/cross-system/usePermissionCheck';
+import type { VocDetailResult } from '@/lib/cross-system/useVocDetail';
+import { useVocDetail } from '@/lib/cross-system/useVocDetail';
+import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
+import type { UseWorkspaceActorsResult } from '@/lib/cross-system/useWorkspaceActors';
+import type { FindingDto, TaskDetailDto, VocClusterDto } from '@fops/shared';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { UseQueryResult } from '@tanstack/react-query';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import type * as React from 'react';
+import { toast } from 'sonner';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useFindingDetailController } from './useFindingDetailController';
+
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
+const IDS = vi.hoisted(() => ({
+  finding: '10000000-0000-0000-0000-000000000001',
+  workspace: '90000000-0000-0000-0000-000000000009',
+  managedSystem: '30000000-0000-0000-0000-000000000003',
+  task: '20000000-0000-0000-0000-000000000002',
+  actor: '40000000-0000-0000-0000-000000000004',
+  voc: '50000000-0000-0000-0000-000000000005',
+  cluster: '70000000-0000-7000-8000-000000000007',
+}));
+
+vi.mock('@/lib/api', () => ({
+  errorMapper: () => ({ message: 'mapped error' }),
+  getTask: vi.fn(),
+  apiClient: vi.fn(),
+  useIdempotencyKey: () => ({ key: 'idem-key', markConsumed: vi.fn() }),
+}));
+
+vi.mock('@/lib/api/managed-systems', () => ({
+  fetchManagedSystems: vi.fn(async () => ({
+    items: [{ id: IDS.managedSystem, name: 'Billing Ops', archived_at: null }],
+  })),
+}));
+
+vi.mock('@/lib/api/analytics-areas', () => ({
+  fetchAnalyticsAreas: vi.fn(async () => ({ items: [], total: 0 })),
+}));
+
+vi.mock('@/lib/auth/useMe', () => ({ useMe: vi.fn() }));
+
+vi.mock('@/lib/cross-system/usePermissionCheck', () => ({ usePermissionCheck: vi.fn() }));
+
+vi.mock('@/lib/cross-system/useVocDetail', () => ({ useVocDetail: vi.fn() }));
+
+vi.mock('@/features/voc-cluster/hooks/useVocClusterDetail', () => ({
+  useVocClusterDetail: vi.fn(),
+}));
+
+vi.mock('@/lib/cross-system/useWorkspaceActors', () => ({
+  useWorkspaceActors: vi.fn(() => ({
+    actors: [{ id: IDS.actor, display_name: '분석가' }],
+  })),
+}));
+
+const FINDING_LINKED: FindingDto = {
+  id: IDS.finding,
+  workspace_id: IDS.workspace,
+  display_id: 'FIN-179',
+  primary_managed_system_id: IDS.managedSystem,
+  title: '리포트 속도 저하',
+  summary: '쿼리 플랜 개선 필요',
+  source_type: 'manual',
+  source_id: null,
+  owner_actor_id: null,
+  owner_team_id: null,
+  evidence_count: 0,
+  severity: 'high',
+  confidence: 'medium',
+  status: 'active',
+  analytics_area_id: null,
+  linked_task_id: IDS.task,
+  linked_milestone_id: null,
+  created_by: IDS.actor,
+  created_at: '2026-07-10T00:00:00.000Z',
+  updated_at: '2026-07-10T00:00:00.000Z',
+  source: null,
+};
+
+const FINDING_UNLINKED: FindingDto = { ...FINDING_LINKED, linked_task_id: null };
+
+const FINDING_FROM_VOC: FindingDto = {
+  ...FINDING_LINKED,
+  source_type: 'voc',
+  source_id: IDS.voc,
+};
+
+const TASK_DETAIL = {
+  id: IDS.task,
+  title: '매출 리포트 쿼리 플랜 개선',
+  display_id: 'TASK-901',
+} as TaskDetailDto;
+
+function mockPermissionGate(opts: {
+  role: 'admin' | 'user';
+  state: 'approved' | 'denied';
+}): void {
+  vi.mocked(useMe).mockReturnValue({
+    data: { actor: { role_level: opts.role } },
+  } as unknown as UseQueryResult<MeResponse>);
+  vi.mocked(usePermissionCheck).mockReturnValue({
+    data: { state: opts.state },
+  } as unknown as UseQueryResult<PermissionCheckResponse>);
+}
+
+function renderController(finding: FindingDto) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  const invalidateSpy = vi.spyOn(client, 'invalidateQueries');
+  const setDataSpy = vi.spyOn(client, 'setQueryData');
+  const view = renderHook(() => useFindingDetailController(finding), {
+    wrapper: ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  });
+  return { ...view, invalidateSpy, setDataSpy };
+}
+
+describe('useFindingDetailController', () => {
+  beforeEach(() => {
+    vi.mocked(getTask).mockReset();
+    vi.mocked(getTask).mockResolvedValue(TASK_DETAIL);
+    vi.mocked(apiClient).mockReset();
+    vi.mocked(apiClient).mockResolvedValue({ data: FINDING_LINKED } as never);
+    vi.mocked(toast.success).mockClear();
+    vi.mocked(toast.error).mockClear();
+    vi.mocked(useVocDetail).mockReturnValue({
+      data: null,
+    } as unknown as UseQueryResult<VocDetailResult>);
+    vi.mocked(useVocClusterDetail).mockClear();
+    vi.mocked(useVocClusterDetail).mockReturnValue({
+      data: undefined,
+    } as unknown as UseQueryResult<VocClusterDto>);
+    mockPermissionGate({ role: 'user', state: 'approved' });
+  });
+
+  it('permission allowed: non-admin actor with an approved check passes the manage gate', () => {
+    const { result } = renderController(FINDING_LINKED);
+    expect(result.current.canManage).toBe(true);
+    expect(result.current.markNotActionableDisabled).toBe(false);
+    // #377: the progress-note section is the last detail section.
+    expect(result.current.sections).toHaveLength(8);
+    expect(result.current.sections[1]).toEqual({ id: 'metadata', label: '소스 / 심각도 / 신뢰도' });
+    expect(result.current.sections[2]).toEqual({ id: 'execution', label: '실행' });
+    expect(result.current.sections[7]).toEqual({ id: 'notes', label: '진행 메모' });
+  });
+
+  it('permission denied: gated action flags go false (positive twin above proves the gate)', () => {
+    mockPermissionGate({ role: 'user', state: 'denied' });
+    const { result } = renderController(FINDING_LINKED);
+    expect(result.current.canManage).toBe(false);
+    expect(result.current.markNotActionableDisabled).toBe(true);
+  });
+
+  it('admin short-circuit grants the manage gate even when the check is denied', () => {
+    mockPermissionGate({ role: 'admin', state: 'denied' });
+    const { result } = renderController(FINDING_LINKED);
+    expect(result.current.canManage).toBe(true); // admin short-circuit, as before
+  });
+
+  it('no linked-task query is issued when linked_task_id is null (twin test proves the spy fires)', async () => {
+    const { result } = renderController(FINDING_UNLINKED);
+    await waitFor(() =>
+      expect(result.current.managedSystemsById.get(IDS.managedSystem)).toBe('Billing Ops'),
+    );
+    expect(getTask).not.toHaveBeenCalled();
+    expect(result.current.linkedTaskQuery.data).toBeUndefined();
+  });
+
+  it('linked-task query is issued once and fills display data when linked_task_id is set', async () => {
+    const { result } = renderController(FINDING_LINKED);
+    await waitFor(() =>
+      expect(result.current.linkedTaskQuery.data?.title).toBe('매출 리포트 쿼리 플랜 개선'),
+    );
+    expect(getTask).toHaveBeenCalledTimes(1);
+    expect(getTask).toHaveBeenCalledWith(IDS.task, expect.anything());
+    expect(result.current.linkedTaskQuery.data?.display_id).toBe('TASK-901');
+  });
+
+  it('linked-task fetch is id-gated, not permission-gated (preserved semantics)', async () => {
+    mockPermissionGate({ role: 'user', state: 'denied' });
+    const { result } = renderController(FINDING_LINKED);
+    await waitFor(() => expect(getTask).toHaveBeenCalledTimes(1));
+    expect(result.current.canManage).toBe(false);
+  });
+
+  it('linked VOC title/display fall through from the shared voc query', async () => {
+    vi.mocked(useVocDetail).mockReturnValue({
+      data: { id: IDS.voc, title: '연관 VOC', display_id: 'VOC-77' },
+    } as unknown as UseQueryResult<VocDetailResult>);
+    const { result } = renderController(FINDING_FROM_VOC);
+    await waitFor(() => expect(result.current.linkedVocTitle).toBe('연관 VOC'));
+    expect(result.current.linkedVocDisplayId).toBe('VOC-77');
+    expect(useVocDetail).toHaveBeenCalledWith(IDS.voc);
+  });
+
+  it('linked Cluster title/display fall through from the cluster query, id-gated (#1174b)', async () => {
+    vi.mocked(useVocClusterDetail).mockReturnValue({
+      // #1174 FIX1: the controller projects identity only from a successful
+      // read, so the fixture models the query state it represents.
+      data: { id: IDS.cluster, title: '결제 실패 클러스터', display_id: 'CLU-9001' },
+      isSuccess: true,
+    } as unknown as UseQueryResult<VocClusterDto>);
+    const { result } = renderController({
+      ...FINDING_LINKED,
+      source_type: 'voc_cluster',
+      source_id: IDS.cluster,
+    });
+    await waitFor(() => expect(result.current.linkedClusterTitle).toBe('결제 실패 클러스터'));
+    expect(result.current.linkedClusterDisplayId).toBe('CLU-9001');
+    expect(useVocClusterDetail).toHaveBeenCalledWith(IDS.cluster);
+  });
+
+  it('issues no cluster read for a VOC-sourced Finding and leaves cluster fields null', () => {
+    const { result } = renderController(FINDING_FROM_VOC);
+    expect(useVocClusterDetail).toHaveBeenCalledWith(null);
+    expect(result.current.linkedClusterTitle).toBeNull();
+    expect(result.current.linkedClusterDisplayId).toBeNull();
+  });
+
+  it.each([
+    ['addEvidenceOpen', 'setAddEvidenceOpen'],
+    ['linkEvidenceOpen', 'setLinkEvidenceOpen'],
+    ['linkTaskOpen', 'setLinkTaskOpen'],
+  ] as const)('%s toggles open and closed', (openKey, setKey) => {
+    const { result } = renderController(FINDING_LINKED);
+    expect(result.current[openKey]).toBe(false);
+    act(() => {
+      result.current[setKey](true);
+    });
+    expect(result.current[openKey]).toBe(true);
+    act(() => {
+      result.current[setKey](false);
+    });
+    expect(result.current[openKey]).toBe(false);
+  });
+
+  it('mark-not-actionable success refreshes detail and paged lists and toasts', async () => {
+    const { result, invalidateSpy, setDataSpy } = renderController(FINDING_LINKED);
+    act(() => {
+      result.current.handleMarkNotActionable();
+    });
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('Finding이 조치 불필요로 표시되었습니다.'),
+    );
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['nav-counts'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['findings'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['finding', IDS.finding],
+    });
+    expect(setDataSpy).toHaveBeenCalledWith(
+      ['finding', IDS.finding],
+      expect.objectContaining({ id: IDS.finding }),
+    );
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it('eligibleOwners keeps Admin/Developer actors and drops User-level and the System audit actor', () => {
+    const adminId = '41000000-0000-4000-8000-000000000001';
+    const developerId = '41000000-0000-4000-8000-000000000002';
+    const userId = '41000000-0000-4000-8000-000000000003';
+    const systemId = '41000000-0000-4000-8000-000000000004';
+    vi.mocked(useWorkspaceActors).mockReturnValue({
+      actors: [
+        {
+          id: adminId,
+          display_name: 'Mock Admin',
+          email: 'admin@feedbackops.local',
+          role_level: 'admin',
+        },
+        {
+          id: developerId,
+          display_name: 'Mock Developer',
+          email: 'dev@feedbackops.local',
+          role_level: 'developer',
+        },
+        {
+          id: userId,
+          display_name: 'Mock User',
+          email: 'user@feedbackops.local',
+          role_level: 'user',
+        },
+        {
+          id: systemId,
+          display_name: 'System',
+          email: 'system@feedbackops.local',
+          role_level: 'admin',
+        },
+      ],
+    } as UseWorkspaceActorsResult);
+
+    const { result } = renderController(FINDING_LINKED);
+
+    expect(result.current.eligibleOwners).toEqual([
+      { id: adminId, name: 'Mock Admin' },
+      { id: developerId, name: 'Mock Developer' },
+    ]);
+  });
+});

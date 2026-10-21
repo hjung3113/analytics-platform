@@ -1,0 +1,1234 @@
+import { randomUUID } from 'node:crypto';
+import { deleteRecoveryFixtureParents } from '../../../test-support/recovery-fixtures.js';
+
+import { surveyResultDtoSchema } from '@fops/shared';
+import type { FastifyInstance } from 'fastify';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
+import { loadConfig } from '../../../config.js';
+import { type DbHandle, createDb } from '../../../db/client.js';
+import { buildServer } from '../../../server.js';
+import { SESSION_COOKIE_NAME, loginAs } from '../../../test-support/auth.js';
+import { insertMsDirectly } from '../../../test-support/core-fixtures.js';
+import { uid } from '../../../test-support/ids.js';
+
+const APP_URL = process.env.DATABASE_URL ?? '';
+const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
+const WORKSPACE_ID = process.env.WORKSPACE_ID ?? '';
+const runIntegration = Boolean(APP_URL && MIGRATE_URL && WORKSPACE_ID);
+const SLUG = 'it-survey-results';
+type Answer = {
+  choice?: string;
+  multi?: string[];
+  rating?: number;
+  text?: string;
+};
+type SeededSurvey = {
+  id: string;
+  msId: string;
+  questions: Record<string, string>;
+  responseIds: string[];
+};
+
+describe.skipIf(!runIntegration)('survey result read route (#186)', () => {
+  let appHandle: DbHandle;
+  let migrateHandle: DbHandle;
+  let app: FastifyInstance;
+  let adminCookie: string;
+  let userCookie: string;
+  let adminId: string;
+
+  beforeAll(async () => {
+    process.env.NODE_ENV = 'test';
+    appHandle = createDb(APP_URL);
+    migrateHandle = createDb(MIGRATE_URL);
+    app = await buildServer({ config: loadConfig(), dbHandle: appHandle });
+    await app.ready();
+    adminCookie = await loginAs(app, 'mock-admin-1');
+    userCookie = await loginAs(app, 'mock-user-1');
+    const r = await migrateHandle.pool.query<{ id: string }>(
+      "select id from core.actors where workspace_id=$1 and external_id='mock-admin-1'",
+      [WORKSPACE_ID],
+    );
+    adminId = r.rows[0]?.id ?? '';
+  });
+  beforeEach(async () => cleanup());
+  afterAll(async () => {
+    await cleanup();
+    await app?.close();
+    await appHandle?.close();
+    await migrateHandle?.close();
+  });
+
+  async function cleanup() {
+    if (!migrateHandle) return;
+    const systems = 'select id from core.managed_systems where workspace_id=$1 and slug like $2';
+    const surveys = `select id from survey.surveys where workspace_id=$1 and primary_managed_system_id in (${systems})`;
+    const responses = `select id from survey.survey_responses where survey_id in (${surveys})`;
+    const findings = `select finding_id from survey.finding_response_bindings where response_id in (${responses})`;
+    await migrateHandle.pool.query(
+      `delete from core.audit_log where subject_id in (${surveys}) or subject_id in (${responses}) or subject_id in (${findings}) or detail->>'source_survey_response_id' in (select id::text from survey.survey_responses where survey_id in (${surveys}))`,
+      [WORKSPACE_ID, `${SLUG}%`],
+    );
+    await migrateHandle.pool.query(
+      `delete from core.entity_links where source_id in (${responses}) or target_id in (${findings})`,
+      [WORKSPACE_ID, `${SLUG}%`],
+    );
+    await migrateHandle.pool.query(
+      `delete from finding.evidence_highlights where finding_id in (${findings})`,
+      [WORKSPACE_ID, `${SLUG}%`],
+    );
+    await migrateHandle.pool.query(`delete from finding.findings where id in (${findings})`, [
+      WORKSPACE_ID,
+      `${SLUG}%`,
+    ]);
+    await migrateHandle.pool.query(
+      `delete from survey.survey_response_excerpt_approvals where survey_id in (${surveys})`,
+      [WORKSPACE_ID, `${SLUG}%`],
+    );
+    await migrateHandle.pool.query(
+      `delete from survey.survey_response_answers where survey_id in (${surveys})`,
+      [WORKSPACE_ID, `${SLUG}%`],
+    );
+    await migrateHandle.pool.query(
+      `delete from survey.survey_responses where survey_id in (${surveys})`,
+      [WORKSPACE_ID, `${SLUG}%`],
+    );
+    await migrateHandle.pool.query(
+      `delete from survey.survey_questions where survey_id in (${surveys})`,
+      [WORKSPACE_ID, `${SLUG}%`],
+    );
+    await migrateHandle.pool.query(`delete from survey.surveys where id in (${surveys})`, [
+      WORKSPACE_ID,
+      `${SLUG}%`,
+    ]);
+    await migrateHandle.pool.query(
+      `delete from permission.permission_grants where workspace_id=$1 and managed_system_id in (${systems})`,
+      [WORKSPACE_ID, `${SLUG}%`],
+    );
+    await migrateHandle.pool.query(
+      `delete from permission.permission_denies where workspace_id=$1 and managed_system_id in (${systems})`,
+      [WORKSPACE_ID, `${SLUG}%`],
+    );
+    await migrateHandle.pool.query(
+      'delete from permission.permission_grants where workspace_id=$1 and actor_id in (select id from core.actors where workspace_id=$1 and external_id like $2)',
+      [WORKSPACE_ID, `${SLUG}-%`],
+    );
+    await migrateHandle.pool.query(
+      'delete from permission.permission_denies where workspace_id=$1 and actor_id in (select id from core.actors where workspace_id=$1 and external_id like $2)',
+      [WORKSPACE_ID, `${SLUG}-%`],
+    );
+    await migrateHandle.pool.query(
+      'delete from core.responsibility_default_failures where managed_system_id in (select id from core.managed_systems where workspace_id=$1 and slug like $2)',
+      [WORKSPACE_ID, `${SLUG}%`],
+    );
+    await deleteRecoveryFixtureParents(
+      migrateHandle,
+      'delete from core.managed_systems where workspace_id=$1 and slug like $2',
+      [WORKSPACE_ID, `${SLUG}%`],
+    );
+    await migrateHandle.pool.query(
+      'delete from core.sessions where actor_id in (select id from core.actors where workspace_id=$1 and external_id like $2)',
+      [WORKSPACE_ID, `${SLUG}-%`],
+    );
+    await migrateHandle.pool.query(
+      'delete from core.actors where workspace_id=$1 and external_id like $2',
+      [WORKSPACE_ID, `${SLUG}-%`],
+    );
+    await migrateHandle.pool.query(
+      "delete from core.rate_limits where key like $1 || ':%' or key like '127.0.0.%'",
+      [WORKSPACE_ID],
+    );
+  }
+
+  async function seed(
+    answers: Answer[],
+    options: {
+      status?: 'draft' | 'open' | 'closed';
+      identityProtected?: boolean;
+    } = {},
+  ): Promise<SeededSurvey> {
+    const status = options.status ?? 'open';
+    const msId = await insertMsDirectly(appHandle, WORKSPACE_ID, uid(SLUG), 'Results MS');
+    const survey = await migrateHandle.pool.query<{ id: string }>(
+      `insert into survey.surveys (workspace_id,display_id,type,status,title,primary_managed_system_id,operator_actor_id,responses_identity_protected,created_by,opened_at,closed_at)
+       values ($1,$2,'validation',$3,$4,$5,$6,$7,$6,
+               case when $3 in ('open','closed') then now() else null end,
+               case when $3='closed' then now() else null end) returning id`,
+      [
+        WORKSPACE_ID,
+        `S-${randomUUID()}`,
+        status,
+        `${SLUG} survey`,
+        msId,
+        adminId,
+        options.identityProtected ?? true,
+      ],
+    );
+    const id = survey.rows[0]?.id;
+    if (!id) throw new Error('survey seed failed');
+    const rows = await migrateHandle.pool.query<{ id: string; kind: string }>(
+      `insert into survey.survey_questions (workspace_id,survey_id,kind,prompt,is_required,options,rating_min,rating_max,sort_order,branch_depth)
+       values ($1,$2,'single_choice','Choice',false,'[{"key":"yes","label":"Yes"},{"key":"no","label":"No"}]',null,null,0,0),
+              ($1,$2,'multiple_choice','Multiple',false,'[{"key":"a","label":"A"},{"key":"b","label":"B"}]',null,null,1,0),
+              ($1,$2,'rating','Rating',false,null,1,5,2,0),
+              ($1,$2,'text','Text',false,null,null,null,3,0) returning id,kind`,
+      [WORKSPACE_ID, id],
+    );
+    const questions = Object.fromEntries(rows.rows.map((row) => [row.kind, row.id]));
+    const questionId = (kind: string) => {
+      const question = questions[kind];
+      if (!question) throw new Error(`missing ${kind} question`);
+      return question;
+    };
+    const responseIds: string[] = [];
+    for (const answer of answers) {
+      const responseId = randomUUID();
+      responseIds.push(responseId);
+      const respondent = await migrateHandle.pool.query<{ id: string }>(
+        `insert into core.actors (workspace_id,external_id,email,display_name,role_level,actor_type)
+         values ($1,$2,$3,'Results respondent','user','internal_member') returning id`,
+        [WORKSPACE_ID, `${SLUG}-${responseId}`, `${SLUG}-${responseId}@example.test`],
+      );
+      await migrateHandle.pool.query(
+        'insert into survey.survey_responses (id,workspace_id,survey_id,respondent_actor_id,identity_protected,submitted_at) values ($1,$2,$3,$4,true,now())',
+        [responseId, WORKSPACE_ID, id, respondent.rows[0]?.id],
+      );
+      const add = async (kind: string, question: string, value: unknown) =>
+        migrateHandle.pool.query(
+          'insert into survey.survey_response_answers (workspace_id,survey_id,response_id,question_id,answer_kind,answer_value) values ($1,$2,$3,$4,$5,$6::jsonb)',
+          [WORKSPACE_ID, id, responseId, question, kind, JSON.stringify(value)],
+        );
+      if (answer.choice !== undefined)
+        await add('single_choice', questionId('single_choice'), answer.choice);
+      if (answer.multi !== undefined)
+        await add('multiple_choice', questionId('multiple_choice'), answer.multi);
+      if (answer.rating !== undefined) await add('rating', questionId('rating'), answer.rating);
+      if (answer.text !== undefined) await add('text', questionId('text'), answer.text);
+    }
+    return { id, msId, questions, responseIds };
+  }
+
+  async function dev() {
+    const externalId = `${SLUG}-developer-${randomUUID()}`;
+    const row = await migrateHandle.pool.query<{ id: string }>(
+      "insert into core.actors (workspace_id,external_id,email,display_name,role_level,actor_type) values ($1,$2,$3,'Results developer','developer','internal_member') returning id",
+      [WORKSPACE_ID, externalId, `${externalId}@example.test`],
+    );
+    return {
+      id: row.rows[0]?.id ?? '',
+      cookie: await loginAs(app, externalId),
+    };
+  }
+  async function user() {
+    const externalId = `${SLUG}-user-${randomUUID()}`;
+    const row = await migrateHandle.pool.query<{ id: string }>(
+      "insert into core.actors (workspace_id,external_id,email,display_name,role_level,actor_type) values ($1,$2,$3,'Results user','user','internal_member') returning id",
+      [WORKSPACE_ID, externalId, `${externalId}@example.test`],
+    );
+    return {
+      id: row.rows[0]?.id ?? '',
+      cookie: await loginAs(app, externalId),
+    };
+  }
+  async function grant(actorId: string, capability: string, msId: string) {
+    await migrateHandle.pool.query(
+      'insert into permission.permission_grants (workspace_id,actor_id,capability,managed_system_id,granted_by_actor_id) values ($1,$2,$3,$4,$5)',
+      [WORKSPACE_ID, actorId, capability, msId, adminId],
+    );
+  }
+  async function deny(actorId: string, capability: string, msId: string) {
+    await migrateHandle.pool.query(
+      "insert into permission.permission_denies (workspace_id,actor_id,capability,managed_system_id,reason,created_by_actor_id) values ($1,$2,$3,$4,'test deny',$5)",
+      [WORKSPACE_ID, actorId, capability, msId, adminId],
+    );
+  }
+  function get(id: string, cookie = adminCookie, suffix = '') {
+    return app.inject({
+      method: 'GET',
+      url: `/surveys/${id}/results${suffix}`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` },
+    });
+  }
+  function patchWorkspaceSettings(payload: Record<string, unknown>) {
+    return app.inject({
+      method: 'PATCH',
+      url: '/workspace/settings',
+      headers: {
+        cookie: `${SESSION_COOKIE_NAME}=${adminCookie}`,
+        'content-type': 'application/json',
+      },
+      payload,
+    });
+  }
+  function assertNoForbidden(value: unknown, inApprovedExcerpt = false) {
+    const forbidden =
+      /^(respondent.*|actor_id|email|external_id|response_id|submitted_at|created_at|session.*|ip.*|user_agent|answer_value|text|excerpt)$/;
+    if (Array.isArray(value)) {
+      for (const child of value) assertNoForbidden(child, inApprovedExcerpt);
+      return;
+    }
+    if (value && typeof value === 'object')
+      for (const [key, child] of Object.entries(value)) {
+        const approvedExcerpt = key === 'excerpts';
+        if (
+          !(inApprovedExcerpt && (key === 'id' || key === 'text' || key === 'response_id')) &&
+          !approvedExcerpt
+        )
+          expect(key).not.toMatch(forbidden);
+        assertNoForbidden(child, approvedExcerpt);
+      }
+  }
+  function parse2xx(response: { statusCode: number; json: () => unknown }) {
+    expect(response.statusCode).toBe(200);
+    const body = surveyResultDtoSchema.parse(response.json());
+    expect(body.next_actions).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'create_finding' })]),
+    );
+    assertNoForbidden(body);
+    return body;
+  }
+  async function approveExcerpt(
+    survey: SeededSurvey,
+    responseId: string,
+    questionId = survey.questions.text,
+  ) {
+    const approval = await migrateHandle.pool.query<{ id: string }>(
+      `insert into survey.survey_response_excerpt_approvals
+        (workspace_id,survey_id,response_id,question_id,redacted_excerpt,approved_by)
+       values ($1,$2,$3,$4,'approved result excerpt',$5) returning id`,
+      [WORKSPACE_ID, survey.id, responseId, questionId, adminId],
+    );
+    const id = approval.rows[0]?.id;
+    if (!id) throw new Error('excerpt approval seed failed');
+    return id;
+  }
+  const full = (count: number): Answer[] =>
+    Array.from({ length: count }, () => ({
+      choice: 'yes',
+      multi: ['a'],
+      rating: 3,
+      text: 'private body',
+    }));
+
+  it('AC-1 returns an allowed create_finding action and holder-only response_id', async () => {
+    const survey = await seed(full(5));
+    const responseId = survey.responseIds[0];
+    if (!responseId) throw new Error('response seed failed');
+    await approveExcerpt(survey, responseId);
+    await grant(adminId, 'survey.read_personal_responses', survey.msId);
+    const body = parse2xx(await get(survey.id));
+    expect(body.next_actions).toEqual([
+      { id: 'create_finding', availability: 'allowed', intent: 'open_finding_draft' },
+    ]);
+    const text = body.questions.find((question) => question.question_id === survey.questions.text);
+    expect(text).toMatchObject({ excerpts: [{ response_id: responseId }] });
+  });
+
+  it('AC-2 omits response_id for non-holders and parses the strict DTO', async () => {
+    const survey = await seed(full(5));
+    const responseId = survey.responseIds[0];
+    if (!responseId) throw new Error('response seed failed');
+    await approveExcerpt(survey, responseId);
+    const body = surveyResultDtoSchema.parse((await get(survey.id)).json());
+    const text = body.questions.find((question) => question.question_id === survey.questions.text);
+    if (!text || text.visibility !== 'visible' || text.kind !== 'text')
+      throw new Error('text result missing');
+    expect('response_id' in text.excerpts[0]!).toBe(false);
+  });
+
+  it('AC-3 returns requestable finding permission only when the decision permits a request', async () => {
+    const survey = await seed(full(5));
+    const actor = await dev();
+    await grant(actor.id, 'survey.read', survey.msId);
+    await grant(actor.id, 'survey.read_personal_responses', survey.msId);
+    const body = parse2xx(await get(survey.id, actor.cookie));
+    expect(body.next_actions).toEqual([
+      {
+        id: 'create_finding',
+        availability: 'blocked_requestable',
+        intent: 'open_finding_draft',
+        requestable_permission: {
+          permission: 'finding.manage',
+          managed_system_id: survey.msId,
+        },
+      },
+    ]);
+    const deniedActor = await dev();
+    await grant(deniedActor.id, 'survey.read', survey.msId);
+    await grant(deniedActor.id, 'survey.read_personal_responses', survey.msId);
+    await deny(deniedActor.id, 'finding.manage', survey.msId);
+    const deniedBody = parse2xx(await get(survey.id, deniedActor.cookie));
+    expect(deniedBody.next_actions).toEqual([
+      {
+        id: 'create_finding',
+        availability: 'blocked_requestable',
+        intent: 'open_finding_draft',
+      },
+    ]);
+    const externalId = `${SLUG}-user-${randomUUID()}`;
+    const user = await migrateHandle.pool.query<{ id: string }>(
+      "insert into core.actors (workspace_id,external_id,email,display_name,role_level,actor_type) values ($1,$2,$3,'Results user','user','internal_member') returning id",
+      [WORKSPACE_ID, externalId, `${externalId}@example.test`],
+    );
+    const userId = user.rows[0]?.id;
+    if (!userId) throw new Error('user seed failed');
+    await grant(userId, 'survey.read', survey.msId);
+    await grant(userId, 'survey.read_personal_responses', survey.msId);
+    await grant(userId, 'finding.manage', survey.msId);
+    const userBody = parse2xx(await get(survey.id, await loginAs(app, externalId)));
+    expect(userBody.next_actions).toEqual([
+      { id: 'create_finding', availability: 'allowed', intent: 'open_finding_draft' },
+    ]);
+  });
+
+  it('AC-4 audits each distinct holder-exposed response/question pair and no non-holder read', async () => {
+    const survey = await seed(full(5));
+    const firstResponseId = survey.responseIds[0];
+    const secondResponseId = survey.responseIds[1];
+    if (!firstResponseId || !secondResponseId) throw new Error('response seed failed');
+    await approveExcerpt(survey, firstResponseId);
+    await approveExcerpt(survey, firstResponseId);
+    await approveExcerpt(survey, secondResponseId);
+    await grant(adminId, 'survey.read_personal_responses', survey.msId);
+    parse2xx(await get(survey.id));
+    const holderAudit = await migrateHandle.pool.query<{
+      subject_type: string;
+      subject_id: string;
+      detail: Record<string, string>;
+    }>(
+      "select subject_type,subject_id,detail from core.audit_log where actor_id=$1 and event_type='survey_response_personal_read'",
+      [adminId],
+    );
+    expect(
+      holderAudit.rows
+        .map((row) => [row.subject_id, row.detail.question_id])
+        .sort(([leftResponseId, leftQuestionId], [rightResponseId, rightQuestionId]) =>
+          `${leftResponseId}:${leftQuestionId}`.localeCompare(
+            `${rightResponseId}:${rightQuestionId}`,
+          ),
+        ),
+    ).toEqual(
+      [
+        [firstResponseId, survey.questions.text],
+        [secondResponseId, survey.questions.text],
+      ].sort(([leftResponseId, leftQuestionId], [rightResponseId, rightQuestionId]) =>
+        `${leftResponseId}:${leftQuestionId}`.localeCompare(
+          `${rightResponseId}:${rightQuestionId}`,
+        ),
+      ),
+    );
+    for (const row of holderAudit.rows) {
+      expect(row.subject_type).toBe('survey_response');
+      expect(row.detail.survey_id).toBe(survey.id);
+      expect(row.detail.survey_response_id).toBe(row.subject_id);
+      expect(Object.keys(row.detail).sort()).toEqual([
+        'question_id',
+        'survey_id',
+        'survey_response_id',
+      ]);
+    }
+    const reader = await dev();
+    await grant(reader.id, 'survey.read', survey.msId);
+    parse2xx(await get(survey.id, reader.cookie));
+    const readerAudit = await migrateHandle.pool.query<{ count: string }>(
+      "select count(*)::text as count from core.audit_log where actor_id=$1 and event_type='survey_response_personal_read'",
+      [reader.id],
+    );
+    expect(readerAudit.rows).toEqual([{ count: '0' }]);
+  });
+
+  it('AC-5 exposes no VOC action and keeps create-voc as a route miss', async () => {
+    const survey = await seed(full(5));
+    const responseId = survey.responseIds[0];
+    if (!responseId) throw new Error('response seed failed');
+    const body = parse2xx(await get(survey.id));
+    expect(body.next_actions.map((action) => action.id)).not.toContain('create_voc');
+    expect(
+      (await app.inject({ method: 'POST', url: `/survey-responses/${responseId}/create-voc` }))
+        .statusCode,
+    ).toBe(404);
+  });
+
+  it('AC-6 preserves non-holder threshold suppression and the evidence privilege wall', async () => {
+    const survey = await seed(full(4));
+    const body = parse2xx(await get(survey.id));
+    expect(body.questions).toContainEqual({
+      question_id: survey.questions.text,
+      visibility: 'suppressed',
+      response_count: null,
+      suppression: { code: 'anonymity_threshold' },
+    });
+    const privileges = await migrateHandle.pool.query<{
+      grantee: string;
+      core_usage: boolean;
+      app_response_select: boolean;
+    }>(
+      `select roles.grantee,
+              pg_catalog.has_schema_privilege(roles.grantee, schemas.schema_name, 'USAGE') as core_usage,
+              exists(
+                select 1
+                  from information_schema.table_privileges
+                 where grantee = 'fops_app'
+                   and table_schema = 'survey'
+                   and table_name = 'survey_responses'
+                   and privilege_type = 'SELECT'
+                union all
+                select 1
+                  from information_schema.column_privileges
+                 where grantee = 'fops_app'
+                   and table_schema = 'survey'
+                   and table_name = 'survey_responses'
+                   and privilege_type = 'SELECT'
+              ) as app_response_select
+         from (values ('fops_app'), ('fops_survey_evidence_reader_owner')) as roles(grantee)
+         cross join information_schema.schemata as schemas
+        where schemas.schema_name = 'core'
+        order by roles.grantee`,
+    );
+    expect(privileges.rows).toEqual([
+      { grantee: 'fops_app', core_usage: true, app_response_select: false },
+      {
+        grantee: 'fops_survey_evidence_reader_owner',
+        core_usage: false,
+        app_response_select: false,
+      },
+    ]);
+  });
+
+  it('classifies survey response state per actor and never exposes below-threshold counts', async () => {
+    const previousSettings = await migrateHandle.pool.query<{
+      survey_anonymity_threshold: number;
+    }>('select survey_anonymity_threshold from core.workspace_settings where workspace_id = $1', [
+      WORKSPACE_ID,
+    ]);
+    try {
+      const configured = await patchWorkspaceSettings({ survey_anonymity_threshold: 6 });
+      expect(configured.statusCode).toBe(200);
+
+      const reader = await dev();
+      const holder = await dev();
+      const zero = await seed([]);
+      for (const actor of [reader, holder]) await grant(actor.id, 'survey.read', zero.msId);
+      await grant(holder.id, 'survey.read_personal_responses', zero.msId);
+
+      const readerZero = parse2xx(await get(zero.id, reader.cookie));
+      const holderZero = parse2xx(await get(zero.id, holder.cookie));
+      for (const body of [readerZero, holderZero]) {
+        expect(body.response_state).toBe('none');
+        expect(body.anonymity_threshold).toBe(6);
+      }
+      const expectedZeroQuestionIds = Object.values(zero.questions).sort();
+      expect(readerZero.questions.map((question) => question.question_id).sort()).toEqual(
+        expectedZeroQuestionIds,
+      );
+      expect(holderZero.questions.map((question) => question.question_id).sort()).toEqual(
+        expectedZeroQuestionIds,
+      );
+      expect(readerZero.questions.every((question) => question.visibility === 'suppressed')).toBe(
+        true,
+      );
+      expect(
+        holderZero.questions.every(
+          (question) => question.visibility === 'visible' && question.answer_count === 0,
+        ),
+      ).toBe(true);
+
+      const below = await seed(full(1));
+      for (const actor of [reader, holder]) await grant(actor.id, 'survey.read', below.msId);
+      await grant(holder.id, 'survey.read_personal_responses', below.msId);
+      const nonHolderWire = await get(below.id, reader.cookie);
+      const nonHolderBelow = parse2xx(nonHolderWire);
+      expect(nonHolderBelow.response_state).toBe('below_threshold');
+      expect(nonHolderBelow.anonymity_threshold).toBe(6);
+      expect(
+        nonHolderBelow.questions.every((question) => question.visibility === 'suppressed'),
+      ).toBe(true);
+      const serializedNonHolder = JSON.stringify(nonHolderWire.json());
+      expect(serializedNonHolder).not.toContain('"answer_count"');
+      expect(serializedNonHolder).not.toMatch(/"(?:count|response_count|total_count)"\s*:\s*\d+/);
+      const holderBelow = parse2xx(await get(below.id, holder.cookie));
+      expect(holderBelow.response_state).toBe('visible');
+      expect(holderBelow.anonymity_threshold).toBe(6);
+      expect(holderBelow.questions.every((question) => question.visibility === 'visible')).toBe(
+        true,
+      );
+
+      const atThreshold = await seed(full(6));
+      for (const actor of [reader, holder]) await grant(actor.id, 'survey.read', atThreshold.msId);
+      await grant(holder.id, 'survey.read_personal_responses', atThreshold.msId);
+      for (const actor of [reader, holder]) {
+        const body = parse2xx(await get(atThreshold.id, actor.cookie));
+        expect(body.response_state).toBe('visible');
+        expect(body.anonymity_threshold).toBe(6);
+      }
+    } finally {
+      if (previousSettings.rows[0]) {
+        await migrateHandle.pool.query(
+          'update core.workspace_settings set survey_anonymity_threshold = $2 where workspace_id = $1',
+          [WORKSPACE_ID, previousSettings.rows[0].survey_anonymity_threshold],
+        );
+      } else {
+        await migrateHandle.pool.query(
+          'delete from core.workspace_settings where workspace_id = $1',
+          [WORKSPACE_ID],
+        );
+      }
+    }
+  });
+
+  it('discovers zero-excerpt derived Findings without personal access under both system gates', async () => {
+    const survey = await seed(full(5));
+    const responseId = survey.responseIds[0];
+    await grant(adminId, 'survey.read_personal_responses', survey.msId);
+    const targetMsId = await insertMsDirectly(appHandle, WORKSPACE_ID, uid(SLUG), 'Target MS');
+    const created = await app.inject({
+      method: 'POST',
+      url: `/survey-responses/${responseId}/create-finding`,
+      headers: {
+        cookie: `${SESSION_COOKIE_NAME}=${adminCookie}`,
+        'content-type': 'application/json',
+        'idempotency-key': randomUUID(),
+      },
+      payload: {
+        severity: 'medium',
+        primary_managed_system_id: targetMsId,
+        approved_excerpt_ids: [],
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    const findingId = created.json<{ id: string }>().id;
+    const reader = await dev();
+    await grant(reader.id, 'survey.read', survey.msId);
+    await grant(reader.id, 'finding.read', targetMsId);
+    const visible = parse2xx(await get(survey.id, reader.cookie));
+    expect(visible.next_actions).toContainEqual(
+      expect.objectContaining({
+        id: 'request_task',
+        source_finding_id: findingId,
+        availability: 'blocked_requestable',
+      }),
+    );
+    expect(JSON.stringify(visible)).not.toContain(responseId);
+    const sourceOnly = await dev();
+    await grant(sourceOnly.id, 'survey.read', survey.msId);
+    expect(JSON.stringify(parse2xx(await get(survey.id, sourceOnly.cookie)))).not.toContain(
+      findingId,
+    );
+    const targetOnly = await dev();
+    await grant(targetOnly.id, 'finding.read', targetMsId);
+    expect((await get(survey.id, targetOnly.cookie)).statusCode).toBe(404);
+    const nonElevated = await user();
+    await grant(nonElevated.id, 'survey.read', survey.msId);
+    await grant(nonElevated.id, 'finding.read', targetMsId);
+    expect(JSON.stringify(parse2xx(await get(survey.id, nonElevated.cookie)))).not.toContain(
+      findingId,
+    );
+    await deny(adminId, 'survey.read', survey.msId);
+    expect((await get(survey.id)).statusCode).toBe(404);
+    // Losing the visible cohort suppresses discovery for a non-holder, independently of target scope.
+    const previous = await migrateHandle.pool.query<{ survey_anonymity_threshold: number }>(
+      'select survey_anonymity_threshold from core.workspace_settings where workspace_id = $1',
+      [WORKSPACE_ID],
+    );
+    await migrateHandle.pool.query(
+      'insert into core.workspace_settings (workspace_id, survey_anonymity_threshold) values ($1, 6) on conflict (workspace_id) do update set survey_anonymity_threshold = 6',
+      [WORKSPACE_ID],
+    );
+    try {
+      const hidden = parse2xx(await get(survey.id, reader.cookie));
+      expect(hidden.response_state).toBe('below_threshold');
+      expect(JSON.stringify(hidden)).not.toContain(findingId);
+    } finally {
+      if (previous.rows[0]) {
+        await migrateHandle.pool.query(
+          'update core.workspace_settings set survey_anonymity_threshold = $2 where workspace_id = $1',
+          [WORKSPACE_ID, previous.rows[0].survey_anonymity_threshold],
+        );
+      } else {
+        await migrateHandle.pool.query(
+          'delete from core.workspace_settings where workspace_id = $1',
+          [WORKSPACE_ID],
+        );
+      }
+    }
+  });
+
+  it('emits request_task only for elevated actors who can read the derived Finding', async () => {
+    const survey = await seed(full(5));
+    const responseId = survey.responseIds[0];
+    if (!responseId) throw new Error('response seed failed');
+    const excerptId = await approveExcerpt(survey, responseId);
+    await grant(adminId, 'survey.read_personal_responses', survey.msId);
+    const beforeDerivation = parse2xx(await get(survey.id));
+    expect(beforeDerivation.next_actions.map((action) => action.id)).not.toContain('request_task');
+    const findingMsId = await insertMsDirectly(
+      appHandle,
+      WORKSPACE_ID,
+      uid(SLUG),
+      'Derived Finding MS',
+    );
+    const created = await app.inject({
+      method: 'POST',
+      url: `/survey-responses/${responseId}/create-finding`,
+      headers: {
+        cookie: `${SESSION_COOKIE_NAME}=${adminCookie}`,
+        'content-type': 'application/json',
+        'idempotency-key': randomUUID(),
+      },
+      payload: {
+        severity: 'medium',
+        primary_managed_system_id: findingMsId,
+        approved_excerpt_ids: [excerptId],
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    const findingId = created.json<{ id: string }>().id;
+
+    const elevatedManage = parse2xx(await get(survey.id));
+    expect(elevatedManage.next_actions).toContainEqual(
+      expect.objectContaining({
+        id: 'request_task',
+        availability: 'allowed',
+        intent: 'open_task_request_draft',
+        source_finding_id: findingId,
+      }),
+    );
+
+    const nonElevatedManage = await user();
+    for (const capability of ['survey.read', 'survey.read_personal_responses', 'finding.manage'])
+      await grant(nonElevatedManage.id, capability, survey.msId);
+    await grant(nonElevatedManage.id, 'finding.manage', findingMsId);
+    // Deliberately grants Finding scope so this User actor exercises the elevated-role guard.
+    await grant(nonElevatedManage.id, 'finding.read', findingMsId);
+    const nonElevatedBody = parse2xx(await get(survey.id, nonElevatedManage.cookie));
+    expect(nonElevatedBody.next_actions).toContainEqual(
+      expect.objectContaining({ id: 'create_finding', availability: 'allowed' }),
+    );
+    expect(nonElevatedBody.next_actions.map((action) => action.id)).not.toContain('request_task');
+    expect(JSON.stringify(nonElevatedBody)).not.toContain(findingId);
+
+    const elevatedReadOnly = await dev();
+    for (const capability of ['survey.read', 'survey.read_personal_responses'])
+      await grant(elevatedReadOnly.id, capability, survey.msId);
+    await grant(elevatedReadOnly.id, 'finding.read', findingMsId);
+    const elevatedReadOnlyBody = parse2xx(await get(survey.id, elevatedReadOnly.cookie));
+    expect(elevatedReadOnlyBody.next_actions).toContainEqual(
+      expect.objectContaining({
+        id: 'request_task',
+        availability: 'blocked_requestable',
+        source_finding_id: findingId,
+        requestable_permission: {
+          permission: 'finding.manage',
+          managed_system_id: findingMsId,
+        },
+      }),
+    );
+
+    const outOfScope = await dev();
+    for (const capability of ['survey.read', 'survey.read_personal_responses'])
+      await grant(outOfScope.id, capability, survey.msId);
+    const outOfScopeBody = parse2xx(await get(survey.id, outOfScope.cookie));
+    expect(outOfScopeBody.next_actions.map((action) => action.id)).not.toContain('request_task');
+    expect(JSON.stringify(outOfScopeBody)).not.toContain(findingId);
+  });
+
+  it('enforces the actor matrix and parses every successful result', async () => {
+    const survey = await seed(full(4));
+    const adminThreshold = parse2xx(await get(survey.id));
+    expect(adminThreshold.questions).toEqual(
+      adminThreshold.questions.map((q) => ({
+        question_id: q.question_id,
+        visibility: 'suppressed',
+        response_count: null,
+        suppression: { code: 'anonymity_threshold' },
+      })),
+    );
+    await grant(adminId, 'survey.read_personal_responses', survey.msId);
+    const adminExact = parse2xx(await get(survey.id));
+    expect(adminExact.questions.map((q) => q.visibility)).toEqual([
+      'visible',
+      'visible',
+      'visible',
+      'visible',
+    ]);
+    expect(adminExact.questions[2]).toMatchObject({
+      answer_count: 4,
+      distribution: { low: 0, mid: 4, high: 0 },
+    });
+    const actor = await dev();
+    expect((await get(survey.id, actor.cookie)).statusCode).toBe(404);
+    await grant(actor.id, 'survey.read', survey.msId);
+    expect(
+      parse2xx(await get(survey.id, actor.cookie)).questions.every(
+        (q) => q.visibility === 'suppressed',
+      ),
+    ).toBe(true);
+    await grant(actor.id, 'survey.read_personal_responses', survey.msId);
+    expect(parse2xx(await get(survey.id, actor.cookie)).questions.map((q) => q.visibility)).toEqual(
+      ['visible', 'visible', 'visible', 'visible'],
+    );
+    await deny(actor.id, 'survey.read', survey.msId);
+    expect((await get(survey.id, actor.cookie)).statusCode).toBe(404);
+    expect((await get(survey.id, userCookie)).statusCode).toBe(404);
+  });
+
+  it('makes cohorts 0 through 4 byte-identical and exposes 5 and 6', async () => {
+    const hidden = await Promise.all(
+      [0, 1, 4].map(async (count) => parse2xx(await get((await seed(full(count))).id))),
+    );
+    const safeQuestionBytes = (body: (typeof hidden)[number]) =>
+      body.questions.map(({ question_id: _questionId, ...question }) => JSON.stringify(question));
+    const [firstHidden] = hidden;
+    if (!firstHidden) throw new Error('hidden cohort seed failed');
+    for (const body of hidden)
+      expect(safeQuestionBytes(body)).toEqual(safeQuestionBytes(firstHidden));
+    for (const count of [5, 6]) {
+      const body = parse2xx(await get((await seed(full(count))).id));
+      expect(body.questions.map((q) => q.visibility)).toEqual([
+        'visible',
+        'visible',
+        'visible',
+        'visible',
+      ]);
+      expect(body.questions[0]).toMatchObject({
+        answer_count: count,
+        option_buckets: [
+          { key: 'yes', count },
+          { key: 'no', count: 0 },
+        ],
+      });
+      expect(body.questions[1]).toMatchObject({
+        answer_count: count,
+        option_buckets: [
+          { key: 'a', count },
+          { key: 'b', count: 0 },
+        ],
+      });
+      expect(body.questions[2]).toMatchObject({
+        answer_count: count,
+        distribution: { low: 0, mid: count, high: 0 },
+      });
+      expect(body.questions[3]).toMatchObject({ answer_count: count });
+    }
+  });
+
+  it('uses the resolved workspace anonymity threshold and keeps the no-row default at five', async () => {
+    const configured = await patchWorkspaceSettings({
+      survey_anonymity_threshold: 7,
+    });
+    expect(configured.statusCode).toBe(200);
+    expect(configured.json()).toMatchObject({ survey_anonymity_threshold: 7 });
+
+    const six = parse2xx(await get((await seed(full(6))).id));
+    expect(six.questions).toEqual(
+      six.questions.map((question) => ({
+        question_id: question.question_id,
+        visibility: 'suppressed',
+        response_count: null,
+        suppression: { code: 'anonymity_threshold' },
+      })),
+    );
+
+    const seven = parse2xx(await get((await seed(full(7))).id));
+    expect(seven.questions.map((question) => question.visibility)).toEqual([
+      'visible',
+      'visible',
+      'visible',
+      'visible',
+    ]);
+
+    await migrateHandle.pool.query('delete from core.workspace_settings where workspace_id = $1', [
+      WORKSPACE_ID,
+    ]);
+    const noRowFive = parse2xx(await get((await seed(full(5))).id));
+    expect(noRowFive.questions.map((question) => question.visibility)).toEqual([
+      'visible',
+      'visible',
+      'visible',
+      'visible',
+    ]);
+  });
+
+  it('applies low bucket suppression, exact overlapping choice buckets, rating partition, and text masking', async () => {
+    const one = await seed([
+      ...full(4),
+      { choice: 'no', multi: ['a', 'b'], rating: 6, text: 'private' },
+    ]);
+    const noGrant = parse2xx(await get(one.id));
+    expect(noGrant.questions.map((q) => q.visibility)).toEqual([
+      'suppressed',
+      'suppressed',
+      'suppressed',
+      'visible',
+    ]);
+    await grant(adminId, 'survey.read_personal_responses', one.msId);
+    const exact = parse2xx(await get(one.id));
+    expect(exact.questions.map((q) => q.question_id)).toEqual([
+      one.questions.single_choice,
+      one.questions.multiple_choice,
+      one.questions.rating,
+      one.questions.text,
+    ]);
+    expect(exact.questions[0]).toMatchObject({
+      answer_count: 5,
+      option_buckets: [
+        { key: 'yes', count: 4 },
+        { key: 'no', count: 1 },
+      ],
+    });
+    expect(exact.questions[1]).toMatchObject({
+      answer_count: 5,
+      option_buckets: [
+        { key: 'a', count: 5 },
+        { key: 'b', count: 1 },
+      ],
+    });
+    expect(exact.questions[2]).toMatchObject({
+      answer_count: 5,
+      distribution: { low: 0, mid: 4, high: 0 },
+    });
+    expect(exact.questions[3]).toMatchObject({
+      answer_count: 5,
+      distribution: null,
+      excerpts: [],
+    });
+    const four = await seed([
+      ...full(5),
+      ...Array.from({ length: 4 }, () => ({
+        choice: 'no',
+        multi: ['a'],
+        rating: 3,
+      })),
+    ]);
+    const fourBody = parse2xx(await get(four.id));
+    expect(fourBody.questions[0]?.visibility).toBe('suppressed');
+    const zero = await seed(
+      Array.from({ length: 5 }, () => ({
+        choice: 'yes',
+        multi: ['a'],
+        rating: 3,
+      })),
+    );
+    const zeroBody = parse2xx(await get(zero.id));
+    expect(zeroBody.questions[0]).toMatchObject({
+      visibility: 'visible',
+      option_buckets: [
+        { key: 'yes', count: 5 },
+        { key: 'no', count: 0 },
+      ],
+    });
+    expect(zeroBody.questions[3]).toMatchObject({
+      visibility: 'visible',
+      answer_count: 0,
+      excerpts: [],
+    });
+    for (const textCount of [1, 2, 3, 4]) {
+      const textMasked = await seed([
+        ...Array.from({ length: textCount }, () => ({
+          choice: 'yes',
+          multi: ['a'],
+          rating: 3,
+          text: 'private',
+        })),
+        ...Array.from({ length: 5 - textCount }, () => ({
+          choice: 'yes',
+          multi: ['a'],
+          rating: 3,
+        })),
+      ]);
+      expect(parse2xx(await get(textMasked.id)).questions[3]?.visibility).toBe('suppressed');
+    }
+  });
+
+  it('serves closed results, preserves identity protection, rejects draft/query/cross-workspace, and writes no audit', async () => {
+    const before = await migrateHandle.pool.query<{ count: string }>(
+      'select count(*) from core.audit_log where workspace_id=$1',
+      [WORKSPACE_ID],
+    );
+    const closed = await seed(full(5), {
+      status: 'closed',
+      identityProtected: false,
+    });
+    expect(parse2xx(await get(closed.id)).identity_protected).toBe(false);
+    const protectedSurvey = await seed(full(5), { identityProtected: true });
+    expect(parse2xx(await get(protectedSurvey.id)).identity_protected).toBe(true);
+    const draft = await seed([], { status: 'draft' });
+    const draftResponse = await get(draft.id);
+    expect(draftResponse.statusCode).toBe(409);
+    expect(draftResponse.json<{ code: string }>().code).toBe('conflict.survey_results_unavailable');
+    const invalidQuery = await get(closed.id, adminCookie, '?segment=internal');
+    expect(invalidQuery.statusCode).toBe(422);
+    expect(invalidQuery.json<{ code: string }>().code).toBe('validation.failed');
+    const foreignWorkspace = randomUUID();
+    await migrateHandle.pool.query('insert into core.workspaces (id,name) values ($1,$2)', [
+      foreignWorkspace,
+      `${SLUG} foreign`,
+    ]);
+    const foreignActor = await migrateHandle.pool.query<{ id: string }>(
+      "insert into core.actors (workspace_id,external_id,email,display_name,role_level,actor_type) values ($1,$2,$3,'Foreign admin','admin','internal_member') returning id",
+      [
+        foreignWorkspace,
+        `${SLUG}-foreign-${foreignWorkspace}`,
+        `foreign-${foreignWorkspace}@example.test`,
+      ],
+    );
+    const foreignMs = await insertMsDirectly(
+      migrateHandle,
+      foreignWorkspace,
+      uid(`${SLUG}-foreign`),
+      'Foreign results MS',
+    );
+    const foreignSurvey = await migrateHandle.pool.query<{ id: string }>(
+      `insert into survey.surveys (workspace_id,display_id,type,status,title,primary_managed_system_id,operator_actor_id,responses_identity_protected,created_by,opened_at)
+       values ($1,$2,'validation','open',$3,$4,$5,true,$5,now()) returning id`,
+      [
+        foreignWorkspace,
+        `S-${randomUUID()}`,
+        `${SLUG} foreign`,
+        foreignMs,
+        foreignActor.rows[0]?.id,
+      ],
+    );
+    expect((await get(foreignSurvey.rows[0]?.id ?? randomUUID())).statusCode).toBe(404);
+    await migrateHandle.pool.query('delete from survey.surveys where workspace_id=$1', [
+      foreignWorkspace,
+    ]);
+    await migrateHandle.pool.query('delete from core.actors where workspace_id=$1', [
+      foreignWorkspace,
+    ]);
+    await deleteRecoveryFixtureParents(
+      migrateHandle,
+      'delete from core.managed_systems where workspace_id=$1',
+      [foreignWorkspace],
+    );
+    await deleteRecoveryFixtureParents(migrateHandle, 'delete from core.workspaces where id=$1', [
+      foreignWorkspace,
+    ]);
+    const after = await migrateHandle.pool.query<{ count: string }>(
+      'select count(*) from core.audit_log where workspace_id=$1',
+      [WORKSPACE_ID],
+    );
+    expect(after.rows[0]?.count).toBe(before.rows[0]?.count);
+  });
+
+  it('#1109 candidates page only eligible safe approvals and reauthorize continuation', async () => {
+    const survey = await seed(full(5));
+    const reader = await dev();
+    await grant(reader.id, 'survey.read', survey.msId);
+    const ids = [];
+    for (const responseId of survey.responseIds) ids.push(await approveExcerpt(survey, responseId));
+    ids.sort();
+    const candidates = (suffix = '') =>
+      app.inject({
+        method: 'GET',
+        url: `/surveys/${survey.id}/evidence-candidates${suffix}`,
+        headers: { cookie: `${SESSION_COOKIE_NAME}=${reader.cookie}` },
+      });
+    const first = await candidates('?limit=2');
+    expect(first.statusCode).toBe(200);
+    expect(first.json()).toEqual({
+      response_state: 'visible',
+      items: ids.slice(0, 2).map((id) => ({
+        approved_excerpt_id: id,
+        redacted_excerpt: 'approved result excerpt',
+        question_label: 'Text',
+        survey_type: 'validation',
+        survey_display_id: expect.any(String),
+        identity_protected: true,
+      })),
+      page: { has_more: true, cursor: expect.any(String) },
+    });
+    const cursor = first.json().page.cursor;
+    const next = await candidates(`?limit=2&cursor=${encodeURIComponent(cursor)}`);
+    expect(
+      next.json().items.map((item: { approved_excerpt_id: string }) => item.approved_excerpt_id),
+    ).toEqual(ids.slice(2, 4));
+    for (const responseId of survey.responseIds)
+      expect(JSON.stringify(first.json())).not.toContain(responseId);
+    const audits = await migrateHandle.pool.query(
+      "select id from core.audit_log where actor_id=$1 and event_type='survey_response_personal_read'",
+      [reader.id],
+    );
+    expect(audits.rows).toEqual([]);
+    await deny(reader.id, 'survey.read', survey.msId);
+    expect((await candidates(`?cursor=${encodeURIComponent(cursor)}`)).statusCode).toBe(404);
+  });
+
+  it('#1109 candidates count subjects and text answers, never approvals; holders stay safe', async () => {
+    const survey = await seed(full(1));
+    const reader = await dev();
+    await grant(reader.id, 'survey.read', survey.msId);
+    for (let i = 0; i < 6; i++) await approveExcerpt(survey, survey.responseIds[0]!);
+    const getCandidates = () =>
+      app.inject({
+        method: 'GET',
+        url: `/surveys/${survey.id}/evidence-candidates`,
+        headers: { cookie: `${SESSION_COOKIE_NAME}=${reader.cookie}` },
+      });
+    expect((await getCandidates()).json()).toEqual({
+      response_state: 'below_threshold',
+      items: [],
+      page: { has_more: false },
+    });
+    const admin = await app.inject({
+      method: 'GET',
+      url: `/surveys/${survey.id}/evidence-candidates`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+    });
+    expect(admin.json()).toEqual({
+      response_state: 'below_threshold',
+      items: [],
+      page: { has_more: false },
+    });
+    await grant(reader.id, 'survey.read_personal_responses', survey.msId);
+    const holder = await getCandidates();
+    expect(holder.statusCode).toBe(200);
+    expect(holder.json().items).toHaveLength(6);
+    expect(JSON.stringify(holder.json())).not.toContain(survey.responseIds[0]);
+    const audits = await migrateHandle.pool.query(
+      "select id from core.audit_log where actor_id=$1 and event_type='survey_response_personal_read'",
+      [reader.id],
+    );
+    expect(audits.rows).toEqual([]);
+  });
+
+  it('#1109 visible Survey can have no approvals or an independently suppressed text question', async () => {
+    const empty = await seed([]);
+    const sparse = await seed([{ text: 'private' }, {}, {}, {}, {}]);
+    await approveExcerpt(sparse, sparse.responseIds[0]!);
+    for (const [survey, state] of [
+      [empty, 'none'],
+      [sparse, 'visible'],
+    ] as const) {
+      const reader = await dev();
+      await grant(reader.id, 'survey.read', survey.msId);
+      const result = await app.inject({
+        method: 'GET',
+        url: `/surveys/${survey.id}/evidence-candidates`,
+        headers: { cookie: `${SESSION_COOKIE_NAME}=${reader.cookie}` },
+      });
+      expect(result.statusCode).toBe(200);
+      expect(result.json()).toEqual({
+        response_state: state,
+        items: [],
+        page: { has_more: false },
+      });
+    }
+    const noApproved = await seed(full(5));
+    const result = await app.inject({
+      method: 'GET',
+      url: `/surveys/${noApproved.id}/evidence-candidates`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+    });
+    expect(result.json()).toEqual({
+      response_state: 'visible',
+      items: [],
+      page: { has_more: false },
+    });
+  });
+
+  it.each(['?limit=101', '?limit=0', '?q=private', '?cursor=invalid', '?dimension=team'])(
+    '#1109 candidates reject invalid query %s',
+    async (suffix) => {
+      const survey = await seed(full(5));
+      const result = await app.inject({
+        method: 'GET',
+        url: `/surveys/${survey.id}/evidence-candidates${suffix}`,
+        headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+      });
+      expect(result.statusCode).toBe(422);
+      expect(result.json().code).toBe('validation.failed');
+    },
+  );
+
+  it('#1109 candidate draft disclosure follows source access, and foreign Surveys stay absent', async () => {
+    const source = await seed([], { status: 'draft' });
+    const reader = await dev();
+    const read = () =>
+      app.inject({
+        method: 'GET',
+        url: `/surveys/${source.id}/evidence-candidates`,
+        headers: { cookie: `${SESSION_COOKIE_NAME}=${reader.cookie}` },
+      });
+    expect((await read()).statusCode).toBe(404);
+    await grant(reader.id, 'survey.read', source.msId);
+    expect((await read()).statusCode).toBe(409);
+    await deny(adminId, 'survey.read', source.msId);
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/surveys/${source.id}/evidence-candidates`,
+          headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/surveys/${randomUUID()}/evidence-candidates`,
+          headers: { cookie: `${SESSION_COOKIE_NAME}=${reader.cookie}` },
+        })
+      ).statusCode,
+    ).toBe(404);
+  });
+
+  it('#1109 next candidate page excludes revoked approval and detects a changed threshold or cursor context', async () => {
+    const survey = await seed(full(5));
+    const reader = await dev();
+    await grant(reader.id, 'survey.read', survey.msId);
+    const ids = [];
+    for (const responseId of survey.responseIds) ids.push(await approveExcerpt(survey, responseId));
+    ids.sort();
+    const read = (surveyId = survey.id, suffix = '') =>
+      app.inject({
+        method: 'GET',
+        url: `/surveys/${surveyId}/evidence-candidates${suffix}`,
+        headers: { cookie: `${SESSION_COOKIE_NAME}=${reader.cookie}` },
+      });
+    const first = await read(survey.id.toUpperCase(), '?limit=1');
+    expect(first.statusCode).toBe(200);
+    const cursor = first.json().page.cursor;
+    await migrateHandle.pool.query(
+      'update survey.survey_response_excerpt_approvals set revoked_at=now() where id=$1',
+      [ids[1]],
+    );
+    const next = await read(
+      survey.id.toUpperCase(),
+      `?limit=1&cursor=${encodeURIComponent(cursor)}`,
+    );
+    expect(next.statusCode).toBe(200);
+    expect(next.json().items[0].approved_excerpt_id).toBe(ids[2]);
+    const other = await seed(full(5));
+    expect((await read(other.id, `?cursor=${encodeURIComponent(cursor)}`)).statusCode).toBe(422);
+    const previous = await migrateHandle.pool.query<{ survey_anonymity_threshold: number }>(
+      'select survey_anonymity_threshold from core.workspace_settings where workspace_id=$1',
+      [WORKSPACE_ID],
+    );
+    try {
+      await migrateHandle.pool.query(
+        `insert into core.workspace_settings (workspace_id,survey_anonymity_threshold)
+        values ($1,6) on conflict (workspace_id) do update set survey_anonymity_threshold=6`,
+        [WORKSPACE_ID],
+      );
+      expect((await read(survey.id, `?cursor=${encodeURIComponent(cursor)}`)).json()).toEqual({
+        response_state: 'below_threshold',
+        items: [],
+        page: { has_more: false },
+      });
+    } finally {
+      if (previous.rows[0])
+        await migrateHandle.pool.query(
+          'update core.workspace_settings set survey_anonymity_threshold=$2 where workspace_id=$1',
+          [WORKSPACE_ID, previous.rows[0].survey_anonymity_threshold],
+        );
+      else
+        await migrateHandle.pool.query(
+          'delete from core.workspace_settings where workspace_id=$1',
+          [WORKSPACE_ID],
+        );
+    }
+  });
+});

@@ -1,0 +1,946 @@
+import { randomUUID } from 'node:crypto';
+import type { ListTaskRequestsResponse } from '@fops/shared';
+import { lockRecoveryCommand } from '../../db/recovery-command-lock.js';
+import { decodeListCursor, encodeListCursor } from '../../lib/list-cursor.js';
+import type { RecoveryRecorder } from '../dashboard/recorder.js';
+import { resolveTaskResponsibility } from '../tasks/responsibility.js';
+
+import {
+  type ApproveTaskRequestRequest,
+  type AssignTaskRequestReviewerRequest,
+  type CreateTaskRequestFromFindingRequest,
+  type CreateTaskRequestFromVocClusterRequest,
+  type CreateTaskRequestFromVocRequest,
+  type EntityLinkEntityType,
+  type RejectTaskRequestRequest,
+  type RequestMoreEvidenceTaskRequestRequest,
+  type TaskRequestDto,
+  type TaskRequestSourceType,
+  type TaskRequestStatus,
+  registeredEntityLinkPairSchema,
+} from '@fops/shared';
+
+import type { Db } from '../../db/client.js';
+import type { Tx } from '../../db/tx.js';
+import { HttpError } from '../../lib/errors.js';
+import type { AuditService } from '../core/audit/audit-service.js';
+import type { IdempotencyService } from '../core/idempotency/idempotency-service.js';
+import {
+  type EntityLinkRow,
+  createEntityLink as insertActiveEntityLink,
+  selectActiveLinksForEndpoints,
+} from '../entity-links/index.js';
+import { checkFindingManage, hasElevatedFindingRole } from '../findings/authorization.js';
+import { lockFindingForUpdate as lockFindingById } from '../findings/index.js';
+import type { NotificationNotifier } from '../notifications/index.js';
+import { type CheckService, memoizeCapabilityChecks } from '../permissions/index.js';
+import { lockVocClusterById } from '../voc-clusters/index.js';
+import { canReadVocAsSource, selectVocForUpdate } from '../voc/index.js';
+import {
+  type TaskRequestRow,
+  countListRows,
+  countListStatuses,
+  findTaskRequestById,
+  findTaskRequestIdByDisplayId,
+  insertTaskRequest,
+  listPrimaryManagedSystemIds,
+  listTaskRequestsByWorkspace,
+  lockTaskRequestById,
+  updateAssignedReviewer,
+  updateTaskRequestDecision,
+} from './repo.js';
+
+export interface TaskRequestsActor {
+  actor_id: string;
+  workspace_id: string;
+  role_level: 'admin' | 'developer' | 'user';
+}
+
+export interface TaskRequestsServiceDeps {
+  recoveryRecorder?: RecoveryRecorder;
+  consumeSelfApprovalRateLimit?: (actor: TaskRequestsActor) => Promise<void>;
+  db: Db;
+  auditService: AuditService;
+  checkService: CheckService;
+  idempotencyService: IdempotencyService;
+  notify: NotificationNotifier;
+}
+
+type TaskRequestDecisionAction = 'approve' | 'reject' | 'request_more_evidence';
+type TaskRequestSourceLink = {
+  link_id: string;
+  source_id: string;
+  source_type: TaskRequestSourceType;
+  display_id?: string;
+  title?: string;
+  evidence_count?: number;
+};
+
+const ALLOWED_TASK_REQUEST_TRANSITIONS: Record<
+  TaskRequestDecisionAction,
+  ReadonlyArray<TaskRequestStatus>
+> = {
+  approve: ['pending_review', 'needs_more_evidence'],
+  reject: ['pending_review', 'needs_more_evidence'],
+  request_more_evidence: ['pending_review'],
+};
+
+const TARGET_STATUS_BY_ACTION: Record<TaskRequestDecisionAction, TaskRequestStatus> = {
+  approve: 'approved',
+  reject: 'rejected',
+  request_more_evidence: 'needs_more_evidence',
+};
+
+const EVENT_TYPE_BY_ACTION: Record<
+  TaskRequestDecisionAction,
+  'task_request_approved' | 'task_request_rejected' | 'task_request_needs_more_evidence'
+> = {
+  approve: 'task_request_approved',
+  reject: 'task_request_rejected',
+  request_more_evidence: 'task_request_needs_more_evidence',
+};
+
+const NOTIFICATION_EVENT_BY_ACTION: Record<
+  TaskRequestDecisionAction,
+  'task_request.approved' | 'task_request.rejected' | 'task_request.needs_more_evidence'
+> = {
+  approve: 'task_request.approved',
+  reject: 'task_request.rejected',
+  request_more_evidence: 'task_request.needs_more_evidence',
+};
+
+function taskRequestToDto(row: TaskRequestRow, source?: TaskRequestSourceLink): TaskRequestDto {
+  return {
+    id: row.id,
+    workspace_id: row.workspace_id,
+    display_id: row.display_id,
+    source_type: row.source_type,
+    source_id: row.source_id,
+    primary_managed_system_id: row.primary_managed_system_id,
+    evidence_summary: row.evidence_summary,
+    requested_outcome: row.requested_outcome,
+    requester_actor_id: row.requester_actor_id,
+    status: row.status,
+    assigned_reviewer_actor_id: row.assigned_reviewer_actor_id,
+    assigned_reviewer_team_id: row.assigned_reviewer_team_id,
+    reviewer_actor_id: row.reviewer_actor_id,
+    decision_reason: row.decision_reason,
+    decided_at: row.decided_at?.toISOString() ?? null,
+    created_at: row.created_at.toISOString(),
+    updated_at: row.updated_at.toISOString(),
+    ...(source
+      ? {
+          source: {
+            type: source.source_type,
+            id: source.source_id,
+            relation_type: 'requested_task',
+            link_id: source.link_id,
+            ...(source.display_id !== undefined ? { display_id: source.display_id } : {}),
+            ...(source.title !== undefined ? { title: source.title } : {}),
+            ...(source.evidence_count !== undefined
+              ? { evidence_count: source.evidence_count }
+              : {}),
+          },
+        }
+      : {}),
+  };
+}
+
+async function hasSelfApprovalCapability(
+  deps: Pick<TaskRequestsServiceDeps, 'checkService'>,
+  actor: TaskRequestsActor,
+  managedSystemId: string,
+  options: Parameters<TaskRequestsServiceDeps['checkService']['checkCapability']>[3],
+): Promise<boolean> {
+  // Declared as `adminModuleBypass: 'always'` in `CAPABILITY_META` — change
+  // both together or the advisory check route drifts from here (issue #372).
+  if (actor.role_level === 'admin') return true;
+  const decision = await deps.checkService.checkCapability(
+    actor,
+    'task_request.self_approve',
+    { workspace_id: actor.workspace_id, managed_system_id: managedSystemId },
+    options,
+  );
+  return decision.allow;
+}
+
+function decisionReasonForAction(
+  action: TaskRequestDecisionAction,
+  input:
+    | ApproveTaskRequestRequest
+    | RejectTaskRequestRequest
+    | RequestMoreEvidenceTaskRequestRequest,
+): string | undefined {
+  if (action === 'request_more_evidence') {
+    return (input as RequestMoreEvidenceTaskRequestRequest).note;
+  }
+  const reason = (input as ApproveTaskRequestRequest | RejectTaskRequestRequest).reason;
+  if (action === 'approve' && reason?.length === 0) return undefined;
+  return reason;
+}
+
+export function createTaskRequestsService(deps: TaskRequestsServiceDeps) {
+  async function sourceLinkForTaskRequest(
+    row: TaskRequestRow,
+    actor: TaskRequestsActor,
+    links: EntityLinkRow[],
+    checkService: CheckService,
+  ): Promise<TaskRequestSourceLink | undefined> {
+    const link = links.find(
+      (candidate) =>
+        candidate.relation_type === 'requested_task' &&
+        candidate.target_type === 'task_request' &&
+        candidate.target_id === row.id &&
+        candidate.source_id === row.source_id &&
+        candidate.source_type === row.source_type,
+    );
+    if (!link) return undefined;
+
+    const source: TaskRequestSourceLink = {
+      link_id: link.id,
+      source_id: link.source_id,
+      source_type: row.source_type,
+    };
+    if (row.source_type === 'voc') {
+      const canRead =
+        row.source_voc_reporter_id !== undefined &&
+        (await canReadVocAsSource(checkService, actor, {
+          managedSystemId: row.primary_managed_system_id,
+          reporterId: row.source_voc_reporter_id,
+        }));
+      if (!canRead) return source;
+    }
+
+    return {
+      ...source,
+      ...(row.source_display_id !== undefined ? { display_id: row.source_display_id } : {}),
+      ...(row.source_title !== undefined ? { title: row.source_title } : {}),
+      ...(row.source_type === 'finding' && row.source_evidence_count !== undefined
+        ? { evidence_count: row.source_evidence_count }
+        : {}),
+    };
+  }
+
+  async function createFromSource(args: {
+    tx: Tx;
+    actor: TaskRequestsActor;
+    sourceType: TaskRequestSourceType;
+    sourceId: string;
+    analyticsAreaId?: string | null;
+    primaryManagedSystemId: string;
+    input:
+      | CreateTaskRequestFromFindingRequest
+      | CreateTaskRequestFromVocRequest
+      | CreateTaskRequestFromVocClusterRequest;
+  }): Promise<TaskRequestDto> {
+    const responsibility = await resolveTaskResponsibility({
+      tx: args.tx,
+      checkService: deps.checkService,
+      workspaceId: args.actor.workspace_id,
+      managedSystemId: args.primaryManagedSystemId,
+      workflow: 'task_request',
+      analyticsAreaId: args.analyticsAreaId ?? null,
+      ...(args.input.assigned_reviewer_actor_id === undefined
+        ? {}
+        : { actorId: args.input.assigned_reviewer_actor_id }),
+      ...(args.input.assigned_reviewer_team_id === undefined
+        ? {}
+        : { teamId: args.input.assigned_reviewer_team_id }),
+    });
+    const taskRequest = await insertTaskRequest(args.tx, {
+      workspaceId: args.actor.workspace_id,
+      sourceType: args.sourceType,
+      sourceId: args.sourceId,
+      primaryManagedSystemId: args.primaryManagedSystemId,
+      evidenceSummary: args.input.evidence_summary,
+      requestedOutcome: args.input.requested_outcome,
+      requesterActorId: args.actor.actor_id,
+      assignedReviewerActorId: responsibility.actorId,
+      assignedReviewerTeamId: responsibility.teamId,
+    });
+
+    const requestedTaskTuple = registeredEntityLinkPairSchema.parse({
+      source_type: args.sourceType,
+      target_type: 'task_request',
+      relation_type: 'requested_task',
+    });
+
+    const link = await insertActiveEntityLink(args.tx, {
+      workspaceId: args.actor.workspace_id,
+      sourceType: requestedTaskTuple.source_type,
+      sourceId: args.sourceId,
+      targetType: requestedTaskTuple.target_type,
+      targetId: taskRequest.id,
+      relationType: requestedTaskTuple.relation_type,
+      managedSystemId: args.primaryManagedSystemId,
+      createdBy: args.actor.actor_id,
+      visibility: 'internal_only',
+    });
+
+    const sourceIdDetailKey =
+      args.sourceType === 'finding'
+        ? 'source_finding_id'
+        : args.sourceType === 'voc'
+          ? 'source_voc_id'
+          : 'source_voc_cluster_id';
+    const auditEventType =
+      args.sourceType === 'finding'
+        ? 'task_request_created_from_finding'
+        : args.sourceType === 'voc'
+          ? 'task_request_created_from_voc'
+          : 'task_request_created_from_voc_cluster';
+    const sourceSummary =
+      args.sourceType === 'finding' ? 'Finding' : args.sourceType === 'voc' ? 'VOC' : 'VOC Cluster';
+
+    await deps.auditService.record(args.tx, {
+      workspace_id: args.actor.workspace_id,
+      actor_id: args.actor.actor_id,
+      event_type: auditEventType,
+      subject_type: 'task_request',
+      subject_id: taskRequest.id,
+      summary: `Task Request created from ${sourceSummary}`,
+      detail: {
+        task_request_id: taskRequest.id,
+        [sourceIdDetailKey]: args.sourceId,
+        primary_managed_system_id: args.primaryManagedSystemId,
+        source_type: args.sourceType,
+        default_resolved: responsibility.default_resolved,
+        source_rule: responsibility.source_rule,
+        managed_system_id: responsibility.managed_system_id,
+        assigned_reviewer_actor_id: taskRequest.assigned_reviewer_actor_id,
+        assigned_reviewer_team_id: taskRequest.assigned_reviewer_team_id,
+      },
+    });
+
+    if (link.inserted) {
+      await deps.auditService.record(args.tx, {
+        workspace_id: args.actor.workspace_id,
+        actor_id: args.actor.actor_id,
+        event_type: 'entity_link.created',
+        subject_type: 'entity_link',
+        subject_id: link.row.id,
+        summary: 'Entity link created',
+        detail: {
+          link_id: link.row.id,
+          source: { type: args.sourceType as EntityLinkEntityType, id: args.sourceId },
+          target: { type: 'task_request', id: taskRequest.id },
+          relation_type: 'requested_task',
+          visibility: 'internal_only',
+        },
+      });
+    }
+
+    return {
+      ...taskRequestToDto(taskRequest, {
+        link_id: link.row.id,
+        source_id: args.sourceId,
+        source_type: args.sourceType,
+      }),
+      default_resolved: responsibility.default_resolved,
+      source_rule: responsibility.source_rule,
+      managed_system_id: responsibility.managed_system_id,
+    };
+  }
+
+  async function createFromFinding(args: {
+    actor: TaskRequestsActor;
+    findingId: string;
+    input: CreateTaskRequestFromFindingRequest;
+    idempotencyKey: string;
+    requestHash: string;
+  }): Promise<{ status: number; body: TaskRequestDto }> {
+    return deps.db.transaction(async (tx) => {
+      await lockRecoveryCommand(tx, args.actor.workspace_id);
+      return deps.idempotencyService.runIdempotent(
+        tx,
+        args.actor.actor_id,
+        args.idempotencyKey,
+        args.requestHash,
+        async () => {
+          const recovery = await deps.recoveryRecorder?.capture(tx, args.actor.workspace_id, [
+            { type: 'finding', id: args.findingId },
+          ]);
+          const finding = await lockFindingById(tx, {
+            workspaceId: args.actor.workspace_id,
+            findingId: args.findingId,
+          });
+          if (!finding) throw new HttpError('not_found.record', 'finding not found');
+
+          const canManage = (
+            await checkFindingManage(
+              deps.checkService,
+              args.actor,
+              finding.primary_managed_system_id,
+              { requireElevatedRole: true },
+              { tx },
+            )
+          ).allow;
+          if (!canManage) {
+            throw new HttpError('permission.denied', 'finding.manage capability required');
+          }
+
+          const body = await createFromSource({
+            tx,
+            actor: args.actor,
+            sourceType: 'finding',
+            sourceId: finding.id,
+            analyticsAreaId: finding.analytics_area_id,
+            primaryManagedSystemId: finding.primary_managed_system_id,
+            input: args.input,
+          });
+          if (recovery)
+            await deps.recoveryRecorder?.finish(
+              tx,
+              recovery,
+              args.actor.actor_id,
+              'createFromFinding',
+            );
+          return { status: 201, body };
+        },
+      );
+    });
+  }
+
+  async function createFromVoc(args: {
+    actor: TaskRequestsActor;
+    vocId: string;
+    input: CreateTaskRequestFromVocRequest;
+    idempotencyKey: string;
+    requestHash: string;
+  }): Promise<{ status: number; body: TaskRequestDto }> {
+    return deps.db.transaction(async (tx) => {
+      await lockRecoveryCommand(tx, args.actor.workspace_id);
+      return deps.idempotencyService.runIdempotent(
+        tx,
+        args.actor.actor_id,
+        args.idempotencyKey,
+        args.requestHash,
+        async () => {
+          const recovery = await deps.recoveryRecorder?.capture(tx, args.actor.workspace_id, [
+            { type: 'voc', id: args.vocId },
+          ]);
+          const voc = await selectVocForUpdate(tx, args.actor.workspace_id, args.vocId);
+          if (!voc || voc.archivedAt !== null) {
+            throw new HttpError('not_found.record', 'voc not found');
+          }
+
+          const sourceReadable = await canReadVocAsSource(
+            deps.checkService,
+            args.actor,
+            { managedSystemId: voc.primaryManagedSystemId, reporterId: voc.reporterId },
+            { tx },
+          );
+          if (!sourceReadable) {
+            throw new HttpError('not_found.record', 'voc not found');
+          }
+
+          const canManage = (
+            await checkFindingManage(
+              deps.checkService,
+              args.actor,
+              voc.primaryManagedSystemId,
+              { requireElevatedRole: true },
+              {
+                tx,
+              },
+            )
+          ).allow;
+          if (!canManage) {
+            throw new HttpError('permission.denied', 'finding.manage capability required');
+          }
+
+          const body = await createFromSource({
+            tx,
+            actor: args.actor,
+            sourceType: 'voc',
+            sourceId: voc.id,
+            analyticsAreaId: voc.analyticsAreaId,
+            primaryManagedSystemId: voc.primaryManagedSystemId,
+            input: args.input,
+          });
+          if (recovery)
+            await deps.recoveryRecorder?.finish(tx, recovery, args.actor.actor_id, 'createFromVoc');
+          return { status: 201, body };
+        },
+      );
+    });
+  }
+
+  async function createFromVocCluster(args: {
+    actor: TaskRequestsActor;
+    clusterId: string;
+    input: CreateTaskRequestFromVocClusterRequest;
+    idempotencyKey: string;
+    requestHash: string;
+  }): Promise<{ status: number; body: TaskRequestDto }> {
+    return deps.db.transaction(async (tx) => {
+      await lockRecoveryCommand(tx, args.actor.workspace_id);
+      return deps.idempotencyService.runIdempotent(
+        tx,
+        args.actor.actor_id,
+        args.idempotencyKey,
+        args.requestHash,
+        async () => {
+          const recovery = await deps.recoveryRecorder?.capture(tx, args.actor.workspace_id, [
+            { type: 'voc_cluster', id: args.clusterId },
+          ]);
+          const cluster = await lockVocClusterById(tx, {
+            workspaceId: args.actor.workspace_id,
+            clusterId: args.clusterId,
+          });
+          if (!cluster) throw new HttpError('not_found.record', 'voc cluster not found');
+
+          const canManage = (
+            await checkFindingManage(
+              deps.checkService,
+              args.actor,
+              cluster.primary_managed_system_id,
+              { requireElevatedRole: true },
+              { tx },
+            )
+          ).allow;
+          if (!canManage) {
+            throw new HttpError('permission.denied', 'finding.manage capability required');
+          }
+
+          const body = await createFromSource({
+            tx,
+            actor: args.actor,
+            sourceType: 'voc_cluster',
+            sourceId: cluster.id,
+            primaryManagedSystemId: cluster.primary_managed_system_id,
+            input: args.input,
+          });
+          if (recovery)
+            await deps.recoveryRecorder?.finish(
+              tx,
+              recovery,
+              args.actor.actor_id,
+              'createFromVocCluster',
+            );
+          return { status: 201, body };
+        },
+      );
+    });
+  }
+
+  async function resolveEndpoint(args: {
+    tx?: Tx;
+    workspaceId: string;
+    taskRequestId: string;
+  }): Promise<TaskRequestRow | null> {
+    return findTaskRequestById(args.tx ?? deps.db, {
+      workspaceId: args.workspaceId,
+      taskRequestId: args.taskRequestId,
+    });
+  }
+
+  async function projectTaskRequests(
+    actor: TaskRequestsActor,
+    pageRows: TaskRequestRow[],
+    memo: CheckService,
+  ): Promise<TaskRequestDto[]> {
+    const links = await selectActiveLinksForEndpoints(deps.db, {
+      workspaceId: actor.workspace_id,
+      endpointType: 'task_request',
+      endpointIds: pageRows.map((row) => row.id),
+      side: 'target',
+    });
+    const linksByTarget = new Map<string, EntityLinkRow[]>();
+    for (const link of links) {
+      const targetLinks = linksByTarget.get(link.target_id) ?? [];
+      targetLinks.push(link);
+      linksByTarget.set(link.target_id, targetLinks);
+    }
+    const items: TaskRequestDto[] = [];
+    for (const row of pageRows) {
+      const source = await sourceLinkForTaskRequest(
+        row,
+        actor,
+        linksByTarget.get(row.id) ?? [],
+        memo,
+      );
+      items.push(taskRequestToDto(row, source));
+    }
+    return items;
+  }
+
+  async function getTaskRequest(args: {
+    actor: TaskRequestsActor;
+    taskRequestId: string;
+  }): Promise<TaskRequestDto> {
+    const notFound = () => new HttpError('not_found.record', 'task request not found');
+    if (!hasElevatedFindingRole(args.actor)) throw notFound();
+    const rows = await listTaskRequestsByWorkspace(deps.db, {
+      workspaceId: args.actor.workspace_id,
+      taskRequestId: args.taskRequestId,
+    });
+    const row = rows[0];
+    const memo = memoizeCapabilityChecks(deps.checkService);
+    if (
+      !row ||
+      !(
+        await checkFindingManage(memo, args.actor, row.primary_managed_system_id, {
+          requireElevatedRole: true,
+        })
+      ).allow
+    )
+      throw notFound();
+    const items = await projectTaskRequests(args.actor, [row], memo);
+    return items[0] as TaskRequestDto;
+  }
+
+  async function listTaskRequests(args: {
+    actor: TaskRequestsActor;
+    reviewer?: string;
+    reviewer_team_id?: string;
+    status?: TaskRequestStatus;
+    managed_system_id?: string;
+    cursor?: string;
+    limit?: number;
+  }): Promise<ListTaskRequestsResponse> {
+    if (!hasElevatedFindingRole(args.actor)) {
+      throw new HttpError('permission.denied', 'finding.manage capability required');
+    }
+
+    const managedSystemId =
+      args.managed_system_id && args.managed_system_id !== 'all'
+        ? args.managed_system_id
+        : undefined;
+    const cursor = args.cursor === undefined ? undefined : decodeListCursor(args.cursor);
+    const memo = memoizeCapabilityChecks(deps.checkService);
+    const systems =
+      args.actor.role_level === 'admin'
+        ? undefined
+        : await listPrimaryManagedSystemIds(deps.db, {
+            workspaceId: args.actor.workspace_id,
+            ...(managedSystemId === undefined ? {} : { managedSystemId }),
+          });
+    const allowedSystemIds: string[] | undefined = systems === undefined ? undefined : [];
+    for (const systemId of systems ?? []) {
+      if (
+        (await checkFindingManage(memo, args.actor, systemId, { requireElevatedRole: true })).allow
+      )
+        allowedSystemIds?.push(systemId);
+    }
+    const input = {
+      workspaceId: args.actor.workspace_id,
+      ...(args.status !== undefined ? { status: args.status } : {}),
+      ...(managedSystemId !== undefined ? { managedSystemId } : {}),
+      ...(allowedSystemIds === undefined ? {} : { allowedSystemIds }),
+    };
+    const filteredInput = {
+      ...input,
+      ...(args.reviewer === undefined
+        ? {}
+        : { reviewerActorId: args.reviewer === 'me' ? args.actor.actor_id : args.reviewer }),
+      ...(args.reviewer_team_id === undefined ? {} : { reviewerTeamId: args.reviewer_team_id }),
+    };
+    const empty = allowedSystemIds?.length === 0;
+    const rows = empty
+      ? []
+      : await listTaskRequestsByWorkspace(deps.db, {
+          ...filteredInput,
+          ...(args.limit === undefined
+            ? {}
+            : { limit: args.limit, ...(cursor === undefined ? {} : { cursor }) }),
+        });
+    const hasMore = args.limit !== undefined && rows.length > args.limit;
+    const pageRows = args.limit === undefined ? rows : rows.slice(0, args.limit);
+
+    const items = await projectTaskRequests(args.actor, pageRows, memo);
+    if (args.limit === undefined) return { items };
+    const last = pageRows.at(-1);
+    return {
+      items,
+      page: {
+        has_more: hasMore,
+        ...(hasMore && last
+          ? {
+              cursor: encodeListCursor({ timestamp: last.cursor_timestamp as string, id: last.id }),
+            }
+          : {}),
+        ...(args.cursor === undefined
+          ? { total: empty ? 0 : await countListRows(deps.db, filteredInput) }
+          : {}),
+        ...(args.cursor === undefined && args.status === undefined
+          ? {
+              status_counts: empty
+                ? {
+                    pending_review: 0,
+                    approved: 0,
+                    rejected: 0,
+                    needs_more_evidence: 0,
+                    converted: 0,
+                  }
+                : await countListStatuses(deps.db, input),
+            }
+          : {}),
+      },
+    };
+  }
+
+  // Display id → id for /nav/resolve (#731). Same read authority as
+  // listTaskRequests above: elevated Finding role gate, then per-row
+  // checkFindingManage (shared with the single-record detail read). Missing and unreadable both map to null so
+  // the route answers a single identical 404.
+  async function resolveDisplayId(args: {
+    actor: TaskRequestsActor;
+    displayId: string;
+  }): Promise<{ id: string } | null> {
+    if (!hasElevatedFindingRole(args.actor)) return null;
+    const row = await findTaskRequestIdByDisplayId(deps.db, {
+      workspaceId: args.actor.workspace_id,
+      displayId: args.displayId,
+    });
+    if (!row) return null;
+    const canManage = (
+      await checkFindingManage(deps.checkService, args.actor, row.primary_managed_system_id, {
+        requireElevatedRole: true,
+      })
+    ).allow;
+    if (!canManage) return null;
+    return { id: row.id };
+  }
+
+  async function recordSelfApprovalDenied(args: {
+    actor: TaskRequestsActor;
+    taskRequest: TaskRequestRow;
+    reasonPresent: boolean;
+    capabilityPresent: boolean;
+  }): Promise<void> {
+    await deps.db.transaction(async (tx) => {
+      await deps.auditService.record(tx, {
+        workspace_id: args.actor.workspace_id,
+        actor_id: args.actor.actor_id,
+        event_type: 'task_request_self_approval_denied',
+        subject_type: 'task_request',
+        subject_id: args.taskRequest.id,
+        summary: 'Task Request self-approval denied',
+        detail: {
+          task_request_id: args.taskRequest.id,
+          requester_actor_id: args.taskRequest.requester_actor_id,
+          reason_present: args.reasonPresent,
+          capability_present: args.capabilityPresent,
+        },
+      });
+    });
+  }
+
+  async function decideTaskRequest(args: {
+    actor: TaskRequestsActor;
+    taskRequestId: string;
+    action: TaskRequestDecisionAction;
+    input:
+      | ApproveTaskRequestRequest
+      | RejectTaskRequestRequest
+      | RequestMoreEvidenceTaskRequestRequest;
+    idempotencyKey: string;
+    requestHash: string;
+  }): Promise<{ status: number; body: TaskRequestDto }> {
+    const targetStatus = TARGET_STATUS_BY_ACTION[args.action];
+    return deps.db.transaction(async (tx) => {
+      return deps.idempotencyService.runIdempotent(
+        tx,
+        args.actor.actor_id,
+        args.idempotencyKey,
+        args.requestHash,
+        async () => {
+          if (args.actor.role_level !== 'admin' && args.actor.role_level !== 'developer') {
+            throw new HttpError('permission.denied', 'finding.manage capability required');
+          }
+
+          const taskRequest = await lockTaskRequestById(tx, {
+            workspaceId: args.actor.workspace_id,
+            taskRequestId: args.taskRequestId,
+          });
+          if (!taskRequest) throw new HttpError('not_found.record', 'task request not found');
+
+          const canManage = (
+            await checkFindingManage(
+              deps.checkService,
+              args.actor,
+              taskRequest.primary_managed_system_id,
+              { requireElevatedRole: true },
+              { tx },
+            )
+          ).allow;
+          if (!canManage) {
+            throw new HttpError('permission.denied', 'finding.manage capability required');
+          }
+
+          const reasonOrNote = decisionReasonForAction(args.action, args.input);
+          const reasonPresent = (reasonOrNote?.trim().length ?? 0) > 0;
+
+          if (args.action === 'approve' && taskRequest.requester_actor_id === args.actor.actor_id) {
+            // Trusted locked row, before even the denied-approval audit. The limiter
+            // uses its own store transaction; throwing rolls back this command and
+            // skips runIdempotent's response record, while preserving the counter.
+            await deps.consumeSelfApprovalRateLimit?.(args.actor);
+            const capabilityPresent = await hasSelfApprovalCapability(
+              deps,
+              args.actor,
+              taskRequest.primary_managed_system_id,
+              { tx },
+            );
+            if (!reasonPresent || !capabilityPresent) {
+              await recordSelfApprovalDenied({
+                actor: args.actor,
+                taskRequest,
+                reasonPresent,
+                capabilityPresent,
+              });
+              throw new HttpError(
+                'permission.denied',
+                'self-approval requires a reason and task_request.self_approve capability',
+              );
+            }
+          }
+
+          if (taskRequest.status === targetStatus) {
+            return { status: 200, body: taskRequestToDto(taskRequest) };
+          }
+
+          if (!ALLOWED_TASK_REQUEST_TRANSITIONS[args.action].includes(taskRequest.status)) {
+            throw new HttpError('validation.failed', 'invalid task request status transition', {
+              fields: [{ path: ['status'], code: 'invalid_transition' }],
+            });
+          }
+
+          const updated = await updateTaskRequestDecision(tx, {
+            workspaceId: args.actor.workspace_id,
+            taskRequestId: taskRequest.id,
+            status: targetStatus,
+            reviewerActorId: args.actor.actor_id,
+            decisionReason: reasonOrNote ?? null,
+          });
+
+          const detail: Record<string, unknown> = {
+            task_request_id: taskRequest.id,
+            from_status: taskRequest.status,
+            to_status: updated.status,
+            reviewer_actor_id: args.actor.actor_id,
+          };
+          if (args.action === 'request_more_evidence') {
+            detail.note = reasonOrNote;
+          } else if (reasonOrNote !== undefined) {
+            detail.reason = reasonOrNote;
+          }
+          if (args.action === 'approve' && taskRequest.requester_actor_id === args.actor.actor_id) {
+            detail.self_approval = true;
+            detail.sensitive = true;
+          }
+
+          await deps.auditService.record(tx, {
+            workspace_id: args.actor.workspace_id,
+            actor_id: args.actor.actor_id,
+            event_type: EVENT_TYPE_BY_ACTION[args.action],
+            subject_type: 'task_request',
+            subject_id: taskRequest.id,
+            summary: 'Task Request review decision recorded',
+            detail,
+          });
+
+          if (taskRequest.requester_actor_id) {
+            await deps.notify(tx, NOTIFICATION_EVENT_BY_ACTION[args.action], {
+              workspace_id: args.actor.workspace_id,
+              actor_ids: [taskRequest.requester_actor_id],
+              subject_id: taskRequest.id,
+              correlation_id: randomUUID(),
+              detail: {
+                task_request_id: taskRequest.id,
+                primary_managed_system_id: taskRequest.primary_managed_system_id,
+              },
+              params: {},
+            });
+          }
+
+          return { status: 200, body: taskRequestToDto(updated) };
+        },
+      );
+    });
+  }
+
+  async function assignReviewer(args: {
+    actor: TaskRequestsActor;
+    taskRequestId: string;
+    input: AssignTaskRequestReviewerRequest;
+    idempotencyKey: string;
+    requestHash: string;
+  }): Promise<{ status: number; body: TaskRequestDto }> {
+    return deps.db.transaction(async (tx) =>
+      deps.idempotencyService.runIdempotent(
+        tx,
+        args.actor.actor_id,
+        args.idempotencyKey,
+        args.requestHash,
+        async () => {
+          const row = await lockTaskRequestById(tx, {
+            workspaceId: args.actor.workspace_id,
+            taskRequestId: args.taskRequestId,
+          });
+          if (!row) throw new HttpError('not_found.record', 'task_request not found');
+          const allowed = await checkFindingManage(
+            deps.checkService,
+            args.actor,
+            row.primary_managed_system_id,
+            { requireElevatedRole: true },
+            { tx },
+          );
+          if (!allowed.allow)
+            throw new HttpError('permission.denied', 'finding.manage capability required');
+          const responsibility = await resolveTaskResponsibility({
+            tx,
+            checkService: deps.checkService,
+            workspaceId: args.actor.workspace_id,
+            managedSystemId: row.primary_managed_system_id,
+            workflow: 'task_request',
+            actorId: args.input.assigned_reviewer_actor_id,
+            teamId: args.input.assigned_reviewer_team_id,
+          });
+          if (
+            row.assigned_reviewer_actor_id === responsibility.actorId &&
+            row.assigned_reviewer_team_id === responsibility.teamId
+          ) {
+            return { status: 200, body: taskRequestToDto(row) };
+          }
+          const updated = await updateAssignedReviewer(tx, {
+            workspaceId: args.actor.workspace_id,
+            taskRequestId: row.id,
+            actorId: responsibility.actorId,
+            teamId: responsibility.teamId,
+          });
+          await deps.auditService.record(tx, {
+            workspace_id: args.actor.workspace_id,
+            actor_id: args.actor.actor_id,
+            event_type: 'task_request_reviewer_assigned',
+            subject_type: 'task_request',
+            subject_id: row.id,
+            summary: 'Responsibility assigned',
+            detail: {
+              from_actor_id: row.assigned_reviewer_actor_id,
+              from_team_id: row.assigned_reviewer_team_id,
+              to_actor_id: updated.assigned_reviewer_actor_id,
+              to_team_id: updated.assigned_reviewer_team_id,
+            },
+          });
+          return { status: 200, body: taskRequestToDto(updated) };
+        },
+      ),
+    );
+  }
+
+  return {
+    assignReviewer,
+    createFromFinding,
+    createFromVoc,
+    createFromVocCluster,
+    listTaskRequests,
+    getTaskRequest,
+    decideTaskRequest,
+    resolveEndpoint,
+    resolveDisplayId,
+  };
+}
+
+export type TaskRequestsService = ReturnType<typeof createTaskRequestsService>;

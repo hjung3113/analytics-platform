@@ -1,0 +1,440 @@
+// /admin/managed-systems — Managed System Registry (issue #87).
+//
+// Rebuilt from the raw HTML-table CRUD harness to the design prototype
+// (docs/design-prototype/screen-admin.jsx → AdminScreen). Live API data only;
+// the prototype's window globals / synthetic data are not ported (AGENTS.md
+// → UI Authority). Maps the prototype's dark-token components to the
+// real @fops/ui light-token components (ADR-0021 / Pack 17).
+//
+// Prototype-silent deviations recorded in the PR/commit body:
+//   1. scope-mark color/mark — derived deterministically from slug+name via
+//      features/admin/lib/scopeMark (the API has no color column).
+//   2. Default owner — resolved via GET /actors/resolve (#87 new endpoint);
+//      the prototype hard-codes a single user.
+
+import {
+  Button,
+  Callout,
+  Checkbox,
+  ManagedSystemMark,
+  OutlineBadge,
+  PageShell,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  UserChip,
+} from '@fops/ui';
+import { Link } from '@tanstack/react-router';
+import { ArrowRight, Filter, Plus, Shield } from 'lucide-react';
+import type * as React from 'react';
+import { useRef, useState } from 'react';
+
+import { GLOSSARY } from '@/lib/copy/glossary';
+import { MANAGED_SYSTEM_COPY } from '@/lib/copy/managed-systems';
+import { formatDateTime } from '@/lib/format/datetime';
+import type { AnalyticsAreaDto, ManagedSystemDto, ResolveActorsResponse } from '../../../lib/api';
+import { envelopeMessage } from '../lib/envelopeMessage.js';
+import {
+  ADMIN_LIST_FOCUS_FALLBACK_ID,
+  restoreFocus,
+  useRestoreFocusAfterRefetch,
+} from '../lib/restoreFocus.js';
+import { scopeMark } from '../lib/scopeMark.js';
+import { PermissionGate } from '../permissions/permission-gate.js';
+
+import { EditDialog, RegisterDialog } from './ManagedSystemsDialogs.js';
+import { useManagedSystemsRegistry } from './useManagedSystemsRegistry.js';
+
+const SUBTITLE =
+  'Managed System은 권한과 집계의 기준 단위입니다. 기본 담당자·검토자, Analytics Area 매핑, 활성 상태를 관리합니다.';
+
+export function ManagedSystemsAdminPage() {
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [includeArchived, setIncludeArchived] = useState(false);
+  return (
+    <PageShell
+      header={{
+        title: 'Managed System',
+        subtitle: SUBTITLE,
+        actions: (
+          <PermissionGate capability="workspace.admin" fallback={null} loading={null}>
+            <ManagedSystemsFilter
+              includeArchived={includeArchived}
+              onIncludeArchivedChange={setIncludeArchived}
+            />
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setRegisterOpen(true)}
+              data-testid="ms-register-button"
+            >
+              <Plus className="h-4 w-4" />
+              Managed System 등록
+            </Button>
+          </PermissionGate>
+        ),
+      }}
+    >
+      <PermissionGate capability="workspace.admin">
+        <ManagedSystemsBody
+          includeArchived={includeArchived}
+          registerOpen={registerOpen}
+          setRegisterOpen={setRegisterOpen}
+        />
+      </PermissionGate>
+    </PageShell>
+  );
+}
+
+function ManagedSystemsBody({
+  includeArchived,
+  registerOpen,
+  setRegisterOpen,
+}: {
+  includeArchived: boolean;
+  registerOpen: boolean;
+  setRegisterOpen: (v: boolean) => void;
+}) {
+  const [editTarget, setEditTarget] = useState<ManagedSystemDto | null>(null);
+  // Row control that opened the settings dialog; focus returns here when it closes.
+  const editTrigger = useRef<HTMLElement | null>(null);
+  const skipFocusRestore = useRef(false);
+  function openSettings(target: ManagedSystemDto, trigger: HTMLElement) {
+    editTrigger.current = trigger;
+    skipFocusRestore.current = false;
+    setEditTarget(target);
+  }
+  // Archived rows cannot be restored (ADR-0019 §A: archived rows are immutable).
+  // The designed remedy for "archived by mistake" is re-registering the same
+  // slug (ADR-0017), so Configure hands the archived row's fields to Register.
+  const [reregisterFrom, setReregisterFrom] = useState<ManagedSystemDto | null>(null);
+
+  const {
+    systems,
+    areasByMs,
+    renderedAreaCount,
+    resolved,
+    listQuery,
+    diagnosticsQuery,
+    requestsCount,
+    invalidate,
+  } = useManagedSystemsRegistry(includeArchived);
+  const armFocusFallback = useRestoreFocusAfterRefetch(listQuery.isFetching);
+
+  return (
+    <section className="space-y-8">
+      {/* ── Registry ──────────────────────────────────────────────── */}
+      <div>
+        <div className="mb-3.5 flex items-center justify-between">
+          <h3
+            id={ADMIN_LIST_FOCUS_FALLBACK_ID}
+            tabIndex={-1}
+            className="text-xs font-semibold uppercase tracking-wide text-text-muted outline-hidden"
+          >
+            레지스트리
+          </h3>
+          <span className="text-xs text-text-muted">
+            Managed System {systems.length}개 · Analytics Area {renderedAreaCount}개
+          </span>
+        </div>
+
+        {listQuery.isPending ? (
+          <p className="text-sm text-text-muted">불러오는 중…</p>
+        ) : listQuery.isError ? (
+          <p className="text-sm text-accent-danger" data-testid="ms-list-error">
+            오류: {envelopeMessage(listQuery.error)}
+          </p>
+        ) : systems.length === 0 ? (
+          <div
+            className="rounded-md border border-border-subtle bg-surface-card p-8 text-center text-sm text-text-muted"
+            data-testid="ms-empty-state"
+          >
+            등록된 Managed System 이 없습니다.
+          </div>
+        ) : (
+          <div
+            data-testid="managed-systems-registry"
+            className="overflow-hidden rounded-md border border-border-subtle bg-surface-card"
+          >
+            {systems.map((m, i) => (
+              <RegistryRow
+                key={m.id}
+                row={m}
+                areas={areasByMs.get(m.id) ?? []}
+                resolved={resolved}
+                last={i === systems.length - 1}
+                warning={Boolean(
+                  diagnosticsQuery.data?.items.some((item) => item.managed_system_id === m.id),
+                )}
+                onConfigure={(trigger) => openSettings(m, trigger)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {diagnosticsQuery.isPending ? (
+        <output className="block text-sm text-text-muted">
+          {MANAGED_SYSTEM_COPY.diagnosticsLoading}
+        </output>
+      ) : diagnosticsQuery.isError ? (
+        <Callout
+          tone="red"
+          title={MANAGED_SYSTEM_COPY.diagnostics}
+          action={
+            <Button variant="subtle" size="sm" onClick={() => void diagnosticsQuery.refetch()}>
+              {MANAGED_SYSTEM_COPY.retry}
+            </Button>
+          }
+        >
+          <p role="alert">{MANAGED_SYSTEM_COPY.diagnosticsError}</p>
+        </Callout>
+      ) : diagnosticsQuery.data.items.length > 0 ? (
+        <Callout tone="amber" title={MANAGED_SYSTEM_COPY.diagnostics}>
+          <p className="mb-2">{MANAGED_SYSTEM_COPY.diagnosticsHint}</p>
+          <ul className="flex flex-col gap-2">
+            {diagnosticsQuery.data.items.map((warning) => {
+              const target = systems.find((system) => system.id === warning.managed_system_id);
+              // Names are not unique (ADR-0017); the slug tells same-name systems apart.
+              const systemLabel = target
+                ? systems.some((system) => system.id !== target.id && system.name === target.name)
+                  ? `${target.name} (${target.slug})`
+                  : target.name
+                : 'Managed System';
+              return (
+                <li
+                  key={`${warning.managed_system_id}-${warning.workflow}-${warning.rule}-${warning.category}-${warning.origin}`}
+                >
+                  {systemLabel}
+                  {' · '}
+                  {warning.origin === 'configuration' ? (
+                    MANAGED_SYSTEM_COPY.roles[warning.responsibility]
+                  ) : (
+                    <>
+                      {MANAGED_SYSTEM_COPY.workflows[warning.workflow]}
+                      {' · '}
+                      {MANAGED_SYSTEM_COPY.rules[warning.rule]}
+                    </>
+                  )}
+                  {' · '}
+                  <span>{MANAGED_SYSTEM_COPY.categories[warning.category]}</span>
+                  {' · '}
+                  <span>
+                    {warning.origin === 'configuration'
+                      ? MANAGED_SYSTEM_COPY.currentConfiguration
+                      : `${MANAGED_SYSTEM_COPY.creationFailure(warning.count)} · ${MANAGED_SYSTEM_COPY.lastFailure} ${warning.last_failed_at ? formatDateTime(warning.last_failed_at) : '—'}`}
+                  </span>{' '}
+                  <Button
+                    variant="subtle"
+                    size="sm"
+                    onClick={(event) => {
+                      if (target) openSettings(target, event.currentTarget);
+                    }}
+                    aria-label={`${systemLabel} 설정 열기`}
+                  >
+                    설정
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        </Callout>
+      ) : null}
+
+      {/* ── Permission requests ───────────────────────────────────── */}
+      <div>
+        <div className="mb-3.5 flex items-center justify-between">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+            권한 요청
+          </h3>
+          <Button variant="primary" size="sm" asChild>
+            <Link to="/admin/permissions/requests" data-testid="ms-open-review-console">
+              <ArrowRight className="h-3 w-3" />
+              검토 콘솔 열기
+            </Link>
+          </Button>
+        </div>
+        <div className="flex items-center gap-3.5 rounded-md border border-border-subtle bg-surface-card p-4">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-warn/10 text-accent-warn">
+            <Shield className="h-4 w-4" />
+          </span>
+          <div className="flex flex-1 flex-col gap-0.5">
+            <div
+              className="text-base font-semibold text-text-primary"
+              data-testid="ms-requests-count"
+            >
+              결정 대기 중인 요청 {requestsCount}건
+            </div>
+            <span className="text-xs text-text-muted">
+              검토 대기 · 추가 정보 필요 · 고위험 · 직접 승인까지 검토 콘솔에서 확인합니다.
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <RegisterDialog
+        key={reregisterFrom?.id ?? 'blank'}
+        open={registerOpen}
+        prefill={reregisterFrom}
+        onOpenChange={(open) => {
+          setRegisterOpen(open);
+          if (!open) setReregisterFrom(null);
+        }}
+        onSaved={async () => {
+          setRegisterOpen(false);
+          setReregisterFrom(null);
+          await invalidate();
+        }}
+      />
+      <EditDialog
+        target={editTarget}
+        onOpenChange={(open) => {
+          if (!open) setEditTarget(null);
+        }}
+        onCloseAutoFocus={(event) => {
+          if (skipFocusRestore.current) return;
+          event.preventDefault();
+          restoreFocus(editTrigger.current);
+        }}
+        onReregister={(target) => {
+          skipFocusRestore.current = true;
+          setEditTarget(null);
+          setReregisterFrom(target);
+          setRegisterOpen(true);
+        }}
+        onSaved={async () => {
+          setEditTarget(null);
+          await invalidate();
+          // An archived row can drop out of the list once it refetches.
+          armFocusFallback(editTrigger.current);
+        }}
+      />
+    </section>
+  );
+}
+
+function ManagedSystemsFilter({
+  includeArchived,
+  onIncludeArchivedChange,
+}: {
+  includeArchived: boolean;
+  onIncludeArchivedChange: (value: boolean) => void;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="subtle" size="sm" data-testid="ms-filter-button">
+          <Filter className="h-4 w-4" />
+          {GLOSSARY.filter}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end">
+        <label
+          className="flex items-center gap-2 text-sm text-text-primary"
+          htmlFor="ms-filter-include-archived"
+        >
+          <Checkbox
+            id="ms-filter-include-archived"
+            checked={includeArchived}
+            onCheckedChange={(checked) => onIncludeArchivedChange(checked === true)}
+            data-testid="ms-filter-include-archived"
+          />
+          보관됨 포함
+        </label>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function ownerUser(
+  row: ManagedSystemDto,
+  resolved: ResolveActorsResponse | undefined,
+): { display_name: string } | null {
+  if (row.default_owner_actor_id) {
+    const a = resolved?.actors.find((x) => x.id === row.default_owner_actor_id);
+    return a ? { display_name: a.display_name } : null;
+  }
+  if (row.default_owner_team_id) {
+    const t = resolved?.teams.find((x) => x.id === row.default_owner_team_id);
+    return t ? { display_name: t.name } : null;
+  }
+  return null;
+}
+
+function RegistryRow({
+  row,
+  areas,
+  resolved,
+  last,
+  warning,
+  onConfigure,
+}: {
+  row: ManagedSystemDto;
+  areas: AnalyticsAreaDto[];
+  resolved: ResolveActorsResponse | undefined;
+  last: boolean;
+  warning: boolean;
+  onConfigure: (trigger: HTMLElement) => void;
+}) {
+  const mark = scopeMark(row.slug, row.name);
+  const owner = ownerUser(row, resolved);
+  const reviewer = row.default_reviewer_actor_id
+    ? resolved?.actors.find((actor) => actor.id === row.default_reviewer_actor_id)?.display_name
+    : resolved?.teams.find((team) => team.id === row.default_reviewer_team_id)?.name;
+  return (
+    <div
+      data-testid={`managed-system-row-${row.slug}`}
+      className={`grid grid-cols-(--managed-system-row-columns) items-center gap-3 px-4 py-3${last ? '' : ' border-b border-border-subtle'}`}
+      style={
+        { '--managed-system-row-columns': '40px 1.2fr 1.6fr 1.5fr 110px' } as React.CSSProperties
+      }
+    >
+      <ManagedSystemMark label={mark.label} color={mark.color} size={28} />
+      <div className="min-w-0">
+        <div className="flex items-center gap-1.5">
+          <div className="truncate text-sm font-medium text-text-primary">{row.name}</div>
+          {row.archived_at !== null ? <OutlineBadge>보관됨</OutlineBadge> : null}
+          {warning ? <OutlineBadge>{MANAGED_SYSTEM_COPY.rowWarning}</OutlineBadge> : null}
+        </div>
+        <div className="truncate font-mono text-xs text-text-muted">managed-system/{row.slug}</div>
+      </div>
+      <div className="grid min-w-0 grid-cols-2 gap-4">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-xs text-text-muted">기본 담당자</span>
+          {row.default_owner_actor_id === null && row.default_owner_team_id === null ? (
+            <span className="text-xs text-text-muted">(미지정)</span>
+          ) : (
+            <UserChip user={owner} size="sm" />
+          )}
+        </div>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-xs text-text-muted">{MANAGED_SYSTEM_COPY.reviewer}</span>
+          {!row.default_reviewer_actor_id && !row.default_reviewer_team_id ? (
+            <span className="text-xs text-text-muted">(미지정)</span>
+          ) : (
+            <UserChip user={reviewer ? { display_name: reviewer } : null} size="sm" />
+          )}
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {areas.map((a) => (
+          <OutlineBadge key={a.id}>
+            {a.name}
+            {a.archived_at !== null ? ' · 보관됨' : ''}
+          </OutlineBadge>
+        ))}
+      </div>
+      <div className="text-right">
+        <Button
+          variant="subtle"
+          size="sm"
+          onClick={(event) => onConfigure(event.currentTarget)}
+          aria-label={`${row.name} 설정`}
+          data-testid={`ms-configure-${row.slug}`}
+        >
+          설정
+        </Button>
+      </div>
+    </div>
+  );
+}

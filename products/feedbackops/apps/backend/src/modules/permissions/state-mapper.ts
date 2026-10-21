@@ -1,0 +1,66 @@
+// Frontend-state mapper. Translates a backend Decision plus the actor's
+// currently-open permission request (if any) into the discrete UI state
+// names that `<PermissionStateView>` renders.
+//
+// Mapping table is locked by the grill session Q6 and reproduced verbatim in
+// the issue #4 spec. The backend actively produces approved,
+// blocked_non_requestable, request_access, pending_request, revoked, and
+// expired. The remaining branches (hidden_existence, rejected,
+// summary_visible) are pinned by unit tests so later slices don't accidentally
+// drift the contract.
+
+import type { Decision } from './check-service.js';
+
+export type FrontendState =
+  | 'approved'
+  | 'blocked_non_requestable'
+  | 'request_access'
+  | 'pending_request'
+  | 'hidden_existence'
+  | 'rejected'
+  | 'expired'
+  | 'revoked'
+  | 'summary_visible';
+
+export type OpenRequestStatus = 'pending' | 'needs_more_info' | 'rejected';
+
+export interface OpenRequestSummary {
+  status: OpenRequestStatus;
+}
+
+export function toFrontendState(
+  decision: Decision,
+  openRequest: OpenRequestSummary | null,
+): FrontendState {
+  if (decision.allow) return 'approved';
+
+  const hasRequestable = (decision.requestable?.length ?? 0) > 0;
+
+  switch (decision.reason) {
+    case 'workspace_mismatch':
+      return 'hidden_existence';
+    case 'explicit_deny':
+      return 'blocked_non_requestable';
+    case 'grant_expired':
+      if (openRequest?.status === 'pending' || openRequest?.status === 'needs_more_info') {
+        return 'pending_request';
+      }
+      return hasRequestable ? 'expired' : 'blocked_non_requestable';
+    case 'grant_revoked':
+      if (openRequest?.status === 'pending' || openRequest?.status === 'needs_more_info') {
+        return 'pending_request';
+      }
+      return hasRequestable ? 'revoked' : 'blocked_non_requestable';
+    case 'sensitive_reason_missing':
+      // Slice 1 has no sensitive caps, so this branch is unreachable from
+      // checkCapability today. Pin the mapping so S1.4 inherits it.
+      return 'blocked_non_requestable';
+    case 'no_grant': {
+      if (openRequest?.status === 'pending' || openRequest?.status === 'needs_more_info') {
+        return 'pending_request';
+      }
+      if (openRequest?.status === 'rejected') return 'rejected';
+      return hasRequestable ? 'request_access' : 'blocked_non_requestable';
+    }
+  }
+}

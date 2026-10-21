@@ -1,0 +1,608 @@
+import {
+  type PermissionRequestAdminDetail,
+  isCapability,
+  isSensitiveCapability,
+} from '@fops/shared';
+import {
+  Button,
+  DatePicker,
+  Input,
+  OutlineBadge,
+  PanelSectionTitle,
+  RadioGroup,
+  RadioGroupItem,
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+} from '@fops/ui';
+import * as React from 'react';
+
+import type { PermissionRequestDecisionAction } from '@/lib/api';
+import { mintIdempotencyKey } from '@/lib/api/idempotency';
+import { useMe } from '@/lib/auth/useMe';
+import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
+import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
+import { GLOSSARY } from '@/lib/copy/glossary';
+import { formatDateOnly } from '@/lib/format/datetime';
+import { shortId } from '@/lib/identity';
+
+import { useWorkspaceSettings } from '../settings/use-workspace-settings.js';
+import { useDecidePermissionRequest } from './useDecidePermissionRequest.js';
+
+const ACTIONS: Array<{
+  value: PermissionRequestDecisionAction;
+  label: string;
+  needsReason: boolean;
+}> = [
+  { value: 'approve', label: '승인', needsReason: false },
+  { value: 'need-more-info', label: '추가 정보 요청', needsReason: true },
+  { value: 'reject', label: '거절', needsReason: true },
+  { value: 'deny', label: '명시적 거부', needsReason: true },
+];
+
+type ApprovalExpirationMode = 'keep' | 'change' | 'clear';
+
+const APPROVAL_EXPIRATION_ERROR = '만료일은 현재 시각보다 이후여야 합니다.';
+
+function localDateInputValue(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function isFutureApprovalExpiration(date: string, now = Date.now()): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+
+  const deadline = new Date(`${date}T23:59:59.000Z`);
+  return (
+    Number.isFinite(deadline.getTime()) &&
+    deadline.toISOString().slice(0, 10) === date &&
+    deadline.getTime() > now
+  );
+}
+
+function hasExpirationFieldError(error: unknown): boolean {
+  if (
+    typeof error !== 'object' ||
+    error === null ||
+    !('code' in error) ||
+    error.code !== 'validation.failed' ||
+    !('detail' in error)
+  ) {
+    return false;
+  }
+
+  const detail = error.detail;
+  if (typeof detail !== 'object' || detail === null || !('fields' in detail)) return false;
+
+  const fields = detail.fields;
+  return (
+    Array.isArray(fields) &&
+    fields.some(
+      (field: unknown) =>
+        typeof field === 'object' &&
+        field !== null &&
+        'path' in field &&
+        Array.isArray(field.path) &&
+        field.path.includes('expiration'),
+    )
+  );
+}
+
+export function PermissionRequestDecisionForm({
+  request,
+  actorName,
+  managedSystemName,
+  staleNoticeShown,
+  discardedReason,
+  onDraftChanged,
+  onStaleConflict,
+  onDecisionSucceeded,
+  onActionPicked,
+  onReviewCompleted,
+}: {
+  request: PermissionRequestAdminDetail;
+  actorName?: string | undefined;
+  managedSystemName?: string | undefined;
+  staleNoticeShown?: boolean;
+  discardedReason?: string;
+  onDraftChanged?: (draft: { revision: number; nonEmpty: boolean; reason: string }) => void;
+  onStaleConflict?: () => void;
+  onDecisionSucceeded?: (result: { id: string; revision: number }) => void;
+  onActionPicked?: () => void;
+  onReviewCompleted?: () => void;
+}) {
+  const [reviewBlocked, setReviewBlocked] = React.useState(false);
+  const [action, setAction] = React.useState<PermissionRequestDecisionAction | null>(null);
+  const [reason, setReason] = React.useState('');
+  const [reasonAttempted, setReasonAttempted] = React.useState(false);
+  const reasonRef = React.useRef<HTMLTextAreaElement>(null);
+  const [policyCitation, setPolicyCitation] = React.useState('');
+  const [peerReviewerAbsence, setPeerReviewerAbsence] = React.useState('');
+  const [expirationMode, setExpirationMode] = React.useState<ApprovalExpirationMode>('keep');
+  const [expirationValidationAttempted, setExpirationValidationAttempted] = React.useState(false);
+  const [expirationFieldTouched, setExpirationFieldTouched] = React.useState(false);
+  const [expirationDraftValid, setExpirationDraftValid] = React.useState(true);
+  const [expirationDate, setExpirationDate] = React.useState(
+    request.requested_expiration?.slice(0, 10) ?? '',
+  );
+  const intent = React.useRef<{ fingerprint: string; key: string } | null>(null);
+  const submitting = React.useRef(false);
+  const [scope, setScope] = React.useState(request.requested_managed_system_id ?? 'workspace');
+  React.useEffect(() => {
+    onDraftChanged?.({
+      revision: request.revision,
+      nonEmpty:
+        action !== null ||
+        reason !== '' ||
+        policyCitation !== '' ||
+        peerReviewerAbsence !== '' ||
+        expirationMode !== 'keep' ||
+        expirationDate !== (request.requested_expiration?.slice(0, 10) ?? '') ||
+        scope !== (request.requested_managed_system_id ?? 'workspace'),
+      reason,
+    });
+  }, [
+    onDraftChanged,
+    request.revision,
+    request.requested_expiration,
+    request.requested_managed_system_id,
+    action,
+    reason,
+    policyCitation,
+    peerReviewerAbsence,
+    expirationMode,
+    expirationDate,
+    scope,
+  ]);
+  const mutation = useDecidePermissionRequest(
+    (succeeded) => {
+      submitting.current = false;
+      if (succeeded) {
+        intent.current = null;
+        onReviewCompleted?.();
+      }
+    },
+    () => {
+      setReviewBlocked(true);
+      setAction(null);
+      setReason('');
+      setReasonAttempted(false);
+      setPolicyCitation('');
+      setPeerReviewerAbsence('');
+      setExpirationMode('keep');
+      setExpirationDate(request.requested_expiration?.slice(0, 10) ?? '');
+      setExpirationValidationAttempted(false);
+      setExpirationFieldTouched(false);
+      setExpirationDraftValid(true);
+      intent.current = null;
+      onStaleConflict?.();
+    },
+    (result) => onDecisionSucceeded?.(result),
+  );
+  const me = useMe();
+  const captureCopy = ADMIN_PERMISSIONS_COPY.selfApprovalCapture;
+  const workspaceSettings = useWorkspaceSettings();
+  const minExpirationDate = localDateInputValue(new Date());
+  const selectedAction = ACTIONS.find((candidate) => candidate.value === action) ?? null;
+  const needsReason =
+    (selectedAction?.needsReason ?? false) ||
+    (action === 'approve' &&
+      isCapability(request.requested_capability) &&
+      isSensitiveCapability(request.requested_capability));
+  const decidable = request.status === 'pending' || request.status === 'needs_more_info';
+  const isSelfApproval = request.administrative_authority.is_requester;
+  const selfApprovalBlockedByPolicy =
+    isSelfApproval &&
+    (request.administrative_authority.permission_self_approval === 'forbidden' ||
+      workspaceSettings.data?.permission_self_approval === 'forbidden');
+  const showSelfApprovalCapture = isSelfApproval && action === 'approve';
+  const selfApprovalReady =
+    !showSelfApprovalCapture ||
+    (policyCitation.trim().length >= 8 && peerReviewerAbsence.trim().length >= 8);
+  const selfApprovalForbidden = showSelfApprovalCapture && selfApprovalBlockedByPolicy;
+  const approvalExpirationChanged =
+    action === 'approve' &&
+    (expirationMode === 'clear'
+      ? request.requested_expiration !== null
+      : expirationMode === 'change' &&
+        `${expirationDate}T23:59:59.000Z` !== request.requested_expiration);
+  const expirationNeedsValidation =
+    action === 'approve' &&
+    expirationMode === 'change' &&
+    (!expirationDraftValid || !isFutureApprovalExpiration(expirationDate));
+  const expirationDateError =
+    expirationNeedsValidation &&
+    !isFutureApprovalExpiration(expirationDate) &&
+    (expirationValidationAttempted || expirationFieldTouched)
+      ? APPROVAL_EXPIRATION_ERROR
+      : action === 'approve' &&
+          expirationMode === 'change' &&
+          expirationDraftValid &&
+          hasExpirationFieldError(mutation.error)
+        ? APPROVAL_EXPIRATION_ERROR
+        : null;
+  const submitDisabled =
+    !decidable ||
+    reviewBlocked ||
+    action === null ||
+    !selfApprovalReady ||
+    selfApprovalForbidden ||
+    mutation.isPending ||
+    mutation.isSuccess ||
+    mutation.error?.code === 'conflict.stale_write';
+
+  React.useEffect(() => {
+    intent.current = null;
+    setScope(request.requested_managed_system_id ?? 'workspace');
+    setAction(null);
+    setReason('');
+    setReasonAttempted(false);
+    setPolicyCitation('');
+    setPeerReviewerAbsence('');
+    setExpirationMode('keep');
+    setExpirationValidationAttempted(false);
+    setExpirationFieldTouched(false);
+    setExpirationDraftValid(true);
+    setExpirationDate(request.requested_expiration?.slice(0, 10) ?? '');
+  }, [request.requested_expiration, request.requested_managed_system_id]);
+
+  const reasonError =
+    reasonAttempted && needsReason && !reason.trim()
+      ? action === 'reject'
+        ? ADMIN_PERMISSIONS_COPY.rejectReasonRequired
+        : ADMIN_PERMISSIONS_COPY.reasonRequired
+      : null;
+
+  function submit() {
+    if (action === null || submitDisabled || submitting.current) return;
+    if (needsReason && !reason.trim()) {
+      setReasonAttempted(true);
+      reasonRef.current?.focus();
+      return;
+    }
+    if (
+      action === 'approve' &&
+      expirationMode === 'change' &&
+      (!expirationDraftValid || !isFutureApprovalExpiration(expirationDate))
+    ) {
+      setExpirationValidationAttempted(true);
+      return;
+    }
+    const args = {
+      id: request.id,
+      expectedRevision: request.revision,
+      action,
+      reason: reason.trim(),
+      ...(action === 'approve' && scope !== (request.requested_managed_system_id ?? 'workspace')
+        ? { grantedManagedSystemId: scope === 'workspace' ? null : scope }
+        : {}),
+      ...(approvalExpirationChanged
+        ? {
+            expiration: expirationMode === 'clear' ? null : `${expirationDate}T23:59:59.000Z`,
+          }
+        : {}),
+      ...(showSelfApprovalCapture
+        ? {
+            selfApproval: {
+              policy_citation: policyCitation.trim(),
+              peer_reviewer_absence: peerReviewerAbsence.trim(),
+            },
+          }
+        : {}),
+    };
+    const fingerprint = JSON.stringify(args);
+    if (intent.current?.fingerprint !== fingerprint)
+      intent.current = { fingerprint, key: mintIdempotencyKey() };
+    submitting.current = true;
+    mutation.mutate({ ...args, idempotencyKey: intent.current.key });
+  }
+
+  const resetNotice =
+    discardedReason !== undefined ? (
+      <output
+        className="text-sm text-text-secondary"
+        data-testid="permission-decision-reset-notice"
+      >
+        <span className="block">{ADMIN_PERMISSIONS_COPY.decisionDraftReset}</span>
+        {discardedReason ? (
+          <span className="block whitespace-pre-wrap">
+            {ADMIN_PERMISSIONS_COPY.discardedDecisionReason}: {discardedReason}
+          </span>
+        ) : null}
+      </output>
+    ) : null;
+  if (!decidable || request.allowed_actions.length === 0)
+    return resetNotice ? (
+      <section data-testid="permission-decision-section">{resetNotice}</section>
+    ) : null;
+
+  return (
+    <section
+      className="flex flex-col gap-3 border-t border-border-subtle pt-5"
+      data-testid="permission-decision-section"
+    >
+      <PanelSectionTitle>결정</PanelSectionTitle>
+      {resetNotice}
+      <fieldset className="flex flex-wrap gap-2" aria-label="결정 선택">
+        {ACTIONS.filter((candidate) =>
+          request.allowed_actions.includes(
+            candidate.value === 'need-more-info' ? 'need_more_info' : candidate.value,
+          ),
+        ).map((candidate) => (
+          <Button
+            key={candidate.value}
+            type="button"
+            size="sm"
+            variant={action === candidate.value ? 'secondary' : 'ghost'}
+            aria-pressed={action === candidate.value}
+            disabled={
+              reviewBlocked ||
+              mutation.isPending ||
+              mutation.isSuccess ||
+              mutation.error?.code === 'conflict.stale_write' ||
+              (candidate.value === 'approve' && selfApprovalBlockedByPolicy)
+            }
+            onClick={() => {
+              setAction(candidate.value);
+              setReasonAttempted(false);
+              setExpirationValidationAttempted(false);
+              mutation.reset();
+              onActionPicked?.();
+            }}
+          >
+            {candidate.label}
+          </Button>
+        ))}
+      </fieldset>
+      {selfApprovalBlockedByPolicy ? (
+        <p className="text-xs text-accent-danger">
+          워크스페이스 정책에서 직접 승인을 금지합니다. 다른 관리자가 이 요청을 승인해야 합니다.
+        </p>
+      ) : null}
+      <label
+        className="flex flex-col gap-2 text-sm text-text-secondary"
+        htmlFor="permission-decision-reason"
+      >
+        사유{needsReason ? ' · 필수' : ' · 선택'}
+        <Textarea
+          id="permission-decision-reason"
+          ref={reasonRef}
+          aria-invalid={reasonError !== null}
+          {...(reasonError ? { 'aria-describedby': 'permission-decision-reason-error' } : {})}
+          disabled={mutation.isPending || reviewBlocked}
+          maxLength={2000}
+          value={reason}
+          onChange={(event) => {
+            setReason(event.target.value);
+            setReasonAttempted(false);
+            onActionPicked?.();
+          }}
+          placeholder="검토 사유 또는 요청할 정보를 입력하세요."
+        />
+      </label>
+      {reasonError ? (
+        <p
+          id="permission-decision-reason-error"
+          role="alert"
+          className="text-xs text-accent-danger"
+        >
+          {reasonError}
+        </p>
+      ) : null}
+      {!staleNoticeShown && (reviewBlocked || mutation.error?.code === 'conflict.stale_write') ? (
+        <p role="alert" className="text-sm text-accent-danger">
+          {ADMIN_PERMISSIONS_COPY.reviewAgain}
+        </p>
+      ) : null}
+      {action === 'approve' && request.approval_scope_candidates.length > 0 ? (
+        <label
+          htmlFor="permission-approval-scope"
+          className="flex flex-col gap-2 text-sm text-text-secondary"
+        >
+          {ADMIN_PERMISSIONS_COPY.approvalScope}
+          <Select value={scope} onValueChange={setScope} disabled={mutation.isPending}>
+            <SelectTrigger
+              id="permission-approval-scope"
+              aria-label={ADMIN_PERMISSIONS_COPY.approvalScope}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {request.approval_scope_candidates.map((candidate) => (
+                  <SelectItem
+                    key={candidate.managed_system_id ?? 'workspace'}
+                    value={candidate.managed_system_id ?? 'workspace'}
+                  >
+                    {candidate.managed_system_id
+                      ? `${candidate.managed_system_id === request.requested_managed_system_id ? (managedSystemName ?? 'Managed System') : 'Managed System'} · ${shortId(candidate.managed_system_id)}`
+                      : '워크스페이스 전체'}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </label>
+      ) : null}
+      {action === 'approve' ? (
+        <fieldset className="flex flex-col gap-2" data-testid="permission-approval-expiration">
+          {/* FR-PERM-002 adds expiration decisions beyond the prototype's static decision actions. */}
+          <legend className="text-sm font-medium text-text-secondary">승인 만료일</legend>
+          <RadioGroup
+            aria-label="승인 만료일"
+            disabled={mutation.isPending || reviewBlocked}
+            value={expirationMode}
+            onValueChange={(value) => {
+              setExpirationMode(value as ApprovalExpirationMode);
+              setExpirationValidationAttempted(false);
+              setExpirationFieldTouched(false);
+              mutation.reset();
+            }}
+          >
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
+              <RadioGroupItem id="permission-approval-expiration-keep" value="keep" />
+              <label htmlFor="permission-approval-expiration-keep" className="cursor-pointer">
+                요청 만료일 유지 ·{' '}
+                {request.requested_expiration
+                  ? formatDateOnly(request.requested_expiration.slice(0, 10))
+                  : '만료 없음'}
+              </label>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
+              <RadioGroupItem id="permission-approval-expiration-change" value="change" />
+              <label htmlFor="permission-approval-expiration-change" className="cursor-pointer">
+                만료일 변경
+              </label>
+            </div>
+            <label
+              className="flex flex-col gap-2 pl-6 text-sm text-text-secondary"
+              htmlFor="permission-approval-expiration-date"
+            >
+              새 만료일
+              <DatePicker
+                id="permission-approval-expiration-date"
+                min={minExpirationDate}
+                aria-label="새 만료일"
+                value={expirationDate}
+                showValidation={expirationValidationAttempted || expirationFieldTouched}
+                onBlur={() => setExpirationFieldTouched(true)}
+                onValidityChange={setExpirationDraftValid}
+                onChange={(value) => {
+                  setExpirationDate(value ?? '');
+                  setExpirationValidationAttempted(false);
+                  mutation.reset();
+                }}
+                disabled={expirationMode !== 'change' || mutation.isPending || reviewBlocked}
+                aria-invalid={expirationDateError !== null}
+                {...(expirationDateError
+                  ? { 'aria-describedby': 'permission-approval-expiration-error' }
+                  : {})}
+              />
+            </label>
+            {expirationDateError ? (
+              <p
+                id="permission-approval-expiration-error"
+                role="alert"
+                className="pl-6 text-xs text-accent-danger"
+              >
+                {expirationDateError}
+              </p>
+            ) : null}
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
+              <RadioGroupItem id="permission-approval-expiration-clear" value="clear" />
+              <label htmlFor="permission-approval-expiration-clear" className="cursor-pointer">
+                만료 없음
+              </label>
+            </div>
+          </RadioGroup>
+        </fieldset>
+      ) : null}
+      {showSelfApprovalCapture ? (
+        <section
+          className="flex flex-col gap-3 rounded-md border border-border-selected bg-surface-field p-3"
+          data-testid="self-approval-audit-capture"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-text-primary">
+              직접 승인 감사 기록
+            </span>
+            <OutlineBadge>민감</OutlineBadge>
+          </div>
+          <p className="text-xs leading-5 text-text-secondary">{captureCopy.intro}</p>
+          <label
+            className="flex flex-col gap-2 text-sm text-text-secondary"
+            htmlFor="self-approval-policy-citation"
+          >
+            정책 근거 <span className="text-accent-danger">· 필수 (≥ 8자)</span>
+            <Input
+              id="self-approval-policy-citation"
+              disabled={mutation.isPending || reviewBlocked}
+              value={policyCitation}
+              onChange={(event) => setPolicyCitation(event.target.value)}
+              placeholder="예: task.self_approve_request 범위 내 권한 — 워크스페이스 정책 §4.3"
+            />
+          </label>
+          <label
+            className="flex flex-col gap-2 text-sm text-text-secondary"
+            htmlFor="self-approval-peer-reviewer-absence"
+          >
+            동료 검토자 부재 사유 <span className="text-accent-danger">· 필수 (≥ 8자)</span>
+            <Textarea
+              id="self-approval-peer-reviewer-absence"
+              disabled={mutation.isPending || reviewBlocked}
+              value={peerReviewerAbsence}
+              onChange={(event) => setPeerReviewerAbsence(event.target.value)}
+              placeholder="예: 같은 범위의 다른 검토자가 모두 부재중이라 릴리스 마감까지 기다릴 수 없습니다."
+              rows={2}
+            />
+          </label>
+          <div className="flex flex-col gap-1 rounded bg-surface-detail p-3 text-xs text-text-secondary">
+            <span className="uppercase tracking-wide text-text-muted">
+              {captureCopy.previewTitle}
+            </span>
+            <span>{captureCopy.recordedAs}</span>
+            <span>
+              {captureCopy.approver}: {me.data?.actor.display_name ?? GLOSSARY.unknownUser}
+              {' · '}
+              {captureCopy.requester}: {actorName ?? GLOSSARY.unknownUser}
+            </span>
+            <span>
+              {captureCopy.permission}: {getCapabilityDisplayLabel(request.requested_capability)}
+            </span>
+            <span>
+              {captureCopy.scope}:{' '}
+              {request.requested_managed_system_id
+                ? (managedSystemName ?? 'Managed System')
+                : ADMIN_PERMISSIONS_COPY.riskReview.allScope}
+            </span>
+            {request.requested_managed_system_id && !managedSystemName && (
+              <span className="font-mono text-text-muted">
+                {shortId(request.requested_managed_system_id)}
+              </span>
+            )}
+            <span>
+              {captureCopy.policyCitation}: {policyCitation || captureCopy.required}
+            </span>
+            <span>
+              {captureCopy.peerReviewerAbsence}:{' '}
+              {peerReviewerAbsence
+                ? `"${peerReviewerAbsence.slice(0, 56)}${peerReviewerAbsence.length > 56 ? '…' : ''}"`
+                : captureCopy.required}
+            </span>
+          </div>
+          {selfApprovalForbidden ? (
+            <p className="text-xs text-accent-danger">
+              워크스페이스 정책에서 직접 승인을 금지합니다. 다른 관리자가 이 요청을 승인해야 합니다.
+            </p>
+          ) : null}
+          <p className="text-xs text-text-muted">
+            이 감사 기록은 워크스페이스 관리자 감사 내역과 규정 준수 내보내기에 모두 포함됩니다.
+            정책 근거가 모호하면 직접 승인 대신 추가 정보 요청을 선택하세요.
+          </p>
+        </section>
+      ) : null}
+      <Button
+        type="button"
+        onClick={submit}
+        loading={mutation.isPending}
+        disabled={submitDisabled}
+        data-testid="permission-decision-submit"
+      >
+        {showSelfApprovalCapture
+          ? '직접 승인 확정 · 감사 캡처'
+          : selectedAction
+            ? `${selectedAction.label} 처리`
+            : '결정을 선택하세요'}
+      </Button>
+      <p className="text-xs text-text-muted">
+        승인은 차단된 액션을 자동으로 실행하지 않습니다. 요청자는 다시 동일 액션을 명시적으로
+        실행해야 합니다.
+      </p>
+    </section>
+  );
+}

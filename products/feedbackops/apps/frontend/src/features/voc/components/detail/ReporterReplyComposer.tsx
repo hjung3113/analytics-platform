@@ -1,0 +1,256 @@
+// ReporterReplyComposer — reporter-reply tab body for <ComposerSection>.
+//
+// C5.3 (slice3 #21) — initial implementation
+// C5.5 (slice3 #21) — PreviewModal wire-up + error matrix (gate_blocked amber Callout,
+//                     idempotency_key_reuse locks submit + preview)
+//
+// Spec: PLAN-21-SUBCHUNKS.md C5.3 / C5.5
+// Prototype ref: docs/design-prototype/screen-voc.jsx:415-468 (reply variant)
+//               docs/design-prototype/screen-voc.jsx:486-504 (PreviewModal mount)
+//
+// Verbatim prototype JSX (lines 415-468, Pack 17 translation, reply variant):
+//
+//   <RichEditor
+//     surface="reporter-reply"
+//     key={composerTab}
+//     minHeight={84}
+//     onChange={setReplyDraft}
+//   />
+//   <div className="composer-footer">
+//     <div className="composer-status-row">
+//       <span className="text-xs muted">공개 타임라인에 기록됨</span>
+//     </div>
+//     <div className="hstack">
+//       <button className="btn btn-subtle btn-sm" onClick={() => setPreviewOpen(true)}>
+//         <Icon name="expand" size={11} />Preview
+//       </button>
+//       <Button variant="primary" size="sm">Send reply</Button>
+//     </div>
+//   </div>
+//
+// No ReporterStatusChangeBlock on this surface (reply is body-only, no status change).
+//
+// Submit endpoint: POST /vocs/:id/reporter-replies
+// On success: invalidate ['voc', voc.id], clear draft, toast 답장이 등록되었습니다.
+//
+// Error matrix (D-5.6: Callout copy sourced from backend detail.reason, not errorMapper):
+//   reporter_facing_status.gate_blocked → amber Callout inline
+//   conflict.idempotency_key_reuse      → lock Submit + Preview until VOC switch
+
+import { useComposerEditorFocus } from '@/features/cross-system/composer-editor/useComposerEditorFocus';
+import { useVocReporterReplyMutation } from '@/features/voc/hooks/useVocReporterReplyMutation';
+import type { ApiError } from '@/lib/api';
+import { mapUnknownError } from '@/lib/api/errorMapper';
+import { uploadRichEditorAttachment } from '@/lib/attachments/rich-editor-upload';
+import type { MeResponse } from '@/lib/auth/useMe';
+import { VOC_REPLY_COPY } from '@/lib/copy/voc';
+import { type VocDetailEnvelope, isTipTapDocBlank } from '@fops/shared';
+import { Callout, PreviewModal, RichEditor } from '@fops/ui';
+import type { TipTapDoc } from '@fops/ui';
+import { useQueryClient } from '@tanstack/react-query';
+import { AlertCircle } from 'lucide-react';
+import { type ReactElement, useRef, useState } from 'react';
+import { toast } from 'sonner';
+import { ComposerAttachmentDropzone } from './ComposerAttachmentDropzone';
+import { ComposerFooter } from './ComposerFooter';
+import { ComposerReplyPreview } from './ComposerReplyPreview';
+import { ReporterReplyToolbar } from './rich-toolbars/ReporterReplyToolbar';
+
+// ── Props ─────────────────────────────────────────────────────────────────────
+
+export interface ReporterReplyComposerProps {
+  voc: VocDetailEnvelope;
+  me: MeResponse | null | undefined;
+  /** REV-1 #7: controlled draft doc from parent ComposerSection. */
+  draftDoc?: TipTapDoc | null;
+  /** REV-1 #7: called when the editor content changes. */
+  onDraftChange?: (doc: TipTapDoc | null) => void;
+  /** Select the public conversation timeline after a successful post. */
+  onPosted?: (tab: 'public') => void;
+}
+
+// Maps ApiError code to Callout tone for the inline error surface.
+//
+// #356: deliberately diverges from the same-named function in
+// PublicUpdateComposer — see the note there before merging the two.
+function getComposerErrorTone(code: string): 'amber' | null {
+  if (code === 'reporter_facing_status.gate_blocked') return 'amber';
+  // invalid_transition is primarily a public-update error; treat as amber fallback on reply surface.
+  if (code === 'reporter_facing_status.invalid_transition') return 'amber';
+  return null;
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+export function ReporterReplyComposer({
+  voc,
+  me,
+  draftDoc: controlledDraftDoc,
+  onDraftChange,
+  onPosted,
+}: ReporterReplyComposerProps): ReactElement {
+  const queryClient = useQueryClient();
+  const { editorHandle, focusEditor } = useComposerEditorFocus();
+
+  // REV-1 #7: controlled draft support.
+  const isControlled = controlledDraftDoc !== undefined;
+  const [localDraftDoc, setLocalDraftDoc] = useState<TipTapDoc | null>(null);
+  const draftDoc = isControlled ? (controlledDraftDoc ?? null) : localDraftDoc;
+
+  function setDraftDoc(doc: TipTapDoc | null) {
+    if (isControlled) {
+      onDraftChange?.(doc);
+    } else {
+      setLocalDraftDoc(doc);
+    }
+  }
+
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  // PLAN-22 C7a: composer-level attachment dropzone state.
+  const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
+  const [attachmentsUploading, setAttachmentsUploading] = useState(false);
+  // #354: bumped on send success so the dropzone drops the rows the server
+  // has now linked to the sent reply.
+  const [attachmentResetToken, setAttachmentResetToken] = useState(0);
+
+  // Reset state when VOC changes (preview; draft reset handled by parent for controlled).
+  const prevVocIdRef = useRef(voc.id);
+  if (prevVocIdRef.current !== voc.id) {
+    prevVocIdRef.current = voc.id;
+    if (!isControlled) {
+      setLocalDraftDoc(null);
+    }
+    setPreviewOpen(false);
+  }
+
+  const isEmpty = isTipTapDocBlank(draftDoc);
+
+  const mutation = useVocReporterReplyMutation({
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['voc', voc.id] });
+      setDraftDoc(null); // calls onDraftChange?.(null) when controlled
+      // #354: linked to the sent reply now — re-sending would be already_linked.
+      // attachmentIds clears through the dropzone's onChange, not from here.
+      setAttachmentResetToken((n) => n + 1);
+      toast.success('답장이 등록되었습니다.');
+      onPosted?.('public');
+      focusEditor();
+    },
+    onError: (error) => {
+      if (getComposerErrorTone(error.code) == null) {
+        toast.error(mapUnknownError(error).message);
+      }
+    },
+  });
+
+  function handleSubmit() {
+    if (!draftDoc) return;
+    mutation.mutate({
+      vocId: voc.id,
+      ifMatch: voc.updated_at,
+      body: {
+        body_rich_content: draftDoc,
+        attachment_ids: attachmentIds,
+      },
+    });
+  }
+
+  // Status hint — prototype: "공개 타임라인에 기록됨" for reply surface
+  const statusHint = <span className="text-xs text-text-muted">공개 타임라인에 기록됨</span>;
+
+  // ── Error matrix ─────────────────────────────────────────────────────────────
+  const mutationError = mutation.error as ApiError | null;
+  const isIdempotencyLocked =
+    mutationError != null && mutationError.code === 'conflict.idempotency_key_reuse';
+
+  const inlineCalloutTone = mutationError != null ? getComposerErrorTone(mutationError.code) : null;
+  const inlineCalloutReason =
+    inlineCalloutTone != null
+      ? ((mutationError?.detail?.reason as string | undefined) ??
+        mapUnknownError(mutationError).message)
+      : null;
+
+  // Owner for preview card — priority: actor from me, then fallback.
+  const owner = {
+    id: me?.actor.id ?? '',
+    display_name: me?.actor.display_name ?? '—',
+  };
+  // The envelope carries no reporter display name, so the preview identifies the role.
+  const reporter = {
+    id: voc.reporter_id,
+    display_name: '제출자',
+  };
+
+  return (
+    <div data-testid="reporter-reply-composer">
+      {/* RichEditor with ReporterReplyToolbar — prototype: minHeight 84px */}
+      <RichEditor
+        surface="reporter-reply"
+        // REV-3 Cluster Z: explicit value (null = clear).
+        value={draftDoc}
+        onChange={(doc) => setDraftDoc(doc)}
+        placeholder={
+          me?.actor.id === voc.reporter_id
+            ? VOC_REPLY_COPY.reporterPlaceholder
+            : '제출자에게 보낼 답장 내용을 입력하세요...'
+        }
+        minHeight={84}
+        onAttach={uploadRichEditorAttachment}
+        toolbar={(editor, api) => (
+          <>
+            {editorHandle(editor)}
+            <ReporterReplyToolbar
+              editor={editor}
+              onAttach={(file) => api.attach(file)}
+              onAttachError={(e) => toast.error(mapUnknownError(e).message)}
+            />
+          </>
+        )}
+      />
+
+      {/* PLAN-22 C7a: composer-level attachment dropzone (compact). */}
+      <ComposerAttachmentDropzone
+        testId="reporter-reply-attachment-dropzone"
+        onChange={setAttachmentIds}
+        onUploadingChange={setAttachmentsUploading}
+        resetToken={attachmentResetToken}
+      />
+
+      {/* Inline error Callout — reporter_facing_status.gate_blocked (amber)
+          D-5.6: copy from backend detail.reason, not errorMapper message */}
+      {inlineCalloutTone != null && inlineCalloutReason != null && (
+        <div
+          className="mt-2 px-1"
+          data-testid="composer-error-callout"
+          data-tone={inlineCalloutTone}
+        >
+          <Callout tone={inlineCalloutTone} icon={<AlertCircle size={12} />}>
+            {inlineCalloutReason}
+          </Callout>
+        </div>
+      )}
+
+      {/* ComposerFooter — shared across all three composer surfaces */}
+      <ComposerFooter
+        submitLabel="답변 보내기"
+        onPreview={() => setPreviewOpen(true)}
+        onSubmit={handleSubmit}
+        isEmpty={isEmpty}
+        isSubmitting={mutation.isPending}
+        isSubmitDisabled={isIdempotencyLocked || attachmentsUploading}
+        isPreviewDisabled={isIdempotencyLocked}
+        statusHint={statusHint}
+      />
+
+      {/* PreviewModal — Reporter reply preview */}
+      <PreviewModal
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        title="제출자 미리보기"
+      >
+        <ComposerReplyPreview voc={voc} owner={owner} reporter={reporter} draftDoc={draftDoc} />
+      </PreviewModal>
+    </div>
+  );
+}

@@ -1,0 +1,316 @@
+// Slice 1 #5: functional Request access button.
+//
+// Generates a stable `Idempotency-Key` per logical intent — the key is
+// memoized against `(capability, managedSystemId, attempt)` so a
+// double-click, an in-flight React Query retry, or a Cmd-R after a stalled
+// response sends the SAME key. The key is rotated to a new UUIDv4 only when
+// a previous submission succeeded (ADR-0015:71-90: one key = one intent).
+// On success or known-409 conflict the gate's permission-check query and
+// the open-requests list query are invalidated so the UI re-renders without
+// a manual reload. Other 4xx render an inline error message.
+//
+// Per AGENTS.md:69 the frontend never enforces backend permissions — this
+// component only reacts to server responses.
+
+import {
+  Button,
+  DatePicker,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Label,
+  Textarea,
+} from '@fops/ui';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { type ReactNode, useMemo, useState } from 'react';
+
+import { mapUnknownError } from '@/lib/api/errorMapper';
+import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
+import { GLOSSARY } from '@/lib/copy/glossary';
+import { useManagedSystemNames } from '@/lib/cross-system/useManagedSystemNames';
+import {
+  permissionCheckQueryKey,
+  permissionRequestsMineKey,
+} from '@/lib/cross-system/usePermissionCheck';
+import {
+  ApiError,
+  type CreatePermissionRequestSuccess,
+  createPermissionRequest,
+} from '../../../lib/api';
+import { permissionRequestStatusLabel } from './permission-requests-search.js';
+
+export interface RequestAccessButtonProps {
+  capability: string;
+  managedSystemId?: string;
+  returnRouteIntent: string;
+  onRequestSubmitted?: () => void;
+  /** Uses a caller-owned trigger while this component retains the request dialog and flow. */
+  renderTrigger?: (open: () => void) => ReactNode;
+}
+
+const RECOVERABLE_CONFLICT_CODES = new Set([
+  'conflict.capability_already_granted',
+  'conflict.permission_request_duplicate',
+]);
+
+export function RequestAccessButton(props: RequestAccessButtonProps) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [expiration, setExpiration] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState<{
+    id: string;
+    status: CreatePermissionRequestSuccess['status'];
+    createdAt: string;
+    reason: string;
+    expiration?: string;
+  } | null>(null);
+  // Bumping `attempt` rotates the memoized Idempotency-Key, which we do
+  // only after a successful submit (a new logical intent). Concurrent
+  // clicks / TanStack Query retries within one intent share the same key.
+  const [attempt, setAttempt] = useState(0);
+
+  // Scope summary shows the Managed System name; the raw UUID is only a
+  // fallback while the name is unresolved (#1170). Fetched when the dialog
+  // opens so a blocked panel mount costs no extra request.
+  const managedSystemNames = useManagedSystemNames({ enabled: open });
+  const managedSystemName = props.managedSystemId
+    ? managedSystemNames.get(props.managedSystemId)
+    : undefined;
+
+  // The dep list here is an *intent key*, not a value dependency: one
+  // Idempotency-Key per logical intent (ADR-0015:71-90). Narrowing it to what the
+  // callback reads would stop rotating the key when the intent changes, and
+  // widening it would rotate mid-intent — either way server-side idempotency
+  // reconciliation breaks. The suppression must stay a single line to register.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: dep list is the intent key, see above
+  const idempotencyKey = useMemo(
+    () => crypto.randomUUID(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [props.capability, props.managedSystemId, attempt],
+  );
+
+  const mutation = useMutation<CreatePermissionRequestSuccess, unknown, void>({
+    // Disable React Query's silent retries on this mutation — server-side
+    // idempotency reconciliation is the only retry path we honor, and the
+    // user explicitly clicks again if they want a new attempt.
+    retry: false,
+    mutationFn: async () => {
+      return await createPermissionRequest(
+        {
+          requested_capability: props.capability,
+          ...(props.managedSystemId !== undefined
+            ? { requested_managed_system_id: props.managedSystemId }
+            : {}),
+          reason: reason.trim(),
+          ...(expiration ? { requested_expiration: `${expiration}T23:59:59.000Z` } : {}),
+          return_route_intent: props.returnRouteIntent,
+        },
+        { idempotencyKey },
+      );
+    },
+    onSuccess: async (result) => {
+      setErrorMessage(null);
+      setSubmitted({
+        id: result.id,
+        status: result.status,
+        createdAt: result.created_at,
+        reason: reason.trim(),
+        ...(expiration ? { expiration: `${expiration}T23:59:59.000Z` } : {}),
+      });
+      // Successful submit — rotate the key so a future click counts as a
+      // new logical intent.
+      setAttempt((n) => n + 1);
+      await Promise.all([
+        qc.invalidateQueries({
+          queryKey: permissionCheckQueryKey({
+            capability: props.capability,
+            ...(props.managedSystemId !== undefined
+              ? { managedSystemId: props.managedSystemId }
+              : {}),
+          }),
+        }),
+        qc.invalidateQueries({ queryKey: permissionRequestsMineKey }),
+      ]);
+      props.onRequestSubmitted?.();
+    },
+    onError: async (err) => {
+      if (err instanceof ApiError && RECOVERABLE_CONFLICT_CODES.has(err.envelope.code)) {
+        // Treat as "the world has moved on; recover by refetching." Don't
+        // surface an error message; the gate will re-render with the truth.
+        setErrorMessage(null);
+        await Promise.all([
+          qc.invalidateQueries({
+            queryKey: permissionCheckQueryKey({
+              capability: props.capability,
+              ...(props.managedSystemId !== undefined
+                ? { managedSystemId: props.managedSystemId }
+                : {}),
+            }),
+          }),
+          qc.invalidateQueries({ queryKey: permissionRequestsMineKey }),
+        ]);
+        return;
+      }
+      if (err instanceof ApiError) {
+        setErrorMessage(mapUnknownError(err).message);
+        return;
+      }
+      setErrorMessage(mapUnknownError(err).message);
+    },
+  });
+
+  return (
+    <div>
+      {props.renderTrigger !== undefined ? (
+        props.renderTrigger(() => setOpen(true))
+      ) : (
+        <Button variant="primary" size="md" onClick={() => setOpen(true)}>
+          권한 요청
+        </Button>
+      )}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent data-testid="permission-request-dialog">
+          {submitted ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>권한 요청 완료</DialogTitle>
+                <DialogDescription>요청이 접수되어 관리자 검토를 기다립니다.</DialogDescription>
+              </DialogHeader>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
+                <dt className="text-text-muted">요청 ID</dt>
+                <dd className="font-mono text-text-primary" data-testid="permission-request-id">
+                  {submitted.id}
+                </dd>
+                <dt className="text-text-muted">권한</dt>
+                <dd className="text-text-primary">{getCapabilityDisplayLabel(props.capability)}</dd>
+                <dt className="text-text-muted">Managed System</dt>
+                <dd
+                  className={
+                    props.managedSystemId && !managedSystemName
+                      ? 'font-mono text-text-primary'
+                      : 'text-text-primary'
+                  }
+                >
+                  {props.managedSystemId === undefined
+                    ? '워크스페이스 전체'
+                    : (managedSystemName ?? props.managedSystemId)}
+                </dd>
+                <dt className="text-text-muted">사유</dt>
+                <dd className="text-text-primary">{submitted.reason}</dd>
+                <dt className="text-text-muted">상태</dt>
+                <dd className="text-text-primary">
+                  {permissionRequestStatusLabel[submitted.status]}
+                </dd>
+                <dt className="text-text-muted">요청일</dt>
+                <dd className="text-text-primary">{submitted.createdAt}</dd>
+                {submitted.expiration ? (
+                  <>
+                    <dt className="text-text-muted">만료일</dt>
+                    <dd className="text-text-primary">{submitted.expiration}</dd>
+                  </>
+                ) : null}
+              </dl>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    mutation.reset();
+                    setSubmitted(null);
+                    setReason('');
+                    setExpiration('');
+                  }}
+                >
+                  다른 권한 요청
+                </Button>
+                <Button type="button" onClick={() => setOpen(false)}>
+                  확인
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>권한 요청</DialogTitle>
+                {/* oxlint-disable-next-line shadcn/no-restyle -- the multi-clause permission instruction wraps at natural phrase boundaries */}
+                <DialogDescription className="text-pretty">
+                  권한을 확인하고, 필요한 최소 범위의 사유를 입력하세요.
+                </DialogDescription>
+              </DialogHeader>
+              <form
+                className="space-y-3"
+                data-testid="permission-request-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!reason.trim()) {
+                    setErrorMessage('사유는 필수입니다.');
+                    return;
+                  }
+                  setErrorMessage(null);
+                  mutation.mutate();
+                }}
+              >
+                <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 rounded-md border border-border-subtle bg-surface-card p-3 text-sm">
+                  <dt className="text-text-muted">권한</dt>
+                  <dd className="text-text-primary">
+                    {getCapabilityDisplayLabel(props.capability)}
+                  </dd>
+                  <dt className="text-text-muted">Managed System</dt>
+                  <dd
+                    className={
+                      props.managedSystemId && !managedSystemName
+                        ? 'font-mono text-text-primary'
+                        : 'text-text-primary'
+                    }
+                  >
+                    {props.managedSystemId === undefined
+                      ? '워크스페이스 전체'
+                      : (managedSystemName ?? props.managedSystemId)}
+                  </dd>
+                </dl>
+                <div className="space-y-1">
+                  <Label htmlFor="permission-request-reason">사유 · 필수</Label>
+                  <Textarea
+                    id="permission-request-reason"
+                    maxLength={2000}
+                    value={reason}
+                    onChange={(event) => setReason(event.target.value)}
+                    data-testid="permission-request-reason"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="permission-request-expiration">만료일 · 선택</Label>
+                  <DatePicker
+                    id="permission-request-expiration"
+                    aria-label="만료일 · 선택"
+                    value={expiration}
+                    onChange={(value) => setExpiration(value ?? '')}
+                    data-testid="permission-request-expiration"
+                  />
+                </div>
+                {errorMessage ? (
+                  <p role="alert" className="text-sm text-accent-danger">
+                    {errorMessage}
+                  </p>
+                ) : null}
+                <DialogFooter>
+                  <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
+                    {GLOSSARY.cancel}
+                  </Button>
+                  <Button type="submit" disabled={mutation.isPending}>
+                    요청 제출
+                  </Button>
+                </DialogFooter>
+              </form>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
