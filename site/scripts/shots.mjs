@@ -159,6 +159,31 @@ try {
       localStorage.setItem("platform:board:engineer", JSON.stringify(board));
     });
   }
+  async function seedMixedBoard() {
+    await page.evaluate(() => {
+      const query = "?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&roomNames=PHOTO";
+      const board = {
+        v: 1,
+        activeSheetId: "sheet-mixed",
+        sheets: [
+          {
+            id: "sheet-mixed",
+            name: "업무 시스템 섞기",
+            layout: "2x2",
+            selected: 0,
+            panes: [
+              { menuId: "productivity-overview", params: {}, query },
+              { menuId: "cycle-time", params: {}, query },
+              { menuId: "operation-time", params: {}, query },
+              { menuId: "metric-catalog", params: {}, query },
+            ],
+          },
+        ],
+      };
+      localStorage.setItem("platform:role", JSON.stringify("engineer"));
+      localStorage.setItem("platform:board:engineer", JSON.stringify(board));
+    });
+  }
   const boardPaneChart = (index) =>
     page.locator(`[data-pane-index="${index}"]`).getByRole("region", { name: "사이클타임 추세", exact: true });
   async function readyBoard() {
@@ -744,6 +769,28 @@ try {
     },
     mainContentClip,
     ["C14"],
+  );
+  await capture(
+    "board-mixed",
+    "분석 보드 · 업무 시스템을 섞은 네 칸",
+    "MARS·CLAS·BRAVO 메뉴를 한 시트에 놓고 칸 머리의 업무 시스템 이름으로 구분합니다.",
+    "shell",
+    async () => {
+      viewportHeight = 1100;
+      await seedMixedBoard();
+      await go("/board?sheet=sheet-mixed");
+      await expect(page.getByRole("tab", { name: "업무 시스템 섞기", exact: true })).toBeVisible();
+      for (const [index, system] of ["MARS", "MARS", "CLAS", "BRAVO"].entries())
+        await expect(page.locator(`[data-pane-index="${index}"] [data-pane-system]`)).toHaveText(system);
+      await expect(page.locator('[data-pane-index="1"]').getByRole("region", { name: "사이클타임 추세", exact: true })).toBeVisible();
+      await expect(page.locator('[data-pane-index="2"]').getByText("동작시간 요약", { exact: true })).toBeVisible();
+      await expect(page.locator('[data-pane-index="3"]').getByRole("table")).toBeVisible();
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+    },
+    () => {
+      const viewport = page.viewportSize();
+      return { clip: { x: 0, y: 0, width: viewport.width, height: viewport.height }, hideSticky: false };
+    },
   );
   await capture(
     "board-2x2",

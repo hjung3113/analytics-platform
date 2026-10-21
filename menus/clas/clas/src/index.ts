@@ -19,7 +19,7 @@ export const manifests: PlatformMenuEntry[] = [
     description: { ko: '설비별 동작시간 순위와 모듈별 동작 흐름을 봅니다.', en: 'Rank equipment by operation time and follow each module’s operation flow.' },
     path: '/clas/operation-time', icon: Timer, permission: 'analytics:view',
     requiresScope: true, context: { ...none, time: 'apply', roomNames: 'apply' }, pageType: 'analysis',
-    features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['eqp'], contextResetKeys: ['eqp'],
+    features: { export: false, savedView: false, annotate: false, compare: false, board: true }, pageKeys: ['eqp'], contextResetKeys: ['eqp'],
     component: lazy(() => import('./pages/OperationTime')),
   },
 ];
