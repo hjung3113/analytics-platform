@@ -149,3 +149,7 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 - 브리프 사전 점검 패치에 "코디네이터가 착수 전 결정"이라고 남은 항목은 착수 전에 브리프에 결정을 적는다. 비워 두면 작업자가 정책 공백으로 멈춘다(#552 2부, 2026-10-21).
 - 작업자·리뷰어를 띄운 같은 턴에 `worker-wait.sh`를 `run_in_background`로 건다. 띄우고 대기를 안 걸면 끝나도 알림이 오지 않는다(#552 2부 코드 리뷰).
 - 공용 부품이 틀렸거나 빠졌으면 메모리나 `HANDOFF.md`에만 적지 않는다. 콘덕터가 provider의 `engine/scripts/upstream-file.sh`로 `upstream` 이슈를 올리고, 레포 안 임시 우회는 이 절에 그 이슈 링크와 함께 적는다.
+- `?variant=` 시안은 그 값을 메뉴 `pageKeys`에 넣어야 주소를 바꿀 때 화면이 다시 그려진다. 빠지면 안을 바꿔도 A가 그대로 보인다(#541 시안, 2026-10-21).
+- 콘덕터 호스트 Playwright 캡처는 `apps/platform-e2e` 안에서 `@playwright/test`를 import해 돌리고, 주소에 `v=1&scopeId=MEM`을 붙인다. Scope가 없으면 "Scope를 선택하세요"만 그려져 canvas를 기다리다 시간 초과다(2026-10-21).
+- 브리프에 도메인 계층·묶음(예: "Maker → Module")을 적기 전에 `GLOSSARY.md`와 대조한다. 확인 없이 옮긴 "제조사/모듈 묶음"으로 쓸모없는 시안 라운드를 돌렸다(#541, 원칙은 루트 AGENTS.md "SDK는 범용 조각을 준다").
+- 커밋은 검사의 종료 코드로만 건다. `vitest … | grep 'Tests ' && git commit`은 grep이 성공하면 실패한 테스트 위에도 커밋한다(#576 FIX1 문구 수정, 2026-10-21).
