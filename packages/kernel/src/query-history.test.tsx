@@ -192,3 +192,58 @@ it.each(['acknowledge', 'supersede', 'throw'] as const)('records the captured cl
     expect(screen.queryDraft.draft.page).toEqual([['filter', 'after-click']]);
   } else expect(record).not.toHaveBeenCalled();
 });
+
+it('rechecks history room grants on revision without revalidating or masking the screen Scope', async () => {
+  const scoped = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{ ...menu, requiresScope: true }] });
+  const session = testSession(['platform:view']); const listeners = new Set<() => void>();
+  let rooms = ['PHOTO'];
+  const validateScope = vi.fn(async () => ({ status: 'valid' as const, grantedRooms: rooms }));
+  const statuses: string[] = [];
+  function ScopeProbe() { const value = usePlatform(); statuses.push(value.scope.status); return <Probe />; }
+  const store: QueryHistoryStore = { list: async () => [entry(buildQuery({ ...global, scopeId: 'MEM', roomNames: ['PHOTO'] }))], record: async () => {}, remove: async () => {}, clear: async () => {} };
+  const adapter = testAdapter({ session: () => session, subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); }, validateScope });
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const view = render(<I18nProvider><PlatformProvider registry={scoped} adapter={adapter} queryHistory={store}><ScopeProbe /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(history.entries[0]?.status).toBe('ready'));
+  // The screen and the history check each own one Scope request.
+  expect(validateScope).toHaveBeenCalledTimes(2);
+  const screenScope = screen.scope;
+  statuses.length = 0;
+  act(() => { rooms = []; listeners.forEach(listener => listener()); });
+  await waitFor(() => expect(history.entries[0]?.status).toBe('unavailable'));
+  expect(history.entries[0]).toMatchObject({ reason: 'permission' });
+  expect(validateScope).toHaveBeenCalledTimes(3);
+  expect(statuses.length).toBeGreaterThan(0);
+  expect(statuses.every(status => status === 'valid')).toBe(true);
+  expect(screen.scope).toBe(screenScope);
+  view.unmount();
+});
+it.each(['scope', 'selection'] as const)('aborts pending history %s checks on revision replacement and unmount', async phase => {
+  const scoped = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{ ...menu, requiresScope: true }] });
+  const session = testSession(['platform:view']); const listeners = new Set<() => void>();
+  const signals: AbortSignal[] = [];
+  let scopeCalls = 0;
+  const adapter = testAdapter({
+    session: () => session,
+    subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
+    validateScope: (_scopeId, signal) => {
+      if (!signal) throw new Error('missing Scope abort signal');
+      scopeCalls++;
+      if (phase === 'scope' && scopeCalls > 1) { signals.push(signal); return new Promise(() => {}); }
+      return Promise.resolve({ status: 'valid', grantedRooms: ['PHOTO'] });
+    },
+    resolveSelection: (_input, signal) => { if (!signal) throw new Error('missing selection abort signal'); signals.push(signal); return new Promise(() => {}); },
+  });
+  const store: QueryHistoryStore = { list: async () => [entry(buildQuery({ ...global, scopeId: 'MEM', selection: ['PRIVATE-ID'] }))], record: async () => {}, remove: async () => {}, clear: async () => {} };
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const view = render(<I18nProvider><PlatformProvider registry={scoped} adapter={adapter} queryHistory={store}><Probe /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(signals).toHaveLength(1));
+  expect(history.entries[0]?.status).toBe('loading');
+  expect(signals[0].aborted).toBe(false);
+  act(() => listeners.forEach(listener => listener()));
+  expect(signals[0].aborted).toBe(true);
+  await waitFor(() => expect(signals).toHaveLength(2));
+  expect(signals[1].aborted).toBe(false);
+  view.unmount();
+  expect(signals[1].aborted).toBe(true);
+});

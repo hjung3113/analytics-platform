@@ -70,32 +70,47 @@ export function useScreenHistory(input: DraftInputs, store: DraftStore, normaliz
   useLayoutEffect(() => history.retain(), [history]);
   const scopeKey = JSON.stringify(input.global.scopeId);
   const tag = useMemo<Tag>(() => ({ port: input.history, session: input.session, revision: input.revision, identity: input.identity, scope: scopeKey, axes: input.axes, allowed: input.allowed }), [input.history, input.session, input.revision, input.identity, scopeKey, input.axes, input.allowed]);
+  const checks = useMemo(() => new Set<AbortController>(), [tag]);
+  useLayoutEffect(() => () => { checks.forEach(controller => controller.abort()); checks.clear(); }, [checks]);
   const enabled = input.menu?.query?.mode === 'apply' && input.history !== undefined;
   const key: QueryHistoryKey = { userId: input.session.user.id, menuId: input.menu?.id ?? '', scopeId: input.global.scopeId };
   const current = () => history.active() && sameTag(history.get().tag, tag) && input.adapter.session() === input.session && input.currentRevision() === input.revision && store.get()?.identity === input.identity && store.get()?.session === input.session;
   const authorizedScope = () => input.allowed && (!(input.menu?.requiresScope || key.scopeId !== null) || (input.scope.status === 'valid' && input.scope.scopeId === key.scopeId && input.scope.validatedFor === input.session));
   const validate = async (entries: readonly QueryHistoryEntry[]): Promise<QueryHistoryRow[]> => {
+    if (!entries.length) return [];
     const candidates = entries.map(entry => candidate(input, entry, normalize));
     if (!authorizedScope()) return entries.map(entry => ({ ...base(entry), status: input.scope.status === 'validating' ? 'loading' : 'unavailable', reason: input.scope.status === 'validating' ? 'checking' : 'permission' }));
-    const rooms = new Set(input.scope.grantedRooms);
-    const allowed = candidates.map(value => value !== null && (value.global.roomNames ?? []).every(room => rooms.has(room)));
-    const ids = [...new Set(candidates.flatMap((value, index) => allowed[index] ? value?.global.selection ?? [] : []))];
-    let resolved: Map<string, string> | null = new Map();
-    if (ids.length) {
-      try {
-        if (key.scopeId === null) resolved = null;
-        else {
-          const result = await input.adapter.resolveSelection({ scopeId: key.scopeId, ids }, new AbortController().signal);
-          resolved = new Map(result.items.map(item => [item.id, item.status]));
-        }
-      } catch { resolved = null; }
-    }
-    return entries.map((entry, index) => {
-      const value = candidates[index];
-      if (!value) return { ...base(entry), status: 'unavailable', reason: 'invalid' };
-      if (!allowed[index] || !(value.global.selection ?? []).every(id => resolved?.get(id) === 'ok')) return { ...base(entry), status: 'unavailable', reason: 'permission' };
-      return { ...base(entry), status: 'ready', candidate: value };
-    });
+    const controller = new AbortController();
+    checks.add(controller);
+    try {
+      let rooms = new Set<string>();
+      if (key.scopeId !== null) {
+        try {
+          const result = await input.adapter.validateScope(key.scopeId, controller.signal);
+          if (result.status !== 'valid') return entries.map(entry => ({ ...base(entry), status: 'unavailable', reason: 'permission' }));
+          rooms = new Set(result.grantedRooms);
+        } catch { return entries.map(entry => ({ ...base(entry), status: 'unavailable', reason: 'permission' })); }
+      }
+      if (controller.signal.aborted || !current()) return entries.map(entry => ({ ...base(entry), status: 'unavailable', reason: 'permission' }));
+      const allowed = candidates.map(value => value !== null && (value.global.roomNames ?? []).every(room => rooms.has(room)));
+      const ids = [...new Set(candidates.flatMap((value, index) => allowed[index] ? value?.global.selection ?? [] : []))];
+      let resolved: Map<string, string> | null = new Map();
+      if (ids.length) {
+        try {
+          if (key.scopeId === null) resolved = null;
+          else {
+            const result = await input.adapter.resolveSelection({ scopeId: key.scopeId, ids }, controller.signal);
+            resolved = new Map(result.items.map(item => [item.id, item.status]));
+          }
+        } catch { resolved = null; }
+      }
+      return entries.map((entry, index) => {
+        const value = candidates[index];
+        if (!value) return { ...base(entry), status: 'unavailable', reason: 'invalid' };
+        if (!allowed[index] || !(value.global.selection ?? []).every(id => resolved?.get(id) === 'ok')) return { ...base(entry), status: 'unavailable', reason: 'permission' };
+        return { ...base(entry), status: 'ready', candidate: value };
+      });
+    } finally { checks.delete(controller); }
   };
   const fail = () => { if (current()) history.put({ ...history.get(), status: 'unavailable', rows: [] }); };
   const load = () => {
@@ -146,7 +161,7 @@ export function useScreenHistory(input: DraftInputs, store: DraftStore, normaliz
     status: enabled ? visible?.status ?? 'loading' : 'disabled',
     entries: enabled ? (visible?.rows ?? []).map(row => {
       if (row.status !== 'ready') return row;
-      if (!authorizedScope() || !(row.candidate.global.roomNames ?? []).every(room => input.scope.grantedRooms.includes(room))) return { ...base(row), status: 'loading' as const, reason: 'checking' as const };
+      if (!authorizedScope()) return { ...base(row), status: 'loading' as const, reason: 'checking' as const };
       return row;
     }) : [],
     open() {

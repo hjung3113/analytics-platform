@@ -417,14 +417,11 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
     } catch { /* keep none */ }
     return { scopeId: null, status: 'none', validatedFor: session, grantedRooms: [] };
   });
-  const revision = app.pub.revision;
-  const [scopeRevision, setScopeRevision] = useState(revision);
   const [scopeRetry, setScopeRetry] = useState(0);
   const retryScope = useCallback(() => setScopeRetry(n => n + 1), []);
   const onScopeValid = source.onScopeValid;
   useEffect(() => {
     const scopeId = global.scopeId;
-    setScopeRevision(revision);
     if (!scopeId) { setScope({ scopeId: null, status: 'none', validatedFor: session, grantedRooms: [] }); return; }
     const controller = new AbortController();
     setScope({ scopeId, status: 'validating', validatedFor: session, grantedRooms: [] });
@@ -438,13 +435,13 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
       setScope({ scopeId, status: 'error', validatedFor: session, grantedRooms: [] });
     });
     return () => controller.abort();
-  }, [global.scopeId, session, adapter, scopeRetry, onScopeValid, revision]);
+  }, [global.scopeId, session, adapter, scopeRetry, onScopeValid]);
 
   // A Scope switch — or a session-only change (role switch, re-login) that leaves the scopeId alone — renders
   // once before the validation effect runs, and in that frame `scope` still describes the previous Scope or the
   // previous session. The mask is exactly the value the effect will set next — never the previous Scope's
   // error/forbidden/unknown_scope/valid, id, or grantedRooms, and never the previous session's `valid` (#183, #186).
-  const scopeMasked = scope.scopeId !== global.scopeId || scope.validatedFor !== session || scopeRevision !== revision;
+  const scopeMasked = scope.scopeId !== global.scopeId || scope.validatedFor !== session;
   const scopeView: ScopeState = scopeMasked
     ? global.scopeId === null
       ? { scopeId: null, status: 'none', validatedFor: session, grantedRooms: [] }
