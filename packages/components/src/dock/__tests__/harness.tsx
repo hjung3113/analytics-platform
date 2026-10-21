@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import { act, render } from '@testing-library/react';
 import { I18nProvider } from '@ap/kernel';
 import { DockLayout } from '../DockLayout';
@@ -45,6 +45,8 @@ export const column = (sizes: number[], ...children: DockNode[]): DockNode => ({
 export type Controls = {
   setLayout: (next: DockNode) => void;
   setMaximized: (id: string | null) => void;
+  /** Re-titles every panel (a new `panels` array), the way a locale change does. */
+  setTitleSuffix: (suffix: string) => void;
   current: () => { layout: DockNode; maximized: string | null };
 };
 export type Calls = { layout: DockNode[]; activate: string[]; maximized: (string | null)[] };
@@ -61,16 +63,20 @@ export function mountDock(options: {
   const ids = options.ids ?? ['a', 'b', 'c'];
   const calls: Calls = { layout: [], activate: [], maximized: [] };
   const controls = {} as Controls;
-  const panels: DockPanel[] = ids.map(id => ({ id, title: `패널 ${id}`, render: () => <Counter id={id}>{options.inner?.(id)}</Counter> }));
+  const build = (suffix: string): DockPanel[] => ids.map(id => ({ id, title: `패널 ${id}${suffix}`, render: () => <Counter id={id}>{options.inner?.(id)}</Counter> }));
+  const panels = build('');
   function Harness() {
+    const [suffix, setSuffix] = useState('');
+    const current = useMemo(() => (suffix === '' ? panels : build(suffix)), [suffix]);
     const [layout, setLayout] = useState(options.layout);
     const [maximized, setMaximized] = useState<string | null>(options.maximized ?? null);
     useLayoutEffect(() => {
       controls.setLayout = next => { act(() => { setLayout(next); }); };
       controls.setMaximized = id => { act(() => { setMaximized(id); }); };
+      controls.setTitleSuffix = next => { act(() => { setSuffix(next); }); };
       controls.current = () => ({ layout, maximized });
     });
-    return <DockLayout panels={panels} layout={layout} maximizedPanelId={maximized}
+    return <DockLayout panels={current} layout={layout} maximizedPanelId={maximized}
       onLayoutChange={next => { calls.layout.push(next); if (options.controlled !== false) setLayout(next); }}
       onActivate={id => { calls.activate.push(id); }}
       onMaximizedChange={id => { calls.maximized.push(id); setMaximized(id); }}

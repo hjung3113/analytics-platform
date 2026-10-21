@@ -6,6 +6,7 @@ import { StateMessage } from '../StateView';
 import { panelOrder } from './commands';
 import { stackedTree, visiblePanelIds } from './displayModel';
 import { DEFAULT_MIN_PANEL_SIZE, type DockLayoutProps } from './dockTypes';
+import { programmaticFocus } from './programmaticFocus';
 import { dockGroups } from './schema';
 
 /** Contains a rejected DockEngine chunk load inside the layout box so it never unmounts the surrounding app (same pattern as EChart). */
@@ -16,14 +17,18 @@ class ChunkLoadBoundary extends Component<{ onError: (error: unknown) => void; c
   render() { return this.state.failed ? null : this.props.children; }
 }
 
-const tabOf = (target: EventTarget | null) => (target instanceof Element ? target.closest<HTMLElement>('[role="tab"][data-tab-panel-id]') : null);
+/** The tab the event is on, if it belongs to the layout rooted at `root` (a nested layout's tabs belong to that layout). */
+const tabOf = (target: EventTarget | null, root: Element | null) => {
+  const tab = target instanceof Element ? target.closest<HTMLElement>('[role="tab"][data-tab-panel-id]') : null;
+  return tab && tab.closest('[data-dock-layout]') === root ? tab : null;
+};
 const NAVIGATION_KEYS = new Set(['Enter', ' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']);
 
 /** Opens the group's actions the way a pointer user would: Radix `DropdownMenuTrigger` opens on `pointerdown`, other triggers on `click`. */
 function openGroupMenu(tab: HTMLElement): boolean {
   const trigger = tab.closest('.dv-groupview')?.querySelector<HTMLElement>('[data-dock-group-menu]');
   if (!trigger) return false;
-  trigger.focus();
+  programmaticFocus(() => { trigger.focus(); });
   trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 }));
   if (trigger.getAttribute('aria-expanded') !== 'true') trigger.click();
   return true;
@@ -81,7 +86,8 @@ export function DockLayout(props: DockLayoutProps) {
   }, [narrow, firstActive, onActivate]);
 
   const focusTab = useCallback((panelId: string) => {
-    Array.from(container.current?.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]') ?? []).find(tab => tab.dataset.tabPanelId === panelId)?.focus({ preventScroll: true });
+    const tab = Array.from(container.current?.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]') ?? []).find(item => item.dataset.tabPanelId === panelId && tabOf(item, container.current));
+    if (tab) programmaticFocus(() => { tab.focus({ preventScroll: true }); });
   }, []);
   // After a maximize ends the restored panel's tab takes focus (when focus is not elsewhere on the page); the board composes its own contract on top.
   const wasMaximized = useRef<string | null>(null);
@@ -94,10 +100,10 @@ export function DockLayout(props: DockLayoutProps) {
 
   const onKeyDownCapture = (event: KeyboardEvent<HTMLDivElement>) => {
     // The engine closes a focused tab on Delete/Backspace (dockview-core main.esm.mjs:9568); closing is a platform command, so the key stops here.
-    if ((event.key === 'Delete' || event.key === 'Backspace') && tabOf(event.target)) { event.preventDefault(); event.stopPropagation(); }
+    if ((event.key === 'Delete' || event.key === 'Backspace') && tabOf(event.target, container.current)) { event.preventDefault(); event.stopPropagation(); }
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const tab = tabOf(event.target);
+    const tab = tabOf(event.target, container.current);
     if (event.key === 'Escape') {
       // Whatever consumed Escape first (menu, popover, dialog: they call preventDefault) keeps it; only the innermost maximize ends.
       if (event.defaultPrevented || !maximized) return;
@@ -112,7 +118,7 @@ export function DockLayout(props: DockLayoutProps) {
     }
     if (tab && NAVIGATION_KEYS.has(event.key)) {
       // The engine has already moved focus; the tab that has it is the one the user chose.
-      const focused = tabOf(document.activeElement) ?? tab;
+      const focused = tabOf(document.activeElement, container.current) ?? tab;
       if (focused.dataset.tabPanelId) activate(focused.dataset.tabPanelId);
     }
   };
@@ -126,7 +132,7 @@ export function DockLayout(props: DockLayoutProps) {
   return <div ref={container} role="region" aria-label={label} data-dock-layout data-dock-narrow={narrow} className="relative h-full min-h-0 w-full min-w-0"
     onKeyDownCapture={onKeyDownCapture} onKeyDown={onKeyDown}
     onPointerDownCapture={event => {
-      const tab = event.button === 0 ? tabOf(event.target) : null;
+      const tab = event.button === 0 ? tabOf(event.target, container.current) : null;
       if (tab?.dataset.tabPanelId) activate(tab.dataset.tabPanelId);
     }}>
     <ChunkLoadBoundary key={attempt} onError={() => { setFailed(true); }}>

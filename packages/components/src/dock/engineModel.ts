@@ -79,3 +79,35 @@ export function sameDockTree(a: DockNode, b: DockNode, options: { sizes: boolean
   if (options.sizes && a.sizes.some((size, index) => Math.abs(size - b.sizes[index]!) > tolerance)) return false;
   return a.children.every((child, index) => sameDockTree(child, b.children[index]!, options));
 }
+
+const equalShares = (count: number): number[] => {
+  const share = Math.round(1e4 / count) / 1e2;
+  return Array.from({ length: count }, (_, index) => (index === count - 1 ? Math.round((100 - share * (count - 1)) * 100) / 100 : share));
+};
+/** A branch's shape: its direction and, per child, the set of panels it holds (tab order and active tabs do not count). */
+const shapeOf = (node: DockNode): string => (node.type === 'group'
+  ? `g(${[...node.panels].sort().join(',')})`
+  : `${node.dir}(${node.children.map(shapeOf).join(' ')})`);
+
+/**
+ * `read` is what the engine shows (px sizes, rounded and clamped to the minimum panel size), `stored` is the caller's layout. Every branch of
+ * `read` whose shape also exists in `stored` keeps the stored shares; a new or changed branch gets equal shares. A tab move or activation
+ * must never write the engine's display sizes back as the stored ratios (docs/16 §4, ADR-0067 decision 5).
+ */
+export function keepStoredSizes(read: DockNode, stored: DockNode): DockNode {
+  const pool = new Map<string, number[][]>();
+  const collect = (node: DockNode) => {
+    if (node.type !== 'branch') return;
+    const key = shapeOf(node);
+    pool.set(key, [...(pool.get(key) ?? []), node.sizes]);
+    node.children.forEach(collect);
+  };
+  collect(stored);
+  const fill = (node: DockNode): DockNode => {
+    if (node.type === 'group') return node;
+    const children = node.children.map(fill);
+    const sizes = pool.get(shapeOf(node))?.shift();
+    return { ...node, sizes: sizes ? [...sizes] : equalShares(node.children.length), children };
+  };
+  return fill(read);
+}

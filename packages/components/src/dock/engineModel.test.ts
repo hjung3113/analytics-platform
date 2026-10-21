@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fromEngineLayout, sameDockTree, toEngineLayout, type EngineLayout } from './engineModel';
+import { fromEngineLayout, keepStoredSizes, sameDockTree, toEngineLayout, type EngineLayout } from './engineModel';
 import type { DockNode } from './schema';
 
 const group = (panels: string[], active = panels[0]!): DockNode => ({ type: 'group', panels, active });
@@ -76,5 +76,22 @@ describe('sameDockTree', () => {
 
   it('ignores sizes when asked', () => {
     expect(sameDockTree(base, row([90, 10], group(['a', 'b'], 'a'), group(['c'])), { sizes: false })).toBe(true);
+  });
+});
+
+describe('keepStoredSizes (C2)', () => {
+  it('keeps the stored shares of a branch whose shape is unchanged, whatever the engine measured', () => {
+    expect(keepStoredSizes(row([66, 34], group(['a', 'b'], 'b'), group(['c'])), row([90, 10], group(['b', 'a'], 'a'), group(['c'])))).toEqual(row([90, 10], group(['a', 'b'], 'b'), group(['c'])));
+  });
+
+  it('gives a new or changed branch equal shares and keeps the unchanged ones inside it', () => {
+    const stored = row([70, 30], group(['a']), column([80, 20], group(['b']), group(['c'])));
+    const read = row([10, 90], group(['a', 'b']), column([50, 50], group(['c']), group(['d'])));
+    expect(keepStoredSizes(read, stored)).toEqual(row([50, 50], group(['a', 'b']), column([50, 50], group(['c']), group(['d']))));
+  });
+
+  it('equal shares add up to 100', () => {
+    const next = keepStoredSizes(row([1, 1, 1], group(['a']), group(['b']), group(['c'])), group(['z'])) as Extract<DockNode, { type: 'branch' }>;
+    expect(next.sizes.reduce((sum, size) => sum + size, 0)).toBeCloseTo(100, 5);
   });
 });

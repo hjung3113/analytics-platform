@@ -12,7 +12,8 @@ import { TransientOverlayScope } from '@ap/ui';
 import { groupOf } from './commands';
 import { DockSeparators, type DockRect } from './DockSeparators';
 import type { DockLayoutProps, DockPanel } from './dockTypes';
-import { fromEngineLayout, sameDockTree, toEngineLayout, type EngineLayout } from './engineModel';
+import { fromEngineLayout, keepStoredSizes, sameDockTree, toEngineLayout, type EngineLayout } from './engineModel';
+import { isProgrammaticFocus, programmaticFocus } from './programmaticFocus';
 import { canonicalDockTree, type DockNode } from './schema';
 import './dock.css';
 
@@ -58,7 +59,11 @@ function PanelHost({ api }: IDockviewPanelProps) {
   const panel = engine.panels.get(id);
   return <div id={`${engine.instanceId}-panel-${id}`} data-dock-panel={id} data-dock-visible={visible} inert={!visible} className="h-full min-h-0 min-w-0 overflow-auto"
     onFocus={event => {
-      // Focus moving into the panel from outside it is the user choosing the panel.
+      // Focus moving into the panel from outside it is the user choosing the panel. Not: focus the dock itself moved, or an event of a nested
+      // layout (its panel belongs to that layout's `onActivate`).
+      if (isProgrammaticFocus()) return;
+      const root = event.currentTarget.closest('[data-dock-layout]');
+      if (event.target instanceof Element && event.target.closest('[data-dock-layout]') !== root) return;
       if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) engine.onActivate(id);
     }}>
     <TransientOverlayScope active={visible}>{panel?.render() ?? null}</TransientOverlayScope>
@@ -88,12 +93,6 @@ const TAB_COMPONENTS = { tab: DockTab };
 const THEME = { name: 'ap', className: 'ap-dock', gap: 6 };
 type SerializedLayout = Parameters<DockviewApi['fromJSON']>[0];
 
-/** The engine's sizes are px; when it has none (unmeasured container) the shape is taken from the layout instead. */
-function inheritSizes(read: DockNode, from: DockNode): DockNode {
-  if (read.type !== 'branch' || from.type !== 'branch' || read.dir !== from.dir || read.children.length !== from.children.length) return read;
-  return { ...read, sizes: [...from.sizes], children: read.children.map((child, index) => inheritSizes(child, from.children[index]!)) };
-}
-
 const sameRects = (a: Record<string, DockRect>, b: Record<string, DockRect>) => {
   const keys = Object.keys(b);
   return keys.length === Object.keys(a).length && keys.every(key => {
@@ -102,9 +101,23 @@ const sameRects = (a: Record<string, DockRect>, b: Record<string, DockRect>) => 
   });
 };
 
-function readEngine(api: DockviewApi) {
-  // `toJSON` leaves and re-enters maximize, so it is not read while a group is maximized.
-  return api.hasMaximizedGroup() ? null : fromEngineLayout(api.toJSON() as unknown as EngineLayout);
+/**
+ * The tree the engine shows. While a group is maximized `toJSON` is not used (it leaves and re-enters maximize, dockview-core
+ * main.esm.mjs:2473-2506); the group's tab order and active tab are read from the group API instead (`api.groups` :3901, `group.panels` and
+ * `group.activePanel` :11956-11959) onto the stored layout. Panels cannot cross groups meanwhile (the other groups are hidden).
+ */
+function readEngine(api: DockviewApi, stored: DockNode): { tree: DockNode; measured: boolean } {
+  if (!api.hasMaximizedGroup()) return fromEngineLayout(api.toJSON() as unknown as EngineLayout);
+  const groups = api.groups;
+  const read = (node: DockNode): DockNode => {
+    if (node.type === 'branch') return { ...node, children: node.children.map(read) };
+    const engine = groups.find(candidate => candidate.panels.some(panel => panel.id === node.panels[0]));
+    const ids = engine?.panels.map(panel => panel.id) ?? [];
+    if (!engine || ids.length !== node.panels.length || !ids.every(id => node.panels.includes(id))) return node;
+    const active = engine.activePanel?.id;
+    return { type: 'group', panels: ids, active: active && ids.includes(active) ? active : node.active };
+  };
+  return { tree: canonicalDockTree(read(stored)), measured: false };
 }
 
 export default function DockEngine({
@@ -113,6 +126,8 @@ export default function DockEngine({
 }: DockEngineProps) {
   const [api, setApi] = useState<DockviewApi | null>(null);
   const [epoch, setEpoch] = useState(0);
+  // Counts real reconciles (`fromJSON` drops the engine's maximize, even when only titles or minimum sizes changed).
+  const [reconciles, setReconciles] = useState(0);
   const [rects, setRects] = useState<Record<string, DockRect>>({});
   const [focusedPanel, setFocusedPanel] = useState<string | null>(null);
   const applying = useRef(false);
@@ -156,14 +171,17 @@ export default function DockEngine({
     scheduleMeasure();
     const current = live.current;
     if (!current.interactive) return;
-    const read = readEngine(target);
-    if (!read) return;
     const shown = canonicalDockTree(current.layout);
+    const read = readEngine(target, shown);
     const structural = !sameDockTree(read.tree, shown, { sizes: false });
     const resized = !structural && dragging.current && read.measured && !sameDockTree(read.tree, shown, { sizes: true, tolerance: 0.05 });
     if (!structural && !resized) return;
-    const next = read.measured ? read.tree : inheritSizes(read.tree, shown);
-    emitted.current = JSON.stringify(next);
+    // Only a sash drag brings the engine's sizes along; any other change keeps the stored shares (the engine's px are rounded and clamped).
+    const next = resized ? read.tree : keepStoredSizes(read.tree, shown);
+    const nextKey = JSON.stringify(next);
+    // The engine fires several events for one change (active, move, layout) before the parent's commit; the same tree is reported once.
+    if (nextKey === emitted.current) return;
+    emitted.current = nextKey;
     pending.current = true;
     current.onLayoutChange(next);
     // A parent that ignores the change leaves the engine ahead of `layout`; the epoch makes the reconcile below run and win.
@@ -200,8 +218,7 @@ export default function DockEngine({
     else if (applied.current.key !== key) rebuild = key !== emitted.current;
     else if (answered) rebuild = true;
     else {
-      const read = readEngine(api);
-      rebuild = read !== null && !sameDockTree(read.tree, wanted, { sizes: false });
+      rebuild = !sameDockTree(readEngine(api, wanted).tree, wanted, { sizes: false });
     }
     if (!rebuild) { applied.current = { key, meta }; return; }
     const focusedBefore = containerRef.current?.contains(document.activeElement) ? document.activeElement : null;
@@ -213,7 +230,11 @@ export default function DockEngine({
     }
     applied.current = { key, meta };
     emitted.current = null;
-    if (focusedBefore instanceof HTMLElement && !focusedBefore.isConnected) containerRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus({ preventScroll: true });
+    if (focusedBefore instanceof HTMLElement && !focusedBefore.isConnected) {
+      const tab = containerRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+      if (tab) programmaticFocus(() => { tab.focus({ preventScroll: true }); });
+    }
+    setReconciles(value => value + 1);
     scheduleMeasure();
   }, [api, key, meta, epoch, containerRef, scheduleMeasure]);
 
@@ -223,7 +244,7 @@ export default function DockEngine({
     const target = maximizedPanelId ? api.getPanel(maximizedPanelId) : undefined;
     if (target) { if (!target.api.isMaximized()) target.api.maximize(); } else if (api.hasMaximizedGroup()) api.exitMaximizedGroup();
     scheduleMeasure();
-  }, [api, maximizedPanelId, key, epoch, scheduleMeasure]);
+  }, [api, maximizedPanelId, key, epoch, reconciles, scheduleMeasure]);
 
   useEffect(() => {
     const container = containerRef.current;

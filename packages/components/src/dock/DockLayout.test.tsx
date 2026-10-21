@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { cleanup, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
@@ -421,5 +421,105 @@ describe('DockLayout tab content', () => {
     mountDock({ layout: group(['a', 'b']) });
     await ready();
     expect(screen.getByRole('tab', { name: '패널 a' })).toHaveTextContent('패널 a');
+  });
+});
+
+describe('DockLayout FIX1 regressions', () => {
+  it('C1: a tab change while a group is maximized is reported and shown', async () => {
+    const { calls } = mountDock({ layout: row([50, 50], group(['a', 'b'], 'a'), group(['c'])), maximized: 'a' });
+    await ready();
+    await userEvent.click(screen.getByRole('tab', { name: '패널 b' }));
+    await waitFor(() => { expect(JSON.stringify(calls.layout.at(-1))).toContain('"active":"b"'); });
+    await waitFor(() => { expect(root('b')).toHaveAttribute('data-dock-visible', 'true'); });
+    expect(root('b')).not.toHaveAttribute('inert');
+    expect(root('a')).toHaveAttribute('inert');
+    expect(mounts).toEqual({ a: 1, b: 1, c: 1 });
+  });
+
+  it('C1: a parent that ignores a tab change made while maximized gets the engine back, still maximized', async () => {
+    const { calls } = mountDock({ layout: row([50, 50], group(['a', 'b'], 'a'), group(['c'])), maximized: 'a', controlled: false });
+    await ready();
+    await userEvent.click(screen.getByRole('tab', { name: '패널 b' }));
+    await waitFor(() => { expect(calls.layout.length).toBeGreaterThan(0); });
+    await waitFor(() => { expect(activeTabs()).toContain('a'); });
+    expect(activeTabs()).not.toContain('b');
+    expect(root('c')).toHaveAttribute('inert');
+    expect(root('a')).not.toHaveAttribute('inert');
+    expect(mounts).toEqual({ a: 1, b: 1, c: 1 });
+  });
+
+  it('C2: a tab change keeps the stored ratios, not the engine\'s clamped sizes', async () => {
+    const { calls } = mountDock({ layout: row([90, 10], group(['a', 'b'], 'a'), group(['c'])), controlled: false, props: { minPanelSize: { width: 300, height: 20 } } });
+    await ready();
+    await userEvent.click(screen.getByRole('tab', { name: '패널 b' }));
+    await waitFor(() => { expect(calls.layout.length).toBeGreaterThan(0); });
+    expect(calls.layout.at(-1)).toMatchObject({ type: 'branch', sizes: [90, 10] });
+  });
+
+  it('C4: one engine change is reported once', async () => {
+    const { calls } = mountDock({ layout: row([50, 50], group(['a', 'b'], 'a'), group(['c'])), controlled: false });
+    await ready();
+    await userEvent.click(screen.getByRole('tab', { name: '패널 b' }));
+    await waitFor(() => { expect(calls.layout.length).toBeGreaterThan(0); });
+    await waitFor(() => { expect(activeTabs()).toContain('a'); });
+    await new Promise(resolve => { setTimeout(resolve, 50); });
+    expect(calls.layout).toHaveLength(1);
+  });
+
+  it('C5: a title-only change while maximized keeps the engine maximized', async () => {
+    const { controls } = mountDock({ layout: row([50, 50], group(['a', 'b']), group(['c'])), maximized: 'c' });
+    await ready();
+    await waitFor(() => { expect(root('a')).toHaveAttribute('data-dock-visible', 'false'); });
+    controls.setTitleSuffix(' (새 이름)');
+    await waitFor(() => { expect(screen.getByRole('tab', { name: '패널 a (새 이름)' })).toBeInTheDocument(); });
+    await waitFor(() => { expect(document.querySelectorAll('.dv-view:not(.visible) .dv-groupview').length).toBeGreaterThan(0); });
+    expect(root('a')).toHaveAttribute('inert');
+    expect(mounts).toEqual({ a: 1, b: 1, c: 1 });
+  });
+});
+
+function NestedActivation({ log, startMaximized = null, expose }: { log: string[]; startMaximized?: string | null; expose?: { set?: (id: string | null) => void } }) {
+  const [maximized, setMaximized] = useState<string | null>(startMaximized);
+  if (expose) expose.set = setMaximized;
+  const panels = useMemo(() => ['x', 'y', 'z'].map(id => ({ id, title: `안쪽 ${id}`, render: () => <button type="button">inner {id}</button> })), []);
+  const layout = useMemo(() => row([50, 50], group(['x', 'y']), group(['z'])), []);
+  return <DockLayout panels={panels} layout={layout} onLayoutChange={() => {}} onActivate={id => { log.push(id); }} maximizedPanelId={maximized} onMaximizedChange={setMaximized}
+    separatorLabel={() => '안쪽 경계'} label="안쪽 배치" minPanelSize={{ width: 20, height: 20 }} />;
+}
+
+describe('DockLayout nested activation (C3)', () => {
+  it('a click on an inner tab activates only the inner layout', async () => {
+    const inner: string[] = [];
+    const { calls } = mountDock({ layout: row([50, 50], group(['a']), group(['c'])), inner: id => (id === 'a' ? <NestedActivation log={inner} /> : null) });
+    await screen.findByRole('tab', { name: '안쪽 y' });
+    await userEvent.click(screen.getByRole('tab', { name: '안쪽 y' }));
+    expect(inner).toContain('y');
+    expect(calls.activate).not.toContain('y');
+    expect(calls.activate).toEqual([]);
+  });
+
+  it('arrow keys on an inner tab activate only the inner layout', async () => {
+    const inner: string[] = [];
+    const { calls } = mountDock({ layout: row([50, 50], group(['a']), group(['c'])), inner: id => (id === 'a' ? <NestedActivation log={inner} /> : null) });
+    const tab = await screen.findByRole('tab', { name: '안쪽 x' });
+    tab.focus();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(inner.length).toBeGreaterThan(0);
+    expect(calls.activate).toEqual([]);
+  });
+
+  it('programmatic focus (inner maximize restore from body focus) activates nothing, inner or outer', async () => {
+    const inner: string[] = [];
+    const handle: { set?: (id: string | null) => void } = {};
+    const { calls } = mountDock({ layout: row([50, 50], group(['a']), group(['c'])), inner: id => (id === 'a' ? <NestedActivation log={inner} startMaximized="x" expose={handle} /> : null) });
+    const button = await screen.findByRole('button', { name: 'inner x' });
+    button.focus();
+    button.blur();
+    expect(document.body).toHaveFocus();
+    inner.length = 0; calls.activate.length = 0;
+    act(() => { handle.set?.(null); });
+    await waitFor(() => { expect(screen.getByRole('tab', { name: '안쪽 x' })).toHaveFocus(); });
+    expect(calls.activate).toEqual([]);
+    expect(inner).toEqual([]);
   });
 });
