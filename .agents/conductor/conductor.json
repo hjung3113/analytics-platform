@@ -234,6 +234,31 @@
         "shared": "review-rules.md",
         "addendum": "addenda/review-rules.md"
       }
-    ]
+    ],
+    "modes": {
+      "fo": {
+        "templates": [
+          {
+            "dest": ".review/00-IMPL-RULES-FO.md",
+            "addendum": "addenda/impl-rules-fo.md",
+            "in_rules": true
+          }
+        ],
+        "hook": "scripts/fo-prepare.sh",
+        "hook_args": [
+          "{issue}",
+          "{worktree}"
+        ],
+        "hook_log": ".review/fo-prepare.log",
+        "hook_fail": "FeedbackOps install or issue DB failed (see {worktree}/.review/fo-prepare.log; is the verify container up? PROFILE §Launch mode fo)",
+        "skip_if_state": "env.verify.{issue}",
+        "copy_from_state": "env.verify.{issue}",
+        "copy_to": ".review/env.verify",
+        "task_lines": [
+          "FeedbackOps work: run commands from `products/feedbackops/` (installed for you). Your own throwaway database (port 5439, never 5434): run only the integration files you added or touched, from `products/feedbackops/`, with",
+          "`FEEDBACKOPS_ENV_FILE={worktree}/.review/env.verify pnpm --filter @fops/backend test:integration <paths relative to apps/backend>`."
+        ]
+      }
+    }
   }
 }
