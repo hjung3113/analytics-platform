@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { MultiCombobox, type MultiComboboxProps } from '../multi-combobox.js';
 
@@ -27,6 +27,62 @@ function open() {
 }
 
 describe('MultiCombobox', () => {
+  it.each(['label', 'aria-labelledby'] as const)('names the dialog with %s and keeps both opening controls aligned across views', naming => {
+    const accessibleName = naming === 'label' ? 'Items' : 'External items';
+    const namingProps = naming === 'label' ? { label: 'Items' } : { 'aria-labelledby': 'external-items' };
+    render(<><span id="external-items">External items</span>
+      <MultiCombobox {...text} {...namingProps} options={options} values={['a', 'b', 'c']} onValuesChange={vi.fn()} /></>);
+    const trigger = screen.getByRole('button', { name: accessibleName });
+    const summaryTrigger = screen.getByRole('button', { name: 'Selected items 3' });
+    fireEvent.click(summaryTrigger);
+    const dialog = screen.getByRole('dialog', { name: accessibleName });
+    expect(dialog.id).not.toBe('');
+    for (const button of [trigger, summaryTrigger]) {
+      expect(button).toHaveAttribute('aria-haspopup', 'dialog');
+      expect(button).toHaveAttribute('aria-controls', dialog.id);
+    }
+    expect(within(dialog).getByRole('region', { name: 'Selected items 3' })).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Available items' }));
+    expect(screen.getByRole('dialog', { name: accessibleName })).toBe(dialog);
+    for (const button of [trigger, summaryTrigger]) {
+      expect(button).toHaveAttribute('aria-controls', dialog.id);
+      expect(button).toHaveAttribute('aria-expanded', 'true');
+    }
+    const input = within(dialog).getByRole('combobox', { name: accessibleName });
+    expect(input).toHaveAttribute('aria-controls', within(dialog).getByRole('listbox').id);
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect(input).toHaveAttribute('aria-activedescendant', within(dialog).getByRole('option', { name: /Alpha/ }).id);
+  });
+
+  it('keeps focus on the next control after outside dismissal and restores the trigger on Escape', async () => {
+    render(<><Harness /><input aria-label="Next field" /></>);
+    open();
+    const next = screen.getByRole('textbox', { name: 'Next field' });
+    act(() => next.focus());
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    // FocusScope schedules close autofocus after unmount.
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
+    expect(next).toHaveFocus();
+    const input = open();
+    fireEvent.keyDown(input, { key: 'Escape' });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Items' })).toHaveFocus());
+  });
+
+  it('avoids linear selection scans when rendering and navigating a large selected page', () => {
+    const page = Array.from({ length: 128 }, (_, index) => ({ value: `item-${index}`, label: `Item ${index}` }));
+    const values = page.map(option => option.value);
+    const includes = vi.spyOn(values, 'includes');
+    try {
+      render(<MultiCombobox {...text} options={page} values={values} onValuesChange={vi.fn()} />);
+      const input = open();
+      fireEvent.keyDown(input, { key: 'ArrowDown' });
+      expect(screen.getAllByRole('option', { selected: true })).toHaveLength(128);
+      expect(includes).not.toHaveBeenCalled();
+    } finally {
+      includes.mockRestore();
+    }
+  });
+
   it('adds and removes controlled values without closing the popover', () => {
     render(<Harness />);
     const input = open();

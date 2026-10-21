@@ -72,6 +72,7 @@ export function MultiCombobox({
   const triggerRef = React.useRef<HTMLButtonElement>(null);
   const listId = React.useId();
   const summaryId = React.useId();
+  const popupId = React.useId();
   const search = controlledSearch ?? localSearch;
   const filtered = controlledSearch !== undefined ? options : options.filter(option =>
     option.label.toLowerCase().includes(search.toLowerCase()));
@@ -110,12 +111,13 @@ export function MultiCombobox({
       case 'Escape': event.preventDefault(); setOpen(false); break;
     }
   }
+  const selectedValues = new Set(values);
   const labels = new Map(options.map(option => [option.value, option.label]));
   const valueLabel = (value: string) => labels.get(value) ?? getLabel?.(value) ?? value;
   const remove = (value: string) => onValuesChange(values.filter(item => item !== value));
   function toggle(option: MultiComboboxOption) {
     if (disabled || option.disabled) return;
-    if (values.includes(option.value)) remove(option.value);
+    if (selectedValues.has(option.value)) remove(option.value);
     else if (maxSelected === undefined || values.length < maxSelected) {
       onValuesChange([...values, option.value]);
     }
@@ -124,7 +126,7 @@ export function MultiCombobox({
   return (
     <Popover open={open && !disabled} onOpenChange={next => { setOpen(next); if (next) { setSelectedView(false); setActiveValue(null); } }}>
       <PopoverAnchor asChild>
-        <div className={cn('flex min-h-10 w-full flex-wrap items-center gap-1 rounded-md border border-border-subtle bg-surface-field px-3 py-2 text-sm text-text-primary', className)}>
+        <div className={cn('flex min-h-10 w-full flex-wrap items-center gap-1 rounded-md border border-border-control bg-surface-field px-3 py-2 text-sm text-text-primary', className)}>
           {values.slice(0, Math.max(0, maxVisibleChips)).map(value => (
             <Button key={value} type="button" variant="secondary" size="toolbar" disabled={disabled}
               aria-label={removeLabel(valueLabel(value))} onClick={() => { remove(value); triggerRef.current?.focus(); }}>
@@ -133,13 +135,13 @@ export function MultiCombobox({
           ))}
           {values.length > Math.max(0, maxVisibleChips) && (
             <Button type="button" variant="ghost" size="toolbar" disabled={disabled}
-              aria-label={selectedSummaryLabel(values.length)} aria-haspopup="dialog" aria-controls={open && selectedView ? summaryId : undefined} aria-expanded={open && selectedView}
+              aria-label={selectedSummaryLabel(values.length)} aria-haspopup="dialog" aria-controls={open && !disabled ? popupId : undefined} aria-expanded={open && !disabled}
               onClick={() => { setSelectedView(true); setOpen(true); }}>+{values.length - Math.max(0, maxVisibleChips)}</Button>
           )}
           <PopoverTrigger asChild>
             <button ref={triggerRef} id={id} type="button" disabled={disabled}
-              aria-label={label} aria-labelledby={labelledBy} aria-haspopup="listbox"
-              aria-expanded={open && !disabled} aria-controls={open && !disabled ? (selectedView ? summaryId : listId) : undefined}
+              aria-label={label} aria-labelledby={labelledBy} aria-haspopup="dialog"
+              aria-expanded={open && !disabled} aria-controls={open && !disabled ? popupId : undefined}
               aria-invalid={invalid} aria-describedby={describedBy}
               onKeyDown={event => {
                 if (!disabled && !open && ['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(event.key)) {
@@ -153,9 +155,8 @@ export function MultiCombobox({
           </PopoverTrigger>
         </div>
       </PopoverAnchor>
-      <PopoverContent padding="none" className="w-(--radix-popover-trigger-width)"
-        onOpenAutoFocus={event => { event.preventDefault(); (selectedView ? summaryRef.current : inputRef.current)?.focus(); }}
-        onCloseAutoFocus={event => { event.preventDefault(); triggerRef.current?.focus(); }}>
+      <PopoverContent id={popupId} aria-label={label} aria-labelledby={labelledBy} padding="none" className="w-(--radix-popover-trigger-width)"
+        onOpenAutoFocus={event => { event.preventDefault(); (selectedView ? summaryRef.current : inputRef.current)?.focus(); }}>
         <div className="flex items-center gap-2 border-b border-border-subtle px-3 py-2">
           <Button type="button" variant="ghost" size="sm" aria-pressed={!selectedView}
             onClick={() => { setSelectedView(false); }}>{listboxLabel}</Button>
@@ -179,23 +180,26 @@ export function MultiCombobox({
           <input ref={inputRef} role="combobox" value={search} aria-label={label} aria-labelledby={labelledBy}
             aria-expanded={open} aria-controls={listId} aria-activedescendant={activeId} onKeyDown={handleKeyDown} aria-autocomplete="list" placeholder={searchPlaceholder}
             onChange={event => { setActiveValue(null); setLocalSearch(event.target.value); onSearchChange?.(event.target.value); }}
-            className="w-full bg-transparent text-sm text-text-primary placeholder:text-text-muted outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring" />
+            className="w-full bg-transparent text-sm text-text-primary placeholder:text-text-secondary outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring" />
         </div>
         <div id={listId} role="listbox" aria-label={listboxLabel} aria-multiselectable="true" aria-busy={loading}
           className="max-h-60 overflow-y-auto py-1">
-          {filtered.map((option, index) => (
-            <button key={option.value} ref={node => { if (activeIndex === index) node?.scrollIntoView?.({ block: 'nearest' }); }} id={`${listId}-option-${index}`} type="button" role="option" aria-selected={values.includes(option.value)}
+          {filtered.map((option, index) => {
+            const selected = selectedValues.has(option.value);
+            return (
+            <button key={option.value} ref={node => { if (activeIndex === index) node?.scrollIntoView?.({ block: 'nearest' }); }} id={`${listId}-option-${index}`} type="button" role="option" aria-selected={selected}
               aria-disabled={option.disabled} tabIndex={-1} onMouseDown={event => event.preventDefault()}
               onClick={() => toggle(option)} onMouseEnter={() => { if (!option.disabled) setActiveValue(option.value); }}
               className={cn('flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm text-text-primary outline-hidden hover:bg-surface-card',
                 activeIndex === index && 'bg-surface-card ring-2 ring-inset ring-focus-ring',
-                values.includes(option.value) && 'font-medium',
+                selected && 'font-medium',
                 option.disabled && 'cursor-not-allowed opacity-50')}>
-              <Check className={cn('size-4 shrink-0', values.includes(option.value) ? 'opacity-100' : 'opacity-0')} aria-hidden="true" />
+              <Check className={cn('size-4 shrink-0', selected ? 'opacity-100' : 'opacity-0')} aria-hidden="true" />
               <span><span className="block">{option.label}</span>{option.description && <span className="block text-xs text-text-secondary">{option.description}</span>}</span>
             </button>
-          ))}
-          {filtered.length === 0 && !loading && !error && <p className="px-3 py-2 text-sm text-text-muted">{emptyText}</p>}
+            );
+          })}
+          {filtered.length === 0 && !loading && !error && <p className="px-3 py-2 text-sm text-text-secondary">{emptyText}</p>}
         </div>
         {loading && <div role="status" className="flex items-center gap-2 px-3 py-2 text-sm text-text-secondary"><Loader2 className="size-4 animate-spin" aria-hidden="true" />{loadingText}</div>}
         {error && <div className="px-3 py-2"><p role="alert" className="text-sm text-text-danger-label">{error}</p>{onRetry && <Button type="button" variant="ghost" size="sm" onClick={onRetry}>{retryLabel}</Button>}</div>}
