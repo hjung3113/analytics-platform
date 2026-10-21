@@ -51,12 +51,23 @@ describe('AnalysisChartFrame SDK pieces (#541)', () => {
     expect(onActivate).toHaveBeenCalledTimes(1);
     expect(onPointClick).not.toHaveBeenCalled();
   });
-  it('keeps a single legacy click when opting into double click', async () => {
+  it('never runs the click path before a slow native double-click activation', async () => {
+    const onActivate = vi.fn(); const onPointClick = vi.fn();
+    await mount({ pointActivation: { on: 'dblclick', onActivate }, onPointClick });
+    vi.useFakeTimers();
+    pointEvent('click');
+    act(() => { vi.advanceTimersByTime(400); });
+    pointEvent('click'); pointEvent('dblclick');
+    act(() => { vi.runAllTimers(); });
+    expect(onActivate).toHaveBeenCalledExactlyOnceWith({ x: 'Row B | B1', seriesId: 'one', value: 2 });
+    expect(onPointClick).not.toHaveBeenCalled();
+  });
+  it('only selects on a single click when opting into double click', async () => {
     const onPointClick = vi.fn();
     await mount({ pointActivation: { on: 'dblclick', onActivate: vi.fn() }, onPointClick });
     vi.useFakeTimers(); pointEvent('click');
     act(() => { vi.runAllTimers(); });
-    expect(onPointClick).toHaveBeenCalledWith('Row B | B1', 'one');
+    expect(onPointClick).not.toHaveBeenCalled();
   });
   it('keeps the existing onPointClick immediate without new props', async () => {
     const onPointClick = vi.fn(); await mount({ onPointClick }); pointEvent('click');
@@ -97,6 +108,30 @@ describe('AnalysisChartFrame SDK pieces (#541)', () => {
     fireEvent.click(screen.getByRole('button', { name: '더보기' }));
     fireEvent.click(await screen.findByText('같은 데이터를 표로 보기'));
     expect(screen.getAllByRole('row').slice(1).map(row => row.textContent)).toEqual(['Row B | B123', 'Row A | A145']);
+  });
+  it('shares horizontal plotted categories and first values with the picker, callbacks, table and export', async () => {
+    const onActivate = vi.fn(); const onSelect = vi.fn();
+    await mount({ orientation: 'horizontal', visibleSeriesIds: ['two'], series: [
+      { ...series[0], points: [['A', 1], ['A', 8]] },
+      { ...series[1], points: [['A', 2], ['A', 99], ['B', 77]] },
+    ], pointActivation: { on: 'click', onActivate }, pointActions: [{ id: 'inspect', label: 'Inspect', onSelect }] });
+    const picker = screen.getByRole('combobox', { name: '차트 지점 선택' });
+    expect(Array.from(picker.querySelectorAll('option')).map(option => option.textContent)).toEqual(['A · Two · 2']);
+    expect((plot.option as any).yAxis.data).toEqual(['A']);
+    expect((plot.option as any).series[0]).toMatchObject({ id: 'two', data: [2] });
+    fireEvent.click(screen.getByRole('button', { name: '선택 지점 실행' }));
+    act(() => plot.onEvents?.click?.({ seriesId: 'two', dataIndex: 0 }, {} as never));
+    expect(onActivate.mock.calls).toEqual([[{ x: 'A', seriesId: 'two', value: 2 }], [{ x: 'A', seriesId: 'two', value: 2 }]]);
+    act(() => plot.onEvents?.contextmenu?.({ seriesId: 'two', name: 'B', value: 77 }, {} as never));
+    expect(screen.queryByRole('menu')).toBeNull();
+    act(() => plot.onEvents?.contextmenu?.({ seriesId: 'two', dataIndex: 0 }, {} as never));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Inspect' }));
+    expect(onSelect).toHaveBeenCalledWith({ x: 'A', seriesId: 'two', value: 2 });
+    fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+    expect(downloadChartCsv).toHaveBeenLastCalledWith(expect.objectContaining({ chartId: 'pieces' }), ['x', 'Two'], [['A', 2]]);
+    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
+    fireEvent.click(await screen.findByText('같은 데이터를 표로 보기'));
+    expect(screen.getAllByRole('row').slice(1).map(row => row.textContent)).toEqual(['A2']);
   });
   it('brushes a category range on the vertical axis in horizontal mode', async () => {
     await mount({ orientation: 'horizontal' });

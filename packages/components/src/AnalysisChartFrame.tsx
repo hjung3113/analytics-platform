@@ -9,6 +9,7 @@ import type { ThemeColorToken } from '@ap/ui/theme';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, type ChartSize } from './AnalysisSectionContext';
 import { chartTheme, EChart, strokeToken, token } from './EChart';
 import { downloadChartCsv } from './analysisChartCsv';
+import { paneRootOf } from './pageFocus';
 import { assignNoteLevels, noteLabelWidths } from './annotationLayout';
 
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
@@ -146,7 +147,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const size = resolveAnalysisChartSize(p.size, analysisSection);
   const compact = size === 'compact';
   const height = p.height ?? analysisChartHeight(size, 260);
-  const { setGlobal, toast, global, adapter, route } = usePlatform();
+  const { setGlobal, toast, global, adapter, route, url } = usePlatform();
   const features = route?.menu.features;
   const canCompare = !!features?.compare && !!p.compareSeries?.length;
   const canAnnotate = !!features?.annotate;
@@ -165,7 +166,16 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [selectedPointKey, setSelectedPointKey] = useState<string | null>(null);
   const [pointMenuOpen, setPointMenuOpen] = useState(false);
-  const pendingClick = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pointChart = useRef<HTMLDivElement>(null);
+  const pointMenuTrigger = useRef<HTMLButtonElement>(null);
+  const pointMenuContent = useRef<HTMLDivElement>(null);
+  const pointMenuSession = useRef<{ opener: HTMLElement | null; url: string } | null>(null);
+  const currentUrl = useRef(url);
+  useEffect(() => { currentUrl.current = url; }, [url]);
+  const openPointMenu = useCallback((opener: HTMLElement | null) => {
+    pointMenuSession.current = { opener, url };
+    setPointMenuOpen(true);
+  }, [url]);
   const [compare, setCompare] = useState(false);
   const [brushMode, setBrushMode] = useState(false);
   // Bumped from onReady: imperative instance effects below must replay once the lazy EChartImpl
@@ -211,21 +221,23 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const visibleIds = useMemo(() => p.visibleSeriesIds === undefined ? null : new Set(p.visibleSeriesIds), [p.visibleSeriesIds]);
   const visible = useMemo(() => allSeries.filter(s => visibleIds ? visibleIds.has(s.id) : !hidden.has(s.id)), [allSeries, hidden, visibleIds]);
   const pointControls = !!p.pointActivation || !!p.pointActions?.length;
-  const points = useMemo(() => pointControls ? visible.flatMap(s => s.points.map(([x, value]) => ({ x, seriesId: s.id, value }))) : [], [pointControls, visible]);
+  const categories = useMemo(() => (xType === 'category' ? (horizontal ? [...new Set(p.series[0]?.points.map(([x]) => x) ?? [])] : p.series[0]?.points.map(([x]) => x) ?? []) : []), [xType, horizontal, p.series]);
+  // Horizontal consumers share the plotted axis and first-occurrence value policy.
+  const displayed = useMemo(() => horizontal ? visible.map(s => ({ ...s, points: categories.map(x => [x, s.points.find(([label]) => label === x)?.[1] ?? null] as [string, number | null]) })) : visible, [horizontal, visible, categories]);
+  const points = useMemo(() => pointControls ? displayed.flatMap(s => s.points.map(([x, value]) => ({ x, seriesId: s.id, value }))) : [], [pointControls, displayed]);
   const selectedPoint = points.find(point => pointKey(point) === selectedPointKey) ?? points[0];
-  const categories = useMemo(() => (xType === 'category' ? p.series[0]?.points.map(([x]) => x) ?? [] : []), [xType, p.series]);
   const format = p.valueFormat ?? ((v: number) => v.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { maximumFractionDigits: 1 }));
   // One row per distinct x across the visible series (#297): Compare series carry different dates, so the
   // old array-index join put one series' values under another's dates. Rows run in x order (time: ascending
   // ISO strings sort chronologically; category: the axis order), each x once — duplicate categories collapse
   // to their first occurrence instead of doubling the row (F2). null = the series has no point at that x.
   const rows = useMemo(() => {
-    const xs = new Set(visible.flatMap(s => s.points.map(([x]) => x)));
+    const xs = new Set(displayed.flatMap(s => s.points.map(([x]) => x)));
     const order = xType === 'time'
       ? [...xs].sort()
       : [...new Set(categories.filter(x => xs.has(x))), ...[...xs].filter(x => !categories.includes(x))];
-    return order.map(x => [x, visible.map(s => s.points.find(([px]) => px === x)?.[1] ?? null)] as const);
-  }, [visible, xType, categories]);
+    return order.map(x => [x, displayed.map(s => s.points.find(([px]) => px === x)?.[1] ?? null)] as const);
+  }, [displayed, xType, categories]);
 
   const resetLocal = useCallback(() => {
     setHidden(new Set()); p.onVisibleSeriesChange?.(allSeries.map(s => s.id)); setSelectedPointKey(null); setPointMenuOpen(false); setCompare(false); setBrushMode(false); setZoom([0, 100]); setSelection(null); setPreview(null); closeNote(); setClipNotice(null); setRangeDraft(null);
@@ -299,7 +311,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         brushStyle: { color: token('chart-blue').replace(/^rgb\((.+)\)$/, (_, rgb: string) => `rgba(${rgb},0.12)`), borderColor: token(strokeToken('chart-blue')) } },
       toolbox: { show: false, feature: { brush: { type: [horizontal ? 'lineY' : 'lineX', 'clear'] } } },
       series: [
-        ...visible.map(s => {
+        ...displayed.map(s => {
           const kind = horizontal ? 'bar' : s.kind ?? 'line';
           const color = token(kind === 'line' ? strokeToken(s.color) : s.color);
           const pattern = linePattern(s, previousIds.has(s.id));
@@ -308,7 +320,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
             showSymbol: false, symbolSize: 5, connectNulls: false, barMaxWidth: 18,
             lineStyle: { ...(kind === 'line' ? { color } : {}), width: 2, type: pattern }, itemStyle: { color: token(s.color) },
             emphasis: { focus: 'series' },
-            data: xType === 'time' ? s.points.map(([x, y]) => [toMs(x), y]) : horizontal ? categories.map(x => s.points.find(([label]) => label === x)?.[1] ?? null) : s.points.map(([, y]) => y),
+            data: xType === 'time' ? s.points.map(([x, y]) => [toMs(x), y]) : s.points.map(([, y]) => y),
           };
         }),
         {
@@ -319,31 +331,26 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       ],
     };
     // Deps intentionally restricted to the chart inputs below (would trip react-hooks/exhaustive-deps if that rule is enabled).
-  }, [visible, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, p.markLines, p.unit, lang, p.stacked, instanceReady]);
+  }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, p.markLines, p.unit, lang, p.stacked, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
     chart.current?.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: brushMode ? { brushType: horizontal ? 'lineY' : 'lineX', brushMode: 'single' } : { brushType: false } });
   }, [option, brushMode, horizontal, instanceReady]);
 
-  // Pending legacy clicks belong to the displayed result and gesture configuration only.
-  useEffect(() => () => {
-    if (pendingClick.current !== null) clearTimeout(pendingClick.current);
-    pendingClick.current = null;
-  }, [brushMode, contextKey, visible, p.pointActivation, p.onPointClick]);
   useEffect(() => { if (brushMode || !selectedPoint) setPointMenuOpen(false); }, [brushMode, selectedPoint]);
 
   const eventPoint = useCallback((params: PointEvent): ChartPoint | null => {
     if (!params.seriesId || params.seriesId === '__overlay') return null;
-    const series = visible.find(s => s.id === params.seriesId);
+    const series = displayed.find(s => s.id === params.seriesId);
     if (!series) return null;
     const datum = params.dataIndex !== undefined
-      ? (horizontal ? series.points.find(([x]) => x === categories[params.dataIndex!]) : series.points[params.dataIndex])
+      ? series.points[params.dataIndex]
       : undefined;
     const x = datum?.[0] ?? (xType === 'time' && Array.isArray(params.value) ? formatDateTime(new Date(params.value[0] as number)) : params.name ?? '');
     const value = datum ? datum[1] : series.points.find(([label]) => label === x)?.[1];
     return value === undefined ? null : { x, seriesId: series.id, value };
-  }, [visible, horizontal, categories, xType]);
+  }, [displayed, xType]);
 
   const onEvents = useMemo(() => ({
     brushEnd: (params: { areas?: { coordRange?: [number, number] }[] }, instance: ECharts) => {
@@ -376,17 +383,13 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       const point = eventPoint(params);
       if (!point) return;
       if (pointControls) setSelectedPointKey(pointKey(point));
-      if (p.pointActivation?.on === 'dblclick') {
-        if (pendingClick.current !== null) clearTimeout(pendingClick.current);
-        pendingClick.current = setTimeout(() => { pendingClick.current = null; p.onPointClick?.(point.x, point.seriesId); }, 300);
-      } else {
+      // Native double-click recognition is OS-defined; no timer can safely commit a click first.
+      if (p.pointActivation?.on !== 'dblclick') {
         p.onPointClick?.(point.x, point.seriesId);
         p.pointActivation?.onActivate(point);
       }
     },
     dblclick: (params: PointEvent) => {
-      if (pendingClick.current !== null) clearTimeout(pendingClick.current);
-      pendingClick.current = null;
       if (brushMode || p.pointActivation?.on !== 'dblclick') return;
       const point = eventPoint(params);
       if (point) { setSelectedPointKey(pointKey(point)); p.pointActivation.onActivate(point); }
@@ -394,11 +397,11 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     contextmenu: (params: PointEvent) => {
       if (brushMode || !p.pointActions?.length) return;
       const point = eventPoint(params);
-      if (point) { params.event?.event?.preventDefault?.(); setSelectedPointKey(pointKey(point)); setPointMenuOpen(true); }
+      if (point) { params.event?.event?.preventDefault?.(); setSelectedPointKey(pointKey(point)); openPointMenu(pointChart.current); }
     },
-  }), [xType, categories, brushMode, p.onPointClick, p.pointActivation, p.pointActions, pointControls, eventPoint, timeBounds, global.from, global.to, compare, canCompare, closeNote]);
+  }), [xType, categories, brushMode, p.onPointClick, p.pointActivation, p.pointActions, pointControls, eventPoint, openPointMenu, timeBounds, global.from, global.to, compare, canCompare, closeNote]);
 
-  const selectionCounts = selection ? visible.map(s => {
+  const selectionCounts = selection ? displayed.map(s => {
     const inRange = s.points.filter(([x, y]) => y !== null && (xType === 'time' ? x >= selection.from && x < selection.to : categories.indexOf(x) >= categories.indexOf(selection.from) && categories.indexOf(x) <= categories.indexOf(selection.to)));
     const values = inRange.map(([, y]) => y as number);
     return { s, n: values.length, avg: values.length ? values.reduce((a, b) => a + b, 0) / values.length : null, max: values.length ? Math.max(...values) : null };
@@ -531,9 +534,29 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
             {points.map(point => <option key={pointKey(point)} value={pointKey(point)}>{point.x} · {allSeries.find(s => s.id === point.seriesId)?.name} · {point.value === null ? unknownLabel(lang === 'ko') : format(point.value)}</option>)}
           </select>
           {p.pointActivation && <Button variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint && !brushMode) p.pointActivation?.onActivate(selectedPoint); }}>{lang === 'ko' ? '선택 지점 실행' : 'Activate selected point'}</Button>}
-          {!!p.pointActions?.length && <DropdownMenu open={pointMenuOpen && !brushMode && !!selectedPoint} onOpenChange={setPointMenuOpen}>
-            <DropdownMenuTrigger asChild><Button variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint}>{lang === 'ko' ? '지점 동작' : 'Point actions'}</Button></DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+          {!!p.pointActions?.length && <DropdownMenu open={pointMenuOpen && !brushMode && !!selectedPoint} onOpenChange={open => { if (open) openPointMenu(pointMenuTrigger.current); else setPointMenuOpen(false); }}>
+            <DropdownMenuTrigger asChild><Button ref={pointMenuTrigger} variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint}>{lang === 'ko' ? '지점 동작' : 'Point actions'}</Button></DropdownMenuTrigger>
+            <DropdownMenuContent ref={pointMenuContent} align="end" onCloseAutoFocus={event => {
+              event.preventDefault();
+              const session = pointMenuSession.current;
+              pointMenuSession.current = null;
+              if (!session) return;
+              const active = document.activeElement;
+              if (session.url !== currentUrl.current) {
+                // Modal focus trapping can intercept PlatformPage's layout-effect focus before close.
+                // Complete that handoff after the scope is released; never restore the old opener.
+                if (!active || active === document.body || pointMenuContent.current?.contains(active)) {
+                  const scope = paneRootOf(session.opener) ?? document;
+                  const destination = scope.querySelector<HTMLElement>('[aria-current="step"]') ?? scope.querySelector<HTMLElement>('[data-platform-page] h1');
+                  destination?.focus({ preventScroll: true });
+                }
+                return;
+              }
+              if (!session.opener?.isConnected) return;
+              // A consumer action may have already focused its destination or opened another surface.
+              if (active && active !== document.body && active !== session.opener && !pointMenuContent.current?.contains(active)) return;
+              session.opener.focus({ preventScroll: true });
+            }}>
               {p.pointActions.map(action => <DropdownMenuItem key={action.id} disabled={action.disabled} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring" onSelect={() => { if (selectedPoint && !brushMode) action.onSelect(selectedPoint); }}>{action.label}</DropdownMenuItem>)}
             </DropdownMenuContent>
           </DropdownMenu>}
@@ -598,12 +621,12 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     </AnalysisChartPart>
     <AnalysisChartPart enabled={analysisSection !== null} body>
     {allSeries.length > 0 && visible.length === 0 && <p role="status" className="px-4 py-3 text-text-secondary">{lang === 'ko' ? '표시할 시리즈를 모두 껐습니다' : 'All series are turned off'}</p>}
-    <div className="px-2" role={pointControls ? 'group' : undefined} aria-label={pointControls ? (lang === 'ko' ? '차트 지점' : 'Chart points') : undefined} tabIndex={pointControls ? 0 : undefined}
+    <div ref={pointChart} className="px-2" role={pointControls ? 'group' : undefined} aria-label={pointControls ? (lang === 'ko' ? '차트 지점' : 'Chart points') : undefined} tabIndex={pointControls ? 0 : undefined}
       onContextMenu={event => { if (p.pointActions?.length) event.preventDefault(); }}
       onKeyDown={event => {
         if ((event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) && p.pointActions?.length) {
           event.preventDefault();
-          if (!brushMode && selectedPoint) setPointMenuOpen(true);
+          if (!brushMode && selectedPoint) openPointMenu(pointChart.current);
         }
       }}><EChart option={option} height={height} onEvents={onEvents} onReady={c => { chart.current = c; setChartWidth(c.getWidth()); setInstanceReady(v => v + 1); }} onResize={setChartWidth}
       ariaLabel={`${typeof p.title === 'string' ? p.title : p.chartId}: ${visible.map(s => s.name).join(', ')}`} /></div>
