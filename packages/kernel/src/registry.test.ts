@@ -320,3 +320,8 @@ it.each([
   const entry = { ...catalog, context: { ...none, time: 'apply' as const }, pageKeys: ['filter'], query: { mode: 'apply' as const, required } };
   expect(() => createRegistry({ spaces, groups, menus: [entry as MenuEntry] })).toThrow(/required/);
 });
+
+it.each(['', 'a\nb'])('keeps the quoted key in the required Context error for unknown key %j', key => {
+  const entry = { ...catalog, context: { ...none, time: 'apply' as const }, query: { mode: 'apply' as const, required: { context: [key] } } };
+  expect(() => createRegistry({ spaces, groups, menus: [entry as unknown as MenuEntry] })).toThrow(`Menu "${catalog.id}" required Context "${key}" must be applied`);
+});

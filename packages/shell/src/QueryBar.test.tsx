@@ -81,8 +81,9 @@ it('distinguishes explicit empty selection/rooms, removes the last Condition key
   await waitFor(() => expect(screen.getByRole('button', { name: /지우기 EQ-X/ })).toBeTruthy());
   fireEvent.click(screen.getByRole('button', { name: /지우기 EQ-X/ }));
   expect(draft.draft.global.selection).toEqual([]);
-  fireEvent.click(screen.getByRole('button', { name: 'EquipmentID 전체 후보' }));
+  fireEvent.click(screen.getByRole('button', { name: 'EquipmentID 전체 후보로 되돌리기' }));
   expect(draft.draft.global.selection).toBeNull();
+  expect(screen.getByRole('button', { name: 'EquipmentID 전체 후보로 되돌리기' })).toBeDisabled();
   expect(draft.canApply).toBe(true);
   act(() => draft.setDraftGlobal({ prcGroups: ['P1'] }));
   expect(screen.getByRole('button', { name: /그 시점 소속/ })).toBeEnabled();
@@ -107,7 +108,7 @@ it('retains incomplete period input across closing and prevents an unrelated edi
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
   expect(screen.getByLabelText('시작 시각')).toHaveValue('');
-  fireEvent.click(screen.getByRole('button', { name: '공정 전체 후보' }));
+  fireEvent.click(screen.getByRole('button', { name: '공정 전체 후보로 되돌리기' }));
   act(() => draft.setDraftGlobal({ roomNames: [] }));
   expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
 });
@@ -151,6 +152,10 @@ it('merges consumer page diagnostics into the only Apply gate', async () => {
   expect(draft.canApply).toBe(true);
   expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
   expect(screen.getByText('집계: 허용되지 않은 값')).toBeTruthy();
+  const gate = screen.getByText('집계: 허용되지 않은 값').closest('[role]') as HTMLElement;
+  expect(gate).toHaveAttribute('role', 'status');
+  expect(screen.getByRole('region', { name: '조회 조건' })).toContainElement(gate);
+  expect(gate.parentElement).toHaveClass('px-3');
 });
 
 it('allows an optional-Scope apply menu to commit without a Scope', async () => {
@@ -170,7 +175,7 @@ it('keeps a blank reference date invalid across unrelated edits and collapse unt
   act(() => draft.setDraftGlobal({ roomNames: [] }));
   fireEvent.click(screen.getByRole('button', { name: '기준일' }));
   fireEvent.change(screen.getByLabelText('기준일'), { target: { value: '' } });
-  fireEvent.click(screen.getByRole('button', { name: '공정 전체 후보' }));
+  fireEvent.click(screen.getByRole('button', { name: '공정 전체 후보로 되돌리기' }));
   act(() => draft.setDraftGlobal({ roomNames: [] }));
   expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));

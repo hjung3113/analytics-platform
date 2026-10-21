@@ -28,9 +28,20 @@ export function prepareLanes(input: TimelineLane[], instants: number[]): LaneMod
   flat.forEach((item, index) => { item.index = index; });
   return { lanes, flat, byId: new Map(flat.map(item => [item.segment.id, item])), domain: min === Infinity ? [0, 1] : min === max ? [Math.max(-8.64e15, min - 1), Math.min(8.64e15, max + 1)] : [min, max], density: instants.filter(Number.isFinite).sort((a, b) => a - b) };
 }
-export function utcTick(time: number) { return new Date(time).toISOString().replace('T', ' ').replace('.000Z', ' UTC'); }
-export function segmentSummary(segment: TimelineSegment) {
-  return `${segment.id} · ${utcTick(segment.start)} – ${utcTick(segment.end)} · depth ${segment.depth ?? 0}${segment.rank ? ` · ${segment.rank}` : ''}${segment.startBoundary === 'orphan' ? ' · orphan' : ''}${segment.endBoundary === 'open' ? ' · open' : ''}`;
+export function utcTick(time: number) { return new Date(time).toISOString().slice(0, 19).replace('T', ' '); }
+export function segmentSummary(segment: TimelineSegment, lang: 'ko' | 'en') {
+  const ko = lang === 'ko';
+  return `${utcTick(segment.start)} – ${utcTick(segment.end)} · ${ko ? '깊이' : 'Depth'} ${segment.depth ?? 0}${segment.rank ? ` · ${segment.rank}` : ''}${segment.startBoundary === 'orphan' ? ` · ${ko ? '시작 미확인' : 'Start unknown'}` : ''}${segment.endBoundary === 'open' ? ` · ${ko ? '종료 미확인' : 'End unknown'}` : ''}`;
+}
+export function segmentText(
+  model: LaneModel,
+  item: LaneItem,
+  formatTooltip: ((segment: TimelineSegment, lane: TimelineLane) => string) | undefined,
+  lang: 'ko' | 'en',
+) {
+  const lane = model.lanes[item.laneIndex];
+  const formatted = formatTooltip?.(item.segment, lane);
+  return `${lane.label} · ${formatted ? `${formatted} · ` : ''}${segmentSummary(item.segment, lang)}`;
 }
 const MINUTE = 60_000; const HOUR = 3_600_000; const DAY = 86_400_000;
 // Calendar steps only: epoch ms aligns with UTC minute/hour/midnight boundaries, so every tick lands on a wall-clock unit.

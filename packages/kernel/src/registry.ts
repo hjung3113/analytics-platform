@@ -1,6 +1,6 @@
 import type { ComponentType, LazyExoticComponent } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { GLOBAL_KEYS, GROUP_IDS, PERMISSIONS, isAppRelativePath, parseQuery, type ContextKey, type GroupId, type HostFeature, type MenuMeta, type ModuleScopedId, type ModuleScreenProps, type PageType, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
+import { GLOBAL_KEYS, GROUP_IDS, PERMISSIONS, isAppRelativePath, parseQuery, requiredContextError, type ContextKey, type GroupId, type HostFeature, type MenuMeta, type ModuleScopedId, type ModuleScreenProps, type PageType, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
 
 /** docs/06 §5: menus declare, the shell consumes. Metadata lives in @ap/contracts; this adds the React bindings. */
 export type PageProps = { params: Record<string, string> };
@@ -139,8 +139,10 @@ export function createRegistry({ spaces, groups, menus }: { spaces: readonly Spa
     const clash = m.pageKeys.find(k => GLOBAL_KEYS.has(k));
     if (m.query) {
       if (m.query.mode !== 'apply' || m.context.time !== 'apply') fail(`Menu "${m.id}" apply mode requires time: apply`);
-      for (const key of m.query.required?.context ?? []) {
-        if (!Object.hasOwn(CONTEXT_LABELS, key) || m.context[key] !== 'apply') fail(`Menu "${m.id}" required Context "${key}" must be applied`);
+      const contextError = requiredContextError(m.query.required?.context ?? [], m.context);
+      if (contextError) {
+        const detail = contextError.replace(/^required Context ([\s\S]*) must be applied$/, 'required Context "$1" must be applied');
+        fail(`Menu "${m.id}" ${detail}`);
       }
       for (const { key, label } of m.query.required?.page ?? []) {
         if (!m.pageKeys.includes(key) || !label?.ko?.trim() || !label?.en?.trim()) fail(`Menu "${m.id}" required page "${key}" needs a declared key and nonempty labels`);

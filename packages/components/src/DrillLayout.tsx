@@ -5,7 +5,7 @@ import {
   Button, cn,
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger,
 } from '@ap/ui';
-import { focusPageFallback, paneRootOf, requestReturnFocus } from './pageFocus';
+import { drillDestinationOf, focusPageFallback, paneRootOf, requestReturnFocus } from './pageFocus';
 import { StateMessage } from './StateView';
 
 /** One sibling choice. `hint` is already display text; this layer does not know the domain. */
@@ -24,7 +24,7 @@ export type DrillLayoutProps = DrillPathProps & {
 function focusDrillDestination(source: HTMLElement | null) {
   const pane = paneRootOf(source);
   const scope: ParentNode = pane ?? document;
-  const target = scope.querySelector<HTMLElement>('[aria-current="step"]') ?? scope.querySelector<HTMLElement>('[data-platform-page] h1');
+  const target = drillDestinationOf(scope);
   if (target) target.focus({ preventScroll: true });
   else if (pane) focusPageFallback(source);
 }

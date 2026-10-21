@@ -4,6 +4,7 @@ App Shell(06 §8–9, 화면 설계 [07](../../docs/07_app_shell_wireframe.md)).
 
 ## 파일
 
+- `QueryBar.tsx` / `QueryHistoryControl.tsx` — Apply 메뉴에서 `GlobalContextBar`가 기존 metadata effect보다 먼저 `QueryBar`를 마운트한다. Kernel 초안/선택 포트와 components의 요약·확장 메타데이터를 쓰며 메뉴 축·파서를 import하지 않는다. 본 화면 편집은 인라인, 보드 칸 편집은 기존 48px 행 안의 고정 패널이다. `historySlot`은 이력 컨트롤을 연결하고, 검증된 행의 실제값만 요약한다. 최근 조건 선택은 초안만 복원하고 삭제·모두 지우기 확인·키보드 포커스를 제공한다(06 §11). 검증 `QueryBar.test.tsx`; live fixture를 유지한다.
 - `AppShell.tsx` — 레일(52px)·밝은 사이드바(240/56px)·스크롤 main·전체 높이 오른쪽 상세 aside 배치(06 §13, ADR-0013). `/board`(플랫폼 화면)에는 시스템 사이드바를 붙이지 않는다. `[` 단축키와 `platform:sidebar-collapsed` 저장 키·1440px 미만 기본 접힘 유지. 상단 바 없음.
 - `AppRail.tsx` — 맨 위 `SystemSwitcher`, 구분선, 현재 시스템의 섹션 버튼(`systemSections.ts`의 `useSystemSections` — `currentSpace`가 사이드바 공간과 같을 때만, 그룹당 하나, 현재 메뉴의 그룹에 `aria-current="true"`, 현재 섹션 클릭은 아무 일 없음, 다른 섹션은 그 그룹 첫 보이는 메뉴로 Kernel 링크 이동), 명령 팔레트, `분석 보드`(메뉴 검색 바로 아래 — 보드 지원을 선언한 열 수 있는 메뉴가 있을 때만, `board/boardMenus.ts`), `feedbackOps.overall`이 있고 사용자가 그 `permission`을 가질 때만 새 탭 링크, 레일 아래 `slots.topBarTools`·도움말·언어·사용자 메뉴. 공간 마지막 화면 복원 규칙은 여기 복사하지 않는다 — [06 §9.1](../../docs/06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26), 검증은 Kernel `src/platform.space-resume.test.tsx`.
 - `SystemSwitcher.tsx` — 레일 맨 위 업무 시스템 전환기(15 §3.2, ADR-0042). `@ap/ui` Popover(modal, focus trap), 카드 = `accessibleSpaces` ∧ `spaceEntry` 있는 것(보조 문구 `이어서`/`시작`은 `entry.menuId`·`resumed`), `slots.plannedSpaces` 표시 전용 행, `/` 메뉴를 열 수 있을 때만 `플랫폼 홈`. 이동은 팝오버를 먼저 닫고 `onCloseAutoFocus`(트랩 해제 뒤)에서 실행해 Kernel 도착 포커스(ADR-0032)가 새 제목에 남는다. 현재 카드 재선택·Esc·바깥 클릭은 전환기 버튼으로 복귀. 팝오버가 열린 동안의 도착(뒤로/앞으로 등)은 팔레트와 같은 Kernel 포커스 게이트(`switcherSession`)로 제목 포커스를 지키고, 대기 중인 이동은 언마운트·Provider 세션 교체 때 버린다. 테스트: `SystemSwitcher.test.tsx`(실제 Provider·PlatformPage), `SystemSwitcher.entry.test.tsx`(`spaceEntry` 래핑).
@@ -30,4 +31,3 @@ App Shell(06 §8–9, 화면 설계 [07](../../docs/07_app_shell_wireframe.md)).
 
 `pnpm --filter @ap/shell test`(경계 단위 테스트)로 좁혀 본 뒤 루트 검사(루트 `AGENTS.md`)에 더해 `pnpm dev`로 사이드바·레일·Context Bar·역할 전환 후 메뉴 노출을 직접 확인.
 
-- Apply-mode menus mount `QueryBar.tsx` through `GlobalContextBar` before any legacy metadata effects. It consumes Kernel draft/selection ports and components-owned summary/extension metadata; never import menu axes or parsers. Main editors are inline; pane editors use an anchored panel within the existing 48px row. `historySlot`은 `GlobalContextBar`가 `QueryHistoryControl`로 채운다. 검증된 행만 실제값을 요약하며 선택은 초안만 복원하고 삭제·모두 지우기 확인·키보드 포커스를 제공한다(06 §11). Test `QueryBar.test.tsx`; preserve live fixtures.

@@ -32,7 +32,7 @@ export function supportFor(kind: CatalogKind, features: Features | undefined): S
     cell('annotate', { ko: 'Annotate', en: 'Annotate' }, frame && features?.annotate ? 'conditional' : 'unsupported', frame ? features?.annotate ? { ko: 'Scope·구간 선택 후 주석 작성', en: 'Requires Scope and a selected range' } : featureOff : unavailable),
     cell('export', { ko: 'Export', en: 'Export' }, !lane && features?.export ? 'supported' : 'unsupported', lane ? unavailable : features?.export ? noReason : featureOff),
     cell('drill', { ko: 'Drill', en: 'Drill' }, frame || lane ? 'unsupported' : 'conditional', lane ? unavailable : frame
-      ? { ko: '차트 드릴 계약 전(#541)', en: 'Awaiting the chart drill contract (#541)' }
+      ? { ko: '이 견본은 지점 활성화를 드릴 목적지에 연결하지 않음', en: 'This sample does not connect point activation to a drill destination' }
       : { ko: '단일 실제 항목의 요약·표 상세 버튼, 기타·미분류 제외', en: 'Details in summary/table for one real target; excludes Other/Unclassified' }),
     cell('table', { ko: '표로 보기', en: 'Show as table' }, lane ? 'unsupported' : 'supported', lane ? { ko: '방향키 탐색과 텍스트 요약 제공', en: 'Arrow navigation and text summaries provided' } : noReason),
   ];

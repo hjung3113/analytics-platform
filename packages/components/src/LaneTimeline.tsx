@@ -3,7 +3,7 @@ import { Info } from 'lucide-react';
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { useI18n } from '@ap/kernel';
 import type { ThemeColorToken } from '@ap/ui/theme';
-import { prepareLanes, segmentSummary } from './laneTimelineGeometry';
+import { prepareLanes, segmentText } from './laneTimelineGeometry';
 import { ChartTrustFooter } from './analysisChartFrameParts';
 import { createLaneRenderer } from './laneTimelineRenderer';
 
@@ -23,9 +23,18 @@ export type LaneTimelineProps = {
   selectedId?: string | null; defaultSelectedId?: string | null; onSelectedChange?: (id: string | null) => void;
 };
 const noInstants: number[] = [];
-/** A standalone UTC interval chart. Pan, zoom and scroll never enter React state. */
+const interactionHelp = {
+  ko: 'Ctrl/⌘ + 휠: 확대 · 끌기: 이동 · 방향키: 탐색 · Enter: 선택 · Escape: 해제',
+  en: 'Ctrl/⌘ + wheel: Zoom · Drag: Pan · Arrows: Navigate · Enter: Select · Escape: Clear',
+} as const;
+const boundaryHelp = { ko: '시작 미확인 · 종료 미확인', en: 'Start unknown · End unknown' } as const;
+const accessibleHelp = {
+  ko: `${interactionHelp.ko} · ${boundaryHelp.ko}`,
+  en: `${interactionHelp.en} · ${boundaryHelp.en}`,
+} as const;
+/** A standalone wall-clock interval chart. Pan, zoom and scroll never enter React state. */
 export function LaneTimeline(props: LaneTimelineProps) {
-  const { tx } = useI18n();
+  const { tx, lang } = useI18n();
   const root = useRef<HTMLElement>(null); const scroll = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null); const axis = useRef<HTMLCanvasElement>(null);
   const spacer = useRef<HTMLDivElement>(null); const tooltip = useRef<HTMLDivElement>(null);
@@ -48,15 +57,16 @@ export function LaneTimeline(props: LaneTimelineProps) {
     if (!root.current || !scroll.current || !canvas.current || !axis.current || !spacer.current || !tooltip.current) return;
     const renderer = createLaneRenderer({ root: root.current, scroll: scroll.current, canvas: canvas.current, axis: axis.current, spacer: spacer.current, tooltip: tooltip.current,
       model, props, savedView: savedView.current, selectedId: selectedItem?.segment.id ?? null,
+      lang,
       onSelect: id => { setLocalSelection(id); props.onSelectedChange?.(id); },
       onHover: setHover,
     });
     engine.current = renderer;
     return () => { renderer.destroy(); engine.current = null; };
-  }, [model, props, selectedItem?.segment.id]);
+  }, [model, props, lang, selectedItem?.segment.id]);
   function summary(item: typeof focused) {
     if (!item) return '';
-    return `${model.lanes[item.laneIndex].label} · ${props.formatTooltip?.(item.segment, model.lanes[item.laneIndex]) ?? segmentSummary(item.segment)}${props.formatTooltip ? ` · ${segmentSummary(item.segment)}` : ''}`;
+    return segmentText(model, item, props.formatTooltip, lang);
   }
   return <section ref={root} role="region" aria-label={props.ariaLabel} aria-describedby={`${helpId} ${summaryId}`} tabIndex={0}
     className="relative min-w-0 rounded-lg border border-border-subtle bg-surface-card text-xs text-text-primary"
@@ -82,13 +92,13 @@ export function LaneTimeline(props: LaneTimelineProps) {
       <div role="toolbar" aria-label={tx({ ko: '차트 동작', en: 'Chart actions' })} className="ml-auto flex flex-wrap items-center justify-end gap-1">
         <TooltipProvider delayDuration={200}><Tooltip>
           <TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-xs" aria-label={tx({ ko: '조작 방법', en: 'How to interact' })}><Info className="size-3.5" aria-hidden /></Button></TooltipTrigger>
-          <TooltipContent>{tx({ ko: 'Ctrl/⌘ + 휠: 확대 · 끌기: 이동 · 방향키: 탐색 · Enter: 선택 · Escape: 해제', en: 'Ctrl/⌘ + wheel: Zoom · Drag: Pan · Arrows: Navigate · Enter: Select · Escape: Clear' })}</TooltipContent>
+          <TooltipContent>{tx(interactionHelp)}</TooltipContent>
         </Tooltip></TooltipProvider>
         <Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(0.8)}>{tx({ ko: '확대', en: 'Zoom in' })}</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(1.25)}>{tx({ ko: '축소', en: 'Zoom out' })}</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.resetZoom()}>{tx({ ko: '확대 초기화', en: 'Zoom Reset' })}</Button>
       </div>
     </header>
-    <p className="px-4 py-2 text-text-secondary">{tx({ ko: 'UTC · orphan: 시작 미확인 · open: 종료 미확인', en: 'UTC · orphan: start unknown · open: end unknown' })}</p>
-    <p id={helpId} className="sr-only">{tx({ ko: 'UTC · Ctrl/⌘ + 휠: 확대 · 끌기: 이동 · 방향키: 탐색 · Enter: 선택 · Escape: 해제 · orphan: 시작 미확인 · open: 종료 미확인', en: 'UTC · Ctrl/⌘ + wheel: Zoom · Drag: Pan · Arrows: Navigate · Enter: Select · Escape: Clear · orphan: start unknown · open: end unknown' })}</p>
+    <p className="px-4 py-2 text-text-secondary">{tx(boundaryHelp)}</p>
+    <p id={helpId} className="sr-only">{tx(accessibleHelp)}</p>
     <div className="overflow-x-auto">
       <div className="min-w-[352px]">
         <canvas ref={axis} aria-hidden className="block w-full" />

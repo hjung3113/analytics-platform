@@ -2,7 +2,7 @@ import { useId, useLayoutEffect, useRef, useState, type ReactNode, type Componen
 import { parseDateTime, shift, type GlobalContext, type IdSet } from '@ap/contracts';
 import { CONTEXT_LABELS, useAxisOptions, useEquipmentSearch, useI18n, usePlatform, useQueryDraft, useResolvedSelection, type PortContext } from '@ap/kernel';
 import { formatQuerySummary, querySummaryItems, useCopyLink, useQueryBarExtension } from '@ap/components';
-import { Button, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { Alert, AlertDescription, Button, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 
 export type QueryBarProps = {
   label?: { visible: string; region: string };
@@ -81,7 +81,9 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
   const applied = formatQuerySummary(global, page, { ...summaryOptions, pageSummary: extension?.appliedPageSummary });
   const copy = useCopyLink(ko ? '현재 적용된 조건의 링크를 복사했습니다. 받는 사람의 권한으로 서버가 다시 검증합니다.' : 'Copied the applied link. The server re-validates for the recipient.');
   const invalid = (key: string) => missing.some(m => m.key === key);
-  const issues = <div id={reasonId} className="text-xs text-text-secondary">{reasons.map(r => <p key={r.key}>{r.reason}</p>)}</div>;
+  const issues = reasons.length
+    ? <Alert id={reasonId} role="status"><AlertDescription>{reasons.map(r => <p key={r.key}>{r.reason}</p>)}</AlertDescription></Alert>
+    : <span id={reasonId} className="sr-only" />;
   const actions = <div role="group" aria-label={ko ? '조회 조건 동작' : 'Query actions'} className={board ? 'flex shrink-0 items-center gap-2' : 'flex flex-wrap items-center gap-2'}>
     <span className="text-xs text-text-secondary">{ko ? `적용 안 된 변경 ${dirty.length}개` : `${dirty.length} unapplied changes`}</span>
     <Button type="button" variant="ghost" size="toolbar" onClick={() => { revert(); setPeriodEditor({ mode: 'range', reference: (global.from ?? platform.defaultRangeTo).slice(0, 10), invalidReference: false }); setRange({ from: global.from ?? '', to: global.to ?? '' }); setEditError(null); }}>{ko ? '되돌리기' : 'Revert'}</Button>
@@ -147,8 +149,8 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
       {board && !expanded && <span id={reasonId} className="max-w-56 truncate text-xs text-text-secondary">{reasons.map(r => r.reason).join(' · ')}</span>}
       <Button type="button" variant="ghost" size="toolbar" onClick={() => copy(url)}>{ko ? '링크 복사' : 'Copy link'}</Button>
     </div>
-    {!board && expanded && <>{content}<div className="px-3 pb-3">{actions}</div></>}
-    {!board && issues}
+    {!board && expanded && <>{content}<div className="px-3 pb-2">{issues}</div><div className="px-3 pb-3">{actions}</div></>}
+    {!board && !expanded && <div className="px-3 pb-2">{issues}</div>}
   </section>;
 }
 
@@ -159,7 +161,7 @@ function SetField({ name, values, onChange, invalid, reasonId, ...props }: SetFi
   return <div className="grid w-56 min-w-0 max-w-full gap-1 text-xs text-text-secondary">
     <span>{name}</span>
     <MultiCombobox {...props} label={name} values={values ?? []} onValuesChange={onChange} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} listboxLabel={name} emptyText={ko ? '후보 없음' : 'No candidates'} placeholder={values === null ? (ko ? '전체 후보' : 'All candidates') : values.length === 0 ? (ko ? '명시적 빈 선택' : 'Explicit empty selection') : undefined} selectedSummaryLabel={count => ko ? `선택한 항목 ${count}개` : `${count} selected items`} moreLabel={ko ? '더 보기' : 'Load more'} clearAllLabel={ko ? '선택 모두 비우기' : 'Clear selection'} removeLabel={value => `${t('clear')} ${value}`} loadingText={ko ? '후보 확인 중' : 'Loading candidates'} retryLabel={t('retry')} />
-    <Button type="button" variant="ghost" size="toolbar" onClick={() => onChange(null)}>{ko ? `${name} 전체 후보` : `All ${name} candidates`}</Button>
+    <Button type="button" variant="ghost" size="toolbar" aria-label={ko ? `${name} 전체 후보로 되돌리기` : `Reset ${name} to all candidates`} disabled={values === null} onClick={() => onChange(null)}>{ko ? '전체 후보로' : 'Reset to all candidates'}</Button>
   </div>;
 }
 function AxisField({ axisId, context, parents, ...props }: Omit<SetFieldProps, 'options'> & { axisId: string; context: PortContext; parents: Record<string, string[]> }) {

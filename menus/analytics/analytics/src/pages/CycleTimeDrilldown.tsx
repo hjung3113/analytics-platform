@@ -16,26 +16,33 @@ import {
 
 const NO_PARAMS = {};
 
+function filterVocabulary(lang: 'ko' | 'en') {
+  const ko = lang === 'ko';
+  return {
+    grainFieldLabel: ko ? '집계' : 'Grain',
+    grainLabel: { hour: ko ? '시간' : 'Hour', day: ko ? '일' : 'Day', week: ko ? '주' : 'Week' } as const,
+    tailFieldLabel: cycleTailFilterLabel(lang),
+    tailOptions: [{ value: 'p95', label: '≥ P95' }, { value: 'p50', label: '≥ P50' }, { value: 'all', label: ko ? '전체 실행' : 'All executions' }],
+    sortFieldLabel: ko ? '정렬' : 'Sort',
+    sortOptions: [
+      { value: 'cycleMin:desc', label: ko ? '사이클타임 내림차순' : 'Cycle time descending' },
+      { value: 'cycleMin:asc', label: ko ? '사이클타임 오름차순' : 'Cycle time ascending' },
+      { value: 'delta:desc', label: ko ? 'P95 대비 내림차순' : 'vs P95 descending' },
+      { value: 'anchor:desc', label: ko ? '시작 최신' : 'Start newest' },
+      { value: 'anchor:asc', label: ko ? '시작 오래된' : 'Start oldest' },
+      { value: 'equipmentId:asc', label: 'Equipment A→Z' },
+    ],
+    unknownRaw: (value: string | null) => ko ? `이 화면에서 쓸 수 없는 값: ${value ?? ''}` : `Not a value this page can use: ${value ?? ''}`,
+  };
+}
+
 function summaryFor(global: GlobalContext, page: readonly Pair[], lang: 'ko' | 'en') {
   const ko = lang === 'ko';
   const raw = (key: string) => page.find(([k]) => k === key)?.[1] ?? null;
   const grain = resolveGranularity(raw('granularity'), periodHours(global));
   const tail = resolveTail(raw('percentile'));
   const sort = parseSortParam(raw('sort'));
-  const grainFieldLabel = ko ? '집계' : 'Grain';
-  const grainLabel = { hour: ko ? '시간' : 'Hour', day: ko ? '일' : 'Day', week: ko ? '주' : 'Week' };
-  const tailFieldLabel = cycleTailFilterLabel(lang);
-  const tailOptions = [{ value: 'p95', label: '≥ P95' }, { value: 'p50', label: '≥ P50' }, { value: 'all', label: ko ? '전체 실행' : 'All executions' }];
-  const sortFieldLabel = ko ? '정렬' : 'Sort';
-  const sortOptions = [
-    { value: 'cycleMin:desc', label: ko ? '사이클타임 내림차순' : 'Cycle time descending' },
-    { value: 'cycleMin:asc', label: ko ? '사이클타임 오름차순' : 'Cycle time ascending' },
-    { value: 'delta:desc', label: ko ? 'P95 대비 내림차순' : 'vs P95 descending' },
-    { value: 'anchor:desc', label: ko ? '시작 최신' : 'Start newest' },
-    { value: 'anchor:asc', label: ko ? '시작 오래된' : 'Start oldest' },
-    { value: 'equipmentId:asc', label: 'Equipment A→Z' },
-  ];
-  const unknownRaw = (value: string | null) => ko ? `이 화면에서 쓸 수 없는 값: ${value ?? ''}` : `Not a value this page can use: ${value ?? ''}`;
+  const { grainFieldLabel, grainLabel, tailFieldLabel, tailOptions, sortFieldLabel, sortOptions, unknownRaw } = filterVocabulary(lang);
   return [
     { key: 'granularity', label: grainFieldLabel, value: grain.ok ? grainLabel[grain.value] : unknownRaw(raw('granularity')) },
     { key: 'percentile', label: tailFieldLabel, value: tail.ok ? tailOptions.find(option => option.value === tail.value)?.label ?? tail.value : unknownRaw(raw('percentile')) },
@@ -139,22 +146,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
 
   // Field labels and option labels shared by the edit controls and the collapsed summary. The summary states
   // facts: pending stays pending and unknown raw values are shown as unknown, never as a default value label.
-  const grainFieldLabel = ko ? '집계' : 'Grain';
-  const grainLabel = { hour: ko ? '시간' : 'Hour', day: ko ? '일' : 'Day', week: ko ? '주' : 'Week' } as const;
-  const tailFieldLabel = cycleTailFilterLabel(ko ? 'ko' : 'en');
-  const tailOptions = [
-    { value: 'p95', label: '≥ P95' }, { value: 'p50', label: '≥ P50' }, { value: 'all', label: ko ? '전체 실행' : 'All executions' },
-  ];
-  const sortFieldLabel = ko ? '정렬' : 'Sort';
-  const sortOptions = [
-    { value: 'cycleMin:desc', label: ko ? '사이클타임 내림차순' : 'Cycle time descending' },
-    { value: 'cycleMin:asc', label: ko ? '사이클타임 오름차순' : 'Cycle time ascending' },
-    { value: 'delta:desc', label: ko ? 'P95 대비 내림차순' : 'vs P95 descending' },
-    { value: 'anchor:desc', label: ko ? '시작 최신' : 'Start newest' },
-    { value: 'anchor:asc', label: ko ? '시작 오래된' : 'Start oldest' },
-    { value: 'equipmentId:asc', label: 'Equipment A→Z' },
-  ];
-  const unknownRaw = (raw: string | null) => ko ? `이 화면에서 쓸 수 없는 값: ${raw ?? ''}` : `Not a value this page can use: ${raw ?? ''}`;
+  const { grainFieldLabel, grainLabel, tailFieldLabel, tailOptions, sortFieldLabel, sortOptions, unknownRaw } = filterVocabulary(lang);
   const pageSummary = summaryFor(queryDraft.draft.global, queryDraft.draft.page, lang);
   const appliedPageSummary = summaryFor(global, page, lang);
   const historyPageSummary = useCallback((candidate: GlobalContext, page: readonly Pair[]) => summaryFor(candidate, page, lang), [lang]);

@@ -14,8 +14,8 @@ const entries = [
   { id: 'a', query: buildQuery(global, [['filter', 'own-history']]), schemaVersion: 1 as const, count: 1, lastAppliedAt: 2 },
   { id: 'b', query: buildQuery({ ...global, roomNames: ['SECRET'] }), schemaVersion: 1 as const, count: 1, lastAppliedAt: 1 },
 ];
-function mount(enabled = true) {
-  const store: QueryHistoryStore = { list: vi.fn(async () => entries), record: vi.fn(async () => {}), remove: vi.fn(async () => {}), clear: vi.fn(async () => {}) };
+function mount(enabled = true, rows = entries) {
+  const store: QueryHistoryStore = { list: vi.fn(async () => rows), record: vi.fn(async () => {}), remove: vi.fn(async () => {}), clear: vi.fn(async () => {}) };
   const session = testSession(['platform:view']);
   window.history.replaceState(null, '', '/' + buildQuery(global));
   render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session })} queryHistory={enabled ? store : undefined}><Probe /><GlobalContextBar /></PlatformProvider></I18nProvider>);
@@ -54,6 +54,13 @@ it('masks unavailable values, keeps remove outside options and cancels clear con
 });
 it('has no control without an injected store', () => {
   mount(false); expect(screen.queryByRole('button', { name: '최근 조건' })).toBeNull();
+});
+
+it('labels a history entry from less than a minute ago as just now', async () => {
+  mount(true, [{ ...entries[0], lastAppliedAt: Date.now() - 20_000 }]);
+  fireEvent.click(screen.getByRole('button', { name: '최근 조건' }));
+  await screen.findByRole('option', { name: /own-history/ });
+  expect(screen.getByText('방금')).toBeVisible();
 });
 
 it('keeps keyboard focus through clear confirmation, cancellation and the empty list', async () => {

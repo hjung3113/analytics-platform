@@ -8,7 +8,7 @@ import { type MenuEntry, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { type HeaderYield, nextHeaderYield, openHeaderYield } from './headerYield';
-import { consumePageFocus, focusPageFallback } from './pageFocus';
+import { consumePageFocus, drillDestinationOf, focusPageFallback } from './pageFocus';
 import { StateMessage } from './StateView';
 
 function withTrustYield(node: ReactNode, yieldState: HeaderYield): ReactNode {
@@ -171,7 +171,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
       const request = consumePageFocus(pageNavigation, pathname);
       // A pane takes no automatic arrival focus; its explicit drill/return requests still land inside the pane.
       if (!request || (inPane && request === 'page')) return;
-      const currentStep = request === 'drill' ? root.current?.querySelector<HTMLElement>('[aria-current="step"]') : null;
+      const currentStep = request === 'drill' && root.current ? drillDestinationOf(root.current) : null;
       const target = currentStep ?? heading.current;
       if (!target) { if (inPane) focusPageFallback(root.current); return; }
       programmaticHeadingFocus.current = target === heading.current;
