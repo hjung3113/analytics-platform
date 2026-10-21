@@ -1367,7 +1367,8 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await expect(popover.getByRole('button', { name: /^BRAVO/ })).toHaveAttribute('aria-current', 'true');
     // #252 (ADR-0065): the two planned workspaces carry no entry permission, so every signed-in role sees them.
     await expect(popover.getByRole('button', { name: /^(표준 로그 개발|개선 실행)/ })).toHaveCount(2);
-    await expect(popover.getByRole('button', { name: /^(MARS|운영 콘솔)/ })).toHaveCount(0);
+    // CLAS shares MARS's analytics:view gate (#590), so a viewer sees neither.
+    await expect(popover.getByRole('button', { name: /^(MARS|CLAS|운영 콘솔)/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(popover).toHaveCount(0);
     const nav = page.getByRole('navigation', { name: '주 메뉴' });
@@ -1379,12 +1380,13 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await evidence(page, testInfo, 'viewer-limited-spaces');
   });
 
-  test('engineer는 전환기에 MARS와 BRAVO 카드를 갖고 운영 콘솔은 보이지 않는다', async ({ page }, testInfo) => {
+  test('engineer는 전환기에 MARS·BRAVO·CLAS 카드를 갖고 운영 콘솔은 보이지 않는다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
     await page.goto('/equipment?v=1&scopeId=MEM');
     const popover = await openSwitcher(page);
     await expect(popover.getByRole('button', { name: /^MARS/ })).toHaveAttribute('aria-current', 'true');
     await expect(popover.getByRole('button', { name: /^BRAVO/ })).toBeVisible();
+    await expect(popover.getByRole('button', { name: /^CLAS/ })).toBeVisible();
     await expect(popover.getByRole('button', { name: /^운영 콘솔/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(popover).toHaveCount(0);

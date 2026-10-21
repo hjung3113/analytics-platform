@@ -123,6 +123,11 @@ describe('menu usage (docs/05 메뉴 활용률 계측)', () => {
     expect(storedUsage()[0].spaceId).toBe('metrics');
   });
 
+  it('accepts the clas space id (#590)', async () => {
+    expect((await recordUsage([entry({ spaceId: 'clas' })])).accepted).toBe(1);
+    expect(storedUsage()[0].spaceId).toBe('clas');
+  });
+
   it('rejects the removed feedback space id', async () => {
     expect((await recordUsage([entry({ spaceId: 'feedback' as SpaceId })])).accepted).toBe(0);
     expect(storedUsage()).toHaveLength(0);
