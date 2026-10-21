@@ -1,3 +1,4 @@
+import { useEquipmentAxes } from '@ap/kernel';
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import { HardDrive } from 'lucide-react';
 import { BOARD_PATH, paneHref, useI18n, usePlatform, type MenuEntry, type PaneScreen } from '@ap/kernel';
@@ -32,7 +33,7 @@ function raiseUndo(text: BoardText, message: string, onUndo: () => void) {
  */
 export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   const { user, url, pathname, navigate, registry, recent, pageNavigation, canOpen } = usePlatform();
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const text = boardText(lang);
   const { board, update } = useBoardStore(user.id, text.sheetPrefix);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -151,7 +152,8 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   const unavailable = (index: number) => { const own = sheet.panes[index]; return own !== null && !canMountPaneScreen(registry, canOpen, own); };
   const applyOff = (index: number) => (unavailable(index) ? text.paneUnavailable : applyContextToSheet(registry, canOpen, sheet, index)?.others ? null : text.applyToAllNone);
   const duplicateOff = (index: number) => (unavailable(index) ? text.paneUnavailable : emptyIndex === -1 ? text.noEmptyPane : null);
-  const signals = paneSignals(registry, canOpen, sheet.panes, text.noneValue);
+  const axes = useEquipmentAxes();
+  const signals = paneSignals(registry, canOpen, sheet.panes, text.noneValue, axes, lang, t('membershipAsOf'));
   const emptyIndex = firstEmptyPane(sheet);
   const insert = (index: number, menu: MenuEntry) => writePane(index, { menuId: menu.id, params: {}, query: defaultQuery(registry, recent) });
 

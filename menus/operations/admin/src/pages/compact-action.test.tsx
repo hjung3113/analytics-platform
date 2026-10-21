@@ -13,7 +13,7 @@ import AuditTrail from './AuditTrail';
 import RegistryCatalog from './RegistryCatalog';
 
 // ADR-0037 compact action column: a scrollport between 192px and 248px keeps the action pinned as an icon with today's name.
-const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
+const none = { time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const detailMenu: MenuEntry = {
   id: 'equipment-detail', group: 'admin', label: { ko: '설비 상세', en: 'Equipment detail' }, description: { ko: '', en: '' },
   path: '/admin/fixture-detail/:equipmentId', icon: House, permission: 'platform:view', requiresScope: true, pageType: 'catalog',
@@ -43,7 +43,7 @@ function DetailSlotHost() {
 }
 function mount(path: string, page: React.ReactElement) {
   window.history.replaceState(null, '', path);
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider>{page}<DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}><DetailPanelSlotProvider>{page}<DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
 }
 
 let restoreGeometry: () => void;
@@ -83,3 +83,10 @@ describe('admin compact row actions', () => {
     expect(none.closest('button, a')).toBeNull();
   });
 });
+
+const equipmentAxes = [
+  { id: 'stgroup', label: { ko: 'StGroup', en: 'StGroup' }, membershipHistory: false },
+  { id: 'team', label: { ko: '분임조', en: 'Team' }, membershipHistory: false },
+  { id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false },
+  { id: 'model', label: { ko: 'Model', en: 'Model' }, membershipHistory: false, dependsOn: 'maker' },
+];

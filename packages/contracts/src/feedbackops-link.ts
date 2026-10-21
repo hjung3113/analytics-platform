@@ -86,8 +86,11 @@ function validateContext(g: GlobalContext): void {
   if (g.from !== null && g.to !== null) {
     if (parseDateTime(g.from, 'from') >= parseDateTime(g.to, 'to')) fail('invalid_period', 'from must be earlier than to');
   }
+  if (g.membershipBasis !== null && g.membershipBasis !== 'asOf') fail('invalid_membership_basis', 'membershipBasis must be asOf');
+  if (g.membershipBasis !== null && (g.condition === null || Object.keys(g.condition).length === 0) && g.prcGroups === null) fail('membership_basis_pair', 'membershipBasis requires equipmentGroup or prcGroups');
+  if (g.condition !== null) parseQuery('?equipmentGroup=' + encodeURIComponent(JSON.stringify(g.condition)));
   if (g.metricVersion !== null && g.metricId === null) fail('metric_pair', 'metricVersion requires metricId (the pair travels together)');
-  for (const [field, key] of [['roomNames', 'roomNames'], ['selection', 'selectedEquipmentIds'], ['lotIds', 'lotIds'], ['recipeIds', 'recipeIds']] as const) {
+  for (const [field, key] of [['lineNames', 'lineNames'], ['prcGroups', 'prcGroups'], ['roomNames', 'roomNames'], ['selection', 'selectedEquipmentIds'], ['lotIds', 'lotIds'], ['recipeIds', 'recipeIds']] as const) {
     const ids = g[field];
     if (ids !== null) normalizeSet(ids, key);
   }

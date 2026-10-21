@@ -23,20 +23,20 @@ AuditTrailQuery | type | type AuditTrailQuery = { action?: @ap/contracts#AuditAc
 Capability | type | type Capability = 'apply' | 'reference' | 'unsupported'
 ChartAnnotation | type | type ChartAnnotation = { at: string; chartId: string; from: string; id: string; mine: boolean; scopeId: string; text: string; to: string; }
 ClientErrorReport | type | type ClientErrorReport = { correlationId: string; menuId: string; name: string; path: string; spaceId: @ap/contracts#SpaceId | null; }
-Condition | type | type Condition = { axis: 'makerModel'; maker: string; model: string; } | { axis: 'stgroup'; id: string; } | { axis: 'team'; id: string; }
-ConditionAxis | type | type ConditionAxis = 'makerModel' | 'stgroup' | 'team'
+Condition | type | type Condition = Readonly<Record<string, readonly string[]>>
 ConditionOptions | type | type ConditionOptions = { makerModel: { maker: string; model: string; }[]; stgroup: string[]; team: string[]; }
-ContextKey | type | type ContextKey = 'condition' | 'lot' | 'metric' | 'ppid' | 'recipe' | 'roomNames' | 'selection' | 'time'
+ContextKey | type | type ContextKey = 'condition' | 'line' | 'lot' | 'metric' | 'ppid' | 'prcGroup' | 'recipe' | 'roomNames' | 'selection' | 'time'
 ContractError | class | class ContractError extends Error { code: string; field?: string | undefined; raw?: string | undefined; constructor(code: string, message: string, field?: string | undefined, raw?: string | undefined); }
 DrillLevel | type | type DrillLevel = { key: string; label: @ap/contracts#Text; }
 EndpointSpec | type | type EndpointSpec<P, T> = { readonly _types?: { data: T; params: P; }; context: Partial<Record<@ap/contracts#ContextKey, Exclude<@ap/contracts#Capability, 'unsupported'>>>; id: string; kinds: readonly @ap/contracts#AssessmentKind[]; limits?: { maxHours?: number; maxRows?: number; }; menuId: string; mergeTimeDomain: boolean; paramKeys: Readonly<Record<keyof P & string, true>>; permission: @ap/contracts#Permission; requiresScope: boolean; }
 EntityRef | type | type EntityRef = { id: string; scopeId: null | string; type: string; }
+EquipmentAxisDescriptor | type | type EquipmentAxisDescriptor = { dependsOn?: string; id: string; label: @ap/contracts#Text; membershipHistory: boolean; }
 EquipmentOption | type | type EquipmentOption = { equipmentId: string; model: string; room: string; }
 FeedbackOpsTarget | type | type FeedbackOpsTarget = { kind: 'overall'; } | { kind: 'survey-detail'; platformReturn?: string; surveyId: string; } | { kind: 'survey-list'; managedSystemId: string; platformReturn?: string; } | { kind: 'task-list'; managedSystemId: string; platformReturn?: string; } | { kind: 'voc-create'; managedSystemId?: string; platformReturn?: string; } | { kind: 'voc-detail'; managedSystemId?: string; platformReturn?: string; vocId: string; } | { kind: 'voc-list'; managedSystemId: string; platformReturn?: string; }
 FieldError | type | type FieldError = { code: string; path: readonly string[]; }
 GLOBAL_KEYS | const | const GLOBAL_KEYS: Set<string>
 GROUP_IDS | const | const GROUP_IDS: readonly @ap/contracts#GroupId[]
-GlobalContext | type | type GlobalContext = { condition: @ap/contracts#Condition | null; from: null | string; lotIds: @ap/contracts#IdSet; metricId: null | string; metricVersion: null | string; ppid: null | string; recipeIds: @ap/contracts#IdSet; roomNames: @ap/contracts#IdSet; scopeId: null | string; selection: @ap/contracts#IdSet; to: null | string; }
+GlobalContext | type | type GlobalContext = { condition: @ap/contracts#Condition | null; from: null | string; lineNames: @ap/contracts#IdSet; lotIds: @ap/contracts#IdSet; membershipBasis: 'asOf' | null; metricId: null | string; metricVersion: null | string; ppid: null | string; prcGroups: @ap/contracts#IdSet; recipeIds: @ap/contracts#IdSet; roomNames: @ap/contracts#IdSet; scopeId: null | string; selection: @ap/contracts#IdSet; to: null | string; }
 Grain | type | type Grain = 'day' | 'hour' | 'week'
 GroupId | type | type GroupId = 'admin' | 'analytics' | 'equipment' | 'masterData' | 'metrics' | 'noticeVoc' | 'overview'
 HOST_CONTRACTS | const | const HOST_CONTRACTS: readonly [ 1 ]
@@ -70,7 +70,7 @@ PublishedMetric | type | type PublishedMetric = { metricId: string; publishedVer
 ScopeCheck | type | type ScopeCheck = { grantedRooms: string[]; status: 'forbidden' | 'unknown_scope' | 'valid'; }
 ScopeOption | type | type ScopeOption = { grantedRooms: number; id: string; label: string; totalRooms: number; }
 SelectionEvaluation | type | type SelectionEvaluation = { inCondition: @ap/contracts#EquipmentOption[]; outOfCondition: string[]; }
-SelectionInput | type | type SelectionInput = { condition: @ap/contracts#Condition | null; roomNames: @ap/contracts#IdSet; scopeId: null | string; selection: @ap/contracts#IdSet; }
+SelectionInput | type | type SelectionInput = { condition: @ap/contracts#Condition | null; lineNames: @ap/contracts#IdSet; membershipBasis: 'asOf' | null; prcGroups: @ap/contracts#IdSet; roomNames: @ap/contracts#IdSet; scopeId: null | string; selection: @ap/contracts#IdSet; }
 Session | type | type Session = { scopes: readonly @ap/contracts#ScopeOption[]; user: @ap/contracts#SessionUser; }
 SessionUser | type | type SessionUser = { id: string; name: string; permissions: readonly (@ap/contracts#ModuleScopedId | @ap/contracts#Permission)[]; title: @ap/contracts#Text; }
 SiteGrant | type | type SiteGrant = { grantedRooms: readonly string[]; id: string; label: string; totalRooms: number; }

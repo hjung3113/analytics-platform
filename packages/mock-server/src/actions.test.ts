@@ -14,7 +14,7 @@ function menuMeta(o: Partial<Pick<MenuMeta, 'id' | 'permission' | 'requiresScope
   return {
     id: o.id ?? 'owner', group: 'analytics', label: { ko: '메뉴', en: 'Menu' }, description: { ko: '', en: '' }, path: '/owner',
     permission: o.permission ?? 'analytics:view', requiresScope: o.requiresScope ?? true,
-    context: { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' },
+    context: { time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' },
     pageType: 'analysis', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [],
   };
 }

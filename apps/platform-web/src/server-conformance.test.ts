@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { Permission } from '@ap/contracts';
-import { createMockAdapter, getRole, setRole, USERS, type RoleId } from '@ap/mock-server';
+import { createMockAdapter, EQUIPMENT, getRole, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { describeServerConformance, type ConformanceCase } from '@ap/server-conformance';
 import { MOCK_AUDIT_EVENTS, MOCK_ENDPOINTS } from './dev/mock-assembly';
 import { registry } from './menus';
@@ -40,6 +40,11 @@ const PARAMS: Record<string, Record<string, unknown>> = {
 const cases: ConformanceCase[] = endpoints.map(({ spec }) => ({ spec, params: PARAMS[spec.id] ?? {} }));
 const GRANTED: RoleId = 'engineer';
 const CONSOLE: RoleId = 'admin';
+// Choose a granted group with different teams so the sample proves strict AND narrowing.
+const grantedEquipment = EQUIPMENT.filter(e => e.site === 'MEM' && USERS[GRANTED].grants.MEM.includes(e.room));
+const conditionSample = grantedEquipment.find(e => grantedEquipment.some(other => other.stgroup === e.stgroup && other.team !== e.team))!;
+const secondGroup = grantedEquipment.find(e => e.stgroup !== conditionSample.stgroup)!;
+
 
 describe('conformance harness covers what the app registers', () => {
   it('gives a sample request to every endpoint that declares params', () => {
@@ -58,6 +63,12 @@ describeServerConformance('server boundary conformance — mock adapter', {
   // DIFF is a real MEM room granted to admin only — the room re-check sample (06 §22). cycle-time-trend is a
   // time axis, so the annotation range is wall-clock (06 §16).
   ports: {
+    condition: {
+      endpoint: 'equipment.master.page',
+      axisA: { id: 'stgroup', values: [conditionSample.stgroup, secondGroup.stgroup] },
+      axisB: { id: 'team', value: conditionSample.team },
+      nonHistoryAxisId: 'stgroup',
+    },
     entity: {
       ref: { type: 'equipment', id: 'MEM-PHOTO-0103', scopeId: 'MEM' },
       permission: 'equipment:view',

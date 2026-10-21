@@ -27,10 +27,11 @@ export type ScopeCheck = { status: 'valid' | 'forbidden' | 'unknown_scope'; gran
 export type PublishedMetric = { metricId: string; publishedVersion: string | null };
 
 /** Choices for the Global Context condition editor, per site (one axis at a time, docs/06 §11). */
+/** @deprecated Legacy options; migrate to app-injected axes (ADR-0059). */
 export type ConditionOptions = { stgroup: string[]; team: string[]; makerModel: { maker: string; model: string }[] };
 
 export type EquipmentOption = { equipmentId: string; room: string; model: string };
-export type SelectionInput = { scopeId: string | null; roomNames: IdSet; condition: Condition | null; selection: IdSet };
+export type SelectionInput = { scopeId: string | null; roomNames: IdSet; condition: Condition | null; lineNames: IdSet; prcGroups: IdSet; membershipBasis: 'asOf' | null; selection: IdSet };
 /**
  * Server-side evaluation for the selection editor: equipment the user may pick under the current room/condition
  * (already filtered by the session's grants), and selected IDs that fall outside the condition (shown, never removed).

@@ -9,7 +9,7 @@ import {
 } from '../endpoints';
 
 const none: Record<ContextKey, Capability> = {
-  time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
+  time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
   lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
 };
 /** Inline mirrors of the metric-catalog and metric-detail manifests in '../index.ts'. 바꾸면 같이 바꾼다. */

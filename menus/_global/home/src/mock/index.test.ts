@@ -5,7 +5,7 @@ import { homeMock } from './index';
 import { noticesEndpoint, type Notice } from '../endpoints';
 
 const none: Record<ContextKey, Capability> = {
-  time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
+  time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
   lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
 };
 const base = { description: { ko: '', en: '' }, requiresScope: false, context: none, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] };

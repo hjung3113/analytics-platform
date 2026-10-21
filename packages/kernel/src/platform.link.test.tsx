@@ -33,8 +33,8 @@ const registry = createRegistry({
 });
 
 const URL_MEM = '/source?v=1&scopeId=MEM&roomNames=PHOTO&selectedEquipmentIds=E1&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
-const URL_FULL = URL_MEM + '&equipmentGroup=' + encodeURIComponent('{"axis":"team","id":"TEAM1"}') + '&lotIds=L1&recipeIds=R1&ppid=P1';
-const SITE_BOUND = ['roomNames', 'equipmentGroup', 'selectedEquipmentIds', 'lotIds', 'recipeIds', 'ppid'];
+const URL_FULL = URL_MEM + '&equipmentGroup=' + encodeURIComponent('{"axis":"team","id":"TEAM1"}') + '&lineNames=L1&prcGroups=P1&lotIds=L1&recipeIds=R1&ppid=P1';
+const SITE_BOUND = ['lineNames', 'prcGroups', 'roomNames', 'equipmentGroup', 'selectedEquipmentIds', 'lotIds', 'recipeIds', 'ppid'];
 const ANALYST: Session['user']['permissions'] = ['platform:view', 'analytics:view'];
 const VIEWER: Session['user']['permissions'] = ['platform:view'];
 
@@ -54,7 +54,7 @@ function Probe() {
 }
 function resolve(url: string, permissions: Session['user']['permissions'], menuId: string, options?: LinkOptions): LinkResolution {
   window.history.replaceState(null, '', url);
-  render(<I18nProvider><PlatformProvider adapter={fixture(permissions)} registry={registry}><Probe /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={fixture(permissions)} registry={registry}><Probe /></PlatformProvider></I18nProvider>);
   screen.getByTestId('ready');
   return captured!(menuId, options);
 }
@@ -85,7 +85,7 @@ describe('resolveLink (06 §22, issue #102)', () => {
     expect(explicit.get('selectedEquipmentIds')).toBe('FDRY-1');
     expect(explicit.get('lotIds')).toBe('FDRY-L');
     expect(explicit.get('ppid')).toBe('FDRY-P');
-    for (const key of ['roomNames', 'equipmentGroup', 'recipeIds']) expect(explicit.has(key), key).toBe(false);
+    for (const key of ['lineNames', 'prcGroups', 'roomNames', 'equipmentGroup', 'recipeIds']) expect(explicit.has(key), key).toBe(false);
     cleanup();
     const toNone = query(resolve(URL_FULL, ANALYST, 'analysis', { global: { scopeId: null } }).href);
     for (const key of SITE_BOUND) expect(toNone.has(key), key).toBe(false);
@@ -127,7 +127,7 @@ describe('return fallback without a fixed home ID (#298)', () => {
       menus: [...registry.menus, ...(root ? [entry('platform-start', 'equipment', '/', 'analytics:view', [])] : [])],
     });
     window.history.replaceState(null, '', url);
-    render(<I18nProvider><PlatformProvider adapter={fixture(permissions)} registry={fallbackRegistry}><ReturnProbe /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={fixture(permissions)} registry={fallbackRegistry}><ReturnProbe /></PlatformProvider></I18nProvider>);
     expect(JSON.parse(screen.getByRole('status').textContent!)).toEqual({
       target: href,
       origin: { href, menuLabel: id ? { ko: id, en: id } : { ko: '홈', en: 'Home' }, trail: [], revertedContext: [] },
@@ -150,7 +150,7 @@ describe('return permission and reverted Context (#298 FIX1)', () => {
       ],
     });
     window.history.replaceState(null, '', `/detail?v=1${current}&returnTo=${encodeURIComponent(origin)}`);
-    render(<I18nProvider><PlatformProvider adapter={fixture(permissions)} registry={returnRegistry}><ReturnProbe /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={fixture(permissions)} registry={returnRegistry}><ReturnProbe /></PlatformProvider></I18nProvider>);
     return JSON.parse(screen.getByRole('status').textContent!);
   }
 
@@ -181,3 +181,10 @@ describe('return permission and reverted Context (#298 FIX1)', () => {
     expect(mountReturn(current, origin).origin.revertedContext).toEqual(keys);
   });
 });
+
+const equipmentAxes = [
+  { id: 'stgroup', label: { ko: 'StGroup', en: 'StGroup' }, membershipHistory: false },
+  { id: 'team', label: { ko: '분임조', en: 'Team' }, membershipHistory: false },
+  { id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false },
+  { id: 'model', label: { ko: 'Model', en: 'Model' }, membershipHistory: false, dependsOn: 'maker' },
+];

@@ -4,7 +4,7 @@ import type { Text } from './i18n.js';
  * Menu manifest metadata (docs/06 §5): menus declare, the shell consumes. Field names are Candidates.
  * Render bindings (icon, page component) are React-bound and live in the kernel's MenuEntry.
  */
-export type ContextKey = 'time' | 'roomNames' | 'condition' | 'selection' | 'lot' | 'ppid' | 'recipe' | 'metric';
+export type ContextKey = 'time' | 'roomNames' | 'line' | 'prcGroup' | 'condition' | 'selection' | 'lot' | 'ppid' | 'recipe' | 'metric';
 /** apply = direct query filter · reference = carried/visible, not a query filter · unsupported = preserved, not applied */
 export type Capability = 'apply' | 'reference' | 'unsupported';
 export type PageType = 'overview' | 'analysis' | 'management' | 'catalog' | 'workflow';

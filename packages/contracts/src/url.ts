@@ -9,11 +9,8 @@ export class ContractError extends Error {
 }
 const fail = (code: string, message: string, field?: string, raw?: string): never => { throw new ContractError(code, message, field, raw); };
 
-export type ConditionAxis = 'stgroup' | 'team' | 'makerModel';
-export type Condition =
-  | { axis: 'stgroup'; id: string }
-  | { axis: 'team'; id: string }
-  | { axis: 'makerModel'; maker: string; model: string };
+/** App-owned axis IDs; the URL codec only validates structure. */
+export type Condition = Readonly<Record<string, readonly string[]>>;
 
 /** null = key absent (no explicit constraint); [] = explicit empty set; otherwise sorted unique IDs. */
 export type IdSet = string[] | null;
@@ -24,6 +21,9 @@ export type GlobalContext = {
   to: string | null;
   roomNames: IdSet;
   condition: Condition | null;
+  lineNames: IdSet;
+  prcGroups: IdSet;
+  membershipBasis: 'asOf' | null;
   selection: IdSet;
   lotIds: IdSet;
   ppid: string | null;
@@ -36,17 +36,19 @@ export type Pair = [string, string];
 export type ParsedQuery = { global: GlobalContext; page: Pair[]; extras: Pair[] };
 
 export const emptyGlobal: GlobalContext = {
-  scopeId: null, from: null, to: null, roomNames: null, condition: null, selection: null,
+  scopeId: null, from: null, to: null, roomNames: null, condition: null, lineNames: null, prcGroups: null, membershipBasis: null, selection: null,
   lotIds: null, ppid: null, recipeIds: null, metricId: null, metricVersion: null,
 };
 
 const SETS = [
+  { field: 'lineNames', key: 'lineNames', marker: 'lineSelection' },
+  { field: 'prcGroups', key: 'prcGroups', marker: 'prcGroupSelection' },
   { field: 'roomNames', key: 'roomNames', marker: 'roomSelection' },
   { field: 'selection', key: 'selectedEquipmentIds', marker: 'equipmentSelection', alias: 'equipmentIds' },
   { field: 'lotIds', key: 'lotIds', marker: 'lotSelection' },
   { field: 'recipeIds', key: 'recipeIds', marker: 'recipeSelection' },
 ] as const;
-const SINGLES = ['v', 'scopeId', 'from', 'to', 'equipmentGroup', 'ppid', 'metricId', 'metricVersion', ...SETS.map(s => s.marker)];
+const SINGLES = ['v', 'scopeId', 'from', 'to', 'equipmentGroup', 'membershipBasis', 'ppid', 'metricId', 'metricVersion', ...SETS.map(s => s.marker)];
 export const GLOBAL_KEYS = new Set<string>([...SINGLES, ...SETS.flatMap(s => ('alias' in s ? [s.key, s.alias] : [s.key]))]);
 
 // Python str.isspace() code points (parity with the kernel-app-shell codec).
@@ -87,20 +89,32 @@ export function shift(value: string, hours: number): string {
   return formatDateTime(new Date(parseDateTime(value, 'time').getTime() + hours * 3_600_000));
 }
 
-function conditionFromJson(raw: string): Condition {
-  let obj: unknown;
-  try { obj = JSON.parse(raw); } catch { return fail('invalid_condition', 'equipmentGroup must be a JSON object', 'equipmentGroup', raw); }
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return fail('invalid_condition', 'equipmentGroup must be a JSON object', 'equipmentGroup', raw);
-  const o = obj as Record<string, unknown>;
-  const keys = Object.keys(o).sort().join(',');
-  const str = (k: string) => (typeof o[k] === 'string' ? identifier(o[k] as string, `equipmentGroup.${k}`) : fail('invalid_condition', `equipmentGroup.${k} must be a string`));
-  if (o.axis === 'stgroup' && keys === 'axis,id') return { axis: 'stgroup', id: str('id') };
-  if (o.axis === 'team' && keys === 'axis,id') return { axis: 'team', id: str('id') };
-  if (o.axis === 'makerModel' && keys === 'axis,maker,model') return { axis: 'makerModel', maker: str('maker'), model: str('model') };
-  return fail('invalid_condition', 'Use exactly one axis: stgroup, team or makerModel', 'equipmentGroup', raw);
+function conditionFromJson(raw: string): Condition | null {
+  const invalid = (): never => fail('invalid_condition', 'equipmentGroup must be a non-empty value-array map', 'equipmentGroup', raw);
+  try {
+    const obj: unknown = JSON.parse(raw);
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return invalid();
+    let o = obj as Record<string, unknown>;
+    if (typeof o.axis === 'string') {
+      const fields = Object.keys(o).filter(key => key !== 'axis');
+      if (fields.length === 1 && fields[0] === 'id' && typeof o.id === 'string') o = { [o.axis]: [o.id] };
+      else if (fields.length && !fields.includes('id') && fields.every(key => typeof o[key] === 'string')) {
+        o = Object.fromEntries(fields.map(key => [key, [o[key]]]));
+      } else return invalid();
+    }
+    const entries = Object.keys(o).sort(codepointCompare).map(axis => {
+      identifier(axis, 'axis');
+      const values = o[axis];
+      if (axis === 'axis' || !Array.isArray(values) || !values.length || values.some(v => typeof v !== 'string')) return invalid();
+      return [axis, normalizeSet(values as string[], axis)] as const;
+    });
+    return entries.length ? Object.fromEntries(entries) : null;
+  } catch { return invalid(); }
 }
-function conditionToJson(c: Condition): string {
-  return c.axis === 'makerModel' ? JSON.stringify({ axis: c.axis, maker: c.maker, model: c.model }) : JSON.stringify({ axis: c.axis, id: c.id });
+function conditionToJson(c: Condition): string | null {
+  const normalized = conditionFromJson(JSON.stringify(c));
+  return normalized === null ? null : '{' + Object.keys(normalized).sort(codepointCompare)
+    .map(axis => `${JSON.stringify(axis)}:${JSON.stringify(normalized[axis])}`).join(',') + '}';
 }
 
 /**
@@ -143,6 +157,10 @@ export function parseQuery(search: string, pageKeys: readonly string[] = []): Pa
 
   const group = single('equipmentGroup');
   global.condition = group === null ? null : conditionFromJson(group);
+  const basis = single('membershipBasis');
+  if (basis !== null && basis !== 'asOf') fail('invalid_membership_basis', 'membershipBasis must be asOf', 'membershipBasis', basis);
+  if (basis !== null && global.condition === null && global.prcGroups === null) fail('membership_basis_pair', 'membershipBasis requires equipmentGroup or prcGroups');
+  global.membershipBasis = basis === 'asOf' ? basis : null;
   const ppid = single('ppid');
   global.ppid = ppid === null ? null : identifier(ppid, 'ppid', 'ppid');
 
@@ -175,7 +193,9 @@ export function serializeGlobal(g: GlobalContext): Pair[] {
     if (!ids.length) pairs.push([set.marker, 'none']);
     else for (const id of normalizeSet(ids, set.key)) pairs.push([set.key, id]);
   }
-  if (g.condition) pairs.push(['equipmentGroup', conditionToJson(g.condition)]);
+  const condition = g.condition === null ? null : conditionToJson(g.condition);
+  if (condition !== null) pairs.push(['equipmentGroup', condition]);
+  if (g.membershipBasis !== null && (condition !== null || g.prcGroups !== null)) pairs.push(['membershipBasis', g.membershipBasis]);
   if (g.ppid !== null) pairs.push(['ppid', g.ppid]);
   if (g.metricId !== null) {
     pairs.push(['metricId', g.metricId]);
@@ -194,7 +214,7 @@ export function sameGlobal(a: GlobalContext, b: GlobalContext): boolean {
 }
 
 export function conditionLabel(c: Condition): string {
-  return c.axis === 'makerModel' ? `${c.maker} / ${c.model}` : c.id;
+  return Object.keys(c).sort(codepointCompare).map(axis => normalizeSet([...c[axis]], axis).join(', ')).join(' · ');
 }
 
 /** metricVersion is carried as the bare version token (e.g. '3'); UIs render it as 'v3'. */

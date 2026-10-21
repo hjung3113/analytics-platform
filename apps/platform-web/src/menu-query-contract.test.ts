@@ -40,7 +40,7 @@ describe('menu query contracts', () => {
       from: '2026-09-25T09:00:00',
       to: '2026-09-26T09:00:00',
       roomNames: ['PHOTO'],
-      condition: { axis: 'team', id: 'A1' },
+      condition: { team: ['A1'] },
       selection: ['EQ-1'],
       lotIds: ['LOT-1'],
       ppid: 'PP-1',
@@ -63,7 +63,8 @@ describe('menu query contracts', () => {
       scopeId: 'MEM',
       from: '2026-09-25T09:00:00',
       to: '2026-09-26T09:00:00',
-      condition: { axis: 'team', id: 'A1' },
+      condition: { team: ['A1'] },
+      membershipBasis: null,
       lotIds: ['LOT-1'],
       ppid: 'PP-1',
       recipeIds: ['RCP-1'],
@@ -153,7 +154,7 @@ describe('menu query contracts', () => {
     });
 
     expect(Object.keys(projected)).toStrictEqual([
-      'scopeId', 'from', 'to', 'roomNames', 'condition', 'selection', 'lotIds', 'ppid', 'recipeIds', 'metricId', 'metricVersion',
+      'scopeId', 'from', 'to', 'roomNames', 'condition', 'membershipBasis', 'selection', 'lotIds', 'ppid', 'recipeIds', 'metricId', 'metricVersion',
     ]);
   });
 
@@ -162,7 +163,7 @@ describe('menu query contracts', () => {
       ...emptyGlobal,
       roomNames: ['PHOTO'],
       selection: [],
-      condition: { axis: 'makerModel', maker: 'AMX', model: 'XP8' },
+      condition: { maker: ['AMX'], model: ['XP8'] },
     };
     const before: GlobalContext = {
       ...g,
@@ -254,5 +255,15 @@ describe('menu query contracts', () => {
       });
     };
     void compileTimeChecks;
+  });
+});
+
+describe('basis and site-bound projection (#552)', () => {
+  it('carries basis only with an applied non-null Condition or PRC group', () => {
+    const g = { ...emptyGlobal, condition: { alpha: ['A'] }, prcGroups: ['P'], lineNames: ['L'], membershipBasis: 'asOf' as const };
+    expect(projectContext(endpoint({ condition: 'apply' }), g)).toEqual({ condition: { alpha: ['A'] }, membershipBasis: 'asOf' });
+    expect(projectContext(endpoint({ prcGroup: 'apply', line: 'apply' }), g)).toEqual({ prcGroups: ['P'], lineNames: ['L'], membershipBasis: 'asOf' });
+    expect(projectContext(endpoint({ prcGroup: 'apply' }), { ...g, prcGroups: null })).toEqual({ prcGroups: null, membershipBasis: null });
+    expect(projectContext(endpoint({ condition: 'reference', prcGroup: 'reference' }), g)).toEqual({});
   });
 });

@@ -13,3 +13,6 @@ export { type PageNavigation } from './pageNavigation';
 export { dropResetKeys, paneHref, withPaneContext } from './paneContext';
 export { mountModule, type MountOptions } from './module';
 export { useModuleHost, type ModuleShellPorts } from './module-host';
+
+export { useEquipmentAxes } from './platform';
+export { labelledCondition } from './equipmentAxes';

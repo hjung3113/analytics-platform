@@ -7,7 +7,7 @@ import { EQUIPMENT } from '@ap/mock-server';
 import { emptyGlobal } from '@ap/contracts';
 
 const none: Record<ContextKey, Capability> = {
-  time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
+  time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
   lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
 };
 /** Inline mirror of the cycle-time manifest in '../index.ts' (permission, requiresScope, context). 바꾸면 같이 바꾼다. */
@@ -21,7 +21,7 @@ const cycleMenu: MenuMeta = {
 const adapter = createMockAdapter({ endpoints: [...cycleMock], registry: { menus: [cycleMenu] } });
 const context = {
   scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00',
-  roomNames: null, condition: null, selection: null, lotIds: null, ppid: null, recipeIds: null, metricId: null, metricVersion: null,
+  roomNames: null, condition: null, membershipBasis: null, selection: null, lotIds: null, ppid: null, recipeIds: null, metricId: null, metricVersion: null,
 };
 const allFilter = { tail: 'all' as const, granularity: 'hour' as const, bucket: null, bin: null };
 const page0 = { page: 0, pageSize: 10 };

@@ -5,7 +5,7 @@ import type { Capability, ContextKey } from '@ap/contracts';
 import { createRegistry, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from '@ap/kernel';
 import { formatCapabilities, toRegistryRow } from './registry-rows';
 
-const unsupported: Record<ContextKey, Capability> = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' };
+const unsupported: Record<ContextKey, Capability> = { time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' };
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const spaceSubtitle = 'Registry projection fixture subtitle';
 const menu = (over: Partial<PlatformMenuEntry>): MenuEntry => ({

@@ -1,6 +1,6 @@
 import type { ModuleManifest, ModuleScreenMeta } from '@ap/contracts';
 
-const unsupported = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
+const unsupported = { time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const screen = (id: string, path: string, over: Partial<ModuleScreenMeta>): ModuleScreenMeta => ({
   id, group: 'fixture:main', label: { ko: id, en: id }, description: { ko: '', en: '' }, path, permission: 'fixture:view', requiresScope: false,
   context: unsupported, pageType: 'catalog', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], ...over,

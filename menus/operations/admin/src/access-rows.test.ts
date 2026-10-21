@@ -4,7 +4,7 @@ import { House, Wrench } from 'lucide-react';
 import { createRegistry, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from '@ap/kernel';
 import { grantTotals, menusForPermissions } from './access-rows';
 
-const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
+const none = { time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false } as const;
 const spaceSubtitle = 'Access projection fixture subtitle';
 const menu = (over: Partial<PlatformMenuEntry> & Pick<PlatformMenuEntry, 'id' | 'permission'>): MenuEntry => ({

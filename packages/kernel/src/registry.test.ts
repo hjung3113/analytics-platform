@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { SpaceDef } from '@ap/contracts';
 import { createRegistry, routeParamNames, RegistryError, type GroupDef, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from './registry';
 
-const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
+const none = { time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const groups: GroupDef[] = [{ id: 'metrics', label: { ko: '지표', en: 'Metrics' }, icon: House, space: 'analytics' }];
 const analyticsSpace: SpaceDef = { id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'catalog' };
 const spaces: SpaceDef[] = [analyticsSpace];

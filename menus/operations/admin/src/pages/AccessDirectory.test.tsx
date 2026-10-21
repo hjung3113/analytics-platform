@@ -28,7 +28,7 @@ window.ResizeObserver = class {
   unobserve() {} disconnect() {}
 } as unknown as typeof ResizeObserver;
 
-const none = { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
+const none = { time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false } as const;
 // A menu declared for equipment:view so a non-console principal has a joined (and space-gated) menu to show.
 const fixtureMaster: MenuEntry = {
@@ -88,7 +88,7 @@ function DetailSlotHost() {
 function renderRoles(path: string, response: ApiResponse<AccessDirectoryPage> | ResponseForCall = okResponse()) {
   window.history.replaceState(null, '', path);
   const f = fixture(response);
-  render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><DetailPanelSlotProvider><AccessDirectory /><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><DetailPanelSlotProvider><AccessDirectory /><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
   return f;
 }
 
@@ -460,3 +460,10 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     }
   });
 });
+
+const equipmentAxes = [
+  { id: 'stgroup', label: { ko: 'StGroup', en: 'StGroup' }, membershipHistory: false },
+  { id: 'team', label: { ko: '분임조', en: 'Team' }, membershipHistory: false },
+  { id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false },
+  { id: 'model', label: { ko: 'Model', en: 'Model' }, membershipHistory: false, dependsOn: 'maker' },
+];

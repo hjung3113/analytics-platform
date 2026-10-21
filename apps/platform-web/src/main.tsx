@@ -8,6 +8,7 @@ import { createBasePathLocation, I18nProvider, PlatformProvider } from '@ap/kern
 import { setFeedbackOpsOrigin } from '@ap/menu-notice-voc/feedbackops-origin';
 import { createAssembly } from '#platform-assembly';
 import { readFeedbackOpsOrigin } from './feedbackops-origin';
+import { EQUIPMENT_AXES } from './equipmentAxes';
 import { registry } from './menus';
 import { appSlots } from './slots';
 import { AppShell, RouteOutlet } from '@ap/shell';
@@ -24,7 +25,7 @@ const location = import.meta.env.BASE_URL === '/' ? undefined : createBasePathLo
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <I18nProvider>
-      <PlatformProvider adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin)}>
+      <PlatformProvider equipmentAxes={EQUIPMENT_AXES} adapter={assembly.adapter} registry={registry} location={location} slots={appSlots(assembly, feedbackOpsOrigin)}>
         <AppShell><RouteOutlet /></AppShell>
       </PlatformProvider>
     </I18nProvider>

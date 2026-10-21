@@ -1,6 +1,7 @@
 import { emptyGlobal, projectContext } from '@ap/contracts';
 import type { ApiResponse, EndpointSpec, GlobalContext } from '@ap/contracts';
 import { nextCorrelation, serve } from './server';
+import { contextShapeError } from './context-validation';
 import type { Equipment, RoleId } from './world';
 
 /** A menu's mock handler for one declared endpoint. Lives in the menu's `src/mock/` from step 5 on. */
@@ -54,7 +55,7 @@ export class MockRegistrationError extends Error {
 
 const requestKeys = ['endpoint', 'context', 'params'] as const;
 const contextKeys = new Set<keyof GlobalContext>([
-  'scopeId', 'from', 'to', 'roomNames', 'condition', 'selection', 'lotIds', 'ppid', 'recipeIds', 'metricId', 'metricVersion',
+  'scopeId', 'from', 'to', 'roomNames', 'lineNames', 'prcGroups', 'membershipBasis', 'condition', 'selection', 'lotIds', 'ppid', 'recipeIds', 'metricId', 'metricVersion',
 ]);
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -109,6 +110,11 @@ export async function serveEndpoint(
   if (missingAppliedContextKey) {
     return requestError(`missing context key ${missingAppliedContextKey} for ${endpoint.spec.id}`);
   }
+
+  const invalidContext = contextShapeError(req.context);
+  if (invalidContext) return requestError(invalidContext);
+  const basis = req.context.membershipBasis;
+  if (basis === 'asOf' && req.context.condition != null) return requestError('membership_basis_unsupported');
 
   if (endpoint.spec.context.time === 'apply') {
     for (const key of ['from', 'to'] as const) {

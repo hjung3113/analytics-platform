@@ -1,19 +1,19 @@
-import { buildQuery, conditionLabel, ContractError, emptyGlobal, formatMetricVersion, parseQuery, sameGlobal, serializeGlobal, type GlobalContext } from '@ap/contracts';
-import { withPaneContext, type MenuEntry, type PaneScreen, type Registry, type ReturnContextKey } from '@ap/kernel';
+import { buildQuery, type EquipmentAxisDescriptor, ContractError, emptyGlobal, formatMetricVersion, parseQuery, sameGlobal, serializeGlobal, type GlobalContext } from '@ap/contracts';
+import { labelledCondition, withPaneContext, type MenuEntry, type PaneScreen, type Registry, type ReturnContextKey } from '@ap/kernel';
 import { canMountPaneScreen } from './boardMenus';
 import type { PaneEdit, Sheet } from './boardModel';
 
 type CanOpen = (menuId: string) => boolean;
 
 /** The analysis-Context keys in the order a pane header and its popover list them (Scope counts as a key, docs/16 §4). */
-const KEY_ORDER: readonly ReturnContextKey[] = ['scope', 'time', 'roomNames', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric'];
+const KEY_ORDER: readonly ReturnContextKey[] = ['scope', 'time', 'roomNames', 'line', 'prcGroup', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric'];
 
 /** `value` is what the header shows, null for a key the pane does not set; `raw` is the key's canonical value, which comparison uses (display drops seconds and a Condition's axis). */
 export type ContextEntry = { key: ReturnContextKey; value: string | null; raw: string | null };
 export type ContextRow = ContextEntry & { differs: boolean };
 
 const KEY_FIELDS: Record<ReturnContextKey, readonly (keyof GlobalContext)[]> = {
-  scope: ['scopeId'], time: ['from', 'to'], roomNames: ['roomNames'], condition: ['condition'], selection: ['selection'], lot: ['lotIds'],
+  scope: ['scopeId'], time: ['from', 'to'], roomNames: ['roomNames'], line: ['lineNames'], prcGroup: ['prcGroups', 'membershipBasis'], condition: ['condition', 'membershipBasis'], selection: ['selection'], lot: ['lotIds'],
   ppid: ['ppid'], recipe: ['recipeIds'], metric: ['metricId', 'metricVersion'],
 };
 
@@ -27,13 +27,15 @@ function rawValue(global: GlobalContext, key: ReturnContextKey): string | null {
 const minutes = (value: string) => value.replace('T', ' ').slice(0, 16);
 
 /** The keys a Context sets: the value the header shows and the canonical one two panes are compared by. `none` names an explicitly empty set in the display. */
-export function contextValues(global: GlobalContext, none: string): ContextEntry[] {
+export function contextValues(global: GlobalContext, none: string, axes: readonly EquipmentAxisDescriptor[] = [], lang: 'ko' | 'en' = 'ko', asOf = ''): ContextEntry[] {
   const set = (ids: readonly string[] | null) => (ids === null ? null : ids.length === 0 ? none : ids.join(', '));
   const values: Record<ReturnContextKey, string | null> = {
     scope: global.scopeId,
     time: global.from !== null && global.to !== null ? `${minutes(global.from)} ~ ${minutes(global.to)}` : null,
     roomNames: set(global.roomNames),
-    condition: global.condition ? conditionLabel(global.condition) : null,
+    line: set(global.lineNames),
+    prcGroup: global.prcGroups === null ? null : set(global.prcGroups) + (global.membershipBasis === 'asOf' ? ` · ${asOf}` : ''),
+    condition: global.condition ? labelledCondition(global.condition, axes, lang) + (global.membershipBasis === 'asOf' ? ` · ${asOf}` : '') : null,
     selection: set(global.selection),
     lot: set(global.lotIds),
     ppid: global.ppid,
@@ -78,9 +80,9 @@ function participants(registry: Registry, canOpen: CanOpen, panes: readonly (Pan
 /** What a pane header shows about its Context against the other panes of the sheet. `compared` is false while it is the only content pane. */
 export type PaneSignal = { rows: ContextRow[]; differing: ContextRow[]; same: ContextRow[]; compared: boolean };
 
-export function paneSignals(registry: Registry, canOpen: CanOpen, panes: readonly (PaneScreen | null)[], none: string): (PaneSignal | null)[] {
+export function paneSignals(registry: Registry, canOpen: CanOpen, panes: readonly (PaneScreen | null)[], none: string, axes: readonly EquipmentAxisDescriptor[] = [], lang: 'ko' | 'en' = 'ko', asOf = ''): (PaneSignal | null)[] {
   const globals = participants(registry, canOpen, panes);
-  const values = globals.map(g => (g === null ? null : contextValues(g, none)));
+  const values = globals.map(g => (g === null ? null : contextValues(g, none, axes, lang, asOf)));
   return values.map((own, index) => {
     if (own === null) return null;
     const others = values.filter((v, i): v is ContextEntry[] => i !== index && v !== null);

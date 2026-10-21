@@ -27,7 +27,7 @@ const registry = createRegistry({
     // The row link's destination (audit-destination → equipment-detail); the admin manifests alone don't register it.
     id: 'equipment-detail', group: 'admin', label: { ko: '설비 상세', en: 'Equipment detail' }, description: { ko: '', en: '' },
     path: '/admin/fixture-detail/:equipmentId', icon: House, permission: 'platform:view', requiresScope: true, pageType: 'catalog',
-    context: { time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' },
+    context: { time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' },
     features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], navHidden: true,
   }],
 });
@@ -64,7 +64,7 @@ function fixture(items: AuditEvent[] = [], options?: { filterWindow?: boolean })
 function renderAudit(path: string, items: AuditEvent[] = [], options?: { filterWindow?: boolean }) {
   window.history.replaceState(null, '', path);
   const f = fixture(items, options);
-  render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><AuditTrail /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><AuditTrail /></PlatformProvider></I18nProvider>);
   return f;
 }
 
@@ -443,7 +443,7 @@ describe('AuditTrail draft + apply (ADR-0037)', () => {
       session: () => session,
       auditTrail: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }) satisfies ApiResponse<AuditTrailPage>,
     });
-    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><AuditTrail /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}><AuditTrail /></PlatformProvider></I18nProvider>);
     await screen.findByText(/조건에 맞는 결과가 없습니다|No matching result/);
     const clears = screen.getAllByRole('button', { name: /Clear filters|필터 초기화/ });
     expect(clears).toHaveLength(2);
@@ -591,3 +591,10 @@ describe('AuditTrail out-of-range page (#314)', () => {
     expect(f.calls.every(call => call.sort?.field === 'actor' && call.sort.desc === true)).toBe(true);
   });
 });
+
+const equipmentAxes = [
+  { id: 'stgroup', label: { ko: 'StGroup', en: 'StGroup' }, membershipHistory: false },
+  { id: 'team', label: { ko: '분임조', en: 'Team' }, membershipHistory: false },
+  { id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false },
+  { id: 'model', label: { ko: 'Model', en: 'Model' }, membershipHistory: false, dependsOn: 'maker' },
+];

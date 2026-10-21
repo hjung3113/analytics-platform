@@ -5,7 +5,7 @@ import { equipmentMock } from './index';
 import { equipmentMakersEndpoint, equipmentPageEndpoint, equipmentExportEndpoint, type Equipment } from '../endpoints';
 
 const none: Record<ContextKey, Capability> = {
-  time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
+  time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
   lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
 };
 
@@ -28,7 +28,7 @@ const masterMenu: MenuMeta = {
 };
 
 const adapter = createMockAdapter({ endpoints: [...equipmentMock], registry: { menus: [masterMenu] } });
-const context = { scopeId: 'MEM', roomNames: null, condition: null, selection: null };
+const context = { scopeId: 'MEM', roomNames: null, condition: null, membershipBasis: null, selection: null };
 const engineerMem = EQUIPMENT.filter(e => e.site === 'MEM' && ['PHOTO', 'ETCH', 'CVD'].includes(e.room));
 const noFilter = { q: '', status: '', maker: '' };
 

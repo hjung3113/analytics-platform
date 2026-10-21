@@ -14,7 +14,7 @@ import {
  * manifest(`menus/analytics/analytics/src/index.ts`)를 바꾸면 여기도 같이 바꾼다.
  */
 const none: Record<ContextKey, Capability> = {
-  time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported',
+  time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
   lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported',
 };
 const productivityMenu: MenuMeta = {
@@ -48,7 +48,7 @@ const executionMenu: MenuMeta = {
   requiresScope: true,
   context: {
     ...none,
-    time: 'reference', roomNames: 'reference', condition: 'reference', selection: 'reference',
+    time: 'reference', roomNames: 'reference', line: 'unsupported', prcGroup: 'unsupported', condition: 'reference', selection: 'reference',
     lot: 'reference', ppid: 'reference', recipe: 'reference', metric: 'reference',
   },
   pageType: 'analysis',
@@ -79,7 +79,7 @@ const TO = '2026-09-26T09:00:00';
 /** All applied keys, like projectContext sends: scope, period, and the current filters. */
 const context = {
   scopeId: 'MEM', from: FROM, to: TO, roomNames: ['PHOTO'],
-  condition: null, selection: null, ppid: null, recipeIds: null,
+  condition: null, membershipBasis: null, selection: null, ppid: null, recipeIds: null,
 };
 
 const previousRole = getRole();

@@ -6,7 +6,7 @@ import type { Capability } from '@ap/contracts';
 import { GlobalContextBar } from './GlobalContextBar';
 import { memoryStorage, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 
-const caps = { time: 'reference', roomNames: 'apply', condition: 'apply', selection: 'apply', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
+const caps = { time: 'reference', roomNames: 'apply', line: 'unsupported', prcGroup: 'unsupported', condition: 'apply', selection: 'apply', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const registryWith = (context: Record<keyof typeof caps, Capability>) => createRegistry({
   spaces: [testSpace()],
   groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }],
@@ -63,7 +63,7 @@ const visibleContextLabel = () => Array.from(bar().querySelectorAll('span'))
 function mount(extra = '', lang: 'ko' | 'en' = 'ko', period = true, menus = registry) {
   localStorage.setItem('platform:lang', lang);
   window.history.replaceState(null, '', `/?v=1&scopeId=MEM${period ? '&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00' : ''}${extra}`);
-  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={menus}><GlobalContextBar /></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={menus}><GlobalContextBar /></PlatformProvider></I18nProvider>);
 }
 function width(value: number) { act(() => { barWidth = value; resize?.(); }); }
 const inlineKeys = () => Array.from(bar().querySelectorAll('[data-context-key]'), el => el.getAttribute('data-context-key'));
@@ -290,7 +290,7 @@ describe('링크 복사 reports success only after the clipboard write (#300)', 
   function mountWithToasts() {
     localStorage.setItem('platform:lang', 'ko');
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
-    return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><GlobalContextBar /><ToastProbe /></PlatformProvider></I18nProvider>);
+    return render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}><GlobalContextBar /><ToastProbe /></PlatformProvider></I18nProvider>);
   }
 
   const copyLink = () => within(bar()).getByRole('button', { name: '링크 복사' });
@@ -338,7 +338,7 @@ describe('Condition editor exposes choices as a radio group (#301)', () => {
   const mountCondition = (condition: string | null) => {
     localStorage.setItem('platform:lang', 'ko');
     window.history.replaceState(null, '', `/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&selectedEquipmentIds=E1${condition ? `&equipmentGroup=${encodeURIComponent(condition)}` : ''}`);
-    return render(<I18nProvider><PlatformProvider adapter={conditionAdapter} registry={registry}><GlobalContextBar /></PlatformProvider></I18nProvider>);
+    return render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={conditionAdapter} registry={registry}><GlobalContextBar /></PlatformProvider></I18nProvider>);
   };
   const openConditionEditor = async () => {
     fireEvent.click(within(bar()).getByRole('button', { name: /설비 그룹 조건/ }));
@@ -365,7 +365,7 @@ describe('Condition editor exposes choices as a radio group (#301)', () => {
     expect(within(bar()).getByRole('button', { name: '설비 그룹 조건 없음' })).toBeVisible();
     expect(url().has('equipmentGroup')).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: '적용' }));
-    await vi.waitFor(() => expect(url().get('equipmentGroup')).toBe('{"axis":"stgroup","id":"st-02"}'));
+    await vi.waitFor(() => expect(url().get('equipmentGroup')).toBe('{"stgroup":["st-02"]}'));
     expect(within(bar()).getByRole('button', { name: '설비 그룹 조건 StGroup: st-02' })).toBeVisible();
     expect(url().get('selectedEquipmentIds')).toBe('E1');
   });
@@ -388,5 +388,58 @@ describe('Condition editor exposes choices as a radio group (#301)', () => {
     await vi.waitFor(() => expect(url().has('equipmentGroup')).toBe(false));
     expect(url().get('selectedEquipmentIds')).toBe('E1');
     expect(within(bar()).getByRole('button', { name: '설비 그룹 조건 없음' })).toBeVisible();
+  });
+});
+
+describe('multi-axis summary compatibility (#552)', () => {
+  it('shows descriptor labels and offers only Clear for a condition the legacy editor cannot represent', async () => {
+    mount(`&equipmentGroup=${encodeURIComponent(JSON.stringify({ stgroup: ['A', 'B'], team: ['T1'] }))}`);
+    const chip = within(bar()).getByRole('button', { name: /설비 그룹 조건 StGroup: A, B · 분임조: T1/ });
+    fireEvent.click(chip);
+    expect(await screen.findByRole('button', { name: '지우기' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: '적용' })).toBeNull();
+    expect(screen.queryByRole('radio', { name: 'StGroup' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '지우기' }));
+    expect(new URLSearchParams(window.location.search).has('equipmentGroup')).toBe(false);
+  });
+});
+
+const equipmentAxes = [
+  { id: 'stgroup', label: { ko: 'StGroup', en: 'StGroup' }, membershipHistory: false },
+  { id: 'team', label: { ko: '분임조', en: 'Team' }, membershipHistory: false },
+  { id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false },
+  { id: 'model', label: { ko: 'Model', en: 'Model' }, membershipHistory: false, dependsOn: 'maker' },
+];
+
+describe('Maker+Model map compatibility (#552)', () => {
+  it('reopens the v1 pair with the same checked option and writes the split map', async () => {
+    const choices = vi.spyOn(adapter, 'contextOptions').mockResolvedValue({ stgroup: [], team: [], makerModel: [{ maker: 'X', model: 'Y' }] });
+    mount(`&equipmentGroup=${encodeURIComponent(JSON.stringify({ axis: 'makerModel', maker: 'X', model: 'Y' }))}&selectedEquipmentIds=E1`);
+    fireEvent.click(within(bar()).getByRole('button', { name: /설비 그룹 조건 Maker: X · Model: Y/ }));
+    expect(await screen.findByRole('radio', { name: 'X / Y' })).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: '적용' }));
+    expect(new URLSearchParams(window.location.search).get('equipmentGroup')).toBe('{"maker":["X"],"model":["Y"]}');
+    expect(new URLSearchParams(window.location.search).get('selectedEquipmentIds')).toBe('E1');
+    choices.mockRestore();
+  });
+  it('shows carried Line and PRC and removes an orphaned basis with the last PRC group', () => {
+    mount('&lineNames=L&prcGroups=P&membershipBasis=asOf');
+    expect(within(bar()).getAllByText('L').some(el => !el.closest('[data-context-measuring]'))).toBe(true);
+    expect(within(bar()).getAllByText('P · 그 시점 소속').some(el => !el.closest('[data-context-measuring]'))).toBe(true);
+    const remove = within(bar()).getByRole('button', { name: '지우기 PRC 그룹' });
+    fireEvent.click(remove);
+    expect(new URLSearchParams(window.location.search).has('membershipBasis')).toBe(false);
+    expect(new URLSearchParams(window.location.search).get('lineNames')).toBe('L');
+  });
+});
+
+describe('lossless legacy pair values (#552)', () => {
+  it('keeps both IDs when different pairs have the same display label', async () => {
+    vi.spyOn(adapter, 'contextOptions').mockResolvedValue({ stgroup: [], team: [], makerModel: [{ maker: 'X / Y', model: 'Z' }, { maker: 'X', model: 'Y / Z' }] });
+    mount(`&equipmentGroup=${encodeURIComponent(JSON.stringify({ maker: ['X'], model: ['Y / Z'] }))}`);
+    fireEvent.click(within(bar()).getByRole('button', { name: /설비 그룹 조건 Maker: X · Model: Y \/ Z/ }));
+    await screen.findAllByRole('radio', { name: 'X / Y / Z' });
+    fireEvent.click(screen.getByRole('button', { name: '적용' }));
+    expect(new URLSearchParams(window.location.search).get('equipmentGroup')).toBe('{"maker":["X"],"model":["Y / Z"]}');
   });
 });

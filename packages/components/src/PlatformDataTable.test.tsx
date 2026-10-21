@@ -40,7 +40,7 @@ function makeLoadPage(total: number) {
 }
 
 function Harness(props: { page: number | null; sorting: PageSort[]; onChange: TableUrlState['onChange']; loadPage: PlatformDataTableProps<Row>['loadPage']; filterKey?: string }) {
-  return <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+  return <I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}>
     <PlatformDataTable
       title="T" ariaLabel="table" columns={columns} getRowId={r => r.id}
       loadPage={props.loadPage} filterKey={props.filterKey ?? 'f'} preferenceKey="test-table"
@@ -51,7 +51,7 @@ function Harness(props: { page: number | null; sorting: PageSort[]; onChange: Ta
 }
 
 function UncontrolledHarness(props: { loadPage: PlatformDataTableProps<Row>['loadPage'] }) {
-  return <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+  return <I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}>
     <PlatformDataTable
       title="T" ariaLabel="table" columns={columns} getRowId={r => r.id}
       loadPage={props.loadPage} filterKey="f" preferenceKey="test-table" pageSize={25} height={200}
@@ -119,7 +119,7 @@ describe('PlatformDataTable out-of-range page clamp (#314)', () => {
   const keptSort: PageSort[] = [{ id: 'status', desc: true }];
 
   function ClampHarness(props: { page: number | null; onChange: TableUrlState['onChange']; loadPage: PlatformDataTableProps<Row>['loadPage'] }) {
-    return <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+    return <I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}>
       <PlatformDataTable
         title="T" ariaLabel="table" columns={columns} getRowId={r => r.id}
         loadPage={props.loadPage} filterKey="f" preferenceKey="test-table-clamp"
@@ -445,7 +445,7 @@ describe('PlatformDataTable active row marker (06 §26: never color alone)', () 
     ['without an action column', false],
     ['with a trailing action column', true],
   ])('marks the active row with aria-current, one scroll-pinned bar and weight on the first data cell (%s)', async (_name, withAction) => {
-    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}>
       <PlatformDataTable
         title="T" ariaLabel="table" columns={columns} getRowId={r => r.id}
         loadPage={makeLoadPage(3)} filterKey="f" preferenceKey={withAction ? 'test-table-active-action' : 'test-table-active'} pageSize={25} height={200}
@@ -529,7 +529,7 @@ describe('PlatformColumn conversion defaults (#160)', () => {
     const loadPage = vi.fn(async (): Promise<ApiResponse<PageResult<Plain>>> => ({
       outcome: 'ok', data: { rows: plainRows, total: plainRows.length }, assessments: [], trust: null, correlationId: 'c',
     }));
-    return <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+    return <I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}>
       <PlatformDataTable<Plain>
         title="T" ariaLabel="table" columns={plainColumns} getRowId={r => r.id}
         loadPage={loadPage} filterKey="f" preferenceKey="plain-table" pageSize={25} height={200}
@@ -712,7 +712,7 @@ function ExportHarness(props: {
   probe?: ReactNode;
   columns?: PlatformDataTableProps<Row>['columns'];
 }) {
-  return <I18nProvider><PlatformProvider adapter={adapter} registry={props.registry ?? exportRegistry}>
+  return <I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={props.registry ?? exportRegistry}>
     <PlatformDataTable<Row>
       title="T" ariaLabel="table" columns={props.columns ?? columns} getRowId={r => r.id}
       loadPage={props.loadPage} filterKey={props.filterKey ?? 'f'} preferenceKey="test-export-table"
@@ -785,7 +785,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
   beforeEach(() => { downloads.length = 0; });
   it('shows the button only when exportRows is given AND the manifest declares features.export', async () => {
     const loadPage = makeLoadPage(3);
-    const { unmount } = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+    const { unmount } = render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}>
       <PlatformDataTable<Row> title="T" ariaLabel="table" columns={columns} getRowId={r => r.id}
         loadPage={loadPage} filterKey="f" preferenceKey="test-export-table" pageSize={25} height={200}
         exportRows={(_request, _signal) => Promise.resolve(ok([]))} />
@@ -1083,7 +1083,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
   it('조회 정보 carries the menu’s filter summary and the applied global Context keys, readably (P2-3)', async () => {
     const initial = {
       roomNames: ['PHOTO', 'ETCH'],
-      condition: { axis: 'stgroup', id: 'Etch-A' } as GlobalContext['condition'],
+      condition: { stgroup: ['Etch-A'] } as GlobalContext['condition'],
       selection: Array.from({ length: 12 }, (_, i) => `EQ-${i}`),
       lotIds: ['LOT-1'],
       ppid: 'PP-9',
@@ -1226,7 +1226,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
       loadPage={makeLoadPage(3)}
       exportRows={vi.fn(async () => ok([{ id: 'r1', status: 'a' }], { updatedAt: '2026-10-02T09:00:00+09:00', dataThrough: '2026-10-02T08:00:00+09:00', coverage: 0.5, metricVersion: '1', provisional: false, source: 'mart' }))}
       exportFilterSummary={[['Search', 'etch']]}
-      probe={<><SetLangEn /><GlobalControls initial={{ lotIds: ['LOT-1', 'LOT-2'], condition: { axis: 'team', id: 'T1' } as GlobalContext['condition'] }} /></>}
+      probe={<><SetLangEn /><GlobalControls initial={{ lotIds: ['LOT-1', 'LOT-2'], condition: { team: ['T1'] } as GlobalContext['condition'] }} /></>}
     />);
     await screen.findByText(/1\/1/);
     await waitFor(() => expect(screen.getByRole('button', { name: 'bump-ppid' })).toBeTruthy());
@@ -1387,7 +1387,7 @@ describe('Action DOM identity (#296)', () => {
   it('preserves the action button node when a parent supplies a fresh rowAction', async () => {
     const loadPage = makeLoadPage(1);
     function Parent({ label }: { label: string }) {
-      return <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+      return <I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}>
         <PlatformDataTable title="T" ariaLabel="table" preferenceKey="test-table" columns={columns} getRowId={r => r.id} loadPage={loadPage} filterKey="f" height={200}
           rowAction={row => <button>{label} {row.id}</button>} />
       </PlatformProvider></I18nProvider>;
@@ -1424,7 +1424,7 @@ describe('Action DOM identity (#296)', () => {
           rowAction={row => <button onClick={() => setOpen(true)}>보기 {row.id}</button>} />}
         drawer={open && <DetailDrawer title="상세" onClose={() => setOpen(false)} tabs={[{ id: 'a', label: '속성', content: '내용' }]} />} /></section>;
     }
-    const view = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+    const view = render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}>
       <DetailPanelSlotProvider><Fixture /><Host /></DetailPanelSlotProvider>
     </PlatformProvider></I18nProvider>);
     const opener = await screen.findByRole('button', { name: '보기 r1' });
@@ -1525,3 +1525,10 @@ describe('same-Context refresh keeps rows unfaded (#301)', () => {
     expect(screen.getByText('s1-0')).toBeTruthy();
   });
 });
+
+const equipmentAxes = [
+  { id: 'stgroup', label: { ko: 'StGroup', en: 'StGroup' }, membershipHistory: false },
+  { id: 'team', label: { ko: '분임조', en: 'Team' }, membershipHistory: false },
+  { id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false },
+  { id: 'model', label: { ko: 'Model', en: 'Model' }, membershipHistory: false, dependsOn: 'maker' },
+];

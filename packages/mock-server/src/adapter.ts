@@ -5,6 +5,7 @@
  */
 import type { AuditEvent, ContextKey, MenuMeta, PlatformAdapter, Session } from '@ap/contracts';
 import { instantEpochMs } from '@ap/contracts';
+import { contextShapeError } from './context-validation';
 import { checkScope, getEntity, getRole, matchesCondition, recordUsage, reportClientError, subscribeServer, usageSummary, validateScope } from './server';
 import { AUDIT_TYPES, auditTrail, entityAudit } from './audit';
 import { AUDIT_EVENTS } from './audit-fixtures';
@@ -14,7 +15,7 @@ import { DEFAULT_RANGE_TO, EQUIPMENT, PUBLISHED_METRICS, SITES, USERS, type Role
 import { MockRegistrationError, serveEndpoint, type AnyMockEndpoint } from './endpoints';
 import { serveAction, type AnyMockAction } from './actions';
 
-const siteBoundContextKeys = new Set<ContextKey>(['roomNames', 'condition', 'selection', 'lot', 'recipe', 'ppid']);
+const siteBoundContextKeys = new Set<ContextKey>(['roomNames', 'line', 'prcGroup', 'condition', 'selection', 'lot', 'recipe', 'ppid']);
 
 /** Short async hop so the shell exercises its loading path, as it would against a real server. */
 function pause(signal?: AbortSignal, ms = 80) {
@@ -143,13 +144,17 @@ export function createMockAdapter(o: {
         makerModel: [...makerModel.values()].sort((a, b) => `${a.maker}${a.model}`.localeCompare(`${b.maker}${b.model}`)),
       };
     },
-    evaluateSelection: async ({ scopeId, roomNames, condition, selection }, signal) => {
+    evaluateSelection: async ({ scopeId, roomNames, lineNames, prcGroups, membershipBasis, condition, selection }, signal) => {
       const role = getRole();
       await pause(signal);
+      const invalidContext = contextShapeError({ roomNames, lineNames, prcGroups, membershipBasis, condition, selection });
+      if (invalidContext) throw new Error(invalidContext);
+      if (membershipBasis === 'asOf' && condition !== null) throw new Error('membership_basis_unsupported');
+      // PRC-only asOf uses current membership in this mock (no history data).
       // Grants come from the session on the server, not from anything the client sends.
       const granted = checkScope(role, scopeId).grantedRooms;
       const inCondition = EQUIPMENT
-        .filter(e => e.site === scopeId && granted.includes(e.room) && (roomNames === null || roomNames.includes(e.room)) && matchesCondition(e, condition))
+        .filter(e => e.site === scopeId && granted.includes(e.room) && (roomNames === null || roomNames.includes(e.room)) && (lineNames === null || lineNames.includes(e.line)) && (prcGroups === null || prcGroups.includes(e.prcGroup)) && matchesCondition(e, condition))
         .map(e => ({ equipmentId: e.equipmentId, room: e.room, model: e.model }));
       const outOfCondition = (selection ?? []).filter(id => !inCondition.some(e => e.equipmentId === id));
       return { inCondition, outOfCondition };
