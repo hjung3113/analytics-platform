@@ -195,18 +195,18 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 | O6 | FeedbackOps git 이력 보존 방식(subtree 병합 권장) | #592 |
 | O7 | 업무 시스템 이름(`피드백 운영` Candidate) | #595 시안 |
 | O8 | 린터(Biome·ESLint)·테스트 설정·비주얼 하니스(darwin 전용)·백엔드 통합 테스트 DB를 이 저장소 CI에 넣는 방식 | #592 |
-| O9 | 권한 이름 매핑: FeedbackOps capability(점 표기, Managed System 범위)를 `Session.user.permissions`·`AccessPrincipal.permissions`에 어떻게 싣나. `console:access`의 원천(`workspace.admin` 또는 새 capability) | #596 질문 2, 06 §17 |
-| O10 | 분석 데이터 서버가 없는 동안(O4) 부트스트랩 필수 필드 `publishedMetrics`·`defaultRangeTo`를 무엇으로 채우나(빈 배열·서버 시계) | #593 임시 결정, [HTTP 어댑터 계약](http-adapter-contract.md) §3 |
-| O11 | `Session.scopes`와 site·room 부여를 어디에 저장하나(FeedbackOps DB의 새 표 또는 별도 meta DB). Scope(site)와 Managed System이라는 두 범위 용어 | #596 질문 1(O3), #98, O4 |
-| O12 | 한 서버의 두 오류 규약: 플랫폼 경로는 200 envelope, FeedbackOps 경로는 FO ADR-0012. 오류 처리기를 경로별로 나눌지. 413을 422로 바꾸는 동작. 전송 계약의 FastAPI 문구를 Fastify 기준으로 고치기 | #593, HTTP 어댑터 계약 §2 |
-| O13 | FeedbackOps API를 `/api/v1/feedbackops/...`로 옮길지(화면 경로 `/vocs` 등과의 충돌 제거) | #593, #597(옛 URL) |
-| O14 | CSRF 토큰을 플랫폼 경로에만 걸지, FeedbackOps 변경 경로 전체에 걸지. 같은 출처가 되면 SameSite만으로 충분한지 | #593, #150, HTTP 어댑터 계약 §10 Q8 |
+| O9 | 권한 이름 매핑: FeedbackOps capability(점 표기, Managed System 범위)를 `Session.user.permissions`·`AccessPrincipal.permissions`에 어떻게 싣나. `console:access`의 원천(`workspace.admin` 또는 새 capability) | #596 질문 2, 06 §17 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 7** |
+| O10 | 분석 데이터 서버가 없는 동안(O4) 부트스트랩 필수 필드 `publishedMetrics`·`defaultRangeTo`를 무엇으로 채우나(빈 배열·서버 시계) | #593 임시 결정, [HTTP 어댑터 계약](http-adapter-contract.md) §3 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 8** |
+| O11 | `Session.scopes`와 site·room 부여를 어디에 저장하나(FeedbackOps DB의 새 표 또는 별도 meta DB). Scope(site)와 Managed System이라는 두 범위 용어 | #596 질문 1(O3), #98, O4 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 8(임시)** |
+| O12 | 한 서버의 두 오류 규약: 플랫폼 경로는 200 envelope, FeedbackOps 경로는 FO ADR-0012. 오류 처리기를 경로별로 나눌지. 413을 422로 바꾸는 동작. 전송 계약의 FastAPI 문구를 Fastify 기준으로 고치기 | #593, HTTP 어댑터 계약 §2 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 2(일부)** |
+| O13 | FeedbackOps API를 `/api/v1/feedbackops/...`로 옮길지(화면 경로 `/vocs` 등과의 충돌 제거) | #593, #597(옛 URL) — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 3(#594로 미룸)** |
+| O14 | CSRF 토큰을 플랫폼 경로에만 걸지, FeedbackOps 변경 경로 전체에 걸지. 같은 출처가 되면 SameSite만으로 충분한지 | #593, #150, HTTP 어댑터 계약 §10 Q8 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 4** |
 | O15 | rate limit: 5분 폴링·위젯 여럿·`recordUsage`가 Actor 100/분, read 300/분 안에 드는지, 플랫폼 경로 묶음을 새로 둘지 | #593 측정 |
-| O16 | 감사 읽기 노출 범위: FeedbackOps event → `AuditAction` 매핑, `console:access`가 볼 detail의 범위(사유·설문·이메일), `subject_id` text 전환·`scope_id` 추가 migration | #593 + FeedbackOps 개인정보 규칙(FO ADR-0033·0066), 사용자 |
+| O16 | 감사 읽기 노출 범위: FeedbackOps event → `AuditAction` 매핑, `console:access`가 볼 detail의 범위(사유·설문·이메일), `subject_id` text 전환·`scope_id` 추가 migration | #593 + FeedbackOps 개인정보 규칙(FO ADR-0033·0066), 사용자 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 6** |
 | O17 | 적합성 묶음 시드 계정(권한 하나씩 뺀 계정, site 두 곳 계정, 다른 주석 작성자)을 mock 로그인 시드로 만들지 | #593 |
 | O18 | 체크리스트 §5 "#98 전에는 부여·회수 쓰기 없음"과 이미 구현된 FeedbackOps 부여·승인 쓰기(FO ADR-0066)의 충돌. 체크리스트를 고칠지, 쓰기를 FeedbackOps 범위로 한정할지 | #596 |
-| O19 | FeedbackOps 엔티티의 `EntityRef.scopeId`(`null` + 서버 안 Managed System 판정). 행이 있는지 드러나는 방식(Finding 404/403 대 플랫폼 `empty`/`forbidden`)을 맞출지 | 06 §22 소유자(사용자), #596 |
-| O20 | Correlation ID 헤더 이름과 Fastify `reqId`·로그 필드 `request_id`를 하나로 맞출지 | #151(사내 표준), #593 |
+| O19 | FeedbackOps 엔티티의 `EntityRef.scopeId`(`null` + 서버 안 Managed System 판정). 행이 있는지 드러나는 방식(Finding 404/403 대 플랫폼 `empty`/`forbidden`)을 맞출지 | 06 §22 소유자(사용자), #596 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 9** |
+| O20 | Correlation ID 헤더 이름과 Fastify `reqId`·로그 필드 `request_id`를 하나로 맞출지 | #151(사내 표준), #593 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 5** |
 | O21 | 세션 만료: 지금은 12시간 고정이고 유휴 만료가 없다. #150 정책이 sliding이면 폴링을 활동에서 빼는 처리가 필요하다 | #150 |
 
 ## 8. 전환 기간
