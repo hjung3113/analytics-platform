@@ -94,12 +94,13 @@ SpaceDef | type | type SpaceDef = { description: @ap/contracts#Text; homeMenuId:
 SpaceId | type | type SpaceId = 'analytics' | 'clas' | 'improvement' | 'log-dev' | 'metrics' | 'operations'
 Text | type | type Text = { en: string; ko: string; }
 Trust | type | type Trust = { coverage: null | number; dataThrough: null | string; metricVersion?: string; provisional: boolean; source: string; updatedAt: string; }
-UsageEvent | type | type UsageEvent = { at: number; dwellMs?: number; enteredAt?: number; menuId: string; name: @ap/contracts#UsageEventName; path: string; sessionId: string; source?: @ap/contracts#UsageSource; spaceId: @ap/contracts#SpaceId | null; stayId?: string; }
+UsageEvent | type | type UsageEvent = { at: number; dwellMs?: number; enteredAt?: number; fromMenuId?: null | string; menuId: string; name: @ap/contracts#UsageEventName; path: string; sessionId: string; source?: @ap/contracts#UsageSource; spaceId: @ap/contracts#SpaceId | null; stayId?: string; via?: @ap/contracts#UsageVia; }
 UsageEventName | type | type UsageEventName = 'dwell' | 'entry'
 UsageMenuSummary | type | type UsageMenuSummary = { distinctUsers: number; lastUsedAt: number; menuId: string; visits: number; }
 UsageRange | type | type UsageRange = { from: number; to: number; } | { preset: 'all'; }
 UsageSource | type | type UsageSource = 'board' | 'main'
 UsageSummary | type | type UsageSummary = { menus: @ap/contracts#UsageMenuSummary[]; preset: 'all' | 'range'; }
+UsageVia | type | type UsageVia = 'board' | 'crossLink' | 'direct' | 'drill' | 'history' | 'link' | 'palette' | 'return' | 'sidebar' | 'switcher'
 bucketStart | function | function bucketStart(instant: string, grain: @ap/contracts#Grain): string
 buildFeedbackOpsLink | function | function buildFeedbackOpsLink(input: { origin: string; target: @ap/contracts#FeedbackOpsTarget; }): string
 buildPlatformInboundLink | function | function buildPlatformInboundLink(input: { context: @ap/contracts#GlobalContext; hop: @ap/contracts#PlatformHop; origin: string; returnTo?: string; }): string
