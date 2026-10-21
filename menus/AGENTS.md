@@ -1,6 +1,6 @@
 # menus/ — 메뉴 Consumer 패키지
 
-Registry 7개 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가 `manifests`를 선언하고, 앱(`apps/platform-web/src/menus.ts`)이 이어 붙여 Kernel에 등록한다. 메뉴 화면은 플랫폼 다섯 갈래(루트 `AGENTS.md`)를 검증하는 Consumer다.
+Registry 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가 `manifests`를 선언하고, 앱(`apps/platform-web/src/menus.ts`)이 이어 붙여 Kernel에 등록한다. 메뉴 화면은 플랫폼 다섯 갈래(루트 `AGENTS.md`)를 검증하는 Consumer다.
 
 | 패키지 | 폴더 | 그룹 | 화면 |
 | --- | --- | --- | --- |
@@ -11,6 +11,8 @@ Registry 7개 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가
 | `@ap/menu-metrics` | `menus/metrics/metrics` | `metrics` | MetricCatalog, MetricDetail |
 | `@ap/menu-notice-voc` | `menus/_global/notice-voc` | `noticeVoc` | MyVocHistory(내 VOC, #60 — 조회는 메뉴 엔드포인트 `noticeVoc.myVocHistory`·`mySurveyHistory`, #131) + 공지(계획) |
 | `@ap/menu-admin` | `menus/operations/admin` | `admin` | AccessDirectory(권한/역할 조회 전용, #49), AuditTrail(변경 감사, #50), UsageOverview, RegistryCatalog |
+| `@ap/menu-log-my-work`·`-log-models`·`-log-cross`·`-log-rules` | `menus/log-dev/*` | `logMyWork`·`logModels`·`logCross`·`logRules` | 없음(계획 메뉴 manifest만, ADR-0065) |
+| `@ap/menu-imp-my-work`·`-imp-tasks`·`-imp-reports` | `menus/improvement/*` | `impMyWork`·`impTasks`·`impReports` | 없음(계획 메뉴 manifest만, ADR-0065) |
 
 ## 규칙
 
@@ -29,6 +31,6 @@ Registry 7개 그룹마다 하나의 패키지(`@ap/menu-<group>`)다. 메뉴가
 
 ## 검증
 
-- `pnpm --filter @ap/menu-<group> test`로 좁혀 본 뒤 루트 검사(루트 `AGENTS.md`). `test` 스크립트(vitest)는 `@ap/menu-master-data`를 뺀 모든 메뉴 패키지에 있다. 화면이 바뀌면 `pnpm dev`로 브라우저에서 확인한다. lint상 `@ap/mock-server`를 import하는 메뉴 파일은 `src/mock/**`뿐이며, 테스트(`*.test.ts`)도 이 규칙의 면제 대상이 아니다.
+- `pnpm --filter @ap/menu-<group> test`로 좁혀 본 뒤 루트 검사(루트 `AGENTS.md`). `test` 스크립트(vitest)는 계획 메뉴만 가진 패키지(`@ap/menu-master-data`, `menus/log-dev/*`, `menus/improvement/*`)를 뺀 모든 메뉴 패키지에 있다. 화면이 바뀌면 `pnpm dev`로 브라우저에서 확인한다. lint상 `@ap/mock-server`를 import하는 메뉴 파일은 `src/mock/**`뿐이며, 테스트(`*.test.ts`)도 이 규칙의 면제 대상이 아니다.
 
 다음 단계: 화면 작성법은 [apps/platform-web README "페이지 작성 가이드"](../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙), 메뉴 선언 계약은 06 §5.

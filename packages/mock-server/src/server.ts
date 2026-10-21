@@ -332,7 +332,7 @@ export type StoredUsageEvent = UsageEvent & { userId: string; receivedAt: number
 
 const usageEvents: StoredUsageEvent[] = [];
 
-const SPACE_IDS = ['analytics', 'metrics', 'operations'] as const satisfies readonly SpaceId[];
+const SPACE_IDS = ['analytics', 'metrics', 'operations', 'log-dev', 'improvement'] as const satisfies readonly SpaceId[];
 
 function validSpaceId(spaceId: unknown): spaceId is SpaceId | null {
   return spaceId === null || (typeof spaceId === 'string' && (SPACE_IDS as readonly string[]).includes(spaceId));
