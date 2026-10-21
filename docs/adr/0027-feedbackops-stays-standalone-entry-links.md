@@ -1,6 +1,6 @@
 # FeedbackOps 화면은 옮기지 않고, 업무 공간에는 그 시스템으로 좁힌 진입 링크만 둔다
 
-상태: **Decided (2026-10-09)**. [ADR-0018](0018-feedbackops-stage2-screens-into-platform-menus.md)의 통합 깊이(화면을 플랫폼 메뉴로 이전)를 대체하고, [ADR-0026](0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)의 협업 진입·전체 허브를 링크로 좁힌다. 진입이 사이드바의 어디에 놓이는지는 #250 시안 컨펌으로 정한다.
+상태: **Superseded by [ADR-0066](0066-feedbackops-merges-into-platform.md) (2026-10-21)** — 진입 링크는 합류 단계 4까지 그대로 쓴다. 원 상태: **Decided (2026-10-09)**. [ADR-0018](0018-feedbackops-stage2-screens-into-platform-menus.md)의 통합 깊이(화면을 플랫폼 메뉴로 이전)를 대체하고, [ADR-0026](0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)의 협업 진입·전체 허브를 링크로 좁힌다. 진입이 사이드바의 어디에 놓이는지는 #250 시안 컨펌으로 정한다.
 - 결정자: 사용자 — #250 셸 시안을 보다가 정했다. VOC → Evidence → Finding → Task로 이어지는 흐름을 업무 시스템마다 구현하는 대신 FeedbackOps가 전담하고, 나머지 시스템은 거기에 연결되는 진입점만 갖는다.
 
 ADR-0018은 FeedbackOps 화면을 플랫폼 메뉴 패키지로 옮기고 백엔드만 도메인 API로 남기기로 했다. ADR-0026은 그 화면이 놓일 자리를 업무 공간마다의 협업 진입과 권한자용 전체 허브로 정했다. 업무 시스템이 넷(생산성 분석, 지표관리, 표준 로그 개발, 개선 실행)으로 늘면서, VOC → Evidence → Finding → Task Request/Task로 이어지는 FeedbackOps 흐름과 그 권한·상태 규칙을 플랫폼 화면으로 다시 만들어 시스템마다 붙이는 비용이 커졌다. 같은 흐름이 FeedbackOps 저장소에서 계속 개발되고 있어, 옮기면 화면이 두 벌이 된다.

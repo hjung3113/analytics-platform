@@ -88,6 +88,8 @@ git -C products/feedbackops diff --stat HEAD origin/develop
 
 ## FeedbackOps 통합 방식 (Decided, 2026-09-26)
 
+> **2026-10-21: FeedbackOps는 플랫폼에 합친다([ADR-0066](../adr/0066-feedbackops-merges-into-platform.md), [합류 설계](feedbackops-merge-design.md)).** 아래 1·2단계는 합류 단계 4까지의 전환 규칙으로만 유효하고, 서브모듈은 합류 단계 1(#592)에서 workspace 디렉터리가 된다.
+
 FeedbackOps는 플랫폼의 **공통 협업 서비스**다. 독립 앱으로 남고, 플랫폼은 각 업무 공간 안에 그 시스템으로 좁힌 진입 링크와 권한자용 전체 허브 링크를 둔다([ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md)([06 §9.1](../06_platform_ui_contract.md#91-워크스페이스-decided-2026-09-26), [ADR-0026](../adr/0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md)). 단계적으로 연결한다.
 
 1. **1단계 — 연결:** 원본 앱은 독립 실행을 유지한다. 공유 SSO·디자인 토큰, 서로의 Context를 넘기는 딥링크로 연결한다. 분석 공간의 사용자용 화면은 VOC 상태와 설문 응답 이력을 FeedbackOps API에서 **읽기 전용**으로 조회한다. **VOC 등록과 설문 응답 제출(쓰기)은 1단계에서 FeedbackOps 원본 화면으로 딥링크한다(Decided, 2026-09-27)** — 플랫폼 화면 안의 쓰기는 두지 않는다(ADR-0027). 사용자에게 보이는 상태와 내부 처리 상태를 자동으로 연결하지 않는 FeedbackOps 원칙(ADR-0005)을 그대로 따른다.

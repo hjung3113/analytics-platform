@@ -13,7 +13,7 @@
 | 5. 디자인 시스템 (M2) | **완료** — v0.1.0, 후속 #218·#156 v0.2.0, FeedbackOps 모양·크기 정리와 디자인 lint 위반 0(#228) v0.3.0, 표 컬럼 설정(#239) v0.4.0, 페이지 필터 줄 접기(#230) v0.6.0 |
 | 6. FeedbackOps 1단계 (M3) | 대부분 완료. 남은 4개는 FeedbackOps·사내 SSO 답 대기 |
 | 7. 사내 적용 (M4) | 플랫폼 쪽 준비 끝. 사내 답 대기 — 지도 #157 |
-| 8. FeedbackOps 2단계 (M5) | 화면은 옮기지 않고 공간별 진입 링크만 둔다(ADR-0027, 2026-10-09). 매핑(#81)과 셸·Registry 확장(#250) 뒤 — 지도 #213 |
+| 8. FeedbackOps 합류 (M6) | 플랫폼에 합친다 — 전역 기능 + `피드백 운영` 업무 시스템, 서버는 FeedbackOps 백엔드에서 출발, 독립 앱 은퇴(ADR-0066, 2026-10-21, M5 대체) — 지도 #598 |
 | 9. 멀티 워크스페이스 셸 | **완료** — v0.5.0(#250, ADR-0026·0027·0028), 공간 진입·메뉴 열기 판정 Kernel화(#264) v0.6.0 |
 
 ## 다음 할 일
@@ -75,7 +75,9 @@
 | 6 | 셸 탑재 구조 재검토 — 시스템 전환기 + 시스템별 레일, FeedbackOps는 이동·미리 채움·복귀([ADR-0042](../docs/adr/0042-system-switcher-and-system-owned-rail.md), 사양 [15 §3.2](../docs/15_multi_workspace_ui.md#32-시스템별-레일-decided-2026-10-19-adr-0042)). A–D 시안 UX 리뷰가 D + A 연결을 권함 | 화면 Decided(2026-10-19, 전환기 A안, 사례 조사 [docs/research](../docs/research/2026-10-18-app-switcher-patterns.md)) — 구현 #423 완료(#426) |
 | 7 | 분석 보드(#421, [16](../docs/16_analysis_board.md)): 하단 시트 탭·그리드 칸·칸별 조건 | 1차 동작 Decided(사용자 2026-10-19, ADR-0049 분석 Context는 칸 단위), 칸 머리·선택 표시 Decided(ADR-0051). #496·#497·#498 완료 — 분석 보드 1차 구현 완료. 서버 저장·공유는 보류 |
 
-## 그 다음 — FeedbackOps 2단계 (M5, 지도 #213)
+## 그 다음 — FeedbackOps 합류 (M6, 지도 #598)
+
+> 2026-10-21: [ADR-0066](../docs/adr/0066-feedbackops-merges-into-platform.md)이 아래 M5 계획(ADR-0027)을 대체했다. 단계는 [합류 설계](../docs/integration/feedbackops-merge-design.md) §6: #592 저장소 → #593 실서버 → #594 전역 기능·#595 피드백 운영 시스템 → #597 독립 앱 은퇴, 결정 대기 #596(권한·업무 시스템, ready-for-human). 사내 확인 #150·#151은 병행. 아래 M5 서술은 전환 기간의 진입 링크 기록으로만 남는다.
 
 FeedbackOps 화면은 플랫폼으로 옮기지 않는다. FeedbackOps가 VOC → Evidence → Finding → Task 흐름을 전담하고, 각 업무 공간은 그 시스템으로 좁힌 진입 링크만 둔다([ADR-0027](../docs/adr/0027-feedbackops-stays-standalone-entry-links.md), ADR-0018 대체). 남은 일은 매핑과 링크 계약이다.
 

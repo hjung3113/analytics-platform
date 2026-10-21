@@ -37,4 +37,4 @@ Run `gh issue view <number> --comments`.
 
 ## Milestones
 
-Milestones are the progress authority per track (`M1 플랫폼 기능 기반`, `M2 디자인 시스템`, `M3 FeedbackOps 1단계`, `M4 사내 적용`, `M5 FeedbackOps 2단계`(지도 #213)). The at-a-glance board is `.planning/README.md`.
+Milestones are the progress authority per track (`M1 플랫폼 기능 기반`, `M2 디자인 시스템`, `M3 FeedbackOps 1단계`, `M4 사내 적용`, `M5 FeedbackOps 2단계`(지도 #213, ADR-0066이 대체), `M6 FeedbackOps 합류`(지도 #598)). The at-a-glance board is `.planning/README.md`.
