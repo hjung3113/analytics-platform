@@ -5,7 +5,7 @@ import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineEndpoint, type ApiResponse, type EndpointSpec, type MenuQuery, type PlatformAdapter, type Session, type UsageEvent } from '@ap/contracts';
 import { I18nProvider } from './i18n';
-import { PaneScreenProvider, PlatformProvider, usePlatform, type PaneScreen } from './platform';
+import { PaneQueryDraftProvider, PaneScreenProvider, PlatformProvider, usePlatform, type PaneScreen } from './platform';
 import { useMenuFetch, useMenuQuery } from './query';
 import { createRegistry } from './registry';
 import { noContext, testAdapter, testSession, testSpace } from './testing';
@@ -556,4 +556,35 @@ describe('selection metadata screen ownership', () => {
     expect(calls.filter(id => id === 'A')).toHaveLength(2);
     expect(calls.filter(id => id === 'MEM')).toHaveLength(1);
   });
+});
+it('shares history initialization between the two pane providers but keeps another same-menu pane independent', async () => {
+  const applyMenu = { ...entry('history', '/history'), primary: true, query: { mode: 'apply' as const }, context: apply };
+  const chosen = createRegistry({ spaces: [testSpace({ homeMenuId: 'history' })], groups: [registry.groups[0]], menus: [applyMenu] });
+  const session = testSession(['platform:view']);
+  const list = vi.fn(async () => [{ id: 'last', query: `?v=1&${window1}&tab=last`, schemaVersion: 1 as const, lastAppliedAt: 1, count: 1 }]);
+  const record = vi.fn(async () => {});
+  const store = { list, record, remove: async () => {}, clear: async () => {} };
+  const initial = { menuId: 'history', params: {}, query: '' };
+  function Board({ editor }: { editor: boolean }) {
+    const [a, setA] = useState(initial); const [b, setB] = useState(initial);
+    return <PaneQueryDraftProvider screens={{ a, b }}>
+      <PaneScreenProvider paneId="a" screen={a} onChange={setA} onLeave={() => {}}><Probe id="history-body" /></PaneScreenProvider>
+      {editor && <PaneScreenProvider paneId="a" screen={a} onChange={setA} onLeave={() => {}} countUsage={false}><Probe id="history-editor" /></PaneScreenProvider>}
+      <PaneScreenProvider paneId="b" screen={b} onChange={setB} onLeave={() => {}}><Probe id="history-other" /></PaneScreenProvider>
+    </PaneQueryDraftProvider>;
+  }
+  const adapter = testAdapter({ session: () => session });
+  const tree = (editor: boolean) => <I18nProvider><PlatformProvider registry={chosen} adapter={adapter} queryHistory={store}><Board editor={editor} /></PlatformProvider></I18nProvider>;
+  const view = render(tree(true));
+  await act(async () => {});
+  expect(at('history-body').queryDraft.draft.page).toEqual([['tab', 'last']]);
+  expect(at('history-editor').queryDraft.draft.page).toEqual([['tab', 'last']]);
+  act(() => at('history-body').queryDraft.setDraftPage({ tab: 'edited' }));
+  expect(at('history-other').queryDraft.draft.page).toEqual([['tab', 'last']]);
+  view.rerender(tree(false)); view.rerender(tree(true));
+  expect(at('history-editor').queryDraft.draft.page).toEqual([['tab', 'edited']]);
+  expect(record).not.toHaveBeenCalled();
+  act(() => at('history-editor').queryDraft.apply());
+  await act(async () => {});
+  expect(record).toHaveBeenCalledTimes(1);
 });

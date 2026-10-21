@@ -19,3 +19,10 @@ it('shares menu diagnostics across body/bar providers for one pane and clears th
   tree.rerender(<View publish={false} selected="p1" />);
   expect(screen.getByText('no extension')).toBeTruthy();
 });
+it('preserves the pure historical formatter when sharing extension metadata between pane providers', async () => {
+  const formatter = (_global: unknown, page: readonly [string, string][]) => [{ key: 'grain', label: '집계', value: page[0]?.[1] ?? 'hour' }];
+  function Publisher() { usePublishQueryBarExtension({ pageSummary: [], issues: [], historyPageSummary: formatter }); return null; }
+  function Reader() { const extension = useQueryBarExtension(); return <p>{extension?.historyPageSummary?.({} as never, [['grain', 'historical-day']])[0]?.value ?? 'waiting'}</p>; }
+  render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter()}><QueryBarExtensionsProvider><Pane id="p1"><Publisher /></Pane><Pane id="p1"><Reader /></Pane></QueryBarExtensionsProvider></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(screen.getByText('historical-day')).toBeTruthy());
+});

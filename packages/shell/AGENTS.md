@@ -30,4 +30,4 @@ App Shell(06 §8–9, 화면 설계 [07](../../docs/07_app_shell_wireframe.md)).
 
 `pnpm --filter @ap/shell test`(경계 단위 테스트)로 좁혀 본 뒤 루트 검사(루트 `AGENTS.md`)에 더해 `pnpm dev`로 사이드바·레일·Context Bar·역할 전환 후 메뉴 노출을 직접 확인.
 
-- Apply-mode menus mount `QueryBar.tsx` through `GlobalContextBar` before any legacy metadata effects. It consumes Kernel draft/selection ports and components-owned summary/extension metadata; never import menu axes or parsers. Main editors are inline; pane editors use an anchored panel within the existing 48px row. `historySlot` is reserved and unused. Test `QueryBar.test.tsx`; preserve live fixtures.
+- Apply-mode menus mount `QueryBar.tsx` through `GlobalContextBar` before any legacy metadata effects. It consumes Kernel draft/selection ports and components-owned summary/extension metadata; never import menu axes or parsers. Main editors are inline; pane editors use an anchored panel within the existing 48px row. `historySlot`은 `GlobalContextBar`가 `QueryHistoryControl`로 채운다. 검증된 행만 실제값을 요약하며 선택은 초안만 복원하고 삭제·모두 지우기 확인·키보드 포커스를 제공한다(06 §11). Test `QueryBar.test.tsx`; preserve live fixtures.

@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowRight, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
-import { periodHours, type Trust } from '@ap/contracts';
+import { periodHours, type GlobalContext, type Pair, type Trust } from '@ap/contracts';
 import { type PageProps, PlatformLink, invalidValueSentence, useI18n, useMenuFetch, useMenuQuery, useQueryDraft, usePlatform } from '@ap/kernel';
 import { AnalysisLayout, RowAction, AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type Delta, type PlatformColumn, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
@@ -16,9 +16,37 @@ import {
 
 const NO_PARAMS = {};
 
+function summaryFor(global: GlobalContext, page: readonly Pair[], lang: 'ko' | 'en') {
+  const ko = lang === 'ko';
+  const raw = (key: string) => page.find(([k]) => k === key)?.[1] ?? null;
+  const grain = resolveGranularity(raw('granularity'), periodHours(global));
+  const tail = resolveTail(raw('percentile'));
+  const sort = parseSortParam(raw('sort'));
+  const grainFieldLabel = ko ? '집계' : 'Grain';
+  const grainLabel = { hour: ko ? '시간' : 'Hour', day: ko ? '일' : 'Day', week: ko ? '주' : 'Week' };
+  const tailFieldLabel = cycleTailFilterLabel(lang);
+  const tailOptions = [{ value: 'p95', label: '≥ P95' }, { value: 'p50', label: '≥ P50' }, { value: 'all', label: ko ? '전체 실행' : 'All executions' }];
+  const sortFieldLabel = ko ? '정렬' : 'Sort';
+  const sortOptions = [
+    { value: 'cycleMin:desc', label: ko ? '사이클타임 내림차순' : 'Cycle time descending' },
+    { value: 'cycleMin:asc', label: ko ? '사이클타임 오름차순' : 'Cycle time ascending' },
+    { value: 'delta:desc', label: ko ? 'P95 대비 내림차순' : 'vs P95 descending' },
+    { value: 'anchor:desc', label: ko ? '시작 최신' : 'Start newest' },
+    { value: 'anchor:asc', label: ko ? '시작 오래된' : 'Start oldest' },
+    { value: 'equipmentId:asc', label: 'Equipment A→Z' },
+  ];
+  const unknownRaw = (value: string | null) => ko ? `이 화면에서 쓸 수 없는 값: ${value ?? ''}` : `Not a value this page can use: ${value ?? ''}`;
+  return [
+    { key: 'granularity', label: grainFieldLabel, value: grain.ok ? grainLabel[grain.value] : unknownRaw(raw('granularity')) },
+    { key: 'percentile', label: tailFieldLabel, value: tail.ok ? tailOptions.find(option => option.value === tail.value)?.label ?? tail.value : unknownRaw(raw('percentile')) },
+    { key: 'sort', label: sortFieldLabel, value: sort.ok ? sortOptions.find(option => option.value === encodeSort(sort.id, sort.desc))?.label ?? encodeSort(sort.id, sort.desc) : unknownRaw(raw('sort')) },
+    ...(['bucket', 'bin', 'page'] as const).filter(key => raw(key) !== null).map(key => ({ key, label: key === 'bucket' ? (ko ? '버킷' : 'Bucket') : key === 'bin' ? (ko ? '분포 구간' : 'Histogram') : (ko ? '페이지' : 'Page'), value: raw(key)! })),
+  ];
+}
+
 export default function CycleTimeDrilldown(_: PageProps) {
   const { t, lang } = useI18n();
-  const { global, pageParam, setPage, setGlobal, linkTo, toast, route } = usePlatform();
+  const { global, page, pageParam, setPage, setGlobal, linkTo, toast, route } = usePlatform();
   const queryDraft = useQueryDraft();
   const draftParam = (key: string) => queryDraft.draft.page.find(([k]) => k === key)?.[1] ?? null;
   const draftHours = periodHours(queryDraft.draft.global);
@@ -127,14 +155,9 @@ export default function CycleTimeDrilldown(_: PageProps) {
     { value: 'equipmentId:asc', label: 'Equipment A→Z' },
   ];
   const unknownRaw = (raw: string | null) => ko ? `이 화면에서 쓸 수 없는 값: ${raw ?? ''}` : `Not a value this page can use: ${raw ?? ''}`;
-  const summaryFor = (grain: ReturnType<typeof resolveGranularity>, tail: ReturnType<typeof resolveTail>, sort: ReturnType<typeof parseSortParam>, raw: (key: string) => string | null) => [
-    { key: 'granularity', label: grainFieldLabel, value: grain.ok ? grainLabel[grain.value] : unknownRaw(raw('granularity')) },
-    { key: 'percentile', label: tailFieldLabel, value: tail.ok ? tailOptions.find(option => option.value === tail.value)?.label ?? tail.value : unknownRaw(raw('percentile')) },
-    { key: 'sort', label: sortFieldLabel, value: sort.ok ? sortOptions.find(option => option.value === encodeSort(sort.id, sort.desc))?.label ?? encodeSort(sort.id, sort.desc) : unknownRaw(raw('sort')) },
-    ...(['bucket', 'bin', 'page'] as const).filter(key => raw(key) !== null).map(key => ({ key, label: key === 'bucket' ? (ko ? '버킷' : 'Bucket') : key === 'bin' ? (ko ? '분포 구간' : 'Histogram') : (ko ? '페이지' : 'Page'), value: raw(key)! })),
-  ];
-  const pageSummary = summaryFor(draftGrain, draftTail, draftSort, draftParam);
-  const appliedPageSummary = summaryFor(granularityResult, tailResult, sortResult, pageParam);
+  const pageSummary = summaryFor(queryDraft.draft.global, queryDraft.draft.page, lang);
+  const appliedPageSummary = summaryFor(global, page, lang);
+  const historyPageSummary = useCallback((candidate: GlobalContext, page: readonly Pair[]) => summaryFor(candidate, page, lang), [lang]);
   const issues = [
     ['granularity', grainFieldLabel, draftGrain.ok], ['percentile', tailFieldLabel, draftTail.ok], ['sort', sortFieldLabel, draftSort.ok],
     ['bucket', ko ? '버킷' : 'Bucket', draftBucket.ok], ['bin', ko ? '분포 구간' : 'Histogram', draftBin.ok], ['page', ko ? '페이지' : 'Page', draftIndex.ok],
@@ -143,7 +166,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
 
   return <PlatformPage
     queryResult={{ completedAt: kpi.completedAt, status: kpi.status }}
-    queryBarExtension={{ pageSummary, appliedPageSummary, issues }}
+    queryBarExtension={{ pageSummary, appliedPageSummary, historyPageSummary, issues }}
     description={ko
       ? '적용된 기간·설비의 사이클타임입니다. 점·분포 선택은 목록만 줄입니다.'
       : 'Cycle time for the applied period and equipment. Point and histogram choices filter only the list.'}

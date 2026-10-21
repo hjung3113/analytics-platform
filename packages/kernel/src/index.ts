@@ -21,3 +21,5 @@ export { useQueryDraft, type QueryDraft, type QueryMissing } from './query-draft
 export { PaneQueryDraftProvider } from './platform';
 export { useAxisOptions, useEquipmentSearch, useResolvedSelection } from './selection-ports';
 export type { PortContext, PortFailure, PortStatus, AxisOptionsParams, EquipmentSearchParams, PortPageResult, ResolvedSelectionParams, ResolvedSelectionResult } from './selection-ports';
+
+export { useQueryHistory, type QueryHistory, type QueryHistoryRow } from './query-history';
