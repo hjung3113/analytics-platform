@@ -18,6 +18,7 @@ const page = { page: 0, pageSize: 10, sorting: [] };
 const slowFilter = { tail: 'p95', granularity: 'hour', bucket: null, bin: null };
 /** One request per endpoint that the granted actor (engineer at MEM) runs successfully. Endpoints with no params default to `{}`. */
 const PARAMS: Record<string, Record<string, unknown>> = {
+  'analytics.chartCatalog': { kind: 'line' },
   'analytics.productivity.trend': { kpi: 'occupancy', granularity: 'hour' },
   'analytics.productivity.breakdown': { axis: 'room' },
   'analytics.productivity.drill': { level: 'stgroup', room: 'PHOTO', stgroup: '' },

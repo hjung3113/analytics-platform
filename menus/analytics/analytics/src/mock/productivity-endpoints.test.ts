@@ -72,7 +72,13 @@ const cycleMenu: MenuMeta = {
   pageKeys: ['granularity', 'percentile', 'sort', 'page', 'bucket', 'bin'],
 };
 
-const registry = { menus: [productivityMenu, executionMenu, cycleMenu] };
+const chartCatalogMenu: MenuMeta = {
+  id: 'chart-catalog', group: 'analytics', label: { ko: '차트 카탈로그', en: 'Chart catalog' },
+  description: { ko: '차트 종류별 동작과 지원 조건을 확인합니다.', en: 'Explore chart interactions and support conditions.' },
+  path: '/analytics/chart-catalog', permission: 'analytics:view', requiresScope: true, pageType: 'analysis',
+  context: { ...none, time: 'apply' }, features: { export: true, savedView: false, annotate: true, compare: true }, pageKeys: ['kind'],
+};
+const registry = { menus: [productivityMenu, executionMenu, cycleMenu, chartCatalogMenu] };
 const adapter = createMockAdapter({ endpoints: analyticsMock, registry });
 
 const FROM = '2026-09-25T09:00:00';
@@ -102,6 +108,7 @@ describe('productivity-overview endpoint registration', () => {
       'analytics.cycle.dist',
       'analytics.cycle.slow',
       'analytics.cycle.export',
+      'analytics.chartCatalog',
     ]);
   });
 });

@@ -307,3 +307,24 @@ export const cycleExportEndpoint = defineEndpoint<SlowExportFilter, SlowRow[]>({
 export function executionKey(row: { equipmentId: string; anchor: string }): string {
   return `${row.equipmentId}|${row.anchor}`;
 }
+
+// ---- chart catalog (#530): client-safe synthetic sample contract ----
+export const CHART_KINDS = ['line', 'bar', 'heatmap', 'donut', 'scatter', 'boxPlot', 'pareto'] as const;
+export type CatalogKind = typeof CHART_KINDS[number];
+export function isCatalogKind(value: unknown): value is CatalogKind {
+  return CHART_KINDS.some(kind => kind === value);
+}
+export type CatalogBucket = { at: string; sourceAt: string; value: number };
+export type CatalogData = {
+  current: CatalogBucket[]; previous: CatalogBucket[];
+  previousFrom: string | null; previousTo: string | null;
+  heatmap: { xLabels: string[]; yLabels: string[]; cells: { x: string; y: string; value: number | null }[] };
+  donut: { id: string; label: string; value: number }[];
+  scatter: { id: string; x: number | null; y: number | null; group: string }[];
+  boxPlot: { id: string; label: string; stats: { min: number; q1: number; median: number; q3: number; max: number; n: number } }[];
+  pareto: { id: string; label: string; value: number }[];
+};
+export const chartCatalogEndpoint = defineEndpoint<{ kind: CatalogKind }, CatalogData>({
+  id: 'analytics.chartCatalog', menuId: 'chart-catalog', permission: 'analytics:view', requiresScope: true,
+  context: { time: 'apply' }, paramKeys: { kind: true }, kinds: ['collection', 'coverage'], mergeTimeDomain: true,
+});

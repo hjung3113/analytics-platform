@@ -3230,3 +3230,70 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
     await expect(page.getByRole('region', { name: '칸 1 · 분석 Context' })).toContainText('적용 안 된 변경 1개');
   });
 });
+
+test.describe('차트 카탈로그 — 종류별 상호작용 (06 §16, #530)', () => {
+  const catalog = `/analytics/chart-catalog?v=1&scopeId=MEM&${PERIOD}`;
+  const kinds = [
+    ['line', '선'], ['bar', '막대'], ['heatmap', '히트맵'], ['donut', '도넛'],
+    ['scatter', '산점도'], ['boxPlot', '상자그림'], ['pareto', '파레토'],
+  ] as const;
+  for (const [kind, label] of kinds) {
+    test(`${label} — 그려짐과 선택 결과`, async ({ page }, testInfo) => {
+      await signInAs(page, 'engineer');
+      await page.goto(`${catalog}&kind=${kind}`);
+      await expect(mainHeading(page)).toHaveText('차트 카탈로그');
+      const workspace = page.getByRole('region', { name: '차트 작업 영역', exact: true });
+      await expect(workspace.getByRole('img')).toBeVisible();
+      await expect.poll(() => workspace.locator('canvas').evaluateAll(canvases => canvases.some(canvas => {
+        const element = canvas as HTMLCanvasElement;
+        const context = element.getContext('2d');
+        return !!context && context.getImageData(0, 0, element.width, element.height).data.some((value, index) => index % 4 === 3 && value > 0);
+      }))).toBe(true);
+      const url = page.url();
+      const summary = workspace.getByRole('region', { name: '선택 요약' });
+      if (kind === 'line' || kind === 'bar') {
+        await summary.getByRole('button', { name: '선택', exact: true }).click();
+        await expect(summary).toContainText('n=8');
+        await workspace.getByRole('button', { name: '비교', exact: true }).click();
+        await expect(workspace.getByRole('group', { name: '범례', exact: true })).toContainText('이전 동일 기간');
+      } else {
+        await workspace.getByRole('button', { name: '표로 보기', exact: true }).click();
+        const table = workspace.getByRole('table', { name: `${label} 차트`, exact: false });
+        const checkbox = table.getByRole('checkbox').first();
+        await checkbox.check();
+        await expect(checkbox).toBeChecked();
+        await expect(summary.getByRole('button', { name: '상세', exact: true })).toBeVisible();
+        await summary.getByRole('button', { name: '상세', exact: true }).click();
+        await expect(workspace.getByRole('status', { name: '상세 결과' })).toContainText('상세 대상:');
+      }
+      expect(page.url()).toBe(url);
+      await evidence(page, testInfo, `chart-catalog-${kind}-selection`);
+    });
+  }
+  test('미지원 동작은 차트에 없고 지원 패널에 이유가 있다', async ({ page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    await page.goto(`${catalog}&kind=heatmap`);
+    const workspace = page.getByRole('region', { name: '차트 작업 영역', exact: true });
+    await expect(workspace.getByRole('img')).toBeVisible();
+    for (const name of ['확대', '비교', '주석']) await expect(workspace.getByRole('button', { name, exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: '동작·지원 열기', exact: true }).click();
+    const panel = page.getByRole('complementary', { name: '동작·지원' });
+    await expect(panel).toContainText('Zoom · 미지원');
+    await expect(panel).toContainText('이 종류의 차트 계약에서 제공하지 않음');
+    await expect(panel).toContainText('단일 실제 항목');
+    await expect(panel).toContainText('06 §16');
+    await evidence(page, testInfo, 'chart-catalog-support-reasons');
+  });
+  test('kind 딥링크·새로고침·뒤로·앞으로', async ({ page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    await page.goto(`${catalog}&kind=scatter`);
+    const scatter = page.getByRole('tab', { name: /^산점도 / });
+    await expect(scatter).toHaveAttribute('aria-selected', 'true');
+    await page.reload(); await expect(scatter).toHaveAttribute('aria-selected', 'true');
+    await page.getByRole('tab', { name: /^도넛 / }).click();
+    await expect(page).toHaveURL(/kind=donut/);
+    await page.goBack(); await expect(scatter).toHaveAttribute('aria-selected', 'true');
+    await page.goForward(); await expect(page.getByRole('tab', { name: /^도넛 / })).toHaveAttribute('aria-selected', 'true');
+    await evidence(page, testInfo, 'chart-catalog-kind-history');
+  });
+});
