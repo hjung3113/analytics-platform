@@ -84,7 +84,7 @@ function CatalogWorkspace({ query }: { query: QueryState<CatalogData> }) {
               {CHART_KINDS.map(item => {
                 const counts = supportCounts(supportFor(item, route?.menu.features));
                 const mark = tx({ ko: `지원 ${counts.supported} · 조건부 ${counts.conditional} · 미지원 ${counts.unsupported}`, en: `${counts.supported} supported · ${counts.conditional} conditional · ${counts.unsupported} unsupported` });
-                return <TabsTrigger key={item} value={item} aria-label={`${tx(kindLabels[item])} ${mark}`}>{tx(kindLabels[item])}<span className="text-tiny text-text-muted">{tx({ ko: `지원 ${counts.supported}/8`, en: `${counts.supported}/8 supported` })}</span></TabsTrigger>;
+                return <TabsTrigger key={item} value={item} aria-label={`${tx(kindLabels[item])} ${mark}`}>{tx(kindLabels[item])}<span className="ml-2 text-tiny text-text-muted">{tx({ ko: `지원 ${counts.supported}/8`, en: `${counts.supported}/8 supported` })}</span></TabsTrigger>;
               })}
             </TabsList>
           </div>

@@ -22,7 +22,7 @@ const fixture: CatalogData = {
   current: [{ at: '2026-09-25T09:00:00', sourceAt: '2026-09-25T09:00:00', value: 24 }, { at: '2026-09-25T21:00:00', sourceAt: '2026-09-25T21:00:00', value: 32 }],
   previous: [{ at: '2026-09-25T09:00:00', sourceAt: '2026-09-24T09:00:00', value: 21 }, { at: '2026-09-25T21:00:00', sourceAt: '2026-09-24T21:00:00', value: 29 }],
   previousFrom: '2026-09-24T09:00:00', previousTo: '2026-09-25T09:00:00',
-  heatmap: { xLabels: ['09', '21'], yLabels: ['PHOTO'], cells: [{ x: '09', y: 'PHOTO', value: 24 }, { x: '21', y: 'PHOTO', value: null }] },
+  heatmap: { xLabels: ['2026-09-25T09:00:00', '2026-09-25T21:00:00'], yLabels: ['PHOTO'], cells: [{ x: '2026-09-25T09:00:00', y: 'PHOTO', value: 24 }, { x: '2026-09-25T21:00:00', y: 'PHOTO', value: null }] },
   donut: [{ id: 'EQ-1', label: 'EQ-1', value: 24 }, { id: 'EQ-2', label: 'EQ-2', value: 32 }],
   scatter: [{ id: 'EQ-1', x: 24, y: 32, group: 'PHOTO' }, { id: 'EQ-2', x: null, y: 40, group: 'PHOTO' }],
   boxPlot: [{ id: 'EQ-1', label: 'EQ-1', stats: { min: 10, q1: 20, median: 25, q3: 30, max: 40, n: 18 } }],
@@ -32,17 +32,18 @@ const session = testSession(['analytics:view', 'platform:view']);
 const query = vi.fn(async () => ({ outcome: 'ok' as const, data: fixture, assessments: [{ kind: 'collection' as const, state: 'confirmed' as const }, { kind: 'coverage' as const, state: 'confirmed' as const }], trust: null, correlationId: 'catalog' }));
 function ContextControls() {
   const { setGlobal } = usePlatform();
-  return <><button onClick={() => setGlobal({ from: '2026-09-24T09:00:00' })}>Change time</button><button onClick={() => setGlobal({ scopeId: 'FDRY' })}>Change Scope</button></>;
+  return <><button onClick={() => setGlobal({ from: '2026-09-24T09:00:00' })}>Change time</button><button onClick={() => setGlobal({ scopeId: 'FDRY' })}>Change Scope</button><button onClick={() => setGlobal({ roomNames: ['PHOTO'] })}>Carry room</button><button onClick={() => setGlobal({ roomNames: [] })}>Remove room</button></>;
 }
 function mount(kind: string = 'line') {
   window.history.replaceState(null, '', `/analytics/chart-catalog?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&kind=${kind}`);
   const adapter = testAdapter({ session: () => session, menuQuery: query });
   return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><ChartCatalog /><ContextControls /></PlatformProvider></I18nProvider>);
 }
+const scrollIntoView = vi.fn();
 const click = (name: string) => fireEvent.click(screen.getByRole('button', { name }));
 async function table() { click('표로 보기'); return screen.findByRole('table', { name: /차트/ }); }
 const summary = () => screen.getByRole('region', { name: '선택 요약' });
-beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); query.mockClear(); canvas.init.mockClear(); canvas.dispose.mockClear(); canvas.options.length = 0; });
+beforeEach(() => { Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView }); scrollIntoView.mockClear(); vi.stubGlobal('localStorage', memoryStorage()); query.mockClear(); canvas.init.mockClear(); canvas.dispose.mockClear(); canvas.options.length = 0; });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('chart catalog route and lifetime', () => {
@@ -122,6 +123,21 @@ describe('chart catalog route and lifetime', () => {
     fireEvent.click(within(dataTable).getAllByRole('button', { name: '상세' })[0]);
     expect(screen.getByRole('status', { name: '상세 결과' }).textContent).toContain(kind === 'heatmap' ? 'PHOTO' : 'EQ-1');
   });
+  it('formats heatmap wall-clock coordinates, ranges and trust, and reveals Details without moving focus', async () => {
+    mount('heatmap'); await screen.findByRole('img');
+    const dataTable = await table();
+    expect(dataTable.textContent).toContain('2026-09-25 09:00:00');
+    expect(screen.getByRole('region', { name: '차트 작업 영역' }).textContent).not.toMatch(/2026-09-\d{2}T/);
+    const details = within(dataTable).getAllByRole('button', { name: '상세' })[0];
+    details.focus(); fireEvent.click(details);
+    const result = screen.getByRole('status', { name: '상세 결과' });
+    expect(result.textContent).toContain('PHOTO · 2026-09-25 09:00:00');
+    expect(scrollIntoView).toHaveBeenLastCalledWith({ block: 'nearest' });
+    expect(scrollIntoView.mock.instances.at(-1)).toBe(result);
+    expect(document.activeElement).toBe(details);
+    expect(fixture.heatmap.cells[0].x).toBe('2026-09-25T09:00:00');
+    expect(new URLSearchParams(window.location.search).get('from')).toBe('2026-09-25T09:00:00');
+  });
   it('does not offer Details for the generated Pareto remainder', async () => {
     mount('pareto'); await screen.findByRole('img'); const dataTable = await table();
     const remainder = within(dataTable).getByRole('row', { name: /기타/ });
@@ -138,6 +154,23 @@ describe('chart catalog route and lifetime', () => {
     await screen.findByRole('img');
     const currentTable = screen.queryByRole('table', { name: /차트/ }) ?? await table();
     expect(within(currentTable).getAllByRole('checkbox')[0].getAttribute('aria-checked')).toBe('false');
+  });
+  it('discards Details when a non-applied Context changes and is restored without refetching or remounting', async () => {
+    mount('donut'); await screen.findByRole('img'); click('Carry room');
+    const dataTable = await table();
+    fireEvent.click(within(dataTable).getAllByRole('checkbox')[0]);
+    fireEvent.click(within(summary()).getByRole('button', { name: '상세' }));
+    expect(screen.getByRole('status', { name: '상세 결과' }).textContent).toContain('EQ-1');
+    const fetches = query.mock.calls.length;
+    const instances = canvas.init.mock.calls.length;
+    click('Remove room');
+    expect(screen.queryByRole('status', { name: '상세 결과' })).toBeNull();
+    click('Carry room');
+    await waitFor(() => expect(within(dataTable).getAllByRole('checkbox')[0].getAttribute('aria-checked')).toBe('false'));
+    expect(screen.queryByRole('status', { name: '상세 결과' })).toBeNull();
+    expect(screen.getByRole('table', { name: /차트/ })).toBe(dataTable);
+    expect(canvas.init.mock.calls.length).toBe(instances);
+    expect(query.mock.calls.length).toBe(fetches);
   });
   it('changing kind clears kind-specific selection and Details', async () => {
     mount('donut'); await screen.findByRole('img'); const dataTable = await table(); fireEvent.click(within(dataTable).getAllByRole('checkbox')[0]);

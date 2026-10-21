@@ -43,8 +43,16 @@ describe('chart catalog projected endpoint', () => {
       expect(data.previous[i].at).toBe(bucket.at);
       expect(data.previous[i].sourceAt >= '2026-09-24T09:00:00' && data.previous[i].sourceAt < context.from).toBe(true);
     }
-    expect(data.heatmap.cells.some(cell => cell.value === null)).toBe(true);
-    expect(data.heatmap.cells.length).toBeLessThan(data.heatmap.xLabels.length * data.heatmap.yLabels.length);
+    expect(data.heatmap.yLabels).toHaveLength(6);
+    expect(data.heatmap.yLabels.every(id => EQUIPMENT.some(row => row.equipmentId === id && row.site === 'MEM'))).toBe(true);
+    expect(data.heatmap.xLabels).toHaveLength(12);
+    expect(data.heatmap.xLabels[0]).toBe(context.from);
+    expect(data.heatmap.xLabels[1]).toBe('2026-09-25T11:00:00');
+    expect(data.heatmap.xLabels.at(-1)).toBe('2026-09-26T07:00:00');
+    expect(data.heatmap.xLabels.every(at => at >= context.from && at < context.to)).toBe(true);
+    expect(data.heatmap.cells.filter(cell => cell.value === null)).toHaveLength(1);
+    expect(data.heatmap.cells).toHaveLength(71);
+    expect(data.heatmap.cells.some(cell => cell.x === data.heatmap.xLabels.at(-1) && cell.y === data.heatmap.yLabels.at(-1))).toBe(false);
     expect(data.scatter.some(point => point.x === null)).toBe(true);
     expect(data.pareto.length).toBeGreaterThan(4);
     expect(data.pareto.some(item => item.label === '기타')).toBe(false);
