@@ -93,6 +93,7 @@ export * from './components/shadcn/alert-dialog';
 export * from './components/shadcn/avatar';
 export * from './components/shadcn/card';
 export * from './components/shadcn/combobox';
+export { MultiCombobox, type MultiComboboxOption, type MultiComboboxProps } from './components/shadcn/multi-combobox';
 export * from './components/shadcn/hover-card';
 export * from './components/shadcn/sheet';
 export * from './components/shadcn/textarea';

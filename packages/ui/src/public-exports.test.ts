@@ -42,6 +42,7 @@ const PUBLIC_EXPORTS = [
   'Avatar', 'AvatarFallback', 'AvatarImage',
   'Card', 'CardContent', 'CardDescription', 'CardFooter', 'CardHeader', 'CardTitle',
   'Combobox',
+  'MultiCombobox',
   'HoverCard', 'HoverCardContent', 'HoverCardTrigger',
   'Sheet', 'SheetClose', 'SheetContent', 'SheetDescription', 'SheetFooter', 'SheetHeader', 'SheetOverlay', 'SheetPortal', 'SheetTitle', 'SheetTrigger',
   'Textarea', 'ToggleGroup', 'ToggleGroupItem', 'DialogContentBare', 'TabsListBase', 'TabsTriggerBase',
