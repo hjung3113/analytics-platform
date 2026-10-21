@@ -1,11 +1,12 @@
-import { useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from 'react';
+import { useContext, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from 'react';
 import { Info } from 'lucide-react';
-import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@ap/ui';
 import { useI18n } from '@ap/kernel';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { prepareLanes, segmentText } from './laneTimelineGeometry';
 import { ChartTrustFooter } from './analysisChartFrameParts';
 import { createLaneRenderer } from './laneTimelineRenderer';
+import { AnalysisSectionContext } from './AnalysisSectionContext';
 
 export type TimelineSegment = {
   id: string; start: number; end: number; depth?: number; rank?: string;
@@ -35,6 +36,7 @@ const accessibleHelp = {
 /** A standalone wall-clock interval chart. Pan, zoom and scroll never enter React state. */
 export function LaneTimeline(props: LaneTimelineProps) {
   const { tx, lang } = useI18n();
+  const section = useContext(AnalysisSectionContext);
   const root = useRef<HTMLElement>(null); const scroll = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null); const axis = useRef<HTMLCanvasElement>(null);
   const spacer = useRef<HTMLDivElement>(null); const tooltip = useRef<HTMLDivElement>(null);
@@ -84,7 +86,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
       } else if (event.key === '+' || event.key === '=') { event.preventDefault(); engine.current?.zoom(0.8); }
       else if (event.key === '-') { event.preventDefault(); engine.current?.zoom(1.25); }
     }}>
-    <header className="flex flex-wrap items-start justify-between gap-2 px-4 pt-3">
+    <header className={cn('flex flex-wrap items-start justify-between gap-2 px-4 pt-3', section && 'pr-12')}>
       <div className="min-w-0">
         <h3 className="t-card-title">{props.ariaLabel}</h3>
         {props.description && <p className="text-xs text-text-muted">{props.description}</p>}
