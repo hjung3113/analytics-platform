@@ -61,7 +61,7 @@ it('retains child axes and IDs outside candidates with nonblocking explanations'
   act(() => draft.setDraftGlobal({ roomNames: [], condition: { vendor: ['V1'], model: ['M1'] }, selection: ['EQ-X'] }));
   act(() => draft.setDraftGlobal({ condition: { vendor: ['V2'], model: ['M1'] } }));
   expect(draft.draft.global.condition?.model).toEqual(['M1']);
-  expect(screen.getAllByText(/현재 후보 목록에 없음/).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/현재 후보에 없음/).length).toBeGreaterThan(0);
   expect(draft.canApply).toBe(true);
 });
 it('keeps visibility semantics for reference-only, carried unsupported, absent and apply values', () => {
@@ -143,7 +143,7 @@ it('ignores unused history-incapable axes, then disables asOf when one becomes u
   expect(screen.getByRole('button', { name: /그 시점 소속/ })).toBeEnabled();
   act(() => draft.setDraftGlobal({ condition: { vendor: ['V'] } }));
   expect(screen.getByRole('button', { name: /그 시점 소속/ })).toBeDisabled();
-  expect(screen.getByText(/사용한 모든 축의 소속 이력/)).toBeTruthy();
+  expect(screen.getByText(/설비 조건이나 PRC 그룹을 선택하고 소속 이력을 확인하세요/)).toBeTruthy();
 });
 it('merges consumer page diagnostics into the only Apply gate', async () => {
   mount('&roomNames=PHOTO', {}, true, { pageSummary: [{ key: 'grain', label: '집계', value: 'unknown' }], issues: [{ key: 'grain', label: '집계', reason: '허용되지 않은 값' }] });
@@ -151,4 +151,79 @@ it('merges consumer page diagnostics into the only Apply gate', async () => {
   expect(draft.canApply).toBe(true);
   expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
   expect(screen.getByText('집계: 허용되지 않은 값')).toBeTruthy();
+});
+
+it('allows an optional-Scope apply menu to commit without a Scope', async () => {
+  const unscoped = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: registry.menus.map(menu => ({ ...menu, requiresScope: false, context: { ...noContext, time: 'apply' as const }, query: { mode: 'apply' as const } })) });
+  window.history.replaceState(null, '', '/');
+  const push = vi.spyOn(window.history, 'pushState');
+  render(<I18nProvider><PlatformProvider registry={unscoped} adapter={testAdapter()}><GlobalContextBar /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(screen.getByRole('button', { name: '적용' })).toBeEnabled());
+  fireEvent.click(screen.getByRole('button', { name: '적용' }));
+  await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
+  expect(window.location.search).toContain('from=');
+  expect(window.location.search).not.toContain('scopeId');
+});
+it('keeps a blank reference date invalid across unrelated edits and collapse until a valid preset replaces it', async () => {
+  const push = mount();
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  act(() => draft.setDraftGlobal({ roomNames: [] }));
+  fireEvent.click(screen.getByRole('button', { name: '기준일' }));
+  fireEvent.change(screen.getByLabelText('기준일'), { target: { value: '' } });
+  fireEvent.click(screen.getByRole('button', { name: '공정 전체 후보' }));
+  act(() => draft.setDraftGlobal({ roomNames: [] }));
+  expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
+  fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
+  const input = screen.getByLabelText('기준일');
+  expect(input).toHaveValue('');
+  expect(input).toHaveAttribute('aria-invalid', 'true');
+  expect(document.getElementById(input.getAttribute('aria-describedby')!)).toHaveTextContent('유효한');
+  expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
+  expect(push).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: '최근 7일' }));
+  expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: '기준일' }));
+  expect(screen.getByLabelText('기준일')).toHaveValue('2025-12-25');
+  expect(screen.getByLabelText('기준일')).not.toHaveAttribute('aria-invalid');
+});
+it.each([false, true])('clears the last editable asOf owner atomically (another owner: %s)', async otherOwner => {
+  const push = mount();
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  act(() => draft.setDraftGlobal({ roomNames: [], condition: { vendor: ['V1'] }, prcGroups: otherOwner ? ['P1'] : null, membershipBasis: 'asOf' }));
+  fireEvent.click(screen.getByRole('button', { name: '지우기 V1' }));
+  expect(draft.draft.global.condition).toBeNull();
+  expect(draft.draft.global.membershipBasis).toBe(otherOwner ? 'asOf' : null);
+  expect(push).not.toHaveBeenCalled();
+  expect(send).not.toHaveBeenCalled();
+});
+it.each([['reference', true], ['reference', false], ['unsupported', true], ['unsupported', false]] as const)('removes carried asOf owners under %s capability (Condition first: %s) without applying', async (capability, conditionFirst) => {
+  const carried = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: registry.menus.map(menu => ({ ...menu, context: { ...menu.context, condition: capability, prcGroup: capability } })) });
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const session = testSession(['platform:view']);
+  const push = vi.spyOn(window.history, 'pushState');
+  render(<I18nProvider><PlatformProvider registry={carried} equipmentAxes={[{ id: 'vendor', label: { ko: '공급사', en: 'Vendor' }, membershipHistory: true }]} adapter={testAdapter({ session: () => session, menuQuery: send })}><Probe /><GlobalContextBar /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  act(() => draft.setDraftGlobal({ roomNames: [], condition: { vendor: ['V1'] }, prcGroups: ['P1'], membershipBasis: 'asOf' }));
+  fireEvent.click(screen.getByRole('button', { name: conditionFirst ? '지우기 공급사' : '지우기 PRC 그룹' }));
+  expect(conditionFirst ? draft.draft.global.condition : draft.draft.global.prcGroups).toBeNull();
+  expect(draft.draft.global.membershipBasis).toBe('asOf');
+  fireEvent.click(screen.getByRole('button', { name: conditionFirst ? '지우기 PRC 그룹' : '지우기 공급사' }));
+  expect(draft.draft.global.condition).toBeNull();
+  expect(draft.draft.global.prcGroups).toBeNull();
+  expect(draft.draft.global.membershipBasis).toBeNull();
+  expect(push).not.toHaveBeenCalled();
+  expect(send).not.toHaveBeenCalled();
+});
+
+it('reserves a full period row and date-time input widths, and uses product membership copy', async () => {
+  mount();
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  expect(screen.getByRole('group', { name: '기간' })).toHaveClass('basis-full');
+  expect(screen.getByLabelText('시작 시각')).toHaveClass('min-w-64');
+  expect(screen.getByLabelText('종료 시각 (제외)')).toHaveClass('min-w-64');
+  expect(screen.getByText('설비 조건이나 PRC 그룹을 선택하고 소속 이력을 확인하세요.')).toBeTruthy();
+  expect(screen.getByRole('region', { name: '조회 조건' }).textContent).not.toMatch(/Condition|축|Draft/);
+  fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
+  expect(screen.getByRole('region', { name: '조회 조건' })).toHaveClass('sticky', 'top-[50px]');
 });

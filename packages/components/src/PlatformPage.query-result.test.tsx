@@ -33,3 +33,28 @@ it('puts the result strip inside a pane without adding a page header', () => {
   expect(screen.getByRole('region', { name: '적용된 조회 조건' })).toBeTruthy();
   expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
 });
+
+it('places the apply editor outside the sticky page header', () => {
+  const tree = view(undefined);
+  // Supply an actual context slot without coupling components tests to the shell.
+  const provider = tree.props.children;
+  render({ ...tree, props: { ...tree.props, children: { ...provider, props: { ...provider.props, slots: { contextBar: <div data-testid="query-editor">Editor</div> } } } } });
+  expect(screen.getByTestId('query-editor').closest('[data-page-sticky-header]')).toBeNull();
+  expect(screen.getByRole('heading', { level: 1 }).closest('[data-page-sticky-header]')).toBeTruthy();
+});
+
+it('counts only the collapsed query row in the sticky offset', () => {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    const height = this.hasAttribute('data-page-sticky-header') ? 50 : 48;
+    return { x: 0, y: 0, top: 0, left: 0, right: 1200, bottom: height, width: 1200, height, toJSON() {} };
+  });
+  const tree = view(undefined);
+  const provider = tree.props.children;
+  const slot = (collapsed: boolean) => ({ ...tree, props: { ...tree.props, children: { ...provider, props: { ...provider.props, slots: { contextBar: <section data-query-bar data-query-bar-collapsed={collapsed ? '' : undefined}>Editor</section> } } } } });
+  const result = render(slot(true));
+  expect(result.container.querySelector<HTMLElement>('[data-platform-page]')?.style.getPropertyValue('--page-sticky-offset')).toBe('98px');
+  result.unmount();
+  const expanded = render(slot(false));
+  expect(expanded.container.querySelector<HTMLElement>('[data-platform-page]')?.style.getPropertyValue('--page-sticky-offset')).toBe('50px');
+  vi.restoreAllMocks();
+});

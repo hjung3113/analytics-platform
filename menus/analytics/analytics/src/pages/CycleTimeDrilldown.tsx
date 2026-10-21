@@ -175,7 +175,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
   >
     {invalidPage ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '페이지 키 값이 올바르지 않습니다' : 'Invalid page key'}
       body={pageRefusals.map((sentence, index) => <p key={index}>{sentence} {ko ? '페이지 조건을 기본값으로 되돌리세요.' : 'Reset the page conditions.'}</p>)} />
-      : !periodReady ? <p className="text-sm text-text-muted">{ko ? '전역 기간이 URL에 확정되면 조회합니다.' : 'The query starts once the global period is in the URL.'}</p>
+      : kpi.status === 'idle' ? <QueryView query={kpi}>{() => null}</QueryView>
         : <AnalysisLayout
           kpi={{ id: 'summary', title: ko ? '사이클타임 요약' : 'Cycle time summary', node: <>
           <div className="relative" data-testid="cycle-kpi">

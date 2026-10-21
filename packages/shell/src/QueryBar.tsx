@@ -47,22 +47,31 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
     if (!open) disclosure.current?.focus();
   };
   const write = (patch: Partial<GlobalContext>) => {
-    try { setDraftGlobal(patch); setEditError(null); }
+    try {
+      // Explicitly removing the last membership owner must clear its basis in the same draft write.
+      const next = { ...draft.global, ...patch };
+      const removesOwner = 'condition' in patch || 'prcGroups' in patch;
+      setDraftGlobal(removesOwner && next.condition === null && next.prcGroups === null ? { ...patch, membershipBasis: null } : patch);
+      setEditError(null);
+    }
     catch { setEditError(ko ? '이 조건은 적용할 수 없습니다. 기간·지표 쌍·소속 기준을 확인하세요.' : 'Check the period, metric pair and membership basis.'); }
   };
   const g = draft.global;
   const [range, setRange] = useState({ from: g.from ?? '', to: g.to ?? '' });
+  const [periodEditor, setPeriodEditor] = useState({ mode: 'range' as 'reference' | 'range', reference: platform.defaultRangeTo.slice(0, 10), invalidReference: false });
   const [rangeSource, setRangeSource] = useState(`${g.from}|${g.to}`);
   if (rangeSource !== `${g.from}|${g.to}`) {
     setRangeSource(`${g.from}|${g.to}`);
     setRange({ from: g.from ?? '', to: g.to ?? '' });
+    setPeriodEditor(previous => ({ ...previous, reference: (g.from ?? platform.defaultRangeTo).slice(0, 10), invalidReference: false }));
   }
   const context: PortContext = { scopeId: g.scopeId ?? '', roomNames: g.roomNames, lineNames: g.lineNames, prcGroups: g.prcGroups, condition: g.condition, membershipBasis: g.membershipBasis, period: g.from && g.to ? { from: g.from, to: g.to } : null };
   const cap = route!.menu.context;
   const reasons = missing.map(m => ({ key: m.key, reason: t('queryMissing', { label: m.key === 'roomNames' ? (ko ? '공정' : 'Process') : tx(m.label) }) }));
-  if (scope.status !== 'valid' || scope.validatedFor !== session) reasons.push({ key: 'scope', reason: ko ? 'Scope를 선택하고 권한 확인을 완료하세요.' : 'Select a Scope and finish authorization.' });
+  if (route!.menu.requiresScope && (scope.status !== 'valid' || scope.validatedFor !== session)) reasons.push({ key: 'scope', reason: ko ? 'Scope를 선택하고 권한 확인을 완료하세요.' : 'Select a Scope and finish authorization.' });
   if (applying) reasons.push({ key: 'commit', reason: ko ? '조건을 적용하고 있습니다.' : 'Applying conditions.' });
-  if (range.from !== (g.from ?? '') || range.to !== (g.to ?? '')) reasons.push({ key: 'period-input', reason: ko ? '유효한 시작·종료 시각을 입력하세요.' : 'Enter valid start and end times.' });
+  const periodInputInvalid = (periodEditor.mode === 'reference' && periodEditor.invalidReference) || range.from !== (g.from ?? '') || range.to !== (g.to ?? '');
+  if (periodInputInvalid) reasons.push({ key: 'period-input', reason: ko ? '유효한 시작·종료 시각을 입력하세요.' : 'Enter valid start and end times.' });
   if (editError) reasons.push({ key: 'edit', reason: editError });
   for (const issue of extension?.issues ?? []) reasons.push({ key: issue.key, reason: `${issue.label}: ${issue.reason}` });
   if (!canApply && !reasons.length) reasons.push({ key: 'validation', reason: ko ? '기간·지표 쌍·소속 기준을 확인하세요.' : 'Check the period, metric pair and membership basis.' });
@@ -75,8 +84,8 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
   const issues = <div id={reasonId} className="text-xs text-text-secondary">{reasons.map(r => <p key={r.key}>{r.reason}</p>)}</div>;
   const actions = <div role="group" aria-label={ko ? '조회 조건 동작' : 'Query actions'} className={board ? 'flex shrink-0 items-center gap-2' : 'flex flex-wrap items-center gap-2'}>
     <span className="text-xs text-text-secondary">{ko ? `적용 안 된 변경 ${dirty.length}개` : `${dirty.length} unapplied changes`}</span>
-    <Button type="button" variant="ghost" size="toolbar" onClick={() => { revert(); setRange({ from: global.from ?? '', to: global.to ?? '' }); setEditError(null); }}>{ko ? '되돌리기' : 'Revert'}</Button>
-    <Button type="button" variant="ghost" size="toolbar" onClick={() => { reset(); setRangeSource('reset'); setEditError(null); }}>{t('reset')}</Button>
+    <Button type="button" variant="ghost" size="toolbar" onClick={() => { revert(); setPeriodEditor({ mode: 'range', reference: (global.from ?? platform.defaultRangeTo).slice(0, 10), invalidReference: false }); setRange({ from: global.from ?? '', to: global.to ?? '' }); setEditError(null); }}>{ko ? '되돌리기' : 'Revert'}</Button>
+    <Button type="button" variant="ghost" size="toolbar" onClick={() => { reset(); setPeriodEditor({ mode: 'range', reference: platform.defaultRangeTo.slice(0, 10), invalidReference: false }); setRangeSource('reset'); setEditError(null); }}>{t('reset')}</Button>
     <Button type="button" size="toolbar" disabled={!canApply || reasons.length > 0} aria-describedby={reasonId} onClick={apply}>{ko ? '적용' : 'Apply'}</Button>
     {historySlot}
   </div>;
@@ -90,20 +99,20 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
   const used = equipmentAxes.filter(a => g.condition?.[a.id]);
   const history = (g.condition !== null || g.prcGroups !== null) && used.every(a => a.membershipHistory);
   const carried = querySummaryItems(g, summaryOptions).filter(item => item.key !== 'membershipBasis' && (['lot', 'ppid', 'recipe', 'metric'].includes(item.contextKey) || cap[item.contextKey] !== 'apply'));
-  const content = <div ref={editor} id={`${id}-editor`} className="grid min-w-0 gap-3 p-3" onKeyDown={event => {
+  const content = <div ref={editor} id={`${id}-editor`} className="grid min-w-0 gap-2 p-2" onKeyDown={event => {
     // Child Radix popovers handle their first Escape before it reaches this inline surface.
     if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); toggle(false); }
   }}>
-    <fieldset className="min-w-0 rounded-md border border-border-subtle p-3">
+    <fieldset className="min-w-0 rounded-md border border-border-subtle p-2">
       <legend className="px-1 text-xs font-medium text-text-secondary">{ko ? '기간과 조회 범위' : 'Period and query scope'}</legend>
       <div className="flex flex-wrap items-start gap-3">
-        {cap.time === 'apply' && <PeriodFields global={g} range={range} setRange={setRange} write={write} invalid={invalid('time')} reasonId={reasonId} reportInvalid={() => setEditError(ko ? '유효한 시작·종료 시각을 입력하세요.' : 'Enter valid start and end times.')} />}
+        {cap.time === 'apply' && <PeriodFields global={g} range={range} setRange={setRange} write={patch => { setRange({ from: patch.from ?? '', to: patch.to ?? '' }); setPeriodEditor(previous => ({ ...previous, reference: (patch.from ?? platform.defaultRangeTo).slice(0, 10), invalidReference: false })); write(patch); }} periodEditor={periodEditor} setPeriodEditor={setPeriodEditor} invalid={invalid('time') || periodInputInvalid} reasonId={reasonId} reportInvalid={() => setEditError(ko ? '유효한 시작·종료 시각을 입력하세요.' : 'Enter valid start and end times.')} />}
         {cap.roomNames === 'apply' && <SetField name={ko ? '공정' : 'Process'} values={g.roomNames} options={scope.status === 'valid' && scope.validatedFor === session ? scope.grantedRooms.map(value => ({ value, label: value })) : []} onChange={roomNames => write({ roomNames })} invalid={invalid('roomNames')} reasonId={reasonId} />}
         {cap.line === 'apply' && <AxisField axisId="lineNames" name={tx(CONTEXT_LABELS.line)} values={g.lineNames} context={context} parents={g.roomNames === null ? {} : { roomNames: g.roomNames }} onChange={lineNames => write({ lineNames })} invalid={invalid('line')} reasonId={reasonId} />}
         {cap.prcGroup === 'apply' && <AxisField axisId="prcGroups" name={tx(CONTEXT_LABELS.prcGroup)} values={g.prcGroups} context={context} parents={{ ...(g.roomNames === null ? {} : { roomNames: g.roomNames }), ...(g.lineNames === null ? {} : { lineNames: g.lineNames }) }} onChange={prcGroups => write({ prcGroups })} invalid={invalid('prcGroup')} reasonId={reasonId} />}
       </div>
     </fieldset>
-    {(cap.condition === 'apply' || cap.selection === 'apply' || cap.prcGroup === 'apply') && <fieldset className="min-w-0 rounded-md border border-border-subtle p-3">
+    {(cap.condition === 'apply' || cap.selection === 'apply' || cap.prcGroup === 'apply') && <fieldset className="min-w-0 rounded-md border border-border-subtle p-2">
       <legend className="px-1 text-xs font-medium text-text-secondary">{ko ? '설비 조건' : 'Equipment conditions'}</legend>
       <div className="flex flex-wrap items-start gap-3">
         {cap.condition === 'apply' && equipmentAxes.map(axis => <AxisField key={axis.id} axisId={axis.id} name={tx(axis.label)} values={g.condition?.[axis.id] ? [...g.condition[axis.id]] : null} context={context} parents={axis.dependsOn && g.condition?.[axis.dependsOn] ? { [axis.dependsOn]: [...g.condition[axis.dependsOn]] } : {}} invalid={invalid('condition')} reasonId={reasonId} onChange={values => {
@@ -115,7 +124,7 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
           <span>{ko ? '소속 기준' : 'Membership'}</span>
           <Button type="button" size="toolbar" variant="secondary" aria-pressed={g.membershipBasis === null} onClick={() => write({ membershipBasis: null })}>{ko ? '지금 소속' : 'Current membership'}</Button>
           <Button type="button" size="toolbar" variant="secondary" disabled={!history} aria-pressed={g.membershipBasis === 'asOf'} aria-describedby={!history ? `${id}-history` : undefined} onClick={() => write({ membershipBasis: 'asOf' })}>{t('membershipAsOf')}</Button>
-          {!history && <p id={`${id}-history`}>{ko ? 'Condition 또는 PRC 그룹과 사용한 모든 축의 소속 이력이 필요합니다.' : 'Requires a Condition or PRC group and history for every used axis.'}</p>}
+          {!history && <p id={`${id}-history`}>{ko ? '설비 조건이나 PRC 그룹을 선택하고 소속 이력을 확인하세요.' : 'Select equipment conditions or a PRC group with membership history.'}</p>}
         </div>}
         {cap.selection === 'apply' && <EquipmentField context={context} values={g.selection} onChange={selection => write({ selection })} invalid={invalid('selection')} reasonId={reasonId} />}
       </div>
@@ -129,7 +138,7 @@ function QueryBarSession({ label, historySlot }: QueryBarProps) {
     {board && <><p className="text-xs [overflow-wrap:anywhere]">{ko ? '편집 중 조건' : 'Editing conditions'} · {summary}</p><p className="text-xs [overflow-wrap:anywhere]">{ko ? '적용 조건' : 'Applied conditions'} · {applied}</p>{actions}{issues}<Button type="button" variant="ghost" size="toolbar" onClick={() => toggle(false)}>{ko ? '닫기' : 'Close'}</Button></>}
   </div>;
   const trigger = <Button ref={disclosure} type="button" variant="ghost" size="toolbar" aria-label={ko ? `조회 조건 ${expanded ? '접기' : '펼치기'}` : `${expanded ? 'Collapse' : 'Expand'} query conditions`} aria-expanded={expanded} aria-controls={`${id}-editor`} onClick={board ? undefined : () => toggle(!expanded)}>{label?.visible ?? (ko ? '조회 조건' : 'Query conditions')}</Button>;
-  return <section role="region" aria-label={label?.region ?? (ko ? '조회 조건' : 'Query conditions')} data-query-bar className="min-w-0 border-b border-border-subtle bg-surface-canvas">
+  return <section role="region" aria-label={label?.region ?? (ko ? '조회 조건' : 'Query conditions')} data-query-bar data-query-bar-collapsed={!board && !expanded ? '' : undefined} className={!board && !expanded ? 'sticky top-[50px] z-20 min-w-0 border-b border-border-subtle bg-surface-canvas' : 'min-w-0 border-b border-border-subtle bg-surface-canvas'}>
     <div className={board ? 'flex h-12 min-w-0 items-center gap-2 overflow-x-auto px-3' : 'flex min-h-12 min-w-0 flex-wrap items-center gap-2 px-3'}>
       {board ? <Popover open={expanded} onOpenChange={toggle}><PopoverTrigger asChild>{trigger}</PopoverTrigger><PopoverContent align="start" side="bottom" className="max-h-[var(--radix-popover-content-available-height)] w-[min(64rem,var(--radix-popover-content-available-width))] overflow-y-auto" onOpenAutoFocus={event => { event.preventDefault(); editor.current?.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled)')?.focus(); }} onCloseAutoFocus={event => { event.preventDefault(); disclosure.current?.focus(); }}>{content}</PopoverContent></Popover> : trigger}
       {board && !expanded && <Button type="button" variant="ghost" size="toolbar" className="min-w-0 flex-1" aria-label={ko ? '전체 조회 조건 보기' : 'View full query conditions'} onClick={() => toggle(true)}><span className="truncate">{dirty.length ? (ko ? '편집 중' : 'Editing') : (ko ? '적용 조건' : 'Applied conditions')} · {summary}</span></Button>}
@@ -160,7 +169,7 @@ function AxisField({ axisId, context, parents, ...props }: Omit<SetFieldProps, '
   const labels = new Map(result.items.map(item => [item.id, item.label]));
   return <div className="min-w-0">
     <SetField {...props} search={search} onSearchChange={setSearch} options={result.items.map(item => ({ value: item.id, label: item.label }))} getLabel={value => labels.get(value) ?? value} loading={result.status === 'loading' || result.loadingMore} error={result.error?.message ?? result.loadMoreError?.message} onRetry={result.retry} hasMore={result.hasMore} onLoadMore={result.loadMore} />
-    {props.values?.some(value => !labels.has(value)) && <p className="max-w-56 text-xs text-text-secondary">{lang === 'ko' ? '현재 후보 목록에 없음. 선택은 유지하며 서버가 조합을 평가합니다.' : 'Not in the current candidate list. Selection is kept; the server evaluates the combination.'}</p>}
+    {props.values?.some(value => !labels.has(value)) && <p className="max-w-56 text-xs text-text-secondary">{lang === 'ko' ? '현재 후보에 없음. 선택은 유지합니다.' : 'Not in current candidates. Selection is kept.'}</p>}
   </div>;
 }
 function EquipmentField({ context, ...props }: Omit<SetFieldProps, 'name' | 'options'> & { context: PortContext }) {
@@ -178,32 +187,31 @@ function EquipmentField({ context, ...props }: Omit<SetFieldProps, 'name' | 'opt
     {props.values?.some(value => !result.items.some(item => item.equipmentId === value)) && <p className="max-w-56 text-xs text-text-secondary">{ko ? '현재 불러온 후보에 없음. 선택한 ID는 유지합니다.' : 'Not in currently loaded candidates. Selected IDs are kept.'}</p>}
   </div>;
 }
-function PeriodFields({ global: g, range, setRange, write, invalid, reasonId, reportInvalid }: { range: { from: string; to: string }; setRange: (value: { from: string; to: string }) => void; global: GlobalContext; write: (patch: Partial<GlobalContext>) => void; invalid: boolean; reasonId: string; reportInvalid: () => void }) {
+function PeriodFields({ global: g, range, setRange, write, invalid, reasonId, reportInvalid, periodEditor, setPeriodEditor }: { periodEditor: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }; setPeriodEditor: (value: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }) => void; range: { from: string; to: string }; setRange: (value: { from: string; to: string }) => void; global: GlobalContext; write: (patch: Partial<GlobalContext>) => void; invalid: boolean; reasonId: string; reportInvalid: () => void }) {
   const { defaultRangeTo } = usePlatform();
   const { lang } = useI18n();
   const ko = lang === 'ko';
-  const [mode, setMode] = useState<'reference' | 'range'>('range');
-  const [reference, setReference] = useState(defaultRangeTo.slice(0, 10));
+  const { mode, reference } = periodEditor;
+  const setMode = (mode: 'reference' | 'range') => setPeriodEditor({ ...periodEditor, mode });
   const date = (value: string) => {
-    setReference(value);
-    try { const from = `${value}T00:00:00`; parseDateTime(from, 'from'); write({ from, to: shift(from, 24) }); } catch { reportInvalid(); }
+    try { const from = `${value}T00:00:00`; parseDateTime(from, 'from'); setPeriodEditor({ mode: 'reference', reference: value, invalidReference: false }); write({ from, to: shift(from, 24) }); } catch { setPeriodEditor({ mode: 'reference', reference: value, invalidReference: true }); reportInvalid(); }
   };
   const custom = (key: 'from' | 'to', value: string) => {
     const normalized = value.length === 16 ? `${value}:00` : value;
     const next = { ...range, [key]: normalized }; setRange(next);
     try { parseDateTime(next.from, 'from'); parseDateTime(next.to, 'to'); write(next); } catch { reportInvalid(); }
   };
-  return <div className="grid min-w-0 flex-1 basis-96 gap-2 text-xs text-text-secondary" role="group" aria-label={ko ? '기간' : 'Period'}>
+  return <div className="grid min-w-0 flex-1 basis-full gap-1 text-xs text-text-secondary" role="group" aria-label={ko ? '기간' : 'Period'}>
     <div className="flex flex-wrap gap-1">
-      <Button type="button" size="toolbar" variant="secondary" onClick={() => write({ from: shift(defaultRangeTo, -24), to: defaultRangeTo })}>{ko ? '최근 24시간' : 'Last 24 hours'}</Button>
-      <Button type="button" size="toolbar" variant="secondary" onClick={() => write({ from: shift(defaultRangeTo, -168), to: defaultRangeTo })}>{ko ? '최근 7일' : 'Last 7 days'}</Button>
+      <Button type="button" size="toolbar" variant="secondary" onClick={() => { setMode('range'); write({ from: shift(defaultRangeTo, -24), to: defaultRangeTo }); }}>{ko ? '최근 24시간' : 'Last 24 hours'}</Button>
+      <Button type="button" size="toolbar" variant="secondary" onClick={() => { setMode('range'); write({ from: shift(defaultRangeTo, -168), to: defaultRangeTo }); }}>{ko ? '최근 7일' : 'Last 7 days'}</Button>
       <Button type="button" size="toolbar" variant="secondary" onClick={() => date(defaultRangeTo.slice(0, 10))}>{ko ? '오늘' : 'Today'}</Button>
       <Button type="button" size="toolbar" variant="ghost" onClick={() => setMode('reference')}>{ko ? '기준일' : 'Reference date'}</Button>
       <Button type="button" size="toolbar" variant="ghost" onClick={() => setMode('range')}>{ko ? '직접 범위' : 'Custom range'}</Button>
     </div>
-    {mode === 'reference' ? <Input type="date" aria-label={ko ? '기준일' : 'Reference date'} value={reference} onChange={event => date(event.target.value)} /> : <div className="flex flex-wrap gap-2">
-      <Input type="datetime-local" step="1" aria-label={ko ? '시작 시각' : 'From'} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.from} onChange={event => custom('from', event.target.value)} className="min-w-0 flex-1" />
-      <Input type="datetime-local" step="1" aria-label={ko ? '종료 시각 (제외)' : 'To (exclusive)'} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.to} onChange={event => custom('to', event.target.value)} className="min-w-0 flex-1" />
+    {mode === 'reference' ? <Input type="date" aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} aria-label={ko ? '기준일' : 'Reference date'} value={reference} onChange={event => date(event.target.value)} /> : <div className="flex flex-wrap gap-2">
+      <Input type="datetime-local" step="1" aria-label={ko ? '시작 시각' : 'From'} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.from} onChange={event => custom('from', event.target.value)} className="min-w-64 flex-1" />
+      <Input type="datetime-local" step="1" aria-label={ko ? '종료 시각 (제외)' : 'To (exclusive)'} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.to} onChange={event => custom('to', event.target.value)} className="min-w-64 flex-1" />
     </div>}
     <span className="[overflow-wrap:anywhere]">[{g.from ?? '—'}, {g.to ?? '—'})</span>
   </div>;

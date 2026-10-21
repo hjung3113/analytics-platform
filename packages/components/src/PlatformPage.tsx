@@ -127,7 +127,8 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
     const header = stickyHeader.current;
     if (!header) return;
     const measure = () => {
-      root.current?.style.setProperty('--page-sticky-offset', `${header.getBoundingClientRect().height}px`);
+      const compactBar = root.current?.querySelector<HTMLElement>('[data-query-bar-collapsed]');
+      root.current?.style.setProperty('--page-sticky-offset', `${header.getBoundingClientRect().height + (compactBar?.getBoundingClientRect().height ?? 0)}px`);
       const band = pageHeader.current;
       const width = band?.getBoundingClientRect().width ?? 0;
       if (!band || width <= 0) return;
@@ -149,6 +150,8 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
     // Data Trust text or actions arriving later widen the content without resizing the header.
     for (const child of Array.from(pageHeader.current?.children ?? [])) observer.observe(child);
     observer.observe(header);
+    const inlineBar = root.current?.querySelector('[data-query-bar]');
+    if (inlineBar) observer.observe(inlineBar);
     return () => observer.disconnect();
   }, []);
   useLayoutEffect(() => {
@@ -270,8 +273,9 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
           {!gate && primaryAction}
         </div>
       </header>
-      {slots.contextBar}
+      {menu.query?.mode !== 'apply' && slots.contextBar}
     </div>}
+    {!inPane && menu.query?.mode === 'apply' && slots.contextBar}
     {!gate && menu.query?.mode === 'apply' && queryResult && <section role="region" aria-label={lang === 'ko' ? '적용된 조회 조건' : 'Applied query conditions'} className="flex flex-wrap gap-2 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
       <span className="min-w-0 [overflow-wrap:anywhere]">{formatQuerySummary(global, page, { lang, axes: equipmentAxes, context: menu.context, pageSummary: queryBarExtension?.appliedPageSummary })}</span>
       {queryResult.completedAt !== null && (queryResult.status === 'done' || queryResult.status === 'refreshing') && <span>{lang === 'ko' ? '요약 조회 완료' : 'Summary response completed'} {formatInstant(queryResult.completedAt, lang)}</span>}
