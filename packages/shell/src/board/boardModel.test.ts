@@ -1,38 +1,82 @@
 import { describe, expect, it } from 'vitest';
 import type { PaneScreen } from '@ap/kernel';
-import { defaultArrangement, getArrangement, setArrangement, MAX_SHEETS, addSheet, atFirstPanes, droppedPaneCount, freshBoard, moveSheet, nextSheetName, normalizeBoard, paneCount, parseBoard, removeSheet, renameSheet, restoreLayout, restorePane, restoreSheet, selectPane, setLayout, setPane, type Board, type LayoutChange } from './boardModel';
+import { defaultArrangement, getArrangement, setArrangement, MAX_SHEETS, addSheet, atFirstPanes, droppedPaneCount, freshBoard, layoutOf, moveSheet, nextSheetName, normalizeBoard, paneCount, parseBoardV2, removeSheet, renameSheet, restoreLayout, restorePane, restoreSheet, screens, selectedIndex, selectPane, setLayout, setPane, type Board, type LayoutChange } from './boardModel';
+import { migrateV1 } from './boardMigrate';
+import { legacyBoard, legacySheet, toLegacy } from './__fixtures__/legacyBoard';
 
 const screen = (menuId: string): PaneScreen => ({ menuId, params: {}, query: '' });
 const two = (): Board => addSheet(freshBoard('시트'), '시트');
 
-describe('parseBoard', () => {
+describe('parseBoardV2', () => {
+  const stored = (board: Board = two()) => JSON.parse(JSON.stringify(board)) as { sheets: { panes: Record<string, unknown>[]; tree: Record<string, unknown>; [key: string]: unknown }[]; [key: string]: unknown };
+
   it('round-trips a board through JSON', () => {
     const start = two();
     const board = setPane(setLayout(start, start.sheets[0].id, '1x2'), start.sheets[0].id, 1, { menuId: 'a', params: { id: 'x y' }, query: '?tab=2' });
-    expect(parseBoard(JSON.parse(JSON.stringify(board)))).toEqual(board);
+    expect(parseBoardV2(JSON.parse(JSON.stringify(board)))).toEqual(board);
   });
 
   it.each([
-    ['non-object', 'x'],
-    ['newer version', { ...freshBoard('시트'), v: 2 }],
-    ['no sheets', { ...freshBoard('시트'), sheets: [] }],
-    ['unknown active sheet', { ...freshBoard('시트'), activeSheetId: 'nope' }],
-    ['unknown layout', { ...freshBoard('시트'), sheets: [{ ...freshBoard('시트').sheets[0], layout: '3x3' }] }],
-    ['pane count off', { ...freshBoard('시트'), sheets: [{ ...freshBoard('시트').sheets[0], layout: '1x2' }] }],
-    ['selected out of range', { ...freshBoard('시트'), sheets: [{ ...freshBoard('시트').sheets[0], selected: 3 }] }],
-    ['bad pane', { ...freshBoard('시트'), sheets: [{ ...freshBoard('시트').sheets[0], panes: [{ menuId: 1, params: {}, query: '' }] }] }],
-    ['query without ?', { ...freshBoard('시트'), sheets: [{ ...freshBoard('시트').sheets[0], panes: [{ menuId: 'a', params: {}, query: 'x=1' }] }] }],
-  ])('rejects %s', (_name, value) => {
-    expect(parseBoard(value)).toBeNull();
+    ['non-object', () => 'x'],
+    ['version 1', () => ({ ...stored(), v: 1 })],
+    ['a newer version', () => ({ ...stored(), v: 3 })],
+    ['no sheets', () => ({ ...stored(), sheets: [] })],
+    ['unknown active sheet', () => ({ ...stored(), activeSheetId: 'nope' })],
+    ['no panes', () => { const b = stored(); b.sheets[0].panes = []; return b; }],
+    ['more than 4 panes', () => { const b = stored(); b.sheets[0].panes = Array.from({ length: 5 }, (_, i) => ({ id: `p${i}`, screen: null, previous: null })); return b; }],
+    ['duplicate pane ids', () => { const b = stored(); b.sheets[0].panes = [b.sheets[0].panes[0], b.sheets[0].panes[0]]; return b; }],
+    ['unknown selected pane', () => ({ ...stored(), sheets: [{ ...stored().sheets[0], selectedPaneId: 'nope' }] })],
+    ['bad pane screen', () => { const b = stored(); b.sheets[0].panes[0].screen = { menuId: 1, params: {}, query: '' }; return b; }],
+    ['query without ?', () => { const b = stored(); b.sheets[0].panes[0].screen = { menuId: 'a', params: {}, query: 'x=1' }; return b; }],
+    ['bad previous', () => { const b = stored(); b.sheets[0].panes[0].previous = { menuId: 1 }; return b; }],
+  ])('rejects %s', (_name, make) => {
+    expect(parseBoardV2(make())).toBeNull();
+  });
+
+  const twoPanes = () => { const start = two(); return stored(setLayout(start, start.sheets[0].id, '1x2')); };
+  const ids = (b: ReturnType<typeof twoPanes>) => b.sheets[0].panes.map(p => p.id as string);
+  it.each([
+    ['a pane in two groups', (b: ReturnType<typeof twoPanes>) => { b.sheets[0].tree = { type: 'branch', dir: 'row', sizes: [50, 50], children: [{ type: 'group', panes: ids(b), active: ids(b)[0] }, { type: 'group', panes: [ids(b)[0]], active: ids(b)[0] }] }; }],
+    ['a group with no panes', (b: ReturnType<typeof twoPanes>) => { b.sheets[0].tree = { type: 'group', panes: [], active: ids(b)[0] }; }],
+    ['an active tab outside its group', (b: ReturnType<typeof twoPanes>) => { b.sheets[0].tree = { type: 'group', panes: ids(b), active: 'nope' }; }],
+    ['an unknown pane in a group', (b: ReturnType<typeof twoPanes>) => { b.sheets[0].tree = { type: 'group', panes: [...ids(b), 'nope'], active: ids(b)[0] }; }],
+    ['sizes that do not sum to 100', (b: ReturnType<typeof twoPanes>) => { (b.sheets[0].tree as { sizes: number[] }).sizes = [50, 40]; }],
+    ['a non-positive size', (b: ReturnType<typeof twoPanes>) => { (b.sheets[0].tree as { sizes: number[] }).sizes = [100, 0]; }],
+    ['a size count that differs from the children', (b: ReturnType<typeof twoPanes>) => { (b.sheets[0].tree as { sizes: number[] }).sizes = [100]; }],
+    ['a branch of one child', (b: ReturnType<typeof twoPanes>) => { b.sheets[0].tree = { type: 'branch', dir: 'row', sizes: [100], children: [{ type: 'group', panes: ids(b), active: ids(b)[0] }] }; }],
+    ['an unknown direction', (b: ReturnType<typeof twoPanes>) => { (b.sheets[0].tree as { dir: string }).dir = 'diagonal'; }],
+    ['a pane the tree leaves out', (b: ReturnType<typeof twoPanes>) => { b.sheets[0].tree = { type: 'group', panes: [ids(b)[0]], active: ids(b)[0] }; }],
+  ])('rejects a tree with %s', (_name, damage) => {
+    const board = twoPanes();
+    expect(parseBoardV2(board)).not.toBeNull();
+    damage(board);
+    expect(parseBoardV2(board)).toBeNull();
+  });
+
+  it('accepts any valid tree shape, three panes included, and a selection that is not the active tab', () => {
+    const board = twoPanes();
+    const [first, second] = ids(board);
+    board.sheets[0].tree = { type: 'group', panes: [first, second], active: first };
+    board.sheets[0].selectedPaneId = second;
+    expect(parseBoardV2(board)).not.toBeNull();
+    board.sheets[0].panes.push({ id: 'third', screen: null, previous: null });
+    board.sheets[0].tree = { type: 'branch', dir: 'row', sizes: [40, 60], children: [{ type: 'group', panes: [first, 'third'], active: first }, { type: 'group', panes: [second], active: second }] };
+    expect(parseBoardV2(board)).not.toBeNull();
+  });
+
+  it('drops an unreadable gridMemory entry without rejecting the board', () => {
+    const board = twoPanes();
+    board.sheets[0].gridMemory = { '2x2': { columns: [20, 20], rows: [[50, 50], [50, 50]], collapsed: [] }, '1x2': { columns: [70, 30], rows: [[100], [100]], collapsed: [] }, bogus: 1 };
+    expect(parseBoardV2(board)?.sheets[0].gridMemory).toEqual({ '1x2': { columns: [70, 30], rows: [[100], [100]], collapsed: [] } });
   });
 
   it('rejects duplicate sheet ids and more than 20 sheets', () => {
     const board = freshBoard('시트');
-    expect(parseBoard({ ...board, sheets: [board.sheets[0], board.sheets[0]] })).toBeNull();
+    expect(parseBoardV2({ ...board, sheets: [board.sheets[0], board.sheets[0]] })).toBeNull();
     let full = board;
     for (let i = 1; i < MAX_SHEETS; i++) full = addSheet(full, '시트');
-    expect(parseBoard(full)).not.toBeNull();
-    expect(parseBoard({ ...full, sheets: [...full.sheets, { ...full.sheets[0], id: 'extra' }] })).toBeNull();
+    expect(parseBoardV2(full)).not.toBeNull();
+    expect(parseBoardV2({ ...full, sheets: [...full.sheets, { ...full.sheets[0], id: 'extra' }] })).toBeNull();
   });
 });
 
@@ -61,7 +105,7 @@ describe('sheets', () => {
     const result = removeSheet(board, only.id, '시트')!;
     expect(result.board.sheets).toHaveLength(1);
     expect(result.board.sheets[0].id).not.toBe(only.id);
-    expect(result.board.sheets[0].panes).toEqual([null]);
+    expect(screens(result.board.sheets[0])).toEqual([null]);
     const restored = restoreSheet(result.board, result.removed)!;
     expect(restored.sheets.map(s => s.id)).toEqual([only.id]);
     expect(restored.activeSheetId).toBe(only.id);
@@ -94,7 +138,7 @@ describe('sheets', () => {
     expect(restoreSheet(refilled, result.removed)).toBeNull();
     const restored = restoreSheet(result.board, result.removed)!;
     expect(restored.sheets).toHaveLength(MAX_SHEETS);
-    expect(parseBoard(JSON.parse(JSON.stringify(restored)))).not.toBeNull();
+    expect(parseBoardV2(JSON.parse(JSON.stringify(restored)))).not.toBeNull();
   });
 });
 
@@ -117,8 +161,8 @@ describe('panes and layouts', () => {
     const { board, id } = base();
     const selected = selectPane(board, id, 3);
     const shrunk = setLayout(selected, id, '1x2');
-    expect(shrunk.sheets[0].panes.map(p => p?.menuId)).toEqual(['m0', 'm1']);
-    expect(shrunk.sheets[0].selected).toBe(0);
+    expect(screens(shrunk.sheets[0]).map(p => p?.menuId)).toEqual(['m0', 'm1']);
+    expect(selectedIndex(shrunk.sheets[0])).toBe(0);
     expect(droppedPaneCount(board.sheets[0], '1x2')).toBe(2);
     expect(droppedPaneCount(setPane(setPane(board, id, 2, null), id, 3, null).sheets[0], '1x2')).toBe(0);
   });
@@ -133,9 +177,9 @@ describe('panes and layouts', () => {
     const selected = selectPane(board, id, 3);
     const { after, change } = shrink(selected, id);
     const restored = restoreLayout(after, change)!;
-    expect(restored.sheets[0].layout).toBe('2x2');
-    expect(restored.sheets[0].panes.map(p => p?.menuId)).toEqual(['m0', 'm1', 'm2', 'm3']);
-    expect(restored.sheets[0].selected).toBe(3);
+    expect(layoutOf(restored.sheets[0])).toBe('2x2');
+    expect(screens(restored.sheets[0]).map(p => p?.menuId)).toEqual(['m0', 'm1', 'm2', 'm3']);
+    expect(selectedIndex(restored.sheets[0])).toBe(3);
   });
 
   it('undo of a shrink restores nothing if the sheet was edited, re-expanded or its selection moved on meanwhile', () => {
@@ -147,8 +191,20 @@ describe('panes and layouts', () => {
     expect(restoreLayout(setLayout(after, id, '2x2'), change)).toBeNull();
     // Selecting another pane is not an edit of the content, and the user's selection stays.
     const moved = restoreLayout(selectPane(after, id, 1), change)!;
-    expect(moved.sheets[0].layout).toBe('2x2');
-    expect(moved.sheets[0].selected).toBe(1);
+    expect(layoutOf(moved.sheets[0])).toBe('2x2');
+    expect(selectedIndex(moved.sheets[0])).toBe(1);
+  });
+
+  it('undo keeps a later selection by pane number when the shrink and regrow recreated the slot', () => {
+    const { board, id } = base();
+    const { after, change } = shrink(setPane(board, id, 1, null), id);
+    const recreated = setLayout(setLayout(after, id, '1x1'), id, '1x2');
+    const selected = selectPane(recreated, id, 1);
+    // Re-fill pane 2 would change the panes, so the undo target is only valid while pane 2 is empty again as in `after`.
+    const target = { ...change, after: { ...change.after, panes: recreated.sheets[0].panes } };
+    const restored = restoreLayout(selected, target)!;
+    expect(layoutOf(restored.sheets[0])).toBe('2x2');
+    expect(selectedIndex(restored.sheets[0])).toBe(1);
   });
 
   it('undo of a 1×1 shrink after growing back to 2×2 and selecting pane 4 restores nothing, so the selection stays inside the panes', () => {
@@ -173,7 +229,7 @@ describe('panes and layouts', () => {
   it('undo of a clear restores only a slot that is still there and still empty', () => {
     const { board, id } = base();
     const cleared = setPane(board, id, 1, null);
-    expect(restorePane(cleared, id, 1, screen('m1'))!.sheets[0].panes[1]?.menuId).toBe('m1');
+    expect(screens(restorePane(cleared, id, 1, screen('m1'))!.sheets[0])[1]?.menuId).toBe('m1');
     expect(restorePane(setPane(cleared, id, 1, screen('new')), id, 1, screen('m1'))).toBeNull();
     expect(restorePane(setLayout(cleared, id, '1x1'), id, 1, screen('m1'))).toBeNull();
   });
@@ -185,19 +241,36 @@ describe('normalizeBoard', () => {
     expect(normalizeBoard(board)).toBe(board);
   });
 
-  it('repairs pane counts, a selection out of range, an unknown active sheet and more than 20 sheets', () => {
+  it('repairs a tree that disagrees with the panes, an unknown selection, an unknown active sheet and more than 20 sheets', () => {
     const board = two();
+    const start = board.sheets[0];
+    const grown = setLayout(board, start.id, '2x2').sheets[0];
     const [a, b] = board.sheets;
-    const broken: Board = { ...board, activeSheetId: 'gone', sheets: [{ ...a, layout: '2x2', panes: [null], selected: 5 }, { ...b, panes: [null, null, null], selected: -1 }] };
+    // `a` holds four panes but a tree for one of them, and selects a pane that does not exist; `b` has a duplicate pane id.
+    const broken: Board = { ...board, activeSheetId: 'gone', sheets: [
+      { ...grown, id: a.id, tree: { type: 'group', panes: [grown.panes[0].id], active: grown.panes[0].id }, selectedPaneId: 'zz' },
+      { ...b, panes: [b.panes[0], b.panes[0]] },
+    ] };
     const fixed = normalizeBoard(broken)!;
     expect(fixed.sheets[0].panes).toHaveLength(4);
-    expect(fixed.sheets[0].selected).toBe(0);
+    expect(layoutOf(fixed.sheets[0])).toBe('2x2');
+    expect(selectedIndex(fixed.sheets[0])).toBe(0);
     expect(fixed.sheets[1].panes).toHaveLength(1);
-    expect(fixed.sheets[1].selected).toBe(0);
+    expect(selectedIndex(fixed.sheets[1])).toBe(0);
     expect(fixed.activeSheetId).toBe(a.id);
-    expect(parseBoard(JSON.parse(JSON.stringify(fixed)))).not.toBeNull();
+    expect(parseBoardV2(JSON.parse(JSON.stringify(fixed)))).not.toBeNull();
     const crowded: Board = { ...board, sheets: Array.from({ length: MAX_SHEETS + 3 }, (_, i) => ({ ...a, id: `x${i}` })), activeSheetId: 'x0' };
     expect(normalizeBoard(crowded)!.sheets).toHaveLength(MAX_SHEETS);
+  });
+
+  it('turns three panes without a tree into the 2×2 they display as, and keeps a valid three-pane sheet as is', () => {
+    const board = two();
+    const grown = setLayout(board, board.sheets[0].id, '2x2').sheets[0];
+    const three = { ...grown, panes: grown.panes.slice(0, 3), tree: { type: 'group' as const, panes: [grown.panes[0].id], active: grown.panes[0].id } };
+    expect(normalizeBoard({ ...board, sheets: [three, board.sheets[1]] })!.sheets[0].panes).toHaveLength(4);
+    const valid = { ...three, tree: { type: 'group' as const, panes: three.panes.map(p => p.id), active: three.panes[0].id } };
+    const kept: Board = { ...board, sheets: [valid, board.sheets[1]] };
+    expect(normalizeBoard(kept)).toBe(kept);
   });
 
   it('has no board to repair when no sheet is left', () => {
@@ -210,8 +283,8 @@ describe('atFirstPanes', () => {
     const start = two();
     const [a] = start.sheets;
     const picked = selectPane(setLayout(start, a.id, '2x2'), a.id, 3);
-    expect(picked.sheets[0].selected).toBe(3);
-    expect(atFirstPanes(picked).sheets.map(s => s.selected)).toEqual([0, 0]);
+    expect(selectedIndex(picked.sheets[0])).toBe(3);
+    expect(atFirstPanes(picked).sheets.map(selectedIndex)).toEqual([0, 0]);
     expect(atFirstPanes(start)).toBe(start);
   });
 });
@@ -227,11 +300,11 @@ describe('per-layout arrangement', () => {
     const change: LayoutChange = { sheetId: id, before: wide.sheets[0], after: small.sheets[0], layout: '1x2' };
     const restored = restoreLayout(later, change)!;
     expect(getArrangement(restored.sheets[0])).toEqual(custom);
-    expect(restored.sheets[0].arrangement?.['1x2']?.columns).toEqual([55, 45]);
+    expect(restored.sheets[0].gridMemory?.['1x2']?.columns).toEqual([55, 45]);
     const edited = renameSheet(selectPane(setPane(restored, id, 0, screen('a')), id, 1), id, 'edited');
-    expect(parseBoard(JSON.parse(JSON.stringify(edited)))).toEqual(edited);
-    expect(atFirstPanes(edited).sheets[0].arrangement).toEqual(restored.sheets[0].arrangement);
-    expect(addSheet(edited, '시트').sheets[1].arrangement).toBeUndefined();
+    expect(parseBoardV2(JSON.parse(JSON.stringify(edited)))).toEqual(edited);
+    expect(atFirstPanes(edited).sheets[0].gridMemory).toEqual(restored.sheets[0].gridMemory);
+    expect(addSheet(edited, '시트').sheets[1].gridMemory).toBeUndefined();
   });
   it.each([
     { columns: [0, 100] }, { columns: [NaN, 50] }, { columns: [Infinity, 1] }, { columns: ['50', 50] },
@@ -239,19 +312,19 @@ describe('per-layout arrangement', () => {
     { collapsed: [0, 2] }, { collapsed: [1, 3] }, { collapsed: [0, 0] }, { collapsed: [-1] },
     { collapsed: [4] }, { collapsed: [0.5] }, { rows: [[-10, 110], [50, 50]] },
   ])('drops only an invalid layout entry: %j', invalid => {
-    const board = freshBoard('시트');
-    const raw = { ...board, sheets: [{ ...board.sheets[0], arrangement: {
+    const raw = legacyBoard([legacySheet('a', { arrangement: {
       '2x2': { ...custom, ...invalid }, '1x2': { columns: [70, 30], rows: [[100], [100]], collapsed: [] }, bogus: custom,
-    } }] };
-    expect(parseBoard(raw)?.sheets[0].arrangement).toEqual({ '1x2': { columns: [70, 30], rows: [[100], [100]], collapsed: [] } });
+    } as never })]);
+    expect(migrateV1(raw)?.sheets[0].gridMemory).toEqual({ '1x2': { columns: [70, 30], rows: [[100], [100]], collapsed: [] } });
   });
   it('canonicalizes defaults and rejects impossible logical-column collapse in 1×2', () => {
     const board = freshBoard('시트');
     const id = board.sheets[0].id;
-    expect(setArrangement(board, id, '2x2', defaultArrangement('2x2')).sheets[0].arrangement).toBeUndefined();
-    const raw = { ...board, sheets: [{ ...board.sheets[0], arrangement: { '1x2': { columns: [50, 50], rows: [[100], [100]], collapsed: [0] } } }] };
-    expect(parseBoard(raw)).toEqual(board);
-    expect(parseBoard({ ...board, sheets: [{ ...board.sheets[0], arrangement: 'bad' }] })).toEqual(board);
+    expect(setArrangement(board, id, '2x2', defaultArrangement('2x2')).sheets[0].gridMemory).toBeUndefined();
+    const plain = legacyBoard([legacySheet('a')]);
+    const raw = legacyBoard([legacySheet('a', { arrangement: { '1x2': { columns: [50, 50], rows: [[100], [100]], collapsed: [0] } } })]);
+    expect(toLegacy(migrateV1(raw)!)).toEqual(plain);
+    expect(toLegacy(migrateV1({ ...plain, sheets: [{ ...plain.sheets[0], arrangement: 'bad' }] })!)).toEqual(plain);
     expect(getArrangement(board.sheets[0])).toEqual(defaultArrangement('1x1'));
   });
   it('makes last-sheet delete undo stale after an arrangement edit alone', () => {

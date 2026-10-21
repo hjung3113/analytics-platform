@@ -8,7 +8,7 @@ import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@
 import { PlatformPage } from '@ap/components';
 import { AppShell } from './AppShell';
 import { RouteOutlet } from './RouteOutlet';
-import type { Board } from './board/boardModel';
+import type { BoardV1 } from './board/boardMigrate';
 
 // Navigation path (#605): each shell entry point marks the usage entry it leads to with its `via`.
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
@@ -79,7 +79,7 @@ describe('shell navigation marks the usage entry (#605)', () => {
   });
 
   it('leaving the board with a pane\'s 본 화면에서 열기 is via board, and the board is not a previous menu', async () => {
-    const board: Board = { v: 1, activeSheetId: 'a', sheets: [{ id: 'a', name: 'a', layout: '1x1', selected: 0, panes: [{ menuId: 'beta', params: {}, query: '' }] }] };
+    const board: BoardV1 = { v: 1, activeSheetId: 'a', sheets: [{ id: 'a', name: 'a', layout: '1x1', selected: 0, panes: [{ menuId: 'beta', params: {}, query: '' }] }] };
     localStorage.setItem('platform:board:u1', JSON.stringify(board));
     mount('/alpha');
     await settle();

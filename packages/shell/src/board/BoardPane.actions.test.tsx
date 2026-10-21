@@ -9,7 +9,7 @@ import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@
 import { DetailDrawer, PlatformPage } from '@ap/components';
 import { AppShell } from '../AppShell';
 import { RouteOutlet } from '../RouteOutlet';
-import type { Board, Sheet } from './boardModel';
+import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, storedLegacy as stored, V1_KEY as KEY, V2_KEY } from './__fixtures__/legacyBoard';
 
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const apply = { ...noContext, time: 'apply' as const, roomNames: 'apply' as const, lot: 'apply' as const };
@@ -44,12 +44,7 @@ const registry = createRegistry({
   ],
 });
 
-const sheet = (id: string, over: Partial<Sheet> = {}): Sheet => ({ id, name: id, layout: '1x1', selected: 0, panes: [null], ...over });
-const boardOf = (sheets: Sheet[], active = sheets[0].id): Board => ({ v: 1, activeSheetId: active, sheets });
 const pane = (query: string, menuId = 'alpha') => ({ menuId, params: {}, query });
-const KEY = 'platform:board:u1';
-const stored = (): Board => JSON.parse(localStorage.getItem(KEY)!) as Board;
-const seed = (board: Board) => localStorage.setItem(KEY, JSON.stringify(board));
 const w1 = 'from=2026-09-01T00:00:00&to=2026-09-02T00:00:00';
 const w2 = 'from=2026-08-01T00:00:00&to=2026-08-02T00:00:00';
 const ctx = (query: string) => parseQuery(query, ['tab', 'page']);

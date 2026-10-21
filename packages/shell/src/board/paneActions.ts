@@ -1,7 +1,7 @@
 import { buildQuery, type EquipmentAxisDescriptor, ContractError, emptyGlobal, formatMetricVersion, parseQuery, sameGlobal, serializeGlobal, type GlobalContext } from '@ap/contracts';
 import { labelledCondition, withPaneContext, type MenuEntry, type PaneScreen, type Registry, type ReturnContextKey } from '@ap/kernel';
 import { canMountPaneScreen } from './boardMenus';
-import type { PaneEdit, Sheet } from './boardModel';
+import { screens, type PaneEdit, type Sheet } from './boardModel';
 
 type CanOpen = (menuId: string) => boolean;
 
@@ -115,12 +115,13 @@ function withContext(menu: MenuEntry, query: string, global: GlobalContext): str
 
 /** `이 조건을 시트의 모든 칸에 적용`: `others` counts the other content panes it could reach; `edits` those whose Context actually changes. Null if the source cannot be read. */
 export function applyContextToSheet(registry: Registry, canOpen: CanOpen, sheet: Sheet, sourceIndex: number): { edits: PaneEdit[]; others: number } | null {
-  const globals = participants(registry, canOpen, sheet.panes);
+  const panes = screens(sheet);
+  const globals = participants(registry, canOpen, panes);
   const source = globals[sourceIndex];
   if (!source) return null;
   const edits: PaneEdit[] = [];
   let others = 0;
-  sheet.panes.forEach((pane, index) => {
+  panes.forEach((pane, index) => {
     const global = globals[index];
     if (index === sourceIndex || pane === null || global === null) return;
     others++;
@@ -133,10 +134,10 @@ export function applyContextToSheet(registry: Registry, canOpen: CanOpen, sheet:
 
 /** `이 시트 조건을 다른 시트에 복사`: pane i of `from` onto pane i of `to`, only where both hold content the role can mount. */
 export function copyContextToSheet(registry: Registry, canOpen: CanOpen, from: Sheet, to: Sheet): PaneEdit[] {
-  const source = participants(registry, canOpen, from.panes);
-  const target = participants(registry, canOpen, to.panes);
+  const source = participants(registry, canOpen, screens(from));
+  const target = participants(registry, canOpen, screens(to));
   const edits: PaneEdit[] = [];
-  to.panes.forEach((pane, index) => {
+  screens(to).forEach((pane, index) => {
     const global = source[index];
     if (index >= from.panes.length || pane === null || global == null || target[index] === null || sameGlobal(target[index]!, global)) return;
     const query = withContext(menuOf(registry, pane)!, pane.query, global);
@@ -154,4 +155,4 @@ export function replacementScreen(registry: Registry, canOpen: CanOpen, old: Pan
   return { menuId: menu.id, params: {}, query: global === null ? freshQuery : withContext(menu, '', global) ?? freshQuery };
 }
 
-export const firstEmptyPane = (sheet: Sheet): number => sheet.panes.findIndex(p => p === null);
+export const firstEmptyPane = (sheet: Sheet): number => sheet.panes.findIndex(p => p.screen === null);

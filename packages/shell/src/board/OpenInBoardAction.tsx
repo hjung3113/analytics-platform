@@ -36,7 +36,7 @@ function OpenInBoardDialog({ control }: { control: HeaderOverflowDialogControl }
   return <OpenInBoardDialogBody key={user.id} control={control} />;
 }
 
-const initialDestination = (board: Board): Destination => (board.sheets.length >= MAX_SHEETS ? (board.sheets.some(s => s.panes.some(p => p === null)) ? 'empty' : 'replace') : 'new');
+const initialDestination = (board: Board): Destination => (board.sheets.length >= MAX_SHEETS ? (board.sheets.some(s => s.panes.some(p => p.screen === null)) ? 'empty' : 'replace') : 'new');
 
 function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogControl }) {
   const { user, navigate, registry } = usePlatform();
@@ -45,27 +45,30 @@ function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogContr
   const screen = useCurrentScreen();
   const menuName = (menuId: string) => { const menu = registry.menus.find(m => m.id === menuId); return menu ? tx(menu.label) : menuId; };
   // Read when the dialog opens; the confirm re-reads and checks the chosen target again, so a board changed in another tab is never overwritten with stale data.
-  const [board, setBoard] = useState<Board>(() => readStoredBoard(user.id, text.sheetPrefix));
+  const [board, setBoard] = useState<Board>(() => readStoredBoard(user.id, text.sheetPrefix).board);
   const full = board.sheets.length >= MAX_SHEETS;
-  const withEmpty = board.sheets.filter(s => s.panes.some(p => p === null));
+  const withEmpty = board.sheets.filter(s => s.panes.some(p => p.screen === null));
   const [destination, setDestination] = useState<Destination>(() => initialDestination(board));
   const [problem, setProblem] = useState<string | null>(null);
   const [sheetId, setSheetId] = useState<string>('');
   const [paneIndex, setPaneIndex] = useState<number | null>(null);
   const sheetChoices = destination === 'empty' ? withEmpty : board.sheets;
   const sheet = sheetChoices.find(s => s.id === sheetId) ?? null;
-  const paneChoices = sheet ? sheet.panes.map((pane, index) => ({ pane, index })).filter(({ pane }) => (destination === 'empty') === (pane === null)) : [];
+  const paneChoices = sheet ? sheet.panes.map((slot, index) => ({ pane: slot.screen, index })).filter(({ pane }) => (destination === 'empty') === (pane === null)) : [];
   const ready = destination === 'new' ? !full : sheet !== null && paneIndex !== null && paneChoices.some(c => c.index === paneIndex);
 
   const confirm = () => {
     if (!screen || !ready) return;
-    const current = readStoredBoard(user.id, text.sheetPrefix);
+    const stored = readStoredBoard(user.id, text.sheetPrefix);
+    // A board from a newer build is never written: say so before judging the destination, which that board cannot contain.
+    if (stored.readOnly) { setProblem(text.boardNotSaved); return; }
+    const current = stored.board;
     let next: Board | null = null;
     if (destination === 'new') next = openScreenInNewSheet(current, text.sheetPrefix, screen);
     else if (paneIndex !== null && sheet) {
       // The pane the user was shown must still be what they chose: empty for 빈 칸, the same screen for 바꾸기.
-      const live = current.sheets.find(s => s.id === sheet.id)?.panes[paneIndex];
-      const shown = sheet.panes[paneIndex];
+      const live = current.sheets.find(s => s.id === sheet.id)?.panes[paneIndex]?.screen;
+      const shown = sheet.panes[paneIndex]?.screen ?? null;
       const unchanged = live !== undefined && (destination === 'empty' ? live === null : live !== null && samePane(live, shown));
       if (unchanged) next = { ...setPane(current, sheet.id, paneIndex, screen), activeSheetId: sheet.id };
     }
@@ -75,7 +78,7 @@ function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogContr
       if (destination === 'new') { setDestination(initialDestination(current)); setProblem(text.maxSheets); } else setProblem(text.paneChanged);
       return;
     }
-    writeStoredBoard(user.id, next);
+    if (!writeStoredBoard(user.id, next)) { setProblem(text.boardNotSaved); return; }
     control.close();
     navigate(`${BOARD_PATH}?sheet=${encodeURIComponent(next.activeSheetId)}`, { focus: 'page', via: 'board' });
   };

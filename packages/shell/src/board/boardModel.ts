@@ -1,31 +1,19 @@
 import type { PaneScreen } from '@ap/kernel';
+import { defaultLayoutFor, gridOf, memoryOf, withGrid, withGridMemory } from './boardGrid';
+import {
+  MAX_PANES, MAX_SHEETS, columnPanes, isRatioVector, isRecord, layoutShape, makeId, paneCount, parseArrangementEntry, parseGridMemory, parsePane,
+  type Arrangement, type Board, type BoardLayout, type LayoutNode, type PaneSlot, type Sheet,
+} from './boardTypes';
 
-/** `rows x columns`; panes are numbered row by row, so `1x2` is two side by side and `2x1` two stacked. */
-export type BoardLayout = '1x1' | '1x2' | '2x1' | '2x2';
-export const BOARD_LAYOUTS: readonly BoardLayout[] = ['1x1', '1x2', '2x1', '2x2'];
-export const MAX_SHEETS = 20;
+export { BOARD_LAYOUTS, MAX_SHEETS, columnPanes, defaultArrangement, layoutShape, paneCount } from './boardTypes';
+export type { Arrangement, Board, BoardLayout, GridMemory, LayoutNode, PaneSlot, Sheet } from './boardTypes';
+export { gridOf, withGrid, type GridView } from './boardGrid';
 
-/**
- * `previous` (optional, missing in boards stored before 497b) holds, per pane, the screen it showed before it moved to another menu —
- * the one step `이전 화면` goes back (docs/16 §4). When present it is as long as `panes`.
- */
-export type Arrangement = { columns: number[]; rows: number[][]; collapsed: number[] };
-export type Sheet = { arrangement?: Partial<Record<BoardLayout, Arrangement>>; id: string; name: string; layout: BoardLayout; selected: number; panes: (PaneScreen | null)[]; previous?: (PaneScreen | null)[] };
-export type Board = { v: 1; activeSheetId: string; sheets: Sheet[] };
-
-export const paneCount = (layout: BoardLayout) => ({ '1x1': 1, '1x2': 2, '2x1': 2, '2x2': 4 })[layout];
-export const layoutShape = (layout: BoardLayout) => ({ rows: Number(layout[0]), columns: Number(layout[2]) });
-
-function makeId(prefix: string, taken: ReadonlySet<string>): string {
-  for (;;) {
-    let id: string;
-    try { id = `${prefix}${crypto.randomUUID().slice(0, 8)}`; } catch { id = `${prefix}${Math.random().toString(36).slice(2, 10)}`; }
-    if (!taken.has(id)) return id;
-  }
-}
+const newSlot = (taken: ReadonlySet<string>): PaneSlot => ({ id: makeId('p', taken), screen: null, previous: null });
 
 export function newSheet(name: string, taken: ReadonlySet<string>): Sheet {
-  return { id: makeId('s', taken), name, layout: '1x1', selected: 0, panes: [null] };
+  const slot = newSlot(new Set());
+  return { id: makeId('s', taken), name, panes: [slot], selectedPaneId: slot.id, tree: { type: 'group', panes: [slot.id], active: slot.id } };
 }
 
 /** The sheet name `시트 N`/`Sheet N` with the smallest N no sheet uses yet. */
@@ -36,119 +24,104 @@ export function nextSheetName(sheets: readonly Sheet[], prefix: string): string 
 
 export function freshBoard(prefix: string): Board {
   const sheet = newSheet(`${prefix} 1`, new Set());
-  return { v: 1, activeSheetId: sheet.id, sheets: [sheet] };
+  return { v: 2, activeSheetId: sheet.id, sheets: [sheet] };
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
+/** What each pane shows, by pane number. */
+export const screens = (sheet: Sheet): (PaneScreen | null)[] => sheet.panes.map(p => p.screen);
+export const paneIdAt = (sheet: Sheet, index: number): string | null => sheet.panes[index]?.id ?? null;
+export const indexOfPane = (sheet: Sheet, id: string): number => sheet.panes.findIndex(p => p.id === id);
+/** The selected pane's index (pane number − 1). */
+export const selectedIndex = (sheet: Sheet): number => Math.max(0, indexOfPane(sheet, sheet.selectedPaneId));
+export const layoutOf = (sheet: Sheet): BoardLayout => gridOf(sheet).layout;
 
-/** Row-major indices belonging to a logical column, independent of responsive stacking. */
-export function columnPanes(layout: BoardLayout, column: number): number[] {
-  const { rows, columns } = layoutShape(layout);
-  return Array.from({ length: rows }, (_, row) => row * columns + column);
-}
-
-export function defaultArrangement(layout: BoardLayout): Arrangement {
-  const { rows, columns } = layoutShape(layout);
-  return { columns: Array(columns).fill(100 / columns), rows: Array.from({ length: columns }, () => Array(rows).fill(100 / rows)), collapsed: [] };
-}
-export const getArrangement = (sheet: Sheet, layout = sheet.layout): Arrangement => sheet.arrangement?.[layout] ?? defaultArrangement(layout);
+/** The arrangement the grid shows for `layout` (default: the sheet's own layout); another layout reads its remembered one. */
+export const getArrangement = (sheet: Sheet, layout?: BoardLayout): Arrangement => {
+  const grid = gridOf(sheet);
+  return layout === undefined || layout === grid.layout ? grid.arrangement : memoryOf(sheet, layout);
+};
 export const canCollapse = (layout: BoardLayout, collapsed: readonly number[], index: number): boolean =>
   columnPanes(layout, index % layoutShape(layout).columns).some(i => i !== index && !collapsed.includes(i));
 
-function parseArrangementEntry(value: unknown, layout: BoardLayout): Arrangement | null {
-  if (!isRecord(value)) return null;
-  const { rows, columns } = layoutShape(layout);
-  const vector = (v: unknown, count: number): v is number[] => Array.isArray(v) && v.length === count
-    && v.every(n => typeof n === 'number' && Number.isFinite(n) && n > 0)
-    && Math.abs(v.reduce((a: number, b: number) => a + b, 0) - 100) <= 0.01
-    && (count !== 1 || v[0] === 100);
-  if (!vector(value.columns, columns) || !Array.isArray(value.rows) || value.rows.length !== columns
-    || !value.rows.every(v => vector(v, rows)) || !Array.isArray(value.collapsed)) return null;
-  const collapsed: number[] = value.collapsed;
-  if (collapsed.some(i => !Number.isInteger(i) || i < 0 || i >= paneCount(layout)) || new Set(collapsed).size !== collapsed.length
-    || Array.from({ length: columns }, (_, c) => columnPanes(layout, c)).some(indices => indices.every(i => collapsed.includes(i)))) return null;
-  return { columns: [...value.columns], rows: value.rows.map(v => [...v]), collapsed: [...collapsed].sort((a, b) => a - b) };
-}
-
-function parseArrangement(value: unknown): Sheet['arrangement'] {
-  if (!isRecord(value)) return undefined;
-  const entries: Sheet['arrangement'] = {};
-  for (const layout of BOARD_LAYOUTS) {
-    const entry = parseArrangementEntry(value[layout], layout);
-    if (entry && JSON.stringify(entry) !== JSON.stringify(defaultArrangement(layout))) entries[layout] = entry;
-  }
-  return Object.keys(entries).length ? entries : undefined;
-}
-function withArrangement(sheet: Sheet, value: unknown): Sheet {
-  const rest = { ...sheet };
-  delete rest.arrangement;
-  const arrangement = parseArrangement(value);
-  return arrangement ? { ...rest, arrangement } : rest;
-}
-
-/** Invalid input is ignored; defaults remove only this layout's saved entry. */
+/** Invalid input is ignored; defaults remove only this layout's saved entry. The sheet's own layout also rewrites the tree. */
 export function setArrangement(board: Board, sheetId: string, layout: BoardLayout, value: Arrangement): Board {
-  if (!parseArrangementEntry(value, layout)) return board;
-  return mapSheet(board, sheetId, sheet => withArrangement(sheet, { ...sheet.arrangement, [layout]: value }));
+  const entry = parseArrangementEntry(value, layout);
+  if (!entry) return board;
+  return mapSheet(board, sheetId, sheet => (gridOf(sheet).layout === layout && sheet.panes.length === paneCount(layout) ? withGrid(sheet, layout, entry) : withGridMemory(sheet, layout, entry)));
 }
 
-function parsePane(value: unknown): PaneScreen | null | undefined {
-  if (value === null) return null;
-  if (!isRecord(value) || typeof value.menuId !== 'string' || typeof value.query !== 'string' || !isRecord(value.params)) return undefined;
-  if (value.query !== '' && !value.query.startsWith('?')) return undefined;
-  const params: Record<string, string> = {};
-  for (const [key, v] of Object.entries(value.params)) {
-    if (typeof v !== 'string') return undefined;
-    params[key] = v;
+export const previousAt = (sheet: Sheet, index: number): PaneScreen | null => sheet.panes[index]?.previous ?? null;
+
+const mapSlot = (sheet: Sheet, index: number, change: (slot: PaneSlot) => PaneSlot): Sheet =>
+  (index < 0 || index >= sheet.panes.length ? sheet : { ...sheet, panes: sheet.panes.map((p, i) => (i === index ? change(p) : p)) });
+
+/** Every pane id appears in exactly one group exactly once; `active` is in its group; sizes are finite positives summing to 100, one per child. Returns a clean copy. */
+function cleanTree(node: unknown, ids: ReadonlySet<string>, seen: Set<string>): LayoutNode | null {
+  if (!isRecord(node)) return null;
+  if (node.type === 'group') {
+    if (!Array.isArray(node.panes) || node.panes.length === 0 || typeof node.active !== 'string' || !node.panes.includes(node.active)) return null;
+    for (const id of node.panes) {
+      if (typeof id !== 'string' || !ids.has(id) || seen.has(id)) return null;
+      seen.add(id);
+    }
+    return { type: 'group', panes: [...node.panes as string[]], active: node.active };
   }
-  return { menuId: value.menuId, params, query: value.query };
+  if (node.type !== 'branch' || (node.dir !== 'row' && node.dir !== 'column') || !Array.isArray(node.children) || node.children.length < 2
+    || !isRatioVector(node.sizes, node.children.length)) return null;
+  const children: LayoutNode[] = [];
+  for (const child of node.children) {
+    const clean = cleanTree(child, ids, seen);
+    if (!clean) return null;
+    children.push(clean);
+  }
+  return { type: 'branch', dir: node.dir, sizes: [...node.sizes], children };
 }
 
-function parsePrevious(value: unknown, count: number): (PaneScreen | null)[] | undefined {
-  if (!Array.isArray(value) || value.length !== count) return undefined;
-  const previous: (PaneScreen | null)[] = [];
+function parseSlots(value: unknown): PaneSlot[] | null {
+  if (!Array.isArray(value) || value.length < 1 || value.length > MAX_PANES) return null;
+  const ids = new Set<string>();
+  const slots: PaneSlot[] = [];
   for (const item of value) {
-    const parsed = parsePane(item);
-    if (parsed === undefined) return undefined;
-    previous.push(parsed);
+    if (!isRecord(item) || typeof item.id !== 'string' || item.id.length === 0 || ids.has(item.id)) return null;
+    const screen = parsePane(item.screen);
+    const previous = parsePane(item.previous);
+    if (screen === undefined || previous === undefined) return null;
+    ids.add(item.id);
+    slots.push({ id: item.id, screen, previous });
   }
-  return previous;
+  return slots;
 }
 
-/** The sheet with `previous` set, or without the field when nothing is stored in it. */
-function withPrevious(sheet: Sheet, previous: (PaneScreen | null)[] | undefined): Sheet {
-  const rest = { ...sheet };
-  delete rest.previous;
-  return previous && previous.some(p => p !== null) ? { ...rest, previous } : rest;
+function parseSheet(item: unknown): Sheet | null {
+  if (!isRecord(item) || typeof item.id !== 'string' || item.id.length === 0 || typeof item.name !== 'string') return null;
+  const panes = parseSlots(item.panes);
+  if (!panes || typeof item.selectedPaneId !== 'string' || !panes.some(p => p.id === item.selectedPaneId)) return null;
+  const ids = new Set(panes.map(p => p.id));
+  const seen = new Set<string>();
+  const tree = cleanTree(item.tree, ids, seen);
+  if (!tree || seen.size !== ids.size) return null;
+  const sheet: Sheet = { id: item.id, name: item.name, panes, selectedPaneId: item.selectedPaneId, tree };
+  const gridMemory = parseGridMemory(item.gridMemory);
+  return gridMemory ? { ...sheet, gridMemory } : sheet;
 }
 
-export const previousAt = (sheet: Sheet, index: number): PaneScreen | null => sheet.previous?.[index] ?? null;
-const setPreviousAt = (sheet: Sheet, index: number, screen: PaneScreen | null): Sheet =>
-  withPrevious(sheet, sheet.panes.map((_, i) => (i === index ? screen : previousAt(sheet, i))));
-
-/** Validates a stored value. Anything off — shape, version, counts, duplicate ids — is null, never a partial board. */
-export function parseBoard(raw: unknown): Board | null {
-  if (!isRecord(raw) || raw.v !== 1 || typeof raw.activeSheetId !== 'string' || !Array.isArray(raw.sheets)) return null;
+/**
+ * Validates a stored V2 value. Anything off — shape, version, pane ids, tree, duplicate sheet ids — is null, never a partial board. Only
+ * `gridMemory` (the grid renderer's remembered sizes) drops an unreadable entry instead of rejecting the board.
+ */
+export function parseBoardV2(raw: unknown): Board | null {
+  if (!isRecord(raw) || raw.v !== 2 || typeof raw.activeSheetId !== 'string' || !Array.isArray(raw.sheets)) return null;
   if (raw.sheets.length < 1 || raw.sheets.length > MAX_SHEETS) return null;
   const ids = new Set<string>();
   const sheets: Sheet[] = [];
   for (const item of raw.sheets) {
-    if (!isRecord(item) || typeof item.id !== 'string' || item.id.length === 0 || ids.has(item.id) || typeof item.name !== 'string') return null;
-    if (typeof item.layout !== 'string' || !BOARD_LAYOUTS.includes(item.layout as BoardLayout)) return null;
-    const layout = item.layout as BoardLayout;
-    if (!Array.isArray(item.panes) || item.panes.length !== paneCount(layout)) return null;
-    const panes: (PaneScreen | null)[] = [];
-    for (const pane of item.panes) {
-      const parsed = parsePane(pane);
-      if (parsed === undefined) return null;
-      panes.push(parsed);
-    }
-    if (typeof item.selected !== 'number' || !Number.isInteger(item.selected) || item.selected < 0 || item.selected >= panes.length) return null;
-    ids.add(item.id);
-    sheets.push(withArrangement(withPrevious({ id: item.id, name: item.name, layout, selected: item.selected, panes }, parsePrevious(item.previous, panes.length)), item.arrangement));
+    const sheet = parseSheet(item);
+    if (!sheet || ids.has(sheet.id)) return null;
+    ids.add(sheet.id);
+    sheets.push(sheet);
   }
   if (!ids.has(raw.activeSheetId)) return null;
-  return { v: 1, activeSheetId: raw.activeSheetId, sheets };
+  return { v: 2, activeSheetId: raw.activeSheetId, sheets };
 }
 
 const mapSheet = (board: Board, id: string, change: (sheet: Sheet) => Sheet): Board => {
@@ -206,28 +179,44 @@ export function removeSheet(board: Board, id: string, prefix: string): { board: 
 export const samePane = (a: PaneScreen | null, b: PaneScreen | null) => a === b
   || (a !== null && b !== null && a.menuId === b.menuId && a.query === b.query
     && Object.keys(a.params).length === Object.keys(b.params).length && Object.entries(a.params).every(([k, v]) => b.params[k] === v));
-const samePanes = (a: Sheet, b: Sheet) => a.layout === b.layout && a.panes.length === b.panes.length && a.panes.every((p, i) => samePane(p, b.panes[i]));
-const sameSheet = (a: Sheet, b: Sheet) => a.name === b.name && a.selected === b.selected && samePanes(a, b) && JSON.stringify(a.arrangement) === JSON.stringify(b.arrangement);
+const samePanes = (a: Sheet, b: Sheet) => layoutOf(a) === layoutOf(b) && a.panes.length === b.panes.length && a.panes.every((p, i) => samePane(p.screen, b.panes[i].screen));
+const sameSheet = (a: Sheet, b: Sheet) => a.name === b.name && a.selectedPaneId === b.selectedPaneId && samePanes(a, b)
+  && JSON.stringify(a.tree) === JSON.stringify(b.tree) && JSON.stringify(a.gridMemory) === JSON.stringify(b.gridMemory);
+
+/** Repairs one sheet that broke an invariant; the same object when nothing needed repair. Panes beyond 4 are dropped, a missing tree becomes the default grid. */
+function normalizeSheet(sheet: Sheet): Sheet {
+  const memory = parseGridMemory(sheet.gridMemory);
+  const memoryFits = JSON.stringify(memory) === JSON.stringify(sheet.gridMemory);
+  const unique = sheet.panes.filter((p, i) => sheet.panes.findIndex(q => q.id === p.id) === i).slice(0, MAX_PANES);
+  const ids = new Set(unique.map(p => p.id));
+  const seen = new Set<string>();
+  const treeFits = unique.length === sheet.panes.length && unique.length > 0 && cleanTree(sheet.tree, ids, seen) !== null && seen.size === ids.size;
+  const selectedFits = ids.has(sheet.selectedPaneId);
+  if (treeFits && selectedFits && memoryFits) return sheet;
+  const canonical: Sheet = { ...sheet };
+  delete canonical.gridMemory;
+  if (memory) canonical.gridMemory = memory;
+  let panes = unique.length > 0 ? unique : [newSlot(new Set())];
+  if (!treeFits && panes.length === 3) panes = [...panes, newSlot(new Set(panes.map(p => p.id)))];
+  const selectedPaneId = panes.some(p => p.id === sheet.selectedPaneId) ? sheet.selectedPaneId : panes[0].id;
+  const fitted: Sheet = { ...canonical, panes, selectedPaneId };
+  if (treeFits) return fitted;
+  const layout = defaultLayoutFor(panes.length);
+  return withGrid(fitted, layout, memoryOf(canonical, layout));
+}
 
 /**
- * The one place the board's invariants are enforced after an undo: 1–20 sheets, every sheet's pane array matching its layout, `selected`
- * inside it, and an active sheet that exists. Returns the same object when nothing needed repair, and null for a board with no sheets
- * (nothing to repair it from).
+ * The one place the board's invariants are enforced after an undo: 1–20 sheets, every sheet's panes, tree and selection consistent
+ * (1–4 panes with unique ids, every pane in exactly one group, the selected pane one of them), canonical `gridMemory`, and an active sheet
+ * that exists. Returns the same object when nothing needed repair, and null for a board with no sheets (nothing to repair it from).
  */
 export function normalizeBoard(board: Board): Board | null {
   if (board.sheets.length === 0) return null;
   let changed = false;
   const sheets = board.sheets.slice(0, MAX_SHEETS).map(sheet => {
-    const count = paneCount(sheet.layout);
-    const fits = sheet.panes.length === count && Number.isInteger(sheet.selected) && sheet.selected >= 0 && sheet.selected < count
-      && (sheet.previous === undefined || sheet.previous.length === count);
-    const canonical = withArrangement(sheet, sheet.arrangement);
-    const arrangementFits = JSON.stringify(canonical.arrangement) === JSON.stringify(sheet.arrangement);
-    if (fits && arrangementFits) return sheet;
-    if (fits) { changed = true; return canonical; }
-    changed = true;
-    const fitted = { ...canonical, panes: Array.from({ length: count }, (_, i) => sheet.panes[i] ?? null), selected: Number.isInteger(sheet.selected) && sheet.selected >= 0 && sheet.selected < count ? sheet.selected : 0 };
-    return withPrevious(fitted, sheet.previous && Array.from({ length: count }, (_, i) => sheet.previous![i] ?? null));
+    const next = normalizeSheet(sheet);
+    if (next !== sheet) changed = true;
+    return next;
   });
   if (sheets.length !== board.sheets.length) changed = true;
   const active = sheets.some(s => s.id === board.activeSheetId);
@@ -254,13 +243,15 @@ export function restoreSheet(board: Board, removed: RemovedSheet): Board | null 
 }
 
 export function selectPane(board: Board, sheetId: string, index: number): Board {
-  return mapSheet(board, sheetId, s => (index < 0 || index >= s.panes.length || s.selected === index ? s : { ...s, selected: index }));
+  return mapSheet(board, sheetId, s => {
+    const id = paneIdAt(s, index);
+    return id === null || s.selectedPaneId === id ? s : { ...s, selectedPaneId: id };
+  });
 }
 
 /** Puts a whole new screen (or nothing) in a pane: a clear, an insert or a replace, so the pane's `이전 화면` goes. */
 export function setPane(board: Board, sheetId: string, index: number, screen: PaneScreen | null): Board {
-  return mapSheet(board, sheetId, s => (index < 0 || index >= s.panes.length ? s
-    : setPreviousAt({ ...s, panes: s.panes.map((p, i) => (i === index ? screen : p)) }, index, null)));
+  return mapSheet(board, sheetId, s => mapSlot(s, index, slot => ({ ...slot, screen, previous: null })));
 }
 
 /**
@@ -268,21 +259,15 @@ export function setPane(board: Board, sheetId: string, index: number, screen: Pa
  * `이전 화면`; a replace or a write inside the same menu leaves `previous` alone (docs/16 §4).
  */
 export function editPane(board: Board, sheetId: string, index: number, next: PaneScreen, how: 'push' | 'replace'): Board {
-  return mapSheet(board, sheetId, s => {
-    if (index < 0 || index >= s.panes.length) return s;
-    const old = s.panes[index];
-    const moved = how === 'push' && old !== null && old.menuId !== next.menuId;
-    const edited = { ...s, panes: s.panes.map((p, i) => (i === index ? next : p)) };
-    return moved ? setPreviousAt(edited, index, old) : edited;
-  });
+  return mapSheet(board, sheetId, s => mapSlot(s, index, slot => {
+    const moved = how === 'push' && slot.screen !== null && slot.screen.menuId !== next.menuId;
+    return { ...slot, screen: next, previous: moved ? slot.screen : slot.previous };
+  }));
 }
 
 /** `이전 화면`: the pane shows its previous screen again and forgets it. No-op without one. */
 export function goBackPane(board: Board, sheetId: string, index: number): Board {
-  return mapSheet(board, sheetId, s => {
-    const back = index >= 0 && index < s.panes.length ? previousAt(s, index) : null;
-    return back === null ? s : setPreviousAt({ ...s, panes: s.panes.map((p, i) => (i === index ? back : p)) }, index, null);
-  });
+  return mapSheet(board, sheetId, s => (previousAt(s, index) === null ? s : mapSlot(s, index, slot => ({ ...slot, screen: slot.previous, previous: null }))));
 }
 
 
@@ -296,7 +281,7 @@ export type PaneEdit = { index: number; before: PaneScreen | null; after: PaneSc
 function writeEdit(board: Board, sheetId: string, edit: PaneEdit, screen: PaneScreen | null): Board {
   return edit.fresh || edit.before === null || edit.after === null
     ? setPane(board, sheetId, edit.index, screen)
-    : mapSheet(board, sheetId, s => (edit.index >= s.panes.length ? s : { ...s, panes: s.panes.map((p, i) => (i === edit.index ? screen : p)) }));
+    : mapSheet(board, sheetId, s => mapSlot(s, edit.index, slot => ({ ...slot, screen })));
 }
 
 export function applyPaneEdits(board: Board, sheetId: string, edits: readonly PaneEdit[]): Board {
@@ -306,7 +291,7 @@ export function applyPaneEdits(board: Board, sheetId: string, edits: readonly Pa
 /** Undo of `applyPaneEdits`. Null — nothing restored — unless every edited pane still holds what the action left. */
 export function revertPaneEdits(board: Board, sheetId: string, edits: readonly PaneEdit[]): Board | null {
   const sheet = board.sheets.find(s => s.id === sheetId);
-  if (!sheet || edits.some(e => e.index >= sheet.panes.length || !samePane(sheet.panes[e.index], e.after))) return null;
+  if (!sheet || edits.some(e => e.index >= sheet.panes.length || !samePane(sheet.panes[e.index].screen, e.after))) return null;
   return normalizeBoard(edits.reduce((b, edit) => writeEdit(b, sheetId, edit, edit.before), board));
 }
 
@@ -320,13 +305,13 @@ export function openScreenInNewSheet(board: Board, prefix: string, screen: PaneS
 /** Undo of a pane clear. Null — nothing restored — unless the slot is still there and still empty. */
 export function restorePane(board: Board, sheetId: string, index: number, screen: PaneScreen): Board | null {
   const sheet = board.sheets.find(s => s.id === sheetId);
-  if (!sheet || index >= sheet.panes.length || sheet.panes[index] !== null) return null;
+  if (!sheet || index >= sheet.panes.length || sheet.panes[index].screen !== null) return null;
   return normalizeBoard(setPane(board, sheetId, index, screen));
 }
 
 /** How many panes with a screen a layout change would drop. Empty overflow panes cost nothing. */
 export function droppedPaneCount(sheet: Sheet, layout: BoardLayout): number {
-  return sheet.panes.slice(paneCount(layout)).filter(p => p !== null).length;
+  return sheet.panes.slice(paneCount(layout)).filter(p => p.screen !== null).length;
 }
 
 /** `before` is the sheet as it was, `after` as the change left it; the undo applies only while the sheet still is `after`. */
@@ -334,10 +319,15 @@ export type LayoutChange = { sheetId: string; before: Sheet; after: Sheet; layou
 
 export function setLayout(board: Board, sheetId: string, layout: BoardLayout): Board {
   return mapSheet(board, sheetId, s => {
-    if (s.layout === layout) return s;
+    const grid = gridOf(s);
+    if (grid.layout === layout) return s;
     const count = paneCount(layout);
-    const panes = Array.from({ length: count }, (_, i) => s.panes[i] ?? null);
-    return withPrevious({ ...s, layout, panes, selected: s.selected < count ? s.selected : 0 }, s.previous && Array.from({ length: count }, (_, i) => s.previous![i] ?? null));
+    // The layout being left keeps its current sizes in `gridMemory`, so switching back restores them.
+    const kept = s.panes.length === paneCount(grid.layout) ? withGridMemory(s, grid.layout, grid.arrangement) : s;
+    const taken = new Set(kept.panes.map(p => p.id));
+    const panes = Array.from({ length: count }, (_, i) => kept.panes[i] ?? (() => { const slot = newSlot(taken); taken.add(slot.id); return slot; })());
+    const selectedPaneId = panes.some(p => p.id === kept.selectedPaneId) ? kept.selectedPaneId : panes[0].id;
+    return withGrid({ ...kept, panes, selectedPaneId }, layout, memoryOf(kept, layout));
   });
 }
 
@@ -348,9 +338,11 @@ export function setLayout(board: Board, sheetId: string, layout: BoardLayout): B
 export function restoreLayout(board: Board, change: LayoutChange): Board | null {
   const sheet = board.sheets.find(s => s.id === change.sheetId);
   if (!sheet || !samePanes(sheet, change.after)) return null;
-  const selected = sheet.selected === change.after.selected ? change.before.selected : sheet.selected;
-  return normalizeBoard(mapSheet(board, change.sheetId, s => withPrevious({ ...s, layout: change.before.layout, panes: change.before.panes, selected }, change.before.previous)));
+  // A later selection is kept by pane number: the restored slots may have other ids than the ones now on the sheet.
+  const selectedPaneId = sheet.selectedPaneId === change.after.selectedPaneId ? change.before.selectedPaneId : (change.before.panes[selectedIndex(sheet)] ?? change.before.panes[0]).id;
+  const layout = layoutOf(change.before);
+  return normalizeBoard(mapSheet(board, change.sheetId, s => withGrid({ ...s, panes: change.before.panes, selectedPaneId }, layout, memoryOf(s, layout))));
 }
 
 /** A board as it is opened: the first pane of every sheet selected (docs/16 §4). The stored selection is never used for arrival. */
-export const atFirstPanes = (board: Board): Board => (board.sheets.every(s => s.selected === 0) ? board : { ...board, sheets: board.sheets.map(s => (s.selected === 0 ? s : { ...s, selected: 0 })) });
+export const atFirstPanes = (board: Board): Board => (board.sheets.every(s => selectedIndex(s) === 0) ? board : { ...board, sheets: board.sheets.map(s => (selectedIndex(s) === 0 ? s : { ...s, selectedPaneId: s.panes[0].id })) });

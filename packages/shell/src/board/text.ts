@@ -101,6 +101,9 @@ const KO = {
   confirmReplace: (n: number) => `칸 ${n}의 화면을 바꿉니다`,
   openAction: '열기',
   paneChanged: '그 칸이 바뀌었습니다 — 다시 고르세요',
+  storageNewer: '더 새 버전에서 저장한 보드라 이 화면에서는 저장하지 않습니다.',
+  storageCorrupt: '저장된 보드를 읽을 수 없어 새 보드로 시작했습니다. 원래 값은 따로 보관했습니다.',
+  boardNotSaved: '더 새 버전에서 저장한 보드라 이 화면에서는 저장하지 않습니다.',
 };
 
 type Strings<T> = { [K in keyof T]: T[K] extends (...args: infer A) => string ? (...args: A) => string : string };
@@ -204,6 +207,9 @@ const EN: Strings<typeof KO> = {
   confirmReplace: (n: number) => `This replaces the screen in pane ${n}`,
   openAction: 'Open',
   paneChanged: 'That pane has changed — choose again',
+  storageNewer: 'This board was saved by a newer version, so this screen does not save it.',
+  storageCorrupt: 'The saved board could not be read, so a new board was started. The original value was kept aside.',
+  boardNotSaved: 'This board was saved by a newer version, so this screen does not save it.',
 };
 
 export type BoardText = Strings<typeof KO>;
