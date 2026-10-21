@@ -42,7 +42,7 @@ owns requester lifecycle/risk; Core must not import Permission or decide access.
 no UPDATE/DELETE. Preserve canonical Actor/subject/detail identifiers, append-only
 history and same-transaction accountability; controlled migrate/operator reads
 supply test observations. Core exposes only the latest Permission Request question and responsibility
-configuration-change projections. No broad app-readable audit definer. Inventory consumers
+configuration-change projections, plus the one allowlisted `core.platform_audit_events` projection for the platform audit screen (platform ADR-0069 decision 6, #621: id/instant/actor/event_type/subject only, no summary or detail, survey-response and sensitive rows excluded in SQL). No broad app-readable audit definer. Inventory consumers
 before cutover. ADR-0015 permits only targeted sanitization of confirmed legacy
 Survey-generated cached Finding responses, preserving Actor/key/hash/status and
 exactly-once side effects; no unrelated cache reset or authored-text rewrite.

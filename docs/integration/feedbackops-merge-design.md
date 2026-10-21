@@ -115,8 +115,8 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 | `subscribe` — `GET .../session-state` | 새로 만듦 | 재료 있음: `lookupActorIdByToken`은 세션을 늘리지 않고 조회한다(`modules/auth/session-service.ts:302-318`) | `{sessionVersion, generation?}` 경로 |
 | `getEntity` | 모양만 다름 | type별 GET `/vocs/:id`·`/findings/:id`·`/tasks/:id`. 서버가 type → provider 표와 `canRead`를 갖고 있다(`entity-link-providers.ts:9-18`, `modules/entity-links/provider-types.ts:22-48`) | 본문은 `EntityRef`, 응답은 200 envelope다(404·403 대신). 판정 순서 차이는 4.3. 설비·지표 type은 O4 |
 | `accessDirectory` | 모양만 다름 | `GET /actors`(게이트 없음, `modules/auth/list-actors-routes.ts:61-95`). `GET /permissions/grants`·`/denies`(admin만, `modules/permissions/grant-admin-service.ts:79-88`) | 행은 사람 × (역할, 유효 권한[], site별 room)이다. filter·sort·page·`total`이 없다. 게이트 차이는 4.3 |
-| `auditTrail` | 새로 만듦(저장소는 있음) | 쓰기만 있다(`modules/core/audit/audit-service.ts:37-57`). 스키마는 `db/schema/core.ts:207-226` | `subject_id`가 uuid라 opaque id(설비)를 못 담고 `scope_id` 열도 없다. `event_type`을 `AuditAction` 다섯 값에 매핑해야 한다. 노출 범위는 O16 |
-| `entityAudit` | 새로 만듦 | 위와 같다. 볼 수 있는지 판정은 provider `canRead`를 다시 쓴다 | type별 조회 게이트 + 대상 감사 행 |
+| `auditTrail` | 새로 만듦(저장소는 있음) | 쓰기만 있다(`modules/core/audit/audit-service.ts:37-57`). 스키마는 `db/schema/core.ts:207-226` | `subject_id`가 uuid라 opaque id(설비)를 못 담고 `scope_id` 열도 없다. `event_type`을 `AuditAction` 다섯 값에 매핑해야 한다. 노출 범위는 O16. **구현됨(#621):** SECURITY DEFINER 투영 `core.platform_audit_events`(migration 0074)로 읽고 매핑은 `platform-port/audit-actions.ts`. `subject_id` text 전환·`scope_id`는 구현 안 함(`.planning/backlog.md` 작은 후속) |
+| `entityAudit` | 새로 만듦 | 위와 같다. 볼 수 있는지 판정은 provider `canRead`를 다시 쓴다 | type별 조회 게이트 + 대상 감사 행. **구현됨(#621):** 허용 type 5종(voc·finding·voc_cluster·task_request·task) |
 | `recordUsage`·`usageSummary` | 새로 만듦 | 없음 | 표, 수신 시각, 거부는 200 + `accepted: 0`, keepalive를 받는 CSRF. `console:access` 원천은 O9 |
 | `reportClientError` | 새로 만듦 | 없음 | 식별 필드만 받는 엄격 검증, 200 + `accepted: false` |
 | `listAnnotations`·`saveAnnotation`·`deleteAnnotation` | 새로 만듦 | 없음 | 표, 작성자 판정, site 부여 검사(O11), 삭제 감사 event(ADR-0041) |
@@ -202,7 +202,7 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 | O13 | FeedbackOps API를 `/api/v1/feedbackops/...`로 옮길지(화면 경로 `/vocs` 등과의 충돌 제거) | #593, #597(옛 URL) — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 3(#594로 미룸)** |
 | O14 | CSRF 토큰을 플랫폼 경로에만 걸지, FeedbackOps 변경 경로 전체에 걸지. 같은 출처가 되면 SameSite만으로 충분한지 | #593, #150, HTTP 어댑터 계약 §10 Q8 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 4** |
 | O15 | rate limit: 5분 폴링·위젯 여럿·`recordUsage`가 Actor 100/분, read 300/분 안에 드는지, 플랫폼 경로 묶음을 새로 둘지 | #593 측정 |
-| O16 | 감사 읽기 노출 범위: FeedbackOps event → `AuditAction` 매핑, `console:access`가 볼 detail의 범위(사유·설문·이메일), `subject_id` text 전환·`scope_id` 추가 migration | #593 + FeedbackOps 개인정보 규칙(FO ADR-0033·0066), 사용자 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 6** |
+| O16 | 감사 읽기 노출 범위: FeedbackOps event → `AuditAction` 매핑, `console:access`가 볼 detail의 범위(사유·설문·이메일), `subject_id` text 전환·`scope_id` 추가 migration | #593 + FeedbackOps 개인정보 규칙(FO ADR-0033·0066), 사용자 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 6** — 구현 #621(`subject_id` text·`scope_id`는 `.planning/backlog.md`에 구현 안 함으로 기록) |
 | O17 | 적합성 묶음 시드 계정(권한 하나씩 뺀 계정, site 두 곳 계정, 다른 주석 작성자)을 mock 로그인 시드로 만들지 | #593 |
 | O18 | 체크리스트 §5 "#98 전에는 부여·회수 쓰기 없음"과 이미 구현된 FeedbackOps 부여·승인 쓰기(FO ADR-0066)의 충돌. 체크리스트를 고칠지, 쓰기를 FeedbackOps 범위로 한정할지 | #596 |
 | O19 | FeedbackOps 엔티티의 `EntityRef.scopeId`(`null` + 서버 안 Managed System 판정). 행이 있는지 드러나는 방식(Finding 404/403 대 플랫폼 `empty`/`forbidden`)을 맞출지 | 06 §22 소유자(사용자), #596 — **Decided: [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 9** |

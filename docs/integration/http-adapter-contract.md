@@ -41,12 +41,14 @@
 | `recordUsage(events)` | `POST /api/v1/platform/usage-events` | `{ events: UsageEvent[] }` | `{ accepted: number }` |
 | `reportClientError(report)` | `POST /api/v1/platform/client-errors` | `ClientErrorReport` | `{ accepted: boolean }` |
 | `usageSummary(range)` | `GET /api/v1/platform/usage-summary?preset=all` 또는 `?from=…&to=…`(epoch ms) | 쿼리 | `ApiResponse<UsageSummary>` |
-| `auditTrail(query)` | `POST /api/v1/platform/audit-trail/search` | `AuditTrailQuery` | `ApiResponse<AuditTrailPage>` |
-| `entityAudit(ref)` | `POST /api/v1/platform/entity/audit` | `EntityRef` | `ApiResponse<{ events: AuditEvent[] }>` |
+| `auditTrail(query)` | `POST /api/v1/platform/audit-trail/search` — FeedbackOps 구현됨(#621) | `AuditTrailQuery` | `ApiResponse<AuditTrailPage>` |
+| `entityAudit(ref)` | `POST /api/v1/platform/entity/audit` — FeedbackOps 구현됨(#621) | `EntityRef` | `ApiResponse<{ events: AuditEvent[] }>` |
 | `accessDirectory(query)` | `POST /api/v1/platform/access-directory/search` | `AccessDirectoryQuery` | `ApiResponse<AccessDirectoryPage>` |
 | `listAnnotations(ref)` | `GET /api/v1/platform/annotations?chartId=…&scopeId=…` | 쿼리(`scopeId` 없으면 빼고 보냄 → 서버 `forbidden`) | `ApiResponse<{ items: ChartAnnotation[] }>` |
 | `saveAnnotation(input)` | `POST /api/v1/platform/annotations` | `AnnotationInput`(작성자·`at`·`id` 없음 — 있으면 거부) | `ApiResponse<ChartAnnotation>` |
 | `deleteAnnotation(ref)` | `POST /api/v1/platform/annotations/delete` | `{ chartId, scopeId, id }`(그 밖의 키는 `saveAnnotation`과 같이 거부) | `ApiResponse<{ id: string }>` |
+
+FeedbackOps의 `auditTrail`·`entityAudit`(#621, [ADR-0069](../adr/0069-platform-port-in-feedbackops-backend.md) 결정 6·7·9): 응답의 `AuditEvent`에는 `changes`·`reason`을 싣지 않는다(사유·메모 본문과 민감 detail은 내보내지 않는다). `target.type`은 FeedbackOps `subject_type` 18종(voc, finding, task, task_request, entity_link, voc_cluster, permission_request, permission_grant, permission_deny, survey, survey_question, managed_system, analytics_area, milestone, attachment, public_update_review_candidate, voc_cluster_suggestion, workspace)이고 `scopeId`는 항상 `null`이다. 설문 응답 관련 행과 `detail.sensitive = true` 행은 목록에서 빠지고 `total`에도 세지 않는다. `entityAudit`의 `type`은 voc·finding·voc_cluster·task_request·task만 받으며 그 밖(`survey_response` 포함)은 `error`, 읽을 수 없거나 없는 대상은 모두 `forbidden`이다. `sync` 액션에 대응하는 FeedbackOps event는 아직 없다.
 
 새 세 조회 경로는 별도 Candidate 매핑이며 위 /api/v1/platform 접두사 제안과 통합할 최종 경로는 백엔드 합의 때 확정한다. 성공은 HTTP 200 + 자기 JSON 타입(빈 페이지도 성공), 판정 실패는 4xx + `{code,message,field?}`다. invalid_input·invalid_cursor·invalid_period·unknown_axis·membership_basis_unsupported는 400, scope_forbidden·room_forbidden은 403, unknown_scope는 404다. 어댑터는 이를 PortError로 reject한다(HTTP 200 envelope 정책의 예외). 의미 원본은 [06 §6.4](../06_platform_ui_contract.md#64-url-계약-decided-필드명enum-문자열은-candidate)다.
 

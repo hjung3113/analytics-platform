@@ -148,10 +148,11 @@ describe.skipIf(!runIntegration)('ADR-0064 canonical read boundary', () => {
       from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
       where (n.nspname, p.proname) in (
         ('core','create_survey_finding_link'), ('survey','read_derived_findings'),
-        ('core','latest_permission_request_question'), ('core','responsibility_configuration_changes'))
+        ('core','latest_permission_request_question'), ('core','responsibility_configuration_changes'),
+        ('core','platform_audit_events'))
       order by p.proname
     `);
-    expect(functions.rows).toHaveLength(4);
+    expect(functions.rows).toHaveLength(5);
     for (const row of functions.rows) {
       expect(row).toMatchObject({ prosecdef: true, app_execute: true, public_execute: false });
       expect(row.proconfig).toEqual(['search_path=pg_catalog']);
@@ -159,9 +160,41 @@ describe.skipIf(!runIntegration)('ADR-0064 canonical read boundary', () => {
     expect(functions.rows.map((r) => [r.proname, r.owner])).toEqual([
       ['create_survey_finding_link', 'fops_entity_links_survey_mutator_owner'],
       ['latest_permission_request_question', 'fops_core_audit_reader_owner'],
+      ['platform_audit_events', 'fops_core_audit_reader_owner'],
       ['read_derived_findings', 'fops_survey_derived_finding_reader_owner'],
       ['responsibility_configuration_changes', 'fops_core_audit_reader_owner'],
     ]);
+  });
+
+  it('limits the audit reader owner to the allowlisted columns of audit_log and actors (#621)', async () => {
+    const columns = await migrate.pool.query<{ rel: string; col: string }>(`
+      select c.relname as rel, a.attname as col
+      from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid
+      where a.attrelid in ('core.audit_log'::regclass, 'core.actors'::regclass)
+        and a.attnum > 0 and not a.attisdropped
+        and pg_catalog.has_column_privilege('fops_core_audit_reader_owner', a.attrelid, a.attname, 'SELECT')
+      order by c.relname, a.attname
+    `);
+    expect(columns.rows.map((r) => `${r.rel}.${r.col}`)).toEqual([
+      'actors.actor_type',
+      'actors.external_id',
+      'actors.id',
+      'audit_log.actor_id',
+      'audit_log.created_at',
+      'audit_log.detail',
+      'audit_log.event_type',
+      'audit_log.id',
+      'audit_log.subject_id',
+      'audit_log.subject_type',
+      'audit_log.workspace_id',
+    ]);
+    // Never the human-readable summary, and the app role never reads raw audit rows.
+    const appAuditColumns = await migrate.pool.query(`
+      select 1 from pg_catalog.pg_attribute
+      where attrelid = 'core.audit_log'::regclass and attnum > 0 and not attisdropped
+        and pg_catalog.has_column_privilege('fops_app', attrelid, attname, 'SELECT')
+    `);
+    expect(appAuditColumns.rows).toEqual([]);
   });
 
   it.each(['active', 'stale', 'detached', 'revoked'])(

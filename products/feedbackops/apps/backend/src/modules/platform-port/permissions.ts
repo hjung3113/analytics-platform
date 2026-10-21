@@ -54,6 +54,16 @@ export async function resolvePlatformPermissions(
   return held.sort();
 }
 
+/** Whether this actor holds one platform permission, by the table's rule (single source). */
+export async function holdsPlatformPermission(
+  checkService: CheckService,
+  actor: PlatformActor,
+  permission: (typeof PLATFORM_PERMISSION_TABLE)[number]['permission'],
+): Promise<boolean> {
+  const entry = PLATFORM_PERMISSION_TABLE.find((e) => e.permission === permission);
+  return entry ? holds(checkService, actor, entry.rule) : false;
+}
+
 async function holds(
   checkService: CheckService,
   actor: PlatformActor,

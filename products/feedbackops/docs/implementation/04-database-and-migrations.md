@@ -625,6 +625,16 @@ The coordinated rollout, new owner-role prerequisite and consumer inventory are
 recorded in `survey-link-audit-cutover-740.md`. Trusted permitted-definer
 composition is the accepted limit; stolen-app-credential unlinkability is not claimed.
 
+### #621 platform audit projection (0074)
+
+`0074_platform_audit_projection.sql` adds `core.platform_audit_events(...)`, a `SECURITY DEFINER`
+function owned by `fops_core_audit_reader_owner` (`fops_app` holds EXECUTE only). The owner gains
+column SELECT on `core.audit_log(actor_id)` and `core.actors(id, external_id, actor_type)` and
+nothing else; `fops_app` still has no SELECT on `core.audit_log`. The allowlist (18 subject types,
+no `survey_response*` rows, no `detail.sensitive = true`, no `summary`/`detail` output) is in the
+function body. Callers: `modules/core/audit/platform-audit-projection.ts`, used by
+`modules/platform-port` (ADR-0069 decision 6).
+
 ### #1109 approved Survey attachment extension (0066)
 
 `apps/backend/migrations/0066_survey_evidence_attachment.sql` and its generated

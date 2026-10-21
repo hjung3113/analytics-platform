@@ -10,6 +10,10 @@ import { sendError, statusForCode } from '../../lib/errors.js';
 import { SESSION_COOKIE_NAME } from '../../middleware/require-session.js';
 import type { ActorRecord, SessionRecord, SessionService } from '../auth/session-service.js';
 import type { CheckService } from '../permissions/check-service.js';
+import type { Db } from '../../db/client.js';
+import type { EntityLinkProviderRegistry } from '../entity-links/provider-types.js';
+import { createPlatformAuditService } from './audit-service.js';
+import { envelope } from './envelope.js';
 import { resolvePlatformPermissions } from './permissions.js';
 import { sessionVersionOf } from './session-version.js';
 
@@ -29,6 +33,9 @@ export interface PlatformPortOptions {
   sessionService: SessionService;
   checkService: CheckService;
   workspaceId: string;
+  /** Audit reads go through the allowlisted projection; entity reads through the providers. */
+  db: Db;
+  providers: EntityLinkProviderRegistry;
   now?: () => Date;
 }
 
@@ -47,8 +54,26 @@ export function seoulWallClockMinute(at: Date): string {
   return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:00`;
 }
 
+const MALFORMED_BODY = Symbol('malformed-json-body');
+
 export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async (app, opts) => {
   const now = opts.now ?? (() => new Date());
+  const audit = createPlatformAuditService({
+    db: opts.db,
+    checkService: opts.checkService,
+    providers: opts.providers,
+  });
+
+  // A body that is not valid JSON is a judged malformed request (HTTP 200 + `error` envelope,
+  // ADR-0069 decision 2), not a framework 4xx: hand the route a sentinel instead of throwing.
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
+    if (body === '') return done(null, undefined);
+    try {
+      done(null, JSON.parse(body as string));
+    } catch {
+      done(null, MALFORMED_BODY);
+    }
+  });
 
   app.addHook('onSend', async (_req, reply) => {
     reply.header('cache-control', 'no-store');
@@ -110,6 +135,14 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
     return loaded;
   }
 
+  function actorOf(loaded: { session: SessionRecord; actor: ActorRecord }) {
+    return {
+      actor_id: loaded.actor.id,
+      workspace_id: loaded.session.workspaceId,
+      role_level: loaded.actor.roleLevel,
+    };
+  }
+
   async function buildSession(loaded: { session: SessionRecord; actor: ActorRecord }) {
     const { actor, session } = loaded;
     const permissions = await resolvePlatformPermissions(opts.checkService, {
@@ -148,5 +181,22 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
     const loaded = await authenticate(req, reply, false);
     if (!loaded) return reply;
     return { sessionVersion: sessionVersionOf(await buildSession(loaded)) };
+  });
+
+  // Read POSTs (ADR-0069 decision 4): no CSRF. Every judged result is HTTP 200 + envelope.
+  app.post('/audit-trail/search', async (req, reply) => {
+    const loaded = await authenticate(req, reply, true);
+    if (!loaded) return reply;
+    const body = req.body === MALFORMED_BODY ? null : req.body;
+    const result = await audit.auditTrail(actorOf(loaded), body);
+    return envelope(req, result.outcome, result.data ?? null, result.message);
+  });
+
+  app.post('/entity/audit', async (req, reply) => {
+    const loaded = await authenticate(req, reply, true);
+    if (!loaded) return reply;
+    const body = req.body === MALFORMED_BODY ? null : req.body;
+    const result = await audit.entityAudit(actorOf(loaded), body);
+    return envelope(req, result.outcome, result.data ?? null, result.message);
   });
 };
