@@ -34,6 +34,8 @@ export type PageFilterField =
 export type PageFilterSummaryItem = { key: string; label: string; value: string };
 
 type PageFilterBarShared = {
+  /** A query bar owns the sole Apply; fields remain consumer controlled. */
+  mode?: 'draft';
   label: string;
   fields: readonly PageFilterField[];
   actions?: ReactNode;
@@ -192,11 +194,11 @@ export function PageFilterBar(props: PageFilterBarProps) {
   return <CollapsiblePageFilterBar key={storageKey} {...props} storageKey={storageKey} />;
 }
 
-function StaticPageFilterBar({ label, fields, actions, onApply, orientation = 'row' }: PageFilterBarShared & { collapsible?: false; orientation?: 'row' | 'column' }) {
+function StaticPageFilterBar({ label, fields, actions, onApply, mode, orientation = 'row' }: PageFilterBarShared & { collapsible?: false; orientation?: 'row' | 'column' }) {
   const id = useId();
   const column = orientation === 'column';
 
-  return withApplyForm(onApply, <fieldset data-testid="page-filter-bar" className={column ? 'min-w-0 w-full' : 'mb-3 rounded-md border border-border-subtle bg-surface-card p-3'}>
+  return withApplyForm(mode === 'draft' ? undefined : onApply, <fieldset data-testid="page-filter-bar" className={column ? 'min-w-0 w-full' : 'mb-3 rounded-md border border-border-subtle bg-surface-card p-3'}>
     <legend className={column ? 'sr-only' : 'px-1 text-xs text-text-secondary'}>{label}</legend>
     <div className={column ? 'grid min-w-0 gap-3' : 'flex flex-wrap items-end gap-3'}>
       {fields.map((field, index) => <PageFilterFieldControl key={field.key} field={field} column={column} id={`${id}-field-${index}`} />)}
@@ -212,7 +214,7 @@ function readCollapsedPreference(key: string): boolean {
   } catch { return false; }
 }
 
-function CollapsiblePageFilterBar({ label, fields, actions, onApply, summaryItems, collapsedActions, hasPendingChanges, storageKey }: PageFilterBarShared & {
+function CollapsiblePageFilterBar({ label, fields, actions, onApply, mode, summaryItems, collapsedActions, hasPendingChanges, storageKey }: PageFilterBarShared & {
   summaryItems: readonly PageFilterSummaryItem[];
   collapsedActions?: ReactNode;
   hasPendingChanges?: boolean;
@@ -262,7 +264,7 @@ function CollapsiblePageFilterBar({ label, fields, actions, onApply, summaryItem
     }
   }, [collapsed, summaryText]);
 
-  return withApplyForm(onApply, <fieldset data-testid="page-filter-bar" className="mb-3 rounded-md border border-border-subtle bg-surface-card p-3">
+  return withApplyForm(mode === 'draft' ? undefined : onApply, <fieldset data-testid="page-filter-bar" className="mb-3 rounded-md border border-border-subtle bg-surface-card p-3">
     <legend className={collapsed ? 'sr-only' : 'px-1 text-xs text-text-secondary'}>{label}</legend>
     {collapsed && <div className="flex flex-wrap items-center gap-2">
       <Button ref={expandRef} type="button" variant="secondary" size="toolbar" wrapText onClick={() => toggle(false)}

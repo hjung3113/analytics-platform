@@ -1,3 +1,4 @@
+import { QueryBarExtensionsProvider } from '@ap/components';
 import { PaneQueryDraftProvider, useEquipmentAxes } from '@ap/kernel';
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import { HardDrive } from 'lucide-react';
@@ -256,6 +257,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
       </div>
     </header>
     <PaneQueryDraftProvider key={sheetId} screens={Object.fromEntries(sheet.panes.map((screen, index) => [paneIdOf(sheetId, index), screen]))}>
+    <QueryBarExtensionsProvider>
     <BoardContextBar key={`${sheetId}.${selected}`} paneId={paneIdOf(sheetId, selected)} number={selected + 1} screen={sheet.panes[selected]} onChange={(next, how) => update(b => editPane(b, sheetId, selected, next, how))} onLeave={onLeave} />
     <div ref={panel} id={PANEL_ID} role="tabpanel" aria-labelledby={`board-tab-${sheetId}`} className="min-h-0 flex-1 overflow-auto p-3">
       {allEmpty && <section ref={guidance} aria-label={text.emptyGuidanceTitle} className="mb-3 rounded-md border border-border-subtle bg-surface-card px-4 py-3">
@@ -285,6 +287,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
             onChange={values => saved({ rows: arrangement.rows.map((r, i) => i === c ? values : r) })} /> : null)}
       </div>
     </div>
+    </QueryBarExtensionsProvider>
     </PaneQueryDraftProvider>
     <SheetTabs sheets={board.sheets} activeId={sheetId} panelId={PANEL_ID}
       onSwitch={id => { if (id !== sheetId) navigate(sheetHref(id)); }} onAdd={addNewSheet}

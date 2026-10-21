@@ -474,3 +474,17 @@ describe('PageFilterBar collapsible', () => {
     expect(live().textContent).toBe('');
   });
 });
+
+describe('PageFilterBar query draft presentation', () => {
+  it('keeps controlled edits but omits its form and apply dispatch', () => {
+    const apply = vi.fn();
+    const change = vi.fn();
+    render(<PageFilterBar mode="draft" label="Draft page filters" onApply={apply} fields={[{ key: 'q', kind: 'text', label: 'Value', value: 'a', onValueChange: change }]} />);
+    const input = screen.getByRole('textbox', { name: 'Value' });
+    fireEvent.change(input, { target: { value: 'b' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(change).toHaveBeenCalledWith('b');
+    expect(input.closest('form')).toBeNull();
+    expect(apply).not.toHaveBeenCalled();
+  });
+});

@@ -6,3 +6,5 @@ export { AppSidebar } from './AppSidebar';
 export { ScopeSelector } from './ScopeSelector';
 export { AppRail } from './AppRail';
 export { OpenInBoardAction } from './board/OpenInBoardAction';
+
+export { QueryBar, type QueryBarProps } from './QueryBar';

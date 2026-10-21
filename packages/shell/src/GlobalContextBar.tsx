@@ -1,3 +1,4 @@
+import { QueryBar } from './QueryBar';
 import { CalendarDays, ChevronDown, Link2, RotateCcw, X } from 'lucide-react';
 import { useContext, type ReactNode } from 'react';
 import { ContextBarLayout, MeasuringContext, useContextEditorState, useContextEditorFocusRecovery } from './ContextBarLayout';
@@ -30,6 +31,11 @@ export function GlobalContextBar({ label, whenEmpty = null }: {
   /** Board only: drawn where the bar would collapse to nothing, so the row keeps its height. */
   whenEmpty?: ReactNode;
 } = {}) {
+  const { route } = usePlatform();
+  return route?.menu.query?.mode === 'apply' ? <QueryBar label={label} /> : <LiveContextBar label={label} whenEmpty={whenEmpty} />;
+}
+
+function LiveContextBar({ label, whenEmpty }: { label?: { visible: string; region: string }; whenEmpty: ReactNode }) {
   const { route, global, setGlobal, resetContext, url, scope, adapter } = usePlatform();
   const { t, lang } = useI18n();
   const axes = useEquipmentAxes();

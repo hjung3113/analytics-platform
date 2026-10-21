@@ -12,16 +12,17 @@ const none: Record<ContextKey, Capability> = {
 };
 /** Inline mirror of the cycle-time manifest in '../index.ts' (permission, requiresScope, context). 바꾸면 같이 바꾼다. */
 const cycleMenu: MenuMeta = {
+  query: { mode: 'apply', required: { context: ['time', 'roomNames'] } },
   id: 'cycle-time', group: 'analytics', label: { ko: '사이클타임 상세', en: 'Cycle time detail' }, description: { ko: '', en: '' },
   path: '/analytics/cycle-time', permission: 'analytics:view', requiresScope: true, pageType: 'analysis',
-  context: { ...none, time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', lot: 'apply', ppid: 'apply', recipe: 'apply', metric: 'apply' },
+  context: { ...none, time: 'apply', roomNames: 'apply', line: 'apply', prcGroup: 'apply', condition: 'apply', selection: 'apply', lot: 'apply', ppid: 'apply', recipe: 'apply', metric: 'apply' },
   features: { export: true, savedView: false, annotate: true, compare: true }, pageKeys: ['granularity', 'percentile', 'sort', 'page', 'bucket', 'bin'],
 };
 
 const adapter = createMockAdapter({ endpoints: [...cycleMock], registry: { menus: [cycleMenu] } });
 const context = {
   scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00',
-  roomNames: null, condition: null, membershipBasis: null, selection: null, lotIds: null, ppid: null, recipeIds: null, metricId: null, metricVersion: null,
+  roomNames: ['PHOTO', 'ETCH', 'CVD'], lineNames: null, prcGroups: null, condition: null, membershipBasis: null, selection: null, lotIds: null, ppid: null, recipeIds: null, metricId: null, metricVersion: null,
 };
 const allFilter = { tail: 'all' as const, granularity: 'hour' as const, bucket: null, bin: null };
 const page0 = { page: 0, pageSize: 10 };

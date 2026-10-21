@@ -293,6 +293,8 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 
 **기본 구간 물질화 시계 `defaultRangeTo` (Decided):** 브라우저 로컬 now, 서버 UTC 문자열 절단, "watermark = now = Data through" 등식은 모두 쓰지 않는다. 서버가 해당 시간역·데이터셋의 기본 조회 상한 `defaultRangeTo`(배타적 초 경계, wall-clock)를 제공한다. `defaultRangeTo`는 half-open 구간의 상한이므로 그 값 자체는 §6.3의 경계 규칙에 따라 항상 제외된다. 서버가 이 값을 정할 때 "포함"이 뜻하는 것은 **포함하려는 마지막 실제 데이터 시각이 `defaultRangeTo`보다 항상 이전이 되도록**(그 시각이 필터로 잘리지 않도록) 상한을 잡는다는 것이지, 상한 이전 데이터가 모두 도착했거나 집계가 완전하다는 뜻이 아니다 — 예를 들어 포함하려는 마지막 시각이 `10:00:00.000` 또는 `10:00:00.500`이면 `defaultRangeTo`는 최소 `10:00:01`이어야 한다. 기본 구간은 `[defaultRangeTo − Δ, defaultRangeTo)`(naive 길이 산술, 자정 비정렬)로 물질화하며, 산출 불가 시 자동 물질화하지 않고 기간 선택을 요구한다. 현재 포트(`defaultRangeTo(): string`)는 항상 값을 준다 — 산출 불가 분기는 실서버 연결(#154) 때 포트에 더한다(결정 대기, `.planning/README.md`). 한 번 물질화한 URL 기간을 데이터 갱신만으로 자동 이동시키지 않는다. 사용자가 명시적으로 고르는 기간 프리셋(`1일/7일/사용자 지정`)은 이 메커니즘을 그대로 재사용해 Δ=24h/168h로 확정했다(2026-09-22). 최초 진입 시 자동 물질화되는 기본 Δ 숫자 자체는 별도로 Open이다.
 
+**조회 바 달력 프리셋(Decided, 2026-10-21, #553 위임 결정):** Apply 모드의 최근 24시간·최근 7일은 같은 서버 앵커에서 24h·168h를 뺀다. 오늘은 `defaultRangeTo`의 날짜 D, 기준일은 사용자가 고른 날짜 D로 `[D 00:00:00, D+1 00:00:00)`를 만든다. 브라우저 now·UTC 변환을 쓰지 않으며 직접 범위는 초 정렬 naive 시각을 그대로 유지한다. 이 명시적 선택은 최초 기본 Δ의 Open 결정을 바꾸지 않는다.
+
 `defaultRangeTo`와 자동 재집계 창의 원천 진행 경계 `R`(정의는 [01 지연 완료 허용 시간](01_architecture_and_data_contract.md#late-arrival-policy) 참조)은 서로 다른 계약 필드이며 항상 같은 값은 아니다. **`R`이 존재할 때만** 같은 시간역·대상 조건에서 `defaultRangeTo ≤ R`인 경우에만 그 기본 구간을 자동 물질화하고, 만족하는 값이 없으면 마지막 점을 버리거나 `R`을 올리지 않고 기간 선택을 요구한다(L2). `R`이 아직 없는 경우(첫 mart 세대 생성 전, 워커 일시 중단 등)에는 이 비교를 적용하지 않는다 — `defaultRangeTo`가 독립적으로 유효하면 그대로 자동 물질화하고, 자동 재집계만 보류한다([01 정책](01_architecture_and_data_contract.md#late-arrival-policy) 참조).
 
 **실제 시점은 wall-clock이 아니다 (Decided, 2026-09-28):** 설비 업무 시각이 아닌 실제 시점(epoch·timestamptz — 예: 메뉴 활용률 마지막 사용, FeedbackOps VOC 접수 시각)은 이 절의 wall-clock 계약 대상이 아니다. 화면에는 `@ap/contracts`의 `formatInstant`로 보는 사람의 시간대에 맞춰 표시하고, `formatDateTime`(naive wall-clock 전용)으로 표시하지 않는다. `formatInstant`는 offset 없는 문자열을 거부해 두 종류가 섞이지 않게 한다(#88).
@@ -519,11 +521,16 @@ Create VOC from current context
 
 대표 Context: Time Range · room_name · Line · PRC 그룹 · Equipment Group(Condition·Selection) · Lot · PPID · Recipe · Metric(ID+버전 쌍). Scope는 Global Context에 속하지만 선택기는 사이드바 머리에 하나만 둔다(§7).
 
-**다중축·소속 기준(Decided, 2026-10-21; 구현 전 — [ADR-0059](adr/0059-app-injected-equipment-axes-and-condition.md)):** 바는 앱이 주입한 여러 축과 축별 여러 값을 표시·편집하고 축 간 AND / 축 안 OR의 적용 조건을 요약한다. “그 시점 소속 / 지금 소속” 선택과 현재 적용한 기준을 표시하며 이력 없는 축을 쓰면 지금 소속만 허용한다. 미지원 축·무효 조합·옵션 갱신 시 기존 값을 조용히 지우지 않고 사유를 표시한다. 후보의 서버 검색·페이징과 고정 선택의 페이지 밖 보존은 §6.4를 따른다. 구체 UI는 실앱 시안 승인 뒤 구현한다.
+**다중축·소속 기준(Decided, 2026-10-21; Apply 모드 구현 — [ADR-0059](adr/0059-app-injected-equipment-axes-and-condition.md)):** 바는 앱이 주입한 여러 축과 축별 여러 값을 표시·편집하고 축 간 AND / 축 안 OR의 적용 조건을 요약한다. “그 시점 소속 / 지금 소속” 선택과 현재 적용한 기준을 표시하며 이력 없는 축을 쓰면 지금 소속만 허용한다. 미지원 축·무효 조합·옵션 갱신 시 기존 값을 조용히 지우지 않고 사유를 표시한다. 후보의 서버 검색·페이징과 고정 선택의 페이지 밖 보존은 §6.4를 따른다. Apply 모드는 아래 조회 바를 쓰고 live 모드는 기존 즉시 적용 바를 유지한다.
 
-Line·PRC 그룹은 URL로 전달되면 요약과 제거 동작만 표시한다. 편집기는 시안 승인 뒤 구현한다(2026-10-21 사용자 정정 — 소유자 #552). Condition 요약은 주입 descriptor 순서의 축 이름과 값, `asOf`일 때 “그 시점 소속”을 표시하고 PRC 그룹에도 같은 기준 표시를 붙인다.
+Apply 모드의 Line·PRC 그룹은 독립 전역 키 옵션 포트로 편집하며 live 바는 전달값 요약·제거를 유지한다(2026-10-21 사용자 정정 — 소유자 #552). Condition 요약은 주입 descriptor 순서의 축 이름과 값, `asOf`일 때 “그 시점 소속”을 표시하고 PRC 그룹에도 같은 기준 표시를 붙인다.
 
 ### 일괄 적용 조회(Decided, ADR-0061)
+
+- `GlobalContextBar`는 메뉴 `query.mode: 'apply'`일 때 SDK `QueryBar`로 전환하며 기존 live 메타데이터 effect를 마운트하지 않는다. 펼친 조회 바는 기간·공정·Line·PRC와 주입 축·소속 기준·EquipmentID 두 그룹, 미지원·참조 전달값 제거 영역, 단일 적용 동작을 제공한다. 전역 Scope 선택은 기존 즉시 동작을 유지한다. 접힌 요약은 실제 초안값과 적용값을 구별하고 전체값 열기를 제공하며 유효한 초안은 펼치지 않아도 적용한다.
+- `null`은 전체 후보, `[]`는 명시적 빈 선택이다. Condition 축의 마지막 값 제거는 키를 지운다. 후보 페이지에 없는 값은 보존하며 조합 판정은 서버가 한다. 조회 바는 필수 누락뿐 아니라 Scope·유효성·메뉴 page 오류·커밋 대기 사유를 설명한다.
+- `PageFilterBar mode="draft"`는 제어된 필드 API를 유지하고 자체 Apply/form 제출만 없앤다. 메뉴는 초안 page·기간에서 값·기본값·요약·오류를 계산하고 `PlatformPage.queryBarExtension`으로 전달한다. 결과·차트·목록·내보내기·드릴 링크는 적용값을 유지한다. 첫 소비자는 cycle-time(기간·공정 필수)이고 다른 메뉴는 live다.
+- `PlatformPage.queryResult`는 메뉴가 고른 권위 있는 요약 쿼리의 `status/completedAt`이다. 정상 머리 아래(칸은 본문 안) 적용 조건 스트립에 적용값과 `요약 조회 완료` instant를 표시하며 viewer 시간대로 포맷한다. idle/loading/null은 완료를 숨기고 같은 신원의 refreshing은 기존 완료를 유지한다. 오류 응답의 완료도 성공 주장 없이 표시한다. cycle-time은 KPI 쿼리를 원천으로 쓰고 다른 위젯 오류는 기존 OutcomeScope로 남긴다. SDK는 쿼리를 추가·집계하지 않는다.
 
 - `useQueryDraft()`는 `{ mode, draft: {global,page}, dirty, setDraftGlobal, setDraftPage, apply, revert, reset, missing, canApply, applying }`를 제공한다. live에서는 적용값을 비추고 setter가 기존 API로 통과한다. dirty는 비어 있고 apply/revert/reset은 no-op이다.
 - 초안은 논리적 화면마다 하나다. 본 화면·다른 칸은 격리하고 같은 칸의 본문·Context 바는 시트 수명 소유자 `PaneQueryDraftProvider screens` 아래서 같은 저장소를 읽는다. 칸 선택·숨김·접힘·편집기 재마운트는 초안을 보존한다. 칸/시트 제거, 메뉴·경로 params·세션 교체는 폐기한다.
@@ -532,7 +539,7 @@ Line·PRC 그룹은 URL로 전달되면 요약과 제거 동작만 표시한다.
 - 주소의 실제 변경은 다른 writer·링크·history·보드 일괄 적용 모두 초안을 새 적용값으로 rebase한다. 같은 주소 이동은 유지한다. Scope 선택은 기존 즉시 API로 Site 경계 필드를 지운 뒤 rebase한다. 자체 Apply의 지연 반영은 클릭 뒤 편집을 보존하고 중복 호출을 동기 억제한다. `applying`은 현재 turn의 커밋 전달 중이며 조회 loading과 별개다. 전달 뒤 false로 정착하고 미확인 제안은 중복 억제만 유지한다(주소 확인/다른 주소 이동 때 해제).
 - 실행 게이트는 주소의 명시적 유효한 from/to + 선언 필수값이다. bare route, v/extras만, Scope만, page만, 미지원 Context만 있는 주소는 idle이다. 필수 Scope는 현재 세션에서 검증해야 요청할 수 있다. 시간 없는 Apply opt-in은 실행 여부를 주소로 재현할 표현이 없어 Registry 오류로 거부한다. 실행 marker나 세션 hasApplied flag를 추가하지 않는다.
 - 필수 Context의 대응은 time→from+to, roomNames→roomNames, line→lineNames, prcGroup→prcGroups, condition→condition, selection→selection, lot→lotIds, ppid→ppid, recipe→recipeIds, metric→metricId+metricVersion이다. null/undefined는 누락, 기간·지표는 유효한 완전한 쌍이어야 한다. 집합 `[]`는 존재이며 기존 원천 조회 없는 empty 응답을 유지한다. 빈 page는 누락이다. `missing`은 `{key,label: Text}[]`이고 Context에는 CONTEXT_LABELS, page에는 선언 label을 사용하며 queryMissing 사전으로 선택 사유를 번역한다. 필수값 없이 실행 전이면 missing=[]와 일반 조회 전 문구를 쓴다.
-- 분석 요청(useMenuQuery, 공유 menuRequest를 쓰는 useMenuFetch·ModuleHost.query)에 게이트를 적용한다. fetch.ready는 false이며 직접 호출도 adapter 대신 기존 not_ready envelope로 답한다. raw usePlatformQuery·목적지/entity·감사·주석은 보조 요청으로 유지한다. Scope·session·투영 검증은 유지하고 required는 서버 검증을 대신하지 않는다. 실제 메뉴 opt-in과 조회 바 UI, #554 저장소·복원은 별도 범위다.
+- 분석 요청(useMenuQuery, 공유 menuRequest를 쓰는 useMenuFetch·ModuleHost.query)에 게이트를 적용한다. fetch.ready는 false이며 직접 호출도 adapter 대신 기존 not_ready envelope로 답한다. raw usePlatformQuery·목적지/entity·감사·주석은 보조 요청으로 유지한다. Scope·session·투영 검증은 유지하고 required는 서버 검증을 대신하지 않는다. 조회 바와 cycle-time opt-in은 #553에서 제공하며 #554 저장소·복원은 별도 범위다.
 
 ### Context 변경 규칙
 

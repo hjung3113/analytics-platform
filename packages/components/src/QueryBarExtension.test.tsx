@@ -1,0 +1,21 @@
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, expect, it } from 'vitest';
+import { House } from 'lucide-react';
+import { createRegistry, I18nProvider, PaneScreenProvider, PlatformProvider } from '@ap/kernel';
+import { noContext, testAdapter, testSpace } from '@ap/kernel/testing';
+import { QueryBarExtensionsProvider, usePublishQueryBarExtension, useQueryBarExtension } from './QueryBarExtension';
+
+const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: 'overview', label: { ko: '개요', en: 'Overview' }, icon: House, space: 'analytics' }], menus: [{ id: 'home', primary: true, group: 'overview', path: '/', label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, icon: House, permission: 'platform:view', requiresScope: false, context: noContext, features: { export: false, annotate: false, compare: false, savedView: false }, pageType: 'analysis', pageKeys: [] }] });
+function Publish({ value }: { value: string }) { usePublishQueryBarExtension({ pageSummary: [{ key: 'grain', label: '집계', value }], issues: [{ key: 'grain', label: '집계', reason: value }] }); return null; }
+function Read() { return <p>{useQueryBarExtension()?.issues[0]?.reason ?? 'no extension'}</p>; }
+function Pane({ id, children }: { id: string; children: React.ReactNode }) { return <PaneScreenProvider paneId={id} screen={{ menuId: 'home', params: {}, query: '' }} onChange={() => {}} onLeave={() => {}}>{children}</PaneScreenProvider>; }
+afterEach(cleanup);
+it('shares menu diagnostics across body/bar providers for one pane and clears them on unmount', async () => {
+  function View({ publish, selected }: { publish: boolean; selected: string }) { return <I18nProvider><PlatformProvider registry={registry} adapter={testAdapter()}><QueryBarExtensionsProvider>{publish && <Pane id="p1"><Publish value="invalid grain" /></Pane>}<Pane id={selected}><Read /></Pane></QueryBarExtensionsProvider></PlatformProvider></I18nProvider>; }
+  const tree = render(<View publish selected="p1" />);
+  await waitFor(() => expect(screen.getByText('invalid grain')).toBeTruthy());
+  tree.rerender(<View publish selected="p2" />);
+  expect(screen.getByText('no extension')).toBeTruthy();
+  tree.rerender(<View publish={false} selected="p1" />);
+  expect(screen.getByText('no extension')).toBeTruthy();
+});

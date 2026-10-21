@@ -37,7 +37,7 @@ afterEach(() => {
 
 describe('CycleTimeDrilldown compact action', () => {
   it('shows 상세 as an icon link with the same name and the execution-detail href', async () => {
-    window.history.replaceState(null, '', '/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00');
+    window.history.replaceState(null, '', '/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00');
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
     // The first render of this page exceeds the 1s default wait under parallel load (#434, #437).
     const link = await screen.findByRole('link', { name: 'EQ-1 · 2026-09-26 01:02:03 상세' }, { timeout: 8000 });

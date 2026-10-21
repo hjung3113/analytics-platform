@@ -1,3 +1,6 @@
+import { formatInstant } from '@ap/contracts';
+import { formatQuerySummary } from './querySummary';
+import { QueryBarExtensionContext, usePublishQueryBarExtension, type QueryBarExtension } from './QueryBarExtension';
 import { OutcomeBanners, OutcomeScope } from './OutcomeScope';
 import { ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
 import { cloneElement, createContext, isValidElement, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
@@ -91,16 +94,20 @@ export type PlatformPageProps = {
   /** Page-owned controls rendered directly under the global Context bar (never a second global filter). */
   contextExtension?: ReactNode;
   dataTrustSummary?: ReactNode;
+  queryBarExtension?: QueryBarExtension;
+  /** Completion of the consumer's authoritative summary query, including terminal error responses. */
+  queryResult?: { completedAt: number | null; status: 'idle' | 'loading' | 'refreshing' | 'done' };
   /** Extra crumbs between the menu and the current object. */
   crumbs?: { label: ReactNode; href?: string }[];
   children: ReactNode;
 };
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
-export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, dataTrustSummary, crumbs = [], children }: PlatformPageProps) {
-  const { route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen } = usePlatform();
+export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], children }: PlatformPageProps) {
+  const { global, page, equipmentAxes, route, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, pathname, pageNavigation, currentSpace, screenMode, canOpen } = usePlatform();
   // A board pane draws content only: the board owns the pane head and the Context bar, and no arrival focus moves here (ADR-0049).
   const inPane = screenMode === 'pane';
+  usePublishQueryBarExtension(queryBarExtension);
   const { t, tx, lang } = useI18n();
   const heading = useRef<HTMLHeadingElement>(null);
   const programmaticHeadingFocus = useRef(false);
@@ -212,7 +219,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const leftGroupControls = (favoriteTarget ? 1 : 0) + (hasDescription && headerYield.description ? 1 : 0);
   const leftGroupMinWidth = `calc(7rem + ${leftGroupControls * 1.5}rem + ${(leftGroupItems - 1) * 0.5}rem)`;
 
-  return <div ref={root} data-platform-page className="flex min-h-full flex-col">
+  return <QueryBarExtensionContext.Provider value={queryBarExtension}><div ref={root} data-platform-page className="flex min-h-full flex-col">
     {!inPane && <div ref={stickyHeader} data-page-sticky-header className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
       <header ref={pageHeader} onFocus={event => {
         const header = event.currentTarget;
@@ -265,9 +272,13 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
       </header>
       {slots.contextBar}
     </div>}
+    {!gate && menu.query?.mode === 'apply' && queryResult && <section role="region" aria-label={lang === 'ko' ? '적용된 조회 조건' : 'Applied query conditions'} className="flex flex-wrap gap-2 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
+      <span className="min-w-0 [overflow-wrap:anywhere]">{formatQuerySummary(global, page, { lang, axes: equipmentAxes, context: menu.context, pageSummary: queryBarExtension?.appliedPageSummary })}</span>
+      {queryResult.completedAt !== null && (queryResult.status === 'done' || queryResult.status === 'refreshing') && <span>{lang === 'ko' ? '요약 조회 완료' : 'Summary response completed'} {formatInstant(queryResult.completedAt, lang)}</span>}
+    </section>}
     {contextExtension && !gate && <div className="px-8 pt-3">{contextExtension}</div>}
     <div data-platform-page-content tabIndex={-1} className="flex-1 px-8 pb-9 pt-7">{gate ?? <OutcomeScope><OutcomeBanners />{children}</OutcomeScope>}</div>
-  </div>;
+  </div></QueryBarExtensionContext.Provider>;
 }
 
 /** panel-card: hairline border, 8px radius, no shadow. */
