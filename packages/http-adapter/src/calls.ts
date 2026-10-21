@@ -1,7 +1,7 @@
 import { PortError, type ActionResponse, type ApiResponse, type MenuAction, type PortErrorCode } from '@ap/contracts';
 import { abortError, parseJson, type Parsed, type Raw, type SendRequest, type Transport } from './transport.js';
 import type { SessionStore } from './session.js';
-import { isRecord, toActionResponse, toEnvelope } from './validate.js';
+import { isRecord, safeMessage, toActionResponse, toEnvelope } from './validate.js';
 
 /**
  * A transport failure of a non-envelope or fire-and-forget method. `code` is one of the short strings of contract §2.1
@@ -140,7 +140,7 @@ export async function portCall(context: CallContext, request: Omit<SendRequest, 
     const parsed = parseJson(raw.text);
     const value = parsed.ok ? parsed.value : null;
     if (isRecord(value) && typeof value['code'] === 'string' && PORT_CODES.includes(value['code']) && typeof value['message'] === 'string') {
-      throw new PortError(value['code'] as PortErrorCode, value['message'], typeof value['field'] === 'string' ? value['field'] : undefined);
+      throw new PortError(value['code'] as PortErrorCode, safeMessage(value['message']), typeof value['field'] === 'string' ? value['field'] : undefined);
     }
   }
   return plainResult(raw);

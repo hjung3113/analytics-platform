@@ -102,7 +102,7 @@ envelope 메서드는 **reject하지 않는다**(체크리스트 §2). 실패는
 | 200 JSON인데 envelope 아님(`outcome`이 6개 밖, `assessments` 배열 아님, `correlationId` 없음 등 — 모르는 키는 무시하고 판정하지 않는다) | `error` | `invalid_envelope` | 같음 |
 | 3xx·`opaqueredirect`(SSO 게이트웨이 리다이렉트 — §6) | `error` + 세션 재확인 시작(§4) — 401과 같이 처리 | `session_expired` | 요청 id |
 
-`message`는 짧은 코드 문자열이다(URL·응답 본문·스택을 싣지 않는다 — #101의 "자유 문장 금지"와 같은 이유). 선언 kind 검사(`contract_violation`)는 어댑터가 아니라 Kernel이 한다(체크리스트 §3 끝) — 어댑터는 envelope 모양만 본다. 어댑터가 만드는 코드(`http_503`·`network_error` 등)도 화면에 그대로 보이므로 같은 규칙을 지킨다.
+`message`는 짧은 코드 문자열이다(URL·응답 본문·스택을 싣지 않는다 — #101의 "자유 문장 금지"와 같은 이유). 선언 kind 검사(`contract_violation`)는 어댑터가 아니라 Kernel이 한다(체크리스트 §3 끝) — 어댑터는 envelope 모양만 본다. 어댑터가 만드는 코드(`http_503`·`network_error` 등)도 화면에 그대로 보이므로 같은 규칙을 지킨다. 서버가 구조상 올바른 envelope·ActionResponse·PortError 본문에 실어 보낸 `message`는 200자 이하이고 제어 문자·줄바꿈·`://`가 없을 때만 그대로 넘기고, 아니면 outcome과 나머지는 두고 `message`만 고정 코드 `server_message_redacted`로 바꾼다(`invalid_envelope`로 바꾸지 않는다).
 
 ### 2.2 그 밖의 묶음
 
