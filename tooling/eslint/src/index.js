@@ -16,6 +16,7 @@ const MOCK_SERVER_MESSAGE = `${PACKAGE_PREFIX}mock-server is only legal in menu 
 const REACT_MESSAGE = 'react / react-dom are not allowed in this package.';
 const FEEDBACKOPS_MESSAGE = `@fops/* is not a platform dependency; the design system lives in ${pkg('ui')} (ADR-0046).`;
 // #160: the table engine is components-internal; menus declare columns with the platform types.
+const HTTP_ADAPTER_MESSAGE = `${PACKAGE_PREFIX}http-adapter is imported only by the production assembly in apps/platform-web/src/real/** (#154).`;
 const TABLE_ENGINE_MESSAGE = `The table engine belongs to ${PACKAGE_PREFIX}components; menus use the platform column types (PlatformColumn).`;
 
 const MENU_ALLOW = ['contracts', 'kernel', 'components', 'ui'];
@@ -26,6 +27,8 @@ const MENU_ALLOW = ['contracts', 'kernel', 'components', 'ui'];
 // origin slot; published-metrics.test.ts keeps mock-server only. No app file outside src/dev/** may import ./dev/**.
 const APP_CONFORMANCE_FILE = 'src/server-conformance.test.ts';
 const APP_DEV_FILES = 'src/dev/**/*.{ts,tsx}';
+const APP_REAL_FILES = 'src/real/**/*.{ts,tsx}';
+const APP_REAL_TEST_FILES = 'src/real/**/*.test.{ts,tsx}';
 const APP_PUBLISHED_METRICS_FILE = 'src/published-metrics.test.ts';
 const DEV_MESSAGE = 'src/dev/** (mock assembly, DevTools) is reached only through #platform-assembly in mock builds (ADR-0009).';
 // Specifiers that name a `dev` folder segment: relative ./dev, ./dev/x, ../dev/x, ../../src/dev/x, and Vite's
@@ -58,18 +61,20 @@ const UI_THEME_SUBPATHS = ['ui/theme', 'ui/theme-tokens.json'];
 const TABLE_ENGINE_PACKAGES = ['@tanstack/react-table', '@tanstack/react-virtual', '@tanstack/table-core', '@tanstack/virtual-core'];
 const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, denyTableEngine: true, mockAllowed: false, allowSubpaths: UI_THEME_SUBPATHS };
 const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTableEngine: true, mockAllowed: true };
-const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false, denyDev: true, allowSubpaths: UI_THEME_SUBPATHS };
+// #154: the real-server adapter reaches the app through src/real/** only (APP_REAL_FILES below).
+const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false, denyDev: true, denyHttpAdapter: true, allowSubpaths: UI_THEME_SUBPATHS };
 // src/main.tsx is the composition root: only the FeedbackOps origin slot subpath; no mock, no ./dev (#153).
+const APP_REAL_RESTRICTION = { ...APP_RESTRICTION, denyHttpAdapter: false };
 const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, FEEDBACKOPS_ORIGIN_SUBPATH] };
 // The mock assembly and DevTools: mock-server and the menu `/mock` subpaths.
-const APP_DEV_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true, allowSubpaths: [...UI_THEME_SUBPATHS, MENU_MOCK_SUBPATH] };
+const APP_DEV_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true, denyHttpAdapter: true, allowSubpaths: [...UI_THEME_SUBPATHS, MENU_MOCK_SUBPATH] };
 // The conformance test: mock-server, and from ./dev only the mock assembly's MOCK_ENDPOINTS list (#153 follow-up —
 // one source for "what the app registers"); no menu `/mock` subpath of its own.
 const APP_CONFORMANCE_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true, devAllow: ['./dev/mock-assembly'] };
 // published-metrics.test.ts keeps the mock-server exemption but never the menu-subpath allowance.
 const APP_PUBLISHED_METRICS_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true };
 
-function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [] }) {
+function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [], denyHttpAdapter = false }) {
   const negations = [
     ...(allow === null ? [] : allow.map((name) => `!${pkg(name)}`)),
     ...(mockAllowed ? [`!${pkg('mock-server')}`] : []),
@@ -97,6 +102,7 @@ function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, al
           ? []
           : [{ group: [`${PACKAGE_PREFIX}*`, ...negations], message: LAYER_MESSAGE }]),
         ...(mockAllowed ? [] : [{ group: [pkg('mock-server'), pkg('mock-server/*')], message: MOCK_SERVER_MESSAGE }]),
+        ...(denyHttpAdapter ? [{ group: [pkg('http-adapter')], message: HTTP_ADAPTER_MESSAGE }] : []),
         ...(denyReact ? [{ group: ['react/*', 'react-dom/*'], message: REACT_MESSAGE }] : []),
         ...(denyTableEngine ? [{ group: TABLE_ENGINE_PACKAGES.map((name) => `${name}/*`), message: TABLE_ENGINE_MESSAGE }] : []),
         ...(denyDev ? [{ regex: devRegex(devAllow), message: DEV_MESSAGE }] : []),
@@ -129,6 +135,7 @@ function importSourceOptions(restriction) {
     deepMessage: DEEP_SUBPATH_MESSAGE,
     layerMessage: LAYER_MESSAGE,
     mockMessage: MOCK_SERVER_MESSAGE,
+    httpAdapterMessage: HTTP_ADAPTER_MESSAGE,
     devRegex: devRegex(restriction.devAllow),
     devMessage: DEV_MESSAGE,
     reactMessage: REACT_MESSAGE,
@@ -355,6 +362,11 @@ export const shell = [
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
+export const httpAdapter = [
+  layerConfig({ restriction: { allow: ['contracts'], denyReact: true, mockAllowed: false } }),
+];
+
+/** @type {import('eslint').Linter.Config[]} */
 export const mockServer = [
   layerConfig({ restriction: { allow: ['contracts'], denyReact: true, mockAllowed: false } }),
 ];
@@ -440,6 +452,10 @@ export const app = [
   appOverride([APP_CONFORMANCE_FILE], APP_CONFORMANCE_RESTRICTION),
   appOverride([APP_PUBLISHED_METRICS_FILE], APP_PUBLISHED_METRICS_RESTRICTION),
   appOverride([APP_DEV_FILES], APP_DEV_RESTRICTION),
+  // The production assembly (and its tests) is the one app place that sees the http-adapter package. Last, so it wins over
+  // the test-entry override for src/real/**/*.test.*; the test files keep the test entry subpaths.
+  appOverride([APP_REAL_FILES], APP_REAL_RESTRICTION),
+  appOverride([APP_REAL_TEST_FILES], { ...APP_REAL_RESTRICTION, allowSubpaths: [...APP_REAL_RESTRICTION.allowSubpaths, ...ABOVE_COMPONENTS_TEST_ENTRIES] }),
   designSystem(),
 ];
 
