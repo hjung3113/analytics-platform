@@ -77,6 +77,9 @@ PlatformHop | type | type PlatformHop = { equipmentId: string; menuId: 'equipmen
 PortError | class | class PortError extends Error { readonly code: @ap/contracts#PortErrorCode; readonly field?: string | undefined; constructor(code: @ap/contracts#PortErrorCode, message: string, field?: string | undefined); }
 PortErrorCode | type | type PortErrorCode = 'invalid_cursor' | 'invalid_input' | 'invalid_period' | 'membership_basis_unsupported' | 'room_forbidden' | 'scope_forbidden' | 'unknown_axis' | 'unknown_scope'
 PublishedMetric | type | type PublishedMetric = { metricId: string; publishedVersion: null | string; }
+QueryHistoryEntry | type | type QueryHistoryEntry = { count: number; id: string; lastAppliedAt: number; query: string; schemaVersion: 1; }
+QueryHistoryKey | type | type QueryHistoryKey = { menuId: string; scopeId: null | string; userId: string; }
+QueryHistoryStore | type | type QueryHistoryStore = { clear(key: @ap/contracts#QueryHistoryKey): Promise<void>; list(key: @ap/contracts#QueryHistoryKey): Promise<readonly @ap/contracts#QueryHistoryEntry[]>; record(key: @ap/contracts#QueryHistoryKey, entry: @ap/contracts#QueryHistoryEntry): Promise<void>; remove(key: @ap/contracts#QueryHistoryKey, id: string): Promise<void>; }
 ScopeCheck | type | type ScopeCheck = { grantedRooms: string[]; status: 'forbidden' | 'unknown_scope' | 'valid'; }
 ScopeOption | type | type ScopeOption = { grantedRooms: number; id: string; label: string; totalRooms: number; }
 SelectionEvaluation | type | type SelectionEvaluation = { inCondition: @ap/contracts#EquipmentOption[]; outOfCondition: string[]; }
@@ -101,6 +104,8 @@ bucketStart | function | function bucketStart(instant: string, grain: @ap/contra
 buildFeedbackOpsLink | function | function buildFeedbackOpsLink(input: { origin: string; target: @ap/contracts#FeedbackOpsTarget; }): string
 buildPlatformInboundLink | function | function buildPlatformInboundLink(input: { context: @ap/contracts#GlobalContext; hop: @ap/contracts#PlatformHop; origin: string; returnTo?: string; }): string
 buildQuery | function | function buildQuery(g: @ap/contracts#GlobalContext, page?: @ap/contracts#Pair[], extras?: @ap/contracts#Pair[]): string
+compareHistoryText | function | function compareHistoryText(a: string, b: string): number
+compareQueryHistory | function | function compareQueryHistory(a: @ap/contracts#QueryHistoryEntry, b: @ap/contracts#QueryHistoryEntry): number
 conditionLabel | function | function conditionLabel(c: @ap/contracts#Condition): string
 defineAction | const | const defineAction: <I, T>(spec: Omit<@ap/contracts#ActionSpec<I, T>, "_types">) => @ap/contracts#ActionSpec<I, T>
 defineEndpoint | const | const defineEndpoint: <P, T>(spec: Omit<@ap/contracts#EndpointSpec<P, T>, "_types">) => @ap/contracts#EndpointSpec<P, T>
@@ -120,6 +125,7 @@ parseQuery | function | function parseQuery(search: string, pageKeys?: readonly 
 periodHours | function | function periodHours(g: { from: null | string; to: null | string; }): null | number
 platformReturnFor | function | function platformReturnFor(fullUrl: string, pathOnlyUrl: string): string | undefined
 projectContext | function | function projectContext<P, T>(spec: @ap/contracts#EndpointSpec<P, T>, g: @ap/contracts#GlobalContext): @ap/contracts#MenuQueryContext
+queryHistoryId | function | function queryHistoryId(query: string): string
 requiredContextError | function | function requiredContextError(keys: readonly @ap/contracts#ContextKey[], capabilities: Partial<Record<@ap/contracts#ContextKey, @ap/contracts#Capability>>): null | string
 sameGlobal | function | function sameGlobal(a: @ap/contracts#GlobalContext, b: @ap/contracts#GlobalContext): boolean
 serializeGlobal | function | function serializeGlobal(g: @ap/contracts#GlobalContext): @ap/contracts#Pair[]
