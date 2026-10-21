@@ -44,6 +44,7 @@ function makeEvaluate(opts) {
       const name = slash === -1 ? rest : rest.slice(0, slash);
       if (slash !== -1) {
         if (allowsSubpath(rest)) return null;
+        if ((opts.hostOnlySubpaths ?? []).includes(rest)) return opts.hostOnlyMessage;
         return opts.deepMessage;
       }
       if (name === 'mock-server') return opts.mockAllowed ? null : opts.mockMessage;
@@ -65,6 +66,12 @@ function makeEvaluate(opts) {
       (opts.tableEnginePackages ?? []).some((name) => source === name || source.startsWith(`${name}/`))
     ) {
       return opts.tableEngineMessage;
+    }
+    if (
+      opts.denyDockEngine &&
+      (opts.dockEnginePackages ?? []).some((name) => source === name || source.startsWith(`${name}/`))
+    ) {
+      return opts.dockEngineMessage;
     }
     return null;
   };

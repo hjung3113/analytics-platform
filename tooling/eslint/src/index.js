@@ -19,6 +19,12 @@ const FEEDBACKOPS_MESSAGE = `@fops/* is not a platform dependency; the design sy
 const HTTP_ADAPTER_MESSAGE = `${PACKAGE_PREFIX}http-adapter is imported only by the production assembly in apps/platform-web/src/real/** (#154).`;
 const TABLE_ENGINE_MESSAGE = `The table engine belongs to ${PACKAGE_PREFIX}components; menus use the platform column types (PlatformColumn).`;
 
+// ADR-0067 (#575): the dock layout engine is components-internal (a lazy chunk behind the components `dock` subpath); that entry is host-only.
+const DOCK_ENGINE_PACKAGES = ['dockview', 'dockview-react', 'dockview-core'];
+const DOCK_ENGINE_MESSAGE = `The dock layout engine (dockview) belongs to ${PACKAGE_PREFIX}components (ADR-0067); hosts import DockLayout from ${PACKAGE_PREFIX}components/dock.`;
+const DOCK_ENTRY_SUBPATH = 'components/dock';
+const DOCK_ENTRY_MESSAGE = `${PACKAGE_PREFIX}components/dock is a host-only entry (shell and app); menu and module packages do not import it (ADR-0067).`;
+
 const MENU_ALLOW = ['contracts', 'kernel', 'components', 'ui'];
 // #153 (ADR-0009): the production graph carries no mock. src/main.tsx gets its adapter from `#platform-assembly`
 // and sees neither mock-server nor any menu `/mock` subpath; the mock assembly and DevTools live in src/dev/**,
@@ -55,6 +61,7 @@ const UI_THEME_SUBPATHS = ['ui/theme', 'ui/theme-tokens.json'];
 //   allow: package-entry names this layer may import; null = every entry.
 //   mockAllowed: exempts exactly the mock-server entry (never its subpaths).
 //   allowSubpaths: exact names or patterns exempted from the deep-subpath ban (default none).
+//   allowDockEngine: exempts the dock layout engine packages (components only; every other layer bans them, ADR-0067).
 //   denyDev: bans relative imports of a `dev` folder (DEV_REGEX), static and dynamic; devAllow lists exact
 //   specifiers exempted from it.
 // Deep subpaths are banned for everyone, except subpaths matched by allowSubpaths.
@@ -62,10 +69,10 @@ const TABLE_ENGINE_PACKAGES = ['@tanstack/react-table', '@tanstack/react-virtual
 const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, denyTableEngine: true, mockAllowed: false, allowSubpaths: UI_THEME_SUBPATHS };
 const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTableEngine: true, mockAllowed: true };
 // #154: the real-server adapter reaches the app through src/real/** only (APP_REAL_FILES below).
-const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false, denyDev: true, denyHttpAdapter: true, allowSubpaths: UI_THEME_SUBPATHS };
+const APP_RESTRICTION = { allow: null, denyReact: false, mockAllowed: false, denyDev: true, denyHttpAdapter: true, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH] };
 // src/main.tsx is the composition root: only the FeedbackOps origin slot subpath; no mock, no ./dev (#153).
 const APP_REAL_RESTRICTION = { ...APP_RESTRICTION, denyHttpAdapter: false };
-const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, FEEDBACKOPS_ORIGIN_SUBPATH] };
+const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, FEEDBACKOPS_ORIGIN_SUBPATH] };
 // The mock assembly and DevTools: mock-server and the menu `/mock` subpaths.
 const APP_DEV_RESTRICTION = { allow: null, denyReact: false, mockAllowed: true, denyHttpAdapter: true, allowSubpaths: [...UI_THEME_SUBPATHS, MENU_MOCK_SUBPATH] };
 // The conformance test: mock-server, and from ./dev only the mock assembly's MOCK_ENDPOINTS list (#153 follow-up —
@@ -74,7 +81,7 @@ const APP_CONFORMANCE_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true, dev
 // published-metrics.test.ts keeps the mock-server exemption but never the menu-subpath allowance.
 const APP_PUBLISHED_METRICS_RESTRICTION = { ...APP_RESTRICTION, mockAllowed: true };
 
-function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [], denyHttpAdapter = false }) {
+function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [], denyHttpAdapter = false, allowDockEngine = false }) {
   const negations = [
     ...(allow === null ? [] : allow.map((name) => `!${pkg(name)}`)),
     ...(mockAllowed ? [`!${pkg('mock-server')}`] : []),
@@ -91,9 +98,12 @@ function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, al
             ]
           : []),
         ...(denyTableEngine ? TABLE_ENGINE_PACKAGES.map((name) => ({ name, message: TABLE_ENGINE_MESSAGE })) : []),
+        ...(allowDockEngine ? [] : DOCK_ENGINE_PACKAGES.map((name) => ({ name, message: DOCK_ENGINE_MESSAGE }))),
       ],
       patterns: [
         ...feedbackOpsPatterns,
+        // First, so a layer that may not import the host-only entry gets its own message instead of the generic deep-subpath one.
+        ...(allowSubpaths.includes(DOCK_ENTRY_SUBPATH) ? [] : [{ group: [pkg(DOCK_ENTRY_SUBPATH)], message: DOCK_ENTRY_MESSAGE }]),
         {
           group: [`${PACKAGE_PREFIX}*/*`, `${PACKAGE_PREFIX}*/*/**`, ...allowSubpaths.map((s) => `!${pkg(s)}`)],
           message: DEEP_SUBPATH_MESSAGE,
@@ -105,6 +115,7 @@ function importRestrictions({ allow, denyReact, denyTableEngine, mockAllowed, al
         ...(denyHttpAdapter ? [{ group: [pkg('http-adapter')], message: HTTP_ADAPTER_MESSAGE }] : []),
         ...(denyReact ? [{ group: ['react/*', 'react-dom/*'], message: REACT_MESSAGE }] : []),
         ...(denyTableEngine ? [{ group: TABLE_ENGINE_PACKAGES.map((name) => `${name}/*`), message: TABLE_ENGINE_MESSAGE }] : []),
+        ...(allowDockEngine ? [] : [{ group: DOCK_ENGINE_PACKAGES.map((name) => `${name}/*`), message: DOCK_ENGINE_MESSAGE }]),
         ...(denyDev ? [{ regex: devRegex(devAllow), message: DEV_MESSAGE }] : []),
       ],
     },
@@ -141,6 +152,11 @@ function importSourceOptions(restriction) {
     reactMessage: REACT_MESSAGE,
     tableEngineMessage: TABLE_ENGINE_MESSAGE,
     tableEnginePackages: TABLE_ENGINE_PACKAGES,
+    denyDockEngine: !restriction.allowDockEngine,
+    dockEnginePackages: DOCK_ENGINE_PACKAGES,
+    dockEngineMessage: DOCK_ENGINE_MESSAGE,
+    hostOnlySubpaths: [DOCK_ENTRY_SUBPATH],
+    hostOnlyMessage: DOCK_ENTRY_MESSAGE,
     feedbackOpsMessage: FEEDBACKOPS_MESSAGE,
   };
 }
@@ -336,9 +352,9 @@ export const kernel = [
   layerConfig({ restriction: { allow: ['contracts'], denyReact: false, mockAllowed: false } }),
 ];
 
-const COMPONENTS_RESTRICTION = { allow: ['contracts', 'kernel', 'ui'], denyReact: false, mockAllowed: false, allowSubpaths: UI_THEME_SUBPATHS };
+const COMPONENTS_RESTRICTION = { allow: ['contracts', 'kernel', 'ui'], denyReact: false, mockAllowed: false, allowSubpaths: UI_THEME_SUBPATHS, allowDockEngine: true };
 const ABOVE_COMPONENTS_TEST_ENTRIES = [TEST_ENTRY_SUBPATH, COMPONENTS_TEST_ENTRY_SUBPATH];
-const SHELL_RESTRICTION = { allow: ['contracts', 'kernel', 'ui', 'components'], denyReact: false, mockAllowed: false, allowSubpaths: UI_THEME_SUBPATHS };
+const SHELL_RESTRICTION = { allow: ['contracts', 'kernel', 'ui', 'components'], denyReact: false, mockAllowed: false, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH] };
 
 /** @type {import('eslint').Linter.Config[]} */
 export const components = [

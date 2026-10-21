@@ -111,6 +111,7 @@ import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testi
 import { Button } from '@ap/ui';
 import { readColorToken, THEME_COLOR_TOKENS } from '@ap/ui/theme';
 import { AuditTimeline } from '@ap/components';
+import { DockLayout, normalizeDockTree } from '@ap/components/dock';
 import { AppShell } from '@ap/shell';
 
 const registry = createRegistry({
@@ -132,7 +133,7 @@ function Probe() {
   const known: readonly Permission[] = PERMISSIONS;
   const token = THEME_COLOR_TOKENS[0];
   return (
-    <section data-testid="probe" data-user={current.user.id} data-permissions={known.length} data-token={token} data-resolved={typeof readColorToken}>
+    <section data-testid="probe" data-user={current.user.id} data-permissions={known.length} data-token={token} data-resolved={typeof readColorToken} data-dock={typeof DockLayout + ':' + normalizeDockTree(null, ['a']).type}>
       <Button>consumer button</Button>
       <AuditTimeline events={[]} />
     </section>

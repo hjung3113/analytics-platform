@@ -1,0 +1,17 @@
+DockDropPosition | type | type DockDropPosition = 'center' | @ap/components/dock#DockEdge
+DockEdge | type | type DockEdge = 'bottom' | 'left' | 'right' | 'top'
+DockLayout | function | function DockLayout(props: @ap/components/dock#DockLayoutProps): import("react").JSX.Element
+DockLayoutProps | type | type DockLayoutProps = { label: string; layout: @ap/components/dock#DockNode; maximizedPanelId?: null | string; minPanelSize?: { height: number; width: number; }; onActivate?: (panelId: string) => void; onLayoutChange: (next: @ap/components/dock#DockNode) => void; onMaximizedChange?: (panelId: null | string) => void; panels: readonly @ap/components/dock#DockPanel[]; renderGroupActions?: (group: { active: string; panels: string[]; }) => ReactNode; renderTab?: (panelId: string, state: { active: boolean; groupFocused: boolean; }) => ReactNode; separatorLabel: (info: @ap/components/dock#DockSeparatorInfo) => string; stackBelow?: number; }
+DockNode | type | type DockNode = { active: string; panels: string[]; type: 'group'; } | { children: @ap/components/dock#DockNode[]; dir: 'column' | 'row'; sizes: number[]; type: 'branch'; }
+DockPanel | type | type DockPanel = { id: string; render: () => ReactNode; title: string; }
+DockSeparatorInfo | type | type DockSeparatorInfo = { after: string[]; before: string[]; dir: 'column' | 'row'; }
+activatePanel | function | function activatePanel(tree: @ap/components/dock#DockNode, panelId: string): @ap/components/dock#DockNode
+addPanel | function | function addPanel(tree: @ap/components/dock#DockNode, panelId: string, near: { panelId: string; position: 'bottom' | 'center' | 'right'; }): @ap/components/dock#DockNode
+groupOf | function | function groupOf(tree: @ap/components/dock#DockNode, panelId: string): undefined | { active: string; panels: string[]; }
+isValidDockTree | function | function isValidDockTree(tree: unknown, panelIds: readonly string[]): boolean
+movePanel | function | function movePanel(tree: @ap/components/dock#DockNode, panelId: string, target: { panelId: string; position: @ap/components/dock#DockDropPosition; }): @ap/components/dock#DockNode
+normalizeDockTree | function | function normalizeDockTree(raw: unknown, panelIds: readonly string[]): @ap/components/dock#DockNode
+panelOrder | function | function panelOrder(tree: @ap/components/dock#DockNode): string[]
+removePanel | function | function removePanel(tree: @ap/components/dock#DockNode, panelId: string): @ap/components/dock#DockNode
+resizeBoundary | function | function resizeBoundary(tree: @ap/components/dock#DockNode, branchPath: readonly number[], index: number, deltaPercent: number, minPercent: [ number, number ]): @ap/components/dock#DockNode
+# reachable types
