@@ -28,7 +28,7 @@ const inputsFor = ({ space, group }: { space: string | null; group: string }): M
 
 function diagnosticsFor(inputs: MenuInputs): string[] {
   const virtual = new Map(
-    renderFiles(inputs).filter(f => f.relPath.startsWith('src/')).map(f => [join(VIRTUAL_DIR, f.relPath.slice('src/'.length)), f.content]),
+    renderFiles(inputs).filter(f => f.relPath.startsWith('src/') && /\.tsx?$/.test(f.relPath)).map(f => [join(VIRTUAL_DIR, f.relPath.slice('src/'.length)), f.content]),
   );
   const options: ts.CompilerOptions = {
     target: ts.ScriptTarget.ES2022, lib: ['lib.es2022.d.ts', 'lib.dom.d.ts', 'lib.dom.iterable.d.ts'],
