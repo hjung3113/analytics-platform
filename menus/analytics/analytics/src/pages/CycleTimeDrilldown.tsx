@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useState } from 'react';
+import { Fragment, useCallback, useMemo, useState, type ComponentProps } from 'react';
 import { AlertTriangle, ArrowRight, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
 import { periodHours, type GlobalContext, type Pair, type Trust } from '@ap/contracts';
 import { type PageProps, PlatformLink, invalidValueSentence, useI18n, useMenuFetch, useMenuQuery, useQueryDraft, usePlatform } from '@ap/kernel';
 import { AnalysisLayout, RowAction, AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type Delta, type PlatformColumn, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage } from '@ap/components';
+import { DockFill, DockWorkspace, PrototypeSwitcher, type DockPanelDef, type DockPlacement } from '@ap/components/prototype';
 import { Button, StatusBadge } from '@ap/ui';
 import {
   CYCLE_VERSION_NOTE, PAGE_METRIC_ID, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint,
@@ -15,6 +16,39 @@ import {
 } from './cycleData';
 
 const NO_PARAMS = {};
+
+// #575 P0 PoC (throwaway): three arrangements of the same six panels on this route, chosen by `?variant=`.
+type WorkspaceVariant = 'balanced' | 'compare' | 'focus';
+const WORKSPACE_VARIANTS: Record<WorkspaceVariant, { layout: DockPlacement[]; maximizeOnStart?: string }> = {
+  balanced: { layout: [
+    { id: 'trend' },
+    { id: 'selector', of: 'trend', side: 'left', width: 260 },
+    { id: 'detail', of: 'trend', side: 'right', width: 300 },
+    { id: 'kpi', of: 'trend', side: 'above', height: 150 },
+    { id: 'slow', of: 'trend', side: 'below', height: 300 },
+    { id: 'distribution', of: 'slow', side: 'right', width: 420 },
+  ] },
+  compare: { layout: [
+    { id: 'distribution' },
+    { id: 'slow', of: 'distribution', side: 'right', width: 640 },
+    { id: 'trend', side: 'below', height: 320 },
+    { id: 'selector', of: 'trend', inactive: true },
+    { id: 'kpi', of: 'trend', inactive: true },
+    { id: 'detail', of: 'trend', inactive: true },
+  ] },
+  focus: { maximizeOnStart: 'trend', layout: [
+    { id: 'trend' },
+    { id: 'slow', of: 'trend', side: 'right', width: 380 },
+    { id: 'selector', of: 'slow', inactive: true },
+    { id: 'distribution', of: 'slow', inactive: true },
+    { id: 'kpi', of: 'slow', inactive: true },
+    { id: 'detail', of: 'slow', inactive: true },
+  ] },
+};
+const WORKSPACE_SWITCHER = [
+  { key: null, label: '현재 페이지' }, { key: 'balanced', label: 'balanced · 균형 6패널' },
+  { key: 'compare', label: 'compare · 결과 나란히' }, { key: 'focus', label: 'focus · 차트 집중' },
+];
 
 function summaryFor(global: GlobalContext, page: readonly Pair[], lang: 'ko' | 'en') {
   const ko = lang === 'ko';
@@ -46,7 +80,7 @@ function summaryFor(global: GlobalContext, page: readonly Pair[], lang: 'ko' | '
 
 export default function CycleTimeDrilldown(_: PageProps) {
   const { t, lang } = useI18n();
-  const { global, page, pageParam, setPage, setGlobal, linkTo, toast, route } = usePlatform();
+  const { global, page, pageParam, setPage, setGlobal, linkTo, toast, route, paneLabel } = usePlatform();
   const queryDraft = useQueryDraft();
   const draftParam = (key: string) => queryDraft.draft.page.find(([k]) => k === key)?.[1] ?? null;
   const draftHours = periodHours(queryDraft.draft.global);
@@ -164,17 +198,11 @@ export default function CycleTimeDrilldown(_: PageProps) {
   ].filter(([, , ok]) => !ok).map(([key, label]) => ({ key: String(key), label: String(label), reason: unknownRaw(draftParam(String(key))) }));
   const resetFilters = <Button type="button" variant="ghost" size="toolbar" onClick={() => queryDraft.setDraftPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{ko ? '페이지 조건 기본값' : 'Reset page filters'}</Button>;
 
-  return <PlatformPage
-    queryResult={{ completedAt: kpi.completedAt, status: kpi.status }}
-    queryBarExtension={{ pageSummary, appliedPageSummary, historyPageSummary, issues }}
-    description={ko
-      ? '적용된 기간·설비의 사이클타임입니다. 점·분포 선택은 목록만 줄입니다.'
-      : 'Cycle time for the applied period and equipment. Point and histogram choices filter only the list.'}
-    secondaryActions={<Button variant="secondary" size="sm" onClick={() => { kpi.refetch(); trend.refetch(); dist.refetch(); setReload(n => n + 1); if (pageRaw !== null) setPage({ page: null }, { replace: true }); }}><RotateCw className="size-3.5" aria-hidden />{ko ? '새로고침' : 'Refresh'}</Button>}
-    dataTrustSummary={kpi.response?.trust ? <DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} /> : undefined}
-    contextExtension={<div className="space-y-2">
-      <MetricBanner metric={metric} />
-      <PageFilterBar mode="draft" hasPendingChanges={queryDraft.dirty.length > 0} label={t('pageFilter')} collapsible preferenceKey={route?.menu.id ?? ''} summaryItems={pageSummary} collapsedActions={resetFilters} fields={[
+
+  const gridHint = ko
+    ? `집계 기본값은 기간이 48시간 이하면 시간, 그보다 길면 일입니다${!draftGrain.ok || draftGrain.explicit ? '' : ` (지금 ${draftGrain.value === 'hour' ? '시간' : draftGrain.value === 'day' ? '일' : '주'})`}. 느린 실행은 표시된 P95 이상(같은 값 포함)이며 요약 모집단은 줄이지 않습니다.`
+    : `The default grain is hours when the period is 48 hours or less, otherwise days${!draftGrain.ok || draftGrain.explicit ? '' : ` (now ${draftGrain.value})`}. Slow means at or above the displayed P95, including ties, and does not shrink the summary population.`;
+  const filterFields: ComponentProps<typeof PageFilterBar>['fields'] = [
         { kind: 'custom', key: 'granularity', label: grainFieldLabel, content: <div className="flex flex-wrap items-center gap-1">
           {(['hour', 'day', 'week'] as const).map(value => {
             const pressed = !granularityPending && draftGrain.ok && draftGrain.value === value;
@@ -184,23 +212,9 @@ export default function CycleTimeDrilldown(_: PageProps) {
         </div> },
         { kind: 'select', key: 'percentile', label: tailFieldLabel, value: draftTail.ok ? draftTail.value : draftParam('percentile') ?? '', options: tailOptions, onValueChange: value => queryDraft.setDraftPage({ percentile: value, page: null }) },
         { kind: 'select', key: 'sort', label: sortFieldLabel, value: draftSort.ok ? encodeSort(draftSort.id, draftSort.desc) : draftParam('sort') ?? '', options: sortOptions, onValueChange: value => queryDraft.setDraftPage({ sort: value === DEFAULT_SORT ? null : value, page: null }) },
-      ]} actions={resetFilters} />
-      <p className="text-xs text-text-muted">
-        {ko
-          ? `집계 기본값은 기간이 48시간 이하면 시간, 그보다 길면 일입니다${!draftGrain.ok || draftGrain.explicit ? '' : ` (지금 ${draftGrain.value === 'hour' ? '시간' : draftGrain.value === 'day' ? '일' : '주'})`}. 느린 실행은 표시된 P95 이상(같은 값 포함)이며 요약 모집단은 줄이지 않습니다.`
-          : `The default grain is hours when the period is 48 hours or less, otherwise days${!draftGrain.ok || draftGrain.explicit ? '' : ` (now ${draftGrain.value})`}. Slow means at or above the displayed P95, including ties, and does not shrink the summary population.`}
-      </p>
-      {(bucketRange || bin) && <div className="flex flex-wrap items-center gap-2">
-        {bucketRange && <FilterChip label={ko ? '버킷' : 'Bucket'} value={`${bucketRange.from.replace('T', ' ')} → ${bucketRange.to.replace('T', ' ')}`} onClear={() => setPage({ bucket: null })} clearLabel={ko ? '버킷 필터 해제' : 'Clear bucket filter'} />}
-        {bin && <FilterChip label={ko ? '분포 구간' : 'Histogram'} value={bin.from === bin.to ? bin.from : `${bin.from} – ${bin.to}`} onClear={() => setPage({ bin: null })} clearLabel={ko ? '분포 필터 해제' : 'Clear histogram filter'} />}
-      </div>}
-    </div>}
-  >
-    {invalidPage ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '페이지 키 값이 올바르지 않습니다' : 'Invalid page key'}
-      body={pageRefusals.map((sentence, index) => <p key={index}>{sentence} {ko ? '페이지 조건을 기본값으로 되돌리세요.' : 'Reset the page conditions.'}</p>)} />
-      : kpi.status === 'idle' ? <QueryView query={kpi}>{() => null}</QueryView>
-        : <AnalysisLayout
-          kpi={{ id: 'summary', title: ko ? '사이클타임 요약' : 'Cycle time summary', node: <>
+  ];
+  // #575 PoC: the sections are named so the default layout and the dock variants render the very same content.
+  const kpiNode = <>
           <div className="relative" data-testid="cycle-kpi">
             <QueryView widgetName={ko ? '사이클타임 요약' : 'Cycle time summary'} query={kpi}>
               {data => <div className="grid grid-cols-2 gap-3 @min-[960px]/analysis:grid-cols-4">
@@ -215,12 +229,12 @@ export default function CycleTimeDrilldown(_: PageProps) {
             ? '0.1분 단위로 반올림합니다. 진행 중인 Job은 넣지 않습니다. 느린 실행은 표시된 P95 이상(같은 값 포함)입니다. 증감은 직전 같은 길이의 기간과 비교하며, 줄어든 것을 개선으로 칠합니다. 빈 구간은 0이 아닙니다.'
             : 'Rounded to 0.1 min. In-progress jobs are not included. Slow means at or above the displayed P95, including ties. Deltas compare with the previous period of the same length and treat a decrease as an improvement. An empty bucket is not zero.'}</p>
 
-          </> }}
-          charts={[
-            { id: 'trend', title: ko ? '사이클타임 추세' : 'Cycle time trend', node:
+  </>;
+  const trendNode = (height?: number) =>
             <QueryView widgetName={ko ? '사이클타임 추세' : 'Cycle time trend'} query={trend} skeletonHeight={280}>
               {(data, response) => <AnalysisChartFrame
                 chartId="cycle-time-trend"
+                height={height}
                 title={ko ? '사이클타임 추세' : 'Cycle time trend'}
                 description={ko ? `버킷별 P50/P95 · ${granularity === 'hour' ? '시간' : granularity === 'day' ? '일' : '주'} · 단위 분` : `P50/P95 by bucket · ${granularity === 'hour' ? 'hour' : granularity === 'day' ? 'day' : 'week'} · minutes`}
                 metricVersion={metricLabel(metric, ko)}
@@ -250,8 +264,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
                 }}
               />}
             </QueryView>
-            },
-            { id: 'distribution', title: ko ? '사이클타임 분포' : 'Cycle time distribution', node:
+  ;
+  const distNode = (height?: number) =>
             <QueryView widgetName={ko ? '사이클타임 분포' : 'Cycle time distribution'} query={dist} skeletonHeight={220}>
               {(data, response) => <AnalysisChartFrame
                 chartId="cycle-time-distribution"
@@ -261,15 +275,14 @@ export default function CycleTimeDrilldown(_: PageProps) {
                 xType="category"
                 unit={ko ? '건' : 'jobs'}
                 valueFormat={value => Math.round(value).toLocaleString(ko ? 'ko-KR' : 'en-US')}
-                height={220}
+                height={height ?? 220}
                 series={[{ id: 'hist', name: ko ? '실행 수' : 'Executions', color: 'chart-blue', kind: 'bar', points: data.bins.map((item): [string, number] => [item.id, item.count]) }]}
                 trust={chartTrust(response.trust, unknown)}
                 selectionActions={selection => <Button size="toolbar" onClick={() => setPage({ bin: selection.from === selection.to ? selection.from : `${selection.from}..${selection.to}`, page: null })}>{ko ? '이 구간 실행 보기' : 'Show executions in this range'}</Button>}
               />}
             </QueryView>
-            },
-          ]}
-          breakdown={{ id: 'slow', title: ko ? '느린 실행' : 'Slow executions', node: <>
+  ;
+  const slowNode = (height?: number) => <>
           <PlatformDataTable<SlowRow>
             title={ko ? '느린 실행' : 'Slow executions'}
             subtitle={ko
@@ -281,7 +294,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
             preferenceKey="cycle-time-slow"
             filterKey={filterKey}
             pageSize={50}
-            height={420}
+            height={height ?? 420}
             urlState={{
               page: pageResult.ok && pageResult.page !== 1 ? pageResult.page : null,
               sorting: [{ id: sortSpec.id, desc: sortSpec.desc }],
@@ -318,9 +331,70 @@ export default function CycleTimeDrilldown(_: PageProps) {
             ? '미확정은 정상으로 채우지 않습니다. 검토 표시는 불량·수율이 아닙니다.'
             : 'Unconfirmed is not filled in as pass. A review flag is not a defect or a yield.'}</p>
           {kpi.response && kpi.response.outcome === 'ok' && <DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} />}
-          </> }}
+  </>;
+
+  // #575 PoC: `?variant=balanced|compare|focus` swaps only the arrangement; query, drill and chart state stay above the workspace.
+  const variantRaw = pageParam('variant');
+  const variantKey: WorkspaceVariant | null = variantRaw !== null && Object.hasOwn(WORKSPACE_VARIANTS, variantRaw) ? variantRaw as WorkspaceVariant : null;
+  const selectorNode = <div className="space-y-3 p-3">
+    <MetricBanner metric={metric} />
+    <PageFilterBar mode="draft" label={t('pageFilter')} orientation="column" fields={filterFields} actions={resetFilters} />
+    <p className="text-xs text-text-muted">{gridHint}</p>
+  </div>;
+  const detailNode = <div className="space-y-3 p-3 text-xs">
+    <h3 className="text-sm font-medium text-text-primary">{ko ? '적용된 조건과 신뢰' : 'Applied conditions and trust'}</h3>
+    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+      {appliedPageSummary.map(item => <Fragment key={item.key}><dt className="text-text-muted">{item.label}</dt><dd className="tabular">{item.value}</dd></Fragment>)}
+    </dl>
+    {kpi.response?.trust && <DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} />}
+  </div>;
+  const panelDefs: DockPanelDef[] = [
+    { id: 'selector', title: ko ? '조건·대상' : 'Conditions', render: () => selectorNode, minWidth: 220 },
+    { id: 'kpi', title: ko ? '요약' : 'Summary', render: () => <div className="p-3">{kpiNode}</div>, minHeight: 90 },
+    { id: 'trend', title: ko ? '사이클타임 추세' : 'Cycle time trend', render: () => <DockFill>{({ height }) => trendNode(Math.max(160, height - 200))}</DockFill>, minWidth: 320 },
+    { id: 'distribution', title: ko ? '사이클타임 분포' : 'Cycle time distribution', render: () => <DockFill>{({ height }) => distNode(Math.max(140, height - 200))}</DockFill>, minWidth: 260 },
+    { id: 'slow', title: ko ? '느린 실행' : 'Slow executions', render: () => <DockFill>{({ height }) => <div className="space-y-2 p-3">{slowNode(Math.max(120, height - 230))}</div>}</DockFill>, minWidth: 320 },
+    { id: 'detail', title: ko ? '상세·신뢰' : 'Detail & trust', render: () => detailNode, minWidth: 220 },
+  ];
+
+  return <>
+  <PlatformPage
+    queryResult={{ completedAt: kpi.completedAt, status: kpi.status }}
+    queryBarExtension={{ pageSummary, appliedPageSummary, historyPageSummary, issues }}
+    description={ko
+      ? '적용된 기간·설비의 사이클타임입니다. 점·분포 선택은 목록만 줄입니다.'
+      : 'Cycle time for the applied period and equipment. Point and histogram choices filter only the list.'}
+    secondaryActions={<Button variant="secondary" size="sm" onClick={() => { kpi.refetch(); trend.refetch(); dist.refetch(); setReload(n => n + 1); if (pageRaw !== null) setPage({ page: null }, { replace: true }); }}><RotateCw className="size-3.5" aria-hidden />{ko ? '새로고침' : 'Refresh'}</Button>}
+    dataTrustSummary={kpi.response?.trust ? <DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} /> : undefined}
+    contextExtension={<div className="space-y-2">
+      {variantKey === null && <>
+        <MetricBanner metric={metric} />
+        <PageFilterBar mode="draft" hasPendingChanges={queryDraft.dirty.length > 0} label={t('pageFilter')} collapsible preferenceKey={route?.menu.id ?? ''} summaryItems={pageSummary} collapsedActions={resetFilters} fields={filterFields} actions={resetFilters} />
+        <p className="text-xs text-text-muted">{gridHint}</p>
+      </>}
+      {(bucketRange || bin) && <div className="flex flex-wrap items-center gap-2">
+        {bucketRange && <FilterChip label={ko ? '버킷' : 'Bucket'} value={`${bucketRange.from.replace('T', ' ')} → ${bucketRange.to.replace('T', ' ')}`} onClear={() => setPage({ bucket: null })} clearLabel={ko ? '버킷 필터 해제' : 'Clear bucket filter'} />}
+        {bin && <FilterChip label={ko ? '분포 구간' : 'Histogram'} value={bin.from === bin.to ? bin.from : `${bin.from} – ${bin.to}`} onClear={() => setPage({ bin: null })} clearLabel={ko ? '분포 필터 해제' : 'Clear histogram filter'} />}
+      </div>}
+    </div>}
+  >
+    {invalidPage ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '페이지 키 값이 올바르지 않습니다' : 'Invalid page key'}
+      body={pageRefusals.map((sentence, index) => <p key={index}>{sentence} {ko ? '페이지 조건을 기본값으로 되돌리세요.' : 'Reset the page conditions.'}</p>)} />
+      : kpi.status === 'idle' ? <QueryView query={kpi}>{() => null}</QueryView>
+        : variantKey !== null ? <div className={paneLabel === null ? 'h-[max(560px,calc(100vh-300px))]' : 'h-[560px]'}>
+          <DockWorkspace key={variantKey} label={ko ? '사이클타임' : 'Cycle time'} panels={panelDefs} layout={WORKSPACE_VARIANTS[variantKey].layout} maximizeOnStart={WORKSPACE_VARIANTS[variantKey].maximizeOnStart} />
+        </div>
+        : <AnalysisLayout
+          kpi={{ id: 'summary', title: ko ? '사이클타임 요약' : 'Cycle time summary', node: kpiNode }}
+          charts={[
+            { id: 'trend', title: ko ? '사이클타임 추세' : 'Cycle time trend', node: trendNode() },
+            { id: 'distribution', title: ko ? '사이클타임 분포' : 'Cycle time distribution', node: distNode() },
+          ]}
+          breakdown={{ id: 'slow', title: ko ? '느린 실행' : 'Slow executions', node: slowNode() }}
         />}
-  </PlatformPage>;
+  </PlatformPage>
+  {paneLabel === null && <PrototypeSwitcher variants={WORKSPACE_SWITCHER} current={variantKey} onChange={key => { setPage({ variant: key }, { replace: true }); }} />}
+  </>;
 }
 
 function MetricBanner({ metric }: { metric: ResolvedMetric }) {

@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./testing": "./src/testing.ts",
+    "./prototype": "./src/prototype/index.ts",
     "./styles.css": "./src/styles.css"
   },
   "scripts": {
@@ -20,6 +21,7 @@
     "@ap/ui": "workspace:*",
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.14.13",
+    "dockview-react": "8.6.1",
     "echarts": "^6.1.0",
     "lucide-react": "^1.48.0",
     "write-excel-file": "^4.1.1"

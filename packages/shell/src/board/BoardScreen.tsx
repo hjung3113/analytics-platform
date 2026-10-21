@@ -1,4 +1,5 @@
 import { QueryBarExtensionsProvider } from '@ap/components';
+import { PrototypeSwitcher } from '@ap/components/prototype';
 import { PaneQueryDraftProvider, useEquipmentAxes } from '@ap/kernel';
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import { HardDrive } from 'lucide-react';
@@ -6,6 +7,7 @@ import { BOARD_PATH, paneHref, useI18n, usePlatform, type MenuEntry, type PaneSc
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Popover, PopoverContent, PopoverTrigger, Toaster, ToggleGroup, ToggleGroupItem, UndoToast, toast } from '@ap/ui';
 import { BoardContextBar } from './BoardContextBar';
 import { BoardPane } from './BoardPane';
+import { BOARD_DOCK_VARIANTS, BOARD_SWITCHER, BoardDockPrototype } from './BoardDockPrototype';
 import { SheetTabs } from './SheetTabs';
 import {
   BOARD_LAYOUTS, canCollapse, defaultArrangement, getArrangement, setArrangement, addSheet, applyPaneEdits, droppedPaneCount, editPane, goBackPane, layoutShape, moveSheet, previousAt, removeSheet, renameSheet,
@@ -40,15 +42,20 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
   const heading = useRef<HTMLHeadingElement>(null);
   const [confirmLayout, setConfirmLayout] = useState<BoardLayout | null>(null);
 
-  const requested = new URLSearchParams(url.includes('?') ? url.slice(url.indexOf('?')) : '').get('sheet');
+  const query = new URLSearchParams(url.includes('?') ? url.slice(url.indexOf('?')) : '');
+  const requested = query.get('sheet');
+  // #575 PoC (throwaway): `?variant=board-*` draws the grid area with Dockview; anything else keeps today's board.
+  const variantParam = query.get('variant');
+  const boardVariant = BOARD_DOCK_VARIANTS.find(candidate => candidate === variantParam) ?? null;
+  const variantSuffix = boardVariant ? `&variant=${boardVariant}` : '';
   const matched = board.sheets.find(s => s.id === requested) ?? null;
   const sheet = matched ?? board.sheets.find(s => s.id === board.activeSheetId) ?? board.sheets[0];
 
   // The URL names the sheet on screen; an unknown or missing one falls back to the stored active sheet (a replace, no history entry).
   useEffect(() => {
     if (matched) { if (board.activeSheetId !== matched.id) update(b => setActiveSheet(b, matched.id)); return; }
-    navigate(sheetHref(sheet.id), { replace: true });
-  }, [matched, board.activeSheetId, sheet.id, update, navigate]);
+    navigate(sheetHref(sheet.id) + variantSuffix, { replace: true });
+  }, [matched, board.activeSheetId, sheet.id, update, navigate, variantSuffix]);
 
   // Arriving at the board takes page-arrival focus like any screen (06 §26); the kernel left the request for it.
   useLayoutEffect(() => {
@@ -256,7 +263,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
       </ToggleGroup>
       </div>
     </header>
-    <PaneQueryDraftProvider key={sheetId} screens={Object.fromEntries(sheet.panes.map((screen, index) => [paneIdOf(sheetId, index), screen]))}>
+    {boardVariant !== null ? <BoardDockPrototype variant={boardVariant} sheetId={sheetId} Outlet={Outlet} onLeave={onLeave} panelId={PANEL_ID} /> : <PaneQueryDraftProvider key={sheetId} screens={Object.fromEntries(sheet.panes.map((screen, index) => [paneIdOf(sheetId, index), screen]))}>
     <QueryBarExtensionsProvider>
     <BoardContextBar key={`${sheetId}.${selected}`} paneId={paneIdOf(sheetId, selected)} number={selected + 1} screen={sheet.panes[selected]} onChange={(next, how) => update(b => editPane(b, sheetId, selected, next, how))} onLeave={onLeave} />
     <div ref={panel} id={PANEL_ID} role="tabpanel" aria-labelledby={`board-tab-${sheetId}`} className="min-h-0 flex-1 overflow-auto p-3">
@@ -288,9 +295,9 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
       </div>
     </div>
     </QueryBarExtensionsProvider>
-    </PaneQueryDraftProvider>
+    </PaneQueryDraftProvider>}
     <SheetTabs sheets={board.sheets} activeId={sheetId} panelId={PANEL_ID}
-      onSwitch={id => { if (id !== sheetId) navigate(sheetHref(id)); }} onAdd={addNewSheet}
+      onSwitch={id => { if (id !== sheetId) navigate(sheetHref(id) + variantSuffix); }} onAdd={addNewSheet}
       onCopyContext={copyContext}
       onRename={(id, name) => update(b => renameSheet(b, id, name))} onMove={(id, to) => update(b => moveSheet(b, id, to))} onDelete={deleteSheet} />
     <AlertDialog open={confirmLayout !== null} onOpenChange={open => { if (!open) setConfirmLayout(null); }}>
@@ -305,6 +312,7 @@ export function BoardScreen({ Outlet }: { Outlet: ComponentType }) {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+    <PrototypeSwitcher variants={BOARD_SWITCHER} current={boardVariant} onChange={key => { navigate(sheetHref(sheetId) + (key ? `&variant=${key}` : ''), { replace: true }); }} />
     <Toaster position="bottom-center" offset={56} />
   </div>;
 }

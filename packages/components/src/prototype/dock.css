@@ -1,0 +1,46 @@
+/* #575 PoC (throwaway): Dockview base styles plus one theme class mapped to @ap/ui tokens. Every colour is a token. */
+@import 'dockview-react/dist/styles/dockview.css';
+
+.ap-dock {
+  color-scheme: light;
+  --dv-group-view-background-color: var(--color-surface-card);
+  --dv-tabs-and-actions-container-background-color: var(--color-surface-sunken);
+  --dv-tabs-and-actions-container-height: 32px;
+  --dv-tabs-and-actions-container-font-size: 12px;
+  --dv-activegroup-visiblepanel-tab-background-color: var(--color-surface-card);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--color-surface-sunken);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--color-surface-card);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--color-surface-sunken);
+  --dv-tab-divider-color: var(--color-border-subtle);
+  --dv-activegroup-visiblepanel-tab-color: var(--color-text-primary);
+  --dv-activegroup-hiddenpanel-tab-color: var(--color-text-secondary);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--color-text-secondary);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--color-text-muted);
+  --dv-separator-border: var(--color-border-subtle);
+  --dv-paneview-header-border-color: var(--color-border-subtle);
+  --dv-sash-color: transparent;
+  --dv-active-sash-color: var(--color-accent-primary);
+  --dv-active-sash-transition-duration: 0.1s;
+  --dv-active-sash-transition-delay: 0s;
+  --dv-drag-over-background-color: var(--color-accent-primary-soft);
+  --dv-drag-over-border-color: var(--color-accent-primary);
+  --dv-edge-dock-indicator-color: var(--color-accent-primary);
+  --dv-icon-hover-background-color: var(--color-surface-sunken);
+  --dv-tabs-container-scrollbar-color: var(--color-border-strong);
+  --dv-scrollbar-background-color: var(--color-border-strong);
+  --dv-border-radius: 6px;
+  --dv-tab-font-size: inherit;
+}
+
+.ap-dock .dv-groupview {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.ap-dock .dv-groupview.dv-active-group {
+  border-color: var(--color-border-selected);
+}
+.ap-dock .dv-tab:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
