@@ -129,6 +129,15 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
     await migrateHandle?.close();
   });
 
+  it('an unknown path under the prefix 404s with no-store; outside the prefix is untouched', async () => {
+    const inside = await platformGet('/does-not-exist');
+    expect(inside.statusCode).toBe(404);
+    expect(inside.headers['cache-control']).toBe('no-store');
+    const outside = await app.inject({ method: 'GET', url: '/does-not-exist-outside' });
+    expect(outside.statusCode).toBe(404);
+    expect(outside.headers['cache-control']).toBeUndefined();
+  });
+
   describe('GET /bootstrap', () => {
     it('401s without a session cookie, with no-store', async () => {
       const res = await platformGet('/bootstrap');

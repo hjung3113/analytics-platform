@@ -54,6 +54,12 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
     reply.header('cache-control', 'no-store');
   });
 
+  // Unknown paths under the prefix still get this plugin's hooks (no-store); outside the
+  // prefix Fastify's default 404 is unchanged.
+  app.setNotFoundHandler((_req, reply) =>
+    reply.code(404).send({ code: 'not_found', message: 'route not found' }),
+  );
+
   // Plugin-scoped: sibling FeedbackOps routes keep the root handler. Covers what can
   // reach these two GETs — a thrown HttpError / rate-limit error with a known code,
   // a 4xx from the framework, anything else as 500.
