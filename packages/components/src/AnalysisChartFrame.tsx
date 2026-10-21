@@ -4,11 +4,12 @@ import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, t
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { formatDateTime, parseDateTime } from '@ap/contracts';
-import { Button, cn, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
+import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, type ChartSize } from './AnalysisSectionContext';
 import { chartTheme, EChart, strokeToken, token } from './EChart';
 import { downloadChartCsv } from './analysisChartCsv';
+import { paneRootOf } from './pageFocus';
 import { assignNoteLevels, noteLabelWidths } from './annotationLayout';
 
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
@@ -97,6 +98,12 @@ function svgDasharray(pattern: LinePattern): string | undefined {
   return Array.isArray(pattern) ? pattern.join(' ') : undefined;
 }
 
+/** A consumer-owned point identity; activation never navigates by itself. */
+export type ChartPoint = { x: string; seriesId: string; value: number | null };
+export type ChartPointAction = { id: string; label: string; onSelect: (point: ChartPoint) => void; disabled?: boolean };
+type PointEvent = { seriesId?: string; value?: unknown; name?: string; dataIndex?: number; event?: { event?: { preventDefault?: () => void } } };
+const pointKey = (point: ChartPoint) => JSON.stringify([point.seriesId, point.x]);
+
 export type AnalysisChartFrameProps = {
   chartId: string;
   title: ReactNode;
@@ -106,6 +113,13 @@ export type AnalysisChartFrameProps = {
   /** Shown only while Compare is on (e.g. previous period, other group). */
   compareSeries?: ChartSeries[];
   xType?: 'time' | 'category';
+  /** Category axes only: horizontal bars with consumer labels in top-to-bottom order. */
+  orientation?: 'vertical' | 'horizontal';
+  /** Controlled visibility includes current and comparison series IDs. */
+  visibleSeriesIds?: readonly string[];
+  onVisibleSeriesChange?: (ids: string[]) => void;
+  pointActivation?: { on: 'click' | 'dblclick'; onActivate: (point: ChartPoint) => void };
+  pointActions?: readonly ChartPointAction[];
   unit: string;
   valueFormat?: (v: number) => string;
   height?: number; size?: ChartSize;
@@ -133,7 +147,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const size = resolveAnalysisChartSize(p.size, analysisSection);
   const compact = size === 'compact';
   const height = p.height ?? analysisChartHeight(size, 260);
-  const { setGlobal, toast, global, adapter, route } = usePlatform();
+  const { setGlobal, toast, global, adapter, route, url } = usePlatform();
   const features = route?.menu.features;
   const canCompare = !!features?.compare && !!p.compareSeries?.length;
   const canAnnotate = !!features?.annotate;
@@ -142,6 +156,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const currentPeriodId = useId();
   const previousPeriodId = useId();
   const xType = p.xType ?? 'time';
+  const horizontal = xType === 'category' && p.orientation === 'horizontal';
   const chart = useRef<ECharts | null>(null);
   // Focus anchors for the confirm row (#297 UX): it unmounts on both outcomes, so its handlers hand focus back —
   // cancel to the "Apply analysis range…" button, apply (selection cleared by the Context change) to the brush toggle.
@@ -149,6 +164,18 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const applyRangeButton = useRef<HTMLButtonElement | null>(null);
   const annotateButton = useRef<HTMLButtonElement | null>(null);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [selectedPointKey, setSelectedPointKey] = useState<string | null>(null);
+  const [pointMenuOpen, setPointMenuOpen] = useState(false);
+  const pointChart = useRef<HTMLDivElement>(null);
+  const pointMenuTrigger = useRef<HTMLButtonElement>(null);
+  const pointMenuContent = useRef<HTMLDivElement>(null);
+  const pointMenuSession = useRef<{ opener: HTMLElement | null; url: string } | null>(null);
+  const currentUrl = useRef(url);
+  useEffect(() => { currentUrl.current = url; }, [url]);
+  const openPointMenu = useCallback((opener: HTMLElement | null) => {
+    pointMenuSession.current = { opener, url };
+    setPointMenuOpen(true);
+  }, [url]);
   const [compare, setCompare] = useState(false);
   const [brushMode, setBrushMode] = useState(false);
   // Bumped from onReady: imperative instance effects below must replay once the lazy EChartImpl
@@ -191,28 +218,35 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const showPeriodGroups = compare && canCompare;
   const periodLegendColumnCount = Math.max(p.series.length, p.compareSeries?.length ?? 0);
   const usePeriodLegendGrid = periodLegendColumnCount <= 4;
-  const visible = useMemo(() => allSeries.filter(s => !hidden.has(s.id)), [allSeries, hidden]);
-  const categories = useMemo(() => (xType === 'category' ? p.series[0]?.points.map(([x]) => x) ?? [] : []), [xType, p.series]);
+  const visibleIds = useMemo(() => p.visibleSeriesIds === undefined ? null : new Set(p.visibleSeriesIds), [p.visibleSeriesIds]);
+  const visible = useMemo(() => allSeries.filter(s => visibleIds ? visibleIds.has(s.id) : !hidden.has(s.id)), [allSeries, hidden, visibleIds]);
+  const pointControls = !!p.pointActivation || !!p.pointActions?.length;
+  const categories = useMemo(() => (xType === 'category' ? (horizontal ? [...new Set(p.series[0]?.points.map(([x]) => x) ?? [])] : p.series[0]?.points.map(([x]) => x) ?? []) : []), [xType, horizontal, p.series]);
+  // Horizontal consumers share the plotted axis and first-occurrence value policy.
+  const displayed = useMemo(() => horizontal ? visible.map(s => ({ ...s, points: categories.map(x => [x, s.points.find(([label]) => label === x)?.[1] ?? null] as [string, number | null]) })) : visible, [horizontal, visible, categories]);
+  const points = useMemo(() => pointControls ? displayed.flatMap(s => s.points.map(([x, value]) => ({ x, seriesId: s.id, value }))) : [], [pointControls, displayed]);
+  const selectedPoint = points.find(point => pointKey(point) === selectedPointKey) ?? points[0];
   const format = p.valueFormat ?? ((v: number) => v.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { maximumFractionDigits: 1 }));
   // One row per distinct x across the visible series (#297): Compare series carry different dates, so the
   // old array-index join put one series' values under another's dates. Rows run in x order (time: ascending
   // ISO strings sort chronologically; category: the axis order), each x once — duplicate categories collapse
   // to their first occurrence instead of doubling the row (F2). null = the series has no point at that x.
   const rows = useMemo(() => {
-    const xs = new Set(visible.flatMap(s => s.points.map(([x]) => x)));
+    const xs = new Set(displayed.flatMap(s => s.points.map(([x]) => x)));
     const order = xType === 'time'
       ? [...xs].sort()
       : [...new Set(categories.filter(x => xs.has(x))), ...[...xs].filter(x => !categories.includes(x))];
-    return order.map(x => [x, visible.map(s => s.points.find(([px]) => px === x)?.[1] ?? null)] as const);
-  }, [visible, xType, categories]);
+    return order.map(x => [x, displayed.map(s => s.points.find(([px]) => px === x)?.[1] ?? null)] as const);
+  }, [displayed, xType, categories]);
 
   const resetLocal = useCallback(() => {
-    setHidden(new Set()); setCompare(false); setBrushMode(false); setZoom([0, 100]); setSelection(null); setPreview(null); closeNote(); setClipNotice(null); setRangeDraft(null);
-  }, [closeNote]);
+    setHidden(new Set()); p.onVisibleSeriesChange?.(allSeries.map(s => s.id)); setSelectedPointKey(null); setPointMenuOpen(false); setCompare(false); setBrushMode(false); setZoom([0, 100]); setSelection(null); setPreview(null); closeNote(); setClipNotice(null); setRangeDraft(null);
+  }, [closeNote, p.onVisibleSeriesChange, allSeries]);
   // Global Context changes invalidate local selection (it described the previous result).
   const contextKey = JSON.stringify(global);
   useEffect(() => { setSelection(null); setPreview(null); closeNote(); setZoom([0, 100]); setClipNotice(null); setRangeDraft(null);
     deleteGen.current++; focusOnConfirm.current = false; setPendingDelete(null); setSettled(null); setDeleting(false);
+    setSelectedPointKey(null); setPointMenuOpen(false);
   }, [contextKey, closeNote]);
   // 06 §26: the confirm row unmounts, so focus moves only if it is still on that row — the next note's delete button, else Annotate.
   useEffect(() => {
@@ -257,28 +291,28 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     const noteWidths = noteLabelWidths(noteSpans, pxPerUnit, plotWidth);
     const areas = [
       // Notes keep the default top label; the selection labels its bottom so a note saved over it never collides (#320).
-      ...(selection ? [[{ name: lang === 'ko' ? '선택' : 'Selection', xAxis: xValue(selection.from), itemStyle: { color: token('chart-blue'), opacity: 0.12 }, label: { position: 'insideBottom' } }, { xAxis: xValue(selection.to) }]] : []),
-      ...annotations.map((a, i) => [{ name: a.text, xAxis: xValue(a.from), itemStyle: { color: token('chart-purple'), opacity: 0.14 }, label: { color: token('cat-purple'), fontSize: 10, offset: [0, noteLevels[i] * NOTE_LABEL_ROW], width: noteWidths[i], overflow: 'truncate', ellipsis: '…' } }, { xAxis: xValue(a.to) }]),
+      ...(selection ? [[{ name: lang === 'ko' ? '선택' : 'Selection', [horizontal ? 'yAxis' : 'xAxis']: xValue(selection.from), itemStyle: { color: token('chart-blue'), opacity: 0.12 }, label: { position: 'insideBottom' } }, { [horizontal ? 'yAxis' : 'xAxis']: xValue(selection.to) }]] : []),
+      ...annotations.map((a, i) => [{ name: a.text, [horizontal ? 'yAxis' : 'xAxis']: xValue(a.from), itemStyle: { color: token('chart-purple'), opacity: 0.14 }, label: { color: token('cat-purple'), fontSize: 10, offset: [0, noteLevels[i] * NOTE_LABEL_ROW], width: noteWidths[i], overflow: 'truncate', ellipsis: '…' } }, { [horizontal ? 'yAxis' : 'xAxis']: xValue(a.to) }]),
     ];
     return {
-      grid: { left: 52, right: 20, top: 16, bottom: 44 },
+      grid: { left: 52, right: 20, top: 16, bottom: 44, ...(horizontal ? { containLabel: true } : {}) },
       tooltip: {
         trigger: 'axis', confine: true, textStyle: { fontSize: 12 },
         valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang === 'ko') : `${format(v)} ${p.unit}`),
       },
-      xAxis: xType === 'time'
+      xAxis: horizontal ? { type: 'value', min: 0, name: p.unit, splitLine: theme.splitLine } : xType === 'time'
         ? { type: 'time', axisLine: theme.axisLine, axisLabel: { hideOverlap: true }, splitLine: { show: false } }
         : { type: 'category', data: categories, axisLine: theme.axisLine, axisTick: { alignWithLabel: true } },
-      yAxis: { type: 'value', min: 0, name: p.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine },
-      dataZoom: [{ type: 'inside', xAxisIndex: 0, start: zoom[0], end: zoom[1], zoomOnMouseWheel: 'shift', moveOnMouseMove: !brushMode }],
+      yAxis: horizontal ? { type: 'category', data: categories, inverse: true, axisLine: theme.axisLine, axisLabel: { interval: 0 }, axisTick: { alignWithLabel: true } } : { type: 'value', min: 0, name: p.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine },
+      dataZoom: [{ type: 'inside', ...(horizontal ? { yAxisIndex: 0 } : { xAxisIndex: 0 }), start: zoom[0], end: zoom[1], zoomOnMouseWheel: 'shift', moveOnMouseMove: !brushMode }],
       // Fill derives rgba from the resolved chart-blue token (#297): copying stroke channels would shift the hue,
       // and a literal rgba copies the token's values. Selection and annotation fills keep echarts-native opacity.
-      brush: { xAxisIndex: 0, brushType: 'lineX', brushMode: 'single', throttleType: 'debounce', throttleDelay: 120,
+      brush: { ...(horizontal ? { yAxisIndex: 0 } : { xAxisIndex: 0 }), brushType: horizontal ? 'lineY' : 'lineX', brushMode: 'single', throttleType: 'debounce', throttleDelay: 120,
         brushStyle: { color: token('chart-blue').replace(/^rgb\((.+)\)$/, (_, rgb: string) => `rgba(${rgb},0.12)`), borderColor: token(strokeToken('chart-blue')) } },
-      toolbox: { show: false, feature: { brush: { type: ['lineX', 'clear'] } } },
+      toolbox: { show: false, feature: { brush: { type: [horizontal ? 'lineY' : 'lineX', 'clear'] } } },
       series: [
-        ...visible.map(s => {
-          const kind = s.kind ?? 'line';
+        ...displayed.map(s => {
+          const kind = horizontal ? 'bar' : s.kind ?? 'line';
           const color = token(kind === 'line' ? strokeToken(s.color) : s.color);
           const pattern = linePattern(s, previousIds.has(s.id));
           return {
@@ -286,23 +320,37 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
             showSymbol: false, symbolSize: 5, connectNulls: false, barMaxWidth: 18,
             lineStyle: { ...(kind === 'line' ? { color } : {}), width: 2, type: pattern }, itemStyle: { color: token(s.color) },
             emphasis: { focus: 'series' },
-            data: s.points.map(([x, y]) => (xType === 'time' ? [toMs(x), y] : y)),
+            data: xType === 'time' ? s.points.map(([x, y]) => [toMs(x), y]) : s.points.map(([, y]) => y),
           };
         }),
         {
           id: '__overlay', type: 'line', data: [], silent: true, symbol: 'none',
           markArea: { silent: true, data: areas },
-          markLine: p.markLines?.length ? { ...theme.referenceLine, data: p.markLines.map(m => ({ name: m.label, yAxis: m.y })) } : undefined,
+          markLine: p.markLines?.length ? { ...theme.referenceLine, data: p.markLines.map(m => ({ name: m.label, [horizontal ? 'xAxis' : 'yAxis']: m.y })) } : undefined,
         },
       ],
     };
     // Deps intentionally restricted to the chart inputs below (would trip react-hooks/exhaustive-deps if that rule is enabled).
-  }, [visible, previousIds, xType, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, p.markLines, p.unit, lang, p.stacked, instanceReady]);
+  }, [displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth, p.markLines, p.unit, lang, p.stacked, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
-    chart.current?.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: brushMode ? { brushType: 'lineX', brushMode: 'single' } : { brushType: false } });
-  }, [option, brushMode, instanceReady]);
+    chart.current?.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: brushMode ? { brushType: horizontal ? 'lineY' : 'lineX', brushMode: 'single' } : { brushType: false } });
+  }, [option, brushMode, horizontal, instanceReady]);
+
+  useEffect(() => { if (brushMode || !selectedPoint) setPointMenuOpen(false); }, [brushMode, selectedPoint]);
+
+  const eventPoint = useCallback((params: PointEvent): ChartPoint | null => {
+    if (!params.seriesId || params.seriesId === '__overlay') return null;
+    const series = displayed.find(s => s.id === params.seriesId);
+    if (!series) return null;
+    const datum = params.dataIndex !== undefined
+      ? series.points[params.dataIndex]
+      : undefined;
+    const x = datum?.[0] ?? (xType === 'time' && Array.isArray(params.value) ? formatDateTime(new Date(params.value[0] as number)) : params.name ?? '');
+    const value = datum ? datum[1] : series.points.find(([label]) => label === x)?.[1];
+    return value === undefined ? null : { x, seriesId: series.id, value };
+  }, [displayed, xType]);
 
   const onEvents = useMemo(() => ({
     brushEnd: (params: { areas?: { coordRange?: [number, number] }[] }, instance: ECharts) => {
@@ -330,25 +378,46 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       const dz = (instance.getOption() as { dataZoom?: { start: number; end: number }[] }).dataZoom?.[0];
       if (dz) setZoom([dz.start, dz.end]);
     },
-    click: (params: { seriesId?: string; value?: unknown; name?: string }) => {
-      if (brushMode || !p.onPointClick || !params.seriesId || params.seriesId === '__overlay') return;
-      const x = xType === 'time' && Array.isArray(params.value) ? formatDateTime(new Date(params.value[0] as number)) : params.name ?? '';
-      p.onPointClick(x, params.seriesId);
+    click: (params: PointEvent) => {
+      if (brushMode) return;
+      const point = eventPoint(params);
+      if (!point) return;
+      if (pointControls) setSelectedPointKey(pointKey(point));
+      // Native double-click recognition is OS-defined; no timer can safely commit a click first.
+      if (p.pointActivation?.on !== 'dblclick') {
+        p.onPointClick?.(point.x, point.seriesId);
+        p.pointActivation?.onActivate(point);
+      }
     },
-  }), [xType, categories, brushMode, p.onPointClick, timeBounds, global.from, global.to, compare, canCompare, closeNote]);
+    dblclick: (params: PointEvent) => {
+      if (brushMode || p.pointActivation?.on !== 'dblclick') return;
+      const point = eventPoint(params);
+      if (point) { setSelectedPointKey(pointKey(point)); p.pointActivation.onActivate(point); }
+    },
+    contextmenu: (params: PointEvent) => {
+      if (brushMode || !p.pointActions?.length) return;
+      const point = eventPoint(params);
+      if (point) { params.event?.event?.preventDefault?.(); setSelectedPointKey(pointKey(point)); openPointMenu(pointChart.current); }
+    },
+  }), [xType, categories, brushMode, p.onPointClick, p.pointActivation, p.pointActions, pointControls, eventPoint, openPointMenu, timeBounds, global.from, global.to, compare, canCompare, closeNote]);
 
-  const selectionCounts = selection ? visible.map(s => {
+  const selectionCounts = selection ? displayed.map(s => {
     const inRange = s.points.filter(([x, y]) => y !== null && (xType === 'time' ? x >= selection.from && x < selection.to : categories.indexOf(x) >= categories.indexOf(selection.from) && categories.indexOf(x) <= categories.indexOf(selection.to)));
     const values = inRange.map(([, y]) => y as number);
     return { s, n: values.length, avg: values.length ? values.reduce((a, b) => a + b, 0) / values.length : null, max: values.length ? Math.max(...values) : null };
   }) : [];
 
   function renderLegendSeries(s: ChartSeries, previous: boolean) {
-    const kind = s.kind ?? 'line';
+    const kind = horizontal ? 'bar' : s.kind ?? 'line';
     // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
     const stroke = token(kind === 'bar' && s.color === 'chart-remainder' ? 'border-control' : strokeToken(s.color));
     return <label key={s.id} className={cn('inline-flex cursor-pointer items-center gap-1.5 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>
-      <input type="checkbox" className="size-3.5 accent-accent-primary" checked={!hidden.has(s.id)} onChange={() => setHidden(h => { const n = new Set(h); if (n.has(s.id)) n.delete(s.id); else n.add(s.id); return n; })} />
+      <input type="checkbox" className="size-3.5 accent-accent-primary" checked={visibleIds ? visibleIds.has(s.id) : !hidden.has(s.id)} onChange={() => {
+        const next = new Set(p.visibleSeriesIds ?? allSeries.filter(item => !hidden.has(item.id)).map(item => item.id));
+        if (next.has(s.id)) next.delete(s.id); else next.add(s.id);
+        if (p.visibleSeriesIds === undefined) setHidden(current => { const updated = new Set(current); if (updated.has(s.id)) updated.delete(s.id); else updated.add(s.id); return updated; });
+        p.onVisibleSeriesChange?.([...next]);
+      }} />
       {kind === 'bar'
         // eslint-disable-next-line shadcn/no-inline-styles -- swatch color is the series token resolved at runtime
         ? <span aria-hidden className="inline-block size-3 border-2" style={{ backgroundColor: token(s.color), borderColor: stroke }} />
@@ -458,6 +527,41 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       {/* The core controls wrap in source order inside narrow cards; the Export/More tail stays bundled as its own
         wrap unit. Wide cards keep one right-aligned row, and extraActions keeps its own bundle. */}
       <div role="toolbar" aria-label={lang === 'ko' ? '차트 동작' : 'Chart actions'} className="ml-auto flex flex-wrap items-center justify-end gap-1">
+        {pointControls && <div className="flex flex-wrap items-center gap-1">
+          <select aria-label={lang === 'ko' ? '차트 지점 선택' : 'Select chart point'} value={selectedPoint ? pointKey(selectedPoint) : ''} disabled={brushMode || !points.length}
+            className="max-w-56 rounded-md border border-border-control bg-surface-card px-2 py-1 text-xs" onChange={event => setSelectedPointKey(event.target.value)}>
+            {!points.length && <option value="">{lang === 'ko' ? '선택할 지점 없음' : 'No points available'}</option>}
+            {points.map(point => <option key={pointKey(point)} value={pointKey(point)}>{point.x} · {allSeries.find(s => s.id === point.seriesId)?.name} · {point.value === null ? unknownLabel(lang === 'ko') : format(point.value)}</option>)}
+          </select>
+          {p.pointActivation && <Button variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint && !brushMode) p.pointActivation?.onActivate(selectedPoint); }}>{lang === 'ko' ? '선택 지점 실행' : 'Activate selected point'}</Button>}
+          {!!p.pointActions?.length && <DropdownMenu open={pointMenuOpen && !brushMode && !!selectedPoint} onOpenChange={open => { if (open) openPointMenu(pointMenuTrigger.current); else setPointMenuOpen(false); }}>
+            <DropdownMenuTrigger asChild><Button ref={pointMenuTrigger} variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint}>{lang === 'ko' ? '지점 동작' : 'Point actions'}</Button></DropdownMenuTrigger>
+            <DropdownMenuContent ref={pointMenuContent} align="end" onCloseAutoFocus={event => {
+              event.preventDefault();
+              const session = pointMenuSession.current;
+              pointMenuSession.current = null;
+              if (!session) return;
+              const active = document.activeElement;
+              if (session.url !== currentUrl.current) {
+                // Modal focus trapping can intercept PlatformPage's layout-effect focus before close.
+                // Complete that handoff after the scope is released; never restore the old opener.
+                if (!active || active === document.body || pointMenuContent.current?.contains(active)) {
+                  const scope = paneRootOf(session.opener) ?? document;
+                  const destination = scope.querySelector<HTMLElement>('[aria-current="step"]') ?? scope.querySelector<HTMLElement>('[data-platform-page] h1');
+                  destination?.focus({ preventScroll: true });
+                }
+                return;
+              }
+              if (!session.opener?.isConnected) return;
+              // A consumer action may have already focused its destination or opened another surface.
+              if (active && active !== document.body && active !== session.opener && !pointMenuContent.current?.contains(active)) return;
+              session.opener.focus({ preventScroll: true });
+            }}>
+              {p.pointActions.map(action => <DropdownMenuItem key={action.id} disabled={action.disabled} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring" onSelect={() => { if (selectedPoint && !brushMode) action.onSelect(selectedPoint); }}>{action.label}</DropdownMenuItem>)}
+            </DropdownMenuContent>
+          </DropdownMenu>}
+          {brushMode && <span className="text-tiny text-text-secondary">{lang === 'ko' ? '구간 선택 중에는 지점 실행과 동작을 사용할 수 없습니다.' : 'Point activation and actions are unavailable while brushing.'}</span>}
+        </div>}
         {p.extraActions != null && <div className="flex items-center gap-1">{p.extraActions}</div>}
         <div className="flex flex-wrap items-center gap-1">
           <Button variant="ghost" size="toolbar" onClick={() => setZoom(([a, b]) => { const q = (b - a) / 4; return [a + q, b - q]; })} title={lang === 'ko' ? '확대 (Shift+휠도 가능)' : 'Zoom in (Shift+wheel)'}><ZoomIn className="size-3.5" aria-hidden />{lang === 'ko' ? '확대' : 'Zoom'}</Button>
@@ -516,7 +620,15 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
 
     </AnalysisChartPart>
     <AnalysisChartPart enabled={analysisSection !== null} body>
-    <div className="px-2"><EChart option={option} height={height} onEvents={onEvents} onReady={c => { chart.current = c; setChartWidth(c.getWidth()); setInstanceReady(v => v + 1); }} onResize={setChartWidth}
+    {allSeries.length > 0 && visible.length === 0 && <p role="status" className="px-4 py-3 text-text-secondary">{lang === 'ko' ? '표시할 시리즈를 모두 껐습니다' : 'All series are turned off'}</p>}
+    <div ref={pointChart} className="px-2" role={pointControls ? 'group' : undefined} aria-label={pointControls ? (lang === 'ko' ? '차트 지점' : 'Chart points') : undefined} tabIndex={pointControls ? 0 : undefined}
+      onContextMenu={event => { if (p.pointActions?.length) event.preventDefault(); }}
+      onKeyDown={event => {
+        if ((event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) && p.pointActions?.length) {
+          event.preventDefault();
+          if (!brushMode && selectedPoint) openPointMenu(pointChart.current);
+        }
+      }}><EChart option={option} height={height} onEvents={onEvents} onReady={c => { chart.current = c; setChartWidth(c.getWidth()); setInstanceReady(v => v + 1); }} onResize={setChartWidth}
       ariaLabel={`${typeof p.title === 'string' ? p.title : p.chartId}: ${visible.map(s => s.name).join(', ')}`} /></div>
 
     {showTable && <div className="mx-4 mb-2 max-h-56 overflow-auto rounded-md border border-border-subtle">

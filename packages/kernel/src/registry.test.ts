@@ -63,11 +63,12 @@ describe('createRegistry validation (platform-packages.md §5)', () => {
   const level = (key: string) => ({ key, label: { ko: key, en: key } });
 
   it('rejects a drill with no levels', () => {
-    expect(() => createRegistry({ spaces: homeA, groups, menus: [menu('a', '/a', { primary: true, drill: { levels: [] } })] })).toThrow(/Menu "a" drill needs 1 to 4 levels, found 0/);
+    expect(() => createRegistry({ spaces: homeA, groups, menus: [menu('a', '/a', { primary: true, drill: { levels: [] } })] })).toThrow(/Menu "a" drill needs at least 1 level, found 0/);
   });
 
-  it('rejects a drill with more than four levels', () => {
-    expect(() => createRegistry({ spaces: homeA, groups, menus: [menu('a', '/a', { primary: true, drill: { levels: ['a', 'b', 'c', 'd', 'e'].map(level) } })] })).toThrow(/Menu "a" drill needs 1 to 4 levels, found 5/);
+  it('accepts six declared drill levels', () => {
+    const keys = ['a', 'b', 'c', 'd', 'e', 'f'];
+    expect(() => createRegistry({ spaces: homeA, groups, menus: [menu('a', '/a', { primary: true, pageKeys: keys, contextResetKeys: keys, drill: { levels: keys.map(level) } })] })).not.toThrow();
   });
 
   it('rejects a duplicated drill level key', () => {
