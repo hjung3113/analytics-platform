@@ -599,3 +599,16 @@ const equipmentAxes = [
   { id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false },
   { id: 'model', label: { ko: 'Model', en: 'Model' }, membershipHistory: false, dependsOn: 'maker' },
 ];
+
+it('inherits optional apply metadata through mountModule and gates host.query without blocking auxiliary ports', async () => {
+  const m = manifest();
+  m.screens = m.screens.map(screen => screen.id === 'list' ? { ...screen, query: { mode: 'apply' } } : screen);
+  const { calls, seen } = setup('/fx', m);
+  expect(seen.platform.queryDraft.mode).toBe('apply');
+  expect(await seen.host.query!(spec, { page: 0 })).toMatchObject({ outcome: 'error', message: expect.stringContaining('not_ready') });
+  expect(calls).toHaveLength(0);
+  act(() => seen.platform.queryDraft.apply());
+  const response = seen.host.query!(spec, { page: 0 });
+  expect(calls).toHaveLength(1);
+  await act(async () => { calls[0].resolve(ok(calls[0].request)); await response; });
+});

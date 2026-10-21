@@ -73,7 +73,7 @@ function setWidth(next: number) { act(() => { width = next; callbacks.forEach(ca
 describe('AnalysisLayout', () => {
   function queryNode(outcome: 'loading' | 'error' | 'empty' | 'ok', refreshing = false) {
     const response: ApiResponse<string> | null = outcome === 'loading' ? null : { outcome, data: outcome === 'ok' ? 'value' : null, assessments: [], trust: null, correlationId: 'fixture' };
-    return <QueryView query={{ status: outcome === 'loading' ? 'loading' : refreshing ? 'refreshing' : 'done', response, refetch: () => {} }} skeletonHeight={280}>{() => chart('상태 차트')}</QueryView>;
+    return <QueryView query={{ missing: [], completedAt: null, status: outcome === 'loading' ? 'loading' : refreshing ? 'refreshing' : 'done', response, refetch: () => {} }} skeletonHeight={280}>{() => chart('상태 차트')}</QueryView>;
   }
   function mountNode(node: React.ReactNode, layout = true) {
     return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>

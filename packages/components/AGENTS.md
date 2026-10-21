@@ -22,6 +22,8 @@ Platform Component 층(06 §13) + 차트 계약(§16) + 페이지 archetype 골�
 - `testing.ts` — 테스트 전용 공개 진입점 `@ap/components/testing`(`stubCompactTableGeometry`: 표 행 영역 폭 220px·페이지 1280×800 stub과 복원 함수, ADR-0040 확장). `src/index.ts`에서 내보내지 않으며 이 패키지 테스트는 `./testing`을 import한다. 행 영역 이름은 `scrollportLabel.ts`를 표와 공유한다.
 - `styles.css` — Tailwind `@source`. `a11y.test.tsx` — 드로어·라디오 키보드·포커스 접근성 테스트. `xlsxTestReader.ts` — 테스트 전용 XLSX 판독기(fflate, devDependency).
 
+- `StateView.tsx`의 QueryView는 QueryState idle을 중립적인 조회 전 상태와 번역된 필수 누락 목록으로 표시한다(06 §19, ADR-0061). Outcome 그룹 등록 훅은 상태 분기 전에 유지하며 이전 그룹을 해제한다. 검증 `StateView.test.tsx`·`OutcomeScope.test.tsx`.
+
 ## 규칙
 
 **표 소유 내보내기·복사(#173·#174, [ADR-0008](../../docs/adr/0008-table-owned-export-fixed-toolbar.md), 06 §15).** 메뉴는 `exportRows(request, signal)`(선택 ids 또는 필터 전체 + 표의 활성 `sorting`)·`exportNote`·`exportFilterSummary`·`exportContext`만 주고, outcome 처리·CSV/XLSX 직렬화·파일·토스트·[복사]는 `PlatformDataTable`이 소유한다. 직렬화기는 내부 모듈 `src/tableExport.ts`(`index.ts` 비공개). 화면에 보이는 값만 나가며 라벨·시간 열은 `PlatformColumn.exportValue`로 같은 텍스트를 준다. 게이트는 manifest `features.export`. XLSX(`write-excel-file/browser`)는 클릭 때 동적 `import()`로만 불러 별도 청크에 둔다. 툴바 순서·거절 문구·시트 구성·클립보드 경로의 세부는 `PlatformDataTable.test.tsx`·`PlatformDataTable.copy.test.tsx`·`tableExport.test.ts`가 고정하고, 테스트가 고정하지 않는 접근성·클립보드 규칙은 06 §15 "표 내보내기·복사 구현 계약"에 있다 — 바꾸면 테스트·06 §15·ADR-0008부터 고친다.

@@ -55,6 +55,8 @@
 9. **행 상한** → `limits.maxRows`를 선언한 비페이지 엔드포인트(내보내기·탐색)는 핸들러가 돌려준 결과 **전체**(페이지가 아님)로 판정한다. 배열 길이가 `maxRows`를 넘으면 데이터 없이 `too_large`(원천을 다 읽기 전에 판정할 수 있으면 그렇게 — 단, 1–8단계 판정이 언제나 앞선다). ids를 params로 받는 선택 내보내기(#173)는 ids로 거른 **뒤의 크기**가 기준이라 큰 필터 결과 안의 작은 선택도 내보낼 수 있다. 선언했는데 핸들러가 배열이 아닌 값을 돌려주면 데이터 답이 아니라 계약 `error`(선언 오용)다. 페이지 엔드포인트에 선언하면 등록 검증이 거부한다.
 10. **응답** → `assessments`는 선언한 kind마다 정확히 하나. mart 데이터면 `trust`(갱신 시각·데이터 기준 시각·커버리지·지표 버전·잠정 여부·원천), FeedbackOps 같은 비 mart 원천이면 `trust: null`. 원천 의존 kind(`collection`·`processing_delay`·`coverage`)의 원천이 아직 없으면(#37 합의 전) 빼지 않고 `state: 'unknown'`, `reason: 'source_unavailable'`로 답한다(06 §19 — 생략은 계약 위반, 행 수로 `clear`를 추론하지 않음). Trust는 키가 모두 필수이고 모르는 값(`dataThrough`·`coverage`)은 `null`(06 §18, `@ap/contracts` `Trust`).
 
+**필수 Context:** requiredContext의 의미·등록 검증은 [06 §5·§11](../06_platform_ui_contract.md)이 소유한다. 모든 투영 필드의 구조적 존재 검사를 유지하고 required의 null을 원천 조회 전에 error로 거부한다. 공집합은 기존 empty 예외를 따른다. ConformanceCase.context에 부여 계정이 성공하는 필수값 표본을 제공한다(공통 Scope·기간과 합친 뒤 투영). 표본이 없으면 해당 엔드포인트의 검사는 required Context: no valid sample로 명시적으로 건너뛴다. 표본이 있으면 각 required 키의 null·필드 생략 변이를 다른 필드와 독립적으로 검사한다.
+
 Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation` 오류로 바꾼다 — 서버가 틀리면 화면에 그대로 드러난다.
 
 **내보내기 엔드포인트(#173, [ADR-0008](../adr/0008-table-owned-export-fixed-toolbar.md))** — 표가 파일을 만들고 서버는 행만 준다. 핸들러가 지킬 것:
@@ -87,6 +89,8 @@ Kernel은 받은 `ok`/`empty`의 kind가 선언과 다르면 `contract_violation
 **등록 검증 (서버 기동 시)** — 동작도 엔드포인트처럼 검증하고 하나라도 어긋나면 기동을 거부한다: 동작 id 중복 없음, `menuId`가 Registry에 있음, 권한 이름이 어떤 메뉴가 선언한 권한임, 메뉴가 Scope를 요구하면 동작도 요구, `invalidates`의 각 항목이 같은 `menuId`의 등록된 엔드포인트임, `concurrency: 'version'` 동작에는 현재 버전을 읽는 핸들러가 있음. 원본: `packages/mock-server/src/adapter.ts` `createMockAdapter`.
 
 ## 4. 적합성 묶음으로 확인하기
+
+필수 조회조건의 원본은 [플랫폼 계약 §5·§11](../06_platform_ui_contract.md)이다. `EndpointSpec.requiredContext`는 apply capability만 선언하고, 구조적 투영 검사에 더해 null/누락을 거부한다. `[]`는 존재하는 명시적 공집합이다. `ConformanceCase.context?: Partial<GlobalContext>`에는 그 엔드포인트가 성공할 수 있는 앱 소유 표본을 넣는다. 하네스 Scope·기간과 합친 뒤 투영하며, 필수값의 유효 표본이 없으면 해당 엔드포인트 검사들을 `required Context: no valid sample`로 건너뛰었다고 표시한다(통과로 세지 않음). 표본이 있으면 관련 필드만 null/누락으로 바꾸어 각각 오류·데이터 없음 봉투를 검사한다. 보조 엔드포인트는 더 작은 투영을 가질 수 있다.
 
 [`@ap/server-conformance`](../../packages/server-conformance/AGENTS.md)는 §3의 1·3·4·6·10(그리고 표본이 있으면 9)을 엔드포인트 선언에서 도출해 검사한다(엔드포인트마다 성공 요청, 알 수 없는 키·비적용 키·적용 키 누락·`from` null·`metricVersion` 단독 거부, 권한 없으면 `forbidden`, 부여 안 된 site·`null` Scope `forbidden`, 명시적 공집합, kind 정확히 일치). 선언한 `maxRows`가 있고 표본 요청이 `oversizeParams`를 갖고 있으면(#175), 그 요청이 `too_large`로 데이터 없이 답하는지도 검사한다. 지금은 `apps/platform-web/src/server-conformance.test.ts`가 앱의 모든 메뉴 엔드포인트와 mock 어댑터로 돌린다.
 

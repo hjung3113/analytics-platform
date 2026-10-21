@@ -850,3 +850,32 @@ describe('Line/PRC and membership basis request filtering (#552)', () => {
     expect(empty.assessments).toEqual([]);
   });
 });
+
+it('requires declared non-null Context, preserving explicit-empty and the structural projection rule', async () => {
+  const spec = makeSpec('required.query', { context: { time: 'apply', selection: 'apply' }, requiredContext: ['selection'] });
+  const handle = vi.fn(() => ['result']);
+  const endpoints = new Map([[spec.id, mockEndpoint(spec, handle)]]);
+  const context = { scopeId: 'MEM', ...PERIOD, selection: null };
+  const send = (value: Record<string, unknown>) => serveEndpoint(endpoints, { endpoint: spec.id, context: value, params: { term: '' } }, undefined, { role: 'engineer', latency: 0 });
+  expect(await send(context)).toMatchObject({ outcome: 'error', data: null, assessments: [], trust: null, message: expect.stringContaining('required') });
+  const { selection: _selection, ...omitted } = context;
+  expect(await send(omitted)).toMatchObject({ outcome: 'error', message: expect.stringContaining('missing context key selection') });
+  expect(await send({ ...context, selection: [] })).toMatchObject({ outcome: 'empty', assessments: [], trust: null });
+  expect(handle).not.toHaveBeenCalled();
+  const equipment = EQUIPMENT[0];
+  expect(await send({ ...context, scopeId: equipment.site, selection: [equipment.equipmentId] })).toMatchObject({ outcome: 'ok' });
+  expect(handle).toHaveBeenCalledTimes(1);
+});
+
+it.each(['selection', 'unknown'])('rejects required Context %s outside endpoint apply capabilities', key => {
+  const endpoint = mockEndpoint(makeSpec('required.invalid', { requiredContext: [key] as never }));
+  expect(() => createMockAdapter({ registry, endpoints: [endpoint] })).toThrow(/required Context.*must be applied/);
+});
+
+it('checks required Context for shared projections without imposing equality on auxiliary endpoint subsets', () => {
+  const owner = { ...menuMeta(), context: { ...allUnsupported, time: 'apply' as const, selection: 'apply' as const }, query: { mode: 'apply' as const, required: { context: ['selection'] as const } } };
+  const list = makeSpec('required.owner', { context: { time: 'apply', selection: 'apply' } });
+  expect(() => createMockAdapter({ registry: { menus: [owner] }, endpoints: [mockEndpoint(list)] })).toThrow(/required Context.*selection.*menu/);
+  expect(() => createMockAdapter({ registry: { menus: [owner] }, endpoints: [mockEndpoint({ ...list, requiredContext: ['selection'] })] })).not.toThrow();
+  expect(() => createMockAdapter({ registry: { menus: [owner] }, endpoints: [mockEndpoint(makeSpec('auxiliary', { context: { time: 'apply' } }))] })).not.toThrow();
+});

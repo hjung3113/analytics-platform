@@ -1261,3 +1261,36 @@ describe('Condition conformance samples (#552)', () => {
     expect(await check?.run()).toBeTruthy();
   });
 });
+
+describe('required Context samples (#553)', () => {
+  const required = { ...spec, requiredContext: ['selection'] as const };
+  it('visibly skips baseline-dependent checks when required Context has no valid sample', async () => {
+    const h = harness(new Set(), [{ spec: required, params: { page: 0 } }]);
+    const plan = planServerConformance(h).filter(c => c.id.startsWith(spec.id));
+    expect(plan.find(c => c.id.includes('granted request'))?.mode).toBe('skipped');
+    expect(plan.find(c => c.id.includes('required selection'))?.mode).toBe('skipped');
+    const results = await runServerConformance(h);
+    expect(results.find(c => c.id.includes('granted request'))?.status).toBe('skipped');
+  });
+  it('projects a supplied valid baseline and derives independent null/omission mutations', async () => {
+    const h = harness(new Set(), [{ spec: required, params: { page: 0 }, context: { selection: ['MEM-PHOTO-0103'] } }]);
+    const received: MenuQuery[] = [];
+    const original = h.adapter.menuQuery;
+    h.adapter.menuQuery = async request => {
+      received.push(request);
+      if (request.endpoint === spec.id && request.context.selection == null) return err('required selection');
+      return original(request);
+    };
+    const plan = planServerConformance(h);
+    const mutations = plan.filter(c => c.id.includes('required selection'));
+    expect(mutations).toHaveLength(2);
+    for (const c of mutations) expect(await c.run()).toBeNull();
+    expect(received[0].context).toMatchObject({ ...CONTEXT, selection: null });
+    expect(Object.hasOwn(received[1].context, 'selection')).toBe(false);
+    expect(await plan.find(c => c.id.includes('granted request'))!.run()).toBeNull();
+    expect(received.at(-1)?.context.selection).toEqual(['MEM-PHOTO-0103']);
+    const results = await runServerConformance(h);
+    expect(results.filter(c => c.id.includes('required selection')).map(c => c.status)).toEqual(['passed', 'passed']);
+    expect(results.find(c => c.id.includes('granted request'))?.status).toBe('passed');
+  });
+});

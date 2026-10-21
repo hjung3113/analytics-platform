@@ -4,7 +4,7 @@
  * createMockAdapter to main.tsx through `#platform-assembly`; production builds never contain it. A real server adapter replaces this file, not the kernel.
  */
 import type { AuditEvent, ContextKey, MenuMeta, PlatformAdapter, Session } from '@ap/contracts';
-import { instantEpochMs } from '@ap/contracts';
+import { instantEpochMs, requiredContextError } from '@ap/contracts';
 import { contextShapeError } from './context-validation';
 import { checkScope, getEntity, getRole, matchesCondition, recordUsage, reportClientError, subscribeServer, usageSummary, validateScope } from './server';
 import { AUDIT_TYPES, auditTrail, entityAudit } from './audit';
@@ -78,6 +78,17 @@ export function createMockAdapter(o: {
       throw new MockRegistrationError(`endpoint ${spec.id}: permission ${spec.permission} is not declared by any menu`);
     }
 
+    const requiredError = requiredContextError(spec.requiredContext ?? [], spec.context);
+    if (requiredError) throw new MockRegistrationError(`endpoint ${spec.id}: ${requiredError}`);
+    if (owner.query?.mode === 'apply') {
+      const menuRequired = new Set(owner.query.required?.context ?? []);
+      const endpointRequired = new Set(spec.requiredContext ?? []);
+      for (const key of new Set([...menuRequired, ...endpointRequired])) {
+        if (spec.context[key] === 'apply' && menuRequired.has(key) !== endpointRequired.has(key)) {
+          throw new MockRegistrationError(`endpoint ${spec.id}: required Context ${key} differs from menu ${spec.menuId}`);
+        }
+      }
+    }
     const unsupportedContext = Object.entries(spec.context).find(([key, capability]) =>
       capability === 'apply' && owner.context[key as keyof typeof owner.context] !== 'apply');
     if (unsupportedContext) {

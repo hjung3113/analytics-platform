@@ -7,6 +7,8 @@ import { classifyMetricInit, type MetricInit } from './metric-init';
 import { CONTEXT_LABELS, isBoardPath, pathFor, routeParamNames, type MenuEntry, type Registry } from './registry';
 import { useI18n } from './i18n';
 import { dropResetKeys, paneHref } from './paneContext';
+import { appliedQueryPolicy, createDraftStore, useScreenDraft, type DraftStore } from './draft-state';
+import type { QueryDraft, QueryMissing } from './query-draft';
 import { createRefreshEpochs, type RefreshEpochs } from './refresh-epochs';
 import { buildQuery, ContractError, emptyGlobal, type EquipmentAxisDescriptor, type ContextKey, type GlobalContext, incompleteMetricPair, type ModuleScopedId, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, type Permission, type PlatformAdapter, sameGlobal, type Session, type SessionUser, shift, type SpaceDef, type SpaceId, type Text, type UsageEvent } from '@ap/contracts';
 
@@ -50,6 +52,8 @@ export type LinkResolution = {
 
 
 type Platform = {
+  queryDraft: QueryDraft;
+  queryPolicy: { ready: boolean; idle: boolean; missing: readonly QueryMissing[] };
   equipmentAxes: readonly EquipmentAxisDescriptor[];
   registry: Registry;
   /** For platform layers (shell) that query the server directly; pages go through their own api seam. */
@@ -235,7 +239,7 @@ function counterStore(adapter: PlatformAdapter) {
 let fallbackUsageSession: string | null = null;
 
 /** Fields of the screen state: what a menu page reads about the screen it is shown on (the main screen or one board pane). */
-type ScreenFields = 'url' | 'pathname' | 'route' | 'platformScreen' | 'contractError' | 'metricInit' | 'global' | 'page' | 'extras' | 'pageParam' | 'pageNavigation' | 'navigate' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'reportError' | 'returnTarget' | 'returnOrigin' | 'scope' | 'retryScope' | 'currentSpace';
+type ScreenFields = 'queryDraft' | 'queryPolicy' | 'url' | 'pathname' | 'route' | 'platformScreen' | 'contractError' | 'metricInit' | 'global' | 'page' | 'extras' | 'pageParam' | 'pageNavigation' | 'navigate' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'reportError' | 'returnTarget' | 'returnOrigin' | 'scope' | 'retryScope' | 'currentSpace';
 /** Shell navigation state that always follows the main screen, even when read from inside a pane (ADR-0049). */
 type MainBoundFields = 'visibleMenus' | 'sidebarSpace' | 'spaceResume' | 'spaceEntry' | 'switchSpace';
 type ScreenState = Pick<Platform, ScreenFields | 'screenMode' | 'paneId' | 'paneLabel'>;
@@ -263,6 +267,7 @@ const PaneScreenContext = createContext<ScreenState | null>(null);
 type CommitOptions = { focus?: PageFocus; materialize?: boolean };
 /** What the screen state hook needs from its owner: where the URL lives and how a write or a navigation lands. */
 type ScreenSource = {
+  draftStore?: DraftStore;
   mode: 'main' | 'pane';
   paneId: string | null;
   paneLabel?: string | null;
@@ -445,7 +450,7 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
   useEffect(() => {
     if (!route || routeContractError) return;
     let next = global;
-    if (route.menu.context.time === 'apply' && global.from === null) next = { ...next, from: shift(defaultRangeTo, -24), to: defaultRangeTo };
+    if (route.menu.query?.mode !== 'apply' && route.menu.context.time === 'apply' && global.from === null) next = { ...next, from: shift(defaultRangeTo, -24), to: defaultRangeTo };
     if (metricInit.phase === 'confirm') next = { ...next, metricVersion: metricInit.metricVersion };
     if (next === global) { proposed.current = null; return; }
     const target = pathname + buildQuery(next, page, extras);
@@ -563,7 +568,12 @@ function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenSt
     return correlationId;
   }, [adapter, registry, route, pageNavigation]);
 
-  const screen: ScreenState = {
+  const queryPolicy = { ...appliedQueryPolicy(route?.menu ?? null, global, page, routeContractError !== null || metricInit.phase !== 'skip'),
+    ready: route?.menu.query?.mode !== 'apply' || !route.menu.requiresScope || (scopeView.status === 'valid' && scopeView.scopeId === global.scopeId && scopeView.validatedFor === session) };
+  const queryDraft = useScreenDraft({ store: source.draftStore, menu: route?.menu ?? null, identity: `${route?.menu.id ?? ''}\0${pathname}`, session, url,
+    global, page, extras, defaultRangeTo, scope: scopeView, adapter, axes: equipmentAxes, invalid: routeContractError !== null,
+    commit, setGlobal, setPage });
+  const screen: ScreenState = { queryDraft, queryPolicy,
     url, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, reportError, returnTarget, returnOrigin,
     currentSpace, scope: scopeView, retryScope, screenMode: mode, paneId, paneLabel,
   };
@@ -803,6 +813,28 @@ function MainScreenProvider({ app, children }: { app: AppValue; children: ReactN
 /** One analysis-board pane's screen (ADR-0049). `query` is `buildQuery(global, page, extras)` of that pane, with its leading `?` (or empty). */
 export type PaneScreen = { menuId: string; params: Record<string, string>; query: string };
 
+const PaneDraftContext = createContext<ReadonlyMap<string, DraftStore> | null>(null);
+
+/** Owns drafts for the listed logical panes, across body/editor mounts. Remove a pane to release its draft. */
+export function PaneQueryDraftProvider({ screens, children }: { screens: Readonly<Record<string, PaneScreen | null>>; children: ReactNode }) {
+  const app = useContext(AppContext);
+  if (!app) throw new Error('PaneQueryDraftProvider outside PlatformProvider');
+  const session = app.pub.session;
+  const identity = JSON.stringify(Object.entries(screens).map(([id, screen]) => [id, screen?.menuId, screen?.params]));
+  const [owned, setOwned] = useState(() => ({ identity, session, stores: new Map(Object.entries(screens).filter(([, screen]) => screen !== null).map(([id]) => [id, createDraftStore()])) }));
+  let stores = owned.stores;
+  if (owned.identity !== identity || owned.session !== session) {
+    stores = new Map(Object.entries(screens).filter(([, screen]) => screen !== null).map(([id, screen]) => {
+      const oldIdentity = JSON.parse(owned.identity) as [string, string, Record<string, string>][];
+      const old = oldIdentity.find(([key]) => key === id);
+      const same = owned.session === session && old?.[1] === screen?.menuId && JSON.stringify(old?.[2]) === JSON.stringify(screen?.params);
+      return [id, same ? owned.stores.get(id) ?? createDraftStore() : createDraftStore()];
+    }));
+    setOwned({ identity, session, stores });
+  }
+  return <PaneDraftContext.Provider value={stores}>{children}</PaneDraftContext.Provider>;
+}
+
 /**
  * Gives its subtree a screen of its own: `usePlatform()` there reads this pane's route, Context, page state, Scope and links, while
  * app-wide state and the shell (outside the pane) keep following the main screen. Preconditions (the caller owns them, #497):
@@ -821,6 +853,7 @@ export function PaneScreenProvider({ paneId, paneLabel, screen, onChange, onLeav
 }) {
   const app = useContext(AppContext);
   const main = useContext(MainBoundContext);
+  const draftStores = useContext(PaneDraftContext);
   if (!app || !main) throw new Error('PaneScreenProvider outside PlatformProvider');
   const { registry, canOpen } = app.pub;
   const url = paneHref(registry, screen);
@@ -857,7 +890,7 @@ export function PaneScreenProvider({ paneId, paneLabel, screen, onChange, onLeav
     return true;
   }, [navigation, url, commit, matchRoute, canOpen]);
 
-  const source: ScreenSource = { mode: 'pane', paneId, paneLabel, url, navigation, commit, go, sidebarSpace: main.sidebarSpace, countsUsage: countUsage };
+  const source: ScreenSource = { draftStore: draftStores?.get(paneId), mode: 'pane', paneId, paneLabel, url, navigation, commit, go, sidebarSpace: main.sidebarSpace, countsUsage: countUsage };
   const state = useScreenState(app, source);
   return <PaneScreenContext.Provider value={state.screen}>{children}</PaneScreenContext.Provider>;
 }
