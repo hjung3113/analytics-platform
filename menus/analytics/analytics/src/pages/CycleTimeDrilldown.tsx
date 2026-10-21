@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, ArrowRight, Gauge, Hash, RotateCw, Timer, X } from 'lucide-react';
 import { periodHours, type Trust } from '@ap/contracts';
-import { type PageProps, PlatformLink, invalidValueSentence, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
+import { type PageProps, PlatformLink, invalidValueSentence, useI18n, useMenuFetch, useMenuQuery, useQueryDraft, usePlatform } from '@ap/kernel';
 import { AnalysisLayout, RowAction, AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type Delta, type PlatformColumn, parsePageIndex, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import {
@@ -19,6 +19,15 @@ const NO_PARAMS = {};
 export default function CycleTimeDrilldown(_: PageProps) {
   const { t, lang } = useI18n();
   const { global, pageParam, setPage, setGlobal, linkTo, toast, route } = usePlatform();
+  const queryDraft = useQueryDraft();
+  const draftParam = (key: string) => queryDraft.draft.page.find(([k]) => k === key)?.[1] ?? null;
+  const draftHours = periodHours(queryDraft.draft.global);
+  const draftGrain = resolveGranularity(draftParam('granularity'), draftHours);
+  const draftTail = resolveTail(draftParam('percentile'));
+  const draftSort = parseSortParam(draftParam('sort'));
+  const draftBucket = parseBucket(draftParam('bucket'), draftGrain.ok ? draftGrain.value : 'hour');
+  const draftBin = parseBin(draftParam('bin'));
+  const draftIndex = parsePageIndex(draftParam('page'));
   const granularityRaw = pageParam('granularity');
   const percentileRaw = pageParam('percentile');
   const sortRaw = pageParam('sort');
@@ -85,9 +94,9 @@ export default function CycleTimeDrilldown(_: PageProps) {
     },
   ], [ko, lang]);
 
-  const filterKey = JSON.stringify({ tail: tailMode, bucket: bucketRange, bin, sort: sortRaw, reload });
+  const filterKey = JSON.stringify({ tail: tailMode, granularity, bucket: bucketRange, bin, sort: sortRaw, reload });
   const unknown = ko ? '미확인' : 'Not confirmed';
-  const granularityPending = granularityRaw === null && hours === null;
+  const granularityPending = draftParam('granularity') === null && draftHours === null;
 
   // #304 FIX1 (06 §19): each invalid field keeps its user name and the raw value as entered (quoted,
   // untruncated), one sentence per field — never `key=value`.
@@ -118,15 +127,23 @@ export default function CycleTimeDrilldown(_: PageProps) {
     { value: 'equipmentId:asc', label: 'Equipment A→Z' },
   ];
   const unknownRaw = (raw: string | null) => ko ? `이 화면에서 쓸 수 없는 값: ${raw ?? ''}` : `Not a value this page can use: ${raw ?? ''}`;
-  const grainSummary = !granularityResult.ok ? unknownRaw(granularityRaw)
-    : granularityPending ? (ko ? '확인 중' : 'Checking') : grainLabel[granularity];
-  const tailSummary = tailResult.ok ? tailOptions.find(option => option.value === tailMode)?.label ?? tailMode : unknownRaw(percentileRaw);
-  const sortSummary = sortResult.ok
-    ? sortOptions.find(option => option.value === encodeSort(sortSpec.id, sortSpec.desc))?.label ?? encodeSort(sortSpec.id, sortSpec.desc)
-    : unknownRaw(sortRaw);
-  const resetFilters = <Button type="button" variant="ghost" size="toolbar" onClick={() => setPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{ko ? '페이지 조건 기본값' : 'Reset page filters'}</Button>;
+  const summaryFor = (grain: ReturnType<typeof resolveGranularity>, tail: ReturnType<typeof resolveTail>, sort: ReturnType<typeof parseSortParam>, raw: (key: string) => string | null) => [
+    { key: 'granularity', label: grainFieldLabel, value: grain.ok ? grainLabel[grain.value] : unknownRaw(raw('granularity')) },
+    { key: 'percentile', label: tailFieldLabel, value: tail.ok ? tailOptions.find(option => option.value === tail.value)?.label ?? tail.value : unknownRaw(raw('percentile')) },
+    { key: 'sort', label: sortFieldLabel, value: sort.ok ? sortOptions.find(option => option.value === encodeSort(sort.id, sort.desc))?.label ?? encodeSort(sort.id, sort.desc) : unknownRaw(raw('sort')) },
+    ...(['bucket', 'bin', 'page'] as const).filter(key => raw(key) !== null).map(key => ({ key, label: key === 'bucket' ? (ko ? '버킷' : 'Bucket') : key === 'bin' ? (ko ? '분포 구간' : 'Histogram') : (ko ? '페이지' : 'Page'), value: raw(key)! })),
+  ];
+  const pageSummary = summaryFor(draftGrain, draftTail, draftSort, draftParam);
+  const appliedPageSummary = summaryFor(granularityResult, tailResult, sortResult, pageParam);
+  const issues = [
+    ['granularity', grainFieldLabel, draftGrain.ok], ['percentile', tailFieldLabel, draftTail.ok], ['sort', sortFieldLabel, draftSort.ok],
+    ['bucket', ko ? '버킷' : 'Bucket', draftBucket.ok], ['bin', ko ? '분포 구간' : 'Histogram', draftBin.ok], ['page', ko ? '페이지' : 'Page', draftIndex.ok],
+  ].filter(([, , ok]) => !ok).map(([key, label]) => ({ key: String(key), label: String(label), reason: unknownRaw(draftParam(String(key))) }));
+  const resetFilters = <Button type="button" variant="ghost" size="toolbar" onClick={() => queryDraft.setDraftPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{ko ? '페이지 조건 기본값' : 'Reset page filters'}</Button>;
 
   return <PlatformPage
+    queryResult={{ completedAt: kpi.completedAt, status: kpi.status }}
+    queryBarExtension={{ pageSummary, appliedPageSummary, issues }}
     description={ko
       ? '적용된 기간·설비의 사이클타임입니다. 점·분포 선택은 목록만 줄입니다.'
       : 'Cycle time for the applied period and equipment. Point and histogram choices filter only the list.'}
@@ -134,25 +151,21 @@ export default function CycleTimeDrilldown(_: PageProps) {
     dataTrustSummary={kpi.response?.trust ? <DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} /> : undefined}
     contextExtension={<div className="space-y-2">
       <MetricBanner metric={metric} />
-      <PageFilterBar label={t('pageFilter')} collapsible preferenceKey={route?.menu.id ?? ''} summaryItems={[
-        { key: 'granularity', label: grainFieldLabel, value: grainSummary },
-        { key: 'percentile', label: tailFieldLabel, value: tailSummary },
-        { key: 'sort', label: sortFieldLabel, value: sortSummary },
-      ]} collapsedActions={resetFilters} fields={[
+      <PageFilterBar mode="draft" hasPendingChanges={queryDraft.dirty.length > 0} label={t('pageFilter')} collapsible preferenceKey={route?.menu.id ?? ''} summaryItems={pageSummary} collapsedActions={resetFilters} fields={[
         { kind: 'custom', key: 'granularity', label: grainFieldLabel, content: <div className="flex flex-wrap items-center gap-1">
           {(['hour', 'day', 'week'] as const).map(value => {
-            const pressed = !granularityPending && granularityResult.ok && granularity === value;
+            const pressed = !granularityPending && draftGrain.ok && draftGrain.value === value;
             return <Button key={value} type="button" size="md" variant={pressed ? 'secondary' : 'ghost'} aria-pressed={pressed}
-              onClick={() => setPage({ granularity: value, bucket: null, page: null })}>{grainLabel[value]}</Button>;
+              onClick={() => queryDraft.setDraftPage({ granularity: value, bucket: null, page: null })}>{grainLabel[value]}</Button>;
           })}
         </div> },
-        { kind: 'select', key: 'percentile', label: tailFieldLabel, value: tailResult.ok ? tailMode : percentileRaw ?? '', options: tailOptions, onValueChange: value => setPage({ percentile: value, page: null }) },
-        { kind: 'select', key: 'sort', label: sortFieldLabel, value: sortResult.ok ? encodeSort(sortSpec.id, sortSpec.desc) : sortRaw ?? '', options: sortOptions, onValueChange: value => setPage({ sort: value === DEFAULT_SORT ? null : value, page: null }) },
+        { kind: 'select', key: 'percentile', label: tailFieldLabel, value: draftTail.ok ? draftTail.value : draftParam('percentile') ?? '', options: tailOptions, onValueChange: value => queryDraft.setDraftPage({ percentile: value, page: null }) },
+        { kind: 'select', key: 'sort', label: sortFieldLabel, value: draftSort.ok ? encodeSort(draftSort.id, draftSort.desc) : draftParam('sort') ?? '', options: sortOptions, onValueChange: value => queryDraft.setDraftPage({ sort: value === DEFAULT_SORT ? null : value, page: null }) },
       ]} actions={resetFilters} />
       <p className="text-xs text-text-muted">
         {ko
-          ? `집계 기본값은 기간이 48시간 이하면 시간, 그보다 길면 일입니다${!granularityResult.ok || granularityResult.explicit ? '' : ` (지금 ${granularity === 'hour' ? '시간' : granularity === 'day' ? '일' : '주'})`}. 느린 실행은 표시된 P95 이상(같은 값 포함)이며 요약 모집단은 줄이지 않습니다.`
-          : `The default grain is hours when the period is 48 hours or less, otherwise days${!granularityResult.ok || granularityResult.explicit ? '' : ` (now ${granularity})`}. Slow means at or above the displayed P95, including ties, and does not shrink the summary population.`}
+          ? `집계 기본값은 기간이 48시간 이하면 시간, 그보다 길면 일입니다${!draftGrain.ok || draftGrain.explicit ? '' : ` (지금 ${draftGrain.value === 'hour' ? '시간' : draftGrain.value === 'day' ? '일' : '주'})`}. 느린 실행은 표시된 P95 이상(같은 값 포함)이며 요약 모집단은 줄이지 않습니다.`
+          : `The default grain is hours when the period is 48 hours or less, otherwise days${!draftGrain.ok || draftGrain.explicit ? '' : ` (now ${draftGrain.value})`}. Slow means at or above the displayed P95, including ties, and does not shrink the summary population.`}
       </p>
       {(bucketRange || bin) && <div className="flex flex-wrap items-center gap-2">
         {bucketRange && <FilterChip label={ko ? '버킷' : 'Bucket'} value={`${bucketRange.from.replace('T', ' ')} → ${bucketRange.to.replace('T', ' ')}`} onClear={() => setPage({ bucket: null })} clearLabel={ko ? '버킷 필터 해제' : 'Clear bucket filter'} />}
@@ -162,7 +175,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
   >
     {invalidPage ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '페이지 키 값이 올바르지 않습니다' : 'Invalid page key'}
       body={pageRefusals.map((sentence, index) => <p key={index}>{sentence} {ko ? '페이지 조건을 기본값으로 되돌리세요.' : 'Reset the page conditions.'}</p>)} />
-      : !periodReady ? <p className="text-sm text-text-muted">{ko ? '전역 기간이 URL에 확정되면 조회합니다.' : 'The query starts once the global period is in the URL.'}</p>
+      : kpi.status === 'idle' ? <QueryView query={kpi}>{() => null}</QueryView>
         : <AnalysisLayout
           kpi={{ id: 'summary', title: ko ? '사이클타임 요약' : 'Cycle time summary', node: <>
           <div className="relative" data-testid="cycle-kpi">

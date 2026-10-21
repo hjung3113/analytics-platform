@@ -258,12 +258,13 @@ export type SlowFilter = { tail: TailMode; granularity: Granularity; bucket: str
 export type SlowPageParams = SlowFilter & PageQuery;
 
 /** Exactly what the cycle-time manifest applies; `metric` applies so the server resolves the computation version. */
-const cycleContext = { time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', lot: 'apply', ppid: 'apply', recipe: 'apply', metric: 'apply' } as const;
+const cycleContext = { time: 'apply', roomNames: 'apply', line: 'apply', prcGroup: 'apply', condition: 'apply', selection: 'apply', lot: 'apply', ppid: 'apply', recipe: 'apply', metric: 'apply' } as const;
 const cycleBase = {
   menuId: 'cycle-time',
   permission: 'analytics:view',
   requiresScope: true,
   context: cycleContext,
+  requiredContext: ['time', 'roomNames'],
   kinds: ['collection', 'processing_delay', 'coverage'],
   // Analysis reads refuse a cross-time-domain equipment set (06 §6.3) — the default the analysis reads had before #127.
   mergeTimeDomain: true,

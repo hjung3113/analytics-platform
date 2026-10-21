@@ -58,6 +58,7 @@ const executionMenu: MenuMeta = {
 
 /** Inline mirror for the third endpoint owner registered by analyticsMock (#127). */
 const cycleMenu: MenuMeta = {
+  query: { mode: 'apply', required: { context: ['time', 'roomNames'] } },
   id: 'cycle-time',
   group: 'analytics',
   label: { ko: '사이클타임 상세', en: 'Cycle time detail' },
@@ -65,7 +66,7 @@ const cycleMenu: MenuMeta = {
   path: '/analytics/cycle-time',
   permission: 'analytics:view',
   requiresScope: true,
-  context: { ...none, time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', lot: 'apply', ppid: 'apply', recipe: 'apply', metric: 'apply' },
+  context: { ...none, time: 'apply', roomNames: 'apply', line: 'apply', prcGroup: 'apply', condition: 'apply', selection: 'apply', lot: 'apply', ppid: 'apply', recipe: 'apply', metric: 'apply' },
   pageType: 'analysis',
   features: { export: true, savedView: false, annotate: true, compare: true },
   pageKeys: ['granularity', 'percentile', 'sort', 'page', 'bucket', 'bin'],

@@ -2,8 +2,10 @@ AppRail | function | function AppRail(): import("react").JSX.Element
 AppShell | function | function AppShell({ children }: { children: ReactNode; }): import("react").JSX.Element
 AppSidebar | function | function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void; }): import("react").JSX.Element
 CommandPalette | function | function CommandPalette(): import("react").JSX.Element
-GlobalContextBar | function | function GlobalContextBar({ label, whenEmpty }?: { label?: { region: string; visible: string; }; whenEmpty?: ReactNode; }): Iterable<ReactNode> | Promise<Iterable<ReactNode> | bigint | boolean | import("react").ReactElement<unknown, import("react").JSXElementConstructor<any> | string> | import("react").ReactPortal | null | number | string | undefined> | bigint | boolean | import("react").JSX.Element | null | number | string
+GlobalContextBar | function | function GlobalContextBar({ label, whenEmpty }?: { label?: { region: string; visible: string; }; whenEmpty?: ReactNode; }): import("react").JSX.Element
 OpenInBoardAction | function | function OpenInBoardAction(): import("react").JSX.Element
+QueryBar | function | function QueryBar(props: @ap/shell#QueryBarProps): import("react").JSX.Element
+QueryBarProps | type | type QueryBarProps = { historySlot?: ReactNode; label?: { region: string; visible: string; }; }
 RouteOutlet | function | function RouteOutlet(): import("react").JSX.Element
 ScopeSelector | function | function ScopeSelector({ collapsed, layout }: { collapsed?: boolean; layout?: 'bar' | 'sidebar'; }): import("react").JSX.Element
 ScreenOutlet | function | function ScreenOutlet(): import("react").JSX.Element

@@ -92,6 +92,12 @@ async function chooseFilterOption(page: Page, field: string, option: string) {
 // Wait for the period anchor before deciding whether a control is inline or portaled.
 async function contextEditor(page: Page, name: string) {
   const bar = contextBar(page);
+  await expect(bar).toBeVisible();
+  if (await bar.getAttribute('data-query-bar') !== null) {
+    const expand = bar.getByRole('button', { name: '조회 조건 펼치기' });
+    if (await expand.count()) await expand.click();
+    return { locator: bar.getByRole('button', { name }), close: async () => {} };
+  }
   await expect(bar.getByRole('button', { name: /^기간:/ })).toBeVisible();
   const inline = bar.getByRole('button', { name });
   if (await inline.isVisible()) return { locator: inline, close: async () => {} };
@@ -112,6 +118,14 @@ async function headerMore(page: Page) {
 }
 async function periodPreset(page: Page, name: string) {
   const bar = contextBar(page);
+  await expect(bar).toBeVisible();
+  if (await bar.getAttribute('data-query-bar') !== null) {
+    const expand = bar.getByRole('button', { name: '조회 조건 펼치기' });
+    if (await expand.count()) await expand.click();
+    return { locator: bar.getByRole('button', { name: name === '1일' ? '최근 24시간' : name === '7일' ? '최근 7일' : name, exact: true }), close: async () => {
+      await bar.getByRole('button', { name: '적용', exact: true }).click();
+    } };
+  }
   const trigger = bar.getByRole('button', { name: /^기간:/ });
   await expect(trigger).toBeVisible();
   const inline = bar.getByRole('radio', { name, exact: true });
@@ -194,6 +208,13 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
   async function boardPeriodPreset(page: Page, number: number, name: string) {
     const context = boardContext(page, number);
     await expect(context).toBeVisible();
+    if (await context.getAttribute('data-query-bar') !== null) {
+      await context.getByRole('button', { name: /조회 조건 펼치기/ }).click();
+      await page.getByRole('button', { name: name === '1일' ? '최근 24시간' : '최근 7일', exact: true }).click();
+      await page.getByRole('button', { name: '적용', exact: true }).click();
+      await page.getByRole('button', { name: '닫기', exact: true }).click();
+      return;
+    }
     const inline = context.getByRole('radio', { name, exact: true });
     if (await inline.isVisible()) {
       await inline.click();
@@ -393,7 +414,7 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     await signInWithBoard(page, 'engineer', boardOf(
       boardSheet('sheet-one', '기준', '1x1', [boardScreen(`v=1&scopeId=MEM&${PERIOD}&roomNames=PHOTO`)]),
       // A day earlier, so the 1일 preset is a real change that stays inside the mock's verified time domain (7일 over MEM is time_domain_unverified).
-      boardSheet('sheet-two', '비교', '1x1', [boardScreen('v=1&scopeId=MEM&from=2026-09-24T09:00:00&to=2026-09-25T09:00:00', 'cycle-time')]),
+      boardSheet('sheet-two', '비교', '1x1', [boardScreen('v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-24T09:00:00&to=2026-09-25T09:00:00', 'cycle-time')]),
     ));
     await page.goto('/board?sheet=sheet-one');
     await page.getByRole('tab', { name: '비교' }).click();
@@ -401,14 +422,14 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     await expect(boardPaneHead(page, 1)).toContainText('사이클타임 상세');
     await expect(cycleTimeBody(page, 1)).toBeVisible();
     await boardPeriodPreset(page, 1, '1일');
-    const changedPeriod = '기간: 2026-09-25T09:00:00 – 2026-09-26T09:00:00';
-    await expect(boardContext(page, 1).getByRole('button', { name: changedPeriod, exact: true })).toBeVisible();
+    const changedPeriod = '[2026-09-25T09:00:00, 2026-09-26T09:00:00)';
+    await expect(boardContext(page, 1)).toContainText(changedPeriod);
 
     await page.reload();
     await expect.poll(() => query(page).get('sheet')).toBe('sheet-two');
     await expect(boardPaneHead(page, 1)).toContainText('사이클타임 상세');
     await expect(cycleTimeBody(page, 1)).toBeVisible();
-    await expect(boardContext(page, 1).getByRole('button', { name: changedPeriod, exact: true })).toBeVisible();
+    await expect(boardContext(page, 1)).toContainText(changedPeriod);
     await page.goBack();
     await expect.poll(() => query(page).get('sheet')).toBe('sheet-one');
     await expect(boardPaneHead(page, 1)).toContainText('생산성 개요');
@@ -446,7 +467,7 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
 
   test('분석 보드에 열기: 사이클타임 상세를 새 시트의 첫 칸으로 연다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
-    await page.goto(`/analytics/cycle-time?v=1&scopeId=MEM&${PERIOD}`);
+    await page.goto(`/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`);
     await expect(mainHeading(page)).toHaveText('사이클타임 상세');
     const actions = await headerMore(page);
     await actions.getByRole('button', { name: '분석 보드에 열기…' }).click();
@@ -622,7 +643,7 @@ test.describe('PageFilterBar 접힘 요약 (ADR-0029)', () => {
   test('접힌 요약은 조건을 자르지 않고 항목 단위로 왼쪽 정렬 줄바꿈하며 Enter로 펼친다', async ({ page }, testInfo) => {
     const longRaw = 'x'.repeat(60);
     await page.setViewportSize({ width: 1024, height: 900 });
-    await page.goto(`/analytics/cycle-time?v=1&scopeId=MEM&${PERIOD}&percentile=${longRaw}&sort=equipmentId:asc`);
+    await page.goto(`/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}&percentile=${longRaw}&sort=equipmentId:asc`);
     const bar = page.getByTestId('page-filter-bar');
     await expect(bar).toBeVisible();
     // 등록되지 않은 percentile은 페이지 키 오류이지만 필터 바는 원문을 요약에 그대로 남긴다.
@@ -1252,12 +1273,12 @@ test.describe('메뉴 간 Context 보존과 미적용 표시 (06 §6, §22)', ()
 
   test('지원하지 않는 Context는 지우지 않고 "미사용"으로 표시하고, 지원 메뉴로 가면 조회에 적용된다', async ({ page }, testInfo) => {
     // Pick a Lot that really exists in the period so the destination can prove the filter, not just the chip.
-    await page.goto(`/analytics/cycle-time?v=1&scopeId=MEM&${PERIOD}`);
+    await page.goto(`/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`);
     const lots = await lotColumn(page);
     const lot = lots[0];
     expect(lots.some(l => l !== lot), 'fixture needs more than one Lot in the unfiltered period').toBe(true);
 
-    await page.goto(`/equipment?v=1&scopeId=MEM&${PERIOD}&lotIds=${lot}`);
+    await page.goto(`/equipment?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}&lotIds=${lot}`);
     await expectScopeValid(page, 'MEM · 메모리');
     const lotEditor = await contextEditor(page, '지우기 Lot');
     const lotChip = lotEditor.locator.locator('..');
@@ -1821,7 +1842,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
   });
 
   test('사이클타임 bucket·bin·정렬을 returnTo에 그대로 남기고 복귀 후에도 유지한다', async ({ page }, testInfo) => {
-    const base = '/analytics/cycle-time?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
+    const base = '/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
     // Read a bucket and bin that really contain the first slow execution, so the filter keeps a row (deterministic fixture).
     await page.goto(`${base}&sort=anchor:asc`);
     await expect(page.getByTestId('page-filter-bar')).toBeVisible();
@@ -2164,14 +2185,25 @@ test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-
 });
 
 test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석 Scope 격리, manifest features)', () => {
-  const CYCLE = `/analytics/cycle-time?v=1&scopeId=MEM&${PERIOD}`;
+  const CYCLE = `/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
   const trend = (page: Page) => page.getByRole('region', { name: '사이클타임 추세' });
+
+  async function applyRoomInQueryBar(page: Page, room: string) {
+    const bar = contextBar(page);
+    const expand = bar.getByRole('button', { name: '조회 조건 펼치기' });
+    if (await expand.count()) await expand.click();
+    await bar.getByRole('button', { name: '공정', exact: true }).click();
+    await page.getByRole('option', { name: room, exact: true }).click();
+    await page.keyboard.press('Escape');
+    await bar.getByRole('button', { name: '적용', exact: true }).click();
+  }
 
   async function brush(page: Page) {
     const frame = trend(page);
     await frame.getByRole('button', { name: '구간 선택' }).click();
     const plot = frame.getByRole('img', { name: /^사이클타임 추세/ });
     await expect(plot).toBeVisible();
+    await plot.scrollIntoViewIfNeeded();
     const box = (await plot.boundingBox())!;
     await page.mouse.move(box.x + box.width * 0.35, box.y + box.height * 0.5);
     await page.mouse.down();
@@ -2325,12 +2357,16 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
 
     await switchScope(page, 'FDRY');
     await expectScopeValid(page, 'FDRY · 파운드리');
+    // Apply mode (ADR-0061): the Scope switch clears the required room; pick it again in the query bar and apply
+    // in-app (a reload would reset the in-browser mock and lose the annotation).
+    await applyRoomInQueryBar(page, 'PHOTO');
     await expect(trend(page).getByRole('button', { name: '구간 선택' })).toBeVisible();
     await expect(trend(page).getByText(/MEM 전용 PM 작업/)).toHaveCount(0);
     await evidence(page, testInfo, 'annotation-fdry-isolated');
 
     await switchScope(page, 'MEM');
     await expectScopeValid(page, 'MEM · 메모리');
+    await applyRoomInQueryBar(page, 'PHOTO');
     await expect(trend(page).getByText(/MEM 전용 PM 작업/)).toBeVisible();
   });
 
@@ -2386,7 +2422,7 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
 test.describe('분석 레이아웃 차트 2열·접기 (06 §12.6, ADR-0022)', () => {
   test('그림 영역을 같은 행에 맞추고 접힌 차트·표를 기억하여 칩으로 복원한다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`/analytics/cycle-time?v=1&scopeId=MEM&${PERIOD}`);
+    await page.goto(`/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`);
     const trend = page.getByRole('region', { name: '사이클타임 추세', exact: true });
     const distribution = page.getByRole('region', { name: '사이클타임 분포', exact: true });
     const trendPlot = trend.getByRole('img', { name: /^사이클타임 추세/ });
@@ -3116,5 +3152,81 @@ test.describe('FeedbackOps 진입 링크 회귀(#451, 06 §22)', () => {
     await expect(page.getByRole('navigation', { name: /^FeedbackOps/ })).toHaveCount(0);
     await expect(feedbackOpsOverallLink(page)).toBeVisible();
     await evidence(page, testInfo, 'feedbackops-space-count-admin');
+  });
+});
+
+test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
+  async function expandQuery(page: Page) {
+    const bar = contextBar(page);
+    await expect(bar).toBeVisible();
+    const expand = bar.getByRole('button', { name: '조회 조건 펼치기' });
+    if (await expand.count()) await expand.click();
+    return bar;
+  }
+  test('bare URL은 조회 전이며 편집·Enter는 주소를 바꾸지 않고 적용 후 완료를 표시한다', async ({ page }, testInfo) => {
+    await page.goto('/analytics/cycle-time?scopeId=MEM');
+    await expectScopeValid(page, 'MEM · 메모리');
+    const bar = await expandQuery(page);
+    await expect(page.getByText('요약 조회 완료', { exact: false })).toHaveCount(0);
+    await expect(bar.getByRole('button', { name: '적용', exact: true })).toBeDisabled();
+    const original = page.url();
+    await bar.getByRole('button', { name: '공정', exact: true }).click();
+    await page.getByRole('option', { name: 'PHOTO', exact: true }).click();
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: '일', exact: true }).click();
+    await page.keyboard.press('Enter');
+    expect(page.url()).toBe(original);
+    await expect(page.getByText('요약 조회 완료', { exact: false })).toHaveCount(0);
+    await bar.getByRole('button', { name: '적용', exact: true }).click();
+    await expect.poll(() => query(page).get('granularity')).toBe('day');
+    await expect(page.getByRole('region', { name: '적용된 조회 조건' })).toContainText('요약 조회 완료');
+    const applied = page.url();
+    await bar.getByRole('button', { name: '적용', exact: true }).click();
+    expect(page.url()).toBe(applied);
+    await evidence(page, testInfo, 'query-bar-applied');
+  });
+  test('deep link와 Back/Forward는 적용값을 복원하고 초안 page 값은 적용까지 결과에 섞이지 않는다', async ({ page }) => {
+    await page.goto(`/analytics/cycle-time?scopeId=MEM&roomNames=PHOTO&${PERIOD}`);
+    const strip = page.getByRole('region', { name: '적용된 조회 조건' });
+    await expect(strip).toContainText('요약 조회 완료');
+    const bar = await expandQuery(page);
+    const original = page.url();
+    await page.getByRole('button', { name: '주', exact: true }).click();
+    expect(page.url()).toBe(original);
+    await expect(strip).not.toContainText('집계 주');
+    await bar.getByRole('button', { name: '적용', exact: true }).click();
+    await expect.poll(() => query(page).get('granularity')).toBe('week');
+    await page.goBack();
+    await expect.poll(() => page.url()).toBe(original);
+    await page.goForward();
+    await expect.poll(() => query(page).get('granularity')).toBe('week');
+  });
+  test('제한 역할의 공정 후보와 Scope 즉시 전환은 서버 권한을 따른다', async ({ page }) => {
+    await signInAs(page, 'engineer');
+    await page.goto(`/analytics/cycle-time?scopeId=MEM&roomNames=PHOTO&${PERIOD}`);
+    const bar = await expandQuery(page);
+    await expectScopeValid(page, 'MEM · 메모리');
+    await bar.getByRole('button', { name: '공정', exact: true }).click();
+    await expect(page.getByRole('option', { name: 'DIFF', exact: true })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await switchScope(page, 'FDRY');
+    await expect.poll(() => query(page).get('scopeId')).toBe('FDRY');
+    expect(query(page).has('roomNames')).toBe(false);
+    await expect(bar.getByRole('button', { name: '적용', exact: true })).toBeDisabled();
+  });
+  test('선택 칸 전환은 각 초안을 보존하고 편집 패널을 닫는다', async ({ page }) => {
+    await signInAs(page, 'engineer');
+    await page.addInitScript(period => {
+      const screen = { menuId: 'cycle-time', params: {}, query: `?scopeId=MEM&roomNames=PHOTO&${period}` };
+      localStorage.setItem('platform:board:engineer', JSON.stringify({ v: 1, activeSheetId: 'drafts', sheets: [{ id: 'drafts', name: '초안', layout: '1x2', selected: 0, panes: [screen, screen] }] }));
+    }, PERIOD);
+    await page.goto('/board?sheet=drafts');
+    await page.getByRole('region', { name: '칸 1 · 분석 Context' }).getByRole('button', { name: '조회 조건 펼치기' }).click();
+    await page.getByRole('button', { name: '최근 7일', exact: true }).click();
+    await page.getByRole('button', { name: '닫기', exact: true }).click();
+    await page.getByRole('button', { name: '칸 2 선택' }).click();
+    await expect(page.getByRole('region', { name: '칸 2 · 분석 Context' })).toContainText('적용 안 된 변경 0개');
+    await page.getByRole('button', { name: '칸 1 선택' }).click();
+    await expect(page.getByRole('region', { name: '칸 1 · 분석 Context' })).toContainText('적용 안 된 변경 1개');
   });
 });
