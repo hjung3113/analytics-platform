@@ -27,22 +27,32 @@
 
 | 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
 | --- | --- | --- | --- |
-| 다음 SDK 태그 | contracts | `SpaceId`·`GroupId`에 `clas` 추가(#590) | `Record<SpaceId, …>`·`Record<GroupId, …>`나 빠짐없는 `switch`를 쓰는 소비자는 새 멤버를 더한다 |
-| 다음 SDK 태그 | contracts | `SpaceId`에 `log-dev`·`improvement`, `GroupId`에 `logMyWork`·`logModels`·`logCross`·`logRules`·`impMyWork`·`impTasks`·`impReports` 추가(#252, ADR-0065) | `Record<SpaceId, …>`·`Record<GroupId, …>`나 빠짐없는 `switch`를 쓰는 소비자는 새 멤버를 더한다 |
-| 다음 SDK 태그 | components | AnalysisSection.span·AnalysisLayout.density·차트 size 추가 | 없음 — 추가만 |
-| 다음 SDK 태그 | components | AnalysisChart·ChartSpec 추가 | 없음 — 추가만 |
-| 다음 SDK 태그 | components | LegendTree·LegendTreeNode·LegendTreeSort·LegendTreeProps 추가(#539) | 없음 — 추가만 |
-| 다음 SDK 태그 | components | chartTheme() 추가(#544) | 없음 — 추가만 |
-| 다음 SDK 태그 | ui | Checkbox 일부 선택(indeterminate) 표시 추가(#539) | 없음 — 추가만 |
-| 다음 SDK 태그 | components | ChartSpec에 scatter·boxPlot·pareto 추가 | 없음 — 추가만 |
-| 다음 SDK 태그 | ui | `useDetailPanelSlot(options?)` — 선택 옵션 `onSuperseded` 추가(하위 호환) | 없음 |
-| 다음 SDK 태그 | ui | `TransientOverlayScope` 추가 | 없음 — 추가만 |
-| 다음 SDK 태그 | kernel | `routeParamNames` 추가 | 없음 — 추가만 |
-| 다음 SDK 태그 | kernel | `paneHref` 추가 | 없음 — 추가만 |
-| 다음 SDK 태그 | kernel/testing | `memoryStorage` 추가 | 없음 — 추가만 |
-| 다음 SDK 태그 | kernel | `dropResetKeys` 제거 예고 | `withPaneContext` |
-| 다음 SDK 태그 | components | 차트 `size` 속성 타입에 이름 `ChartSize`(같은 union `'compact' \| 'hero' \| 'regular'`, #560) | 없음 — 같은 값 |
-| 다음 SDK 태그 | ui | `THEME_COLOR_TOKENS`·`ThemeColorToken`에 차트 역할 25개 추가(`chart-series-*`·`chart-heat-*`·`chart-status-*`·`chart-no-data*`·`chart-selection-outline`·`chart-median-on-fill`, #544) | 없음 — 추가만, 기존 이름 그대로 |
+| `sdk-v0.11.0` | contracts | **깨짐** — `Condition`이 축 유니언(`{axis:'makerModel'…}`)에서 앱이 주입한 축의 다중값 맵 `Readonly<Record<string, readonly string[]>>`로 바뀌고 `ConditionAxis`가 없어짐(#552, ADR-0059) | 조건 값을 축 id → 값 목록 맵으로 만든다(축 간 AND·축 안 OR). 기존 링크는 플랫폼이 읽어 옮긴다 |
+| `sdk-v0.11.0` | contracts | **깨짐** — `PlatformAdapter`에 필수 `listAxisOptions`·`searchEquipment`·`resolveSelection` 추가, `PortError`(#552, ADR-0059). `contextOptions`·`evaluateSelection`은 `@deprecated`(제거 아님) | 외부 어댑터가 세 메서드를 구현한다 |
+| `sdk-v0.11.0` | contracts | **깨짐** — `ContextKey`에 `line`·`prcGroup`, `GlobalContext`·`SelectionInput`에 필수 `lineNames`·`prcGroups`·`membershipBasis`(#552) | 손으로 만든 `GlobalContext`·`Record<ContextKey, …>`에 새 필드·멤버를 더한다 |
+| `sdk-v0.11.0` | kernel | **깨짐** — `QueryState.status`에 `'idle'`, 필수 `missing`·`completedAt`; `Platform`에 필수 `queryDraft`·`queryHistory`·`queryPolicy`(#553·#554, ADR-0061) | status를 빠짐없이 분기하는 `switch`에 `idle`을 더하고, 손으로 만든 `QueryState`·`Platform` mock에 필드를 채운다 |
+| `sdk-v0.11.0` | kernel | 동작 — `query.mode: 'apply'` 메뉴에서 `useMenuQuery`·`useMenuFetch`·`ModuleHost.query`가 적용 조건·필수조건 게이트를 따른다. live 메뉴는 그대로 | 없음 — apply 모드를 선언한 메뉴만 |
+| `sdk-v0.11.0` | components | **깨짐** — `AnalysisChart` 반환이 `JSX.Element \| null`(`topNBar.hideWhenEmpty`), `ChartSpec`에 `TopNBarSpec` 추가(#576, ADR-0064) | non-null로 받는 곳과 `never`로 끝나는 `switch (spec.kind)`를 고친다 |
+| `sdk-v0.11.0` | components | `ChartPoint`·`ChartPointAction`·`AnalysisChartFrame` `pointActivation`/`pointActions`/`orientation`/`visibleSeriesIds`/`onVisibleSeriesChange`(#541, ADR-0063), `LaneTimeline`·`Timeline*`·`TopNBar*`(#576), `QueryBarExtension*`·`querySummary*`(#553), `PlatformPage` `queryBarExtension`/`queryResult`, `PageFilterBar mode` 추가. 드릴 깊이 상한 제거, `DrillPath`는 칩 5개 이상이면 접음 | 없음 — 추가만 |
+| `sdk-v0.11.0` | contracts·kernel | 조회 포트·hook 추가: `QueryHistoryStore`·`QueryHistory*`·`compareQueryHistory`·`missingRequiredContext`·`requiredContextError`·`CONTEXT_FIELDS`(contracts), `useQueryDraft`·`useQueryHistory`·`useAxisOptions`·`useEquipmentSearch`·`useResolvedSelection`·`useEquipmentAxes`·`PaneQueryDraftProvider`, `PlatformProvider queryHistory?`(kernel), `MenuMeta.query?`·`EndpointSpec.requiredContext?`(#552–#554) | 없음 — 추가만 |
+| `sdk-v0.11.0` | ui | `MultiCombobox*` 추가(#541) | 없음 — 추가만 |
+| `sdk-v0.11.0` | shell | `QueryBar`·`QueryBarProps` 추가, `GlobalContextBar` 반환 타입 좁힘(호환) | 없음 |
+| `sdk-v0.11.0` | contracts | `SpaceId`·`GroupId`에 `clas` 추가(#590) | `Record<SpaceId, …>`·`Record<GroupId, …>`나 빠짐없는 `switch`를 쓰는 소비자는 새 멤버를 더한다 |
+| `sdk-v0.11.0` | contracts | `SpaceId`에 `log-dev`·`improvement`, `GroupId`에 `logMyWork`·`logModels`·`logCross`·`logRules`·`impMyWork`·`impTasks`·`impReports` 추가(#252, ADR-0065) | `Record<SpaceId, …>`·`Record<GroupId, …>`나 빠짐없는 `switch`를 쓰는 소비자는 새 멤버를 더한다 |
+| `sdk-v0.10.0` | components | AnalysisSection.span·AnalysisLayout.density·차트 size 추가 | 없음 — 추가만 |
+| `sdk-v0.10.0` | components | AnalysisChart·ChartSpec 추가 | 없음 — 추가만 |
+| `sdk-v0.10.0` | components | LegendTree·LegendTreeNode·LegendTreeSort·LegendTreeProps 추가(#539) | 없음 — 추가만 |
+| `sdk-v0.10.0` | components | chartTheme() 추가(#544) | 없음 — 추가만 |
+| `sdk-v0.10.0` | ui | Checkbox 일부 선택(indeterminate) 표시 추가(#539) | 없음 — 추가만 |
+| `sdk-v0.10.0` | components | ChartSpec에 scatter·boxPlot·pareto 추가 | 없음 — 추가만 |
+| `sdk-v0.10.0` | ui | `useDetailPanelSlot(options?)` — 선택 옵션 `onSuperseded` 추가(하위 호환) | 없음 |
+| `sdk-v0.11.0` | ui | `TransientOverlayScope` 추가 | 없음 — 추가만 |
+| `sdk-v0.11.0` | kernel | `routeParamNames` 추가 | 없음 — 추가만 |
+| `sdk-v0.11.0` | kernel | `paneHref` 추가 | 없음 — 추가만 |
+| `sdk-v0.11.0` | kernel/testing | `memoryStorage` 추가 | 없음 — 추가만 |
+| `sdk-v0.10.0` | kernel | `dropResetKeys` 제거 예고 | `withPaneContext` |
+| `sdk-v0.10.0` | components | 차트 `size` 속성 타입에 이름 `ChartSize`(같은 union `'compact' \| 'hero' \| 'regular'`, #560) | 없음 — 같은 값 |
+| `sdk-v0.10.0` | ui | `THEME_COLOR_TOKENS`·`ThemeColorToken`에 차트 역할 25개 추가(`chart-series-*`·`chart-heat-*`·`chart-status-*`·`chart-no-data*`·`chart-selection-outline`·`chart-median-on-fill`, #544) | 없음 — 추가만, 기존 이름 그대로 |
 | `sdk-v0.8.0` | components | `token()`·`ChartSeries.color` → `ThemeColorToken` | `isThemeColorToken`으로 좁힌다 (ADR-0055) |
 
 ## Release tarball로 받기 (ADR-0056)
