@@ -156,3 +156,8 @@ FeedbackOps 원본과 다른 점: DB·로그인이 없다(mock 어댑터). 화�
 - IA·메뉴 구성 시안 캡처는 공간의 레일 섹션마다 찍는다. 셸은 그룹을 레일 섹션으로 그리고 사이드바에는 고른 섹션의 메뉴만 보여, 첫 화면 캡처만으로는 메뉴 트리가 안 보인다. 안을 바꿔 가며 찍으면 최근 방문이 섞이니 캡처마다 origin의 localStorage·sessionStorage를 비운다(#252, 2026-10-21).
 - 팝오버·메뉴는 열릴 때 200ms 동안 투명에서 서서히 나타난다. 캡처와 시각 판정은 애니메이션이 끝난 뒤에 한다. 중간 캡처를 "배경이 비친다"는 결함으로 잘못 보고했다(Sol 확인 결과 재현 안 됨, 2026-10-21).
 - `@ap/contracts`·SDK 패키지의 공개 타입(union 확장 포함)을 바꾸면 루트 검사 뒤 `pnpm sdk:api`도 돌린다. 루트 4종 검사에는 없고 CI만 돌려서, 로컬이 초록이어도 CI가 깨진다. 의도한 변경이면 `--update`와 `docs/integration/sdk-git-tag-consumption.md` 변경 기록 한 줄(#252, 2026-10-21).
+- #592(FeedbackOps 서브모듈 → 디렉터리) 이전에 만든 worktree는 `products/feedbackops/` 서브모듈 checkout이 새 트리의 추적 파일과 겹쳐 `git checkout origin/main`이 "untracked … would be overwritten"으로 멈춘다. 서브모듈에 변경이 없는지 보고 `git submodule deinit -f products/feedbackops` → `trash products/feedbackops` → checkout(2026-10-22).
+- 슬라이스·웨이브 Epic(예: #557 MARS 이관)은 릴리스로 닫지 않는다. 릴리스 정리 명령에서 Epic을 잘못 닫았다가 다시 열었다(2026-10-21). 닫는 것은 PR 본문 `Closes`가 가리키는 이슈만.
+- `launch-worker.py <n>`은 브리프의 report·sentinel이 `.review/W-<n>-REPORT.md`·`<!-- W-<n>-DONE -->`이어야 띄운다. 같은 이슈의 두 번째 단계도 새 worktree면 같은 이름을 쓴다(`-STEP1-DONE` 같은 이름은 거부, #575 1단계).
+- `app-preview.py stop --all`이 추적 중인 미리보기를 끄지 않고 성공을 돌려준 적이 있다([conductor-engine#63](https://github.com/hjung3113/conductor-engine/issues/63)). 끈 뒤 `status`로 확인하고, 남았으면 이름으로 `stop <label>`.
+- `ship-pr.sh`를 `| tail -1`로 돌리면 rebase 충돌(종료 20)이 `{"pr": null, "merged": false}`로만 보인다([conductor-engine#64](https://github.com/hjung3113/conductor-engine/issues/64)). 출력은 파일로 받고 종료 코드를 따로 확인한다. 충돌을 풀면 다른 세션이 막 병합한 테스트가 바뀐 모델을 모를 수 있으니(#605 테스트가 V1 보드를 `Board`로 시드) 루트 검사를 처음부터 다시 돌린다.
