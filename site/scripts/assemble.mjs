@@ -131,7 +131,7 @@ async function empty(dir) {
 }
 await mkdir(out, { recursive: true });
 await empty(out);
-for (const name of ["index.html", "assets"]) await cp(join(site, name), join(out, name), { recursive: true });
+for (const name of ["index.html", "glossary.html", "assets"]) await cp(join(site, name), join(out, name), { recursive: true });
 await mkdir(join(out, "assets/tokens"), { recursive: true });
 for (const [source, name] of tokens) await cp(source, join(out, "assets/tokens", name));
 // SVG image documents cannot reliably import external token stylesheets. Resolve
@@ -188,10 +188,12 @@ for (const font of fonts) {
   if (!copiedLicense) throw new Error(`${font.pkg}: 폰트 LICENSE가 없습니다.`);
   fontLinks.push(`<link rel="stylesheet" href="assets/fonts/${font.name}/${cssName}">`);
 }
-let html = await readFile(join(out, "index.html"), "utf8");
-html = html
-  .replaceAll("/blob/main/", `/blob/${encodeURIComponent(options.ref).replaceAll("%2F", "/")}/`)
-  .replace("<!-- LOCAL_FONTS -->", fontLinks.join(""));
+const localizePage = (page) =>
+  page
+    .replaceAll("/blob/main/", `/blob/${encodeURIComponent(options.ref).replaceAll("%2F", "/")}/`)
+    .replace("<!-- LOCAL_FONTS -->", fontLinks.join(""));
+let html = localizePage(await readFile(join(out, "index.html"), "utf8"));
+let glossaryHtml = localizePage(await readFile(join(out, "glossary.html"), "utf8"));
 // D1–D10 지시문은 demo-step-copy 템플릿 한 곳에서만 관리하고, 조립 때 모든 사본에
 // 같은 문장을 심는다. 빌드 타임 채우기이므로 JS가 꺼진 페이지에도 문장이 보인다.
 const stepTemplate = html.match(/<template id="demo-step-copy">([\s\S]*?)<\/template>/);
@@ -296,7 +298,7 @@ html = html
 if (!shotById.has("change-audit")) html = html.replace("견본 캡처와 권한 판정 흐름 보기 — 변경 감사, ", "권한 판정 흐름 보기 — ");
 // 히어로의 견본 화면 세 장(MARS·BRAVO·운영 콘솔)이 모두 있어야 합성 그림을 보인다. 하나라도 없으면 그 블록을 지우고
 // 캡처 없는 조립에서는 도식 A를 히어로에도 보인다(id는 접미사로 구분).
-const hasHeroStack = ["cycle-time-full", "catalog", "change-audit"].every((id) => shotById.has(id));
+const hasHeroStack = ["cycle-time-full", "catalog", "clas-operation-time"].every((id) => shotById.has(id));
 if (!hasHeroStack) html = html.replace(/<!--HERO_STACK-->[\s\S]*?<!--\/HERO_STACK-->/, "");
 const heroFallback = hasHeroStack
   ? ""
@@ -306,6 +308,7 @@ const heroFallback = hasHeroStack
       .replace("diagram diagram-a", "diagram diagram-a diagram-hero");
 html = html.replace("<!--HERO_FALLBACK-->", heroFallback);
 await writeFile(join(out, "index.html"), html);
+await writeFile(join(out, "glossary.html"), glossaryHtml);
 const noindex = (html) =>
   /<meta\b[^>]*name=["']robots["']/i.test(html)
     ? html

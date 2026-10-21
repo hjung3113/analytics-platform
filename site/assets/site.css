@@ -3831,7 +3831,7 @@ a.demo-link[data-demo]:not([hidden]) {
   bottom: -14px;
   left: 46%;
 }
-.stack-tie-ops {
+.stack-tie-clas {
   top: 100%;
   height: 14px;
   left: 76%;
@@ -3866,7 +3866,7 @@ a.demo-link[data-demo]:not([hidden]) {
   z-index: 2;
   width: 58%;
 }
-.stack-ops {
+.stack-clas {
   right: 0;
   bottom: 0;
   z-index: 3;
@@ -3979,7 +3979,7 @@ a.demo-link[data-demo]:not([hidden]) {
     left: 15%;
     width: 46%;
   }
-  .stack-ops {
+  .stack-clas {
     width: 42%;
   }
   .stack-base {
