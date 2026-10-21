@@ -20,6 +20,7 @@ AuditSource | type | type AuditSource = 'system' | 'user'
 AuditTarget | type | type AuditTarget = { id: string; scopeId: null | string; type: string; }
 AuditTrailPage | type | type AuditTrailPage = { items: readonly @ap/contracts#AuditEvent[]; total: number; }
 AuditTrailQuery | type | type AuditTrailQuery = { action?: @ap/contracts#AuditAction; actor?: string; fromAt?: string; page?: number; pageSize?: number; sort?: { desc: boolean; field: @ap/contracts#AuditSortField; }; source?: @ap/contracts#AuditSource; targetId?: string; toAt?: string; type?: string; }
+CONTEXT_FIELDS | const | const CONTEXT_FIELDS: Readonly<Record<@ap/contracts#ContextKey, readonly (keyof @ap/contracts#GlobalContext)[]>>
 Capability | type | type Capability = 'apply' | 'reference' | 'unsupported'
 ChartAnnotation | type | type ChartAnnotation = { at: string; chartId: string; from: string; id: string; mine: boolean; scopeId: string; text: string; to: string; }
 ClientErrorReport | type | type ClientErrorReport = { correlationId: string; menuId: string; name: string; path: string; spaceId: @ap/contracts#SpaceId | null; }
@@ -28,7 +29,7 @@ ConditionOptions | type | type ConditionOptions = { makerModel: { maker: string;
 ContextKey | type | type ContextKey = 'condition' | 'line' | 'lot' | 'metric' | 'ppid' | 'prcGroup' | 'recipe' | 'roomNames' | 'selection' | 'time'
 ContractError | class | class ContractError extends Error { code: string; field?: string | undefined; raw?: string | undefined; constructor(code: string, message: string, field?: string | undefined, raw?: string | undefined); }
 DrillLevel | type | type DrillLevel = { key: string; label: @ap/contracts#Text; }
-EndpointSpec | type | type EndpointSpec<P, T> = { readonly _types?: { data: T; params: P; }; context: Partial<Record<@ap/contracts#ContextKey, Exclude<@ap/contracts#Capability, 'unsupported'>>>; id: string; kinds: readonly @ap/contracts#AssessmentKind[]; limits?: { maxHours?: number; maxRows?: number; }; menuId: string; mergeTimeDomain: boolean; paramKeys: Readonly<Record<keyof P & string, true>>; permission: @ap/contracts#Permission; requiresScope: boolean; }
+EndpointSpec | type | type EndpointSpec<P, T> = { readonly _types?: { data: T; params: P; }; context: Partial<Record<@ap/contracts#ContextKey, Exclude<@ap/contracts#Capability, 'unsupported'>>>; id: string; kinds: readonly @ap/contracts#AssessmentKind[]; limits?: { maxHours?: number; maxRows?: number; }; menuId: string; mergeTimeDomain: boolean; paramKeys: Readonly<Record<keyof P & string, true>>; permission: @ap/contracts#Permission; requiredContext?: readonly @ap/contracts#ContextKey[]; requiresScope: boolean; }
 EntityRef | type | type EntityRef = { id: string; scopeId: null | string; type: string; }
 EquipmentAxisDescriptor | type | type EquipmentAxisDescriptor = { dependsOn?: string; id: string; label: @ap/contracts#Text; membershipHistory: boolean; }
 EquipmentOption | type | type EquipmentOption = { equipmentId: string; model: string; room: string; }
@@ -44,7 +45,7 @@ HostContract | type | type HostContract = 1
 HostFeature | type | type HostFeature = 'detailSlot' | 'query' | 'write'
 IdSet | type | type IdSet = null | string[]
 MenuAction | type | type MenuAction<I = unknown> = { action: string; context: { scopeId?: null | string; }; expectedVersion?: string; idempotencyKey: string; input: I; }
-MenuMeta | type | type MenuMeta = { context: Record<@ap/contracts#ContextKey, @ap/contracts#Capability>; contextResetKeys?: readonly string[]; description: @ap/contracts#Text; drill?: { levels: readonly @ap/contracts#DrillLevel[]; }; features: { annotate: boolean; board?: boolean; compare: boolean; export: boolean; savedView: boolean; }; group: @ap/contracts#GroupId; id: string; initializesMetric?: boolean; label: @ap/contracts#Text; navHidden?: boolean; pageKeys: readonly string[]; pageType: @ap/contracts#PageType; parent?: string; path: string; permission: @ap/contracts#Permission; primary?: boolean; requiresScope: boolean; }
+MenuMeta | type | type MenuMeta = { context: Record<@ap/contracts#ContextKey, @ap/contracts#Capability>; contextResetKeys?: readonly string[]; description: @ap/contracts#Text; drill?: { levels: readonly @ap/contracts#DrillLevel[]; }; features: { annotate: boolean; board?: boolean; compare: boolean; export: boolean; savedView: boolean; }; group: @ap/contracts#GroupId; id: string; initializesMetric?: boolean; label: @ap/contracts#Text; navHidden?: boolean; pageKeys: readonly string[]; pageType: @ap/contracts#PageType; parent?: string; path: string; permission: @ap/contracts#Permission; primary?: boolean; query?: { mode: 'apply'; required?: { context?: readonly @ap/contracts#ContextKey[]; page?: readonly { key: string; label: @ap/contracts#Text; }[]; }; }; requiresScope: boolean; }
 MenuQuery | type | type MenuQuery<P = unknown> = { context: @ap/contracts#MenuQueryContext; endpoint: string; params: P; }
 MenuQueryContext | type | type MenuQueryContext = Partial<@ap/contracts#GlobalContext>
 ModuleHost | type | type ModuleHost = { act?<I, T>(spec: @ap/contracts#ActionSpec<I, T>, input: I, options?: { expectedVersion?: string; }): Promise<@ap/contracts#ActionResult<T>>; can(permission: string): boolean; config(key: string): null | string; context(): { unsupported: readonly @ap/contracts#ContextKey[]; values: Partial<@ap/contracts#GlobalContext>; }; contract: @ap/contracts#HostContract; detail?: { clear(): void; show(node: unknown, label: string): void; }; focusTarget(el: unknown): void; href(target: @ap/contracts#ModuleTarget): null | { allowed: boolean; href: string; }; lang(): 'en' | 'ko'; navigate(target: @ap/contracts#ModuleTarget, options?: { replace?: boolean; }): boolean; notify(text: string, tone?: 'danger' | 'info' | 'warning'): void; page(key: string): null | string; params(): Readonly<Record<string, string>>; query?<P, T>(spec: @ap/contracts#EndpointSpec<P, T>, params: P, signal?: AbortSignal): Promise<@ap/contracts#ApiResponse<T>>; reportError(error: unknown): string; returnTarget(): string; session(): { generation: number; user: null | { id: string; name: string; }; }; setPage(patch: Record<string, null | string>, options?: { replace?: boolean; }): void; signal: AbortSignal; status(next: @ap/contracts#ModuleStatus): void; subscribe(onChange: () => void): () => void; }
@@ -98,6 +99,7 @@ formatMetricVersion | function | function formatMetricVersion(version: string): 
 incompleteMetricPair | function | function incompleteMetricPair(menu: null | { initializesMetric?: boolean; }, metricId: null | string, metricVersion: null | string): @ap/contracts#ContractError | null
 instantEpochMs | function | function instantEpochMs(instant: string): number
 isAppRelativePath | function | function isAppRelativePath(value: string): boolean
+missingRequiredContext | function | function missingRequiredContext(keys: readonly @ap/contracts#ContextKey[], context: Partial<@ap/contracts#GlobalContext>): @ap/contracts#ContextKey[]
 normalizeSet | function | function normalizeSet(values: string[], field?: string, urlKey?: string): string[]
 parseDateTime | function | function parseDateTime(value: string, field: string, urlKey?: string): Date
 parseFeedbackOpsLink | function | function parseFeedbackOpsLink(url: string, expectedOrigin: string): { target: @ap/contracts#FeedbackOpsTarget; }
@@ -106,6 +108,7 @@ parseQuery | function | function parseQuery(search: string, pageKeys?: readonly 
 periodHours | function | function periodHours(g: { from: null | string; to: null | string; }): null | number
 platformReturnFor | function | function platformReturnFor(fullUrl: string, pathOnlyUrl: string): string | undefined
 projectContext | function | function projectContext<P, T>(spec: @ap/contracts#EndpointSpec<P, T>, g: @ap/contracts#GlobalContext): @ap/contracts#MenuQueryContext
+requiredContextError | function | function requiredContextError(keys: readonly @ap/contracts#ContextKey[], capabilities: Partial<Record<@ap/contracts#ContextKey, @ap/contracts#Capability>>): null | string
 sameGlobal | function | function sameGlobal(a: @ap/contracts#GlobalContext, b: @ap/contracts#GlobalContext): boolean
 serializeGlobal | function | function serializeGlobal(g: @ap/contracts#GlobalContext): @ap/contracts#Pair[]
 shift | function | function shift(value: string, hours: number): string
