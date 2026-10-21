@@ -62,17 +62,99 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 
 플랫폼 앱은 서버를 `PlatformAdapter` 하나로 만난다([실서버 체크리스트](real-server-checklist.md) §1). 실어댑터 조립(#154)이 FeedbackOps 백엔드를 가리키게 하고, 백엔드가 [HTTP 어댑터 계약](http-adapter-contract.md)의 공통 부분을 구현한다. 이슈 [#593](https://github.com/hjung3113/analytics-platform/issues/593).
 
-| 포트 메서드 | FeedbackOps 백엔드의 출발점 | 상태 |
-| --- | --- | --- |
-| `session()`·`subscribe` | `modules/auth`(AuthProvider mock + OIDC, 서버 세션, FeedbackOps ADR-0006) | 구조 있음. 운영 IdP 값은 #150 |
-| `accessDirectory` | `modules/permissions`(역할 수준·부여·거부·요청) | 구조 있음. 플랫폼 권한 모양 맞춤은 #596 |
-| `auditTrail`·`entityAudit` | `core.audit_log`(FeedbackOps ADR-0008, 변경과 같은 트랜잭션, append-only) | 저장 있음. 플랫폼 엔티티 감사 추가 |
-| `getEntity` | VOC·Finding·Task 모듈 | FeedbackOps 엔티티 type만. 설비·지표 type은 §7 O4 |
-| `recordUsage`·`usageSummary` | 없음 | 새로 만든다 |
-| 공지 | 없음 | 새로 만든다 |
-| `validateScope`·`publishedMetrics`·`contextOptions`·`evaluateSelection`·`menuQuery`·`menuAction`·축/설비 조회 | 없음(분석 데이터) | §7 O4 |
+아래 차이표는 FeedbackOps `develop` `c73c55c5`와 플랫폼 `main` `5b92ab8`를 읽고 만들었다(2026-10-21, 코드는 실행하지 않음). FeedbackOps 경로는 `apps/backend/src/` 기준이다. #592 뒤에는 `products/feedbackops/` 아래에 있다. 줄 번호는 그 커밋 기준이다.
+
+**요약**
+
+- 그대로 쓴다: 인증(mock + OIDC), 서버 세션 쿠키, 미인증 401, rate limit, `Idempotency-Key`, 감사 저장(쓰기).
+- 모양만 맞춘다: 세션 부트스트랩, `getEntity`, `accessDirectory`, 경로 접두사, 필드 이름(snake_case → camelCase), 오류 전달.
+- 새로 만든다:
+  - 전송 규칙: 판정 결과를 200 + envelope로 돌려주기, CSRF 토큰, Correlation ID, `sessionVersion`
+  - 메서드: 감사 읽기(`auditTrail`·`entityAudit`), 활용률(`recordUsage`·`usageSummary`), `reportClientError`, 차트 주석
+- 전송 계약 문서는 서버를 FastAPI로 가정한다. 실제 FeedbackOps 백엔드는 Fastify 5 + zod다(`apps/backend/package.json:29`). 고치는 일은 O12.
 
 운영 안전 규칙(Postgres 기반 rate limit, CSP, `Idempotency-Key`, SQL 마이그레이션 — FeedbackOps ADR-0015)과 배경 작업(pg-boss, FeedbackOps ADR-0009)은 그대로 쓴다. 배포 모양(사내 k8s의 Docker, FeedbackOps ADR-0013)은 #151 답으로 확인한다.
+
+### 4.1 공통 처리
+
+| 항목 | 분류 | FeedbackOps 근거 | 차이·할 일 |
+| --- | --- | --- | --- |
+| 경로 접두사 `/api/v1/platform/...` | 모양만 다름 | 모든 route가 접두사 없이 루트에 붙는다(`server.ts:389-926`). dev proxy는 화면 경로와 겹치는 `/vocs` 등을 Accept 헤더로 구분한다(`apps/frontend/vite.config.ts:28-60`) | 플랫폼 포트는 `/api/v1/platform`에 새로 등록한다. 기존 경로를 옮길지는 O13 |
+| JSON 필드 이름 | 모양만 다름 | snake_case(`modules/auth/routes.ts:221-231`) | 플랫폼 포트는 `@ap/contracts`의 camelCase로 답한다 |
+| 요청 검증 | 모양만 다름 | zod `.strict()`. 실패하면 422 `validation.failed`(`lib/http-error-handler.ts:50-58`) | 계약 §2는 envelope 메서드면 200 + `error`, fire-and-forget이면 200 + `accepted: 0/false`다. 플랫폼 경로에는 별도 처리기가 필요하다 |
+| 오류 envelope·코드 | 모양만 다름 | ADR-0012 상태 코드 + `{code, message, detail}`(`lib/errors.ts:9-27`). 오류 처리기는 루트에 하나다(`server.ts:345`) | 플랫폼은 권한 거부도 200 + `outcome`이다. 한 서버에 두 규약이 생긴다(O12) |
+| 프레임워크 4xx | 모양만 다름 | 413·415·깨진 JSON을 모두 422 `validation.malformed_request`로 바꾼다(`lib/http-error-handler.ts:59-74`) | 계약 §2 표는 413을 `http_413`으로 따로 둔다. 계약을 고칠지 서버를 고칠지는 O12 |
+| 세션 쿠키 | 있음 | `fops_session`: httpOnly·SameSite=Lax·운영 Secure(`modules/auth/routes.ts:102-108`, `middleware/require-session.ts:13`). 서버 저장 세션(FO ADR-0006) | 계약 §6과 같다 |
+| 인증·OIDC | 있음 | AuthProvider mock/OIDC 전환(`server.ts:367-388`). 운영에서 mock이면 기동을 거부한다(`server.ts:182-186`) | IdP 값은 #150, 첫 사용은 #603(Keycloak) |
+| 미인증 `/api/**` → 401 | 있음 | `requireSession`이 401 `auth.session_invalid`를 낸다(`middleware/require-session.ts:20-29`). 302는 `/auth/login`·`/auth/callback`만 쓴다 | 같다 |
+| 로그인 `return_to` | 있음 | `GET /auth/login?return_to=`(`modules/auth/routes.ts:35-67`). `/` 하나로 시작하는 값만 받는다 | 계약 §6 후보 (a)와 같다. Context를 싣는 규칙은 #150 |
+| 폴링이 세션을 늘리지 않음 | 있음 | 만료는 발급 뒤 12시간 고정이다(`modules/auth/session-service.ts:46-47`). 요청은 `last_seen_at`만 바꾼다 | 유휴 만료가 없다(O21) |
+| 세션 부트스트랩 | 모양만 다름 | `GET /me` → `{actor, workspace_id, platform_return_origins}`(`modules/auth/routes.ts:206-233`) | `bootstrap`과 `session-state`를 새로 만든다(4.2) |
+| CSRF | 새로 만듦 | 토큰이 없다. JSON Content-Type 강제는 Fastify 기본값(415 → 422)으로 된다 | 세션에 묶인 `csrfToken`과 `X-CSRF-Token` 검사(계약 §6). 적용 범위는 O14 |
+| Correlation ID | 새로 만듦 | `requestIdHeader`·`genReqId` 설정이 없다(`server.ts:189-224`). 로그 필드는 `request_id`(FO ADR-0013) | `X-Correlation-Id`를 받아 검사 → 로그 → 응답 헤더 → envelope로 잇는다. Fastify `reqId`와 하나로 맞춘다(O20) |
+| `Cache-Control` | 모양만 다름 | 경로마다 `private, no-cache`를 붙이고 `/me`에는 없다 | 플랫폼 경로 전부 `no-store`(onSend 훅) |
+| rate limit·429·`Retry-After` | 있음 | Postgres 저장소, Actor 100/분·IP 50/분(`server.ts:309-333`). 묶음 read 300·mutation 10·sensitive 5(`lib/rate-limit-tiers.ts:25-58`) | 플랫폼 경로를 어느 묶음에 넣을지는 O15 |
+| `Idempotency-Key` | 있음 | UUIDv4, (actor, key, hash)로 재생하고 24시간 보관한다(`modules/core/idempotency/idempotency-service.ts:120-140`) | `saveAnnotation`·`menuAction`에 그대로 쓴다 |
+| 크기 제한 | 모양만 다름 | `bodyLimit` 설정이 없다(Fastify 기본값, 확인 못 함). multipart 25 MiB(`server.ts:259-264`) | `recordUsage` keepalive 64 KB는 그 안에 든다 |
+| 보안 헤더 | 있음 | helmet CSP `default-src 'self'`, `frame-ancestors 'none'`(`server.ts:236-251`) | 플랫폼 정적 산출물을 같은 서버로 낼 때 맞는지는 확인 못 함(#151) |
+| 사용자·시각은 서버가 찍음 | 있음 | 감사 `actor_id`는 세션 값을 쓴다(`modules/core/audit/audit-service.ts:27-53`). 역할은 요청마다 다시 읽는다(`middleware/require-session.ts:30-35`) | 체크리스트 §5와 같다 |
+| 페이지 나누기 | 모양만 다름 | keyset 커서(`lib/list-cursor.ts`). 권한 목록은 페이지 없이 통째로 준다 | `auditTrail`·`accessDirectory`는 offset `page`·`pageSize` + `total`로 답한다 |
+| DB 권한 경계 | 새로 만듦 | 앱 role에 `core.audit_log` SELECT가 없다. 읽기는 열을 제한한 SECURITY DEFINER 함수로만 한다(`migrations/0064_canonical_read_boundary.sql:137-218`) | 감사 읽기용 definer 함수와 migration이 필요하다 |
+
+### 4.2 포트 메서드별
+
+| 계약 메서드 | 분류 | FeedbackOps 근거 | 차이·할 일 |
+| --- | --- | --- | --- |
+| `session()` — `GET .../bootstrap` | 모양만 다름 | `GET /me`. 능력은 하나씩 `/me/permissions/check`로 묻는다(`modules/permissions/routes.ts:81-137`) | `Session.user.permissions` 목록과 `scopes`(site·room)가 없다. 권한 이름 매핑은 O9, `scopes` 원천은 O11 |
+| `sessionVersion`·`csrfToken` | 새로 만듦 | 없음 | `Session` 해시. 부여·거부·역할이 바뀌면 해시도 바뀌어야 한다 |
+| `publishedMetrics`·`defaultRangeTo`(부트스트랩) | 범위 밖 | 없음 | O4. 부트스트랩 필수 필드라 임시 값이 필요하다(O10) |
+| `subscribe` — `GET .../session-state` | 새로 만듦 | 재료 있음: `lookupActorIdByToken`은 세션을 늘리지 않고 조회한다(`modules/auth/session-service.ts:302-318`) | `{sessionVersion, generation?}` 경로 |
+| `getEntity` | 모양만 다름 | type별 GET `/vocs/:id`·`/findings/:id`·`/tasks/:id`. 서버가 type → provider 표와 `canRead`를 갖고 있다(`entity-link-providers.ts:9-18`, `modules/entity-links/provider-types.ts:22-48`) | 본문은 `EntityRef`, 응답은 200 envelope다(404·403 대신). 판정 순서 차이는 4.3. 설비·지표 type은 O4 |
+| `accessDirectory` | 모양만 다름 | `GET /actors`(게이트 없음, `modules/auth/list-actors-routes.ts:61-95`). `GET /permissions/grants`·`/denies`(admin만, `modules/permissions/grant-admin-service.ts:79-88`) | 행은 사람 × (역할, 유효 권한[], site별 room)이다. filter·sort·page·`total`이 없다. 게이트 차이는 4.3 |
+| `auditTrail` | 새로 만듦(저장소는 있음) | 쓰기만 있다(`modules/core/audit/audit-service.ts:37-57`). 스키마는 `db/schema/core.ts:207-226` | `subject_id`가 uuid라 opaque id(설비)를 못 담고 `scope_id` 열도 없다. `event_type`을 `AuditAction` 다섯 값에 매핑해야 한다. 노출 범위는 O16 |
+| `entityAudit` | 새로 만듦 | 위와 같다. 볼 수 있는지 판정은 provider `canRead`를 다시 쓴다 | type별 조회 게이트 + 대상 감사 행 |
+| `recordUsage`·`usageSummary` | 새로 만듦 | 없음 | 표, 수신 시각, 거부는 200 + `accepted: 0`, keepalive를 받는 CSRF. `console:access` 원천은 O9 |
+| `reportClientError` | 새로 만듦 | 없음 | 식별 필드만 받는 엄격 검증, 200 + `accepted: false` |
+| `listAnnotations`·`saveAnnotation`·`deleteAnnotation` | 새로 만듦 | 없음 | 표, 작성자 판정, site 부여 검사(O11), 삭제 감사 event(ADR-0041) |
+| `validateScope`·`contextOptions`·`evaluateSelection`·`listAxisOptions`·`searchEquipment`·`resolveSelection`·`menuQuery`·`menuAction` | 범위 밖 | 없음. `/me/permissions/scope`는 Managed System 목록이지 site 판정이 아니다 | O4. `menuAction`의 재생 전 권한 확인 순서는 FO ADR-0066과 같다 |
+| 체크리스트 §3 기동 시 엔드포인트 등록 검증 | 범위 밖 | 없음 | `menuQuery`와 함께 간다(O4) |
+| 체크리스트 §4 적합성 계정 | 모양만 다름 | mock 로그인으로 세션을 바꿀 수 있다(`modules/auth/routes.ts:146-182`). 시드는 Admin·MS별 Developer·User | 권한 하나씩 뺀 계정, site 두 곳 계정, 다른 주석 작성자 계정이 필요하다(O17) |
+| 체크리스트 §5 부여·회수 쓰기 없음 | 충돌 | FeedbackOps에는 부여·회수·거부·요청 승인 쓰기가 이미 있다(`modules/permissions/routes.ts:491-660`, FO ADR-0066) | O18 |
+
+### 4.3 권한 판정 차이
+
+| | 플랫폼 계약 | FeedbackOps |
+| --- | --- | --- |
+| 권한 어휘 | 닫힌 enum, 콜론 표기(`packages/contracts/src/menu.ts:30`) | capability 11개, 점 표기(`packages/shared/src/enums/capabilities.ts:13-25`) |
+| 역할 | 서버 데이터, 계약이 고정하지 않음 | `admin`·`developer`·`user`(FO ADR-0048) |
+| 데이터 범위 | Scope = site, 그 안의 room_name 부여(ADR-0004·0005) | Managed System(FO ADR-0001). site·room이 없다 |
+| 판정 순서 | 권한 → site → 행 조회 → room | workspace → 명시적 거부 → workspace 부여 → 역할 → Managed System 범위 부여 → 요청 가능 여부(`modules/permissions/check-service.ts:119-246`) |
+| 결과 전달 | 200 + `forbidden` | 403 `permission.denied` 또는 404 + `requestable_permission` |
+| 부여 만료 | 없음 | 만료·철회가 있고 사유를 구분한다 |
+
+- **`accessDirectory`**
+  - 플랫폼: `console:access`가 있으면 모든 site를 보고, room 게이트가 없다(`adapter.ts:226-235`).
+  - FeedbackOps: `/actors`는 workspace 전원에게 이메일·역할을 준다(FO ADR-0044가 의도로 기록). 부여·거부 목록은 `workspace.admin`만 본다.
+  - 차이 1: 플랫폼 행의 유효 권한 목록을 FeedbackOps에서는 계산해야 한다(역할에서 오는 권한 + admin 예외 + 부여 − 거부, `check-service.ts:357-391`).
+  - 차이 2: Managed System 범위 부여는 평평한 목록으로도, `sites[].grantedRooms` 자리로도 펼 수 없다.
+- **`getEntity`**
+  - 플랫폼: type 미등록 → `error`, 권한·site·room이 없으면 `forbidden`, 없으면 `empty`. `scopeId`는 클라이언트가 보내고 서버가 id에서 추론하지 않는다(`adapter.ts:43-47`).
+  - FeedbackOps는 type마다 판정이 다르다:
+    - VOC: 읽을 수 없으면 있는지조차 숨긴다(`modules/voc/read-service.ts:8-11`).
+    - Finding: 행을 먼저 찾고 그 행의 Managed System으로 판정한다. 404와 403의 차이로 행이 있는지 드러난다(`modules/findings/record.ts:65-72`).
+    - Task: 행을 찾기 전에 역할부터 요구한다(`modules/tasks/service.ts:376-393`).
+  - FeedbackOps 엔티티를 `scopeId: null` type으로 보고 Managed System 판정을 서버 안에서 할지는 O19.
+- **감사 게이트**
+  - 플랫폼: 전역 조회는 `console:access` + 모든 site(`adapter.ts:209-215`). 단건 조회는 대상 type의 조회 권한 + `getEntity`와 같은 게이트.
+  - FeedbackOps: 감사 원본을 일반 읽기로 열지 않는다. DB role에 SELECT가 없고, 목적별 투영 함수만 있다. 개인 설문 응답은 admin도 우회하지 못한다(FO ADR-0033·0066).
+  - 차이: `console:access` 하나로 FeedbackOps 감사 행 전체를 보여 주면 FeedbackOps의 개인정보 경계가 넓어진다(O16).
+- **`console:access`와 room**
+  - FeedbackOps에 `console:access`는 없다. 가장 가까운 것은 `workspace.admin`이다.
+  - room 부여에 해당하는 것도 없다. site·room 부여 저장소는 새로 만들어야 하고, 그 소유는 #98이다.
+- **역할 원천**
+  - FeedbackOps는 역할을 손으로 올리고, IdP 그룹 매핑은 하지 않는다고 정했다(FO ADR-0006).
+  - 플랫폼은 IdP 그룹 claim 사양을 기다린다(#98, O2).
+  - 두 결정이 부딪힌다. 결정은 #596 질문 2에서 한다.
 
 ## 5. 권한·업무 시스템 통합 (Candidate, 결정은 #596)
 
@@ -106,6 +188,19 @@ FeedbackOps를 플랫폼 앱 하나·서버 하나·저장소 하나로 합친�
 | O6 | FeedbackOps git 이력 보존 방식(subtree 병합 권장) | #592 |
 | O7 | 업무 시스템 이름(`피드백 운영` Candidate) | #595 시안 |
 | O8 | 린터(Biome·ESLint)·테스트 설정·비주얼 하니스(darwin 전용)·백엔드 통합 테스트 DB를 이 저장소 CI에 넣는 방식 | #592 |
+| O9 | 권한 이름 매핑: FeedbackOps capability(점 표기, Managed System 범위)를 `Session.user.permissions`·`AccessPrincipal.permissions`에 어떻게 싣나. `console:access`의 원천(`workspace.admin` 또는 새 capability) | #596 질문 2, 06 §17 |
+| O10 | 분석 데이터 서버가 없는 동안(O4) 부트스트랩 필수 필드 `publishedMetrics`·`defaultRangeTo`를 무엇으로 채우나(빈 배열·서버 시계) | #593 임시 결정, [HTTP 어댑터 계약](http-adapter-contract.md) §3 |
+| O11 | `Session.scopes`와 site·room 부여를 어디에 저장하나(FeedbackOps DB의 새 표 또는 별도 meta DB). Scope(site)와 Managed System이라는 두 범위 용어 | #596 질문 1(O3), #98, O4 |
+| O12 | 한 서버의 두 오류 규약: 플랫폼 경로는 200 envelope, FeedbackOps 경로는 FO ADR-0012. 오류 처리기를 경로별로 나눌지. 413을 422로 바꾸는 동작. 전송 계약의 FastAPI 문구를 Fastify 기준으로 고치기 | #593, HTTP 어댑터 계약 §2 |
+| O13 | FeedbackOps API를 `/api/v1/feedbackops/...`로 옮길지(화면 경로 `/vocs` 등과의 충돌 제거) | #593, #597(옛 URL) |
+| O14 | CSRF 토큰을 플랫폼 경로에만 걸지, FeedbackOps 변경 경로 전체에 걸지. 같은 출처가 되면 SameSite만으로 충분한지 | #593, #150, HTTP 어댑터 계약 §10 Q8 |
+| O15 | rate limit: 5분 폴링·위젯 여럿·`recordUsage`가 Actor 100/분, read 300/분 안에 드는지, 플랫폼 경로 묶음을 새로 둘지 | #593 측정 |
+| O16 | 감사 읽기 노출 범위: FeedbackOps event → `AuditAction` 매핑, `console:access`가 볼 detail의 범위(사유·설문·이메일), `subject_id` text 전환·`scope_id` 추가 migration | #593 + FeedbackOps 개인정보 규칙(FO ADR-0033·0066), 사용자 |
+| O17 | 적합성 묶음 시드 계정(권한 하나씩 뺀 계정, site 두 곳 계정, 다른 주석 작성자)을 mock 로그인 시드로 만들지 | #593 |
+| O18 | 체크리스트 §5 "#98 전에는 부여·회수 쓰기 없음"과 이미 구현된 FeedbackOps 부여·승인 쓰기(FO ADR-0066)의 충돌. 체크리스트를 고칠지, 쓰기를 FeedbackOps 범위로 한정할지 | #596 |
+| O19 | FeedbackOps 엔티티의 `EntityRef.scopeId`(`null` + 서버 안 Managed System 판정). 행이 있는지 드러나는 방식(Finding 404/403 대 플랫폼 `empty`/`forbidden`)을 맞출지 | 06 §22 소유자(사용자), #596 |
+| O20 | Correlation ID 헤더 이름과 Fastify `reqId`·로그 필드 `request_id`를 하나로 맞출지 | #151(사내 표준), #593 |
+| O21 | 세션 만료: 지금은 12시간 고정이고 유휴 만료가 없다. #150 정책이 sliding이면 폴링을 활동에서 빼는 처리가 필요하다 | #150 |
 
 ## 8. 전환 기간
 
