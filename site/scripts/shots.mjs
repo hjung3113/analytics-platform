@@ -100,8 +100,25 @@ try {
     await expect(chart.getByRole("group", { name: "범례", exact: true })).toContainText("P50");
     await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
   }
-  async function cycle() {
-    await go(`/analytics/cycle-time?${period}`);
+  async function hideSavedAnnotationToast() {
+    const toast = page.getByText("주석을 저장했습니다.", { exact: true });
+    await toast.waitFor({ state: "visible" });
+    await toast.evaluate((element) => {
+      let wrapper = element.closest("[data-sonner-toast]");
+      if (!wrapper) {
+        for (let ancestor = element; ancestor && ancestor !== document.body; ancestor = ancestor.parentElement) {
+          if (getComputedStyle(ancestor).position === "fixed") {
+            wrapper = ancestor;
+            break;
+          }
+        }
+      }
+      wrapper ??= element.closest('[role="status"], [role="alert"]') ?? element;
+      wrapper.style.visibility = "hidden";
+    });
+  }
+  async function cycle(query = period) {
+    await go(`/analytics/cycle-time?${query}`);
     // 분포가 열려 있으면 접어 차트를 넓게 쓴다. 렌더 타이밍 때문에 isVisible 즉시
     // 확인은 누락될 수 있어, 짧은 대기 click으로 확인한다.
     try {
@@ -110,6 +127,77 @@ try {
       // 분포가 이미 접힌 화면이면 버튼이 없다.
     }
     await readyChart(trend());
+  }
+  async function seedBoard() {
+    await page.evaluate(() => {
+      const screen = (roomNames, extra = "") => ({
+        menuId: "cycle-time",
+        params: {},
+        query: `?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&roomNames=${roomNames}${extra}`,
+      });
+      const board = {
+        v: 1,
+        activeSheetId: "sheet-compare",
+        sheets: [
+          {
+            id: "sheet-compare",
+            name: "조건 비교",
+            layout: "2x2",
+            selected: 0,
+            panes: [screen("PHOTO"), screen("ETCH"), screen("CVD"), screen("PHOTO", "&granularity=day")],
+          },
+          {
+            id: "sheet-process",
+            name: "공정 비교",
+            layout: "1x2",
+            selected: 0,
+            panes: [screen("PHOTO"), screen("ETCH")],
+          },
+        ],
+      };
+      localStorage.setItem("platform:role", JSON.stringify("engineer"));
+      localStorage.setItem("platform:board:engineer", JSON.stringify(board));
+    });
+  }
+  const boardPaneChart = (index) =>
+    page.locator(`[data-pane-index="${index}"]`).getByRole("region", { name: "사이클타임 추세", exact: true });
+  async function readyBoard() {
+    await expect(page.getByRole("tab", { name: "조건 비교", exact: true })).toBeVisible();
+    for (let index = 0; index < 4; index += 1) {
+      await expect(boardPaneChart(index)).toBeVisible();
+      await boardPaneChart(index).locator("canvas").waitFor();
+    }
+  }
+  async function failBoardPane(index) {
+    return page.evaluate((paneIndex) => {
+      const container = document.getElementById("root");
+      const key = container && Object.keys(container).find((name) => name.startsWith("__reactContainer$"));
+      const root = key && container[key];
+      const stack = [root?.current ?? root];
+      while (stack.length) {
+        const fiber = stack.pop();
+        if (!fiber) continue;
+        if (fiber.sibling) stack.push(fiber.sibling);
+        if (fiber.child) stack.push(fiber.child);
+        const boundary = fiber.stateNode;
+        const state = boundary?.state;
+        if (
+          fiber.tag !== 1 ||
+          !state ||
+          typeof state.failed !== "boolean" ||
+          typeof boundary?.props?.onError !== "function"
+        ) continue;
+        let ancestor = fiber;
+        while (ancestor && !(ancestor.tag === 5 && String((ancestor.memoizedProps ?? ancestor.pendingProps)?.["data-pane-index"]) === String(paneIndex))) {
+          ancestor = ancestor.return;
+        }
+        if (!ancestor) continue;
+        const correlationId = boundary.props.onError(new Error("Capture-only pane failure"));
+        boundary.setState({ failed: true, correlationId, chunkFailure: false });
+        return correlationId;
+      }
+      throw new Error(`No RouteErrorBoundary found in pane ${paneIndex + 1}`);
+    }, index);
   }
   // The shell header + GlobalContextBar are one sticky block that overlays
   // content scrolled beneath it. Captures hide it while shooting, restore after.
@@ -381,6 +469,7 @@ try {
       // brush 선택 라벨이 주석 라벨과 겹치지 않게 선택을 지운다. 저장된 주석은 유지된다.
       await button("지우기", trend()).click();
       await expect(button("분석 구간 적용…", trend())).toHaveCount(0);
+      await hideSavedAnnotationToast();
     },
     () => elementClip(trend()),
   );
@@ -398,6 +487,7 @@ try {
       await expect(button("분석 구간 적용…", trend())).toHaveCount(0);
       await button("비교", trend()).click();
       await expect(trend().getByRole("group", { name: "범례", exact: true })).toContainText("P50 이전 기간");
+      await hideSavedAnnotationToast();
     },
     () => elementClip(trend()),
   );
@@ -414,12 +504,34 @@ try {
     () => elementClip(page.getByRole("region", { name: "Job 처리량 추세", exact: true })),
   );
   await capture(
+    "chart-topn",
+    "AnalysisChart · TopN 가로 막대",
+    "CLAS 설비 동작시간 견본에서 상위 설비를 가로 막대로 봅니다.",
+    "charts",
+    async () => {
+      await go(`/clas/operation-time?${period}`);
+      await page.getByRole("region", { name: "설비별 동작시간", exact: true }).locator("canvas").waitFor();
+    },
+    () => elementClip(page.getByRole("region", { name: "설비별 동작시간", exact: true })),
+  );
+  await capture(
+    "lane-timeline",
+    "LaneTimeline · 모듈별 동작 흐름",
+    "CLAS 설비 한 대의 모듈별 작업 구간을 시간선으로 봅니다.",
+    "charts",
+    async () => {
+      await go(`/clas/operation-time?${period}`);
+      await expect(page.getByRole("img", { name: /모듈별 동작 흐름$/ }).first()).toBeVisible();
+    },
+    () => elementClip(page.getByRole("img", { name: /모듈별 동작 흐름$/ }).first(), 8),
+  );
+  await capture(
     "chart-table",
     "AnalysisChartFrame · 같은 데이터 표",
     "더보기에서 선 추이와 같은 데이터를 표로 펼칩니다.",
     "charts",
     async () => {
-      await cycle();
+      await cycle("v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-25T15:00:00&roomNames=PHOTO");
       await button("더보기", trend()).click();
       await button("같은 데이터를 표로 보기").click();
       await page.keyboard.press("Escape");
@@ -450,7 +562,12 @@ try {
       await expect(kpi.locator('[role="status"][aria-busy]')).toHaveCount(0);
       await expect(kpi.locator(".t-stat").first()).toContainText(/\d/);
     },
-    () => elementClip(page.getByRole("region", { name: "네 지표 요약" })),
+    async () => {
+      const region = page.getByRole("region", { name: "네 지표 요약" });
+      await region.evaluate((el) => el.scrollIntoView({ block: "center", inline: "nearest" }));
+      await region.evaluate((el) => { el.style.paddingTop = "12px"; });
+      return elementClip(region);
+    },
     ["C10"],
   );
   const table = () => page.getByRole("region", { name: "설비 마스터 목록", exact: true });
@@ -551,6 +668,25 @@ try {
     ["K3"],
   );
   await capture(
+    "link-copy",
+    "GlobalContextBar · 링크 복사",
+    "현재 화면과 Context를 담은 링크를 복사하고 받는 사람의 권한으로 다시 확인한다는 알림을 봅니다.",
+    "shell",
+    async () => {
+      await go(productivity);
+      const kpi = page.getByRole("region", { name: "네 지표 요약" });
+      await expect(kpi.locator(".t-stat").first()).toContainText(/\d/);
+      await expect(page.getByRole("main").locator('[role="status"][aria-busy]')).toHaveCount(0);
+      await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin });
+      await button("링크 복사").click();
+      await expect(page.getByRole("status").filter({ hasText: "현재 Context가 담긴 링크를 복사했습니다" })).toBeVisible();
+    },
+    () => {
+      const viewport = page.viewportSize();
+      return { clip: { x: 0, y: 0, width: viewport.width, height: viewport.height }, hideSticky: false };
+    },
+  );
+  await capture(
     "scope",
     "ScopeSelector · 사이트 선택",
     "단일 Scope와 room 권한 범위를 봅니다.",
@@ -598,6 +734,67 @@ try {
     mainContentClip,
     ["C14"],
   );
+  await capture(
+    "board-2x2",
+    "분석 보드 · 서로 다른 조건의 네 칸",
+    "사이클타임 화면 네 개를 서로 다른 room 또는 기간 조건으로 나란히 봅니다.",
+    "shell",
+    async () => {
+      viewportHeight = 1100;
+      await seedBoard();
+      await go("/board?sheet=sheet-compare");
+      await readyBoard();
+    },
+    () => {
+      const viewport = page.viewportSize();
+      return { clip: { x: 0, y: 0, width: viewport.width, height: viewport.height }, hideSticky: false };
+    },
+  );
+  await capture(
+    "board-sheets",
+    "분석 보드 · 시트 탭",
+    "두 비교 구성을 아래 시트 탭으로 전환합니다.",
+    "shell",
+    async () => {
+      viewportHeight = 1100;
+      await seedBoard();
+      await go("/board?sheet=sheet-compare");
+      await readyBoard();
+      const processSheet = page.getByRole("tab", { name: "공정 비교", exact: true });
+      await processSheet.click();
+      await expect(processSheet).toHaveAttribute("aria-selected", "true");
+      for (let index = 0; index < 2; index += 1) {
+        await expect(boardPaneChart(index)).toBeVisible();
+        await boardPaneChart(index).locator("canvas").waitFor();
+      }
+    },
+    () => {
+      const viewport = page.viewportSize();
+      return { clip: { x: 0, y: 0, width: viewport.width, height: viewport.height }, hideSticky: false };
+    },
+  );
+  await capture(
+    "error-trace",
+    "오류 처리 · 추적 번호와 화면 격리",
+    "한 보드 칸의 렌더 오류와 Correlation ID를 표시하고 나머지 칸은 유지합니다.",
+    "states",
+    async () => {
+      viewportHeight = 1100;
+      await seedBoard();
+      await go("/board?sheet=sheet-compare");
+      await readyBoard();
+      await failBoardPane(0);
+      await expect(page.locator('[data-pane-index="0"]').getByText("이 화면에서 오류가 발생했습니다", { exact: true })).toBeVisible();
+      await expect(page.locator('[data-pane-index="0"]')).toContainText(/client-/);
+      for (let index = 1; index < 4; index += 1) await expect(boardPaneChart(index).locator("canvas")).toBeVisible();
+    },
+    () => {
+      const viewport = page.viewportSize();
+      return { clip: { x: 0, y: 0, width: viewport.width, height: viewport.height }, hideSticky: false };
+    },
+  );
+  viewportHeight = 900;
+  await page.setViewportSize({ width: 1440, height: 900 });
   await capture(
     "management",
     "ManagementLayout · 설비 관리",
@@ -651,7 +848,7 @@ try {
     "조건 바·차트·표·상세 진입·VOC 진입이 한 화면에 있는 견본 화면입니다.",
     "tables",
     async () => {
-      viewportHeight = 1280;
+      viewportHeight = 1640;
       await cycle();
     },
     () => {
@@ -770,6 +967,20 @@ try {
   viewportHeight = 900;
   // Console screens need the demo's platform-admin role (the same switch D8 tells readers to use).
   await page.evaluate(() => localStorage.setItem("platform:role", JSON.stringify("admin")));
+  await capture(
+    "usage",
+    "운영 콘솔 · 메뉴 활용률",
+    "메뉴별 방문·사용자·마지막 사용 시각을 활용률 화면에서 봅니다.",
+    "tables",
+    async () => {
+      viewportHeight = 1400;
+      await go("/admin/usage?v=1");
+      await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "메뉴 활용률", exact: true })).toBeVisible();
+      await expect(page.getByRole("table", { name: "메뉴 활용률 목록", exact: true })).toBeVisible();
+    },
+    mainContentClip,
+  );
+  viewportHeight = 900;
   await capture(
     "change-audit",
     "운영 콘솔 · 변경 감사",

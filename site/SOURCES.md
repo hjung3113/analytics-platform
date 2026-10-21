@@ -21,7 +21,7 @@
 | L09 | Registry가 메뉴·그룹 중복, 부모·경로, pageKeys·contextResetKeys, 드릴 선언을 검증 | `packages/kernel/src/registry.ts` | 새 그룹은 사람이 GroupId·GROUPS 행을 먼저 추가 |
 | L10 | 전역 조건과 page key를 버전 URL로 읽고 써 새로고침·Back/Forward·메뉴 전환에서 복원, 지원 안 하는 조건은 지우지 않고 "미사용" 표시, `linkTo`가 현재 전역 조건을 실어 감 | E2E `contracts.spec.ts:456-524`, `platform.tsx` spaceResume 주석 | — |
 | L11 | 메뉴·직접 URL 권한 게이트, mock adapter가 조회마다 세션 권한·Scope·room 재검사 | `packages/shell/src/RouteOutlet.tsx:15-40`, `packages/mock-server/src/adapter.ts` | mock 판정. 서버 거부 검증은 별도(`apps/platform-e2e/AGENTS.md:11`) |
-| L12 | 링크 복사 알림: "받는 사람의 권한으로 서버가 다시 검증합니다", URL은 권한 증명이 아님 | `packages/shell/src/GlobalContextBar.tsx:42` | — |
+| L12 | 링크 복사 알림: "받는 사람의 권한으로 서버가 다시 검증합니다", URL은 권한 증명이 아님 | `packages/shell/src/GlobalContextBar.tsx:42`, `site/scripts/shots.mjs` (`link-copy`) | 캡처는 mock 데모의 링크 복사 알림 |
 | L13 | PlatformDataTable: 서버 페이징·정렬, URL 상태, 가상화, 열 너비·표시·고정, 선택, 행 복사, CSV/XLSX | `packages/components/AGENTS.md` | — |
 | L14 | AnalysisChartFrame: 확대·구간 선택·초기화·비교·주석·내보내기, Brush 로컬, 전역 기간은 확인 뒤, 주석 `(chartId, scopeId)`, 같은 데이터 표 보기. 툴바 문구 `확대`·`구간 선택`·`초기화`·`비교`·`주석`·`내보내기`·`분석 구간 적용…` | `packages/components/src/AnalysisChartFrame.tsx:292-348`, 플랫폼 UI 계약 §16 | — |
 | L15 | DataTrustIndicator: 이슈·미확인·coverage·갱신 시각·원천·잠정 상태, unknown을 정상·0으로 바꾸지 않음 | 플랫폼 UI 계약 §18 | — |
@@ -81,7 +81,7 @@
 | L67 | 업무 시스템은 MARS·BRAVO·CLAS·운영 콘솔이고, mock 사이트는 MEM·FDRY | `docs/17_platform_requirements.md` §0·§3.7 | 표준 로그 개발·개선 실행은 계획 |
 | L68 | 기존 시스템 이전 경계와 두 경로(저장소 안 화면 동작, SDK 모듈은 고정 모듈로 검증되어 동작, 첫 외부 앱 연결 대기) | `docs/17_platform_requirements.md` §5 | 팀의 화면 내용·업무 규칙·도메인 API는 계속 팀 소유 |
 | L69 | SDK의 보장·이득·상태와 의존 방향 | `docs/17_platform_requirements.md` §3.9, ADR-0043, ADR-0044, ADR-0053 | SDK는 플랫폼 소유 계약·프레임워크이며 독립 실행은 제품 책임 |
-| L70 | 분석 보드 시안의 칸·조건·레이아웃·선택 표시 | `docs/16_analysis_board.md` §4–5, ADR-0051, `docs/17_platform_requirements.md` R4.1 | 진행 중(칸 조건 Kernel #496 병합, 보드 화면 #497·메뉴 지원 선언 #498 남음)·시안·예시 데이터 |
+| L70 | 데모의 `/board` 화면은 시트별 1x1·1x2·2x1·2x2 칸 배치와 브라우저 저장을 제공한다. `board-2x2`는 조건이 다른 사이클타임 화면 네 칸을, `board-sheets`는 시트 탭을 보여 준다 | `docs/16_analysis_board.md` §4–5, ADR-0051, `packages/shell/src/board/BoardScreen.tsx`, `boardModel.ts`, `boardStore.ts`, `site/scripts/shots.mjs` | 예시 데이터·브라우저 저장. 공유와 다른 기기 동기화는 제공하지 않음; 현재 요구 상태는 L113 |
 | L71 | 도입 근거로 보일 수 있는 범위와 아직 없는 것 | `docs/17_platform_requirements.md` §6–7 | 효과 숫자·실데이터·사용자 조합 분석은 아직 없음 |
 | L72 | 요구 ID R1.1–R10.8의 개별 상태 표기와 §0의 여섯 상태 이름 | `docs/17_platform_requirements.md` §0·§3.1–§3.9·§7 | 표에 적힌 동작·설계·계획·결정 대기·보류·사내 답 대기·조직 요구값 표기를 보존 |
 | L73 | 히어로 h1 "화면을 옮겨도 조건은 그대로, 숫자는 믿을 수 있게."는 R1.1·R1.2·R2.1·R2.2의 요약이고, 부제의 '화면 사이에서 생기는 일'은 02의 여덟 장면(L91–L98)으로 이어지고, 부제의 세 문장 순서(숫자 → 맥락 → 새 화면)는 핵심 장면 1·2·3의 순서다. 부제는 '플랫폼의 공통 부품으로 만든 화면은'으로 시작해 장면 1·2가 따라오는 범위를 한정한다(L93; 2026-10-20 라운드 C1에서 '이 저장소 안 화면이 공통 부품과 조건 선언을 쓰면'에서 바꿈. SDK 모듈이 못 받는 것은 03 두 길 줄과 12 대조표가 맡는다, L101). '어떤 메뉴를 만들든'은 이 단서 없이 사이트에서 쓰지 않는다(SDK 모듈은 아직 공통 표·차트·신뢰 표시 부품을 받지 못하고 조건은 읽기만, L101). eyebrow '사내망·사내 서버 위에서'는 R10.4(요구)·R9.5(서버는 계약만)의 요약이며 L101. "플랫폼은 고치지 않습니다"는 쓰지 않는다: 저장소 안 화면은 `packages/contracts/src/menu.ts`의 GroupId·SpaceId·PERMISSIONS 목록에 한 줄을 더하고, SDK 모듈만 `<모듈>:` 접두사로 플랫폼 파일을 고치지 않는다(ADR-0053). 히어로 한 줄 "지금 동작하는 범위는 예시 데이터로 확인할 수 있습니다 · 실서버 연결 전"은 L72의 상태와 같다 | `docs/06_platform_ui_contract.md` §30, `docs/17_platform_requirements.md` §1·§3.1–§3.2·§3.6 | 사이트의 해석 문장 |
@@ -127,9 +127,9 @@
 | L113 | 2026-10-21 #607의 7개 주제별 현재 기능·미구현·예정 상태. 보드 배치, 딥링크 제외 항목, 권한·오류·개인 설정의 남은 작업을 표 기준으로 소개 | GitHub issue #607 본문 「주제 7개와 지금 상태」 | 인터뷰 확정 상태를 사이트 문구에 반영 |
 | L114 | 용어 페이지의 한 줄 정의: 업무 시스템·FeedbackOps Task·Site·Line·Scope·분석 Context·본 화면·분석 보드·시트·칸·기본 조건은 GLOSSARY.md, 메뉴·딥링크·Audit·Correlation ID·VOC는 플랫폼 계약 | GLOSSARY.md; docs/06_platform_ui_contract.md §§4–6, 13, 17, 19, 22 | 정의를 축약해 용어 페이지에 표시 |
 | L115 | 업무 시스템 4개(MARS·BRAVO·CLAS·운영 콘솔)는 사용 중, 표준 로그 개발·개선 실행 2개는 계획. mock Site는 MEM·FDRY | docs/17_platform_requirements.md §0·§3.7, #590, #252 | 대표 이미지와 계획 상태 표기 |
-| L116 | CLAS 설비 동작시간 견본은 TopN 가로 막대와 LaneTimeline을 보여 준다 | docs/06_platform_ui_contract.md §16, ADR-0064, #576·#590, site/scripts/shots.mjs | 합성 데이터 화면 캡처 |
-| L117 | 메뉴 화면 렌더 오류는 화면 영역 안에 격리하고 Correlation ID를 표시하며, 오류 보고는 식별 필드만 어댑터로 전달한다 | docs/06_platform_ui_contract.md §4·§19, packages/contracts/src/adapter.ts | 오류 격리와 보고의 계약 |
-| L118 | 메뉴 진입·체류 계측은 메뉴·공간·경로 패턴·시각·세션·체류 필드만 저장하고 조회 조건 값은 수집하지 않는다 | ADR-0020, docs/06_platform_ui_contract.md §4 | 개인 정보 범위 |
+| L116 | CLAS 설비 동작시간 견본은 TopN 가로 막대와 LaneTimeline을 보여 준다. `chart-topn`과 `lane-timeline`은 각 부분을 따로 캡처한다 | docs/06_platform_ui_contract.md §16, ADR-0064, #576·#590, `menus/clas/clas/src/pages/OperationTime.tsx`, `site/scripts/shots.mjs` | 합성 데이터 화면 캡처 |
+| L117 | 메뉴 화면 렌더 오류는 화면 영역 안에 격리하고 Correlation ID를 표시하며, 오류 보고는 식별 필드만 어댑터로 전달한다. `error-trace`는 보드 한 칸에서 이 경계를 보여 준다 | docs/06_platform_ui_contract.md §4·§19, `packages/contracts/src/adapter.ts`, `packages/shell/src/RouteErrorBoundary.tsx`, `packages/shell/src/RouteOutlet.tsx`, `site/scripts/shots.mjs` | 캡처는 기존 boundary를 사용해 의도적으로 한 칸의 렌더 실패 상태를 띄움 |
+| L118 | 메뉴 진입·체류 계측은 메뉴·공간·경로 패턴·시각·세션·체류 필드만 저장하고 조회 조건 값은 수집하지 않는다. `usage`는 운영 콘솔의 집계 화면을 캡처한다 | ADR-0020, docs/06_platform_ui_contract.md §4, `menus/operations/admin/src/pages/UsageOverview.tsx`, `site/scripts/shots.mjs` | 개인 정보 범위·예시 집계 |
 
 ### 7.2 예시(합성) 데이터 — 화면에서 반드시 `예시`로 표시
 
