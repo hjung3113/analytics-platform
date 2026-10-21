@@ -133,6 +133,11 @@ export async function plainCall(context: CallContext, request: Omit<SendRequest,
 const PORT_CODES: readonly string[] = ['invalid_input', 'unknown_axis', 'invalid_cursor', 'invalid_period', 'membership_basis_unsupported', 'unknown_scope', 'scope_forbidden', 'room_forbidden'];
 
 /** The three selection ports: a judged 4xx `{code,message,field?}` is a PortError, everything else a transport rejection. */
+/** A PortError `field` names an input field; anything that does not look like one is dropped (same reason as `safeMessage`). */
+function safeField(field: unknown): string | undefined {
+  return typeof field === 'string' && /^[A-Za-z0-9_.[\]-]{1,100}$/.test(field) ? field : undefined;
+}
+
 export async function portCall(context: CallContext, request: Omit<SendRequest, 'timeoutMs'>, signal?: AbortSignal): Promise<unknown> {
   const raw = await send(context, request, { signal });
   if (raw.kind === 'aborted') throw abortError();
@@ -140,7 +145,7 @@ export async function portCall(context: CallContext, request: Omit<SendRequest, 
     const parsed = parseJson(raw.text);
     const value = parsed.ok ? parsed.value : null;
     if (isRecord(value) && typeof value['code'] === 'string' && PORT_CODES.includes(value['code']) && typeof value['message'] === 'string') {
-      throw new PortError(value['code'] as PortErrorCode, safeMessage(value['message']), typeof value['field'] === 'string' ? value['field'] : undefined);
+      throw new PortError(value['code'] as PortErrorCode, safeMessage(value['message']), safeField(value['field']));
     }
   }
   return plainResult(raw);

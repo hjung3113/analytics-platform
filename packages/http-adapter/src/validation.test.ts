@@ -39,6 +39,12 @@ describe('server message boundary (contract §2.1)', () => {
     expect(error).toBeInstanceOf(PortError);
     expect(error).toMatchObject({ code: 'invalid_input', message: 'server_message_redacted', field: 'limit' });
   });
+  it.each([['URL', 'https://internal.example/x'], ['newline', 'a\nb'], ['long', 'f'.repeat(101)]])('PortError: an unsafe field (%s) is dropped', async (_name, field) => {
+    const { adapter } = await ready(() => json({ code: 'invalid_input', message: 'bad', field }, { status: 400 }));
+    const error = await adapter.searchEquipment({ scopeId: 'a', limit: 1 } as never).catch((e: unknown) => e);
+    expect(error).toMatchObject({ code: 'invalid_input', message: 'bad' });
+    expect((error as PortError).field).toBeUndefined();
+  });
   it.each(SAFE)('PortError: %s passes through', async (message) => {
     const { adapter } = await ready(() => json({ code: 'invalid_input', message }, { status: 400 }));
     const error = await adapter.searchEquipment({ scopeId: 'a', limit: 1 } as never).catch((e: unknown) => e);
