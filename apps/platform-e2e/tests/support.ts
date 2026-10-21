@@ -29,7 +29,7 @@ export async function evidence(page: Page, testInfo: TestInfo, name: string) {
 
 export const mainHeading = (page: Page) => page.getByRole('main').getByRole('heading', { level: 1 });
 export const liveContextBar = (page: Page) => page.getByRole('region', { name: '전역 Context' });
-export const queryBar = (page: Page) => page.getByRole('region', { name: '조회 조건' });
+export const queryBar = (page: Page) => page.getByRole('region', { name: '조회 조건', exact: true });
 export const contextBar = (page: Page) => liveContextBar(page).or(queryBar(page));
 
 export async function expectScopeValid(page: Page, label: string) {

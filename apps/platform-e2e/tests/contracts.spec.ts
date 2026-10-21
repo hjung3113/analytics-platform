@@ -2193,6 +2193,7 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
     await frame.getByRole('button', { name: '구간 선택' }).click();
     const plot = frame.getByRole('img', { name: /^사이클타임 추세/ });
     await expect(plot).toBeVisible();
+    await plot.scrollIntoViewIfNeeded();
     const box = (await plot.boundingBox())!;
     await page.mouse.move(box.x + box.width * 0.35, box.y + box.height * 0.5);
     await page.mouse.down();
