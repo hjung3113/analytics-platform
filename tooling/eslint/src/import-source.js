@@ -47,6 +47,7 @@ function makeEvaluate(opts) {
         return opts.deepMessage;
       }
       if (name === 'mock-server') return opts.mockAllowed ? null : opts.mockMessage;
+      if (name === 'http-adapter' && opts.denyHttpAdapter) return opts.httpAdapterMessage;
       if (opts.allow === null) return null;
       return allow.includes(name) ? null : opts.layerMessage;
     }
