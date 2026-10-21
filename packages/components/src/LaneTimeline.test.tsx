@@ -186,7 +186,7 @@ it('packs title, subtitle and controls into one header row and keeps only bounda
   const header = screen.getByRole('region', { name: 'Timeline' }).querySelector('header')!;
   expect(header.querySelector('h3')!.textContent).toBe('Timeline');
   expect(header.querySelector('p')!.textContent).toBe('Intervals in UTC');
-  expect(header).toContainElement(screen.getByRole('button', { name: 'Zoom +' }).closest('[role=toolbar]'));
+  expect(header).toContainElement(screen.getByRole('button', { name: '확대' }).closest('[role=toolbar]'));
   expect(screen.getByText(/^UTC · orphan: 시작 미확인 · open: 종료 미확인$/)).toBeVisible();
   expect(screen.getByText(/Ctrl\/⌘ \+ 휠: 확대/)).toHaveClass('sr-only');
   fireEvent.focus(screen.getByRole('button', { name: '조작 방법' }));
