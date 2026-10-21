@@ -1,4 +1,5 @@
 import type { NotificationSubjectReference } from '@fops/shared';
+import { resolveCorrelationId } from './lib/correlation-id.js';
 import { createOwnerRecoveryRecorder } from './modules/dashboard/truth.js';
 import { createOutcomeRecoveryRecorder } from './modules/surveys/recovery-presentation.js';
 import { vocClusterSuggestionsRoutes } from './modules/voc/cluster-suggestions/routes.js';
@@ -76,6 +77,10 @@ import {
   createPgBossNotificationDispatcher,
   notificationRoutes,
 } from './modules/notifications/index.js';
+import {
+  platformPortRoutes,
+  PLATFORM_PORT_PREFIX,
+} from './modules/platform-port/index.js';
 import {
   createCheckService,
   createDecisionService,
@@ -221,7 +226,15 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     // prod (identical to `trustProxy: false`); prod operators set
     // `TRUSTED_PROXY_HOPS=1` when a single ingress terminates TLS.
     trustProxy: config.NODE_ENV === 'production' ? Math.max(config.TRUSTED_PROXY_HOPS, 0) : false,
+    // #620 / ADR-0069 decision 3: Correlation ID. The id is the Fastify reqId; the log
+    // field is `request_id` (FO ADR-0013) and every response echoes it below.
+    genReqId: resolveCorrelationId,
+    requestIdLogLabel: 'request_id',
   }).withTypeProvider<ZodTypeProvider>();
+
+  app.addHook('onSend', async (req, reply) => {
+    reply.header('X-Correlation-Id', req.id);
+  });
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
@@ -768,6 +781,13 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
       tasksService,
       taskRequestsService,
     });
+  // ── Platform port — #620, ADR-0069 ──────────────────────────────────────
+  await app.register(platformPortRoutes, {
+    prefix: PLATFORM_PORT_PREFIX,
+    sessionService,
+    checkService,
+    workspaceId,
+  });
   await app.register(navRoutes, {
     sessionService,
     navCountsService,

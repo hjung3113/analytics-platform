@@ -193,6 +193,9 @@ export const sessions = coreSchema.table(
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
     createdUserAgentSummary: text('created_user_agent_summary'),
     createdIpSummary: text('created_ip_summary'),
+    // #620: per-session CSRF token for the platform port; NULL on pre-0073 rows,
+    // filled by the first GET /api/v1/platform/bootstrap.
+    csrfToken: text('csrf_token'),
   },
   (t) => ({
     workspaceIdx: index('sessions_workspace_idx').on(t.workspaceId),

@@ -163,3 +163,9 @@ Execution fields such as Task title, assignee, priority, due date, optional
 Milestone, optional Analytics Area, and execution notes are finalized during
 Convert to Task. APIs may suggest defaults from the source object or Task
 Request, but conversion must explicitly persist the final Task fields.
+
+## Platform port (`/api/v1/platform`)
+
+The analytics platform talks to this backend through one plugin, `modules/platform-port/`, registered with the prefix `/api/v1/platform` ([ADR-0069](../../../../docs/adr/0069-platform-port-in-feedbackops-backend.md)). Inside that prefix only: camelCase JSON, `Cache-Control: no-store`, and a plugin-scoped error handler; every other route and the root error handler are unchanged. The wire contract is [`docs/integration/http-adapter-contract.md`](../../../../docs/integration/http-adapter-contract.md).
+
+Implemented (#620): `GET /bootstrap` (session, permissions from the platform vocabulary table, `defaultRangeTo`, `sessionVersion`, `csrfToken`) and `GET /session-state` (`sessionVersion` only; does not touch `last_seen_at`). Server-wide: `X-Correlation-Id` is adopted when it matches `^[A-Za-z0-9._-]{1,128}$`, otherwise generated as `srv-<epoch-ms>-<random>`, echoed on every response and logged as `request_id`. `requireCsrf` (exported from the module) checks `X-CSRF-Token` against `core.sessions.csrf_token` and replies `403 { code: 'csrf.invalid' }`; no route applies it yet.

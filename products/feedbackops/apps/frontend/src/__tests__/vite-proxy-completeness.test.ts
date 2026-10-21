@@ -57,6 +57,10 @@ function extractRouteUrls(source: string): string[] {
   return out;
 }
 
+// Modules registered in server.ts as a Fastify plugin under a prefix declare their routes
+// relative to it; prepend the prefix so the check sees the real root (#620, ADR-0069).
+const PREFIXED_MODULES: Record<string, string> = { 'platform-port': '/api/v1/platform' };
+
 function collectBackendRoutes(): string[] {
   const urls: string[] = [];
   urls.push(...extractRouteUrls(fs.readFileSync(SERVER_TS, 'utf8')));
@@ -67,9 +71,14 @@ function collectBackendRoutes(): string[] {
   for (const entry of fs.readdirSync(MODULES_DIR, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const moduleDir = path.join(MODULES_DIR, entry.name);
+    const prefix = PREFIXED_MODULES[entry.name] ?? '';
     for (const fileEntry of fs.readdirSync(moduleDir, { withFileTypes: true })) {
       if (!fileEntry.isFile() || !fileEntry.name.endsWith('routes.ts')) continue;
-      urls.push(...extractRouteUrls(fs.readFileSync(path.join(moduleDir, fileEntry.name), 'utf8')));
+      urls.push(
+        ...extractRouteUrls(fs.readFileSync(path.join(moduleDir, fileEntry.name), 'utf8')).map(
+          (url) => `${prefix}${url}`,
+        ),
+      );
     }
     // Split modules keep their routes in a routes/ directory; read its direct
     // children only — do not recurse.

@@ -8,7 +8,7 @@
 // First-login auto-provisioning follows ADR-0006:42-52.
 
 import { createHash, randomBytes } from 'node:crypto';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 
 import type { Db } from '../../db/client.js';
 import { actors, sessions } from '../../db/schema/core.js';
@@ -49,6 +49,11 @@ export const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 /** ADR-0006:25 — 32+ bytes random, base64url-encoded. 48 bytes → 64 chars. */
 function newSessionId(): string {
   return randomBytes(48).toString('base64url');
+}
+
+/** #620: 32 random bytes, base64url (43 chars). One per session, never rotated. */
+function newCsrfToken(): string {
+  return randomBytes(32).toString('base64url');
 }
 
 // F-008: ADR-0006:38 names these columns `*_summary` with the explicit
@@ -108,6 +113,22 @@ export interface CreateSessionInput {
 
 export function createSessionService(deps: SessionServiceDeps) {
   const now = deps.now ?? (() => new Date());
+
+  async function readCsrfToken(sessionId: string): Promise<string | null> {
+    const rightNow = now();
+    const rows = await deps.db
+      .select({ csrfToken: sessions.csrfToken })
+      .from(sessions)
+      .where(
+        and(
+          eq(sessions.id, sessionId),
+          isNull(sessions.revokedAt),
+          gt(sessions.expiresAt, rightNow),
+        ),
+      )
+      .limit(1);
+    return rows[0]?.csrfToken ?? null;
+  }
 
   return {
     /**
@@ -205,6 +226,7 @@ export function createSessionService(deps: SessionServiceDeps) {
           createdAt,
           createdUserAgentSummary: summarizeUserAgent(input.userAgent),
           createdIpSummary: summarizeIp(input.ip),
+          csrfToken: newCsrfToken(),
         });
 
         return {
@@ -296,6 +318,96 @@ export function createSessionService(deps: SessionServiceDeps) {
         },
       };
     },
+
+    /**
+     * Read-only twin of `loadAndTouch`: same active-session predicate and actor
+     * join, but it does NOT write `last_seen_at`. Used by polling reads
+     * (platform `session-state`) that must not count as user activity
+     * (http-adapter-contract §4.5).
+     */
+    async loadActive(
+      sessionId: string,
+    ): Promise<{ session: SessionRecord; actor: ActorRecord } | null> {
+      const rightNow = now();
+      const result = await deps.db.execute<{
+        session_id: string;
+        actor_id: string;
+        session_workspace_id: string;
+        actor_workspace_id: string;
+        external_id: string;
+        email: string;
+        display_name: string;
+        role_level: RoleLevel;
+        actor_type: string;
+      }>(sql`
+        SELECT s.id AS session_id,
+               s.actor_id,
+               s.workspace_id AS session_workspace_id,
+               a.workspace_id AS actor_workspace_id,
+               a.external_id,
+               a.email,
+               a.display_name,
+               a.role_level,
+               a.actor_type
+          FROM core.sessions s
+          JOIN core.actors a
+            ON a.id = s.actor_id
+         WHERE s.id = ${sessionId}
+           AND s.revoked_at IS NULL
+           AND s.expires_at > ${rightNow}
+         LIMIT 1
+      `);
+
+      const row = result.rows[0];
+      if (!row) return null;
+
+      return {
+        session: {
+          id: row.session_id,
+          actorId: row.actor_id,
+          workspaceId: row.session_workspace_id,
+          roleLevel: row.role_level,
+        },
+        actor: {
+          id: row.actor_id,
+          workspaceId: row.actor_workspace_id,
+          externalId: row.external_id,
+          email: row.email,
+          displayName: row.display_name,
+          roleLevel: row.role_level,
+          actorType: row.actor_type,
+        },
+      };
+    },
+
+    /**
+     * #620: the session's CSRF token, filling a NULL one (sessions issued before
+     * migration 0073) with a fresh random token. The fill is one conditional
+     * UPDATE … RETURNING, so two concurrent first calls cannot overwrite each
+     * other: the loser's UPDATE matches no row and falls through to the SELECT,
+     * which returns the winner's token. Null when the session is not active.
+     * Does not touch `last_seen_at`.
+     */
+    async ensureCsrfToken(sessionId: string): Promise<string | null> {
+      const rightNow = now();
+      const filled = await deps.db
+        .update(sessions)
+        .set({ csrfToken: newCsrfToken() })
+        .where(
+          and(
+            eq(sessions.id, sessionId),
+            isNull(sessions.csrfToken),
+            isNull(sessions.revokedAt),
+            gt(sessions.expiresAt, rightNow),
+          ),
+        )
+        .returning({ csrfToken: sessions.csrfToken });
+      if (filled[0]?.csrfToken) return filled[0].csrfToken;
+      return readCsrfToken(sessionId);
+    },
+
+    /** Read-only: the stored CSRF token of an active session, null when missing/NULL/inactive. */
+    getCsrfToken: readCsrfToken,
 
     /**
      * Read-only lookup of actor/workspace identifiers for an active session
