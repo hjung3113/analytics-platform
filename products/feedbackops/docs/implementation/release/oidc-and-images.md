@@ -59,6 +59,8 @@ Nginx allows 26 MiB request bodies for the backend's 25 MiB attachment limit, fo
 
 ## Company IdP and Kubernetes configuration
 
+Until the company IdP is known, Keycloak can serve as the interim IdP: see [keycloak-interim-idp.md](keycloak-interim-idp.md).
+
 Register the exact callback URI https://<frontend-host>/auth/callback. The company IdP must provide:
 
 - OIDC_ISSUER_URL: absolute HTTPS issuer URL without query, fragment, or credentials.
