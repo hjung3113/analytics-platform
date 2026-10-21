@@ -1,11 +1,23 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { gitPorcelain, preflightReservedPaths, runRevert, type RevertSteps } from './probe-support.ts';
+import { gitPorcelain, insertGroupIdMember, preflightReservedPaths, runRevert, type RevertSteps } from './probe-support.ts';
+import { repoRoot } from './fixture.ts';
 
 describe('probe support helpers (F8)', () => {
+  it('insertGroupIdMember adds genProbe to the GroupId union and its runtime set (#548)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gen-menu-groupid-'));
+    mkdirSync(join(root, 'packages/contracts/src'), { recursive: true });
+    const path = join(root, 'packages/contracts/src/menu.ts');
+    copyFileSync(join(repoRoot(), 'packages/contracts/src/menu.ts'), path);
+    insertGroupIdMember(root);
+    const text = readFileSync(path, 'utf8');
+    expect(text).toMatch(/^export type GroupId = .* \| 'genProbe';$/m);
+    expect(text).toMatch(/^const GROUP_ID_SET: Record<GroupId, true> = \{.*, genProbe: true \};$/m);
+  });
+
   it('gitPorcelain throws when git cannot run (bad cwd)', () => {
     const missing = join(tmpdir(), `gen-menu-missing-${Date.now()}`);
     expect(() => gitPorcelain(missing)).toThrow(/git status failed/);

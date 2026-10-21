@@ -125,7 +125,7 @@ function indexTs(i: MenuInputs): string {
 import { lazy } from 'react';
 import { LayoutDashboard } from 'lucide-react';
 import type { Capability, ContextKey } from '${PACKAGE_PREFIX}contracts';
-import type { MenuEntry } from '${PACKAGE_PREFIX}kernel';
+import type { PlatformMenuEntry } from '${PACKAGE_PREFIX}kernel';
 
 const none: Record<ContextKey, Capability> = {
   time: 'unsupported', roomNames: 'unsupported', line: 'unsupported', prcGroup: 'unsupported', condition: 'unsupported', selection: 'unsupported',
@@ -133,7 +133,7 @@ const none: Record<ContextKey, Capability> = {
 };
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 
-export const manifests: MenuEntry[] = [
+export const manifests: PlatformMenuEntry[] = [
   {
     id: '${i.menuId}', primary: true, group: '${i.group}',
     label: { ko: '${i.labelKo}', en: '${i.labelEn}' },
@@ -292,6 +292,14 @@ ${slotsMarkup}
 }
 
 function manifestTest(i: MenuInputs): string {
+  // The group's real space from GROUPS (#548): null is a global utility with no space to declare.
+  const space = i.space === null ? 'null' : `'${i.space}'`;
+  const spaces = i.space === null
+    ? '[]'
+    : `[{ id: '${i.space}', label: { ko: '공간', en: 'Space' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: menu.id }]`;
+  const spaceExpect = i.space === null
+    ? 'expect(registry.spaceOf(menu)).toBeNull();'
+    : `expect(registry.spaceOf(menu)?.id).toBe('${i.space}');`;
   return `import { describe, expect, it } from 'vitest';
 import type { SpaceDef } from '${PACKAGE_PREFIX}contracts';
 import { createRegistry, type GroupDef } from '${PACKAGE_PREFIX}kernel';
@@ -306,10 +314,11 @@ describe('manifest', () => {
     expect(menu.pageKeys).toEqual([]);
     expect(menu.pageType).toBe('${i.pageType}');
     expect(menu.group).toBe('${i.group}');
-    const spaces: SpaceDef[] = [{ id: 'analytics', label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: menu.id }];
-    const groups: GroupDef[] = [{ id: menu.group, label: { ko: 'g', en: 'g' }, icon: menu.icon, space: 'analytics' }];
+    const spaces: SpaceDef[] = ${spaces};
+    const groups: GroupDef[] = [{ id: menu.group, label: { ko: 'g', en: 'g' }, icon: menu.icon, space: ${space} }];
     const registry = createRegistry({ spaces, groups, menus: manifests });
     expect(registry.menuById('${i.menuId}').path).toBe('${i.path}');
+    ${spaceExpect}
   });
 
   it('owns the sample endpoint (#126)', () => {
