@@ -20,13 +20,14 @@ export class PortEntry<T> {
   private nextCursor: string | null = null;
   private failedCursor: string | null = null;
   private cursors = new Set<string>();
-  constructor(private send: (cursor: string | null, signal: AbortSignal) => Promise<Page<T>>, private id: (item: T) => string) {}
+  constructor(private send: (cursor: string | null, signal: AbortSignal) => Promise<Page<T>>, private id: (item: T) => string, private inactive: () => void = () => {}) {}
+  get subscribed() { return this.listeners.size > 0; }
   snapshot = () => this.state;
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
-      if (!this.listeners.size) this.abort();
+      if (!this.listeners.size) { this.abort(); this.inactive(); }
     };
   };
   private publish(next: PortPageState<T>) { this.state = next; this.listeners.forEach(l => l()); }
@@ -77,6 +78,15 @@ export function createPortCache() {
     if (!result) { result = { leases: 0, entries: new Map() }; owners.set(id, result); }
     return result;
   };
+  // Keep at most 50 inactive entries per owner; subscriptions are never evicted.
+  // Map order is LRU, updated only by ensure/unsubscribe, never render-time read.
+  const prune = (record: ReturnType<typeof owner>) => {
+    let inactive = [...record.entries.values()].filter(entry => !entry.subscribed).length;
+    for (const [key, entry] of record.entries) {
+      if (inactive <= 50) break;
+      if (!entry.subscribed) { entry.abort(); record.entries.delete(key); inactive--; }
+    }
+  };
   return {
     retain(id: string) {
       const record = owner(id); record.leases++;
@@ -94,7 +104,13 @@ export function createPortCache() {
     ensure<T>(id: string, key: string, send: (cursor: string | null, signal: AbortSignal) => Promise<Page<T>>, itemId: (item: T) => string): PortEntry<T> {
       const record = owner(id);
       let entry = record.entries.get(key);
-      if (!entry) { entry = new PortEntry(send, itemId) as PortEntry<unknown>; record.entries.set(key, entry); }
+      if (!entry) {
+        entry = new PortEntry(send, itemId, () => {
+          if (record.entries.get(key) !== entry) return;
+          record.entries.delete(key); record.entries.set(key, entry!); prune(record);
+        }) as PortEntry<unknown>;
+      }
+      record.entries.delete(key); record.entries.set(key, entry); prune(record);
       return entry as PortEntry<T>;
     },
   };

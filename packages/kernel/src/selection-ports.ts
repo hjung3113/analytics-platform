@@ -77,10 +77,11 @@ export function useAxisOptions(params: AxisOptionsParams): PortPageResult<AxisOp
   const readiness = gate(platform, context.scopeId, params.enabled);
   let error = readiness !== 'idle' ? readiness ?? contextError(context, platform.equipmentAxes, true) : null;
   const axis = platform.equipmentAxes.find(a => a.id === params.axisId);
-  if (readiness === null && !axis) error = { code: 'unknown_axis', message: 'Unsupported axis', retryable: false };
+  const globalOption = params.axisId === 'lineNames' || params.axisId === 'prcGroups';
+  if (readiness === null && !axis && !globalOption) error = { code: 'unknown_axis', message: 'Unsupported axis', retryable: false };
   const input: AxisOptionsInput = { scopeId: context.scopeId, axisId: params.axisId, query: params.query ?? '', parents: params.parents ?? {}, membershipBasis: context.membershipBasis, period: context.membershipBasis === 'asOf' ? context.period : null, limit: params.pageSize ?? 50 };
   // Options have no Condition/PRC pairing requirement; eligibility concerns target and supplied parents.
-  if (readiness === null && context.membershipBasis === 'asOf' && [params.axisId, ...Object.keys(params.parents ?? {})].some(id => !platform.equipmentAxes.find(a => a.id === id)?.membershipHistory)) error = { code: 'membership_basis_unsupported', message: 'Axis has no membership history', retryable: false };
+  if (readiness === null && context.membershipBasis === 'asOf' && [params.axisId, ...Object.keys(params.parents ?? {})].some(id => id !== 'prcGroups' && !platform.equipmentAxes.find(a => a.id === id)?.membershipHistory)) error = { code: 'membership_basis_unsupported', message: 'Axis has no membership history', retryable: false };
   const ready = readiness !== 'idle' && (readiness !== null || !(context.membershipBasis === 'asOf' && !context.period));
   return usePortPage('options', input, ready, ready ? error : null, (cursor, signal) => platform.adapter.listAxisOptions({ ...input, cursor }, signal), item => item.id);
 }

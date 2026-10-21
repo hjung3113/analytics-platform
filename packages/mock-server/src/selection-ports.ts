@@ -65,7 +65,10 @@ export function createSelectionPorts(equipmentAxes: readonly EquipmentAxisDescri
       visited.add(parent); parent = supported.get(parent)?.dependsOn;
     }
   }
-  const summary = (e: Equipment): EquipmentSummary => ({ equipmentId: e.equipmentId, room: e.room, axes: Object.fromEntries(equipmentAxes.map(a => [a.id, [fieldValues(e)[a.id]]])) });
+  const globalFields: Record<string, keyof Equipment> = { roomNames: 'room', lineNames: 'line', prcGroups: 'prcGroup' };
+  const globalValue = (e: Equipment, key: string) => String(e[globalFields[key]]);
+  const isGlobalOption = (key: string) => key === 'lineNames' || key === 'prcGroups';
+  const summary = (e: Equipment): EquipmentSummary => ({ equipmentId: e.equipmentId, room: e.room, axes: { ...Object.fromEntries(equipmentAxes.map(a => [a.id, [fieldValues(e)[a.id]]])), lineNames: [e.line], prcGroups: [e.prcGroup] } });
   // Opaque issued tokens bind normalized inputs and authorization state. No expiry; limit may change.
   // Lexicographic JS string order (UTF-16), keyset by last ID; no naked live offset.
   const tokens = new Map<string, { identity: string; last: string }>();
@@ -97,16 +100,23 @@ export function createSelectionPorts(equipmentAxes: readonly EquipmentAxisDescri
       cancelled(signal);
       outer(input, ['scopeId', 'axisId', 'query', 'parents', 'membershipBasis', 'period', 'cursor', 'limit'], ['scopeId', 'axisId', 'limit']);
       if (!id(input.axisId)) invalid('axisId');
-      pageInput(input); axis(input.axisId);
+      pageInput(input);
+      const global = isGlobalOption(input.axisId);
+      if (!global) axis(input.axisId);
       if (input.parents !== undefined && !plain(input.parents)) invalid('parents');
       const parents = input.parents ?? {};
       const ancestors = new Set<string>();
       let parent = supported.get(input.axisId)?.dependsOn;
       while (parent) { ancestors.add(parent); parent = supported.get(parent)?.dependsOn; }
-      for (const [key, values] of Object.entries(parents)) { axis(key); if (!ancestors.has(key) || !ids(values)) invalid('parents'); }
+      for (const [key, values] of Object.entries(parents)) {
+        if (global) {
+          if (!Object.hasOwn(globalFields, key)) { axis(key); invalid('parents'); }
+          if (key === input.axisId || !ids(values)) invalid('parents');
+        } else { axis(key); if (!ancestors.has(key) || !ids(values)) invalid('parents'); }
+      }
       temporal(input, equipmentAxes, [input.axisId, ...Object.keys(parents)]);
       const rooms = granted(input.scopeId);
-      const values = new Set(EQUIPMENT.filter(e => e.site === input.scopeId && rooms.includes(e.room) && Object.entries(parents).every(([k, v]) => v.includes(fieldValues(e)[k]))).map(e => fieldValues(e)[input.axisId]));
+      const values = new Set(EQUIPMENT.filter(e => e.site === input.scopeId && rooms.includes(e.room) && Object.entries(parents).every(([k, v]) => v.includes(global ? globalValue(e, k) : fieldValues(e)[k]))).map(e => global ? globalValue(e, input.axisId) : fieldValues(e)[input.axisId]));
       return page('options', input, [...values].filter(v => v.toLowerCase().includes((input.query ?? '').toLowerCase())).map(v => ({ id: v, label: v })), v => v.id, rooms);
     },
     async searchEquipment(input, signal) {

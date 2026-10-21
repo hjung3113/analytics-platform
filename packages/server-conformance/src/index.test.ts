@@ -8,6 +8,8 @@ import {
 import { planServerConformance, runServerConformance, type ActionCase, type ConformanceCase, type PortSamples, type ServerConformanceHarness } from './index';
 
 const SELECTION_PORT_SKIP_IDS = [
+      'selection ports · global lineNames options',
+      'selection ports · global prcGroups options',
       'selection ports · options paging',
       'selection ports · search paging',
       'selection ports · options query',
@@ -1414,9 +1416,10 @@ it.each(['options', 'search'] as const)('proves the %s upper clamp with over 200
   const check = planServerConformance(h).find(c => c.id === `selection ports · ${port} upper clamp`)!;
   expect(check.mode).toBe('granted');
   expect(await check.run()).toBeNull();
-  if (port === 'options') h.adapter.listAxisOptions = async () => ({ items: values.map(id => ({ id, label: id })), nextCursor: null });
-  else h.adapter.searchEquipment = async () => ({ items: sample.equipment, nextCursor: null });
-  expect(await check.run()).toBeTruthy();
+  const options = h.adapter.listAxisOptions; const search = h.adapter.searchEquipment;
+  if (port === 'options') h.adapter.listAxisOptions = async input => input.limit > 200 ? { items: values.map(id => ({ id, label: id })), nextCursor: null } : options(input);
+  else h.adapter.searchEquipment = async input => input.limit > 200 ? { items: sample.equipment, nextCursor: null } : search(input);
+  expect(await check.run()).toBe(port === 'options' ? 'Upper options clamp violated' : 'Upper search clamp violated');
 });
 
 it('detects an otherwise correct search whose total includes denied rows', async () => {
@@ -1425,4 +1428,24 @@ it('detects an otherwise correct search whose total includes denied rows', async
   h.adapter.searchEquipment = async input => ({ ...await send(input), total: 999 });
   const check = planServerConformance(h).find(c => c.id === 'selection ports · search paging')!;
   expect(await check.run()).toContain('Total');
+});
+
+it.each(['lineNames', 'prcGroups'] as const)('checks optional global %s evidence and detects missing, leaked and unnarrowed values', async axisId => {
+  const h = harness();
+  h.ports = { ...h.ports, options: { ...optionSamples, globalOptions: [{ axisId, values: ['global-a', 'global-b'], parents: { roomNames: ['PHOTO'] }, parentValues: ['global-a'] }] } };
+  const original = h.adapter.listAxisOptions;
+  h.adapter.listAxisOptions = async input => {
+    if (input.axisId !== axisId) return original(input);
+    const values = input.parents ? ['global-a'] : ['global-a', 'global-b'];
+    const start = input.cursor ? 1 : 0;
+    return { items: values.slice(start, start + 1).map(id => ({ id, label: id })), nextCursor: start + 1 < values.length ? 'global-next' : null };
+  };
+  const check = planServerConformance(h).find(c => c.id === `selection ports · global ${axisId} options`)!;
+  expect(check?.mode).toBe('granted');
+  expect(await check.run()).toBeNull();
+  const send = h.adapter.listAxisOptions;
+  for (const values of [[], ['secret'], ['global-a', 'global-b']]) {
+    h.adapter.listAxisOptions = async input => input.parents ? { items: values.map(id => ({ id, label: id })), nextCursor: null } : send(input);
+    expect(await check.run()).toBeTruthy();
+  }
 });

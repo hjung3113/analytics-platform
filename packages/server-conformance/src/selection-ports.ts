@@ -9,10 +9,11 @@ export type OptionPortSamples = {
   deniedOption?: { axisId: string; value: string };
   parent?: { axisId: string; value: string; childValue: string };
   /** More than 200 independently known authorized values/rows, or that clamp check is skipped. */
+  globalOptions?: readonly { axisId: 'lineNames' | 'prcGroups'; values: readonly string[]; parents: Record<string, string[]>; parentValues: readonly string[] }[];
   upperOptions?: readonly string[];
   upperEquipment?: readonly string[];
 };
-const names = ['options paging', 'search paging', 'options query', 'search query', 'dependent options', 'denied-room options', 'options lower clamp', 'search lower clamp', 'options upper clamp', 'search upper clamp', 'options authorization', 'search authorization', 'resolution authorization', 'explicit denied-room filter', 'resolve authorized', 'resolve forbidden no detail', 'resolve cross-site absent', 'resolve order and duplicates', 'options invalid input', 'search invalid input', 'resolution invalid input', 'options cursor identity', 'search cursor identity', 'global metadata needs no equipment permission'] as const;
+const names = ['global lineNames options', 'global prcGroups options', 'options paging', 'search paging', 'options query', 'search query', 'dependent options', 'denied-room options', 'options lower clamp', 'search lower clamp', 'options upper clamp', 'search upper clamp', 'options authorization', 'search authorization', 'resolution authorization', 'explicit denied-room filter', 'resolve authorized', 'resolve forbidden no detail', 'resolve cross-site absent', 'resolve order and duplicates', 'options invalid input', 'search invalid input', 'resolution invalid input', 'options cursor identity', 'search cursor identity', 'global metadata needs no equipment permission'] as const;
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical);
   if (value !== null && typeof value === 'object') return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([k, v]) => [k, canonical(v)]));
@@ -47,7 +48,20 @@ export function planSelectionPortChecks(h: ServerConformanceHarness): Conformanc
   const options = { scopeId: h.context.scopeId, axisId: sample?.axisId ?? '', limit: 1 };
   const search = { scopeId: h.context.scopeId, roomNames: null, lineNames: null, prcGroups: null, condition: null, membershipBasis: null, limit: 1 } as const;
   const resolve = { scopeId: h.context.scopeId, ids: sample ? [sample.equipment[0]?.equipmentId ?? ''] : [] };
+  const globalOptions = async (axisId: 'lineNames' | 'prcGroups') => {
+    const evidence = sample!.globalOptions!.find(option => option.axisId === axisId)!;
+    const base = { scopeId: h.context.scopeId, axisId, limit: 1 };
+    for (const parents of [undefined, evidence.parents]) {
+      const result = await pages(cursor => a.listAxisOptions({ ...base, parents, cursor }), item => item.id);
+      if (result.failure) return result.failure;
+      const expected = parents ? evidence.parentValues : evidence.values;
+      if (!same(result.items.map(item => item.id).sort(), [...expected].sort()) || result.items.some(item => typeof item.label !== 'string')) return 'Global options differ from authorized evidence';
+    }
+    return null;
+  };
   const runs: Record<typeof names[number], () => Promise<string | null>> = {
+    'global lineNames options': () => globalOptions('lineNames'),
+    'global prcGroups options': () => globalOptions('prcGroups'),
     'options paging': async () => {
       if (!sample || new Set(sample.knownValues).size < 2 || !sample.knownValues.includes(sample.queryValue) || !sample.query) return 'Invalid option samples';
       const result = await pages(cursor => a.listAxisOptions({ ...options, cursor }), v => v.id);
@@ -143,7 +157,7 @@ export function planSelectionPortChecks(h: ServerConformanceHarness): Conformanc
   };
   return names.map(name => ({
     id: `selection ports · ${name}`,
-    mode: !sample || (name === 'dependent options' && !sample.parent) || (name === 'denied-room options' && !sample.deniedOption) || (name === 'options upper clamp' && !sample.upperOptions) || (name === 'search upper clamp' && !sample.upperEquipment) ? 'skipped' : name === 'global metadata needs no equipment permission' ? 'sequential' : 'granted',
+    mode: !sample || (name === 'global lineNames options' && !sample.globalOptions?.some(option => option.axisId === 'lineNames')) || (name === 'global prcGroups options' && !sample.globalOptions?.some(option => option.axisId === 'prcGroups')) || (name === 'dependent options' && !sample.parent) || (name === 'denied-room options' && !sample.deniedOption) || (name === 'options upper clamp' && !sample.upperOptions) || (name === 'search upper clamp' && !sample.upperEquipment) ? 'skipped' : name === 'global metadata needs no equipment permission' ? 'sequential' : 'granted',
     nonEnvelope: true,
     run: runs[name],
   }));

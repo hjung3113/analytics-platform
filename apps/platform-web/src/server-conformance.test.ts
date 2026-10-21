@@ -66,7 +66,11 @@ describeServerConformance('server boundary conformance — mock adapter', {
   ports: {
     options: {
       axisId: 'model', knownValues: ['Lithius-Pro', 'Tactras'], query: 'Lithius', queryValue: 'Lithius-Pro',
-      equipment: EQUIPMENT.filter(e => e.site === 'MEM' && USERS[GRANTED].grants.MEM.includes(e.room)).map(e => ({ equipmentId: e.equipmentId, room: e.room, axes: Object.fromEntries(EQUIPMENT_AXES.map(a => [a.id, [e[a.id as 'maker']]])) })),
+      equipment: EQUIPMENT.filter(e => e.site === 'MEM' && USERS[GRANTED].grants.MEM.includes(e.room)).map(e => ({ equipmentId: e.equipmentId, room: e.room, axes: { ...Object.fromEntries(EQUIPMENT_AXES.map(a => [a.id, [e[a.id as 'maker']]])), lineNames: [e.line], prcGroups: [e.prcGroup] } })),
+      globalOptions: (['lineNames', 'prcGroups'] as const).map(axisId => ({
+        axisId, values: [...new Set(grantedEquipment.map(e => axisId === 'lineNames' ? e.line : e.prcGroup))],
+        parents: { roomNames: ['PHOTO'] }, parentValues: [...new Set(grantedEquipment.filter(e => e.room === 'PHOTO').map(e => axisId === 'lineNames' ? e.line : e.prcGroup))],
+      })),
       deniedRoomId: EQUIPMENT.find(e => e.site === 'MEM' && e.room === 'DIFF')!.equipmentId, deniedRoom: 'DIFF',
       foreignSiteId: EQUIPMENT.find(e => e.site === 'XIA')!.equipmentId, absentId: '__absent_equipment__',
       deniedOption: { axisId: 'stgroup', value: EQUIPMENT.find(e => e.site === 'MEM' && e.room === 'DIFF')!.stgroup },

@@ -233,3 +233,13 @@ it('holds all ports behind pending Scope validation and resolution ignores unrel
   expect(resolve).toHaveBeenCalledTimes(1);
   expect(search).toHaveBeenCalledTimes(2);
 });
+
+it.each(['lineNames', 'prcGroups'] as const)('requests SDK global %s options without an injected Condition descriptor', async axisId => {
+  const send = vi.fn<PlatformAdapter['listAxisOptions']>().mockResolvedValue({ items: [{ id: 'global-value', label: 'Global value' }], nextCursor: null });
+  let result: ReturnType<typeof useAxisOptions>;
+  function Probe() { result = useAxisOptions({ axisId, parents: { roomNames: ['R'] } }); return null; }
+  mount(fixture({ listAxisOptions: send }), <Probe />);
+  await waitFor(() => expect(result!.status).toBe('ready'));
+  expect(send).toHaveBeenCalledWith(expect.objectContaining({ scopeId: 'S', axisId, parents: { roomNames: ['R'] } }), expect.any(AbortSignal));
+  expect(result!.items).toEqual([{ id: 'global-value', label: 'Global value' }]);
+});

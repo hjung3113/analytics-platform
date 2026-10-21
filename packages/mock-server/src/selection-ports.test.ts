@@ -149,3 +149,44 @@ it('supports multi-level parents without requiring every parent, and rejects unr
   const current = await configured.searchEquipment({ ...input, condition: { maker: [row.maker] }, limit: 200 });
   expect(await configured.searchEquipment({ ...input, condition: { maker: [row.maker] }, membershipBasis: 'asOf', period, limit: 200 })).toEqual(current);
 });
+
+it('includes literal Line and PRC memberships in search and successful resolution independently of descriptors', async () => {
+  const row = { ...EQUIPMENT[0], site: 'MEM', room: 'PHOTO', equipmentId: 'FIX1-membership', line: 'FIX1-line', prcGroup: 'FIX1-prc' };
+  EQUIPMENT.push(row);
+  try {
+    const expected = { lineNames: ['FIX1-line'], prcGroups: ['FIX1-prc'] };
+    expect((await adapter.searchEquipment({ ...input, query: row.equipmentId })).items[0].axes).toMatchObject(expected);
+    expect((await adapter.resolveSelection({ scopeId: 'MEM', ids: [row.equipmentId] })).items).toEqual([
+      { id: row.equipmentId, status: 'ok', summary: expect.objectContaining({ axes: expect.objectContaining(expected) }) },
+    ]);
+  } finally { EQUIPMENT.pop(); }
+});
+
+it.each(['lineNames', 'prcGroups'] as const)('pages authorized global %s options and narrows by other global keys', async axisId => {
+  const rows = [
+    { ...EQUIPMENT[0], site: 'MEM', room: 'PHOTO', equipmentId: 'FIX1-a', line: 'FIX1-a', prcGroup: 'FIX1-a' },
+    { ...EQUIPMENT[0], site: 'MEM', room: 'PHOTO', equipmentId: 'FIX1-b', line: 'FIX1-b', prcGroup: 'FIX1-b' },
+    { ...EQUIPMENT[0], site: 'MEM', room: 'DIFF', equipmentId: 'FIX1-denied', line: 'FIX1-secret', prcGroup: 'FIX1-secret' },
+    { ...EQUIPMENT[0], site: 'FDRY', room: 'PHOTO', equipmentId: 'FIX1-foreign', line: 'FIX1-foreign', prcGroup: 'FIX1-foreign' },
+  ];
+  EQUIPMENT.push(...rows);
+  try {
+    const base = { scopeId: 'MEM', axisId, query: 'FIX1-', parents: { roomNames: ['PHOTO'] }, limit: 1 };
+    const first = await adapter.listAxisOptions(base);
+    expect(first.items).toEqual([{ id: 'FIX1-a', label: 'FIX1-a' }]);
+    expect(first.nextCursor).toEqual(expect.any(String));
+    expect(await adapter.listAxisOptions({ ...base, cursor: first.nextCursor, limit: 999 })).toEqual({ items: [{ id: 'FIX1-b', label: 'FIX1-b' }], nextCursor: null });
+    await expect(adapter.listAxisOptions({ ...base, cursor: first.nextCursor, parents: { roomNames: [] } })).rejects.toMatchObject({ code: 'invalid_cursor' });
+    expect((await adapter.listAxisOptions({ ...base, parents: { [axisId === 'lineNames' ? 'prcGroups' : 'lineNames']: ['FIX1-b'] } })).items).toEqual([{ id: 'FIX1-b', label: 'FIX1-b' }]);
+    expect((await adapter.listAxisOptions({ ...base, parents: { roomNames: [] } })).items).toEqual([]);
+    expect((await adapter.listAxisOptions({ ...base, parents: { roomNames: ['DIFF'] } })).items).toEqual([]);
+    await expect(adapter.listAxisOptions({ ...base, parents: { [axisId]: ['FIX1-a'] } })).rejects.toMatchObject({ code: 'invalid_input' });
+    await expect(adapter.listAxisOptions({ ...base, parents: { maker: ['TEL'] } })).rejects.toMatchObject({ code: 'invalid_input' });
+    await expect(adapter.listAxisOptions({ ...base, parents: { roomNames: [null] } } as never)).rejects.toMatchObject({ code: 'invalid_input' });
+    await expect(adapter.listAxisOptions({ ...base, scopeId: 'XIA' })).rejects.toMatchObject({ code: 'scope_forbidden' });
+    await expect(adapter.listAxisOptions({ ...base, membershipBasis: 'asOf', period: { from: '2026-01-01T00:00:00', to: '2026-02-01T00:00:00' } })).rejects.toMatchObject({ code: 'membership_basis_unsupported' });
+    setRole('viewer');
+    await expect(adapter.listAxisOptions({ ...base, cursor: first.nextCursor })).rejects.toMatchObject({ code: 'invalid_cursor' });
+    expect((await adapter.listAxisOptions(base)).items).toEqual(first.items);
+  } finally { EQUIPMENT.splice(EQUIPMENT.length - rows.length, rows.length); }
+});
